@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2005-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,6 +22,7 @@
  */
 // Kevin Van Vechten <kvv@apple.com>
 
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <libgen.h>
@@ -33,6 +34,7 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -71,7 +73,7 @@ cfperror(CFStringRef str) {
 }
 
 CFPropertyListRef
-read_plist(const char* path) {
+read_plist(const char* path, const char **errstr) {
         CFPropertyListRef result = NULL;
         int fd = open(path, O_RDONLY, (mode_t)0);
         if (fd != -1) {
@@ -85,22 +87,64 @@ read_plist(const char* path) {
                                         CFStringRef str = NULL;
                                         result = CFPropertyListCreateFromXMLData(NULL, data, kCFPropertyListMutableContainers, &str);
                                         CFRelease(data);
-                                        if (result == NULL) {
-                                                cfperror(str);
+                                        if (result == NULL && errstr) {
+                                                *errstr = (const char *)cfstrdup(str);
                                         }
-                                }
+                                } else {
+					if (errstr) *errstr = "CFDataCreateWithBytesNoCopy failed";
+				}
                                 munmap(buffer, size);
-                        } else {
-                                perror(path);
+                        } else if (errstr) {
+				*errstr = (const char *)strerror(errno);
                         }
-                }
+                } else if (errstr) {
+			*errstr = (const char *)strerror(errno);
+		}
                 close(fd);
-        } else {
-                perror(path);
+        } else if (errstr) {
+		*errstr = (const char *)strerror(errno);
         }
         return result;
 }
 
+int
+write_plist_fd(int fd, CFPropertyListRef plist) {
+	CFIndex len, n;
+	const UInt8 *ptr;
+	CFDataRef xmlData;
+
+	errno = 0;
+	xmlData = CFPropertyListCreateXMLData(kCFAllocatorDefault, plist);
+	if (xmlData == NULL) {
+		if (errno == 0) errno = ENOMEM;
+		return -1;
+	}
+	len = CFDataGetLength(xmlData);
+	ptr = CFDataGetBytePtr(xmlData);
+	while(len > 0) {
+		if ((n = write(fd, ptr, len)) < 0) {
+			int save = errno;
+			if (errno == EAGAIN || errno == EINTR)
+				continue;
+			CFRelease(xmlData);
+			errno = save;
+			return -1;
+		}
+		ptr += n;
+		len -= n;
+	}
+	CFRelease(xmlData);
+	return 0;
+}
+
+int
+write_plist(const char *path, CFPropertyListRef plist) {
+	int fd = open(path, O_WRONLY|O_CREAT|O_TRUNC, 0644);
+	if (fd < 0) return -1;
+	int ret = write_plist_fd(fd, plist);
+	close(fd);
+	return ret;
+}
 
 int
 cfprintf(FILE* file, const char* format, ...) {
@@ -150,6 +194,7 @@ dictionaryApplyFunctionSorted(CFDictionaryRef dict,
 	}
 }
 
+#ifdef notdef
 int
 writePlist(FILE* f, CFPropertyListRef p, int tabs) {
 		int result = 0;
@@ -223,6 +268,7 @@ writePlist(FILE* f, CFPropertyListRef p, int tabs) {
         free(t);
 		return result;
 }
+#endif /* notdef */
 
 CFArrayRef
 tokenizeString(CFStringRef str) {
@@ -277,4 +323,61 @@ int
 is_file(const char* path) {
 	struct stat sb;
 	return (stat(path, &sb) == 0 && S_ISREG(sb.st_mode));
+}
+
+void
+upper_ident(char *str) {
+	char *cp;
+
+	for(cp = str; *cp; cp++) {
+		if (islower(*cp)) *cp = toupper(*cp);
+		else if (!isalnum(*cp) && *cp != '_') *cp = '_';
+	}
+}
+
+/*
+ * lockfilelink - uses file link count to atomically lock a file.  This
+ * algorithm works even on buggy NFS filesystems.
+ */
+const char *
+lockfilebylink(const char *lockfile) {
+	struct timeval t;
+	char *linkfile;
+	int fd;
+	struct stat st;
+	int n = 60; // retry 60 times; once per second
+
+	// First, make sure the lock file exists
+	if ((fd = open(lockfile, O_RDONLY|O_CREAT, 0644)) < 0) return NULL;
+	close(fd);
+	// Make a unique link file name
+	if (gettimeofday(&t, NULL) < 0) return NULL;
+	asprintf(&linkfile, "%s.%d-%lx.%x", lockfile, getpid(), t.tv_sec, t.tv_usec);
+	if (linkfile == NULL) return NULL;
+	while(n-- > 0) {
+		if (link(lockfile, linkfile) < 0) {
+			free((void *)linkfile);
+			return NULL;
+		}
+		if (stat(linkfile, &st) < 0) {
+			unlink(linkfile);
+			free((void *)linkfile);
+			return NULL;
+		}
+		// if the link count for the link file is 2, we have it
+		if (st.st_nlink == 2) return linkfile;
+		// Otherwise, remove the link file, sleep and try again
+		unlink(linkfile);
+		sleep(1);
+	}
+	// Timed out
+	unlink(linkfile);
+	free((void *)linkfile);
+	return NULL;
+}
+
+void
+unlockfilebylink(const char *linkfile) {
+	unlink(linkfile);
+	free((void *)linkfile);
 }

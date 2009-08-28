@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -1169,7 +1169,7 @@ package body Atree is
 
       function Copy_Elist_With_Replacement
         (Old_Elist : Elist_Id) return Elist_Id;
-      --  Called during second phase to copy element list doing replacements.
+      --  Called during second phase to copy element list doing replacements
 
       procedure Copy_Itype_With_Replacement (New_Itype : Entity_Id);
       --  Called during the second phase to process a copied Itype. The actual
@@ -1178,7 +1178,7 @@ package body Atree is
       --  the copied Itype and copy them where necessary.
 
       function Copy_List_With_Replacement (Old_List : List_Id) return List_Id;
-      --  Called during second phase to copy list doing replacements.
+      --  Called during second phase to copy list doing replacements
 
       function Copy_Node_With_Replacement (Old_Node : Node_Id) return Node_Id;
       --  Called during second phase to copy node doing replacements
@@ -1775,7 +1775,7 @@ package body Atree is
             Visit_Field (Union_Id (Scalar_Range (Old_Itype)), Old_Itype);
 
          elsif Has_Discriminants (Base_Type (Old_Itype)) then
-            --  ??? This should involve call to Visit_Field.
+            --  ??? This should involve call to Visit_Field
             Visit_Elist (Discriminant_Constraint (Old_Itype));
 
          elsif Is_Array_Type (Old_Itype) then
@@ -2886,61 +2886,125 @@ package body Atree is
       end List14;
 
       function Elist2 (N : Node_Id) return Elist_Id is
+         pragma Assert (N in Nodes.First .. Nodes.Last);
+         Value : constant Union_Id := Nodes.Table (N).Field2;
       begin
-         return Elist_Id (Nodes.Table (N).Field2);
+         if Value = 0 then
+            return No_Elist;
+         else
+            return Elist_Id (Value);
+         end if;
       end Elist2;
 
       function Elist3 (N : Node_Id) return Elist_Id is
+         pragma Assert (N in Nodes.First .. Nodes.Last);
+         Value : constant Union_Id := Nodes.Table (N).Field3;
       begin
-         return Elist_Id (Nodes.Table (N).Field3);
+         if Value = 0 then
+            return No_Elist;
+         else
+            return Elist_Id (Value);
+         end if;
       end Elist3;
 
       function Elist4 (N : Node_Id) return Elist_Id is
+         pragma Assert (N in Nodes.First .. Nodes.Last);
+         Value : constant Union_Id := Nodes.Table (N).Field4;
       begin
-         return Elist_Id (Nodes.Table (N).Field4);
+         if Value = 0 then
+            return No_Elist;
+         else
+            return Elist_Id (Value);
+         end if;
       end Elist4;
 
       function Elist8 (N : Node_Id) return Elist_Id is
-      begin
          pragma Assert (Nkind (N) in N_Entity);
-         return Elist_Id (Nodes.Table (N + 1).Field8);
+         Value : constant Union_Id := Nodes.Table (N + 1).Field8;
+      begin
+         if Value = 0 then
+            return No_Elist;
+         else
+            return Elist_Id (Value);
+         end if;
       end Elist8;
 
       function Elist13 (N : Node_Id) return Elist_Id is
-      begin
          pragma Assert (Nkind (N) in N_Entity);
-         return Elist_Id (Nodes.Table (N + 2).Field6);
+         Value : constant Union_Id := Nodes.Table (N + 2).Field6;
+      begin
+         if Value = 0 then
+            return No_Elist;
+         else
+            return Elist_Id (Value);
+         end if;
       end Elist13;
 
       function Elist15 (N : Node_Id) return Elist_Id is
-      begin
          pragma Assert (Nkind (N) in N_Entity);
-         return Elist_Id (Nodes.Table (N + 2).Field8);
+         Value : constant Union_Id := Nodes.Table (N + 2).Field8;
+      begin
+         if Value = 0 then
+            return No_Elist;
+         else
+            return Elist_Id (Value);
+         end if;
       end Elist15;
 
       function Elist16 (N : Node_Id) return Elist_Id is
-      begin
          pragma Assert (Nkind (N) in N_Entity);
-         return Elist_Id (Nodes.Table (N + 2).Field9);
+         Value : constant Union_Id := Nodes.Table (N + 2).Field9;
+      begin
+         if Value = 0 then
+            return No_Elist;
+         else
+            return Elist_Id (Value);
+         end if;
       end Elist16;
 
       function Elist18 (N : Node_Id) return Elist_Id is
-      begin
          pragma Assert (Nkind (N) in N_Entity);
-         return Elist_Id (Nodes.Table (N + 2).Field11);
+         Value : constant Union_Id := Nodes.Table (N + 2).Field11;
+      begin
+         if Value = 0 then
+            return No_Elist;
+         else
+            return Elist_Id (Value);
+         end if;
       end Elist18;
 
       function Elist21 (N : Node_Id) return Elist_Id is
-      begin
          pragma Assert (Nkind (N) in N_Entity);
-         return Elist_Id (Nodes.Table (N + 3).Field8);
+         Value : constant Union_Id := Nodes.Table (N + 3).Field8;
+      begin
+         if Value = 0 then
+            return No_Elist;
+         else
+            return Elist_Id (Value);
+         end if;
       end Elist21;
 
       function Elist23 (N : Node_Id) return Elist_Id is
-      begin
          pragma Assert (Nkind (N) in N_Entity);
-         return Elist_Id (Nodes.Table (N + 3).Field10);
+         Value : constant Union_Id := Nodes.Table (N + 3).Field10;
+      begin
+         if Value = 0 then
+            return No_Elist;
+         else
+            return Elist_Id (Value);
+         end if;
       end Elist23;
+
+      function Elist24 (N : Node_Id) return Elist_Id is
+         pragma Assert (Nkind (N) in N_Entity);
+         Value : constant Union_Id := Nodes.Table (N + 4).Field6;
+      begin
+         if Value = 0 then
+            return No_Elist;
+         else
+            return Elist_Id (Value);
+         end if;
+      end Elist24;
 
       function Name1 (N : Node_Id) return Name_Id is
       begin
@@ -3007,7 +3071,6 @@ package body Atree is
       function Uint8 (N : Node_Id) return Uint is
          pragma Assert (Nkind (N) in N_Entity);
          U : constant Union_Id := Nodes.Table (N + 1).Field8;
-
       begin
          if U = 0 then
             return Uint_0;
@@ -4844,6 +4907,12 @@ package body Atree is
          pragma Assert (Nkind (N) in N_Entity);
          Nodes.Table (N + 3).Field10 := Union_Id (Val);
       end Set_Elist23;
+
+      procedure Set_Elist24 (N : Node_Id; Val : Elist_Id) is
+      begin
+         pragma Assert (Nkind (N) in N_Entity);
+         Nodes.Table (N + 4).Field6 := Union_Id (Val);
+      end Set_Elist24;
 
       procedure Set_Name1 (N : Node_Id; Val : Name_Id) is
       begin

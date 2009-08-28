@@ -31,7 +31,7 @@
  */
 __private_extern__ int execute(
     char **argv,
-    long verbose);
+    int verbose);
 
 __private_extern__ void add_execute_list(
     char *str);
@@ -40,4 +40,4 @@ __private_extern__ void reset_execute_list(
     void);
 
 __private_extern__ int execute_list(
-    long verbose);
+    int verbose);

@@ -3,7 +3,6 @@
 
     Contains:   xxx put contents here xxx
 */
-
 #include "IrDiscovery.h"
 #include "CList.h"
 #include "IrDscInfo.h"
@@ -48,7 +47,7 @@ EventTraceCauseDesc IrDiscoverEvents[] = {
     {kDequeueEventEnd,          "IrDiscovery: Event End"}
 };
 
-#define XTRACE(x, y, z) IrDALogAdd( x, y, (int)z & 0xffff, IrDiscoverEvents, true )
+#define XTRACE(x, y, z) IrDALogAdd( x, y, (uintptr_t)z & 0xffff, IrDiscoverEvents, true )
 
 #else
     #define XTRACE(x, y, z) ((void)0)
@@ -67,7 +66,7 @@ CIrDiscovery::cIrDiscovery(TIrGlue * glue)
 {
     CIrDiscovery *obj = new CIrDiscovery;
     
-    XTRACE(kLogNew, (int)obj >> 16, obj);
+    XTRACE(kLogNew, 0, obj);
 
     if (obj && !obj->Init(glue)) {
 	obj->release();
@@ -79,9 +78,9 @@ CIrDiscovery::cIrDiscovery(TIrGlue * glue)
 void
 CIrDiscovery::free()
 {
-    int Review_Event_Usage;     // release events on the pendng discover list?
+    //int Review_Event_Usage;     // release events on the pendng discover list?
     
-    XTRACE(kLogFree, (int)this >> 16, this);
+    XTRACE(kLogFree, 0, this);
 
     DeleteDiscoveredDevicesList();      // free the objects on the list
 
@@ -99,9 +98,7 @@ CIrDiscovery::free()
 Boolean
 CIrDiscovery::Init(TIrGlue * glue)
 {
-    int SET_LOCAL_HOSTNAME_HERE;            // how to set hostname for discovery info?
-    
-    XTRACE(kLogInit, (int)this >> 16, this);
+    XTRACE(kLogInit, 0, this);
     
     fState  = kDiscoverIdle;
     fPendingDiscoverList = nil;
@@ -125,35 +122,9 @@ CIrDiscovery::Init(TIrGlue * glue)
     fMyDscInfo = TIrDscInfo::tIrDscInfo();
     require(fMyDscInfo, Fail);
     
-    fMyDscInfo->SetNickname("Mac/OS-X");                    // FIXME
+    fMyDscInfo->SetNickname("Mac/OS-X");                    // hostname unavailable to kext's.  foo.
     fMyDscInfo->SetServiceHints(kDevInfoHintComputer);      // clients can now add/delete from this set
     
-/******
-    Str255          nameStr;
-    StringHandle    machNameHdl;
-    int             i;
-    
-    nameStr[0] = 0;                                 // zero out string (check for empty later)
-    machNameHdl = GetString(kComputerNameId);       // get the resource (don't free it ... check)
-    if ( machNameHdl ) {                            // if the file sharing machine name was found
-	for( i = 0; i < (*machNameHdl)[0]; i++ )        // Copy and convert to a "C" string
-	    nameStr[i] = (*machNameHdl)[i+1];           // Don't convert in place.
-	nameStr[i] = 0;
-	nameStr[kMaxNicknameLen] = 0;               // Truncate the string if necessary
-	fMyDscInfo.SetNickname( ( UChar * ) nameStr );
-    }
-    if (nameStr[0] == 0)                            // if no resource or empty string
-	 fMyDscInfo.SetNickname(&kIASDeviceName[0]);    // Use the default "Macintosh" (from globals)
-    
-    fMyDscInfo.SetServiceHints(kDevInfoHintComputer);       // clients can now add/delete from this set
-    return noErr;
-    
-Fail_NewDiscDevList:
-    delete fPendingDiscoverList;
-    
-Fail_NewPendDiscList:
-    return 1;
-    ******/
     return true;
     
 Fail:
@@ -274,7 +245,7 @@ void CIrDiscovery::HandleDiscoverComplete()
     TIrDiscoverReply    *   discoverReply = (TIrDiscoverReply*)GetCurrentEvent();
     TIrDiscoverReply    *   pendingRequest;
     
-    XTRACE( kLogDiscoverComplete, (int)this >> 16, this);
+    XTRACE( kLogDiscoverComplete, 0, this);
     check( fDiscoveredDevices == discoverReply->fDiscoveredDevices );
 
     // Complete discover request (let caller pick a device to connect to)
@@ -421,7 +392,7 @@ void CIrDiscovery::PassiveDiscovery(TIrDscInfo * dscInfo)
 //--------------------------------------------------------------------------------
 //      GetRemoteDeviceName
 //--------------------------------------------------------------------------------
-void CIrDiscovery::GetRemoteDeviceName( UInt32 lapAddr, UInt8 * name )
+void CIrDiscovery::GetRemoteDeviceName( UInt32 lapAddr, UInt8 * name, int maxnamelen )
 {
     TIrDscInfo  *   oldInfo;
     SInt16          discCount = fDiscoveredDevices->Count();
@@ -432,7 +403,7 @@ void CIrDiscovery::GetRemoteDeviceName( UInt32 lapAddr, UInt8 * name )
     for( SInt16 index = 0; index < discCount; index++ ) {
 	oldInfo = ( TIrDscInfo * )fDiscoveredDevices->At( index );
 	if( oldInfo->GetDeviceAddr() == lapAddr ) {
-	    oldInfo->GetNickname( name );
+	    oldInfo->GetNickname( name, maxnamelen );
 	    found = true;
 	    break;
 	}

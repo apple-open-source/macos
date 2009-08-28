@@ -70,7 +70,7 @@ gdb_reinitialize_dir $srcdir/$subdir
 gdb_test "add-symbol-file ${binfile} 0" \
 	"Reading symbols from .*${testfile}\\.o\\.\\.\\.done\\.(|\r\nUsing host libthread_db library .*libthread_db.so.*\\.)" \
 	"add-symbol-file ${testfile}.o 0" \
-	"add symbol table from file \".*${testfile}\\.o\" at\[ \t\r\n\]+.*TEXT_addr = 0x0\[\r\n\]+\\(y or n\\) " \
+	"add symbol table from file \".*${testfile}\\.o\" at\[ \t\r\n\]+.*TEXT = 0x0\[\r\n\]+\\(y or n\\) " \
 	"y"
 
 # Print the addresses of static variables.
@@ -120,7 +120,7 @@ gdb_test "set \$offset = 0x10000" ""
 gdb_test "add-symbol-file ${binfile} \$offset" \
 	"Reading symbols from .*${testfile}\\.o\\.\\.\\.done\\.(|\r\nUsing host libthread_db library .*libthread_db.so.*\\.)" \
 	"add-symbol-file ${testfile}.o \$offset" \
-	"add symbol table from file \".*${testfile}\\.o\" at\[ \t\r\n\]+.*TEXT_addr = 0x10000\[\r\n\]+\\(y or n\\) " \
+	"add symbol table from file \".*${testfile}\\.o\" at\[ \t\r\n\]+.*TEXT = 0x10000\[\r\n\]+\\(y or n\\) " \
 	"y"
 
 # Print the addresses of functions.

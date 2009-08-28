@@ -1,3 +1,5 @@
+// { dg-require-namedlocale "" }
+
 // 2003-12-17  Paolo Carlini  <pcarlini@suse.de>
 
 // Copyright (C) 2003 Free Software Foundation
@@ -15,7 +17,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // 22.2.5.1.1 time_get members
@@ -31,7 +33,7 @@ void test01()
 
   typedef istreambuf_iterator<wchar_t> iterator_type;
 
-  locale loc_tw = __gnu_test::try_named_locale("zh_TW");
+  locale loc_tw = locale("zh_TW");
 
   iterator_type end;
 

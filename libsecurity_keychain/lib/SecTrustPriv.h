@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2006 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2003-2009 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -57,11 +57,42 @@ enum {
 	@param trustSetting The user-specified trust settings.
 	@result A result code.  See "Security Error Codes" (SecBase.h).
 
-	@discussion This is the private version of what used to be SecTrustSetUserTrust(); it operates
+	@This is the private version of what used to be SecTrustSetUserTrust(); it operates
 	 on UserTrust entries as that function used to. The current SecTrustSetUserTrust()
 	 function operated on Trust Settings. 
 */
 OSStatus SecTrustSetUserTrustLegacy(SecCertificateRef certificate, SecPolicyRef policy, SecTrustUserSetting trustSetting);
+
+/*!
+	@function SecTrustCopyPublicKey
+	@abstract Return the public key for a leaf certificate after it has 
+	been evaluated.
+	@param trust A reference to the trust object which has been evaluated.
+	@result The certificate's public key, or NULL if it the public key could
+	not be extracted (this can happen with DSA certificate chains if the
+        parameters in the chain cannot be found).  The caller is responsible
+        for calling CFRelease on the returned key when it is no longer needed.
+*/
+SecKeyRef SecTrustCopyPublicKey(SecTrustRef trust);
+
+/*!
+	@function SecTrustGetCertificateCount
+	@abstract Returns the number of certificates in an evaluated certificate
+    chain.
+	@param trust A reference to the trust object to evaluate.
+	@result The number of certificates in the trust chain.
+*/
+CFIndex SecTrustGetCertificateCount(SecTrustRef trust);
+
+/*!
+	@function SecTrustGetCertificateAtIndex
+	@abstract Returns a certificate from the trust chain.
+	@param trust A reference to the trust object to evaluate.
+	@param ix The index of the requested certificate.  Indices run from 0
+    (leaf) to the anchor (or last certificate found if no anchor was found).
+	@result A SecCertificateRef for the requested certificate.
+*/
+SecCertificateRef SecTrustGetCertificateAtIndex(SecTrustRef trust, CFIndex ix);
 
 /*!
 	@function SecTrustCopyExtendedResult
@@ -76,6 +107,7 @@ OSStatus SecTrustSetUserTrustLegacy(SecCertificateRef certificate, SecPolicyRef 
 	(kSecEVOrganizationName).
 */
 OSStatus SecTrustCopyExtendedResult(SecTrustRef trust, CFDictionaryRef *result);
+
 
 /*!
 	@function SecGetAppleTPHandle - NOT EXPORTED YET; copied from SecurityInterface, 

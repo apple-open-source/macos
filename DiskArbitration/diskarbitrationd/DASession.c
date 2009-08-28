@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -130,9 +130,26 @@ static void __DASessionDeallocate( CFTypeRef object )
     if ( session->_name          )  free( session->_name );
     if ( session->_queue         )  CFRelease( session->_queue );
     if ( session->_register      )  CFRelease( session->_register );
-    if ( session->_server        )  CFMachPortInvalidate( session->_server );
-    if ( session->_server        )  CFRelease( session->_server );
-    if ( session->_source        )  CFRelease( session->_source );
+
+    if ( session->_source )
+    {
+        CFRunLoopSourceInvalidate( session->_source );
+
+        CFRelease( session->_source );
+    }
+
+    if ( session->_server )
+    {
+        mach_port_t serverPort;
+
+        serverPort = CFMachPortGetPort( session->_server );
+
+        CFMachPortInvalidate( session->_server );
+
+        CFRelease( session->_server );
+
+        mach_port_mod_refs( mach_task_self( ), serverPort, MACH_PORT_RIGHT_RECEIVE, -1 );
+    }
 }
 
 static Boolean __DASessionEqual( CFTypeRef object1, CFTypeRef object2 )
@@ -156,7 +173,7 @@ const char * _DASessionGetName( DASessionRef session )
     return session->_name;
 }
 ///w:stop
-DASessionRef DASessionCreate( CFAllocatorRef allocator, mach_port_t _client, const char * _name, pid_t _pid )
+DASessionRef DASessionCreate( CFAllocatorRef allocator, const char * _name, pid_t _pid )
 {
     DASessionRef session;
 
@@ -168,67 +185,77 @@ DASessionRef DASessionCreate( CFAllocatorRef allocator, mach_port_t _client, con
 
     if ( session )
     {
-        CFMachPortRef     server;
-        CFMachPortContext serverContext;
+        mach_port_t   serverPort;
+        kern_return_t status;
 
-        serverContext.version         = 0;
-        serverContext.info            = session;
-        serverContext.retain          = NULL;
-        serverContext.release         = NULL;
-        serverContext.copyDescription = NULL;
+        status = mach_port_allocate( mach_task_self( ), MACH_PORT_RIGHT_RECEIVE, &serverPort );
 
-        /*
-         * Create the session's server port.
-         */
-
-        server = CFMachPortCreate( allocator, _DAServerCallback, &serverContext, NULL );
-
-        if ( server )
+        if ( status == KERN_SUCCESS )
         {
-            CFRunLoopSourceRef source;
+            CFMachPortRef     server;
+            CFMachPortContext serverContext;
+
+            serverContext.version         = 0;
+            serverContext.info            = session;
+            serverContext.retain          = NULL;
+            serverContext.release         = NULL;
+            serverContext.copyDescription = NULL;
 
             /*
-             * Create the session's server port run loop source.
+             * Create the session's server port.
              */
 
-            source = CFMachPortCreateRunLoopSource( allocator, server, 0 );
+            server = CFMachPortCreateWithPort( allocator, serverPort, _DAServerCallback, &serverContext, NULL );
 
-            if ( source )
+            if ( server )
             {
-                mach_port_t   port;
-                kern_return_t status;
+                CFRunLoopSourceRef source;
 
                 /*
-                 * Set up the session's server port.
+                 * Create the session's server port run loop source.
                  */
 
-                status = mach_port_request_notification( mach_task_self( ),
-                                                         _client,
-                                                         MACH_NOTIFY_DEAD_NAME,
-                                                         TRUE,
-                                                         CFMachPortGetPort( server ),
-                                                         MACH_MSG_TYPE_MAKE_SEND_ONCE,
-                                                         &port );
+                source = CFMachPortCreateRunLoopSource( allocator, server, 0 );
 
-                if ( status == KERN_SUCCESS )
+                if ( source )
                 {
-                    assert( port == MACH_PORT_NULL );
+                    mach_port_t port;
 
-                    session->_client = _client;
-                    session->_name   = strdup( _name );
-                    session->_pid    = _pid;
-                    session->_server = server;
-                    session->_source = source;
+                    /*
+                     * Set up the session's server port.
+                     */
 
-                    return session;
+                    status = mach_port_request_notification( mach_task_self( ),
+                                                             CFMachPortGetPort( server ),
+                                                             MACH_NOTIFY_NO_SENDERS,
+                                                             1,
+                                                             CFMachPortGetPort( server ),
+                                                             MACH_MSG_TYPE_MAKE_SEND_ONCE,
+                                                             &port );
+
+                    if ( status == KERN_SUCCESS )
+                    {
+                        assert( port == MACH_PORT_NULL );
+
+                        session->_name   = strdup( _name );
+                        session->_pid    = _pid;
+                        session->_server = server;
+                        session->_source = source;
+
+                        return session;
+                    }
+
+                    CFRunLoopSourceInvalidate( source );
+
+                    CFRelease( source );
                 }
 
-                CFRelease( source );
+                CFMachPortInvalidate( server );
+
+                CFRelease( server );
             }
 
-            CFMachPortInvalidate( server );
-
-            CFRelease( server );
+            mach_port_mod_refs( mach_task_self( ), serverPort, MACH_PORT_RIGHT_RECEIVE, -1 );
         }
 
         CFRelease( session );
@@ -250,11 +277,6 @@ CFMutableArrayRef DASessionGetCallbackQueue( DASessionRef session )
 CFMutableArrayRef DASessionGetCallbackRegister( DASessionRef session )
 {
     return session->_register;
-}
-
-mach_port_t DASessionGetClientPort( DASessionRef session )
-{
-    return session->_client;
 }
 
 mach_port_t DASessionGetID( DASessionRef session )
@@ -300,21 +322,24 @@ void DASessionQueueCallback( DASessionRef session, DACallbackRef callback )
 
     if ( CFArrayGetCount( session->_queue ) == 1 )
     {
-        mach_msg_header_t message;
-        kern_return_t     status;
-
-        message.msgh_bits        = MACH_MSGH_BITS( MACH_MSG_TYPE_COPY_SEND, 0 );
-        message.msgh_id          = 0;
-        message.msgh_local_port  = MACH_PORT_NULL;
-        message.msgh_remote_port = session->_client;
-        message.msgh_reserved    = 0;
-        message.msgh_size        = sizeof( message );
-
-        status = mach_msg( &message, MACH_SEND_MSG | MACH_SEND_TIMEOUT, message.msgh_size, 0, MACH_PORT_NULL, 0, MACH_PORT_NULL );
-
-        if ( status == MACH_SEND_TIMED_OUT )
+        if ( session->_client )
         {
-            mach_msg_destroy( &message );
+            mach_msg_header_t message;
+            kern_return_t     status;
+
+            message.msgh_bits        = MACH_MSGH_BITS( MACH_MSG_TYPE_COPY_SEND, 0 );
+            message.msgh_id          = 0;
+            message.msgh_local_port  = MACH_PORT_NULL;
+            message.msgh_remote_port = session->_client;
+            message.msgh_reserved    = 0;
+            message.msgh_size        = sizeof( message );
+
+            status = mach_msg( &message, MACH_SEND_MSG | MACH_SEND_TIMEOUT, message.msgh_size, 0, MACH_PORT_NULL, 0, MACH_PORT_NULL );
+
+            if ( status == MACH_SEND_TIMED_OUT )
+            {
+                mach_msg_destroy( &message );
+            }
         }
     }
 }
@@ -337,6 +362,39 @@ void DASessionSetAuthorization( DASessionRef session, AuthorizationRef authoriza
     }
 
     session->_authorization = authorization;
+}
+
+void DASessionSetClientPort( DASessionRef session, mach_port_t client )
+{
+    if ( session->_client )
+    {
+        mach_port_deallocate( mach_task_self( ), session->_client );
+    }
+
+    session->_client = client;
+
+    if ( CFArrayGetCount( session->_queue ) )
+    {
+        if ( session->_client )
+        {
+            mach_msg_header_t message;
+            kern_return_t     status;
+
+            message.msgh_bits        = MACH_MSGH_BITS( MACH_MSG_TYPE_COPY_SEND, 0 );
+            message.msgh_id          = 0;
+            message.msgh_local_port  = MACH_PORT_NULL;
+            message.msgh_remote_port = session->_client;
+            message.msgh_reserved    = 0;
+            message.msgh_size        = sizeof( message );
+
+            status = mach_msg( &message, MACH_SEND_MSG | MACH_SEND_TIMEOUT, message.msgh_size, 0, MACH_PORT_NULL, 0, MACH_PORT_NULL );
+
+            if ( status == MACH_SEND_TIMED_OUT )
+            {
+                mach_msg_destroy( &message );
+            }
+        }
+    }
 }
 
 void DASessionSetOption( DASessionRef session, DASessionOption option, Boolean value )

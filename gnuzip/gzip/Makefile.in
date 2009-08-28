@@ -16,7 +16,7 @@
 
 # Make gzip (GNU zip).
 
-# Copyright (C) 1999, 2001, 2002, 2006 Free Software Foundation, Inc.
+# Copyright (C) 1999, 2001, 2002, 2006, 2007 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -54,17 +54,20 @@ subdir = .
 DIST_COMMON = README $(am__configure_deps) $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in $(top_srcdir)/configure AUTHORS COPYING \
 	ChangeLog INSTALL NEWS README-alpha THANKS TODO \
-	build-aux/compile build-aux/depcomp build-aux/install-sh \
-	build-aux/mdate-sh build-aux/missing build-aux/texinfo.tex
+	build-aux/compile build-aux/config.guess build-aux/config.sub \
+	build-aux/depcomp build-aux/install-sh build-aux/mdate-sh \
+	build-aux/missing build-aux/texinfo.tex
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/absolute-header.m4 \
 	$(top_srcdir)/m4/error.m4 $(top_srcdir)/m4/exitfail.m4 \
 	$(top_srcdir)/m4/extensions.m4 $(top_srcdir)/m4/fcntl-safer.m4 \
 	$(top_srcdir)/m4/fcntl_h.m4 $(top_srcdir)/m4/getopt.m4 \
+	$(top_srcdir)/m4/gnulib-common.m4 \
 	$(top_srcdir)/m4/gnulib-comp.m4 $(top_srcdir)/m4/inline.m4 \
 	$(top_srcdir)/m4/shell.m4 $(top_srcdir)/m4/stat-time.m4 \
-	$(top_srcdir)/m4/stdbool.m4 $(top_srcdir)/m4/sys_stat_h.m4 \
-	$(top_srcdir)/m4/timespec.m4 $(top_srcdir)/m4/unistd-safer.m4 \
+	$(top_srcdir)/m4/stdbool.m4 $(top_srcdir)/m4/stdlib_h.m4 \
+	$(top_srcdir)/m4/sys_stat_h.m4 $(top_srcdir)/m4/sys_time_h.m4 \
+	$(top_srcdir)/m4/time_h.m4 $(top_srcdir)/m4/unistd-safer.m4 \
 	$(top_srcdir)/m4/unistd_h.m4 $(top_srcdir)/m4/utimbuf.m4 \
 	$(top_srcdir)/m4/utimens.m4 $(top_srcdir)/m4/utimes.m4 \
 	$(top_srcdir)/m4/xalloc.m4 $(top_srcdir)/m4/yesno.m4 \
@@ -124,7 +127,11 @@ GZIP_ENV = --best
 distuninstallcheck_listfiles = find . -type f -print
 distcleancheck_listfiles = find . -type f -print
 ABSOLUTE_FCNTL_H = @ABSOLUTE_FCNTL_H@
+ABSOLUTE_STDLIB_H = @ABSOLUTE_STDLIB_H@
 ABSOLUTE_SYS_STAT_H = @ABSOLUTE_SYS_STAT_H@
+ABSOLUTE_SYS_TIME_H = @ABSOLUTE_SYS_TIME_H@
+ABSOLUTE_TIME_H = @ABSOLUTE_TIME_H@
+ABSOLUTE_UNISTD_H = @ABSOLUTE_UNISTD_H@
 ACLOCAL = @ACLOCAL@
 AMTAR = @AMTAR@
 ASCPPFLAGS = @ASCPPFLAGS@
@@ -149,7 +156,26 @@ EGREP = @EGREP@
 EXEEXT = @EXEEXT@
 FCNTL_H = @FCNTL_H@
 GETOPT_H = @GETOPT_H@
+GNULIB_CHOWN = @GNULIB_CHOWN@
+GNULIB_DUP2 = @GNULIB_DUP2@
+GNULIB_FCHDIR = @GNULIB_FCHDIR@
+GNULIB_FTRUNCATE = @GNULIB_FTRUNCATE@
+GNULIB_GETCWD = @GNULIB_GETCWD@
+GNULIB_GETLOGIN_R = @GNULIB_GETLOGIN_R@
+GNULIB_GETSUBOPT = @GNULIB_GETSUBOPT@
+GNULIB_MKDTEMP = @GNULIB_MKDTEMP@
+GNULIB_MKSTEMP = @GNULIB_MKSTEMP@
+GNULIB_READLINK = @GNULIB_READLINK@
 GREP = @GREP@
+HAVE_DECL_GETLOGIN_R = @HAVE_DECL_GETLOGIN_R@
+HAVE_DUP2 = @HAVE_DUP2@
+HAVE_FTRUNCATE = @HAVE_FTRUNCATE@
+HAVE_GETSUBOPT = @HAVE_GETSUBOPT@
+HAVE_MKDTEMP = @HAVE_MKDTEMP@
+HAVE_READLINK = @HAVE_READLINK@
+HAVE_STRUCT_TIMEVAL = @HAVE_STRUCT_TIMEVAL@
+HAVE_SYS_TIME_H = @HAVE_SYS_TIME_H@
+HAVE_UNISTD_H = @HAVE_UNISTD_H@
 HAVE__BOOL = @HAVE__BOOL@
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
@@ -159,9 +185,11 @@ INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 LDFLAGS = @LDFLAGS@
 LIBGZIP_LIBDEPS = @LIBGZIP_LIBDEPS@
 LIBGZIP_LTLIBDEPS = @LIBGZIP_LTLIBDEPS@
+LIBINTL = @LIBINTL@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LN_S = @LN_S@
+LTLIBINTL = @LTLIBINTL@
 LTLIBOBJS = @LTLIBOBJS@
 MAKEINFO = @MAKEINFO@
 MKDIR_P = @MKDIR_P@
@@ -175,12 +203,23 @@ PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 RANLIB = @RANLIB@
+REPLACE_CHOWN = @REPLACE_CHOWN@
+REPLACE_FCHDIR = @REPLACE_FCHDIR@
+REPLACE_GETCWD = @REPLACE_GETCWD@
+REPLACE_GETTIMEOFDAY = @REPLACE_GETTIMEOFDAY@
+REPLACE_LOCALTIME_R = @REPLACE_LOCALTIME_R@
+REPLACE_MKSTEMP = @REPLACE_MKSTEMP@
+REPLACE_NANOSLEEP = @REPLACE_NANOSLEEP@
+REPLACE_STRPTIME = @REPLACE_STRPTIME@
+REPLACE_TIMEGM = @REPLACE_TIMEGM@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STDBOOL_H = @STDBOOL_H@
 STRIP = @STRIP@
 SYS_STAT_H = @SYS_STAT_H@
-UNISTD_H = @UNISTD_H@
+SYS_TIME_H = @SYS_TIME_H@
+SYS_TIME_H_DEFINES_STRUCT_TIMESPEC = @SYS_TIME_H_DEFINES_STRUCT_TIMESPEC@
+TIME_H_DEFINES_STRUCT_TIMESPEC = @TIME_H_DEFINES_STRUCT_TIMESPEC@
 VERSION = @VERSION@
 abs_builddir = @abs_builddir@
 abs_srcdir = @abs_srcdir@
@@ -235,7 +274,7 @@ man_MANS = gunzip.1 gzexe.1 gzip.1 \
 EXTRA_DIST = $(ACINCLUDE_INPUTS) $(man_MANS) \
   algorithm.doc amiga/match.a amiga/Makefile.gcc amiga/Makefile.sasc \
   amiga/tailor.c amiga/utime.h atari/Makefile.st crypt.h \
-  gzexe.in gzip.doc gzip.h lzw.h msdos/match.asm msdos/tailor.c \
+  gunzip.in gzexe.in gzip.doc gzip.h lzw.h msdos/match.asm msdos/tailor.c \
   msdos/gzip.prj msdos/doturboc.bat msdos/Makefile.msc msdos/Makefile.bor \
   msdos/Makefile.djg nt/Makefile.nt os2/gzip.def os2/Makefile.os2 \
   os2/gzip16.def primos/include/errno.h primos/include/fcntl.h \
@@ -244,10 +283,12 @@ EXTRA_DIST = $(ACINCLUDE_INPUTS) $(man_MANS) \
   primos/primos.c primos/ci.opts revision.h sample/makecrc.c \
   sample/ztouch sample/add.c sample/sub.c sample/zread.c sample/zfile \
   tailor.h vms/Makefile.mms vms/gzip.hlp vms/vms.c vms/Readme.vms \
-  vms/Makefile.vms vms/Makefile.gcc vms/makegzip.com zdiff.in \
-  zforce.in zgrep.in zless.in zmore.in znew.in
+  vms/Makefile.vms vms/Makefile.gcc vms/makegzip.com zcat.in zcmp.in zdiff.in \
+  zegrep.in zfgrep.in zforce.in zgrep.in zless.in zmore.in znew.in
 
-bin_SCRIPTS = gzexe zdiff zgrep zforce zless zmore znew
+bin_SCRIPTS = gunzip gzexe zcat zcmp zdiff \
+  zegrep zfgrep zforce zgrep zless zmore znew
+
 gzip_SOURCES = \
   bits.c crypt.c deflate.c gzip.c inflate.c lzw.c \
   trees.c unlzh.c unlzw.c unpack.c unzip.c util.c zip.c
@@ -261,7 +302,7 @@ FILES_TO_CHECK = $(bin_SCRIPTS) $(gzip_LDADD) \
 
 MAINTAINERCLEANFILES = gzip.doc
 MOSTLYCLEANFILES = _match.i match_.s _match.S gzip.doc.gz \
-  gzexe zdiff zforce zgrep zless zmore znew
+  gunzip gzexe zcat zcmp zdiff zegrep zfgrep zforce zgrep zless zmore znew
 
 all: all-recursive
 
@@ -867,17 +908,17 @@ gzip.doc.gz: gzip.doc
 .in:
 	sed \
 		-e 's|/bin/sh|$(SHELL)|g' \
-		-e 's|BINDIR|/usr/bin|g' \
+		-e 's|BINDIR|$${GZIP_BINDIR-'\''$(bindir)'\''}|g' \
 		-e 's|[@]VERSION@|$(VERSION)|g' \
 		$(srcdir)/$@.in >$@
 	chmod a+x $@
 check-local: $(FILES_TO_CHECK) gzip.doc.gz
-	test '$(srcdir)' != . || ./zdiff -c gzip.doc.gz
-	./zdiff -c $(srcdir)/gzip.doc $(srcdir)/gzip.doc
-	./zdiff $(srcdir)/gzip.doc gzip.doc.gz
-	./zdiff -c - $(srcdir)/gzip.doc <gzip.doc.gz
-	./zdiff -c gzip.doc.gz gzip.doc.gz
-	./zgrep -iV >/dev/null
+	{ test '$(srcdir)' != . || GZIP_BINDIR=. ./zdiff -c gzip.doc.gz; }
+	GZIP_BINDIR=. ./zdiff -c $(srcdir)/gzip.doc $(srcdir)/gzip.doc
+	GZIP_BINDIR=. ./zdiff $(srcdir)/gzip.doc gzip.doc.gz
+	GZIP_BINDIR=. ./zdiff -c - $(srcdir)/gzip.doc <gzip.doc.gz
+	GZIP_BINDIR=. ./zdiff -c gzip.doc.gz gzip.doc.gz
+	GZIP_BINDIR=. ./zgrep -iV >/dev/null
 	for file in $(FILES_TO_CHECK); do \
 	  ./gzip -cv -- "$$file" | ./gzip -d | cmp - "$$file" || exit; \
 	done
@@ -888,9 +929,7 @@ install-exec-hook remove-installed-links:
 	@for prog_ext in $(bin_PROGRAMS) $(bin_SCRIPTS); do \
 	  prog=`echo "$$prog_ext"|sed 's/$(EXEEXT)$$//'`; \
 	  case $$prog in \
-	  gzip) aliases='gunzip zcat';; \
-	  zdiff) aliases='zcmp';; \
-	  zgrep) aliases='zegrep zfgrep';; \
+	  gunzip) aliases='uncompress';; \
 	  *) continue;; \
 	  esac; \
 	  transform='$(transform)'; \

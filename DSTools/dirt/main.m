@@ -28,9 +28,6 @@
  */
 
 
-#warning VERIFY the version string before each major OS build submission
-#define DIRTVERSION "10.5.3"
-
 #import <Foundation/Foundation.h>
 #import "DSAuthenticate.h"
 #import "DSAuthenticateLM.h"
@@ -239,7 +236,7 @@ int main(int argc, char *argv[])
     // If a username is specified without a password and a password is needed we prompt for it.
     if (username != nil && password == nil && !listNodesOnly) {
         password = [[NSString alloc] initWithUTF8String:read_passphrase("User password:",1)];
-        NSLog([NSString stringWithFormat:@"password is : %@",password]);
+        NSLog( @"password is : %@", password );
     }
     
     if (username != nil && (password != nil || listNodesOnly))
@@ -285,11 +282,11 @@ int main(int argc, char *argv[])
                 NSArray *nodeList = [dsauth getListOfNodesWithUser:username];
                 [nodeList retain];
                 printf("%s %s was found in:\n", groupSearch ? "Group" : "User", 
-                                                [username cString]);
+                                                [username UTF8String]);
 				int iListLimit = [nodeList count];
                 for (iList = 0; iList < iListLimit; iList++)
 				{
-                    printf("%s\n", [[nodeList objectAtIndex:iList] cString]);
+                    printf("%s\n", [[nodeList objectAtIndex:iList] UTF8String]);
                 }
                 [nodeList release];
             }
@@ -325,7 +322,7 @@ int main(int argc, char *argv[])
                 else
                 {
                     dirtException = (DSException*)localException;
-                    printf("%s -- DS status: %s (%d)\n", [[dirtException reason] cString],
+                    printf("%s -- DS status: %s (%d)\n", [[dirtException reason] UTF8String],
                                         [dirtException statusCString], [dirtException status]);
                     
                     // If this is a eDSServerTimeout or eDSCannotAccessSession error, then probably DS shut down.
@@ -348,13 +345,13 @@ int main(int argc, char *argv[])
             if ([localException isKindOfClass:[DSException class]])
             {
                 dirtException = (DSException*)localException;
-                fprintf(stderr, "%s -- DS status: %s (%d)\n", [[dirtException reason] cString],
+                fprintf(stderr, "%s -- DS status: %s (%d)\n", [[dirtException reason] UTF8String],
                                             [dirtException statusCString], [dirtException status]);
                 status = [dirtException status];
             }
             else
             {
-                fprintf(stderr, "Catching unknown exception: <%s> %s\n", [[localException name] cString], [[localException reason] cString]);
+                fprintf(stderr, "Catching unknown exception: <%s> %s\n", [[localException name] UTF8String], [[localException reason] UTF8String]);
                 fprintf(stderr, "Attempting to clean up.\n");
             }
         NS_ENDHANDLER
@@ -401,7 +398,7 @@ void catch_int(int sig_num)
 void usage(void) {
     printf("DIRT: The DIRectory Tool for testing authentication against the\n" );
     printf("      DirectoryServices API.\n");
-    printf("Version %s\n\n", DIRTVERSION);
+    printf("Version %s\n\n", TOOLS_VERSION);
     printf("Usage: dirt [-c] [-g] [-l | -m path | -n] [-q query_iterations [-d seconds]]\n"
 	   "            [-a auth_method] -u username [-p password]\n\n");
     printf(" -l\t\tQuery Local Node only\n");

@@ -3,7 +3,7 @@ VERSION		= 5.52
 DISTFILE	= $(PROJECT)$(shell echo $(VERSION)  | tr -d '.').tar.gz
 
 OSLICENSES	= /usr/local/OpenSourceLicenses
-PATCHFILES	= patch-unix_unix.c
+PATCHFILES	= patch-unix_unix.c patch-quarantine patch-CVE-2008-0888
 
 SRCROOT		?= $(shell pwd)
 OBJROOT		?= $(SRCROOT)/obj
@@ -23,7 +23,7 @@ installhdrs:
 clean:
 	rm -rf $(SYMROOT) $(OBJROOT)
 
-install: destroot manpages ossinfo
+install: destroot symbols manpages ossinfo
 
 installsrc:
 	pax -rw . $(SRCROOT)
@@ -33,11 +33,14 @@ destroot: patchsrc unpacksrc
 		-f unix/Makefile macosx install \
 		prefix=$(DSTROOT)/usr \
 		MANDIR=$(DSTROOT)/usr/share/man/'man$$(manext)' \
-		LOC="-Os -mdynamic-no-pic $(RC_CFLAGS)" LD="$(CC) $(RC_CFLAGS)" \
-		CC="$(CC) -fno-builtin -x c"  INSTALL="$(INSTALL)" DESTDIR=$(DSTROOT)
+		LOC="-Wall -Os -g -mdynamic-no-pic $(RC_CFLAGS)" LD="$(CC) $(RC_CFLAGS)" \
+		CC="$(CC)"  INSTALL="$(INSTALL) -s" DESTDIR=$(DSTROOT)
 
 manpages: destroot
 	$(COMPRESSMANPAGES) /usr/share/man
+
+symbols:
+	$(CP) $(OBJROOT)/$(PROJECT)-$(VERSION)/unzip $(SYMROOT)
 
 ossinfo: unpacksrc
 	$(MKDIR) $(DSTROOT)/$(OSLICENSES)

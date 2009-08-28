@@ -105,6 +105,9 @@
 #include "grabmyaddr.h"
 #include "vpn_control.h"
 #include "vpn_control_var.h"
+#include "ike_session.h"
+#include "ipsecSessionTracer.h"
+#include "ipsecMessageTracer.h"
 
 #if defined(SADB_X_EALG_RIJNDAELCBC) && !defined(SADB_X_EALG_AESCBC)
 #define SADB_X_EALG_AESCBC  SADB_X_EALG_RIJNDAELCBC
@@ -133,6 +136,7 @@ static int pk_recvspdexpire __P((caddr_t *));
 static int pk_recvspdget __P((caddr_t *));
 static int pk_recvspddump __P((caddr_t *));
 static int pk_recvspdflush __P((caddr_t *));
+static int pk_recvgetsastat __P((caddr_t *));
 static struct sadb_msg *pk_recv __P((int, int *));
 
 static int (*pkrecvf[]) __P((caddr_t *)) = {
@@ -159,9 +163,10 @@ pk_recvspdflush,
 NULL,	/* SADB_X_SPDSETIDX */
 pk_recvspdexpire,
 NULL,	/* SADB_X_SPDDELETE2 */
+pk_recvgetsastat, /* SADB_GETSASTAT */
 NULL,	/* SADB_X_NAT_T_NEW_MAPPING */
 NULL, /* SADB_X_MIGRATE */
-#if (SADB_MAX > 24)
+#if (SADB_MAX > 25)
 #error "SADB extra message?"
 #endif
 };
@@ -191,7 +196,6 @@ static int addnewsp __P((caddr_t *));
 #endif
 #endif
 
-	
 int
 pfkey_process(msg)
 	struct sadb_msg *msg;
@@ -1001,6 +1005,19 @@ pk_recvgetspi(mhp)
 		return -1;
 	}
 
+    // check the underlying iph2->ph1
+    if (!iph2->ph1) {
+        if (!ike_session_update_ph2_ph1bind(iph2)) {
+            plog(LLV_ERROR, LOCATION, NULL,
+                 "can't proceed with getspi for  %s. no suitable ISAKMP-SA found \n",
+                 saddrwop2str(iph2->dst));
+            unbindph12(iph2);
+            remph2(iph2);
+            delph2(iph2);
+            return -1;
+        }
+    }
+
 	/* set SPI, and check to get all spi whether or not */
 	allspiok = 1;
 	notfound = 1;
@@ -1026,6 +1043,9 @@ pk_recvgetspi(mhp)
 		plog(LLV_ERROR, LOCATION, NULL,
 			"get spi for unknown address %s\n",
 			saddrwop2str(iph2->dst));
+        unbindph12(iph2);
+        remph2(iph2);
+        delph2(iph2);
 		return -1;
 	}
 
@@ -1129,8 +1149,10 @@ pk_sendupdate(iph2)
 			memset (&natt, 0, sizeof (natt));
 			natt.sport = extract_port (iph2->ph1->remote);
 			flags |= SADB_X_EXT_NATT;
-			if (iph2->ph1->natt_flags & NAT_DETECTED_ME)
-				flags |= SADB_X_EXT_NATT_KEEPALIVE;
+			if (iph2->ph1->natt_flags & NAT_DETECTED_ME) {
+				if (iph2->ph1->rmconf->natt_keepalive == TRUE)
+					flags |= SADB_X_EXT_NATT_KEEPALIVE;
+			}
 			else if (iph2->ph1->rmconf->natt_multiple_user == TRUE &&
 				mode == IPSEC_MODE_TRANSPORT &&
 				src->sa_family == AF_INET)
@@ -1370,6 +1392,20 @@ pk_recvupdate(mhp)
 	/* update status */
 	iph2->status = PHASE2ST_ESTABLISHED;
 
+	if (iph2->side == INITIATOR) {
+		IPSECSESSIONTRACEREVENT(iph2->parent_session,
+								IPSECSESSIONEVENTCODE_IKEV1_PH2_INIT_SUCC,
+								CONSTSTR("Initiator, Quick-Mode"),
+								CONSTSTR(NULL));
+	} else {
+		IPSECSESSIONTRACEREVENT(iph2->parent_session,
+								IPSECSESSIONEVENTCODE_IKEV1_PH2_RESP_SUCC,
+								CONSTSTR("Responder, Quick-Mode"),
+								CONSTSTR(NULL));
+	}
+
+	ike_session_ph2_established(iph2);
+
 #ifdef ENABLE_STATS
 	gettimeofday(&iph2->end, NULL);
 	syslog(LOG_NOTICE, "%s(%s): %8.6f",
@@ -1480,8 +1516,10 @@ pk_sendadd(iph2)
 			memset (&natt, 0, sizeof (natt));
 			natt.dport = extract_port (iph2->ph1->remote);
 			flags |= SADB_X_EXT_NATT;
-			if (iph2->ph1->natt_flags & NAT_DETECTED_ME)
-				flags |= SADB_X_EXT_NATT_KEEPALIVE;
+			if (iph2->ph1->natt_flags & NAT_DETECTED_ME) {
+				if (iph2->ph1->rmconf->natt_keepalive == TRUE)
+					flags |= SADB_X_EXT_NATT_KEEPALIVE;
+			}
 			else if (iph2->ph1->rmconf->natt_multiple_user == TRUE &&
 				mode == IPSEC_MODE_TRANSPORT &&
 				dst->sa_family == AF_INET)
@@ -1696,6 +1734,8 @@ pk_recvadd(mhp)
 		sadbsecas2str(iph2->src, iph2->dst,
 			msg->sadb_msg_satype, sa->sadb_sa_spi, sa_mode));
 			
+	ike_session_cleanup_other_established_ph2s(iph2->parent_session, iph2);
+	
 #ifdef ENABLE_VPNCONTROL_PORT
 		{
 			u_int32_t address;
@@ -1788,9 +1828,10 @@ pk_recvexpire(mhp)
 
 	iph2->status = PHASE2ST_EXPIRED;
 
-	/* INITIATOR, begin phase 2 exchange. */
+	/* INITIATOR, begin phase 2 exchange only if there's no other established ph2. */
 	/* allocate buffer for status management of pfkey message */
-	if (iph2->side == INITIATOR) {
+	if (iph2->side == INITIATOR &&
+		!ike_session_has_other_established_ph2(iph2->parent_session, iph2)) {
 
 		initph2(iph2);
 
@@ -1801,7 +1842,7 @@ pk_recvexpire(mhp)
 		if (isakmp_post_acquire(iph2) < 0) {
 			plog(LLV_ERROR, LOCATION, iph2->dst,
 				"failed to begin ipsec sa "
-				"re-negotication.\n");
+				"re-negotiation.\n");
 			unbindph12(iph2);
 			remph2(iph2);
 			delph2(iph2);
@@ -1912,8 +1953,8 @@ pk_recvacquire(mhp)
 	 *       should ignore such a acquire message because the phase 2
 	 *       is just negotiating.
 	 *    2. its state is equal to PHASE2ST_ESTABLISHED, then racoon
-	 *       has to prcesss such a acquire message because racoon may
-	 *       lost the expire message.
+	 *       has to process such a acquire message because racoon may
+	 *       have lost the expire message.
 	 */
 	iph2[0] = getph2byid(src, dst, xpl->sadb_x_policy_id);
 	if (iph2[0] != NULL) {
@@ -2025,6 +2066,15 @@ pk_recvacquire(mhp)
 		return -1;
 		/* XXX should use the algorithm list from register message */
 	}
+#ifdef __APPLE__
+		if (link_sainfo_to_ph2(iph2[n]->sainfo) != 0) {
+			plog(LLV_ERROR, LOCATION, NULL,
+				 "failed to link sainfo\n");
+			iph2[n]->sainfo = NULL;
+			delph2(iph2[n]);
+			return -1;
+		}
+#endif
     }
 
 	if (set_proposal_from_policy(iph2[n], sp_out, sp_in) < 0) {
@@ -2039,10 +2089,19 @@ pk_recvacquire(mhp)
 	/* XXX should be looped if there are multiple phase 2 handler. */
 	if (isakmp_post_acquire(iph2[n]) < 0) {
 		plog(LLV_ERROR, LOCATION, NULL,
-			"failed to begin ipsec sa negotication.\n");
+			"failed to begin ipsec sa negotiation.\n");
 		goto err;
 	}
+	
+#if !TARGET_OS_EMBEDDED
+	if ( lcconf->vt == NULL){
+		if (!(lcconf->vt = vproc_transaction_begin(NULL)))
+			plog(LLV_ERROR, LOCATION, NULL,
+			 	"vproc_transaction_begin returns NULL.\n");
+	}
+#endif				
 
+	
 	return 0;
 
 err:
@@ -2072,7 +2131,6 @@ pk_recvdelete(mhp)
 
 	/* sanity check */
 	if (mhp[0] == NULL
-	 || mhp[SADB_EXT_SA] == NULL
 	 || mhp[SADB_EXT_ADDRESS_SRC] == NULL
 	 || mhp[SADB_EXT_ADDRESS_DST] == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
@@ -2100,6 +2158,16 @@ pk_recvdelete(mhp)
 		return -1;
 	}
 
+    plog(LLV_DEBUG2, LOCATION, NULL, "SADB delete message: proto-id %d\n", proto_id);
+    plog(LLV_DEBUG2, LOCATION, NULL, "src: %s\n", saddr2str(src));
+    plog(LLV_DEBUG2, LOCATION, NULL, "dst: %s\n", saddr2str(dst));
+    
+    if (!sa) {
+        deleteallph2(src, dst, proto_id);
+        deleteallph1(src, dst);
+        return 0;
+    }
+
 	iph2 = getph2bysaidx(src, dst, proto_id, sa->sadb_sa_spi);
 	if (iph2 == NULL) {
 		/* ignore */
@@ -2119,6 +2187,7 @@ pk_recvdelete(mhp)
 	if (iph2->status == PHASE2ST_ESTABLISHED)
 		isakmp_info_send_d2(iph2);
 
+	ike_session_cleanup_ph1s_by_ph2(iph2);
 	unbindph12(iph2);
 	remph2(iph2);
 	delph2(iph2);
@@ -2141,7 +2210,8 @@ pk_recvflush(mhp)
 		return -1;
 	}
 
-	flushph2();
+	flushph2(false);
+	flushph1(false);
 
 	return 0;
 }
@@ -2543,6 +2613,8 @@ pk_recvspddelete(mhp)
 		return -1;
 	}
 
+    purgephXbyspid(xpl->sadb_x_policy_id, true);
+
 	remsp(sp);
 	delsp(sp);
 
@@ -2597,6 +2669,8 @@ pk_recvspdexpire(mhp)
 			spidx2str(&spidx));
 		return -1;
 	}
+
+    purgephXbyspid(xpl->sadb_x_policy_id, false);
 
 	remsp(sp);
 	delsp(sp);
@@ -2692,6 +2766,8 @@ pk_recvspdflush(mhp)
 		return -1;
 	}
 
+    flushph2(false);
+    flushph1(false);
 	flushsp();
 
 	return 0;
@@ -2730,6 +2806,145 @@ pk_sendeacquire(iph2)
 
 	racoon_free(newmsg);
 
+	return 0;
+}
+
+int
+pk_sendget_inbound_sastats(ike_session_t *session)
+{
+    u_int32_t max_stats;
+    u_int32_t seq;
+
+    if (!session) {
+        plog(LLV_DEBUG, LOCATION, NULL, "invalid args in %s \n", __FUNCTION__);
+        return -1;
+    }
+
+    session->traffic_monitor.num_in_curr_req = 0;
+    bzero(session->traffic_monitor.in_curr_req, sizeof(session->traffic_monitor.in_curr_req));
+    max_stats = (sizeof(session->traffic_monitor.in_curr_req) / sizeof(session->traffic_monitor.in_curr_req[0]));
+
+    // get list of SAs
+    if ((session->traffic_monitor.num_in_curr_req = ike_session_get_sas_for_stats(session,
+                                                                                  IPSEC_DIR_INBOUND,
+                                                                                  &seq,
+                                                                                  session->traffic_monitor.in_curr_req,
+                                                                                  max_stats))) {
+        u_int64_t session_ids[] = {(u_int64_t)session, 0};
+
+        plog(LLV_DEBUG, LOCATION, NULL, "about to call %s\n", __FUNCTION__);
+
+        if (pfkey_send_getsastats(lcconf->sock_pfkey,
+                                  seq,
+                                  session_ids,
+                                  1,
+                                  IPSEC_DIR_INBOUND,
+                                  session->traffic_monitor.in_curr_req,
+                                  session->traffic_monitor.num_in_curr_req) < 0) {
+            return -1;
+        }
+        plog(LLV_DEBUG, LOCATION, NULL, "%s successful\n", __FUNCTION__);
+
+        return session->traffic_monitor.num_in_curr_req;
+    }
+    return 0;
+}
+
+int
+pk_sendget_outbound_sastats(ike_session_t *session)
+{
+    u_int32_t max_stats;
+    u_int32_t seq;
+    
+    if (!session) {
+        plog(LLV_DEBUG, LOCATION, NULL, "invalid args in %s \n", __FUNCTION__);
+        return -1;
+    }
+    
+    session->traffic_monitor.num_out_curr_req = 0;
+    bzero(session->traffic_monitor.out_curr_req, sizeof(session->traffic_monitor.out_curr_req));
+    max_stats = (sizeof(session->traffic_monitor.out_curr_req) / sizeof(session->traffic_monitor.out_curr_req[0]));
+
+    // get list of SAs
+    if ((session->traffic_monitor.num_out_curr_req = ike_session_get_sas_for_stats(session,
+                                                                                   IPSEC_DIR_OUTBOUND,
+                                                                                   &seq,
+                                                                                   session->traffic_monitor.out_curr_req,
+                                                                                   max_stats))) {
+        u_int64_t session_ids[] = {(u_int64_t)session, 0};
+        
+        plog(LLV_DEBUG, LOCATION, NULL, "about to call %s\n", __FUNCTION__);
+        
+        if (pfkey_send_getsastats(lcconf->sock_pfkey,
+                                  seq,
+                                  session_ids,
+                                  1,
+                                  IPSEC_DIR_OUTBOUND,
+                                  session->traffic_monitor.out_curr_req,
+                                  session->traffic_monitor.num_out_curr_req) < 0) {
+            return -1;
+        }
+        plog(LLV_DEBUG, LOCATION, NULL, "%s successful\n", __FUNCTION__);
+        
+        return session->traffic_monitor.num_out_curr_req;
+    }
+    return 0;
+}
+
+/*
+ * receive GETSPDSTAT from kernel.
+ */
+static int
+pk_recvgetsastat(mhp) 
+caddr_t *mhp;
+{
+	struct sadb_msg        *msg;
+    struct sadb_session_id *session_id;
+    struct sadb_sastat     *stat_resp;
+	ike_session_t          *session;
+
+	/* validity check */
+	if (mhp[0] == NULL ||
+        mhp[SADB_EXT_SESSION_ID] == NULL ||
+        mhp[SADB_EXT_SASTAT] == NULL) {
+		plog(LLV_ERROR, LOCATION, NULL,
+             "inappropriate sadb getsastat response.\n");
+		return -1;
+	}
+	msg = (struct sadb_msg *)mhp[0];
+    session_id = (ike_session_t *)mhp[SADB_EXT_SESSION_ID];
+	stat_resp = (struct sadb_sastat *)mhp[SADB_EXT_SASTAT];
+
+	/* the message has to be processed or not ? */
+	if (msg->sadb_msg_pid != getpid()) {
+		plog(LLV_DEBUG, LOCATION, NULL,
+             "%s message is not interesting "
+             "because pid %d is not mine.\n",
+             s_pfkey_type(msg->sadb_msg_type),
+             msg->sadb_msg_pid);
+		return -1;
+	}
+    if (!session_id->sadb_session_id_v[0]) {
+		plog(LLV_DEBUG, LOCATION, NULL,
+             "%s message is bad "
+             "because session-id[0] is invalid.\n",
+             s_pfkey_type(msg->sadb_msg_type));
+        return -1;
+    }
+    session = (__typeof__(session))session_id->sadb_session_id_v[0];
+
+    if (!stat_resp->sadb_sastat_list_len) {
+		plog(LLV_DEBUG, LOCATION, NULL,
+             "%s message is bad "
+             "because it has no sastats.\n",
+             s_pfkey_type(msg->sadb_msg_type));
+        return -1;
+    }
+
+    ike_session_update_traffic_idle_status(session,
+                                           stat_resp->sadb_sastat_dir,
+                                           (struct sastat *)(stat_resp + 1),
+                                           stat_resp->sadb_sastat_list_len);
 	return 0;
 }
 
@@ -2793,8 +3008,8 @@ pk_checkalg(class, calg, keylen)
  */
 static struct sadb_msg *
 pk_recv(so, lenp)
-int so;
-int *lenp;
+	int so;
+	int *lenp;
 {
 	struct sadb_msg *newmsg;
 	int reallen = 0; 
@@ -2805,10 +3020,10 @@ int *lenp;
 	
 	if (reallen == 0)
 		return NULL;
-	
+
 	if ((newmsg = racoon_calloc(1, reallen)) == NULL)
 		return NULL;
-	
+
 	*lenp = recv(so, (caddr_t)newmsg, reallen, 0);
 	if (*lenp < 0) {
 		racoon_free(newmsg);
@@ -2817,11 +3032,9 @@ int *lenp;
 		racoon_free(newmsg);
 		return NULL;
 	}
-	
+
 	return newmsg;
 }
-
-
 
 /* see handler.h */
 u_int32_t

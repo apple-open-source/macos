@@ -1,5 +1,5 @@
-/* APPLE LOCAL file radar 4894756 */
-/* Check if bitfield ivars are correctly @encode'd when the NeXT runtime is used.  */
+/* Check if bitfield ivars are correctly @encode'd when
+   the NeXT runtime is used.  */
 /* Contributed by Ziemowit Laski <zlaski@apple.com>.  */
 /* { dg-options "-fnext-runtime -fsigned-char" } */
 /* { dg-do run { target *-*-darwin* } } */
@@ -45,11 +45,13 @@ extern int strcmp(const char *, const char *);
 int main(void) {
   const char *s1r = "{Base=#ib32b8b3b8sb16b8b8b2b8c}";
   const char *s1 = @encode(Base);
+/* APPLE LOCAL begin objc2 */
 #if __OBJC2__
   const char *s2r = "{Derived=#ib32b8b3b8sb16b8b8b2b8ccb6b0}";
 #else
   const char *s2r = "{Derived=#ib32b8b3b8sb16b8b8b2b8ccb6}";
 #endif
+/* APPLE LOCAL end objc2 */
   const char *s2 = @encode(Derived);
 
   CHECK_IF(!strcmp(s1r, s1));

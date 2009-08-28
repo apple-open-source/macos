@@ -1,3 +1,25 @@
+/*
+ * Copyright (c) 2008 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 #include <mach/std_types.defs>
 #include <mach/mach_types.defs>
 
@@ -24,7 +46,11 @@ type kext_result_t = int;
 // tracks __darwin_uuid_t in sys/_types.h (or CFUUIDBytes in CFUUID.h)
 type uuid_t = array [16] of uint8_t;
 // length must match MNAMELEN (sys/mount.h)
+#if __DARWIN_64_BIT_INO_T
+type mountpoint_t = array [MAXPATHLEN] of char;
+#else
 type mountpoint_t = array [90] of char;
+#endif
 // length limit chosen arbitrarily (matches kextmanager_types.h)
 type property_key_t = array [128] of char;
 // length must match KMOD_MAX_NAME from <mach/kmod.h>
@@ -35,6 +61,7 @@ type posix_path_t = array [1024] of char;
 /*
  * serialized XML data (server->client)
  */
+// nowadays this is binary plist data but we keep the name for now
 type xmlDataOut = ^ array [] of MACH_MSG_TYPE_BYTE
         ctype : xmlDataOut_t;
 type xmlDataIn = ^ array [] of MACH_MSG_TYPE_BYTE
@@ -51,7 +78,7 @@ routine kextmanager_path_for_bundle_id(
     out path         : posix_path_t;
     out kext_result  : kext_result_t);
 
-// for loginwindow to find "OSBundleHelper[s]"?
+// for loginwindow to find "OSBundleHelper"
 routine kextmanager_create_property_value_array(
     server           : mach_port_t;
     prop_key         : property_key_t;
@@ -59,23 +86,13 @@ routine kextmanager_create_property_value_array(
 
 // login / logout tracking
 #ifndef NO_SECURITY_FRAMEWORK
-routine kextmanager_user_did_log_in(
-    server           : mach_port_t;
-    euid             : uint32_t;
-    authref          : AuthRefIn);
+skip;  /* was kextmanager_user_did_log_in */
 #endif /* NO_SECURITY_FRAMEWORK */
 
-routine kextmanager_user_will_log_out(
-    server           : mach_port_t;
-    euid             : uint32_t);
+skip;  /* was kextmanager_user_will_log_out */
+skip;  /* was kextmanager_get_logged_in_userid */
 
-routine kextmanager_get_logged_in_userid(
-    server           : mach_port_t;
-    out euid         : uint32_t);
-
-routine kextmanager_record_nonsecure_kextload(
-    server           : mach_port_t;
-    load_data        : xmlDataIn);
+skip;  /* was kextmanager_record_nonsecure_kextload */
 
 // reboot blocking (are caches up to date?)
 routine kextmanager_lock_reboot(
@@ -112,7 +129,13 @@ routine kextmanager_unlock_kextload(
     server           : mach_port_t;
     clientPort       : mach_port_make_send_t);
 
-routine kextmanager_record_path_for_bundle_id(
-    server           : mach_port_t;
-    bundle_id        : kext_bundle_id_t;
-    path             : posix_path_t);
+/* This spot used to be kextmanager_record_path_for_bundle_id(),
+ * but the kernel records the paths of all loaded kexts now so
+ * it's no longer necessary.
+ */
+skip;
+
+routine kextmanager_load_kext(
+    server                        : mach_port_t;
+    ServerAuditToken remote_creds : audit_token_t;
+    load_data                     : xmlDataIn);

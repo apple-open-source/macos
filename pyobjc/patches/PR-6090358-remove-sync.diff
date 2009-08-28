@@ -1,0 +1,102 @@
+--- pyobjc-core/Modules/objc/module.m.orig	2009-06-23 15:35:44.000000000 -0700
++++ pyobjc-core/Modules/objc/module.m	2009-06-24 00:26:52.000000000 -0700
+@@ -1392,84 +1392,6 @@
+ 	return NULL;
+ }
+ 
+-static PyObject*
+-PyObjC_objc_sync_notify(PyObject* self __attribute__((__unused__)), PyObject* args)
+-{
+-	NSObject* object;
+-	int rv;
+-
+-	if (!PyArg_ParseTuple(args, "O&", 
+-			PyObjCObject_Convert, &object)) {
+-		return NULL;
+-	}
+-
+-	Py_BEGIN_ALLOW_THREADS
+-		rv = objc_sync_notify(object);
+-
+-	Py_END_ALLOW_THREADS
+-
+-	if (rv == OBJC_SYNC_SUCCESS) {
+-		Py_INCREF(Py_None);
+-		return Py_None;
+-	}
+-
+-	PyErr_Format(PyObjCExc_LockError, "objc_sync_notify failed: %d", rv);
+-	return NULL;
+-}
+-
+-static PyObject*
+-PyObjC_objc_sync_notifyAll(PyObject* self __attribute__((__unused__)), PyObject* args)
+-{
+-	NSObject* object;
+-	int rv;
+-
+-	if (!PyArg_ParseTuple(args, "O&", 
+-			PyObjCObject_Convert, &object)) {
+-		return NULL;
+-	}
+-
+-	Py_BEGIN_ALLOW_THREADS
+-		rv = objc_sync_notifyAll(object);
+-		
+-	Py_END_ALLOW_THREADS
+-
+-	if (rv == OBJC_SYNC_SUCCESS) {
+-		Py_INCREF(Py_None);
+-		return Py_None;
+-	}
+-
+-	PyErr_Format(PyObjCExc_LockError, "objc_sync_notifyAll failed: %d", rv);
+-	return NULL;
+-}
+-
+-
+-static PyObject*
+-PyObjC_objc_sync_wait(PyObject* self __attribute__((__unused__)), PyObject* args)
+-{
+-	NSObject* object;
+-	long long timeout;
+-	int rv;
+-
+-	if (!PyArg_ParseTuple(args, "O&L", 
+-			PyObjCObject_Convert, &object, &timeout)) {
+-		return NULL;
+-	}
+-
+-	Py_BEGIN_ALLOW_THREADS
+-		rv = objc_sync_wait(object, timeout);
+-	
+-	Py_END_ALLOW_THREADS
+-
+-	if (rv == OBJC_SYNC_SUCCESS) {
+-		Py_INCREF(Py_None);
+-		return Py_None;
+-	}
+-
+-	PyErr_Format(PyObjCExc_LockError, "objc_sync_wait failed: %d", rv);
+-	return NULL;
+-}
+-
+-
+ PyDoc_STRVAR(parseBridgeSupport_doc,
+  "parseBridgeSupport(xmldata, globals, framework [, dylib_path] [, inlineTab]) -> None\n"
+  "\n"
+@@ -1710,14 +1632,6 @@
+ 		METH_VARARGS, "acquire mutex for an object" },
+ 	{ "_objc_sync_exit", (PyCFunction)PyObjC_objc_sync_exit,
+ 		METH_VARARGS, "release mutex for an object" },
+-	{ "_objc_sync_wait", (PyCFunction)PyObjC_objc_sync_wait,
+-		METH_VARARGS, "wait for mutex for an object" },
+-	{ "_objc_sync_notify", (PyCFunction)PyObjC_objc_sync_notify,
+-		METH_VARARGS, 
+-		"notify a thread waiting for mutex for an object" },
+-	{ "_objc_sync_notifyAll", (PyCFunction)PyObjC_objc_sync_notifyAll,
+-		METH_VARARGS, 
+-		"notify a all threads waiting for mutex for an object" },
+ 	{ "_block_call", (PyCFunction)PyObjCBlock_Call,
+ 		METH_VARARGS,
+ 		"_block_call(block, signature, args, kwds) -> retval" },

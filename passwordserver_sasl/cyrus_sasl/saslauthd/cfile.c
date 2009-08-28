@@ -100,7 +100,7 @@ cfile cfile_read(const char *filename, char *complaint, int complaint_len)
       return 0;
     }
     
-    while (fgets(buf, sizeof(buf), infile)) {
+    while (fgets(buf, (int)sizeof(buf), infile)) {
 	lineno++;
 
 	if (buf[strlen(buf)-1] == '\n') buf[strlen(buf)-1] = '\0';

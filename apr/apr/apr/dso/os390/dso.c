@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -63,7 +63,7 @@ APR_DECLARE(apr_status_t) apr_dso_load(apr_dso_handle_t **res_handle,
     dllhandle *handle;
     int rc;
 
-    *res_handle = apr_pcalloc(ctx, sizeof(*res_handle));
+    *res_handle = apr_pcalloc(ctx, sizeof(**res_handle));
     (*res_handle)->pool = ctx;
     if ((handle = dllload(path)) != NULL) {
         (*res_handle)->handle  = handle;
@@ -72,7 +72,7 @@ APR_DECLARE(apr_status_t) apr_dso_load(apr_dso_handle_t **res_handle,
     }
 
     (*res_handle)->failing_errno = errno;
-    return errno;
+    return APR_EDSOOPEN;
 }
 
 APR_DECLARE(apr_status_t) apr_dso_unload(apr_dso_handle_t *handle)
@@ -96,7 +96,7 @@ APR_DECLARE(apr_status_t) apr_dso_sym(apr_dso_handle_sym_t *ressym,
         return APR_SUCCESS;
     }
     handle->failing_errno = errno;
-    return errno;
+    return APR_ESYMNOTFOUND;
 }
 
 APR_DECLARE(const char *) apr_dso_error(apr_dso_handle_t *handle, char *buffer, 

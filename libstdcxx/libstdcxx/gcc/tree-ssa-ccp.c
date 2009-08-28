@@ -1,5 +1,5 @@
 /* Conditional constant propagation pass for the GNU compiler.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Adapted from original RTL SSA-CCP by Daniel Berlin <dberlin@dberlin.org>
    Adapted to GIMPLE trees by Diego Novillo <dnovillo@redhat.com>
@@ -18,10 +18,164 @@ for more details.
    
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
-/* Conditional constant propagation.
+/* Conditional constant propagation (CCP) is based on the SSA
+   propagation engine (tree-ssa-propagate.c).  Constant assignments of
+   the form VAR = CST are propagated from the assignments into uses of
+   VAR, which in turn may generate new constants.  The simulation uses
+   a four level lattice to keep track of constant values associated
+   with SSA names.  Given an SSA name V_i, it may take one of the
+   following values:
+
+   	UNINITIALIZED	->  This is the default starting value.  V_i
+			    has not been processed yet.
+
+	UNDEFINED	->  V_i is a local variable whose definition
+			    has not been processed yet.  Therefore we
+			    don't yet know if its value is a constant
+			    or not.
+
+	CONSTANT	->  V_i has been found to hold a constant
+			    value C.
+
+	VARYING		->  V_i cannot take a constant value, or if it
+			    does, it is not possible to determine it
+			    at compile time.
+
+   The core of SSA-CCP is in ccp_visit_stmt and ccp_visit_phi_node:
+
+   1- In ccp_visit_stmt, we are interested in assignments whose RHS
+      evaluates into a constant and conditional jumps whose predicate
+      evaluates into a boolean true or false.  When an assignment of
+      the form V_i = CONST is found, V_i's lattice value is set to
+      CONSTANT and CONST is associated with it.  This causes the
+      propagation engine to add all the SSA edges coming out the
+      assignment into the worklists, so that statements that use V_i
+      can be visited.
+
+      If the statement is a conditional with a constant predicate, we
+      mark the outgoing edges as executable or not executable
+      depending on the predicate's value.  This is then used when
+      visiting PHI nodes to know when a PHI argument can be ignored.
+      
+
+   2- In ccp_visit_phi_node, if all the PHI arguments evaluate to the
+      same constant C, then the LHS of the PHI is set to C.  This
+      evaluation is known as the "meet operation".  Since one of the
+      goals of this evaluation is to optimistically return constant
+      values as often as possible, it uses two main short cuts:
+
+      - If an argument is flowing in through a non-executable edge, it
+	is ignored.  This is useful in cases like this:
+
+			if (PRED)
+			  a_9 = 3;
+			else
+			  a_10 = 100;
+			a_11 = PHI (a_9, a_10)
+
+	If PRED is known to always evaluate to false, then we can
+	assume that a_11 will always take its value from a_10, meaning
+	that instead of consider it VARYING (a_9 and a_10 have
+	different values), we can consider it CONSTANT 100.
+
+      - If an argument has an UNDEFINED value, then it does not affect
+	the outcome of the meet operation.  If a variable V_i has an
+	UNDEFINED value, it means that either its defining statement
+	hasn't been visited yet or V_i has no defining statement, in
+	which case the original symbol 'V' is being used
+	uninitialized.  Since 'V' is a local variable, the compiler
+	may assume any initial value for it.
+
+
+   After propagation, every variable V_i that ends up with a lattice
+   value of CONSTANT will have the associated constant value in the
+   array CONST_VAL[i].VALUE.  That is fed into substitute_and_fold for
+   final substitution and folding.
+
+
+   Constant propagation in stores and loads (STORE-CCP)
+   ----------------------------------------------------
+
+   While CCP has all the logic to propagate constants in GIMPLE
+   registers, it is missing the ability to associate constants with
+   stores and loads (i.e., pointer dereferences, structures and
+   global/aliased variables).  We don't keep loads and stores in
+   SSA, but we do build a factored use-def web for them (in the
+   virtual operands).
+
+   For instance, consider the following code fragment:
+
+	  struct A a;
+	  const int B = 42;
+
+	  void foo (int i)
+	  {
+	    if (i > 10)
+	      a.a = 42;
+	    else
+	      {
+		a.b = 21;
+		a.a = a.b + 21;
+	      }
+
+	    if (a.a != B)
+	      never_executed ();
+	  }
+
+   We should be able to deduce that the predicate 'a.a != B' is always
+   false.  To achieve this, we associate constant values to the SSA
+   names in the V_MAY_DEF and V_MUST_DEF operands for each store.
+   Additionally, since we also glob partial loads/stores with the base
+   symbol, we also keep track of the memory reference where the
+   constant value was stored (in the MEM_REF field of PROP_VALUE_T).
+   For instance,
+
+        # a_5 = V_MAY_DEF <a_4>
+        a.a = 2;
+
+        # VUSE <a_5>
+        x_3 = a.b;
+
+   In the example above, CCP will associate value '2' with 'a_5', but
+   it would be wrong to replace the load from 'a.b' with '2', because
+   '2' had been stored into a.a.
+
+   To support STORE-CCP, it is necessary to add a new value to the
+   constant propagation lattice.  When evaluating a load for a memory
+   reference we can no longer assume a value of UNDEFINED if we
+   haven't seen a preceding store to the same memory location.
+   Consider, for instance global variables:
+
+   	int A;
+
+   	foo (int i)
+  	{
+	  if (i_3 > 10)
+	    A_4 = 3;
+          # A_5 = PHI (A_4, A_2);
+
+	  # VUSE <A_5>
+	  A.0_6 = A;
+
+	  return A.0_6;
+	}
+
+   The value of A_2 cannot be assumed to be UNDEFINED, as it may have
+   been defined outside of foo.  If we were to assume it UNDEFINED, we
+   would erroneously optimize the above into 'return 3;'.  Therefore,
+   when doing STORE-CCP, we introduce a fifth lattice value
+   (UNKNOWN_VAL), which overrides any other value when computing the
+   meet operation in PHI nodes.
+
+   Though STORE-CCP is not too expensive, it does have to do more work
+   than regular CCP, so it is only enabled at -O2.  Both regular CCP
+   and STORE-CCP use the exact same algorithm.  The only distinction
+   is that when doing STORE-CCP, the boolean variable DO_STORE_CCP is
+   set to true.  This affects the evaluation of statements and PHI
+   nodes.
 
    References:
 
@@ -45,7 +199,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "ggc.h"
 #include "basic-block.h"
 #include "output.h"
-#include "errors.h"
 #include "expr.h"
 #include "function.h"
 #include "diagnostic.h"
@@ -55,6 +208,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-pass.h"
 #include "tree-ssa-propagate.h"
 #include "langhooks.h"
+#include "target.h"
+#include "toplev.h"
 
 
 /* Possible lattice values.  */
@@ -65,27 +220,29 @@ typedef enum
   UNKNOWN_VAL,
   CONSTANT,
   VARYING
-} latticevalue;
+} ccp_lattice_t;
 
-/* Main structure for CCP.  Contains the lattice value and, if it's a
-    constant, the constant value.  */
-typedef struct
-{
-  latticevalue lattice_val;
-  tree const_val;
-} value;
+/* Array of propagated constant values.  After propagation,
+   CONST_VAL[I].VALUE holds the constant value for SSA_NAME(I).  If
+   the constant is held in an SSA name representing a memory store
+   (i.e., a V_MAY_DEF or V_MUST_DEF), CONST_VAL[I].MEM_REF will
+   contain the actual memory reference used to store (i.e., the LHS of
+   the assignment doing the store).  */
+static prop_value_t *const_val;
 
-/* This is used to track the current value of each variable.  */
-static value *value_vector;
+/* True if we are also propagating constants in stores and loads.  */
+static bool do_store_ccp;
 
-
-/* Dump lattice value VAL to file OUTF prefixed by PREFIX.  */
+/* Dump constant propagation value VAL to file OUTF prefixed by PREFIX.  */
 
 static void
-dump_lattice_value (FILE *outf, const char *prefix, value val)
+dump_lattice_value (FILE *outf, const char *prefix, prop_value_t val)
 {
   switch (val.lattice_val)
     {
+    case UNINITIALIZED:
+      fprintf (outf, "%sUNINITIALIZED", prefix);
+      break;
     case UNDEFINED:
       fprintf (outf, "%sUNDEFINED", prefix);
       break;
@@ -97,7 +254,7 @@ dump_lattice_value (FILE *outf, const char *prefix, value val)
       break;
     case CONSTANT:
       fprintf (outf, "%sCONSTANT ", prefix);
-      print_generic_expr (outf, val.const_val, dump_flags);
+      print_generic_expr (outf, val.value, dump_flags);
       break;
     default:
       gcc_unreachable ();
@@ -105,169 +262,200 @@ dump_lattice_value (FILE *outf, const char *prefix, value val)
 }
 
 
-/* Return a default value for variable VAR using the following rules:
+/* Print lattice value VAL to stderr.  */
 
-   1- Function arguments are considered VARYING.
-   
-   2- Global and static variables that are declared constant are
+void debug_lattice_value (prop_value_t val);
+
+void
+debug_lattice_value (prop_value_t val)
+{
+  dump_lattice_value (stderr, "", val);
+  fprintf (stderr, "\n");
+}
+
+
+/* The regular is_gimple_min_invariant does a shallow test of the object.
+   It assumes that full gimplification has happened, or will happen on the
+   object.  For a value coming from DECL_INITIAL, this is not true, so we
+   have to be more strict ourselves.  */
+
+static bool
+ccp_decl_initial_min_invariant (tree t)
+{
+  if (!is_gimple_min_invariant (t))
+    return false;
+  if (TREE_CODE (t) == ADDR_EXPR)
+    {
+      /* Inline and unroll is_gimple_addressable.  */
+      while (1)
+	{
+	  t = TREE_OPERAND (t, 0);
+	  if (is_gimple_id (t))
+	    return true;
+	  if (!handled_component_p (t))
+	    return false;
+	}
+    }
+  return true;
+}
+
+
+/* Compute a default value for variable VAR and store it in the
+   CONST_VAL array.  The following rules are used to get default
+   values:
+
+   1- Global and static variables that are declared constant are
       considered CONSTANT.
 
-   3- Any other virtually defined variable is considered UNKNOWN_VAL.
-
-   4- Any other value is considered UNDEFINED.  This is useful when
+   2- Any other value is considered UNDEFINED.  This is useful when
       considering PHI nodes.  PHI arguments that are undefined do not
       change the constant value of the PHI node, which allows for more
-      constants to be propagated.  */
+      constants to be propagated.
 
-static value
+   3- If SSA_NAME_VALUE is set and it is a constant, its value is
+      used.
+
+   4- Variables defined by statements other than assignments and PHI
+      nodes are considered VARYING.
+
+   5- Variables that are not GIMPLE registers are considered
+      UNKNOWN_VAL, which is really a stronger version of UNDEFINED.
+      It's used to avoid the short circuit evaluation implied by
+      UNDEFINED in ccp_lattice_meet.  */
+
+static prop_value_t
 get_default_value (tree var)
 {
-  value val;
-  tree sym;
+  tree sym = SSA_NAME_VAR (var);
+  prop_value_t val = { UNINITIALIZED, NULL_TREE, NULL_TREE };
 
-  if (TREE_CODE (var) == SSA_NAME)
-    sym = SSA_NAME_VAR (var);
-  else
+  if (!do_store_ccp && !is_gimple_reg (var))
     {
-      gcc_assert (DECL_P (var));
-      sym = var;
-    }
-
-  val.lattice_val = UNDEFINED;
-  val.const_val = NULL_TREE;
-
-  if (TREE_CODE (var) == SSA_NAME
-      && SSA_NAME_VALUE (var)
-      && is_gimple_min_invariant (SSA_NAME_VALUE (var)))
-    {
-      val.lattice_val = CONSTANT;
-      val.const_val = SSA_NAME_VALUE (var);
-    }
-  else if (TREE_CODE (sym) == PARM_DECL || TREE_THIS_VOLATILE (sym))
-    {
-      /* Function arguments and volatile variables are considered VARYING.  */
+      /* Short circuit for regular CCP.  We are not interested in any
+	 non-register when DO_STORE_CCP is false.  */
       val.lattice_val = VARYING;
     }
-  else if (TREE_STATIC (sym))
+  else if (SSA_NAME_VALUE (var)
+	   && is_gimple_min_invariant (SSA_NAME_VALUE (var)))
     {
-      /* Globals and static variables are considered UNKNOWN_VAL,
-         unless they are declared 'const'.  */
-      if (TREE_READONLY (sym)
-	  && DECL_INITIAL (sym)
-	  && is_gimple_min_invariant (DECL_INITIAL (sym)))
-	{
-	  val.lattice_val = CONSTANT;
-	  val.const_val = DECL_INITIAL (sym);
-	}
-      else
-        {
-          val.const_val = NULL_TREE;
-	  val.lattice_val = UNKNOWN_VAL;
-	}
+      val.lattice_val = CONSTANT;
+      val.value = SSA_NAME_VALUE (var);
     }
-  else if (!is_gimple_reg (sym))
+  else if (TREE_STATIC (sym)
+	   && TREE_READONLY (sym)
+	   && !MTAG_P (sym)
+	   && DECL_INITIAL (sym)
+	   && ccp_decl_initial_min_invariant (DECL_INITIAL (sym)))
     {
-      val.const_val = NULL_TREE;
-      val.lattice_val = UNKNOWN_VAL;
+      /* Globals and static variables declared 'const' take their
+	 initial value.  */
+      val.lattice_val = CONSTANT;
+      val.value = DECL_INITIAL (sym);
+      val.mem_ref = sym;
     }
   else
     {
-      enum tree_code code;
       tree stmt = SSA_NAME_DEF_STMT (var);
 
-      if (!IS_EMPTY_STMT (stmt))
-        {
-	  code = TREE_CODE (stmt);
-	  if (code != MODIFY_EXPR && code != PHI_NODE)
+      if (IS_EMPTY_STMT (stmt))
+	{
+	  /* Variables defined by an empty statement are those used
+	     before being initialized.  If VAR is a local variable, we
+	     can assume initially that it is UNDEFINED.  If we are
+	     doing STORE-CCP, function arguments and non-register
+	     variables are initially UNKNOWN_VAL, because we cannot
+	     discard the value incoming from outside of this function
+	     (see ccp_lattice_meet for details).  */
+	  if (is_gimple_reg (sym) && TREE_CODE (sym) != PARM_DECL)
+	    val.lattice_val = UNDEFINED;
+	  else if (do_store_ccp)
+	    val.lattice_val = UNKNOWN_VAL;
+	  else
 	    val.lattice_val = VARYING;
+	}
+      else if (TREE_CODE (stmt) == MODIFY_EXPR
+	       || TREE_CODE (stmt) == PHI_NODE)
+	{
+	  /* Any other variable defined by an assignment or a PHI node
+	     is considered UNDEFINED (or UNKNOWN_VAL if VAR is not a
+	     GIMPLE register).  */
+	  val.lattice_val = is_gimple_reg (sym) ? UNDEFINED : UNKNOWN_VAL;
+	}
+      else
+	{
+	  /* Otherwise, VAR will never take on a constant value.  */
+	  val.lattice_val = VARYING;
 	}
     }
 
   return val;
 }
 
-/* Get the constant value associated with variable VAR.  */
 
-static value *
-get_value (tree var)
+/* Get the constant value associated with variable VAR.  If
+   MAY_USE_DEFAULT_P is true, call get_default_value on variables that
+   have the lattice value UNINITIALIZED.  */
+
+static prop_value_t *
+get_value (tree var, bool may_use_default_p)
 {
-  value *val;
-
-  gcc_assert (TREE_CODE (var) == SSA_NAME);
-
-  val = &value_vector[SSA_NAME_VERSION (var)];
-  if (val->lattice_val == UNINITIALIZED)
+  prop_value_t *val = &const_val[SSA_NAME_VERSION (var)];
+  if (may_use_default_p && val->lattice_val == UNINITIALIZED)
     *val = get_default_value (var);
 
   return val;
 }
 
 
-/* Set the lattice value for variable VAR to VAL.  Return true if VAL
-   is different from VAR's previous value.  */
+/* Set the value for variable VAR to NEW_VAL.  Return true if the new
+   value is different from VAR's previous value.  */
 
 static bool
-set_lattice_value (tree var, value val)
+set_lattice_value (tree var, prop_value_t new_val)
 {
-  value *old = get_value (var);
+  prop_value_t *old_val = get_value (var, false);
 
-  if (val.lattice_val == UNDEFINED)
-    {
-      /* CONSTANT->UNDEFINED is never a valid state transition.  */
-      gcc_assert (old->lattice_val != CONSTANT);
-	
-      /* UNKNOWN_VAL->UNDEFINED is never a valid state transition.  */
-      gcc_assert (old->lattice_val != UNKNOWN_VAL);
+  /* Lattice transitions must always be monotonically increasing in
+     value.  We allow two exceptions:
+     
+     1- If *OLD_VAL and NEW_VAL are the same, return false to
+	inform the caller that this was a non-transition.
 
-      /* VARYING->UNDEFINED is generally not a valid state transition,
-	 except for values which are initialized to VARYING.  */
-      gcc_assert (old->lattice_val != VARYING
-		  || get_default_value (var).lattice_val == VARYING);
-    }
-  else if (val.lattice_val == CONSTANT)
-    /* VARYING -> CONSTANT is an invalid state transition, except
-	for objects which start off in a VARYING state.  */
-    gcc_assert (old->lattice_val != VARYING
-		|| get_default_value (var).lattice_val == VARYING);
+     2- If we are doing store-ccp (i.e., DOING_STORE_CCP is true),
+	allow CONSTANT->UNKNOWN_VAL.  The UNKNOWN_VAL state is a
+	special type of UNDEFINED state which prevents the short
+	circuit evaluation of PHI arguments (see ccp_visit_phi_node
+	and ccp_lattice_meet).  */
+  gcc_assert (old_val->lattice_val <= new_val.lattice_val
+              || (old_val->lattice_val == new_val.lattice_val
+		  && old_val->value == new_val.value
+		  && old_val->mem_ref == new_val.mem_ref)
+	      || (do_store_ccp
+		  && old_val->lattice_val == CONSTANT
+		  && new_val.lattice_val == UNKNOWN_VAL));
 
-  /* If the constant for VAR has changed, then this VAR is really varying.  */
-  if (old->lattice_val == CONSTANT
-      && val.lattice_val == CONSTANT
-      && !simple_cst_equal (old->const_val, val.const_val))
-    {
-      val.lattice_val = VARYING;
-      val.const_val = NULL_TREE;
-    }
-
-  if (old->lattice_val != val.lattice_val)
+  if (old_val->lattice_val != new_val.lattice_val)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
-	  dump_lattice_value (dump_file, "Lattice value changed to ", val);
-	  fprintf (dump_file, ".  Adding definition to SSA edges.\n");
+	  dump_lattice_value (dump_file, "Lattice value changed to ", new_val);
+	  fprintf (dump_file, ".  %sdding SSA edges to worklist.\n",
+	           new_val.lattice_val != UNDEFINED ? "A" : "Not a");
 	}
 
-      *old = val;
-      return true;
+      *old_val = new_val;
+
+      /* Transitions UNINITIALIZED -> UNDEFINED are never interesting
+	 for propagation purposes.  In these cases return false to
+	 avoid doing useless work.  */
+      return (new_val.lattice_val != UNDEFINED);
     }
 
   return false;
 }
 
 
-/* Set the lattice value for the variable VAR to VARYING.  */
-
-static void
-def_to_varying (tree var)
-{
-  value val;
-  val.lattice_val = VARYING;
-  val.const_val = NULL_TREE;
-  set_lattice_value (var, val);
-}
-
-
-/* Return the likely latticevalue for STMT.
+/* Return the likely CCP lattice value for STMT.
 
    If STMT has no operands, then return CONSTANT.
 
@@ -277,67 +465,68 @@ def_to_varying (tree var)
 
    Else return VARYING.  */
 
-static latticevalue
+static ccp_lattice_t
 likely_value (tree stmt)
 {
-  vuse_optype vuses;
-  int found_constant = 0;
+  bool found_constant;
   stmt_ann_t ann;
   tree use;
   ssa_op_iter iter;
 
-  /* If the statement makes aliased loads or has volatile operands, it
-     won't fold to a constant value.  */
   ann = stmt_ann (stmt);
-  if (ann->makes_aliased_loads || ann->has_volatile_ops)
+
+  /* If the statement has volatile operands, it won't fold to a
+     constant value.  */
+  if (ann->has_volatile_ops)
     return VARYING;
 
-  /* A CALL_EXPR is assumed to be varying.  This may be overly conservative,
-     in the presence of const and pure calls.  */
+  /* If we are not doing store-ccp, statements with loads
+     and/or stores will never fold into a constant.  */
+  if (!do_store_ccp
+      && !ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS))
+    return VARYING;
+
+
+  /* A CALL_EXPR is assumed to be varying.  NOTE: This may be overly
+     conservative, in the presence of const and pure calls.  */
   if (get_call_expr_in (stmt) != NULL_TREE)
     return VARYING;
 
-  get_stmt_operands (stmt);
+  /* Anything other than assignments and conditional jumps are not
+     interesting for CCP.  */
+  if (TREE_CODE (stmt) != MODIFY_EXPR
+      && TREE_CODE (stmt) != COND_EXPR
+      && TREE_CODE (stmt) != SWITCH_EXPR)
+    return VARYING;
 
-  FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, SSA_OP_USE)
+  if (is_gimple_min_invariant (get_rhs (stmt)))
+    return CONSTANT;
+
+  found_constant = false;
+  FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, SSA_OP_USE|SSA_OP_VUSE)
     {
-      value *val = get_value (use);
+      prop_value_t *val = get_value (use, true);
 
-      if (val->lattice_val == UNDEFINED)
-	return UNDEFINED;
+      if (val->lattice_val == VARYING)
+	return VARYING;
 
-      if (val->lattice_val == CONSTANT)
-	found_constant = 1;
-    }
-    
-  vuses = VUSE_OPS (ann);
-  
-  if (NUM_VUSES (vuses))
-    {
-      tree vuse = VUSE_OP (vuses, 0);
-      value *val = get_value (vuse);
-      
       if (val->lattice_val == UNKNOWN_VAL)
-        return UNKNOWN_VAL;
-	
-      /* There should be no VUSE operands that are UNDEFINED.  */
-      gcc_assert (val->lattice_val != UNDEFINED);
-	
+	{
+	  /* UNKNOWN_VAL is invalid when not doing STORE-CCP.  */
+	  gcc_assert (do_store_ccp);
+	  return UNKNOWN_VAL;
+	}
+
       if (val->lattice_val == CONSTANT)
-	found_constant = 1;
+	found_constant = true;
     }
 
-  return ((found_constant || (!USE_OPS (ann) && !vuses)) ? CONSTANT : VARYING);
-}
+  if (found_constant
+      || ZERO_SSA_OPERANDS (stmt, SSA_OP_USE)
+      || ZERO_SSA_OPERANDS (stmt, SSA_OP_VUSE))
+    return CONSTANT;
 
-
-/* Function indicating whether we ought to include information for VAR
-   when calculating immediate uses.  */
-
-static bool
-need_imm_uses_for (tree var)
-{
-  return get_value (var)->lattice_val != VARYING;
+  return UNDEFINED;
 }
 
 
@@ -347,52 +536,38 @@ static void
 ccp_initialize (void)
 {
   basic_block bb;
-  sbitmap is_may_def;
 
-  value_vector = (value *) xmalloc (num_ssa_names * sizeof (value));
-  memset (value_vector, 0, num_ssa_names * sizeof (value));
-
-  /* Set of SSA_NAMEs that are defined by a V_MAY_DEF.  */
-  is_may_def = sbitmap_alloc (num_ssa_names);
-  sbitmap_zero (is_may_def);
+  const_val = XNEWVEC (prop_value_t, num_ssa_names);
+  memset (const_val, 0, num_ssa_names * sizeof (*const_val));
 
   /* Initialize simulation flags for PHI nodes and statements.  */
   FOR_EACH_BB (bb)
     {
       block_stmt_iterator i;
 
-      /* Mark all V_MAY_DEF operands VARYING.  */
       for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
         {
 	  bool is_varying = false;
 	  tree stmt = bsi_stmt (i);
-	  ssa_op_iter iter;
-	  tree def;
 
-	  get_stmt_operands (stmt);
+	  if (likely_value (stmt) == VARYING)
 
-	  /* Get the default value for each DEF and V_MUST_DEF.  */
-	  FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, 
-				     (SSA_OP_DEF | SSA_OP_VMUSTDEF))
 	    {
-	      if (get_value (def)->lattice_val == VARYING)
+	      tree def;
+	      ssa_op_iter iter;
+
+	      /* If the statement will not produce a constant, mark
+		 all its outputs VARYING.  */
+	      FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_ALL_DEFS)
+		get_value (def, false)->lattice_val = VARYING;
+
+	      /* Never mark conditional jumps with DONT_SIMULATE_AGAIN,
+		 otherwise the propagator will never add the outgoing
+		 control edges.  */
+	      if (TREE_CODE (stmt) != COND_EXPR
+		  && TREE_CODE (stmt) != SWITCH_EXPR)
 		is_varying = true;
 	    }
-
-	  /* Mark all V_MAY_DEF operands VARYING.  */
-	  FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_VMAYDEF)
-	    {
-	      get_value (def)->lattice_val = VARYING;
-	      SET_BIT (is_may_def, SSA_NAME_VERSION (def));
-	    }
-
-	  /* Statements other than MODIFY_EXPR, COND_EXPR and
-	     SWITCH_EXPR are not interesting for constant propagation.
-	     Mark them VARYING.  */
-	  if (TREE_CODE (stmt) != MODIFY_EXPR
-	      && TREE_CODE (stmt) != COND_EXPR
-	      && TREE_CODE (stmt) != SWITCH_EXPR)
-	    is_varying = true;
 
 	  DONT_SIMULATE_AGAIN (stmt) = is_varying;
 	}
@@ -401,304 +576,149 @@ ccp_initialize (void)
   /* Now process PHI nodes.  */
   FOR_EACH_BB (bb)
     {
-      tree phi, var;
-      int x;
+      tree phi;
 
       for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	{
-	  value *val = get_value (PHI_RESULT (phi));
+	  int i;
+	  tree arg;
+	  prop_value_t *val = get_value (PHI_RESULT (phi), false);
 
-	  for (x = 0; x < PHI_NUM_ARGS (phi); x++)
+	  for (i = 0; i < PHI_NUM_ARGS (phi); i++)
 	    {
-	      var = PHI_ARG_DEF (phi, x);
+	      arg = PHI_ARG_DEF (phi, i);
 
-	      /* If one argument has a V_MAY_DEF, the result is
-		 VARYING.  */
-	      if (TREE_CODE (var) == SSA_NAME)
+	      if (TREE_CODE (arg) == SSA_NAME
+		  && get_value (arg, false)->lattice_val == VARYING)
 		{
-		  if (TEST_BIT (is_may_def, SSA_NAME_VERSION (var)))
-		    {
-		      val->lattice_val = VARYING;
-		      SET_BIT (is_may_def, SSA_NAME_VERSION (PHI_RESULT (phi)));
-		      break;
-		    }
+		  val->lattice_val = VARYING;
+		  break;
 		}
 	    }
 
 	  DONT_SIMULATE_AGAIN (phi) = (val->lattice_val == VARYING);
 	}
     }
-
-  sbitmap_free (is_may_def);
-
-  /* Compute immediate uses for variables we care about.  */
-  compute_immediate_uses (TDFA_USE_OPS | TDFA_USE_VOPS, need_imm_uses_for);
 }
 
 
-/* Replace USE references in statement STMT with their immediate reaching
-   definition.  Return true if at least one reference was replaced.  If
-   REPLACED_ADDRESSES_P is given, it will be set to true if an address
-   constant was replaced.  */
-
-static bool
-replace_uses_in (tree stmt, bool *replaced_addresses_p)
-{
-  bool replaced = false;
-  use_operand_p use;
-  ssa_op_iter iter;
-
-  if (replaced_addresses_p)
-    *replaced_addresses_p = false;
-
-  get_stmt_operands (stmt);
-
-  FOR_EACH_SSA_USE_OPERAND (use, stmt, iter, SSA_OP_USE)
-    {
-      tree tuse = USE_FROM_PTR (use);
-      value *val = get_value (tuse);
-
-      if (val->lattice_val != CONSTANT)
-	continue;
-
-      if (TREE_CODE (stmt) == ASM_EXPR
-	  && !may_propagate_copy_into_asm (tuse))
-	continue;
-
-      SET_USE (use, val->const_val);
-
-      replaced = true;
-      if (POINTER_TYPE_P (TREE_TYPE (tuse)) && replaced_addresses_p)
-	*replaced_addresses_p = true;
-    }
-
-  return replaced;
-}
-
-
-/* Replace the VUSE references in statement STMT with its immediate reaching
-   definition.  Return true if the reference was replaced.  If
-   REPLACED_ADDRESSES_P is given, it will be set to true if an address
-   constant was replaced.  */
-
-static bool
-replace_vuse_in (tree stmt, bool *replaced_addresses_p)
-{
-  bool replaced = false;
-  vuse_optype vuses;
-  use_operand_p vuse;
-  value *val;
-
-  if (replaced_addresses_p)
-    *replaced_addresses_p = false;
-
-  get_stmt_operands (stmt);
-
-  vuses = STMT_VUSE_OPS (stmt);
-
-  if (NUM_VUSES (vuses) != 1)
-    return false;
-
-  vuse = VUSE_OP_PTR (vuses, 0);
-  val = get_value (USE_FROM_PTR (vuse));
-
-  if (val->lattice_val == CONSTANT
-      && TREE_CODE (stmt) == MODIFY_EXPR
-      && DECL_P (TREE_OPERAND (stmt, 1))
-      && TREE_OPERAND (stmt, 1) == SSA_NAME_VAR (USE_FROM_PTR (vuse)))
-    {
-      TREE_OPERAND (stmt, 1) = val->const_val;
-      replaced = true;
-      if (POINTER_TYPE_P (TREE_TYPE (USE_FROM_PTR (vuse))) 
-          && replaced_addresses_p)
-        *replaced_addresses_p = true;
-    }
-
-  return replaced;
-}
-
-
-/* Perform final substitution and folding.  After this pass the program
-   should still be in SSA form.  */
-
-static void
-substitute_and_fold (void)
-{
-  basic_block bb;
-  unsigned int i;
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file,
-	     "\nSubstituing constants and folding statements\n\n");
-
-  /* Substitute constants in every statement of every basic block.  */
-  FOR_EACH_BB (bb)
-    {
-      block_stmt_iterator i;
-      tree phi;
-
-      /* Propagate our known constants into PHI nodes.  */
-      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-	{
-	  int i;
-
-	  for (i = 0; i < PHI_NUM_ARGS (phi); i++)
-	    {
-	      value *new_val;
-	      use_operand_p orig_p = PHI_ARG_DEF_PTR (phi, i);
-	      tree orig = USE_FROM_PTR (orig_p);
-
-	      if (! SSA_VAR_P (orig))
-		break;
-
-	      new_val = get_value (orig);
-	      if (new_val->lattice_val == CONSTANT
-		  && may_propagate_copy (orig, new_val->const_val))
-		SET_USE (orig_p, new_val->const_val);
-	    }
-	}
-
-      for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
-	{
-          bool replaced_address;
-	  tree stmt = bsi_stmt (i);
-
-	  /* Skip statements that have been folded already.  */
-	  if (stmt_modified_p (stmt) || !is_exec_stmt (stmt))
-	    continue;
-
-	  /* Replace the statement with its folded version and mark it
-	     folded.  */
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    {
-	      fprintf (dump_file, "Line %d: replaced ", get_lineno (stmt));
-	      print_generic_stmt (dump_file, stmt, TDF_SLIM);
-	    }
-
-	  if (replace_uses_in (stmt, &replaced_address)
-	      || replace_vuse_in (stmt, &replaced_address))
-	    {
-	      bool changed = fold_stmt (bsi_stmt_ptr (i));
-	      stmt = bsi_stmt(i);
-
-	      /* If we folded a builtin function, we'll likely
-		 need to rename VDEFs.  */
-	      if (replaced_address || changed)
-		mark_new_vars_to_rename (stmt, vars_to_rename);
-
-              /* If we cleaned up EH information from the statement,
-                 remove EH edges.  */
-	      if (maybe_clean_eh_stmt (stmt))
-		tree_purge_dead_eh_edges (bb);
-
-	      modify_stmt (stmt);
-	    }
-
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    {
-	      fprintf (dump_file, " with ");
-	      print_generic_stmt (dump_file, stmt, TDF_SLIM);
-	      fprintf (dump_file, "\n");
-	    }
-	}
-    }
-
-  /* And transfer what we learned from VALUE_VECTOR into the
-     SSA_NAMEs themselves.  This probably isn't terribly important
-     since we probably constant propagated the values to their
-     use sites above.  */
-  for (i = 0; i < num_ssa_names; i++)
-    {
-      tree name = ssa_name (i);
-      value *value;
-
-      if (!name)
-	continue;
-
-      value = get_value (name);
-      if (value->lattice_val == CONSTANT
-          && is_gimple_reg (name)
-	  && is_gimple_min_invariant (value->const_val))
-	SSA_NAME_VALUE (name) = value->const_val;
-    }
-}
-
-
-/* Free allocated storage.  */
+/* Do final substitution of propagated values, cleanup the flowgraph and
+   free allocated storage.  */
 
 static void
 ccp_finalize (void)
 {
   /* Perform substitutions based on the known constant values.  */
-  substitute_and_fold ();
+  substitute_and_fold (const_val, false);
 
-  free (value_vector);
+  free (const_val);
 }
 
 
+/* Compute the meet operator between *VAL1 and *VAL2.  Store the result
+   in VAL1.
 
-/* Compute the meet operator between VAL1 and VAL2:
+   		any  M UNDEFINED   = any
+		any  M UNKNOWN_VAL = UNKNOWN_VAL
+		any  M VARYING     = VARYING
+		Ci   M Cj	   = Ci		if (i == j)
+		Ci   M Cj	   = VARYING	if (i != j)
 
-   		any  M UNDEFINED     = any
-		any  M VARYING       = VARYING
-		any  M UNKNOWN_VAL   = UNKNOWN_VAL
-		Ci   M Cj	     = Ci	if (i == j)
-		Ci   M Cj	     = VARYING	if (i != j)  */
-static value
-ccp_lattice_meet (value val1, value val2)
+   Lattice values UNKNOWN_VAL and UNDEFINED are similar but have
+   different semantics at PHI nodes.  Both values imply that we don't
+   know whether the variable is constant or not.  However, UNKNOWN_VAL
+   values override all others.  For instance, suppose that A is a
+   global variable:
+
+		+------+
+		|      |
+		|     / \
+		|    /   \
+		|   |  A_1 = 4
+		|    \   /
+		|     \ /    
+		| A_3 = PHI (A_2, A_1)
+		| ... = A_3
+		|    |
+		+----+
+
+   If the edge into A_2 is not executable, the first visit to A_3 will
+   yield the constant 4.  But the second visit to A_3 will be with A_2
+   in state UNKNOWN_VAL.  We can no longer conclude that A_3 is 4
+   because A_2 may have been set in another function.  If we had used
+   the lattice value UNDEFINED, we would have had wrongly concluded
+   that A_3 is 4.  */
+   
+
+static void
+ccp_lattice_meet (prop_value_t *val1, prop_value_t *val2)
 {
-  value result;
-
-  /* any M UNDEFINED = any.  */
-  if (val1.lattice_val == UNDEFINED)
-    return val2;
-  else if (val2.lattice_val == UNDEFINED)
-    return val1;
-
-  /* any M VARYING = VARYING.  */
-  if (val1.lattice_val == VARYING || val2.lattice_val == VARYING)
+  if (val1->lattice_val == UNDEFINED)
     {
-      result.lattice_val = VARYING;
-      result.const_val = NULL_TREE;
-      return result;
+      /* UNDEFINED M any = any   */
+      *val1 = *val2;
     }
-
-  /* any M UNKNOWN_VAL = UNKNOWN_VAL.  */
-  if (val1.lattice_val == UNKNOWN_VAL 
-      || val2.lattice_val == UNKNOWN_VAL)
+  else if (val2->lattice_val == UNDEFINED)
     {
-      result.lattice_val = UNKNOWN_VAL;
-      result.const_val = NULL_TREE;
-      return result;
+      /* any M UNDEFINED = any
+         Nothing to do.  VAL1 already contains the value we want.  */
+      ;
     }
-
-  /* Ci M Cj = Ci	if (i == j)
-     Ci M Cj = VARYING	if (i != j)  */
-  if (simple_cst_equal (val1.const_val, val2.const_val) == 1)
+  else if (val1->lattice_val == UNKNOWN_VAL
+           || val2->lattice_val == UNKNOWN_VAL)
     {
-      result.lattice_val = CONSTANT;
-      result.const_val = val1.const_val;
+      /* UNKNOWN_VAL values are invalid if we are not doing STORE-CCP.  */
+      gcc_assert (do_store_ccp);
+
+      /* any M UNKNOWN_VAL = UNKNOWN_VAL.  */
+      val1->lattice_val = UNKNOWN_VAL;
+      val1->value = NULL_TREE;
+      val1->mem_ref = NULL_TREE;
+    }
+  else if (val1->lattice_val == VARYING
+           || val2->lattice_val == VARYING)
+    {
+      /* any M VARYING = VARYING.  */
+      val1->lattice_val = VARYING;
+      val1->value = NULL_TREE;
+      val1->mem_ref = NULL_TREE;
+    }
+  else if (val1->lattice_val == CONSTANT
+	   && val2->lattice_val == CONSTANT
+	   && simple_cst_equal (val1->value, val2->value) == 1
+	   && (!do_store_ccp
+	       || (val1->mem_ref && val2->mem_ref
+		   && operand_equal_p (val1->mem_ref, val2->mem_ref, 0))))
+    {
+      /* Ci M Cj = Ci		if (i == j)
+	 Ci M Cj = VARYING	if (i != j)
+
+         If these two values come from memory stores, make sure that
+	 they come from the same memory reference.  */
+      val1->lattice_val = CONSTANT;
+      val1->value = val1->value;
+      val1->mem_ref = val1->mem_ref;
     }
   else
     {
-      result.lattice_val = VARYING;
-      result.const_val = NULL_TREE;
+      /* Any other combination is VARYING.  */
+      val1->lattice_val = VARYING;
+      val1->value = NULL_TREE;
+      val1->mem_ref = NULL_TREE;
     }
-
-  return result;
 }
 
 
 /* Loop through the PHI_NODE's parameters for BLOCK and compare their
    lattice values to determine PHI_NODE's lattice value.  The value of a
-   PHI node is determined calling ccp_lattice_meet() with all the arguments
+   PHI node is determined calling ccp_lattice_meet with all the arguments
    of the PHI node that are incoming via executable edges.  */
 
 static enum ssa_prop_result
 ccp_visit_phi_node (tree phi)
 {
-  value new_val, *old_val;
   int i;
+  prop_value_t *old_val, new_val;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -706,11 +726,11 @@ ccp_visit_phi_node (tree phi)
       print_generic_expr (dump_file, phi, dump_flags);
     }
 
-  old_val = get_value (PHI_RESULT (phi));
+  old_val = get_value (PHI_RESULT (phi), false);
   switch (old_val->lattice_val)
     {
     case VARYING:
-      return SSA_PROP_NOT_INTERESTING;
+      return SSA_PROP_VARYING;
 
     case CONSTANT:
       new_val = *old_val;
@@ -723,14 +743,15 @@ ccp_visit_phi_node (tree phi)
 	 UNDEFINED.  If the PHI node's old value was UNKNOWN_VAL and
 	 the new value is UNDEFINED, then we prevent the invalid
 	 transition by not calling set_lattice_value.  */
-      new_val.lattice_val = UNDEFINED;
-      new_val.const_val = NULL_TREE;
-      break;
+      gcc_assert (do_store_ccp);
+
+      /* FALLTHRU  */
 
     case UNDEFINED:
     case UNINITIALIZED:
       new_val.lattice_val = UNDEFINED;
-      new_val.const_val = NULL_TREE;
+      new_val.value = NULL_TREE;
+      new_val.mem_ref = NULL_TREE;
       break;
 
     default:
@@ -739,7 +760,8 @@ ccp_visit_phi_node (tree phi)
 
   for (i = 0; i < PHI_NUM_ARGS (phi); i++)
     {
-      /* Compute the meet operator over all the PHI arguments.  */
+      /* Compute the meet operator over all the PHI arguments flowing
+	 through executable edges.  */
       edge e = PHI_ARG_EDGE (phi, i);
 
       if (dump_file && (dump_flags & TDF_DETAILS))
@@ -754,25 +776,25 @@ ccp_visit_phi_node (tree phi)
 	 the existing value of the PHI node and the current PHI argument.  */
       if (e->flags & EDGE_EXECUTABLE)
 	{
-	  tree rdef = PHI_ARG_DEF (phi, i);
-	  value *rdef_val, val;
+	  tree arg = PHI_ARG_DEF (phi, i);
+	  prop_value_t arg_val;
 
-	  if (is_gimple_min_invariant (rdef))
+	  if (is_gimple_min_invariant (arg))
 	    {
-	      val.lattice_val = CONSTANT;
-	      val.const_val = rdef;
-	      rdef_val = &val;
+	      arg_val.lattice_val = CONSTANT;
+	      arg_val.value = arg;
+	      arg_val.mem_ref = NULL_TREE;
 	    }
 	  else
-	    rdef_val = get_value (rdef);
+	    arg_val = *(get_value (arg, true));
 
-	  new_val = ccp_lattice_meet (new_val, *rdef_val);
+	  ccp_lattice_meet (&new_val, &arg_val);
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "\t");
-	      print_generic_expr (dump_file, rdef, dump_flags);
-	      dump_lattice_value (dump_file, "\tValue: ", *rdef_val);
+	      print_generic_expr (dump_file, arg, dump_flags);
+	      dump_lattice_value (dump_file, "\tValue: ", arg_val);
 	      fprintf (dump_file, "\n");
 	    }
 
@@ -788,7 +810,8 @@ ccp_visit_phi_node (tree phi)
     }
 
   /* Check for an invalid change from UNKNOWN_VAL to UNDEFINED.  */
-  if (old_val->lattice_val == UNKNOWN_VAL
+  if (do_store_ccp
+      && old_val->lattice_val == UNKNOWN_VAL
       && new_val.lattice_val == UNDEFINED)
     return SSA_PROP_NOT_INTERESTING;
 
@@ -821,18 +844,32 @@ ccp_fold (tree stmt)
   enum tree_code code = TREE_CODE (rhs);
   enum tree_code_class kind = TREE_CODE_CLASS (code);
   tree retval = NULL_TREE;
-  vuse_optype vuses;
-  
-  vuses = STMT_VUSE_OPS (stmt);
 
-  /* If the RHS is just a variable, then that variable must now have
-     a constant value that we can return directly.  */
   if (TREE_CODE (rhs) == SSA_NAME)
-    return get_value (rhs)->const_val;
-  else if (DECL_P (rhs) 
-           && NUM_VUSES (vuses) == 1
-           && rhs == SSA_NAME_VAR (VUSE_OP (vuses, 0)))
-    return get_value (VUSE_OP (vuses, 0))->const_val;
+    {
+      /* If the RHS is an SSA_NAME, return its known constant value,
+	 if any.  */
+      return get_value (rhs, true)->value;
+    }
+  else if (do_store_ccp && stmt_makes_single_load (stmt))
+    {
+      /* If the RHS is a memory load, see if the VUSEs associated with
+	 it are a valid constant for that memory load.  */
+      prop_value_t *val = get_value_loaded_by (stmt, const_val);
+      if (val && val->mem_ref)
+	{
+	  if (operand_equal_p (val->mem_ref, rhs, 0))
+	    return val->value;
+
+	  /* If RHS is extracting REALPART_EXPR or IMAGPART_EXPR of a
+	     complex type with a known constant value, return it.  */
+	  if ((TREE_CODE (rhs) == REALPART_EXPR
+	       || TREE_CODE (rhs) == IMAGPART_EXPR)
+	      && operand_equal_p (val->mem_ref, TREE_OPERAND (rhs, 0), 0))
+	    return fold_build1 (TREE_CODE (rhs), TREE_TYPE (rhs), val->value);
+	}
+      return NULL_TREE;
+    }
 
   /* Unary operators.  Note that we know the single operand must
      be a constant.  So this should almost always return a
@@ -845,32 +882,16 @@ ccp_fold (tree stmt)
       /* Simplify the operand down to a constant.  */
       if (TREE_CODE (op0) == SSA_NAME)
 	{
-	  value *val = get_value (op0);
+	  prop_value_t *val = get_value (op0, true);
 	  if (val->lattice_val == CONSTANT)
-	    op0 = get_value (op0)->const_val;
+	    op0 = get_value (op0, true)->value;
 	}
 
-      retval = fold_unary_to_constant (code, TREE_TYPE (rhs), op0);
-
-      /* If we folded, but did not create an invariant, then we can not
-	 use this expression.  */
-      if (retval && ! is_gimple_min_invariant (retval))
-	return NULL;
-
-      /* If we could not fold the expression, but the arguments are all
-         constants and gimple values, then build and return the new
-	 expression. 
-
-	 In some cases the new expression is still something we can
-	 use as a replacement for an argument.  This happens with
-	 NOP conversions of types for example.
-
-	 In other cases the new expression can not be used as a
-	 replacement for an argument (as it would create non-gimple
-	 code).  But the new expression can still be used to derive
-	 other constants.  */
-      if (! retval && is_gimple_min_invariant (op0))
-	return build1 (code, TREE_TYPE (rhs), op0);
+      if ((code == NOP_EXPR || code == CONVERT_EXPR)
+	  && tree_ssa_useless_type_conversion_1 (TREE_TYPE (rhs),
+		  				 TREE_TYPE (op0)))
+	return op0;
+      return fold_unary (code, TREE_TYPE (rhs), op0);
     }
 
   /* Binary and comparison operators.  We know one or both of the
@@ -889,41 +910,19 @@ ccp_fold (tree stmt)
       /* Simplify the operands down to constants when appropriate.  */
       if (TREE_CODE (op0) == SSA_NAME)
 	{
-	  value *val = get_value (op0);
+	  prop_value_t *val = get_value (op0, true);
 	  if (val->lattice_val == CONSTANT)
-	    op0 = val->const_val;
+	    op0 = val->value;
 	}
 
       if (TREE_CODE (op1) == SSA_NAME)
 	{
-	  value *val = get_value (op1);
+	  prop_value_t *val = get_value (op1, true);
 	  if (val->lattice_val == CONSTANT)
-	    op1 = val->const_val;
+	    op1 = val->value;
 	}
 
-      retval = fold_binary_to_constant (code, TREE_TYPE (rhs), op0, op1);
-
-      /* If we folded, but did not create an invariant, then we can not
-	 use this expression.  */
-      if (retval && ! is_gimple_min_invariant (retval))
-	return NULL;
-      
-      /* If we could not fold the expression, but the arguments are all
-         constants and gimple values, then build and return the new
-	 expression. 
-
-	 In some cases the new expression is still something we can
-	 use as a replacement for an argument.  This happens with
-	 NOP conversions of types for example.
-
-	 In other cases the new expression can not be used as a
-	 replacement for an argument (as it would create non-gimple
-	 code).  But the new expression can still be used to derive
-	 other constants.  */
-      if (! retval
-	  && is_gimple_min_invariant (op0)
-	  && is_gimple_min_invariant (op1))
-	return build (code, TREE_TYPE (rhs), op0, op1);
+      return fold_binary (code, TREE_TYPE (rhs), op0, op1);
     }
 
   /* We may be able to fold away calls to builtin functions if their
@@ -934,24 +933,29 @@ ccp_fold (tree stmt)
 	       == FUNCTION_DECL)
 	   && DECL_BUILT_IN (TREE_OPERAND (TREE_OPERAND (rhs, 0), 0)))
     {
-      use_optype uses = STMT_USE_OPS (stmt);
-      if (NUM_USES (uses) != 0)
+      if (!ZERO_SSA_OPERANDS (stmt, SSA_OP_USE))
 	{
-	  tree *orig;
-	  size_t i;
+	  tree *orig, var;
+	  tree fndecl, arglist;
+	  size_t i = 0;
+	  ssa_op_iter iter;
+	  use_operand_p var_p;
 
 	  /* Preserve the original values of every operand.  */
-	  orig = xmalloc (sizeof (tree) * NUM_USES (uses));
-	  for (i = 0; i < NUM_USES (uses); i++)
-	    orig[i] = USE_OP (uses, i);
+	  orig = XNEWVEC (tree,  NUM_SSA_OPERANDS (stmt, SSA_OP_USE));
+	  FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, SSA_OP_USE)
+	    orig[i++] = var;
 
 	  /* Substitute operands with their values and try to fold.  */
-	  replace_uses_in (stmt, NULL);
-	  retval = fold_builtin (rhs, false);
+	  replace_uses_in (stmt, NULL, const_val);
+	  fndecl = get_callee_fndecl (rhs);
+	  arglist = TREE_OPERAND (rhs, 1);
+	  retval = fold_builtin (fndecl, arglist, false);
 
 	  /* Restore operands to their original form.  */
-	  for (i = 0; i < NUM_USES (uses); i++)
-	    SET_USE_OP (uses, i, orig[i]);
+	  i = 0;
+	  FOR_EACH_SSA_USE_OPERAND (var_p, stmt, iter, SSA_OP_USE)
+	    SET_USE (var_p, orig[i++]);
 	  free (orig);
 	}
     }
@@ -967,14 +971,162 @@ ccp_fold (tree stmt)
 }
 
 
+/* Return the tree representing the element referenced by T if T is an
+   ARRAY_REF or COMPONENT_REF into constant aggregates.  Return
+   NULL_TREE otherwise.  */
+
+static tree
+fold_const_aggregate_ref (tree t)
+{
+  prop_value_t *value;
+  tree base, ctor, idx, field;
+  unsigned HOST_WIDE_INT cnt;
+  tree cfield, cval;
+
+  switch (TREE_CODE (t))
+    {
+    case ARRAY_REF:
+      /* Get a CONSTRUCTOR.  If BASE is a VAR_DECL, get its
+	 DECL_INITIAL.  If BASE is a nested reference into another
+	 ARRAY_REF or COMPONENT_REF, make a recursive call to resolve
+	 the inner reference.  */
+      base = TREE_OPERAND (t, 0);
+      switch (TREE_CODE (base))
+	{
+	case VAR_DECL:
+	  if (!TREE_READONLY (base)
+	      || TREE_CODE (TREE_TYPE (base)) != ARRAY_TYPE
+	      || !targetm.binds_local_p (base))
+	    return NULL_TREE;
+
+	  ctor = DECL_INITIAL (base);
+	  break;
+
+	case ARRAY_REF:
+	case COMPONENT_REF:
+	  ctor = fold_const_aggregate_ref (base);
+	  break;
+
+	default:
+	  return NULL_TREE;
+	}
+
+      if (ctor == NULL_TREE
+	  || (TREE_CODE (ctor) != CONSTRUCTOR
+	      && TREE_CODE (ctor) != STRING_CST)
+	  || !TREE_STATIC (ctor))
+	return NULL_TREE;
+
+      /* Get the index.  If we have an SSA_NAME, try to resolve it
+	 with the current lattice value for the SSA_NAME.  */
+      idx = TREE_OPERAND (t, 1);
+      switch (TREE_CODE (idx))
+	{
+	case SSA_NAME:
+	  if ((value = get_value (idx, true))
+	      && value->lattice_val == CONSTANT
+	      && TREE_CODE (value->value) == INTEGER_CST)
+	    idx = value->value;
+	  else
+	    return NULL_TREE;
+	  break;
+
+	case INTEGER_CST:
+	  break;
+
+	default:
+	  return NULL_TREE;
+	}
+
+      /* Fold read from constant string.  */
+      if (TREE_CODE (ctor) == STRING_CST)
+	{
+	  if ((TYPE_MODE (TREE_TYPE (t))
+	       == TYPE_MODE (TREE_TYPE (TREE_TYPE (ctor))))
+	      && (GET_MODE_CLASS (TYPE_MODE (TREE_TYPE (TREE_TYPE (ctor))))
+	          == MODE_INT)
+	      && GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (TREE_TYPE (ctor)))) == 1
+	      && compare_tree_int (idx, TREE_STRING_LENGTH (ctor)) < 0)
+	    return build_int_cst (TREE_TYPE (t), (TREE_STRING_POINTER (ctor)
+					          [TREE_INT_CST_LOW (idx)]));
+	  return NULL_TREE;
+	}
+
+      /* Whoo-hoo!  I'll fold ya baby.  Yeah!  */
+      FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (ctor), cnt, cfield, cval)
+	if (tree_int_cst_equal (cfield, idx))
+	  return cval;
+      break;
+
+    case COMPONENT_REF:
+      /* Get a CONSTRUCTOR.  If BASE is a VAR_DECL, get its
+	 DECL_INITIAL.  If BASE is a nested reference into another
+	 ARRAY_REF or COMPONENT_REF, make a recursive call to resolve
+	 the inner reference.  */
+      base = TREE_OPERAND (t, 0);
+      switch (TREE_CODE (base))
+	{
+	case VAR_DECL:
+	  if (!TREE_READONLY (base)
+	      || TREE_CODE (TREE_TYPE (base)) != RECORD_TYPE
+	      || !targetm.binds_local_p (base))
+	    return NULL_TREE;
+
+	  ctor = DECL_INITIAL (base);
+	  break;
+
+	case ARRAY_REF:
+	case COMPONENT_REF:
+	  ctor = fold_const_aggregate_ref (base);
+	  break;
+
+	default:
+	  return NULL_TREE;
+	}
+
+      if (ctor == NULL_TREE
+	  || TREE_CODE (ctor) != CONSTRUCTOR
+	  || !TREE_STATIC (ctor))
+	return NULL_TREE;
+
+      field = TREE_OPERAND (t, 1);
+
+      FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (ctor), cnt, cfield, cval)
+	if (cfield == field
+	    /* FIXME: Handle bit-fields.  */
+	    && ! DECL_BIT_FIELD (cfield))
+	  return cval;
+      break;
+
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
+      {
+	tree c = fold_const_aggregate_ref (TREE_OPERAND (t, 0));
+	if (c && TREE_CODE (c) == COMPLEX_CST)
+	  return fold_build1 (TREE_CODE (t), TREE_TYPE (t), c);
+	break;
+      }
+    
+    default:
+      break;
+    }
+
+  return NULL_TREE;
+}
+  
 /* Evaluate statement STMT.  */
 
-static value
+static prop_value_t
 evaluate_stmt (tree stmt)
 {
-  value val;
-  tree simplified;
-  latticevalue likelyvalue = likely_value (stmt);
+  prop_value_t val;
+  tree simplified = NULL_TREE;
+  ccp_lattice_t likelyvalue = likely_value (stmt);
+  bool is_constant;
+
+  val.mem_ref = NULL_TREE;
+
+  fold_defer_overflow_warnings ();
 
   /* If the statement is likely to have a CONSTANT result, then try
      to fold the statement to determine the constant value.  */
@@ -982,29 +1134,37 @@ evaluate_stmt (tree stmt)
     simplified = ccp_fold (stmt);
   /* If the statement is likely to have a VARYING result, then do not
      bother folding the statement.  */
-  else if (likelyvalue == VARYING)
+  if (likelyvalue == VARYING)
     simplified = get_rhs (stmt);
-  /* Otherwise the statement is likely to have an UNDEFINED value and
-     there will be nothing to do.  */
-  else
-    simplified = NULL_TREE;
+  /* If the statement is an ARRAY_REF or COMPONENT_REF into constant
+     aggregates, extract the referenced constant.  Otherwise the
+     statement is likely to have an UNDEFINED value, and there will be
+     nothing to do.  Note that fold_const_aggregate_ref returns
+     NULL_TREE if the first case does not match.  */
+  else if (!simplified)
+    simplified = fold_const_aggregate_ref (get_rhs (stmt));
 
-  if (simplified && is_gimple_min_invariant (simplified))
+  is_constant = simplified && is_gimple_min_invariant (simplified);
+
+  fold_undefer_overflow_warnings (is_constant, stmt, 0);
+
+  if (is_constant)
     {
       /* The statement produced a constant value.  */
       val.lattice_val = CONSTANT;
-      val.const_val = simplified;
+      val.value = simplified;
     }
   else
     {
       /* The statement produced a nonconstant value.  If the statement
-         had undefined or virtual operands, then the result of the 
-	 statement should be undefined or virtual respectively.  
-	 Else the result of the statement is VARYING.  */
-      val.lattice_val = (likelyvalue == UNDEFINED ? UNDEFINED : VARYING);
-      val.lattice_val = (likelyvalue == UNKNOWN_VAL 
-                           ? UNKNOWN_VAL : val.lattice_val);
-      val.const_val = NULL_TREE;
+	 had UNDEFINED operands, then the result of the statement
+	 should be UNDEFINED.  Otherwise, the statement is VARYING.  */
+      if (likelyvalue == UNDEFINED || likelyvalue == UNKNOWN_VAL)
+	val.lattice_val = likelyvalue;
+      else
+	val.lattice_val = VARYING;
+
+      val.value = NULL_TREE;
     }
 
   return val;
@@ -1012,48 +1172,39 @@ evaluate_stmt (tree stmt)
 
 
 /* Visit the assignment statement STMT.  Set the value of its LHS to the
-   value computed by the RHS and store LHS in *OUTPUT_P.  */
+   value computed by the RHS and store LHS in *OUTPUT_P.  If STMT
+   creates virtual definitions, set the value of each new name to that
+   of the RHS (if we can derive a constant out of the RHS).  */
 
 static enum ssa_prop_result
 visit_assignment (tree stmt, tree *output_p)
 {
-  value val;
+  prop_value_t val;
   tree lhs, rhs;
-  vuse_optype vuses;
-  v_must_def_optype v_must_defs;
+  enum ssa_prop_result retval;
 
   lhs = TREE_OPERAND (stmt, 0);
   rhs = TREE_OPERAND (stmt, 1);
-  vuses = STMT_VUSE_OPS (stmt);
-  v_must_defs = STMT_V_MUST_DEF_OPS (stmt);
-
-  gcc_assert (NUM_V_MAY_DEFS (STMT_V_MAY_DEF_OPS (stmt)) == 0);
-  gcc_assert (NUM_V_MUST_DEFS (v_must_defs) == 1
-	      || TREE_CODE (lhs) == SSA_NAME);
-
-  /* We require the SSA version number of the lhs for the value_vector.
-     Make sure we have it.  */
-  if (TREE_CODE (lhs) != SSA_NAME)
-    {
-      /* If we make it here, then stmt only has one definition:
-         a V_MUST_DEF.  */
-      lhs = V_MUST_DEF_RESULT (v_must_defs, 0);
-    }
 
   if (TREE_CODE (rhs) == SSA_NAME)
     {
       /* For a simple copy operation, we copy the lattice values.  */
-      value *nval = get_value (rhs);
+      prop_value_t *nval = get_value (rhs, true);
       val = *nval;
     }
-  else if (DECL_P (rhs) 
-           && NUM_VUSES (vuses) == 1
-           && rhs == SSA_NAME_VAR (VUSE_OP (vuses, 0)))
+  else if (do_store_ccp && stmt_makes_single_load (stmt))
     {
-      /* Same as above, but the rhs is not a gimple register and yet
-        has a known VUSE.  */
-      value *nval = get_value (VUSE_OP (vuses, 0));
-      val = *nval;
+      /* Same as above, but the RHS is not a gimple register and yet
+         has a known VUSE.  If STMT is loading from the same memory
+	 location that created the SSA_NAMEs for the virtual operands,
+	 we can propagate the value on the RHS.  */
+      prop_value_t *nval = get_value_loaded_by (stmt, const_val);
+
+      if (nval && nval->mem_ref
+	  && operand_equal_p (nval->mem_ref, rhs, 0))
+	val = *nval;
+      else
+	val = evaluate_stmt (stmt);
     }
   else
     /* Evaluate the statement.  */
@@ -1071,17 +1222,17 @@ visit_assignment (tree stmt, tree *output_p)
     if (TREE_CODE (orig_lhs) == VIEW_CONVERT_EXPR
 	&& val.lattice_val == CONSTANT)
       {
-	tree w = fold (build1 (VIEW_CONVERT_EXPR,
-			       TREE_TYPE (TREE_OPERAND (orig_lhs, 0)),
-			       val.const_val));
+	tree w = fold_unary (VIEW_CONVERT_EXPR,
+			     TREE_TYPE (TREE_OPERAND (orig_lhs, 0)),
+			     val.value);
 
-	orig_lhs = TREE_OPERAND (orig_lhs, 1);
+	orig_lhs = TREE_OPERAND (orig_lhs, 0);
 	if (w && is_gimple_min_invariant (w))
-	  val.const_val = w;
+	  val.value = w;
 	else
 	  {
 	    val.lattice_val = VARYING;
-	    val.const_val = NULL;
+	    val.value = NULL;
 	  }
       }
 
@@ -1089,36 +1240,73 @@ visit_assignment (tree stmt, tree *output_p)
 	&& TREE_CODE (orig_lhs) == COMPONENT_REF
 	&& DECL_BIT_FIELD (TREE_OPERAND (orig_lhs, 1)))
       {
-	tree w = widen_bitfield (val.const_val, TREE_OPERAND (orig_lhs, 1),
+	tree w = widen_bitfield (val.value, TREE_OPERAND (orig_lhs, 1),
 				 orig_lhs);
 
 	if (w && is_gimple_min_invariant (w))
-	  val.const_val = w;
+	  val.value = w;
 	else
 	  {
 	    val.lattice_val = VARYING;
-	    val.const_val = NULL;
+	    val.value = NULL_TREE;
+	    val.mem_ref = NULL_TREE;
 	  }
       }
   }
 
-  /* If LHS is not a gimple register, then it cannot take on an
-     UNDEFINED value.  */
-  if (!is_gimple_reg (SSA_NAME_VAR (lhs)) 
-      && val.lattice_val == UNDEFINED)
-    val.lattice_val = UNKNOWN_VAL;      
+  retval = SSA_PROP_NOT_INTERESTING;
 
   /* Set the lattice value of the statement's output.  */
-  if (set_lattice_value (lhs, val))
+  if (TREE_CODE (lhs) == SSA_NAME)
     {
-      *output_p = lhs;
-      if (val.lattice_val == VARYING)
-	return SSA_PROP_VARYING;
-      else
-	return SSA_PROP_INTERESTING;
+      /* If STMT is an assignment to an SSA_NAME, we only have one
+	 value to set.  */
+      if (set_lattice_value (lhs, val))
+	{
+	  *output_p = lhs;
+	  if (val.lattice_val == VARYING)
+	    retval = SSA_PROP_VARYING;
+	  else
+	    retval = SSA_PROP_INTERESTING;
+	}
     }
-  else
-    return SSA_PROP_NOT_INTERESTING;
+  else if (do_store_ccp && stmt_makes_single_store (stmt))
+    {
+      /* Otherwise, set the names in V_MAY_DEF/V_MUST_DEF operands
+	 to the new constant value and mark the LHS as the memory
+	 reference associated with VAL.  */
+      ssa_op_iter i;
+      tree vdef;
+      bool changed;
+
+      /* Stores cannot take on an UNDEFINED value.  */
+      if (val.lattice_val == UNDEFINED)
+	val.lattice_val = UNKNOWN_VAL;      
+
+      /* Mark VAL as stored in the LHS of this assignment.  */
+      val.mem_ref = lhs;
+
+      /* Set the value of every VDEF to VAL.  */
+      changed = false;
+      FOR_EACH_SSA_TREE_OPERAND (vdef, stmt, i, SSA_OP_VIRTUAL_DEFS)
+	changed |= set_lattice_value (vdef, val);
+      
+      /* Note that for propagation purposes, we are only interested in
+	 visiting statements that load the exact same memory reference
+	 stored here.  Those statements will have the exact same list
+	 of virtual uses, so it is enough to set the output of this
+	 statement to be its first virtual definition.  */
+      *output_p = first_vdef (stmt);
+      if (changed)
+	{
+	  if (val.lattice_val == VARYING)
+	    retval = SSA_PROP_VARYING;
+	  else 
+	    retval = SSA_PROP_INTERESTING;
+	}
+    }
+
+  return retval;
 }
 
 
@@ -1129,7 +1317,7 @@ visit_assignment (tree stmt, tree *output_p)
 static enum ssa_prop_result
 visit_cond_stmt (tree stmt, edge *taken_edge_p)
 {
-  value val;
+  prop_value_t val;
   basic_block block;
 
   block = bb_for_stmt (stmt);
@@ -1139,7 +1327,7 @@ visit_cond_stmt (tree stmt, edge *taken_edge_p)
      to the worklist.  If no single edge can be determined statically,
      return SSA_PROP_VARYING to feed all the outgoing edges to the
      propagation engine.  */
-  *taken_edge_p = val.const_val ? find_taken_edge (block, val.const_val) : 0;
+  *taken_edge_p = val.value ? find_taken_edge (block, val.value) : 0;
   if (*taken_edge_p)
     return SSA_PROP_INTERESTING;
   else
@@ -1159,27 +1347,17 @@ visit_cond_stmt (tree stmt, edge *taken_edge_p)
 static enum ssa_prop_result
 ccp_visit_stmt (tree stmt, edge *taken_edge_p, tree *output_p)
 {
-  stmt_ann_t ann;
-  v_may_def_optype v_may_defs;
-  v_must_def_optype v_must_defs;
   tree def;
   ssa_op_iter iter;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "\nVisiting statement: ");
-      print_generic_stmt (dump_file, stmt, TDF_SLIM);
+      fprintf (dump_file, "\nVisiting statement:\n");
+      print_generic_stmt (dump_file, stmt, dump_flags);
       fprintf (dump_file, "\n");
     }
 
-  ann = stmt_ann (stmt);
-
-  v_must_defs = V_MUST_DEF_OPS (ann);
-  v_may_defs = V_MAY_DEF_OPS (ann);
-  if (TREE_CODE (stmt) == MODIFY_EXPR
-      && NUM_V_MAY_DEFS (v_may_defs) == 0
-      && (NUM_V_MUST_DEFS (v_must_defs) == 1
-          || TREE_CODE (TREE_OPERAND (stmt, 0)) == SSA_NAME))
+  if (TREE_CODE (stmt) == MODIFY_EXPR)
     {
       /* If the statement is an assignment that produces a single
 	 output value, evaluate its RHS to see if the lattice value of
@@ -1201,27 +1379,33 @@ ccp_visit_stmt (tree stmt, edge *taken_edge_p, tree *output_p)
   /* Definitions made by statements other than assignments to
      SSA_NAMEs represent unknown modifications to their outputs.
      Mark them VARYING.  */
-  FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_DEF)
-    def_to_varying (def);
-
-  /* Mark all V_MAY_DEF operands VARYING.  */
-  FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_VMAYDEF)
-    def_to_varying (def);
+  FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_ALL_DEFS)
+    {
+      prop_value_t v = { VARYING, NULL_TREE, NULL_TREE };
+      set_lattice_value (def, v);
+    }
 
   return SSA_PROP_VARYING;
 }
 
 
-/* Main entry point for SSA Conditional Constant Propagation.
-
-   [ DESCRIBE MAIN ALGORITHM HERE ]  */
+/* Main entry point for SSA Conditional Constant Propagation.  */
 
 static void
-execute_ssa_ccp (void)
+execute_ssa_ccp (bool store_ccp)
 {
+  do_store_ccp = store_ccp;
   ccp_initialize ();
   ssa_propagate (ccp_visit_stmt, ccp_visit_phi_node);
   ccp_finalize ();
+}
+
+
+static unsigned int
+do_ssa_ccp (void)
+{
+  execute_ssa_ccp (false);
+  return 0;
 }
 
 
@@ -1236,21 +1420,59 @@ struct tree_opt_pass pass_ccp =
 {
   "ccp",				/* name */
   gate_ccp,				/* gate */
-  execute_ssa_ccp,			/* execute */
+  do_ssa_ccp,				/* execute */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
   TV_TREE_CCP,				/* tv_id */
   PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
   0,					/* properties_provided */
-  0,					/* properties_destroyed */
+  PROP_smt_usage,			/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_cleanup_cfg | TODO_dump_func | TODO_rename_vars
+  TODO_cleanup_cfg | TODO_dump_func | TODO_update_ssa
     | TODO_ggc_collect | TODO_verify_ssa
-    | TODO_verify_stmts,		/* todo_flags_finish */
+    | TODO_verify_stmts | TODO_update_smt_usage, /* todo_flags_finish */
   0					/* letter */
 };
 
+
+static unsigned int
+do_ssa_store_ccp (void)
+{
+  /* If STORE-CCP is not enabled, we just run regular CCP.  */
+  execute_ssa_ccp (flag_tree_store_ccp != 0);
+  return 0;
+}
+
+static bool
+gate_store_ccp (void)
+{
+  /* STORE-CCP is enabled only with -ftree-store-ccp, but when
+     -fno-tree-store-ccp is specified, we should run regular CCP.
+     That's why the pass is enabled with either flag.  */
+  return flag_tree_store_ccp != 0 || flag_tree_ccp != 0;
+}
+
+
+struct tree_opt_pass pass_store_ccp = 
+{
+  "store_ccp",				/* name */
+  gate_store_ccp,			/* gate */
+  do_ssa_store_ccp,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_STORE_CCP,			/* tv_id */
+  PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
+  0,					/* properties_provided */
+  PROP_smt_usage,			/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func | TODO_update_ssa
+    | TODO_ggc_collect | TODO_verify_ssa
+    | TODO_cleanup_cfg
+    | TODO_verify_stmts | TODO_update_smt_usage, /* todo_flags_finish */
+  0					/* letter */
+};
 
 /* Given a constant value VAL for bitfield FIELD, and a destination
    variable VAR, return VAL appropriately widened to fit into VAR.  If
@@ -1291,8 +1513,8 @@ widen_bitfield (tree val, tree field, tree var)
       for (i = 0, mask = 0; i < field_size; i++)
 	mask |= ((HOST_WIDE_INT) 1) << i;
 
-      wide_val = build2 (BIT_AND_EXPR, TREE_TYPE (var), val, 
-			 build_int_cst (TREE_TYPE (var), mask));
+      wide_val = fold_build2 (BIT_AND_EXPR, TREE_TYPE (var), val, 
+			      build_int_cst (TREE_TYPE (var), mask));
     }
   else
     {
@@ -1302,11 +1524,11 @@ widen_bitfield (tree val, tree field, tree var)
       for (i = 0, mask = 0; i < (var_size - field_size); i++)
 	mask |= ((HOST_WIDE_INT) 1) << (var_size - i - 1);
 
-      wide_val = build2 (BIT_IOR_EXPR, TREE_TYPE (var), val,
-			 build_int_cst (TREE_TYPE (var), mask));
+      wide_val = fold_build2 (BIT_IOR_EXPR, TREE_TYPE (var), val,
+			      build_int_cst (TREE_TYPE (var), mask));
     }
 
-  return fold (wide_val);
+  return wide_val;
 }
 
 
@@ -1399,9 +1621,9 @@ maybe_fold_offset_to_array_ref (tree base, tree offset, tree orig_type)
   if (!integer_zerop (elt_offset))
     idx = int_const_binop (PLUS_EXPR, idx, elt_offset, 0);
 
-  return build (ARRAY_REF, orig_type, base, idx, min_idx,
-		size_int (tree_low_cst (elt_size, 1)
-			  / (TYPE_ALIGN_UNIT (elt_type))));
+  return build4 (ARRAY_REF, orig_type, base, idx, min_idx,
+		 size_int (tree_low_cst (elt_size, 1)
+			   / (TYPE_ALIGN_UNIT (elt_type))));
 }
 
 
@@ -1462,7 +1684,7 @@ maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,
 	{
 	  if (base_is_ptr)
 	    base = build1 (INDIRECT_REF, record_type, base);
-	  t = build (COMPONENT_REF, field_type, base, f, NULL_TREE);
+	  t = build3 (COMPONENT_REF, field_type, base, f, NULL_TREE);
 	  return t;
 	}
       
@@ -1502,7 +1724,7 @@ maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,
      nonzero offset into them.  Recurse and hope for a valid match.  */
   if (base_is_ptr)
     base = build1 (INDIRECT_REF, record_type, base);
-  base = build (COMPONENT_REF, field_type, base, f, NULL_TREE);
+  base = build3 (COMPONENT_REF, field_type, base, f, NULL_TREE);
 
   t = maybe_fold_offset_to_array_ref (base, offset, orig_type);
   if (t)
@@ -1524,7 +1746,7 @@ maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
      substitutions.  Fold that down to one.  Remove NON_LVALUE_EXPRs that
      are sometimes added.  */
   base = fold (base);
-  STRIP_NOPS (base);
+  STRIP_TYPE_NOPS (base);
   TREE_OPERAND (expr, 0) = base;
 
   /* One possibility is that the address reduces to a string constant.  */
@@ -1552,7 +1774,7 @@ maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
 
       /* Fold away CONST_DECL to its value, if the type is scalar.  */
       if (TREE_CODE (base) == CONST_DECL
-	  && is_gimple_min_invariant (DECL_INITIAL (base)))
+	  && ccp_decl_initial_min_invariant (DECL_INITIAL (base)))
 	return DECL_INITIAL (base);
 
       /* Try folding *(&B+O) to B[X].  */
@@ -1579,7 +1801,7 @@ maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
       /* We can get here for out-of-range string constant accesses, 
 	 such as "_"[3].  Bail out of the entire substitution search
 	 and arrange for the entire statement to be replaced by a
-	 call to __builtin_trap.  In all likelyhood this will all be
+	 call to __builtin_trap.  In all likelihood this will all be
 	 constant-folded away, but in the meantime we can't leave with
 	 something that get_expr_operands can't understand.  */
 
@@ -1589,7 +1811,7 @@ maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
 	  && TREE_CODE (TREE_OPERAND (t, 0)) == STRING_CST)
 	{
 	  /* FIXME: Except that this causes problems elsewhere with dead
-	     code not being deleted, and we abort in the rtl expanders 
+	     code not being deleted, and we die in the rtl expanders 
 	     because we failed to remove some ssa_name.  In the meantime,
 	     just return zero.  */
 	  /* FIXME2: This condition should be signaled by
@@ -1680,7 +1902,7 @@ maybe_fold_stmt_addition (tree expr)
 	      if (TREE_CODE (min_idx) != INTEGER_CST)
 		break;
 
-	      array_idx = convert (TREE_TYPE (min_idx), array_idx);
+	      array_idx = fold_convert (TREE_TYPE (min_idx), array_idx);
 	      if (!integer_zerop (min_idx))
 		array_idx = int_const_binop (MINUS_EXPR, array_idx,
 					     min_idx, 0);
@@ -1688,7 +1910,7 @@ maybe_fold_stmt_addition (tree expr)
 	}
 
       /* Convert the index to a byte offset.  */
-      array_idx = convert (sizetype, array_idx);
+      array_idx = fold_convert (sizetype, array_idx);
       array_idx = int_const_binop (MULT_EXPR, array_idx, elt_size, 0);
 
       /* Update the operands for the next round, or for folding.  */
@@ -1712,9 +1934,9 @@ maybe_fold_stmt_addition (tree expr)
     {
       if (TYPE_UNSIGNED (TREE_TYPE (op1)))
 	return NULL;
-      op1 = fold (build1 (NEGATE_EXPR, TREE_TYPE (op1), op1));
+      op1 = fold_unary (NEGATE_EXPR, TREE_TYPE (op1), op1);
       /* ??? In theory fold should always produce another integer.  */
-      if (TREE_CODE (op1) != INTEGER_CST)
+      if (op1 == NULL || TREE_CODE (op1) != INTEGER_CST)
 	return NULL;
     }
 
@@ -1731,6 +1953,15 @@ maybe_fold_stmt_addition (tree expr)
   return t;
 }
 
+/* For passing state through walk_tree into fold_stmt_r and its
+   children.  */
+
+struct fold_stmt_r_data
+{
+  tree stmt;
+  bool *changed_p;
+  bool *inside_addr_expr_p;
+};
 
 /* Subroutine of fold_stmt called via walk_tree.  We perform several
    simplifications of EXPR_P, mostly having to do with pointer arithmetic.  */
@@ -1738,7 +1969,9 @@ maybe_fold_stmt_addition (tree expr)
 static tree
 fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
 {
-  bool *changed_p = data;
+  struct fold_stmt_r_data *fold_stmt_r_data = (struct fold_stmt_r_data *) data;
+  bool *inside_addr_expr_p = fold_stmt_r_data->inside_addr_expr_p;
+  bool *changed_p = fold_stmt_r_data->changed_p;
   tree expr = *expr_p, t;
 
   /* ??? It'd be nice if walk_tree had a pre-order option.  */
@@ -1754,13 +1987,23 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
 				    integer_zero_node);
       break;
 
-      /* ??? Could handle ARRAY_REF here, as a variant of INDIRECT_REF.
+      /* ??? Could handle more ARRAY_REFs here, as a variant of INDIRECT_REF.
 	 We'd only want to bother decomposing an existing ARRAY_REF if
 	 the base array is found to have another offset contained within.
 	 Otherwise we'd be wasting time.  */
+    case ARRAY_REF:
+      /* If we are not processing expressions found within an
+	 ADDR_EXPR, then we can fold constant array references.  */
+      if (!*inside_addr_expr_p)
+	t = fold_read_from_constant_string (expr);
+      else
+	t = NULL;
+      break;
 
     case ADDR_EXPR:
+      *inside_addr_expr_p = true;
       t = walk_tree (&TREE_OPERAND (expr, 0), fold_stmt_r, data, NULL);
+      *inside_addr_expr_p = false;
       if (t)
 	return t;
       *walk_subtrees = 0;
@@ -1768,7 +2011,7 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
       /* Set TREE_INVARIANT properly so that the value is properly
 	 considered constant, and so gets propagated as expected.  */
       if (*changed_p)
-        recompute_tree_invarant_for_addr_expr (expr);
+        recompute_tree_invariant_for_addr_expr (expr);
       return NULL_TREE;
 
     case PLUS_EXPR:
@@ -1805,6 +2048,29 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
       }
       break;
 
+    case TARGET_MEM_REF:
+      t = maybe_fold_tmr (expr);
+      break;
+
+    case COND_EXPR:
+      if (COMPARISON_CLASS_P (TREE_OPERAND (expr, 0)))
+        {
+	  tree op0 = TREE_OPERAND (expr, 0);
+	  tree tem;
+	  bool set;
+
+	  fold_defer_overflow_warnings ();
+	  tem = fold_binary (TREE_CODE (op0), TREE_TYPE (op0),
+			     TREE_OPERAND (op0, 0),
+			     TREE_OPERAND (op0, 1));
+	  set = tem && is_gimple_condexpr (tem);
+	  fold_undefer_overflow_warnings (set, fold_stmt_r_data->stmt, 0);
+	  if (set)
+	    TREE_OPERAND (expr, 0) = tem;
+	  t = expr;
+          break;
+        }
+
     default:
       return NULL_TREE;
     }
@@ -1819,24 +2085,49 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
 }
 
 
-/* Return the string length of ARG in LENGTH.  If ARG is an SSA name variable,
-   follow its use-def chains.  If LENGTH is not NULL and its value is not
-   equal to the length we determine, or if we are unable to determine the
-   length, return false.  VISITED is a bitmap of visited variables.  */
+/* Return the string length, maximum string length or maximum value of
+   ARG in LENGTH.
+   If ARG is an SSA name variable, follow its use-def chains.  If LENGTH
+   is not NULL and, for TYPE == 0, its value is not equal to the length
+   we determine or if we are unable to determine the length or value,
+   return false.  VISITED is a bitmap of visited variables.
+   TYPE is 0 if string length should be returned, 1 for maximum string
+   length and 2 for maximum value ARG can have.  */
 
 static bool
-get_strlen (tree arg, tree *length, bitmap visited)
+get_maxval_strlen (tree arg, tree *length, bitmap visited, int type)
 {
   tree var, def_stmt, val;
   
   if (TREE_CODE (arg) != SSA_NAME)
     {
-      val = c_strlen (arg, 1);
+      if (type == 2)
+	{
+	  val = arg;
+	  if (TREE_CODE (val) != INTEGER_CST
+	      || tree_int_cst_sgn (val) < 0)
+	    return false;
+	}
+      else
+	val = c_strlen (arg, 1);
       if (!val)
 	return false;
 
-      if (*length && simple_cst_equal (val, *length) != 1)
-	return false;
+      if (*length)
+	{
+	  if (type > 0)
+	    {
+	      if (TREE_CODE (*length) != INTEGER_CST
+		  || TREE_CODE (val) != INTEGER_CST)
+		return false;
+
+	      if (tree_int_cst_lt (*length, val))
+		*length = val;
+	      return true;
+	    }
+	  else if (simple_cst_equal (val, *length) != 1)
+	    return false;
+	}
 
       *length = val;
       return true;
@@ -1854,28 +2145,14 @@ get_strlen (tree arg, tree *length, bitmap visited)
     {
       case MODIFY_EXPR:
 	{
-	  tree len, rhs;
-	  
+	  tree rhs;
+
 	  /* The RHS of the statement defining VAR must either have a
 	     constant length or come from another SSA_NAME with a constant
 	     length.  */
 	  rhs = TREE_OPERAND (def_stmt, 1);
 	  STRIP_NOPS (rhs);
-	  if (TREE_CODE (rhs) == SSA_NAME)
-	    return get_strlen (rhs, length, visited);
-
-	  /* See if the RHS is a constant length.  */
-	  len = c_strlen (rhs, 1);
-	  if (len)
-	    {
-	      if (*length && simple_cst_equal (len, *length) != 1)
-		return false;
-
-	      *length = len;
-	      return true;
-	    }
-
-	  break;
+	  return get_maxval_strlen (rhs, length, visited, type);
 	}
 
       case PHI_NODE:
@@ -1897,7 +2174,7 @@ get_strlen (tree arg, tree *length, bitmap visited)
 	      if (arg == PHI_RESULT (def_stmt))
 		continue;
 
-	      if (!get_strlen (arg, length, visited))
+	      if (!get_maxval_strlen (arg, length, visited, type))
 		return false;
 	    }
 
@@ -1919,9 +2196,9 @@ get_strlen (tree arg, tree *length, bitmap visited)
 static tree
 ccp_fold_builtin (tree stmt, tree fn)
 {
-  tree result, strlen_val[2];
+  tree result, val[3];
   tree callee, arglist, a;
-  int strlen_arg, i;
+  int arg_mask, i, type;
   bitmap visited;
   bool ignore;
 
@@ -1929,22 +2206,22 @@ ccp_fold_builtin (tree stmt, tree fn)
 
   /* First try the generic builtin folder.  If that succeeds, return the
      result directly.  */
-  result = fold_builtin (fn, ignore);
+  callee = get_callee_fndecl (fn);
+  arglist = TREE_OPERAND (fn, 1);
+  result = fold_builtin (callee, arglist, ignore);
   if (result)
-  {
-    if (ignore)
-      STRIP_NOPS (result);
-    return result;
-  }
+    {
+      if (ignore)
+	STRIP_NOPS (result);
+      return result;
+    }
 
   /* Ignore MD builtins.  */
-  callee = get_callee_fndecl (fn);
   if (DECL_BUILT_IN_CLASS (callee) == BUILT_IN_MD)
     return NULL_TREE;
 
   /* If the builtin could not be folded, and it has no argument list,
      we're done.  */
-  arglist = TREE_OPERAND (fn, 1);
   if (!arglist)
     return NULL_TREE;
 
@@ -1954,11 +2231,31 @@ ccp_fold_builtin (tree stmt, tree fn)
     case BUILT_IN_STRLEN:
     case BUILT_IN_FPUTS:
     case BUILT_IN_FPUTS_UNLOCKED:
-      strlen_arg = 1;
+      arg_mask = 1;
+      type = 0;
       break;
     case BUILT_IN_STRCPY:
     case BUILT_IN_STRNCPY:
-      strlen_arg = 2;
+      arg_mask = 2;
+      type = 0;
+      break;
+    case BUILT_IN_MEMCPY_CHK:
+    case BUILT_IN_MEMPCPY_CHK:
+    case BUILT_IN_MEMMOVE_CHK:
+    case BUILT_IN_MEMSET_CHK:
+    case BUILT_IN_STRNCPY_CHK:
+      arg_mask = 4;
+      type = 2;
+      break;
+    case BUILT_IN_STRCPY_CHK:
+    case BUILT_IN_STPCPY_CHK:
+      arg_mask = 2;
+      type = 1;
+      break;
+    case BUILT_IN_SNPRINTF_CHK:
+    case BUILT_IN_VSNPRINTF_CHK:
+      arg_mask = 2;
+      type = 2;
       break;
     default:
       return NULL_TREE;
@@ -1967,15 +2264,15 @@ ccp_fold_builtin (tree stmt, tree fn)
   /* Try to use the dataflow information gathered by the CCP process.  */
   visited = BITMAP_ALLOC (NULL);
 
-  memset (strlen_val, 0, sizeof (strlen_val));
+  memset (val, 0, sizeof (val));
   for (i = 0, a = arglist;
-       strlen_arg;
-       i++, strlen_arg >>= 1, a = TREE_CHAIN (a))
-    if (strlen_arg & 1)
+       arg_mask;
+       i++, arg_mask >>= 1, a = TREE_CHAIN (a))
+    if (arg_mask & 1)
       {
 	bitmap_clear (visited);
-	if (!get_strlen (TREE_VALUE (a), &strlen_val[i], visited))
-	  strlen_val[i] = NULL_TREE;
+	if (!get_maxval_strlen (TREE_VALUE (a), &val[i], visited, type))
+	  val[i] = NULL_TREE;
       }
 
   BITMAP_FREE (visited);
@@ -1984,9 +2281,9 @@ ccp_fold_builtin (tree stmt, tree fn)
   switch (DECL_FUNCTION_CODE (callee))
     {
     case BUILT_IN_STRLEN:
-      if (strlen_val[0])
+      if (val[0])
 	{
-	  tree new = fold_convert (TREE_TYPE (fn), strlen_val[0]);
+	  tree new = fold_convert (TREE_TYPE (fn), val[0]);
 
 	  /* If the result is not a valid gimple value, or not a cast
 	     of a valid gimple value, then we can not use the result.  */
@@ -1998,25 +2295,53 @@ ccp_fold_builtin (tree stmt, tree fn)
       break;
 
     case BUILT_IN_STRCPY:
-      if (strlen_val[1] && is_gimple_val (strlen_val[1]))
-        result = fold_builtin_strcpy (fn, strlen_val[1]);
+      if (val[1] && is_gimple_val (val[1]))
+	result = fold_builtin_strcpy (callee, arglist, val[1]);
       break;
 
     case BUILT_IN_STRNCPY:
-      if (strlen_val[1] && is_gimple_val (strlen_val[1]))
-	result = fold_builtin_strncpy (fn, strlen_val[1]);
+      if (val[1] && is_gimple_val (val[1]))
+	result = fold_builtin_strncpy (callee, arglist, val[1]);
       break;
 
     case BUILT_IN_FPUTS:
       result = fold_builtin_fputs (arglist,
 				   TREE_CODE (stmt) != MODIFY_EXPR, 0,
-				   strlen_val[0]);
+				   val[0]);
       break;
 
     case BUILT_IN_FPUTS_UNLOCKED:
       result = fold_builtin_fputs (arglist,
 				   TREE_CODE (stmt) != MODIFY_EXPR, 1,
-				   strlen_val[0]);
+				   val[0]);
+      break;
+
+    case BUILT_IN_MEMCPY_CHK:
+    case BUILT_IN_MEMPCPY_CHK:
+    case BUILT_IN_MEMMOVE_CHK:
+    case BUILT_IN_MEMSET_CHK:
+      if (val[2] && is_gimple_val (val[2]))
+	result = fold_builtin_memory_chk (callee, arglist, val[2], ignore,
+					  DECL_FUNCTION_CODE (callee));
+      break;
+
+    case BUILT_IN_STRCPY_CHK:
+    case BUILT_IN_STPCPY_CHK:
+      if (val[1] && is_gimple_val (val[1]))
+	result = fold_builtin_stxcpy_chk (callee, arglist, val[1], ignore,
+					  DECL_FUNCTION_CODE (callee));
+      break;
+
+    case BUILT_IN_STRNCPY_CHK:
+      if (val[2] && is_gimple_val (val[2]))
+	result = fold_builtin_strncpy_chk (arglist, val[2]);
+      break;
+
+    case BUILT_IN_SNPRINTF_CHK:
+    case BUILT_IN_VSNPRINTF_CHK:
+      if (val[1] && is_gimple_val (val[1]))
+	result = fold_builtin_snprintf_chk (arglist, val[1],
+					    DECL_FUNCTION_CODE (callee));
       break;
 
     default:
@@ -2029,7 +2354,7 @@ ccp_fold_builtin (tree stmt, tree fn)
 }
 
 
-/* Fold the statement pointed by STMT_P.  In some cases, this function may
+/* Fold the statement pointed to by STMT_P.  In some cases, this function may
    replace the whole statement with a new one.  Returns true iff folding
    makes any changes.  */
 
@@ -2037,13 +2362,19 @@ bool
 fold_stmt (tree *stmt_p)
 {
   tree rhs, result, stmt;
+  struct fold_stmt_r_data fold_stmt_r_data;
   bool changed = false;
+  bool inside_addr_expr = false;
 
   stmt = *stmt_p;
 
+  fold_stmt_r_data.stmt = stmt;
+  fold_stmt_r_data.changed_p = &changed;
+  fold_stmt_r_data.inside_addr_expr_p = &inside_addr_expr;
+
   /* If we replaced constants and the statement makes pointer dereferences,
      then we may need to fold instances of *&VAR into VAR, etc.  */
-  if (walk_tree (stmt_p, fold_stmt_r, &changed, NULL))
+  if (walk_tree (stmt_p, fold_stmt_r, &fold_stmt_r_data, NULL))
     {
       *stmt_p
 	= build_function_call_expr (implicit_built_in_decls[BUILT_IN_TRAP],
@@ -2073,7 +2404,9 @@ fold_stmt (tree *stmt_p)
 	  /* ??? Should perhaps do this in fold proper.  However, doing it
 	     there requires that we create a new CALL_EXPR, and that requires
 	     copying EH region info to the new node.  Easier to just do it
-	     here where we can just smash the call operand.  */
+	     here where we can just smash the call operand. Also
+	     CALL_EXPR_RETURN_SLOT_OPT needs to be handled correctly and
+	     copied, fold_ternary does not have not information. */
 	  callee = TREE_OPERAND (rhs, 0);
 	  if (TREE_CODE (callee) == OBJ_TYPE_REF
 	      && lang_hooks.fold_obj_type_ref
@@ -2090,18 +2423,6 @@ fold_stmt (tree *stmt_p)
 
 	      t = TREE_TYPE (TREE_TYPE (OBJ_TYPE_REF_OBJECT (callee)));
 	      t = lang_hooks.fold_obj_type_ref (callee, t);
-	      if (t && TREE_CODE (t) == ADDR_EXPR
-		  && TREE_CODE (TREE_OPERAND (t, 0)) == FUNCTION_DECL
-		  && cgraph_global_info_ready)
-		{
-		  /* If the method has been already finalized as unreachable,
-		     avoid any new references to it.  */
-		  struct cgraph_node *node;
-
-		  node = cgraph_node (TREE_OPERAND (t, 0));
-		  if (!node->reachable && node->local.finalized)
-		    t = NULL_TREE;
-		}
 	      if (t)
 		{
 		  TREE_OPERAND (rhs, 0) = t;
@@ -2126,6 +2447,39 @@ fold_stmt (tree *stmt_p)
   return changed;
 }
 
+/* Perform the minimal folding on statement STMT.  Only operations like
+   *&x created by constant propagation are handled.  The statement cannot
+   be replaced with a new one.  */
+
+bool
+fold_stmt_inplace (tree stmt)
+{
+  tree old_stmt = stmt, rhs, new_rhs;
+  struct fold_stmt_r_data fold_stmt_r_data;
+  bool changed = false;
+  bool inside_addr_expr = false;
+
+  fold_stmt_r_data.stmt = stmt;
+  fold_stmt_r_data.changed_p = &changed;
+  fold_stmt_r_data.inside_addr_expr_p = &inside_addr_expr;
+
+  walk_tree (&stmt, fold_stmt_r, &fold_stmt_r_data, NULL);
+  gcc_assert (stmt == old_stmt);
+
+  rhs = get_rhs (stmt);
+  if (!rhs || rhs == stmt)
+    return changed;
+
+  new_rhs = fold (rhs);
+  STRIP_USELESS_TYPE_CONVERSION (new_rhs);
+  if (new_rhs == rhs)
+    return changed;
+
+  changed |= set_rhs (&stmt, new_rhs);
+  gcc_assert (stmt == old_stmt);
+
+  return changed;
+}
 
 /* Convert EXPR into a GIMPLE value suitable for substitution on the
    RHS of an assignment.  Insert the necessary statements before
@@ -2142,17 +2496,18 @@ convert_to_gimple_builtin (block_stmt_iterator *si_p, tree expr)
   tmp = get_initialized_tmp_var (expr, &stmts, NULL);
   pop_gimplify_context (NULL);
 
-  /* The replacement can expose previously unreferenced variables.  */
-  for (ti = tsi_start (stmts); !tsi_end_p (ti); tsi_next (&ti))
-    {
-      find_new_referenced_vars (tsi_stmt_ptr (ti));
-      mark_new_vars_to_rename (tsi_stmt (ti), vars_to_rename);
-    }
-
   if (EXPR_HAS_LOCATION (stmt))
     annotate_all_with_locus (&stmts, EXPR_LOCATION (stmt));
 
-  bsi_insert_before (si_p, stmts, BSI_SAME_STMT);
+  /* The replacement can expose previously unreferenced variables.  */
+  for (ti = tsi_start (stmts); !tsi_end_p (ti); tsi_next (&ti))
+    {
+      tree new_stmt = tsi_stmt (ti);
+      find_new_referenced_vars (tsi_stmt_ptr (ti));
+      bsi_insert_before (si_p, new_stmt, BSI_NEW_STMT);
+      mark_new_vars_to_rename (bsi_stmt (*si_p));
+      bsi_next (si_p);
+    }
 
   return tmp;
 }
@@ -2161,7 +2516,7 @@ convert_to_gimple_builtin (block_stmt_iterator *si_p, tree expr)
 /* A simple pass that attempts to fold all builtin functions.  This pass
    is run after we've propagated as many constants as we can.  */
 
-static void
+static unsigned int
 execute_fold_all_builtins (void)
 {
   bool cfg_changed = false;
@@ -2169,17 +2524,26 @@ execute_fold_all_builtins (void)
   FOR_EACH_BB (bb)
     {
       block_stmt_iterator i;
-      for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
+      for (i = bsi_start (bb); !bsi_end_p (i); )
 	{
 	  tree *stmtp = bsi_stmt_ptr (i);
+	  tree old_stmt = *stmtp;
 	  tree call = get_rhs (*stmtp);
 	  tree callee, result;
+	  enum built_in_function fcode;
 
 	  if (!call || TREE_CODE (call) != CALL_EXPR)
-	    continue;
+	    {
+	      bsi_next (&i);
+	      continue;
+	    }
 	  callee = get_callee_fndecl (call);
 	  if (!callee || DECL_BUILT_IN_CLASS (callee) != BUILT_IN_NORMAL)
-	    continue;
+	    {
+	      bsi_next (&i);
+	      continue;
+	    }
+	  fcode = DECL_FUNCTION_CODE (callee);
 
 	  result = ccp_fold_builtin (*stmtp, call);
 	  if (!result)
@@ -2193,6 +2557,7 @@ execute_fold_all_builtins (void)
 		break;
 
 	      default:
+		bsi_next (&i);
 		continue;
 	      }
 
@@ -2205,11 +2570,15 @@ execute_fold_all_builtins (void)
 	  if (!set_rhs (stmtp, result))
 	    {
 	      result = convert_to_gimple_builtin (&i, result);
-	      if (result && !set_rhs (stmtp, result))
-		abort ();
+	      if (result)
+		{
+		  bool ok = set_rhs (stmtp, result);
+		  
+		  gcc_assert (ok);
+		}
 	    }
-	  modify_stmt (*stmtp);
-	  if (maybe_clean_eh_stmt (*stmtp)
+	  mark_new_vars_to_rename (*stmtp);
+	  if (maybe_clean_or_replace_eh_stmt (old_stmt, *stmtp)
 	      && tree_purge_dead_eh_edges (bb))
 	    cfg_changed = true;
 
@@ -2219,12 +2588,27 @@ execute_fold_all_builtins (void)
 	      print_generic_stmt (dump_file, *stmtp, dump_flags);
 	      fprintf (dump_file, "\n");
 	    }
+
+	  /* Retry the same statement if it changed into another
+	     builtin, there might be new opportunities now.  */
+	  call = get_rhs (*stmtp);
+	  if (!call || TREE_CODE (call) != CALL_EXPR)
+	    {
+	      bsi_next (&i);
+	      continue;
+	    }
+	  callee = get_callee_fndecl (call);
+	  if (!callee
+	      || DECL_BUILT_IN_CLASS (callee) != BUILT_IN_NORMAL
+	      || DECL_FUNCTION_CODE (callee) == fcode)
+	    bsi_next (&i);
 	}
     }
 
   /* Delete unreachable blocks.  */
   if (cfg_changed)
     cleanup_tree_cfg ();
+  return 0;
 }
 
 
@@ -2243,6 +2627,6 @@ struct tree_opt_pass pass_fold_builtins =
   0,					/* todo_flags_start */
   TODO_dump_func
     | TODO_verify_ssa
-    | TODO_rename_vars,			/* todo_flags_finish */
+    | TODO_update_ssa,			/* todo_flags_finish */
   0					/* letter */
 };

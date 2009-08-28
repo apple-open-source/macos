@@ -38,6 +38,11 @@
 /* CONSTANTS */
 
 enum { kAuthenticated = 0, kFailed = 1 };
+#ifdef __LP64__
+typedef unsigned int UInt32;
+#else
+typedef unsigned long UInt32;
+#endif
 
 /* PUBLIC FUNCTIONS */
 

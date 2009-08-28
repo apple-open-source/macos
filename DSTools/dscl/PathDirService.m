@@ -53,7 +53,7 @@ static NSDictionary *gSearchPaths;
 							@"Search",
 							[NSNumber numberWithLong:eDSContactsSearchNodeName],
 							@"Contact",
-							0];
+							nil];
 }
 // ----------------------------------------------------------------------------
 // Initialization / teardown
@@ -215,7 +215,7 @@ static NSDictionary *gSearchPaths;
         if (n != nil)
         {
 			s = [[NSString alloc] initWithFormat:@"/%@",dest];
-			p = [[PathNodeSearch alloc] initWithNode:n path:s];
+			p = [[PathNodeSearch alloc] initWithNode:n path:s type:val];
 			[(PathNode *)p setEnableSubNodes:NO];
 			[s release];
         }

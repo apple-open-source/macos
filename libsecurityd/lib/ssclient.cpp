@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2007 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -136,16 +136,7 @@ ClientSession::Global::Global()
     IPCN(ucsp_client_verifyPrivileged(serverPort.port(), mig_get_reply_port(), &securitydCreds, &rcode));
 	
     // send identification/setup message
-    string extForm;
-    try {
-        myself = OSXCode::main();
-        extForm = myself->encode();
-        secdebug("SSclnt", "my OSXCode extForm=%s", extForm.c_str());
-    } catch (...) {
-        // leave extForm empty
-        secdebug("SSclnt", "failed to obtain my own OSXCode");
-    }
-
+	static const char extForm[] = "?:obsolete";
 	ClientSetupInfo info = { 0x1234, SSPROTOVERSION };
 	
     // cannot use UCSP_ARGS here because it uses mGlobal() -> deadlock
@@ -155,11 +146,11 @@ ClientSession::Global::Global()
 		secdebug("SSclnt", "sending session setup request");
 		mSetupSession = false;	// reset global
 		IPCN(ucsp_client_setupNew(serverPort, thread.replyPort, &securitydCreds, &rcode,
-			mach_task_self(), info, extForm.c_str(), &serverPort.port()));
+			mach_task_self(), info, extForm, &serverPort.port()));
 		secdebug("SSclnt", "new session server port is %d", serverPort.port());
 	} else {
 		IPCN(ucsp_client_setup(serverPort, thread.replyPort, &securitydCreds, &rcode,
-			mach_task_self(), info, extForm.c_str()));
+			mach_task_self(), info, extForm));
 	}
     thread.registered = true;	// as a side-effect of setup call above
 	IFDEBUG(serverPort.requestNotify(thread.replyPort));
@@ -223,10 +214,10 @@ void ClientSession::childCheckIn(Port serverPort, Port taskPort)
 void ClientSession::notifyAclChange(KeyHandle key, CSSM_ACL_AUTHORIZATION_TAG tag)
 {
 	if (mCallback) {
-		secdebug("keyacl", "ACL change key %lu operation %u", key, tag);
+		secdebug("keyacl", "ACL change key %u operation %u", key, tag);
 		mCallback(mCallbackContext, *this, key, tag);
 	} else
-		secdebug("keyacl", "dropped ACL change notice for key %lu operation %u",
+		secdebug("keyacl", "dropped ACL change notice for key %u operation %u",
 			key, tag);
 }
 

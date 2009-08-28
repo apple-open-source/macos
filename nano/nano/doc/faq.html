@@ -25,7 +25,7 @@
   <a href="#3.2">3.2. Compiling from source: WHAT THE HECK DO I DO NOW?</a><br>
   <a href="#3.3">3.3. Why does everything go into /usr/local?</a><br>
   <a href="#3.4">3.4. I get errors about 'bindtextdomain','gettext', and/or 'gettextdomain'. What can I do about it?</a><br>
-  <a href="#3.5">3.5. Nano should automatically run strip on the binary when installing it!</a><br>
+  <a href="#3.5">3.5. nano should automatically run strip on the binary when installing it!</a><br>
   <a href="#3.6">3.6. How can I make the executable smaller? This is too bloated!</a><br>
   <a href="#3.7">3.7. Tell me more about this multibuffer stuff!</a><br>
   <a href="#3.8">3.8. Tell me more about this verbatim input stuff!</a><br>
@@ -36,15 +36,16 @@
   <a href="#4.3">4.3. Ack! My numeric keypad's keys don't work properly when NumLock is off! What can I do?</a><br>
   <a href="#4.4">4.4. Ack! When I hold down a Meta key combination for a while, the character of the held key gets inserted now and then. What gives?</a><br>
   <a href="#4.5">4.5. How do I type the F13-F16 keys shown in the help browser? My keyboard only has F1-F12!</a><br>
-  <a href="#4.6">4.6. Nano crashes when I type &lt;insert keystroke here&gt;!</a><br>
-  <a href="#4.7">4.7. Nano crashes when I resize my window. How can I fix that?</a><br>
+  <a href="#4.6">4.6. nano crashes when I type &lt;insert keystroke here&gt;!</a><br>
+  <a href="#4.7">4.7. nano crashes when I resize my window. How can I fix that?</a><br>
   <a href="#4.8">4.8. [version 1.3.12 and later] I'm using glibc 2.2.3, and nano crashes when I use color support or do regular expression searches. How can I fix that?</a><br>
   <a href="#4.9">4.9. [version 1.1.12 and earlier] Why does nano show ^\ in the shortcut list instead of ^J?</a><br>
   <a href="#4.10a">4.10a. [version 1.1.12 and earlier] When I type in a search string, the string I last searched for is already in front of my cursor! What happened?!</a><br>
   <a href="#4.10b">4.10b. [version 1.1.99pre1 and later] Hey, the search string behavior has reverted, it's now like Pico, what happened to the consistency?</a><br>
   <a href="#4.11">4.11. How do I make nano my default editor (in Pine, mutt, etc.)?</a><br>
   <a href="#4.12">4.12. I've compiled nano with color support, but I don't see any color when I run it!</a><br>
-  <a href="#4.13">4.13. How do I select text for or paste text from the clipboard in an X terminal when I'm running nano in one and nano's mouse support is turned on?</a></p></blockquote>
+  <a href="#4.13">4.13. How do I select text for or paste text from the clipboard in an X terminal when I'm running nano in one and nano's mouse support is turned on?</a><br>
+  <a href="#4.14">4.14. When I paste text into a document, each line gets indented further than the last. Why does nano do this, and how can I avoid it?</a></p></blockquote>
 <h2><a href="#5">5. Internationalization</a></h2>
 <blockquote><p><a href="#5.1">5.1. There's no translation for my language!</a><br>
   <a href="#5.2">5.2. I don't like the translation for &lt;x&gt; in my language. How can I fix it?</a><br>
@@ -57,7 +58,7 @@
   <a href="#6.5">6.5. Why doesn't UW simply change their license?</a><br>
   <a href="#6.6">6.6. What if tomorrow UW changes the license to be truly Free Software?</a></p></blockquote>
 <h2><a href="#7">7. Miscellaneous</a></h2>
-<blockquote><p><a href="#7.1">7.1. Nano-related mailing lists.</a><br>
+<blockquote><p><a href="#7.1">7.1. nano-related mailing lists.</a><br>
   <a href="#7.2">7.2. I want to send the development team a big load of cash (or just a thank you).</a><br>
   <a href="#7.3">7.3. How do I submit a patch?</a><br>
   <a href="#7.4">7.4. How do I join the development team?</a><br>
@@ -66,7 +67,7 @@
 <hr width="100%">
 <h1><a name="1"></a>1. General</h1>
 <h2><a name="1.1"></a>1.1 About this FAQ</h2>
-<blockquote><p>This FAQ was originally written and maintained by Chris Allegretta &lt;<a href="mailto:chrisa@asty.org">chrisa@asty.org</a>&gt;, who also happens to be the creator of nano. It is currently maintained by David Lawrence Ramsey &lt;<a href="mailto:pooka109@cox.net">pooka109@cox.net</a>&gt;. Maybe someone else will volunteer to maintain this FAQ someday, who knows...</p></blockquote>
+<blockquote><p>This FAQ was originally written and maintained by Chris Allegretta &lt;<a href="mailto:chrisa@asty.org">chrisa@asty.org</a>&gt;, who also happens to be the creator of nano. It is currently maintained by David Lawrence Ramsey &lt;<a href="mailto:pooka109@gmail.com">pooka109@gmail.com</a>&gt;. Maybe someone else will volunteer to maintain this FAQ someday, who knows...</p></blockquote>
 <h2><a name="1.2"></a>1.2. How do I contribute to it?</h2>
 <blockquote><p>Your best bet is to send it to the nano email address, <a href="mailto:nano@nano-editor.org">nano@nano-editor.org</a> and if it is useful enough it will be included in future versions.</p></blockquote>
 <h2><a name="1.3"></a>1.3. What is GNU nano?</h2>
@@ -80,11 +81,11 @@
   <p><b>The event...</b></p>
   <p>It was in late 1999 when Chris Allegretta (our hero) was yet again complaining to himself about the less-than-perfect license Pico was distributed under, the 1000 makefiles that came with it and how just a few small improvements could make it the Best Editor in the World (TM). Having been a convert from Slackware to Debian, he missed having a simple binary package that included Pine and Pico, and had grown tired of downloading them himself.</p>
   <p>Finally something snapped inside and Chris coded and hacked like a madman for many hours straight one weekend to make a (barely usable) Pico clone, at the time called TIP (Tip Isn't Pico). The program could not be invoked without a filename, could not save files, had no help text display, spell checker, and so forth. But over time it improved, and with the help of a few great coders it matured to the (hopefully) stable state it is today.</p>
-  <p>In February 2001, nano was declared an official GNU program by Richard Stallman. Nano also reached its first production release on March 22, 2001.</p></blockquote>
+  <p>In February 2001, nano was declared an official GNU program by Richard Stallman. nano also reached its first production release on March 22, 2001.</p></blockquote>
 <h2><a name="1.5"></a>1.5. Why the name change from TIP?</h2>
 <blockquote><p>On January 10, 2000, TIP was officially renamed to nano because of a namespace conflict with another program called 'tip'. The original 'tip' program &quot;establishes a full duplex terminal connection to a remote host&quot;, and was included with many older Unix systems (and newer ones like Solaris). The conflict was not noticed at first because there is no 'tip' utility included with most GNU/Linux distributions (where nano was developed).</p></blockquote>
 <h2><a name="1.6"></a>1.6. What is the current version of nano?</h2>
-<blockquote><p>The current version of nano *should* be 2.0.1. Of course you should always check the nano homepage to see what the latest and greatest version is.</p></blockquote>
+<blockquote><p>The current version of nano *should* be 2.0.6. Of course, you should always check the nano homepage to see what the latest and greatest version is.</p></blockquote>
 <h2><a name="1.7"></a>1.7. I want to read the man page without having to download the program!</h2>
 <blockquote><p>Jeez, demanding, aren't we? Okay, look <a href="http://www.nano-editor.org/dist/v2.0/nano.1.html">here</a>.</p></blockquote>
 <hr width="100%">
@@ -136,17 +137,16 @@
   <p>to put nano into /usr/bin when you run <b>make install</b>.</p></blockquote>
 <h2><a name="3.4"></a>3.4. I get errors about 'bindtextdomain', 'gettext', and/or 'gettextdomain'. What can I do about it?</h2>
 <blockquote><p>Try doing a <b>./configure --with-included-gettext</b> and see if that solves your problem. You may need to do a <b>make clean; make</b> to get it to work fully.</p></blockquote>
-<h2><a name="3.5"></a>3.5. Nano should automatically run strip on the binary when installing it!</h2>
+<h2><a name="3.5"></a>3.5. nano should automatically run strip on the binary when installing it!</h2>
 <blockquote><p>Actually, it does, but you have to use <b>make install-strip</b>. The default make install does not, and will not, run strip automatically.</p></blockquote>
 <h2><a name="3.6"></a>3.6. How can I make the executable smaller? This is too bloated!</h2>
 <blockquote><p>Actually, there are several parts of the editor that can be disabled. You can pass arguments to the <b>configure</b> script that disable certain features. Here's a brief list:</p>
   <pre>
-  <b>--disable-tabcomp</b>       Disable tab completion code for a smaller
-                          binary
-  <b>--disable-justify</b>       Disable justify/unjustify function
-  <b>--disable-speller</b>       Disable spell checker function
-  <b>--disable-help</b>          Disable help function
-  <b>--disable-browser</b>       Disable mini file browser
+  <b>--disable-tabcomp</b>       Disable tab completion functions
+  <b>--disable-justify</b>       Disable justify/unjustify functions
+  <b>--disable-speller</b>       Disable spell checker functions
+  <b>--disable-help</b>          Disable help functions
+  <b>--disable-browser</b>       Disable built-in file browser
   <b>--disable-wrapping</b>      Disable all wrapping of text (and -w flag)
   <b>--disable-mouse</b>         Disable mouse support (and -m flag)
   <b>--disable-operatingdir</b>  Disable setting of operating directory</pre>
@@ -154,13 +154,13 @@
   <p>If, on the other hand, you can't live without bells and whistles, you could try:</p>
   <pre>
   <b>--enable-extra</b>          Enable extra features, currently only easter eggs
-  <b>--enable-nanorc</b>         Enable use of .nanorc file
+  <b>--enable-nanorc</b>         Enable use of .nanorc files
   <b>--enable-color</b>          Enable color and syntax highlighting
   <b>--enable-multibuffer</b>    Enable having multiple file buffers open
   <b>--enable-all</b>            Enable all of the above features
   <b>--disable-wrapping-as-root</b>
-                          Turn off wrapping of text by default when the
-                          user is root</pre></blockquote>
+                          Disable text wrapping by default when the user is
+                          root</pre></blockquote>
 <h2><a name="3.7"></a>3.7. Tell me more about this multibuffer stuff!</h2>
 <blockquote><p>To use multiple file buffers, you must be using nano 1.1.0 or newer, and you must have configured nano with <b>--enable-multibuffer</b> (use nano -V to check). Then when you want to enable inserting a file into its own buffer instead of into the current file, just hit <b>Meta-F</b>, then insert the file as normal with <b>^R</b>. If you always want files to be loaded into their own buffers, use the <b>--multibuffer</b> or <b>-F</b> flag when you invoke nano.</p>
   <p>You can move between the buffers you have open with the <b>Meta-&lt;</b> and <b>Meta-&gt;</b> keys, or more easily with <b>Meta-,</b> and <b>Meta-.</b> (clear as mud, right? =-). When you have more than one file buffer open, the ^X shortcut will say &quot;Close&quot;, instead of the normal &quot;Exit&quot; when only one buffer is open.</p></blockquote>
@@ -172,12 +172,14 @@
 <hr width="100%">
 <h1><a name="4"></a>4. Running</h1>
 <h2><a name="4.1"></a>4.1. How do I open a file with a name beginning with '+' from the command line?</h2>
-<blockquote><p>If a command line option that begins with '+' is followed by another option, the former is always treated as a starting line number and the latter is always treated as a filename. If a command line option that begins with '+' isn't followed by another option, it's always treated as a filename. Examples:</p>
+<blockquote><p>If a command line option that begins with '+' is followed by another option, the former is always treated as a starting line and column number and the latter is always treated as a filename. If a command line option that begins with '+' isn't followed by another option, it's always treated as a filename. Examples:</p>
   <p>To open '+filename.txt' starting on line 1: <b>nano +filename.txt</b><br>
   To open '+filename.txt' starting on line 10: <b>nano +10 +filename.txt</b><br>
+  To open '+filename.txt' starting on line 1, column 20: <b>nano +,20 +filename.txt</b><br>
+  To open '+filename.txt' starting on line 10, column 20: <b>nano +10,20 +filename.txt</b><br>
   To open '+filename.txt' starting on line 1 and 'filename.txt' starting on line 10 (if nano has been compiled with multibuffer support): <b>nano +1 +filename.txt +20 filename.txt</b></p></blockquote>
 <h2><a name="4.2"></a>4.2. Ack! My Backspace/Delete/Enter/Meta/double bucky key doesn't seem to work! What can I do?</h2>
-<blockquote><p>Try setting your $TERM variable to 'vt100'. Nano doesn't yet support every term entry under the sun.</p>
+<blockquote><p>Try setting your $TERM variable to 'vt100'. nano doesn't yet support every term entry under the sun.</p>
   <p>Bourne shell users (bash and sh): <b>export TERM=vt100</b><br>
   C Shell users (tcsh and csh): <b>setenv TERM vt100</b></p></blockquote>
 <h2><a name="4.3"></a>4.3. Ack! My numeric keypad's keys don't work properly when NumLock is off! What can I do?</h2>
@@ -186,9 +188,9 @@
 <blockquote><p>This is a bug in the terminal, not in nano. When a key is repeating faster than nano can process it, the keyboard buffer becomes full and starts dropping incoming keystrokes. Unfortunately, it doesn't just drop whole keystrokes; it can also drop parts of multibyte key combinations, resulting in nano's receiving a wrong key.</p></blockquote>
 <h2><a name="4.5"></a>4.5. How do I type the F13-F16 keys shown in the help browser? My keyboard only has F1-F12!</h2>
 <blockquote><p>It depends on the terminal type you're using. On some terminals, such as the FreeBSD console, xterm, konsole, and gnome-terminal, Shift-F1 to Shift-F4 will generate F13 to F16. On other terminals, such as the Linux console, rxvt, and Eterm, Shift-F3 to Shift-F6 will generate F13 to F16.</p></blockquote>
-<h2><a name="4.6"></a>4.6. Nano crashes when I type &lt;insert keystroke here&gt;!</h2>
+<h2><a name="4.6"></a>4.6. nano crashes when I type &lt;insert keystroke here&gt;!</h2>
 <blockquote><p>If you aren't trying some bizarre keystroke combination with some bizarre $TERM entry, chances are you have found a bug. You are welcome to submit it to the <a href="mailto:nano-devel@gnu.org">nano-devel</a> list or to <a href="mailto:nano@nano-editor.org">nano@nano-editor.org</a>.</p></blockquote>
-<h2><a name="4.7"></a>4.7. Nano crashes when I resize my window. How can I fix that?</h2>
+<h2><a name="4.7"></a>4.7. nano crashes when I resize my window. How can I fix that?</h2>
 <blockquote><p>Older versions of nano had this problem, please upgrade to a newer version (at least 0.9.9 would be great, 0.9.12 is recommended).</p></blockquote>
 <h2><a name="4.8"></a>4.8. [version 1.3.12 and later] I'm using glibc 2.2.3, and nano crashes when I use color support or do regular expression searches. How can I fix that?</h2>
 <blockquote><p>It's a bug in glibc 2.2.3. You should upgrade to at least glibc 2.2.4.</p></blockquote>
@@ -215,6 +217,8 @@
 <blockquote><p>If you want nano to actually use color, you have to specify the color configurations you want it to use in your .nanorc. Some example configurations are in the <b>nanorc.sample</b> that comes with the nano source or your nano package. See Section <a href="#3.9">3.9</a>.</p></blockquote>
 <h2><a name="4.13"></a>4.13. How do I select text for or paste text from the clipboard in an X terminal when I'm running nano in one and nano's mouse support is turned on?</h2>
 <blockquote><p>Try holding down the Shift key and selecting or pasting the text as you normally would.</p></blockquote>
+<h2><a name="4.14"></a>4.14. When I paste text into a document, each line gets indented further than the last. Why does nano do this, and how can I avoid it?</h2>
+<blockquote><p>You have the autoindent feature turned on. Hit Meta-I to turn it off, paste your text, and then hit Meta-I again to turn it back on.</p></blockquote>
 <hr width="100%">
 <h1><a name="5"></a>5. Internationalization</h1>
 <h2><a name="5.1"></a>5.1. There's no translation for my language!</h2>
@@ -238,11 +242,11 @@
 <h2><a name="6.5"></a>6.5. Why doesn't UW simply change their license?</h2>
 <blockquote><p>You're really not asking the right person here. I (Chris) waited a long time to see if UW would change their license because of the amount of high quality software being released and developed under the GPL without being taken advantage of by malicious corporate entities or other baddies, but no such luck so far.</p></blockquote>
 <h2><a name="6.6"></a>6.6. What if tomorrow UW changes the license to be truly Free Software?</h2>
-<blockquote><p>Honestly nothing would make me happier than to see that happen. Nano would continue to be developed independently until such time as Pico had all the features nano did or the projects merged. That just does not seem very likely given that there has been no sign of any changes in the past few years in a positive direction.</p></blockquote>
+<blockquote><p>Honestly nothing would make me happier than to see that happen. nano would continue to be developed independently until such time as Pico had all the features nano did or the projects merged. That just does not seem very likely given that there has been no sign of any changes in the past few years in a positive direction.</p></blockquote>
 <hr width="100%">
 <h1><a name="7"></a>7. Miscellaneous</h1>
-<h2><a name="7.1"></a>7.1. Nano-related mailing lists.</h2>
-<blockquote><p>There are three mailing lists for nano hosted at <a href="http://savannah.gnu.org/">Savannah</a>, info-nano, help-nano and nano-devel. Info-nano is a very low traffic list where new versions of nano are announced (surprise!) Help-nano is for getting help with the editor without needing to hear all of the development issues surrounding it. Nano-devel is a normally low, sometimes high traffic list for discussing the present and future development of nano. Here are links to where you can sign up for a given list:</p>
+<h2><a name="7.1"></a>7.1. nano-related mailing lists.</h2>
+<blockquote><p>There are three mailing lists for nano hosted at <a href="http://savannah.gnu.org/">Savannah</a>, info-nano, help-nano and nano-devel. info-nano is a very low traffic list where new versions of nano are announced (surprise!). help-nano is for getting help with the editor without needing to hear all of the development issues surrounding it. nano-devel is a normally low, sometimes high traffic list for discussing the present and future development of nano. Here are links to where you can sign up for a given list:</p>
   <p>info-nano - <a href="http://mail.gnu.org/mailman/listinfo/info-nano/">http://mail.gnu.org/mailman/listinfo/info-nano/</a><br>
   help-nano - <a href="http://mail.gnu.org/mailman/listinfo/help-nano/">http://mail.gnu.org/mailman/listinfo/help-nano/</a><br>
   nano-devel - <a href="http://mail.gnu.org/mailman/listinfo/nano-devel/">http://mail.gnu.org/mailman/listinfo/nano-devel/</a></p></blockquote>
@@ -255,7 +259,11 @@
 <h2><a name="7.5"></a>7.5. Can I have CVS write access?</h2>
 <blockquote><p>Re-read Section <a href="#7.4">7.4</a> and you should know the answer.</p></blockquote>
 <h2><a name="8"></a>8. ChangeLog</h2>
-<blockquote><p>2006/10/28 - Update various links for the 2.0 branch of nano. (DLR)<br>
+<blockquote><p>2007/04/18 - Add a new section 4.14 to explain how autoindent affects pasted text. (John M. Gabriele, minor tweaks by DLR)<br>
+2007/04/04 - Update email address. (DLR)<br>
+2007/01/01 - Update section 4.1 to describe how to open files with names beginning with '+' at specified columns as well as lines. (DLR)<br>
+2006/11/25 - Add miscellaneous wording and capitalization fixes. (DLR)<br>
+2006/10/28 - Update various links for the 2.0 branch of nano. (DLR)<br>
 2006/10/06 - Update the question in section 4.13 to match the version of it in the answer section. (DLR)<br>
 2006/07/25 - Update section 5.3 again to not state &quot;the latest development version&quot; before 1.3.12, as it's no longer accurate. Also add some minor spacing fixes. (DLR)<br>
 2006/06/12 - Update section 5.3, due to the display fix for two-column Unicode characters. (DLR)<br>
@@ -309,6 +317,6 @@
 2000/11/18 - Previous string display (4.5).<br>
 2000/09/27 - Moved addresses to nano-editor.org.<br>
 2000/06/31 - Initial framework.</p></blockquote>
-<p>$Id: faq.html,v 1.56 2006/11/20 14:37:44 dolorous Exp $</p>
+<p>$Id: faq.html,v 1.61.2.5 2007/04/26 12:00:33 dolorous Exp $</p>
 </body>
 </html>

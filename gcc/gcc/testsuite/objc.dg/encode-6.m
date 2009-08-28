@@ -1,4 +1,3 @@
-/* APPLE LOCAL file mainline */
 /* Test for graceful encoding of const-qualified fields and parameters.  */
 /* Author: Ziemowit Laski  <zlaski@apple.com>  */
 /* { dg-do compile } */

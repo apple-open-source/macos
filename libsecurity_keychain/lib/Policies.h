@@ -68,11 +68,14 @@ public:
     bool operator < (const Policy& other) const;
     bool operator == (const Policy& other) const;
 
+    bool equal(SecCFObject &other);
+
 private:
     TP					mTp;			// TP module for this Policy
     CssmAutoData		mOid;			// OID for this policy
     CssmAutoData		mValue;			// value for this policy
     CssmAutoData		mAuxValue;		// variable-length value data for this policy
+	Mutex				mMutex;
 };
 
 } // end namespace KeychainCore

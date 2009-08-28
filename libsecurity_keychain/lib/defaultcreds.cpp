@@ -64,10 +64,10 @@ void DefaultCredentials::clear()
 bool DefaultCredentials::operator () (Db database)
 {
 	if (!mMade) {
-		assert(database->dl()->guid() == gGuidAppleCSPDL);
 		try {
 			// before we do anything else, see if we have a relation in the database of the appropriate type
-			if (mKeychainImpl->keychainSchema()->hasRecordType(UnlockReferralRecord::recordType))
+			KeychainSchema keychainSchema = mKeychainImpl->keychainSchema();
+			if (keychainSchema->hasRecordType(UnlockReferralRecord::recordType))
 			{
 				clear();			
 				Table<UnlockReferralRecord> referrals(database);

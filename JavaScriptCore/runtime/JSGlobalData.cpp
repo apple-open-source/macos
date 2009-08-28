@@ -59,13 +59,14 @@ using namespace WTF;
 
 namespace JSC {
 
-extern const HashTable arrayTable;
-extern const HashTable dateTable;
-extern const HashTable mathTable;
-extern const HashTable numberTable;
-extern const HashTable regExpTable;
-extern const HashTable regExpConstructorTable;
-extern const HashTable stringTable;
+extern JSC_CONST_HASHTABLE HashTable arrayTable;
+extern JSC_CONST_HASHTABLE HashTable jsonTable;
+extern JSC_CONST_HASHTABLE HashTable dateTable;
+extern JSC_CONST_HASHTABLE HashTable mathTable;
+extern JSC_CONST_HASHTABLE HashTable numberTable;
+extern JSC_CONST_HASHTABLE HashTable regExpTable;
+extern JSC_CONST_HASHTABLE HashTable regExpConstructorTable;
+extern JSC_CONST_HASHTABLE HashTable stringTable;
 
 struct VPtrSet {
     VPtrSet();
@@ -103,13 +104,14 @@ VPtrSet::VPtrSet()
 JSGlobalData::JSGlobalData(bool isShared, const VPtrSet& vptrSet)
     : isSharedInstance(isShared)
     , clientData(0)
-    , arrayTable(new HashTable(JSC::arrayTable))
-    , dateTable(new HashTable(JSC::dateTable))
-    , mathTable(new HashTable(JSC::mathTable))
-    , numberTable(new HashTable(JSC::numberTable))
-    , regExpTable(new HashTable(JSC::regExpTable))
-    , regExpConstructorTable(new HashTable(JSC::regExpConstructorTable))
-    , stringTable(new HashTable(JSC::stringTable))
+    , arrayTable(fastNew<HashTable>(JSC::arrayTable))
+    , dateTable(fastNew<HashTable>(JSC::dateTable))
+    , jsonTable(fastNew<HashTable>(JSC::jsonTable))
+    , mathTable(fastNew<HashTable>(JSC::mathTable))
+    , numberTable(fastNew<HashTable>(JSC::numberTable))
+    , regExpTable(fastNew<HashTable>(JSC::regExpTable))
+    , regExpConstructorTable(fastNew<HashTable>(JSC::regExpConstructorTable))
+    , stringTable(fastNew<HashTable>(JSC::stringTable))
     , activationStructure(JSActivation::createStructure(jsNull()))
     , interruptedExecutionErrorStructure(JSObject::createStructure(jsNull()))
     , staticScopeStructure(JSStaticScopeObject::createStructure(jsNull()))
@@ -137,6 +139,7 @@ JSGlobalData::JSGlobalData(bool isShared, const VPtrSet& vptrSet)
     , head(0)
     , dynamicGlobalObject(0)
     , scopeNodeBeingReparsed(0)
+    , firstStringifierToMark(0)
 {
 #if PLATFORM(MAC)
     startProfilerServerIfNeeded();
@@ -155,19 +158,21 @@ JSGlobalData::~JSGlobalData()
 
     arrayTable->deleteTable();
     dateTable->deleteTable();
+    jsonTable->deleteTable();
     mathTable->deleteTable();
     numberTable->deleteTable();
     regExpTable->deleteTable();
     regExpConstructorTable->deleteTable();
     stringTable->deleteTable();
 
-    delete arrayTable;
-    delete dateTable;
-    delete mathTable;
-    delete numberTable;
-    delete regExpTable;
-    delete regExpConstructorTable;
-    delete stringTable;
+    fastDelete(const_cast<HashTable*>(arrayTable));
+    fastDelete(const_cast<HashTable*>(dateTable));
+    fastDelete(const_cast<HashTable*>(jsonTable));
+    fastDelete(const_cast<HashTable*>(mathTable));
+    fastDelete(const_cast<HashTable*>(numberTable));
+    fastDelete(const_cast<HashTable*>(regExpTable));
+    fastDelete(const_cast<HashTable*>(regExpConstructorTable));
+    fastDelete(const_cast<HashTable*>(stringTable));
 
     delete parser;
     delete lexer;

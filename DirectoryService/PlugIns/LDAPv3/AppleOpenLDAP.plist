@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
 	<key>Attribute Type Map</key>
@@ -653,14 +653,22 @@
 					<key>Standard Name</key>
 					<string>dsAttrTypeStandard:NameSuffix</string>
 				</dict>
-                <dict>
-                    <key>Native Map</key>
-                    <array>
-                        <string>apple-xmlplist</string>
-                    </array>
-                    <key>Standard Name</key>
-                    <string>dsAttrTypeStandard:XMLPlist</string>
-                </dict>
+				<dict>
+					<key>Native Map</key>
+					<array>
+						<string>apple-xmlplist</string>
+					</array>
+					<key>Standard Name</key>
+					<string>dsAttrTypeStandard:XMLPlist</string>
+				</dict>
+				<dict>
+					<key>Native Map</key>
+					<array>
+						<string>altSecurityIdentities</string>
+					</array>
+					<key>Standard Name</key>
+					<string>dsAttrTypeStandard:AltSecurityIdentities</string>
+				</dict>
 			</array>
 			<key>Native Map</key>
 			<array>
@@ -893,14 +901,14 @@
 					<key>Standard Name</key>
 					<string>dsAttrTypeStandard:ServicesLocator</string>
 				</dict>
-                <dict>
-                    <key>Native Map</key>
-                    <array>
-                        <string>apple-xmlplist</string>
-                    </array>
-                    <key>Standard Name</key>
-                    <string>dsAttrTypeStandard:XMLPlist</string>
-                </dict>
+				<dict>
+					<key>Native Map</key>
+					<array>
+						<string>apple-xmlplist</string>
+					</array>
+					<key>Standard Name</key>
+					<string>dsAttrTypeStandard:XMLPlist</string>
+				</dict>
 			</array>
 			<key>Native Map</key>
 			<array>
@@ -1072,6 +1080,14 @@
 		<dict>
 			<key>Attribute Type Map</key>
 			<array>
+				<dict>
+					<key>Native Map</key>
+					<array>
+						<string>apple-hwuuid</string>
+					</array>
+					<key>Standard Name</key>
+					<string>dsAttrTypeStandard:HardwareUUID</string>
+				</dict>
 				<dict>
 					<key>Native Map</key>
 					<array>
@@ -1517,21 +1533,21 @@
 					<string>dsAttrTypeStandard:ServicesLocator</string>
 				</dict>
 				<dict>
-                    <key>Native Map</key>
-                    <array>
-                        <string>apple-primarycomputerguid</string>
-                    </array>
-                    <key>Standard Name</key>
-                    <string>dsAttrTypeStandard:PrimaryComputerGUID</string>
-                </dict>
-                <dict>
-                    <key>Native Map</key>
-                    <array>
-                        <string>apple-xmlplist</string>
-                    </array>
-                    <key>Standard Name</key>
-                    <string>dsAttrTypeStandard:XMLPlist</string>
-                </dict>
+					<key>Native Map</key>
+					<array>
+						<string>apple-primarycomputerguid</string>
+					</array>
+					<key>Standard Name</key>
+					<string>dsAttrTypeStandard:PrimaryComputerGUID</string>
+				</dict>
+				<dict>
+					<key>Native Map</key>
+					<array>
+						<string>apple-xmlplist</string>
+					</array>
+					<key>Standard Name</key>
+					<string>dsAttrTypeStandard:XMLPlist</string>
+				</dict>
 			</array>
 			<key>Native Map</key>
 			<array>
@@ -1960,7 +1976,7 @@
 			</array>
 			<key>Standard Name</key>
 			<string>dsRecTypeStandard:Neighborhoods</string>
-		</dict>  
+		</dict>
 		<dict>
 			<key>Attribute Type Map</key>
 			<array>
@@ -2244,14 +2260,14 @@
 					<key>Standard Name</key>
 					<string>dsAttrTypeStandard:MapCoordinates</string>
 				</dict>
-                <dict>
-                    <key>Native Map</key>
-                    <array>
-                        <string>apple-xmlplist</string>
-                    </array>
-                    <key>Standard Name</key>
-                    <string>dsAttrTypeStandard:XMLPlist</string>
-                </dict>
+				<dict>
+					<key>Native Map</key>
+					<array>
+						<string>apple-xmlplist</string>
+					</array>
+					<key>Standard Name</key>
+					<string>dsAttrTypeStandard:XMLPlist</string>
+				</dict>
 				<dict>
 					<key>Native Map</key>
 					<array>
@@ -3639,14 +3655,14 @@
 					<key>Standard Name</key>
 					<string>dsAttrTypeStandard:ServicesLocator</string>
 				</dict>
-                <dict>
-                    <key>Native Map</key>
-                    <array>
-                        <string>apple-xmlplist</string>
-                    </array>
-                    <key>Standard Name</key>
-                    <string>dsAttrTypeStandard:XMLPlist</string>
-                </dict>
+				<dict>
+					<key>Native Map</key>
+					<array>
+						<string>apple-xmlplist</string>
+					</array>
+					<key>Standard Name</key>
+					<string>dsAttrTypeStandard:XMLPlist</string>
+				</dict>
 			</array>
 			<key>Native Map</key>
 			<array>
@@ -3795,14 +3811,14 @@
 					<key>Standard Name</key>
 					<string>dsAttrTypeStandard:ServicesLocator</string>
 				</dict>
-                <dict>
-                    <key>Native Map</key>
-                    <array>
-                        <string>apple-xmlplist</string>
-                    </array>
-                    <key>Standard Name</key>
-                    <string>dsAttrTypeStandard:XMLPlist</string>
-                </dict>
+				<dict>
+					<key>Native Map</key>
+					<array>
+						<string>apple-xmlplist</string>
+					</array>
+					<key>Standard Name</key>
+					<string>dsAttrTypeStandard:XMLPlist</string>
+				</dict>
 			</array>
 			<key>Native Map</key>
 			<array>
@@ -3951,14 +3967,14 @@
 					<key>Standard Name</key>
 					<string>dsAttrTypeStandard:ServicesLocator</string>
 				</dict>
-                <dict>
-                    <key>Native Map</key>
-                    <array>
-                        <string>apple-xmlplist</string>
-                    </array>
-                    <key>Standard Name</key>
-                    <string>dsAttrTypeStandard:XMLPlist</string>
-                </dict>
+				<dict>
+					<key>Native Map</key>
+					<array>
+						<string>apple-xmlplist</string>
+					</array>
+					<key>Standard Name</key>
+					<string>dsAttrTypeStandard:XMLPlist</string>
+				</dict>
 			</array>
 			<key>Native Map</key>
 			<array>
@@ -4020,6 +4036,51 @@
 			</array>
 			<key>Standard Name</key>
 			<string>dsRecTypeStandard:OLCBDBConfig</string>
+		</dict>
+		<dict>
+			<key>Attribute Type Map</key>
+			<array>
+				<dict>
+					<key>Native Map</key>
+					<array>
+						<string>olcDatabase</string>
+					</array>
+					<key>Standard Name</key>
+					<string>dsAttrTypeStandard:OLCDatabase</string>
+				</dict>
+				<dict>
+					<key>Native Map</key>
+					<array>
+						<string>olcDatabase</string>
+					</array>
+					<key>Standard Name</key>
+					<string>dsAttrTypeStandard:RecordName</string>
+				</dict>
+				<dict>
+					<key>Native Map</key>
+					<array>
+						<string>olcSyncrepl</string>
+					</array>
+					<key>Standard Name</key>
+					<string>dsAttrTypeStandard:OLCSyncRepl</string>
+				</dict>
+			</array>
+			<key>Native Map</key>
+			<array>
+				<dict>
+					<key>Group Object Classes</key>
+					<string>AND</string>
+					<key>Object Classes</key>
+					<array>
+						<string>olcDatabaseConfig</string>
+						<string>olcLdifConfig</string>
+					</array>
+					<key>Search Base</key>
+					<string>cn=config</string>
+				</dict>
+			</array>
+			<key>Standard Name</key>
+			<string>dsRecTypeStandard:OLCLDIFConfig</string>
 		</dict>
 		<dict>
 			<key>Attribute Type Map</key>
@@ -4310,7 +4371,7 @@
 					<string>OR</string>
 					<key>Object Classes</key>
 					<array>
-						<string>apple-preset-computer-groups</string>
+						<string>apple-preset-computer-group</string>
 					</array>
 					<key>Search Base</key>
 					<string>cn=presets_computer_groups, %!</string>

@@ -4,10 +4,10 @@ EXTRA_PROGRAMS = rmt
 
 rmt_SOURCES = rmt.c
 
-INCLUDES = -I$(top_srcdir)/lib -I../ -I../lib 
+INCLUDES = -I$(top_srcdir)/lib -I../ -I../lib
 
 LDADD = ../lib/lib$(PACKAGE).a $(LIBINTL)
 
 rmt_LDADD = $(LDADD) $(LIB_SETSOCKOPT)
 
-rmt.o: ../lib/localedir.h
+rmt.o: ../lib/configmake.h

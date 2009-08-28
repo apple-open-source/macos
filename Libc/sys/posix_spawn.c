@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2006-2008 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -27,6 +27,7 @@
 
 #include <sys/types.h> /* for user_size_t */
 #include <spawn.h>
+#include <spawn_private.h>
 #include <sys/spawn_internal.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -98,6 +99,12 @@ posix_spawnattr_init(posix_spawnattr_t *attr)
 
 		/* Default is no port actions to take */
 		(*psattrp)->psa_ports = NULL;
+
+		/*
+		 * The default value of this attribute shall be an no
+		 * process control on resource starvation
+		 */
+		(*psattrp)->psa_pcontrol = 0;
 	}
 
 	return (err);
@@ -124,6 +131,8 @@ posix_spawnattr_init(posix_spawnattr_t *attr)
  * NOTIMP:	Allowed failures (checking NOT required):
  *		EINVAL	The value specified by attr is invalid.
  */
+int posix_spawn_destroyportactions_np(posix_spawnattr_t *);
+
 int
 posix_spawnattr_destroy(posix_spawnattr_t *attr)
 {
@@ -357,6 +366,43 @@ posix_spawnattr_getbinpref_np(const posix_spawnattr_t * __restrict attr,
 		*ocount = i;
 	return 0;
 }
+
+
+/*
+ * posix_spawnattr_getpcontrol_np
+ *
+ * Description:	Retrieve the  process control property set default according to
+ *		the spawn attribute value referenced by 'attr' and place the
+ *		result into the memory containing the control  referenced by
+ *		'pcontrol'
+ *
+ * Parameters:	attr			The spawn attributes object whose
+ *					signal set for default signals is to
+ *					be retrieved
+ *		pcontrol		A pointer to an int  to receive
+ *					the process control info
+ *
+ * Returns:	0			Success
+ *
+ * Implicit Returns:
+ *		*pcontrol (modified)	The signal set of signals to default
+ *					from the spawn attributes object
+ */
+int
+posix_spawnattr_getpcontrol_np(const posix_spawnattr_t * __restrict attr,
+		int * __restrict pcontrol)
+{
+	_posix_spawnattr_t psattr;
+
+	if (attr == NULL || *attr == NULL)
+		return EINVAL;
+
+	psattr = *(_posix_spawnattr_t *)attr;
+	*pcontrol = psattr->psa_pcontrol;
+
+	return (0);
+}
+
 /*
  * posix_spawnattr_setsigdefault
  *
@@ -489,6 +535,35 @@ posix_spawnattr_setbinpref_np(posix_spawnattr_t * __restrict attr,
 	return 0;
 }
 
+
+/*
+ * posix_spawnattr_setpcontrol_np
+ *
+ * Description:	Set the process control property according to
+ *		attribute value referenced by 'attr' from the memory
+ *		containing the int value 'pcontrol'
+ *
+ * Parameters:	attr			The spawn attributes object whose
+ *					signal set for default signals is to
+ *					be set
+ *		pcontrol		An int value of the process control info
+ *
+ * Returns:	0			Success
+ */
+int
+posix_spawnattr_setpcontrol_np(posix_spawnattr_t * __restrict attr,
+		const int pcontrol)
+{
+	_posix_spawnattr_t psattr;
+
+	if (attr == NULL || *attr == NULL)
+		return EINVAL;
+
+	psattr = *(_posix_spawnattr_t *)attr;
+	psattr->psa_pcontrol = pcontrol;
+
+	return (0);
+}
 /*
  * posix_spawn_createportactions_np
  * Description: create a new posix_spawn_port_actions struct and link
@@ -678,6 +753,58 @@ posix_spawnattr_setexceptionports_np(
 	action->new_port = new_port;
 	action->behavior = behavior;
 	action->flavor = flavor;
+	
+	ports->pspa_count++;
+	return err;
+}
+
+/*
+ * posix_spawnattr_setauditsessionport_np
+ *
+ * Description:	Set the audit session port rights attribute in the spawned task.
+ *		This is used to securely set the audit session information for
+ *		the new task.
+ *
+ * Parameters:	attr			The spawn attributes object for the
+ * 					new process
+ * 		au_sessionport		The audit session send port right
+ *
+ * Returns:	0			Success
+ */
+int    
+posix_spawnattr_setauditsessionport_np(
+		posix_spawnattr_t       *attr,
+		mach_port_t              au_sessionport)
+{
+	_posix_spawnattr_t psattr;
+	int err = 0;
+	_ps_port_action_t *action;
+	_posix_spawn_port_actions_t ports;
+
+	if (attr == NULL || *attr == NULL)
+		return EINVAL;
+
+	psattr = *(_posix_spawnattr_t *)attr;
+	ports = psattr->psa_ports;
+	/* Have any port actions been created yet? */
+	if (ports == NULL) {
+		err = posix_spawn_createportactions_np(attr);
+		if (err) 
+			return err;
+		ports = psattr->psa_ports;
+	}
+	
+	/* Is there enough room? */
+	if (ports->pspa_alloc == ports->pspa_count) {
+		err = posix_spawn_growportactions_np(attr);
+		if (err)
+			return err;
+	}
+
+	/* Add this action to next spot in array */
+	action = &ports->pspa_actions[ports->pspa_count];
+	action->port_type = PSPA_AU_SESSION;
+	action->new_port = au_sessionport;
 	
 	ports->pspa_count++;
 	return err;

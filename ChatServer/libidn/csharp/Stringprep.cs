@@ -1,28 +1,29 @@
-/// <summary> Copyright (C) 2004, 2005  Free Software Foundation, Inc.
+/// <summary>
 /// *
-/// Author: Alexander Gnauck AG-Software
+/// Author: Alexander Gnauck AG-Software, mailto:gnauck@ag-software.de
 /// *
 /// This file is part of GNU Libidn.
 /// *
-/// This program is free software; you can redistribute it and/or
-/// modify it under the terms of the GNU General Public License as
-/// published by the Free Software Foundation; either version 2 of the
-/// License, or (at your option) any later version.
+/// This library is free software; you can redistribute it and/or
+/// modify it under the terms of the GNU Lesser General Public License
+/// as published by the Free Software Foundation; either version 2.1 of
+/// the License, or (at your option) any later version.
 /// *
-/// This program is distributed in the hope that it will be useful,
-/// but WITHOUT ANY WARRANTY; without even the implied warranty of
+/// This library is distributed in the hope that it will be useful, but
+/// WITHOUT ANY WARRANTY; without even the implied warranty of
 /// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-/// General Public License for more details.
+/// Lesser General Public License for more details.
 /// *
-/// You should have received a copy of the GNU General Public License
-/// along with this program; if not, write to the Free Software
-/// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-/// 02111-1307 USA.
+/// You should have received a copy of the GNU Lesser General Public
+/// License along with this library; if not, write to the Free Software
+/// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301
+/// USA
 /// </summary>
 
 using System;
+using System.Text;
 
-namespace gnu.inet.encoding
+namespace Gnu.Inet.Encoding
 {	
 	/// <summary> This class offers static methods for preparing internationalized
 	/// strings. It supports the following stringprep profiles:
@@ -47,9 +48,9 @@ namespace gnu.inet.encoding
 		/// @throws NullPointerException If the name is null.
 		/// 
 		/// </returns>
-		public static System.String nameprep(System.String input)
+		public static string NamePrep(string input)
 		{
-			return nameprep(input, false);
+			return NamePrep(input, false);
 		}
 		
 		/// <summary> Preps a name according to the Stringprep profile defined in
@@ -67,28 +68,28 @@ namespace gnu.inet.encoding
 		/// @throws NullPointerException If the name is null.
 		/// 
 		/// </returns>
-		public static System.String nameprep(System.String input, bool allowUnassigned)
+		public static string NamePrep(string input, bool allowUnassigned)
 		{
 			if (input == null)
 			{
 				throw new System.NullReferenceException();
 			}
 			
-			System.Text.StringBuilder s = new System.Text.StringBuilder(input);
+			StringBuilder s = new StringBuilder(input);
 			
-			if (!allowUnassigned && contains(s, RFC3454.A1))
+			if (!allowUnassigned && Contains(s, RFC3454.A1))
 			{
 				throw new StringprepException(StringprepException.CONTAINS_UNASSIGNED);
 			}
 			
-			filter(s, RFC3454.B1);
-			map(s, RFC3454.B2search, RFC3454.B2replace);
+			Filter(s, RFC3454.B1);
+			Map(s, RFC3454.B2search, RFC3454.B2replace);
 			
-			s = new System.Text.StringBuilder(NFKC.normalizeNFKC(s.ToString()));
+			s = new StringBuilder(NFKC.NormalizeNFKC(s.ToString()));
 			// B.3 is only needed if NFKC is not used, right?
 			// map(s, RFC3454.B3search, RFC3454.B3replace);
 			
-			if (contains(s, RFC3454.C12) || contains(s, RFC3454.C22) || contains(s, RFC3454.C3) || contains(s, RFC3454.C4) || contains(s, RFC3454.C5) || contains(s, RFC3454.C6) || contains(s, RFC3454.C7) || contains(s, RFC3454.C8))
+			if (Contains(s, RFC3454.C12) || Contains(s, RFC3454.C22) || Contains(s, RFC3454.C3) || Contains(s, RFC3454.C4) || Contains(s, RFC3454.C5) || Contains(s, RFC3454.C6) || Contains(s, RFC3454.C7) || Contains(s, RFC3454.C8))
 			{
 				// Table C.9 only contains code points > 0xFFFF which Java
 				// doesn't handle
@@ -96,8 +97,8 @@ namespace gnu.inet.encoding
 			}
 			
 			// Bidi handling
-			bool r = contains(s, RFC3454.D1);
-			bool l = contains(s, RFC3454.D2);
+			bool r = Contains(s, RFC3454.D1);
+			bool l = Contains(s, RFC3454.D2);
 			
 			// RFC 3454, section 6, requirement 1: already handled above (table C.8)
 			
@@ -110,7 +111,7 @@ namespace gnu.inet.encoding
 			// RFC 3454, section 6, requirement 3
 			if (r)
 			{
-				if (!contains(s[0], RFC3454.D1) || !contains(s[s.Length - 1], RFC3454.D1))
+				if (!Contains(s[0], RFC3454.D1) || !Contains(s[s.Length - 1], RFC3454.D1))
 				{
 					throw new StringprepException(StringprepException.BIDI_LTRAL);
 				}
@@ -140,14 +141,13 @@ namespace gnu.inet.encoding
 		/// @throws NullPointerException If the node name is null.
 		/// 
 		/// </returns>
-		public static System.String nodeprep(System.String input)
+		public static string NodePrep(string input)
 		{
-			return nodeprep(input, false);
+			return NodePrep(input, false);
 		}
 		
-		/// <summary> Preps a node name according to the Stringprep profile defined in
-		/// RFC3920.
-		/// *
+		/// <summary>
+        /// Preps a node name according to the Stringprep profile defined in RFC3920.
 		/// </summary>
 		/// <param name="input">the node name to prep.
 		/// </param>
@@ -160,26 +160,26 @@ namespace gnu.inet.encoding
 		/// @throws NullPointerException If the node name is null.
 		/// 
 		/// </returns>
-		public static System.String nodeprep(System.String input, bool allowUnassigned)
+		public static string NodePrep(string input, bool allowUnassigned)
 		{
 			if (input == null)
 			{
 				throw new System.NullReferenceException();
 			}
 			
-			System.Text.StringBuilder s = new System.Text.StringBuilder(input);
+			StringBuilder s = new StringBuilder(input);
 			
-			if (!allowUnassigned && contains(s, RFC3454.A1))
+			if (!allowUnassigned && Contains(s, RFC3454.A1))
 			{
 				throw new StringprepException(StringprepException.CONTAINS_UNASSIGNED);
 			}
 			
-			filter(s, RFC3454.B1);
-			map(s, RFC3454.B2search, RFC3454.B2replace);
+			Filter(s, RFC3454.B1);
+			Map(s, RFC3454.B2search, RFC3454.B2replace);
 			
-			s = new System.Text.StringBuilder(NFKC.normalizeNFKC(s.ToString()));
+			s = new StringBuilder(NFKC.NormalizeNFKC(s.ToString()));
 			
-			if (contains(s, RFC3454.C11) || contains(s, RFC3454.C12) || contains(s, RFC3454.C21) || contains(s, RFC3454.C22) || contains(s, RFC3454.C3) || contains(s, RFC3454.C4) || contains(s, RFC3454.C5) || contains(s, RFC3454.C6) || contains(s, RFC3454.C7) || contains(s, RFC3454.C8) || contains(s, RFC3920_NODEPREP_PROHIBIT))
+			if (Contains(s, RFC3454.C11) || Contains(s, RFC3454.C12) || Contains(s, RFC3454.C21) || Contains(s, RFC3454.C22) || Contains(s, RFC3454.C3) || Contains(s, RFC3454.C4) || Contains(s, RFC3454.C5) || Contains(s, RFC3454.C6) || Contains(s, RFC3454.C7) || Contains(s, RFC3454.C8) || Contains(s, RFC3920_NODEPREP_PROHIBIT))
 			{
 				// Table C.9 only contains code points > 0xFFFF which Java
 				// doesn't handle
@@ -187,8 +187,8 @@ namespace gnu.inet.encoding
 			}
 			
 			// Bidi handling
-			bool r = contains(s, RFC3454.D1);
-			bool l = contains(s, RFC3454.D2);
+			bool r = Contains(s, RFC3454.D1);
+			bool l = Contains(s, RFC3454.D2);
 			
 			// RFC 3454, section 6, requirement 1: already handled above (table C.8)
 			
@@ -201,7 +201,7 @@ namespace gnu.inet.encoding
 			// RFC 3454, section 6, requirement 3
 			if (r)
 			{
-				if (!contains(s[0], RFC3454.D1) || !contains(s[s.Length - 1], RFC3454.D1))
+				if (!Contains(s[0], RFC3454.D1) || !Contains(s[s.Length - 1], RFC3454.D1))
 				{
 					throw new StringprepException(StringprepException.BIDI_LTRAL);
 				}
@@ -210,9 +210,9 @@ namespace gnu.inet.encoding
 			return s.ToString();
 		}
 		
-		/// <summary> Preps a resource name according to the Stringprep profile defined
+		/// <summary>
+        /// Preps a resource name according to the Stringprep profile defined
 		/// in RFC3920. Unassigned code points are not allowed.
-		/// *
 		/// </summary>
 		/// <param name="input">the resource name to prep.
 		/// </param>
@@ -222,45 +222,46 @@ namespace gnu.inet.encoding
 		/// @throws NullPointerException If the resource name is null.
 		/// 
 		/// </returns>
-		public static System.String resourceprep(System.String input)
+		public static string ResourcePrep(string input)
 		{
-			return resourceprep(input, false);
+			return ResourcePrep(input, false);
 		}
 		
-		/// <summary> Preps a resource name according to the Stringprep profile defined
+		/// <summary>
+        /// Preps a resource name according to the Stringprep profile defined
 		/// in RFC3920.
-		/// *
 		/// </summary>
 		/// <param name="input">the resource name to prep.
 		/// </param>
 		/// <param name="allowUnassigned">true if the resource name may contain
 		/// unassigned code points.
 		/// </param>
-		/// <returns> the prepped node name.
+		/// <returns>
+        /// the prepped node name.
 		/// @throws StringprepException If the resource name cannot be prepped
 		/// with this profile.
 		/// @throws NullPointerException If the resource name is null.
 		/// 
-		/// </returns>
-		public static System.String resourceprep(System.String input, bool allowUnassigned)
+		/// </returns>        
+		public static string ResourcePrep(string input, bool allowUnassigned)
 		{
 			if (input == null)
 			{
 				throw new System.NullReferenceException();
 			}
 			
-			System.Text.StringBuilder s = new System.Text.StringBuilder(input);
+			StringBuilder s = new StringBuilder(input);
 			
-			if (!allowUnassigned && contains(s, RFC3454.A1))
+			if (!allowUnassigned && Contains(s, RFC3454.A1))
 			{
 				throw new StringprepException(StringprepException.CONTAINS_UNASSIGNED);
 			}
 			
-			filter(s, RFC3454.B1);
+			Filter(s, RFC3454.B1);
 			
-			s = new System.Text.StringBuilder(NFKC.normalizeNFKC(s.ToString()));
+			s = new StringBuilder(NFKC.NormalizeNFKC(s.ToString()));
 			
-			if (contains(s, RFC3454.C12) || contains(s, RFC3454.C21) || contains(s, RFC3454.C22) || contains(s, RFC3454.C3) || contains(s, RFC3454.C4) || contains(s, RFC3454.C5) || contains(s, RFC3454.C6) || contains(s, RFC3454.C7) || contains(s, RFC3454.C8))
+			if (Contains(s, RFC3454.C12) || Contains(s, RFC3454.C21) || Contains(s, RFC3454.C22) || Contains(s, RFC3454.C3) || Contains(s, RFC3454.C4) || Contains(s, RFC3454.C5) || Contains(s, RFC3454.C6) || Contains(s, RFC3454.C7) || Contains(s, RFC3454.C8))
 			{
 				// Table C.9 only contains code points > 0xFFFF which Java
 				// doesn't handle
@@ -268,8 +269,8 @@ namespace gnu.inet.encoding
 			}
 			
 			// Bidi handling
-			bool r = contains(s, RFC3454.D1);
-			bool l = contains(s, RFC3454.D2);
+			bool r = Contains(s, RFC3454.D1);
+			bool l = Contains(s, RFC3454.D2);
 			
 			// RFC 3454, section 6, requirement 1: already handled above (table C.8)
 			
@@ -282,7 +283,7 @@ namespace gnu.inet.encoding
 			// RFC 3454, section 6, requirement 3
 			if (r)
 			{
-				if (!contains(s[0], RFC3454.D1) || !contains(s[s.Length - 1], RFC3454.D1))
+				if (!Contains(s[0], RFC3454.D1) || !Contains(s[s.Length - 1], RFC3454.D1))
 				{
 					throw new StringprepException(StringprepException.BIDI_LTRAL);
 				}
@@ -291,7 +292,7 @@ namespace gnu.inet.encoding
 			return s.ToString();
 		}
 		
-		internal static bool contains(System.Text.StringBuilder s, char[] p)
+		internal static bool Contains(StringBuilder s, char[] p)
 		{
 			for (int i = 0; i < p.Length; i++)
 			{
@@ -307,7 +308,7 @@ namespace gnu.inet.encoding
 			return false;
 		}
 		
-		internal static bool contains(System.Text.StringBuilder s, char[][] p)
+		internal static bool Contains(StringBuilder s, char[][] p)
 		{
 			for (int i = 0; i < p.Length; i++)
 			{
@@ -339,7 +340,7 @@ namespace gnu.inet.encoding
 			return false;
 		}
 		
-		internal static bool contains(char c, char[][] p)
+		internal static bool Contains(char c, char[][] p)
 		{
 			for (int i = 0; i < p.Length; i++)
 			{
@@ -364,7 +365,7 @@ namespace gnu.inet.encoding
 			return false;
 		}
 		
-		internal static void  filter(System.Text.StringBuilder s, char[] f)
+		internal static void Filter(StringBuilder s, char[] f)
 		{
 			for (int i = 0; i < f.Length; i++)
 			{
@@ -386,7 +387,7 @@ namespace gnu.inet.encoding
 			}
 		}
 		
-		internal static void  filter(System.Text.StringBuilder s, char[][] f)
+		internal static void Filter(StringBuilder s, char[][] f)
 		{
 			for (int i = 0; i < f.Length; i++)
 			{
@@ -432,7 +433,7 @@ namespace gnu.inet.encoding
 			}
 		}
 		
-		internal static void map(System.Text.StringBuilder s, char[] search, System.String[] replace)
+		internal static void Map(StringBuilder s, char[] search, string[] replace)
 		{
 			for (int i = 0; i < search.Length; i++)
 			{

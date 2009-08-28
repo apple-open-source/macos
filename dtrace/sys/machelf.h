@@ -20,14 +20,14 @@
  */
 
 /*
- * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
 #ifndef	_SYS_MACHELF_H
 #define	_SYS_MACHELF_H
 
-#pragma ident	"@(#)machelf.h	1.18	06/03/07 SMI"
+#pragma ident	"@(#)machelf.h	1.19	08/03/18 SMI"
 
 #ifdef	__cplusplus
 extern "C" {
@@ -38,6 +38,8 @@ extern "C" {
 #include <sys/elf_amd64.h>
 #elif defined(__i386)
 #include <sys/elf_386.h>
+#elif defined(__sparc)
+#include <sys/elf_SPARC.h>
 #endif
 #else /* is Apple Mac OS X */
 #if defined(__i386__) || defined(__x86_64__)
@@ -64,6 +66,7 @@ extern "C" {
 #include "link.h" /* In lieu of Solaris <sys/link.h> */
 #endif /* __APPLE__ */
 #endif	/* _ASM */
+
 /*
  * Make machine class dependent data types transparent to the common code
  */
@@ -84,6 +87,7 @@ typedef	uchar_t		Byte;
 #if defined(_KERNEL)
 #define	ELF_R_TYPE	ELF64_R_TYPE
 #define	ELF_R_SYM	ELF64_R_SYM
+#define	ELF_R_TYPE_DATA ELF64_R_TYPE_DATA
 #define	ELF_R_INFO	ELF64_R_INFO
 #define	ELF_ST_BIND	ELF64_ST_BIND
 #define	ELF_ST_TYPE	ELF64_ST_TYPE
@@ -109,16 +113,6 @@ typedef	Elf64_Vernaux	Vernaux;
 typedef	Elf64_Versym	Versym;
 typedef	Elf64_Move	Move;
 typedef	Elf64_Cap	Cap;
-
-/*
- * Structure used to build the reloc_table[]
- */
-typedef struct {
-	Word		re_flags;	/* relocation attributes */
-	uchar_t		re_fsize;	/* field size (in bytes) */
-	uchar_t		re_sigbits;	/* number of significant bits */
-} Rel_entry;
-
 #endif	/* _ASM */
 
 #else	/* _ILP32 */
@@ -138,6 +132,7 @@ typedef	uchar_t		Byte;
 #if defined(_KERNEL)
 #define	ELF_R_TYPE	ELF32_R_TYPE
 #define	ELF_R_SYM	ELF32_R_SYM
+#define	ELF_R_TYPE_DATA(x)	(0)
 #define	ELF_R_INFO	ELF32_R_INFO
 #define	ELF_ST_BIND	ELF32_ST_BIND
 #define	ELF_ST_TYPE	ELF32_ST_TYPE
@@ -163,15 +158,6 @@ typedef	Elf32_Vernaux	Vernaux;
 typedef	Elf32_Versym	Versym;
 typedef	Elf32_Move	Move;
 typedef	Elf32_Cap	Cap;
-
-/*
- * Structure used to build the reloc_table[]
- */
-typedef struct {
-	uint_t		re_flags;	/* relocation attributes */
-	uchar_t		re_fsize;	/* field size (in bytes) */
-} Rel_entry;
-
 #endif	/* _ASM */
 
 #endif	/* _ILP32 */

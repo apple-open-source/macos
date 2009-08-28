@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -252,6 +252,8 @@ _IOServiceMatching(const char *name)
 	return dyfunc ? dyfunc(name) : NULL;
 }
 
+#if	!TARGET_OS_IPHONE
+
 static void *
 __loadSecurity(void) {
 	static void *image = NULL;
@@ -477,3 +479,4 @@ _SecTrustedApplicationCreateFromPath(const char *path, SecTrustedApplicationRef 
 	return dyfunc ? dyfunc(path, app) : -1;
 }
 
+#endif	// !TARGET_OS_IPHONE

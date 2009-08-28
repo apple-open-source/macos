@@ -217,7 +217,7 @@ struct ofile *ofile,
 char *arch_name,
 void *cookie)
 {
-    unsigned long i;
+    uint32_t i;
     struct check_block *block;
     struct load_command *lc;
     uint32_t ncmds;

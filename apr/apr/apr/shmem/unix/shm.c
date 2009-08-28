@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -49,7 +49,12 @@ static apr_status_t shm_cleanup_owner(void *m_)
         if (munmap(m->base, m->realsize) == -1) {
             return errno;
         }
-        return apr_file_remove(m->filename, m->pool);
+        if (access(m->filename, F_OK)) {
+            return APR_SUCCESS;
+        }
+        else {
+            return apr_file_remove(m->filename, m->pool);
+        }
 #endif
 #if APR_USE_SHMEM_MMAP_SHM
         if (munmap(m->base, m->realsize) == -1) {
@@ -64,13 +69,18 @@ static apr_status_t shm_cleanup_owner(void *m_)
         /* Indicate that the segment is to be destroyed as soon
          * as all processes have detached. This also disallows any
          * new attachments to the segment. */
-        if (shmctl(m->shmid, IPC_RMID, NULL) == -1) {
+        if (shmctl(m->shmid, IPC_RMID, NULL) == -1 && errno != EINVAL) {
             return errno;
         }
         if (shmdt(m->base) == -1) {
             return errno;
         }
-        return apr_file_remove(m->filename, m->pool);
+        if (access(m->filename, F_OK)) {
+            return APR_SUCCESS;
+        }
+        else {
+            return apr_file_remove(m->filename, m->pool);
+        }
 #endif
     }
 
@@ -264,12 +274,14 @@ APR_DECLARE(apr_status_t) apr_shm_create(apr_shm_t **m,
                                  APR_READ | APR_WRITE | APR_CREATE | APR_EXCL,
                                  pool); 
         if (status != APR_SUCCESS) {
+            close(tmpfd);
             return status;
         }
 
         status = apr_file_trunc(file, new_m->realsize);
         if (status != APR_SUCCESS) {
             shm_unlink(filename); /* we're failing, remove the object */
+            apr_file_close(file);
             return status;
         }
         new_m->base = mmap(NULL, reqsize, PROT_READ | PROT_WRITE,

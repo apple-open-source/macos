@@ -168,7 +168,7 @@ void ipc_init() {
 
 	umask(0);
 
-	if (bind(sock_fd, (struct sockaddr *)&server, sizeof(server)) == -1) {
+	if (bind(sock_fd, (struct sockaddr *)&server, (socklen_t)sizeof(server)) == -1) {
 		rc = errno;
 		logger(L_ERR, L_FUNC, "could not bind to socket: %s", sock_file);
 		logger(L_ERR, L_FUNC, "bind: %s", strerror(rc));
@@ -221,7 +221,7 @@ void ipc_loop() {
 
 	while(1) {
 
-		len = sizeof(client);
+		len = (socklen_t)sizeof(client);
 
 		/**************************************************************
 		 * First, if needed, get the accept lock. If it fails, take a

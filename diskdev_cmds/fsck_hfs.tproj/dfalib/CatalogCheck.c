@@ -1,22 +1,23 @@
 /*
- * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -526,24 +527,24 @@ CheckCatalogBTree( SGlobPtr GPtr )
 	if (gCIS.dirCount != gCIS.dirThreads) {
 		RcdError(gScavGlobals, E_IncorrectNumThdRcd);
 		gScavGlobals->CBTStat |= S_Orphan;  /* a directory record is missing */
-		if (gScavGlobals->logLevel >= kDebugLog) {
-		plog ("\t%s: dirCount = %u, dirThread = %u\n", __FUNCTION__, gCIS.dirCount, gCIS.dirThreads);
+		if (fsckGetVerbosity(gScavGlobals->context) >= kDebugLog) {
+			plog ("\t%s: dirCount = %u, dirThread = %u\n", __FUNCTION__, gCIS.dirCount, gCIS.dirThreads);
 		}
 	}
 
 	if (hfsplus && (gCIS.fileCount != gCIS.fileThreads)) {
 		RcdError(gScavGlobals, E_IncorrectNumThdRcd);
 		gScavGlobals->CBTStat |= S_Orphan;
-		if (gScavGlobals->logLevel >= kDebugLog) {
-		plog ("\t%s: fileCount = %u, fileThread = %u\n", __FUNCTION__, gCIS.fileCount, gCIS.fileThreads);
+		if (fsckGetVerbosity(gScavGlobals->context) >= kDebugLog) {
+			plog ("\t%s: fileCount = %u, fileThread = %u\n", __FUNCTION__, gCIS.fileCount, gCIS.fileThreads);
 		}
 	}
 
 	if (!hfsplus && (gCIS.fileThreads != gCIS.filesWithThreads)) {
 		RcdError(gScavGlobals, E_IncorrectNumThdRcd);
 		gScavGlobals->CBTStat |= S_Orphan;
-		if (gScavGlobals->logLevel >= kDebugLog) {
-		plog ("\t%s: fileThreads = %u, filesWithThread = %u\n", __FUNCTION__, gCIS.fileThreads, gCIS.filesWithThreads);
+		if (fsckGetVerbosity(gScavGlobals->context) >= kDebugLog) {
+			plog ("\t%s: fileThreads = %u, filesWithThread = %u\n", __FUNCTION__, gCIS.fileThreads, gCIS.filesWithThreads);
 		}
 	}
 
@@ -562,6 +563,12 @@ CheckCatalogBTree( SGlobPtr GPtr )
 	err = BTMapChk(gScavGlobals, kCalculatedCatalogRefNum);
 	if (err) goto exit;
 
+	/*
+	 * Make sure unused nodes in the B-tree are zero filled.
+	 */
+	err = BTCheckUnusedNodes(gScavGlobals, kCalculatedCatalogRefNum, &gScavGlobals->CBTStat);
+	if (err) goto exit;
+	
 	/*
 	 * Compare BTree header record on disk with scavenger's BTree header record 
 	 */
@@ -773,7 +780,7 @@ CheckDirectory(const HFSPlusCatalogKey * key, const HFSPlusCatalogFolder * dir)
 
 	RecordXAttrBits(gScavGlobals, dir->flags, dir->folderID, kCalculatedCatalogRefNum);
 #if DEBUG_XATTR
-plog ("%s: Record folderID=%d for prime modulus calculations\n", __FUNCTION__, dir->folderID); 
+	plog ("%s: Record folderID=%d for prime modulus calculations\n", __FUNCTION__, dir->folderID); 
 #endif
 
 	if (dirID < kHFSFirstUserCatalogNodeID  &&
@@ -822,7 +829,7 @@ CheckFile(const HFSPlusCatalogKey * key, const HFSPlusCatalogFile * file)
 
 	RecordXAttrBits(gScavGlobals, file->flags, file->fileID, kCalculatedCatalogRefNum);
 #if DEBUG_XATTR
-plog ("%s: Record fileID=%d for prime modulus calculations\n", __FUNCTION__, file->fileID); 
+	plog ("%s: Record fileID=%d for prime modulus calculations\n", __FUNCTION__, file->fileID); 
 #endif
 
 	fileID = file->fileID;
@@ -985,6 +992,7 @@ CheckFile_HFS(const HFSCatalogKey * key, const HFSCatalogFile * file)
 {
 	UInt32 fileID;
 	UInt32 blocks;
+	char idstr[20];
 	int result = 0;
 
 	if (file->flags & kHFSThreadExistsMask)
@@ -1014,11 +1022,13 @@ CheckFile_HFS(const HFSCatalogKey * key, const HFSCatalogFile * file)
 	if (result != noErr)
 		return (result);
 	if (file->dataPhysicalSize > ((UInt64)blocks * (UInt64)gScavGlobals->calculatedVCB->vcbBlockSize)) {
-		PrintError(gScavGlobals, E_PEOF, 1, "");
+		snprintf (idstr, sizeof(idstr), "id=%u", fileID);
+		fsckPrint(gScavGlobals->context, E_PEOF, idstr);
 		return (noErr);		/* we don't fix this, ignore the error */
 	}
 	if (file->dataLogicalSize > file->dataPhysicalSize) {
-		PrintError(gScavGlobals, E_LEOF, 1, "");
+		snprintf (idstr, sizeof(idstr), "id=%u", fileID);
+		fsckPrint(gScavGlobals->context, E_LEOF, idstr);
                 return (noErr);		/* we don't fix this, ignore the error */
 	}
 
@@ -1028,11 +1038,13 @@ CheckFile_HFS(const HFSCatalogKey * key, const HFSCatalogFile * file)
 	if (result != noErr)
 		return (result);
 	if (file->rsrcPhysicalSize > ((UInt64)blocks * (UInt64)gScavGlobals->calculatedVCB->vcbBlockSize)) {
-		PrintError(gScavGlobals, E_PEOF, 1, "");
+		snprintf (idstr, sizeof(idstr), "id=%u", fileID);
+		fsckPrint(gScavGlobals->context, E_PEOF, idstr);
                 return (noErr);		/* we don't fix this, ignore the error */
 	}
 	if (file->rsrcLogicalSize > file->rsrcPhysicalSize) {
-		PrintError(gScavGlobals, E_LEOF, 1, "");
+		snprintf (idstr, sizeof(idstr), "id=%u", fileID);
+		fsckPrint(gScavGlobals->context, E_LEOF, idstr);
                 return (noErr);		/* we don't fix this, ignore the error */
 	}
 #if 1
@@ -1189,9 +1201,9 @@ CheckCatalogName(u_int16_t charCount, const u_int16_t *uniChars, u_int32_t paren
     {
         if ( charCount == 1 || (charCount == 2 && *(uniChars + 1) == 0x2E) )
         {
-			PrintError( gScavGlobals, E_IllegalName, 0 );
-            if ( gScavGlobals->logLevel >= kDebugLog ) {
-               plog( "\tillegal name is 0x" );
+		fsckPrint(gScavGlobals->context, E_IllegalName);
+            if ( fsckGetVerbosity(gScavGlobals->context) >= kDebugLog ) {
+               	plog( "\tillegal name is 0x" );
                 PrintName( charCount, (UInt8 *) uniChars, true );
            }
           
@@ -1220,8 +1232,8 @@ CheckCatalogName(u_int16_t charCount, const u_int16_t *uniChars, u_int32_t paren
             myPtr += charCount; // bump past old name
             *myPtr++ = newName.ustr.length; // copy in length of new name and bump past it
             CopyMemory( newName.ustr.unicode, myPtr, (newName.ustr.length * 2) ); // copy in new name
-            if ( gScavGlobals->logLevel >= kDebugLog ) {
-               plog( "\treplacement name is 0x" );
+            if ( fsckGetVerbosity(gScavGlobals->context) >= kDebugLog ) {
+               	plog( "\treplacement name is 0x" );
                 PrintName( newName.ustr.length, (UInt8 *) &newName.ustr.unicode, true );
            }
 
@@ -1235,9 +1247,9 @@ CheckCatalogName(u_int16_t charCount, const u_int16_t *uniChars, u_int32_t paren
     // look for Unicode decomposition errors in file system object names created before Jaguar (10.2)
     if ( FixDecomps( charCount, uniChars, &newName.ustr ) )
     {
-        PrintError( gScavGlobals, E_IllegalName, 0 );
-        if ( gScavGlobals->logLevel >= kDebugLog ) {
-           plog( "\tillegal name is 0x" );
+	fsckPrint(gScavGlobals->context, E_IllegalName);
+        if ( fsckGetVerbosity(gScavGlobals->context) >= kDebugLog ) {
+            plog( "\tillegal name is 0x" );
             PrintName( charCount, (UInt8 *) uniChars, true );
         }
 
@@ -1260,8 +1272,8 @@ CheckCatalogName(u_int16_t charCount, const u_int16_t *uniChars, u_int32_t paren
         myPtr += charCount; // bump past old name
         *myPtr++ = newName.ustr.length; // copy in length of new name and bump past it
         CopyMemory( newName.ustr.unicode, myPtr, (newName.ustr.length * 2) ); // copy in new name
-        if ( gScavGlobals->logLevel >= kDebugLog ) {
-           plog( "\treplacement name is 0x" );
+        if ( fsckGetVerbosity(gScavGlobals->context) >= kDebugLog ) {
+            plog( "\treplacement name is 0x" );
             PrintName( newName.ustr.length, (UInt8 *) &newName.ustr.unicode, true );
         }
 
@@ -1306,9 +1318,9 @@ CheckCatalogName_HFS(u_int16_t charCount, const u_char *filename, u_int32_t pare
         if ( charCount == 1 || (charCount == 2 && *(filename + 1) == 0x2E) )
         {
             OSErr 				result;
-			PrintError( gScavGlobals, E_IllegalName, 0 );
-            if ( gScavGlobals->logLevel >= kDebugLog ) {
-               plog( "\tillegal name is 0x" );
+	    fsckPrint(gScavGlobals->context, E_IllegalName);
+            if ( fsckGetVerbosity(gScavGlobals->context) >= kDebugLog ) {
+               	plog( "\tillegal name is 0x" );
                 PrintName( charCount, filename, false );
             }
 
@@ -1336,8 +1348,8 @@ CheckCatalogName_HFS(u_int16_t charCount, const u_char *filename, u_int32_t pare
             myPtr += charCount; // bump past old name
             *myPtr++ = newName.pstr[0]; // copy in length of new name and bump past it
             CopyMemory( &newName.pstr[1], myPtr, newName.pstr[0] ); // copy in new name
-            if ( gScavGlobals->logLevel >= kDebugLog ) {
-               plog( "\treplacement name is 0x" );
+            if ( fsckGetVerbosity(gScavGlobals->context) >= kDebugLog ) {
+               	plog( "\treplacement name is 0x" );
                 PrintName( newName.pstr[0], &newName.pstr[1], false );
             }
 
@@ -1365,7 +1377,7 @@ UniqueDotName( 	SGlobPtr GPtr,
 {
     u_char				newChar;
 	OSErr 				result;
-	int					nameLen;
+	size_t				nameLen;
 	UInt16				recSize;
 	SFCB *				fcbPtr;
     u_char *			myPtr;
@@ -1463,7 +1475,7 @@ RecordBadAllocation(UInt32 parID, unsigned char * filename, UInt32 forkType, UIn
 	RepairOrderPtr 			p;
 	char 					goodstr[16];
 	char 					badstr[16];
-	int 					n;
+	size_t 					n;
 	Boolean 				isHFSPlus;
 	int 					result;
 	char 					*real_filename;
@@ -1486,14 +1498,14 @@ RecordBadAllocation(UInt32 parID, unsigned char * filename, UInt32 forkType, UIn
 			sprintf(real_filename, "id = %u", parID);
 		}
 
-		PrintError(gScavGlobals, E_PEOAttr, 2, filename, real_filename);
+		fsckPrint(gScavGlobals->context, E_PEOAttr, filename, real_filename);
 		free(real_filename);
 	} else {
-		PrintError(gScavGlobals, E_PEOF, 1, filename);
+		fsckPrint(gScavGlobals->context, E_PEOF, filename);
 	}
 	sprintf(goodstr, "%d", newBlkCnt);
 	sprintf(badstr, "%d", oldBlkCnt);
-	PrintError(gScavGlobals, E_BadValue, 2, goodstr, badstr);
+	fsckPrint(gScavGlobals->context, E_BadValue, goodstr, badstr);
 
 	/* Only HFS+ is repaired here */
 	if ( !isHFSPlus )
@@ -1560,7 +1572,7 @@ RecordTruncation(UInt32 parID, unsigned char * filename, UInt32 forkType, UInt64
 	RepairOrderPtr	 		p;
 	char 					oldSizeStr[48];
 	char 					newSizeStr[48];
-	int 					n;
+	size_t 					n;
 	Boolean 				isHFSPlus;
 	int 					result;
 	char 					*real_filename;
@@ -1583,14 +1595,14 @@ RecordTruncation(UInt32 parID, unsigned char * filename, UInt32 forkType, UInt64
 			sprintf(real_filename, "id = %u", parID);
 		}
 
-		PrintError(gScavGlobals, E_LEOAttr, 2, filename, real_filename);
+		fsckPrint(gScavGlobals->context, E_LEOAttr, filename, real_filename);
 		free(real_filename);
 	} else {
-		PrintError(gScavGlobals, E_LEOF, 1, filename);
+		fsckPrint(gScavGlobals->context, E_LEOF, filename);
 	}
 	sprintf(oldSizeStr, "%qd", oldSize);
 	sprintf(newSizeStr, "%qd", newSize);
-	PrintError(gScavGlobals, E_BadValue, 2, newSizeStr, oldSizeStr);
+	fsckPrint(gScavGlobals->context, E_BadValue, newSizeStr, oldSizeStr);
 
 	/* Only HFS+ is repaired here */
 	if ( !isHFSPlus )
@@ -1632,13 +1644,11 @@ static int
 CaptureMissingThread(UInt32 threadID, const HFSPlusCatalogKey *nextKey)
 {
 	MissingThread 			*mtp;
-	char 					idStr[16];
 	Boolean 				isHFSPlus;
 
 	isHFSPlus = VolumeObjectIsHFSPlus( );
-	
-	sprintf(idStr, "%d", threadID);
-	PrintError(gScavGlobals, E_NoThd, 1, idStr);
+
+	fsckPrint(gScavGlobals->context, E_NoThd, threadID);
 
 	/* Only HFS+ missing threads are repaired here */
 	if ( !isHFSPlus)

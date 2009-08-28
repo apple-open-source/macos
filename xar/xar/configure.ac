@@ -1,5 +1,5 @@
 AC_PREREQ(2.59)
-AC_INIT([OpenDarwin Xar], [1.4], [xar@opendarwin.org], [xar])
+AC_INIT([Xar], [1.6dev], [xar-devel@googlegroups.com], [xar])
 AC_CONFIG_SRCDIR([LICENSE])
 
 dnl Revision number for libxar.
@@ -8,7 +8,7 @@ AC_SUBST([LIB_REV])
 
 dnl xar version variables.
 XAR_MAJOR_VERSION="1"
-XAR_MINOR_VERSION="4"
+XAR_MINOR_VERSION="6dev"
 XAR_VERSION="${XAR_MAJOR_VERSION}.${XAR_MINOR_VERSION}"
 AC_SUBST([XAR_MAJOR_VERSION])
 AC_SUBST([XAR_MINOR_VERSION])
@@ -61,7 +61,9 @@ cfgoutputs="cfgoutputs.stamp"
 cfgoutputs="${cfgoutputs} Makefile"
 cfgoutputs="${cfgoutputs} include/xar.h"
 cfgoutputs="${cfgoutputs} lib/Makefile.inc"
+cfgoutputs="${cfgoutputs} lib/libxar.la.in"
 cfgoutputs="${cfgoutputs} src/Makefile.inc"
+cfgoutputs="${cfgoutputs} xar.spec"
 
 cfghdrs="${objroot}cfghdrs.stamp"
 cfghdrs="${cfghdrs} ${objroot}include/config.h"
@@ -70,6 +72,7 @@ dnl If CFLAGS isn't defined and using gcc, set CFLAGS to something reasonable.
 dnl Otherwise, just prevent autoconf from molesting CFLAGS.
 CFLAGS=$CFLAGS
 AC_PROG_CC
+AC_SYS_LARGEFILE
 if test "x$CFLAGS" = "x" ; then
   no_CFLAGS="yes"
 fi
@@ -84,7 +87,29 @@ AC_PROG_CPP
 
 AC_PROG_INSTALL
 AC_PATH_PROG([LD], [ld], , [$PATH])
+AC_PATH_PROG([AR], [ar], , [$PATH])
+AC_PATH_PROG([RANLIB], [ranlib], , [$PATH])
 AC_PATH_PROG([AUTOCONF], [autoconf], , [$PATH])
+
+dnl Some libtool envy
+#AC_ENABLE_SHARED
+AC_MSG_CHECKING([whether to build shared libraries])
+AC_ARG_ENABLE([shared],
+    [AC_HELP_STRING([--enable-shared],
+	[build shared libraries @<:@default=yes@:>@])],
+	[shared=$enableval],[shared=yes])
+AC_MSG_RESULT($shared)
+AC_SUBST([shared])
+#AC_ENABLE_STATIC
+AC_MSG_CHECKING([whether to build static libraries])
+AC_ARG_ENABLE([static],
+    [AC_HELP_STRING([--enable-static],
+	[build static libraries @<:@default=yes@:>@])],
+	[static=$enableval],[static=yes])
+AC_MSG_RESULT($static)
+AC_SUBST([static])
+# Make sure either enable_shared or enable_static is yes.
+test "$shared" = "yes" || test "$static" = "yes"
 
 dnl Platform-specific settings.  abi and RPATH can probably be determined
 dnl programmatically, but doing so is error-prone, which makes it generally
@@ -156,13 +181,27 @@ fi
 )
 AC_SUBST([enable_autogen])
 
-AC_CHECK_HEADERS(sys/acl.h ext2fs/ext2_fs.h sys/statfs.h sys/xattr.h sys/param.h sys/extattr.h libutil.h)
+AC_TRY_COMPILE([#include <sys/types.h> 
+#include <sys/acl.h>], [acl_t a], [AC_DEFINE([HAVE_SYS_ACL_H],[1], [define if you have sys/acl.h and it has a working acl_t type])])
+AC_CHECK_HEADERS(ext2fs/ext2_fs.h sys/statfs.h sys/xattr.h sys/param.h sys/extattr.h libutil.h)
 AC_CHECK_FUNCS(lgetxattr)
 AC_CHECK_FUNCS(lsetxattr)
 AC_CHECK_FUNCS(getxattr)
 AC_CHECK_FUNCS(setxattr)
 AC_CHECK_FUNCS(getattrlist)
 AC_CHECK_FUNCS(setattrlist)
+AC_CHECK_FUNCS(lchmod)
+AC_CHECK_FUNCS(lchown)
+AC_CHECK_FUNCS(chflags)
+AC_CHECK_FUNCS(statvfs)
+AC_CHECK_FUNCS(statfs)
+AC_CHECK_FUNCS(strmode)
+
+AC_CHECK_MEMBERS([struct statfs.f_fstypename],,,[#include <sys/types.h>
+#include <sys/param.h>
+#include <sys/mount.h>])
+AC_CHECK_MEMBERS([struct statvfs.f_fstypename],,,[#include <sys/statvfs.h>])
+AC_CHECK_MEMBERS([struct stat.st_flags])
 
 AC_CHECK_SIZEOF(uid_t)
 if test $ac_cv_sizeof_uid_t = "4"; then
@@ -308,6 +347,29 @@ AC_CHECK_HEADERS([bzlib.h], , [have_libbz2="0"])
 AC_CHECK_LIB([bz2], [BZ2_bzCompress], , [have_libbz2="0"])
 if test "x${have_libbz2}" = "x1" ; then
   AC_DEFINE([HAVE_LIBBZ2])
+fi
+
+dnl 
+dnl Configure liblzma.
+dnl 
+have_liblzma="1"
+AC_ARG_WITH([lzma], [AS_HELP_STRING([--with-lzma=PATH],
+	  [Compile in lzma support.  PATH is the prefix where liblzma is installed.],
+	  [], [])],
+	[ OLDCFLAGS=$CFLAGS; CFLAGS="-I$withval/include/ $CFLAGS";
+	  OLDLDFLAGS=$LDFLAGS; LDFLAGS="-L$withval/lib/ $LDFLAGS";
+	  OLDCPPFLAGS=$CPPFLAGS; CPPFLAGS="-I$withval/include/ $CPPFLAGS";
+	  AC_CHECK_HEADER([$withval/include/lzma.h], ,
+	    [have_liblzma="0"; CFLAGS=$OLDCFLAGS; LDFLAGS=$OLDLDFLAGS; 
+	    CPPFLAGS=$OLDCPPFLAGS;])
+	  AC_CHECK_LIB([lzma],  [lzma_code], [LIBS="-L$withval/lib/ -llzma $LIBS"], 
+	    [have_liblzma="0"])
+	],
+	[ AC_CHECK_HEADERS([lzma.h], , [have_liblzma="0"])
+	  AC_CHECK_LIB([lzma], [lzma_code], [], [have_liblzma="0"])
+	])
+if test "x${have_liblzma}" = "x1" ; then
+  AC_DEFINE([HAVE_LIBLZMA])
 fi
 
 dnl 

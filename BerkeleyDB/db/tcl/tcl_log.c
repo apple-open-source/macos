@@ -1,28 +1,19 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1999-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1999,2007 Oracle.  All rights reserved.
+ *
+ * $Id: tcl_log.c,v 12.14 2007/05/17 15:15:54 bostic Exp $
  */
 
 #include "db_config.h"
 
-#ifndef lint
-static const char revid[] = "$Id: tcl_log.c,v 1.2 2004/03/30 01:24:05 jtownsen Exp $";
-#endif /* not lint */
-
-#ifndef NO_SYSTEM_INCLUDES
-#include <sys/types.h>
-
-#include <stdlib.h>
-#include <string.h>
+#include "db_int.h"
+#ifdef HAVE_SYSTEM_INCLUDE_FILES
 #include <tcl.h>
 #endif
-
-#include "db_int.h"
 #include "dbinc/log.h"
 #include "dbinc/tcl_db.h"
-#include "dbinc/txn.h"
 
 #ifdef CONFIG_TEST
 static int tcl_LogcGet __P((Tcl_Interp *, int, Tcl_Obj * CONST*, DB_LOGC *));
@@ -86,7 +77,7 @@ tcl_LogArchive(interp, objc, objv, envp)
 	if (result == TCL_OK) {
 		res = Tcl_NewListObj(0, NULL);
 		for (file = list; file != NULL && *file != NULL; file++) {
-			fileobj = Tcl_NewStringObj(*file, strlen(*file));
+			fileobj = NewStringObj(*file, strlen(*file));
 			result = Tcl_ListObjAppendElement(interp, res, fileobj);
 			if (result != TCL_OK)
 				break;
@@ -186,7 +177,7 @@ tcl_LogFile(interp, objc, objv, envp)
 	}
 	result = _ReturnSetup(interp, ret, DB_RETOK_STD(ret), "log_file");
 	if (ret == 0) {
-		res = Tcl_NewStringObj(name, strlen(name));
+		res = NewStringObj(name, strlen(name));
 		Tcl_SetObjResult(interp, res);
 	}
 
@@ -336,7 +327,7 @@ tcl_LogPut(interp, objc, objv, envp)
 	result = Tcl_ListObjAppendElement(interp, res, intobj);
 	Tcl_SetObjResult(interp, res);
 	if (freedata)
-		(void)__os_free(NULL, dtmp);
+		__os_free(NULL, dtmp);
 	return (result);
 }
 /*
@@ -378,12 +369,14 @@ tcl_LogStat(interp, objc, objv, envp)
 	/*
 	 * MAKE_STAT_LIST assumes 'res' and 'error' label.
 	 */
+#ifdef HAVE_STATISTICS
 	MAKE_STAT_LIST("Magic", sp->st_magic);
 	MAKE_STAT_LIST("Log file Version", sp->st_version);
 	MAKE_STAT_LIST("Region size", sp->st_regsize);
 	MAKE_STAT_LIST("Log file mode", sp->st_mode);
 	MAKE_STAT_LIST("Log record cache size", sp->st_lg_bsize);
 	MAKE_STAT_LIST("Current log file size", sp->st_lg_size);
+	MAKE_STAT_LIST("Log file records written", sp->st_record);
 	MAKE_STAT_LIST("Mbytes written", sp->st_w_mbytes);
 	MAKE_STAT_LIST("Bytes written (over Mb)", sp->st_w_bytes);
 	MAKE_STAT_LIST("Mbytes written since checkpoint", sp->st_wc_mbytes);
@@ -392,7 +385,8 @@ tcl_LogStat(interp, objc, objv, envp)
 	MAKE_STAT_LIST("Times log written", sp->st_wcount);
 	MAKE_STAT_LIST("Times log written because cache filled up",
 	    sp->st_wcount_fill);
-	MAKE_STAT_LIST("Times log flushed", sp->st_scount);
+	MAKE_STAT_LIST("Times log read from disk", sp->st_rcount);
+	MAKE_STAT_LIST("Times log flushed to disk", sp->st_scount);
 	MAKE_STAT_LIST("Current log file number", sp->st_cur_file);
 	MAKE_STAT_LIST("Current log file offset", sp->st_cur_offset);
 	MAKE_STAT_LIST("On-disk log file number", sp->st_disk_file);
@@ -401,9 +395,10 @@ tcl_LogStat(interp, objc, objv, envp)
 	MAKE_STAT_LIST("Min commits in a log flush", sp->st_mincommitperflush);
 	MAKE_STAT_LIST("Number of region lock waits", sp->st_region_wait);
 	MAKE_STAT_LIST("Number of region lock nowaits", sp->st_region_nowait);
+#endif
 	Tcl_SetObjResult(interp, res);
 error:
-	(void)__os_ufree(envp, sp);
+	__os_ufree(envp, sp);
 	return (result);
 }
 
@@ -423,14 +418,18 @@ logc_Cmd(clientData, interp, objc, objv)
 	static const char *logccmds[] = {
 		"close",
 		"get",
+		"version",
 		NULL
 	};
 	enum logccmds {
 		LOGCCLOSE,
-		LOGCGET
+		LOGCGET,
+		LOGCVERSION
 	};
 	DB_LOGC *logc;
 	DBTCL_INFO *logcip;
+	Tcl_Obj *res;
+	u_int32_t version;
 	int cmdindex, result, ret;
 
 	Tcl_ResetResult(interp);
@@ -479,7 +478,24 @@ logc_Cmd(clientData, interp, objc, objv)
 	case LOGCGET:
 		result = tcl_LogcGet(interp, objc, objv, logc);
 		break;
+	case LOGCVERSION:
+		/*
+		 * No args for this.  Error if there are some.
+		 */
+		if (objc > 2) {
+			Tcl_WrongNumArgs(interp, 2, objv, NULL);
+			return (TCL_ERROR);
+		}
+		_debug_check();
+		ret = logc->version(logc, &version, 0);
+		if ((result = _ReturnSetup(interp, ret, DB_RETOK_STD(ret),
+		    "logc version")) == TCL_OK) {
+			res = Tcl_NewIntObj((int)version);
+			Tcl_SetObjResult(interp, res);
+		}
+		break;
 	}
+
 	return (result);
 }
 
@@ -591,7 +607,7 @@ tcl_LogcGet(interp, objc, objv, logc)
 			goto memerr;
 
 		result = Tcl_ListObjAppendElement(interp, res, lsnlist);
-		dataobj = Tcl_NewStringObj(data.data, data.size);
+		dataobj = NewStringObj(data.data, data.size);
 		if (dataobj == NULL) {
 			goto memerr;
 		}

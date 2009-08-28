@@ -60,7 +60,7 @@
  * @param inDir The DS process object to initialize with.
  * @param inValue The NSString or NSData to use for the single data item.
  */
-- (DSoDataList*)initWithDir:(DSoDirectory*)inDir value:(id)inValue;
+- (DSoDataList*)initWithDir:(DSoDirectory*)inDir value:(id)inValue DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method initWithDir:string:
@@ -70,7 +70,7 @@
  * @param inDir The DS process object to initialize with.
  * @param inString The NSString style string to use for the single data item.
  */
-- (DSoDataList*)initWithDir:(DSoDirectory*)inDir string:(NSString*)inString;
+- (DSoDataList*)initWithDir:(DSoDirectory*)inDir string:(NSString*)inString DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method      initWithDir:values:
@@ -80,7 +80,7 @@
  * @param inDir The DS process object to initialize with.
  * @param inStrings The NSArray of NSString or NSData values to use for the list of data items.
  */
-- (DSoDataList*)initWithDir:(DSoDirectory*)inDir values:(NSArray*)inValues;
+- (DSoDataList*)initWithDir:(DSoDirectory*)inDir values:(NSArray*)inValues DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method initWithDir:strings:
@@ -90,7 +90,7 @@
  * @param inDir The DS process object to initialize with.
  * @param inStrings The NSArray of NSString style strings to use for the list of data items.
  */
-- (DSoDataList*)initWithDir:(DSoDirectory*)inDir strings:(NSArray*)inStrings;
+- (DSoDataList*)initWithDir:(DSoDirectory*)inDir strings:(NSArray*)inStrings DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method initWithDir:cString:
@@ -100,7 +100,7 @@
  * @param inDir The DS process object to initialize with.
  * @param inString The null terminated C-style string to use for the single data item.
  */
-- (DSoDataList*)initWithDir:(DSoDirectory*)inDir cString:(const char*)inString;
+- (DSoDataList*)initWithDir:(DSoDirectory*)inDir cString:(const char*)inString DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method initWithDir:cStrings:...
@@ -110,7 +110,7 @@
  * @param inDir The DS process object to initialize with.
  * @param inString The list of strings to use for the data items, terminating with a nil.
  */
-- (DSoDataList*)initWithDir:(DSoDirectory*)inDir cStrings:(const char	*)inString, ...;
+- (DSoDataList*)initWithDir:(DSoDirectory*)inDir cStrings:(const char	*)inString, ... DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method initWithDir:separator:pattern:
@@ -121,7 +121,7 @@
  * @param inSep The character on which to separate the string.
  * @param inPattern The string to be separated into components.
  */
-- (DSoDataList*)initWithDir:(DSoDirectory*)inDir separator:(char)inSep pattern:(NSString*)inPattern;
+- (DSoDataList*)initWithDir:(DSoDirectory*)inDir separator:(char)inSep pattern:(NSString*)inPattern DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method initWithDataList:
@@ -130,7 +130,7 @@
  *		 of the contents of the given data list.
  * @param inOrg The original data list to copy.
  */
-- (DSoDataList*)initWithDataList:(DSoDataList*)inOrg;
+- (DSoDataList*)initWithDataList:(DSoDataList*)inOrg DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method initWithDir:dsDataList:
@@ -141,19 +141,19 @@
  * @param inDir The DS process object to initialize with.
  * @param inList A pointer to the tDataList variable to use.
  */
-- (DSoDataList*)initWithDir:(DSoDirectory*)inDir dsDataList:(tDataListPtr)inList;
+- (DSoDataList*)initWithDir:(DSoDirectory*)inDir dsDataList:(tDataListPtr)inList DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method getcount
  * @abstract Get the number of items in the list.
  */
-- (unsigned long)getCount;
+- (unsigned long)getCount DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method getDataLength
  * @abstract Get the total length of data used in the data list.
  */
-- (unsigned long)getDataLength;
+- (unsigned long)getDataLength DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method objectAtIndex:
@@ -163,7 +163,7 @@
  * @param inIndex The index of the data node to retrieve from the list.  The first item has an index of '1'
  * @result A DSoDataNode object wrapping the specified tDataNode item in the data list.
  */
-- (DSoDataNode*)objectAtIndex:(unsigned long)inIndex;
+- (DSoDataNode*)objectAtIndex:(unsigned long)inIndex DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method append
@@ -172,13 +172,13 @@
  *		to the list whose contents are that of the specified NSData or NSString.
  * @param inString A NSString or NSData containing the data to be appended to the list.
  */
-- (void)append:(id)inValue;
+- (void)append:(id)inValue DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method dsDataList
  * @abstract Method for accessing the low-level data type.
  * @result A pointer to the internally wrapped tDataList variable.
  */
-- (tDataListPtr)dsDataList;
+- (tDataListPtr)dsDataList DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 @end

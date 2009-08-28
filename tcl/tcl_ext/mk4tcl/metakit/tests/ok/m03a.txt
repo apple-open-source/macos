@@ -1,0 +1,55 @@
+ VIEW     1 rows = d1:V m1:V d2:V m2:V d3:V m3:V d4:V m4:V
+    0: subview 'd1'
+   VIEW     4 rows = p1:S
+      0: 'one'
+      1: 'two'
+      2: 'three'
+      3: 'four'
+    0: subview 'm1'
+   VIEW     9 rows = _H:I _R:I
+      0: 0 -1
+      1: -1413211378 1
+      2: -153687682 2
+      3: 0 -1
+      4: 0 -1
+      5: 0 -1
+      6: -1614533319 3
+      7: -245760992 0
+      8: 11 0
+    0: subview 'd2'
+   VIEW     3 rows = p1:S
+      0: 'two'
+      1: 'three'
+      2: 'four'
+    0: subview 'm2'
+   VIEW     9 rows = _H:I _R:I
+      0: 0 -1
+      1: -1413211378 0
+      2: -153687682 1
+      3: 0 -1
+      4: 0 -1
+      5: 0 -1
+      6: -1614533319 2
+      7: 0 -1
+      8: 11 0
+    0: subview 'd3'
+   VIEW     2 rows = p1:S
+      0: 'three'
+      1: 'four'
+    0: subview 'm3'
+   VIEW     5 rows = _H:I _R:I
+      0: 0 -1
+      1: -153687682 0
+      2: -1614533319 1
+      3: 0 -1
+      4: 7 0
+    0: subview 'd4'
+   VIEW     1 rows = p1:S
+      0: 'four'
+    0: subview 'm4'
+   VIEW     5 rows = _H:I _R:I
+      0: 0 -1
+      1: 0 -1
+      2: -1614533319 0
+      3: 0 -1
+      4: 7 0

@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 1997-2006, International Business Machines
+*   Copyright (C) 1997-2007, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *
@@ -38,9 +38,9 @@
  * locale and then ask it for individual resources.
  * <P>
  * Resource bundles in ICU4C are currently defined using text files which conform to the following
- * <a href="http://dev.icu-project.org/cgi-bin/viewcvs.cgi/~checkout~/icuhtml/design/bnf_rb.txt">BNF definition</a>.
+ * <a href="http://source.icu-project.org/repos/icu/icuhtml/trunk/design/bnf_rb.txt">BNF definition</a>.
  * More on resource bundle concepts and syntax can be found in the 
- * <a href="http://icu.sourceforge.net/userguide/ResourceManagement.html">Users Guide</a>.
+ * <a href="http://icu-project.org/userguide/ResourceManagement.html">Users Guide</a>.
  * <P>
  */
 
@@ -400,9 +400,9 @@ ures_getString(const UResourceBundle* resourceBundle,
  *
  * @see ures_getString
  * @see u_strToUTF8
- * @draft ICU 3.6
+ * @stable ICU 3.6
  */
-U_DRAFT const char * U_EXPORT2
+U_STABLE const char * U_EXPORT2
 ures_getUTF8String(const UResourceBundle *resB,
                    char *dest, int32_t *length,
                    UBool forceCopy,
@@ -666,9 +666,9 @@ ures_getStringByIndex(const UResourceBundle *resourceBundle,
  *
  * @see ures_getStringByIndex
  * @see u_strToUTF8
- * @draft ICU 3.6
+ * @stable ICU 3.6
  */
-U_DRAFT const char * U_EXPORT2
+U_STABLE const char * U_EXPORT2
 ures_getUTF8StringByIndex(const UResourceBundle *resB,
                           int32_t index,
                           char *dest, int32_t *pLength,
@@ -759,9 +759,9 @@ ures_getStringByKey(const UResourceBundle *resB,
  *
  * @see ures_getStringByKey
  * @see u_strToUTF8
- * @draft ICU 3.6
+ * @stable ICU 3.6
  */
-U_DRAFT const char * U_EXPORT2
+U_STABLE const char * U_EXPORT2
 ures_getUTF8StringByKey(const UResourceBundle *resB,
                         const char *key,
                         char *dest, int32_t *pLength,

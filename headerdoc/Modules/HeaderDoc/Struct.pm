@@ -3,8 +3,7 @@
 # Class name: Struct
 # Synopsis: Holds struct info parsed by headerDoc
 #
-# Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2007/07/19 18:45:00 $
+# Last Updated: $Date: 2009/03/30 19:38:52 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -38,7 +37,7 @@ use HeaderDoc::APIOwner;
 @ISA = qw( HeaderDoc::HeaderElement );
 
 use vars qw($VERSION @ISA);
-$VERSION = '$Revision: 1.11.2.10.2.33 $';
+$HeaderDoc::Struct::VERSION = '$Revision: 1.16 $';
 
 use strict;
 
@@ -97,18 +96,18 @@ sub fields {
     ($self->{FIELDS}) ? return @{ $self->{FIELDS} } : return ();
 }
 
-sub addField {
-    my $self = shift;
-    if (@_) { 
-        push (@{$self->{FIELDS}}, @_);
-    }
-    return @{ $self->{FIELDS} };
-}
+# sub addField {
+    # my $self = shift;
+    # if (@_) { 
+        # push (@{$self->{FIELDS}}, @_);
+    # }
+    # return @{ $self->{FIELDS} };
+# }
 
-sub processComment {
+sub processComment_old {
     my $self = shift;
     my $fieldArrayRef = shift;
-    my $filename = $self->filename();
+    my $fullpath = $self->fullpath();
     my $linenum = $self->linenum();
     my @fields = @$fieldArrayRef;
 
@@ -119,15 +118,15 @@ sub processComment {
     while ($fieldCounter < $lastField) {
 	my $field = $fields[$fieldCounter];
 
-	print "FIELD WAS $field\n" if ($localDebug);
+	print STDERR "FIELD WAS $field\n" if ($localDebug);
 	my $fieldname = "";
 	my $top_level_field = 0;
 	if ($field =~ /^(\w+)(\s|$)/) {
 		$fieldname = $1;
-		# print "FIELDNAME: $fieldname\n";
+		# print STDERR "FIELDNAME: $fieldname\n";
 		$top_level_field = validTag($fieldname, 1);
 	}
-	# print "TLF: $top_level_field, FN: \"$fieldname\"\n";
+	# print STDERR "TLF: $top_level_field, FN: \"$fieldname\"\n";
 	SWITCH: {
             ($field =~ /^\/\*\!/o)&& do {
                                 my $copy = $field;
@@ -139,10 +138,13 @@ sub processComment {
                         };
             ($field =~ s/^abstract\s+//io) && do {$self->abstract($field); last SWITCH;};
             ($field =~ s/^brief\s+//io) && do {$self->abstract($field, 1); last SWITCH;};
+            ($field =~ s/^details(\s+|$)//io) && do {$self->discussion($field); last SWITCH;};
             ($field =~ s/^discussion(\s+|$)//io) && do {$self->discussion($field); last SWITCH;};
             ($field =~ s/^availability\s+//io) && do {$self->availability($field); last SWITCH;};
             ($field =~ s/^since\s+//io) && do {$self->availability($field); last SWITCH;};
             ($field =~ s/^author\s+//io) && do {$self->attribute("Author", $field, 0); last SWITCH;};
+            ($field =~ s/^group\s+//io) && do {$self->group($field); last SWITCH;};
+            ($field =~ s/^indexgroup\s+//io) && do {$self->indexgroup($field); last SWITCH;};
 	    ($field =~ s/^version\s+//io) && do {$self->attribute("Version", $field, 0); last SWITCH;};
             ($field =~ s/^deprecated\s+//io) && do {$self->attribute("Deprecated", $field, 0); last SWITCH;};
             ($field =~ s/^updated\s+//io) && do {$self->updated($field); last SWITCH;};
@@ -151,7 +153,7 @@ sub processComment {
 		    if (length($attname) && length($attdisc)) {
 			$self->attribute($attname, $attdisc, 0);
 		    } else {
-			warn "$filename:$linenum: warning: Missing name/discussion for attribute\n";
+			warn "$fullpath:$linenum: warning: Missing name/discussion for attribute\n";
 		    }
 		    last SWITCH;
 		};
@@ -169,7 +171,7 @@ sub processComment {
 			    $self->attributelist($name, $line);
 			}
 		    } else {
-			warn "$filename:$linenum: warning: Missing name/discussion for attributelist\n";
+			warn "$fullpath:$linenum: warning: Missing name/discussion for attributelist\n";
 		    }
 		    last SWITCH;
 		};
@@ -178,7 +180,7 @@ sub processComment {
 		    if (length($attname) && length($attdisc)) {
 			$self->attribute($attname, $attdisc, 1);
 		    } else {
-			warn "$filename:$linenum: warning: Missing name/discussion for attributeblock\n";
+			warn "$fullpath:$linenum: warning: Missing name/discussion for attributeblock\n";
 		    }
 		    last SWITCH;
 		};
@@ -214,11 +216,11 @@ sub processComment {
                     $callbackObj->discussion($cbDesc);
                     $callbackObj->type("callback");
                     # now get params and result that go with this callback
-                    print "Adding callback.  Callback name: $cbName.\n" if ($localDebug);
+                    print STDERR "Adding callback.  Callback name: $cbName.\n" if ($localDebug);
                     $fieldCounter++;
                     while ($fieldCounter < $lastField) {
                         my $nextField = $fields[$fieldCounter];
-                        print "In callback: next field is '$nextField'\n" if ($localDebug);
+                        print STDERR "In callback: next field is '$nextField'\n" if ($localDebug);
                         
                         if ($nextField =~ s/^param\s+//io) {
                             $nextField =~ s/^\s+|\s+$//go;
@@ -244,7 +246,7 @@ sub processComment {
                         $fieldCounter++;
                     }
                     $self-> addField($callbackObj);
-                    print "Adding callback to typedef.  Callback name: $cbName.\n" if ($localDebug);
+                    print STDERR "Adding callback to typedef.  Callback name: $cbName.\n" if ($localDebug);
                     last SWITCH;
                 };
             # param and result have to come last, since they should be handled differently, if part of a callback
@@ -263,7 +265,7 @@ sub processComment {
                     $fObj->discussion($fDesc);
                     $fObj->type("funcPtr");
                     $self->addField($fObj);
-                    print "Adding param for function-pointer typedef.  Param name: $fName.\n" if ($localDebug);
+                    print STDERR "Adding param for function-pointer typedef.  Param name: $fName.\n" if ($localDebug);
                     last SWITCH;
                 };
 		($top_level_field == 1) && do {
@@ -288,35 +290,35 @@ sub processComment {
             	};
 	    {
 		# default case
-		# my $filename = $HeaderDoc::headerObject->name();
-	        # print "$filename:$linenum:Unknown field in Struct comment: $field\n";
+		# my $fullpath = $HeaderDoc::headerObject->name();
+	        # print STDERR "$fullpath:$linenum:Unknown field in Struct comment: $field\n";
 		my $struct_or_union = "struct";
 		if ($self->isUnion()) { $struct_or_union = "union"; }
-		if (length($field)) { warn "$filename:$linenum: warning: Unknown field (\@$field) in $struct_or_union comment (".$self->name().")\n"; }
+		if (length($field)) { warn "$fullpath:$linenum: warning: Unknown field (\@$field) in $struct_or_union comment (".$self->name().")\n"; }
 	    }
 	}
 	++$fieldCounter;
     }
 }
 
-sub setStructDeclaration {
+sub setDeclaration {
     my $self = shift;
     my $dec = shift;
     my $localDebug = 0;
     $self->declaration($dec);
     
-    print "============================================================================\n" if ($localDebug);
-    print "Raw declaration is: $dec\n" if ($localDebug);
+    print STDERR "============================================================================\n" if ($localDebug);
+    print STDERR "Raw declaration is: $dec\n" if ($localDebug);
 
     # my $newdec = $self->structformat($dec, 1);
     
-    # print "new dec is:\n$newdec\n" if ($localDebug);
+    # print STDERR "new dec is:\n$newdec\n" if ($localDebug);
     # $dec = $newdec;
 
     if (length ($dec)) {$dec = "<pre>\n$dec</pre>\n";};
     
-    print "Struct: returning declaration:\n\t|$dec|\n" if ($localDebug);
-    print "============================================================================\n" if ($localDebug);
+    print STDERR "Struct: returning declaration:\n\t|$dec|\n" if ($localDebug);
+    print STDERR "============================================================================\n" if ($localDebug);
     $self->declarationInHTML($dec);
     return $dec;
 }
@@ -325,9 +327,9 @@ sub setStructDeclaration {
 sub printObject {
     my $self = shift;
  
-    print "Struct\n";
+    print STDERR "Struct\n";
     $self->SUPER::printObject();
-    print "Fields:\n";
+    print STDERR "Fields:\n";
     my $fieldArrayRef = $self->{FIELDS};
     if ($fieldArrayRef) {
 	my $arrayLength = @{$fieldArrayRef};
@@ -335,7 +337,16 @@ sub printObject {
             &printArray(@{$fieldArrayRef});
 	}
     }
-    print "\n";
+    print STDERR "\n";
+}
+
+sub result {
+    my $self = shift;
+    
+    if (@_) {
+        $self->{RESULT} = shift;
+    }
+    return $self->{RESULT};
 }
 
 1;

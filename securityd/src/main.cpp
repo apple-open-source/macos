@@ -38,7 +38,6 @@
 #include <security_utilities/daemon.h>
 #include <security_utilities/machserver.h>
 #include <security_utilities/logging.h>
-#include <security_utilities/ktracecodes.h>
 
 #include <Security/SecKeychainPriv.h>
 
@@ -46,13 +45,6 @@
 #include <sys/types.h>
 #include <signal.h>
 #include <syslog.h>
-
-
-// #define PERFORMANCE_MEASUREMENT 1
-
-#ifdef PERFORMANCE_MEASUREMENT
-#include <mach/mach_time.h>
-#endif
 
 // ACL subject types (their makers are instantiated here)
 #include <security_cdsa_utilities/acl_any.h>
@@ -84,13 +76,6 @@ PCSCMonitor *gPCSC;
 //
 int main(int argc, char *argv[])
 {
-	#ifdef PERFORMANCE_MEASUREMENT
-	// needed for automated timing of securityd startup
-	uint64_t startTime = mach_absolute_time ();
-	#endif
-	
-    Debug::trace (kSecTraceSecurityServerStart);
-	
 	// clear the umask - we know what we're doing
 	secdebug("SS", "starting umask was 0%o", ::umask(0));
 	::umask(0);
@@ -106,17 +91,19 @@ int main(int argc, char *argv[])
 	bool reExecute = false;
 	int workerTimeout = 0;
 	int maxThreads = 0;
-	bool waitForClients = false;
+	bool waitForClients = true;
+    bool mdsIsInstalled = false;
 	const char *authorizationConfig = "/etc/authorization";
 	const char *tokenCacheDir = "/var/db/TokenCache";
     const char *entropyFile = "/var/db/SystemEntropyCache";
 	const char *equivDbFile = EQUIVALENCEDBPATH;
 	const char *smartCardOptions = getenv("SMARTCARDS");
 	uint32_t keychainAclDefault = CSSM_ACL_KEYCHAIN_PROMPT_INVALID | CSSM_ACL_KEYCHAIN_PROMPT_UNSIGNED;
+	unsigned int verbose = 0;
 	
 	// check for the Installation-DVD environment and modify some default arguments if found
 	if (access("/etc/rc.cdrom", F_OK) == 0) {	// /etc/rc.cdrom exists
-		secdebug("SS", "configuring for installation");
+		SECURITYD_INSTALLMODE();
 		smartCardOptions = "off";	// needs writable directories that aren't
 	}
 
@@ -124,7 +111,7 @@ int main(int argc, char *argv[])
 	extern char *optarg;
 	extern int optind;
 	int arg;
-	while ((arg = getopt(argc, argv, "a:c:de:E:fiN:s:t:T:Xuw")) != -1) {
+	while ((arg = getopt(argc, argv, "a:c:de:E:fimN:s:t:T:uvWX")) != -1) {
 		switch (arg) {
 		case 'a':
 			authorizationConfig = optarg;
@@ -147,6 +134,9 @@ int main(int argc, char *argv[])
 		case 'i':
 			keychainAclDefault &= ~CSSM_ACL_KEYCHAIN_PROMPT_INVALID;
 			break;
+        case 'm':
+            mdsIsInstalled = true;
+            break;
 		case 'N':
 			bootstrapName = optarg;
 			break;
@@ -161,11 +151,14 @@ int main(int argc, char *argv[])
 			if ((workerTimeout = atoi(optarg)) < 0)
 				workerTimeout = 0;
 			break;
-		case 'w':
-			waitForClients = true;
+		case 'W':
+			waitForClients = false;
 			break;
 		case 'u':
 			keychainAclDefault &= ~CSSM_ACL_KEYCHAIN_PROMPT_UNSIGNED;
+			break;
+		case 'v':
+			verbose++;
 			break;
 		case 'X':
 			doFork = true;
@@ -213,8 +206,7 @@ int main(int argc, char *argv[])
         fprintf(stderr, "You are not allowed to run securityd\n");
         exit(1);
 #else
-        fprintf(stderr, "securityd is unprivileged; some features may not work.\n");
-        secdebug("SS", "Running as user %d (you have been warned)", uid);
+        fprintf(stderr, "securityd is unprivileged (uid=%d); some features may not work.\n", uid);
 #endif //NDEBUG
     }
     
@@ -228,20 +220,17 @@ int main(int argc, char *argv[])
 	}
         
     // arm signal handlers; code below may generate signals we want to see
-    if (signal(SIGCHLD, handleSignals) == SIG_ERR)
-        secdebug("SS", "Cannot handle SIGCHLD: errno=%d", errno);
-    if (signal(SIGINT, handleSignals) == SIG_ERR)
-        secdebug("SS", "Cannot handle SIGINT: errno=%d", errno);
-    if (signal(SIGTERM, handleSignals) == SIG_ERR)
-        secdebug("SS", "Cannot handle SIGTERM: errno=%d", errno);
-    if (signal(SIGPIPE, handleSignals) == SIG_ERR)
-        secdebug("SS", "Cannot handle SIGPIPE: errno=%d", errno);
+    if (signal(SIGCHLD, handleSignals) == SIG_ERR
+		|| signal(SIGINT, handleSignals) == SIG_ERR
+		|| signal(SIGTERM, handleSignals) == SIG_ERR
+		|| signal(SIGPIPE, handleSignals) == SIG_ERR
 #if !defined(NDEBUG)
-    if (signal(SIGUSR1, handleSignals) == SIG_ERR)
-        secdebug("SS", "Cannot handle SIGUSR1: errno=%d", errno);
+		|| signal(SIGUSR1, handleSignals) == SIG_ERR
 #endif //NDEBUG
-    if (signal(SIGUSR2, handleSignals) == SIG_ERR)
-        secdebug("SS", "Cannot handle SIGUSR2: errno=%d", errno);
+		|| signal(SIGUSR2, handleSignals) == SIG_ERR) {
+		perror("signal");
+		exit(1);
+	}
 
 	// create an Authorization engine
 	Authority authority(authorizationConfig);
@@ -275,6 +264,7 @@ int main(int argc, char *argv[])
 		server.maxThreads(maxThreads);
 	server.floatingThread(true);
 	server.waitForClients(waitForClients);
+	server.verbosity(verbose);
     
 	// add the RNG seed timer
 # if defined(NDEBUG)
@@ -282,12 +272,6 @@ int main(int argc, char *argv[])
 # else
     if (getuid() == 0) new EntropyManager(server, entropyFile);
 # endif
-	
-	// create a token-cache interface
-#if !defined(NDEBUG)
-	if (const char *s = getenv("TOKENCACHE"))
-		tokenCacheDir = s;
-#endif //NDEBUG
 
 	// create a smartcard monitor to manage external token devices
 	gPCSC = new PCSCMonitor(server, tokenCacheDir, scOptions(smartCardOptions));
@@ -296,39 +280,16 @@ int main(int argc, char *argv[])
     RootSession rootSession(server,
 		debugMode ? (sessionHasGraphicAccess | sessionHasTTY) : 0);
     
-    // install MDS and initialize the local CSSM
-    server.loadCssm();
+    // install MDS (if needed) and initialize the local CSSM
+    server.loadCssm(mdsIsInstalled);
     
 	// create the shared memory notification hub
 	new SharedMemoryListener(messagingName, kSharedMemoryPoolSize);
 	
 	// okay, we're ready to roll
+	SECURITYD_INITIALIZED((char*)bootstrapName);
 	Syslog::notice("Entering service");
-	secdebug("SS", "%s initialized", bootstrapName);
-    Debug::trace (kSecTraceSecurityServerInitialized);
     
-	#ifdef PERFORMANCE_MEASUREMENT
-	// needed for automated timing of securityd startup
-	uint64_t endTime = mach_absolute_time ();
-	
-	// compute how long it took to initialize
-	uint64_t elapsedTime = endTime - startTime;
-	mach_timebase_info_data_t multiplier;
-	mach_timebase_info (&multiplier);
-	
-	elapsedTime = elapsedTime * multiplier.numer / multiplier.denom;
-	
-	FILE* f = fopen ("/var/log/startuptime.txt", "a");
-	if (f == NULL)
-	{
-		// probably not running as root.
-		f = fopen ("/tmp/startuptime.txt", "a");
-	}
-	
-	fprintf (f, "%lld\n", elapsedTime);
-	fclose (f);
-	#endif
-
 	// go
 	server.run();
 	
@@ -386,6 +347,7 @@ static PCSCMonitor::ServiceLevel scOptions(const char *optionString)
 //
 static void handleSignals(int sig)
 {
+	SECURITYD_SIGNAL_RECEIVED(sig);
 	if (kern_return_t rc = self_client_handleSignal(gMainServerPort, mach_task_self(), sig))
 		Syslog::error("self-send failed (mach error %d)", rc);
 }

@@ -42,9 +42,16 @@ endif
 	$(_v) $(LN) -fs ../private/var/Keychains "$(Destination)/Library/Keychains"
 	$(_v) $(LN) -fs ../private/var/MobileDevice "$(Destination)/Library/MobileDevice"
 else
+	$(_v) $(INSTALL_FILE) -m 0640 -o root -g admin -c /dev/null "$(Destination)/private/var/log/system.log"
+	$(_v) $(INSTALL_FILE) -m 0644 -o root -g admin -c /dev/null "$(Destination)/.com.apple.timemachine.donotpresent"
+	#$(_v) $(INSTALL_FILE) -m 0644 -o root -g admin -c /dev/null "$(Destination)/.metadata_never_index"
 	$(_v) $(LN) -fs private/tmp "$(Destination)/tmp"
 endif
 	$(_v) $(CHOWN) -h root:wheel "$(Destination)/tmp"
+	$(_v) $(CHMOD) -h 0755 "$(Destination)/tmp"
 	$(_v) $(LN) -fs private/var "$(Destination)/var"
 	$(_v) $(CHOWN) -h root:wheel "$(Destination)/var"
 	$(_v) $(COMPRESSMANPAGES) /usr/share/man
+	$(TOUCH) "$(Destination)/.file"
+	$(_v) $(CHOWN) root:nogroup "$(Destination)/.file"
+	$(_v) $(CHMOD) 0 "$(Destination)/.file"

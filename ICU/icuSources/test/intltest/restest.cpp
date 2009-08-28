@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2005, International Business Machines Corporation and
+ * Copyright (c) 1997-2008, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -197,6 +197,21 @@ void ResourceBundleTest::runIndexedTest( int32_t index, UBool exec, const char* 
 void
 ResourceBundleTest::TestResourceBundles()
 {
+    UErrorCode status = U_ZERO_ERROR;
+
+    loadTestData(status);
+    if(U_FAILURE(status))
+    {
+        dataerrln("[DATA] Could not load testdata.dat %s " + UnicodeString(u_errorName(status)));
+        return;
+    }
+
+    /* Make sure that users using te_IN for the default locale don't get test failures. */
+    Locale originalDefault;
+    if (Locale::getDefault() == Locale("te_IN")) {
+        Locale::setDefault(Locale("en_US"), status);
+    }
+
     testTag("only_in_Root", TRUE, FALSE, FALSE);
     testTag("only_in_te", FALSE, TRUE, FALSE);
     testTag("only_in_te_IN", FALSE, FALSE, TRUE);
@@ -206,63 +221,73 @@ ResourceBundleTest::TestResourceBundles()
     testTag("in_te_te_IN", FALSE, TRUE, TRUE);
     testTag("nonexistent", FALSE, FALSE, FALSE);
     logln("Passed: %d\nFailed: %d", pass, fail);
+
+    /* Restore the default locale for the other tests. */
+    Locale::setDefault(originalDefault, status);
 }
 
 void
 ResourceBundleTest::TestConstruction()
 {
+    UErrorCode   err = U_ZERO_ERROR;
+    Locale       locale("te", "IN");
+
+    const char* testdatapath=loadTestData(err);
+    if(U_FAILURE(err))
     {
-        UErrorCode   err = U_ZERO_ERROR;
-        const char* testdatapath;
-        Locale       locale("te", "IN");
-
-        testdatapath=loadTestData(err);
-        if(U_FAILURE(err))
-        {
-            errln("Could not load testdata.dat " + UnicodeString(testdatapath) +  ", " + UnicodeString(u_errorName(err)));
-            return;
-        }
-        ResourceBundle  test1((UnicodeString)testdatapath, err);
-        ResourceBundle  test2(testdatapath, locale, err);
-        //ResourceBundle  test1("c:\\icu\\icu\\source\\test\\testdata\\testdata", err);
-        //ResourceBundle  test2("c:\\icu\\icu\\source\\test\\testdata\\testdata", locale, err);
-
-        UnicodeString   result1(test1.getStringEx("string_in_Root_te_te_IN", err));
-        UnicodeString   result2(test2.getStringEx("string_in_Root_te_te_IN", err));
-
-        if (U_FAILURE(err)) {
-            errln("Something threw an error in TestConstruction()");
-            return;
-        }
-
-        logln("for string_in_Root_te_te_IN, default.txt had " + result1);
-        logln("for string_in_Root_te_te_IN, te_IN.txt had " + result2);
-
-        if (result1 != "ROOT" || result2 != "TE_IN")
-            errln("Construction test failed; run verbose for more information");
-
-        const char* version1;
-        const char* version2;
-
-        version1 = test1.getVersionNumber();
-        version2 = test2.getVersionNumber();
-
-        char *versionID1 = new char[1+strlen(version1)]; // + 1 for zero byte
-        char *versionID2 = new char[1+ strlen(version2)]; // + 1 for zero byte
-
-        strcpy(versionID1, "44.0");  // hardcoded, please change if the default.txt file or ResourceBundle::kVersionSeparater is changed.
-
-        strcpy(versionID2, "55.0");  // hardcoded, please change if the te_IN.txt file or ResourceBundle::kVersionSeparater is changed.
-
-        logln(UnicodeString("getVersionNumber on default.txt returned ") + version1);
-        logln(UnicodeString("getVersionNumber on te_IN.txt returned ") + version2);
-
-        if (strcmp(version1, versionID1) != 0 || strcmp(version2, versionID2) != 0)
-            errln("getVersionNumber() failed");
-
-        delete[] versionID1;
-        delete[] versionID2;
+        dataerrln("[DATA] Could not load testdata.dat " + UnicodeString(testdatapath) +  ", " + UnicodeString(u_errorName(err)));
+        return;
     }
+
+    /* Make sure that users using te_IN for the default locale don't get test failures. */
+    Locale originalDefault;
+    if (Locale::getDefault() == Locale("te_IN")) {
+        Locale::setDefault(Locale("en_US"), err);
+    }
+
+    ResourceBundle  test1((UnicodeString)testdatapath, err);
+    ResourceBundle  test2(testdatapath, locale, err);
+    //ResourceBundle  test1("c:\\icu\\icu\\source\\test\\testdata\\testdata", err);
+    //ResourceBundle  test2("c:\\icu\\icu\\source\\test\\testdata\\testdata", locale, err);
+
+    UnicodeString   result1(test1.getStringEx("string_in_Root_te_te_IN", err));
+    UnicodeString   result2(test2.getStringEx("string_in_Root_te_te_IN", err));
+
+    if (U_FAILURE(err)) {
+        errln("Something threw an error in TestConstruction()");
+        return;
+    }
+
+    logln("for string_in_Root_te_te_IN, default.txt had " + result1);
+    logln("for string_in_Root_te_te_IN, te_IN.txt had " + result2);
+
+    if (result1 != "ROOT" || result2 != "TE_IN")
+        errln("Construction test failed; run verbose for more information");
+
+    const char* version1;
+    const char* version2;
+
+    version1 = test1.getVersionNumber();
+    version2 = test2.getVersionNumber();
+
+    char *versionID1 = new char[1+strlen(version1)]; // + 1 for zero byte
+    char *versionID2 = new char[1+ strlen(version2)]; // + 1 for zero byte
+
+    strcpy(versionID1, "44.0");  // hardcoded, please change if the default.txt file or ResourceBundle::kVersionSeparater is changed.
+
+    strcpy(versionID2, "55.0");  // hardcoded, please change if the te_IN.txt file or ResourceBundle::kVersionSeparater is changed.
+
+    logln(UnicodeString("getVersionNumber on default.txt returned ") + version1);
+    logln(UnicodeString("getVersionNumber on te_IN.txt returned ") + version2);
+
+    if (strcmp(version1, versionID1) != 0 || strcmp(version2, versionID2) != 0)
+        errln("getVersionNumber() failed");
+
+    delete[] versionID1;
+    delete[] versionID2;
+
+    /* Restore the default locale for the other tests. */
+    Locale::setDefault(originalDefault, err);
 }
 
 //***************************************************************************************
@@ -294,7 +319,7 @@ ResourceBundleTest::testTag(const char* frag,
     testdatapath=loadTestData(status);
     if(U_FAILURE(status))
     {
-        errln("Could not load testdata.dat %s " + UnicodeString(u_errorName(status)));
+        dataerrln("[DATA] Could not load testdata.dat %s " + UnicodeString(u_errorName(status)));
         return FALSE;
     }
 
@@ -509,7 +534,7 @@ ResourceBundleTest::TestGetSize(void)
     
     if(U_FAILURE(status))
     {
-        err("Could not load testdata.dat %s\n", u_errorName(status));
+        dataerrln("[DATA] Could not load testdata.dat %s\n", u_errorName(status));
         return;
     }
     
@@ -563,7 +588,7 @@ ResourceBundleTest::TestGetLocaleByType(void)
     
     if(U_FAILURE(status))
     {
-        err("Could not load testdata.dat %s\n", u_errorName(status));
+        dataerrln("[DATA] Could not load testdata.dat %s\n", u_errorName(status));
         return;
     }
     

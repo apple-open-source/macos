@@ -53,6 +53,7 @@ int main(int argc, char * argv[])
 	    printf("  maxPixelError                 %ld\n", range->maxPixelError);
 	    printf("  supportedSyncFlags            %ld\n", range->supportedSyncFlags);
 	    printf("  supportedSignalLevels         %ld\n", range->supportedSignalLevels);
+	    printf("  supportedSignalConfigs        %ld\n", range->supportedSignalConfigs);
 	    printf("  minFrameRate                  %ld\n", range->minFrameRate);
 	    printf("  maxFrameRate                  %ld\n", range->maxFrameRate);
 	    printf("  minLineRate                   %ld\n", range->minLineRate);
@@ -111,6 +112,20 @@ int main(int argc, char * argv[])
 	    printf("  maxLink1PixelClock            %ld\n", range->maxLink1PixelClock);
 
 	}
+
+	fbRange = (CFDataRef) IORegistryEntryCreateCFProperty( service, 
+								CFSTR(kIOFBScalerInfoKey),
+								kCFAllocatorDefault, kNilOptions);
+	if (fbRange && CFDataGetLength(fbRange) >= sizeof(IODisplayScalerInformation))
+	{
+	    IODisplayScalerInformation * range = (IODisplayScalerInformation *) CFDataGetBytePtr(fbRange);
+	    printf("IODisplayScalerInformation:\n");
+	    printf("  scalerFeatures                %lx\n", range->scalerFeatures);
+	    printf("  maxHorizontalPixels           %ld\n", range->maxHorizontalPixels);
+	    printf("  maxVerticalPixels             %ld\n", range->maxVerticalPixels);
+	}
+
+
     }
     
     exit(0);

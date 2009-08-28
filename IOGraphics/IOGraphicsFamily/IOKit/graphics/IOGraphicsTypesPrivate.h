@@ -84,6 +84,13 @@ enum {
     kIOCaptureDisableDisplayDimming	= 0x00000002
 };
 
+/*! @enum FramebufferConstants
+    @constant kIOFBVRAMMemory The memory type for IOConnectMapMemory() to get the VRAM memory. Use a memory type equal to the IOPixelAperture index to get a particular pixel aperture.
+*/
+enum {
+    kIOFBVRAMMemory		= 110
+};
+
 #define kIOFBGammaHeaderSizeKey		"IOFBGammaHeaderSize"
 
 #define kIONDRVFramebufferGenerationKey "IONDRVFramebufferGeneration"
@@ -137,6 +144,8 @@ enum {
 #define kIODisplayDimAggressiveness	iokit_family_err(sub_iokit_graphics, 3)
 #endif
 
+#define kIODisplayAttributesKey		"IODisplayAttributes"
+
 #define kIODisplaySupportsUnderscanKey	"IODisplaySupportsUnderscan"
 #define kIODisplaySupportsBasicAudioKey	"IODisplaySupportsBasicAudio"
 #define kIODisplaySupportsYCbCr444Key	"IODisplaySupportsYCbCr444"
@@ -144,11 +153,17 @@ enum {
 
 enum
 { 
+    kIODisplayColorMode = kConnectionColorMode,
+};
+
+enum
+{
+    // kConnectionColorMode attribute
     kIODisplayColorModeReserved = 0x00000000,
     kIODisplayColorModeRGB      = 0x00000001,
     kIODisplayColorModeYCbCr422 = 0x00000010,
     kIODisplayColorModeYCbCr444 = 0x00000100,
-    kIODisplayColorModeAuto     = 0x10000000
+    kIODisplayColorModeAuto     = 0x10000000,
 };
 
 enum

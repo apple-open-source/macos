@@ -170,7 +170,7 @@ qstring (
 	 * no double-quotes to escape, so just wrap the input string
 	 * in double-quotes and return it.
 	 */
-	len = strlen(s) + 2 + 1;
+	len = (int)strlen(s) + 2 + 1;
 	c = malloc(len);
 	if (c == NULL) {
 	    return NULL;
@@ -184,7 +184,7 @@ qstring (
     /*
      * Ugh, we have to escape double quotes ...
      */
-    len = strlen(s) + 2 + (2*num_quotes) + 1;
+    len = (int)strlen(s) + 2 + (2*num_quotes) + 1;
     c = malloc(len);
     if (c == NULL) {
 	return NULL;
@@ -334,8 +334,8 @@ auth_rimap (
 	if (r->ai_family == AF_INET6)
 	    niflags |= NI_WITHSCOPEID;
 #endif
-	if (getnameinfo(r->ai_addr, r->ai_addrlen, hbuf, sizeof(hbuf),
-			pbuf, sizeof(pbuf), niflags) != 0) {
+	if (getnameinfo(r->ai_addr, r->ai_addrlen, hbuf, (socklen_t)sizeof(hbuf),
+			pbuf, (socklen_t)sizeof(pbuf), niflags) != 0) {
 	    strlcpy(hbuf, "unknown", sizeof(hbuf));
 	    strlcpy(pbuf, "unknown", sizeof(pbuf));
 	}
@@ -345,7 +345,7 @@ auth_rimap (
     }
     if (s < 0) {
 	if (getnameinfo(ai->ai_addr, ai->ai_addrlen, NULL, 0,
-			pbuf, sizeof(pbuf), NI_NUMERICSERV) != 0)
+			pbuf, (socklen_t)sizeof(pbuf), NI_NUMERICSERV) != 0)
 	    strlcpy(pbuf, "unknown", sizeof(pbuf));
 	syslog(LOG_WARNING, "auth_rimap: couldn't connect to %s/%s",
 	       ai->ai_canonname ? ai->ai_canonname : r_host, pbuf);
@@ -364,7 +364,7 @@ auth_rimap (
     /* read and parse the IMAP banner */
 
     alarm(NETWORK_IO_TIMEOUT);
-    rc = read(s, rbuf, sizeof(rbuf));
+    rc = (int)read(s, rbuf, sizeof(rbuf));
     alarm(0);
     if (rc == -1) {
 	syslog(LOG_WARNING, "auth_rimap: read (banner): %m");
@@ -453,7 +453,7 @@ auth_rimap (
     /* read and parse the LOGIN response */
 
     alarm(NETWORK_IO_TIMEOUT);
-    rc = read(s, rbuf, sizeof(rbuf));
+    rc = (int)read(s, rbuf, sizeof(rbuf));
     alarm(0);
     (void) close(s);			/* we're done with the remote */
     if (rc == -1) {

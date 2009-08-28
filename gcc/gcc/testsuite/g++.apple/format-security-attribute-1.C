@@ -20,4 +20,3 @@ int main()
 	CFLog(CFSTR("foo is %@"), CFSTR("foo is %@"), foo);	// OK
 	CFLog(CFSTR("foo is %@"));			// OK
 }
-

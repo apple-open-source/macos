@@ -77,7 +77,7 @@ public:
 
 	IOFWIPBusInterface *getIPTransmitInterface(IOFireWireIP *fIPLocalNode);
 
-	static bool busInterfaceTerminate(void *target, void *refCon, IOService *newService);
+	static bool busInterfaceTerminate(void *target, void *refCon, IOService *newService, IONotifier * notifier);
     
 private:
     OSMetaClassDeclareReservedUnused(IOFireWireIPUnit, 0);

@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -22,9 +22,9 @@
 #include "apr_env.h"
 #include "apr_errno.h"
 #include "apr_pools.h"
+#include "apr_strings.h"
 
-
-#if APR_HAS_UNICODE_FS
+#if APR_HAS_UNICODE_FS && !defined(_WIN32_WCE)
 static apr_status_t widen_envvar_name (apr_wchar_t *buffer,
                                        apr_size_t bufflen,
                                        const char *envvar)
@@ -46,6 +46,9 @@ APR_DECLARE(apr_status_t) apr_env_get(char **value,
                                       const char *envvar,
                                       apr_pool_t *pool)
 {
+#if defined(_WIN32_WCE)
+    return APR_ENOTIMPL;
+#else
     char *val = NULL;
     DWORD size;
 
@@ -61,19 +64,23 @@ APR_DECLARE(apr_status_t) apr_env_get(char **value,
         if (status)
             return status;
 
+        SetLastError(0);
         size = GetEnvironmentVariableW(wenvvar, &dummy, 0);
-        if (size == 0)
+        if (GetLastError() == ERROR_ENVVAR_NOT_FOUND)
             /* The environment variable doesn't exist. */
             return APR_ENOENT;
 
+        if (size == 0) {
+            /* The environment value exists, but is zero-length. */
+            *value = apr_pstrdup(pool, "");
+            return APR_SUCCESS;
+        }
+
         wvalue = apr_palloc(pool, size * sizeof(*wvalue));
         size = GetEnvironmentVariableW(wenvvar, wvalue, size);
-        if (size == 0)
-            /* Mid-air collision?. Somebody must've changed the env. var. */
-            return APR_INCOMPLETE;
 
         inchars = wcslen(wvalue) + 1;
-        outchars = 3 * inchars; /* Enougn for any UTF-8 representation */
+        outchars = 3 * inchars; /* Enough for any UTF-8 representation */
         val = apr_palloc(pool, outchars);
         status = apr_conv_ucs2_to_utf8(wvalue, &inchars, val, &outchars);
         if (status)
@@ -85,10 +92,17 @@ APR_DECLARE(apr_status_t) apr_env_get(char **value,
     {
         char dummy;
 
+        SetLastError(0);
         size = GetEnvironmentVariableA(envvar, &dummy, 0);
-        if (size == 0)
+        if (GetLastError() == ERROR_ENVVAR_NOT_FOUND)
             /* The environment variable doesn't exist. */
             return APR_ENOENT;
+
+        if (size == 0) {
+            /* The environment value exists, but is zero-length. */
+            *value = apr_pstrdup(pool, "");
+            return APR_SUCCESS;
+        }
 
         val = apr_palloc(pool, size);
         size = GetEnvironmentVariableA(envvar, val, size);
@@ -100,6 +114,7 @@ APR_DECLARE(apr_status_t) apr_env_get(char **value,
 
     *value = val;
     return APR_SUCCESS;
+#endif
 }
 
 
@@ -107,6 +122,9 @@ APR_DECLARE(apr_status_t) apr_env_set(const char *envvar,
                                       const char *value,
                                       apr_pool_t *pool)
 {
+#if defined(_WIN32_WCE)
+    return APR_ENOTIMPL;
+#else
 #if APR_HAS_UNICODE_FS
     IF_WIN_OS_IS_UNICODE
     {
@@ -138,11 +156,15 @@ APR_DECLARE(apr_status_t) apr_env_set(const char *envvar,
 #endif
 
     return APR_SUCCESS;
+#endif
 }
 
 
 APR_DECLARE(apr_status_t) apr_env_delete(const char *envvar, apr_pool_t *pool)
 {
+#if defined(_WIN32_WCE)
+    return APR_ENOTIMPL;
+#else
 #if APR_HAS_UNICODE_FS
     IF_WIN_OS_IS_UNICODE
     {
@@ -166,4 +188,5 @@ APR_DECLARE(apr_status_t) apr_env_delete(const char *envvar, apr_pool_t *pool)
 #endif
 
     return APR_SUCCESS;
+#endif
 }

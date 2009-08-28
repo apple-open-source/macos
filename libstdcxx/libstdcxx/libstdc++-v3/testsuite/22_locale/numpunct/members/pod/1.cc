@@ -1,6 +1,6 @@
 // 2003-07-09  Benjamin Kosnik  <bkoz@redhat.com>
 
-// Copyright (C) 2003 Free Software Foundation, Inc.
+// Copyright (C) 2003, 2005 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -15,58 +15,57 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 #include <locale>
 #include <sstream>
 #include <ostream>
 #include <stdexcept>
-#include <ext/pod_char_traits.h>
 #include <testsuite_hooks.h>
-
+#include <testsuite_character.h>
 
 // Check for numpunct and ctype dependencies. Make sure that numpunct
 // can be created without ctype.
 void test01()
 {
   using namespace std;
-  using __gnu_test::pod_type;
-  using __gnu_test::value_type;
-  typedef numpunct<pod_type>::string_type 	string_type;
-  typedef basic_stringbuf<pod_type> 	stringbuf_type;
-  typedef basic_ostream<pod_type> 		ostream_type;
+  using __gnu_test::pod_ushort;
+  typedef pod_ushort::value_type value_type;
+  typedef numpunct<pod_ushort>::string_type 	string_type;
+  typedef basic_stringbuf<pod_ushort> 	stringbuf_type;
+  typedef basic_ostream<pod_ushort> 		ostream_type;
   
   bool test __attribute__((unused)) = true;
 
   // Pre-cache sanity check.
-  const locale 	loc(locale::classic(), new numpunct<pod_type>);
-  const numpunct<pod_type>& np = use_facet<numpunct<pod_type> >(loc);
+  const locale 	loc(locale::classic(), new numpunct<pod_ushort>);
+  const numpunct<pod_ushort>& np = use_facet<numpunct<pod_ushort> >(loc);
 
-  pod_type dp = np.decimal_point();
-  pod_type ts = np.thousands_sep();
+  pod_ushort dp = np.decimal_point();
+  pod_ushort ts = np.thousands_sep();
   string g = np.grouping();
   string_type strue = np.truename();
   string_type sfalse = np.falsename();
 
-  pod_type basedp = { value_type('.') };
-  pod_type basets = { value_type(',') };
+  pod_ushort basedp = { value_type('.') };
+  pod_ushort basets = { value_type(',') };
 
-  string_type basetrue(4, pod_type());
+  string_type basetrue(4, pod_ushort());
   basetrue[0].value = value_type('t');
   basetrue[1].value = value_type('r');
   basetrue[2].value = value_type('u');
   basetrue[3].value = value_type('e');
 
-  string_type basefalse(5, pod_type());
+  string_type basefalse(5, pod_ushort());
   basefalse[0].value = value_type('f');
   basefalse[1].value = value_type('a');
   basefalse[2].value = value_type('l');
   basefalse[3].value = value_type('s');
   basefalse[4].value = value_type('e');
 
-  VERIFY( char_traits<pod_type>::eq(dp, basedp) );
-  VERIFY( char_traits<pod_type>::eq(ts, basets) );
+  VERIFY( char_traits<pod_ushort>::eq(dp, basedp) );
+  VERIFY( char_traits<pod_ushort>::eq(ts, basets) );
   VERIFY( g == "" );
   VERIFY( strue == basetrue );
   VERIFY( sfalse == basefalse );

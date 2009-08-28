@@ -670,6 +670,7 @@ floatformat_to_doublest (const struct floatformat *fmt,
 			 const void *in, DOUBLEST *out)
 {
   gdb_assert (fmt != NULL);
+  gdb_assert (host_double_format != NULL);
 
   /* If the target format matches one of our host formats, just copy
      it in.  If it matches except for the byte order, byte reverse it
@@ -786,7 +787,7 @@ floatformat_from_length (int len)
 }
 
 const struct floatformat *
-floatformat_from_type (const struct type *type)
+floatformat_from_type (struct type *type)
 {
   gdb_assert (TYPE_CODE (type) == TYPE_CODE_FLT);
   if (TYPE_FLOATFORMAT (type) != NULL)
@@ -840,7 +841,7 @@ deprecated_store_floating (void *addr, int len, DOUBLEST val)
    byte-stream at ADDR.  Returns the value as type DOUBLEST.  */
 
 DOUBLEST
-extract_typed_floating (const void *addr, const struct type *type)
+extract_typed_floating (const void *addr, struct type *type)
 {
   DOUBLEST retval;
 
@@ -859,7 +860,7 @@ extract_typed_floating (const void *addr, const struct type *type)
    byte-stream at ADDR.  */
 
 void
-store_typed_floating (void *addr, const struct type *type, DOUBLEST val)
+store_typed_floating (void *addr, struct type *type, DOUBLEST val)
 {
   gdb_assert (TYPE_CODE (type) == TYPE_CODE_FLT);
 
@@ -896,8 +897,8 @@ store_typed_floating (void *addr, const struct type *type, DOUBLEST val)
    TO_TYPE, and store it to a target-order byte-stream at TO.  */
 
 void
-convert_typed_floating (const void *from, const struct type *from_type,
-                        void *to, const struct type *to_type)
+convert_typed_floating (const void *from, struct type *from_type,
+                        void *to, struct type *to_type)
 {
   const struct floatformat *from_fmt = floatformat_from_type (from_type);
   const struct floatformat *to_fmt = floatformat_from_type (to_type);

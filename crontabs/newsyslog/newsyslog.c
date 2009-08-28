@@ -54,7 +54,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.sbin/newsyslog/newsyslog.c,v 1.107 2006/08/17 18:15:43 delphij Exp $");
+__FBSDID("$FreeBSD: src/usr.sbin/newsyslog/newsyslog.c,v 1.108 2008/01/30 22:11:59 delphij Exp $");
 
 #define	OSF
 #ifndef COMPRESS_POSTFIX
@@ -79,6 +79,9 @@ __FBSDID("$FreeBSD: src/usr.sbin/newsyslog/newsyslog.c,v 1.107 2006/08/17 18:15:
 #include <paths.h>
 #include <pwd.h>
 #include <signal.h>
+#ifdef __APPLE__
+#include <spawn.h>
+#endif /* __APPLE__ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -91,8 +94,8 @@ __FBSDID("$FreeBSD: src/usr.sbin/newsyslog/newsyslog.c,v 1.107 2006/08/17 18:15:
 /*
  * Bit-values for the 'flags' parsed from a config-file entry.
  */
-#define	CE_COMPACT	0x0001	/* Compact the achived log files with gzip. */
-#define	CE_BZCOMPACT	0x0002	/* Compact the achived log files with bzip2. */
+#define	CE_COMPACT	0x0001	/* Compact the archived log files with gzip. */
+#define	CE_BZCOMPACT	0x0002	/* Compact the archived log files with bzip2. */
 #define	CE_BINARY	0x0008	/* Logfile is in binary, do not add status */
 				/*    messages to logfile(s) when rotating. */
 #define	CE_NOSIGNAL	0x0010	/* There is no process to signal when */
@@ -572,6 +575,14 @@ parse_args(int argc, char **argv)
 	ptimeset_time(timenow, time(NULL));
 	strlcpy(daytime, ptimeget_ctime(timenow) + 4, DAYTIME_LEN);
 
+#ifdef __APPLE__
+	/* 5906375: Exit if time isn't set. */
+	if (ptimeget_secs(timenow) == 0) {
+		fprintf(stderr, "Time isn't set, exiting.\n");
+		exit(1);
+	}
+#endif /* __APPLE__ */
+
 	/* Let's get our hostname */
 	(void)gethostname(hostname, sizeof(hostname));
 
@@ -755,6 +766,27 @@ get_worklist(char **files)
 
 	parse_file(f, fname, &worklist, &globlist, &defconf);
 	(void) fclose(f);
+
+#ifdef __APPLE__
+	/* Read config files from /etc/newsyslog.d if -f isn't specified. */
+	if (conf == NULL) {
+		glob_t g;
+		int i;
+
+		if (glob("/etc/newsyslog.d/*.conf", GLOB_NOCHECK, NULL, &g) != 0)
+			err(1, "glob");
+		for (i = 0; i < g.gl_matchc; i++) {
+			fname = g.gl_pathv[i];
+			f = fopen(fname, "r");
+			if (!f)
+				err(1, "%s", fname);
+
+			parse_file(f, fname, &worklist, &globlist, &defconf);
+			(void) fclose(f);
+		}
+		globfree(&g);
+	}
+#endif /* __APPLE__ */
 
 	/*
 	 * All config-file information has been read in and turned into
@@ -998,6 +1030,18 @@ parse_file(FILE *cf, const char *cfname, struct conf_entry **work_p,
 	 *	ie, this routine is only called one time.
 	 */
 	lastglob = lastwork = NULL;
+#ifdef __APPLE__
+	if (*glob_p) {
+		lastglob = *glob_p;
+		while (lastglob->next)
+			lastglob = lastglob->next;
+	}
+	if (*work_p) {
+		lastwork = *work_p;
+		while (lastwork->next)
+			lastwork = lastwork->next;
+	}
+#endif /* __APPLE__ */
 
 	errline = NULL;
 	while (fgets(line, BUFSIZ, cf)) {
@@ -1590,7 +1634,11 @@ static void
 do_zipwork(struct zipwork_entry *zwork)
 {
 	const char *pgm_name, *pgm_path;
+#ifdef __APPLE__
+	int errsav, zstatus;
+#else /* !__APPLE__ */
 	int errsav, fcount, zstatus;
+#endif /* __APPLE__ */
 	pid_t pidzip, wpid;
 	char zresult[MAXPATHLEN];
 
@@ -1629,6 +1677,12 @@ do_zipwork(struct zipwork_entry *zwork)
 		return;
 	}
 
+#ifdef __APPLE__
+	extern char **environ;
+	const char *args[] = { pgm_path, "-f", zwork->zw_fname, NULL };
+	if ((errsav = posix_spawn(&pidzip, pgm_path, NULL, NULL, (char * const *)args, environ)) != 0)
+		errc(1, errsav, "posix_spawn(`%s -f %s')", pgm_path, zwork->zw_fname);
+#else /* !__APPLE__ */
 	fcount = 1;
 	pidzip = fork();
 	while (pidzip < 0) {
@@ -1649,6 +1703,7 @@ do_zipwork(struct zipwork_entry *zwork)
 		execl(pgm_path, pgm_path, "-f", zwork->zw_fname, (char *)0);
 		err(1, "execl(`%s -f %s')", pgm_path, zwork->zw_fname);
 	}
+#endif /* __APPLE__ */
 
 	wpid = waitpid(pidzip, &zstatus, 0);
 	if (wpid == -1) {

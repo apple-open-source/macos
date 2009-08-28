@@ -35,6 +35,7 @@
 #include <string>
 #include <list>
 #include <netdb.h>
+#include <dispatch/dispatch.h>
 
 using namespace std;
 
@@ -59,6 +60,7 @@ typedef map<string,sObjectClassSchema*>		ObjectClassMap;
 typedef ObjectClassMap::const_iterator		ObjectClassMapCI;
 
 class CLDAPv3Configs;
+class CLDAPConnection;
 
 class CLDAPNodeConfig : public CObject<CLDAPNodeConfig>
 {
@@ -75,7 +77,6 @@ class CLDAPNodeConfig : public CObject<CLDAPNodeConfig>
 		int32_t		fSearchTimeout;		// Search timeout in seconds
 		int32_t		fOpenCloseTimeout;	// Open and Close timeout in seconds
 		int32_t		fDelayRebindTry;	// Delay rebind try after bind failure in seconds
-		int32_t		fLDAPv2ReadOnly;	// if LDAP server should be treated as v2 read only
 		int32_t		fAvailable;			// overall flag if this config is currently usable (used by reachability)
 		int32_t		fSecureUse;			// flag determing LDAP use with secure auth's
 		int32_t		fSecurityLevel;		// security level internal bit settings
@@ -124,7 +125,8 @@ class CLDAPNodeConfig : public CObject<CLDAPNodeConfig>
 		CFDictionaryRef	CopyNormalizedMappings	( void );
 	
 		// some object class stuff
-		void			GetReqAttrListForObjectList	( listOfStrings &inObjectClassList, listOfStrings &outReqAttrsList );
+		void			GetReqAttrListForObjectList	( CLDAPConnection *inLDAPConnection, listOfStrings &inObjectClassList,
+													  listOfStrings &outReqAttrsList );
 	
 		// Filter routines
 		char			*BuildLDAPQueryFilter	( char *inConstAttrType, const char *inConstAttrName, tDirPatternMatch patternMatch, 
@@ -136,8 +138,6 @@ class CLDAPNodeConfig : public CObject<CLDAPNodeConfig>
 		void			NetworkTransition		( void );
 		bool			CheckIfFailed			( void );
 
-		// do periodic refresh of dynamic data ( security settings, replicas, server mappings, etc. )
-		static void		RefreshDataCallback		( CFRunLoopTimerRef inTimer, void *inInfo );
 		static void		ReachabilityCallback	( SCNetworkReachabilityRef inTarget, SCNetworkConnectionFlags inFlags, void *inInfo );
 	
 	private:
@@ -160,9 +160,8 @@ class CLDAPNodeConfig : public CObject<CLDAPNodeConfig>
 		int32_t				fGetServerMappings;		// set to indicate whether server mappings need to be retrieved
 		int32_t				fGetReplicas;			// set to indicate whether replicas should be retrieved
 		int32_t				fGetSecuritySettings;	// set to indicate whether latest security settings retrieved
-		int32_t				fGetObjectClasses;		// set to indicate whether the OC schema has been built
 
-		CFRunLoopTimerRef	fDynamicRefreshTimer;	// timer that fires for refreshing replicas, etc.
+		dispatch_source_t	fDynamicRefreshTimer;	// timer that fires for refreshing replicas, etc.
 
 		DSSemaphore			fMappingsLock;
 		CFDictionaryRef		fNormalizedMappings;	// in dictionary form so we can lookup faster..
@@ -171,6 +170,7 @@ class CLDAPNodeConfig : public CObject<CLDAPNodeConfig>
 	
 		CFMutableArrayRef	fReadReplicas;
 		CFMutableArrayRef	fWriteReplicas;
+		CFMutableArrayRef	fDeniedSASLMethods;		// this disables particular SASL methods
 	
 		ObjectClassMap		*fObjectClassSchema;	// dictionary of object class schema
 	

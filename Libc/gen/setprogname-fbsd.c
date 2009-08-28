@@ -29,5 +29,5 @@ setprogname(const char *progname)
 	mib[1] = KERN_PROCNAME;
 
 	/* ignore errors as this is not a hard error */
-	sysctl(mib, 2, NULL, NULL, &buf[0], 2*MAXCOMLEN);
+	sysctl(mib, 2, NULL, NULL, &buf[0], strlen(buf));
 }

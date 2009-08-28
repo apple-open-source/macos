@@ -1,5 +1,5 @@
-/* APPLE LOCAL file mainline */
 /* Test for graceful compilation of @synchronized statements.  */
+
 /* { dg-do compile } */
 /* { dg-options "-fobjc-exceptions" } */
 
@@ -20,10 +20,9 @@ static Derived* rewriteDict(void) {
   if (sDict == 0) {
     @synchronized ([Derived class]) {
       if (sDict == 0)
-           sDict = [Derived new];
+	sDict = [Derived new];
     }
   } 
   return sDict;
 }
 @end
-

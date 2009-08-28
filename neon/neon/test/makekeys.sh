@@ -3,7 +3,7 @@
 
 srcdir=${1-.}
 
-OPENSSL=${OPENSSL-openssl}
+OPENSSL=@OPENSSL@
 CONF=${srcdir}/openssl.conf
 REQ="${OPENSSL} req -config ${CONF}"
 CA="${OPENSSL} ca -config ${CONF} -batch"
@@ -13,6 +13,8 @@ MKCERT="${REQ} -x509 -new -days 900"
 REQDN=reqDN
 STRMASK=default
 export REQDN STRMASK
+
+openssl version 1>&2
 
 set -ex
 
@@ -73,8 +75,14 @@ ${REQ} -new -key ${srcdir}/server.key -out altname4.csr
 csr_fields "Good ipAddress altname Dept" nowhere.example.com | \
 ${REQ} -new -key ${srcdir}/server.key -out altname5.csr
 
-csr_fields "Bad ipAddress altname Dept" nowhere.example.com | \
+csr_fields "Bad ipAddress altname 1 Dept" nowhere.example.com | \
 ${REQ} -new -key ${srcdir}/server.key -out altname6.csr
+
+csr_fields "Bad ipAddress altname 2 Dept" nowhere.example.com | \
+${REQ} -new -key ${srcdir}/server.key -out altname7.csr
+
+csr_fields "Bad ipAddress altname 3 Dept" nowhere.example.com | \
+${REQ} -new -key ${srcdir}/server.key -out altname8.csr
 
 csr_fields "Self-Signed" | \
 ${MKCERT} -key ${srcdir}/server.key -out ssigned.pem
@@ -110,7 +118,7 @@ ${MKCERT} -key ${srcdir}/server.key -out ca3.pem
 csr_fields "Fourth Random CA" "fourth.example.com" "CAs Ltd." Norwich Norfolk | \
 ${MKCERT} -key ${srcdir}/server.key -out ca4.pem
 
-cat ca[1234].pem > calist.pem
+cat ca/cert.pem ca[1234].pem > calist.pem
 
 csr_fields "Wildcard Cert Dept" "*.example.com" | \
 ${REQ} -new -key ${srcdir}/server.key -out wildcard.csr
@@ -144,7 +152,7 @@ for f in server client twocn caseless cnfirst missingcn justmail twoou wildcard;
   ${CA} -days 900 -in ${f}.csr -out ${f}.cert
 done
 
-for n in 1 2 3 4 5 6; do
+for n in 1 2 3 4 5 6 7 8; do
  ${CA} -extensions altExt${n} -days 900 \
      -in altname${n}.csr -out altname${n}.cert
 done
@@ -161,9 +169,32 @@ echo | ${MKPKCS12} -name "An Unencrypted Neon Client Cert" -out unclient.p12
 # generate a PKCS#12 cert with no friendly name
 echo | ${MKPKCS12} -out noclient.p12
 
+# generate a PKCS#12 cert with no private keys
+echo | ${MKPKCS12} -nokeys -out nkclient.p12
+
+# generate a PKCS#12 cert without the cert
+echo | ${MKPKCS12} -nokeys -out ncclient.p12
+
+# generate an encoded PKCS#12 cert with no private keys
+echo foobar | ${MKPKCS12} -nokeys -out enkclient.p12
+
 # a PKCS#12 cert including a bundled CA cert
 echo foobar | ${MKPKCS12} -certfile ca/cert.pem -name "A Neon Client Cert With CA" -out clientca.p12
 
 ### a file containing a complete chain
 
 cat ca/cert.pem server.cert > chain.pem
+
+### NSS database initialization, for testing PKCS#11.
+CERTUTIL=@CERTUTIL@
+PK12UTIL=@PK12UTIL@
+
+if [ ${CERTUTIL} != "notfound" -a ${PK12UTIL} != "notfound" ]; then
+  rm -rf nssdb
+  echo foobar > nssdb.pw
+  mkdir nssdb
+  ${CERTUTIL} -d nssdb -N -f nssdb.pw
+  ${PK12UTIL} -d nssdb -K foobar -W '' -i unclient.p12
+  ${CERTUTIL} -d nssdb -f nssdb.pw -n 'The CA Cert' -t T -A < ca/cert.pem
+  rm -f nssdb.pw
+fi

@@ -30,6 +30,7 @@
 
 #include <mach/message.h>
 #include <bsm/audit.h>
+#include <sys/socket.h>
 
 #include <DirectoryServiceCore/PrivateTypes.h>
 
@@ -67,13 +68,6 @@
  */
 #define		kDBLocalDefaultPath					"/var/db/dslocal/nodes/Default"
 
-typedef struct sDSTableEntry {
-	UInt32			fRefNum;
-	UInt32			fTimeStamp;
-	void			*fData;
-	struct sDSTableEntry  *fNext;
-} sDSTableEntry;							// used by CContinue and CPluginRef classes
-
 typedef struct {
 	unsigned int	msgt_name : 8,
 					msgt_size : 8,
@@ -90,19 +84,22 @@ typedef struct sObject
 	UInt32		length;
 } sObject;
 
+#pragma pack(4)			/* Make sure the structure stays as we defined it otherwise IPC will break */
 typedef struct sComData
 {
-	mach_msg_header_t	head;
 	mach_msg_type_t		type;
 	UInt32				fDataSize;
 	UInt32				fDataLength;
-	UInt32				fMsgID;
-	UInt32				fPID;
-	UInt32				fPort;
-	UInt32				fIPAddress;
-	// ---- when adding new items to this structure, add after this comment
-	UInt32				fUID;
-	UInt32				fEffectiveUID;
+	// ---- Mach information
+	mach_port_t			fMachPort;
+	pid_t				fPID;
+	// ---- Proxy information
+	UInt32					fMsgID;
+	int						fSocket;
+	struct sockaddr_storage	fIPAddress;
+	// ----
+	uid_t				fUID;
+	uid_t				fEffectiveUID;
 	uid_t				fAuditUID;
 	gid_t				fEffectiveGID;
 	gid_t				fGID;
@@ -112,6 +109,7 @@ typedef struct sComData
 	sObject				obj[ 10 ];
 	char				data[ 1 ];
 } sComData;
+#pragma pack()
 
 typedef struct sComProxyData
 {
@@ -121,7 +119,7 @@ typedef struct sComProxyData
 	UInt32				fDataLength;
 	UInt32				fMsgID;
 	UInt32				fPID;
-	UInt32				fPort;
+	UInt32				fUnused1; 	// not used
 	UInt32				fIPAddress;
 	sObject				obj[ 10 ];
 	char				data[ 1 ];
@@ -129,13 +127,13 @@ typedef struct sComProxyData
 
 #ifdef __cplusplus
 	const UInt32 kMsgBlockSize	= 1024 * 4;					// Set to average of 4k
-	const UInt32 kObjSize		= sizeof( sObject ) * 10;	// size of object struct
+	const UInt32 kObjSize		= (UInt32) sizeof(sObject) * 10;	// size of object struct
 	//const UInt32 kIPCMsgLen		= kMsgBlockSize + kObjSize;	// IPC message block size
 	const UInt32 kIPCMsgLen		= kMsgBlockSize;	// IPC message block size
 
 	// data should be OOL, may need to be increased if we create more MIG definitions that require more inline data
     const UInt32 kMaxFixedMsg       = 16384;
-    const UInt32 kMaxFixedMsgData	= kMaxFixedMsg - sizeof(sComData);  // this is the max fixed data we'll send..
+    const UInt32 kMaxFixedMsgData	= (UInt32) (kMaxFixedMsg - sizeof(sComData));  // this is the max fixed data we'll send..
     const UInt32 kMaxMIGMsg         = kMaxFixedMsg + 256;               // padding for any additional data
 #else
 	#define kMsgBlockSize		1024 * 4
@@ -154,7 +152,7 @@ typedef struct sIPCMsg
 	UInt32				fOf;
 	UInt32				fMsgID;
 	UInt32				fPID;
-	UInt32				fPort;
+	UInt32				fUnused1; 	// not used
 	sObject				obj[ 10 ];
 	char				fData[ kIPCMsgLen ];
 	mach_msg_audit_trailer_t	fTail;	//this is the largest trailer struct

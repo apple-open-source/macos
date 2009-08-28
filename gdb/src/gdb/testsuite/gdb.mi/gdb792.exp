@@ -49,52 +49,52 @@ if {[gdb_compile $srcdir/$subdir/$srcfile $binfile executable {debug c++}] != ""
 mi_run_to_main
 
 mi_gdb_test "-var-create - * a" \
-  "(&\".*\"\r\n)*\\^done,name=\"var1\",numchild=\"3\",type=\"A\",typecode=\"STRUCT\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\".*\",block_end_addr=\".*\"" \
+  "(&\".*\"\r\n)*\\^done,name=\"var1\",numchild=\"3\",type=\"A\",typecode=\"STRUCT\",dynamic_type=\"\",resolved_type=\"A\",in_scope=\"true\",block_start_addr=\".*\",block_end_addr=\".*\"" \
   "create var for class A"
 
 # APPLE LOCAL: [var-list-children] on C++ objects with synthetic members
 # (e.g. private / public in C++ objs) are marked with FAKE_CHILD so PB
 # can render them nicely.
 mi_gdb_test "-var-list-children var1" \
-"(&\".*\"\r\n)*\\^done,numchild=\"3\",children=\\\[child=\{name=\"var1\.public\",exp=\"public\",numchild=\"2\",type=\"\",typecode=\"FAKE_CHILD\",dynamic_type=\"\"\},child=\{name=\"var1\.private\",exp=\"private\",numchild=\"2\",type=\"\",typecode=\"FAKE_CHILD\",dynamic_type=\"\"\},child=\{name=\"var1\.protected\",exp=\"protected\",numchild=\"2\",type=\"\",typecode=\"FAKE_CHILD\",dynamic_type=\"\"\}\\\]" \
+"(&\".*\"\r\n)*\\^done,numchild=\"3\",children=\\\[child=\{name=\"var1\.public\",exp=\"public\",numchild=\"2\",type=\"\",typecode=\"FAKE_CHILD\",dynamic_type=\"\"\,resolved_type=\"\"},child=\{name=\"var1\.private\",exp=\"private\",numchild=\"2\",type=\"\",typecode=\"FAKE_CHILD\",dynamic_type=\"\"\,resolved_type=\"\"},child=\{name=\"var1\.protected\",exp=\"protected\",numchild=\"2\",type=\"\",typecode=\"FAKE_CHILD\",dynamic_type=\"\"\,resolved_type=\"\"}\\\]" \
   "list children of class A"
 
 mi_gdb_test "-var-list-children var1.public" \
-"(&\".*\"\r\n)*\\^done,numchild=\"2\",children=\\\[child=\{name=\"var1\.public\.x\",exp=\"x\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\"\},child=\{name=\"var1\.public\.buffer\",exp=\"buffer\",numchild=\"10\",type=\"char \\\[10\\\]\",typecode=\"ARRAY\",dynamic_type=\"\"\}\\\]" \
+"(&\".*\"\r\n)*\\^done,numchild=\"2\",children=\\\[child=\{name=\"var1\.public\.x\",exp=\"x\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\"\,resolved_type=\"int\"},child=\{name=\"var1\.public\.buffer\",exp=\"buffer\",numchild=\"10\",type=\"char \\\[10\\\]\",typecode=\"ARRAY\",dynamic_type=\"\"\,resolved_type=\"char \\\[10\\\]\"}\\\]" \
   "list children of A.public"
 
 mi_gdb_test "-var-list-children var1.private" \
-  "(&\".*\"\r\n)*\\^done,numchild=\"2\",children=\\\[child=\{name=\"var1\.private\.u\",exp=\"u\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\"\},child=\{name=\"var1\.private\.z\",exp=\"z\",numchild=\"0\",type=\"float\",typecode=\"FLT\",dynamic_type=\"\"\}\\\]" \
+  "(&\".*\"\r\n)*\\^done,numchild=\"2\",children=\\\[child=\{name=\"var1\.private\.u\",exp=\"u\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"int\"\},child=\{name=\"var1\.private\.z\",exp=\"z\",numchild=\"0\",type=\"float\",typecode=\"FLT\",dynamic_type=\"\",resolved_type=\"float\"\}\\\]" \
   "list children of A.private"
 
 mi_gdb_test "-var-list-children var1.protected" \
-  "(&\".*\"\r\n)*\\^done,numchild=\"2\",children=\\\[child=\{name=\"var1\.protected\.y\",exp=\"y\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\"\},child=\{name=\"var1\.protected\.b\",exp=\"b\",numchild=\"2\",type=\"B\",typecode=\"STRUCT\",dynamic_type=\"\"\}\\\]" \
+  "(&\".*\"\r\n)*\\^done,numchild=\"2\",children=\\\[child=\{name=\"var1\.protected\.y\",exp=\"y\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"int\"\},child=\{name=\"var1\.protected\.b\",exp=\"b\",numchild=\"2\",type=\"B\",typecode=\"STRUCT\",dynamic_type=\"\",resolved_type=\"B\"\}\\\]" \
   "list children of A.protected"
 
 # APPLE LOCAL: [var-list-children] on C++ objects with synthetic members
 # (e.g. private / public in C++ objs) are marked with FAKE_CHILD so PB
 # can render them nicely.
 mi_gdb_test "-var-list-children var1.protected.b" \
-  "(&\".*\"\r\n)*\\^done,numchild=\"2\",children=\\\[child=\{name=\"var1\.protected\.b\.public\",exp=\"public\",numchild=\"2\",type=\"\",typecode=\"FAKE_CHILD\",dynamic_type=\"\"\},child=\{name=\"var1\.protected\.b\.private\",exp=\"private\",numchild=\"1\",type=\"\",typecode=\"FAKE_CHILD\",dynamic_type=\"\"\}\\\]" \
+  "(&\".*\"\r\n)*\\^done,numchild=\"2\",children=\\\[child=\{name=\"var1\.protected\.b\.public\",exp=\"public\",numchild=\"2\",type=\"\",typecode=\"FAKE_CHILD\",dynamic_type=\"\",resolved_type=\"\"\},child=\{name=\"var1\.protected\.b\.private\",exp=\"private\",numchild=\"1\",type=\"\",typecode=\"FAKE_CHILD\",dynamic_type=\"\",resolved_type=\"\"\}\\\]" \
   "list children of A.protected.b"
 
 mi_gdb_test "-var-list-children var1.protected.b.public" \
-  "(&\".*\"\r\n)*\\^done,numchild=\"2\",children=\\\[child=\{name=\"var1\.protected\.b\.public\.bx\",exp=\"bx\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\"\},child=\{name=\"var1\.protected\.b\.public\.by\",exp=\"by\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\"\}\\\]" \
+  "(&\".*\"\r\n)*\\^done,numchild=\"2\",children=\\\[child=\{name=\"var1\.protected\.b\.public\.bx\",exp=\"bx\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"int\"\},child=\{name=\"var1\.protected\.b\.public\.by\",exp=\"by\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"int\"\}\\\]" \
   "list children of A.protected.b.public"
 
 mi_gdb_test "-var-list-children var1.protected.b.private" \
-  "(&\".*\"\r\n)*\\^done,numchild=\"1\",children=\\\[child=\{name=\"var1\.protected\.b\.private\.k\",exp=\"k\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\"\}\\\]" \
+  "(&\".*\"\r\n)*\\^done,numchild=\"1\",children=\\\[child=\{name=\"var1\.protected\.b\.private\.k\",exp=\"k\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"int\"\}\\\]" \
   "list children of A.protected.b.private"
 
 mi_gdb_test "-var-create - * c" \
-  "(&\".*\"\r\n)*\\^done,name=\"var2\",numchild=\"3\",type=\"C\",typecode=\"STRUCT\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\".*\",block_end_addr=\".*\"" \
+  "(&\".*\"\r\n)*\\^done,name=\"var2\",numchild=\"3\",type=\"C\",typecode=\"STRUCT\",dynamic_type=\"\",resolved_type=\"C\",in_scope=\"true\",block_start_addr=\".*\",block_end_addr=\".*\"" \
   "create var for class C which has baseclass A"
 
 # APPLE LOCAL: [var-list-children] on C++ objects with synthetic members
 # (e.g. private / public in C++ objs) are marked with FAKE_CHILD so PB
 # can render them nicely.
 mi_gdb_test "-var-list-children var2" \
-    "(&\".*\"\r\n)*\\^done,numchild=\"3\",children=\\\[child=\{name=\"var2\.A\",exp=\"A\",numchild=\"3\",type=\"A\",typecode=\"STRUCT\",dynamic_type=\"\"\},child=\{name=\"var2\.public\",exp=\"public\",numchild=\"1\",type=\"\",typecode=\"FAKE_CHILD\",dynamic_type=\"\"\},child=\{name=\"var2\.private\",exp=\"private\",numchild=\"1\",type=\"\",typecode=\"FAKE_CHILD\",dynamic_type=\"\"\}\\\]" \
+    "(&\".*\"\r\n)*\\^done,numchild=\"3\",children=\\\[child=\{name=\"var2\.A\",exp=\"A\",numchild=\"3\",type=\"A\",typecode=\"STRUCT\",dynamic_type=\"\",resolved_type=\"A\"\},child=\{name=\"var2\.public\",exp=\"public\",numchild=\"1\",type=\"\",typecode=\"FAKE_CHILD\",dynamic_type=\"\",resolved_type=\"\"\},child=\{name=\"var2\.private\",exp=\"private\",numchild=\"1\",type=\"\",typecode=\"FAKE_CHILD\",dynamic_type=\"\",resolved_type=\"\"\}\\\]" \
   "list children of class C"
 
 mi_gdb_exit

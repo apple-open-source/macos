@@ -34,6 +34,7 @@
 #include <mach-o/stab.h>
 #include "stuff/bool.h"
 #include "stuff/ofile.h"
+#include "stuff/symbol.h"
 #include "stuff/errors.h"
 #include "stuff/allocate.h"
 #include "stuff/dylib_table.h"
@@ -48,7 +49,7 @@ static int exit_status = EXIT_SUCCESS;
 
 /* flags set from the command line arguments */
 struct cmd_flags {
-    unsigned long nfiles;
+    uint32_t nfiles;
     enum bool rldtype;
     enum bool detail;
     enum bool verification;
@@ -105,9 +106,9 @@ char **envp)
 {
     int i;
     struct cmd_flags cmd_flags;
-    unsigned long j, table_size;
+    uint32_t j, table_size;
     struct arch_flag *arch_flags;
-    unsigned long narch_flags;
+    uint32_t narch_flags;
     enum bool all_archs;
     char **files;
 
@@ -267,36 +268,46 @@ char *arch_name,
 void *cookie)
 {
     struct cmd_flags *cmd_flags;
-    unsigned long i;
+    uint32_t i, mh_flags, mh_ncmds, n_type;
     struct load_command *lc;
     struct symtab_command *st;
     struct nlist *symbols;
-    unsigned long nsymbols;
+    struct nlist_64 *symbols64;
+    struct symbol *syms;
+    uint32_t nsymbols;
     char *strings;
-    unsigned long strsize;
-    unsigned long nfiledefs, ncats, nlocal, nstabs, nfun;
-    unsigned long filedef_strings, cat_strings, local_strings, stab_strings;
+    uint32_t strsize;
+    uint32_t nfiledefs, ncats, nlocal, nstabs, nfun;
+    uint32_t filedef_strings, cat_strings, local_strings, stab_strings;
     enum bool debug;
 
-	if(ofile->mh == NULL)
+	if(ofile->mh != NULL){
+	    mh_flags = ofile->mh->flags;
+	    mh_ncmds = ofile->mh->ncmds;
+	}
+	else if(ofile->mh64 != NULL){
+	    mh_flags = ofile->mh64->flags;
+	    mh_ncmds = ofile->mh64->ncmds;
+	}
+	else
 	    return;
 
 	debug = FALSE;
 	cmd_flags = (struct cmd_flags *)cookie;
 
 	if(cmd_flags->check_dynamic_binary == TRUE)
-	    if((ofile->mh->flags & MH_DYLDLINK) == MH_DYLDLINK)
+	    if((mh_flags & MH_DYLDLINK) == MH_DYLDLINK)
 		check_dynamic_binary(ofile, arch_name, cmd_flags->detail,
 				     cmd_flags->verification);
 
-	if(ofile->mh->filetype == MH_DYLIB ||
-	   ofile->mh->filetype == MH_DYLIB_STUB)
+	if(ofile->mh_filetype == MH_DYLIB ||
+	   ofile->mh_filetype == MH_DYLIB_STUB)
 	    check_dylib(ofile, arch_name, cmd_flags->detail,
 			cmd_flags->verification, &debug);
 
 	st = NULL;
 	lc = ofile->load_commands;
-	for(i = 0; i < ofile->mh->ncmds; i++){
+	for(i = 0; i < mh_ncmds; i++){
 	    if(st == NULL && lc->cmd == LC_SYMTAB){
 		st = (struct symtab_command *)lc;
 	    }
@@ -308,11 +319,11 @@ void *cookie)
 
 	if(cmd_flags->rldtype == FALSE &&
 	   cmd_flags->trey == FALSE &&
-	   (ofile->mh->flags & MH_DYLDLINK) == 0 &&
+	   (mh_flags & MH_DYLDLINK) == 0 &&
 	    (ofile->file_type != OFILE_FAT ||
 	     ofile->arch_type != OFILE_ARCHIVE) &&
 	    ofile->file_type != OFILE_ARCHIVE &&
-	    ofile->mh->filetype != MH_FVMLIB){
+	    ofile->mh_filetype != MH_FVMLIB){
 	    if(st->nsyms == 0)
 		return;
 
@@ -334,30 +345,61 @@ void *cookie)
 	    return;
 	}
 
-	symbols = (struct nlist *)(ofile->object_addr + st->symoff);
 	nsymbols = st->nsyms;
-	if(ofile->object_byte_sex != get_host_byte_sex())
-	    swap_nlist(symbols, nsymbols, get_host_byte_sex());
+	symbols = NULL;
+	symbols64 = NULL;
+	if(ofile->mh != NULL){
+	    symbols = (struct nlist *)(ofile->object_addr + st->symoff);
+	    if(ofile->object_byte_sex != get_host_byte_sex())
+		swap_nlist(symbols, nsymbols, get_host_byte_sex());
+	}
+	else{
+	    symbols64 = (struct nlist_64 *)(ofile->object_addr + st->symoff);
+	    if(ofile->object_byte_sex != get_host_byte_sex())
+		swap_nlist_64(symbols64, nsymbols, get_host_byte_sex());
+	}
+	syms = allocate(nsymbols * sizeof(struct symbol));
 
 	strings = ofile->object_addr + st->stroff;
 	strsize = st->strsize;
 	for(i = 0; i < nsymbols; i++){
-	    if(symbols[i].n_un.n_strx == 0)
-		symbols[i].n_un.n_name = "";
-	    else if(symbols[i].n_un.n_strx < 0 ||
-		    (unsigned long)symbols[i].n_un.n_strx > st->strsize)
-		symbols[i].n_un.n_name = "bad string index";
-	    else
-		symbols[i].n_un.n_name = symbols[i].n_un.n_strx + strings;
-
-	    if((symbols[i].n_type & N_TYPE) == N_INDR){
-		if(symbols[i].n_value == 0)
-		    symbols[i].n_value = (long)"";
-		else if(symbols[i].n_value > st->strsize)
-		    symbols[i].n_value = (long)"bad string index";
+	    if(ofile->mh != NULL){
+		if(symbols[i].n_un.n_strx == 0)
+		    syms[i].name = "";
+		else if(symbols[i].n_un.n_strx < 0 ||
+			(uint32_t)symbols[i].n_un.n_strx > st->strsize)
+		    syms[i].name = "bad string index";
 		else
-		    symbols[i].n_value =
-				(long)(symbols[i].n_value + strings);
+		    syms[i].name = symbols[i].n_un.n_strx + strings;
+
+		if((symbols[i].n_type & N_TYPE) == N_INDR){
+		    if(symbols[i].n_value == 0)
+			syms[i].indr_name = NULL;
+		    else if(symbols[i].n_value > st->strsize)
+			syms[i].indr_name = "bad string index";
+		    else
+			syms[i].indr_name = strings + symbols[i].n_value;
+		}
+		syms[i].n_value = symbols[i].n_value;
+	    }
+	    else{
+		if(symbols64[i].n_un.n_strx == 0)
+		    syms[i].name = "";
+		else if(symbols64[i].n_un.n_strx < 0 ||
+			(uint32_t)symbols64[i].n_un.n_strx > st->strsize)
+		    syms[i].name = "bad string index";
+		else
+		    syms[i].name = symbols64[i].n_un.n_strx + strings;
+
+		if((symbols64[i].n_type & N_TYPE) == N_INDR){
+		    if(symbols64[i].n_value == 0)
+			syms[i].indr_name = NULL;
+		    else if(symbols64[i].n_value > st->strsize)
+			syms[i].indr_name = "bad string index";
+		    else
+			syms[i].indr_name = strings + symbols64[i].n_value;
+		}
+		syms[i].n_value = symbols64[i].n_value;
 	    }
 	}
 
@@ -371,30 +413,39 @@ void *cookie)
 	local_strings = 0;
 	stab_strings = 0;
 	for(i = 0; i < nsymbols; i++){
-	    if(ofile->mh->filetype == MH_EXECUTE){
-		if(symbols[i].n_type == (N_ABS | N_EXT) &&
-		   symbols[i].n_value == 0){
-		    if(strncmp(symbols[i].n_un.n_name, ".file_definition_",
+	    if(ofile->mh != NULL)
+		n_type = symbols[i].n_type;
+	    else
+		n_type = symbols64[i].n_type;
+	    if(ofile->mh_filetype == MH_EXECUTE){
+		if(n_type == (N_ABS | N_EXT) && syms[i].n_value == 0){
+		    if(strncmp(syms[i].name, ".file_definition_",
 			       sizeof(".file_definition_") - 1) == 0){
 			nfiledefs++;
-			filedef_strings += strlen(symbols[i].n_un.n_name);
+			filedef_strings += strlen(syms[i].name);
 		    }
-		    if(strncmp(symbols[i].n_un.n_name, ".objc_category_name_",
+		    if(strncmp(syms[i].name, ".objc_category_name_",
 			       sizeof(".objc_category_name_") - 1) == 0){
 			ncats++;
-			cat_strings += strlen(symbols[i].n_un.n_name);
+			cat_strings += strlen(syms[i].name);
 		    }
 		}
 	    }
-	    if((symbols[i].n_type & N_EXT) == 0){
-		nlocal++;
-		local_strings += strlen(symbols[i].n_un.n_name);
-	    }
-	    if(symbols[i].n_type & N_STAB){
-		nstabs++;
-		stab_strings += strlen(symbols[i].n_un.n_name);
-		if(symbols[i].n_type == N_FUN)
-		    nfun++;
+	    /*
+	     * We need to allow the symbol created by strip(1) for radar bug
+	     * 5614542 (see that radar and related for more information).
+	     */
+	    if(strcmp(syms[i].name, "radr://5614542") != 0){
+		if((n_type & N_EXT) == 0){
+		    nlocal++;
+		    local_strings += strlen(syms[i].name);
+		}
+		if(n_type & N_STAB){
+		    nstabs++;
+		    stab_strings += strlen(syms[i].name);
+		    if(n_type == N_FUN)
+			nfun++;
+		}
 	    }
 	}
 
@@ -402,18 +453,18 @@ void *cookie)
 	    return;
 	if(cmd_flags->rldtype == TRUE && nstabs == 0)
 	    return;
-	if((ofile->mh->flags & MH_DYLDLINK) == MH_DYLDLINK &&
+	if((mh_flags & MH_DYLDLINK) == MH_DYLDLINK &&
 	   (nstabs == 0 && nlocal == 0))
 	    return;
 	if(nstabs == 0 &&
 	   ((ofile->file_type == OFILE_FAT &&
 	     ofile->arch_type == OFILE_ARCHIVE) ||
 	    ofile->file_type == OFILE_ARCHIVE ||
-	    ofile->mh->filetype == MH_FVMLIB))
+	    ofile->mh_filetype == MH_FVMLIB))
 	    return;
-	if((ofile->mh->filetype == MH_DYLIB ||
-	    ofile->mh->filetype == MH_DYLIB_STUB ||
-	    ofile->mh->filetype == MH_FVMLIB) &&
+	if((ofile->mh_filetype == MH_DYLIB ||
+	    ofile->mh_filetype == MH_DYLIB_STUB ||
+	    ofile->mh_filetype == MH_FVMLIB) &&
 	    (nfun == 0 || debug == TRUE))
 	    return;
 
@@ -428,16 +479,16 @@ void *cookie)
 		printf("%s:", ofile->file_name);
 	    printf("\n");
 	    if(nfiledefs != 0)
-		printf(" has %lu .file_definition_ symbols and %lu string "
+		printf(" has %u .file_definition_ symbols and %u string "
 		       "bytes\n", nfiledefs, filedef_strings);
 	    if(ncats != 0)
-		printf(" has %lu .objc_category_name_ symbols and %lu string "
+		printf(" has %u .objc_category_name_ symbols and %u string "
 		       "bytes\n", ncats, cat_strings);
 	    if(nlocal != 0)
-		printf(" has %lu local symbols and %lu string "
+		printf(" has %u local symbols and %u string "
 		       "bytes\n", nlocal, local_strings);
 	    if(nstabs != 0)
-		printf(" has %lu debugging symbols and %lu string "
+		printf(" has %u debugging symbols and %u string "
 		       "bytes\n", nstabs, stab_strings);
 	}
 	if(cmd_flags->verification == TRUE)
@@ -461,17 +512,27 @@ char *arch_name,
 enum bool detail,
 enum bool verification)
 {
-    unsigned long i, j, section_attributes;
+    uint32_t i, j, section_attributes, mh_flags, mh_ncmds;
     struct load_command *lc;
     struct segment_command *sg;
+    struct segment_command_64 *sg64;
     struct section *s;
+    struct section_64 *s64;
     struct macosx_deployment_target macosx_deployment_target;
 
+	if(ofile->mh != NULL){
+	    mh_ncmds = ofile->mh->ncmds;
+	    mh_flags = ofile->mh->flags;
+	}
+	else{
+	    mh_ncmds = ofile->mh64->ncmds;
+	    mh_flags = ofile->mh64->flags;
+	}
 	/*
 	 * First check for relocation entries in read only segments.
 	 */
 	lc = ofile->load_commands;
-	for(i = 0; i < ofile->mh->ncmds; i++){
+	for(i = 0; i < mh_ncmds; i++){
 	    if(lc->cmd == LC_SEGMENT){
 		sg = (struct segment_command *)lc;
 		s = (struct section *)((char *)lc +
@@ -481,6 +542,13 @@ enum bool verification)
 		    if((sg->initprot & VM_PROT_WRITE) == 0 &&
 		       ((section_attributes & S_ATTR_EXT_RELOC) != 0 ||
 		        (section_attributes & S_ATTR_LOC_RELOC) != 0)){
+			/* read-only relocs are ok in i386 stub and 
+			    stub helper sections */
+			if((ofile->mh != NULL) && 
+			   (ofile->mh->cputype == CPU_TYPE_I386) &&
+			   ((strcmp(s->sectname,"__symbol_stub")==0) ||
+			    (strcmp(s->sectname,"__stub_helper")==0)))
+				continue;
 			if(detail == TRUE){
 			    if(arch_name != NULL)
 				printf("(for architecture %s):", arch_name);
@@ -495,24 +563,49 @@ enum bool verification)
 		    s++;
 		}
 	    }
+	    else if(lc->cmd == LC_SEGMENT){
+		sg64 = (struct segment_command_64 *)lc;
+		s64 = (struct section_64 *)((char *)lc +
+					sizeof(struct segment_command_64));
+		for(j = 0; j < sg64->nsects; j++){
+		    section_attributes = s64->flags & SECTION_ATTRIBUTES;
+		    if((sg64->initprot & VM_PROT_WRITE) == 0 &&
+		       ((section_attributes & S_ATTR_EXT_RELOC) != 0 ||
+		        (section_attributes & S_ATTR_LOC_RELOC) != 0)){
+			if(detail == TRUE){
+			    if(arch_name != NULL)
+				printf("(for architecture %s):", arch_name);
+			    printf("%s: relocation entries in read-only section"
+				   " (%.16s,%.16s)\n", ofile->file_name,
+				   s64->segname, s64->sectname);
+			}
+			if(verification == TRUE)
+			    printf("read_only_relocs\n");
+			exit_status = EXIT_FAILURE;
+		    }
+		    s64++;
+		}
+	    }
 	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
 	}
 
 	/*
-	 * If the file is an executable or a dynamic library and has no
-	 * undefined references it should be prebound unless
+	 * If the file is 32-bit and an executable or a dynamic library and has
+	 * no undefined references it should be prebound unless
 	 * MACOSX_DEPLOYMENT_TARGET is 10.4 or greater.
 	 */
+	if(ofile->mh64 != NULL)
+	    return;
 	get_macosx_deployment_target(&macosx_deployment_target);
 	if(macosx_deployment_target.major >= 4)
 	    return;
 
-	if((ofile->mh->filetype == MH_EXECUTE ||
-	    ofile->mh->filetype == MH_DYLIB ||
-	    ofile->mh->filetype == MH_DYLIB_STUB) &&
-	   (ofile->mh->flags & MH_NOUNDEFS) == MH_NOUNDEFS){
+	if((ofile->mh_filetype == MH_EXECUTE ||
+	    ofile->mh_filetype == MH_DYLIB ||
+	    ofile->mh_filetype == MH_DYLIB_STUB) &&
+	   (mh_flags & MH_NOUNDEFS) == MH_NOUNDEFS){
 
-	    if((ofile->mh->flags & MH_PREBOUND) != MH_PREBOUND){
+	    if((mh_flags & MH_PREBOUND) != MH_PREBOUND){
 		if(detail == TRUE){
 		    if(arch_name != NULL)
 			printf("(for architecture %s):", arch_name);
@@ -542,13 +635,14 @@ enum bool detail,
 enum bool verification,
 enum bool *debug)
 {
-    unsigned long i, seg1addr, segs_read_only_addr, segs_read_write_addr;
+    uint32_t i, seg1addr, segs_read_only_addr, segs_read_write_addr, mh_flags,
+	     mh_ncmds;
     struct load_command *lc;
     struct segment_command *sg;
     struct dylib_command *dlid;
     char *install_name;
 #ifdef CHECK_ADDRESS
-    unsigned long table_size;
+    uint32_t table_size;
     char *suffix;
     struct seg_addr_table *entry;
     char *short_name;
@@ -558,19 +652,28 @@ enum bool *debug)
 	*debug = FALSE;
 
 	/*
-	 * First pick up the linked address and the dylib id command.
+	 * First pick up the linked address (for 32-bit dylibs) and the dylib
+	 * id command.
 	 */
-	seg1addr = ULONG_MAX;
-	segs_read_only_addr = ULONG_MAX;
-	segs_read_write_addr = ULONG_MAX;
+	seg1addr = UINT_MAX;
+	segs_read_only_addr = UINT_MAX;
+	segs_read_write_addr = UINT_MAX;
 	dlid = NULL;
 	install_name = NULL;
 	lc = ofile->load_commands;
-	for(i = 0; i < ofile->mh->ncmds; i++){
+	if(ofile->mh != NULL){
+	    mh_ncmds = ofile->mh->ncmds;
+	    mh_flags = ofile->mh->flags;
+	}
+	else{
+	    mh_ncmds = ofile->mh64->ncmds;
+	    mh_flags = ofile->mh64->flags;
+	}
+	for(i = 0; i < mh_ncmds; i++){
 	    switch(lc->cmd){
 	    case LC_SEGMENT:
 		sg = (struct segment_command *)lc;
-		if(ofile->mh->flags & MH_SPLIT_SEGS){
+		if(mh_flags & MH_SPLIT_SEGS){
 		    if((sg->initprot & VM_PROT_WRITE) == 0){
 			if(sg->vmaddr < segs_read_only_addr)
 			    segs_read_only_addr = sg->vmaddr;
@@ -595,11 +698,13 @@ enum bool *debug)
 	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
 	}
 	if(dlid == NULL){
-	    printf("%s: ", ofile->file_name);
-	    if(arch_name != NULL)
-		printf("(for architecture %s): ", arch_name);
-	    printf("malformed dynamic library (no LC_ID_DYLIB command)\n");
-	    exit_status = EXIT_FAILURE;
+	    if(ofile->mh_filetype != MH_DYLIB_STUB){
+		printf("%s: ", ofile->file_name);
+		if(arch_name != NULL)
+		    printf("(for architecture %s): ", arch_name);
+		printf("malformed dynamic library (no LC_ID_DYLIB command)\n");
+		exit_status = EXIT_FAILURE;
+	    }
 	    return;
 	}
 

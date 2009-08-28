@@ -11,7 +11,7 @@
   (See the file 'LICENCE'.)
 
 = Version
-  $Id: openssl.rb 11708 2007-02-12 23:01:19Z shyouhei $
+  $Id: openssl.rb 12496 2007-06-08 15:02:04Z technorama $
 =end
 
 require 'openssl.so'
@@ -19,6 +19,7 @@ require 'openssl.so'
 require 'openssl/bn'
 require 'openssl/cipher'
 require 'openssl/digest'
+require 'openssl/pkcs7'
 require 'openssl/ssl'
 require 'openssl/x509'
 

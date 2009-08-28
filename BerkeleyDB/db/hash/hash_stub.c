@@ -1,18 +1,13 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1996,2007 Oracle.  All rights reserved.
+ *
+ * $Id: hash_stub.c,v 12.12 2007/05/17 15:15:38 bostic Exp $
  */
+
+#ifndef HAVE_HASH
 #include "db_config.h"
-
-#ifndef lint
-static const char revid[] = "$Id: hash_stub.c,v 1.2 2004/03/30 01:23:27 jtownsen Exp $";
-#endif /* not lint */
-
-#ifndef NO_SYSTEM_INCLUDES
-#include <sys/types.h>
-#endif
 
 #include "db_int.h"
 #include "dbinc/db_page.h"
@@ -34,7 +29,7 @@ int
 __db_no_hash_am(dbenv)
 	DB_ENV *dbenv;
 {
-	__db_err(dbenv,
+	__db_errx(dbenv,
 	    "library build did not include support for the Hash access method");
 	return (DB_OPNOTSUP);
 }
@@ -98,7 +93,41 @@ __ham_31_hashmeta(dbp, real_name, flags, fhp, h, dirtyp)
 }
 
 int
-__ham_c_count(dbc, recnop)
+__ham_46_hash(dbp, real_name, flags, fhp, h, dirtyp)
+	DB *dbp;
+	char *real_name;
+	u_int32_t flags;
+	DB_FH *fhp;
+	PAGE *h;
+	int *dirtyp;
+{
+	COMPQUIET(real_name, NULL);
+	COMPQUIET(flags, 0);
+	COMPQUIET(fhp, NULL);
+	COMPQUIET(h, NULL);
+	COMPQUIET(dirtyp, NULL);
+	return (__db_no_hash_am(dbp->dbenv));
+}
+
+int
+__ham_46_hashmeta(dbp, real_name, flags, fhp, h, dirtyp)
+	DB *dbp;
+	char *real_name;
+	u_int32_t flags;
+	DB_FH *fhp;
+	PAGE *h;
+	int *dirtyp;
+{
+	COMPQUIET(real_name, NULL);
+	COMPQUIET(flags, 0);
+	COMPQUIET(fhp, NULL);
+	COMPQUIET(h, NULL);
+	COMPQUIET(dirtyp, NULL);
+	return (__db_no_hash_am(dbp->dbenv));
+}
+
+int
+__hamc_count(dbc, recnop)
 	DBC *dbc;
 	db_recno_t *recnop;
 {
@@ -107,7 +136,7 @@ __ham_c_count(dbc, recnop)
 }
 
 int
-__ham_c_dup(orig_dbc, new_dbc)
+__hamc_dup(orig_dbc, new_dbc)
 	DBC *orig_dbc, *new_dbc;
 {
 	COMPQUIET(new_dbc, NULL);
@@ -115,18 +144,10 @@ __ham_c_dup(orig_dbc, new_dbc)
 }
 
 int
-__ham_c_init(dbc)
+__hamc_init(dbc)
 	DBC *dbc;
 {
 	return (__db_no_hash_am(dbc->dbp->dbenv));
-}
-
-void
-__ham_cprint(dbc)
-	DBC *dbc;
-{
-	COMPQUIET(dbc, NULL);
-	return;
 }
 
 int
@@ -142,18 +163,6 @@ __ham_db_create(dbp)
 	DB *dbp;
 {
 	COMPQUIET(dbp, NULL);
-	return (0);
-}
-
-int
-__ham_init_getpgnos(dbenv, dtabp, dtabsizep)
-	DB_ENV *dbenv;
-	int (***dtabp)__P((DB_ENV *, DBT *, DB_LSN *, db_recops, void *));
-	size_t *dtabsizep;
-{
-	COMPQUIET(dbenv, NULL);
-	COMPQUIET(dtabp, NULL);
-	COMPQUIET(dtabsizep, NULL);
 	return (0);
 }
 
@@ -205,6 +214,36 @@ __ham_metachk(dbp, name, hashm)
 	COMPQUIET(name, NULL);
 	COMPQUIET(hashm, NULL);
 	return (__db_no_hash_am(dbp->dbenv));
+}
+
+int
+__ham_metagroup_42_recover(dbenv, dbtp, lsnp, op, info)
+	DB_ENV *dbenv;
+	DBT *dbtp;
+	DB_LSN *lsnp;
+	db_recops op;
+	void *info;
+{
+	COMPQUIET(dbtp, NULL);
+	COMPQUIET(lsnp, NULL);
+	COMPQUIET(op, 0);
+	COMPQUIET(info, NULL);
+	return (__db_no_hash_am(dbenv));
+}
+
+int
+__ham_groupalloc_42_recover(dbenv, dbtp, lsnp, op, info)
+	DB_ENV *dbenv;
+	DBT *dbtp;
+	DB_LSN *lsnp;
+	db_recops op;
+	void *info;
+{
+	COMPQUIET(dbtp, NULL);
+	COMPQUIET(lsnp, NULL);
+	COMPQUIET(op, 0);
+	COMPQUIET(info, NULL);
+	return (__db_no_hash_am(dbenv));
 }
 
 int
@@ -275,6 +314,13 @@ __ham_pgout(dbenv, dummydbp, pg, pp, cookie)
 	return (__db_no_hash_am(dbenv));
 }
 
+void
+__ham_print_cursor(dbc)
+	DBC *dbc;
+{
+	(void)__db_no_hash_am(dbc->dbp->dbenv);
+}
+
 int
 __ham_quick_delete(dbc)
 	DBC *dbc;
@@ -317,6 +363,15 @@ __ham_stat(dbc, spp, flags)
 	u_int32_t flags;
 {
 	COMPQUIET(spp, NULL);
+	COMPQUIET(flags, 0);
+	return (__db_no_hash_am(dbc->dbp->dbenv));
+}
+
+int
+__ham_stat_print(dbc, flags)
+	DBC *dbc;
+	u_int32_t flags;
+{
 	COMPQUIET(flags, 0);
 	return (__db_no_hash_am(dbc->dbp->dbenv));
 }
@@ -392,3 +447,4 @@ __ham_vrfy_structure(dbp, vdp, meta_pgno, flags)
 	COMPQUIET(flags, 0);
 	return (__db_no_hash_am(dbp->dbenv));
 }
+#endif /* !HAVE_HASH */

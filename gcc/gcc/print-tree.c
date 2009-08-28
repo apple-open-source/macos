@@ -1,6 +1,6 @@
 /* Prints out tree in human readable form - GCC
    Copyright (C) 1990, 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 #include "config.h"
@@ -28,7 +28,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "real.h"
 #include "ggc.h"
 #include "langhooks.h"
-/* APPLE LOCAL mainline */
 #include "tree-iterator.h"
 
 /* Define the hash table of nodes already seen.
@@ -51,11 +50,21 @@ static struct bucket **table;
 void
 debug_tree (tree node)
 {
-  table = xcalloc (HASH_SIZE, sizeof (struct bucket *));
+  table = XCNEWVEC (struct bucket *, HASH_SIZE);
   print_node (stderr, "", node, 0);
   free (table);
   table = 0;
   putc ('\n', stderr);
+}
+
+/* Print PREFIX and ADDR to FILE.  */
+void
+dump_addr (FILE *file, const char *prefix, void *addr)
+{
+  if (flag_dump_noaddr || flag_dump_unnumbered)
+    fprintf (file, "%s#", prefix);
+  else
+    fprintf (file, "%s%p", prefix, addr);
 }
 
 /* Print a node in brief fashion, with just the code, address and name.  */
@@ -74,8 +83,8 @@ print_node_brief (FILE *file, const char *prefix, tree node, int indent)
      name if any.  */
   if (indent > 0)
     fprintf (file, " ");
-  fprintf (file, "%s <%s " HOST_PTR_PRINTF,
-	   prefix, tree_code_name[(int) TREE_CODE (node)], (char *) node);
+  fprintf (file, "%s <%s", prefix, tree_code_name[(int) TREE_CODE (node)]);
+  dump_addr (file, " ", node);
 
   if (class == tcc_declaration)
     {
@@ -129,7 +138,7 @@ print_node_brief (FILE *file, const char *prefix, tree node, int indent)
 
       d = TREE_REAL_CST (node);
       if (REAL_VALUE_ISINF (d))
-	fprintf (file, " Inf");
+	fprintf (file,  REAL_VALUE_NEGATIVE (d) ? " -Inf" : " Inf");
       else if (REAL_VALUE_ISNAN (d))
 	fprintf (file, " Nan");
       else
@@ -168,11 +177,13 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
   int len;
   int i;
   expanded_location xloc;
+  enum tree_code code;
 
   if (node == 0)
     return;
-
-  class = TREE_CODE_CLASS (TREE_CODE (node));
+  
+  code = TREE_CODE (node);
+  class = TREE_CODE_CLASS (code);
 
   /* Don't get too deep in nesting.  If the user wants to see deeper,
      it is easy to use the address of a lowest-level node
@@ -208,7 +219,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       }
 
   /* Add this node to the table.  */
-  b = xmalloc (sizeof (struct bucket));
+  b = XNEW (struct bucket);
   b->node = node;
   b->next = table[hash];
   table[hash] = b;
@@ -217,8 +228,8 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
   indent_to (file, indent);
 
   /* Print the slot this node is in, and its code, and address.  */
-  fprintf (file, "%s <%s " HOST_PTR_PRINTF,
-	   prefix, tree_code_name[(int) TREE_CODE (node)], (void *) node);
+  fprintf (file, "%s <%s", prefix, tree_code_name[(int) TREE_CODE (node)]);
+  dump_addr (file, " ", node);
 
   /* Print the name, if any.  */
   if (class == tcc_declaration)
@@ -317,28 +328,31 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
   switch (TREE_CODE_CLASS (TREE_CODE (node)))
     {
     case tcc_declaration:
-      mode = DECL_MODE (node);
-
-      if (DECL_UNSIGNED (node))
-	fputs (" unsigned", file);
-      if (DECL_IGNORED_P (node))
-	fputs (" ignored", file);
-      if (DECL_ABSTRACT (node))
-	fputs (" abstract", file);
-      if (DECL_IN_SYSTEM_HEADER (node))
-	fputs (" in_system_header", file);
-      if (DECL_COMMON (node))
-	fputs (" common", file);
-      if (DECL_EXTERNAL (node))
-	fputs (" external", file);
-      if (DECL_WEAK (node))
-	fputs (" weak", file);
-      if (DECL_REGISTER (node) && TREE_CODE (node) != FIELD_DECL
+      if (CODE_CONTAINS_STRUCT (code, TS_DECL_COMMON))
+	{
+	  if (DECL_UNSIGNED (node))
+	    fputs (" unsigned", file);
+	  if (DECL_IGNORED_P (node))
+	    fputs (" ignored", file);
+	  if (DECL_ABSTRACT (node))
+	    fputs (" abstract", file);      
+	  if (DECL_EXTERNAL (node))
+	    fputs (" external", file);
+	  if (DECL_NONLOCAL (node))
+	    fputs (" nonlocal", file);
+	}
+      if (CODE_CONTAINS_STRUCT (code, TS_DECL_WITH_VIS))
+	{
+	  if (DECL_WEAK (node))
+	    fputs (" weak", file);
+	  if (DECL_IN_SYSTEM_HEADER (node))
+	    fputs (" in_system_header", file);
+	}
+      if (CODE_CONTAINS_STRUCT (code, TS_DECL_WRTL)
+	  && TREE_CODE (node) != LABEL_DECL
 	  && TREE_CODE (node) != FUNCTION_DECL
-	  && TREE_CODE (node) != LABEL_DECL)
+	  && DECL_REGISTER (node))
 	fputs (" regdecl", file);
-      if (DECL_NONLOCAL (node))
-	fputs (" nonlocal", file);
       /* APPLE LOCAL begin CW asm blocks */
       if (DECL_IASM_ASM_FUNCTION (node))
         fputs (" asm-function", file);
@@ -369,50 +383,74 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 
       if (TREE_CODE (node) == VAR_DECL && DECL_IN_TEXT_SECTION (node))
 	fputs (" in-text-section", file);
-      if (TREE_CODE (node) == VAR_DECL && DECL_THREAD_LOCAL (node))
-	fputs (" thread-local", file);
+      if (TREE_CODE (node) == VAR_DECL && DECL_COMMON (node))
+	fputs (" common", file);
+      if (TREE_CODE (node) == VAR_DECL && DECL_THREAD_LOCAL_P (node))
+	{
+	  enum tls_model kind = DECL_TLS_MODEL (node);
+	  switch (kind)
+	    {
+	      case TLS_MODEL_GLOBAL_DYNAMIC:
+		fputs (" tls-global-dynamic", file);
+		break;
+	      case TLS_MODEL_LOCAL_DYNAMIC:
+		fputs (" tls-local-dynamic", file);
+		break;
+	      case TLS_MODEL_INITIAL_EXEC:
+		fputs (" tls-initial-exec", file);
+		break;
+	      case TLS_MODEL_LOCAL_EXEC:
+		fputs (" tls-local-exec", file);
+		break;
+	      default:
+		gcc_unreachable ();
+	    }
+	}
 
-      if (TREE_CODE (node) == PARM_DECL && DECL_TRANSPARENT_UNION (node))
-	fputs (" transparent-union", file);
+      if (CODE_CONTAINS_STRUCT (code, TS_DECL_COMMON))
+	{	  
+	  if (DECL_VIRTUAL_P (node))
+	    fputs (" virtual", file);
+	  if (DECL_PRESERVE_P (node))
+	    fputs (" preserve", file);	  
+	  if (DECL_LANG_FLAG_0 (node))
+	    fputs (" decl_0", file);
+	  if (DECL_LANG_FLAG_1 (node))
+	    fputs (" decl_1", file);
+	  if (DECL_LANG_FLAG_2 (node))
+	    fputs (" decl_2", file);
+	  if (DECL_LANG_FLAG_3 (node))
+	    fputs (" decl_3", file);
+	  if (DECL_LANG_FLAG_4 (node))
+	    fputs (" decl_4", file);
+	  if (DECL_LANG_FLAG_5 (node))
+	    fputs (" decl_5", file);
+	  if (DECL_LANG_FLAG_6 (node))
+	    fputs (" decl_6", file);
+	  if (DECL_LANG_FLAG_7 (node))
+	    fputs (" decl_7", file);
+	  
+	  mode = DECL_MODE (node);
+	  fprintf (file, " %s", GET_MODE_NAME (mode));
+	}
 
-      if (DECL_VIRTUAL_P (node))
-	fputs (" virtual", file);
-      if (DECL_DEFER_OUTPUT (node))
+      if (CODE_CONTAINS_STRUCT (code, TS_DECL_WITH_VIS)  && DECL_DEFER_OUTPUT (node))
 	fputs (" defer-output", file);
 
-      if (DECL_PRESERVE_P (node))
-	fputs (" preserve", file);
 
-      if (DECL_LANG_FLAG_0 (node))
-	fputs (" decl_0", file);
-      if (DECL_LANG_FLAG_1 (node))
-	fputs (" decl_1", file);
-      if (DECL_LANG_FLAG_2 (node))
-	fputs (" decl_2", file);
-      if (DECL_LANG_FLAG_3 (node))
-	fputs (" decl_3", file);
-      if (DECL_LANG_FLAG_4 (node))
-	fputs (" decl_4", file);
-      if (DECL_LANG_FLAG_5 (node))
-	fputs (" decl_5", file);
-      if (DECL_LANG_FLAG_6 (node))
-	fputs (" decl_6", file);
-      if (DECL_LANG_FLAG_7 (node))
-	fputs (" decl_7", file);
-
-      fprintf (file, " %s", GET_MODE_NAME (mode));
       xloc = expand_location (DECL_SOURCE_LOCATION (node));
       fprintf (file, " file %s line %d", xloc.file, xloc.line);
 
-      print_node (file, "size", DECL_SIZE (node), indent + 4);
-      print_node (file, "unit size", DECL_SIZE_UNIT (node), indent + 4);
-
-      if (TREE_CODE (node) != FUNCTION_DECL
-	  || DECL_INLINE (node) || DECL_BUILT_IN (node))
-	indent_to (file, indent + 3);
-
-      if (TREE_CODE (node) != FUNCTION_DECL)
-	{
+      if (CODE_CONTAINS_STRUCT (code, TS_DECL_COMMON))
+	{	  
+	  print_node (file, "size", DECL_SIZE (node), indent + 4);
+	  print_node (file, "unit size", DECL_SIZE_UNIT (node), indent + 4);
+	  
+	  if (TREE_CODE (node) != FUNCTION_DECL
+	      || DECL_INLINE (node) || DECL_BUILT_IN (node))
+	    indent_to (file, indent + 3);
+	  
+	  /* APPLE LOCAL begin mainline aligned functions 5933878 */
 	  if (DECL_USER_ALIGN (node))
 	    fprintf (file, " user");
 
@@ -420,37 +458,50 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	  if (TREE_CODE (node) == FIELD_DECL)
 	    fprintf (file, " offset_align " HOST_WIDE_INT_PRINT_UNSIGNED,
 		     DECL_OFFSET_ALIGN (node));
-	}
-      else if (DECL_BUILT_IN (node))
-	{
-	  if (DECL_BUILT_IN_CLASS (node) == BUILT_IN_MD)
-	    fprintf (file, " built-in BUILT_IN_MD %d", DECL_FUNCTION_CODE (node));
-	  else
-	    fprintf (file, " built-in %s:%s",
-		     built_in_class_names[(int) DECL_BUILT_IN_CLASS (node)],
-		     built_in_names[(int) DECL_FUNCTION_CODE (node)]);
-	}
 
-      if (DECL_POINTER_ALIAS_SET_KNOWN_P (node))
-	fprintf (file, " alias set " HOST_WIDE_INT_PRINT_DEC,
-		 DECL_POINTER_ALIAS_SET (node));
-
+	  if (TREE_CODE (node) == FUNCTION_DECL && DECL_BUILT_IN (node))
+	  /* APPLE LOCAL end mainline aligned functions 5933878 */
+	    {
+	      if (DECL_BUILT_IN_CLASS (node) == BUILT_IN_MD)
+		fprintf (file, " built-in BUILT_IN_MD %d", DECL_FUNCTION_CODE (node));
+	      else
+		fprintf (file, " built-in %s:%s",
+			 built_in_class_names[(int) DECL_BUILT_IN_CLASS (node)],
+			 built_in_names[(int) DECL_FUNCTION_CODE (node)]);
+	    }
+	  
+	  if (DECL_POINTER_ALIAS_SET_KNOWN_P (node))
+	    fprintf (file, " alias set " HOST_WIDE_INT_PRINT_DEC,
+		     DECL_POINTER_ALIAS_SET (node));
+	}
       if (TREE_CODE (node) == FIELD_DECL)
 	{
 	  print_node (file, "offset", DECL_FIELD_OFFSET (node), indent + 4);
 	  print_node (file, "bit offset", DECL_FIELD_BIT_OFFSET (node),
 		      indent + 4);
+	  if (DECL_BIT_FIELD_TYPE (node))
+	    print_node (file, "bit_field_type", DECL_BIT_FIELD_TYPE (node),
+			indent + 4);
 	}
 
       print_node_brief (file, "context", DECL_CONTEXT (node), indent + 4);
-      print_node_brief (file, "attributes",
-			DECL_ATTRIBUTES (node), indent + 4);
-      print_node_brief (file, "abstract_origin",
-			DECL_ABSTRACT_ORIGIN (node), indent + 4);
 
-      print_node (file, "arguments", DECL_ARGUMENTS (node), indent + 4);
-      print_node (file, "result", DECL_RESULT_FLD (node), indent + 4);
-      print_node_brief (file, "initial", DECL_INITIAL (node), indent + 4);
+      if (CODE_CONTAINS_STRUCT (code, TS_DECL_COMMON))	
+	{
+	  print_node_brief (file, "attributes",
+			    DECL_ATTRIBUTES (node), indent + 4);
+	  print_node_brief (file, "initial", DECL_INITIAL (node), indent + 4);
+	}
+      if (CODE_CONTAINS_STRUCT (code, TS_DECL_WRTL))
+	{
+	  print_node_brief (file, "abstract_origin",
+			    DECL_ABSTRACT_ORIGIN (node), indent + 4);
+	}
+      if (CODE_CONTAINS_STRUCT (code, TS_DECL_NON_COMMON))
+	{
+	  print_node (file, "arguments", DECL_ARGUMENT_FLD (node), indent + 4);
+	  print_node (file, "result", DECL_RESULT_FLD (node), indent + 4);
+	}
 
       lang_hooks.print_decl (file, node, indent);
 
@@ -463,8 +514,6 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       if (TREE_CODE (node) == PARM_DECL)
 	{
 	  print_node (file, "arg-type", DECL_ARG_TYPE (node), indent + 4);
-	  print_node (file, "arg-type-as-written",
-		      DECL_ARG_TYPE_AS_WRITTEN (node), indent + 4);
 
 	  if (DECL_INCOMING_RTL (node) != 0)
 	    {
@@ -477,10 +526,22 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	       && DECL_STRUCT_FUNCTION (node) != 0)
 	{
 	  indent_to (file, indent + 4);
-	  fprintf (file, "saved-insns " HOST_PTR_PRINTF,
-		   (void *) DECL_STRUCT_FUNCTION (node));
+	  dump_addr (file, "saved-insns ", DECL_STRUCT_FUNCTION (node));
 	}
 
+      if ((TREE_CODE (node) == VAR_DECL || TREE_CODE (node) == PARM_DECL)
+	  && DECL_HAS_VALUE_EXPR_P (node))
+	print_node (file, "value-expr", DECL_VALUE_EXPR (node), indent + 4);
+
+      if (TREE_CODE (node) == STRUCT_FIELD_TAG)
+	{
+	  fprintf (file, " sft size " HOST_WIDE_INT_PRINT_DEC, 
+		   SFT_SIZE (node));
+	  fprintf (file, " sft offset " HOST_WIDE_INT_PRINT_DEC,
+		   SFT_OFFSET (node));
+	  print_node_brief (file, "parent var", SFT_PARENT_VAR (node), 
+			    indent + 4);
+	}
       /* Print the decl chain only if decl is at second level.  */
       if (indent == 4)
 	print_node (file, "chain", TREE_CHAIN (node), indent + 4);
@@ -659,7 +720,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 
 	    d = TREE_REAL_CST (node);
 	    if (REAL_VALUE_ISINF (d))
-	      fprintf (file, " Inf");
+	      fprintf (file,  REAL_VALUE_NEGATIVE (d) ? " -Inf" : " Inf");
 	    else if (REAL_VALUE_ISNAN (d))
 	      fprintf (file, " Nan");
 	    else
@@ -736,17 +797,17 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	      }
 	  break;
 
-	/* APPLE LOCAL begin mainline */
     	case STATEMENT_LIST:
-	  fprintf (file, " head " HOST_PTR_PRINTF " tail " HOST_PTR_PRINTF " stmts",
-		   (void *) node->stmt_list.head, (void *) node->stmt_list.tail);
+	  dump_addr (file, " head ", node->stmt_list.head);
+	  dump_addr (file, " tail ", node->stmt_list.tail);
+	  fprintf (file, " stmts");
 	  {
 	    tree_stmt_iterator i;
 	    for (i = tsi_start (node); !tsi_end_p (i); tsi_next (&i))
 	      {
 		/* Not printing the addresses of the (not-a-tree)
 		   'struct tree_stmt_list_node's.  */
-		fprintf (file, " " HOST_PTR_PRINTF, (void *)tsi_stmt (i));
+		dump_addr (file, " ", tsi_stmt (i));
 	      }
 	    fprintf (file, "\n");
 	    for (i = tsi_start (node); !tsi_end_p (i); tsi_next (&i))
@@ -758,7 +819,6 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	  }
 	  print_node (file, "chain", TREE_CHAIN (node), indent + 4);
 	  break;
-	/* APPLE LOCAL end mainline */
 
 	case BLOCK:
 	  print_node (file, "vars", BLOCK_VARS (node), indent + 4);
@@ -783,18 +843,27 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	    fprintf (file, " in-free-list");
 
 	  if (SSA_NAME_PTR_INFO (node)
-	      || SSA_NAME_VALUE (node)
-	      || SSA_NAME_AUX (node))
+	      || SSA_NAME_VALUE (node))
 	    {
 	      indent_to (file, indent + 3);
 	      if (SSA_NAME_PTR_INFO (node))
-		fprintf (file, " ptr-info %p",
-			 (void *) SSA_NAME_PTR_INFO (node));
+		dump_addr (file, " ptr-info ", SSA_NAME_PTR_INFO (node));
 	      if (SSA_NAME_VALUE (node))
-		fprintf (file, " value %p",
-			 (void *) SSA_NAME_VALUE (node));
-	      if (SSA_NAME_AUX (node))
-		fprintf (file, " aux %p", SSA_NAME_AUX (node));
+		dump_addr (file, " value ", SSA_NAME_VALUE (node));
+	    }
+	  break;
+
+	case OMP_CLAUSE:
+	    {
+	      int i;
+	      fprintf (file, " %s",
+		       omp_clause_code_name[OMP_CLAUSE_CODE (node)]);
+	      for (i = 0; i < omp_clause_num_ops[OMP_CLAUSE_CODE (node)]; i++)
+		{
+		  indent_to (file, indent + 4);
+		  fprintf (file, "op %d:", i);
+		  print_node_brief (file, "", OMP_CLAUSE_OPERAND (node, i), 0);
+		}
 	    }
 	  break;
 

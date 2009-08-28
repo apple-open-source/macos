@@ -1,5 +1,6 @@
 /* Definitions for code generation pass of GNU compiler.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006 
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -15,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #ifndef GCC_OPTABS_H
 #define GCC_OPTABS_H
@@ -82,6 +83,8 @@ enum optab_index
   /* Signed multiply with result one machine mode wider than args */
   OTI_smul_widen,
   OTI_umul_widen,
+  /* Widening multiply of one unsigned and one signed operand.  */
+  OTI_usmul_widen,
 
   /* Signed divide */
   OTI_sdiv,
@@ -186,11 +189,14 @@ enum optab_index
   OTI_log1p,
   /* Rounding functions */
   OTI_floor,
+  OTI_lfloor,
   OTI_ceil,
+  OTI_lceil,
   OTI_btrunc,
   OTI_round,
   OTI_nearbyint,
   OTI_rint,
+  OTI_lrint,
   /* Tangent */
   OTI_tan,
   /* Inverse tangent */
@@ -228,12 +234,31 @@ enum optab_index
   /* Conditional add instruction.  */
   OTI_addcc,
 
+  /* Reduction operations on a vector operand.  */
+  OTI_reduc_smax,
+  OTI_reduc_umax,
+  OTI_reduc_smin,
+  OTI_reduc_umin,
+  OTI_reduc_splus,
+  OTI_reduc_uplus,
+
+  /* Summation, with result machine mode one or more wider than args.  */
+  OTI_ssum_widen,
+  OTI_usum_widen,
+
+  /* Dot product, with result machine mode one or more wider than args.  */
+  OTI_sdot_prod,
+  OTI_udot_prod,
+
   /* Set specified field of vector operand.  */
   OTI_vec_set,
   /* Extract specified field of vector operand.  */
   OTI_vec_extract,
   /* Initialize vector operand.  */
   OTI_vec_init,
+  /* Whole vector shift. The shift amount is in bits.  */
+  OTI_vec_shl,
+  OTI_vec_shr,
   /* Extract specified elements from vectors, for vector load.  */
   OTI_vec_realign_load,
 
@@ -254,6 +279,7 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define umul_highpart_optab (optab_table[OTI_umul_highpart])
 #define smul_widen_optab (optab_table[OTI_smul_widen])
 #define umul_widen_optab (optab_table[OTI_umul_widen])
+#define usmul_widen_optab (optab_table[OTI_usmul_widen])
 #define sdiv_optab (optab_table[OTI_sdiv])
 #define smulv_optab (optab_table[OTI_smulv])
 #define sdivv_optab (optab_table[OTI_sdivv])
@@ -312,11 +338,14 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define log2_optab (optab_table[OTI_log2])
 #define log1p_optab (optab_table[OTI_log1p])
 #define floor_optab (optab_table[OTI_floor])
+#define lfloor_optab (optab_table[OTI_lfloor])
 #define ceil_optab (optab_table[OTI_ceil])
+#define lceil_optab (optab_table[OTI_lceil])
 #define btrunc_optab (optab_table[OTI_btrunc])
 #define round_optab (optab_table[OTI_round])
 #define nearbyint_optab (optab_table[OTI_nearbyint])
 #define rint_optab (optab_table[OTI_rint])
+#define lrint_optab (optab_table[OTI_lrint])
 #define tan_optab (optab_table[OTI_tan])
 #define atan_optab (optab_table[OTI_atan])
 #define copysign_optab (optab_table[OTI_copysign])
@@ -341,9 +370,23 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define push_optab (optab_table[OTI_push])
 #define addcc_optab (optab_table[OTI_addcc])
 
+#define reduc_smax_optab (optab_table[OTI_reduc_smax])
+#define reduc_umax_optab (optab_table[OTI_reduc_umax])
+#define reduc_smin_optab (optab_table[OTI_reduc_smin])
+#define reduc_umin_optab (optab_table[OTI_reduc_umin])
+#define reduc_splus_optab (optab_table[OTI_reduc_splus])
+#define reduc_uplus_optab (optab_table[OTI_reduc_uplus])
+                                                                                
+#define ssum_widen_optab (optab_table[OTI_ssum_widen])
+#define usum_widen_optab (optab_table[OTI_usum_widen])
+#define sdot_prod_optab (optab_table[OTI_sdot_prod])
+#define udot_prod_optab (optab_table[OTI_udot_prod])
+
 #define vec_set_optab (optab_table[OTI_vec_set])
 #define vec_extract_optab (optab_table[OTI_vec_extract])
 #define vec_init_optab (optab_table[OTI_vec_init])
+#define vec_shl_optab (optab_table[OTI_vec_shl])
+#define vec_shr_optab (optab_table[OTI_vec_shr])
 #define vec_realign_load_optab (optab_table[OTI_vec_realign_load])
 
 #define powi_optab (optab_table[OTI_powi])
@@ -351,33 +394,33 @@ extern GTY(()) optab optab_table[OTI_MAX];
 /* Conversion optabs have their own table and indexes.  */
 enum convert_optab_index
 {
-  CTI_sext,
-  CTI_zext,
-  CTI_trunc,
+  COI_sext,
+  COI_zext,
+  COI_trunc,
 
-  CTI_sfix,
-  CTI_ufix,
+  COI_sfix,
+  COI_ufix,
 
-  CTI_sfixtrunc,
-  CTI_ufixtrunc,
+  COI_sfixtrunc,
+  COI_ufixtrunc,
 
-  CTI_sfloat,
-  CTI_ufloat,
+  COI_sfloat,
+  COI_ufloat,
 
-  CTI_MAX
+  COI_MAX
 };
 
-extern GTY(()) convert_optab convert_optab_table[CTI_MAX];
+extern GTY(()) convert_optab convert_optab_table[COI_MAX];
 
-#define sext_optab (convert_optab_table[CTI_sext])
-#define zext_optab (convert_optab_table[CTI_zext])
-#define trunc_optab (convert_optab_table[CTI_trunc])
-#define sfix_optab (convert_optab_table[CTI_sfix])
-#define ufix_optab (convert_optab_table[CTI_ufix])
-#define sfixtrunc_optab (convert_optab_table[CTI_sfixtrunc])
-#define ufixtrunc_optab (convert_optab_table[CTI_ufixtrunc])
-#define sfloat_optab (convert_optab_table[CTI_sfloat])
-#define ufloat_optab (convert_optab_table[CTI_ufloat])
+#define sext_optab (convert_optab_table[COI_sext])
+#define zext_optab (convert_optab_table[COI_zext])
+#define trunc_optab (convert_optab_table[COI_trunc])
+#define sfix_optab (convert_optab_table[COI_sfix])
+#define ufix_optab (convert_optab_table[COI_ufix])
+#define sfixtrunc_optab (convert_optab_table[COI_sfixtrunc])
+#define ufixtrunc_optab (convert_optab_table[COI_ufixtrunc])
+#define sfloat_optab (convert_optab_table[COI_sfloat])
+#define ufloat_optab (convert_optab_table[COI_ufloat])
 
 /* These arrays record the insn_code of insns that may be needed to
    perform input and output reloads of special objects.  They provide a
@@ -418,18 +461,59 @@ extern enum insn_code vcondu_gen_code[NUM_MACHINE_MODES];
 /* This array records the insn_code of insns to perform block moves.  */
 extern enum insn_code movmem_optab[NUM_MACHINE_MODES];
 
-/* This array records the insn_code of insns to perform block clears.  */
-extern enum insn_code clrmem_optab[NUM_MACHINE_MODES];
+/* This array records the insn_code of insns to perform block sets.  */
+extern enum insn_code setmem_optab[NUM_MACHINE_MODES];
 
 /* These arrays record the insn_code of two different kinds of insns
    to perform block compares.  */
 extern enum insn_code cmpstr_optab[NUM_MACHINE_MODES];
+extern enum insn_code cmpstrn_optab[NUM_MACHINE_MODES];
 extern enum insn_code cmpmem_optab[NUM_MACHINE_MODES];
+
+/* Synchronization primitives.  This first set is atomic operation for
+   which we don't care about the resulting value.  */
+extern enum insn_code sync_add_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_sub_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_ior_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_and_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_xor_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_nand_optab[NUM_MACHINE_MODES];
+
+/* This second set is atomic operations in which we return the value
+   that existed in memory before the operation.  */
+extern enum insn_code sync_old_add_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_old_sub_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_old_ior_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_old_and_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_old_xor_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_old_nand_optab[NUM_MACHINE_MODES];
+
+/* This third set is atomic operations in which we return the value
+   that resulted after performing the operation.  */
+extern enum insn_code sync_new_add_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_new_sub_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_new_ior_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_new_and_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_new_xor_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_new_nand_optab[NUM_MACHINE_MODES];
+
+/* Atomic compare and swap.  */
+extern enum insn_code sync_compare_and_swap[NUM_MACHINE_MODES];
+extern enum insn_code sync_compare_and_swap_cc[NUM_MACHINE_MODES];
+
+/* Atomic exchange with acquire semantics.  */
+extern enum insn_code sync_lock_test_and_set[NUM_MACHINE_MODES];
+
+/* Atomic clear with release semantics.  */
+extern enum insn_code sync_lock_release[NUM_MACHINE_MODES];
 
 /* Define functions given in optabs.c.  */
 
-extern rtx expand_ternary_op (enum machine_mode mode, optab ternary_optab, 
-			      rtx op0, rtx op1, rtx op2, rtx target, 
+extern rtx expand_widen_pattern_expr (tree exp, rtx op0, rtx op1, rtx wide_op,
+                                      rtx target, int unsignedp);
+
+extern rtx expand_ternary_op (enum machine_mode mode, optab ternary_optab,
+			      rtx op0, rtx op1, rtx op2, rtx target,
 			      int unsignedp);
 
 /* Expand a binary operation given optab and rtx operands.  */
@@ -463,7 +547,6 @@ extern rtx expand_abs (enum machine_mode, rtx, rtx, int, int);
 
 /* Expand the copysign operation.  */
 extern rtx expand_copysign (rtx, rtx, rtx);
-extern rtx expand_copysign_absneg (enum machine_mode, rtx, rtx, rtx, int, bool);
 
 /* Generate an instruction with a given INSN_CODE with an output and
    an input.  */
@@ -519,5 +602,8 @@ bool expand_vec_cond_expr_p (tree, enum machine_mode);
 
 /* Generate code for VEC_COND_EXPR.  */
 extern rtx expand_vec_cond_expr (tree, rtx);
+
+/* Generate code for VEC_LSHIFT_EXPR and VEC_RSHIFT_EXPR.  */
+extern rtx expand_vec_shift_expr (tree, rtx);
 
 #endif /* GCC_OPTABS_H */

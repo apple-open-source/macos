@@ -1,6 +1,6 @@
 /* gfortran backend interface
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
-   Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
    Contributed by Paul Brook.
 
 This file is part of GCC.
@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* f95-lang.c-- GCC backend interface stuff */
 
@@ -77,12 +77,6 @@ struct language_function
 GTY(())
 {
   /* struct gfc_language_function base; */
-  tree named_labels;
-  tree shadowed_labels;
-  int returns_value;
-  int returns_abnormally;
-  int warn_about_return_type;
-  int extern_inline;
   struct binding_level *binding_level;
 };
 
@@ -105,6 +99,7 @@ void insert_block (tree);
 static void gfc_clear_binding_stack (void);
 static void gfc_be_parse_file (int);
 static void gfc_expand_function (tree);
+static HOST_WIDE_INT gfc_get_alias_set (tree);
 
 #undef LANG_HOOKS_NAME
 #undef LANG_HOOKS_INIT
@@ -114,7 +109,6 @@ static void gfc_expand_function (tree);
 #undef LANG_HOOKS_POST_OPTIONS
 #undef LANG_HOOKS_PRINT_IDENTIFIER
 #undef LANG_HOOKS_PARSE_FILE
-#undef LANG_HOOKS_TRUTHVALUE_CONVERSION
 #undef LANG_HOOKS_MARK_ADDRESSABLE
 #undef LANG_HOOKS_TYPE_FOR_MODE
 #undef LANG_HOOKS_TYPE_FOR_SIZE
@@ -123,6 +117,13 @@ static void gfc_expand_function (tree);
 #undef LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE
 #undef LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION
 #undef LANG_HOOKS_CLEAR_BINDING_STACK
+#undef LANG_HOOKS_GET_ALIAS_SET
+#undef LANG_HOOKS_OMP_PRIVATIZE_BY_REFERENCE
+#undef LANG_HOOKS_OMP_PREDETERMINED_SHARING
+#undef LANG_HOOKS_OMP_CLAUSE_DEFAULT_CTOR
+#undef LANG_HOOKS_OMP_DISREGARD_VALUE_EXPR
+#undef LANG_HOOKS_OMP_PRIVATE_DEBUG_CLAUSE
+#undef LANG_HOOKS_OMP_FIRSTPRIVATIZE_TYPE_SIZES
 
 /* Define lang hooks.  */
 #define LANG_HOOKS_NAME                 "GNU F95"
@@ -133,7 +134,6 @@ static void gfc_expand_function (tree);
 #define LANG_HOOKS_POST_OPTIONS		gfc_post_options
 #define LANG_HOOKS_PRINT_IDENTIFIER     gfc_print_identifier
 #define LANG_HOOKS_PARSE_FILE           gfc_be_parse_file
-#define LANG_HOOKS_TRUTHVALUE_CONVERSION   gfc_truthvalue_conversion
 #define LANG_HOOKS_MARK_ADDRESSABLE        gfc_mark_addressable
 #define LANG_HOOKS_TYPE_FOR_MODE           gfc_type_for_mode
 #define LANG_HOOKS_TYPE_FOR_SIZE           gfc_type_for_size
@@ -142,6 +142,14 @@ static void gfc_expand_function (tree);
 #define LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE gfc_signed_or_unsigned_type
 #define LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION gfc_expand_function
 #define LANG_HOOKS_CLEAR_BINDING_STACK     gfc_clear_binding_stack
+#define LANG_HOOKS_GET_ALIAS_SET	   gfc_get_alias_set
+#define LANG_HOOKS_OMP_PRIVATIZE_BY_REFERENCE	gfc_omp_privatize_by_reference
+#define LANG_HOOKS_OMP_PREDETERMINED_SHARING	gfc_omp_predetermined_sharing
+#define LANG_HOOKS_OMP_CLAUSE_DEFAULT_CTOR	gfc_omp_clause_default_ctor
+#define LANG_HOOKS_OMP_DISREGARD_VALUE_EXPR	gfc_omp_disregard_value_expr
+#define LANG_HOOKS_OMP_PRIVATE_DEBUG_CLAUSE	gfc_omp_private_debug_clause
+#define LANG_HOOKS_OMP_FIRSTPRIVATIZE_TYPE_SIZES \
+  gfc_omp_firstprivatize_type_sizes
 
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 
@@ -178,7 +186,6 @@ const char *const tree_code_name[] = {
 };
 #undef DEFTREECODE
 
-static tree named_labels;
 
 #define NULL_BINDING_LEVEL (struct binding_level *) NULL
 
@@ -196,6 +203,36 @@ tree *ridpointers = NULL;
 static void
 gfc_expand_function (tree fndecl)
 {
+  tree t;
+
+  if (DECL_INITIAL (fndecl)
+      && BLOCK_SUBBLOCKS (DECL_INITIAL (fndecl)))
+    {
+      /* Local static equivalenced variables are never seen by
+	 check_global_declarations, so we need to output debug
+	 info by hand.  */
+
+      t = BLOCK_SUBBLOCKS (DECL_INITIAL (fndecl));
+      for (t = BLOCK_VARS (t); t; t = TREE_CHAIN (t))
+	if (TREE_CODE (t) == VAR_DECL && DECL_HAS_VALUE_EXPR_P (t)
+	    && TREE_STATIC (t))
+	  {
+	    tree expr = DECL_VALUE_EXPR (t);
+
+	    if (TREE_CODE (expr) == COMPONENT_REF
+		&& TREE_CODE (TREE_OPERAND (expr, 0)) == VAR_DECL
+		&& TREE_CODE (TREE_TYPE (TREE_OPERAND (expr, 0)))
+		   == UNION_TYPE
+		&& cgraph_varpool_node (TREE_OPERAND (expr, 0))->needed
+		&& errorcount == 0 && sorrycount == 0)
+	      {
+		timevar_push (TV_SYMOUT);
+		(*debug_hooks->global_decl) (t);
+		timevar_pop (TV_SYMOUT);
+	      }
+	  }
+    }
+
   tree_rest_of_compilation (fndecl);
 }
 
@@ -236,7 +273,8 @@ gfc_truthvalue_conversion (tree expr)
       if (TREE_CODE (expr) == INTEGER_CST)
 	return integer_zerop (expr) ? boolean_false_node : boolean_true_node;
       else
-        return build2 (NE_EXPR, boolean_type_node, expr, integer_zero_node);
+        return build2 (NE_EXPR, boolean_type_node, expr,
+		       build_int_cst (TREE_TYPE (expr), 0));
 
     default:
       internal_error ("Unexpected type in truthvalue_conversion");
@@ -280,7 +318,7 @@ static bool
 gfc_init (void)
 {
 #ifdef USE_MAPPED_LOCATION
-  linemap_add (&line_table, LC_ENTER, false, gfc_option.source, 1);
+  linemap_add (&line_table, LC_ENTER, false, gfc_source_file, 1);
   linemap_add (&line_table, LC_RENAME, false, "<built-in>", 0);
 #endif
 
@@ -291,8 +329,8 @@ gfc_init (void)
   /* Then the frontend.  */
   gfc_init_1 ();
 
-  if (gfc_new_file (gfc_option.source, gfc_option.source_form) != SUCCESS)
-    fatal_error ("can't open input file: %s", gfc_option.source);
+  if (gfc_new_file () != SUCCESS)
+    fatal_error ("can't open input file: %s", gfc_source_file);
   return true;
 }
 
@@ -422,7 +460,7 @@ poplevel (int keep, int reverse, int functionbody)
      binding level is a function body, or if there are any nested blocks then
      create a BLOCK node to record them for the life of this function.  */
   if (keep || functionbody)
-    block_node = build_block (keep ? decl_chain : 0, 0, subblock_chain, 0, 0);
+    block_node = build_block (keep ? decl_chain : 0, subblock_chain, 0, 0);
 
   /* Record the BLOCK node just built as the subblock its enclosing scope.  */
   for (subblock_node = subblock_chain; subblock_node;
@@ -506,7 +544,7 @@ pushdecl (tree decl)
   TREE_CHAIN (decl) = current_binding_level->names;
   current_binding_level->names = decl;
 
-  /* For the declartion of a type, set its name if it is not already set.  */
+  /* For the declaration of a type, set its name if it is not already set.  */
 
   if (TREE_CODE (decl) == TYPE_DECL && TYPE_NAME (TREE_TYPE (decl)) == 0)
     {
@@ -563,7 +601,6 @@ static void
 gfc_init_decl_processing (void)
 {
   current_function_decl = NULL;
-  named_labels = NULL;
   current_binding_level = NULL_BINDING_LEVEL;
   free_binding_level = NULL_BINDING_LEVEL;
 
@@ -578,6 +615,7 @@ gfc_init_decl_processing (void)
   build_common_tree_nodes (false, false);
   set_sizetype (long_unsigned_type_node);
   build_common_tree_nodes_2 (0);
+  void_list_node = build_tree_list (NULL_TREE, void_type_node);
 
   /* Set up F95 type nodes.  */
   gfc_init_kinds ();
@@ -661,6 +699,24 @@ gfc_mark_addressable (tree exp)
       }
 }
 
+/* Return the typed-based alias set for T, which may be an expression
+   or a type.  Return -1 if we don't do anything special.  */
+
+static HOST_WIDE_INT
+gfc_get_alias_set (tree t)
+{
+  tree u;
+
+  /* Permit type-punning when accessing an EQUIVALENCEd variable or
+     mixed type entry master's return value.  */
+  for (u = t; handled_component_p (u); u = TREE_OPERAND (u, 0))
+    if (TREE_CODE (u) == COMPONENT_REF
+	&& TREE_CODE (TREE_TYPE (TREE_OPERAND (u, 0))) == UNION_TYPE)
+      return 0;
+
+  return -1;
+}
+
 /* press the big red button - garbage (ggc) collection is on */
 
 int ggc_p = 1;
@@ -682,7 +738,7 @@ builtin_function (const char *name,
 		  int function_code,
 		  enum built_in_class class,
 		  const char *library_name,
-		  tree attrs ATTRIBUTE_UNUSED)
+		  tree attrs)
 {
   tree decl = build_decl (FUNCTION_DECL, get_identifier (name), type);
   DECL_EXTERNAL (decl) = 1;
@@ -693,6 +749,17 @@ builtin_function (const char *name,
   pushdecl (decl);
   DECL_BUILT_IN_CLASS (decl) = class;
   DECL_FUNCTION_CODE (decl) = function_code;
+
+  /* Possibly apply some default attributes to this built-in function.  */
+  if (attrs)
+    {
+      /* FORNOW the only supported attribute is "const".  If others need
+         to be supported then see the more general solution in procedure
+         builtin_function in c-decl.c  */
+      if (lookup_attribute ( "const", attrs ))
+        TREE_READONLY (decl) = 1;
+    }
+
   return decl;
 }
 
@@ -717,6 +784,8 @@ gfc_define_builtin (const char * name,
 
 
 #define DO_DEFINE_MATH_BUILTIN(code, name, argtype, tbase) \
+    gfc_define_builtin ("__builtin_" name "l", tbase##longdouble[argtype], \
+                       BUILT_IN_ ## code ## L, name "l", true); \
     gfc_define_builtin ("__builtin_" name, tbase##double[argtype], \
 			BUILT_IN_ ## code, name, true); \
     gfc_define_builtin ("__builtin_" name "f", tbase##float[argtype], \
@@ -725,11 +794,9 @@ gfc_define_builtin (const char * name,
 #define DEFINE_MATH_BUILTIN(code, name, argtype) \
     DO_DEFINE_MATH_BUILTIN (code, name, argtype, mfunc_)
 
-/* The middle-end is missing builtins for some complex math functions, so
-   we don't use them yet.  */
 #define DEFINE_MATH_BUILTIN_C(code, name, argtype) \
-    DO_DEFINE_MATH_BUILTIN (code, name, argtype, mfunc_)
-/*    DO_DEFINE_MATH_BUILTIN (C##code, "c" name, argtype, mfunc_c)*/
+    DO_DEFINE_MATH_BUILTIN (code, name, argtype, mfunc_) \
+    DO_DEFINE_MATH_BUILTIN (C##code, "c" name, argtype, mfunc_c)
 
 
 /* Create function types for builtin functions.  */
@@ -740,10 +807,10 @@ build_builtin_fntypes (tree * fntype, tree type)
   tree tmp;
 
   /* type (*) (type) */
-  tmp = tree_cons (NULL_TREE, float_type_node, void_list_node);
+  tmp = tree_cons (NULL_TREE, type, void_list_node);
   fntype[0] = build_function_type (type, tmp);
   /* type (*) (type, type) */
-  tmp = tree_cons (NULL_TREE, float_type_node, tmp);
+  tmp = tree_cons (NULL_TREE, type, tmp);
   fntype[1] = build_function_type (type, tmp);
   /* type (*) (int, type) */
   tmp = tree_cons (NULL_TREE, integer_type_node, void_list_node);
@@ -751,25 +818,72 @@ build_builtin_fntypes (tree * fntype, tree type)
   fntype[2] = build_function_type (type, tmp);
 }
 
+static tree
+builtin_type_for_size (int size, bool unsignedp)
+{
+  tree type = lang_hooks.types.type_for_size (size, unsignedp);
+  return type ? type : error_mark_node;
+}
 
 /* Initialization of builtin function nodes.  */
 
 static void
 gfc_init_builtin_functions (void)
 {
+  enum builtin_type
+  {
+#define DEF_PRIMITIVE_TYPE(NAME, VALUE) NAME,
+#define DEF_FUNCTION_TYPE_0(NAME, RETURN) NAME,
+#define DEF_FUNCTION_TYPE_1(NAME, RETURN, ARG1) NAME,
+#define DEF_FUNCTION_TYPE_2(NAME, RETURN, ARG1, ARG2) NAME,
+#define DEF_FUNCTION_TYPE_3(NAME, RETURN, ARG1, ARG2, ARG3) NAME,
+#define DEF_FUNCTION_TYPE_4(NAME, RETURN, ARG1, ARG2, ARG3, ARG4) NAME,
+#define DEF_FUNCTION_TYPE_5(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5) NAME,
+#define DEF_FUNCTION_TYPE_6(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6) NAME,
+#define DEF_FUNCTION_TYPE_7(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6, ARG7) NAME,
+#define DEF_FUNCTION_TYPE_VAR_0(NAME, RETURN) NAME,
+#define DEF_POINTER_TYPE(NAME, TYPE) NAME,
+#include "types.def"
+#undef DEF_PRIMITIVE_TYPE
+#undef DEF_FUNCTION_TYPE_0
+#undef DEF_FUNCTION_TYPE_1
+#undef DEF_FUNCTION_TYPE_2
+#undef DEF_FUNCTION_TYPE_3
+#undef DEF_FUNCTION_TYPE_4
+#undef DEF_FUNCTION_TYPE_5
+#undef DEF_FUNCTION_TYPE_6
+#undef DEF_FUNCTION_TYPE_7
+#undef DEF_FUNCTION_TYPE_VAR_0
+#undef DEF_POINTER_TYPE
+    BT_LAST
+  };
+  typedef enum builtin_type builtin_type;
+  enum
+  {
+    /* So far we need just these 2 attribute types.  */
+    ATTR_NOTHROW_LIST,
+    ATTR_CONST_NOTHROW_LIST
+  };
+
   tree mfunc_float[3];
   tree mfunc_double[3];
+  tree mfunc_longdouble[3];
   tree mfunc_cfloat[3];
   tree mfunc_cdouble[3];
+  tree mfunc_clongdouble[3];
   tree func_cfloat_float;
   tree func_cdouble_double;
+  tree func_clongdouble_longdouble;
   tree ftype;
   tree tmp;
+  tree builtin_types[(int) BT_LAST + 1];
 
   build_builtin_fntypes (mfunc_float, float_type_node);
   build_builtin_fntypes (mfunc_double, double_type_node);
+  build_builtin_fntypes (mfunc_longdouble, long_double_type_node);
   build_builtin_fntypes (mfunc_cfloat, complex_float_type_node);
   build_builtin_fntypes (mfunc_cdouble, complex_double_type_node);
+  build_builtin_fntypes (mfunc_clongdouble, complex_long_double_type_node);
 
   tmp = tree_cons (NULL_TREE, complex_float_type_node, void_list_node);
   func_cfloat_float = build_function_type (float_type_node, tmp);
@@ -777,30 +891,52 @@ gfc_init_builtin_functions (void)
   tmp = tree_cons (NULL_TREE, complex_double_type_node, void_list_node);
   func_cdouble_double = build_function_type (double_type_node, tmp);
 
+  tmp = tree_cons (NULL_TREE, complex_long_double_type_node, void_list_node);
+  func_clongdouble_longdouble =
+    build_function_type (long_double_type_node, tmp);
+
 #include "mathbuiltins.def"
 
   /* We define these separately as the fortran versions have different
      semantics (they return an integer type) */
-  gfc_define_builtin ("__builtin_floor", mfunc_double[0], 
-		      BUILT_IN_FLOOR, "floor", true);
-  gfc_define_builtin ("__builtin_floorf", mfunc_float[0], 
-		      BUILT_IN_FLOORF, "floorf", true);
+  gfc_define_builtin ("__builtin_roundl", mfunc_longdouble[0], 
+		      BUILT_IN_ROUNDL, "roundl", true);
   gfc_define_builtin ("__builtin_round", mfunc_double[0], 
 		      BUILT_IN_ROUND, "round", true);
   gfc_define_builtin ("__builtin_roundf", mfunc_float[0], 
 		      BUILT_IN_ROUNDF, "roundf", true);
-  
+
+  gfc_define_builtin ("__builtin_truncl", mfunc_longdouble[0],
+		      BUILT_IN_TRUNCL, "truncl", true);
+  gfc_define_builtin ("__builtin_trunc", mfunc_double[0],
+                      BUILT_IN_TRUNC, "trunc", true);
+  gfc_define_builtin ("__builtin_truncf", mfunc_float[0],
+                      BUILT_IN_TRUNCF, "truncf", true);
+
+  gfc_define_builtin ("__builtin_cabsl", func_clongdouble_longdouble, 
+		      BUILT_IN_CABSL, "cabsl", true);
   gfc_define_builtin ("__builtin_cabs", func_cdouble_double, 
 		      BUILT_IN_CABS, "cabs", true);
   gfc_define_builtin ("__builtin_cabsf", func_cfloat_float, 
 		      BUILT_IN_CABSF, "cabsf", true);
  
+  gfc_define_builtin ("__builtin_copysignl", mfunc_longdouble[1], 
+		      BUILT_IN_COPYSIGNL, "copysignl", true);
   gfc_define_builtin ("__builtin_copysign", mfunc_double[1], 
 		      BUILT_IN_COPYSIGN, "copysign", true);
   gfc_define_builtin ("__builtin_copysignf", mfunc_float[1], 
 		      BUILT_IN_COPYSIGNF, "copysignf", true);
+ 
+  gfc_define_builtin ("__builtin_fmodl", mfunc_longdouble[1], 
+		      BUILT_IN_FMODL, "fmodl", true);
+  gfc_define_builtin ("__builtin_fmod", mfunc_double[1], 
+		      BUILT_IN_FMOD, "fmod", true);
+  gfc_define_builtin ("__builtin_fmodf", mfunc_float[1], 
+		      BUILT_IN_FMODF, "fmodf", true);
 
   /* These are used to implement the ** operator.  */
+  gfc_define_builtin ("__builtin_powl", mfunc_longdouble[1], 
+		      BUILT_IN_POWL, "powl", true);
   gfc_define_builtin ("__builtin_pow", mfunc_double[1], 
 		      BUILT_IN_POW, "pow", true);
   gfc_define_builtin ("__builtin_powf", mfunc_float[1], 
@@ -808,26 +944,155 @@ gfc_init_builtin_functions (void)
 
   /* Other builtin functions we use.  */
 
-  tmp = tree_cons (NULL_TREE, integer_type_node, void_list_node);
-  ftype = build_function_type (integer_type_node, tmp);
-  gfc_define_builtin ("__builtin_clz", ftype, BUILT_IN_CLZ,
-		      "__builtin_clz", true);
-
-  tmp = tree_cons (NULL_TREE, long_integer_type_node, void_list_node);
-  ftype = build_function_type (integer_type_node, tmp);
-  gfc_define_builtin ("__builtin_clzl", ftype, BUILT_IN_CLZL,
-		      "__builtin_clzl", true);
-
-  tmp = tree_cons (NULL_TREE, long_long_integer_type_node, void_list_node);
-  ftype = build_function_type (integer_type_node, tmp);
-  gfc_define_builtin ("__builtin_clzll", ftype, BUILT_IN_CLZLL,
-		      "__builtin_clzll", true);
-
   tmp = tree_cons (NULL_TREE, long_integer_type_node, void_list_node);
   tmp = tree_cons (NULL_TREE, long_integer_type_node, tmp);
   ftype = build_function_type (long_integer_type_node, tmp);
   gfc_define_builtin ("__builtin_expect", ftype, BUILT_IN_EXPECT,
 		      "__builtin_expect", true);
+
+#define DEF_PRIMITIVE_TYPE(ENUM, VALUE) \
+  builtin_types[(int) ENUM] = VALUE;
+#define DEF_FUNCTION_TYPE_0(ENUM, RETURN)		\
+  builtin_types[(int) ENUM]				\
+    = build_function_type (builtin_types[(int) RETURN],	\
+			   void_list_node);
+#define DEF_FUNCTION_TYPE_1(ENUM, RETURN, ARG1)				\
+  builtin_types[(int) ENUM]						\
+    = build_function_type (builtin_types[(int) RETURN],			\
+			   tree_cons (NULL_TREE,			\
+				      builtin_types[(int) ARG1],	\
+				      void_list_node));
+#define DEF_FUNCTION_TYPE_2(ENUM, RETURN, ARG1, ARG2)	\
+  builtin_types[(int) ENUM]				\
+    = build_function_type				\
+      (builtin_types[(int) RETURN],			\
+       tree_cons (NULL_TREE,				\
+		  builtin_types[(int) ARG1],		\
+		  tree_cons (NULL_TREE,			\
+			     builtin_types[(int) ARG2],	\
+			     void_list_node)));
+#define DEF_FUNCTION_TYPE_3(ENUM, RETURN, ARG1, ARG2, ARG3)		 \
+  builtin_types[(int) ENUM]						 \
+    = build_function_type						 \
+      (builtin_types[(int) RETURN],					 \
+       tree_cons (NULL_TREE,						 \
+		  builtin_types[(int) ARG1],				 \
+		  tree_cons (NULL_TREE,					 \
+			     builtin_types[(int) ARG2],			 \
+			     tree_cons (NULL_TREE,			 \
+					builtin_types[(int) ARG3],	 \
+					void_list_node))));
+#define DEF_FUNCTION_TYPE_4(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4)	\
+  builtin_types[(int) ENUM]						\
+    = build_function_type						\
+      (builtin_types[(int) RETURN],					\
+       tree_cons (NULL_TREE,						\
+		  builtin_types[(int) ARG1],				\
+		  tree_cons (NULL_TREE,					\
+			     builtin_types[(int) ARG2],			\
+			     tree_cons					\
+			     (NULL_TREE,				\
+			      builtin_types[(int) ARG3],		\
+			      tree_cons (NULL_TREE,			\
+					 builtin_types[(int) ARG4],	\
+					 void_list_node)))));
+#define DEF_FUNCTION_TYPE_5(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5)	\
+  builtin_types[(int) ENUM]						\
+    = build_function_type						\
+      (builtin_types[(int) RETURN],					\
+       tree_cons (NULL_TREE,						\
+		  builtin_types[(int) ARG1],				\
+		  tree_cons (NULL_TREE,					\
+			     builtin_types[(int) ARG2],			\
+			     tree_cons					\
+			     (NULL_TREE,				\
+			      builtin_types[(int) ARG3],		\
+			      tree_cons (NULL_TREE,			\
+					 builtin_types[(int) ARG4],	\
+					 tree_cons (NULL_TREE,		\
+					      builtin_types[(int) ARG5],\
+					      void_list_node))))));
+#define DEF_FUNCTION_TYPE_6(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+			    ARG6)					\
+  builtin_types[(int) ENUM]						\
+    = build_function_type						\
+      (builtin_types[(int) RETURN],					\
+       tree_cons (NULL_TREE,						\
+		  builtin_types[(int) ARG1],				\
+		  tree_cons (NULL_TREE,					\
+			     builtin_types[(int) ARG2],			\
+			     tree_cons					\
+			     (NULL_TREE,				\
+			      builtin_types[(int) ARG3],		\
+			      tree_cons					\
+			      (NULL_TREE,				\
+			       builtin_types[(int) ARG4],		\
+			       tree_cons (NULL_TREE,			\
+					 builtin_types[(int) ARG5],	\
+					 tree_cons (NULL_TREE,		\
+					      builtin_types[(int) ARG6],\
+					      void_list_node)))))));
+#define DEF_FUNCTION_TYPE_7(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+			    ARG6, ARG7)					\
+  builtin_types[(int) ENUM]						\
+    = build_function_type						\
+      (builtin_types[(int) RETURN],					\
+       tree_cons (NULL_TREE,						\
+		  builtin_types[(int) ARG1],				\
+		  tree_cons (NULL_TREE,					\
+			     builtin_types[(int) ARG2],			\
+			     tree_cons					\
+			     (NULL_TREE,				\
+			      builtin_types[(int) ARG3],		\
+			      tree_cons					\
+			      (NULL_TREE,				\
+			       builtin_types[(int) ARG4],		\
+			       tree_cons (NULL_TREE,			\
+					 builtin_types[(int) ARG5],	\
+					 tree_cons (NULL_TREE,		\
+					      builtin_types[(int) ARG6],\
+					 tree_cons (NULL_TREE,		\
+					      builtin_types[(int) ARG6], \
+					      void_list_node))))))));
+#define DEF_FUNCTION_TYPE_VAR_0(ENUM, RETURN)				\
+  builtin_types[(int) ENUM]						\
+    = build_function_type (builtin_types[(int) RETURN], NULL_TREE);
+#define DEF_POINTER_TYPE(ENUM, TYPE)			\
+  builtin_types[(int) ENUM]				\
+    = build_pointer_type (builtin_types[(int) TYPE]);
+#include "types.def"
+#undef DEF_PRIMITIVE_TYPE
+#undef DEF_FUNCTION_TYPE_1
+#undef DEF_FUNCTION_TYPE_2
+#undef DEF_FUNCTION_TYPE_3
+#undef DEF_FUNCTION_TYPE_4
+#undef DEF_FUNCTION_TYPE_5
+#undef DEF_FUNCTION_TYPE_6
+#undef DEF_FUNCTION_TYPE_VAR_0
+#undef DEF_POINTER_TYPE
+  builtin_types[(int) BT_LAST] = NULL_TREE;
+
+  /* Initialize synchronization builtins.  */
+#undef DEF_SYNC_BUILTIN
+#define DEF_SYNC_BUILTIN(code, name, type, attr) \
+    gfc_define_builtin (name, builtin_types[type], code, name, \
+			attr == ATTR_CONST_NOTHROW_LIST);
+#include "../sync-builtins.def"
+#undef DEF_SYNC_BUILTIN
+
+  if (gfc_option.flag_openmp)
+    {
+#undef DEF_GOMP_BUILTIN
+#define DEF_GOMP_BUILTIN(code, name, type, attr) \
+      gfc_define_builtin ("__builtin_" name, builtin_types[type], \
+			  code, name, attr == ATTR_CONST_NOTHROW_LIST);
+#include "../omp-builtins.def"
+#undef DEF_GOMP_BUILTIN
+    }
+
+  gfc_define_builtin ("__builtin_trap", builtin_types[BT_FN_VOID],
+		      BUILT_IN_TRAP, NULL, false);
+  TREE_THIS_VOLATILE (built_in_decls[BUILT_IN_TRAP]) = 1;
 
   build_common_builtin_nodes ();
   targetm.init_builtins ();

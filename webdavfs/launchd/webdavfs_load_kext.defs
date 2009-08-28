@@ -1,0 +1,13 @@
+#include <mach/std_types.defs>
+#include <mach/mach_types.defs>
+import "load_webdavfs.h";
+
+type string_t = c_string[*:1024];
+
+subsystem webdavfs_load_kext 87686586;
+
+serverprefix do_;
+
+routine load_kext(
+				test_port	: mach_port_t;
+				kextname	: string_t);

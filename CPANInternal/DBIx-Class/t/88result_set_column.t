@@ -7,7 +7,7 @@ use DBICTest;
 
 my $schema = DBICTest->init_schema();
 
-plan tests => 8; 
+plan tests => 10; 
 
 my $cd;
 my $rs = $cd = $schema->resultset("CD")->search({});
@@ -16,6 +16,8 @@ my $rs_title = $rs->get_column('title');
 my $rs_year = $rs->get_column('year');
 
 is($rs_title->next, 'Spoonful of bees', "next okay");
+
+is_deeply( [ sort $rs_year->func('DISTINCT') ], [ 1997, 1998, 1999, 2001 ],  "wantarray context okay");
 
 my @all = $rs_title->all;
 cmp_ok(scalar @all, '==', 5, "five titles returned");
@@ -42,3 +44,8 @@ $psrs = $schema->resultset('CD')->search({},
 ok(defined($psrs->get_column('count')), '+select/+as arrayref count');
 ok(defined($psrs->get_column('addedtitle')), '+select/+as title');
 
+{
+  my $rs = $schema->resultset("CD")->search({}, { prefetch => 'artist' });
+  my $rsc = $rs->get_column('year');
+  is( $rsc->{_parent_resultset}->{attrs}->{prefetch}, undef, 'prefetch wiped' );
+}

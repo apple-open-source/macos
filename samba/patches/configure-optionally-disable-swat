@@ -24,7 +24,7 @@ Index: samba/source/configure.in
 ===================================================================
 --- samba/source/configure.in.orig
 +++ samba/source/configure.in
-@@ -332,6 +332,21 @@ AC_LIBREPLACE_CC_CHECKS
+@@ -343,6 +343,21 @@ AC_LIBREPLACE_CC_CHECKS
  
  m4_include(lib/socket_wrapper/config.m4)
  

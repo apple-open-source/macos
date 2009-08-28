@@ -1,6 +1,6 @@
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2004-2006 The OpenLDAP Foundation.
+ * Copyright 2004-2008 The OpenLDAP Foundation.
  * Portions Copyright 2004 Pierangelo Masarati.
  * All rights reserved.
  *
@@ -45,7 +45,7 @@ test_file( const char *fname, const char *ftype )
 
 	switch ( stat( fname, &st ) ) {
 	case 0:
-		if ( !( st.st_mode & S_IWUSR ) ) {
+		if ( !( st.st_mode & S_IWRITE ) ) {
 			Debug( LDAP_DEBUG_ANY, "%s file "
 				"\"%s\" exists, but user does not have access\n",
 				ftype, fname, 0 );
@@ -69,6 +69,7 @@ test_file( const char *fname, const char *ftype )
 
 				return -1;
 			}
+			fclose( fp );
 			unlink( fname );
 			break;
 		}
@@ -103,7 +104,9 @@ slaptest( int argc, char **argv )
 		}
 	}
 
-	fprintf( stderr, "config file testing succeeded\n");
+	if ( !quiet ) {
+		fprintf( stderr, "config file testing succeeded\n");
+	}
 
 	slap_tool_destroy();
 

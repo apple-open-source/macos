@@ -63,7 +63,7 @@ struct TableUniqueIdentifierStruct : public TableRelationStruct
 
 
 
-TableRelation::TableRelation (CSSM_DB_RECORDTYPE recordType, int numberOfColumns) : PartialRelation (recordType, numberOfColumns), mNumberOfTuples (0), mData (NULL)
+TableRelation::TableRelation (CSSM_DB_RECORDTYPE recordType, int numberOfColumns, columnInfoLoader *theColumnInfo) : PartialRelation (recordType, numberOfColumns, theColumnInfo), mNumberOfTuples (0), mData (NULL)
 {
 }
 
@@ -163,17 +163,15 @@ TableQuery::~TableQuery ()
 
 Tuple* TableQuery::GetNextTuple (UniqueIdentifier *& id)
 {
-	while (mCurrentRecord < mRelation->GetNumberOfTuples ())
-	{
+	while (mCurrentRecord < mRelation->GetNumberOfTuples ()) {
 		Tuple *t = mRelation->GetTuple (mCurrentRecord);
-		id = new TableUniqueIdentifier (mRelation->GetRecordType (), mCurrentRecord);
-		mCurrentRecord += 1;
 
-		if (EvaluateTuple (t))
-		{
+		if (EvaluateTuple (t)) {
+			id = new TableUniqueIdentifier (mRelation->GetRecordType (), mCurrentRecord);
+			mCurrentRecord += 1;
 			return t;
 		}
-		
+		mCurrentRecord += 1;
 		delete t;
 	}
 	

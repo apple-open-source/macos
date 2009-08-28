@@ -1,9 +1,9 @@
 /*
- * "$Id: error.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: error.c 7460 2008-04-16 02:19:54Z mike $"
  *
  *   Raster error handling for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -139,7 +139,7 @@ _cupsRasterClearError(void)
  *
  * If there are no recent errors, NULL is returned.
  *
- * @since CUPS 1.3@
+ * @since CUPS 1.3/Mac OS X 10.5@
  */
 
 const char *				/* O - Last error */
@@ -196,8 +196,7 @@ get_error_buffer(void)
   * Initialize the global data exactly once...
   */
 
-  DEBUG_printf(("get_error_buffer(): raster_key_once=%d\n",
-                raster_key_once));
+  DEBUG_puts("get_error_buffer()");
 
   pthread_once(&raster_key_once, raster_init);
 
@@ -237,8 +236,8 @@ raster_init(void)
 {
   pthread_key_create(&raster_key, raster_destructor);
 
-  DEBUG_printf(("raster_init(): raster_key=%x(%u)\n", raster_key,
-                raster_key));
+  DEBUG_printf(("raster_init(): raster_key=%x(%u)\n", (unsigned)raster_key,
+                (unsigned)raster_key));
 }
 
 
@@ -284,5 +283,5 @@ get_error_buffer(void)
 
 
 /*
- * End of "$Id: error.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: error.c 7460 2008-04-16 02:19:54Z mike $".
  */

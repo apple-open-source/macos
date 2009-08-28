@@ -1,8 +1,8 @@
 /* sort.c -- LDAP library entry and value sort routines */
-/* $OpenLDAP: pkg/ldap/libraries/libldap/sort.c,v 1.25.2.3 2006/05/11 18:33:31 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/sort.c,v 1.27.2.4 2008/02/11 23:26:41 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

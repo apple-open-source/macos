@@ -1,9 +1,13 @@
 #
-# $Id: Makefile.in,v 1.1.10.2 2006/06/12 14:54:18 nbk Exp $
+# $Id$
 #
 
 TARGET      = @targetname@
 SRCS        = rlm_attr_rewrite.c
+HEADERS     =
+RLM_CFLAGS  = @attr_rewrite_cflags@
+RLM_LIBS    = @attr_rewrite_ldflags@
+RLM_INSTALL =
 
 include ../rules.mak
 

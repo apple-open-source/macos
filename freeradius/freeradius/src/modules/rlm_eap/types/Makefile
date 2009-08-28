@@ -1,7 +1,7 @@
 #
 # Makefile
 #
-# Version:	$Id: Makefile,v 1.3.2.1.2.3 2006/07/06 16:55:35 aland Exp $
+# Version:	$Id$
 #
 
 all:

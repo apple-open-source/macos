@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 - 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -78,8 +78,8 @@ typedef struct {
     struct saved_pkt		saved;
     long			start_secs;
     int				try;
-    dhcp_time_secs_t		wait_secs;
-    u_long			xid;
+    int				wait_secs;
+    u_int32_t			xid;
     timer_callout_t *		timer;
     arp_client_t *		arp;
     bootp_client_t *		client;
@@ -371,7 +371,7 @@ bootp_request(Service_t * service_p, IFEventID_t evid, void * event_data)
 	      break;
 	  }
 	  bootp->request.bp_secs 
-	    = htons((u_short)(timer_current_secs() - bootp->start_secs));
+	    = htons((uint16_t)(timer_current_secs() - bootp->start_secs));
 	  bootp->request.bp_xid = htonl(bootp->xid);
 	  /* send the packet */
 	  if (bootp_client_transmit(bootp->client,
@@ -487,7 +487,7 @@ bootp_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
 	  service_p->private = bootp;
 	  bzero(bootp, sizeof(*bootp));
 	  dhcpol_init(&bootp->saved.options);
-	  bootp->xid = random();
+	  bootp->xid = arc4random();
 	  bootp->timer = timer_callout_init();
 	  if (bootp->timer == NULL) {
 	      my_log(LOG_ERR, "BOOTP %s: timer_callout_init failed", 
@@ -581,7 +581,7 @@ bootp_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
 	  break;
       }
       case IFEventID_media_e: {
-	  boolean_t		network_changed = (boolean_t)event_data;
+	  boolean_t		network_changed = (boolean_t)(intptr_t)event_data;
 
 	  if (bootp == NULL) {
 	      status = ipconfig_status_internal_error_e;

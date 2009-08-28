@@ -5,7 +5,7 @@
 #  See http://subversion.tigris.org for more information.
 #
 # ====================================================================
-# Copyright (c) 2000-2004 CollabNet.  All rights reserved.
+# Copyright (c) 2000-2006, 2008 CollabNet.  All rights reserved.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution.  The terms
@@ -17,6 +17,7 @@
 
 import os
 import types
+import sys
 
 import svntest.tree
 
@@ -43,9 +44,21 @@ class State:
 
     self.desc.update(more_desc)
 
+  def add_state(self, parent, state):
+    "Import state items from a State object, reparent the items to PARENT."
+    assert isinstance(state, State)
+
+    if parent and parent[-1] != '/':
+      parent += '/'
+    for path, item in state.desc.items():
+      path = parent + path
+      self.desc[path] = item
+
   def remove(self, *paths):
     "Remove a path from the state (the path must exist)."
     for path in paths:
+      if sys.platform == 'win32':
+        path = path.replace('\\', '/')
       del self.desc[path]
 
   def copy(self, new_root=None):
@@ -59,29 +72,40 @@ class State:
     return State(new_root, desc)
 
   def tweak(self, *args, **kw):
-    """Tweak the items' values, optional restricting based on a filter.
+    """Tweak the items' values.
 
-    The general form of this method is .tweak(paths..., key=value). If
+    Each argument in ARGS is the path of a StateItem that already exists in
+    this State. Each keyword argument in KW is a modifiable property of
+    StateItem.
+
+    The general form of this method is .tweak([paths...,] key=value...). If
     one or more paths are provided, then those items' values are
     modified.  If no paths are given, then all items are modified.
     """
     if args:
       for path in args:
-        apply(self.desc[path].tweak, (), kw)
+        try:
+          if sys.platform == 'win32':
+            path = path.replace('\\', '/')
+          path_ref = self.desc[path]
+        except KeyError, e:
+          e.args = ["Path '%s' not present in WC state descriptor" % path]
+          raise
+        path_ref.tweak(**kw)
     else:
       for item in self.desc.values():
-        apply(item.tweak, (), kw)
+        item.tweak(**kw)
 
   def tweak_some(self, filter, **kw):
     "Tweak the items for which the filter returns true."
     for path, item in self.desc.items():
-      if filter(path, item):
-        apply(item.tweak, (), kw)
+      if list(filter(path, item)):
+        item.tweak(**kw)
 
   def subtree(self, subtree_path):
     """Return a State object which is a deep copy of the sub-tree
-    identified by PATH (which is assumed to contain only on element
-    rooted at the tree of this State object's WC_DIR)."""
+    identified by SUBTREE_PATH (which is assumed to contain only one
+    element rooted at the tree of this State object's WC_DIR)."""
     desc = { }
     for path, item in self.desc.items():
       path_elements = path.split("/")
@@ -134,6 +158,8 @@ class State:
         atts['switched'] = item.switched
       if item.writelocked is not None:
         atts['writelocked'] = item.writelocked
+      if item.treeconflict is not None:
+        atts['treeconflict'] = item.treeconflict
       nodelist.append((os.path.normpath(os.path.join(self.wc_dir, path)),
                        item.contents,
                        item.props,
@@ -141,6 +167,8 @@ class State:
 
     return svntest.tree.build_generic_tree(nodelist)
 
+  def __str__(self):
+    return str(self.old_tree())
 
 class StateItem:
   """Describes an individual item within a working copy.
@@ -152,7 +180,8 @@ class StateItem:
 
   def __init__(self, contents=None, props=None,
                status=None, verb=None, wc_rev=None,
-               locked=None, copied=None, switched=None, writelocked=None):
+               locked=None, copied=None, switched=None, writelocked=None,
+               treeconflict=None):
     # provide an empty prop dict if it wasn't provided
     if props is None:
       props = { }
@@ -161,15 +190,26 @@ class StateItem:
     if wc_rev is not None:
       wc_rev = str(wc_rev)
 
+    # Any attribute can be None if not relevant, unless otherwise stated.
+
+    # A string of content (if the node is a file).
     self.contents = contents
+    # A dictionary mapping prop name to prop value; never None.
     self.props = props
+    # A two-character string from the first two columns of 'svn status'.
     self.status = status
+    # The action word such as 'Adding' printed by commands like 'svn update'.
     self.verb = verb
+    # The base revision number of the node in the WC, as a string.
     self.wc_rev = wc_rev
+    # For the following attributes, the value is the status character of that
+    # field from 'svn status', except using value None instead of status ' '.
     self.locked = locked
     self.copied = copied
     self.switched = switched
     self.writelocked = writelocked
+    # Value 'C' or ' ', or None as an expected status meaning 'do not check'.
+    self.treeconflict = treeconflict
 
   def copy(self):
     "Make a deep copy of self."
@@ -181,6 +221,6 @@ class StateItem:
   def tweak(self, **kw):
     for name, value in kw.items():
       ### refine the revision args (for now) to ensure they are strings
-      if name == 'wc_rev':
+      if value is not None and name == 'wc_rev':
         value = str(value)
       setattr(self, name, value)

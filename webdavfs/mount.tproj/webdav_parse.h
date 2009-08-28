@@ -25,6 +25,7 @@
 #define _WEBDAV_PARSE_H_INCLUDE
 
 #include <sys/types.h>
+#include <sys/dirent.h> // for __DARWIN_MAXNAMELEN
 
 /* Types */
 
@@ -60,7 +61,7 @@ struct webdav_quotas
    is stored in d_name_URI_length. */
 struct large_dirent
 {
-	u_int32_t d_ino;							/* file number of entry */
+	webdav_ino_t d_ino;							/* file number of entry */
 	u_int16_t d_reclen;							/* sizeof(struct dirent) */
 	u_int8_t d_type;							/* file type, see below */
 	u_int8_t d_namlen;							/* length of string in d_name */
@@ -68,6 +69,45 @@ struct large_dirent
 	u_int32_t d_name_URI_length;				/* the length of the URI stored in
 												 * d_name until it is shortened
 												 * to a file name */
+};
+
+// XXX Dependency on __DARWIN_64_BIT_INO_T
+// struct dirent is in flux right now because __DARWIN_64_BIT_INO_T is set to 1 for user space,
+// but set to zero for kernel space.
+// So user space sees dirent as:
+//
+// struct dirent {
+// __uint64_t  d_ino;      /* file number of entry */
+// __uint64_t  d_seekoff;  /* seek offset (optional, used by servers) */
+// __uint16_t  d_reclen;   /* length of this record */
+// __uint16_t  d_namlen;   /* length of string in d_name */
+// __uint8_t   d_type;     /* file type, see below */
+// char      d_name[__DARWIN_MAXPATHLEN]; /* entry name (up to MAXPATHLEN bytes) */
+// };
+// 
+// But kernel space sees dirent like this:
+//
+// struct dirent {
+//	ino_t d_ino;			/* file number of entry */
+//	__uint16_t d_reclen;		/* length of this record */
+//	__uint8_t  d_type; 		/* file type, see below */
+//	__uint8_t  d_namlen;		/* length of string in d_name */
+//	char d_name[__DARWIN_MAXNAMLEN + 1];	/* name must be no longer than this */
+// };
+//
+// So until kernel and user space sees the same dirent, we need to use our
+// own type since we pass a struct dirent from user to kernel space when we
+// process readdir vnop.
+//
+// Once __DARWIN_64_BIT_INO_T is set to 1 for both user and kernel space, we
+// can get rid of webdav_dirent and just use dirent exclusively.
+//
+struct webdav_dirent {
+		webdav_ino_t d_ino;			/* file number of entry */
+		__uint16_t d_reclen;		/* length of this record */
+		__uint8_t  d_type; 		/* file type, see below */
+		__uint8_t  d_namlen;		/* length of string in d_name */
+		char d_name[__DARWIN_MAXNAMLEN + 1];	/* name must be no longer than this */
 };
 
 typedef struct webdav_parse_opendir_element_tag

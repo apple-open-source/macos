@@ -9,10 +9,6 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
 .\" 4. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
@@ -30,84 +26,63 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     From: @(#)getgrent.3	8.2 (Berkeley) 4/19/94
-.\" $FreeBSD: src/lib/libc/gen/getgrent.3,v 1.16 2001/10/01 16:08:51 ru Exp $
+.\" $FreeBSD: src/lib/libc/gen/getgrent.3,v 1.28 2007/01/09 00:27:53 imp Exp $
 .\"
-.Dd September 29, 1994
+.Dd April 16, 2003
 .Dt GETGRENT 3
 .Os
 .Sh NAME
-.Nm endgrent ,
 .Nm getgrent ,
-.Nm getgrgid ,
-.Nm getgrgid_r ,
+.\".Nm getgrent_r ,
 .Nm getgrnam ,
 .Nm getgrnam_r ,
+.Nm getgrgid ,
+.Nm getgrgid_r ,
+.Nm setgroupent ,
 .Nm setgrent ,
-.\" .Nm setgrfile ,
-.Nm setgroupent
+.Nm endgrent
 .Nd group database operations
 .Sh LIBRARY
 .Lb libc
 .Sh SYNOPSIS
 .In grp.h
+.Ft struct group *
+.Fn getgrent void
+.\".Ft int
+.\".Fn getgrent_r "struct group *grp" "char *buffer" "size_t bufsize" "struct group **result"
+.Ft struct group *
+.Fn getgrnam "const char *name"
+.Ft int
+.Fn getgrnam_r "const char *name" "struct group *grp" "char *buffer" "size_t bufsize" "struct group **result"
+.Ft struct group *
+.Fn getgrgid "gid_t gid"
+.Ft int
+.Fn getgrgid_r "gid_t gid" "struct group *grp" "char *buffer" "size_t bufsize" "struct group **result"
+.Ft int
+.Fn setgroupent "int stayopen"
+.Ft int
+.Fn setgrent void
 .Ft void
-.Fo endgrent
-.Fa void
-.Fc
-.Ft struct group *
-.Fo getgrent
-.Fa void
-.Fc
-.Ft struct group *
-.Fo getgrgid
-.Fa "gid_t gid"
-.Fc
-.Ft int
-.Fo getgrgid_r
-.Fa "gid_t gid"
-.Fa "struct group *grp"
-.Fa "char *buffer"
-.Fa "size_t bufsize"
-.Fa "struct group **result"
-.Fc
-.Ft struct group *
-.Fo getgrnam
-.Fa "const char *name"
-.Fc
-.Ft int
-.Fo getgrnam_r
-.Fa "const char *name"
-.Fa "struct group *grp"
-.Fa "char *buffer"
-.Fa "size_t bufsize"
-.Fa "struct group **result"
-.Fc
-.Ft void
-.Fo setgrent
-.Fa void
-.Fc
-.\" .Ft void
-.\" .Fn setgrfile "const char *name"
-.Ft int
-.Fo setgroupent
-.Fa "int stayopen"
-.Fc
+.Fn endgrent void
 .Sh DESCRIPTION
-These functions operate on the group database file
-.Pa /etc/group ,
+.\"These functions operate on the group database file
+These functions obtain information from
+.Xr DirectoryService 8 ,
+including records in
+.Pa /etc/group
 which is described
 in
 .Xr group 5 .
 Each line of the database is defined by the structure
-.Ar group ,
+.Vt group
 found in the include
 file
-.Aq Pa grp.h :
+.In grp.h :
 .Bd -literal -offset indent
 struct group {
 	char	*gr_name;	/* group name */
 	char	*gr_passwd;	/* group password */
-	int	gr_gid;		/* group id */
+	gid_t	gr_gid;		/* group id */
 	char	**gr_mem;	/* group members */
 };
 .Ed
@@ -116,45 +91,18 @@ The functions
 .Fn getgrnam
 and
 .Fn getgrgid
-search the group database for the given group name (pointed to by
-.Ar name )
-or the group id (pointed to by
-.Ar gid ) ,
-respectively, returning the first one encountered.  Identical group
-names or group ids may result in undefined behavior.
+search the group database for the given group name pointed to by
+.Fa name
+or the group id pointed to by
+.Fa gid ,
+respectively, returning the first one encountered.
+Identical group
+names or group gids may result in undefined behavior.
 .Pp
-All of these routines are thread-safe.
-The
-.Fn getgrent ,
-.Fn getgrgid ,
-and
-.Fn getgrnam
-routines return a pointer to a result managed by the system library in a
-thread-specific data structure.
-Every thread has space for a pointer to a struct group and allocates its own storage for the result.
-Neither previously returned values in memory nor a previously returned pointer value should be used
-by a thread after calling any one of these three routines.
-Memory allocated by a thread is automatically released on subsequent calls by the same thread to any of these
-three routines, and when the thread exits.
-.Pp
-The functions
-.Fn getgrgid_r
-and
-.Fn getgrnam_r
-take additional arguments which supply storage space for the returned result.
-The
-.Fa grp
-parameter is a pointer to a struct group, which must be allocated by the caller.
-The 
-.Fa buffer
-parameter is a pointer to a block of memory with a size specified by
-.Pa bufsize .
-This buffer is used to hold the values which are pointed to by values filled in
-the
-.Fa grp
-structure.
-Zero is returned on success.
-If insufficient memory is supplied, these routines return ERANGE.
+On Mac OS X, these routines are thread-safe and return a pointer to a
+thread-specific data structure.  The contents of this data
+structure are automatically released by subsequent calls to
+any of these routines on the same thread, or when the thread exits.
 .Pp
 The
 .Fn getgrent
@@ -162,19 +110,53 @@ function
 sequentially reads the group database and is intended for programs
 that wish to step through the complete list of groups.
 .Pp
-All three routines will open the group file for reading, if necessary.
+The functions
+.\".Fn getgrent_r ,
+.\".Fn getgrnam_r ,
+.Fn getgrnam_r
+and
+.Fn getgrgid_r
+are thread-safe versions of
+.\".Fn getgrent ,
+.\".Fn getgrnam ,
+.Fn getgrnam
+and
+.Fn getgrgid ,
+respectively.
+The caller must provide storage for the results of the search in
+the
+.Fa grp ,
+.Fa buffer ,
+.Fa bufsize ,
+and
+.Fa result
+arguments.
+When these functions are successful, the
+.Fa grp
+argument will be filled-in, and a pointer to that argument will be
+stored in
+.Fa result .
+If an entry is not found or an error occurs,
+.Fa result
+will be set to
+.Dv NULL .
+.Pp
+These functions will open the group file for reading, if necessary.
 .Pp
 The
 .Fn setgroupent
 function
-opens the file, or rewinds it if it is already open.  If
+opens the file, or rewinds it if it is already open.
+If
 .Fa stayopen
 is non-zero, file descriptors are left open, significantly speeding
-functions' subsequent calls.  This functionality is unnecessary for
-.Fn getgrent ,
-as it doesn't close its file descriptors by default.  It should also
+functions subsequent calls.
+This functionality is unnecessary for
+.Fn getgrent
+as it does not close its file descriptors by default.
+It should also
 be noted that it is dangerous for long-running programs to use this
-functionality, as the group file may be updated.
+functionality as the group file may be updated.
 .Pp
 The
 .Fn setgrent
@@ -190,18 +172,41 @@ closes any open files.
 .Sh RETURN VALUES
 The functions
 .Fn getgrent ,
-.Fn getgrgid ,
+.Fn getgrnam ,
 and
-.Fn getgrnam 
-each return a pointer to the group entry if successful; if end-of-file
-is reached or an error occurs, a null pointer is returned.
-The function
-.Fn setgroupent
-returns the value 1 if successful;
-otherwise, the value 0 is returned.
+.Fn getgrgid ,
+return a pointer to a group structure on success or
+.Dv NULL
+if the entry is not found or if an error occurs.
+If an error does occur,
+.Va errno
+will be set.
+Note that programs must explicitly set
+.Va errno
+to zero before calling any of these functions if they need to
+distinguish between a non-existent entry and an error.
 The functions
-.Fn endgrent ,
-.Fn setgrent ,
+.\".Fn getgrent_r ,
+.\".Fn getgrnam_r ,
+.Fn getgrnam_r
+and
+.Fn getgrgid_r
+return 0 if no error occurred, or an error number to indicate failure.
+It is not an error if a matching entry is not found.
+(Thus, if
+.Fa result
+is set to
+.Dv NULL
+and the return value is 0, no matching entry exists.)
+.Pp
+The functions
+.Fn setgroupent
+and
+.Fn setgrent
+return the value 1 if successful, otherwise the value
+0 is returned.
+The functions
+.Fn endgrent
 and
 .Fn setgrfile
 have no return value.
@@ -210,23 +215,34 @@ have no return value.
 .It Pa /etc/group
 group database file
 .El
-.Sh LEGACY SYNOPSIS
-.Fd #include <grp.h>
-.Pp
-.Ft int
-.br
-.Fo setgrent
-.Fa void
-.Fc ;
-.Pp
-The function
-.Fn setgrent
-returns the value 1 if successful;
-otherwise, the value 0 is returned.
+.Sh COMPATIBILITY
+The historic function
+.Fn setgrfile ,
+which allowed the specification of alternate password databases, has
+been deprecated and is no longer available.
 .Sh SEE ALSO
 .Xr getpwent 3 ,
-.Xr yp 8 ,
-.Xr group 5
+.Xr group 5 ,
+.\".Xr nsswitch.conf 5 ,
+.Xr DirectoryService 8 ,
+.Xr yp 8
+.Sh STANDARDS
+The
+.Fn getgrent ,
+.Fn getgrnam ,
+.Fn getgrnam_r ,
+.Fn getgrgid ,
+.Fn getgrgid_r
+and
+.Fn endgrent
+functions conform to
+.St -p1003.1-96 .
+The
+.Fn setgrent
+function differs from that standard in that its return type is
+.Vt int
+rather than
+.Vt void .
 .Sh HISTORY
 The functions
 .Fn endgrent ,
@@ -243,18 +259,42 @@ and
 .Fn setgroupent
 appeared in
 .Bx 4.3 Reno .
-.Sh COMPATIBILITY
-The historic function
-.Fn setgrfile ,
-which allowed the specification of alternate password databases, has
-been deprecated and is no longer available.
+The functions
+.\".Fn getgrent_r ,
+.\".Fn getgrnam_r ,
+.Fn getgrnam_r
+and
+.Fn getgrgid_r
+appeared in
+.Fx 5.1 .
 .Sh BUGS
 The functions
 .Fn getgrent ,
 .Fn getgrnam ,
-and
 .Fn getgrgid ,
-leave their results in internal thread-specific memory and return
+.Fn setgroupent
+and
+.Fn setgrent
+leave their results in an internal thread-specific memory and return
 a pointer to that object.
-Subsequent calls to any of these three routines by the same thread will
-release the object and return a new pointer value.
+Subsequent calls to
+the same function
+will modify the same object.
+.\".Pp
+.\"The functions
+.\".Fn getgrent ,
+.\".Fn getgrent_r ,
+.\".Fn endgrent ,
+.\".Fn setgroupent ,
+.\"and
+.\".Fn setgrent
+.\"are fairly useless in a networked environment and should be
+.\"avoided, if possible.
+.\"The
+.\".Fn getgrent
+.\"and
+.\".Fn getgrent_r
+.\"functions
+.\"make no attempt to suppress duplicate information if multiple
+.\"sources are specified in
+.\".Xr nsswitch.conf 5 .

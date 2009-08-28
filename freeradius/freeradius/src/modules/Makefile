@@ -1,7 +1,7 @@
 #
 # Makefile
 #
-# Version:	$Id: Makefile,v 1.22.2.1.2.4 2006/07/06 19:16:41 aland Exp $
+# Version:	$Id$
 #
 
 include ../../Make.inc
@@ -17,7 +17,7 @@ install:
 
 clean:
 	@$(MAKE) $(MFLAGS) WHAT_TO_MAKE=$@ common
-	@rm -f *~ lib/rlm_* lib/*.o lib/smbencrypt
+	@rm -f *~ lib/rlm_* lib/*.o lib/smbencrypt lib/radeapclient
 
 distclean:
 	@$(MAKE) $(MFLAGS) WHAT_TO_MAKE=$@ common
@@ -38,11 +38,12 @@ reconfig:
 		 if grep AC_CONFIG_HEADERS configure.in >/dev/null; then\
 			$(AUTOHEADER); \
 		 fi; \
-		) || exit $$?; \
+		)  || exit $$?; \
 	done
 
 common:
 	@[ -d lib/ ] || mkdir lib
+	@[ -d lib/.libs ] || mkdir lib/.libs
 	@for mod in $(MODULES); do \
 		if [ -d $$mod ] && [ -f $$mod/Makefile ]; then \
 			echo "Making $(WHAT_TO_MAKE) in $$mod..."; \

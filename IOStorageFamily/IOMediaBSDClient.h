@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,7 +33,7 @@
  * Kernel
  */
 
-#include <sys/kernel_types.h>
+#include <sys/conf.h>
 #include <IOKit/storage/IOMedia.h>
 
 class  AnchorTable;
@@ -111,18 +111,23 @@ public:
 
     virtual bool terminate(IOOptionBits options);
 
+#ifndef __LP64__
     virtual AnchorTable * getAnchors()             __attribute__ ((deprecated));
     virtual MinorTable *  getMinors()              __attribute__ ((deprecated));
     virtual MinorSlot *   getMinor(UInt32 minorID) __attribute__ ((deprecated));
+#endif /* !__LP64__ */
 
     /*
      * Process a foreign ioctl.
      */
 
-    virtual int ioctl(dev_t, u_long cmd, caddr_t data, int, proc_t);
+    virtual int ioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc);
 
-    OSMetaClassDeclareReservedUsed(IOMediaBSDClient, 0); /* 10.1.0 */
-
+#ifdef __LP64__
+    OSMetaClassDeclareReservedUnused(IOMediaBSDClient,  0);
+#else /* !__LP64__ */
+    OSMetaClassDeclareReservedUsed(IOMediaBSDClient,  0);
+#endif /* !__LP64__ */
     OSMetaClassDeclareReservedUnused(IOMediaBSDClient,  1);
     OSMetaClassDeclareReservedUnused(IOMediaBSDClient,  2);
     OSMetaClassDeclareReservedUnused(IOMediaBSDClient,  3);

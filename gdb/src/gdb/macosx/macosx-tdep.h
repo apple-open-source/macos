@@ -5,7 +5,13 @@
 #include "ppc-macosx-tdep.h"
 #elif defined (TARGET_I386)
 #include "i386-macosx-tdep.h"
+#elif defined (TARGET_ARM)
+#include "arm-macosx-tdep.h"
+#else 
+#error "Unrecognized target architecture"
 #endif
+
+#include "symtab.h"
 
 struct internal_nlist;
 struct external_nlist;
@@ -48,5 +54,13 @@ fast_show_stack_trace_prologue (unsigned int count_limit,
 				struct frame_info **fi,
 				void (print_fun) (struct ui_out * uiout, int frame_num,
 						  CORE_ADDR pc, CORE_ADDR fp));
+
+int
+macosx_enable_exception_callback (enum exception_event_kind kind, int enable);
+struct symtabs_and_lines *
+macosx_find_exception_catchpoints (enum exception_event_kind kind,
+                                   struct objfile *restrict_objfile);
+struct exception_event_record *
+macosx_get_current_exception_event ();
 
 #endif /* __GDB_MACOSX_TDEP_H__ */

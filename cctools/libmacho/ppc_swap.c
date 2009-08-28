@@ -127,7 +127,7 @@ swap_ppc_float_state_t(
 ppc_float_state_t *fpu,
 enum NXByteOrder target_byte_sex)
 {
-    unsigned long i;
+    uint32_t i;
 	
 	for(i = 0; i < 32; i++)
 	    fpu->fpregs[i] = NXSwapDouble(fpu->fpregs[i]);
@@ -141,7 +141,7 @@ swap_ppc_exception_state_t(
 ppc_exception_state_t *state,
 enum NXByteOrder target_byte_sex)
 {
-    unsigned long i;
+    uint32_t i;
 	
 	state->dar = NXSwapLong(state->dar);
 	state->dsisr = NXSwapLong(state->dsisr);

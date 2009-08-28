@@ -1,4 +1,4 @@
-/* $Id: from.h,v 1.1 2001/07/20 19:38:16 bbraun Exp $ */
+/* $Id: from.h,v 1.2 2000/10/27 20:03:59 guenther Exp $ */
 
 int
  eqFrom_ P((const char*const a));

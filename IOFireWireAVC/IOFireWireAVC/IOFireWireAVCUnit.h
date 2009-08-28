@@ -42,6 +42,8 @@ class IOFireWireAVCNub;
 // The callback prototype for AVC Asynchronous Commands
 typedef void (*IOFireWireAVCAsynchronousCommandCallback)(void *pRefCon, IOFireWireAVCAsynchronousCommand *pCommandObject);
 
+const UInt16 kIOFWAVCAsyncCmdFreed = 0xdead;
+
 /*!
 @class IOFireWireAVCAsynchronousCommand
 */
@@ -286,6 +288,8 @@ protected:
 	void lockAVCAsynchronousCommandLock();
 
 	void unlockAVCAsynchronousCommandLock();
+	
+	bool available();
 	
 private:
 		

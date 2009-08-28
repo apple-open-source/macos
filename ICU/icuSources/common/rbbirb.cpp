@@ -1,7 +1,7 @@
 //
 //  file:  rbbirb.cpp
 //
-//  Copyright (C) 2002-2005, International Business Machines Corporation and others.
+//  Copyright (C) 2002-2008, International Business Machines Corporation and others.
 //  All Rights Reserved.
 //
 //  This file contains the RBBIRuleBuilder class implementation.  This is the main class for
@@ -43,12 +43,12 @@ U_NAMESPACE_BEGIN
 //
 //----------------------------------------------------------------------------------------
 RBBIRuleBuilder::RBBIRuleBuilder(const UnicodeString   &rules,
-                                       UParseError     &parseErr,
+                                       UParseError     *parseErr,
                                        UErrorCode      &status)
  : fRules(rules)
 {
     fStatus = &status; // status is checked below
-    fParseError = &parseErr;
+    fParseError = parseErr;
     fDebugEnv   = NULL;
 #ifdef RBBI_DEBUG
     fDebugEnv   = getenv("U_RBBIDEBUG");
@@ -72,6 +72,9 @@ RBBIRuleBuilder::RBBIRuleBuilder(const UnicodeString   &rules,
     fRuleStatusVals     = NULL;
     fScanner            = NULL;
     fSetBuilder         = NULL;
+    if (parseErr) {
+        uprv_memset(parseErr, 0, sizeof(UParseError));
+    }
 
     if (U_FAILURE(status)) {
         return;
@@ -226,7 +229,7 @@ RBBIDataHeader *RBBIRuleBuilder::flattenData() {
 //----------------------------------------------------------------------------------------
 BreakIterator *
 RBBIRuleBuilder::createRuleBasedBreakIterator( const UnicodeString    &rules,
-                                    UParseError      &parseError,
+                                    UParseError      *parseError,
                                     UErrorCode       &status)
 {
     // status checked below
@@ -236,10 +239,10 @@ RBBIRuleBuilder::createRuleBasedBreakIterator( const UnicodeString    &rules,
     // and list of all Unicode Sets referenced by the rules.
     //
     RBBIRuleBuilder  builder(rules, parseError, status);
-    builder.fScanner->parse();
     if (U_FAILURE(status)) { // status checked here bcos build below doesn't
         return NULL;
     }
+    builder.fScanner->parse();
 
     //
     // UnicodeSet processing.
@@ -262,6 +265,14 @@ RBBIRuleBuilder::createRuleBasedBreakIterator( const UnicodeString    &rules,
             builder.fSafeFwdTables == NULL || builder.fSafeRevTables == NULL)) 
     {
         status = U_MEMORY_ALLOCATION_ERROR;
+    }
+    
+    // Before building the tables, check to make sure the status is ok.
+    if (U_FAILURE(status)) {
+    	delete builder.fForwardTables; builder.fForwardTables = NULL;
+    	delete builder.fReverseTables; builder.fReverseTables = NULL;
+    	delete builder.fSafeFwdTables; builder.fSafeFwdTables = NULL;
+    	delete builder.fSafeRevTables; builder.fSafeRevTables = NULL;
         return NULL;
     }
 
@@ -269,9 +280,6 @@ RBBIRuleBuilder::createRuleBasedBreakIterator( const UnicodeString    &rules,
     builder.fReverseTables->build();
     builder.fSafeFwdTables->build();
     builder.fSafeRevTables->build();
-    if (U_FAILURE(status)) {
-        return NULL;
-    }
 
 #ifdef RBBI_DEBUG
     if (builder.fDebugEnv && uprv_strstr(builder.fDebugEnv, "states")) {
@@ -284,6 +292,9 @@ RBBIRuleBuilder::createRuleBasedBreakIterator( const UnicodeString    &rules,
     //      in the run-time format.
     //
     RBBIDataHeader *data = builder.flattenData(); // returns NULL if error
+    if (U_FAILURE(*builder.fStatus)) {
+        return NULL;
+    }
 
 
     //

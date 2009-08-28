@@ -364,6 +364,7 @@ static void	ex_tag_cmd __ARGS((exarg_T *eap, char_u *name));
 # define ex_function		ex_ni
 # define ex_delfunction		ex_ni
 # define ex_return		ex_ni
+# define ex_oldfiles		ex_ni
 #endif
 static char_u	*arg_all __ARGS((void));
 #ifdef FEAT_SESSION
@@ -1776,7 +1777,7 @@ do_one_cmd(cmdlinep, sourcing,
 			}
 			if (checkforcmd(&ea.cmd, "browse", 3))
 			{
-#ifdef FEAT_BROWSE
+#ifdef FEAT_BROWSE_CMD
 			    cmdmod.browse = TRUE;
 #endif
 			    continue;
@@ -3615,6 +3616,7 @@ set_one_cmd_context(xp, buff)
 	    return set_context_in_autocmd(xp, arg, FALSE);
 
 	case CMD_doautocmd:
+	case CMD_doautoall:
 	    return set_context_in_autocmd(xp, arg, TRUE);
 #endif
 	case CMD_set:
@@ -5486,6 +5488,9 @@ invalid_count:
     return OK;
 }
 
+/*
+ * ":command ..."
+ */
     static void
 ex_command(eap)
     exarg_T   *eap;
@@ -5918,6 +5923,7 @@ do_ucmd(eap)
 
     char_u	*start;
     char_u	*end;
+    char_u	*ksp;
     size_t	len, totlen;
 
     size_t	split_len = 0;
@@ -5934,16 +5940,51 @@ do_ucmd(eap)
 
     /*
      * Replace <> in the command by the arguments.
+     * First round: "buf" is NULL, compute length, allocate "buf".
+     * Second round: copy result into "buf".
      */
     buf = NULL;
     for (;;)
     {
-	p = cmd->uc_rep;
-	q = buf;
+	p = cmd->uc_rep;    /* source */
+	q = buf;	    /* destinateion */
 	totlen = 0;
-	while ((start = vim_strchr(p, '<')) != NULL
-	       && (end = vim_strchr(start + 1, '>')) != NULL)
+
+	for (;;)
 	{
+	    start = vim_strchr(p, '<');
+	    if (start != NULL)
+		end = vim_strchr(start + 1, '>');
+	    if (buf != NULL)
+	    {
+		ksp = vim_strchr(p, K_SPECIAL);
+		if (ksp != NULL && (start == NULL || ksp < start || end == NULL)
+			&& ((ksp[1] == KS_SPECIAL && ksp[2] == KE_FILLER)
+# ifdef FEAT_GUI
+			    || (ksp[1] == KS_EXTRA && ksp[2] == (int)KE_CSI)
+# endif
+			    ))
+		{
+		    /* K_SPECIAL han been put in the buffer as K_SPECIAL
+		     * KS_SPECIAL KE_FILLER, like for mappings, but
+		     * do_cmdline() doesn't handle that, so convert it back.
+		     * Also change K_SPECIAL KS_EXTRA KE_CSI into CSI. */
+		    len = ksp - p;
+		    if (len > 0)
+		    {
+			mch_memmove(q, p, len);
+			q += len;
+		    }
+		    *q++ = ksp[1] == KS_SPECIAL ? K_SPECIAL : CSI;
+		    p = ksp + 3;
+		    continue;
+		}
+	    }
+
+	    /* break if there no <item> is found */
+	    if (start == NULL || end == NULL)
+		break;
+
 	    /* Include the '>' */
 	    ++end;
 
@@ -7492,7 +7533,8 @@ do_exedit(eap, old_curwin)
 	/* ":new" or ":tabnew" without argument: edit an new empty buffer */
 	setpcmark();
 	(void)do_ecmd(0, NULL, NULL, eap, ECMD_ONE,
-			       ECMD_HIDE + (eap->forceit ? ECMD_FORCEIT : 0));
+		      ECMD_HIDE + (eap->forceit ? ECMD_FORCEIT : 0),
+		      old_curwin == NULL ? curwin : NULL);
     }
     else if ((eap->cmdidx != CMD_split
 #ifdef FEAT_VERTSPLIT
@@ -7529,7 +7571,7 @@ do_exedit(eap, old_curwin)
 #ifdef FEAT_LISTCMDS
 		    + (eap->cmdidx == CMD_badd ? ECMD_ADDBUF : 0 )
 #endif
-		    ) == FAIL)
+		    , old_curwin == NULL ? curwin : NULL) == FAIL)
 	{
 	    /* Editing the file failed.  If the window was split, close it. */
 #ifdef FEAT_WINDOWS
@@ -8764,8 +8806,8 @@ ex_mkrc(eap)
 		else if (*dirnow != NUL
 			&& (ssop_flags & SSOP_CURDIR) && globaldir != NULL)
 		{
-		    (void)mch_chdir((char *)globaldir);
-		    shorten_fnames(TRUE);
+		    if (mch_chdir((char *)globaldir) == OK)
+			shorten_fnames(TRUE);
 		}
 
 		failed |= (makeopens(fd, dirnow) == FAIL);
@@ -9521,24 +9563,50 @@ eval_vars(src, srcstart, usedlen, lnump, errormsg, escaped)
 		    break;
 		}
 		s = src + 1;
+		if (*s == '<')		/* "#<99" uses v:oldfiles */
+		    ++s;
 		i = (int)getdigits(&s);
 		*usedlen = (int)(s - src); /* length of what we expand */
 
-		buf = buflist_findnr(i);
-		if (buf == NULL)
+		if (src[1] == '<')
 		{
-		    *errormsg = (char_u *)_("E194: No alternate file name to substitute for '#'");
+		    if (*usedlen < 2)
+		    {
+			/* Should we give an error message for #<text? */
+			*usedlen = 1;
+			return NULL;
+		    }
+#ifdef FEAT_EVAL
+		    result = list_find_str(get_vim_var_list(VV_OLDFILES),
+								     (long)i);
+		    if (result == NULL)
+		    {
+			*errormsg = (char_u *)"";
+			return NULL;
+		    }
+#else
+		    *errormsg = (char_u *)_("E809: #< is not available without the +eval feature");
 		    return NULL;
-		}
-		if (lnump != NULL)
-		    *lnump = ECMD_LAST;
-		if (buf->b_fname == NULL)
-		{
-		    result = (char_u *)"";
-		    valid = 0;	    /* Must have ":p:h" to be valid */
+#endif
 		}
 		else
-		    result = buf->b_fname;
+		{
+		    buf = buflist_findnr(i);
+		    if (buf == NULL)
+		    {
+			*errormsg = (char_u *)_("E194: No alternate file name to substitute for '#'");
+			return NULL;
+		    }
+		    if (lnump != NULL)
+			*lnump = ECMD_LAST;
+		    if (buf->b_fname == NULL)
+		    {
+			result = (char_u *)"";
+			valid = 0;	    /* Must have ":p:h" to be valid */
+		    }
+		    else
+			result = buf->b_fname;
+		}
 		break;
 
 #ifdef FEAT_SEARCHPATH
@@ -10091,7 +10159,7 @@ makeopens(fd, dirnow)
      */
     if (put_line(fd, "let s:sx = expand(\"<sfile>:p:r\").\"x.vim\"") == FAIL
 	    || put_line(fd, "if file_readable(s:sx)") == FAIL
-	    || put_line(fd, "  exe \"source \" . s:sx") == FAIL
+	    || put_line(fd, "  exe \"source \" . fnameescape(s:sx)") == FAIL
 	    || put_line(fd, "endif") == FAIL)
 	return FAIL;
 
@@ -10713,7 +10781,8 @@ ex_viminfo(eap)
 	p_viminfo = (char_u *)"'100";
     if (eap->cmdidx == CMD_rviminfo)
     {
-	if (read_viminfo(eap->arg, TRUE, TRUE, eap->forceit) == FAIL)
+	if (read_viminfo(eap->arg, VIF_WANT_INFO | VIF_WANT_MARKS
+				  | (eap->forceit ? VIF_FORCEIT : 0)) == FAIL)
 	    EMSG(_("E195: Cannot open viminfo file for reading"));
     }
     else

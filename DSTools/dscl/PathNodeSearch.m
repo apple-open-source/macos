@@ -28,11 +28,13 @@
 #import <DirectoryService/DirectoryService.h>
 #import <DSObjCWrappers/DSObjCWrappers.h>
 #import <DirectoryServiceCore/CSharedData.h>
+#import <DirectoryService/DirServicesConstPriv.h>
 
 #import "PathNodeSearch.h"
 
 @interface PathNodeSearch (Private)
 
+- (DSoNodeConfig*)configNode;
 - (void) _destroyRights;
 
 @end
@@ -40,13 +42,19 @@
 
 @implementation PathNodeSearch (Private)
 
+- (DSoNodeConfig*)configNode
+{
+	if (_configNode == nil) {
+		_configNode = [[[_node directory] findNodeViaEnum:eDSConfigNodeName] retain];
+	}
+	return _configNode;
+}
+
 - (void)_destroyRights
 {
 	// free _authExternalForm
 	if (_haveRights) {
-		if (_configNode == nil)
-			_configNode = [[[_node directory] findNodeViaEnum:eDSConfigNodeName] retain];
-		[_configNode customCall:eDSCustomCallConfigureDestroyAuthRef
+		[[self configNode] customCall:eDSCustomCallConfigureDestroyAuthRef
 			  withAuthorization:&_authExternalForm];
 	}
 }
@@ -65,6 +73,9 @@
 - initWithDir:(DSoDirectory*)inDir path:(NSString*)inPath
 {
     [super initWithDir:inDir path:inPath];
+	if ( [inPath isEqualTo: @"/Search"] == YES ) {
+		_type = eDSSearchNodeName;
+	}
     bzero(&_authExternalForm,sizeof(_authExternalForm));
     return self;
 }
@@ -72,6 +83,23 @@
 - initWithNode:(DSoNode*)inNode path:(NSString*)inPath
 {
     [super initWithNode:inNode path:inPath];
+	
+	if ( [[inNode getName] isEqualTo: @"/Search"] == YES || [inPath isEqualTo: @"/Search"] == YES ) {
+		_type = eDSSearchNodeName;
+	}
+    bzero(&_authExternalForm,sizeof(_authExternalForm));
+    return self;
+}
+
+- initWithNode:(DSoNode*)inNode path:(NSString*)inPath type:(tDirPatternMatch)val
+{
+    [super initWithNode:inNode path:inPath];
+	if ( [[inNode getName] isEqualTo: @"/Search"] == YES || [inPath isEqualTo: @"/Search"] ) {
+		_type = eDSSearchNodeName;
+	}
+	else {
+		_type = val;
+	}
     bzero(&_authExternalForm,sizeof(_authExternalForm));
     return self;
 }
@@ -80,7 +108,8 @@
 {
 	[self _destroyRights];
 	[_configNode release];
-    [super dealloc];
+	_configNode = nil;
+	[super dealloc];
 }
 
 - (tDirStatus) authenticateName:(NSString*)inUsername withPassword:(NSString*)inPassword authOnly:(BOOL)inAuthOnly
@@ -95,11 +124,8 @@
 	if (user != nil) {
 		status = [[user node] authenticateName:inUsername withPassword:inPassword authOnly:YES];
 		if (status == eDSNoErr && inAuthOnly == NO) {
-			if (_configNode == nil) {
-				_configNode = [[[_node directory] findNodeViaEnum:eDSConfigNodeName] retain];
-			}
 			outputData = [NSMutableData dataWithLength:sizeof(AuthorizationExternalForm)];
-			status = [_configNode customCall:eDSCustomCallConfigureGetAuthRef
+			status = [[self configNode] customCall:eDSCustomCallConfigureGetAuthRef
 				sendItems:[NSArray arrayWithObjects:inUsername,inPassword,nil]
 									outputData:outputData];
 			if (status == eDSNoErr && [outputData length] >= sizeof( AuthorizationExternalForm ) )
@@ -160,7 +186,7 @@
 {
     tDirStatus		nError				= eDSReadOnly;
 	tDirStatus		firstError			= eDSNoErr;
-	unsigned int	index				= NSNotFound;
+	NSUInteger		index				= NSNotFound;
 	NSEnumerator	*objEnum			= nil;
 	NSString		*oldValue			= nil;
 	NSString		*newValue			= nil;
@@ -231,10 +257,8 @@
 					oldValues = [_node getAttribute:kDSNAttrCSPSearchPath];
 					newValues = [[oldValues mutableCopy] autorelease];
 					[newValues removeObjectsInArray:inValues];
-					if ([newValues count] >= 1 && [oldValues count] >= 1
-						&& [[newValues objectAtIndex:0] isEqual:[oldValues objectAtIndex:0]]) {
-						nError = [self setCustomSearchPath:newValues];
-					}
+					
+					nError = [self setCustomSearchPath:newValues];
 				}
                 break;
 			case ATTR_CHANGE:
@@ -327,20 +351,19 @@
 
 - (tDirStatus)setCustomSearchPath:(NSArray*)nodeList
 {
-	tDirStatus status = eDSReadOnly;
-	int icnt = 0;
 	NSMutableArray* newNodeList = [[nodeList mutableCopy] autorelease];
 	
-	NSArray *localValues = [_node getAttribute:kDSNAttrLSPSearchPath];
-	
-	if ([newNodeList count] >= [localValues count]) {
-		for (icnt=0; icnt < [localValues count]; icnt++)
-			[newNodeList removeObjectAtIndex:0];
-		status = [_node customCall:eDSCustomCallSearchSetCustomNodeList 
-			sendPropertyList:newNodeList withAuthorization:&_authExternalForm];
+	// operating system was added in 10.6 and that's all we are looking for
+	id sysVersion = [[self configNode] getAttribute: kDS1AttrOperatingSystemVersion];
+	if ( [sysVersion count] == 0 || _type == eDSSearchNodeName ) {
+		for ( id path in [_node getAttribute:kDSNAttrLSPSearchPath] ) {
+			[newNodeList removeObject: path];
+		}
 	}
 	
-	return status;
+	return [_node customCall: eDSCustomCallSearchSetCustomNodeList 
+			sendPropertyList: newNodeList
+		   withAuthorization: &_authExternalForm];
 }
 
 - (BOOL)nodeNameIsValid:(NSString*)nodeName

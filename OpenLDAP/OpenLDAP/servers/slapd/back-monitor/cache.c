@@ -1,8 +1,8 @@
 /* cache.c - routines to maintain an in-core cache of entries */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/cache.c,v 1.19.2.5 2006/04/04 22:34:43 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/cache.c,v 1.27.2.5 2008/05/01 21:25:42 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2001-2006 The OpenLDAP Foundation.
+ * Copyright 2001-2008 The OpenLDAP Foundation.
  * Portions Copyright 2001-2003 Pierangelo Masarati.
  * All rights reserved.
  *
@@ -120,6 +120,22 @@ monitor_cache_lock(
 }
 
 /*
+ * tries to lock the entry (no r/w)
+ */
+int
+monitor_cache_trylock(
+	Entry		*e )
+{
+	monitor_entry_t *mp;
+
+	assert( e != NULL );
+	assert( e->e_private != NULL );
+
+	mp = ( monitor_entry_t * )e->e_private;
+	return ldap_pvt_thread_mutex_trylock( &mp->mp_mutex );
+}
+
+/*
  * gets an entry from the cache based on the normalized dn 
  * with mutex locked
  */
@@ -138,14 +154,125 @@ monitor_cache_get(
 	*ep = NULL;
 
 	tmp_mc.mc_ndn = *ndn;
+retry:;
 	ldap_pvt_thread_mutex_lock( &mi->mi_cache_mutex );
 	mc = ( monitor_cache_t * )avl_find( mi->mi_cache,
 			( caddr_t )&tmp_mc, monitor_cache_cmp );
 
 	if ( mc != NULL ) {
 		/* entry is returned with mutex locked */
-		monitor_cache_lock( mc->mc_e );
+		if ( monitor_cache_trylock( mc->mc_e ) ) {
+			ldap_pvt_thread_mutex_unlock( &mi->mi_cache_mutex );
+			ldap_pvt_thread_yield();
+			goto retry;
+		}
 		*ep = mc->mc_e;
+	}
+
+	ldap_pvt_thread_mutex_unlock( &mi->mi_cache_mutex );
+
+	return ( *ep == NULL ? -1 : 0 );
+}
+
+/*
+ * gets an entry from the cache based on the normalized dn 
+ * with mutex locked
+ */
+int
+monitor_cache_remove(
+	monitor_info_t	*mi,
+	struct berval	*ndn,
+	Entry		**ep )
+{
+	monitor_cache_t tmp_mc, *mc;
+	struct berval	pndn;
+
+	assert( mi != NULL );
+	assert( ndn != NULL );
+	assert( ep != NULL );
+
+	*ep = NULL;
+
+	dnParent( ndn, &pndn );
+
+retry:;
+	ldap_pvt_thread_mutex_lock( &mi->mi_cache_mutex );
+
+	tmp_mc.mc_ndn = *ndn;
+	mc = ( monitor_cache_t * )avl_find( mi->mi_cache,
+			( caddr_t )&tmp_mc, monitor_cache_cmp );
+
+	if ( mc != NULL ) {
+		monitor_cache_t *pmc;
+
+		if ( monitor_cache_trylock( mc->mc_e ) ) {
+			ldap_pvt_thread_mutex_unlock( &mi->mi_cache_mutex );
+			goto retry;
+		}
+
+		tmp_mc.mc_ndn = pndn;
+		pmc = ( monitor_cache_t * )avl_find( mi->mi_cache,
+			( caddr_t )&tmp_mc, monitor_cache_cmp );
+		if ( pmc != NULL ) {
+			monitor_entry_t	*mp = (monitor_entry_t *)mc->mc_e->e_private,
+					*pmp = (monitor_entry_t *)pmc->mc_e->e_private;
+			Entry		**entryp;
+
+			if ( monitor_cache_trylock( pmc->mc_e ) ) {
+				monitor_cache_release( mi, mc->mc_e );
+				ldap_pvt_thread_mutex_unlock( &mi->mi_cache_mutex );
+				goto retry;
+			}
+
+			for ( entryp = &pmp->mp_children; *entryp != NULL;  ) {
+				monitor_entry_t	*next = (monitor_entry_t *)(*entryp)->e_private;
+				if ( next == mp ) {
+					*entryp = next->mp_next;
+					entryp = NULL;
+					break;
+				}
+
+				entryp = &next->mp_next;
+			}
+
+			if ( entryp != NULL ) {
+				Debug( LDAP_DEBUG_ANY,
+					"monitor_cache_remove(\"%s\"): "
+					"not in parent's list\n",
+					ndn->bv_val, 0, 0 );
+			}
+
+			/* either succeeded, and the entry is no longer
+			 * in its parent's list, or failed, and the
+			 * entry is neither mucked with nor returned */
+			monitor_cache_release( mi, pmc->mc_e );
+
+			if ( entryp == NULL ) {
+				monitor_cache_t *tmpmc;
+
+				tmp_mc.mc_ndn = *ndn;
+				tmpmc = avl_delete( &mi->mi_cache,
+					( caddr_t )&tmp_mc, monitor_cache_cmp );
+				assert( tmpmc == mc );
+
+				*ep = mc->mc_e;
+				ch_free( mc );
+				mc = NULL;
+
+				/* NOTE: we destroy the mutex, but otherwise
+				 * leave the private data around; specifically,
+				 * callbacks need be freed by someone else */
+
+				ldap_pvt_thread_mutex_destroy( &mp->mp_mutex );
+				mp->mp_next = NULL;
+				mp->mp_children = NULL;
+			}
+
+		}
+
+		if ( mc ) {
+			monitor_cache_release( mi, mc->mc_e );
+		}
 	}
 
 	ldap_pvt_thread_mutex_unlock( &mi->mi_cache_mutex );
@@ -277,11 +404,18 @@ monitor_entry_destroy( void *v_mc )
 		mp = ( monitor_entry_t * )mc->mc_e->e_private;
 
 		if ( mp->mp_cb ) {
-			if ( mp->mp_cb->mc_free ) {
-				mp->mp_cb->mc_free( mc->mc_e,
-					mp->mp_cb->mc_private );
+			monitor_callback_t	*cb;
+
+			for ( cb = mp->mp_cb; cb != NULL; ) {
+				monitor_callback_t	*next = cb->mc_next;
+
+				if ( cb->mc_free ) {
+					(void)cb->mc_free( mc->mc_e, &cb->mc_private );
+				}
+				ch_free( mp->mp_cb );
+
+				cb = next;
 			}
-			ch_free( mp->mp_cb );
 		}
 
 		ldap_pvt_thread_mutex_destroy( &mp->mp_mutex );

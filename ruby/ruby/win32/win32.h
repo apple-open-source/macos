@@ -19,9 +19,7 @@
 //
 
 // #include <stdarg.h> conflict with varargs.h?
-// There is function-name conflitct, so we rename it
 #if !defined(IN) && !defined(FLOAT)
-#define OpenFile  WINAPI_OpenFile
 #ifdef __BORLANDC__
 #define USE_WINSOCK2
 #endif
@@ -33,7 +31,6 @@
 #include <windows.h>
 #include <winsock.h>
 #endif
-#undef OpenFile
 #endif
 
 #define NT 1			/* deprecated */
@@ -52,17 +49,19 @@
 #undef finally
 #undef leave
 
-#if defined(__cplusplus)
-extern "C++" {
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <direct.h>
 #include <process.h>
 #include <time.h>
+#if defined(__cplusplus) && defined(_MSC_VER) && _MSC_VER == 1200
+extern "C++" {			/* template without extern "C++" */
+#endif
 #include <math.h>
+#if defined(__cplusplus) && defined(_MSC_VER) && _MSC_VER == 1200
+}
+#endif
 #include <signal.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -73,10 +72,6 @@ extern "C++" {
 #endif
 #include <io.h>
 #include <malloc.h>
-
-#if defined(__cplusplus)
-}
-#endif
 
 #ifdef _M_IX86
 # define WIN95 1
@@ -165,7 +160,7 @@ struct timezone {
 #endif
 extern void   NtInitialize(int *, char ***);
 extern int    rb_w32_cmdvector(const char *, char ***);
-extern rb_pid_t pipe_exec(char *, int, FILE **, FILE **);
+extern rb_pid_t pipe_exec(const char *, int, FILE **, FILE **);
 extern int    flock(int fd, int oper);
 extern int    rb_w32_accept(int, struct sockaddr *, int *);
 extern int    rb_w32_bind(int, struct sockaddr *, int);
@@ -200,6 +195,7 @@ extern int    rb_w32_rename(const char *, const char *);
 extern int    rb_w32_stat(const char *, struct stat *);
 extern char **rb_w32_get_environ(void);
 extern void   rb_w32_free_environ(char **);
+extern int    rb_w32_map_errno(DWORD);
 
 #define vsnprintf(s,n,f,l) rb_w32_vsnprintf(s,n,f,l)
 #define snprintf   rb_w32_snprintf
@@ -210,8 +206,8 @@ extern int chown(const char *, int, int);
 extern int link(char *, char *);
 extern int gettimeofday(struct timeval *, struct timezone *);
 extern rb_pid_t waitpid (rb_pid_t, int *, int);
-extern int do_spawn(int, char *);
-extern int do_aspawn(int, char *, char **);
+extern int do_spawn(int, const char *);
+extern int do_aspawn(int, const char *, char **);
 extern int kill(int, int);
 extern int fcntl(int, int, ...);
 extern rb_pid_t rb_w32_getpid(void);

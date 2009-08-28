@@ -345,7 +345,6 @@ c_type_print_modifier (struct type *type, struct ui_file *stream,
 static void
 c_type_print_args (struct type *type, struct ui_file *stream)
 {
-  int i;
   struct field *args;
 
   fprintf_filtered (stream, "(");

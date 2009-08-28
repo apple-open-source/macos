@@ -11,6 +11,10 @@ from your SQL database.
 
 =head1 SECTIONS
 
+=head2 L<DBIx::Class::Manual::FAQ>
+
+Short answers and doc pointers to questions.
+
 =head2 L<DBIx::Class::Manual::Intro>
 
 Beginner guide to using DBIx::Class. 
@@ -18,6 +22,10 @@ Beginner guide to using DBIx::Class.
 =head2 L<DBIx::Class::Manual::Example>
 
 An example of slightly more complex usage.
+
+=head2 L<DBIx::Class::Manual::Joining>
+
+How to translate known SQL JOINs into DBIx-Class-ish.
 
 =head2 L<DBIx::Class::Manual::Cookbook>
 

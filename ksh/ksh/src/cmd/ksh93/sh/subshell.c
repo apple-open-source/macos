@@ -1,10 +1,10 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*          Copyright (c) 1982-2007 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
-*                      by AT&T Knowledge Ventures                      *
+*                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
 *            http://www.opensource.org/licenses/cpl1.0.txt             *
@@ -61,9 +61,7 @@ static struct subshell
 	struct Link	*svar;	/* save shell variable table */
 	Dt_t		*sfun;	/* function scope for subshell */
 	Dt_t		*salias;/* alias scope for subshell */
-#ifdef PATH_BFPATH
 	Pathcomp_t	*pathlist; /* for PATH variable */
-#endif
 #if (ERROR_VERSION >= 20030214L)
 	struct Error_context_s *errcontext;
 #else
@@ -328,7 +326,7 @@ Sfio_t *sh_subshell(Shnode_t *t, int flags, int comsub)
 	Shell_t *shp = &sh;
 	struct subshell sub_data;
 	register struct subshell *sp = &sub_data;
-	int jmpval,nsig;
+	int jmpval,nsig=0;
 	int savecurenv = shp->curenv;
 	int savejobpgid = job.curpgid;
 	int16_t subshell;
@@ -358,12 +356,10 @@ Sfio_t *sh_subshell(Shnode_t *t, int flags, int comsub)
 	sp->var = shp->var_tree;
 	sp->options = shp->options;
 	sp->jobs = job_subsave();
-#ifdef PATH_BFPATH
 	/* make sure initialization has occurred */ 
 	if(!shp->pathlist)
 		path_get(".");
 	sp->pathlist = path_dup((Pathcomp_t*)shp->pathlist);
-#endif
 	if(!shp->pwd)
 		path_pwd(0);
 	sp->bckpid = shp->bckpid;
@@ -486,16 +482,15 @@ Sfio_t *sh_subshell(Shnode_t *t, int flags, int comsub)
 		shp->subshell--;
 	subshell = shp->subshell;
 	nv_putval(SH_SUBSHELLNOD, (char*)&subshell, NV_INT16);
-#ifdef PATH_BFPATH
 	path_delete((Pathcomp_t*)shp->pathlist);
 	shp->pathlist = (void*)sp->pathlist;
-#endif
 	job_subrestore(sp->jobs);
 	shp->jobenv = savecurenv;
 	job.curpgid = savejobpgid;
 	shp->bckpid = sp->bckpid;
 	if(sp->shpwd)	/* restore environment if saved */
 	{
+		int n;
 		shp->options = sp->options;
 		nv_restore(sp);
 		if(sp->salias)
@@ -510,7 +505,10 @@ Sfio_t *sh_subshell(Shnode_t *t, int flags, int comsub)
 			table_unset(sp->sfun);
 			dtclose(sp->sfun);
 		}
+		n = shp->st.trapmax-savst.trapmax;
 		sh_sigreset(1);
+		if(n>0)
+			memset(&shp->st.trapcom[savst.trapmax],0,n*sizeof(char*));
 		shp->st = savst;
 		shp->curenv = savecurenv;
 		if(nsig)
@@ -526,9 +524,7 @@ Sfio_t *sh_subshell(Shnode_t *t, int flags, int comsub)
 			if(shp->pwd)
 			{
 				chdir(shp->pwd=sp->pwd);
-#ifdef PATH_BFPATH
 				path_newdir(shp->pathlist);
-#endif
 			}
 			if(nv_isattr(pwdnod,NV_NOFREE))
 				pwdnod->nvalue.cp = (const char*)sp->pwd;

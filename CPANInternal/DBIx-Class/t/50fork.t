@@ -18,7 +18,7 @@ if($num_children !~ /^[0-9]+$/ || $num_children < 10) {
    $num_children = 10;
 }
 
-plan tests => $num_children + 5;
+plan tests => $num_children + 6;
 
 use lib qw(t/lib);
 
@@ -44,6 +44,23 @@ eval {
     $parent_rs->next;
 };
 ok(!$@) or diag "Creation eval failed: $@";
+
+{
+    my $pid = fork;
+    if(!defined $pid) {
+        die "fork failed: $!";
+    }
+
+    if (!$pid) {
+        exit $schema->storage->connected ? 1 : 0;
+    }
+
+    if (waitpid($pid, 0) == $pid) {
+        my $ex = $? >> 8;
+        ok($ex == 0, "storage->connected() returns false in child");
+        exit $ex if $ex; # skip remaining tests
+    }
+}
 
 my @pids;
 while(@pids < $num_children) {

@@ -2,7 +2,7 @@
  * lock.c:  routines for locking working copy subdirectories.
  *
  * ====================================================================
- * Copyright (c) 2000-2006 CollabNet.  All rights reserved.
+ * Copyright (c) 2000-2008 CollabNet.  All rights reserved.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution.  The terms
@@ -16,14 +16,14 @@
  * ====================================================================
  */
 
-#include <assert.h>
-
 #include <apr_pools.h>
 #include <apr_time.h>
 
 #include "svn_pools.h"
+#include "svn_dirent_uri.h"
 #include "svn_path.h"
 #include "svn_sorts.h"
+#include "svn_types.h"
 
 #include "wc.h"
 #include "adm_files.h"
@@ -34,11 +34,24 @@
 #include "entries.h"
 
 #include "svn_private_config.h"
+#include "private/svn_wc_private.h"
 
 
 
+typedef struct
+{
+  /* SET is a hash of svn_wc_adm_access_t* keyed on char* representing the
+     path to directories that are open. */
+  apr_hash_t *set;
+
+} svn_wc__adm_shared_t;
+
+
 struct svn_wc_adm_access_t
 {
+  /* The working copy format version number for the directory */
+  int wc_format;
+
   /* PATH to directory which contains the administrative area */
   const char *path;
 
@@ -61,15 +74,12 @@ struct svn_wc_adm_access_t
   /* LOCK_EXISTS is set TRUE when the write lock exists */
   svn_boolean_t lock_exists;
 
+  /* SHARED contains state that is shared among all associated
+     access batons. */
+  svn_wc__adm_shared_t *shared;
+
   /* SET_OWNER is TRUE if SET is allocated from this access baton */
   svn_boolean_t set_owner;
-
-  /* The working copy format version number for the directory */
-  int wc_format;
-
-  /* SET is a hash of svn_wc_adm_access_t* keyed on char* representing the
-     path to directories that are open. */
-  apr_hash_t *set;
 
   /* ENTRIES is the cached entries for PATH, without those in state
      deleted. ENTRIES_HIDDEN is the cached entries including those in
@@ -93,12 +103,12 @@ struct svn_wc_adm_access_t
 /* This is a placeholder used in the set hash to represent missing
    directories.  Only its address is important, it contains no useful
    data. */
-static svn_wc_adm_access_t missing;
+static const svn_wc_adm_access_t missing;
 
 
 static svn_error_t *
 do_close(svn_wc_adm_access_t *adm_access, svn_boolean_t preserve_lock,
-         svn_boolean_t recurse);
+         svn_boolean_t recurse, apr_pool_t *scratch_pool);
 
 
 /* Defining this conditional will result in a client that will refuse to
@@ -109,7 +119,7 @@ do_close(svn_wc_adm_access_t *adm_access, svn_boolean_t preserve_lock,
 
 /* Write, to LOG_ACCUM, log entries to convert an old WC that did not have
    propcaching into a WC that uses propcaching.  Do this conversion for
-   the directory of ADM_ACCESS and its file children.  Use POOL for 
+   the directory of ADM_ACCESS and its file children.  Use POOL for
    temporary allocations.  */
 static svn_error_t *
 introduce_propcaching(svn_stringbuf_t *log_accum,
@@ -119,7 +129,7 @@ introduce_propcaching(svn_stringbuf_t *log_accum,
   apr_hash_t *entries;
   apr_hash_index_t *hi;
   apr_pool_t *subpool = svn_pool_create(pool);
-  
+
   SVN_ERR(svn_wc_entries_read(&entries, adm_access, FALSE, pool));
 
   /* Reinstall the properties for each file and this dir; subdirs are handled
@@ -128,7 +138,7 @@ introduce_propcaching(svn_stringbuf_t *log_accum,
     {
       void *val;
       const svn_wc_entry_t *entry;
-      svn_wc_entry_t tmpentry;
+      const char *entrypath;
       apr_hash_t *base_props, *props;
 
       apr_hash_this(hi, NULL, NULL, &val);
@@ -139,19 +149,15 @@ introduce_propcaching(svn_stringbuf_t *log_accum,
         continue;
 
       svn_pool_clear(subpool);
-      
-      SVN_ERR(svn_wc__load_props(&base_props, &props, adm_access,
-                                 entry->name, subpool));
-      SVN_ERR(svn_wc__install_props(&log_accum, adm_access, entry->name,
+
+      entrypath = svn_path_join(adm_access->path, entry->name, subpool);
+      SVN_ERR(svn_wc__load_props(&base_props, &props, NULL, adm_access,
+                                 entrypath, subpool));
+      SVN_ERR(svn_wc__install_props(&log_accum, adm_access, entrypath,
                                     base_props, props, TRUE, subpool));
-      /* Make sure we get rid of that prop-time field.
-         It only wastes space in new WCs. */
-      tmpentry.prop_time = 0;
-      SVN_ERR(svn_wc__loggy_entry_modify(&log_accum, adm_access,
-                                         entry->name, &tmpentry,
-                                         SVN_WC__ENTRY_MODIFY_PROP_TIME,
-                                         pool));
     }
+
+  svn_pool_destroy(subpool);
 
   return SVN_NO_ERROR;
 }
@@ -168,7 +174,7 @@ convert_wcprops(svn_stringbuf_t *log_accum,
   apr_hash_t *entries;
   apr_hash_index_t *hi;
   apr_pool_t *subpool = svn_pool_create(pool);
-  
+
   SVN_ERR(svn_wc_entries_read(&entries, adm_access, FALSE, pool));
 
   /* Walk over the entries, adding a modify-wcprop command for each wcprop.
@@ -181,16 +187,19 @@ convert_wcprops(svn_stringbuf_t *log_accum,
       const svn_wc_entry_t *entry;
       apr_hash_t *wcprops;
       apr_hash_index_t *hj;
+      const char *full_path;
 
       apr_hash_this(hi, NULL, NULL, &val);
       entry = val;
+
+      full_path = svn_path_join(adm_access->path, entry->name, pool);
 
       if (entry->kind != svn_node_file
           && strcmp(entry->name, SVN_WC_ENTRY_THIS_DIR) != 0)
         continue;
 
       svn_pool_clear(subpool);
-      
+
       SVN_ERR(svn_wc__wcprop_list(&wcprops, entry->name, adm_access, subpool));
 
       /* Create a subsubpool for the inner loop...
@@ -207,7 +216,7 @@ convert_wcprops(svn_stringbuf_t *log_accum,
           propname = key2;
           propval = val2;
           SVN_ERR(svn_wc__loggy_modify_wcprop(&log_accum, adm_access,
-                                              entry->name, propname,
+                                              full_path, propname,
                                               propval->data,
                                               subpool));
         }
@@ -263,24 +272,24 @@ maybe_upgrade_format(svn_wc_adm_access_t *adm_access, apr_pool_t *pool)
 
       if (adm_access->wc_format <= SVN_WC__WCPROPS_MANY_FILES_VERSION)
         {
-          const char *access_path = svn_wc_adm_access_path(adm_access);
           /* Remove wcprops directory, dir-props, README.txt and empty-file
              files.
              We just silently ignore errors, because keeping these files is
              not catastrophic. */
 
-          svn_error_clear(svn_io_remove_dir
-            (svn_wc__adm_path(access_path, FALSE, pool, SVN_WC__ADM_WCPROPS,
-                              NULL), pool));
-          svn_error_clear(svn_io_remove_file
-            (svn_wc__adm_path(access_path, FALSE, pool,
-                              SVN_WC__ADM_DIR_WCPROPS, NULL), pool));
-          svn_error_clear(svn_io_remove_file
-            (svn_wc__adm_path(access_path, FALSE, pool,
-                              SVN_WC__ADM_EMPTY_FILE, NULL), pool));
-          svn_error_clear(svn_io_remove_file
-            (svn_wc__adm_path(access_path, FALSE, pool,
-                              SVN_WC__ADM_README, NULL), pool));
+          svn_error_clear(svn_io_remove_dir2(
+              svn_wc__adm_child(adm_access->path, SVN_WC__ADM_WCPROPS, pool),
+              FALSE, NULL, NULL, pool));
+          svn_error_clear(svn_io_remove_file(
+              svn_wc__adm_child(adm_access->path, SVN_WC__ADM_DIR_WCPROPS,
+                                pool),
+              pool));
+          svn_error_clear(svn_io_remove_file(
+              svn_wc__adm_child(adm_access->path, SVN_WC__ADM_EMPTY_FILE, pool),
+              pool));
+          svn_error_clear(svn_io_remove_file(
+              svn_wc__adm_child(adm_access->path, SVN_WC__ADM_README, pool),
+              pool));
         }
 
       SVN_ERR(svn_wc__run_log(adm_access, NULL, pool));
@@ -320,61 +329,46 @@ maybe_upgrade_format(svn_wc_adm_access_t *adm_access, apr_pool_t *pool)
 
 /* Create a physical lock file in the admin directory for ADM_ACCESS. Wait
    up to WAIT_FOR seconds if the lock already exists retrying every
-   second. 
+   second.
 
    Note: most callers of this function determine the wc_format for the
    lock soon afterwards.  We recommend calling maybe_upgrade_format()
    as soon as you have the wc_format for a lock, since that's a good
    opportunity to drag old working directories into the modern era. */
 static svn_error_t *
-create_lock(svn_wc_adm_access_t *adm_access, int wait_for, apr_pool_t *pool)
+create_lock(const char *path, int wait_for, apr_pool_t *pool)
 {
+  const char *lock_path = svn_wc__adm_child(path, SVN_WC__ADM_LOCK, pool);
   svn_error_t *err;
 
   for (;;)
     {
-      err = svn_wc__make_adm_thing(adm_access, SVN_WC__ADM_LOCK,
-                                   svn_node_file, APR_OS_DEFAULT, 0, pool);
-      if (err)
+      apr_file_t *file;
+
+      err = svn_io_file_open(&file, lock_path,
+                             APR_WRITE | APR_CREATE | APR_EXCL,
+                             APR_OS_DEFAULT,
+                             pool);
+      if (err == NULL)
+        return svn_io_file_close(file, pool);
+
+      if (APR_STATUS_IS_EEXIST(err->apr_err))
         {
-          if (APR_STATUS_IS_EEXIST(err->apr_err))
-            {
-              svn_error_clear(err);
-              if (wait_for <= 0)
-                break;
-              wait_for--;
-              apr_sleep(apr_time_from_sec(1));  /* micro-seconds */
-            }
-          else
-            return err;
+          svn_error_clear(err);
+          if (wait_for <= 0)
+            break;
+          wait_for--;
+          apr_sleep(apr_time_from_sec(1));  /* micro-seconds */
         }
       else
-        return SVN_NO_ERROR;
+        return err;
     }
 
   return svn_error_createf(SVN_ERR_WC_LOCKED, NULL,
                            _("Working copy '%s' locked"),
-                           svn_path_local_style(adm_access->path, pool));
+                           svn_path_local_style(path, pool));
 }
 
-
-/* Remove the physical lock in the admin directory for PATH. It is
-   acceptable for the administrative area to have disappeared, such as when
-   the directory is removed from the working copy.  It is an error for the
-   lock to have disappeared if the administrative area still exists. */
-static svn_error_t *
-remove_lock(const char *path, apr_pool_t *pool)
-{
-  svn_error_t *err = svn_wc__remove_adm_file(path, pool, SVN_WC__ADM_LOCK,
-                                             NULL);
-  if (err)
-    {
-      if (svn_wc__adm_path_exists(path, FALSE, pool, NULL))
-        return err;
-      svn_error_clear(err);
-    }
-  return SVN_NO_ERROR;
-}
 
 /* An APR pool cleanup handler.  This handles access batons that have not
    been closed when their pool gets destroyed.  The physical locks
@@ -392,7 +386,7 @@ pool_cleanup(void *p)
 
   err = svn_wc__adm_is_cleanup_required(&cleanup, lock, lock->pool);
   if (!err)
-    err = do_close(lock, cleanup, TRUE);
+    err = do_close(lock, cleanup, TRUE, lock->pool);
 
   /* ### Is this the correct way to handle the error? */
   if (err)
@@ -415,7 +409,7 @@ pool_cleanup_child(void *p)
   return APR_SUCCESS;
 }
 
-/* Allocate from POOL, intialise and return an access baton. TYPE and PATH
+/* Allocate from POOL, initialise and return an access baton. TYPE and PATH
    are used to initialise the baton.  */
 static svn_wc_adm_access_t *
 adm_access_alloc(enum svn_wc__adm_access_type type,
@@ -428,7 +422,7 @@ adm_access_alloc(enum svn_wc__adm_access_type type,
   lock->entries_hidden = NULL;
   lock->wcprops = NULL;
   lock->wc_format = 0;
-  lock->set = NULL;
+  lock->shared = NULL;
   lock->lock_exists = FALSE;
   lock->set_owner = FALSE;
   lock->path = apr_pstrdup(pool, path);
@@ -440,11 +434,16 @@ adm_access_alloc(enum svn_wc__adm_access_type type,
 static void
 adm_ensure_set(svn_wc_adm_access_t *adm_access)
 {
-  if (! adm_access->set)
+  if (adm_access->shared == NULL)
+    adm_access->shared = apr_pcalloc(adm_access->pool,
+                                     sizeof(*adm_access->shared));
+
+  if (adm_access->shared->set == NULL)
     {
       adm_access->set_owner = TRUE;
-      adm_access->set = apr_hash_make(adm_access->pool);
-      apr_hash_set(adm_access->set, adm_access->path, APR_HASH_KEY_STRING,
+      adm_access->shared->set = apr_hash_make(adm_access->pool);
+      apr_hash_set(adm_access->shared->set,
+                   adm_access->path, APR_HASH_KEY_STRING,
                    adm_access);
     }
 }
@@ -502,7 +501,7 @@ svn_wc__adm_steal_write_lock(svn_wc_adm_access_t **adm_access,
   svn_wc_adm_access_t *lock = adm_access_alloc(svn_wc__adm_access_write_lock,
                                                path, pool);
 
-  err = create_lock(lock, 0, pool);
+  err = create_lock(path, 0, pool);
   if (err)
     {
       if (err->apr_err == SVN_ERR_WC_LOCKED)
@@ -514,15 +513,15 @@ svn_wc__adm_steal_write_lock(svn_wc_adm_access_t **adm_access,
   if (associated)
     {
       adm_ensure_set(associated);
-      lock->set = associated->set;
-      apr_hash_set(lock->set, lock->path, APR_HASH_KEY_STRING, lock);
+      lock->shared = associated->shared;
+      apr_hash_set(lock->shared->set, lock->path, APR_HASH_KEY_STRING, lock);
     }
 
   /* We have a write lock.  If the working copy has an old
      format, this is the time to upgrade it. */
   SVN_ERR(svn_wc_check_wc(path, &lock->wc_format, pool));
   SVN_ERR(maybe_upgrade_format(lock, pool));
-  
+
   lock->lock_exists = TRUE;
   *adm_access = lock;
   return SVN_NO_ERROR;
@@ -531,13 +530,16 @@ svn_wc__adm_steal_write_lock(svn_wc_adm_access_t **adm_access,
 /* This is essentially the guts of svn_wc_adm_open3, with the additional
  * parameter UNDER_CONSTRUCTION that gets set TRUE only when locking the
  * admin directory during initial creation.
+ *
+ * If the working copy is already locked, return SVN_ERR_WC_LOCKED; if
+ * it is not a versioned directory, return SVN_ERR_WC_NOT_DIRECTORY.
  */
 static svn_error_t *
 do_open(svn_wc_adm_access_t **adm_access,
-        svn_wc_adm_access_t *associated,
+        svn_wc__adm_shared_t *shared,
         const char *path,
         svn_boolean_t write_lock,
-        int depth,
+        int levels_to_lock,
         svn_boolean_t under_construction,
         svn_cancel_func_t cancel_func,
         void *cancel_baton,
@@ -548,11 +550,9 @@ do_open(svn_wc_adm_access_t **adm_access,
   svn_error_t *err;
   apr_pool_t *subpool = svn_pool_create(pool);
 
-  if (associated)
+  if (shared)
     {
-      adm_ensure_set(associated);
-
-      lock = apr_hash_get(associated->set, path, APR_HASH_KEY_STRING);
+      lock = apr_hash_get(shared->set, path, APR_HASH_KEY_STRING);
       if (lock && lock != &missing)
         /* Already locked.  The reason we don't return the existing baton
            here is that the user is supposed to know whether a directory is
@@ -565,44 +565,21 @@ do_open(svn_wc_adm_access_t **adm_access,
 
   if (! under_construction)
     {
-      /* By reading the format file we check both that PATH is a directory
-         and that it is a working copy. */
-      /* ### We will read the entries file later.  Maybe read the whole
-         file here instead to avoid reopening it. */
-      err = svn_io_read_version_file(&wc_format,
-                                     svn_wc__adm_path(path, FALSE, subpool,
-                                                      SVN_WC__ADM_ENTRIES,
-                                                      NULL),
-                                     subpool);
-      /* If the entries file doesn't start with a version number, we're dealing
-         with a pre-format 7 working copy, so we need to get the format from
-         the format file instead. */
-      if (err && err->apr_err == SVN_ERR_BAD_VERSION_FILE_FORMAT)
-        {
-          svn_error_clear(err);
-          err = svn_io_read_version_file(&wc_format,
-                                         svn_wc__adm_path(path, FALSE, subpool,
-                                                          SVN_WC__ADM_FORMAT,
-                                                          NULL),
-                                         subpool);
-        }
-      if (err)
+      err = svn_wc_check_wc(path, &wc_format, subpool);
+
+      if (wc_format == 0 || (err && APR_STATUS_IS_ENOENT(err->apr_err)))
         {
           return svn_error_createf(SVN_ERR_WC_NOT_DIRECTORY, err,
                                    _("'%s' is not a working copy"),
                                    svn_path_local_style(path, pool));
         }
-
-      SVN_ERR(svn_wc__check_format(wc_format,
-                                   svn_path_local_style(path, subpool),
-                                   subpool));
     }
 
   /* Need to create a new lock */
   if (write_lock)
     {
       lock = adm_access_alloc(svn_wc__adm_access_write_lock, path, pool);
-      SVN_ERR(create_lock(lock, 0, subpool));
+      SVN_ERR(create_lock(path, 0, subpool));
       lock->lock_exists = TRUE;
     }
   else
@@ -617,20 +594,34 @@ do_open(svn_wc_adm_access_t **adm_access,
         SVN_ERR(maybe_upgrade_format(lock, subpool));
     }
 
-  if (depth != 0)
+  if (levels_to_lock != 0)
     {
+      svn_wc__adm_shared_t fake_shared = { 0 };
+      svn_wc__adm_shared_t *lock_shared;
       apr_hash_t *entries;
       apr_hash_index_t *hi;
 
-      /* Reduce depth since we are about to recurse */
-      if (depth > 0)
-        depth--;
-      
+      /* Reduce levels_to_lock since we are about to recurse */
+      if (levels_to_lock > 0)
+        levels_to_lock--;
+
       SVN_ERR(svn_wc_entries_read(&entries, lock, FALSE, subpool));
 
-      /* Use a temporary hash until all children have been opened. */
-      if (associated)
-        lock->set = apr_hash_make(subpool);
+      if (apr_hash_count(entries) > 0)
+        {
+          if (shared)
+            {
+              /* Use a temporary hash until all children have been opened. */
+              fake_shared.set = apr_hash_make(subpool);
+              lock_shared = &fake_shared;
+            }
+          else
+            {
+              /* All the batons will accumulate on <lock>. */
+              adm_ensure_set(lock);
+              lock_shared = lock->shared;
+            }
+        }
 
       /* Open the tree */
       for (hi = apr_hash_first(subpool, entries); hi; hi = apr_hash_next(hi))
@@ -646,10 +637,14 @@ do_open(svn_wc_adm_access_t **adm_access,
               err =  cancel_func(cancel_baton);
               if (err)
                 {
-                  /* This closes all the children in temporary hash as well */
-                  svn_error_clear(svn_wc_adm_close(lock));
+                  /* lock->shared->set may have batons in it, or we created
+                     a fake set of shared data. Wherever those batons were
+                     placed, we need to get them closed. We can fake out
+                     do_close() by putting the right "shared" reference into
+                     <lock> before closing it. */
+                  lock->shared = lock_shared;
+                  svn_error_clear(svn_wc_adm_close2(lock, subpool));
                   svn_pool_destroy(subpool);
-                  lock->set = NULL;
                   return err;
                 }
             }
@@ -659,26 +654,32 @@ do_open(svn_wc_adm_access_t **adm_access,
           if (entry->kind != svn_node_dir
               || ! strcmp(entry->name, SVN_WC_ENTRY_THIS_DIR))
             continue;
-          entry_path = svn_path_join(lock->path, entry->name, subpool);
+
+          /* Also skip the excluded subdir. */
+          if (entry->depth == svn_depth_exclude)
+            continue;
+
+          entry_path = svn_path_join(path, entry->name, subpool);
 
           /* Don't use the subpool pool here, the lock needs to persist */
-          err = do_open(&entry_access, lock, entry_path, write_lock, depth,
-                        FALSE, cancel_func, cancel_baton, lock->pool);
+          err = do_open(&entry_access, lock_shared, entry_path, write_lock,
+                        levels_to_lock, FALSE, cancel_func, cancel_baton,
+                        lock->pool);
           if (err)
             {
               if (err->apr_err != SVN_ERR_WC_NOT_DIRECTORY)
                 {
-                  /* This closes all the children in temporary hash as well */
-                  svn_error_clear(svn_wc_adm_close(lock));
+                  /* See comment above regarding this assignment. */
+                  lock->shared = lock_shared;
+                  svn_error_clear(svn_wc_adm_close2(lock, subpool));
                   svn_pool_destroy(subpool);
-                  lock->set = NULL;
                   return err;
                 }
 
               /* It's missing or obstructed, so store a placeholder */
               svn_error_clear(err);
-              adm_ensure_set(lock);
-              apr_hash_set(lock->set, apr_pstrdup(lock->pool, entry_path),
+              apr_hash_set(lock_shared->set,
+                           apr_pstrdup(lock->pool, entry_path),
                            APR_HASH_KEY_STRING, &missing);
 
               continue;
@@ -689,9 +690,9 @@ do_open(svn_wc_adm_access_t **adm_access,
         }
 
       /* Switch from temporary hash to permanent hash */
-      if (associated)
+      if (fake_shared.set)
         {
-          for (hi = apr_hash_first(subpool, lock->set);
+          for (hi = apr_hash_first(subpool, fake_shared.set);
                hi;
                hi = apr_hash_next(hi))
             {
@@ -703,18 +704,25 @@ do_open(svn_wc_adm_access_t **adm_access,
               apr_hash_this(hi, &key, NULL, &val);
               entry_path = key;
               entry_access = val;
-              apr_hash_set(associated->set, entry_path, APR_HASH_KEY_STRING,
+              apr_hash_set(shared->set, entry_path, APR_HASH_KEY_STRING,
                            entry_access);
-              entry_access->set = associated->set;
+
+              if (entry_access == &missing)
+                {
+                  /* Entry is missing or obstructed; see above */
+                  continue; /* Skip or we will write read only memory */
+                }
+
+              entry_access->shared = shared;
             }
-          lock->set = associated->set;
+          lock->shared = shared;
         }
     }
 
-  if (associated)
+  if (shared)
     {
-      lock->set = associated->set;
-      apr_hash_set(lock->set, lock->path, APR_HASH_KEY_STRING, lock);
+      lock->shared = shared;
+      apr_hash_set(shared->set, lock->path, APR_HASH_KEY_STRING, lock);
     }
 
   /* It's important that the cleanup handler is registered *after* at least
@@ -732,42 +740,23 @@ do_open(svn_wc_adm_access_t **adm_access,
   return SVN_NO_ERROR;
 }
 
-/* To preserve API compatibility with Subversion 1.0.0 */
-svn_error_t *
-svn_wc_adm_open(svn_wc_adm_access_t **adm_access,
-                svn_wc_adm_access_t *associated,
-                const char *path,
-                svn_boolean_t write_lock,
-                svn_boolean_t tree_lock,
-                apr_pool_t *pool)
-{
-  return svn_wc_adm_open3(adm_access, associated, path, write_lock,
-                          (tree_lock ? -1 : 0), NULL, NULL, pool);
-}
-
-svn_error_t *
-svn_wc_adm_open2(svn_wc_adm_access_t **adm_access,
-                 svn_wc_adm_access_t *associated,
-                 const char *path,
-                 svn_boolean_t write_lock,
-                 int depth,
-                 apr_pool_t *pool)
-{
-  return svn_wc_adm_open3(adm_access, associated, path, write_lock,
-                          depth, NULL, NULL, pool);
-}
-
 svn_error_t *
 svn_wc_adm_open3(svn_wc_adm_access_t **adm_access,
                  svn_wc_adm_access_t *associated,
                  const char *path,
                  svn_boolean_t write_lock,
-                 int depth,
+                 int levels_to_lock,
                  svn_cancel_func_t cancel_func,
                  void *cancel_baton,
                  apr_pool_t *pool)
 {
-  return do_open(adm_access, associated, path, write_lock, depth, FALSE,
+  /* Make sure that ASSOCIATED has a set of access batons, so that we can
+     glom a reference to self into it. */
+  if (associated)
+    adm_ensure_set(associated);
+
+  return do_open(adm_access, associated ? associated->shared : NULL, path,
+                 write_lock, levels_to_lock, FALSE,
                  cancel_func, cancel_baton, pool);
 }
 
@@ -779,40 +768,12 @@ svn_wc__adm_pre_open(svn_wc_adm_access_t **adm_access,
   return do_open(adm_access, NULL, path, TRUE, 0, TRUE, NULL, NULL, pool);
 }
 
-
-/* To preserve API compatibility with Subversion 1.0.0 */
-svn_error_t *
-svn_wc_adm_probe_open(svn_wc_adm_access_t **adm_access,
-                      svn_wc_adm_access_t *associated,
-                      const char *path,
-                      svn_boolean_t write_lock,
-                      svn_boolean_t tree_lock,
-                      apr_pool_t *pool)
-{
-  return svn_wc_adm_probe_open3(adm_access, associated, path,
-                                write_lock, (tree_lock ? -1 : 0),
-                                NULL, NULL, pool);
-}
-
-
-svn_error_t *
-svn_wc_adm_probe_open2(svn_wc_adm_access_t **adm_access,
-                       svn_wc_adm_access_t *associated,
-                       const char *path,
-                       svn_boolean_t write_lock,
-                       int depth,
-                       apr_pool_t *pool)
-{
-  return svn_wc_adm_probe_open3(adm_access, associated, path, write_lock,
-                                depth, NULL, NULL, pool);
-}
-
 svn_error_t *
 svn_wc_adm_probe_open3(svn_wc_adm_access_t **adm_access,
                        svn_wc_adm_access_t *associated,
                        const char *path,
                        svn_boolean_t write_lock,
-                       int depth,
+                       int levels_to_lock,
                        svn_cancel_func_t cancel_func,
                        void *cancel_baton,
                        apr_pool_t *pool)
@@ -824,14 +785,14 @@ svn_wc_adm_probe_open3(svn_wc_adm_access_t **adm_access,
   SVN_ERR(probe(&dir, path, &wc_format, pool));
 
   /* If we moved up a directory, then the path is not a directory, or it
-     is not under version control. In either case, the notion of a depth
-     does not apply to the provided path. Disable it so that we don't end
-     up trying to lock more than we need.  */
+     is not under version control. In either case, the notion of
+     levels_to_lock does not apply to the provided path.  Disable it so
+     that we don't end up trying to lock more than we need.  */
   if (dir != path)
-    depth = 0;
+    levels_to_lock = 0;
 
-  err = svn_wc_adm_open3(adm_access, associated, dir, write_lock, 
-                         depth, cancel_func, cancel_baton, pool);
+  err = svn_wc_adm_open3(adm_access, associated, dir, write_lock,
+                         levels_to_lock, cancel_func, cancel_baton, pool);
   if (err)
     {
       svn_error_t *err2;
@@ -840,14 +801,14 @@ svn_wc_adm_probe_open3(svn_wc_adm_access_t **adm_access,
          get an access baton for the child in the first place.  And if
          the reason we couldn't get the child access baton is that the
          child is not a versioned directory, then return an error
-         about the child, not the parent. */ 
+         about the child, not the parent. */
       svn_node_kind_t child_kind;
       if ((err2 = svn_io_check_path(path, &child_kind, pool)))
         {
           svn_error_compose(err, err2);
           return err;
         }
-  
+
       if ((dir != path)
           && (child_kind == svn_node_dir)
           && (err->apr_err == SVN_ERR_WC_NOT_DIRECTORY))
@@ -876,8 +837,9 @@ svn_wc__adm_retrieve_internal(svn_wc_adm_access_t **adm_access,
                               const char *path,
                               apr_pool_t *pool)
 {
-  if (associated->set)
-    *adm_access = apr_hash_get(associated->set, path, APR_HASH_KEY_STRING);
+  if (associated->shared && associated->shared->set)
+    *adm_access = apr_hash_get(associated->shared->set,
+                               path, APR_HASH_KEY_STRING);
   else if (! strcmp(associated->path, path))
     *adm_access = associated;
   else
@@ -909,7 +871,7 @@ svn_wc_adm_retrieve(svn_wc_adm_access_t **adm_access,
       svn_error_t *err;
 
       err = svn_wc_entry(&subdir_entry, path, associated, TRUE, pool);
-      
+
       /* If we can't get an entry here, we are in pretty bad shape,
          and will have to fall back to using just regular old paths to
          see what's going on.  */
@@ -918,7 +880,7 @@ svn_wc_adm_retrieve(svn_wc_adm_access_t **adm_access,
           svn_error_clear(err);
           subdir_entry = NULL;
         }
-      
+
       err = svn_io_check_path(path, &kind, pool);
 
       /* If we can't check the path, we can't make a good error
@@ -929,28 +891,37 @@ svn_wc_adm_retrieve(svn_wc_adm_access_t **adm_access,
                                    _("Unable to check path existence for '%s'"),
                                    svn_path_local_style(path, pool));
         }
-      
-      if (subdir_entry)        
+
+      if (subdir_entry)
         {
           if (subdir_entry->kind == svn_node_dir
               && kind == svn_node_file)
             {
-              return svn_error_createf(SVN_ERR_WC_NOT_LOCKED, NULL,
-                                       _("Expected '%s' to be a directory but found a file"), 
-                                       svn_path_local_style(path, pool));
+              const char *err_msg = apr_psprintf
+                (pool, _("Expected '%s' to be a directory but found a file"),
+                 svn_path_local_style(path, pool));
+              return svn_error_create(SVN_ERR_WC_NOT_LOCKED,
+                                      svn_error_create
+                                        (SVN_ERR_WC_NOT_DIRECTORY, NULL,
+                                         err_msg),
+                                      err_msg);
             }
           else if (subdir_entry->kind == svn_node_file
                    && kind == svn_node_dir)
             {
-              return svn_error_createf(SVN_ERR_WC_NOT_LOCKED, NULL,
-                                       _("Expected '%s' to be a file but found a directory"), 
-                                       svn_path_local_style(path, pool));
+              const char *err_msg = apr_psprintf
+                (pool, _("Expected '%s' to be a file but found a directory"),
+                 svn_path_local_style(path, pool));
+              return svn_error_create(SVN_ERR_WC_NOT_LOCKED,
+                                      svn_error_create(SVN_ERR_WC_NOT_FILE,
+                                                       NULL, err_msg),
+                                      err_msg);
             }
         }
-      
-      wcpath = svn_wc__adm_path(path, FALSE, pool, NULL);
+
+      wcpath = svn_wc__adm_child(path, NULL, pool);
       err = svn_io_check_path(wcpath, &wckind, pool);
-      
+
       /* If we can't check the path, we can't make a good error
          message.  */
       if (err)
@@ -961,10 +932,16 @@ svn_wc_adm_retrieve(svn_wc_adm_access_t **adm_access,
         }
 
       if (kind == svn_node_none)
-        return svn_error_createf(SVN_ERR_WC_NOT_LOCKED, NULL,
-                                 _("Directory '%s' is missing"),
-                                 svn_path_local_style(path, pool));
-      
+        {
+          const char *err_msg = apr_psprintf(pool,
+                                             _("Directory '%s' is missing"),
+                                             svn_path_local_style(path, pool));
+          return svn_error_create(SVN_ERR_WC_NOT_LOCKED,
+                                  svn_error_create(SVN_ERR_WC_PATH_NOT_FOUND,
+                                                   NULL, err_msg),
+                                  err_msg);
+        }
+
       else if (kind == svn_node_dir && wckind == svn_node_none)
         return svn_error_createf(SVN_ERR_WC_NOT_LOCKED, NULL,
                                  _("Directory '%s' containing working copy admin area is missing"),
@@ -974,11 +951,11 @@ svn_wc_adm_retrieve(svn_wc_adm_access_t **adm_access,
         return svn_error_createf(SVN_ERR_WC_NOT_LOCKED, NULL,
                                  _("Unable to lock '%s'"),
                                  svn_path_local_style(path, pool));
-      
+
       /* If all else fails, return our useless generic error.  */
       return svn_error_createf(SVN_ERR_WC_NOT_LOCKED, NULL,
                                _("Working copy '%s' is not locked"),
-                               svn_path_local_style(path, pool));        
+                               svn_path_local_style(path, pool));
     }
 
   return SVN_NO_ERROR;
@@ -992,29 +969,36 @@ svn_wc_adm_probe_retrieve(svn_wc_adm_access_t **adm_access,
                           apr_pool_t *pool)
 {
   const char *dir;
+  const svn_wc_entry_t *entry;
   int wc_format;
+  svn_error_t *err;
 
-  SVN_ERR(probe(&dir, path, &wc_format, pool));
-  SVN_ERR(svn_wc_adm_retrieve(adm_access, associated, dir, pool));
+  SVN_ERR(svn_wc_entry(&entry, path, associated, TRUE, pool));
 
-  if (wc_format && ! (*adm_access)->wc_format)
-    (*adm_access)->wc_format = wc_format;
+  if (! entry)
+    /* Not a versioned item, probe it */
+    SVN_ERR(probe(&dir, path, &wc_format, pool));
+  else if (entry->kind != svn_node_dir)
+    dir = svn_path_dirname(path, pool);
+  else
+    dir = path;
+
+  err = svn_wc_adm_retrieve(adm_access, associated, dir, pool);
+  if (err && err->apr_err == SVN_ERR_WC_NOT_LOCKED)
+    {
+      /* We'll receive a NOT LOCKED error for various reasons,
+         including the reason we'll actually want to test for:
+         The path is a versioned directory, but missing, in which case
+         we want its parent's adm_access (which holds minimal data
+         on the child) */
+      svn_error_clear(err);
+      SVN_ERR(probe(&dir, path, &wc_format, pool));
+      SVN_ERR(svn_wc_adm_retrieve(adm_access, associated, dir, pool));
+    }
+  else
+    return err;
 
   return SVN_NO_ERROR;
-}
-
-
-/* To preserve API compatibility with Subversion 1.0.0 */
-svn_error_t *
-svn_wc_adm_probe_try(svn_wc_adm_access_t **adm_access,
-                     svn_wc_adm_access_t *associated,
-                     const char *path,
-                     svn_boolean_t write_lock,
-                     svn_boolean_t tree_lock,
-                     apr_pool_t *pool)
-{
-  return svn_wc_adm_probe_try3(adm_access, associated, path, write_lock,
-                               (tree_lock ? -1 : 0), NULL, NULL, pool);
 }
 
 svn_error_t *
@@ -1022,11 +1006,11 @@ svn_wc_adm_probe_try2(svn_wc_adm_access_t **adm_access,
                       svn_wc_adm_access_t *associated,
                       const char *path,
                       svn_boolean_t write_lock,
-                      int depth,
+                      int levels_to_lock,
                       apr_pool_t *pool)
 {
   return svn_wc_adm_probe_try3(adm_access, associated, path, write_lock,
-                               depth, NULL, NULL, pool);
+                               levels_to_lock, NULL, NULL, pool);
 }
 
 svn_error_t *
@@ -1034,7 +1018,7 @@ svn_wc_adm_probe_try3(svn_wc_adm_access_t **adm_access,
                       svn_wc_adm_access_t *associated,
                       const char *path,
                       svn_boolean_t write_lock,
-                      int depth,
+                      int levels_to_lock,
                       svn_cancel_func_t cancel_func,
                       void *cancel_baton,
                       apr_pool_t *pool)
@@ -1050,7 +1034,7 @@ svn_wc_adm_probe_try3(svn_wc_adm_access_t **adm_access,
     {
       svn_error_clear(err);
       err = svn_wc_adm_probe_open3(adm_access, associated,
-                                   path, write_lock, depth,
+                                   path, write_lock, levels_to_lock,
                                    cancel_func, cancel_baton,
                                    svn_wc_adm_access_pool(associated));
 
@@ -1080,24 +1064,27 @@ static void join_batons(svn_wc_adm_access_t *p_access,
   apr_hash_index_t *hi;
 
   adm_ensure_set(p_access);
-  if (! t_access->set)
+  if (t_access->shared == NULL || t_access->shared->set == NULL)
     {
-      t_access->set = p_access->set;
-      apr_hash_set(p_access->set, t_access->path, APR_HASH_KEY_STRING,
+      t_access->shared = p_access->shared;
+      apr_hash_set(p_access->shared->set, t_access->path, APR_HASH_KEY_STRING,
                    t_access);
       return;
     }
 
-  for (hi = apr_hash_first(pool, t_access->set); hi; hi = apr_hash_next(hi))
+  for (hi = apr_hash_first(pool, t_access->shared->set);
+       hi;
+       hi = apr_hash_next(hi))
     {
       const void *key;
       void *val;
       svn_wc_adm_access_t *adm_access;
+
       apr_hash_this(hi, &key, NULL, &val);
       adm_access = val;
       if (adm_access != &missing)
-        adm_access->set = p_access->set;
-      apr_hash_set(p_access->set, key, APR_HASH_KEY_STRING, adm_access);
+        adm_access->shared = p_access->shared;
+      apr_hash_set(p_access->shared->set, key, APR_HASH_KEY_STRING, adm_access);
     }
   t_access->set_owner = FALSE;
 }
@@ -1108,7 +1095,7 @@ svn_wc_adm_open_anchor(svn_wc_adm_access_t **anchor_access,
                        const char **target,
                        const char *path,
                        svn_boolean_t write_lock,
-                       int depth,
+                       int levels_to_lock,
                        svn_cancel_func_t cancel_func,
                        void *cancel_baton,
                        apr_pool_t *pool)
@@ -1116,10 +1103,11 @@ svn_wc_adm_open_anchor(svn_wc_adm_access_t **anchor_access,
   const char *base_name = svn_path_basename(path, pool);
 
   if (svn_path_is_empty(path)
-      || ! strcmp(path, "/") || ! strcmp(base_name, ".."))
+      || svn_dirent_is_root(path, strlen(path))
+      || ! strcmp(base_name, ".."))
     {
-      SVN_ERR(do_open(anchor_access, NULL, path, write_lock, depth, FALSE,
-                      cancel_func, cancel_baton, pool));
+      SVN_ERR(do_open(anchor_access, NULL, path, write_lock, levels_to_lock,
+                      FALSE, cancel_func, cancel_baton, pool));
       *target_access = *anchor_access;
       *target = "";
     }
@@ -1160,14 +1148,14 @@ svn_wc_adm_open_anchor(svn_wc_adm_access_t **anchor_access,
         }
 
       /* Try to open PATH to setup T_ACCESS */
-      err = do_open(&t_access, NULL, path, write_lock, depth, FALSE,
-                    cancel_func, cancel_baton, pool);
+      err = do_open(&t_access, NULL, path, write_lock, levels_to_lock,
+                    FALSE, cancel_func, cancel_baton, pool);
       if (err)
         {
           if (! p_access || err->apr_err != SVN_ERR_WC_NOT_DIRECTORY)
             {
               if (p_access)
-                svn_error_clear(do_close(p_access, FALSE, TRUE));
+                svn_error_clear(do_close(p_access, FALSE, TRUE, pool));
               svn_error_clear(p_access_err);
               return err;
             }
@@ -1191,8 +1179,8 @@ svn_wc_adm_open_anchor(svn_wc_adm_access_t **anchor_access,
           if (err)
             {
               svn_error_clear(p_access_err);
-              svn_error_clear(do_close(p_access, FALSE, TRUE));
-              svn_error_clear(do_close(t_access, FALSE, TRUE));
+              svn_error_clear(do_close(p_access, FALSE, TRUE, pool));
+              svn_error_clear(do_close(t_access, FALSE, TRUE, pool));
               return err;
             }
 
@@ -1202,15 +1190,15 @@ svn_wc_adm_open_anchor(svn_wc_adm_access_t **anchor_access,
               ||
               (p_entry->url && t_entry->url
                && (strcmp(svn_path_dirname(t_entry->url, pool), p_entry->url)
-                   || strcmp(svn_path_uri_encode(base_name, pool), 
+                   || strcmp(svn_path_uri_encode(base_name, pool),
                              svn_path_basename(t_entry->url, pool)))))
             {
               /* Switched or disjoint, so drop P_ACCESS */
-              err = do_close(p_access, FALSE, TRUE);
+              err = do_close(p_access, FALSE, TRUE, pool);
               if (err)
                 {
                   svn_error_clear(p_access_err);
-                  svn_error_clear(do_close(t_access, FALSE, TRUE));
+                  svn_error_clear(do_close(t_access, FALSE, TRUE, pool));
                   return err;
                 }
               p_access = NULL;
@@ -1223,8 +1211,8 @@ svn_wc_adm_open_anchor(svn_wc_adm_access_t **anchor_access,
             {
               /* Need P_ACCESS, so the read-only temporary won't do */
               if (t_access)
-                svn_error_clear(do_close(t_access, FALSE, TRUE));
-              svn_error_clear(do_close(p_access, FALSE, TRUE));
+                svn_error_clear(do_close(t_access, FALSE, TRUE, pool));
+              svn_error_clear(do_close(p_access, FALSE, TRUE, pool));
               return p_access_err;
             }
           else if (t_access)
@@ -1239,13 +1227,14 @@ svn_wc_adm_open_anchor(svn_wc_adm_access_t **anchor_access,
           if (err)
             {
               if (p_access)
-                svn_error_clear(do_close(p_access, FALSE, TRUE));
+                svn_error_clear(do_close(p_access, FALSE, TRUE, pool));
               return err;
             }
           if (t_entry && t_entry->kind == svn_node_dir)
             {
               adm_ensure_set(p_access);
-              apr_hash_set(p_access->set, apr_pstrdup(p_access->pool, path),
+              apr_hash_set(p_access->shared->set,
+                           apr_pstrdup(p_access->pool, path),
                            APR_HASH_KEY_STRING, &missing);
             }
         }
@@ -1266,7 +1255,7 @@ svn_wc_adm_open_anchor(svn_wc_adm_access_t **anchor_access,
 /* Does the work of closing the access baton ADM_ACCESS.  Any physical
    locks are removed from the working copy if PRESERVE_LOCK is FALSE, or
    are left if PRESERVE_LOCK is TRUE.  Any associated access batons that
-   are direct descendents will also be closed.
+   are direct descendants will also be closed.
 
    ### FIXME: If the set has a "hole", say it contains locks for the
    ### directories A, A/B, A/B/C/X but not A/B/C then closing A/B will not
@@ -1275,19 +1264,20 @@ svn_wc_adm_open_anchor(svn_wc_adm_access_t **anchor_access,
 static svn_error_t *
 do_close(svn_wc_adm_access_t *adm_access,
          svn_boolean_t preserve_lock,
-         svn_boolean_t recurse)
+         svn_boolean_t recurse,
+         apr_pool_t *scratch_pool)
 {
-
   if (adm_access->type == svn_wc__adm_access_closed)
     return SVN_NO_ERROR;
 
   /* Close descendant batons */
-  if (recurse && adm_access->set)
+  if (recurse && adm_access->shared && adm_access->shared->set)
     {
       int i;
       apr_array_header_t *children
-        = svn_sort__hash(adm_access->set, svn_sort_compare_items_as_paths,
-                         adm_access->pool);
+        = svn_sort__hash(adm_access->shared->set,
+                         svn_sort_compare_items_as_paths,
+                         scratch_pool);
 
       /* Go backwards through the list to close children before their
          parents. */
@@ -1302,7 +1292,8 @@ do_close(svn_wc_adm_access_t *adm_access,
             {
               /* We don't close the missing entry, but get rid of it from
                  the set. */
-              apr_hash_set(adm_access->set, path, APR_HASH_KEY_STRING, NULL);
+              apr_hash_set(adm_access->shared->set,
+                           path, APR_HASH_KEY_STRING, NULL);
               continue;
             }
 
@@ -1310,7 +1301,7 @@ do_close(svn_wc_adm_access_t *adm_access,
               || strcmp(adm_access->path, path) == 0)
             continue;
 
-          SVN_ERR(do_close(child, preserve_lock, FALSE));
+          SVN_ERR(do_close(child, preserve_lock, FALSE, scratch_pool));
         }
     }
 
@@ -1319,7 +1310,22 @@ do_close(svn_wc_adm_access_t *adm_access,
     {
       if (adm_access->lock_exists && ! preserve_lock)
         {
-          SVN_ERR(remove_lock(adm_access->path, adm_access->pool));
+          /* Remove the physical lock in the admin directory for
+             PATH. It is acceptable for the administrative area to
+             have disappeared, such as when the directory is removed
+             from the working copy.  It is an error for the lock to
+             have disappeared if the administrative area still exists. */
+
+          svn_error_t *err = svn_wc__remove_adm_file(adm_access,
+                                                     SVN_WC__ADM_LOCK,
+                                                     scratch_pool);
+          if (err)
+            {
+              if (svn_wc__adm_area_exists(adm_access, scratch_pool))
+                return err;
+              svn_error_clear(err);
+            }
+
           adm_access->lock_exists = FALSE;
         }
     }
@@ -1328,31 +1334,35 @@ do_close(svn_wc_adm_access_t *adm_access,
   adm_access->type = svn_wc__adm_access_closed;
 
   /* Detach from set */
-  if (adm_access->set)
+  if (adm_access->shared && adm_access->shared->set)
     {
-      apr_hash_set(adm_access->set, adm_access->path, APR_HASH_KEY_STRING,
+      apr_hash_set(adm_access->shared->set,
+                   adm_access->path, APR_HASH_KEY_STRING,
                    NULL);
 
-      assert(! adm_access->set_owner || apr_hash_count(adm_access->set) == 0);
+      SVN_ERR_ASSERT(! adm_access->set_owner
+                     || apr_hash_count(adm_access->shared->set) == 0);
     }
 
   return SVN_NO_ERROR;
 }
 
 svn_error_t *
-svn_wc_adm_close(svn_wc_adm_access_t *adm_access)
+svn_wc_adm_close2(svn_wc_adm_access_t *adm_access, apr_pool_t *scratch_pool)
 {
-  return do_close(adm_access, FALSE, TRUE);
+  /* ### a scratch pool should be passed */
+  return do_close(adm_access, FALSE, TRUE, scratch_pool);
 }
 
 svn_boolean_t
-svn_wc_adm_locked(svn_wc_adm_access_t *adm_access)
+svn_wc_adm_locked(const svn_wc_adm_access_t *adm_access)
 {
   return adm_access->type == svn_wc__adm_access_write_lock;
 }
 
 svn_error_t *
-svn_wc__adm_write_check(svn_wc_adm_access_t *adm_access)
+svn_wc__adm_write_check(const svn_wc_adm_access_t *adm_access,
+                        apr_pool_t *scratch_pool)
 {
   if (adm_access->type == svn_wc__adm_access_write_lock)
     {
@@ -1368,20 +1378,20 @@ svn_wc__adm_write_check(svn_wc_adm_access_t *adm_access)
              check. */
           svn_boolean_t locked;
 
-          SVN_ERR(svn_wc_locked(&locked, adm_access->path, adm_access->pool));
+          SVN_ERR(svn_wc_locked(&locked, adm_access->path, scratch_pool));
           if (! locked)
-            return svn_error_createf(SVN_ERR_WC_NOT_LOCKED, NULL, 
+            return svn_error_createf(SVN_ERR_WC_NOT_LOCKED, NULL,
                                      _("Write-lock stolen in '%s'"),
                                      svn_path_local_style(adm_access->path,
-                                                          adm_access->pool));
+                                                          scratch_pool));
         }
     }
   else
     {
-      return svn_error_createf(SVN_ERR_WC_NOT_LOCKED, NULL, 
+      return svn_error_createf(SVN_ERR_WC_NOT_LOCKED, NULL,
                                _("No write-lock in '%s'"),
                                svn_path_local_style(adm_access->path,
-                                                    adm_access->pool));
+                                                    scratch_pool));
     }
 
   return SVN_NO_ERROR;
@@ -1391,9 +1401,8 @@ svn_error_t *
 svn_wc_locked(svn_boolean_t *locked, const char *path, apr_pool_t *pool)
 {
   svn_node_kind_t kind;
-  const char *lockfile
-    = svn_wc__adm_path(path, 0, pool, SVN_WC__ADM_LOCK, NULL);
-                                             
+  const char *lockfile = svn_wc__adm_child(path, SVN_WC__ADM_LOCK, pool);
+
   SVN_ERR(svn_io_check_path(lockfile, &kind, pool));
   if (kind == svn_node_file)
     *locked = TRUE;
@@ -1403,20 +1412,20 @@ svn_wc_locked(svn_boolean_t *locked, const char *path, apr_pool_t *pool)
     return svn_error_createf(SVN_ERR_WC_LOCKED, NULL,
                              _("Lock file '%s' is not a regular file"),
                              svn_path_local_style(lockfile, pool));
-    
+
   return SVN_NO_ERROR;
 }
 
 
 const char *
-svn_wc_adm_access_path(svn_wc_adm_access_t *adm_access)
+svn_wc_adm_access_path(const svn_wc_adm_access_t *adm_access)
 {
   return adm_access->path;
 }
 
 
 apr_pool_t *
-svn_wc_adm_access_pool(svn_wc_adm_access_t *adm_access)
+svn_wc_adm_access_pool(const svn_wc_adm_access_t *adm_access)
 {
   return adm_access->pool;
 }
@@ -1424,15 +1433,14 @@ svn_wc_adm_access_pool(svn_wc_adm_access_t *adm_access)
 
 svn_error_t *
 svn_wc__adm_is_cleanup_required(svn_boolean_t *cleanup,
-                                svn_wc_adm_access_t *adm_access,
+                                const svn_wc_adm_access_t *adm_access,
                                 apr_pool_t *pool)
 {
   if (adm_access->type == svn_wc__adm_access_write_lock)
     {
       svn_node_kind_t kind;
-      const char *log_path
-        = svn_wc__adm_path(svn_wc_adm_access_path(adm_access),
-                           FALSE, pool, SVN_WC__ADM_LOG, NULL);
+      const char *log_path = svn_wc__adm_child(adm_access->path,
+                                               SVN_WC__ADM_LOG, pool);
 
       /* The presence of a log file demands cleanup */
       SVN_ERR(svn_io_check_path(log_path, &kind, pool));
@@ -1470,7 +1478,7 @@ prune_deleted(svn_wc_adm_access_t *adm_access,
           if ((entry->deleted
                && (entry->schedule != svn_wc_schedule_add)
                && (entry->schedule != svn_wc_schedule_replace))
-              || entry->absent)
+              || entry->absent || (entry->depth == svn_depth_exclude))
             break;
         }
 
@@ -1493,7 +1501,8 @@ prune_deleted(svn_wc_adm_access_t *adm_access,
 
           apr_hash_this(hi, &key, NULL, &val);
           entry = val;
-          if (((entry->deleted == FALSE) && (entry->absent == FALSE))
+          if (((entry->deleted == FALSE) && (entry->absent == FALSE)
+               && (entry->depth != svn_depth_exclude))
               || (entry->schedule == svn_wc_schedule_add)
               || (entry->schedule == svn_wc_schedule_replace))
             {
@@ -1539,14 +1548,14 @@ svn_wc__adm_access_set_wcprops(svn_wc_adm_access_t *adm_access,
 }
 
 apr_hash_t *
-svn_wc__adm_access_wcprops(svn_wc_adm_access_t *adm_access)
+svn_wc__adm_access_wcprops(const svn_wc_adm_access_t *adm_access)
 {
   return adm_access->wcprops;
 }
 
 
 int
-svn_wc__adm_wc_format(svn_wc_adm_access_t *adm_access)
+svn_wc__adm_wc_format(const svn_wc_adm_access_t *adm_access)
 {
   return adm_access->wc_format;
 }
@@ -1560,13 +1569,66 @@ svn_wc__adm_set_wc_format(svn_wc_adm_access_t *adm_access,
 
 
 svn_boolean_t
-svn_wc__adm_missing(svn_wc_adm_access_t *adm_access,
+svn_wc__adm_missing(const svn_wc_adm_access_t *adm_access,
                     const char *path)
 {
-  if (adm_access->set
-      && apr_hash_get(adm_access->set, path, APR_HASH_KEY_STRING) == &missing)
+  if (adm_access->shared
+      && adm_access->shared->set
+      && apr_hash_get(adm_access->shared->set,
+                      path, APR_HASH_KEY_STRING) == &missing)
     return TRUE;
 
   return FALSE;
+}
+
+
+/* Extend the scope of the svn_wc_adm_access_t * passed in as WALK_BATON
+   for its entire WC tree.  An implementation of
+   svn_wc_entry_callbacks2_t's found_entry() API. */
+static svn_error_t *
+extend_lock_found_entry(const char *path,
+                        const svn_wc_entry_t *entry,
+                        void *walk_baton,
+                        apr_pool_t *pool)
+{
+  /* If PATH is a directory, and it's not already locked, lock it all
+     the way down to its leaf nodes. */
+  if (entry->kind == svn_node_dir &&
+      strcmp(entry->name, SVN_WC_ENTRY_THIS_DIR) != 0)
+    {
+      svn_wc_adm_access_t *anchor_access = walk_baton, *adm_access;
+      svn_boolean_t write_lock =
+        (anchor_access->type == svn_wc__adm_access_write_lock);
+      svn_error_t *err = svn_wc_adm_probe_try3(&adm_access, anchor_access,
+                                               path, write_lock, -1,
+                                               NULL, NULL, pool);
+      if (err)
+        {
+          if (err->apr_err == SVN_ERR_WC_LOCKED)
+            /* Good!  The directory is *already* locked... */
+            svn_error_clear(err);
+          else
+            return err;
+        }
+    }
+  return SVN_NO_ERROR;
+}
+
+
+/* WC entry walker callbacks for svn_wc__adm_extend_lock_to_tree(). */
+static const svn_wc_entry_callbacks2_t extend_lock_walker =
+  {
+    extend_lock_found_entry,
+    svn_wc__walker_default_error_handler
+  };
+
+
+svn_error_t *
+svn_wc__adm_extend_lock_to_tree(svn_wc_adm_access_t *adm_access,
+                                apr_pool_t *pool)
+{
+  return svn_wc_walk_entries3(adm_access->path, adm_access,
+                              &extend_lock_walker, adm_access,
+                              svn_depth_infinity, FALSE, NULL, NULL, pool);
 }
 

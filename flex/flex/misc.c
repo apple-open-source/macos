@@ -102,7 +102,7 @@ void action_define (defname, value)
 		return;
 	}
 
-	sprintf (buf, "#define %s %d\n", defname, value);
+	snprintf (buf, sizeof(buf), "#define %s %d\n", defname, value);
 	add_action (buf);
 
 	/* track #defines so we can undef them when we're done. */
@@ -128,13 +128,13 @@ void action_m4_define (const char *defname, const char * value)
 		return;
 	}
 
-	sprintf (buf, "m4_define([[%s]],[[%s]])m4_dnl\n", defname, value?value:"");
+	snprintf (buf, sizeof(buf), "m4_define([[%s]],[[%s]])m4_dnl\n", defname, value?value:"");
 	add_action (buf);
 }
 
 /* Append "new_text" to the running buffer. */
 void add_action (new_text)
-     char   *new_text;
+     const char   *new_text;
 {
 	int     len = strlen (new_text);
 
@@ -446,7 +446,7 @@ void lerrif (msg, arg)
 {
 	char    errmsg[MAXLINE];
 
-	(void) sprintf (errmsg, msg, arg);
+	snprintf (errmsg, sizeof(errmsg), msg, arg);
 	flexerror (errmsg);
 }
 
@@ -458,7 +458,7 @@ void lerrsf (msg, arg)
 {
 	char    errmsg[MAXLINE];
 
-	(void) sprintf (errmsg, msg, arg);
+	snprintf (errmsg, sizeof(errmsg), msg, arg);
 	flexerror (errmsg);
 }
 
@@ -495,13 +495,13 @@ void line_directive_out (output_file, do_infile)
 	*s2 = '\0';
 
 	if (do_infile)
-		sprintf (directive, line_fmt, linenum, filename);
+		snprintf (directive, sizeof(directive), line_fmt, linenum, filename);
 	else {
 		if (output_file == stdout)
 			/* Account for the line directive itself. */
 			++out_linenum;
 
-		sprintf (directive, line_fmt, out_linenum, filename);
+		snprintf (directive, sizeof(directive), line_fmt, out_linenum, filename);
 	}
 
 	/* If output_file is nil then we should put the directive in
@@ -629,7 +629,7 @@ Char myesc (array)
 	case 't':
 		return '\t';
 
-#if __STDC__
+#if defined (__STDC__)
 	case 'a':
 		return '\a';
 	case 'v':
@@ -835,7 +835,7 @@ char   *readable_form (c)
 		case '\t':
 			return "\\t";
 
-#if __STDC__
+#if defined (__STDC__)
 		case '\a':
 			return "\\a";
 		case '\v':
@@ -843,7 +843,7 @@ char   *readable_form (c)
 #endif
 
 		default:
-			(void) sprintf (rform, "\\%.3o", (unsigned int) c);
+			snprintf (rform, sizeof(rform), "\\%.3o", (unsigned int) c);
 			return rform;
 		}
 	}

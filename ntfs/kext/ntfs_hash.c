@@ -1,8 +1,8 @@
 /*
  * ntfs_hash.c - NTFS kernel inode hash operations.
  *
- * Copyright (c) 2006, 2007 Anton Altaparmakov.  All Rights Reserved.
- * Portions Copyright (c) 2006, 2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2008 Anton Altaparmakov.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2008 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -43,6 +43,7 @@
 #include <sys/mount.h>
 #include <sys/queue.h>
 #include <sys/systm.h>
+#include <sys/ucred.h>
 #include <sys/vnode.h>
 
 #include <libkern/OSAtomic.h>
@@ -168,9 +169,16 @@ retry:
 		 * of being discarded or allocated.
 		 */
 		if (NInoReclaim(ni) || NInoAlloc(ni)) {
-			ntfs_debug("Inode is under %s, waiting and retrying.",
-					NInoReclaim(ni) ? "reclaim" :
-					"allocation");
+#ifdef DEBUG
+			const char *op;
+
+			if (NInoReclaim(ni))
+				op = "reclaim";
+			else /* if (NInoAlloc(ni)) */
+				op = "allocat";
+			ntfs_debug("Inode is being %sed, waiting and "
+					"retrying.", op);
+#endif
 			/* Drops the hash lock. */
 			ntfs_inode_wait(ni, &ntfs_inode_hash_lock);
 			lck_mtx_lock(&ntfs_inode_hash_lock);
@@ -238,11 +246,11 @@ ntfs_inode *ntfs_inode_hash_lookup(ntfs_volume *vol, const ntfs_attr *na)
 	ntfs_inode *ni;
 
 	ntfs_debug("Entering for mft_no 0x%llx, type 0x%x, name_len 0x%x.",
-			(unsigned long long)na->mft_no, le32_to_cpu(na->type),
-			na->name_len);
+			(unsigned long long)na->mft_no,
+			(unsigned)le32_to_cpu(na->type), na->name_len);
 	list = ntfs_inode_hash_list(vol, na->mft_no);
 	ni = ntfs_inode_hash_list_find(vol, list, na);
-	ntfs_debug("Done: ntfs_inode %sfound in cache.", ni ? "" : "not ");
+	ntfs_debug("Done (ntfs_inode %sfound in cache).", ni ? "" : "not ");
 	return ni;
 }
 
@@ -261,7 +269,7 @@ static inline void ntfs_inode_hash_add_nolock(ntfs_inode *ni,
 /**
  * ntfs_inode_hash_get - find or allocate, and return a loaded ntfs inode
  *
- * Search the ntfs inode hash for the ntfs inode matchine @na and if present
+ * Search the ntfs inode hash for the ntfs inode matching @na and if present
  * return it.
  *
  * If the found ntfs inode has a vnode attached, then get an iocount reference

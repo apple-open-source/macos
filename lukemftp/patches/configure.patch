@@ -1,0 +1,10 @@
+--- configure.orig	2008-06-18 13:40:05.000000000 -0700
++++ configure	2008-06-18 13:40:11.000000000 -0700
+@@ -9524,7 +9524,6 @@
+ 
+ # Assume libedit is not up-to-date and force own version.
+ #
+-have_libedit=no
+ if test "$opt_editcomplete" = yes; then
+   { echo "$as_me:$LINENO: checking for up-to-date libedit" >&5
+ echo $ECHO_N "checking for up-to-date libedit... $ECHO_C" >&6; }

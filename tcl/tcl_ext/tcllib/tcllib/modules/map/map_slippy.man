@@ -1,0 +1,115 @@
+[comment {-*- tcl -*- doctools manpage}]
+[manpage_begin map::slippy n 0.2]
+[moddesc   {Mapping utilities}]
+[titledesc {Common code for slippy based map packages}]
+[require Tcl 8.4]
+[require Tk 8.4]
+[require map::slippy [opt 0.2]]
+[description]
+
+This package provides a number of methods doing things needed by all
+types of slippy-based map packages.
+
+[section API]
+
+[list_begin definitions]
+
+[call [cmd ::map::slippy] [method length] [arg level]]
+
+This method returns the width/height of a slippy-based map at the
+specified zoom [arg level], in pixels. This is, in essence, the result
+of
+
+[example {
+	expr { [tiles $level] * [tile size] }
+}]
+
+
+[call [cmd ::map::slippy] [method tiles] [arg level]]
+
+This method returns the width/height of a slippy-based map at the
+specified zoom [arg level], in [term tiles].
+
+
+[call [cmd ::map::slippy] [method {tile size}]]
+
+This method returns the width/height of a tile in a slippy-based map,
+in pixels.
+
+
+[call [cmd ::map::slippy] [method {tile valid}] [arg tile] \
+	[arg levels] [opt [arg msgvar]]]
+
+This method checks whether [arg tile] described a valid tile in a
+slippy-based map containing that many zoom [arg levels]. The result is
+a boolean value, [const true] if the tile is valid, and [const false]
+otherwise. For the latter a message is left in the variable named by
+[arg msgvar], should it be specified.
+
+[nl]
+
+A tile identifier as stored in [arg tile] is a list containing zoom
+level, tile row, and tile column, in this order. The command
+essentially checks this, i.e. the syntax, that the zoom level is
+between 0 and "[arg levels]-1", and that the row/col information is
+within the boundaries for the zoom level, i.e. 0 ...
+"[lb]tiles $zoom[rb]-1".
+
+
+[call [cmd ::map::slippy] [method {geo 2tile}] [arg geo]]
+
+Converts a geographical location at a zoom level ([arg geo], a list
+containing zoom level, latitude, and longitude, in this order) to a
+tile identifier (list containing zoom level, row, and column) at that
+level.
+
+
+[call [cmd ::map::slippy] [method {geo 2point}] [arg geo]]
+
+Converts a geographical location at a zoom level ([arg geo], a list
+containing zoom level, latitude, and longitude, in this order) to a
+pixel position (list containing zoom level, y, and x) at that level.
+
+
+[call [cmd ::map::slippy] [method {tile 2geo}] [arg tile]]
+
+Converts a tile identifier at a zoom level ([arg tile], list
+containing zoom level, row, and column) to a geographical location
+(list containing zoom level, latitude, and longitude, in this order)
+at that level.
+
+
+[call [cmd ::map::slippy] [method {tile 2point}] [arg tile]]
+
+Converts a tile identifier at a zoom level ([arg tile], a list
+containing zoom level, row, and column, in this order) to a pixel
+position (list containing zoom level, y, and x) at that level.
+
+
+[call [cmd ::map::slippy] [method {point 2geo}] [arg point]]
+
+Converts a pixel position at a zoom level ([arg point], list
+containing zoom level, y, and x) to a geographical location (list
+containing zoom level, latitude, and longitude, in this order) at that
+level.
+
+
+[call [cmd ::map::slippy] [method {point 2tile}] [arg point]]
+
+Converts a pixel position at a zoom level ([arg point], a list
+containing zoom level, y, and x, in this order) to a tile identifier
+(list containing zoom level, row, and column) at that level.
+
+[list_end]
+
+
+[section References]
+
+[list_begin enum]
+[enum]	[uri http://wiki.openstreetmap.org/wiki/Main_Page]
+[list_end]
+
+
+[keywords slippy map location geodesy geography latitute longitude zoom]
+[manpage_end]
+

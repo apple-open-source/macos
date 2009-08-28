@@ -63,8 +63,8 @@ Listen @@Port@@
 # It is usually good practice to create a dedicated user and group for
 # running httpd, as with most system services.
 #
-User www
-Group www
+User _www
+Group _www
 
 </IfModule>
 </IfModule>

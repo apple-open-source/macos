@@ -1,3 +1,26 @@
+2009-01-13  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile (CFLAGS): Remove the __DARWIN_UNIX03=0 setting.
+	* gdb_plugin_support/Makefile (CFLAGS): Ditto.
+
+2008-12-01  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile (OPT): Use the -Os optimization level.
+	* gdb_plugin_support/Makefile (OPT): Same.
+
+2008-11-07  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile: Don't make the Macsbug plugin setgid procmod any longer.
+
+2008-04-17  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile: Don't stop the build if the FIXUP commands fail for
+	whatever reason.
+
+2007-11-06  Jim Ingham  <jingham@apple.com>
+
+	* Makefile: Pass "-arch ppc" to the final link stage.
+	
 2007-03-02  Jim Ingham  <jingham@apple.com>
 
 	* Makefile: Use install rather than "cp -p" since the latter

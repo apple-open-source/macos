@@ -1,7 +1,6 @@
 /*
 ******************************************************************************
-* Copyright (C) 2006, Apple Computer, Inc.
-* All Rights Reserved.
+* Copyright (C) 2006-2008 Apple Inc. All Rights Reserved.
 ******************************************************************************
 */
 
@@ -43,7 +42,10 @@ urbtok_openRules(const UChar     *rules,
 /**
  * Open a new UBreakIterator for tokenizing text using specified breaking rules.
  * @param rules A set of rules specifying the text breaking conventions. The binary rules
- *              must be at least 32-bit aligned.
+ *              must be at least 32-bit aligned. Note: This version makes a copy of the
+ *				rules, so after calling this function the caller can close or release
+ *				the rules that were passed to this function. The copy created by this
+ *				call will be freed when ubrk_close() is called on the UBreakIterator*.
  * @param status A UErrorCode to receive any errors.
  * @return A UBreakIterator for the specified rules.
  * @see ubrk_open
@@ -51,6 +53,24 @@ urbtok_openRules(const UChar     *rules,
  */
 U_INTERNAL UBreakIterator* U_EXPORT2
 urbtok_openBinaryRules(const uint8_t *rules,
+               UErrorCode      *status);
+
+/**
+ * Open a new UBreakIterator for tokenizing text using specified breaking rules.
+ * @param rules A set of rules specifying the text breaking conventions. The binary rules
+ *              must be at least 32-bit aligned. Note: This version does NOT make a copy
+ *				of the rules, so after calling this function the caller must not close or
+ *				release the rules passed to this function until after they are finished
+ *				with this UBreakIterator* (and any others created using the same rules)
+  *				and have called ubrk_close() to close the UBreakIterator* (and any others
+ *				using the same rules).
+ * @param status A UErrorCode to receive any errors.
+ * @return A UBreakIterator for the specified rules.
+ * @see ubrk_open
+ * @internal
+ */
+U_INTERNAL UBreakIterator* U_EXPORT2
+urbtok_openBinaryRulesNoCopy(const uint8_t *rules,
                UErrorCode      *status);
 
 /**

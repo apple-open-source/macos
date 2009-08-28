@@ -1,6 +1,6 @@
 /* zip.c -- compress files to the gzip or pkzip format
 
-   Copyright (C) 1997, 1998, 1999, 2006 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2006, 2007 Free Software Foundation, Inc.
    Copyright (C) 1992-1993 Jean-loup Gailly
 
    This program is free software; you can redistribute it and/or modify
@@ -18,7 +18,7 @@
    Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 #ifdef RCSID
-static char rcsid[] = "$Id: zip.c,v 1.6 2006/12/11 18:54:39 eggert Exp $";
+static char rcsid[] = "$Id: zip.c,v 1.7 2007/03/20 05:09:51 eggert Exp $";
 #endif
 
 #include <config.h>
@@ -27,8 +27,6 @@ static char rcsid[] = "$Id: zip.c,v 1.6 2006/12/11 18:54:39 eggert Exp $";
 #include "tailor.h"
 #include "gzip.h"
 #include "crypt.h"
-
-#include "timespec.h"
 
 #ifdef HAVE_UNISTD_H
 #  include <unistd.h>

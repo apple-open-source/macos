@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -30,11 +30,12 @@ Boston, MA 02111-1307, USA.  */
 #include "langhooks.h"
 #include "langhooks-def.h"
 #include "diagnostic.h"
-#include "cxx-pretty-print.h"
 #include "debug.h"
 #include "cp-objcp-common.h"
+#include "hashtab.h"
 
 enum c_language_kind c_language = clk_cxx;
+static void cp_init_ts (void);
 
 /* Lang hooks common to C++ and ObjC++ are declared in cp/cp-objcp-common.h;
    consequently, there should be very few hooks below.  */
@@ -47,6 +48,8 @@ enum c_language_kind c_language = clk_cxx;
 #define LANG_HOOKS_DECL_PRINTABLE_NAME	cxx_printable_name
 #undef LANG_HOOKS_FOLD_OBJ_TYPE_REF
 #define LANG_HOOKS_FOLD_OBJ_TYPE_REF cp_fold_obj_type_ref
+#undef LANG_HOOKS_INIT_TS
+#define LANG_HOOKS_INIT_TS cp_init_ts
 
 /* Each front end provides its own lang hook initializer.  */
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
@@ -105,6 +108,34 @@ objcp_tsubst_copy_and_build (tree t ATTRIBUTE_UNUSED,
 			     bool function_p ATTRIBUTE_UNUSED)
 {
   return NULL_TREE;
+}
+
+
+static void
+cp_init_ts (void)
+{
+  tree_contains_struct[NAMESPACE_DECL][TS_DECL_NON_COMMON] = 1;
+  tree_contains_struct[USING_DECL][TS_DECL_NON_COMMON] = 1;
+  tree_contains_struct[TEMPLATE_DECL][TS_DECL_NON_COMMON] = 1;
+
+  tree_contains_struct[NAMESPACE_DECL][TS_DECL_WITH_VIS] = 1;
+  tree_contains_struct[USING_DECL][TS_DECL_WITH_VIS] = 1;
+  tree_contains_struct[TEMPLATE_DECL][TS_DECL_WITH_VIS] = 1;
+
+  tree_contains_struct[NAMESPACE_DECL][TS_DECL_WRTL] = 1;
+  tree_contains_struct[USING_DECL][TS_DECL_WRTL] = 1;
+  tree_contains_struct[TEMPLATE_DECL][TS_DECL_WRTL] = 1;
+
+  tree_contains_struct[NAMESPACE_DECL][TS_DECL_COMMON] = 1;
+  tree_contains_struct[USING_DECL][TS_DECL_COMMON] = 1;
+  tree_contains_struct[TEMPLATE_DECL][TS_DECL_COMMON] = 1;
+
+  tree_contains_struct[NAMESPACE_DECL][TS_DECL_MINIMAL] = 1;
+  tree_contains_struct[USING_DECL][TS_DECL_MINIMAL] = 1;
+  tree_contains_struct[TEMPLATE_DECL][TS_DECL_MINIMAL] = 1;
+
+  init_shadowed_var_for_decl ();
+
 }
 
 void

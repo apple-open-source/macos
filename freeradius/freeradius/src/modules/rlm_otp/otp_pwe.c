@@ -1,5 +1,5 @@
 /*
- * $Id: otp_pwe.c,v 1.8.2.5 2007/04/07 22:32:37 aland Exp $
+ * $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -25,15 +25,14 @@
  * is not sufficient for X9.9 use.
  */
 
-#include "ident.h"
-RCSID("$Id: otp_pwe.c,v 1.8.2.5 2007/04/07 22:32:37 aland Exp $")
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
 /* avoid inclusion of these FR headers which conflict w/ OpenSSL */
-#define _LRAD_MD4_H
-#define _LRAD_SHA1_H
-#include <rad_assert.h>
-#include <autoconf.h>
-#include <radiusd.h>
+#define _FR_MD4_H
+#define _FR_SHA1_H
+#include <freeradius-devel/radiusd.h>
+#include <freeradius-devel/rad_assert.h>
 
 #include "extern.h"
 

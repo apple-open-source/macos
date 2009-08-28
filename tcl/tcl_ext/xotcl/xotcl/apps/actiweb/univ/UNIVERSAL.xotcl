@@ -1,0 +1,267 @@
+#!/usr/bin/env tclsh
+#$Id: UNIVERSAL.xotcl,v 1.8 2007/08/14 16:38:26 neumann Exp $
+package require XOTcl; namespace import -force xotcl::*
+array set opts {
+  -ssl 0 -instanceFile UNIVERSAL.rdf -cssFile UNIVERSAL.css -root . -pkgdir .}
+array set opts $argv
+
+@ @File {
+  description {
+    This is a demo of a Webserver that presents the contents of
+    an RDF source file in a friendly and easy readable manner.
+    <p>
+    The RDF file is parsed first into triples which
+    are added to the resource database RDFdb. This RDFdb used in this
+    example replaces the standard triple database of xoRDF by an
+    application specific version, which is easier to process. The triple 
+    database is the source of the Catalog, which displays a short, easy to read
+    summary of the entries. The database is used as well for the "detailed
+    view", which presents all the data of the triples through nested HTML tables. 
+    <p>
+    The demo program uses either HTTP or HTTPS (in which case you will require
+    the SSL/TLS extension of Tcl).
+  }
+}
+
+lappend auto_path $opts(-pkgdir)
+if {$opts(-ssl)} {
+  package require xotcl::actiweb::secureHtmlPlace
+  SecureHtmlPlace ::receiver -port 443 -root $opts(-root)
+} else {
+  package require xotcl::actiweb::htmlPlace
+  HtmlPlace ::receiver -port 8095 -root $opts(-root) -allowExit exit
+}
+package require xotcl::actiweb::webDocument
+
+# load RDF processing components
+package require xotcl::rdf::parser
+package require xotcl::rdf::triple
+package require xotcl::xml::printVisitor
+
+proc loadFile filename {
+  set F [open $filename r]; set c [read $F]; close $F
+  return $c
+}
+#
+# instantiate parser and parser an example text into a node tree
+#
+
+#puts stderr "parsing [loadFile $opts(-instanceFile)]"
+RDFParser R
+R parse [loadFile $opts(-instanceFile)]
+puts stderr "parsing done"
+
+#
+# load the nodetree from the parser into the triple database
+#
+#section Triples
+TripleVisitor tv -parser R
+tv proc interprete {} {
+  my instvar topNode parser
+  if {![my exists topNode]} {set topNode ${parser}::topNode1}
+  my reset
+  my interpretNodeTree $topNode
+}
+
+#### Define a simple Resource Database
+Class RDFdb -superclass RDFTripleDB
+RDFdb instproc isContainer c {
+  regexp ^[self]::rdfdoc\# $c
+}
+RDFdb instproc add {predicate subject object} {
+  set s [self]::$subject
+  if {[my info children $s] eq ""} {
+    #puts stderr "create new resource $s"
+    Resource create $s
+  }
+  $s set $predicate $object
+  next ;# for passing to RDFTripleDB (which provides e.g. prettyTriples)
+}
+RDFdb instproc reset {} {
+  foreach c [my info children] { $c destroy }
+  next
+}
+RDFdb instproc resources {} {
+  set result ""
+  foreach c [my info children] {
+    if {![my isContainer $c] && 
+	[$c istype Resource]} {lappend result $c}
+  }
+  return $result
+}
+RDFdb instproc querySubject {subject} {
+  set s [self]::$subject
+  set result ""
+  if {[my info children $s] ne ""} {
+    foreach att [lsort [$s info vars]] {
+      lappend result $att [$s set $att]
+    }
+  }
+  return $result
+}
+
+# create an Instance of the Resource Database 
+RDFdb tv::db
+
+
+
+# define Resources with its methods
+Class Resource
+Resource instproc dump {} {
+  foreach att [lsort [my info vars]] { puts stderr "\t$att = [my set $att]"  }
+}
+Resource instproc substitute {lines} {
+  set result ""
+  foreach line [split $lines \n] {
+    if {[regexp {^ *http:} $line]} {
+      set value ""
+      set o [self]
+      set line [string trim $line]
+      foreach step $line {
+	set value [$o set $step]
+	set o tv::db::$value
+      }
+      append result $value 
+    } else {
+      append result $line 
+    }
+  }
+  return $result
+}
+
+Resource instproc pretty {} {
+  set q [univ selfAction "details [namespace tail [self]]"]
+  my substitute "<b>
+  http://nm.wu-wien.ac.at/universal/rdf-lifecycle#Contribute \
+	http://nm.wu-wien.ac.at/universal/rdf-lifecycle#Entity
+</b>: <em><a href='$q'>
+  http://nm.wu-wien.ac.at/universal/rdf-general#Title 
+</a>,</em> 
+  http://nm.wu-wien.ac.at/universal/rdf-education#LearningResourceType
+, 
+  http://nm.wu-wien.ac.at/universal/rdf-education#TypicalLearningTime
+, 
+  http://nm.wu-wien.ac.at/universal/rdf-lifecycle#Contribute \
+        http://nm.wu-wien.ac.at/universal/rdf-lifecycle#Date 
+  ([my pretty-access])"
+}
+Resource instproc pretty-title {} {
+  my substitute "http://nm.wu-wien.ac.at/universal/rdf-general#Title"
+}
+Resource instproc pretty-access {} {
+  set tech http://nm.wu-wien.ac.at/universal/rdf-technical
+  set format [my substitute "$tech#Format"]
+  set location [my substitute "$tech#Location"]
+  if {$format eq "text/html"} {
+    set label "go" } else {
+    set label "Download [my substitute $tech#Size] bytes"
+  }
+  return "<A HREF='$location'>$label</A>"
+}
+
+
+
+### Definition of the Learning Resource Manager:
+Class LrManager -superclass WebDocument -parameter {
+  {defaultUrl http://nm.wu-wien.ac.at/Lehre/oo2/}
+}
+LrManager instproc html-title {t} {
+  my contentType text/html
+  return "<html><head><title>$t</title>\n<LINK REL='stylesheet' 
+	HREF='/$::opts(-cssFile)'></head>\n"
+}
+LrManager instproc html-head {t} {
+  return "<body><h2>$t</h2>\n"
+}
+
+LrManager instproc details {subject} {
+  set result [my html-title "Details about a Learning Resource"]
+  append result [my html-head "Details about the Learning Resource<br><em>'[::tv::db::$subject pretty-title]'</em>"]
+  #append result "The subject: '$subject' has the following properties:<p>\n"
+  append result [my attributeTable $subject outer] "</body></html>"
+}
+
+LrManager instproc attributeTable {subject cls} {
+  set result ""
+  set lastns ""
+  foreach {attr value} [tv::db querySubject $subject] {
+    if {[tv::db isContainer $value]} {
+      #set q [univ selfAction "details $value"]; set value "<A href='$q'>$value</A>"
+      set value [my attributeTable $value inner]
+    }
+    regexp {^(.*)\#(.*)$} $attr _ ns property
+    if {$ns != $lastns} {
+      if {$lastns ne ""} { append result </table><p>\n }
+      append result "<B class='$cls'>Attributes from namespace $ns:</B>\n<table border='1'>\n"
+      set lastns $ns
+    }
+    append result <tr> \
+        "<td><em>$property</em></td>" \
+        "<td>$value</td>" </tr>\n
+  }
+  append result "</table>\n"
+}
+
+
+LrManager instproc catalog {} {
+  set result [my html-title "Universal Resources"]
+  append result [my html-head "Local Learning Resources:"] <UL>\n
+  foreach r [lsort [tv::db resources]] {
+    append result "<LI>[$r pretty]<p></LI>\n"
+  }
+  return $result</UL></BODY></HTML>
+}
+
+LrManager instproc source {file} {
+  my contentType text/plain
+  return [loadFile $file]
+}
+
+LrManager instproc nav {} {
+  set right   [my selfAction "catalog"]
+  set result  [my html-title "Universal Navigation Bar"]
+  set rdfsrc  [my selfAction "source $::opts(-instanceFile)"]
+  set csssrc  [my selfAction "source $::opts(-root)/$::opts(-cssFile)"]
+  set src     [my selfAction "source [info script]"]
+  append result <BODY>\n \
+       "<IMG SRC= 'UNIVERSAL.jpg' align='center'  alt='UNIVERSAL HOME' border='0'> \n\
+      <p> <a href='$right' target='Rechts'>All local Resources</a></p>
+      <p> Search for Title</p>
+      <p> Search for Authors</p>
+	<hr>Internal Use only:
+      <p> <a href='$rdfsrc' target='Rechts'>XML:RDF Source</a></p> 
+      <p> <a href='$csssrc' target='Rechts'>CSS Source</a></p>
+      <p> <a href='$src' target='Rechts'>Source of Meta-Data Application Server</a></p>" 
+}
+
+LrManager instproc default {} {
+  set right  [my selfAction "catalog"]
+  set nav    [my selfAction "nav"]
+  set result [my html-title "Universal"]
+  append result "<frameset framespacing='0' border='false' frameborder='0' cols='200,*'>
+  <frame name='Links'  src='$nav'>
+  <frame name='Rechts' src='$right'  scrolling='auto'>
+  <noframes>
+  <body>\n\<h2>Query UNIVERSAL database for Resource:</h2>\n\
+  </noframes>
+</frameset>"
+}
+
+LrManager instproc init args {
+  next
+  ::receiver exportObjs [self]             ;# export object
+  my exportProcs details catalog nav source  ;# export methods
+}
+
+
+# create an instance of the Learning Resource manager
+LrManager univ
+receiver proc default {} {univ default}  ;# call it like index.html as default
+
+# Invoke Tiple Visitor to feed the database
+tv interprete
+#puts stderr [tv::db prettyTriples]
+
+
+receiver startEventLoop   ;# Start event loop
+

@@ -12,6 +12,7 @@ MISRCS += getdate.c timezone_unix03.c
 
 # set the LIBC_ALIAS_* macros so we can decorate the symbol independent
 # of other macro settings
+CFLAGS-getdate.c += -D_DARWIN_UNLIMITED_STREAMS
 CFLAGS-localtime-fbsd.c += -DLIBC_ALIAS_MKTIME
 CFLAGS-strftime-fbsd.c += -DLIBC_ALIAS_STRFTIME -DLIBC_ALIAS_STRFTIME_L
 CFLAGS-strptime-fbsd.c += -DLIBC_ALIAS_STRPTIME -DLIBC_ALIAS_STRPTIME_L

@@ -1,0 +1,25 @@
+#!./xotclsh 
+# $Id: mk_predefined.xotcl,v 1.1 2004/05/23 22:50:39 neumann Exp $
+# A small script file that creates a static array from a tcl-
+# script for inclusion in c programs      -gn
+set f [open predefined.xotcl]
+set content [read $f]
+close $f
+
+regsub -all {\\} $content && content
+regsub -all {"} $content {\"} content             ;#"
+regsub -all "\[ \]+\n" $content \n content        ;# remove trailing space
+regsub -all "\n\[ \t\]+" $content \n content      ;# remove leading space
+regsub -all "\n#\[^\n\]*\n" $content \n content   ;# remove comment lines
+regsub -all "\n#\[^\n\]*\n" $content \n content   ;# remove comment lines
+regsub -all "\n#\[^\n\]*\n" $content \n content   ;# remove comment lines
+regsub -all "\n#\[^\n\]*\n" $content \n content   ;# remove comment lines
+regsub -all "\[\n\]+" $content \n content         ;# remove empty lines
+regsub -all "\n}" $content "}" content            ;# newlines btwn braces
+regsub -all "\n" $content "\\n\"\n\"" content
+
+puts "static char cmd\[\] = "
+puts "\"$content\";"
+puts ""
+
+

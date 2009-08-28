@@ -1,4 +1,3 @@
-/* APPLE LOCAL file mainline */
 /* Positive test case for constant string layout.  */
 /* Contributed by Ziemowit Laski  <zlaski@apple.com>.  */
 

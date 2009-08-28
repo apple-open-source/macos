@@ -9,7 +9,6 @@ CFILES = dir.c ffs_subr.c ffs_tables.c inode.c main.c pass1.c\
 MANPAGES = fsck.8
 
 Extra_CC_Flags = -Wall -mdynamic-no-pic \
-	-D_DARWIN_USE_64_BIT_INODE=1 \
 	-DREV_ENDIAN_FS=1 \
 	-I"$(SDKROOT)"/System/Library/Frameworks/System.framework/PrivateHeaders
 Extra_LD_Flags = -dead_strip \

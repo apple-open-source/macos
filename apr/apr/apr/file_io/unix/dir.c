@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -24,7 +24,10 @@
 #include <limits.h>
 #endif
 
-static apr_status_t dir_cleanup(void *thedir)
+#ifdef __DARWIN_APR_BUILDING_32_BIT_INODE
+__private_extern__ apr_status_t dir_cleanup(void *thedir);
+#else /* !__DARWIN_APR_BUILDING_32_BIT_INODE */
+__private_extern__ apr_status_t dir_cleanup(void *thedir)
 {
     apr_dir_t *dir = thedir;
     if (closedir(dir->dirstruct) == 0) {
@@ -67,6 +70,7 @@ static char *path_remove_last_component (const char *path, apr_pool_t *pool)
 
     return apr_pstrndup (pool, path, (i < 0) ? 0 : i);
 }
+#endif /* !__DARWIN_APR_BUILDING_32_BIT_INODE */
 
 apr_status_t apr_dir_open(apr_dir_t **new, const char *dirname, 
                           apr_pool_t *pool)
@@ -77,8 +81,8 @@ apr_status_t apr_dir_open(apr_dir_t **new, const char *dirname,
      * one-byte array.  Note: gcc evaluates this at compile time.
      */
     apr_size_t dirent_size = 
-        (sizeof((*new)->entry->d_name) > 1 ? 
-         sizeof(struct dirent) : sizeof (struct dirent) + 255);
+        sizeof(*(*new)->entry) +
+        (sizeof((*new)->entry->d_name) > 1 ? 0 : 255);
     DIR *dir = opendir(dirname);
 
     if (!dir) {
@@ -97,13 +101,18 @@ apr_status_t apr_dir_open(apr_dir_t **new, const char *dirname,
     return APR_SUCCESS;
 }
 
+#ifndef __DARWIN_APR_BUILDING_32_BIT_INODE
 apr_status_t apr_dir_close(apr_dir_t *thedir)
 {
     return apr_pool_cleanup_run(thedir->pool, thedir, dir_cleanup);
 }
+#endif /* !__DARWIN_APR_BUILDING_32_BIT_INODE */
 
 #ifdef DIRENT_TYPE
-static apr_filetype_e filetype_from_dirent_type(int type)
+#ifdef __DARWIN_APR_BUILDING_32_BIT_INODE
+__private_extern__ apr_filetype_e filetype_from_dirent_type(int type);
+#else /* !__DARWIN_APR_BUILDING_32_BIT_INODE */
+__private_extern__ apr_filetype_e filetype_from_dirent_type(int type)
 {
     switch (type) {
     case DT_REG:
@@ -128,6 +137,7 @@ static apr_filetype_e filetype_from_dirent_type(int type)
         return APR_UNKFILE;
     }
 }
+#endif /* !__DARWIN_APR_BUILDING_32_BIT_INODE */
 #endif
 
 apr_status_t apr_dir_read(apr_finfo_t *finfo, apr_int32_t wanted,
@@ -139,15 +149,34 @@ apr_status_t apr_dir_read(apr_finfo_t *finfo, apr_int32_t wanted,
 #endif
 #if APR_HAS_THREADS && defined(_POSIX_THREAD_SAFE_FUNCTIONS) \
                     && !defined(READDIR_IS_THREAD_SAFE)
+#ifdef APR_USE_READDIR64_R
+    struct dirent64 *retent;
+
+    /* If LFS is enabled and readdir64_r is available, readdir64_r is
+     * used in preference to readdir_r.  This allows directories to be
+     * read which contain a (64-bit) inode number which doesn't fit
+     * into the 32-bit apr_ino_t, iff the caller doesn't actually care
+     * about the inode number (i.e. wanted & APR_FINFO_INODE == 0).
+     * (such inodes may be seen in some wonky NFS environments)
+     *
+     * Similarly, if the d_off field cannot be reprented in a 32-bit
+     * offset, the libc readdir_r() would barf; using readdir64_r
+     * bypasses that case entirely since APR does not care about
+     * d_off. */
+
+    ret = readdir64_r(thedir->dirstruct, thedir->entry, &retent);
+#else
+
     struct dirent *retent;
 
     ret = readdir_r(thedir->dirstruct, thedir->entry, &retent);
+#endif
 
-    /* Avoid the Linux problem where at end-of-directory thedir->entry
-     * is set to NULL, but ret = APR_SUCCESS.
-     */
-    if(!ret && thedir->entry != retent)
+    /* POSIX treats "end of directory" as a non-error case, so ret
+     * will be zero and retent will be set to NULL in that case. */
+    if (!ret && retent == NULL) {
         ret = APR_ENOENT;
+    }
 
     /* Solaris is a bit strange, if there are no more entries in the
      * directory, it returns EINVAL.  Since this is against POSIX, we
@@ -157,7 +186,7 @@ apr_status_t apr_dir_read(apr_finfo_t *finfo, apr_int32_t wanted,
      * that problem.
      */
     if (ret == EINVAL) {
-        ret = ENOENT;
+        ret = APR_ENOENT;
     }
 #else
     /* We're about to call a non-thread-safe readdir() that may
@@ -191,21 +220,38 @@ apr_status_t apr_dir_read(apr_finfo_t *finfo, apr_int32_t wanted,
 #endif
 #ifdef DIRENT_INODE
     if (thedir->entry->DIRENT_INODE && thedir->entry->DIRENT_INODE != -1) {
+#ifdef APR_USE_READDIR64_R
+        /* If readdir64_r is used, check for the overflow case of trying
+         * to fit a 64-bit integer into a 32-bit integer. */
+        if (sizeof(apr_ino_t) >= sizeof(retent->DIRENT_INODE)
+            || (apr_ino_t)retent->DIRENT_INODE == retent->DIRENT_INODE) {
+            wanted &= ~APR_FINFO_INODE;
+        } else {
+            /* Prevent the fallback code below from filling in the
+             * inode if the stat call fails. */
+            retent->DIRENT_INODE = 0;
+        }
+#else
         wanted &= ~APR_FINFO_INODE;
+#endif /* APR_USE_READDIR64_R */
     }
-#endif
+#endif /* DIRENT_INODE */
 
     wanted &= ~APR_FINFO_NAME;
 
     if (wanted)
     {
         char fspec[APR_PATH_MAX];
-        int off;
-        apr_cpystrn(fspec, thedir->dirname, sizeof(fspec));
-        off = strlen(fspec);
-        if ((fspec[off - 1] != '/') && (off + 1 < sizeof(fspec)))
-            fspec[off++] = '/';
-        apr_cpystrn(fspec + off, thedir->entry->d_name, sizeof(fspec) - off);
+        char *end;
+
+        end = apr_cpystrn(fspec, thedir->dirname, sizeof fspec);
+
+        if (end > fspec && end[-1] != '/' && (end < fspec + APR_PATH_MAX))
+            *end++ = '/';
+
+        apr_cpystrn(end, thedir->entry->d_name, 
+                    sizeof fspec - (end - fspec));
+
         ret = apr_stat(finfo, fspec, APR_FINFO_LINK | wanted, thedir->pool);
         /* We passed a stack name that will disappear */
         finfo->fname = NULL;
@@ -249,6 +295,7 @@ apr_status_t apr_dir_rewind(apr_dir_t *thedir)
     return APR_SUCCESS;
 }
 
+#ifndef __DARWIN_APR_BUILDING_32_BIT_INODE
 apr_status_t apr_dir_make(const char *path, apr_fileperms_t perm, 
                           apr_pool_t *pool)
 {
@@ -320,4 +367,4 @@ apr_status_t apr_os_dir_put(apr_dir_t **dir, apr_os_dir_t *thedir,
     return APR_SUCCESS;
 }
 
-  
+#endif /* !__DARWIN_APR_BUILDING_32_BIT_INODE */

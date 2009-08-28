@@ -8,12 +8,15 @@
 Project               = tls
 ProjectName           = TLS
 
+# Fetch info
+Release               = 1.6
+TEApotVersion         = 0.0.0.2008.06.18.23.14.00
+TEApotProject         = $(Project)
+
 Extra_Configure_Flags = $(TEA_Configure_Flags) --with-ssl-dir=$(USRDIR)
-Extra_CC_Flags        = -fno-common
-Extra_LD_Flags        = -L$(TclFramework)
 Extra_Environment     = $(TEA_Environment)
 
-GnuAfterInstall       = strip install-doc fix-owner
+GnuAfterInstall       = strip install-doc fix-perms
 
 # include TEA Tcl extension build support
 include ../TEA.make

@@ -11,7 +11,7 @@ src_install : @objroot@src/ixar
 	@INSTALL@ -d $(DESTDIR)$(BINDIR)
 	@INSTALL@ -m 0755 $< $(DESTDIR)$(BINDIR)/xar
 	@INSTALL@ -d $(DESTDIR)$(MANDIR)/man1
-	@INSTALL@ -m 0444 @srcroot@src/xar.1 $(DESTDIR)$(MANDIR)/man1
+	@INSTALL@ -m 0644 @srcroot@src/xar.1 $(DESTDIR)$(MANDIR)/man1
 
 src_uninstall :
 	rm -f $(DESTDIR)/$(BINDIR)/xar
@@ -25,23 +25,38 @@ src_clean :
 
 src_distclean :
 
+
+ifeq (yes, @shared@)
+LIBRXAR := $(LIBRXAR_S)
+endif
+ifeq (yes, @static@)
+LIBRXAR := $(LIBXAR_A)
+endif
+
 # xar links against librxar, so that it can be run without first installing
 # libxar.
-@objroot@src/% : @objroot@src/%.o $(LIBRXAR_S)
+@objroot@src/% : @objroot@src/%.o $(LIBRXAR)
 	@mkdir -p $(@D)
 ifneq ($(words "" @RPATH@), 1)
-	$(CC) $(CFLAGS) -o $@ $< @RPATH@@abs_objroot@lib $(LDFLAGS) -lrxar @LIBS@
+	$(CC) $(CFLAGS) -o $@ $< @RPATH@@abs_objroot@lib $(LDFLAGS) $(LIBRXAR) @LIBS@
 else
-	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS) -lrxar @LIBS@
+	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS) $(LIBRXAR) @LIBS@
+endif
+
+ifeq (yes, @static@)
+LIBXAR := $(LIBXAR_A)
+endif
+ifeq (yes, @shared@)
+LIBXAR := $(LIBXAR_S)
 endif
 
 # ixar is the version of the xar binary that gets installed.
-@objroot@src/i% : @objroot@src/%.o $(LIBXAR_S)
+@objroot@src/i% : @objroot@src/%.o $(LIBXAR)
 	@mkdir -p $(@D)
 ifneq ($(words "" @RPATH@), 1)
-	$(CC) $(CFLAGS) -o $@ $< @RPATH@$(LIBDIR) $(LDFLAGS) -lxar @LIBS@
+	$(CC) $(CFLAGS) -o $@ $< @RPATH@$(LIBDIR) $(LDFLAGS) $(LIBXAR) @LIBS@
 else
-	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS) -lxar @LIBS@
+	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS) $(LIBXAR) @LIBS@
 endif
 
 @objroot@src/%.o : @srcroot@src/%.c

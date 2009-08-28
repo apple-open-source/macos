@@ -1,4 +1,4 @@
-// Copyright (C) 2004 Free Software Foundation
+// Copyright (C) 2004, 2005, 2006 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -13,7 +13,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // 27.6.1.2.3 basic_istream::operator>>
@@ -122,9 +122,9 @@ void test01()
   state1 = is_04.rdstate();
   is_04 >> &isbuf_03;   
   state2 = is_04.rdstate();
-  VERIFY( state1 == state2 );
+  VERIFY( state1 != state2 );
   VERIFY( !static_cast<bool>(state2 & statefail) );
-  VERIFY( state2 != stateeof );
+  VERIFY( state2 == stateeof );
   strtmp = isbuf_03.str();
   VERIFY( strtmp == str_02 ); // as only an "in" buffer
   VERIFY( isbuf_03.sgetc() == L'a' );

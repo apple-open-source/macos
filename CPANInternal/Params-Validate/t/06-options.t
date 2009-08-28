@@ -1,18 +1,16 @@
-#!/usr/bin/perl -w
-
 use strict;
+use warnings;
 
-BEGIN
-{
-    $ENV{PERL_NO_VALIDATION} = 0;
-    require Params::Validate;
-    Params::Validate->import(':all');
-}
+use File::Spec;
+use lib File::Spec->catdir( 't', 'lib' );
 
-use Test;
-plan test => $] == 5.006 ? 3 : 7;
+use PVTests;
+use Test::More tests => 4;
 
-Params::Validate::validation_options( stack_skip => 2 );
+use Params::Validate qw(:all);
+
+
+validation_options( stack_skip => 2 );
 
 sub foo
 {
@@ -25,26 +23,21 @@ sub baz { bar(@_) }
 
 eval { baz() };
 
-ok( $@ );
-ok( $@ =~ /mandatory.*missing.*call to main::bar/i );
+like( $@, qr/mandatory.*missing.*call to main::bar/i );
 
-Params::Validate::validation_options( stack_skip => 3 );
+validation_options( stack_skip => 3 );
+
+eval { baz() };
+like( $@, qr/mandatory.*missing.*call to main::baz/i );
+
+validation_options
+    ( on_fail => sub { die bless { hash => 'ref' }, 'Dead' } );
 
 eval { baz() };
 
-ok( $@ );
+my $e = $@;
+is( $e->{hash}, 'ref' );
+ok( eval { $e->isa( 'Dead' ); 1; } );
 
-unless ( $] == 5.006 )
-{
-    ok( $@ =~ /mandatory.*missing.*call to main::baz/i );
 
-    Params::Validate::validation_options
-        ( on_fail => sub { die bless { hash => 'ref' }, 'Dead' } );
-
-    eval { baz() };
-
-    ok( $@ );
-    ok( $@->{hash} eq 'ref' );
-    ok( UNIVERSAL::isa( $@, 'Dead' ) );
-}
 

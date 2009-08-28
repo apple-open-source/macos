@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -38,6 +38,7 @@ int main(void)
 #define MAX_COUNTER 1000000
 #define MAX_THREADS 6
 
+static int verbose = 0;
 static long mutex_counter;
 
 static apr_thread_mutex_t *thread_lock;
@@ -244,7 +245,10 @@ int main(int argc, const char * const *argv)
         exit(-1);
     }
         
-    while ((rv = apr_getopt(opt, "f:", &optchar, &optarg)) == APR_SUCCESS) {
+    while ((rv = apr_getopt(opt, "vf:", &optchar, &optarg)) == APR_SUCCESS) {
+        if (optchar == 'v') {
+            verbose = 1;
+        }
         if (optchar == 'f') {
             lockname = optarg;
         }

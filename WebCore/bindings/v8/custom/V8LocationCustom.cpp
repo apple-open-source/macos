@@ -35,6 +35,7 @@
 #include "V8CustomBinding.h"
 #include "V8CustomEventListener.h"
 #include "V8Location.h"
+#include "V8Utilities.h"
 #include "V8Proxy.h"
 
 #include "PlatformString.h"
@@ -51,32 +52,17 @@ namespace WebCore {
 // This class is not very JS-engine specific.  If we can move a couple of
 // methods to the scriptController, we should be able to unify the code
 // between JSC and V8:
-//    retrieveActiveFrame()   - in JSC, this needs an ExecState.
+//    toCallingFrame()   - in JSC, this needs an ExecState.
 //    isSafeScript()
-// Since JSC and V8 have different mechanisms for getting at the ActiveFrame,
+// Since JSC and V8 have different mechanisms for getting at the calling frame,
 // we're just making all these custom for now.  The functionality is simple
 // and mirrors JSLocationCustom.cpp.
-
-static void navigateIfAllowed(Frame* frame, const KURL& url, bool lockHistory, bool lockBackForwardList)
-{
-    if (url.isEmpty())
-        return;
-
-    Frame* activeFrame = V8Proxy::retrieveFrameForEnteredContext();
-    if (!activeFrame)
-        return;
-
-    if (!url.protocolIs("javascript") || ScriptController::isSafeScript(frame)) {
-        bool userGesture = activeFrame->script()->processingUserGesture();
-        frame->loader()->scheduleLocationChange(url.string(), activeFrame->loader()->outgoingReferrer(), lockHistory, lockBackForwardList, userGesture);
-    }
-}
 
 ACCESSOR_SETTER(LocationHash)
 {
     INC_STATS("DOM.Location.hash._set");
     v8::Handle<v8::Object> holder = info.Holder();
-    Location* imp = V8Proxy::ToNativeObject<Location>(V8ClassIndex::LOCATION, holder);
+    Location* imp = V8DOMWrapper::convertToNativeObject<Location>(V8ClassIndex::LOCATION, holder);
     String hash = toWebCoreString(value);
 
     Frame* frame = imp->frame();
@@ -99,7 +85,7 @@ ACCESSOR_SETTER(LocationHost)
 {
     INC_STATS("DOM.Location.host._set");
     v8::Handle<v8::Object> holder = info.Holder();
-    Location* imp = V8Proxy::ToNativeObject<Location>(V8ClassIndex::LOCATION, holder);
+    Location* imp = V8DOMWrapper::convertToNativeObject<Location>(V8ClassIndex::LOCATION, holder);
     String host = toWebCoreString(value);
 
     Frame* frame = imp->frame();
@@ -119,7 +105,7 @@ ACCESSOR_SETTER(LocationHostname)
 {
     INC_STATS("DOM.Location.hostname._set");
     v8::Handle<v8::Object> holder = info.Holder();
-    Location* imp = V8Proxy::ToNativeObject<Location>(V8ClassIndex::LOCATION, holder);
+    Location* imp = V8DOMWrapper::convertToNativeObject<Location>(V8ClassIndex::LOCATION, holder);
     String hostname = toWebCoreString(value);
 
     Frame* frame = imp->frame();
@@ -136,28 +122,27 @@ ACCESSOR_SETTER(LocationHref)
 {
     INC_STATS("DOM.Location.href._set");
     v8::Handle<v8::Object> holder = info.Holder();
-    Location* imp = V8Proxy::ToNativeObject<Location>(V8ClassIndex::LOCATION, holder);
-    String href = toWebCoreString(value);
+    Location* imp = V8DOMWrapper::convertToNativeObject<Location>(V8ClassIndex::LOCATION, holder);
 
     Frame* frame = imp->frame();
     if (!frame)
         return;
 
-    Frame* activeFrame = V8Proxy::retrieveFrameForEnteredContext();
-    if (!activeFrame)
+    if (!shouldAllowNavigation(frame))
         return;
 
-    if (!activeFrame->loader()->shouldAllowNavigation(frame))
+    KURL url = completeURL(toWebCoreString(value));
+    if (url.isNull())
         return;
 
-    navigateIfAllowed(frame, activeFrame->loader()->completeURL(href), false, false);
+    navigateIfAllowed(frame, url, false, false);
 }
 
 ACCESSOR_SETTER(LocationPathname)
 {
     INC_STATS("DOM.Location.pathname._set");
     v8::Handle<v8::Object> holder = info.Holder();
-    Location* imp = V8Proxy::ToNativeObject<Location>(V8ClassIndex::LOCATION, holder);
+    Location* imp = V8DOMWrapper::convertToNativeObject<Location>(V8ClassIndex::LOCATION, holder);
     String pathname = toWebCoreString(value);
 
     Frame* frame = imp->frame();
@@ -174,7 +159,7 @@ ACCESSOR_SETTER(LocationPort)
 {
     INC_STATS("DOM.Location.port._set");
     v8::Handle<v8::Object> holder = info.Holder();
-    Location* imp = V8Proxy::ToNativeObject<Location>(V8ClassIndex::LOCATION, holder);
+    Location* imp = V8DOMWrapper::convertToNativeObject<Location>(V8ClassIndex::LOCATION, holder);
     String port = toWebCoreString(value);
 
     Frame* frame = imp->frame();
@@ -191,7 +176,7 @@ ACCESSOR_SETTER(LocationProtocol)
 {
     INC_STATS("DOM.Location.protocol._set");
     v8::Handle<v8::Object> holder = info.Holder();
-    Location* imp = V8Proxy::ToNativeObject<Location>(V8ClassIndex::LOCATION, holder);
+    Location* imp = V8DOMWrapper::convertToNativeObject<Location>(V8ClassIndex::LOCATION, holder);
     String protocol = toWebCoreString(value);
 
     Frame* frame = imp->frame();
@@ -208,7 +193,7 @@ ACCESSOR_SETTER(LocationSearch)
 {
     INC_STATS("DOM.Location.search._set");
     v8::Handle<v8::Object> holder = info.Holder();
-    Location* imp = V8Proxy::ToNativeObject<Location>(V8ClassIndex::LOCATION, holder);
+    Location* imp = V8DOMWrapper::convertToNativeObject<Location>(V8ClassIndex::LOCATION, holder);
     String query = toWebCoreString(value);
 
     Frame* frame = imp->frame();
@@ -225,14 +210,14 @@ ACCESSOR_GETTER(LocationReload)
 {
     INC_STATS("DOM.Location.reload._get");
     static v8::Persistent<v8::FunctionTemplate> privateTemplate = v8::Persistent<v8::FunctionTemplate>::New(v8::FunctionTemplate::New(v8LocationReloadCallback, v8::Handle<v8::Value>(), v8::Signature::New(V8Location::GetRawTemplate())));
-    v8::Handle<v8::Object> holder = V8Proxy::LookupDOMWrapper(V8ClassIndex::LOCATION, info.This());
+    v8::Handle<v8::Object> holder = V8DOMWrapper::lookupDOMWrapper(V8ClassIndex::LOCATION, info.This());
     if (holder.IsEmpty()) {
         // can only reach here by 'object.__proto__.func', and it should passed
         // domain security check already
         return privateTemplate->GetFunction();
     }
-    Location* imp = V8Proxy::ToNativeObject<Location>(V8ClassIndex::LOCATION, holder);
-    if (!V8Proxy::CanAccessFrame(imp->frame(), false)) {
+    Location* imp = V8DOMWrapper::convertToNativeObject<Location>(V8ClassIndex::LOCATION, holder);
+    if (!V8Proxy::canAccessFrame(imp->frame(), false)) {
         static v8::Persistent<v8::FunctionTemplate> sharedTemplate = v8::Persistent<v8::FunctionTemplate>::New(v8::FunctionTemplate::New(v8LocationReloadCallback, v8::Handle<v8::Value>(), v8::Signature::New(V8Location::GetRawTemplate())));
         return sharedTemplate->GetFunction();
     } else
@@ -243,14 +228,14 @@ ACCESSOR_GETTER(LocationReplace)
 {
     INC_STATS("DOM.Location.replace._get");
     static v8::Persistent<v8::FunctionTemplate> privateTemplate = v8::Persistent<v8::FunctionTemplate>::New(v8::FunctionTemplate::New(v8LocationReplaceCallback, v8::Handle<v8::Value>(), v8::Signature::New(V8Location::GetRawTemplate())));
-    v8::Handle<v8::Object> holder = V8Proxy::LookupDOMWrapper(V8ClassIndex::LOCATION, info.This());
+    v8::Handle<v8::Object> holder = V8DOMWrapper::lookupDOMWrapper(V8ClassIndex::LOCATION, info.This());
     if (holder.IsEmpty()) {
         // can only reach here by 'object.__proto__.func', and it should passed
         // domain security check already
         return privateTemplate->GetFunction();
     }
-    Location* imp = V8Proxy::ToNativeObject<Location>(V8ClassIndex::LOCATION, holder);
-    if (!V8Proxy::CanAccessFrame(imp->frame(), false)) {
+    Location* imp = V8DOMWrapper::convertToNativeObject<Location>(V8ClassIndex::LOCATION, holder);
+    if (!V8Proxy::canAccessFrame(imp->frame(), false)) {
         static v8::Persistent<v8::FunctionTemplate> sharedTemplate = v8::Persistent<v8::FunctionTemplate>::New(v8::FunctionTemplate::New(v8LocationReplaceCallback, v8::Handle<v8::Value>(), v8::Signature::New(V8Location::GetRawTemplate())));
         return sharedTemplate->GetFunction();
     } else
@@ -262,14 +247,14 @@ ACCESSOR_GETTER(LocationAssign)
     INC_STATS("DOM.Location.assign._get");
     static v8::Persistent<v8::FunctionTemplate> privateTemplate =
     v8::Persistent<v8::FunctionTemplate>::New(v8::FunctionTemplate::New(v8LocationAssignCallback, v8::Handle<v8::Value>(), v8::Signature::New(V8Location::GetRawTemplate())));
-    v8::Handle<v8::Object> holder = V8Proxy::LookupDOMWrapper(V8ClassIndex::LOCATION, info.This());
+    v8::Handle<v8::Object> holder = V8DOMWrapper::lookupDOMWrapper(V8ClassIndex::LOCATION, info.This());
     if (holder.IsEmpty()) {
         // can only reach here by 'object.__proto__.func', and it should passed
         // domain security check already
         return privateTemplate->GetFunction();
     }
-    Location* imp = V8Proxy::ToNativeObject<Location>(V8ClassIndex::LOCATION, holder);
-    if (!V8Proxy::CanAccessFrame(imp->frame(), false)) {
+    Location* imp = V8DOMWrapper::convertToNativeObject<Location>(V8ClassIndex::LOCATION, holder);
+    if (!V8Proxy::canAccessFrame(imp->frame(), false)) {
         static v8::Persistent<v8::FunctionTemplate> sharedTemplate = v8::Persistent<v8::FunctionTemplate>::New(v8::FunctionTemplate::New(v8LocationAssignCallback, v8::Handle<v8::Value>(), v8::Signature::New(V8Location::GetRawTemplate())));
         return sharedTemplate->GetFunction();
     } else
@@ -282,21 +267,14 @@ CALLBACK_FUNC_DECL(LocationReload)
 
     INC_STATS("DOM.Location.reload");
     v8::Handle<v8::Value> holder = args.Holder();
-    Location* imp = V8Proxy::ToNativeObject<Location>(V8ClassIndex::LOCATION, holder);
+    Location* imp = V8DOMWrapper::convertToNativeObject<Location>(V8ClassIndex::LOCATION, holder);
 
     Frame* frame = imp->frame();
-    if (!frame)
+    if (!frame || !ScriptController::isSafeScript(frame))
         return v8::Undefined();
 
-    Frame* activeFrame = V8Proxy::retrieveFrameForEnteredContext();
-    if (!activeFrame)
-        return v8::Undefined();
-
-    if (!ScriptController::isSafeScript(frame))
-        return v8::Undefined();
-
-    bool userGesture = activeFrame->script()->processingUserGesture();
-    frame->loader()->scheduleRefresh(userGesture);
+    if (!protocolIsJavaScript(frame->loader()->url()))
+        frame->loader()->scheduleRefresh(processingUserGesture());
     return v8::Undefined();
 }
 
@@ -304,21 +282,20 @@ CALLBACK_FUNC_DECL(LocationReplace)
 {
     INC_STATS("DOM.Location.replace");
     v8::Handle<v8::Value> holder = args.Holder();
-    Location* imp = V8Proxy::ToNativeObject<Location>(V8ClassIndex::LOCATION, holder);
-    String url = toWebCoreString(args[0]);
+    Location* imp = V8DOMWrapper::convertToNativeObject<Location>(V8ClassIndex::LOCATION, holder);
 
     Frame* frame = imp->frame();
     if (!frame)
         return v8::Undefined();
 
-    Frame* activeFrame = V8Proxy::retrieveFrameForEnteredContext();
-    if (!activeFrame)
+    if (!shouldAllowNavigation(frame))
         return v8::Undefined();
 
-    if (!activeFrame->loader()->shouldAllowNavigation(frame))
+    KURL url = completeURL(toWebCoreString(args[0]));
+    if (url.isNull())
         return v8::Undefined();
 
-    navigateIfAllowed(frame, activeFrame->loader()->completeURL(url), true, true);
+    navigateIfAllowed(frame, url, true, true);
     return v8::Undefined();
 }
 
@@ -326,21 +303,20 @@ CALLBACK_FUNC_DECL(LocationAssign)
 {
     INC_STATS("DOM.Location.assign");
     v8::Handle<v8::Value> holder = args.Holder();
-    Location* imp = V8Proxy::ToNativeObject<Location>(V8ClassIndex::LOCATION, holder);
-    String url = toWebCoreString(args[0]);
+    Location* imp = V8DOMWrapper::convertToNativeObject<Location>(V8ClassIndex::LOCATION, holder);
 
     Frame* frame = imp->frame();
     if (!frame)
         return v8::Undefined();
 
-    Frame* activeFrame = V8Proxy::retrieveFrameForEnteredContext();
-    if (!activeFrame)
+    if (!shouldAllowNavigation(frame))
         return v8::Undefined();
 
-    if (!activeFrame->loader()->shouldAllowNavigation(frame))
+    KURL url = completeURL(toWebCoreString(args[0]));
+    if (url.isNull())
         return v8::Undefined();
 
-    navigateIfAllowed(frame, activeFrame->loader()->completeURL(url), false, false);
+    navigateIfAllowed(frame, url, false, false);
     return v8::Undefined();
 }
 
@@ -358,8 +334,8 @@ CALLBACK_FUNC_DECL(LocationToString)
 {
     INC_STATS("DOM.Location.toString");
     v8::Handle<v8::Value> holder = args.Holder();
-    Location* imp = V8Proxy::ToNativeObject<Location>(V8ClassIndex::LOCATION, holder);
-    if (!V8Proxy::CanAccessFrame(imp->frame(), true))
+    Location* imp = V8DOMWrapper::convertToNativeObject<Location>(V8ClassIndex::LOCATION, holder);
+    if (!V8Proxy::canAccessFrame(imp->frame(), true))
         return v8::Undefined();
     String result = imp->href();
     return v8String(result);
@@ -369,16 +345,16 @@ INDEXED_ACCESS_CHECK(Location)
 {
     ASSERT(V8ClassIndex::FromInt(data->Int32Value()) == V8ClassIndex::LOCATION);
     // Only allow same origin access
-    Location* imp =  V8Proxy::ToNativeObject<Location>(V8ClassIndex::LOCATION, host);
-    return V8Proxy::CanAccessFrame(imp->frame(), false);
+    Location* imp =  V8DOMWrapper::convertToNativeObject<Location>(V8ClassIndex::LOCATION, host);
+    return V8Proxy::canAccessFrame(imp->frame(), false);
 }
 
 NAMED_ACCESS_CHECK(Location)
 {
     ASSERT(V8ClassIndex::FromInt(data->Int32Value()) == V8ClassIndex::LOCATION);
     // Only allow same origin access
-    Location* imp = V8Proxy::ToNativeObject<Location>(V8ClassIndex::LOCATION, host);
-    return V8Proxy::CanAccessFrame(imp->frame(), false);
+    Location* imp = V8DOMWrapper::convertToNativeObject<Location>(V8ClassIndex::LOCATION, host);
+    return V8Proxy::canAccessFrame(imp->frame(), false);
 }
 
 }  // namespace WebCore

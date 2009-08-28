@@ -100,8 +100,8 @@ void SDCSPDLPlugin::consume(NotificationDomain domain, NotificationEvent event,
 	if (const NameValuePair *uidp = nvd.FindByName(SSUID_KEY)) {
 		CssmSubserviceUid *uid = (CssmSubserviceUid *)uidp->Value().data();
 		assert(uid);
-		secdebug("sdcspdl", "sending callback %ld upstream", event);
+		secdebug("sdcspdl", "sending callback %d upstream", event);
 		sendCallback(event, n2h (uid->subserviceId()), CSSM_SERVICE_DL | CSSM_SERVICE_CSP);
 	} else
-		secdebug("sdcspdl", "callback event %ld has no SSUID data", event);
+		secdebug("sdcspdl", "callback event %d has no SSUID data", event);
 }

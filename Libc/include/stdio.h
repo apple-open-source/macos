@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2005, 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2005, 2007, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -254,7 +254,19 @@ int	 fflush(FILE *);
 int	 fgetc(FILE *);
 int	 fgetpos(FILE * __restrict, fpos_t *);
 char	*fgets(char * __restrict, int, FILE *);
-FILE	*fopen(const char * __restrict, const char * __restrict);
+#if defined(__DARWIN_10_6_AND_LATER) && (defined(_DARWIN_UNLIMITED_STREAMS) || defined(_DARWIN_C_SOURCE))
+FILE	*fopen(const char * __restrict, const char * __restrict) __DARWIN_EXTSN(fopen);
+#else /* < 10.6 || !_DARWIN_UNLIMITED_STREAMS && !_DARWIN_C_SOURCE */
+//Begin-Libc
+#ifndef LIBC_ALIAS_FOPEN
+//End-Libc
+FILE	*fopen(const char * __restrict, const char * __restrict) __DARWIN_10_6_AND_LATER_ALIAS(__DARWIN_ALIAS(fopen));
+//Begin-Libc
+#else /* LIBC_ALIAS_FOPEN */
+FILE	*fopen(const char * __restrict, const char * __restrict) LIBC_ALIAS(fopen);
+#endif /* !LIBC_ALIAS_FOPEN */
+//End-Libc
+#endif /* >= 10.6 &&_(DARWIN_UNLIMITED_STREAMS || _DARWIN_C_SOURCE) */
 int	 fprintf(FILE * __restrict, const char * __restrict, ...) __DARWIN_LDBL_COMPAT(fprintf);
 int	 fputc(int, FILE *);
 //Begin-Libc
@@ -334,7 +346,19 @@ char	*ctermid(char *);
 #if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 char	*ctermid_r(char *);
 #endif /* not POSIX */
-FILE	*fdopen(int, const char *);
+#if defined(__DARWIN_10_6_AND_LATER) && (defined(_DARWIN_UNLIMITED_STREAMS) || defined(_DARWIN_C_SOURCE))
+FILE	*fdopen(int, const char *) __DARWIN_EXTSN(fdopen);
+#else /* < 10.6 || !_DARWIN_UNLIMITED_STREAMS && !_DARWIN_C_SOURCE */
+//Begin-Libc
+#ifndef LIBC_ALIAS_FDOPEN
+//End-Libc
+FILE	*fdopen(int, const char *) __DARWIN_10_6_AND_LATER_ALIAS(__DARWIN_ALIAS(fdopen));
+//Begin-Libc
+#else /* LIBC_ALIAS_FDOPEN */
+FILE	*fdopen(int, const char *) LIBC_ALIAS(fdopen);
+#endif /* !LIBC_ALIAS_FDOPEN */
+//End-Libc
+#endif /* >= 10.6 &&_(DARWIN_UNLIMITED_STREAMS || _DARWIN_C_SOURCE) */
 #if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 char	*fgetln(FILE *, size_t *);
 #endif /* not POSIX */
@@ -355,7 +379,19 @@ int	 getchar_unlocked(void);
 int	 getw(FILE *);
 #endif /* not POSIX */
 int	 pclose(FILE *);
-FILE	*popen(const char *, const char *);
+#if defined(__DARWIN_10_6_AND_LATER) && (defined(_DARWIN_UNLIMITED_STREAMS) || defined(_DARWIN_C_SOURCE))
+FILE	*popen(const char *, const char *) __DARWIN_EXTSN(popen);
+#else /* < 10.6 || !_DARWIN_UNLIMITED_STREAMS && !_DARWIN_C_SOURCE */
+//Begin-Libc
+#ifndef LIBC_ALIAS_POPEN
+//End-Libc
+FILE	*popen(const char *, const char *) __DARWIN_10_6_AND_LATER_ALIAS(__DARWIN_ALIAS(popen));
+//Begin-Libc
+#else /* LIBC_ALIAS_POPEN */
+FILE	*popen(const char *, const char *) LIBC_ALIAS(popen);
+#endif /* !LIBC_ALIAS_POPEN */
+//End-Libc
+#endif /* >= 10.6 &&_(DARWIN_UNLIMITED_STREAMS || _DARWIN_C_SOURCE) */
 int	 putc_unlocked(int, FILE *);
 int	 putchar_unlocked(int);
 #if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)

@@ -22,9 +22,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #ifndef _NM_NEXTSTEP_H_
 #define _NM_NEXTSTEP_H_
 
-#define ATTACH_DETACH
-#define ATTACH_NO_WAIT
-
 struct target_waitstatus;
 struct target_ops;
 

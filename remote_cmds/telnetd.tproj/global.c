@@ -31,13 +31,13 @@
  * SUCH DAMAGE.
  */
 
-#ifndef lint
 #if 0
-static char sccsid[] = "@(#)global.c	8.1 (Berkeley) 6/4/93";
-#endif
-static const char rcsid[] =
-  "$FreeBSD: src/libexec/telnetd/global.c,v 1.3 1999/08/28 00:10:23 peter Exp $";
+#ifndef lint
+static const char sccsid[] = "@(#)global.c	8.1 (Berkeley) 6/4/93";
 #endif /* not lint */
+#endif
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/contrib/telnet/telnetd/global.c,v 1.6 2003/05/04 02:54:49 obrien Exp $");
 
 /*
  * Allocate global variables.  We do this

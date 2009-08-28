@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003, 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003, 2006, 2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -54,6 +54,7 @@
 extern Boolean		_configd_verbose;	/* TRUE if verbose logging enabled */
 extern FILE		*_configd_trace;	/* non-NULL if tracing enabled */
 extern CFMutableSetRef	_plugins_exclude;	/* bundle identifiers to exclude from loading */
+extern Boolean		_plugins_fork;		/* TRUE if plugins should be exec'd in their own process */
 extern CFMutableSetRef	_plugins_verbose;	/* bundle identifiers to enable verbose logging */
 
 __BEGIN_DECLS

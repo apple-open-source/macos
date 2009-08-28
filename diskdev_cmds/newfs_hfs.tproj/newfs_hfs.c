@@ -1,21 +1,22 @@
 /*
- * Copyright (c) 1999-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -61,13 +62,11 @@ static void getclumpopts __P((char* optlist));
 static gid_t a_gid __P((char *));
 static uid_t a_uid __P((char *));
 static mode_t a_mask __P((char *));
-static int hfs_newfs __P((char *device, int forceHFS));
+static int hfs_newfs __P((char *device));
 static void validate_hfsplus_block_size __P((UInt64 sectorCount, UInt32 sectorSize));
 static void hfsplus_params __P((const DriveInfo* dip, hfsparams_t *defaults));
-static void hfs_params __P((const DriveInfo* dip, hfsparams_t *defaults));
 static UInt32 clumpsizecalc __P((UInt32 clumpblocks));
-static UInt32 CalcBTreeClumpSize __P((UInt32 blockSize, UInt32 nodeSize, UInt32 driveBlocks, int catalog));
-static UInt32 CalcHFSPlusBTreeClumpSize __P((UInt32 blockSize, UInt32 nodeSize, UInt64 sectors, int catalog));
+static UInt32 CalcHFSPlusBTreeClumpSize __P((UInt32 blockSize, UInt32 nodeSize, UInt64 sectors, int fileID));
 static void usage __P((void));
 
 
@@ -75,20 +74,20 @@ char	*progname;
 char	gVolumeName[kHFSPlusMaxFileNameChars + 1] = {kDefaultVolumeNameStr};
 char	rawdevice[MAXPATHLEN];
 char	blkdevice[MAXPATHLEN];
-UInt32	gBlockSize = 0;
+uint32_t gBlockSize = 0;
 UInt32	gNextCNID = kHFSFirstUserCatalogNodeID;
 
 time_t  createtime;
 
 int	gNoCreate = FALSE;
-int	gWrapper = FALSE;
 int	gUserCatNodeSize = FALSE;
 int	gCaseSensitive = FALSE;
+int	gUserAttrSize = FALSE;
 
 #define JOURNAL_DEFAULT_SIZE (8*1024*1024)
 int     gJournaled = FALSE;
 char    *gJournalDevice = NULL;
-int     gJournalSize = JOURNAL_DEFAULT_SIZE;
+UInt64	gJournalSize = 0;
 
 uid_t	gUserID = (uid_t)NOVAL;
 gid_t	gGroupID = (gid_t)NOVAL;
@@ -98,7 +97,7 @@ UInt64	gPartitionSize = 0;
 
 UInt32	catnodesiz = 8192;
 UInt32	extnodesiz = 4096;
-UInt32	atrnodesiz = 4096;
+UInt32	atrnodesiz = 8192;
 
 UInt32	catclumpblks = 0;
 UInt32	extclumpblks = 0;
@@ -106,7 +105,7 @@ UInt32	atrclumpblks = 0;
 UInt32	bmclumpblks = 0;
 UInt32	rsrclumpblks = 0;
 UInt32	datclumpblks = 0;
-UInt32	hfsgrowblks = 0;      /* maximum growable size of wrapper */
+uint32_t hfsgrowblks = 0;      /* maximum growable size of wrapper */
 
 
 UInt64
@@ -156,7 +155,6 @@ main(argc, argv)
 	extern char *optarg;
 	extern int optind;
 	int ch;
-	int forceHFS;
 	char *cp, *special;
 	struct statfs *mp;
 	int n;
@@ -166,9 +164,8 @@ main(argc, argv)
 	else
 		progname = *argv;
 
-	forceHFS = FALSE;
 
-	while ((ch = getopt(argc, argv, "G:J:M:N:U:hswb:c:i:n:v:")) != EOF)
+	while ((ch = getopt(argc, argv, "G:J:D:M:N:U:hsb:c:i:n:v:")) != EOF)
 		switch (ch) {
 		case 'G':
 			gGroupID = a_gid(optarg);
@@ -179,7 +176,7 @@ main(argc, argv)
 			if (isdigit(optarg[0])) {
 			    gJournalSize = get_num(optarg);
 			    if (gJournalSize < 512*1024) {
-					printf("%s: journal size %dk too small.  Reset to %dk.\n",
+					printf("%s: journal size %lldk too small.  Reset to %dk.\n",
 						progname, gJournalSize/1024, JOURNAL_DEFAULT_SIZE/1024);
 					gJournalSize = JOURNAL_DEFAULT_SIZE;
 			    }
@@ -187,6 +184,10 @@ main(argc, argv)
 				/* back up because there was no size argument */
 			    optind--;
 			}
+			break;
+			
+		case 'D':
+			gJournalDevice = (char *)optarg;
 			break;
 			
 		case 'N':
@@ -208,19 +209,20 @@ main(argc, argv)
 			break;
 
 		case 'b':
-			gBlockSize = atoi(optarg);
-			if (gBlockSize < HFSMINBSIZE)
+		{
+			UInt64 tempBlockSize;
+			
+			tempBlockSize = get_num(optarg);
+			if (tempBlockSize < HFSMINBSIZE)
 				fatal("%s: bad allocation block size (too small)", optarg);
-			if (gBlockSize > MAXBSIZE) 
+			if (tempBlockSize > HFSMAXBSIZE) 
 				fatal("%s: bad allocation block size (too large)", optarg);
+			gBlockSize = tempBlockSize;
 			break;
+		}
 
 		case 'c':
 			getclumpopts(optarg);
-			break;
-
-		case 'h':
-			forceHFS = TRUE;
 			break;
 
 		case 'i':
@@ -242,16 +244,12 @@ main(argc, argv)
 
 		case 'v':
 			n = strlen(optarg);
-			if (n > (int)(sizeof(gVolumeName) - 1))
+			if (n > (sizeof(gVolumeName) - 1))
 				fatal("\"%s\" is too long (%d byte maximum)",
 				      optarg, sizeof(gVolumeName) - 1);
 			if (n == 0)
 				fatal("name required with -v option");
-			strcpy(gVolumeName, optarg);
-			break;
-
-		case 'w':
-			gWrapper = TRUE;
+			strlcpy(gVolumeName, optarg, sizeof(gVolumeName));
 			break;
 
 		case '?':
@@ -284,23 +282,6 @@ main(argc, argv)
 		(void) snprintf(blkdevice, sizeof(blkdevice), "%s%s", _PATH_DEV, special);
 	}
 
-	if (forceHFS && gJournaled) {
-		fprintf(stderr, "-h -J: incompatible options specified\n");
-		usage();
-	}
-	if (gCaseSensitive && (forceHFS || gWrapper)) {
-		fprintf(stderr, "-s: incompatible options specified\n");
-		usage();
-	}
-	if (gWrapper && forceHFS) {
-		fprintf(stderr, "-h -w: incompatible options specified\n");
-		usage();
-	}
-	if (!gWrapper && hfsgrowblks) {
-		fprintf(stderr, "g clump option requires -w option\n");
-		exit(1);
-	}
-
 	if (gPartitionSize == 0) {
 		/*
 		 * Check if target device is aready mounted
@@ -316,8 +297,8 @@ main(argc, argv)
 		}
 	}
 
-	if (hfs_newfs(rawdevice, forceHFS) < 0) {
-		err(1, NULL);
+	if (hfs_newfs(rawdevice) < 0) {
+		err(1, "cannot create filesystem on %s", rawdevice);
 	}
 
 	exit(0);
@@ -384,6 +365,7 @@ static void getclumpopts(char* optlist)
 		switch (*ndarg) {
 		case 'a':
 			atrclumpblks = clpblocks;
+			gUserAttrSize = TRUE;
 			break;
 		case 'b':
 			bmclumpblks = clpblocks;
@@ -396,9 +378,6 @@ static void getclumpopts(char* optlist)
 			break;
 		case 'e':
 			extclumpblks = clpblocks;
-			break;
-		case 'g':  /* maximum growable size of hfs wrapper */
-			hfsgrowblks = clpblocks;
 			break;
 		case 'r':
 			rsrclumpblks = clpblocks;
@@ -498,16 +477,14 @@ static void validate_hfsplus_block_size(UInt64 sectorCount, UInt32 sectorSize)
 
 
 static int
-hfs_newfs(char *device, int forceHFS)
+hfs_newfs(char *device)
 {
 	struct stat stbuf;
 	DriveInfo dip = { 0 };
-	int fso = 0;
+	int fso = -1;
 	int retval = 0;
 	hfsparams_t defaults = {0};
-	UInt64 maxPhysSectorsPerIO;
-	UInt64 physSectorsPerRead;
-	UInt64 physSectorsPerWrite;
+	UInt64 maxPhysPerIO = 0;
 
 	if (gPartitionSize) {
 		dip.sectorSize = kBytesPerSector;
@@ -520,7 +497,12 @@ hfs_newfs(char *device, int forceHFS)
 		} else {
 			fso = open( device, O_RDWR | O_NDELAY, 0 );
 		}
+		if (fso == -1) {
+			return -1;
+		}
+
 		dip.fd = fso;
+		fcntl(fso, F_NOCACHE, 1);
 
 		if (fso < 0)
 			fatal("%s: %s", device, strerror(errno));
@@ -539,17 +521,31 @@ hfs_newfs(char *device, int forceHFS)
 
 	}
 
-	if (ioctl(fso, DKIOCGETMAXBLOCKCOUNTREAD, &maxPhysSectorsPerIO) < 0)
-		physSectorsPerRead = (128 * 1024) / dip.physSectorSize;  /* use 128K as default */
-	else
-		physSectorsPerRead = MIN(maxPhysSectorsPerIO, (1024 * 1024) / dip.physSectorSize);
+	dip.physSectorsPerIO = (1024 * 1024) / dip.physSectorSize;  /* use 1M as default */
 
-	if (ioctl(fso, DKIOCGETMAXBLOCKCOUNTWRITE, &maxPhysSectorsPerIO) < 0)
-		physSectorsPerWrite = (128 * 1024) / dip.physSectorSize;  /* use 128K as default */
-	else
-		physSectorsPerWrite = MIN(maxPhysSectorsPerIO, (1024 * 1024) / dip.physSectorSize);
+	if (fso != -1 && ioctl(fso, DKIOCGETMAXBLOCKCOUNTREAD, &maxPhysPerIO) < 0)
+		fatal("%s: %s", device, strerror(errno));
 
-	dip.physSectorsPerIO = MIN ( physSectorsPerRead, physSectorsPerWrite );
+	if (maxPhysPerIO)
+		dip.physSectorsPerIO = MIN(dip.physSectorsPerIO, maxPhysPerIO);
+
+	if (fso != -1 && ioctl(fso, DKIOCGETMAXBLOCKCOUNTWRITE, &maxPhysPerIO) < 0)
+		fatal("%s: %s", device, strerror(errno));
+
+	if (maxPhysPerIO)
+		dip.physSectorsPerIO = MIN(dip.physSectorsPerIO, maxPhysPerIO);
+
+	if (fso != -1 && ioctl(fso, DKIOCGETMAXBYTECOUNTREAD, &maxPhysPerIO) < 0)
+		fatal("%s: %s", device, strerror(errno));
+
+	if (maxPhysPerIO)
+		dip.physSectorsPerIO = MIN(dip.physSectorsPerIO, maxPhysPerIO / dip.physSectorSize);
+
+	if (fso != -1 && ioctl(fso, DKIOCGETMAXBYTECOUNTWRITE, &maxPhysPerIO) < 0)
+		fatal("%s: %s", device, strerror(errno));
+
+	if (maxPhysPerIO)
+		dip.physSectorsPerIO = MIN(dip.physSectorsPerIO, maxPhysPerIO / dip.physSectorSize);
 
 	dip.sectorSize = kBytesPerSector;
 	dip.totalSectors = dip.physTotalSectors * dip.physSectorSize / dip.sectorSize;
@@ -557,75 +553,40 @@ hfs_newfs(char *device, int forceHFS)
 	dip.sectorOffset = 0;
 	time(&createtime);
 
-	if (gWrapper && (dip.totalSectors >= kMaxWrapableSectors)) {
-		gWrapper = 0;
-		fprintf(stderr, "%s: WARNING: wrapper option ignored since volume size > 256GB\n", progname);
-	}
+	/*
+	 * If we're going to make an HFS Plus disk (with or without a wrapper), validate the
+	 * HFS Plus allocation block size.  This will also calculate a default allocation
+	 * block size if none (or zero) was specified.
+	 */
+	validate_hfsplus_block_size(dip.totalSectors, dip.sectorSize);	
 
-        /*
-         * If we're going to make an HFS Plus disk (with or without a wrapper), validate the
-         * HFS Plus allocation block size.  This will also calculate a default allocation
-         * block size if none (or zero) was specified.
-         */
-        if (!forceHFS)
-		validate_hfsplus_block_size(dip.totalSectors, dip.sectorSize);
-        
-	/* Make an HFS disk */
-	if (forceHFS || gWrapper) {
-		hfs_params(&dip, &defaults);
-		if (gNoCreate == 0) {
-			UInt32 totalSectors, sectorOffset;
+	/* Make an HFS Plus disk */	
 
-			retval = make_hfs(&dip, &defaults, &totalSectors, &sectorOffset);
-			if (retval)
-				fatal("%s: %s", device, strerror(errno));
+	if ((dip.totalSectors * dip.sectorSize ) < kMinHFSPlusVolumeSize)
+		fatal("%s: partition is too small (minimum is %d KB)", device, kMinHFSPlusVolumeSize/1024);
 
-			if (gWrapper) {
-				dip.totalSectors = totalSectors;
-				dip.sectorOffset = sectorOffset;
-			} else {
-				printf("Initialized %s as a %ld MB HFS volume\n",
-					device, (long)(dip.totalSectors/2048));
-			}
-		}
-	}
-
-	/* Make an HFS Plus disk */
-	if (gWrapper || !forceHFS) {
-		
-		if ((dip.totalSectors * dip.sectorSize ) < kMinHFSPlusVolumeSize)
-			fatal("%s: partition is too small (minimum is %d KB)", device, kMinHFSPlusVolumeSize/1024);
-
-		/*
-		 * Above 512GB, enforce partition size to be a multiple of 4K.
-		 *
-		 * Strictly speaking, the threshold could be as high as 1TB volume size, but
-		 * this keeps us well away from any potential edge cases.  Besides, partitions
-		 * this large should be 4K aligned for performance.
-		 */
-		if ((dip.totalSectors >= 0x40000000) && (dip.totalSectors & 7))
-		    fatal("%s: partition size not a multiple of 4K.", device);
-
-		hfsplus_params(&dip, &defaults);
-		if (gNoCreate == 0) {
-			retval = make_hfsplus(&dip, &defaults);
-			if (retval == 0) {
-				printf("Initialized %s as a ", device);
-				if (dip.totalSectors > 0x2000000)
-					printf("%ld GB",
+	hfsplus_params(&dip, &defaults);
+	if (gNoCreate == 0) {
+		retval = make_hfsplus(&dip, &defaults);
+		if (retval == 0) {
+			printf("Initialized %s as a ", device);
+			if (dip.totalSectors > 2048ULL*1024*1024)
+				printf("%ld TB",
+						(long)((dip.totalSectors + (1024ULL*1024*1024))/(2048ULL*1024*1024)));
+			else if (dip.totalSectors > 2048*1024)
+				printf("%ld GB",
 						(long)((dip.totalSectors + (1024*1024))/(2048*1024)));
-				else if (dip.totalSectors > 2048)
-					printf("%ld MB",
+			else if (dip.totalSectors > 2048)
+				printf("%ld MB",
 						(long)((dip.totalSectors + 1024)/2048));
-				else
-					printf("%ld KB",
+			else
+				printf("%ld KB",
 						(long)((dip.totalSectors + 1)/2));
-				if (gJournaled)
-					printf(" HFS Plus volume with a %dk journal\n",
+			if (gJournaled)
+				printf(" HFS Plus volume with a %uk journal\n",
 						(int)defaults.journalSize/1024);
-				else
-					printf(" HFS Plus volume\n");
-			}
+			else
+				printf(" HFS Plus volume\n");
 		}
 	}
 
@@ -644,11 +605,10 @@ static void hfsplus_params (const DriveInfo* dip, hfsparams_t *defaults)
 {
 	UInt64  sectorCount = dip->totalSectors;
 	UInt32  sectorSize = dip->sectorSize;
-	UInt32	totalBlocks;
+	uint32_t totalBlocks;
 	UInt32	minClumpSize;
 	UInt32	clumpSize;
 	UInt32	oddBitmapBytes;
-	UInt32  jscale;
 	
 	defaults->flags = 0;
 	defaults->blockSize = gBlockSize;
@@ -672,23 +632,45 @@ static void hfsplus_params (const DriveInfo* dip, hfsparams_t *defaults)
 		defaults->flags |= kUseAccessPerms;
 	}
 
-	//
-	// we want at least 8 megs of journal for each 100 gigs of
-	// disk space.  We cap the size at 512 megs though.
-	//
-	jscale = (sectorCount * sectorSize) / ((UInt64)100 * 1024 * 1024 * 1024);
-
-	//
-	// only scale if it's the default, otherwise just take what
-	// the user specified.
-	//
-	if (gJournalSize == JOURNAL_DEFAULT_SIZE) {
-	    defaults->journalSize = gJournalSize * (jscale + 1);
-	} else {
-	    defaults->journalSize = gJournalSize;
+	/*
+	 * We want at least 8 megs of journal for each 100 gigs of
+	 * disk space.  We cap the size at 512 megs (64x default), unless
+	 * the allocation block size is larger, in which case we use one
+	 * allocation block.
+	 *
+	 * Only scale if it's the default, otherwise just take what
+	 * the user specified.
+	 */
+	if (gJournaled) {
+	    if (gJournalSize == 0) {
+		UInt32 jscale;
+		
+		jscale = (sectorCount * sectorSize) / ((UInt64)100 * 1024 * 1024 * 1024);
+		if (jscale > 64)
+		    jscale = 64;
+		defaults->journalSize = JOURNAL_DEFAULT_SIZE * (jscale + 1);
+	    } else {
+		defaults->journalSize = gJournalSize;
+	    }
+	    if (defaults->journalSize > 512 * 1024 * 1024) {
+		defaults->journalSize = 512 * 1024 * 1024;
+	    }
+	    if (defaults->journalSize < defaults->blockSize) {
+	    	defaults->journalSize = defaults->blockSize;
+	    }
 	}
-	if (defaults->journalSize > 512 * 1024 * 1024) {
-	    defaults->journalSize = 512 * 1024 * 1024;
+	
+	// volumes that are 128 megs or less in size have such
+	// a small bitmap (one 4k-block) and inherhently such
+	// a small btree that we can get by with a much smaller
+	// journal.  even in a worst case scenario of a catalog
+	// filled with very long korean file names we should
+	// never touch more than 256k of meta-data for a single
+	// transaction.  therefore we'll make the journal 512k
+	// which is safe and doesn't waste much space.
+	//
+	if (sectorCount * sectorSize < 128*1024*1024) {
+		defaults->journalSize = 512 * 1024;
 	}
 
 	strncpy((char *)defaults->volumeName, gVolumeName, sizeof(defaults->volumeName) - 1);
@@ -721,7 +703,7 @@ static void hfsplus_params (const DriveInfo* dip, hfsparams_t *defaults)
 	}
 
 	if (catclumpblks == 0) {
-		clumpSize = CalcHFSPlusBTreeClumpSize(gBlockSize, catnodesiz, sectorCount, TRUE);
+		clumpSize = CalcHFSPlusBTreeClumpSize(gBlockSize, catnodesiz, sectorCount, kHFSCatalogFileID);
 	}
 	else {
 		clumpSize = clumpsizecalc(catclumpblks);
@@ -735,7 +717,7 @@ static void hfsplus_params (const DriveInfo* dip, hfsparams_t *defaults)
 		warnx("Warning: block size %ld is less than catalog b-tree node size %ld", gBlockSize, catnodesiz);
 
 	if (extclumpblks == 0) {
-		clumpSize = CalcHFSPlusBTreeClumpSize(gBlockSize, extnodesiz, sectorCount, FALSE);
+		clumpSize = CalcHFSPlusBTreeClumpSize(gBlockSize, extnodesiz, sectorCount, kHFSExtentsFileID);
 	}
 	else {
 		clumpSize = clumpsizecalc(extclumpblks);
@@ -748,7 +730,12 @@ static void hfsplus_params (const DriveInfo* dip, hfsparams_t *defaults)
 		warnx("Warning: block size %ld is less than extents b-tree node size %ld", gBlockSize, extnodesiz);
 
 	if (atrclumpblks == 0) {
-		clumpSize = 0;
+		if (gUserAttrSize) {
+			clumpSize = 0;
+		}
+		else {
+			clumpSize = CalcHFSPlusBTreeClumpSize(gBlockSize, atrnodesiz, sectorCount, kHFSAttributesFileID);
+		}
 	}
 	else {
 		clumpSize = clumpsizecalc(atrclumpblks);
@@ -787,116 +774,35 @@ static void hfsplus_params (const DriveInfo* dip, hfsparams_t *defaults)
 			fatal("b=%ld: bitmap clump size is too small\n", clumpSize/gBlockSize);
 	}
 	defaults->allocationClumpSize = clumpSize;
-
+	
 	if (gCaseSensitive)
 		defaults->flags |= kMakeCaseSensitive;
 
 	if (gNoCreate) {
-		if (!gWrapper && gPartitionSize == 0)
-			printf("%llu sectors (%lu bytes per sector)\n", dip->physTotalSectors, dip->physSectorSize);
+		if (gPartitionSize == 0)
+			printf("%llu sectors (%u bytes per sector)\n", dip->physTotalSectors, dip->physSectorSize);
 		printf("HFS Plus format parameters:\n");
 		printf("\tvolume name: \"%s\"\n", gVolumeName);
-		printf("\tblock-size: %lu\n", defaults->blockSize);
-		printf("\ttotal blocks: %lu\n", totalBlocks);
+		printf("\tblock-size: %u\n", defaults->blockSize);
+		printf("\ttotal blocks: %u\n", totalBlocks);
 		if (gJournaled)
-			printf("\tjournal-size: %dk\n", (int)defaults->journalSize/1024);
-		printf("\tfirst free catalog node id: %lu\n", defaults->nextFreeFileID);
-		printf("\tcatalog b-tree node size: %lu\n", defaults->catalogNodeSize);
-		printf("\tinitial catalog file size: %lu\n", defaults->catalogClumpSize);
-		printf("\textents b-tree node size: %lu\n", defaults->extentsNodeSize);
-		printf("\tinitial extents file size: %lu\n", defaults->extentsClumpSize);
-		printf("\tinitial allocation file size: %lu (%lu blocks)\n",
+			printf("\tjournal-size: %uk\n", defaults->journalSize/1024);
+		printf("\tfirst free catalog node id: %u\n", defaults->nextFreeFileID);
+		printf("\tcatalog b-tree node size: %u\n", defaults->catalogNodeSize);
+		printf("\tinitial catalog file size: %u\n", defaults->catalogClumpSize);
+		printf("\textents b-tree node size: %u\n", defaults->extentsNodeSize);
+		printf("\tinitial extents file size: %u\n", defaults->extentsClumpSize);
+		printf("\tattributes b-tree node size: %u\n", defaults->attributesNodeSize);
+		printf("\tinitial attributes file size: %u\n", defaults->attributesClumpSize);
+		printf("\tinitial allocation file size: %u (%u blocks)\n",
 			defaults->allocationClumpSize, defaults->allocationClumpSize / gBlockSize);
-		printf("\tdata fork clump size: %lu\n", defaults->dataClumpSize);
-		printf("\tresource fork clump size: %lu\n", defaults->rsrcClumpSize);
+		printf("\tdata fork clump size: %u\n", defaults->dataClumpSize);
+		printf("\tresource fork clump size: %u\n", defaults->rsrcClumpSize);
 		if (defaults->flags & kUseAccessPerms) {
 			printf("\tuser ID: %d\n", (int)defaults->owner);
 			printf("\tgroup ID: %d\n", (int)defaults->group);
 			printf("\taccess mask: %o\n", (int)defaults->mask);
 		}
-	}
-}
-
-
-static void hfs_params(const DriveInfo* dip, hfsparams_t *defaults)
-{
-	UInt64  sectorCount = dip->totalSectors;
-	UInt32  sectorSize = dip->sectorSize;
-	UInt32	alBlkSize;
-	UInt32	vSectorCount;
-	UInt32	defaultBlockSize;
-	
-	defaults->flags = kMakeStandardHFS;
-	defaults->nextFreeFileID = gNextCNID;
-	defaults->createDate = createtime + MAC_GMT_FACTOR;     /* Mac OS GMT time */
-	defaults->catalogNodeSize = kHFSNodeSize;
-	defaults->extentsNodeSize = kHFSNodeSize;
-	defaults->attributesNodeSize = 0;
-	defaults->attributesClumpSize = 0;
-
-	strncpy((char *)defaults->volumeName, gVolumeName, sizeof(defaults->volumeName) - 1);
-	defaults->volumeName[sizeof(defaults->volumeName) - 1] = '\0';
-
-	/* Compute the default allocation block size */
-	if (gWrapper && hfsgrowblks) {
-		defaults->flags |= kMakeMaxHFSBitmap;
-		vSectorCount = ((UInt64)hfsgrowblks * 512) / sectorSize;
-		defaultBlockSize = sectorSize * ((vSectorCount >> 16) + 1);
-	} else
-		defaultBlockSize = sectorSize * ((sectorCount >> 16) + 1);
-
-	if (gWrapper) {
-		defaults->flags |= kMakeHFSWrapper;
-	
-		/* round alBlkSize up to multiple of HFS Plus blockSize */
-		alBlkSize = ((defaultBlockSize + gBlockSize - 1) / gBlockSize) * gBlockSize;	
-
-		if (gBlockSize > 4096)
-			defaults->hfsAlignment = 4096 / sectorSize;		/* Align to 4K boundary */
-		else
-			defaults->hfsAlignment = gBlockSize / sectorSize;	/* Align to blockSize boundary */
-	} else {
-		/* If allocation block size is undefined or invalid calculate itÉ*/
-		alBlkSize = gBlockSize;
-		defaults->hfsAlignment = 0;
-	}
-
-	if ( alBlkSize == 0 || (alBlkSize & 0x1FF) != 0 || alBlkSize < defaultBlockSize)
-		alBlkSize = defaultBlockSize;
-
-	defaults->blockSize = alBlkSize;
-
-	defaults->dataClumpSize = alBlkSize * 4;
-	defaults->rsrcClumpSize = alBlkSize * 4;
-	if ( gWrapper || defaults->dataClumpSize > 0x100000 )
-		defaults->dataClumpSize = alBlkSize;
-
-	if (gWrapper) {
-		if (alBlkSize == kHFSNodeSize) {
-			defaults->extentsClumpSize = (2 * kHFSNodeSize); /* header + root/leaf */
-			defaults->catalogClumpSize = (4 * kHFSNodeSize); /* header + root + 2 leaves */
-		} else {
-			defaults->extentsClumpSize = alBlkSize;
-			defaults->catalogClumpSize = alBlkSize;
-		}
-	} else {
-		defaults->catalogClumpSize = CalcBTreeClumpSize(alBlkSize, sectorSize, sectorCount, TRUE);
-		defaults->extentsClumpSize = CalcBTreeClumpSize(alBlkSize, sectorSize, sectorCount, FALSE);
-	}
-	
-	if (gNoCreate) {
-		printf("%lld sectors at %ld bytes per sector\n", dip->physTotalSectors, dip->physSectorSize);
-		printf("%s format parameters:\n", gWrapper ? "HFS Wrapper" : "HFS");
-		printf("\tvolume name: \"%s\"\n", gVolumeName);
-		printf("\tblock-size: %ld\n", defaults->blockSize);
-		printf("\ttotal blocks: %lld\n", sectorCount / (alBlkSize / sectorSize) );
-		printf("\tfirst free catalog node id: %ld\n", defaults->nextFreeFileID);
-		printf("\tinitial catalog file size: %ld\n", defaults->catalogClumpSize);
-		printf("\tinitial extents file size: %ld\n", defaults->extentsClumpSize);
-		printf("\tfile clump size: %ld\n", defaults->dataClumpSize);
-		/* hfsgrowblks is in terms of 512-byte sectors */
-		if (hfsgrowblks)
-			printf("\twrapper growable from %lld to %ld sectors\n", dip->physTotalSectors, hfsgrowblks * kBytesPerSector / dip->physSectorSize);
 	}
 }
 
@@ -915,119 +821,56 @@ clumpsizecalc(UInt32 clumpblocks)
 }
 
 
-/*
- * CalcBTreeClumpSize
- *	
- * This routine calculates the file clump size for both the catalog and
- * extents overflow files. In general, this is 1/128 the size of the
- * volume up to a maximum of 6 MB.  For really large HFS volumes it will
- * be just 1 allocation block.
- */
-static UInt32
-CalcBTreeClumpSize(UInt32 blockSize, UInt32 nodeSize, UInt32 driveBlocks, int catalog)
-{
-	UInt32	clumpSectors;
-	UInt32	maximumClumpSectors;
-	UInt32	sectorsPerBlock = blockSize >> kLog2SectorSize;
-	UInt32	sectorsPerNode = nodeSize >> kLog2SectorSize;
-	UInt32	nodeBitsInHeader;
-	UInt32	limitClumpSectors;
-	
-	if (catalog)
-		limitClumpSectors = 6 * 1024 * 1024 / 512;	/* overall limit of 6MB */
-	else
-		limitClumpSectors = 4 * 1024 * 1024 / 512;	/* overall limit of 4MB */
-	/* 
-	 * For small node sizes (eg., HFS, or default HFS Plus extents), then the clump size will
-	 * be as big as the header's map record can handle.  (That is, as big as possible, without
-	 * requiring a map node.)
-	 * 
-	 * But for a 32K node size, this works out to nearly 8GB.  We need to restrict it further.
-	 * To avoid arithmetic overflow, we'll calculate things in terms of 512-byte sectors.
-	 */
-	nodeBitsInHeader = 8 * (nodeSize - sizeof(BTNodeDescriptor)
-					- sizeof(BTHeaderRec)
-					- kBTreeHeaderUserBytes
-					- (4 * sizeof(SInt16)));
-	maximumClumpSectors = nodeBitsInHeader * sectorsPerNode;
-	
-	if ( maximumClumpSectors > limitClumpSectors )
-		maximumClumpSectors = limitClumpSectors;
-
-	/*
-	 * For very large HFS volumes, the allocation block size might be larger than the arbitrary limit
-	 * we set above.  Since we have to allocate at least one allocation block, then use that as the
-	 * clump size.
-	 * 
-	 * Otherwise, we want to use about 1/128 of the volume, again subject to the above limit.
-	 * To avoid arithmetic overflow, we continue to work with sectors.
-	 * 
-	 * But for very small volumes (less than 64K), we'll just use 4 allocation blocks.  And that
-	 * will typically be 2KB.
-	 */
-	if ( sectorsPerBlock >= maximumClumpSectors )
-	{
-		clumpSectors = sectorsPerBlock;		/* for really large volumes just use one allocation block (HFS only) */
-	}
-	else
-	{
-		/*
-		 * For large volumes, the default is 1/128 of the volume size, up to the maximumClumpSize
-		 */
-		if ( driveBlocks > 128 )
-		{
-			clumpSectors = (driveBlocks / 128);	/* the default is 1/128 of the volume size */
-	
-			if (clumpSectors > maximumClumpSectors)
-				clumpSectors = maximumClumpSectors;
-		}
-		else
-		{
-			clumpSectors = sectorsPerBlock * 4;	/* for really small volumes (ie < 64K) */
-		}
-	}
-
-	/*
-	 * And we need to round up to something that is a multiple of both the node size and the allocation block size
-	 * so that it will occupy a whole number of allocation blocks, and so a whole number of nodes will fit.
-	 * 
-	 * For HFS, the node size is always 512, and the allocation block size is always a multiple of 512.  For HFS
-	 * Plus, both the node size and allocation block size are powers of 2.  So, it suffices to round up to whichever
-	 * value is larger (since the larger value is always a multiple of the smaller value).
-	 */
-
-	if ( sectorsPerNode > sectorsPerBlock )
-		clumpSectors = (clumpSectors / sectorsPerNode) * sectorsPerNode;	/* truncate to nearest node*/
-	else
-		clumpSectors = (clumpSectors / sectorsPerBlock) * sectorsPerBlock;	/* truncate to nearest node and allocation block */
-	
-	/* Finally, convert the clump size to bytes. */
-	return clumpSectors << kLog2SectorSize;
-}
-
-
 #define CLUMP_ENTRIES	15
 
-short clumptbl[CLUMP_ENTRIES * 2] = {
+short clumptbl[CLUMP_ENTRIES * 3] = {
 /*
- *	    Volume	 Catalog	 Extents
- *	     Size	Clump (MB)	Clump (MB)
+ *	    Volume	Attributes	 Catalog	 Extents
+ *	     Size	Clump (MB)	Clump (MB)	Clump (MB)
  */
-	/*   1GB */	  4,		 4,
-	/*   2GB */	  6,		 4,
-	/*   4GB */	  8,		 4,
-	/*   8GB */	 11,		 5,
-	/*  16GB */	 14,		 5,
-	/*  32GB */	 19,		 6,
-	/*  64GB */	 25,		 7,
-	/* 128GB */	 34,		 8,
-	/* 256GB */	 45,		 9,
-	/* 512GB */	 60,		11,
-	/*   1TB */	 80,		14,
-	/*   2TB */	107,		16,
-	/*   4TB */	144,		20,
-	/*   8TB */	192,		25,
-	/*  16TB */	256,		32
+	/*   1GB */	  4,		  4,		 4,
+	/*   2GB */	  6,		  6,		 4,
+	/*   4GB */	  8,		  8,		 4,
+	/*   8GB */	 11,		 11,		 5,
+	/*
+	 * For volumes 16GB and larger, we want to make sure that a full OS
+	 * install won't require fragmentation of the Catalog or Attributes
+	 * B-trees.  We do this by making the clump sizes sufficiently large,
+	 * and by leaving a gap after the B-trees for them to grow into.
+	 *
+	 * For SnowLeopard 10A298, a FullNetInstall with all packages selected
+	 * results in:
+	 * Catalog B-tree Header
+	 *	nodeSize:          8192
+	 *	totalNodes:       31616
+	 *	freeNodes:         1978
+	 * (used = 231.55 MB)
+	 * Attributes B-tree Header
+	 *	nodeSize:          8192
+	 *	totalNodes:       63232
+	 *	freeNodes:          958
+	 * (used = 486.52 MB)
+	 *
+	 * We also want Time Machine backup volumes to have a sufficiently
+	 * large clump size to reduce fragmentation.
+	 *
+	 * The series of numbers for Catalog and Attribute form a geometric series.
+	 * For Catalog (16GB to 512GB), each term is 8**(1/5) times the previous
+	 * term.  For Attributes (16GB to 512GB), each term is 4**(1/5) times
+	 * the previous term.  For 1TB to 16TB, each term is 2**(1/5) times the
+	 * previous term.
+	 */
+	/*  16GB */	 64,		 32,		 5,
+	/*  32GB */	 84,		 49,		 6,
+	/*  64GB */	111,		 74,		 7,
+	/* 128GB */	147,		111,		 8,
+	/* 256GB */	194,		169,		 9,
+	/* 512GB */	256,		256,		11,
+	/*   1TB */	294,		294,		14,
+	/*   2TB */	338,		338,		16,
+	/*   4TB */	388,		388,		20,
+	/*   8TB */	446,		446,		25,
+	/*  16TB */	512,		512,		32
 };
 
 /*
@@ -1037,12 +880,26 @@ short clumptbl[CLUMP_ENTRIES * 2] = {
  * the catalog file or the extents overflow file.
  */
 static UInt32
-CalcHFSPlusBTreeClumpSize(UInt32 blockSize, UInt32 nodeSize, UInt64 sectors, int catalog)
+CalcHFSPlusBTreeClumpSize(UInt32 blockSize, UInt32 nodeSize, UInt64 sectors, int fileID)
 {
 	UInt32 mod = MAX(nodeSize, blockSize);
 	UInt32 clumpSize;
+	int column;
 	int i;
 
+	/* Figure out which column of the above table to use for this file. */
+	switch (fileID) {
+		case kHFSAttributesFileID:
+			column = 0;
+			break;
+		case kHFSCatalogFileID:
+			column = 1;
+			break;
+		default:
+			column = 2;
+			break;
+	}
+	
 	/*
 	 * The default clump size is 0.8% of the volume size. And
 	 * it must also be a multiple of the node and block size.
@@ -1052,19 +909,19 @@ CalcHFSPlusBTreeClumpSize(UInt32 blockSize, UInt32 nodeSize, UInt64 sectors, int
 		if (clumpSize < (8 * nodeSize))
 			clumpSize = 8 * nodeSize;
 	} else {
+		/*
+		 * XXX This should scale more smoothly!
+		 */
 		/* turn exponent into table index... */
 		for (i = 0, sectors = sectors >> 22;
 		     sectors && (i < CLUMP_ENTRIES-1);
 		     ++i, sectors = sectors >> 1);
 		
-		if (catalog)
-			clumpSize = clumptbl[0 + (i) * 2] * 1024 * 1024;
-		else
-			clumpSize = clumptbl[1 + (i) * 2] * 1024 * 1024;
+		clumpSize = clumptbl[column + (i) * 3] * 1024 * 1024;
 	}
 	
 	/*
-	 * Round the clump size to a multiple of node of node and block size.
+	 * Round the clump size to a multiple of node and block size.
 	 * NOTE: This rounds down.
 	 */
 	clumpSize /= mod;
@@ -1072,7 +929,7 @@ CalcHFSPlusBTreeClumpSize(UInt32 blockSize, UInt32 nodeSize, UInt64 sectors, int
 	
 	/*
 	 * Rounding down could have rounded down to 0 if the block size was
-	 * greater than the clump size.  If so, just use one block.
+	 * greater than the clump size.  If so, just use one block or node.
 	 */
 	if (clumpSize == 0)
 		clumpSize = mod;
@@ -1113,16 +970,15 @@ fatal(fmt, va_alist)
 
 void usage()
 {
-	fprintf(stderr, "usage: %s [-h | -w] [-N] [hfsplus-options] special-device\n", progname);
+	fprintf(stderr, "usage: %s [-N [partition-size]] [hfsplus-options] special-device\n", progname);
 
 	fprintf(stderr, "  options:\n");
-	fprintf(stderr, "\t-h create an HFS format filesystem (HFS Plus is the default)\n");
 	fprintf(stderr, "\t-N do not create file system, just print out parameters\n");
 	fprintf(stderr, "\t-s use case-sensitive filenames (default is case-insensitive)\n");
-	fprintf(stderr, "\t-w add a HFS wrapper (i.e. Native Mac OS 9 bootable)\n");
 
 	fprintf(stderr, "  where hfsplus-options are:\n");
 	fprintf(stderr, "\t-J [journal-size] make this HFS+ volume journaled\n");
+	fprintf(stderr, "\t-D journal-dev use 'journal-dev' for an external journal\n");
 	fprintf(stderr, "\t-G group-id (for root directory)\n");
 	fprintf(stderr, "\t-U user-id (for root directory)\n");
 	fprintf(stderr, "\t-M octal access-mask (for root directory)\n");
@@ -1133,7 +989,6 @@ void usage()
 	fprintf(stderr, "\t\tc=blocks (catalog file)\n");
 	fprintf(stderr, "\t\td=blocks (user data fork)\n");
 	fprintf(stderr, "\t\te=blocks (extents file)\n");
-	fprintf(stderr, "\t\tg=blocks (hfs wrapper)\n");
 	fprintf(stderr, "\t\tr=blocks (user resource fork)\n");
 	fprintf(stderr, "\t-i starting catalog node id\n");
 	fprintf(stderr, "\t-n b-tree node size list (comma separated)\n");
@@ -1145,7 +1000,7 @@ void usage()
 	fprintf(stderr, "  examples:\n");
 	fprintf(stderr, "\t%s -v Untitled /dev/rdisk0s7 \n", progname);
 	fprintf(stderr, "\t%s -v Untitled -n c=4096,e=1024 /dev/rdisk0s7 \n", progname);
-	fprintf(stderr, "\t%s -w -v Untitled -c b=64,c=1024 /dev/rdisk0s7 \n\n", progname);
+	fprintf(stderr, "\t%s -v Untitled -c b=64,c=1024 /dev/rdisk0s7 \n\n", progname);
 
 	exit(1);
 }

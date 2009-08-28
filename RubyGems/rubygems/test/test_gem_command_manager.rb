@@ -4,7 +4,6 @@
 # See LICENSE.txt for permissions.
 #++
 
-require 'test/unit'
 require File.join(File.expand_path(File.dirname(__FILE__)), 'gemutilities')
 require 'rubygems/command_manager'
 
@@ -66,12 +65,13 @@ class TestGemCommandManager < RubyGemTestCase
       assert_equal :both, check_options[:domain]
       assert_equal true, check_options[:wrappers]
       assert_equal Gem::Requirement.default, check_options[:version]
-      assert_equal Gem.dir, check_options[:install_dir]
+      assert_equal nil, check_options[:install_dir]
+      assert_equal nil, check_options[:bin_dir]
 
       #check settings
       check_options = nil
       @command_manager.process_args(
-        "install --force --test --local --rdoc --install-dir . --version 3.0 --no-wrapper")
+        "install --force --test --local --rdoc --install-dir . --version 3.0 --no-wrapper --bindir . ")
       assert_equal true, check_options[:test]
       assert_equal true, check_options[:generate_rdoc]
       assert_equal true, check_options[:force]
@@ -79,6 +79,7 @@ class TestGemCommandManager < RubyGemTestCase
       assert_equal false, check_options[:wrappers]
       assert_equal Gem::Requirement.new('3.0'), check_options[:version]
       assert_equal Dir.pwd, check_options[:install_dir]
+      assert_equal Dir.pwd, check_options[:bin_dir]
 
       #check remote domain
       check_options = nil
@@ -164,7 +165,7 @@ class TestGemCommandManager < RubyGemTestCase
 
     #check defaults
     @command_manager.process_args("query")
-    assert_equal(/.*/, check_options[:name])
+    assert_equal(//, check_options[:name])
     assert_equal :local, check_options[:domain]
     assert_equal false, check_options[:details]
 

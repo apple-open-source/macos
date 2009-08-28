@@ -37,8 +37,8 @@
 extern "C" {
 #endif
 
-long GetServerListFromConfig( CFMutableArrayRef *outServerList, CReplicaFile *inReplicaData );
-long GetServerListFromXML( CReplicaFile *inReplicaFile, CFMutableArrayRef inOutServerList );
+int GetServerListFromConfig( CFMutableArrayRef *outServerList, CReplicaFile *inReplicaData );
+int GetServerListFromXML( CReplicaFile *inReplicaFile, CFMutableArrayRef inOutServerList );
 
 #ifdef __cplusplus
 };

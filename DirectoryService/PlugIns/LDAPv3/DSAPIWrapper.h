@@ -41,7 +41,7 @@ class DSAPIWrapper
 		virtual tDirStatus					OpenNodeByName( const char *inNodeName, const char *inUser, const char *inPassword );
 		virtual tDirStatus					OpenNodeByName( tDataListPtr inNodeName, const char *inUser, const char *inPassword );
 		virtual tDirStatus					GetLocallyHostedNodeList( void );
-		virtual tDirStatus					OpenLocallyHostedNode( unsigned long inNodeIndex );
+		virtual tDirStatus					OpenLocallyHostedNode( UInt32 inNodeIndex );
 		
 		virtual tDirStatus					OpenRecord(
 													const char *inRecordType,
@@ -65,14 +65,15 @@ class DSAPIWrapper
 		
 		tDirReference						GetDSRef( void ) { return mDSRef; };
 		tDirNodeReference					GetCurrentNodeRef( void ) { return mNodeRef; };
-		unsigned long 						GetLocallyHostedNodeCount( void ) { return mNodeCount; };
+		UInt32								GetLocallyHostedNodeCount( void ) { return mNodeCount; };
+		char								*CopyRecordName( tRecordReference inRecordRef );
 
 	protected:
 		
 		tDirReference mDSRef;
 		tDirNodeReference mNodeRef;
 		tDataBuffer *mNodeListBuff;
-		unsigned long mNodeCount;
+		UInt32 mNodeCount;
 		bool mCurrentNodeAuthenticated;
 		bool mCurrentNodeIsLDAP;
 };

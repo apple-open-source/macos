@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: lib536.c,v 1.11 2007-05-02 06:02:13 danf Exp $
+ * $Id: lib536.c,v 1.14 2008-09-20 04:26:57 yangtse Exp $
  */
 
 #include "test.h"
@@ -15,6 +15,7 @@
 #include <fcntl.h>
 
 #include "testutil.h"
+#include "memdebug.h"
 
 #define MAIN_LOOP_HANG_TIMEOUT     90 * 1000
 #define MULTI_PERFORM_HANG_TIMEOUT 60 * 1000
@@ -90,10 +91,10 @@ int test(char *URL)
     return TEST_ERR_MAJOR_BAD;
   }
 
-  curl_multi_setopt(multi, CURLMOPT_PIPELINING, 1);
+  curl_multi_setopt(multi, CURLMOPT_PIPELINING, 1L);
 
   curl_easy_setopt(easy, CURLOPT_WRITEFUNCTION, fwrite);
-  curl_easy_setopt(easy, CURLOPT_FAILONERROR, 1);
+  curl_easy_setopt(easy, CURLOPT_FAILONERROR, 1L);
   curl_easy_setopt(easy, CURLOPT_URL, URL);
 
   if (curl_multi_add_handle(multi, easy) != CURLM_OK) {
@@ -107,8 +108,8 @@ int test(char *URL)
   }
   curl_easy_reset(easy);
 
-  curl_easy_setopt(easy, CURLOPT_FAILONERROR, 1);
-  curl_easy_setopt(easy, CURLOPT_URL, arg2);
+  curl_easy_setopt(easy, CURLOPT_FAILONERROR, 1L);
+  curl_easy_setopt(easy, CURLOPT_URL, libtest_arg2);
 
   if (curl_multi_add_handle(multi, easy) != CURLM_OK) {
     printf("curl_multi_add_handle() 2 failed\n");

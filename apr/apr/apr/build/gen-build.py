@@ -20,7 +20,7 @@ import re
 
 #
 # legal platforms: aix, beos, netware, os2, os390, unix, win32
-# 'make' users: aix, beos, os2, os390, unix
+# 'make' users: aix, beos, os2, os390, unix, win32 (mingw)
 #
 PLATFORMS = [ 'aix', 'beos', 'netware', 'os2', 'os390', 'unix', 'win32' ]
 MAKE_PLATFORMS = [
@@ -29,6 +29,7 @@ MAKE_PLATFORMS = [
   ('beos', 'unix'),
   ('os2', 'unix'),
   ('os390', 'unix'),
+  ('win32', 'unix'),
   ]
 # note: MAKE_PLATFORMS is an ordered set. we want to generate unix symbols
 #       first, so that the later platforms can reference them.
@@ -37,6 +38,11 @@ MAKE_PLATFORMS = [
 def main():
   parser = ConfigParser.ConfigParser()
   parser.read('build.conf')
+
+  if parser.has_option('options', 'dsp'):
+    dsp_file = parser.get('options', 'dsp')
+  else:
+    dsp_file = None
 
   headers = get_files(parser.get('options', 'headers'))
 
@@ -65,6 +71,25 @@ def main():
     # record the object symbols to build for each platform
     group = [ '$(OBJECTS_all)' ]
 
+    # If we're doing win32, we're going to look in the libapr.dsp file
+    # for those files that we have to manually add to our list.
+    inherit_parent = { }
+    if platform == 'win32' and dsp_file:
+      for line in open(dsp_file).readlines():
+        if line[:7] != 'SOURCE=':
+          continue
+        if line[7:].find('unix') != -1:
+          # skip the leading .\ and split it out
+          inherit_files = line[9:].strip().split('\\')
+          # change the .c to .lo
+          assert inherit_files[-1][-2:] == '.c'
+          inherit_files[-1] = inherit_files[-1][:-2] + '.lo'
+          # replace the \\'s with /'s
+          inherit_line = '/'.join(inherit_files)
+          if not inherit_parent.has_key(inherit_files[0]):
+            inherit_parent[inherit_files[0]] = []
+          inherit_parent[inherit_files[0]].append(inherit_line)
+
     for subdir in string.split(parser.get('options', 'platform_dirs')):
       path = '%s/%s' % (subdir, platform)
       if not os.path.exists(path):
@@ -81,6 +106,9 @@ def main():
       files = get_files(path + '/*.c')
       objects, _unused = write_objects(f, legal_deps, h_deps, files)
 
+      if inherit_parent.has_key(subdir):
+        objects = objects + inherit_parent[subdir]
+
       symname = 'OBJECTS_%s_%s' % (subdir, platform)
 
       # and write the symbol for the whole group
@@ -94,6 +122,23 @@ def main():
 
   f.write('HEADERS = $(top_srcdir)/%s\n\n' % string.join(headers, ' $(top_srcdir)/'))
   f.write('SOURCE_DIRS = %s $(EXTRA_SOURCE_DIRS)\n\n' % string.join(dirs.keys()))
+
+  if parser.has_option('options', 'modules'):
+    modules = parser.get('options', 'modules')
+
+    for mod in string.split(modules):
+      files = get_files(parser.get(mod, 'paths'))
+      objects, _unused = write_objects(f, legal_deps, h_deps, files)
+      flat_objects = string.join(objects)
+      f.write('OBJECTS_%s = %s\n' % (mod, flat_objects))
+
+      if parser.has_option(mod, 'target'):
+        target = parser.get(mod, 'target')
+        f.write('MODULE_%s = %s\n' % (mod, target))
+        f.write('%s: %s\n' % (target, flat_objects))
+        f.write('\t$(LINK_MODULE) -o $@ $(OBJECTS_%s) $(LDADD_%s)\n' % (mod, mod))
+
+      f.write('\n')
 
   # Build a list of all necessary directories in build tree
   alldirs = { }
@@ -118,6 +163,8 @@ def write_objects(f, legal_deps, h_deps, files):
   objects = [ ]
 
   for file in files:
+    if file[-10:] == '/apr_app.c':
+      continue
     assert file[-2:] == '.c'
     obj = file[:-2] + '.lo'
     objects.append(obj)
@@ -160,11 +207,13 @@ def resolve_deps(header_deps):
       if len(deps) != start:
         altered = 1
 
+def clean_path(path):
+    return path.replace("\\", "/")
 
 def get_files(patterns):
   files = [ ]
   for pat in string.split(patterns):
-    files.extend(glob.glob(pat))
+    files.extend(map(clean_path, glob.glob(pat)))
   return files
 
 

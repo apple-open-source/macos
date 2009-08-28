@@ -25,6 +25,9 @@
  * HISTORY
  *
  *	$Log: IOFWDCLProgram.cpp,v $
+ *	Revision 1.32  2008/05/06 03:26:57  collin
+ *	more K64
+ *	
  *	Revision 1.31  2007/03/14 01:01:12  collin
  *	*** empty log message ***
  *	
@@ -142,8 +145,12 @@ IODCLProgram::generateBufferMap( DCLCommand * program )
 			highAddress = MAX( highAddress, round_page( tempRange.address + tempRange.length ) ) ;
 		}		
 	}
-	
+
+#ifdef __LP64__
+	DebugLog("IODCLProgram::generateBufferMap lowAddress=%llx highAddress=%llx\n", lowAddress, highAddress ) ;
+#else
 	DebugLog("IODCLProgram::generateBufferMap lowAddress=%x highAddress=%x\n", lowAddress, highAddress ) ;
+#endif
 	
 	if ( lowAddress == 0 )
 	{

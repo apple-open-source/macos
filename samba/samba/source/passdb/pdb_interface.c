@@ -272,10 +272,12 @@ BOOL pdb_getsampwsid(struct samu *sam_acct, const DOM_SID *sid)
 	struct pdb_methods *pdb = pdb_get_methods();
 	uint32 rid;
 
-	/* hard code the Guest RID of 501 */
+	if (!lp_opendirectory()) {
+	    if ( !sid_peek_check_rid( get_global_sam_sid(), sid, &rid ) )
+		    return False;
+	}
 
-	if ( !sid_peek_check_rid( get_global_sam_sid(), sid, &rid ) )
-		return False;
+	/* hard code the Guest RID of 501 */
 
 	if ( rid == DOMAIN_USER_RID_GUEST ) {
 		DEBUG(6,("pdb_getsampwsid: Building guest account\n"));
@@ -1306,8 +1308,13 @@ static BOOL pdb_default_sid_to_id(struct pdb_methods *methods,
 	const char *name;
 	uint32 rid;
 
-	DOM_SID apple_wellknown =
+	const DOM_SID apple_wellknown =
 	    { 1, 1, {0,0,0,0,0,5}, {21,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
+
+
+	const DOM_SID apple_compat =
+	    { 1, 4, {0,0,0,0,0,5},
+		{21,987654321,987654321,987654321,0,0,0,0,0,0,0,0,0,0,0}};
 
 	mem_ctx = talloc_new(NULL);
 
@@ -1322,7 +1329,8 @@ static BOOL pdb_default_sid_to_id(struct pdb_methods *methods,
 		goto done;
 	}
 
-	if (sid_peek_check_rid(&apple_wellknown, sid, &rid)) {
+	if (sid_peek_check_rid(&apple_wellknown, sid, &rid) ||
+	    sid_peek_check_rid(&apple_compat, sid, &rid)) {
 		/* Here we might have users as well as groups and aliases */
 		ret = lookup_global_sam_rid(mem_ctx, rid, &name, type, id);
 		goto done;
@@ -1350,25 +1358,49 @@ static BOOL pdb_default_sid_to_id(struct pdb_methods *methods,
 	/* BUILTIN */
 	if (sid_check_is_in_builtin(sid) ||
 	    sid_check_is_in_wellknown_domain(sid)) {
-		/* Here we only have aliases */
-		GROUP_MAP map;
-		if (!NT_STATUS_IS_OK(methods->getgrsid(methods, &map, *sid))) {
-			DEBUG(10, ("Could not find map for sid %s\n",
-				   sid_string_static(sid)));
-			goto done;
-		}
-		if ((map.sid_name_use != SID_NAME_ALIAS) &&
-		    (map.sid_name_use != SID_NAME_WKN_GRP)) {
-			DEBUG(10, ("Map for sid %s is a %s, expected an "
-				   "alias\n", sid_string_static(sid),
-				   sid_type_lookup(map.sid_name_use)));
-			goto done;
-		}
+		if (sid_equal(sid, &global_sid_System)) {
+			struct samu * sam_account;
 
-		id->gid = map.gid;
-		*type = SID_NAME_ALIAS;
-		ret = True;
-		goto done;
+			if ( !(sam_account = samu_new(NULL)) ) {
+				goto done;
+			}
+
+			if (pdb_getsampwsid(sam_account, sid)) {
+				struct passwd * pw;
+
+				pw = Get_Pwnam(pdb_get_username(sam_account));
+				if (!pw) {
+					TALLOC_FREE(sam_account);
+					goto done;
+				}
+
+				*type = SID_NAME_USER;
+				id->uid = pw->pw_uid;
+				ret = True;
+			}
+
+			TALLOC_FREE(sam_account);
+		} else {
+			/* Here we only have aliases */
+			GROUP_MAP map;
+			if (!NT_STATUS_IS_OK(methods->getgrsid(methods, &map, *sid))) {
+				DEBUG(10, ("Could not find map for sid %s\n",
+					   sid_string_static(sid)));
+				goto done;
+			}
+			if ((map.sid_name_use != SID_NAME_ALIAS) &&
+			    (map.sid_name_use != SID_NAME_WKN_GRP)) {
+				DEBUG(10, ("Map for sid %s is a %s, expected an "
+					   "alias\n", sid_string_static(sid),
+					   sid_type_lookup(map.sid_name_use)));
+				goto done;
+			}
+
+			id->gid = map.gid;
+			*type = SID_NAME_ALIAS;
+			ret = True;
+			goto done;
+		}
 	}
 
 	DEBUG(5, ("Sid %s is neither ours, a Unix SID, nor builtin\n",

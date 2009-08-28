@@ -18,8 +18,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #undef	LIB_SPEC
 #define LIB_SPEC "-lc --def-file libc.def%s"
@@ -31,7 +31,8 @@ Boston, MA 02111-1307, USA.  */
 #define LINKER_NAME "nwld"
 
 #undef  LINK_SPEC
-#define LINK_SPEC "--format nlm %{static:%{!nostdlib:%{!nodefaultlib:%eStatic linking is not supported.\n}}}"
+#define LINK_SPEC "--format:NLM --extensions:GNU" \
+	" %{static:%{!nostdlib:%{!nodefaultlib:%eStatic linking is not supported.\n}}}"
 
 #undef  LINK_GCC_C_SEQUENCE_SPEC
 #define LINK_GCC_C_SEQUENCE_SPEC "%L %G"

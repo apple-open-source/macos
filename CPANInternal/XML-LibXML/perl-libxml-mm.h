@@ -1,6 +1,6 @@
 /**
  * perl-libxml-mm.h
- * $Id: perl-libxml-mm.h,v 1.1.1.1 2004/05/20 17:55:25 jpetri Exp $
+ * $Id: perl-libxml-mm.h,v 1.1.1.2 2007/10/10 23:04:14 ahuda Exp $
  *
  * Basic concept:
  * perl varies in the implementation of UTF8 handling. this header (together
@@ -40,7 +40,7 @@ extern "C" {
  * for warn!!
  */
 #ifdef XS_WARNINGS
-#define xs_warn(string) warn(string) 
+#define xs_warn(string) warn("%s",string) 
 #else
 #define xs_warn(string)
 #endif

@@ -23,7 +23,7 @@
 #ifndef _MACH_O_REDO_PREBINDING_H_
 #define _MACH_O_REDO_PREBINDING_H_
 
-#define REDO_PREBINDING_VERSION 2
+#define REDO_PREBINDING_VERSION 3
 #include <mach/machine.h>
 /*
  * For all APIs in this file the parameters program_name and error_message
@@ -133,11 +133,11 @@ const char *root_dir,
 const char *output_file,
 const char *program_name,
 char **error_message,
-unsigned long slide_to_address,
+uint32_t slide_to_address,
 int only_if_needed,
 int zero_out_prebind_checksum,
 cpu_type_t allow_missing_architectures,
-unsigned long *throttle);
+uint32_t *throttle);
 
 
 /* return values for needs_redo_prebinding() */
@@ -173,7 +173,7 @@ const char *executable_path,
 const char *root_dir,
 const char *program_name,
 char **error_message,
-unsigned long expected_address,
+uint32_t expected_address,
 cpu_type_t allow_missing_architectures);
 
 
@@ -220,9 +220,9 @@ const char *program_name,
 char **error_message,
 int zero_checksum,
 void *inbuf,
-unsigned long inlen,
+uint32_t inlen,
 void **outbuf,
-unsigned long *outlen);
+uint32_t *outlen);
 
 enum object_file_type_retval {
     OFT_OTHER,
@@ -250,8 +250,8 @@ char **error_message);
 struct prebind_cksum_arch {
     cpu_type_t cputype;		/* cpu specifier */
     cpu_subtype_t cpusubtype;	/* machine specifier */
-    unsigned long has_cksum;	/* 1 if the arch as an LC_PREBIND_CKSUM */
-    unsigned long cksum;	/* value of the cksum in LC_PREBIND_CKSUM */
+    uint32_t has_cksum;		/* 1 if the arch as an LC_PREBIND_CKSUM */
+    uint32_t cksum;		/* value of the cksum in LC_PREBIND_CKSUM */
 };
 
 /*
@@ -266,7 +266,7 @@ int
 get_prebind_cksums(
 const char *file_name,
 struct prebind_cksum_arch **cksums,
-unsigned long *ncksums,
+uint32_t *ncksums,
 const char *program_name,
 char **error_message);
 

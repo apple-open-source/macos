@@ -2,7 +2,7 @@
 
 EXTRAS := $(DSTROOT)$(shell python -c 'import sys; print sys.prefix')/Extras
 OPTIONS = WX_CONFIG=$(FAKEBIN)/wx-config UNICODE=1
-ENV = CFLAGS='$(RC_CFLAGS)'
+ENV = ARCHFLAGS='$(RC_CFLAGS)'
 EXTRASLIBPYTHON := $(EXTRAS)/lib/python
 WXPTH = wx.pth
 LINKS = wx wxPython
@@ -21,10 +21,8 @@ install: build
 	@set -x && \
 	for i in `find $(EXTRAS) -name \*.so`; do \
 	    strip -x $$i; \
+	done && \
+	for i in `find $(EXTRAS) -name __init__.py -size 0c`; do \
+	    echo '#' > $$i && \
+	    python -m py_compile $$i; \
 	done
-	rm -f $(EXTRASLIBPYTHON)/$(WXPTH)
-	@set -x && \
-	name=`echo $(EXTRASLIBPYTHON)/wx-* | sed 's,^$(EXTRASLIBPYTHON)/,,'` && \
-	    for i in $(LINKS); do \
-		ln -sf $$name/$$i $(EXTRASLIBPYTHON); \
-	    done

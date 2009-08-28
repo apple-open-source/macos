@@ -3,16 +3,15 @@
 	ProjectType="Visual C++"
 	Version="[version]"
 	Name="zlib"
-	SccProjectName=""
-	SccLocalPath=""
+	ProjectGUID="{41FE336A-F191-4F4E-A17C-602C627EA1E1}"
 	Keyword="MakeFileProj">
 	<Platforms>
-		<Platform
-			Name="Win32"/>
-	</Platforms>
+[for platforms]		<Platform
+			Name="[platforms]"/>
+[end]	</Platforms>
 	<Configurations>
-		<Configuration
-			Name="Debug|Win32"
+[for platforms]		<Configuration
+			Name="Debug|[platforms]"
 			OutputDirectory="[zlib_path]\Debug"
 			IntermediateDirectory="[zlib_path]\Debug"
 			ConfigurationType="0"
@@ -26,7 +25,7 @@
 				Output="[zlib_path]\zlibstatD.lib"/>
 		</Configuration>
 		<Configuration
-			Name="Release|Win32"
+			Name="Release|[platforms]"
 			OutputDirectory="[zlib_path]\Release"
 			IntermediateDirectory="[zlib_path]\Release"
 			ConfigurationType="0"
@@ -39,7 +38,7 @@
 				CleanCommandLine="cmd /c build_zlib.bat release clean"
 				Output="[zlib_path]\zlibstat.lib"/>
 		</Configuration>
-	</Configurations>
+[end]	</Configurations>
 	<Files>
 		<Filter
 			Name="Source Files"

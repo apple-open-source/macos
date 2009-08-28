@@ -54,7 +54,11 @@ static char copyright[] =
  */
 
 #undef	OFFTST_STAT
-#define	OFFTST_STAT	0		/* Linux lsof can't report offsets */
+#define	OFFTST_STAT	0		/* Linux lsof may not be able to report
+					 * offsets -- see the function
+					 * ck_Linux_offset_support() */
+
+_PROTOTYPE(static int ck_Linux_offset_support,(void));
 #endif	/* defined(LT_DIAL_linux) */
 
 
@@ -96,7 +100,7 @@ main(argc, argv)
     char *argv[];			/* arguments */
 {
     char buf[2048];			/* temporary buffer */
-    int do_offt = OFFTST_STAT;		/* do offset tests of == 1 */
+    int do_offt = OFFTST_STAT;		/* do offset tests if == 1 */
     char *em;				/* error message pointer */
     int ti;				/* temporary index */
     char *tcp;				/* temporary character pointer */
@@ -126,6 +130,14 @@ main(argc, argv)
 	PrtMsg       ("       -h       print help (this panel)", Pn);
 	PrtMsgX      ("       -p path  define test file path", Pn, cleanup, xv);
     }
+
+#if	defined(LT_DIAL_linux)
+/*
+ * If this is Linux, see if lsof can report file offsets.
+ */
+	do_offt = ck_Linux_offset_support();
+#endif	/* defined(LT_DIAL_linux) */
+
 /*
  * See if lsof can be executed and can access kernel memory.
  */
@@ -212,6 +224,50 @@ print_file_error:
     (void) PrtMsgX(tcp, Pn, cleanup, xv);
     return(0);
 }
+
+
+#if	defined(LT_DIAL_linux)
+/*
+ * ck_Linux_offset_support() -- see if lsof can report offsets for this
+ *				Linux implementation
+ */
+
+static int
+ck_Linux_offset_support()
+{
+	char buf[1024];			/* lsof output line buffer */
+	int bufl = sizeof(buf);		/* size of buf[] */
+	char *opv[5];			/* option vector for lsof */
+	int rv = 1;			/* return value:
+					 *     0 == no lsof offset support
+					 *     1 == lsof offset support */
+/*
+ * Ask lsof to report the test's FD zero offset.
+ */
+	if (IsLsofExec())
+	    return(0);
+	opv[0] = "-o";
+	snprintf(buf, bufl - 1, "-p%d", (int)getpid());
+	opv[1] = buf;
+	opv[2] = "-ad0";
+	opv[3] = "+w";
+	opv[4] = (char *)NULL;
+	if (ExecLsof(opv))
+	    return(0);
+/*
+ * Read the lsof output.  Look for a line with "WARNING: can't report offset"
+ * in it.  If it is found, then this Linux lsof can't report offsets.
+ */
+	while(fgets(buf, bufl - 1, LsofFs)) {
+	    if (strstr(buf, "WARNING: can't report offset")) {
+		rv = 0;
+		break;
+	    }
+	}
+	(void) StopLsof();
+	return(rv);
+}
+#endif	/* defined(LT_DIAL_linux) */
 
 
 /*
@@ -312,6 +368,8 @@ testlsof(tt, opt, xval)
 
 #if	defined(USE_LSOF_C_OPT)
     opv[ti++] = "-C";
+#else	/* !defined(USE_LSOF_C_OPT) */
+    opv[ti++] = "--";
 #endif	/* defined(USE_LSOF_C_OPT) */
 
     opv[ti++] = Path;

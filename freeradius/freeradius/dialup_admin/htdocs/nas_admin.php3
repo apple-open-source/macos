@@ -8,7 +8,7 @@ else{
 <title>NAS Administration Page</title>
 <link rel="stylesheet" href="style.css">
 </head>
-<body bgcolor="#80a040" background="images/greenlines1.gif" link="black" alink="black">
+<body>
 <center>
 <b>Could not include SQL library functions. Aborting</b>
 </body>
@@ -16,8 +16,25 @@ else{
 EOM;
 	exit();
 }
+if ($config[general_restrict_nasadmin_access] == 'yes'){
+	$auth_user = $_SERVER["PHP_AUTH_USER"];
+	if ($auth_user == '' || $mappings[$auth_user][nasadmin] != 'yes'){
+		echo <<<EOM
+<title>NAS Administration Page</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<center>
+<b>Access is not allowed to this username.</b>
+</body>
+</html>
+EOM;
+		exit();
+	}
+}
 
-if ($clear_fields == 1)
+
+if ($clear_fields == 1 || ($do_it == 0 && $select_nas == 0))
 	$selected_nas = $readonly = '';
 else
 	$readonly = 'readonly';
@@ -28,7 +45,8 @@ if ($link){
 		$selected_nas = da_sql_escape_string($selected_nas);
 		switch ($action) {
 			case 'check_nas':
-				if ($selected_nas == gethostbyname($selected_nas))
+				require_once('../lib/functions.php3');
+				if (!check_ip($selected_nas) && $selected_nas == gethostbyname($selected_nas))
 					$msg = "<b>The NAS name <font color=red>is not</font> valid</b><br>\n";
 				else
 					$msg = "<b>The NAS name <font color=green>is</font> valid</b><br>\n";
@@ -47,6 +65,14 @@ if ($link){
 				if ($nasname == '' || $nassecret == '' || $nasshortname == '')
 					$msg = "<b>Error. Required fields are not set</b><br>\n";
 				else{
+					$nasshortname = da_sql_escape_string($nasshortname);
+					$nastype = da_sql_escape_string($nastype);
+					$nasportnum = da_sql_escape_string($nasportnum);
+					$nassecret = da_sql_escape_string($nassecret);
+					$nascommunity = da_sql_escape_string($nascommunity);
+					$nasdescription = da_sql_escape_string($nasdescription);
+					$nasname = da_sql_escape_string($nasname);
+
 					$res = @da_sql_query($link,$config,
 					"INSERT INTO $config[sql_nas_table]
 					(nasname,shortname,type,ports,secret,community,description)
@@ -64,6 +90,14 @@ if ($link){
 				if ($nassecret == '' || $nasshortname == '')
 					$msg = "<b>Error. Required fields are not set</b><br>\n";
 				else{
+					$nasshortname = da_sql_escape_string($nasshortname);
+					$nastype = da_sql_escape_string($nastype);
+					$nasportnum = da_sql_escape_string($nasportnum);
+					$nassecret = da_sql_escape_string($nassecret);
+					$nascommunity = da_sql_escape_string($nascommunity);
+					$nasdescription = da_sql_escape_string($nasdescription);
+					$nasname = da_sql_escape_string($nasname);
+
 					$res = @da_sql_query($link,$config,
 					"UPDATE $config[sql_nas_table] SET
 					shortname = '$nasshortname',
@@ -84,21 +118,22 @@ if ($link){
 	"SELECT * FROM $config[sql_nas_table] ORDER BY nasname;");
 	if ($search){
 		$num = 0;
-		unset($nas_list);
+		unset($my_nas_list);
 		while($row = @da_sql_fetch_array($search,$config)){
 			$my_nas_name = $row['nasname'];
 			if ($my_nas_name != ''){
 				$num++;
-				if ($clear_fields == 0 && $selected_nas == $my_nas_name)
+				$my_nas_list[$my_nas_name]['name'] = $my_nas_name;
+				$my_nas_list[$my_nas_name]['shortname'] = $row['shortname'];
+				$my_nas_list[$my_nas_name]['type'] = $row['type'];
+				if ($clear_fields == 0 && $selected_nas == $my_nas_name){
 					$selected[$my_nas_name] = 'selected';
-				$nas_list[$my_nas_name]['name'] = $my_nas_name;
-				$nas_list[$my_nas_name]['shortname'] = $row['shortname'];
-				$nas_list[$my_nas_name]['type'] = $row['type'];
-				$selected[$nas_list[$my_nas_name]['type']] = 'selected';
-				$nas_list[$my_nas_name]['ports'] = $row['ports'];
-				$nas_list[$my_nas_name]['secret'] = $row['secret'];
-				$nas_list[$my_nas_name]['community'] = $row['community'];
-				$nas_list[$my_nas_name]['description'] = $row['description'];
+					$selected[$my_nas_list[$my_nas_name]['type']] = 'selected';
+				}
+				$my_nas_list[$my_nas_name]['ports'] = $row['ports'];
+				$my_nas_list[$my_nas_name]['secret'] = $row['secret'];
+				$my_nas_list[$my_nas_name]['community'] = $row['community'];
+				$my_nas_list[$my_nas_name]['description'] = $row['description'];
 			}
 		}
 	}
@@ -114,7 +149,7 @@ else
 <title>NAS Administration Page</title>
 <link rel="stylesheet" href="style.css">
 </head>
-<body bgcolor="#80a040" background="images/greenlines1.gif" link="black" alink="black">
+<body>
 <center>
 <table border=0 width=550 cellpadding=0 cellspacing=0>
 <tr valign=top>
@@ -150,9 +185,9 @@ else
 NAS List
 </td>
 <td>
-<select name=selected_nas size=5 OnChange="this.form.select_nas.value=1;this.form.submit()"> 
+<select name=selected_nas size=5 OnChange="this.form.select_nas.value=1;this.form.submit()">
 <?php
-foreach ($nas_list as $member){
+foreach ($my_nas_list as $member){
 	$name = $member[name];
 	echo "<option $selected[$name] value=\"$name\">$name\n";
 }
@@ -161,11 +196,11 @@ foreach ($nas_list as $member){
 </td>
 </tr>
 <?php
-$array = $nas_list[$selected_nas];
+$array = $my_nas_list[$selected_nas];
 echo <<<EOM
 <tr>
 <td align=right bgcolor="#d0ddb0">
-NAS Name 
+NAS Name
 </td>
 <td>
 <input type=text name=nasname size=40 value="$array[name]" $readonly>
@@ -231,9 +266,9 @@ EOM;
 <br>
 <select name=action size=1>
 <?php
-if ($clear_fields == 1)
+if ($clear_fields == 1 || ($do_it == 0 && $select_nas == 0))
 	echo "<option value=\"add_nas\">Add NAS\n";
-else
+if ($clear_fields == 0)
 	echo <<<EOM
 <option value="change_nas">Change NAS Info
 <option value="del_nas">Delete Selected NAS

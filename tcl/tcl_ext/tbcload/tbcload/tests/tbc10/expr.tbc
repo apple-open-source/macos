@@ -1,0 +1,53 @@
+# expr.tcl --
+#
+#  Test script for the compiler.
+#  Under some conditions, the expr command is emitted as inline code wrapped
+#  inside a catch staement, with the catch retrying the operation with a call
+#  to (non-inlined) expr.
+#  This file is expected to generate a CATCH_EXCEPTION_RANGE exception range.
+#
+# Copyright (c) 1998-2000 Ajuba Solutions
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+# 
+# RCS: @(#) $Id: expr.tbc,v 1.2 2000/05/30 22:19:08 wart Exp $
+# TclPro::Compiler::Include
+
+if {[catch {package require tbcload 1.0} err] == 1} {
+    error "The TclPro ByteCode Loader is not available"
+}
+tbcload::bceval {
+TclPro ByteCode 1 0 1.0 8.0
+4 0 40 7 1 0 20 1 3 4 4 -1 -1
+40
+w0E<!(H&s!iq?(!v*<<!^*-S5+&tK71o8=!3ieTvEttt!.i8v!
+4
+EB-@)
+4
+wYct!
+7
+x
+6
+7,V`FW+%
+x
+6
+@?0!.-|v
+x
+1
+A!
+x
+1
+K!
+i
+16
+x
+8
+BA2EF/ni5.
+x
+1
+J!
+1
+C 1 15 5 -1 -1 23
+0
+}

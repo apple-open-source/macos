@@ -1,7 +1,8 @@
 ## Process this file with automake to produce Makefile.in
 
 SUBDIRS=docs REC1 REC2 REC general namespaces keys numbers documents \
-        extensions reports xmlspec multiple XSLTMark docbook exslt
+        extensions reports xmlspec multiple xinclude XSLTMark docbook \
+	exslt plugins
 
 all:
 

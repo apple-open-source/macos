@@ -47,7 +47,8 @@ TEXI2HTML = texi2html --output . --ifinfo --split=chapter
 # man pages to install
 MAN = zsh.1 zshbuiltins.1 zshcompctl.1 zshcompwid.1 zshcompsys.1 \
 zshcontrib.1 zshexpn.1 zshmisc.1 zshmodules.1 \
-zshoptions.1 zshparam.1 zshroadmap.1 zshtcpsys.1 zshzftpsys.1 zshzle.1
+zshoptions.1 zshparam.1 zshroadmap.1 zshtcpsys.1 zshzftpsys.1 zshzle.1 \
+zshall.1
 
 # yodl documentation
 
@@ -56,11 +57,11 @@ YODLDOC = $(MAN) texi
 MODDOCSRC = \
 Zsh/mod_cap.yo Zsh/mod_clone.yo \
 Zsh/mod_compctl.yo Zsh/mod_complete.yo Zsh/mod_complist.yo \
-Zsh/mod_computil.yo \
+Zsh/mod_computil.yo Zsh/mod_curses.yo \
 Zsh/mod_datetime.yo Zsh/mod_deltochar.yo \
 Zsh/mod_example.yo Zsh/mod_files.yo \
 Zsh/mod_mapfile.yo Zsh/mod_mathfunc.yo Zsh/mod_newuser.yo \
-Zsh/mod_parameter.yo Zsh/mod_pcre.yo \
+Zsh/mod_parameter.yo Zsh/mod_pcre.yo Zsh/mod_regex.yo \
 Zsh/mod_sched.yo Zsh/mod_socket.yo \
 Zsh/mod_stat.yo  Zsh/mod_system.yo Zsh/mod_tcp.yo \
 Zsh/mod_termcap.yo Zsh/mod_terminfo.yo \
@@ -104,7 +105,7 @@ zsh.pdf: $(sdir)/zsh.texi
 texi: $(sdir)/zsh.texi
 .PHONY: texi
 
-$(sdir)/zsh.texi:
+$(sdir)/zsh.texi: version.yo
 	$(YODL) -o $@ -I$(sdir) -w ztexi.yo version.yo zsh.yo; \
 	test -f $@
 
@@ -120,8 +121,8 @@ zsh.info: $(sdir)/zsh.texi
 	  *) target=$(sdir)/$@ ;; \
 	esac; \
 	case '$(YODL)' in :*) touch $$target ;; *) \
-	    echo $(YODL) -o $$target -I$(sdir) -w zman.yo version.yo $< ; \
-	    $(YODL) -I$(sdir) -w zman.yo version.yo $< | \
+	    echo $(YODL) -o $$target -I$(sdir):. -w zman.yo version.yo $< ; \
+	    $(YODL) -I$(sdir):. -w zman.yo version.yo $< | \
 	      sed -e '1s/\\-/-/g' -e '/^\.'\''/d' -e 's/\(\\fB\)*'\''/\1\\\&'\''/' > $$target \
 	;; esac; \
 
@@ -206,11 +207,19 @@ zshzftpsys.1: Zsh/zftpsys.yo
 
 zshzle.1: Zsh/zle.yo
 
+# This should depend on config.status to get the /etc files right
+# but that would introduce a dependency on Yodl in shipped versions
+# of the shell that we want to avoid.
 version.yo: $(sdir_top)/Config/version.mk
 	( \
 	  echo 'IFDEF(INCWSLEVEL)(INCWSLEVEL())(STARTDEF())'; \
 	  echo 'def(version)(0)('$(VERSION)')'; \
 	  echo 'def(date)(0)('$(VERSION_DATE)')'; \
+	  echo 'def(zshenv)(0)(@zshenv@)'; \
+	  echo 'def(zprofile)(0)(@zprofile@)'; \
+	  echo 'def(zshrc)(0)(@zshrc@)'; \
+	  echo 'def(zlogin)(0)(@zlogin@)'; \
+	  echo 'def(zlogout)(0)(@zlogout@)'; \
 	  echo 'IFDEF(DECWSLEVEL)(DECWSLEVEL())(ENDDEF())#' | tr '#' '\\'; \
 	) > $(sdir)/version.yo
 
@@ -274,6 +283,7 @@ uninstall: uninstall.man
 install.man: man
 	${SHELL} $(sdir_top)/mkinstalldirs $(DESTDIR)$(mandir)/man1
 	for file in $(MAN); do \
+	    test -s $(sdir)/$$file || exit 1; \
 	    $(INSTALL_DATA) $(sdir)/$$file $(DESTDIR)$(mandir)/man1/`echo $$file | sed 's|zsh|$(tzsh)|'` || exit 1; \
 	done
 .PHONY: install.man

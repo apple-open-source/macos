@@ -2,7 +2,7 @@
  * serf.c :  entry point for ra_serf
  *
  * ====================================================================
- * Copyright (c) 2006 CollabNet.  All rights reserved.
+ * Copyright (c) 2006-2008 CollabNet.  All rights reserved.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution.  The terms
@@ -37,9 +37,268 @@
 #include "svn_version.h"
 #include "svn_path.h"
 #include "svn_time.h"
+
+#include "private/svn_dav_protocol.h"
+#include "private/svn_dep_compat.h"
 #include "svn_private_config.h"
 
 #include "ra_serf.h"
+
+
+/** Capabilities exchange. */
+
+/* Both server and repository support the capability. */
+static const char *capability_yes = "yes";
+/* Either server or repository does not support the capability. */
+static const char *capability_no = "no";
+/* Server supports the capability, but don't yet know if repository does. */
+static const char *capability_server_yes = "server-yes";
+
+/* Baton type for parsing capabilities out of "OPTIONS" response headers. */
+struct capabilities_response_baton
+{
+  /* This session's capabilities table. */
+  apr_hash_t *capabilities;
+
+  /* Signaler for svn_ra_serf__context_run_wait(). */
+  svn_boolean_t done;
+
+  /* For temporary work only. */
+  apr_pool_t *pool;
+};
+
+
+/* This implements serf_bucket_headers_do_callback_fn_t.
+ * BATON is a 'struct capabilities_response_baton *'.
+ */
+static int
+capabilities_headers_iterator_callback(void *baton,
+                                       const char *key,
+                                       const char *val)
+{
+  struct capabilities_response_baton *crb = baton;
+
+  if (svn_cstring_casecmp(key, "dav") == 0)
+    {
+      /* Each header may contain multiple values, separated by commas, e.g.:
+           DAV: version-control,checkout,working-resource
+           DAV: merge,baseline,activity,version-controlled-collection
+           DAV: http://subversion.tigris.org/xmlns/dav/svn/depth */
+      apr_array_header_t *vals = svn_cstring_split(val, ",", TRUE, crb->pool);
+
+      /* Right now we only have a few capabilities to detect, so just
+         seek for them directly.  This could be written slightly more
+         efficiently, but that wouldn't be worth it until we have many
+         more capabilities. */
+
+      if (svn_cstring_match_glob_list(SVN_DAV_NS_DAV_SVN_DEPTH, vals))
+        {
+          apr_hash_set(crb->capabilities, SVN_RA_CAPABILITY_DEPTH,
+                       APR_HASH_KEY_STRING, capability_yes);
+        }
+
+      if (svn_cstring_match_glob_list(SVN_DAV_NS_DAV_SVN_MERGEINFO, vals))
+        {
+          /* The server doesn't know what repository we're referring
+             to, so it can't just say capability_yes. */
+          apr_hash_set(crb->capabilities, SVN_RA_CAPABILITY_MERGEINFO,
+                       APR_HASH_KEY_STRING, capability_server_yes);
+        }
+
+      if (svn_cstring_match_glob_list(SVN_DAV_NS_DAV_SVN_LOG_REVPROPS, vals))
+        {
+          apr_hash_set(crb->capabilities, SVN_RA_CAPABILITY_LOG_REVPROPS,
+                       APR_HASH_KEY_STRING, capability_yes);
+        }
+
+      if (svn_cstring_match_glob_list(SVN_DAV_NS_DAV_SVN_PARTIAL_REPLAY, vals))
+        {
+          apr_hash_set(crb->capabilities, SVN_RA_CAPABILITY_PARTIAL_REPLAY,
+                       APR_HASH_KEY_STRING, capability_yes);
+        }
+    }
+
+  return 0;
+}
+
+
+/* This implements serf_response_handler_t.
+ * HANDLER_BATON is a 'struct capabilities_response_baton *'.
+ */
+static apr_status_t
+capabilities_response_handler(serf_request_t *request,
+                              serf_bucket_t *response,
+                              void *handler_baton,
+                              apr_pool_t *pool)
+{
+  struct capabilities_response_baton *crb = handler_baton;
+  serf_bucket_t *hdrs = serf_bucket_response_get_headers(response);
+
+  /* Start out assuming all capabilities are unsupported. */
+  apr_hash_set(crb->capabilities, SVN_RA_CAPABILITY_DEPTH,
+               APR_HASH_KEY_STRING, capability_no);
+  apr_hash_set(crb->capabilities, SVN_RA_CAPABILITY_MERGEINFO,
+               APR_HASH_KEY_STRING, capability_no);
+  apr_hash_set(crb->capabilities, SVN_RA_CAPABILITY_LOG_REVPROPS,
+               APR_HASH_KEY_STRING, capability_no);
+
+  /* Then see which ones we can discover. */
+  serf_bucket_headers_do(hdrs, capabilities_headers_iterator_callback, crb);
+
+  /* Bunch of exit conditions to set before we go. */
+  crb->done = TRUE;
+  serf_request_set_handler(request, svn_ra_serf__handle_discard_body, NULL);
+  return APR_SUCCESS;
+}
+
+
+/* Exchange capabilities with the server, by sending an OPTIONS
+   request announcing the client's capabilities, and by filling
+   SERF_SESS->capabilities with the server's capabilities as read
+   from the response headers.  Use POOL only for temporary allocation. */
+static svn_error_t *
+exchange_capabilities(svn_ra_serf__session_t *serf_sess, apr_pool_t *pool)
+{
+  svn_ra_serf__handler_t *handler;
+  struct capabilities_response_baton crb;
+
+  crb.pool = pool;
+  crb.done = FALSE;
+  crb.capabilities = serf_sess->capabilities;
+
+  /* No obvious advantage to using svn_ra_serf__create_options_req() here. */
+  handler = apr_pcalloc(pool, sizeof(*handler));
+  handler->method = "OPTIONS";
+  handler->path = serf_sess->repos_url_str;
+  handler->body_buckets = NULL;
+  handler->response_handler = capabilities_response_handler;
+  handler->response_baton = &crb;
+  handler->session = serf_sess;
+  handler->conn = serf_sess->conns[0];
+
+  /* Client capabilities are sent automagically with every request;
+     that's why we don't set up a handler->header_delegate above.
+     See issue #3255 for more. */
+  svn_ra_serf__request_create(handler);
+
+  return svn_ra_serf__context_run_wait(&(crb.done), serf_sess, pool);
+}
+
+
+svn_error_t *
+svn_ra_serf__has_capability(svn_ra_session_t *ra_session,
+                            svn_boolean_t *has,
+                            const char *capability,
+                            apr_pool_t *pool)
+{
+  svn_ra_serf__session_t *serf_sess = ra_session->priv;
+  const char *cap_result;
+
+  /* This capability doesn't rely on anything server side. */
+  if (strcmp(capability, SVN_RA_CAPABILITY_COMMIT_REVPROPS) == 0)
+    {
+      *has = TRUE;
+      return SVN_NO_ERROR;
+    }
+
+  cap_result = apr_hash_get(serf_sess->capabilities,
+                            capability,
+                            APR_HASH_KEY_STRING);
+
+  /* If any capability is unknown, they're all unknown, so ask. */
+  if (cap_result == NULL)
+    SVN_ERR(exchange_capabilities(serf_sess, pool));
+
+  /* Try again, now that we've fetched the capabilities. */
+  cap_result = apr_hash_get(serf_sess->capabilities,
+                            capability, APR_HASH_KEY_STRING);
+
+  /* Some capabilities depend on the repository as well as the server.
+     NOTE: ../libsvn_ra_neon/session.c:svn_ra_neon__has_capability()
+     has a very similar code block.  If you change something here,
+     check there as well. */
+  if (cap_result == capability_server_yes)
+    {
+      if (strcmp(capability, SVN_RA_CAPABILITY_MERGEINFO) == 0)
+        {
+          /* Handle mergeinfo specially.  Mergeinfo depends on the
+             repository as well as the server, but the server routine
+             that answered our exchange_capabilities() call above
+             didn't even know which repository we were interested in
+             -- it just told us whether the server supports mergeinfo.
+             If the answer was 'no', there's no point checking the
+             particular repository; but if it was 'yes, we still must
+             change it to 'no' iff the repository itself doesn't
+             support mergeinfo. */
+          svn_mergeinfo_catalog_t ignored;
+          svn_error_t *err;
+          apr_array_header_t *paths = apr_array_make(pool, 1,
+                                                     sizeof(char *));
+          APR_ARRAY_PUSH(paths, const char *) = "";
+
+          err = svn_ra_serf__get_mergeinfo(ra_session, &ignored, paths, 0,
+                                           FALSE, FALSE, pool);
+
+          if (err)
+            {
+              if (err->apr_err == SVN_ERR_UNSUPPORTED_FEATURE)
+                {
+                  svn_error_clear(err);
+                  cap_result = capability_no;
+                }
+              else if (err->apr_err == SVN_ERR_FS_NOT_FOUND)
+                {
+                  /* Mergeinfo requests use relative paths, and
+                     anyway we're in r0, so this is a likely error,
+                     but it means the repository supports mergeinfo! */
+                  svn_error_clear(err);
+                  cap_result = capability_yes;
+                }
+              else
+                return err;
+            }
+          else
+            cap_result = capability_yes;
+
+          apr_hash_set(serf_sess->capabilities,
+                       SVN_RA_CAPABILITY_MERGEINFO, APR_HASH_KEY_STRING,
+                       cap_result);
+        }
+      else
+        {
+          return svn_error_createf
+            (SVN_ERR_UNKNOWN_CAPABILITY, NULL,
+             _("Don't know how to handle '%s' for capability '%s'"),
+             capability_server_yes, capability);
+        }
+    }
+
+  if (cap_result == capability_yes)
+    {
+      *has = TRUE;
+    }
+  else if (cap_result == capability_no)
+    {
+      *has = FALSE;
+    }
+  else if (cap_result == NULL)
+    {
+      return svn_error_createf
+        (SVN_ERR_UNKNOWN_CAPABILITY, NULL,
+         _("Don't know anything about capability '%s'"), capability);
+    }
+  else  /* "can't happen" */
+    {
+      /* Well, let's hope it's a string. */
+      return svn_error_createf
+        (SVN_ERR_RA_DAV_OPTIONS_REQ_FAILED, NULL,
+         _("Attempt to fetch capability '%s' resulted in '%s'"),
+         capability, cap_result);
+    }
+
+  return SVN_NO_ERROR;
+}
+
 
 
 static const svn_version_t *
@@ -49,7 +308,7 @@ ra_serf_version(void)
 }
 
 #define RA_SERF_DESCRIPTION \
-    N_("Access repository via WebDAV protocol through serf.")
+    N_("Module for accessing a repository via WebDAV protocol using serf.")
 
 static const char *
 ra_serf_get_description(void)
@@ -75,19 +334,49 @@ load_config(svn_ra_serf__session_t *session,
             apr_hash_t *config_hash,
             apr_pool_t *pool)
 {
-  svn_config_t *config;
+  svn_config_t *config, *config_client;
   const char *server_group;
+  const char *proxy_host = NULL;
+  const char *port_str = NULL;
+  unsigned int proxy_port;
 
   config = apr_hash_get(config_hash, SVN_CONFIG_CATEGORY_SERVERS,
                         APR_HASH_KEY_STRING);
+  config_client = apr_hash_get(config_hash, SVN_CONFIG_CATEGORY_CONFIG,
+                               APR_HASH_KEY_STRING);
 
   SVN_ERR(svn_config_get_bool(config, &session->using_compression,
                               SVN_CONFIG_SECTION_GLOBAL,
                               SVN_CONFIG_OPTION_HTTP_COMPRESSION, TRUE));
 
-  server_group = svn_config_find_group(config,
-                                       session->repos_url.hostname,
-                                       SVN_CONFIG_SECTION_GROUPS, pool);
+  svn_auth_set_parameter(session->wc_callbacks->auth_baton,
+                         SVN_AUTH_PARAM_CONFIG_CATEGORY_CONFIG, config_client);
+  svn_auth_set_parameter(session->wc_callbacks->auth_baton,
+                         SVN_AUTH_PARAM_CONFIG_CATEGORY_SERVERS, config);
+
+  /* Load the global proxy server settings, if set. */
+  svn_config_get(config, &proxy_host, SVN_CONFIG_SECTION_GLOBAL,
+                 SVN_CONFIG_OPTION_HTTP_PROXY_HOST, NULL);
+  svn_config_get(config, &port_str, SVN_CONFIG_SECTION_GLOBAL,
+                 SVN_CONFIG_OPTION_HTTP_PROXY_PORT, NULL);
+  svn_config_get(config, &session->proxy_username, SVN_CONFIG_SECTION_GLOBAL,
+                 SVN_CONFIG_OPTION_HTTP_PROXY_USERNAME, NULL);
+  svn_config_get(config, &session->proxy_password, SVN_CONFIG_SECTION_GLOBAL,
+                 SVN_CONFIG_OPTION_HTTP_PROXY_PASSWORD, NULL);
+  /* Load the global ssl settings, if set. */
+  SVN_ERR(svn_config_get_bool(config, &session->trust_default_ca,
+                              SVN_CONFIG_SECTION_GLOBAL,
+                              SVN_CONFIG_OPTION_SSL_TRUST_DEFAULT_CA,
+                              TRUE));
+  svn_config_get(config, &session->ssl_authorities, SVN_CONFIG_SECTION_GLOBAL,
+                 SVN_CONFIG_OPTION_SSL_AUTHORITY_FILES, NULL);
+
+  if (config)
+    server_group = svn_config_find_group(config,
+                                         session->repos_url.hostname,
+                                         SVN_CONFIG_SECTION_GROUPS, pool);
+  else
+    server_group = NULL;
 
   if (server_group)
     {
@@ -95,9 +384,77 @@ load_config(svn_ra_serf__session_t *session,
                                   server_group,
                                   SVN_CONFIG_OPTION_HTTP_COMPRESSION,
                                   session->using_compression));
+      svn_auth_set_parameter(session->wc_callbacks->auth_baton,
+                             SVN_AUTH_PARAM_SERVER_GROUP, server_group);
+
+      /* Load the group proxy server settings, overriding global settings. */
+      svn_config_get(config, &proxy_host, server_group,
+                     SVN_CONFIG_OPTION_HTTP_PROXY_HOST, NULL);
+      svn_config_get(config, &port_str, server_group,
+                     SVN_CONFIG_OPTION_HTTP_PROXY_PORT, NULL);
+      svn_config_get(config, &session->proxy_username, server_group,
+                     SVN_CONFIG_OPTION_HTTP_PROXY_USERNAME, NULL);
+      svn_config_get(config, &session->proxy_password, server_group,
+                     SVN_CONFIG_OPTION_HTTP_PROXY_PASSWORD, NULL);
+
+      /* Load the group ssl settings. */
+      SVN_ERR(svn_config_get_bool(config, &session->trust_default_ca,
+                                  server_group,
+                                  SVN_CONFIG_OPTION_SSL_TRUST_DEFAULT_CA,
+                                  TRUE));
+      svn_config_get(config, &session->ssl_authorities, server_group,
+                     SVN_CONFIG_OPTION_SSL_AUTHORITY_FILES, NULL);
     }
 
+  /* Convert the proxy port value, if any. */
+  if (port_str)
+    {
+      char *endstr;
+      const long int port = strtol(port_str, &endstr, 10);
+
+      if (*endstr)
+        return svn_error_create(SVN_ERR_RA_ILLEGAL_URL, NULL,
+                                _("Invalid URL: illegal character in proxy "
+                                  "port number"));
+      if (port < 0)
+        return svn_error_create(SVN_ERR_RA_ILLEGAL_URL, NULL,
+                                _("Invalid URL: negative proxy port number"));
+      if (port > 65535)
+        return svn_error_create(SVN_ERR_RA_ILLEGAL_URL, NULL,
+                                _("Invalid URL: proxy port number greater "
+                                  "than maximum TCP port number 65535"));
+      proxy_port = port;
+    }
+  else
+    proxy_port = 80;
+
+  if (proxy_host)
+    {
+      apr_sockaddr_t *proxy_addr;
+      apr_status_t status;
+
+      status = apr_sockaddr_info_get(&proxy_addr, proxy_host,
+                                     APR_UNSPEC, proxy_port, 0,
+                                     session->pool);
+      session->using_proxy = TRUE;
+      serf_config_proxy(session->context, proxy_addr);
+    }
+  else
+    session->using_proxy = FALSE;
+
   return SVN_NO_ERROR;
+}
+
+static void
+svn_ra_serf__progress(void *progress_baton, apr_off_t read, apr_off_t written)
+{
+  const svn_ra_serf__session_t *serf_sess = progress_baton;
+  if (serf_sess->wc_progress_func)
+    {
+      serf_sess->wc_progress_func(read + written, -1,
+                                  serf_sess->wc_progress_baton,
+                                  serf_sess->pool);
+    }
 }
 
 static svn_error_t *
@@ -111,19 +468,33 @@ svn_ra_serf__open(svn_ra_session_t *session,
   apr_status_t status;
   svn_ra_serf__session_t *serf_sess;
   apr_uri_t url;
+  const char *client_string = NULL;
 
   serf_sess = apr_pcalloc(pool, sizeof(*serf_sess));
   apr_pool_create(&serf_sess->pool, pool);
   serf_sess->bkt_alloc = serf_bucket_allocator_create(serf_sess->pool, NULL,
                                                       NULL);
-  serf_sess->cached_props = apr_hash_make(pool);
+  serf_sess->cached_props = apr_hash_make(serf_sess->pool);
   serf_sess->wc_callbacks = callbacks;
   serf_sess->wc_callback_baton = callback_baton;
+  serf_sess->wc_progress_baton = callbacks->progress_baton;
+  serf_sess->wc_progress_func = callbacks->progress_func;
 
   /* todo: reuse serf context across sessions */
-  serf_sess->context = serf_context_create(pool);
+  serf_sess->context = serf_context_create(serf_sess->pool);
 
-  apr_uri_parse(serf_sess->pool, repos_URL, &url);
+  status = apr_uri_parse(serf_sess->pool, repos_URL, &url);
+  if (status)
+    {
+      return svn_error_createf(SVN_ERR_RA_ILLEGAL_URL, NULL,
+                               _("Illegal repository URL '%s'"),
+                               repos_URL);
+    }
+  /* Contrary to what the comment for apr_uri_t.path says in apr-util 1.2.12 and
+     older, for root paths url.path will be "", where serf requires "/". */
+  if (url.path == NULL || url.path[0] == '\0')
+    url.path = apr_pstrdup(serf_sess->pool, "/");
+
   serf_sess->repos_url = url;
   serf_sess->repos_url_str = apr_pstrdup(serf_sess->pool, repos_URL);
 
@@ -131,34 +502,66 @@ svn_ra_serf__open(svn_ra_session_t *session,
     {
       url.port = apr_uri_port_of_scheme(url.scheme);
     }
-  serf_sess->using_ssl = (strcasecmp(url.scheme, "https") == 0);
+  serf_sess->using_ssl = (svn_cstring_casecmp(url.scheme, "https") == 0);
 
-  SVN_ERR(load_config(serf_sess, config, pool));
+  serf_sess->capabilities = apr_hash_make(serf_sess->pool);
+
+  SVN_ERR(load_config(serf_sess, config, serf_sess->pool));
 
   /* register cleanups */
   apr_pool_cleanup_register(serf_sess->pool, serf_sess,
                             svn_ra_serf__cleanup_serf_session,
                             apr_pool_cleanup_null);
 
-  serf_sess->conns = apr_palloc(pool, sizeof(*serf_sess->conns) * 4);
+  serf_sess->conns = apr_palloc(serf_sess->pool, sizeof(*serf_sess->conns) * 4);
 
-  serf_sess->conns[0] = apr_pcalloc(pool, sizeof(*serf_sess->conns[0]));
+  serf_sess->conns[0] = apr_pcalloc(serf_sess->pool,
+                                    sizeof(*serf_sess->conns[0]));
   serf_sess->conns[0]->bkt_alloc =
           serf_bucket_allocator_create(serf_sess->pool, NULL, NULL);
+  serf_sess->conns[0]->session = serf_sess;
+  serf_sess->conns[0]->last_status_code = -1;
 
-  /* fetch the DNS record for this host */
-  status = apr_sockaddr_info_get(&serf_sess->conns[0]->address, url.hostname,
-                                 APR_UNSPEC, url.port, 0, pool);
-  if (status)
+  /* Unless we're using a proxy, fetch the DNS record for this host */
+  if (! serf_sess->using_proxy)
     {
-      return svn_error_createf(status, NULL,
-                               _("Could not lookup hostname: %s://%s"),
-                               url.scheme, url.hostname);
+      status = apr_sockaddr_info_get(&serf_sess->conns[0]->address,
+                                     url.hostname,
+                                     APR_UNSPEC, url.port, 0, serf_sess->pool);
+      if (status)
+        {
+          return svn_error_wrap_apr(status,
+                                    _("Could not lookup hostname `%s'"),
+                                    url.hostname);
+        }
+    }
+  else
+    {
+      /* Create an address with unresolved hostname. */
+      apr_sockaddr_t *sa = apr_pcalloc(serf_sess->pool, sizeof(apr_sockaddr_t));
+      sa->pool = serf_sess->pool;
+      sa->hostname = apr_pstrdup(serf_sess->pool, url.hostname);
+      sa->port = url.port;
+      sa->family = APR_UNSPEC;
+      serf_sess->conns[0]->address = sa;
     }
 
   serf_sess->conns[0]->using_ssl = serf_sess->using_ssl;
   serf_sess->conns[0]->using_compression = serf_sess->using_compression;
   serf_sess->conns[0]->hostinfo = url.hostinfo;
+  serf_sess->conns[0]->auth_header = NULL;
+  serf_sess->conns[0]->auth_value = NULL;
+  serf_sess->conns[0]->useragent = NULL;
+
+  /* create the user agent string */
+  if (callbacks->get_client_string)
+    callbacks->get_client_string(callback_baton, &client_string, pool);
+
+  if (client_string)
+    serf_sess->conns[0]->useragent = apr_pstrcat(pool, USER_AGENT, "/",
+                                                 client_string, NULL);
+  else
+    serf_sess->conns[0]->useragent = USER_AGENT;
 
   /* go ahead and tell serf about the connection. */
   serf_sess->conns[0]->conn =
@@ -167,11 +570,15 @@ svn_ra_serf__open(svn_ra_session_t *session,
                              svn_ra_serf__conn_closed, serf_sess->conns[0],
                              serf_sess->pool);
 
+  /* Set the progress callback. */
+  serf_context_set_progress_cb(serf_sess->context, svn_ra_serf__progress,
+                               serf_sess);
+
   serf_sess->num_conns = 1;
 
   session->priv = serf_sess;
 
-  return SVN_NO_ERROR;
+  return exchange_capabilities(serf_sess, pool);
 }
 
 static svn_error_t *
@@ -181,6 +588,7 @@ svn_ra_serf__reparent(svn_ra_session_t *ra_session,
 {
   svn_ra_serf__session_t *session = ra_session->priv;
   apr_uri_t new_url;
+  apr_status_t status;
 
   /* If it's the URL we already have, wave our hands and do nothing. */
   if (strcmp(session->repos_url_str, url) == 0)
@@ -189,11 +597,26 @@ svn_ra_serf__reparent(svn_ra_session_t *ra_session,
     }
 
   /* Do we need to check that it's the same host and port? */
-  apr_uri_parse(session->pool, url, &new_url);
+  status = apr_uri_parse(session->pool, url, &new_url);
+  if (status)
+    {
+      return svn_error_createf(SVN_ERR_RA_ILLEGAL_URL, NULL,
+                               _("Illegal repository URL '%s'"), url);
+    }
 
   session->repos_url.path = new_url.path;
-  session->repos_url_str = apr_pstrdup(pool, url);
+  session->repos_url_str = apr_pstrdup(session->pool, url);
 
+  return SVN_NO_ERROR;
+}
+
+static svn_error_t *
+svn_ra_serf__get_session_url(svn_ra_session_t *ra_session,
+                             const char **url,
+                             apr_pool_t *pool)
+{
+  svn_ra_serf__session_t *session = ra_session->priv;
+  *url = apr_pstrdup(pool, session->repos_url_str);
   return SVN_NO_ERROR;
 }
 
@@ -202,52 +625,13 @@ svn_ra_serf__get_latest_revnum(svn_ra_session_t *ra_session,
                                svn_revnum_t *latest_revnum,
                                apr_pool_t *pool)
 {
-  apr_hash_t *props;
+  const char *relative_url, *basecoll_url;
   svn_ra_serf__session_t *session = ra_session->priv;
-  const char *vcc_url, *baseline_url, *version_name;
 
-  props = apr_hash_make(pool);
-
-  SVN_ERR(svn_ra_serf__discover_root(&vcc_url, NULL,
-                                     session, session->conns[0],
-                                     session->repos_url.path, pool));
-
-  if (!vcc_url)
-    {
-      abort();
-    }
-
-  /* Using the version-controlled-configuration, fetch the checked-in prop. */
-  SVN_ERR(svn_ra_serf__retrieve_props(props, session, session->conns[0],
-                                      vcc_url, SVN_INVALID_REVNUM, "0",
-                                      checked_in_props, pool));
-
-  baseline_url = svn_ra_serf__get_prop(props, vcc_url,
-                                       "DAV:", "checked-in");
-
-  if (!baseline_url)
-    {
-      abort();
-    }
-
-  /* Using the checked-in property, fetch:
-   *    baseline-connection *and* version-name
-   */
-  SVN_ERR(svn_ra_serf__retrieve_props(props, session, session->conns[0],
-                                      baseline_url, SVN_INVALID_REVNUM,
-                                      "0", baseline_props, pool));
-
-  version_name = svn_ra_serf__get_prop(props, baseline_url,
-                                       "DAV:", "version-name");
-
-  if (!version_name)
-    {
-      abort();
-    }
-
-  *latest_revnum = SVN_STR_TO_REV(version_name);
-
-  return SVN_NO_ERROR;
+  return svn_ra_serf__get_baseline_info(&basecoll_url, &relative_url,
+                                        session, session->repos_url.path,
+                                        SVN_INVALID_REVNUM, latest_revnum,
+                                        pool);
 }
 
 static svn_error_t *
@@ -330,28 +714,16 @@ fetch_path_props(svn_ra_serf__propfind_context_t **ret_prop_ctx,
     }
   else
     {
-      const char *vcc_url, *relative_url, *basecoll_url;
+      const char *relative_url, *basecoll_url;
 
-      SVN_ERR(svn_ra_serf__discover_root(&vcc_url, &relative_url,
-                                         session, session->conns[0],
-                                         path, pool));
-      
-      SVN_ERR(svn_ra_serf__retrieve_props(props, session, session->conns[0],
-                                          vcc_url, revision,
-                                          "0", baseline_props, pool));
-      
-      basecoll_url = svn_ra_serf__get_ver_prop(props, vcc_url, revision,
-                                               "DAV:", "baseline-collection");
-      
-      if (!basecoll_url)
-        {
-          abort();
-        }
-    
-      /* We will try again with our new path; however, we're now 
+      SVN_ERR(svn_ra_serf__get_baseline_info(&basecoll_url, &relative_url,
+                                             session, path,
+                                             revision, NULL, pool));
+
+      /* We will try again with our new path; however, we're now
        * technically an unversioned resource because we are accessing
        * the revision's baseline-collection.
-       */  
+       */
       prop_ctx = NULL;
       path = svn_path_url_add_component(basecoll_url, relative_url, pool);
       revision = SVN_INVALID_REVNUM;
@@ -361,7 +733,10 @@ fetch_path_props(svn_ra_serf__propfind_context_t **ret_prop_ctx,
                                  NULL, session->pool);
     }
 
-  SVN_ERR(svn_ra_serf__wait_for_props(prop_ctx, session, pool));
+  if (prop_ctx)
+    {
+      SVN_ERR(svn_ra_serf__wait_for_props(prop_ctx, session, pool));
+    }
 
   *ret_path = path;
   *ret_prop_ctx = prop_ctx;
@@ -384,22 +759,29 @@ svn_ra_serf__check_path(svn_ra_session_t *ra_session,
   const char *path, *res_type;
   svn_revnum_t fetched_rev;
 
-  SVN_ERR(fetch_path_props(&prop_ctx, &props, &path, &fetched_rev,
-                           session, rel_path,
-                           revision, check_path_props, pool));
+  svn_error_t *err = fetch_path_props(&prop_ctx, &props, &path, &fetched_rev,
+                                      session, rel_path,
+                                      revision, check_path_props, pool);
 
-  if (svn_ra_serf__propfind_status_code(prop_ctx) == 404)
+  if (err && err->apr_err == SVN_ERR_FS_NOT_FOUND)
     {
+      svn_error_clear(err);
       *kind = svn_node_none;
     }
   else
     {
+      /* Any other error, raise to caller. */
+      if (err)
+        return err;
+
       res_type = svn_ra_serf__get_ver_prop(props, path, fetched_rev,
                                            "DAV:", "resourcetype");
       if (!res_type)
         {
           /* How did this happen? */
-          abort();
+          return svn_error_create(SVN_ERR_RA_DAV_OPTIONS_REQ_FAILED, NULL,
+                                  _("The OPTIONS response did not include the "
+                                    "requested resourcetype value"));
         }
       else if (strcmp(res_type, "collection") == 0)
         {
@@ -433,7 +815,7 @@ dirent_walker(void *baton,
     }
   else if (strcmp(ns, "DAV:") == 0)
     {
-      if (strcmp(name, "version-name") == 0)
+      if (strcmp(name, SVN_DAV__VERSION_NAME) == 0)
         {
           entry->created_rev = SVN_STR_TO_REV(val->data);
         }
@@ -441,7 +823,7 @@ dirent_walker(void *baton,
         {
           entry->last_author = val->data;
         }
-      else if (strcmp(name, "creationdate") == 0)
+      else if (strcmp(name, SVN_DAV__CREATIONDATE) == 0)
         {
           SVN_ERR(svn_time_from_cstring(&entry->time, val->data, pool));
         }
@@ -519,9 +901,21 @@ svn_ra_serf__stat(svn_ra_session_t *ra_session,
   const char *path;
   svn_revnum_t fetched_rev;
   svn_dirent_t *entry;
+  svn_error_t *err;
 
-  SVN_ERR(fetch_path_props(&prop_ctx, &props, &path, &fetched_rev,
-                           session, rel_path, revision, all_props, pool));
+  err = fetch_path_props(&prop_ctx, &props, &path, &fetched_rev,
+                         session, rel_path, revision, all_props, pool);
+  if (err)
+    {
+      if (err->apr_err == SVN_ERR_FS_NOT_FOUND)
+        {
+          svn_error_clear(err);
+          *dirent = NULL;
+          return SVN_NO_ERROR;
+        }
+      else
+        return err;
+    }
 
   entry = apr_pcalloc(pool, sizeof(*entry));
 
@@ -529,6 +923,35 @@ svn_ra_serf__stat(svn_ra_session_t *ra_session,
                               pool);
 
   *dirent = entry;
+
+  return SVN_NO_ERROR;
+}
+
+/* Reads the 'resourcetype' property from the list PROPS and checks if the
+ * resource at PATH@REVISION really is a directory. Returns
+ * SVN_ERR_FS_NOT_DIRECTORY if not.
+ */
+static svn_error_t *
+resource_is_directory(apr_hash_t *props,
+                      const char *path,
+                      svn_revnum_t revision)
+{
+  const char *res_type;
+
+  res_type = svn_ra_serf__get_ver_prop(props, path, revision,
+                                       "DAV:", "resourcetype");
+  if (!res_type)
+    {
+      /* How did this happen? */
+      return svn_error_create(SVN_ERR_RA_DAV_OPTIONS_REQ_FAILED, NULL,
+                              _("The PROPFIND response did not include the "
+                                "requested resourcetype value"));
+    }
+  else if (strcmp(res_type, "collection") != 0)
+    {
+    return svn_error_create(SVN_ERR_FS_NOT_DIRECTORY, NULL,
+                            _("Can't get entries of non-directory"));
+    }
 
   return SVN_NO_ERROR;
 }
@@ -549,7 +972,7 @@ svn_ra_serf__get_dir(svn_ra_session_t *ra_session,
 
   path = session->repos_url.path;
 
-  /* If we have a relative path, append it. */
+  /* If we have a relative path, URI encode and append it. */
   if (rel_path)
     {
       path = svn_path_url_add_component(path, rel_path, pool);
@@ -557,30 +980,16 @@ svn_ra_serf__get_dir(svn_ra_session_t *ra_session,
 
   props = apr_hash_make(pool);
 
+  /* If the user specified a peg revision other than HEAD, we have to fetch
+     the baseline collection url for that revision. If not, we can use the
+     public url. */
   if (SVN_IS_VALID_REVNUM(revision) || fetched_rev)
     {
-      const char *vcc_url, *relative_url, *basecoll_url;
+      const char *relative_url, *basecoll_url;
 
-      SVN_ERR(svn_ra_serf__discover_root(&vcc_url, &relative_url,
-                                         session, session->conns[0],
-                                         path, pool));
-
-      SVN_ERR(svn_ra_serf__retrieve_props(props, session, session->conns[0],
-                                          vcc_url, revision,
-                                          "0", baseline_props, pool));
-      
-      basecoll_url = svn_ra_serf__get_ver_prop(props, vcc_url, revision,
-                                               "DAV:", "baseline-collection");
-      
-      if (!basecoll_url)
-        {
-          abort();
-        }
-
-      if (fetched_rev)
-       {
-         *fetched_rev = revision;
-       }
+      SVN_ERR(svn_ra_serf__get_baseline_info(&basecoll_url, &relative_url,
+                                             session, path, revision,
+                                             fetched_rev, pool));
 
       path = svn_path_url_add_component(basecoll_url, relative_url, pool);
       revision = SVN_INVALID_REVNUM;
@@ -589,15 +998,14 @@ svn_ra_serf__get_dir(svn_ra_session_t *ra_session,
   /* If we're asked for children, fetch them now. */
   if (dirents)
     {
-      svn_ra_serf__propfind_context_t *prop_ctx;
       struct path_dirent_visitor_t dirent_walk;
 
-      prop_ctx = NULL;
-      svn_ra_serf__deliver_props(&prop_ctx, props, session, session->conns[0],
-                                 path, revision, "1", all_props, TRUE,
-                                 NULL, session->pool);
-      
-      SVN_ERR(svn_ra_serf__wait_for_props(prop_ctx, session, pool));
+      SVN_ERR(svn_ra_serf__retrieve_props(props, session, session->conns[0],
+                                          path, revision, "1", all_props,
+                                          session->pool));
+
+      /* Check if the path is really a directory. */
+      SVN_ERR(resource_is_directory (props, path, revision));
 
       /* We're going to create two hashes to help the walker along.
        * We're going to return the 2nd one back to the caller as it
@@ -622,6 +1030,9 @@ svn_ra_serf__get_dir(svn_ra_session_t *ra_session,
       SVN_ERR(svn_ra_serf__retrieve_props(props, session, session->conns[0],
                                           path, revision, "0", all_props,
                                           pool));
+      /* Check if the path is really a directory. */
+      SVN_ERR(resource_is_directory (props, path, revision));
+
       svn_ra_serf__walk_all_props(props, path, revision,
                                   svn_ra_serf__set_flat_props,
                                   *ret_props, pool);
@@ -650,6 +1061,15 @@ svn_ra_serf__get_repos_root(svn_ra_session_t *ra_session,
   return SVN_NO_ERROR;
 }
 
+/* TODO: to fetch the uuid from the repository, we need:
+   1. a path that exists in HEAD
+   2. a path that's readable
+
+   get_uuid handles the case where a path doesn't exist in HEAD and also the
+   case where the root of the repository is not readable.
+   However, it does not handle the case where we're fetching path not existing
+   in HEAD of a repository with unreadable root directory.
+ */
 static svn_error_t *
 svn_ra_serf__get_uuid(svn_ra_session_t *ra_session,
                       const char **uuid,
@@ -660,20 +1080,29 @@ svn_ra_serf__get_uuid(svn_ra_session_t *ra_session,
 
   props = apr_hash_make(pool);
 
-  SVN_ERR(svn_ra_serf__retrieve_props(props, session, session->conns[0],
-                                      session->repos_url.path,
-                                      SVN_INVALID_REVNUM, "0",
-                                      uuid_props, pool));
-  *uuid = svn_ra_serf__get_prop(props, session->repos_url.path,
-                                SVN_DAV_PROP_NS_DAV, "repository-uuid");
-
-  if (!*uuid)
+  if (!session->uuid)
     {
-      abort();
+      const char *vcc_url, *relative_url;
+
+      /* We're not interested in vcc_url and relative_url, but this call also
+         stores the repository's uuid in the session. */
+      SVN_ERR(svn_ra_serf__discover_root(&vcc_url,
+                                         &relative_url,
+                                         session, session->conns[0],
+                                         session->repos_url.path, pool));
+      if (!session->uuid)
+        {
+          return svn_error_create(APR_EGENERAL, NULL,
+                                  _("The UUID property was not found on the "
+                                    "resource or any of its parents"));
+        }
     }
+
+  *uuid = session->uuid;
 
   return SVN_NO_ERROR;
 }
+
 
 static const svn_ra__vtable_t serf_vtable = {
   ra_serf_version,
@@ -681,6 +1110,7 @@ static const svn_ra__vtable_t serf_vtable = {
   ra_serf_get_schemes,
   svn_ra_serf__open,
   svn_ra_serf__reparent,
+  svn_ra_serf__get_session_url,
   svn_ra_serf__get_latest_revnum,
   svn_ra_serf__get_dated_revision,
   svn_ra_serf__change_rev_prop,
@@ -689,6 +1119,7 @@ static const svn_ra__vtable_t serf_vtable = {
   svn_ra_serf__get_commit_editor,
   svn_ra_serf__get_file,
   svn_ra_serf__get_dir,
+  svn_ra_serf__get_mergeinfo,
   svn_ra_serf__do_update,
   svn_ra_serf__do_switch,
   svn_ra_serf__do_status,
@@ -699,12 +1130,16 @@ static const svn_ra__vtable_t serf_vtable = {
   svn_ra_serf__get_uuid,
   svn_ra_serf__get_repos_root,
   svn_ra_serf__get_locations,
+  svn_ra_serf__get_location_segments,
   svn_ra_serf__get_file_revs,
   svn_ra_serf__lock,
   svn_ra_serf__unlock,
   svn_ra_serf__get_lock,
   svn_ra_serf__get_locks,
   svn_ra_serf__replay,
+  svn_ra_serf__has_capability,
+  svn_ra_serf__replay_range,
+  svn_ra_serf__get_deleted_rev
 };
 
 svn_error_t *

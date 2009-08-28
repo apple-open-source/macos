@@ -1,8 +1,8 @@
 /* fork.c - fork and exec a process, connecting stdin/out w/pipes */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-shell/fork.c,v 1.15.2.2 2006/01/03 22:16:23 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-shell/fork.c,v 1.18.2.3 2008/02/11 23:26:47 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -103,7 +103,12 @@ forkandexec(
 	if ( (*rfp = fdopen( c2p[0], "r" )) == NULL || (*wfp = fdopen( p2c[1],
 	    "w" )) == NULL ) {
 		Debug( LDAP_DEBUG_ANY, "fdopen failed\n", 0, 0, 0 );
-		close( c2p[0] );
+		if ( *rfp ) {
+			fclose( *rfp );
+			*rfp = NULL;
+		} else {
+			close( c2p[0] );
+		}
 		close( p2c[1] );
 
 		return( -1 );

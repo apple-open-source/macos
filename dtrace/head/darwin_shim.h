@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2005-2008 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,7 +33,7 @@
 typedef uint8_t		uchar_t;
 typedef uint16_t	ushort_t;
 typedef uint32_t	uint_t;
-typedef uint32_t	ulong_t;
+typedef unsigned long	ulong_t; 
 typedef uint64_t	u_longlong_t;
 typedef int64_t		longlong_t;
 typedef int64_t		off64_t;

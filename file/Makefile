@@ -4,65 +4,47 @@
 
 # Project info
 Project               = file
-UserType              = Administrator
-ToolType              = Commands
+ProjectVersion        = 5.00
 Extra_Configure_Flags = --enable-fsect-man5 --disable-shared
 Extra_CC_Flags        = -DBUILTIN_MACHO
-GnuAfterInstall       = remove-libs install-plist
+GnuAfterInstall       = remove-libs install-plist strip-binary install-magic
+
+Patches        = configure.diff \
+                 magic__Magdir__archive.diff \
+                 magic__Magdir__gnu.diff \
+                 magic__Magdir__mach.diff \
+                 magic__Magdir__sun.diff \
+                 Mach-O.diff \
+                 conformance.diff \
+                 PR3881173.diff \
+                 PR4324767.diff \
+                 buildfix.diff \
+                 PR6431343.diff \
+                 strndup.diff \
+                 cdf.c.diff
 
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
-# Automatic Extract & Patch
-AEP            = YES
-AEP_Project    = $(Project)
-AEP_Version    = 4.17
-AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
-AEP_Filename   = $(AEP_ProjVers).tar.gz
-AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = ltcf-c.sh.diff \
-                 magic__Magdir__archive.diff \
-                 magic__Magdir__gnu.diff \
-                 magic__Magdir__mach.diff \
-                 magic__Magdir__macintosh.diff \
-                 magic__Magdir__sun.diff \
-                 magic__Makefile.in.diff \
-                 magic__magic.mime.diff \
-                 src__Makefile.in.diff \
-                 src__file.h.diff \
-                 src__funcs.c.diff \
-                 src__magic.c.diff \
-                 src__readmacho.c.diff \
-                 conformance.diff \
-                 PR3881173.diff \
-                 PR4324767.diff \
-                 PR4649553.diff \
-                 PR4864905.diff \
-                 PR4882046.diff \
-                 PR4961438.diff \
-                 PR5118396.diff \
-                 PR5230293.diff \
-                 PR4899923.diff
-
-ifeq ($(suffix $(AEP_Filename)),.bz2)
-AEP_ExtractOption = j
-else
-AEP_ExtractOption = z
-endif
+Install_Target = install
 
 # Extract the source.
 install_source::
-ifeq ($(AEP),YES)
-	$(TAR) -C $(SRCROOT) -$(AEP_ExtractOption)xf $(SRCROOT)/$(AEP_Filename)
-	$(RMDIR) $(SRCROOT)/$(AEP_Project)
-	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(AEP_Project)
-	for patchfile in $(AEP_Patches); do \
-		(cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile) || exit 1; \
+	$(RMDIR) $(SRCROOT)/$(Project) $(SRCROOT)/$(Project)-$(ProjectVersion)
+	$(TAR) -C $(SRCROOT) -xf $(SRCROOT)/$(Project)-$(ProjectVersion).tar.gz
+	$(MV) $(SRCROOT)/$(Project)-$(ProjectVersion) $(SRCROOT)/$(Project)
+	@set -x && \
+	cd $(SRCROOT)/$(Project) && \
+	for patchfile in $(Patches); do \
+		patch -p0 -F0 -i $(SRCROOT)/patches/$$patchfile || exit 1; \
 	done
-endif
 
 remove-libs:
+	$(MKDIR) $(DSTROOT)/usr/local/include
+	$(MV) $(DSTROOT)/usr/include/magic.h $(DSTROOT)/usr/local/include
 	$(RMDIR) $(DSTROOT)/usr/include
+	$(MKDIR) $(DSTROOT)/usr/local/lib
+	$(MV) $(DSTROOT)/usr/lib/libmagic.a $(DSTROOT)/usr/local/lib
 	$(RMDIR) $(DSTROOT)/usr/lib
 	$(RMDIR) $(DSTROOT)/usr/share/man/man3
 	$(RMDIR) $(DSTROOT)/usr/share/man/man4
@@ -74,4 +56,13 @@ install-plist:
 	$(MKDIR) $(OSV)
 	$(INSTALL_FILE) $(SRCROOT)/$(Project).plist $(OSV)/$(Project).plist
 	$(MKDIR) $(OSL)
-	$(INSTALL_FILE) $(Sources)/LEGAL.NOTICE $(OSL)/$(Project).txt
+	$(INSTALL_FILE) $(Sources)/COPYING $(OSL)/$(Project).txt
+
+strip-binary:
+	$(MKDIR) $(SYMROOT)/usr/bin
+	$(CP) $(DSTROOT)/usr/bin/file $(SYMROOT)/usr/bin
+	$(STRIP) $(DSTROOT)/usr/bin/file
+
+install-magic:
+	$(MKDIR) $(DSTROOT)/usr/share/file/magic
+	$(INSTALL_FILE) $(Sources)/magic/Magdir/* $(DSTROOT)/usr/share/file/magic

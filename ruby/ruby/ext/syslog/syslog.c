@@ -4,7 +4,7 @@
  * <amos+ruby@utdallas.edu>
  *
  * $RoughId: syslog.c,v 1.21 2002/02/25 12:21:17 knu Exp $
- * $Id: syslog.c 17807 2008-07-02 09:56:56Z shyouhei $
+ * $Id: syslog.c 17809 2008-07-02 09:58:40Z shyouhei $
  */
 
 #include "ruby.h"

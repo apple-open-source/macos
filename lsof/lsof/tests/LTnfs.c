@@ -308,7 +308,7 @@ FindNFSfile(ff, szbuf)
     int nf;				/* number of fields */
     char nlkbuf[32];			/* link count buffer */
     LTfldo_t *nlkp;			/* nlink pointer */
-    char *opv[4];			/* option vector for ExecLsof() */
+    char *opv[5];			/* option vector for ExecLsof() */
     char *pem = (char *)NULL;		/* previous error message pointer */
     pid_t pid;				/* PID */
     int pids = 0;			/* PID found status */
@@ -349,7 +349,8 @@ FindNFSfile(ff, szbuf)
  * Complete the option vector and start lsof execution.
  */
     ti = 0;
-    opv[ti++] = "-sNa";
+    opv[ti++] = "-s";
+    opv[ti++] = "-Na";
 
 #if	defined(USE_LSOF_C_OPT)
     opv[ti++] = "-C";

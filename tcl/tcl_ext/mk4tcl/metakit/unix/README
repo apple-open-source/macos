@@ -1,0 +1,9 @@
+To keep the unix/ directory as is, please build Metakit using:
+
+	cd ../builds
+	../unix/configure
+	make
+	make test
+	make install
+
+Further documentation and install notes are in "../README".

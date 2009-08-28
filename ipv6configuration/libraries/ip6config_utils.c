@@ -1,22 +1,23 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -85,29 +86,29 @@ cfstring_to_numeric(int family, CFStringRef str, void * addr)
 
     range = CFRangeMake(0, CFStringGetLength(str));
     n = CFStringGetBytes(str, range, kCFStringEncodingMacRoman,
-			 0, FALSE, buf, sizeof(buf), &l);
+			 0, FALSE, (UInt8 *)buf, sizeof(buf), &l);
     buf[l] = '\0';
     err = inet_pton(family, buf, addr);
     switch (err) {
-        case 1: {
-            /* success */
-            err = 0;
-            break;
-        }
-        case -1: {
-            /* system error */
-            err = errno;
-            break;
-        }
-        case 0: {
-            /* inet_pton error */
-            err = -1;
-            break;
-        }
-        default: {
-            err = -1;
-            break;
-        }
+	case 1: {
+	    /* success */
+	    err = 0;
+	    break;
+	}
+	case -1: {
+	    /* system error */
+	    err = errno;
+	    break;
+	}
+	case 0: {
+	    /* inet_pton error */
+	    err = -1;
+	    break;
+	}
+	default: {
+	    err = -1;
+	    break;
+	}
     }
 
     return (err);
@@ -121,9 +122,9 @@ prefixLen2mask(struct in6_addr * mask, int len)
 
     bzero(mask, sizeof(*mask));
     for (i = 0; i < len / 8; i++)
-        mask->s6_addr[i] = 0xff;
+	mask->s6_addr[i] = 0xff;
     if (len % 8)
-        mask->s6_addr[i] = (0xff00 >> (len % 8)) & 0xff;
+	mask->s6_addr[i] = (0xff00 >> (len % 8)) & 0xff;
 }
 
 /* was in6_mask2len(), from netinet6/in6.c */
@@ -134,18 +135,18 @@ prefixmask2len(struct in6_addr * mask, u_char * lim0)
     u_char *lim = lim0, *p;
 
     if (lim0 == NULL ||
-            lim0 - (u_char *)mask > sizeof(*mask)) /* ignore the scope_id part */
-        lim = (u_char *)mask + sizeof(*mask);
+	lim0 - (u_char *)mask > sizeof(*mask)) /* ignore the scope_id part */
+	lim = (u_char *)mask + sizeof(*mask);
     for (p = (u_char *)mask; p < lim; x++, p++) {
-        if (*p != 0xff)
-            break;
+	if (*p != 0xff)
+	    break;
     }
     y = 0;
     if (p < lim) {
-        for (y = 0; y < 8; y++) {
-            if ((*p & (0x80 >> y)) == 0)
-                break;
-        }
+	for (y = 0; y < 8; y++) {
+	    if ((*p & (0x80 >> y)) == 0)
+		break;
+	}
     }
 
     /*
@@ -153,11 +154,11 @@ prefixmask2len(struct in6_addr * mask, u_char * lim0)
      * remaining bits.
      */
     if (p < lim) {
-        if (y != 0 && (*p & (0x00ff >> y)) != 0)
-            return(-1);
-        for (p = p + 1; p < lim; p++)
-            if (*p != 0)
-                return(-1);
+	if (y != 0 && (*p & (0x00ff >> y)) != 0)
+	    return(-1);
+	for (p = p + 1; p < lim; p++)
+	    if (*p != 0)
+		return(-1);
     }
 
     return x * 8 + y;
@@ -173,7 +174,7 @@ ifflags_set(int s, char * name, short flags)
     strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
     ret = ioctl(s, SIOCGIFFLAGS, (caddr_t)&ifr);
     if (ret < 0) {
-        return (ret);
+	return (ret);
     }
     ifr.ifr_flags |= flags;
     return (ioctl(s, SIOCSIFFLAGS, &ifr));
@@ -222,7 +223,7 @@ get_llocal_if_addr_flags(const char * name, short * flags)
 
     if(get_llocal_addr(name, &sin6) != 0) {
 	my_log(LOG_DEBUG, "get_llocal_if_addr_flags %s: error getting linklocal address",
-		name);
+	       name);
 	close(s);
 	return (-1);
     }
@@ -232,8 +233,8 @@ get_llocal_if_addr_flags(const char * name, short * flags)
     memcpy(&ifr6.ifr_ifru.ifru_addr, &sin6, sin6.sin6_len);
     if (ioctl(s, SIOCGIFAFLAG_IN6, &ifr6) < 0) {
 	my_log(LOG_DEBUG,
-                "get_llocal_if_addr_flags: ioctl(SIOCGIFAFLAG_IN6): %s",
-                strerror(errno));
+	       "get_llocal_if_addr_flags: ioctl(SIOCGIFAFLAG_IN6): %s",
+	       strerror(errno));
 	close(s);
 	return(-1);
     }
@@ -298,9 +299,9 @@ getinet6sysctl(int code)
     mib[3] = code;
     size = sizeof(value);
     if (sysctl(mib, sizeof(mib)/sizeof(mib[0]), &value, &size, NULL, 0) < 0)
-        return -1;
+	return -1;
     else
-        return value;
+	return value;
 }
 
 __private_extern__ int
@@ -313,9 +314,9 @@ setinet6sysctl(int code, int value)
     mib[3] = code;
     size = sizeof(setval);
     if (sysctl(mib, sizeof(mib)/sizeof(mib[0]), NULL, 0, &setval, size) < 0)
-        return -1;
+	return -1;
     else
-        return 0;
+	return 0;
 }
 
 #define ROUNDUP8(a) (1 + (((a) - 1) | 7))
@@ -324,13 +325,13 @@ __private_extern__ int
 lladdropt_length(link_addr_t * link)
 {
     switch(link->type) {
-        case IFT_ETHER:
+	case IFT_ETHER:
 #ifdef IFT_IEEE80211
 	case IFT_IEEE80211:
 #endif
-            return(ROUNDUP8(ETHER_ADDR_LEN + 2));
+	    return(ROUNDUP8(ETHER_ADDR_LEN + 2));
 	 default:
-            return(0);
+	    return(0);
     }
 }
 
@@ -342,18 +343,18 @@ lladdropt_fill(link_addr_t * link, struct nd_opt_hdr *ndopt)
     ndopt->nd_opt_type = ND_OPT_SOURCE_LINKADDR; /* fixed */
 
     switch(link->type) {
-        case IFT_ETHER:
+	case IFT_ETHER:
 #ifdef IFT_IEEE80211
 	case IFT_IEEE80211:
 #endif
-            ndopt->nd_opt_len = (ROUNDUP8(ETHER_ADDR_LEN + 2)) >> 3;
-            addr = (char *)(ndopt + 1);
-            memcpy(addr, link->addr, link->alen);
-            break;
+	    ndopt->nd_opt_len = (ROUNDUP8(ETHER_ADDR_LEN + 2)) >> 3;
+	    addr = (char *)(ndopt + 1);
+	    memcpy(addr, link->addr, link->alen);
+	    break;
 	 default:
-            my_log(LOG_ERR,
-                    "lladdropt_fill: unsupported link type(%d)", link->type);
-            break;
+	    my_log(LOG_ERR,
+	       "lladdropt_fill: unsupported link type(%d)", link->type);
+	    break;
     }
 
     return;
@@ -370,8 +371,8 @@ my_CFRelease(void * t)
 {
     void * * obj = (void * *)t;
     if (obj && *obj) {
-        CFRelease(*obj);
-        *obj = NULL;
+	CFRelease(*obj);
+	*obj = NULL;
     }
     return;
 }
@@ -381,13 +382,13 @@ my_CFArrayAppendUniqueValue(CFMutableArrayRef arr, CFTypeRef new)
 {
     int count;
     int i;
-    
+
     count = CFArrayGetCount(arr);
     for (i = 0; i < count; i++) {
-        CFStringRef element = CFArrayGetValueAtIndex(arr, i);
-        if (CFEqual(element, new)) {
-            return;
-        }
+	CFStringRef element = CFArrayGetValueAtIndex(arr, i);
+	if (CFEqual(element, new)) {
+	    return;
+	}
     }
     CFArrayAppendValue(arr, new);
     return;
@@ -406,20 +407,22 @@ my_log(int priority, const char *message, ...)
     va_list 	ap;
 
     if (priority == LOG_DEBUG) {
-        if (G_verbose == FALSE)
-            return;
+	if (G_verbose == FALSE)
+	    return;
+	priority = LOG_NOTICE;
+    }
+    else if (priority == LOG_INFO) {
         priority = LOG_NOTICE;
     }
-
     va_start(ap, message);
     if (G_scd_session == NULL) {
-        vsyslog(priority, message, ap);
+	vsyslog(priority, message, ap);
     }
     else {
-        char	buffer[256];
+	char	buffer[256];
 
-        vsnprintf(buffer, sizeof(buffer), message, ap);
-        SCLog(TRUE, priority, CFSTR("%s"), buffer);
+	vsnprintf(buffer, sizeof(buffer), message, ap);
+	SCLog(TRUE, priority, CFSTR("%s"), buffer);
     }
     return;
 }
@@ -433,7 +436,7 @@ cfstring_to_cstring(CFStringRef cfstr, char * str, int len)
 
     range = CFRangeMake(0, CFStringGetLength(cfstr));
     n = CFStringGetBytes(cfstr, range, kCFStringEncodingMacRoman,
-			 0, FALSE, str, len, &l);
+			 0, FALSE, (UInt8 *)str, len, &l);
     str[l] = '\0';
     return (l);
 }

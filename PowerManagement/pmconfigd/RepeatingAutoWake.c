@@ -3,32 +3,28 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
 #include <syslog.h>
-#include <SystemConfiguration/SystemConfiguration.h>
-#include <SystemConfiguration/SCValidation.h>
-#include <CoreFoundation/CoreFoundation.h> 
-#include <IOKit/IOKitLib.h>
-#include <IOKit/IOMessage.h>
-#include <IOKit/pwr_mgt/IOPMLib.h>
 #include <syslog.h>
 #include "RepeatingAutoWake.h"
+#include "PrivateLib.h"
 
 /*
  * These are the days of the week as provided by
@@ -193,13 +189,15 @@ getRepeatingDictionaryType(CFDictionaryRef event)
 static bool
 upcomingToday(CFDictionaryRef event, int today_cf)
 {
+    static const int        kAllowScheduleWindowSeconds = 5;
     CFGregorianDate         greg_now;
     CFTimeZoneRef           tizzy;
-    int                     minutes_now;
-    int                     minutes_scheduled;
+    uint32_t                secondsToday;
+    int                     secondsScheduled;
 	int						days_mask;
     if(!event) return false;
     
+    // Determine if the scheduled event falls on today's day of week
     days_mask = getRepeatingDictionaryDayMask(event);
     if(!(days_mask & (1 << (today_cf-1)))) return false;
     
@@ -209,15 +207,13 @@ upcomingToday(CFDictionaryRef event, int today_cf)
                     CFAbsoluteTimeGetCurrent(), tizzy);
     CFRelease(tizzy);
     
-    minutes_now = (greg_now.hour*60) + greg_now.minute;
+    secondsToday = 60 * ((greg_now.hour*60) + greg_now.minute);
+    secondsScheduled = 60 * getRepeatingDictionaryMinutes(event);
 
-    minutes_scheduled = getRepeatingDictionaryMinutes(event);
-
-    // TODO: worry about race conditions. We'll be calling this at "sleep time" every day,
-    //       trying to determine if another sleep time is upcoming today. Gotta make sure
-    //       we recognize the next sleep time as tomorrow's event.
-    // compare hours/minutes to the time we gotta wake up
-    if(minutes_scheduled >= (minutes_now+2))
+    // Initially, we required a 2 minute safety window before scheduling the next
+    // power event. Now, we throw caution to the wind and try a 5 second window.
+    // Lost events will simply be lost events.
+    if(secondsScheduled >= (secondsToday + kAllowScheduleWindowSeconds))
         return true;
     else 
         return false;
@@ -436,9 +432,10 @@ RepeatingAutoWakePrefsHaveChanged(void)
 }
 
 __private_extern__ void
-RepeatingAutoWakeSleepWakeNotification(natural_t type)
+RepeatingAutoWakeSleepWakeNotification(natural_t messageType, int runState)
 {
-    if(kIOMessageSystemHasPoweredOn == type)
+    if ((kIOMessageSystemHasPoweredOn == messageType)
+        && (kRStateNormal == runState))
     {
         /* System sleep robs time from CFTimers!
          * On wake from sleep, reschedule all of our pending repeating

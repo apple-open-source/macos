@@ -7,6 +7,8 @@ SQLBindCol
 SQLBindParam
 SQLBindParameter
 SQLBrowseConnect
+SQLBrowseConnectA
+SQLBrowseConnectW
 SQLBulkOperations
 SQLCancel
 SQLCloseCursor
@@ -89,6 +91,7 @@ SQLGetStmtAttr
 SQLGetStmtAttrA
 SQLGetStmtAttrW
 SQLGetStmtOption
+SQLGetStmtOptionA
 SQLGetTypeInfo
 SQLGetTypeInfoA
 SQLGetTypeInfoW
@@ -135,6 +138,7 @@ SQLSetStmtAttr
 SQLSetStmtAttrA
 SQLSetStmtAttrW
 SQLSetStmtOption
+SQLSetStmtOptionA
 SQLSpecialColumns
 SQLSpecialColumnsA
 SQLSpecialColumnsW

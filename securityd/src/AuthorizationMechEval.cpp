@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2003-2004 Apple Computer, Inc. All Rights Reserved.
+ *  Copyright (c) 2003-2004,2008-2009 Apple Inc. All Rights Reserved.
  *
  *  @APPLE_LICENSE_HEADER_START@
  *  
@@ -27,9 +27,11 @@
 #include "AuthorizationMechEval.h"
 #include <security_utilities/logging.h>
 #include <bsm/audit_uevents.h>
-#include <security_utilities/ccaudit.h>
+#include "ccaudit_extensions.h"
 
 namespace Authorization {
+
+using namespace CommonCriteria::Securityd;
 
 AgentMechanismRef::AgentMechanismRef(const AuthHostType type, Session &session) : 
     RefPointer<QueryInvokeMechanism>(new QueryInvokeMechanism(type, session)) {}
@@ -44,6 +46,21 @@ AgentMechanismEvaluator::AgentMechanismEvaluator(uid_t uid, Session& session, co
 OSStatus
 AgentMechanismEvaluator::run(const AuthValueVector &inArguments, const AuthItemSet &inHints, const AuthorizationToken &auth)
 {
+    AuthMechLogger logger(auth.creatorAuditToken(), AUE_ssauthmech);
+    string rightName = "<unknown right>";   // for syslog
+    
+    // as of 10.6, the first item in inArguments should be the name of the
+    // requested right, for auditing
+    try
+    {
+        AuthorizationValue val = inArguments.at(0)->value();
+        string tmpstr(static_cast<const char *>(val.data), val.length);
+        logger.setRight(tmpstr);
+        rightName.clear();
+        rightName = tmpstr;
+    }
+    catch (...)  { }
+    
     const AuthItemSet &inContext = const_cast<AuthorizationToken &>(auth).infoSet();
     
     // add process specifics to context?
@@ -56,10 +73,16 @@ AgentMechanismEvaluator::run(const AuthValueVector &inArguments, const AuthItemS
     AuthItemSet context = inContext;
     // add saved-off sticky context values to context for evaluation
     context.insert(mStickyContext.begin(), mStickyContext.end());
-	
+    
     while ( (result == kAuthorizationResultAllow)  &&
             (currentMechanism != mMechanisms.end()) ) // iterate mechanisms
     {
+        SECURITYD_AUTH_MECH(&auth, (char *)(*currentMechanism).c_str());
+        
+        // set up the audit message
+        logger.setCurrentMechanism(*currentMechanism);
+        
+        // do the real work
         ClientMap::iterator iter = mClients.find(*currentMechanism);
         if (iter == mClients.end())
         {
@@ -76,7 +99,12 @@ AgentMechanismEvaluator::run(const AuthValueVector &inArguments, const AuthItemS
 				if (extMechanism != string::npos)
 				{
 					if (extMechanism < extPlugin)
+					{
+                        string auditMsg = "badly formed mechanism name; ending rule evaluation";
+                        Syslog::alert("Right '%s', mech '%s': %s", rightName.c_str(), (*currentMechanism).c_str(), auditMsg.c_str());
+                        logger.logFailure(auditMsg);
 						return errAuthorizationInternal;
+					}
 						
 					mechanismIn = currentMechanism->substr(extPlugin + 1, extMechanism - extPlugin - 1);
 					authhostIn = currentMechanism->substr(extMechanism + 1);
@@ -97,23 +125,30 @@ AgentMechanismEvaluator::run(const AuthValueVector &inArguments, const AuthItemS
                 secdebug("AuthEvalMech", "performing authentication");
                 result = authinternal(context);
 
-                AuthItem *rightItem = hints.find(AGENT_HINT_AUTHORIZE_RIGHT);
-                string right = (rightItem == NULL) ? string("<unknown right>") : rightItem->stringValue();
-				CommonCriteria::AuditRecord auditrec(auth.creatorAuditToken());
 				if (kAuthorizationResultAllow == result)
-					auditrec.submit(AUE_ssauthint, CommonCriteria::errNone, right.c_str());
+                {
+                    logger.logSuccess();
+                }
 				else	// kAuthorizationResultDeny
-					auditrec.submit(AUE_ssauthint, CommonCriteria::errInvalidCredential, right.c_str());
+                {
+                    logger.logFailure();
+                }
             }
             else if (*currentMechanism == "push_hints_to_context")
             {
                 secdebug("AuthEvalMech", "evaluate push_hints_to_context");
+                logger.logSuccess();
 				// doesn't block evaluation, ever
                 result = kAuthorizationResultAllow; 
                 context = hints;
             }
             else
+			{
+				string auditMsg = "unknown mechanism; ending rule evaluation";
+                Syslog::alert("Right '%s', mech '%s': %s", rightName.c_str(), (*currentMechanism).c_str(), auditMsg.c_str());
+                logger.logFailure(auditMsg);
                 return errAuthorizationInternal;
+			}
         }
 
         iter = mClients.find(*currentMechanism);
@@ -138,7 +173,11 @@ AgentMechanismEvaluator::run(const AuthValueVector &inArguments, const AuthItemS
 							while (client->state() == client->deactivating)
 								client->receive();
 								
-							secdebug("AuthEvalMech", "evaluate(%s) interrupted by %s.", (iter->first).c_str(), (iter2->first).c_str());
+                            string auditMsg = "evaluation interrupted by "; 
+                            auditMsg += (iter2->first).c_str();
+                            auditMsg += "; restarting evaluation there";
+                            secdebug("AuthEvalMech", "%s", auditMsg.c_str());
+                            logger.logInterrupt(auditMsg);
 
 							interrupted = true;
 							hints = iter2->second->inHints();
@@ -164,18 +203,24 @@ AgentMechanismEvaluator::run(const AuthValueVector &inArguments, const AuthItemS
                     continue;
                 }
 				else
-					secdebug("AuthEvalMech", "evaluate(%s) with result: %lu.", (iter->first).c_str(), result);
+					secdebug("AuthEvalMech", "evaluate(%s) with result: %u.", (iter->first).c_str(), (uint32_t)result);
             }
             catch (...) {
-                secdebug("AuthEvalMech", "exception during evaluate(%s).", (iter->first).c_str());
+                string auditMsg = "exception during evaluation of ";
+                auditMsg += (iter->first).c_str();
+                secdebug("AuthEvalMech", "%s", auditMsg.c_str());
+                logger.logFailure(auditMsg);
                 result = kAuthorizationResultUndefined;
             }
         }
     
         if (result == kAuthorizationResultAllow)
+        {
+            logger.logSuccess();
             currentMechanism++;
+        }
     }
-    
+
     if ((result == kAuthorizationResultUserCanceled) ||
         (result == kAuthorizationResultAllow))
     {
@@ -188,6 +233,8 @@ AgentMechanismEvaluator::run(const AuthValueVector &inArguments, const AuthItemS
             if (item->flags() != kAuthorizationContextFlagSticky)
                 mContext.insert(item);
         }
+        if (result == kAuthorizationResultUserCanceled)
+            logger.logFailure(NULL, errAuthorizationCanceled);
     }
     else if (result == kAuthorizationResultDeny)
     {
@@ -199,6 +246,7 @@ AgentMechanismEvaluator::run(const AuthValueVector &inArguments, const AuthItemS
             if (item->flags() == kAuthorizationContextFlagSticky)
                 mStickyContext.insert(item);
         }
+        logger.logFailure();
     }
     
     // convert AuthorizationResult to OSStatus
@@ -210,8 +258,14 @@ AgentMechanismEvaluator::run(const AuthValueVector &inArguments, const AuthItemS
             return errAuthorizationCanceled;
         case kAuthorizationResultAllow:
             return errAuthorizationSuccess;
-        default:
+        case kAuthorizationResultUndefined:
             return errAuthorizationInternal;
+        default:
+        {
+			Syslog::alert("Right '%s': unexpected error result (%u)", rightName.c_str(), result);
+            logger.logFailure("unexpected error result", result);
+            return errAuthorizationInternal;
+        }
     }    
 }
 

@@ -2,7 +2,7 @@
 #define __ASL_FILE_H__
 
 /*
- * Copyright (c) 2007-2008 Apple Inc.  All rights reserved.
+ * Copyright (c) 2007 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 

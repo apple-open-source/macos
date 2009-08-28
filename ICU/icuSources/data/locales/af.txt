@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2006 International Business Machines
+// * Copyright (C) 2008 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/af.xml
@@ -128,6 +128,7 @@ af{
         TJ{"Tadjikistan"}
         TM{"Turkmenië"}
         TN{"Tunisië"}
+        TO{"Tonga"}
         TR{"Turkye"}
         TT{"Trinidad en Tobago"}
         TZ{"Tanzanië"}
@@ -142,6 +143,50 @@ af{
         ZM{"Zambië"}
     }
     Currencies{
+        CHF{
+            "CHF",
+            "Switserse frank",
+        }
+        EUR{
+            "€",
+            "Euro",
+        }
+        GBP{
+            "UK£",
+            "Britse pond",
+        }
+        ITL{
+            "IT₤",
+            "Italiaanse lier",
+        }
+        JPY{
+            "JP¥",
+            "Japannese jen",
+        }
+        NAD{
+            "NAD",
+            "Namibiese dollar",
+        }
+        RUB{
+            "RUB",
+            "Roebel",
+        }
+        TRL{
+            "TRL",
+            "Ou Turkse lier",
+        }
+        TRY{
+            "TRY",
+            "Turkse lier",
+        }
+        USD{
+            "US$",
+            "Amerikaanse dollar",
+        }
+        XXX{
+            "XXX",
+            "Onbekende of ongeldige geldeenheid",
+        }
         ZAR{
             "R",
             "Rand",
@@ -150,14 +195,35 @@ af{
     ExemplarCharacters{"[a á â b-e é è ê ë f-i î ï j-o ô ö p-u û v-z ŉ]"}
     Languages{
         af{"Afrikaans"}
+        afa{"Ander Afro-Asiaties"}
+        am{"Amharies"}
+        ar{"Arabies"}
+        arc{"Aramees"}
+        bg{"Bulgaars"}
+        cs{"Tsjeggies"}
+        da{"Deens"}
         de{"Duits"}
+        egy{"Antieke Egipties"}
+        el{"Grieks"}
         en{"Engels"}
         es{"Spaans"}
+        es_419{"Latyns-Amerikaanse Spaans"}
+        et{"Estnies"}
+        fi{"Fins"}
         fr{"Frans"}
+        got{"Goties"}
+        grc{"Antieke Grieks"}
         he{"Hebreeus"}
         it{"Italiaans"}
         ja{"Japannees"}
+        ko{"Koreaans"}
+        ku{"Koerdies"}
+        nl{"Nederlands"}
+        nl_BE{"Vlaams"}
+        nn{"Noorweegse Nynorsk"}
         pt{"Portugees"}
+        pt_BR{"Brasiliaanse Portugees"}
+        ro{"Roemeens"}
         ru{"Russies"}
         zh{"Sjinees"}
     }
@@ -178,7 +244,13 @@ af{
         "NaN",
         "+",
     }
-    Version{"1.48"}
+    NumberPatterns{
+        "#,##0.###",
+        "¤#,##0.00",
+        "#,##0%",
+        "#E0",
+    }
+    Version{"1.65"}
     calendar{
         gregorian{
             AmPmMarkers{
@@ -186,14 +258,14 @@ af{
                 "nm.",
             }
             DateTimePatterns{
-                "HH:mm:ss z",
-                "HH:mm:ss z",
+                "h:mm:ss a v",
+                "h:mm:ss a z",
                 "HH:mm:ss",
                 "HH:mm",
                 "EEEE, yyyy MMMM dd",
                 "yyyy MMMM d",
                 "yyyy MMM d",
-                "yy/MM/dd",
+                "yyyy-MM-dd",
                 "{1} {0}",
             }
             dayNames{
@@ -222,38 +294,6 @@ af{
                 abbreviated{
                     "v.C.",
                     "n.C.",
-                }
-            }
-            fields{
-                day{
-                    dn{"Dag"}
-                }
-                era{
-                    dn{"Tydperk"}
-                }
-                hour{
-                    dn{"Uur"}
-                }
-                minute{
-                    dn{"Minuut"}
-                }
-                month{
-                    dn{"Maand"}
-                }
-                second{
-                    dn{"Sekonde"}
-                }
-                week{
-                    dn{"Week"}
-                }
-                weekday{
-                    dn{"Dag van die week"}
-                }
-                year{
-                    dn{"Jaar"}
-                }
-                zone{
-                    dn{"Tydsone"}
                 }
             }
             monthNames{
@@ -288,22 +328,11 @@ af{
                     }
                 }
             }
-            quarters{
-                format{
-                    abbreviated{
-                        "K1",
-                        "K2",
-                        "K3",
-                        "K4",
-                    }
-                    wide{
-                        "1ste kwartaal",
-                        "2de kwartaal",
-                        "3de kwartaal",
-                        "4de kwartaal",
-                    }
-                }
-            }
         }
+    }
+    codePatterns{
+        language{"Taal: {0}"}
+        script{"Skrif: {0}"}
+        territory{"Omgewing: {0}"}
     }
 }

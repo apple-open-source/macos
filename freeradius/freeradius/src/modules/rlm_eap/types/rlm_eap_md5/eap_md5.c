@@ -1,7 +1,7 @@
 /*
  * eap_md5.c  EAP MD5 functionality.
  *
- * Version:     $Id: eap_md5.c,v 1.10.2.1 2005/08/24 14:23:11 nbk Exp $
+ * Version:     $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,9 +15,9 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2000,2001  The FreeRADIUS server project
+ * Copyright 2000,2001,2006  The FreeRADIUS server project
  * Copyright 2001  hereUare Communications, Inc. <raghud@hereuare.com>
  */
 
@@ -34,6 +34,9 @@
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  */
+
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -184,7 +187,7 @@ int eapmd5_verify(MD5_PACKET *packet, VALUE_PAIR* password,
 	 */
 	*ptr++ = packet->id;
 	len++;
-	memcpy(ptr, password->strvalue, password->length);
+	memcpy(ptr, password->vp_strvalue, password->length);
 	ptr += password->length;
 	len += password->length;
 
@@ -194,7 +197,7 @@ int eapmd5_verify(MD5_PACKET *packet, VALUE_PAIR* password,
 	memcpy(ptr, challenge, MD5_CHALLENGE_LEN);
 	len += MD5_CHALLENGE_LEN;
 
-	librad_md5_calc((u_char *)output, (u_char *)string, len);
+	fr_md5_calc((u_char *)output, (u_char *)string, len);
 
 	/*
 	 *	The length of the response is always 16 for MD5.

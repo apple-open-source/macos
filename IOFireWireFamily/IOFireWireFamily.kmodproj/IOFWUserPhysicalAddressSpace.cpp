@@ -59,7 +59,7 @@ IOFWUserPhysicalAddressSpace::initWithDesc(
 		}
 	}
 
-	DebugLog("new phys addr space - segmentCount=%ld length=0x%lx\n", fSegmentCount, (UInt32)fDescriptor->getLength() ) ;
+	DebugLog("new phys addr space - segmentCount=%d length=0x%x\n", (uint32_t)fSegmentCount, (uint32_t)fDescriptor->getLength() ) ;
 	
 	return true ;
 }
@@ -100,20 +100,22 @@ IOFWUserPhysicalAddressSpace::getSegmentCount( UInt32 * outSegmentCount )
 IOReturn
 IOFWUserPhysicalAddressSpace::getSegments (
 	UInt32*				ioSegmentCount,
-	IOMemoryCursor::IOPhysicalSegment	outSegments[] )
+	IOFireWireLib::FWPhysicalSegment32	outSegments[] )
 {
 	unsigned segmentCount = *ioSegmentCount;
 	if( fSegmentCount < segmentCount )
 	{
 		segmentCount = fSegmentCount;
 	}
-
+ 
 	IOByteCount currentOffset = 0 ;
 	
 	for( unsigned index = 0; index < segmentCount; ++index )
 	{
-		outSegments[ index ].location = fDescriptor->getPhysicalSegment( currentOffset, & outSegments[ index ].length ) ;
-		currentOffset += outSegments[ index ].length ;
+		IOByteCount length = 0;
+		outSegments[ index ].location = fDescriptor->getPhysicalSegment( currentOffset, &length ) ;
+		outSegments[ index ].length = length;
+		currentOffset += length ;
 	}
 
 	return kIOReturnSuccess ;

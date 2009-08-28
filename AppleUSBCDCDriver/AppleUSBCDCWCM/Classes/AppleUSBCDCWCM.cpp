@@ -578,9 +578,9 @@ IOReturn AppleUSBCDCWCM::setPowerState(unsigned long powerStateOrdinal, IOServic
             resetLogicalHandset();
         }
     
-        return IOPMNoErr;
+        return IOPMAckImplied;
     }
     
-    return IOPMNoSuchState;
+    return IOPMAckImplied;
     
 }/* end setPowerState */

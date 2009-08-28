@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
@@ -13,19 +13,16 @@
 	<key>CFBundleName</key>
 	<string>BatteryFaker Fake UPS Plugin</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.0</string>
+	<string>$(PM_VERSION)</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.0</string>
-
+	<string>$(PM_VERSION)</string>
 	<key>CFPlugInDynamicRegistration</key>
 	<string>NO</string>
-    
 	<key>CFPlugInFactories</key>
 	<dict>
 		<key>10025245-0000-0000-0000-000a27898d3e</key>
 		<string>ATIRage128GAFactory</string>
 	</dict>
-    
 	<key>CFPlugInTypes</key>
 	<dict>
 		<key>ACCF0000-0000-0000-0000-000a2789904e</key>
@@ -33,7 +30,6 @@
 			<string>10025245-0000-0000-0000-000a27898d3e</string>
 		</array>
 	</dict>
-
 	<key>NSExecutable</key>
 	<string>FakeUPSPlugIn</string>
 </dict>

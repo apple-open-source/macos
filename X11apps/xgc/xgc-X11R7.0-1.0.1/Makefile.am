@@ -57,7 +57,7 @@ appdefaultdir = @appdefaultdir@
 
 
 APPDEFAULTFILES = \
-        Xgc
+        app-defaults/Xgc
 
 SUFFIXES = .ad
 

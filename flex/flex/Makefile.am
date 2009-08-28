@@ -38,19 +38,16 @@ ACLOCAL_AMFLAGS = -I m4
 m4 = @M4@
 indent = @INDENT@
 
-AUTOMAKE_OPTIONS = \
-	gnits \
-	check-news \
-	dist-bzip2 \
-	1.7
-
 bin_PROGRAMS = flex
-lib_LIBRARIES = libfl.a
+lib_LIBRARIES = \
+	libfl.a \
+	libfl_pic.a
 
 flex_SOURCES = \
 	ccl.c \
 	dfa.c \
 	ecs.c \
+	scanflags.c \
 	gen.c \
 	main.c \
 	misc.c \
@@ -73,6 +70,14 @@ libfl_a_SOURCES = \
 	libmain.c \
 	libyywrap.c
 
+libfl_pic_a_SOURCES = \
+	libmain.c \
+	libyywrap.c
+
+libfl_pic_a_CFLAGS =  \
+	-fPIC         \
+	$(AM_CFLAGS)
+
 noinst_HEADERS = \
 	flexdef.h \
 	flexint.h \
@@ -85,31 +90,7 @@ noinst_HEADERS = \
 include_HEADERS = \
 	FlexLexer.h
 
-MAINTAINERCLEANFILES = \
-	ABOUT-NLS \
-	config.rpath \
-	config.sub \
-	config.guess \
-	configure \
-	config.sub \
-	config.guess \
-	depcomp \
-	mkinstalldirs \
-	install-sh \
-	ABOUT-NLS \
-	ChangeLog \
-	INSTALL \
-	conf.in \
-	aclocal.m4 \
-	Makefile.in \
-	mdate-sh \
-	missing
-
-
-
 EXTRA_DIST = \
-	flex.spec.in \
-	flex.spec \
 	.indent.pro \
 	AUTHORS \
 	COPYING \
@@ -117,7 +98,7 @@ EXTRA_DIST = \
 	NEWS \
 	ONEWS \
 	README \
-	README.cvs-snapshot \
+	README.cvs \
 	THANKS \
 	TODO \
 	autogen.sh \
@@ -140,7 +121,7 @@ SUBDIRS = \
 	tests
 
 localedir = $(datadir)/locale
-AM_CPPFLAGS = -DLOCALEDIR=\"$(localedir)\" -I@includedir@ -I$(top_srcdir)/intl
+AM_CPPFLAGS = -DLOCALEDIR=\"$(localedir)\" -I$(top_srcdir)/intl
 LIBS = @LIBINTL@ @LIBS@
 
 skel.c: flex.skl mkskel.sh flexint.h tables_shared.h
@@ -152,6 +133,7 @@ buf.o: buf.c flexdef.h flexint.h
 ccl.o: ccl.c flexdef.h flexint.h
 dfa.o: dfa.c flexdef.h flexint.h tables.h tables_shared.h
 ecs.o: ecs.c flexdef.h flexint.h
+scanflags.o: scanflags.c flexdef.h flexint.h
 gen.o: gen.c flexdef.h flexint.h tables.h tables_shared.h
 libmain.o: libmain.c
 libyywrap.o: libyywrap.c
@@ -172,13 +154,9 @@ tblcmp.o: tblcmp.c flexdef.h flexint.h
 yylex.o: yylex.c flexdef.h flexint.h parse.h
 filter.o: filter.c flexdef.h flexint.h
 
-# Create a tags file.
-tags:
-	ctags --c-types='defgmstuv' $(srcdir)/*.[ch]
-
 # Create the ChangeLog, but only if we're inside a cvs working directory
 
-ChangeLog:
+ChangeLog: $(srcdir)/tools/cvsauthors $(srcdir)/tools/cvs2cl.pl
 	if [ -d CVS ] ; then \
 		sh $(srcdir)/tools/cvs2cl.pl -F trunk -U $(srcdir)/tools/cvsauthors \
 	; fi
@@ -197,6 +175,7 @@ indentfiles = \
 	ccl.c \
 	dfa.c \
 	ecs.c \
+	scanflags.c \
 	filter.c \
 	flexdef.h \
 	gen.c \

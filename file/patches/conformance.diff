@@ -1,166 +1,183 @@
-diff -ru ../old/doc/file.man ./doc/file.man
---- ../old/doc/file.man	2004-12-27 16:16:19.000000000 -0800
-+++ ./doc/file.man	2004-12-29 21:23:24.000000000 -0800
-@@ -6,7 +6,7 @@
- .SH SYNOPSIS
- .B file
- [
--.B \-bchikLnNprsvz
-+.B \-bcdhikLnNprsvz
- ]
- [
- .B \-f
-@@ -17,6 +17,10 @@
- .I separator
- ]
- [
-+.B \-M 
-+.I magicfiles
-+]
-+[
- .B \-m 
- .I magicfiles
- ]
-@@ -193,7 +197,7 @@
- .I POSIXLY_CORRECT
- is not defined.
- .TP 8
--.B "\-i, \-\-mime"
-+.B "\-I, \-\-mime"
+--- doc/file.man.orig	2008-07-16 14:56:20.000000000 -0700
++++ doc/file.man	2008-07-16 17:41:02.000000000 -0700
+@@ -7,12 +7,13 @@
+ .Nd determine file type
+ .Sh SYNOPSIS
+ .Nm
+-.Op Fl bchikLnNprsvz
++.Op Fl bcdDhiIkLnNprsvz
+ .Op Fl -mime-type
+ .Op Fl -mime-encoding
+ .Op Fl f Ar namefile
+ .Op Fl F Ar separator
+ .Op Fl m Ar magicfiles
++.Op Fl M Ar magicfiles
+ .Ar file
+ .Nm
+ .Fl C
+@@ -170,6 +171,12 @@
+ Write a
+ .Pa magic.mgc
+ output file that contains a pre-parsed version of the magic file or directory.
++.It Fl d
++Apply the default system tests; this is the default behavior unless
++.Fl M
++is specified.
++.It Fl D
++Print debugging messages.
+ .It Fl e , -exclude Ar testname
+ Exclude the test named in
+ .Ar testname
+@@ -215,11 +222,10 @@
+ .Sq \&: .
+ .It Fl h , -no-dereference
+ option causes symlinks not to be followed
+-(on systems that support symbolic links). This is the default if the
+-environment variable
+-.Dv POSIXLY_CORRECT
+-is not defined.
+-.It Fl i , -mime
++(on systems that support symbolic links).
++.It Fl i
++If the file is a regular file, do not classify its contents.
++.It Fl I , -mime
  Causes the file command to output mime type strings rather than the more
  traditional human readable ones. Thus it may say
- ``text/plain; charset=us-ascii''
-@@ -205,6 +209,9 @@
- ``magic'' file.
- (See ``FILES'' section, below).
- .TP 8
-+.B "\-i"
-+If the file is a regular file do not classify its contents.
-+.TP 8
- .B "\-k, \-\-keep\-going"
- Don't stop at the first match, keep going.
- .TP 8
-@@ -220,13 +220,20 @@
- Specify an alternate list of files containing magic numbers.
- This can be a single file, or a colon-separated list of files.
- If a compiled magic file is found alongside, it will be used instead.
--With the \-i or \-\-mime option, the program adds ".mime" to each file name.
-+With the \-I or \-\-mime option, the program adds ".mime" to each file name.
-+.TP 8
-+.BI "\-m" " list"
-+Like \-m, except the default rules are not applied.
- .TP 8
- .B "\-n, \-\-no\-buffer"
+ .Sq text/plain; charset=us-ascii
+@@ -233,7 +239,7 @@
+ (See the FILES section, below).
+ .It Fl -mime-type , -mime-encoding
+ Like
+-.Fl i ,
++.Fl I ,
+ but print only the specified element(s).
+ .It Fl k , -keep-going
+ Don't stop at the first match, keep going. Subsequent matches will be
+@@ -247,13 +253,17 @@
+ option causes symlinks to be followed, as the like-named option in
+ .Xr ls 1
+ (on systems that support symbolic links).
+-This is the default if the environment variable
+-.Dv POSIXLY_CORRECT
+-is defined.
++This is the default behavior.
+ .It Fl m , -magic-file Ar list
+ Specify an alternate list of files and directories containing magic.
+ This can be a single item, or a colon-separated list.
+ If a compiled magic file is found alongside a file or directory, it will be used instead.
++.It Fl M Ar list
++Like
++.Fl m ,
++except that the default rules are not applied unless
++.Fl d
++is specified.
+ .It Fl n , -no-buffer
  Force stdout to be flushed after checking each file.
  This is only useful if checking a list of files.
- It is intended to be used by programs that want filetype output from a pipe.
- .TP 8
-+.B "\-d"
-+Apply default system tests, this is the default if neither \-m nor \-M are 
-+supplied.
-+.TP 8
- .B "\-N, \-\-no\-pad"
- Don't pad filenames so that they align in the output.
- .TP 8
-@@ -240,11 +257,7 @@
+@@ -269,10 +279,7 @@
+ .Nm
  never read them.
- .TP 8
- .B "\-r, \-\-raw"
+ .It Fl r , -raw
 -Don't translate unprintable characters to \eooo.
 -Normally
--.B file
+-.Nm
 -translates unprintable characters to their octal representation.
--.TP 8
-+No operation, included for historical compatability.
- .B "\-s, \-\-special\-files"
++No operation, included for historical compatibility.
+ .It Fl s , -special-files
  Normally,
- .B file
-@@ -312,16 +325,61 @@
+ .Nm
+@@ -325,28 +332,53 @@
+ adds
+ .Sq .mgc
+ to the value of this variable as appropriate.
+-The environment variable
+-.Dv POSIXLY_CORRECT
+-controls (on systems that support symbolic links), whether
+-.Nm
+-will attempt to follow symlinks or not. If set, then
+-.Nm
+-follows symlink, otherwise it does not. This is also controlled
+-by the
+-.Fl L
++.Sh LEGACY DESCRIPTION
++In legacy mode, the
++.Fl D ,
++.Fl I ,
++and
++.Fl M
++options do not exist.
++.Pp
++The
++.Fl d ,
++.Fl i ,
  and
- .B h
- options.
-+.SH LEGACY SYNOPSIS
-+.B file
-+[
-+.B \-bchikLnNprsvz
-+]
-+[
-+.B \-f
-+.I namefile
-+]
-+[
-+.B \-F
-+.I separator
-+]
-+[
-+.B \-m 
-+.I magicfiles
-+]
-+.I file
-+\&...
-+.br
-+.B file
-+.B -C
-+[
-+.B \-m 
-+magicfile ]
-+.SH LEGACY DESCRIPTION
-+As above, except:
-+.TP 8
-+.B "\-i, \-\-mime"
-+Causes the file command to output mime type strings rather than the more
-+traditional human readable ones. Thus it may say
-+``text/plain; charset=us-ascii''
-+rather
-+than ``ASCII text''.
-+In order for this option to work, file changes the way
-+it handles files recognised by the command itself (such as many of the
-+text file types, directories etc), and makes use of an alternative
-+``magic'' file.
-+(See ``FILES'' section, below).
-+.TP 8
-+.B "\-r, \-\-raw"
-+Don't translate unprintable characters to \eooo.
-+Normally
-+.B file
-+translates unprintable characters to their octal representation.
-+.B 
- .SH SEE ALSO
- .BR magic (__FSECTION__)
- \- description of magic file format.
- .br
--.BR strings (1), " od" (1), " hexdump(1)"
-+.BR strings (1), " od" (1), " hexdump(1)", " compat(5)"
- \- tools for examining non-textfiles.
- .SH STANDARDS CONFORMANCE
++.Fl r
++options behave differently.
++The
++.Fl d
++option provides debugging information (same as
++.Fl D
++in conformance mode).
++The
++.Fl i
++option displays mime type information (same as
++.Fl I
++in conformance mode).
++The
++.Fl r
++option will disable the translation of unprintable characters (by
++default, this translation is already disabled in conformance mode).
++.Pp
++Furthermore, the
+ .Fl h
+-options.
++option becomes the default symlink behavior (don't follow symlinks)
++unless
++.Dv POSIXLY_CORRECT
++is set.
++.Pp
++For more information about legacy mode, see
++.Xr compat 5 .
+ .Sh SEE ALSO
+ .Xr magic __FSECTION__ ,
+ .Xr strings 1 ,
+ .Xr od 1 ,
+ .Xr hexdump 1,
+-.Xr file 1posix
++.Xr compat 5
+ .Sh STANDARDS CONFORMANCE
 -This program is believed to exceed the System V Interface Definition
 -of FILE(CMD), as near as one can determine from the vague language
--contained therein. 
+-contained therein.
 +This program conforms to
-+.St -susv3
- Its behaviour is mostly compatible with the System V program of the same name.
++.St -susv3 .
+ Its behavior is mostly compatible with the System V program of the same name.
  This version knows more magic, however, so it will produce
- different (albeit more accurate) output in many cases. 
-Only in ./src: .gdb_history
-diff -ru ../old/src/apprentice.c ./src/apprentice.c
---- ../old/src/apprentice.c	2004-12-27 16:16:19.000000000 -0800
-+++ ./src/apprentice.c	2004-12-27 17:01:50.000000000 -0800
-@@ -713,13 +713,64 @@
- #define NLESTRING16	10
- #define NSEARCH		6
+ different (albeit more accurate) output in many cases.
+@@ -466,7 +498,7 @@
+ .Pp
+ Altered by Chris Lowth, chris@lowth.com, 2000:
+ Handle the
+-.Fl i
++.Fl I
+ option to output mime type strings, using an alternative
+ magic file and internal logic.
+ .Pp
+--- src/apprentice.c.orig	2008-07-15 20:17:55.000000000 -0700
++++ src/apprentice.c	2008-07-15 21:09:02.000000000 -0700
+@@ -1243,12 +1243,59 @@
+ 	EATAB;
+ #endif
  
 -	if (*l == 'u') {
--		++l;
--		m->flag |= UNSIGNED;
--	}
 +	switch (*l) {
-+	case 'd':	/* POSIX abbreviation for signed decimal */
++	case 'd':
 +		if (!isalpha((unsigned char)l[1])) {
 +			m->type = FILE_LONG;
 +			++l;
 +		}
 +		if (isdigit((unsigned char)*l)) {
-+			switch(*l) {
++			switch (*l) {
 +			case '1':
 +				m->type = FILE_BYTE;
 +				++l;
@@ -175,22 +192,20 @@ diff -ru ../old/src/apprentice.c ./src/apprentice.c
 +			}
 +		}
 +		break;
- 
-+	case 's':	/* POSIX abbreviation for string */
++	case 's':
 +		if (!isalpha((unsigned char)l[1])) {
 +			m->type = FILE_STRING;
 +			++l;
 +		}
 +		break;
-+
-+	case 'u':	/* POSIX abbreviation for unsigned decimal */
-+ 		++l;
-+ 		m->flag |= UNSIGNED;
++	case 'u':
+ 		++l;
+ 		m->flag |= UNSIGNED;
 +		if (!isalpha((unsigned char)*l)) {
 +			m->type = FILE_LONG;
 +		}
 +		if (isdigit((unsigned char)*l)) {
-+			switch(*l) {
++			switch (*l) {
 +			case '1':
 +				m->type = FILE_BYTE;
 +				++l;
@@ -205,30 +220,16 @@ diff -ru ../old/src/apprentice.c ./src/apprentice.c
 +			}
 +		}
 +		break;
-+	}
-+	
- 	/* get type, skip it */
--	if (strncmp(l, "char", NBYTE)==0) {	/* HP/UX compat */
-+	if (m->type) {
-+		/* POSIX got here first */
-+	} else if (strncmp(l, "char", NBYTE)==0) {	/* HP/UX compat */
- 		m->type = FILE_BYTE;
- 		l += NBYTE;
- 	} else if (strncmp(l, "byte", NBYTE)==0) {
-@@ -1038,6 +989,10 @@
- 				*p++ = '\r';
- 				break;
+ 	}
  
-+			case 'a':
-+				*p++ = '\a';
-+				break;
-+
- 			case 'b':
- 				*p++ = '\b';
- 				break;
---- src/file.c.orig	2005-10-17 11:41:44.000000000 -0700
-+++ src/file.c	2007-02-02 19:41:35.000000000 -0800
-@@ -70,6 +70,12 @@
+-	m->type = get_type(l, &l);
++	if (!m->type) m->type = get_type(l, &l);
+ 	if (m->type == FILE_INVALID) {
+ 		if (ms->flags & MAGIC_CHECK)
+ 			file_magwarn(ms, "type `%s' invalid", l);
+--- src/file.c.orig	2008-05-18 16:21:17.000000000 -0700
++++ src/file.c	2008-07-16 17:35:56.000000000 -0700
+@@ -74,13 +74,20 @@
  
  #include "patchlevel.h"
  
@@ -238,83 +239,76 @@ diff -ru ../old/src/apprentice.c ./src/apprentice.c
 +#define COMPAT_MODE(func, mode) 1
 +#endif
 +
- #ifndef	lint
- FILE_RCSID("@(#)$Id: file.c,v 1.100 2005/10/17 18:41:44 christos Exp $")
- #endif	/* lint */
-@@ -82,6 +88,7 @@
+ #ifdef S_IFLNK
+ #define SYMLINKFLAG "Lh"
+ #else
+ #define SYMLINKFLAG ""
  #endif
  
- # define USAGE  "Usage: %s [-bcik" SYMLINKFLAG "nNsvz] [-f namefile] [-F separator] [-m magicfiles] file...\n       %s -C -m magicfiles\n"
-+# define USAGE2 "Usage: %s [-bciIk" SYMLINKFLAG "nNsvz] [-f namefile] [-F separator] [-m magicfiles] file...\n       %s -C -m magicfiles\n"
+-# define USAGE  "Usage: %s [-bcik" SYMLINKFLAG "nNrsvz0] [-e test] [-f namefile] [-F separator] [-m magicfiles] file...\n       %s -C -m magicfiles\n"
++# define USAGE   "Usage: %s [-bcdik" SYMLINKFLAG "nNrsvz0] [-e test] [-f namefile] [-F separator] [-m magicfiles] file...\n       %s -C -m magicfiles\n"
++# define USAGE03 "Usage: %s [-bcdDiIk" SYMLINKFLAG "nNrsvz0] [-e test] [-f namefile] [-F separator] [-m magicfiles] [-M magicfiles] file...\n       %s -C -m magicfiles\n"
  
  #ifndef MAXPATHLEN
- #define	MAXPATHLEN	512
-@@ -89,6 +96,7 @@
+ #define	MAXPATHLEN	1024
+@@ -100,12 +107,15 @@
+     {longname, opt, NULL, shortname},
+ #define OPT_LONGONLY(longname, opt, doc)        \
+     {longname, opt, NULL, 0},
++#define OPT_UNIX03(shortname, doc)
+ #include "file_opts.h"
+ #undef OPT
+ #undef OPT_LONGONLY
++#undef OPT_UNIX03
+     {0, 0, NULL, 0}
+ };
+ #define OPTSTRING	"bcCde:f:F:hikLm:nNprsvz0"
++#define OPTSTRING03	"bcCdDe:f:F:hiIkLm:M:nNprsvz0"
  
- private int 		/* Global command-line options 		*/
- 	bflag = 0,	/* brief output format	 		*/
-+	dflag = 0,	/* POSIX 'd' option -- use default magic file */
- 	nopad = 0,	/* Don't pad output			*/
- 	nobuffer = 0;   /* Do not buffer stdout 		*/
- 
-@@ -123,10 +131,10 @@
- {
- 	int c;
- 	int action = 0, didsomefiles = 0, errflg = 0;
--	int flags = 0;
-+	int flags = (COMPAT_MODE("bin/file", "unix2003") ? MAGIC_SYMLINK : 0);
- 	char *home, *usermagic;
- 	struct stat sb;
--#define OPTSTRING	"bcCdf:F:hikLm:nNprsvz"
-+#define OPTSTRING	(COMPAT_MODE("bin/file", "unix2003") ? "bcCdDf:F:hiIkLm:M:nNprsvz": "bcCdf:F:hikLm:nNprsvz")
- #ifdef HAVE_GETOPT_LONG
+ private const struct {
+ 	const char *name;
+@@ -147,6 +157,9 @@
+ 	struct magic_set *magic = NULL;
+ 	char magicpath[2 * MAXPATHLEN + 2];
  	int longindex;
- 	private struct option long_options[] =
-@@ -135,10 +143,11 @@
- 		{"help", 0, 0, 0},
- 		{"brief", 0, 0, 'b'},
- 		{"checking-printout", 0, 0, 'c'},
--		{"debug", 0, 0, 'd'},
-+		/* 'D' is always debug, 'd' is frequently something else */
-+		{"debug", 0, 0, 'D'},
- 		{"files-from", 1, 0, 'f'},
- 		{"separator", 1, 0, 'F'},
--		{"mime", 0, 0, 'i'},
-+		{"mime", 0, 0, 'I'},
- 		{"keep-going", 0, 0, 'k'},
++	int dflag = 0; /* POSIX 'd' option -- use default magic file */
++	int Mflag = 0;
++	int unix03 = COMPAT_MODE("bin/file", "unix2003");
+ 	const char *magicfile;		/* where the magic is	*/
+ 
+ 	/* makes islower etc work for other langs */
+@@ -177,9 +190,10 @@
+ 		}
+ 
  #ifdef S_IFLNK
- 		{"dereference", 0, 0, 'L'},
-@@ -191,6 +200,11 @@
- #ifdef S_IFLNK
- 	flags |= getenv("POSIXLY_CORRECT") ? MAGIC_SYMLINK : 0;
+-	flags |= getenv("POSIXLY_CORRECT") ? MAGIC_SYMLINK : 0;
++	flags |= (unix03 || getenv("POSIXLY_CORRECT")) ? (MAGIC_SYMLINK) : 0;
  #endif
-+
-+	if (COMPAT_MODE("bin/file", "unix2003")) {
-+	    flags |= MAGIC_RAW;
-+	}
-+
- #ifndef HAVE_GETOPT_LONG
- 	while ((c = getopt(argc, argv, OPTSTRING)) != -1)
- #else
-@@ -214,6 +228,11 @@
+-	while ((c = getopt_long(argc, argv, OPTSTRING, long_options,
++	if (unix03) flags |= MAGIC_RAW; /* See 5747343. */
++	while ((c = getopt_long(argc, argv, unix03 ? OPTSTRING03 : OPTSTRING, long_options,
+ 	    &longindex)) != -1)
+ 		switch (c) {
+ 		case 0 :
+@@ -211,6 +225,11 @@
  			action = FILE_COMPILE;
  			break;
  		case 'd':
-+			if (COMPAT_MODE("bin/file", "unix2003")) {
-+			    ++dflag;
-+			    break;
++			if (unix03) {
++				++dflag;
++				break;
 +			}
 +		case 'D':
  			flags |= MAGIC_DEBUG|MAGIC_CHECK;
  			break;
- 		case 'f':
-@@ -227,13 +246,41 @@
+ 		case 'e':
+@@ -237,12 +256,27 @@
  			separator = optarg;
  			break;
  		case 'i':
-+			if (COMPAT_MODE("bin/file", "unix2003")) {
-+			    flags |= MAGIC_REGULAR;
-+			    break;
++			if (unix03) {
++				flags |= MAGIC_REGULAR;
++				break;
 +			}
 +		case 'I':
  			flags |= MAGIC_MIME;
@@ -322,176 +316,130 @@ diff -ru ../old/src/apprentice.c ./src/apprentice.c
  		case 'k':
  			flags |= MAGIC_CONTINUE;
  			break;
- 		case 'm':
--			magicfile = optarg;
-+			if (magicfile == default_magicfile ||
-+				magicfile == usermagic)
-+				magicfile = optarg;
-+			else {
-+				char *newmagicfile = malloc(strlen(magicfile)+strlen(separator)+strlen(optarg)+1);
-+				strcpy(newmagicfile, magicfile);
-+				strcat(newmagicfile, separator);
-+				strcat(newmagicfile, optarg);
-+				magicfile = newmagicfile;
-+			}
-+			break;
 +		case 'M':
-+			if (magicfile == default_magicfile ||
-+				magicfile == usermagic)
-+				magicfile = optarg;
-+			else {
-+				char *newmagicfile = malloc(strlen(magicfile)+strlen(separator)+strlen(optarg)+1);
++			++Mflag;
+ 		case 'm':
++			if (magicfile != default_magicfile && magicfile != usermagic) {
++				char *newmagicfile = malloc(strlen(magicfile) + strlen(separator) + strlen(optarg) + 1);
 +				strcpy(newmagicfile, magicfile);
 +				strcat(newmagicfile, separator);
 +				strcat(newmagicfile, optarg);
 +				magicfile = newmagicfile;
++				break;
 +			}
-+			if (!dflag)
-+				flags |= MAGIC_NOASCII;
+ 			magicfile = optarg;
  			break;
  		case 'n':
- 			++nobuffer;
-@@ -497,7 +544,7 @@
+@@ -291,6 +325,10 @@
+ 	if (e)
+		return e;
+ 
++	if (Mflag && !dflag) {
++		flags |= MAGIC_NO_CHECK_ASCII;
++	}
++
+ 	switch(action) {
+ 	case FILE_CHECK:
+ 	case FILE_COMPILE:
+@@ -475,7 +513,7 @@
  private void
  usage(void)
  {
 -	(void)fprintf(stderr, USAGE, progname, progname);
-+	(void)fprintf(stderr, COMPAT_MODE("bin/file", "unix2003") ? USAGE2 : USAGE, progname, progname);
- #ifdef HAVE_GETOPT_LONG
++	(void)fprintf(stderr, COMPAT_MODE("bin/file", "unix2003") ? USAGE03 : USAGE, progname, progname);
  	(void)fputs("Try `file --help' for more information.\n", stderr);
- #endif
-@@ -508,7 +555,39 @@
+ 	exit(1);
+ }
+@@ -483,16 +521,20 @@
  private void
  help(void)
  {
--	(void)puts(
-+	if (COMPAT_MODE("bin/file", "unix2003")) {
-+	    (void)puts(
-+"Usage: file [OPTION]... [FILE]...\n"
-+"Determine file type of FILEs.\n"
-+"\n"
-+"  -m, --magic-file LIST      use LIST as a colon-separated list of magic\n"
-+"                               number files\n"
-+"  -M LIST                    use LIST as a colon-separated list of magic\n"
-+"                               number files in place of default\n"
-+"  -z, --uncompress           try to look inside compressed files\n"
-+"  -b, --brief                do not prepend filenames to output lines\n"
-+"  -c, --checking-printout    print the parsed form of the magic file, use in\n"
-+"                               conjunction with -m to debug a new magic file\n"
-+"                               before installing it\n"
-+"  -d                         use default magic file\n"
-+"  -f, --files-from FILE      read the filenames to be examined from FILE\n"
-+"  -F, --separator string     use string as separator instead of `:'\n"
-+"  -I, --mime                 output mime type strings\n"
-+"  -h                         when a symbolic link is encountered\n"
-+"                               identify the file as a symbolic link\n"
-+"  -k, --keep-going           don't stop at the first match\n"
-+"  -L, --dereference          causes symlinks to be followed\n"
-+"  -n, --no-buffer            do not buffer output\n"
-+"  -N, --no-pad               do not pad output\n"
-+"  -p, --preserve-date        preserve access times on files\n"
-+"  -r, --raw                  don't translate unprintable chars to \\ooo\n"
-+"  -s, --special-files        treat special (block/char devices) files as\n"
-+"                             ordinary ones\n"
-+"      --help                 display this help and exit\n"
-+"      --version              output version information and exit\n"
-+);
-+	} else {
-+	    puts(
- "Usage: file [OPTION]... [FILE]...\n"
- "Determine file type of FILEs.\n"
- "\n"
-@@ -533,6 +612,7 @@
- "      --help                 display this help and exit\n"
- "      --version              output version information and exit\n"
- );
-+	}
++	int unix03 = COMPAT_MODE("bin/file", "unix2003");
+ 	(void)fputs(
+ "Usage: file [OPTION...] [FILE...]\n"
+ "Determine type of FILEs.\n"
+ "\n", stderr);
+ #define OPT(shortname, longname, opt, doc)      \
+-	fprintf(stderr, "  -%c, --" longname doc, shortname);
++	fprintf(stderr, "  -%c, --" longname doc, unix03 || (shortname != 'D' && shortname != 'I') ? shortname : shortname + 32);
+ #define OPT_LONGONLY(longname, opt, doc)        \
+	fprintf(stderr, "      --" longname doc);
++#define OPT_UNIX03(shortname, doc)              \
++	if (unix03) fprintf(stderr, "  -%c" doc, shortname);
+ #include "file_opts.h"
+ #undef OPT
+ #undef OPT_LONGONLY
++#undef OPT_UNIX03
  	exit(0);
  }
- #endif
-diff -ru ../old/src/fsmagic.c ./src/fsmagic.c
---- ../old/src/fsmagic.c	2004-12-27 16:16:19.000000000 -0800
-+++ ./src/fsmagic.c	2004-12-28 21:10:03.000000000 -0800
-@@ -56,6 +56,12 @@
- #endif
- #undef HAVE_MAJOR
- 
-+#ifdef __APPLE__
-+#include "get_compat.h"
-+#else
-+#define COMPAT_MODE(func, mode) 1
-+#endif
-+
- #ifndef	lint
- FILE_RCSID("@(#)$Id: fsmagic.c,v 1.46 2005/06/25 15:52:14 christos Exp $")
- #endif	/* lint */
-@@ -84,6 +90,14 @@
+--- src/file_opts.h.orig	2007-11-18 12:57:57.000000000 -0800
++++ src/file_opts.h	2008-07-15 22:38:07.000000000 -0700
+@@ -16,17 +16,21 @@
+ OPT('v', "version", 0, "              output version information and exit\n")
+ OPT('m', "magic-file", 1, " LIST      use LIST as a colon-separated list of magic\n"
+     "                               number files\n")
++OPT_UNIX03('M', " LIST                    use LIST as a colon-separated list of magic\n"
++    "                               number files in place of default\n")
+ OPT('z', "uncompress", 0, "           try to look inside compressed files\n")
+ OPT('b', "brief", 0, "                do not prepend filenames to output lines\n")
+ OPT('c', "checking-printout", 0, "    print the parsed form of the magic file, use in\n"
+     "                               conjunction with -m to debug a new magic file\n"
+     "                               before installing it\n")
++OPT_UNIX03('d', "                         use default magic file\n") 
+ OPT('e', "exclude", 1, " TEST         exclude TEST from the list of test to be\n"
+     "                               performed for file. Valid tests are:\n"
+     "                               ascii, apptype, compress, elf, soft, tar, tokens, troff\n")
+ OPT('f', "files-from", 1, " FILE      read the filenames to be examined from FILE\n")
+ OPT('F', "separator", 1, " STRING     use string as separator instead of `:'\n")
+-OPT('i', "mime", 0, "                 output MIME type strings (--mime-type and\n"
++OPT_UNIX03('i', "                         do not further classify regular files\n")
++OPT('I', "mime", 0, "                 output MIME type strings (--mime-type and\n"
+     "                               --mime-encoding)\n")
+ OPT_LONGONLY("apple", 0, "                output the Apple CREATOR/TYPE\n")
+ OPT_LONGONLY("mime-type", 0, "            output the MIME type\n")
+@@ -46,4 +50,5 @@
+ OPT('s', "special-files", 0, "        treat special (block/char devices) files as\n"
+     "                             ordinary ones\n")
+ OPT('C', "compile", 0, "              compile file specified by -m\n")
+-OPT('d', "debug", 0, "                print debugging messages\n")
++/* 'D' is always debug, 'd' is frequently something else */
++OPT('D', "debug", 0, "                print debugging messages\n")
+--- src/fsmagic.c.orig	2008-07-15 19:17:05.000000000 -0700
++++ src/fsmagic.c	2008-07-15 19:58:19.000000000 -0700
+@@ -73,7 +73,7 @@
+		if (err == ELOOP)
+			errfmt = "symbolic link in a loop";
+		else
+-			errfmt = "broken symbolic link to `%s'";
++			errfmt = "broken symbolic link to %s";
+		if (ms->flags & MAGIC_ERROR) {
+			file_error(ms, err, errfmt, buf);
+			return -1;
+@@ -126,6 +126,14 @@
  #endif
  	ret = stat(fn, sb);	/* don't merge into if; see "ret =" above */
  
 +#ifdef	S_IFLNK
 +	/* POSIX says pretend symlinks to nonexistant files
-+	  have the -h option */
++	 have the -h option */
 +	if (ret && (ms->flags & MAGIC_SYMLINK) != 0) {
-+	    ret = lstat(fn, sb);
++		ret = lstat(fn, sb);
 +	}
 +#endif
 +
  	if (ret) {
  		if (ms->flags & MAGIC_ERROR) {
  			file_error(ms, errno, "cannot stat `%s'", fn);
-@@ -214,12 +228,22 @@
- 		    if (stat(buf, &tstatbuf) < 0) {
- 			    if (ms->flags & MAGIC_ERROR) {
- 				    file_error(ms, errno, 
--					"broken symbolic link to `%s'", buf);
-+					"broken symbolic link to %s", buf);
- 				    return -1;
- 			    } 
--			    if (file_printf(ms, "broken symbolic link to `%s'",
--				buf) == -1)
--				    return -1;
-+			    int fp_rc = -1;
-+			    if (COMPAT_MODE("bin/file", "unix2003")) {
-+				/* Posix required diagnostic */
-+				fp_rc = file_printf(ms, "cannot open `%s' (%s)",
-+				  fn, buf);
-+			    } else {
-+				fp_rc = file_printf(ms,
-+				  "broken symbolic link to %s",
-+				  buf);
-+			    }
-+			    if (fp_rc == -1) {
-+				return -1;
-+			    }
- 			    return 1;
- 		    }
- 		}
-@@ -249,12 +273,12 @@
- 			if (stat(tmp, &tstatbuf) < 0) {
- 				if (ms->flags & MAGIC_ERROR) {
- 					file_error(ms, errno, 
--					    "broken symbolic link to `%s'",
-+					    "broken symbolic link to %s",
- 					    buf);
+@@ -314,7 +322,7 @@
+ 			if (mime) {
+ 				if (handle_mime(ms, mime, "x-symlink") == -1)
  					return -1;
- 				}
- 				if (file_printf(ms,
--				    "broken symbolic link to `%s'", buf) == -1)
-+				    "broken symbolic link to %s", buf) == -1)
- 					return -1;
- 				return 1;
- 			}
-@@ -268,7 +292,7 @@
- 			ms->flags |= MAGIC_SYMLINK;
- 			return p != NULL ? 1 : -1;
- 		} else { /* just print what it points to */
--			if (file_printf(ms, "symbolic link to `%s'",
-+			if (file_printf(ms, "symbolic link to %s",
+-			} else if (file_printf(ms, "symbolic link to `%s'",
++			} else if (file_printf(ms, "symbolic link to %s",
  			    buf) == -1)
  				return -1;
  		}
-@@ -283,6 +307,11 @@
+@@ -332,6 +340,11 @@
  #endif
  #endif
  	case S_IFREG:
@@ -503,24 +451,11 @@ diff -ru ../old/src/fsmagic.c ./src/fsmagic.c
  		break;
  	default:
  		file_error(ms, 0, "invalid mode 0%o", sb->st_mode);
-diff -ru ../old/src/funcs.c ./src/funcs.c
---- ../old/src/funcs.c	2004-12-27 16:16:19.000000000 -0800
-+++ ./src/funcs.c	2004-12-27 18:23:47.000000000 -0800
-@@ -128,7 +128,7 @@
- 	    /* try tests in /etc/magic (or surrogate magic file) */
- 	    if ((m = file_softmagic(ms, buf, nb)) == 0) {
- 		/* try known keywords, check whether it is ASCII */
--		if ((m = file_ascmagic(ms, buf, nb)) == 0) {
-+		if ((ms->flags & MAGIC_NOASCII) || (m = file_ascmagic(ms, buf, nb)) == 0) {
- 		    /* abandon hope, all ye who remain here */
- 		    if (file_printf(ms, ms->flags & MAGIC_MIME ?
- 			(nb ? "application/octet-stream" :
-diff -ru ../old/src/magic.c ./src/magic.c
---- ../old/src/magic.c	2004-12-27 16:16:19.000000000 -0800
-+++ ./src/magic.c	2004-12-28 21:40:48.000000000 -0800
+--- src/magic.c.orig	2008-07-15 20:03:24.000000000 -0700
++++ src/magic.c	2008-07-15 20:11:49.000000000 -0700
 @@ -65,6 +65,12 @@
- FILE_RCSID("@(#)$Id: magic.c,v 1.32 2005/10/17 15:31:10 christos Exp $")
- #endif	/* lint */
+ 
+ #include "patchlevel.h"
  
 +#ifdef __APPLE__
 +#include "get_compat.h"
@@ -528,84 +463,39 @@ diff -ru ../old/src/magic.c ./src/magic.c
 +#define COMPAT_MODE(func, mode) 1
 +#endif
 +
- #ifdef __EMX__
- private char *apptypeName = NULL;
- protected int file_os2_apptype(struct magic_set *ms, const char *fn,
-@@ -252,19 +258,26 @@
- 	    if ((fd = open(tmp, O_RDONLY|O_BINARY)) < 0) {
- #endif
- 		/* We cannot open it, but we were able to stat it. */
--		if (sb.st_mode & 0222)
--			if (file_printf(ms, "writable, ") == -1)
--				goto done;
--		if (sb.st_mode & 0111)
--			if (file_printf(ms, "executable, ") == -1)
--				goto done;
--		if (S_ISREG(sb.st_mode))
--			if (file_printf(ms, "regular file, ") == -1)
--				goto done;
--		if (file_printf(ms, "no read permission") == -1)
--			goto done;
--		rv = 0;
--		goto done;
-+		if (COMPAT_MODE("bin/file", "unix2003")) {
-+		    if (file_printf(ms, "cannot open %s: %s", inname, strerror(errno)) == -1)
-+		    	goto done;
-+		    rv = 0;
-+		    goto done;
-+		} else {
-+			if (sb.st_mode & 0222)
-+				if (file_printf(ms, "writable, ") == -1)
-+					goto done;
-+			if (sb.st_mode & 0111)
-+				if (file_printf(ms, "executable, ") == -1)
-+					goto done;
-+			if (S_ISREG(sb.st_mode))
-+				if (file_printf(ms, "regular file, ") == -1)
-+					goto done;
-+			if (file_printf(ms, "no read permission") == -1)
-+				goto done;
-+			rv = 0;
-+			goto done;
-+		}
- #ifdef __CYGWIN__
- 	    }
- #endif
-diff -ru ../old/src/magic.h ./src/magic.h
---- ../old/src/magic.h	2004-12-27 16:16:19.000000000 -0800
-+++ ./src/magic.h	2004-12-27 18:33:57.000000000 -0800
-@@ -40,6 +40,8 @@
- #define	MAGIC_PRESERVE_ATIME	0x080	/* Restore access time on exit */
- #define	MAGIC_RAW		0x100	/* Don't translate unprintable chars */
- #define	MAGIC_ERROR		0x200	/* Handle ENOENT etc as real errors */
-+#define	MAGIC_NOASCII		0x400	/* Suppress internal magic */
-+#define	MAGIC_REGULAR		0x800	/* Report as regular file */
+ #ifndef PIPE_BUF
+ /* Get the PIPE_BUF from pathconf */
+ #ifdef _PC_PIPE_BUF
+@@ -146,6 +152,11 @@
+ unreadable_info(struct magic_set *ms, mode_t md, const char *file)
+ {
+ 	/* We cannot open it, but we were able to stat it. */
++	if (COMPAT_MODE("bin/file", "unix2003")) {
++		if (file_printf(ms, "cannot open: %s", strerror(errno)) == -1)
++			return -1;
++		return 0;
++	}
+ 	if (access(file, W_OK) == 0)
+ 		if (file_printf(ms, "writable, ") == -1)
+ 			return -1;
+--- src/magic.h.orig	2008-07-15 19:27:32.000000000 -0700
++++ src/magic.h	2008-07-15 20:55:20.000000000 -0700
+@@ -52,6 +52,7 @@
+ #define	MAGIC_NO_CHECK_CDF	0x040000 /* Don't check for cdf files */
+ #define	MAGIC_NO_CHECK_TOKENS	0x100000 /* Don't check tokens */
+ #define MAGIC_NO_CHECK_ENCODING 0x200000 /* Don't check text encodings */
++#define	MAGIC_REGULAR		0x400000 /* Report as regular file */
  
- #ifdef __cplusplus
- extern "C" {
-diff -ru ../old/src/names.h ./src/names.h
---- ../old/src/names.h	2004-12-27 16:16:19.000000000 -0800
-+++ ./src/names.h	2004-12-27 18:35:01.000000000 -0800
-@@ -61,9 +61,9 @@
- 	const char *human;
- 	const char *mime;
+ /* Defined for backwards compatibility (renamed) */
+ #define	MAGIC_NO_CHECK_ASCII	MAGIC_NO_CHECK_TEXT
+--- src/names.h.orig	2008-07-15 18:56:34.000000000 -0700
++++ src/names.h	2008-07-15 19:00:57.000000000 -0700
+@@ -60,7 +60,7 @@
+ 	char human[48];
+ 	char mime[16];
  } types[] = {
 -	{ "C program",					"text/x-c", },
 +	{ "c program",					"text/x-c", },
  	{ "C++ program",				"text/x-c++" },
--	{ "FORTRAN program",				"text/x-fortran" },
-+	{ "fortran program",				"text/x-fortran" },
  	{ "make commands",				"text/x-makefile" },
  	{ "PL/1 program",				"text/x-pl1" },
- 	{ "assembler program",				"text/x-asm" },
-diff -ru ../old/src/readelf.h ./src/readelf.h
---- ../old/src/readelf.h	2004-12-27 16:16:19.000000000 -0800
-+++ ./src/readelf.h	2004-12-29 21:50:52.000000000 -0800
-@@ -37,6 +37,7 @@
- #if HAVE_STDINT_H
- #include <stdint.h>
- #endif
-+#include <sys/types.h>
- 
- typedef uint32_t	Elf32_Addr;
- typedef uint32_t	Elf32_Off;

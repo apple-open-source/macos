@@ -5,11 +5,11 @@
     require Carp;
 
     @EXPORT = qw(); # Do NOT @EXPORT anything.
-    $VERSION = sprintf("%d.%02d", q$Revision: 11.4 $ =~ /(\d+)\.(\d+)/o);
+    $VERSION = sprintf("12.%06d", q$Revision: 9215 $ =~ /(\d+)/o);
 
-#   $Id: NullP.pm,v 11.4 2004/01/07 17:38:51 timbo Exp $
+#   $Id: NullP.pm 9215 2007-03-08 17:03:58Z timbo $
 #
-#   Copyright (c) 1994, Tim Bunce
+#   Copyright (c) 1994-2007 Tim Bunce
 #
 #   You may distribute under the terms of either the GNU General Public
 #   License or the Artistic License, as specified in the Perl README file.
@@ -37,7 +37,14 @@
 {   package DBD::NullP::dr; # ====== DRIVER ======
     $imp_data_size = 0;
     use strict;
-    # we use default (dummy) connect method
+
+    sub connect { # normally overridden, but a handy default
+        my $dbh = shift->SUPER::connect(@_)
+            or return;
+        $dbh->STORE(Active => 1); 
+        $dbh;
+    }
+
 
     sub DESTROY { undef }
 }
@@ -49,13 +56,13 @@
     use Carp qw(croak);
 
     sub prepare {
-	my($dbh, $statement)= @_;
+	my ($dbh, $statement)= @_;
 
-	my($outer, $sth) = DBI::_new_sth($dbh, {
+	my ($outer, $sth) = DBI::_new_sth($dbh, {
 	    'Statement'     => $statement,
-	    }, [ qw'example implementors private data']);
+        });
 
-	$outer;
+	return $outer;
     }
 
     sub FETCH {
@@ -63,21 +70,23 @@
 	# In reality this would interrogate the database engine to
 	# either return dynamic values that cannot be precomputed
 	# or fetch and cache attribute values too expensive to prefetch.
-	return 1 if $attrib eq 'AutoCommit';
-	# else pass up to DBI to handle
 	return $dbh->SUPER::FETCH($attrib);
-	}
+    }
 
     sub STORE {
 	my ($dbh, $attrib, $value) = @_;
 	# would normally validate and only store known attributes
 	# else pass up to DBI to handle
 	if ($attrib eq 'AutoCommit') {
-	    return 1 if $value; # is already set
-	    Carp::croak("Can't disable AutoCommit");
+	    Carp::croak("Can't disable AutoCommit") unless $value;
+            # convert AutoCommit values to magic ones to let DBI
+            # know that the driver has 'handled' the AutoCommit attribute
+            $value = ($value) ? -901 : -900;
 	}
 	return $dbh->SUPER::STORE($attrib, $value);
     }
+
+    sub ping { 1 }
 
     sub disconnect {
 	shift->STORE(Active => 0);
@@ -90,23 +99,38 @@
     $imp_data_size = 0;
     use strict;
 
+    sub bind_param {
+        my ($sth, $param, $value, $attr) = @_;
+        $sth->{ParamValues}{$param} = $value;
+        $sth->{ParamAttr}{$param}   = $attr
+            if defined $attr; # attr is sticky if not explicitly set
+        return 1;
+    }       
+
     sub execute {
-	my($sth, $data) = @_;
-	$sth->{dbd_nullp_data} = $data if $data;
-	$sth->{NAME} = [ "fieldname" ];
+	my $sth = shift;
+        $sth->bind_param($_, $_[$_-1]) for (1..@_);
+        if ($sth->{Statement} =~ m/^ \s* SELECT \s+/xmsi) {
+            $sth->STORE(NUM_OF_FIELDS => 1); 
+            $sth->{NAME} = [ "fieldname" ];
+            # just for the sake of returning something, we return the params
+            my $params = $sth->{ParamValues} || {};
+            $sth->{dbd_nullp_data} = [ @{$params}{ sort keys %$params } ];
+            $sth->STORE(Active => 1); 
+        }
 	1;
     }
 
-    sub fetch {
-	my($sth) = @_;
+    sub fetchrow_arrayref {
+	my $sth = shift;
 	my $data = $sth->{dbd_nullp_data};
-        if ($data) {
-	    $sth->{dbd_nullp_data} = undef;
-	    return [ $data ];
+        if (!$data || !@$data) {
+            $sth->finish;     # no more data so finish
+            return undef;
 	}
-	$sth->finish;     # no more data so finish
-	return undef;
+        return $sth->_set_fbav(shift @$data);
     }
+    *fetch = \&fetchrow_arrayref; # alias
 
     sub FETCH {
 	my ($sth, $attrib) = @_;

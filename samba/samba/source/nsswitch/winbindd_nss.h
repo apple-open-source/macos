@@ -213,7 +213,7 @@ typedef struct winbindd_gr {
 #define WBFLAG_PAM_KRB5			0x1000
 #define WBFLAG_PAM_FALLBACK_AFTER_KRB5	0x2000
 #define WBFLAG_PAM_CACHED_LOGIN		0x4000
-#define WBFLAG_PAM_GET_PWD_POLICY	0x8000	/* not used */
+#define WBFLAG_PAM_GET_PWD_POLICY	0x8000
 
 #define WINBINDD_MAX_EXTRA_DATA (128*1024)
 
@@ -326,7 +326,7 @@ struct winbindd_request {
 		   The size is the sizeof the union without the padding aligned on 
 		   an 8 byte boundary.   --jerry */
 
-		char padding[1560];
+		char padding[1800];
 	} data;
 	union {
 		SMB_TIME_T padding;

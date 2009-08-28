@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 42;
+	objectVersion = 45;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -88,6 +88,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		50367E020EDB29BD0049A223 /* DevToolsGlobalBuildAndIntegration.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = DevToolsGlobalBuildAndIntegration.xcconfig; path = /AppleInternal/Developer/Library/Xcode/GlobalConfigFiles/DevToolsGlobalBuildAndIntegration.xcconfig; sourceTree = "<absolute>"; };
+		50367E030EDB29BD0049A223 /* DevToolsGlobalDebug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = DevToolsGlobalDebug.xcconfig; path = /AppleInternal/Developer/Library/Xcode/GlobalConfigFiles/DevToolsGlobalDebug.xcconfig; sourceTree = "<absolute>"; };
+		50367E040EDB29BD0049A223 /* DevToolsGlobalRelease.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = DevToolsGlobalRelease.xcconfig; path = /AppleInternal/Developer/Library/Xcode/GlobalConfigFiles/DevToolsGlobalRelease.xcconfig; sourceTree = "<absolute>"; };
 		B3236A8608A976CE00609FFD /* distcc.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; path = distcc.plist; sourceTree = "<group>"; };
 		B3236AA008A97BCE00609FFD /* distcc.txt */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = distcc.txt; sourceTree = "<group>"; };
 		B3399A940890235800B2C72F /* versinfo.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = versinfo.c; sourceTree = "<group>"; };
@@ -258,12 +261,22 @@
 		B387DBBB087F266800A8560D /* comfychair.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = comfychair.py; sourceTree = "<group>"; };
 		B387DBBC087F266800A8560D /* testdistcc.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; path = testdistcc.py; sourceTree = "<group>"; };
 		B3979742089C5B4400A40359 /* distcc_compilers */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = distcc_compilers; sourceTree = "<group>"; };
-		B3BA8F32087CA128009521B6 /* distccd.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = distccd.plist; sourceTree = "<group>"; };
+		B3BA8F32087CA128009521B6 /* distccd.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; path = distccd.plist; sourceTree = "<group>"; };
 		B3CC5CFD087DFB8F00EB91A2 /* Makefile */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
 		B3CC5D78087DFCD100EB91A2 /* Makefile.in */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Makefile.in; path = distcc_dist/Makefile.in; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
+		50367DFF0EDB29950049A223 /* Config Files */ = {
+			isa = PBXGroup;
+			children = (
+				50367E020EDB29BD0049A223 /* DevToolsGlobalBuildAndIntegration.xcconfig */,
+				50367E030EDB29BD0049A223 /* DevToolsGlobalDebug.xcconfig */,
+				50367E040EDB29BD0049A223 /* DevToolsGlobalRelease.xcconfig */,
+			);
+			name = "Config Files";
+			sourceTree = "<group>";
+		};
 		B387DB14087F266800A8560D /* distcc_dist */ = {
 			isa = PBXGroup;
 			children = (
@@ -533,6 +546,7 @@
 				B3BA8F32087CA128009521B6 /* distccd.plist */,
 				B3979742089C5B4400A40359 /* distcc_compilers */,
 				B3BA8F3B087CA1DE009521B6 /* Products */,
+				50367DFF0EDB29950049A223 /* Config Files */,
 			);
 			sourceTree = "<group>";
 		};
@@ -578,7 +592,7 @@
 		B3BA8F21087CA0CC009521B6 /* Project object */ = {
 			isa = PBXProject;
 			buildConfigurationList = B3BA8F22087CA0CC009521B6 /* Build configuration list for PBXProject "distcc" */;
-			compatibilityVersion = "Xcode 2.4";
+			compatibilityVersion = "Xcode 3.1";
 			hasScannedForEncodings = 0;
 			mainGroup = B3BA8F1F087CA0CC009521B6;
 			productRefGroup = B3BA8F3B087CA1DE009521B6 /* Products */;
@@ -605,7 +619,8 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
-				OPTIMIZATION_CFLAGS = "-O0";
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS = "_FORTIFY_SOURCE=2";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -624,7 +639,8 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
-				OPTIMIZATION_CFLAGS = "-O0";
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS = "_FORTIFY_SOURCE=2";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -640,42 +656,35 @@
 		};
 		8D5B0CAE093BFD9000250A19 /* BuildAndIntegration */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 50367E020EDB29BD0049A223 /* DevToolsGlobalBuildAndIntegration.xcconfig */;
 			buildSettings = {
-				ARCHS = (
-					ppc,
-					i386,
-				);
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 881;
-				MACOSX_DEPLOYMENT_TARGET = 10.5;
+				CURRENT_PROJECT_VERSION = 1607;
+				GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS = "_FORTIFY_SOURCE=2";
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = BuildAndIntegration;
 		};
 		B3BA8F23087CA0CC009521B6 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 50367E030EDB29BD0049A223 /* DevToolsGlobalDebug.xcconfig */;
 			buildSettings = {
-				ARCHS = (
-					ppc,
-					i386,
-				);
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 881;
-				MACOSX_DEPLOYMENT_TARGET = 10.5;
+				CURRENT_PROJECT_VERSION = 1607;
+				ONLY_ACTIVE_ARCH = YES;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Debug;
 		};
 		B3BA8F24087CA0CC009521B6 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 50367E040EDB29BD0049A223 /* DevToolsGlobalRelease.xcconfig */;
 			buildSettings = {
-				ARCHS = (
-					ppc,
-					i386,
-				);
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 881;
-				MACOSX_DEPLOYMENT_TARGET = 10.5;
+				CURRENT_PROJECT_VERSION = 1607;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
@@ -683,9 +692,12 @@
 		B3BA8F30087CA105009521B6 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				OPTIMIZATION_CFLAGS = "-O0";
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_TREAT_WARNINGS_AS_ERRORS = "$(DT_TREAT_WARNINGS_AS_ERRORS)";
+				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -704,7 +716,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
-				OPTIMIZATION_CFLAGS = "-O0";
+				GCC_OPTIMIZATION_LEVEL = 0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -721,6 +733,9 @@
 		B3CC5D02087DFBC700EB91A2 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				GCC_TREAT_WARNINGS_AS_ERRORS = "$(DT_TREAT_WARNINGS_AS_ERRORS)";
+				ONLY_ACTIVE_ARCH = YES;
 			};
 			name = Debug;
 		};
@@ -729,7 +744,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
-				OPTIMIZATION_CFLAGS = "-O0";
+				GCC_OPTIMIZATION_LEVEL = 0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";

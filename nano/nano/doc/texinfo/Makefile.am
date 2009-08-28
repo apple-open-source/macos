@@ -5,6 +5,6 @@ MAKEINFO = makeinfo --no-split
 BUILT_SOURCES = nano.html
 
 nano.html: nano.texi
-	cat $< | makeinfo --no-split --html > $@
+	makeinfo --no-split --html < $< > $@
 
 EXTRA_DIST = $(info_TEXINFOS) $(BUILT_SOURCES)

@@ -24,7 +24,7 @@
 #define _H_SS_TYPES
 
 #include <sys/syslimits.h>
-
+#include <securityd_client/handletypes.h>
 
 //
 // ss_types - common type definitions for securityd-related IPC services
@@ -33,14 +33,10 @@
 
 #define __MigTypeCheck 1
 
-typedef uint32_t IPCDbHandle;
-typedef uint32_t IPCKeyHandle;
-typedef uint32_t IPCRecordHandle;
-typedef uint32_t IPCSearchHandle;
-typedef uint32_t IPCGenericHandle;
-
 
 typedef void *Data;
+typedef void *XMLBlob;
+typedef void *XMLBlobOut;
 typedef void *Pointer;
 typedef void *BasePointer;
 
@@ -48,6 +44,8 @@ typedef const char *CssmString;
 
 typedef const char *FilePath;
 typedef char FilePathOut[PATH_MAX];
+typedef void *HashData;
+typedef char HashDataOut[maxUcspHashLength];
 typedef const char *RelationName;
 
 

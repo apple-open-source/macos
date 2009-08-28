@@ -1,7 +1,7 @@
 /*
  * rlm_eap_leap.c    Handles that are called from eap
  *
- * Version:     $Id: rlm_eap_leap.c,v 1.8.4.1 2007/03/05 14:38:49 aland Exp $
+ * Version:     $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,12 +15,16 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
  * Copyright 2003 Alan DeKok <aland@freeradius.org>
+ * Copyright 2006 The FreeRADIUS server project
  */
 
-#include "autoconf.h"
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
+
+#include <freeradius-devel/autoconf.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -36,7 +40,7 @@
  * len = header + type + leap_typedata
  * leap_typedata = value_size + value
  */
-static int leap_initiate(void *instance, EAP_HANDLER *handler)
+static int leap_initiate(UNUSED void *instance, EAP_HANDLER *handler)
 {
 	leap_session_t	*session;
 	LEAP_PACKET	*reply;
@@ -86,7 +90,7 @@ static int leap_initiate(void *instance, EAP_HANDLER *handler)
 	return 1;
 }
 
-static int leap_authenticate(void *instance, EAP_HANDLER *handler)
+static int leap_authenticate(UNUSED void *instance, EAP_HANDLER *handler)
 {
 	int		rcode;
 	leap_session_t	*session;
@@ -108,16 +112,16 @@ static int leap_authenticate(void *instance, EAP_HANDLER *handler)
 	if (!(packet = eapleap_extract(handler->eap_ds)))
 		return 0;
 
-	username = (char *)handler->request->username->strvalue;
+	username = (char *)handler->request->username->vp_strvalue;
 
 	/*
 	 *	The password is never sent over the wire.
 	 *	Always get the configured password, for each user.
 	 */
-	password = pairfind(handler->request->config_items, PW_PASSWORD);
+	password = pairfind(handler->request->config_items, PW_CLEARTEXT_PASSWORD);
 	if (!password) password = pairfind(handler->request->config_items, PW_NT_PASSWORD);
 	if (!password) {
-		radlog(L_INFO, "rlm_eap_leap: No User-Password or NT-Password configured for this user");
+		DEBUG2("rlm_eap_leap: No Cleartext-Password or NT-Password configured for this user");
 		eapleap_free(&packet);
 		return 0;
 	}
@@ -130,7 +134,6 @@ static int leap_authenticate(void *instance, EAP_HANDLER *handler)
 	case 4:			/* Verify NtChallengeResponse */
 		DEBUG2("  rlm_eap_leap: Stage 4");
 		rcode = eapleap_stage4(packet, password, session);
-		eapleap_free(&packet);
 		session->stage = 6;
 
 		/*
@@ -139,6 +142,7 @@ static int leap_authenticate(void *instance, EAP_HANDLER *handler)
 		 */
 		if (!rcode) {
 			handler->eap_ds->request->code = PW_EAP_FAILURE;
+			eapleap_free(&packet);
 			return 0;
 		}
 
@@ -157,6 +161,7 @@ static int leap_authenticate(void *instance, EAP_HANDLER *handler)
 		 *	is EAP_SUCCESS.
 		 */
 		handler->request->reply->code = PW_ACCESS_CHALLENGE;
+		eapleap_free(&packet);
 		return 1;
 		break;
 

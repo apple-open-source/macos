@@ -49,7 +49,7 @@ extern void xmlCheckVersion(int version);
  *
  * extra version information, used to show a CVS compilation
  */
-#define LIBXML_VERSION_EXTRA "@LIBXML_VERSION_EXTRA@"
+#define LIBXML_VERSION_EXTRA "-win32"
 
 /**
  * LIBXML_TEST_VERSION:
@@ -166,6 +166,15 @@ extern void xmlCheckVersion(int version);
 #endif
 
 /**
+ * LIBXML_SCHEMATRON_ENABLED:
+ *
+ * Whether the Schematron validation interfaces are compiled in
+ */
+#if 1
+#define LIBXML_SCHEMATRON_ENABLED
+#endif
+
+/**
  * LIBXML_ICONV_ENABLED:
  *
  * Whether iconv support is available
@@ -233,21 +242,58 @@ extern void xmlCheckVersion(int version);
 #endif
 #endif
 
+#ifdef __GNUC__
+#ifdef HAVE_ANSIDECL_H
+#include <ansidecl.h>
+#endif
+
 /**
  * ATTRIBUTE_UNUSED:
  *
  * Macro used to signal to GCC unused function parameters
  */
-#ifdef __GNUC__
-#ifdef HAVE_ANSIDECL_H
-#include <ansidecl.h>
-#endif
+
 #ifndef ATTRIBUTE_UNUSED
 #define ATTRIBUTE_UNUSED
 #endif
+
+/**
+ * ATTRIBUTE_ALLOC_SIZE:
+ *
+ * Macro used to indicate to GCC this is an allocator function
+ */
+
+#ifndef ATTRIBUTE_ALLOC_SIZE
+# if ((__GNUC__ > 4) || ((__GNUC__ == 4) && (__GNUC_MINOR__ >= 3)))
+#  define ATTRIBUTE_ALLOC_SIZE(x) __attribute__((alloc_size(x)))
+# else
+#  define ATTRIBUTE_ALLOC_SIZE(x)
+# endif
 #else
-#define ATTRIBUTE_UNUSED
+# define ATTRIBUTE_ALLOC_SIZE(x)
 #endif
+
+/**
+ * ATTRIBUTE_PRINTF:
+ *
+ * Macro used to indicate to GCC the parameter are printf like
+ */
+
+#ifndef ATTRIBUTE_PRINTF
+# if ((__GNUC__ > 3) || ((__GNUC__ == 3) && (__GNUC_MINOR__ >= 3)))
+#  define ATTRIBUTE_PRINTF(fmt,args) __attribute__((__format__(__printf__,fmt,args)))
+# else
+#  define ATTRIBUTE_PRINTF(fmt,args)
+# endif
+#else
+# define ATTRIBUTE_PRINTF(fmt,args)
+#endif
+
+#else /* !__GNUC__ */
+#define ATTRIBUTE_UNUSED
+#define ATTRIBUTE_PRINTF(fmt,args)
+#define ATTRIBUTE_ALLOC_SIZE(x)
+#endif /* __GNUC__ */
 
 /*
  * #pragma comment(lib, "iconv.lib")
@@ -258,6 +304,18 @@ extern void xmlCheckVersion(int version);
 #ifdef _MSC_VER
 #if defined LIBXML_ICONV_ENABLED && !defined LIBXML2_COMPILING_MSCCDEF
 #pragma comment(lib, "iconv.lib")
+#endif
+#endif
+
+/*
+ * #pragma comment(lib, "kernel32.lib")
+ *
+ * pragma understood my MS compiler which enables a conditional link with
+ * kernel32.
+ */
+#ifdef _MSC_VER
+#if defined LIBXML_MODULES_ENABLED
+#pragma comment(lib, "kernel32.lib")
 #endif
 #endif
 

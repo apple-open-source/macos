@@ -11,11 +11,9 @@ void foo() {
 #endif
   int k;
   asm ; This is a comment
-#ifndef __cplusplus
   /* This should work in C++, but the lexer runs up front and it doesn't
      have all the state we'd like to handle ; asm comments.  */
-  asm ; This is a comment to test unpaired '" characters
-#endif
+  // asm ; This is a comment to test unpaired '" characters
   int j;
   asm nop ; This is a comment
   asm nop

@@ -469,6 +469,74 @@ print_floating (const gdb_byte *valaddr, struct type *type,
 #endif
 }
 
+/* APPLE LOCAL: This is a copy of the above function, print_floating,
+   using the '%a' printf(3) formatter instead of the usual '%g' formatter.
+   e.g. 2.533 is printed as 0x1.44395810624ddp+1.
+
+   Print a floating point value of type TYPE (not always a
+   TYPE_CODE_FLT), pointed to in GDB by VALADDR, on STREAM.  */
+
+void
+print_floating_in_hex (const gdb_byte *valaddr, struct type *type,
+		       struct ui_file *stream)
+{
+  DOUBLEST doub;
+  int inv;
+  const struct floatformat *fmt = NULL;
+  unsigned len = TYPE_LENGTH (type);
+
+  /* If it is a floating-point, check for obvious problems.  */
+  if (TYPE_CODE (type) == TYPE_CODE_FLT)
+    fmt = floatformat_from_type (type);
+  if (fmt != NULL && floatformat_is_nan (fmt, valaddr))
+    {
+      if (floatformat_is_negative (fmt, valaddr))
+	fprintf_filtered (stream, "-");
+      fprintf_filtered (stream, "nan(");
+      fputs_filtered ("0x", stream);
+      fputs_filtered (floatformat_mantissa (fmt, valaddr), stream);
+      fprintf_filtered (stream, ")");
+      return;
+    }
+
+  /* NOTE: cagney/2002-01-15: The TYPE passed into print_floating()
+     isn't necessarily a TYPE_CODE_FLT.  Consequently, unpack_double
+     needs to be used as that takes care of any necessary type
+     conversions.  Such conversions are of course direct to DOUBLEST
+     and disregard any possible target floating point limitations.
+     For instance, a u64 would be converted and displayed exactly on a
+     host with 80 bit DOUBLEST but with loss of information on a host
+     with 64 bit DOUBLEST.  */
+
+  doub = unpack_double (type, valaddr, &inv);
+  if (inv)
+    {
+      fprintf_filtered (stream, "<invalid float value>");
+      return;
+    }
+
+  /* FIXME: kettenis/2001-01-20: The following code makes too much
+     assumptions about the host and target floating point format.  */
+
+  /* NOTE: cagney/2002-02-03: Since the TYPE of what was passed in may
+     not necessarily be a TYPE_CODE_FLT, the below ignores that and
+     instead uses the type's length to determine the precision of the
+     floating-point value being printed.  */
+
+  if (len < sizeof (double))
+      fprintf_filtered (stream, "%.6a", (double) doub);
+  else if (len == sizeof (double))
+      fprintf_filtered (stream, "%.13a", (double) doub);
+  else
+#ifdef PRINTF_HAS_LONG_DOUBLE
+    fprintf_filtered (stream, "%.35La", doub);
+#else
+    /* This at least wins with values that are representable as
+       doubles.  */
+    fprintf_filtered (stream, "%.17a", (double) doub);
+#endif
+}
+
 void
 print_binary_chars (struct ui_file *stream, const gdb_byte *valaddr,
 		    unsigned len)
@@ -938,7 +1006,7 @@ val_elt_addr (struct type *type, const gdb_byte *valaddr,
   else if (stride == -1)
     i = (upperbound - i);
   else
-    internal_error (__FILE__, __LINE__, _("unsupported stride %lld"), stride);
+    internal_error (__FILE__, __LINE__, _("unsupported stride %ld"), stride);
 
   elttype = TYPE_TARGET_TYPE (type);
   eltlen = TYPE_LENGTH (check_typedef (elttype));
@@ -1392,8 +1460,6 @@ show_print (char *args, int from_tty)
 void
 _initialize_valprint (void)
 {
-  struct cmd_list_element *c;
-
   add_prefix_cmd ("print", no_class, set_print,
 		  _("Generic command for setting how things print."),
 		  &setprintlist, "set print ", 0, &setlist);

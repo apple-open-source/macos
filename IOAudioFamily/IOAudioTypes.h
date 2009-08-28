@@ -26,7 +26,8 @@
 #include <libkern/OSTypes.h>
 #include <mach/message.h>
 #include <device/device_types.h>
-#include <IOKit/ndrvsupport/IOMacOSTypes.h>
+
+
 /*!
  * @enum IOAudioEngineMemory
  * @abstract Used to identify the type of memory requested by a client process to be mapped into its process space
@@ -105,7 +106,7 @@ typedef enum _IOAudioEngineState {
 typedef struct _IOAudioEngineStatus {
     UInt32					fVersion;
     volatile UInt32			fCurrentLoopCount;
-    volatile AbsoluteTime	fLastLoopTime;
+    volatile AbsoluteTime                    fLastLoopTime;
     volatile UInt32			fEraseHeadSampleFrame;
 } IOAudioEngineStatus;
 
@@ -138,7 +139,7 @@ typedef struct _IOAudioBufferDataDescriptor {
 	UInt32	fActualNumSampleFrames;
 	UInt32	fTotalDataByteSize;
 	UInt32	fNominalDataByteSize;
-	Byte	fData[kVariableLengthArray];
+	UInt8	fData[1];
 } IOAudioBufferDataDescriptor;
 
 #define kStreamDataDescriptorInvalidVersion				0

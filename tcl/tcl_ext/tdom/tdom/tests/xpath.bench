@@ -1,0 +1,57 @@
+# -*- tcl -*-
+# Tcl Benchmark File
+#
+# This file contains a number of benchmarks for XPath query speed.
+# This allow developers to monitor/gauge/track package performance.
+#
+# (c) 2006 Rolf Ade <rolf@pointsman.de>
+#
+# $Id: xpath.bench,v 1.1 2007/09/27 23:17:02 rolf Exp $
+
+
+# ### ### ### ######### ######### ######### ###########################
+## Setting up the environment ...
+
+package require tdom 
+
+# ### ### ### ######### ######### ######### ###########################
+## Benchmarks.
+
+bench -desc "not() function - not cached" -pre {
+    set doc [dom parse <root/>]
+} -body {
+    $doc selectNodes not(foo)
+}
+
+bench -desc "not() function - cached" -pre {
+    set doc [dom parse <root/>]
+} -body {
+    $doc selectNodes -cache 1 not(foo)
+}
+
+bench -desc "path /foo/bar/baz  - not cached" -pre {
+    set doc [dom parse <root/>]
+} -body {
+    $doc selectNodes /foo/bar/baz
+}
+
+bench -desc "path /foo/bar/baz - cached" -pre {
+    set doc [dom parse <root/>]
+} -body {
+    $doc selectNodes -cache 1 /foo/bar/baz
+}
+
+bench -desc "path with predicate  - not cached" -pre {
+    set doc [dom parse <root/>]
+} -body {
+    $doc selectNodes {/foo/bar/baz[not(grill) and @some='foo']}
+}
+
+bench -desc "path with predicate - cached" -pre {
+    set doc [dom parse <root/>]
+} -body {
+    $doc selectNodes -cache 1 {/foo/bar/baz[not(grill) and @some='foo']}
+}
+
+
+

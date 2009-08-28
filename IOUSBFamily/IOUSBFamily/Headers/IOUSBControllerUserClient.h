@@ -31,6 +31,10 @@
 
 class IOUSBController;
 
+/*!
+ @class IOUSBControllerUserClient
+ @abstract Provides a user client to allow access to the USB controllers for debugging purposes.
+ */
 class IOUSBControllerUserClient : public IOUserClient
 {
     OSDeclareDefaultStructors(IOUSBControllerUserClient)

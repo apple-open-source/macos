@@ -1,6 +1,6 @@
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2004-2006 The OpenLDAP Foundation.
+ * Copyright 2004-2008 The OpenLDAP Foundation.
  * Portions Copyright 2004 Pierangelo Masarati.
  * All rights reserved.
  *
@@ -52,7 +52,8 @@ print_access(
 			desc->ad_cname.bv_val,
 			( val && !BER_BVISNULL( val ) ) ? "=" : "",
 			( val && !BER_BVISNULL( val ) ) ?
-				( desc == slap_schema.si_ad_userPassword ? "****" : val->bv_val ) : "",
+				( desc == slap_schema.si_ad_userPassword ?
+					"****" : val->bv_val ) : "",
 			accessmask2str( mask, accessmaskbuf, 1 ) );
 
 	return rc;
@@ -94,8 +95,8 @@ slapacl( int argc, char **argv )
 	argv = &argv[ optind ];
 	argc -= optind;
 
-	op = (Operation *) &opbuf;
-	connection_fake_init( &conn, op, &conn );
+	connection_fake_init( &conn, &opbuf, &conn );
+	op = &opbuf.ob_op;
 
 	conn.c_listener = &listener;
 	conn.c_listener_url = listener_url;
@@ -237,7 +238,7 @@ slapacl( int argc, char **argv )
 		if ( !be->be_entry_open ||
 			!be->be_entry_close ||
 			!be->be_dn2id_get ||
-			!be->be_id2entry_get )
+			!be->be_entry_get )
 		{
 			fprintf( stderr, "%s: target database "
 				"doesn't support necessary operations; "
@@ -263,7 +264,8 @@ slapacl( int argc, char **argv )
 			rc = 1;
 			goto destroy;
 		}
-		if ( be->be_id2entry_get( be, id, &ep ) != 0 ) {
+		ep = be->be_entry_get( be, id );
+		if ( ep == NULL ) {
 			fprintf( stderr, "%s: unable to fetch entry \"%s\" (%lu)\n",
 				progname, e.e_nname.bv_val, id );
 			rc = 1;
@@ -313,12 +315,29 @@ slapacl( int argc, char **argv )
 
 		accessstr = strchr( attr, '/' );
 		if ( accessstr != NULL ) {
+			int	invalid = 0;
+
 			accessstr[0] = '\0';
 			accessstr++;
 			access = str2access( accessstr );
-			if ( access == ACL_INVALID_ACCESS ) {
+			switch ( access ) {
+			case ACL_INVALID_ACCESS:
 				fprintf( stderr, "unknown access \"%s\" for attribute \"%s\"\n",
 						accessstr, attr );
+				invalid = 1;
+				break;
+
+			case ACL_NONE:
+				fprintf( stderr, "\"none\" not allowed for attribute \"%s\"\n",
+						attr );
+				invalid = 1;
+				break;
+
+			default:
+				break;
+			}
+
+			if ( invalid ) {
 				if ( continuemode ) {
 					continue;
 				}
@@ -366,7 +385,7 @@ destroy:;
 		ber_memfree( e.e_nname.bv_val );
 	}
 	if ( !dryrun && be ) {
-		if ( ep != &e ) {
+		if ( ep && ep != &e ) {
 			be_entry_release_r( op, ep );
 		}
 		if ( doclose ) {

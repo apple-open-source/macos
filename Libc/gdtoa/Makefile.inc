@@ -5,7 +5,7 @@ CFLAGS += -I${.CURDIR}/gdtoa
 
 .sinclude "${.CURDIR}/${MACHINE_ARCH}/stdlib/gdtoa.mk"
 
-GDTOA_UNIQUE_SRCS != perl -e '@z = split(" ", "$(GDTOA_FBSDSRCS)"); $$, = "\n"; print @z' | sort -u
+GDTOA_UNIQUE_SRCS != ${PERL} -e '@z = split(" ", "$(GDTOA_FBSDSRCS)"); $$, = "\n"; print @z' | sort -u
 
 .include "Makefile.fbsd_begin"
 FBSDMISRCS= $(GDTOA_UNIQUE_SRCS) _hdtoa.c glue.c \
@@ -18,7 +18,7 @@ FBSDMISRCS= $(GDTOA_UNIQUE_SRCS) _hdtoa.c glue.c \
 FBSDMISRCS+= _ldtoa.c
 .endif
 
-FBSDHDRS= gdtoa.h gdtoaimp.h 
+FBSDHDRS= gdtoa.h gdtoaimp.h gdtoa_fltrnds.h
 
 .include "Makefile.fbsd_end"
 

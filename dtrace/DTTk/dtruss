@@ -350,6 +350,7 @@ dtrace='
  syscall::access:return,
  syscall::mkdir:return,
  syscall::chdir:return,
+ syscall::chroot:return,
  syscall::getattrlist:return, /* XXX 5 arguments */
  syscall::chown:return,
  syscall::lchown:return,
@@ -414,7 +415,7 @@ dtrace='
  
 	/* print main data */
 	printf("%s(0x%X, \"%S\", 0x%X)\t\t = %d %s%d\n",probefunc,self->arg0,
-	    stringof(copyin(self->arg1,self->arg2)),self->arg2,(int)arg0,
+	    stringof(copyin(self->arg1,arg0)),self->arg2,(int)arg0,
 	    self->code,(int)errno);
 	OPT_stack ? ustack()    : 1;
 	OPT_stack ? trace("\n") : 1;
@@ -483,7 +484,6 @@ dtrace='
  }
 
  /* print 1 arg output */
- syscall::sbrk:return,
  syscall::close:return,
  syscall::close_nocancel:return
  /self->start/
@@ -669,10 +669,19 @@ dtrace='
 '
 
 ### Run DTrace
+#if [ $opt_command -eq 1 ]; then
+#	/usr/sbin/dtrace -x dynvarsize=$buf -x evaltime=exec -n "$dtrace" \
+#	    -c "$command" >&2
+#else
+#	/usr/sbin/dtrace -x dynvarsize=$buf -n "$dtrace" >&2
+#fi
+
+### Run DTrace (Mac OS X)
+# Redirect the output to /dev/stderr so that it doesn't mingle with
+# data going to the target's stdout
 if [ $opt_command -eq 1 ]; then
 	/usr/sbin/dtrace -x dynvarsize=$buf -x evaltime=exec -n "$dtrace" \
-	    -c "$command" >&2
+	    -c "$command" -o /dev/stderr
 else
-	/usr/sbin/dtrace -x dynvarsize=$buf -n "$dtrace" >&2
+	/usr/sbin/dtrace -x dynvarsize=$buf -n "$dtrace" -o /dev/stderr
 fi
-

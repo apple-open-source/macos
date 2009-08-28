@@ -1,0 +1,220 @@
+<!-- #bbinclude "header.txt"
+  #PAGETITLE#="Kerberos on Mac OS X 10.2 &amp; 10.3 Frequently Asked Questions"
+  #BASEHREF#="" 
+  	<META NAME=\"keywords\" CONTENT=\"Kerberos, v4, v5, KClient, GSS, GSSAPI, Macintosh, Mac OS, Mac OS X, 
+  									Jaguar, Panther, tickets, authentication, Kerberos application, Kerberos Library, 
+  									Support Library, Kerberos Menu, MIT, Kerberos for Macintosh, 
+  									KfM, security, FAQ, Eudora, CFM, authenticator, NAT\">
+-->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN"
+			"http://www.w3.org/TR/REC-html40/loose.dtd">
+<HTML>
+<HEAD> 
+	<BASE HREF="http://web.mit.edu/macdev/KfM/Common/Documentation/faq-osx.html">
+  	<META \"keywords\"="keywords" \"Kerberos,="#KEYWORDS#">
+	<META \"keywords\"="description" \"Kerberos,="#DESCRIPTION#">
+	<TITLE>Kerberos on Mac OS X 10.2 &amp; 10.3 Frequently Asked Questions</TITLE> 
+	<STYLE TYPE="text/css">
+		@import url(../../Common/Documentation/templates/site.css);
+	</STYLE>
+</HEAD>
+<BODY>
+
+<DIV ID="menu">
+<IMG SRC="../../Common/Documentation/graphics/Kerberos.jpg" ALT="Kerberos for Macintosh Logo">
+<HR>
+<P><A HREF="../../Common/Documentation/index.html">Home</A></P>
+<P><A HREF="http://web.mit.edu/kerberos/">MIT Kerberos</A></P>
+<P><A HREF="http://web.mit.edu/ist/">MIT IS&amp;T</A></P>
+<HR>
+<P><A HREF="../../Common/Documentation/news.html">News</A></P>
+<P><A HREF="../../Common/Documentation/documentation.html">Documentation</A></P>
+<P><A HREF="../../Common/Documentation/developer.html">Developer Resources</A></P>
+<P><A HREF="../../Common/Documentation/license.html">License</A></P>
+<HR>
+<P><A HREF="../../Common/Documentation/download.html">Download</A></P>
+<P><A HREF="../../Common/Documentation/support.html">Support</A></P>
+<P><A HREF="../../Common/Documentation/contact.html">Contact Us</A></P>
+</DIV>
+<DIV ID="body">
+<!-- end bbinclude -->
+
+<!-- #bbinclude "icon.txt" #ICON#="graphics/about.gif" 
+	#TEXT#="<H2>Kerberos on Mac OS X Frequently Asked Questions</H2>" -->
+<TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0>
+   <TR VALIGN=middle>
+      <TD ALIGN=center> <IMG CLASS=icon SRC="graphics/about.gif" ALT="An icon image (description text to the right)" WIDTH=32 HEIGHT=32> </TD>
+      <TD ALIGN=left> <H2>Kerberos on Mac OS X Frequently Asked Questions</H2> </TD>
+   </TR>
+</TABLE>
+<!-- end bbinclude -->
+
+<P>The following is a list of frequently asked questions about Kerberos on Mac OS X 10.2 and 10.3. This
+information is intended to assist users, support staff and developers who use Kerberos on the Macintosh.</P>
+
+<P>This web page contains FAQs for Kerberos <B>on Mac OS X 10.2 and later only.</B>  KfM FAQs
+for other Mac OS versions are available <A HREF="http://web.mit.edu/macdev/KfM/Common/Documentation/faq.html">here</A>.
+
+<P>If you would like to suggest an addition to the FAQ, please send mail to 
+<A HREF="mailto:krbdev@mit.edu">krbdev@mit.edu</A> </P>
+
+<HR>
+<P><B>Q: Who should I contact with questions about Kerberos on Mac OS X?</B></P>
+<P><B>A:</B> Generally, you should contact Apple Computer for support with Kerberos on Mac OS X if your question
+is not answered here.  See the <A HREF="support.html">Kerberos for Macintosh Support &amp; Contact Info</A> page for further information.</P>
+
+<HR>
+<P><B>Q: What version of Kerberos should I use with Mac OS X?</B></P>
+<P><B>A:</B> Use the Kerberos for Macintosh that ships with the OS.  This is the latest version
+- equivalent to KfM 5.5 in Mac OS X 10.4, KfM 5.0 in Mac OS X 10.3, and KfM 4.5 in Mac OS X 10.2.
+If you need Kerberos CFM support, download the <A HREF="osx-kerberos-extras.html">Mac OS X Kerberos Extras</A>.</P>
+
+<HR>
+<P><B>Q: What parts of Kerberos are/are not included with Mac OS X?</B></P>
+<P><B>A:</B> The Kerberos included with Mac OS X 10.2 and later includes the Kerberos framework, command line tools,
+the GUI Kerberos management application (although it's hidden away in <CODE>/System/Library/CoreServices</CODE> ), a Kerberos
+login authenticator, and support for Kerberos in various applications. The CFM support libraries are not included,
+but can be obtained by installing the <A HREF="osx-kerberos-extras.html">Mac OS X Kerberos Extras</A>,
+which will also put an alias to the Kerberos application in a more convenient location.</P>
+
+<P>No Kerberos configuration information is included with Mac OS X (and only a sample configuration file is included with
+the Kerberos Extras), you must install a configuration for your site if your site does not have Kerberos auto-configuration/DNS setup
+(see below for more info).</P>
+
+<HR>
+<P><B>Q: How do I configure Kerberos on Mac OS X for my site?</B></P>
+<P><B>A:</B> If your site does not have a Kerberos auto-configuration/DNS configuration (and in some cases, even if it does),
+you must copy or create a file called <CODE>edu.mit.Kerberos</CODE> in your <CODE>/Library/Preferences</CODE> directory.
+If you are running KfM 5.5 (Mac OS X 10.4), the Kerberos application realms editor graphical interface can be used to edit the realms configuration.  Your site may have a localized Kerberos installer that provides this configuration file, you should consult with your
+system administrator(s) before attempting to create your own.</P>
+<P>The Kerberos configuration information (equivalent to the <CODE>krb5.conf</CODE> on other platforms) should be in the data
+fork of this file.  We strongly recommend you read the <A HREF="preferences.html">Kerberos Preferences documentation</A>
+if you are hand-editing this file.</P>
+
+<HR>
+<P><B>Q: Eudora, Fetch, and other CFM-based applications won't work with the Mac OS X Kerberos.  What's wrong?</B></P>
+<P><B>A:</B> Mac OS X Kerberos as shipped does not include CFM support.  To use the Mac OS X Kerberos with
+Eudora, Fetch, and other existing CFM-based GUI applications, you should install either the
+<A HREF="osx-kerberos-extras.html">Mac OS X Kerberos Extras</A>.</P>
+<P>If you have just upgraded from an older Mac OS X to a newer version (such as from Mac OS X 10.1 to 10.2, or 10.2 to 10.3),
+you may need to install the latest <A HREF="osx-kerberos-extras.html">Mac OS X Kerberos Extras</A> even if you had Eudora and/or Fetch working previously.  Note that you do not need to do this if upgrading from 10.3 ot 10.4.</P>
+
+<HR>
+<P><B>Q: I installed the Mac OS X Kerberos Extras and now Eudora 5.1 won't work at all.  What's up?</B></P>
+<P><B>A:</B> There is an issue with one of the Eudora plug-ins in Eudora 5.1 that causes this.  The best way to fix this
+is to upgrade to Eudora 5.2 or later.</P>
+<P>If you cannot upgrade to Eudora 5.2 or later, do the following to fix this:
+in the Finder, bring up the  Finder contextual menu by control-clicking on the Eudora application icon
+and select "Show Package Contents".
+When the window pops up with the Contents folders in it,  navigate to the Eudora Stuff folder:</P>
+
+<PRE>Contents -> MacOS -> Eudora Stuff</PRE>
+
+<P>and remove the <CODE>UPPERlower Carbon</CODE> plug-in (drag it to the desktop or some other storage place).
+Close up the Eudora contents window and try again, Eudora should now work.  Removing this plug-in removes the
+ability to change the selected text to all lowercase, all uppercase, etc. from the Edit menu in Eudora.  This bug
+will be fixed in a future release of Eudora.</P>
+
+<HR>
+<P><B>Q: Where is the Kerberos GUI management application?</B></P>
+<P><B>A:</B> Mac OS X 10.2 and later do actually include the Kerberos management application, it's in <CODE>/System/Library/CoreServices</CODE> .
+You can either make an alias in a more convenient location, or use the <A HREF="osx-kerberos-extras.html">Mac OS X Kerberos Extras</A>
+which will make an alias to it in <CODE>/Applications/Utilities</CODE>.</P>
+
+<HR>
+<P><B>Q: Is a Kerberized telnet and/or SSH client available for Mac OS X?</B></P>
+<P><B>A:</B> The Telnet that ships with Mac OS X 10.2 and later has Kerberos support. The SSH that ships with Mac OS X 10.3 and later has
+Kerberos support (we know of no Kerberized SSH solutions for Mac OS X 10.2).</P>
+
+<HR>
+<P><B>Q: Is there a Kerberized ftp client available for Mac OS X?</B></P>
+<P><B>A:</B> Yes, <A HREF="http://www.fetchsoftworks.com/">Fetch</A> from <A HREF="http://www.fetchsoftworks.com/">FetchSoftworks</A>
+supports both GSS and KClient (v4) connections on Mac OS X when the CFM support libraries are installed.
+This is the only Kerberized ftp client we are aware of at this time.</P>
+
+<HR>
+<P><B>Q: Does Kerberos for Macintosh work with Windows Active Directory?</B></P>
+<P><B>A:</B> Yes, KfM will successfully authenticate against Windows Active
+Directory acting as a KDC.</P>
+
+<HR>
+<P><B>Q: I don't see the realm I need in the Authenticate to Kerberos dialog. How do I add new realms?</B> </P>
+<P><B>A:</B> If the desired realm is not present in the Realms popup list, you can try typing it
+into the Realm field. However, this will only work if you have a Kerberos configuration file
+(<CODE>edu.mit.Kerberos</CODE>) that already includes the realm, or your site is set up for auto-configuration/DNS
+resolution of Kerberos realms.  If typing it in directly does not work, try the Edit Favorite Realms/Edit Realms
+dialog in the Kerberos management application.  If it's not there, see the next question.</P>
+
+<HR>
+<P><B>Q: I don't see the realm I need in the Edit Favorite Realms/Edit Realms dialog in 
+Kerberos management application. How do I add new realms?</B> </P>
+<P><B>A:</B> Your site may be configured for auto-configuration (DNS resolution of Kerberos realms.  If
+this is the case, and you are on Mac OS 10.2 or 10.3, you can just type your realm into the 
+"Add realm that has auto configuration" field of the Edit Favorite Realms dialog.  If this does not work, 
+you need to edit the <CODE>edu.mit.Kerberos</CODE> preferences file manually. See the <a href="preferences.html">Kerberos 
+Preferences Documentation</a> for information on how to do this.  If you are running Mac OS X 10.4 you can use the graphical
+Edit Realms dialog to add the realm configuration.  Regardless of which version of Mac OS X you are using, you should consult your site
+administrator or help desk before adding new realms.</P>
+
+<HR>
+<P><B>Q: Can I use Kerberos for Macintosh behind a NAT (Network Address Translation)?</B></P>
+<P><B>A:</B> In some cases, yes.  Kerberos 4 does not support addressless tickets, so no Kerberos 4 or KClient-using
+application can be made to work behind a NAT.  However, Kerberos 5 can be told to use addressless
+tickets, which will allow Kerberos 5-using applications to work behind a NAT.  However, applications that
+use the GSSAPI and require channel bindings, such as FTP, may still not work.<BR><BR>
+Mac OS X 10.3 and 10.4 get addressless tickets by default, although you can change this setting by setting the "Get tickets without IP addresses" checkbox in the Authenticate to Kerberos dialog (click on the "Show Options" button or choose "Options..." from the pulldown menu to see this checkbox).</P>
+<P>In Mac OS X 10.2, can enable addressless tickets by adding the following line to the <CODE>libdefaults</CODE> section of
+the <CODE>edu.mit.Kerberos</CODE> file:</P>
+
+<PRE>noaddresses = true</PRE>
+
+<P>There is no GUI way to enable this feature in Mac OS X 10.2.</P>
+
+<HR>
+<P><B>Q: Will there be a Kerberos system menu and floating window for Mac OS X?</B></P>
+<P><B>A:</B> Kerberos for Macintosh for Mac OS X includes equivalent functionality.  The dock icon of the
+Kerberos management application has a key that changes to show your ticket's status, can display the
+time remaining of the current active user's tickets, and has a pop-up menu for commonly used Kerberos functions.</P>
+
+<HR>
+<P><B>Q: Can I get a newer release of Kerberos for Mac OS X from MIT?</B></P>
+<P><B>A:</B> No, any updates to Kerberos for Mac OS X will come from Apple.</P>
+
+<HR>
+<P><B>Q: How do I enable and use the Kerberos login authenticator in Mac OS X 10.2 and later?</B></P>
+<P><B>A:</B> See Apple's web page,
+<A HREF="http://docs.info.apple.com/article.html?artnum=107154">Mac OS X 10.2: How to Enable Kerberos Authentication for Login Window</A>.
+Apple wrote the authenticator, and MIT does not provide documentation or support for it.  Please send any questions to Apple -
+see the <A HREF="support.html">Kerberos for Macintosh Support &amp; Contact Info</A> page.</P>
+
+<HR>
+<P><B>Q: How can I uninstall/remove Kerberos for Macintosh?</B></P> 
+<P><B>A:</B> On Mac OS X 10.2 and later, since Kerberos is an integral part of the OS, you should not attempt to remove it.</P>
+
+<HR>
+<P><B>Q: Is source code for the Kerberos included with Mac OS X available?</B></P>
+<P><B>A:</B> Yes, source code is available for review from the Apple
+<A HREF="http://developer.apple.com/darwin/projects/kerberos/">Darwin Kerberos</A> page.</P>
+
+<HR>
+<P><B>Q: Is source code for the Kerberos login authenticator available?</B></P>
+<P><B>A:</B> Please contact Apple with this request.  Since Apple wrote the authenticator, MIT does not
+have control over the source code.</P>
+
+<HR>
+<P><A HREF="http://web.mit.edu/macdev/KfM/Common/Documentation/faq.html">Other Kerberos for Macintosh FAQs</A></P>
+  
+<!-- #bbinclude "footer.txt" -->
+</DIV>
+<DIV ID="footer">
+	<P>
+		Copyright 2007 Massachusetts Institute of Technology.<BR>
+		Last updated on $Date: 2007-08-27 16:27:32 -0400 (Mon, 27 Aug 2007) $ <BR> 
+		Last modified by $Author: lxs $ 
+	</P>
+</DIV>
+<!-- Begin MIT-use only web reporting counter -->
+	<IMG SRC="http://counter.mit.edu/tally" WIDTH=1 HEIGHT=1 ALT="">
+<!-- End MIT-use only web reporting counter -->
+</BODY></HTML>
+<!-- end bbinclude -->

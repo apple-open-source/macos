@@ -1,0 +1,10 @@
+#!/bin/sh -f
+for cmd
+do
+	if	$cmd
+	then
+		true
+	else
+		echo '***' $cmd had trouble
+	fi
+done

@@ -2,16 +2,16 @@ Index: samba/source/Makefile.in
 ===================================================================
 --- samba/source/Makefile.in.orig
 +++ samba/source/Makefile.in
-@@ -453,6 +453,8 @@ AUTH_OBJ = auth/auth.o @AUTH_STATIC@ aut
+@@ -454,6 +454,8 @@ AUTH_OBJ = auth/auth.o @AUTH_STATIC@ aut
  	   auth/auth_ntlmssp.o \
  	   $(PLAINTEXT_AUTH_OBJ) $(SLCACHE_OBJ) $(DCUTIL_OBJ)
  
-+ODSAM_PDB_OBJ = lib/opendirectory.o passdb/pdb_odsam.o
++ODSAM_PDB_OBJ = lib/opendirectory.o lib/opendirectory_sam.o passdb/pdb_odsam.o
 +
  MANGLE_OBJ = smbd/mangle.o smbd/mangle_hash.o smbd/mangle_map.o smbd/mangle_hash2.o
  
  SMBD_OBJ_MAIN = smbd/server.o
-@@ -1334,6 +1336,13 @@ bin/smbpasswd.@SHLIBEXT@: proto_exists p
+@@ -1335,6 +1337,13 @@ bin/smbpasswd.@SHLIBEXT@: proto_exists p
  	@echo "Building plugin $@"
  	@$(SHLD_MODULE) passdb/pdb_smbpasswd.o
  
@@ -29,7 +29,7 @@ Index: samba/source/configure.in
 ===================================================================
 --- samba/source/configure.in.orig
 +++ samba/source/configure.in
-@@ -6141,6 +6141,7 @@ SMB_MODULE(pdb_ldap, passdb/pdb_ldap.o p
+@@ -6202,6 +6202,7 @@ SMB_MODULE(pdb_ldap, passdb/pdb_ldap.o p
  		   [ PASSDB_LIBS="$PASSDB_LIBS $LDAP_LIBS" ] )
  SMB_MODULE(pdb_smbpasswd, passdb/pdb_smbpasswd.o, "bin/smbpasswd.$SHLIBEXT", PDB)
  SMB_MODULE(pdb_tdbsam, passdb/pdb_tdb.o, "bin/tdbsam.$SHLIBEXT", PDB)
@@ -41,7 +41,7 @@ Index: samba/source/passdb/pdb_odsam.c
 ===================================================================
 --- /dev/null
 +++ samba/source/passdb/pdb_odsam.c
-@@ -0,0 +1,2383 @@
+@@ -0,0 +1,2388 @@
 +/*
 +   Unix SMB/CIFS implementation.
 +   passdb opendirectory backend
@@ -124,7 +124,7 @@ Index: samba/source/passdb/pdb_odsam.c
 +}
 +
 +static uint32_t add_data_buffer_item(tDataBufferPtr dataBuffer,
-+			uint32_t len, const void *buffer)
++			size_t len, const void *buffer)
 +{
 +	uint32_t result = 0;
 +
@@ -132,7 +132,9 @@ Index: samba/source/passdb/pdb_odsam.c
 +	dataBuffer->fBufferLength += 4;
 +	if (len != 0) {
 +		memcpy(&(dataBuffer->fBufferData[ dataBuffer->fBufferLength ]), buffer, len);
-+		dataBuffer->fBufferLength += len;
++		if ((dataBuffer->fBufferLength+len) > INT32_MAX)
++		    smb_panic("PANIC: Looks like fBufferLength overflowed\n");
++		dataBuffer->fBufferLength += (uint32_t)len;
 +	}
 +
 +	return result;
@@ -181,7 +183,7 @@ Index: samba/source/passdb/pdb_odsam.c
 +		const char *type)
 +{
 +	tDirStatus 		status			= eDSNoErr;
-+	unsigned long		len			= 0;
++	UInt32			len			= 0;
 +	tDataBufferPtr		authBuff  		= NULL;
 +	tDataBufferPtr		stepBuff  		= NULL;
 +	tDataNodePtr		authType		= NULL;
@@ -518,8 +520,8 @@ Index: samba/source/passdb/pdb_odsam.c
 +{
 +	tDirStatus		status		=	eDSNoErr;
 +	tDataBufferPtr		dataBuffer	=	NULL;
-+	unsigned long		recordCount	=	0;
-+	tContextData		*currentContextData = NULL;
++	UInt32			recordCount	=	0;
++	tContextData		*currentContextData = (tContextData)NULL;
 +
 +	currentContextData = &ods_state->contextData;
 +	dataBuffer = DS_DEFAULT_BUFFER(ods_state->session.ref);
@@ -534,7 +536,7 @@ Index: samba/source/passdb/pdb_odsam.c
 +		goto cleanup;
 +	}
 +
-+	DEBUG(module_debug,("get_records recordCount (%lu)\n",recordCount));
++	DEBUG(module_debug,("get_records recordCount (%u)\n", recordCount));
 +	opendirectory_insert_search_results(nodeRef, recordsArray,
 +			    recordCount, dataBuffer);
 +
@@ -1541,7 +1543,7 @@ Index: samba/source/passdb/pdb_odsam.c
 +		DEBUG(module_debug,("odssam_getsampwent: entriesAvailable(%d) contextData(%p)\n", entriesAvailable, ods_state->contextData));
 +		CFArrayRemoveAllValues(ods_state->usersArray);
 +
-+		if (entriesAvailable && ods_state->usersIndex >= entriesAvailable && ods_state->contextData == NULL) {
++		if (entriesAvailable && ods_state->usersIndex >= entriesAvailable && ods_state->contextData == (tContextData)NULL) {
 +			odssam_endsampwent(methods);
 +			return NT_STATUS_UNSUCCESSFUL;
 +		}
@@ -1593,13 +1595,16 @@ Index: samba/source/passdb/pdb_odsam.c
 +	}
 +
 +	recordType = get_record_type(sname);
++	if (!recordType) {
++		return NT_STATUS_INTERNAL_ERROR;
++	}
 +
 +	/* Map the user account "guest" to whatever the configured guest
 +	 * account is. This makes "guest" an alias for the guest account,
 +	 * which is generally OK since smbfs uses "guest" as the guest
 +	 * account name.
 +	 */
-+	if (recordType == kDSStdRecordTypeUsers &&
++	if (strcmp(recordType, kDSStdRecordTypeUsers) == 0 &&
 +	    lp_parm_bool(GLOBAL_SECTION_SNUM, MODULE_NAME,
 +				"map guest to guest", True) &&
 +	    strequal(sname, "guest")) {
@@ -1933,7 +1938,7 @@ Index: samba/source/passdb/pdb_odsam.c
 +		DEBUG(module_debug,("odssam_getgrpwent: entriesAvailable(%d) contextData(%p)\n", entriesAvailable, ods_state->contextData));
 +		CFArrayRemoveAllValues(ods_state->groupsArray);
 +
-+		if (entriesAvailable && ods_state->groupsIndex >= entriesAvailable && ods_state->contextData == NULL) {
++		if (entriesAvailable && ods_state->groupsIndex >= entriesAvailable && ods_state->contextData == (tContextData)NULL) {
 +			odssam_endsampwent(methods);
 +			return NT_STATUS_UNSUCCESSFUL;
 +		}
@@ -1980,7 +1985,7 @@ Index: samba/source/passdb/pdb_odsam.c
 +	entry = opendirectory_find_record_from_groupsid(&ods_state->session,
 +							&group_sid);
 +	if (!entry) {
-+		ret = NT_STATUS_NO_SUCH_USER;
++		ret = NT_STATUS_NO_SUCH_GROUP;
 +		goto cleanup;
 +	}
 +
@@ -2402,7 +2407,7 @@ Index: samba/source/passdb/pdb_odsam.c
 +		guest_uid = pwd->pw_uid;
 +	} else {
 +		DEBUG(0, ("%s: guest account '%s' is not available, using 99\n",
-+		    MODULE_NAME, lp_guestaccount));
++		    MODULE_NAME, lp_guestaccount()));
 +		guest_uid = 99;
 +	}
 +

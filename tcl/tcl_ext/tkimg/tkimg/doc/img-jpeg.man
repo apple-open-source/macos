@@ -1,0 +1,75 @@
+[comment {-*- tcl -*- doctools}]
+[vset FORMATNAME jpeg]
+[vset FORMATFULLNAME {Joint Picture Expert Group format}]
+
+[include format-header.inc]
+
+This handler provides new additional configuration options. See
+section [sectref {JPEG OPTIONS}] for more detailed explanations.
+
+
+[include format-middle.inc]
+
+In addition the value for the option is treated as list and may
+contain any of the special options listed in section
+
+[sectref {JPEG OPTIONS}].
+
+[list_end]
+
+
+
+[section {JPEG OPTIONS}]
+
+The handler provides six options, two effective when reading from a
+JPEG image, and five influencing the writing of such. One option is
+usable for both reading an writing.
+
+[list_begin definitions]
+
+[lst_item [option -fast]]
+
+This option is for reading from JPEG data. It usage activates a
+processing mode which is fast, but also provides only low-quality
+information.
+
+
+[lst_item [option -grayscale]]
+
+This option can be used for both reading and writing of JPEG
+data. Usage of this option forces incoming images to grayscale, and
+written images will be monochrome.
+
+
+[lst_item "[option -quality] [arg n]"]
+
+This option is for writing JPEG data. It specifies the compression
+level as a quality percentage. The higher the quality, the less the
+compression. The nominal range for [arg n] is
+
+[const 0]...[const 100]. Useful values are in the range
+[const 5]...[const 95]. The default value is [const 75].
+
+
+[lst_item "[option -smooth] [arg n]"]
+
+This option is for writing JPEG data. When used the writer will smooth
+the image before performing the compression. Values in the
+
+[const 10]...[const 30] are usually enough. The default is [const 0],
+i.e no smoothing.
+
+
+[lst_item [option -optimize]]
+
+This option is for writing JPEG data. It usage causes the writer to
+optimize the huffman table used to encode the jpeg coefficients.
+
+
+[lst_item [option -progressive]]
+
+This option is for writing JPEG data. It usage causes the creation of
+a [term progressive] JPEG file.
+
+
+[include format-footer.inc]

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -130,6 +130,7 @@ typedef struct EAPClientPluginData_s {
 #define kEAPClientPluginFuncNamePublishProperties	"publish_properties"
 #define kEAPClientPluginFuncNamePacketDump	"packet_dump"
 #define kEAPClientPluginFuncNameUserName	"user_name"
+#define kEAPClientPluginFuncNameCopyIdentity 	"copy_identity"
 
 /*
  * Type: EAPClientPluginFuncIntrospect
@@ -202,9 +203,10 @@ typedef const char * (EAPClientPluginFuncEAPName)(void);
  *   The value of error is only meaningful if the returned status is 
  *   >= kEAPClientStatusDomainSpecificErrorStart.
  */
-typedef EAPClientStatus (EAPClientPluginFuncInit)(EAPClientPluginDataRef plugin,
-						  CFArrayRef * require_props,
-						  EAPClientDomainSpecificError * error);
+typedef EAPClientStatus
+(EAPClientPluginFuncInit)(EAPClientPluginDataRef plugin,
+			  CFArrayRef * require_props,
+			  EAPClientDomainSpecificError * error);
 
 /*
  * Type: EAPClientPluginFuncFree
@@ -313,6 +315,8 @@ typedef void *
  *   Called if the "process" function returns kEAPClientStateAuthenticating,
  *   and the client status returned is kEAPClientStatusConfigurationIncomplete.
  *
+ *   Returned value must be released using CFRelease().
+ *
  * Returns:
  *   A CFArray of CFString property names that the EAP method requires,
  *   NULL if none are needed.
@@ -326,6 +330,9 @@ typedef CFArrayRef
  *   Prototype for the "publish_properties" function.
  *   Called anytime after the "init" function to allow the plugin to publish
  *   additional properties.
+ *
+ *   Returned value must be released using CFRelease().
+ *
  * Returns:
  *   A CFDictionary containing key/value pairs of additional information
  *   to publish, NULL to publish no information.
@@ -347,18 +354,37 @@ typedef bool
 
 /* 
  * Type: EAPClientPluginFuncUserName
+ *
  * Purpose:
  *   Prototype for the "user_name" function.
  *
- *   This entry point is called in case the user does not specify a username
+ *   This entry point is called in case the user does not specify a user name
  *   to use as the identity.  The returned CFStringRef must be released
  *   using CFRelease().
  *
  * Returns:
- *   NULL if this method could not intuit a user name, non-NULL CFString
+ *   NULL if this method could not determine a user name, non-NULL CFString
  *   containing username otherwise.
  */
 typedef CFStringRef
 (EAPClientPluginFuncUserName)(CFDictionaryRef properties);
+
+/* 
+ * Type: EAPClientPluginFuncCopyIdentity
+ *
+ * Purpose:
+ *   Prototype for the "copy_identity" function.
+ *
+ *   This function is called to determine an identity to use after the
+ *   plugin is active and has a valid context.
+ *
+ *   The returned CFStringRef must be released using CFRelease().
+ * 
+ * Returns:
+ *   NULL if this method could not retrieve an identity to use,
+ *   non-NULL CFStringRef containing identity otherwise.
+ */
+typedef CFStringRef
+(EAPClientPluginFuncCopyIdentity)(EAPClientPluginDataRef plugin);
 
 #endif _EAP8021X_EAPCLIENTPLUGIN_H

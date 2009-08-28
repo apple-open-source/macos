@@ -1,5 +1,5 @@
 /*
-Copyright (c) 1997-2006 Apple Computer, Inc. All rights reserved.
+Copyright (c) 1997-2008 Apple Inc. All rights reserved.
 Copyright (c) 1994-1996 NeXT Software, Inc.  All rights reserved.
  
 IMPORTANT:  This Apple software is supplied to you by Apple Computer, Inc. (ÒAppleÓ) in consideration of your agreement to the following terms, and your use, installation, modification or redistribution of this Apple software constitutes acceptance of these terms.  If you do not agree with these terms, please do not use, install, modify or redistribute this Apple software.
@@ -40,7 +40,7 @@ probe(IOService *provider, SInt32 *score)
 
     // fail probe if polled-mode kprintf driver is active
     UInt32 debugFlags = 0;
-    PE_parse_boot_arg("debug", &debugFlags);
+    PE_parse_boot_argn("debug", &debugFlags, sizeof(debugFlags));
     if (debugFlags & 0x8)
         return NULL;
 
@@ -48,7 +48,7 @@ probe(IOService *provider, SInt32 *score)
 
     char buf[80];
 
-    sprintf(buf, "ACPI Device=%s", Provider->getName());
+    snprintf(buf, sizeof (buf),  "ACPI Device=%s", Provider->getName());
     setProperty(kLocationKey, buf);
     Location = OSDynamicCast(OSString, getProperty(kLocationKey))->getCStringNoCopy();
 
@@ -62,7 +62,7 @@ probe(IOService *provider, SInt32 *score)
     InterfaceInstance = 0;
 	Provider->evaluateInteger( gIOACPIUniqueIDKey, &InterfaceInstance );
 
-    sprintf(buf, "Apple16X50ACPI%d", (int)InterfaceInstance);
+    snprintf(buf, sizeof (buf), "Apple16X50ACPI%d", (int)InterfaceInstance);
     setName(buf);
 
     return this;
@@ -76,7 +76,7 @@ probeUART(void* refCon, Apple16X50UARTSync *uart, OSDictionary *properties)
     uart = super::probeUART(refCon, uart, properties);
     if (!uart) return false;
 
-    sprintf(buf, "%s Base=0x%x", Location, (UInt16)Map->getPhysicalAddress());
+    snprintf(buf, sizeof (buf), "%s Base=0x%x", Location, (UInt16)Map->getPhysicalAddress());
     uart->setProperty(kLocationKey, buf);
 
     return uart;

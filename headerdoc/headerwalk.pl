@@ -36,7 +36,8 @@ foreach my $header (@ARGV) {
 	my $inputCounter = 0;
 	my $nlines = $#inputLines;
 	while ($inputCounter <= $nlines) {
-		my ($newInputCounter, $dec, $type, $name, $pt, $value, $pplref, $returntype, $pridec, $parseTree, $simpleTDcontents, $bpavail) = &blockParse($header, 0, \@inputLines, $inputCounter, 0, \%HeaderDoc::ignorePrefixes, \%HeaderDoc::perHeaderIgnorePrefixes, \%HeaderDoc::perHeaderIgnoreFuncMacros, $keywordhashref, $case_sensitive);
+		my ($newInputCounter, $dec, $type, $name, $pt, $value, $pplref, $returntype, $pridec, $parseTree, $simpleTDcontents, $bpavail, $blockOffset, $conformsToList) = &blockParse($header, 0, \@inputLines, $inputCounter, 0, \%HeaderDoc::ignorePrefixes, \%HeaderDoc::perHeaderIgnorePrefixes, \%HeaderDoc::perHeaderIgnoreFuncMacros, $keywordhashref, $case_sensitive);
+
 		$inputCounter = $newInputCounter;
 
 		print "GOT DEC:\n";

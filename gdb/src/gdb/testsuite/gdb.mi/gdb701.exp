@@ -51,7 +51,7 @@ mi_next "step over \"foo = 0\""
 
 # APPLE LOCAL: [var-create] TYPECODE, DYNAMIC_TYPE, IN_SCOPE fields added.
 mi_gdb_test "-var-create fooPtr * foo" \
-  "(&\".*\"\r\n)*\\^done,name=\"fooPtr\",numchild=\"3\",type=\"Foo \\*\",typecode=\"PTR\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\".*\",block_end_addr=\".*\"" \
+  "(&\".*\"\r\n)*\\^done,name=\"fooPtr\",numchild=\"3\",type=\"Foo \\*\",typecode=\"PTR\",dynamic_type=\"\",resolved_type=\"struct _foo \\*\",in_scope=\"true\",block_start_addr=\".*\",block_end_addr=\".*\"" \
   "create fooPtr"
 
 mi_gdb_test "-var-list-children fooPtr" \

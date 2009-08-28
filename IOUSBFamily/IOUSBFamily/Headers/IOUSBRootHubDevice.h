@@ -26,6 +26,10 @@
 
 #include <IOKit/usb/IOUSBHubDevice.h>
 
+/*!
+ @class IOUSBRootHubDevice
+ @abstract The object representing the Root Hub simulation.
+ */
 class IOUSBRootHubDevice : public IOUSBHubDevice
 {
     OSDeclareDefaultStructors(IOUSBRootHubDevice)

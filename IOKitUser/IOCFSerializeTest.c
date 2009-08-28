@@ -3,19 +3,20 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -43,6 +44,7 @@ find /System/Library/Extensions -name Info.plist  | xargs -n 1 ./IOCFSerializeTe
 #include <ctype.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -56,6 +58,11 @@ char *testBuffer =
 " <plist version=\"1.0\"> \n"
 " <!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\"> \n"
 " <plist version=\"0.9\"> \n"
+" <!-- this is a comment --> \n"    
+" <!-- this is a comment with embedded XML statements \n"
+" <key>ignore me</key>	<true/> \n"
+" --> \n"
+    
 " <dict> \n"
 
 " <key>key true</key>	<true/> \n"
@@ -136,7 +143,7 @@ main(int argc, char **argv)
 		if (stat(argv[1], &sb)) exit(1);
 		size = (size_t)sb.st_size;
 		    
-		printf("checking file %s, file size %d\n", argv[1], size);
+		printf("checking file %s, file size %ld\n", argv[1], size);
 
 		bufPtr = (char *)malloc(size);
 		if (!bufPtr) exit(1);
@@ -197,11 +204,11 @@ main(int argc, char **argv)
 
 	properties1 = IOCFUnserialize(testBuffer, kCFAllocatorDefault, 0, &errorString);
 	if (!properties1) {
-		CFIndex bufSize = CFStringGetMaximumSizeForEncoding(CFStringGetLength(cfStr),
-		       kCFStringEncodingMacRoman) + sizeof('\0');
+		CFIndex bufSize = CFStringGetMaximumSizeForEncoding(CFStringGetLength(errorString),
+		       kCFStringEncodingUTF8) + sizeof('\0');
 		char *buffer = malloc(bufSize);
 		if (!buffer || !CFStringGetCString(errorString, buffer, bufSize, 
-						   kCFStringEncodingMacRoman)) {
+						   kCFStringEncodingUTF8)) {
 			exit(1);
 		}
 
@@ -222,10 +229,10 @@ main(int argc, char **argv)
 
 	properties2 = IOCFUnserialize((char *)CFDataGetBytePtr(data1), kCFAllocatorDefault, 0, &errorString);
 	if (!properties2) {
-		CFIndex bufSize = CFStringGetMaximumSizeForEncoding(CFStringGetLength(cfStr),
-		       kCFStringEncodingMacRoman) + sizeof('\0');
+		CFIndex bufSize = CFStringGetMaximumSizeForEncoding(CFStringGetLength(errorString),
+		       kCFStringEncodingUTF8) + sizeof('\0');
 		char *buffer = malloc(bufSize);
-		if (!buffer || !CFStringGetCString(errorString, buffer, bufSize, kCFStringEncodingMacRoman)) {
+		if (!buffer || !CFStringGetCString(errorString, buffer, bufSize, kCFStringEncodingUTF8)) {
 			exit(1);
 		}
 
@@ -253,10 +260,10 @@ main(int argc, char **argv)
 
 	properties3 = IOCFUnserialize((char *)CFDataGetBytePtr(data2), kCFAllocatorDefault, 0, &errorString);
 	if (!properties3) {
-		CFIndex bufSize = CFStringGetMaximumSizeForEncoding(CFStringGetLength(cfStr),
-		       kCFStringEncodingMacRoman) + sizeof('\0');
+		CFIndex bufSize = CFStringGetMaximumSizeForEncoding(CFStringGetLength(errorString),
+		       kCFStringEncodingUTF8) + sizeof('\0');
 		char *buffer = malloc(bufSize);
-		if (!buffer || !CFStringGetCString(errorString, buffer, bufSize, kCFStringEncodingMacRoman)) {
+		if (!buffer || !CFStringGetCString(errorString, buffer, bufSize, kCFStringEncodingUTF8)) {
 		    exit(1);
 		}
 
@@ -284,10 +291,10 @@ main(int argc, char **argv)
 
 	properties4 = IOCFUnserialize((char *)CFDataGetBytePtr(data3), kCFAllocatorDefault, 0, &errorString);
 	if (!properties4) {
-		CFIndex bufSize = CFStringGetMaximumSizeForEncoding(CFStringGetLength(cfStr),
-		       kCFStringEncodingMacRoman) + sizeof('\0');
+		CFIndex bufSize = CFStringGetMaximumSizeForEncoding(CFStringGetLength(errorString),
+		       kCFStringEncodingUTF8) + sizeof('\0');
 		char *buffer = malloc(bufSize);
-		if (!buffer || !CFStringGetCString(errorString, buffer, bufSize, kCFStringEncodingMacRoman)) {
+		if (!buffer || !CFStringGetCString(errorString, buffer, bufSize, kCFStringEncodingUTF8)) {
 		    exit(1);
 		}
 
@@ -319,9 +326,9 @@ main(int argc, char **argv)
 		properties5 = CFPropertyListCreateFromXMLData(kCFAllocatorDefault, data4, kCFPropertyListImmutable, &errorString);
 		if (!properties5) {
 			CFIndex bufSize = CFStringGetMaximumSizeForEncoding(CFStringGetLength(errorString),
-			       kCFStringEncodingMacRoman) + sizeof('\0');
+			       kCFStringEncodingUTF8) + sizeof('\0');
 			char *buffer = malloc(bufSize);
-			if (!buffer || !CFStringGetCString(errorString, buffer, bufSize, kCFStringEncodingMacRoman)) {
+			if (!buffer || !CFStringGetCString(errorString, buffer, bufSize, kCFStringEncodingUTF8)) {
 			    exit(1);
 			}
 

@@ -13,10 +13,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -38,7 +34,7 @@
 static char sccsid[] = "@(#)heapsort.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdlib/heapsort.c,v 1.4 2002/03/21 22:48:41 obrien Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdlib/heapsort.c,v 1.6 2008/01/13 02:11:10 das Exp $");
 
 #include <errno.h>
 #include <stddef.h>
@@ -145,7 +141,7 @@ heapsort(vbase, nmemb, size, compar)
 	size_t nmemb, size;
 	int (*compar)(const void *, const void *);
 {
-	int cnt, i, j, l;
+	size_t cnt, i, j, l;
 	char tmp, *tmp1, *tmp2;
 	char *base, *k, *p, *t;
 

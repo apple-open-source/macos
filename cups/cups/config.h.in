@@ -1,9 +1,9 @@
 /*
- * "$Id: config.h.in 7180 2008-01-07 18:26:57Z mike $"
+ * "$Id: config.h.in 7918 2008-09-08 22:03:01Z mike $"
  *
  *   Configuration file for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -31,7 +31,7 @@
 #define CUPS_DEFAULT_USER	"lp"
 #define CUPS_DEFAULT_GROUP	"sys"
 #define CUPS_DEFAULT_SYSTEM_GROUPS	"sys root system"
-#define CUPS_DEFAULT_PRINTADMIN_AUTH	"@SYSTEM"
+#define CUPS_DEFAULT_PRINTOPERATOR_AUTH	"@SYSTEM"
 
 
 /*
@@ -40,6 +40,21 @@
 
 #define CUPS_DEFAULT_CONFIG_FILE_PERM	0640
 #define CUPS_DEFAULT_LOG_FILE_PERM	0644
+
+
+/*
+ * Default logging settings...
+ */
+
+#define CUPS_DEFAULT_LOG_LEVEL	"warn"
+#define CUPS_DEFAULT_ACCESS_LOG_LEVEL "actions"
+
+
+/*
+ * Default fatal error settings...
+ */
+
+#define CUPS_DEFAULT_FATAL_ERRORS	"config"
 
 
 /*
@@ -67,6 +82,14 @@
  */
 
 #define CUPS_DEFAULT_PRINTCAP	"/etc/printcap"
+
+
+/*
+ * Default Samba and LPD config files...
+ */
+
+#define CUPS_DEFAULT_SMB_CONFIG_FILE	""
+#define CUPS_DEFAULT_LPD_CONFIG_FILE	""
 
 
 /*
@@ -123,6 +146,8 @@
 #endif /* !HAVE_LIBPAM */
 
 #undef HAVE_PAM_PAM_APPL_H
+#undef HAVE_PAM_SET_ITEM
+#undef HAVE_PAM_SETCRED
 
 
 /*
@@ -290,6 +315,10 @@
 
 #undef HAVE_LDAP
 #undef HAVE_OPENLDAP
+#undef HAVE_MOZILLA_LDAP
+#undef HAVE_LDAP_SSL_H
+#undef HAVE_LDAP_SSL
+#undef HAVE_LDAP_REBIND_PROC
 
 
 /*
@@ -307,26 +336,10 @@
 
 
 /*
- * Do we have Darwin's CoreFoundation and SystemConfiguration frameworks?
- */
-
-#undef HAVE_COREFOUNDATION
-#undef HAVE_SYSTEMCONFIGURATION
-
-
-/*
  * Do we have <sys/ioctl.h>?
  */
 
 #undef HAVE_SYS_IOCTL_H
-
-
-/*
- * Do we have mkstemp() and/or mkstemps()?
- */
-
-#undef HAVE_MKSTEMP
-#undef HAVE_MKSTEMPS
 
 
 /*
@@ -405,6 +418,7 @@
 
 #undef HAVE_USERSEC_H
 
+
 /*
  * Do we have pthread support?
  */
@@ -433,6 +447,22 @@
 #define CUPS_PHP	"/usr/bin/php"
 #undef HAVE_PYTHON
 #define CUPS_PYTHON	"/usr/bin/python"
+
+
+/*
+ * Location of the poppler/Xpdf pdftops program...
+ */
+
+#undef HAVE_PDFTOPS
+#define CUPS_PDFTOPS	"/usr/bin/pdftops"
+
+
+/*
+ * Location of the Ghostscript gs program...
+ */
+
+#undef HAVE_GHOSTSCRIPT
+#define CUPS_GHOSTSCRIPT "/usr/bin/gs"
 
 
 /*
@@ -496,6 +526,7 @@
 #undef HAVE_GSSKRB5_REGISTER_ACCEPTOR_IDENTITY
 #undef HAVE_GSS_C_NT_HOSTBASED_SERVICE
 #undef HAVE_KRB5_CC_NEW_UNIQUE
+#undef HAVE_KRB5_IPC_CLIENT_SET_TARGET_UID
 #undef HAVE_KRB5_H
 #undef HAVE_HEIMDAL
 
@@ -544,8 +575,45 @@
 #undef HAVE_REMOVEFILE
 
 
+/*
+ * Do we have <sandbox.h>?
+ */
+
+#undef HAVE_SANDBOX_H
+
+
+/*
+ * Which random number generator function to use...
+ */
+
+#undef HAVE_RANDOM
+#undef HAVE_MRAND48
+#undef HAVE_LRAND48
+
+
+/*
+ * Do we have vproc_transaction_begin/end?
+ */
+
+#undef HAVE_VPROC_TRANSACTION_BEGIN
+
+
+/*
+ * Do we have libusb?
+ */
+
+#undef HAVE_USB_H
+
+
+/*
+ * Do we have libwrap and tcpd.h?
+ */
+
+#undef HAVE_TCPD_H
+
+
 #endif /* !_CUPS_CONFIG_H_ */
 
 /*
- * End of "$Id: config.h.in 7180 2008-01-07 18:26:57Z mike $".
+ * End of "$Id: config.h.in 7918 2008-09-08 22:03:01Z mike $".
  */

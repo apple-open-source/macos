@@ -1,0 +1,234 @@
+<html><head><base target=k-main></head><body bgcolor=white><nobr>
+
+<font face=Helvetica size=3>
+<dl><dt>
+
+  <b>class c4_Bytes</b>
+<br><br>
+
+<dd><font face=Times size=3>
+Generic data buffer, with optional automatic clean up.<br><br>
+
+
+</font></dl>
+
+
+  <table cellborder=0>
+    <tr>
+    <td colspan=2>
+	  <font face=Helvetica size=-1><b>Public members</b></font>
+    </td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  
+    </td>
+	<td>
+	  <nobr>
+	  <b>c4_Bytes</b> ();
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Construct an empty binary object</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  
+    </td>
+	<td>
+	  <nobr>
+	  <b>c4_Bytes</b> (const void* buffer_, int length_);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Construct an object with contents, no copy</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  
+    </td>
+	<td>
+	  <nobr>
+	  <b>c4_Bytes</b> (const void* buffer_, int length_, bool makeCopy_);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Construct an object with contents, optionally as a copy</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  
+    </td>
+	<td>
+	  <nobr>
+	  <b>c4_Bytes</b> (const <A HREF="c4_Bytes.html" >c4_Bytes</A>&#38; bytes_);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Copy constructor </font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  
+    </td>
+	<td>
+	  <nobr>
+	  <b>~c4_Bytes</b> ();
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Destructor</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_Bytes.html" >c4_Bytes</A>&#38; 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator= </b> (const <A HREF="c4_Bytes.html" >c4_Bytes</A>&#38; bytes_);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Assignment, this may make a private copy of contents</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  void 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Swap</b> (<A HREF="c4_Bytes.html" >c4_Bytes</A>&#38; bytes_);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Swap the contents and ownership of two byte objects</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  int 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Size</b> () <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Return the number of bytes of its contents</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  const t4_byte* 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Contents</b> () <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Return a pointer to the contents</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  t4_byte* 
+    </td>
+	<td>
+	  <nobr>
+	  <b>SetBuffer</b> (int length_);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Define contents as a freshly allocated buffer of given size</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  t4_byte* 
+    </td>
+	<td>
+	  <nobr>
+	  <b>SetBufferClear</b> (int length_);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Allocate a buffer and fills its contents with zero bytes</font>
+	</td>
+	</tr>
+  
+  </table>
+
+
+
+
+
+  <table cellborder=0>
+    <tr>
+    <td colspan=2>
+	  <font face=Helvetica size=-1><b>Friends</b></font>
+    </td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  friend bool 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator==</b> (const <A HREF="c4_Bytes.html" >c4_Bytes</A>&#38; a_, const <A HREF="c4_Bytes.html" >c4_Bytes</A>&#38; b_);
+	  <font face=Helvetica size=-1><br>Return true if the contents of both objects are equal</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  friend bool 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator!=</b> (const <A HREF="c4_Bytes.html" >c4_Bytes</A>&#38; a_, const <A HREF="c4_Bytes.html" >c4_Bytes</A>&#38; b_);
+	  <font face=Helvetica size=-1><br>Return true if the contents of both objects are not equal</font>
+	</td>
+	</tr>
+  
+  </table>
+
+
+<br><hr size=1 width=50 align=left>
+
+<table cellborder=0>
+    <tr>
+    <td width=150>
+	  <font face=Helvetica size=-1><b>Header file</b></font>
+    </td>
+    <td>
+	  "mk4.h" &nbsp; -- &nbsp; Dec 9, 1999
+    </td>
+	</tr>
+
+  
+
+  
+</table>
+
+</font></font>
+
+</nobr></body></html>

@@ -15,3 +15,4 @@ bsdpd: bsdpd.c bsdpd.h
 
 clean:
 	rm -f AFPUsers bootpdfile bootplookup bsdpd
+	rm -rf *.dSYM/

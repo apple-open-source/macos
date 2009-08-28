@@ -1,9 +1,9 @@
 /*
- * "$Id: globals.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: globals.c 7870 2008-08-27 18:14:10Z mike $"
  *
  *   Global variable access routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -28,7 +28,6 @@
 
 #include "http-private.h"
 #include "globals.h"
-#include "debug.h"
 #include <stdlib.h>
 
 
@@ -93,8 +92,6 @@ _cupsGlobals(void)
   * Initialize the global data exactly once...
   */
 
-  DEBUG_printf(("_cupsGlobals(): globals_key_once=%d\n", globals_key_once));
-
   pthread_once(&globals_key_once, globals_init);
 
  /*
@@ -103,8 +100,6 @@ _cupsGlobals(void)
 
   if ((globals = (_cups_globals_t *)pthread_getspecific(globals_key)) == NULL)
   {
-    DEBUG_puts("_cupsGlobals: allocating memory for thread...");
-
    /*
     * No, allocate memory as set the pointer for the key...
     */
@@ -112,14 +107,12 @@ _cupsGlobals(void)
     globals = calloc(1, sizeof(_cups_globals_t));
     pthread_setspecific(globals_key, globals);
 
-    DEBUG_printf(("    globals=%p\n", globals));
-
    /*
     * Initialize variables that have non-zero values
     */
 
     globals->encryption  = (http_encryption_t)-1;
-    globals->password_cb = _cupsGetPassword;
+    globals->password_cb = (cups_password_cb2_t)_cupsGetPassword;
 
     cups_env_init(globals);
   }
@@ -140,9 +133,6 @@ static void
 globals_init()
 {
   pthread_key_create(&globals_key, globals_destructor);
-
-  DEBUG_printf(("globals_init(): globals_key=%x(%u)\n", globals_key,
-                globals_key));
 }
 
 
@@ -154,10 +144,10 @@ static void
 globals_destructor(void *value)		/* I - Data to free */
 {
   int			i;		/* Looping var */
+  _ipp_buffer_t		*buffer,	/* Current IPP read/write buffer */
+			*next;		/* Next buffer */
   _cups_globals_t	*cg;		/* Global data */
 
-
-  DEBUG_printf(("globals_destructor(value=%p)\n", value));
 
   cg = (_cups_globals_t *)value;
 
@@ -167,9 +157,18 @@ globals_destructor(void *value)		/* I - Data to free */
     cupsFileClose(cg->stdio_files[i]);
 
   if (cg->last_status_message)
-    free(cg->last_status_message);
+    _cupsStrFree(cg->last_status_message);
 
   cupsFreeOptions(cg->cupsd_num_settings, cg->cupsd_settings);
+
+  for (buffer = cg->ipp_buffers; buffer; buffer = next)
+  {
+    next = buffer->next;
+    free(buffer);
+  }
+
+  cupsArrayDelete(cg->pwg_size_lut);
+  cupsArrayDelete(cg->leg_size_lut);
 
   free(value);
 }
@@ -206,7 +205,7 @@ _cupsGlobals(void)
     memset(&globals, 0, sizeof(globals));
 
     globals.encryption  = (http_encryption_t)-1;
-    globals.password_cb = _cupsGetPassword;
+    globals.password_cb = (cups_password_cb2_t)_cupsGetPassword;
 
     cups_env_init(&globals);
   }
@@ -217,5 +216,5 @@ _cupsGlobals(void)
 
 
 /*
- * End of "$Id: globals.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: globals.c 7870 2008-08-27 18:14:10Z mike $".
  */

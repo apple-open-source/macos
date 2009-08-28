@@ -1,0 +1,450 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		8D11072F0486CEB800E47090 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */; };
+		A1ACF6620B0D2052001D521C /* KerberosCredential.strings in Resources */ = {isa = PBXBuildFile; fileRef = A1ACF6600B0D2052001D521C /* KerberosCredential.strings */; };
+		DE0266EF0AFFDED400B24430 /* KerberosHelperController.m in Sources */ = {isa = PBXBuildFile; fileRef = DE0266EE0AFFDED400B24430 /* KerberosHelperController.m */; };
+		DE0267130AFFE0E000B24430 /* Utilities.m in Sources */ = {isa = PBXBuildFile; fileRef = DE02670E0AFFE0E000B24430 /* Utilities.m */; };
+		DE026B340AFFE63B00B24430 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = DE026B2D0AFFE63B00B24430 /* InfoPlist.strings */; };
+		DE026B3D0AFFE67E00B24430 /* Kerberos.tiff in Resources */ = {isa = PBXBuildFile; fileRef = DE026B3C0AFFE67E00B24430 /* Kerberos.tiff */; };
+		DE026BCE0AFFEB6E00B24430 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = DE026BCC0AFFEB6E00B24430 /* Localizable.strings */; };
+		DE026BF50AFFEC4100B24430 /* KerberosErrorAlert.strings in Resources */ = {isa = PBXBuildFile; fileRef = DE026BF10AFFEC4100B24430 /* KerberosErrorAlert.strings */; };
+		DE026BF60AFFEC4100B24430 /* KerberosLifetimeFormatter.strings in Resources */ = {isa = PBXBuildFile; fileRef = DE026BF30AFFEC4100B24430 /* KerberosLifetimeFormatter.strings */; };
+		DE14009A0B0A3ADC0032FE7D /* KerberosAddress.m in Sources */ = {isa = PBXBuildFile; fileRef = DE1400940B0A3ADC0032FE7D /* KerberosAddress.m */; };
+		DE14009B0B0A3ADC0032FE7D /* KerberosCache.m in Sources */ = {isa = PBXBuildFile; fileRef = DE1400950B0A3ADC0032FE7D /* KerberosCache.m */; };
+		DE14009C0B0A3ADC0032FE7D /* KerberosCacheCollection.m in Sources */ = {isa = PBXBuildFile; fileRef = DE1400960B0A3ADC0032FE7D /* KerberosCacheCollection.m */; };
+		DE14009D0B0A3ADC0032FE7D /* KerberosCredential.m in Sources */ = {isa = PBXBuildFile; fileRef = DE1400970B0A3ADC0032FE7D /* KerberosCredential.m */; };
+		DE14009E0B0A3ADC0032FE7D /* TargetOwnedTimer.m in Sources */ = {isa = PBXBuildFile; fileRef = DE1400980B0A3ADC0032FE7D /* TargetOwnedTimer.m */; };
+		DE5835540B0927CA00D45346 /* MainMenu.nib in Resources */ = {isa = PBXBuildFile; fileRef = DE5835520B0927CA00D45346 /* MainMenu.nib */; };
+		DE585D950B08EEBE00D6779D /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DE585D940B08EEBE00D6779D /* IOKit.framework */; };
+		DEF1D89A0AFFD7B2005904B0 /* KerberosErrorAlert.m in Sources */ = {isa = PBXBuildFile; fileRef = DEF1D8930AFFD7B2005904B0 /* KerberosErrorAlert.m */; };
+		DEF1D89B0AFFD7B2005904B0 /* KerberosLifetimeFormatter.m in Sources */ = {isa = PBXBuildFile; fileRef = DEF1D8940AFFD7B2005904B0 /* KerberosLifetimeFormatter.m */; };
+		DEF1D89C0AFFD7B2005904B0 /* KerberosLifetimeSlider.m in Sources */ = {isa = PBXBuildFile; fileRef = DEF1D8950AFFD7B2005904B0 /* KerberosLifetimeSlider.m */; };
+		DEF1D89D0AFFD7B2005904B0 /* KerberosPreferences.m in Sources */ = {isa = PBXBuildFile; fileRef = DEF1D8960AFFD7B2005904B0 /* KerberosPreferences.m */; };
+		DEF1D89E0AFFD7B2005904B0 /* KerberosPrincipal.m in Sources */ = {isa = PBXBuildFile; fileRef = DEF1D8970AFFD7B2005904B0 /* KerberosPrincipal.m */; };
+		DEF1D8A40AFFD7F4005904B0 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = DEF1D8A30AFFD7F4005904B0 /* main.m */; };
+		DEF1D8B10AFFD890005904B0 /* Kerberos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DEF1D8B00AFFD890005904B0 /* Kerberos.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = /System/Library/Frameworks/Cocoa.framework; sourceTree = "<absolute>"; };
+		13E42FB307B3F0F600E4EEF1 /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = /System/Library/Frameworks/CoreData.framework; sourceTree = "<absolute>"; };
+		29B97324FDCFA39411CA2CEA /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = /System/Library/Frameworks/AppKit.framework; sourceTree = "<absolute>"; };
+		29B97325FDCFA39411CA2CEA /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
+		8D1107320486CEB800E47090 /* KerberosHelper.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KerberosHelper.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1ACF6610B0D2052001D521C /* English */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/KerberosCredential.strings; sourceTree = "<group>"; };
+		DE0266ED0AFFDED400B24430 /* KerberosHelperController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KerberosHelperController.h; sourceTree = "<group>"; };
+		DE0266EE0AFFDED400B24430 /* KerberosHelperController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KerberosHelperController.m; sourceTree = "<group>"; };
+		DE0267090AFFE0AE00B24430 /* Utilities.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Utilities.h; sourceTree = "<group>"; };
+		DE02670E0AFFE0E000B24430 /* Utilities.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = Utilities.m; sourceTree = "<group>"; };
+		DE026B2E0AFFE63B00B24430 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		DE026B330AFFE63B00B24430 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = Info.plist; sourceTree = "<group>"; };
+		DE026B3C0AFFE67E00B24430 /* Kerberos.tiff */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = Kerberos.tiff; sourceTree = "<group>"; };
+		DE026BCD0AFFEB6E00B24430 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/Localizable.strings; sourceTree = "<group>"; };
+		DE026BF20AFFEC4100B24430 /* English */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/KerberosErrorAlert.strings; sourceTree = "<group>"; };
+		DE026BF40AFFEC4100B24430 /* English */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/KerberosLifetimeFormatter.strings; sourceTree = "<group>"; };
+		DE14008E0B0A3A9F0032FE7D /* KerberosAddress.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = KerberosAddress.h; sourceTree = "<group>"; };
+		DE14008F0B0A3A9F0032FE7D /* KerberosCache.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = KerberosCache.h; sourceTree = "<group>"; };
+		DE1400900B0A3A9F0032FE7D /* KerberosCacheCollection.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = KerberosCacheCollection.h; sourceTree = "<group>"; };
+		DE1400910B0A3A9F0032FE7D /* KerberosCredential.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = KerberosCredential.h; sourceTree = "<group>"; };
+		DE1400920B0A3A9F0032FE7D /* TargetOwnedTimer.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = TargetOwnedTimer.h; sourceTree = "<group>"; };
+		DE1400930B0A3A9F0032FE7D /* UNIXReadWrite.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = UNIXReadWrite.h; sourceTree = "<group>"; };
+		DE1400940B0A3ADC0032FE7D /* KerberosAddress.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = KerberosAddress.m; sourceTree = "<group>"; };
+		DE1400950B0A3ADC0032FE7D /* KerberosCache.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = KerberosCache.m; sourceTree = "<group>"; };
+		DE1400960B0A3ADC0032FE7D /* KerberosCacheCollection.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = KerberosCacheCollection.m; sourceTree = "<group>"; };
+		DE1400970B0A3ADC0032FE7D /* KerberosCredential.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = KerberosCredential.m; sourceTree = "<group>"; };
+		DE1400980B0A3ADC0032FE7D /* TargetOwnedTimer.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = TargetOwnedTimer.m; sourceTree = "<group>"; };
+		DE1400990B0A3ADC0032FE7D /* UNIXReadWrite.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = UNIXReadWrite.c; sourceTree = "<group>"; };
+		DE5835530B0927CA00D45346 /* English */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = English; path = English.lproj/MainMenu.nib; sourceTree = "<group>"; };
+		DE585D940B08EEBE00D6779D /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
+		DEF1D88C0AFFD7B2005904B0 /* KerberosErrorAlert.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = KerberosErrorAlert.h; sourceTree = "<group>"; };
+		DEF1D88D0AFFD7B2005904B0 /* KerberosLifetimeFormatter.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = KerberosLifetimeFormatter.h; sourceTree = "<group>"; };
+		DEF1D88E0AFFD7B2005904B0 /* KerberosLifetimeSlider.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = KerberosLifetimeSlider.h; sourceTree = "<group>"; };
+		DEF1D88F0AFFD7B2005904B0 /* KerberosPreferences.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = KerberosPreferences.h; sourceTree = "<group>"; };
+		DEF1D8900AFFD7B2005904B0 /* KerberosPrincipal.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = KerberosPrincipal.h; sourceTree = "<group>"; };
+		DEF1D8930AFFD7B2005904B0 /* KerberosErrorAlert.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = KerberosErrorAlert.m; sourceTree = "<group>"; };
+		DEF1D8940AFFD7B2005904B0 /* KerberosLifetimeFormatter.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = KerberosLifetimeFormatter.m; sourceTree = "<group>"; };
+		DEF1D8950AFFD7B2005904B0 /* KerberosLifetimeSlider.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = KerberosLifetimeSlider.m; sourceTree = "<group>"; };
+		DEF1D8960AFFD7B2005904B0 /* KerberosPreferences.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = KerberosPreferences.m; sourceTree = "<group>"; };
+		DEF1D8970AFFD7B2005904B0 /* KerberosPrincipal.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = KerberosPrincipal.m; sourceTree = "<group>"; };
+		DEF1D8A20AFFD7F4005904B0 /* KerberosHelper_Prefix.pch */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = KerberosHelper_Prefix.pch; sourceTree = "<group>"; };
+		DEF1D8A30AFFD7F4005904B0 /* main.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
+		DEF1D8B00AFFD890005904B0 /* Kerberos.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kerberos.framework; path = /System/Library/Frameworks/Kerberos.framework; sourceTree = "<absolute>"; };
+		DEF1D8E30AFFDBBE005904B0 /* Release.xcconfig */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
+		DEF1D8E40AFFDBBE005904B0 /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		8D11072E0486CEB800E47090 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8D11072F0486CEB800E47090 /* Cocoa.framework in Frameworks */,
+				DEF1D8B10AFFD890005904B0 /* Kerberos.framework in Frameworks */,
+				DE585D950B08EEBE00D6779D /* IOKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		1058C7A0FEA54F0111CA2CBB /* Linked Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */,
+			);
+			name = "Linked Frameworks";
+			sourceTree = "<group>";
+		};
+		1058C7A2FEA54F0111CA2CBB /* Other Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				29B97324FDCFA39411CA2CEA /* AppKit.framework */,
+				13E42FB307B3F0F600E4EEF1 /* CoreData.framework */,
+				29B97325FDCFA39411CA2CEA /* Foundation.framework */,
+			);
+			name = "Other Frameworks";
+			sourceTree = "<group>";
+		};
+		19C28FACFE9D520D11CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				8D1107320486CEB800E47090 /* KerberosHelper.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		29B97314FDCFA39411CA2CEA /* KerberosHelper */ = {
+			isa = PBXGroup;
+			children = (
+				DEF1D8E30AFFDBBE005904B0 /* Release.xcconfig */,
+				DEF1D8E40AFFDBBE005904B0 /* Debug.xcconfig */,
+				DEF1D8A00AFFD7F4005904B0 /* Application Sources */,
+				DEF1D8890AFFD7B2005904B0 /* Common */,
+				29B97323FDCFA39411CA2CEA /* Frameworks */,
+				19C28FACFE9D520D11CA2CBB /* Products */,
+			);
+			name = KerberosHelper;
+			sourceTree = "<group>";
+		};
+		29B97323FDCFA39411CA2CEA /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				DE585D940B08EEBE00D6779D /* IOKit.framework */,
+				DEF1D8B00AFFD890005904B0 /* Kerberos.framework */,
+				1058C7A0FEA54F0111CA2CBB /* Linked Frameworks */,
+				1058C7A2FEA54F0111CA2CBB /* Other Frameworks */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		DE026B2C0AFFE63B00B24430 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				DE026BCC0AFFEB6E00B24430 /* Localizable.strings */,
+				DE026B3C0AFFE67E00B24430 /* Kerberos.tiff */,
+				DE5835520B0927CA00D45346 /* MainMenu.nib */,
+				DE026B2D0AFFE63B00B24430 /* InfoPlist.strings */,
+				DE026B330AFFE63B00B24430 /* Info.plist */,
+			);
+			name = Resources;
+			path = ../Resources;
+			sourceTree = SOURCE_ROOT;
+		};
+		DEF1D8890AFFD7B2005904B0 /* Common */ = {
+			isa = PBXGroup;
+			children = (
+				DEF1D88A0AFFD7B2005904B0 /* Headers */,
+				DEF1D8910AFFD7B2005904B0 /* Sources */,
+				DEF1D8980AFFD7B2005904B0 /* Resources */,
+			);
+			name = Common;
+			path = ../../../Common;
+			sourceTree = SOURCE_ROOT;
+		};
+		DEF1D88A0AFFD7B2005904B0 /* Headers */ = {
+			isa = PBXGroup;
+			children = (
+				DE14008E0B0A3A9F0032FE7D /* KerberosAddress.h */,
+				DE14008F0B0A3A9F0032FE7D /* KerberosCache.h */,
+				DE1400900B0A3A9F0032FE7D /* KerberosCacheCollection.h */,
+				DE1400910B0A3A9F0032FE7D /* KerberosCredential.h */,
+				DEF1D88C0AFFD7B2005904B0 /* KerberosErrorAlert.h */,
+				DEF1D88D0AFFD7B2005904B0 /* KerberosLifetimeFormatter.h */,
+				DEF1D88E0AFFD7B2005904B0 /* KerberosLifetimeSlider.h */,
+				DEF1D88F0AFFD7B2005904B0 /* KerberosPreferences.h */,
+				DEF1D8900AFFD7B2005904B0 /* KerberosPrincipal.h */,
+				DE1400920B0A3A9F0032FE7D /* TargetOwnedTimer.h */,
+				DE1400930B0A3A9F0032FE7D /* UNIXReadWrite.h */,
+			);
+			path = Headers;
+			sourceTree = "<group>";
+		};
+		DEF1D8910AFFD7B2005904B0 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				DE1400940B0A3ADC0032FE7D /* KerberosAddress.m */,
+				DE1400950B0A3ADC0032FE7D /* KerberosCache.m */,
+				DE1400960B0A3ADC0032FE7D /* KerberosCacheCollection.m */,
+				DE1400970B0A3ADC0032FE7D /* KerberosCredential.m */,
+				DEF1D8930AFFD7B2005904B0 /* KerberosErrorAlert.m */,
+				DEF1D8940AFFD7B2005904B0 /* KerberosLifetimeFormatter.m */,
+				DEF1D8950AFFD7B2005904B0 /* KerberosLifetimeSlider.m */,
+				DEF1D8960AFFD7B2005904B0 /* KerberosPreferences.m */,
+				DEF1D8970AFFD7B2005904B0 /* KerberosPrincipal.m */,
+				DE1400980B0A3ADC0032FE7D /* TargetOwnedTimer.m */,
+				DE1400990B0A3ADC0032FE7D /* UNIXReadWrite.c */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		DEF1D8980AFFD7B2005904B0 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				A1ACF6600B0D2052001D521C /* KerberosCredential.strings */,
+				DE026BF10AFFEC4100B24430 /* KerberosErrorAlert.strings */,
+				DE026BF30AFFEC4100B24430 /* KerberosLifetimeFormatter.strings */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		DEF1D8A00AFFD7F4005904B0 /* Application Sources */ = {
+			isa = PBXGroup;
+			children = (
+				DEF1D8A10AFFD7F4005904B0 /* Headers */,
+				DEF1D8A50AFFD807005904B0 /* Sources */,
+				DE026B2C0AFFE63B00B24430 /* Resources */,
+			);
+			name = "Application Sources";
+			path = ../Sources;
+			sourceTree = SOURCE_ROOT;
+		};
+		DEF1D8A10AFFD7F4005904B0 /* Headers */ = {
+			isa = PBXGroup;
+			children = (
+				DEF1D8A20AFFD7F4005904B0 /* KerberosHelper_Prefix.pch */,
+				DE0267090AFFE0AE00B24430 /* Utilities.h */,
+				DE0266ED0AFFDED400B24430 /* KerberosHelperController.h */,
+			);
+			path = Headers;
+			sourceTree = "<group>";
+		};
+		DEF1D8A50AFFD807005904B0 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				DEF1D8A30AFFD7F4005904B0 /* main.m */,
+				DE02670E0AFFE0E000B24430 /* Utilities.m */,
+				DE0266EE0AFFDED400B24430 /* KerberosHelperController.m */,
+			);
+			name = Sources;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		8D1107260486CEB800E47090 /* KerberosHelper */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C01FCF4A08A954540054247B /* Build configuration list for PBXNativeTarget "KerberosHelper" */;
+			buildPhases = (
+				8D1107290486CEB800E47090 /* Resources */,
+				8D11072C0486CEB800E47090 /* Sources */,
+				8D11072E0486CEB800E47090 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = KerberosHelper;
+			productInstallPath = "$(HOME)/Applications";
+			productName = KerberosHelper;
+			productReference = 8D1107320486CEB800E47090 /* KerberosHelper.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		29B97313FDCFA39411CA2CEA /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = C01FCF4E08A954540054247B /* Build configuration list for PBXProject "KerberosHelper" */;
+			compatibilityVersion = "Xcode 2.4";
+			hasScannedForEncodings = 1;
+			mainGroup = 29B97314FDCFA39411CA2CEA /* KerberosHelper */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				8D1107260486CEB800E47090 /* KerberosHelper */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		8D1107290486CEB800E47090 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DE026B340AFFE63B00B24430 /* InfoPlist.strings in Resources */,
+				DE026B3D0AFFE67E00B24430 /* Kerberos.tiff in Resources */,
+				DE026BCE0AFFEB6E00B24430 /* Localizable.strings in Resources */,
+				DE026BF50AFFEC4100B24430 /* KerberosErrorAlert.strings in Resources */,
+				DE026BF60AFFEC4100B24430 /* KerberosLifetimeFormatter.strings in Resources */,
+				DE5835540B0927CA00D45346 /* MainMenu.nib in Resources */,
+				A1ACF6620B0D2052001D521C /* KerberosCredential.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		8D11072C0486CEB800E47090 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DEF1D89A0AFFD7B2005904B0 /* KerberosErrorAlert.m in Sources */,
+				DEF1D89B0AFFD7B2005904B0 /* KerberosLifetimeFormatter.m in Sources */,
+				DEF1D89C0AFFD7B2005904B0 /* KerberosLifetimeSlider.m in Sources */,
+				DEF1D89D0AFFD7B2005904B0 /* KerberosPreferences.m in Sources */,
+				DEF1D89E0AFFD7B2005904B0 /* KerberosPrincipal.m in Sources */,
+				DEF1D8A40AFFD7F4005904B0 /* main.m in Sources */,
+				DE0266EF0AFFDED400B24430 /* KerberosHelperController.m in Sources */,
+				DE0267130AFFE0E000B24430 /* Utilities.m in Sources */,
+				DE14009A0B0A3ADC0032FE7D /* KerberosAddress.m in Sources */,
+				DE14009B0B0A3ADC0032FE7D /* KerberosCache.m in Sources */,
+				DE14009C0B0A3ADC0032FE7D /* KerberosCacheCollection.m in Sources */,
+				DE14009D0B0A3ADC0032FE7D /* KerberosCredential.m in Sources */,
+				DE14009E0B0A3ADC0032FE7D /* TargetOwnedTimer.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		A1ACF6600B0D2052001D521C /* KerberosCredential.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				A1ACF6610B0D2052001D521C /* English */,
+			);
+			name = KerberosCredential.strings;
+			sourceTree = "<group>";
+		};
+		DE026B2D0AFFE63B00B24430 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				DE026B2E0AFFE63B00B24430 /* English */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+		DE026BCC0AFFEB6E00B24430 /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				DE026BCD0AFFEB6E00B24430 /* English */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+		DE026BF10AFFEC4100B24430 /* KerberosErrorAlert.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				DE026BF20AFFEC4100B24430 /* English */,
+			);
+			name = KerberosErrorAlert.strings;
+			sourceTree = "<group>";
+		};
+		DE026BF30AFFEC4100B24430 /* KerberosLifetimeFormatter.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				DE026BF40AFFEC4100B24430 /* English */,
+			);
+			name = KerberosLifetimeFormatter.strings;
+			sourceTree = "<group>";
+		};
+		DE5835520B0927CA00D45346 /* MainMenu.nib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				DE5835530B0927CA00D45346 /* English */,
+			);
+			name = MainMenu.nib;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		C01FCF4B08A954540054247B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_PREFIX_HEADER = ../Sources/Headers/KerberosHelper_Prefix.pch;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/../Sources/Headers",
+					"$(SRCROOT)/../../../Common/Headers",
+				);
+				INFOPLIST_FILE = ../Resources/Info.plist;
+				INSTALL_PATH = "$(HOME)/Applications";
+				OTHER_LDFLAGS = "-Wl,-pie";
+				PRODUCT_NAME = KerberosHelper;
+				WRAPPER_EXTENSION = app;
+			};
+			name = Debug;
+		};
+		C01FCF4C08A954540054247B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_PREFIX_HEADER = ../Sources/Headers/KerberosHelper_Prefix.pch;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/../Sources/Headers",
+					"$(SRCROOT)/../../../Common/Headers",
+				);
+				INFOPLIST_FILE = ../Resources/Info.plist;
+				INSTALL_PATH = "$(HOME)/Applications";
+				OTHER_LDFLAGS = "-Wl,-pie";
+				PRODUCT_NAME = KerberosHelper;
+				WRAPPER_EXTENSION = app;
+			};
+			name = Release;
+		};
+		C01FCF4F08A954540054247B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PREBINDING = NO;
+			};
+			name = Debug;
+		};
+		C01FCF5008A954540054247B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PREBINDING = NO;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C01FCF4A08A954540054247B /* Build configuration list for PBXNativeTarget "KerberosHelper" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C01FCF4B08A954540054247B /* Debug */,
+				C01FCF4C08A954540054247B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C01FCF4E08A954540054247B /* Build configuration list for PBXProject "KerberosHelper" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C01FCF4F08A954540054247B /* Debug */,
+				C01FCF5008A954540054247B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 29B97313FDCFA39411CA2CEA /* Project object */;
+}

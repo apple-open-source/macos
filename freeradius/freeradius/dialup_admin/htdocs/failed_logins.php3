@@ -1,6 +1,8 @@
 <?php
 require('../conf/config.php3');
 require('../lib/attrshow.php3');
+require('../lib/sql/nas_list.php3');
+require_once('../lib/xlat.php3');
 ?>
 <html>
 <?php
@@ -13,7 +15,7 @@ else{
 <meta http-equiv="Content-Type" content="text/html; charset=$config[general_charset]">
 <link rel="stylesheet" href="style.css">
 </head>
-<body bgcolor="#80a040" background="images/greenlines1.gif" link="black" alink="black">
+<body>
 <center>
 <b>Could not include SQL library functions. Aborting</b>
 </body>
@@ -23,8 +25,10 @@ EOM;
 }
 
 $now = time();
-if ($last == 0)
+if (!isset($last))
 	$last = ($config[general_most_recent_fl]) ? $config[general_most_recent_fl] : 5;
+if (!is_numeric($last))
+	$last = 5;
 $start = $now - ($last*60);
 $now_str = date($config[sql_full_date_format],$now);
 $prev_str = date($config[sql_full_date_format],$start);
@@ -35,7 +39,7 @@ $prev_str = da_sql_escape_string($prev_str);
 $pagesize = ($pagesize) ? $pagesize : 10;
 if (!is_numeric($pagesize) && $pagesize != 'all')
 	$pagesize = 10;
-$limit = ($pagesize == 'all') ? '' : "LIMIT $pagesize";
+$limit = ($pagesize == 'all') ? '' : "$pagesize";
 $selected[$pagesize] = 'selected';
 $order = ($order != '') ? $order : $config[general_accounting_info_order];
 if ($order != 'desc' && $order != 'asc')
@@ -50,6 +54,10 @@ if ($server != '' && $server != 'all'){
 	$server_str = "AND nasipaddress = '$server'";
 }
 
+unset($da_name_cache);
+if (isset($_SESSION['da_name_cache']))
+	$da_name_cache = $_SESSION['da_name_cache'];
+
 ?>
 
 <head>
@@ -57,7 +65,7 @@ if ($server != '' && $server != 'all'){
 <meta http-equiv="Content-Type" content="text/html; charset=<?php echo $config[general_charset]?>">
 <link rel="stylesheet" href="style.css">
 </head>
-<body bgcolor="#80a040" background="images/greenlines1.gif" link="black" alink="black">
+<body>
 <center>
 <table border=0 width=550 cellpadding=0 cellspacing=0>
 <tr valign=top>
@@ -95,9 +103,11 @@ if ($acct_attrs['fl'][2] != '') echo "<th>" . $acct_attrs['fl'][2] . "</th>\n";
 if ($acct_attrs['fl'][7] != '') echo "<th>" . $acct_attrs['fl'][7] . "</th>\n";
 if ($acct_attrs['fl'][8] != '') echo "<th>" . $acct_attrs['fl'][8] . "</th>\n";
 if ($acct_attrs['fl'][9] != '') echo "<th>" . $acct_attrs['fl'][9] . "</th>\n";
-$sql_extra_query = '';
-if ($config[sql_accounting_extra_query] != '')
-	$sql_extra_query = sql_xlat($config[sql_accounting_extra_query],$login,$config);
+unset($sql_extra_query);
+if ($config[sql_accounting_extra_query] != ''){
+	$sql_extra_query = xlat($config[sql_accounting_extra_query],$login,$config);
+	$sql_extra_query = da_sql_escape_string($sql_extra_query);
+}
 ?>
 	</tr>
 
@@ -105,13 +115,13 @@ if ($config[sql_accounting_extra_query] != '')
 $link = @da_sql_pconnect($config);
 if ($link){
 	$search = @da_sql_query($link,$config,
-	"SELECT acctstoptime,username,nasipaddress,nasportid,acctterminatecause,callingstationid
+	"SELECT " . da_sql_limit($limit,0,$config) . " acctstoptime,username,nasipaddress,nasportid,acctterminatecause,callingstationid
 	FROM $config[sql_accounting_table]
 	WHERE acctstoptime <= '$now_str' AND acctstoptime >= '$prev_str'
 	AND (acctterminatecause LIKE 'Login-Incorrect%' OR
 	acctterminatecause LIKE 'Invalid-User%' OR
-	acctterminatecause LIKE 'Multiple-Logins%') $callerid_str $server_str $sql_extra_query
-	ORDER BY acctstoptime $order $limit;");
+	acctterminatecause LIKE 'Multiple-Logins%') $callerid_str $server_str $sql_extra_query " . da_sql_limit($limit,1,$config) .
+	" ORDER BY acctstoptime $order " . da_sql_limit($limit,2,$config) . " ;");
 	if ($search){
 		while( $row = @da_sql_fetch_array($search,$config) ){
 			$num++;
@@ -200,6 +210,8 @@ EOM;
 <?php
 foreach ($nas_list as $nas){
 	$name = $nas[name];
+	if ($nas[ip] == '')
+		continue;
 	$servers[$name] = $nas[ip];
 }
 ksort($servers);

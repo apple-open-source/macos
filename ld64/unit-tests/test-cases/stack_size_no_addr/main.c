@@ -1,6 +1,6 @@
 /* -*- mode: C++; c-basic-offset: 4; tab-width: 4 -*- 
  *
- * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2006-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,7 +23,15 @@
  */
 #include <stdio.h>
 
+#if __x86_64__
+static char buffer[8000000000];
+#elif __arm__
+static char buffer[100000000];
+#else
+static char buffer[2000000000];
+#endif
+
 int main()
 {
-	return 0;
+	return buffer[0];
 }

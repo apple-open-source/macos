@@ -1,0 +1,173 @@
+Return-Path: localhost!smtp_client
+Return-Path: <smtp_client@localhost>
+X-POP3-Rcpt: a.kupries@genesis
+Received: from mailhost.kisters.de (root@[193.23.163.143]) by genesis.westend.com (8.7.5/8.7.3) with SMTP id NAA01123 for <a.kupries@westend.com>; Tue, 17 Dec 1996 13:13:17 +0100 (MET)
+Received: from ramazotti by mailhost.kisters.de with smtp
+	(Smail3.1.29.1 #3) id m0vZzET-000BseC; Tue, 17 Dec 96 14:06 MET
+Date: Tue, 17 Dec 1996 13:06:41 +0100 (MET)
+From: Andreas Kupries <aku@kisters.de>
+X-Sender: aku@ramazotti
+To: Andreas Kupries <a.kupries@westend.com>
+Subject: Re: Trf, loading on demand (fwd)
+Message-ID: <Pine.ULT.3.91.961217130637.1348I-100000@ramazotti>
+MIME-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+
+
+
+-------
+Gruesse
+			Andreas Kupries
+			(aku@kisters.de)
+
+---------- Forwarded message ----------
+Date: Tue, 17 Dec 1996 09:05:13 +0100
+From: nijtmans@ergolab4.psych.kun.nl
+To: aku@kisters.DE
+Cc: nijtmans@ergolab4.psych.kun.nl
+Subject: Re: Trf, loading on demand
+
+----------
+X-Sun-Data-Type: text
+X-Sun-Data-Description: text
+X-Sun-Data-Name: text
+X-Sun-Charset: us-ascii
+X-Sun-Content-Lines: 23
+
+
+I discovered the same thing. The tclLoadAout.c file was
+copied from the Tcl7.6plus patch, but some additional
+things are needed.
+
+Below is a new version which worked for me. Still you
+will not be able to build an application with it, because
+there is a conflict between the tcl's symbols and
+the symbols supplied by the plus-patch. I am working on
+a new version in which this is solved.
+
+Temporary you can solve this by recompiling tcl while
+replacing the files generic/tclLoad.c and unix/tclLoadAout.c
+in it with the original versions (you have the enhanced version
+in the Trf package anyway now). In the pluspatch for Tcl8.0a1
+this problem will be solved.
+
+Sorry for the inconvenience,
+
+	Jan Nijtmans
+	NICI (Nijmegen Institute of Cognition and Information)
+	email: nijtmans@nici.kun.nl
+	url:   http://www.cogsci.kun.nl/~nijtmans/
+----------
+X-Sun-Data-Type: default
+X-Sun-Data-Description: default
+X-Sun-Data-Name: tclLoadAout.c.gz
+X-Sun-Encoding-Info: uuencode
+X-Sun-Content-Lines: 106
+
+begin 600 tclLoadAout.c.gz
+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
+EK+V]C&$9;1N&7B% $W5[]Z/!U@=3/$IFAQAV_P- #]#M1S<  ($P
+ 
+end
+

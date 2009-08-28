@@ -1,6 +1,6 @@
 // 2000-03-29 sss/bkoz
 
-// Copyright (C) 2000, 2003, 2004 Free Software Foundation, Inc.
+// Copyright (C) 2000, 2003, 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -15,7 +15,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 #include <algorithm>
@@ -52,25 +52,6 @@ template<typename T>
 
 template<typename T>
 const T A<T>::a = T(3);
-
-#if !__GXX_WEAK__
-// Explicitly instantiate for systems with no COMDAT or weak support.
-template int A<int>::a;
-template int A<unsigned int>::a;
-template int A<short>::a;
-template int A<unsigned short>::a;
-template int A<long>::a;
-template int A<unsigned long>::a;
-template int A<long long>::a;
-template int A<unsigned long long>::a;
-template int A<char>::a;
-template int A<signed char>::a;
-template int A<unsigned char>::a;
-template int A<wchar_t>::a;
-template int A<float>::a;
-template int A<double>::a;
-template int A<long double>::a;
-#endif
 
 void test02()
 {

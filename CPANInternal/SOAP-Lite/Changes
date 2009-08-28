@@ -1,7 +1,7 @@
 #
 # Revision history for Perl extension SOAP::Lite.
 #
-# $Id: Changes,v 1.19 2005/12/25 07:52:17 byrnereese Exp $
+# $Id: Changes,v 1.21 2006/07/06 18:14:38 byrnereese Exp $
 
 The contents of this file provides a change history for the SOAP::Lite
 Perl module. New features are designated with a '+' and bug fixes with
@@ -10,6 +10,21 @@ a '!'.
 -----------------------------------------------------------------------
 THIS RELEASE
 -----------------------------------------------------------------------
+
+0.69 Aug 16 2006
+
+  ! Commented out two lines of code that were causing S::L to die under
+    a non-fatal error condition. This is a HACK.
+
+0.68 July 6 2006
+
+  ! Patched support for mod_perl Apache2 (thanks to JT Justman)
+  ! Fixed bug where SOAP::SOM objects were not properly detected,
+    serialized and returned (thanks chris at prather dot o r g)
+  ! Fixed bug with default_ns and ns functions so that they
+    serialized XML properly.
+  + Started to add experimental DIME support - possible impacts to MIME
+    support as well
 
 0.65-beta7 May 12 2005
 

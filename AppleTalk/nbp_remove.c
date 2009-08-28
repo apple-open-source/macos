@@ -57,9 +57,7 @@
 #include <sys/sockio.h>
 #include <net/if.h>
 
-#include <netat/appletalk.h>
-#include <netat/at_var.h>
-#include <netat/nbp.h>
+#include "at_proto.h"
 
 #define	SET_ERRNO(e) errno = e
 
@@ -67,26 +65,6 @@ int nbp_remove (entity, fd)
 	at_entity_t	*entity;
 	int		fd;	/* not currently used */
 {
-	int		if_id;
-	at_nbp_reg_t    reg;
-
-	if (!entity) {
-		SET_ERRNO(EINVAL);
-		return(-1);
-	}
-
-	bzero((caddr_t)&reg, sizeof(reg));
-	reg.name = *entity;
-
-	if ((if_id = socket(AF_APPLETALK, SOCK_RAW, 0)) < 0)
-		return(-1);
-
-	if ((ioctl(if_id, AIOCNBPREMOVE, (caddr_t)&reg)) < 0) {
-		SET_ERRNO(EADDRNOTAVAIL);
-		(void)close(if_id);
-		return(-1);
-	}
-
-	(void)close(if_id);
-	return(0);
+	SET_ERRNO(ENXIO);
+	return (-1);
 }	

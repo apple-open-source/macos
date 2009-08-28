@@ -1,0 +1,212 @@
+#!../../src/xotclsh
+# $Id: MC.xotcl,v 1.1 2004/05/23 22:50:39 neumann Exp $
+#
+# A simple multiple choice test application
+#
+array set opts {-pkgdir .}; array set opts $argv
+lappend auto_path $opts(-pkgdir)
+
+package require XOTcl; namespace import -force xotcl::*
+#package require xotcl::package; package verbose 1
+package require xotcl::actiweb::htmlPlace
+package require xotcl::actiweb::pageTemplate
+
+HtmlPlace ::receiver -port 8092 -allowExit exit
+
+# Define a pool of questions: Question and their alternatives
+# are defined as classes and all questions are stored in the pool
+#
+Class Pool
+Class Pool::Question -parameter {text {altcounter 1}}
+Class Pool::Question::Alternative -parameter {text correct}
+
+Pool::Question instproc alternatives {pairs} {
+  my instvar altcounter
+  foreach {alt correct} $pairs {
+    incr altcounter
+    [self class]::Alternative [self]::$altcounter \
+	-text $alt -correct $correct
+  }
+}
+
+
+#
+# An Exam has a name and is a selection of questions from a pool.
+# "requiredCorrect" defines the minimal number of correct answers
+# to pass the test.
+
+Class Exam -parameter {name requiredCorrect pool questions}
+
+
+#
+# For every candidate we create an individual exam. We scramble
+# the questions and alternatives and use the studentID as a seed.
+#
+
+Class IndividualExam -superclass Agent -parameter {ID exam}
+
+IndividualExam instproc random modulo {            ;### random number generator
+  my instvar seed
+  set seed [expr {($seed*12731+34197) % 21473}]
+  return [expr {$seed % $modulo}]
+}
+IndividualExam instproc permute {list} {           ;### permute random permutation
+  set permuted {}
+  for {set nr [llength $list]} {$nr>0} {incr nr -1} {
+    set select [my random $nr]
+    lappend permuted [lindex $list $select]
+    set list [lreplace $list $select $select]
+  }
+  return $permuted
+}
+IndividualExam instproc init args {
+  my instvar seed ID exam individualTest alternatives
+  set questions [$exam set questions]
+  set seed $ID
+  ### compute order of individual tests and alternatives
+  foreach index [my permute [$exam set questions]] {
+    set questionObj [$exam set pool]::$index
+    lappend individualTest $index
+    set alts [my permute [lsort [$questionObj info children]]]
+    lappend alternatives $alts
+  }
+  #puts stderr "Individual test [self] has $individualTest"
+}
+
+#
+# Define a web facade using a page template
+# "testObject" is the individual test that is shielded by the web facade
+#
+Class WebExam -superclass WebObject \
+  -instmixin PageTemplateHtml -parameter {testObject}
+WebExam instproc default {} {     ;### This method creates the HTML Test
+  my instvar testObject       ;### import var that stores shielded test object
+  ### import vars from the test
+  $testObject instvar individualTest alternatives exam
+  set action [my selfAction result]
+  ### create Test page
+  set htmlText "<FORM action='$action' METHOD='POST'>\n<OL>\n"
+  ### iterate over the set of questions/alternatives
+  ### and add them to the HTML text
+  foreach question $individualTest alts $alternatives {
+    append htmlText "<LI> [[$exam pool]::$question text]\n<UL>\n"
+    foreach a $alts {
+      append htmlText "<LI> <INPUT TYPE='checkbox' NAME='$a' VALUE='$a'> \
+	[$a text] ([$a correct])\n"
+    }
+    append htmlText "</UL><p>\n"
+  }
+  ### we have to add a hidden form field, otherwise we get no result, 
+  ### if nothing is tagged
+  append htmlText "<INPUT TYPE='hidden' NAME='__h' VALUE='__h'>"
+  ### the submit button lets us send the result back
+  append htmlText "</OL><INPUT TYPE='submit' VALUE='Submit'></FORM>\n"
+  ### create simple HTML Page
+  my simplePage [$exam name] \
+       "Exam [$exam name] for [string trimleft $testObject :] \
+	(Exam: $exam)" $htmlText
+}
+WebExam instproc result {} {      ;# This method analyses the results of the test
+  my instvar testObject       ;### import var that stores shielded test
+  set exam [$testObject exam]
+  $testObject instvar individualTest alternatives
+  foreach question $individualTest alts $alternatives {
+    foreach a $alts {set ca($a) 0}
+  }
+  foreach a [my getFormData] {set ca([$a set content]) 1}
+  set htmlText "You have answered:<UL>"
+  array set answerText  {0 " -- answered no\n"  1 " -- answered yes\n"}
+  array set correctText {0 "\n -- Wrong.<br>\n" 1 "\n -- Correct.<br>\n"}
+  set correctAnswers 0
+  foreach q $individualTest {
+    set correct 1
+    append htmlText "<LI> <em>[[$exam pool]::$q text]</em>: <br>\n"
+    foreach alternative [[$exam pool]::$q info children] {
+      set altCorrect [expr {$ca($alternative) == [$alternative correct]}]
+      append htmlText [$alternative text]\n \
+	  $answerText($ca($alternative)) \
+	  $correctText($altCorrect)
+      set correct [expr {$correct && $altCorrect}]
+    }
+    if {$correct} {incr correctAnswers}
+  }
+  append htmlText </UL>\n
+  if {$correctAnswers < [$exam requiredCorrect]} {
+    my simplePage [self] "Sorry" "$htmlText\
+	Only $correctAnswers question were answered correctly. You have not succeeded :("
+  } else {
+    my simplePage [self] "Congratulations" "$htmlText\
+	$correctAnswers questions were answered correctly. You have succeeded :-)"
+  }
+}
+WebExam instproc init args {
+  next
+  [my place] exportObjs [self]     ;# export object
+  my exportProcs result            ;# export methods
+}
+
+
+
+
+
+# Create a Pool P with 6 example questions with 3 alternatives for each.
+
+Pool p
+Pool::Question p::1 \
+    -text "When was the first XOTcl Version released?" -alternatives {
+	"1998" 0
+	"1999" 1
+	"2000" 0
+    }
+Pool::Question p::2 -text "Who is author of XOTcl?" -alternatives {
+    "Gustaf Neumann" 1
+    "Mika Haekinnen" 0
+    "Uwe Zdun" 1
+}
+Pool::Question p::3 -text "Which of the systems are other OO extensions of Tcl?" \
+    -alternatives {
+	"XTCL" 0
+	"ITCL" 1
+	"OTCL" 1
+    }
+Pool::Question p::4 \
+    -text "Which methods are provided by the Object class?" -alternatives {
+	"set" 1
+	"instvar" 0
+	"filter" 1
+    }
+Pool::Question p::5 \
+    -text  "Which methods are provided by the Object class?" -alternatives {
+	"unset" 1
+	"instproc" 0
+	"mixin" 1
+    }
+Pool::Question p::6 \
+    -text "Which methods are provided by the Class class?" -alternatives {
+	"proc" 0
+	"instproc" 1
+	"mixin" 0
+    }
+
+### Define an exam
+
+Exam xotclTest \
+    -pool p \
+    -name "XOTcl Test" \
+    -questions {1 2 3 4 5} \
+    -requiredCorrect 4
+
+
+### Define two Student tests with the XOTcl Test
+
+foreach {Student ID} {
+    Uwe 7850247
+    Gustaf 7850248
+} {
+    ## Define the individual exams
+    IndividualExam $Student -exam xotclTest -ID $ID
+    ### Define a web facade for each student
+    WebExam $Student.html -testObject $Student
+
+}
+receiver startEventLoop

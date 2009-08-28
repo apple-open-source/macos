@@ -1,0 +1,50 @@
+/define APR_INT64_STRFN/c
+#ifdef __LP64__
+#define APR_INT64_STRFN strtol
+#else
+#define APR_INT64_STRFN strtoll
+#endif
+.
+/define APR_OFF_T_STRFN/c
+#ifdef __LP64__
+#define APR_OFF_T_STRFN strtol
+#else
+#define APR_OFF_T_STRFN strtoll
+#endif
+.
+/define SIZEOF_LONG/c
+#ifdef __LP64__
+#define SIZEOF_LONG 8
+#else
+#define SIZEOF_LONG 4
+#endif
+.
+/define SIZEOF_SIZE_T/c
+#ifdef __LP64__
+#define SIZEOF_SIZE_T 8
+#else
+#define SIZEOF_SIZE_T 4
+#endif
+.
+/define SIZEOF_SSIZE_T/c
+#ifdef __LP64__
+#define SIZEOF_SSIZE_T 8
+#else
+#define SIZEOF_SSIZE_T 4
+#endif
+.
+/define SIZEOF_STRUCT_IOVEC/c
+#ifdef __LP64__
+#define SIZEOF_STRUCT_IOVEC 16
+#else
+#define SIZEOF_STRUCT_IOVEC 8
+#endif
+.
+/define SIZEOF_VOIDP/c
+#ifdef __LP64__
+#define SIZEOF_VOIDP 8
+#else
+#define SIZEOF_VOIDP 4
+#endif
+.
+w

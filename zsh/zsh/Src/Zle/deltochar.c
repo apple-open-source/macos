@@ -46,10 +46,11 @@ deltochar(UNUSED(char **args))
 	    while (dest != zlell && (ZLE_INT_T)zleline[dest] != c)
 		dest++;
 	    if (dest != zlell) {
+		/* HERE adjust dest for trailing combining chars */
 		if (!zap || n > 0)
-		    dest++;
+		    INCCS();
 		if (!n) {
-		    forekill(dest - zlecs, 0);
+		    forekill(dest - zlecs, CUT_RAW);
 		    ok++;
 		}
 	    }
@@ -63,7 +64,8 @@ deltochar(UNUSED(char **args))
 		dest--;
 	    if ((ZLE_INT_T)zleline[dest] == c) {
 		if (!n) {
-		    backkill(zlecs - dest - zap, 1);
+		    /* HERE adjust zap for trailing combining chars */
+		    backkill(zlecs - dest - zap, CUT_RAW|CUT_FRONT);
 		    ok++;
 		}
 		if (dest)
@@ -74,11 +76,36 @@ deltochar(UNUSED(char **args))
     return !ok;
 }
 
+
+static struct features module_features = {
+    NULL, 0,
+    NULL, 0,
+    NULL, 0,
+    NULL, 0,
+    0
+};
+
+
 /**/
 int
 setup_(UNUSED(Module m))
 {
     return 0;
+}
+
+/**/
+int
+features_(Module m, char ***features)
+{
+    *features = featuresarray(m, &module_features);
+    return 0;
+}
+
+/**/
+int
+enables_(Module m, int **enables)
+{
+    return handlefeatures(m, &module_features, enables);
 }
 
 /**/
@@ -94,17 +121,17 @@ boot_(Module m)
 	    return 0;
 	deletezlefunction(w_deletetochar);
     }
-    zwarnnam(m->nam, "deltochar: name clash when adding ZLE functions");
+    zwarnnam(m->node.nam, "deltochar: name clash when adding ZLE functions");
     return -1;
 }
 
 /**/
 int
-cleanup_(UNUSED(Module m))
+cleanup_(Module m)
 {
     deletezlefunction(w_deletetochar);
     deletezlefunction(w_zaptochar);
-    return 0;
+    return setfeatureenables(m, &module_features, NULL);
 }
 
 /**/

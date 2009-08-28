@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -97,30 +97,30 @@ struct msdosfsmount {
 	struct bpb50 pm_bpb;	/* BIOS parameter blk for this fs */
 	u_int32_t pm_BlockSize;	/* device's logical block size */
 	u_int32_t pm_PhysBlockSize;	/* device's physical block size */
-	u_long pm_BlocksPerSec;	/* pm_BytesPerSec divided by pm_BlockSize (device blocks per DOS sector) */
-	u_long pm_rootdirblk;	/* block # (cluster # for FAT32) of root directory number */
-	u_long pm_rootdirsize;	/* number of physical (device) blocks in root directory (FAT12 and FAT16 only) */
-	u_long pm_firstcluster;	/* sector number of first cluster (relative to start of volume) */
-	u_long pm_maxcluster;	/* maximum cluster number; clusters are in range 2..pm_maxcluster */
-	u_long pm_freeclustercount;	/* number of free clusters */
-	u_long pm_cnshift;	/* shift file offset right this amount to get a cluster number */
-	u_long pm_crbomask;	/* and a file offset with this mask to get cluster rel offset */
-	u_long pm_bnshift;	/* shift amount to convert between bytes and physical (device) blocks */
-	u_long pm_bpcluster;	/* bytes per cluster */
-	u_long pm_fatblocksize;	/* size of fat blocks in bytes */
-	u_long pm_fatmask;	/* mask to use for fat numbers */
-	u_long pm_fsinfo_sector;	/* Logical block number to read to get FSInfo */
-	u_long pm_fsinfo_size;	/* Number of bytes to read to get FSInfo */
-	u_long pm_fsinfo_offset;	/* Offset, in bytes, from pm_fsinfo_sector to start of FSInfo */
-	u_long pm_nxtfree;	/* next free cluster in fsinfo block */
+	uint32_t pm_BlocksPerSec;	/* pm_BytesPerSec divided by pm_BlockSize (device blocks per DOS sector) */
+	uint32_t pm_rootdirblk;	/* block # (cluster # for FAT32) of root directory number */
+	uint32_t pm_rootdirsize;	/* number of physical (device) blocks in root directory (FAT12 and FAT16 only) */
+	uint32_t pm_firstcluster;	/* sector number of first cluster (relative to start of volume) */
+	uint32_t pm_maxcluster;	/* maximum cluster number; clusters are in range 2..pm_maxcluster */
+	uint32_t pm_freeclustercount;	/* number of free clusters */
+	uint32_t pm_cnshift;	/* shift file offset right this amount to get a cluster number */
+	uint32_t pm_crbomask;	/* and a file offset with this mask to get cluster rel offset */
+	uint32_t pm_bnshift;	/* shift amount to convert between bytes and physical (device) blocks */
+	uint32_t pm_bpcluster;	/* bytes per cluster */
+	uint32_t pm_fatblocksize;	/* size of fat blocks in bytes */
+	uint32_t pm_fatmask;	/* mask to use for fat numbers */
+	uint32_t pm_fsinfo_sector;	/* Logical block number to read to get FSInfo */
+	uint32_t pm_fsinfo_size;	/* Number of bytes to read to get FSInfo */
+	uint32_t pm_fsinfo_offset;	/* Offset, in bytes, from pm_fsinfo_sector to start of FSInfo */
+	uint32_t pm_nxtfree;	/* next free cluster in fsinfo block */
 	u_int pm_fatmult;	/* these 2 values are used in fat */
 	u_int pm_fatdiv;	/*	offset computation */
 	u_int pm_curfat;	/* current fat for FAT32 (0 otherwise) */
 	u_int *pm_inusemap;	/* ptr to bitmap of in-use clusters */
 	u_int pm_flags;		/* see below */
 	u_int8_t pm_label[64];	/* Volume name/label */
-	u_long pm_label_cluster; /* logical cluster within root that contains the label */
-	u_long pm_label_offset;	/* byte offset of label within above cluster */
+	uint32_t pm_label_cluster; /* logical cluster within root that contains the label */
+	uint32_t pm_label_offset;	/* byte offset of label within above cluster */
 	lck_mtx_t	*pm_fat_lock;	/* Protects the File Allocation Table (in memory, and on disk) */
 	lck_mtx_t	*pm_rename_lock;
 	vnode_t pm_fat_active_vp;	/* vnode for accessing the active FAT */
@@ -129,7 +129,24 @@ struct msdosfsmount {
 	u_int32_t pm_fat_bytes;	/* size of one copy of the FAT, in bytes */
 	u_int32_t pm_fat_cache_offset;	/* which block is being cached; relative to start of active FAT */
 	int pm_fat_flags;	/* Flags about state of the FAT; see constants below */
-	SInt32		pm_sync_count;	/* Number of msdosfs_meta_sync_callback's waiting to complete. */
+	
+	/*
+	 * About the sync counters:
+	 * pm_sync_scheduled  keeps track whether a timer was scheduled but we
+	 *                    haven't started processing the callback (i.e. we
+	 *                    haven't begun the flush).  This will be non-zero
+	 *                    even if the callback has been invoked, before we
+	 *                    start the flush.
+	 * pm_sync_incomplete keeps track of the number of callbacks that have
+	 *                    not completed yet (including callbacks not yet
+	 *                    invoked).  We cannot safely unmount until this
+	 *                    drops to zero.
+	 *
+	 * In both cases, we use counters, not flags, so that we can avoid
+	 * taking locks.
+	 */
+	SInt32		pm_sync_scheduled;
+	SInt32		pm_sync_incomplete;
 	thread_call_t	pm_sync_timer;
 	
 	u_int32_t	pm_iosize;		/* "optimal" I/O size */
@@ -273,9 +290,12 @@ struct msdosfs_args {
 
 /* All flags above: */
 #define MSDOSFSMNT_MNTOPT		(MSDOSFSMNT_SECONDSWEST | MSDOSFSMNT_LABEL)
+
+/* Flags from the pm_flags field: */
 #define	MSDOSFSMNT_RONLY		0x80000000	/* mounted read-only	*/
 #define	MSDOSFSMNT_WAITONFAT	0x40000000	/* mounted synchronous	*/
 #define	MSDOSFS_FATMIRROR		0x20000000	/* FAT is mirrored */
+#define MSDOSFS_CORRUPT			0x10000000	/* Runtime corruption detected. */
 
 #define MSDOSFS_ARGSMAGIC		0xe4eff301
 

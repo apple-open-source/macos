@@ -1,0 +1,142 @@
+#!/usr/bin/env tclsh
+# %renumber<^\s*test >%
+
+source [file join [file dir [info script]] initests.tcl]
+
+test 0 {} {
+  package require Mk4tcl
+} $version
+
+  # this crashes TclKit 8.0.5, but works with a recent tclkitsh
+  # caused by the Windows 4 Kb mmap-avoid buffer (has been fixed)
+
+set f f1.dat
+test 1 {one thousand properties} -body {
+  file delete $f
+
+  set format ""
+  mk::file open db $f
+
+  for {set i 0} {$i < 1000} {incr i} {
+    lappend format i$i:I
+  }
+  mk::view layout db.v $format
+  mk::file commit db
+  equal [mk::view layout db.v] $format
+} -cleanup {mk::file close db}
+file delete $f
+
+  # MK doesn't return proper format when no rows are present
+  # fixed 03/11/1999 in Mk4tcl 1.2 + Mk 1.9d
+
+set f f2.dat
+test 2 {deeply nested} -body {
+  file delete $f
+
+  set format [list a b]
+  for {set i 0} {$i < 10} {incr i} {
+    set format [list v$i $format]
+  }
+    # the bug is in this view layout (i.e. fetch, setting it works fine)
+  mk::file open db $f
+  mk::view layout db.v $format
+  mk::file commit db
+  equal [mk::view layout db.v] $format
+} -cleanup {mk::file close db}
+file delete $f
+
+  # failed due to bad caching, fixed in 1.9f
+
+test 3 {numeric sorts} -body {
+  mk::view layout db.v {i:I f:F d:D}
+  mk::row append db.v i 44 f   44 d   44
+  mk::row append db.v i 3333 f 3333 d 3333
+  mk::row append db.v i 11 f   11 d   11
+  mk::row append db.v i 22 f   22 d   22
+  mk::row append db.v i 4444 f 4444 d 4444
+  mk::row append db.v i 7777 f 7777 d 7777
+  mk::row append db.v i 6666 f 6666 d 6666
+  mk::row append db.v i  333 f  333 d  333
+  mk::row append db.v i  444 f  444 d  444
+  mk::row append db.v i 1111 f 1111 d 1111
+  mk::row append db.v i 33 f   33 d   33
+  mk::row append db.v i 5555 f 5555 d 5555
+  mk::row append db.v i  222 f  222 d  222
+  mk::row append db.v i  111 f  111 d  111
+  mk::row append db.v i 7777 f 7777 d 7777
+  mk::row append db.v i 55 f   55 d   55
+  mk::row append db.v i 2222 f 2222 d 2222
+  mk::row append db.v i  555 f  555 d  555
+  mk::row append db.v i 77 f   77 d   77
+  mk::row append db.v i 66 f   66 d   66
+  mk::row append db.v i  777 f  777 d  777
+  mk::row append db.v i  666 f  666 d  666
+  set s1 {2 3 10 0 15 19 18 13 12 7 8 17 21 20 9 16 1 4 11 6 5 14}
+  set s2 {5 14 6 11 4 1 16 9 20 21 17 8 7 12 13 18 19 15 0 10 3 2}
+  equal [mk::select db.v -sort i] $s1
+  equal [mk::select db.v -sort f] $s1
+  equal [mk::select db.v -sort d] $s1
+  equal [mk::select db.v -rsort i] $s2
+  equal [mk::select db.v -rsort f] $s2
+  equal [mk::select db.v -rsort d] $s2
+} -setup {mk::file open db} -cleanup {mk::file close db}
+
+  # termination problem reported by MR, fixed 1999-11-11
+  
+test 4 {slave cleanup} -body {
+  interp create sub
+  foreach e [info loaded] {
+    foreach {x y} $e break
+    if {[string match Mk* $y]} {
+      #puts "load $x $y sub"
+      load $x $y sub
+    }
+  }
+  interp delete sub ;# this crashed
+}
+
+  # bug in set-after-get reported by MV, fixed 1999-12-20
+  
+set f f5.dat
+test 5 {set after get} -body {
+  file delete $f
+  
+  mk::file open db $f
+  mk::view layout db.v s
+  set a 1234567890
+  set a $a$a$a$a$a$a$a$a$a$a
+  set a $a$a$a$a$a$a$a$a$a$a
+  set b $a$a$a$a
+  mk::row append db.v s $b  ;# 4000
+  mk::row append db.v s $a  ;# 1000, wraps
+  mk::file commit db
+  set c [mk::get db.v!1 s]
+  mk::set db.v!1 s $c
+  return
+} -cleanup {mk::file close db}
+file delete $f
+
+  # crashed in 2.3.1 alpha
+
+test 6 {open missing file r/o} -body {
+  catch {mk::file open db0 f6.dat -readonly} err
+  equal $err {file open failed}
+}
+
+  # crashed until 2003-02-37
+
+test 7 {relaxed layout list input} -body {
+  mk::view layout db.v { README#2 README#3 }
+} -result db.v -setup {mk::file open db} -cleanup {mk::file close db}
+
+  # crashed until 2004-01-22, MK 2.4.9.2
+
+test 8 {row create} -body {
+  for {set i 0} {$i < 10} {incr i} {
+    mk::row create
+    lappend keep [mk::row create]
+  }
+  unset keep
+}
+
+::tcltest::cleanupTests

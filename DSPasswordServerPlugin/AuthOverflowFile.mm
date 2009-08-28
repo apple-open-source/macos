@@ -51,12 +51,19 @@
 }
 
 
--free
+-(void)dealloc
 {
 	if ( mOverflowPath != NULL )
 		free( mOverflowPath );
 	
-	return [super free];
+	[super dealloc];
+}
+
+
+-free
+{
+    [self release];
+    return 0;
 }
 
 
@@ -156,8 +163,9 @@
 	int err = -1;
 	char uidStr[35] = {0,};
 	char buff[35] = {0,};
-	unsigned int encodeLen;
-    int writeCount;
+	int fileNumber = 0;
+	size_t encodeLen;
+    size_t writeCount;
     char *filePath = NULL;
 	bool bad = false;
 	PWFileEntry passRec;
@@ -179,13 +187,13 @@
 		goto done;
 	}
 	
-	int fileNumber = [self getFileNumberFromPath:filePath];
+	fileNumber = [self getFileNumberFromPath:filePath];
 	
 	// use text-based matching to avoid endian problems
 	pwsf_passwordRecRefToString( inPasswordRec, uidStr );
 	
 	if ( setModDate )
-		pwsf_getGMTime( (struct tm *)&inPasswordRec->modificationDate );
+		pwsf_getGMTime( &inPasswordRec->modificationDate );
 	
 	encodeLen = strlen(inPasswordRec->passwordStr);
 	encodeLen += (kFixedDESChunk - (encodeLen % kFixedDESChunk));	
@@ -372,7 +380,7 @@ done:
 			#if DEBUG
 			srvmsg( "deleting id: %s", uidStr);
 			#endif
-			copyLen = sb.st_size - offset - 34 - sizeof(PWFileEntry);
+			copyLen = (ssize_t)sb.st_size - (ssize_t)offset - 34 - sizeof(PWFileEntry);
 			if ( copyLen > 0 ) 
 			{
 				buff = (unsigned char *) malloc( copyLen );
@@ -438,7 +446,7 @@ done:
 	off_t byteCount;
 	FILE *fp;
 	time_t theTime;
-	int writeCount;
+	size_t writeCount;
 	PWFileEntry recBuff;
 	const char *filePathPtr = NULL;
 	PWSFKerberosPrincipal* kerberosRec;
@@ -472,7 +480,7 @@ done:
 				
 				// adjust time skew for comparison purposes. The record itself is
 				// adjusted on the processing side.
-				theTime = timegm( (struct tm *)&recBuff.modificationDate ) + inTimeSkew;
+				theTime = BSDTimeStructCopy_timegm( &recBuff.modificationDate ) + inTimeSkew;
 				
 				if ( theTime >= inAfterDate )
 				{
@@ -717,7 +725,6 @@ done:
 							}
 							else
 							{
-								#warning Kerberize not implemented
 								#if 0
 								// un-obfuscate
 								pwsf_DESAutoDecode( recBuff.passwordStr );
@@ -760,7 +767,7 @@ done:
 								struct tm localTime;
 								
 								pwsf_passwordRecRefToString( &recBuff, idStr );
-								secs = timegm( (struct tm *)&recBuff.modificationDate );
+								secs = BSDTimeStructCopy_timegm( &recBuff.modificationDate );
 								localtime_r( &secs, &localTime );
 								strftime( modDateStr, sizeof(modDateStr), "%m/%d/%Y %r", &localTime );
 								printf( "overflow %.2ld: %s %15s\t%s\n", [self simpleHash:&recBuff], idStr, recBuff.usernameStr, modDateStr );
@@ -770,7 +777,7 @@ done:
 						case kOverflowActionPurgeDeadSlots:
 							if ( recBuff.extraAccess.recordIsDead )
 							{
-								time_t deleteSecs = timegm( (struct tm *)&recBuff.modDateOfPassword );
+								time_t deleteSecs = BSDTimeStructCopy_timegm( &recBuff.modDateOfPassword );
 								if ( difftime(deleteSecs, beforeSecs) < 0 )
 									[self deleteSlot:&recBuff];
 							}

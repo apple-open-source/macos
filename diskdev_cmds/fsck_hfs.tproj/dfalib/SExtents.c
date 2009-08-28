@@ -1,23 +1,22 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2002, 2005, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -75,6 +74,9 @@ Public (Exported) Routines:
 					the FCB resident extent record.  If the record has no extents,
 					and was in the extents file, then delete the record instead.
 
+	ReleaseExtents
+					Deallocate all allocation blocks in all extents of an extent
+					data record.
 ============================================================
 Internal Routines:
 ============================================================
@@ -86,9 +88,6 @@ Internal Routines:
 	SearchExtentRecord
 					Search a given extent record to see if it contains a given
 					file position (in bytes).  Used by SearchExtentFile.
-	ReleaseExtents
-					Deallocate all allocation blocks in all extents of an extent
-					data record.
 	TruncateExtents
 					Deallocate blocks and delete extent records for all allocation
 					blocks beyond a certain point in a file.  The starting point
@@ -149,7 +148,7 @@ static OSErr SetFCBExtentRecord(
 static OSErr SearchExtentFile(
 	const SVCB		*vcb,
 	const SFCB 			*fcb,
-	UInt32 					filePosition,
+	UInt64 					filePosition,
 	HFSPlusExtentKey			*foundExtentKey,
 	HFSPlusExtentRecord		foundExtentData,
 	UInt32					*foundExtentDataIndex,
@@ -166,12 +165,6 @@ static OSErr SearchExtentRecord(
 	Boolean					*noMoreExtents);
 
 #if 0
-static OSErr ReleaseExtents(
-	SVCB				*vcb,
-	const HFSPlusExtentRecord	extentRecord,
-	UInt32					*numReleasedAllocationBlocks,
-	Boolean 				*releasedLastExtent);
-
 static OSErr DeallocateFork(
 	SVCB 		*vcb,
 	HFSCatalogNodeID		fileID,
@@ -190,7 +183,7 @@ static OSErr TruncateExtents(
 static OSErr MapFileBlockFromFCB(
 	const SVCB		*vcb,
 	const SFCB			*fcb,
-	UInt32					offset,			// Desired offset in bytes from start of file
+	UInt64					offset,			// Desired offset in bytes from start of file
 	UInt32					*firstFABN,		// FABN of first block of found extent
 	UInt32					*firstBlock,	// Corresponding allocation block number
 	UInt32					*nextFABN);		// FABN of block after end of extent
@@ -429,7 +422,7 @@ OSErr MapFileBlockC (
 	SVCB		*vcb,				// volume that file resides on
 	SFCB			*fcb,				// FCB of file
 	UInt32			numberOfBytes,		// number of contiguous bytes desired
-	UInt32			sectorOffset,		// starting offset within file (in 512-byte sectors)
+	UInt64			sectorOffset,		// starting offset within file (in 512-byte sectors)
 	UInt64			*startSector,		// first 512-byte volume sector (NOT an allocation block)
 	UInt32			*availableBytes)	// number of contiguous bytes (up to numberOfBytes)
 {
@@ -441,7 +434,7 @@ OSErr MapFileBlockC (
 	UInt32				hint;
 	UInt32				firstFABN = 0;				// file allocation block of first block in found extent
 	UInt32				nextFABN;				// file allocation block of block after end of found extent
-	UInt32				dataEnd;				// (offset) end of range that is contiguous (in sectors)
+	UInt64				dataEnd;				// (offset) end of range that is contiguous (in sectors)
 	UInt32				startBlock = 0;			// volume allocation block corresponding to firstFABN
 	UInt64				temp;
 	
@@ -473,14 +466,14 @@ OSErr MapFileBlockC (
 	
 	// Get fork's physical size, in sectors
 	temp = fcb->fcbPhysicalSize >> kSectorShift;
-	dataEnd = nextFABN * allocBlockSize;		// Assume valid data through end of this extent
+	dataEnd = (UInt64) nextFABN * allocBlockSize;		// Assume valid data through end of this extent
 	if (temp < dataEnd)							// Is PEOF shorter?
 		dataEnd = temp;							// Yes, so only map up to PEOF
 	
 	//
 	//	Compute the absolute sector number that contains the offset of the given file
 	//
-	temp  = sectorOffset - (firstFABN * allocBlockSize);	// offset in sectors from start of this extent
+	temp  = sectorOffset - ((UInt64) firstFABN * allocBlockSize);	// offset in sectors from start of this extent
 	temp += (UInt64)startBlock * (UInt64)allocBlockSize;	// offset in sectors from start of allocation block space
 	if (vcb->vcbSignature == kHFSPlusSigWord)
 		temp += vcb->vcbEmbeddedOffset/512;		// offset into the wrapper
@@ -517,7 +510,7 @@ OSErr MapFileBlockC (
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 #if 1
-static OSErr ReleaseExtents(
+OSErr ReleaseExtents(
 	SVCB 			*vcb,
 	const HFSPlusExtentRecord	extentRecord,
 	UInt32					*numReleasedAllocationBlocks,
@@ -1344,7 +1337,7 @@ static OSErr SearchExtentRecord(
 static OSErr SearchExtentFile(
 	const SVCB 	*vcb,
 	const SFCB 		*fcb,
-	UInt32 				sectorOffset,
+	UInt64 				sectorOffset,
 	HFSPlusExtentKey	*foundExtentKey,
 	HFSPlusExtentRecord	foundExtentData,
 	UInt32				*foundExtentIndex,
@@ -1604,7 +1597,7 @@ static OSErr SetFCBExtentRecord(
 static OSErr MapFileBlockFromFCB(
 	const SVCB		*vcb,
 	const SFCB			*fcb,
-	UInt32					sectorOffset,	// Desired offset in sectors from start of file
+	UInt64					sectorOffset,	// Desired offset in sectors from start of file
 	UInt32					*firstFABN,		// FABN of first block of found extent
 	UInt32					*firstBlock,	// Corresponding allocation block number
 	UInt32					*nextFABN)		// FABN of block after end of extent

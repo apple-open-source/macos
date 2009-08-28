@@ -23,7 +23,7 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)util.c	1.10	06/05/03 SMI"
+#pragma ident	"@(#)util.c	1.11	06/08/22 SMI"
 
 /*
  * Utility functions
@@ -47,7 +47,7 @@ static void (*terminate_cleanup)() = NULL;
 
 /* returns 1 if s1 == s2, 0 otherwise */
 int
-streq(char *s1, char *s2)
+streq(const char *s1, const char *s2)
 {
 	if (s1 == NULL) {
 		if (s2 != NULL)
@@ -93,6 +93,27 @@ findelfsecidx(Elf *elf, const char *file, const char *tofind)
 	return (-1);
 }
 
+size_t
+elf_ptrsz(Elf *elf)
+{
+	GElf_Ehdr ehdr;
+
+	if (gelf_getehdr(elf, &ehdr) == NULL) {
+		terminate("failed to read ELF header: %s\n",
+		    elf_errmsg(-1));
+	}
+
+	if (ehdr.e_ident[EI_CLASS] == ELFCLASS32)
+		return (4);
+	else if (ehdr.e_ident[EI_CLASS] == ELFCLASS64)
+		return (8);
+	else
+		terminate("unknown ELF class %d\n", ehdr.e_ident[EI_CLASS]);
+
+	/*NOTREACHED*/
+	return (0);
+}
+
 /*PRINTFLIKE2*/
 static void
 whine(char *type, char *format, va_list ap)
@@ -119,7 +140,16 @@ terminate(char *format, ...)
 	va_list ap;
 
 	va_start(ap, format);
+#if !defined(__APPLE__)
 	whine("ERROR", format, ap);
+#else
+    /*
+     * Supress the error message if the format is empty
+     */
+    if (format[0] != 0) {
+        whine("ERROR", format, ap);
+    }
+#endif
 	va_end(ap);
 
 	if (terminate_cleanup)
@@ -140,7 +170,16 @@ aborterr(char *format, ...)
 	whine("ERROR", format, ap);
 	va_end(ap);
 
+#if !defined(__APPLE__)
 	abort();
+#else
+	/*
+	 * On Mac OS X, unhandled SIGABRT raised by abort() invokes the CrashReporter
+	 * mechanism. That's way more heavyweight than needed. And as there are no SIGABRT
+	 * signal handlers in ctfconvert and friends, we may as well just exit().
+	 */
+	exit(1);
+#endif /* __APPLE__ */
 }
 
 /*PRINTFLIKE1*/

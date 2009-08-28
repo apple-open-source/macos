@@ -1,0 +1,100 @@
+.\" $Id: xinput.man,v 1.5 1997/06/09 16:06:31 fred Exp $
+.TH xinput 1 "$Date: 1997/06/09 16:06:31 $" "Frederic Lepied"
+
+.SH NAME
+xinput - utility to configure and test XInput devices
+
+.SH SYNOPSIS
+.B xinput
+[version] [list [\fIdevice_name\fP]] [set-pointer \fIdevice_name\fP]
+[get-feedbacks \fIdevice_name\fP]
+[set-mode \fIdevice_name\fP \fIABSOLUTE|RELATIVE\fP]
+[set-ptr-feedback \fIdevice_name\fP \fIthreshold\fP \fInum\fP \fIdenom\fP]
+[set-integer-feedback \fIdevice_name\fP \fIindex\fP \fIvalue\fP]
+[set-button-map \fIdevice_name\fP \fImap button 1\fP [\fImap button 2\fP [\fI...\fP]]]
+[query-state \fIdevice_name\fP]
+[test [-proximity] \fIdevice_name\fP]
+
+.SH DESCRIPTION
+.TP 8
+.B xinput version
+test if the XInput extension is available and return the version number
+of the program.
+.PP
+.TP 8
+.B xinput list [\fIdevice_name\fP]
+If no argument is given list all the input devices showing all their
+features. If an argument is given, show all the feature of \fIdevice_name\fP.
+Uses XListInputDevices(3).
+.PP
+.TP 8
+.B xinput get-feedbacks \fIdevice_name\fP
+Display the feedbacks of \fIdevice_name\fP. Uses XGetFeedbackControl(3).
+.PP
+.TP 8
+.B xinput set-pointer \fIdevice_name\fP
+Switch \fIdevice_name\fP in core pointer. Uses XChangePointerDevice(3).
+.PP
+.TP 8
+.B xinput set-mode \fIdevice_name\fP \fIABSOLUTE|RELATIVE\fP
+Change the mode of \fIdevice_name\fP. Uses XSetDeviceMode(3).
+.PP
+.TP 8
+.B xinput set-ptr-feedback \fIdevice_name\fP \fIthreshold\fP \fInum\fP \fIdenom\fP
+Change the acceleration of \fIdevice_name\fP. Uses XChangeFeedbackControl(3).
+.PP
+.TP 8
+.B xinput set-integer-feedback \fIdevice_name\fP \fIindex\fP \fIvalue\fP
+Change the value of an integer feedback of \fIdevice_name\fP. Uses XChangeFeedbackControl(3).
+.PP
+.TP 8
+.B xinput set-button-map \fIdevice_name\fP \fImap button 1\fP [\fImap button 2\fP [\fI...\fP]]
+Change the button mapping of \fIdevice_name\fP. Uses XSetDeviceButtonMapping(3).
+.PP
+.TP 8
+.B xinput query-state \fIdevice_name\fP
+Query the device state. Uses XQueryDeviceState(3).
+.PP
+.TP 8
+.B xinput list-props \fIdevice_name\fP [\fIdevice_name\fP...]
+Lists properties that can be set for the given device(s).
+.PP
+.TP 8
+.B xinput set-int-prop \fIdevice_name\fP \fIproperty\fP \fIformat\fP \fIvalue\fP
+Sets an integer property for the device.  Appropriate values for \fIformat\fP
+are 8, 16, or 32, depending on the property.
+.PP
+.TP 8
+.B xinput watch-props \fIdevice_name\fP
+Prints to standard out when property changes occur.
+.PP
+.TP 8
+.B xinput delete-prop \fIdevice_name\fP \fIproperty\fP
+Delete the property from the device.
+.PP
+.PP
+.TP 8
+.B xinput test [-proximity] \fIdevice_name\fP
+Register all extended events from \fIdevice_name\fP and enter an endless
+loop displaying events received. If the -proximity is given, ProximityIn
+and ProximityOut are registered.
+.PP
+\fIdevice_name\fP can be the device name as a string or the XID of the
+device.
+.PP
+\fIproperty\fP can be the property as a string or the Atom value.
+.PP
+
+.SH COPYRIGHT
+Copyright 1996,1997, Frederic Lepied.
+.PP
+Copyright 2008, Philip Langdale.
+
+.SH AUTHOR
+
+.nf
+Philip Langdale, <philipl@alumni.utexas.net>
+Frederic Lepied, France <Frederic.Lepied@sugix.frmug.org>
+.fi
+
+Patches, bug reports, and suggestions are welcome.

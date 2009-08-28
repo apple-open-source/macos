@@ -36,11 +36,9 @@ namespace Security {
 class CFClass : protected CFRuntimeClass
 {
 public:
-    explicit CFClass(const char *name, bool deferDeletion);
+    explicit CFClass(const char *name);
 
 	CFTypeID typeID;
-	bool isDeferrable;		// if true the final release of this class object will be deferred until the
-							// end of the next call to a security function
 
 private:
 	static void finalizeType(CFTypeRef cf) throw();

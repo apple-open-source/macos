@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -108,15 +108,11 @@ struct apr_dbm_t
 };
 
 
-/* Declare all of the builtin DBM providers */
-APU_DECLARE_DATA extern const apr_dbm_type_t apr_dbm_type_sdbm;
-APU_DECLARE_DATA extern const apr_dbm_type_t apr_dbm_type_gdbm;
-APU_DECLARE_DATA extern const apr_dbm_type_t apr_dbm_type_ndbm;
-APU_DECLARE_DATA extern const apr_dbm_type_t apr_dbm_type_db1;
-APU_DECLARE_DATA extern const apr_dbm_type_t apr_dbm_type_db2;
-APU_DECLARE_DATA extern const apr_dbm_type_t apr_dbm_type_db3;
-APU_DECLARE_DATA extern const apr_dbm_type_t apr_dbm_type_db4;
-APU_DECLARE_DATA extern const apr_dbm_type_t apr_dbm_type_db;
+/* Declare all of the DBM provider tables */
+APU_MODULE_DECLARE_DATA extern const apr_dbm_type_t apr_dbm_type_sdbm;
+APU_MODULE_DECLARE_DATA extern const apr_dbm_type_t apr_dbm_type_gdbm;
+APU_MODULE_DECLARE_DATA extern const apr_dbm_type_t apr_dbm_type_ndbm;
+APU_MODULE_DECLARE_DATA extern const apr_dbm_type_t apr_dbm_type_db;
 
 #ifdef __cplusplus
 }

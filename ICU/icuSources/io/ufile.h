@@ -1,20 +1,20 @@
 /*
-*******************************************************************************
-*
-*   Copyright (C) 1998-2005, International Business Machines
-*   Corporation and others.  All Rights Reserved.
-*
-*******************************************************************************
-*
-* File ufile.h
-*
-* Modification History:
-*
-*   Date        Name        Description
-*   12/01/98    stephen        Creation.
-*   03/12/99    stephen     Modified for new C API.
-*******************************************************************************
-*/
+ *******************************************************************************
+ *
+ *   Copyright (C) 1998-2007, International Business Machines
+ *   Corporation and others.  All Rights Reserved.
+ *
+ *******************************************************************************
+ *
+ * File ufile.h
+ *
+ * Modification History:
+ *
+ *   Date        Name        Description
+ *   12/01/98    stephen        Creation.
+ *   03/12/99    stephen     Modified for new C API.
+ *******************************************************************************
+ */
 
 #ifndef UFILE_H
 #define UFILE_H
@@ -75,7 +75,7 @@ struct UFILE {
 /**
  * Like u_file_write but takes a flush parameter
  */
-U_CAPI int32_t U_EXPORT2
+U_CFUNC int32_t U_EXPORT2
 u_file_write_flush( const UChar     *chars, 
         int32_t     count, 
         UFILE       *f,

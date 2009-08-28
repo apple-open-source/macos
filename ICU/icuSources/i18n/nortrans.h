@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 2001-2006, International Business Machines
+*   Copyright (C) 2001-2007, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -23,7 +23,7 @@ U_NAMESPACE_BEGIN
  * A transliterator that performs normalization.
  * @author Alan Liu
  */
-class U_I18N_API NormalizationTransliterator : public Transliterator {
+class NormalizationTransliterator : public Transliterator {
 
     /**
      * The normalization mode of this transliterator.
@@ -48,11 +48,6 @@ class U_I18N_API NormalizationTransliterator : public Transliterator {
     NormalizationTransliterator(const NormalizationTransliterator&);
 
     /**
-     * Assignment operator.
-     */
-    NormalizationTransliterator& operator=(const NormalizationTransliterator&);
-
-    /**
      * Transliterator API.
      * @return    A copy of the object.
      */
@@ -66,7 +61,7 @@ class U_I18N_API NormalizationTransliterator : public Transliterator {
     /**
      * ICU "poor man's RTTI", returns a UClassID for this class.
      */
-    static UClassID U_EXPORT2 getStaticClassID();
+    U_I18N_API static UClassID U_EXPORT2 getStaticClassID();
 
  protected:
 
@@ -100,6 +95,12 @@ class U_I18N_API NormalizationTransliterator : public Transliterator {
      */
     NormalizationTransliterator(const UnicodeString& id,
                                 UNormalizationMode mode, int32_t opt);
+
+private:
+    /**
+     * Assignment operator.
+     */
+    NormalizationTransliterator& operator=(const NormalizationTransliterator&);
 };
 
 U_NAMESPACE_END

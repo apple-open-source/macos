@@ -1,0 +1,1401 @@
+==============================================================================
+Kerberos Utility/Kerberos.app/Control Panel Version History
+==============================================================================
+Current version:     2.2a2
+Date:                October 17, 2008
+Authors:             smcguire@mit.edu, lxs@mit.edu
+==============================================================================
+
+============================================================================
+
+Kerberos Utility 2.2
+To be released as part of Kerberos for Macintosh 6.5
+
+	========================================================================
+
+	Kerberos Utility 2.2a1
+	October 17, 2008
+
+	[RT 6137] KIM-based Kerberos application
+	[RT 6177] Make Kerberos Utility aware of the KIM user canceled error
+
+	========================================================================
+
+	Kerberos.app 2.2a1
+	February 8, 2008
+
+	[RT 5616] Kerberos.app should use cc_context_wait_for_change()
+	[RT 5758] Kerberos.app should detect when the CCacheServer crashes
+	[RT 5848] Kerberos.app should use Interface Builder 3 toolbar support
+	[RT 5874] Kerberos.app crashes when renewing tickets
+
+	========================================================================
+
+Kerberos.app 2.1
+Released as part of Kerberos for Macintosh 6.0
+
+	========================================================================
+
+	Kerberos.app 2.1fc2
+	March 9, 2007
+
+	[RT 5465] Fixed nib file corruption affecting servers column
+	[RT 5466] Show Ticket List does not respect remembering window position
+
+	========================================================================
+
+	Kerberos.app 2.1fc1
+	February 16, 2007
+
+	Moved to final candidate
+
+	========================================================================
+
+	Kerberos.app 2.1b2
+	February 7, 2007
+
+	[RT 4658] Kerberos.app Edit Realms dialog doesn't work if you don't have a 
+	          config file at all
+
+	========================================================================
+
+	Kerberos.app 2.1b1
+	November 16, 2006
+
+	[RT 4742] Move CCAPI Objective-C classes into Common/Sources
+	[RT 4659] Realms Editor should select realm tab when adding a new realm
+	[RT 4660] HiDPI support
+
+	========================================================================
+
+	Kerberos.app 2.1a3
+	October 27, 2006
+
+	[RT 4302] Replace Kerberos.app File menu with Tickets menu
+	[RT 4478] Renamed Objective-C classes to avoid namespace collisions
+	[RT 4480] Principal strings should truncate, not word wrap
+
+	========================================================================
+
+	Kerberos.app 2.1a2
+	August 23, 2006
+
+	[RTÊ4169]ÊRemove Kerberos v4
+
+	========================================================================
+
+	Kerberos.app 2.1a1
+	November 18, 2005
+
+	[RT 3073] Not enough room for "kpasswd" in realms editor server column
+	[RT 3191] Ticket Info button doesn't enable when tickets are selected.
+	[RT 3192] "New" toolbar button name and "Get Tickets..." menu item name don't match.
+	[RT 3204] Kerberos.app reports caches with no TGT as invalid
+
+	========================================================================
+
+Kerberos.app 2.0.1
+Released as part of Kerberos for Macintosh 5.5.1
+
+	========================================================================
+
+	Kerberos.app 2.0.1fc1
+	June 15, 2005
+
+	[RT 2973] Kerberos.app should not specify menu item coloring
+	[RT 3070] Deleting empty realm/server/domain from Realms Editor should not ask if ok
+	[RT 3072] Use setColumnAutoresizingStyle, not setAutoresizesAllColumnsToFit
+	[RT 3071] Dock icon doesn't update when pref to show time in dock icon changes.
+
+	========================================================================
+
+Kerberos.app 2.0
+Released as part of Kerberos for Macintosh 5.5
+
+	========================================================================
+
+	Kerberos.app 2.0fc3
+	February 1, 2005
+
+	[RT 2901] Kerberos.app uses freed Credential object on Ticket Renewal (crash)
+	[RT 2905] Kerberos.app: Memory leak in stringValueForLifetimeColumn methods
+	[RT 2907] Lifetime displays can display 60 minutes when not displaying seconds
+
+	========================================================================
+
+	Kerberos.app 2.0fc2
+	December 13, 2004
+
+	[RT 2800] Use Apple System Logger and set debugging at runtime
+
+	========================================================================
+
+	Kerberos.app 2.0fc1
+	December 6, 2004
+
+	[RT 2788] alert sheets returning void should not run modal
+	[RT 2789] Kerberos.app should use an NSToolbar
+	[RT 2792] Ticket List window size and position handling busted
+
+	========================================================================
+
+	Kerberos.app 2.0b7
+	November 4, 2004
+
+	[RT 2747] kerberos.app doesn't always show window on reactivate 
+	[RT 2764] Realms editor should be able to set default realm 
+	[RT 2765] kinit should not loop forever getting password 
+	[RT 2766] realms editor should be able to save as administrator 
+	[RT 2767] Kerberos.app: remove '>' chars in prefs dialog in min/max 
+	          time vals tab 
+
+	========================================================================
+
+	Kerberos.app 2.0b6
+	October 17, 2004
+
+	[RT 2570] Kerberos.app needs a realms editor
+	[RT 2716] Kerberos.app needs applescript support again 
+	[RT 2744] Kerberos.app preferences and realms editor should remember 
+	          positions
+	[RT 2745] Kerberos.app needs a shiny Mac OS X like icon
+	[RT 2746] Kerberos.app shouldn't front list window when activating if 
+	          it's already visible
+
+	========================================================================
+
+	Kerberos.app 2.0b5
+	September 8, 2004
+
+	[RT 2695] Cosmetic glitches w/dock icon & window title when deleting 
+	          last ticket 
+	[RT 2697] Ticket list popup menu doesn't select default cache 
+
+	========================================================================
+
+	Kerberos.app 2.0b4
+	August 30, 2004
+
+	* More progress on the realms editor (more ability to modify controls)
+	[RT 2679] Kerberos.app crashes while waking from sleep 
+
+	========================================================================
+
+	Kerberos.app 2.0b3
+	August 20, 2004
+
+	* More progress on the realms editor (some ability to modify controls)
+	[RT 2663] KerberosApp should update renewal time when waking from sleep
+
+	========================================================================
+
+	Kerberos.app 2.0b2
+	July 15, 2004
+
+	* Partial progress on the realms editor (reads the profile now)
+	[RT 2571] Kerberos.app ticket list window should display when app fronts 
+	  
+	========================================================================
+
+	Kerberos.app 2.0b1
+	May 21, 2004
+
+	* New nib-based Cocoa implementation
+	[RT 2565]   Update Kerberos.app to use nib files
+	  
+
+============================================================================
+
+Kerberos.app 1.8
+Released as part of Kerberos for Macintosh 5.0
+
+Summary of major changes:
+
+* New icon with improved key visibility
+* Anti-aliased text across the board and other appearance improvements,
+  slight resizing of elements due to Panther UI changes
+* Preferences tabs rearranged to accomodate additional options - now have
+  "Ticket Defaults," "Username Defaults," "Time Ranges," and "Behavior"
+* New preferences to control Kerberos Login dialog options for addressless
+  tickets, renewable tickets, and renewable lifetime default and range
+* Sliders for lifetimes in Preferences now behave identically to sliders
+  in Login dialog
+* New option to automatically renew renewable tickets
+* "Edit Favorite Realms" dialog has option to add realms by typing them
+  in directly
+* "Show Ticket List" menu item now has command key equivalent of
+  command-T .
+* Double-click on a ticket entry to show ticket info window.
+* Renew button in Kerberos.app now honors the renewable flag of a ticket;
+  if the ticket is renewable no UI will be presented when a user clicks
+  on the Renew button.
+* Now works in the absense of a Kerberos configuration file
+* No longer warns that prefs can't be written if you merely move the main window
+* Fix bug where Kerberos.app would quit if ZoneRanger had been previously
+  installed and had since been removed.
+  
+	========================================================================
+
+	Kerberos.app/Control Panel 1.8fc5
+	Released as part of Kerberos for Macintosh 5.0fc13
+	Sep 17, 2003
+
+	* No longer warns that prefs can't be written if you merely move the
+	  main window
+	  
+	========================================================================
+
+	Kerberos.app/Control Panel 1.8fc4
+	Released as part of Kerberos for Macintosh 5.0fc9 - 5.0fc12
+	Aug 22, 2003
+
+	* Make routines that show version number in about box safer for two-byte
+	  languages
+	  
+	========================================================================
+
+	Kerberos.app/Control Panel 1.8fc3
+	Released as part of Kerberos for Macintosh 5.0fc8
+	Aug 20, 2003
+
+	* Reinstate text labels for ticket list
+	* Fix bug where ticket list would not display v4 tickets if there was
+	  no config file (via WrappersLib)
+	  
+	========================================================================
+
+	Kerberos.app/Control Panel 1.8fc2
+	Released as part of Kerberos for Macintosh 5.0fc2, 5.0fc3, 5.0fc4, 5.0fc5,
+	  5.0fc6, 50.fc7
+	Jul 16, 2003
+	
+	* Don't try to update minimized main window in the dock.  This only worked
+	  half the time and might be a memory leak.
+	* Swapped position of "Display time in dock icon" and "Always renew
+	  renewable tickets" checkboxes in prefs.
+	
+	========================================================================
+
+	Kerberos.app/Control Panel 1.8b3
+	Released as part of Kerberos for Macintosh 5.0fc1
+	Jul 14, 2003
+
+	* New icons, again.
+	* "Other Options" prefs tab renamed to "Behavior".
+	* Better error checking for bogus values in the lifetimes ranges prefs
+	  panel.
+	* Fix bug where PowerPlant Debug menu would decide ZoneRanger was
+	  present if it had been previous installed, when it wasn't, causing
+	  Kerberos.app to give an exception and quit.
+	* No longer requires the deprecated KerberosPreferences library.  No
+	  support for reading legacy resource-based prefs files anymore, but
+	  there shouldn't be any of those on Panther anyway.
+	  
+	========================================================================
+
+	Kerberos.app/Control Panel 1.8b2
+	Released as part of Kerberos for Macintosh 5.0b2
+	Jun 24, 2003
+
+	* Fixed Panther cosmetic issues as best as possible.
+	* Edit Favorite Realms dialog works without a configuration file.
+	* "Show Ticket List" menu item now has command key equivalent of
+	  command-T .
+	  
+	========================================================================
+
+	Kerberos.app/Control Panel 1.8b1
+	Released as part of Kerberos for Macintosh 5.0b1
+	Jun 17, 2003
+	
+	* Now has option to auto-renew renewable tgts after half their lifetime
+	  has passed (falls back by halves each time it fails until tickets are
+	  expired, and then gives up).
+	* New icon.
+	* Fixed "Display time remaining in dock icon" checkbox in Preferences.
+	* Fixed rib alignment in Preferences dialog.
+	
+	========================================================================
+
+	Kerberos.app/Control Panel 1.8a5
+	Released as part of Kerberos for Macintosh 5.0a7
+	Jun 6, 2003
+	
+	* Preferences sliders for ticket lifetime and renewable lifetime now
+	  behave like the login dialog sliders - they move in nice rounded
+	  increments and the increment size changes depending on the range.
+	  Uses same increments as login dialog.
+	* Default ticket lifetime and default renewable lifetime edit fields
+	  removed from the "Lifetime Ranges" preferences panel, for simplification.
+	  Use the sliders in the "Ticket Options" panel.
+	* Ticket Lifetime range fields now have hours edit field.
+	* Double-clicking on credentials entries in the ticket list shows the
+	  Ticket Information window.
+	* Removed krbdev@mit.edu from About Box.
+	
+	========================================================================
+
+	Kerberos.app/Control Panel 1.8a4
+	Released as part of Kerberos for Macintosh 5.0a6
+	May 20, 2003
+	
+	* Prefs dialog now has two new tabs, "Username defaults" and "Ticket
+	  defaults" replacing the "Login defaults" tab.
+	* Added "Always get addressless tickets" checkbox to preferences.
+	* Added "Always get renewable tickets" checkbox to preferences.
+	* Added slider for default renewable tickets time.
+	* Renamed "Forwardable tickets always" to "Always get forwardable tickets"
+	  in preferences.
+	* Slider times now display in nice English text like the login dialog
+	  instead of possibly confusing numbers with colon dividers.
+	* Renew button in Kerberos.app now honors the Renewable flag of a ticket;
+	  if the ticket is renewable no UI will be presented when a user clicks
+	  on the Renew button.
+	* Ticket info window now displays "Renewable until" time for v5 tickets.
+	* Increased size of text in ticket list to 11-point.
+	* Beatified ticket info window and main window so they look better when
+	  font smoothing is set to 11 and higher (still looks bad for 13 and
+	  higher, but so does everything).
+	* No longer show (F,P) tags for ticket items in ticket list.
+	* About box now lists whole Kerberos Development team; took out some
+	  old names.
+	  
+	========================================================================
+
+	Kerberos.app/Control Panel 1.8a3
+	Released as part of Kerberos for Macintosh 5.0a5
+	May 7, 2003
+	
+	* Added field for DNS realm to Edit Favorite Realms dialog.  It works.
+
+	========================================================================
+
+	Kerberos.app/Control Panel 1.8a2
+	Released as part of Kerberos for Macintosh 5.0a4?
+	April 29, 2003
+	
+	* Fixed bugs in selection of anti-aliased text in ticket list and Edit
+	  Favorite Realms windows.
+
+	========================================================================
+
+	Kerberos.app/Control Panel 1.8a1 (unmarked)
+	Released as part of Kerberos for Macintosh 5.0a2, 5.0a3
+	February, 2003
+
+	* Anti-aliased text in ticket list and Edit Favorite Realms windows.
+	
+============================================================================
+
+Kerberos.app/Control Panel 1.7
+Released as part of Kerberos for Macintosh 4.5
+
+	========================================================================
+
+	Kerberos.app/Control Panel 1.7.1
+	To be released as part of Kerberos for Macintosh 4.5.1?
+	June 24, 2002
+
+	* Fixed dock icon routine won't drawn non-square icons.
+	* Fixed anamolies in dealing with absence of preferences and 
+	  configuration files.  Now should give correct error in all
+	  circumstances.
+	* No longer displays tickets with lifetimes of N days + 1-5 minutes
+	  in red in the ticket list.
+	
+	========================================================================
+
+	Kerberos.app/Control Panel 1.7
+	Released as part of Kerberos for Macintosh 4.5
+	June 19, 2002
+
+	* Fixed crash when exceptions are thrown in rare circumstances.
+	
+	========================================================================
+
+	Kerberos.app/Control Panel 1.7b1
+	Released as part of Kerberos for Macintosh 4.5b1 and 4.5fc1
+	June 17, 2002
+
+	* Fixed major memory leak when running under Jaguar; calling 
+	  UnregisterIconRef before ReleaseIconRef was bad.
+	* Made buttons larger to fit new text metrics under Jaguar.
+	
+	========================================================================
+
+	Kerberos.app/Control Panel 1.7a3 (1.7.3)
+	Released as part of Kerberos for Macintosh 4.5a2, 4.5a3.
+	June 7, 2002
+
+	* More improvements to handing of changes/disasppearance of CCache
+	  while iterating on it.
+	* Display better information about postdated/invalid tix.
+	* Now uses CFPreferences for reading/writing preferences (will fallback
+	  to reading from resource fork of edu.mit.Kerberos if no CFPrefs prefs
+	  file is found).
+	
+	========================================================================
+
+	Kerberos.app/Control Panel 1.7a2 (1.7.2)
+	Released as part of Apple_Submission_5_31_2002
+	May 31, 2002
+	
+	* Improved performance by converting periodicals to Carbon timers that
+	  only fire every 30 seconds, and increasing WNE sleep time.
+	* Better handling of changes to CCache that happen while the app is
+	  trying to redraw the ticket list.
+	* Fixed bug where tickets with more than one IP address would display
+	  that information incorrectly in the ticket info window.
+	  
+	========================================================================
+
+	Kerberos.app/Control Panel 1.7a1 (1.7.1)
+	To be released as part of Kerberos for Macintosh 4.5a2 ?
+	April 12, 2002
+	
+	* Added pbxproj file.  Added private copy of PowerPlant, with
+	  ProjectBuilder modifications.  Together, these two results in
+	  a Kerberos.app that builds under both ProjectBuilder and CodeWarrior.
+	* Conditionalized some #includes working towards PB inclusion.
+	* Updated some Login Library calls to match new types in Login Library.
+	* Removed Carbon CFM targets.
+	* Removed lots of outdated source files.
+	  	
+============================================================================
+
+Kerberos Control Panel 1.6
+Released as part of MIT Kerberos for Macintosh 4.0.
+
+Summary of major changes:
+* Mac OS X: New Mach-O versions of Kerberos application.
+* Mac OS X: Fancy 128-bit icon.
+* Mac OS X: dock icon key changes color to indicate state of tickets
+  (yellow for good, red for 5 minutes left, grey for expired).
+* Mac OS X: dock icon optionally displays time remaining in active
+  user's tickets.
+* Mac OS X Mach-O: pop-up menu from dock icon for get, destroy, renew,
+  and switch active user.
+* Mac OS X: closing the ticket list window doesn't quit the
+  Kerberos application, it just hides the window.  The window can
+  be redisplayed by clicking on the dock icon, or with the new
+  "Show Ticket List" menu command.
+* Mac OS X: New "show ticket list window at startup" preference so that
+  Kerberos.app can launch without a window (thus basically as a 
+  dock-only thing).
+* Mac OS 9: Fixed bug that would case the Kerberos control panel to 
+  prevent your Mac from going to sleep if it was running and there
+  were no tickets present.
+* Mac OS X/9: New "Show Ticket List" menu command.
+* Mac OS X/9: "Kerberos" menu renamed to "Tickets" menu to avoid conflict 
+  with application menu name under Mac OS X.
+* Mac OS X/9: Login Options and Ticket Lifetime preferences tabs no 
+  longer appear in Classic Kerberos control panel when run under Classic.
+* Mac OS X/9: Edit Favorite Realms menu option disabled in Classic
+  Kerberos control panel when run under Classic.
+* Mac OS X/9: Better error reporting when there's no preferences file.
+* Mac OS X/9: Compiled with Codewarrior Pro 7.2.
+
+	========================================================================
+
+	Kerberos Control Panel 1.6fc2
+	Released as part of MIT Kerberos for Macintosh 4.0fc2, 4.0fc3.
+	February 12, 2002
+
+	* Mac OS 8: Kerberos control panel no longer gives CFM library errors
+	  on Mac OS 8.1.
+
+	========================================================================
+
+	Kerberos Control Panel 1.6fc1
+	Released as part of MIT Kerberos for Macintosh 4.0fc1.
+	February 5, 2002
+
+	* Mac OS X: More "show ticket list window at startup" options - always
+	  show ticket list window, never show ticket list window, and remeber
+	  the ticket list window's state when Kerberos.app was last quit.
+	
+	========================================================================
+
+	Kerberos Control Panel 1.6b5
+	Released as part of MIT Kerberos for Macintosh 4.0b8.
+	January 29, 2002
+
+	* Mac OS X: New application icon that doesn't look so much like the
+	  "valid tickets" dock icon state.
+	* Mac OS X: New "show ticket list window at startup" preference so that
+	  Kerberos.app can launch without a window (thus basically as a 
+	  dock-only thing).
+	* Now built with CodeWarrior Pro 7.2.
+	
+	========================================================================
+
+	Kerberos Control Panel 1.6b4
+	Released as part of MIT Kerberos for Macintosh 4.0b4, 4.0b5, 4.0b6, 4.0b7.
+	January 7, 2002
+
+	* Mac OS X: Time remaining will be removed from dock icon if
+	   Kerberos application quits unexpectedly.
+	  
+	========================================================================
+
+	Kerberos Control Panel 1.6b3
+	Released as part of MIT Kerberos for Macintosh 4.0b4, 4.0b5, 4.0b6.
+	December 12, 2001
+
+	* Login Options and Ticket Lifetime preferences tabs no longer appear
+	  in Classic Kerberos control panel when run under Classic.
+	* Edit Favorite Realms menu option disabled in Classic Kerberos control
+	  panel when run under Classic.
+	* Added "Sync Credential Caches" option to Debug menu for use in
+	  syncing Classic and Yellow Caches.
+	* Fixed bug where 1-character usernames weren't displayed correctly
+	  in the "Always use this username" field of the Preferences dialog.
+	  
+	========================================================================
+
+	Kerberos Control Panel 1.6b2
+	Released as part of MIT Kerberos for Macintosh 4.0b3.
+	December 3, 2001
+	
+	* Mac OS X/9: Fixed crashes with opening ticket info windows twice,
+	  and crashes on quit after using ticket info windows.
+	* Mac OS 9: Fixed bug that would case the Kerberos control panel to 
+	  prevent your Mac from going to sleep if it was running and there
+	  were no tickets present.
+	  
+	========================================================================
+
+	Kerberos Control Panel 1.6b1
+	Released as part of MIT Kerberos for Macintosh 4.0b1 & 4.0b2.
+	November 14, 2001
+	
+	* Mac OS 9: Changed wording of two floater option checkboxes in
+	  preferences dialog.
+	* Mac OS X: Has private copies of DebuggingLib, MoreFilesLib to
+	  remove dependencies on soon-to-be-private KerberosSupport.framework.
+	  
+	========================================================================
+
+	Kerberos Control Panel 1.6a3
+	Released as part of MIT Kerberos for Macintosh 4.0a20.
+	November 1, 2001
+	
+	* "Kerberos" menu renamed to "Tickets" menu to avoid conflict with
+	  application menu name under Mac OS X.
+	* Mac OS X: Default realm pop-up in Preferences works again.
+	* Mac OS X: Dock icon time remaining now displays "--:--" when tickets
+	  are expired, instead of just going blank.
+	* Mac OS X: Application menu now just "Kerberos" not "Kerberos.MO".
+	* Mac OS X: Don't write out ticket options from prefs dialog when
+	  "remember ticket options from last login" is selected.
+
+	========================================================================
+
+	Kerberos Control Panel 1.6a2
+	Released as part of MIT Kerberos for Macintosh 4.0a19.
+	September 26, 2001
+	
+	* New icons for Mac OS X.
+	* Under Mac OS X: dock icon key changes color to indicate state of
+	  tickets (yellow for good, red for 5 minutes left, grey for expired).
+	* Under Mac OS X: dock icon optionally displays time remaining in
+	  active user's tickets.
+	* Under Mac OS X Mach-O: pop-up menu from dock icon for get, destroy,
+	  renew, and switch active user.
+	* Under Mac OS X: closing the ticket list window doesn't quit the
+	  Kerberos application, it just hides the window.  The window can
+	  be redisplayed by clicking on the dock icon, or with the new
+	  "Show Ticket List" menu command.
+	* New "Show Ticket List" menu command (mostly useful under Mac OS X).
+	* Better error reporting when there's no preferences file.
+	* Now builds with "enums always int" to match change in DebuggingLib.
+	  This fixes user break on startup in .debug versions.
+	* New Mach-O targets.
+	* Updated to use CodeWarrior Pro 7 and PowerPlant 2.2.  This fixes many
+	  cosmetic bugs in Aqua and allows us to remove quite a few overrides.
+
+	========================================================================
+
+	Kerberos Control Panel 1.6a1
+	Released as part of MIT Kerberos for Macintosh 4.0a18.
+	July 10, 2001
+	
+	* Fixed erroneous "I can't continue" error message when no readable
+	  prefs files could be found.  (Prefs file now created on startup if
+	  it doesn't exist.)
+	  	
+============================================================================
+
+Kerberos Control Panel 1.5
+Released as part of MIT Kerberos for Macintosh 3.5.
+
+Summary of major changes:
+* Renamed from "Kerberos Manager" to simply "Kerberos" (referred
+  to as "the Kerberos control panel").
+* Now have Carbon versions of Kerberos control panel for Mac OS X.
+* Added "Get Ticket Info" menu item that brings up a "Ticket Info"
+  window with detailed information about a ticket, such as issue,
+  start, and expiration times, IP addresses, encryption types, and
+  v5 flags.
+* New tabbed Preferences dialog.
+* New preferences for controlling floating window behavior (Mac OS 8/9
+  only), and setting minimum/maximum lifetimes the slider will allow.
+* Ticket list now remembers selection and expansion state when
+  the ccache collection changes.
+* Can now use arrow keys and page up/down keys in ticket list.
+* "Time remaining" for credentials and in active user box now displayed
+  in red if less than 5 minutes remain.
+* When tickets are no longer valid (due to IP address changed), ticket
+  list and ticket info window display time remaining as "not valid."
+  Window will now display them as "expired".
+* Ticket list will select the default principal if another ticket list
+  item isn't already selected (this means after you log in, a user will
+  be selected).
+* Expired/not valid tickets now drawn in italic in the ticket list.
+* Users with expired/not valid tickets are drawn as italic in the
+  users menu.
+* Ticket list and active user info expiration times now update more
+  frequently (every 30 seconds instead of every 60).
+* Active user fields in main window will now display more information
+  as the window gets larger.
+* Can tear off the active users menu to create the Kerberos floating
+  window.
+* Tweaked layout of windows for better appearance under Aqua.
+* Changed "Close" menu item to "Close Window".
+* Under Mac OS X, now supports Application menu "Preferences" and
+  "Quit" menu items (and does not display these items under "File"
+  and "Edit).
+* Doesn't try to launch TicketKeeper in Carbon versions (because there's
+  no Carbon version of TicketKeeper).
+* Now have single redesigned about box that displays the KfM version
+  number, not the Kerberos control panel version number.
+* Converted source to CodeWarrior Pro 6 and PowerPlant 2.1 .  Minor
+  fixes, removed some overrides.
+
+
+	Kerberos Control Panel 1.5
+	Released as part of MIT Kerberos for Macintosh 4.0a16/3.5.
+	June 21, 2001
+	
+	* Don't allow users to set minimum ticket lifetime in non-debug versions.
+	* Fix bug which could cause "valid" status indicator in ticket info
+	  window to be colored red inappropriately.
+	* Ticket info windows will now update when they're already open and "get
+	  info" on their corresponding ticket entry is selected again.
+	  	
+	========================================================================
+	Kerberos Control Panel 1.5fc2
+	Released as part of MIT Kerberos for Macintosh 4.0a14/3.5fc2, 4.0a15/3.5fc3.
+	June 18, 2001
+	
+	* Added some catches to specifically handle CCache errors in
+	  CKrbSession::GetCacheInfo().
+	  	
+	========================================================================
+	Kerberos Control Panel 1.5fc1
+	Released as part of MIT Kerberos for Macintosh 4.0a13/3.5fc1.
+	June 6, 2001
+	
+	* Option-close box on ticket info windows now works as expected (closes
+	  all ticket info windows).
+	* Fix spelling error in Login Options dialog.
+	  	
+	========================================================================
+	Kerberos Control Panel 1.5b2
+	Released as part of MIT Kerberos for Macintosh 4.0a12/3.5b2.
+	April 27, 2001
+	
+	* Fixed minor button highlighting issues in the Edit Favorite Realms
+	  dialog.
+	* Now uses KLGetDisplayStringFromPrincipal() to display in ticket list
+	  and active principal.
+	* Fixed Active User Info not updating to match the tix list when it
+	  updates because you collapsed/expanded a ticket entry.
+	* Ticket list and active user info expiration times now update more
+	  frequently (every 30 seconds instead of every 60).
+	* Removed separate Ticket Lifetime Preferences Dialog from Debug menu
+	  since it's now part of main Preference panel (and going to stay that
+	  way).
+	  	
+	========================================================================
+	Kerberos Control Panel 1.5b1
+	Released as part of MIT Kerberos for Macintosh 4.0a11/3.5b1.
+	March 30, 2001
+	
+	* Added 'plst' resource to Carbon builds so that icon appears properly
+	  on Mac OS X.
+	  	
+	========================================================================
+	Kerberos Control Panel 1.5a7
+	Released as part of MIT Kerberos for Macintosh 4.0a10.
+	March 20, 2001
+	
+	* Adjusted main window and login options preferences layouts slightly
+	  for better appearance under Aqua.
+	  	
+	========================================================================
+	Kerberos Control Panel 1.5a6
+	Released as part of MIT Kerberos for Macintosh 4.0a9.
+	March 14, 2001
+	
+	* Expired/not valid tickets now drawn in italic in the ticket list.
+	* Users with expired/not valid tickets are drawn as italic in the
+	  users menu.
+	* Fix multiple warnings when trying to close the Prefs dialog with bad 
+	  lifetime values.
+	* Fix bug that prevented you from closing the Prefs dialog after you'd
+	  fixed bad lifetime values.
+	* If you collapse a ticket list hierarchy with a selection in it, the
+	  principal becomes the new selection.
+	* Should now display expiration times for caches properly in the
+	  "srvtab case" - where realm supports both versions of tix, but only
+	  one kind of tix exists.
+	* Ticket List, Active User Info, and Ticket Info Windows now display 
+	  "not valid" when that is the case (instead less useful "expired").
+	* "Destroy Tickets" now uses KLDestroyTickets() instead of cc_cache_destroy.
+	* Updated project and source files to use new paths to header files.
+	  	
+	========================================================================
+	Kerberos Control Panel 1.5a5
+	Released as part of MIT Kerberos for Macintosh 4.0a6, 4.0a7, 4.0a8.
+	February 5, 2001
+	
+	* Fix crash when getting tickets after opening preferences dialog.
+	  	
+	========================================================================
+	Kerberos Control Panel 1.5a4
+	Released as part of MIT Kerberos for Macintosh 4.0a5.
+	February 1, 2001
+	
+	* Preferences dialog now works under Mac OS X.
+	* Floater preferences panel no longer available under Carbon in 9.
+	* When cache is invalid, expanded ticket list will now display individual
+	  tickets as expired (in addition to overall state being displayed as
+	  expired).
+	* "Time remaining" now displayed in red if less than 5 minutes remain.
+	* Now uses KLLastChangedTime() to detect cache changes.  This should
+	  allow it to detect when the tickets become invalid because IP address
+	  changed.
+	* When tickets are invalid (due to IP address changed), Ticket Info
+	  Window will now display them as "expired".
+	* Principal shading should stay grey under all Appearance themes
+	  (including Aqua).
+	* Ticket list will select the default principal if another ticket list
+	  item isn't already selected (this means after you log in, a user will
+	  be selected).
+	* Combined "About Kerberos" and "About Kerberos for Macintosh" about boxes,
+	  so that now we only have one about box that displays only the KfM
+	  version number.
+	* Updated the "Using Kerberos Control Panel" documentation.
+	  	
+	========================================================================
+	Kerberos Control Panel 1.5a3
+	Released as part of MIT Kerberos for Macintosh 4.0a3 & 4.0a4.
+	December 20, 2000
+	
+	* Different tabs in preferences on 9 and X (no floater options tab on X).
+	* Changed "Admin" prefs tab name back to "Lifetimes".
+	* Removed header and icon from main window.
+	  	
+	========================================================================
+	Kerberos Control Panel 1.5a2
+	Released as part of MIT Kerberos for Macintosh 4.0a2.
+	December 14, 2000
+	
+	* Easter egg reinstated after CVS confusion.
+	* Changed output binary names.
+	  	
+	========================================================================
+	Kerberos Control Panel 1.5a1
+	Released as part of MIT Kerberos for Macintosh 4.0a1.
+	December 8, 2000
+
+	* Default lifetime slider of "Login Options" prefs pane and default
+	  lifetime setting of "Admin" pane now stay in sync.
+	* Floater options fully supported - now reads and sets all options.
+	* Add check to keep Carbon version from running under 9 in final release.
+	* Fix bug where upgrading from previous release would cause window to
+	  be too small (because saved width was smaller than new min width).
+	* Back to using TicketKeeperLib instead of TicketKeeperLibGlue.
+	* Floater options and launching Ticket Keeper not supported under Carbon
+	  (because they need TicketKeeperLib and not all TKLib functions are
+	  defined in Carbon).
+	  	
+	========================================================================
+	Kerberos Control Panel 1.5d5
+	Released as part of MIT Kerberos for Macintosh 4.0d8.
+	November 30, 2000
+
+	* Renamed from "Kerberos Manager" to "Kerberos" (referred to as "the
+	  Kerberos control panel").
+	* Updated text to refer to new names of other components.
+	* First pass of tabbed preferences window, including new preferences
+	  for ticket lifetime settings and floating window options.
+	* Supports v4 long lifetimes in ticket list display (limited support
+	  in ticket info window).
+	* Added "Ticket Lifetime Preferences..." menu item to Debug menu for
+	  setting minimum and maximum ticket lifetimes (although it's been
+	  superseded by the tabbed preferences window).
+	* Reorganized and renamed some main window buttons and Kerberos menu
+	  items.
+	* Can now tear off the active users menu to create the Kerberos
+	  floater.
+	* No longer links against TicketKeeperLib, so doesn't require bogus
+	  library under X.
+	* Fixed bug which could cause memory corruption when Preferences 
+	  dialog is displayed.
+	  	
+	========================================================================
+	Kerberos Manager 1.5d4
+	Released as part of MIT Kerberos for Macintosh 4.0d7.
+	November 3, 2000
+
+	* Under Mac OS X, now supports Application menu "Preferences" and
+	  "Quit" menu items (and does not display these items under "File"
+	  and "Edit). [BZ 451]
+	* No longer warns about Ticket Keeper not running under Mac OS X.
+	* Fix "button creep" problem when resizing repeatedly.
+	* Active user fields in main window will now display more information
+	  as the window gets larger.
+	* Fix problem with Carbon Kerberos Manager displaying ticket info
+	  windows on top of main window.
+	* Tabs in ticket info window look better under Aqua.
+	
+	========================================================================
+	Kerberos Manager 1.5d3
+	Released as part of MIT Kerberos for Macintosh 4.0d6.
+	October 30, 2000
+
+	* Fix problem with buttons leaving drawing artifacts when window is
+	  resized under Aqua or other themes with funny shapped buttons. [BZ 450]
+	
+	========================================================================
+	Kerberos Manager 1.5d2
+	Released as part of MIT Kerberos for Macintosh 4.0d5.
+	October 27, 2000
+
+	* Fix problem reading/writing preferences when there's no resource fork
+	  in prefs file. [BZ 445]
+	* Added 'carb' resource so Carbon app will be recognized as such under
+	  Aqua.
+	* Resized some buttons and some dialog items for better appearance under
+	  Aqua.
+	* Changed "Close" menu item to "Close Window".
+	* Now auto-routes to Control Panels folder again.
+	* Selection of IP address in v5 ticket info disallowed. [BZ 441]
+	
+	========================================================================
+	Kerberos Manager 1.5d1
+	Released as part of MIT Kerberos for Macintosh 4.0d4.
+	October 17, 2000
+
+	* Converted source to CodeWarrior Pro 6 and PowerPlant 2.1 .  Minor
+	  fixes, removed some overrides.
+	* Created Carbon targets.  Various tweaks and PowerPlant files
+	  added/removed for Carbonization.
+	* Fixed bugs in ticket list that listed principals in the wrong order,
+	  and that made some principals disappear when you collapsed others.
+	* Added checks for presence of TicketKeeperLib, and don't try to launch
+	  TicketKeeper if TKLib isn't present.
+	  
+	
+	========================================================================
+	Kerberos Manager 1.2d1
+	Not released publicly.  Development of 1.2 line stopped, rolled into 1.5 line.
+	September 25, 2000
+
+	* Added "Get Credentials Info" menu item and "Credential Info" window.
+	* Ticket list now remembers selection and expansion state when the
+	  the ccache collection changes.
+	* Can now use arrow keys and page up/down keys in ticket list.
+	* "Always expand ticket list entries" renamed to "Always expand new
+	  ticket list entries", a more accurate description of its function.
+	* Added Benjamin Ross to about KfM box.
+	* Removed names from the "About Kerberos Manager" about box, replaced
+	  with "by MIT IS MacDev".
+	* Rewrote ticket list code to use new, more flexible object classes.
+	* Move a lot of command handling from application class to main window
+	  class to make KM better able to deal with having multiple windows.
+	* Fixed minor bug where KM would crash if it did not get the version
+	  of the CCAPI it requested.
+
+============================================================================
+
+Kerberos Manager 1.1
+Released as part of MIT Kerberos for Macintosh 3.0.
+
+Summary of major changes:
+* Now displays v4 ticket information in addition to v5 information.
+* Uses Kerberos Login Library for login and change password dialogs (thus
+  gets both v4 and v5 tickets on Login).
+* Redesigned preferences dialog that controls both Kerberos Login Library
+  preferences and Kerberos Manager preferences.
+* New Logins not made system default (active user) anymore unless they are
+  the very first login.
+* Main window now resizable, and size is saved in prefs.
+* Draws light grey background on master principals for caches in
+  ticket list for easier reading.
+* Forwardable and proxiable tickets marked with an "(F)" and "(P)"
+  respectively in the ticket list.
+* Debug menu for loading/unloading KClient driver, launching/killing
+  Ticket Keeper, forcing refresh of ticket list (in debug version only).
+* New "About MIT Kerberos for Macintosh" about box.
+* Updated to use CCache API v3.
+* Updated to use Preferences Lib for locating preferences files.
+* Now PowerPC only again.
+* Now requires Mac OS 8.1 and Appearance Manager.
+
+	Kerberos Manager 1.1
+	Released as part of MIT Kerberos for Macintosh 3.0.
+	June 30, 2000
+
+	* Fixed abuse of std::string() via BlockMoveData() in some of the prefs
+	  code.
+	
+	========================================================================
+	Kerberos Manager 1.1fc5
+	Released as part of MIT Kerberos for Macintosh 3.0fc4.
+	June 28, 2000
+
+	* Better handling of some preferences read errors and errors returned
+	  from KLChangePassword().
+	
+	========================================================================
+	Kerberos Manager 1.1fc4
+	Released as part of MIT Kerberos for Macintosh 3.0fc3.
+	June 20, 2000
+
+	* Changes to version and copyright lines in "About Kerberos for Macintosh."
+	* Documentation updates.
+	
+	========================================================================
+	Kerberos Manager 1.1fc3
+	Released as part of MIT Kerberos for Macintosh 3.0fc2.
+	June 19, 2000
+
+	* Really fix "Load KClient Driver" Debug menu option this time.
+	* Update "Using Kerberos Manager" documentation to reflect changes
+	  in dialogs (now modal), "always use this username" pref, better
+	  proxiable description.
+	
+	========================================================================
+	Kerberos Manager 1.1fc2
+	Released as part of MIT Kerberos for Macintosh 3.0fc1.
+	June 18, 2000
+
+	* Fix bug in saving Kerberos Manager preferences (now works and doesn't
+	  present error).
+	* "Load KClient Driver" Debug menu option works again (now use correct
+	  KClient library name).
+	
+	========================================================================
+	Kerberos Manager 1.1fc1
+	Never released.
+	June 16, 2000
+
+	* Added support for the "always use specific username" preference.
+	* Fix bug where random large time remainings were displayed for expired
+	  tickets.
+	* Display name and full path of preferences file in some preference file
+	  warnings.
+	
+	========================================================================
+	Kerberos Manager 1.1b2
+	Released as part of MIT Kerberos for Macintosh 3.0b2 and 3.0b3.
+	June 13, 2000
+
+	* Removed some no longer necessary preferecnes/.ini warnings.
+	* Trapped a few orphaned throw statements.
+	* Added former students to "About Kerberos for Macintosh..." window.
+	
+	========================================================================
+	Kerberos Manager 1.1b1
+	Released as part of MIT Kerberos for Macintosh 3.0b1.
+	June 9, 2000
+
+	* Uses PreferencesLib for reading and writing Kerberos Manager prefs
+	  (there may still be one or two extra errors, or incorrect wording in 
+	  errors, regarding prefs - these will be fixed in next release).
+	* Real error dialog if unexpected error from KLAcquireNewTickets().
+	* Fixed numerous "implicit arithmetic conversion" warnings.
+	
+	========================================================================
+	Kerberos Manager 1.1a2
+	Released as part of MIT Kerberos for Macintosh 3.0a3.
+	June 2, 2000
+
+	* Displays "(P)" in ticket entry for proxiable tickets.
+	* Properly reports error saving Login Library preferences.
+	* Removed 'aete' resources for unsupported AppleEvents.
+	* Changed e-mail address in about boxes to <krbdev@mit.edu>.
+	
+	========================================================================
+	Kerberos Manager 1.1a1
+	Released as part of MIT Kerberos for Macintosh 3.0a1 and 3.0a2.
+	May 12, 2000
+
+	* Added event filter callback routine for Login Library.  Kerberos
+	  Manager now updates windows when you move the Login dialog around.
+	* Added "About MIT Kerberos for Macintosh" command under Apple menu.
+	* Minor safety improvements of some string copying code in error
+	  dialogs.
+	
+	========================================================================
+
+	Kerberos Manager 1.1d8
+	Released as part of MIT Kerberos for Macintosh 3.0d9.
+	May 6, 2000
+	
+	* Documentation update.
+	  
+	========================================================================
+
+	Kerberos Manager 1.1d7
+	Released as part of MIT Kerberos for Macintosh 3.0d8.
+	April 28, 2000
+	
+	* Now displays v4-only realms in Edit Favorite Realms dialog, so you can
+	  add them to the list.
+	* v4 credentials and principal now displayed before v5 credentials and
+	  principal for mixed-version caches in the ticket list.
+	* Now gives warning and ignores preferences resource when it's an
+	  unrecognized version.
+	* Ignores v1 preference resources (not worth the bother to read them).
+	* Fix bug where ticket lifetime preference set by the preferences dialog
+	  slider sometimes had an odd number of seconds on it (now rounds to the
+	  nearest minute, as displayed in the UI).
+	* Changed Mac OS version check to require 8.1 or higher.
+	  
+	========================================================================
+
+	Kerberos Manager 1.1d6
+	Released as part of MIT Kerberos for Macintosh 3.0d7.
+	April 20, 2000
+	
+	* Redesigned preferences dialog user interface.
+	* Preferences now control Login Library options, not ones internal to
+	  Kerberos Manager.
+	* Removed support for running under non-Appearance conditions.
+	* No longer tries to read/write a realms preference.
+	
+	========================================================================
+
+	Kerberos Manager 1.1d5
+	Released as part of MIT Kerberos for Macintosh 3.0d6.
+	April 7, 2000
+	
+	* Now manipulates Login Library realm information instead of using its
+	  own iternal realms list.
+	* Non-debug version no longer crashes on exit trying to unload a
+	  library twice (and freeing a krb5 context twice).
+	* Re-enabled debug version launches Ticket Keeper.
+	* Determined that we will continue to use gettimeofday() only instead
+	  of krb5_us_timeofday() - the CCache will be modified so that its
+	  times are "local" not "KDC" time.
+	* Fixed numerous memory leaks (some are still reported; most are from
+	  either PowerPlant or other parts of KfM, a few may still be KM's own.)
+	* Tweaked about box.
+	
+	========================================================================
+
+	Kerberos Manager 1.1d4
+	Released as part of MIT Kerberos for Macintosh 3.0d5.
+	March 23, 2000
+	
+	* Now uses Login Library KLChangePassword() for "Change Password"
+	  function.
+	* Draws light grey background on master principals for caches in
+	  ticket list for easier reading.
+	* Uses gettimeofday() instead of krb5_us_timeofday() for all time
+	  comparisons - this is not strictly correct and will be fixed
+	  in a future version, but no incorrect times should be displayed.
+	* Some code cleanup working towards goal of behaving in v4 or v5-only
+	  environments, untested and not completely done.
+	
+	========================================================================
+	Kerberos Manager 1.1d3
+	Released as part of MIT Kerberos for Macintosh 3.0d3 and 3.0d4.
+	March 10, 2000
+	
+	* Now uses Login Library KLAcquireNewTickets() for "New Login" and
+	  "Renew" functions.
+	* Better display of V4 tickets in ticket list.  Now has "subprincipals"
+	  (the representation of the principal for each version) and groups
+	  tickets of each Kerberos version together.  (Internally, rewrote to
+	  use KrbWrappersLib and KerbLoginLib.)
+	* Forwardable tickets now marked with an "(F)" in the ticket list.
+	* Debug menu KLAcquireNewTickets option no longer leaks memory, although
+	  this is moot since you don't need to use it anymore...
+	
+	========================================================================
+
+	Kerberos Manager 1.1d2
+	Released as part of MIT Kerberos for Macintosh 3.0d2.
+	February 23, 2000
+	
+	* Main window now resizable, and size is saved in prefs.
+	* Fixed bug where KM always tries to launch TK even if TK is
+	  already running.
+	* Added "Login Library KLAcquireNewTickets" option to the Debug
+	  menu so you don't have to run a separate app to do a Login Lib
+	  login.  This uses Login Lib v2, but otherwise there isn't
+	  full Login Library support in this KM release.
+	* Swapped position of "Load KClient Driver" and "Unload KClient
+	  Driver" menu items in Debug menu.
+	* Don't display asserts when no prefs resource exist at KM startup
+	  (this is a situation it can fully deal with).
+	* No prefs file is now a fatal error, do not try to create a new prefs
+	  file if one exists.  (Because we can't run without or create the
+	  .ini information the prefs file now contains.)
+	
+	========================================================================
+
+	Kerberos Manager 1.1d1
+	Released as part of MIT Kerberos for Macintosh 3.0d1.
+	February 11, 2000
+	
+	* Partial support for displaying v4 information in ticket list.
+	  In mixed v4/v5 caches, the overall principal and expiration time
+	  displayed is based on v5 information.  v4 tickets will be listed
+	  in the details with a "(v4)" appended and mixed in with the v5
+	  tickets in no particular order.
+	  In v4-only caches, the principal is displayed in v4 format (but
+	  there is no other indication for coding reasons), and the
+	  expiration time is based on v4 information.  v4 tickets are listed
+	  in the details with a "(v4)" appended.
+	  You can destroy v4-only or mixed v4/v5 caches.
+	  You can make v4-only or mixed v4/v5 caches the default, but only
+	  the ccache and the v5 libraries will be notifed that you changed
+	  the default, v4 library will not.  (v4/v5 notification only
+	  applies to application default)
+	  There is currently no way to obtain v4 tickets with Kerberos
+	  Manager.
+	* New Logins not made system default (active user) unless they are
+	  the very first login.
+	* Active principal now displayed in place (not always at top) in
+	  principal list.
+	* Kerberos Error dialog made larger so long error descriptions fit.
+	* Added macdev@mit.edu address to about box.
+	* Updated to use CCache API v3.
+	* Removed dependencies on defunct Krb5GlobalsLib.
+	* Now PPC-only (removed 68K and FAT targets).
+	* Startup check for Ticket Keeper disabled in this version (in debug
+	  binary only).
+	* Debug menu for loading/unloading KClient driver, launching/killing
+	  Ticket Keeper, forcing refresh of ticket list.
+
+============================================================================
+
+Kerberos Manager 1.0.3
+Released as part of MIT Kerberos for Macintosh 2.5.1.
+
+Summary of major changes:
+* Change password no longer silently fails in some error cases (particulary,
+  when admin server times out).
+
+	Kerberos Manager 1.0.3
+	October 22, 1999
+	
+	* Errors with the krb5_change_password() call actually reported.
+	* Preferences updated only when main window isactually moved
+	  (not when user clicks in drag bar but doesn't move it).
+
+============================================================================
+
+Kerberos Manager 1.0.2
+
+Released as part of MIT Kerberos for Macintosh 2.5.
+
+Summary of major changes:
+* Now a FAT application with 68K support (68K supported on Mac OS 8.1 only).
+* Support minimal "login" ('Lgin') AppleEvent.
+* Various fixes to properly recognize and display changes to V5 tickets in
+  cache by other CCache-using applications/libraries.
+* Now an 'APPL' with a 'rout' resource that directs it to Control Panels
+  folder.
+* Several memory leaks fixed.
+  
+	Kerberos Manager 1.0.2
+	September 15, 1999
+	
+	* Wasn't weak linking against many shared libraries.  Fixed.
+	* New version check for OS 8.1 only on 68K machines.
+	  (PPC remains 7.6.1 and higher.)
+
+	========================================================================
+
+	Kerberos Manager 1.0.2b5
+	September 2, 1999
+	
+	* Now depends on new libraries MoreFilesLib and TicketKeeperLib instead
+	  of including their code internally, and other minor internal changes.
+
+	========================================================================
+
+	Kerberos Manager 1.0.2b4
+	August 20, 1999
+	
+	* Kerberos Manager no longer crashes when launched with a "login" AppleEvent.
+	* Renamed many source files.
+	
+	========================================================================
+
+	Kerberos Manager 1.0.2b3
+	August 6, 1999
+	
+	* Now supports minimal "login" ('Lgin') AppleEvent.  Takes no parameters,
+	  sends no replies currently - all you can do is send it and KM will
+	  display the login dialog.
+	* Fixed bug where failure to launch Ticket Keeper would sometimes not
+	  be reported.
+	* No longer allows nil passwords.
+	* Fixed minor memory leaks.
+
+	========================================================================
+
+	Kerberos Manager 1.0.2b2
+	July 23, 1999
+	
+	* Now a FAT application (PPC and 68K).
+	* Minor fixes for 68K compatibility.
+	* Fixed problem where remaining lifetime didn't update properly
+	  if another application/utility removed the last user in the cache.
+
+	========================================================================
+
+	Kerberos Manager 1.0.2b1
+	June 24, 1999
+	
+	* Properly recognizes and displays when tickets are obtained by Login
+	  Library or other CCache-using applications (although it does not
+	  use Login Library itself).
+	* Fixed memory & CCache leaks when v4 tickets are also in the cache.
+	* Now an application ('APPL') again, with a 'rout' resource that tells
+	  Mac OS 8.0 and later to put it in the Control Panels folder.  Users
+	  of earlier systems will have to place it there by hand.
+
+============================================================================
+
+Kerberos Manager 1.0.1
+May 25, 1999
+
+Released as part of MIT Kerberos for Macintosh 2.0.2 .
+
+Summary of major changes:
+* Displays status dialog while trying to login.
+* New icon.
+
+	Kerberos Manager 1.0.1
+	May 25, 1999
+	
+	* Fixed a bug where "Edit Realms" didn't work in the Login dialog after
+	  Kerberos Manager had to launch Ticket Keeper.
+	* Yet another new icon.
+
+	========================================================================
+
+	Kerberos Manager 1.0.1fc1
+	May 7, 1999
+
+	* Displays a status dialog when you login stating "Acquiring Kerberos
+	  tickets.  This may take a while."  Dialog is dismissed when tickets
+	  are acquired (or Kerberos server returns an error).
+
+============================================================================
+
+Kerberos Manager 1.0
+April 30, 1999
+
+Released as part of MIT Kerberos for Macintosh 2.0 .
+
+Initial public release.
+
+	Kerberos Manager 1.0
+	April 30, 1999
+	
+	* Fixed bug that could cause crash when no krb5.ini file was present.
+	* Swapped positions of "Edit Realms..." and "Preferences..." menu items.
+	* Added Conflict Catcher and 'hfdr' resources.
+	* New icon, again.
+
+	========================================================================
+
+	Kerberos Manager 1.0fc1
+	April 23, 1999
+	
+	* Redesigned main window.
+	* Now a control panel.
+	* New, improved, safer MIT Ticket Keeper launching code.
+	* Minor tweaks to ticket lifetime displays.
+	* Renamed to "Kerberos Manager."
+	* All messages updated to reference new MIT Kerberos for Macintosh
+	  component names.
+
+	========================================================================
+
+	Kerberos Ticket Manager 1.0b7
+	April 14, 1997
+	
+	* Now tries to launch Ticket Keeper if Ticket Keeper isn't running.
+	* When your tickets have expired, the words "Expired" now appear in red.
+	* When there is no active user, the expiration time is displayed as "--".
+	* Minor selection problem in Edit Realms dialog fixed.
+	* Now checks for System 7.6.1 or greater, and refuses to run if condition not met.
+
+	========================================================================
+
+	Kerberos Ticket Manager 1.0a6
+	March 25, 1999
+	
+	* Upgraded to use Credentials Cache API version 2.
+	* "Change Password" now works for non-active users.
+	* Renewing tickets now works.
+	* No longer crashes if no network connection is present.
+	* No longer crashes if krb5.ini is not present.
+	* Ticket list now displays ticket lifetimes when collapsed.
+	* When you destroy the active user's tickets, another user is made
+	  active (if there is more than one user logged in).
+	* Version number now displays properly in the About Box (again).
+	* Revised about box.
+
+	========================================================================
+
+	Kerberos Ticket Manager 1.0d5
+	February 22, 1999
+	
+	* "Edit Favorite Realms" feature now available.  You can change the
+	  realms in the realms popup to just the ones you use.  (You'll have
+	  to use the feature to add any realms besides "ATHENA.MIT.EDU".)
+
+	========================================================================
+
+	Kerberos Ticket Manager 1.0d4
+	February 4, 1999
+	
+	* Fixed crashes when tickets are being kept by Ticket Keeper are
+	  encountered.
+	* Fixed display glitches with non-Charcoal system fonts.
+
+	========================================================================
+
+	Kerberos Ticket Manager 1.0d3
+	January 26, 1999
+	
+	* Preferences now saved.
+	* New preferences for whether entries the ticket list in the main
+	  window are expanded or collapsed.  (Collapsed is default.)
+	* Change Password now working.
+	* You can get tickets in all realms.
+	* Version number displays properly.
+	* Will refuse to run if an out-of-date version of GSSLib is installed.
+	* Changed name to "Kerberos Ticket Manager."
+
+	========================================================================
+
+	k5TicketManager 1.0d2
+	January 22, 1999
+	
+	* Maximum and default ticket lifetime is now 10 hours.
+	* Realm is now a pop-up menu instead of an edit fields.  It lists all
+	  the realms in the krb5.ini file.
+	* Preferences dialog active (although of limited use).

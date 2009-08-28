@@ -2,7 +2,7 @@
 ## radiusd.conf	-- FreeRADIUS server configuration file.
 ##
 ##	http://www.freeradius.org/
-##	$Id: radiusd-example.txt,v 1.1.4.1 2006/02/10 15:12:03 nbk Exp $
+##	$Id$
 ##
 
 # This is the radiusd.conf file used for testing EAP-SIM stuff.
@@ -130,15 +130,6 @@ pidfile = ${run_dir}/radiusd.pid
 #  Useful range of values: 5 to 120
 #
 max_request_time = 30
-
-#  delete_blocked_requests: If the request takes MORE THAN 'max_request_time'
-#  to be handled, then maybe the server should delete it.
-#
-#  If you're running in threaded, or thread pool mode, this setting
-#  should probably be 'no'.  Setting it to 'yes' when using a threaded
-#  server MAY cause the server to crash!
-#
-delete_blocked_requests = no
 
 #  cleanup_delay: The time to wait (in seconds) before cleaning up
 #  a reply which was sent to the NAS.

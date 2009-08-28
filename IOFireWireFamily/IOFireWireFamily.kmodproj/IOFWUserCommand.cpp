@@ -80,25 +80,25 @@ IOFWUserCommand::withSubmitParams(
 		case kFireWireCommandType_Read:
 			// fallthru
 		case kFireWireCommandType_ReadQuadlet:
-			result = new IOFWUserReadCommand ;
+			result = OSTypeAlloc( IOFWUserReadCommand );
 			break ;
 		
 		case kFireWireCommandType_Write:
 			// fallthru
 		case kFireWireCommandType_WriteQuadlet:
-			result = new IOFWUserWriteCommand ;
+			result = OSTypeAlloc( IOFWUserWriteCommand );
 			break ;
 			
 		case kFireWireCommandType_CompareSwap:
-			result = new IOFWUserCompareSwapCommand ;
+			result = OSTypeAlloc( IOFWUserCompareSwapCommand );
 			break ;
 
 		case kFireWireCommandType_PHY:
-			result = new IOFWUserPHYCommand;
+			result = OSTypeAlloc( IOFWUserPHYCommand );
 			break ;
 			
 		case kFireWireCommandType_AsyncStream:
-			result = new IOFWUserAsyncStreamCommand;
+			result = OSTypeAlloc( IOFWUserAsyncStreamCommand );
 			break;
 		
 		default:
@@ -950,21 +950,35 @@ IOFWUserCompareSwapCommand::asyncCompletion(
 
 	if (refcon && cmd->fAsyncRef[0] )
 	{
-		UInt32 lock_value = 0;
-		bool locked = ((IOFWCompareAndSwapCommand*)cmd->fCommand)->locked( &lock_value );
+		UInt32 lock_value[2];
+		lock_value[0] = 0;
+		lock_value[1] = 0;
+		bool locked = ((IOFWCompareAndSwapCommand*)cmd->fCommand)->locked( lock_value );
 	
-		UInt64 args[6];
+		UInt64 args[7];
 		args[0] = (UInt64)status;
 		args[1] = (UInt64)cmd->fCommand->getBytesTransferred();
 		args[2] = (UInt64)cmd->fCommand->getAckCode();
 		args[3] = (UInt64)cmd->fCommand->getResponseCode();
 		args[4] = (UInt64)locked;
-		args[5] = (UInt64)lock_value;
-
+		args[5] = (UInt64)lock_value[0];
+		args[6] = (UInt64)lock_value[1];
+#if 0
+		int i = 0;
+		for( i = 0; i < 7; i++ )
+		{
+#ifdef __LP64__			
+			IOLog( "IOFWUserCompareSwapCommand::asyncCompletion - args[%d] - %llx\n", i, args[i] );
+#else
+			IOLog( "IOFWUserCompareSwapCommand::asyncCompletion- args[%d] - %llx\n", i, args[i] );
+#endif
+		}
+#endif
+		
 #if IOFIREWIREDEBUG > 0
 		IOReturn error =
 #endif	
-		IOFireWireUserClient::sendAsyncResult64( cmd->fAsyncRef, status, args, 6 );
+		IOFireWireUserClient::sendAsyncResult64( cmd->fAsyncRef, status, args, 7 );
 		DebugLogCond ( error, "IOFireWireUserClient::asyncCompareSwapCommandCompletion: sendAsyncResult64 returned error 0x%08x\n", error ) ;
 
 
@@ -1070,14 +1084,15 @@ IOFWUserAsyncStreamCommand::submit(
 		if (fAsyncStreamCommand)
 		{
 			result = ((IOFWAsyncStreamCommand*)fAsyncStreamCommand)->reinit( params->newGeneration,
-																			 params->data1,
+																			 params->data1,				// channel
 																			 params->sync,
 																			 params->tag,
 																			 fMem, 
 																			 params->newBufferSize,
 																			 params->maxPacketSpeed,
 																			 syncFlag ? NULL : & IOFWUserAsyncStreamCommand::asyncStreamCommandCompletion,
-																			 this) ;
+																			 this,
+																			 params->newFailOnReset) ;
 			DebugLogCond ( result, "IOFWUserAsyncStreamCommand::submit: fCommand->reinit result=%08x\n", result) ;
 		}
 		else
@@ -1085,14 +1100,15 @@ IOFWUserAsyncStreamCommand::submit(
 			IOFireWireController * control = fUserClient->getOwner()->getController();
 
 		    fAsyncStreamCommand = control->createAsyncStreamCommand( params->newGeneration,
-																	 params->data1,
+																	 params->data1,						// channel
 																	 params->sync,
 																	 params->tag,
 																	 fMem, 
 																	 params->newBufferSize,
 																	 params->maxPacketSpeed,
 																	 syncFlag ? NULL : & IOFWUserAsyncStreamCommand::asyncStreamCommandCompletion,
-																	 this);
+																	 this,
+																	 params->newFailOnReset);
 			
 			if (!fAsyncStreamCommand)
 				result = kIOReturnNoMemory ;

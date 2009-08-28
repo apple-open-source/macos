@@ -3,6 +3,78 @@ changes between releases of flex.
 
 See the file COPYING for copying conditions.
 
+* version 2.5.35 released 2008-02-26
+
+** fixed bug that prevented flex from accepting certain comments in the
+  scanner file (resolves bugs #1849809 and #1849805)
+
+** fix bug that prevented headers for all functions from being generated
+  (resolves bug #1628314)
+
+** change yy_size_t to be size_t (resolves bug #1849812)
+
+** new de, nl, pl, pt_br, vi translations from the translation project
+
+* version 2.5.34 released 2007-12-12
+
+** introduce yylex_init_extra; see the manual for details
+
+** introduce %option extra-type="your_type *" (resolves bug #1744505)
+
+** The flex program now parses multiple short concatenated options (resolves bug
+  #1619820). Thanks to Petr Machata of Red Hat on this issue.
+
+** better checking after yyalloc/yyrealloc (resolves bug #1595967)
+
+** flex now provides for a libfl_pic.a compiled with position
+   independent code. Particularly useful when including a flex scanner
+   in a shared library and with more recent versions of gcc. Thanks to the Debian project for the idea.
+
+** SourceForge feature request #1658379: Expose YY_BUF_SIZE in the
+	header file.
+
+** flex better escapes filenames with special characters in them
+   (resolves bug #1623600)
+
+** a memory leak was plugged(resolves bug #1601111)
+
+** pattern language expanded; see the manual for details on the below
+   highlights
+
+*** pattern options added to specify patterns as case-insensitive or
+    case-sensitive
+
+*** pattern options to specify whether the "." character should match
+    the newline character
+
+*** pattern options added to allow ignoring of whitespace in patterns
+
+*** POSIX character classes may be negated in patterns
+
+*** patterns may now use set difference, union operators
+
+** the manual now contains an appendix listing various common patterns
+   which may be useful when writing scanners
+
+** some memory leaks were removed from the C++ scanner (but the C++
+  scanner is still experimental and may change radically without
+  notice)
+
+** c++ scanners can now use yywrap
+
+** added new unit test for c++ and yywrap
+
+** portability fixes to some unit tests
+
+** flex man page and flex manual in pdf now distributed in the flex
+distribution
+
+** new ca, vi, ga, nl translations from the translation project
+
+** flex no longer comes with an rpm spec file
+
+** flex development now happens with automake 1.9.6
+
 * version 2.5.33 released 2006-2-20
 
 ** all flex resources are now to be found from the website at

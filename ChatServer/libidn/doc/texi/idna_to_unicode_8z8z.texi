@@ -1,3 +1,5 @@
+@subheading idna_to_unicode_8z8z
+@anchor{idna_to_unicode_8z8z}
 @deftypefun {int} {idna_to_unicode_8z8z} (const char * @var{input}, char ** @var{output}, int @var{flags})
 @var{input}: zero-terminated UTF-8 string.
 

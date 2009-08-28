@@ -1,0 +1,171 @@
+#!/usr/bin/env tclsh
+package require XOTcl; namespace import -force xotcl::*
+
+@ @File {
+    description {
+      This script can be used to start/stop/restart xotcl daemons
+      and maintains the process IDs, log files and means for easy 
+      restart.
+      <@p>
+      It receives as first parameter the name of the xotcl script
+      to be executed followed by the desired action and optional 
+      parameters. The specified action can be
+      <@UL>
+      <@LI> <@EM>start</@EM>: the specified script is started in 
+         the background, an entry to restart is generated in 
+         the run-directory as well as the process id of the started 
+         script. In addition a logfile is created in the log directory.
+         If the start of the script fails, the error messages are 
+         shown.
+      <@LI> <@EM>startall</@EM>: all scripts that were started before 
+         via this script, are started
+      <@LI> <@EM>stop</@EM> terminates te specified script.
+      <@LI> <@EM>stopall</@EM> terminates all scripts started via this
+         command
+      <@LI> <@EM>restart</@EM> tries to restart the specified script.
+      </@UL>
+      The optional parameters are:
+      <@UL>
+      <@LI> <@EM>-logir</@EM> specifies the directory for logging.
+            The default is ~/.xotcl/log.
+      <@LI> <@EM>-rundir</@EM> specifies the directory where 
+            the information about the running processes is kept.
+            The default is ~/.xotcl/run.
+      </@UL>
+    }
+    authors {
+	Gustaf Neumann, Gustaf.Neumann@wu-wien.ac.at
+    }
+    date "[::xotcl::rcs date {$Date: 2006/02/18 22:17:32 $}]"
+}
+
+array set opt [list \
+  -rundir $::xotcl::confdir/run \
+  -logdir $::xotcl::confdir/log \
+]
+if {$argc < 2} {
+  puts "Usage:\n\t$argv0 <daemon> <start|startall|stop|stopall|restart>\
+	?options?\nOptions:\n\
+	\t-logdir dirname  (default: $::opt(-logdir))\n\
+	\t-rundir dirname  (default: $::opt(-rundir))\n"
+  exit -1
+}
+foreach {daemon action} $argv break
+array set opt [lreplace $argv 0 1]
+
+# The daemon scripts should be 
+#   - location independent (if the script assumes to be started from
+#                           a certain directory, it should cd to it)
+#   - parameter less (required for restart, startall, etc.)
+#
+
+# configuration 
+set ::kill    /bin/kill
+set ::ps      /bin/ps
+set ::ln      /bin/ln
+set ::sleep   /bin/sleep
+set ::xotclsh /usr/bin/xotclsh
+
+Class Daemon -parameter progname
+Daemon instproc readfile {n} {
+  set f [open $n r]
+  set c [read $f]
+  close $f
+  return [string trim $c \n]
+}
+Daemon instproc init {} {
+  if {![file isdirectory $::opt(-rundir)]} {file mkdir $::opt(-rundir)}
+  if {![file isdirectory $::opt(-logdir)]} {file mkdir $::opt(-logdir)}
+}
+Daemon instproc progname name {
+  set n [file tail $name]
+  set n [file rootname $n]
+  [self] set pidfile $::opt(-rundir)/$n.pid
+  [self] set logfile $::opt(-logdir)/$n.log
+  [self] set shortname $n
+  [self] set progname $name
+}
+Daemon instproc report string {
+  puts stderr "[[self] set shortname]: $string"
+}
+Daemon instproc running pid {
+  set r [catch {exec $::ps -h $pid} msg]
+  #if {$r} { [self] report "msg=$msg"  }
+  #[self] report "running returns $r"
+  return [expr {!$r}]
+}
+Daemon instproc kill {sig pid} {
+  #[self] report "kill $sig $pid"
+  exec $::kill $sig $pid
+}
+Daemon instproc start {} {
+  [self] instvar pidfile logfile progname
+  if {[file exists $pidfile]} {
+    set pid [[self] readfile $pidfile]
+    [self] report "seems already running $pid"
+    if {[[self] running $pid]} {
+      [self] report "... no need to restart"
+      return
+    } else {
+      [self] report "... but disappeared $pid"
+    }
+  }
+  set linkname $::opt(-rundir)/[file tail $progname]
+  if {[string match *~* $linkname]} {
+     # file dirname ~ -> requires env(HOME)
+     regsub ^~ $linkname [file dirname ~]/$::env(USER) linkname
+  }
+  if {$progname != $linkname} {
+    #puts stderr "exec $::ln -sf $progname $linkname"
+    exec $::ln -sf $progname $linkname
+  }
+  set pid [exec $::xotclsh $progname >>& $logfile &]
+  set F [open $pidfile w]
+  puts $F $pid
+  close $F
+  exec sleep 1
+  if {![[self] running $pid]} {
+    [self] report "start of $pid failed"
+    set size [file size $logfile]
+    set F [open $logfile]
+    if {$size > 500} {seek $F [expr {$size-500}]}
+    puts [read $F]
+    close $F
+  } else {
+    [self] report "started $pid"
+  }
+}
+Daemon instproc stop {} {
+  [self] instvar pidfile logfile
+  if {[file exists $pidfile]} {
+    set pid [[self] readfile $pidfile]
+    #[self] report "Got PID $pid"
+    if {[[self] running $pid]} {
+      [self] report "stopping $pid"
+      [self] kill -KILL $pid
+      #if {[running $pid]} {kill -KILL $pid}
+    } else {
+      [self] report "not running $pid"
+    }
+    file delete $pidfile
+  } else {
+    [self] report "was not started before"
+  }
+}
+Daemon instproc restart {} {
+  [self] stop
+  [self] start
+}
+Daemon instproc stopall {} {
+  foreach pidfile [glob -nocomplain $::opt(-rundir)/*.PID] {
+    set n [file rootname [file tail $pidfile]]
+    [self] configure -progname $n -stop
+  }
+}
+Daemon instproc startall {} {
+  foreach file [glob -nocomplain $::opt(-rundir)/*] {
+    if {[string match *.PID $file]} continue
+    [self] configure -progname $file -start
+  }
+}
+Daemon d -init -progname $daemon -$action

@@ -9,11 +9,11 @@
 	<key>OpenSourceWebsiteURL</key>
 	<string></string>
 	<key>OpenSourceURL</key>
-	<string>http://ftp.gnu.org/gnu/ncurses/ncurses-5.5.tar.gz</string>
+	<string>ftp://invisible-island.net/ncurses/ncurses-5.7.tar.gz</string>
 	<key>OpenSourceSHA1</key>
-	<string>46414a72e91a62f63a8c9af00f0d65497f5ecc5a</string>
+	<string>8233ee56ed84ae05421e4e6d6db6c1fe72ee6797</string>
 	<key>OpenSourceImportDate</key>
-	<string>2006-03-21</string>
+	<string>2008-12-15</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string></string>

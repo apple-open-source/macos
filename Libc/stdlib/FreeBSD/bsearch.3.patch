@@ -1,11 +1,32 @@
---- _SB/Libc/stdlib/FreeBSD/bsearch.3	2003-05-20 15:23:24.000000000 -0700
-+++ _SB/Libc/stdlib/FreeBSD/bsearch.3.edit	2006-06-28 16:55:52.000000000 -0700
-@@ -47,19 +47,19 @@
+--- bsearch.3.orig	2009-05-12 11:21:33.000000000 -0700
++++ bsearch.3	2009-05-20 14:53:48.000000000 -0700
+@@ -36,30 +36,37 @@
+ .\"     @(#)bsearch.3	8.3 (Berkeley) 4/19/94
+ .\" $FreeBSD: src/lib/libc/stdlib/bsearch.3,v 1.8 2001/09/07 14:46:35 asmodai Exp $
+ .\"
+-.Dd April 19, 1994
++.Dd May 20, 2008
+ .Dt BSEARCH 3
+ .Os
+ .Sh NAME
++#ifdef UNIFDEF_BLOCKS
++.Nm bsearch ,
++.Nm bsearch_b
++#else
+ .Nm bsearch
++#endif
+ .Nd binary search of a sorted table
+-.Sh LIBRARY
+-.Lb libc
  .Sh SYNOPSIS
  .In stdlib.h
  .Ft void *
 -.Fn bsearch "const void *key" "const void *base" "size_t nmemb" "size_t size" "int (*compar) (const void *, const void *)"
 +.Fn bsearch "const void *key" "const void *base" "size_t nel" "size_t width" "int (*compar) (const void *, const void *)"
++#ifdef UNIFDEF_BLOCKS
++.Ft void *
++.Fn bsearch_b "const void *key" "const void *base" "size_t nel" "size_t width" "int (^compar) (const void *, const void *)"
++#endif
  .Sh DESCRIPTION
  The
  .Fn bsearch
@@ -24,7 +45,7 @@
  .Pp
  The contents of the array should be in ascending sorted order according
  to the comparison function referenced by
-@@ -70,7 +70,8 @@
+@@ -70,15 +77,33 @@
  is expected to have
  two arguments which point to the
  .Fa key
@@ -34,3 +55,29 @@
  less than, equal to, or greater than zero if the
  .Fa key
  object is found, respectively, to be less than, to match, or be
+ greater than the array member.
++#ifdef UNIFDEF_BLOCKS
++.Pp
++The
++.Fn bsearch_b
++function is like
++.Fn bsearch
++except the callback
++.Fa compar
++is a block pointer instead of a function pointer.
++#endif
+ .Sh RETURN VALUES
+ The
+ .Fn bsearch
+-function returns a pointer to a matching member of the array, or a null
++#ifdef UNIFDEF_BLOCKS
++and
++.Fn bsearch_b
++functions
++#else
++function
++#endif
++returns a pointer to a matching member of the array, or a null
+ pointer if no match is found.
+ If two members compare as equal, which member is matched is unspecified.
+ .Sh SEE ALSO

@@ -1,0 +1,1257 @@
+commit beb228842c77fab4a446e028dd501a01f0fb3fd3
+Author: Adam Jackson <ajax@redhat.com>
+Date:   Tue Feb 17 13:45:32 2009 -0500
+
+    Allow zero replies from GetPanning to mean panning is unavailable.
+
+commit 9418f5523bd923b122f6e67c33c40e0e9c29ab50
+Author: Aaron Plattner <aplattner@nvidia.com>
+Date:   Wed Mar 4 15:49:10 2009 -0800
+
+    Set the screen config on the correct screen.
+    
+    Otherwise, "DISPLAY=:0.0 xrandr --screen 1 -s 1" fails.
+
+commit 39a16783a3d1c0c722b4b18fab60a91b9f6ed578
+Author: Matthias Hopf <mhopf@suse.de>
+Date:   Fri Mar 6 14:49:43 2009 +0100
+
+    Revert "Move outputs among crtcs as necessary. Fixes 14570"
+    
+    This reverts commit 4dcc8ae1a6903434def1a2706f7c68ff9e2a17c4.
+    The commit broke uncloning completely again.
+    
+    Conflicts:
+    
+    	xrandr.c
+
+commit 880f045202d1e70368b855c3783604e19be946b8
+Author: Julien Cristau <jcristau@debian.org>
+Date:   Sun Feb 1 14:39:30 2009 +0100
+
+    Bump to 1.2.99.4
+
+commit 010dfc4bdd309256aecd006bb2b5b6937c2a119c
+Author: Julien Cristau <jcristau@debian.org>
+Date:   Sun Feb 1 14:34:15 2009 +0100
+
+    Document the --primary and --noprimary options
+
+commit 48014498d275a9aab986b4bf295538a5b38ddfeb
+Author: Julien Cristau <jcristau@debian.org>
+Date:   Sun Feb 1 14:12:21 2009 +0100
+
+    Document the --current option
+
+commit 909defc8a2b009ab845d875ba10e1ca01fb9d648
+Author: Keith Packard <keithp@keithp.com>
+Date:   Fri Jan 30 20:37:34 2009 -0800
+
+    Add --noprimary option
+
+commit 6c70e0ee693ea293e8674d049249b462f3d36855
+Author: Keith Packard <keithp@keithp.com>
+Date:   Fri Jan 30 20:11:10 2009 -0800
+
+    Add --primary option
+    
+    Signed-off-by: Keith Packard <keithp@keithp.com>
+
+commit 77891e7900765a320ad3d43b56bbb1f3081b6582
+Author: Keith Packard <keithp@keithp.com>
+Date:   Fri Jan 30 20:11:02 2009 -0800
+
+    Add --nograb option
+    
+    Signed-off-by: Keith Packard <keithp@keithp.com>
+
+commit 6f3e2bb207cff069791811ef2bbe7798759ed810
+Author: Keith Packard <keithp@keithp.com>
+Date:   Tue Dec 9 21:26:50 2008 -0800
+
+    Add --current option to use new XRRGetScreenResourcesCurrent API
+    
+    Signed-off-by: Keith Packard <keithp@keithp.com>
+
+commit d98d1f4055d8fbae1dc8d8c54467bfef21010694
+Author: Matthias Hopf <mhopf@suse.de>
+Date:   Fri Jan 30 17:46:05 2009 +0100
+
+    Several fatal() were missing \n.
+
+commit 9ea6e4210d49c13991a7d07e54f6f59e3dc8ce72
+Author: Éric Piel <E.A.B.Piel@tudelft.nl>
+Date:   Mon Jan 19 16:18:46 2009 +0100
+
+    Add docs for --transform and --scale.
+    
+    The new --transform and --scale options were added, but not yet
+    documented. This includes also an example of usage of panning and
+    scaling at the same time.
+
+commit 4d381d6a88fe147f8b6eabd765a2f42c6402d8c6
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Mon Jan 26 16:40:59 2009 -0200
+
+    Correct make distcheck and gcc/sparse warnings.
+
+commit 7509ecb290689e0b1d5e1000c9fbd312f1efb4ca
+Author: Maarten Maathuis <madman2003@gmail.com>
+Date:   Mon Jan 5 19:47:21 2009 +0100
+
+    Stay away from doublescan modes unless a refresh rate is specified.
+
+commit f77ad847c0d3f8f0c6e8ffbf0bec39e5e9c5ded0
+Author: Maarten Maathuis <madman2003@gmail.com>
+Date:   Mon Dec 22 19:46:24 2008 +0100
+
+    Fix gamma computation.
+    
+    - The previous version sometimes overflowed.
+
+commit 5ddde7151841a8db99a2f38689a176114b2a45e5
+Author: Matthias Hopf <mhopf@suse.de>
+Date:   Thu Dec 18 16:09:39 2008 +0100
+
+    Print multiple Atom and INT32 properties.
+    
+    Improve output formating of strings.
+
+commit 96af64f0de71f4149740b486baaefca744bb1bc1
+Author: Maarten Maathuis <madman2003@gmail.com>
+Date:   Wed Dec 17 17:18:14 2008 +0100
+
+    randr-1.2: support gamma changes.
+
+commit 9b7a2a3d4ac7891bd5372a581e6a55a1c81497ef
+Author: Matthias Hopf <mhopf@suse.de>
+Date:   Mon Dec 15 20:39:43 2008 +0100
+
+    Bump to 1.2.99.3
+
+commit e80add8a407a9327bda209ff11a97dc3336e0cab
+Author: Matthias Hopf <mhopf@suse.de>
+Date:   Mon Dec 15 21:00:55 2008 +0100
+
+    Add keystone.5c to EXTRA_DIST
+
+commit c98591b0bf4753c4c075eccde6023ef644f8bf96
+Author: Matthias Hopf <mhopf@suse.de>
+Date:   Mon Dec 15 20:36:40 2008 +0100
+
+    Don't trash panning area, except if --panning or --fb is given.
+    
+    Almost anything used to reduce the screen size to the current mode size, which
+    is counter-productive when panning is active.
+
+commit 8cb63b6df9e46e8b06a57cb54ad460355b604399
+Author: Matthias Hopf <mhopf@suse.de>
+Date:   Thu Dec 11 17:09:47 2008 +0100
+
+    Panning tracking areas describe full screen if set to 0. Use it as default.
+    
+    Also improve reduced output on default tracking and borders.
+
+commit b5efbb31ec7c27895507add4497dbfc87f930bb3
+Author: Adam Jackson <ajax@redhat.com>
+Date:   Mon Dec 8 16:37:59 2008 -0500
+
+    Accept --props synonym for --prop
+
+commit 57cabac91099a8abd5afad75de64e54930c078ec
+Author: Matthias Hopf <mhopf@suse.de>
+Date:   Mon Dec 8 12:24:37 2008 +0100
+
+    Only set transforms if actually changed.
+    
+    Re-enables other crtc settings if transforms are not supported.
+
+commit 970f689651fc86fa7a2ba24f0fab5f86f01af349
+Author: Matthias Hopf <mhopf@suse.de>
+Date:   Thu Dec 4 17:47:05 2008 +0100
+
+    Add manpage entry.
+
+commit d030ae78e8516b916e9ea1ea81e3b4859bf35875
+Author: Matthias Hopf <mhopf@suse.de>
+Date:   Thu Dec 4 15:57:22 2008 +0100
+
+    Bump to 1.2.99.2, RandR requirements to 1.2.99.2
+
+commit f6b5862f87ba7e1729c46136ef7754a06301853f
+Author: Matthias Hopf <mhopf@suse.de>
+Date:   Fri Nov 28 17:16:11 2008 +0100
+
+    Add panning support.
+
+commit 1dc67ca918446cb7db4819f60f36e7bc6f4c047b
+Author: Matthieu Herrb <matthieu.herrb@laas.fr>
+Date:   Sat Dec 6 11:40:53 2008 +0100
+
+    Don't use GNU make only constructs.
+
+commit 7963d4217c12d2e4b0c38ad4ff185462784609f7
+Author: Julien Cristau <jcristau@debian.org>
+Date:   Mon Dec 1 23:27:51 2008 +0100
+
+    Require libXrandr 1.2.91
+
+commit ba78e14c8c43a141fc5227e7bb75d6cfd0f70dba
+Author: Julien Cristau <jcristau@debian.org>
+Date:   Mon Dec 1 21:45:47 2008 +0100
+
+    Fix build outside of the source dir
+
+commit 63ba316bcbe8ad61ba63d9fe62c82e7d56dcc399
+Merge: a813c4d... 1b95e32...
+Author: Julien Cristau <jcristau@debian.org>
+Date:   Mon Dec 1 21:33:35 2008 +0100
+
+    Merge branch 'transform-proposal' of git.freedesktop.org:/git/xorg/app/xrandr
+
+commit 1b95e32b4b0a4a114e0fbebe8a18316d2f9010cf
+Author: Keith Packard <keithp@keithp.com>
+Date:   Fri Nov 14 14:14:24 2008 -0800
+
+    Add --scale and --transform to --help output
+
+commit e9a5d1c598cd0440f062240430a9b86b4d514ada
+Author: Keith Packard <keithp@keithp.com>
+Date:   Fri Nov 14 14:13:51 2008 -0800
+
+    Check return value from XRRGetCrtcTransform
+    
+    XRRGetCrtcTransform will return 0 if the X server does not support this
+    request.
+
+commit a813c4da7f0b166ee9001fa97c5d8d64e5b5b560
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Aug 19 09:39:00 2008 -0700
+
+    Man page typo fix
+
+commit 8ef4595aef15b7326822849a50c273f2a2b4ba30
+Author: Julien Cristau <jcristau@debian.org>
+Date:   Fri Aug 15 21:23:13 2008 +0200
+
+    Manpage typo fixes
+
+commit 977275a13be0687efc3db1fd3763174ff1256210
+Author: Eric Piel <E.A.B.Piel@tudelft.nl>
+Date:   Sun Aug 10 23:28:25 2008 +0200
+
+    update the manpage
+    
+    Describe all the options supported, including: --dryrun, -display,
+    --q1, --q12, and --rate for 1.1
+    Describe all short and long version of the option.
+    Use the usual man style for the option arugments.
+    Move the four --*mode options out of the output section as they are
+    independant of an output.
+    Mention cvt for computing modelines.
+    Gives some examples.
+
+commit 3046799a06ecb79211ef0f4a2db9de4eec7233fb
+Author: Egbert Eich <eich@freedesktop.org>
+Date:   Sun Aug 3 13:24:49 2008 +0200
+
+    Fix for 64bit: feed a pointer to the right size variable to scanf().
+    
+    XID is unsigned long, however %x in scanf takes a pointer to an unsigned int.
+    Thus with XID xid, a sscanf(..., "0x%x", &xid) will most likely produce the
+    wrong results.
+
+commit 0d2082e9eb25cb7410309eed908b7f95abb8da79
+Author: Keith Packard <keithp@keithp.com>
+Date:   Tue Apr 1 23:46:02 2008 -0700
+
+    Exit when select output is not available
+
+commit 18a189993b3df8bc54a79e0d62240ef203d6f34f
+Author: Keith Packard <keithp@keithp.com>
+Date:   Tue Apr 1 23:44:50 2008 -0700
+
+    Fix up xkeystone to use current screen/output settings
+
+commit 9e8860f9231926090462ea20132cc9e1d64e5fe4
+Author: Keith Packard <keithp@keithp.com>
+Date:   Sun Mar 30 19:03:53 2008 -0700
+
+    Execute xrandr to set keystone correction
+
+commit 206bfbea4ebe854fdfa66e8a6fbd9296b6004c0e
+Author: Keith Packard <keithp@keithp.com>
+Date:   Sun Mar 30 19:03:29 2008 -0700
+
+    add --transform none to reset to identity
+
+commit 443e1f80c885133ae6df590f1a7663833c76b7f3
+Author: Keith Packard <keithp@keithp.com>
+Date:   Fri Mar 21 23:29:41 2008 -0700
+
+    Build and install xkeystone program from keystone.5c
+
+commit a7a7eea510b5a87c1e12516fadae4d13bd26e0a0
+Author: Keith Packard <keithp@keithp.com>
+Date:   Fri Mar 21 23:26:30 2008 -0700
+
+    Track toolkit name change (chrome->nichrome)
+
+commit 74dae9d4b06369a1863e7a68b7b3772751e06ff1
+Author: Keith Packard <keithp@keithp.com>
+Date:   Fri Mar 21 03:17:44 2008 -0700
+
+    Add keystone.5c program to help compute transforms.
+
+commit 46bd35dd9004c0f9f47dc44b77a8c28e3ab7ced1
+Author: Keith Packard <keithp@keithp.com>
+Date:   Fri Mar 21 03:17:40 2008 -0700
+
+    Make screen undersize a warning instead of an error
+
+commit b816bf38b418618c2f1cb5ded09aa3b346f8eb15
+Author: Keith Packard <keithp@keithp.com>
+Date:   Tue Mar 18 16:04:34 2008 -0700
+
+    Add --transform to pass arbitrary transforms to the server
+
+commit 3809884530223e32f7026ec987257cb91e2122a9
+Author: Keith Packard <keithp@keithp.com>
+Date:   Tue Mar 18 16:04:22 2008 -0700
+
+    Eliminate inverse matrix from randr transform protocol
+    
+    It is easier, and potentially more precise, to compute the inverse in the
+    server where everything can eventually be kept in floating point form.
+
+commit 854a7c2916455fec5ec1ba87576e26706d151381
+Author: Keith Packard <keithp@keithp.com>
+Date:   Mon Mar 17 13:59:40 2008 -0700
+
+    Transform mode bounds when computing sizes.
+    
+    Ensure screen sizes are compared with projected mode image, including
+    rotation and transformation.
+
+commit bed3da4feaa505a5b50a4c94b0e6661bdac1fcbd
+Author: Keith Packard <keithp@keithp.com>
+Date:   Sat Mar 15 00:35:08 2008 -0700
+
+    Manage transform filters. Use bilinear for non-identity scale.
+    
+    This involved creating a compound transform datatype to hold all of the
+    relevant transform and filter information. Adding arbitrary transforms
+    should be fairly easy at this point.
+
+commit ba35bb5d306f4edf9a47b92f249132a0814f5db1
+Author: Keith Packard <keithp@keithp.com>
+Date:   Mon Mar 10 21:19:41 2008 -0700
+
+    Add output scaling using the 1.3 transform requests
+
+commit 4dcc8ae1a6903434def1a2706f7c68ff9e2a17c4
+Author: Hong Liu <hong.liu@intel.com>
+Date:   Mon Mar 10 21:37:09 2008 -0700
+
+    Move outputs among crtcs as necessary. Fixes 14570
+    
+    This patch makes new requests override existing crtc allocations. Outputs
+    with restricted crtc usage can now force existing outputs to switch
+    automatcially.
+
+commit 7465357396e2f32325791e27f28cbbe9753db3ab
+Author: Adam Jackson <ajax@redhat.com>
+Date:   Fri Mar 7 16:38:28 2008 -0500
+
+    xrandr 1.2.3
+
+commit 4450756d2d1d86f3c0bfaef81f6265f795468f32
+Author: Brice Goglin <bgoglin@debian.org>
+Date:   Sat Dec 15 00:59:00 2007 +0100
+
+    Clarify the ability to manipulate multiple outputs in the manpage
+
+commit 5c2a003adab4aaa979a095e18793b01cfa694bf4
+Author: Brice Goglin <bgoglin@debian.org>
+Date:   Sat Dec 15 00:49:35 2007 +0100
+
+    Allow the same output to be specified several times on the command line
+    
+    Without this
+      xrandr --output FOO --mode 1024x768 --output FOO --rotate left
+    only changed the mode but did not apply the rotation.
+    
+    Reported by Marc Haber in
+      http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=455225
+
+commit ab5e07fdd10f6340289b786414804a034ca98f0b
+Author: Matthias Hopf <mhopf@suse.de>
+Date:   Fri Nov 30 16:13:51 2007 +0100
+
+    Add another test known to fail.
+
+commit 4bc84c331f4f0f0658ad1f6c0107e3e6af2a7911
+Author: Matthias Hopf <mhopf@suse.de>
+Date:   Thu Nov 29 19:54:34 2007 +0100
+
+    Add informational output for known issues.
+
+commit 3fb533ff896bd642200e7242c4d35a887faeca74
+Author: Matthias Hopf <mhopf@suse.de>
+Date:   Thu Nov 29 19:54:03 2007 +0100
+
+    Add more tests, mostly regarding crtc switching and uncloning.
+
+commit 20c8a60950cb5b4ddef305dc9822bec1c33e938c
+Author: Matthias Hopf <mhopf@suse.de>
+Date:   Wed Nov 21 16:48:23 2007 +0100
+
+    Oops. Fix missing space introduced by last commit.
+
+commit 3347c849462b737a873a279c24d17c873667c821
+Author: Matthias Hopf <mhopf@suse.de>
+Date:   Wed Nov 21 16:47:08 2007 +0100
+
+    Be more robust in test case if mode database is borked.
+    
+    If modes are reported multiple times per output only bother for the last.
+
+commit 81e8f2f5673befded3320424f4511e322d41c80b
+Author: Matthias Hopf <mhopf@suse.de>
+Date:   Wed Nov 21 16:41:33 2007 +0100
+
+    Some minor issues in test case fixed.
+    
+    'my' not being used correctly.
+    Some lines of xrandr --verbose output missing in failure case.
+    If order of outputs change in xrandr -q output they are sorted into original
+    order now.
+
+commit 3a27185879e7a9288de960ccb26a48104cf592e3
+Author: Matthias Hopf <mhopf@suse.de>
+Date:   Tue Nov 20 13:03:07 2007 +0100
+
+    More tests for ambiguous xrandr output.
+
+commit c9bd9721e162e4d9d83dd60400c75d4cc98090bd
+Author: Matthias Hopf <mhopf@suse.de>
+Date:   Mon Nov 19 20:06:39 2007 +0100
+
+    Use IDs for mode selection instead of hand-crafted <w>x<h>@<r> strings.
+    
+    Some machines provide e.g. multiple 1024x768@60 modes with /slightly/
+    different timings. Often only one of them can be used on multiple outputs.
+
+commit a05d2b6e3ffd81ecc0be98b8d2b758505fb55f3f
+Author: Matthias Hopf <mhopf@suse.de>
+Date:   Mon Nov 19 12:24:04 2007 +0100
+
+    Improved test script.
+    
+    Allow for outputs in "unknown" state.
+    Check xrandr return value.
+    Output full xrandr --verbose output if test failed.
+
+commit e15a527b6cf1e66709eae4547c8e8bd3402362fe
+Author: Matthias Hopf <mhopf@suse.de>
+Date:   Mon Nov 12 15:25:44 2007 +0100
+
+    Add xrandr test suite.
+    
+    At the moment it only tests setting one output at a time, it should be
+    improved to add some multi-output setting as well.  Also it only tests clone
+    modes at the moment, no multi-monitor setups.
+
+commit f7aaf8947a0f216ffedc7040b0a1ef153b471425
+Author: Matthias Hopf <mhopf@suse.de>
+Date:   Mon Nov 12 15:19:52 2007 +0100
+
+    Always reset other outputs using the best crtc.
+    
+    pick_crtcs_score() didn't set up crtcs references correctly if anything but
+    the last output resulted in the best score.
+
+commit 307f3686d3d517cb29b8e66d8ad2ff76a48748b7
+Author: Matthias Hopf <mhopf@suse.de>
+Date:   Mon Nov 12 15:18:30 2007 +0100
+
+    Verify crtc against previous config.
+    
+    When selecting a crtc for an output, it doesn't check for already attached
+    outputs in check_crtc_for_output(), and so may select an crtc that is already
+    in use.
+    E.g. when changing from a cloned mode the displays won't be split up to
+    different crtcs, but the same crtc will be used, changing the resolution for
+    the unspecified display as well.
+
+commit 4834439ce62e41204367cf5356a7a1719870791f
+Author: Matthias Hopf <mhopf@suse.de>
+Date:   Thu Oct 11 16:54:40 2007 +0200
+
+    Build ChangeLog from git-log automatically.
+
+commit 2fa28afb035cf2d2efb077db58d3858c57189be4
+Author: Adam Jackson <ajax@benzedrine.nwnk.net>
+Date:   Tue Oct 2 11:06:18 2007 -0400
+
+    Death to ChangeLog
+
+commit 0cfaad401711092f8858cdec64e4d4f33023f398
+Author: Adam Jackson <ajax@benzedrine.nwnk.net>
+Date:   Tue Oct 2 11:06:02 2007 -0400
+
+    Update COPYING
+
+commit 06d7272d845033fe3c6f0625cce5a32e7be636a7
+Author: Brice Goglin <bgoglin@debian.org>
+Date:   Thu Aug 9 19:06:37 2007 +0200
+
+    When invoked with no option, xrandr dumps existing modes
+
+commit b9b2fbbf7a7dd156d1fdffac2e4a4046f58baabb
+Author: Brice Goglin <bgoglin@debian.org>
+Date:   Thu Aug 9 19:04:58 2007 +0200
+
+    Add *current and +preferred to the --verbose output
+
+commit 200491c1fad5ea1a733dfbac799a2ebea0a2f23c
+Author: Keith Packard <keithp@neko.keithp.com>
+Date:   Wed Jul 4 20:05:03 2007 -0700
+
+    Bump to 1.2.2
+
+commit 9db36331a2acafbf2dab05f481ce16ab094fde52
+Author: Keith Packard <keithp@neko.keithp.com>
+Date:   Wed Jul 4 20:04:29 2007 -0700
+
+    Print out mode flags in --verbose mode
+
+commit 49058de9b743f5196f97fb13cd9a695087b1299c
+Author: Keith Packard <keithp@neko.keithp.com>
+Date:   Wed Jul 4 19:41:32 2007 -0700
+
+    Mark 1.1 options as inconsistent with 1.2 options
+
+commit c58e79a9c4c3967fb31a49a610a37b5797426415
+Author: Keith Packard <keithp@neko.keithp.com>
+Date:   Thu Jun 21 15:57:37 2007 +0100
+
+    Document 1.2.1 options
+
+commit 0499ce5ed6378bc68cbf8eafc9932ddf495ae708
+Author: Keith Packard <keithp@dulcimer.keithp.com>
+Date:   Sat Jun 30 14:00:30 2007 -0700
+
+    When simple CRTC allocation fails, search all available configs.
+    
+    When enabling an output, if there isn't an idle CRTC available, try to
+    reconfigure existing outputs to make things work.
+
+commit 0f2014e67193eb0f8e12ab1c3d5cae8991ba439d
+Author: Keith Packard <keithp@dulcimer.keithp.com>
+Date:   Sat Jun 30 13:09:45 2007 -0700
+
+    Clean up code structure a bit
+
+commit 63d385f2c24c522d974652da138a83d78014713e
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Jun 21 09:35:53 2007 -0700
+
+    Add *~ to .gitignore to skip emacs & patch droppings
+
+commit 4bd2f4004a6f75a7e4cb32b9e320e680f8839748
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Jun 21 09:34:53 2007 -0700
+
+    Man page formatting and typo fixes
+
+commit b0812f8efe448c85979a9f5fab4a5a4e0c0e78d0
+Author: Keith Packard <keithp@neko.keithp.com>
+Date:   Thu Jun 21 11:37:56 2007 +0100
+
+    Update to version 1.2.1
+
+commit 739f01957c8ebd3b7bcecfd7ad8174884561f7db
+Author: Aaron Plattner <aplattner@nvidia.com>
+Date:   Wed Apr 25 11:59:48 2007 -0700
+
+    Fix bugs found by compiling with -Wall.
+    
+    Also fix some unused variable warnings.
+
+commit 8e43df335679c71930465e4c58c0bd14d9add29a
+Author: Aaron Plattner <aplattner@nvidia.com>
+Date:   Wed Apr 25 10:52:19 2007 -0700
+
+    Fix a typo.  Make mode flags case insensitive.  Improve error messages.
+
+commit 49aab1e0e4cb2226d5bcc8e4e6217309fd23ce52
+Author: Keith Packard <keithp@neko.keithp.com>
+Date:   Fri Apr 6 03:36:27 2007 -0700
+
+    Skip relative positions for outputs without modes.
+    
+    An output without a mode is turned off; do not try to position it.
+
+commit 86d9b15cccc4d21ad5e5d34d7e7b82a50903939b
+Author: Keith Packard <keithp@guitar.keithp.com>
+Date:   Sun Mar 25 23:44:01 2007 -0700
+
+    Support XA_ATOM properties (like TV_FORMAT).
+    
+    Atom properties have lists of valid values that are all atoms, so display
+    those. Also, fetch property data and use that to determine which format new
+    property values are supposed to be in.
+
+commit dba14af8328eaaad716d1c27a5514df285d8d4cc
+Author: Keith Packard <keithp@guitar.keithp.com>
+Date:   Fri Mar 23 01:21:21 2007 -0700
+
+    Add --set option to set output properties.
+    
+    Numeric values are set as XA_INTEGER format 32 values, everything else is
+    set as an XA_STRING format 8 value.
+
+commit ca7a5bb5691ecd1d8da6def373c793aa7a07dbbe
+Author: Keith Packard <keithp@guitar.keithp.com>
+Date:   Thu Mar 15 20:57:17 2007 -0700
+
+    Bounds check -s <index> argument to be 0 <= index < nsize
+    
+    Print a nice error message when the -s option is passed a number out of
+    bounds.
+
+commit 0cbbc7804781c2e55899ba9271365735c4a2b544
+Author: Keith Packard <keithp@guitar.keithp.com>
+Date:   Thu Mar 15 20:56:15 2007 -0700
+
+    Make --q1 output RandR 1.1 query information.
+    
+    --q1 required a --query option to actually output any information.
+
+commit 7ae11b66cc26395d34070013e23813db3ca3e55f
+Author: Keith Packard <keithp@guitar.keithp.com>
+Date:   Thu Mar 15 20:55:30 2007 -0700
+
+    Make --auto after --output only affect the output.
+    
+    --auto has two meanings; if presented before any --output flags, it requests
+    that connected-but-disabled outputs be enable while disconnected-but-enabled
+    outputs be disabled. After --output, --auto simply asks that the mode used
+    for the output be automatically selected. Mixing these two operations is not
+    a good default.
+
+commit a53cc9b37c40dca936037a89013253f37c9a05ee
+Author: Keith Packard <keithp@guitar.keithp.com>
+Date:   Mon Mar 12 22:47:39 2007 -0700
+
+    Add --addmode and --delmode commands to edit list of modes per output.
+    
+    --addmode <output> <mode> inserts <mode> into the list supported by
+    <output>, while --delmode removes a mode.
+
+commit dca4bd66b166b64314993aba34a3080c6953ac12
+Author: Keith Packard <keithp@guitar.keithp.com>
+Date:   Mon Feb 19 17:12:24 2007 -0800
+
+    Add --newmode/--rmmode to create/destroy user modes.
+    
+    The syntax may be a bit hard to work with, but these serve to test the
+    server infrastructure for custom modes.
+
+commit 9fd6aa1445a8f1e721ba8cdcd1ac12375d6e5a26
+Author: Tilman Sauerbeck <tilman@code-monkey.de>
+Date:   Fri Mar 9 10:12:17 2007 +0100
+
+    Fixed alignment of the clones list.
+
+commit 3c44d68d78d8bddf69b5bd1a00f854d8cde971bb
+Author: Keith Packard <keithp@neko.keithp.com>
+Date:   Wed Feb 21 11:24:35 2007 -0800
+
+    Add --same-as option to match output positions.
+    
+    This provides another positioning option that makes two outputs appear at
+    the same location.
+
+commit 8a0c3b748b0e94c97fbc2a7449c6740b8acfe394
+Author: Keith Packard <keithp@neko.keithp.com>
+Date:   Sun Feb 18 21:27:55 2007 -0800
+
+    Update version number to 1.2.0 for release.
+
+commit 13cef2baa884039e96f5dfd9245bb949aed99448
+Merge: 065f09c... a175972...
+Author: Keith Packard <keithp@neko.keithp.com>
+Date:   Sun Feb 18 21:26:50 2007 -0800
+
+    Merge branch 'origin'
+
+commit 065f09cc304d0c70eaf3cf6f3ff21e712e41d205
+Author: Keith Packard <keithp@neko.keithp.com>
+Date:   Sun Feb 18 21:25:54 2007 -0800
+
+    Require only libXrandr 1.2.0, not 1.2.0.0.
+    
+    Four digits seems excessive in a library version number.
+
+commit a175972de6fbe5426fb5c6bee03112678f0a9548
+Author: Keith Packard <keithp@guitar.keithp.com>
+Date:   Thu Feb 15 23:07:34 2007 -0800
+
+    Select crtc which can be cloned to outputs which will be in use.
+    
+    Correct crtc selection algorithm to choose a crtc which will be used by
+    outputs which can all share the same crtc.
+    
+    Also, make randr 1.0 commands work even when --verbose is specified, and
+    terminate event loop in that case when the screen change event is seen.
+
+commit d707822aab19a0a8fe08f03300fdd9d4e206871e
+Author: Keith Packard <keithp@neko.keithp.com>
+Date:   Sat Feb 10 18:27:06 2007 -0800
+
+    Selecting a crtc by index was failing to match a crtc.
+    
+    --crtc <index> would fail to match because of a logic bug using & instead of
+    &&.
+
+commit 89bf2c3c0e17c67adc3e2fdca54f0e8254dc8968
+Author: Keith Packard <keithp@neko.keithp.com>
+Date:   Sat Feb 10 16:14:58 2007 -0800
+
+    Display set of available CRTCs per output in --verbose mode.
+
+commit 067cafb5cda0aa6e34773e888fd469ff657760c2
+Merge: 7c25c24... b0a00df...
+Author: Keith Packard <keithp@guitar.keithp.com>
+Date:   Wed Jan 31 15:25:35 2007 -0800
+
+    Merge branch 'randr-1.2'
+    
+    Merge support for RandR 1.2 changes to the xrandr program along with
+    documentation for the new options.
+
+commit b0a00df69f832ada40be6bd6973835439a698440
+Author: Keith Packard <keithp@guitar.keithp.com>
+Date:   Wed Jan 31 15:22:02 2007 -0800
+
+    Update documentation to include all RandR 1.2 options.
+    
+    Also, require libXrandr version 1.2.0.0 or better.
+
+commit 6b9310d66eed59527d4002294be13884a7cbeacc
+Author: Keith Packard <keithp@guitar.keithp.com>
+Date:   Tue Jan 30 20:35:58 2007 -0800
+
+    Missing return statement from output_rotation.
+    
+    output_rotation was returning garbage making the available output rotations
+    display incorrectly.
+
+commit 5c3b6b1013c7565c40e82bfc0514a3dd80aec2d8
+Author: Keith Packard <keithp@neko.keithp.com>
+Date:   Tue Jan 30 20:16:46 2007 -0800
+
+    Remove xrandr12.c app now that xrandr.c has RandR 1.2 support.
+
+commit eaf3e459d7760bbcb3c7f7c9b23b1e386189c71e
+Author: Keith Packard <keithp@neko.keithp.com>
+Date:   Tue Jan 30 00:10:23 2007 -0800
+
+    Add --reflect option for RandR 1.2 reflection selection.
+    
+    Also, display available rotations after current rotation
+
+commit 8ecc6c034836a6fb6df0e2ad24429f506bf82e37
+Author: Eric Anholt <eric@anholt.net>
+Date:   Tue Jan 16 10:48:01 2007 -0800
+
+    Add display for 32-bit integer properties, such as backlight.
+
+commit 4112d13d7b15150e33687b687604c3a72188c066
+Author: Keith Packard <keithp@mandolin.keithp.com>
+Date:   Mon Jan 1 17:04:42 2007 -0800
+
+    Mode on CRTC may not be present for any output.
+    
+    When an output gets disconnected, the current CRTC mode may no longer be
+    listed as valid for any output, but will still be listed for the screen.
+    Search for current crtc mode in the screen list rather than the per-output
+    list.
+
+commit 6ef7b2deafd09ae1a4b159f3c2e6e9db64bf01dc
+Author: Keith Packard <keithp@neko.keithp.com>
+Date:   Sun Dec 31 23:02:12 2006 -0800
+
+    Using %lf to read float overwrote adjacent variable.
+    
+    Just use floats everywhere and %f instead.
+
+commit f6073333dcfb6989ff8793854fb42e08388444c5
+Author: Keith Packard <keithp@neko.keithp.com>
+Date:   Sun Dec 31 13:55:14 2006 -0800
+
+    Add rotation/reflection status to 1.2 query output.
+    
+    The previous cleanup had left these values missing from any output.
+    Also it now reports the effective size of the mode within the screen.
+
+commit 5d2a76b70b7b59a45655b25db79d75cb08fe671d
+Author: Keith Packard <keithp@neko.keithp.com>
+Date:   Sun Dec 31 13:38:40 2006 -0800
+
+    Clean up RandR 1.2 query output.
+    
+    Make brief mode list just mode names and refresh rates.
+    Add --prop/--properties flag to show properties.
+    Add --q1 flag to force showing pre-1.2 data.
+
+commit d9aeb4a7544ad4a33f6f54bc46bff5cdf231a986
+Author: Keith Packard <keithp@neko.keithp.com>
+Date:   Sun Dec 31 12:45:25 2006 -0800
+
+    Add --rate support to RandR 1.2 mode selection.
+    
+    Search for mode closest to specified rate for each output and use that
+    instead of the one with the first matching name. If no rate is specified,
+    the first one still matches allowing the driver to place preferred rates
+    first in the list.
+
+commit c04d69cbd8a8a96862356afcda6ee679d663a524
+Author: Keith Packard <keithp@neko.keithp.com>
+Date:   Sun Dec 31 11:58:11 2006 -0800
+
+    Grab server while applying changes.
+    
+    Applications that respond to screen size changes by quering Xinerama
+    information need to be blocked so that they see the entirety of the changes
+    rather than just the screen size shift and not the crtc changes.
+
+commit 8e78af971048db711163ea297153703b4f37f3c9
+Author: Keith Packard <keithp@neko.keithp.com>
+Date:   Sat Dec 30 21:49:40 2006 -0800
+
+    Enable global --auto flag. Allow output name for --dpi switch.
+    
+    --auto at the global level checks for output status changes and
+    automatically configures changed outputs. --dpi with an output switch uses
+    the specified output as the source of the dpi information.
+
+commit f7a3e478a6a5d59a2bbcd6dc416639f93a0520fd
+Author: Keith Packard <keithp@neko.keithp.com>
+Date:   Sat Dec 30 19:41:48 2006 -0800
+
+    Use Bool type. Position relative to disabled output is 0,0.
+    
+    Switch uses of int that are strictly boolean to Bool.
+    Instead of making attempts to set position relative to a disabled output an
+    error, just place the output at 0,0.
+
+commit cb017692883daf64e0cf442a39b33eaafed0e420
+Author: Keith Packard <keithp@neko.keithp.com>
+Date:   Sat Dec 30 17:34:46 2006 -0800
+
+    Restructure RandR 1.2 support to handle relative placement.
+    
+    Ok, really, this is mostly a rewrite of the RandR 1.2 support.  First,
+    collect commands from command line arguments.  Next, fill in existing
+    configuration from X server.  Calculate new configuration. Apply
+    configuration, if anything fails, revert to previous configuration.
+    
+    Still left -- pure --auto, and --extend/--clone options.
+
+commit b9dee113ce4105c1cf25e3c417c616c024aea823
+Author: Keith Packard <keithp@guitar.keithp.com>
+Date:   Fri Dec 29 00:55:37 2006 -0800
+
+    Make query return 1.2 information if available
+
+commit 90e4a4c13957bd003294f64b86460813dd38a3de
+Author: Keith Packard <keithp@neko.keithp.com>
+Date:   Thu Dec 21 17:37:20 2006 -0800
+
+    Accept hex mode numbers as well as mode names.
+    
+    Sometimes mode names are ambiguous; this lets the user specify modes by XID.
+
+commit e8f7047885ec85096a3f35b9cfb20386104fdc55
+Author: Keith Packard <keithp@neko.keithp.com>
+Date:   Tue Dec 19 16:27:46 2006 -0800
+
+    Actually respect the --fb option
+
+commit 7b32611632ab08b6a123db5df1c2b919b3a12104
+Merge: a0df3aa... 4bb1a9c...
+Author: Keith Packard <keithp@guitar.keithp.com>
+Date:   Tue Dec 19 15:58:38 2006 -0800
+
+    Merge branch 'randr-1.2-origin' into randr-1.2
+
+commit a0df3aa81205b35ff8d9541c036cfd158cbd99ed
+Author: Keith Packard <keithp@guitar.keithp.com>
+Date:   Tue Dec 19 15:58:21 2006 -0800
+
+    Correct format for sscanf to double variable "dpi"
+
+commit 4bb1a9cd6f9cc3ed61d7913528afa3f573092833
+Merge: b6c0382... 6ef400f...
+Author: Keith Packard <keithp@bouzouki.jf.intel.com>
+Date:   Wed Dec 13 11:36:36 2006 -0800
+
+    Merge branch 'randr-1.2-origin' into randr-1.2. Detect invalid mode.
+    
+    Invalid mode test was checking wrong mode index. Also, print more
+    informative error message when this occurs.
+
+commit b6c03827bae74ef5b9517c4246b0165dad8ee780
+Author: Keith Packard <keithp@bouzouki.jf.intel.com>
+Date:   Wed Dec 13 11:27:30 2006 -0800
+
+    Name CRTCs by index or id. Use current CRTC to get current mode.
+    
+    CRTCs have no intrinsic name, so let users provide either the number in the
+    list or the XID when referring to them explicitly.
+    When no mode is specified, look up the current CRTC for the output and use
+    that mode, instead of using the mode on the target CRTC.
+    When switching an output from one CRTC
+
+commit 6ef400f35d7d8712d1ad1efd87a8a3cb8bfacd96
+Author: Keith Packard <keithp@guitar.keithp.com>
+Date:   Wed Dec 13 09:53:17 2006 -0800
+
+    Add --preferred and --auto support.
+    
+    --preferred selects the 'best' mode for the monitor automatically, either by
+    looking for a preferred mode, or selecting one which is closest to the
+    current screen DPI.
+    
+    --auto checks connected status and disables the output if disconnected,
+    otherwise it enables it with the preferred mode (as if --preferred).
+
+commit c69c3080febd8617349f88557c3c04388a13a76c
+Author: Keith Packard <keithp@guitar.keithp.com>
+Date:   Tue Dec 12 09:54:52 2006 -0800
+
+    mark disabled crtc as changing, set rotation to 90 for disabled crtc.
+    
+    --off code was not correctly finding and marking the to-be-disabled crtc,
+    and the disabling code was sending an uninitialized rotation value to the
+    server when no outputs were connected.
+
+commit 6be56cd10d934e496004f9ffd377225fd179f4b1
+Author: Keith Packard <keithp@neko.keithp.com>
+Date:   Mon Dec 11 00:39:48 2006 -0800
+
+    Update manual, elide unsupported options from usage, remove xrandr12 from build
+
+commit 624c75e8c250b33a81890c8f0da741a13ad4e7d1
+Author: Keith Packard <keithp@neko.keithp.com>
+Date:   Mon Dec 11 00:23:15 2006 -0800
+
+    Add RandR 1.2 support to plain xrandr app. primitive for now
+
+commit 7c25c245bceb0474541fe7a2615a4f665842ac32
+Author: Jeremy C. Reed <reed@glacier.reedmedia.net>
+Date:   Sat Dec 9 06:32:19 2006 -0600
+
+    Document -v switch.
+
+commit 2a32fa8cf8550a3a30871d25a23af07f65646c47
+Author: Keith Packard <keithp@neko.keithp.com>
+Date:   Tue Nov 21 01:17:38 2006 -0800
+
+    Track RandR output property changes
+
+commit 795173d2b9b94a3468db277102b4898b4e5a1ead
+Author: Keith Packard <keithp@neko.keithp.com>
+Date:   Thu Nov 16 22:14:33 2006 -0800
+
+    properties are stored in unsigned char arrays
+
+commit 2df4352bb43e155977f8d4c0b53771cb0085ab74
+Author: Keith Packard <keithp@neko.keithp.com>
+Date:   Thu Nov 16 11:45:51 2006 -0800
+
+    Remove RandR output options.
+    
+    Output options are to be replaced with properties.
+
+commit 643787365fd716b902b597b67b2ec228dacfc862
+Author: Keith Packard <keithp@neko.keithp.com>
+Date:   Wed Nov 1 10:57:24 2006 -0800
+
+    Re-indent to 4 space tabs
+
+commit 947ea6ee9d7cf72c5635c699b63ddda3be968675
+Author: Keith Packard <keithp@neko.keithp.com>
+Date:   Wed Nov 1 10:55:21 2006 -0800
+
+    Fix copyright and license information
+
+commit dc41095b577db571439ff1a52facc4efe9f5132f
+Author: Eric Anholt <eric@anholt.net>
+Date:   Thu Nov 9 20:26:09 2006 -0800
+
+    Print 8-bit integer output properties as 32-char rows of hex.
+    
+    This happens to produce pretty output for EDID data.
+
+commit 67466ebb817e24bfd7f57cc82da16e194eb9c547
+Author: Eric Anholt <eric@anholt.net>
+Date:   Thu Nov 9 17:15:56 2006 -0800
+
+    Add more .gitignore entries.
+
+commit aafe9f7d24e96194a7ee11ba521a3c2c72dcdc95
+Author: Eric Anholt <eric@anholt.net>
+Date:   Thu Nov 9 17:15:06 2006 -0800
+
+    Add output for output properties (assuming text) and blanking information.
+
+commit 6ba07ae9ea5fa2829d17e8a1f3eb26e7c1a2813e
+Author: Eric Anholt <eric@anholt.net>
+Date:   Wed Nov 8 10:23:47 2006 -0800
+
+    Add dot clock to output.
+
+commit fba78f58029a806e4446d038b17b843d2c4026a6
+Author: Keith Packard <keithp@mandolin.keithp.com>
+Date:   Wed Nov 1 00:32:22 2006 -0800
+
+    Track protocol moving physical size from mode to output
+
+commit d9c45204a16e906b922ac94cae3c9f4f25b3ccdb
+Author: Keith Packard <keithp@neko.keithp.com>
+Date:   Thu Oct 26 22:58:58 2006 -0700
+
+    add physical size setting
+
+commit bd6ac82ff7e7fc04ab589a3053dc7f13ed7a1ec4
+Author: Keith Packard <keithp@neko.keithp.com>
+Date:   Thu Oct 5 21:50:42 2006 -0700
+
+    Add crtc info. Mark preferred. Update to new SetCrtcConfig API.
+
+commit fe04d38d01f54b93ddaf1cd48a655df7f7fe4b97
+Author: Keith Packard <keithp@neko.keithp.com>
+Date:   Thu Sep 21 08:16:45 2006 -0700
+
+    Add CRTC disable code (given crtc, output 0, mode 0)
+
+commit 7f1b81d443b78ff572726ad7d72eeb4a87c7189d
+Author: Keith Packard <keithp@guitar.keithp.com>
+Date:   Wed Sep 20 20:03:22 2006 -0700
+
+    xrandr12, a horrible kludge, is now sufficient to do dynamic mergefb games.
+
+commit eba1d3d8ab6226737c29e63fdd5433190baab06f
+Author: Keith Packard <keithp@guitar.keithp.com>
+Date:   Wed Sep 20 20:02:43 2006 -0700
+
+    .cvsignore -> .gitignore
+
+commit 6c5af262350a5fa33aa37293e8e7b537e344f52a
+Author: Keith Packard <keithp@guitar.keithp.com>
+Date:   Wed Sep 20 20:02:09 2006 -0700
+
+    .cvsignore -> .gitignore
+
+commit d8e86340444577dc7634d3e0db24fd809f4e4fbb
+Author: Keith Packard <keithp@guitar.keithp.com>
+Date:   Tue Sep 19 00:35:46 2006 -0700
+
+    Add new xrandr12 program for RandR 1.2 protocol.
+    
+    Yes, xrandr12 will be merged with xrandr before release; it's just for
+    debugging at present.
+
+commit f88f8e79724b27f46a836fac4956cbe28749633a
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Wed Apr 26 23:43:34 2006 +0000
+
+    Bump to 1.0.2
+
+commit 47c6288e63ebe7a9bb2f3225e7d5a235bd979a5f
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Tue Apr 25 22:54:01 2006 +0000
+
+    Don't try to fprintf a NULL string when -display wasn't passed and
+        connecting to $DISPLAY failed, since that segfaults on some platforms.
+
+commit 0197bfdddca98c72bca0eeee349b90027638fc32
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Mon Mar 20 18:56:37 2006 +0000
+
+    Bug #5511, #5512: Print more sensible error messages when fed broken
+        command lines. (Bill Crawford)
+
+commit 4f785cb5db6d95c9f539500e7b202a0f5addd19f
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Dec 21 02:29:53 2005 +0000
+
+    Update package version for X11R7 release.
+
+commit 83491d233781c9e6a362aa8bac1ab4f2a239fdee
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Mon Dec 19 16:22:46 2005 +0000
+
+    Stub COPYING files
+
+commit 5d09a0b505a2c08b81879e61173459d23f4c41db
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:10 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit 3e0eb5b6f68ef9120153e7f01b4243ad4fa44254
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Dec 6 22:48:25 2005 +0000
+
+    Change *man_SOURCES ==> *man_PRE to fix autotools warnings.
+
+commit d52f178dc51182e14d5d7ad9f2842f3e1d30a57f
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:27 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit f3b3596d181a7ab89b90561490f822171ec77479
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Nov 28 22:01:46 2005 +0000
+
+    Change *mandir targets to use new *_MAN_DIR variables set by xorg-macros.m4
+        update to fix bug #5167 (Linux prefers *.1x man pages in man1 subdir)
+
+commit 28c2280644f808c89e42e379b531fbb0fdf39bc7
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Mon Nov 21 10:35:07 2005 +0000
+
+    Another pass at .cvsignores for apps.
+
+commit e5ab923625baf41a59e033abf3527709c8ef255b
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Sun Nov 20 22:08:55 2005 +0000
+
+    Add/improve .cvsignore files for apps.
+
+commit 7e1cf1fef9dd000569dd5390380fb567314644a5
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Nov 19 07:15:38 2005 +0000
+
+    Update pkgconfig files to separate library build-time dependencies from
+        application build-time dependencies, and update package deps to work
+        with separate build roots.
+
+commit 89ab28833d4e2ff412a92bb2b47af2d78a109c00
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:47:57 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit 60178bb0c8bc97055c9aee7986866ada615491e6
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Oct 17 23:56:24 2005 +0000
+
+    Use @APP_MAN_SUFFIX@ instead of $(APP_MAN_SUFFIX) in macro substitutions to
+        work better with BSD make
+
+commit 958b347b1e5e427858d3e693e5487ec7ba4f5054
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Oct 14 00:25:47 2005 +0000
+
+    Use sed to fill in variables in man page
+
+commit 35e7414c6e4505b2e71be0e54ed0c7ff74f39db1
+Author: Aaron Plattner <aplattner@nvidia.com>
+Date:   Thu Oct 6 10:03:08 2005 +0000
+
+    Tell the user when setting the screen configuration fails. Return nonzero
+        so scripts can find out too.
+
+commit 938ff7de3f2bc4979bbf8a5f68190cde2be12696
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:37 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit f241e34fd0f3bedf5aa615dc8e17352b91de8cd9
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Fri Jul 22 07:18:28 2005 +0000
+
+    Fix path to man pages.
+
+commit f87ac740a20ec3e8b452959081816f5fddeaaf87
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Wed Jul 20 19:32:03 2005 +0000
+
+    Use a unique token for PKG_CHECK_MODULES. Otherwise, if you use a global
+        configure cache, you cache it, and the cached value is probably wrong.
+
+commit 5666f22654447eb381186a85a8e1630d419b0a88
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Fri Jul 1 20:27:45 2005 +0000
+
+    Build systems for xrdb, xrandr, xrefresh
+
+commit 39a8c733612722dca456c315a5ad299da1fe29d6
+Author: Markus Kuhn <Markus.Kuhn@cl.cam.ac.uk>
+Date:   Sat Dec 4 00:43:18 2004 +0000
+
+    Encoding of numerous files changed to UTF-8
+
+commit df8c56f1f66cce27dd018248a30cd9465d2b545c
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 19:55:03 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit 791685e93f32489dcd2d02a77e1a79ffb6c97c17
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:35:42 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit 342e5f4d491f137e3930213e62192de3eece3155
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:13:15 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit e3c0383c8fdcf38d34b3fad607949b0693184ca7
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:36:26 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit 633350fa648d2b57b3dd94cb1d220a0b826bef55
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:24:14 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit 22c66075090a14ad022ae73a080e76a5ace7c5d1
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:29:15 2003 +0000
+
+    XFree86 4.3.99.16 Bring the tree up to date for the Cygwin folks
+
+commit 05fa20267de7cdf44fb6de556910ed0e4ce665a5
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:49:23 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit c973a27b6d07b8711041c0c22ba8568f168b447a
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:49:23 2003 +0000
+
+    Initial revision

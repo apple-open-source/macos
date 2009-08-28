@@ -20,7 +20,6 @@
 # 
 # @APPLE_LICENSE_HEADER_END@
 #
-_AuthorizationBindPrivilegedPort
 _AuthorizationCopyInfo
 _AuthorizationCopyPrivilegedReference
 _AuthorizationCopyRights
@@ -38,4 +37,3 @@ _SessionGetInfo
 _SessionSetDistinguishedUser
 _SessionGetDistinguishedUser
 _SessionSetUserPreferences
-___authorization_bind

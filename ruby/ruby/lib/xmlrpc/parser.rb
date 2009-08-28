@@ -3,7 +3,7 @@
 # 
 # Copyright (C) 2001, 2002, 2003 by Michael Neumann (mneumann@ntecs.de)
 #
-# $Id: parser.rb 16907 2008-06-07 16:54:15Z shyouhei $
+# $Id: parser.rb 13771 2007-10-24 23:04:42Z jeg2 $
 #
 
 

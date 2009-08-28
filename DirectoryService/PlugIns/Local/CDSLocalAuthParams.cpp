@@ -121,7 +121,7 @@ CDSLocalAuthParams::LoadDSLocalParamsForAuthMethod(
 		case kAuthVPN_PPTPMasterKeys:
 			if ( inAuthStepData == NULL )
 				return( eDSNullAuthStepData );
-			if ( inAuthStepData->fBufferSize < (unsigned long)(8 + keySize*2) )
+			if ( inAuthStepData->fBufferSize < (UInt32)(8 + keySize*2) )
 				return( eDSBufferTooSmall );
 			bFetchHashFiles = true;
 			break;
@@ -129,7 +129,7 @@ CDSLocalAuthParams::LoadDSLocalParamsForAuthMethod(
 		case kAuthSMBWorkstationCredentialSessionKey:
 			if ( inAuthStepData == NULL )
 				return( eDSNullAuthStepData );
-			if ( inAuthStepData->fBufferSize < (unsigned long)(sizeof(UInt32) + 8) )
+			if ( inAuthStepData->fBufferSize < (UInt32)(sizeof(UInt32) + 8) )
 				return( eDSBufferTooSmall );
 			bFetchHashFiles = true;
 			break;

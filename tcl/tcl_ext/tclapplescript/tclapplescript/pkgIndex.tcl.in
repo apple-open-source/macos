@@ -1,0 +1,6 @@
+#
+# Tcl package index file
+#
+if {[catch {package require Tcl 8.2}]} return
+package ifneeded Tclapplescript @PACKAGE_VERSION@ \
+    [list load [file join $dir @PKG_LIB_FILE@] @PACKAGE_NAME@]

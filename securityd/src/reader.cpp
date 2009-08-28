@@ -80,7 +80,7 @@ void Reader::kill()
 void Reader::update(const PCSC::ReaderState &state)
 {
 	// set new state
-	IFDEBUG(unsigned long oldState = mState.state());
+	unsigned long oldState = mState.state();
 	mState = state;
 	mState.name(mName.c_str());		// (fix name pointer, unchanged)
 	

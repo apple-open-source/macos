@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #define TARGET_SECTION_TYPE_FLAGS xtensa_multibss_section_type_flags
 
@@ -79,19 +79,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* Do not force "-fpic" for this target.  */
 #define XTENSA_ALWAYS_PIC 0
-
-/* Redefine the standard ELF version of ASM_DECLARE_FUNCTION_SIZE to
-   allow adding the ".end literal_prefix" directive at the end of the
-   function.  */
-#undef ASM_DECLARE_FUNCTION_SIZE
-#define ASM_DECLARE_FUNCTION_SIZE(FILE, FNAME, DECL)		\
-  do								\
-    {								\
-      if (!flag_inhibit_size_directive)				\
-	ASM_OUTPUT_MEASURED_SIZE (FILE, FNAME);			\
-      XTENSA_DECLARE_FUNCTION_SIZE(FILE, FNAME, DECL);		\
-    }								\
-  while (0)
 
 /* Search for headers in $tooldir/arch/include and for libraries and
    startfiles in $tooldir/arch/lib.  */

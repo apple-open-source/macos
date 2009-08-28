@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 #include "config.h"
@@ -46,11 +46,11 @@ cplus_expand_constant (tree cst)
       {
 	tree type = TREE_TYPE (cst);
 	tree member;
-      
+
 	/* Find the member.  */
 	member = PTRMEM_CST_MEMBER (cst);
 
-	if (TREE_CODE (member) == FIELD_DECL) 
+	if (TREE_CODE (member) == FIELD_DECL)
 	  {
 	    /* Find the offset for the field.  */
 	    cst = byte_position (member);
@@ -113,7 +113,7 @@ cxx_expand_expr (tree exp, rtx target, enum machine_mode tmode, int modifier,
 
     case OFFSET_REF:
       /* Offset refs should not make it through to here.  */
-      abort ();
+      gcc_unreachable ();
 
     case EMPTY_CLASS_EXPR:
       /* We don't need to generate any code for an empty class.  */

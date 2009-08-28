@@ -203,9 +203,9 @@ void AppleRAIDMember::stop(IOService * provider)
 
 bool AppleRAIDMember::handleOpen(IOService * /* client */,
 				 IOOptionBits options,
-				 void* argument)
+				 void * argument)
 {
-    bool isOpen = arTarget->open(this, options, (IOStorageAccess) argument);
+    bool isOpen = arTarget->open(this, options, (IOStorageAccess) (uintptr_t) argument);
     if (isOpen) changeMemberState(kAppleRAIDMemberStateOpen);
     return isOpen;
 }
@@ -230,25 +230,27 @@ void AppleRAIDMember::handleClose(IOService * /* client */,
 //***************************************************************************************************************
 //***************************************************************************************************************
 
-void AppleRAIDMember::read(IOService * /* client */,
+void AppleRAIDMember::read(IOService * client,
 			   UInt64 byteStart,
 			   IOMemoryDescriptor * buffer,
-			   IOStorageCompletion completion)
+			   IOStorageAttributes * attributes,
+			   IOStorageCompletion * completion)
 {
     IOLogRW("AppleRAIDMember::read, this %p start %llu size 0x%llx\n", this, byteStart, (UInt64)buffer->getLength());
     assert(handleIsOpen(NULL));
-    arTarget->read(this, byteStart, buffer, completion);
+    arTarget->read(this, byteStart, buffer, attributes, completion);
 }
 
 
-void AppleRAIDMember::write(IOService * /* client */,
+void AppleRAIDMember::write(IOService * client,
 			    UInt64 byteStart,
 			    IOMemoryDescriptor * buffer,
-			    IOStorageCompletion completion)
+			    IOStorageAttributes * attributes,
+			    IOStorageCompletion * completion)
 {
     IOLogRW("AppleRAIDMember::write, this %p start %llu size 0x%llx\n", this, byteStart, (UInt64)buffer->getLength());
     assert(handleIsOpen(NULL));
-    arTarget->write(this, byteStart, buffer, completion);
+    arTarget->write(this, byteStart, buffer, attributes, completion);
 }
 
 
@@ -396,7 +398,7 @@ IOReturn AppleRAIDMember::updateRAIDHeader(OSDictionary * props)
     while (const OSString * key = OSDynamicCast(OSString, iter->getNextObject())) {
 
 	// if the key starts with "AppleRAID-" add it to the incore header
-	char * match = "AppleRAID-";
+	const char * match = "AppleRAID-";
 	int matchSize = sizeof(match) - 1;
     
 	if (!strncmp(match, key->getCStringNoCopy(), matchSize)) {
@@ -598,7 +600,7 @@ IOReturn AppleRAIDMember::buildOnDiskHeaderV2(void)
     while (const OSString * key = OSDynamicCast(OSString, iter->getNextObject())) {
 
 	// if the key starts with "AppleRAID-" copy it
-	char * match = "AppleRAID-";
+	const char * match = "AppleRAID-";
 	int matchSize = sizeof(match) - 1;
     
 	if (!strncmp(match, key->getCStringNoCopy(), matchSize)) {
@@ -989,9 +991,10 @@ OSDictionary * AppleRAIDMember::getMemberProperties(void)
 	props->setObject(kAppleRAIDSetUUIDKey, getHeaderProperty(kAppleRAIDSetUUIDKey));
     }
 
-    // broken members get spared, but we really want them to look broken here
-    // scan to see if this members UUID matches in the member list
     if (arMemberState == kAppleRAIDMemberStateSpare) {
+
+	// broken members get spared, but we really want them to look broken here
+	// scan to see if this members UUID matches in the member list
 	const OSString * uuid = getUUID();
 	OSArray * memberUUIDs = OSDynamicCast(OSArray, getHeaderProperty(kAppleRAIDMembersKey));
 	if (uuid && memberUUIDs) {
@@ -1003,6 +1006,14 @@ OSDictionary * AppleRAIDMember::getMemberProperties(void)
 		    break;
 		}
 	    }
+	}
+
+	// after a rebuild fails and the drive is removed it comes back as a hot spare (technically correct)
+	// DM doesn't like that and refuses future rebuilds on it.  so just make it look broken.
+	bool autoRebuild = OSDynamicCast(OSBoolean, getHeaderProperty(kAppleRAIDSetAutoRebuildKey)) == kOSBooleanTrue;
+	if (!autoRebuild) {
+	    OSString * statusString = OSString::withCString(kAppleRAIDStatusFailed);
+	    if (statusString) props->setObject(kAppleRAIDMemberStatusKey, statusString);
 	}
     }
     
@@ -1018,7 +1029,7 @@ OSDictionary * AppleRAIDMember::getMemberProperties(void)
 bool AppleRAIDMember::changeMemberState(UInt32 newState, bool force)
 {
     bool	swapState = false;
-    char	*newStatus = "bogus";
+    const char	*newStatus = "bogus";
 
 #ifdef DEBUG
     const char	*oldStatus = "not set";
@@ -1064,16 +1075,16 @@ bool AppleRAIDMember::changeMemberState(UInt32 newState, bool force)
     
     if (swapState) {
 
-	IOLog2("AppleRAIDMember::changeMemberState(%p) from %lu (%s) to %lu (%s) isSet = %s.\n",
-	       this, arMemberState, oldStatus, newState, newStatus, isRAIDSet() ? "yes":"no");
+	IOLog2("AppleRAIDMember::changeMemberState(%p) from %u (%s) to %u (%s) isSet = %s.\n",
+	       this, (uint32_t)arMemberState, oldStatus, (uint32_t)newState, newStatus, isRAIDSet() ? "yes":"no");
 	arMemberState = newState;
 
     } else {
 
 #ifdef DEBUG
 	if (arMemberState != newState) {
-	    IOLog1("AppleRAIDMember::changeMemberState(%p) %s from %lu (%s) to %lu (%s) isSet = %s.\n",
-		   this, force ? "FORCED" : "FAILED", arMemberState, oldStatus, newState, newStatus, isRAIDSet() ? "yes":"no");
+	    IOLog1("AppleRAIDMember::changeMemberState(%p) %s from %u (%s) to %u (%s) isSet = %s.\n",
+			   this, force ? "FORCED" : "FAILED", (uint32_t)arMemberState, oldStatus, (uint32_t)newState, newStatus, isRAIDSet() ? "yes":"no");
 	}
 #endif
 	if (force) arMemberState = newState;

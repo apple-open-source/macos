@@ -15,8 +15,8 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with GCC; see the file COPYING.  If not, write to
-// the Free Software Foundation, 59 Temple Place - Suite 330,
-// Boston, MA 02111-1307, USA.
+// the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+// Boston, MA 02110-1301, USA.
 
 // As a special exception, you may use this file as part of a free software
 // library without restriction.  Specifically, if other files instantiate
@@ -26,7 +26,6 @@
 // the GNU General Public License.  This exception does not however
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
-
 
 #include <bits/c++config.h>
 #include "unwind-cxx.h"
@@ -63,8 +62,12 @@ __cxxabiv1::__cxa_throw (void *obj, std::type_info *tinfo,
   header->exceptionDestructor = dest;
   header->unexpectedHandler = __unexpected_handler;
   header->terminateHandler = __terminate_handler;
-  header->unwindHeader.exception_class = __gxx_exception_class;
+  __GXX_INIT_EXCEPTION_CLASS(header->unwindHeader.exception_class);
   header->unwindHeader.exception_cleanup = __gxx_exception_cleanup;
+
+#ifdef CXA_RUNTIME_CXA_EXCEPTION_THROW
+  CXA_RUNTIME_CXA_EXCEPTION_THROW(obj);
+#endif
 
 #ifdef _GLIBCXX_SJLJ_EXCEPTIONS
   _Unwind_SjLj_RaiseException (&header->unwindHeader);
@@ -89,15 +92,19 @@ __cxxabiv1::__cxa_rethrow ()
   if (header)
     {
       // Tell __cxa_end_catch this is a rethrow.
-      if (header->unwindHeader.exception_class != __gxx_exception_class)
+      if (!__is_gxx_exception_class(header->unwindHeader.exception_class))
 	globals->caughtExceptions = 0;
       else
 	header->handlerCount = -header->handlerCount;
 
+#ifdef CXA_RUNTIME_CXA_EXCEPTION_RETHROW
+      CXA_RUNTIME_CXA_EXCEPTION_RETHROW();
+#endif
+
 #ifdef _GLIBCXX_SJLJ_EXCEPTIONS
       _Unwind_SjLj_Resume_or_Rethrow (&header->unwindHeader);
 #else
-#ifdef _LIBUNWIND_STD_ABI
+#if defined(_LIBUNWIND_STD_ABI)
       _Unwind_RaiseException (&header->unwindHeader);
 #else
       _Unwind_Resume_or_Rethrow (&header->unwindHeader);

@@ -23,7 +23,7 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)output.c	1.15	06/05/03 SMI"
+#pragma ident	"@(#)output.c	1.16	06/08/22 SMI"
 
 /*
  * Routines for preparing tdata trees for conversion into CTF data, and
@@ -64,10 +64,9 @@ static char
  }
 
 static GElf_Sym *
-gelf_getsym_macho(Elf_Data * data, int ndx, int nent, GElf_Sym * dst)
+gelf_getsym_macho(Elf_Data * data, int ndx, int nent, GElf_Sym * dst, const char *base) 
 {
 	const struct nlist *nsym = ((const struct nlist *)(data->d_buf)) + ndx;
-	const char *base = ((char *)(data->d_buf)) + nent * sizeof(struct nlist);
 	const char *name = base + nsym->n_un.n_strx;
 	char *tmp;
 
@@ -80,12 +79,60 @@ gelf_getsym_macho(Elf_Data * data, int ndx, int nent, GElf_Sym * dst)
 	if ('_' == name[0])
 		name++; // Lop off omnipresent underscore to match DWARF convention
 
-	dst->st_name = (Elf64_Word)(name - base);
+	dst->st_name = (GElf_Sxword)(name - base);
 	dst->st_value = nsym->n_value;
 	dst->st_size = 0;
 	dst->st_info = GELF_ST_INFO((STB_GLOBAL), (STT_NOTYPE));
 	dst->st_other = 0;
 	dst->st_shndx = SHN_MACHO; /* Mark underlying file as Mach-o */
+	
+	if (nsym->n_type & N_STAB) {
+	
+		switch(nsym->n_type) {
+		case N_FUN:
+			dst->st_info = GELF_ST_INFO((STB_GLOBAL), (STT_FUNC));
+			break;
+		case N_GSYM:
+			dst->st_info = GELF_ST_INFO((STB_GLOBAL), (STT_OBJECT));
+			break;
+		default:
+			break;
+		}
+		
+	} else if ((N_ABS | N_EXT) == (nsym->n_type & (N_TYPE | N_EXT)) ||
+		(N_SECT | N_EXT) == (nsym->n_type & (N_TYPE | N_EXT))) {
+
+		dst->st_info = GELF_ST_INFO((STB_GLOBAL), (nsym->n_desc)); 
+	} else if ((N_UNDF | N_EXT) == (nsym->n_type & (N_TYPE | N_EXT)) &&
+				nsym->n_sect == NO_SECT) {
+		dst->st_info = GELF_ST_INFO((STB_GLOBAL), (STT_OBJECT)); /* Common */
+	} 
+		
+	return dst;
+}
+
+static GElf_Sym *
+gelf_getsym_macho_64(Elf_Data * data, int ndx, int nent, GElf_Sym * dst, const char *base)
+{
+	const struct nlist_64 *nsym = ((const struct nlist_64 *)(data->d_buf)) + ndx;
+	const char *name = base + nsym->n_un.n_strx;
+	char *tmp;
+
+	if (0 == nsym->n_un.n_strx) // iff a null, "", name.
+		name = "null name"; // return NULL;
+
+	if ((tmp = demangleSymbolCString(name)))
+		name = tmp;
+
+	if ('_' == name[0])
+		name++; // Lop off omnipresent underscore to match DWARF convention
+
+	dst->st_name = (GElf_Sxword)(name - base);
+	dst->st_value = nsym->n_value;
+	dst->st_size = 0;
+	dst->st_info = GELF_ST_INFO((STB_GLOBAL), (STT_NOTYPE));
+	dst->st_other = 0;
+	dst->st_shndx = SHN_MACHO_64; /* Mark underlying file as Mach-o 64 */
 	
 	if (nsym->n_type & N_STAB) {
 	
@@ -257,13 +304,11 @@ matching_iidesc(iidesc_t *iidesc, iidesc_match_t *match)
 }
 
 static iidesc_t *
-find_iidesc(hash_t *hash, iidesc_match_t *match)
+find_iidesc(tdata_t *td, iidesc_match_t *match)
 {
-	iidesc_t tmpdesc;
 	match->iim_ret = NULL;
-	bzero(&tmpdesc, sizeof (iidesc_t));
-	tmpdesc.ii_name = match->iim_name;
-	(void) hash_match(hash, &tmpdesc, (int (*)())matching_iidesc, match);
+	iter_iidescs_by_name(td, match->iim_name,
+	    (int (*)())matching_iidesc, match);
 	return (match->iim_ret);
 }
 
@@ -413,7 +458,12 @@ sort_iidescs(Elf *elf, const char *file, tdata_t *td, int fuzzymatch,
 
 	if ((stidx = findelfsecidx(elf, file,
 	    dynsym ? ".dynsym" : ".symtab")) < 0)
+#if !defined(__APPLE__)
 		terminate("%s: Can't open symbol table\n", file);
+#else
+        terminate(""); /* missing symbol table is most likely an empty binary,
+                        * produce no output, but also don't warn the user. */
+#endif
 	scn = elf_getscn(elf, stidx);
 	data = elf_getdata(scn, NULL);
 	gelf_getshdr(scn, &shdr);
@@ -423,15 +473,17 @@ sort_iidescs(Elf *elf, const char *file, tdata_t *td, int fuzzymatch,
 	scn = elf_getscn(elf, shdr.sh_link);
 	strdata = elf_getdata(scn, NULL);
 #else
-	Elf_Data tmpData;
-	if (SHN_MACHO !=  shdr.sh_link) { 
+	if (SHN_MACHO !=  shdr.sh_link && SHN_MACHO_64 !=  shdr.sh_link) { 
 		scn = elf_getscn(elf, shdr.sh_link);
 		strdata = elf_getdata(scn, NULL);
 	} else {
 		/* Underlying file is Mach-o */
-		strdata = &tmpData;
-		strdata->d_buf = (char *)data->d_buf + data->d_size;
-		strdata->d_size = INT32_MAX;
+		int dir_idx;
+
+		if ((dir_idx = findelfsecidx(elf, file, ".dir_str_table")) < 0 || 
+		    (scn = elf_getscn(elf, dir_idx)) == NULL ||
+		    (strdata = elf_getdata(scn, NULL)) == NULL)
+			terminate("%s: Can't open direct string table\n", file);
 	}
 #endif /* __APPLE__ */
 
@@ -471,7 +523,7 @@ sort_iidescs(Elf *elf, const char *file, tdata_t *td, int fuzzymatch,
 		if (ignore_symbol(&sym, match.iim_name))
 			continue;
 
-		iidesc = find_iidesc(td->td_iihash, &match);
+		iidesc = find_iidesc(td, &match);
 
 		if (iidesc != NULL) {
 			tolist[*curr] = iidesc;
@@ -493,7 +545,7 @@ sort_iidescs(Elf *elf, const char *file, tdata_t *td, int fuzzymatch,
 		debug(3, "Weak symbol %s resolved to %s\n", match.iim_name,
 		    smatch.iim_name);
 
-		iidesc = find_iidesc(td->td_iihash, &smatch);
+		iidesc = find_iidesc(td, &smatch);
 
 		if (iidesc != NULL) {
 			tolist[*curr] = copy_from_strong(td, &sym,
@@ -510,8 +562,13 @@ sort_iidescs(Elf *elf, const char *file, tdata_t *td, int fuzzymatch,
 		int *curr;
 		iidesc_t *iidesc;
 
-		if (gelf_getsym_macho(data, i, nent, &sym) == NULL)
-			elfterminate(file, "Couldn't read symbol %d", i);
+		if (SHN_MACHO == shdr.sh_link) {
+			if (gelf_getsym_macho(data, i, nent, &sym, (const char *)strdata->d_buf) == NULL)
+				elfterminate(file, "Couldn't read symbol %d", i);
+		} else if (SHN_MACHO_64 == shdr.sh_link) {
+			if (gelf_getsym_macho_64(data, i, nent, &sym, (const char *)strdata->d_buf) == NULL)
+				elfterminate(file, "Couldn't read symbol %d", i);
+		}
 
 		match.iim_name = (char *)strdata->d_buf + sym.st_name;
 		match.iim_bind = GELF_ST_BIND(sym.st_info);
@@ -535,7 +592,7 @@ sort_iidescs(Elf *elf, const char *file, tdata_t *td, int fuzzymatch,
 		if (ignore_symbol(&sym, match.iim_name))
 			continue;
 
-		iidesc = find_iidesc(td->td_iihash, &match);
+		iidesc = find_iidesc(td, &match);
 
 		if (iidesc != NULL) {
 			tolist[*curr] = iidesc;
@@ -599,7 +656,7 @@ write_file(Elf *src, const char *srcname, Elf *dst, const char *dstname,
 	int pad;
 	int i;
 
-	if (gelf_newehdr(dst, gelf_getclass(src)) == (unsigned long)NULL)
+	if (gelf_newehdr(dst, gelf_getclass(src)) == NULL)
 		elfterminate(dstname, "Cannot copy ehdr to temp file");
 	gelf_getehdr(src, &sehdr);
 	memcpy(&dehdr, &sehdr, sizeof (GElf_Ehdr));
@@ -615,7 +672,7 @@ write_file(Elf *src, const char *srcname, Elf *dst, const char *dstname,
 	 */
 	if (sehdr.e_phnum != 0) {
 		(void) elf_flagelf(dst, ELF_C_SET, ELF_F_LAYOUT);
-		if (gelf_newphdr(dst, sehdr.e_phnum) == (unsigned long)NULL)
+		if (gelf_newphdr(dst, sehdr.e_phnum) == NULL)
 			elfterminate(dstname, "Cannot make phdrs in temp file");
 
 		for (i = 0; i < sehdr.e_phnum; i++) {
@@ -749,7 +806,7 @@ write_file(Elf *src, const char *srcname, Elf *dst, const char *dstname,
 			}
 		}
 
-		if (gelf_update_shdr(dscn, &shdr) == (unsigned long)NULL)
+		if (gelf_update_shdr(dscn, &shdr) == NULL)
 			elfterminate(dstname, "Cannot update sect %s", sname);
 
 		new_offset = (off_t)shdr.sh_offset;
@@ -808,17 +865,19 @@ write_file(Elf *src, const char *srcname, Elf *dst, const char *dstname,
 }
 #else
 #include "decl.h"
-#define CTF_MOCK_VMADDR 0xc0000000
+static void
+write_file_64(Elf *src, const char *srcname, Elf *dst, const char *dstname,
+    caddr_t ctfdata, size_t ctfsize, int flags); /* Forward reference. */
 
 static void
-fill_ctf_segments(struct segment_command *seg, struct section *sect, size_t size, uint32_t offset, int swap)
+fill_ctf_segments(struct segment_command *seg, struct section *sect, uint32_t vmaddr, size_t size, uint32_t offset, int swap)
 {
 	struct segment_command tmpseg = {
-		LC_SEGMENT,
+		LC_SEGMENT, 
 		sizeof(struct segment_command) + sizeof(struct section),
 		SEG_CTF,
-		CTF_MOCK_VMADDR,
-		size,
+		vmaddr,
+		0, /* Do not map. Do not reserve virtual address range. */
 		offset,
 		size,
 		VM_PROT_READ,
@@ -830,7 +889,7 @@ fill_ctf_segments(struct segment_command *seg, struct section *sect, size_t size
 	struct section tmpsect = {
 		SECT_CTF,
 		SEG_CTF,
-		CTF_MOCK_VMADDR,
+		vmaddr,
 		size,
 		offset,
 		0, /* byte aligned */
@@ -857,23 +916,23 @@ write_file(Elf *src, const char *srcname, Elf *dst, const char *dstname,
 	struct mach_header hdr, *mh = (struct mach_header *)src->ed_image;
 	struct segment_command ctfseg_command;
 	struct section ctf_sect; 
-	struct segment_command *curcmd;
-	struct segment_command tmpcmd;
+	struct segment_command *curcmd, *ctfcmd;
 	int fd, cmdsleft, swap = (MH_CIGAM == mh->magic);
-	int cmdlength, dataoffset, datalength;
-	int ctfhdrsz = (sizeof(ctfseg_command) + sizeof(ctf_sect));
 	size_t sz;
 	char *p;
+	uint32_t ctf_vmaddr = 0, t;
 
+	if (ELFCLASS64 == src->ed_class) {
+		write_file_64(src, srcname, dst, dstname, ctfdata, ctfsize, flags);
+		return;
+	}
+		
 	/* Swap mach header to host order so we can do arithmetic */
 	if (swap) { 
 		hdr = *mh;
 		mh = &hdr;
 		__swap_mach_header(mh);
 	}
-	cmdlength = mh->sizeofcmds; //where to write CTF seg/sect
-	dataoffset = sizeof(*mh) + mh->sizeofcmds; //where all real data starts
-	datalength = src->ed_imagesz - dataoffset;
 	
 	/* Get a pristine instance of the source mach-o */
 	if ((fd = open(srcname, O_RDONLY)) < 0)
@@ -889,28 +948,63 @@ write_file(Elf *src, const char *srcname, Elf *dst, const char *dstname,
 			(MH_CIGAM != ((struct mach_header *)p)->magic))
 		terminate("%s: is not a thin (single architecture) mach-o binary.\n", srcname);
 
-	/* Skip to last segment, looking for CTF data */
-	curcmd = (struct segment_command *) (p + sizeof(struct mach_header)); 
+	/* Iterate through load commands looking for CTF data */
+	ctfcmd = NULL;
 	cmdsleft = mh->ncmds;
-	while (--cmdsleft > 0) {
+	curcmd = (struct segment_command *) (p + sizeof(struct mach_header));
+	
+	if (cmdsleft < 1)
+		terminate("%s: Has no load commands.\n", srcname);
+		
+	while (cmdsleft-- > 0) {
 		int size = curcmd->cmdsize;
-		if (swap) 
+		uint32_t thecmd = curcmd->cmd;
+
+		if (swap) {
 			SWAP32(size);
+			SWAP32(thecmd);
+		}
+		
+		if (LC_SEGMENT == thecmd) {
+			uint32_t vmaddr = curcmd->vmaddr;
+			uint32_t vmsize = curcmd->vmsize;
+			if (swap) {
+				SWAP32(vmaddr);
+				SWAP32(vmsize);
+			}
+			t = vmaddr + vmsize;
+			if (t > ctf_vmaddr)
+				ctf_vmaddr = t;
+		}
+			
+		if ((LC_SEGMENT == thecmd) && (!strcmp(curcmd->segname, SEG_CTF))) {
+			ctfcmd = curcmd;
+		}
+		
 		curcmd = (struct segment_command *) (((char *)curcmd) + size);
 	}
 
-	if (swap) {
-		tmpcmd = *curcmd;
-		__swap_segment_command(&tmpcmd);
-		curcmd = &tmpcmd;
-	}
+	ctf_vmaddr = (ctf_vmaddr + getpagesize() - 1) & (~(getpagesize() - 1)); // page aligned
 
-	if ((curcmd->cmd == LC_SEGMENT) && (!strcmp(curcmd->segname, SEG_CTF))){
+	if (ctfcmd) {
 		/* CTF segment command exists: overwrite it */
-		int oldsize = curcmd->filesize;
-		datalength -= oldsize;
-		cmdlength -= ctfhdrsz; 
-	} else {
+		fill_ctf_segments(&ctfseg_command, &ctf_sect, 
+			((struct segment_command *)ctfcmd)->vmaddr, ctfsize, sz /* file offset */, swap);
+
+		write(dst->ed_fd, p, sz); // byte-for-byte copy of input mach-o file
+		write(dst->ed_fd, ctfdata, ctfsize); // append CTF 
+		
+		lseek(dst->ed_fd, (off_t)((char *)ctfcmd - p), SEEK_SET);
+		write(dst->ed_fd, &ctfseg_command, sizeof(ctfseg_command)); // lay down CTF_SEG
+		write(dst->ed_fd, &ctf_sect, sizeof(ctf_sect)); // lay down CTF_SECT
+	} else { 
+		int cmdlength, dataoffset, datalength;
+		int ctfhdrsz = (sizeof(ctfseg_command) + sizeof(ctf_sect));
+
+		cmdlength = mh->sizeofcmds; // where to write CTF seg/sect
+		dataoffset = sizeof(*mh) + mh->sizeofcmds; // where all real data starts
+		datalength = src->ed_imagesz - dataoffset;
+
 		/* Add one segment command to header */
 		mh->sizeofcmds += ctfhdrsz; 
 		mh->ncmds++;
@@ -918,32 +1012,198 @@ write_file(Elf *src, const char *srcname, Elf *dst, const char *dstname,
 		 * Chop the first ctfhdrsz bytes out of the generic data so
 		 * that all the internal offsets stay the same
 		 * (required for ELF parsing)
-		 * XXX: This isn't pretty.
+		 * FIXME: This isn't pretty.
 		 */
 		dataoffset += ctfhdrsz;
 		datalength -= ctfhdrsz;
+
+		fill_ctf_segments(&ctfseg_command, &ctf_sect, ctf_vmaddr, ctfsize, 
+			(sizeof(*mh) + cmdlength + ctfhdrsz + datalength) /* file offset */, 
+			swap);
+
+		if (swap) {
+			__swap_mach_header(mh);
+		}
+
+		write(dst->ed_fd, mh, sizeof(*mh));
+		write(dst->ed_fd, p + sizeof(*mh), cmdlength); 
+		write(dst->ed_fd, &ctfseg_command, sizeof(ctfseg_command));
+		write(dst->ed_fd, &ctf_sect, sizeof(ctf_sect));
+		write(dst->ed_fd, p + dataoffset, datalength); 
+		write(dst->ed_fd, ctfdata, ctfsize);
 	}
 	
-	fill_ctf_segments(&ctfseg_command, &ctf_sect, ctfsize, 
-		(sizeof(*mh) + cmdlength + ctfhdrsz + datalength), 
-		swap);
-
-	if (swap) {
-		__swap_mach_header(mh);
-	}
-
-	write(dst->ed_fd, mh, sizeof(*mh));
-	write(dst->ed_fd, p + sizeof(*mh), cmdlength); 
-	write(dst->ed_fd, &ctfseg_command, sizeof(ctfseg_command));
-	write(dst->ed_fd, &ctf_sect, sizeof(ctf_sect));
-	write(dst->ed_fd, p + dataoffset, datalength); 
-	write(dst->ed_fd, ctfdata, ctfsize);
-
 	(void)munmap(p, sz);
 	(void)close(fd);
 	
 	return;
 }
+
+static void
+fill_ctf_segments_64(struct segment_command_64 *seg, struct section_64 *sect, uint64_t vmaddr, size_t size, uint32_t offset, int swap)
+{
+	struct segment_command_64 tmpseg = {
+		LC_SEGMENT_64,
+		sizeof(struct segment_command_64) + sizeof(struct section_64),
+		SEG_CTF,
+		vmaddr,
+		0, /* Do not map. Do not reserve virtual address range. */
+		offset,
+		size,
+		VM_PROT_READ,
+		VM_PROT_READ,
+		1,
+		0
+	};
+
+	struct section_64 tmpsect = {
+		SECT_CTF,
+		SEG_CTF,
+		vmaddr,
+		size,
+		offset,
+		0, /* byte aligned */
+		0,
+		0,
+		0,
+		0, 
+		0
+	};
+	
+	if (swap) {
+		__swap_segment_command_64(&tmpseg);
+		__swap_section_64(&tmpsect);
+	}
+
+	*seg = tmpseg;
+	*sect = tmpsect;
+}
+
+static void
+write_file_64(Elf *src, const char *srcname, Elf *dst, const char *dstname,
+    caddr_t ctfdata, size_t ctfsize, int flags)
+{
+	struct mach_header_64 hdr, *mh = (struct mach_header_64 *)src->ed_image;
+	struct segment_command_64 ctfseg_command;
+	struct section_64 ctf_sect; 
+	struct segment_command_64 *curcmd, *ctfcmd;
+	int fd, cmdsleft, swap = (MH_CIGAM_64 == mh->magic);
+	size_t sz;
+	char *p;
+	uint64_t ctf_vmaddr = 0, t;
+
+	/* Swap mach header to host order so we can do arithmetic */
+	if (swap) { 
+		hdr = *mh;
+		mh = &hdr;
+		__swap_mach_header_64(mh);
+	}
+	
+	/* Get a pristine instance of the source mach-o */
+	if ((fd = open(srcname, O_RDONLY)) < 0)
+		terminate("%s: Cannot open for re-reading", srcname);
+		
+	sz = (size_t)lseek(fd, (off_t)0, SEEK_END);
+	
+	p = mmap((char *)0, sz, PROT_READ, MAP_PRIVATE, fd, (off_t)0);
+	if ((char *)-1 == p)
+		terminate("%s: Cannot mmap for re-reading", srcname);
+		
+	if ((MH_MAGIC_64 != ((struct mach_header *)p)->magic) && 
+			(MH_CIGAM_64 != ((struct mach_header *)p)->magic))
+		terminate("%s: is not a thin (single architecture) mach-o binary.\n", srcname);
+
+	/* Iterate through load commands looking for CTF data */
+	ctfcmd = NULL;
+	cmdsleft = mh->ncmds;
+	curcmd = (struct segment_command_64 *) (p + sizeof(struct mach_header_64));
+	
+	if (cmdsleft < 1)
+		terminate("%s: Has no load commands.\n", srcname);
+		
+	while (cmdsleft-- > 0) {
+		int size = curcmd->cmdsize;
+		uint32_t thecmd = curcmd->cmd;
+		
+		if (swap) {
+			SWAP32(size);
+			SWAP32(thecmd);
+		}
+		
+		if (LC_SEGMENT_64 == thecmd) {
+			uint64_t vmaddr = curcmd->vmaddr;
+			uint64_t vmsize = curcmd->vmsize;
+			if (swap) {
+				SWAP64(vmaddr);
+				SWAP64(vmsize);
+			}
+			t = vmaddr + vmsize;
+			if (t > ctf_vmaddr)
+				ctf_vmaddr = t;
+		}
+
+		if ((LC_SEGMENT_64 == thecmd) && (!strcmp(curcmd->segname, SEG_CTF))) {
+			ctfcmd = curcmd;
+		}
+		
+		curcmd = (struct segment_command_64 *) (((char *)curcmd) + size);
+	}
+	
+	ctf_vmaddr = (ctf_vmaddr + getpagesize() - 1) & (~(getpagesize() - 1)); // page aligned
+
+	if (ctfcmd) {
+		/* CTF segment command exists: overwrite it */
+		fill_ctf_segments_64(&ctfseg_command, &ctf_sect, 
+			((struct segment_command_64 *)curcmd)->vmaddr, ctfsize, sz /* file offset */, swap);
+
+		write(dst->ed_fd, p, sz); // byte-for-byte copy of input mach-o file
+		write(dst->ed_fd, ctfdata, ctfsize); // append CTF 
+		
+		lseek(dst->ed_fd, (off_t)((char *)ctfcmd - p), SEEK_SET);
+		write(dst->ed_fd, &ctfseg_command, sizeof(ctfseg_command)); // lay down CTF_SEG
+		write(dst->ed_fd, &ctf_sect, sizeof(ctf_sect)); // lay down CTF_SECT
+	} else { 
+		int cmdlength, dataoffset, datalength;
+		int ctfhdrsz = (sizeof(ctfseg_command) + sizeof(ctf_sect));
+
+		cmdlength = mh->sizeofcmds; // where to write CTF seg/sect
+		dataoffset = sizeof(*mh) + mh->sizeofcmds; // where all real data starts
+		datalength = src->ed_imagesz - dataoffset;
+
+		/* Add one segment command to header */
+		mh->sizeofcmds += ctfhdrsz; 
+		mh->ncmds++;
+		/* 
+		 * Chop the first ctfhdrsz bytes out of the generic data so
+		 * that all the internal offsets stay the same
+		 * (required for ELF parsing)
+		 * FIXME: This isn't pretty.
+		 */
+		dataoffset += ctfhdrsz;
+		datalength -= ctfhdrsz;
+
+		fill_ctf_segments_64(&ctfseg_command, &ctf_sect, ctf_vmaddr, ctfsize, 
+			(sizeof(*mh) + cmdlength + ctfhdrsz + datalength) /* file offset */, 
+			swap);
+
+		if (swap) {
+			__swap_mach_header_64(mh);
+		}
+
+		write(dst->ed_fd, mh, sizeof(*mh));
+		write(dst->ed_fd, p + sizeof(*mh), cmdlength); 
+		write(dst->ed_fd, &ctfseg_command, sizeof(ctfseg_command));
+		write(dst->ed_fd, &ctf_sect, sizeof(ctf_sect));
+		write(dst->ed_fd, p + dataoffset, datalength); 
+		write(dst->ed_fd, ctfdata, ctfsize);
+	}
+	
+	(void)munmap(p, sz);
+	(void)close(fd);
+	
+	return;
+}
+
 #endif /* __APPLE__ */
 
 static caddr_t
@@ -975,8 +1235,7 @@ write_ctf(tdata_t *td, const char *curname, const char *newname, int flags)
 	size_t len;
 	int fd = -1;
 	int tfd = -1;
-	struct mach_header *mh;
-	
+
 	(void) elf_version(EV_CURRENT);
 	if ((fd = open(curname, O_RDONLY)) < 0 || fstat(fd, &st) < 0)
 		terminate("%s: Cannot open for re-reading", curname);
@@ -994,13 +1253,26 @@ write_ctf(tdata_t *td, const char *curname, const char *newname, int flags)
 	 * byte order as this processor then clear CTF_BYTESWAP. Otherwise CTF_BYTESWAP
 	 * stays lit and the output (typically from ctfmerge) is swapped to final form.
 	 */
-	mh = (struct mach_header *)elf->ed_image;
-	if ((flags & CTF_BYTESWAP) && (MH_CIGAM != mh->magic))
-		flags &= ~CTF_BYTESWAP;
-#endif /* __APPLE__ */
+	if (ELFCLASS32 == elf->ed_class) {
+		struct mach_header *mh = (struct mach_header *)elf->ed_image;
+		if ((flags & CTF_BYTESWAP) && (MH_CIGAM != mh->magic))
+			flags &= ~CTF_BYTESWAP;
 
 	data = make_ctf_data(td, elf, curname, &len, flags);
 	write_file(elf, curname, telf, newname, data, len, flags);
+	} else if (ELFCLASS64 == elf->ed_class) {
+		struct mach_header_64 *mh_64 = (struct mach_header_64 *)elf->ed_image;
+		if ((flags & CTF_BYTESWAP) && (MH_CIGAM_64 != mh_64->magic))
+			flags &= ~CTF_BYTESWAP;
+
+		data = make_ctf_data(td, elf, curname, &len, flags);
+		write_file_64(elf, curname, telf, newname, data, len, flags);
+	} else
+		terminate("%s: Unknown ed_class", curname);
+#else
+	data = make_ctf_data(td, elf, curname, &len, flags);
+	write_file(elf, curname, telf, newname, data, len, flags);
+#endif /* __APPLE__ */
 	free(data);
 
 	elf_end(telf);

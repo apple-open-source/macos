@@ -34,7 +34,7 @@ SECTORDER_FLAGS =
 # handled by PB.
 OTHER_PUBLIC_HEADERS =
 OTHER_PROJECT_HEADERS =
-OTHER_PRIVATE_HEADERS = at_paths.h at_proto.h
+OTHER_PRIVATE_HEADERS =
 
 # Set these two macros if you want a precomp to be built as part of
 # installation. The cc -precomp will be run in the public header directory

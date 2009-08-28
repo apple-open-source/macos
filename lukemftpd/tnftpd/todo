@@ -1,24 +1,25 @@
-$Id: todo,v 1.9 2006/12/04 01:32:39 lukem Exp $
+$NetBSD: todo,v 1.18 2008/09/29 00:37:08 lukem Exp $
 
-implement -n and/or an ftpd.conf(5) option to control DNS resolution.
+provide examples ?
+
+fix detection of largefile support:
+	- solaris: lfcompile(5)
+
+cygwin missing:
+	- SA_NOCLDWAIT
 
 enable LOGIN_CAP (with autoconf portability)
 
-enable USE_PAM (with autoconf portability)
-
-consider updating: ls/* ftpfts.h, fts_open.c  [s-u]*
+consider updating: ls/* [s-u]*
 
 provide replacement for pidfile
 
 email address for feedback: lukem-tnftpd@netbsd.org ?
 
 autoconf checks:
-	- HAVE_FTP_NAMES if FTP_NAMES et al in <arpa/ftp.h>
 	- replace getopt() if optreset (BSD) or getoptreset() (irix)
 	  is not available?
 	- IF_NAMESIZE not available on darwin
-	- getrusage & <sys/resource.h>
-	- mmap and <sys/mman.h>
 
 enable utmp stuff (need to make it portable)
 
@@ -26,9 +27,6 @@ enable wtmp stuff (need to make it portable)
 
 enable kerberos support once its fixed?
 
+enable socks once functional autoconf tests are available.
+
 add setenv(3) to replace putenv(3) cruft?
-
-barf if neither flock() nor lockf() is available
-
-use @YACC@ explictly in src/Makefile.in, instead of the host yacc?
-or just nuke the AC_PROG_YACC stuff entirely?

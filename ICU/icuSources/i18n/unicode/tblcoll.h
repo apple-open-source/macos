@@ -1,9 +1,14 @@
 /*
 ******************************************************************************
-* Copyright (C) 1996-2006, International Business Machines Corporation and
+* Copyright (C) 1996-2008, International Business Machines Corporation and
 * others. All Rights Reserved.
 ******************************************************************************
 */
+
+/**
+ * \file 
+ * \brief C++ API: RuleBasedCollator class provides the simple implementation of Collator.
+ */
 
 /**
 * File tblcoll.h
@@ -56,10 +61,6 @@
 
 #include "unicode/utypes.h"
 
-/**
- * \file 
- * \brief C++ API: RuleBasedCollator class provides the simple implementation of Collator.
- */
  
 #if !UCONFIG_NO_COLLATION
 
@@ -87,20 +88,20 @@ class CollationElementIterator;
  * <em>Important: </em>The ICU collation service has been reimplemented 
  * in order to achieve better performance and UCA compliance. 
  * For details, see the 
- * <a href="http://dev.icu-project.org/cgi-bin/viewcvs.cgi/~checkout~/icuhtml/design/collation/ICU_collation_design.htm">
+ * <a href="http://source.icu-project.org/repos/icu/icuhtml/trunk/design/collation/ICU_collation_design.htm">
  * collation design document</a>.
  * <p>
  * RuleBasedCollator is a thin C++ wrapper over the C implementation.
  * <p>
  * For more information about the collation service see 
- * <a href="http://icu.sourceforge.net/userguide/Collate_Intro.html">the users guide</a>.
+ * <a href="http://icu-project.org/userguide/Collate_Intro.html">the users guide</a>.
  * <p>
  * Collation service provides correct sorting orders for most locales supported in ICU. 
  * If specific data for a locale is not available, the orders eventually falls back
  * to the <a href="http://www.unicode.org/unicode/reports/tr10/">UCA sort order</a>. 
  * <p>
  * Sort ordering may be customized by providing your own set of rules. For more on
- * this subject see the <a href="http://icu.sourceforge.net/userguide/Collate_Customization.html">
+ * this subject see the <a href="http://icu-project.org/userguide/Collate_Customization.html">
  * Collation customization</a> section of the users guide.
  * <p>
  * Note, RuleBasedCollator is not to be subclassed.
@@ -192,7 +193,7 @@ public:
     *  @param status for catching errors
     *  @return newly created collator
     *  @see cloneBinary
-    *  @draft ICU 3.4
+    *  @stable ICU 3.4
     */
     RuleBasedCollator(const uint8_t *bin, int32_t length, 
                     const RuleBasedCollator *base, 
@@ -511,7 +512,7 @@ public:
     *  @param status for catching errors
     *  @return size of the image
     *  @see ucol_openBinary
-    *  @draft ICU 3.4
+    *  @stable ICU 3.4
     */
     int32_t cloneBinary(uint8_t *buffer, int32_t capacity, UErrorCode &status);
 
@@ -654,29 +655,48 @@ private:
 
     // private static constants -----------------------------------------------
 
-    static const int32_t UNMAPPED;
-    static const int32_t CHARINDEX;  // need look up in .commit()
-    static const int32_t EXPANDCHARINDEX; // Expand index follows
-    static const int32_t CONTRACTCHARINDEX;  // contract indexes follow
+    enum {
+        /* need look up in .commit() */
+        CHARINDEX = 0x70000000,
+        /* Expand index follows */
+        EXPANDCHARINDEX = 0x7E000000,
+        /* contract indexes follows */
+        CONTRACTCHARINDEX = 0x7F000000,
+        /* unmapped character values */
+        UNMAPPED = 0xFFFFFFFF,
+        /* primary strength increment */
+        PRIMARYORDERINCREMENT = 0x00010000,
+        /* secondary strength increment */
+        SECONDARYORDERINCREMENT = 0x00000100,
+        /* tertiary strength increment */
+        TERTIARYORDERINCREMENT = 0x00000001,
+        /* mask off anything but primary order */
+        PRIMARYORDERMASK = 0xffff0000,
+        /* mask off anything but secondary order */
+        SECONDARYORDERMASK = 0x0000ff00,
+        /* mask off anything but tertiary order */
+        TERTIARYORDERMASK = 0x000000ff,
+        /* mask off ignorable char order */
+        IGNORABLEMASK = 0x0000ffff,
+        /* use only the primary difference */
+        PRIMARYDIFFERENCEONLY = 0xffff0000,
+        /* use only the primary and secondary difference */
+        SECONDARYDIFFERENCEONLY = 0xffffff00,
+        /* primary order shift */
+        PRIMARYORDERSHIFT = 16,
+        /* secondary order shift */
+        SECONDARYORDERSHIFT = 8,
+        /* starting value for collation elements */
+        COLELEMENTSTART = 0x02020202,
+        /* testing mask for primary low element */
+        PRIMARYLOWZEROMASK = 0x00FF0000,
+        /* reseting value for secondaries and tertiaries */
+        RESETSECONDARYTERTIARY = 0x00000202,
+        /* reseting value for tertiaries */
+        RESETTERTIARY = 0x00000002,
 
-    static const int32_t PRIMARYORDERINCREMENT;
-    static const int32_t SECONDARYORDERINCREMENT;
-    static const int32_t TERTIARYORDERINCREMENT;
-    static const int32_t PRIMARYORDERMASK;
-    static const int32_t SECONDARYORDERMASK;
-    static const int32_t TERTIARYORDERMASK;
-    static const int32_t IGNORABLEMASK;
-    static const int32_t PRIMARYDIFFERENCEONLY;
-    static const int32_t SECONDARYDIFFERENCEONLY;
-    static const int32_t PRIMARYORDERSHIFT;
-    static const int32_t SECONDARYORDERSHIFT;
-
-    static const int32_t COLELEMENTSTART;
-    static const int32_t PRIMARYLOWZEROMASK;
-    static const int32_t RESETSECONDARYTERTIARY;
-    static const int32_t RESETTERTIARY;
-
-    static const int32_t PRIMIGNORABLE;
+        PRIMIGNORABLE = 0x0202
+    };
 
     // private data members ---------------------------------------------------
 
@@ -784,9 +804,10 @@ protected:
     * Used internally by registraton to define the requested and valid locales.
     * @param requestedLocale the requsted locale
     * @param validLocale the valid locale
+    * @param actualLocale the actual locale
     * @internal
     */
-    virtual void setLocales(const Locale& requestedLocale, const Locale& validLocale);
+    virtual void setLocales(const Locale& requestedLocale, const Locale& validLocale, const Locale& actualLocale);
 
 private:
 
@@ -840,7 +861,7 @@ inline void RuleBasedCollator::setUCollator(UCollator     *collator)
     ucollator   = collator;
     dataIsOwned = FALSE;
     isWriteThroughAlias = TRUE;
-	setRuleStringFromCollator();
+    setRuleStringFromCollator();
 }
 
 inline const UCollator * RuleBasedCollator::getUCollator()

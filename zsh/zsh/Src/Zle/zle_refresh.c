@@ -31,65 +31,107 @@
 
 #ifdef MULTIBYTE_SUPPORT
 /*
- * We use a wint_t here, since we need an invalid character as a
- * placeholder and wint_t guarantees that we can use WEOF to do this.
+ * Handling for glyphs that contain more than one wide character,
+ * if ZLE_COMBINING_CHARS is set.  Each glyph is one character with
+ * non-zero width followed by an arbitrary (but typically small)
+ * number of characters that have zero width (combining characters).
+ *
+ * The allocated size for each array is given by ?mw_size; nmw_ind
+ * is the next free element, i.e. nmwbuf[nmw_ind] will be the next
+ * element to be written (we never insert into omwbuf).  We initialise
+ * nmw_ind to 1 to avoid the index stored in the character looking like a
+ * NULL.  This wastees a word but it's safer than messing with pointers.
+ *
+ * The layout of the buffer is as a string of entries that consist of multiple
+ * elements of the allocated array with no boundary (the code keeps track of
+ * where each entry starts).  Note distinction between (logical) entries and
+ * (array) elements.  Each entry consists of an element giving the total
+ * number of wide characters for the entry (there are N+1 wide characters,
+ * where N >= 1 is the number of trailing zero width characters), followed by
+ * those characters.
  */
-typedef wint_t *REFRESH_STRING;
-typedef wint_t REFRESH_CHAR;
+static REFRESH_CHAR
+    *omwbuf = NULL,		/* old multiword glyph buffer */
+    *nmwbuf = NULL;		/* new multiword glyph buffer */
+#endif
 
 /*
- * Unfortunately, that means the pointer is the wrong type for
- * wmemset and friends.
+ * Compare if two characters are equal.
  */
+#ifdef MULTIBYTE_SUPPORT
+/*
+ * We may need to compare values in multiword arrays.  As the arrays are
+ * different for the old and new video arrays, it is vital that the comparison
+ * always be done in the correct order: an element of the old video array,
+ * followed by an element of the new one.  In this case, having ascertained
+ * that both elements are multiword (because they have the some attributes),
+ * we do the character comparison in two stages: first we check that the
+ * lengths are the same, then we check that the characters stored are the
+ * same.  This ensures we can't read past the end of either array.  If either
+ * character is a constant, then TXT_MULTIWORD_MASK is guaranteed not to be
+ * set and this doesn't matter.
+ */
+#define ZR_equal(oldzr, newzr)					   \
+    ((oldzr).atr == (newzr).atr &&				   \
+     (((oldzr).atr & TXT_MULTIWORD_MASK) ?			   \
+      (omwbuf[(oldzr).chr] == nmwbuf[(newzr).chr] &&		   \
+       !memcmp(omwbuf + (oldzr).chr + 1, nmwbuf + (newzr).chr + 1, \
+	       omwbuf[(oldzr).chr] * sizeof(*omwbuf))) :	   \
+      (oldzr).chr == (newzr).chr))
+#else
+#define ZR_equal(zr1, zr2) ((zr1).chr == (zr2).chr && (zr1).atr == (zr2).atr)
+#endif
+
 static void
-ZR_memset(wint_t *dst, wchar_t wc, int len)
+ZR_memset(REFRESH_ELEMENT *dst, REFRESH_ELEMENT rc, int len)
 {
     while (len--)
-	*dst++ = wc;
+	*dst++ = rc;
 }
-#define ZR_memcpy(d, s, l)  memcpy((d), (s), (l)*sizeof(wint_t))
+
+#define ZR_memcpy(d, s, l)  memcpy((d), (s), (l)*sizeof(REFRESH_ELEMENT))
+
 static void
-ZR_strcpy(wint_t *dst, wint_t *src)
+ZR_strcpy(REFRESH_ELEMENT *dst, const REFRESH_ELEMENT *src)
 {
-    while ((*dst++ = *src++) != L'\0')
+    while ((*dst++ = *src++).chr != ZWC('\0'))
 	;
 }
+
 static size_t
-ZR_strlen(wint_t *wstr)
+ZR_strlen(const REFRESH_ELEMENT *wstr)
 {
     int len = 0;
 
-    while (*wstr++ != L'\0')
+    while (wstr++->chr != ZWC('\0'))
 	len++;
 
     return len;
 }
+
 /*
  * Simplified strcmp: we don't need the sign, just whether
- * the strings are equal.
+ * the strings and their attributes are equal.
+ *
+ * In the multibyte case, the two elements must be in the order
+ * element from old video array, element from new video array.
  */
 static int
-ZR_strncmp(wint_t *wstr1, wint_t *wstr2, int len)
+ZR_strncmp(const REFRESH_ELEMENT *oldwstr, const REFRESH_ELEMENT *newwstr,
+	   int len)
 {
     while (len--) {
-	if (!*wstr1 || !*wstr2)
-	    return (*wstr1 == *wstr2) ? 0 : 1;
-	if (*wstr1++ != *wstr2++)
+	if ((!(oldwstr->atr & TXT_MULTIWORD_MASK) && !oldwstr->chr) ||
+	    (!(newwstr->atr & TXT_MULTIWORD_MASK) && !newwstr->chr))
+	    return !ZR_equal(*oldwstr, *newwstr);
+	if (!ZR_equal(*oldwstr, *newwstr))
 	    return 1;
+	oldwstr++;
+	newwstr++;
     }
 
     return 0;
 }
-#else
-typedef char *REFRESH_STRING;
-typedef char REFRESH_CHAR;
-
-#define ZR_memset	memset
-#define ZR_memcpy	memcpy
-#define ZR_strcpy	strcpy
-#define ZR_strlen	strlen
-#define ZR_strncmp	strncmp
-#endif
 
 #include "zle_refresh.pro"
 
@@ -160,52 +202,447 @@ ZLE_STRING_T predisplay, postdisplay;
 int predisplaylen, postdisplaylen;
 
 
+/*
+ * Attributes used by default on the command line, and
+ * attributes for highlighting special (unprintable) characters
+ * displayed on screen.
+ */
+
+static int default_atr_on, special_atr_on;
+
+/* Flags for the region_highlight structure */
+enum {
+    /* Offsets include predisplay */
+    ZRH_PREDISPLAY = 1
+};
+
+/*
+ * Attributes used for highlighting regions.
+ * and mark.
+ */
+struct region_highlight {
+    /* Attributes turned on in the region */
+    int atr;
+    /* Start of the region */
+    int start;
+    /*
+     * End of the region:  position of the first character not highlighted
+     * (the same system as for point and mark).
+     */
+    int end;
+    /*
+     * Any of the flags defined above.
+     */
+    int flags;
+};
+/*
+ * Array of region highlights, no special termination.
+ * The first element (0) always describes the region between
+ * point and mark.  Any other elements are set by the user
+ * via the parameter region_highlight.
+ */
+struct region_highlight *region_highlights;
+/*
+ * Count of special uses of region highlighting, which account
+ * for the first few elements of region_highlights.
+ * 0: region between point and mark
+ * 1: isearch region
+ */
+#define N_SPECIAL_HIGHLIGHTS	(2)
+/*
+ * Number of elements in region_highlights.
+ * This includes the special elements above.
+ */
+int n_region_highlights;
+
+/*
+ * Flag that highlighting of the region is active.
+ */
+/**/
+int region_active;
+
 #ifdef HAVE_SELECT
 /* cost of last update */
 /**/
 int cost;
 
-# define SELECT_ADD_COST(X)	cost += X
-# define zputc(a)		zwcputc(a), cost++
-# define zwrite(a, b)		zwcwrite(a, b), cost += (b * ZLE_CHAR_SIZE)
+# define SELECT_ADD_COST(X)	(cost += X)
+# define zputc(a)		(zwcputc(a, NULL), cost++)
+# define zwrite(a, b)		(zwcwrite((a), (b)), \
+				 cost += ((b) * ZLE_CHAR_SIZE))
 #else
 # define SELECT_ADD_COST(X)
-# define zputc(a)		zwcputc(a)
-# define zwrite(a, b)		zwcwrite(a, b)
+# define zputc(a)		zwcputc(a, NULL)
+# define zwrite(a, b)		zwcwrite((a), (b))
 #endif
+
+static const REFRESH_ELEMENT zr_cr = { ZWC('\r'), 0 };
+static const REFRESH_ELEMENT zr_dt = { ZWC('.'), 0 };
+static const REFRESH_ELEMENT zr_nl = { ZWC('\n'), 0 };
+static const REFRESH_ELEMENT zr_sp = { ZWC(' '), 0 };
+static const REFRESH_ELEMENT zr_ht = { ZWC('\t'), 0 };
+static const REFRESH_ELEMENT zr_zr = { ZWC('\0'), 0 };
+
+/*
+ * Constant arrays to be copied into place: these are memcpy'd,
+ * so don't have terminating NULLs.
+ */
+static const REFRESH_ELEMENT zr_end_ellipsis[] = {
+    { ZWC(' '), 0 },
+    { ZWC('<'), 0 },
+    { ZWC('.'), 0 },
+    { ZWC('.'), 0 },
+    { ZWC('.'), 0 },
+    { ZWC('.'), 0 },
+    { ZWC(' '), 0 },
+};
+#define ZR_END_ELLIPSIS_SIZE	\
+    ((int)(sizeof(zr_end_ellipsis)/sizeof(zr_end_ellipsis[0])))
+
+static const REFRESH_ELEMENT zr_mid_ellipsis1[] = {
+    { ZWC(' '), 0 },
+    { ZWC('<'), 0 },
+    { ZWC('.'), 0 },
+    { ZWC('.'), 0 },
+    { ZWC('.'), 0 },
+    { ZWC('.'), 0 },
+};
+#define ZR_MID_ELLIPSIS1_SIZE	\
+    ((int)(sizeof(zr_mid_ellipsis1)/sizeof(zr_mid_ellipsis1[0])))
+
+static const REFRESH_ELEMENT zr_mid_ellipsis2[] = {
+    { ZWC('>'), 0 },
+    { ZWC(' '), 0 },
+};
+#define ZR_MID_ELLIPSIS2_SIZE	\
+    ((int)(sizeof(zr_mid_ellipsis2)/sizeof(zr_mid_ellipsis2[0])))
+
+static const REFRESH_ELEMENT zr_start_ellipsis[] = {
+    { ZWC('>'), 0 },
+    { ZWC('.'), 0 },
+    { ZWC('.'), 0 },
+    { ZWC('.'), 0 },
+    { ZWC('.'), 0 },
+};
+#define ZR_START_ELLIPSIS_SIZE	\
+    ((int)(sizeof(zr_start_ellipsis)/sizeof(zr_start_ellipsis[0])))
+
+/*
+ * Parse the variable zle_highlight to decide how to highlight characters
+ * and regions.  Set defaults for anything not explicitly covered.
+ */
+
+/**/
+static void
+zle_set_highlight(void)
+{
+    char **atrs = getaparam("zle_highlight");
+    int special_atr_on_set = 0;
+    int region_atr_on_set = 0;
+    int isearch_atr_on_set = 0;
+    struct region_highlight *rhp;
+
+    special_atr_on = default_atr_on = 0;
+    if (!region_highlights) {
+	region_highlights = (struct region_highlight *)
+	    zshcalloc(N_SPECIAL_HIGHLIGHTS*sizeof(struct region_highlight));
+	n_region_highlights = N_SPECIAL_HIGHLIGHTS;
+    } else {
+	for (rhp = region_highlights;
+	     rhp < region_highlights + N_SPECIAL_HIGHLIGHTS;
+	     rhp++) {
+	    rhp->atr = 0;
+	}
+    }
+
+    if (atrs) {
+	for (; *atrs; atrs++) {
+	    if (!strcmp(*atrs, "none")) {
+		/* reset attributes for consistency... usually unnecessary */
+		special_atr_on = default_atr_on = 0;
+		special_atr_on_set = region_atr_on_set =
+		    isearch_atr_on_set = 1;
+	    } else if (strpfx("default:", *atrs)) {
+		match_highlight(*atrs + 8, &default_atr_on);
+	    } else if (strpfx("special:", *atrs)) {
+		match_highlight(*atrs + 8, &special_atr_on);
+		special_atr_on_set = 1;
+	    } else if (strpfx("region:", *atrs)) {
+		match_highlight(*atrs + 7, &region_highlights->atr);
+		region_atr_on_set = 1;
+	    } else if (strpfx("isearch:", *atrs)) {
+		match_highlight(*atrs + 8, &(region_highlights[1].atr));
+		isearch_atr_on_set = 1;
+	    }
+	}
+    }
+
+    /* Defaults */
+    if (!special_atr_on_set)
+	special_atr_on = TXTSTANDOUT;
+    if (!region_atr_on_set)
+	region_highlights->atr = TXTSTANDOUT;
+    if (!isearch_atr_on_set)
+	region_highlights[1].atr = TXTUNDERLINE;
+
+    allocate_colour_buffer();
+}
+
+
+/**/
+static void
+zle_free_highlight(void)
+{
+    free_colour_buffer();
+}
+
+/*
+ * Interface to the region_highlight ZLE parameter.
+ * Converts betwen a format like "P32 42 underline,bold" to
+ * the format in the region_highlights variable.  Note that
+ * the region_highlights variable stores the internal (point/mark)
+ * region in element zero.
+ */
+
+/**/
+char **
+get_region_highlight(UNUSED(Param pm))
+{
+    int arrsize = n_region_highlights;
+    char **retarr, **arrp;
+    struct region_highlight *rhp;
+
+    /* region_highlights may not have been set yet */
+    if (arrsize)
+	arrsize -= N_SPECIAL_HIGHLIGHTS;
+    arrp = retarr = (char **)zhalloc((arrsize+1)*sizeof(char *));
+
+    /* ignore special highlighting */
+    for (rhp = region_highlights + N_SPECIAL_HIGHLIGHTS;
+	 arrsize--;
+	 rhp++, arrp++) {
+	char digbuf1[DIGBUFSIZE], digbuf2[DIGBUFSIZE];
+	int atrlen = 0, alloclen;
+
+	sprintf(digbuf1, "%d", rhp->start);
+	sprintf(digbuf2, "%d", rhp->end);
+
+	atrlen = output_highlight(rhp->atr, NULL);
+	alloclen = atrlen + strlen(digbuf1) + strlen(digbuf2) +
+	    3; /* 2 spaces, 1 0 */
+	if (rhp->flags & ZRH_PREDISPLAY)
+	    alloclen += 2; /* "P " */
+	*arrp = (char *)zhalloc(alloclen * sizeof(char));
+	/*
+	 * On input we allow a space after the flags.
+	 * I haven't put a space here because I think it's
+	 * marginally easier to have the output always split
+	 * into three words, and then check the first to
+	 * see if there are flags.  However, it's arguable.
+	 */
+	sprintf(*arrp, "%s%s %s ",
+		(rhp->flags & ZRH_PREDISPLAY) ? "P" : "",
+		digbuf1, digbuf2);
+	(void)output_highlight(rhp->atr, *arrp + strlen(*arrp));
+    }
+    *arrp = '\0';
+    return retarr;
+}
+
+
+/*
+ * The parameter system requires the pm argument, but this
+ * may be NULL if called directly.
+ */
 
 /**/
 void
-zwcputc(ZLE_INT_T c)
+set_region_highlight(UNUSED(Param pm), char **aval)
 {
-#ifdef MULTIBYTE_SUPPORT
-    char mbtmp[MB_CUR_MAX + 1];
-    mbstate_t mbstate;
-    int i;
+    int len;
+    struct region_highlight *rhp;
 
-    if (c == WEOF)
+    len = aval ? arrlen(aval) : 0;
+    if (n_region_highlights != len + N_SPECIAL_HIGHLIGHTS) {
+	/* no null termination, but include special highlighting at start */
+	n_region_highlights = len + N_SPECIAL_HIGHLIGHTS;
+	region_highlights = (struct region_highlight *)
+	    zrealloc(region_highlights,
+		     sizeof(struct region_highlight) * n_region_highlights);
+    }
+
+    if (!aval)
 	return;
 
-    memset(&mbstate, 0, sizeof(mbstate_t));
-    if ((i = wcrtomb(mbtmp, (wchar_t)c, &mbstate)) > 0)
-	fwrite(mbtmp, i, 1, shout);
-#else
-    fputc(c, shout);
+    for (rhp = region_highlights + N_SPECIAL_HIGHLIGHTS;
+	 *aval;
+	 rhp++, aval++) {
+	char *strp, *oldstrp;
+
+	oldstrp = *aval;
+	if (*oldstrp == 'P') {
+	    rhp->flags = ZRH_PREDISPLAY;
+	    oldstrp++;
+	}
+	else
+	    rhp->flags = 0;
+	while (inblank(*oldstrp))
+	    oldstrp++;
+
+	rhp->start = (int)zstrtol(oldstrp, &strp, 10);
+	if (strp == oldstrp)
+	    rhp->start = -1;
+
+	while (inblank(*strp))
+	    strp++;
+
+	oldstrp = strp;
+	rhp->end = (int)zstrtol(strp, &strp, 10);
+	if (strp == oldstrp)
+	    rhp->end = -1;
+
+	while (inblank(*strp))
+	    strp++;
+
+	match_highlight(strp, &rhp->atr);
+    }
+}
+
+
+/**/
+void
+unset_region_highlight(Param pm, int exp)
+{
+    if (exp) {
+	set_region_highlight(pm, NULL);
+	stdunsetfn(pm, exp);
+    }
+}
+
+
+/* The last attributes that were on. */
+static int lastatr;
+
+/*
+ * Clear the last attributes that we set:  used when we're going
+ * to be outputting stuff that shouldn't show up as text.
+ */
+static void
+clearattributes(void)
+{
+    if (lastatr) {
+	settextattributes(TXT_ATTR_OFF_FROM_ON(lastatr));
+	lastatr = 0;
+    }
+}
+
+/*
+ * Output a termcap capability, clearing any text attributes so
+ * as not to mess up the display.
+ */
+
+static void
+tcoutclear(int cap)
+{
+    clearattributes();
+    tcout(cap);
+}
+
+/*
+ * Output the character.  This must come from the new video
+ * buffer, nbuf, since we access the multiword buffer nmwbuf
+ * directly.
+ *
+ * curatrp may be NULL, otherwise points to an integer specifying
+ * what attributes were turned on for a character output immediately
+ * before, in order to optimise output of attribute changes.
+ */
+
+/**/
+void
+zwcputc(const REFRESH_ELEMENT *c, int *curatrp)
+{
+    /*
+     * Safety: turn attributes off if last heard of turned on.
+     * This differs from *curatrp, which is an optimisation for
+     * writing lots of stuff at once.
+     */
+#ifdef MULTIBYTE_SUPPORT
+    mbstate_t mbstate;
+    int i;
+    VARARR(char, mbtmp, MB_CUR_MAX + 1);
 #endif
+
+    if (lastatr & ~c->atr) {
+	/* Stuff on we don't want, turn it off */
+	settextattributes(TXT_ATTR_OFF_FROM_ON(lastatr & ~c->atr));
+	lastatr = 0;
+    }
+
+    /*
+     * Don't output "on" attributes in a string of characters with
+     * the same attributes.  Be careful in case a different colour
+     * needs setting.
+     */
+    if ((c->atr & TXT_ATTR_ON_MASK) &&
+	(!curatrp ||
+	 ((*curatrp & TXT_ATTR_ON_VALUES_MASK) !=
+	  (c->atr & TXT_ATTR_ON_VALUES_MASK)))) {
+	/* Record just the control flags we might need to turn off... */
+	lastatr = c->atr & TXT_ATTR_ON_MASK;
+	/* ...but set including the values for colour attributes */
+	settextattributes(c->atr & TXT_ATTR_ON_VALUES_MASK);
+    }
+
+#ifdef MULTIBYTE_SUPPORT
+    if (c->atr & TXT_MULTIWORD_MASK) {
+	/* Multiword glyph stored in nmwbuf */
+	int nchars = nmwbuf[c->chr];
+	REFRESH_CHAR *wcptr = nmwbuf + c->chr + 1;
+
+	memset(&mbstate, 0, sizeof(mbstate_t));
+	while (nchars--) {
+	    if ((i = wcrtomb(mbtmp, (wchar_t)*wcptr++, &mbstate)) > 0)
+		fwrite(mbtmp, i, 1, shout);
+	}
+    } else if (c->chr != WEOF) {
+	memset(&mbstate, 0, sizeof(mbstate_t));
+	if ((i = wcrtomb(mbtmp, (wchar_t)c->chr, &mbstate)) > 0)
+	    fwrite(mbtmp, i, 1, shout);
+    }
+#else
+    fputc(c->chr, shout);
+#endif
+
+    /*
+     * Always output "off" attributes since we only turn off at
+     * the end of a chunk of highlighted text.
+     */
+    if (c->atr & TXT_ATTR_OFF_MASK) {
+	settextattributes(c->atr & TXT_ATTR_OFF_MASK);
+	lastatr &= ~((c->atr & TXT_ATTR_OFF_MASK) >> TXT_ATTR_OFF_ON_SHIFT);
+    }
+    if (curatrp) {
+	/*
+	 * Remember the current attributes:  those that are turned
+	 * on, less those that are turned off again.  Include
+	 * colour attributes here in case the colour changes to
+	 * another non-default one.
+	 */
+	*curatrp = (c->atr & TXT_ATTR_ON_VALUES_MASK) &
+	    ~((c->atr & TXT_ATTR_OFF_MASK) >> TXT_ATTR_OFF_ON_SHIFT);
+    }
 }
 
 static int
-zwcwrite(REFRESH_STRING s, size_t i)
+zwcwrite(const REFRESH_STRING s, size_t i)
 {
-#ifdef MULTIBYTE_SUPPORT
     size_t j;
+    int curatr = 0;
 
     for (j = 0; j < i; j++)
-	zwcputc(s[j]);
+	zwcputc(s + j, &curatr);
     return i; /* TODO something better for error indication */
-#else
-    return fwrite(s, i, 1, shout);
-#endif
 }
 
 /* Oct/Nov 94: <mason> some code savagely redesigned to fix several bugs -
@@ -214,8 +651,8 @@ zwcwrite(REFRESH_STRING s, size_t i)
    any queries about updates to mason@primenet.com.au */
 
 static REFRESH_STRING 
-    *nbuf = NULL,		/* new video buffer line-by-line char array */
-    *obuf = NULL;		/* old video buffer line-by-line char array */
+    *nbuf = NULL,		/* new video buffer line-by-line array */
+    *obuf = NULL;		/* old video buffer line-by-line array */
 static int more_start,		/* more text before start of screen?	    */
     more_end,			/* more stuff after end of screen?	    */
     olnct,			/* previous number of lines		    */
@@ -228,14 +665,48 @@ static int more_start,		/* more text before start of screen?	    */
     vmaxln,			/* video maximum number of lines	    */
     winw, winh, rwinh,		/* window width & height		    */
     winpos,			/* singlelinezle: line's position in window */
-    winprompt;			/* singlelinezle: part of lprompt showing   */
+    winprompt,			/* singlelinezle: part of lprompt showing   */
+    winw_alloc = -1,		/* allocated window width */
+    winh_alloc = -1;		/* allocates window height */
+#ifdef MULTIBYTE_SUPPORT
+static int
+    omw_size,			/* allocated size of omwbuf */
+    nmw_size,			/* allocated size of nmwbuf */
+    nmw_ind;			/* next insert point in nmw_ind */
+#endif
+
+/*
+ * Number of words to allocate in one go for the multiword buffers.
+ */
+#define DEF_MWBUF_ALLOC	(32)
+
+static void
+freevideo(void)
+{
+    if (nbuf) {
+	int ln;
+	for (ln = 0; ln != winh_alloc; ln++) {
+	    zfree(nbuf[ln], (winw_alloc + 2) * sizeof(**nbuf));
+	    zfree(obuf[ln], (winw_alloc + 2) * sizeof(**obuf));
+	}
+	free(nbuf);
+	free(obuf);
+#ifdef MULTIBYTE_SUPPORT
+	zfree(nmwbuf, nmw_size * sizeof(*nmwbuf));
+	zfree(omwbuf, omw_size * sizeof(*omwbuf));
+	omw_size = nmw_size = 0;
+	nmw_ind = 1;
+#endif
+	nbuf = NULL;
+	obuf = NULL;
+    }
+}
 
 /**/
 void
 resetvideo(void)
 {
     int ln;
-    static int lwinw = -1, lwinh = -1;	/* last window width & height */
  
     winw = columns;  /* terminal width */
     if (termflags & TERM_SHORT)
@@ -245,31 +716,33 @@ resetvideo(void)
     rwinh = lines;		/* keep the real number of lines */
     vln = vmaxln = winprompt = 0;
     winpos = -1;
-    if (lwinw != winw || lwinh != winh) {
-	if (nbuf) {
-	    for (ln = 0; ln != lwinh; ln++) {
-		zfree(nbuf[ln], (lwinw + 2) * sizeof(**nbuf));
-		zfree(obuf[ln], (lwinw + 2) * sizeof(**obuf));
-	    }
-	    free(nbuf);
-	    free(obuf);
-	}
+    if (winw_alloc != winw || winh_alloc != winh) {
+	freevideo();
 	nbuf = (REFRESH_STRING *)zshcalloc((winh + 1) * sizeof(*nbuf));
 	obuf = (REFRESH_STRING *)zshcalloc((winh + 1) * sizeof(*obuf));
 	nbuf[0] = (REFRESH_STRING)zalloc((winw + 2) * sizeof(**nbuf));
 	obuf[0] = (REFRESH_STRING)zalloc((winw + 2) * sizeof(**obuf));
 
-	lwinw = winw;
-	lwinh = winh;
+#ifdef MULTIBYTE_SUPPORT
+	nmw_size = DEF_MWBUF_ALLOC;
+	nmw_ind = 1;
+	nmwbuf = (REFRESH_CHAR *)zalloc(nmw_size * sizeof(*nmwbuf));
+
+	omw_size = DEF_MWBUF_ALLOC;
+	omwbuf = (REFRESH_CHAR *)zalloc(omw_size * sizeof(*omwbuf));
+#endif
+
+	winw_alloc = winw;
+	winh_alloc = winh;
     }
     for (ln = 0; ln != winh + 1; ln++) {
 	if (nbuf[ln]) {
-	    nbuf[ln][0] = ZWC('\n');
-	    nbuf[ln][1] = ZWC('\0');
+	    nbuf[ln][0] = zr_nl;
+	    nbuf[ln][1] = zr_zr;
 	}
 	if (obuf[ln]) {
-	    obuf[ln][0] = ZWC('\n');
-	    obuf[ln][1] = ZWC('\0');
+	    obuf[ln][0] = zr_nl;
+	    obuf[ln][1] = zr_zr;
 	}
     }
 
@@ -286,9 +759,9 @@ resetvideo(void)
     }
 
     if (lpromptw) {
-    	ZR_memset(nbuf[0], ZWC(' '), lpromptw);
-	ZR_memset(obuf[0], ZWC(' '), lpromptw);
-	nbuf[0][lpromptw] = obuf[0][lpromptw] = ZWC('\0');
+    	ZR_memset(nbuf[0], zr_sp, lpromptw);
+	ZR_memset(obuf[0], zr_sp, lpromptw);
+	nbuf[0][lpromptw] = obuf[0][lpromptw] = zr_zr;
     }
 
     vcs = lpromptw;
@@ -350,8 +823,8 @@ static int cleareol,		/* clear to end-of-line (if can't cleareod) */
 static int
 nextline(Rparams rpms, int wrapped)
 {
-    nbuf[rpms->ln][winw+1] = wrapped ? ZWC('\n') : ZWC('\0');
-    *rpms->s = ZWC('\0');
+    nbuf[rpms->ln][winw+1] = wrapped ? zr_nl : zr_zr;
+    *rpms->s = zr_zr;
     if (rpms->ln != winh - 1)
 	rpms->ln++;
     else {
@@ -383,7 +856,7 @@ nextline(Rparams rpms, int wrapped)
 static void
 snextline(Rparams rpms)
 {
-    *rpms->s = ZWC('\0');
+    *rpms->s = zr_zr;
     if (rpms->ln != winh - 1)
 	rpms->ln++;
     else
@@ -415,24 +888,114 @@ snextline(Rparams rpms)
 
 
 /**/
+static void
+settextattributes(int atr)
+{
+    if (txtchangeisset(atr, TXTNOBOLDFACE))
+	tsetcap(TCALLATTRSOFF, 0);
+    if (txtchangeisset(atr, TXTNOSTANDOUT))
+	tsetcap(TCSTANDOUTEND, 0);
+    if (txtchangeisset(atr, TXTNOUNDERLINE))
+	tsetcap(TCUNDERLINEEND, 0);
+    if (txtchangeisset(atr, TXTBOLDFACE))
+	tsetcap(TCBOLDFACEBEG, 0);
+    if (txtchangeisset(atr, TXTSTANDOUT))
+	tsetcap(TCSTANDOUTBEG, 0);
+    if (txtchangeisset(atr, TXTUNDERLINE))
+	tsetcap(TCUNDERLINEBEG, 0);
+    if (txtchangeisset(atr, TXTFGCOLOUR|TXTNOFGCOLOUR))
+	set_colour_attribute(atr, COL_SEQ_FG, 0);
+    if (txtchangeisset(atr, TXTBGCOLOUR|TXTNOBGCOLOUR))
+	set_colour_attribute(atr, COL_SEQ_BG, 0);
+}
+
+#ifdef MULTIBYTE_SUPPORT
+/*
+ * Add a multiword glyph at the screen location base.
+ * tptr points to the source and there are ichars characters.
+ */
+static void
+addmultiword(REFRESH_ELEMENT *base, ZLE_STRING_T tptr, int ichars)
+{
+    /* Number of characters needed in buffer incl. count */
+    int iadd = ichars + 1, icnt;
+    REFRESH_CHAR *nmwptr;
+    base->atr |= TXT_MULTIWORD_MASK;
+    /* check allocation */
+    if (nmw_ind + iadd > nmw_size) {
+	/* need more space in buffer */
+	int mw_more = (iadd > DEF_MWBUF_ALLOC) ? iadd :
+	    DEF_MWBUF_ALLOC;
+	nmwbuf = (REFRESH_CHAR *)
+	    zrealloc(nmwbuf, (nmw_size += mw_more) *
+		     sizeof(*nmwbuf));
+    }
+    /* make buffer entry: count, then characters */
+    nmwptr = nmwbuf + nmw_ind;
+    *nmwptr++ = ichars;
+    for (icnt = 0; icnt < ichars; icnt++)
+	*nmwptr++ = tptr[icnt];
+    /* save index and update */
+    base->chr = (wint_t)nmw_ind;
+    nmw_ind += iadd;
+}
+#endif
+
+
+/*
+ * Swap the old and new video buffers, plus any associated multiword
+ * buffers.  The new buffer becomes the old one; the new new buffer
+ * will be filled with the command line next time.
+ */
+static void
+bufswap(void)
+{
+    REFRESH_STRING	*qbuf;
+#ifdef MULTIBYTE_SUPPORT
+    REFRESH_CHAR *qmwbuf;
+    int itmp;
+#endif
+
+    qbuf = nbuf;
+    nbuf = obuf;
+    obuf = qbuf;
+
+#ifdef MULTIBYTE_SUPPORT
+/* likewise multiword buffers */
+    qmwbuf = nmwbuf;
+    nmwbuf = omwbuf;
+    omwbuf = qmwbuf;
+
+    itmp = nmw_size;
+    nmw_size = omw_size;
+    omw_size = itmp;
+
+    nmw_ind = 1;
+#endif
+}
+
+
+/**/
 mod_export void
 zrefresh(void)
 {
-    static int inlist;		/* avoiding recursion                        */
-    int iln;			/* current line as index in loops            */
+    static int inlist;		/* avoiding recursion			     */
+    int iln;			/* current line as index in loops	     */
     int t0 = -1;		/* tmp					     */
-    ZLE_STRING_T tmpline,	/* line with added pre/post text             */
+    ZLE_STRING_T tmpline,	/* line with added pre/post text	     */
 	t,			/* pointer into the real buffer		     */
 	scs,			/* pointer to cursor position in real buffer */
-	u;			/* pointer for status line stuff             */
-    REFRESH_STRING 	*qbuf;	/* tmp					     */
+	u;			/* pointer for status line stuff	     */
     int tmpcs, tmpll;		/* ditto cursor position and line length     */
-    int tmpalloced;		/* flag to free tmpline when finished        */
-    int remetafy;		/* flag that zle line is metafied            */
+    int tmppos;			/* t - tmpline				     */
+    int tmpalloced;		/* flag to free tmpline when finished	     */
+    int remetafy;		/* flag that zle line is metafied	     */
+    int txtchange;		/* attributes set after prompts */
     struct rparams rpms;
-    
-    if (trashedzle)
-	reexpandprompt();
+#ifdef MULTIBYTE_SUPPORT
+    int width;			/* width of wide character		     */
+#endif
+
 
     /* If this is called from listmatches() (indirectly via trashzle()), and *
      * that was called from the end of zrefresh(), then we don't need to do  *
@@ -473,6 +1036,29 @@ zrefresh(void)
 	tmpalloced = 0;
     }
 
+    /* this will create region_highlights if it's still NULL */
+    zle_set_highlight();
+
+    /* check for region between point ($CURSOR) and mark ($MARK) */
+    if (region_active) {
+	if (zlecs <= mark) {
+	    region_highlights->start = zlecs;
+	    region_highlights->end = mark;
+	} else {
+	    region_highlights->start = mark;
+	    region_highlights->end = zlecs;
+	}
+    } else {
+	region_highlights->start = region_highlights->end = -1;
+    }
+    /* check for isearch string to highlight */
+    if (isearch_active) {
+	region_highlights[1].start = isearch_startpos;
+	region_highlights[1].end = isearch_endpos;
+    } else {
+	region_highlights[1].start = region_highlights[1].end = -1;
+    }
+
     if (clearlist && listshown > 0) {
 	if (tccan(TCCLEAREOD)) {
 	    int ovln = vln, ovcs = vcs;
@@ -480,7 +1066,7 @@ zrefresh(void)
 
 	    nbuf[vln] = obuf[vln];
 	    moveto(nlnct, 0);
-	    tcout(TCCLEAREOD);
+	    tcoutclear(TCCLEAREOD);
 	    moveto(ovln, ovcs);
 	    nbuf[vln] = nb;
 	} else {
@@ -525,18 +1111,22 @@ zrefresh(void)
 	    listshown = 0;
 	}
 #endif
-	resetvideo();
-	resetneeded = 0;	/* unset */
-	oput_rpmpt = 0;		/* no right-prompt currently on screen */
-
 	/* we probably should only have explicitly set attributes */
 	tsetcap(TCALLATTRSOFF, 0);
 	tsetcap(TCSTANDOUTEND, 0);
 	tsetcap(TCUNDERLINEEND, 0);
+	/* cheat on attribute unset */
+	txtunset(TXTBOLDFACE|TXTSTANDOUT|TXTUNDERLINE);
+
+	if (trashedzle && !clearflag)
+	    reexpandprompt(); 
+	resetvideo();
+	resetneeded = 0;	/* unset */
+	oput_rpmpt = 0;		/* no right-prompt currently on screen */
 
         if (!clearflag) {
             if (tccan(TCCLEAREOD))
-                tcout(TCCLEAREOD);
+                tcoutclear(TCCLEAREOD);
             else
                 cleareol = 1;   /* request: clear to end of line */
 	    if (listshown > 0)
@@ -546,27 +1136,16 @@ zrefresh(void)
             olnct = (t0 < winh) ? t0 : winh;
         if (termflags & TERM_SHORT)
             vcs = 0;
-        else if (!clearflag && lpromptbuf[0]) {
+	else if (!clearflag && lpromptbuf[0]) {
             zputs(lpromptbuf, shout);
 	    if (lpromptwof == winw)
 		zputs("\n", shout);	/* works with both hasam and !hasam */
 	} else {
 	    txtchange = pmpt_attr;
-	    if (txtchangeisset(TXTNOBOLDFACE))
-		tsetcap(TCALLATTRSOFF, 0);
-	    if (txtchangeisset(TXTNOSTANDOUT))
-		tsetcap(TCSTANDOUTEND, 0);
-	    if (txtchangeisset(TXTNOUNDERLINE))
-		tsetcap(TCUNDERLINEEND, 0);
-	    if (txtchangeisset(TXTBOLDFACE))
-		tsetcap(TCBOLDFACEBEG, 0);
-	    if (txtchangeisset(TXTSTANDOUT))
-		tsetcap(TCSTANDOUTBEG, 0);
-	    if (txtchangeisset(TXTUNDERLINE))
-		tsetcap(TCUNDERLINEBEG, 0);
+	    settextattributes(txtchange);
 	}
 	if (clearflag) {
-	    zputc(ZWC('\r'));
+	    zputc(&zr_cr);
 	    vcs = 0;
 	    moveto(0, lpromptw);
 	}
@@ -604,9 +1183,47 @@ zrefresh(void)
     rpms.nvln = -1;
 
     rpms.s = nbuf[rpms.ln = 0] + lpromptw;
-    t = tmpline;
     rpms.sen = *nbuf + winw;
-    for (; t < tmpline+tmpll; t++) {
+    for (t = tmpline, tmppos = 0; tmppos < tmpll; t++, tmppos++) {
+	int base_atr_on = default_atr_on, base_atr_off = 0, ireg;
+	int all_atr_on, all_atr_off;
+	struct region_highlight *rhp;
+	/*
+	 * Calculate attribute based on region.
+	 */
+	for (ireg = 0, rhp = region_highlights;
+	     ireg < n_region_highlights;
+	     ireg++, rhp++) {
+	    int offset;
+	    if (rhp->flags & ZRH_PREDISPLAY)
+		offset = 0;	/* include predisplay in start end */
+	    else
+		offset = predisplaylen; /* increment over it */
+	    if (rhp->start + offset <= tmppos &&
+		tmppos < rhp->end + offset) {
+		if (rhp->atr & (TXTFGCOLOUR|TXTBGCOLOUR)) {
+		    /* override colour with later entry */
+		    base_atr_on = (base_atr_on & ~TXT_ATTR_ON_VALUES_MASK) |
+			rhp->atr;
+		} else {
+		    /* no colour set yet */
+		    base_atr_on |= rhp->atr;
+		}
+		if (tmppos == rhp->end + offset - 1 ||
+		    tmppos == tmpll - 1)
+		    base_atr_off |= TXT_ATTR_OFF_FROM_ON(rhp->atr);
+	    }
+	}
+	if (special_atr_on & (TXTFGCOLOUR|TXTBGCOLOUR)) {
+	    /* keep colours from special attributes */
+	    all_atr_on = special_atr_on |
+		(base_atr_on & ~TXT_ATTR_COLOUR_ON_MASK);
+	} else {
+	    /* keep colours from standard attributes */
+	    all_atr_on = special_atr_on | base_atr_on;
+	}
+	all_atr_off = TXT_ATTR_OFF_FROM_ON(all_atr_on);
+
 	if (t == scs)			/* if cursor is here, remember it */
 	    rpms.nvcs = rpms.s - nbuf[rpms.nvln = rpms.ln];
 
@@ -620,21 +1237,32 @@ zrefresh(void)
 		/* text wrapped */
 		if (nextline(&rpms, 1))
 		    break;
-	    } else
-		do
-		    *rpms.s++ = ZWC(' ');
-		while ((++t0) & 7);
+	    } else {
+		do {
+		    rpms.s->chr = ZWC(' ');
+		    rpms.s->atr = base_atr_on;
+		    rpms.s++;
+		} while ((++t0) & 7);
+		rpms.s[-1].atr |= base_atr_off;
+	    }
 	}
 #ifdef MULTIBYTE_SUPPORT
-	else if (iswprint(*t)) {
-	    int width = wcwidth(*t);
+	else if (iswprint(*t) && (width = WCWIDTH(*t)) > 0) {
+	    int ichars;
 	    if (width > rpms.sen - rpms.s) {
+		int started = 0;
 		/*
 		 * Too wide to fit.  Insert spaces to end of current line.
 		 */
 		do {
-		    *rpms.s++ = ZWC(' ');
+		    rpms.s->chr = ZWC(' ');
+		    if (!started)
+			started = 1;
+		    rpms.s->atr = all_atr_on;
+		    rpms.s++;
 		} while (rpms.s < rpms.sen);
+		if (started)
+		    rpms.s[-1].atr |= all_atr_off;
 		if (nextline(&rpms, 1))
 		    break;
 		if (t == scs) {
@@ -642,31 +1270,124 @@ zrefresh(void)
 		    rpms.nvcs = rpms.s - nbuf[rpms.nvln = rpms.ln];
 		}
 	    }
-	    if (width > rpms.sen - rpms.s) {
+	    if (isset(COMBININGCHARS) && IS_BASECHAR(*t)) {
+		/*
+		 * Look for combining characters.
+		 */
+		for (ichars = 1; tmppos + ichars < tmpll; ichars++) {
+		    if (!IS_COMBINING(t[ichars]))
+			break;
+		}
+	    } else
+		ichars = 1;
+	    if (width > rpms.sen - rpms.s || width == 0) {
 		/*
 		 * The screen width is too small to fit even one
 		 * occurrence.
 		 */
-		*rpms.s++ = ZWC('?');
+		rpms.s->chr = ZWC('?');
+		rpms.s->atr = all_atr_on | all_atr_off;
+		rpms.s++;
 	    } else {
 		/* We can fit it without reaching the end of the line. */
-		*rpms.s++ = *t;
-		while (--width > 0)
-		    *rpms.s++ = WEOF;
+		/*
+		 * As we don't actually output the WEOF, we attach
+		 * any off attributes to the character itself.
+		 */
+		rpms.s->atr = base_atr_on | base_atr_off;
+		if (ichars > 1) {
+		    /*
+		     * Glyph includes combining characters.
+		     * Write these into the multiword buffer and put
+		     * the index into the value at the screen location.
+		     */
+		    addmultiword(rpms.s, t, ichars);
+		} else {
+		    /* Single wide character */
+		    rpms.s->chr = *t;
+		}
+		rpms.s++;
+		while (--width > 0) {
+		    rpms.s->chr = WEOF;
+		    /* Not used, but be consistent... */
+		    rpms.s->atr = base_atr_on | base_atr_off;
+		    rpms.s++;
+		}
+	    }
+	    if (ichars > 1) {
+		/* allow for normal increment */
+		tmppos += ichars - 1;
+		t += ichars - 1;
 	    }
 	}
 #endif
-	else if (ZC_icntrl(*t)) {	/* other control character */
-	    *rpms.s++ = ZWC('^');
+	else if (ZC_icntrl(*t)
+#ifdef MULTIBYTE_SUPPORT
+		 && (unsigned)*t <= 0xffU
+#endif
+	    ) {	/* other control character */
+	    rpms.s->chr = ZWC('^');
+	    rpms.s->atr = all_atr_on;
+	    rpms.s++;
 	    if (rpms.s == rpms.sen) {
 		/* text wrapped */
+		rpms.s[-1].atr |= all_atr_off;
 		if (nextline(&rpms, 1))
 		    break;
 	    }
-	    *rpms.s++ = (((unsigned int)*t & ~0x80u) > 31) ? ZWC('?') : (*t | ZWC('@'));
-	} else {			/* normal character */
-	    *rpms.s++ = *t;
+	    rpms.s->chr = (((unsigned int)*t & ~0x80u) > 31) ?
+		ZWC('?') : (*t | ZWC('@'));
+	    rpms.s->atr = all_atr_on | all_atr_off;
+	    rpms.s++;
 	}
+#ifdef MULTIBYTE_SUPPORT
+	else {
+	    /*
+	     * Not printable or zero width.
+	     * Resort to hackery.
+	     */
+	    char dispchars[11];
+	    char *dispptr = dispchars;
+	    wchar_t wc;
+	    int started = 0;
+
+	    if ((unsigned)*t > 0xffffU) {
+		sprintf(dispchars, "<%.08x>", (unsigned)*t);
+	    } else {
+		sprintf(dispchars, "<%.04x>", (unsigned)*t);
+	    }
+	    while (*dispptr) {
+		if (mbtowc(&wc, dispptr, 1) == 1 /* paranoia */)
+		{
+		    rpms.s->chr = wc;
+		    if (!started)
+			started = 1;
+		    rpms.s->atr = all_atr_on;
+		    rpms.s++;
+		    if (rpms.s == rpms.sen) {
+			/* text wrapped */
+			if (started) {
+			    rpms.s[-1].atr |= all_atr_off;
+			    started = 0;
+			}
+			if (nextline(&rpms, 1))
+			    break;
+		    }
+		}
+		dispptr++;
+	    }
+	    if (started)
+		rpms.s[-1].atr |= all_atr_off;
+	    if (*dispptr) /* nextline said stop processing */
+		break;
+	}
+#else
+	else {			/* normal character */
+	    rpms.s->chr = *t;
+	    rpms.s->atr = base_atr_on | base_atr_off;
+	    rpms.s++;
+	}
+#endif
 	if (rpms.s == rpms.sen) {
 	    /* text wrapped */
 	    if (nextline(&rpms, 1))
@@ -679,7 +1400,7 @@ zrefresh(void)
 	(rpms.nvcs = rpms.s - (nbuf[rpms.nvln = rpms.ln])) == winw) {
 	/* text wrapped */
 	(void)nextline(&rpms, 1);
-	*rpms.s = ZWC('\0');
+	*rpms.s = zr_zr;
 	rpms.nvcs = 0;
 	rpms.nvln++;
     }
@@ -688,43 +1409,66 @@ zrefresh(void)
 	more_end = 1;
 
     if (statusline) {
+	int outll, outsz, all_atr_on, all_atr_off;
+	char *statusdup = ztrdup(statusline);
+	ZLE_STRING_T outputline =
+	    stringaszleline(statusdup, 0, &outll, &outsz, NULL); 
+
+	all_atr_on = special_atr_on;
+	all_atr_off = TXT_ATTR_OFF_FROM_ON(all_atr_on);
+
 	rpms.tosln = rpms.ln + 1;
-	nbuf[rpms.ln][winw + 1] = ZWC('\0');	/* text not wrapped */
+	nbuf[rpms.ln][winw + 1] = zr_zr;	/* text not wrapped */
 	snextline(&rpms);
-	u = statusline;
-	for (; u < statusline + statusll; u++) {
+	u = outputline;
+	for (; u < outputline + outll; u++) {
 #ifdef MULTIBYTE_SUPPORT
 	    if (iswprint(*u)) {
-		int width = wcwidth(*u);
+		int width = WCWIDTH(*u);
 		/* Handle wide characters as above */
 		if (width > rpms.sen - rpms.s) {
 		    do {
-			*rpms.s++ = ZWC(' ');
+			*rpms.s++ = zr_sp;
 		    } while (rpms.s < rpms.sen);
-		    nbuf[rpms.ln][winw + 1] = ZWC('\n');
+		    nbuf[rpms.ln][winw + 1] = zr_nl;
 		    snextline(&rpms);
 		}
 		if (width > rpms.sen - rpms.s) {
-		    *rpms.s++ = ZWC('?');
+		    rpms.s->chr = ZWC('?');
+		    rpms.s->atr = all_atr_on | all_atr_off;
+		    rpms.s++;
 		} else {
-		    *rpms.s++ = *u;
-		    while (--width > 0)
-			*rpms.s++ = WEOF;
+		    rpms.s->chr = *u;
+		    rpms.s->atr = 0;
+		    rpms.s++;
+		    while (--width > 0) {
+			rpms.s->chr = WEOF;
+			rpms.s->atr = 0;
+			rpms.s++;
+		    }
 		}
 	    }
 	    else
 #endif
 	    if (ZC_icntrl(*u)) { /* simplified processing in the status line */
-		*rpms.s++ = ZWC('^');
+		rpms.s->chr = ZWC('^');
+		rpms.s->atr = all_atr_on;
+		rpms.s++;
 		if (rpms.s == rpms.sen) {
-		    nbuf[rpms.ln][winw + 1] = ZWC('\n');/* text wrapped */
+		    nbuf[rpms.ln][winw + 1] = zr_nl;/* text wrapped */
 		    snextline(&rpms);
 		}
-		*rpms.s++ = (((unsigned int)*u & ~0x80u) > 31) ? ZWC('?') : (*u | ZWC('@'));
-	    } else
-		*rpms.s++ = *u;
+		rpms.s->chr = (((unsigned int)*u & ~0x80u) > 31)
+		    ? ZWC('?') : (*u | ZWC('@'));
+		rpms.s->atr = all_atr_on | all_atr_off;
+		rpms.s++;
+	    } else {
+		rpms.s->chr = *u;
+		rpms.s->atr = 0;
+		rpms.s++;
+	    }
 	    if (rpms.s == rpms.sen) {
-		nbuf[rpms.ln][winw + 1] = ZWC('\n');	/* text wrapped */
+		nbuf[rpms.ln][winw + 1] = zr_nl;	/* text wrapped */
 		snextline(&rpms);
 	    }
 	}
@@ -735,43 +1479,85 @@ zrefresh(void)
 	     */
 	    snextline(&rpms);
 	}
+	zfree(outputline, outsz);
+	free(statusdup);
     }
-    *rpms.s = ZWC('\0');
+    *rpms.s = zr_zr;
 
 /* insert <.... at end of last line if there is more text past end of screen */
-/* TODO: if we start overwriting in the middle of a wide character, mayhem
- * will ensue.
- */
     if (more_end) {
+#ifdef MULTIBYTE_SUPPORT
+	int extra_ellipsis = 0;
+#endif
 	if (!statusline)
 	    rpms.tosln = winh;
 	rpms.s = nbuf[rpms.tosln - 1];
 	rpms.sen = rpms.s + winw - 7;
 	for (; rpms.s < rpms.sen; rpms.s++) {
-	    if (*rpms.s == ZWC('\0')) {
-		for (; rpms.s < rpms.sen; )
-		    *rpms.s++ = ZWC(' ');
+	    if (rpms.s->chr == ZWC('\0')) {
+		ZR_memset(rpms.s, zr_sp, rpms.sen - rpms.s);
+		/* make sure we don't trigger the WEOF test */
+		rpms.sen->chr = ZWC('\0');
 		break;
 	    }
 	}
-	ZR_memcpy(rpms.sen, ZWS(" <.... "), 7);
-	nbuf[rpms.tosln - 1][winw] = nbuf[rpms.tosln - 1][winw + 1]
-	    = ZWC('\0');
+	/* rpms.s is no longer needed */
+#ifdef MULTIBYTE_SUPPORT
+	/*
+	 * Ensure we don't start overwriting in the middle of a wide
+	 * character.
+	 */
+	while(rpms.sen > nbuf[rpms.tosln - 1] && rpms.sen->chr == WEOF) {
+	    extra_ellipsis++;
+	    rpms.sen--;
+	}
+#endif
+	ZR_memcpy(rpms.sen, zr_end_ellipsis, ZR_END_ELLIPSIS_SIZE);
+#ifdef MULTIBYTE_SUPPORT
+	/* Extend to the end if we backed off for a wide character */
+	if (extra_ellipsis) {
+	    rpms.sen += ZR_END_ELLIPSIS_SIZE;
+	    ZR_memset(rpms.sen, zr_dt, extra_ellipsis);
+	}
+#endif
+	nbuf[rpms.tosln - 1][winw] = nbuf[rpms.tosln - 1][winw + 1] = zr_zr;
     }
 
 /* insert <....> at end of first status line if status is too big */
     if (rpms.more_status) {
+#ifdef MULTIBYTE_SUPPORT
+	int extra_ellipsis = 0;
+#endif
 	rpms.s = nbuf[rpms.tosln];
 	rpms.sen = rpms.s + winw - 8;
 	for (; rpms.s < rpms.sen; rpms.s++) {
-	    if (*rpms.s == ZWC('\0')) {
-		for (; rpms.s < rpms.sen; )
-		    *rpms.s++ = ZWC(' ');
+	    if (rpms.s->chr == ZWC('\0')) {
+		ZR_memset(rpms.s, zr_sp, rpms.sen - rpms.s);
 		break;
 	    }
 	}
-	ZR_memcpy(rpms.sen, ZWS(" <....> "), 8);
-	nbuf[rpms.tosln][winw] = nbuf[rpms.tosln][winw + 1] = ZWC('\0');
+	/* rpms.s is no longer needed */
+#ifdef MULTIBYTE_SUPPORT
+	/*
+	 * Ensure we don't start overwriting in the middle of a wide
+	 * character.
+	 */
+	while(rpms.sen > nbuf[rpms.tosln - 1] && rpms.sen->chr == WEOF) {
+	    extra_ellipsis++;
+	    rpms.sen--;
+	}
+#endif
+	ZR_memcpy(rpms.sen, zr_mid_ellipsis1, ZR_MID_ELLIPSIS1_SIZE);
+	rpms.sen += ZR_MID_ELLIPSIS1_SIZE;
+#ifdef MULTIBYTE_SUPPORT
+	/* Extend if we backed off for a wide character */
+	if (extra_ellipsis) {
+	    ZR_memset(rpms.sen, zr_dt, extra_ellipsis);
+	    rpms.sen += extra_ellipsis;
+	}
+#endif
+	ZR_memcpy(rpms.sen, zr_mid_ellipsis2, ZR_MID_ELLIPSIS2_SIZE);
+	nbuf[rpms.tosln][winw] = nbuf[rpms.tosln][winw + 1] = zr_zr;
     }
 
     nlnct = rpms.ln + 1;
@@ -790,12 +1576,12 @@ zrefresh(void)
 		(int)ZR_strlen(nbuf[0]) + rpromptw < winw - 1;
     } else {
 /* insert >.... on first line if there is more text before start of screen */
-	memset(nbuf[0], ZWC(' '), lpromptw);
+	ZR_memset(nbuf[0], zr_sp, lpromptw);
 	t0 = winw - lpromptw;
-	t0 = t0 > 5 ? 5 : t0;
-	ZR_memcpy(nbuf[0] + lpromptw, ZWS(">...."), t0);
-	ZR_memset(nbuf[0] + lpromptw + t0, ZWC(' '), winw - t0 - lpromptw);
-	nbuf[0][winw] = nbuf[0][winw + 1] = ZWC('\0');
+	t0 = t0 > ZR_START_ELLIPSIS_SIZE ? ZR_START_ELLIPSIS_SIZE : t0;
+	ZR_memcpy(nbuf[0] + lpromptw, zr_start_ellipsis, t0);
+	ZR_memset(nbuf[0] + lpromptw + t0, zr_sp, winw - t0 - lpromptw);
+	nbuf[0][winw] = nbuf[0][winw + 1] = zr_zr;
     }
 
     for (iln = 0; iln < nlnct; iln++) {
@@ -809,10 +1595,10 @@ zrefresh(void)
 	if (!clearf && iln > 0 && iln < olnct - 1 &&
 	    !(hasam && vcs == winw) &&
 	    nbuf[iln] && obuf[iln] &&
-	    ZR_strncmp(nbuf[iln], obuf[iln], 16)) {
+	    ZR_strncmp(obuf[iln], nbuf[iln], 16)) {
 	    if (tccan(TCDELLINE) && obuf[iln + 1] &&
-		obuf[iln + 1][0] && nbuf[iln] &&
-		!ZR_strncmp(nbuf[iln], obuf[iln + 1], 16)) {
+		obuf[iln + 1][0].chr && nbuf[iln] &&
+		!ZR_strncmp(obuf[iln + 1], nbuf[iln], 16)) {
 		moveto(iln, 0);
 		tcout(TCDELLINE);
 		zfree(obuf[iln], (winw + 2) * sizeof(**obuf));
@@ -825,8 +1611,7 @@ zrefresh(void)
 	   go off the end of the screen. */
 
 	    else if (tccan(TCINSLINE) && olnct < vmaxln && nbuf[iln + 1] &&
-		     obuf[iln] && !ZR_strncmp(nbuf[iln + 1], 
-					      obuf[iln], 16)) {
+		     obuf[iln] && !ZR_strncmp(obuf[iln], nbuf[iln + 1], 16)) {
 		moveto(iln, 0);
 		tcout(TCINSLINE);
 		for (t0 = olnct; t0 != iln; t0--)
@@ -841,23 +1626,44 @@ zrefresh(void)
 
     /* output the right-prompt if appropriate */
 	if (put_rpmpt && !iln && !oput_rpmpt) {
+	    int attrchange;
+
 	    moveto(0, winw - 1 - rpromptw);
 	    zputs(rpromptbuf, shout);
 	    vcs = winw - 1;
 	/* reset character attributes to that set by the main prompt */
 	    txtchange = pmpt_attr;
-	    if (txtchangeisset(TXTNOBOLDFACE) && (rpmpt_attr & TXTBOLDFACE))
-		tsetcap(TCALLATTRSOFF, 0);
-	    if (txtchangeisset(TXTNOSTANDOUT) && (rpmpt_attr & TXTSTANDOUT))
-		tsetcap(TCSTANDOUTEND, 0);
-	    if (txtchangeisset(TXTNOUNDERLINE) && (rpmpt_attr & TXTUNDERLINE))
-		tsetcap(TCUNDERLINEEND, 0);
-	    if (txtchangeisset(TXTBOLDFACE) && (rpmpt_attr & TXTNOBOLDFACE))
-		tsetcap(TCBOLDFACEBEG, 0);
-	    if (txtchangeisset(TXTSTANDOUT) && (rpmpt_attr & TXTNOSTANDOUT))
-		tsetcap(TCSTANDOUTBEG, 0);
-	    if (txtchangeisset(TXTUNDERLINE) && (rpmpt_attr & TXTNOUNDERLINE))
-		tsetcap(TCUNDERLINEBEG, 0);
+	    /*
+	     * Keep attributes that have actually changed,
+	     * which are ones off in rpmpt_attr and on in
+	     * pmpt_attr, and vice versa.
+	     */
+	    attrchange = txtchange &
+		(TXT_ATTR_OFF_FROM_ON(rpmpt_attr) |
+		 TXT_ATTR_ON_FROM_OFF(rpmpt_attr));
+	    /*
+	     * Careful in case the colour changed.
+	     */
+	    if (txtchangeisset(txtchange, TXTFGCOLOUR) &&
+		(!txtchangeisset(rpmpt_attr, TXTFGCOLOUR) ||
+		 ((txtchange ^ rpmpt_attr) & TXT_ATTR_FG_COL_MASK)))
+	    {
+		attrchange |=
+		    txtchange & (TXTFGCOLOUR | TXT_ATTR_FG_COL_MASK);
+	    }
+	    if (txtchangeisset(txtchange, TXTBGCOLOUR) &&
+		(!txtchangeisset(rpmpt_attr, TXTBGCOLOUR) ||
+		 ((txtchange ^ rpmpt_attr) & TXT_ATTR_BG_COL_MASK)))
+	    {
+		attrchange |=
+		    txtchange & (TXTBGCOLOUR | TXT_ATTR_BG_COL_MASK);
+	    }
+	    /*
+	     * Now feed these changes into the usual function,
+	     * if necessary.
+	     */
+	    if (attrchange)
+		settextattributes(attrchange);
 	}
     }
 
@@ -872,20 +1678,8 @@ individually */
 
 /* reset character attributes */
     if (clearf && postedit) {
-	if ((txtchange = pmpt_attr ? pmpt_attr : rpmpt_attr)) {
-	    if (txtchangeisset(TXTNOBOLDFACE))
-		tsetcap(TCALLATTRSOFF, 0);
-	    if (txtchangeisset(TXTNOSTANDOUT))
-		tsetcap(TCSTANDOUTEND, 0);
-	    if (txtchangeisset(TXTNOUNDERLINE))
-		tsetcap(TCUNDERLINEEND, 0);
-	    if (txtchangeisset(TXTBOLDFACE))
-		tsetcap(TCBOLDFACEBEG, 0);
-	    if (txtchangeisset(TXTSTANDOUT))
-		tsetcap(TCSTANDOUTBEG, 0);
-	    if (txtchangeisset(TXTUNDERLINE))
-		tsetcap(TCUNDERLINEBEG, 0);
-	}
+	if ((txtchange = pmpt_attr ? pmpt_attr : rpmpt_attr))
+	    settextattributes(txtchange);
     }
     clearf = 0;
     oput_rpmpt = put_rpmpt;
@@ -894,9 +1688,8 @@ individually */
     moveto(rpms.nvln, rpms.nvcs);
 
 /* swap old and new buffers - better than freeing/allocating every time */
-    qbuf = nbuf;
-    nbuf = obuf;
-    obuf = qbuf;
+    bufswap();
+
 /* store current values so we can use them next time */
     ovln = rpms.nvln;
     olnct = nlnct;
@@ -907,7 +1700,9 @@ singlelineout:
     fflush(shout);		/* make sure everything is written out */
 
     if (tmpalloced)
-	zfree(tmpline, tmpll);
+	zfree(tmpline, tmpll * sizeof(*tmpline));
+
+    zle_free_highlight();
 
     /* if we have a new list showing, note it; if part of the list has been
     overwritten, redisplay it. We have to metafy line back before calling
@@ -936,13 +1731,17 @@ singlelineout:
 #define tc_upcurs(X)	(void) tcmultout(TCUP, TCMULTUP, (X))
 #define tc_leftcurs(X)	(void) tcmultout(TCLEFT, TCMULTLEFT, (X))
 
+/*
+ * Once again, in the multibyte case the arguments must be in the
+ * order:  element of old video array, element of new video array.
+ */
 static int
-wpfxlen(REFRESH_STRING s, REFRESH_STRING t)
+wpfxlen(const REFRESH_ELEMENT *olds, const REFRESH_ELEMENT *news)
 {
     int i = 0;
 
-    while (*s && *s == *t)
-	s++, t++, i++;
+    while (olds->chr && ZR_equal(*olds, *news))
+	olds++, news++, i++;
     return i;
 }
 
@@ -969,7 +1768,7 @@ refreshline(int ln)
 	ollen = ZR_strlen(ol);
     }
     else {
-	static REFRESH_CHAR nullchr = ZWC('\0');
+	static REFRESH_ELEMENT nullchr = { ZWC('\0'), 0 };
 	ol = &nullchr;
 	ollen = 0;
     }
@@ -979,7 +1778,7 @@ refreshline(int ln)
     if (cleareol && !nllen && !(hasam && ln < nlnct - 1)
 	&& tccan(TCCLEAREOL)) {
 	moveto(ln, 0);
-	tcout(TCCLEAREOL);
+	tcoutclear(TCCLEAREOL);
 	return;	
     }
 
@@ -992,9 +1791,12 @@ refreshline(int ln)
 	p1 = zhalloc((winw + 2) * sizeof(*p1));
 	if (nllen)
 	    ZR_memcpy(p1, nl, nllen);
-	ZR_memset(p1 + nllen, ZWC(' '), winw - nllen);
-	p1[winw] = ZWC('\0');
-	p1[winw + 1] = (nllen < winw) ? ZWC('\0') : nl[winw + 1];
+	ZR_memset(p1 + nllen, zr_sp, winw - nllen);
+	p1[winw] = zr_zr;
+	if (nllen < winw)
+	    p1[winw + 1] = zr_zr;
+	else
+	    p1[winw + 1] = nl[winw + 1];
 	if (ln && nbuf[ln])
 	    ZR_memcpy(nl, p1, winw + 2);	/* next time obuf will be up-to-date */
 	else
@@ -1003,8 +1805,8 @@ refreshline(int ln)
     } else if (ollen > nllen) { /* make new line at least as long as old */
 	p1 = zhalloc((ollen + 1) * sizeof(*p1));
 	ZR_memcpy(p1, nl, nllen);
-	ZR_memset(p1 + nllen, ZWC(' '), ollen - nllen);
-	p1[ollen] = ZWC('\0');
+	ZR_memset(p1 + nllen, zr_sp, ollen - nllen);
+	p1[ollen] = zr_zr;
 	nl = p1;
 	nllen = ollen;
     }
@@ -1019,10 +1821,12 @@ refreshline(int ln)
     else {
 	col_cleareol = -1;
 	if (tccan(TCCLEAREOL) && (nllen == winw || put_rpmpt != oput_rpmpt)) {
-	    for (i = nllen; i && nl[i - 1] == ZWC(' '); i--);
-	    for (j = ollen; j && ol[j - 1] == ZWC(' '); j--);
+	    for (i = nllen; i && ZR_equal(zr_sp, nl[i - 1]); i--)
+		;
+	    for (j = ollen; j && ZR_equal(ol[j - 1], zr_sp); j--)
+		;
 	    if ((j > i + tclen[TCCLEAREOL])	/* new buf has enough spaces */
-		|| (nllen == winw && nl[winw - 1] == ZWC(' ')))
+		|| (nllen == winw && ZR_equal(zr_sp, nl[winw - 1])))
 		col_cleareol = i;
 	}
     }
@@ -1030,21 +1834,21 @@ refreshline(int ln)
 /* 2b: first a new trick for automargin niceness - good for cut and paste */
 
     if (hasam && vcs == winw) {
-	if (nbuf[vln] && nbuf[vln][vcs + 1] == ZWC('\n')) {
+	if (nbuf[vln] && nbuf[vln][vcs + 1].chr == ZWC('\n')) {
 	    vln++, vcs = 1;
-            if (nbuf[vln]  && *nbuf[vln]) {
-		zputc(*nbuf[vln]);
+            if (nbuf[vln]  && nbuf[vln]->chr) {
+		zputc(nbuf[vln]);
 	    } else
-		zputc(ZWC(' '));  /* I don't think this should happen */
+		zputc(&zr_sp);  /* I don't think this should happen */
 	    if (ln == vln) {	/* better safe than sorry */
 		nl++;
-		if (*ol)
+		if (ol->chr)
 		    ol++;
 		ccs = 1;
 	    }			/* else  hmmm... I wonder what happened */
 	} else {
 	    vln++, vcs = 0;
-	    zputc(ZWC('\n'));
+	    zputc(&zr_nl);
 	}
     }
     ins_last = 0;
@@ -1060,22 +1864,35 @@ refreshline(int ln)
 	ccs = lpromptw;
     }
 
+#ifdef MULTIBYTE_SUPPORT
+    /*
+     * Realign to a real character after any jiggery pokery at
+     * the start of the line.
+     */
+    while (nl->chr == WEOF) {
+	nl++, ccs++, vcs++;
+	if (ol->chr)
+	    ol++;
+    }
+#endif
+
 /* 3: main display loop - write out the buffer using whatever tricks we can */
 
     for (;;) {
 #ifdef MULTIBYTE_SUPPORT
-	if ((!*nl || *nl != WEOF) && (!*ol || *ol != WEOF)) {
+	if ((!nl->chr || nl->chr != WEOF) && (!ol->chr || ol->chr != WEOF)) {
 #endif
-	    if (*nl && *ol && nl[1] == ol[1]) {
+	    if (nl->chr && ol->chr && ZR_equal(ol[1], nl[1])) {
 		/* skip only if second chars match */
 #ifdef MULTIBYTE_SUPPORT
 		int ccs_was = ccs;
 #endif
 		/* skip past all matching characters */
-		for (; *nl && (*nl == *ol); nl++, ol++, ccs++) ;
+		for (; nl->chr && ZR_equal(*ol, *nl); nl++, ol++, ccs++)
+		    ;
 #ifdef MULTIBYTE_SUPPORT
 		/* Make sure ol and nl are pointing to real characters */
-		while ((*nl == WEOF || *ol == WEOF) && ccs > ccs_was) {
+		while ((nl->chr == WEOF || ol->chr == WEOF) && ccs > ccs_was) {
 		    nl--;
 		    ol--;
 		    ccs--;
@@ -1083,12 +1900,12 @@ refreshline(int ln)
 #endif
 	    }
 
-	    if (!*nl) {
+	    if (!nl->chr) {
 		if (ccs == winw && hasam && char_ins > 0 && ins_last
 		    && vcs != winw) {
 		    nl--;           /* we can assume we can go back here */
 		    moveto(ln, winw - 1);
-		    zputc(*nl);
+		    zputc(nl);
 		    vcs++;
 		    return;         /* write last character in line */
 		}
@@ -1104,58 +1921,76 @@ refreshline(int ln)
 
 	    /* if we can finish quickly, do so */
 	    if ((col_cleareol >= 0) && (ccs >= col_cleareol)) {
-		tcout(TCCLEAREOL);
+		tcoutclear(TCCLEAREOL);
 		return;
 	    }
 
 	    /* we've written out the new but yet to clear rubbish due to inserts */
-	    if (!*nl) {
+	    if (!nl->chr) {
 		i = (winw - ccs < char_ins) ? (winw - ccs) : char_ins;
 		if (tccan(TCDEL) && (tcdelcost(i) <= i + 1))
 		    tc_delchars(i);
 		else {
 		    vcs += i;
 		    while (i-- > 0)
-			zputc(ZWC(' '));
+			zputc(&zr_sp);
 		}
 		return;
 	    }
 
 	    /* if we've reached the end of the old buffer, then there are few tricks
 	       we can do, so we just dump out what we must and clear if we can */
-	    if (!*ol) {
+	    if (!ol->chr) {
 		i = (col_cleareol >= 0) ? col_cleareol : nllen;
 		i -= vcs;
+		if (i < 0) {
+		    /*
+		     * This shouldn't be necessary, but it's better
+		     * than a crash if there's a bug somewhere else,
+		     * so report in debug mode.
+		     */
+		    DPUTS(1, "BUG: badly calculated old line width in refresh");
+		    i = 0;
+		}
 		zwrite(nl, i);
 		vcs += i;
 		if (col_cleareol >= 0)
-		    tcout(TCCLEAREOL);
+		    tcoutclear(TCCLEAREOL);
 		return;
 	    }
 
 	    /* inserting & deleting chars: we can if there's no right-prompt */
 	    if ((ln || !put_rpmpt || !oput_rpmpt) 
 #ifdef MULTIBYTE_SUPPORT
-		&& *ol != WEOF && *nl != WEOF
+		&& ol->chr != WEOF && nl->chr != WEOF
 #endif
-		&& nl[1] && ol[1] && nl[1] != ol[1]) { 
+		&& nl[1].chr && ol[1].chr && !ZR_equal(ol[1], nl[1])) { 
 
 		/* deleting characters - see if we can find a match series that
 		   makes it cheaper to delete intermediate characters
 		   eg. oldline: hifoobar \ hopefully cheaper here to delete two
 		   newline: foobar	 / characters, then we have six matches */
 		if (tccan(TCDEL)) {
-		    for (i = 1; *(ol + i); i++)
+		    for (i = 1; ol[i].chr; i++)
 			if (tcdelcost(i) < wpfxlen(ol + i, nl)) {
 			    tc_delchars(i);
 			    ol += i;
 			    char_ins -= i;
 #ifdef MULTIBYTE_SUPPORT
-			    while (*ol == WEOF) {
+			    while (ol->chr == WEOF) {
 				ol++;
 				char_ins--;
 			    }
 #endif
+			    /*
+			     * If the sequence we're deleting ended
+			     * by turning off an attribute, make sure
+			     * it stays turned off.  I don't think we
+			     * should need this.
+			     */
+			    if (ol[-1].atr & TXT_ATTR_OFF_MASK)
+				settextattributes(ol[-1].atr &
+						  TXT_ATTR_OFF_MASK);
 			    i = 0;
 			    break;
 			}
@@ -1167,13 +2002,13 @@ refreshline(int ln)
 		   undesired scrolling occurs due to `illegal' characters on screen */
 
 		if (tccan(TCINS) && (vln != lines - 1)) {	/* not on last line */
-		    for (i = 1; *(nl + i); i++)
-			if (tcinscost(i) < wpfxlen(nl + i, ol)) {
+		    for (i = 1; nl[i].chr; i++)
+			if (tcinscost(i) < wpfxlen(ol, nl + i)) {
 			    tc_inschars(i);
 			    zwrite(nl, i);
 			    nl += i;
 #ifdef MULTIBYTE_SUPPORT
-			    while (*nl == WEOF) {
+			    while (nl->chr == WEOF) {
 				nl++;
 				i++;
 			    }
@@ -1181,13 +2016,13 @@ refreshline(int ln)
 			    char_ins += i;
 			    ccs = (vcs += i);
 			    /* if we've pushed off the right, truncate oldline */
-			    for (i = 0; *(ol + i) && i < winw - ccs; i++);
+			    for (i = 0; ol[i].chr && i < winw - ccs; i++);
 #ifdef MULTIBYTE_SUPPORT
-			    while (ol[i] == WEOF)
+			    while (ol[i].chr == WEOF)
 				i++;
 #endif
 			    if (i >= winw - ccs) {
-				*(ol + i) = ZWC('\0');
+				ol[i] = zr_zr;
 				ins_last = 1;
 			    }
 			    i = 0;
@@ -1207,11 +2042,19 @@ refreshline(int ln)
 	 * in case we were tidying up a funny-width character when we
 	 * reached the end of the new line...
 	 */
-	if (!*nl)
+	if (!nl->chr)
 	    break;
 	do {
 #endif
-	    zputc(*nl);
+	    /*
+	     * If an attribute was on here but isn't any more,
+	     * output the sequence to turn it off.
+	     */
+	    int now_off = ol->atr & ~nl->atr & TXT_ATTR_ON_MASK;
+	    if (now_off)
+		settextattributes(TXT_ATTR_OFF_FROM_ON(now_off));
+
+	    zputc(nl);
 	    nl++, ol++;
 	    ccs++, vcs++;
 #ifdef MULTIBYTE_SUPPORT
@@ -1219,7 +2062,8 @@ refreshline(int ln)
 	     * Make sure we always overwrite the complete width of
 	     * a character that was there before.
 	     */
-	} while ((*ol == WEOF && *nl) || (*nl == WEOF && *ol));
+	} while ((ol->chr == WEOF && nl->chr) ||
+		 (nl->chr == WEOF && ol->chr));
 #endif
     }
 }
@@ -1231,22 +2075,22 @@ refreshline(int ln)
 void
 moveto(int ln, int cl)
 {
-    ZLE_INT_T c;
+    const REFRESH_ELEMENT *rep;
 
     if (vcs == winw) {
 	vln++, vcs = 0;
 	if (!hasam) {
-	    zputc(ZWC('\r'));
-	    zputc(ZWC('\n'));
+	    zputc(&zr_cr);
+	    zputc(&zr_nl);
 	} else {
-	    if ((vln < nlnct) && nbuf[vln] && *nbuf[vln])
-		c = *nbuf[vln];
+	    if ((vln < nlnct) && nbuf[vln] && nbuf[vln]->chr)
+		rep = nbuf[vln];
 	    else
-		c = ZWC(' ');
-	    zputc(c);
-	    zputc(ZWC('\r'));
-	    if ((vln < olnct) && obuf[vln] && *obuf[vln])
-		*obuf[vln] = c;
+		rep = &zr_sp;
+	    zputc(rep);
+	    zputc(&zr_cr);
+	    if ((vln < olnct) && obuf[vln] && obuf[vln]->chr)
+		*obuf[vln] = *rep;
 	}
     }
 
@@ -1274,9 +2118,9 @@ moveto(int ln, int cl)
 		continue;
 	    }
 	}
-	zputc(ZWC('\r')), vcs = 0; /* safety precaution */
+	zputc(&zr_cr), vcs = 0; /* safety precaution */
 	while (ln > vln) {
-	    zputc(ZWC('\n'));
+	    zputc(&zr_nl);
 	    vln++;
 	}
     }
@@ -1348,7 +2192,7 @@ tc_rightcurs(int ct)
    characters occupying more than one column.  We could flag that
    this has happened (since it's not that common to have characters
    wider than one column), but for now it's easier not to use the
-   trick if we are using wcwidth() on the prompt.  It's not that
+   trick if we are using WCWIDTH() on the prompt.  It's not that
    common to be editing in the middle of the prompt anyway, I would
    think.
    */
@@ -1364,7 +2208,7 @@ tc_rightcurs(int ct)
 		tcout(TCRIGHT);
         else {
 	    if (i != 0)
-		zputc('\r');
+		zputc(&zr_cr);
 	    tc_upcurs(lprompth - 1);
 	    zputs(lpromptbuf, shout);
 	    if (lpromptwof == winw)
@@ -1375,13 +2219,13 @@ tc_rightcurs(int ct)
     }
 
     if (nbuf[vln]) {
-	for (j = 0, t = nbuf[vln]; *t && (j < i); j++, t++);
+	for (j = 0, t = nbuf[vln]; t->chr && (j < i); j++, t++);
 	if (j == i)
-	    for ( ; *t && ct; ct--, t++)
-		zputc(*t);
+	    for ( ; t->chr && ct; ct--, t++)
+		zputc(t);
     }
     while (ct--)
-	zputc(ZWC(' '));	/* not my fault your terminal can't go right */
+	zputc(&zr_sp);	/* not my fault your terminal can't go right */
 }
 
 /**/
@@ -1392,8 +2236,8 @@ tc_downcurs(int ct)
 
     if (ct && !tcmultout(TCDOWN, TCMULTDOWN, ct)) {
 	while (ct--)
-	    zputc(ZWC('\n'));
-	zputc(ZWC('\r')), ret = -1;
+	    zputc(&zr_nl);
+	zputc(&zr_cr), ret = -1;
     }
     return ret;
 }
@@ -1421,7 +2265,7 @@ tcoutarg(int cap, int arg)
 mod_export int
 clearscreen(UNUSED(char **args))
 {
-    tcout(TCCLEARSCREEN);
+    tcoutclear(TCCLEARSCREEN);
     resetneeded = 1;
     clearflag = 0;
     return 0;
@@ -1432,80 +2276,211 @@ mod_export int
 redisplay(UNUSED(char **args))
 {
     moveto(0, 0);
-    zputc(ZWC('\r'));		/* extra care */
+    zputc(&zr_cr);		/* extra care */
     tc_upcurs(lprompth - 1);
     resetneeded = 1;
     clearflag = 0;
     return 0;
 }
 
+/*
+ * Show as much of the line buffer as we can in single line mode.
+ * TBD: all termcap effects are turned off in this mode, so
+ * there's no point in using character attributes.  We should
+ * decide what we're going to do and either remove the handling
+ * from here or enable it in tsetcap().
+ */
+
 /**/
 static void
 singlerefresh(ZLE_STRING_T tmpline, int tmpll, int tmpcs)
 {
     REFRESH_STRING vbuf, vp,	/* video buffer and pointer    */
-	*qbuf,			/* tmp			       */
 	refreshop;	        /* pointer to old video buffer */
     int t0,			/* tmp			       */
 	vsiz,			/* size of new video buffer    */
 	nvcs = 0,		/* new video cursor column     */
 	owinpos = winpos,	/* previous window position    */
 	owinprompt = winprompt;	/* previous winprompt          */
+#ifdef MULTIBYTE_SUPPORT
+    int width;			/* width of multibyte character */
+#endif
 
     nlnct = 1;
 /* generate the new line buffer completely */
-    for (vsiz = 1 + lpromptw, t0 = 0; t0 != tmpll; t0++, vsiz++)
+    for (vsiz = 1 + lpromptw, t0 = 0; t0 != tmpll; t0++) {
 	if (tmpline[t0] == ZWC('\t'))
-	    vsiz = (vsiz | 7) + 1;
+	    vsiz = (vsiz | 7) + 2;
 #ifdef MULTIBYTE_SUPPORT
-	else if (iswprint(tmpline[t0]))
-	    vsiz += wcwidth(tmpline[t0]);
+	else if (iswprint(tmpline[t0]) && (width = WCWIDTH(tmpline[t0]) > 0)) {
+	    vsiz += width;
+	    if (isset(COMBININGCHARS) && IS_BASECHAR(tmpline[t0])) {
+		while (t0 < tmpll-1 && IS_COMBINING(tmpline[t0+1]))
+		    t0++;
+	    }
+	}
 #endif
-	else if (ZC_icntrl(tmpline[t0]))
+	else if (ZC_icntrl(tmpline[t0])
+#ifdef MULTIBYTE_SUPPORT
+		 && (unsigned)tmpline[t0] <= 0xffU
+#endif
+		 )
+	    vsiz += 2;
+#ifdef MULTIBYTE_SUPPORT
+	else
+	    vsiz += 10;
+#else
+	else
 	    vsiz++;
+#endif
+    }
     vbuf = (REFRESH_STRING)zalloc(vsiz * sizeof(*vbuf));
 
     if (tmpcs < 0) {
 #ifdef DEBUG
 	fprintf(stderr, "BUG: negative cursor position\n");
-	fflush(stderr); 
+	fflush(stderr);
 #endif
 	tmpcs = 0;
     }
 
     /* prompt is not directly copied into the video buffer */
-    ZR_memset(vbuf, ZWC(' '), lpromptw);
+    ZR_memset(vbuf, zr_sp, lpromptw);
     vp = vbuf + lpromptw;
-    *vp = ZWC('\0');
+    *vp = zr_zr;
 
     for (t0 = 0; t0 < tmpll; t0++) {
+	int base_atr_on = 0, base_atr_off = 0, ireg;
+	int all_atr_on, all_atr_off;
+	struct region_highlight *rhp;
+	/*
+	 * Calculate attribute based on region.
+	 */
+	for (ireg = 0, rhp = region_highlights;
+	     ireg < n_region_highlights;
+	     ireg++, rhp++) {
+	    int offset;
+	    if (rhp->flags & ZRH_PREDISPLAY)
+		offset = 0;	/* include predisplay in start end */
+	    else
+		offset = predisplaylen; /* increment over it */
+	    if (rhp->start + offset <= t0 &&
+		t0 < rhp->end + offset) {
+		if (base_atr_on & (TXTFGCOLOUR|TXTBGCOLOUR)) {
+		    /* keep colour already set */
+		    base_atr_on |= rhp->atr & ~TXT_ATTR_COLOUR_ON_MASK;
+		} else {
+		    /* no colour set yet */
+		    base_atr_on |= rhp->atr;
+		}
+		if (t0 == rhp->end + offset - 1 ||
+		    t0 == tmpll - 1)
+		    base_atr_off |= TXT_ATTR_OFF_FROM_ON(rhp->atr);
+	    }
+	}
+	if (special_atr_on & (TXTFGCOLOUR|TXTBGCOLOUR)) {
+	    /* keep colours from special attributes */
+	    all_atr_on = special_atr_on |
+		(base_atr_on & ~TXT_ATTR_COLOUR_ON_MASK);
+	} else {
+	    /* keep colours from standard attributes */
+	    all_atr_on = special_atr_on | base_atr_on;
+	}
+	all_atr_off = TXT_ATTR_OFF_FROM_ON(all_atr_on);
+
 	if (tmpline[t0] == ZWC('\t')) {
-	    for (*vp++ = ZWC(' '); (vp - vbuf) & 7; )
-		*vp++ = ZWC(' ');
+	    REFRESH_ELEMENT sp = zr_sp;
+	    sp.atr = base_atr_on;
+	    for (*vp++ = zr_sp; (vp - vbuf) & 7; )
+		*vp++ = zr_sp;
+	    vp[-1].atr |= base_atr_off;
 	} else if (tmpline[t0] == ZWC('\n')) {
-	    *vp++ = ZWC('\\');
-	    *vp++ = ZWC('n');
+	    vp->chr = ZWC('\\');
+	    vp->atr = all_atr_on;
+	    vp++;
+	    vp->chr = ZWC('n');
+	    vp->atr = all_atr_on | all_atr_off;
+	    vp++;
 #ifdef MULTIBYTE_SUPPORT
-	} else if (iswprint(tmpline[t0])) {
-	    int width;
-	    *vp++ = tmpline[t0];
-	    width = wcwidth(tmpline[t0]);
-	    while (--width > 0)
-		*vp++ = WEOF;
+	} else if (iswprint(tmpline[t0]) &&
+		   (width = WCWIDTH(tmpline[t0])) > 0) {
+	    int ichars;
+	    if (isset(COMBININGCHARS) && IS_BASECHAR(tmpline[t0])) {
+		/*
+		 * Look for combining characters.
+		 */
+		for (ichars = 1; t0 + ichars < tmpll; ichars++) {
+		    if (!IS_COMBINING(tmpline[t0+ichars]))
+			break;
+		}
+	    } else
+		ichars = 1;
+	    vp->atr = base_atr_on | base_atr_off;
+	    if (ichars > 1)
+		addmultiword(vp, tmpline+t0, ichars);
+	    else
+		vp->chr = tmpline[t0];
+	    vp++;
+	    while (--width > 0) {
+		vp->chr = WEOF;
+		vp->atr = base_atr_on | base_atr_off;
+		vp++;
+	    }
+	    t0 += ichars - 1;
 #endif
-	} else if (ZC_icntrl(tmpline[t0])) {
+	} else if (ZC_icntrl(tmpline[t0])
+#ifdef MULTIBYTE_SUPPORT
+		   && (unsigned)tmpline[t0] <= 0xffU
+#endif
+		   ) {
 	    ZLE_INT_T t = tmpline[++t0];
 
-	    *vp++ = ZWC('^');
-	    *vp++ = (((unsigned int)t & ~0x80u) > 31) ? ZWC('?') : (t | ZWC('@'));
-	} else
-	    *vp++ = tmpline[t0];
+	    vp->chr = ZWC('^');
+	    vp->atr = all_atr_on;
+	    vp++;
+	    vp->chr = (((unsigned int)t & ~0x80u) > 31) ?
+		ZWC('?') : (t | ZWC('@'));
+	    vp->atr = all_atr_on | all_atr_off;
+	    vp++;
+	}
+#ifdef MULTIBYTE_SUPPORT
+	else {
+	    char dispchars[11];
+	    char *dispptr = dispchars;
+	    wchar_t wc;
+	    int started = 0;
+
+	    if ((unsigned)tmpline[t0] > 0xffffU) {
+		sprintf(dispchars, "<%.08x>", (unsigned)tmpline[t0]);
+	    } else {
+		sprintf(dispchars, "<%.04x>", (unsigned)tmpline[t0]);
+	    }
+	    while (*dispptr) {
+		if (mbtowc(&wc, dispptr, 1) == 1 /* paranoia */) {
+		    vp->chr = wc;
+		    if (!started)
+			started = 1;
+		    vp->atr = all_atr_on;
+		    vp++;
+		}
+		dispptr++;
+	    }
+	    if (started)
+		vp[-1].atr |= all_atr_off;
+	}
+#else
+	else {
+	    vp->chr = tmpline[t0];
+	    vp->atr = base_atr_on | base_atr_off;
+	    vp++;
+	}
+#endif
 	if (t0 == tmpcs)
 	    nvcs = vp - vbuf - 1;
     }
     if (t0 == tmpcs)
 	nvcs = vp - vbuf;
-    *vp = ZWC('\0');
+    *vp = zr_zr;
 
 /* determine which part of the new line buffer we want for the display */
     if (winpos == -1)
@@ -1514,11 +2489,14 @@ singlerefresh(ZLE_STRING_T tmpline, int tmpll, int tmpcs)
 	if ((winpos = nvcs - ((winw - hasam) / 2)) < 0)
 	    winpos = 0;
     }
-    if (winpos)
-	vbuf[winpos] = ZWC('<');	/* line continues to the left */
+    if (winpos) {
+	vbuf[winpos].chr = ZWC('<');	/* line continues to the left */
+	vbuf[winpos].atr = 0;
+    }
     if ((int)ZR_strlen(vbuf + winpos) > (winw - hasam)) {
-	vbuf[winpos + winw - hasam - 1] = ZWC('>');	/* line continues to right */
-	vbuf[winpos + winw - hasam] = ZWC('\0');
+	vbuf[winpos + winw - hasam - 1].chr = ZWC('>');	/* line continues to right */
+	vbuf[winpos + winw - hasam - 1].atr = 0;
+	vbuf[winpos + winw - hasam] = zr_zr;
     }
     ZR_strcpy(nbuf[0], vbuf + winpos);
     zfree(vbuf, vsiz * sizeof(*vbuf));
@@ -1588,37 +2566,37 @@ singlerefresh(ZLE_STRING_T tmpline, int tmpll, int tmpcs)
 	 * nastiness may be around.
 	 */
 	if (vp - *nbuf >= owinprompt)
-	    for (; *vp && *vp == *refreshop; t0++, vp++, refreshop++) ;
+	    for (; vp->chr && ZR_equal(*refreshop, *vp);
+		 t0++, vp++, refreshop++)
+		;
 
-	if (!*vp && !*refreshop)
+	if (!vp->chr && !refreshop->chr)
 	    break;
 
 	singmoveto(t0);		/* move to where we do all output from */
 
-	if (!*refreshop) {
+	if (!refreshop->chr) {
 	    if ((t0 = ZR_strlen(vp)))
 		zwrite(vp, t0);
 	    vcs += t0;
 	    break;
 	}
-	if (!*vp) {
+	if (!vp->chr) {
 	    if (tccan(TCCLEAREOL))
-		tcout(TCCLEAREOL);
+		tcoutclear(TCCLEAREOL);
 	    else
-		for (; *refreshop++; vcs++)
-		    zputc(ZWC(' '));
+		for (; refreshop++->chr; vcs++)
+		    zputc(&zr_sp);
 	    break;
 	}
-	zputc(*vp);
+	zputc(vp);
 	vcs++, t0++;
 	vp++, refreshop++;
     }
 /* move to the new cursor position */
     singmoveto(nvcs);
 
-    qbuf = nbuf;
-    nbuf = obuf;
-    obuf = qbuf;
+    bufswap();
 }
 
 /**/
@@ -1632,7 +2610,7 @@ singmoveto(int pos)
    do this now because it's easier (to code) */
 
     if ((!tccan(TCMULTLEFT) || pos == 0) && (pos <= vcs / 2)) {
-	zputc(ZWC('\r'));
+	zputc(&zr_cr);
 	vcs = 0;
     }
 
@@ -1642,4 +2620,25 @@ singmoveto(int pos)
 	tc_rightcurs(pos - vcs);
 
     vcs = pos;
+}
+
+/* Provided for loading the module in a modular fashion */
+
+/**/
+void
+zle_refresh_boot(void)
+{
+}
+
+/* Provided for unloading the module in a modular fashion */
+
+/**/
+void
+zle_refresh_finish(void)
+{
+    freevideo();
+
+    if (region_highlights)
+	zfree(region_highlights,
+	      sizeof(struct region_highlight) * n_region_highlights);
 }

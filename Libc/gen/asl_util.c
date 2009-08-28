@@ -35,44 +35,7 @@
 #include <errno.h>
 #include <unistd.h>
 
-#define _PATH_ASL_IN "/var/run/asl_input"
-
 static uint8_t *b64charset = (uint8_t *)"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
-__private_extern__ int
-_asl_server_socket(int *sock, struct sockaddr_un *server)
-{
-	socklen_t len;
-	int status, flags;
-
-	*sock = socket(AF_UNIX, SOCK_STREAM, 0); 
-	if (*sock < 0) return -1;
-
-	memset(server, 0, sizeof(struct sockaddr_un));
-	server->sun_family = AF_UNIX;
-
-	strcpy(server->sun_path, _PATH_ASL_IN);
-	server->sun_len = strlen(server->sun_path) + 1;
-	len = sizeof(server->sun_len) + sizeof(server->sun_family) + server->sun_len;
-
-	status = connect(*sock, (const struct sockaddr *)server, len);
-
-	if (status < 0)
-	{
-	    close(*sock);
-	    *sock = -1;
-	    return -1;
-	}
-
-	/* set close-on-exec flag */
-	fcntl(*sock, F_SETFD, 1);
-
-	/* set non-blocking flag */
-	flags = fcntl(*sock, F_GETFL, 0);
-	if (flags >= 0) fcntl(*sock, F_SETFL, flags | O_NONBLOCK);
-
-	return 0;
-}
 
 __private_extern__ const char *
 _asl_escape(unsigned char c)

@@ -1,0 +1,109 @@
+Tequila  -  Sharing and storing global Tcl arrays over the network
+
+            This is now part of the Metakit open source distribution.
+            See the Metakit homepage at http://www.equi4.com/metakit/
+
+
+
+This is the second release of a simple server which lets a number of
+clients share and store data held in global Tcl arrays.  The whole
+mechanism is based on a central server managing all TCP/IP sessions.
+
+All a client needs to do to make an array "myData" available to other
+clients and persistent, is to include the following three lines:
+
+    source tequila.tcl              # load the Tequila client code
+    tequila::open localhost 20458   # connect to server on given port
+    tequila::attach myData          # sets up sharing for "myData"
+    
+The array's contents will be permanently stored by the server, with
+all entries transmitted to the client when attached.  From then on,
+Tcl's traces and background network communication take care of all
+changes.  Whenever a client changes or unsets a value, this effect
+will be propagated to all other clients currently running.
+
+Because all clients continue to use global arrays as if they were
+running standalone, Tequila can be used to build a single application
+first and *then* split it up into several parts.  With care, one can
+also create long-running applications of which parts get extended and
+replaced over time without having to shut down the entire system.
+
+The Tequila server was developed as part of a long-running / multi-
+platform / multi-user project.  It has been in use since April 1999. 
+
+
+What you need to use Tequila
+============================
+
+Tequila consists of a server script and a client package, both written
+in Tcl.  The server stores all data using Metakit, a powerful database
+library which is available for Tcl (through the "Mk4tcl" extension).
+
+There are two ways to run the server:
+
+    - Grab a version of "TclKit", which combines Tcl, Tk, and Metakit
+      in a single installation-less runtime.  There are ready-to-run
+      builds of TclKit for Windows, Solaris, Linux, and more.
+
+    - Get the Mk4tcl extension and use it with your own configuration
+      of Tcl/Tk.  This may be needed if there is no suitable version of
+      TclKit, or if you wish to use this with your own build of Tcl/Tk.
+      
+The client side of Tequila does not require Metakit, and should work
+with every installation of Tcl/Tk (version 8.0 or newer).
+
+
+The TequiCal demo
+=================
+
+TequiCal is a small Tk utility which lets you maintain a calendar of
+yearly events, such as birthdays.  It uses Tequila to store all data,
+and can be used from any workstation which has access to the server.  
+Changes will be seen by other clients as soon as they are entered.
+ 
+This very simple demo only uses the Tequila server to share one global
+"calendar" array, even though a single server can serve many different
+clients with a wide variety of shared datasets (changes are only sent
+to those clients which have "attached" themselves to specific arrays).
+
+Running the TequiCal demo is extremely simple with TclKit:
+
+  1)  Get the TclKit executable which matches your platform, then
+      uncompress it (not needed for Windows), and put it somewhere
+      on your execution search path.
+  2)  Get the Tequila distribution and unpack all files if you have
+      not already done so.
+  3)  Start the Tequila server using the command:
+            tclkit tequilas.tcl &
+      (use "tclkit tequilas.tcl" on Windows, then start a new prompt)
+      You should see the text:
+            Tequila server started on port 20458
+  4)  Start the TequiCal demo client using the commnd:
+            tclkit tequical.tcl
+  5)  Go to another terminal, xterm, or MS-DOS shell and start again:
+            tclkit tequical.tcl
+  6)  Now make some changes in the calendar and watch how changes get
+      propagated between the clients, even if on different machines.
+  7)  That's it.  You are looking at a distributed Tcl application.     
+
+You can also use Tequila with an existing installation of Tcl (ver 8),
+by downloading / installing Mk4tcl, which is a compiled Tcl extension.
+Or compile and build all the necessary pieces yourself, of course.
+
+
+The Proxy demo
+==============
+
+The latest version of Tequila supports proxy support for Mk4tcl, which
+means that the client can be set up to pass all its Metakit requests
+down to the server.  By calling "tequila::proxy", clients will be set
+up so all "mk::*" calls are passed on to the server, and results are
+passed back - a basic client/server system (without locking facilities
+between clients, though).  The "proxy.tcl" demo code shows how this is
+used.  To run it, start the tequila server first, then run proxy.tcl.
+
+Note: the "mk::loop" command is not implemented in this release, since
+it needs to be processed in the client.  Use mk::select instead.
+
+
+-- Jean-Claude Wippler <jcw@equi4.com>

@@ -32,10 +32,11 @@
 
 #include "kern_fns.h"
 
+#if defined(__i386__) || defined(__ppc__)
 void
 operator delete (void *ptr, const std::nothrow_t&) 
 {
   if (ptr)
     kern_os_free (ptr);
 }
-
+#endif /* defined(__i386__) || defined(__ppc__) */

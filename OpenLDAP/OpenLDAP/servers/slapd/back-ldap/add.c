@@ -1,8 +1,8 @@
 /* add.c - ldap backend add function */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/add.c,v 1.53.2.7 2006/01/03 22:16:18 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/add.c,v 1.61.2.5 2008/02/11 23:26:46 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2006 The OpenLDAP Foundation.
+ * Copyright 1999-2008 The OpenLDAP Foundation.
  * Portions Copyright 2000-2003 Pierangelo Masarati.
  * Portions Copyright 1999-2003 Howard Chu.
  * All rights reserved.
@@ -36,26 +36,25 @@ ldap_back_add(
 	Operation	*op,
 	SlapReply	*rs )
 {
-	ldapinfo_t	*li = (ldapinfo_t *)op->o_bd->be_private;
+	ldapinfo_t		*li = (ldapinfo_t *)op->o_bd->be_private;
 
-	ldapconn_t	*lc;
-	int		i = 0,
-			j = 0;
-	Attribute	*a;
-	LDAPMod		**attrs = NULL,
-			*attrs2 = NULL;
-	ber_int_t	msgid;
-	int		isupdate;
-	int		do_retry = 1;
-	LDAPControl	**ctrls = NULL;
+	ldapconn_t		*lc = NULL;
+	int			i = 0,
+				j = 0;
+	Attribute		*a;
+	LDAPMod			**attrs = NULL,
+				*attrs2 = NULL;
+	ber_int_t		msgid;
+	int			isupdate;
+	ldap_back_send_t	retrying = LDAP_BACK_RETRYING;
+	LDAPControl		**ctrls = NULL;
 
 	rs->sr_err = LDAP_SUCCESS;
 	
 	Debug( LDAP_DEBUG_ARGS, "==> ldap_back_add(\"%s\")\n",
 			op->o_req_dn.bv_val, 0, 0 );
 
-	lc = ldap_back_getconn( op, rs, LDAP_BACK_SENDERR );
-	if ( !lc || !ldap_back_dobind( lc, op, rs, LDAP_BACK_SENDERR ) ) {
+	if ( !ldap_back_dobind( &lc, op, rs, LDAP_BACK_SENDERR ) ) {
 		lc = NULL;
 		goto cleanup;
 	}
@@ -71,7 +70,7 @@ ldap_back_add(
 
 	isupdate = be_shadow_update( op );
 	for ( i = 0, a = op->oq_add.rs_e->e_attrs; a; a = a->a_next ) {
-		if ( !isupdate && !get_manageDIT( op ) && a->a_desc->ad_type->sat_no_user_mod  )
+		if ( !isupdate && !get_relax( op ) && a->a_desc->ad_type->sat_no_user_mod  )
 		{
 			continue;
 		}
@@ -92,27 +91,30 @@ ldap_back_add(
 	}
 	attrs[ i ] = NULL;
 
+retry:
 	ctrls = op->o_ctrls;
-	rs->sr_err = ldap_back_proxy_authz_ctrl( lc, op, rs, &ctrls );
+	rs->sr_err = ldap_back_controls_add( op, rs, lc, &ctrls );
 	if ( rs->sr_err != LDAP_SUCCESS ) {
 		send_ldap_result( op, rs );
 		goto cleanup;
 	}
 
-retry:
 	rs->sr_err = ldap_add_ext( lc->lc_ld, op->o_req_dn.bv_val, attrs,
 			ctrls, NULL, &msgid );
 	rs->sr_err = ldap_back_op_result( lc, op, rs, msgid,
-		li->li_timeout[ LDAP_BACK_OP_ADD ], LDAP_BACK_SENDRESULT );
-	if ( rs->sr_err == LDAP_UNAVAILABLE && do_retry ) {
-		do_retry = 0;
+		li->li_timeout[ SLAP_OP_ADD ],
+		( LDAP_BACK_SENDRESULT | retrying ) );
+	if ( rs->sr_err == LDAP_UNAVAILABLE && retrying ) {
+		retrying &= ~LDAP_BACK_RETRYING;
 		if ( ldap_back_retry( &lc, op, rs, LDAP_BACK_SENDERR ) ) {
+			/* if the identity changed, there might be need to re-authz */
+			(void)ldap_back_controls_free( op, rs, &ctrls );
 			goto retry;
 		}
 	}
 
 cleanup:
-	(void)ldap_back_proxy_authz_ctrl_free( op, &ctrls );
+	(void)ldap_back_controls_free( op, rs, &ctrls );
 
 	if ( attrs ) {
 		for ( --i; i >= 0; --i ) {
@@ -122,7 +124,7 @@ cleanup:
 	}
 
 	if ( lc ) {
-		ldap_back_release_conn( op, rs, lc );
+		ldap_back_release_conn( li, lc );
 	}
 
 	Debug( LDAP_DEBUG_ARGS, "<== ldap_back_add(\"%s\"): %d\n",

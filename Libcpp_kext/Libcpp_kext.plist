@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>GCC</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://gcc.gnu.org/</string>
+		<key>OpenSourceLicense</key>
+		<string>GPL+exception</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>Libcpp_kext.txt</string>
+		<key>OpenSourceVersion</key>
+		<string>4.2.1</string>
+		<key>OpenSourceImportDate</key>
+		<string>2007-07-18</string>
+		<key>OpenSourceURL</key>
+		<string>svn://gcc.gnu.org/svn/gcc/tags/gcc_4_2_1_release</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		  <string>3985722</string>
+		  <string>5789882</string>
+		  <string>5922163</string>
+		  <string>6822694</string>
+		</array>
+	</dict>
+</array>
+</plist>

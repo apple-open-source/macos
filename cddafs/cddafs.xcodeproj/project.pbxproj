@@ -7,14 +7,14 @@
 	objects = {
 
 /* Begin PBXAggregateTarget section */
-		018938FEFFE55C3511CE15BF /* cddafs (Aggregate) */ = {
+		ACB746110D621FE1002F4863 /* cddafs (Aggregate) */ = {
 			isa = PBXAggregateTarget;
-			buildConfigurationList = AC21C09D0B37668600301821 /* Build configuration list for PBXAggregateTarget "cddafs (Aggregate)" */;
+			buildConfigurationList = ACB746160D621FE1002F4863 /* Build configuration list for PBXAggregateTarget "cddafs (Aggregate)" */;
 			buildPhases = (
 			);
 			dependencies = (
-				018938FFFFE55C3511CE15BF /* PBXTargetDependency */,
-				F720E0840200C7D8017BD92B /* PBXTargetDependency */,
+				ACB746750D621FE1002F4863 /* PBXTargetDependency */,
+				ACB746770D621FE1002F4863 /* PBXTargetDependency */,
 			);
 			name = "cddafs (Aggregate)";
 			productName = "AppleCDDAFileSystemProj (Aggregate)";
@@ -22,225 +22,83 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
-		01893903FFE55C3511CE15BF /* AppleCDDAFileSystemDefines.h in Headers */ = {isa = PBXBuildFile; fileRef = 018938D2FFE55C3511CE15BF /* AppleCDDAFileSystemDefines.h */; settings = {ATTRIBUTES = (); }; };
-		01893904FFE55C3511CE15BF /* AppleCDDAFileSystemVFSOps.h in Headers */ = {isa = PBXBuildFile; fileRef = 018938D3FFE55C3511CE15BF /* AppleCDDAFileSystemVFSOps.h */; settings = {ATTRIBUTES = (); }; };
-		01893905FFE55C3511CE15BF /* AppleCDDAFileSystemVNodeOps.h in Headers */ = {isa = PBXBuildFile; fileRef = 018938D4FFE55C3511CE15BF /* AppleCDDAFileSystemVNodeOps.h */; settings = {ATTRIBUTES = (); }; };
-		01893906FFE55C3511CE15BF /* AIFFSupport.h in Headers */ = {isa = PBXBuildFile; fileRef = 018938D5FFE55C3511CE15BF /* AIFFSupport.h */; settings = {ATTRIBUTES = (); }; };
-		01893907FFE55C3511CE15BF /* AppleCDDAFileSystemUtils.h in Headers */ = {isa = PBXBuildFile; fileRef = 018938D6FFE55C3511CE15BF /* AppleCDDAFileSystemUtils.h */; settings = {ATTRIBUTES = (); }; };
-		01893908FFE55C3511CE15BF /* AppleCDDAFileSystemDebug.h in Headers */ = {isa = PBXBuildFile; fileRef = 018938D7FFE55C3511CE15BF /* AppleCDDAFileSystemDebug.h */; settings = {ATTRIBUTES = (); }; };
-		0189390BFFE55C3511CE15BF /* AppleCDDAFileSystemUtilities.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 018938D0FFE55C3511CE15BF /* AppleCDDAFileSystemUtilities.cpp */; settings = {ATTRIBUTES = (); }; };
-		0189390CFFE55C3511CE15BF /* AppleCDDAFileSystemUtils.c in Sources */ = {isa = PBXBuildFile; fileRef = 018938D9FFE55C3511CE15BF /* AppleCDDAFileSystemUtils.c */; settings = {ATTRIBUTES = (); }; };
-		0189390DFFE55C3511CE15BF /* AppleCDDAFileSystemVFSOps.c in Sources */ = {isa = PBXBuildFile; fileRef = 018938DAFFE55C3511CE15BF /* AppleCDDAFileSystemVFSOps.c */; settings = {ATTRIBUTES = (); }; };
-		0189390EFFE55C3511CE15BF /* AppleCDDAFileSystemVNodeOps.c in Sources */ = {isa = PBXBuildFile; fileRef = 018938DBFFE55C3511CE15BF /* AppleCDDAFileSystemVNodeOps.c */; settings = {ATTRIBUTES = (); }; };
-		0189390FFFE55C3511CE15BF /* AIFFSupport.c in Sources */ = {isa = PBXBuildFile; fileRef = 018938DCFFE55C3511CE15BF /* AIFFSupport.c */; settings = {ATTRIBUTES = (); }; };
-		01893923FFE55C3511CE15BF /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 018938F8FFE55C3511CE15BF /* IOKit.framework */; };
-		0189392DFFE55EF111CE15BF /* AppleCDDAFileSystemDefines.h in Headers */ = {isa = PBXBuildFile; fileRef = 018938D2FFE55C3511CE15BF /* AppleCDDAFileSystemDefines.h */; };
-		0E9C7379FFE5883411CE15BF /* cddafs.util in CopyFiles */ = {isa = PBXBuildFile; fileRef = 018938FDFFE55C3511CE15BF /* cddafs.util */; };
-		0E9C7384FFE598CE11CE15BF /* cddafs_util.h in Headers */ = {isa = PBXBuildFile; fileRef = 0E9C737CFFE598CE11CE15BF /* cddafs_util.h */; };
-		0E9C7385FFE598CE11CE15BF /* cddafs_util.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0E9C737BFFE598CE11CE15BF /* cddafs_util.cpp */; settings = {ATTRIBUTES = (); }; };
-		0E9C738CFFE59D1811CE15BF /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 0E9C738AFFE59D1811CE15BF /* InfoPlist.strings */; };
-		5C596BD900BF099A05CE15C0 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5C596BD800BF099A05CE15C0 /* CoreFoundation.framework */; };
-		AC0458CE04D75866007FCDBB /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AC0458CD04D75866007FCDBB /* SystemConfiguration.framework */; };
-		AC21C0C50B376BBD00301821 /* libutil.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = AC21C0C40B376BBD00301821 /* libutil.dylib */; };
-		AC80753B0467378400E41653 /* TBundle.h in Headers */ = {isa = PBXBuildFile; fileRef = AC8075370467378400E41653 /* TBundle.h */; };
-		AC80753C0467378400E41653 /* TSystemUtils.h in Headers */ = {isa = PBXBuildFile; fileRef = AC8075380467378400E41653 /* TSystemUtils.h */; };
-		AC80753D0467378400E41653 /* TSystemUtils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AC8075390467378400E41653 /* TSystemUtils.cpp */; };
-		AC80753E0467378400E41653 /* TBundle.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AC80753A0467378400E41653 /* TBundle.cpp */; };
-		E611F38206FFB15E0058BBBA /* cddafs.exp in Sources */ = {isa = PBXBuildFile; fileRef = E611F38106FFB15E0058BBBA /* cddafs.exp */; };
-		F75EC306021C8BC501CE15C0 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = F72B1238020750BD01B847FC /* Localizable.strings */; };
-		F7700AE8021C73D601CE15C0 /* iTunesDatabase.h in Headers */ = {isa = PBXBuildFile; fileRef = F7700AE6021C73D601CE15C0 /* iTunesDatabase.h */; };
-		F7700AE9021C73D601CE15C0 /* iTunesDatabase.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F7700AE7021C73D601CE15C0 /* iTunesDatabase.cpp */; };
-		F7700AEC021C73FC01CE15C0 /* CDInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = F7700AEA021C73FC01CE15C0 /* CDInfo.h */; };
-		F7700AED021C73FC01CE15C0 /* CDInfo.c in Sources */ = {isa = PBXBuildFile; fileRef = F7700AEB021C73FC01CE15C0 /* CDInfo.c */; };
-		F7700AEE021C88B301CE15C0 /* CDDATrackName.h in Headers */ = {isa = PBXBuildFile; fileRef = 5CC237B40190BA4505CE15BF /* CDDATrackName.h */; };
-		F7700AEF021C88B301CE15C0 /* CDDATrackName.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CC237BD0190BACA05CE15BF /* CDDATrackName.cpp */; };
-		F776122E0209DB2C01FD8D06 /* mount_cddafs.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = F776122C0209DB2B01FD8D06 /* mount_cddafs.8 */; };
+		ACB7461D0D621FE1002F4863 /* AppleCDDAFileSystemDefines.h in Headers */ = {isa = PBXBuildFile; fileRef = 018938D2FFE55C3511CE15BF /* AppleCDDAFileSystemDefines.h */; settings = {ATTRIBUTES = (); }; };
+		ACB7461E0D621FE1002F4863 /* AppleCDDAFileSystemVFSOps.h in Headers */ = {isa = PBXBuildFile; fileRef = 018938D3FFE55C3511CE15BF /* AppleCDDAFileSystemVFSOps.h */; settings = {ATTRIBUTES = (); }; };
+		ACB7461F0D621FE1002F4863 /* AppleCDDAFileSystemVNodeOps.h in Headers */ = {isa = PBXBuildFile; fileRef = 018938D4FFE55C3511CE15BF /* AppleCDDAFileSystemVNodeOps.h */; settings = {ATTRIBUTES = (); }; };
+		ACB746200D621FE1002F4863 /* AIFFSupport.h in Headers */ = {isa = PBXBuildFile; fileRef = 018938D5FFE55C3511CE15BF /* AIFFSupport.h */; settings = {ATTRIBUTES = (); }; };
+		ACB746210D621FE1002F4863 /* AppleCDDAFileSystemUtils.h in Headers */ = {isa = PBXBuildFile; fileRef = 018938D6FFE55C3511CE15BF /* AppleCDDAFileSystemUtils.h */; settings = {ATTRIBUTES = (); }; };
+		ACB746220D621FE1002F4863 /* AppleCDDAFileSystemDebug.h in Headers */ = {isa = PBXBuildFile; fileRef = 018938D7FFE55C3511CE15BF /* AppleCDDAFileSystemDebug.h */; settings = {ATTRIBUTES = (); }; };
+		ACB746250D621FE1002F4863 /* AppleCDDAFileSystemUtilities.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 018938D0FFE55C3511CE15BF /* AppleCDDAFileSystemUtilities.cpp */; settings = {ATTRIBUTES = (); }; };
+		ACB746260D621FE1002F4863 /* AppleCDDAFileSystemUtils.c in Sources */ = {isa = PBXBuildFile; fileRef = 018938D9FFE55C3511CE15BF /* AppleCDDAFileSystemUtils.c */; settings = {ATTRIBUTES = (); }; };
+		ACB746270D621FE1002F4863 /* AppleCDDAFileSystemVFSOps.c in Sources */ = {isa = PBXBuildFile; fileRef = 018938DAFFE55C3511CE15BF /* AppleCDDAFileSystemVFSOps.c */; settings = {ATTRIBUTES = (); }; };
+		ACB746280D621FE1002F4863 /* AppleCDDAFileSystemVNodeOps.c in Sources */ = {isa = PBXBuildFile; fileRef = 018938DBFFE55C3511CE15BF /* AppleCDDAFileSystemVNodeOps.c */; settings = {ATTRIBUTES = (); }; };
+		ACB746290D621FE1002F4863 /* AIFFSupport.c in Sources */ = {isa = PBXBuildFile; fileRef = 018938DCFFE55C3511CE15BF /* AIFFSupport.c */; settings = {ATTRIBUTES = (); }; };
+		ACB746470D621FE1002F4863 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = F72B1238020750BD01B847FC /* Localizable.strings */; };
+		ACB746480D621FE1002F4863 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 0E9C738AFFE59D1811CE15BF /* InfoPlist.strings */; };
+		ACB746580D621FE1002F4863 /* AppleCDDAFileSystemDefines.h in Headers */ = {isa = PBXBuildFile; fileRef = 018938D2FFE55C3511CE15BF /* AppleCDDAFileSystemDefines.h */; };
+		ACB746590D621FE1002F4863 /* cddafs_util.h in Headers */ = {isa = PBXBuildFile; fileRef = 0E9C737CFFE598CE11CE15BF /* cddafs_util.h */; };
+		ACB7465A0D621FE1002F4863 /* iTunesDatabase.h in Headers */ = {isa = PBXBuildFile; fileRef = F7700AE6021C73D601CE15C0 /* iTunesDatabase.h */; };
+		ACB7465B0D621FE1002F4863 /* CDInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = F7700AEA021C73FC01CE15C0 /* CDInfo.h */; };
+		ACB7465C0D621FE1002F4863 /* CDDATrackName.h in Headers */ = {isa = PBXBuildFile; fileRef = 5CC237B40190BA4505CE15BF /* CDDATrackName.h */; };
+		ACB7465D0D621FE1002F4863 /* TBundle.h in Headers */ = {isa = PBXBuildFile; fileRef = AC8075370467378400E41653 /* TBundle.h */; };
+		ACB7465E0D621FE1002F4863 /* TSystemUtils.h in Headers */ = {isa = PBXBuildFile; fileRef = AC8075380467378400E41653 /* TSystemUtils.h */; };
+		ACB746600D621FE1002F4863 /* cddafs_util.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0E9C737BFFE598CE11CE15BF /* cddafs_util.cpp */; settings = {ATTRIBUTES = (); }; };
+		ACB746610D621FE1002F4863 /* iTunesDatabase.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F7700AE7021C73D601CE15C0 /* iTunesDatabase.cpp */; };
+		ACB746620D621FE1002F4863 /* CDInfo.c in Sources */ = {isa = PBXBuildFile; fileRef = F7700AEB021C73FC01CE15C0 /* CDInfo.c */; };
+		ACB746630D621FE1002F4863 /* CDDATrackName.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CC237BD0190BACA05CE15BF /* CDDATrackName.cpp */; };
+		ACB746640D621FE1002F4863 /* TSystemUtils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AC8075390467378400E41653 /* TSystemUtils.cpp */; };
+		ACB746650D621FE1002F4863 /* TBundle.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AC80753A0467378400E41653 /* TBundle.cpp */; };
+		ACB746670D621FE1002F4863 /* mount_cddafs.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = F776122C0209DB2B01FD8D06 /* mount_cddafs.8 */; };
+		ACB746690D621FE1002F4863 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 018938F8FFE55C3511CE15BF /* IOKit.framework */; };
+		ACB7466A0D621FE1002F4863 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5C596BD800BF099A05CE15C0 /* CoreFoundation.framework */; };
+		ACB7466B0D621FE1002F4863 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AC0458CD04D75866007FCDBB /* SystemConfiguration.framework */; };
+		ACB7466C0D621FE1002F4863 /* libutil.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = AC21C0C40B376BBD00301821 /* libutil.dylib */; };
+		ACB7467C0D621FE1002F4863 /* cddafs.util in CopyFiles */ = {isa = PBXBuildFile; fileRef = ACB746720D621FE1002F4863 /* cddafs.util */; };
 /* End PBXBuildFile section */
 
-/* Begin PBXBundleTarget section */
-		01893900FFE55C3511CE15BF /* cddafs */ = {
-			isa = PBXBundleTarget;
-			buildConfigurationList = AC21C08D0B37668600301821 /* Build configuration list for PBXBundleTarget "cddafs" */;
-			buildPhases = (
-				01893901FFE55C3511CE15BF /* ShellScript */,
-				01893902FFE55C3511CE15BF /* Headers */,
-				01893909FFE55C3511CE15BF /* Resources */,
-				0189390AFFE55C3511CE15BF /* Sources */,
-				01893910FFE55C3511CE15BF /* Frameworks */,
-				01893911FFE55C3511CE15BF /* Rez */,
-				01893912FFE55C3511CE15BF /* ShellScript */,
-			);
-			dependencies = (
-			);
-			name = cddafs;
-			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-			productName = "cddafs (Bundle)";
-			productReference = 018938FBFFE55C3511CE15BF /* cddafs.kext */;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>English</string>
-	<key>CFBundleExecutable</key>
-	<string>cddafs</string>
-	<key>CFBundleGetInfoString</key>
-	<string>2.3.0, Copyright Apple Computer, Inc. 2000-2006</string>
-	<key>CFBundleIconFile</key>
-	<string></string>
-	<key>CFBundleIdentifier</key>
-	<string>com.apple.filesystems.cddafs</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundleName</key>
-	<string>cddafs</string>
-	<key>CFBundlePackageType</key>
-	<string>KEXT</string>
-	<key>CFBundleShortVersionString</key>
-	<string>2.3.0</string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>2.3.0</string>
-	<key>OSBundleLibraries</key>
-	<dict>
-		<key>com.apple.iokit.IOCDStorageFamily</key>
-		<string>1.0.0</string>
-		<key>com.apple.kpi.bsd</key>
-		<string>8.0.0b1</string>
-		<key>com.apple.kpi.iokit</key>
-		<string>8.0.0b1</string>
-		<key>com.apple.kpi.libkern</key>
-		<string>8.0.0b1</string>
-		<key>com.apple.kpi.mach</key>
-		<string>8.0.0b1</string>
-	</dict>
-</dict>
-</plist>
-";
-		};
-		0E9C736FFFE585B911CE15BF /* cddafs.fs */ = {
-			isa = PBXBundleTarget;
-			buildConfigurationList = AC21C0950B37668600301821 /* Build configuration list for PBXBundleTarget "cddafs.fs" */;
-			buildPhases = (
-				0E9C7370FFE585B911CE15BF /* Headers */,
-				0E9C7371FFE585B911CE15BF /* Resources */,
-				0E9C7378FFE5883411CE15BF /* CopyFiles */,
-				F705065201FD159401AFE711 /* CopyFiles */,
-				F720E08F02010B42017BD92B /* CopyFiles */,
-				0E9C7372FFE585B911CE15BF /* Sources */,
-				0E9C7373FFE585B911CE15BF /* Frameworks */,
-				0E9C7374FFE585B911CE15BF /* Rez */,
-			);
-			dependencies = (
-				0E9C7376FFE5877A11CE15BF /* PBXTargetDependency */,
-			);
-			name = cddafs.fs;
-			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Filesystems";
-			productName = cddafs.fs;
-			productReference = 0E9C736EFFE585B911CE15BF /* cddafs.fs */;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>English</string>
-	<key>CFBundleGetInfoString</key>
-	<string>2.3.0, Copyright Apple Computer, Inc. 2000-2006</string>
-	<key>CFBundleIconFile</key>
-	<string></string>
-	<key>CFBundleIdentifier</key>
-	<string>com.apple.filesystems.util.cddafs</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundleName</key>
-	<string>cddafs</string>
-	<key>CFBundlePackageType</key>
-	<string>fs  </string>
-	<key>CFBundleShortVersionString</key>
-	<string>2.3.0</string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>2.3.0</string>
-	<key>FSMediaTypes</key>
-	<dict>
-		<key>CD</key>
-		<dict>
-			<key>FSMediaProperties</key>
-			<dict>
-				<key>IOProviderClass</key>
-				<string>IOCDMedia</string>
-			</dict>
-			<key>FSProbeArguments</key>
-			<string>-p</string>
-			<key>FSProbeExecutable</key>
-			<string>cddafs.util</string>
-			<key>FSProbeOrder</key>
-			<integer>1000</integer>
-		</dict>
-	</dict>
-	<key>FSPersonalities</key>
-	<dict>
-		<key>CD-DA</key>
-		<dict>
-			<key>FSMountArguments</key>
-			<string></string>
-			<key>FSMountExecutable</key>
-			<string>../../../../../../sbin/mount_cddafs</string>
-			<key>FSName</key>
-			<string>CD Audio</string>
-		</dict>
-	</dict>
-</dict>
-</plist>
-";
-		};
-/* End PBXBundleTarget section */
-
 /* Begin PBXContainerItemProxy section */
-		AC1ECC8606BB1B910047D89F /* PBXContainerItemProxy */ = {
+		ACB746740D621FE1002F4863 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 018938C0FFE55C3511CE15BF /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 01893914FFE55C3511CE15BF;
-			remoteInfo = mount_cddafs;
+			remoteGlobalIDString = ACB7461A0D621FE1002F4863;
+			remoteInfo = "cddafs (Upgraded)";
 		};
-		AC1ECC8706BB1B910047D89F /* PBXContainerItemProxy */ = {
+		ACB746760D621FE1002F4863 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 018938C0FFE55C3511CE15BF /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 0E9C736FFFE585B911CE15BF;
-			remoteInfo = cddafs.fs;
+			remoteGlobalIDString = ACB746340D621FE1002F4863;
+			remoteInfo = "mount_cddafs (Upgraded)";
 		};
-		AC1ECC8906BB1B910047D89F /* PBXContainerItemProxy */ = {
+		ACB746780D621FE1002F4863 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 018938C0FFE55C3511CE15BF /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 01893900FFE55C3511CE15BF;
-			remoteInfo = cddafs;
+			remoteGlobalIDString = ACB746420D621FE1002F4863;
+			remoteInfo = "cddafs.fs (Upgraded)";
 		};
-		AC1ECC8A06BB1B910047D89F /* PBXContainerItemProxy */ = {
+		ACB7467A0D621FE1002F4863 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 018938C0FFE55C3511CE15BF /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 0189391EFFE55C3511CE15BF;
-			remoteInfo = cddafs.util;
+			remoteGlobalIDString = ACB746560D621FE1002F4863;
+			remoteInfo = "cddafs.util (Upgraded)";
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		0E9C7378FFE5883411CE15BF /* CopyFiles */ = {
+		ACB746490D621FE1002F4863 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 12;
 			dstPath = "";
 			dstSubfolderSpec = 7;
 			files = (
-				0E9C7379FFE5883411CE15BF /* cddafs.util in CopyFiles */,
+				ACB7467C0D621FE1002F4863 /* cddafs.util in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		F705065201FD159401AFE711 /* CopyFiles */ = {
+		ACB7464B0D621FE1002F4863 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
 			dstPath = /usr/include/cddafs;
@@ -249,7 +107,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		F720E08F02010B42017BD92B /* CopyFiles */ = {
+		ACB7464C0D621FE1002F4863 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
@@ -258,13 +116,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		F776122D0209DB2C01FD8D06 /* CopyFiles */ = {
+		ACB746660D621FE1002F4863 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
 			dstPath = /usr/share/man/man8;
 			dstSubfolderSpec = 0;
 			files = (
-				F776122E0209DB2C01FD8D06 /* mount_cddafs.8 in CopyFiles */,
+				ACB746670D621FE1002F4863 /* mount_cddafs.8 in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -283,11 +141,7 @@
 		018938DBFFE55C3511CE15BF /* AppleCDDAFileSystemVNodeOps.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = AppleCDDAFileSystemVNodeOps.c; sourceTree = SOURCE_ROOT; };
 		018938DCFFE55C3511CE15BF /* AIFFSupport.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = AIFFSupport.c; sourceTree = SOURCE_ROOT; };
 		018938F8FFE55C3511CE15BF /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
-		018938FBFFE55C3511CE15BF /* cddafs.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = cddafs.kext; sourceTree = BUILT_PRODUCTS_DIR; };
-		018938FCFFE55C3511CE15BF /* mount_cddafs */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = mount_cddafs; sourceTree = BUILT_PRODUCTS_DIR; };
-		018938FDFFE55C3511CE15BF /* cddafs.util */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = cddafs.util; sourceTree = BUILT_PRODUCTS_DIR; };
 		0405E03F000A841111CE15C0 /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = /System/Library/Frameworks/Kernel.framework; sourceTree = "<absolute>"; };
-		0E9C736EFFE585B911CE15BF /* cddafs.fs */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = cddafs.fs; sourceTree = BUILT_PRODUCTS_DIR; };
 		0E9C737BFFE598CE11CE15BF /* cddafs_util.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = cddafs_util.cpp; path = FilesystemProber/cddafs_util.cpp; sourceTree = SOURCE_ROOT; };
 		0E9C737CFFE598CE11CE15BF /* cddafs_util.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = cddafs_util.h; path = FilesystemProber/cddafs_util.h; sourceTree = SOURCE_ROOT; };
 		0E9C738BFFE59D1811CE15BF /* English */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
@@ -300,6 +154,12 @@
 		AC8075380467378400E41653 /* TSystemUtils.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = TSystemUtils.h; path = Classes/TSystemUtils.h; sourceTree = "<group>"; };
 		AC8075390467378400E41653 /* TSystemUtils.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = TSystemUtils.cpp; path = Classes/TSystemUtils.cpp; sourceTree = "<group>"; };
 		AC80753A0467378400E41653 /* TBundle.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = TBundle.cpp; path = Classes/TBundle.cpp; sourceTree = "<group>"; };
+		ACB746320D621FE1002F4863 /* Info-cddafs.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-cddafs.plist"; sourceTree = "<group>"; };
+		ACB746330D621FE1002F4863 /* cddafs.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = cddafs.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		ACB746400D621FE1002F4863 /* mount_cddafs */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = mount_cddafs; sourceTree = BUILT_PRODUCTS_DIR; };
+		ACB746540D621FE1002F4863 /* Info-cddafs_fs.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-cddafs_fs.plist"; sourceTree = "<group>"; };
+		ACB746550D621FE1002F4863 /* cddafs.fs */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = cddafs.fs; sourceTree = BUILT_PRODUCTS_DIR; };
+		ACB746720D621FE1002F4863 /* cddafs.util */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = cddafs.util; sourceTree = BUILT_PRODUCTS_DIR; };
 		E611F38106FFB15E0058BBBA /* cddafs.exp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.exports; path = cddafs.exp; sourceTree = "<group>"; };
 		F72B1239020750BD01B847FC /* Localizable.strings */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = Localizable.strings; path = English.lproj/Localizable.strings; sourceTree = "<group>"; };
 		F7700AE6021C73D601CE15C0 /* iTunesDatabase.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = iTunesDatabase.h; path = Classes/iTunesDatabase.h; sourceTree = "<group>"; };
@@ -310,35 +170,35 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		01893910FFE55C3511CE15BF /* Frameworks */ = {
+		ACB7462B0D621FE1002F4863 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		0189391AFFE55C3511CE15BF /* Frameworks */ = {
+		ACB746390D621FE1002F4863 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		01893922FFE55C3511CE15BF /* Frameworks */ = {
+		ACB7464E0D621FE1002F4863 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				01893923FFE55C3511CE15BF /* IOKit.framework in Frameworks */,
-				5C596BD900BF099A05CE15C0 /* CoreFoundation.framework in Frameworks */,
-				AC0458CE04D75866007FCDBB /* SystemConfiguration.framework in Frameworks */,
-				AC21C0C50B376BBD00301821 /* libutil.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		0E9C7373FFE585B911CE15BF /* Frameworks */ = {
+		ACB746680D621FE1002F4863 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				ACB746690D621FE1002F4863 /* IOKit.framework in Frameworks */,
+				ACB7466A0D621FE1002F4863 /* CoreFoundation.framework in Frameworks */,
+				ACB7466B0D621FE1002F4863 /* SystemConfiguration.framework in Frameworks */,
+				ACB7466C0D621FE1002F4863 /* libutil.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -352,6 +212,8 @@
 				0E9C737AFFE598CE11CE15BF /* FilesystemProber */,
 				018938F7FFE55C3511CE15BF /* Frameworks and Libraries */,
 				018938FAFFE55C3511CE15BF /* Products */,
+				ACB746320D621FE1002F4863 /* Info-cddafs.plist */,
+				ACB746540D621FE1002F4863 /* Info-cddafs_fs.plist */,
 			);
 			name = AppleCDDAFileSystemProj;
 			sourceTree = "<group>";
@@ -391,10 +253,10 @@
 		018938FAFFE55C3511CE15BF /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				018938FBFFE55C3511CE15BF /* cddafs.kext */,
-				018938FCFFE55C3511CE15BF /* mount_cddafs */,
-				018938FDFFE55C3511CE15BF /* cddafs.util */,
-				0E9C736EFFE585B911CE15BF /* cddafs.fs */,
+				ACB746330D621FE1002F4863 /* cddafs.kext */,
+				ACB746400D621FE1002F4863 /* mount_cddafs */,
+				ACB746550D621FE1002F4863 /* cddafs.fs */,
+				ACB746720D621FE1002F4863 /* cddafs.util */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -423,48 +285,137 @@
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
-		01893902FFE55C3511CE15BF /* Headers */ = {
+		ACB7461C0D621FE1002F4863 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				01893903FFE55C3511CE15BF /* AppleCDDAFileSystemDefines.h in Headers */,
-				01893904FFE55C3511CE15BF /* AppleCDDAFileSystemVFSOps.h in Headers */,
-				01893905FFE55C3511CE15BF /* AppleCDDAFileSystemVNodeOps.h in Headers */,
-				01893906FFE55C3511CE15BF /* AIFFSupport.h in Headers */,
-				01893907FFE55C3511CE15BF /* AppleCDDAFileSystemUtils.h in Headers */,
-				01893908FFE55C3511CE15BF /* AppleCDDAFileSystemDebug.h in Headers */,
+				ACB7461D0D621FE1002F4863 /* AppleCDDAFileSystemDefines.h in Headers */,
+				ACB7461E0D621FE1002F4863 /* AppleCDDAFileSystemVFSOps.h in Headers */,
+				ACB7461F0D621FE1002F4863 /* AppleCDDAFileSystemVNodeOps.h in Headers */,
+				ACB746200D621FE1002F4863 /* AIFFSupport.h in Headers */,
+				ACB746210D621FE1002F4863 /* AppleCDDAFileSystemUtils.h in Headers */,
+				ACB746220D621FE1002F4863 /* AppleCDDAFileSystemDebug.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		01893915FFE55C3511CE15BF /* Headers */ = {
+		ACB746370D621FE1002F4863 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		0189391FFFE55C3511CE15BF /* Headers */ = {
+		ACB746450D621FE1002F4863 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				0189392DFFE55EF111CE15BF /* AppleCDDAFileSystemDefines.h in Headers */,
-				0E9C7384FFE598CE11CE15BF /* cddafs_util.h in Headers */,
-				F7700AE8021C73D601CE15C0 /* iTunesDatabase.h in Headers */,
-				F7700AEC021C73FC01CE15C0 /* CDInfo.h in Headers */,
-				F7700AEE021C88B301CE15C0 /* CDDATrackName.h in Headers */,
-				AC80753B0467378400E41653 /* TBundle.h in Headers */,
-				AC80753C0467378400E41653 /* TSystemUtils.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		0E9C7370FFE585B911CE15BF /* Headers */ = {
+		ACB746570D621FE1002F4863 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				ACB746580D621FE1002F4863 /* AppleCDDAFileSystemDefines.h in Headers */,
+				ACB746590D621FE1002F4863 /* cddafs_util.h in Headers */,
+				ACB7465A0D621FE1002F4863 /* iTunesDatabase.h in Headers */,
+				ACB7465B0D621FE1002F4863 /* CDInfo.h in Headers */,
+				ACB7465C0D621FE1002F4863 /* CDDATrackName.h in Headers */,
+				ACB7465D0D621FE1002F4863 /* TBundle.h in Headers */,
+				ACB7465E0D621FE1002F4863 /* TSystemUtils.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		ACB7461A0D621FE1002F4863 /* cddafs */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = ACB7462E0D621FE1002F4863 /* Build configuration list for PBXNativeTarget "cddafs" */;
+			buildPhases = (
+				ACB7461B0D621FE1002F4863 /* ShellScript */,
+				ACB7461C0D621FE1002F4863 /* Headers */,
+				ACB746230D621FE1002F4863 /* Resources */,
+				ACB746240D621FE1002F4863 /* Sources */,
+				ACB7462B0D621FE1002F4863 /* Frameworks */,
+				ACB7462C0D621FE1002F4863 /* Rez */,
+				ACB7462D0D621FE1002F4863 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = cddafs;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = "cddafs (Bundle)";
+			productReference = ACB746330D621FE1002F4863 /* cddafs.kext */;
+			productType = "com.apple.product-type.kernel-extension";
+		};
+		ACB746340D621FE1002F4863 /* mount_cddafs */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = ACB7463C0D621FE1002F4863 /* Build configuration list for PBXNativeTarget "mount_cddafs" */;
+			buildPhases = (
+				ACB746370D621FE1002F4863 /* Headers */,
+				ACB746380D621FE1002F4863 /* Sources */,
+				ACB746390D621FE1002F4863 /* Frameworks */,
+				ACB7463A0D621FE1002F4863 /* ShellScript */,
+				ACB7463B0D621FE1002F4863 /* Rez */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				ACB746790D621FE1002F4863 /* PBXTargetDependency */,
+			);
+			name = mount_cddafs;
+			productInstallPath = /sbin;
+			productName = "mount_cddafs (Tool)";
+			productReference = ACB746400D621FE1002F4863 /* mount_cddafs */;
+			productType = "com.apple.product-type.tool";
+		};
+		ACB746420D621FE1002F4863 /* cddafs.fs */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = ACB746500D621FE1002F4863 /* Build configuration list for PBXNativeTarget "cddafs.fs" */;
+			buildPhases = (
+				ACB746450D621FE1002F4863 /* Headers */,
+				ACB746460D621FE1002F4863 /* Resources */,
+				ACB746490D621FE1002F4863 /* CopyFiles */,
+				ACB7464B0D621FE1002F4863 /* CopyFiles */,
+				ACB7464C0D621FE1002F4863 /* CopyFiles */,
+				ACB7464D0D621FE1002F4863 /* Sources */,
+				ACB7464E0D621FE1002F4863 /* Frameworks */,
+				ACB7464F0D621FE1002F4863 /* Rez */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				ACB7467B0D621FE1002F4863 /* PBXTargetDependency */,
+			);
+			name = cddafs.fs;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Filesystems";
+			productName = cddafs.fs;
+			productReference = ACB746550D621FE1002F4863 /* cddafs.fs */;
+			productType = "com.apple.product-type.bundle";
+		};
+		ACB746560D621FE1002F4863 /* cddafs.util */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = ACB7466E0D621FE1002F4863 /* Build configuration list for PBXNativeTarget "cddafs.util" */;
+			buildPhases = (
+				ACB746570D621FE1002F4863 /* Headers */,
+				ACB7465F0D621FE1002F4863 /* Sources */,
+				ACB746660D621FE1002F4863 /* CopyFiles */,
+				ACB746680D621FE1002F4863 /* Frameworks */,
+				ACB7466D0D621FE1002F4863 /* Rez */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = cddafs.util;
+			productName = "cddafs.util (Tool)";
+			productReference = ACB746720D621FE1002F4863 /* cddafs.util */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
 		018938C0FFE55C3511CE15BF /* Project object */ = {
@@ -476,59 +427,58 @@
 			productRefGroup = 018938FAFFE55C3511CE15BF /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
-			shouldCheckCompatibility = 1;
 			targets = (
-				018938FEFFE55C3511CE15BF /* cddafs (Aggregate) */,
-				01893900FFE55C3511CE15BF /* cddafs */,
-				01893914FFE55C3511CE15BF /* mount_cddafs */,
-				0E9C736FFFE585B911CE15BF /* cddafs.fs */,
-				0189391EFFE55C3511CE15BF /* cddafs.util */,
+				ACB746110D621FE1002F4863 /* cddafs (Aggregate) */,
+				ACB7461A0D621FE1002F4863 /* cddafs */,
+				ACB746340D621FE1002F4863 /* mount_cddafs */,
+				ACB746420D621FE1002F4863 /* cddafs.fs */,
+				ACB746560D621FE1002F4863 /* cddafs.util */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		01893909FFE55C3511CE15BF /* Resources */ = {
+		ACB746230D621FE1002F4863 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		0E9C7371FFE585B911CE15BF /* Resources */ = {
+		ACB746460D621FE1002F4863 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F75EC306021C8BC501CE15C0 /* Localizable.strings in Resources */,
-				0E9C738CFFE59D1811CE15BF /* InfoPlist.strings in Resources */,
+				ACB746470D621FE1002F4863 /* Localizable.strings in Resources */,
+				ACB746480D621FE1002F4863 /* InfoPlist.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXRezBuildPhase section */
-		01893911FFE55C3511CE15BF /* Rez */ = {
+		ACB7462C0D621FE1002F4863 /* Rez */ = {
 			isa = PBXRezBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		0189391CFFE55C3511CE15BF /* Rez */ = {
+		ACB7463B0D621FE1002F4863 /* Rez */ = {
 			isa = PBXRezBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		01893924FFE55C3511CE15BF /* Rez */ = {
+		ACB7464F0D621FE1002F4863 /* Rez */ = {
 			isa = PBXRezBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		0E9C7374FFE585B911CE15BF /* Rez */ = {
+		ACB7466D0D621FE1002F4863 /* Rez */ = {
 			isa = PBXRezBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -538,7 +488,7 @@
 /* End PBXRezBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		01893901FFE55C3511CE15BF /* ShellScript */ = {
+		ACB7461B0D621FE1002F4863 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -547,7 +497,7 @@
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
-		01893912FFE55C3511CE15BF /* ShellScript */ = {
+		ACB7462D0D621FE1002F4863 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -556,7 +506,7 @@
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
-		F720E0860200C7D8017BD92B /* ShellScript */ = {
+		ACB7463A0D621FE1002F4863 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
 			files = (
@@ -568,107 +518,69 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		0189390AFFE55C3511CE15BF /* Sources */ = {
+		ACB746240D621FE1002F4863 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				0189390BFFE55C3511CE15BF /* AppleCDDAFileSystemUtilities.cpp in Sources */,
-				0189390CFFE55C3511CE15BF /* AppleCDDAFileSystemUtils.c in Sources */,
-				0189390DFFE55C3511CE15BF /* AppleCDDAFileSystemVFSOps.c in Sources */,
-				0189390EFFE55C3511CE15BF /* AppleCDDAFileSystemVNodeOps.c in Sources */,
-				0189390FFFE55C3511CE15BF /* AIFFSupport.c in Sources */,
-				E611F38206FFB15E0058BBBA /* cddafs.exp in Sources */,
+				ACB746250D621FE1002F4863 /* AppleCDDAFileSystemUtilities.cpp in Sources */,
+				ACB746260D621FE1002F4863 /* AppleCDDAFileSystemUtils.c in Sources */,
+				ACB746270D621FE1002F4863 /* AppleCDDAFileSystemVFSOps.c in Sources */,
+				ACB746280D621FE1002F4863 /* AppleCDDAFileSystemVNodeOps.c in Sources */,
+				ACB746290D621FE1002F4863 /* AIFFSupport.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		01893917FFE55C3511CE15BF /* Sources */ = {
+		ACB746380D621FE1002F4863 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		01893920FFE55C3511CE15BF /* Sources */ = {
+		ACB7464D0D621FE1002F4863 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				0E9C7385FFE598CE11CE15BF /* cddafs_util.cpp in Sources */,
-				F7700AE9021C73D601CE15C0 /* iTunesDatabase.cpp in Sources */,
-				F7700AED021C73FC01CE15C0 /* CDInfo.c in Sources */,
-				F7700AEF021C88B301CE15C0 /* CDDATrackName.cpp in Sources */,
-				AC80753D0467378400E41653 /* TSystemUtils.cpp in Sources */,
-				AC80753E0467378400E41653 /* TBundle.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		0E9C7372FFE585B911CE15BF /* Sources */ = {
+		ACB7465F0D621FE1002F4863 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				ACB746600D621FE1002F4863 /* cddafs_util.cpp in Sources */,
+				ACB746610D621FE1002F4863 /* iTunesDatabase.cpp in Sources */,
+				ACB746620D621FE1002F4863 /* CDInfo.c in Sources */,
+				ACB746630D621FE1002F4863 /* CDDATrackName.cpp in Sources */,
+				ACB746640D621FE1002F4863 /* TSystemUtils.cpp in Sources */,
+				ACB746650D621FE1002F4863 /* TBundle.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		018938FFFFE55C3511CE15BF /* PBXTargetDependency */ = {
+		ACB746750D621FE1002F4863 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 01893900FFE55C3511CE15BF /* cddafs */;
-			targetProxy = AC1ECC8906BB1B910047D89F /* PBXContainerItemProxy */;
+			target = ACB7461A0D621FE1002F4863 /* cddafs */;
+			targetProxy = ACB746740D621FE1002F4863 /* PBXContainerItemProxy */;
 		};
-		0E9C7376FFE5877A11CE15BF /* PBXTargetDependency */ = {
+		ACB746770D621FE1002F4863 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 0189391EFFE55C3511CE15BF /* cddafs.util */;
-			targetProxy = AC1ECC8A06BB1B910047D89F /* PBXContainerItemProxy */;
+			target = ACB746340D621FE1002F4863 /* mount_cddafs */;
+			targetProxy = ACB746760D621FE1002F4863 /* PBXContainerItemProxy */;
 		};
-		F720E0840200C7D8017BD92B /* PBXTargetDependency */ = {
+		ACB746790D621FE1002F4863 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 01893914FFE55C3511CE15BF /* mount_cddafs */;
-			targetProxy = AC1ECC8606BB1B910047D89F /* PBXContainerItemProxy */;
+			target = ACB746420D621FE1002F4863 /* cddafs.fs */;
+			targetProxy = ACB746780D621FE1002F4863 /* PBXContainerItemProxy */;
 		};
-		F720E0850200C7D8017BD92B /* PBXTargetDependency */ = {
+		ACB7467B0D621FE1002F4863 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 0E9C736FFFE585B911CE15BF /* cddafs.fs */;
-			targetProxy = AC1ECC8706BB1B910047D89F /* PBXContainerItemProxy */;
+			target = ACB746560D621FE1002F4863 /* cddafs.util */;
+			targetProxy = ACB7467A0D621FE1002F4863 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
-
-/* Begin PBXToolTarget section */
-		01893914FFE55C3511CE15BF /* mount_cddafs */ = {
-			isa = PBXToolTarget;
-			buildConfigurationList = AC21C0990B37668600301821 /* Build configuration list for PBXToolTarget "mount_cddafs" */;
-			buildPhases = (
-				01893915FFE55C3511CE15BF /* Headers */,
-				01893917FFE55C3511CE15BF /* Sources */,
-				0189391AFFE55C3511CE15BF /* Frameworks */,
-				F720E0860200C7D8017BD92B /* ShellScript */,
-				0189391CFFE55C3511CE15BF /* Rez */,
-			);
-			dependencies = (
-				F720E0850200C7D8017BD92B /* PBXTargetDependency */,
-			);
-			name = mount_cddafs;
-			productInstallPath = /sbin;
-			productName = "mount_cddafs (Tool)";
-			productReference = 018938FCFFE55C3511CE15BF /* mount_cddafs */;
-		};
-		0189391EFFE55C3511CE15BF /* cddafs.util */ = {
-			isa = PBXToolTarget;
-			buildConfigurationList = AC21C0910B37668600301821 /* Build configuration list for PBXToolTarget "cddafs.util" */;
-			buildPhases = (
-				0189391FFFE55C3511CE15BF /* Headers */,
-				01893920FFE55C3511CE15BF /* Sources */,
-				F776122D0209DB2C01FD8D06 /* CopyFiles */,
-				01893922FFE55C3511CE15BF /* Frameworks */,
-				01893924FFE55C3511CE15BF /* Rez */,
-			);
-			dependencies = (
-			);
-			name = cddafs.util;
-			productName = "cddafs.util (Tool)";
-			productReference = 018938FDFFE55C3511CE15BF /* cddafs.util */;
-		};
-/* End PBXToolTarget section */
 
 /* Begin PBXVariantGroup section */
 		0E9C738AFFE59D1811CE15BF /* InfoPlist.strings */ = {
@@ -693,24 +605,89 @@
 		AC21C08A0B37668600301821 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 			};
 			name = Development;
 		};
 		AC21C08B0B37668600301821 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 			};
 			name = Deployment;
 		};
 		AC21C08C0B37668600301821 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 			};
 			name = Default;
 		};
-		AC21C08E0B37668600301821 /* Development */ = {
+		ACB746170D621FE1002F4863 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 2.4.0;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = cddafs;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		ACB746180D621FE1002F4863 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				CURRENT_PROJECT_VERSION = 2.4.0;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = cddafs;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		ACB746190D621FE1002F4863 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 2.4.0;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = cddafs;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		ACB7462F0D621FE1002F4863 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				COPY_PHASE_STRIP = NO;
 				EXPORTED_SYMBOLS_FILE = cddafs.exp;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -718,7 +695,10 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-cddafs.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_EXTENSION = YES;
 				KERNEL_MODULE = YES;
@@ -726,14 +706,14 @@
 				MODULE_NAME = com.apple.filesystems.cddafs;
 				MODULE_START = Apple_CDDA_FS_Module_Start;
 				MODULE_STOP = Apple_CDDA_FS_Module_Stop;
-				MODULE_VERSION = 2.3.0;
-				OPTIMIZATION_CFLAGS = "-O0";
+				MODULE_VERSION = 2.4.0;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_CPLUSPLUSFLAGS = "-fapple-kext";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = cddafs;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "i386 x86_64 ppc";
 				WARNING_CFLAGS = (
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
@@ -741,18 +721,22 @@
 					"-Wall",
 				);
 				WRAPPER_EXTENSION = kext;
-				ZERO_LINK = YES;
+				ZERO_LINK = NO;
 			};
 			name = Development;
 		};
-		AC21C08F0B37668600301821 /* Deployment */ = {
+		ACB746300D621FE1002F4863 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				COPY_PHASE_STRIP = YES;
 				EXPORTED_SYMBOLS_FILE = cddafs.exp;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-cddafs.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_EXTENSION = YES;
 				KERNEL_MODULE = YES;
@@ -760,13 +744,14 @@
 				MODULE_NAME = com.apple.filesystems.cddafs;
 				MODULE_START = Apple_CDDA_FS_Module_Start;
 				MODULE_STOP = Apple_CDDA_FS_Module_Stop;
-				MODULE_VERSION = 2.3.0;
+				MODULE_VERSION = 2.4.0;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_CPLUSPLUSFLAGS = "-fapple-kext";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = cddafs;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "i386 x86_64 ppc";
 				WARNING_CFLAGS = (
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
@@ -778,12 +763,16 @@
 			};
 			name = Deployment;
 		};
-		AC21C0900B37668600301821 /* Default */ = {
+		ACB746310D621FE1002F4863 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				EXPORTED_SYMBOLS_FILE = cddafs.exp;
 				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-cddafs.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_EXTENSION = YES;
 				KERNEL_MODULE = YES;
@@ -791,13 +780,14 @@
 				MODULE_NAME = com.apple.filesystems.cddafs;
 				MODULE_START = Apple_CDDA_FS_Module_Start;
 				MODULE_STOP = Apple_CDDA_FS_Module_Stop;
-				MODULE_VERSION = 2.3.0;
+				MODULE_VERSION = 2.4.0;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_CPLUSPLUSFLAGS = "-fapple-kext";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = cddafs;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "i386 x86_64 ppc";
 				WARNING_CFLAGS = (
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
@@ -805,26 +795,32 @@
 					"-Wall",
 				);
 				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
 			};
 			name = Default;
 		};
-		AC21C0920B37668600301821 /* Development */ = {
+		ACB7463D0D621FE1002F4863 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				HEADER_SEARCH_PATHS = "";
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = /sbin;
 				LIBRARY_SEARCH_PATHS = "";
-				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = cddafs.util;
+				PRODUCT_NAME = mount_cddafs;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "ppc64 ppc7400 ppc970 i386 x86_64 ppc";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -834,19 +830,25 @@
 			};
 			name = Development;
 		};
-		AC21C0930B37668600301821 /* Deployment */ = {
+		ACB7463E0D621FE1002F4863 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				HEADER_SEARCH_PATHS = "";
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = /sbin;
 				LIBRARY_SEARCH_PATHS = "";
+				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = cddafs.util;
+				PRODUCT_NAME = mount_cddafs;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "ppc64 ppc7400 ppc970 i386 x86_64 ppc";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -856,17 +858,23 @@
 			};
 			name = Deployment;
 		};
-		AC21C0940B37668600301821 /* Default */ = {
+		ACB7463F0D621FE1002F4863 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "";
 				HEADER_SEARCH_PATHS = "";
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = /sbin;
 				LIBRARY_SEARCH_PATHS = "";
+				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = cddafs.util;
+				PRODUCT_NAME = mount_cddafs;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "ppc64 ppc7400 ppc970 i386 x86_64 ppc";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -875,7 +883,7 @@
 			};
 			name = Default;
 		};
-		AC21C0960B37668600301821 /* Development */ = {
+		ACB746510D621FE1002F4863 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
@@ -883,8 +891,9 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				INFOPLIST_FILE = "Info-cddafs_fs.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Filesystems";
-				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-undefined",
@@ -903,11 +912,13 @@
 			};
 			name = Development;
 		};
-		AC21C0970B37668600301821 /* Deployment */ = {
+		ACB746520D621FE1002F4863 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				INFOPLIST_FILE = "Info-cddafs_fs.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Filesystems";
 				OTHER_LDFLAGS = (
 					"-bundle",
@@ -927,9 +938,11 @@
 			};
 			name = Deployment;
 		};
-		AC21C0980B37668600301821 /* Default */ = {
+		ACB746530D621FE1002F4863 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				INFOPLIST_FILE = "Info-cddafs_fs.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Filesystems";
 				OTHER_LDFLAGS = (
 					"-bundle",
@@ -948,24 +961,22 @@
 			};
 			name = Default;
 		};
-		AC21C09A0B37668600301821 /* Development */ = {
+		ACB7466F0D621FE1002F4863 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				HEADER_SEARCH_PATHS = "";
-				INSTALLHDRS_COPY_PHASE = YES;
-				INSTALL_PATH = /sbin;
 				LIBRARY_SEARCH_PATHS = "";
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = mount_cddafs;
+				PRODUCT_NAME = cddafs.util;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
@@ -973,24 +984,23 @@
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
 				);
-				ZERO_LINK = YES;
+				ZERO_LINK = NO;
 			};
 			name = Development;
 		};
-		AC21C09B0B37668600301821 /* Deployment */ = {
+		ACB746700D621FE1002F4863 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				HEADER_SEARCH_PATHS = "";
-				INSTALLHDRS_COPY_PHASE = YES;
-				INSTALL_PATH = /sbin;
 				LIBRARY_SEARCH_PATHS = "";
-				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = mount_cddafs;
+				PRODUCT_NAME = cddafs.util;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
@@ -1002,18 +1012,17 @@
 			};
 			name = Deployment;
 		};
-		AC21C09C0B37668600301821 /* Default */ = {
+		ACB746710D621FE1002F4863 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				HEADER_SEARCH_PATHS = "";
-				INSTALLHDRS_COPY_PHASE = YES;
-				INSTALL_PATH = /sbin;
 				LIBRARY_SEARCH_PATHS = "";
-				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = mount_cddafs;
+				PRODUCT_NAME = cddafs.util;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
@@ -1021,64 +1030,7 @@
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
 				);
-			};
-			name = Default;
-		};
-		AC21C09E0B37668600301821 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = cddafs;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		AC21C09F0B37668600301821 /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = cddafs;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
 				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		AC21C0A00B37668600301821 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = cddafs;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
 			};
 			name = Default;
 		};
@@ -1095,52 +1047,52 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
 		};
-		AC21C08D0B37668600301821 /* Build configuration list for PBXBundleTarget "cddafs" */ = {
+		ACB746160D621FE1002F4863 /* Build configuration list for PBXAggregateTarget "cddafs (Aggregate)" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				AC21C08E0B37668600301821 /* Development */,
-				AC21C08F0B37668600301821 /* Deployment */,
-				AC21C0900B37668600301821 /* Default */,
+				ACB746170D621FE1002F4863 /* Development */,
+				ACB746180D621FE1002F4863 /* Deployment */,
+				ACB746190D621FE1002F4863 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
 		};
-		AC21C0910B37668600301821 /* Build configuration list for PBXToolTarget "cddafs.util" */ = {
+		ACB7462E0D621FE1002F4863 /* Build configuration list for PBXNativeTarget "cddafs" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				AC21C0920B37668600301821 /* Development */,
-				AC21C0930B37668600301821 /* Deployment */,
-				AC21C0940B37668600301821 /* Default */,
+				ACB7462F0D621FE1002F4863 /* Development */,
+				ACB746300D621FE1002F4863 /* Deployment */,
+				ACB746310D621FE1002F4863 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
 		};
-		AC21C0950B37668600301821 /* Build configuration list for PBXBundleTarget "cddafs.fs" */ = {
+		ACB7463C0D621FE1002F4863 /* Build configuration list for PBXNativeTarget "mount_cddafs" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				AC21C0960B37668600301821 /* Development */,
-				AC21C0970B37668600301821 /* Deployment */,
-				AC21C0980B37668600301821 /* Default */,
+				ACB7463D0D621FE1002F4863 /* Development */,
+				ACB7463E0D621FE1002F4863 /* Deployment */,
+				ACB7463F0D621FE1002F4863 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
 		};
-		AC21C0990B37668600301821 /* Build configuration list for PBXToolTarget "mount_cddafs" */ = {
+		ACB746500D621FE1002F4863 /* Build configuration list for PBXNativeTarget "cddafs.fs" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				AC21C09A0B37668600301821 /* Development */,
-				AC21C09B0B37668600301821 /* Deployment */,
-				AC21C09C0B37668600301821 /* Default */,
+				ACB746510D621FE1002F4863 /* Development */,
+				ACB746520D621FE1002F4863 /* Deployment */,
+				ACB746530D621FE1002F4863 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
 		};
-		AC21C09D0B37668600301821 /* Build configuration list for PBXAggregateTarget "cddafs (Aggregate)" */ = {
+		ACB7466E0D621FE1002F4863 /* Build configuration list for PBXNativeTarget "cddafs.util" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				AC21C09E0B37668600301821 /* Development */,
-				AC21C09F0B37668600301821 /* Deployment */,
-				AC21C0A00B37668600301821 /* Default */,
+				ACB7466F0D621FE1002F4863 /* Development */,
+				ACB746700D621FE1002F4863 /* Deployment */,
+				ACB746710D621FE1002F4863 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;

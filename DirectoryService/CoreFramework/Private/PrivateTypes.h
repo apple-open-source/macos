@@ -201,6 +201,20 @@ typedef enum {
 	kDSEvalutateState = 1
 } eDSTransitionType;
 
+#ifdef __cplusplus
+class CIPCVirtualClass
+{
+	public:
+		virtual				~CIPCVirtualClass	( void ) { };
+	
+		virtual	SInt32		Connect				( void ) { return -1; };
+		virtual	void		Disconnect			( void ) { };
+	
+		virtual SInt32		SendMessage			( struct sComData *inMessage ) = 0;
+		virtual SInt32		GetReplyMessage		( struct sComData **outMessage ) = 0;
+};
+#endif
+
 //memory cleanup macro definitions
 
 //check for nil, free, set to nil
@@ -282,5 +296,8 @@ typedef enum {
 
 // check if a string is empty; cheaper than strlen(inString) != 0
 #define DSIsStringEmpty( inString )	( inString == NULL || inString[0] == '\0' )
+
+#define DSexpect_true(x) ((typeof(x))__builtin_expect((long)(x), 1l))
+#define DSexpect_false(x) ((typeof(x))__builtin_expect((long)(x), 0l))
 
 #endif

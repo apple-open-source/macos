@@ -1,30 +1,38 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
 <title>pr29</title>
-<meta name="generator" content="DocBook XSL Stylesheets V1.68.1">
+<meta name="generator" content="DocBook XSL Stylesheets V1.71.0">
 <link rel="start" href="index.html" title="GNU Libidn API Reference Manual">
 <link rel="up" href="ch01.html" title="GNU Libidn API Reference Manual">
 <link rel="prev" href="libidn-idna.html" title="idna">
 <link rel="next" href="libidn-punycode.html" title="punycode">
-<meta name="generator" content="GTK-Doc V1.4 (XML mode)">
+<meta name="generator" content="GTK-Doc V1.7 (XML mode)">
 <link rel="stylesheet" href="style.css" type="text/css">
 <link rel="chapter" href="ch01.html" title="GNU Libidn API Reference Manual">
 </head>
 <body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
-<table class="navigation" width="100%" summary="Navigation header" cellpadding="2" cellspacing="2"><tr valign="middle">
+<table class="navigation" id="top" width="100%" summary="Navigation header" cellpadding="2" cellspacing="2">
+<tr valign="middle">
 <td><a accesskey="p" href="libidn-idna.html"><img src="left.png" width="24" height="24" border="0" alt="Prev"></a></td>
 <td><a accesskey="u" href="ch01.html"><img src="up.png" width="24" height="24" border="0" alt="Up"></a></td>
 <td><a accesskey="h" href="index.html"><img src="home.png" width="24" height="24" border="0" alt="Home"></a></td>
 <th width="100%" align="center">GNU Libidn API Reference Manual</th>
 <td><a accesskey="n" href="libidn-punycode.html"><img src="right.png" width="24" height="24" border="0" alt="Next"></a></td>
-</tr></table>
+</tr>
+<tr><td colspan="5" class="shortcuts"><nobr><a href="#id2579703" class="shortcut">Top</a>
+                  &#160;|&#160;
+                  <a href="#id2563550" class="shortcut">Description</a></nobr></td></tr>
+</table>
 <div class="refentry" lang="en">
 <a name="libidn-pr29"></a><div class="titlepage"></div>
 <div class="refnamediv"><table width="100%"><tr>
 <td valign="top">
-<h2><span class="refentrytitle">pr29</span></h2>
-<p>pr29 &#8212; </p>
+<h2>
+<a name="id2579703"></a><span class="refentrytitle">pr29</span>
+</h2>
+<p>pr29</p>
 </td>
 <td valign="top" align="right"></td>
 </tr></table></div>
@@ -43,17 +51,17 @@ int         <a href="libidn-pr29.html#pr29-8z">pr29_8z</a>                      
 </pre>
 </div>
 <div class="refsect1" lang="en">
-<a name="id2550051"></a><h2>Description</h2>
+<a name="id2563550"></a><h2>Description</h2>
 <p>
 
 </p>
 </div>
 <div class="refsect1" lang="en">
-<a name="id2550062"></a><h2>Details</h2>
+<a name="id2563566"></a><h2>Details</h2>
 <div class="refsect2" lang="en">
-<a name="id2550068"></a><h3>
+<a name="id2563576"></a><h3>
 <a name="Pr29-rc"></a>enum Pr29_rc</h3>
-<a class="indexterm" name="id2550078"></a><pre class="programlisting">  typedef enum
+<a class="indexterm" name="id2563588"></a><pre class="programlisting">  typedef enum
   {
     PR29_SUCCESS = 0,
     PR29_PROBLEM = 1,		/* String is a problem sequence. */
@@ -70,22 +78,19 @@ value 0 is guaranteed to always correspond to success.</p>
 <col align="left" valign="top">
 <tbody>
 <tr>
-<td>
-<span class="term"><code class="literal">PR29_SUCCESS</code></span></td>
+<td><span class="term"><a name="PR29-SUCCESS:CAPS"></a><code class="literal">PR29_SUCCESS</code></span></td>
 <td> Successful operation.  This value is guaranteed to
   always be zero, the remaining ones are only guaranteed to hold
   non-zero values, for logical comparison purposes.
 </td>
 </tr>
 <tr>
-<td>
-<span class="term"><code class="literal">PR29_PROBLEM</code></span></td>
+<td><span class="term"><a name="PR29-PROBLEM:CAPS"></a><code class="literal">PR29_PROBLEM</code></span></td>
 <td> A problem sequence was encountered.
 </td>
 </tr>
 <tr>
-<td>
-<span class="term"><code class="literal">PR29_STRINGPREP_ERROR</code></span></td>
+<td><span class="term"><a name="PR29-STRINGPREP-ERROR:CAPS"></a><code class="literal">PR29_STRINGPREP_ERROR</code></span></td>
 <td> The character set conversion failed (only
   for <code class="function">pr29_8()</code> and <a href="libidn-pr29.html#pr29-8z"><code class="function">pr29_8z()</code></a>).
 </td>
@@ -95,9 +100,9 @@ value 0 is guaranteed to always correspond to success.</p>
 </div>
 <hr>
 <div class="refsect2" lang="en">
-<a name="id2530574"></a><h3>
+<a name="id2558543"></a><h3>
 <a name="pr29-strerror"></a>pr29_strerror ()</h3>
-<a class="indexterm" name="id2530584"></a><pre class="programlisting">const char* pr29_strerror                   (<a href="libidn-pr29.html#Pr29-rc">Pr29_rc</a> rc);</pre>
+<a class="indexterm" name="id2558556"></a><pre class="programlisting">const char* pr29_strerror                   (<a href="libidn-pr29.html#Pr29-rc">Pr29_rc</a> rc);</pre>
 <p>
 Convert a return code integer to a text string.  This string can be
 used to output a diagnostic message to the user.
@@ -116,14 +121,12 @@ PR29_STRINGPREP_ERROR: The character set conversion failed (only
 <col align="left" valign="top">
 <tbody>
 <tr>
-<td>
-<span class="term"><em class="parameter"><code>rc</code></em>&#160;:</span></td>
+<td><span class="term"><em class="parameter"><code>rc</code></em>&#160;:</span></td>
 <td> an <a href="libidn-pr29.html#Pr29-rc"><span class="type">Pr29_rc</span></a> return code.
 </td>
 </tr>
 <tr>
-<td>
-<span class="term"><span class="emphasis"><em>Returns</em></span>&#160;:</span></td>
+<td><span class="term"><span class="emphasis"><em>Returns</em></span>&#160;:</span></td>
 <td> Returns a pointer to a statically allocated string
   containing a description of the error with the return code <em class="parameter"><code>rc</code></em>.
 </td>
@@ -133,9 +136,9 @@ PR29_STRINGPREP_ERROR: The character set conversion failed (only
 </div>
 <hr>
 <div class="refsect2" lang="en">
-<a name="id2526392"></a><h3>
+<a name="id2563046"></a><h3>
 <a name="pr29-4"></a>pr29_4 ()</h3>
-<a class="indexterm" name="id2526402"></a><pre class="programlisting">int         pr29_4                          (const uint32_t *in,
+<a class="indexterm" name="id2563058"></a><pre class="programlisting">int         pr29_4                          (const uint32_t *in,
                                              size_t len);</pre>
 <p>
 Check the input to see if it may be normalized into different
@@ -148,22 +151,19 @@ NFKC specifications.</p>
 <col align="left" valign="top">
 <tbody>
 <tr>
-<td>
-<span class="term"><em class="parameter"><code>in</code></em>&#160;:</span></td>
+<td><span class="term"><em class="parameter"><code>in</code></em>&#160;:</span></td>
 <td> input array with unicode code points.
 </td>
 </tr>
 <tr>
-<td>
-<span class="term"><em class="parameter"><code>len</code></em>&#160;:</span></td>
+<td><span class="term"><em class="parameter"><code>len</code></em>&#160;:</span></td>
 <td> length of input array with unicode code points.
 </td>
 </tr>
 <tr>
-<td>
-<span class="term"><span class="emphasis"><em>Returns</em></span>&#160;:</span></td>
-<td> Returns the <a href="libidn-pr29.html#Pr29-rc"><span class="type">Pr29_rc</span></a> value <code class="literal">PR29_SUCCESS</code> on success,
-  and <code class="literal">PR29_PROBLEM</code> if the input sequence is a "problem sequence"
+<td><span class="term"><span class="emphasis"><em>Returns</em></span>&#160;:</span></td>
+<td> Returns the <a href="libidn-pr29.html#Pr29-rc"><span class="type">Pr29_rc</span></a> value <a href="libidn-pr29.html#PR29-SUCCESS:CAPS"><code class="literal">PR29_SUCCESS</code></a> on success,
+  and <a href="libidn-pr29.html#PR29-PROBLEM:CAPS"><code class="literal">PR29_PROBLEM</code></a> if the input sequence is a "problem sequence"
   (i.e., may be normalized into different strings by different
   implementations).
 </td>
@@ -173,9 +173,9 @@ NFKC specifications.</p>
 </div>
 <hr>
 <div class="refsect2" lang="en">
-<a name="id2526507"></a><h3>
+<a name="id2580433"></a><h3>
 <a name="pr29-4z"></a>pr29_4z ()</h3>
-<a class="indexterm" name="id2526517"></a><pre class="programlisting">int         pr29_4z                         (const uint32_t *in);</pre>
+<a class="indexterm" name="id2580445"></a><pre class="programlisting">int         pr29_4z                         (const uint32_t *in);</pre>
 <p>
 Check the input to see if it may be normalized into different
 strings by different NFKC implementations, due to an anomaly in the
@@ -187,16 +187,14 @@ NFKC specifications.</p>
 <col align="left" valign="top">
 <tbody>
 <tr>
-<td>
-<span class="term"><em class="parameter"><code>in</code></em>&#160;:</span></td>
+<td><span class="term"><em class="parameter"><code>in</code></em>&#160;:</span></td>
 <td> zero terminated array of Unicode code points.
 </td>
 </tr>
 <tr>
-<td>
-<span class="term"><span class="emphasis"><em>Returns</em></span>&#160;:</span></td>
-<td> Returns the <a href="libidn-pr29.html#Pr29-rc"><span class="type">Pr29_rc</span></a> value <code class="literal">PR29_SUCCESS</code> on success,
-  and <code class="literal">PR29_PROBLEM</code> if the input sequence is a "problem sequence"
+<td><span class="term"><span class="emphasis"><em>Returns</em></span>&#160;:</span></td>
+<td> Returns the <a href="libidn-pr29.html#Pr29-rc"><span class="type">Pr29_rc</span></a> value <a href="libidn-pr29.html#PR29-SUCCESS:CAPS"><code class="literal">PR29_SUCCESS</code></a> on success,
+  and <a href="libidn-pr29.html#PR29-PROBLEM:CAPS"><code class="literal">PR29_PROBLEM</code></a> if the input sequence is a "problem sequence"
   (i.e., may be normalized into different strings by different
   implementations).
 </td>
@@ -206,9 +204,9 @@ NFKC specifications.</p>
 </div>
 <hr>
 <div class="refsect2" lang="en">
-<a name="id2547272"></a><h3>
+<a name="id2580537"></a><h3>
 <a name="pr29-8z"></a>pr29_8z ()</h3>
-<a class="indexterm" name="id2547282"></a><pre class="programlisting">int         pr29_8z                         (const char *in);</pre>
+<a class="indexterm" name="id2580549"></a><pre class="programlisting">int         pr29_8z                         (const char *in);</pre>
 <p>
 Check the input to see if it may be normalized into different
 strings by different NFKC implementations, due to an anomaly in the
@@ -220,18 +218,16 @@ NFKC specifications.</p>
 <col align="left" valign="top">
 <tbody>
 <tr>
-<td>
-<span class="term"><em class="parameter"><code>in</code></em>&#160;:</span></td>
+<td><span class="term"><em class="parameter"><code>in</code></em>&#160;:</span></td>
 <td> zero terminated input UTF-8 string.
 </td>
 </tr>
 <tr>
-<td>
-<span class="term"><span class="emphasis"><em>Returns</em></span>&#160;:</span></td>
-<td> Returns the <a href="libidn-pr29.html#Pr29-rc"><span class="type">Pr29_rc</span></a> value <code class="literal">PR29_SUCCESS</code> on success,
-  and <code class="literal">PR29_PROBLEM</code> if the input sequence is a "problem sequence"
+<td><span class="term"><span class="emphasis"><em>Returns</em></span>&#160;:</span></td>
+<td> Returns the <a href="libidn-pr29.html#Pr29-rc"><span class="type">Pr29_rc</span></a> value <a href="libidn-pr29.html#PR29-SUCCESS:CAPS"><code class="literal">PR29_SUCCESS</code></a> on success,
+  and <a href="libidn-pr29.html#PR29-PROBLEM:CAPS"><code class="literal">PR29_PROBLEM</code></a> if the input sequence is a "problem sequence"
   (i.e., may be normalized into different strings by different
-  implementations), or <code class="literal">PR29_STRINGPREP_ERROR</code> if there was a
+  implementations), or <a href="libidn-pr29.html#PR29-STRINGPREP-ERROR:CAPS"><code class="literal">PR29_STRINGPREP_ERROR</code></a> if there was a
   problem converting the string from UTF-8 to UCS-4.
 </td>
 </tr>
@@ -240,9 +236,5 @@ NFKC specifications.</p>
 </div>
 </div>
 </div>
-<table class="navigation" width="100%" summary="Navigation footer" cellpadding="2" cellspacing="0"><tr valign="middle">
-<td align="left"><a accesskey="p" href="libidn-idna.html"><b>&lt;&lt;&#160;idna</b></a></td>
-<td align="right"><a accesskey="n" href="libidn-punycode.html"><b>punycode&#160;&gt;&gt;</b></a></td>
-</tr></table>
 </body>
 </html>

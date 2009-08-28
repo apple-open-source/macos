@@ -1,0 +1,79 @@
+--- base5067/innobase/configure	2008-08-04 05:23:02.000000000 -0700
++++ m5067/innobase/configure	2008-09-08 06:53:12.000000000 -0700
+@@ -20520,6 +20520,76 @@
+ fi
+ done
+ 
++# as http://lists.mysql.com/commits/40686 does
++echo "$as_me:$LINENO: checking whether the compiler provides atomic builtins" >&5
++echo $ECHO_N "checking whether the compiler provides atomic builtins... $ECHO_C" >&6
++if test "${mysql_cv_atomic_builtins+set}" = set; then
++  echo $ECHO_N "(cached) $ECHO_C" >&6
++else
++  if test "$cross_compiling" = yes; then
++  { { echo "$as_me:$LINENO: error: cannot run test program while cross compiling
++See \`config.log' for more details." >&5
++echo "$as_me: error: cannot run test program while cross compiling
++See \`config.log' for more details." >&2;}
++   { (exit 1); exit 1; }; }
++else
++  cat >conftest.$ac_ext <<_ACEOF
++/* confdefs.h.  */
++_ACEOF
++cat confdefs.h >>conftest.$ac_ext
++cat >>conftest.$ac_ext <<_ACEOF
++/* end confdefs.h.  */
++
++  int main()
++  {
++    int foo= -10; int bar= 10;
++    __sync_fetch_and_add(&foo, bar);
++    if (foo)
++      return -1;
++    bar= __sync_lock_test_and_set(&foo, bar);
++    if (bar || foo != 10)
++      return -1;
++    bar= __sync_val_compare_and_swap(&bar, foo, 15);
++    if (bar)
++      return -1;
++    return 0;
++  }
++
++_ACEOF
++rm -f conftest$ac_exeext
++if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
++  (eval $ac_link) 2>&5
++  ac_status=$?
++  echo "$as_me:$LINENO: \$? = $ac_status" >&5
++  (exit $ac_status); } && { ac_try='./conftest$ac_exeext'
++  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
++  (eval $ac_try) 2>&5
++  ac_status=$?
++  echo "$as_me:$LINENO: \$? = $ac_status" >&5
++  (exit $ac_status); }; }; then
++  mysql_cv_atomic_builtins=yes
++else
++  echo "$as_me: program exited with status $ac_status" >&5
++echo "$as_me: failed program was:" >&5
++sed 's/^/| /' conftest.$ac_ext >&5
++
++( exit $ac_status )
++mysql_cv_atomic_builtins=no
++fi
++rm -f core *.core gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
++fi
++fi
++echo "$as_me:$LINENO: result: $mysql_cv_atomic_builtins" >&5
++echo "${ECHO_T}$mysql_cv_atomic_builtins" >&6
++
++if test "x$mysql_cv_atomic_builtins" = xyes; then
++
++cat >>confdefs.h <<\_ACEOF
++#define HAVE_ATOMIC_BUILTINS 1
++_ACEOF
++
++fi
++
+ #AC_CHECK_FUNCS(readdir_r) MySQL checks that it has also the right args.
+ # Some versions of Unix only take 2 arguments.
+ #AC_C_INLINE  Already checked in MySQL

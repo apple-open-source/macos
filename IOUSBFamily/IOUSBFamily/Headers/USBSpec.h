@@ -371,6 +371,16 @@ enum {
 };
 
 /*!
+ @enum Printer Class Requests
+ @discussion The bRequest parameter for Printing Class Sepcific Requests
+ */
+enum {
+	kUSPrintingClassGetDeviceID		= 0,
+	kUSPrintingClassGePortStatus	= 1,
+	kUSPrintingClassSoftReset		= 2
+};
+
+	/*!
 @enum Endpoint Descriptor bits
  @discussion Bit definitions for endpoint descriptor fields
  */
@@ -391,6 +401,37 @@ enum {
     @enum Property Names
     @discussion USB property names taken from the field names in various descriptors
 */
+	/*!
+	 @enum USB Descriptor and IORegistry constants
+	 @discussion 	Various constants used to describe the fields in the various USB Device Descriptors and IORegistry names used for some of those fields 
+	 
+	 @constant	kUSBDeviceClass				The field in the USB Device Descriptor corresponding to the device class
+	 @constant	kUSBDeviceSubClass			The field in the USB Device Descriptor corresponding to the device sub class
+	 @constant	kUSBDeviceProtocol			The field in the USB Device Descriptor corresponding to the device protocol
+	 @constant	kUSBDeviceMaxPacketSize		The field in the USB Device Descriptor corresponding to the maximum packet size for endpoint 0
+	 @constant	kUSBVendorID				The field in the USB Device Descriptor corresponding to the device USB Vendor ID
+	 @constant	kUSBVendorName				Deprecated.  Use kUSBVendorID 
+	 @constant	kUSBProductID				The field in the USB Device Descriptor corresponding to the device USB Product ID
+	 @constant	kUSBProductName				Deprecated.  Use kUSBProductID
+	 @constant	kUSBDeviceReleaseNumber		The field in the USB Device Descriptor corresponding to the device release version
+	 @constant	kUSBManufacturerStringIndex	The field in the USB Device Descriptor corresponding to the index for the manufacturer's string
+	 @constant	kUSBProductStringIndex		The field in the USB Device Descriptor corresponding to the index for the product name's string
+	 @constant	kUSBSerialNumberStringIndex	The field in the USB Device Descriptor corresponding to the index for the serial number's string
+	 @constant	kUSBDeviceNumConfigs		The field in the USB Configuration Descriptor corresponding to the number of configurations
+	 @constant	kUSBInterfaceNumber			The field in the USB Configuration Descriptor corresponding to the number of configurations
+	 @constant	kUSBAlternateSetting		The field in the USB Configuration Descriptor corresponding to the number of configurations
+	 @constant	kUSBNumEndpoints			The field in the USB Configuration Descriptor corresponding to the number of configurations
+	 @constant	kUSBInterfaceClass			The field in the USB Interface Descriptor corresponding to the interface class
+	 @constant	kUSBInterfaceSubClass		The field in the USB Interface Descriptor corresponding to the interface sub class
+	 @constant	kUSBInterfaceProtocol		The field in the USB Interface Descriptor corresponding to the interface protocol
+	 @constant	kUSBInterfaceStringIndex	The field in the USB Interface Descriptor corresponding to the index for the interface name's string
+	 @constant	kUSBConfigurationValue		The field in the USB Interface Descriptor corresponding to the configuration
+	 @constant	kUSBProductString			IORegistry key for the device's USB Product string
+	 @constant	kUSBVendorString			IORegistry key for the device's USB manufacturer string
+	 @constant	kUSBSerialNumberString		IORegistry key for the device's USB serial number string
+	 @constant	kUSB1284DeviceID			IORegistry key for the 1284 Device ID of a printer
+	 
+	 */
 #define kUSBDeviceClass             "bDeviceClass"
 #define kUSBDeviceSubClass          "bDeviceSubClass"
 #define kUSBDeviceProtocol          "bDeviceProtocol"
@@ -412,6 +453,10 @@ enum {
 #define kUSBInterfaceProtocol       "bInterfaceProtocol"
 #define kUSBInterfaceStringIndex    "iInterface"
 #define kUSBConfigurationValue      "bConfigurationValue"
+#define kUSBProductString			"USB Product Name"	
+#define kUSBVendorString			"USB Vendor Name"
+#define kUSBSerialNumberString		"USB Serial Number"
+#define kUSB1284DeviceID			"1284 Device ID"
 
     /*!
     @enum Apple USB Vendor ID

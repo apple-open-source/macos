@@ -1,0 +1,11 @@
+Welcome to QuickTimeTcl
+This text movie is downloaded directly from my web page.
+Try to find a real large movie... 
+...that shows the power of the -url and -loadcommand options.
+They enable you to make a movie widget from a remote movie...
+...and loading at asynchronously, without anything blocking.
+Text, and still images, can be opened as any movie.
+QuickTime takes care of everything to import it.
+Tell me your opinion (and the bugs you may find).
+
+Enjoy,     Mats

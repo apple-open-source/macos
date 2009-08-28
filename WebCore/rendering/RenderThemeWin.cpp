@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006, 2007 Apple Inc.
+ * Copyright (C) 2009 Kenneth Rohde Christiansen
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,19 +22,19 @@
 #include "config.h"
 #include "RenderThemeWin.h"
 
-#include "CSSStyleSheet.h"
 #include "CSSValueKeywords.h"
-#include "Document.h"
+#include "Element.h"
+#include "Frame.h"
 #include "GraphicsContext.h"
-#include "HTMLElement.h"
-#include "HTMLSelectElement.h"
-#include "Icon.h"
-#include "RenderMediaControls.h"
 #include "RenderSlider.h"
 #include "Settings.h"
 #include "SoftLinking.h"
 #include "SystemInfo.h"
 #include "UserAgentStyleSheets.h"
+
+#if ENABLE(VIDEO)
+#include "RenderMediaControls.h"
+#endif
 
 #include <tchar.h>
 
@@ -134,11 +135,16 @@ void RenderThemeWin::setWebKitIsBeingUnloaded()
     gWebKitIsBeingUnloaded = true;
 }
 
-#if !USE(SAFARI_THEME)
-RenderTheme* theme()
+PassRefPtr<RenderTheme> RenderThemeWin::create()
 {
-    static RenderThemeWin winTheme;
-    return &winTheme;
+    return adoptRef(new RenderThemeWin);
+}
+
+#if !USE(SAFARI_THEME)
+PassRefPtr<RenderTheme> RenderTheme::themeForPage(Page* page)
+{
+    static RenderTheme* winTheme = RenderThemeWin::create().releaseRef();
+    return winTheme;
 }
 #endif
 
@@ -788,6 +794,8 @@ void RenderThemeWin::adjustSearchFieldStyle(CSSStyleSelector* selector, RenderSt
     style->setPaddingRight(Length(padding, Fixed));
     style->setPaddingTop(Length(padding, Fixed));
     style->setPaddingBottom(Length(padding, Fixed));
+    if (e && e->focused() && e->document()->frame()->selection()->isFocusedAndActive())
+        style->setOutlineOffset(-2);
 }
 
 bool RenderThemeWin::paintSearchFieldCancelButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)

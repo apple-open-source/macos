@@ -2,8 +2,8 @@
 
   range.c -
 
-  $Author: shyouhei $
-  $Date: 2007-09-17 04:38:27 +0900 (Mon, 17 Sep 2007) $
+  $Author: knu $
+  $Date: 2008-05-28 17:52:57 +0900 (Wed, 28 May 2008) $
   created at: Thu Aug 19 17:46:47 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -254,12 +254,19 @@ range_each_func(range, func, v, e, arg)
 }
 
 static VALUE
-step_i(i, iter)
+step_i(i, arg)
     VALUE i;
-    long *iter;
+    VALUE arg;
 {
-    iter[0]--;
-    if (iter[0] == 0) {
+    VALUE *iter = (VALUE *)arg;
+
+    if (FIXNUM_P(iter[0])) {
+	iter[0] -= INT2FIX(1) & ~FIXNUM_FLAG;
+    }
+    else {
+	iter[0] = rb_funcall(iter[0], '-', 1, INT2FIX(1));
+    }
+    if (iter[0] == INT2FIX(0)) {
 	rb_yield(i);
 	iter[0] = iter[1];
     }
@@ -271,7 +278,7 @@ step_i(i, iter)
  *     rng.step(n=1) {| obj | block }    => rng
  *  
  *  Iterates over <i>rng</i>, passing each <i>n</i>th element to the block. If
- *  the range contains numbers or strings, natural ordering is used.  Otherwise
+ *  the range contains numbers, <i>n</i> is added for each iteration.  Otherwise
  *  <code>step</code> invokes <code>succ</code> to iterate through range
  *  elements. The following code uses class <code>Xs</code>, which is defined
  *  in the class-level documentation.
@@ -300,66 +307,84 @@ range_step(argc, argv, range)
     VALUE *argv;
     VALUE range;
 {
-    VALUE b, e, step;
-    long unit;
+    VALUE b, e, step, tmp;
+
+    RETURN_ENUMERATOR(range, argc, argv);
 
     b = rb_ivar_get(range, id_beg);
     e = rb_ivar_get(range, id_end);
-    if (rb_scan_args(argc, argv, "01", &step) == 0) {
+    if (argc == 0) {
 	step = INT2FIX(1);
     }
+    else {
+	rb_scan_args(argc, argv, "01", &step);
+	if (!rb_obj_is_kind_of(step, rb_cNumeric)) {
+	    step = rb_to_int(step);
+	}
+	if (rb_funcall(step, '<', 1, INT2FIX(0))) {
+	    rb_raise(rb_eArgError, "step can't be negative");
+	}
+	else if (!rb_funcall(step, '>', 1, INT2FIX(0))) {
+	    rb_raise(rb_eArgError, "step can't be 0");
+	}
+    }
 
-    unit = NUM2LONG(step);
-    if (unit < 0) {
-	rb_raise(rb_eArgError, "step can't be negative");
-    } 
-    if (FIXNUM_P(b) && FIXNUM_P(e)) { /* fixnums are special */
+    if (FIXNUM_P(b) && FIXNUM_P(e) && FIXNUM_P(step)) { /* fixnums are special */
 	long end = FIX2LONG(e);
-	long i;
+	long i, unit = FIX2LONG(step);
 
-	if (unit == 0) rb_raise(rb_eArgError, "step can't be 0");
-	if (!EXCL(range)) end += 1;
+	if (!EXCL(range))
+	    end += 1;
 	i = FIX2LONG(b);	
 	while (i < end) {
 	    rb_yield(LONG2NUM(i));
 	    if (i + unit < i) break;
 	    i += unit;
 	}
+
+    }
+    else if (rb_obj_is_kind_of(b, rb_cNumeric) ||
+	     !NIL_P(rb_check_to_integer(b, "to_int")) ||
+	     !NIL_P(rb_check_to_integer(e, "to_int"))) {
+	ID op = EXCL(range) ? '<' : rb_intern("<=");
+
+	while (RTEST(rb_funcall(b, op, 1, e))) {
+	    rb_yield(b);
+	    b = rb_funcall(b, '+', 1, step);
+	}
     }
     else {
-	VALUE tmp = rb_check_string_type(b);
+	tmp = rb_check_string_type(b);
 
 	if (!NIL_P(tmp)) {
-	    VALUE args[5];
-	    long iter[2];
+	    VALUE args[5], iter[2];
 
 	    b = tmp;
-	    if (unit == 0) rb_raise(rb_eArgError, "step can't be 0");
-	    args[0] = b; args[1] = e; args[2] = range;
-	    iter[0] = 1; iter[1] = unit;
-	    rb_iterate((VALUE(*)_((VALUE)))str_step, (VALUE)args, step_i,
-			(VALUE)iter);
+	    args[0] = e;
+	    args[1] = EXCL(range) ? Qtrue : Qfalse;
+	    iter[0] = INT2FIX(1);
+	    iter[1] = step;
+	    rb_block_call(b, rb_intern("upto"), 2, args, step_i, (VALUE)iter);
 	}
-	else if (rb_obj_is_kind_of(b, rb_cNumeric)) {
-	    ID c = rb_intern(EXCL(range) ? "<" : "<=");
+	else if (rb_obj_is_kind_of(b, rb_cNumeric) ||
+		 !NIL_P(rb_check_to_integer(b, "to_int")) ||
+		 !NIL_P(rb_check_to_integer(e, "to_int"))) {
+	    ID c = EXCL(range) ? '<' : rb_intern("<=");
 
-	    if (rb_equal(step, INT2FIX(0))) rb_raise(rb_eArgError, "step can't be 0");
 	    while (RTEST(rb_funcall(b, c, 1, e))) {
 		rb_yield(b);
 		b = rb_funcall(b, '+', 1, step);
 	    }
 	}
 	else {
-	    long args[2];
+	    VALUE args[2];
 
-	    if (unit == 0) rb_raise(rb_eArgError, "step can't be 0");
 	    if (!rb_respond_to(b, id_succ)) {
 		rb_raise(rb_eTypeError, "can't iterate from %s",
 			 rb_obj_classname(b));
 	    }
-	
-	    args[0] = 1;
-	    args[1] = unit;
+	    args[0] = INT2FIX(1);
+	    args[1] = step;
 	    range_each_func(range, step_i, b, e, args);
 	}
     }
@@ -398,6 +423,8 @@ range_each(range)
 {
     VALUE beg, end;
 
+    RETURN_ENUMERATOR(range, 0, 0);
+
     beg = rb_ivar_get(range, id_beg);
     end = rb_ivar_get(range, id_end);
 
@@ -415,11 +442,10 @@ range_each(range)
 	}
     }
     else if (TYPE(beg) == T_STRING) {
-	VALUE args[5];
-	long iter[2];
+	VALUE args[5], iter[2];
 
 	args[0] = beg; args[1] = end; args[2] = range;
-	iter[0] = 1; iter[1] = 1;
+	iter[0] = INT2FIX(1); iter[1] = INT2FIX(1);
 	rb_iterate((VALUE(*)_((VALUE)))str_step, (VALUE)args, step_i,
 		   (VALUE)iter);
     }

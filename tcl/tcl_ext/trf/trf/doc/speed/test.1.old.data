@@ -1,0 +1,12 @@
+set t(crc,1000,old) 12198
+set t(crc,1000000,old) 17865310
+set t(crc-zlib,1000,old) 13854
+set t(crc-zlib,1000000,old) 20930634
+set t(adler,1000,old) 15112
+set t(adler,1000000,old) 25767795
+set t(sha,1000,old) 13810
+set t(sha,1000000,old) 21328691
+set t(haval,1000,old) 16092
+set t(haval,1000000,old) 24860739
+set t(md5,1000,old) 14283
+set t(md5,1000000,old) 21785588

@@ -25,9 +25,10 @@
 #include <IOKit/IOLib.h>
 #include <IOKit/IODataQueueShared.h>
 #include <IOKit/IOMemoryDescriptor.h>
+#undef enqueue
 #include "IOHIDEventServiceQueue.h"
 #include "IOHIDEvent.h"
-    
+
 #define super IODataQueue
 OSDefineMetaClassAndStructors( IOHIDEventServiceQueue, IOSharedDataQueue )
 

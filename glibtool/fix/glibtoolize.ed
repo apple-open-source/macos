@@ -1,0 +1,7 @@
+/PROGRAM=libtoolize/a
+
+_bindir=`dirname $0`
+_prefix="$_bindir/.."
+.
+g,^[a-z]*dir=/usr,s,/usr,$_prefix,g
+w

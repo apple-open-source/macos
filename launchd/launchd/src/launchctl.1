@@ -1,4 +1,4 @@
-.Dd September 30, 2004
+.Dd 1 May, 2009
 .Dt launchctl 1
 .Os Darwin
 .Sh NAME
@@ -32,9 +32,18 @@ starts.
 Load the specified configuration files or directories of configuration files.
 Jobs that are not on-demand will be started as soon as possible.
 All specified jobs will be loaded before any of them are allowed to start.
+Note that per-user configuration files (LaunchAgents) must be owned by the user
+loading them. All system-wide daemons (LaunchDaemons) must be owned by root. Configuration files
+must not be group- or world-writable. These restrictions are in place for security reasons,
+as allowing writability to a launchd configuration file allows one to specify which executable
+will be launched.
+.Pp
+Note that allowing non-root write access to the /System/Library/LaunchDaemons directory WILL render your system unbootable.
 .Bl -tag -width -indent
 .It Fl w
-Remove the disabled key and write the configuration files back out to disk.
+Overrides the Disabled key and sets it to false. In previous versions, this option
+would modify the configuration file. Now the state of the Disabled key is stored
+elsewhere on-disk.
 .It Fl F
 Force the loading of the plist. Ignore the Disabled key.
 .It Fl S Ar sessiontype
@@ -61,7 +70,9 @@ Unload the specified configuration files or directories of configuration files.
 This will also stop the job if it is running.
 .Bl -tag -width -indent
 .It Fl w
-Add the disabled key and write the configuration files back out to disk.
+Overrides the Disabled key and sets it to true. In previous versions, this option
+would modify the configuration file. Now the state of the Disabled key is stored
+elsewhere on-disk.
 .It Fl S Ar sessiontype
 Some jobs only make sense in certain contexts. This flag instructs
 .Nm launchctl
@@ -105,9 +116,36 @@ Stop the specified job by label. If a job is on-demand, launchd may immediately
 restart the job if launchd finds any criteria that is satisfied.
 Non-demand based jobs will always be restarted. Use of this subcommand is discouraged.
 Jobs should ideally idle timeout by themselves.
-.It Ar list
-List all of the jobs loaded into
+.It Xo Ar list 
+.Op Ar -x 
+.Op Ar label
+.Xc
+With no arguments, list all of the jobs loaded into
+.Nm launchd
+in three columns. The first column displays the PID of the job if it is running.
+The second column displays the last exit status of the job. If the number in this
+column is negative, it represents the negative of the signal which killed the job.
+Thus, "-15" would indicate that the job was terminated with SIGTERM. The third column
+is the job's label.
+.Pp
+Note that you may see some jobs in the list whose labels are in the style "0xdeadbeef.anonymous.program".
+These are jobs which are not managed by
+.Nm launchd ,
+but, at one point, made a request to it.
+.Nm launchd
+claims no ownership and makes no guarantees regarding these jobs. They are stored purely for
+bookkeeping purposes.
+.Pp
+Similarly, you may see labels of the style "0xdeadbeef.mach_init.program". These are legacy jobs that run
+under mach_init emulation. This mechanism will be removed in future versions, and all remaining mach_init
+jobs should be converted over to
 .Nm launchd .
+.Pp
+If
+.Op Ar label
+is specified, prints information about the requested job. If 
+.Op Ar -x
+is specified, the information for the specified job is output as an XML property list.
 .It Ar setenv Ar key Ar value
 Set an environmental variable inside of
 .Nm launchd .
@@ -155,14 +193,46 @@ Get or optionally set the
 .Xr umask 2
 of
 .Nm launchd .
-.It Ar bslist Op Ar PID
+.It Xo Ar bslist
+.Op Ar PID | ..
+.Op Ar -j
+.Xc
 This prints out Mach bootstrap services and their respective states. While the
 namespace appears flat, it is in fact hierarchical, thus allowing for certain
 services to be only available to a subset of processes. The three states a
-service can be in are active ("A"), inactive ("I") and on-demand ("D").
+service can be in are active ("A"), inactive ("I") and on-demand ("D"). 
+.Pp
+If
+.Op Ar PID
+is specified, print the Mach bootstrap services available to that PID. If
+.Op Ar ..
+is specified, print the Mach bootstrap services available in the parent of the
+current bootstrap. Note that in Mac OS X v10.6, the per-user Mach bootstrap namespace
+is flat, so you will only see a different set of services in a per-user bootstrap
+if you are in an explicitly-created bootstrap subset.
+.Pp
+If
+.Op Ar -j
+is specified, each service name will be followed by the name of the job which registered
+it.
 .It Ar bsexec Ar PID command Op Ar args
 This executes the given command in the same Mach bootstrap namespace hierachy
 as the given PID.
+.It Ar bstree Op Ar -j
+This prints a hierarchical view of the entire Mach bootstrap tree. If
+.Op Ar -j
+is specified, each service name will be followed by the name of the job which registered it.
+Requires root
+privileges.
+.It Ar managerpid
+This prints the PID of the launchd which manages the current bootstrap.
+.It Ar manageruid
+This prints the UID of the launchd which manages the current bootstrap.
+.It Ar managername
+This prints the name of the launchd job manager which manages the current bootstrap.
+See LimitLoadToSessionType in
+.Xr launchd.plist 5
+for more details.
 .It Ar help
 Print out a quick usage statement.
 .El

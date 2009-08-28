@@ -1,5 +1,3 @@
-.\"	$NetBSD: printf.1,v 1.10 1998/08/22 14:54:48 garbled Exp $
-.\"
 .\" Copyright (c) 1989, 1990, 1993
 .\"	The Regents of the University of California.  All rights reserved.
 .\"
@@ -34,9 +32,10 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\"	from: @(#)printf.1	8.1 (Berkeley) 6/6/93
+.\"	@(#)printf.1	8.1 (Berkeley) 6/6/93
+.\" $FreeBSD: src/usr.bin/printf/printf.1,v 1.34 2005/06/14 11:50:52 ru Exp $
 .\"
-.Dd November 5, 1993
+.Dd April 14, 2005
 .Dt PRINTF 1
 .Os
 .Sh NAME
@@ -44,28 +43,26 @@
 .Nd formatted output
 .Sh SYNOPSIS
 .Nm
-.Ar format
-.Op Ar arguments  ...
+.Ar format Op Ar arguments ...
 .Sh DESCRIPTION
 The
 .Nm
 utility formats and prints its arguments, after the first, under control
 of the
-.Ar format  .
+.Ar format .
 The
 .Ar format
 is a character string which contains three types of objects: plain characters,
 which are simply copied to standard output, character escape sequences which
 are converted and copied to the standard output, and format specifications,
 each of which causes printing of the next successive
-.Ar argument  .
+.Ar argument .
 .Pp
 The
 .Ar arguments
 after the first are treated as strings if the corresponding format is
 either
-.Cm b ,
-.Cm c
+.Cm c , b
 or
 .Cm s ;
 otherwise it is evaluated as a C constant, with the following extensions:
@@ -74,27 +71,29 @@ otherwise it is evaluated as a C constant, with the following extensions:
 .It
 A leading plus or minus sign is allowed.
 .It
-If the leading character is a single or double quote, the value is the 
+If the leading character is a single or double quote, the value is the
 .Tn ASCII
 code of the next character.
 .El
 .Pp
 The format string is reused as often as necessary to satisfy the
-.Ar arguments  .
+.Ar arguments .
 Any extra format specifications are evaluated with zero or the null
 string.
 .Pp
-Character escape sequences are in backslash notation as defined in 
-.St -ansiC .
+Character escape sequences are in backslash notation as defined in the
+.St -ansiC ,
+with extensions.
 The characters and their meanings
 are as follows:
-.Bl -tag -width Ds -offset indent
-.It Cm \ee
-Write an <escape> character.
+.Pp
+.Bl -tag -width Ds -offset indent -compact
 .It Cm \ea
 Write a <bell> character.
 .It Cm \eb
 Write a <backspace> character.
+.It Cm \ec
+Ignore remaining characters in this string.
 .It Cm \ef
 Write a <form-feed> character.
 .It Cm \en
@@ -109,7 +108,8 @@ Write a <vertical tab> character.
 Write a <single quote> character.
 .It Cm \e\e
 Write a backslash character.
-.It Cm \e Ns Ar num 
+.It Cm \e Ns Ar num
+.It Cm \e0 Ns Ar num
 Write an 8-bit character whose
 .Tn ASCII
 value is the 1-, 2-, or 3-digit
@@ -126,31 +126,31 @@ in the following order:
 .Bl -tag -width Ds
 .It Cm #
 A `#' character
-specifying that the value should be printed in an ``alternative form''.
+specifying that the value should be printed in an ``alternate form''.
 For
-.Cm c  ,
-.Cm d ,
+.Cm c , d ,
 and
-.Cm s  ,
-formats, this option has no effect.  For the
+.Cm s ,
+formats, this option has no effect.
+For the
 .Cm o
 formats the precision of the number is increased to force the first
-character of the output string to a zero.  For the
+character of the output string to a zero.
+For the
 .Cm x
 .Pq Cm X
 format, a non-zero result has the string
 .Li 0x
 .Pq Li 0X
-prepended to it.  For
-.Cm e  ,
-.Cm E ,
-.Cm f  ,
-.Cm g ,
+prepended to it.
+For
+.Cm e , E , f , g ,
 and
-.Cm G  ,
+.Cm G ,
 formats, the result will always contain a decimal point, even if no
 digits follow the point (normally, a decimal point only appears in the
-results of those formats if a digit follows the decimal point).  For
+results of those formats if a digit follows the decimal point).
+For
 .Cm g
 and
 .Cm G
@@ -165,10 +165,12 @@ A `+' character specifying that there should always be
 a sign placed before the number when using signed formats.
 .It Sq \&\ \&
 A space specifying that a blank should be left before a positive number
-for a signed format.  A `+' overrides a space if both are used;
+for a signed format.
+A `+' overrides a space if both are used;
 .It Cm \&0
 A zero `0' character indicating that zero-padding should be used
-rather than blank-padding.  A `\-' overrides a `0' if both are used;
+rather than blank-padding.
+A `\-' overrides a `0' if both are used;
 .El
 .It "Field Width:"
 An optional digit string specifying a
@@ -185,14 +187,21 @@ followed by an optional digit string giving a
 which specifies the number of digits to appear after the decimal point,
 for
 .Cm e
-and 
+and
 .Cm f
 formats, or the maximum number of characters to be printed
 from a string; if the digit string is missing, the precision is treated
 as zero;
 .It Format:
 A character which indicates the type of format to use (one of
-.Cm diouxXfwEgGbcs ) .
+.Cm diouxXfFeEgGaAcsb ) .
+The uppercase formats differ from their lowercase counterparts only in
+that the output of the former is entirely in uppercase.
+The floating-point format specifiers
+.Pq Cm fFeEgGaA
+may be prefixed by an
+.Cm L
+to request that additional precision be used, if available.
 .El
 .Pp
 A field width or precision may be
@@ -209,43 +218,62 @@ The
 .Ar argument
 is printed as a signed decimal (d or i), unsigned octal, unsigned decimal,
 or unsigned hexadecimal (X or x), respectively.
-.It Cm f
+.It Cm fF
 The
 .Ar argument
-is printed in the style 
-.Sm off
-.Pf [\-]ddd Cm \&. No ddd
-.Sm on
-where the number of d's
+is printed in the style `[\-]ddd.ddd' where the number of d's
 after the decimal point is equal to the precision specification for
 the argument.
 If the precision is missing, 6 digits are given; if the precision
 is explicitly 0, no digits and no decimal point are printed.
+The values \*[If] and \*[Na] are printed as
+.Ql inf
+and
+.Ql nan ,
+respectively.
 .It Cm eE
 The
 .Ar argument
-is printed in the style 
+is printed in the style
+.Cm e
 .Sm off
-.Pf [\-]d Cm \&. No ddd Cm e No \\*(Pmdd
+.Sq Op - Ar d.ddd No \(+- Ar dd
 .Sm on
 where there
 is one digit before the decimal point and the number after is equal to
 the precision specification for the argument; when the precision is
 missing, 6 digits are produced.
-An upper-case E is used for an `E' format.
+The values \*[If] and \*[Na] are printed as
+.Ql inf
+and
+.Ql nan ,
+respectively.
 .It Cm gG
 The
 .Ar argument
 is printed in style
 .Cm f
+.Pq Cm F
 or in style
 .Cm e
 .Pq Cm E
 whichever gives full precision in minimum space.
-.It Cm b
-Characters from the string
+.It Cm aA
+The
 .Ar argument
-are printed with backslash-escape sequences expanded.
+is printed in style
+.Sm off
+.Sq Op - Ar h.hhh No \(+- Li p Ar d
+.Sm on
+where there is one digit before the hexadecimal point and the number
+after is equal to the precision specification for the argument;
+when the precision is missing, enough digits are produced to convey
+the argument's exact double-precision floating-point representation.
+The values \*[If] and \*[Na] are printed as
+.Ql inf
+and
+.Ql nan ,
+respectively.
 .It Cm c
 The first character of
 .Ar argument
@@ -256,29 +284,71 @@ Characters from the string
 are printed until the end is reached or until the number of characters
 indicated by the precision specification is reached; however if the
 precision is 0 or missing, all characters in the string are printed.
+.It Cm b
+As for
+.Cm s ,
+but interpret character escapes in backslash notation in the string
+.Ar argument .
 .It Cm \&%
 Print a `%'; no argument is used.
 .El
 .Pp
+The decimal point
+character is defined in the program's locale (category
+.Dv LC_NUMERIC ) .
+.Pp
 In no case does a non-existent or small field width cause truncation of
 a field; padding takes place only if the specified field width exceeds
 the actual width.
-.Sh RETURN VALUES
-.Nm
-exits 0 on success, 1 on failure.
+.Sh EXIT STATUS
+.Ex -std
+.Sh COMPATIBILITY
+The traditional
+.Bx
+behavior of converting arguments of numeric formats not beginning
+with a digit to the
+.Tn ASCII
+code of the first character is not supported.
 .Sh SEE ALSO
 .Xr echo 1 ,
 .Xr printf 3
 .Sh STANDARDS
 The
 .Nm
-utility mostly conforms to 
-.St -p1003.2-92 .
+command is expected to be mostly compatible with the
+.St -p1003.2
+specification.
+.Sh HISTORY
+The
+.Nm
+command appeared in
+.Bx 4.3 Reno .
+It is modeled
+after the standard library function,
+.Xr printf 3 .
 .Sh BUGS
 Since the floating point numbers are translated from
 .Tn ASCII
 to floating-point and
 then back again, floating-point precision may be lost.
+(By default, the number is translated to an IEEE-754 double-precision
+value before being printed.
+The
+.Cm L
+modifier may produce additional precision, depending on the hardware platform.)
+.Pp
+.Tn ANSI
+hexadecimal character constants were deliberately not provided.
+.Pp
+The escape sequence \e000 is the string terminator.
+When present in the argument for the
+.Cm b
+format, the argument will be truncated at the \e000 character.
+.Pp
+Multibyte characters are not recognized in format strings (this is only
+a problem if
+.Ql %
+can appear inside a multibyte character).
 .Pp
 Parsing of - arguments is also somewhat different from
 .Xr printf 3 ,

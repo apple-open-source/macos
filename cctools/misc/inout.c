@@ -35,7 +35,7 @@ static void usage(
 
 static void process(
     struct arch *archs,
-    unsigned long narchs);
+    uint32_t narchs);
 
 static void setup_object_symbolic_info(
     struct object *object);
@@ -46,10 +46,10 @@ int argc,
 char **argv,
 char **envp)
 {
-    unsigned long i;
+    uint32_t i;
     char *input, *output;
     struct arch *archs;
-    unsigned long narchs;
+    uint32_t narchs;
 
 	progname = argv[0];
 	input = NULL;
@@ -113,9 +113,9 @@ static
 void
 process(
 struct arch *archs,
-unsigned long narchs)
+uint32_t narchs)
 {
-    unsigned long i, j, offset, size;
+    uint32_t i, j, offset, size;
     struct object *object;
 
 	for(i = 0; i < narchs; i++){
@@ -135,7 +135,7 @@ unsigned long narchs)
 		    size = 0;
 		    if(archs[i].members[j].member_long_name == TRUE){
 			size = round(archs[i].members[j].member_name_size,
-				     sizeof(long));
+				     sizeof(int32_t));
 			archs[i].toc_long_name = TRUE;
 		    }
 		    if(archs[i].members[j].object != NULL){
@@ -171,7 +171,7 @@ void
 setup_object_symbolic_info(
 struct object *object)
 {
-    unsigned long output_indirectsym_pad_diff;
+    uint32_t output_indirectsym_pad_diff;
 
 	if(object->st != NULL && object->st->nsyms != 0){
 	    if(object->mh != NULL){
@@ -272,14 +272,14 @@ struct object *object)
 		    object->dyst->nmodtab *
 			sizeof(struct dylib_module) +
 		    object->dyst->nindirectsyms *
-			sizeof(unsigned long);
+			sizeof(uint32_t);
 	    }
 	    else{
 		object->input_sym_info_size +=
 		    object->dyst->nmodtab *
 			sizeof(struct dylib_module_64)+
 		    object->dyst->nindirectsyms *
-			  sizeof(unsigned long) +
+			  sizeof(uint32_t) +
 		    object->input_indirectsym_pad;
 		    if(object->input_indirectsym_pad == 0 &&
 		       (object->dyst->nindirectsyms % 2) != 0)

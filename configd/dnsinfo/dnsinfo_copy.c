@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2006, 2008, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,13 +28,39 @@
  * - initial revision
  */
 
+#include <stdio.h>
 #include <stdlib.h>
+#include <pthread.h>
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 
 #include "dnsinfo.h"
 #include "dnsinfo_private.h"
 #include "shared_dns_info.h"
+
+
+static pthread_once_t	_dns_initialized	= PTHREAD_ONCE_INIT;
+static pthread_mutex_t	_dns_lock		= PTHREAD_MUTEX_INITIALIZER;
+static mach_port_t	_dns_server		= MACH_PORT_NULL;
+
+
+static void
+__dns_fork_handler()
+{
+	// the process has forked (and we are the child process)
+	_dns_server = MACH_PORT_NULL;
+	return;
+}
+
+
+static void
+__dns_initialize(void)
+{
+	// add handler to cleanup after fork()
+	(void) pthread_atfork(NULL, NULL, __dns_fork_handler);
+
+	return;
+}
 
 
 static boolean_t
@@ -63,16 +89,47 @@ copy_dns_info()
 	mach_port_t		server;
 	kern_return_t		status;
 
-	server = _dns_configuration_server_port();
-	if (server == MACH_PORT_NULL) {
-		return NULL;
-	}
+	// initialize runtime
+	pthread_once(&_dns_initialized, __dns_initialize);
 
-	status = shared_dns_infoGet(server, &dataRef, &dataLen);
-	(void)mach_port_deallocate(mach_task_self(), server);
-	if (status != KERN_SUCCESS) {
-		mach_error("shared_dns_infoGet():", status);
-		return NULL;
+	// open a new session with the DNS configuration server
+	server = _dns_server;
+	while (TRUE) {
+		if (server != MACH_PORT_NULL) {
+			status = shared_dns_infoGet(server, &dataRef, &dataLen);
+			if (status == KERN_SUCCESS) {
+				break;
+			}
+
+			// our [cached] server port is not valid
+			if (status != MACH_SEND_INVALID_DEST) {
+				// if we got an unexpected error, don't retry
+				fprintf(stderr,
+					"dns_configuration_copy shared_dns_infoGet(): %s\n",
+					mach_error_string(status));
+				break;
+			}
+		}
+
+		pthread_mutex_lock(&_dns_lock);
+		if (_dns_server != MACH_PORT_NULL) {
+			if (server == _dns_server) {
+				// if the server we tried returned the error
+				(void)mach_port_deallocate(mach_task_self(), server);
+				_dns_server = _dns_configuration_server_port();
+			} else {
+				// another thread has refreshed the DNS server port
+			}
+		} else {
+			_dns_server = _dns_configuration_server_port();
+		}
+		server = _dns_server;
+		pthread_mutex_unlock(&_dns_lock);
+
+		if (server == MACH_PORT_NULL) {
+			// if server not available
+			break;
+		}
 	}
 
 	if (dataRef != NULL) {
@@ -295,7 +352,6 @@ expand_config(_dns_config_buf_t *buf)
 }
 
 
-__private_extern__
 const char *
 dns_configuration_notify_key()
 {
@@ -303,7 +359,6 @@ dns_configuration_notify_key()
 }
 
 
-__private_extern__
 dns_config_t *
 dns_configuration_copy()
 {
@@ -325,7 +380,6 @@ dns_configuration_copy()
 }
 
 
-__private_extern__
 void
 dns_configuration_free(dns_config_t *config)
 {

@@ -9,7 +9,7 @@ ToolType        = Commands
 GnuAfterInstall = install-plist populate-symroot
 CommonNoInstallSource	= YES
 
-ifeq ($(shell test -x /usr/local/bin/tconf && tconf --test TARGET_OS_EMBEDDED),YES)
+ifeq ($(shell tconf --test TARGET_OS_EMBEDDED),YES)
 GnuAfterInstall+= install-config
 endif
 
@@ -19,9 +19,10 @@ endif
 SDKROOT ?= /
 # CFLAGS is set in the Makefile, but overridden in the environment.
 # To work around, just pass the extra flags that the Makefile contains.
-Extra_CC_Flags  = -mdynamic-no-pic -DHAVE_CONFIG_H -I$(Sources)/popt -D_FORTIFY_SOURCE=2 $(NO_POINTER_SIGN) \
+Extra_CC_Flags  = -mdynamic-no-pic -DHAVE_CONFIG_H -I$(Sources)/popt -D_FORTIFY_SOURCE=2 \
+	$(NO_POINTER_SIGN) -Wno-discard-qual \
 	$(ifneq /,$(SDKROOT),-isysroot $(SDKROOT))
-Extra_Configure_Flags = --enable-ea-support
+Extra_Configure_Flags = --enable-ea-support ac_cv_sizeof_long="__WORDSIZE/8"
 
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make

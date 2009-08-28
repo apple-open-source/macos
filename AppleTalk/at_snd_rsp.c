@@ -41,9 +41,9 @@
 
 #include <sys/errno.h>
 
-#include <netat/appletalk.h>
-#include <netat/atp.h>
-#include <netat/ddp.h>
+#include "at_proto.h"
+
+#define	SET_ERRNO(e) errno = e
 
 int
 atp_sendrsp (fd, dest, xo, tid, resp)
@@ -53,55 +53,6 @@ atp_sendrsp (fd, dest, xo, tid, resp)
 	u_short		tid;
 	at_resp_t	*resp;
 {
-	char respbuff[TOTAL_ATP_HDR_SIZE + sizeof(struct atpBDS)*ATP_TRESP_MAX];
-	int		nbds;
-	at_ddp_t	*ddphdr   = (at_ddp_t *) respbuff;
-	at_atp_t	*atphdr   = (at_atp_t *) ddphdr->data;
-	struct atpBDS	*bds = (struct atpBDS *) &respbuff[TOTAL_ATP_HDR_SIZE];
-	int		i;
-	struct iovec	iov[ATP_TRESP_MAX];
-	int		resplen, datalen = 0;
-
-	if (!valid_at_addr(dest)) /* validate dest addr */
-		return (-1);
-
-	/* Set up the ATP response data */
-	for (i = nbds = 0; i < ATP_TRESP_MAX; i++) {
-		if (!(resp->bitmap & (1 << i)))
-			continue;
-		if (resp->resp[i].iov_len > ATP_DATA_SIZE) {
-			errno = EINVAL;
-			return (-1);
-		}
-
-		/* copy userdata and response data */
-
-		*(u_long*)bds->bdsUserData = resp->userdata[i];
-		UAL_ASSIGN(bds->bdsBuffAddr, (resp->resp[i].iov_base)); 
-		UAS_ASSIGN(bds->bdsBuffSz, (short)resp->resp[i].iov_len);
-		iov[nbds].iov_base = (caddr_t)resp->resp[i].iov_base;
-		iov[nbds].iov_len  = (int)resp->resp[i].iov_len;
-		bds++;
-		nbds++;
-		datalen += (int)resp->resp[i].iov_len;
-	}
-
-	/* fill in DDP & ATP headers */
-
-	UAS_ASSIGN((bds-nbds)->bdsDataSz, nbds);	
-	ddphdr->type       	= DDP_ATP;
-	UAS_ASSIGN(ddphdr->checksum, 0);
-	NET_ASSIGN(ddphdr->dst_net, dest->net);
-	ddphdr->dst_node   	= dest->node;
-	ddphdr->dst_socket 	= dest->socket;
-	UAS_ASSIGN_HTON(atphdr->tid, tid);
-	atphdr->xo	 	= xo;
-
-	/* We're ready to send the response buffers,
-	 * send the resp data
-	 */
-	resplen = TOTAL_ATP_HDR_SIZE+(sizeof(struct atpBDS)*nbds);
-	return ATPsndrsp(fd, respbuff, resplen, datalen);
-
-	return (0);
+	SET_ERRNO(ENXIO);
+	return (-1);
 }	

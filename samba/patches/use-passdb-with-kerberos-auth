@@ -1,0 +1,21 @@
+Index: samba/source/auth/auth_util.c
+===================================================================
+--- samba/source/auth/auth_util.c.orig
++++ samba/source/auth/auth_util.c
+@@ -1376,10 +1376,12 @@ NTSTATUS make_server_info_pw(auth_server
+ 	if ( !(sampass = samu_new( NULL )) ) {
+ 		return NT_STATUS_NO_MEMORY;
+ 	}
+-	
+-	status = samu_set_unix( sampass, pwd );
+-	if (!NT_STATUS_IS_OK(status)) {
+-		return status;
++
++        if (!pdb_getsampwnam(sampass, unix_username)) {
++		status = samu_set_unix( sampass, pwd );
++		if (!NT_STATUS_IS_OK(status)) {
++			return status;
++		}
+ 	}
+ 
+ 	result = make_server_info(NULL);

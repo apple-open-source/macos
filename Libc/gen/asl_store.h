@@ -2,7 +2,7 @@
 #define __ASL_STORE_H__
 
 /*
- * Copyright (c) 2007-2008 Apple Inc.  All rights reserved.
+ * Copyright (c) 2007 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -44,6 +44,7 @@ typedef struct
 	time_t ts;
 	uid_t u;
 	gid_t g;
+	time_t bb;
 	char *path;
 	asl_file_t *f;
 } asl_cached_file_t;
@@ -53,7 +54,6 @@ typedef struct
 	char *base_dir;
 	FILE *storedata;
 	uint64_t next_id;
-	asl_file_t *db;
 	asl_cached_file_t file_cache[FILE_CACHE_SIZE];
 	void *work;
 	time_t start_today;

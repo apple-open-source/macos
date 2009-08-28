@@ -1,7 +1,7 @@
 /*
  * rlm_dbm_parser.c :    Create dbm file from plain text
  *
- * Version:     $Id: rlm_dbm_parser.c,v 1.9.4.1 2006/08/22 18:19:31 aland Exp $
+ * Version:     $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,19 +15,17 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
  * Copyright 2001 Koulik Andrei, Sandy Service
  */
 
 
 char sccsid[] =
-"$Id: rlm_dbm_parser.c,v 1.9.4.1 2006/08/22 18:19:31 aland Exp $ sandy module project\n Copyright 2001 Sandy Service\nCopyright 2001 Koulik Andrei";
+"$Id$ sandy module project\n Copyright 2001 Sandy Service\nCopyright 2001 Koulik Andrei";
 
-#include "autoconf.h"
+#include <freeradius-devel/radiusd.h>
 #include <fcntl.h>
-
-#include <stdlib.h>
 
 #ifdef HAVE_NDBM_H
 #include <ndbm.h>
@@ -41,20 +39,15 @@ char sccsid[] =
 #include <gdbm-ndbm.h>
 #endif
 
-#include <stdio.h>
 #include <ctype.h>
-#include <string.h>
 
-#include "conf.h"
-#include "radpaths.h"
-#include "missing.h"
-
-#include "radiusd.h"
+#include <freeradius-devel/conf.h>
+#include <freeradius-devel/radpaths.h>
 
 #define	MAX_BUFF_SIZE	1024
 
-#define DOUT1	if( librad_debug > 0 ) printf
-#define DOUT2	if( librad_debug > 5 ) printf
+#define DOUT1	if( fr_debug_flag > 0 ) printf
+#define DOUT2	if( fr_debug_flag > 5 ) printf
 
 typedef enum sm_parse_state_t {
 	SMP_INVALID = 0,
@@ -79,14 +72,13 @@ unsigned long 	st_errors = 0,
 
 /*  test
 
-int dumplist(VALUE_PAIR *vp) {
-
+int dumplist(VALUE_PAIR *vp)
+{
+	char buffer[1024];
 	while (vp != NULL) {
+		vp_prints(buffer, sizeof(buffer), vp);
 
-		printf("VP: name: %s\nattribute: %d\ntype: %d\nlvalue: %lu"
-			"\noperator %d\naddport: %d\nValue: %s\n",
-		   	vp -> name, vp -> attribute, vp -> type, vp -> lvalue,
-		   	vp -> operator, vp -> addport, (char*)vp -> strvalue);
+		printf("\t%s\n", buffer);
 		vp = vp -> next;
 	}
 	return 0;
@@ -188,7 +180,7 @@ static int getuname(char **p,char *u,int n) {
 }
 
 static int sm_parse_file(FILE*fp,const char* fname) {
-        LRAD_TOKEN tok;
+        FR_TOKEN tok;
         VALUE_PAIR *vp = NULL;
 	sm_parse_state_t  parse_state = SMP_USER;
 	unsigned long lino  = 0;
@@ -260,8 +252,8 @@ static int sm_parse_file(FILE*fp,const char* fname) {
 
 		    	case T_COMMA: break;  /* parse next line */
 		    	default: /* error: we do  not expect anything else */
-		    			fprintf(stderr ,"%s: %s[%lu]: sintax error\n",progname,fname,lino);
-		    			librad_perror("Error");
+		    			fprintf(stderr ,"%s: %s[%lu]: syntax error\n",progname,fname,lino);
+		    			fr_perror("Error");
 		    			parse_state = SMP_INVALID;
 		    			st_errors++;
 		    }
@@ -316,7 +308,7 @@ int main(int n,char **argv) {
 
 	progname = argv[0];
 
-	librad_debug = 0;
+	fr_debug_flag = 0;
 
 	while ((ch = getopt(n, argv, "d:i:xo:qvc")) != -1)
 	 	switch (ch) {
@@ -327,7 +319,7 @@ int main(int n,char **argv) {
 				fname = optarg;
 				break;
 			case 'x':
-				librad_debug++;
+				fr_debug_flag++;
 			case 'o':
 				ofile = optarg;
 				break;
@@ -335,7 +327,7 @@ int main(int n,char **argv) {
 				print_stat = 0;
 				break;
 			case 'v':
-				printf("%s: $Id: rlm_dbm_parser.c,v 1.9.4.1 2006/08/22 18:19:31 aland Exp $ \n",progname);
+				printf("%s: $Id$ \n",progname);
 				exit(0);
 			case 'c':
 				oflags = O_CREAT | O_TRUNC | O_RDWR;
@@ -350,7 +342,7 @@ int main(int n,char **argv) {
 
 	DOUT1("Use dictionary in: %s\n",sm_radius_dir);
 	if (dict_init(sm_radius_dir, RADIUS_DICTIONARY) < 0 ) {
-       		librad_perror("parser: init dictionary:");
+       		fr_perror("parser: init dictionary:");
                 exit(1);
         }
 

@@ -484,7 +484,8 @@ static void show( io_registry_entry_t service,
     io_name_t              class;          // (don't release)
     struct context         context    = { service, serviceDepth, stackOfBits, options };
     uint32_t               integer    = 0;
-    UInt64                 state      = 0;
+    uint64_t               state      = 0;
+    uint64_t		   accumulated_busy_time;
     io_name_t              location;       // (don't release)
     io_name_t              name;           // (don't release)
     CFMutableDictionaryRef properties = 0; // (needs release)
@@ -542,11 +543,19 @@ static void show( io_registry_entry_t service,
 
     if (options.state)
     {
+	uint64_t entryID;
+
+        status = IORegistryEntryGetRegistryEntryID(service, &entryID);
+        if (status == KERN_SUCCESS);
+	{
+	    print(", id 0x%llx", entryID);
+	}
+	
         // Print out the busy state of the service (for IOService objects).
 
         if (IOObjectConformsTo(service, "IOService"))
         {
-            status = IOServiceGetState(service, &state);
+            status = IOServiceGetBusyStateAndTime(service, &state, &integer, &accumulated_busy_time);
             assertion(status == KERN_SUCCESS, "can't obtain state");
 
             print( ", %sregistered, %smatched, %sactive",
@@ -554,10 +563,14 @@ static void show( io_registry_entry_t service,
                    state & kIOServiceMatchedState    ? "" : "!",
                    state & kIOServiceInactiveState   ? "in" : "" );
 
-            status = IOServiceGetBusyState(service, &integer);
-            assertion(status == KERN_SUCCESS, "can't obtain busy state");
+            print(", busy %ld", 
+		    (unsigned long)integer);
 
-            print(", busy %d", integer);
+	    if (accumulated_busy_time)
+	    {
+		print(" (%lld ms)", 
+		    accumulated_busy_time / kMillisecondScale);
+	    }
         }
 
         // Print out the retain count of the service.
@@ -565,7 +578,7 @@ static void show( io_registry_entry_t service,
         integer = IOObjectGetRetainCount(service);
         assertion(integer >= 0, "can't obtain retain count");
 
-        print(", retain %d", integer);
+        print(", retain %ld", (unsigned long)integer);
     }
 
     println(">");
@@ -975,9 +988,9 @@ static void cfnumbershow(CFNumberRef object)
     if (CFNumberGetValue(object, kCFNumberLongLongType, &number))
     {
         if (cfshowhex)
-            print("0x%qx", number); 
+            print("0x%qx", (unsigned long long)number); 
         else
-            print("%qu", number); 
+            print("%qu", (unsigned long long)number); 
     }
 }
 
@@ -1055,6 +1068,8 @@ static CFStringRef createInheritanceStringForIORegistryClassName(CFStringRef nam
 			break;
 		}
 	}
+    
+    if (curClassCFStr) CFRelease(curClassCFStr);
 	
 	// Return the CFMutableStringRef as a CFStringRef because it is derived and compatible:
 	return (CFStringRef) outCFStr;
@@ -1219,9 +1234,9 @@ static void printPhysAddr(CFTypeRef value, struct context * context)
 {
     CFIndex length;                      // stores total byte count in this prop.
     struct physAddrProperty *physAddr;   // points to current physAddr property
-    UInt32 numPhysAddr,                  // how many physAddr's to decode?
-           count,                        // loop counter variable
-           tmpCell;                      // temp storage for a single word
+    UInt64 numPhysAddr,                  // how many physAddr's to decode?
+           count;                        // loop counter variable
+    UInt32 tmpCell;                      // temp storage for a single word
            
     UInt32 busNumber,                    // temp storage for decoded values
            deviceNumber,
@@ -1275,23 +1290,23 @@ static void printPhysAddr(CFTypeRef value, struct context * context)
         // Format and print the information for this entry.
         
         indent(FALSE, context->serviceDepth, context->stackOfBits);
-        println("    %02u: phys.hi: %08lx phys.mid: %08lx phys.lo: %08lx",
-                count,
-                physAddr[count].physHi,
-                physAddr[count].physMid,
-                physAddr[count].physLo );
+        println("    %02lu: phys.hi: %08lx phys.mid: %08lx phys.lo: %08lx",
+                (unsigned long)count,
+                (unsigned long)physAddr[count].physHi,
+                (unsigned long)physAddr[count].physMid,
+                (unsigned long)physAddr[count].physLo );
 
         indent(FALSE, context->serviceDepth, context->stackOfBits);
         println("        size.hi: %08lx size.lo: %08lx",
-                physAddr[count].sizeHi,
-                physAddr[count].sizeLo );
+                (unsigned long)physAddr[count].sizeHi,
+                (unsigned long)physAddr[count].sizeLo );
 
         indent(FALSE, context->serviceDepth, context->stackOfBits);
-        println("        bus: %u dev: %u func: %u reg: %u",
-                busNumber,
-                deviceNumber,
-                functionNumber,
-                registerNumber );
+        println("        bus: %lu dev: %lu func: %lu reg: %lu",
+                (unsigned long)busNumber,
+                (unsigned long)deviceNumber,
+                (unsigned long)functionNumber,
+                (unsigned long)registerNumber );
 
         indent(FALSE, context->serviceDepth, context->stackOfBits);
         println("        type: %s flags: %s%s%s",
@@ -1343,7 +1358,7 @@ static void printSlotNames(CFTypeRef value, struct context * context)
         if ((*avail_slots & (1 << count)) != 0)
         {
             indent(FALSE, context->serviceDepth, context->stackOfBits);
-            println("    %02u: %s", count, bytePtr);
+            println("    %02lu: %s", (unsigned long)count, bytePtr);
             bytePtr += strlen(bytePtr) + 1;  // advance to next string
         }
     }
@@ -1356,8 +1371,8 @@ static void printPCIRanges(CFTypeRef value, struct context * context)
     UInt32                 *quadletPtr;
     SInt32				   parentACells, childACells, childSCells, elemSize;
     io_registry_entry_t    parentObj;   // must be released
-    int                    i,j,nRanges;
-    int					   counts[3];
+    UInt64                 i,j,nRanges;
+    SInt32				   counts[3];
     const char			   *titles[] = {"-child--", "-parent-", "-size---"};
     
     // Ensure that the object passed in is in fact a CFData object.
@@ -1424,7 +1439,7 @@ static void printPCIRanges(CFTypeRef value, struct context * context)
     {
         indent(FALSE, context->serviceDepth, context->stackOfBits);
         print("    ");
-        for(i = 0; i < elemSize; i++) print("%08x ", *quadletPtr++);
+        for(i = 0; i < elemSize; i++) print("%08lx ", (unsigned long)*quadletPtr++);
         println("");
     }
 }
@@ -1465,6 +1480,8 @@ static Boolean lookupPHandle(UInt32 phandle, io_registry_entry_t * device)
                                 &kCFCopyStringDictionaryKeyCallBacks,
                                 &kCFTypeDictionaryValueCallBacks );
 
+   /* This call consumes 'value', so do not release it.
+    */
     *device = IOServiceGetMatchingService(kIOMasterPortDefault, value);
 
     if (*device)
@@ -1482,7 +1499,7 @@ static void printInterruptMap(CFTypeRef value, struct context * context)
     io_string_t				path;
     SInt32					childCells, parentCells;
     UInt32					*position, *end;
-    int						length, count, index;
+    CFIndex						length, count, index;
     
     // Get #address-cells and #interrupt-cells for owner
 	childCells = getRecursivePropValue( context->service, CFSTR("#address-cells"   ) )
@@ -1499,11 +1516,13 @@ static void printInterruptMap(CFTypeRef value, struct context * context)
     while (position < end)
     {
         indent(FALSE, context->serviceDepth, context->stackOfBits);
-        print("    %02d: ", count);
+        print("    %02ld: ", (unsigned long)count);
         
         // Display the child's unit interrupt specifier.
         print("  child: ");
-        for (index = 0; index < childCells; index++) print("%08x ", *position++);
+        for (index = 0; index < childCells; index++) {
+            print("%08lx ", (unsigned long)*position++);
+        }
         println("");
 
         // Lookup the phandle and retreive needed info.
@@ -1520,11 +1539,13 @@ static void printInterruptMap(CFTypeRef value, struct context * context)
         // Display the phandle, corresponding device path, and
         // the parent interrupt specifier.
         indent(FALSE, context->serviceDepth, context->stackOfBits);
-        println("        phandle: %08x (%s)", *position++, path);
+        println("        phandle: %08lx (%s)", (unsigned long)*position++, path);
         
         indent(FALSE, context->serviceDepth, context->stackOfBits);
         print("         parent: ");
-        for (index = 0; index < parentCells; index++) print("%08x ", *position++);
+        for (index = 0; index < parentCells; index++) {
+            print("%08lx ", (unsigned long)*position++);
+        }
         println("");
 
         count++;
@@ -1534,7 +1555,7 @@ static void printInterruptMap(CFTypeRef value, struct context * context)
 static void printInterrupts(CFTypeRef value, struct context * context)
 {
     UInt32					*position, *end;
-    int						length, count, index;
+    CFIndex					length, count, index;
 
     // Walk through each table entry.
     position = (UInt32 *)CFDataGetBytePtr((CFDataRef)value);
@@ -1548,23 +1569,28 @@ static void printInterrupts(CFTypeRef value, struct context * context)
     while (position < end)
     {
         indent(FALSE, context->serviceDepth, context->stackOfBits);
-        print("    %02d: ", index);
+        print("    %02ld: ", (unsigned long)index);
         
 		if ( count < (length-1) )
 		{
-			print("specifier: %08x (vector: %02lx) sense: %08x (", *position, (*position) & 0x000000FF, *(position+1) );
+			print("specifier: %08lx (vector: %02lx) sense: %08lx (",
+                (unsigned long)*position,
+                (unsigned long)((*position) & 0x000000FF),
+                (unsigned long)*(position+1) );
 			position ++;
 			count    ++;
 			if ( (*position & 0x00000002 ) )	// HyperTransport
 			{
-				print( "HyperTransport vector: %04lx, ", (*position >> 16) & 0x0000FFFF );
+				print( "HyperTransport vector: %04lx, ",
+                    (unsigned long)((*position >> 16) & 0x0000FFFF));
 			}
 
 			println( "%s)", (*position & 1)? "level" : "edge" );
 		}
 		else
 		{
-			println("parent interrupt-map entry: %08x", *position );
+			println("parent interrupt-map entry: %08lx",
+                (unsigned long)*position );
 		}
 
 		position ++;
@@ -1584,7 +1610,7 @@ UInt32					* pHandleValue = (UInt32 *) CFDataGetBytePtr( (CFDataRef) value );
         *path = '\0';
 		makepath( parentRegEntry, path );
 
-		print( "<%08x>", *pHandleValue );
+		print( "<%08lx>", (unsigned long)*pHandleValue );
 		if ( *path != '\0' )
 			print( " (%s)", path );
 		println( "" );
@@ -1700,8 +1726,8 @@ static void printData(CFTypeRef value, struct context * context)
         SInt8* p;
         UInt32    i;
         UInt32 offset;
-        UInt32 totalBytes;
-        UInt32 nBytesToDraw;
+        CFIndex totalBytes;
+        CFIndex nBytesToDraw;
         UInt32 bytesPerLine;
         UInt8  c;
 

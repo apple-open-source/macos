@@ -1,7 +1,6 @@
-<TABLE WIDTH="100%" CLASS="pager" SUMMARY="Barra de paginaci&oacute;n">
+<TABLE CLASS="inset" SUMMARY="Barra de paginaci&oacute;n">
 <TR>
-	<TD WIDTH="33%">{PREVURL?<A HREF="{PREVURL}"><IMG SRC="/images/button-show-previous.gif" ALT="Mostrar anterior" CLASS="button"></A>:&nbsp;}</TD>
-	<TD WIDTH="34%" ALIGN="CENTER">{ORDER=dec?<A HREF="{THISURL}&amp;ORDER=asc"><IMG SRC="/images/button-sort-ascending.gif" ALT="Orden ascendente" CLASS="button"></A>:<A HREF="{THISURL}&amp;ORDER=dec"><IMG SRC="/images/button-sort-descending.gif" ALT="Orden descendente" CLASS="button"></A>}</TD>
-	<TD WIDTH="33%" ALIGN="RIGHT">{NEXTURL?<A HREF="{NEXTURL}"><IMG SRC="/images/button-show-next.gif" ALT="Mostrar siguiente" CLASS="button"></A>:&nbsp;}</TD>
+	<TD WIDTH="50%">{PREV?<FORM ACTION="{THISURL}" METHOD="GET"><INPUT TYPE="HIDDEN" NAME="QUERY" VALUE="{?QUERY}"><INPUT TYPE="HIDDEN" NAME="ORDER" VALUE="{?ORDER}"><INPUT TYPE="HIDDEN" NAME="WHICH_JOBS" VALUE="{?WHICH_JOBS}"><INPUT TYPE="HIDDEN" NAME="FIRST" VALUE="{PREV}"><INPUT TYPE="SUBMIT" VALUE="&#x25c0; Mostrar anteriores"></FORM>:&nbsp;}</TD>
+	<TD WIDTH="50%" ALIGN="RIGHT">{NEXT?<FORM ACTION="{THISURL}" METHOD="GET"><INPUT TYPE="HIDDEN" NAME="QUERY" VALUE="{?QUERY}"><INPUT TYPE="HIDDEN" NAME="ORDER" VALUE="{?ORDER}"><INPUT TYPE="HIDDEN" NAME="WHICH_JOBS" VALUE="{?WHICH_JOBS}"><INPUT TYPE="HIDDEN" NAME="FIRST" VALUE="{NEXT}"><INPUT TYPE="SUBMIT" VALUE="Mostrar siguientes &#x25b6;"></FORM>:&nbsp;}</TD>
 </TR>
 </TABLE>

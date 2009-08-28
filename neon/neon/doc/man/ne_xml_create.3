@@ -1,26 +1,33 @@
-.\" ** You probably do not want to edit this file directly **
-.\" It was generated using the DocBook XSL Stylesheets (version 1.69.1).
-.\" Instead of manually editing it, you probably should edit the DocBook XML
-.\" source for it and then use the DocBook XSL Stylesheets to regenerate it.
-.TH "NE_XML_CREATE" "3" "23 January 2007" "neon 0.26.3" "neon API reference"
+.\"     Title: ne_xml_create
+.\"    Author: 
+.\" Generator: DocBook XSL Stylesheets v1.73.2 <http://docbook.sf.net/>
+.\"      Date: 20 August 2008
+.\"    Manual: neon API reference
+.\"    Source: neon 0.28.3
+.\"
+.TH "NE_XML_CREATE" "3" "20 August 2008" "neon 0.28.3" "neon API reference"
 .\" disable hyphenation
 .nh
 .\" disable justification (adjust text to left margin only)
 .ad l
 .SH "NAME"
-ne_xml_create, ne_xml_destroy \- create and destroy an XML parser
+ne_xml_create, ne_xml_destroy - create and destroy an XML parser
 .SH "SYNOPSIS"
-.PP
-\fB#include <ne_xml.h>\fR
+.sp
+.ft B
+.nf
+#include <ne_xml\.h>
+.fi
+.ft
 .HP 29
-\fBne_xml_parser\ *\fBne_xml_create\fR\fR\fB(\fR\fBvoid);\fR
+.BI "ne_xml_parser *ne_xml_create(void);"
 .HP 20
-\fBvoid\ \fBne_xml_destroy\fR\fR\fB(\fR\fBne_xml_parser\ *\fR\fB\fIparser\fR\fR\fB);\fR
+.BI "void ne_xml_destroy(ne_xml_parser\ *" "parser" ");"
 .SH "DESCRIPTION"
 .PP
 The
 \fBne_xml_create\fR
-function creates an XML parser object, which can be used for parsing XML documents using stacked SAX handlers.
+function creates an XML parser object, which can be used for parsing XML documents using stacked SAX handlers\.
 .SH "RETURN VALUE"
 .PP
 \fBne_xml_create\fR
@@ -29,3 +36,10 @@ NULL
 .SH "SEE ALSO"
 .PP
 XXX
+.SH "AUTHOR"
+.PP
+\fBJoe Orton\fR <\&neon@lists.manyfish.co.uk\&>
+.sp -1n
+.IP "" 4
+Author.
+.SH "COPYRIGHT"

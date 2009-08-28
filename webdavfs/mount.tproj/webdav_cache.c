@@ -347,7 +347,7 @@ static void display_node_tree_level(struct node_entry *dir_node)
 	LIST_FOREACH(node, &(dir_node->children), entries)
 	{
 		++gtabs;
-		syslog(LOG_ERR, "%*s%s: %ld %s, node ino %ld, attr ino %ld", gtabs*3, "", node->name, (unsigned long)node, node->node_type == WEBDAV_DIR_TYPE ? "d" : "f", node->fileid, node->attr_stat.st_ino);
+		syslog(LOG_ERR, "%*s%s: %ld %s, node ino %ld, attr ino %u", gtabs*3, "", node->name, (unsigned long)node, node->node_type == WEBDAV_DIR_TYPE ? "d" : "f", node->fileid, node->attr_stat.st_ino);
 		display_node_tree_level(node);
 		--gtabs;
 	}
@@ -361,7 +361,7 @@ void nodecache_display_node_tree(void)
 	
 	node = g_root_node;
 	gtabs = 0;
-	syslog(LOG_ERR, "%*s%s: %ld %s, node ino %ld, attr ino %ld", gtabs*3, "", node->name, (unsigned long)node, node->node_type == WEBDAV_DIR_TYPE ? "d" : "f", node->fileid, node->attr_stat.st_ino);
+	syslog(LOG_ERR, "%*s%s: %ld %s, node ino %ld, attr ino %u", gtabs*3, "", node->name, (unsigned long)node, node->node_type == WEBDAV_DIR_TYPE ? "d" : "f", node->fileid, node->attr_stat.st_ino);
 	display_node_tree_level(node);
 	syslog(LOG_ERR, "-----");
 	
@@ -669,6 +669,7 @@ static int internal_get_node(
 		CFStringRef name_string;
 		
 		name_string = CFStringCreateWithBytes(kCFAllocatorDefault, (const UInt8 *)name, name_length, kCFStringEncodingUTF8, false);
+		require_action(name_string != NULL, out, error = EINVAL);
 
 		/* search for an existing node_entry */
 		LIST_FOREACH(node_ptr, &(parent->children), entries)
@@ -749,6 +750,7 @@ static int internal_get_node(
 AssignOpaqueID:
 malloc_name:
 calloc_node_ptr:
+out:
 
 	/* return node_entry */
 	if ( error == 0 )
@@ -810,7 +812,19 @@ static void internal_free_nodes(void)
 			/* invalidate the nodeid */
 			(void) DeleteOpaqueID(node->nodeid);
 			node->nodeid = kInvalidOpaqueID;
-			
+
+			if ( node->file_entity_tag != NULL )
+			{
+				free(node->file_entity_tag);
+				node->file_entity_tag = NULL;
+			}
+			node->file_locktoken_uid = 0;
+			if ( node->file_locktoken != NULL )
+			{
+				free(node->file_locktoken);
+				node->file_locktoken = NULL;
+			}
+
 			/* free memory used by the node */
 			free(node->name);
 			CFRelease(node->name_ref);

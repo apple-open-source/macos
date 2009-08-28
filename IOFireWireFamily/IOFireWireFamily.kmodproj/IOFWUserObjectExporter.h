@@ -1,99 +1,95 @@
 /*
- *  IOFWUserObjectExporter.h
- *  IOFireWireFamily
+ * Copyright (c) 1998-2008 Apple Computer, Inc. All rights reserved.
  *
- *  Created by Niels on Mon Apr 14 2003.
- *  Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
- *
- *	$Log: IOFWUserObjectExporter.h,v $
- *	Revision 1.7  2007/01/06 06:20:43  collin
- *	*** empty log message ***
- *	
- *	Revision 1.6  2006/02/09 00:21:51  niels
- *	merge chardonnay branch to tot
- *	
- *	Revision 1.5  2005/04/02 02:43:46  niels
- *	exporter works outside IOFireWireFamily
- *	
- *	Revision 1.4  2005/03/31 02:31:44  niels
- *	more object exporter fixes
- *	
- *	Revision 1.3  2005/03/30 22:14:55  niels
- *	Fixed compile errors see on Tiger w/ GCC 4.0
- *	Moved address-of-member-function calls to use OSMemberFunctionCast
- *	Added owner field to IOFWUserObjectExporter
- *	User client now cleans up published unit directories when client dies
- *	
- *	Revision 1.2.20.2  2006/01/31 04:49:50  collin
- *	*** empty log message ***
- *	
- *	Revision 1.2  2003/07/21 06:52:59  niels
- *	merge isoch to TOT
- *	
- *	Revision 1.1.2.1  2003/07/01 20:54:07  niels
- *	isoch merge
- *	
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
+ * 
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
  */
 
-// yes, it's thread safe..
-// do not subclass!
-
-#ifdef KERNEL
+/*! @class IOFWUserObjectExporter
+	@discussion An IOFWUserObjectExporter is for internal use only. You should never subclass IOFWUserObjectExporter 
+*/
 
 	namespace IOFireWireLib
 	{
-		typedef struct AKernelObject* UserObjectHandle;
+		typedef UInt32      UserObjectHandle;
 	}
-	
+
+#ifdef KERNEL
+
 	class IOFWUserObjectExporter : public OSObject
 	{
 		OSDeclareDefaultStructors (IOFWUserObjectExporter )
 
 		public :
 		
-			typedef void (*CleanupFunction)( const OSObject * obj ) ;
-			typedef void (*CleanupFunctionWithExporter)( const OSObject * obj, IOFWUserObjectExporter * ) ;
+			typedef void (*CleanupFunction)( const OSObject * obj );
+			typedef void (*CleanupFunctionWithExporter)( const OSObject * obj, IOFWUserObjectExporter * );
 			
 		private :
 		
-			unsigned				fCapacity ;
-			unsigned				fObjectCount ;
-			const OSObject **		fObjects ;
-			CleanupFunctionWithExporter *		fCleanupFunctions ;
-			IOLock *				fLock ;
-			OSObject *				fOwner ;
+			unsigned							fCapacity;
+			unsigned							fObjectCount;
+			const OSObject **					fObjects;
+			CleanupFunctionWithExporter *		fCleanupFunctions;
+			IOLock *							fLock;
+			OSObject *							fOwner;
 			
 		public :
 		
-			// OSObject
-			virtual bool			init() ;
-			bool					initWithOwner( OSObject * owner ) ;
-			virtual void			free () ;
-			virtual bool			serialize ( OSSerialize * s ) const ;
+			static IOFWUserObjectExporter *		createWithOwner( OSObject * owner );
+			bool								initWithOwner( OSObject * owner );
+
+			virtual bool			init();
+	
+			virtual void			free ();
+			virtual bool			serialize ( OSSerialize * s ) const;
 			
 			// me
-			IOReturn				addObject ( OSObject & obj, CleanupFunction cleanup, IOFireWireLib::UserObjectHandle & outHandle ) ;
-			void					removeObject ( IOFireWireLib::UserObjectHandle handle ) ;
+			IOReturn				addObject ( OSObject * obj, CleanupFunction cleanup, IOFireWireLib::UserObjectHandle * outHandle );
+			void					removeObject ( IOFireWireLib::UserObjectHandle handle );
 			
 			// the returned object is retained! This is for thread safety.. if someone else released
 			// the object from the pool after you got it, you be in for Trouble
 			// Release the returned value when you're done!!
-			const OSObject *		lookupObject ( IOFireWireLib::UserObjectHandle handle ) const ;
-			void					removeAllObjects () ;
+			const OSObject *		lookupObject ( IOFireWireLib::UserObjectHandle handle ) const;
+			const OSObject *		lookupObjectForType( IOFireWireLib::UserObjectHandle handle, const OSMetaClass * toType ) const;
+			void					removeAllObjects ();
 
-			inline void				lock () const				{ IOLockLock ( fLock ) ; }
-			inline void				unlock () const				{ IOLockUnlock ( fLock ) ; }
+			void					lock () const;
+			void					unlock () const;
 			
-			OSObject *				getOwner() const ;
-	} ;
-
-#else
-
-// always 32 bits wide in user space
-
-namespace IOFireWireLib
-{
-	typedef UInt32      UserObjectHandle;
-}
+			OSObject *				getOwner() const;
+			
+			const IOFireWireLib::UserObjectHandle	lookupHandle ( OSObject * object ) const;
+		
+			// don't subclass, but just in case someone does...
+			
+		private:
+		
+			OSMetaClassDeclareReservedUnused(IOFWUserObjectExporter, 0);
+			OSMetaClassDeclareReservedUnused(IOFWUserObjectExporter, 1);
+			OSMetaClassDeclareReservedUnused(IOFWUserObjectExporter, 2);
+			OSMetaClassDeclareReservedUnused(IOFWUserObjectExporter, 3);
+			OSMetaClassDeclareReservedUnused(IOFWUserObjectExporter, 4);
+			OSMetaClassDeclareReservedUnused(IOFWUserObjectExporter, 5);
+			OSMetaClassDeclareReservedUnused(IOFWUserObjectExporter, 6);
+			OSMetaClassDeclareReservedUnused(IOFWUserObjectExporter, 7);
+				
+	};
 
 #endif

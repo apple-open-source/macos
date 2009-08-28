@@ -46,7 +46,6 @@ static struct trad_frame_cache *
 tramp_frame_cache (struct frame_info *next_frame,
 		   void **this_cache)
 {
-  CORE_ADDR pc = frame_pc_unwind (next_frame);
   struct tramp_frame_cache *tramp_cache = (*this_cache);
   if (tramp_cache->trad_cache == NULL)
     {

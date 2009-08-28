@@ -15,11 +15,11 @@
 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-# 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301, USA.
 
 AT_SETUP([deleting members with long names])
-AT_KEYWORDS([delete03])
+AT_KEYWORDS([delete delete03])
 
 m4_define([PREFIX],[This_is_a_very_long_file_name_prefix_that_is_designed_to_cause_problems_with_file_names_that_run_into_a_limit_of_the_posix_tar_formatXX])
 

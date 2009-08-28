@@ -184,6 +184,7 @@ int BLInterpretEFIXMLRepresentationAsNetworkPath(BLContextPtr context,
         
             if(iomatch && CFGetTypeID(iomatch) == CFDictionaryGetTypeID()) {
              
+				CFRetain(iomatch);
                 service = IOServiceGetMatchingService(kIOMasterPortDefault,iomatch);
                 if(service != IO_OBJECT_NULL) {
                     

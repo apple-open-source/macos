@@ -1441,7 +1441,7 @@ AC_DEFINE_UNQUOTED(SELECT_TYPE_ARG234, ($[2]),
 		   [Define to the type of args 2, 3 and 4 for `select'.])
 AC_DEFINE_UNQUOTED(SELECT_TYPE_ARG5, ($[3]),
 		   [Define to the type of arg 5 for `select'.])
-rm -f conftest*
+rm -f -r conftest*
 ])# AC_FUNC_SELECT_ARGTYPES
 
 

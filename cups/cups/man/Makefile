@@ -1,9 +1,9 @@
 #
-# "$Id: Makefile 6657 2007-07-13 01:01:14Z mike $"
+# "$Id: Makefile 7930 2008-09-10 22:25:54Z mike $"
 #
 #   Man page makefile for the Common UNIX Printing System (CUPS).
 #
-#   Copyright 2007 by Apple Inc.
+#   Copyright 2007-2008 by Apple Inc.
 #   Copyright 1993-2006 by Easy Software Products.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -30,7 +30,12 @@ MAN1	=	cancel.$(MAN1EXT) \
 		lpq.$(MAN1EXT) \
 		lprm.$(MAN1EXT) \
 		lpr.$(MAN1EXT) \
-		lpstat.$(MAN1EXT)
+		lpstat.$(MAN1EXT) \
+		ppdc.$(MAN1EXT) \
+		ppdhtml.$(MAN1EXT) \
+		ppdi.$(MAN1EXT) \
+		ppdmerge.$(MAN1EXT) \
+		ppdpo.$(MAN1EXT)
 MAN5	=	classes.conf.$(MAN5EXT) \
 		client.conf.$(MAN5EXT) \
 		cups-snmp.conf.$(MAN5EXT) \
@@ -38,11 +43,14 @@ MAN5	=	classes.conf.$(MAN5EXT) \
 		mailto.conf.$(MAN5EXT) \
 		mime.convs.$(MAN5EXT) \
 		mime.types.$(MAN5EXT) \
+		ppdcfile.$(MAN5EXT) \
 		printers.conf.$(MAN5EXT) \
 		subscriptions.conf.$(MAN5EXT)
 MAN7	=	backend.$(MAN7EXT) \
-		filter.$(MAN7EXT)
-MAN8	=	accept.$(MAN8EXT) \
+		drv.$(MAN7EXT) \
+		filter.$(MAN7EXT) \
+		notifier.$(MAN7EXT)
+MAN8	=	cupsaccept.$(MAN8EXT) \
 		cupsaddsmb.$(MAN8EXT) \
 		cupsctl.$(MAN8EXT) \
 		cupsfilter.$(MAN8EXT) \
@@ -63,6 +71,20 @@ MAN8	=	accept.$(MAN8EXT) \
 #
 
 all:	$(MAN1) $(MAN5) $(MAN7) $(MAN8) html
+
+
+#
+# Make library targets...
+#
+
+libs:
+
+
+#
+# Make unit tests...
+#
+
+unittests:
 
 
 #
@@ -94,10 +116,17 @@ depend:
 
 
 #
-# Install files...
+# Install all targets...
 #
 
-install:	all
+install:	all install-data install-headers install-libs install-exec
+
+
+#
+# Install data files...
+#
+
+install-data: all
 	$(INSTALL_DIR) -m 755 $(MANDIR)/man1
 	for file in $(MAN1); do \
 		echo Installing $$file in $(MANDIR)/man1...; \
@@ -118,10 +147,33 @@ install:	all
 		echo Installing $$file in $(AMANDIR)/man$(MAN8DIR)...; \
 		$(INSTALL_MAN) $$file $(AMANDIR)/man$(MAN8DIR); \
 	done
-	$(RM) $(AMANDIR)/man$(MAN8DIR)/reject.$(MAN8EXT)
-	$(LN) accept.$(MAN8EXT) $(AMANDIR)/man$(MAN8DIR)/reject.$(MAN8EXT)
+	for file in accept cupsreject reject; do \
+		$(RM) $(AMANDIR)/man$(MAN8DIR)/$$file.$(MAN8EXT); \
+		$(LN) cupsaccept.$(MAN8EXT) $(AMANDIR)/man$(MAN8DIR)/$$file.$(MAN8EXT); \
+	done
 	$(RM) $(AMANDIR)/man$(MAN8DIR)/cupsdisable.$(MAN8EXT)
 	$(LN) cupsenable.$(MAN8EXT) $(AMANDIR)/man$(MAN8DIR)/cupsdisable.$(MAN8EXT)
+
+
+#
+# Install programs...
+#
+
+install-exec:
+
+
+#
+# Install headers...
+#
+
+install-headers:
+
+
+#
+# Install libraries...
+#
+
+install-libs:
 
 
 #
@@ -144,6 +196,8 @@ uninstall:
 	for file in $(MAN8); do \
 		$(RM) $(AMANDIR)/man$(MAN8DIR)/$$file; \
 	done
+	$(RM) $(AMANDIR)/man$(MAN8DIR)/accept.$(MAN8EXT)
+	$(RM) $(AMANDIR)/man$(MAN8DIR)/cupsreject.$(MAN8EXT)
 	$(RM) $(AMANDIR)/man$(MAN8DIR)/reject.$(MAN8EXT)
 	$(RM) $(AMANDIR)/man$(MAN8DIR)/cupsdisable.$(MAN8EXT)
 	-$(RMDIR) $(AMANDIR)/man$(MAN8DIR)
@@ -173,9 +227,9 @@ html:	$(MAN1) $(MAN5) $(MAN7) $(MAN8) mantohtml
 	done
 
 mantohtml:	mantohtml.o
-	$(CC) $(LDFLAGS) -o $@ mantohtml.o
+	$(CC) $(ARCHFLAGS) $(LDFLAGS) -o $@ mantohtml.o
 
 
 #
-# End of "$Id: Makefile 6657 2007-07-13 01:01:14Z mike $".
+# End of "$Id: Makefile 7930 2008-09-10 22:25:54Z mike $".
 #

@@ -1,6 +1,8 @@
 /* gzip.h -- common declarations for all gzip modules
 
-   Copyright (C) 1997, 1998, 1999, 2001, 2006 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2001, 2006, 2007 Free Software
+   Foundation, Inc.
+
    Copyright (C) 1992-1993 Jean-loup Gailly.
 
    This program is free software; you can redistribute it and/or modify
@@ -43,7 +45,8 @@
  * too often
  */
 #include <stdio.h>
-#include <sys/types.h> /* for off_t, time_t */
+#include <sys/types.h> /* for off_t */
+#include <time.h>
 #if defined HAVE_STRING_H || defined STDC_HEADERS
 #  include <string.h>
 #  if !defined STDC_HEADERS && defined HAVE_MEMORY_H && !defined __GNUC__

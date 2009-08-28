@@ -1,0 +1,29 @@
+(
+	{
+		"OpenSourceModifications" = (
+			"Several security updates, memory leak fixes from 0.7.1 (ported by Les Aug/08)",
+		);
+		OpenSourceProject = racoon;
+		OpenSourceVersion = "0.6.7";
+		OpenSourceWebsiteURL = "http://www.sourceforge.net/projects/ipsec-tools";
+		OpenSourceURL = "http://cvsweb.netbsd.org/bsdweb.cgi/src/crypto/dist/ipsec-tools/src";
+	},
+	{
+		OpenSourceProject = libipsec;
+		OpenSourceVersion = "0.6.5";
+		OpenSourceWebsiteURL = "http://www.sourceforge.net/projects/ipsec-tools";
+		OpenSourceURL = "http://cvsweb.netbsd.org/bsdweb.cgi/src/crypto/dist/ipsec-tools/src";
+	},
+	{
+		OpenSourceProject = setkey;
+		OpenSourceVersion = "0.6.5";
+		OpenSourceWebsiteURL = "http://www.sourceforge.net/projects/ipsec-tools";
+		OpenSourceURL = "http://cvsweb.netbsd.org/bsdweb.cgi/src/crypto/dist/ipsec-tools/src";
+	},
+	{
+		OpenSourceProject = racoonctl;
+		OpenSourceVersion = "0.6.5";
+		OpenSourceWebsiteURL = "http://www.sourceforge.net/projects/ipsec-tools";
+		OpenSourceURL = "http://cvsweb.netbsd.org/bsdweb.cgi/src/crypto/dist/ipsec-tools/src";
+	},
+)

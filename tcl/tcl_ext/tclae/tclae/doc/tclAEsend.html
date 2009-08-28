@@ -1,0 +1,279 @@
+<!doctype HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+
+<html>
+
+<head>
+
+<meta http-equiv="content-type"  content="text/html; charset=macintosh">
+<title>Sending AppleEvents</title>
+<link href="tclae.css" rel="stylesheet" type="text/css">
+
+</head>
+
+<body>
+
+<div class="index">
+<!-- #DOCINDEX TYPE="UL" DEPTH="2" -->
+
+<ul>
+    <li><a href="#Sending">Sending AppleEvents</a>
+
+    <ul>
+        <li><a href="#tclAE::launch">tclAE::launch</a>
+        <li><a href="#tclAE::processes">tclAE::processes</a>
+        <li><a
+        href="#tclAE::remoteProcessResolverGetProcesses">tclAE::remoteProcessResolverGetProcesses</a>
+        <li><a href="#tclAE::send">tclAE::send</a>
+    </ul>
+    
+</ul>
+
+<!-- /#DOCINDEX -->
+</div>
+
+<div class="narrative">
+
+<p>
+This page describes TclÆ calls for sending AppleEvents. 
+For information on the associated ToolBox calls, see <a 
+href="http://developer.apple.com/techpubs/mac/IAC/IAC-2.html">INSIDE 
+MACINTOSH: Interapplication Communication</a>.
+</p>
+
+<hr>
+
+<h1><a name="Sending">Sending AppleEvents</a></h1>
+
+<DIV CLASS="definition">
+<h2><a name="tclAE::launch"><code>tclAE::launch</code></a></h2>
+
+<P>
+Launch the specified application
+</P>
+
+<h3><a name="tclAE::launch::Synopsis">Synopsis</a></h3>
+<code>
+tclAE::launch [<var>flags</var>] <var>name</var>
+</code>
+
+<h3><a name="tclAE::launch::Result">Result</a></h3>
+
+<p>
+The Process Serial Number <code><a
+href="tclAEglossary.html#anAddress">AEAddress</a></code> of the launched
+application.
+</p>
+
+<h3><a name="tclAE::launch::Description">Description</a></h3>
+
+<p>
+Launch the named app into the background. <code><var>name</var></code> can
+be any of bundle ID (<code>bund(“net.sourceforge.alphatcl”)</code>),
+creator code (<code>'ALFA'</code>), full application name
+(<code>Alpha.app</code>), or path (<code>/Applications/AlphaX.app</code>). 
+
+</p>
+
+<p>
+<code>flags</code> can be:
+</p>
+
+<dl COMPACT>
+	<dt><CODE>-foreground</CODE>
+	<dd>launch the application in the foreground
+	
+	<dt><CODE>-newInstance</CODE>
+	<dd>launch a new instance of this app, rather than returning the PSN
+	of an instance that is already running.
+	
+</dl>
+
+<div class="warning">
+For some yet unexplained reason, some applications (Microsoft Word) won't
+launch completely in the background.  <code>[launch]</code>ing such
+applications won't insert the application into any system menu that
+specifies running applications (although "About the Finder..."  will list
+it.  The only way to get to such an app is through Alpha's
+<code>[switchTo]</code>, after which the application will finish launching.
+The '<code>-foreground</code>' option gets around this by launching the
+application in the foreground instead.
+
+<div class="note">
+This is probably irrelevant on <A HREF="http://www.apple.com/macosx/">Mac
+OS X</A>
+</div>
+
+</div>
+
+</DIV>
+
+<DIV CLASS="definition">
+<h2><a name="tclAE::processes"><code>tclAE::processes</code></a></h2>
+
+<P>
+List information about running processes
+</P>
+
+<h3><a name="tclAE::processes::Synopsis">Synopsis</a></h3>
+<code>
+tclAE::processes
+</code>
+
+<h3><a name="tclAE::processes::Result">Result</a></h3>
+
+<p>
+A list of lists for each running processes. Each process list consists of 
+the name, signature, process type, launch time, PSN, and application path.
+</p>
+
+<h3><a name="tclAE::processes::Description">Description</a></h3>
+
+<p>
+Return information about the running processes.
+</p>
+
+</DIV>
+
+<DIV CLASS="definition">
+<h2><a name="tclAE::remoteProcessResolverGetProcesses"><code>tclAE::remoteProcessResolverGetProcesses</code></a></h2>
+
+<P>
+List information about running processes on a remote machine
+</P>
+
+<h3><a name="tclAE::remoteProcessResolverGetProcesses::Synopsis">Synopsis</a></h3>
+<code>
+tclAE::remoteProcessResolverGetProcesses <var>eppc://steveo.apple.com</var>
+</code>
+
+<h3><a name="tclAE::remoteProcessResolverGetProcesses::Result">Result</a></h3>
+
+<p>
+A list of lists for each running processes. Each process list consists of
+the <a href="tclAEglossary.html#AEAddress">application URL</a>, name of the
+application, <code>uid</code> of the user running the application, and
+<code>pid</code> of the application.
+</p>
+
+<h3><a name="tclAE::remoteProcessResolverGetProcesses::Description">Description</a></h3>
+
+<p>
+Return information about the running processes on a remote machine. 
+Loosely equivalent to <a 
+href="#tclAE::processes"><code>tclAE::processes</code></a> on the local 
+machine.
+</p>
+
+</DIV>
+
+<DIV CLASS="definition">
+<h2><a name="tclAE::send"><code>tclAE::send</code></a></h2>
+
+<P>
+send the specified AppleEvent
+</P>
+
+<h3><a name="tclAE::send::Synopsis">Synopsis</a></h3>
+<code>
+tclAE::send [<var>flags</var>] <var><a href="tclAEglossary.html#anAddress">anAddress</a></var> <var><a
+href="tclAEglossary.html#aeclass">aeclass</a></var> <var><a
+href="tclAEglossary.html#aeeventid">aeeventID</a></var> [<var>event parameters</var>]*
+</code>
+
+<h3><a name="tclAE::send::Result">Result</a></h3>
+
+<h3><a name="tclAE::send::Description">Description</a></h3>
+
+<p>
+<code>flags</code> can be:
+</p>
+
+<dl COMPACT>
+	<dt><CODE>-dr</CODE>
+	<dd>don't record (when used with <CODE>-s</CODE> flag)
+	
+	<dt><CODE>-dx</CODE>
+	<dd>don't execute (when used with <CODE>-s</CODE> flag)
+	
+	<dt><code>-Q 
+	<var><a href="tclAEglossary.html#eventHandlerProc">eventHandlerProc</a></var></code>    
+	<dd>queued reply requested (handler proc specified directly)
+	
+	<dt><code>-q</code>    
+	<dd>queued reply requested (register handler with currentReplyHandler). 
+	This flag is deprecated and only supported in Alpha for legacy code. Use 
+	<CODE>-Q</CODE>.
+	
+	<dt><code>-r</code>    
+	<dd>direct reply requested
+	
+	<dt><CODE>-s</CODE>
+	<dd>send event to "self" (<CODE>kCurrentProcess</CODE>). Omit 
+	<CODE><var>anAddress</var></CODE> if <CODE>-s</CODE> is used
+
+	<dt><code>-t <var>timeout</var></code>    
+	<dd>specifies event timeout in ticks
+	
+	<dt><code>-z <var>transactionID</var></code>    
+	<dd>indicates that event is part of an ongoing transaction with the 
+	target (obtained from a <CODE>misc/begi</CODE> event).
+	
+	<dt><CODE>--</CODE>
+	<dd>don't process further flags
+</dl>
+
+</DIV>
+
+</div>
+
+
+<hr>
+
+<p>
+Copyright © 1999–2007 Jonathan E. Guyer<br>
+All rights reserved.
+</p>
+
+<p>
+<!-- #LASTMODIFIED TEXT="Last modified" FORM="LONG,WEEKDAY,TIME,SECONDS"-->
+Last modified Tuesday, July 10, 2007 8:44:43 AM
+<!-- /#LASTMODIFIED -->
+</p>
+
+<table id=logos>
+	
+	<tr>
+	<td id="Alpha"><a href="http://alphatcl.sourceforge.net/"><img 
+	src="Alpha.png" alt="Assembled in Alpha" width="223" height="72" 
+	border="0"></a></td>
+	
+	<td id="valid">
+	
+	<table>
+		
+		<tr>
+		<td><a href="http://jigsaw.w3.org/css-validator/"><img 
+		style="border:0;width:88px;height:31px"
+		src="http://jigsaw.w3.org/css-validator/images/vcss" alt="Valid CSS!"></a></td>
+		</tr>
+		
+		<tr>
+		<td><a href="http://validator.w3.org/check/referer" id="HTML"><img border="0"
+		src="http://www.w3.org/Icons/valid-html40" alt="Valid HTML 4.0!" 
+		height="31" width="88"></a></td>
+		</tr>
+		
+	</table>
+	
+	</td>
+	
+	<td id="SourceForge"><a href="http://sourceforge.net"><img 
+	src="http://sourceforge.net/sflogo.php?group_id=47775&amp;type=5" 
+	width="210" height="62" border="0" alt="SourceForge.net Logo"></a></td>
+	</tr>
+	
+</table>
+
+</body>
+
+</html>

@@ -1,4 +1,4 @@
-/*$Header: /src/pub/tcsh/win32/nt.who.c,v 1.4 2004/05/19 18:22:28 christos Exp $*/
+/*$Header: /p/tcsh/cvsroot/tcsh/win32/nt.who.c,v 1.6 2006/03/05 08:59:36 amold Exp $*/
 /*-
  * Copyright (c) 1980, 1991 The Regents of the University of California.
  * All rights reserved.
@@ -61,10 +61,10 @@ static CRITICAL_SECTION nb_critter;
 static HMODULE hnetapi;
 
 
-extern add_to_who_list(char *,char*);
+extern int add_to_who_list(u_char *,u_char*);
 
 void init_netbios(void ) {
-	
+
 
 	if (!ginited) {
 		hnetapi = LoadLibrary("NETAPI32.DLL");
@@ -110,11 +110,13 @@ void CALLBACK complete_ncb( NCB * p_ncb) {
 		if (ctx->usr_name[0] == 0) { //any user on given machine
 			for(i=0; i<count;i++) {
 				if (pas->NameBuff[i].name[15] == 03) { // unique name
-					if (!strncmp(pas->NameBuff[i].name,
-								p_ncb->ncb_callname,NCBNAMSZ))
-								continue;
+					if (!strncmp((char*)(pas->NameBuff[i].name), 
+							 	 (char*)(p_ncb->ncb_callname),
+								 NCBNAMSZ)) {
+						continue;
+					}
 					else {
-						p1 = strchr(pas->NameBuff[i].name,' ');
+						p1 = strchr((char*)(pas->NameBuff[i].name),' ');
 						if (p1)
 							*p1 = 0;
 						else
@@ -129,17 +131,19 @@ void CALLBACK complete_ncb( NCB * p_ncb) {
 		else if (ctx->mach_name[0] == 0)  { // given user on any machine
 			for(i=0; i<count;i++) {
 				if (pas->NameBuff[i].name[15] == 03) { // unique name
-					if (!strncmp(pas->NameBuff[i].name,
-								p_ncb->ncb_callname,NCBNAMSZ))
-								continue;
+					if (!strncmp((char*)(pas->NameBuff[i].name),
+								 (char*)(p_ncb->ncb_callname),
+								 NCBNAMSZ))
+						continue;
 					else {
-						p1 = strchr(pas->NameBuff[i].name,' ');
+						p1 = strchr((char*)(pas->NameBuff[i].name),' ');
 						if (p1)
 							*p1 = 0;
 						else
 							pas->NameBuff[i].name[15]= 0;
-						add_to_who_list(ctx->usr_name,
-								pas->NameBuff[i].name);
+
+						add_to_who_list(ctx->usr_name, pas->NameBuff[i].name);
+
 						break;
 					}
 				}
@@ -149,26 +153,27 @@ void CALLBACK complete_ncb( NCB * p_ncb) {
 			for(i=0; i<count;i++) {
 				if (pas->NameBuff[i].name[15] == 03) { // unique name
 					// skip computer name
-					if (!strncmp(pas->NameBuff[i].name,
-								p_ncb->ncb_callname,NCBNAMSZ)) {
-								continue;
+					if (!strncmp((char*)(pas->NameBuff[i].name),
+								 (char*)(p_ncb->ncb_callname),
+								 NCBNAMSZ)) {
+						continue;
 					}
-					else if (!strncmp(pas->NameBuff[i].name,
-								ctx->usr_name,lstrlen(ctx->usr_name))) {
-						p1 = strchr(pas->NameBuff[i].name,' ');
+					else if (!strncmp((char*)(pas->NameBuff[i].name),
+									  (char*)(ctx->usr_name),
+									  lstrlen((char*)ctx->usr_name))) {
+						p1 = strchr((char*)pas->NameBuff[i].name,' ');
 						if (p1)
 							*p1 = 0;
 						else
 							pas->NameBuff[i].name[15]= 0;
-						add_to_who_list(pas->NameBuff[i].name,
-								ctx->mach_name);
+						add_to_who_list(pas->NameBuff[i].name,ctx->mach_name);
 						break;
 					}
 				}
 			}
 		}
 	}
-	__except(1) {
+	__except(GetExceptionCode()) {
 		;
 	}
 	LeaveCriticalSection(&nb_critter);
@@ -208,34 +213,34 @@ void start_ncbs (Char **vp) {
 
 		if(uRetCode)
 			goto cleanup;
-		
+
 		if  ((**namevec == '\0' ) || ( *(namevec +1) ==  NULL) ||
-			 (**(namevec +1) == '\0') )
-			 	break;
-		
+				(**(namevec +1) == '\0') )
+			break;
+
 
 		p1 = short2str(*namevec);
-		if (!lstrcmpi(p1,"any") ) {
+		if (!_stricmp(p1,"any") ) {
 			p_ctx->usr_name[0] = 0;
 		}
 		else {
-			strcpy(p_ctx->usr_name,p1);
+			StringCbCopy((char*)p_ctx->usr_name,sizeof(p_ctx->usr_name),p1);
 		}
-		p1 = &(p_ctx->usr_name[0]);
+		p1 = (char*)&(p_ctx->usr_name[0]);
 
 		p2 = short2str(*(namevec+1));
 		//
 		// If machine is not "any", make it the callname
 		//
-		if (!lstrcmpi(p2,"any") ) {
+		if (!_stricmp(p2,"any") ) {
 			p_ctx->mach_name[0] = 0;
 			nb_name = p1;
 		}
 		else {
-			strcpy(p_ctx->mach_name,p2);
+			StringCbCopy((char*)p_ctx->mach_name,sizeof(p_ctx->mach_name),p2);
 			nb_name = p2;
 		}
-		
+
 		// do not permit any any
 		//
 		if( (p_ctx->mach_name[0] == 0) && (p_ctx->usr_name[0] == 0) )
@@ -253,8 +258,8 @@ void start_ncbs (Char **vp) {
 		Ncb->ncb_callname[15]=03;
 
 		memcpy(Ncb->ncb_callname,nb_name,lstrlen(nb_name));
-		
-		Ncb->ncb_buffer = (char *) Adapter;
+
+		Ncb->ncb_buffer = (u_char *) Adapter;
 		Ncb->ncb_length = sizeof(*Adapter);
 
 		Ncb->ncb_post = complete_ncb;

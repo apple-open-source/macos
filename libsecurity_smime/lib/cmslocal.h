@@ -179,6 +179,15 @@ SecCmsUtilEncryptSymKeyRSAPubKey(PLArenaPool *poolp,
 extern SecSymmetricKeyRef
 SecCmsUtilDecryptSymKeyRSA(SecPrivateKeyRef privkey, CSSM_DATA_PTR encKey, SECOidTag bulkalgtag);
 
+extern OSStatus
+SecCmsUtilEncryptSymKeyECDH(PLArenaPool *poolp, SecCertificateRef cert, SecSymmetricKeyRef key,
+			CSSM_DATA_PTR encKey, CSSM_DATA_PTR ukm, SECAlgorithmID *keyEncAlg,
+			CSSM_DATA_PTR originatorPubKey);
+
+extern SecSymmetricKeyRef
+SecCmsUtilDecryptSymKeyECDH(SecPrivateKeyRef privkey, CSSM_DATA_PTR encKey, CSSM_DATA_PTR ukm,
+    SECAlgorithmID *keyEncAlg, SECOidTag bulkalgtag, CSSM_DATA_PTR pubKey);
+
 #if 0
 extern OSStatus
 SecCmsUtilEncryptSymKeyMISSI(PLArenaPool *poolp, SecCertificateRef cert, SecSymmetricKeyRef key,
@@ -190,7 +199,7 @@ SecCmsUtilDecryptSymKeyMISSI(SecPrivateKeyRef privkey, CSSM_DATA_PTR encKey,
 
 extern OSStatus
 SecCmsUtilEncryptSymKeyESDH(PLArenaPool *poolp, SecCertificateRef cert, SecSymmetricKeyRef key,
-			CSSM_DATA_PTR encKey, CSSM_DATA_PTR *ukm, SECAlgorithmID *keyEncAlg,
+			CSSM_DATA_PTR encKey, CSSM_DATA_PTR ukm, SECAlgorithmID *keyEncAlg,
 			CSSM_DATA_PTR originatorPubKey);
 
 extern SecSymmetricKeyRef

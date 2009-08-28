@@ -1,9 +1,9 @@
 #
-# "$Id: Makefile 6996 2007-09-28 18:30:31Z mike $"
+# "$Id: Makefile 7871 2008-08-27 21:12:43Z mike $"
 #
 #   Locale file makefile for the Common UNIX Printing System (CUPS).
 #
-#   Copyright 2007 by Apple Inc.
+#   Copyright 2007-2008 by Apple Inc.
 #   Copyright 1993-2007 by Easy Software Products.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -28,6 +28,20 @@ all:	$(TARGETS)
 
 
 #
+# Make library targets...
+#
+
+libs:
+
+
+#
+# Make unit tests...
+#
+
+unittests:
+
+
+#
 # Clean all config and object files...
 #
 
@@ -44,10 +58,17 @@ depend:
 
 
 #
-# Install files...
+# Install all targets...
 #
 
-install:	all $(INSTALL_LANGUAGES)
+install:	all install-data install-headers install-libs install-exec
+
+
+#
+# Install data files...
+#
+
+install-data: $(INSTALL_LANGUAGES)
 
 install-languages:
 	$(INSTALL_DIR) -m 755 $(LOCALEDIR)
@@ -57,6 +78,27 @@ install-languages:
 			$(INSTALL_DATA) cups_$$loc.po $(LOCALEDIR)/$$loc/cups_$$loc.po ; \
 		fi ; \
 	done
+
+
+#
+# Install programs...
+#
+
+install-exec:
+
+
+#
+# Install headers...
+#
+
+install-headers:
+
+
+#
+# Install libraries...
+#
+
+install-libs:
 
 
 #
@@ -81,11 +123,11 @@ pot:
 	mv cups.pot cups.pot.bck
 	touch cups.pot
 	cd ..; xgettext -o locale/cups.pot -j -s --keyword=_ --no-wrap \
-		--copyright-holder="Easy Software Products" \
+		--copyright-holder="Apple Inc." \
 		--msgid-bugs-address="http://www.cups.org/str.php" \
-		*/*.c
+		*/*.c */*.cxx
 	(cat cups.header; \
-	 cat cups.pot | sed -e '1,6d' -e '1,$$s/PACKAGE VERSION/CUPS 1.3/' \
+	 cat cups.pot | sed -e '1,6d' -e '1,$$s/PACKAGE VERSION/CUPS 1.4/' \
 	     -e '1,$$s/charset=CHARSET/charset=utf-8/'; \
 	 cat cups.footer) > cups.pot.N
 	mv cups.pot.N cups.pot
@@ -97,14 +139,20 @@ pot:
 
 #
 # checkpo - A simple utility to check PO files for correct translation
-#           strings.
+#           strings.  Dependency on static library is deliberate.
 #
 # checkpo filename.po [... filenameN.po]
 #
 
-checkpo:	checkpo.o ../cups/$(LIBCUPS)
+checkpo:	checkpo.o ../cups/libcups.a
 	echo Linking $<...
-	$(CC) $(LDFLAGS) -o checkpo checkpo.o $(LIBS)
+	$(CC) $(LDFLAGS) -o checkpo checkpo.o ../cups/libcups.a \
+		$(LIBGSSAPI) $(SSLLIBS) $(DNSSDLIBS) $(COMMONLIBS) $(LIBZ)
+
+checkall:	checkpo
+	for file in *.po; do \
+		./checkpo $$file; \
+	done
 
 
 #
@@ -114,9 +162,10 @@ checkpo:	checkpo.o ../cups/$(LIBCUPS)
 # po2strings filename.po filename.strings
 #
 
-po2strings:	po2strings.o ../cups/$(LIBCUPS)
+po2strings:	po2strings.o ../cups/libcups.a
 	echo Linking $<...
-	$(CC) $(LDFLAGS) -o po2strings po2strings.o $(LIBS)
+	$(CC) $(LDFLAGS) -o po2strings po2strings.o ../cups/libcups.a \
+		$(LIBGSSAPI) $(SSLLIBS) $(DNSSDLIBS) $(COMMONLIBS) $(LIBZ)
 
 
 #
@@ -138,9 +187,10 @@ strings2po:	strings2po.o
 # translate outfile language
 #
 
-translate:	translate.o ../cups/$(LIBCUPS)
+translate:	translate.o ../cups/libcups.a
 	echo Linking $<...
-	$(CC) $(LDFLAGS) -o translate translate.o $(LIBS)
+	$(CC) $(LDFLAGS) -o translate translate.o ../cups/libcups.a \
+		$(LIBGSSAPI) $(SSLLIBS) $(DNSSDLIBS) $(COMMONLIBS) $(LIBZ)
 
 
 #
@@ -151,5 +201,5 @@ include Dependencies
 
 
 #
-# End of "$Id: Makefile 6996 2007-09-28 18:30:31Z mike $".
+# End of "$Id: Makefile 7871 2008-08-27 21:12:43Z mike $".
 #

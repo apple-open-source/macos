@@ -30,9 +30,13 @@ eval 'case $# in 0) exec @PERL@ -S "$0";; *) exec @PERL@ -S "$0" "$@";; esac'
 
 package Language;
 
+use File::Basename ();
+my $_bindir;
 BEGIN
 {
-  my $perllibdir = $ENV{'perllibdir'} || '@datadir@/@PACKAGE@-@APIVERSION@';
+  $_bindir = File::Basename::dirname($0);
+  (my $_datadir = '@datadir@') =~ s,^/usr,$_bindir/..,;
+  my $perllibdir = $ENV{'perllibdir'} || "$_datadir/@PACKAGE@-@APIVERSION@";
   unshift @INC, (split '@PATH_SEPARATOR@', $perllibdir);
 
   # Override SHELL.  This is required on DJGPP so that system() uses
@@ -4802,7 +4806,7 @@ sub scan_autoconf_traces ($)
 		sinclude => 1,
 	      );
 
-  my $traces = ($ENV{AUTOCONF} || 'autoconf') . " ";
+  my $traces = ($ENV{AUTOCONF} || "$_bindir/autoconf") . " ";
 
   # Use a separator unlikely to be used, not `:', the default, which
   # has a precise meaning for AC_CONFIG_FILES and so on.

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005, 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2005, 2006, 2009 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,12 +23,16 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#ifndef VARIANT_DYLD
 #include <setjmp.h>
+#endif /* !VARIANT_DYLD */
 #include <sys/types.h>
 #include <unistd.h>
 #include <mach/mach_init.h>
 #include <mach/vm_map.h>
 #include <asl.h>
+#include <fcntl.h>
+#include <sys/syslog.h>
 #include <sys/time.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -52,7 +56,9 @@ typedef struct _BUF {
 
 typedef struct _SBUF {
     BUF b;
+#ifndef VARIANT_DYLD
     jmp_buf j;
+#endif /* !VARIANT_DYLD */
 } SBUF;
 
 static int asl_socket;
@@ -60,7 +66,6 @@ static pthread_once_t asl_socket_once = PTHREAD_ONCE_INIT;
 
 /* private extern exports from asl.c */
 const char *_asl_escape(unsigned char);
-int _asl_server_socket(int *, struct sockaddr_un *);
 
 /* flush the buffer */
 static void
@@ -107,7 +112,11 @@ _enlarge(BUF *b)
     sold = SBUF_SIZE(b);
     snew = (sold + VM_PAGE_SIZE) & ~(VM_PAGE_SIZE - 1);
     if(vm_allocate(mach_task_self(), &new, snew, 1) != 0)
+#ifndef VARIANT_DYLD
 	longjmp(((SBUF *)b)->j, 1); /* out of memory */
+#else /* VARIANT_DYLD */
+	abort(); /* out of memory */
+#endif /* !VARIANT_DYLD */
     diff = new - (vm_address_t)b->buf;
     memcpy((void *)new, b->buf, sold);
     if((intptr_t)(b->buf) & (VM_PAGE_SIZE - 1)) {
@@ -498,8 +507,10 @@ _simple_sprintf(_SIMPLE_STRING b, const char *fmt, ...)
 int
 _simple_vesprintf(_SIMPLE_STRING b, _esc_func esc, const char *fmt, va_list ap)
 {
+#ifndef VARIANT_DYLD
     if(setjmp(((SBUF *)b)->j))
 	return -1;
+#endif /* !VARIANT_DYLD */
     __simple_bprintf((BUF *)b, esc, fmt, ap);
     return 0;
 }
@@ -558,8 +569,10 @@ _simple_sappend(_SIMPLE_STRING b, const char *str)
  */
 int _simple_esappend(_SIMPLE_STRING b, _esc_func esc, const char *str)
 {
+#ifndef VARIANT_DYLD
     if(setjmp(((SBUF *)b)->j))
 	return -1;
+#endif /* !VARIANT_DYLD */
     put_s((BUF *)b, esc, str);
     return 0;
 }
@@ -611,7 +624,19 @@ static void
 socket_init(void)
 {
     struct sockaddr_un server;
-    _asl_server_socket(&asl_socket, &server);
+
+	server.sun_family = AF_UNIX;
+	strncpy(server.sun_path, _PATH_LOG, sizeof(server.sun_path));
+	asl_socket = socket(AF_UNIX, SOCK_DGRAM, 0);
+	if (asl_socket < 0) return;
+
+	fcntl(asl_socket, F_SETFD, 1);
+
+	if (connect(asl_socket, (struct sockaddr *)&server, sizeof(server)) == -1)
+	{
+		close(asl_socket);
+		asl_socket = -1;
+	}
 }
 
 void

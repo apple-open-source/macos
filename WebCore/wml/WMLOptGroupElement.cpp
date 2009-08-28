@@ -29,6 +29,7 @@
 #include "NodeRenderStyle.h"
 #include "RenderStyle.h"
 #include "WMLNames.h"
+#include "WMLSelectElement.h"
 
 namespace WebCore {
 
@@ -43,6 +44,11 @@ WMLOptGroupElement::~WMLOptGroupElement()
 {
 }
 
+String WMLOptGroupElement::title() const
+{
+    return parseValueSubstitutingVariableReferences(getAttribute(HTMLNames::titleAttr));
+}
+
 const AtomicString& WMLOptGroupElement::formControlType() const
 {
     DEFINE_STATIC_LOCAL(const AtomicString, optgroup, ("optgroup"));
@@ -51,7 +57,7 @@ const AtomicString& WMLOptGroupElement::formControlType() const
 
 bool WMLOptGroupElement::insertBefore(PassRefPtr<Node> newChild, Node* refChild, ExceptionCode& ec, bool shouldLazyAttach)
 {
-    bool result = WMLElement::insertBefore(newChild, refChild, ec, shouldLazyAttach);
+    bool result = WMLFormControlElement::insertBefore(newChild, refChild, ec, shouldLazyAttach);
     if (result)
         recalcSelectOptions();
     return result;
@@ -59,7 +65,7 @@ bool WMLOptGroupElement::insertBefore(PassRefPtr<Node> newChild, Node* refChild,
 
 bool WMLOptGroupElement::replaceChild(PassRefPtr<Node> newChild, Node* oldChild, ExceptionCode& ec, bool shouldLazyAttach)
 {
-    bool result = WMLElement::replaceChild(newChild, oldChild, ec, shouldLazyAttach);
+    bool result = WMLFormControlElement::replaceChild(newChild, oldChild, ec, shouldLazyAttach);
     if (result)
         recalcSelectOptions();
     return result;
@@ -67,7 +73,7 @@ bool WMLOptGroupElement::replaceChild(PassRefPtr<Node> newChild, Node* oldChild,
 
 bool WMLOptGroupElement::removeChild(Node* oldChild, ExceptionCode& ec)
 {
-    bool result = WMLElement::removeChild(oldChild, ec);
+    bool result = WMLFormControlElement::removeChild(oldChild, ec);
     if (result)
         recalcSelectOptions();
     return result;
@@ -75,7 +81,7 @@ bool WMLOptGroupElement::removeChild(Node* oldChild, ExceptionCode& ec)
 
 bool WMLOptGroupElement::appendChild(PassRefPtr<Node> newChild, ExceptionCode& ec, bool shouldLazyAttach)
 {
-    bool result = WMLElement::appendChild(newChild, ec, shouldLazyAttach);
+    bool result = WMLFormControlElement::appendChild(newChild, ec, shouldLazyAttach);
     if (result)
         recalcSelectOptions();
     return result;
@@ -83,17 +89,15 @@ bool WMLOptGroupElement::appendChild(PassRefPtr<Node> newChild, ExceptionCode& e
 
 bool WMLOptGroupElement::removeChildren()
 {
-    bool result = WMLElement::removeChildren();
+    bool result = WMLFormControlElement::removeChildren();
     if (result)
         recalcSelectOptions();
     return result;
 }
 
-// FIXME: Activate once WMLSelectElement is available 
-#if 0
-static inline WMLElement* ownerSelectElement()
+static inline WMLSelectElement* ownerSelectElement(Element* element)
 {
-    Node* select = parentNode();
+    Node* select = element->parentNode();
     while (select && !select->hasTagName(selectTag))
         select = select->parentNode();
 
@@ -102,35 +106,26 @@ static inline WMLElement* ownerSelectElement()
 
     return static_cast<WMLSelectElement*>(select);
 }
-#endif
 
 void WMLOptGroupElement::accessKeyAction(bool)
 {
-    // FIXME: Activate once WMLSelectElement is available 
-#if 0
-    WMLSelectElement* select = ownerSelectElement();
+    WMLSelectElement* select = ownerSelectElement(this);
     if (!select || select->focused())
         return;
 
     // send to the parent to bring focus to the list box
     select->accessKeyAction(false);
-#endif
 }
 
 void WMLOptGroupElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
 {
     recalcSelectOptions();
-    WMLElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
+    WMLFormControlElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
 }
 
 void WMLOptGroupElement::parseMappedAttribute(MappedAttribute* attr)
 {
-    if (attr->name() == HTMLNames::titleAttr) {
-        m_title = parseValueSubstitutingVariableReferences(attr->value());
-        return;
-    }
-
-    WMLElement::parseMappedAttribute(attr);
+    WMLFormControlElement::parseMappedAttribute(attr);
     recalcSelectOptions();
 }
 
@@ -138,13 +133,13 @@ void WMLOptGroupElement::attach()
 {
     if (parentNode()->renderStyle())
         setRenderStyle(styleForRenderer());
-    WMLElement::attach();
+    WMLFormControlElement::attach();
 }
 
 void WMLOptGroupElement::detach()
 {
     m_style.clear();
-    WMLElement::detach();
+    WMLFormControlElement::detach();
 }
 
 void WMLOptGroupElement::setRenderStyle(PassRefPtr<RenderStyle> style)
@@ -159,7 +154,7 @@ RenderStyle* WMLOptGroupElement::nonRendererRenderStyle() const
 
 String WMLOptGroupElement::groupLabelText() const
 {
-    String itemText = document()->displayStringModifiedByEncoding(m_title);
+    String itemText = document()->displayStringModifiedByEncoding(title());
 
     // In WinIE, leading and trailing whitespace is ignored in options and optgroups. We match this behavior.
     itemText = itemText.stripWhiteSpace();
@@ -171,11 +166,8 @@ String WMLOptGroupElement::groupLabelText() const
 
 void WMLOptGroupElement::recalcSelectOptions()
 {
-    // FIXME: Activate once WMLSelectElement is available 
-#if 0
-    if (WMLSelectElement* select = ownerSelectElement())
+    if (WMLSelectElement* select = ownerSelectElement(this))
         select->setRecalcListItems();
-#endif
 }
 
 }

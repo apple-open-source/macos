@@ -19,6 +19,7 @@
     <file>FontView.js</file>
     <file>ImageView.js</file>
     <file>inspector.js</file>
+    <file>KeyboardShortcut.js</file>
     <file>MetricsSidebarPane.js</file>
     <file>Object.js</file>
     <file>ObjectPropertiesSection.js</file>
@@ -99,6 +100,7 @@
     <file>Images/profilesIcon.png</file>
     <file>Images/profileSmallIcon.png</file>
     <file>Images/profilesSilhouette.png</file>
+    <file>Images/radioDot.png</file>
     <file>Images/recordButtons.png</file>
     <file>Images/reloadButtons.png</file>
     <file>Images/resourceCSSIcon.png</file>
@@ -108,6 +110,7 @@
     <file>Images/resourcePlainIcon.png</file>
     <file>Images/resourcePlainIconSmall.png</file>
     <file>Images/resourcesIcon.png</file>
+    <file>Images/resourcesSilhouette.png</file>
     <file>Images/resourcesSizeGraphIcon.png</file>
     <file>Images/resourcesTimeGraphIcon.png</file>
     <file>Images/scriptsIcon.png</file>

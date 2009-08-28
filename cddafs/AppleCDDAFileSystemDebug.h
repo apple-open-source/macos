@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,14 +30,16 @@
 extern "C" {
 #endif
 
+#include <IOKit/IOLib.h>
+
 // Debug Options
 #define DEBUG			0
-#define DEBUGLEVEL		4		// 1-5  1=fatal errors only, 5=full debugging
+#define DEBUGLEVEL		0		// 1-5  1=fatal errors only, 5=full debugging
 
 #if DEBUG
 
 	#if DEBUGLEVEL > 2
-		#define DebugLog(x)		printf	x		// Turn DebugLog() on
+		#define DebugLog(x)		kprintf	x		// Turn DebugLog() on
 	#else
 		#define DebugLog(x)						// Turn DebugLog() off
 	#endif

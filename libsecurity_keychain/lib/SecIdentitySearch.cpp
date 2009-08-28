@@ -55,7 +55,7 @@ SecIdentitySearchCreate(
 	SecPointer<IdentityCursor> identityCursor(new IdentityCursor (keychains, keyUsage));
 	*searchRef = identityCursor->handle();
 
-	END_SECAPI2("SecIdentitySearchCreate")
+	END_SECAPI
 }
 
 OSStatus SecIdentitySearchCreateWithAttributes(
@@ -74,7 +74,7 @@ OSStatus SecIdentitySearchCreateWithAttributes(
 	SecPointer<IdentityCursor> identityCursor(new IdentityCursor (keychains, 0));
 	*searchRef = identityCursor->handle();
 
-    END_SECAPI2("SecIdentitySearchCreateWithAttributes")
+    END_SECAPI
 }
 
 OSStatus SecIdentitySearchCreateWithPolicy(
@@ -95,7 +95,7 @@ OSStatus SecIdentitySearchCreateWithPolicy(
 
 	*searchRef = identityCursor->handle();
 
-	END_SECAPI2("SecIdentitySearchCreateWithPolicy")
+	END_SECAPI
 }
 
 OSStatus
@@ -112,5 +112,5 @@ SecIdentitySearchCopyNext(
 
 	*identityRef = identityPtr->handle();
 
-    END_SECAPI2("SecIdentitySearchCopyNext")
+    END_SECAPI
 }

@@ -74,6 +74,7 @@
 // up to 256 ATA sectors per transfer
 #define kMaxATAXfer	512 * 256
 
+#define _prdBuffer	reserved->_prdBuffer
 
 
 //---------------------------------------------------------------------------
@@ -160,7 +161,13 @@ IOPCIATA::start(IOService *provider)
         DLOG("IOPCIATA: super::start() failed\n");
         return false;
 	}
-
+	
+	reserved = ( ExpansionData * ) IOMalloc ( sizeof ( ExpansionData ) );
+	if ( !reserved )
+		return false;
+	
+	bzero ( reserved, sizeof ( ExpansionData ) );
+	
 	// Allocate the DMA descriptor area
 	if( ! allocDMAChannel() )
 	{
@@ -183,11 +190,12 @@ IOPCIATA::free()
 {
 
 	freeDMAChannel();
-
 	
-
-
-	
+	if ( reserved )
+	{
+		IOFree ( reserved, sizeof ( ExpansionData ) );
+		reserved = NULL;
+	}
 	
 	super::free();
 
@@ -219,20 +227,23 @@ IOPCIATA::allocDMAChannel(void)
 	
 	}
 
-
-
-	_prdTable = (PRD*)IOMallocContiguous( sizeof(PRD) * kATAMaxDMADesc, 
-						0x10, 
-						&_prdTablePhysical );
+	_prdBuffer = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(
+		kernel_task,
+		kIODirectionInOut | kIOMemoryPhysicallyContiguous,
+		sizeof(PRD) * kATAMaxDMADesc,
+		0xFFFFFFF0UL );
+    
+    if ( !_prdBuffer )
+    {
+        IOLog("%s: PRD buffer allocation failed\n", getName());
+        return false;
+    }
+ 	
+	_prdBuffer->prepare ( );
 	
-	if(	! _prdTable )
-	{
-		DLOG("IOPCIATA alloc prd table failed\n");
-		return false;
+	_prdTable			= (PRD *) _prdBuffer->getBytesNoCopy();
+	_prdTablePhysical	= _prdBuffer->getPhysicalAddress();
 	
-	}
-
-
 	_DMACursor = IONaturalMemoryCursor::withSpecification(0x10000, /*64K*/
                                        					kMaxATAXfer  /* 256 * 512 */
                                      					/*inAlignment - Memory descriptors and cursors don't support alignment
@@ -264,16 +275,27 @@ bool
 IOPCIATA::freeDMAChannel(void)
 {
 	
-	if( _prdTable )
+	if( _prdBuffer )
 	{
 		// make sure the engine is stopped
 		stopDMA();
 
 		// free the descriptor table.
-		IOFreeContiguous( (void*) _prdTable, 
-		sizeof(PRD) * kATAMaxDMADesc);
+        _prdBuffer->complete();
+        _prdBuffer->release();
+        _prdBuffer = NULL;
+        _prdTable = NULL;
+        _prdTablePhysical = 0;
 	}
 
+	if( _DMACursor )
+	{
+		
+		_DMACursor->release();
+		_DMACursor = NULL;
+		
+	}
+	
 	return true;
 }
 

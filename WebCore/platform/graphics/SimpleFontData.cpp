@@ -46,7 +46,7 @@ namespace WebCore {
 
 SimpleFontData::SimpleFontData(const FontPlatformData& f, bool customFont, bool loading, SVGFontData* svgFontData)
     : m_unitsPerEm(defaultUnitsPerEm)
-    , m_font(f)
+    , m_platformData(f)
     , m_treatAsFixedPitch(false)
 #if ENABLE(SVG_FONTS)
     , m_svgFontData(svgFontData)
@@ -86,6 +86,7 @@ SimpleFontData::SimpleFontData(const FontPlatformData& f, bool customFont, bool 
 }
 
 #if !PLATFORM(QT)
+// Estimates of avgCharWidth and maxCharWidth for platforms that don't support accessing these values from the font.
 void SimpleFontData::platformGlyphInit()
 {
     GlyphPage* glyphPageZero = GlyphPageTreeNode::getRootChild(this, 0)->page();

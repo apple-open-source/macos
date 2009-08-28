@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -29,7 +29,7 @@ static apr_status_t threadattr_cleanup(void *data)
     apr_status_t rv;
 
     rv = pthread_attr_destroy(&attr->attr);
-#ifdef PTHREAD_SETS_ERRNO
+#ifdef HAVE_ZOS_PTHREADS
     if (rv) {
         rv = errno;
     }
@@ -51,21 +51,25 @@ APR_DECLARE(apr_status_t) apr_threadattr_create(apr_threadattr_t **new,
                                   apr_pool_cleanup_null);
         return APR_SUCCESS;
     }
-#ifdef PTHREAD_SETS_ERRNO
+#ifdef HAVE_ZOS_PTHREADS
     stat = errno;
 #endif
 
     return stat;
 }
 
+#if defined(PTHREAD_CREATE_DETACHED)
 #define DETACH_ARG(v) ((v) ? PTHREAD_CREATE_DETACHED : PTHREAD_CREATE_JOINABLE)
+#else
+#define DETACH_ARG(v) ((v) ? 1 : 0)
+#endif
 
 APR_DECLARE(apr_status_t) apr_threadattr_detach_set(apr_threadattr_t *attr,
                                                     apr_int32_t on)
 {
     apr_status_t stat;
-#ifdef PTHREAD_ATTR_SETDETACHSTATE_ARG2_ADDR
-    int arg = DETACH_ARG(v);
+#ifdef HAVE_ZOS_PTHREADS
+    int arg = DETACH_ARG(on);
 
     if ((stat = pthread_attr_setdetachstate(&attr->attr, &arg)) == 0) {
 #else
@@ -75,7 +79,7 @@ APR_DECLARE(apr_status_t) apr_threadattr_detach_set(apr_threadattr_t *attr,
         return APR_SUCCESS;
     }
     else {
-#ifdef PTHREAD_SETS_ERRNO
+#ifdef HAVE_ZOS_PTHREADS
         stat = errno;
 #endif
 
@@ -106,7 +110,7 @@ APR_DECLARE(apr_status_t) apr_threadattr_stacksize_set(apr_threadattr_t *attr,
     if (stat == 0) {
         return APR_SUCCESS;
     }
-#ifdef PTHREAD_SETS_ERRNO
+#ifdef HAVE_ZOS_PTHREADS
     stat = errno;
 #endif
 
@@ -123,7 +127,7 @@ APR_DECLARE(apr_status_t) apr_threadattr_guardsize_set(apr_threadattr_t *attr,
     if (rv == 0) {
         return APR_SUCCESS;
     }
-#ifdef PTHREAD_SETS_ERRNO
+#ifdef HAVE_ZOS_PTHREADS
     rv = errno;
 #endif
     return rv;
@@ -159,7 +163,6 @@ APR_DECLARE(apr_status_t) apr_thread_create(apr_thread_t **new,
         return APR_ENOMEM;
     }
 
-    (*new)->pool = pool;
     (*new)->data = data;
     (*new)->func = func;
 
@@ -177,7 +180,7 @@ APR_DECLARE(apr_status_t) apr_thread_create(apr_thread_t **new,
         return APR_SUCCESS;
     }
     else {
-#ifdef PTHREAD_SETS_ERRNO
+#ifdef HAVE_ZOS_PTHREADS
         stat = errno;
 #endif
 
@@ -216,7 +219,7 @@ APR_DECLARE(apr_status_t) apr_thread_join(apr_status_t *retval,
         return APR_SUCCESS;
     }
     else {
-#ifdef PTHREAD_SETS_ERRNO
+#ifdef HAVE_ZOS_PTHREADS
         stat = errno;
 #endif
 
@@ -228,7 +231,7 @@ APR_DECLARE(apr_status_t) apr_thread_detach(apr_thread_t *thd)
 {
     apr_status_t stat;
 
-#ifdef PTHREAD_DETACH_ARG1_ADDR
+#ifdef HAVE_ZOS_PTHREADS
     if ((stat = pthread_detach(thd->td)) == 0) {
 #else
     if ((stat = pthread_detach(*thd->td)) == 0) {
@@ -237,7 +240,7 @@ APR_DECLARE(apr_status_t) apr_thread_detach(apr_thread_t *thd)
         return APR_SUCCESS;
     }
     else {
-#ifdef PTHREAD_SETS_ERRNO
+#ifdef HAVE_ZOS_PTHREADS
         stat = errno;
 #endif
 
@@ -245,8 +248,19 @@ APR_DECLARE(apr_status_t) apr_thread_detach(apr_thread_t *thd)
     }
 }
 
-void apr_thread_yield()
+APR_DECLARE(void) apr_thread_yield(void)
 {
+#ifdef HAVE_PTHREAD_YIELD
+#ifdef HAVE_ZOS_PTHREADS
+    pthread_yield(NULL);
+#else
+    pthread_yield();
+#endif /* HAVE_ZOS_PTHREADS */
+#else
+#ifdef HAVE_SCHED_YIELD
+    sched_yield();
+#endif
+#endif
 }
 
 APR_DECLARE(apr_status_t) apr_thread_data_get(void **data, const char *key,

@@ -166,7 +166,7 @@ distclean : clean
 	cmd.exe /C if exist depends.* del depends.*
 	cmd.exe /C if exist Makefile del Makefile
 
-install : all
+install-libs : all
 	cmd.exe /C if not exist $(INCPREFIX)\$(XSLT_BASENAME) mkdir $(INCPREFIX)\$(XSLT_BASENAME)
 	cmd.exe /C if not exist $(INCPREFIX)\$(EXSLT_BASENAME) mkdir $(INCPREFIX)\$(EXSLT_BASENAME)
 	cmd.exe /C if not exist $(BINPREFIX) mkdir $(BINPREFIX)
@@ -179,14 +179,18 @@ install : all
 	cmd.exe /C copy $(BINDIR)\$(EXSLT_SO) $(SOPREFIX)
 	cmd.exe /C copy $(BINDIR)\$(EXSLT_A) $(LIBPREFIX)
 	cmd.exe /C copy $(BINDIR)\$(EXSLT_IMP) $(LIBPREFIX)
+
+install : install-libs
 	cmd.exe /C copy $(BINDIR)\*.exe $(BINPREFIX)
+
+install-dist : install
 
 # This is a target for me, to make a binary distribution. Not for the public use,
 # keep your hands off :-)
 BDVERSION = $(LIBXSLT_MAJOR_VERSION).$(LIBXSLT_MINOR_VERSION).$(LIBXSLT_MICRO_VERSION)
 BDPREFIX = $(XSLT_BASENAME)-$(BDVERSION).win32
 bindist : all
-	$(MAKE) PREFIX=$(BDPREFIX) SOPREFIX=$(BDPREFIX)/bin install
+	$(MAKE) PREFIX=$(BDPREFIX) SOPREFIX=$(BDPREFIX)/bin install-dist
 	cscript //NoLogo configure.js genreadme $(XSLT_BASENAME) $(BDVERSION) $(BDPREFIX)\readme.txt
 
 

@@ -68,6 +68,7 @@ AUTOCONF = @AUTOCONF@
 AUTOHEADER = @AUTOHEADER@
 AUTOMAKE = @AUTOMAKE@
 AWK = @AWK@
+BASE_THREAD_LIBS = @BASE_THREAD_LIBS@
 C14N_OBJ = @C14N_OBJ@
 CATALOG_OBJ = @CATALOG_OBJ@
 CC = @CC@
@@ -75,10 +76,6 @@ CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
 CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
-CXX = @CXX@
-CXXCPP = @CXXCPP@
-CXXDEPMODE = @CXXDEPMODE@
-CXXFLAGS = @CXXFLAGS@
 CYGPATH_W = @CYGPATH_W@
 CYGWIN_EXTRA_LDFLAGS = @CYGWIN_EXTRA_LDFLAGS@
 CYGWIN_EXTRA_PYTHON_LIBADD = @CYGWIN_EXTRA_PYTHON_LIBADD@
@@ -87,14 +84,14 @@ DEFS = @DEFS@
 DEPDIR = @DEPDIR@
 DLLTOOL = @DLLTOOL@
 DOCB_OBJ = @DOCB_OBJ@
-ECHO = @ECHO@
+DSYMUTIL = @DSYMUTIL@
+DUMPBIN = @DUMPBIN@
 ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
 EXEEXT = @EXEEXT@
-F77 = @F77@
-FFLAGS = @FFLAGS@
+FGREP = @FGREP@
 FTP_OBJ = @FTP_OBJ@
 GREP = @GREP@
 HAVE_ISINF = @HAVE_ISINF@
@@ -109,6 +106,7 @@ INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
+LD = @LD@
 LDFLAGS = @LDFLAGS@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
@@ -120,14 +118,21 @@ LIBXML_VERSION = @LIBXML_VERSION@
 LIBXML_VERSION_EXTRA = @LIBXML_VERSION_EXTRA@
 LIBXML_VERSION_INFO = @LIBXML_VERSION_INFO@
 LIBXML_VERSION_NUMBER = @LIBXML_VERSION_NUMBER@
+LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
 MAKEINFO = @MAKEINFO@
 MKDIR_P = @MKDIR_P@
+MODULE_EXTENSION = @MODULE_EXTENSION@
+MODULE_PLATFORM_LIBS = @MODULE_PLATFORM_LIBS@
 MV = @MV@
 M_LIBS = @M_LIBS@
+NM = @NM@
+NMEDIT = @NMEDIT@
 OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
+OTOOL = @OTOOL@
+OTOOL64 = @OTOOL64@
 PACKAGE = @PACKAGE@
 PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
 PACKAGE_NAME = @PACKAGE_NAME@
@@ -135,7 +140,6 @@ PACKAGE_STRING = @PACKAGE_STRING@
 PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
-PATTERN_TEST = @PATTERN_TEST@
 PERL = @PERL@
 PYTHON = @PYTHON@
 PYTHON_INCLUDES = @PYTHON_INCLUDES@
@@ -148,6 +152,7 @@ RDL_LIBS = @RDL_LIBS@
 READER_TEST = @READER_TEST@
 RELDATE = @RELDATE@
 RM = @RM@
+SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STATIC_BINARIES = @STATIC_BINARIES@
@@ -157,11 +162,14 @@ TEST_C14N = @TEST_C14N@
 TEST_CATALOG = @TEST_CATALOG@
 TEST_DEBUG = @TEST_DEBUG@
 TEST_HTML = @TEST_HTML@
+TEST_MODULES = @TEST_MODULES@
+TEST_PATTERN = @TEST_PATTERN@
 TEST_PHTML = @TEST_PHTML@
 TEST_PUSH = @TEST_PUSH@
 TEST_REGEXPS = @TEST_REGEXPS@
 TEST_SAX = @TEST_SAX@
 TEST_SCHEMAS = @TEST_SCHEMAS@
+TEST_SCHEMATRON = @TEST_SCHEMATRON@
 TEST_THREADS = @TEST_THREADS@
 TEST_VALID = @TEST_VALID@
 TEST_VTIME = @TEST_VTIME@
@@ -173,6 +181,7 @@ THREAD_CFLAGS = @THREAD_CFLAGS@
 THREAD_LIBS = @THREAD_LIBS@
 U = @U@
 VERSION = @VERSION@
+WGET = @WGET@
 WIN32_EXTRA_LDFLAGS = @WIN32_EXTRA_LDFLAGS@
 WIN32_EXTRA_LIBADD = @WIN32_EXTRA_LIBADD@
 WITH_C14N = @WITH_C14N@
@@ -187,6 +196,7 @@ WITH_ICU = @WITH_ICU@
 WITH_ISO8859X = @WITH_ISO8859X@
 WITH_LEGACY = @WITH_LEGACY@
 WITH_MEM_DEBUG = @WITH_MEM_DEBUG@
+WITH_MODULES = @WITH_MODULES@
 WITH_OUTPUT = @WITH_OUTPUT@
 WITH_PATTERN = @WITH_PATTERN@
 WITH_PUSH = @WITH_PUSH@
@@ -195,6 +205,7 @@ WITH_REGEXPS = @WITH_REGEXPS@
 WITH_RUN_DEBUG = @WITH_RUN_DEBUG@
 WITH_SAX1 = @WITH_SAX1@
 WITH_SCHEMAS = @WITH_SCHEMAS@
+WITH_SCHEMATRON = @WITH_SCHEMATRON@
 WITH_THREADS = @WITH_THREADS@
 WITH_TREE = @WITH_TREE@
 WITH_TRIO = @WITH_TRIO@
@@ -203,6 +214,7 @@ WITH_WRITER = @WITH_WRITER@
 WITH_XINCLUDE = @WITH_XINCLUDE@
 WITH_XPATH = @WITH_XPATH@
 WITH_XPTR = @WITH_XPTR@
+WITH_ZLIB = @WITH_ZLIB@
 XINCLUDE_OBJ = @XINCLUDE_OBJ@
 XMLLINT = @XMLLINT@
 XML_CFLAGS = @XML_CFLAGS@
@@ -220,8 +232,7 @@ abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
 abs_top_srcdir = @abs_top_srcdir@
 ac_ct_CC = @ac_ct_CC@
-ac_ct_CXX = @ac_ct_CXX@
-ac_ct_F77 = @ac_ct_F77@
+ac_ct_DUMPBIN = @ac_ct_DUMPBIN@
 am__include = @am__include@
 am__leading_dot = @am__leading_dot@
 am__quote = @am__quote@
@@ -252,6 +263,7 @@ libdir = @libdir@
 libexecdir = @libexecdir@
 localedir = @localedir@
 localstatedir = @localstatedir@
+lt_ECHO = @lt_ECHO@
 mandir = @mandir@
 mkdir_p = @mkdir_p@
 oldincludedir = @oldincludedir@
@@ -267,7 +279,7 @@ sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-SUBDIRS = examples
+SUBDIRS = devhelp examples
 
 # The top-level SGML file.
 DOC_MAIN_XML_FILE = gnome-xml.xml
@@ -659,7 +671,8 @@ uninstall-man: uninstall-man1
 	uninstall uninstall-am uninstall-man uninstall-man1
 
 
-all: web $(top_srcdir)/NEWS libxml2.xsa $(man_MANS)
+@REBUILD_DOCS_TRUE@all: web $(top_builddir)/NEWS libxml2.xsa $(man_MANS)
+@REBUILD_DOCS_FALSE@all:
 
 api: libxml2-api.xml libxml2-refs.xml $(APIPAGES) $(srcdir)/html/index.html $(WIN32_DIR)/libxml2.def.src ../elfgcchack.h
 
@@ -682,9 +695,9 @@ $(PAGES): xml.html site.xsl
 	  echo "Validating the HTML Web pages" ; \
 	  $(XMLLINT) --nonet --valid --noout $(PAGES) ; fi );
 
-$(top_srcdir)/NEWS: $(top_srcdir)/doc/news.xsl $(top_srcdir)/doc/news.html
+$(top_builddir)/NEWS: $(top_srcdir)/doc/news.xsl $(top_srcdir)/doc/news.html
 	-@(if [ -x $(XSLTPROC) ] ; then \
-	  $(XSLTPROC) --nonet $(top_srcdir)/doc/news.xsl $(top_srcdir)/doc/news.html > $(top_srcdir)/NEWS ; fi );
+	  $(XSLTPROC) --nonet $(top_srcdir)/doc/news.xsl $(top_srcdir)/doc/news.html > $(top_builddir)/NEWS ; fi );
 
 libxml2.xsa: $(top_srcdir)/doc/xsa.xsl $(top_srcdir)/doc/news.html
 	-@(if [ -x $(XSLTPROC) ] ; then \
@@ -708,6 +721,11 @@ $(srcdir)/html/index.html: libxml2-api.xml $(srcdir)/newapi.xsl
 	  echo "Validating the resulting XHTML pages" ; \
 	  $(XMLLINT) --nonet --valid --noout html/*.html ; fi );
 
+wiki: libxml2-api.xml $(srcdir)/wiki.xsl
+	-@(if [ -x $(XSLTPROC) ] ; then \
+		echo "Rebuilding the wiki HTML pages from the XML API" ; \
+		$(XSLTPROC) --nonet $(srcdir)/wiki.xsl libxml2-api.xml; fi )
+
 $(WIN32_DIR)/libxml2.def.src: libxml2-api.xml
 	-@(if [ -x $(XSLTPROC) ] ; then \
 	  $(XSLTPROC) -o $(WIN32_DIR)/libxml2.def.src \
@@ -715,6 +733,7 @@ $(WIN32_DIR)/libxml2.def.src: libxml2-api.xml
 
 libxml2-api.xml libxml2-refs.xml: apibuild.py ../include/libxml/*.h ../*.c
 	-(./apibuild.py)
+	-@(cd .. ; $(MAKE) rebuild_testapi)
 
 xmllint.1: xmllint.xml
 	-@($(XSLTPROC) --nonet xmllint.xml)
@@ -725,7 +744,7 @@ xmlcatalog.1: xmlcatalog_man.xml
 clean-local:
 	rm -f *~ *.bak *.hierarchy *.signals *-unused.txt
 
-maintainer-clean-local: clean
+maintainer-clean-local: clean-local
 	rm -rf libxml-decl-list.txt libxml-decl.txt 
 
 rebuild: api all
@@ -736,7 +755,6 @@ install-data-local:
 	$(mkinstalldirs) $(DESTDIR)$(HTML_DIR)/html
 	-@INSTALL@ -m 0644 $(srcdir)/html/*.html $(DESTDIR)$(HTML_DIR)/html
 	-@INSTALL@ -m 0644 $(srcdir)/html/*.png $(DESTDIR)$(HTML_DIR)/html
-	-@INSTALL@ -m 0644 $(srcdir)/html/index.sgml $(DESTDIR)$(HTML_DIR)/html
 	$(mkinstalldirs) $(DESTDIR)$(HTML_DIR)/tutorial
 	-@INSTALL@ -m 0644 $(srcdir)/tutorial/*.* \
 		$(DESTDIR)$(HTML_DIR)/tutorial

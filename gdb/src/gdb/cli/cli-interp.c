@@ -163,6 +163,7 @@ cli_quoted_interpreter_resume (void *data)
 {
   static struct ui_file *quoted_stdout = NULL;
   static struct ui_file *quoted_stderr = NULL;
+  static struct ui_file *quoted_stdtarg = NULL;
 
   sync_execution = 1;
   print_frame_more_info_hook = 0;
@@ -174,10 +175,12 @@ cli_quoted_interpreter_resume (void *data)
       quoted_stdout = mi_console_file_new (raw_stdout, "~", '"');
 
       quoted_stderr = mi_console_file_new (raw_stdout, "&", '"');
+      quoted_stdtarg = mi_console_file_new (raw_stdout, "@", '"');
     }
   gdb_stdout = quoted_stdout;
   gdb_stderr = quoted_stderr;
   gdb_stdlog = gdb_stderr;
+  gdb_stdtarg = quoted_stdtarg;
 
   return 1;
 }

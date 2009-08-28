@@ -135,7 +135,7 @@ private:
                                 
     IOFixed                 determineResolution ( IOHIDElement * element );
                                     
-    static bool 			_publishNotificationHandler(void * target, void * ref, IOService * newService );
+    static bool 			_publishMatchingNotificationHandler(void * target, void * ref, IOService * newService, IONotifier * notifier);
 
     void                    ejectTimerCallback(IOTimerEventSource *sender);
 
@@ -144,7 +144,8 @@ private:
 #if TARGET_OS_EMBEDDED
     void                    debuggerTimerCallback(IOTimerEventSource *sender);
 #endif
-    
+	void					calculateCapsLockDelay();
+
 protected:
 
     virtual void            free();

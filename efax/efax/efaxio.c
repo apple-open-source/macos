@@ -249,7 +249,7 @@ int cmd ( TFILE *f, char *s, int t )
     if ( strlen(s) >= CMDBUFSIZE-4 ) {
       msg ( "E modem command \"%s\" too long", s ) ;
     } else {
-      sprintf ( buf, "AT%s\r", s ) ;
+      snprintf ( buf, sizeof(buf), "AT%s\r", s ) ;
       tput ( f, buf, strlen(buf) ) ;
     }
   }
@@ -277,7 +277,7 @@ int cmd ( TFILE *f, char *s, int t )
 
 	ringcount++;
 	value = CFNumberCreate(kCFAllocatorDefault,
-			kCFNumberSInt32Type, &ringcount);
+			kCFNumberIntType, &ringcount);
 
 	notify(CFSTR("ring"), value);
 

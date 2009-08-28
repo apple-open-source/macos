@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -151,14 +151,21 @@ public:
      * @param buffer
      * Buffer for the data transfer.  The size of the buffer implies the size of
      * the data transfer.
+     * @param attributes
+     * Attributes of the data transfer.  See IOStorageAttributes.  It is the
+     * responsibility of the callee to maintain the information for the duration
+     * of the data transfer, as necessary.
      * @param completion
-     * Completion routine to call once the data transfer is complete.
+     * Completion routine to call once the data transfer is complete.  It is the
+     * responsibility of the callee to maintain the information for the duration
+     * of the data transfer, as necessary.
      */
 
-    virtual void read(IOService *          client,
-                      UInt64               byteStart,
-                      IOMemoryDescriptor * buffer,
-                      IOStorageCompletion  completion);
+    virtual void read(IOService *           client,
+                      UInt64                byteStart,
+                      IOMemoryDescriptor *  buffer,
+                      IOStorageAttributes * attributes,
+                      IOStorageCompletion * completion);
 
     /*
      * @function write
@@ -175,14 +182,21 @@ public:
      * @param buffer
      * Buffer for the data transfer.  The size of the buffer implies the size of
      * the data transfer.
+     * @param attributes
+     * Attributes of the data transfer.  See IOStorageAttributes.  It is the
+     * responsibility of the callee to maintain the information for the duration
+     * of the data transfer, as necessary.
      * @param completion
-     * Completion routine to call once the data transfer is complete.
+     * Completion routine to call once the data transfer is complete.  It is the
+     * responsibility of the callee to maintain the information for the duration
+     * of the data transfer, as necessary.
      */
 
-    virtual void write(IOService *          client,
-                       UInt64               byteStart,
-                       IOMemoryDescriptor * buffer,
-                       IOStorageCompletion  completion);
+    virtual void write(IOService *           client,
+                       UInt64                byteStart,
+                       IOMemoryDescriptor *  buffer,
+                       IOStorageAttributes * attributes,
+                       IOStorageCompletion * completion);
 
     /*!
      * @function readCD
@@ -208,16 +222,32 @@ public:
      * @param sectorType
      * Sector type that is expected.  The data transfer is terminated as soon as
      * data is encountered that does not match the expected type.
+     * @param attributes
+     * Attributes of the data transfer.  See IOStorageAttributes.  It is the
+     * responsibility of the callee to maintain the information for the duration
+     * of the data transfer, as necessary.
      * @param completion
-     * Completion routine to call once the data transfer is complete.
+     * Completion routine to call once the data transfer is complete.  It is the
+     * responsibility of the callee to maintain the information for the duration
+     * of the data transfer, as necessary.
      */
 
-    virtual void readCD(IOService *          client,
-                        UInt64               byteStart,
-                        IOMemoryDescriptor * buffer,
-                        CDSectorArea         sectorArea,
-                        CDSectorType         sectorType,
-                        IOStorageCompletion  completion);
+#ifdef __LP64__
+    virtual void readCD(IOService *           client,
+                        UInt64                byteStart,
+                        IOMemoryDescriptor *  buffer,
+                        CDSectorArea          sectorArea,
+                        CDSectorType          sectorType,
+                        IOStorageAttributes * attributes,
+                        IOStorageCompletion * completion);
+#else /* !__LP64__ */
+    virtual void readCD(IOService *           client,
+                        UInt64                byteStart,
+                        IOMemoryDescriptor *  buffer,
+                        CDSectorArea          sectorArea,
+                        CDSectorType          sectorType,
+                        IOStorageCompletion   completion);
+#endif /* !__LP64__ */
 
     /*!
      * @function readCD
@@ -241,18 +271,30 @@ public:
      * @param sectorType
      * Sector type that is expected.  The data transfer is terminated as soon as
      * data is encountered that does not match the expected type.
+     * @param attributes
+     * Attributes of the data transfer.  See IOStorageAttributes.
      * @param actualByteCount
      * Returns the actual number of bytes transferred in the data transfer.
      * @result
      * Returns the status of the data transfer.
      */
 
-    virtual IOReturn readCD(IOService *          client,
-                            UInt64               byteStart,
-                            IOMemoryDescriptor * buffer,
-                            CDSectorArea         sectorArea,
-                            CDSectorType         sectorType,
-                            UInt64 *             actualByteCount = 0);
+#ifdef __LP64__
+    virtual IOReturn readCD(IOService *           client,
+                            UInt64                byteStart,
+                            IOMemoryDescriptor *  buffer,
+                            CDSectorArea          sectorArea,
+                            CDSectorType          sectorType,
+                            IOStorageAttributes * attributes      = 0,
+                            UInt64 *              actualByteCount = 0);
+#else /* !__LP64__ */
+    virtual IOReturn readCD(IOService *           client,
+                            UInt64                byteStart,
+                            IOMemoryDescriptor *  buffer,
+                            CDSectorArea          sectorArea,
+                            CDSectorType          sectorType,
+                            UInt64 *              actualByteCount = 0);
+#endif /* !__LP64__ */
 
     /*!
      * @function readISRC
@@ -306,9 +348,7 @@ public:
      * Returns the status of the operation.
      */
 
-    virtual IOReturn getSpeed(UInt16 * kilobytesPerSecond);
-
-    OSMetaClassDeclareReservedUsed(IOCDMedia, 0); /* 10.1.0 */
+    virtual IOReturn getSpeed(UInt16 * kilobytesPerSecond); /* 10.1.0 */
 
     /*!
      * @function setSpeed
@@ -323,9 +363,7 @@ public:
      * Returns the status of the operation.
      */
 
-    virtual IOReturn setSpeed(UInt16 kilobytesPerSecond);
-
-    OSMetaClassDeclareReservedUsed(IOCDMedia, 1); /* 10.1.0 */
+    virtual IOReturn setSpeed(UInt16 kilobytesPerSecond); /* 10.1.0 */
 
     /*!
      * @function readTOC
@@ -350,9 +388,7 @@ public:
                              CDTOCFormat          format,
                              UInt8                formatAsTime,
                              UInt8                trackOrSessionNumber,
-                             UInt16 *             actualByteCount);
-
-    OSMetaClassDeclareReservedUsed(IOCDMedia, 2); /* 10.1.3 */
+                             UInt16 *             actualByteCount); /* 10.1.3 */
 
     /*!
      * @function readDiscInfo
@@ -368,9 +404,7 @@ public:
      */
 
     virtual IOReturn readDiscInfo(IOMemoryDescriptor * buffer,
-                                  UInt16 *             actualByteCount);
-
-    OSMetaClassDeclareReservedUsed(IOCDMedia, 3); /* 10.1.3 */
+                                  UInt16 *             actualByteCount); /* 10.1.3 */
 
     /*!
      * @function readTrackInfo
@@ -392,9 +426,7 @@ public:
     virtual IOReturn readTrackInfo(IOMemoryDescriptor *   buffer,
                                    UInt32                 address,
                                    CDTrackInfoAddressType addressType,
-                                   UInt16 *               actualByteCount);
-
-    OSMetaClassDeclareReservedUsed(IOCDMedia, 4); /* 10.1.3 */
+                                   UInt16 *               actualByteCount); /* 10.1.3 */
 
     /*
      * @function writeCD
@@ -417,18 +449,32 @@ public:
      * when computing the address of byteStart.  See IOCDTypes.h.
      * @param sectorType
      * Sector type that is expected.
+     * @param attributes
+     * Attributes of the data transfer.  See IOStorageAttributes.  It is the
+     * responsibility of the callee to maintain the information for the duration
+     * of the data transfer, as necessary.
      * @param completion
-     * Completion routine to call once the data transfer is complete.
+     * Completion routine to call once the data transfer is complete.  It is the
+     * responsibility of the callee to maintain the information for the duration
+     * of the data transfer, as necessary.
      */
 
-    virtual void writeCD(IOService *          client,
-                         UInt64               byteStart,
-                         IOMemoryDescriptor * buffer,
-                         CDSectorArea         sectorArea,
-                         CDSectorType         sectorType,
-                         IOStorageCompletion  completion);
-
-    OSMetaClassDeclareReservedUsed(IOCDMedia, 5); /* 10.2.0 */
+#ifdef __LP64__
+    virtual void writeCD(IOService *           client,
+                         UInt64                byteStart,
+                         IOMemoryDescriptor *  buffer,
+                         CDSectorArea          sectorArea,
+                         CDSectorType          sectorType,
+                         IOStorageAttributes * attributes,
+                         IOStorageCompletion * completion);
+#else /* !__LP64__ */
+    virtual void writeCD(IOService *           client,
+                         UInt64                byteStart,
+                         IOMemoryDescriptor *  buffer,
+                         CDSectorArea          sectorArea,
+                         CDSectorType          sectorType,
+                         IOStorageCompletion   completion); /* 10.2.0 */
+#endif /* !__LP64__ */
 
     /*
      * @function writeCD
@@ -449,21 +495,48 @@ public:
      * when computing the address of byteStart.  See IOCDTypes.h.
      * @param sectorType
      * Sector type that is expected.
+     * @param attributes
+     * Attributes of the data transfer.  See IOStorageAttributes.
      * @param actualByteCount
      * Returns the actual number of bytes transferred in the data transfer.
      * @result
      * Returns the status of the data transfer.
      */
 
-    virtual IOReturn writeCD(IOService *          client,
-                             UInt64               byteStart,
-                             IOMemoryDescriptor * buffer,
-                             CDSectorArea         sectorArea,
-                             CDSectorType         sectorType,
-                             UInt64 *             actualByteCount = 0);
+#ifdef __LP64__
+    virtual IOReturn writeCD(IOService *           client,
+                             UInt64                byteStart,
+                             IOMemoryDescriptor *  buffer,
+                             CDSectorArea          sectorArea,
+                             CDSectorType          sectorType,
+                             IOStorageAttributes * attributes      = 0,
+                             UInt64 *              actualByteCount = 0);
+#else /* !__LP64__ */
+    virtual IOReturn writeCD(IOService *           client,
+                             UInt64                byteStart,
+                             IOMemoryDescriptor *  buffer,
+                             CDSectorArea          sectorArea,
+                             CDSectorType          sectorType,
+                             UInt64 *              actualByteCount = 0); /* 10.2.0 */
+#endif /* !__LP64__ */
 
-    OSMetaClassDeclareReservedUsed(IOCDMedia, 6); /* 10.2.0 */
-
+#ifdef __LP64__
+    OSMetaClassDeclareReservedUnused(IOCDMedia,  0);
+    OSMetaClassDeclareReservedUnused(IOCDMedia,  1);
+    OSMetaClassDeclareReservedUnused(IOCDMedia,  2);
+    OSMetaClassDeclareReservedUnused(IOCDMedia,  3);
+    OSMetaClassDeclareReservedUnused(IOCDMedia,  4);
+    OSMetaClassDeclareReservedUnused(IOCDMedia,  5);
+    OSMetaClassDeclareReservedUnused(IOCDMedia,  6);
+#else /* !__LP64__ */
+    OSMetaClassDeclareReservedUsed(IOCDMedia,  0);
+    OSMetaClassDeclareReservedUsed(IOCDMedia,  1);
+    OSMetaClassDeclareReservedUsed(IOCDMedia,  2);
+    OSMetaClassDeclareReservedUsed(IOCDMedia,  3);
+    OSMetaClassDeclareReservedUsed(IOCDMedia,  4);
+    OSMetaClassDeclareReservedUsed(IOCDMedia,  5);
+    OSMetaClassDeclareReservedUsed(IOCDMedia,  6);
+#endif /* !__LP64__ */
     OSMetaClassDeclareReservedUnused(IOCDMedia,  7);
     OSMetaClassDeclareReservedUnused(IOCDMedia,  8);
     OSMetaClassDeclareReservedUnused(IOCDMedia,  9);

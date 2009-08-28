@@ -1,4 +1,4 @@
-/*$Id: mailfold.h,v 1.1.1.2 2001/07/20 19:38:17 bbraun Exp $*/
+/*$Id: mailfold.h,v 1.24 2000/10/25 08:13:20 guenther Exp $*/
 
 long
  dump P((const int s,const int type,const char*source,long len));

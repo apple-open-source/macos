@@ -54,7 +54,7 @@ struct RelationInfo {
 // declare a CSSM_DB_ATTRIBUTE_INFO
 #define DB_ATTRIBUTE(name, type) \
 	{  CSSM_DB_ATTRIBUTE_NAME_AS_STRING, \
-	   {#name}, \
+	   {(char*) #name}, \
 	   CSSM_DB_ATTRIBUTE_FORMAT_ ## type \
 	}
 
@@ -63,7 +63,7 @@ struct RelationInfo {
 	{  CSSM_DB_INDEX_UNIQUE, \
 	   CSSM_DB_INDEX_ON_ATTRIBUTE, \
 	   {  CSSM_DB_ATTRIBUTE_NAME_AS_STRING, \
-	      {#name}, \
+	      {(char*) #name}, \
 		  CSSM_DB_ATTRIBUTE_FORMAT_ ## type \
 	   } \
 	}

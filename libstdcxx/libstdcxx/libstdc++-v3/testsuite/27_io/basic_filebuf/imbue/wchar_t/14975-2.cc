@@ -1,6 +1,10 @@
+// { dg-require-namedlocale "" }
+// { dg-require-fork "" }
+// { dg-require-mkfifo "" }
+
 // 2004-04-16  Petur Runolfsson  <peturr02@ru.is>
 
-// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -15,7 +19,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 #include <fstream>
@@ -25,23 +29,27 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+
+// No asserts, avoid leaking the semaphore if a VERIFY fails.
+#undef _GLIBCXX_ASSERT
+
 #include <testsuite_hooks.h>
 
 // libstdc++/14975
-void test01()
+bool test01()
 {
   using namespace std;
   using namespace __gnu_test;
   bool test __attribute__((unused)) = true;
 
-  locale loc_us = try_named_locale("en_US");
+  locale loc_us = locale("en_US");
 
   const char* name = "tmp_14975-2";
 
   signal(SIGPIPE, SIG_IGN);
 
   unlink(name);  
-  try_mkfifo(name, S_IRWXU);
+  mkfifo(name, S_IRWXU);
   semaphore s1;
 
   int child = fork();
@@ -53,7 +61,7 @@ void test01()
 	filebuf fbin;
 	fbin.open(name, ios_base::in);
       }
-      s1.signal ();
+      s1.signal();
       exit(0);
     }
   
@@ -63,7 +71,7 @@ void test01()
   VERIFY( ret != NULL );
   VERIFY( fb.is_open() );
 
-  s1.wait ();
+  s1.wait();
 
   try
     {
@@ -76,10 +84,11 @@ void test01()
   catch (std::exception&)
     {
     }
+
+  return test;
 }
 
 int main()
 {
-  test01();
-  return 0;
+  return !test01();
 }

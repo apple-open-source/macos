@@ -20,14 +20,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-/*!
- @header ATATimerEventSource.h
- @class ATATimerEventSource
- @abstract Extend the timer event source to allow checking for timer expiration 
- from behind the workloop.
- */
-
-
 #ifndef _ATATIMEREVENTSOURCE_H
 #define _ATATIMEREVENTSOURCE_H
 
@@ -38,47 +30,56 @@
 #include <IOKit/IOWorkLoop.h>
 #include <IOKit/IOTimerEventSource.h>
 
+
+/*!
+@class ATATimerEventSource
+
+@discussion
+Extend the timer event source to allow checking for timer expiration 
+from behind the workloop.
+*/
+
 class ATATimerEventSource : public IOTimerEventSource
 {
-    OSDeclareDefaultStructors(ATATimerEventSource)
+    OSDeclareDefaultStructors(ATATimerEventSource);
 
 	public:
 		
 	/*!@function ataTimerEventSource
 	@abstract  allocate an instance of this type.
-	*/	//
+	*/
     static ATATimerEventSource *
 	ataTimerEventSource(OSObject *owner, Action action = 0);
 	
 	/*!@function hasTimedOut
 	@abstract returns true if the timer has expired since the last enable/disable or setTimeout() or wakeAtTime() call.
-	*/	
+	*/
 	virtual bool hasTimedOut( void );
 		
 	// override to initialize the time out flag.
   	/*!@function 
 	@abstract 
-	*/  
+	*/
 	virtual bool init(OSObject *owner, Action action = 0);
 
 	/*!@function enable
 	@abstract overrides in order to set/clear the timed out flag
-	*/	
+	*/
 	virtual void enable();
 
 	/*!@function disable
 	@abstract overrides in order to set/clear the timed out flag
-	*/	
+	*/
 	virtual void disable();
 
 	/*!@function wakeAtTime
 	@abstract overrides in order to set/clear the timed out flag
-	*/	
+	*/
 	virtual IOReturn wakeAtTime(UnsignedWide abstime);
 
 	/*!@function cancelTimeout
 	@abstract overrides in order to set/clear the timed out flag
-	*/	
+	*/
 	virtual void cancelTimeout();
 
 protected:
@@ -97,15 +98,15 @@ protected:
 
 	/*!@function setTimeoutFunc
 	@abstract override to install my timeout function instead of the super's.
-	*/	
+	*/
     virtual void setTimeoutFunc();
 
-/*! @struct ExpansionData
+	/*! @struct ExpansionData
     @discussion This structure will be used to expand the capablilties of the IOWorkLoop in the future.
-    */    
+    */
     struct ExpansionData { };
 
-/*! @var reserved
+	/*! @var reserved
     Reserved for future use.  (Internal use only)  */
     ExpansionData *reserved;
 

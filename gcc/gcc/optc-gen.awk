@@ -14,7 +14,7 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 # This Awk script reads in the option records generated from 
 # opt-gather.awk, combines the flags of duplicat options and generates a
@@ -42,10 +42,13 @@ BEGIN {
 			n_langs++;
 		}
 		else {
-			opts[n_opts]  = $1
-			flags[n_opts] = $2
-			help[n_opts]  = $3
-			n_opts++;
+			name = opt_args("Mask", $1)
+			if (name == "") {
+				opts[n_opts]  = $1
+				flags[n_opts] = $2
+				help[n_opts]  = $3
+				n_opts++;
+			}
 		}
 	}
 
@@ -59,9 +62,15 @@ print "#include " quote "system.h" quote
 print "#include " quote "coretypes.h" quote
 print "#include " quote "hwint.h" quote
 # APPLE LOCAL end optimization pragmas 3124235/3420242
-print "#include <intl.h>"
-print "#include " quote header_name quote
+n_headers = split(header_name, headers, " ")
+for (i = 1; i <= n_headers; i++)
+	print "#include " quote headers[i] quote
 print "#include " quote "opts.h" quote
+print "#include " quote "intl.h" quote
+print ""
+print "#ifdef GCC_DRIVER"
+print "int target_flags;"
+print "#endif /* GCC_DRIVER */"
 print ""
 
 for (i = 0; i < n_opts; i++) {
@@ -69,29 +78,43 @@ for (i = 0; i < n_opts; i++) {
 	if (name == "")
 		continue;
 
+	if (flag_set_p("VarExists", flags[i])) {
+		# Need it for the gcc driver.
+		if (name in var_seen)
+			continue;
+		# APPLE LOCAL optimization pragmas 3124235/3420242
+		init = " = 0"
+		init = ""
+		gcc_driver = 1
+	}
+	else {
+		init = opt_args("Init", flags[i])
+		if (init != "")
+			init = " = " init;
+		else if (name in var_seen)
+			continue;
+		# APPLE LOCAL begin optimization pragmas 3124235/3420242
+		else
+			init = " = 0";
+		# APPLE LOCAL end optimization pragmas 3124235/3420242
+		gcc_driver = 0
+	}
 # APPLE LOCAL begin optimization pragmas 3124235/3420242
-	if (flag_set_p("VarExists", flags[i]))
-	    continue;
 	if (flag_set_p("PerFunc", flags[i]))
 	    continue;
 # APPLE LOCAL end optimization pragmas 3124235/3420242
 
-	if (flags[i] ~ "Init\\(")
-	    {
-		    init = flags[i];
-		    sub(".*Init\\(","",init);
-		    sub("\\).*","",init);
-# APPLE LOCAL begin optimization pragmas 3124235/3420242
-# APPLE LOCAL end optimization pragmas 3124235/3420242
-	    }
-	 else
-# APPLE LOCAL optimization pragmas 3124235/3420242
-		    init = "0";
+	if (gcc_driver == 1)
+		print "#ifdef GCC_DRIVER"
+	print "/* Set by -" opts[i] "."
+	print "   " help[i] "  */"
+	print var_type(flags[i]) name init ";"
+	if (gcc_driver == 1)
+		print "#endif /* GCC_DRIVER */"
+	print ""
 
-# APPLE LOCAL optimization pragmas 3124235/3420242
-	 printf ("/* Set by -%s.\n   %s  */\nint %s = %s;\n\n",
-	    opts[i], help[i], name,init)
-    }
+	var_seen[name] = 1;
+}
 
 # APPLE LOCAL begin optimization pragmas 3124235/3420242
 print "struct cl_perfunc_opts cl_pf_opts = {\n"
@@ -125,7 +148,6 @@ for (i = 0; i < n_opts; i++) {
 print "0, /* fld_optimize_size */"
 
 # Padding, see comments in opth-gen.awk.
-
 print "0,  /* padding */"
 
 # Per-function non-bitfield initializers.
@@ -160,6 +182,15 @@ print "};"
 print "struct cl_perfunc_opts cl_pf_opts_raw;"
 print "struct cl_perfunc_opts cl_pf_opts_cooked;"
 # APPLE LOCAL end optimization pragmas 3124235/3420242
+
+print ""
+print "/* Local state variables.  */"
+for (i = 0; i < n_opts; i++) {
+	name = static_var(opts[i], flags[i]);
+	if (name != "")
+		print "static " var_type(flags[i]) name ";"
+}
+print ""
 
 print "const char * const lang_names[] =\n{"
 for (i = 0; i < n_langs; i++) {
@@ -198,53 +229,90 @@ for (i = 0; i < n_opts; i++) {
 
 print "const struct cl_option cl_options[] =\n{"
 
-for (i = 0; i < n_opts; i++)
+j = 0
+for (i = 0; i < n_opts; i++) {
 	back_chain[i] = "N_OPTS";
+	indices[opts[i]] = j;
+	# Combine the flags of identical switches.  Switches
+	# appear many times if they are handled by many front
+	# ends, for example.
+	while( i + 1 != n_opts && opts[i] == opts[i + 1] ) {
+		flags[i + 1] = flags[i] " " flags[i + 1];
+		i++;
+		back_chain[i] = "N_OPTS";
+		indices[opts[i]] = j;
+	}
+	j++;
+}
 
-	for (i = 0; i < n_opts; i++) {
-		# Combine the flags of identical switches.  Switches
-		# appear many times if they are handled by many front
-		# ends, for example.
-		while( i + 1 != n_opts && opts[i] == opts[i + 1] ) {
-			flags[i + 1] = flags[i] " " flags[i + 1];
-			i++;
+for (i = 0; i < n_opts; i++) {
+	# Combine the flags of identical switches.  Switches
+	# appear many times if they are handled by many front
+	# ends, for example.
+	while( i + 1 != n_opts && opts[i] == opts[i + 1] ) {
+		flags[i + 1] = flags[i] " " flags[i + 1];
+		i++;
+	}
+
+	len = length (opts[i]);
+	enum = "OPT_" opts[i]
+	if (opts[i] == "finline-limit=")
+		enum = enum "eq"
+	gsub ("[^A-Za-z0-9]", "_", enum)
+
+	# If this switch takes joined arguments, back-chain all
+	# subsequent switches to it for which it is a prefix.  If
+	# a later switch S is a longer prefix of a switch T, T
+	# will be back-chained to S in a later iteration of this
+	# for() loop, which is what we want.
+	if (flag_set_p("Joined.*", flags[i])) {
+		for (j = i + 1; j < n_opts; j++) {
+			if (substr (opts[j], 1, len) != opts[i])
+				break;
+			back_chain[j] = enum;
 		}
+	}
 
-		len = length (opts[i]);
-		enum = "OPT_" opts[i]
-		if (opts[i] == "finline-limit=")
-			enum = enum "eq"
-		gsub ("[^A-Za-z0-9]", "_", enum)
+	s = substr("                                  ", length (opts[i]))
+	if (i + 1 == n_opts)
+		comma = ""
 
-		# If this switch takes joined arguments, back-chain all
-		# subsequent switches to it for which it is a prefix.  If
-		# a later switch S is a longer prefix of a switch T, T
-		# will be back-chained to S in a later iteration of this
-		# for() loop, which is what we want.
-		if (flags[i] ~ "Joined") {
-			for (j = i + 1; j < n_opts; j++) {
-				if (substr (opts[j], 1, len) != opts[i])
-					break;
-				back_chain[j] = enum;
-			}
+	if (help[i] == "")
+		hlp = "0"
+	else
+		hlp = quote help[i] quote;
+
+	neg = opt_args("Negative", flags[i]);
+	if (neg != "")
+		idx = indices[neg]
+	else {
+		if (flag_set_p("RejectNegative", flags[i]))
+			idx = -1;
+		else {
+			if (opts[i] ~ "^[Wfm]")
+				idx = indices[opts[i]];
+			else
+				idx = -1;
 		}
-
-		s = substr("                                  ", length (opts[i]))
-		if (i + 1 == n_opts)
-			comma = ""
-
-		if (help[i] == "")
-			hlp = "0"
-		else
-			hlp = "N_(" quote help[i] quote ")";
-
-# APPLE LOCAL begin optimization pragmas 3124235/3420242
-		printf("  { %c-%s%c,\n    %s,\n    %s, %u, %s, %s, %s, %s }%s\n",
-			quote, opts[i], quote, hlp, back_chain[i], len,
-			switch_flags(flags[i]),
-			var_ref(flags[i]), access_ref(flags[i]),
-			var_set(flags[i]), comma)
-# APPLE LOCAL end optimization pragmas 3124235/3420242
+	}
+	printf("  { %c-%s%c,\n    %s,\n    %s, %u, %d,\n",
+	       quote, opts[i], quote, hlp, back_chain[i], len, idx)
+	condition = opt_args("Condition", flags[i])
+	cl_flags = switch_flags(flags[i])
+	if (condition != "")
+		printf("#if %s\n" \
+		       "    %s,\n" \
+		       "#else\n" \
+		       "    CL_DISABLED,\n" \
+		       "#endif\n",
+		       condition, cl_flags, cl_flags)
+	else
+		printf("    %s,\n", cl_flags)
+	# APPLE LOCAL begin optimization pragmas 3124235/3420242
+	printf("    %s, %s, %s }%s\n", var_ref(opts[i], flags[i]),
+	       access_ref(flags[i]),
+	# APPLE LOCAL end optimization pragmas 3124235/3420242
+	       var_set(flags[i]), comma)
 }
 
 print "};"

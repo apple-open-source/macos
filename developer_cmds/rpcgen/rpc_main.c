@@ -578,7 +578,7 @@ h_output(infile, define, extend, outfile)
 		(void) unlink(outfilename);
 	} else
 		if (tblflag) {
-			f_print(fout, rpcgen_table_dcl);
+			f_print(fout, "%s", rpcgen_table_dcl);
 		}
 	f_print(fout, "\n#endif /* !_%s */\n", guard);
 }

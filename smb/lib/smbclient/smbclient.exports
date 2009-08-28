@@ -1,0 +1,11 @@
+_SMBCloseFile
+_SMBCreateFile
+_SMBOpenServer
+_SMBOpenServerEx
+_SMBRawTransaction
+_SMBReadFile
+_SMBReleaseServer
+_SMBRetainServer
+_SMBServerGetProperties
+_SMBTransactNamedPipe
+_SMBWriteFile

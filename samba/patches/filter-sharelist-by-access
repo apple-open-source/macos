@@ -70,7 +70,7 @@ Index: samba/source/rpc_server/srv_srvsvc_nt.c
 ===================================================================
 --- samba/source/rpc_server/srv_srvsvc_nt.c.orig
 +++ samba/source/rpc_server/srv_srvsvc_nt.c
-@@ -472,8 +472,15 @@ static BOOL init_srv_share_info_ctr(pipe
+@@ -469,8 +469,15 @@ static BOOL init_srv_share_info_ctr(pipe
  
  	/* Count the number of entries. */
  	for (snum = 0; snum < num_services; snum++) {
@@ -91,7 +91,7 @@ Index: samba/source/smbd/lanman.c
 ===================================================================
 --- samba/source/smbd/lanman.c.orig
 +++ samba/source/smbd/lanman.c
-@@ -1729,6 +1729,13 @@ static BOOL api_RNetShareEnum( connectio
+@@ -1735,6 +1735,13 @@ static BOOL api_RNetShareEnum( connectio
  		if (!(lp_browseable(i) && lp_snum_ok(i))) {
  			continue;
  		}
@@ -121,7 +121,7 @@ Index: samba/source/param/loadparm.c
 ===================================================================
 --- samba/source/param/loadparm.c.orig
 +++ samba/source/param/loadparm.c
-@@ -5936,3 +5936,14 @@ void lp_set_posix_default_cifsx_readwrit
+@@ -5967,3 +5967,14 @@ void lp_set_posix_default_cifsx_readwrit
  	posix_default_lock_was_set = True;
  	posix_cifsx_locktype = val;
  }

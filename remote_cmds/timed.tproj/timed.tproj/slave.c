@@ -1,26 +1,3 @@
-/*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
 /*-
  * Copyright (c) 1985, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -54,14 +31,14 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__unused static char sccsid[] = "@(#)slave.c	8.1 (Berkeley) 6/6/93";
-#endif /* not lint */
-
-#ifdef sgi
-#ident "$Revision: 1.2 $"
+#if 0
+static char sccsid[] = "@(#)slave.c	8.1 (Berkeley) 6/6/93";
 #endif
+static const char rcsid[] =
+  "$FreeBSD: src/usr.sbin/timed/timed/slave.c,v 1.10 2007/11/07 10:53:41 kevlo Exp $";
+#endif /* not lint */
+#include <sys/cdefs.h>
 
 #include "globals.h"
 #include <setjmp.h>
@@ -73,21 +50,21 @@ extern int justquit;
 
 extern u_short sequence;
 
-static char master_name[MAXHOSTNAMELEN+1];
+static char master_name[MAXHOSTNAMELEN];
 static struct netinfo *old_slavenet;
 static int old_status;
 
-static void schgdate __P((struct tsp *, char *));
-static void setmaster __P((struct tsp *));
-static void answerdelay __P((void));
+static void schgdate(struct tsp *, char *);
+static void setmaster(struct tsp *);
+static void answerdelay(void);
 
-#ifdef sgi
-extern void logwtmp __P((struct timeval *, struct timeval *));
-#else
+#ifdef __APPLE__
 #include <utmpx.h>
-#endif /* sgi */
+#else
+extern void logwtmp(char *, char *, char *);
+#endif
 
-void
+int
 slave()
 {
 	int tries;
@@ -100,7 +77,8 @@ slave()
 	struct sockaddr_in taddr;
 	char tname[MAXHOSTNAMELEN];
 	struct tsp *msg, to;
-	struct timeval ntime, wait;
+	struct timeval ntime, wait, tmptv;
+	time_t tsp_time_sec;
 	struct tsp *answer;
 	int timeout();
 	char olddate[32];
@@ -281,17 +259,13 @@ loop:
 			/* adjust time for residence on the queue */
 			(void)gettimeofday(&otime, 0);
 			adj_msg_time(msg,&otime);
-#ifdef sgi
-			(void)cftime(newdate, "%D %T", &msg->tsp_time.tv_sec);
-			(void)cftime(olddate, "%D %T", &otime.tv_sec);
-#else
 			/*
 			 * the following line is necessary due to syslog
 			 * calling ctime() which clobbers the static buffer
 			 */
 			(void)strcpy(olddate, date());
-			(void)strcpy(newdate, ctime(&msg->tsp_time.tv_sec));
-#endif /* sgi */
+			tsp_time_sec = msg->tsp_time.tv_sec;
+			(void)strcpy(newdate, ctime(&tsp_time_sec));
 
 			if (!good_host_name(msg->tsp_name)) {
 				syslog(LOG_NOTICE,
@@ -302,30 +276,32 @@ loop:
 			}
 
 			setmaster(msg);
-			timevalsub(&ntime, &msg->tsp_time, &otime);
+ 			tmptv.tv_sec = msg->tsp_time.tv_sec;
+ 			tmptv.tv_usec = msg->tsp_time.tv_usec;
+			timevalsub(&ntime, &tmptv, &otime);
 			if (ntime.tv_sec < MAXADJ && ntime.tv_sec > -MAXADJ) {
 				/*
 				 * do not change the clock if we can adjust it
 				 */
 				synch(tvtomsround(ntime));
 			} else {
-#ifdef sgi
-				if (0 > settimeofday(&msg->tsp_time, 0)) {
-					syslog(LOG_ERR,"settimeofdate(): %m");
-					break;
-				}
-				logwtmp(&otime, &msg->tsp_time);
-#else
+#ifdef __APPLE__
+				// rdar://problem/4433603
 				struct utmpx u;
 				bzero(&u, sizeof(u));
 				u.ut_type = OLD_TIME;
 				u.ut_tv = otime;
 				pututxline(&u);
-				(void)settimeofday(&msg->tsp_time, 0);
 				u.ut_type = NEW_TIME;
-				u.ut_tv = msg->tsp_time;
+				u.ut_tv.tv_sec = msg->tsp_time.tv_sec;
+				u.ut_tv.tv_usec = msg->tsp_time.tv_usec;
+				(void)settimeofday(&u.ut_tv, 0);
 				pututxline(&u);
-#endif /* sgi */
+#else /* !__APPLE__ */
+				logwtmp("|", "date", "");
+ 				(void)settimeofday(&tmptv, 0);
+				logwtmp("{", "date", "");
+#endif /* __APPLE__ */
 				syslog(LOG_NOTICE,
 				       "date changed by %s from %s",
 					msg->tsp_name, olddate);
@@ -384,22 +360,16 @@ loop:
 			break;
 
 		case TSP_SETDATE:
-#ifdef sgi
-			(void)cftime(newdate, "%D %T", &msg->tsp_time.tv_sec);
-#else
-			(void)strcpy(newdate, ctime(&msg->tsp_time.tv_sec));
-#endif /* sgi */
+			tsp_time_sec = msg->tsp_time.tv_sec;
+			(void)strcpy(newdate, ctime(&tsp_time_sec));
 			schgdate(msg, newdate);
 			break;
 
 		case TSP_SETDATEREQ:
 			if (fromnet->status != MASTER)
 				break;
-#ifdef sgi
-			(void)cftime(newdate, "%D %T", &msg->tsp_time.tv_sec);
-#else
-			(void)strcpy(newdate, ctime(&msg->tsp_time.tv_sec));
-#endif /* sgi */
+			tsp_time_sec = msg->tsp_time.tv_sec;
+			(void)strcpy(newdate, ctime(&tsp_time_sec));
 			htp = findhost(msg->tsp_name);
 			if (0 == htp) {
 				syslog(LOG_WARNING,
@@ -529,7 +499,8 @@ loop:
 				bytenetorder(&to);
 				if (sendto(sock, (char *)&to,
 					   sizeof(struct tsp), 0,
-					   (struct sockaddr*)&taddr, sizeof(taddr)) < 0) {
+					   (struct sockaddr*)&taddr,
+					   sizeof(taddr)) < 0) {
 					trace_sendto_err(taddr.sin_addr);
 				}
 			}
@@ -651,6 +622,7 @@ loop:
 		}
 	}
 	goto loop;
+	return 0;
 }
 
 
@@ -730,9 +702,6 @@ schgdate(msg, newdate)
 static void
 answerdelay()
 {
-#ifdef sgi
-	sginap(delay1);
-#else
 	struct timeval timeout;
 
 	timeout.tv_sec = 0;
@@ -741,5 +710,4 @@ answerdelay()
 	(void)select(0, (fd_set *)NULL, (fd_set *)NULL, (fd_set *)NULL,
 	    &timeout);
 	return;
-#endif /* sgi */
 }

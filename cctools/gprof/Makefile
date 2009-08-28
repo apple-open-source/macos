@@ -2,15 +2,6 @@ RC_OS = macos
 OFLAG = -O
 LIBSTUFF = -L$(SYMROOT)/../libstuff -lstuff
 
-ifeq "macos" "$(RC_OS)"
-  X_CFLAGS := $(shell if [ "$(RC_RELEASE)" != "Beaker" ] &&    \
-			 [ "$(RC_RELEASE)" != "Bunsen" ] &&    \
-			 [ "$(RC_RELEASE)" != "Gonzo"  ] &&    \
-			 [ "$(RC_RELEASE)" != "Kodiak" ]; then \
-	     echo -Wno-long-double -no-cpp-precomp ; \
-	     fi; )
-endif
-
 ifneq "mwccppc" "$(notdir $(CC))"
   GCC_FLAGS = -Wall $(X_CFLAGS)
 endif

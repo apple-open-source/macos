@@ -1,0 +1,5 @@
+,s:$(COMPILE_PY_WRAPPER) subversion:$(COMPILE_PY_WRAPPER) $(top_srcdir)/subversion:
+,s:$(COMPILE_RB_WRAPPER) subversion:$(COMPILE_RB_WRAPPER) $(top_srcdir)/subversion:
+/libsvn_swig_perl && $(LINK)/s/$(LINK)/$(LINKVERS)/
+/libsvn_swig_py && $(LINK)/s/$(LINK)/$(LINKVERS)/
+w

@@ -23,7 +23,7 @@ EventTraceCauseDesc IrLogEvents[] = {
     {kLogCancel,            "IrDATimer: safe cancel, cancel worked="}
 };
 
-#define XTRACE(x, y, z) IrDALogAdd( x, y, (int)z & 0xffff, IrLogEvents, true )
+#define XTRACE(x, y, z) IrDALogAdd( x, y, (uintptr_t)z & 0xffff, IrLogEvents, true )
 
 #else
 #define XTRACE(x,y,z)   ((void)0)
@@ -53,7 +53,7 @@ IrDATimerEventSource *
 IrDATimerEventSource::timerEventSource(OSObject *inOwner, Action inAction)
 {
     IrDATimerEventSource *me = new IrDATimerEventSource;
-    XTRACE(kLogNew, (int)me >> 16, me);
+    XTRACE(kLogNew, 0, me);
     
     // note: we don't have an init, so pass it up to IOTimerEventSource
     if (me && !me->init(inOwner, (super::Action)inAction)) {

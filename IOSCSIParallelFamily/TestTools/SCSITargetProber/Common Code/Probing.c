@@ -1,7 +1,7 @@
 /*
- * © Copyright 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2007 Apple Inc. All rights reserved.
  *
- * IMPORTANT:  This Apple software is supplied to you by Apple Computer, Inc. (“Apple”) in 
+ * IMPORTANT:  This Apple software is supplied to you by Apple Inc. ("Apple") in 
  * consideration of your agreement to the following terms, and your use, installation, 
  * modification or redistribution of this Apple software constitutes acceptance of these
  * terms.  If you do not agree with these terms, please do not use, install, modify or 
@@ -34,9 +34,9 @@
  */
 
 
-//—————————————————————————————————————————————————————————————————————————————
+//-----------------------------------------------------------------------------
 //	Includes
-//—————————————————————————————————————————————————————————————————————————————
+//-----------------------------------------------------------------------------
 
 #include "Probing.h"
 
@@ -49,9 +49,9 @@
 #include <IOKit/scsi/SCSITask.h>
 
 
-//—————————————————————————————————————————————————————————————————————————————
+//-----------------------------------------------------------------------------
 //	Macros
-//—————————————————————————————————————————————————————————————————————————————
+//-----------------------------------------------------------------------------
 
 #define DEBUG 0
 
@@ -105,24 +105,24 @@ DebugAssert ( const char *	componentNameString,
 #include <AssertMacros.h>
 
 
-//—————————————————————————————————————————————————————————————————————————————
+//-----------------------------------------------------------------------------
 //	Constants
-//—————————————————————————————————————————————————————————————————————————————
+//-----------------------------------------------------------------------------
 
 #define kIOSCSIParallelInterfaceControllerClassString	"IOSCSIParallelInterfaceController"
 
 
-//—————————————————————————————————————————————————————————————————————————————
+//-----------------------------------------------------------------------------
 //	Prototypes
-//—————————————————————————————————————————————————————————————————————————————
+//-----------------------------------------------------------------------------
 
 static IOReturn
 ReprobeTargetDevice ( io_service_t controller, SCSITargetIdentifier targetID );
 
 
-//—————————————————————————————————————————————————————————————————————————————
-//	•	ReprobeDomainTarget - Reprobes device at targetID on a SCSI Domain
-//—————————————————————————————————————————————————————————————————————————————
+//-----------------------------------------------------------------------------
+//	ReprobeDomainTarget - Reprobes device at targetID on a SCSI Domain
+//-----------------------------------------------------------------------------
 
 
 IOReturn
@@ -219,10 +219,10 @@ ErrorExit:
 }
 
 
-//—————————————————————————————————————————————————————————————————————————————
+//-----------------------------------------------------------------------------
 //	ReprobeTargetDevice - 	Actually performs the reprobe if it can find the
 //							IOSCSIParallelInterfaceDevice at the targetID.
-//—————————————————————————————————————————————————————————————————————————————
+//-----------------------------------------------------------------------------
 
 static IOReturn
 ReprobeTargetDevice ( io_service_t controller, SCSITargetIdentifier targetID )

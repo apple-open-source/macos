@@ -1,0 +1,26 @@
+diff -upr /Users/hhinnant/Documents/libstdcxx_build/libstdcxx.roots/libstdcxx/libstdcxx/libstdc++-v3/ChangeLog /Users/hhinnant/Documents/libstdc++-v3/ChangeLog
+--- libstdc++-v3/ChangeLog	2008-10-27 13:01:22.000000000 -0400
++++ libstdc++-v3/ChangeLog	2008-10-27 13:40:50.000000000 -0400
+@@ -1,5 +1,10 @@
+ 2008-10-27  Howard Hinnant  <hhinnant@apple.com>
+ 
++       * Added #pragma GCC system_header to stl_tree.h.
++         <rdar://problem/5485651>
++
++2008-10-27  Howard Hinnant  <hhinnant@apple.com>
++
+        * Fixed basic_string.h, basic_string.tcc, incorrect 64bit to
+          32bit narrowing.  <rdar://problem/5410410>
+ 
+diff -upr /Users/hhinnant/Documents/libstdcxx_build/libstdcxx.roots/libstdcxx/libstdcxx/libstdc++-v3/include/bits/stl_tree.h /Users/hhinnant/Documents/libstdc++-v3/include/bits/stl_tree.h
+--- libstdc++-v3/include/bits/stl_tree.h	2006-12-01 12:01:59.000000000 -0500
++++ libstdc++-v3/include/bits/stl_tree.h	2008-10-27 11:55:17.000000000 -0400
+@@ -64,6 +64,8 @@
+ #ifndef _TREE_H
+ #define _TREE_H 1
+ 
++#pragma GCC system_header
++
+ #include <bits/stl_algobase.h>
+ #include <bits/allocator.h>
+ #include <bits/stl_construct.h>

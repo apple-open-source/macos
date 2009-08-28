@@ -96,7 +96,7 @@ TPClItemInfo::TPClItemInfo(
 		
 		/* 
 		 * Signing algorithm, infer from TBS algId 
-		 * Note this assumesÊthat the OID for fetching this field is the
+		 * Note this assumes that the OID for fetching this field is the
 		 * same for CRLs and Certs.
 		 */
 		CSSM_DATA_PTR algField;
@@ -115,6 +115,13 @@ TPClItemInfo::TPClItemInfo(
 		if(!algFound) {
 			tpErrorLog("TPClItemInfo: unknown signature algorithm\n");
 			CssmError::throwMe(CSSMERR_TP_UNKNOWN_FORMAT);
+		}
+		if(mSigAlg == CSSM_ALGID_ECDSA_SPECIFIED) {
+			/* Further processing needed to get digest algorithm */
+			if(decodeECDSA_SigAlgParams(&algId->parameters, &mSigAlg)) {
+				tpErrorLog("TPClItemInfo: incomplete/unknown ECDSA signature algorithm\n");
+				CssmError::throwMe(CSSMERR_TP_UNKNOWN_FORMAT);
+			}
 		}
 		freeField(&CSSMOID_X509V1SignatureAlgorithmTBS, algField);
 	
@@ -1884,6 +1891,9 @@ post_anchor:
 		}
 	}
 	
+	/* If we get here, enable fetching issuer from network: <rdar://6113890> */
+	actionFlags |= CSSM_TP_ACTION_FETCH_CERT_FROM_NET;
+	
 	/* 
 	 * If we haven't verified to a root, and net fetch of certs is enabled,
 	 * try to get the issuer of the last cert in the chain from the net.
@@ -1913,6 +1923,8 @@ post_anchor:
 				foundPartialIssuer = true;
 				/* and drop thru */
 			case CSSM_OK:
+				if (!issuer)
+					break;
 				tpDebug("buildCertGroup: Cert FOUND from Net; recursing");
 
 				if(isInGroup(*issuer)) {

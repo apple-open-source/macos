@@ -1,10 +1,10 @@
 /*
- * "$Id: rastertohp.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: rastertohp.c 7834 2008-08-04 21:02:09Z mike $"
  *
  *   Hewlett-Packard Page Control Language filter for the Common UNIX
  *   Printing System (CUPS).
  *
- *   Copyright 2007-2008 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 1993-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -34,11 +34,12 @@
 #include <cups/cups.h>
 #include <cups/string.h>
 #include <cups/i18n.h>
-#include "raster.h"
+#include <cups/raster.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <errno.h>
 
 
 /*
@@ -183,6 +184,10 @@ StartPage(ppd_file_t         *ppd,	/* I - PPD file */
           printf("\033&l80A");			/* Set page size */
 	  break;
 
+      case 595 : /* A5 */
+          printf("\033&l25A");			/* Set page size */
+	  break;
+
       case 624 : /* DL Envelope */
           printf("\033&l90A");			/* Set page size */
 	  break;
@@ -244,10 +249,9 @@ StartPage(ppd_file_t         *ppd,	/* I - PPD file */
 
     if (!ppd || ppd->model_number != 2)
     {
-      if (header->Duplex)
-	printf("\033&l%dS",			/* Set duplex mode */
-               header->Duplex + header->Tumble);
+      int mode = Duplex ? 1 + header->Tumble != 0 : 0;
 
+      printf("\033&l%dS", mode);		/* Set duplex mode */
       printf("\033&l0L");			/* Turn off perforation skip */
     }
   }
@@ -705,8 +709,9 @@ main(int  argc,				/* I - Number of command-line arguments */
     * and return.
     */
 
-    fprintf(stderr, _("Usage: %s job-id user title copies options [file]\n"),
-            argv[0]);
+    _cupsLangPrintf(stderr,
+                    _("Usage: %s job-id user title copies options [file]\n"),
+                    "rastertohp");
     return (1);
   }
 
@@ -718,7 +723,8 @@ main(int  argc,				/* I - Number of command-line arguments */
   {
     if ((fd = open(argv[6], O_RDONLY)) == -1)
     {
-      perror("ERROR: Unable to open raster file - ");
+      _cupsLangPrintf(stderr, _("ERROR: Unable to open raster file - %s\n"),
+                      strerror(errno));
       sleep(1);
       return (1);
     }
@@ -794,8 +800,8 @@ main(int  argc,				/* I - Number of command-line arguments */
 	break;
 
       if ((y & 127) == 0)
-        fprintf(stderr, _("INFO: Printing page %d, %d%% complete...\n"), Page,
-	        100 * y / header.cupsHeight);
+        _cupsLangPrintf(stderr, _("INFO: Printing page %d, %d%% complete...\n"),
+                        Page, 100 * y / header.cupsHeight);
 
      /*
       * Read a line of graphics...
@@ -847,14 +853,18 @@ main(int  argc,				/* I - Number of command-line arguments */
   */
 
   if (Page == 0)
-    fputs(_("ERROR: No pages found!\n"), stderr);
+  {
+    _cupsLangPuts(stderr, _("ERROR: No pages found!\n"));
+    return (1);
+  }
   else
-    fputs(_("INFO: Ready to print.\n"), stderr);
-
-  return (Page == 0);
+  {
+    _cupsLangPuts(stderr, _("INFO: Ready to print.\n"));
+    return (0);
+  }
 }
 
 
 /*
- * End of "$Id: rastertohp.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: rastertohp.c 7834 2008-08-04 21:02:09Z mike $".
  */

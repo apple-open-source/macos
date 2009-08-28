@@ -41,7 +41,6 @@ _dsIsDirServiceRunning
 _dsIsDirServiceLocalRunning
 _dsOpenDirNode
 _dsOpenDirService
-_dsOpenDirServiceLocal
 _dsOpenDirServiceProxy
 _dsOpenRecord
 _dsReleaseContinueData
@@ -101,3 +100,5 @@ _dsPostEvent
 _dsSetNodeCacheAvailability
 _dsFlushLibinfoCache
 _dsFlushMembershipCache
+_dsIsUserMemberOfGroup
+_dsCopyKerberosServiceList

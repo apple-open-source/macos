@@ -1,0 +1,13 @@
+
+1) Extract source from tarball
+2) Configure for all three arches:
+	SnowLeopard General: --prefix="/usr" --openssldir="/System/Library/OpenSSL" threads shared zlib no-hw no-idea enable-rc5 enable-mdc2 enable-seed
+	SnowLeopard arches : darwin-i386-llvm darwin64-x84_64-llvm darwin-ppc-llvm
+3) Update opensslconf.h
+4) Update MacOS/buildinf.h
+
+Places to updated when the version changes:
+* "Install pkgconfig" build phase
+* "Install Open Source License" build phase
+* "Install Open Source Version" build phase
+

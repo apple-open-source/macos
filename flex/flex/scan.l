@@ -36,6 +36,7 @@
 #include "parse.h"
 extern bool tablesverify, tablesext;
 extern int trlcontxt; /* Set in  parse.y for each rule. */
+extern const char *escaped_qstart, *escaped_qend;
 
 #define ACTION_ECHO add_action( yytext )
 #define ACTION_IFDEF(def, should_define) \
@@ -43,6 +44,9 @@ extern int trlcontxt; /* Set in  parse.y for each rule. */
 	if ( should_define ) \
 		action_define( def, 1 ); \
 	}
+
+#define ACTION_ECHO_QSTART add_action (escaped_qstart)
+#define ACTION_ECHO_QEND   add_action (escaped_qend)
 
 #define ACTION_M4_IFDEF(def, should_define) \
     do{ \
@@ -97,6 +101,10 @@ extern int trlcontxt; /* Set in  parse.y for each rule. */
 %x SECT2 SECT2PROLOG SECT3 CODEBLOCK PICKUPDEF SC CARETISBOL NUM QUOTE
 %x FIRSTCCL CCL ACTION RECOVER COMMENT ACTION_STRING PERCENT_BRACE_ACTION
 %x OPTION LINEDIR CODEBLOCK_MATCH_BRACE
+%x GROUP_WITH_PARAMS
+%x GROUP_MINUS_PARAMS
+%x EXTENDED_COMMENT
+%x COMMENT_DISCARD
 
 WS		[[:blank:]]+
 OPTWS		[[:blank:]]*
@@ -113,9 +121,12 @@ ESCSEQ		(\\([^\n]|[0-7]{1,3}|x[[:xdigit:]]{1,2}))
 
 FIRST_CCL_CHAR	([^\\\n]|{ESCSEQ})
 CCL_CHAR	([^\\\n\]]|{ESCSEQ})
-CCL_EXPR	("[:"[[:alpha:]]+":]")
+CCL_EXPR	("[:"^?[[:alpha:]]+":]")
 
 LEXOPT		[aceknopr]
+
+M4QSTART    "[["
+M4QEND      "]]"
 
 %%
 	static int bracelevel, didadef, indented_code;
@@ -146,7 +157,7 @@ LEXOPT		[aceknopr]
                 brace_depth = 1;
                 yy_push_state(CODEBLOCK_MATCH_BRACE);
             }
-    
+
     ^"%top".*   synerr( _("malformed '%top' directive") );
 
 	{WS}		/* discard */
@@ -172,14 +183,14 @@ LEXOPT		[aceknopr]
 	^"%"[^sxaceknopr{}].*	synerr( _( "unrecognized '%' directive" ) );
 
 	^{NAME}		{
-			if(yyleng < MAXLINE) 
-        		 { 
+			if(yyleng < MAXLINE)
+        		 {
 			strcpy( nmstr, yytext );
-			 } 
-			else 
-			 { 
-			   synerr( _("Input line too long\n")); 
-			   FLEX_EXIT(EXIT_FAILURE);  
+			 }
+			else
+			 {
+			   synerr( _("Input line too long\n"));
+			   FLEX_EXIT(EXIT_FAILURE);
 			 }
 
 			didadef = false;
@@ -195,8 +206,24 @@ LEXOPT		[aceknopr]
 <COMMENT>{
 	"*/"		ACTION_ECHO; yy_pop_state();
 	"*"		ACTION_ECHO;
-	[^*\n]+		ACTION_ECHO;
-	[^*\n]*{NL}	++linenum; ACTION_ECHO;
+    {M4QSTART}  ACTION_ECHO_QSTART;
+    {M4QEND}    ACTION_ECHO_QEND;
+	[^*\n]      ACTION_ECHO;
+	{NL}	    ++linenum; ACTION_ECHO;
+}
+
+<COMMENT_DISCARD>{
+        /* This is the same as COMMENT, but is discarded rather than output. */
+	"*/"		yy_pop_state();
+    "*"         ;
+	[^*\n]      ;
+	{NL}	    ++linenum;
+}
+
+<EXTENDED_COMMENT>{
+    ")"         yy_pop_state();
+    [^\n\)]+      ;
+    {NL}        ++linenum;        
 }
 
 <LINEDIR>{
@@ -214,7 +241,9 @@ LEXOPT		[aceknopr]
 <CODEBLOCK>{
 	^"%}".*{NL}	++linenum; BEGIN(INITIAL);
 
-	{NAME}|{NOT_NAME}|.	ACTION_ECHO;
+    {M4QSTART}  ACTION_ECHO_QSTART;
+    {M4QEND}    ACTION_ECHO_QEND;
+	.	        ACTION_ECHO;
 
 	{NL}		{
 			++linenum;
@@ -233,7 +262,7 @@ LEXOPT		[aceknopr]
                     buf_strnappend(&top_buf, yytext, yyleng);
             }
 
-    "{"     {   
+    "{"     {
                 brace_depth++;
                 buf_strnappend(&top_buf, yytext, yyleng);
             }
@@ -243,9 +272,12 @@ LEXOPT		[aceknopr]
                 buf_strnappend(&top_buf, yytext, yyleng);
             }
 
-    [^{}\r\n]+  {
+    {M4QSTART}  buf_strnappend(&top_buf, escaped_qstart, strlen(escaped_qstart));
+    {M4QEND}    buf_strnappend(&top_buf, escaped_qend, strlen(escaped_qend));
+
+    [^{}\r\n]  {
                 buf_strnappend(&top_buf, yytext, yyleng);
-                }
+               }
 
     <<EOF>>     {
                 linenum = brace_start_line;
@@ -262,11 +294,11 @@ LEXOPT		[aceknopr]
  		        if(yyleng < MAXLINE)
  		         {
 			strcpy( (char *) nmdef, yytext );
- 		         } 
+ 		         }
  		        else
  		         {
  		           synerr( _("Input line too long\n"));
- 		           FLEX_EXIT(EXIT_FAILURE); 
+ 		           FLEX_EXIT(EXIT_FAILURE);
 			 }
 			/* Skip trailing whitespace. */
 			for ( i = strlen( (char *) nmdef ) - 1;
@@ -315,8 +347,8 @@ LEXOPT		[aceknopr]
                             bison_bridge_lval = true;
                      }
 	"c++"		C_plus_plus = option_sense;
-	caseful|case-sensitive		caseins = ! option_sense;
-	caseless|case-insensitive	caseins = option_sense;
+	caseful|case-sensitive		sf_set_case_ins(!option_sense);
+	caseless|case-insensitive	sf_set_case_ins(option_sense);
 	debug		ddebug = option_sense;
 	default		spprdflt = ! option_sense;
 	ecs		useecs = option_sense;
@@ -388,6 +420,7 @@ LEXOPT		[aceknopr]
     yyget_lloc      ACTION_M4_IFDEF("M4""_YY_NO_GET_LLOC", ! option_sense);
     yyset_lloc      ACTION_M4_IFDEF("M4""_YY_NO_SET_LLOC", ! option_sense);
 
+	extra-type	return OPT_EXTRA_TYPE;
 	outfile		return OPT_OUTFILE;
 	prefix		return OPT_PREFIX;
 	yyclass		return OPT_YYCLASS;
@@ -401,14 +434,14 @@ LEXOPT		[aceknopr]
 
 
 	\"[^"\n]*\"	{
-			if(yyleng-1 < MAXLINE) 
-        		 { 
+			if(yyleng-1 < MAXLINE)
+        		 {
 			strcpy( nmstr, yytext + 1 );
-			 } 
-			else 
-			 { 
-			   synerr( _("Input line too long\n")); 
-			   FLEX_EXIT(EXIT_FAILURE);  
+			 }
+			else
+			 {
+			   synerr( _("Input line too long\n"));
+			   FLEX_EXIT(EXIT_FAILURE);
 			 }
 			nmstr[strlen( nmstr ) - 1] = '\0';
 			return NAME;
@@ -442,7 +475,7 @@ LEXOPT		[aceknopr]
 				ACTION_ECHO;
 			}
 
-	.*		ACTION_ECHO;
+	.		ACTION_ECHO;
 	{NL}	++linenum; ACTION_ECHO;
 
 	<<EOF>>		{
@@ -462,7 +495,12 @@ LEXOPT		[aceknopr]
 			BEGIN(PERCENT_BRACE_ACTION);
 			}
 
-	^{OPTWS}"<"	BEGIN(SC); return '<';
+	^{OPTWS}"<"	    {
+                        /* Allow "<" to appear in (?x) patterns. */
+                        if (!sf_skip_ws())
+                            BEGIN(SC);
+                        return '<';
+                    }
 	^{OPTWS}"^"	return '^';
 	\"		BEGIN(QUOTE); return '"';
 	"{"/[[:digit:]]	{
@@ -485,46 +523,77 @@ LEXOPT		[aceknopr]
 				return '\n';
 				}
 			}
-	{WS}"|".*{NL}	continued_action = true; ++linenum; return '\n';
+	{WS}"|".*{NL}	{
+                        if (sf_skip_ws()){
+                            /* We're in the middle of a (?x: ) pattern. */
+                            /* Push back everything starting at the "|" */
+                            size_t amt;
+                            amt = strchr (yytext, '|') - yytext;
+                            yyless(amt);
+                        }
+                        else {
+                            continued_action = true;
+                            ++linenum;
+                            return '\n';
+                        }
+                    }
 
 	^{WS}"/*"	{
-			yyless( yyleng - 2 );	/* put back '/', '*' */
-			bracelevel = 0;
-			continued_action = false;
-			BEGIN(ACTION);
+
+                if (sf_skip_ws()){
+                    /* We're in the middle of a (?x: ) pattern. */
+                    yy_push_state(COMMENT_DISCARD);
+                }
+                else{
+                    yyless( yyleng - 2 );	/* put back '/', '*' */
+                    bracelevel = 0;
+                    continued_action = false;
+                    BEGIN(ACTION);
+                }
 			}
 
-	^{WS}		/* allow indented rules */
+	^{WS}		/* allow indented rules */ ;
 
 	{WS}		{
-			/* This rule is separate from the one below because
-			 * otherwise we get variable trailing context, so
-			 * we can't build the scanner using -{f,F}.
-			 */
-			bracelevel = 0;
-			continued_action = false;
-			BEGIN(ACTION);
+            if (sf_skip_ws()){
+                /* We're in the middle of a (?x: ) pattern. */
+            }
+            else{
+                /* This rule is separate from the one below because
+                 * otherwise we get variable trailing context, so
+                 * we can't build the scanner using -{f,F}.
+                 */
+                bracelevel = 0;
+                continued_action = false;
+                BEGIN(ACTION);
 
-			if ( in_rule )
-				{
-				doing_rule_action = true;
-				in_rule = false;
-				return '\n';
-				}
+                if ( in_rule )
+                    {
+                    doing_rule_action = true;
+                    in_rule = false;
+                    return '\n';
+                    }
+            }
 			}
 
 	{OPTWS}{NL}	{
-			bracelevel = 0;
-			continued_action = false;
-			BEGIN(ACTION);
-			unput( '\n' );	/* so <ACTION> sees it */
+            if (sf_skip_ws()){
+                /* We're in the middle of a (?x: ) pattern. */
+                ++linenum;
+            }
+            else{
+                bracelevel = 0;
+                continued_action = false;
+                BEGIN(ACTION);
+                unput( '\n' );	/* so <ACTION> sees it */
 
-			if ( in_rule )
-				{
-				doing_rule_action = true;
-				in_rule = false;
-				return '\n';
-				}
+                if ( in_rule )
+                    {
+                    doing_rule_action = true;
+                    in_rule = false;
+                    return '\n';
+                    }
+            }
 			}
 
 	^{OPTWS}"<<EOF>>"	|
@@ -540,20 +609,25 @@ LEXOPT		[aceknopr]
 	"["({FIRST_CCL_CHAR}|{CCL_EXPR})({CCL_CHAR}|{CCL_EXPR})*	{
 			int cclval;
 
-			if(yyleng < MAXLINE) 
-        		 { 
+			if(yyleng < MAXLINE)
+        		 {
 			strcpy( nmstr, yytext );
-			 } 
-			else 
-			 { 
-			   synerr( _("Input line too long\n")); 
-			   FLEX_EXIT(EXIT_FAILURE);  
-			 } 
+			 }
+			else
+			 {
+			   synerr( _("Input line too long\n"));
+			   FLEX_EXIT(EXIT_FAILURE);
+			 }
 
 			/* Check to see if we've already encountered this
 			 * ccl.
 			 */
-			if ( (cclval = ccllookup( (Char *) nmstr )) != 0 )
+			if (0 /* <--- This "0" effectively disables the reuse of a
+                   * character class (purely based on its source text).
+                   * The reason it was disabled is so yacc/bison can parse
+                   * ccl operations, such as ccl difference and union.
+                   */
+                &&  (cclval = ccllookup( (Char *) nmstr )) != 0 )
 				{
 				if ( input() != ']' )
 					synerr( _( "bad character class" ) );
@@ -578,6 +652,9 @@ LEXOPT		[aceknopr]
 				return '[';
 				}
 			}
+    "{-}"       return CCL_OP_DIFF;
+    "{+}"       return CCL_OP_UNION;
+
 
     /* Check for :space: at the end of the rule so we don't
      * wrap the expanded regex in '(' ')' -- breaking trailing
@@ -586,19 +663,19 @@ LEXOPT		[aceknopr]
 	"{"{NAME}"}"[[:space:]]?	 {
 			register Char *nmdefptr;
             int end_is_ws, end_ch;
-            
+
             end_ch = yytext[yyleng-1];
             end_is_ws = end_ch != '}' ? 1 : 0;
 
- 			if(yyleng-1 < MAXLINE) 
-         		 { 
+ 			if(yyleng-1 < MAXLINE)
+         		 {
 			strcpy( nmstr, yytext + 1 );
- 			 } 
- 			else 
- 			 { 
- 			   synerr( _("Input line too long\n")); 
- 			   FLEX_EXIT(EXIT_FAILURE);  
- 			 }			
+ 			 }
+ 			else
+ 			 {
+ 			   synerr( _("Input line too long\n"));
+ 			   FLEX_EXIT(EXIT_FAILURE);
+ 			 }
 nmstr[yyleng - 2 - end_is_ws] = '\0';  /* chop trailing brace */
 
 			if ( (nmdefptr = ndlookup( nmstr )) == 0 )
@@ -614,7 +691,7 @@ nmstr[yyleng - 2 - end_is_ws] = '\0';  /* chop trailing brace */
 
 				if ( lex_compat || nmdefptr[0] == '^' ||
 				     (len > 0 && nmdefptr[len - 1] == '$')
-                     || (end_is_ws && trlcontxt))
+                     || (end_is_ws && trlcontxt && !sf_skip_ws()))
 					{ /* don't use ()'s after all */
 					PUT_BACK_STRING((char *) nmdefptr, 0);
 
@@ -630,6 +707,38 @@ nmstr[yyleng - 2 - end_is_ws] = '\0';  /* chop trailing brace */
 					}
 				}
 			}
+
+    "/*"        {
+                    if (sf_skip_ws())
+                        yy_push_state(COMMENT_DISCARD);
+                    else{
+                        /* Push back the "*" and return "/" as usual. */
+                        yyless(1);
+                        return '/';
+                    }
+                }
+
+    "(?#"       {
+                    if (lex_compat || posix_compat){
+                        /* Push back the "?#" and treat it like a normal parens. */
+                        yyless(1);
+                        sf_push(); 
+                        return '(';
+                    }
+                    else
+                        yy_push_state(EXTENDED_COMMENT);
+                }
+    "(?"        {
+                    sf_push();
+                    if (lex_compat || posix_compat)
+                        /* Push back the "?" and treat it like a normal parens. */
+                        yyless(1);
+                    else
+                        BEGIN(GROUP_WITH_PARAMS);
+                    return '(';
+                }
+    "("         sf_push(); return '(';
+    ")"         sf_pop(); return ')';
 
 	[/|*+?.(){}]	return (unsigned char) yytext[0];
 	.		RETURNCHAR;
@@ -663,6 +772,19 @@ nmstr[yyleng - 2 - end_is_ws] = '\0';  /* chop trailing brace */
 			}
 }
 
+<GROUP_WITH_PARAMS>{
+    ":"     BEGIN(SECT2);
+    "-"     BEGIN(GROUP_MINUS_PARAMS);
+    i       sf_set_case_ins(1);
+    s       sf_set_dot_all(1);
+    x       sf_set_skip_ws(1);
+}
+<GROUP_MINUS_PARAMS>{
+    ":"     BEGIN(SECT2);
+    i       sf_set_case_ins(0);
+    s       sf_set_dot_all(0);
+    x       sf_set_skip_ws(0);
+}
 
 <FIRSTCCL>{
 	"^"/[^-\]\n]	BEGIN(CCL); return '^';
@@ -694,6 +816,19 @@ nmstr[yyleng - 2 - end_is_ws] = '\0';  /* chop trailing brace */
 	"[:space:]"	BEGIN(CCL); return CCE_SPACE;
 	"[:upper:]"	BEGIN(CCL); return CCE_UPPER;
 	"[:xdigit:]"	BEGIN(CCL); return CCE_XDIGIT;
+
+	"[:^alnum:]"	BEGIN(CCL); return CCE_NEG_ALNUM;
+	"[:^alpha:]"	BEGIN(CCL); return CCE_NEG_ALPHA;
+	"[:^blank:]"	BEGIN(CCL); return CCE_NEG_BLANK;
+	"[:^cntrl:]"	BEGIN(CCL); return CCE_NEG_CNTRL;
+	"[:^digit:]"	BEGIN(CCL); return CCE_NEG_DIGIT;
+	"[:^graph:]"	BEGIN(CCL); return CCE_NEG_GRAPH;
+	"[:^lower:]"	BEGIN(CCL); return CCE_NEG_LOWER;
+	"[:^print:]"	BEGIN(CCL); return CCE_NEG_PRINT;
+	"[:^punct:]"	BEGIN(CCL); return CCE_NEG_PUNCT;
+	"[:^space:]"	BEGIN(CCL); return CCE_NEG_SPACE;
+	"[:^upper:]"	BEGIN(CCL); return CCE_NEG_UPPER;
+	"[:^xdigit:]"	BEGIN(CCL); return CCE_NEG_XDIGIT;
 	{CCL_EXPR}	{
 			format_synerr(
 				_( "bad character class expression: %s" ),
@@ -748,7 +883,9 @@ nmstr[yyleng - 2 - end_is_ws] = '\0';  /* chop trailing brace */
 			}
 	}
 
-	{NAME}|{NOT_NAME}|.	ACTION_ECHO;
+    {M4QSTART}  ACTION_ECHO_QEND;
+    {M4QEND}    ACTION_ECHO_QEND;
+    .           ACTION_ECHO;
 	{NL}		{
 			++linenum;
 			ACTION_ECHO;
@@ -769,7 +906,10 @@ nmstr[yyleng - 2 - end_is_ws] = '\0';  /* chop trailing brace */
 <ACTION>{
 	"{"		ACTION_ECHO; ++bracelevel;
 	"}"		ACTION_ECHO; --bracelevel;
-	[^[:alpha:]_{}"'/\n]+	ACTION_ECHO;
+    {M4QSTART}  ACTION_ECHO_QEND;
+    {M4QEND}    ACTION_ECHO_QEND;
+	[^[:alpha:]_{}"'/\n\[\]]+	ACTION_ECHO;
+    [\[\]]      ACTION_ECHO;
 	{NAME}		ACTION_ECHO;
 	"'"([^'\\\n]|\\.)*"'"	ACTION_ECHO; /* character constant */
 	\"		ACTION_ECHO; BEGIN(ACTION_STRING);
@@ -796,11 +936,15 @@ nmstr[yyleng - 2 - end_is_ws] = '\0';  /* chop trailing brace */
 	.		ACTION_ECHO;
 }
 
-<COMMENT,ACTION,ACTION_STRING><<EOF>>	{
+<COMMENT,COMMENT_DISCARD,ACTION,ACTION_STRING><<EOF>>	{
 			synerr( _( "EOF encountered inside an action" ) );
 			yyterminate();
 			}
 
+<EXTENDED_COMMENT,GROUP_WITH_PARAMS,GROUP_MINUS_PARAMS><<EOF>>	{
+			synerr( _( "EOF encountered inside pattern" ) );
+			yyterminate();
+			}
 
 <SECT2,QUOTE,FIRSTCCL,CCL>{ESCSEQ}	{
 			yylval = myesc( (Char *) yytext );
@@ -813,7 +957,10 @@ nmstr[yyleng - 2 - end_is_ws] = '\0';  /* chop trailing brace */
 
 
 <SECT3>{
-	.*(\n?)		ECHO;
+    {M4QSTART}  fwrite (escaped_qstart, 1, strlen(escaped_qstart), yyout);
+    {M4QEND}    fwrite (escaped_qend, 1, strlen(escaped_qend), yyout);
+	[^\[\]\n]*(\n?) ECHO;
+	(.|\n)      ECHO;
 	<<EOF>>		sectnum = 0; yyterminate();
 }
 

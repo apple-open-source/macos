@@ -5,7 +5,9 @@ function reset_config()
 }
 </SCRIPT>
 
-<H2 CLASS="title">Plik Konfiguracji Serwera</H2>
+<DIV CLASS="indent">
+
+<H2 CLASS="title">Modyfikowanie pliku konfiguracji</H2>
 
 <FORM NAME="cups" METHOD="POST" ACTION="/admin/">
 
@@ -13,10 +15,10 @@ function reset_config()
 
 <TEXTAREA NAME="CUPSDCONF" COLS="80" ROWS="25">{CUPSDCONF}</TEXTAREA>
 
-<P><INPUT TYPE="IMAGE" SRC="/images/button-save-changes.gif"
-ALT="Zachowaj Zmiany"> <A
-HREF="javascript:reset_config();"><IMG
-SRC="/images/button-use-default-config.gif" CLASS="button"
-ALT="Użyj Domyślnego Pliku Konfiguracji"></A></P>
+<P><INPUT TYPE="SUBMIT" NAME="SAVECHANGES" VALUE="Zapisz zmiany">
+<INPUT TYPE="BUTTON" VALUE="Użyj domyślnego pliku konfiguracji"
+onClick="reset_config();"></P>
 
 </FORM>
+
+</DIV>

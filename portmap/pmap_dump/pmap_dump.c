@@ -42,7 +42,11 @@ main(argc, argv)
 
     for (list = pmap_getmaps(&addr); list; list = list->pml_next) {
 	rpc = getrpcbynumber((int) list->pml_map.pm_prog);
+#ifdef __LP64__
+	printf("%10u %4u %5s %6u  %s\n",
+#else
 	printf("%10lu %4lu %5s %6lu  %s\n",
+#endif
 	       list->pml_map.pm_prog,
 	       list->pml_map.pm_vers,
 	       protoname(list->pml_map.pm_prot),

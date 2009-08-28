@@ -3,7 +3,8 @@
 
 /* APPLE LOCAL constant cfstrings */
 /* { dg-options "-fnext-runtime -fno-constant-cfstrings" } */
-/* { dg-do compile { target *-*-darwin* } } */
+/* APPLE LOCAL ARM objc2 */
+/* { dg-do compile { target powerpc*-*-darwin* i?86*-*-darwin* } } */
 /* APPLE LOCAL radar 4492976 */
 /* { dg-require-effective-target ilp32 } */
 

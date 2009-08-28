@@ -1,6 +1,7 @@
 #! @PYTHON@
 #
 # transcheck - (c) 2002 by Simone Piunno <pioppo@ferrara.linux.it>
+# Copyright (C) 2002-2007 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the version 2.0 of the GNU General Public License as
@@ -262,9 +263,9 @@ class POParser:
                             # a quoted char...
                             c = self.f.read(1)
                             if self.esc.has_key(c):
-                                self.msgid += self.esc[c]
+                                self.msgstr += self.esc[c]
                             else:
-                                self.msgid += c
+                                self.msgstr += c
                             continue
                         if c == "\"":
                             # end of string

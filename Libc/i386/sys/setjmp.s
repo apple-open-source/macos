@@ -43,7 +43,6 @@
  */
 
 #include <architecture/i386/asm_help.h>
-#include <SYS.h>
 
 // The FP control word is actually two bytes, but there's no harm in
 // using four bytes for it and keeping the struct aligned.

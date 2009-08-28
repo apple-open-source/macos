@@ -75,8 +75,11 @@
 #include <security_utilities/debugging.h>
 
 char AraKiri = 0;
+int respawn = 0;
 static char Init = 1;
 int HPForceReaderPolling = 0;
+
+char **globalArgv;
 
 /*
  * Some internal functions
@@ -86,10 +89,12 @@ void SVCClientCleanup(psharedSegmentMsg);
 void at_exit(void);
 void clean_temp_files(void);
 void signal_reload(int sig);
+void signal_respawn(int sig);
 void signal_trap(int);
 void print_version (void);
 void print_usage (char const * const);
 int ProcessHotplugRequest();
+void tryRespawn();
 
 PCSCLITE_MUTEX usbNotifierMutex;
 
@@ -286,11 +291,20 @@ void SVCServiceRunLoop(void)
 		if (AraKiri)
 		{
 			/* stop the hotpug thread and waits its exit */
-//			HPStopHotPluggables();
+			Log1(PCSC_LOG_ERROR, "Preparing to exit...");
+			HPStopHotPluggables();
 			SYS_Sleep(1);
 
 			/* now stop all the drivers */
-			RFCleanupReaders(1);
+			int shouldExit = !respawn;
+			RFCleanupReaders(shouldExit);
+		}
+		if (respawn)
+		{
+			HPCancelHotPluggables();
+			HPJoinHotPluggables();
+			clean_temp_files();
+			tryRespawn();
 		}
 	}
 }
@@ -326,7 +340,8 @@ int main(int argc, char **argv)
 	newReaderConfig = NULL;
 	setToForeground = 0;
 	HotPlug = 0;
-
+	globalArgv = argv;
+	
 	/*
 	 * test the version
 	 */
@@ -531,35 +546,33 @@ int main(int argc, char **argv)
 	RFAllocateReaderSpace();
 
 	/*
-	 * Grab the information from the reader.conf
-	 */
-	if (newReaderConfig)
+		Grab the information from the reader.conf. If a file has been specified
+		and there is any error, consider it fatal. If no file was explicitly
+		specified, ignore if file not present.
+
+		 DBUpdateReaders returns:
+		 
+		 1	if config file can't be opened
+		 -1	if config file is broken
+		 0	if all good
+	 
+		We skip this step if running in 64 bit mode, as serial readers are considered
+		legacy code.
+	*/
+
+	rv = RFStartSerialReaders(newReaderConfig?newReaderConfig:PCSCLITE_READER_CONFIG);
+	if (rv == -1)
 	{
-		rv = RFStartSerialReaders(newReaderConfig);
-		if (rv != 0)
-		{
-			Log3(PCSC_LOG_CRITICAL, "invalid file %s: %s", newReaderConfig,
+		Log3(PCSC_LOG_CRITICAL, "invalid file %s: %s", newReaderConfig,
 				strerror(errno));
-			at_exit();
-		}
+		at_exit();
 	}
 	else
+	if ((rv == 1) && newReaderConfig)
 	{
-		rv = RFStartSerialReaders(PCSCLITE_READER_CONFIG);
-
-#if 0
-		if (rv == 1)
-		{
-			Log1(PCSC_LOG_INFO,
-				"warning: no " PCSCLITE_READER_CONFIG " found");
-			/*
-			 * Token error in file
-			 */
-		}
-		else
-#endif
-			if (rv == -1)
-				at_exit();
+		Log3(PCSC_LOG_CRITICAL, "file %s can't be opened: %s", 
+				 newReaderConfig, strerror(errno));
+		at_exit();
 	}
 
 	/*
@@ -585,6 +598,7 @@ int main(int argc, char **argv)
 	signal(SIGHUP, signal_trap);
 
 	signal(SIGUSR1, signal_reload);
+	signal(SIGUSR2, signal_respawn);
 
 	SVCServiceRunLoop();
 
@@ -659,6 +673,54 @@ void signal_trap(int sig)
 	}
 }
 
+void signal_respawn(int sig)
+{
+	Log1(PCSC_LOG_INFO, "Got signal to respawn in 32 bit mode");
+	AraKiri = 1;
+	respawn = 1;
+}
+
+#if MAX_OS_X_VERSION_MIN_REQUIRED <= MAX_OS_X_VERSION_10_5
+	#include <spawn.h>
+	#include <err.h>
+	#include <CoreFoundation/CFBundle.h>
+	#include <CoreFoundation/CFNumber.h>
+#endif
+	
+extern char **environ;
+
+void tryRespawn()
+{
+#if MAX_OS_X_VERSION_MIN_REQUIRED <= MAX_OS_X_VERSION_10_5
+	/* now try respawn */
+	static cpu_type_t only32cpu[] = { CPU_TYPE_I386 };
+	const size_t only32cpuSize = (sizeof(only32cpu) / sizeof(cpu_type_t));
+	
+	int rx;
+	posix_spawnattr_t attr;
+	if ((rx = posix_spawnattr_init(&attr)) != 0) 
+		errc(1, rx, "posix_spawnattr_init");
+	
+	if ((rx = posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETEXEC)) != 0) 
+		errc(1, rx, "posix_spawnattr_setflags");
+	
+	size_t copied = 0;
+	if ((rx = posix_spawnattr_setbinpref_np(&attr, only32cpuSize, only32cpu, &copied)) != 0) 
+		errc(1, rx, "posix_spawnattr_setbinpref_np");
+	
+	if (copied != only32cpuSize)
+		errx(1, "posix_spawnattr_setbinpref_np only copied %d of %d", (int)copied, only32cpuSize);
+	
+	pid_t pid = 0;
+    rx = posix_spawn(&pid, globalArgv[0], NULL, &attr, globalArgv, environ);
+	errc(1, rx, "posix_spawn: %s", globalArgv[0]);
+#else
+	/* we shouldn't get here, but if we do, we are in no state to continue */
+	Log1(PCSC_LOG_INFO, "Unexpected call to tryRespawn");
+	at_exit();
+#endif
+}	
+	
 void print_version (void)
 {
 	printf("%s version %s.\n",  PACKAGE, VERSION);

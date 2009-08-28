@@ -1,3 +1,5 @@
+@subheading idna_to_ascii_4i
+@anchor{idna_to_ascii_4i}
 @deftypefun {int} {idna_to_ascii_4i} (const uint32_t * @var{in}, size_t @var{inlen}, char * @var{out}, int @var{flags})
 @var{in}: input array with unicode code points.
 
@@ -32,6 +34,8 @@ once.
 @strong{Return value:} Returns 0 on success, or an @code{Idna_rc} error code.
 @end deftypefun
 
+@subheading idna_to_unicode_44i
+@anchor{idna_to_unicode_44i}
 @deftypefun {int} {idna_to_unicode_44i} (const uint32_t * @var{in}, size_t @var{inlen}, uint32_t * @var{out}, size_t * @var{outlen}, int @var{flags})
 @var{in}: input array with unicode code points.
 
@@ -71,6 +75,8 @@ you normally ignore the return code from this function, as
 checking it means breaking the standard.
 @end deftypefun
 
+@subheading idna_to_ascii_4z
+@anchor{idna_to_ascii_4z}
 @deftypefun {int} {idna_to_ascii_4z} (const uint32_t * @var{input}, char ** @var{output}, int @var{flags})
 @var{input}: zero terminated input Unicode string.
 
@@ -86,6 +92,8 @@ be deallocated by the caller.
 @strong{Return value:} Returns @code{IDNA_SUCCESS} on success, or error code.
 @end deftypefun
 
+@subheading idna_to_ascii_8z
+@anchor{idna_to_ascii_8z}
 @deftypefun {int} {idna_to_ascii_8z} (const char * @var{input}, char ** @var{output}, int @var{flags})
 @var{input}: zero terminated input UTF-8 string.
 
@@ -101,6 +109,8 @@ be deallocated by the caller.
 @strong{Return value:} Returns @code{IDNA_SUCCESS} on success, or error code.
 @end deftypefun
 
+@subheading idna_to_ascii_lz
+@anchor{idna_to_ascii_lz}
 @deftypefun {int} {idna_to_ascii_lz} (const char * @var{input}, char ** @var{output}, int @var{flags})
 @var{input}: zero terminated input string encoded in the current locale's
 character set.
@@ -117,6 +127,8 @@ output buffer must be deallocated by the caller.
 @strong{Return value:} Returns @code{IDNA_SUCCESS} on success, or error code.
 @end deftypefun
 
+@subheading idna_to_unicode_4z4z
+@anchor{idna_to_unicode_4z4z}
 @deftypefun {int} {idna_to_unicode_4z4z} (const uint32_t * @var{input}, uint32_t ** @var{output}, int @var{flags})
 @var{input}: zero-terminated Unicode string.
 
@@ -133,6 +145,8 @@ caller.
 @strong{Return value:} Returns @code{IDNA_SUCCESS} on success, or error code.
 @end deftypefun
 
+@subheading idna_to_unicode_8z4z
+@anchor{idna_to_unicode_8z4z}
 @deftypefun {int} {idna_to_unicode_8z4z} (const char * @var{input}, uint32_t ** @var{output}, int @var{flags})
 @var{input}: zero-terminated UTF-8 string.
 
@@ -149,6 +163,8 @@ caller.
 @strong{Return value:} Returns @code{IDNA_SUCCESS} on success, or error code.
 @end deftypefun
 
+@subheading idna_to_unicode_8z8z
+@anchor{idna_to_unicode_8z8z}
 @deftypefun {int} {idna_to_unicode_8z8z} (const char * @var{input}, char ** @var{output}, int @var{flags})
 @var{input}: zero-terminated UTF-8 string.
 
@@ -165,6 +181,8 @@ caller.
 @strong{Return value:} Returns @code{IDNA_SUCCESS} on success, or error code.
 @end deftypefun
 
+@subheading idna_to_unicode_8zlz
+@anchor{idna_to_unicode_8zlz}
 @deftypefun {int} {idna_to_unicode_8zlz} (const char * @var{input}, char ** @var{output}, int @var{flags})
 @var{input}: zero-terminated UTF-8 string.
 
@@ -182,6 +200,8 @@ buffer must be deallocated by the caller.
 @strong{Return value:} Returns @code{IDNA_SUCCESS} on success, or error code.
 @end deftypefun
 
+@subheading idna_to_unicode_lzlz
+@anchor{idna_to_unicode_lzlz}
 @deftypefun {int} {idna_to_unicode_lzlz} (const char * @var{input}, char ** @var{output}, int @var{flags})
 @var{input}: zero-terminated string encoded in the current locale's
 character set.

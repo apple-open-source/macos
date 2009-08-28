@@ -7,7 +7,6 @@ void exit(int);
 
 int x, y;
 
-/* APPLE LOCAL mainline 4840357 */
 static void __attribute__ ((noinline))
 init_xy(void)
 {
@@ -31,3 +30,4 @@ main(){
 
 /* Should have no more than two ifs left after straightening.  */
 /* { dg-final { scan-tree-dump-times "if " 2 "phiopt1"} } */
+/* { dg-final { cleanup-tree-dump "phiopt1" } } */

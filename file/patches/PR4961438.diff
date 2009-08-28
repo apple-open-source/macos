@@ -1,8 +1,0 @@
---- magic/Magdir/macintosh.orig	2007-02-02 19:19:39.000000000 -0800
-+++ magic/Magdir/macintosh	2007-02-02 19:21:05.000000000 -0800
-@@ -357,4 +357,4 @@
- >>>>0xa54	belong		x		number of blocks: %d
- 
- # From: Remi Mommsen <mommsen@slac.stanford.edu>
--0		string		BOMStore	Mac OS X bill of materials (BOM) fil
-+0		string		BOMStore	Mac OS X bill of materials (BOM) file

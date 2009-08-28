@@ -1,9 +1,13 @@
-# $Id: Builder.pm,v 1.1.1.1 2004/05/20 17:55:25 jpetri Exp $
+# $Id: Builder.pm,v 1.1.1.2 2007/10/10 23:04:14 ahuda Exp $
 
 package XML::LibXML::SAX::Builder;
 
 use XML::LibXML;
 use XML::NamespaceSupport;
+
+use vars qw ($VERSION);
+
+$VERSION = "1.65"; # VERSION TEMPLATE: DO NOT CHANGE
 
 sub new {
     my $class = shift;
@@ -26,6 +30,8 @@ sub done {
     return $dom;
 }
 
+sub set_document_locator {
+}
 
 sub start_document {
     my ($self, $doc) = @_;

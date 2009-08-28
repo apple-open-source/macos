@@ -17,11 +17,15 @@
 		<dict>
 			<key>SockPathName</key>
 			<string>/var/run/portmap.socket</string>
+			<key>SockPathMode</key>
+			<integer>511</integer>
 		</dict>
 	</dict>
 	<key>ServiceIPC</key>
 	<true/>
 	<key>HopefullyExitsLast</key>
+	<true/>
+	<key>EnableTransactions</key>
 	<true/>
 </dict>
 </plist>

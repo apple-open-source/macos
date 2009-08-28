@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -59,9 +59,11 @@ static void alloc_socket(apr_socket_t **new, apr_pool_t *p)
     (*new)->local_addr = (apr_sockaddr_t *)apr_pcalloc((*new)->pool,
                                                        sizeof(apr_sockaddr_t));
     (*new)->local_addr->pool = p;
+    
     (*new)->remote_addr = (apr_sockaddr_t *)apr_pcalloc((*new)->pool,
                                                         sizeof(apr_sockaddr_t));
     (*new)->remote_addr->pool = p;
+    (*new)->remote_addr_unknown = 1;
 
     /* Create a pollset with room for one descriptor. */
     /* ### check return codes */
@@ -112,7 +114,7 @@ APR_DECLARE(apr_status_t) apr_socket_create(apr_socket_t **new, int family,
      * purposes, always transform the socket() created as a non-inherited
      * handle
      */
-#if APR_HAS_UNICODE_FS
+#if APR_HAS_UNICODE_FS && !defined(_WIN32_WCE)
     IF_WIN_OS_IS_UNICODE {
         /* A different approach.  Many users report errors such as 
          * (32538)An operation was attempted on something that is not 
@@ -126,9 +128,13 @@ APR_DECLARE(apr_status_t) apr_socket_create(apr_socket_t **new, int family,
         SetHandleInformation((HANDLE) (*new)->socketdes, 
                              HANDLE_FLAG_INHERIT, 0);
     }
-#endif
 #if APR_HAS_ANSI_FS
-    ELSE_WIN_OS_IS_ANSI {
+    /* only if APR_HAS_ANSI_FS && APR_HAS_UNICODE_FS */
+    ELSE_WIN_OS_IS_ANSI
+#endif
+#endif
+#if APR_HAS_ANSI_FS || defined(_WIN32_WCE)
+    {
         HANDLE hProcess = GetCurrentProcess();
         HANDLE dup;
         if (DuplicateHandle(hProcess, (HANDLE) (*new)->socketdes, hProcess, 
@@ -449,9 +455,7 @@ APR_DECLARE(apr_status_t) apr_os_sock_make(apr_socket_t **apr_sock,
         (*apr_sock)->remote_addr->pool = cont;
         /* XXX IPv6 - this assumes sin_port and sin6_port at same offset */
         (*apr_sock)->remote_addr->port = ntohs((*apr_sock)->remote_addr->sa.sin.sin_port);
-    }
-    else {
-        (*apr_sock)->remote_addr_unknown = 1;
+        (*apr_sock)->remote_addr_unknown = 0;
     }
         
     apr_pool_cleanup_register((*apr_sock)->pool, (void *)(*apr_sock), 

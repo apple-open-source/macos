@@ -1,4 +1,5 @@
-/*	$NetBSD: logwtmp.c,v 1.1.1.6 2006/09/23 21:33:43 lukem Exp $	*/
+/*	$NetBSD: logwtmp.c,v 1.2 2008/09/21 14:44:01 lukem Exp $	*/
+/*	from	NetBSD: logwtmp.c,v 1.25 2006/09/23 16:03:50 xtraeme Exp	*/
 
 /*
  * Copyright (c) 1988, 1993
@@ -30,13 +31,16 @@
  *
  */
 
+#if defined(HAVE_TNFTPD_H)
+#include "tnftpd.h"
+#else /* !defined(HAVE_TNFTPD_H) */
 
 #include <sys/cdefs.h>
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)logwtmp.c	8.1 (Berkeley) 6/4/93";
 #else
-__RCSID("$NetBSD: logwtmp.c,v 1.1.1.6 2006/09/23 21:33:43 lukem Exp $");
+__RCSID(" NetBSD: logwtmp.c,v 1.25 2006/09/23 16:03:50 xtraeme Exp  ");
 #endif
 #endif /* not lint */
 
@@ -64,6 +68,8 @@ __RCSID("$NetBSD: logwtmp.c,v 1.1.1.6 2006/09/23 21:33:43 lukem Exp $");
 #ifdef KERBEROS5
 #include <krb5/krb5.h>
 #endif
+
+#endif /* !defined(HAVE_TNFTPD_H) */
 
 #include "extern.h"
 

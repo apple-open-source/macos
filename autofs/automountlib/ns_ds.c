@@ -43,13 +43,7 @@
 #include "automount_ds.h"
 
 /*
- * Callback routines for ds_process_record_attributes().
- */
-typedef int (*attr_callback_fn)(char *attrval, unsigned long attrval_len,
-    void *udata);
-
-/*
- * Callback routines for ds_search().
+ * Callback routines for ds_process_record_attributes() and ds_search().
  */
 typedef enum {
 	DS_CB_KEEPGOING,		/* continue the search */
@@ -57,17 +51,17 @@ typedef enum {
 	DS_CB_REJECTED,			/* this record had a problem - keep going */
 	DS_CB_ERROR			/* error - quit and return __NSW_UNAVAIL */
 } callback_ret_t;
-typedef callback_ret_t (*callback_fn)(char *key, unsigned long key_len,
-    char *contents, unsigned long contents_len, void *udata);
+typedef callback_ret_t (*callback_fn)(char *key, UInt32 key_len,
+    char *contents, UInt32 contents_len, void *udata);
 
-static callback_ret_t mastermap_callback(char *key, unsigned long key_len,
-    char *contents, unsigned long contents_len, void *udata);
-static callback_ret_t directmap_callback(char *key, unsigned long key_len,
-    char *contents, unsigned long contents_len, void *udata);
-static callback_ret_t match_callback(char *key, unsigned long key_len,
-    char *contents, unsigned long contents_len, void *udata);
-static callback_ret_t readdir_callback(char *key, unsigned long key_len,
-    char *contents, unsigned long contents_len, void *udata);
+static callback_ret_t mastermap_callback(char *key, UInt32 key_len,
+    char *contents, UInt32 contents_len, void *udata);
+static callback_ret_t directmap_callback(char *key, UInt32 key_len,
+    char *contents, UInt32 contents_len, void *udata);
+static callback_ret_t match_callback(char *key, UInt32 key_len,
+    char *contents, UInt32 contents_len, void *udata);
+static callback_ret_t readdir_callback(char *key, UInt32 key_len,
+    char *contents, UInt32 contents_len, void *udata);
 
 struct match_cbdata {
 	char *map;
@@ -113,7 +107,8 @@ getmapent_ds(char *key, char *map, struct mapline *ml,
 {
 	char *ds_line = NULL;
 	char *lp;
-	int ds_len, len;
+	int ds_len;
+	size_t len;
 	int nserr;
 
 	if (trace > 1)
@@ -174,8 +169,8 @@ done:
 }
 
 static callback_ret_t
-match_callback(char *key, unsigned long key_len, char *contents,
-    unsigned long contents_len, void *udata)
+match_callback(char *key, UInt32 key_len, char *contents,
+    UInt32 contents_len, void *udata)
 {
 	struct match_cbdata *temp = (struct match_cbdata *)udata;
 	char **ds_line = temp->ds_line;
@@ -263,7 +258,7 @@ ds_match(char *map, char *key, char **ds_line, int *ds_len)
 			trace_prt(1, "  ds_match: no entries found\n");
 		else if (ret != __NSW_UNAVAIL)
 			trace_prt(1,
-			    "  ds_match: ds_search FAILED\n", ret);
+			    "  ds_match: ds_search FAILED: %d\n", ret);
 		else
 			trace_prt(1, "  ds_match: ds_search OK\n");
 	}
@@ -328,8 +323,8 @@ loaddirect_ds(char *nsmap, char *localmap, char *opts,
 }
 
 static callback_ret_t
-mastermap_callback(char *key, unsigned long key_len, char *contents,
-    unsigned long contents_len, void *udata)
+mastermap_callback(char *key, UInt32 key_len, char *contents,
+    UInt32 contents_len, void *udata)
 {
 	char *pmap, *opts;
 	char dir[LINESZ], map[LINESZ], qbuff[LINESZ];
@@ -364,20 +359,42 @@ mastermap_callback(char *key, unsigned long key_len, char *contents,
 		trace_prt(1, "mastermap_callback: dir= [ %s ]\n", dir);
 	for (i = 0; i < LINESZ; i++)
 		qbuff[i] = ' ';
-	if (macro_expand("", dir, qbuff, sizeof (dir))) {
+	switch (macro_expand("", dir, qbuff, sizeof (dir))) {
+
+	case MEXPAND_OK:
+		break;
+
+	case MEXPAND_LINE_TOO_LONG:
 		pr_msg(
-		    "%s in Directory Services map: entry too long (max %d chars)",
+		    "%s in Directory Services map: entry too long (max %zu chars)",
 		    dir, sizeof (dir) - 1);
+		return (DS_CB_KEEPGOING);
+
+	case MEXPAND_VARNAME_TOO_LONG:
+		pr_msg(
+		    "%s in Directory Services map: variable name too long",
+		    dir);
 		return (DS_CB_KEEPGOING);
 	}
 	(void) strncpy(map, contents, contents_len);
 	map[contents_len] = '\0';
 	if (trace > 1)
 		trace_prt(1, "mastermap_callback: map= [ %s ]\n", map);
-	if (macro_expand("", map, qbuff, sizeof (map))) {
+	switch (macro_expand("", map, qbuff, sizeof (map))) {
+
+	case MEXPAND_OK:
+		break;
+
+	case MEXPAND_LINE_TOO_LONG:
 		pr_msg(
-		    "%s in Directory Services map: entry too long (max %d chars)",
+		    "%s in Directory Services map: entry too long (max %zu chars)",
 		    map, sizeof (map) - 1);
+		return (DS_CB_KEEPGOING);
+
+	case MEXPAND_VARNAME_TOO_LONG:
+		pr_msg(
+		    "%s in Directory Services map: variable name too long",
+		    map);
 		return (DS_CB_KEEPGOING);
 	}
 	pmap = map;
@@ -416,8 +433,8 @@ mastermap_callback(char *key, unsigned long key_len, char *contents,
 }
 
 static callback_ret_t
-directmap_callback(char *key, unsigned long key_len, __unused char *contents,
-    __unused unsigned long contents_len, void *udata)
+directmap_callback(char *key, UInt32 key_len, __unused char *contents,
+    __unused UInt32 contents_len, void *udata)
 {
 	char dir[MAXFILENAMELEN+1];
 	struct loaddirect_cbdata *temp = (struct loaddirect_cbdata *)udata;
@@ -482,8 +499,8 @@ getmapkeys_ds(char *nsmap, struct dir_entry **list, int *error,
 }
 
 static callback_ret_t
-readdir_callback(char *inkey, unsigned long inkeylen, __unused char *contents,
-    __unused unsigned long contents_len, void *udata)
+readdir_callback(char *inkey, UInt32 inkeylen, __unused char *contents,
+    __unused UInt32 contents_len, void *udata)
 {
 	struct dir_cbdata *temp = (struct dir_cbdata *)udata;
 	struct dir_entry **list = temp->list;
@@ -536,23 +553,23 @@ ds_process_record_attributes(tDirReference session, tDirNodeReference node_ref,
     tDataBufferPtr buffer, tAttributeListRef attr_list_ref,
     tRecordEntryPtr entry, callback_fn callback, void *udata)
 {
-	unsigned long i;
+	UInt32 i;
 	tAttributeValueListRef key_value_list_ref = 0;
 	tAttributeEntry *key_attr_entry_p = NULL;
 	tAttributeValueEntry *key_value_entry_p = NULL;
 	char *key;
-	unsigned long key_len;
+	UInt32 key_len;
 	tAttributeValueListRef contents_value_list_ref = 0;
 	tAttributeEntry *contents_attr_entry_p = NULL;
 	tAttributeValueEntry *contents_value_entry_p = NULL;
 	char *contents;
-	unsigned long contents_len;
+	UInt32 contents_len;
 	callback_ret_t ret;
 
 	if (trace > 1) {
 		trace_prt(1,
-		"ds_process_record_attributes: entry->fRecordAttributeCount=[ %d ]\n",
-		    entry->fRecordAttributeCount);
+		"ds_process_record_attributes: entry->fRecordAttributeCount=[ %lu ]\n",
+		    (unsigned long)entry->fRecordAttributeCount);
 	}
 
 	/*
@@ -665,27 +682,27 @@ ds_process_record_attributes(tDirReference session, tDirNodeReference node_ref,
 int
 ds_get_root_level_node(tDirReference session, tDirNodeReference *node_refp)
 {
-	static unsigned long dir_node_bufsize = 2*1024;
+	static UInt32 dir_node_bufsize = 2*1024;
 	tDataBufferPtr buffer;
 	tDirStatus status;
-	unsigned long num_results;
+	UInt32 num_results;
 	tContextData context;
 	tDataListPtr node_path;
 
 	/*
 	 * Get the search node.
 	 */
+	context = 0;
 	for (;;) {
 		/* Allocate a buffer. */
 		buffer = dsDataBufferAllocate(session, dir_node_bufsize);
 		if (buffer == NULL) {
-			pr_msg("ds_get_search_node: malloc failed");
+			pr_msg("ds_get_root_level_node: malloc failed");
 			return (__NSW_UNAVAIL);
 		}
 
 		/* Find the default search node. */
 		num_results = 1;	/* "there can be only one" */
-		context = NULL;
 		status = dsFindDirNodes(session, buffer, NULL,
 		    eDSSearchNodeName, &num_results, &context);
 		if (status != eDSBufferTooSmall) {
@@ -700,10 +717,12 @@ ds_get_root_level_node(tDirReference session, tDirNodeReference *node_refp)
 		dsDataBufferDeAllocate(session, buffer);
 		dir_node_bufsize = 2*dir_node_bufsize;
 	}
+	if (context != 0)
+		dsReleaseContinueData(session, context);
 	if (status != eDSNoErr) {
 		dsDataBufferDeAllocate(session, buffer);
 		pr_msg(
-		    "ds_get_search_node: can't find default search node: %s (%d)",
+		    "ds_get_root_level_node: can't find default search node: %s (%d)",
 		    dsCopyDirStatusName(status), status);
 		return (__NSW_UNAVAIL);
 	}
@@ -713,7 +732,7 @@ ds_get_root_level_node(tDirReference session, tDirNodeReference *node_refp)
 	dsDataBufferDeAllocate(session, buffer);
 	if (status != eDSNoErr) {
 		pr_msg(
-		    "ds_get_search_node: can't get reference to default search node: %s (%d)",
+		    "ds_get_root_level_node: can't get reference to default search node: %s (%d)",
 		    dsCopyDirStatusName(status), status);
 		return (__NSW_UNAVAIL);
 	}
@@ -724,7 +743,7 @@ ds_get_root_level_node(tDirReference session, tDirNodeReference *node_refp)
 	free(node_path);
 	if (status != eDSNoErr) {
 		pr_msg(
-		    "ds_get_search_node: can't open root level node for search: %s (%d)",
+		    "ds_get_root_level_node: can't open root level node for search: %s (%d)",
 		    dsCopyDirStatusName(status), status);
 		return (__NSW_UNAVAIL);
 	}
@@ -748,18 +767,22 @@ ds_search(char *attr_to_match, char *value_to_match, callback_fn callback,
 	tDataListPtr record_type = NULL;
 	tDataNodePtr match_type = NULL;
 	tDataListPtr requested_attributes = NULL;
-	unsigned long num_results;
-	unsigned long i;
+	UInt32 num_results;
+	UInt32 i;
 	tContextData context;
 	tAttributeListRef attr_list_ref;
 	tRecordEntryPtr record_entry_p;
 	callback_ret_t callback_ret;
-	static unsigned long attr_bufsize = 2*1024;
+	static UInt32 attr_bufsize = 2*1024;
 	tDataBufferPtr buffer = NULL;
 
 	/* Open an Open Directory session. */
-	if (dsOpenDirService(&session) != eDSNoErr)
+	status = dsOpenDirService(&session);
+	if (status != eDSNoErr) {
+		pr_msg("ds_search: can't open session: %s (%d)",
+		    dsCopyDirStatusName(status), status);
 		return (__NSW_UNAVAIL);	/* or __NSW_TRYAGAIN? */
+	}
 
 	/*
 	 * Get the search node.
@@ -784,8 +807,7 @@ ds_search(char *attr_to_match, char *value_to_match, callback_fn callback,
 	    kDSStdRecordTypeAutomount, NULL);
 	if (record_type == NULL) {
 		pr_msg(
-		    "ds_search: can't build record type list: %s (%d)",
-		    dsCopyDirStatusName(status), status);
+		    "ds_search: can't build record type list: malloc failed");
 		ret = __NSW_UNAVAIL;
 		goto done;
 	}
@@ -815,7 +837,7 @@ ds_search(char *attr_to_match, char *value_to_match, callback_fn callback,
 
 	ret = __NSW_NOTFOUND;	/* we haven't found any records yet */
 	num_results = 0;	/* give me all the records that match */
-	context = NULL;
+	context = 0;
 	do {
 		/*
 		 * We don't know how big a buffer we need; we just keep
@@ -880,9 +902,9 @@ ds_search(char *attr_to_match, char *value_to_match, callback_fn callback,
 				/*
 				 * We don't want to see any more records.
 				 */
-				if (context != NULL) {
+				if (context != 0) {
 					dsReleaseContinueData(session, context);
-					context = NULL;
+					context = 0;
 				}
 				ret = __NSW_UNAVAIL;	/* XXX - or succeed? */
 				break;
@@ -909,23 +931,25 @@ ds_search(char *attr_to_match, char *value_to_match, callback_fn callback,
 				 * want to see any more records.
 				 */
 				ret = __NSW_SUCCESS;
-				if (context != NULL) {
+				if (context != 0) {
 					dsReleaseContinueData(session, context);
-					context = NULL;
+					context = 0;
 				}
 				break;
 			} else if (callback_ret == DS_CB_ERROR) {
 				ret = __NSW_UNAVAIL;
-				if (context != NULL) {
+				if (context != 0) {
 					dsReleaseContinueData(session, context);
-					context = NULL;
+					context = 0;
 				}
 				break;
 			}
 		}
-	} while (context != NULL);
+	} while (context != 0);
 
 done:
+	if (context != 0)
+		dsReleaseContinueData(session, context);
 	if (buffer != NULL)
 		dsDataBufferDeAllocate(session, buffer);
 	if (requested_attributes != NULL) {

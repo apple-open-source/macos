@@ -4,16 +4,19 @@
 
 Project = showmount
 
+inplace:
+	@$(MAKE) all SRCROOT=. OBJROOT=. SYMROOT=. DSTROOT=/
+
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
-SRCROOT ?= .
-OBJROOT ?= .
-SYMROOT ?= .
-DSTROOT ?= .
 SDKROOT ?= /
 
-Extra_CC_Flags = -Wall -isysroot $(SDKROOT)
-Extra_LD_Flags = -framework CoreFoundation -dead_strip
+WARNING_FLAGS = -Wall -Wextra -Wformat=2 -Wpointer-arith -Wcast-align \
+		-Wwrite-strings -Wno-unknown-pragmas \
+		-Wno-missing-field-initializers -Wno-shadow
+Extra_CC_Flags = $(WARNING_FLAGS) -D_FORTIFY_SOURCE=2 -isysroot $(SDKROOT) \
+		 -fPIE
+Extra_LD_Flags = -Wl,-pie -framework CoreFoundation -dead_strip
 
 DST_DIR = $(DSTROOT)/usr/bin
 MAN_DIR = $(DSTROOT)/usr/share/man/man8
@@ -21,9 +24,9 @@ MAN_DIR = $(DSTROOT)/usr/share/man/man8
 #
 # Standard B&I targets
 #
-all: showmount
+all: $(SYMROOT)/showmount
 
-install:: $(SYMROOT)/showmount
+install:: all
 	install -d -o root -g wheel -m 755 $(DST_DIR)
 	install -c -o root -g wheel -m 555 -s $(SYMROOT)/showmount $(DST_DIR)
 	install -d -o root -g wheel -m 755 $(MAN_DIR)
@@ -45,8 +48,5 @@ $(OBJROOT)/%.o: $(SRCROOT)/%.c
 	$(CC) -c $(CFLAGS) -o $@ $<
 
 $(SYMROOT)/showmount: $(addprefix $(OBJROOT)/, $(OFILES))
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
-
-showmount: $(OFILES)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
 

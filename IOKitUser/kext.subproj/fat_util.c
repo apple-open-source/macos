@@ -1,3 +1,30 @@
+/*
+ * Copyright (c) 2006-2008 Apple Inc. All rights reserved.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ * 
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
+ */
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
@@ -39,8 +66,13 @@ static int __fat_iterator_init(
     const void * file_end,
     int macho_only)
 {
-    int result = -1;
+    int      result = -1;
+    size_t   length = file_end - file_data;
     uint32_t magic;
+
+    if (length < sizeof(magic)) {
+        goto finish;
+    }
 
     iter->file_start = (void *)file_data;
     iter->file_end   = (void *)file_end;
@@ -49,6 +81,10 @@ static int __fat_iterator_init(
 
     if (ISFAT(magic)) {
         void * arches_end;
+
+        if (length < sizeof(struct fat_header)) {
+            goto finish;
+        }
 
         iter->fat_header = (struct fat_header *)file_data;
         iter->fat_arches = (struct fat_arch *)((char *)iter->fat_header +
@@ -66,6 +102,10 @@ static int __fat_iterator_init(
         iter->iterable = 1;
 
     } else if (ISMACHO(magic)) {
+
+        if (length < sizeof(struct mach_header)) {
+            goto finish;
+        }
 
         iter->iterable = 1;
         iter->num_arches = 1;
@@ -192,6 +232,15 @@ void fat_iterator_close(fat_iterator iter)
 /*******************************************************************************
 *
 *******************************************************************************/
+int fat_iterator_num_arches(
+    fat_iterator iter)
+{
+    return iter->num_arches;
+}
+
+/*******************************************************************************
+*
+*******************************************************************************/
 int fat_iterator_is_iterable(fat_iterator iter)
 {
     return iter->iterable;
@@ -256,16 +305,14 @@ void fat_iterator_reset(fat_iterator iter)
 /*******************************************************************************
 *
 *******************************************************************************/
-void * fat_iterator_find_arch(
+int fat_iterator_find_fat_arch(
     fat_iterator iter,
     cpu_type_t cputype,
     cpu_subtype_t cpusubtype,
-    void ** arch_end_ptr)
+    struct fat_arch * fat_arch_out)
 {
+    int result = 0;
     uint32_t magic;
-
-    void * arch_start = NULL;
-    void * arch_end = NULL;
 
     uint32_t nfat_arch;
 
@@ -330,18 +377,46 @@ void * fat_iterator_find_arch(
 
     found_arch = NXFindBestFatArch(cputype, cpusubtype, fat_arches, nfat_arch);
     if (found_arch) {
-        // These are already swapped so don't swap them here.
-        arch_start = iter->file_start + found_arch->offset;
-        arch_end = arch_start + found_arch->size;
+        result = 1;
+        if (fat_arch_out) {
+            memcpy(fat_arch_out, found_arch, sizeof(*fat_arch_out));
+        }
     }
 
 finish:
-    if (arch_end_ptr) {
-        *arch_end_ptr = arch_end;
-    }
     if (fat_arches_copy) {
         free(fat_arches_copy);
     }
+
+    return result;
+}
+
+/*******************************************************************************
+*
+*******************************************************************************/
+void * fat_iterator_find_arch(
+    fat_iterator iter,
+    cpu_type_t cputype,
+    cpu_subtype_t cpusubtype,
+    void ** arch_end_ptr)
+{
+    struct fat_arch   found_arch;
+    void            * arch_start = NULL;
+    void            * arch_end   = NULL;
+
+    if (!fat_iterator_find_fat_arch(iter, cputype, cpusubtype, &found_arch)) {
+        goto finish;
+    }
+    
+    // These are already swapped so don't swap them here.
+    arch_start = iter->file_start + found_arch.offset;
+    arch_end = arch_start + found_arch.size;
+
+    if (arch_end_ptr) {
+        *arch_end_ptr = arch_end;
+    }
+
+finish:
 
     return arch_start;
 }
@@ -380,4 +455,3 @@ const void * fat_iterator_file_end(fat_iterator iter)
     return iter->file_end;
     return NULL;
 }
-

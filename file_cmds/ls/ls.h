@@ -51,6 +51,7 @@
 extern long blocksize;		/* block size units */
 
 extern int f_accesstime;	/* use time of last access */
+extern int f_birthtime;		/* use time of file birth */
 extern int f_flags;		/* show flags associated with a file */
 extern int f_humanval;		/* show human-readable file sizes */
 extern int f_inode;		/* print inode */

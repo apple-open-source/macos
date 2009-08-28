@@ -26,6 +26,11 @@ Optional: Xar can optionally use libbzip2 for data compression.  For more
 
 		http://www.bzip.org/
 
+Optional: Xar can optionally use liblzma for data compression.  For more
+	  information about liblzma, see:
+
+		http://tukaani.org/lzma/
+
 Optional: Regenerating the configure script requires GNU autoconf.  Doing so is
 	  only necessary when making changes to the configuration system.
 
@@ -62,6 +67,10 @@ Cleanup targets include:
 	clean
 	distclean
 	relclean
+
+Note that if you are using a development version of xar, configure is
+not checked into the repository.  You may replace the ./configure step
+above with ./autogen.sh.
 
 ################################################################################
 

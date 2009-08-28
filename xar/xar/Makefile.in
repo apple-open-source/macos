@@ -13,6 +13,8 @@ vpath % .
 SHELL := /bin/sh
 CC := @CC@
 LD := @LD@
+AR := @AR@
+RANLIB := @RANLIB@
 INSTALL := @INSTALL@
 AUTOCONF := @AUTOCONF@
 
@@ -29,12 +31,19 @@ S_CFLAGS += -dynamic
 endif
 LDFLAGS := @LDFLAGS@ 
 
-PREFIX := @PREFIX@
-BINDIR := @BINDIR@
-DATADIR := @DATADIR@
-LIBDIR := @LIBDIR@
-INCLUDEDIR := @INCLUDEDIR@
-MANDIR := @MANDIR@
+prefix := @PREFIX@
+bindir := @BINDIR@
+datadir := @DATADIR@
+libdir := @LIBDIR@
+includedir := @INCLUDEDIR@
+mandir := @MANDIR@
+
+PREFIX := $(prefix)
+BINDIR := $(bindir)
+DATADIR := $(datadir)
+LIBDIR := $(libdir)
+INCLUDEDIR := $(includedir)
+MANDIR := $(mandir)
 
 dir_names := lib src
 

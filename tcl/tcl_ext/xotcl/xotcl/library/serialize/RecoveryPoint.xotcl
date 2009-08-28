@@ -1,0 +1,441 @@
+# $Id: RecoveryPoint.xotcl,v 1.4 2006/02/18 22:17:33 neumann Exp $
+
+package provide xotcl::scriptCreation::recoveryPoint 0.8
+package require XOTcl
+
+namespace eval ::xotcl::scriptCreation::recoveryPoint {
+    namespace import ::xotcl::*
+
+    ## fehlt noch: filter, mixins, metadata, ass, assoption, etc
+    ## beim recover Class's,Object's proc instproc vars nicht ueberschreiben
+    ## filter dann anhaengen etc ...
+    ## der Recovery Filter darf durch Object filter "" nicht gelöscht werden
+
+    #
+    # filter to ensure that recovering doesn't overwrite 
+    # existing objs/classes
+    #
+
+    Object instproc recoveryFilter args {
+	::set method [self calledproc] 
+
+	switch -- $method {
+	    create {
+		# don't overwrite objects
+		if {![::Object isobject [lindex $args 0]]} {
+		    next
+		} else {
+		    # puts stderr "Recovery Filter: omitting [lindex $args 0]"
+		}
+	    }
+	    proc {
+		if {[lsearch [my info procs] [lindex $args 0]] == -1} {
+		    next
+		} else {
+		    # puts stderr "Recovery Filter: omitting proc [self]::[lindex $args 0]"
+		}	
+	    }
+	    instproc {
+		if {[lsearch [my info instprocs] [lindex $args 0]] == -1} {
+		    next
+		} else {
+		    # puts stderr "Recovery Filter: omitting instproc [self]::[lindex $args 0]"
+		}
+	    }
+	    set {
+		if {[lsearch [my info vars] [lindex $args 0]] == -1} {
+		    next
+		} else {
+		    # puts stderr "Recovery Filter: omitting var [self]::[lindex $args 0]"
+		}
+	    }
+	    default  {next}
+	}
+    }
+
+    #
+    # remove filter from object
+    #
+    Object instproc filterremove f {
+	::set fl [my info filter]
+	puts stderr "filterremove on [self] with $f; fullName: [my filtersearch $f]" 
+	while {[::set index [lsearch $fl [my filtersearch $f]]] != -1} {
+	    ::set fl [lreplace $fl $index $index]
+	}
+	my filter $fl
+    }
+
+    #
+    # remove mixin from object
+    #
+    Object instproc mixinremove m {
+	puts stderr "mixinremove on [self] with $m" 
+	::set ml [my info mixins]
+	while {[::set index [lsearch $ml $m]] != -1} {
+	    ::set ml [lreplace $ml $index $index]
+	}
+	my mixin $ml
+    }
+
+    Class RecoveryPoint \
+	-parameter {
+	    {appendedObjs ""} 
+	    {appendedCls ""} 
+	    {appendedNamespaces ""} 
+	    {withState 0}
+	    {appendToFile 0}
+	    {definedObjs [list Object \
+			      Class \
+			      Class::Parameter]}
+	    {excludeNames ""}
+	}
+
+    #
+    # queries the definedObjs variable whether a given object
+    # is already defined/predefined or not  
+    # -> a way to exclude classes/objs from saving
+    #
+    RecoveryPoint instproc isDefined {n} {
+	my instvar definedObjs
+	puts stderr "Checking Defined: $n in $definedObjs"
+	if {[lsearch $definedObjs [string trimleft $n :]] == -1} {
+	    return 0
+	} else {
+	    return 1
+	}
+    }
+
+    RecoveryPoint instproc appendDefined {n} {
+	my instvar definedObjs
+	lappend definedObjs [string trimleft $n :]
+    }
+
+    #
+    # check whether an obj/cls/namespace is appended already
+    # append obj/cls/namespace 
+    #
+    foreach method {Obj Cl Namespace} {
+				       set r {
+					   my instvar {appended${method}s name}}
+				       set r [subst -nocommands -nobackslash $r]
+				       
+				       set s $r
+				       append s {
+					   if {[lsearch $name [string trimleft $n :]] == -1} {
+					       return 0
+					   } else {
+					       return 1
+					   }
+				       }
+
+				       RecoveryPoint instproc isAppended$method {n} $s
+
+				       append r {
+					   lappend name [string trimleft $n :]
+				       }
+				       RecoveryPoint instproc append$method {n} $r
+				   }
+    
+
+    #
+    # compare command for lsort  
+    #
+    RecoveryPoint instproc namespaceDepth {a b} {
+	set aCount 0
+	set bCount 0
+	for {set i 0} {$i < [string length $a]} {incr i} {
+	    if {[string index $a $i] eq ":"} {
+		incr aCount
+	    }
+	}
+	for {set i 0} {$i < [string length $b]} {incr i} {
+	    if {[string index $b $i] eq ":"} {
+		incr bCount
+	    }
+	}
+	if {$aCount == $bCount} {
+	    return 0
+	} elseif {$aCount > $bCount} {
+	    return 1
+	}
+	
+	return -1
+    } 
+
+    #
+    # produces a script containing the current state of 
+    # the given obj
+    #
+    RecoveryPoint instproc stateScript {obj} {
+	set script ""
+	foreach v [$obj info vars] {
+	    if {[lsearch [my set excludeNames] $v] == -1} {
+		$obj instvar $v
+		if {[array exists $v]} {
+		    foreach name [array names $v] {
+			set arr ${v}($name)
+			set value [$obj set $arr]
+			append script "$obj set $arr \"$value\"\n"
+		    }
+		} else {
+		    set value [set $v]
+		    append script "$obj set $v \"$value\"\n"
+		}
+	    }
+	}
+	return $script
+    }
+
+    #
+    # produces a script containing the procs of the given obj
+    #
+    RecoveryPoint instproc procScript {obj} {
+	set script ""
+	foreach p [$obj info procs] {
+	    if {[lsearch [my set excludeNames] $v] == -1} {
+		append script \
+		    "$obj proc $p \{[$obj info args $p]\} \{[$obj info body $p]\}\n"
+	    }
+	}
+	return $script
+    }
+
+    #
+    # produces a script containing the instprocs of the given class
+    #
+    RecoveryPoint instproc instprocScript {cl} {
+	set script ""
+	foreach p [$cl info instprocs] {
+	    if {[lsearch [my set excludeNames] $v] == -1} {
+		append script \
+		    "$cl instproc $p \{[$cl info instargs $p]\} \{[$cl info instbody $p]\}\n"
+	    }
+	}
+	return $script
+    }
+
+    #
+    # append parent obj/classes/namespaces of an object completly
+    #
+
+    RecoveryPoint instproc appendParents {name} {
+	# puts stderr "Recovery -- appendParents $name "
+	set p ""
+	set script ""
+
+	set n $name
+	while {[set np [namespace parent ::$n]] != "::"} {
+	    lappend p $np
+	    set n $np
+	}    
+	set p [lsort -command {[self] namespaceDepth} $p]
+
+	foreach n $p {
+	    if {[Object isobject $n]} {
+		if {[$n isclass]} {
+		    append script [my classScript $n]
+		} else {
+		    append script [my objectScript $n]
+		}
+	    } else {
+		if {![my isAppendedNamespace $n]} {
+		    append script "namespace eval $n \{\}\n"
+		    # puts stderr "Recovery -- Appending Namespace: $n"
+		    my appendedNamespace $n
+		}        
+	    }
+	}
+	return $script
+    }
+
+
+    #
+    # produces a script recovering the given obj with all children
+    # without state
+    #
+    RecoveryPoint instproc objectScript {obj} {
+	# puts stderr "Recovery -- Object Script $obj"
+	my instvar withState
+	set script ""
+	if {![my isDefined $obj] && 
+	    ![my isAppendedObj $obj]} {
+	    # if the object's class is not yet appended => do it now
+	    set objClass [$obj info class]
+	    append script [my classScript $objClass]
+
+	    # append all parent namespaces
+	    append script [my appendParents $obj]
+
+	    # append the obj
+	    append script "$objClass $obj\n"
+	    append script [my procScript $obj]
+	    if {$withState == 1} {
+		append script [my stateScript $obj]
+	    }
+	    # puts stderr "Recovery -- Appending Object: $obj"
+	    my appendObj $obj
+
+	    # append its children
+	    foreach o [$obj info children] {
+		append script [my objectScript $o]
+	    }
+	}
+	return $script
+    }
+
+    #
+    # produces a script recovering the given class with all children
+    # without state
+    #
+    RecoveryPoint instproc classScript {cl} {
+	# puts stderr "Recovery -- Class Script $cl"
+	my instvar withState
+	set script ""
+	if {![my isDefined $cl] &&
+	    ![my isAppendedCl $cl]} { 
+	    # if the class's meta-class is not yet appended => do it now
+	    set metaClass [$cl info class]
+	    append script [my classScript $metaClass]
+
+	    # append all parent namespaces
+	    append script [my appendParents $cl]
+
+	    # append the class
+	    append script "$metaClass $cl"
+
+	    set sl [$cl info superclass]
+	    if {$sl ne ""} {
+		append script " -superclass \{$sl\}\n"
+	    } else {
+		append script "\n"
+	    }
+
+	    append script [my instprocScript $cl]
+	    append script [my procScript $cl]
+
+	    if {$withState == 1} {
+		append script [my stateScript $cl]
+	    }
+
+	    # puts stderr "Recovery -- Appending Class: $cl \n $script"
+	    my appendCl $cl
+
+	    # append children
+	    set children [$cl info children]
+	    set classChildren [$cl info classchildren]
+
+	    foreach c $children {
+		if {[lsearch $classChildren $c] != -1} {
+		    append script [my classScript $c]
+		} else {
+		    append script [my objectScript $c]
+		}
+	    }
+	}
+	return $script
+    }
+
+    #
+    # produces a script recovering the given class and all subclasses 
+    # with all their children and all instances
+    #
+    #
+    RecoveryPoint instproc hierarchyScript {cl} {
+	set script [my classScript $cl]
+	set sortedInstances \
+	    [lsort -command {[self] namespaceDepth} [$cl info instances]]
+
+	foreach o $sortedInstances {
+	    append script [my objectScript $o]
+	}
+
+	foreach c [$cl info subclass] {
+	    append script [my hierarchyScript $c]
+	}
+
+	return $script
+    }
+
+    #
+    # saves a script to a file
+    #
+    RecoveryPoint instproc saveScript {filename script} {
+	my instvar appendToFile
+	if {$appendToFile} {
+	    set mode a
+	} else {
+	    set mode w
+	}
+	set f [open $filename $mode]
+	puts $f $script
+	close $f
+    }
+
+    #
+    # load a script from a file
+    #
+    RecoveryPoint instproc loadScript {filename} {
+	set f [open $filename r]
+	set r [read $f]
+	close $f
+	return $r
+    }
+
+    #
+    # produce methods to save/recover an object script to/from a file 
+    # with/without state/only state
+    #
+
+    foreach method {
+	Object ObjectState ObjectWithState Class ClassWithState \
+	    Hierarchy HierarchyWithState
+    } {
+       set s {
+	   my set withState
+       }
+
+       if {[regexp {(.*)WithState} $method _ m]} {
+	   set call $m
+	   append s "1"
+       } else {
+	   set call $method
+	   append s "0"
+       }
+
+       scan $call %c l
+       set ::low "[format %c [expr {$l + 32}]][string range $call 1 end]"
+
+       append s {
+	   my appendedObjs ""
+	   my appendedCls ""
+	   my appendedNamespaces ""
+       }
+       append s "
+    foreach a \$args \{"
+       set r {      
+	   set script [my ${low}Script }
+	   set r [subst -nocommands -nobackslash $r]
+	   append s $r
+	   append s {$a] 
+	   my saveScript $filename $script}
+       append s "
+    \}
+  "
+
+       RecoveryPoint instproc save$method {filename args} $s
+   }
+
+    RecoveryPoint instproc recover {filename} {
+	set r [my loadScript $filename]
+	Object filterappend recoveryFilter
+	# puts stderr "RecoveryFilter appended for $filename" 
+	eval $r
+	Object filterremove recoveryFilter
+	# puts stderr "RecoveryFilter removed for $filename" 
+	return
+    }
+
+    namespace export RecoveryPoint
+}
+
+namespace import ::xotcl::scriptCreation::recoveryPoint::*

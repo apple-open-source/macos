@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,172 +43,214 @@
 #include <netsmb/smb.h>
 
 #define	NSMB_NAME		"nsmb"
-#define	NSMB_MAJOR		144
 
-#define NSMB_VERMAJ	1
-#define NSMB_VERMIN	4000
-#define NSMB_VERSION	(NSMB_VERMAJ * 100000 + NSMB_VERMIN)
 
 #define KERBEROS_REALM_DELIMITER '@'
 #define WIN2008_SPN_PLEASE_IGNORE_REALM "cifs/not_defined_in_RFC4178@please_ignore"
 
 /*
- * Once these structure are passed into the kernel the pointer fields may no longer have the same  
- * value on returned. Any user land routine will need to reset them before calling the kernel again.
+ * Used to verify the userland and kernel are using the
+ * correct structure. Only needs to be changed when the
+ * structure in this routine are changed.
+ */
+#define SMB_IOC_STRUCT_VERSION		160
+
+/*
+ * The structure passed into the kernel must be less than or equal to 4K. If the
+ * structure needs to be larger then we need to pass in a user_addr_t and do
+ * a copyin on it.
  *
  */
+#define SMB_MAX_IOC_SIZE 4 * 1024
+
+
+#define TRY_BOTH_PORTS		1	/* Try port 445 -- if unsuccessful try 139 */
+#define USE_THIS_PORT_ONLY	2	/* Try supplied port -- only */
+#define SMB_SHARING_VC		4	/* We are sharing this Virtual Circuit */
+
+
 struct smbioc_ossn {
-	union {
-		user_addr_t	ioc_kern_server;
-		struct sockaddr	*ioc_server;
-	};
-	union {
-		user_addr_t	ioc_kern_local;
-		struct sockaddr	*ioc_local;
-	};
-	u_int32_t	ioc_opt;
-	int32_t		ioc_svlen;	/* size of ioc_server address */
-	int32_t		ioc_lolen;	/* size of ioc_local address */
-	u_int32_t	ioc_reconnect_wait_time;	/* Amount of time to wait while reconnecting */
-	uid_t		ioc_owner;	/* proposed owner */
-	gid_t		ioc_group;	/* proposed group */
-	mode_t		ioc_mode;	/* desired access mode */
-	mode_t		ioc_rights;	/* SMBM_* */
+	u_int32_t	ioc_opt;	/* Authentication request flags */
+	u_int32_t	ioc_reconnect_wait_time;
+	uid_t		ioc_owner;
 	char		ioc_localcs[16] __attribute((aligned(8)));/* local charset */
-	char		ioc_servercs[16];/* server charset */
-	char		ioc_srvname[SMB_MAX_DNS_SRVNAMELEN+1]; /* make room for null */
-	char		ioc_user[SMB_MAXUSERNAMELEN + 1];
-	char		ioc_kuser[SMB_MAXUSERNAMELEN + 1];
-	char		ioc_domain[SMB_MAXNetBIOSNAMELEN + 1];
-	char		ioc_password[SMB_MAXPASSWORDLEN + 1];
+	char		ioc_srvname[SMB_MAX_DNS_SRVNAMELEN+1] __attribute((aligned(8)));
+	char		ioc_localname[SMB_MAXNetBIOSNAMELEN+1] __attribute((aligned(8)));
+	char		ioc_kuser[SMB_MAXUSERNAMELEN + 1] __attribute((aligned(8)));
+	char		ioc_kspn_hint[SMB_MAX_KERB_PN+1] __attribute((aligned(8)));
 };
 
-struct smbioc_oshare {
-	int32_t		ioc_opt;
+/* 
+ * The SMBIOC_NEGOTIATE ioctl is a read/write ioctl. So we use smbioc_negotiate
+ * structure to pass information from the user land to the kernel and vis-versa  
+ */
+struct smbioc_negotiate {
+	u_int32_t	ioc_version;
+	u_int32_t	ioc_extra_flags;
+	u_int32_t	ioc_ret_caps;
+	u_int32_t	ioc_ret_vc_flags;
+	int32_t		ioc_saddr_len;
+	int32_t		ioc_laddr_len;
+	union {	/* Rosetta notes: User to Kernel (WRITE) */
+		user_addr_t	ioc_kern_saddr __attribute((aligned(8)));
+		struct sockaddr	*ioc_saddr __attribute((aligned(8)));
+	};
+	union {	/* Rosetta notes: User to Kernel (WRITE) */
+		user_addr_t	ioc_kern_laddr __attribute((aligned(8)));
+		struct sockaddr	*ioc_laddr __attribute((aligned(8)));
+	};
+	struct smbioc_ossn	ioc_ssn __attribute((aligned(8)));
+	char ioc_user[SMB_MAXUSERNAMELEN + 1] __attribute((aligned(8)));
+	u_int64_t	ioc_reserved __attribute((aligned(8))); /* Force correct size always */
+};
+
+/*
+ * Pushing the limit here on the structure size. We are about 1K under the
+ * max size support for a ioctl call.
+ */
+struct smbioc_setup {
+	u_int32_t	ioc_version;
+	int32_t		ioc_vcflags;	/* vc_flags used for security */
+	char		ioc_user[SMB_MAXUSERNAMELEN + 1] __attribute((aligned(8)));
+	char		ioc_uppercase_user[SMB_MAXUSERNAMELEN + 1] __attribute((aligned(8)));
+	char		ioc_password[SMB_MAXPASSWORDLEN + 1] __attribute((aligned(8)));
+	char		ioc_domain[SMB_MAXNetBIOSNAMELEN + 1] __attribute((aligned(8)));
+	char		ioc_kclientpn[SMB_MAX_KERB_PN+1] __attribute((aligned(8)));
+	char		ioc_kservicepn[SMB_MAX_KERB_PN+1] __attribute((aligned(8)));
+	u_int64_t	ioc_reserved __attribute((aligned(8))); /* Force correct size always */
+};
+
+struct smbioc_share {
+	u_int32_t	ioc_version;
 	int32_t		ioc_stype;	/* share type */
-	uid_t		ioc_owner;	/* proposed owner of share */
-	gid_t		ioc_group;	/* proposed group of share */
-	mode_t		ioc_mode;	/* desired access mode to share */
-	mode_t		ioc_rights;	/* SMBM_* */
-	char		ioc_share[SMB_MAXSHARENAMELEN + 1];
-	char		ioc_password[SMB_MAXPASSWORDLEN + 1];
+	char		ioc_share[SMB_MAXSHARENAMELEN + 1] __attribute((aligned(8)));
+	u_int64_t	ioc_reserved __attribute((aligned(8))); /* Force correct size always */
+};
+
+struct dos_error {
+	u_int8_t	errclass;
+	u_int8_t	err_reserved;
+	u_int16_t	error;	
 };
 
 struct smbioc_rq {
-	union {
-		user_addr_t	ioc_kern_twords;
-		void *		ioc_twords;
-	};
-	union {
-		user_addr_t	ioc_kern_tbytes;
-		void *		ioc_tbytes;
-	};
-	union {
-		user_addr_t	ioc_kern_rpbuf;
-		char *		ioc_rpbuf;
-	};
+	u_int32_t	ioc_version;
 	u_int8_t	ioc_cmd;
 	u_int8_t	ioc_twc;
-	u_int16_t	ioc_tbc;
+	u_int16_t	ioc_tbc;	
 	int32_t		ioc_rpbufsz;
-	u_int8_t	ioc_rwc;
 	u_int16_t	ioc_rbc;
-	u_int8_t	ioc_errclass;
-	u_int32_t	ioc_error;
-	u_int16_t	ioc_serror;
+	u_int16_t	ioc_srflags2;
+	u_int8_t	ioc_rwc;
+	u_int8_t	ioc_pad[3];
+	struct dos_error ioc_dos_error;
+	u_int32_t	ioc_nt_error;
+	union {	/* Rosetta notes: User to Kernel (WRITE) */
+		user_addr_t	ioc_kern_twords __attribute((aligned(8)));
+		void *		ioc_twords __attribute((aligned(8)));
+	};
+	union { /* Rosetta notes: User to Kernel (WRITE) */
+		user_addr_t	ioc_kern_tbytes __attribute((aligned(8)));
+		void *		ioc_tbytes __attribute((aligned(8)));
+	};
+	union {	 /* Rosetta notes: Kernel to User (READ) */
+		user_addr_t	ioc_kern_rpbuf __attribute((aligned(8)));
+		char *		ioc_rpbuf __attribute((aligned(8)));
+	};
+	u_int64_t	ioc_reserved __attribute((aligned(8))); /* Force correct size always */
 };
 
 struct smbioc_t2rq {
-	union {
-		user_addr_t	ioc_kern_name;
-		char *		ioc_name;
-	};
-	union {
-		user_addr_t	ioc_kern_tparam;
-		void *		ioc_tparam;
-	};
-	union {
-		user_addr_t	ioc_kern_tdata;
-		void *		ioc_tdata;
-	};
-	union {
-		user_addr_t	ioc_kern_rparam;
-		void *		ioc_rparam;
-	};
-	union {
-		user_addr_t	ioc_kern_rdata;
-		void *		ioc_rdata;
-	};
+	u_int32_t	ioc_version;
 	u_int32_t	ioc_name_len;
-	u_int16_t	ioc_setup[SMB_MAXSETUPWORDS];
 	u_int16_t	ioc_setupcnt;
 	u_int16_t	ioc_tparamcnt;
 	u_int16_t	ioc_tdatacnt;
 	u_int16_t	ioc_rparamcnt;
 	u_int16_t	ioc_rdatacnt;
-	u_int16_t	ioc_rpflags2;
-	u_int8_t	ioc_errclass;
-	u_int16_t	ioc_serror;
-	u_int32_t	ioc_error;
-};
-
-struct smbioc_negotiate {
-	u_int32_t			flags;		/* This is where the vc flags are returned */
-	u_int32_t			vc_caps;	/* This is where the vc capabilities are returned */
-	u_int32_t			spn_len;	/* Servers principal name length */
-	u_int32_t			vc_conn_state;	/* On input the ports to try, on output set if we found a vc that is shared. */
-	struct smbioc_ossn	ioc_ssn __attribute((aligned(8)));
-	u_int8_t			spn[1025] __attribute((aligned(8)));
-	u_int8_t			pad __attribute((aligned(8)));
-};
-
-
-struct smbioc_ssnsetup {
-	union {
-		user_addr_t	kern_clientpn;
-		char		*user_clientpn;
+	u_int16_t	ioc_srflags2;
+	u_int16_t	ioc_setup[SMB_MAXSETUPWORDS];
+	struct dos_error ioc_dos_error __attribute((aligned(8)));
+	u_int32_t	ioc_nt_error __attribute((aligned(8)));
+	union {	/* Rosetta notes: User to Kernel (WRITE) */
+		user_addr_t	ioc_kern_name __attribute((aligned(8)));
+		const char *ioc_name __attribute((aligned(8)));
 	};
-	union {
-		user_addr_t	kern_servicepn;
-		char		*user_servicepn;
+	union {	/* Rosetta notes: User to Kernel (WRITE) */
+		user_addr_t	ioc_kern_tparam __attribute((aligned(8)));
+		void *		ioc_tparam __attribute((aligned(8)));
 	};
-	u_int32_t		clientpn_len;
-	u_int32_t		servicepn_len;
-	struct smbioc_ossn	ioc_ssn;
-};
-
-struct smbioc_treeconn {
-	struct smbioc_ossn		ioc_ssn;
-	struct smbioc_oshare	ioc_sh __attribute((aligned(8)));
+	union {	/* Rosetta notes: User to Kernel (WRITE) */
+		user_addr_t	ioc_kern_tdata __attribute((aligned(8)));
+		void *		ioc_tdata __attribute((aligned(8)));
+	};
+	union { /* Rosetta notes: Kernel to User (READ) */
+		user_addr_t	ioc_kern_rparam __attribute((aligned(8)));
+		void *		ioc_rparam __attribute((aligned(8)));
+	};
+	union { /* Rosetta notes: Kernel to User (READ) */
+		user_addr_t	ioc_kern_rdata __attribute((aligned(8)));
+		void *		ioc_rdata __attribute((aligned(8)));
+	};
+	u_int64_t	ioc_reserved __attribute((aligned(8))); /* Force correct size always */
 };
 
 /* Always keep the pointers on 64 bit boundries*/
 struct smbioc_rw {
-	union {
-		user_addr_t	ioc_kern_base;
-		void		*ioc_base;
-	};
+	u_int32_t	ioc_version;
+	u_int32_t	ioc_cnt;
 	off_t		ioc_offset;
-	int32_t		ioc_cnt;
 	smbfh		ioc_fh;
-	u_int8_t	pad __attribute((aligned(8)));
+	union {
+		/* Rosetta notes: Kernel to User (READ) SMBIOC_READ, */
+		/* Rosetta notes: User to Kernel (WRITE) SMBIOC_WRITE*/
+		user_addr_t	ioc_kern_base __attribute((aligned(8)));
+		void		*ioc_base __attribute((aligned(8)));
+	};
+	u_int64_t	ioc_reserved __attribute((aligned(8))); /* Force correct size always */
+};
+
+struct smbioc_os_lanman {
+	char	NativeOS[SMB_MAX_NATIVE_OS_STRING];
+	char	NativeLANManager[SMB_MAX_NATIVE_LANMAN_STRING];
 };
 
 /*
  * Device IOCTLs
  */
-#define	SMBIOC_REQUEST		_IOWR('n', 102, struct smbioc_rq)
-#define	SMBIOC_T2RQ			_IOWR('n', 103, struct smbioc_t2rq)
-#define	SMBIOC_READ			_IOWR('n', 107, struct smbioc_rw)
-#define	SMBIOC_WRITE		_IOWR('n', 108, struct smbioc_rw)
-#define	SMBIOC_NEGOTIATE	_IOWR('n',  109, struct smbioc_negotiate)
-#define	SMBIOC_SSNSETUP		_IOW('n',  110, struct smbioc_ssnsetup)
-#define	SMBIOC_TCON			_IOW('n',  111, struct smbioc_treeconn)
-#define	SMBIOC_TDIS			_IOW('n',  112, struct smbioc_treeconn)
-#define	SMBIOC_FLAGS2		_IOR('n',  113, u_int16_t)
-#define	SMBIOC_SESSSTATE	_IOR('n',  114, u_int16_t)
-#define	SMBIOC_CANCEL_SESSION	_IOR('n',  115, u_int16_t)
-#define SMBIOC_GET_VC_FLAGS	_IOR('n', 116, u_int32_t)
+#ifdef SMB_ROSETTA
+#define MIN_SMBIOC_COMMAND		102
+#define MAX_SMBIOC_COMMAND		117
+#define SMBIOC_COMMAND_COUNT	MAX_SMBIOC_COMMAND - MIN_SMBIOC_COMMAND + 1
+
+#define SMBIOC_UNUSED_104		104 - MIN_SMBIOC_COMMAND
+#define SMBIOC_UNUSED_105		105 - MIN_SMBIOC_COMMAND
+#define SMBIOC_UNUSED_106		106 - MIN_SMBIOC_COMMAND
+#define SMBIOC_UNUSED_108		108 - MIN_SMBIOC_COMMAND	/* NO TEST FOR SMBIOC_WRITE */
+#endif // SMB_ROSETTA
+
+#define	SMBIOC_REQUEST			_IOWR('n', 102, struct smbioc_rq)
+#define	SMBIOC_T2RQ				_IOWR('n', 103, struct smbioc_t2rq)
+#define	SMBIOC_READ				_IOWR('n', 107, struct smbioc_rw)
+#define	SMBIOC_WRITE			_IOWR('n', 108, struct smbioc_rw)
+#define	SMBIOC_NEGOTIATE		_IOWR('n', 109, struct smbioc_negotiate)
+#define	SMBIOC_SSNSETUP			_IOW('n', 110, struct smbioc_setup)
+#define	SMBIOC_TCON				_IOW('n', 111, struct smbioc_share)
+#define	SMBIOC_TDIS				_IOW('n', 112, struct smbioc_share)
+#define	SMBIOC_GET_VC_FLAGS2	_IOR('n', 113, u_int16_t)
+#define	SMBIOC_SESSSTATE		_IOR('n', 114, u_int16_t)
+#define	SMBIOC_CANCEL_SESSION	_IOR('n', 115, u_int16_t)
+#define SMBIOC_GET_VC_FLAGS		_IOR('n', 116, u_int32_t)
+#define	SMBIOC_GET_OS_LANMAN	_IOR('n', 117, struct smbioc_os_lanman)
+
+
+/*
+* Additional non-errno values that can be returned to NetFS, these get translate
+* to the NetFS errors in user land.
+*/
+#define SMB_ENETFSACCOUNTRESTRICTED -5042
+#define SMB_ENETFSPWDNEEDSCHANGE -5045
+#define SMB_ENETFSPWDPOLICY -5046
 
 #ifdef _KERNEL
 
@@ -221,17 +263,18 @@ struct smb_dev {
 	void		*	sd_devfs;
 };
 
-struct smb_cred;
 /*
  * Compound user interface
  */
-int  smb_usr_negotiate(struct smbioc_negotiate *dp, struct smb_cred *scred, struct smb_vc **vcpp, struct smb_dev *sdp);
-int  smb_usr_ssnsetup(struct smbioc_ssnsetup *dp, struct smb_cred *scred, struct smb_vc *vcp);
-int  smb_usr_tcon(struct smbioc_treeconn *dp, struct smb_cred *scred, struct smb_vc *vcp, struct smb_share **sspp);
-int  smb_usr_simplerequest(struct smb_share *ssp, struct smbioc_rq *data, struct smb_cred *scred);
-int  smb_usr_t2request(struct smb_share *ssp, struct smbioc_t2rq *data, struct smb_cred *scred);
+int  smb_usr_negotiate(struct smbioc_negotiate *dp, vfs_context_t context, struct smb_dev *sdp);
+int  smb_usr_simplerequest(struct smb_share *ssp, struct smbioc_rq *data, vfs_context_t context);
+int  smb_usr_t2request(struct smb_share *ssp, struct smbioc_t2rq *data, vfs_context_t context);
 int  smb_dev2share(int fd, struct smb_share **sspp);
 
+
+#else /* _KERNEL */
+/* Only used in user land */
+int smb_ioctl_call(int /* ct_fd */, unsigned long /* cmd */, void */*info*/);
 
 #endif /* _KERNEL */
 

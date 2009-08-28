@@ -59,23 +59,6 @@ typedef enum
 #define		kAuditAuthChangeConsts				15
 #define		kAuditAuthMethodConsts				33
 
-enum {
-	kAuditCtlStrNewUser						= 0,
-	kAuditCtlStrModifyUser1					= 1,
-	kAuditCtlStrModifyUser2					= 2,
-	kAuditCtlStrModifyPassword				= 3,
-	kAuditCtlStrDeleteUser					= 4,
-	kAuditCtlStrCreateGroup					= 5,
-	kAuditCtlStrDeleteGroup					= 6,
-	kAuditCtlStrModifyGroupMembership1		= 7,
-	kAuditCtlStrModifyGroupMembership2		= 8,
-	kAuditCtlStrAddToGroup					= 9,
-	kAuditCtlStrRemoveFromGroup				= 10,
-	kAuditCtlStrModifyGroupAttribute		= 11,
-	kAuditCtlStrAuthenticateUser			= 12,
-	kAuditControlStrConsts
-};
-
 #ifdef __cplusplus
 extern "C" {
 #endif

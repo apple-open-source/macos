@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 2001-2005, International Business Machines
+*   Copyright (C) 2001-2006, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -49,10 +49,6 @@ typedef struct CheckRange {
     UChar32 limit;
     uint32_t value;
 } CheckRange;
-struct{
-    double bogus; /* needed for aligining the storage */
-    uint8_t storage[10000000];
-} storageHolder;
 
 
 static uint32_t U_CALLCONV
@@ -270,7 +266,8 @@ testTrieRangesWithMalloc(const char *testName,
     UErrorCode errorCode;
     UBool overwrite, ok;
     uint8_t* storage =NULL;
-    storage = (uint8_t*) uprv_malloc(sizeof(uint8_t)*100000);
+    static const int32_t DEFAULT_STORAGE_SIZE = 32768;
+    storage = (uint8_t*) uprv_malloc(sizeof(uint8_t)*DEFAULT_STORAGE_SIZE);
 
     log_verbose("\ntesting Trie '%s'\n", testName);
     newTrie=utrie_open(NULL, NULL, 2000,
@@ -317,7 +314,7 @@ testTrieRangesWithMalloc(const char *testName,
     }
 
     errorCode=U_ZERO_ERROR;
-    length=utrie_serialize(newTrie, storage, 1000000,
+    length=utrie_serialize(newTrie, storage, DEFAULT_STORAGE_SIZE,
                            dataIs32 ? _testFoldedValue32 : _testFoldedValue16,
                            (UBool)!dataIs32,
                            &errorCode);
@@ -448,6 +445,10 @@ testTrieRanges(const char *testName,
                const SetRange setRanges[], int32_t countSetRanges,
                const CheckRange checkRanges[], int32_t countCheckRanges,
                UBool dataIs32, UBool latin1Linear) {
+    union{
+        double bogus; /* needed for aligining the storage */
+        uint8_t storage[32768];
+    } storageHolder;
     UTrieGetFoldingOffset *getFoldingOffset;
     UNewTrieGetFoldedValue *getFoldedValue;
     const CheckRange *enumRanges;
@@ -521,6 +522,11 @@ testTrieRanges(const char *testName,
                            &errorCode);
     if(U_FAILURE(errorCode)) {
         log_err("error: utrie_serialize(%s) failed: %s\n", testName, u_errorName(errorCode));
+        utrie_close(newTrie);
+        return;
+    }
+    if (length >= (int32_t)sizeof(storageHolder.storage)) {
+        log_err("error: utrie_serialize(%s) needs more memory\n", testName);
         utrie_close(newTrie);
         return;
     }
@@ -804,7 +810,7 @@ dummyGetFoldingOffset(uint32_t data) {
 
 static void
 dummyTest(UBool make16BitTrie) {
-    static int32_t mem[UTRIE_DUMMY_SIZE/4];
+    int32_t mem[UTRIE_DUMMY_SIZE/4];
 
     UTrie trie;
     UErrorCode errorCode;

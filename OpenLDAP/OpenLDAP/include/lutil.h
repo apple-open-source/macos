@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/include/lutil.h,v 1.57.2.5 2006/01/03 22:16:06 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/include/lutil.h,v 1.63.2.5 2008/02/11 23:26:40 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -158,6 +158,7 @@ typedef struct lutil_tm {
 	int tm_mon;	/* month 0-11 */
 	int tm_year;	/* year - 1900 */
 	int tm_usec;	/* microseconds */
+	int tm_usub;	/* submicro */
 } lutil_tm;
 
 typedef struct lutil_timet {
@@ -166,13 +167,19 @@ typedef struct lutil_timet {
 	unsigned int tt_usec;	/* microseconds */
 } lutil_timet;
 
+/* Parse a timestamp string into a structure */
 LDAP_LUTIL_F( int )
 lutil_parsetime LDAP_P((
 	char *atm, struct lutil_tm * ));
 
+/* Convert structured time to time in seconds since 1900 */
 LDAP_LUTIL_F( int )
 lutil_tm2time LDAP_P((
 	struct lutil_tm *, struct lutil_timet * ));
+
+/* Get current time as a structured time */
+LDAP_LUTIL_F( void )
+lutil_gettime LDAP_P(( struct lutil_tm * ));
 
 #ifdef _WIN32
 LDAP_LUTIL_F( void )
@@ -211,6 +218,13 @@ lutil_pair( ber_socket_t sd[2] );
 #define LDAP_LUTIL_UUIDSTR_BUFSIZE	40
 LDAP_LUTIL_F( size_t )
 lutil_uuidstr( char *buf, size_t len );
+
+LDAP_LUTIL_F( int )
+lutil_uuidstr_from_normalized(
+	char		*uuid,
+	size_t		uuidlen,
+	char		*buf,
+	size_t		buflen );
 
 /* csn.c */
 /* use this macro to allocate buffer for lutil_csnstr */
@@ -291,10 +305,40 @@ lutil_atoulx( unsigned long *v, const char *s, int x );
 #define lutil_atoul(v, s)	lutil_atoulx((v), (s), 10)
 
 LDAP_LUTIL_F (int)
+lutil_str2bin( struct berval *in, struct berval *out, void *ctx );
+
+/* Parse and unparse time intervals */
+LDAP_LUTIL_F (int)
 lutil_parse_time( const char *in, unsigned long *tp );
 
 LDAP_LUTIL_F (int)
 lutil_unparse_time( char *buf, size_t buflen, unsigned long t );
+
+#ifdef timerdiv
+#define lutil_timerdiv timerdiv
+#else /* ! timerdiv */
+/* works inplace (x == t) */
+#define lutil_timerdiv(t,d,x) \
+	do { \
+		time_t s = (t)->tv_sec; \
+		assert( d > 0 ); \
+		(x)->tv_sec = s / d; \
+		(x)->tv_usec = ( (t)->tv_usec + 1000000 * ( s % d ) ) / d; \
+	} while ( 0 )
+#endif /* ! timerdiv */
+
+#ifdef timermul
+#define lutil_timermul timermul
+#else /* ! timermul */
+/* works inplace (x == t) */
+#define lutil_timermul(t,m,x) \
+	do { \
+		time_t u = (t)->tv_usec * m; \
+		assert( m > 0 ); \
+		(x)->tv_sec = (t)->tv_sec * m + u / 1000000; \
+		(x)->tv_usec = u % 1000000; \
+	} while ( 0 );
+#endif /* ! timermul */
 
 LDAP_END_DECL
 

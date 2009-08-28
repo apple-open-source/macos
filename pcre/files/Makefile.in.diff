@@ -1,0 +1,11 @@
+--- Makefile.in.orig	2009-01-13 19:09:28.000000000 -0800
++++ Makefile.in	2009-01-13 19:09:52.000000000 -0800
+@@ -587,7 +587,7 @@
+ 	cd $(top_srcdir) && \
+ 	  $(AUTOMAKE) --gnu  Makefile
+ .PRECIOUS: Makefile
+-Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
++Makefile:
+ 	@case '$?' in \
+ 	  *config.status*) \
+ 	    echo ' $(SHELL) ./config.status'; \

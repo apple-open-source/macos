@@ -320,6 +320,8 @@ char *errormsg [] = {
   "internal error" } ;
 
 /* Functions... */
+static void signal_handler(int sig);
+void onsig(int sig);
 
 /* Return name of frame of type 'fr'. */
 
@@ -619,12 +621,12 @@ int send_data ( TFILE *mf, IFILE *f, int page, int pages,
   if ( ckfmt ( header, 6 ) )
     msg ( "W too many %%d escapes in header format string \"%s\"", header ) ;
   else
-    sprintf ( headerbuf, header, page, pages, page, pages, page, pages ) ;
+    snprintf ( headerbuf, sizeof(headerbuf), header, page, pages, page, pages, page, pages ) ;
   msg ("I header:[%s]", headerbuf ) ;
       
   done = err = ttymode ( mf, SEND ) ; 
 
-  msg ( "Isending page" ) ;
+  msg ( "Isending page %d of %d", page, f->totalpages ) ;
 
   mf->start = time(0) ;
   mf->mstart = proc_ms() ;
@@ -709,7 +711,7 @@ int send_data ( TFILE *mf, IFILE *f, int page, int pages,
 			((float)mf->lines / (float)f->page->h) * 100;
 
       value = CFNumberCreate(kCFAllocatorDefault,
-			kCFNumberSInt32Type, &percentage);
+			kCFNumberLongType, &percentage);
 
       notify(CFSTR("percentage"), value);
 
@@ -868,6 +870,7 @@ int receive_data ( TFILE *mf, OFILE *f, cap session, int *nerr, int *nline )
 
   if ( ! f || ! f->f ) {
     msg ( "E2 can't happen (writeline)" ) ;
+    return 2;
   } 
   
   newDECODER ( &d ) ;
@@ -1294,7 +1297,7 @@ int c1sndrcv (
 	      int pages, char *header, faxfont *font, 
 	      int maxpgerr, int noretry, int calling )
 { 
-  int err=0, rxpage=0, page=1, t, disbit, good, frame, last, nerr, nlines ;
+  int err=0, rxpage=0, page=1, t, disbit, good=0, frame, last, nerr, nlines ;
   int rxdislen, ppm, try=0, pagetry=0, retry=0, remtx=0, remrx=0 ;
   int writepending=0, dp=0 ;
   cap remote = { DEFCAP }, session = { DEFCAP } ;
@@ -1467,9 +1470,11 @@ int c1sndrcv (
     pagetry=0 ;
 #if defined(__APPLE__)
     {
+      msg ( "Isent page %d", page ) ;
+
       CFNumberRef value;
       value = CFNumberCreate(kCFAllocatorDefault,
-			kCFNumberSInt32Type, &page);
+			kCFNumberIntType, &page);
 
       notify(CFSTR("sentpage"), value);
 
@@ -1516,8 +1521,7 @@ int c1sndrcv (
     case MCF: 
     case RTP: 
       nextipage ( inf, 1 ) ;	/* skip ahead to mark all files done */
-      if ( remtx ) goto R ;	/* poll after sending */
-      else goto C ;
+      goto C ;
     case RTN: goto D ;
     }
     
@@ -1640,7 +1644,7 @@ int c1sndrcv (
 	CFNumberRef value;
 
 	value = CFNumberCreate(kCFAllocatorDefault,
-				kCFNumberSInt32Type, &rxpage);
+				kCFNumberIntType, &rxpage);
 	notify(CFSTR("recdpage"), value);
 
 	CFRelease(value);
@@ -1662,7 +1666,7 @@ int c1sndrcv (
 	CFNumberRef value;
 
 	value = CFNumberCreate(kCFAllocatorDefault,
-				kCFNumberSInt32Type, &rxpage);
+				kCFNumberIntType, &rxpage);
 	notify(CFSTR("recdpage"), value);
 
 	CFRelease(value);
@@ -1833,7 +1837,7 @@ int c2sndrcv (
 	      int maxpgerr, int noretry, int calling )
 {
   int err=0, done=0, page, pagetry, nerr, c, dp=0 ;
-  int ppm=0, good, hsc, changed ;
+  int ppm=0, good=0, hsc, changed ;
   int remtx=0 ;
   char *fname=0 ;
   cap session = { 0,0,0,0, 0,0,0,0 } ;
@@ -1870,7 +1874,7 @@ int c2sndrcv (
     err = rdpage ( inf, dp, &ppm, local, &changed ) ;
 
     if ( ! err && changed ) {
-      sprintf ( buf, c20 ? "+FIS=%d,%d,%d,%d" : "+FDIS=%d,%d,%d,%d", 
+      snprintf ( buf, sizeof(buf), c20 ? "+FIS=%d,%d,%d,%d" : "+FDIS=%d,%d,%d,%d", 
 	       local[0], local[1], local[2], local[3] ) ;
       ckcmd ( mf, 0, buf, TO_FT, OK ) ;
       if ( gethsc ( &hsc, &err ) ) {
@@ -1927,7 +1931,7 @@ int c2sndrcv (
 	CFNumberRef value;
 
 	value = CFNumberCreate(kCFAllocatorDefault,
-			kCFNumberSInt32Type, &page);
+			kCFNumberIntType, &page);
 
 	notify(CFSTR("sentpage"), value);
 
@@ -1993,7 +1997,7 @@ int c2sndrcv (
 	    int pageNum = page+1;
 
 	    value = CFNumberCreate(kCFAllocatorDefault,
-				kCFNumberSInt32Type, &pageNum);
+				kCFNumberIntType, &pageNum);
 
 	    notify(CFSTR("recdpage"), value);
 
@@ -2054,7 +2058,7 @@ int dial ( TFILE *f, char *s, int nowait )
   int err=0, hsc=-1 ;
   char c, dsbuf [ 128 ], *p ;
 
-  sprintf ( dsbuf, nowait ? "D%.126s;" : "D%.127s" , s ) ;
+  snprintf ( dsbuf, sizeof(dsbuf), nowait ? "D%.126s;" : "D%.127s" , s ) ;
   msg ( "Idialing %s", dsbuf+1 ) ;
 
 #if defined(__APPLE__)
@@ -2270,7 +2274,7 @@ int answer ( TFILE *f, char **lkfile,
 	if ( ckfmt ( getty, 6 ) ) {
 	  err = msg ( "E3 too many %%d escapes in command (%s)", getty ) ;
 	} else {
-	  sprintf ( buf, getty, crate, crate, crate, crate, crate, crate ) ;
+	  snprintf ( buf, sizeof(buf), getty, crate, crate, crate, crate, crate, crate ) ;
 	  msg ( "Iexec'ing /bin/sh -c \"%s\"" , buf ) ;
 	  execl ( "/bin/sh" , "sh" , "-c" , buf , (void*) 0 ) ; 
 	  err = msg ( "ES2exec failed:" ) ;
@@ -2289,7 +2293,7 @@ int answer ( TFILE *f, char **lkfile,
 	char buf [ MAXGETTY ] ;
 	if ( ckfmt ( vcmd, 6 ) ) {
 	} else {
-	  sprintf ( buf, vcmd, f->fd, f->fd, f->fd, f->fd, f->fd, f->fd ) ;
+	  snprintf ( buf, sizeof(buf), vcmd, f->fd, f->fd, f->fd, f->fd, f->fd, f->fd ) ;
 	  msg ( "Iexec'ing /bin/sh -c \"%s\"" , buf ) ;
 	  execl ( "/bin/sh" , "sh" , "-c" , buf , (void*) 0 ) ; 
 	  err = msg ( "ES2exec failed:" ) ;
@@ -2335,6 +2339,7 @@ int modem_init ( TFILE *mf, cap c, char *id,
   char **p, *q, *modelq [2][4] = { { "+FMFR?", "+FMDL?", 0 }, 
 				   { "+FMI?", "+FMM?", "+FMR?", 0 } } ;
 
+  err = msg ( "Iinitializing modem" ) ;
 
 #if defined(__APPLE__)
       notify(CFSTR("modeminit"), NULL);
@@ -2423,13 +2428,13 @@ int modem_init ( TFILE *mf, cap c, char *id,
     }
 
     if ( capsset ) {
-      sprintf ( buf, c20 ? "+FCC=%d,%d,%d,%d,%d,%d,%d,%d" : 
+      snprintf ( buf, sizeof(buf), c20 ? "+FCC=%d,%d,%d,%d,%d,%d,%d,%d" : 
 		"+FDCC=%d,%d,%d,%d,%d,%d,%d,%d", 
 		c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7] ) ;
       ckcmd ( mf, 0, buf, -t, OK ) ;
     }
     
-    sprintf ( buf, c20 ? "+FLI=\"%.*s\"" : "+FLID=\"%.*s\"" , 
+    snprintf ( buf, sizeof(buf), c20 ? "+FLI=\"%.*s\"" : "+FLID=\"%.*s\"" , 
 	     CMDBUFSIZE-9, id ) ;
     ckcmd ( mf, 0, buf, -t, OK ) ;
 
@@ -2437,7 +2442,7 @@ int modem_init ( TFILE *mf, cap c, char *id,
 
       ckcmd ( mf, 0, c20 ? "+FSP=1" : "+FSPL=1", -t, OK ) ;
 
-      sprintf ( buf, c20 ? "+FPI=\"%.*s\"" : "+FCIG=\"%.*s\"" , 
+      snprintf ( buf, sizeof(buf), c20 ? "+FPI=\"%.*s\"" : "+FCIG=\"%.*s\"" , 
 	       CMDBUFSIZE-9, id ) ;
       ckcmd ( mf, 0, buf, -t, OK ) ;
 
@@ -2457,7 +2462,7 @@ int modem_init ( TFILE *mf, cap c, char *id,
 /* the following are global so can terminate properly on signal */
 
 char *icmd[3][ MAXICMD+1 ] = {{0},{0},{0}} ; /* initialization commands */
-TFILE faxdev = { -1, 0,0, {0}, 0, 0 } ;	/* modem */
+TFILE faxdev = { -1, onsig, 0,0, {0}, 0, 0, 0 } ;	/* modem */
 char *lkfile [ MAXLKFILE+1 ] = {0} ; /* lock file names */
 IFILE ifile = { 0 } ;		/* files being sent */
 int locked = 0 ;		/* modem locked */
@@ -2482,7 +2487,7 @@ int cleanup ( int err )
 #if defined(__APPLE__)
   {
     CFNumberRef value = CFNumberCreate(kCFAllocatorDefault,
-				kCFNumberSInt32Type, &err);
+				kCFNumberIntType, &err);
     notify(CFSTR("exit"), value);
     CFRelease(value);
   }
@@ -2499,6 +2504,10 @@ int cleanup ( int err )
 
 
 /* signal handler */
+static void signal_handler(int sig)
+{
+  faxdev.signal = sig;
+}
 
 void onsig ( int sig ) 
 { 
@@ -2517,7 +2526,7 @@ void onsig ( int sig )
       CFNumberRef value;
 
       value = CFNumberCreate(kCFAllocatorDefault,
-			kCFNumberSInt32Type, &sig);
+			kCFNumberIntType, &sig);
 
       notify(CFSTR("abort"), value);
 
@@ -2592,7 +2601,7 @@ int main( int argc, char **argv)
 	msg("Wlocal ID (%s) truncated to %d characters", nxtoptarg, IDLEN ) ;
       if ( strspn ( nxtoptarg, " +0123456789" ) != strlen ( nxtoptarg ) )
 	msg("Wlocal ID (%s) has non-standard characters", nxtoptarg ) ;
-      sprintf ( localid, "%*.*s", IDLEN, IDLEN, nxtoptarg ) ;
+      snprintf ( localid, sizeof(localid), "%*.*s", IDLEN, IDLEN, nxtoptarg ) ;
       break ;
     case 'i': 
       if ( nicmd[0] < MAXICMD ) icmd[0][ nicmd[0]++ ] = nxtoptarg ;
@@ -2688,9 +2697,22 @@ int main( int argc, char **argv)
 
   if ( ! header ) {
     char tmp [ MAXLINELEN ] ;
+    char localid_tmp [ (IDLEN * 2) + 1 ], *src, *dst;
+
     now = time ( 0 ) ;
     strftime ( tmp, MAXLINELEN, "%c %%s   P. %%%%d", localtime ( &now ) ) ;
-    sprintf ( header = headerbuf, tmp, localid ) ;
+
+    /* Escape any percent signs in localid... */
+    src = localid;
+    dst = localid_tmp;
+    while (*src)
+    {
+      if ((*dst++ = *src++) == '%')
+        *dst++ = '%';
+    }
+    *dst++ = '\0';
+
+    snprintf ( header = headerbuf, sizeof(headerbuf), tmp, localid_tmp ) ;
   }
 
 #ifdef __APPLE__
@@ -2702,7 +2724,7 @@ SLEEP_RETRY:
   if ( ! err ) {
     err = begin_session ( &faxdev, faxfile, 
 			 !c1 && !c20 && reverse, /* Class 2 rx bit reversal */
-			 hwfc, lkfile, COMMAND, onsig , wait) ;
+			 hwfc, lkfile, COMMAND, signal_handler, wait) ;
     if ( ! err ) err = setup ( &faxdev, icmd[0], ignerr ) ;
 
     if ( ! err ) err = modem_init ( &faxdev, local, localid, 

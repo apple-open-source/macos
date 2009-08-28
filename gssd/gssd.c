@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2006-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -45,12 +45,14 @@
  * protected from any bad consequences of any resource leaks.
  */
 
+#include <libkern/OSAtomic.h>
 #include <sys/param.h>
 #include <sys/time.h>
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 #include <servers/bootstrap.h>
 
+#include <ctype.h>
 #include <errno.h>
 #include <grp.h>
 #include <netdb.h>
@@ -63,6 +65,12 @@
 #include <string.h>
 #include <syslog.h>
 #include <unistd.h>
+#include <vproc.h>
+
+#ifdef VDEBUG
+#include <time.h>
+#include "/usr/local/include/vproc_priv.h"
+#endif
 
 #include <Kerberos/Kerberos.h>
 #include <Kerberos/KerberosLoginPrivate.h>
@@ -80,8 +88,8 @@ union MaxMsgSize {
 
 #define	MAX_GSSD_MSG_SIZE	(sizeof (union MaxMsgSize) + MAX_TRAILER_SIZE)
 
-#define	DISPLAY_ERRS(name, major, minor) \
-	CGSSDisplay_errs((name), (major), (minor))
+#define	DISPLAY_ERRS(name, oid, major, minor) \
+	CGSSDisplay_errs((name), (oid), (major), (minor))
 
 #define	str_to_buf(s, b) do { \
 	(b)->value = (s); (b)->length = strlen(s) + 1; \
@@ -90,6 +98,8 @@ union MaxMsgSize {
 #ifndef max
 #define	max(a, b) (((a)>(b))?(a):(b))
 #endif
+
+#define CAST(T,x) (T)(uintptr_t)(x)
 
 #define	ERR(...)   syslog(LOG_ERR,  __VA_ARGS__)
 #define INFO(...)  syslog(LOG_INFO, __VA_ARGS__)
@@ -108,14 +118,20 @@ union MaxMsgSize {
 #define IS_NFS_SERVICE(s)	((strncmp((s), NFS_SERVICE, NFS_SERVICE_LEN) == 0) && \
 				 ((s)[NFS_SERVICE_LEN] == '/' || (s)[NFS_SERVICE_LEN] == '@'))
 
-krb5_enctype NFS_ENCTYPES[] = { ENCTYPE_DES_CBC_CRC, ENCTYPE_DES_CBC_MD5, ENCTYPE_DES_CBC_MD4 };
+krb5_enctype NFS_ENCTYPES[] = { 
+	ENCTYPE_DES_CBC_CRC,
+	ENCTYPE_DES_CBC_MD5,
+	ENCTYPE_DES_CBC_MD4,
+	ENCTYPE_DES3_CBC_SHA1
+};
+
 #define NUM_NFS_ENCTYPES	(sizeof(NFS_ENCTYPES)/sizeof(krb5_enctype))
 
-static void	set_this_server(void);
 static uint32_t uid_to_gss_name(uint32_t *, uid_t, gss_OID, gss_name_t *);
 static char *	get_next_kerb_component(char *);
 static uint32_t gss_name_to_ucred(uint32_t *, gss_name_t,
 				char **, uid_t *, gid_t *, uint32_t *);
+static char *	lowercase(char *);
 static char *	canonicalize_host(const char *, char **);
 static uint32_t str_to_svc_names(uint32_t *, const char *, gss_name_t *, uint32_t *);
 static void	kerberos_init(void);
@@ -128,10 +144,10 @@ static void *	timeout_thread(void *);
 static void	vm_alloc_buffer(gss_buffer_t, uint8_t **, uint32_t *);
 static uint32_t GetSessionKey(uint32_t *, gss_ctx_id_t *, byte_buffer *,
 			mach_msg_type_number_t *, void **);
-static uint32_t badcall(char *, uint32_t *, uint32_t *, uint32_t *,
+static uint32_t badcall(char *, uint32_t *, gss_ctx *, gss_cred *,
 			byte_buffer *, mach_msg_type_number_t *,
 			byte_buffer *, mach_msg_type_number_t *);
-static void	CGSSDisplay_errs(char*, OM_uint32, OM_uint32);
+static void	CGSSDisplay_errs(char*, gss_OID, OM_uint32, OM_uint32);
 static void	HexLine(const char *, uint32_t *, char [80]);
 static void	HexDump(const char *, uint32_t);
 
@@ -148,13 +164,11 @@ static pthread_cond_t	 numthreads_cv[1]; /* To signal when we're below max. */
 static pthread_attr_t attr[1];		/* Needed to create detached threads */
 
 /* Counters used in debugging for init and accept context */
-static pthread_mutex_t init_counter_lock[1];
-static int initCnt = 0;
-static int initErr = 0;
+static volatile int32_t initCnt = 0;
+static volatile int32_t initErr = 0;
 
-static pthread_mutex_t accept_counter_lock[1];
-static int acceptCnt = 0;
-static int acceptErr = 0;
+static volatile int32_t acceptCnt = 0;
+static volatile int32_t acceptErr = 0;
 
 /*
  * Kerberos globals
@@ -184,10 +198,6 @@ long GetPWMaxRSz; /* Storage size for password entry */
 sigset_t waitset[1]; /* Signals that we wait for */
 sigset_t contset[1]; /* Signals that we don't exit from */
 
-gssd_verifier Identity[1]; /* Server instance so that we can validate contexts */
-#define is_this_server(v)	(*Identity == *(v))
-#define set_verifier(v)		(*v = *Identity)
-
 #define	GSS_cmp_oid(o1, o2) ((o1)->length == (o2)->length ? \
 				memcmp((o1)->elements, (o2)->elements, (o1)->length) : 0)
 
@@ -207,6 +217,16 @@ static gss_OID_desc spnego_mech_desc = {
  */
 static gss_OID_desc krb5_mech_desc = {
 	9, "\052\206\110\206\367\022\001\002\002"
+};
+
+/*
+ * OID table for supported mechs. This is index by the enumeration type mechtype
+ * found in gss_mach_types.h.
+ */
+static gss_OID  mechtab[] = {
+	&krb5_mech_desc,
+	&spnego_mech_desc,
+	NULL
 };
 
 static size_t
@@ -400,21 +420,6 @@ spnego_win2k_hack(gss_buffer_t token)
 	return (GSS_S_COMPLETE);
 }
 		
-/*
- * Enumeration for supported mechs
- */
-
-// typedef enum mechtype { KRB5_MECH, SPNEGO_MECH  } mechtype;
-
-/*
- * OID table for supported mechs. This is index by the enumeration type mechtype
- * found in gss_mach_types.h.
- */
-static gss_OID  mechtab[] = {
-	&krb5_mech_desc,
-	&spnego_mech_desc,
-	NULL
-};
 
 /*
  * This daemon is to be started by launchd, as such it follows the following
@@ -508,13 +513,7 @@ int main(int argc, char *argv[])
 	(void) pthread_attr_init(attr);
 	(void) pthread_attr_setdetachstate(attr, PTHREAD_CREATE_DETACHED);
 
-	(void) pthread_mutex_init(init_counter_lock, NULL);
-	(void) pthread_mutex_init(accept_counter_lock, NULL);
-
 	setlogmask(LOG_UPTO(debug ? LOG_DEBUG : LOG_ERR));
-
-	/* Set the verifier for this server instance */
-	set_this_server();
 
 	kerberos_init();
 
@@ -546,13 +545,26 @@ int main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 
+#ifdef VDEBUG
+	{
+		time_t now;
+		if (debug == 2)
+			vproc_transaction_begin(NULL);
+
+		now = time(NULL);
+		fprintf(stderr, "starting %s with transaction count = %lu, "
+			"standby count = %lu\n", ctime(&now),
+			(unsigned long)_vproc_transaction_count(),
+			(unsigned long)_vproc_standby_count());
+		fflush(stderr);
+	}
+#endif
 
 	/*
 	 * Kick off a thread to wait for a message. Shamelessly stolen from
 	 * automountd.
 	 */
 	new_worker_thread();
-
 
 	/* Wait for time out */
 	pthread_join(timeout_thr, NULL);
@@ -568,22 +580,17 @@ int main(int argc, char *argv[])
 		DEBUG("Total %d accept_sec_context errors out of %d calls\n",
 			acceptErr, acceptCnt);
 	}
+
+#ifdef VDEBUG
+	fprintf(stderr, "exiting with transaction count = %lu, "
+		"standby count = %lu\n",
+		(unsigned long) _vproc_transaction_count(),
+		(unsigned long) _vproc_standby_count());
+	fflush(stderr);
+	sleep(30);
+	fprintf(stderr, "Bye Bye\n");
+#endif
 	exit(kerb_init_failed);
-}
-
-
-/*
- * Set the verifier for this server instance.
- */
-static void
-set_this_server(void)
-{
-	struct timeval tv[1];
-
-	gettimeofday(tv, NULL);
-	Identity[0] = ((((uint64_t)tv->tv_sec) << 32) | tv->tv_usec);
-	if (debug)
-		DEBUG("Server instance set to %lld", Identity[0]);
 }
 
 /*
@@ -809,10 +816,10 @@ out:
 static char *
 lowercase(char *s)
 {
-	size_t i;
-	
-	for(i = 0; i < strlen(s); i++)
-		s[i] = tolower(s[i]);
+	char *t;
+
+	for (t = s; t && *t; t++)
+		*t = tolower(*t);
 
 	return (s);
 }
@@ -887,7 +894,7 @@ construct_service_name(uint32_t *minor, const char *service, char *host,
 	len = strlen(service) + strlen(host) + strlen(realm) + 3;
 	s = malloc(len);
 	if (s == NULL) {
-		ERR("Out of memory in str_to_svc_name\n");
+		ERR("Out of memory in %s\n", __func__);
 		return (GSS_S_FAILURE);
 	}
 	strlcpy(s, service, len);
@@ -899,10 +906,39 @@ construct_service_name(uint32_t *minor, const char *service, char *host,
 	str_to_buf(s, &name_buf);
 
 	if (debug)
-		DEBUG("Importing service name %s\n", s);
+		DEBUG("Importing kerberos principal service name %s\n", s);
 
 	major = gss_import_name(minor, &name_buf,
 				GSS_KRB5_NT_PRINCIPAL_NAME, svcname);
+	free(s);
+	return (major);
+}
+
+static uint32_t
+construct_hostbased_service_name(uint32_t *minor, const char *service, const char *host, gss_name_t *svcname)
+{
+	int len;
+	char *s;
+	gss_buffer_desc name_buf;
+	uint32_t major;
+	
+	len = strlen(service) + strlen(host) + 2;
+	s = malloc(len);
+	if (s == NULL) {
+		ERR("Out of memory in %s\n", __func__);
+		return (GSS_S_FAILURE);
+	}
+	strlcpy(s, service, len);
+	strlcat(s, "@", len);
+	strlcat(s, host, len);
+	
+	str_to_buf(s, &name_buf);
+	
+	if (debug)
+		DEBUG("Importing host based service name %s\n", s);
+		
+	major = gss_import_name(minor, &name_buf, GSS_C_NT_HOSTBASED_SERVICE, svcname);
+
 	free(s);
 	return (major);
 }
@@ -932,17 +968,18 @@ static uint32_t
 str_to_svc_names(uint32_t *minor, const char *svcstr,
 	gss_name_t *svcname, uint32_t *name_count)
 {
-	uint32_t major, m;
-	char *realm = default_realm, *host;
+	uint32_t major, first_major;
+	char *realm = NULL /* default_realm */, *host;
 	char *s, *p, *service;
 	char *fqdn = NULL, *rfqdn = NULL;
 	uint32_t count = *name_count;
-
+	int is_lkdc;
+	
 	*minor = 0;
 	major = GSS_S_FAILURE;
 	*name_count = 0;
 	if (debug) 
-		DEBUG("%s: count = %d\n", __func__, count);
+		DEBUG("%s: %s count = %d\n", __func__, svcstr, count);
 
 	service = strdup(svcstr);
 	if (service == NULL) {
@@ -973,6 +1010,10 @@ str_to_svc_names(uint32_t *minor, const char *svcstr,
 			free(service);
 			return (GSS_S_BAD_NAME);
 		}
+		major = construct_hostbased_service_name(minor, service, host, svcname);
+		if (major == GSS_S_COMPLETE)
+			*name_count = 1;
+		return (major);
 	} else if (*p == '/') {
 		/* We have a kerberos instance thus a kerberos principal type */
 		/* Terminate service part of name */
@@ -994,6 +1035,20 @@ str_to_svc_names(uint32_t *minor, const char *svcstr,
 		return (GSS_S_BAD_NAME);
 	}
 
+	if (realm == NULL) {
+		/*
+		 * Try this as a host based service name first, since
+		 * host base service name will get canonicalized, looked up in the domain realms
+		 * section and then tried for referrals
+		 */
+		major = construct_hostbased_service_name(minor, service, host, svcname);
+		if (major == GSS_S_COMPLETE) {
+			*name_count = 1;
+			return (major);
+		}
+		/* Nope so set the realm to be the default and fall through */
+		realm = default_realm;
+	}
 	if (strncmp(realm, NODEFAULTREALM, MAXDEFREALMLEN) == 0) {
 		free(service);
 		/* 
@@ -1003,42 +1058,37 @@ str_to_svc_names(uint32_t *minor, const char *svcstr,
 		kill(getpid(), SIGTERM);
 		return (GSS_S_BAD_NAME);
 	}
-
-	/* Check for local KDC */
-	if (strncmp(realm, LKDCPREFIX, strlen(LKDCPREFIX)) == 0) {
-		major = construct_service_name(minor, service, host, realm, false, &svcname[0]);
-		if (major == GSS_S_COMPLETE)
-			*name_count = 1;
-		free(service);
-		return (major);
-	}
 	
-	if (count > 1)
-		fqdn = canonicalize_host(host, (count == 3) ? &rfqdn : NULL);
 
-	if (fqdn) {
-		major = construct_service_name(minor, service, fqdn, realm, true, &svcname[0]);
+	is_lkdc = (strncmp(realm, LKDCPREFIX, strlen(LKDCPREFIX)) == 0);
+	/* Don't lowercase an LKDC instance */
+	major = construct_service_name(minor, service, host, realm, !is_lkdc, &svcname[*name_count]);
+	if (major == GSS_S_COMPLETE)
+		*name_count += 1;
+	first_major = major;
+	
+	/* Don't waste time trying to canonicalize local KDCs */
+	if (count == 1 || is_lkdc)
+		goto done;
+
+	fqdn = canonicalize_host(host, (count == 3) ? &rfqdn : NULL);
+	if (fqdn && strncmp(fqdn, host, MAXHOSTNAMELEN) != 0) {
+		major = construct_service_name(minor, service, fqdn, realm, true, &svcname[*name_count]);
 		if (major == GSS_S_COMPLETE)
 			*name_count += 1;
-		free(fqdn);
 	}
-	if (fqdn == NULL || strncmp(fqdn, host, MAXHOSTNAMELEN) != 0) {
-		m = construct_service_name(minor, service, host, realm, true, &svcname[*name_count]);
-		major = (major != GSS_S_COMPLETE) ? m : major;
-		if (m == GSS_S_COMPLETE)
-			*name_count += 1;
-	}
+
 	if (rfqdn && *name_count < count) {
-		m = construct_service_name(minor, service, rfqdn, realm, true, &svcname[*name_count]);
-		major = (major != GSS_S_COMPLETE) ? m : major;
-		if (m == GSS_S_COMPLETE)
+		major = construct_service_name(minor, service, rfqdn, realm, true, &svcname[*name_count]);
+		if (major == GSS_S_COMPLETE)
 			*name_count += 1;
 		free(rfqdn);
 	}
 
+done:
 	free(service);
 
-	return (major);
+	return (*name_count ? GSS_S_COMPLETE : first_major);
 }
 
 /*
@@ -1121,15 +1171,28 @@ receive_message(void *arg __attribute__((unused)))
 
 	if (debug) {
 		DEBUG("Enter receive_message %p\n", pthread_self());
+#ifdef VDEBUG		
+		fprintf(stderr, "Enter receive_message %p with transaction count = %lu, "
+			"standby count = %lu\n", pthread_self(),
+			_vproc_transaction_count(), _vproc_standby_count());
+		fflush(stderr);
+#endif
 	}
 
 	kr = mach_msg_server_once(gssd_mach_server, MAX_GSSD_MSG_SIZE,
 			gssd_receive_right,
 			MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_AUDIT) |
 			MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0));
-
-	if (debug)
+	
+	if (debug) {
 		DEBUG("Leaving receive_message %p\n", pthread_self());
+#ifdef VDEBUG
+		fprintf(stderr, "Leaving receive_message %p with transaction count = %lu, "
+			"standby count = %lu\n", pthread_self(),
+			_vproc_transaction_count(), _vproc_standby_count());
+		fflush(stderr);
+#endif
+	}	
 
 	if (kr != KERN_SUCCESS)  {
 		ERR("mach_msg_server(mp): %s\n", mach_error_string(kr));
@@ -1266,12 +1329,20 @@ timeout_thread(void *arg __attribute__((unused)))
 
 	(void) pthread_mutex_lock(numthreads_lock);
 
-	while ((rv == 0 || numthreads > 1) && bye < 2) {
-		compute_new_timeout(&exittime);
+	/*
+	 * Note that we have an extra thread running waiting for a mach message,
+	 * the first of which was started in main. Hence we have the test below for
+	 * greater than one instead of zero.
+	 */
+	while (bye ? (rv == 0 && numthreads > 1) : (rv == 0 || numthreads > 1)) {
+		if (bye < 2)
+			compute_new_timeout(&exittime);
 		/*
 		 * If the shutdown thread has told us to exit (bye == 1),
-		 * then increment bye so that we will exit after
-		 * SHUTDOWN_TIMEOUT.
+		 * then increment bye so that we will exit after at most
+		 * SHUTDOWN_TIMEOUT from the time we were signaled. When
+		 * we come back around the loop bye will be greater or 
+		 * equal to two and we will not update our absolute exit time.
 		 */
 		if (bye)
 			bye++;
@@ -1387,15 +1458,15 @@ GetSessionKey(uint32_t *minor, gss_ctx_id_t *ctx,
  */
 static uint32_t
 badcall(char *rtn, uint32_t *minor_stat,
-	uint32_t *gss_context, uint32_t *cred_handle,
+	gss_ctx *gss_context, gss_cred *cred_handle,
 	byte_buffer *skey, mach_msg_type_number_t *skeyCnt,
 	byte_buffer *otoken, mach_msg_type_number_t *otokenCnt)
 {
 
 	ERR("%s request not addressed to us\n", rtn);
 	*minor_stat = 0;
-	*(gss_ctx_id_t *) gss_context = GSS_C_NO_CONTEXT;
-	*(gss_cred_id_t *) cred_handle = GSS_C_NO_CREDENTIAL;
+	*gss_context = CAST(gss_ctx, GSS_C_NO_CONTEXT);
+	*cred_handle = CAST(gss_cred, GSS_C_NO_CREDENTIAL);
 	*skey = NULL;
 	*skeyCnt = 0;
 	*otoken = NULL;
@@ -1568,12 +1639,14 @@ set_principal_identity(gss_name_t sname)
 
 
 static uint32_t
-do_acquire_cred(uint32_t *minor, char *principal, gss_name_t sname, uint32_t uid,
-	uint32_t *cred_handle, uint32_t flags)
+do_acquire_cred(uint32_t *minor, char *principal, mechtype mech, gss_name_t sname, uint32_t uid,
+	gss_cred *cred_handle, uint32_t flags)
 {
 	uint32_t major = GSS_S_FAILURE, mstat;
 	gss_buffer_desc buf_name;
 	gss_name_t clnt_gss_name;
+	gss_OID_set mechset = GSS_C_NULL_OID_SET;
+	gss_OID name_type = GSS_KRB5_NT_PRINCIPAL_NAME;
 
 #ifdef NO_PER_USER_LAUNCHD	 
 	int allow_home = FALSE;
@@ -1584,75 +1657,94 @@ do_acquire_cred(uint32_t *minor, char *principal, gss_name_t sname, uint32_t uid
 	 * in home dirs or allow UI.
 	 * Note the UI calls are actually broken for gss, so
 	 * if you don't wan't UI you must try the default.
-	 * If you specify GSSD_NO_DEFAULT and GSSD_NO_UI, you
+	 * If you specify GSSD_NO_DEFAULT and not GSSD_UI_OK, you
 	 * will fail.
 	 */
 	pthread_mutex_lock(acquire_cred_lock);
-	if (flags & GSSD_NO_HOME_ACCESS) {
+	if ((flags & GSSD_HOME_ACCESS_OK) == 0) {
 		allow_home = __KLAllowHomeDirectoryAccess();
 		if (allow_home)
 			__KLSetHomeDirectoryAccess(!allow_home);
 	}
 #endif
-	if (flags & GSSD_NO_UI)
+	if ((flags & GSSD_UI_OK) == 0)
 		__KLSetPromptMechanism(klPromptMechanism_None);
 
 	set_principal_identity(sname);
+	major = gss_create_empty_oid_set(minor, &mechset);
+	if (major != GSS_S_COMPLETE)
+		goto done;
+	major = gss_add_oid_set_member(minor, mechtab[mech], &mechset);
+	if (major != GSS_S_COMPLETE)
+		goto done;
+
 	/*
-	 * If we've been passed a principal name then try that first.
-	 * We assume KRB5 for now.
+	 * If we've been passed a principal name then try that first with Kerberos.
+	 * Since using GSS_C_NT_USER_NAME might work, but throw away instance and realm
+	 * info. It seems easier just to try and not call gss_inquire_names_for_mech
 	 */
 	 if (principal && *principal) {
 		str_to_buf(principal, &buf_name);
 
-		if (debug)
-			 DEBUG("importing name %s\n", principal);
 
-		major = gss_import_name(minor, &buf_name,
-			 	GSS_KRB5_NT_PRINCIPAL_NAME, &clnt_gss_name);
+		
+		if (debug)
+			 DEBUG("importing name %s with Keberos\n", principal);
+
+retry:
+		major = gss_import_name(minor, &buf_name, name_type, &clnt_gss_name);
 
 		if (major == GSS_S_COMPLETE) {
 			major = gss_acquire_cred(
 					minor,
 					clnt_gss_name,
 					GSS_C_INDEFINITE,
-					GSS_C_NO_OID_SET,
+					mechset,
 					GSS_C_INITIATE,
 					(gss_cred_id_t *) cred_handle,
 					NULL, NULL);
 
 			if (major == GSS_S_COMPLETE) {
 				if (debug)
-					DEBUG("Using credentials for %s\n",
-						principal);
+					DEBUG("Using credentials for %s\n", principal);
 				/* Done with the name */
 				(void) gss_release_name(&mstat, &clnt_gss_name);
 				goto done;
 			}
 		}
+		
+		/* 
+		 * We could call gss_inquire_names_for_mech and try all supported name types
+		 * but it seems likely the only name type of interest would be GSS_C_NT_USER_NAME.
+		 */
+		if (name_type == GSS_KRB5_NT_PRINCIPAL_NAME) {
+			name_type = GSS_C_NT_USER_NAME;
+			DEBUG("importing name %s as a user name\n", principal);
+			goto retry;
+		}
 	 }
-			 
+
 	if (!(flags & GSSD_NO_DEFAULT)) {
 		/* Try default */
 		major = gss_acquire_cred(
 					minor,
 					GSS_C_NO_NAME,
 					GSS_C_INDEFINITE,
-					GSS_C_NO_OID_SET,
+					mechset,
 					GSS_C_INITIATE,
 					(gss_cred_id_t *) cred_handle,
 					NULL, NULL);
 
 		if (major == GSS_S_COMPLETE) {
 			if (debug)
-				DEBUG("Using default credential\n");
+				DEBUG("Using default credential %p\n", *(gss_cred_id_t *)cred_handle);
 			goto done;
 		}
 	}
 
 	/* See if uid will work */
 	major = uid_to_gss_name(minor, (uid_t) uid,
-				GSS_KRB5_NT_PRINCIPAL_NAME, &clnt_gss_name);
+				GSS_C_NT_USER_NAME, &clnt_gss_name);
 	if (major != GSS_S_COMPLETE)
 		return (major);
 
@@ -1660,7 +1752,7 @@ do_acquire_cred(uint32_t *minor, char *principal, gss_name_t sname, uint32_t uid
 				minor,
 				clnt_gss_name,
 				GSS_C_INDEFINITE,
-				GSS_C_NO_OID_SET,
+				mechset,
 				GSS_C_INITIATE,
 				(gss_cred_id_t *) cred_handle,
 				NULL, NULL);
@@ -1668,11 +1760,14 @@ do_acquire_cred(uint32_t *minor, char *principal, gss_name_t sname, uint32_t uid
 	/* Done with the name */
 	(void) gss_release_name(&mstat, &clnt_gss_name);
 done:
+	if (mechset != GSS_C_NULL_OID_SET)
+		gss_release_oid_set(&mstat, &mechset);
+	
 #ifdef NO_PER_USER_LAUNCHD
-	if ((flags & GSSD_NO_HOME_ACCESS) && allow_home)
+	if ((flags & GSSD_HOME_ACCESS) == 0 && allow_home)
 		__KLSetHomeDirectoryAccess(allow_home);
 
-	if ((flags & GSSD_NO_UI) && getuid() != 0)
+	if ((flags & GSSD_UI_OK) == 0 && getuid() != 0)
 		__KLSetPromptMechanism(klPromptMechanism_Autodetect);
 
 	pthread_mutex_unlock(acquire_cred_lock);
@@ -1710,36 +1805,45 @@ done:
 typedef struct {
 	gss_ctx_id_t gss_cntx;
 	gss_name_t   svc_name;
+	vproc_transaction_t trans_handle;
 } gssd_context, *gssd_context_t;
 
-static uint32_t
+static gss_ctx
 gssd_set_context(gss_ctx_id_t ctx, gss_name_t svc_name)
 {
 	gssd_context_t g;
 
 	g = malloc(sizeof (gssd_context));
 	if (g == NULL)
-		return (0);
+		return (CAST(gss_ctx, GSS_C_NO_CONTEXT));
+	gssd_enter(g);
+
 	g->gss_cntx = ctx;
 	g->svc_name = svc_name;
+	g->trans_handle = vproc_transaction_begin(NULL);
 
-	return ((uint32_t)g);
+	return (CAST(gss_ctx, g));
 }
 
 static gss_ctx_id_t
-gssd_get_context(uint32_t ctx, gss_name_t *svc_name)
+gssd_get_context(gss_ctx ctx, gss_name_t *svc_name)
 {
 	gssd_context_t g;
 	gss_ctx_id_t gss_context;
 
 	if (!ctx) {
-		*svc_name = GSS_C_NO_NAME;
+		if (svc_name)
+			*svc_name = GSS_C_NO_NAME;
 		return (GSS_C_NO_CONTEXT);
 	}
-	g = (gssd_context_t)ctx;
-	*svc_name = g->svc_name;
+	g = CAST(gssd_context_t, ctx);
+	if (svc_name)
+		*svc_name = g->svc_name;
 	gss_context = g->gss_cntx;
+	vproc_transaction_end(NULL, g->trans_handle);
+	gssd_remove(g);
 	free(g);
+
 	return (gss_context);
 }
 
@@ -1757,9 +1861,10 @@ svc_mach_gss_init_sec_context(
 	string_t princ_namestr,
 	string_t svc_namestr,
 	uint32_t flags,
-	gssd_verifier *verifier,
-	uint32_t *gss_context,
-	uint32_t *cred_handle,
+	uint32_t gssd_flags,
+	gss_ctx *gss_context,
+	gss_cred *cred_handle,
+	uint32_t *ret_flags,
 	byte_buffer *skey, mach_msg_type_number_t *skeyCnt,
 	byte_buffer *otoken, mach_msg_type_number_t *otokenCnt,
 	uint32_t *major_stat,
@@ -1769,91 +1874,98 @@ svc_mach_gss_init_sec_context(
 	gss_ctx_id_t g_cntx = GSS_C_NO_CONTEXT;
 	uint32_t i, gnames = MAX_SVC_NAMES, name_index = MAX_SVC_NAMES;
 	void *lucid_ctx = NULL;
-	uint32_t ret_flags;
 	uint32_t mstat;   /* Minor status for cleaning up. */
+	vproc_transaction_t gssd_vproc_handle;
+	uint32_t only_1des = ((gssd_flags & GSSD_NFS_1DES) != 0);
 
+	gssd_vproc_handle = vproc_transaction_begin(NULL);
 	new_worker_thread();
 
 	if (kerb_init_failed) {
 		if (debug)
 			DEBUG("%s: is exiting since kerbos init failed\n", __func__);
 		end_worker_thread();
+		vproc_transaction_end(NULL, gssd_vproc_handle);
+		
 		kill(getpid(), SIGTERM);  /* Force exit after return in SHUTDOWN_TIMEOUT*/
 		return (KERN_NOT_SUPPORTED);
 	}
 		
 	if (debug) {
 		DEBUG("svc_mach_gss_init_sec_context:\n");
-		DEBUG("	cred_handle = %p\n", (gss_cred_id_t) *cred_handle);
+		DEBUG("	cred_handle = %p\n", CAST(gss_cred_id_t, *cred_handle));
 		DEBUG("	uid = %d\n", (int) uid);
 		DEBUG(" flags = %0x\n", flags);
+		DEBUG(" gssd flags = %0x\n", gssd_flags);
 		if (die) {
 			DEBUG("Forced server death\n");
 			_exit(0);
 		}
 	}
 
-	if (*gss_context == (uint32_t)GSS_C_NO_CONTEXT) {
-		set_verifier(verifier);
+	if (!gssd_check(CAST(void *, *gss_context)) || !gssd_check(CAST(void *, *cred_handle))) {
+		*major_stat = badcall("svc_mach_gss_init_context",
+				      minor_stat, gss_context, cred_handle,
+				      skey, skeyCnt,
+				      otoken, otokenCnt);
+		
+		end_worker_thread();
+		vproc_transaction_end(NULL, gssd_vproc_handle);
+		
+		return KERN_SUCCESS;
+	}
+
+	if (*gss_context == CAST(gss_ctx, GSS_C_NO_CONTEXT)) {
+
+		if (no_canon || (gssd_flags & GSSD_NO_CANON))
+			gnames = 1;
 		*major_stat = str_to_svc_names(minor_stat,
 			svc_namestr, svc_gss_name, &gnames);
 		if (*major_stat != GSS_S_COMPLETE)
 			goto done;
 	}
 	else {
-		if (!is_this_server(verifier)) {
-			*major_stat = badcall("svc_mach_gss_init_context",
-				minor_stat, gss_context, cred_handle,
-				skey, skeyCnt,
-				otoken, otokenCnt);
-
-			end_worker_thread();
-
-			return KERN_SUCCESS;
-		}
 		gnames = 1;
 		g_cntx = gssd_get_context(*gss_context, svc_gss_name);
+		if ((gssd_flags & GSSD_RESTART) && g_cntx != GSS_C_NO_CONTEXT)
+			(void) gss_delete_sec_context(&mstat, &g_cntx, GSS_C_NO_BUFFER);
 	}
-	if (no_canon || (flags & GSSD_NO_CANON))
-		gnames = 1;
-	
-	if ((gss_cred_id_t) *cred_handle == GSS_C_NO_CREDENTIAL) {
-		*major_stat = do_acquire_cred(minor_stat, princ_namestr,
-			*svc_gss_name, uid, cred_handle, flags);
+	if (*cred_handle &&  (gssd_flags & GSSD_RESTART)) {
+		gssd_remove(CAST(void *, *cred_handle));
+		(void) gss_release_cred(&mstat, (gss_cred_id_t *) cred_handle);
+	}	
+	if (CAST(gss_cred_id_t, *cred_handle) == GSS_C_NO_CREDENTIAL || (gssd_flags & GSSD_RESTART)) {
+		*major_stat = do_acquire_cred(minor_stat, princ_namestr, mech,
+			*svc_gss_name, uid, cred_handle, gssd_flags);
 		if (*major_stat != GSS_S_COMPLETE)
 			goto done;
 		/* Currently NFS only supports a subset of the Kerberos enctypes */
 		if (IS_NFS_SERVICE(svc_namestr)) {
 			*major_stat = gss_krb5_set_allowable_enctypes
 				(minor_stat, *(gss_cred_id_t *)cred_handle,
-				 NUM_NFS_ENCTYPES, NFS_ENCTYPES);
+				 NUM_NFS_ENCTYPES - only_1des, NFS_ENCTYPES);
 			if (*major_stat != GSS_S_COMPLETE) {
 				ERR("Could not set enctypes for NFS\n");
 				goto done;
 			}
 		}
+		gssd_enter(CAST(void *, *cred_handle));
 	}
 
 	gss_buffer_desc intoken = {itokenCnt, itoken};
 	gss_buffer_desc outtoken = {0, NULL};
-	if ((flags & GSSD_WIN2K_HACK) && itokenCnt > 0)
+	if ((gssd_flags & GSSD_WIN2K_HACK) && itokenCnt > 0)
 		spnego_win2k_hack(&intoken);
 
 	if (debug) {
-		gssd_context_t gc = (gssd_context_t)*gss_context;
-
 		DEBUG("Calling gss_init_sec_context\n");
 		DEBUG("Using mech = %d\n", mech);
 		DEBUG("\tminor_stat = %d\n", (int) *minor_stat);
 		DEBUG("\tcred = %p\n", *cred_handle);
 		DEBUG("\tgss_context = %p\n", *gss_context);
-		DEBUG("Flags = %0x  gss flags = %0x\n", flags, GSSD_GSS_FLAGS_MASK);
+		DEBUG("Flags = %0x  gss flags = %0x\n", flags, gssd_flags);
 		DEBUG("\titokenCnt = %d\n", itokenCnt);
 		HexDump((char *)itoken, (itokenCnt > 80) ? 80 : itokenCnt);
-		if (gc) {
-			DEBUG("gssd_contex name = %p\n", gc->svc_name);
-			DEBUG("gssd_context context = %p\n", gc->gss_cntx);
-		}
 	}
 
 	*major_stat = GSS_S_BAD_NAME;
@@ -1861,25 +1973,25 @@ svc_mach_gss_init_sec_context(
 
 		*major_stat = gss_init_sec_context(
 			minor_stat,
-			(gss_cred_id_t) *cred_handle,	/* User's credential handle */
+			CAST(gss_cred_id_t, *cred_handle),	/* User's credential handle */
 			&g_cntx,		/* Context handle */
 			svc_gss_name[i],
-			mechtab[mech],			/* Use the requested mech */
-			flags & GSSD_GSS_FLAGS_MASK,
+			mechtab[mech],		/* Use the requested mech */
+			flags,
 			0,			/* Time requirement */
 			NULL,			/* Channel bindings */
 			&intoken,		/* Token from context acceptor */
 			NULL,			/* Actual mech types */
 			&outtoken,		/* Token for the context acceptor */
-			&ret_flags,		/* Returned flag bits */
+			ret_flags,		/* Returned flag bits */
 			NULL);			/* Time valid */
 
 		if (*major_stat == GSS_S_COMPLETE ||
-			*major_stat == GSS_S_CONTINUE_NEEDED)
+		    *major_stat == GSS_S_CONTINUE_NEEDED)
 			break;
 	}
 	name_index = i;
-	
+
 	/* Done with the names */
 	for (i = 0; i < gnames; i++)
 		if (i != name_index)
@@ -1908,27 +2020,29 @@ svc_mach_gss_init_sec_context(
 done:
 	if (*major_stat != GSS_S_CONTINUE_NEEDED) {
 		/* We're done so free what we allocated */
+		gssd_remove(CAST(void *, *cred_handle));
 		(void) gss_release_cred(&mstat, (gss_cred_id_t *) cred_handle);
 		if (lucid_ctx)
 			(void) gss_krb5_free_lucid_sec_context(&mstat, lucid_ctx);
 		else if (g_cntx != GSS_C_NO_CONTEXT)
-				(void) gss_delete_sec_context(&mstat, &g_cntx, GSS_C_NO_BUFFER);
+			(void) gss_delete_sec_context(&mstat, &g_cntx, GSS_C_NO_BUFFER);
+
+		if (*gss_context)
+			gssd_remove(CAST(void *, *gss_context));
 		if (name_index < gnames)
 			(void)gss_release_name(&mstat, &svc_gss_name[name_index]);
 	}
 	if (debug) {
-		pthread_mutex_lock(init_counter_lock);
-		initCnt++;
+		OSAtomicIncrement32(&initCnt);
 		if (*major_stat != GSS_S_CONTINUE_NEEDED &&
 						*major_stat != GSS_S_COMPLETE)
-			initErr++;
+			OSAtomicIncrement32(&initErr);
 		DEBUG("Returning from init (%d/%d)\n", initErr, initCnt);
-		pthread_mutex_unlock(init_counter_lock);
 	}
 
 	if (debug || (*major_stat != GSS_S_CONTINUE_NEEDED &&
 					*major_stat != GSS_S_COMPLETE))
-		DISPLAY_ERRS("svc_mach_gss_init_sec_context",
+		DISPLAY_ERRS("svc_mach_gss_init_sec_context", mechtab[mech],
 						*major_stat, *minor_stat);
 	if (debug) {
 		DEBUG("Returning from svc_mach_gss_init_sec_context");
@@ -1938,6 +2052,8 @@ done:
 		HexDump((char *)*otoken, (*otokenCnt > 80) ? 80 : *otokenCnt);
 	}
 	end_worker_thread();
+	vproc_transaction_end(NULL, gssd_vproc_handle);
+	
 
 	return (KERN_SUCCESS);
 }
@@ -1950,10 +2066,10 @@ svc_mach_gss_accept_sec_context(
 	mach_port_t test_port __attribute__((unused)),
 	byte_buffer itoken, mach_msg_type_number_t itokenCnt,
 	string_t svc_namestr,
-	uint32_t flags,
-	gssd_verifier *verifier,
-	uint32_t *gss_context,
-	uint32_t *cred_handle,
+	uint32_t gssd_flags __attribute__((unused)),
+	gss_ctx *gss_context,
+	gss_cred *cred_handle,
+	uint32_t *ret_flags,
 	uint32_t *uid,
 	gid_list gids, mach_msg_type_number_t *gidsCnt,
 	byte_buffer *skey, mach_msg_type_number_t *skeyCnt,
@@ -1961,13 +2077,15 @@ svc_mach_gss_accept_sec_context(
 	uint32_t *major_stat,
 	uint32_t *minor_stat)
 {
-	uint32_t ret_flags;
+	gss_ctx_id_t g_cntx = GSS_C_NO_CONTEXT;
 	gss_name_t princ;
 	gss_OID oid;
 	void *lucid_ctx = NULL;
 	uint32_t mstat;    /* Minor status to clean up with. */
 	kern_return_t kr = KERN_SUCCESS;
+	vproc_transaction_t gssd_vproc_handle;
 
+	gssd_vproc_handle = vproc_transaction_begin(NULL);	
 	new_worker_thread();
 
 	if (kerb_init_failed) {
@@ -1990,18 +2108,23 @@ svc_mach_gss_accept_sec_context(
 		}
 	}
 
-	if (*(gss_ctx_id_t *) gss_context == GSS_C_NO_CONTEXT)
-		set_verifier(verifier);
-	else if (!is_this_server(verifier)) {
+	DEBUG("Checking context and cred %llx %llX\n", *gss_context, *cred_handle);
+	if (!gssd_check(CAST(void *, *gss_context)) || !gssd_check(CAST(void *, *cred_handle))) {
 		*major_stat = badcall("svc_mach_gss_accept_sec_context",
 				minor_stat, gss_context, cred_handle,
 				skey, skeyCnt, otoken, otokenCnt);
 
 		end_worker_thread();
-
+		vproc_transaction_end(NULL, gssd_vproc_handle);
+		
 		return (KERN_SUCCESS);
 	}
-	if ((gss_cred_id_t) *cred_handle == GSS_C_NO_CREDENTIAL) {
+
+	DEBUG("Getting context from %llx\n", *gss_context);
+	g_cntx = gssd_get_context(*gss_context, NULL);
+	DEBUG("Context is %p\n", g_cntx);
+	
+	if (*cred_handle == CAST(gss_cred, GSS_C_NO_CREDENTIAL)) {
 		uint32_t i, gnames;
 		gss_name_t svc_gss_name[2];
 
@@ -2009,7 +2132,7 @@ svc_mach_gss_accept_sec_context(
 			DEBUG("\tgss_acquire_cred for service: %s\n",
 								svc_namestr);
 
-		gnames = (no_canon || (flags & GSSD_NO_CANON)) ? 1 : 2;
+		gnames = (no_canon || (gssd_flags & GSSD_NO_CANON)) ? 1 : 2;
 		*major_stat = str_to_svc_names(minor_stat, svc_namestr,
 						svc_gss_name, &gnames);
 		if (*major_stat != GSS_S_COMPLETE)
@@ -2031,6 +2154,7 @@ svc_mach_gss_accept_sec_context(
 			gss_release_name(&mstat, &svc_gss_name[i]);
 		if (*major_stat != GSS_S_COMPLETE)
 			goto done;
+		gssd_enter(CAST(void *, *cred_handle));
 	}
 
 	gss_buffer_desc intoken = {itokenCnt, itoken};
@@ -2042,20 +2166,20 @@ svc_mach_gss_accept_sec_context(
 		DEBUG("Calling gss_accept_sec_context\n");
 		DEBUG("\tminor_stat = %d\n", (int) *minor_stat);
 		DEBUG("\tcred = %p\n", *cred_handle);
-		DEBUG("\tgss_context = %p\n", *gss_context);
+		DEBUG("\tgss_context = %p\n", g_cntx);
 		DEBUG("\titokenCnt = %d\n", itokenCnt);
 	}
 
 	*major_stat = gss_accept_sec_context(
 		minor_stat,
-		(gss_ctx_id_t *) gss_context,	// Context handle
-		(gss_cred_id_t) *cred_handle,	// Acceptor's credential handle
+		&g_cntx,			// Context handle
+		CAST(gss_cred_id_t, *cred_handle),	// Acceptor's credential handle
 		&intoken,			// Token from context initiator
 		GSS_C_NO_CHANNEL_BINDINGS,	// Channel bindings
 		&princ,				// Context initiator's name
 		&oid,				// Mech types
 		&outtoken,			// Token for context initiator
-		&ret_flags,			// Flags out
+		ret_flags,			// Flags out
 		NULL,				// Time requirement
 		NULL);				// Delegated creds
 
@@ -2075,43 +2199,53 @@ svc_mach_gss_accept_sec_context(
 		/*
 		 * Fetch the (sub)session key from the context
 		 */
-		*major_stat = GetSessionKey(minor_stat,
-					(gss_ctx_id_t *) gss_context,
-					skey, skeyCnt, &lucid_ctx);
+		*major_stat = GetSessionKey(minor_stat, &g_cntx,
+					    skey, skeyCnt, &lucid_ctx);
 
 		if (debug) {
 			DEBUG("Server key length = %d\n", *skeyCnt);
 			HexDump((char *) *skey, *skeyCnt);
 			DEBUG("Returning uid = %d\n", *uid);
 		}
+	} else if (*major_stat == GSS_S_CONTINUE_NEEDED) {
+		*gss_context = gssd_set_context(g_cntx, NULL);
+		if (*gss_context == 0)
+			*major_stat = GSS_S_FAILURE;
+
+		/*
+		 * Register our context handle
+		 */
+		gssd_enter(CAST(void *, *gss_context));
 	}
 
 done:
 	gss_release_name(&mstat, &princ);
 	if (*major_stat != GSS_S_CONTINUE_NEEDED) {
+		gssd_remove(CAST(void *, *cred_handle));
 		(void)gss_release_cred(&mstat, (gss_cred_id_t *) cred_handle);
 		if (lucid_ctx)
 			(void) gss_krb5_free_lucid_sec_context(&mstat, lucid_ctx);
-		else if (((gss_ctx_id_t) gss_context) != GSS_C_NO_CONTEXT)
-			(void) gss_delete_sec_context(&mstat,
-				(gss_ctx_id_t *) gss_context, GSS_C_NO_BUFFER);
+		else if (g_cntx != GSS_C_NO_CONTEXT)
+			(void) gss_delete_sec_context(&mstat, &g_cntx, GSS_C_NO_BUFFER);
+
+		if (*gss_context)
+			gssd_remove(CAST(void *, *gss_context));
 	}
 	if (debug) {
-		pthread_mutex_lock(accept_counter_lock);
-		acceptCnt++;
+		OSAtomicIncrement32(&acceptCnt);
 		if (*major_stat != GSS_S_CONTINUE_NEEDED &&
 					*major_stat != GSS_S_COMPLETE)
-			acceptErr++;
+			OSAtomicIncrement32(&acceptErr);
 		DEBUG("Returning from accept (%d/%d)\n", acceptErr, acceptCnt);
-		pthread_mutex_unlock(accept_counter_lock);
 	}
 
 	if (*major_stat != GSS_S_CONTINUE_NEEDED &&
 				*major_stat != GSS_S_COMPLETE)
-		DISPLAY_ERRS("svc_mach_gss_accept_sec_context",
+		DISPLAY_ERRS("svc_mach_gss_accept_sec_context", oid,
 						*major_stat, *minor_stat);
 	end_worker_thread();
-
+	vproc_transaction_end(NULL, gssd_vproc_handle);
+	
 	return (kr);
 }
 
@@ -2187,7 +2321,7 @@ done:
  * Display the major and minor GSS return codes from routine.
  */
 static void
-CGSSDisplay_errs(char* rtnName, OM_uint32 maj, OM_uint32 min)
+CGSSDisplay_errs(char* rtnName, gss_OID mech, OM_uint32 maj, OM_uint32 min)
 {
 	OM_uint32 msg_context = 0;
 	OM_uint32 min_stat = 0;
@@ -2198,8 +2332,11 @@ CGSSDisplay_errs(char* rtnName, OM_uint32 maj, OM_uint32 min)
 	ERR("Error returned by %s:\n", rtnName);
 	do {
 		maj_stat = gss_display_status(&min_stat, maj, GSS_C_GSS_CODE,
-					GSS_C_NULL_OID, &msg_context, &errBuf);
-		ERR("\tMajor error <%d> %s\n", count, (char *)errBuf.value);
+					mech, &msg_context, &errBuf);
+		if (count == 1)
+			ERR("\tMajor error = %d: %s\n", maj, (char *)errBuf.value);
+		else
+			ERR("\t\t%s\n", (char *)errBuf.value);
 		(void)gss_release_buffer(&min_stat, &errBuf);
 		++count;
 	} while (msg_context != 0);
@@ -2208,8 +2345,11 @@ CGSSDisplay_errs(char* rtnName, OM_uint32 maj, OM_uint32 min)
 	msg_context = 0;
 	do {
 		maj_stat = gss_display_status (&min_stat, min, GSS_C_MECH_CODE,
-					GSS_C_NULL_OID, &msg_context, &errBuf);
-		ERR("\tMinor error <%d> %s\n", count, (char *)errBuf.value);
+					mech, &msg_context, &errBuf);
+		if (count == 1)
+			ERR("\tMinor error = %d: %s\n", min, (char *)errBuf.value);
+		else
+			ERR("\t\t%s\n", (char *)errBuf.value);
 		(void)gss_release_buffer(&min_stat, &errBuf);
 		++count;
 	} while (msg_context != 0);

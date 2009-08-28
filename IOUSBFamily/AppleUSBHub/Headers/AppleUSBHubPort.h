@@ -187,6 +187,12 @@ protected:
     bool							GetDevZeroLock()			{ return _devZero; }
     UInt32							GetPortTimeStamp()			{ return _devZeroCounter; }
 
+private:
+	IOReturn						Suspend( bool fromDevice, bool portStatusSuspended );
+	IOReturn						Resume();
+	void							WaitForSuspendCommand( void *event, uint64_t timeout );
+	void							WakeSuspendCommand( void *event );
+	void							MessageDeviceClients( UInt32 type, void * argument = 0, vm_size_t argSize = 0 );
 };
 
 #endif  _IOKIT_APPLEUSBHUBPORT_H

@@ -16,12 +16,14 @@ Patch_List = patch-config.layout \
              PR-3853520.diff \
              apachectl.diff \
              PR-5432464.diff \
+             PR-4764662.diff \
              CVE-2008-0456.diff
 
 Configure_Flags = --prefix=/usr \
                   --enable-layout=Darwin \
                   --with-apr=/usr \
                   --with-apr-util=/usr \
+                  --with-pcre=/usr/local/bin/pcre-config \
                   --enable-mods-shared=all \
                   --enable-ssl \
                   --enable-cache \
@@ -31,7 +33,7 @@ Configure_Flags = --prefix=/usr \
                   --enable-proxy-http \
                   --enable-disk-cache
 
-Post_Install_Targets = module-setup module-disable post-install
+Post_Install_Targets = module-setup module-disable post-install strip-modules
 
 # Extract the source.
 install_source::
@@ -51,7 +53,7 @@ install::
 	$(_v) $(MAKE) $(Post_Install_Targets)
 	$(_v) $(MAKE) compress_man_pages
 
-APXS = /usr/sbin/apxs
+APXS = perl $(OBJROOT)/support/apxs
 SYSCONFDIR = $(shell $(APXS) -q SYSCONFDIR)
 SYSCONFDIR_OTHER = $(SYSCONFDIR)/other
 
@@ -79,26 +81,24 @@ module-disable:
 	mv $(DSTROOT)$(SYSCONFDIR)/httpd.conf.new $(DSTROOT)$(SYSCONFDIR)/httpd.conf
 
 post-install:
-	$(STRIP) -x $(DSTROOT)/usr/libexec/apache2/*.so
-	for sbinary in ab checkgid htcacheclean htdbm htdigest htpasswd httxt2dbm logresolve rotatelogs; do \
-		lipo -remove x86_64 -output $(DSTROOT)/usr/sbin/$${sbinary} $(DSTROOT)/usr/sbin/$${sbinary}; \
-		lipo -remove ppc64 -output $(DSTROOT)/usr/sbin/$${sbinary} $(DSTROOT)/usr/sbin/$${sbinary}; \
-		$(STRIP) -x $(DSTROOT)/usr/sbin/$${sbinary}; \
-	done
 	$(MKDIR) $(DSTROOT)$(SYSCONFDIR)/users
 	$(RMDIR) $(DSTROOT)/private/var/run
 	$(RMDIR) $(DSTROOT)/usr/bin
 	$(RM) $(DSTROOT)/Library/WebServer/CGI-Executables/printenv
 	$(RM) $(DSTROOT)/Library/WebServer/CGI-Executables/test-cgi
-	$(INSTALL_FILE) $(SRCROOT)/checkgid.1 $(DSTROOT)/usr/share/man/man1
+	$(INSTALL_FILE) $(SRCROOT)/checkgid.8 $(DSTROOT)/usr/share/man/man8
+	$(INSTALL_FILE) $(SRCROOT)/httxt2dbm.8 $(DSTROOT)/usr/share/man/man8
 	$(CHOWN) -R $(Install_User):$(Install_Group) \
 		$(DSTROOT)/usr/share/httpd \
 		$(DSTROOT)/usr/share/man
-	$(RM) $(DSTROOT)/Library/WebServer/Documents/index.html
-	$(INSTALL_FILE) $(SRCROOT)/docroot/index.html.* $(DSTROOT)/Library/WebServer/Documents
+	$(MV) $(DSTROOT)/Library/WebServer/Documents/index.html $(DSTROOT)/Library/WebServer/Documents/index.html.en
 	$(INSTALL_FILE) $(SRCROOT)/PoweredByMacOSX*.gif $(DSTROOT)/Library/WebServer/Documents
 	$(MKDIR) $(DSTROOT)/System/Library/LaunchDaemons
 	$(INSTALL_FILE) $(SRCROOT)/org.apache.httpd.plist $(DSTROOT)/System/Library/LaunchDaemons
 	$(MKDIR) $(DSTROOT)/usr/local/OpenSourceVersions $(DSTROOT)/usr/local/OpenSourceLicenses
 	$(INSTALL_FILE) $(SRCROOT)/apache.plist $(DSTROOT)/usr/local/OpenSourceVersions/apache.plist
 	$(INSTALL_FILE) $(Sources)/LICENSE $(DSTROOT)/usr/local/OpenSourceLicenses/apache.txt
+
+strip-modules:
+	$(CP) $(DSTROOT)/usr/libexec/apache2/*.so $(SYMROOT)
+	$(STRIP) -S $(DSTROOT)/usr/libexec/apache2/*.so

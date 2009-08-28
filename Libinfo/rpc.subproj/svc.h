@@ -350,4 +350,11 @@ __BEGIN_DECLS
 extern SVCXPRT *svctcp_create __P((int, unsigned int, unsigned int));
 __END_DECLS
 
+/*
+ * Any open file descriptor based rpc.
+ */
+__BEGIN_DECLS
+extern SVCXPRT *svcfd_create __P((int, u_int, u_int));
+__END_DECLS
+
 #endif /* !_RPC_SVC_H */

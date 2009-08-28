@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,8 +37,10 @@
 #include <SystemConfiguration/SCPrivate.h>
 #include <SystemConfiguration/SCValidation.h>
 #include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCDynamicStorePrivate.h>
 #include <EAP8021X/EAPOLControl.h>
 #include "myCFUtil.h"
+#include <TargetConditionals.h>
 
 typedef int func_t(int argc, char * argv[]);
 typedef func_t * funcptr_t;
@@ -242,6 +244,32 @@ S_start(int argc, char * argv[])
     return (result);
 }
 
+#if ! TARGET_OS_EMBEDDED
+static int
+S_start_system(int argc, char * argv[])
+{
+    CFDictionaryRef	dict = NULL;
+    int 		result;
+
+    if (argc > 1) {
+	if (access(argv[1], R_OK) != 0) {
+	    fprintf(stderr, "%s: %s\n", argv[1], strerror(errno));
+	    return (errno);
+	}
+	dict = (CFDictionaryRef)my_CFPropertyListCreateFromFile(argv[1]);
+	if (isA_CFDictionary(dict) == NULL) {
+	    fprintf(stderr, "contents of file %s invalid\n", argv[1]);
+	    my_CFRelease(&dict);
+	    return (EINVAL);
+	}
+    }
+    result = EAPOLControlStartSystem(argv[0], dict);
+    fprintf(stderr, "EAPOLControlStartSystem returned %d\n", result);
+    my_CFRelease(&dict);
+    return (result);
+}
+#endif /* ! TARGET_OS_EMBEDDED */
+
 static int
 S_stop(int argc, char * argv[])
 {
@@ -285,6 +313,30 @@ S_update(int argc, char * argv[])
 }
 
 static int
+S_input(int argc, char * argv[])
+{
+    CFDictionaryRef	dict = NULL;
+    int 		result;
+
+    if (argc > 1) {
+	if (access(argv[1], R_OK) != 0) {
+	    fprintf(stderr, "%s: %s\n", argv[1], strerror(errno));
+	    return (errno);
+	}
+	dict = (CFDictionaryRef)my_CFPropertyListCreateFromFile(argv[1]);
+	if (isA_CFDictionary(dict) == NULL) {
+	    fprintf(stderr, "contents of file %s invalid\n", argv[1]);
+	    my_CFRelease(&dict);
+	    return (EINVAL);
+	}
+    }
+    result = EAPOLControlProvideUserInput(argv[0], dict);
+    fprintf(stderr, "EAPOLControlProvideUserInput returned %d\n", result);
+    my_CFRelease(&dict);
+    return (result);
+}
+
+static int
 S_log(int argc, char * argv[])
 {
     int32_t		level;
@@ -293,6 +345,123 @@ S_log(int argc, char * argv[])
     level = strtol(argv[1], 0, 0);
     result = EAPOLControlSetLogLevel(argv[0], level);
     fprintf(stderr, "EAPOLControlSetLogLevel returned %d\n", result);
+    return (result);
+}
+
+#if ! TARGET_OS_EMBEDDED
+static int
+S_loginwindow_config(int argc, char * argv[])
+{
+    CFDictionaryRef	dict = NULL;
+    char *		ifname = argv[0];
+    int 		result;
+
+    result = EAPOLControlCopyLoginWindowConfiguration(ifname, &dict);
+    if (result == 0) {
+	fprintf(stdout,
+		"EAPOLControlCopyLoginWindowConfiguration(%s):\n", ifname);
+	if (dict != NULL) {
+	    dump_plist(stdout, dict);
+	    CFRelease(dict);
+	}
+    }
+    else {
+	fprintf(stderr,
+		"EAPOLControlCopyLoginWindowConfiguration(%s) returned %d\n",
+		ifname, result);
+    }
+    return (result);
+}
+#endif /* ! TARGET_OS_EMBEDDED */
+
+static int
+S_wait_for_state(const char * ifname,
+		 SCDynamicStoreRef store, EAPOLControlState desired_state,
+		 EAPOLControlState ok_state)
+{
+    int 			result;
+
+    while (1) {
+	EAPOLControlState 	state;
+	CFDictionaryRef		status_dict = NULL;
+
+	result = EAPOLControlCopyStateAndStatus(ifname, &state, &status_dict);
+	if (result != 0) {
+	    fprintf(stderr,
+		    "EAPOLControlCopyStateAndStatus(%s) returned %d (%s)\n",
+		    ifname, result, strerror(result));
+	    break;
+	}
+	my_CFRelease(&status_dict);
+	if (state == desired_state) {
+	    break;
+	}
+	if (state != ok_state) {
+	    fprintf(stderr,
+		    "EAPOLControlState on %s is %d (!= %d)\n",
+		    ifname, state, ok_state);
+	    result = EINVAL;
+	    break;
+	}
+	if (SCDynamicStoreNotifyWait(store) == FALSE) {
+	    fprintf(stderr, "SCDynamicStoreNotifyWait failed\n");
+	    result = EINVAL;
+	    break;
+	}
+    }
+    return (result);
+}
+
+static int
+S_stress_start(int argc, char * argv[])
+{
+    CFDictionaryRef	dict = NULL;
+    int			i;
+    char *		ifname = argv[0];
+    int 		result;
+    SCDynamicStoreRef	store;
+
+    if (access(argv[1], R_OK) != 0) {
+	fprintf(stderr, "%s: %s\n", argv[1], strerror(errno));
+	return (errno);
+    }
+    dict = (CFDictionaryRef)my_CFPropertyListCreateFromFile(argv[1]);
+    if (isA_CFDictionary(dict) == NULL) {
+	fprintf(stderr, "contents of file %s invalid\n", argv[1]);
+	my_CFRelease(&dict);
+	return (EINVAL);
+    }
+    store = config_session_start(NULL, NULL, ifname);
+    if (store == NULL) {
+	return (EINVAL);
+    }
+
+    for (i = 0; TRUE; i++) {
+	result = EAPOLControlStart(ifname, dict);
+	if (result != 0) {
+	    fprintf(stderr, "EAPOLControlStart(%s) returned %d (%s)\n",
+		    ifname, result, strerror(result));
+	    break;
+	}
+	result = S_wait_for_state(ifname, store, 
+				  kEAPOLControlStateRunning,
+				  kEAPOLControlStateStarting);
+	if (result != 0) {
+	    fprintf(stderr, "Waiting for Running failed\n");
+	    break;
+	}
+	result = EAPOLControlStop(ifname);
+	if (result != 0) {
+	    fprintf(stderr, "EAPOLControlStop(%s) returned %d (%s)\n",
+		    ifname, result, strerror(result));
+	    break;
+	}
+	result = S_wait_for_state(ifname, store, 
+				  kEAPOLControlStateIdle,
+				  kEAPOLControlStateStopping);
+    }
+    fprintf(stderr, "Failed at iteration %d\n", i + 1);
+    my_CFRelease(&dict);
     return (result);
 }
 
@@ -307,8 +476,14 @@ static struct {
     { "stop", S_stop, 1, "<interface_name>" },
     { "retry", S_retry, 1, "<interface_name>" },
     { "update", S_update, 2, "<interface_name> <config_file>" },
+    { "input", S_input, 1, "<interface_name> [ <config_file> ]" },
     { "log", S_log, 2, "<interface_name> <level>" },
     { "monitor", S_monitor, 0, "[ <interface_name> ]" },
+    { "stress_start", S_stress_start, 2, "<interface_name> <config_file>"  },
+#if ! TARGET_OS_EMBEDDED
+    { "start_system", S_start_system, 1, "<interface_name> [ <config_file> ]"},
+    { "loginwindow_config", S_loginwindow_config, 1, "<interface_name>" },
+#endif /* ! TARGET_OS_EMBEDDED */
     { NULL, NULL, 0, NULL },
 };
 

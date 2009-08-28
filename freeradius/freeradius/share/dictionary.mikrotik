@@ -9,7 +9,7 @@
 #	On top of that, the sample dictionary file they provide
 #	DOES NOT WORK.  Do NOT use it.
 #
-#	$Id: dictionary.mikrotik,v 1.1.4.3 2007/06/15 08:31:44 aland Exp $
+#	$Id$
 #
 VENDOR		Mikrotik			14988
 

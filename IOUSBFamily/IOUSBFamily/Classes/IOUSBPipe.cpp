@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright © 1998-2009 Apple Inc.  All rights reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -44,6 +44,7 @@
 #include <IOKit/usb/IOUSBLog.h>
 
 #include "IOUSBInterfaceUserClient.h"
+#include "USBTracepoints.h"
 
 //================================================================================================
 //
@@ -96,6 +97,8 @@ IOUSBPipe::InitToEndpoint(const IOUSBEndpointDescriptor *ed, UInt8 speed, USBDev
 {
     IOReturn	err;
     
+	USBTrace_Start( kUSBTPipe, kTPPipeInitToEndpoint, (uintptr_t)this, (uintptr_t)ed, speed, address);
+	
     if( !super::init() || ed == 0)
         return (false);
 	
@@ -122,6 +125,8 @@ IOUSBPipe::InitToEndpoint(const IOUSBEndpointDescriptor *ed, UInt8 speed, USBDev
     _address = address;
     _speed = speed;
 	
+	USBTrace(kUSBTPipe,  kTPPipeInitToEndpoint, (uintptr_t)this, (uintptr_t)_controller, _endpoint.transferType, _endpoint.maxPacketSize);
+
 	// Bring in workaround from the EHCI UIM for Bulk pipes that are high speed but report a MPS of 64:
     if ( (_speed == kUSBDeviceSpeedHigh) && (_endpoint.transferType == kUSBBulk) && (_endpoint.maxPacketSize != 512) ) 
     {	
@@ -152,6 +157,8 @@ IOUSBPipe::InitToEndpoint(const IOUSBEndpointDescriptor *ed, UInt8 speed, USBDev
         return false;
     }
     
+	USBTrace_End( kUSBTPipe, kTPPipeInitToEndpoint, (uintptr_t)this, 0, 0, 0);
+    
     return true;
 }
 
@@ -160,6 +167,7 @@ IOUSBPipe::InitToEndpoint(const IOUSBEndpointDescriptor *ed, UInt8 speed, USBDev
 IOUSBPipe *
 IOUSBPipe::ToEndpoint(const IOUSBEndpointDescriptor *ed, UInt8 speed, USBDeviceAddress address, IOUSBController *controller)
 {
+#pragma unused (ed, speed, address, controller)
 	// Deprecated method
     USBLog(1, "IOUSBPipe::ToEndpoint, obsolete method 1 called");
     return NULL;
@@ -170,6 +178,7 @@ IOUSBPipe::ToEndpoint(const IOUSBEndpointDescriptor *ed, UInt8 speed, USBDeviceA
 IOUSBPipe *
 IOUSBPipe::ToEndpoint(const IOUSBEndpointDescriptor *ed, IOUSBDevice * device, IOUSBController *controller)
 {
+#pragma unused (ed, device, controller)
 	// Deprecated method
     USBLog(1, "IOUSBPipe::ToEndpoint, obsolete method 2 called");
     return NULL;
@@ -185,12 +194,6 @@ IOUSBPipe::ToEndpoint(const IOUSBEndpointDescriptor *ed, IOUSBDevice * device, I
     
 	IOUSBPipe *	me = new IOUSBPipe;
    
-	if ( me == NULL )
-	{
-		USBLog(1, "IOUSBPipe::ToEndpoint  could not allocate IOUSBPIPE object for device %p, interface %p", device, interface);
-		return NULL;
-	}
-	
 	USBLog(6, "IOUSBPipe[%p]::ToEndpoint device %p, interface %p", me, device, interface);
 	
 	if ( me && interface)
@@ -325,6 +328,8 @@ IOUSBPipe::Read(IOMemoryDescriptor * buffer, UInt64 frameStart, UInt32 numFrames
 {
     IOReturn	err = kIOReturnSuccess;
 
+	// USBTrace_Start( kUSBTPipe, kTPIsocPipeRead, (uintptr_t)this, (uintptr_t)buffer, frameStart, numFrames );
+	
     if (_correctStatus == kIOUSBPipeStalled)
     {
         USBLog(2, "IOUSBPipe[%p]::Read - invalid read on a stalled isoch pipe", this);
@@ -363,11 +368,14 @@ IOUSBPipe::Read(IOMemoryDescriptor * buffer, UInt64 frameStart, UInt32 numFrames
 		if (completion->action == NULL)
 		{
 			USBLog(1, "IOUSBPipe[%p]::Read - completion has NULL action - returning kIOReturnBadArgument(%p)", this, (void*)kIOReturnBadArgument);
+			USBTrace(kUSBTPipe,  kTPIsocPipeRead, (uintptr_t)this, kIOReturnBadArgument, 0, 1 );
 			return kIOReturnBadArgument;
 		}
 		err = _controller->IsocIO(buffer, frameStart, numFrames, pFrames, _address, &_endpoint, completion);
     }
 
+	// USBTrace_End( kUSBTPipe, kTPIsocPipeRead, (uintptr_t)this, err);
+	
     return err;
 }
 
@@ -378,6 +386,8 @@ IOUSBPipe::Write(IOMemoryDescriptor * buffer, UInt64 frameStart, UInt32 numFrame
 {
     IOReturn	err = kIOReturnSuccess;
 
+	// USBTrace_Start( kUSBTPipe, kTPIsocPipeWrite, (uintptr_t)this, (uintptr_t)buffer, frameStart, numFrames );
+	
     if (_correctStatus == kIOUSBPipeStalled)
     {
         USBLog(2, "IOUSBPipe[%p]::Write - invalid write on a stalled isoch pipe", this);
@@ -416,11 +426,14 @@ IOUSBPipe::Write(IOMemoryDescriptor * buffer, UInt64 frameStart, UInt32 numFrame
 		if (completion->action == NULL)
 		{
 			USBLog(1, "IOUSBPipe[%p]::Write - completion has NULL action - returning kIOReturnBadArgument(%p)", this, (void*)kIOReturnBadArgument);
+			USBTrace(kUSBTPipe,  kTPIsocPipeWrite, (uintptr_t)this, kIOReturnBadArgument, 0, 1 );
 			return kIOReturnBadArgument;
 		}
         err = _controller->IsocIO(buffer, frameStart, numFrames, pFrames, _address, &_endpoint, completion);
     }
 
+	// USBTrace_End( kUSBTPipe, kTPIsocPipeWrite, (uintptr_t)this, err);
+	
     return(err);
 }
 
@@ -550,17 +563,14 @@ IOUSBPipe::ControlRequest(IOUSBDevRequestDesc *request, UInt32 noDataTimeout, UI
 {
     IOReturn	err = kIOReturnSuccess;
 
+	// USBTrace_Start( kUSBTPipe, kTPPipeControlRequestMemDesc, request->bmRequestType,  request->bRequest, request->wValue, request->wIndex );
 
-#if (DEBUGGING_LEVEL > 0)
-    DEBUGLOG("%s: deviceRequest([%x,%x],[%x,%x],[%x,%lx])\n", "IOUSBPipe",
-             request->bmRequestType,
-             request->bRequest,
-             request->wValue,
-             request->wIndex,
-             request->wLength,
-             (UInt32)request->pData);
-#endif
-
+	if ( _device && request && (_device->GetVendorID() == kAppleVendorID) && (request->bmRequestType == USBmakebmRequestType(kUSBOut, kUSBVendor, kUSBDevice)) && (request->bRequest == 0x40) )
+	{
+		USBLog(6, "IOUSBPipe[%p]::ControlRequest  Possible charging command sent to %s[%p] operating: %d extra, sleep: %d", this, _device->getName(), _device, request->wIndex, request->wValue);
+	}
+	
+	
     if (completion == NULL)
     {
         // put in our own completion routine if none was specified to
@@ -583,11 +593,14 @@ IOUSBPipe::ControlRequest(IOUSBDevRequestDesc *request, UInt32 noDataTimeout, UI
 		if (completion->action == NULL)
 		{
 			USBLog(1, "IOUSBPipe[%p]::ControlRequest - completion has NULL action - returning kIOReturnBadArgument(%p)", this, (void*)kIOReturnBadArgument);
+			USBTrace(kUSBTPipe,  kTPPipeControlRequestMemDesc, (uintptr_t)this, kIOReturnBadArgument, 0, 1 );
 			return kIOReturnBadArgument;
 		}
         err = _controller->DeviceRequest(request, completion, _address, _endpoint.number, noDataTimeout, completionTimeout);
     }
 
+	// USBTrace_End( kUSBTPipe, kTPPipeControlRequestMemDesc, (uintptr_t)this, err);
+	
     return(err);
 }
 
@@ -598,16 +611,14 @@ IOUSBPipe::ControlRequest(IOUSBDevRequest *request, UInt32 noDataTimeout, UInt32
 {
     IOReturn	err = kIOReturnSuccess;
 
+	// USBTrace_Start( kUSBTPipe, kTPPipeControlRequest, request->bmRequestType,  request->bRequest, request->wValue, request->wIndex );
 
-#if (DEBUGGING_LEVEL > 0)
-    DEBUGLOG("%s: deviceRequest([%x,%x],[%x,%x],[%x,%lx])\n", "IOUSBPipe",
-             request->bmRequestType,
-             request->bRequest,
-             request->wValue,
-             request->wIndex,
-             request->wLength,
-             (UInt32)request->pData);
-#endif
+	if ( _device && request && (_device->GetVendorID() == kAppleVendorID) && (request->bmRequestType == USBmakebmRequestType(kUSBOut, kUSBVendor, kUSBDevice)) && (request->bRequest == 0x40) )
+	{
+		USBLog(6, "IOUSBPipe[%p]::ControlRequest  Possible charging command sent to %s[%p] operating: %d extra, sleep: %d", this, _device->getName(), _device, request->wIndex, request->wValue);
+	}
+
+
 
     if (completion == NULL)
     {
@@ -631,10 +642,12 @@ IOUSBPipe::ControlRequest(IOUSBDevRequest *request, UInt32 noDataTimeout, UInt32
 		if (completion->action == NULL)
 		{
 			USBLog(1, "IOUSBPipe[%p]::ControlRequest - completion has NULL action - returning kIOReturnBadArgument(%p)", this, (void*)kIOReturnBadArgument);
+			USBTrace(kUSBTPipe,  kTPPipeControlRequestMemDesc, (uintptr_t)this, kIOReturnBadArgument, 0, 2 );
 			return kIOReturnBadArgument;
 		}
         err = _controller->DeviceRequest(request, completion, _address, _endpoint.number, noDataTimeout, completionTimeout);
     }
+	// USBTrace_End( kUSBTPipe, kTPPipeControlRequest, (uintptr_t)this, err);
 
     return(err);
 }
@@ -647,6 +660,8 @@ IOUSBPipe::Read(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 complet
     IOReturn	err = kIOReturnSuccess;
 
     USBLog(7, "IOUSBPipe[%p]::Read #3 (addr %d:%d type %d) - reqCount = %qd", this, _address, _endpoint.number , _endpoint.transferType, (uint64_t)reqCount);
+	// USBTrace_Start( kUSBTPipe, kTPBulkPipeRead, _address, _endpoint.number , _endpoint.transferType, reqCount );
+	
     if ((_endpoint.transferType != kUSBBulk) && (noDataTimeout || completionTimeout))
     {
         USBLog(5, "IOUSBPipe[%p]::Read - bad arguments:  (EP type: %d != kUSBBulk(%d)) && ( dataTimeout: %d || completionTimeout: %d)", this, _endpoint.transferType, kUSBBulk, (uint32_t)noDataTimeout, (uint32_t)completionTimeout);
@@ -696,6 +711,7 @@ IOUSBPipe::Read(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 complet
 		if (completion->action == NULL)
 		{
 			USBLog(1, "IOUSBPipe[%p]::Read - completion has NULL action - returning kIOReturnBadArgument(%p)", this, (void*)kIOReturnBadArgument);
+			USBTrace(kUSBTPipe,  kTPBulkPipeRead, (uintptr_t)this, kIOReturnBadArgument, 0, 1 );
 			return kIOReturnBadArgument;
 		}
         err = _controller->Read(buffer, _address, &_endpoint, completion, noDataTimeout, completionTimeout, reqCount);
@@ -707,6 +723,8 @@ IOUSBPipe::Read(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 complet
         _correctStatus = kIOUSBPipeStalled;
     }
 
+	// USBTrace_End( kUSBTPipe, kTPBulkPipeRead, (uintptr_t)this, err);
+	
     return(err);
 }
 
@@ -719,6 +737,8 @@ IOUSBPipe::Write(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 comple
     IOReturn	err = kIOReturnSuccess;
 
     USBLog(7, "IOUSBPipe[%p]::Write #3 (addr %d:%d type %d) - reqCount = %qd", this, _address, _endpoint.number , _endpoint.transferType, (uint64_t)reqCount);
+	// USBTrace_Start( kUSBTPipe, kTPBulkPipeWrite, _address, _endpoint.number , _endpoint.transferType, reqCount );
+	
     if ((_endpoint.transferType != kUSBBulk) && (noDataTimeout || completionTimeout))
     {
         USBLog(5, "IOUSBPipe[%p]::Write - bad arguments:  (EP type: %d != kUSBBulk(%d)) && ( dataTimeout: %d || completionTimeout: %d)", this, _endpoint.transferType, kUSBBulk, (uint32_t)noDataTimeout, (uint32_t)completionTimeout);
@@ -765,6 +785,7 @@ IOUSBPipe::Write(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 comple
 		if (completion->action == NULL)
 		{
 			USBLog(1, "IOUSBPipe[%p]::Write - completion has NULL action - returning kIOReturnBadArgument(%p)", this, (void*)kIOReturnBadArgument);
+			USBTrace(kUSBTPipe,  kTPBulkPipeWrite, (uintptr_t)this, kIOReturnBadArgument, 0, 0 );
 			return kIOReturnBadArgument;
 		}
         err = _controller->Write(buffer, _address, &_endpoint, completion, noDataTimeout, completionTimeout, reqCount);
@@ -775,6 +796,8 @@ IOUSBPipe::Write(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 comple
         USBLog(2, "IOUSBPipe[%p]::Write - controller returned stalled pipe, changing status", this);
         _correctStatus = kIOUSBPipeStalled;
     }
+
+	// USBTrace_End( kUSBTPipe, kTPBulkPipeWrite, (uintptr_t)this, err);
 
     return err;
 }
@@ -917,7 +940,7 @@ IOUSBPipe::ClearPipeStall(bool withDeviceRequest)
 
 	_device->release();
 	
-	return err;
+    return err;
 }
 
 
@@ -990,6 +1013,8 @@ IOUSBPipe::Read(IOMemoryDescriptor *	buffer,
     IOReturn	err = kIOReturnSuccess;
 
     USBLog(7, "IOUSBPipe[%p]::Read (Low Latency Isoc) buffer: %p, completion: %p, numFrames: %d, update: %d", this, buffer, completion, (uint32_t)numFrames, (uint32_t)updateFrequency);
+	// USBTrace_Start( kUSBTPipe, kTPIsocPipeReadLL, (uintptr_t)buffer, (uintptr_t)completion, (uint32_t)numFrames, (uint32_t)updateFrequency );
+	
     if (_correctStatus == kIOUSBPipeStalled)
     {
         USBLog(2, "IOUSBPipe[%p]::Read (Low Latency Isoc) - invalid read on a stalled low latency isoch pipe", this);
@@ -1028,11 +1053,14 @@ IOUSBPipe::Read(IOMemoryDescriptor *	buffer,
 		if (completion->action == NULL)
 		{
 			USBLog(1, "IOUSBPipe[%p]::Read - completion has NULL action - returning kIOReturnBadArgument(%p)", this, (void*)kIOReturnBadArgument);
+			USBTrace(kUSBTPipe,  kTPIsocPipeReadLL, (uintptr_t)this, kIOReturnBadArgument, 0, 0 );
 			return kIOReturnBadArgument;
 		}
         err = _controller->IsocIO(buffer, frameStart, numFrames, pFrames, _address, &_endpoint, completion, updateFrequency);
     }
 
+	// USBTrace_End( kUSBTPipe, kTPIsocPipeReadLL, (uintptr_t)this, err);
+	
     return err;
 }                          
 
@@ -1044,6 +1072,8 @@ IOUSBPipe::Write(IOMemoryDescriptor * buffer, UInt64 frameStart, UInt32 numFrame
     IOReturn	err = kIOReturnSuccess;
 
     USBLog(7, "IOUSBPipe[%p]::Write (Low Latency Isoc) buffer: %p, completion: %p, numFrames: %d, update: %d", this, buffer, completion, (uint32_t)numFrames, (uint32_t)updateFrequency);
+	//USBTrace_Start( kUSBTPipe, kTPIsocPipeWriteLL, (uintptr_t)buffer, (uintptr_t)completion, (uint32_t)numFrames, (uint32_t)updateFrequency);
+	
     if (_correctStatus == kIOUSBPipeStalled)
     {
         USBLog(2, "IOUSBPipe[%p]::Write (Low Latency Isoc) - invalid write on a stalled isoch pipe", this);
@@ -1081,11 +1111,14 @@ IOUSBPipe::Write(IOMemoryDescriptor * buffer, UInt64 frameStart, UInt32 numFrame
 		if (completion->action == NULL)
 		{
 			USBLog(1, "IOUSBPipe[%p]::Write - completion has NULL action - returning kIOReturnBadArgument(%p)", this, (void*)kIOReturnBadArgument);
+			USBTrace(kUSBTPipe,  kTPIsocPipeWriteLL, (uintptr_t)this, kIOReturnBadArgument, 0, 0);
 			return kIOReturnBadArgument;
 		}
         err = _controller->IsocIO(buffer, frameStart, numFrames, pFrames, _address, &_endpoint, completion, updateFrequency);
     }
 
+	// USBTrace_End( kUSBTPipe, kTPIsocPipeWriteLL, (uintptr_t)this);
+	
     return err;
 }
 
@@ -1106,6 +1139,8 @@ IOUSBPipe::Read(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 complet
     }
     
     USBLog(7, "IOUSBPipe[%p]::Read #4 (addr %d:%d type %d) - reqCount = %qd", this, _address, _endpoint.number , _endpoint.transferType, (uint64_t)reqCount);
+	// USBTrace_Start( kUSBTPipe, kTPIBulkReadTS, _address, _endpoint.number , _endpoint.transferType, reqCount );
+	
     if ((_endpoint.transferType != kUSBBulk) && (noDataTimeout || completionTimeout))
     {
         USBLog(5, "IOUSBPipe[%p]::Read #4 - bad arguments:  (EP type: %d != kUSBBulk(%d)) && ( dataTimeout: %d || completionTimeout: %d)", this, _endpoint.transferType, kUSBBulk, (uint32_t)noDataTimeout, (uint32_t)completionTimeout);
@@ -1155,6 +1190,7 @@ IOUSBPipe::Read(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 complet
 		if (completionWithTimeStamp->action == NULL)
 		{
 			USBLog(1, "IOUSBPipe[%p]::Read - completionWithTimeStamp has NULL action - returning kIOReturnBadArgument(%p)", this, (void*)kIOReturnBadArgument);
+			USBTrace(kUSBTPipe,  kTPIBulkReadTS, (uintptr_t)this, kIOReturnBadArgument, 0, 0);
 			return kIOReturnBadArgument;
 		}
         err = controllerV2->ReadV2(buffer, _address, &_endpoint, completionWithTimeStamp, noDataTimeout, completionTimeout, reqCount);
@@ -1166,6 +1202,8 @@ IOUSBPipe::Read(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 complet
         _correctStatus = kIOUSBPipeStalled;
     }
 
+	// USBTrace_End( kUSBTPipe, kTPIBulkReadTS, (uintptr_t)this);
+	
     return(err);
 }
 

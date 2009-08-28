@@ -340,9 +340,10 @@ bool Editor::tryDHTMLCopy()
     if (m_frame->selection()->isInPasswordField())
         return false;
 
-    // Must be done before oncopy adds types and data to the pboard,
-    // also done for security, as it erases data from the last copy/paste.
-    Pasteboard::generalPasteboard()->clear();
+    if (canCopy())
+        // Must be done before oncopy adds types and data to the pboard,
+        // also done for security, as it erases data from the last copy/paste.
+        Pasteboard::generalPasteboard()->clear();
 
     return !dispatchCPPEvent(eventNames().copyEvent, ClipboardWritable);
 }
@@ -351,10 +352,11 @@ bool Editor::tryDHTMLCut()
 {
     if (m_frame->selection()->isInPasswordField())
         return false;
-
-    // Must be done before oncut adds types and data to the pboard,
-    // also done for security, as it erases data from the last copy/paste.
-    Pasteboard::generalPasteboard()->clear();
+    
+    if (canCut())
+        // Must be done before oncut adds types and data to the pboard,
+        // also done for security, as it erases data from the last copy/paste.
+        Pasteboard::generalPasteboard()->clear();
 
     return !dispatchCPPEvent(eventNames().cutEvent, ClipboardWritable);
 }
@@ -653,9 +655,9 @@ PassRefPtr<Node> Editor::increaseSelectionListLevelOrdered()
     if (!canEditRichly() || m_frame->selection()->isNone())
         return 0;
     
-    PassRefPtr<Node> newList = IncreaseSelectionListLevelCommand::increaseSelectionListLevelOrdered(m_frame->document());
+    RefPtr<Node> newList = IncreaseSelectionListLevelCommand::increaseSelectionListLevelOrdered(m_frame->document());
     revealSelectionAfterEditingOperation();
-    return newList;
+    return newList.release();
 }
 
 PassRefPtr<Node> Editor::increaseSelectionListLevelUnordered()
@@ -663,9 +665,9 @@ PassRefPtr<Node> Editor::increaseSelectionListLevelUnordered()
     if (!canEditRichly() || m_frame->selection()->isNone())
         return 0;
     
-    PassRefPtr<Node> newList = IncreaseSelectionListLevelCommand::increaseSelectionListLevelUnordered(m_frame->document());
+    RefPtr<Node> newList = IncreaseSelectionListLevelCommand::increaseSelectionListLevelUnordered(m_frame->document());
     revealSelectionAfterEditingOperation();
-    return newList;
+    return newList.release();
 }
 
 void Editor::decreaseSelectionListLevel()
@@ -1451,7 +1453,7 @@ void Editor::learnSpelling()
     client()->learnWord(text);
 }
 
-static String findFirstMisspellingInRange(EditorClient* client, Range* searchRange, int& firstMisspellingOffset, bool markAll)
+static String findFirstMisspellingInRange(EditorClient* client, Range* searchRange, int& firstMisspellingOffset, bool markAll, RefPtr<Range>& firstMisspellingRange)
 {
     ASSERT_ARG(client, client);
     ASSERT_ARG(searchRange, searchRange);
@@ -1485,23 +1487,24 @@ static String findFirstMisspellingInRange(EditorClient* client, Range* searchRan
             
             if (misspellingLocation >= 0 && misspellingLength > 0 && misspellingLocation < len && misspellingLength <= len && misspellingLocation + misspellingLength <= len) {
                 
-                // Remember first-encountered misspelling and its offset
+                // Compute range of misspelled word
+                RefPtr<Range> misspellingRange = TextIterator::subrange(searchRange, currentChunkOffset + misspellingLocation, misspellingLength);
+
+                // Remember first-encountered misspelling and its offset.
                 if (!firstMisspelling) {
                     firstMisspellingOffset = currentChunkOffset + misspellingLocation;
                     firstMisspelling = String(chars + misspellingLocation, misspellingLength);
+                    firstMisspellingRange = misspellingRange;
                 }
-                
-                // Mark this instance if we're marking all instances. Otherwise bail out because we found the first one.
-                if (!markAll)
-                    break;
-                
-                // Compute range of misspelled word
-                RefPtr<Range> misspellingRange = TextIterator::subrange(searchRange, currentChunkOffset + misspellingLocation, misspellingLength);
-                
-                // Store marker for misspelled word
+
+                // Store marker for misspelled word.
                 ExceptionCode ec = 0;
                 misspellingRange->startContainer(ec)->document()->addMarker(misspellingRange.get(), DocumentMarker::Spelling);
                 ASSERT(ec == 0);
+
+                // Bail out if we're marking only the first misspelling, and not all instances.
+                if (!markAll)
+                    break;
             }
         }
         
@@ -1853,8 +1856,8 @@ void Editor::advanceToNextMisspelling(bool startBeforeSelection)
         grammarPhraseOffset = foundOffset;
     }
 #else
-    String misspelledWord = findFirstMisspellingInRange(client(), spellingSearchRange.get(), misspellingOffset, false);
-    
+    RefPtr<Range> firstMisspellingRange;
+    String misspelledWord = findFirstMisspellingInRange(client(), spellingSearchRange.get(), misspellingOffset, false, firstMisspellingRange);
     String badGrammarPhrase;
 
 #ifndef BUILDING_ON_TIGER
@@ -1893,7 +1896,7 @@ void Editor::advanceToNextMisspelling(bool startBeforeSelection)
             grammarPhraseOffset = foundOffset;
         }
 #else
-        misspelledWord = findFirstMisspellingInRange(client(), spellingSearchRange.get(), misspellingOffset, false);
+        misspelledWord = findFirstMisspellingInRange(client(), spellingSearchRange.get(), misspellingOffset, false, firstMisspellingRange);
 
 #ifndef BUILDING_ON_TIGER
         grammarSearchRange = spellingSearchRange->cloneRange(ec);
@@ -2181,8 +2184,35 @@ void Editor::markMisspellingsAfterTypingToPosition(const VisiblePosition &p)
         return;
     
     // Check spelling of one word
-    markMisspellings(VisibleSelection(startOfWord(p, LeftWordIfOnBoundary), endOfWord(p, RightWordIfOnBoundary)));
+    RefPtr<Range> misspellingRange;
+    markMisspellings(VisibleSelection(startOfWord(p, LeftWordIfOnBoundary), endOfWord(p, RightWordIfOnBoundary)), misspellingRange);
+
+    // Autocorrect the misspelled word.
+    if (misspellingRange == 0)
+        return;
     
+    // Get the misspelled word.
+    const String misspelledWord = plainText(misspellingRange.get());
+    String autocorrectedString = client()->getAutoCorrectSuggestionForMisspelledWord(misspelledWord);
+
+    // If autocorrected word is non empty, replace the misspelled word by this word.
+    if (!autocorrectedString.isEmpty()) {
+        VisibleSelection newSelection(misspellingRange.get(), DOWNSTREAM);
+        if (newSelection != frame()->selection()->selection()) {
+            if (!frame()->shouldChangeSelection(newSelection))
+                return;
+            frame()->selection()->setSelection(newSelection);
+        }
+
+        if (!frame()->editor()->shouldInsertText(autocorrectedString, misspellingRange.get(), EditorInsertActionTyped))
+            return;
+        frame()->editor()->replaceSelectionWithText(autocorrectedString, false, false);
+
+        // Reset the charet one character further.
+        frame()->selection()->moveTo(frame()->selection()->end());
+        frame()->selection()->modify(SelectionController::MOVE, SelectionController::FORWARD, CharacterGranularity);
+    }
+
     if (!isGrammarCheckingEnabled())
         return;
     
@@ -2191,12 +2221,12 @@ void Editor::markMisspellingsAfterTypingToPosition(const VisiblePosition &p)
 #endif
 }
 
-static void markAllMisspellingsInRange(EditorClient* client, Range* searchRange)
+static void markAllMisspellingsInRange(EditorClient* client, Range* searchRange, RefPtr<Range>& firstMisspellingRange)
 {
     // Use the "markAll" feature of findFirstMisspellingInRange. Ignore the return value and the "out parameter";
     // all we need to do is mark every instance.
     int ignoredOffset;
-    findFirstMisspellingInRange(client, searchRange, ignoredOffset, true);
+    findFirstMisspellingInRange(client, searchRange, ignoredOffset, true, firstMisspellingRange);
 }
 
 #ifndef BUILDING_ON_TIGER
@@ -2210,7 +2240,7 @@ static void markAllBadGrammarInRange(EditorClient* client, Range* searchRange)
 }
 #endif
     
-static void markMisspellingsOrBadGrammar(Editor* editor, const VisibleSelection& selection, bool checkSpelling)
+static void markMisspellingsOrBadGrammar(Editor* editor, const VisibleSelection& selection, bool checkSpelling, RefPtr<Range>& firstMisspellingRange)
 {
     // This function is called with a selection already expanded to word boundaries.
     // Might be nice to assert that here.
@@ -2228,27 +2258,16 @@ static void markMisspellingsOrBadGrammar(Editor* editor, const VisibleSelection&
     Node* editableNode = searchRange->startContainer();
     if (!editableNode || !editableNode->isContentEditable())
         return;
-    
-    // Ascend the DOM tree to find a "spellcheck" attribute.
-    // When we find a "spellcheck" attribute, retrieve its value and exit if its value is "false".
-    const Node* node = editor->frame()->document()->focusedNode();
-    while (node) {
-        if (node->isElementNode()) {
-            const WebCore::AtomicString& value = static_cast<const Element*>(node)->getAttribute(spellcheckAttr);
-            if (equalIgnoringCase(value, "true"))
-                break;
-            if (equalIgnoringCase(value, "false"))
-                return;
-        }
-        node = node->parent();
-    }
+
+    if (!editor->spellCheckingEnabledInFocusedNode())
+        return;
 
     // Get the spell checker if it is available
     if (!editor->client())
         return;
     
     if (checkSpelling)
-        markAllMisspellingsInRange(editor->client(), searchRange.get());
+        markAllMisspellingsInRange(editor->client(), searchRange.get(), firstMisspellingRange);
     else {
 #ifdef BUILDING_ON_TIGER
         ASSERT_NOT_REACHED();
@@ -2259,15 +2278,34 @@ static void markMisspellingsOrBadGrammar(Editor* editor, const VisibleSelection&
     }    
 }
 
-void Editor::markMisspellings(const VisibleSelection& selection)
+bool Editor::spellCheckingEnabledInFocusedNode() const
 {
-    markMisspellingsOrBadGrammar(this, selection, true);
+    // Ascend the DOM tree to find a "spellcheck" attribute.
+    // When we find a "spellcheck" attribute, retrieve its value and return false if its value is "false".
+    const Node* node = frame()->document()->focusedNode();
+    while (node) {
+        if (node->isElementNode()) {
+            const WebCore::AtomicString& value = static_cast<const Element*>(node)->getAttribute(spellcheckAttr);
+            if (equalIgnoringCase(value, "true"))
+                return true;
+            if (equalIgnoringCase(value, "false"))
+                return false;
+        }
+        node = node->parent();
+    }
+    return true;
+}
+
+void Editor::markMisspellings(const VisibleSelection& selection, RefPtr<Range>& firstMisspellingRange)
+{
+    markMisspellingsOrBadGrammar(this, selection, true, firstMisspellingRange);
 }
     
 void Editor::markBadGrammar(const VisibleSelection& selection)
 {
 #ifndef BUILDING_ON_TIGER
-    markMisspellingsOrBadGrammar(this, selection, false);
+    RefPtr<Range> firstMisspellingRange;
+    markMisspellingsOrBadGrammar(this, selection, false, firstMisspellingRange);
 #else
     UNUSED_PARAM(selection);
 #endif
@@ -2294,7 +2332,10 @@ void Editor::markAllMisspellingsAndBadGrammarInRanges(bool markSpelling, Range* 
     Node* editableNode = spellingRange->startContainer();
     if (!editableNode || !editableNode->isContentEditable())
         return;
-    
+
+    if (!spellCheckingEnabledInFocusedNode())
+        return;
+
     // Expand the range to encompass entire paragraphs, since text checking needs that much context.
     int spellingRangeStartOffset = 0;
     int spellingRangeEndOffset = 0;
@@ -2493,7 +2534,8 @@ void Editor::markMisspellingsAndBadGrammar(const VisibleSelection& spellingSelec
         return;
     markAllMisspellingsAndBadGrammarInRanges(true, spellingSelection.toNormalizedRange().get(), markGrammar && isGrammarCheckingEnabled(), grammarSelection.toNormalizedRange().get(), false);
 #else
-    markMisspellings(spellingSelection);
+    RefPtr<Range> firstMisspellingRange;
+    markMisspellings(spellingSelection, firstMisspellingRange);
     if (markGrammar)
         markBadGrammar(grammarSelection);
 #endif

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: nano 1.2.1\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2006-11-20 09:56-0500\n"
+"POT-Creation-Date: 2007-04-26 08:03-0400\n"
 "PO-Revision-Date: 2003-08-17 18:08+0300\n"
 "Last-Translator: A. Murat EREN <meren@comu.edu.tr>\n"
 "Language-Team: Turkish <gnu-tr-u12a@lists.sourceforge.net>\n"
@@ -22,72 +22,72 @@ msgstr ""
 msgid "Go To Directory"
 msgstr "Dizine Git"
 
-#: src/browser.c:237 src/browser.c:830 src/files.c:737 src/files.c:1811
-#: src/nano.c:957 src/search.c:212 src/search.c:934 src/search.c:995
+#: src/browser.c:239 src/browser.c:838 src/files.c:749 src/files.c:1837
+#: src/nano.c:962 src/search.c:213 src/search.c:934 src/search.c:995
 msgid "Cancelled"
 msgstr "İptal edildi"
 
-#: src/browser.c:265 src/browser.c:317
+#: src/browser.c:272 src/browser.c:324
 #, c-format
 msgid "Can't go outside of %s in restricted mode"
 msgstr "Kısıtlı kipte %s dışına çıkılamıyor"
 
-#: src/browser.c:276 src/browser.c:327 src/browser.c:350 src/files.c:610
-#: src/files.c:618 src/files.c:1355 src/files.c:1443 src/files.c:1489
-#: src/files.c:1510 src/files.c:1632 src/files.c:2414 src/rcfile.c:368
-#: src/rcfile.c:385 src/rcfile.c:917
+#: src/browser.c:283 src/browser.c:334 src/browser.c:357 src/files.c:617
+#: src/files.c:626 src/files.c:1371 src/files.c:1459 src/files.c:1505
+#: src/files.c:1526 src/files.c:1649 src/files.c:2465 src/rcfile.c:382
+#: src/rcfile.c:914
 #, fuzzy, c-format
 msgid "Error reading %s: %s"
 msgstr "Hatalı alıntı dizgesi %s: %s"
 
-#: src/browser.c:306
+#: src/browser.c:313
 msgid "Can't move up a directory"
 msgstr "Bir üst dizine geçilemiyor"
 
 #. TRANSLATORS: Try to keep this at most 7
 #. * characters.
-#: src/browser.c:668 src/browser.c:677
+#: src/browser.c:676 src/browser.c:685
 msgid "(dir)"
 msgstr ""
 
 #. TRANSLATORS: Try to keep this at most 12
 #. * characters.
-#: src/browser.c:674
+#: src/browser.c:682
 msgid "(parent dir)"
 msgstr ""
 
-#: src/browser.c:801 src/search.c:179
+#: src/browser.c:809 src/search.c:180
 msgid "Search"
 msgstr "Ara"
 
 #. TRANSLATORS: This string is just a modifier for the search
 #. * prompt; no grammar is implied.
-#: src/browser.c:805 src/search.c:183
+#: src/browser.c:813 src/search.c:184
 msgid " [Case Sensitive]"
 msgstr " [Büyük / Küçük Harfe Duyarlı]"
 
 #. TRANSLATORS: This string is just a modifier for the search
 #. * prompt; no grammar is implied.
-#: src/browser.c:811 src/search.c:189
+#: src/browser.c:819 src/search.c:190
 msgid " [Regexp]"
 msgstr " [Düzenli İfade]"
 
 #. TRANSLATORS: This string is just a modifier for the search
 #. * prompt; no grammar is implied.
-#: src/browser.c:817 src/search.c:195
+#: src/browser.c:825 src/search.c:196
 msgid " [Backwards]"
 msgstr " [Geriye Doğru]"
 
-#: src/browser.c:911 src/browser.c:919 src/search.c:369
+#: src/browser.c:918 src/browser.c:926 src/search.c:369
 msgid "Search Wrapped"
 msgstr "Arama Döngülendi"
 
-#: src/browser.c:1008 src/browser.c:1041 src/search.c:486 src/search.c:489
+#: src/browser.c:1015 src/browser.c:1048 src/search.c:486 src/search.c:489
 #: src/search.c:546 src/search.c:549
 msgid "This is the only occurrence"
 msgstr "Bu tek bulgu"
 
-#: src/browser.c:1044 src/search.c:555
+#: src/browser.c:1051 src/search.c:555
 msgid "No current search pattern"
 msgstr ""
 
@@ -107,7 +107,7 @@ msgid "Switched to %s"
 msgstr "%s 'e geçildi"
 
 #. TRANSLATORS: Try to keep this at most 16 characters.
-#: src/files.c:245 src/global.c:303 src/winio.c:2072
+#: src/files.c:245 src/global.c:303 src/winio.c:2155
 msgid "New Buffer"
 msgstr "Yeni Arabellek"
 
@@ -116,163 +116,158 @@ msgstr "Yeni Arabellek"
 msgid "Read %lu line (Converted from DOS and Mac format)"
 msgid_plural "Read %lu lines (Converted from DOS and Mac format)"
 msgstr[0] "%d satır okundu (Mac biçiminden dönüştürüldü)"
-msgstr[1] ""
 
 #: src/files.c:564
 #, fuzzy, c-format
 msgid "Read %lu line (Converted from Mac format)"
 msgid_plural "Read %lu lines (Converted from Mac format)"
 msgstr[0] "%d satır okundu (Mac biçiminden dönüştürüldü)"
-msgstr[1] ""
 
 #: src/files.c:569
 #, fuzzy, c-format
 msgid "Read %lu line (Converted from DOS format)"
 msgid_plural "Read %lu lines (Converted from DOS format)"
 msgstr[0] "%d satır okundu (DOS biçiminden dönüştürüldü)"
-msgstr[1] ""
 
 #: src/files.c:574
 #, fuzzy, c-format
 msgid "Read %lu line"
 msgid_plural "Read %lu lines"
 msgstr[0] "%d satır okundu"
-msgstr[1] ""
 
-#: src/files.c:594
+#: src/files.c:601
 msgid "New File"
 msgstr "Yeni Dosya"
 
-#: src/files.c:597
+#: src/files.c:604
 #, c-format
 msgid "\"%s\" not found"
 msgstr "\"%s\" bulunamadı"
 
-#: src/files.c:605 src/rcfile.c:377 src/rcfile.c:874 src/rcfile.c:908
+#: src/files.c:612 src/rcfile.c:374 src/rcfile.c:871 src/rcfile.c:905
 #, c-format
 msgid "\"%s\" is a directory"
 msgstr "\"%s\" bir dizin"
 
-#: src/files.c:606 src/rcfile.c:378 src/rcfile.c:875 src/rcfile.c:909
+#: src/files.c:613 src/rcfile.c:375 src/rcfile.c:872 src/rcfile.c:906
 #, fuzzy, c-format
 msgid "\"%s\" is a device file"
 msgstr "\"%s\" bir aygıt dosyası"
 
-#: src/files.c:623
+#: src/files.c:631
 msgid "Reading File"
 msgstr "Dosya Okunuyor"
 
-#: src/files.c:697
+#: src/files.c:707
 #, fuzzy, c-format
 msgid "Command to execute in new buffer [from %s] "
 msgstr "Yeni arabelleğe eklenecek dosya [%s 'den]"
 
-#: src/files.c:699
+#: src/files.c:709
 #, fuzzy, c-format
 msgid "Command to execute [from %s] "
 msgstr "Çalıştırılacak komut"
 
-#: src/files.c:705
+#: src/files.c:715
 #, c-format
 msgid "File to insert into new buffer [from %s] "
 msgstr "Yeni arabelleğe eklenecek dosya [%s 'den]"
 
-#: src/files.c:707
+#: src/files.c:717
 #, c-format
 msgid "File to insert [from %s] "
 msgstr "Eklenecek dosya [%s tarafından] "
 
-#: src/files.c:900
+#: src/files.c:917
 #, fuzzy
 msgid "Key invalid in non-multibuffer mode"
 msgstr "Anahtar çoklu olmayan arabellek kipinde geçersiz"
 
-#: src/files.c:1309
+#: src/files.c:1325
 #, c-format
 msgid "Can't write outside of %s"
 msgstr "%s dışına yazılamıyor"
 
-#: src/files.c:1324
+#: src/files.c:1340
 msgid "Cannot prepend or append to a symlink with --nofollow set"
 msgstr ""
 
-#: src/files.c:1396 src/files.c:1420 src/files.c:1447 src/files.c:1465
-#: src/files.c:1522 src/files.c:1541 src/files.c:1553 src/files.c:1576
-#: src/files.c:1594 src/files.c:1604 src/files.c:1640 src/files.c:2487
-#: src/files.c:2496
+#: src/files.c:1412 src/files.c:1436 src/files.c:1463 src/files.c:1481
+#: src/files.c:1538 src/files.c:1557 src/files.c:1569 src/files.c:1593
+#: src/files.c:1611 src/files.c:1621 src/files.c:1657 src/files.c:2538
+#: src/files.c:2547
 #, fuzzy, c-format
 msgid "Error writing %s: %s"
 msgstr "Hatalı alıntı dizgesi %s: %s"
 
-#: src/files.c:1397 src/nano.c:625
+#: src/files.c:1413 src/nano.c:625
 #, fuzzy
 msgid "Too many backup files?"
 msgstr ""
 "\n"
 "%s yazılmamış (çok fazla yedek dosyası?)\n"
 
-#: src/files.c:1499 src/text.c:2310 src/text.c:2322
+#: src/files.c:1515 src/text.c:2317 src/text.c:2329
 #, c-format
 msgid "Error writing temp file: %s"
 msgstr ""
 
-#: src/files.c:1674
+#: src/files.c:1691
 #, fuzzy, c-format
 msgid "Wrote %lu line"
 msgid_plural "Wrote %lu lines"
 msgstr[0] "%d satır yazıldı"
-msgstr[1] ""
 
-#: src/files.c:1774
+#: src/files.c:1794
 msgid " [DOS Format]"
 msgstr " [DOS Biçimi]"
 
-#: src/files.c:1775
+#: src/files.c:1795
 msgid " [Mac Format]"
 msgstr " [Mac Biçimi]"
 
-#: src/files.c:1777
+#: src/files.c:1797
 msgid " [Backup]"
 msgstr " [Yedek]"
 
-#: src/files.c:1781
+#: src/files.c:1805
 msgid "Prepend Selection to File"
 msgstr "Seçimi Dosyanın Başına Ekle"
 
-#: src/files.c:1782
+#: src/files.c:1806
 msgid "Append Selection to File"
 msgstr "Seçimi Dosyanın Sonuna Ekle"
 
-#: src/files.c:1783
+#: src/files.c:1807
 msgid "Write Selection to File"
 msgstr "Seçimi Dosyaya Yaz"
 
-#: src/files.c:1786
+#: src/files.c:1810
 msgid "File Name to Prepend to"
 msgstr "Başına Eklenecek Dosya Adı"
 
-#: src/files.c:1787
+#: src/files.c:1811
 msgid "File Name to Append to"
 msgstr "Sonuna Eklenecek Dosya Adı"
 
-#: src/files.c:1788
+#: src/files.c:1812
 msgid "File Name to Write"
 msgstr "Yazılacak Dosya Adı"
 
-#: src/files.c:1893
+#: src/files.c:1939
 #, fuzzy
 msgid "File exists, OVERWRITE ? "
 msgstr "Dosya var, ÜSTÜNE YAZILSIN MI?"
 
-#: src/files.c:1907
+#: src/files.c:1948
 msgid "Save file under DIFFERENT NAME ? "
 msgstr ""
 
-#: src/files.c:2335
+#: src/files.c:2385
 msgid "(more)"
 msgstr "(daha)"
 
-#: src/files.c:2417 src/rcfile.c:852
+#: src/files.c:2468 src/rcfile.c:849
 #, fuzzy, c-format
 msgid ""
 "\n"
@@ -801,7 +796,7 @@ msgstr "Sonraki Dosya"
 
 #. TRANSLATORS: This is displayed when the next keystroke will be
 #. * inserted verbatim.
-#: src/global.c:673 src/text.c:2426
+#: src/global.c:673 src/text.c:2433
 msgid "Verbatim Input"
 msgstr ""
 
@@ -1568,49 +1563,49 @@ msgstr ""
 msgid "Sorry, support for this function has been disabled"
 msgstr "Özür dileriz, bu işlev için destek etkisiz kılınmış"
 
-#: src/nano.c:941
+#: src/nano.c:946
 msgid "Save modified buffer (ANSWERING \"No\" WILL DESTROY CHANGES) ? "
 msgstr ""
 "Değiştirilmiş arabellek kaydedilsin mi (\"Hayır\" CEVABI TÜM DEĞİŞİKLİKLERİ "
 "YOK EDECEK) ? "
 
-#: src/nano.c:1004
+#: src/nano.c:1009
 msgid "Received SIGHUP or SIGTERM\n"
 msgstr "SIGHUP ya da SIGTERM sinyali alındı\n"
 
-#: src/nano.c:1022
+#: src/nano.c:1027
 #, fuzzy, c-format
 msgid "Use \"fg\" to return to nano.\n"
 msgstr "nano'ya geri dönmek için \"fg\"'yi kullanın"
 
-#: src/nano.c:1190
+#: src/nano.c:1195
 msgid "enabled"
 msgstr "etkin"
 
-#: src/nano.c:1191
+#: src/nano.c:1196
 msgid "disabled"
 msgstr "etkisiz"
 
-#: src/nano.c:1369 src/winio.c:1211
+#: src/nano.c:1374 src/winio.c:1287
 msgid "Unknown Command"
 msgstr ""
 
-#: src/nano.c:1433
+#: src/nano.c:1438
 #, fuzzy
 msgid "XON ignored, mumble mumble"
 msgstr "XON yoksayıldı."
 
-#: src/nano.c:1436
+#: src/nano.c:1441
 #, fuzzy
 msgid "XOFF ignored, mumble mumble"
 msgstr "XOFF yoksayıldı."
 
-#: src/nano.c:1835 src/rcfile.c:816
+#: src/nano.c:1840 src/rcfile.c:813
 #, fuzzy, c-format
 msgid "Requested tab size \"%s\" is invalid"
 msgstr "istenen Tab değeri %d geçerli değil"
 
-#: src/nano.c:1891 src/rcfile.c:741
+#: src/nano.c:1896 src/rcfile.c:738
 #, fuzzy, c-format
 msgid "Requested fill size \"%s\" is invalid"
 msgstr "istenen doldurma değeri %d geçerli değil"
@@ -1642,39 +1637,39 @@ msgstr "Tümü"
 msgid "No"
 msgstr "Hayır"
 
-#: src/rcfile.c:121
+#: src/rcfile.c:120
 #, fuzzy, c-format
 msgid "Error in %s on line %lu: "
 msgstr "%s'nin %d. satırında hata: "
 
-#: src/rcfile.c:176
+#: src/rcfile.c:175
 #, fuzzy, c-format
 msgid "Argument '%s' has an unterminated \""
 msgstr "%s argümanında sonlanmamış \" var"
 
-#: src/rcfile.c:203 src/rcfile.c:255 src/rcfile.c:526 src/rcfile.c:583
+#: src/rcfile.c:202 src/rcfile.c:254 src/rcfile.c:523 src/rcfile.c:580
 #, fuzzy
 msgid "Regex strings must begin and end with a \" character"
 msgstr "Düzenli ifade katarları, \" karakteri ile başlamalı ve bitmeli\n"
 
-#: src/rcfile.c:228 src/search.c:62
+#: src/rcfile.c:227 src/search.c:61
 #, c-format
 msgid "Bad regex \"%s\": %s"
 msgstr "\"%s\" yanlış bir düzenli ifade: %s"
 
-#: src/rcfile.c:249
+#: src/rcfile.c:248
 msgid "Missing syntax name"
 msgstr "Sözdizim ismi eksik"
 
-#: src/rcfile.c:304
+#: src/rcfile.c:303
 msgid "The \"none\" syntax is reserved"
 msgstr ""
 
-#: src/rcfile.c:311
+#: src/rcfile.c:310
 msgid "The \"default\" syntax must take no extensions"
 msgstr ""
 
-#: src/rcfile.c:440
+#: src/rcfile.c:437
 #, fuzzy, c-format
 msgid ""
 "Color \"%s\" not understood.\n"
@@ -1688,90 +1683,90 @@ msgstr ""
 "\"white\", \"yellow\", \"cyan\", \"magenta\" ve \n"
 "\"black\", seçimli \"bright\" ön eki ile.\n"
 
-#: src/rcfile.c:462
+#: src/rcfile.c:459
 #, fuzzy
 msgid "Cannot add a color command without a syntax command"
 msgstr "Sözdizimi satırı olmaksızın renk direktifi eklenemez"
 
-#: src/rcfile.c:467
+#: src/rcfile.c:464
 msgid "Missing color name"
 msgstr "Renk ismi eksik"
 
-#: src/rcfile.c:487
+#: src/rcfile.c:484
 #, c-format
 msgid "Background color \"%s\" cannot be bright"
 msgstr ""
 
-#: src/rcfile.c:505
+#: src/rcfile.c:502
 msgid "Missing regex string"
 msgstr ""
 
-#: src/rcfile.c:577
+#: src/rcfile.c:574
 msgid "\"start=\" requires a corresponding \"end=\""
 msgstr "\"start=\", \"end=\"e ihtiyaç duyar."
 
-#: src/rcfile.c:648 src/rcfile.c:657 src/rcfile.c:667
+#: src/rcfile.c:645 src/rcfile.c:654 src/rcfile.c:664
 #, c-format
 msgid "Command \"%s\" not allowed in included file"
 msgstr ""
 
-#: src/rcfile.c:673 src/rcfile.c:841
+#: src/rcfile.c:670 src/rcfile.c:838
 #, c-format
 msgid "Syntax \"%s\" has no color commands"
 msgstr ""
 
-#: src/rcfile.c:682
+#: src/rcfile.c:679
 #, fuzzy, c-format
 msgid "Command \"%s\" not understood"
 msgstr "%s komutu anlaşılamadı"
 
-#: src/rcfile.c:688
+#: src/rcfile.c:685
 #, fuzzy
 msgid "Missing flag"
 msgstr "Renk ismi eksik"
 
-#: src/rcfile.c:710
+#: src/rcfile.c:707
 #, fuzzy, c-format
 msgid "Option \"%s\" requires an argument"
 msgstr "%s seçeneği bir bağımsız değişken gerektiriyor"
 
-#: src/rcfile.c:728
+#: src/rcfile.c:725
 msgid "Option is not a valid multibyte string"
 msgstr ""
 
-#: src/rcfile.c:754 src/rcfile.c:782 src/rcfile.c:791
+#: src/rcfile.c:751 src/rcfile.c:779 src/rcfile.c:788
 msgid "Non-blank characters required"
 msgstr ""
 
-#: src/rcfile.c:764
+#: src/rcfile.c:761
 msgid "Two single-column characters required"
 msgstr ""
 
-#: src/rcfile.c:830
+#: src/rcfile.c:827
 #, fuzzy, c-format
 msgid "Cannot unset flag \"%s\""
 msgstr "%d bayrağı boşaltıldı!\n"
 
-#: src/rcfile.c:836
+#: src/rcfile.c:833
 #, c-format
 msgid "Unknown flag \"%s\""
 msgstr ""
 
-#: src/rcfile.c:898
+#: src/rcfile.c:895
 msgid "I can't find my home directory!  Wah!"
 msgstr "Ev dizinimi bulamıyorum!"
 
-#: src/search.c:94
+#: src/search.c:95
 #, fuzzy, c-format
 msgid "\"%.*s%s\" not found"
 msgstr "\"%s\" bulunamadı"
 
-#: src/search.c:199
+#: src/search.c:200
 #, fuzzy
 msgid " (to replace) in selection"
 msgstr " (değiştirmek için)"
 
-#: src/search.c:201
+#: src/search.c:202
 msgid " (to replace)"
 msgstr " (değiştirmek için)"
 
@@ -1788,7 +1783,6 @@ msgstr "İle değiştir"
 msgid "Replaced %lu occurrence"
 msgid_plural "Replaced %lu occurrences"
 msgstr[0] "%d değiştirme yapıldı"
-msgstr[1] ""
 
 #: src/search.c:989
 #, fuzzy
@@ -1820,72 +1814,72 @@ msgstr "İşareti Kaldır"
 msgid "Could not pipe"
 msgstr "Boru işlemi gerçekleştirilemedi"
 
-#: src/text.c:469 src/text.c:2027 src/text.c:2174
+#: src/text.c:469 src/text.c:2034 src/text.c:2181
 msgid "Could not fork"
 msgstr "Fork işlemi gerçekleştirilemedi"
 
-#: src/text.c:1265
+#: src/text.c:1272
 #, c-format
 msgid "Bad quote string %s: %s"
 msgstr "Hatalı alıntı dizgesi %s: %s"
 
-#: src/text.c:1661
+#: src/text.c:1668
 msgid "Can now UnJustify!"
 msgstr "Şmdi yaslamayı geri alabilirsiniz!"
 
-#: src/text.c:1853
+#: src/text.c:1860
 msgid "Edit a replacement"
 msgstr "Bir yerdeğiştirmeyi düzenle"
 
-#: src/text.c:1939
+#: src/text.c:1946
 msgid "Could not create pipe"
 msgstr "Boru yaratılamadı"
 
-#: src/text.c:1941
+#: src/text.c:1948
 msgid "Creating misspelled word list, please wait..."
 msgstr "Yazım hatası içeren kelimeler listeleniyor, lütfen bekleyiniz"
 
-#: src/text.c:2033
+#: src/text.c:2040
 msgid "Could not get size of pipe buffer"
 msgstr "Boru arabelleğinin boyutu alınamıyor"
 
-#: src/text.c:2084
+#: src/text.c:2091
 msgid "Error invoking \"spell\""
 msgstr "\"spell\" çağırılırken hata"
 
-#: src/text.c:2087
+#: src/text.c:2094
 msgid "Error invoking \"sort -f\""
 msgstr "\"sort -f\" çağırılırken hata"
 
-#: src/text.c:2090
+#: src/text.c:2097
 msgid "Error invoking \"uniq\""
 msgstr "\"uniq\" çağırılırken hata"
 
-#: src/text.c:2201
+#: src/text.c:2208
 #, fuzzy, c-format
 msgid "Error invoking \"%s\""
 msgstr "\"spell\" çağırılırken hata"
 
-#: src/text.c:2341
+#: src/text.c:2348
 #, c-format
 msgid "Spell checking failed: %s"
 msgstr "Yazım kontrolü başarısız oldu: %s"
 
-#: src/text.c:2343
+#: src/text.c:2350
 #, fuzzy, c-format
 msgid "Spell checking failed: %s: %s"
 msgstr "Yazım kontrolü başarısız oldu: %s"
 
-#: src/text.c:2346
+#: src/text.c:2353
 msgid "Finished checking spelling"
 msgstr "Yazım kontrolü bitti"
 
-#: src/text.c:2411
+#: src/text.c:2418
 #, c-format
 msgid "%sWords: %lu  Lines: %ld  Chars: %lu"
 msgstr ""
 
-#: src/text.c:2412
+#: src/text.c:2419
 #, fuzzy
 msgid "In Selection:  "
 msgstr "Seçimi Dosyanın Sonuna Ekle"
@@ -1896,65 +1890,65 @@ msgstr "nano bellek dışı!"
 
 #. TRANSLATORS: This is displayed during the input of a
 #. * six-digit hexadecimal Unicode character code.
-#: src/winio.c:1509
+#: src/winio.c:1588
 msgid "Unicode Input"
 msgstr ""
 
-#: src/winio.c:2053 src/winio.c:2057
+#: src/winio.c:2136 src/winio.c:2140
 #, fuzzy
 msgid "Modified"
 msgstr " Değiştirildi "
 
-#: src/winio.c:2054
+#: src/winio.c:2137
 #, fuzzy
 msgid "View"
 msgstr " Göster "
 
-#: src/winio.c:2068
+#: src/winio.c:2151
 #, fuzzy
 msgid "DIR:"
 msgstr " DİZİN: "
 
-#: src/winio.c:2075
+#: src/winio.c:2158
 #, fuzzy
 msgid "File:"
 msgstr "Dosya: "
 
-#: src/winio.c:3092
+#: src/winio.c:3182
 #, fuzzy, c-format
 msgid "line %ld/%ld (%d%%), col %lu/%lu (%d%%), char %lu/%lu (%d%%)"
 msgstr "satır %ld/%ld (%d%%), sütun %lu/%lu (%d%%), karakter %lu/%ld (%d%%)"
 
-#: src/winio.c:3210
+#: src/winio.c:3300
 msgid "The nano text editor"
 msgstr "nano metin editörü"
 
-#: src/winio.c:3211
+#: src/winio.c:3301
 #, fuzzy
 msgid "version"
 msgstr "sürüm "
 
-#: src/winio.c:3212
+#: src/winio.c:3302
 msgid "Brought to you by:"
 msgstr "Size sağlayan: "
 
-#: src/winio.c:3213
+#: src/winio.c:3303
 msgid "Special thanks to:"
 msgstr "Özel teşekkürler:"
 
-#: src/winio.c:3214
+#: src/winio.c:3304
 msgid "The Free Software Foundation"
 msgstr "The Free Software Foundation"
 
-#: src/winio.c:3215
+#: src/winio.c:3305
 msgid "For ncurses:"
 msgstr "ncurses için:"
 
-#: src/winio.c:3216
+#: src/winio.c:3306
 msgid "and anyone else we forgot..."
 msgstr "ve unuttuğumuz kişilere..."
 
-#: src/winio.c:3217
+#: src/winio.c:3307
 #, fuzzy
 msgid "Thank you for using nano!"
 msgstr "nano kullandığınız için teşekkürler!\n"

@@ -1,7 +1,8 @@
-/*	$NetBSD: popen.c,v 1.7 2006/09/26 06:55:00 lukem Exp $	*/
+/*	$NetBSD: popen.c,v 1.14 2008/09/21 14:23:39 lukem Exp $	*/
+/*	from	NetBSD: popen.c,v 1.34 2008/09/13 02:41:52 lukem Exp	*/
 
 /*-
- * Copyright (c) 1999-2004 The NetBSD Foundation, Inc.
+ * Copyright (c) 1999-2008 The NetBSD Foundation, Inc.
  * All rights reserved.
  *
  * This code is derived from software contributed to The NetBSD Foundation
@@ -15,13 +16,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *        This product includes software developed by the NetBSD
- *        Foundation, Inc. and its contributors.
- * 4. Neither the name of The NetBSD Foundation nor the names of its
- *    contributors may be used to endorse or promote products derived
- *    from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE NETBSD FOUNDATION, INC. AND CONTRIBUTORS
  * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
@@ -69,16 +63,16 @@
  *
  */
 
-#if	HAVE_TNFTPD_H
+#if defined(HAVE_TNFTPD_H)
 #include "tnftpd.h"
-#else	/* ! HAVE_TNFTPD_H */
+#else /* !defined(HAVE_TNFTPD_H) */
 
 #include <sys/cdefs.h>
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)popen.c	8.3 (Berkeley) 4/6/94";
 #else
-__RCSID("$NetBSD: popen.c,v 1.7 2006/09/26 06:55:00 lukem Exp $");
+__RCSID(" NetBSD: popen.c,v 1.34 2008/09/13 02:41:52 lukem Exp  ");
 #endif
 #endif /* not lint */
 
@@ -100,7 +94,7 @@ __RCSID("$NetBSD: popen.c,v 1.7 2006/09/26 06:55:00 lukem Exp $");
 #include <krb5/krb5.h>
 #endif
 
-#endif	/* ! HAVE_TNFTPD_H */
+#endif /* !defined(HAVE_TNFTPD_H) */
 
 #include "extern.h"
 
@@ -133,7 +127,7 @@ ftpd_popen(char *argv[], const char *ptype, int stderrfd)
 	if (!pids) {
 		if ((fds = getdtablesize()) <= 0)
 			return (NULL);
-		if ((pids = (int *)malloc((u_int)(fds * sizeof(int)))) == NULL)
+		if ((pids = (int *)malloc((unsigned int)(fds * sizeof(int)))) == NULL)
 			return (NULL);
 		memset(pids, 0, fds * sizeof(int));
 	}
@@ -173,7 +167,7 @@ ftpd_popen(char *argv[], const char *ptype, int stderrfd)
 	isls = (strcmp(sl->sl_str[0], INTERNAL_LS) == 0);
 #endif
 
-#if HAVE_VFORK
+#if defined(HAVE_VFORK)
 	pid = isls ? fork() : vfork();
 #else
 	pid = fork();
@@ -204,7 +198,7 @@ ftpd_popen(char *argv[], const char *ptype, int stderrfd)
 		}
 #ifndef NO_INTERNAL_LS
 		if (isls) {	/* use internal ls */
-#if HAVE_OPTRESET
+#if HAVE_DECL_OPTRESET
 			optreset = 1;
 #endif
 			optind = optopt = 1;

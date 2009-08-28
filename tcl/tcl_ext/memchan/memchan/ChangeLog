@@ -1,0 +1,837 @@
+2008-10-03  Andreas Kupries  <andreask@activestate.com>
+
+	* generic/memchanInt.h: Fixed [SF Bug 2078168] by Larry Virden
+	  <lvirden@users.sourceforge.net>. Added inclusion of header
+	  <string.h> to get declarations for strcmp, memcpy, and memset.
+
+2007-11-13  Andreas Kupries  <andreask@activestate.com>
+
+	* teapot.txt: New file, basic meta data of the package for TEApot
+	  compatible repositories.
+
+2006-05-08  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* Makefile.in:      Fixed make test target.
+
+2006-01-24  Andreas Kupries <andreask@activestate.com>
+
+	* tclconfig/tcl.m4: Updated to TEA 3.5
+	* configure.in:     Ditto.
+	* configure:        Regenerated.
+
+2005-06-08  Andreas Kupries <andreask@activestate.com>
+
+	* Makefile.in: Updated the toplevel build system to TEA 3.2.
+	* configure.in:
+	* generic/init.c:
+	* generic/memchanStubLib.c:
+	* tclconfig/tcl.m4:
+
+2004-11-10  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* Makefile.in: Fix the unix build system for the stubs
+	stuff. Verified that the generated stubs lib can be used in an
+	extension (make chantest target).
+
+2004-11-10  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* doc/memchanapi.man: NEW documentation for the stubs API functions.
+
+	* generic/memchan.c:  Fix and test for bug #1060620 which shows a
+	* tests/memchan.test: problem using fileevent on memchan channels
+
+	* generic/fifo2.c: Added special case for attempts to build on
+	threaded tcl 8.2. This version doesn't support Tcl_MutexFinalize
+	and we would leak mutexes from fifo2. Provided error stub
+	functions and included a #error so that anyone attempting to build
+	under these conditions will know what the problem is.
+
+	* generic/null.c:        Fix for compilation with tcl 8.2 and above.
+	* generic/random.c:
+	* generic/zero.c:
+	* generic/memchanInt.h:
+
+2004-11-09  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* generic/memchan.h:          Added a stubs library for the Memchan
+	* generic/memchan.decls:      extension. This exposes an API that
+	* generic/memchanDecls.h:     permits C extensions to create Memchan
+	* generic/memchanStubInit.c:  channels directly.
+	* generic/memchanStubLib.c:
+	
+	* generic/chantest.c:     Sample extension for testing the stubs
+	                          linking C API.
+	
+	* doc/manpage.css:        Added the tcllib style-sheet.
+
+	* generic/memchan.c:      Modified in support of the stubs API. 
+	* generic/fifo.c:         Each channel creation command now uses
+	* generic/fifo2.c:        the C API internally. Channel creation code
+	* generic/null.c:         moved to a function exposed on the Memchan
+	* generic/zero.c:         stubs interface.
+	* generic/random.c:
+	* generic/buf.decls:
+	* generic/bufStubInit.c:
+
+	* win/makefile.vc:        Windows build files updated
+	* win/rules.vc:
+	* configure.in:           TEA files updated with new version.
+	* configure:
+
+	==== Incremented version to 2.2.1 ====
+	
+2004-08-04  Pat Thoyts  <pat@zsplat.freeserve.co.uk>
+
+	* generic/fifo2.c: Applied fix for bug #996078 which sets the channel
+	                   mutex to NULL in threaded tcl (Jeff Gilbertson)
+
+2004-06-04  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* configure:        Updated and regenerated the TEA configure script
+	* tclconfig/tcl.m4: This now works with Msys on Windows (gcc & cl)
+
+2004-06-04  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* generic/zero.c:   Make the interval between fileevent
+	* generic/null.c:   notifications configurable (FR #470415).
+	* generic/random.c:
+	* doc/zero.man:     Add the -delay option to the manual pages.
+	* doc/null.man:
+	* doc/random.man:
+	* tests/zero.test:  Additional tests for -delay ?ms? option.
+	* tests/null.test:
+	* tests/random.test:
+
+2004-06-03  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* configure.in:         Changed version to 2.2.0
+	* configure:
+	* DESCRIPTION:
+	* win/makefile.vc:
+	* win/mc.rc:
+	* unix/Makefile.in:     Updated unix/* build files for the new
+	* unix/configure.in:    random and zero channels.
+	* unix/configure:
+
+	* generic/zero.c:       Added a 'zero' channel (FR #470414)
+	* tests/zero.test:
+	* doc/zero.man:
+	* generic/init.c:
+	* generic/memchanInt.h:
+	* Makefile.in:
+	* win/makefile.vc
+	
+2004-06-03  Andreas Kupries  <andreask@activestate.com>
+
+	* generic/memchan.c: Added include of <stdio.h>. This does not
+	  hurt compilation against 8.4, and makes compilation against 8.5
+	  possible again after its header reform. We need it to get the
+	  SEEK_ constants.
+
+2004-05-31  Andreas Kupries  <andreask@activestate.com>
+
+	* generic/random.c: Added empty BMP. Also removed references to
+	  the 'null' channel, changed them into 'random'.
+
+	* Makefile.in: Fixed typo DOC_* => DOC_*. Caused the documentation
+	  to not be installed.
+
+2004-05-22  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* Makefile.in:      Added a dependency rule to document creation -
+	                    fixes SF bug #681115
+
+2004-05-22  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* Makefile.in:         Added random channel.
+	* generic/random.c:
+	* tests/random.test:
+	* doc/random.man:
+	* generic/init.c:
+	* generic/memchanInt.h:
+	* isaac/rand.h:
+	* isaac/randport.c:
+	* isaac/standard.h:
+	
+
+	* win/makefile.vc:   Updated the MSVC build system for use with
+	* win/mc.rc:         MSVC++ 6 or 7.
+	* win/rules.vc:
+	* win/nmakehlp.c: 
+
+2004-05-21  Andreas Kupries  <andreask@activestate.com>
+
+	* generic/fifo2.c:   Failure in BMP is not allowed.
+	* generic/fifo.c:    Seek sets the channel temp. to
+	* generic/memchan.c: blocking 1.
+	* generic/null.c:
+
+2004-05-20  Andreas Kupries  <andreask@activestate.com>
+
+	* generic/fifo2.c:   Gave all drivers a BlockMode proc (BMP).
+	* generic/fifo.c:    This proc will reject all attempts
+	* generic/memchan.c: to set -blocking 1. But the main
+	* generic/null.c:    purpose is to ensure that the
+	                     Tcl IO core does not believe that is
+			     has to do non-blocking on its own.
+
+2004-02-18  Andreas Kupries  <andreask@activestate.com>
+
+	* DESCRIPTION.txt: Updated to dinstinguish CVS from release.
+	* generic/fifo.c (Input):    Fixed bug in reporting when at
+	* generic/memchan.c (Input): the end of the buffer. Has to
+	                             be 0/no-error, not -1/wouldblock.
+
+2003-05-15  Andreas Kupries  <andreask@activestate.com>
+
+	* generic/memchanInt.h: forcing usage of 'sprintf' for the
+	  generation of the channel name across all platforms
+	  now. Encountered an HP lto with a different signature than we
+	  use here, causing the code to get what is essentially on the
+	  stack as handle suffix, completely bogus.
+
+2003-04-04  Andreas Kupries  <andreask@activestate.com>
+
+	* configure.in:
+	* tclconfig/tcl.m4: Updated to newest tcl.m4, regenerated
+	  configure's.
+
+2003-02-04  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/memchan.c (Seek): Fixed bug 556819. Interpretation of
+	  the sign of the seek offset was wrong for seek mode SEEK_END.
+
+2003-01-24  Andreas Kupries  <andreask@activestate.com>
+
+	* Makefile.in:        Providing information about tclsh and its
+	                      environment to nroff_gen.
+	* tools/mpexpand.tcl: Copied from tcllib, portable doctools
+	                      processing.
+	* tools/nroff_gen:    Use mpexpand.tcl, use provided tclsh to
+	                      invoke it.
+
+2003-01-20  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tools/mpexpand: Added new tool. Linux/ix86 starpack containing a
+	  doctools processor.
+
+	* tools/nroff_regen:             Rewritten to use mpexpand for most
+	* tools/manpage_regen:           conversions. The conversion to HTML
+	* tools/rules/manpage.html.site: for the website still relies on the
+          old expand system. Writing a good formatting engine for that,
+	  even if derived from the doctools HTML engine takes more time
+	  than I want to invest right now. Rewriting the rules file
+	  instead. That was less work.
+
+	* doc/fifo.man:    The original contents were written
+	* doc/fifo2.man:   in a precursor format to doctools.
+	* doc/memchan.man: Now rewritten to conform to the
+	* doc/null.man:    doctools specification.
+	* doc/random.man: 
+
+2002-11-06  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* win/makefile.vc (MCOBJS): Updated to list all relevant object
+	  files.
+
+2002-10-15  Andreas Kupries  <andreask@activestate.com>
+
+	* configure.in: Changed to propagate an initial CFLAGS value to
+	  the final definition. A TEA condition (SHARED_BUILD == 1)
+	  squashed it, causing it the build system to loose the
+	  +DAportable we specify for the AS PA-RISC2.2 build host. This is
+	  a problem for _all_ TEA and TEA 2 based configure files.
+
+2002-10-02  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* Makefile.in ($($(PACKAGE)stub_LIB_FILE)): Fixed copy/paste
+	  error. Do not use AR explicitly.
+	  (MAKE_STUB_LIB): S.a.
+
+2002-08-26  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* === Release 2.2a4  available ===
+
+2002-08-21  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* Makefile.in:
+	* aclocal.m4:
+	* configure.in: New, from tcl/sampleextension, modified for
+	  Memchan. Essentially an update to the new TEA.
+
+	* tclconfig/: New. Configure definitions and other
+	  helpers. Straight out of tcl/sampleextension.
+
+	* tcl.m4:
+	* install-sh:
+	* pkgIndex.tcl:
+	* mkinstalldirs:
+	* mkIndex.tcl.in: Removed. Not required by the TEA II
+	  make/configure, or provided by tclconfig.
+
+2002-08-20  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* ANNOUNCE:
+	* ANNOUNCE.MAIL:
+	* LSM: New files, templates for distributed information.
+
+	* Used 'setversion' to update a lot of files (2.2a4).
+
+	* tea/*: Moved into toplevel directory.
+
+	* PREPARE: Removed dependencies on external packages.
+
+	* tools/setversion:
+	* tools/svfiles: special script to hack the version information
+	  and others data into a number of files, without having to rely
+	  on external packages. The system remembers the full current text
+	  which has to change for a new version, and the pattern from
+	  which to generate the new text.
+
+	* doc/nodes:
+	* doc/manual: Removed old documentation
+
+	* generic/memchan.c: Reverted Wide changes.
+
+2002-04-25  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tea/Makefile.in (install-lib-binaries): Added a missing ;. Bug
+	  was introduced by ysterdays change to install a hand-crafted
+	  package index file.
+
+	* README.install: Cleared up confusion in the listing which build
+	  system goes with which version of the tcl core.
+
+2002-04-24  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tea/pkgIndex.tcl: New, manually generated package index.
+
+	* tea/Makefile.in: Install the manually generated package index
+	  instead of trying to use "mkIndex" to auto-generate one.
+
+	* generic/bufQueue.c:
+	* generic/buf.decls (Buf_QueueWrite): inbuf CONSTified. TIP 27 followup.
+
+	* generic/buf.h (VECTOR): Removed __stdcall for Windows.
+
+	* generic/bufDecls.h: Added BUILD_Memchan dependent change of
+	  TCL_STORAGE_CLASS in sections not touched by "genstubs".
+
+	* generic/bufExt.c:
+	* generic/bufFix.c:
+	* generic/bufRange.c: Added cast to 2nd parameter of "Buf_Create".
+
+	* generic/init.c: Removed EXTERN from Memchan_*Init.
+	* generic/memchanInt.h: Added EXTERN declarations for
+	  Memchan_*Init, added definition of EWOULDBLOCK.
+	
+	* tea/mkIndex.tcl.in: Better handling of cygwin paths, look for
+	  package without version for generation of index.
+
+2002-04-23  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tea/Makefile.in (install-lib-binaries): Changed INSTALL_DATA to
+	  INSTALL_PROGRAM to accomodate HPUX.
+
+	* generic/null.c: 
+	* generic/fifo.c:
+	* generic/fifo2.c: More CONSTified API (TIP 27), Output and
+	  GetOption.
+
+2002-03-01  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+        * generic/memchan.c (Seek):      Added WideInt support (TIP 82).
+        * generic/memchan.c (Output):    CONSTified API (TIP 27)
+        * generic/memchan.c (GetOption): CONSTified API (TIP 27).
+
+2001-11-20  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* Tagged 2.2a2 =============================================
+
+2001-11-19  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tea/configure.in: Look for 8.4 and 8.3 tclsh's too.
+
+	* generic/bufStubLib.c (Buf_InitStubs): Using MC_UNCONSTB84.
+
+	* generic/bufIntDecls.h (GT84): New macro. Detects 8.4 and beyond.
+	  (MC_UNCONSTB84): New macro. Explanations in the sources.
+
+2001-11-15  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tea/Makefile.in (install-doc): Added invokations of `basename`
+	  to keep absolute paths to the source out of the destination for
+	  the copy operation.
+
+2001-11-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tea/configure.in:
+	* tea/Makefile.in: Changed to expect the toplevel directory as
+	  source directory.
+
+2001-11-04  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tea/Makefile.in (install-libraries): Removed code trying to
+	  install header files. We have no public headers to install. Yet.
+
+	* htdocs/raw/index.exp: Removed reference to the old site.
+
+	* PREPARE: Added code to move the TEA makefiles to their correct
+	  location in the source distribution. This code also eliminates
+	  the 'tea' subdirectory to avoid confusion.
+
+	* README.install: Added compilation instructions.
+
+2001-09-19  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* htdocs/raw/mem_event.exp: New page for the website containing
+	  thoughts about generation of file events for memory
+	  channels. References the new documentation about the
+	  interactions in the Tcl core between I/O system and notifier.
+
+	* tools/rules/memchan: Added declaration of additional
+	  documentation page about event generation.
+
+	* tools/rules/references: Added reference to Tcl documentation
+	  about the interaction between the components of the Tcl I/O
+	  system and the components of the Tcl notifier.
+
+	* ChangeLog.short: Updated contents a bit.
+
+	* DESCRIPTION: Updated to 2.2a1, switched to new mailing address
+	  and new location.
+
+2001-09-11  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tea/Makefile.in (install-doc): Added installation of the memchan
+	  manpages.
+
+	* PREPARE: Removed vestiges of doc/nodes, added generation of the
+	  new manpages.
+
+	* doc/fifo.man:
+	* doc/fifo2.man:
+	* doc/memchan.man:
+	* doc/null.man:
+	* doc/random.man: Adapted to new manpage specification.
+
+2001-09-10  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tools/rules/manpage.api: Added commands for [bullet] and [enum].
+
+	* doc/manpages.man: New manpage describing the manpage markup
+	  format itself.
+
+	* htdocs/raw/documentation.exp: Added TMML bundles to table.
+
+	* tools/rules/memchan: Added TMML references.
+
+	* tools/htdocs_setup: Added generation of TMML bundles.
+
+	* tools/manpage_regen: Added generation of TMML pages.
+
+2001-09-09  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tools/rules/xmlrules.tcl: New. Helper file to manpage.tmml (see
+	  below) containing XML utility procedures.
+
+	* tools/rules/manpage.tmml: New file to convert my manpage/tcl
+	  format into TMML, created for me by Joe English
+	  <jenglish@flightlab.com>, current maintainer of TMML.
+
+	* tools/htdocs_setup: Redirect output of zip commands into nothing.
+
+2001-09-08 Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tools/changelog_to_list: Fixed error in parser which duplicated
+	  the last item of a chunk as a bogus first item in the next chunk.
+
+	* tools/watch_cvs: Removed a delay in usage when it comes to
+	  changes in "htdocs_setup".
+
+	* PREPARE: Removed the generation of the 'webTemplate' based
+	  documentation.
+
+	* Completed FR [ #459565 ] Manpages: Zip bundle. See below.
+
+	* tools/htdocs_setup: Added generation of zipped documentation
+	  bundles.
+
+	* htdocs/raw/documentation.exp: Added zipped documentation bundles
+	  to the page.
+
+	* tools/rules/memchan: Added references for zipped documentation
+	  bundles. 
+
+2001-09-06 Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tools/htdocs_setup: Fixed typos.
+
+	* tools/htdocs_setup: Added generation of manpages and
+	  documentation bundles for the website.
+
+	* tools/manpage_clean: Cleanup of generated manpage files.
+	* tools/manpage_regen: Generation of manpages from base files.
+
+	* tools/rules/manpage.api.spec:  Specification of manpage policy
+	* tools/rules/manpage.api:       Error catching definitions
+	* tools/rules/manpage.html:      Rules to generate HTML
+	* tools/rules/manpage.html.site: S.a., but for integration into the website.
+	* tools/rules/manpage.list:      Rules to generate list of defined manpages
+	* tools/rules/manpage.nroff:     Rules to generate nroff, true manpages
+	
+	* tools/rules/configuration: Removed obsolete file
+	* tools/rules/site:          Added new site policy file.
+	* tools/rules/memchan:       Changed to contain configuration.
+	* tools/rules/formatting:    More basic formatting commands
+	* tools/rules/references:    Some more references.
+
+	* htdocs/raw/animation.exp:
+	* htdocs/raw/changelog.exp:
+	* htdocs/raw/disclaimer.exp:
+	* htdocs/raw/documentation.exp:
+	* htdocs/raw/image.exp:
+	* htdocs/raw/index.exp: Rewritten according to the new code for
+	  the website.
+
+2001-08-31 Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* htdocs/raw/animation.exp:
+	* htdocs/raw/changelog.exp:
+	* htdocs/raw/disclaimer.exp:
+	* htdocs/raw/documentation.exp:
+	* htdocs/raw/image.exp:
+	* htdocs/raw/index.exp: Consistent crossreferences to all memchan
+	  pages.
+
+	* tools/rules/references: Added reference to changelog page.
+
+	* tools/changelog_to_list: Application converting a ChangeLog into
+	  a tcl list. Used by the formatting cvode below to get a tcl
+	  friendly format of the changelog.
+
+	* tools/rules/formatting: Added code to generate the formatted
+	  changelog. Used in the page below.
+
+	* htdocs/raw/changelog.exp: New page for the website. Generated
+	  from the ChangeLog.
+
+2001-08-30 Andreas Kupries <andreas_kupries@users.sourceforge.net>
+
+	* htdocs: Sources of the new website.
+	* tools/htdocs/*:
+	* tools/expand:
+	* tools/watch_cvs:
+	* tools/crontab.sourceforge:
+	* tools/rules/: New scripts and supporting files to generate the
+	  website from the raw data files in htdocs. Additional tools to
+	  watch the cvs for changes and to update the website when such
+	  happens.
+
+Fri May  5 00:19:45 2000  Andreas Kupries  <a.kupries@westend.com>
+
+	* generic/fifo2.c: Added bi-directional fifo.
+
+Thu May  4 20:43:16 2000  Andreas Kupries  <a.kupries@westend.com>
+
+	* generic/init.c (Memchan_Init): Added the 'null' command for the
+	  creation of null channels.
+
+	* generic/null.c: New channel type, the null device.
+
+	* generic/fifo.c: Simplified through the use of the new buffer
+	  functionality.
+
+	* generic/buf*: Worked on a new buffering system for memchan and
+	  possibly the Tcl I/O system for the last few days.
+
+Sat Jan 15 00:28:52 2000  Andreas Kupries  <a.kupries@westend.com>
+
+	* tea/Makefile.in (install-lib-binaries): Fixed error in this
+	  target. Mailed problem and fix to TEA mailing list.
+
+Sat Sep 18 15:06:07 1999  Andreas Kupries  <a.kupries@westend.com>
+
+	* generic/fifo.c (GetOption): See below, '-allocated'.
+
+	* generic/memchan.c (MemchanCmd): Added option '-initial-size',
+	  proposed by <Petteri.Kettunen@picker.fi>. If specified the
+	  channel will preallocate some buffer space, making the first
+	  write accesses a bit faster.
+	  (GetOption): Added '-allocated' to query the size of the
+	  allocated buffers, not the used number of bytes.
+
+Tue Sep 14 00:42:11 1999  Andreas Kupries  <a.kupries@westend.com>
+
+	* generic/memchan.c, fifo.c, counter.c: Changed to use LTOA
+	  instead of 'sprintf'.
+
+	* generic/memchanInt.h (LTOA): Added definition of LTOA macro,
+	  its contents are dependent on the presence of 'ltoa'. The system
+	  uses 'sprintf' as its fallback.
+
+	* win/makefile.vc(5),.gnu, unix/configure/in, tea/configure.in:
+	  Added check for 'ltoa', Windows assumes that the function is
+	  present.
+
+	* generic/memchanInt.h: Added a fix sent by Jan to enable use with
+	  gcc-2.95 on Windows.
+
+	* BUILD_memchan changed to BUILD_Memchan, adapted the header and
+	  the other build directories. Have to use ./ to load the library
+	  for testing. This obsoletes LD_LIBRARY_PATH and consorts.
+
+	* Added 'tea' build directory the day before yesterday and asked
+	  for problem reports (Jan, Larry). These came in yesterday.
+
+Sun Aug  1 16:15:23 1999  Andreas Kupries  <a.kupries@westend.com>
+
+	* Added binary distribution for Windows, from Jan, excluded old
+ 	  binary distributions (for 1.9) and added a reference to the old
+ 	  site for this version instead.
+
+Tue Jul 27 22:57:56 1999  Andreas Kupries  <a.kupries@westend.com>
+
+	* doc/nodes/home.node, compile.node, win.node, mac.node,
+	  unix.node: Moved doc/INSTALL to HTML. Added reference to version
+	  1.9 site for people interested in usability with Tcl 7.6.
+
+	* generic/memchan.c, counter.c, init.c, fifo.c, memchanInt.h:
+	  Removed all #ifdefs relating to Tcl 7.6, support for that
+	  version is no dropped.
+
+Mon Jun 28 23:17:35 1999  Andreas Kupries  <a.kupries@westend.com>
+
+	* unix/configure.in, Makefile.in: Matt Newman <matt@novadigm.com>
+	  sent in some changes to built the extension on HPUX (Basically
+	  check for .sl extension too).
+
+Sat Jun 12 23:12:26 1999  Andreas Kupries  <a.kupries@westend.com>
+
+	* win/makefile.vc5 (MCOBJS): See below.
+
+	* win/makefile.vc (MCOBJS): Added 'dllEntry.obj' to the
+	  definition. 
+
+	* generic/memchanInt.h: 'DllEntryPoint' removed. See below.
+
+	* generic/init.c: 'DllEntryPoint' removed. See below.
+
+	* win/dllEntry.c: New file, again from Jan, to simplify DLL
+	  generation for Windows. The information in it can be removed
+	  from the generic parts.
+
+Fri Jun 11 22:40:02 1999  Andreas Kupries  <a.kupries@westend.com>
+
+	* win/Makefile.gnu: Got from Jan <nijtmans@wxs.nl> a binary
+ 	  distribution for memchan, compiled with Cygwin B20.1
+ 	  (-mno-cygwin), and the Makefile used to do that. Assorted
+	  little changes to 'mc.rc' too.
+
+Wed May 26 00:17:18 1999  Andreas Kupries  <a.kupries@westend.com>
+
+	* tests/fifo.test: Added test suite for 'fifo's.
+
+	* unix/pkgIndex.tcl: Added new command to the index.
+
+	* doc/nodes/cmds.node: Added documentation for 'fifo'.
+
+	* generic/fifo.c: New file, new channel type. Like memchan in
+	  memory, but access is done fifo-like (first in/first
+	  out). Seeking is not possible. Like a socket or a pipe, but in
+	  memory.
+
+Tue May 25 18:35:24 1999  Andreas Kupries  <a.kupries@westend.com>
+
+	* generic/memchanInt.h: Made the header usable for C++ compilers.
+
+	* unix/Makefile.in: See below.
+
+	* win/makefile.vc(5): Added rules for new object files.
+
+	* generic/counter.c: Moved handle generation into separate
+	  file. Added usage of mutexes for thread enabled tcl to make
+	  handle generation safe.
+
+	* generic/memchan.c: Moved declarations and initialization code
+	  into separate files (memchanInt.h, init.c).
+
+	* doc/nodes/cmds.node: Added description of the provided command.
+
+Tue May 11 22:29:18 1999  Andreas Kupries  <a.kupries@westend.com>
+
+	* ---------------- Ready to release 1.8 --------------------
+	
+	* unix/Makefile.in, PREPARE, tests: Added testsuite to memchan.
+
+Mon Apr 12 17:27:08 1999  Andreas Kupries  <a.kupries@westend.com>
+
+	* generic/memchan.c: Fixed error in definition of EXPORT, as
+	  reported by <Petteri.Kettunen@picker.fi>.
+
+	* win/makefile.vc(5): Fixed some errors in the win makefiles, as
+	  reported by <Petteri.Kettunen@picker.fi>.
+
+Thu Mar 25 12:30:40 1999  Andreas Kupries  <a.kupries@westend.com>
+
+	* ---------------- Ready to release 1.7 --------------------
+
+Wed Mar 24 13:15:36 1999  Andreas Kupries  <a.kupries@westend.com>
+
+	* win/pkgIndex.tcl: Separate package index, no way to use one DLL
+	  for all versions of tcl. Stubs no help ?
+
+	* unix/configure.in, unix/Makefile.in: Added all necessary code to
+	  detect and use stubs appropriately.
+
+	* unix/pkgIndex.tcl.in: Added code to check package dependency on
+	  tcl version, which is dependent on the usage of stubs too.
+
+Mon Mar 22 09:57:05 1999  Andreas Kupries  <a.kupries@westend.com>
+
+	* memchan.c: Started to work on the changes required by 8.1 and
+	  the new stub-mechanism.
+
+	* configure.in (TCL_LIB/INCLUDE_DIR): Added 8.0.4 and 8.0.5 to the
+	  list of paths to search.
+
+Sun Dec 20 19:54:08 1998  Andreas Kupries  <a.kupries@westend.com>
+
+	* memchan.c: Changed definition of panic to allow co-existence
+	  with tcl8.0.4+. Got information about problems from a
+	  beta-tester of the new plus-patches.
+
+Wed Sep 30 15:43:42 1998  Andreas Kupries  <a.kupries@westend.com>
+
+	* configure.in (TCL_LIB/INCLUDE_DIR): Added some additional
+	  intelligence: Setting one of the variables, but not the other
+	  causes automatic definition of the missing part with a value
+	  derived from the defined directory. Suggested by Larry Virden.
+	  Added 8.0.3 to the paths to search. Added $exec_prefix/lib to
+	  the paths to search for the tcl-library.
+
+Fri Jun 19 22:59:18 1998  Andreas Kupries  <a.kupries@westend.com>
+
+	* configure.in: Fixed a bug noted by David Herron
+	  <davidh@crl.com>. From its mail:
+
+	> In the section that checks for the TCL library there
+	> is a loop looking for different library extensions.
+	> In my case it needs to match the ".so.*" case of
+	> the loop, but it doesn't.
+	> 
+	> Changing the test to read as follows fixes the problem.
+	> 
+	>    if test -f $dir/libtcl$version$libsuff; then
+	>        memchan_cv_lib_TCL_LIB="-L$dir -ltcl$version"
+	>        TCL_LIB_DIR="$dir"
+	>    fi
+	> 
+	> The difference is removal of the quote marks around
+	> the file name.  This allows the "*" to be evaluated
+	> by the shell & find the file name.
+	> 
+	> Another change that would be convenient is, in
+	> the 'for version in ...' part, to add "80" to
+	> the list of choices.  With (at least) tcl8.0pl2
+	> on FreeBSD the library is "libtcl80.so.1.0" and 
+	> since the configure script only looks for "libtcl8.0"
+	> it is not found again because of that.
+
+Sat Jun 13 14:27:10 1998  Andreas Kupries  <a.kupries@westend.com>
+
+	* memchan.c (channelType): Updated to reflect structure change
+	  from Tcl 8.0 to Tcl 8.1.
+
+Sun Jul  6 14:29:51 1997  Andreas Kupries  <a.kupries@westend.com>
+
+	* -------------------- 1.4 released --------
+	
+	* memchan.c: Updated code to reflect changes in Set/GetOption API
+	  of channel drivers made by 8.0b2.
+
+Thu May 29 11:25:56 1997  Andreas Kupries  <aku@bluepeak.westend.com>
+
+	* -------------------- 1.3 released --------
+	
+	* memchan.c: Bag of changes to adapt this code to the new
+	  notifier system of 8.0b1. Will now run either with 7.6 or
+	  8.0b1. The decision is made at compile time.
+
+	* PREPARE: adapted to new 'makedist' and interface.
+
+Thu Feb 27 21:49:48 1997  Andreas Kupries  <aku@bluepeak.westend.com>
+
+	* memchan.c (Mem_safeInit): renamed to 'Memchan_SafeInit'. First
+	  bug in this 1.2 Release.
+
+	* -------------------- 1.2 released --------
+	
+Tue Feb 18 18:35:59 1997  Andreas Kupries  <aku@bluepeak.westend.com>
+
+	* -------------------- 1.2 ready for release --------
+
+Mon Feb 17 17:47:22 1997  Andreas Kupries  <aku@bluepeak.westend.com>
+
+	* memchan.c: added prototypes missed by MSVC++.
+
+Sat Feb 15 20:09:58 1997  Andreas Kupries  <aku@bluepeak.westend.com>
+
+	* memchan.c: integrated changes required to compile cleanly on
+	  windows. 
+
+	* INSTALL: updated to contain info for compilation on Windows as
+	  well. 
+
+	* Added 'makefile.vc' for compilation on Windows. The required
+	  'pkgIndex.win' is generated by 'PREPARE' from 'pkgIndex.tcl.in'.
+
+	* Rewrote generation of distribution (PREPARE, make-tape).
+	  'DESCRIPTION' now central point for version information. The
+	  data obtained from it is placed into all relevant files at
+	  distribution time (README, LSM, ...),
+
+	  Note: 'PREPARE' is an file internal to the package. It contains
+	  tcl-code preparing the package for distribution (removing
+	  unofficial and/or internal files, manpage generation, ...). It
+	  is not part of the distribution however.
+
+Mon Jan 13 22:21:48 1997  Andreas Kupries  <aku@bluepeak.westend.com>
+
+	* INSTALL: updated to reflect new search order and versions.
+
+	* Makefile.in: Removed now superfluous variables.
+
+	* configure.in: don't use -lsocket, -lm. Why there they included
+	  anyway ?
+
+	* configure.in (line 259): don't bother with -ltclX.Y if not
+	  running under AIX.
+
+	* configure.in: lowest possible tcl version is 7.6, not 7.5. Added
+	  recognition of 8.0 versions.
+
+	* configure.in: changed search order: sibling directories before
+	  <prefix> paths. But commandline options overide all.
+
+Thu Dec  5 19:02:06 1996  Andreas Kupries  <aku@bluepeak.westend.com>
+
+	* PREPARE: updated to exclude the new directories (see below) from
+	  distribution.
+
+	* added internal directories 'patches' and 'mails'.
+
+	* configure.in (AC_OUTPUT): adapted to last change, done by patch,
+	  see below.
+
+	* pkgIndex.tcl.in: former pkgIndex.in, renamed by patch, see below.
+
+	* Makefile.in (LIB_RUNTIME_DIR): added by patch, see below.
+
+	* got a patch from Jan Nijtmans <nijtmans@nici.kun.nl>.
+
+Fri Nov 15 22:45:04 1996  Andreas Kupries  <aku@bluepeak.westend.com>
+
+	* Extracted memory channel code from trans-patch and made it a
+	  separate library.
+

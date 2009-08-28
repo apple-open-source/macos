@@ -1,16 +1,16 @@
+<DIV CLASS="indent">
+
+<H2 CLASS="title">{op=modify-printer?{printer_name}の変更:プリンターの追加}</H2>
+
 <FORM METHOD="POST" ACTION="/admin">
 <INPUT TYPE="HIDDEN" NAME="OP" VALUE="{op}">
-<INPUT TYPE="HIDDEN" NAME="PRINTER_NAME" VALUE="{printer_name}">
-<INPUT TYPE="HIDDEN" NAME="PRINTER_LOCATION" VALUE="{?printer_location}">
-<INPUT TYPE="HIDDEN" NAME="PRINTER_INFO" VALUE="{?printer_info}">
+{printer_name?<INPUT TYPE="HIDDEN" NAME="printer_name" VALUE="{printer_name}">:}
 <INPUT TYPE="HIDDEN" NAME="CURRENT_MAKE_AND_MODEL" VALUE="{?current_make_and_model}">
-
-<H2 CLASS="title">{printer_name} のデバイス URI</H2>
 
 <TABLE>
 <TR>
-<TH CLASS="label">デバイス URI:</TH>
-<TD><INPUT TYPE="TEXT" SIZE="60" MAXLENGTH="1024" NAME="DEVICE_URI" VALUE="{device_uri}"></TD>
+<TH CLASS="label">接続:</TH>
+<TD><INPUT TYPE="TEXT" SIZE="60" MAXLENGTH="1024" NAME="DEVICE_URI" VALUE="{current_device_uri?{current_device_uri}:{device_uri}}"></TD>
 </TR>
 <TR>
 <TD></TD>
@@ -28,16 +28,15 @@
     socket://hostname:9100
 </PRE>
 
-<P>あなたのプリンタにふさわしい URI については、
-<A HREF="/help/network.html" TARGET="_blank">"ネットワーク
-プリンタ"</A> を参照してください。</P>
+<P>あなたのプリンターにふさわしい URI については、<A HREF="/help/network.html" TARGET="_blank">"ネットワークプリンター"</A>を参照してください。</P>
 
 </TD>
 </TR>
 <TR>
 <TD></TD>
-<TD><INPUT TYPE="IMAGE" SRC="/images/button-continue.gif" ALT="続ける"></TD>
+<TD><INPUT TYPE="SUBMIT" VALUE="続ける"></TD>
 </TR>
 </TABLE>
 
 </FORM>
+</DIV>

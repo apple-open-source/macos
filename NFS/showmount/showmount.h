@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -74,13 +74,13 @@ struct mountlist {
 };
 
 struct grouplist {
-        struct grouplist *gr_next;
+	TAILQ_ENTRY(grouplist) gr_link;
         char    gr_name[RPCMNT_NAMELEN+1];
 };
 
 struct exportslist {
-        struct exportslist *ex_next;
-        struct grouplist *ex_groups;
+	TAILQ_ENTRY(exportslist) ex_link;
+	TAILQ_HEAD(grouplisthead, grouplist) ex_groups;
         char    ex_dirp[RPCMNT_PATHLEN+1];
 };
 

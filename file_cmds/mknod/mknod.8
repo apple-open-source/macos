@@ -61,12 +61,6 @@
 The
 .Nm
 command creates device special files.
-Normally the shell script
-.Pa /dev/MAKEDEV
-is used to create special files for commonly known devices; it executes
-.Nm
-with the appropriate arguments and can make all the files required for the
-device.
 .Pp
 To make nodes manually, the required arguments are:
 .Pp
@@ -90,17 +84,7 @@ and pseudo devices, and are type
 .Cm c .
 .It Ar major
 The major device number is an integer number which tells the kernel
-which device driver entry point to use.  To learn what
-major device number to use for a particular device, check the file
-.Pa /dev/MAKEDEV
-to see if the device is known, or check
-the system dependent device configuration file:
-.Bd -filled -offset indent
-.Dq Pa /usr/src/sys/conf/device. Ns Em architecture
-.Ed
-.Pp
-(for example
-.Pa device.hp300 ) .
+which device driver entry point to use.
 .It Ar minor
 The minor device number tells the kernel which one of several similar
 devices the node corresponds to; for example, it may be a specific serial
@@ -112,7 +96,7 @@ that disk.  (Currently this form of specification is only supported by the
 .Ar bsdos
 format, for compatibility with the
 .Bsx
-.Xr mknod 8 .)
+.Xr mknod 8 . )
 .El
 .Pp
 Device numbers for different operating systems may be packed in a different
@@ -141,8 +125,7 @@ Alternatively, a single opaque device number may be specified.
 .Sh SEE ALSO
 .Xr mkfifo 1 ,
 .Xr mkfifo 2 ,
-.Xr mknod 2 ,
-.Xr MAKEDEV 8
+.Xr mknod 2
 .Sh HISTORY
 A
 .Nm

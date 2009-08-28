@@ -2,9 +2,8 @@
  * CDDL HEADER START
  *
  * The contents of this file are subject to the terms of the
- * Common Development and Distribution License, Version 1.0 only
- * (the "License").  You may not use this file except in compliance
- * with the License.
+ * Common Development and Distribution License (the "License").
+ * You may not use this file except in compliance with the License.
  *
  * You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
  * or http://www.opensolaris.org/os/licensing.
@@ -19,24 +18,19 @@
  *
  * CDDL HEADER END
  */
+
+/*
+ * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
+ * Use is subject to license terms.
+ */
+
 /*
  *	Copyright (c) 1988 AT&T
  *	All Rights Reserved
- *
  */
 
-/*
- * Copyright (c) 1998 by Sun Microsystems, Inc.
- * All rights reserved.
- */
+#pragma ident	"@(#)begin.c	1.18	08/05/31 SMI"
 
-#pragma ident	"@(#)begin.c	1.17	05/06/08 SMI" 	/* SVr4.0 1.13	*/
-
-// XXX_PRAGMA_WEAK #pragma weak	elf_begin = _elf_begin
-// XXX_PRAGMA_WEAK #pragma weak	elf_memory = _elf_memory
-
-
-#include "syn.h"
 #include <ar.h>
 #include <stdlib.h>
 #include <memory.h>
@@ -50,11 +44,27 @@
 static const char	armag[] = ARMAG;
 
 #if defined(__APPLE__)
-#include <mach-o/fat.h>
+#include <crt_externs.h>
+#include <mach/mach.h>
 #include <mach-o/loader.h>
+#include <mach-o/dyld.h>
+#include <mach-o/fat.h>
+#include <sys/sysctl.h>
 
 void
 __swap_mach_header(struct mach_header* header)
+{
+	SWAP32(header->magic);
+	SWAP32(header->cputype);
+	SWAP32(header->cpusubtype);
+	SWAP32(header->filetype);
+	SWAP32(header->ncmds);
+	SWAP32(header->sizeofcmds);
+	SWAP32(header->flags);
+}
+
+void
+__swap_mach_header_64(struct mach_header_64* header)
 {
 	SWAP32(header->magic);
 	SWAP32(header->cputype);
@@ -109,6 +119,20 @@ __swap_section(struct section* section_ptr)
 	SWAP32(section_ptr->reserved2);
 }
 
+void 
+__swap_section_64(struct section_64* section_ptr)
+{
+	SWAP64(section_ptr->addr);
+	SWAP64(section_ptr->size);
+	SWAP32(section_ptr->offset);
+	SWAP32(section_ptr->align);
+	SWAP32(section_ptr->reloff);
+	SWAP32(section_ptr->nreloc);
+	SWAP32(section_ptr->flags);
+	SWAP32(section_ptr->reserved1);
+	SWAP32(section_ptr->reserved2);
+}
+
 void __swap_symtab_command(struct symtab_command *symtab)
 {
 	SWAP32(symtab->cmd);
@@ -119,6 +143,43 @@ void __swap_symtab_command(struct symtab_command *symtab)
 	SWAP32(symtab->strsize);
 }
 
+static cpu_type_t current_program_arch(void)
+{
+        cpu_type_t current_arch = (_NSGetMachExecuteHeader())->cputype;
+        return current_arch;
+}
+
+static cpu_type_t current_kernel_arch(void)
+{
+        struct host_basic_info  hi;
+        unsigned int            size;
+        kern_return_t           kret;
+        cpu_type_t                                current_arch;
+        int                                                ret, mib[4];
+        size_t                                        len;
+        struct kinfo_proc                kp;
+        
+        size = sizeof(hi)/sizeof(int);
+        kret = host_info(mach_host_self(), HOST_BASIC_INFO, (host_info_t)&hi, &size);
+        if (kret != KERN_SUCCESS) {
+                return 0;
+        }
+        current_arch = hi.cpu_type;
+        /* Now determine if the kernel is running in 64-bit mode */
+        mib[0] = CTL_KERN;
+        mib[1] = KERN_PROC;
+        mib[2] = KERN_PROC_PID;
+        mib[3] = 0; /* kernproc, pid 0 */
+        len = sizeof(kp);
+        ret = sysctl(mib, sizeof(mib)/sizeof(mib[0]), &kp, &len, NULL, 0);
+        if (ret == -1) {
+                return 0;
+        }
+        if (kp.kp_proc.p_flag & P_LP64) {
+                current_arch |= CPU_ARCH_ABI64;
+        }
+        return current_arch;
+}
 #endif /* __APPLE__ */
 
 /*
@@ -262,15 +323,8 @@ _elf_config(Elf * elf)
 		int end_of_archs = sizeof(struct fat_header) + nfat_arch * sizeof(struct fat_arch);
 		struct fat_arch *arch = (struct fat_arch *)(elf->ed_ident + sizeof(struct fat_header));
 		
-		long cputype;
-		size_t len = sizeof(cputype);
-		int err = sysctlbyname("hw.cputype", (void *)&cputype, &len, NULL, 0);
-		
-		if (-1 == err) {
-			_elf_seterr(EIO_VM, errno);
-			return 0;
-		}
-		 
+		cpu_type_t cputype = (elf->ed_myflags & EDF_RDKERNTYPE) ? current_kernel_arch() :current_program_arch();
+			
 		if (end_of_archs > elf->ed_fsz) {
 			_elf_seterr(EIO_VM, errno);
 			return 0;
@@ -322,36 +376,13 @@ _elf_config(Elf * elf)
 						thisSG = &seg;
 						__swap_segment_command(thisSG);
 					}
-									
-					if (0 == strcmp(thisSG->segname, SEG_LINKEDIT))
-						n++; /* SEG_LINKEDIT induces a mock ".strtab" section. */
-					else
-						n += thisSG->nsects;
-
+					
+					n += thisSG->nsects;
 					break;
 				}
-					
-				case LC_SEGMENT_64:
-				{
-					struct segment_command_64 seg, *thisSG64 = (struct segment_command_64 *)thisLC;
-
-					if (needSwap) {
-						seg = *thisSG64;
-						thisSG64 = &seg;
-						__swap_segment_command_64(thisSG64);
-					}
-
-					n += thisSG64->nsects;
-					break;
-				}
-					
-				case LC_SYMSEG: /* Overloaded for CTF data */
-					n++;
-					break;
 					
 				case LC_SYMTAB:
-				/* case LC_DSYMTAB: */
-					n++;
+					n += 2;
 					break;
 					
 				default:
@@ -430,7 +461,7 @@ _elf_config(Elf * elf)
 		if (needSwap) {
 			hdr = *mh64;
 			mh64 = &hdr;
-			__swap_mach_header((struct mach_header *)mh64);
+			__swap_mach_header_64(mh64);
 		}
 			
 		for (i = 0; i < mh64->ncmds; i++) {
@@ -442,24 +473,6 @@ _elf_config(Elf * elf)
 			}
 				
 			switch(cmd) {
-				case LC_SEGMENT:
-				{
-					struct segment_command seg, *thisSG = (struct segment_command *)thisLC;
-					
-					if (needSwap) {
-						seg = *thisSG;
-						thisSG = &seg;
-						__swap_segment_command(thisSG);
-					}
-									
-					if (0 == strcmp(thisSG->segname, SEG_LINKEDIT))
-						n++; /* SEG_LINKEDIT induces a mock ".strtab" section. */
-					else
-						n += thisSG->nsects;
-
-					break;
-				}
-					
 				case LC_SEGMENT_64:
 				{
 					struct segment_command_64 seg, *thisSG64 = (struct segment_command_64 *)thisLC;
@@ -474,13 +487,8 @@ _elf_config(Elf * elf)
 					break;
 				}
 					
-				case LC_SYMSEG: /* Overloaded for CTF data */
-					n++;
-					break;
-					
 				case LC_SYMTAB:
-				/* case LC_DSYMTAB: */
-					n++;
+					n += 2;
 					break;
 					
 				default:
@@ -517,7 +525,7 @@ _elf_config(Elf * elf)
 		((Elf64_Ehdr *)(elf->ed_ident))->e_phnum = 0;
 		((Elf64_Ehdr *)(elf->ed_ident))->e_shentsize = sizeof(Elf64_Shdr);
 		((Elf64_Ehdr *)(elf->ed_ident))->e_shnum = n + 1;
-		((Elf64_Ehdr *)(elf->ed_ident))->e_shstrndx = SHN_MACHO;
+		((Elf64_Ehdr *)(elf->ed_ident))->e_shstrndx = SHN_MACHO_64;
 
 		elf->ed_kind = ELF_K_MACHO;
 		elf->ed_class = ((Elf64_Ehdr *)(elf->ed_ident))->e_ident[EI_CLASS];
@@ -728,6 +736,10 @@ elf_begin(int fd, Elf_Cmd cmd, Elf *ref)
 
 	case ELF_C_READ:
 		flags = EDF_READ;
+		break;
+		
+	case ELF_C_RDKERNTYPE:
+		flags = EDF_READ | EDF_RDKERNTYPE;
 		break;
 	}
 

@@ -14,6 +14,10 @@ end
 class UniqRubyObject < OSX::NSObject
 end
 
+class TableViewNibOwner < OSX::NSObject
+  ib_outlet :tableView
+end
+
 class TC_UniqObject < Test::Unit::TestCase
 
     # Check that a NSObject-based Ruby object is not copied each time it crosses the bridge. 
@@ -69,6 +73,29 @@ class TC_UniqObject < Test::Unit::TestCase
             assert_equal(o.__ocid__, o2.__ocid__)
             assert_equal(o, o2)
         end
+    end
+    
+    def test_equality_of_a_objc_object_that_has_been_instantiated_from_a_nib
+      # A naive fix for equality.
+      # OSX::NSObject.class_eval do
+      #   def ==(other)
+      #     __ocid__ == other.__ocid__
+      #   end
+      # end
+      
+      url = OSX::NSURL.fileURLWithPath(File.expand_path('../TableView.nib', __FILE__))
+      nib = OSX::NSNib.alloc.initWithContentsOfURL(url)
+      owner = OSX::TableViewNibOwner.alloc.init
+      res, outlets = nib.instantiateNibWithOwner_topLevelObjects(owner)
+      
+      # They are both the same objc objects but referenced in another way,
+      # which seems to return different ruby proxy instances.
+      tableView1 = outlets.select {|obj| obj.is_a? OSX::NSScrollView }.first
+      tableView2 = owner.instance_variable_get(:@tableView)
+      
+      assert tableView1 == tableView2
+      assert tableView1 === tableView2
+      assert OSX::NSScrollView === tableView2
     end
 end
 

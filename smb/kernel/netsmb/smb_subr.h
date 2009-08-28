@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,10 +43,15 @@
 MALLOC_DECLARE(M_SMBTEMP);
 #endif
 
+
+#define SMB_NO_LOG_LEVEL		0
+#define SMB_LOW_LOG_LEVEL		1
+#define SMB_ACL_LOG_LEVEL		2
+
 extern int smbfs_loglevel;
 
-#define SMB_PRNT_LOW(offset) (long)(offset & 0x00000000ffffffff)
-#define SMB_PRNT_HIGH(offset) (long)((offset >> 32) & 0x00000000ffffffff)
+#define SMB_PRNT_LOW(offset) (int32_t)(offset & 0x00000000ffffffff)
+#define SMB_PRNT_HIGH(offset) (int32_t)((offset >> 32) & 0x00000000ffffffff)
 
 #define SMB_PRETEND_TO_BE_AFP(mp) \
 {	\
@@ -56,8 +61,15 @@ extern int smbfs_loglevel;
 
 #ifdef SMB_DEBUG
 #define SMBDEBUG(format, args...) printf("%s: "format, __FUNCTION__ ,## args)
+
+#ifdef DEBUG_SYMBOLIC_LINKS
+#define SMBSYMDEBUG	SMBDEBUG
+#else // DEBUG_SYMBOLIC_LINKS
+#define SMBSYMDEBUG(format, args...)
+#endif // DEBUG_SYMBOLIC_LINKS
 #else SMB_DEBUG
 #define SMBDEBUG(format, args...)
+#define SMBSYMDEBUG(format, args...)
 #endif SMB_DEBUG
 
 #define SMBERROR(format, args...) printf("%s: "format, __FUNCTION__ ,## args)
@@ -117,7 +129,7 @@ void m_dumpm(mbuf_t m);
 
 #include <sys/lock.h>
 
-#define SMB_STRFREE(p)	do { if (p) smb_strfree(p); } while(0)
+#define SMB_STRFREE(p)	do { if (p) free(p, M_SMBSTR);  p = NULL; } while(0)
 
 /*
  * The simple try/catch/finally interface.
@@ -158,57 +170,43 @@ void m_dumpm(mbuf_t m);
 typedef u_int16_t	smb_unichar;
 typedef	smb_unichar	*smb_uniptr;
 
-/*
- * Crediantials of user/process being processing in the connection procedures
- */
-struct smb_cred {
-	vfs_context_t	scr_vfsctx;
-	pid_t		pid;
-};
-
 struct mbchain;
 struct smb_vc;
 struct smb_rq;
 
 #define EMOREDATA (0x7fff)
 
-#ifdef DEBUG
-void smb_hexdump(const char *func, char *s, unsigned char *buf, int len);
-#else // DEBUG
+#ifdef SMB_DEBUG
+void smb_hexdump(const char *func, const char *s, unsigned char *buf, size_t inlen);
+#else // SMB_DEBUG
 #define smb_hexdump(a,b,c,d)
-#endif // DEBUG
-void smb_scred_init(struct smb_cred *scred, vfs_context_t vfsctx);
+#endif // SMB_DEBUG
 int  smb_sigintr(vfs_context_t);
-char *smb_strdup(const char *s);
+char *smb_strdup(const char *s, size_t maxlen);
 void *smb_memdup(const void *umem, int len);
 void *smb_memdupin(user_addr_t umem, int len);
 
-size_t smb_strtouni(u_int16_t *dst, const char *src, size_t inlen, int flags);
-#ifdef MAY_BE_USEFULL_IN_FUTURE
-size_t smb_unitostr(char *dst, const u_int16_t *src, size_t inlen, size_t maxlen, int flags);
-#endif // MAY_BE_USEFULL_IN_FUTURE
-void smb_strfree(char *s);
 void smb_memfree(void *s);
-void *smb_zmalloc(unsigned long size, int type, int flags);
+void *smb_zmalloc(size_t size, int type, int flags);
 
-int  smb_calcmackey(struct smb_vc *vcp);
-int  smb_calcv2mackey(struct smb_vc *vcp, u_char *v2hash, u_char *ntresp,
-	size_t resplen);
+void smb_reset_sig(struct smb_vc *vcp);
+void smb_calcmackey(struct smb_vc *vcp, void *ntlm, size_t resplen);
+void smb_calcv2mackey(struct smb_vc *vcp, void *v2hash, void *ntlmv2, void *resp, size_t resplen);
 int  smb_lmresponse(const u_char *apwd, u_char *C8, u_char *RN);
 int  smb_ntlmresponse(const u_char *apwd, u_char *C8, u_char *RN);
-int  smb_ntlmv2hash(const u_char *apwd, const u_char *user,
-	const u_char *destination, u_char *v2hash);
-int  smb_ntlmv2response(u_char *v2hash, u_char *C8, const u_char *blob,
-	size_t bloblen, u_char **RN, size_t *RNlen);
+void smb_ntlmv2hash(uint8_t *ntlmv2Hash, const void * domain, const void * user, const void * password);
+void *smb_lmv2_response(void *ntlmv2Hash, u_int64_t server_nonce, u_int64_t client_nonce, size_t *lmv2_len);
+void smb_ntlmv2_response(void *ntlmv2Hash, void *ntlmv2, size_t ntlmv2_len, u_int64_t server_nonce);
+void *make_target_info(struct smb_vc *vcp, u_int16_t *target_len);
+uint8_t *make_ntlmv2_blob(u_int64_t client_nonce, void *target_info, u_int16_t target_len, size_t *blob_len);
 int  smb_maperror(int eclass, int eno);
 u_int32_t  smb_maperr32(u_int32_t eno);
-int  smb_put_dmem(struct mbchain *mbp, struct smb_vc *vcp,
-	const char *src, int len, int flags, int *lenp);
-int  smb_put_dstring(struct mbchain *mbp, struct smb_vc *vcp, const char *src, int flags);
+int  smb_put_dmem(struct mbchain *mbp, struct smb_vc *vcp, const char *src, size_t len, int flags, size_t *lenp);
+int  smb_put_dstring(struct mbchain *mbp, struct smb_vc *vcp, const char *src, size_t maxlen, int flags);
 int  smb_put_string(struct smb_rq *rqp, const char *src);
 int  smb_put_asunistring(struct smb_rq *rqp, const char *src);
 struct sockaddr *smb_dup_sockaddr(struct sockaddr *sa, int canwait);
 int  smb_rq_sign(struct smb_rq *rqp);
 int  smb_rq_verify(struct smb_rq *rqp);
-void smb_get_username_from_kcpn(struct smb_vc *vcp, char *kuser);
+void smb_get_username_from_kcpn(struct smb_vc *vcp, char *kuser, size_t maxlen);
 #endif /* !_NETSMB_SMB_SUBR_H_ */

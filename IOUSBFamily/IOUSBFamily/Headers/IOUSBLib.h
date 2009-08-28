@@ -2051,7 +2051,8 @@ typedef struct IOUSBInterfaceStruct182 {
                 the entire request is not completed in this amount of time, the request will be aborted and returned.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService, or
                 kIOReturnNotOpen if the interface is not open for exclusive access.  Returns kIOReturnBadArgument if timeout 
-                values are specified for an interrupt pipe.
+                values are specified for an interrupt pipe.  If an error is returned, the size parameter is not updated and the buffer will
+				NOT contain any valid data.
 	*/
 
     IOReturn (*ReadPipeTO)(void *self, UInt8 pipeRef, void *buf, UInt32 *size, UInt32 noDataTimeout, UInt32 completionTimeout);
@@ -2104,7 +2105,8 @@ typedef struct IOUSBInterfaceStruct182 {
     @param      refCon Arbitrary pointer which is passed as a parameter to the callback routine.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService, or
                 kIOReturnNotOpen if the interface is not open for exclusive access.  Returns kIOReturnBadArgument if timeout 
-                values are specified for an interrupt pipe.
+	 values are specified for an interrupt pipe.  If an error is returned, the size parameter is not updated and the buffer will
+	 NOT contain any valid data.
 	*/
 
     IOReturn (*ReadPipeAsyncTO)(void *self, UInt8 pipeRef, void *buf, UInt32 size, UInt32 noDataTimeout, UInt32 completionTimeout, IOAsyncCallback1 callback, void *refcon);

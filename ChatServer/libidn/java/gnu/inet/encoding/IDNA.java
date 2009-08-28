@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2004  Free Software Foundation, Inc.
+ * Copyright (C) 2004, 2005, 2006, 2007  Free Software Foundation, Inc.
  *
  * Author: Oliver Hitz
  *
@@ -46,7 +46,7 @@ public class IDNA
       char c = input.charAt(i);
       if (c == '.' || c == '\u3002' || c == '\uff0e' || c == '\uff61') {
 	o.append(toASCII(h.toString(), false, true));
-	o.append(c);
+	o.append('.');
 	h = new StringBuffer();
       } else {
 	h.append(c);

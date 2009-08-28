@@ -1,0 +1,162 @@
+# Features covered:  Entities
+#
+# This file contains a collection of tests for the different kinds of 
+# entities.
+#
+#    entity-1.*:  parameter entities, character entities
+#    entity-2.*:  predefined entities
+#    entity-3.*:  -useForeignDTD
+#    entity-4.*:  external parsed entites
+#
+# Copyright (c) 1999-2000 Zveno Pty Ltd.
+# Copyright (c) 2000-2004 Rolf Ade
+#
+# $Id: entity.test,v 1.6 2004/07/28 03:42:24 rolf Exp $
+
+source [file join [file dir [info script]] loadtdom.tcl]
+
+proc Start {name attrList args} {
+    incr ::elements
+}
+
+proc pcdata text {
+    append ::result $text
+}
+
+proc EntityRef name {
+    lappend ::references $name
+    append ::result ##entityreference##
+    return {}
+}
+
+test entity-1.1 {parameter entity in document entity} {
+    set ::result {}
+
+    catch {rename xml::entity-1.1 {}}
+    set parser [xml::parser entity-1.1 \
+	-characterdatacommand pcdata]
+    $parser parse {<!DOCTYPE Test [
+<!ENTITY % Wrong "This is wrong">
+]>
+<Test>%wrong;</Test>}
+    set ::result
+} {%wrong;}
+
+test entity-1.2 {character entities in hex} {
+    set ::result {}
+
+    catch {rename xml::entity-1.2 {}}
+    set parser [xml::parser entity-1.2 \
+	-characterdatacommand pcdata]
+    $parser parse {<Test>&#x41;&#x3C;&#x3e;&#x24;&#x5B;&#x5D;</Test>}
+    set ::result
+} {A<>$[]}
+
+test entity-1.3 {character entities in decimal} {
+    set ::result {}
+
+    catch {rename xml::entity-1.3 {}}
+    set parser [xml::parser entity-1.3 \
+	-characterdatacommand pcdata]
+    $parser parse {<Test>&#65;&#60;&#62;&#36;&#91;&#93;</Test>}
+    set ::result
+} {A<>$[]}
+
+test entity-1.4 {illegal character entity} {
+    set ::result {}
+
+    catch {rename xml::entity-1.4 {}}
+    set parser [xml::parser entity-1.4 \
+	-characterdatacommand pcdata]
+    set err [catch {$parser parse {<Test>&#blah;</Test>}}]
+    list $err $::result
+} {1 {}}
+
+test entity-2.1 {predefined general entities} {
+    set ::result {}
+
+    catch {rename xml::entity-2.1 {}}
+    set parser [xml::parser entity-2.1 \
+	-characterdatacommand pcdata]
+    $parser parse {<Test>&lt;&gt;&amp;&quot;&apos;</Test>}
+    set ::result
+} {<>&"'}
+
+# emacs: "
+
+proc extrefhandler-3 {base args} {
+    global extrefhandlerCalled
+
+    set extrefhandlerCalled 1
+
+    return [list string $base ""]
+}
+
+test entity-3.1 {-useForeignDTD} {
+    
+    set ::extrefhandlerCalled 0
+    set parser [expat -useForeignDTD 0 \
+                      -externalentitycommand extrefhandler-3 \
+                      -paramentityparsing notstandalone]
+    $parser parse <root/>
+    $parser free
+    set ::extrefhandlerCalled
+} {0}
+
+test entity-3.2 {-useForeignDTD} {
+    
+    set ::extrefhandlerCalled 0
+    set parser [expat -useForeignDTD 1 \
+                      -externalentitycommand extrefhandler-3 \
+                      -paramentityparsing notstandalone]
+    $parser parse <root/>
+    $parser free
+    set ::extrefhandlerCalled
+} {1}
+
+test entity-3.3 {-useForeignDTD} {
+    
+    set ::extrefhandlerCalled 0
+    set parser [expat -useForeignDTD 1 \
+                      -externalentitycommand extrefhandler-3 \
+                      -paramentityparsing notstandalone]
+    $parser parse {
+<!DOCTYPE root [
+    <!ATTLIST root fixed CDATA #FIXED "toThis">
+]>
+<root/>}
+    $parser free
+    set ::extrefhandlerCalled
+} {1}
+
+proc extrefhandler-4 {args} {
+    global notexistendpath
+    # Search for a not existing file path
+    set base /ae124
+    set filename 0
+    set path [file join $base $filename]
+    while {[file exists $path]} {
+        incr filename
+        set path [file join $base $filename]
+    }
+    set notexistendpath $path
+    return [list filename $path $path]
+}
+
+test entity-4.1 {external entity: returned filename dose not exist} -body {
+    set parser [expat -useForeignDTD 1 \
+                      -externalentitycommand extrefhandler-4 \
+                      -paramentityparsing always]
+    set result [catch {$parser parse <root/>} errMsg]
+    append result " $errMsg"
+    $parser free
+    set result
+} -match glob -result {1 error opening file "/ae124/*"}
+
+foreach parser [info commands entity-*] {
+    $parser free
+}
+
+# cleanup
+::tcltest::cleanupTests
+return

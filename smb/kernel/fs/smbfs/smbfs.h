@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,17 +40,17 @@
 #define VT_SMBFS	VT_OTHER
 
 #define SMBFS_VERMAJ	1
-#define SMBFS_VERMIN	4400
+#define SMBFS_VERMIN	6000
 #define SMBFS_VERSION	(SMBFS_VERMAJ*100000 + SMBFS_VERMIN)
 #define	SMBFS_VFSNAME	"smbfs"
-#define SMBFS_LANMAN	"SMBFS 1.4.4"	/* Needs to match SMBFS_VERSION */
-#define SMBFS_NATIVEOS	"Mac OS X 10.5"	/* Needs to match current OS version major number only */
+#define SMBFS_LANMAN	"SMBFS 1.6.0"	/* Needs to match SMBFS_VERSION */
+#define SMBFS_NATIVEOS	"Mac OS X 10.6"	/* Needs to match current OS version major number only */
 #define SMBFS_SLASH_TONAME "/Volumes/0x2f"
 
 /* Values for flags */
-#define SMBFS_MNT_SOFT	0x0001
+#define SMBFS_MNT_SOFT	        0x0001
+#define	SMBFS_MNT_NOTIFY_OFF    0x0002
 #define	SMBFS_MNT_STREAMS_ON	0x0004
-#define	SMBFS_MOUNT_NO_LONG	0x0008
 
 #define	SMBFS_MAXPATHCOMP	256	/* maximum number of path components */
 
@@ -59,7 +59,7 @@
 #define SMB_STREAMS_ON	".com.apple.smb.streams.on"
 #define SMB_STREAMS_OFF	".com.apple.smb.streams.off"
 
-#define SMB_MAX_UBIQUE_ID	128 + 16 /* Share name, ip address andd port number */
+#define SMB_MAX_UBIQUE_ID	128 + MAXPATHLEN + 16 /* Share name, path, ip address and port number */
 
 
 #define kGuestAccountName	"GUEST"
@@ -80,7 +80,7 @@ struct ByteRangeLockPB2 {
 	u_int64_t	retRangeStart;	/* nbr of first byte locked if successful */
 	u_int8_t	unLockFlag;	/* 1 = unlock, 0 = lock */
 	u_int8_t	startEndFlag;	/* 1 = rel to end of fork, 0 = rel to start */
-	int		fd;
+	int32_t		fd;
 };
 
 struct SpotLightSideBandInfoPB
@@ -148,13 +148,19 @@ enum  {
 	kConnectedByKerberos = 4
 };
 
+/* 
+ * We just want to know the type of access used to mount the volume and the 
+ * user name used. If not set then the unique_id needs to be set.
+ */
+#define SMBFS_GET_ACCESS_INFO	1
+
 struct UniqueSMBShareID {
 	int32_t		connection_type;
-	int32_t		reserved;
+	int32_t		flags;
 	int32_t		error;
 	int32_t		unique_id_len;
-	unsigned char	unique_id[SMB_MAX_UBIQUE_ID];	/* A set of bytes that uniquely identifies this volume */
-	char		user[SMB_MAXUSERNAMELEN + 1];
+	unsigned char	unique_id[SMB_MAX_UBIQUE_ID] __attribute((aligned(8)));	/* A set of bytes that uniquely identifies this volume */
+	char		user[SMB_MAXUSERNAMELEN + 1] __attribute((aligned(8)));
 };
 
 #define smbfsByteRangeLock2FSCTL		_IOWR('z', 23, struct ByteRangeLockPB2)
@@ -186,11 +192,13 @@ struct smb_mount_args {
 	gid_t 		gid;
 	mode_t 		file_mode;
 	mode_t 		dir_mode;
-	int32_t		path_len;
+	u_int32_t	path_len;
 	int32_t		unique_id_len;
-	char		path[MAXPATHLEN];		/* The starting path they want used for the mount */
-	char		url_fromname[MAXPATHLEN];	/* The from name is the url used to mount the volume. */
-	unsigned char	unique_id[SMB_MAX_UBIQUE_ID];	/* A set of bytes that uniquely identifies this volume */
+	char		path[MAXPATHLEN] __attribute((aligned(8))); /* The starting path they want used for the mount */
+	char		url_fromname[MAXPATHLEN] __attribute((aligned(8))); /* The from name is the url used to mount the volume. */
+	unsigned char	unique_id[SMB_MAX_UBIQUE_ID] __attribute((aligned(8))); /* A set of bytes that uniquely identifies this volume */
+	char		volume_name[MAXPATHLEN] __attribute((aligned(8))); /* The starting path they want used for the mount */
+	u_int64_t	ioc_reserved __attribute((aligned(8))); /* Force correct size always */
 };
 
 #ifdef KERNEL
@@ -202,35 +210,23 @@ struct smbfs_args {
 	gid_t 		gid;
 	mode_t 		file_mode;
 	mode_t 		dir_mode;
-	int32_t		path_len;	/* Must be less than MAXPATHLEN and does not count the nuull byte */
+	size_t		path_len;	/* Must be less than MAXPATHLEN and does not count the nuull byte */
 	char		*path;		/* The starting path they want to used with this mounted volume */
 	int32_t		unique_id_len;
 	unsigned char	*unique_id;	/* A set of bytes that uniquely identifies this volume */
+	char		*volume_name;
 };
 
 #ifdef MALLOC_DECLARE
 MALLOC_DECLARE(M_SMBFSMNT);
 #endif
 
-#ifdef __APPLE_API_UNSTABLE
-/*
- * %%% - We need vnode_getparent prototype in vnode.h, currently its only 
- * prototype in vnode_internal.h 
- *
- * I would prefer not to include the whole vnode_internal.h file when 
- * vnode_getparent is the only item I need. Remember that vnode_getparent is 
- * exported in the unsupport kext. So for now we will prototype here, until 
- * it gets added to vnode.h.  Note: We always need to do a vnode_put if 
- * vnode_getparent returns a vnode.
-*/
-vnode_t vnode_getparent(vnode_t);
-#endif // __APPLE_API_UNSTABLE
-
 struct smbnode;
 struct smb_share;
 struct u_cred;
 struct vnop_ioctl_args;
 struct buf;
+struct smbfs_notify_change;
 
 /*
  * SM_MAX_STATFSTIME is the maximum time to cache statfs data. Since this
@@ -246,10 +242,10 @@ struct buf;
 #define SM_STATUS_TIMEO 0x00000004 /* this mount is not responding */
 #define SM_STATUS_DEAD	0x00000010 /* connection gone - unmount this */
 
-void smbfs_reconnect(struct smbmount *smp);
-void smbfs_down(struct smbmount *smp);
-void smbfs_up(struct smbmount *smp);
-void smbfs_dead(struct smbmount *smp);
+void smbfs_reconnect(struct smb_share *ssp);
+void smbfs_down(struct smb_share *share);
+void smbfs_up(struct smb_share *share);
+void smbfs_dead(struct smb_share *share);
 void smbfs_clear_acl_cache(struct smbnode *np);
 
 /* 
@@ -258,19 +254,18 @@ void smbfs_clear_acl_cache(struct smbnode *np);
  * setting the time on a file. 
  */
 #define kRequiresFileInfoTime	0x0001	/* Setting time requires a file descriptor */
-#define kInMountSMBFS		0x0002	/* In the mount call still don't allow reconnects */
 
 
 struct smbmount {
-    	u_int64_t		ntwrk_uid;
-    	u_int64_t		ntwrk_gid;
-    	u_int32_t		ntwrk_cnt_gid;
-    	u_int64_t		*ntwrk_gids;
+	u_int64_t		ntwrk_uid;
+	u_int64_t		ntwrk_gid;
+	u_int32_t		ntwrk_cnt_gid;
+	u_int64_t		*ntwrk_gids;
+	ntsid_t			*ntwrk_sids;
+	uint32_t		ntwrk_sids_cnt;
 	struct smbfs_args	sm_args;
 	struct mount * 		sm_mp;
 	vnode_t			sm_rvp;
-	kauth_cred_t		sm_owner;
-	long			sm_nextino;
 	struct smb_share * 	sm_share;
 	int			sm_flags;	/* Info Levels that are not support on this mount point */
 	lck_mtx_t		*sm_hashlock;
@@ -281,6 +276,8 @@ struct smbmount {
 	lck_mtx_t		sm_statfslock; /* sm_statsbuf lock */
 	struct vfsstatfs	sm_statfsbuf; /* cached statfs data */
 	lck_mtx_t		sm_renamelock; /* mount rename lock */
+	void			*notify_thread;	/* pointer to the notify thread structure */
+	int32_t			tooManyNotifies;
 };
 
 #define VFSTOSMBFS(mp)		((struct smbmount *)(vfs_fsprivate(mp)))
@@ -309,17 +306,28 @@ extern char smb_symmagic[];
 		KAUTH_VNODE_READ_SECURITY | KAUTH_VNODE_WRITE_SECURITY | \
 		KAUTH_VNODE_TAKE_OWNERSHIP | KAUTH_VNODE_SYNCHRONIZE)
 
-int smbfs_getids(struct smbnode *np, struct smb_cred *scred);
-char *smb_sid2str(struct ntsid *sidp);
-void smb_sid2sid16(struct ntsid *sidp, ntsid_t *sid16p);
-void smb_sid_endianize(struct ntsid *sidp);
+int smbfs_getsecurity(struct smbnode *, struct vnode_attr *, vfs_context_t);
+void smb_printsid(struct ntsid *, char */*sidendptr*/, const char * /* printstr */, 
+		  const char * /*filename*/, int /*index*/, int /*error*/);
+int smb_sid_in_domain(const ntsid_t * , const ntsid_t * );
+void smb_sid2sid16(struct ntsid *, ntsid_t *, char */*sidendptr*/);
 
 /*
  * internal versions of VOPs
  */
-int smbfs_open(vnode_t vp, int mode, vfs_context_t vfsctx);
-int smbfs_close(vnode_t vp, int fflag, vfs_context_t vfsctx);
-void smbfs_create_start_path(struct smb_vc *vcp, struct smbmount *smp, struct smb_mount_args *args);
+int smbfs_open(vnode_t, int mode, vfs_context_t);
+int smbfs_close(vnode_t, int fflag, vfs_context_t);
+void smbfs_create_start_path(struct smbmount *, struct smb_mount_args *);
+int smbfs_update_cache(vnode_t vp, struct vnode_attr *vap, vfs_context_t context);
+
+/*
+ * Notify change routines
+ */
+void smbfs_notify_change_create_thread(struct smbmount *smp);
+void smbfs_notify_change_destroy_thread(struct smbmount *smp);
+int smbfs_start_change_notify(struct smbnode *node, vfs_context_t context, int *releaseLock);
+int smbfs_stop_change_notify(struct smbnode *np, int forceClose, vfs_context_t context, int *releaseLock);
+void smbfs_restart_change_notify(struct smbnode *node, vfs_context_t context);
 
 #define SMB_IOMAX ((size_t)MAX_UPL_TRANSFER * PAGE_SIZE)
 

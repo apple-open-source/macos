@@ -1,4 +1,4 @@
-# Copyright (C) 1998,1999,2000,2001,2002 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2008 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -27,7 +27,7 @@ acre = re.compile(r'<(?P<addr>[^>]*)>')
 
 
 def process(msg):
-    if msg.get_type() <> 'multipart/mixed':
+    if msg.get_content_type() <> 'multipart/mixed':
         return None
     # simple state machine
     #     0 == nothing seen

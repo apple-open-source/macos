@@ -1,6 +1,6 @@
 /**
  * perl-libxml-mm.c
- * $Id: perl-libxml-mm.c,v 1.1.1.1 2004/05/20 17:55:25 jpetri Exp $
+ * $Id: perl-libxml-mm.c,v 1.1.1.2 2007/10/10 23:04:14 ahuda Exp $
  *
  * Basic concept:
  * perl varies in the implementation of UTF8 handling. this header (together
@@ -54,7 +54,6 @@ PmmNodeTypeName( xmlNodePtr elem ){
     const char *name = "XML::LibXML::Node";
 
     if ( elem != NULL ) {
-        char * ptrHlp;
         switch ( elem->type ) {
         case XML_ELEMENT_NODE:
             name = "XML::LibXML::Element";   
@@ -401,31 +400,31 @@ PmmCloneNode( xmlNodePtr node, int recursive )
     if ( node != NULL ) {
         switch ( node->type ) {
         case XML_ELEMENT_NODE:
-		case XML_TEXT_NODE:
-		case XML_CDATA_SECTION_NODE:
-		case XML_ENTITY_REF_NODE:
-		case XML_PI_NODE:
-		case XML_COMMENT_NODE:
-		case XML_DOCUMENT_FRAG_NODE:
-		case XML_ENTITY_DECL: 
-            retval = xmlCopyNode( node, recursive );
-            break;
-		case XML_ATTRIBUTE_NODE:
-            retval = (xmlNodePtr) xmlCopyProp( NULL, (xmlAttrPtr) node );
-            break;
+	case XML_TEXT_NODE:
+	case XML_CDATA_SECTION_NODE:
+	case XML_ENTITY_REF_NODE:
+	case XML_PI_NODE:
+	case XML_COMMENT_NODE:
+	case XML_DOCUMENT_FRAG_NODE:
+	case XML_ENTITY_DECL: 
+	  retval = xmlCopyNode( node, recursive ? 1 : 2 );
+	  break;
+	case XML_ATTRIBUTE_NODE:
+	  retval = (xmlNodePtr) xmlCopyProp( NULL, (xmlAttrPtr) node );
+	  break;
         case XML_DOCUMENT_NODE:
-		case XML_HTML_DOCUMENT_NODE:
-            retval = (xmlNodePtr) xmlCopyDoc( (xmlDocPtr)node, recursive );
-            break;
+	case XML_HTML_DOCUMENT_NODE:
+	  retval = (xmlNodePtr) xmlCopyDoc( (xmlDocPtr)node, recursive );
+	  break;
         case XML_DOCUMENT_TYPE_NODE:
         case XML_DTD_NODE:
-            retval = (xmlNodePtr) xmlCopyDtd( (xmlDtdPtr)node );
-            break;
+	  retval = (xmlNodePtr) xmlCopyDtd( (xmlDtdPtr)node );
+	  break;
         case XML_NAMESPACE_DECL:
-            retval = ( xmlNodePtr ) xmlCopyNamespace( (xmlNsPtr) node );
-            break;
+	  retval = ( xmlNodePtr ) xmlCopyNamespace( (xmlNsPtr) node );
+	  break;
         default:
-            break;
+	  break;
         }
     }
 
@@ -692,7 +691,6 @@ PmmContextSv( xmlParserCtxtPtr ctxt )
     ProxyNodePtr dfProxy= NULL;
     SV * retval = &PL_sv_undef;
     const char * CLASS = "XML::LibXML::ParserContext";
-    void * saxvector = NULL;
 
     if ( ctxt != NULL ) {
         dfProxy = PmmNewContext(ctxt);
@@ -812,7 +810,7 @@ PmmFastDecodeString( int charset,
         
         xmlBufferCat( in, string );        
         if ( xmlCharEncOutFunc( coder, out, in ) >= 0 ) {
-            retval = xmlCharStrndup(xmlBufferContent(out), xmlBufferLength(out));
+	  retval = xmlCharStrndup((const char *)xmlBufferContent(out), xmlBufferLength(out));
         }
         else {
             xs_warn("PmmFastEncodeString: decoding error\n");
@@ -833,7 +831,6 @@ xmlChar*
 PmmEncodeString( const char *encoding, const xmlChar *string ){
     xmlCharEncoding enc;
     xmlChar *ret = NULL;
-    xmlCharEncodingHandlerPtr coder = NULL;
     
     if ( string != NULL ) {
         if( encoding != NULL ) {
@@ -859,7 +856,6 @@ char*
 PmmDecodeString( const char *encoding, const xmlChar *string){
     char *ret=NULL;
     xmlCharEncoding enc;
-    xmlCharEncodingHandlerPtr coder = NULL;
 
     if ( string != NULL ) {
         xs_warn( "PmmDecodeString called\n" );
@@ -955,6 +951,7 @@ nodeC2Sv( const xmlChar * string,  xmlNodePtr refnode )
        code in LibXML.xs */
     SV* retval = &PL_sv_undef;
     STRLEN len = 0;
+    xmlChar * decoded = NULL;
 
     if ( refnode != NULL ) {
         xmlDocPtr real_doc = refnode->doc;
@@ -962,12 +959,15 @@ nodeC2Sv( const xmlChar * string,  xmlNodePtr refnode )
             xs_warn( " encode node !!" );
             /* The following statement is to handle bad
                values set by XML::LibXSLT */
+
             if ( PmmNodeEncoding(real_doc) == XML_CHAR_ENCODING_NONE ) {
                 PmmNodeEncoding(real_doc) = XML_CHAR_ENCODING_UTF8;
             }
-            xmlChar * decoded = PmmFastDecodeString( PmmNodeEncoding(real_doc) ,
-                                                     (const xmlChar *)string,
-                                                     (const xmlChar*)real_doc->encoding);
+
+            decoded = PmmFastDecodeString( PmmNodeEncoding(real_doc) ,
+                                           (const xmlChar *)string,
+                                           (const xmlChar*)real_doc->encoding);
+
             xs_warn( "push decoded string into SV" );
             len = xmlStrlen( decoded );
             retval = newSVpvn( (const char *)decoded, len );

@@ -20,6 +20,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+ 
 
 #ifndef _IOKIT_IOUSBMASSSTORAGECLASS_H
 #define _IOKIT_IOUSBMASSSTORAGECLASS_H
@@ -39,10 +40,11 @@
 // Headers for SCSI Protocol support definitions
 #include <IOKit/scsi/IOSCSIProtocolServices.h>
 
-// Flag to turn debugging for the USB Mass Storage class on and off
-#define USB_MASS_STORAGE_DEBUG	0
+// BSD includes
+#include <sys/sysctl.h>
 
 #define UNUSED(x) ((void)x)
+
 
 #pragma mark -
 #pragma mark Vendor Specific Device Support
@@ -50,13 +52,18 @@
 #define kIOUSBMassStoragePreferredSubclass		"Preferred Subclass"
 #define kIOUSBMassStoragePreferredProtocol		"Preferred Protocol"
 #define kIOUSBMassStorageResetOnResume			"Reset On Resume"
-#define kIOUSBMassStorageDoNotOperate			"Do Not Operate"
 #define kIOUSBMassStorageUseStandardUSBReset	"Use Standard USB Reset"
 #define kIOUSBKnownCSWTagIssues					"Known CSW Tag Issues"
 #define kIOUSBMassStorageMaxLogicalUnitNumber	"Max Logical Unit Number"
 #define kIOPropertyIOUnitKey					"IOUnit"
 #define kIOUSBMassStorageDoNotMatch				"Do Not Match MSC"
+#define kIOUSBMassStorageDoNotOperate			"Do Not Operate"
+#define kIOUSBMassStorageEnableSuspendResumePM	"Enable Port Suspend-Resume PM"
 
+enum 
+{
+	kUSBDAddressLength = 10
+};
 
 #pragma mark -
 #pragma mark CBI Protocol Strutures
@@ -112,6 +119,7 @@ struct	BulkOnlyRequestBlock
 };
 
 typedef struct BulkOnlyRequestBlock		BulkOnlyRequestBlock;
+
 
 #pragma mark -
 #pragma mark IOUSBMassStorageClass definition
@@ -174,6 +182,10 @@ protected:
 		bool                    fWaitingForReconfigurationMessage;
 		bool					fTerminating;
         bool                    fKnownCSWTagMismatchIssues;
+        bool                    fPortSuspendResumeForPMEnabled;
+        bool                    fPortIsSuspended;
+		bool					fRequiresResetOnResume;
+		bool					fAutonomousSpinDownWorkAround;
 		UInt8					fConsecutiveResetCount;
 	};
     ExpansionData *				reserved;
@@ -190,7 +202,11 @@ protected:
 	#define fWaitingForReconfigurationMessage	reserved->fWaitingForReconfigurationMessage
 	#define fTerminating						reserved->fTerminating
     #define fKnownCSWTagMismatchIssues          reserved->fKnownCSWTagMismatchIssues
-    #define fConsecutiveResetCount          	reserved->fConsecutiveResetCount
+    #define fPortSuspendResumeForPMEnabled      reserved->fPortSuspendResumeForPMEnabled
+    #define fPortIsSuspended                    reserved->fPortIsSuspended
+	#define fRequiresResetOnResume				reserved->fRequiresResetOnResume
+	#define fAutonomousSpinDownWorkAround		reserved->fAutonomousSpinDownWorkAround
+	#define fConsecutiveResetCount				reserved->fConsecutiveResetCount
 	
 	// Enumerated constants used to control various aspects of this
 	// driver.
@@ -449,7 +465,9 @@ protected:
     void                ResetDeviceNow( bool waitForReset );
 	void                AbortCurrentSCSITask( void );
 	
-	bool			IsPhysicalInterconnectLocationInternal ( void );
+	bool                IsPhysicalInterconnectLocationInternal ( void );
+	    
+	IOReturn            SuspendPort ( bool suspend );
 	 
 	// Space reserved for future expansion.
     OSMetaClassDeclareReservedUnused( IOUSBMassStorageClass, 3 );
@@ -467,5 +485,6 @@ protected:
     OSMetaClassDeclareReservedUnused( IOUSBMassStorageClass, 15 );
     OSMetaClassDeclareReservedUnused( IOUSBMassStorageClass, 16 );
 };
+
 
 #endif _IOKIT_IOUSBMASSSTORAGECLASS_H

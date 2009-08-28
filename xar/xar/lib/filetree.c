@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005 Rob Braun
+ * Copyright (c) 2005-2008 Rob Braun
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,14 +28,16 @@
  */
 /*
  * 03-Apr-2005
- * DRI: Rob Braun <bbraun@opendarwin.org>
+ * DRI: Rob Braun <bbraun@synack.net>
  */
 /*
  * Portions Copyright 2006, Apple Computer, Inc.
  * Christopher Ryan <ryanc@apple.com>
 */
 
+#define _FILE_OFFSET_BITS 64
 
+#include "config.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -45,7 +47,6 @@
 #include <libxml/xmlreader.h>
 #include <libxml/xmlstring.h>
 
-#include "config.h"
 #ifndef HAVE_ASPRINTF
 #include "asprintf.h"
 #endif
@@ -53,6 +54,7 @@
 #include "filetree.h"
 #include "archive.h"
 #include "b64.h"
+#include "ea.h"
 
 /* Overview:
  * xar_file_t's exist within a xar_archive_t.  xar_prop_t's exist
@@ -78,8 +80,6 @@ struct __xar_iter_t {
 /* Convenience macros for dereferencing the structs */
 #define XAR_ITER(x) ((struct __xar_iter_t *)(x))
 
-xar_prop_t xar_prop_find(xar_prop_t p, const char *key);
-
 /* xar_attr_prop
  * Returns: a newly allocated and initialized property attribute.
  * It is the caller's responsibility to associate the attribute
@@ -98,32 +98,17 @@ xar_attr_t xar_attr_new(void) {
 	return ret;
 }
 
-/* xar_attr_set
- * f: the file the attribute is associated with
- * prop: The property key the attribute is associated with.  This can
- *       be NULL to signify the attribute should be set for the file,
- *       rather than the property.
- * key: The name of the attribute to set.
- * value: The value of the attribute.
- * Returns: 0 on success, -1 on failure.
- * Summary: Basically, sets an attribute.  The only tricky part is
- * it can set an attribute on a property or a file.
- */
-int32_t xar_attr_set(xar_file_t f, const char *prop, const char *key, const char *value) {
-	xar_prop_t p = NULL;
+int32_t xar_attr_pset(xar_file_t f, xar_prop_t p, const char *key, const char *value) {
 	xar_attr_t a, i;
-
-	if( !prop ) {
+	if( !p ) {
 		a = XAR_FILE(f)->attrs;
 	} else {
-		p = xar_prop_find(XAR_FILE(f)->props, prop);
-		if( !p ) return -1;
 		a = XAR_PROP(p)->attrs;
 	}
 
 	if( !a ) {
 		a = xar_attr_new();
-		if(!prop)
+		if(!p)
 			XAR_FILE(f)->attrs = a;
 		else
 			XAR_PROP(p)->attrs = a;
@@ -140,7 +125,7 @@ int32_t xar_attr_set(xar_file_t f, const char *prop, const char *key, const char
 		}
 	}
 	a = xar_attr_new();
-	if(!prop) {
+	if(!p) {
 		XAR_ATTR(a)->next = XAR_ATTR(XAR_FILE(f)->attrs);
 		XAR_FILE(f)->attrs = a;
 	} else {
@@ -152,24 +137,35 @@ int32_t xar_attr_set(xar_file_t f, const char *prop, const char *key, const char
 	return 0;
 }
 
-/* xar_attr_get
- * f: file to find the associated attribute in
- * prop: name of the property the attribute is of.  May be NULL to specify
- *       the file's attributes.
- * key: name of the attribute to search for.
- * Returns: a reference to the value of the attribute.
+/* xar_attr_set
+ * f: the file the attribute is associated with
+ * prop: The property key the attribute is associated with.  This can
+ *       be NULL to signify the attribute should be set for the file,
+ *       rather than the property.
+ * key: The name of the attribute to set.
+ * value: The value of the attribute.
+ * Returns: 0 on success, -1 on failure.
+ * Summary: Basically, sets an attribute.  The only tricky part is
+ * it can set an attribute on a property or a file.
  */
-const char *xar_attr_get(xar_file_t f, const char *prop, const char *key) {
-	xar_prop_t p = NULL;
+int32_t xar_attr_set(xar_file_t f, const char *prop, const char *key, const char *value) {
+	if( !prop ) {
+		return xar_attr_pset(f, NULL, key, value);
+	} else {
+		xar_prop_t p = NULL;
+		p = xar_prop_find(XAR_FILE(f)->props, prop);
+		if( !p ) return -1;
+		return xar_attr_pset(f, p, key, value);
+	}
+}
+
+const char *xar_attr_pget(xar_file_t f, xar_prop_t p, const char *key) {
 	xar_attr_t a, i;
 
-	if( !prop )
+	if( !p )
 		a = XAR_FILE(f)->attrs;
-	else {
-		p = xar_prop_find(XAR_FILE(f)->props, prop);
-		if( !p ) return NULL;
+	else
 		a = XAR_PROP(p)->attrs;
-	}
 
 	if( !a ) return NULL;
 
@@ -181,6 +177,24 @@ const char *xar_attr_get(xar_file_t f, const char *prop, const char *key) {
 	if( i && (strcmp(XAR_ATTR(i)->key, key)==0))
 		return XAR_ATTR(i)->value;
 	return NULL;
+}
+
+/* xar_attr_get
+ * f: file to find the associated attribute in
+ * prop: name of the property the attribute is of.  May be NULL to specify
+ *       the file's attributes.
+ * key: name of the attribute to search for.
+ * Returns: a reference to the value of the attribute.
+ */
+const char *xar_attr_get(xar_file_t f, const char *prop, const char *key) {
+	if( !prop )
+		return xar_attr_pget(f, NULL, key);
+	else {
+		xar_prop_t p = NULL;
+		p = xar_prop_find(XAR_FILE(f)->props, prop);
+		if( !p ) return NULL;
+		return xar_attr_pget(f, p, key);
+	}
 }
 
 /* xar_attr_free
@@ -249,7 +263,7 @@ const char *xar_attr_next(xar_iter_t i) {
  * Returns a newly allocated iterator for use on files, properties, or
  * attributes.
  */
-xar_iter_t xar_iter_new() {
+xar_iter_t xar_iter_new(void) {
 	xar_iter_t ret = malloc(sizeof(struct __xar_iter_t));
 	if(!ret) return NULL;
 
@@ -265,7 +279,45 @@ xar_iter_t xar_iter_new() {
  */
 void xar_iter_free(xar_iter_t i) {
 	free(XAR_ITER(i)->node);
+	if( XAR_ITER(i)->path )
+		free(XAR_ITER(i)->path);
 	free(XAR_ITER(i));
+}
+
+const char *xar_prop_getkey(xar_prop_t p) {
+	return XAR_PROP(p)->key;
+}
+const char *xar_prop_getvalue(xar_prop_t p) {
+	return XAR_PROP(p)->value;
+}
+int32_t xar_prop_setkey(xar_prop_t p, const char *key) {
+	free((char *)XAR_PROP(p)->key);
+	if(key)
+		XAR_PROP(p)->key = strdup(key);
+	return 0;
+}
+int32_t xar_prop_setvalue(xar_prop_t p, const char *value) {
+	free((char *)XAR_PROP(p)->value);
+	if(value)
+		XAR_PROP(p)->value = strdup(value);
+	return 0;
+}
+
+/* xar_prop_pfirst
+ * f: file to retrieve the first property from
+ * Returns: a xar_prop_t corresponding to the first xar_prop_t associated with f
+ * NULL if there are no properties associated with the file.
+ */
+xar_prop_t xar_prop_pfirst(xar_file_t f) {
+	return XAR_FILE(f)->props;
+}
+
+/* xar_prop_pnext
+ * p: previous property used to retrieve the next
+ * Returns: a xar_prop_t if there is a next, NULL otherwise
+ */
+xar_prop_t xar_prop_pnext(xar_prop_t p) {
+	return XAR_PROP(p)->next;
 }
 
 /* xar_prop_first
@@ -376,7 +428,6 @@ xar_prop_t xar_prop_new(xar_file_t f, xar_prop_t parent) {
 		} else {
 			XAR_PROP(p)->next = XAR_PROP(parent)->children;
 			XAR_PROP(parent)->children = p;
-
 		}
 	} else {
 		if( XAR_FILE(f)->props == NULL ) {
@@ -447,9 +498,7 @@ static xar_prop_t xar_prop_set_r(xar_file_t f, xar_prop_t p, const char *key, co
 		if( strcmp(tmp3, XAR_PROP(i)->key) == 0 ) {
 			if( !tmp2 ) {
 				if( overwrite ) {
-					free((char *)XAR_PROP(i)->value);
-					if( value )
-						XAR_PROP(i)->value = strdup(value);
+					xar_prop_setvalue(i, value);
 					free(tmp1);
 					return i;
 				} else {
@@ -458,9 +507,8 @@ static xar_prop_t xar_prop_set_r(xar_file_t f, xar_prop_t p, const char *key, co
 						free(tmp1);
 						return ret;
 					}
-					if( value )
-						XAR_PROP(ret)->value = strdup(value);
-					XAR_PROP(ret)->key = strdup(tmp3);
+					xar_prop_setvalue(ret, value);
+					xar_prop_setkey(ret, tmp3);
 					free(tmp1);
 					return ret;
 				}
@@ -479,15 +527,14 @@ static xar_prop_t xar_prop_set_r(xar_file_t f, xar_prop_t p, const char *key, co
 	}
 
 	if( !tmp2 ) {
-		if( value )
-			XAR_PROP(ret)->value = strdup(value);
-		XAR_PROP(ret)->key = strdup(tmp3);
+		xar_prop_setvalue(ret, value);
+		xar_prop_setkey(ret, tmp3);
 		free(tmp1);
 		return ret;
 	}
 
-	XAR_PROP(ret)->key = strdup(tmp3);
-	XAR_PROP(ret)->value = NULL;
+	xar_prop_setkey(ret, tmp3);
+	xar_prop_setvalue(ret, NULL);
 
 	ret2 = xar_prop_set_r(f, ret, tmp2, value, overwrite);
 	free(tmp1);
@@ -515,6 +562,15 @@ int32_t xar_prop_set(xar_file_t f, const char *key, const char *value) {
 	if( xar_prop_set_r(f, NULL, key, value, 1) )
 		return 0;
 	return -1;
+}
+
+/* xar_prop_pset
+ * Same as xar_prop_set, except it takes a xar_prop_t which will be
+ * treated as the root property.
+ * Returns a xar_prop_t that was created or set.  Returns NULL if error.
+ */
+xar_prop_t xar_prop_pset(xar_file_t f, xar_prop_t p, const char *key, const char *value) {
+	return xar_prop_set_r(f, p, key, value, 1);
 }
 
 /* xar_prop_create
@@ -548,6 +604,17 @@ int32_t xar_prop_get(xar_file_t f, const char *key, const char **value) {
 	if(value)
 		*value = XAR_PROP(r)->value;
 	return 0;
+}
+
+xar_prop_t xar_prop_pget(xar_prop_t p, const char *key) {
+	char *tmp;
+	const char *k;
+	xar_prop_t ret;
+	k = XAR_PROP(p)->key;
+	asprintf(&tmp, "%s/%s", k, key);
+	ret = xar_prop_find(p, tmp);
+	free(tmp);
+	return ret;
 }
 
 /* xar_prop_replicate_r
@@ -619,25 +686,41 @@ void xar_prop_free(xar_prop_t p) {
 	free(XAR_PROP(p));
 }
 
-void xar_prop_unset(xar_file_t f, const char *key) {
-	xar_prop_t r = xar_prop_find(XAR_FILE(f)->props, key);
+void xar_prop_punset(xar_file_t f, xar_prop_t p) {
 	xar_prop_t i;
-	if( !r ) {
+	if( !p ) {
 		return;
 	}
-	if( XAR_PROP(r)->parent ) {
-		i = XAR_PROP(r)->parent->children;
+	if( XAR_PROP(p)->parent ) {
+		i = XAR_PROP(p)->parent->children;
+		if( i == p ) {
+			XAR_PROP(XAR_PROP(p)->parent)->children = XAR_PROP(p)->next;
+			xar_prop_free(p);
+			return;
+		}
 	} else {
 		i = XAR_FILE(f)->props;
+		if( i == p ) {
+			XAR_FILE(f)->props = XAR_PROP(p)->next;
+			xar_prop_free(p);
+			return;
+		}
 	}
 
-	while( i && (XAR_PROP(i)->next != XAR_PROP(r)) ) {
+	while( i && (XAR_PROP(i)->next != XAR_PROP(p)) ) {
 		i = XAR_PROP(i)->next;
 	}
-	if( i && (XAR_PROP(i)->next == XAR_PROP(r)) ) {
-		XAR_PROP(i)->next = XAR_PROP(r)->next;
-		xar_prop_free(r);
+	if( i && (XAR_PROP(i)->next == XAR_PROP(p)) ) {
+		XAR_PROP(i)->next = XAR_PROP(p)->next;
+		xar_prop_free(p);
 	}
+	return;
+}
+
+void xar_prop_unset(xar_file_t f, const char *key) {
+	xar_prop_t r = xar_prop_find(XAR_FILE(f)->props, key);
+
+	xar_prop_punset(f, r);
 	return;
 }
 
@@ -648,7 +731,7 @@ void xar_prop_unset(xar_file_t f, const char *key) {
 xar_file_t xar_file_new(xar_file_t f) {
 	xar_file_t ret, i;
 
-	ret = malloc(sizeof(struct __xar_file_t));
+	ret = calloc(1, sizeof(struct __xar_file_t));
 	if(!ret) return NULL;
 
 	XAR_FILE(ret)->parent = f;
@@ -659,6 +742,8 @@ xar_file_t xar_file_new(xar_file_t f) {
 	XAR_FILE(ret)->prefix = NULL;
 	XAR_FILE(ret)->ns = NULL;
 	XAR_FILE(ret)->fspath = NULL;
+	XAR_FILE(ret)->eas = NULL;
+	XAR_FILE(ret)->nexteaid = 0;
 	if( f ) {
 		if( !XAR_FILE(f)->children ) {
 			XAR_FILE(f)->children = ret;
@@ -1000,7 +1085,8 @@ xar_file_t xar_file_unserialize(xar_t x, xar_file_t parent, xmlTextReaderPtr rea
 			XAR_FILE(ret)->attrs = a;
 		}
 	}
-
+	
+	// recursively unserialize each element nested within this <file>
 	while( xmlTextReaderRead(reader) == 1 ) {
 		type = xmlTextReaderNodeType(reader);
 		name = (const char *)xmlTextReaderConstLocalName(reader);
@@ -1018,9 +1104,9 @@ xar_file_t xar_file_unserialize(xar_t x, xar_file_t parent, xmlTextReaderPtr rea
 		}
 
 		if( type == XML_READER_TYPE_ELEMENT ) {
-			if( strcmp(name, "file")==0 )
+			if( strcmp(name, "file")==0 ) {
 				xar_file_unserialize(x, ret, reader);
-			else
+			} else
 				xar_prop_unserialize(ret, NULL, reader);
 		}
 	}

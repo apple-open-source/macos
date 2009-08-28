@@ -42,27 +42,9 @@
 void
 gdb_pthread_kill (pthread_t pthread)
 {
-  mach_port_t mthread;
-  kern_return_t kret;
   int ret;
 
-  mthread = pthread_mach_thread_np (pthread);
-
-  kret = thread_suspend (mthread);
-  MACH_CHECK_ERROR (kret);
-
   ret = pthread_cancel (pthread);
-  if (ret != 0)
-    {
-      warning ("Unable to cancel thread: %s (%d)", strerror (errno), errno);
-      thread_terminate (mthread);
-    }
-
-  kret = thread_abort (mthread);
-  MACH_CHECK_ERROR (kret);
-
-  kret = thread_resume (mthread);
-  MACH_CHECK_ERROR (kret);
 
   ret = pthread_join (pthread, NULL);
   if (ret != 0)

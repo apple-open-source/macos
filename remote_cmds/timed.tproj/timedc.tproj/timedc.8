@@ -30,7 +30,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)timedc.8	8.1 (Berkeley) 6/6/93
-.\" $FreeBSD: src/usr.sbin/timed/timedc/timedc.8,v 1.13 2002/07/14 14:46:35 charnier Exp $
+.\" $FreeBSD: src/usr.sbin/timed/timedc/timedc.8,v 1.16 2005/01/18 20:02:44 ru Exp $
 .\"
 .Dd June 6, 1993
 .Dt TIMEDC 8
@@ -67,7 +67,8 @@ will prompt for commands from the standard input.
 If arguments are supplied,
 .Nm
 interprets the first argument as a command and the remaining
-arguments as parameters to the command.  The standard input
+arguments as parameters to the command.
+The standard input
 may be redirected causing
 .Nm
 to read commands from a file.
@@ -94,7 +95,7 @@ Show the master time server for specified host(s).
 .Ar off \&}
 .Xc
 Enable or disable the tracing of incoming messages to
-.Xr timed
+.Xr timed 8
 in the file
 .Pa /var/log/timed.log .
 .Pp
@@ -118,6 +119,15 @@ tracing file for timed
 .It Pa /var/log/timed.masterlog
 log file for master timed
 .El
+.Sh DIAGNOSTICS
+.Bl -diag
+.It ?Ambiguous command
+abbreviation matches more than one command
+.It ?Invalid command
+no match found
+.It ?Privileged command
+command can be executed by root only
+.El
 .Sh SEE ALSO
 .Xr date 1 ,
 .Xr adjtime 2 ,
@@ -128,15 +138,6 @@ log file for master timed
 .%A R. Gusella
 .%A S. Zatti
 .Re
-.Sh DIAGNOSTICS
-.Bl -diag
-.It ?Ambiguous command
-abbreviation matches more than one command
-.It ?Invalid command
-no match found
-.It ?Privileged command
-command can be executed by root only
-.El
 .Sh HISTORY
 The
 .Nm

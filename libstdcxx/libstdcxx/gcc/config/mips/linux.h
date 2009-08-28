@@ -1,5 +1,5 @@
 /* Definitions for MIPS running Linux-based GNU systems with ELF format.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #undef WCHAR_TYPE
 #define WCHAR_TYPE "int"
@@ -54,57 +54,57 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_DEFAULT MASK_ABICALLS
 
 #define TARGET_OS_CPP_BUILTINS()				\
-    do {							\
-	LINUX_TARGET_OS_CPP_BUILTINS();				\
-	if (TARGET_ABICALLS)					\
-	  {							\
-	    builtin_define ("__PIC__");				\
-	    builtin_define ("__pic__");				\
-	  }							\
-	/* The GNU C++ standard library requires this.  */	\
-	if (c_dialect_cxx ())					\
-	  builtin_define ("_GNU_SOURCE");			\
-								\
-      if (mips_abi == ABI_N32)					\
+  do {								\
+    LINUX_TARGET_OS_CPP_BUILTINS();				\
+    /* The GNU C++ standard library requires this.  */		\
+    if (c_dialect_cxx ())					\
+      builtin_define ("_GNU_SOURCE");				\
+    								\
+    if (mips_abi == ABI_N32)					\
       {								\
         builtin_define ("_ABIN32=2");				\
         builtin_define ("_MIPS_SIM=_ABIN32");			\
         builtin_define ("_MIPS_SZLONG=32");			\
         builtin_define ("_MIPS_SZPTR=32");			\
       }								\
-     else if (mips_abi == ABI_64)				\
+    else if (mips_abi == ABI_64)				\
       {								\
         builtin_define ("_ABI64=3");				\
         builtin_define ("_MIPS_SIM=_ABI64");			\
         builtin_define ("_MIPS_SZLONG=64");			\
         builtin_define ("_MIPS_SZPTR=64");			\
       }								\
-     else							\
+    else							\
       {								\
-	builtin_define ("_ABIO32=1");			\
-	builtin_define ("_MIPS_SIM=_ABIO32");		\
+	builtin_define ("_ABIO32=1");				\
+	builtin_define ("_MIPS_SIM=_ABIO32");			\
         builtin_define ("_MIPS_SZLONG=32");			\
         builtin_define ("_MIPS_SZPTR=32");			\
       }								\
-     if (TARGET_FLOAT64)					\
-        builtin_define ("_MIPS_FPSET=32");			\
-     else							\
-        builtin_define ("_MIPS_FPSET=16");			\
-								\
-     if (TARGET_INT64)						\
-        builtin_define ("_MIPS_SZINT=64");			\
-     else							\
-        builtin_define ("_MIPS_SZINT=32");			\
-} while (0)
+    if (TARGET_FLOAT64)						\
+      builtin_define ("_MIPS_FPSET=32");			\
+    else							\
+      builtin_define ("_MIPS_FPSET=16");			\
+    								\
+    builtin_define ("_MIPS_SZINT=32");				\
+  } while (0)
 
-#undef  SUBTARGET_CPP_SPEC
-#define SUBTARGET_CPP_SPEC "%{pthread:-D_REENTRANT}"
+#undef SUBTARGET_CPP_SPEC
+#define SUBTARGET_CPP_SPEC "%{posix:-D_POSIX_SOURCE} %{pthread:-D_REENTRANT}"
+
+/* A standard GNU/Linux mapping.  On most targets, it is included in
+   CC1_SPEC itself by config/linux.h, but mips.h overrides CC1_SPEC
+   and provides this hook instead.  */
+#undef SUBTARGET_CC1_SPEC
+#define SUBTARGET_CC1_SPEC "%{profile:-p}"
 
 /* From iris5.h */
 /* -G is incompatible with -KPIC which is the default, so only allow objects
    in the small data section if the user explicitly asks for it.  */
 #undef MIPS_DEFAULT_GVALUE
 #define MIPS_DEFAULT_GVALUE 0
+
+#define GLIBC_DYNAMIC_LINKER "/lib/ld.so.1"
 
 /* Borrowed from sparc/linux.h */
 #undef LINK_SPEC
@@ -115,7 +115,7 @@ Boston, MA 02111-1307, USA.  */
     %{!ibcs: \
       %{!static: \
         %{rdynamic:-export-dynamic} \
-        %{!dynamic-linker:-dynamic-linker /lib/ld.so.1}} \
+        %{!dynamic-linker:-dynamic-linker " LINUX_DYNAMIC_LINKER "}} \
         %{static:-static}}}"
 
 #undef SUBTARGET_ASM_SPEC

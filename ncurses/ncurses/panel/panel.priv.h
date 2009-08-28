@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 1998-2001,2005 Free Software Foundation, Inc.              *
+ * Copyright (c) 1998-2005,2008 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -26,7 +26,7 @@
  * authorization.                                                           *
  ****************************************************************************/
 
-/* $Id: panel.priv.h,v 1.20 2005/02/19 17:16:54 tom Exp $ */
+/* $Id: panel.priv.h,v 1.22 2008/09/27 22:36:11 tom Exp $ */
 
 #ifndef NCURSES_PANEL_PRIV_H
 #define NCURSES_PANEL_PRIV_H 1
@@ -39,23 +39,9 @@
 #include <string.h>
 #include <assert.h>
 
-#if HAVE_LIBDMALLOC
-#  include <dmalloc.h>    /* Gray Watson's library */
-#endif
-
-#if HAVE_LIBDBMALLOC
-#  include <dbmalloc.h>   /* Conor Cahill's library */
-#endif
-
 #include "curses.priv.h"
 #include "panel.h"
 #include <nc_panel.h>
-
-#if ( CC_HAS_INLINE_FUNCS && !defined(TRACE) )
-#  define INLINE inline
-#else
-#  define INLINE
-#endif
 
 #if USE_RCS_IDS
 #  define MODULE_ID(id) static const char Ident[] = id;

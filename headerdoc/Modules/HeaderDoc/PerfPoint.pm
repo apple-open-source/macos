@@ -3,8 +3,7 @@
 # Class name: PerfPoint
 # Synopsis: Test Point Object for Performance Testing Engine
 #
-# Author: David Gatwood (dgatwood@apple.com)
-# Last Updated: $Date: 2007/01/05 22:22:16 $
+# Last Updated: $Date: 2009/03/30 19:38:51 $
 #
 # Copyright (c) 2005 Apple Computer, Inc.  All rights reserved.
 #
@@ -40,7 +39,7 @@ use Time::HiRes qw( usleep ualarm gettimeofday tv_interval );
 
 use Carp;
 
-$VERSION = '$Revision: 1.1.2.2 $';
+$HeaderDoc::PerfPoint::VERSION = '$Revision: 1.3 $';
 
 my $perfDebug = 1;
 
@@ -84,13 +83,13 @@ sub finished {
     }
 
     if ($localDebug) {
-	print "BT: ".$self->{BACKTRACE}."\n";
-	print "STARTSEC: ".$self->{STARTSEC}."\n";
-	print "STARTUSEC: ".$self->{STARTUSEC}."\n";
-	print "FINISHSEC: ".$self->{FINISHSEC}."\n";
-	print "FINISHUSEC: ".$self->{FINISHUSEC}."\n";
-	print "SECONDS: ".$self->{SECS}."\n";
-	print "USECS: ".$self->{USECS}."\n";
+	print STDERR "BT: ".$self->{BACKTRACE}."\n";
+	print STDERR "STARTSEC: ".$self->{STARTSEC}."\n";
+	print STDERR "STARTUSEC: ".$self->{STARTUSEC}."\n";
+	print STDERR "FINISHSEC: ".$self->{FINISHSEC}."\n";
+	print STDERR "FINISHUSEC: ".$self->{FINISHUSEC}."\n";
+	print STDERR "SECONDS: ".$self->{SECS}."\n";
+	print STDERR "USECS: ".$self->{USECS}."\n";
     }
 
 }

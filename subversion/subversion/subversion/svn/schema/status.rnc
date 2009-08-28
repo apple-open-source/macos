@@ -9,12 +9,17 @@ include "common.rnc"
 
 start = status
 
-status = element status { target* }
+status = element status { (target | changelist)* }
 
 target = element target { attlist.target, entry*, against? }
 attlist.target &=
   ## The target path.
   attribute path { string }
+
+changelist = element changelist { attlist.changelist, entry*, against? }
+attlist.changelist &=
+  ## The changelist name.
+  attribute name { string }
 
 ## Status information for a path under the target.
 entry = element entry { attlist.entry, wc-status, repos-status? }
@@ -28,9 +33,9 @@ wc-status = element wc-status { attlist.wc-status, commit?, lock? }
 attlist.wc-status &=
   ## Item/text status.
   attribute item {
-    "added" | "conflicted" | "deleted" | "ignored" | "modified" | "replaced"
-    | "external" | "unversioned" | "incomplete" | "obstructed" | "normal"
-    | "none"
+    "added" | "conflicted" | "deleted" | "external" | "ignored" |
+    "incomplete" | "merged" | "missing" | "modified" | "none" |
+    "normal" | "obstructed" | "replaced" | "unversioned"
   },
   ## Properties status.
   attribute props { "conflicted" | "modified" | "normal" | "none" },
@@ -44,7 +49,10 @@ attlist.wc-status &=
   attribute copied { "true" | "false" }?,
   # Item switched relative to its parent.
   [ a:defaultValue = "false" ]
-  attribute switched { "true" | "false" }?
+  attribute switched { "true" | "false" }?,
+  ## Tree-conflict status of the item.
+  [ a:defaultValue = "false" ]
+  attribute tree-conflicted { "true" | "false" }?
 
 ## Status in repository (if --update was specified).
 repos-status = element repos-status { attlist.repos-status, lock? }

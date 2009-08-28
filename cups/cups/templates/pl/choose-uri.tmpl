@@ -1,16 +1,16 @@
+<DIV CLASS="indent">
+
+<H2 CLASS="title">{op=modify-printer?Modyfikowanie {printer_name}:Dodawanie drukarki}</H2>
+
 <FORM METHOD="POST" ACTION="/admin">
 <INPUT TYPE="HIDDEN" NAME="OP" VALUE="{op}">
-<INPUT TYPE="HIDDEN" NAME="PRINTER_NAME" VALUE="{printer_name}">
-<INPUT TYPE="HIDDEN" NAME="PRINTER_LOCATION" VALUE="{?printer_location}">
-<INPUT TYPE="HIDDEN" NAME="PRINTER_INFO" VALUE="{?printer_info}">
+{printer_name?<INPUT TYPE="HIDDEN" NAME="printer_name" VALUE="{printer_name}">:}
 <INPUT TYPE="HIDDEN" NAME="CURRENT_MAKE_AND_MODEL" VALUE="{?current_make_and_model}">
-
-<H2 CLASS="title">URI urządzenia {printer_name}</H2>
 
 <TABLE>
 <TR>
-<TH CLASS="label">URI urządzenia:</TH>
-<TD><INPUT TYPE="TEXT" SIZE="60" MAXLENGTH="1024" NAME="DEVICE_URI" VALUE="{device_uri}"></TD>
+<TH CLASS="label">Połączenie:</TH>
+<TD><INPUT TYPE="TEXT" SIZE="60" MAXLENGTH="1024" NAME="DEVICE_URI" VALUE="{current_device_uri?{current_device_uri}:{device_uri}}"></TD>
 </TR>
 <TR>
 <TD></TD>
@@ -24,18 +24,20 @@
 
     lpd://nazwakomputera/kolejka
 
-    gniazdo://nazwakomputera
-    gniazdo://nazwakomputera:9100
+    socket://nazwakomputera
+    socket://nazwakomputera:9100
 </PRE>
 
-<P>Zobacz <A HREF="/help/network.html" TARGET="_blank">"Drukarki sieciowe"</A>, aby uzyskać poprawny URI do użycia z drukarką.</P>
+<P>Proszę zobaczyć <A HREF="/help/network.html" TARGET="_blank">"Drukarki
+sieciowe"</A>, aby uzyskać poprawne URI dla drukarki.</P>
 
 </TD>
 </TR>
 <TR>
 <TD></TD>
-<TD><INPUT TYPE="IMAGE" SRC="/images/button-continue.gif" ALT="Kontynuuj"></TD>
+<TD><INPUT TYPE="SUBMIT" VALUE="Kontynuuj"></TD>
 </TR>
 </TABLE>
 
 </FORM>
+</DIV>

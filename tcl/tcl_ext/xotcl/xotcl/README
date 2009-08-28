@@ -1,0 +1,147 @@
+***************** $Id: README,v 1.2 2004/08/18 09:31:08 neumann Exp $
+XOTcl README File
+*****************
+
+**********************************
+Compilation of Source Distribution 
+*********************************
+Read COMPILE for compilation guidance on UNIX or 
+COMPILE.win for Windows.
+
+
+************************************
+Installation of Binary Distributions
+************************************
+
+For all binary distributions firstly Tcl and Tk must be installed
+properly. Binary distributions require Tcl/Tk 8.3 (included in
+most Linux distributions), which you can find from:
+
+  http://www.tcl.tk
+
+
+Working with a Shell
+--------------------
+
+From version 1.1 on XOTcl does not - by default - build xotclsh and
+xowish anymore. Instead you should use xotcl from tclsh or wish. The
+typical way to do so is to load XOTcl as a packages and then import
+the commands from the XOTcl namespace into the current namespace:
+
+   /usr/local/bin/tclsh8.4
+   package require XOTcl; namespace import -force xotcl::*
+
+That means, the XOTcl installed package library needs to be on Tcl's
+search path for packages. 
+
+If XOTcl is not installed in the standard Tcl location, you can either
+set the environment variable TCLLIBPATH from outside of Tcl to this
+location, or use the variable auto_path in Tcl. For instance, to use
+the local, extracted tar ball, you can use something like (under
+UNIX):
+  export TCLLIBPATH="./xotcl-1.3.0"  or
+  setenv TCLLIBPATH "./xotcl-1.3.0"
+Under Windows:
+  set TCLLIBPATH=".\xotcl-1.3.0"
+
+
+Linux Binary Distribution
+-------------------------
+
+Per default the Linux version install to usr/local and XOTcl
+directories. If you want to install to these directions, just
+  cd /
+  tar xvfz xotcl-XXX.tar.gz
+otherwise:
+  mkdir temp-xotcl
+  cd temp-xotcl
+  tar xvfz xotcl-XXX.tar.gz
+and then copy the file in temp-xotcl/usr/local to your installation
+destination and temp-dir/xotcl where you want to have the examples
+and documentation.  If the packages can not be found, try to
+set the TCLLIBPATH. On Unix Systems:
+
+csh:  setenv TCLLIBPATH "/usr/local/lib/xotcl-<VERSION>/ $(TCLLIBPATH)"
+bash: export TCLLIBPATH="/usr/local/lib/xotcl-<VERSION>/ $(TCLLIBPATH)"
+
+
+Windows Binary Release
+----------------------
+
+You need Tcl 8.3.* or 8.4.* installed properly. If necessary, get Tcl
+8.4 for your system from 
+   http://www.tcl.tk
+
+Now check where Tcl is installed and what the name of the tclsh*.exe
+is. If you installed Tcl 8.3.5, the name is tclsh83.exe. On my system
+Tcl installs tclsh in c:\Programme\Tcl\bin (in English versions this
+is most likely under c:\Program Files\Tcl\bin).
+
+On my system the tcl installer adds this directory automatically
+to the search PATH; if this is not the case on your system, add this
+directory manually to your PATH (under NT or Win2K, use: Control
+Panel/System/.../Environment; MSDOS-class system use autoexec.bat to
+add this directory to the PATH variable by a line like
+   SET PATH=c:\Progra~1\Tcl\bin;%PATH%
+) and reboot.
+
+Now you should be able now to start the Tcl shell by typing "tclsh83". You
+will see the % prompt. To exit the shell, type "exit".
+
+The xotcl*.zip file contains the XOTcl distribution.  Unzip the
+contents of the XOTcl zip file on c: to a directory "xotcl*."  Open a
+DOS box window and change to the XOTcl win directory, like:
+
+  c:
+  cd \xotcl-<VERSION>\win
+
+Next, you have to invoke the installer:
+
+   tclsh83 installWin.tcl
+
+The installer tries to install xotcl in the default directory
+"\Program~1\Tcl", which should at least work on English and German
+platforms (in English Windows distributions the program directory is
+called "Program Files", in German versions, it is called "Programme").
+
+If you want to install XOTcl at a different you can specify the target
+directory as an argument of the installer:
+
+  tclsh83 installWin.tcl /Programme/Tcl
+
+Now you should be able to use XOTcl by starting Tclsh and using:
+
+   package require XOTcl; namespace import -force xotcl::*
+
+If XOTcl is not found on your system, you can set the TCLLIBPATH enviornment 
+variable to the location of xotcl, e.g.:
+
+  set TCLLIBPATH="C:/PROGRA~1/TCL/lib/xotcl"
+
+Please note the slashes, do not use backslashes here!
+
+You can test your installation with:
+
+XOTcl Tests:
+  tclsh xotcl-<VERSION>/tests/testx.xotcl
+  tclsh xotcl-<VERSION>/tests/testo.xotcl
+  tclsh xotcl-<VERSION>/tests/speedtest.xotcl
+  tclsh xotcl-<VERSION>/tests/xocomm.test
+  tclsh xotcl-<VERSION>/tests/persistence.test
+  tclsh xotcl-<VERSION>/tests/xoRDF.test
+
+More Infos
+----------
+
+More information can be found at:
+
+  http://www.xotcl.org
+
+You can find a mailing list about XOTcl there as well.
+
+Please report bugs and problems to the authors under one of these
+email addresses:
+
+  uwe.zdun@wu-wien.ac.at, zdun@xotcl.org
+  gustaf.neumann@wu-wien.ac.at, neumann@xotcl.org
+

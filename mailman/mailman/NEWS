@@ -1,8 +1,377 @@
 Mailman - The GNU Mailing List Management System
-Copyright (C) 1998-2006 by the Free Software Foundation, Inc.
+Copyright (C) 1998-2008 by the Free Software Foundation, Inc.
 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA
 
 Here is a history of user visible changes to Mailman.
+
+2.1.12rc1 (12-Jan-2009)
+
+  Bug fixes and other patches
+
+    - Fix compatibility with Python 2.6.
+
+    - Fixed a bug in admin.py which would result in chunked pages of the
+      membership list for members whose address begins with a non-alphanumeric
+      character to not be visible or retrievable.
+
+    - Changed ListAdmin.py to make rejected post messages From: the -owner
+      address instead of the -bounces address.
+
+    - With MTA = 'Postfix', if the STANZA END for a list being removed is
+      missing or munged, the remainder of the aliases and/or virtual-mailman
+      file is lost.  Fixed.
+
+    - Since Mailman 2.1.1, 2.0.x outstanding subscription and held message
+      requests have not been migrated properly.  This is fixed.
+      Bug #266106 (sf998384).
+
+    - Changed cron/gate_news to continue processing the remaining lists on
+      certain errors that can be caused by configuration of a particular list.
+      Bug #265941 (sf775100).
+
+    - Fixed a bug in AvoidDuplicates.py that caused it to fail if the address
+      in the To: or Cc: header differed in case from the case-preserved member
+      address.  Bug #297795.
+
+    - Fixed a problem in SecurityManager that caused it to not find the
+      cookie when CheckCookie was not given a user and the user in the cookie
+      had a %xx encoded character.  Bug # 299220.
+
+    - Fixed a minor fromusenet reporting issue in the contributed mmdsr
+      script.
+
+    - Fixed a minor issue in cron/gate_news that could cause a list's
+      watermark to not be completely updated.
+
+    - Fixed an issue that prevented editing the options.html template from
+      the web admin interface. SF Bug #2164798.
+
+    - Fixed a problem in Decorate which could throw a TypeError on conversion
+      to unicode of a header/footer that was already unicode because of
+      interpolating a unicode value.
+
+    - Fixed an issue where list creation would report bad owner email
+      instead of bad listname when the list name had non-ascii characters.
+      SF Bug #2126489.
+
+    - Fixed an issue where in some circumstances HyperArch.py would translate
+      ' at ' into the wrong language ultimately throwing a UnicodeDecodeError
+      when the translation was decoded with a different character set.
+      Bug #308152.
+
+    - Corrected a typo in Mailman/Gui/Privacy.py. Bug #309757.
+
+    - Changed the pattern used to recognize URLs in messages for the pipermail
+      archive in order to try to do a better job of making hyperlinks.
+      Bug #310124.
+
+    - Added missing --bare option to French translation of list_lists help.
+      Bug #312119.
+
+    - Fixed a long standing error that stopped relative hrefs from being
+      generated for links on Mailman's web pages.
+
+    - Changed the admindb interface so that when messages are rejected from
+      the summary page, the reject reason is the rejection message from the
+      Errors.HoldMessage subclass instead of the generic "No reason given".
+
+    - Fixed the admin Membership List Find member function so the 'letter'
+      links to a chunked result would still be limited to the Find member
+      search. SF patch #1532081.
+
+    - Changed scripts/driver to return a 405 status for non GET, POST, HEAD
+      methods. SF patch #1578756.
+
+2.1.11 (30-Jun-2008)
+
+  New Features
+
+    - Added a new cron/cull_bad_shunt script to cull and optionally
+      archive old entries from the bad and shunt queues. This is controlled
+      by new Defaults.py/mm_cfg.py settings BAD_SHUNT_STALE_AFTER (default
+      7 days) and BAD_SHUNT_ARCHIVE_DIRECTORY (default None) which determine
+      how long to keep bad and shunt queue entries and optionally, where to
+      archive removed entries.
+
+    - Prepended list name to bounce log unrecognized bounce messages.
+
+    - Added a new Defaults.py|mm_cfg.py setting ACCEPTABLE_LISTNAME_CHARACTERS
+      with default value '[-+_.=a-z0-9]'.  This Python regular expression
+      character class specifies the characters allowed in list names.  The
+      motivation for this is the fact that previously, a list named, e.g.,
+      xxx&yyy could be created and MTA aliases generated that would cause
+      The MTA to execute yyy as a command.  There is a possible security issue
+      here, but it is not believed to be exploitable in any meaningful way.
+
+  Bug fixes and other patches
+
+    - Changed the preservation of unparseable messages to be conditional on
+      the Defaults.py/mm_cfg.py setting of QRUNNER_SAVE_BAD_MESSAGES and
+      changed the queue directory in which messages are preserved from 'shunt'
+      to 'bad'.
+
+    - Fixed a bug introduced in 2.1.10 that caused some email subscribe
+      requests to be shunted (1966837).
+
+    - Fixed a problem with bin/update erroneously moving templates from
+      templates/xx to lists/xx if a list has the same name as a language
+      code.  Also fixed the absolute path to lists/ (1418670 ).
+
+    - Changed Utils.ValidateEmail to not allow specials (particularly ':')
+      in unquoted local parts (1956393).
+
+    - Changed bin/update to remove .bak files erroneously left behind in
+      qfiles/*/ by a 2.1.9 bug.
+
+    - Added 's' to %(listname) in templates/ia/admlogin.html and
+      templates/sl/help.txt (1682990).
+
+    - Use newer template variable for site-owner address in
+      templates/ko/newlist.txt and templates/ru/newlist.txt (1578766).
+
+    - Corrections to Spanish translation submitted by Wikimedia Foundation
+      (1433262) and Debian.
+
+    - Corrections to German translation submitted by Ralf Doeblitz (916196).
+
+    - Correction to French translation submitted by Maxime Carron (1588617).
+
+    - Correction to Portuguese translation submitted by Gabriel P. Silva
+      (1733057).
+
+    - Add #! line to fblast.py test script (1578740).
+
+    - Fixed unescaped '%' in templates/nl/newlist.txt (1719017).
+
+    - Changed non-ascii characters in some templates/*/*.html files to HTML
+      entities.
+
+    - Fixed a problem in Decorate.py that could result in a multipart
+      message with no part headers for the original body part (1991348).
+
+    - Improved recognition of some bounce messages.
+
+    - Rearranged calls to the list setBounceInfo() method in Bouncer.py
+      to accommodate MemberAdaptors that store bounce info outside the
+      list instance.
+
+    - Fixed CookHeaders.py which in some cases with new style prefixing
+      would insert an extra space between the prefix and the subject.
+
+    - Changed OldStyleMemberships.py to remove the member from one_last_digest
+      when changing from regular to digest delivery to avoid the possibility
+      of a duplicate digest in some circumstances.
+
+    - Patched Danish message catalog for proper use of HTML entities per
+      Jonas Smedegaard (1999966).
+
+    - Improved bounce loop detection and handling in BounceRunner.py.
+
+    - Merged the Catalan i18n from the Mailman Catalan Translation Team.
+
+    - German translation updated by Peer Heinlein.
+
+    - Added check for gateway_to_news before holding for ModeratedNewsgroup.
+
+    - At some point, cron/senddigests and bin/update were inadvertently
+      'preconfigured'. This has been fixed.
+
+    - Brazilian Portuguese translation updated by Diego Francisco
+      de Gastal Morales.
+
+    - Added 'listname' to the replacements for the archidxfoot.html template.
+
+  Miscellaneous
+
+    - Brad Knowles' mailman daily status report script updated to 0.0.18.
+
+2.1.10 (21-Apr-2008)
+
+  Security
+
+    - The 2.1.9 fixes for CVE-2006-3636 were not complete.  In particular,
+      some potential cross-site scripting attacks were not detected in
+      editing templates and updating the list's info attribute via the web
+      admin interface.  This has been assigned CVE-2008-0564 and has been
+      fixed.  Thanks again to Moritz Naumann for assistance with this.
+
+    - There is a new mm_cfg.py/Defaults.py variable
+      OWNERS_CAN_CHANGE_MEMBER_PASSWORDS which controls whether the list
+      owner can change a member's password from the member's options page.
+      This defaults to No and should be changed to Yes only if list owners
+      are trusted to not change a member's password, log in as the member
+      and make global membership changes.
+
+  New Features
+
+    - Changed cmd_who.py to list all members if authorization is with the
+      list's admin or moderator password and to accept the password if the
+      roster is public.  Also changed the web roster to show hidden members
+      when authorization is by site or list's admin or moderator password
+      (1587651).
+
+    - Added the ability to put a list name in accept_these_nonmembers
+      to accept posts from members of that list (1220144).
+
+    - Added a new 'sibling list' feature to exclude members of another list
+      from receiving a post from this list if the other list is in the To: or
+      Cc: of the post or to include members of the other list if that list is
+      not in the To: or Cc: of the post (Patch ID 1347962).
+
+    - Added the admin_member_chunksize attribute to the admin General Options
+      interface (Bug 1072002, Partial RFE 782436).
+
+Internationalization
+
+    - Added the Hebrew translation from Dov Zamir.  This includes addition of
+      a direction ('ltr', 'rtl') to the LC_DESCRIPTIONS table.  The
+      add_language() function defaults direction to 'ltr' to not break
+      existing mm_cfg.py files.
+
+    - Added the Slovak translation from Martin Matuska.
+
+    - Added the Galician translation from Frco. Javier Rial Rodríguez.
+
+  Bug fixes and other patches
+
+    - Added bounce recognition for several additional bounce formats.
+
+    - Fixed CommandRunner.py to decode a quoted-printable or base64 encoded
+      message part (1829061).
+
+    - Fixed Scrubber.py to avoid loss of an implicit text/plain message part
+      with no Content-* headers in a MIME multipart message (759841).  Fixed
+      several other minor scrubber issues (1242450).
+
+    - Added Date and Message-ID headers to the confirm reply message that
+      Mailman adds to the admin notification (1471318).
+
+    - Fixed Cgi/options.py to not present the "empty" topic to user.
+
+    - Fixed Handlers/CalcRecips.py to not process topics if topics are
+      disabled for the list.  This caused users who had previously subscribed
+      to topics and elected to not receive non-matching posts to receive no
+      messages after topics were disabled for the list.
+
+    - Fixed MaildirRunner.py to handle hyphenated list names.
+
+    - Fixed a bug in MimeDel.py (content filtering) which caused
+      *_filename_extensions to not match if the extension in the message was
+      not all lower case.
+
+    - Fixed versions.py to not call a non-existant method when converting held
+      posts from Mailman 1.0.x lists.
+
+    - Added a test to configure to detect a missing python-devel package on
+      some RedHat systems.
+
+    - Fixed bin/dumpdb to once again be able to dump marshals (broken since
+      2.1.5) (963137).
+
+    - Worked around a bug in the Python email library that could cause Mailman
+      to not get the correct value for the sender of a message from an RFC
+      2231 encoded header causing spurious held messages.
+
+    - Fixed bin/check_perms to detect certain missing permissions on the
+      archives/private/ and archives/private/<list>/database/ directories.
+
+    - Improved exception handling in cron/senddigests.
+
+    - Changed the admindb page to not show the "Discard all messages marked
+      Defer" checkbox when there are only (un)subscribes and no held messages.
+      Also added a separator and heading for "Held Messages" like the ones for
+      "Subscribe Requests" and "Unsubscribe Requests".  Suppressed the
+      "Database Updated" message when coming from the login page.  Also
+      removed the "Discard all messages marked Defer" checkbox from the
+      details page where it didn't work (1562922, 1000699).
+
+    - Fixed admin.py so null VARHELP category is handled (1573393).
+
+    - Fixed OldStyleMemberships.py to preserve delivery statuses BYADMIN
+      and BYUSER on a straight change of address (1642388).  Also fixed a
+      bug that could result in a member key with uppercase in the domain.
+
+    - Fixed bin/withlist so that -r can take a full package path to a
+      callable.
+
+    - Removal of DomainKey/DKIM signatures is now controlled by Defaults.py
+      mm_cfg.py variable REMOVE_DKIM_HEADERS (default = No).  Also, if
+      REMOVE_DKIM_HEADERS = Yes, an Authentication-Results: header will be
+      removed if present.
+
+    - The DeprecationWarning issued by Python 2.5 regarding string exceptions
+      is supressed.
+
+    - format=flowed and delsp=yes are now preserved for message bodies when
+      message headers/footers are added and attachments are scrubbed
+      (1495122).
+
+    - Queue runner processing is improved to log and preserve for analysis in
+      the shunt queue certain bad queue entries that were previously logged
+      but lost.  Also, entries are preserved when an attempt to shunt throws
+      an exception (1656289).
+
+    - The admin Membership List pages have been changed in that the email
+      address which forms a part of the various CGI data keys is now
+      urllib.quote()ed. This allows changing options for and unsubbing an
+      address which contains a double-quote character, but it may require
+      changes to scripts that screen-scrape the web admin interface to
+      produce a membership list so they will report an unquoted address.
+
+    - The fix for bug 1181161 in 2.1.7 was incomplete.  The Approve(d): line
+      wasn't always found in quoted-printable encoded parts and was never
+      found in base64 encoded parts.  This is now fixed.
+
+    - Fixed a mail loop if a list owner puts the list's -bounces or -admin
+      address in the list's owner attribute (1834569).
+
+    - Fixed the mailto: link in archived messages to prefix the subject with
+      Re: and to put the correct message-id in In-Reply-To (1621278, 1834281).
+
+    - Coerced list name arguments to lower case in the change_pw, inject,
+      list_admins and list_owners command line tools (patch 1842412).
+
+    - Fixed cron/disabled to test if bounce info is stale before disabling
+      a member when the threshold has been reduced.
+
+    - It wasn't noted here, but in 2.1.9, queue runner processing was made
+      more robust by making backups of queue entries when they were dequeued
+      so they could be recovered in the event of a system failure.  This
+      opened the possibility that if a message itself caused a runner to
+      crash, a loop could result that would endlessly reprocess the message.
+      This has now been fixed by adding a dequeue count to the entry and
+      moving the entry aside and logging the fact after the third dequeue of
+      the same entry.
+
+    - Fixed the command line scripts add_members, sync_members and
+      clone_member to properly handle banned addresses (1904737).
+
+    - Fixed bin/newlist to add the list's preferred language to the list's
+      available_languages if it is other than the server's default language
+      (1906368).
+
+    - Changed the first URL in the RFC 2369 List-Unsubscribe: header to go
+      to the options login page instead of the listinfo page.
+
+    - Changed the options login page to not issue the "No address given" error
+      when coming from the List-Unsubscribe and other direct links.  Also
+      changed to remember the user's language selection when redisplaying the
+      page following an error.
+
+    - Changed cmd_subscribe.py to properly accept (no)digest without a
+      password and to recognize (no)digest and address= case insensitively.
+
+    - Fixed a problem where GuiBase._getValidValue() would truncate a
+      floating point Number type to an int if the value was a float instead
+      of a numeric string. This affected setting floating point values with
+      config_list.
+
+  Miscellaneous
+
+    - Brad Knowles' mailman daily status report script updated to 0.0.17.
+
+    - An updated mm-handler (mm-handler-2.1.10) that can help reduce
+      backscatter has been added to the contrib directory.
 
 2.1.9 (12-Sep-2006)
 
@@ -263,7 +632,7 @@ Here is a history of user visible changes to Mailman.
   Documentation
 
     - Most of the installation instructions have been moved to a latex
-      document.  See admin/www/mailman-install/index.html for details.
+      document.  See doc/mailman-install/index.html for details.
 
   Bug fixes and other patches
 
@@ -1777,7 +2146,7 @@ Here is a history of user visible changes to Mailman.
 
 2.0 release candidate 2 (10-Nov-2000)
 
-    - Documentation updates: start at admin/www/index.html
+    - Documentation updates: start in the doc/ directory.
 
     - bin/withlist accepts additional command line arguments when used
       with the --run flag; bin/mmsitepass and bin/newlist accept

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,29 +24,32 @@
 #ifndef _S_GLOBALS_H
 #define _S_GLOBALS_H
 #include <mach/boolean.h>
+#include <stdint.h>
 #include "timer.h"
 
-extern u_short 			G_client_port;
+extern uint16_t 		G_client_port;
 extern boolean_t		G_dhcp_accepts_bootp;
 extern boolean_t		G_dhcp_failure_configures_linklocal;
 extern boolean_t		G_dhcp_success_deconfigures_linklocal;
-extern u_long			G_dhcp_init_reboot_retry_count;
-extern u_long			G_dhcp_select_retry_count;
-extern u_long			G_dhcp_allocate_linklocal_at_retry_count;
-extern u_long			G_dhcp_router_arp_at_retry_count;
-extern u_short 			G_server_port;
-extern u_long			G_gather_secs;
-extern u_long			G_initial_wait_secs;
-extern u_long			G_max_wait_secs;
-extern u_long			G_gather_secs;
-extern u_long			G_link_inactive_secs;
-extern u_long			G_max_retries;
+extern int			G_dhcp_init_reboot_retry_count;
+extern int			G_dhcp_select_retry_count;
+extern int			G_dhcp_allocate_linklocal_at_retry_count;
+extern int			G_dhcp_router_arp_at_retry_count;
+extern uint16_t			G_server_port;
+extern int			G_gather_secs;
+extern int			G_initial_wait_secs;
+extern int			G_max_wait_secs;
+extern int			G_gather_secs;
+extern int			G_link_inactive_secs;
+extern int			G_max_retries;
 extern boolean_t 		G_must_broadcast;
 extern int			G_IPConfiguration_verbose;
 extern int			G_debug;
 extern boolean_t		G_router_arp;
-extern time_interval_t		G_dhcp_defend_ip_address_interval_secs;
+extern int			G_dhcp_defend_ip_address_interval_secs;
 extern int			G_dhcp_defend_ip_address_count;
+extern int			G_dhcp_lease_write_t1_threshold_secs;
+extern int			G_manual_conflict_retry_interval_secs;
 
 extern const unsigned char	G_rfc_magic[4];
 extern const struct sockaddr	G_blank_sin;

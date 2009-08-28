@@ -550,7 +550,8 @@ BOOL algorithmic_pdb_rid_is_user(uint32 rid)
  Convert a name into a SID. Used in the lookup name rpc.
  ********************************************************************/
 
-BOOL lookup_global_sam_name(const char *user, int flags, uint32_t *rid,
+BOOL lookup_global_sam_name(const char *user, int flags,
+			    DOM_SID * name_sid,
 			    enum lsa_SidType *type)
 {
 	GROUP_MAP map;
@@ -562,7 +563,8 @@ BOOL lookup_global_sam_name(const char *user, int flags, uint32_t *rid,
 	   the group already exists. */
 	   
 	if ( strequal( user, "None" ) ) {
-		*rid = DOMAIN_GROUP_RID_USERS;
+		sid_copy(name_sid, get_global_sam_sid());
+		sid_append_rid(name_sid, DOMAIN_GROUP_RID_USERS);
 		*type = SID_NAME_DOM_GRP;
 		
 		return True;
@@ -574,7 +576,6 @@ BOOL lookup_global_sam_name(const char *user, int flags, uint32_t *rid,
 
 	if ((flags & LOOKUP_NAME_GROUP) == 0) {
 		struct samu *sam_account = NULL;
-		DOM_SID user_sid;
 
 		if ( !(sam_account = samu_new( NULL )) ) {
 			return False;
@@ -585,19 +586,18 @@ BOOL lookup_global_sam_name(const char *user, int flags, uint32_t *rid,
 		unbecome_root();
 
 		if (ret) {
-			sid_copy(&user_sid, pdb_get_user_sid(sam_account));
+			sid_copy(name_sid, pdb_get_user_sid(sam_account));
 		}
 		
 		TALLOC_FREE(sam_account);
 
 		if (ret) {
-			if (!sid_check_is_in_our_domain(&user_sid)) {
-				DEBUG(0, ("User %s with invalid SID %s in passdb\n",
-					  user, sid_string_static(&user_sid)));
+			if (!sid_check_is_in_our_domain(name_sid)) {
+				DEBUG(6, ("WARNING: user %s with invalid SID %s in passdb\n",
+					  user, sid_string_static(name_sid)));
 				return False;
 			}
 
-			sid_peek_rid(&user_sid, rid);
 			*type = SID_NAME_USER;
 			return True;
 		}
@@ -617,14 +617,14 @@ BOOL lookup_global_sam_name(const char *user, int flags, uint32_t *rid,
 
 	/* BUILTIN groups are looked up elsewhere */
 	if (!sid_check_is_in_our_domain(&map.sid)) {
-		DEBUG(10, ("Found group %s (%s) not in our domain -- "
+		DEBUG(6, ("Found group %s (%s) not in our domain -- "
 			   "ignoring.", user,
 			   sid_string_static(&map.sid)));
 		return False;
 	}
 
 	/* yes it's a mapped group */
-	sid_peek_rid(&map.sid, rid);
+	sid_copy(name_sid, &map.sid);
 	*type = map.sid_name_use;
 	return True;
 }

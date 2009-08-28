@@ -33,7 +33,9 @@
  */
 template<size_t MAX_SIZE>
 class SecureBufferAllocator {
+	NOCOPY(SecureBufferAllocator);
 public:
+	SecureBufferAllocator();
 	~SecureBufferAllocator();
 
 	byte_string &getBuffer();

@@ -1,3 +1,5 @@
+@subheading stringprep_check_version
+@anchor{stringprep_check_version}
 @deftypefun {const char *} {stringprep_check_version} (const char * @var{req_version})
 @var{req_version}: Required version number, or NULL.
 

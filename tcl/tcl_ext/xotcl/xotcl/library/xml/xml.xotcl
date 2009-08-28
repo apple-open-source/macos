@@ -1,0 +1,141 @@
+#!../../src/xotclsh
+# $Id: xml.xotcl,v 1.2 2006/02/18 22:17:33 neumann Exp $
+#
+# smaller implementation of an XML parser wrapper, similar to xoXML
+# example from the XOTcl paper
+#
+# not used in ActiWeb
+#
+package require xml
+  
+#
+# Xml Parser Connection Class (wrapper facade to TclXML and expat interface like parsers)
+#
+Class XMLParser
+XMLParser instproc init args {
+  my set PC [xml::parser [my autoname [namespace tail [self]]]]
+  my config \
+      -characterdatacommand "[self] pcdata" \
+      -elementstartcommand "[self] start" \
+      -elementendcommand "[self] end"
+  my set currentElement [Node create [self]::T]
+  next
+}
+
+# Create Forwarding methods to the parser ==
+# abstact interface for xml parser acces 
+XMLParser instproc cget option    {[my set PC] cget $option}
+XMLParser instproc config args    {eval "[my set PC] configure $args"}
+XMLParser instproc parse data     {[my set PC] parse $data} 
+XMLParser instproc reset {}       {[my set PC] reset; [self]::T reset}
+XMLParser instproc pcdata text {  
+  my instvar currentElement
+  $currentElement insertText $text
+}
+XMLParser instproc start {name attrList} {
+  my instvar currentElement
+  set currentElement [$currentElement insertElement $name $attrList]
+}
+XMLParser instproc end {name} {
+  my instvar currentElement
+  set currentElement [$currentElement info parent]
+}
+XMLParser instproc print {} {
+  ::x::T print
+  puts ""
+}
+
+###############################################################################
+# Simple Node tree
+# General Nodes
+Class Node
+Node instproc reset {} {
+  foreach c [my info children] {$c destroy}
+  my set children ""
+}
+Node instproc print {} {
+  if {[my exists children]} { 
+    foreach c [my set children] { $c print}
+  }
+}
+Node instproc insert {xoclass elementclass args} {
+  set new [eval $xoclass new -childof [self] $args]
+  my lappend children $new
+  return $new
+}
+Node instproc insertElement {tag args} {
+  return [eval my insert Element $tag -attributes $args -tag $tag]
+}
+Node instproc insertText {text} {
+  return [my insert Text text -content $text]
+}
+
+# Element Nodes
+Class Element -superclass Node -parameter {
+  {attributes ""}
+  tag
+}
+Element instproc print {} {
+  my instvar tag attributes
+  if {[llength $attributes]>0} {
+    foreach {n v} $attributes {append string " " $n = '$v'}
+  } else {
+    set string ""
+  }
+  puts  -nonewline <$tag$string>
+  next
+  puts  -nonewline  </$tag>
+}
+
+# Text Nodes
+Class Text -superclass Node -parameter {
+  {content ""}
+}
+Text instproc print {} {
+  puts -nonewline [my set content]
+}
+
+#################################################################################
+### Examples
+#################################################################################
+XMLParser x
+x parse {<rdf:RDF
+    xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+    xmlns:dc="http://purl.org/metadata/dublin_core#"> 
+    <rdf:Description about="http://www.foo.com/cool.html"> 
+      <dc:Creator>
+        <rdf:Seq ID="CreatorsAlphabeticalBySurname">
+          <rdf:li>Mary Andrew</rdf:li>
+          <rdf:li>Jacky Crystal</rdf:li>
+        </rdf:Seq>
+      </dc:Creator>
+
+      <dc:Identifier>
+        <rdf:Bag ID="MirroredSites"> 
+          <rdf:li rdf:resource="http://www.foo.com.au/cool.html"/>
+          <rdf:li rdf:resource="http://www.foo.com.it/cool.html"/>
+        </rdf:Bag>
+      </dc:Identifier>
+
+      <dc:Title>
+        <rdf:Alt>
+          <rdf:li xml:lang="en">The Coolest Web Page</rdf:li>
+          <rdf:li xml:lang="it">Il Pagio di Web Fuba</rdf:li>
+        </rdf:Alt>
+      </dc:Title>
+    </rdf:Description>
+  </rdf:RDF>}
+
+::x print
+puts ============================================================
+x reset
+x parse {
+  <TEST> 
+    a
+    <X a="http://www.foo.com/cool1.html">b</X> 
+    c
+    <Y a="http://www.foo.com/cool2.html">d<Z>e</Z>f</Y> 
+    g
+  </TEST>
+}
+x print

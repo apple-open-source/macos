@@ -19,21 +19,18 @@
  * CDDL HEADER END
  */
 
-/*	Copyright (c) 1988 AT&T	*/
-/*	  All Rights Reserved  	*/
-
 /*
- * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)data.c	1.14	06/03/23 SMI" 	/* SVr4.0 1.3	*/
+/*	Copyright (c) 1988 AT&T	*/
+/*	  All Rights Reserved  	*/
 
+#pragma ident	"@(#)data.c	1.15	08/05/31 SMI"
 
-#include "syn.h"
 #include <libelf.h>
 #include "decl.h"
-
 
 /*
  * Global data

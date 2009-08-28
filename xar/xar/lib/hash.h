@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005 Rob Braun
+ * Copyright (c) 2005-2007 Rob Braun
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,7 +28,7 @@
  */
 /*
  * 03-Apr-2005
- * DRI: Rob Braun <bbraun@opendarwin.org>
+ * DRI: Rob Braun <bbraun@synack.net>
  */
 /*
  * Portions Copyright 2006, Apple Computer, Inc.
@@ -38,13 +38,15 @@
 #ifndef _XAR_HASH_H_
 #define _XAR_HASH_H_
 
-int32_t xar_hash_archived(xar_t x, xar_file_t f, const char *, void **in, size_t *inlen, void **context);
-int32_t xar_hash_archived_in(xar_t x, xar_file_t f, const char *, void *in, size_t inlen, void **context);
+#include "filetree.h"
 
-int32_t xar_hash_unarchived(xar_t x, xar_file_t f, const char *, void **in, size_t *inlen, void **context);
-int32_t xar_hash_unarchived_out(xar_t x, xar_file_t f, const char *attr, void *in, size_t inlen, void **context);
+int32_t xar_hash_archived(xar_t x, xar_file_t f, xar_prop_t p, void **in, size_t *inlen, void **context);
+int32_t xar_hash_archived_in(xar_t x, xar_file_t f, xar_prop_t p, void *in, size_t inlen, void **context);
 
-int32_t xar_hash_done(xar_t x, xar_file_t f, const char *, void **context);
-int32_t xar_hash_out_done(xar_t x, xar_file_t f, const char *, void **context);
+int32_t xar_hash_unarchived(xar_t x, xar_file_t f, xar_prop_t p, void **in, size_t *inlen, void **context);
+int32_t xar_hash_unarchived_out(xar_t x, xar_file_t f, xar_prop_t p, void *in, size_t inlen, void **context);
+
+int32_t xar_hash_done(xar_t x, xar_file_t f, xar_prop_t p, void **context);
+int32_t xar_hash_out_done(xar_t x, xar_file_t f, xar_prop_t p, void **context);
 
 #endif /* _XAR_HASH_H_ */

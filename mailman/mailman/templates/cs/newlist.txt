@@ -6,7 +6,7 @@ Va¹e heslo, pro správu konference je:
     %(password)s
 
 Toto heslo budete potøebovat pro konfiguraci konference, pro
-vyøizování administrativních úkonù jako tøeba akcetapce pøihlá¹ení
+vyøizování administrativních úkonù jako tøeba akceptace pøihlá¹ení
 úèastníka do uzavøené konference nebo pro akceptaci pøíspìvkù do
 moderovaných konferencí.
 
@@ -37,4 +37,3 @@ své administrátorské heslo. Také mù¾ete stejným zpùsobem nastavovat
 
 Pokud máte nìjaké dotazy, zasílejte je na adresu
 %(siteowner)s, pokud to ov¹em není Va¹e vlastní adresa.
-

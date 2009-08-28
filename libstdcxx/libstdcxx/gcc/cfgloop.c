@@ -15,8 +15,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -41,11 +41,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define LATCH_EDGE(E) (*(int *) (E)->aux)
 
 static void flow_loops_cfg_dump (const struct loops *, FILE *);
-static void flow_loop_entry_edges_find (struct loop *);
-static void flow_loop_exit_edges_find (struct loop *);
-static int flow_loop_nodes_find (basic_block, struct loop *);
-static void flow_loop_pre_header_scan (struct loop *);
-static basic_block flow_loop_pre_header_find (basic_block);
 static int flow_loop_level_compute (struct loop *);
 static void flow_loops_level_compute (struct loops *);
 static void establish_preds (struct loop *);
@@ -78,7 +73,7 @@ flow_loops_cfg_dump (const struct loops *loops, FILE *file)
   if (loops->cfg.dfs_order)
     {
       fputs (";; DFS order: ", file);
-      for (i = 0; i < n_basic_blocks; i++)
+      for (i = NUM_FIXED_BLOCKS; i < n_basic_blocks; i++)
 	fprintf (file, "%d ", loops->cfg.dfs_order[i]);
 
       fputs ("\n", file);
@@ -88,7 +83,7 @@ flow_loops_cfg_dump (const struct loops *loops, FILE *file)
   if (loops->cfg.rc_order)
     {
       fputs (";; RC order: ", file);
-      for (i = 0; i < n_basic_blocks; i++)
+      for (i = NUM_FIXED_BLOCKS; i < n_basic_blocks; i++)
 	fprintf (file, "%d ", loops->cfg.rc_order[i]);
 
       fputs ("\n", file);
@@ -132,30 +127,20 @@ flow_loop_dump (const struct loop *loop, FILE *file,
   if (! loop || ! loop->header)
     return;
 
-  fprintf (file, ";;\n;; Loop %d:%s\n", loop->num,
-	     loop->invalid ? " invalid" : "");
+  fprintf (file, ";;\n;; Loop %d\n", loop->num);
 
-  fprintf (file, ";;  header %d, latch %d, pre-header %d\n",
-	   loop->header->index, loop->latch->index,
-	   loop->pre_header ? loop->pre_header->index : -1);
+  fprintf (file, ";;  header %d, latch %d\n",
+	   loop->header->index, loop->latch->index);
   fprintf (file, ";;  depth %d, level %d, outer %ld\n",
 	   loop->depth, loop->level,
 	   (long) (loop->outer ? loop->outer->num : -1));
 
-  if (loop->pre_header_edges)
-    flow_edge_list_print (";;  pre-header edges", loop->pre_header_edges,
-			  loop->num_pre_header_edges, file);
-
-  flow_edge_list_print (";;  entry edges", loop->entry_edges,
-			loop->num_entries, file);
   fprintf (file, ";;  nodes:");
   bbs = get_loop_body (loop);
   for (i = 0; i < loop->num_nodes; i++)
     fprintf (file, " %d", bbs[i]->index);
   free (bbs);
   fprintf (file, "\n");
-  flow_edge_list_print (";;  exit edges", loop->exit_edges,
-			loop->num_exits, file);
 
   if (loop_dump_aux)
     loop_dump_aux (loop, file, verbose);
@@ -194,12 +179,6 @@ flow_loops_dump (const struct loops *loops, FILE *file, void (*loop_dump_aux) (c
 void
 flow_loop_free (struct loop *loop)
 {
-  if (loop->pre_header_edges)
-    free (loop->pre_header_edges);
-  if (loop->entry_edges)
-    free (loop->entry_edges);
-  if (loop->exit_edges)
-    free (loop->exit_edges);
   if (loop->pred)
     free (loop->pred);
   free (loop);
@@ -238,99 +217,10 @@ flow_loops_free (struct loops *loops)
     }
 }
 
-/* Find the entry edges into the LOOP.  */
-
-static void
-flow_loop_entry_edges_find (struct loop *loop)
-{
-  edge e;
-  edge_iterator ei;
-  int num_entries;
-
-  num_entries = 0;
-  FOR_EACH_EDGE (e, ei, loop->header->preds)
-    {
-      if (flow_loop_outside_edge_p (loop, e))
-	num_entries++;
-    }
-
-  gcc_assert (num_entries);
-
-  loop->entry_edges = xmalloc (num_entries * sizeof (edge *));
-
-  num_entries = 0;
-  FOR_EACH_EDGE (e, ei, loop->header->preds)
-    {
-      if (flow_loop_outside_edge_p (loop, e))
-	loop->entry_edges[num_entries++] = e;
-    }
-
-  loop->num_entries = num_entries;
-}
-
-/* Find the exit edges from the LOOP.  */
-
-static void
-flow_loop_exit_edges_find (struct loop *loop)
-{
-  edge e;
-  basic_block node, *bbs;
-  unsigned num_exits, i;
-
-  loop->exit_edges = NULL;
-  loop->num_exits = 0;
-
-  /* Check all nodes within the loop to see if there are any
-     successors not in the loop.  Note that a node may have multiple
-     exiting edges.  */
-  num_exits = 0;
-  bbs = get_loop_body (loop);
-  for (i = 0; i < loop->num_nodes; i++)
-    {
-      edge_iterator ei;
-      node = bbs[i];
-      FOR_EACH_EDGE (e, ei, node->succs)
-	{
-	  basic_block dest = e->dest;
-
-	  if (!flow_bb_inside_loop_p (loop, dest))
-	    num_exits++;
-	}
-    }
-
-  if (! num_exits)
-    {
-      free (bbs);
-      return;
-    }
-
-  loop->exit_edges = xmalloc (num_exits * sizeof (edge *));
-
-  /* Store all exiting edges into an array.  */
-  num_exits = 0;
-  for (i = 0; i < loop->num_nodes; i++)
-    {
-      edge_iterator ei;
-      node = bbs[i];
-      FOR_EACH_EDGE (e, ei, node->succs)
-	{
-	  basic_block dest = e->dest;
-
-	  if (!flow_bb_inside_loop_p (loop, dest))
-	    {
-	      e->flags |= EDGE_LOOP_EXIT;
-	      loop->exit_edges[num_exits++] = e;
-	    }
-      }
-    }
-  free (bbs);
-  loop->num_exits = num_exits;
-}
-
 /* Find the nodes contained within the LOOP with header HEADER.
    Return the number of nodes within the loop.  */
 
-static int
+int
 flow_loop_nodes_find (basic_block header, struct loop *loop)
 {
   basic_block *stack;
@@ -342,7 +232,7 @@ flow_loop_nodes_find (basic_block header, struct loop *loop)
 
   if (loop->latch->loop_father != loop)
     {
-      stack = xmalloc (n_basic_blocks * sizeof (basic_block));
+      stack = XNEWVEC (basic_block, n_basic_blocks);
       sp = 0;
       num_nodes++;
       stack[sp++] = loop->latch;
@@ -414,7 +304,7 @@ mark_single_exit_loops (struct loops *loops)
 	      /* If we have already seen an exit, mark this by the edge that
 		 surely does not occur as any exit.  */
 	      if (loop->single_exit)
-		loop->single_exit = EDGE_SUCC (ENTRY_BLOCK_PTR, 0);
+		loop->single_exit = single_succ_edge (ENTRY_BLOCK_PTR);
 	      else
 		loop->single_exit = e;
 	    }
@@ -427,82 +317,11 @@ mark_single_exit_loops (struct loops *loops)
       if (!loop)
 	continue;
 
-      if (loop->single_exit == EDGE_SUCC (ENTRY_BLOCK_PTR, 0))
+      if (loop->single_exit == single_succ_edge (ENTRY_BLOCK_PTR))
 	loop->single_exit = NULL;
     }
 
   loops->state |= LOOPS_HAVE_MARKED_SINGLE_EXITS;
-}
-
-/* Find the root node of the loop pre-header extended basic block and
-   the edges along the trace from the root node to the loop header.  */
-
-static void
-flow_loop_pre_header_scan (struct loop *loop)
-{
-  int num;
-  basic_block ebb;
-  edge e;
-
-  loop->num_pre_header_edges = 0;
-  if (loop->num_entries != 1)
-    return;
-
-  ebb = loop->entry_edges[0]->src;
-  if (ebb == ENTRY_BLOCK_PTR)
-    return;
-
-  /* Count number of edges along trace from loop header to
-     root of pre-header extended basic block.  Usually this is
-     only one or two edges.  */
-  for (num = 1;
-       EDGE_PRED (ebb, 0)->src != ENTRY_BLOCK_PTR && EDGE_COUNT (ebb->preds) == 1;
-       num++)
-    ebb = EDGE_PRED (ebb, 0)->src;
-
-  loop->pre_header_edges = xmalloc (num * sizeof (edge));
-  loop->num_pre_header_edges = num;
-
-  /* Store edges in order that they are followed.  The source of the first edge
-     is the root node of the pre-header extended basic block and the
-     destination of the last last edge is the loop header.  */
-  for (e = loop->entry_edges[0]; num; e = EDGE_PRED (e->src, 0))
-    loop->pre_header_edges[--num] = e;
-}
-
-/* Return the block for the pre-header of the loop with header
-   HEADER.  Return NULL if there is no pre-header.  */
-
-static basic_block
-flow_loop_pre_header_find (basic_block header)
-{
-  basic_block pre_header;
-  edge e;
-  edge_iterator ei;
-
-  /* If block p is a predecessor of the header and is the only block
-     that the header does not dominate, then it is the pre-header.  */
-  pre_header = NULL;
-  FOR_EACH_EDGE (e, ei, header->preds)
-    {
-      basic_block node = e->src;
-
-      if (node != ENTRY_BLOCK_PTR
-	  && ! dominated_by_p (CDI_DOMINATORS, node, header))
-	{
-	  if (pre_header == NULL)
-	    pre_header = node;
-	  else
-	    {
-	      /* There are multiple edges into the header from outside
-		 the loop so there is no pre-header block.  */
-	      pre_header = NULL;
-	      break;
-	    }
-	}
-    }
-
-  return pre_header;
 }
 
 static void
@@ -517,7 +336,7 @@ establish_preds (struct loop *loop)
 
   if (loop->pred)
     free (loop->pred);
-  loop->pred = xmalloc (sizeof (struct loop *) * loop->depth);
+  loop->pred = XNEWVEC (struct loop *, loop->depth);
   memcpy (loop->pred, father->pred, sizeof (struct loop *) * father->depth);
   loop->pred[father->depth] = father;
 
@@ -602,39 +421,6 @@ flow_loops_level_compute (struct loops *loops)
   flow_loop_level_compute (loops->tree_root);
 }
 
-/* Scan a single natural loop specified by LOOP collecting information
-   about it specified by FLAGS.  */
-
-int
-flow_loop_scan (struct loop *loop, int flags)
-{
-  if (flags & LOOP_ENTRY_EDGES)
-    {
-      /* Find edges which enter the loop header.
-	 Note that the entry edges should only
-	 enter the header of a natural loop.  */
-      flow_loop_entry_edges_find (loop);
-    }
-
-  if (flags & LOOP_EXIT_EDGES)
-    {
-      /* Find edges which exit the loop.  */
-      flow_loop_exit_edges_find (loop);
-    }
-
-  if (flags & LOOP_PRE_HEADER)
-    {
-      /* Look to see if the loop has a pre-header node.  */
-      loop->pre_header = flow_loop_pre_header_find (loop->header);
-
-      /* Find the blocks within the extended basic block of
-	 the loop pre-header.  */
-      flow_loop_pre_header_scan (loop);
-    }
-
-  return 1;
-}
-
 /* A callback to update latch and header info for basic block JUMP created
    by redirecting an edge.  */
 
@@ -643,9 +429,9 @@ update_latch_info (basic_block jump)
 {
   alloc_aux_for_block (jump, sizeof (int));
   HEADER_BLOCK (jump) = 0;
-  alloc_aux_for_edge (EDGE_PRED (jump, 0), sizeof (int));
-  LATCH_EDGE (EDGE_PRED (jump, 0)) = 0;
-  set_immediate_dominator (CDI_DOMINATORS, jump, EDGE_PRED (jump, 0)->src);
+  alloc_aux_for_edge (single_pred_edge (jump), sizeof (int));
+  LATCH_EDGE (single_pred_edge (jump)) = 0;
+  set_immediate_dominator (CDI_DOMINATORS, jump, single_pred (jump));
 }
 
 /* A callback for make_forwarder block, to redirect all edges except for
@@ -707,16 +493,16 @@ canonicalize_loop_headers (void)
 	HEADER_BLOCK (header) = num_latches;
     }
 
-  if (HEADER_BLOCK (EDGE_SUCC (ENTRY_BLOCK_PTR, 0)->dest))
+  if (HEADER_BLOCK (single_succ (ENTRY_BLOCK_PTR)))
     {
       basic_block bb;
 
       /* We could not redirect edges freely here. On the other hand,
 	 we can simply split the edge from entry block.  */
-      bb = split_edge (EDGE_SUCC (ENTRY_BLOCK_PTR, 0));
+      bb = split_edge (single_succ_edge (ENTRY_BLOCK_PTR));
 
-      alloc_aux_for_edge (EDGE_SUCC (bb, 0), sizeof (int));
-      LATCH_EDGE (EDGE_SUCC (bb, 0)) = 0;
+      alloc_aux_for_edge (single_succ_edge (bb), sizeof (int));
+      LATCH_EDGE (single_succ_edge (bb)) = 0;
       alloc_aux_for_block (bb, sizeof (int));
       HEADER_BLOCK (bb) = 0;
     }
@@ -800,14 +586,12 @@ initialize_loops_parallel_p (struct loops *loops)
 }
 
 /* Find all the natural loops in the function and save in LOOPS structure and
-   recalculate loop_depth information in basic block structures.  FLAGS
-   controls which loop information is collected.  Return the number of natural
-   loops found.  */
+   recalculate loop_depth information in basic block structures.
+   Return the number of natural loops found.  */
 
 int
-flow_loops_find (struct loops *loops, int flags)
+flow_loops_find (struct loops *loops)
 {
-  int i;
   int b;
   int num_loops;
   edge e;
@@ -817,11 +601,6 @@ flow_loops_find (struct loops *loops, int flags)
   basic_block header;
   basic_block bb;
 
-  /* This function cannot be repeatedly called with different
-     flags to build up the loop information.  The loop tree
-     must always be built if this function is called.  */
-  gcc_assert (flags & LOOP_TREE);
-
   memset (loops, 0, sizeof *loops);
 
   /* We are going to recount the maximum loop depth,
@@ -830,7 +609,7 @@ flow_loops_find (struct loops *loops, int flags)
 
   /* Taking care of this degenerate case makes the rest of
      this code simpler.  */
-  if (n_basic_blocks == 0)
+  if (n_basic_blocks == NUM_FIXED_BLOCKS)
     return 0;
 
   dfs_order = NULL;
@@ -887,16 +666,16 @@ flow_loops_find (struct loops *loops, int flags)
     }
 
   /* Allocate loop structures.  */
-  loops->parray = xcalloc (num_loops + 1, sizeof (struct loop *));
+  loops->parray = XCNEWVEC (struct loop *, num_loops + 1);
 
   /* Dummy loop containing whole function.  */
-  loops->parray[0] = xcalloc (1, sizeof (struct loop));
+  loops->parray[0] = XCNEW (struct loop);
   loops->parray[0]->next = NULL;
   loops->parray[0]->inner = NULL;
   loops->parray[0]->outer = NULL;
   loops->parray[0]->depth = 0;
   loops->parray[0]->pred = NULL;
-  loops->parray[0]->num_nodes = n_basic_blocks + 2;
+  loops->parray[0]->num_nodes = n_basic_blocks;
   loops->parray[0]->latch = EXIT_BLOCK_PTR;
   loops->parray[0]->header = ENTRY_BLOCK_PTR;
   ENTRY_BLOCK_PTR->loop_father = loops->parray[0];
@@ -914,9 +693,9 @@ flow_loops_find (struct loops *loops, int flags)
     {
       /* Compute depth first search order of the CFG so that outer
 	 natural loops will be found before inner natural loops.  */
-      dfs_order = xmalloc (n_basic_blocks * sizeof (int));
-      rc_order = xmalloc (n_basic_blocks * sizeof (int));
-      flow_depth_first_order_compute (dfs_order, rc_order);
+      dfs_order = XNEWVEC (int, n_basic_blocks);
+      rc_order = XNEWVEC (int, n_basic_blocks);
+      pre_and_rev_post_order_compute (dfs_order, rc_order, false);
 
       /* Save CFG derived information to avoid recomputing it.  */
       loops->cfg.dfs_order = dfs_order;
@@ -924,7 +703,7 @@ flow_loops_find (struct loops *loops, int flags)
 
       num_loops = 1;
 
-      for (b = 0; b < n_basic_blocks; b++)
+      for (b = 0; b < n_basic_blocks - NUM_FIXED_BLOCKS; b++)
 	{
 	  struct loop *loop;
 	  edge_iterator ei;
@@ -936,7 +715,7 @@ flow_loops_find (struct loops *loops, int flags)
 
 	  header = BASIC_BLOCK (rc_order[b]);
 
-	  loop = loops->parray[num_loops] = xcalloc (1, sizeof (struct loop));
+	  loop = loops->parray[num_loops] = XCNEW (struct loop);
 
 	  loop->header = header;
 	  loop->num = num_loops;
@@ -962,10 +741,6 @@ flow_loops_find (struct loops *loops, int flags)
       /* Assign the loop nesting depth and enclosed loop level for each
 	 loop.  */
       flow_loops_level_compute (loops);
-
-      /* Scan the loops.  */
-      for (i = 1; i < num_loops; i++)
-	flow_loop_scan (loops->parray[i], flags);
 
       loops->num = num_loops;
       initialize_loops_parallel_p (loops);
@@ -995,15 +770,6 @@ flow_bb_inside_loop_p (const struct loop *loop, const basic_block bb)
   return loop == source_loop || flow_loop_nested_p (loop, source_loop);
 }
 
-/* Return nonzero if edge E enters header of LOOP from outside of LOOP.  */
-
-bool
-flow_loop_outside_edge_p (const struct loop *loop, edge e)
-{
-  gcc_assert (e->dest == loop->header);
-  return !flow_bb_inside_loop_p (loop, e->src);
-}
-
 /* Enumeration predicate for get_loop_body.  */
 static bool
 glb_enum_p (basic_block bb, void *glb_header)
@@ -1022,13 +788,13 @@ get_loop_body (const struct loop *loop)
 
   gcc_assert (loop->num_nodes);
 
-  tovisit = xcalloc (loop->num_nodes, sizeof (basic_block));
+  tovisit = XCNEWVEC (basic_block, loop->num_nodes);
   tovisit[tv++] = loop->header;
 
   if (loop->latch == EXIT_BLOCK_PTR)
     {
       /* There may be blocks unreachable from EXIT_BLOCK.  */
-      gcc_assert (loop->num_nodes == (unsigned) n_basic_blocks + 2);
+      gcc_assert (loop->num_nodes == (unsigned) n_basic_blocks);
       FOR_EACH_BB (bb)
 	tovisit[tv++] = bb;
       tovisit[tv++] = EXIT_BLOCK_PTR;
@@ -1085,7 +851,7 @@ get_loop_body_in_dom_order (const struct loop *loop)
 
   gcc_assert (loop->num_nodes);
 
-  tovisit = xcalloc (loop->num_nodes, sizeof (basic_block));
+  tovisit = XCNEWVEC (basic_block, loop->num_nodes);
 
   gcc_assert (loop->latch != EXIT_BLOCK_PTR);
 
@@ -1111,7 +877,7 @@ get_loop_body_in_bfs_order (const struct loop *loop)
   gcc_assert (loop->num_nodes);
   gcc_assert (loop->latch != EXIT_BLOCK_PTR);
 
-  blocks = xcalloc (loop->num_nodes, sizeof (basic_block));
+  blocks = XCNEWVEC (basic_block, loop->num_nodes);
   visited = BITMAP_ALLOC (NULL);
 
   bb = loop->header;
@@ -1119,38 +885,38 @@ get_loop_body_in_bfs_order (const struct loop *loop)
     {
       edge e;
       edge_iterator ei;
-      
+
       if (!bitmap_bit_p (visited, bb->index))
-        { 
-          /* This basic block is now visited */
-          bitmap_set_bit (visited, bb->index);
-          blocks[i++] = bb;
-        }
-      
+	{
+	  /* This basic block is now visited */
+	  bitmap_set_bit (visited, bb->index);
+	  blocks[i++] = bb;
+	}
+
       FOR_EACH_EDGE (e, ei, bb->succs)
-        { 
-          if (flow_bb_inside_loop_p (loop, e->dest))
-            { 
-              if (!bitmap_bit_p (visited, e->dest->index))
-                { 
-                  bitmap_set_bit (visited, e->dest->index);
-                  blocks[i++] = e->dest;
-                }
-            }
-        }
-      
+	{
+	  if (flow_bb_inside_loop_p (loop, e->dest))
+	    {
+	      if (!bitmap_bit_p (visited, e->dest->index))
+		{
+		  bitmap_set_bit (visited, e->dest->index);
+		  blocks[i++] = e->dest;
+		}
+	    }
+	}
+
       gcc_assert (i >= vc);
-      
+
       bb = blocks[vc++];
     }
-  
+
   BITMAP_FREE (visited);
   return blocks;
 }
 
 /* Gets exit edges of a LOOP, returning their number in N_EDGES.  */
 edge *
-get_loop_exit_edges (const struct loop *loop, unsigned int *n_edges)
+get_loop_exit_edges (const struct loop *loop, unsigned int *num_edges)
 {
   edge *edges, e;
   unsigned i, n;
@@ -1165,8 +931,8 @@ get_loop_exit_edges (const struct loop *loop, unsigned int *n_edges)
     FOR_EACH_EDGE (e, ei, body[i]->succs)
       if (!flow_bb_inside_loop_p (loop, e->dest))
 	n++;
-  edges = xmalloc (n * sizeof (edge));
-  *n_edges = n;
+  edges = XNEWVEC (edge, n);
+  *num_edges = n;
   n = 0;
   for (i = 0; i < loop->num_nodes; i++)
     FOR_EACH_EDGE (e, ei, body[i]->succs)
@@ -1245,7 +1011,8 @@ find_common_loop (struct loop *loop_s, struct loop *loop_d)
 }
 
 /* Cancels the LOOP; it must be innermost one.  */
-void
+
+static void
 cancel_loop (struct loops *loops, struct loop *loop)
 {
   basic_block *bbs;
@@ -1295,7 +1062,7 @@ verify_loop_structure (struct loops *loops)
   edge e;
 
   /* Check sizes.  */
-  sizes = xcalloc (loops->num, sizeof (int));
+  sizes = XCNEWVEC (unsigned, loops->num);
   sizes[0] = 2;
 
   FOR_EACH_BB (bb)
@@ -1305,11 +1072,11 @@ verify_loop_structure (struct loops *loops)
   for (i = 0; i < loops->num; i++)
     {
       if (!loops->parray[i])
-        continue;
+	continue;
 
       if (loops->parray[i]->num_nodes != sizes[i])
 	{
-	  error ("Size of loop %d should be %d, not %d.",
+	  error ("size of loop %d should be %d, not %d",
 		   i, sizes[i], loops->parray[i]->num_nodes);
 	  err = 1;
 	}
@@ -1326,7 +1093,7 @@ verify_loop_structure (struct loops *loops)
       for (j = 0; j < loop->num_nodes; j++)
 	if (!flow_bb_inside_loop_p (loop, bbs[j]))
 	  {
-	    error ("Bb %d do not belong to loop %d.",
+	    error ("bb %d do not belong to loop %d",
 		    bbs[j]->index, i);
 	    err = 1;
 	  }
@@ -1343,36 +1110,36 @@ verify_loop_structure (struct loops *loops)
       if ((loops->state & LOOPS_HAVE_PREHEADERS)
 	  && EDGE_COUNT (loop->header->preds) != 2)
 	{
-	  error ("Loop %d's header does not have exactly 2 entries.", i);
+	  error ("loop %d's header does not have exactly 2 entries", i);
 	  err = 1;
 	}
       if (loops->state & LOOPS_HAVE_SIMPLE_LATCHES)
 	{
-	  if (EDGE_COUNT (loop->latch->succs) != 1)
+	  if (!single_succ_p (loop->latch))
 	    {
-	      error ("Loop %d's latch does not have exactly 1 successor.", i);
+	      error ("loop %d's latch does not have exactly 1 successor", i);
 	      err = 1;
 	    }
-	  if (EDGE_SUCC (loop->latch, 0)->dest != loop->header)
+	  if (single_succ (loop->latch) != loop->header)
 	    {
-	      error ("Loop %d's latch does not have header as successor.", i);
+	      error ("loop %d's latch does not have header as successor", i);
 	      err = 1;
 	    }
 	  if (loop->latch->loop_father != loop)
 	    {
-	      error ("Loop %d's latch does not belong directly to it.", i);
+	      error ("loop %d's latch does not belong directly to it", i);
 	      err = 1;
 	    }
 	}
       if (loop->header->loop_father != loop)
 	{
-	  error ("Loop %d's header does not belong directly to it.", i);
+	  error ("loop %d's header does not belong directly to it", i);
 	  err = 1;
 	}
       if ((loops->state & LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS)
 	  && (loop_latch_edge (loop)->flags & EDGE_IRREDUCIBLE_LOOP))
 	{
-	  error ("Loop %d's latch is marked as part of irreducible region.", i);
+	  error ("loop %d's latch is marked as part of irreducible region", i);
 	  err = 1;
 	}
     }
@@ -1405,13 +1172,13 @@ verify_loop_structure (struct loops *loops)
 	  if ((bb->flags & BB_IRREDUCIBLE_LOOP)
 	      && !TEST_BIT (irreds, bb->index))
 	    {
-	      error ("Basic block %d should be marked irreducible.", bb->index);
+	      error ("basic block %d should be marked irreducible", bb->index);
 	      err = 1;
 	    }
 	  else if (!(bb->flags & BB_IRREDUCIBLE_LOOP)
 	      && TEST_BIT (irreds, bb->index))
 	    {
-	      error ("Basic block %d should not be marked irreducible.", bb->index);
+	      error ("basic block %d should not be marked irreducible", bb->index);
 	      err = 1;
 	    }
 	  FOR_EACH_EDGE (e, ei, bb->succs)
@@ -1419,14 +1186,14 @@ verify_loop_structure (struct loops *loops)
 	      if ((e->flags & EDGE_IRREDUCIBLE_LOOP)
 		  && !(e->flags & (EDGE_ALL_FLAGS + 1)))
 		{
-		  error ("Edge from %d to %d should be marked irreducible.",
+		  error ("edge from %d to %d should be marked irreducible",
 			 e->src->index, e->dest->index);
 		  err = 1;
 		}
 	      else if (!(e->flags & EDGE_IRREDUCIBLE_LOOP)
 		       && (e->flags & (EDGE_ALL_FLAGS + 1)))
 		{
-		  error ("Edge from %d to %d should not be marked irreducible.",
+		  error ("edge from %d to %d should not be marked irreducible",
 			 e->src->index, e->dest->index);
 		  err = 1;
 		}
@@ -1461,11 +1228,11 @@ verify_loop_structure (struct loops *loops)
 		  if (loop->single_exit
 		      && loop->single_exit != e)
 		    {
-		      error ("Wrong single exit %d->%d recorded for loop %d.",
+		      error ("wrong single exit %d->%d recorded for loop %d",
 			     loop->single_exit->src->index,
 			     loop->single_exit->dest->index,
 			     loop->num);
-		      error ("Right exit is %d->%d.",
+		      error ("right exit is %d->%d",
 			     e->src->index, e->dest->index);
 		      err = 1;
 		    }
@@ -1482,14 +1249,14 @@ verify_loop_structure (struct loops *loops)
 	  if (sizes[i] == 1
 	      && !loop->single_exit)
 	    {
-	      error ("Single exit not recorded for loop %d.", loop->num);
+	      error ("single exit not recorded for loop %d", loop->num);
 	      err = 1;
 	    }
 
 	  if (sizes[i] != 1
 	      && loop->single_exit)
 	    {
-	      error ("Loop %d should not have single exit (%d -> %d).",
+	      error ("loop %d should not have single exit (%d -> %d)",
 		     loop->num,
 		     loop->single_exit->src->index,
 		     loop->single_exit->dest->index);
@@ -1522,4 +1289,13 @@ loop_preheader_edge (const struct loop *loop)
       break;
 
   return e;
+}
+
+/* Returns true if E is an exit of LOOP.  */
+
+bool
+loop_exit_edge_p (const struct loop *loop, edge e)
+{
+  return (flow_bb_inside_loop_p (loop, e->src)
+	  && !flow_bb_inside_loop_p (loop, e->dest));
 }

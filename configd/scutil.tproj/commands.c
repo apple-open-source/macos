@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -44,8 +44,6 @@
 #include "tests.h"
 #include "net.h"
 #include "prefs.h"
-
-#include "SCDynamicStoreInternal.h"
 
 
 __private_extern__
@@ -133,8 +131,8 @@ const cmdInfo commands_store[] = {
 	{ "n.changes",	0,	0,	do_notify_changes,	5,	0,
 		" n.changes                     : list changed keys"				},
 
-	{ "n.watch",	0,	1,	do_notify_watch,	5,	0,
-		" n.watch [verbose]             : watch for changes"				},
+	{ "n.watch",	0,	0,	do_notify_watch,	5,	0,
+		" n.watch                       : watch for changes"				},
 
 	{ "n.wait",	0,	0,	do_notify_wait,		5,	2,
 		" n.wait                        : wait for changes"				},
@@ -211,8 +209,8 @@ const cmdInfo commands_net[] = {
 		" remove service   [ <serviceName> | <service#> ]\n"
 		" remove set       [ <setName> | <set#> ]"					},
 
-	{ "select",	2,	2,	do_net_select,		7,	0,
-		" select interface <interfaceName> | <interface#> | $child | $service\n"
+	{ "select",	2,	3,	do_net_select,		7,	0,
+		" select interface <interfaceName> | <interface#> | $child | $service | $vlan | $bond <memberName>\n"
 		" select protocol  <protocolType>\n"
 		" select service   <serviceName> | <service#>\n"
 		" select set       <setName> | <set#>"						},
@@ -220,7 +218,7 @@ const cmdInfo commands_net[] = {
 	{ "set",	2,	101,	do_net_set,		8,	0,
 		" set interface context-sensitive-arguments (or ? for help)\n"
 		" set protocol  context-sensitive-arguments (or ? for help)\n"
-		" set service   [ name <serviceName> ] [ order new-order ]\n"
+		" set service   [ name <serviceName> ] [ order new-order ] [ rank ("" | First | Last | Never) [temp] ]\n"
 		" set set       [ name setName ]"						},
 
 	{ "show",	1,	2,	do_net_show,		9,	0,
@@ -282,7 +280,7 @@ const cmdInfo commands_prefs[] = {
 	/* data store manipulation commands */
 
 	{ "open",	0,	1,	do_prefs_open,		2,	1,
-		" open [\"prefsID\"]            : open a \"preferences\" session"			},
+		" open [\"prefsID\"]            : open a \"preferences\" session"		},
 
 	{ "lock",	0,	1,	do_prefs_lock,		3,	1,
 		" lock [wait]                   : locks write access to preferences"		},
@@ -301,7 +299,7 @@ const cmdInfo commands_prefs[] = {
 
 	{ "synchronize",0,	1,	do_prefs_synchronize,	2,	0,
 		" synchronize            : synchronize a \"preferences\" session"		},
-	
+
 	{ "list",	0,	1,	do_prefs_list,		4,	0,
 		" list [path]                   : list preference paths"			},
 
@@ -410,9 +408,13 @@ do_readFile(int argc, char **argv)
 	SCPrint(TRUE, stdout, CFSTR("f.read: reading file (%s).\n"), argv[0]);
 	nesting++;
 
-	while (process_line(src) == TRUE) {
-	       /* debug information, diagnostics */
-		__showMachPortStatus();
+	while (TRUE) {
+		Boolean	ok;
+
+		ok = process_line(src);
+		if (!ok) {
+			break;
+		}
 	}
 
 	(void)fclose(src->fp);

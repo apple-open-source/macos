@@ -1,3 +1,1333 @@
+Tue May 13 17:51:05 CEST 2008 Daniel Veillard <daniel@veillard.com>
+
+	* configure.in doc/*: release of 1.1.24
+	* python/generator.py: syntactic cleanup (Martin)
+
+Tue May 13 16:32:22 CEST 2008 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/xslt.c libxslt/extensions.c libxslt/extensions.h:
+	  fix the processing of top level elements of stylesheets which
+	  are not in the XSLT namespace and are not an extension either
+	  should fix #529223
+	* tests/docs/Makefile.am tests/docs/bug-167.xml
+	  tests/general/Makefile.am tests/general/bug-167.*: add the
+	  test to the regression suite
+
+Fri May  9 14:30:35 CEST 2008 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/documents.c libxslt/keys.c libxslt/xsltInternals.h
+	  libxslt/transform.c libxslt/pattern.c: fix the key initialization
+	  problem introduced when tracking Josef Urban problem from 22 Dec
+	  2007, this should also handle the problem of recursive keys
+	  definitions should fix #531873.
+	* tests/docs/bug-166.xml tests/docs/Makefile.am
+	  tests/general/Makefile.am tests/general/bug-166.xsl
+	  tests/general/bug-166.out: add the regression tests when a key
+	  computation depends on another one.
+
+Mon Apr 21 16:16:29 CEST 2008 Daniel Veillard <daniel@veillard.com>
+
+	* doc/xsltproc.1 doc/xsltproc.xml: update the man page based on
+	  Vincent Lefevre suggestion.
+
+Mon Apr 14 11:19:14 CEST 2008 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/pattern.c: fixes #527297 general patter comps fix and cleanup
+	* libxslt/xsltInternals.h libxslt/pattern.h: other cleanups
+
+Tue Apr  8 19:15:19 CEST 2008 Daniel Veillard <daniel@veillard.com>
+
+	* configure.in doc/*: release of 1.1.23
+
+Tue Apr  8 18:52:36 CEST 2008 Daniel Veillard <daniel@veillard.com>
+
+	* libexslt/date.c: new version of patch from Peter Pawlowski
+
+Tue Apr  8 10:19:01 CEST 2008 Daniel Veillard <daniel@veillard.com>
+
+	* python/generator.py: fix an infinite loop bug
+
+Thu Apr  3 09:32:49 CEST 2008 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/xsltutils.c: avoid a scary realloc() loop should fix #520383
+
+Thu Apr  3 07:32:36 CEST 2008 Daniel Veillard <daniel@veillard.com>
+
+	* libexslt/date.c: applied patch from Peter Pawlowski  fixing
+	  a timezone offset problem, fixes #521680
+	* libxslt/namespaces.c: a bit of space/tabs cleanup
+
+Thu Apr  3 06:25:02 CEST 2008 Daniel Veillard <daniel@veillard.com>
+
+	* doc/xsltproc.xml doc/xsltproc.1 doc/xsltproc.html: small fix to
+	  man page synopsis, should fix #525822
+
+Sat Mar 15 11:13:18 HKT 2008 William Brack <wbrack@mmm.com.hk>
+
+	* libexslt/functions.c: fixed minor error reported on the mailing
+	 list by Mark Howe, which caused a segfault if func:result was
+	 postitioned as top-level element.
+
+Thu Mar 13 09:33:21 CET 2008 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/win32config.h: patch from Rob Richards for VS 2008
+	* python/types.c: fix a problem with namespace nodes coming from
+	  XPath nodesets.
+
+Mon Mar  3 09:39:31 CET 2008 Daniel Veillard <daniel@veillard.com>
+
+	* doc/xsltproc.xml doc/xsltproc.1: fix maxdepth default value
+	  documentation fixes #519921.
+
+Sat Feb 16 01:24:58 HKT 2008 William Brack <wbrack@mmm.com.hk>
+
+	*libxslt/extensions.c: fixed minor error bug #516483
+	*tests/exslt/common - deleted node-set.9 regression test,
+	 because it relied upon an external web import.
+
+Tue Feb  5 08:53:30 CET 2008 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/xslt.c: applied documentation patch from Jason Viers
+	  for xsltParseStylesheetDoc
+
+Tue Feb  5 08:36:53 CET 2008 Daniel Veillard <daniel@veillard.com>
+
+	* python/tests/pyxsltproc.py: applied a portability patch from 
+	  Stephane Bidoul
+
+Thu Jan 24 16:24:05 CET 2008 Daniel Veillard <daniel@veillard.com>
+
+	* doc/xslt.html doc/docbook.html: fix links for Cygwin DocBook
+	  setup as suggested by Philippe Bourcier
+
+Sun Dec 23 16:40:38 PST 2007 William Brack <wbrack@mmm.com.hk>
+
+	* libxslt/keys.c, libxslt/pattern.c, libxslt/xsltInternals.h:
+	  fixed a problem on superfluous re-generation of keys reported
+	  on the mailing list by Josef Urban.
+
+Thu Nov 29 11:43:14 CET 2007 Daniel Veillard <daniel@veillard.com>
+
+	* configure.in: avoid a problem in configure if an old gcrypt
+	  version is installed, patch from Brent Cowgill, fixes #500390
+
+Tue Nov 13 13:08:08 PDT 2007 William Brack <wbrack@mmm.com.hk>
+
+	* libexslt/common.c, libexslt/dynamic.c: After discussion on
+	  Bugzilla with Peter Pawlowski, added same code for preventing
+	  deletion of function result during garbage collection (see
+	  bug #495995).
+	  
+Mon Nov 12 13:53:58 PDT 2007 William Brack <wbrack@mmm.com.hk>
+
+	* libexslt/strings.c: Added code to mark the results of
+	  str:tokenize and str:split as "function result" to avoid
+	  garbage-collecting them during global variable initialisation.
+	  Should fix bug #495995.
+
+Wed Oct 24 17:41:08 PDT 2007 William Brack <wbrack@mmm.com.hk>
+
+	* python/libxslt.c: changed iterator argument for Py_Dict_Next
+	  from int to ssize_t (seems Python docs are incorrect) to fix
+	  x86_64 bug #489854.
+
+Wed Oct 10 16:33:09 CEST 2007 Daniel Veillard <daniel@veillard.com>
+
+	* libexslt/date.c tests/exslt/date/datetime.1.out
+	  tests/exslt/date/date.1.out tests/exslt/date/date.1.xml:
+	  applied patch from Maurice van der Pot to fix EXSLT
+	  week-in-year extenson which was not conforming to the definition.
+	  This also changes the output of the tests a bit. Should fix #452876
+
+Thu Aug 30 08:18:08 HKT 2007 William Brack <wbrack@mmm.com.hk>
+
+	* python/libxslt.c: applied patch from Daniel Gryniewicz to
+	  fix a segfault caused by a parameter array not being preset
+	  to zero.
+
+Thu Aug 23 17:18:03 CEST 2007 Daniel Veillard <daniel@veillard.com>
+
+	* configure.in doc/*: preparing release of 1.1.22
+
+Thu Aug 23 15:39:18 CEST 2007 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/xslt.c: applied patch from Rob Richards to fix a 
+	  stylesheet compilation error handling problem #382570
+
+Thu Aug 23 15:22:55 CEST 2007 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/security.c: applied patch from Roland Schwarz and Rob
+	  Richards to fix the security file checks on Windows, should 
+	  close #464432
+
+Thu Aug 23 21:15:28 HKT 2007 William Brack <wbrack@mmm.com.hk>
+
+	* tests/general/bug-165.[xsl,out,err], tests/docs/bug-165.xml,
+	  tests/general/Makefile.am, tests/docs/Makefile.am:
+	  added regression test for bug #469410
+
+Thu Aug 23 14:13:02 CEST 2007 Daniel Veillard <daniel@veillard.com>
+
+	* xsltproc/xsltproc.c: patch from Drazen Kacar to add a --encoding
+	  option fixes #443868
+	* doc/xsltproc.xml doc/xsltproc.1: augment and regenerate man page.
+	
+Thu Aug 23 11:47:20 CEST 2007 Daniel Veillard <daniel@veillard.com>
+
+	* libexslt/date.c: apply patch from Björn Wiberg fixing build on AIX
+	  and closing bug #332173
+
+Fri Aug  3 15:49:26 CEST 2007 Daniel Veillard <daniel@veillard.com>
+
+	* win32/Makefile.msvc win32/configure.js: apply patch from
+	  Rob Richards to improve build with VS2005
+
+Thu Jul 26 12:43:38 PDT 2007 William Brack <wbrack@mmm.com.hk>
+
+	* libxslt/xslt.c: Removed the exclude-result-prefix change of
+	  31 May 2007.  Fixes bug #459713.
+
+Sat Jun 16 07:42:18 PDT 2007 William Brack <wbrack@mmm.com.hk>
+
+	* libxslt/transform.c: Fixed problem with RVT cleanup related
+	  to some exslt functions (reported on the list by Marc Adkins).
+
+Wed Jun 13 13:27:48 PDT 2007 William Brack <wbrack@mmm.com.hk>
+
+	* tests/exslt/common/node-set.9.[xml,xsl,out],
+	  tests/exslt/common/Makefile.am: added test case for bug #413451
+
+Tue Jun 12 18:43:05 CEST 2007 Daniel Veillard <daniel@veillard.com>
+
+	* NEWS configure.in doc/*: preparing release of 1.1.21
+
+Thu May 31 12:38:08 PDT 2007 William Brack <wbrack@mmm.com.hk>
+
+	* libxslt/xslt.c: fixed obscure namespace problem related to
+	  exclude-result-prefix
+
+Mon May  7 00:14:28 HKT 2007 William Brack <wbrack@mmm.com.hk>
+
+	* libxslt/transform.c: fixed minor compilation warning; no change
+	  to logic.
+
+Sun May  6 23:42:38 HKT 2007 William Brack <wbrack@mmm.com.hk>
+
+	* libexslt/math.c: fixed two memory leaks, one in exsltMathConstant
+	  and one in exsltMathConstantFunction (bug #436324)
+
+Fri May  4 15:51:58 HKT 2007 William Brack <wbrack@mmm.com.hk>
+
+	* libxslt/transform.c: fixed xpath context housekeeping problem
+	  on processing "choose" (bug 435479).
+
+Thu Apr 26 11:10:18 HKT 2007 William Brack <wbrack@mmm.com.hk>
+
+	* libxslt/transform.c: fixed (another) problem with cached
+	  RVT's (from re-opened #378766).
+
+Tue Mar 27 16:50:52 CEST 2007 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/xsltutils.c: apply patch fron Shaun McCance to hook
+	  xsl:message construct to the new per-xsltTransformCtxt error
+	  callback if set up.
+	* Makefile.am: do not package svn files in releases
+
+Fri Mar  2 18:45:48 HKT 2007 William Brack <wbrack@mmm.com.hk>
+
+	* libxslt/xsltconfig.h.in: added setting of TRIO_REPLACE_STDIO
+	  when TRIO routines are required.
+	* libxslt/namespaces.c, libxslt/xsltutils.c: enhanced handling
+	  of stdio.h vs. trio.h when trio routines are required (now
+	  use XSLT_NEED_TRIO) (bug #412787)
+
+Sun Feb 18 09:00:08 PST 2007 William Brack <wbrack@mmm.com.hk>
+
+	* python/libxsl.py: fixed tab/space inconsistency with patch
+	  provided by Andreas Hanke (bug #409193)
+
+Thu Feb 15 14:03:18 PST 2007 William Brack <wbrack@mmm.com.hk>
+
+	* doc/xslt.html: Changed all
+	  references to CVS to be SVN; changed corresponding links.
+	* doc/*html: regenerated the documentation for above
+
+Wed Feb 14 01:21:38 PST 2007 William Brack <wbrack@mmm.com.hk>
+
+	* libxslt/pattern.c: Fixed problem with namespace on compound
+	  predicate (bug #407731)
+
+Wed Jan 24 11:05:28 PST 2007 William Brack <wbrack@mmm.com.hk>
+
+	* libxslt/pattern.c: added check for memory allocation error
+	  (bug #400242); fixed "type-punned pointer" warnings.
+	* libxslt/xsltutils.c: added checks for memory allocation error
+	  (bug #400242)
+	* restored NEWS, doc/EXSLT/downloads.html which mysteriously
+	  disappeared from svn
+	
+Wed Jan 17 14:20:18 CET 2007 Daniel Veillard <daniel@veillard.com>
+
+	* configure.in doc/*: preparing release of 1.1.20
+	* libexslt/crypto.c: small patch for missing includes on some BSD,
+	  fixes #397373
+	* configure.in: replace == by = in test, raised by Roland Illig,
+	  should fix #397371
+
+Sun Jan 14 18:45:08 PST 2007 William Brack <wbrack@mmm.com.hk>
+
+	* libxslt/functions.c: fixed two problems related to checking
+	  of fragments, related to python htmlCtxtReadFile problem
+	  reported on mailing list by Nic Ferrier.
+
+Fri Jan 12 23:24:08 PST 2007 William Brack <wbrack@mmm.com.hk>
+
+	* libxslt/extensions.c: reverted last change, fixed some
+	  comments.  Note that in it's current state the 'plugin'
+	  implementation will fail if called from a program
+	  compiled as static!
+
+Fri Jan 12 15:40:08 PST 2007 William Brack <wbrack@mmm.com.hk>
+
+	* configure.in: fixed problem with DV/WMB testing env.
+	* regenerated docs; doc/APIchunk1[012].html added to SVN
+	* libxslt/extensions.c: fixed problem with plugin loading;
+	  removed testplugin.c from SVN (current version kept as
+	  tests/plugin/testplugin.c)
+
+Thu Jan 11 11:08:18 PST 2007 William Brack <wbrack@mmm.com.hk>
+
+	* libxslt/transform.c: enhanced to ignore empty text node
+	  in xsltDefaultProcessOneNode (avoid calling xsltCopyText)
+	  (bug #354900)
+	* xsltproc/xsltproc.c: added check for output file problem,
+	  yielding new error code 11 (Mike Hommey).
+	* doc/xsltproc.html, doc/xsltproc.xml: added documentation
+	  for above, regenerated docs (doc/xsltproc.1)
+
+Wed Jan 10 19:13:08 PST 2007 William Brack <wbrack@mmm.com.hk>
+
+	* libexslt/strings.c: added new function 'replace' from Joel
+	  Reed.
+	* tests/exslt/Makefile.am, replace.1.xml, replace.1.xsl,
+	  replace.1.out: added new test case for above.
+	* libxslt.spec.in: trivial change from 'Gnome' to 'GNOME'
+	* configure.in: trivial change for flags on my compilations
+	* libxslt/documents.c, libxslt/documents.h, libxslt/keys.c,
+	  libxslt/keys.h, libxslt/variables.c, libxslt/templates.c,
+	  libxslt/transform.c, libxslt/variables.c, libxslt/xslt.c,
+	  libxslt/xsltutils.c: fixed some documentation/comments and
+	  compilation warnings - no change to logic.
+	* re-generated the documentation.
+
+Wed Jan  3 16:46:05 CET 2007 Daniel Veillard <daniel@veillard.com>
+
+	* configure.in: adapt the extra versioning code to SVN
+
+Fri Dec 22 09:12:08 PST 2006 William Brack <wbrack@mmm.com.hk>
+
+	* python/libxslt.c: applied patch supplied by Kjartan Maraas
+	  (bug #388567).
+
+Mon Dec 11 14:38:22 PST 2006 William Brack <wbrack@mmm.com.hk>
+
+	* libexslt/functions.c: further enhancement to the original
+	  fix for bug #381319 (which was not correct).
+	* tests/exslt/functions: minor enhancement to function.9.xsl;
+	  function.10.[xsl,xml,out] added to regression tests to check
+	  recursive calls.
+
+Mon Dec 11 12:13:14 CET 2006 Daniel Veillard <daniel@veillard.com>
+
+	* configure python/generator.py python/libxsl.py
+	  python/libxslt-python-api.xml python/libxslt.c
+	  python/tests/2stage.py python/tests/loader.py: applied patch from
+	  Nic James Ferrier to make stylesheets comparable and to add
+	  transformContext handling
+
+Sat Dec  9 15:22:34 PST 2006 William Brack <wbrack@mmm.com.hk>
+
+	* libexslt/functions.c: changed handling of function params
+	  to fix bug #381319
+	* libxslt/transform.[ch]: exposed xsltLocalVariablePush and
+	  xsltLocalVariablePop as global entries so that they could
+	  be used from within libexslt/functions.c
+	* tests/exslt/functions/function.9.[xsl,xml,out] added to
+	  regression tests
+
+Tue Dec  5 10:45:04 CET 2006 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/extensions.c: applied patch from Marcus Meissner removing
+	  a strict aliasing problem should fix #317921
+
+Fri Dec  1 23:02:27 HKT 2006 William Brack <wbrack@mmm.com.hk>
+
+	* libxslt/transform.c: fixed problem with housekeeping of
+	  localRVTBase, bug #378766
+
+Wed Nov 29 16:06:43 CET 2006 Daniel Veillard <daniel@veillard.com>
+
+	* NEWS configure.in doc//*: preparing release of libxslt-1.1.19
+
+Sat Nov 25 11:48:28 HKT 2006 William Brack <wbrack@mmm.com.hk>
+
+	* libxslt/variables.c: fixed problem with cached RVT's,
+	  bug #378766
+
+Thu Nov 23 17:49:31 CET 2006 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/transform.c: applied patch from Mike Hommey about saving
+	  the current in-scope namespace list when calling a template, fixes
+	  bug #377579
+
+Thu Nov 23 15:36:28 CET 2006 Daniel Veillard <daniel@veillard.com>
+
+	* configure.in: fix a python detection problem pointed out by 
+	  Joseph Sacco, fixes bug #376391
+
+Fri Nov 17 09:53:08 HKT 2006 William Brack <wbrack@mmm.com.hk>
+
+	* libxslt/transform.c: fixed problem with entity handling
+	  within xsltCopyAttrListNoOverwrite (#352907)
+	* tests/general/bug-164.xsl, tests/general/bug-164.out,
+	  tests/docs/bug-164.oxml: added a regression test for this
+
+Thu Oct 26 15:31:01 CEST 2006 Daniel Veillard <daniel@veillard.com>
+
+	* NEWS configure.in doc//*: preparing release of libxslt-1.1.18,
+	  this bumps libxml2 requirement to 1.6.27
+	* libexslt/date.c libxslt/namespaces.h libxslt/xslt.c 
+	  libxslt/xsltInternals.h: cosmetic cleanups to restore the
+	  API extraction
+
+Thu Oct 26 10:36:43 CEST 2006 Daniel Veillard <daniel@veillard.com>
+
+	* doc//*: removed all remaining references to the old Wiki
+
+Thu Oct 12 23:12:24 HKT 2006 William Brack <wbrack@mmm.com.hk>
+
+	* libexslt/date.c: fixed end-of-month problem in exsltDateCurrent
+	  (#359246)
+
+Thu Oct 12 14:39:37 CEST 2006 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/preproc.c: applied patch from Mike Hommey fixing 2 
+	  erroneous xmlFree() and adding a message on an unsupported feature
+
+Wed Oct 11 23:16:10 CEST 2006 Daniel Veillard <daniel@veillard.com>
+
+	* python/libxslt-python-api.xml: applied fix for accessor functions
+	  of a stylesheet returning pointers to immutable strings, patch
+	  from #320540
+	* xsltproc/xsltproc.c: fix the xinclude on stylehseet problem
+	  by adding a new parameter to xsltproc names --xincludestyle
+
+Wed Oct 11 22:27:37 CEST 2006 Daniel Veillard <daniel@veillard.com>
+
+	* xsltproc/xsltproc.c: apply patch from Gary Coady to compile when
+	  libxml2 has no xinclude support #319886
+	* docs/*: renamed Gnome to GNOME fixes #352159
+
+Wed Oct 11 21:37:27 CEST 2006 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/Makefile.am: a missing DESTDIR
+	* python/Makefile.am: fix reference to build paths in python module
+	* libexslt/exsltconfig.h.in libxslt/xsltconfig.h.in: fix the header
+	  comments on version values, the 3 are patches from Peter
+	  Breitenlohner   and should fix #340995
+
+Wed Oct 11 11:16:34 CEST 2006 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/security.c: applied cleanup patch from Mikhail Zabaluev
+	  which should finish fixing #337486
+
+Wed Oct 11 09:55:06 CEST 2006 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/security.c: applied fix from Shane Corgatelli to pass
+	  the full URL when checking security access for network URLs,
+	  should fix bug #359366
+
+Mon Aug 21 10:46:25 CEST 2006 Daniel Veillard <daniel@veillard.com>
+
+	* doc/xslt.html python/tests/pyxsltproc.py xsltproc/xsltproc.c: 
+	  applied patch from Daniel Leidert to fix some typo
+	* xsltproc.xml xsltproc.1: applied another patch from Daniel Leidert
+	  and regenerated
+
+Wed Aug 16 17:39:04 CEST 2006 Daniel Veillard <daniel@veillard.com>
+
+	* xsltproc/xsltproc.c: --xinclude should also force XInclude
+	  processing on the stylesheets themselves, raised by Daniel Leidert
+
+Thu Aug 10 15:54:02 CEST 2006 Kasimier Buchcik <libxml2-cvs@cazic.net>
+
+	* libxslt/transform.c libxslt/variables.c
+	  libxslt/xsltInternals.h: Fixed restoring the context doc
+	  for XPath in xsltForEach(). Eliminated the use of @tmpDoc
+	  of the transformation context.
+
+Thu Aug 10 13:40:35 CEST 2006 Kasimier Buchcik <libxml2-cvs@cazic.net>
+
+	* libxslt/preproc.c: Added missing QName-validation of some
+	  attributes of XSLT-elements. This fixes bug #304921, reported
+	  by Frans Englich.
+
+Thu Aug 10 13:27:48 CEST 2006 Kasimier Buchcik <libxml2-cvs@cazic.net>
+
+	* libxslt/transform.c: As suggested by Bill, I changed
+	  xsltShallowCopyNsNode() to return an xmlNsPtr instead of
+	  an int. The fix of bug #350085 is OK; i.e. the removal
+	  of the call to xsltFreeRVTs() in
+	  xsltApplyStylesheetInternal(). I think I tried to clear
+	  the transformation context as much as possible, in case
+	  it is reused; Daniel informed me on the list that reusing
+	  the context is not intended, so no need anymore to try
+	  to free the fragments immediately after the transformation.
+
+Wed Aug  9 13:22:13 PDT 2006 William Brack <wbrack@mmm.com.hk>
+
+	* libxslt/transform.c: Fixed problem with cleanup of RVT's, should
+	  clear bug350085; cleaned up most warnings (still a problem in
+	  xsltShallowCopyNsNode)
+	* trivial warning cleanup in libxslt/[extensions.c, namespaces.c,
+	  xslt.c and xsltInternals.h] and libexslt/functions.c
+
+Fri Aug  4 14:50:41 CEST 2006 Daniel Veillard <daniel@veillard.com>
+
+	* python/generator.py: fixed the conversion of long parameters
+
+Wed Jul 19 15:06:39 EDT 2006 Daniel Veillard <daniel@veillard.com>
+
+	* python/types.c: fix float and boolean XPath conversions
+	* libxslt/xsltutils.c: try to fix Stephane Bidoul attempt
+	  at setting XInclude support.
+
+Mon Jul 17 11:15:23 PDT 2006 William Brack <wbrack@mmm.com.hk>
+
+	* Updated tests affected by recent library changes -
+	  tests/general/bug-1-.out, tests/general/bug-24-.out,
+	  tests/keys/month.out : (<t></t> now becomes <t/>);
+	  tests/general/bug-41-.xsl and tests/general/bug-43.xsl :
+	  call-template and apply-template, where the template has
+	  no parameter but one is supplied (var should not be affected)
+	  tests/general/bug-145.err : changed error text
+	  
+Fri Jul 14 18:16:59 CEST 2006 Kasimier Buchcik <libxml2-cvs@cazic.net>
+
+	* libxslt/attributes.c libxslt/documents.c
+	  libxslt/functions.c libxslt/keys.c libxslt/namespaces.c
+	  libxslt/pattern.c libxslt/preproc.c libxslt/templates.c
+	  libxslt/templates.h libxslt/transform.c
+	  libxslt/variables.c libxslt/xslt.c
+	  libxslt/xsltInternals.h libxslt/xsltutils.c
+	  libxslt/xsltutils.h libexslt/common.c libexslt/dynamic.c
+	  libexslt/functions.c libexslt/strings.c:
+	  Committing again, since I forgot to switch from win to linux
+	  linebreaks in the files.
+						    
+Fri Jul 14 17:55:42 CEST 2006 Kasimier Buchcik <libxml2-cvs@cazic.net>
+
+	* libxslt/attributes.c libxslt/documents.c
+	  libxslt/functions.c libxslt/keys.c libxslt/namespaces.c
+	  libxslt/pattern.c libxslt/preproc.c libxslt/templates.c
+	  libxslt/templates.h libxslt/transform.c libxslt/variables.c
+	  libxslt/xslt.c libxslt/xsltInternals.h libxslt/xsltutils.c
+	  libxslt/xsltutils.h libexslt/common.c libexslt/dynamic.c
+	  libexslt/functions.c libexslt/strings.c:
+	  Refactored xsltValueOf(). Changed to use xmlXPathCastToString()
+	  directly, rather than creating an intermediate object with
+	  xmlXPathConvertString(). This now does not add a text-node to
+	  the result if the string is empty (this has impact on
+	  serialization, since an empty text-node is serialized as
+	  <foo></foo>, and now it will be serialized as <foo/>).
+	  Refactored other functions in transform.c:
+	  Mostly code cleanup/restructuring. Minimized number of
+	  function variables for instruction which eat up function stack
+	  memory when recursing templates (xsltIf(), xsltChoose(),
+	  xsltApplyTemplates(),  xsltCallTemplate()).
+	  Changed XSLT tests to use xmlXPathCompiledEvalToBoolean().
+	  Implemented redefinition checks at compilation-time and
+	  eliminating them at transformation time in the refactored code
+	  paths.
+	  Introduced the field @currentTemplateRule on xsltTransformContext to
+	  reflect the "Current Template Rule" as defined by the spec.
+	  NOTE that ctxt->currentTemplateRule and ctxt->templ is not the
+	  same; the former is the "Current Template Rule" as defined by the
+	  XSLT spec, the latter is simply the template struct being
+	  currently processed by Libxslt.
+	  Added XML_COMMENT_NODE and XML_CDATA_SECTION_NODE to the macro
+	  IS_XSLT_REAL_NODE.
+	  Misc code cleanup/restructuring and everything else I already forgot.
+	  Refactored lifetime of temporary result tree fragments.
+	  Substituted all calls to the now deprecated xsltRegisterTmpRVT()
+	  for the new xsltRegisterLocalRVT().
+	  Fragments of xsl:variable and xsl:param are freed when the
+	  variable/pram is freed.
+	  Fragments created when evaluating a "select" of xsl:varible and
+	  xsl:param are also bound to the lifetime of the var/param.
+	  EXSLT's func:function now uses the following functions to let take
+	  care the transformation's garbage collector of returned tree
+	  fragments:
+	    xsltExtensionInstructionResultRegister(),
+	    xsltExtensionInstructionResultFinalize()
+	  Fixes:
+	  #339222 - xsl:param at invalid position inside an xsl:template is
+	            not catched
+	  #346015 - Non-declared caller-parameters are accepted
+	  #160400 - Compiles invalid XSLT; unbound variable accepted
+	  #308441 - namespaced parameters become unregistered
+	  #307103 - problem with proximity position in predicates of match
+	            patterns
+	  #328218 - problem with exsl:node-set() when converting strings
+	            to node sets
+	  #318088 - infinite recursion detection
+	  #321505 - Multiple contiguous CDATA in output
+	  #334493 - "--param" option does not have root context
+	  #114377 - weird func:result/xsl:variable/exsl:node-set interaction
+	  #150309 - Regression caused by fix for 142768
+
+Wed Jun 21 15:13:27 CEST 2006 Kasimier Buchcik <libxml2-cvs@cazic.net>
+
+	* tests/docs/bug-54.xml tests/general/bug-54.out
+	  tests/general/bug-99.out tests/general/bug-136.out
+	  tests/REC/test-7.1.3.xsl tests/REC/test-7.1.4.xsl
+	  tests/REC/test-7.3.xsl tests/REC/test-7.4.xsl:
+	  Fixed incorrect regression tests/results.
+
+Mon Jun 19 13:33:50 CEST 2006 Kasimier Buchcik <libxml2-cvs@cazic.net>
+
+	* libxslt/attributes.c libxslt/attrvt.c libxslt/namespaces.c
+	  libxslt/namespaces.h libxslt/preproc.c libxslt/templates.c
+	  libxslt/transform.c libxslt/variables.c libxslt/xslt.c
+	  libxslt/xsltInternals.h libxslt/xsltutils.c:
+	  Merged all the namespace lookup/create/disable functions
+	  into xsltGetSpecialNamespace(). Changed xsltGetNamespace()
+	  and xsltGetPlainNamespace() to call xsltGetSpecialNamespace(),
+	  but kept the ns-aliasing mechanism; the ns-aliasing needs
+	  to be removed when we move to the refactored code, which
+	  applies ns-alias only at compilaton time.
+	  Refactored xsltElementComp() (preproc.c); enhanced error reports.
+	  Fixed: if the "namespace" attribute was not given, then this
+	  performed incorrectly only a lookup for a default namespace;
+	  i.e., without taking any prefix on the "name" attribute into
+	  account.
+	  Refactored xsltElement() (transform.c); enhanced error reports.
+	  Refactored xsltAttributeComp() (preproc.c). Added namespace
+	  lookup as in xsltElementComp(). Enhanced error reports.
+	  Refactored xsltAttribute() (transform.c); enhanced error reports.
+	  xsltCopyTreeInternal(): eliminated the need to call xmlGetNsList()
+	  for every element in the tree; this needs to be done only for
+	  the top-most elements. For subsequent elements reconcile only
+	  the ns-declarations. Disallowed setting of ns-declarations if
+	  children have been already added to an element.
+	  Removed ns-aliasing code where necessary.
+	  xsltCopyProp(): disallowed setting of attribute nodes if
+	  children have been already added to an element.
+	  xsltCopy(): removed the incorrect skipping of attributes in the
+	  XSLT namespace. Removed the incorrect ns-aliasing for attributes.
+	  Changed to use the introduced function xsltShallowCopyAttr().
+	  xsltShallowCopyAttr():  Centralized all attribute-copy related
+	  code in this function. It will now be called by
+	  xsltCopyTreeInternal(), xsltCopyOf() and xsltCopy().
+	  xsltCopyAttrListNoOverwrite(): Renamed. Refactored. Optimized to
+	  use xsltGetSpecialNamespace() and xmlNewDocProp().
+	  Further substitution of various scattered namespace-lookup
+	  related code for the use of xsltGetSpecialNamespace().
+	  xsltAttrTemplateProcess(): Refactored. Removed the incorrect
+	  processing of attribute-sets. Attribute sets need to be applied
+	  before adding any normal attribute of the literal result element;
+	  this is now done in  xsltAttrListTemplateProcess(). Fixed to
+	  ensure that the ns-prefix of the overwriting attribute is used.
+	  xsltAttrListTemplateProcess(): Refactored. Moved semantics from
+	  xsltAttrTemplateProcess() over to this function in order to
+	  optimize processing of multiple attributes. This does not call
+	  xsltAttrTemplateProcess() anymore.
+	  Fixed: do not exclude the XSLT namespace after ns-aliasing have
+	  beed applied.
+	  The IFDEFed-out refactored code fixes the following issues:
+	  - #313711: namespace collision with namespace-alias (reported
+	              by by Oleg Paraschenko)
+	  - #338214: Incorrect scope for exclude-result-prefixes
+	  - #341392: Excluding namespace declarations of literal result
+	             elements.
+	  - #341325: Namespace aliasing and resulting namespace prefixes
+	  Already enabled fixes:
+	  - #344183: xsl:copy misses to copy attributes in the XSLT namespace
+	  - #341463: Namespace-alias using #default for result-prefix with no
+	  	     default namespace in scope
+	  - #313890: namespace collision with xsl:element and xsl:attribute,
+	  	     reported by Oleg Paraschenko
+	  - #344176: xsl:copy misses to set an element's namespace-URI in
+	             some cases
+	  - #305739: the "name" QName of xsl:element is incorrectly always
+	  	     resolved to the default namespace
+
+Mon Jun 12 16:34:15 CEST 2006 Daniel Veillard <daniel@veillard.com>
+
+	* doc/xsltproc.1 doc/xsltproc.xml: more info about --output
+	  from Daniel Leidert c.f. #344654
+
+Tue Jun  6 17:16:33 CEST 2006 Daniel Veillard <daniel@veillard.com>
+
+	* configure.in libxslt.spec.in doc//*: preparing release of 1.1.17
+
+Tue Jun  6 11:44:34 CEST 2006 Kasimier Buchcik <libxml2-cvs@cazic.net>
+
+	* libxslt/attributes.c: Eliminated a tiny difference wrt to
+	  the old behaviour in the naming of newly generated ns-decls
+	  in xsltAttributeInternal().
+
+Thu Jun  1 15:06:31 CEST 2006 Daniel Veillard <daniel@veillard.com>
+
+	* configure.in: fix a problem in Python detection
+
+Thu Jun  1 13:58:19 CEST 2006 Kasimier Buchcik <libxml2-cvs@cazic.net>
+
+	* libxslt/attributes.c libxslt/variables.c
+	  libxslt/transform.c libxslt/xslt.c:
+	  Next step in the refactored code: enhanced xsl:attribute;
+	  enhanced xsltCopyProp.
+	  Added the creation of an XPath cache in
+	  xsltNewTransformContext().
+
+Wed May 31 22:32:44 CEST 2006 Kasimier Buchcik <libxml2-cvs@cazic.net>
+
+	* libxslt/transform.c: Fixed a difference in processing of
+	  xsl:value-of and  xsl:text wrt to merging of strings of
+	  output-escaped text-nodes. This difference made the
+	  optimized string-merging mechanism run out of sync, which
+	  led to segfaults in subsequent string reallocations. See
+	  bug #343411, reported by Grzegorz Kaczor.
+	* xslt.c: Added check for ctxt->internalized when we parse
+	  xsl:text and internalize the strings.
+
+Mon May 22 10:32:57 CEST 2006 Kasimier Buchcik <libxml2-cvs@cazic.net>
+
+	* libxslt/attributes.c libxslt/documents.c
+	  libxslt/extensions.c libxslt/keys.c libxslt/pattern.c
+	  libxslt/preproc.c libxslt/templates.c
+	  libxslt/transform.c libxslt/variables.c
+	  libxslt/xslt.c libxslt/xsltInternals.h:
+	  Next tiny step of refactoring - mostly bug fixes and
+	  cosmetic changes.
+	  Changes outside of the refactored code:
+	  1) Optimized xsl:attribute if the content consists of
+	   just 1 text node.
+	  2) Optimized computation of xsl:key. The keys will now be
+	   computed for a specific document not until the first call
+	   of a key() function; here only the keys with the specific
+	   name used by key() are computed. This means that this
+	   now avoids computation of all keys for all loaded
+	   input documents (even if no key() was called on them).
+	   One exception is the scenario where a key() is used in
+	   a template's match pattern; in this case all keys are
+	   computed for a document if there's a chance that
+	   a "keyed" template could match a node (this could still
+	   be optimized a bit).
+
+Mon May 15 22:32:13 CEST 2006 Kasimier Buchcik <libxml2-cvs@cazic.net>
+
+	* libxslt/namespaces.c libxslt/attributes.c:
+	  Fixed bug #302020, reported by Thomas Blatter.
+
+Fri May 12 23:23:06 CEST 2006 Kasimier Buchcik <libxml2-cvs@cazic.net>
+
+	* libxslt/documents.c libxslt/namespaces.c
+	  libxslt/preproc.c libxslt/transform.c
+	  libxslt/xslt.c libxslt/xsltInternals.h libxslt/xsltutils.c:
+	  Next step of refactoring. For more details see bug #341588.
+	  I applied the suggestion of Jerome Pesenti to the refactored
+	  (still IDFEDed out with XSLT_REFACTORED) code: The XPath
+	  compilation context (accessible via the compilation context)
+	  is now reused for compilation of expressions at
+	  compilation-time; this should reduce compilation time to 50%
+	  for avarage stylesheets.
+
+Thu May 11 22:12:22 CEST 2006 Kasimier Buchcik <libxml2-cvs@cazic.net>
+
+	* libxslt/extensions.c: Changed a comment to indicate that a
+	  specific bug was already fixed.
+	  
+Fri May  5 23:10:47 CEST 2006 Kasimier Buchcik <libxml2-cvs@cazic.net>
+
+	* libxslt/xsltInternals.h libxslt/attributes.c
+	  libxslt/documents.c libxslt/extensions.c
+	  libxslt/extensions.h libxslt/functions.c
+	  libxslt/imports.c libxslt/keys.c libxslt/preproc.c
+	  libxslt/transform.c libxslt/variables.c libxslt/xslt.c
+	  libxslt/xsltutils.c libxslt/xsltutils.h libexslt/functions.c:
+	  Next step of refactoring (plus some bug-fixes).
+	  For more details see #340780.
+
+Fri May  5 14:31:53 CEST 2006 Kasimier Buchcik <libxml2-cvs@cazic.net>
+
+	* tests/exslt/common/node-set.5.out
+	  tests/exslt/sets/difference.1.out
+	  tests/exslt/functions/function.6.out: Reverting the
+	  changes; I'll rather change the processing stylesheet
+	  documents in a way that they will produce the same results
+	  for broken and stricter whitespace-stripping.
+
+Thu May  4 22:55:26 CEST 2006 Kasimier Buchcik <libxml2-cvs@cazic.net>
+
+	* tests/exslt/common/node-set.5.out
+	  tests/exslt/sets/difference.1.out
+	  tests/exslt/functions/function.6.out: Changed regression test
+	  results (bug #340684). Those will now produce regression
+	  errors; so we need to fix the processor.
+
+Mon May  1 17:39:27 EDT 2006 Daniel Veillard <daniel@veillard.com>
+
+	* configure.in NEWS doc//*: preparing release of 1.1.16, updated and
+	  regenerated the docs.
+
+Tue Apr 25 15:02:42 CEST 2006 Daniel Veillard <daniel@veillard.com>
+
+	* configure.in: applied patch from Joseph Sacco changing slightly
+	  the python detection scheme should fix bug #338527
+
+Wed Apr 12 13:35:45 CEST 2006 Kasimier Buchcik <libxml2-cvs@cazic.net>
+
+	* libxslt/attributes.c libxslt/preproc.c libxslt/transform.c
+	  libxslt/variables.c libxslt/xslt.c libxslt/xsltInternals.h
+	  libxslt/xsltutils.c libxslt/xsltutils.h:
+	  Refactored the internal structures into specialized
+	  structures and adjusted the code to work with those new
+	  structures. I didn't yet (we should in the future)
+	  renamed any fields of the old structures in order to avoid
+	  changing too much code.
+	  Introduced the internal structure xsltCompilerCtxt to be
+	  used for storage and control of the compilation.
+	  Optimized the way lists of in-scope namespaces are created
+	  and stored; this will now only generate a new list if
+	  really needed, i.e. if we encounter a ns-decl.
+	  All this changes here are IFDEFed out with XSLT_REFACTORED.
+	  
+Thu Apr  6 10:16:59 CEST 2006 Daniel Veillard <daniel@veillard.com>
+
+	* doc/xsltproc.1 doc/xsltproc.xml: applied man page improvement
+	  from Daniel Leidert
+
+Thu Mar 30 17:23:52 CEST 2006 Kasimier Buchcik <libxml2-cvs@cazic.net>
+
+	* tests/general/bug-36-inc.xsl tests/general/bug-37-inc.xsl
+	  tests/general/bug-65-inc.xsl tests/general/bug-100.xsl
+	  tests/REC/test-15-1.xsl tests/REC/test-7.1.1-3.xsl
+	  tests/namespaces/extra2.xsl tests/extensions/module.xsl
+	  tests/plugins/plugin.xsl python/tests/extelem.py
+	  python/tests/extfunc.py: Fixed regression tests wrt
+	  usage of the attributes "exclude-result-prefixes"
+	  and "extension-element-prefixes". test-7.1.1-3.xsl fails
+	  now, since the code still does not exclude ns-decls
+	  correctly.
+
+Thu Mar 30 17:11:53 CEST 2006 Kasimier Buchcik <libxml2-cvs@cazic.net>
+
+	* libxslt/xslt.c libxslt/xsltutils.c libxslt/preproc.c
+	  libxslt/namespaces.c libxslt/imports.c
+	  libxslt/attributes.c: Eliminated usage of xsltGetNsProp() in cases
+	  where an attribute with a specific namespace is requested.
+	  xsltGetNsProp() uses xmlGetProp() which is not namespace aware
+	  and thus will return the first attribute with the requested
+	  name but of arbitrary namespace.
+	  Changed retrieval of the attributes "exclude-result-prefixes"
+	  and "extension-element-prefixes", which are expected to be in
+	  no namespace on XSLT elements and in the XSLT namespace on
+	  literal result elements or extension elements.
+	  Additional change: for XSLT elements the attribute
+	  "exclude-result-prefixes" is only allowed on xsl:stylesheet
+	  and xsl:transform. This attribute was previously processed on
+	  all XSLT elements.
+
+Wed Mar 29 12:16:41 CEST 2006 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/transform.c: Charles Hardin pointed an OOM condition where
+	  a NULL pointer could be dereferenced, closes #336394
+
+Fri Mar 10 12:49:18 CET 2006 Daniel Veillard <daniel@veillard.com>
+
+	* libexslt/crypto.c libexslt/date.c libexslt/saxon.c
+	  libxslt/attributes.c libxslt/imports.c libxslt/pattern.c
+	  libxslt/preproc.c libxslt/transform.c libxslt/variables.c
+	  libxslt/xslt.c libxslt/xsltutils.c: various assorted small cleanups
+	  based on the Coverity reports
+
+Wed Feb 22 16:09:10 CET 2006 Daniel Veillard <daniel@veillard.com>
+
+	* python/types.c: Nic Ferrier found debug statement left in the
+	  XPath conversion code
+
+Tue Feb 21 20:21:07 CET 2006 Daniel Veillard <daniel@veillard.com>
+
+	* doc/xsltproc.1 doc/xsltproc.xml: new update from Daniel Leidert
+
+Tue Feb 21 17:59:11 CET 2006 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/extensions.c libxslt/xslt.c libxslt/xslt.h
+	  libxslt/xsltInternals.h: applied patch from Christopher R. Palmer
+	  to avoid a race condition in xsltInit()
+
+Sun Feb 19 22:40:58 CET 2006 Daniel Veillard <daniel@veillard.com>
+
+	* doc/xsltproc.1 doc/xsltproc.xml: improvement of the man page
+	  by Daniel Leidert, c.f. #331779
+
+Sat Feb 11 13:10:01 CET 2006 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/xsltutils.c: fix xsltSaveResultToString comment
+	* libxslt/transform.c: detect loops when computing variables, should
+	  fix bug #330772
+	* doc/xsltproc.xml doc/xsltproc.1: fix typo in man page
+	* tests/namespaces/tst7.out tests/general/bug-152.out: small output
+	  changes due to libxml2 xhtml meta handling modification
+
+Mon Nov 21 12:22:21 CET 2005 Daniel Veillard <daniel@veillard.com>
+
+	* libexslt/date.c: Albert Chin found another signed/unsigned problem
+	  in the date and time code raised on IRIX 6.5
+
+Mon Nov 21 12:08:05 CET 2005 Daniel Veillard <daniel@veillard.com>
+
+	* libexslt/crypto.c: patch from Albert Chin needed for HP-UX
+	  which doesn't have <sys/select.h>
+
+Mon Nov 21 12:05:41 CET 2005 Daniel Veillard <daniel@veillard.com>
+
+	* libexslt/date.c: Albert Chin posted a patch to fix a problem on
+	  Solaris with dates, extended bitfield size too to match libxml2
+	  code from xmlschemastypes.c
+
+Wed Nov 16 12:47:25 CET 2005 Daniel Veillard <daniel@veillard.com>
+
+	* libexslt/functions.c: fix an problem raised by Ralf Junker in the
+	  use of xmlHashScanFull() fixes bug #321582
+	
+Sun Nov  6 19:22:45 CET 2005 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/attrvt.c: added a missing parameter to a debug function
+
+Tue Oct  4 20:37:09 HKT 2005 William Brack <wbrack@mmm.com.hk>
+
+	* libexslt/date.c: applied fix to date:week-in-year posted to
+	  the mailing list by Thomas Broyer
+	* tests/exslt/date/date.1.out, tests/exslt/date/datetime.1.out:
+	  updated to reflect above fix
+
+Sun Oct  2 11:52:44 CEST 2005 Daniel Veillard <daniel@veillard.com>
+
+	* configure.in libxslt/Makefile.am libxslt/xsltconfig.h.in
+	  libxslt.spec.in tests/plugins/Makefile.am xslt-config.in: applied
+	  patch from Joel Reed to ease plugin integration
+
+Thu Sep 22 21:51:22 HKT 2005 William Brack <wbrack@mmm.com.hk>
+
+	* libxslt/pattern.c: fixed problem in internal XPath compilation
+	  of patterns including variables, fixes #316861
+
+Wed Sep 14 14:30:03 CEST 2005 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/transform.c: removed a superfluous second sorting of
+	  the node set on xsl:copy-of, fixes #316288
+	* libxslt/xsltutils.c: marked xsltDocumentSortFunction as slow,
+	  obsolete and deprecated :-)
+
+Sat Sep 10 14:35:06 CEST 2005 Daniel Veillard <daniel@veillard.com>
+
+	* configure.in: check environment for PYTHON, fixes #315367
+
+Mon Sep  5 00:44:24 CEST 2005 Daniel Veillard <daniel@veillard.com>
+
+	* configure.in NEWS doc/*: preparing release 1.1.15
+	* libxslt/pattern.c libxslt/xsltutils.c: a bit more cleanup
+
+Mon Sep  5 00:07:40 CEST 2005 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/pattern.c: fixed #303289 variable in match are forbidden
+	* tests/general/bug-89.xsl: had to fix that test which was doing this
+	* tests/general/bug-142.out tests/general/bug-152.out
+	  tests/namespaces/tst7.out: small output change on libxml2-2.6.21
+	  new way of serializing encoding meta in HTML
+
+Wed Aug 31 13:49:51 CEST 2005 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/transform.c: fixed #314936 a dictionnary issue on text
+	  node merging, which probably fixed #311267 too.
+
+Thu Aug 25 13:29:20 CEST 2005 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/xslt.c: libxslt should deallocate directly text node content
+	  use xmlSetNodeContent(..., NULL)
+
+Fri Aug 12 12:17:10 CEST 2005 Daniel Veillard <daniel@veillard.com>
+
+	* tests/general/bug-163.*, tests/general/Makefile.am,
+	  tests/docs/bug-163.*, tests/docs/Makefile.am: check fix for
+	  #310692
+
+Tue Aug  9 22:13:18 CEST 2005 Daniel Veillard <daniel@veillard.com>
+
+	* tests/plugins/Makefile.am: try to get rid of complaints from
+	  jhbuild newbies.
+
+Sun Aug  7 16:04:47 CEST 2005 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/xsltutils.c: fixed a bug when size of xmlXPathContext
+	  changes, uses the libxml2 alloc and dealloc functions instead.
+
+Tue Jul 13 22:41:03 PDT 2005 William Brack <wbrack@mmm.com.hk>
+
+	* libxslt/transform.c: added check in xsltCopyText to assure
+	  content is in dictionary before doing a straight copy of
+	  content (bug 302821)
+
+Tue Jul 13 16:16:31 PDT 2005 William Brack <wbrack@mmm.com.hk>
+
+	* libxslt/transform.c: fixed to set current default value for
+	  XInclude when creating new TransformContext
+	* libxslt/xslt.c: minor change for per-mille
+
+Sun Jul 10 16:17:53 CEST 2005 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/xsltwin32config.h*: try to avoid generating conflicts
+	* libexslt/dynamic.c: applied patch from Mark Vakoc to implement
+	  dyn:map
+	* configure.in tests/exslt/Makefile.am tests/exslt/dynamic/*:
+	  added test for dyn:map to the regression suite
+
+Sat Jul  2 02:32:24 PDT 2005 <wbrack@mmm.com.hk>
+
+	* libxslt/numbers.c: further fixes for bug 309209, changing
+	  behaviour of format-number.
+	* libxslt/xslt.c: changed definition of per-mille character from
+	  '?' to Unicode #2030 (UTF-8 'â€°') (ref XSLT spec 12.3)
+	  
+2005-06-30  Federico Mena Quintero  <federico@ximian.com>
+
+	* libxslt/xsltwin32config.h: Added this file back.  We'll have to
+	figure out a way to make jhbuild not get CVS conflicts with it.
+
+Thu Jun 30 14:09:55 PDT 2005 William Brack <wbrack@mmm.com.hk>
+
+	* libxslt/numbers.c: fixed bug in negative prefix (bug 309209)
+	
+2005-06-17  Federico Mena Quintero  <federico@ximian.com>
+
+	* libxslt/xsltwin32config.h: Removed from CVS; this is a generated
+	file anyway and it breaks jhbuild all the time.
+
+Sat May  7 11:28:41 CEST 2005 Daniel Veillard <daniel@veillard.com>
+
+	* libexslt/libexslt.3: applied patch from Jonathan Wakely to fix
+	  the namespace name for the EXSLT date and time functions in the man
+	  page.
+
+Wed Apr  6 23:58:12 CEST 2005 Igor Zlatkovic <igor@zlatkovic.com>
+
+	* libexslt/exslt.c libexslt/libexslt.h: Windows build cleanups,
+	  removed obsolete checks
+	* libxslt/libxslt.h libxslt/win32config.h libxslt/xsltutils.h: 
+	  Windows build cleanups, removed obsolete checks
+	* win32/configure.js: removed obsolete copy operations
+	* win32/Makefile.*: make install cleanup
+	* xsltproc/xsltproc.c: Windows build cleanup, removed obsolete 
+	  macro definitions
+	* .cvsignore: added Eclipse project files
+
+Sat Apr  2 13:34:11 CEST 2005 Daniel Veillard <daniel@veillard.com>
+
+	* configure.in NEWS doc/*: preparing release of 1.1.14, updated docs
+	  and rebuilt.
+
+Thu Mar 31 23:50:43 CEST 2005 Daniel Veillard <daniel@veillard.com>
+
+	* tests/docbook/result/fo/gdp-handbook.fo tests/general/bug-105.out
+	  tests/general/bug-142.out: updated the result of some tests
+	  following the change to serailization in libxml2.
+
+Thu Mar 31 11:54:31 CEST 2005 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/pattern.c: fixed bug #171488 with cascading select in
+	  patterns.
+	* tests/general/bug-161.*, tests/general/Makefile.am,
+	  tests/docs/bug-161.*, tests/docs/Makefile.am: added test provided
+	  by Ben Ko
+	
+Thu Mar 31 00:28:38 CEST 2005 Daniel Veillard <daniel@veillard.com>
+
+	* tests/plugins/Makefile.am: fixed build outside of source tree
+	  bug #172155 thanks to patch from Mike Castle
+
+Wed Mar 30 14:09:19 CEST 2005 Daniel Veillard <daniel@veillard.com>
+
+	* xsltproc/xsltproc.c: fixed the xinclude problem with document()
+	  as in bug #171893
+	* configure.in tests/Makefile.am tests/xinclude/*: added a new
+	  xinclude directory with the test for this problem
+
+Wed Mar 30 11:59:06 CEST 2005 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/pattern.c: fixed bug 169718 with ancestors in patterns
+	  similar to same bug fixed in libxml2
+	* tests/general/bug-160.*, tests/general/Makefile.am,
+	  tests/docs/bug-160.*, tests/docs/Makefile.am: added test provided
+	  by Aaron Kaplan
+
+Tue Mar 29 22:35:14 CEST 2005 Daniel Veillard <daniel@veillard.com>
+
+	* tests/general/bug-159.*, tests/general/Makefile.am,
+	  tests/docs/bug-159.*, tests/docs/Makefile.am: added test for
+	  bug #168196 fixed in libxml2
+
+Tue Mar 29 21:06:11 CEST 2005 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/transform.c: working around Mark Vakoc' reported bug related
+	  to mode internaing
+	* xsltproc/xsltproc.c: adding a --nodict mode to check problems with
+	  document without a dictionnary.
+	* tests/REC/Makefile.am tests/general/Makefile.am: testing without 
+	  dictionnary
+
+Tue Mar 29 15:37:13 CEST 2005 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/xslt.c: fix bug #165201 when calling xsltInit() multiple
+	  times.
+
+Tue Mar 29 15:13:59 CEST 2005 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/preproc.c libxslt/xslt.c libxslt/xsltInternals.h: 
+	  added DTD like checking when compiling stylesheets, closes
+	  bug #160402 and a long term TODO
+	* tests/general/bug-89.xsl: thos spotted a misconstruct of one
+	  of the test cases where <xsl:when> was not within <xsl:choose>
+
+Mon Mar 21 20:56:43 MST 2005 John Fleck (jfleck@inkstain.net)
+
+	* doc/xsltproc.xml, xsltproc.html, xsltproc.1:
+	update documentation to reflect addition of --nodtdattr
+	command line flag. Bug #171098
+
+Wed Mar 16 17:19:24 HKT 2005 William Brack (wbrack@mmm.com.hk)
+
+	* libxslt/xslt.c: fixed problem with text node on stylesheet
+	  document without a dictionary (bug 170533)
+
+Sun Mar 13 20:08:34 CET 2005 Daniel Veillard <daniel@veillard.com>
+
+	* NEWS configure.in doc/*: preparing 1.1.13, updated and rebuilt
+	  the docs.
+	* tests/plugins/Makefile.am xsltproc/Makefile.am: trying to fix
+	  some build problems.
+	* libxslt.spec.in: adding a build require and a require for 
+	  libgcrypt-devel, c.f. Red Hat bug #133211
+	* libxslt/xsltInternals.h: as for libxml2, XML_CAST_FPTR was wrong.
+
+Wed Feb 23 19:25:13 HKT 2005 William Brack <wbrack@mmm.com.hk>
+
+	* libxslt/pattern.c: fixed a problem with '//' and
+	  namespaces (bug 168208)
+
+Mon Feb 14 23:10:21 HKT 2005 William Brack <wbrack@mmm.com.hk>
+
+	* libxslt/namespaces.c: fixed a problem with
+	  exclude-result-prefixes (bug 165560)
+
+Mon Feb 14 12:51:07 CET 2005 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/variables.c: added a cretion of ctxt->globalVars in
+	  xsltProcessUserParamInternal if missing.
+
+Wed Feb  9 21:58:56 CET 2005 Daniel Veillard <daniel@veillard.com>
+
+	* doc/Makefile.am doc/libxslt-api.xml doc/libxslt-refs.xml 
+	  doc/EXSLT/libexslt-api.xml: applied patch for make wiki from
+	  Joel Reed and rebuild
+	* tests/plugins/Makefile.am: fix from Joel Reed for make dist
+
+Sun Jan 30 20:01:21 CET 2005 Daniel Veillard <daniel@veillard.com>
+
+	* tests/plugins/testplugin.c win32/Makefile.msvc win32/configure.js:
+	  applied plugin patch for Windows by Joel Reed
+
+Fri Jan 28 01:00:56 CET 2005 Daniel Veillard <daniel@veillard.com>
+
+	* win32/configure.js: Makefile fixes for Widows from Joel Reed
+
+Sat Jan 22 22:14:26 CET 2005 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/pattern.c libxslt/preproc.c libxslt/templates.c
+	  libxslt/xslt.c libxslt/xsltInternals.h: chasing xmlStrEqual
+	  calls and removed them when comparing mode and modeURI for
+	  templates by interning those strings when compiling the
+	  stylesheets.
+
+Sat Jan 22 19:17:13 CET 2005 Daniel Veillard <daniel@veillard.com>
+
+	* configure.in: small fix for local setup
+	* libxslt/transform.c libxslt/variables.c : speeding up some
+	  variable lookup. In the process dug out something nasty about
+	  ctxt->dict creation and key initialization order.
+
+Sat Jan 22 16:28:27 CET 2005 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/templates.c libxslt/transform.c libxslt/xslt.c
+	  libxslt/xsltInternals.h: when copying text nodes in elements
+	  or attributes to the output, if interning, then reuse the strings
+	  directly without copying them in the output tree if dicts are
+	  shared between the context and the output docs. Less allocations
+	  smaller output document and no copying involved anymore.
+
+Sat Jan 22 11:24:43 CET 2005 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/xslt.c: internalize all text node content from
+	  stylesheet documents with the stylesheet dictionnary
+
+Fri Jan 21 12:04:18 HKT 2005 William Brack <wbrack@mmm.com.hk>
+
+	* tests/plugins/Makefile.am: Applied patch 11 (with small
+	  modification) from Joel
+
+Thu Jan 20 21:05:27 CET 2005 Daniel Veillard <daniel@veillard.com>
+
+	* tests/plugins/Makefile.am tests/plugins/testplugin.c: applied
+	  patch 10 from Joel Reed
+
+Wed Jan 19 10:08:55 HKT 2005 William Brack <wbrack@mmm.com.hk>
+
+	* libxslt/xsltwin32config.h, libxslt/xsltwin32config.h.in:
+	  fixed a small error in LIBXSLT_VERSION_EXTRA pointed out
+	  by Michael.Hewarth on the mailing list
+	 
+Wed Jan 19 13:58:16 CET 2005 Daniel Veillard <daniel@veillard.com>
+
+	* configure.in: patch #9 from Joel Reed
+
+Wed Jan 19 10:21:37 HKT 2005 William Brack <wbrack@mmm.com.hk>
+
+	* transform.c: fixed problem with parserOptions not being
+	  set before loading a new document (bug 164530)
+
+Mon Jan 17 16:50:02 CET 2005 Daniel Veillard <daniel@veillard.com>
+
+	* configure.in libxslt/Makefile.am libxslt/xsltwin32config.h
+	  tests/Makefile.am tests/plugins/Makefile.am
+	  tests/plugins/testplugin.c: applied another patch from Joel Reed
+	  still failing here but looking better
+
+Sun Jan 16 00:09:11 CET 2005 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/extensions.c: applied another patch from Joel Reed
+
+Sat Jan 15 13:54:28 CET 2005 Daniel Veillard <daniel@veillard.com>
+
+	* tests/plugins/plugin.* tests/Makefile.am libxslt/extensions.c
+	  libxslt/Makefile.am configure.in: Applied another patch from
+	  Joel Reed, fixed a segfault and changed the configure code
+	  a bit to work in my debug environment.
+
+Tue Jan 11 10:50:33 HKT 2005 William Brack <wbrack@mmm.com.hk>
+
+	* configure.in: added python2.4 to the list of accepted
+	  versions (bug 163274)
+
+Sun Jan  9 17:04:23 CET 2005 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/extensions.c: oops previous patch could break build
+
+Sun Jan  9 16:41:59 CET 2005 Daniel Veillard <daniel@veillard.com>
+
+	* configure.in win32/configure.js libxslt/extensions.c
+	  libxslt/xsltconfig.h.in libxslt/xsltwin32config.h.in:
+	  integrated the module patch from Joel Reed with just a couple
+	  of changes and cleanup.
+
+Tue Dec 27 17:50:10 HKT 2004 William Brack <wbrack@mmm.com.hk>
+
+	* libxslt/pattern.c: fixed a problem with the expression
+	  "*//name" (bug 162265), also a small problem with the '|'
+	  operator.
+
+Thu Dec 23 16:04:47 HKT 2004 William Brack <wbrack@mmm.com.hk>
+
+	* libxslt/transform.c, libxslt/templates.c: fixed a couple of
+	  spots where out-of-memory errors were not detected in time
+	  (bug #153660 on OSF/1)
+	  
+Thu Dec  2 21:10:31 HKT 2004 William Brack <wbrack@mmm.com.hk>
+
+	*doc/xslt.html, doc/downloads.html: changed the download link
+	 on the web page for cvs snapshot
+	 
+Wed Dec  1 22:37:55 HKT 2004 William Brack <wbrack@mmm.com.hk>
+
+	* libxslt/extensions.c, libxslt/functions.c, libxslt/numbers.c,
+	  libxslt/pattern.c, libxslt/transform.c, libxslt/xslt.c,
+	  libxslt/xsltInternals.h: minor changes to get rid of gcc
+	  warnings, especially on 64-bit system. Implemented
+	  XML_CAST_FPTR macro to cast between function pointer <->
+	  object pointer while avoiding gcc warnings (a hack).
+	  No change to the logic.
+
+Wed Dec  1 10:47:15 CET 2004 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/security.c xsltproc/xsltproc.c: applied patch from
+	  Aleksey Gurtovoy moving some stat() definition for Windows
+	  to the right place.
+
+Wed Dec  1 14:30:22 HKT 2004 William Brack <wbrack@mmm.com.hk>
+
+	* libxslt/xslt.c: applied patch from Mark Vakoc fixing bug with
+	  namespace URI on template names.
+	* tests/namespaces/tst9*, tests/namespaces/Makefile.am: added
+	  test case for this
+
+Tue Nov 30 10:53:18 HKT 2004 William Brack <wbrack@mmm.com.hk>
+
+	* libxslt/pattern.c: more on RVT's in XPath predicates, this
+	  time for bug 159726.  Cleaned up the logic a little, hopefully
+	  now covers all setting of XSLT_RUNTIME_EXTRA.
+	* tests/general/bug-158.xsl: corrected a typo
+
+Thu Nov 25 22:24:03 HKT 2004 William Brack <wbrack@mmm.com.hk>
+
+	* libxslt/variables.c, libxslt/xsltInternals.h: backed out the
+	  last change and re-did it the "right way" (bug 158372).
+	* tests/general/bug-158.*, tests/general/Makefile.am,
+	  tests/docs/bug-158.*, tests/general/Makefile.am: added test
+	  case for this bug
+
+Wed Nov 24 10:51:51 HKT 2004 William Brack <wbrack@mmm.com.hk>
+
+	* libxslt/variables.c, libxslt/xsltInternals.h: enhanced the
+	  evaluation of global variables to take account of possible
+	  changes to the current document (bug 158372).
+	  
+Mon Nov 22 08:10:18 HKT 2004 William Brack <wbrack@mmm.com.hk>
+
+	* libxslt/pattern.c: small change to previous fix for bug 153137,
+	  fixes bug 158840.
+	* tests/general/bug-157.*, tests/general/Makefile.am,
+	  tests/docs/bug-157.*, tests/docs/Makefile.am: added test for this
+
+Sun Nov 21 09:42:22 HKT 2004 William Brack <wbrack@mmm.com.hk>
+
+	* libxslt/transform.c: enhanced code to assure the "current
+	  template rule" is not changed by xsl:call-template (bug 157859).
+	* tests/general/bug-156.*, tests/general/Makefile.am,
+	  tests/docs/bug-156.*, tests/docs/Makefile.am: added a test case
+	  
+Mon Nov  8 11:41:32 HKT 2004 William Brack <wbrack@mmm.com.hk>
+
+	* libexslt/date.c: fixed problem with day-of-week-in-month
+	  (bug 157592) with patch from Sal Paradise
+	* tests/exslt/date/datetime.1.out: corrected expected output
+	  after above fix
+
+Mon Nov  1 15:57:24 CET 2004 Daniel Veillard <daniel@veillard.com>
+
+	* tests/general/bug-155.*, tests/general/Makefile.am,
+	  tests/docs/bug-155*, tests/docs/Makefile.am: added a test case
+	  provided by Markus Bertheau breaking on libxml2-2.6.15
+
 Fri Oct 29 17:03:26 CEST 2004 Daniel Veillard <daniel@veillard.com>
 
 	* configure.in NEWS doc/*: preparing release of libxslt-1.1.12

@@ -28,6 +28,15 @@
 #ifndef _H_DEBUGGING
 #define _H_DEBUGGING
 
+
+//
+// Include DTrace static probe definitions
+//
+typedef const void *DTException;
+
+#include <security_utilities/utilities_dtrace.h>
+
+
 #ifdef __cplusplus
 
 #include <security_utilities/utilities.h>
@@ -40,16 +49,7 @@ namespace Debug {
 
 
 //
-// Debug logging functions always exist.
-// They may be stubs depending on build options.
-//
-bool debugging(const char *scope);
-void debug(const char *scope, const char *format, ...) __attribute__((format(printf,2,3)));
-void vdebug(const char *scope, const char *format, va_list args);
-
-
-//
-// Ditto with debug dumping functions.
+// Debug-dumping functions always exist. They may be stubs depending on build options.
 //
 bool dumping(const char *scope);
 void dump(const char *format, ...) __attribute((format(printf,1,2)));
@@ -59,13 +59,6 @@ template <class Data> inline void dumpData(const Data &obj)
 { dumpData(obj.data(), obj.length()); }
 template <class Data> inline void dumpData(const char *title, const Data &obj) 
 { dumpData(title, obj.data(), obj.length()); }
-
-
-//
-// If the file exists, delay (sleep) as many seconds as its first line indicates,
-// to allow attaching with a debugger.
-//
-void delay(const char *file);
 
 
 //
@@ -90,25 +83,16 @@ string typeName()
 
 
 //
-// Now for the conditional inline code
+// We are still conditionally emitting debug-dumping code
 //
 #undef DEBUGGING
 #if !defined(NDEBUG)
 # define DEBUGGING 1
-# define secdebug(scope, format...)	Security::Debug::debug(scope, ## format)
-# define secdelay(file) Security::Debug::delay(file)
-// Enable debug dumping
 # define DEBUGDUMP  1
 #else //NDEBUG
 # define DEBUGGING 0
-# define secdebug(scope, format...)	/* nothing */
-# define secdelay(file) /* nothing */
 #endif //NDEBUG
 
-
-//
-// Conditional dump code
-//
 #if defined(DEBUGDUMP)
 # define IFDUMP(code)				code
 # define IFDUMPING(scope,code)		if (Debug::dumping(scope)) code; else /* no */
@@ -119,40 +103,52 @@ string typeName()
 
 
 //
-// Kernel trace support
+// We have some very, very old customers who call old debug facilities.
+// Dummy them out for now.
 //
-inline void trace(int code, int arg1 = 0, int arg2 = 0, int arg3 = 0, int arg4 = 0)
-{
-#if defined(ENABLE_SECTRACE)
-	syscall(180, code, arg1, arg2, arg3, arg4);
-#endif
-}
+inline bool debugging(const char *scope) DEPRECATED_ATTRIBUTE;
+inline void debug(const char *scope, const char *format, ...) DEPRECATED_ATTRIBUTE;
+inline void vdebug(const char *scope, const char *format, va_list args) DEPRECATED_ATTRIBUTE;
+
+inline bool debugging(const char *scope) { return false; }
+inline void debug(const char *scope, const char *format, ...) { }
+inline void vdebug(const char *scope, const char *format, va_list args) { }
+
+
+
 
 
 } // end namespace Debug
 } // end namespace Security
 
-// We intentionally leak a few functions into the global namespace
-// @@@ (not much longer: after the switch to secdebug(), this will go)
+// leak debug() into the global namespace because URLAccess et al rely on that
 using Security::Debug::debug;
 
 
-#else	//!__cplusplus, C code
+#else	//__cplusplus
 
-
-extern void __security_debug(const char *scope, const char *format, ...);
-extern int __security_debugging(const char *scope);
-
-#if !defined(NDEBUG)
-# define secdebug(scope, format...)	__security_debug(scope, ## format)
-#else
-# define secdebug(scope, format...)	/* nothing */
-#endif
-
-
-// ktrace support (C style)
-extern void security_ktrace(int code);
+#include <stdio.h>
 
 #endif	//__cplusplus
+
+
+//
+// The debug-log macro is now unconditionally emitted as a DTrace static probe point.
+//
+#define secdebug(scope, format...) \
+	if (__builtin_expect(SECURITY_DEBUG_LOG_ENABLED(), 0)) { \
+		char __msg[500]; snprintf(__msg, sizeof(__msg), ## format); \
+		volatile char c __attribute__((unused)) = scope[0]; \
+		SECURITY_DEBUG_LOG((char *)(scope), (__msg)); \
+	} else /* nothing */
+#define secdebugf(scope, __msg)	SECURITY_DEBUG_LOG((char *)(scope), (__msg))
+
+
+//
+// The old secdelay() macro is also emitted as a DTrace probe (use destructive actions to handle this).
+// Secdelay() should be considered a legacy feature; just put a secdebug at the intended delay point.
+//
+#define secdelay(file)	SECURITY_DEBUG_DELAY((char *)(file))
+
 
 #endif //_H_DEBUGGING

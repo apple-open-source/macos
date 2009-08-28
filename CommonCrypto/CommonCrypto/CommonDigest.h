@@ -199,49 +199,49 @@ extern unsigned char *CC_SHA512(const void *data, CC_LONG len, unsigned char *md
 
 #define MD2_DIGEST_LENGTH			CC_MD2_DIGEST_LENGTH
 #define MD2_CTX						CC_MD2_CTX
-#define MD2_Init(c)					CC_MD2_Init(c)
-#define MD2_Update(c,d,l)			CC_MD2_Update(c,d,l)
-#define MD2_Final(m, c)				CC_MD2_Final(m,c)
+#define MD2_Init					CC_MD2_Init
+#define MD2_Update					CC_MD2_Update
+#define MD2_Final					CC_MD2_Final
 
 #define MD4_DIGEST_LENGTH			CC_MD4_DIGEST_LENGTH
 #define MD4_CTX						CC_MD4_CTX
-#define MD4_Init(c)					CC_MD4_Init(c)
-#define MD4_Update(c,d,l)			CC_MD4_Update(c,d,l)
-#define MD4_Final(m, c)				CC_MD4_Final(m,c)
+#define MD4_Init					CC_MD4_Init
+#define MD4_Update					CC_MD4_Update
+#define MD4_Final					CC_MD4_Final
 
 #define MD5_DIGEST_LENGTH			CC_MD5_DIGEST_LENGTH
 #define MD5_CTX						CC_MD5_CTX
-#define MD5_Init(c)					CC_MD5_Init(c)
-#define MD5_Update(c,d,l)			CC_MD5_Update(c,d,l)
-#define MD5_Final(m, c)				CC_MD5_Final(m,c)
+#define MD5_Init					CC_MD5_Init
+#define MD5_Update					CC_MD5_Update
+#define MD5_Final					CC_MD5_Final
 
 #define SHA_DIGEST_LENGTH			CC_SHA1_DIGEST_LENGTH
 #define SHA_CTX						CC_SHA1_CTX
-#define SHA1_Init(c)				CC_SHA1_Init(c)
-#define SHA1_Update(c,d,l)			CC_SHA1_Update(c,d,l)
-#define SHA1_Final(m, c)			CC_SHA1_Final(m,c)
+#define SHA1_Init					CC_SHA1_Init
+#define SHA1_Update					CC_SHA1_Update
+#define SHA1_Final					CC_SHA1_Final
 
 #define SHA224_DIGEST_LENGTH		CC_SHA224_DIGEST_LENGTH
 #define SHA256_CTX					CC_SHA256_CTX
-#define SHA224_Init(c)				CC_SHA224_Init(c)
-#define SHA224_Update(c,d,l)		CC_SHA224_Update(c,d,l)
-#define SHA224_Final(m, c)			CC_SHA224_Final(m,c)
+#define SHA224_Init					CC_SHA224_Init
+#define SHA224_Update				CC_SHA224_Update
+#define SHA224_Final				CC_SHA224_Final
 
 #define SHA256_DIGEST_LENGTH		CC_SHA256_DIGEST_LENGTH
-#define SHA256_Init(c)				CC_SHA256_Init(c)
-#define SHA256_Update(c,d,l)		CC_SHA256_Update(c,d,l)
-#define SHA256_Final(m, c)			CC_SHA256_Final(m,c)
+#define SHA256_Init					CC_SHA256_Init
+#define SHA256_Update				CC_SHA256_Update
+#define SHA256_Final				CC_SHA256_Final
 
 #define SHA384_DIGEST_LENGTH		CC_SHA384_DIGEST_LENGTH
 #define SHA512_CTX					CC_SHA512_CTX
-#define SHA384_Init(c)				CC_SHA384_Init(c)
-#define SHA384_Update(c,d,l)		CC_SHA384_Update(c,d,l)
-#define SHA384_Final(m, c)			CC_SHA384_Final(m,c)
+#define SHA384_Init					CC_SHA384_Init
+#define SHA384_Update				CC_SHA384_Update
+#define SHA384_Final				CC_SHA384_Final
 
 #define SHA512_DIGEST_LENGTH		CC_SHA512_DIGEST_LENGTH
-#define SHA512_Init(c)				CC_SHA512_Init(c)
-#define SHA512_Update(c,d,l)		CC_SHA512_Update(c,d,l)
-#define SHA512_Final(m, c)			CC_SHA512_Final(m,c)
+#define SHA512_Init					CC_SHA512_Init
+#define SHA512_Update				CC_SHA512_Update
+#define SHA512_Final				CC_SHA512_Final
 
 
 #endif	/* COMMON_DIGEST_FOR_OPENSSL */
@@ -256,9 +256,9 @@ extern unsigned char *CC_SHA512(const void *data, CC_LONG len, unsigned char *md
 #ifdef	COMMON_DIGEST_FOR_RFC_1321
 
 #define MD5_CTX						CC_MD5_CTX
-#define MD5Init(c)					CC_MD5_Init(c)
-#define MD5Update(c,d,l)			CC_MD5_Update(c,d,l)
-#define MD5Final(m, c)				CC_MD5_Final((unsigned char *)m,c)
+#define MD5Init						CC_MD5_Init
+#define MD5Update					CC_MD5_Update
+void MD5Final (unsigned char [16], MD5_CTX *);
 
 #endif	/* COMMON_DIGEST_FOR_RFC_1321 */
 

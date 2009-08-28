@@ -1,9 +1,8 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1996-2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 1996,2007 Oracle.  All rights reserved.
 #
-# $Id: test054.tcl,v 1.2 2004/03/30 01:24:08 jtownsen Exp $
+# $Id: test054.tcl,v 12.5 2007/05/17 15:15:56 bostic Exp $
 #
 # TEST	test054
 # TEST	Cursor maintenance during key/data deletion.
@@ -191,7 +190,7 @@ proc test054 { method args } {
 	    db_del:$key_set(3) [eval {$db del} $txn {$key_set(3)}] 0
 	# NEEDS TO COME BACK IN, BUG CHECK
 	set ret [$curs get -current]
-	error_check_good current_after_del $ret [list [list [] []]]
+	error_check_good current_after_del $ret ""
 	error_check_good cursor_close [$curs close] 0
 	if { $txnenv == 1 } {
 		error_check_good txn [$t commit] 0
@@ -371,8 +370,7 @@ proc test054 { method args } {
 	# Verify curs1 and curs2
 	# current should fail
 	set ret [$curs get -current]
-	error_check_good \
-	    curs1_get_after_del $ret [list [list [] []]]
+	error_check_good curs1_get_after_del $ret ""
 
 	set r [$curs2 get -current]
 	error_check_bad curs2_get [llength $r] 0
@@ -386,10 +384,10 @@ proc test054 { method args } {
 
 	# Verify curs1 and curs2
 	set ret [$curs get -current]
-	error_check_good curs1_get:del2 $ret [list [list [] []]]
+	error_check_good curs1_get:del2 $ret ""
 
 	set ret [$curs2 get -current]
-	error_check_good curs2_get:del2 $ret [list [list [] []]]
+	error_check_good curs2_get:del2 $ret ""
 
 	# Now verify that next and prev work.
 
@@ -430,10 +428,10 @@ proc test054 { method args } {
 	# Verify gets on both 1 and 2
 	set ret [$curs get -current]
 	error_check_good \
-	    curs1_get:deleted $ret [list [list [] []]]
+	    curs1_get:deleted $ret ""
 	set ret [$curs2 get -current]
 	error_check_good \
-	    curs2_get:deleted $ret [list [list [] []]]
+	    curs2_get:deleted $ret ""
 
 	puts "\tTest054.b5: Now do a next on both cursors"
 

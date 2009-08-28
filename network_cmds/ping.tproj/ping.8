@@ -26,9 +26,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)ping.8	8.2 (Berkeley) 12/11/93
-.\" $FreeBSD: /repoman/r/ncvs/src/sbin/ping/ping.8,v 1.51 2004/04/09 19:58:34 markm Exp $
+.\" $FreeBSD: src/sbin/ping/ping.8,v 1.51.8.2 2006/08/10 10:48:21 glebius Exp $
 .\"
-.Dd October 2, 2002
+.Dd April 4, 2006
 .Dt PING 8
 .Os
 .Sh NAME
@@ -39,7 +39,11 @@ packets to network hosts
 .Sh SYNOPSIS
 .Nm
 .Op Fl AaDdfnoQqRrv
+.Op Fl b Ar boundif
 .Op Fl c Ar count
+.Op Fl G Ar sweepmaxsize
+.Op Fl g Ar sweepminsize
+.Op Fl h Ar sweepincrsize
 .Op Fl i Ar wait
 .Op Fl l Ar preload
 .Op Fl M Cm mask | time
@@ -49,10 +53,12 @@ packets to network hosts
 .Op Fl S Ar src_addr
 .Op Fl s Ar packetsize
 .Op Fl t Ar timeout
+.Op Fl W Ar waittime
 .Op Fl z Ar tos
 .Ar host
 .Nm
 .Op Fl AaDdfLnoQqRrv
+.Op Fl b Ar boundif
 .Op Fl c Ar count
 .Op Fl I Ar iface
 .Op Fl i Ar wait
@@ -65,6 +71,7 @@ packets to network hosts
 .Op Fl s Ar packetsize
 .Op Fl T Ar ttl
 .Op Fl t Ar timeout
+.Op Fl W Ar waittime
 .Op Fl z Ar tos
 .Ar mcast-group
 .Sh DESCRIPTION
@@ -107,6 +114,10 @@ Include a bell
 character in the output when any packet is received.
 This option is ignored
 if other format options are present.
+.It Fl b Ar boundif
+Bind the socket to interface
+.Ar boundif
+for sending.
 .It Fl c Ar count
 Stop after sending
 (and receiving)
@@ -116,6 +127,10 @@ packets.
 If this option is not specified,
 .Nm
 will operate until interrupted.
+If this option is specified in conjunction with ping sweeps,
+each sweep will consist of
+.Ar count
+packets.
 .It Fl D
 Set the Don't Fragment bit.
 .It Fl d
@@ -138,6 +153,21 @@ Only the super-user may use this option.
 .Bf -emphasis
 This can be very hard on a network and should be used with caution.
 .Ef
+.It Fl G Ar sweepmaxsize
+Specify the maximum size of
+.Tn ICMP
+payload when sending sweeping pings.
+This option is required for ping sweeps. 
+.It Fl g Ar sweepminsize
+Specify the size of
+.Tn ICMP
+payload to start with when sending sweeping pings. 
+The default value is 0.
+.It Fl h Ar sweepincrsize
+Specify the number of bytes to increment the size of
+.Tn ICMP
+payload after
+each sweep when sending sweeping pings. The default value is 1.
 .It Fl I Ar iface
 Source multicast packets with the given interface address.
 This flag only applies if the ping destination is a multicast address.
@@ -269,6 +299,7 @@ data bytes when combined
 with the 8 bytes of
 .Tn ICMP
 header data.
+This option cannot be used with ping sweeps.
 .It Fl T Ar ttl
 Set the IP Time To Live for multicasted packets.
 This flag only applies if the ping destination is a multicast address.
@@ -281,6 +312,10 @@ Verbose output.
 packets other than
 .Tn ECHO_RESPONSE
 that are received are listed.
+.It Fl W Ar waittime
+Time in milliseconds to wait for a reply for each packet sent.
+If a reply arrives later, the packet is not printed as replied, but
+considered as replied when calculating statistics.
 .It Fl z Ar tos
 Use the specified type of service.
 .El

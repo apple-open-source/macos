@@ -77,7 +77,7 @@ Structure of the Working Copy
 Working copy meta-information is stored in .svn/ subdirectories,
 analogous to CVS/ subdirs.  See the separate sections below for more details.
 
-  .svn/format                   /* Deprecated in post 1.3 working copies. */
+  .svn/format                   /* Not present in post 1.3 working copies. */
        entries                  /* Various adm info for each directory entry */
        dir-props                /* Working properties for this directory */
        dir-prop-base            /* Pristine properties for this directory */
@@ -112,8 +112,7 @@ analogous to CVS/ subdirs.  See the separate sections below for more details.
    Says what version of the working copy adm format this is (so future
    clients can be backwards compatible easily).
 
-   This file is deprecated and present for backwards compatibility.
-   It may be removed in the future.
+   This file is not created in 1.6 or later working copies.
 
 `entries':
    This file holds revision numbers and other information for this
@@ -256,7 +255,7 @@ analogous to CVS/ subdirs.  See the separate sections below for more details.
    Pristine repos properties for those files, in hashdump format.  Named
    with the extension `.svn-base'.
 
-   For an entry scheduled for replacement, the text-base of the deleted
+   For an entry scheduled for replacement, the prop-base of the deleted
    entry may be stored in `foo.c.svn-revert'.
 
    
@@ -285,11 +284,13 @@ analogous to CVS/ subdirs.  See the separate sections below for more details.
 
 'all-wcprops/':
    Some properties are never seen or set by the user, and are never
-   stored in the repository filesystem.  They are created by the
-   networking layer (DAV right now) and need to be secretly saved and
-   retrieved, much like a web browser stores "cookies".  Special wc
-   library routines allow the networking layer to get and set these
-   properties.  
+   stored in the repository filesystem.  They are created and used
+   exclusively by the networking layer (DAV right now) and need to
+   be secretly saved and retrieved, much like a web browser stores
+   "cookies".  Special wc library routines allow the networking layer
+   to get and set these properties. By design, working copy metadata
+   used by libsvn_wc itself should always be stored in the entries file,
+   never in wcprops.
 
    Note that because these properties aren't being versioned, we don't
    bother to keep pristine forms of them in a 'base' area.
@@ -335,8 +336,8 @@ allowed.
 
 A field may be boolean, in which case it can have either a value equal
 to the field name, meaning true, or no value, meaning false.  Timestamps
-are stored in the format produced by svn_time_to_cstring().  Revision
-numbers are stored as decimal numbers.
+are stored in the format produced by svn_time_to_cstring().  Numbers
+are stored in decimal.
 
 The first entry has an empty name field and is the entry for this directory,
 that is, the directory containing this administrative area.  This is
@@ -421,8 +422,9 @@ prop-reject-file:
 
 copied:
    A boolean: true if this entry was added with history; only allowed
-   when schedule is add.  (### Why aren't the copyfrom attributes
-   enough for this?)
+   when schedule is add or for files which are marked as schedule-normal
+   as part of a schedule-add-with-history subtree. (### Why aren't the
+   copyfrom attributes enough for this?)
 
 copyfrom-url:
    If this entry is added with history, the URL of the copy source.
@@ -475,10 +477,57 @@ lock-comment:
 lock-creation-date:
    The lock creation date iff there is a lock token.
 
+changelist:
+   Which changelist this entry is part of, or empty if none.
+
+keep-local:
+   A boolean: true iff this entry should be kept after a scheduled
+   deletion is committed.  This is only allowed on the this_dir entry,
+   and only when the schedule is 'delete'.
+
+working-size:
+   The number of bytes in the working file.  This can differ from the
+   number of bytes in the text base; for example, the working file may
+   have undergone keyword substitution or eol translation.
+   The purpose of this field is to serve as a reference for the
+   change-detection heuristic.
+
+depth:
+   The entry depth of this directory.  `empty' means updates will not pull
+   in any files or subdirectories not already present.  `files' means that
+   updates will pull in any files not already present.  `immediates' means
+   updates will pull in any files or subdirectories not already
+   present, and those subdirectories' this_dir entries will have depth
+   `empty'.  `' means infinite (normal) depth -- the directory has all its
+   entries and pulls new entries with depth infinity as well.
+   Default is infinite (`').
+
+   Apart from above normal values, there is still a special `exclude',
+   which means the directory is excluded from wc even if the depth of
+   parent directory is infinity or immediates. The directory in
+   question will not physically exist on the disk. In other words, we
+   can only store the `exclude' value in the corresponding entry of
+   the entries file in parent directory. 
+
+tree-conflicts:
+   A list of details of the tree conflicts that children are currently
+   suffering. This is only allowed on the this_dir entry.
+
+file-external:
+   File externals are intra-repository and are implemented as a newly
+   added switched file, equivalent to the following commands:
+     $ touch foo
+     $ svn add foo
+     $ svn switch URL foo
+   This property contains the path relative to the repository root for
+   the file external and the peg revision it is checked out from in
+   a path peg revision format PATH@URL.
+
 The only fields allowed in an entry for a directory (other than the
 this_dir entry) are name, absent, deleted, schedule, copied,
-copyfrom-url, copyfrom-rev and kind.  The other fields are only stored
-in the this_dir entry for the directory in question.
+copyfrom-url, copyfrom-rev, kind and depth (only when the value says
+exclude).  The other fields are only stored in the this_dir entry for
+the directory in question.
 
 
 XML-based entries format

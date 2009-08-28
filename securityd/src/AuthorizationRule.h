@@ -46,7 +46,7 @@ public:
 	OSStatus evaluate(const AuthItemRef &inRight, const Rule &inRule, AuthItemSet &environmentToClient,
 		AuthorizationFlags flags, CFAbsoluteTime now,
 		const CredentialSet *inCredentials, CredentialSet &credentials,
-		AuthorizationToken &auth) const;
+		AuthorizationToken &auth, SecurityAgent::Reason &reason) const;
 
 	string name() const { return mRightName; }
 
@@ -55,29 +55,29 @@ private:
 
 	// evaluate credential for right
 	OSStatus evaluateCredentialForRight(const AuthorizationToken &auth, const AuthItemRef &inRight, const Rule &inRule, 
-		const AuthItemSet &environment, CFAbsoluteTime now, const Credential &credential, bool ignoreShared) const;
+                                        const AuthItemSet &environment, CFAbsoluteTime now, const Credential &credential, bool ignoreShared, SecurityAgent::Reason &reason) const;
 	// evaluate user credential (authentication) for right
-	OSStatus evaluateUserCredentialForRight(const AuthorizationToken &auth, const AuthItemRef &inRight, const Rule &inRule, const AuthItemSet &environment, CFAbsoluteTime now, const Credential &credential, bool ignoreShared) const;
+	OSStatus evaluateUserCredentialForRight(const AuthorizationToken &auth, const AuthItemRef &inRight, const Rule &inRule, const AuthItemSet &environment, CFAbsoluteTime now, const Credential &credential, bool ignoreShared, SecurityAgent::Reason &reason) const;
 
 	OSStatus evaluateRules(const AuthItemRef &inRight, const Rule &inRule,
     AuthItemSet &environmentToClient, AuthorizationFlags flags,
 	CFAbsoluteTime now, const CredentialSet *inCredentials, CredentialSet &credentials,
-	AuthorizationToken &auth) const;
+	AuthorizationToken &auth, SecurityAgent::Reason &reason) const;
 
 	void setAgentHints(const AuthItemRef &inRight, const Rule &inTopLevelRule, AuthItemSet &environmentToClient, AuthorizationToken &auth) const;
 
 	// perform authorization based on running specified mechanisms (see evaluateMechanism)
-	OSStatus evaluateAuthentication(const AuthItemRef &inRight, const Rule &inRule, AuthItemSet &environmentToClient, AuthorizationFlags flags, CFAbsoluteTime now, const CredentialSet *inCredentials, CredentialSet &credentials, AuthorizationToken &auth) const;
+	OSStatus evaluateAuthentication(const AuthItemRef &inRight, const Rule &inRule, AuthItemSet &environmentToClient, AuthorizationFlags flags, CFAbsoluteTime now, const CredentialSet *inCredentials, CredentialSet &credentials, AuthorizationToken &auth, SecurityAgent::Reason &reason) const;
 
 	OSStatus evaluateUser(const AuthItemRef &inRight, const Rule &inRule,
 		AuthItemSet &environmentToClient, AuthorizationFlags flags,
 		CFAbsoluteTime now, const CredentialSet *inCredentials, CredentialSet &credentials,
-		AuthorizationToken &auth) const;
+		AuthorizationToken &auth, SecurityAgent::Reason &reason) const;
 
 	OSStatus evaluateMechanismOnly(const AuthItemRef &inRight, const Rule &inRule, AuthItemSet &environmentToClient, AuthorizationToken &auth, CredentialSet &outCredentials) const;
 
 	// find username hint based on session owner
-	OSStatus evaluateSessionOwner(const AuthItemRef &inRight, const Rule &inRule, const AuthItemSet &environment, const CFAbsoluteTime now, const AuthorizationToken &auth, Credential &credential) const;
+	OSStatus evaluateSessionOwner(const AuthItemRef &inRight, const Rule &inRule, const AuthItemSet &environment, const CFAbsoluteTime now, const AuthorizationToken &auth, Credential &credential, SecurityAgent::Reason &reason) const;
 
 	CredentialSet makeCredentials(const AuthorizationToken &auth) const;
 	
@@ -116,7 +116,7 @@ private:
 	public:
 		static bool getBool(CFDictionaryRef config, CFStringRef key, bool required, bool defaultValue);
 		static double getDouble(CFDictionaryRef config, CFStringRef key, bool required, double defaultValue);
-		static string getString(CFDictionaryRef config, CFStringRef key, bool required, char *defaultValue);
+		static string getString(CFDictionaryRef config, CFStringRef key, bool required, const char *defaultValue);
 		static vector<string> getVector(CFDictionaryRef config, CFStringRef key, bool required);
 		static bool getLocalizedPrompts(CFDictionaryRef config, map<string,string> &localizedPrompts);
 	};

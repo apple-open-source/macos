@@ -1,0 +1,65 @@
+[comment {-*- tcl -*- doctools}]
+[vset FORMATNAME gif]
+[vset FORMATFULLNAME {Graphics Interchange Format}]
+
+[include format-header.inc]
+
+This handler provides new additional configuration options. See
+section [sectref {GIF OPTIONS}] for more detailed explanations.
+
+
+[include format-middle.inc]
+
+
+In addition the value for the option is treated as list and may
+contain any of the special options listed in section
+
+[sectref {GIF OPTIONS}].
+
+[list_end]
+
+
+
+[section {GIF OPTIONS}]
+
+The handler provides two options, one for reading from a GIF image,
+the other influencing the writing of such. 
+
+[list_begin definitions]
+
+[lst_item "[option -index] [arg n]"]
+
+This option is for reading from GIF files containing more than one
+image ([term {animated GIF's}], [term {GIF movies}]. When specified it
+will read the [arg n]'th image in the data. The first image is at
+index [const 0] and will be read by default, i.e. when the option is
+not specified.
+
+[lst_item "[option -interlaced] [arg bool]"]
+
+If the value of this option is set to true the image will be written
+using the interlaced sub-format of GIF. The default is to write
+non-interlaced files. [emph {This option is not implemented yet.}]
+
+[list_end]
+
+[section {IMAGE COMPRESSION}]
+
+Instead of LZW the run-length encoding of Hutchison Avenue Software
+Corporation is used, also known as [term miGIF] compression. The miGIF
+compression routines do not, strictly speaking, generate files
+conforming to the GIF spec, since the image data is not LZW-compressed
+(this is the point: in order to avoid transgression of the Unisys
+patent on the LZW algorithm.) However, miGIF generates data streams
+that any reasonably sane LZW decompresser will decompress to what we
+want.
+
+[section TRANSPARENCY]
+
+If you want to write images to disk which contain transparency
+information (e.g. GIF89) you need at least [package Tk] 8.3.
+
+
+
+[list_begin definitions]
+[include format-footer.inc]

@@ -127,7 +127,6 @@ void Database::DbChangeDbOwner (const CSSM_ACCESS_CREDENTIALS *accessCred,
 }
 
 
-
 	
 void Database::DbGetDbNameFromHandle (char** dbName)
 {
@@ -176,7 +175,7 @@ CSSM_HANDLE Database::DbDataGetFirst (const CSSM_QUERY *query,
 
 
 
-void Database::DbDataGetNext (CSSM_HANDLE resultsHandle,
+bool Database::DbDataGetNext (CSSM_HANDLE resultsHandle,
 							  CSSM_DB_RECORD_ATTRIBUTE_DATA_PTR attributes,
 							  CSSM_DATA_PTR data,
 							  CSSM_DB_UNIQUE_RECORD_PTR *uniqueID)

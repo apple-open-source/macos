@@ -15,6 +15,7 @@
         <key>OpenSourceModifications</key>
         <array>
 	<string>disable utmpx processing, and call /usr/bin/login to deal with utmpx</string>
+	<string>Use Darwin per user tmpdir in preference to /tmp/u?screens</string>
         </array>
         <key>OpenSourceLicense</key>
         <string>GPL</string>

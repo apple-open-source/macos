@@ -7,8 +7,6 @@
     <key>ProgramArguments</key>
     <array>
 	<string>/usr/sbin/aslmanager</string>
-	<string>-size</string>
-	<string>65536000</string>
     </array>
     <key>WatchPaths</key>
     <array>

@@ -1,4 +1,4 @@
-/*$Header: /src/pub/tcsh/win32/nt.char.c,v 1.5 2005/03/25 18:46:42 kim Exp $*/
+/*$Header: /p/tcsh/cvsroot/tcsh/win32/nt.char.c,v 1.9 2006/03/05 08:59:36 amold Exp $*/
 /*-
  * Copyright (c) 1980, 1991 The Regents of the University of California.
  * All rights reserved.
@@ -51,7 +51,7 @@ unsigned char oem_it(unsigned char ch) {
 	ch1[0] = ch;
 	ch1[1] = 0;
 
-	OemToChar(ch1,ch2);
+	OemToChar((char*)ch1,(char*)ch2);
 
 	return ch2[0];
 }
@@ -59,65 +59,69 @@ void nls_dll_unload(void) {
 	FreeLibrary(hlangdll);
 	hlangdll=NULL;
 }
-void nls_dll_init(void) {
-
-	char *ptr;
-	
-	ptr = getenv("TCSHLANG");
-
-	if (!ptr)
-		ptr = "TCSHC.DLL";
-
-	if (hlangdll)
-		FreeLibrary(hlangdll);
-	hlangdll = LoadLibrary(ptr);
-}
 char * nt_cgets(int set, int msgnum, char *def) {
 
 	int rc;
-	int mesg;
-	static char oembuf[256];
-	WCHAR buffer[256];
+	int msg;
+	static char oembuf[256];/*FIXBUF*/
+	WCHAR buffer[256];/*FIXBUF*/
 
 
 
 	if (!hlangdll)
 		return def;
-	
-	mesg = set * 10000 + msgnum;
+
+	msg = set * 10000 + msgnum;
 
 	if (gdwPlatform == VER_PLATFORM_WIN32_WINDOWS) {
-		rc = LoadString(hlangdll,mesg,oembuf,sizeof(oembuf));
+		rc = LoadString(hlangdll,msg,oembuf,sizeof(oembuf));
 
 		if(!rc)
 			return def;
 		return oembuf;
 	}
-	rc = LoadStringW(hlangdll,mesg,buffer,sizeof(buffer));
+	rc = LoadStringW(hlangdll,msg,buffer,ARRAYSIZE(buffer));
 
 	if(!rc)
 		return def;
 
 	WideCharToMultiByte(CP_OEMCP,
-						0,
-						buffer,
-						-1,
-						oembuf,//winbuf,
-						256,
-						NULL,NULL);
-	
+			0,
+			buffer,
+			-1,
+			oembuf,//winbuf,
+			256,
+			NULL,NULL);
+
 	return oembuf;
 }
 #if defined(DSPMBYTE)
 void nt_autoset_dspmbyte(void) {
 	switch (GetConsoleCP()) {
-	case 932: /* Japan */
-		set(CHECK_MBYTEVAR, Strsave(STRsjis), VAR_READWRITE);
-		update_dspmbyte_vars();
-		break;
+		case 932: /* Japan */
+			setcopy(CHECK_MBYTEVAR, STRsjis, VAR_READWRITE);
+			update_dspmbyte_vars();
+			break;
 	}
 }
 
 // _mbmap must be copied to the child during fork()
 unsigned short _mbmap[256] = { 0 };
 #endif
+
+#undef free
+void nls_dll_init(void) {
+
+	char *ptr;
+	size_t size = 0;
+
+
+	if (_dupenv_s(&ptr,&size,"TCSHLANG") ){
+
+		if (hlangdll)
+			FreeLibrary(hlangdll);
+		hlangdll = LoadLibrary(ptr);
+
+		free(ptr);
+	}
+}

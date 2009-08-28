@@ -1,6 +1,6 @@
 /*
  **********************************************************************
- *   Copyright (C) 2002-2006, International Business Machines
+ *   Copyright (C) 2002-2008, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  **********************************************************************
  */
@@ -29,6 +29,9 @@
 U_NAMESPACE_BEGIN
 
 #define ARRAY_SIZE(array) (sizeof array  / sizeof array[0])
+
+/* Leave this copyright notice here! It needs to go somewhere in this library. */
+static const char copyright[] = U_COPYRIGHT_STRING;
 
 class StyleRuns
 {
@@ -236,7 +239,33 @@ static const le_bool complexTable[scriptCodeCount] = {
     FALSE,  /* Visp */
     FALSE,  /* Xsux */
     FALSE,  /* Zxxx */
-    FALSE   /* Zzzz */
+    FALSE,  /* Zzzz */
+    FALSE,  /* Cari */
+    FALSE,  /* Jpan */
+    FALSE,  /* Lana */
+    FALSE,  /* Lyci */
+    FALSE,  /* Lydi */
+    FALSE,  /* Olck */
+    FALSE,  /* Rjng */
+    FALSE,  /* Saur */
+    FALSE,  /* Sgnw */
+    FALSE,  /* Sund */
+    FALSE,  /* Moon */
+    FALSE,  /* Mtei */
+    FALSE,  /* Armi */
+    FALSE,  /* Avst */
+    FALSE,  /* Cakm */
+    FALSE,  /* Kore */
+    FALSE,  /* Kthi */
+    FALSE,  /* Mani */
+    FALSE,  /* Phli */
+    FALSE,  /* Phlp */
+    FALSE,  /* Phlv */
+    FALSE,  /* Prti */
+    FALSE,  /* Samr */
+    FALSE,  /* Tavt */
+    FALSE,  /* Zmth */
+    FALSE   /* Zsym */
 };
 
 
@@ -740,30 +769,71 @@ struct LanguageMap
 
 static const LanguageMap languageMap[] =
 {
+    {"afr", afkLanguageCode}, // Afrikaans
     {"ara", araLanguageCode}, // Arabic
     {"asm", asmLanguageCode}, // Assamese
+    {"bel", belLanguageCode}, // Belarussian
     {"ben", benLanguageCode}, // Bengali
+    {"bod", tibLanguageCode}, // Tibetan
+    {"bul", bgrLanguageCode}, // Bulgarian
+    {"cat", catLanguageCode}, // Catalan
+    {"ces", csyLanguageCode}, // Czech
+    {"che", cheLanguageCode}, // Chechen
+    {"cop", copLanguageCode}, // Coptic
+    {"cym", welLanguageCode}, // Welsh
+    {"dan", danLanguageCode}, // Danish
+    {"deu", deuLanguageCode}, // German
+    {"dzo", dznLanguageCode}, // Dzongkha
+    {"ell", ellLanguageCode}, // Greek
+    {"eng", engLanguageCode}, // English
+    {"est", etiLanguageCode}, // Estonian
+    {"eus", euqLanguageCode}, // Basque
     {"fas", farLanguageCode}, // Farsi
+    {"fin", finLanguageCode}, // Finnish
+    {"fra", fraLanguageCode}, // French
+    {"gle", gaeLanguageCode}, // Irish Gaelic
     {"guj", gujLanguageCode}, // Gujarati
+    {"hau", hauLanguageCode}, // Hausa
     {"heb", iwrLanguageCode}, // Hebrew
     {"hin", hinLanguageCode}, // Hindi
+    {"hrv", hrvLanguageCode}, // Croatian
+    {"hun", hunLanguageCode}, // Hungarian
+    {"hye", hyeLanguageCode}, // Armenian
+    {"ind", indLanguageCode}, // Indonesian
+    {"ita", itaLanguageCode}, // Italian
     {"jpn", janLanguageCode}, // Japanese
     {"kan", kanLanguageCode}, // Kannada
     {"kas", kshLanguageCode}, // Kashmiri
+    {"khm", khmLanguageCode}, // Khmer
     {"kok", kokLanguageCode}, // Konkani
     {"kor", korLanguageCode}, // Korean
 //  {"mal_XXX", malLanguageCode}, // Malayalam - Traditional
     {"mal", mlrLanguageCode}, // Malayalam - Reformed
     {"mar", marLanguageCode}, // Marathi
+    {"mlt", mtsLanguageCode}, // Maltese
     {"mni", mniLanguageCode}, // Manipuri
+    {"mon", mngLanguageCode}, // Mongolian
+    {"nep", nepLanguageCode}, // Nepali
     {"ori", oriLanguageCode}, // Oriya
+    {"pol", plkLanguageCode}, // Polish
+    {"por", ptgLanguageCode}, // Portuguese
+    {"pus", pasLanguageCode}, // Pashto
+    {"ron", romLanguageCode}, // Romanian
+    {"rus", rusLanguageCode}, // Russian
     {"san", sanLanguageCode}, // Sanskrit
-    {"snd", sndLanguageCode}, // Sindhi
     {"sin", snhLanguageCode}, // Sinhalese
+    {"slk", skyLanguageCode}, // Slovak
+    {"snd", sndLanguageCode}, // Sindhi
+    {"slv", slvLanguageCode}, // Slovenian
+    {"spa", espLanguageCode}, // Spanish
+    {"sqi", sqiLanguageCode}, // Albanian
+    {"srp", srbLanguageCode}, // Serbian
+    {"swe", sveLanguageCode}, // Swedish
     {"syr", syrLanguageCode}, // Syriac
     {"tam", tamLanguageCode}, // Tamil
     {"tel", telLanguageCode}, // Telugu
     {"tha", thaLanguageCode}, // Thai
+    {"tur", trkLanguageCode}, // Turkish
     {"urd", urdLanguageCode}, // Urdu
     {"yid", jiiLanguageCode}, // Yiddish
 //  {"zhp", zhpLanguageCode}, // Chinese - Phonetic
@@ -809,7 +879,7 @@ le_int32 ParagraphLayout::getLanguageCode(const Locale *locale)
 
 le_bool ParagraphLayout::isComplex(UScriptCode script)
 {
-    if (script < 0 || script >= USCRIPT_CODE_LIMIT) {
+    if (script < 0 || script >= (UScriptCode) scriptCodeCount) {
         return FALSE;
     }
 
@@ -956,8 +1026,13 @@ void ParagraphLayout::appendRun(ParagraphLayout::Line *line, le_int32 run, le_in
             glyphToCharMap[outGlyph] = fGlyphToCharMap[glyphBase + inGlyph];
         }
     } else {
-        for (outGlyph = 0, inGlyph = rightGlyph - 1; inGlyph >= leftGlyph; inGlyph -= 1, outGlyph += 1) {
-            glyphToCharMap[outGlyph] = fGlyphToCharMap[glyphBase + inGlyph];
+        // Because fGlyphToCharMap is stored in logical order to facilitate line breaking,
+        // we need to map the physical glyph indices to logical indices while we copy the
+        // character indices.
+        le_int32 base = glyphBase + fStyleRunInfo[run].glyphCount - 1;
+
+        for (outGlyph = 0, inGlyph = leftGlyph; inGlyph < rightGlyph; inGlyph += 1, outGlyph += 1) {
+            glyphToCharMap[outGlyph] = fGlyphToCharMap[base - inGlyph];
         }
     }
 
@@ -1030,6 +1105,11 @@ le_int32 ParagraphLayout::Line::getLeading() const
 le_int32 ParagraphLayout::Line::getWidth() const
 {
     const VisualRun *lastRun = getVisualRun(fRunCount - 1);
+
+    if (lastRun == NULL) {
+        return 0;
+    }
+
     le_int32 glyphCount = lastRun->getGlyphCount();
     const float *positions = lastRun->getPositions();
     

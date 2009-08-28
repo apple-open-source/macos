@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>dsAttrTypeStandard:AltSecurityIdentities</key>
+	<string>altsecurityidentities</string>
+	<key>dsAttrTypeStandard:KerberosServices</key>
+	<string>kerberosServices</string>
 	<key>dsAttrTypeStandard:RecordName</key>
 	<string>name</string>
 	<key>dsAttrTypeStandard:RealName</key>
@@ -58,8 +62,6 @@
 	<string>alternatedatastorelocation</string>
 	<key>dsAttrTypeStandard:URL</key>
 	<string>URL</string>
-	<key>dsAttrTypeStandard:URLForNSL</key>
-	<string>URL</string>
 	<key>dsAttrTypeStandard:MIME</key>
 	<string>mime</string>
 	<key>dsAttrTypeStandard:HTML</key>
@@ -70,8 +72,6 @@
 	<string>ipv6_address</string>
 	<key>dsAttrTypeStandard:ENetAddress</key>
 	<string>en_address</string>
-	<key>dsAttrTypeStandard:ContactPerson</key>
-	<string>owner</string>
 	<key>dsAttrTypeStandard:MachineServes</key>
 	<string>serves</string>
 	<key>dsAttrTypeStandard:Keywords</key>
@@ -80,8 +80,6 @@
 	<string>computers</string>
 	<key>dsAttrTypeStandard:MCXFlags</key>
 	<string>mcx_flags</string>
-	<key>dsAttrTypeStandard:MCXSettings</key>
-	<string>mcx_settings</string>
 	<key>dsAttrTypeStandard:MCXSettings</key>
 	<string>mcx_settings</string>
 	<key>dsAttrTypeStandard:CopyTimestamp</key>
@@ -138,10 +136,6 @@
 	<string>alias_data</string>
 	<key>dsAttrTypeStandard:PhoneNumber</key>
 	<string>phonenumber</string>
-	<key>dsAttrTypeStandard:Member</key>
-	<string>users</string>
-	<key>dsAttrTypeStandard:AllNames</key>
-	<string>dsAttrTypeStandard:AllNames</string>
 	<key>dsAttrTypeStandard:AppleMetaNodeLocation</key>
 	<string>dsAttrTypeStandard:AppleMetaNodeLocation</string>
 	<key>dsAttrTypeStandard:RecordType</key>
@@ -204,12 +198,6 @@
 	<string>nameprefix</string>
 	<key>dsAttrTypeStandard:NameSuffix</key>
 	<string>namesuffix</string>
-	<key>dsAttrTypeStandard:SetupAssistantLocation</key>
-	<string>location</string>
-	<key>dsAttrTypeStandard:SetupAssistantAdvertising</key>
-	<string>spam</string>
-	<key>dsAttrTypeStandard:SetupAssistantAutoRegister</key>
-	<string>autoregister</string>
 	<key>dsAttrTypeStandard:KDCAuthKey</key>
 	<string>kdcauthkey</string>
 	<key>dsAttrTypeStandard:KDCConfigData</key>
@@ -380,5 +368,7 @@
 	<string>metaautomountmap</string>
 	<key>dsAttrTypeStandard:OriginalAuthenticationAuthority</key>
 	<string>original_authentication_authority</string>
+	<key>dsAttrTypeStandard:HardwareUUID</key>
+	<string>hardwareuuid</string>
 </dict>
 </plist>

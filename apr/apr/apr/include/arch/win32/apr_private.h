@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -114,8 +114,6 @@
 #define SIGWINCH   30
 #define SIGIO      31
 
-#define __attribute__(__x) 
-
 /* APR COMPATABILITY FUNCTIONS
  * This section should be used to define functions and
  * macros which are need to make Windows features look
@@ -145,7 +143,7 @@ APR_DECLARE_DATA int errno;
 #endif
 
 /* MSVC 7.0 introduced _strtoi64 */
-#if _MSC_VER >= 1300 && _INTEGRAL_MAX_BITS >= 64
+#if _MSC_VER >= 1300 && _INTEGRAL_MAX_BITS >= 64 && !defined(_WIN32_WCE)
 #define APR_INT64_STRFN	      _strtoi64
 #endif
 
@@ -156,7 +154,11 @@ APR_DECLARE_DATA int errno;
 #define APR_OFF_T_STRFN         apr_strtoi64
 #endif
 #else
+#if defined(_WIN32_WCE)
+#define APR_OFF_T_STRFN         strtol
+#else
 #define APR_OFF_T_STRFN         strtoi
+#endif
 #endif
 
 /* used to check for DWORD overflow in 64bit compiles */

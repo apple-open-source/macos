@@ -1,0 +1,935 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 38;
+	objects = {
+		F52F92600331365B01A80104 = {
+			isa = PBXFileReference;
+			name = tclxml.decls;
+			path = ../tclxml.decls;
+			refType = 2;
+		};
+		F52F92610331365B01A80104 = {
+			fileRef = F52F92600331365B01A80104;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F52F92620331367101A80104 = {
+			isa = PBXFileReference;
+			name = tclxmlDecls.h;
+			path = ../tclxmlDecls.h;
+			refType = 2;
+		};
+		F52F92630331367101A80104 = {
+			fileRef = F52F92620331367101A80104;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F52F92640331368201A80104 = {
+			isa = PBXFileReference;
+			name = tclxmlStubInit.c;
+			path = ../tclxmlStubInit.c;
+			refType = 2;
+		};
+		F52F92650331368201A80104 = {
+			fileRef = F52F92640331368201A80104;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F52F92660331369001A80104 = {
+			isa = PBXFileReference;
+			name = tclxmlStubLib.c;
+			path = ../tclxmlStubLib.c;
+			refType = 2;
+		};
+		F52F92670331369001A80104 = {
+			fileRef = F52F92660331369001A80104;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F52F92680331378301A80104 = {
+			isa = PBXFileReference;
+			name = tclxml.c;
+			path = /Volumes/ufs/steve/tclxml/tclxml.c;
+			refType = 0;
+		};
+		F52F92690331378301A80104 = {
+			fileRef = F52F92680331378301A80104;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F54B1A380376834B01334CD3 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "cd $SRCROOT/../expat\necho \"package ifneeded xml::expat $FRAMEWORK_VERSION [list load [file join [file dirname [file dirname \\$dir]] expat] Tclexpat]\" > pkgIndex.tcl\nmkdir $TARGET_BUILD_DIR/$TARGET_NAME.framework/Resources/Scripts\ncp $SRCROOT/../expat/*.tcl $TARGET_BUILD_DIR/$TARGET_NAME.framework/Resources/Scripts";
+		};
+		F55E951D0309C9A301BF60D2 = {
+			buildStyles = (
+				F55E951F0309C9A301BF60D2,
+				F55E95200309C9A301BF60D2,
+			);
+			isa = PBXProject;
+			mainGroup = F55E951E0309C9A301BF60D2;
+			productRefGroup = F55E95230309CAC301BF60D2;
+			projectDirPath = "";
+			targets = (
+				F55E95210309C9EE01BF60D2,
+				F55E95250309CAC301BF60D2,
+				F55E954E0309EC8201BF60D2,
+				F55E95580309ED7901BF60D2,
+			);
+		};
+		F55E951E0309C9A301BF60D2 = {
+			children = (
+				F55E954C0309EC8201BF60D2,
+				F55E952B0309CB5A01BF60D2,
+				F55E952C0309CB5A01BF60D2,
+				F55E95220309CAC301BF60D2,
+				F55E95230309CAC301BF60D2,
+			);
+			isa = PBXGroup;
+			refType = 4;
+		};
+		F55E951F0309C9A301BF60D2 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		F55E95200309C9A301BF60D2 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		F55E95210309C9EE01BF60D2 = {
+			buildArgumentsString = "./configure --prefix=/Library/Frameworks --with-tcl=/Users/steve/Library/Frameworks/Tcl.framework/Resources";
+			buildPhases = (
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = Configure;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			buildToolPath = /bin/sh;
+			buildWorkingDirectory = $SRCROOT/..;
+			dependencies = (
+			);
+			isa = PBXLegacyTarget;
+			name = Configure;
+			productName = Configure;
+			settingsToExpand = 6;
+			settingsToPassInEnvironment = 287;
+			settingsToPassOnCommandLine = 280;
+			shouldUseHeadermap = 0;
+		};
+		F55E95220309CAC301BF60D2 = {
+			children = (
+				F55E952F0309CB5A01BF60D2,
+			);
+			isa = PBXGroup;
+			name = "External Frameworks";
+			refType = 4;
+		};
+		F55E95230309CAC301BF60D2 = {
+			children = (
+				F55E95240309CAC301BF60D2,
+				F55E954D0309EC8201BF60D2,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+		F55E95240309CAC301BF60D2 = {
+			isa = PBXFrameworkReference;
+			path = tclxml.framework;
+			refType = 3;
+		};
+		F55E95250309CAC301BF60D2 = {
+			buildPhases = (
+				F55E95260309CAC301BF60D2,
+				F55E95270309CAC301BF60D2,
+				F58E0CD2035E35B601C69E6A,
+				F55E95280309CAC301BF60D2,
+				F55E95290309CAC301BF60D2,
+				F55E952A0309CAC301BF60D2,
+			);
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				FRAMEWORK_SEARCH_PATHS = /Volumes/ufs/steve/src/tcl/macosx/build;
+				FRAMEWORK_VERSION = 2.6;
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "@executable_path/../Frameworks";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRINCIPAL_CLASS = "";
+				PRODUCT_NAME = tclxml;
+				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = YES;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = framework;
+			};
+			dependencies = (
+				F55E95550309ED7901BF60D2,
+			);
+			isa = PBXFrameworkTarget;
+			name = tclxml;
+			productInstallPath = "@executable_path@/../Frameworks";
+			productName = tclxml;
+			productReference = F55E95240309CAC301BF60D2;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string></string>
+	<key>CFBundleGetInfoString</key>
+	<string>TclXML v2.6</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.zveno.tclxml</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>TclXML</string>
+	<key>CFBundlePackageType</key>
+	<string>FMWK</string>
+	<key>CFBundleShortVersionString</key>
+	<string>2.6</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>2.6</string>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		F55E95260309CAC301BF60D2 = {
+			buildActionMask = 2147483647;
+			files = (
+				F55E95300309CB5A01BF60D2,
+				F52F92630331367101A80104,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F55E95270309CAC301BF60D2 = {
+			buildActionMask = 2147483647;
+			files = (
+				F55E953D0309CB7001BF60D2,
+				F55E953E0309CB7001BF60D2,
+				F55E953F0309CB7001BF60D2,
+				F55E95400309CB7001BF60D2,
+				F55E95410309CB7001BF60D2,
+				F55E95420309CB7001BF60D2,
+				F55E95430309CB7001BF60D2,
+				F55E95440309CB7001BF60D2,
+				F55E95450309CB7001BF60D2,
+				F55E95460309CB7001BF60D2,
+				F52F92610331365B01A80104,
+				F58E0CD4035E420E01C69E6A,
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F55E95280309CAC301BF60D2 = {
+			buildActionMask = 2147483647;
+			files = (
+				F52F92650331368201A80104,
+				F52F92670331369001A80104,
+				F52F92690331378301A80104,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F55E95290309CAC301BF60D2 = {
+			buildActionMask = 2147483647;
+			files = (
+				F55E95320309CB5A01BF60D2,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F55E952A0309CAC301BF60D2 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F55E952B0309CB5A01BF60D2 = {
+			children = (
+				F55E95330309CB7001BF60D2,
+				F55E95340309CB7001BF60D2,
+				F55E95350309CB7001BF60D2,
+				F55E95360309CB7001BF60D2,
+				F55E95370309CB7001BF60D2,
+				F55E95380309CB7001BF60D2,
+				F55E95390309CB7001BF60D2,
+				F55E953A0309CB7001BF60D2,
+				F55E953B0309CB7001BF60D2,
+				F55E953C0309CB7001BF60D2,
+				F58E0CD3035E420E01C69E6A,
+			);
+			isa = PBXGroup;
+			name = Scripts;
+			refType = 4;
+		};
+		F55E952C0309CB5A01BF60D2 = {
+			children = (
+				F52F92680331378301A80104,
+				F55E952E0309CB5A01BF60D2,
+				F52F92600331365B01A80104,
+				F52F92620331367101A80104,
+				F52F92640331368201A80104,
+				F52F92660331369001A80104,
+			);
+			isa = PBXGroup;
+			name = "TclXML Sources";
+			refType = 4;
+		};
+		F55E952E0309CB5A01BF60D2 = {
+			isa = PBXFileReference;
+			name = tclxml.h;
+			path = ../tclxml.h;
+			refType = 2;
+		};
+		F55E952F0309CB5A01BF60D2 = {
+			isa = PBXFrameworkReference;
+			name = Tcl.framework;
+			path = ../../src/tcl/macosx/build/Tcl.framework;
+			refType = 2;
+		};
+		F55E95300309CB5A01BF60D2 = {
+			fileRef = F55E952E0309CB5A01BF60D2;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		F55E95320309CB5A01BF60D2 = {
+			fileRef = F55E952F0309CB5A01BF60D2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F55E95330309CB7001BF60D2 = {
+			isa = PBXFileReference;
+			name = "sgml-8.0.tcl";
+			path = "../library/sgml-8.0.tcl";
+			refType = 2;
+		};
+		F55E95340309CB7001BF60D2 = {
+			isa = PBXFileReference;
+			name = "sgml-8.1.tcl";
+			path = "../library/sgml-8.1.tcl";
+			refType = 2;
+		};
+		F55E95350309CB7001BF60D2 = {
+			isa = PBXFileReference;
+			name = sgmlparser.tcl;
+			path = ../library/sgmlparser.tcl;
+			refType = 2;
+		};
+		F55E95360309CB7001BF60D2 = {
+			isa = PBXFileReference;
+			name = "tclparser-8.0.tcl";
+			path = "../library/tclparser-8.0.tcl";
+			refType = 2;
+		};
+		F55E95370309CB7001BF60D2 = {
+			isa = PBXFileReference;
+			name = "tclparser-8.1.tcl";
+			path = "../library/tclparser-8.1.tcl";
+			refType = 2;
+		};
+		F55E95380309CB7001BF60D2 = {
+			isa = PBXFileReference;
+			name = xml__tcl.tcl;
+			path = ../library/xml__tcl.tcl;
+			refType = 2;
+		};
+		F55E95390309CB7001BF60D2 = {
+			isa = PBXFileReference;
+			name = "xml-8.0.tcl";
+			path = "../library/xml-8.0.tcl";
+			refType = 2;
+		};
+		F55E953A0309CB7001BF60D2 = {
+			isa = PBXFileReference;
+			name = "xml-8.1.tcl";
+			path = "../library/xml-8.1.tcl";
+			refType = 2;
+		};
+		F55E953B0309CB7001BF60D2 = {
+			isa = PBXFileReference;
+			name = xmldep.tcl;
+			path = ../library/xmldep.tcl;
+			refType = 2;
+		};
+		F55E953C0309CB7001BF60D2 = {
+			isa = PBXFileReference;
+			name = xpath.tcl;
+			path = ../library/xpath.tcl;
+			refType = 2;
+		};
+		F55E953D0309CB7001BF60D2 = {
+			fileRef = F55E95330309CB7001BF60D2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F55E953E0309CB7001BF60D2 = {
+			fileRef = F55E95340309CB7001BF60D2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F55E953F0309CB7001BF60D2 = {
+			fileRef = F55E95350309CB7001BF60D2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F55E95400309CB7001BF60D2 = {
+			fileRef = F55E95360309CB7001BF60D2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F55E95410309CB7001BF60D2 = {
+			fileRef = F55E95370309CB7001BF60D2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F55E95420309CB7001BF60D2 = {
+			fileRef = F55E95380309CB7001BF60D2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F55E95430309CB7001BF60D2 = {
+			fileRef = F55E95390309CB7001BF60D2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F55E95440309CB7001BF60D2 = {
+			fileRef = F55E953A0309CB7001BF60D2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F55E95450309CB7001BF60D2 = {
+			fileRef = F55E953B0309CB7001BF60D2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F55E95460309CB7001BF60D2 = {
+			fileRef = F55E953C0309CB7001BF60D2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F55E954C0309EC8201BF60D2 = {
+			children = (
+				F55E95540309ED7901BF60D2,
+				F55E955B0309EE4E01BF60D2,
+				F55E955C0309EE4E01BF60D2,
+				F55E955D0309EE4E01BF60D2,
+				F55E955E0309EE4E01BF60D2,
+				F55E955F0309EE4E01BF60D2,
+				F55E95600309EE4E01BF60D2,
+				F55E95610309EE4E01BF60D2,
+				F55E95620309EE4E01BF60D2,
+				F55E95630309EE4E01BF60D2,
+				F55E95640309EE4E01BF60D2,
+				F55E95650309EE4E01BF60D2,
+				F55E95660309EE4E01BF60D2,
+				F55E95670309EE4E01BF60D2,
+				F55E95690309EE4E01BF60D2,
+				F55E956B0309EE4E01BF60D2,
+				F55E956C0309EE4E01BF60D2,
+			);
+			isa = PBXGroup;
+			name = "expat Sources";
+			refType = 4;
+		};
+		F55E954D0309EC8201BF60D2 = {
+			isa = PBXFrameworkReference;
+			path = expat.framework;
+			refType = 3;
+		};
+		F55E954E0309EC8201BF60D2 = {
+			buildPhases = (
+				F55E954F0309EC8201BF60D2,
+				F55E95500309EC8201BF60D2,
+				F54B1A380376834B01334CD3,
+				F55E95510309EC8201BF60D2,
+				F55E95520309EC8201BF60D2,
+				F55E95530309EC8201BF60D2,
+			);
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				FRAMEWORK_SEARCH_PATHS = /Volumes/ufs/steve/src/tcl/macosx/build;
+				FRAMEWORK_VERSION = 2.6;
+				HEADER_SEARCH_PATHS = "../../src/tcl/macosx/build/Tcl.framework/PrivateHeaders ../expat/xmlparse";
+				INSTALL_PATH = "@executable_path/../Frameworks";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRINCIPAL_CLASS = "";
+				PRODUCT_NAME = expat;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = framework;
+			};
+			dependencies = (
+				F55E95560309ED7901BF60D2,
+				F55E95570309ED7901BF60D2,
+				F55E95830309FE8501BF60D2,
+			);
+			isa = PBXFrameworkTarget;
+			name = expat;
+			productInstallPath = "@executable_path@/../Frameworks";
+			productName = expat;
+			productReference = F55E954D0309EC8201BF60D2;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string></string>
+	<key>CFBundleGetInfoString</key>
+	<string>TclXML/expat v2.6</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.zveno.tclxml.expat</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>TclXML expat</string>
+	<key>CFBundlePackageType</key>
+	<string>FMWK</string>
+	<key>CFBundleShortVersionString</key>
+	<string>2.6</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>2.6</string>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		F55E954F0309EC8201BF60D2 = {
+			buildActionMask = 2147483647;
+			files = (
+				F55E956D0309EE4E01BF60D2,
+				F55E956E0309EE4E01BF60D2,
+				F55E956F0309EE4E01BF60D2,
+				F55E95700309EE4E01BF60D2,
+				F55E95710309EE4E01BF60D2,
+				F55E95720309EE4E01BF60D2,
+				F55E95730309EE4E01BF60D2,
+				F55E95740309EE4E01BF60D2,
+				F55E95750309EE4E01BF60D2,
+				F55E95760309EE4E01BF60D2,
+				F55E95770309EE4E01BF60D2,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F55E95500309EC8201BF60D2 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F55E95510309EC8201BF60D2 = {
+			buildActionMask = 2147483647;
+			files = (
+				F55E95590309ED7901BF60D2,
+				F55E95780309EE4E01BF60D2,
+				F55E95790309EE4E01BF60D2,
+				F55E957A0309EE4E01BF60D2,
+				F55E957B0309EE4E01BF60D2,
+				F55E957E0309EE4E01BF60D2,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F55E95520309EC8201BF60D2 = {
+			buildActionMask = 2147483647;
+			files = (
+				F55E955A0309ED7901BF60D2,
+				F55E95820309FB1601BF60D2,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F55E95530309EC8201BF60D2 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F55E95540309ED7901BF60D2 = {
+			isa = PBXFileReference;
+			name = tclexpat.c;
+			path = ../tclexpat.c;
+			refType = 2;
+		};
+		F55E95550309ED7901BF60D2 = {
+			isa = PBXTargetDependency;
+			target = F55E95210309C9EE01BF60D2;
+		};
+		F55E95560309ED7901BF60D2 = {
+			isa = PBXTargetDependency;
+			target = F55E95210309C9EE01BF60D2;
+		};
+		F55E95570309ED7901BF60D2 = {
+			isa = PBXTargetDependency;
+			target = F55E95580309ED7901BF60D2;
+		};
+		F55E95580309ED7901BF60D2 = {
+			buildArgumentsString = ./configure;
+			buildPhases = (
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "Configure expat";
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			buildToolPath = /bin/sh;
+			buildWorkingDirectory = $SRCROOT/../expat;
+			dependencies = (
+			);
+			isa = PBXLegacyTarget;
+			name = "Configure expat";
+			productName = "Configure expat";
+			settingsToExpand = 6;
+			settingsToPassInEnvironment = 287;
+			settingsToPassOnCommandLine = 280;
+			shouldUseHeadermap = 0;
+		};
+		F55E95590309ED7901BF60D2 = {
+			fileRef = F55E95540309ED7901BF60D2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F55E955A0309ED7901BF60D2 = {
+			fileRef = F55E95240309CAC301BF60D2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F55E955B0309EE4E01BF60D2 = {
+			isa = PBXFileReference;
+			name = gennmtab.c;
+			path = ../expat/gennmtab/gennmtab.c;
+			refType = 2;
+		};
+		F55E955C0309EE4E01BF60D2 = {
+			isa = PBXFileReference;
+			name = hashtable.c;
+			path = ../expat/xmlparse/hashtable.c;
+			refType = 2;
+		};
+		F55E955D0309EE4E01BF60D2 = {
+			isa = PBXFileReference;
+			name = hashtable.h;
+			path = ../expat/xmlparse/hashtable.h;
+			refType = 2;
+		};
+		F55E955E0309EE4E01BF60D2 = {
+			isa = PBXFileReference;
+			name = xmlparse.c;
+			path = ../expat/xmlparse/xmlparse.c;
+			refType = 2;
+		};
+		F55E955F0309EE4E01BF60D2 = {
+			isa = PBXFileReference;
+			name = xmlparse.h;
+			path = ../expat/xmlparse/xmlparse.h;
+			refType = 2;
+		};
+		F55E95600309EE4E01BF60D2 = {
+			isa = PBXFileReference;
+			name = asciitab.h;
+			path = ../expat/xmltok/asciitab.h;
+			refType = 2;
+		};
+		F55E95610309EE4E01BF60D2 = {
+			isa = PBXFileReference;
+			name = iasciitab.h;
+			path = ../expat/xmltok/iasciitab.h;
+			refType = 2;
+		};
+		F55E95620309EE4E01BF60D2 = {
+			isa = PBXFileReference;
+			name = latin1tab.h;
+			path = ../expat/xmltok/latin1tab.h;
+			refType = 2;
+		};
+		F55E95630309EE4E01BF60D2 = {
+			isa = PBXFileReference;
+			name = nametab.h;
+			path = ../expat/xmltok/nametab.h;
+			refType = 2;
+		};
+		F55E95640309EE4E01BF60D2 = {
+			isa = PBXFileReference;
+			name = utf8tab.h;
+			path = ../expat/xmltok/utf8tab.h;
+			refType = 2;
+		};
+		F55E95650309EE4E01BF60D2 = {
+			isa = PBXFileReference;
+			name = xmldef.h;
+			path = ../expat/xmltok/xmldef.h;
+			refType = 2;
+		};
+		F55E95660309EE4E01BF60D2 = {
+			isa = PBXFileReference;
+			name = xmlrole.c;
+			path = ../expat/xmltok/xmlrole.c;
+			refType = 2;
+		};
+		F55E95670309EE4E01BF60D2 = {
+			isa = PBXFileReference;
+			name = xmlrole.h;
+			path = ../expat/xmltok/xmlrole.h;
+			refType = 2;
+		};
+		F55E95690309EE4E01BF60D2 = {
+			isa = PBXFileReference;
+			name = xmltok_impl.h;
+			path = ../expat/xmltok/xmltok_impl.h;
+			refType = 2;
+		};
+		F55E956B0309EE4E01BF60D2 = {
+			isa = PBXFileReference;
+			name = xmltok.c;
+			path = ../expat/xmltok/xmltok.c;
+			refType = 2;
+		};
+		F55E956C0309EE4E01BF60D2 = {
+			isa = PBXFileReference;
+			name = xmltok.h;
+			path = ../expat/xmltok/xmltok.h;
+			refType = 2;
+		};
+		F55E956D0309EE4E01BF60D2 = {
+			fileRef = F55E955D0309EE4E01BF60D2;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Private,
+				);
+			};
+		};
+		F55E956E0309EE4E01BF60D2 = {
+			fileRef = F55E955F0309EE4E01BF60D2;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Private,
+				);
+			};
+		};
+		F55E956F0309EE4E01BF60D2 = {
+			fileRef = F55E95600309EE4E01BF60D2;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Private,
+				);
+			};
+		};
+		F55E95700309EE4E01BF60D2 = {
+			fileRef = F55E95610309EE4E01BF60D2;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Private,
+				);
+			};
+		};
+		F55E95710309EE4E01BF60D2 = {
+			fileRef = F55E95620309EE4E01BF60D2;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Private,
+				);
+			};
+		};
+		F55E95720309EE4E01BF60D2 = {
+			fileRef = F55E95630309EE4E01BF60D2;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Private,
+				);
+			};
+		};
+		F55E95730309EE4E01BF60D2 = {
+			fileRef = F55E95640309EE4E01BF60D2;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Private,
+				);
+			};
+		};
+		F55E95740309EE4E01BF60D2 = {
+			fileRef = F55E95650309EE4E01BF60D2;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Private,
+				);
+			};
+		};
+		F55E95750309EE4E01BF60D2 = {
+			fileRef = F55E95670309EE4E01BF60D2;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Private,
+				);
+			};
+		};
+		F55E95760309EE4E01BF60D2 = {
+			fileRef = F55E95690309EE4E01BF60D2;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Private,
+				);
+			};
+		};
+		F55E95770309EE4E01BF60D2 = {
+			fileRef = F55E956C0309EE4E01BF60D2;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Private,
+				);
+			};
+		};
+		F55E95780309EE4E01BF60D2 = {
+			fileRef = F55E955B0309EE4E01BF60D2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F55E95790309EE4E01BF60D2 = {
+			fileRef = F55E955C0309EE4E01BF60D2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F55E957A0309EE4E01BF60D2 = {
+			fileRef = F55E955E0309EE4E01BF60D2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F55E957B0309EE4E01BF60D2 = {
+			fileRef = F55E95660309EE4E01BF60D2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F55E957E0309EE4E01BF60D2 = {
+			fileRef = F55E956B0309EE4E01BF60D2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F55E95820309FB1601BF60D2 = {
+			fileRef = F55E952F0309CB5A01BF60D2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F55E95830309FE8501BF60D2 = {
+			isa = PBXTargetDependency;
+			target = F55E95250309CAC301BF60D2;
+		};
+		F58E0CD2035E35B601C69E6A = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "mkdir -p $TARGET_BUILD_DIR/$TARGET_NAME.framework/Resources/Scripts\nmv $TARGET_BUILD_DIR/$TARGET_NAME.framework/Resources/*.tcl $TARGET_BUILD_DIR/$TARGET_NAME.framework/Resources/Scripts\nrm -f $TARGET_BUILD_DIR/$TARGET_NAME.framework/Resources/Scripts/libTclxml$FRAMEWORK_VERSION.dylib\nln -s ../../$TARGET_NAME $TARGET_BUILD_DIR/$TARGET_NAME.framework/Resources/Scripts/libTclxml$FRAMEWORK_VERSION.dylib";
+		};
+		F58E0CD3035E420E01C69E6A = {
+			isa = PBXFileReference;
+			name = pkgIndex.tcl;
+			path = /Volumes/ufs/steve/tclxml/library/pkgIndex.tcl;
+			refType = 0;
+		};
+		F58E0CD4035E420E01C69E6A = {
+			fileRef = F58E0CD3035E420E01C69E6A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+	};
+	rootObject = F55E951D0309C9A301BF60D2;
+}

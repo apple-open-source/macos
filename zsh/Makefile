@@ -4,51 +4,53 @@
 
 # Project info
 Project		      = zsh
+ProjectVersion	      = 4.3.9
 UserType	      = Administration
 ToolType	      = Commands
 Extra_CC_Flags	      = -no-cpp-precomp
 Extra_Configure_Flags = --bindir="$(BINDIR)" --with-tcsetpgrp --enable-multibyte
 Extra_Install_Flags   = bindir="$(DSTROOT)$(BINDIR)"
-GnuAfterInstall	      = post-install install-plist
+GnuAfterInstall	      = post-install install-plist strip-binaries
+
+Patches = utmpx_ut_user.patch no_strip.patch arg_zero.patch \
+          zsh-Doc.patch svn-zsh-complete.patch \
+          configure-traditional-cpp.patch utils.c.patch \
+          PR-6370391.patch
 
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
+# hack to resurrect zshall
+COMPRESSMANPAGES = true
+
 post-install:
-	ln $(DSTROOT)/$(MANDIR)/man1/zsh.1 $(DSTROOT)/$(MANDIR)/man1/zsh-4.3.4.1
-	rm -f $(DSTROOT)/$(MANDIR)/man1/zshall.1
-	find $(DSTROOT) -type f -perm +111 -exec strip -x '{}' \;
-	rm -f $(DSTROOT)/bin/zsh-4.3.4
-	ln $(DSTROOT)/bin/zsh $(DSTROOT)/bin/zsh-4.3.4
-	rm $(DSTROOT)/usr/share/zsh/4.3.4/scripts/newuser
+	rm -f $(DSTROOT)/bin/zsh-$(ProjectVersion)
+	rm $(DSTROOT)/usr/share/zsh/$(ProjectVersion)/scripts/newuser
 	mkdir -p $(DSTROOT)/private/etc
-	install -m 0444 -o root -g wheel zprofile $(DSTROOT)/private/etc
+	install -m 0444 -o root -g wheel zshenv $(DSTROOT)/private/etc
 
-# Automatic Extract & Patch
-AEP	       = YES
-AEP_Project    = $(Project)
-AEP_Version    = 4.3.4
-AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
-AEP_Filename   = $(AEP_ProjVers).tar.bz2
-AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = utmpx_ut_user.patch no_strip.patch arg_zero.patch \
-		 _groups.patch zsh-Doc.patch
+ZSH_MODULE_DIR = /usr/lib/zsh/$(ProjectVersion)/zsh
 
-ifeq ($(suffix $(AEP_Filename)),.bz2)
-    AEP_ExtractOption = j
-else
-    AEP_ExtractOption = z
-endif
+strip-binaries:
+	$(MKDIR) $(SYMROOT)/bin $(SYMROOT)$(ZSH_MODULE_DIR) $(SYMROOT)$(ZSH_MODULE_DIR)/net
+	$(CP) $(DSTROOT)/bin/zsh $(SYMROOT)/bin
+	$(STRIP) -x $(DSTROOT)/bin/zsh
+	$(MKDIR) $(SYMROOT)$(ZSH_MODULE_DIR)
+	$(CP) $(DSTROOT)$(ZSH_MODULE_DIR)/*.so $(SYMROOT)$(ZSH_MODULE_DIR)
+	$(STRIP) -x $(DSTROOT)$(ZSH_MODULE_DIR)/*.so
+	$(MKDIR) $(SYMROOT)$(ZSH_MODULE_DIR)/net
+	$(CP) $(DSTROOT)$(ZSH_MODULE_DIR)/net/*.so $(SYMROOT)$(ZSH_MODULE_DIR)/net
+	$(STRIP) -x $(DSTROOT)$(ZSH_MODULE_DIR)/net/*.so
 
 install_source::
-ifeq ($(AEP),YES)
-	$(TAR) -C $(SRCROOT) -$(AEP_ExtractOption)xf $(SRCROOT)/$(AEP_Filename)
-	$(RMDIR) $(SRCROOT)/$(AEP_Project)
-	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(AEP_Project)
-	for patchfile in $(AEP_Patches); do \
-	    ( cd $(SRCROOT)/$(Project) && patch -lp0 < $(SRCROOT)/patches/$$patchfile ) || exit 1 ; \
+	$(RMDIR) $(SRCROOT)/$(Project)-$(ProjectVersion) $(SRCROOT)/$(Project)
+	$(TAR) -C $(SRCROOT) -xf $(SRCROOT)/$(Project)-$(ProjectVersion).tar.bz2
+	$(MV) $(SRCROOT)/$(Project)-$(ProjectVersion) $(SRCROOT)/$(Project)
+	@set -x && \
+	cd $(SRCROOT)/$(Project) && \
+	for patchfile in $(Patches); do \
+	    patch -p0 -F0 -i $(SRCROOT)/patches/$$patchfile || exit 1; \
 	done
-endif
 
 OSV	= $(DSTROOT)/usr/local/OpenSourceVersions
 OSL	= $(DSTROOT)/usr/local/OpenSourceLicenses

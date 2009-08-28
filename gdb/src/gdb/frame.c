@@ -556,9 +556,16 @@ frame_pop (struct frame_info *this_frame)
      Save them in a scratch buffer so that there isn't a race between
      trying to extract the old values from the current_regcache while
      at the same time writing new values into that same cache.  */
-  struct regcache *scratch
-    = frame_save_as_regcache (get_prev_frame_1 (this_frame));
-  struct cleanup *cleanups = make_cleanup_regcache_xfree (scratch);
+  struct frame_info *prev_frame;
+  struct regcache *scratch;
+  struct cleanup *cleanups;
+
+  prev_frame = get_prev_frame_1 (this_frame);
+  if (prev_frame == NULL)
+    error ("Could not get previous frame in frame_pop.");
+
+  scratch  = frame_save_as_regcache (prev_frame);
+  cleanups = make_cleanup_regcache_xfree (scratch);
 
   /* FIXME: cagney/2003-03-16: It should be possible to tell the
      target's register cache that it is about to be hit with a burst
@@ -584,8 +591,6 @@ frame_register_unwind (struct frame_info *frame, int regnum,
 		       enum opt_state *optimizedp, enum lval_type *lvalp,
 		       CORE_ADDR *addrp, int *realnump, gdb_byte *bufferp)
 {
-  struct frame_unwind_cache *cache;
-
   if (frame_debug)
     {
       fprintf_unfiltered (gdb_stdlog, "\
@@ -728,7 +733,7 @@ put_frame_register (struct frame_info *frame, int regnum,
 {
   struct gdbarch *gdbarch = get_frame_arch (frame);
   int realnum;
-  int optim;
+  enum opt_state optim;
   enum lval_type lval;
   CORE_ADDR addr;
   frame_register (frame, regnum, &optim, &lval, &addr, &realnum, NULL);
@@ -766,7 +771,7 @@ int
 frame_register_read (struct frame_info *frame, int regnum,
 		     gdb_byte *myaddr)
 {
-  int optimized;
+  enum opt_state optimized;
   enum lval_type lval;
   CORE_ADDR addr;
   int realnum;
@@ -1264,8 +1269,6 @@ inside_entry_func (struct frame_info *this_frame)
 struct frame_info *
 get_prev_frame (struct frame_info *this_frame)
 {
-  struct frame_info *prev_frame;
-
   /* Return the inner-most frame, when the caller passes in NULL.  */
   /* NOTE: cagney/2002-11-09: Not sure how this would happen.  The
      caller should have previously obtained a valid frame using
@@ -1389,8 +1392,31 @@ get_prev_frame (struct frame_info *this_frame)
       && get_frame_type (get_next_frame (this_frame)) == NORMAL_FRAME
       && get_frame_pc (this_frame) == 0)
     {
-      frame_debug_got_null_frame (gdb_stdlog, this_frame, "zero PC");
-      return NULL;
+      int trap_from_kernel = 0;
+
+      /* APPLE LOCAL: Check to see if the next frame down the stack is
+	 trap_from_kernel.  We have to handle the trap_from_kernel()
+	 function specially.  It will have a saved pc value of 0.
+	 Normally a non-leaf frame with a saved pc value of 0 means
+	 that we've screwed up our stack walk but in this one case
+	 it is expected.  */
+      if (this_frame->level > 1)
+        {
+           struct minimal_symbol *minsym;
+           minsym = lookup_minimal_symbol_by_pc 
+               (frame_pc_unwind (get_next_frame (get_next_frame (this_frame))));
+          if (minsym && strcmp (SYMBOL_LINKAGE_NAME (minsym), 
+                                "trap_from_kernel") == 0)
+            {
+              trap_from_kernel = 1;
+            }
+        }
+
+      if (trap_from_kernel == 0)
+        {
+          frame_debug_got_null_frame (gdb_stdlog, this_frame, "zero PC");
+          return NULL;
+        }
     }
   /* APPLE LOCAL end subroutine inlining  */
 
@@ -1776,7 +1802,7 @@ void
 inlined_frame_prev_register (struct frame_info *next_frame,
 			     void **this_prologue_cache,
 			     int prev_regnum,
-			     int *optimized,
+			     enum opt_state *optimized,
 			     enum lval_type *lvalp,
 			     CORE_ADDR *addrp,
 			     int *realnump,

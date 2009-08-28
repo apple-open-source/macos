@@ -2,7 +2,7 @@
 	File:		MBCBoardViewTextures.mm
 	Contains:	Load OpenGL textures from resources
 	Version:	1.0
-	Copyright:	© 2002-2007 by Apple Computer, Inc., all rights reserved.
+	Copyright:	Â© 2002-2008 by Apple Computer, Inc., all rights reserved.
 	
 	Derived from glChess, Copyright © 2002 Robert Ancell and Michael Duelli
 	Permission granted to Apple to relicense under the following terms:
@@ -18,6 +18,12 @@
 	Change History (most recent first):
 
 		$Log: MBCBoardViewTextures.mm,v $
+		Revision 1.16  2008/10/24 20:06:17  neerache
+		<rdar://problem/3710028> ER: Chessboard anti-aliasing
+		
+		Revision 1.15  2008/10/24 01:17:14  neerache
+		<rdar://problem/5973744> Chess Needs To Move from SGI Format Images to PNG or JPEG
+		
 		Revision 1.14  2007/03/01 20:58:48  neerache
 		Plug texture leaks <rdar://problem/3987435>
 		
@@ -65,291 +71,57 @@
 #import "MBCBoardView.h"
 #import "MBCBoardViewDraw.h"
 
-#import <stdio.h>
 #import <stdlib.h> 
 #import <string.h>
 #import <OpenGL/glu.h>
 #import <OpenGL/glext.h>
 #import <GLUT/glut.h>
 
-void
-bwtorgba(unsigned char *b,unsigned char *l,int n) {
-    while(n--) {
-        l[0] = *b;
-        l[1] = *b;
-        l[2] = *b;
-        l[3] = 0xff;
-        l += 4; b++;
-    }
-}
-
-void
-rgbtorgba(unsigned char *r,unsigned char *g,unsigned char *b,unsigned char *l,int n) {
-    while(n--) {
-        l[0] = r[0];
-        l[1] = g[0];
-        l[2] = b[0];
-        l[3] = 0xff;
-        l += 4; r++; g++; b++;
-    }
-}
-
-void
-rgbatorgba(unsigned char *r,unsigned char *g,unsigned char *b,unsigned char *a,unsigned char *l,int n) {
-    while(n--) {
-        l[0] = r[0];
-        l[1] = g[0];
-        l[2] = b[0];
-        l[3] = a[0];
-        l += 4; r++; g++; b++; a++;
-    }
-}
-
-typedef struct _ImageRec {
-    unsigned short imagic;
-    unsigned short type;
-    unsigned short dim;
-    unsigned short xsize, ysize, zsize;
-    unsigned int min, max;
-    unsigned int wasteBytes;
-    char name[80];
-    unsigned long colorMap;
-    FILE *file;
-    unsigned char *tmp, *tmpR, *tmpG, *tmpB;
-    unsigned long rleEnd;
-    unsigned int *rowStart;
-    int *rowSize;
-} ImageRec;
-
-static void
-ConvertShort(unsigned short *array, unsigned int length) {
-    unsigned short b1, b2;
-    unsigned char *ptr;
-
-    ptr = (unsigned char *)array;
-    while (length--) {
-        b1 = *ptr++;
-        b2 = *ptr++;
-        *array++ = (b1 << 8) | (b2);
-    }
-}
-
-static void
-ConvertUint(unsigned *array, unsigned int length) {
-    unsigned int b1, b2, b3, b4;
-    unsigned char *ptr;
-
-    ptr = (unsigned char *)array;
-    while (length--) {
-        b1 = *ptr++;
-        b2 = *ptr++;
-        b3 = *ptr++;
-        b4 = *ptr++;
-        *array++ = (b1 << 24) | (b2 << 16) | (b3 << 8) | (b4);
-    }
-}
-
-static ImageRec *ImageOpen(const char *fileName)
+GLuint load_texture(NSString * name, NSString * dir, BOOL mono, float anisotropy)
 {
-    union {
-        int testWord;
-        char testByte[4];
-    } endianTest;
-    ImageRec *image;
-    int swapFlag;
-    int x;
-
-    endianTest.testWord = 1;
-    if (endianTest.testByte[0] == 1) {
-        swapFlag = 1;
-    } else {
-        swapFlag = 0;
-    }
-
-    image = (ImageRec *)malloc(sizeof(ImageRec));
-    if (image == NULL) {
-        fprintf(stderr, "Out of memory!\n");
-        exit(1);
-    }
-    if ((image->file = fopen(fileName, "rb")) == NULL) {
-        perror(fileName);
-        exit(1);
-    }
-
-    fread(image, 1, 12, image->file);
-
-    if (swapFlag) {
-        ConvertShort(&image->imagic, 6);
-    }
-
-    image->tmp = (unsigned char *)malloc(image->xsize*256);
-    image->tmpR = (unsigned char *)malloc(image->xsize*256);
-    image->tmpG = (unsigned char *)malloc(image->xsize*256);
-    image->tmpB = (unsigned char *)malloc(image->xsize*256);
-    if (image->tmp == NULL || image->tmpR == NULL || image->tmpG == NULL ||
-        image->tmpB == NULL) {
-        fprintf(stderr, "Out of memory!\n");
-        exit(1);
-    }
-
-    if ((image->type & 0xFF00) == 0x0100) {
-        x = image->ysize * image->zsize * (int) sizeof(unsigned);
-        image->rowStart = (unsigned *)malloc(x);
-        image->rowSize = (int *)malloc(x);
-        image->rleEnd = 512 + (2 * x);
-        fseek(image->file, 512, SEEK_SET);
-        fread(image->rowStart, 1, x, image->file);
-        fread(image->rowSize, 1, x, image->file);
-        if (swapFlag) {
-            ConvertUint(image->rowStart, x/(int) sizeof(unsigned));
-            ConvertUint((unsigned *)image->rowSize, x/(int) sizeof(int));
-        }
-    } else {	
-		image->rowStart	= NULL;
-		image->rowSize  = NULL;
-	}
-
-    return image;
-}
-
-static void
-ImageClose(ImageRec *image) {
-    fclose(image->file);
-    free(image->tmp);
-    free(image->tmpR);
-    free(image->tmpG);
-    free(image->tmpB);
-	if (image->rowStart) {
-		free(image->rowStart);
-		free(image->rowSize);
-	}
-    free(image);
-}
-
-static void
-ImageGetRow(ImageRec *image, unsigned char *buf, int y, int z) {
-    unsigned char *iPtr, *oPtr, pixel;
-    int count;
-
-    if ((image->type & 0xFF00) == 0x0100) {
-        fseek(image->file, (long) image->rowStart[y+z*image->ysize], SEEK_SET);
-        fread(image->tmp, 1, (unsigned int)image->rowSize[y+z*image->ysize],
-              image->file);
-
-        iPtr = image->tmp;
-        oPtr = buf;
-        for (;;) {
-            pixel = *iPtr++;
-            count = (int)(pixel & 0x7F);
-            if (!count) {
-				if (oPtr-buf != image->xsize)
-					printf("Oops! %d != %d\n", oPtr-buf, image->xsize);
-                return;
-            }
-            if (pixel & 0x80) {
-                while (count--) {
-                    *oPtr++ = *iPtr++;
-                }
-            } else {
-                pixel = *iPtr++;
-                while (count--) {
-                    *oPtr++ = pixel;
-                }
-            }
-        }
-    } else {
-        fseek(image->file, 512+(y*image->xsize)+(z*image->xsize*image->ysize),
-              SEEK_SET);
-        fread(buf, 1, image->xsize, image->file);
-    }
-}
-
-unsigned *
-read_texture(const char *name, int *width, int *height, int *components) {
-    unsigned *base, *lptr;
-    unsigned char *rbuf, *gbuf, *bbuf, *abuf;
-    ImageRec *image;
-    int y;
-
-    image = ImageOpen(name);
-    
-    if(!image)
-        return NULL;
-    (*width)=image->xsize;
-    (*height)=image->ysize;
-    (*components)=image->zsize;
-    base = (unsigned *)malloc(image->xsize*image->ysize*sizeof(unsigned));
-    rbuf = (unsigned char *)malloc(image->xsize*sizeof(unsigned char));
-    gbuf = (unsigned char *)malloc(image->xsize*sizeof(unsigned char));
-    bbuf = (unsigned char *)malloc(image->xsize*sizeof(unsigned char));
-    abuf = (unsigned char *)malloc(image->xsize*sizeof(unsigned char));
-    if(!base || !rbuf || !gbuf || !bbuf)
-      return NULL;
-    lptr = base;
-    for(y=0; y<image->ysize; y++) {
-        if(image->zsize>=4) {
-            ImageGetRow(image,rbuf,y,0);
-            ImageGetRow(image,gbuf,y,1);
-            ImageGetRow(image,bbuf,y,2);
-            ImageGetRow(image,abuf,y,3);
-            rgbatorgba(rbuf,gbuf,bbuf,abuf,(unsigned char *)lptr,image->xsize);
-            lptr += image->xsize;
-        } else if(image->zsize==3) {
-            ImageGetRow(image,rbuf,y,0);
-            ImageGetRow(image,gbuf,y,1);
-            ImageGetRow(image,bbuf,y,2);
-            rgbtorgba(rbuf,gbuf,bbuf,(unsigned char *)lptr,image->xsize);
-            lptr += image->xsize;
-        } else {
-            ImageGetRow(image,rbuf,y,0);
-            bwtorgba(rbuf,(unsigned char *)lptr,image->xsize);
-            lptr += image->xsize;
-        }
-    }
-    ImageClose(image);
-    free(rbuf);
-    free(gbuf);
-    free(bbuf);
-    free(abuf);
-
-    return (unsigned *) base;
-}
-
-GLuint load_texture(NSString * name, NSString * dir, BOOL mono)
-{
-    GLuint	texture_name;
-    GLubyte *	data;
-    int 	w, h, c;
-    name = [[NSBundle mainBundle] pathForResource:name 
-							   ofType:@"rgb" 
+   name = [[NSBundle mainBundle] pathForResource:name 
+							   ofType:@"png" 
 							   inDirectory:dir];
-    data = (GLubyte *)read_texture([name UTF8String], &w, &h, &c);
-    
-    if (mono) 
-		for (c = 0; c<w*h; ++c) {
-			float v = data[4*c]/255.0f;
-			data[4*c+0]	= 255;
-			data[4*c+1] = 255;
-			data[4*c+2] = 255;
-			data[4*c+3] = static_cast<GLubyte>(pow(v,0.8)*255.0f);
-		}
-     
-    /* Generate the texture */
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    glGenTextures(1, &texture_name);
-    glBindTexture(GL_TEXTURE_2D, texture_name);
+   NSURL * 			url 	= [NSURL fileURLWithPath:name];
+   CGImageSourceRef imgSrc 	= CGImageSourceCreateWithURL((CFURLRef)url, NULL);
+   CGImageRef 		img	 	= CGImageSourceCreateImageAtIndex(imgSrc, 0, NULL);
+   GLuint			texture_name;
+   size_t 			width  	= CGImageGetWidth(img);
+   size_t			dWidth	= mono ? width : width*4;
+   size_t 			height 	= CGImageGetHeight(img);
+   CGRect 			rect 	= {{0, 0}, {width, height}};
+   void * 			data 	= calloc(dWidth, height);
+   CGColorSpaceRef 	space 	= mono ? NULL : CGColorSpaceCreateDeviceRGB();
+   CGContextRef 	bitmap 	= 
+	CGBitmapContextCreate(data, width, height, 8, dWidth, space,
+		 mono ? kCGImageAlphaOnly
+		 : kCGBitmapByteOrder32Host | kCGImageAlphaPremultipliedFirst);
+   CGContextDrawImage(bitmap, rect, img);
+   CGContextRelease(bitmap);
+   CGImageRelease(img);
+   CFRelease(imgSrc);
+   if (!mono)
+	   CGColorSpaceRelease(space);
+   glPixelStorei(GL_UNPACK_ROW_LENGTH, width);
+   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+   glGenTextures(1, &texture_name);
+   glBindTexture(GL_TEXTURE_2D, texture_name);
+   
+   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+   if (anisotropy)
+	   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, anisotropy);
+   
+   if (mono)
+	   gluBuild2DMipmaps(GL_TEXTURE_2D, GL_ALPHA, width, height, GL_ALPHA,  GL_UNSIGNED_BYTE, data);
+   else
+	   gluBuild2DMipmaps(GL_TEXTURE_2D, GL_RGBA8, width, height, GL_BGRA_EXT,  GL_UNSIGNED_INT_8_8_8_8_REV, data);
+   
+   free(data);
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, 4);
-
-    gluBuild2DMipmaps(GL_TEXTURE_2D, 4, w, h, GL_RGBA,  GL_UNSIGNED_BYTE, data);
-            
-    free(data);
-
-    return texture_name;
+   return texture_name;
 }
 
 @implementation MBCBoardView ( Textures )
@@ -433,7 +205,7 @@ GLuint load_texture(NSString * name, NSString * dir, BOOL mono)
     [drawStyle unloadTexture];
     [drawStyle initWithTexture:
 			   load_texture([color stringByAppendingString:part],
-							style, FALSE)];	
+							style, FALSE, fAnisotropy)];	
 	[self loadField:&drawStyle->fDiffuse 
 		  fromAttr:attr color:color entry:@"Diffuse"];
 	[self loadField:&drawStyle->fSpecular 
@@ -486,16 +258,16 @@ GLuint load_texture(NSString * name, NSString * dir, BOOL mono)
 - (void) loadStaticTextures
 {
     [fSelectedPieceDrawStyle initWithTexture:
-		    load_texture(@"selected_piece_texture", nil, FALSE)];
+		    load_texture(@"selected_piece_texture", nil, FALSE, fAnisotropy)];
 	fSelectedPieceDrawStyle->fAlpha	= 0.8f;
 
     for (char i = '1'; i <= '8'; ++i) 
         fNumberTextures[i - '1'] = 
-			load_texture([NSString stringWithFormat:@"%c", i], nil, TRUE);
+			load_texture([NSString stringWithFormat:@"%c", i], nil, TRUE, fAnisotropy);
 
     for (char i = 'a'; i <= 'h'; i++) 
         fLetterTextures[i - 'a'] = 
-			load_texture([NSString stringWithFormat:@"%c", i], nil, TRUE);
+			load_texture([NSString stringWithFormat:@"%c", i], nil, TRUE, fAnisotropy);
 }
 
 - (void) loadColors

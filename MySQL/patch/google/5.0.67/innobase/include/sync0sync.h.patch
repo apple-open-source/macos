@@ -1,0 +1,27 @@
+--- base5067/innobase/include/sync0sync.h	2008-08-04 05:19:15.000000000 -0700
++++ m5067/innobase/include/sync0sync.h	2008-09-08 06:53:33.000000000 -0700
+@@ -247,7 +247,7 @@
+ NOT to be used outside this module except in debugging! Gets the value
+ of the lock word. */
+ UNIV_INLINE
+-ulint
++byte
+ mutex_get_lock_word(
+ /*================*/
+ 	mutex_t*	mutex);	/* in: mutex */
+@@ -460,9 +460,12 @@
+ 
+ struct mutex_struct {
+ 	os_event_t	event;	/* Used by sync0arr.c for the wait queue */
+-	ulint	lock_word;	/* This ulint is the target of the atomic
+-				test-and-set instruction in Win32 */
+-#if !defined(_WIN32) || !defined(UNIV_CAN_USE_X86_ASSEMBLER)
++	byte	lock_word;	/* This byte is the target of the atomic
++				test-and-set instruction in Win32 and
++                                x86 32/64 with GCC 4.1.0 or later version */
++#if defined(_WIN32) && defined(UNIV_CAN_USE_X86_ASSEMBLER)
++#elif defined(HAVE_ATOMIC_BUILTINS)
++#else
+ 	os_fast_mutex_t
+ 		os_fast_mutex;	/* In other systems we use this OS mutex
+ 				in place of lock_word */

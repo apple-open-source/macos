@@ -633,10 +633,10 @@ QueueStatus AppleUSBCDCACMData::GetQueueStatus(CirQueue *Queue)
 
 void AppleUSBCDCACMData::CheckQueues()
 {
-    unsigned long	Used;
-    unsigned long	Free;
-    unsigned long	QueuingState;
-    unsigned long	DeltaState;
+    UInt32	Used;
+    UInt32	Free;
+    UInt32	QueuingState;
+    UInt32	DeltaState;
 
 	// Initialise the QueueState with the current state.
         
@@ -708,7 +708,7 @@ void AppleUSBCDCACMData::CheckQueues()
         // Figure out what has changed to get mask.
         
     DeltaState = QueuingState ^ fPort.State;
-    setStateGated(QueuingState, DeltaState);
+    setStateGated(&QueuingState, &DeltaState);
 	
 }/* end CheckQueues */
 
@@ -809,6 +809,8 @@ void AppleUSBCDCACMData::dataWriteComplete(void *obj, void *param, IOReturn rc, 
     SInt32		dLen;
     UInt16		i;
     bool		busy = false;
+	UInt32		state;
+	UInt32		mask;
     
     XTRACE(me, rc, 0, "dataWriteComplete");
     
@@ -851,7 +853,9 @@ void AppleUSBCDCACMData::dataWriteComplete(void *obj, void *param, IOReturn rc, 
 
         if (!busy)
         {
-            me->setStateGated(0, PD_S_TX_BUSY);
+			state = 0;
+			mask = PD_S_TX_BUSY;
+            me->setStateGated(&state, &mask);	// Clear the busy state
         }
 
         me->setUpTransmit();						// just to keep it going??
@@ -888,7 +892,9 @@ void AppleUSBCDCACMData::dataWriteComplete(void *obj, void *param, IOReturn rc, 
 
         if (!busy)
         {
-            me->setStateGated(0, PD_S_TX_BUSY);
+			state = 0;
+			mask = PD_S_TX_BUSY;
+            me->setStateGated(&state, &mask);
         }
     }
 	
@@ -943,9 +949,7 @@ bool AppleUSBCDCACMData::start(IOService *provider)
 {
     OSNumber	*bufNumber = NULL;
     UInt16		bufValue = 0;
-	
 	IOUSBDevice *usbDevice;
-
 	
 	XTRACE(this, 0, provider, "start");
     
@@ -959,7 +963,7 @@ bool AppleUSBCDCACMData::start(IOService *provider)
 	fPMRootDomain = NULL;
 	fWoR = false;
 	fWakeSettingControllerHandle = NULL;
-	fWanDevice = NULL;
+	fWanDevice = kOSBooleanFalse;
     
     initStructure();
     
@@ -981,19 +985,21 @@ bool AppleUSBCDCACMData::start(IOService *provider)
 	usbDevice = OSDynamicCast (IOUSBDevice, fDataInterface->GetDevice());
  	fWanDevice = (OSBoolean *) usbDevice->getProperty("WWAN");	
 	fInterfaceMappings = (OSDictionary *) usbDevice->getProperty("InterfaceMapping");	
-	
 	if (fInterfaceMappings == NULL)
 	{
-		IOLog ("AppleUSBCDCACMData: start: InterfaceMappings dictionary not found for this device. Assume CDC Device...\n");
-		fWanDevice = NULL;
+		XTRACE (this, 0, 0, "start: InterfaceMappings dictionary not found for this device. Assume CDC Device...");
+		fWanDevice = kOSBooleanFalse;
 	}
+	else
+		fWanDevice = kOSBooleanTrue;
+
 
     fPort.DataInterfaceNumber = fDataInterface->GetInterfaceNumber();
     
 	fCDCDriver = findCDCDriverAD(this, fPort.DataInterfaceNumber);
     if (!fCDCDriver)
     {
-        ALERT(0, 0, "start - Find CDC driver failed");
+        ALERT(0, fPort.DataInterfaceNumber, "start - Find CDC driver for data interface failed");
         return false;
     }
     
@@ -1172,7 +1178,7 @@ bool AppleUSBCDCACMData::start(IOService *provider)
     fVendorID = fDataInterface->GetDevice()->GetVendorID();
     fProductID = fDataInterface->GetDevice()->GetProductID();
 	
-	Log(DEBUG_NAME ": Version number - %s, Input buffers %d, Output buffers %d\n", VersionNumber, fInBufPool, fOutBufPool);
+	IOLog(DEBUG_NAME ": Version number - %s, Input buffers %d, Output buffers %d\n", VersionNumber, fInBufPool, fOutBufPool);
     
     return true;
     	
@@ -1346,6 +1352,116 @@ bool AppleUSBCDCACMData::createSuffix(unsigned char *sufKey)
 
 }/* end createSuffix */
 
+
+
+
+
+bool AppleUSBCDCACMData::findSerialBSDClient (IOModemSerialStreamSync *nub) 
+{
+	IOReturn							resultCode = kIOReturnError;
+	
+	bsdClientState = 0;
+	
+	XTRACE (this, 0, 0,"findSerialBSDClient Adding notification with custom matching dictionary");
+	bsdClientAddedNotifier = addMatchingNotification (gIOFirstPublishNotification,
+													  serviceMatching("IOSerialBSDClient"),
+													  (IOServiceMatchingNotificationHandler)&bsdClientPublished,
+													  this,
+													  nub);	
+	
+	resultCode = fCommandGate->runAction(waitForBSDClienAction);	
+	XTRACE (this, 0, resultCode, "findSerialBSDClient Exiting....");	
+	if (resultCode == kIOReturnSuccess)
+		return TRUE;
+	else
+		return FALSE;	
+}
+
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDCACMData::waitForBSDClienAction
+//
+//		Desc:		Dummy pass through for sendDeviceRequestGated
+//
+/****************************************************************************************************/
+
+IOReturn AppleUSBCDCACMData::waitForBSDClienAction(OSObject *owner, void *, void *, void *, void *)
+{
+    return ((AppleUSBCDCACMData *)owner)->waitForBSDClientGated();
+}   // end sendDeviceRequestAction
+
+
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDCACMData::waitForBSDClientGated
+//
+//		Inputs:		
+//
+//		Outputs:	return Code - true that the device object appeared
+//
+//		Desc:		wait for the BSDClient object to be ready 
+//
+/****************************************************************************************************/
+
+IOReturn AppleUSBCDCACMData::waitForBSDClientGated()
+{
+    IOReturn	result = kIOReturnSuccess;
+	
+	AbsoluteTime	when;
+	AbsoluteTime	offset;
+	uint64_t		now;
+		
+	now = mach_absolute_time();
+	nanoseconds_to_absolutetime (9000000000ULL, &offset);	//rcs We will wait for up to 9 Seconds before timing out..
+	ADD_ABSOLUTETIME (&now, &offset);	//when we timeout
+	nanoseconds_to_absolutetime (now, &when);	//rcs We will wait for up to 9 Seconds before timing out..
+	
+	if (bsdClientState == 1)
+	{
+		XTRACE(this, 0, 0, "waitForBSDClientGated - bsdClientState is already 1 no need to wait..."); //Sometimes the match callback gets called before this...
+		return result; //no Need it was already published....
+	}
+	
+	result = fCommandGate->commandSleep((void *) &bsdClientState,when, THREAD_INTERRUPTIBLE);
+	//	result = fCommandGate->commandSleep((void *) &bsdClientState);
+	
+	if (result == THREAD_TIMED_OUT)
+	{
+		result = kIOReturnTimeout;
+		XTRACE(this, 0, 0, "waitForBSDClientGated - fCommandGate returned THREAD_TIMED_OUT");
+		return result;
+	}
+	else if (result == THREAD_INTERRUPTED)
+	{
+		result = kIOReturnAborted;
+		XTRACE(this, 0, 0, "waitForBSDClientGated - fCommandGate returned THREAD_INTERRUPTED");
+		return result;
+	}
+	
+	XTRACE(this, 0, 0, "waitForBSDClientGated - Exit");
+    return result;
+}
+
+bool AppleUSBCDCACMData::bsdClientPublished (AppleUSBCDCACMData * target, void * ref, IOService * newService, IONotifier * notifier) 
+{
+	bool	resultCode = TRUE;
+	
+	resultCode = FALSE;	// Assume failure
+	
+	XTRACE(this, 0, 0, "bsdClientPublished");
+	
+	if (ref == newService->getProvider()) //is the bsdclient that was just published the one we created (since they can be multiple IOBSDClient objects on any given Sunday)
+	{
+		XTRACE (this, 0, 0, "bsdClientPublished - waking up command gate + removing Notifier");
+		notifier->remove();
+		resultCode = TRUE;
+		target->bsdClientState = 1;
+		target->fCommandGate->commandWakeup((void *) &target->bsdClientState);
+	}
+	return resultCode;
+}
+
+
 /****************************************************************************************************/
 //
 //		Method:		AppleUSBCDCACMData::createSerialStream
@@ -1365,9 +1481,16 @@ bool AppleUSBCDCACMData::createSerialStream()
     UInt8			indx;
     IOReturn			rc;
     unsigned char		rname[20];
-	OSString			*s;
+	OSString			*portName;
     const char			*suffix = (const char *)&rname;
 	
+	OSString *portSuffixString = NULL;
+	OSDictionary *fInfoCommands = NULL;
+	OSDictionary *hiddenProperties = NULL;
+	UInt32		ttyNameSize = 0;
+	char		*ttyName = NULL;
+	OSString	*ttyNameStr = NULL;
+		
     XTRACE(this, 0, pNub, "createSerialStream");
     if (!pNub)
     {
@@ -1388,38 +1511,108 @@ bool AppleUSBCDCACMData::createSerialStream()
         return false;
     }
 
-	if (fWanDevice)
+	if (fWanDevice == kOSBooleanTrue)
 		pNub->setProperty("WWAN", true);
 	else
-		IOLog("AppleUSBCDC::createSerialStream NON WAN CDC Device \n");
-	
-
-	// Get the name from the InterfaceMapping dictionary.
-	s = getPortNameForInterface(fDataInterface->GetInterfaceNumber());
-	
-	if (s != NULL)
 	{
-		pNub->setProperty(kIOTTYBaseNameKey, s->getCStringNoCopy());
-		IOLog("AppleUSBCDC::createSerialStream using CellPhone Helper name...\n");
+		XTRACE(this, 0, 0, "createSerialStream - NON WAN CDC Device");
 	}
-	else
-	{	
-        // Report the base name to be used for generating device nodes
-    pNub->setProperty(kIOTTYBaseNameKey, baseName);
-		IOLog("AppleUSBCDC::createSerialStream using default naming and suffix...\n");
+	
 
+		// Get the name from the InterfaceMapping dictionary.
+		
+	portName = getPortNameForInterface(fDataInterface->GetInterfaceNumber());
+	if (portName != NULL)
+	{
+		pNub->setProperty(kIOTTYBaseNameKey, portName->getCStringNoCopy());
+		if (!(portName->isEqualTo("wwan")))
+		{
+				pNub->setProperty((const char *)hiddenTag, true);
+				pNub->setProperty((const char *)WWANTag, true);
+		}
+	} else {	
+			// Report the base name to be used for generating device nodes
+		
+		pNub->setProperty(kIOTTYBaseNameKey, baseName);
+		XTRACE(this, 0, fDataInterface->GetInterfaceNumber(), "createSerialStream - using default naming and suffix...");
 	
-        // Create suffix key and set it
+			// Create suffix key and set it
 	
-    if (createSuffix((unsigned char *)suffix))
-    {		
-        pNub->setProperty(kIOTTYSuffixKey, suffix);
-    }
+		if (createSuffix((unsigned char *)suffix))
+		{		
+			pNub->setProperty(kIOTTYSuffixKey, suffix);
+		}
 	}
 
     pNub->registerService();
 	
+	XTRACE(this, 0, 0, "createSerialStream - wait for a sec...");
+	if (!findSerialBSDClient(pNub))
+	{
+		XTRACE (this, 0, 0, "createSerialStream - findSerialBSDClient failed terminating nub");
+		pNub->close(this);
+		XTRACE (this, 0, 0, "createSerialStream - findSerialBSDClient returning false");
+		return false;
+	}
+	
+//	IOSleep(500);
+		
 	// Save the Product String (at least the first productNameLength's worth).
+
+	
+	fInfoCommands = (OSDictionary *) fDataInterface->GetDevice()->getProperty("InfoCommands");
+	
+	if ( (fInfoCommands != NULL) && (portName != NULL) )
+	{
+		hiddenProperties = (OSDictionary *) fInfoCommands->getObject("HiddenProperties");
+		if (hiddenProperties)
+		{
+			portSuffixString = (OSSymbol *) pNub->copyProperty(kIOTTYSuffixKey);
+			
+			if (portSuffixString != NULL)
+			{
+				if ( (portSuffixString->getCStringNoCopy() != NULL) )
+				{
+						OSCollectionIterator *propertyIterator;		
+						propertyIterator = OSCollectionIterator::withCollection( hiddenProperties);
+						
+						if ( propertyIterator != NULL )
+						{
+							OSString *key;
+							propertyIterator->reset();
+							
+							while( key = (OSString *)propertyIterator->getNextObject())
+							{
+								OSString *value;
+								value = (OSString *) hiddenProperties->getObject(key);
+																
+								if (value->isEqualTo(portName))
+								{
+									ttyNameSize = (portSuffixString->getLength() + portName->getLength() );						
+									ttyName = (char *)IOMallocAligned(ttyNameSize+4, sizeof (char));
+									bzero(ttyName,ttyNameSize+4);
+									strncpy(ttyName, value->getCStringNoCopy(), value->getLength());
+									strncat(ttyName, portSuffixString->getCStringNoCopy(), portSuffixString->getLength());
+									
+									ttyNameStr = OSString::withCString(ttyName);
+									if ( ttyNameStr != NULL )
+									{
+										//OSString *foo;
+										XTRACE(this, 0, 0, "createSerialStream - hiddenProperties: collision");
+										fDataInterface->GetDevice()->setProperty(key->getCStringNoCopy(),ttyNameStr);
+										//hiddenProperties->setObject(key->getCStringNoCopy(),ttyNameStr);
+										
+										//foo = (OSString *)hiddenProperties->getObject(key->getCStringNoCopy());
+										//hiddenProperties->setObject(foo,ttyNameStr);
+									}
+									}
+							} 		
+							propertyIterator->release();
+						}	else { XTRACE(this, 0, 0, "createSerialStream - propertyIterator is NULL...");}		
+				} else { XTRACE(this, 0, 0, "createSerialStream - portSuffixString->getCStringNoCopy is NULL...");}
+			} else { XTRACE(this, 0, 0, "createSerialStream - portSuffixString is NULL...");}
+		} else { XTRACE(this, 0, 0, "createSerialStream - hiddenProperties is NULL...");}
+	} else { XTRACE(this, 0, fDataInterface->GetInterfaceNumber(), "createSerialStream - fInfoCommands or portname is NULL...");}
 
     indx = fDataInterface->GetDevice()->GetProductStringIndex();	
     if (indx != 0)
@@ -1530,6 +1723,8 @@ IOReturn AppleUSBCDCACMData::acquirePortGated(bool sleep)
     UInt32 	busyState = 0;
     IOReturn 	rtn = kIOReturnSuccess;
     UInt16	i;
+	UInt32	state;
+	UInt32	mask;
 
     XTRACE(this, 0, sleep, "acquirePortGated");
 
@@ -1541,7 +1736,9 @@ IOReturn AppleUSBCDCACMData::acquirePortGated(bool sleep)
         {		
                 // Set busy bit (acquired), and clear everything else
                 
-            setStateGated((UInt32)PD_S_ACQUIRED | DEFAULT_STATE, (UInt32)STATE_ALL);
+			state = PD_S_ACQUIRED | DEFAULT_STATE;
+			mask = STATE_ALL;
+            setStateGated(&state, &mask);
             break;
         } else {
             if (!sleep)
@@ -1551,7 +1748,8 @@ IOReturn AppleUSBCDCACMData::acquirePortGated(bool sleep)
             	return kIOReturnExclusiveAccess;
             } else {
             	busyState = 0;
-            	rtn = watchStateGated(&busyState, PD_S_ACQUIRED);
+				mask = PD_S_ACQUIRED;
+            	rtn = watchStateGated(&busyState, &mask);
             	if ((rtn == kIOReturnIOError) || (rtn == kIOReturnSuccess))
                 {
                     continue;
@@ -1606,7 +1804,9 @@ IOReturn AppleUSBCDCACMData::acquirePortGated(bool sleep)
         }
 
         fSessions++;					// Bump number of active sessions and turn on clear to send
-        setStateGated(PD_RS232_S_CTS, PD_RS232_S_CTS);
+		state = PD_RS232_S_CTS;
+		mask = PD_RS232_S_CTS;
+		setStateGated(&state, &mask);
         
             // Tell the Control driver we're good to go
         
@@ -1625,7 +1825,10 @@ IOReturn AppleUSBCDCACMData::acquirePortGated(bool sleep)
 
     	// We failed for some reason
 
-    setStateGated(0, STATE_ALL);			// Clear the entire state word
+	state = 0;
+	mask = STATE_ALL;
+	setStateGated(&state, &mask);			// Clear the entire state
+
     release();
     
     return rtn;
@@ -1724,6 +1927,8 @@ IOReturn AppleUSBCDCACMData::releasePortAction(OSObject *owner, void *, void *, 
 IOReturn AppleUSBCDCACMData::releasePortGated()
 {
     UInt32 	busyState;
+	UInt32	state;
+	UInt32	mask;
 
     XTRACE(this, 0, 0, "releasePortGated");
     
@@ -1743,7 +1948,9 @@ IOReturn AppleUSBCDCACMData::releasePortGated()
     if (!fTerminate)
         setControlLineState(false, false);		// clear RTS and clear DTR only if not terminated
 	
-    setStateGated(0, (UInt32)STATE_ALL);		// Clear the entire state word - which also deactivates the port
+	state = 0;
+	mask = STATE_ALL;
+	setStateGated(&state, &mask);				// Clear the entire state word - which also deactivates the port
 
 #if 0    
         // Abort any outstanding I/O
@@ -1894,7 +2101,7 @@ IOReturn AppleUSBCDCACMData::setState(UInt32 state, UInt32 mask, void *refCon)
         if (mask)
         {
             retain();
-            ret = fCommandGate->runAction(setStateAction, (void *)state, (void *)mask);
+            ret = fCommandGate->runAction(setStateAction, (void *)&state, (void *)&mask);
             release();
         }
     }
@@ -1914,7 +2121,7 @@ IOReturn AppleUSBCDCACMData::setState(UInt32 state, UInt32 mask, void *refCon)
 IOReturn AppleUSBCDCACMData::setStateAction(OSObject *owner, void *arg0, void *arg1, void *, void *)
 {
 
-    return ((AppleUSBCDCACMData *)owner)->setStateGated((UInt32)arg0, (UInt32)arg1);
+    return ((AppleUSBCDCACMData *)owner)->setStateGated((UInt32 *)arg0, (UInt32 *)arg1);
     
 }/* end setStateAction */
 
@@ -1938,8 +2145,10 @@ IOReturn AppleUSBCDCACMData::setStateAction(OSObject *owner, void *arg0, void *a
 //
 /****************************************************************************************************/
 
-IOReturn AppleUSBCDCACMData::setStateGated(UInt32 state, UInt32 mask)
+IOReturn AppleUSBCDCACMData::setStateGated(UInt32 *pState, UInt32 *pMask)
 {
+	UInt32	state = *pState;
+	UInt32	mask = *pMask;
     UInt32	delta;
 	bool	controlUpdate = false;
 	UInt32	DTRstate;
@@ -2072,7 +2281,7 @@ IOReturn AppleUSBCDCACMData::watchState(UInt32 *state, UInt32 mask, void *refCon
         return kIOReturnSuccess;
 
     retain();
-    ret = fCommandGate->runAction(watchStateAction, (void *)state, (void *)mask);
+    ret = fCommandGate->runAction(watchStateAction, (void *)state, (void *)&mask);
     release();
     
     return ret;
@@ -2090,7 +2299,7 @@ IOReturn AppleUSBCDCACMData::watchState(UInt32 *state, UInt32 mask, void *refCon
 IOReturn AppleUSBCDCACMData::watchStateAction(OSObject *owner, void *arg0, void *arg1, void *, void *)
 {
 
-    return ((AppleUSBCDCACMData *)owner)->watchStateGated((UInt32 *)arg0, (UInt32)arg1);
+    return ((AppleUSBCDCACMData *)owner)->watchStateGated((UInt32 *)arg0, (UInt32 *)arg1);
     
 }/* end watchStateAction */
 
@@ -2112,13 +2321,14 @@ IOReturn AppleUSBCDCACMData::watchStateAction(OSObject *owner, void *arg0, void 
 //
 /****************************************************************************************************/
 
-IOReturn AppleUSBCDCACMData::watchStateGated(UInt32 *state, UInt32 mask)
+IOReturn AppleUSBCDCACMData::watchStateGated(UInt32 *pState, UInt32 *pMask)
 {
-    unsigned 	watchState, foundStates;
-    bool 	autoActiveBit = false;
-    IOReturn 	ret = kIOReturnNotOpen;
+	UInt32		mask = *pMask;
+    UInt32		watchState, foundStates;
+    bool		autoActiveBit = false;
+    IOReturn	ret = kIOReturnNotOpen;
 
-    XTRACE(this, *state, mask, "watchStateGated");
+    XTRACE(this, *pState, mask, "watchStateGated");
     
     if (fTerminate || fStopping)
         return kIOReturnOffline;
@@ -2128,7 +2338,7 @@ IOReturn AppleUSBCDCACMData::watchStateGated(UInt32 *state, UInt32 mask)
         ret = kIOReturnSuccess;
         mask &= EXTERNAL_MASK;
         
-        watchState = *state;
+        watchState = *pState;
         if (!(mask & (PD_S_ACQUIRED | PD_S_ACTIVE)))
         {
             watchState &= ~PD_S_ACTIVE;				// Check for low PD_S_ACTIVE
@@ -2145,7 +2355,7 @@ IOReturn AppleUSBCDCACMData::watchStateGated(UInt32 *state, UInt32 mask)
 
             if (foundStates)
             {
-                *state = fPort.State;
+                *pState = fPort.State;
                 if (autoActiveBit && (foundStates & PD_S_ACTIVE))
                 {
                     ret = kIOReturnIOError;
@@ -2192,10 +2402,10 @@ IOReturn AppleUSBCDCACMData::watchStateGated(UInt32 *state, UInt32 mask)
             // every sleeping thread to reinitialize the mask before exiting.
 		
         fPort.WatchStateMask = 0;
-        XTRACE(this, *state, 0, "watchStateGated - Thread wakeing others");
+        XTRACE(this, *pState, 0, "watchStateGated - Thread wakeing others");
         fCommandGate->commandWakeup((void *)&fPort.State);
  
-        *state &= EXTERNAL_MASK;
+        *pState &= EXTERNAL_MASK;
     }
 	
     XTRACE(this, ret, 0, "watchState - Exit");
@@ -2260,7 +2470,7 @@ IOReturn AppleUSBCDCACMData::executeEvent(UInt32 event, UInt32 data, void *refCo
     }
     
     retain();
-    ret = fCommandGate->runAction(executeEventAction, (void *)event, (void *)data);
+    ret = fCommandGate->runAction(executeEventAction, (void *)&event, (void *)&data);
     release();
 
     return ret;
@@ -2278,7 +2488,7 @@ IOReturn AppleUSBCDCACMData::executeEvent(UInt32 event, UInt32 data, void *refCo
 IOReturn AppleUSBCDCACMData::executeEventAction(OSObject *owner, void *arg0, void *arg1, void *, void *)
 {
 
-    return ((AppleUSBCDCACMData *)owner)->executeEventGated((UInt32)arg0, (UInt32)arg1);
+    return ((AppleUSBCDCACMData *)owner)->executeEventGated((UInt32 *)arg0, (UInt32 *)arg1);
     
 }/* end executeEventAction */
 
@@ -2296,10 +2506,14 @@ IOReturn AppleUSBCDCACMData::executeEventAction(OSObject *owner, void *arg0, voi
 //
 /****************************************************************************************************/
 
-IOReturn AppleUSBCDCACMData::executeEventGated(UInt32 event, UInt32 data)
+IOReturn AppleUSBCDCACMData::executeEventGated(UInt32 *pEvent, UInt32 *pData)
 {
+	UInt32		event = *pEvent;
+	UInt32		data = *pData;
     IOReturn	ret = kIOReturnSuccess;
-    UInt32 	state, delta;
+    UInt32		state, delta;
+	UInt32		nState;
+	UInt32		mask;
 	
     if (fTerminate || fStopping)
         return kIOReturnOffline;
@@ -2339,16 +2553,26 @@ IOReturn AppleUSBCDCACMData::executeEventGated(UInt32 event, UInt32 data)
                 if (!(state & PD_S_ACTIVE))
                 {
                     setStructureDefaults();
-                    setStateGated((UInt32)PD_S_ACTIVE, (UInt32)PD_S_ACTIVE); 			// activate port
-
-					setStateGated((UInt32)PD_RS232_S_RTS, (UInt32)PD_RS232_S_RTS);
-					setStateGated((UInt32)PD_RS232_S_DTR, (UInt32)PD_RS232_S_DTR);
+					nState = PD_S_ACTIVE;
+					mask = PD_S_ACTIVE;
+                    setStateGated(&nState, &mask); 			// activate port
+					
+					nState = PD_RS232_S_RTS;
+					mask = PD_RS232_S_RTS;
+					setStateGated(&nState, &mask);
+					
+					nState = PD_RS232_S_DTR;
+					mask = PD_RS232_S_DTR;
+					setStateGated(&nState, &mask);
+					
  //                   setControlLineState(true, true);						// set RTS and set DTR
                 }
             } else {
                 if ((state & PD_S_ACTIVE))
                 {
-                    setStateGated(0, (UInt32)PD_S_ACTIVE);					// deactivate port
+					nState = 0;
+					mask = PD_S_ACTIVE;
+                    setStateGated(&nState, &mask);					// deactivate port
 				
                     setControlLineState(false, false);						// clear RTS and clear DTR
                 }
@@ -2457,7 +2681,7 @@ IOReturn AppleUSBCDCACMData::executeEventGated(UInt32 event, UInt32 data)
             XTRACE(this, data, event, "executeEventGated - PD_RS232_E_LINE_BREAK");
             state &= ~PD_RS232_S_BRK;
             delta |= PD_RS232_S_BRK;
-            setStateGated(state, delta);
+            setStateGated(&state, &delta);
             break;
 	case PD_E_DELAY:
             XTRACE(this, data, event, "executeEventGated - PD_E_DELAY");
@@ -2667,7 +2891,7 @@ IOReturn AppleUSBCDCACMData::enqueueEvent(UInt32 event, UInt32 data, bool sleep,
     }
     
     retain();
-    ret = fCommandGate->runAction(executeEventAction, (void *)event, (void *)data);
+    ret = fCommandGate->runAction(executeEventAction, (void *)&event, (void *)&data);
     release();
 
     return ret;
@@ -2742,7 +2966,7 @@ IOReturn AppleUSBCDCACMData::enqueueData(UInt8 *buffer, UInt32 size, UInt32 *cou
         return kIOReturnBadArgument;
         
     retain();
-    ret = fCommandGate->runAction(enqueueDataAction, (void *)buffer, (void *)size, (void *)count, (void *)sleep);
+    ret = fCommandGate->runAction(enqueueDataAction, (void *)buffer, (void *)&size, (void *)count, (void *)&sleep);
     release();
 
     return ret;
@@ -2760,7 +2984,7 @@ IOReturn AppleUSBCDCACMData::enqueueData(UInt8 *buffer, UInt32 size, UInt32 *cou
 IOReturn AppleUSBCDCACMData::enqueueDataAction(OSObject *owner, void *arg0, void *arg1, void *arg2, void *arg3)
 {
 
-    return ((AppleUSBCDCACMData *)owner)->enqueueDataGated((UInt8 *)arg0, (UInt32)arg1, (UInt32 *)arg2, (bool)arg3);
+    return ((AppleUSBCDCACMData *)owner)->enqueueDataGated((UInt8 *)arg0, (UInt32 *)arg1, (UInt32 *)arg2, (bool *)arg3);
     
 }/* end enqueueDataAction */
 
@@ -2790,9 +3014,12 @@ IOReturn AppleUSBCDCACMData::enqueueDataAction(OSObject *owner, void *arg0, void
 //
 /****************************************************************************************************/
 
-IOReturn AppleUSBCDCACMData::enqueueDataGated(UInt8 *buffer, UInt32 size, UInt32 *count, bool sleep)
+IOReturn AppleUSBCDCACMData::enqueueDataGated(UInt8 *buffer, UInt32 *pSize, UInt32 *count, bool *pSleep)
 {
-    UInt32 	state = PD_S_TXQ_LOW_WATER;
+	UInt32		size = *pSize;
+	bool		sleep = *pSleep;
+    UInt32		state = PD_S_TXQ_LOW_WATER;
+	UInt32		mask;
     IOReturn 	rtn = kIOReturnSuccess;
 
     XTRACE(this, size, sleep, "enqueueDataGated");
@@ -2823,7 +3050,8 @@ IOReturn AppleUSBCDCACMData::enqueueDataGated(UInt8 *buffer, UInt32 size, UInt32
     while ((*count < size) && sleep)
     {
         state = PD_S_TXQ_LOW_WATER;
-        rtn = watchStateGated(&state, PD_S_TXQ_LOW_WATER);
+		mask = PD_S_TXQ_LOW_WATER;
+        rtn = watchStateGated(&state, &mask);
         if (rtn != kIOReturnSuccess)
         {
             XTRACE(this, 0, rtn, "enqueueDataGated - interrupted");
@@ -2876,7 +3104,7 @@ IOReturn AppleUSBCDCACMData::dequeueData(UInt8 *buffer, UInt32 size, UInt32 *cou
         return kIOReturnBadArgument;
 
     retain();
-    ret = fCommandGate->runAction(dequeueDataAction, (void *)buffer, (void *)size, (void *)count, (void *)min);
+    ret = fCommandGate->runAction(dequeueDataAction, (void *)buffer, (void *)&size, (void *)count, (void *)&min);
     release();
 
     return ret;
@@ -2894,7 +3122,7 @@ IOReturn AppleUSBCDCACMData::dequeueData(UInt8 *buffer, UInt32 size, UInt32 *cou
 IOReturn AppleUSBCDCACMData::dequeueDataAction(OSObject *owner, void *arg0, void *arg1, void *arg2, void *arg3)
 {
 
-    return ((AppleUSBCDCACMData *)owner)->dequeueDataGated((UInt8 *)arg0, (UInt32)arg1, (UInt32 *)arg2, (UInt32)arg3);
+    return ((AppleUSBCDCACMData *)owner)->dequeueDataGated((UInt8 *)arg0, (UInt32 *)arg1, (UInt32 *)arg2, (UInt32 *)arg3);
     
 }/* end dequeueDataAction */
 
@@ -2927,11 +3155,14 @@ IOReturn AppleUSBCDCACMData::dequeueDataAction(OSObject *owner, void *arg0, void
 //
 /****************************************************************************************************/
 
-IOReturn AppleUSBCDCACMData::dequeueDataGated(UInt8 *buffer, UInt32 size, UInt32 *count, UInt32 min)
+IOReturn AppleUSBCDCACMData::dequeueDataGated(UInt8 *buffer, UInt32 *pSize, UInt32 *count, UInt32 *pMin)
 {
+	UInt32		size = *pSize;
+	UInt32		min = *pMin;
     IOReturn 	rtn = kIOReturnSuccess;
-    UInt32 	state = 0;
-    bool	goXOIdle;
+    UInt32		state = 0;
+	UInt32		mask;
+    bool		goXOIdle;
 
     XTRACE(this, size, min, "dequeueDataGated");
     
@@ -2954,8 +3185,8 @@ IOReturn AppleUSBCDCACMData::dequeueDataGated(UInt8 *buffer, UInt32 size, UInt32
             // Figure out how many bytes we have left to queue up
             
         state = 0;
-
-        rtn = watchStateGated(&state, PD_S_RXQ_EMPTY);
+		mask = PD_S_RXQ_EMPTY;
+        rtn = watchStateGated(&state, &mask);
 
         if (rtn != kIOReturnSuccess)
         {
@@ -3036,10 +3267,12 @@ bool AppleUSBCDCACMData::setUpTransmit()
 
 void AppleUSBCDCACMData::startTransmission()
 {
-    size_t	count;
+    size_t		count;
     IOReturn	ior;
-    UInt16	indx;
-	bool	gotBuffer = false;
+    UInt16		indx;
+	bool		gotBuffer = false;
+	UInt32		state;
+	UInt32		mask;
     
     XTRACE(this, 0, 0, "startTransmission");
 
@@ -3088,7 +3321,9 @@ void AppleUSBCDCACMData::startTransmission()
         return;
     }
     
-    setStateGated(PD_S_TX_BUSY, PD_S_TX_BUSY);
+	state = PD_S_TX_BUSY;
+	mask = PD_S_TX_BUSY;
+    setStateGated(&state, &mask);
     
     XTRACE(this, fPort.State, count, "startTransmission - Bytes to write");
     LogData(kDataOut, count, fPort.outPool[indx].pipeBuffer);
@@ -3818,6 +4053,7 @@ IOReturn AppleUSBCDCACMData::message(UInt32 type, IOService *provider, void *arg
 				{
 					if (!fTerminate)		// Check if we're already being terminated
 					{ 
+#if 0
 							// NOTE! This call below depends on the hard coded path of this KEXT. Make sure
 							// that if the KEXT moves, this path is changed!
 						KUNCUserNotificationDisplayNotice(
@@ -3829,6 +4065,7 @@ IOReturn AppleUSBCDCACMData::message(UInt32 type, IOService *provider, void *arg
 						"Unplug Header",		// the header
 						"Unplug Notice",		// the notice - look in Localizable.strings
 						"OK"); 
+#endif
 					}
 				}
 			}
@@ -3875,21 +4112,34 @@ IOReturn AppleUSBCDCACMData::message(UInt32 type, IOService *provider, void *arg
     
 }/* end message */
 
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDCACMData::getPortNameForInterface
+//
+//		Inputs:		interfaceNumber - the number of the interface we're interested in
+//
+//		Outputs:	return Code - NULL (not found) or the name
+//
+//		Desc:		Gets the name from the mapping 
+//
+/****************************************************************************************************/
 
-OSString * AppleUSBCDCACMData::getPortNameForInterface(UInt8 interfaceNumber)
+OSString *AppleUSBCDCACMData::getPortNameForInterface(UInt8 interfaceNumber)
 {
 	OSSymbol *ttyName = NULL;
 	char	 endPointAddrStr[16];
+	
+	XTRACE(this, 0, interfaceNumber, "getPortNameForInterface");
 
 	if (fInterfaceMappings)
 	{		 
-		snprintf(endPointAddrStr,sizeof(endPointAddrStr),"%x",interfaceNumber);		
+		snprintf(endPointAddrStr,sizeof(endPointAddrStr),"%d",interfaceNumber);		
 		ttyName = (OSSymbol *)fInterfaceMappings->getObject(endPointAddrStr);			
 	 }
 
 	return ttyName;
-}
-
+	
+}/* end getPortNameForInterface */
 
 #undef  super
 #define super IOUserClient
@@ -3898,7 +4148,7 @@ OSDefineMetaClassAndStructors(AppleUSBCDCACMDataUserClient, IOUserClient);
 
 /****************************************************************************************************/
 //
-//		Method:		AppleUSBCDCACMDataUserClient::getExternalMethodForIndex
+//		Method:		AppleUSBCDCACMDataUserClient::getTargetAndMethodForIndex
 //
 //		Inputs:		
 //
@@ -3908,20 +4158,22 @@ OSDefineMetaClassAndStructors(AppleUSBCDCACMDataUserClient, IOUserClient);
 //
 /****************************************************************************************************/
 
-IOExternalMethod *AppleUSBCDCACMDataUserClient::getExternalMethodForIndex(UInt32 index)
+//IOExternalMethod *AppleUSBCDCACMDataUserClient::getExternalMethodForIndex(UInt32 index)
+IOExternalMethod *AppleUSBCDCACMDataUserClient::getTargetAndMethodForIndex(IOService **targetP, UInt32 index)
 {
     IOExternalMethod	*result = NULL;
 
-    XTRACE(this, 0, index, "getExternalMethodForIndex");
+    XTRACE(this, 0, index, "getTargetAndMethodForIndex");
     
     if (index == 0)
     {
         result = &fMethods[0];
+		*targetP = this;
     }
 
     return result;
     
-}/* end getExternalMethodForIndex */
+}/* end getTargetAndMethodForIndex */
 
 /****************************************************************************************************/
 //

@@ -1,0 +1,151 @@
+body {
+    color: black;
+    background: white scroll repeat;
+    font-family: Palatino, serif;    
+    width: 75%;
+}
+
+div.narrative {
+    margin-right: 8%
+}
+
+div.definition {
+    margin: 2%;
+/*     margin: 2% 25% 2% 2%; */
+    padding: 2%;
+    color: black;
+    background-color: #E6E6E6;
+}
+
+div.definition h2 {
+    text-align: left;
+}
+
+div.definition h3 {
+    text-align: left;
+    text-transform: uppercase;    
+}
+
+div.example {
+    font-family: monospace;
+    color: black;
+    background-color: white;
+}
+
+div.example div.in {
+    text-indent: -6em;
+    padding: 0.2em 1em 0.2em 7em;
+}
+
+div.example div.in:before {
+    color: blue;
+    background-color: inherit;
+    font-weight: bold;
+    content: "ÇAlphaXÈ ";
+}
+
+div.example div.out {
+    padding: 0.2em 1em 0.2em 1em;
+    font-style: italic;
+}
+
+div.caution {
+    color: black;
+    background-color: #FF6666;
+    margin: 1em;
+    padding: 0.5em;
+}
+
+div.caution:before {
+    font-weight: bold;
+    content: "Caution: ";
+}
+
+div.warning {
+    color: black;
+    background-color: #FFFF66;
+    margin: 1em;
+    padding: 0.5em;
+}
+
+div.warning:before {
+    font-weight: bold;
+    content: "Warning: ";
+}
+
+div.note {
+    color: black;
+    background-color: #B3B3B3;
+    margin: 1em;
+    padding: 0.5em;
+}
+
+div.note:before {
+    font-weight: bold;
+    content: "Note: ";
+}
+
+div.index {
+    margin: 0;
+    padding: 0;
+    position: fixed;
+    left: auto;
+    right: 2%;
+    width: 30%;
+    background: url(velum.png) transparent fixed;
+    border: solid #B3B3B3 1px;
+}
+
+div.index li {
+  margin: 0;
+  font-family: Helvetica, Arial, sans-serif;
+  color: black;
+  background-color: transparent;
+}
+
+div.index li a:link { 
+    text-decoration: none;
+    color: #4C4C4C;
+    background-color: transparent;
+}
+
+div.index li a:visited { 
+    text-decoration: none;
+    color: red;
+    background-color: transparent;
+}
+
+div.index li a:hover { 
+    background: #999999; 
+    color: white; 
+}
+
+table#logos {
+    width: 100%;
+    padding: 0;
+    margin: 0;
+}
+
+table#logos tr, table#logos td, table#logos table {
+    padding: 0;
+    margin: 0;
+}
+
+td#Alpha {
+    text-align: left;
+    width: 1%;
+}
+
+td#valid {
+    text-align: left;
+    width: 1%;
+}
+
+td#SourceForge {
+    text-align: right;
+}
+/* 
+Local Variables:
+coding: macintosh;
+End:
+ */

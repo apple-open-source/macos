@@ -1,7 +1,7 @@
 /*
  ********************************************************************
  * COPYRIGHT:
- * Copyright (c) 1996-2006, International Business Machines Corporation and
+ * Copyright (c) 1996-2008, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************
  *
@@ -158,38 +158,57 @@ static UMTX        cnvCacheMutex = NULL;  /* Mutex for synchronizing cnv cache a
 static const char **gAvailableConverters = NULL;
 static uint16_t gAvailableConverterCount = 0;
 
+/* This contains the resolved converter name. So no further alias lookup is needed again. */
 static char gDefaultConverterNameBuffer[UCNV_MAX_CONVERTER_NAME_LENGTH + 1]; /* +1 for NULL */
 static const char *gDefaultConverterName = NULL;
+
+/*
+If the default converter is an algorithmic converter, this is the cached value.
+We don't cache a full UConverter and clone it because ucnv_clone doesn't have
+less overhead than an algorithmic open. We don't cache non-algorithmic converters
+because ucnv_flushCache must be able to unload the default converter and its table.
+*/
 static const UConverterSharedData *gDefaultAlgorithmicSharedData = NULL;
+
+/* Does gDefaultConverterName have a converter option and require extra parsing? */
 static UBool gDefaultConverterContainsOption;
 
 
 static const char DATA_TYPE[] = "cnv";
 
-/* ucnv_cleanup - delete all storage held by the converter cache, except any in use    */
-/*                by open converters.                                                  */
-/*                Not thread safe.                                                     */
-/*                Not supported  API.  Marked U_CAPI only for use by test programs.    */
+static void
+ucnv_flushAvailableConverterCache() {
+    if (gAvailableConverters) {
+        umtx_lock(&cnvCacheMutex);
+        gAvailableConverterCount = 0;
+        uprv_free((char **)gAvailableConverters);
+        gAvailableConverters = NULL;
+        umtx_unlock(&cnvCacheMutex);
+    }
+}
+
+/* ucnv_cleanup - delete all storage held by the converter cache, except any  */
+/*                in use by open converters.                                  */
+/*                Not thread safe.                                            */
+/*                Not supported API.                                          */
 static UBool U_CALLCONV ucnv_cleanup(void) {
-    if (SHARED_DATA_HASHTABLE != NULL) {
-        ucnv_flushCache();
-        if (SHARED_DATA_HASHTABLE != NULL && uhash_count(SHARED_DATA_HASHTABLE) == 0) {
-            uhash_close(SHARED_DATA_HASHTABLE);
-            SHARED_DATA_HASHTABLE = NULL;
-        }
+    ucnv_flushCache();
+    if (SHARED_DATA_HASHTABLE != NULL && uhash_count(SHARED_DATA_HASHTABLE) == 0) {
+        uhash_close(SHARED_DATA_HASHTABLE);
+        SHARED_DATA_HASHTABLE = NULL;
     }
 
-    /* Called from ucnv_flushCache because it allocates the hashtable */
-    /*ucnv_flushAvailableConverterCache();*/
+    /* Isn't called from flushCache because other threads may have preexisting references to the table. */
+    ucnv_flushAvailableConverterCache();
 
     gDefaultConverterName = NULL;
     gDefaultConverterNameBuffer[0] = 0;
     gDefaultConverterContainsOption = FALSE;
     gDefaultAlgorithmicSharedData = NULL;
 
-    umtx_destroy(&cnvCacheMutex);           /* Don't worry about destroying the mutex even  */
-                                            /*  if the hash table still exists.  The mutex  */
-                                            /*  will lazily re-init  itself if needed.      */
+    umtx_destroy(&cnvCacheMutex);    /* Don't worry about destroying the mutex even  */
+                                     /*  if the hash table still exists.  The mutex  */
+                                     /*  will lazily re-init  itself if needed.      */
     return (SHARED_DATA_HASHTABLE == NULL);
 }
 
@@ -363,6 +382,16 @@ getAlgorithmicTypeFromName(const char *realName)
     return NULL;
 }
 
+/*
+* Based on the number of known converters, this determines how many times larger
+* the shared data hash table should be. When on small platforms, or just a couple
+* of converters are used, this number should be 2. When memory is plentiful, or
+* when ucnv_countAvailable is ever used with a lot of available converters,
+* this should be 4.
+* Larger numbers reduce the number of hash collisions, but use more memory.
+*/
+#define UCNV_CACHE_LOAD_FACTOR 2
+
 /* Puts the shared data in the static hashtable SHARED_DATA_HASHTABLE */
 /*   Will always be called with the cnvCacheMutex alrady being held   */
 /*     by the calling function.                                       */
@@ -379,7 +408,7 @@ ucnv_shareConverterData(UConverterSharedData * data)
     if (SHARED_DATA_HASHTABLE == NULL)
     {
         SHARED_DATA_HASHTABLE = uhash_openSize(uhash_hashChars, uhash_compareChars, NULL,
-                            ucnv_io_countTotalAliases(&err),
+                            ucnv_io_countKnownConverters(&err)*UCNV_CACHE_LOAD_FACTOR,
                             &err);
         ucln_common_registerCleanup(UCLN_COMMON_UCNV, ucnv_cleanup);
 
@@ -778,9 +807,14 @@ ucnv_createConverter(UConverter *myUConverter, const char *converterName, UError
             if(U_SUCCESS(*err)) {
                 UTRACE_EXIT_PTR_STATUS(myUConverter, *err);
                 return myUConverter;
-            } else {
-                ucnv_unloadSharedDataIfReady(mySharedConverterData);
             }
+            /*
+            else mySharedConverterData was already cleaned up by
+            ucnv_createConverterFromSharedData.
+            */
+            /*else {
+                ucnv_unloadSharedDataIfReady(mySharedConverterData);
+            }*/
         }
     }
 
@@ -914,6 +948,7 @@ ucnv_createConverterFromSharedData(UConverter *myUConverter,
     myUConverter->subCharLen = mySharedConverterData->staticData->subCharLen;
     myUConverter->subChars = (uint8_t *)myUConverter->subUChars;
     uprv_memcpy(myUConverter->subChars, mySharedConverterData->staticData->subChar, myUConverter->subCharLen);
+    myUConverter->toUCallbackReason = UCNV_ILLEGAL; /* default reason to invoke (*fromCharErrorBehaviour) */
 
     if(mySharedConverterData->impl->open != NULL) {
         mySharedConverterData->impl->open(myUConverter, realName, locale, options, err);
@@ -924,17 +959,6 @@ ucnv_createConverterFromSharedData(UConverter *myUConverter,
     }
 
     return myUConverter;
-}
-
-static void
-ucnv_flushAvailableConverterCache() {
-    if (gAvailableConverters) {
-        umtx_lock(&cnvCacheMutex);
-        gAvailableConverterCount = 0;
-        uprv_free((char **)gAvailableConverters);
-        gAvailableConverters = NULL;
-        umtx_unlock(&cnvCacheMutex);
-    }
 }
 
 /*Frees all shared immutable objects that aren't referred to (reference count = 0)
@@ -1006,8 +1030,6 @@ ucnv_flushCache ()
 
     UTRACE_DATA1(UTRACE_INFO, "ucnv_flushCache() exits with %d converters remaining", remaining);
 
-    ucnv_flushAvailableConverterCache();
-
     UTRACE_EXIT_VALUE(tableDeletedNum);
     return tableDeletedNum;
 }
@@ -1039,6 +1061,10 @@ static UBool haveAvailableConverterList(UErrorCode *pErrorCode) {
             *pErrorCode = U_MEMORY_ALLOCATION_ERROR;
             return FALSE;
         }
+
+        /* Open the default converter to make sure that it has first dibs in the hash table. */
+        localStatus = U_ZERO_ERROR;
+        ucnv_close(ucnv_createConverter(&tempConverter, NULL, &localStatus));
 
         localConverterCount = 0;
 
@@ -1087,7 +1113,18 @@ ucnv_bld_getAvailableConverter(uint16_t n, UErrorCode *pErrorCode) {
 
 /* default converter name --------------------------------------------------- */
 
-/* Copy the canonical converter name. */
+/*
+Copy the canonical converter name.
+ucnv_getDefaultName must be thread safe, which can call this function.
+
+ucnv_setDefaultName calls this function and it doesn't have to be
+thread safe because there is no reliable/safe way to reset the
+converter in use in all threads. If you did reset the converter, you
+would not be sure that retrieving a default converter for one string
+would be the same type of default converter for a successive string.
+Since the name is a returned via ucnv_getDefaultName without copying,
+you shouldn't be modifying or deleting the string from a separate thread.
+*/
 static U_INLINE void
 internalSetName(const char *name, UErrorCode *status) {
     UConverterLookupData lookup;
@@ -1106,11 +1143,11 @@ internalSetName(const char *name, UErrorCode *status) {
 
     umtx_lock(&cnvCacheMutex);
 
+    gDefaultAlgorithmicSharedData = algorithmicSharedData;
+    gDefaultConverterContainsOption = containsOption;
     uprv_memcpy(gDefaultConverterNameBuffer, name, length);
     gDefaultConverterNameBuffer[length]=0;
     gDefaultConverterName = gDefaultConverterNameBuffer;
-    gDefaultConverterContainsOption = containsOption;
-    gDefaultAlgorithmicSharedData = algorithmicSharedData;
 
     ucln_common_registerCleanup(UCLN_COMMON_UCNV, ucnv_cleanup);
 
@@ -1130,6 +1167,10 @@ ucnv_getDefaultName() {
     /* local variable to be thread-safe */
     const char *name;
 
+    /*
+    Multiple calls to ucnv_getDefaultName must be thread safe,
+    but ucnv_setDefaultName is not thread safe.
+    */
     UMTX_CHECK(&cnvCacheMutex, gDefaultConverterName, name);
     if(name==NULL) {
         UErrorCode errorCode = U_ZERO_ERROR;
@@ -1169,13 +1210,15 @@ ucnv_getDefaultName() {
     return name;
 }
 
+/*
+This function is not thread safe, and it can't be thread safe.
+See internalSetName or the API reference for details.
+*/
 U_CAPI void U_EXPORT2
 ucnv_setDefaultName(const char *converterName) {
     if(converterName==NULL) {
         /* reset to the default codepage */
-        umtx_lock(&cnvCacheMutex);
         gDefaultConverterName=NULL;
-        umtx_unlock(&cnvCacheMutex);
     } else {
         UErrorCode errorCode = U_ZERO_ERROR;
         UConverter *cnv = NULL;
@@ -1222,7 +1265,12 @@ ucnv_swap(const UDataSwapper *ds,
     const _MBCSHeader *inMBCSHeader;
     _MBCSHeader *outMBCSHeader;
     _MBCSHeader mbcsHeader;
+    uint32_t mbcsHeaderLength;
+    UBool noFromU=FALSE;
+
     uint8_t outputType;
+
+    int32_t maxFastUChar, mbcsIndexLength;
 
     const int32_t *inExtIndexes;
     int32_t extOffset;
@@ -1309,7 +1357,15 @@ ucnv_swap(const UDataSwapper *ds,
             *pErrorCode=U_INDEX_OUTOFBOUNDS_ERROR;
             return 0;
         }
-        if(!(inMBCSHeader->version[0]==4 && inMBCSHeader->version[1]>=1)) {
+        if(inMBCSHeader->version[0]==4 && inMBCSHeader->version[1]>=1) {
+            mbcsHeaderLength=MBCS_HEADER_V4_LENGTH;
+        } else if(inMBCSHeader->version[0]==5 && inMBCSHeader->version[1]>=3 &&
+                  ((mbcsHeader.options=ds->readUInt32(inMBCSHeader->options))&
+                   MBCS_OPT_UNKNOWN_INCOMPATIBLE_MASK)==0
+        ) {
+            mbcsHeaderLength=mbcsHeader.options&MBCS_OPT_LENGTH_MASK;
+            noFromU=(UBool)((mbcsHeader.options&MBCS_OPT_NO_FROM_U)!=0);
+        } else {
             udata_printError(ds, "ucnv_swap(): unsupported _MBCSHeader.version %d.%d\n",
                              inMBCSHeader->version[0], inMBCSHeader->version[1]);
             *pErrorCode=U_UNSUPPORTED_ERROR;
@@ -1324,9 +1380,15 @@ ucnv_swap(const UDataSwapper *ds,
         mbcsHeader.offsetFromUBytes=    ds->readUInt32(inMBCSHeader->offsetFromUBytes);
         mbcsHeader.flags=               ds->readUInt32(inMBCSHeader->flags);
         mbcsHeader.fromUBytesLength=    ds->readUInt32(inMBCSHeader->fromUBytesLength);
+        /* mbcsHeader.options have been read above */
 
         extOffset=(int32_t)(mbcsHeader.flags>>8);
         outputType=(uint8_t)mbcsHeader.flags;
+        if(noFromU && outputType==MBCS_OUTPUT_1) {
+            udata_printError(ds, "ucnv_swap(): unsupported combination of makeconv --small with SBCS\n");
+            *pErrorCode=U_UNSUPPORTED_ERROR;
+            return 0;
+        }
 
         /* make sure that the output type is known */
         switch(outputType) {
@@ -1348,8 +1410,27 @@ ucnv_swap(const UDataSwapper *ds,
         }
 
         /* calculate the length of the MBCS data */
+
+        /*
+         * utf8Friendly MBCS files (mbcsHeader.version 4.3)
+         * contain an additional mbcsIndex table:
+         *   uint16_t[(maxFastUChar+1)>>6];
+         * where maxFastUChar=((mbcsHeader.version[2]<<8)|0xff).
+         */
+        maxFastUChar=0;
+        mbcsIndexLength=0;
+        if( outputType!=MBCS_OUTPUT_EXT_ONLY && outputType!=MBCS_OUTPUT_1 &&
+            mbcsHeader.version[1]>=3 && (maxFastUChar=mbcsHeader.version[2])!=0
+        ) {
+            maxFastUChar=(maxFastUChar<<8)|0xff;
+            mbcsIndexLength=((maxFastUChar+1)>>6)*2;  /* number of bytes */
+        }
+
         if(extOffset==0) {
-            size=(int32_t)(mbcsHeader.offsetFromUBytes+mbcsHeader.fromUBytesLength);
+            size=(int32_t)(mbcsHeader.offsetFromUBytes+mbcsIndexLength);
+            if(!noFromU) {
+                size+=(int32_t)mbcsHeader.fromUBytesLength;
+            }
 
             /* avoid compiler warnings - not otherwise necessary, and the value does not matter */
             inExtIndexes=NULL;
@@ -1379,8 +1460,9 @@ ucnv_swap(const UDataSwapper *ds,
                 uprv_memcpy(outBytes, inBytes, size);
             }
 
-            /* swap the MBCSHeader */
-            ds->swapArray32(ds, &inMBCSHeader->countStates, 7*4,
+            /* swap the MBCSHeader, except for the version field */
+            count=mbcsHeaderLength*4;
+            ds->swapArray32(ds, &inMBCSHeader->countStates, count-4,
                                &outMBCSHeader->countStates, pErrorCode);
 
             if(outputType==MBCS_OUTPUT_EXT_ONLY) {
@@ -1390,18 +1472,23 @@ ucnv_swap(const UDataSwapper *ds,
                  */
 
                 /* swap the base name, between the header and the extension data */
-                ds->swapInvChars(ds, inMBCSHeader+1, (int32_t)uprv_strlen((const char *)(inMBCSHeader+1)),
-                                    outMBCSHeader+1, pErrorCode);
+                const char *inBaseName=(const char *)inBytes+count;
+                char *outBaseName=(char *)outBytes+count;
+                ds->swapInvChars(ds, inBaseName, (int32_t)uprv_strlen(inBaseName),
+                                    outBaseName, pErrorCode);
             } else {
                 /* normal file with base table data */
 
                 /* swap the state table, 1kB per state */
-                ds->swapArray32(ds, inMBCSHeader+1, (int32_t)(mbcsHeader.countStates*1024),
-                                   outMBCSHeader+1, pErrorCode);
+                offset=count;
+                count=mbcsHeader.countStates*1024;
+                ds->swapArray32(ds, inBytes+offset, (int32_t)count,
+                                   outBytes+offset, pErrorCode);
 
                 /* swap the toUFallbacks[] */
-                offset=sizeof(_MBCSHeader)+mbcsHeader.countStates*1024;
-                ds->swapArray32(ds, inBytes+offset, (int32_t)(mbcsHeader.countToUFallbacks*8),
+                offset+=count;
+                count=mbcsHeader.countToUFallbacks*8;
+                ds->swapArray32(ds, inBytes+offset, (int32_t)count,
                                    outBytes+offset, pErrorCode);
 
                 /* swap the unicodeCodeUnits[] */
@@ -1438,7 +1525,7 @@ ucnv_swap(const UDataSwapper *ds,
 
                     /* stage 3/result bytes: sometimes uint16_t[] or uint32_t[] */
                     offset=mbcsHeader.offsetFromUBytes;
-                    count=mbcsHeader.fromUBytesLength;
+                    count= noFromU ? 0 : mbcsHeader.fromUBytesLength;
                     switch(outputType) {
                     case MBCS_OUTPUT_2:
                     case MBCS_OUTPUT_3_EUC:
@@ -1453,6 +1540,13 @@ ucnv_swap(const UDataSwapper *ds,
                     default:
                         /* just uint8_t[], nothing to swap */
                         break;
+                    }
+
+                    if(mbcsIndexLength!=0) {
+                        offset+=count;
+                        count=mbcsIndexLength;
+                        ds->swapArray16(ds, inBytes+offset, (int32_t)count,
+                                           outBytes+offset, pErrorCode);
                     }
                 }
             }

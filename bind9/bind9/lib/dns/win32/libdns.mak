@@ -52,7 +52,7 @@ _VC_MANIFEST_AUTO_RES=
 MT_SPECIAL_RETURN=0
 MT_SPECIAL_SWITCH=
 _VC_MANIFEST_EMBED_EXE= \
-if exist $@.manifest mt.exe -manifest $@.manifest -out:$(_VC_MANIFEST_BASENAME).  auto.manifest $(MT_SPECIAL_SWITCH) & \
+if exist $@.manifest mt.exe -manifest $@.manifest -out:$(_VC_MANIFEST_BASENAME).auto.manifest $(MT_SPECIAL_SWITCH) & \
 if "%ERRORLEVEL%" == "$(MT_SPECIAL_RETURN)" \
 rc /r $(_VC_MANIFEST_BASENAME).auto.rc & \
 link $** /out:$@ $(LFLAGS)
@@ -143,7 +143,9 @@ CLEAN :
 	-@erase "$(INTDIR)\forward.obj"
 	-@erase "$(INTDIR)\gssapi_link.obj"
 	-@erase "$(INTDIR)\gssapictx.obj"
+	-@erase "$(INTDIR)\spnego.obj"
 	-@erase "$(INTDIR)\hmac_link.obj"
+	-@erase "$(INTDIR)\iptable.obj"
 	-@erase "$(INTDIR)\journal.obj"
 	-@erase "$(INTDIR)\key.obj"
 	-@erase "$(INTDIR)\keytable.obj"
@@ -156,6 +158,7 @@ CLEAN :
 	-@erase "$(INTDIR)\name.obj"
 	-@erase "$(INTDIR)\ncache.obj"
 	-@erase "$(INTDIR)\nsec.obj"
+	-@erase "$(INTDIR)\nsec3.obj"
 	-@erase "$(INTDIR)\openssl_link.obj"
 	-@erase "$(INTDIR)\openssldh_link.obj"
 	-@erase "$(INTDIR)\openssldsa_link.obj"
@@ -265,6 +268,7 @@ LINK32_OBJS= \
 	"$(INTDIR)\dnssec.obj" \
 	"$(INTDIR)\ds.obj" \
 	"$(INTDIR)\forward.obj" \
+	"$(INTDIR)\iptable.obj" \
 	"$(INTDIR)\journal.obj" \
 	"$(INTDIR)\keytable.obj" \
 	"$(INTDIR)\lib.obj" \
@@ -276,6 +280,7 @@ LINK32_OBJS= \
 	"$(INTDIR)\name.obj" \
 	"$(INTDIR)\ncache.obj" \
 	"$(INTDIR)\nsec.obj" \
+	"$(INTDIR)\nsec3.obj" \
 	"$(INTDIR)\order.obj" \
 	"$(INTDIR)\peer.obj" \
 	"$(INTDIR)\portlist.obj" \
@@ -316,6 +321,7 @@ LINK32_OBJS= \
 	"$(INTDIR)\dst_result.obj" \
 	"$(INTDIR)\gssapi_link.obj" \
 	"$(INTDIR)\gssapictx.obj" \
+	"$(INTDIR)\spnego.obj" \
 	"$(INTDIR)\hmac_link.obj" \
 	"$(INTDIR)\key.obj" \
 	"$(INTDIR)\openssl_link.obj" \
@@ -399,8 +405,12 @@ CLEAN :
 	-@erase "$(INTDIR)\gssapi_link.sbr"
 	-@erase "$(INTDIR)\gssapictx.obj"
 	-@erase "$(INTDIR)\gssapictx.sbr"
+	-@erase "$(INTDIR)\spnego.obj"
+	-@erase "$(INTDIR)\spnego.sbr"
 	-@erase "$(INTDIR)\hmac_link.obj"
 	-@erase "$(INTDIR)\hmac_link.sbr"
+	-@erase "$(INTDIR)\iptable.obj"
+	-@erase "$(INTDIR)\iptable.sbr"
 	-@erase "$(INTDIR)\journal.obj"
 	-@erase "$(INTDIR)\journal.sbr"
 	-@erase "$(INTDIR)\key.obj"
@@ -425,6 +435,8 @@ CLEAN :
 	-@erase "$(INTDIR)\ncache.sbr"
 	-@erase "$(INTDIR)\nsec.obj"
 	-@erase "$(INTDIR)\nsec.sbr"
+	-@erase "$(INTDIR)\nsec3.obj"
+	-@erase "$(INTDIR)\nsec3.sbr"
 	-@erase "$(INTDIR)\openssl_link.obj"
 	-@erase "$(INTDIR)\openssl_link.sbr"
 	-@erase "$(INTDIR)\openssldh_link.obj"
@@ -571,6 +583,7 @@ BSC32_SBRS= \
 	"$(INTDIR)\dnssec.sbr" \
 	"$(INTDIR)\ds.sbr" \
 	"$(INTDIR)\forward.sbr" \
+	"$(INTDIR)\iptable.sbr" \
 	"$(INTDIR)\journal.sbr" \
 	"$(INTDIR)\keytable.sbr" \
 	"$(INTDIR)\lib.sbr" \
@@ -582,6 +595,7 @@ BSC32_SBRS= \
 	"$(INTDIR)\name.sbr" \
 	"$(INTDIR)\ncache.sbr" \
 	"$(INTDIR)\nsec.sbr" \
+	"$(INTDIR)\nsec3.sbr" \
 	"$(INTDIR)\order.sbr" \
 	"$(INTDIR)\peer.sbr" \
 	"$(INTDIR)\portlist.sbr" \
@@ -622,6 +636,7 @@ BSC32_SBRS= \
 	"$(INTDIR)\dst_result.sbr" \
 	"$(INTDIR)\gssapi_link.sbr" \
 	"$(INTDIR)\gssapictx.sbr" \
+	"$(INTDIR)\spnego.sbr" \
 	"$(INTDIR)\hmac_link.sbr" \
 	"$(INTDIR)\key.sbr" \
 	"$(INTDIR)\openssl_link.sbr" \
@@ -656,6 +671,7 @@ LINK32_OBJS= \
 	"$(INTDIR)\dnssec.obj" \
 	"$(INTDIR)\ds.obj" \
 	"$(INTDIR)\forward.obj" \
+	"$(INTDIR)\iptable.obj" \
 	"$(INTDIR)\journal.obj" \
 	"$(INTDIR)\keytable.obj" \
 	"$(INTDIR)\lib.obj" \
@@ -667,6 +683,7 @@ LINK32_OBJS= \
 	"$(INTDIR)\name.obj" \
 	"$(INTDIR)\ncache.obj" \
 	"$(INTDIR)\nsec.obj" \
+	"$(INTDIR)\nsec3.obj" \
 	"$(INTDIR)\order.obj" \
 	"$(INTDIR)\peer.obj" \
 	"$(INTDIR)\portlist.obj" \
@@ -707,6 +724,7 @@ LINK32_OBJS= \
 	"$(INTDIR)\dst_result.obj" \
 	"$(INTDIR)\gssapi_link.obj" \
 	"$(INTDIR)\gssapictx.obj" \
+	"$(INTDIR)\spnego.obj" \
 	"$(INTDIR)\hmac_link.obj" \
 	"$(INTDIR)\key.obj" \
 	"$(INTDIR)\openssl_link.obj" \
@@ -1042,6 +1060,24 @@ SOURCE=..\forward.c
 
 !ENDIF 
 
+SOURCE=..\iptable.c
+
+!IF  "$(CFG)" == "libdns - Win32 Release"
+
+
+"$(INTDIR)\iptable.obj" : $(SOURCE) "$(INTDIR)"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
+!ELSEIF  "$(CFG)" == "libdns - Win32 Debug"
+
+
+"$(INTDIR)\iptable.obj"	"$(INTDIR)\iptable.sbr" : $(SOURCE) "$(INTDIR)"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
+!ENDIF 
+
 SOURCE=..\journal.c
 
 !IF  "$(CFG)" == "libdns - Win32 Release"
@@ -1235,6 +1271,24 @@ SOURCE=..\nsec.c
 
 
 "$(INTDIR)\nsec.obj"	"$(INTDIR)\nsec.sbr" : $(SOURCE) "$(INTDIR)"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
+!ENDIF 
+
+SOURCE=..\nsec3.c
+
+!IF  "$(CFG)" == "libdns - Win32 Release"
+
+
+"$(INTDIR)\nsec3.obj" : $(SOURCE) "$(INTDIR)"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
+!ELSEIF  "$(CFG)" == "libdns - Win32 Debug"
+
+
+"$(INTDIR)\nsec3.obj"	"$(INTDIR)\nsec3.sbr" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
@@ -1954,6 +2008,24 @@ SOURCE=..\gssapictx.c
 
 
 "$(INTDIR)\gssapictx.obj"	"$(INTDIR)\gssapictx.sbr" : $(SOURCE) "$(INTDIR)"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
+!ENDIF 
+
+SOURCE=..\spnego.c
+
+!IF  "$(CFG)" == "libdns - Win32 Release"
+
+
+"$(INTDIR)\spnego.obj" : $(SOURCE) "$(INTDIR)"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
+!ELSEIF  "$(CFG)" == "libdns - Win32 Debug"
+
+
+"$(INTDIR)\spnego.obj"	"$(INTDIR)\spnego.sbr" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 

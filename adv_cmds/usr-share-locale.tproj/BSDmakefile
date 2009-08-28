@@ -1,6 +1,0 @@
-LOCALEDIR=	${DESTDIR}/usr/share/locale
-
-SUBDIR=		colldef mklocale monetdef msgdef numericdef timedef
-MAKE= bsdmake
-
-.include <bsd.subdir.mk>

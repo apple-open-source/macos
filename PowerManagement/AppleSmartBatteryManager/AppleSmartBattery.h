@@ -126,8 +126,6 @@ public:
 
     bool    pollBatteryState(int path = 0);
     
-    IOReturn setPowerState(unsigned long which, IOService *whom);
-
     void    handleBatteryInserted(void);
     
     void    handleBatteryRemoved(void);

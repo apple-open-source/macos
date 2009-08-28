@@ -49,7 +49,7 @@ gdb_load  ${binfile}
 gdb_test "add-symbol-file ${binfile_syms} -s text 0" \
     "Reading symbols from .*${testfile_syms}\\.o\\.\\.\\.done\\." \
     "add-symbol-file ${testfile_syms}.o 0" \
-    "add symbol table from file \".*${testfile_syms}\\.o\" at\[ \t\r\n\]+\.text_addr = 0x0\[\r\n\]+\\(y or n\\) " \
+    "add symbol table from file \".*${testfile_syms}\\.o\" at\[ \t\r\n\]+\.text = 0x0\[\r\n\]+\\(y or n\\) " \
     "y"
 
 gdb_test "info file" \

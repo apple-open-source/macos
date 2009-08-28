@@ -1,0 +1,17 @@
+Only in lisp/progmodes/: cc-mode.elc
+Only in lisp/progmodes/: cc-vars.elc
+diff -up /SourceCache/emacs/emacs-74.2/emacs/lisp/progmodes/python.el lisp/progmodes/python.el
+--- /SourceCache/emacs/emacs-74.2/emacs/lisp/progmodes/python.el	2007-05-15 14:57:33.000000000 -0700
++++ lisp/progmodes/python.el	2008-09-02 14:45:02.000000000 -0700
+@@ -1347,7 +1347,9 @@ buffer for a list of commands.)"
+   ;; invoked.  Would support multiple processes better.
+   (when (or new (not (comint-check-proc python-buffer)))
+     (with-current-buffer
+-        (let* ((cmdlist (append (python-args-to-list cmd) '("-i")))
++	(let* ((cmdlist
++		(append (python-args-to-list cmd)
++			'("-i" "-c" "import sys; sys.path.remove('')")))
+                (path (getenv "PYTHONPATH"))
+                (process-environment	; to import emacs.py
+                 (cons (concat "PYTHONPATH=" data-directory
+Only in lisp/progmodes/: python.el.orig

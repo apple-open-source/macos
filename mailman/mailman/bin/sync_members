@@ -260,6 +260,8 @@ def main():
                 print _('Added  : %(s)s')
             except Errors.MMAlreadyAMember:
                 pass
+            except Errors.MembershipIsBanned, pattern:
+                print ('%s:' % addr), _('Banned address (matched %(pattern)s)')
 
         for laddr, addr in addrs.items():
             # Should be a member, otherwise our test above is broken

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Rob Braun
+ * Copyright (c) 2007 Rob Braun
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -62,26 +62,26 @@
 
 #ifdef HAVE_SYS_EXTATTR_H
 struct _fbsdattr_context{
-	const char *file = NULL;
-	const char *attr = NULL;
-	void *buf = NULL;
-	int off = 0;
-	int bufsz = 0;
-	int ns = 0;
+	const char *file;
+	const char *attrname;
+	void *buf;
+	int off;
+	int bufsz;
+	int ns;
 };
 
 #define FBSDATTR_CONTEXT(x) ((struct _fbsdattr_context *)(x))
 
-int32_t xar_fbsdattr_read(xar_t x, xar_file_t f, void *buf, size_t len) {
+int32_t xar_fbsdattr_read(xar_t x, xar_file_t f, void *buf, size_t len, void *context) {
 	if( !FBSDATTR_CONTEXT(context)->buf ) {
-		FBSDATTR_CONTEXT(context)->bufsz = extattr_get_link(FBSDATTR_CONTEXT(context)->file, FBSDATTR_CONTEXT(context)->ns, FBSDATTR_CONTEXT(context)->attr, NULL, 0);
+		FBSDATTR_CONTEXT(context)->bufsz = extattr_get_link(FBSDATTR_CONTEXT(context)->file, FBSDATTR_CONTEXT(context)->ns, FBSDATTR_CONTEXT(context)->attrname, NULL, 0);
 		if( FBSDATTR_CONTEXT(context)->bufsz < 0 )
 			return -1;
 		FBSDATTR_CONTEXT(context)->buf = malloc(FBSDATTR_CONTEXT(context)->bufsz);
 		if( !FBSDATTR_CONTEXT(context)->buf )
 			return -1;
 
-		FBSDATTR_CONTEXT(context)->bufsz = extattr_get_link(FBSDATTR_CONTEXT(context)->file, FBSDATTR_CONTEXT(context)->ns, FBSDATTR_CONTEXT(context)->attr, FBSDATTR_CONTEXT(context)->buf, FBSDATTR_CONTEXT(context)->bufsz);
+		FBSDATTR_CONTEXT(context)->bufsz = extattr_get_link(FBSDATTR_CONTEXT(context)->file, FBSDATTR_CONTEXT(context)->ns, FBSDATTR_CONTEXT(context)->attrname, FBSDATTR_CONTEXT(context)->buf, FBSDATTR_CONTEXT(context)->bufsz);
 	}
 
 	if( (FBSDATTR_CONTEXT(context)->bufsz - FBSDATTR_CONTEXT(context)->off) <= len ) {
@@ -98,8 +98,8 @@ int32_t xar_fbsdattr_read(xar_t x, xar_file_t f, void *buf, size_t len) {
 	}
 
 }
-int32_t xar_fbsdattr_write(xar_t x, xar_file_t f, void *buf, size_t len) {
-	return extattr_set_link(FBSDATTR_CONTEXT(context)->file, FBSDATTR_CONTEXT(context)->ns, FBSDATTR_CONTEXT(context)->attr, buf, len);
+int32_t xar_fbsdattr_write(xar_t x, xar_file_t f, void *buf, size_t len, void *context) {
+	return extattr_set_link(FBSDATTR_CONTEXT(context)->file, FBSDATTR_CONTEXT(context)->ns, FBSDATTR_CONTEXT(context)->attrname, buf, len);
 }
 #endif
 
@@ -108,7 +108,11 @@ int32_t xar_fbsdattr_archive(xar_t x, xar_file_t f, const char* file, const char
 #ifdef HAVE_SYS_EXTATTR_H
 	char *buf = NULL;
 	int ret, retval=0, bufsz, i;
+#if defined(HAVE_STATVFS) && defined(HAVE_STRUCT_STATVFS_F_FSTYPENAME)
+	struct statvfs sfs;
+#else
 	struct statfs sfs;
+#endif
 	char *fsname = NULL;
 	int namespace = EXTATTR_NAMESPACE_USER;
 	struct _fbsdattr_context context;
@@ -116,9 +120,13 @@ int32_t xar_fbsdattr_archive(xar_t x, xar_file_t f, const char* file, const char
 	memset(&context,0,sizeof(struct _fbsdattr_context));
 
 	/* no fbsdattr attributes for data to a buffer */
-	if(len){
+	if(len)
 		return 0;
-	}
+	if(file == NULL)
+		return 0;
+
+	if( !xar_check_prop(x, "ea") )
+		return 0;
 	
 TRYAGAIN:
 	/* extattr_list_link()'s man page does not define the return
@@ -138,6 +146,23 @@ TRYAGAIN:
 			namespace = EXTATTR_NAMESPACE_SYSTEM;
 			goto TRYAGAIN;
 		} else {
+			/* If we get eperm on system namespace, don't
+			 * return error.  This is expected for normal
+			 * users trying to archive the system namespace
+			 * on freebsd 6.2.  On netbsd 3.1, they've decided
+			 * to return EOPNOTSUPP instead.
+			 */
+			if( errno == EPERM )
+				ret = 0;
+			else if( errno == EOPNOTSUPP )
+				ret = 0;
+			else {
+				xar_err_new(x);
+				xar_err_set_file(x, f);
+				xar_err_set_string(x, "Error archiving EA"); 
+				xar_err_callback(x, XAR_SEVERITY_NONFATAL, XAR_ERR_ARCHIVE_CREATION);
+				ret = 0;
+			}
 			goto BAIL;
 		}
 	}
@@ -164,12 +189,33 @@ TRYAGAIN:
 			namespace = EXTATTR_NAMESPACE_SYSTEM;
 			goto TRYAGAIN;
 		} else {
+			/* If we get eperm on system namespace, don't
+			 * return error.  This is expected for normal
+			 * users trying to archive the system namespace
+			 * on freebsd 6.2.  On netbsd 3.1, they've decided
+			 * to return EOPNOTSUPP instead.
+			 */
+			if( errno == EPERM )
+				ret = 0;
+			else if( errno == EOPNOTSUPP )
+				ret = 0;
+			else {
+				xar_err_new(x);
+				xar_err_set_file(x, f);
+				xar_err_set_string(x, "Error archiving EA"); 
+				xar_err_callback(x, XAR_SEVERITY_NONFATAL, XAR_ERR_ARCHIVE_CREATION);
+				ret = 0;
+			}
 			goto BAIL;
 		}
 	}
 
 
+#if defined(HAVE_STATVFS) && defined(HAVE_STRUCT_STATVFS_F_FSTYPENAME)
+	statvfs(file, &sfs);
+#else
 	statfs(file, &sfs);
+#endif
 
 	fsname = sfs.f_fstypename;
 
@@ -182,6 +228,7 @@ TRYAGAIN:
 		char key[256];
 		char *ns;
 		char tempnam[1024];
+		xar_ea_t e;
 
 		memset(key, 0, sizeof(key));
 		memcpy(key, buf+i+1, buf[i]);
@@ -189,22 +236,24 @@ TRYAGAIN:
 
 		extattr_namespace_to_string(namespace, &ns);
 		memset(tempnam, 0, sizeof(tempnam));
-		snprintf(tempnam, sizeof(tempnam)-1, "%s/%s.%s", XAR_EA_FORK, ns, key);
-		FBSDATTR_CONTEXT(context).ns = namespace;
-		FBSDATTR_CONTEXT(context).file = file;
-		FBSDATTR_CONTEXT(context).attr = key;
+		snprintf(tempnam, sizeof(tempnam)-1, "%s.%s", ns, key);
+		FBSDATTR_CONTEXT(&context)->ns = namespace;
+		FBSDATTR_CONTEXT(&context)->file = file;
+		FBSDATTR_CONTEXT(&context)->attrname = key;
 
-		xar_attr_set(f, tempnam, "fstype", fsname);
-		xar_attrcopy_to_heap(x, f, tempnam, xar_fbsdattr_read);
+		e = xar_ea_new(f, tempnam);
+		xar_ea_pset(f, e, "fstype", fsname);
+		xar_attrcopy_to_heap(x, f, xar_ea_root(e), xar_fbsdattr_read, &context);
 
-		free(FBSDATTR_CONTEXT(context).buf);
-		FBSDATTR_CONTEXT(context).buf = NULL;
-		FBSDATTR_CONTEXT(context).off = 0;
+		free(FBSDATTR_CONTEXT(&context)->buf);
+		FBSDATTR_CONTEXT(&context)->buf = NULL;
+		FBSDATTR_CONTEXT(&context)->off = 0;
 	}
 
 	if( namespace == EXTATTR_NAMESPACE_USER ) {
 		namespace = EXTATTR_NAMESPACE_SYSTEM;
 		free(buf);
+		buf = NULL;
 		goto TRYAGAIN;
 	}
 
@@ -220,10 +269,13 @@ int32_t xar_fbsdattr_extract(xar_t x, xar_file_t f, const char* file, char *buff
 {
 #ifdef HAVE_SYS_EXTATTR_H
 	char *fsname = "bogus";
-	const char *prop;
+	xar_prop_t p;
+#if defined(HAVE_STATVFS) && defined(HAVE_STRUCT_STATVFS_F_FSTYPENAME)
+	struct statvfs sfs;
+#else
 	struct statfs sfs;
+#endif
 	int eaopt = 0;
-	xar_iter_t iter;
 	struct _fbsdattr_context context;
 	
 	memset(&context,0,sizeof(struct _fbsdattr_context));
@@ -233,38 +285,55 @@ int32_t xar_fbsdattr_extract(xar_t x, xar_file_t f, const char* file, char *buff
 		return 0;
 	}
 	
+#if defined(HAVE_STATVFS) && defined(HAVE_STRUCT_STATVFS_F_FSTYPENAME)
+	statvfs(file, &sfs);
+#else
 	statfs(file, &sfs);
+#endif
 	fsname = sfs.f_fstypename;
 
-	iter = xar_iter_new();
-	for(prop = xar_prop_first(f, iter); prop; prop = xar_prop_next(iter)) {
-		const char *tmp, *fs;
+	for(p = xar_prop_pfirst(f); p; p = xar_prop_pnext(p)) {
+		const char *fs = NULL;
+		const char *prop;
+		const char *eaname = NULL;
+		xar_prop_t tmpp;
+
+		prop = xar_prop_getkey(p);
 
 		if( strncmp(prop, XAR_EA_FORK, strlen(XAR_EA_FORK) != 0 ) )
 			continue;
-		if( strlen(prop) <= (strlen(XAR_EA_FORK)+1) )
+		if( strlen(prop) != strlen(XAR_EA_FORK) )
 			continue;
-		fs = xar_attr_get(f, prop, "fstype");
+
+		tmpp = xar_prop_pget(p, "fstype");
+		if( tmpp )
+			fs = xar_prop_getvalue(tmpp);
+		
 		if( !eaopt && fs && strcmp(fs, fsname) != 0 ) {
 			continue;
 		}
 
-		tmp = prop + strlen(XAR_EA_FORK) + 1;
-		if( strncmp(tmp, "user.", 5) == 0 ) {
-			FBSDATTR_CONTEXT(context).ns = EXTATTR_NAMESPACE_USER;
-			FBSDATTR_CONTEXT(context).attr = tmp + 5;
-		} else if( strncmp(tmp, "system.", 7) == 0 ) {
-			FBSDATTR_CONTEXT(context).ns = EXTATTR_NAMESPACE_SYSTEM;
-			FBSDATTR_CONTEXT(context).attr = tmp + 7;
+		tmpp = xar_prop_pget(p, "name");
+		if( tmpp )
+			eaname = xar_prop_getvalue(tmpp);
+
+		if( !eaname )
+			continue;
+
+		if( strncmp(eaname, "user.", 5) == 0 ) {
+			FBSDATTR_CONTEXT(&context)->ns = EXTATTR_NAMESPACE_USER;
+			FBSDATTR_CONTEXT(&context)->attrname = eaname + 5;
+		} else if( strncmp(eaname, "system.", 7) == 0 ) {
+			FBSDATTR_CONTEXT(&context)->ns = EXTATTR_NAMESPACE_SYSTEM;
+			FBSDATTR_CONTEXT(&context)->attrname = eaname + 7;
 		} else {
 			continue;
 		}
 
-		FBSDATTR_CONTEXT(context).file = file;
-		xar_attrcopy_from_heap(x, f, prop, xar_fbsdattr_write);
+		FBSDATTR_CONTEXT(&context)->file = file;
+		xar_attrcopy_from_heap(x, f, p, xar_fbsdattr_write, &context);
 	}
 
-	xar_iter_free(iter);
 
 #endif
 	return 0;

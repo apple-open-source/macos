@@ -23,7 +23,7 @@
 
 
 #import <AppKit/NSTextView.h>
-#import <Carbon/CarbonPriv.h>
+//#import <Carbon/CarbonPriv.h>
 #import <Carbon/Carbon.h>
 
 #import "MiniTerm.h"
@@ -135,8 +135,16 @@ int recv_fd(int servfd)
     [[text window] setLevel:NSFloatingWindowLevel];
 
     // enable only roman keyboard
+#if 0
     KeyScript(smKeyEnableRomanOnly);
-
+#else
+    TISInputSourceRef asciiInpSrc = TISCopyCurrentASCIICapableKeyboardInputSource();
+    if (asciiInpSrc != NULL) {
+        TISSelectInputSource( asciiInpSrc );
+        CFRelease( asciiInpSrc );
+    }
+#endif /* __LP64__ */
+    
     // contact pppd to get serial descriptor and exit code communication channel
     sockfd = socket(AF_LOCAL, SOCK_STREAM, 0);
     if (sockfd < 0) {
@@ -145,7 +153,7 @@ int recv_fd(int servfd)
 
     bzero(&adr, sizeof(adr));
     adr.sun_family = AF_LOCAL;
-    strcpy(adr.sun_path, "/var/run/pppd-miniterm");
+    strlcpy(adr.sun_path, "/var/run/pppd-miniterm", sizeof(adr.sun_path));
 
     if (err = connect(sockfd, (struct sockaddr *)&adr, sizeof(adr)) < 0) {
         exit(0);	// should probably display an alert

@@ -56,6 +56,13 @@ extern ServerOptions options;
 # endif
 #endif
 
+#ifdef __APPLE_CROSS_REALM__
+#include <CoreFoundation/CoreFoundation.h>
+#include <OpenDirectory/OpenDirectory.h>
+#include <OpenDirectory/OpenDirectoryPriv.h>
+#include <DirectoryService/DirectoryService.h>
+#endif
+
 static krb5_context krb_context = NULL;
 
 /* Initialise the krb5 library, for the stuff that GSSAPI won't do */
@@ -76,6 +83,52 @@ ssh_gssapi_krb5_init(void)
 
 	return 1;
 }
+
+#ifdef __APPLE_CROSS_REALM__
+/* Check if the principal matches any of the user's OD entries for RecordName */
+krb5_boolean
+od_kuserok(krb5_context context, krb5_principal principal, const char *luser)
+{
+	char *kuser;
+	krb5_boolean retval = FALSE;
+
+	if (!krb5_unparse_name(context, principal, &kuser)) {
+		ODNodeRef cfNodeRef = ODNodeCreateWithNodeType(kCFAllocatorDefault, kODSessionDefault, eDSAuthenticationSearchNodeName, NULL);
+		if (cfNodeRef != NULL) {
+			CFStringRef cfUser = CFStringCreateWithCString(NULL, luser, kCFStringEncodingUTF8);
+			CFStringRef cfPrincipal = CFStringCreateWithCString(NULL, kuser, kCFStringEncodingUTF8);
+			if (cfUser != NULL && cfPrincipal != NULL) {
+				ODRecordRef cfRecord = ODNodeCopyRecord(cfNodeRef, CFSTR(kDSStdRecordTypeUsers), cfUser, NULL, NULL);
+				if (cfRecord != NULL) {
+					CFArrayRef vals = ODRecordCopyValues(cfRecord, CFSTR(kDSNAttrRecordName), NULL);
+					if (vals != NULL) {
+						CFIndex count = CFArrayGetCount(vals);
+						CFIndex i;
+						for (i = 0; i < count; ++i) {
+							const void *val = CFArrayGetValueAtIndex(vals, i);
+							if (CFStringCompare(val, cfPrincipal, 0) == kCFCompareEqualTo) {
+								retval = TRUE;
+								break;
+							}
+						}
+						CFRelease(vals);
+					}	
+					CFRelease(cfRecord);				
+				}
+				else {
+					retval = FALSE;
+				}
+				CFRelease(cfUser);
+				CFRelease(cfPrincipal);
+			}
+			CFRelease(cfNodeRef);
+		}
+		free(kuser);
+	}
+
+	return retval;
+}
+#endif
 
 /* Check if this user is OK to login. This only works with krb5 - other
  * GSSAPI mechanisms will need their own.
@@ -101,6 +154,12 @@ ssh_gssapi_krb5_userok(ssh_gssapi_client *client, char *name)
 		retval = 1;
 		logit("Authorized to %s, krb5 principal %s (krb5_kuserok)",
 		    name, (char *)client->displayname.value);
+#ifdef __APPLE_CROSS_REALM__
+	} else if (od_kuserok(krb_context, princ, name)) {
+		retval = 1;
+		logit("Authorized to %s, krb5 principal %s (od_kuserok)",
+			  name, (char *)client->displayname.value);
+#endif
 	} else
 		retval = 0;
 

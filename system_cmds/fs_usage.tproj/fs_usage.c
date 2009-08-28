@@ -57,36 +57,60 @@ cc -I. -DPRIVATE -D__APPLE_PRIVATE -O -o fs_usage fs_usage.c
 #endif /*KERNEL_PRIVATE*/
 
 #include <sys/sysctl.h>
+#include <sys/disk.h>
 #include <errno.h>
 #import <mach/clock_types.h>
 #import <mach/mach_time.h>
 #include <err.h>
+#include <libutil.h>
 
-extern int errno;
-
+#define F_OPENFROM      56              /* SPI: open a file relative to fd (must be a dir) */
+#define F_UNLINKFROM    57              /* SPI: open a file relative to fd (must be a dir) */
+#define F_CHECK_OPENEVT 58              /* SPI: if a process is marked OPENEVT, or in O_EVTONLY on opens of this vnode */
 
 
 #define MAXINDEX 2048
 
 typedef struct LibraryRange {
-     uint64_t b_address;
-     uint64_t e_address;
+	uint64_t b_address;
+	uint64_t e_address;
 } LibraryRange;
 
 LibraryRange framework32;
 LibraryRange framework64;
 
 
+#define	TEXT_R		0
+#define DATA_R		1
+#define OBJC_R		2
+#define IMPORT_R	3
+#define UNICODE_R	4
+#define IMAGE_R		5
+#define LINKEDIT_R	6
+
+
+char *frameworkType[] = {
+	"<TEXT>    ",
+	"<DATA>    ",
+	"<OBJC>    ",
+	"<IMPORT>  ",
+	"<UNICODE> ",
+	"<IMAGE>   ",
+	"<LINKEDIT>",
+};
+
+
 typedef struct LibraryInfo {
-     uint64_t b_address;
-     uint64_t e_address;
-     char     *name;
+	uint64_t b_address;
+	uint64_t e_address;
+	int	 r_type;
+	char     *name;
 } LibraryInfo;
 
 LibraryInfo frameworkInfo[MAXINDEX];
 int numFrameworks = 0;
 
-char *lookup_name(uint64_t user_addr);
+void lookup_name(uint64_t user_addr, char **type, char **name);
 
 
 /* 
@@ -96,7 +120,7 @@ char *lookup_name(uint64_t user_addr);
    get reflected in the -w mode output.
 */
 #define NUMPARMS 23
-#define PATHLENGTH (NUMPARMS*sizeof(long))
+#define PATHLENGTH (NUMPARMS*sizeof(uintptr_t))
 #define MAXCOLS 132
 #define MAX_WIDE_MODE_COLS (PATHLENGTH + 80)
 #define MAXWIDTH MAX_WIDE_MODE_COLS + 64
@@ -104,7 +128,7 @@ char *lookup_name(uint64_t user_addr);
 struct th_info {
         int  my_index;
         int  in_filemgr;
-        int  thread;
+        uintptr_t  thread;
         int  pid;
         int  type;
         int  arg1;
@@ -115,14 +139,14 @@ struct th_info {
         int  arg6;
         int  arg7;
         int  arg8;
-        int  child_thread;
+        uintptr_t  child_thread;
         int  waited;
         double stime;
-        long *pathptr;
-        long pathname[NUMPARMS + 1];   /* add room for null terminator */
+        uintptr_t *pathptr;
+        uintptr_t pathname[NUMPARMS + 1];   /* add room for null terminator */
 };
 
-#define MAX_THREADS 512
+#define MAX_THREADS 1024
 struct th_info th_state[MAX_THREADS];
 
 kd_threadmap *last_map = NULL;
@@ -182,8 +206,8 @@ struct diskio {
         int  blkno;
         int  iosize;
         int  io_errno;
-        int  issuing_thread;
-        int  completion_thread;
+        uintptr_t  issuing_thread;
+        uintptr_t  completion_thread;
         char issuing_command[MAXCOMLEN];
         double issued_time;
         double completed_time;
@@ -199,24 +223,25 @@ struct diskio *insert_diskio();
 struct diskio *complete_diskio();
 void    	free_diskio();
 void		print_diskio();
-void            format_print(struct th_info *, char *, int, int, int, int, int, int, int, double, double, int, char *, struct diskio *);
-void            exit_syscall(char *, int, int, int, int, int, int, int, double);
+void            format_print(struct th_info *, char *, uintptr_t, int, int, int, int, int, int, double, double, int, char *, struct diskio *);
+void			enter_syscall_now(uintptr_t, int, kd_buf *, char *, double);
+void			enter_syscall(uintptr_t, int, kd_buf *, char *, double);
+void            exit_syscall(char *, uintptr_t, int, int, int, int, int, int, double);
+void			extend_syscall(uintptr_t, int, kd_buf *);
 char           *find_disk_name();
 void		cache_disk_names();
-int 		ReadSharedCacheMap(const char *, LibraryRange *);
+void		recache_disk_names();
+int 		ReadSharedCacheMap(const char *, LibraryRange *, char *);
 void 		SortFrameworkAddresses();
-void		mark_thread_waited(int);
+void		mark_thread_waited(uintptr_t);
 int		check_filter_mode(struct th_info *, int, int, int, char *);
 void		fs_usage_fd_set(unsigned int, unsigned int);
 int		fs_usage_fd_isset(unsigned int, unsigned int);
 void		fs_usage_fd_clear(unsigned int, unsigned int);
 void		init_arguments_buffer();
 int	        get_real_command_name(int, char *, int);
-void            create_map_entry(int, int, char *);
-
-void		enter_syscall();
-void		extend_syscall();
-void		kill_thread_map();
+void            create_map_entry(uintptr_t, int, char *);
+void		kill_thread_map(uintptr_t);
 
 #define CLASS_MASK	0xff000000
 #define CSC_MASK	0xffff0000
@@ -232,8 +257,11 @@ void		kill_thread_map();
 #define MACH_pageout    0x01300004
 #define MACH_sched      0x01400000
 #define MACH_stkhandoff 0x01400008
+#define MACH_idle	0x01400024
 #define VFS_LOOKUP      0x03010090
 #define BSC_exit        0x040C0004
+
+#define SPEC_ioctl	0x3060000
 
 #define P_DISKIO	0x03020000
 #define P_DISKIO_DONE	0x03020004
@@ -292,11 +320,12 @@ void		kill_thread_map();
 #define BSC_unlink		0x040C0028
 #define BSC_chdir		0x040c0030
 #define BSC_fchdir		0x040c0034
-#define BSC_mknod		0x040C0038	
-#define BSC_chmod		0x040C003C	
-#define BSC_chown		0x040C0040	
-#define BSC_access		0x040C0084	
-#define BSC_chflags		0x040C0088	
+#define BSC_mknod		0x040C0038
+#define BSC_chmod		0x040C003C
+#define BSC_chown		0x040C0040
+#define BSC_getfsstat		0x040C0048
+#define BSC_access		0x040C0084
+#define BSC_chflags		0x040C0088
 #define BSC_fchflags		0x040C008C
 #define BSC_sync		0x040C0090
 #define BSC_dup			0x040C00A4
@@ -305,6 +334,7 @@ void		kill_thread_map();
 #define BSC_symlink		0x040C00E4	
 #define BSC_readlink		0x040C00E8
 #define BSC_execve		0x040C00EC
+#define BSC_umask		0x040C00F0
 #define BSC_chroot		0x040C00F4
 #define BSC_msync		0x040C0104
 #define BSC_dup2		0x040C0168
@@ -374,6 +404,19 @@ void		kill_thread_map();
 #define BSC_aio_read		0x040C04F8
 #define BSC_aio_write		0x040C04FC
 #define BSC_lio_listio		0x040C0500
+#define BSC_sendfile		0x040C0544
+#define BSC_stat64		0x040C0548
+#define BSC_fstat64		0x040C054C
+#define BSC_lstat64		0x040C0550
+#define BSC_stat64_extended	0x040C0554
+#define BSC_lstat64_extended	0x040C0558
+#define BSC_fstat64_extended	0x040C055C
+#define BSC_getdirentries64	0x040C0560
+#define BSC_statfs64		0x040C0564
+#define BSC_fstatfs64		0x040C0568
+#define BSC_getfsstat64		0x040C056C
+#define BSC_pthread_chdir	0x040C0570
+#define BSC_pthread_fchdir	0x040C0574
 #define BSC_lchown		0x040C05B0
 
 #define BSC_read_nocancel	0x040c0630
@@ -507,6 +550,9 @@ void		kill_thread_map();
 #define FMT_FCHFLAGS	29
 #define	FMT_IOCTL	30
 #define FMT_MMAP	31
+#define FMT_UMASK	32
+#define FMT_SENDFILE	33
+#define FMT_SPEC_IOCTL	34
 
 #define MAX_BSD_SYSCALL	512
 
@@ -559,6 +605,7 @@ int bsd_syscall_types[] = {
 	BSC_symlink,
 	BSC_readlink,
 	BSC_execve,
+	BSC_umask,
 	BSC_chroot,
 	BSC_dup2,
 	BSC_fsync,
@@ -633,11 +680,25 @@ int bsd_syscall_types[] = {
 	BSC_aio_write,
 	BSC_lio_listio,
 	BSC_lchown,
+	BSC_sendfile,
 	BSC_msync,
 	BSC_msync_nocancel,
 	BSC_fcntl,
 	BSC_fcntl_nocancel,
 	BSC_ioctl,
+	BSC_stat64,
+	BSC_fstat64,
+	BSC_lstat64,
+	BSC_stat64_extended,
+	BSC_lstat64_extended,
+	BSC_fstat64_extended,
+	BSC_getdirentries64,
+	BSC_statfs64,
+	BSC_fstatfs64,
+	BSC_pthread_chdir,
+	BSC_pthread_fchdir,
+	BSC_getfsstat,
+	BSC_getfsstat64,
 	0
 };
 
@@ -733,18 +794,12 @@ int    exclude_default_pids = 1;
 struct kinfo_proc *kp_buffer = 0;
 int kp_nentries = 0;
 
-#define SAMPLE_SIZE 100000
-
 int num_cpus;
 
 #define EVENT_BASE 60000
 
 int num_events = EVENT_BASE;
 
-#define DBG_ZERO_FILL_FAULT   1
-#define DBG_PAGEIN_FAULT      2
-#define DBG_COW_FAULT         3
-#define DBG_CACHE_HIT_FAULT   4
 
 #define DBG_FUNC_ALL	(DBG_FUNC_START | DBG_FUNC_END)
 #define DBG_FUNC_MASK	0xfffffffc
@@ -769,7 +824,7 @@ kd_threadmap *mapptr = 0;	/* pointer to list of threads */
 
 typedef struct {
     unsigned int   fd_valid;       /* set if this is a valid entry */
-    unsigned int   fd_thread;
+    uintptr_t      fd_thread;
     unsigned int   fd_setsize;     /* this is a bit count */
     unsigned long  *fd_setptr;     /* file descripter bitmap */
 } fd_threadmap;
@@ -778,6 +833,14 @@ fd_threadmap *fdmapptr = 0;	/* pointer to list of threads for fd tracking */
 
 int trace_enabled = 0;
 int set_remove_flag = 1;
+
+char *RAW_file = (char *)0;
+int   RAW_flag = 0;
+int   RAW_fd = 0;
+double	bias_now = 0.0;
+double start_time = 0.0;
+double end_time = 99999999999.9;
+
 
 void set_numbufs();
 void set_init();
@@ -840,7 +903,7 @@ void sigwinch()
 int
 exit_usage(char *myname) {
 
-        fprintf(stderr, "Usage: %s [-e] [-w] [-f mode] [pid | cmd [pid | cmd]....]\n", myname);
+	fprintf(stderr, "Usage: %s [-e] [-w] [-f mode] [pid | cmd [pid | cmd]....]\n", myname);
 	fprintf(stderr, "  -e    exclude the specified list of pids from the sample\n");
 	fprintf(stderr, "        and exclude fs_usage by default\n");
 	fprintf(stderr, "  -w    force wider, detailed, output\n");
@@ -895,6 +958,11 @@ void init_tables(void)
 		        continue;
 		}
 		switch (type) {
+
+		    case BSC_sendfile:
+		      bsd_syscalls[code].sc_name = "sendfile";
+		      bsd_syscalls[code].sc_format = FMT_FD;		/* this should be changed to FMT_SENDFILE */
+		      break;						/* once we add an extended info trace event */
 		    
 		    case BSC_recvmsg:
 		    case BSC_recvmsg_nocancel:
@@ -982,8 +1050,16 @@ void init_tables(void)
 		      bsd_syscalls[code].sc_name = "stat";
 		      break;
                     
+		    case BSC_stat64:
+		      bsd_syscalls[code].sc_name = "stat64";
+		      break;
+                    
 		    case BSC_stat_extended:
 		      bsd_syscalls[code].sc_name = "stat_extended";
+		      break;
+                    
+		    case BSC_stat64_extended:
+		      bsd_syscalls[code].sc_name = "stat_extended64";
 		      break;
                     
 		    case BSC_execve:
@@ -1058,8 +1134,18 @@ void init_tables(void)
 		      bsd_syscalls[code].sc_format = FMT_FD;
 		      break;
 
+		    case BSC_fstat64:
+		      bsd_syscalls[code].sc_name = "fstat64";
+		      bsd_syscalls[code].sc_format = FMT_FD;
+		      break;
+
 		    case BSC_fstat_extended:
 		      bsd_syscalls[code].sc_name = "fstat_extended";
+		      bsd_syscalls[code].sc_format = FMT_FD;
+		      break;
+
+		    case BSC_fstat64_extended:
+		      bsd_syscalls[code].sc_name = "fstat64_extended";
 		      bsd_syscalls[code].sc_format = FMT_FD;
 		      break;
 
@@ -1067,8 +1153,16 @@ void init_tables(void)
 		      bsd_syscalls[code].sc_name = "lstat";
 		      break;
 
+		    case BSC_lstat64:
+		      bsd_syscalls[code].sc_name = "lstat64";
+		      break;
+
 		    case BSC_lstat_extended:
 		      bsd_syscalls[code].sc_name = "lstat_extended";
+		      break;
+
+		    case BSC_lstat64_extended:
+		      bsd_syscalls[code].sc_name = "lstat_extended64";
 		      break;
 
 		    case BSC_lstatv:
@@ -1085,6 +1179,11 @@ void init_tables(void)
 
 		    case BSC_mknod:
 		      bsd_syscalls[code].sc_name = "mknod";
+		      break;
+
+		    case BSC_umask:
+		      bsd_syscalls[code].sc_name = "umask";
+		      bsd_syscalls[code].sc_format = FMT_UMASK;
 		      break;
 
 		    case BSC_chmod:
@@ -1133,6 +1232,10 @@ void init_tables(void)
 		      bsd_syscalls[code].sc_name = "chdir";
 		      break;
                     
+		    case BSC_pthread_chdir:
+		      bsd_syscalls[code].sc_name = "pthread_chdir";
+		      break;
+                    
 		    case BSC_chroot:
 		      bsd_syscalls[code].sc_name = "chroot";
 		      break;
@@ -1142,7 +1245,7 @@ void init_tables(void)
 		      break;
                     
 		    case BSC_delete:
-		      bsd_syscalls[code].sc_name = "delete";
+		      bsd_syscalls[code].sc_name = "delete-Carbon";
 		      break;
                     
 		    case BSC_undelete:
@@ -1169,6 +1272,11 @@ void init_tables(void)
                     
 		    case BSC_fchdir:
 		      bsd_syscalls[code].sc_name = "fchdir";
+		      bsd_syscalls[code].sc_format = FMT_FD;
+		      break;
+                    
+		    case BSC_pthread_fchdir:
+		      bsd_syscalls[code].sc_name = "pthread_fchdir";
 		      bsd_syscalls[code].sc_format = FMT_FD;
 		      break;
                     
@@ -1243,8 +1351,25 @@ void init_tables(void)
 		      bsd_syscalls[code].sc_name = "statfs";
 		      break;
 
+		    case BSC_statfs64:
+		      bsd_syscalls[code].sc_name = "statfs64";
+		      break;
+
+		    case BSC_getfsstat:
+		      bsd_syscalls[code].sc_name = "getfsstat";
+		      break;
+
+		    case BSC_getfsstat64:
+		      bsd_syscalls[code].sc_name = "getfsstat64";
+		      break;
+
 		    case BSC_fstatfs:
 		      bsd_syscalls[code].sc_name = "fstatfs";
+		      bsd_syscalls[code].sc_format = FMT_FD;
+		      break;
+
+		    case BSC_fstatfs64:
+		      bsd_syscalls[code].sc_name = "fstatfs64";
 		      bsd_syscalls[code].sc_format = FMT_FD;
 		      break;
 
@@ -1259,6 +1384,11 @@ void init_tables(void)
 
 		    case BSC_getdirentries:
 		      bsd_syscalls[code].sc_name = "getdirentries";
+		      bsd_syscalls[code].sc_format = FMT_FD_IO;
+		      break;
+
+		    case BSC_getdirentries64:
+		      bsd_syscalls[code].sc_name = "getdirentries64";
 		      bsd_syscalls[code].sc_format = FMT_FD_IO;
 		      break;
 
@@ -1684,10 +1814,11 @@ main(argc, argv)
 	void set_pidexclude();
 	int quit();
 
-        if ( geteuid() != 0 ) {
-            fprintf(stderr, "'fs_usage' must be run as root...\n");
-            exit(1);
-        }
+	if (0 != reexec_to_match_kernel()) {
+	  fprintf(stderr, "Could not re-execute: %d\n", errno);
+	  exit(1);
+	}
+ 
 	get_screenwidth();
 
 	/* get our name */
@@ -1700,35 +1831,57 @@ main(argc, argv)
 		}
 	}
 	
-       while ((ch = getopt(argc, argv, "ewf:")) != EOF) {
+	while ((ch = getopt(argc, argv, "ewf:R:S:E:")) != EOF) {
+
                switch(ch) {
+
                 case 'e':
 		    exclude_pids = 1;
 		    exclude_default_pids = 0;
 		    break;
+
                 case 'w':
 		    wideflag = 1;
 		    if ((uint)columns < MAX_WIDE_MODE_COLS)
-		      columns = MAX_WIDE_MODE_COLS;
+			    columns = MAX_WIDE_MODE_COLS;
 		    break;
+
 	       case 'f':
 		   if (!strcmp(optarg, "network"))
-		       filter_mode |= NETWORK_FILTER;
+			   filter_mode |= NETWORK_FILTER;
 		   else if (!strcmp(optarg, "filesys"))
-		       filter_mode |= FILESYS_FILTER;
+			   filter_mode |= FILESYS_FILTER;
 		   else if (!strcmp(optarg, "cachehit"))
-		       filter_mode &= ~CACHEHIT_FILTER;   /* turns on CACHE_HIT */
+			   filter_mode &= ~CACHEHIT_FILTER;   /* turns on CACHE_HIT */
 		   else if (!strcmp(optarg, "exec"))
-		       filter_mode |= EXEC_FILTER;
+			   filter_mode |= EXEC_FILTER;
 		   else if (!strcmp(optarg, "pathname"))
-		       filter_mode |= PATHNAME_FILTER;
+			   filter_mode |= PATHNAME_FILTER;
+		   break;
+
+	       case 'R':
+		   RAW_flag = 1;
+		   RAW_file = optarg;
 		   break;
 		       
+	       case 'S':
+		   start_time = atof(optarg);
+		   break;
+
+	       case 'E':
+		   end_time = atof(optarg);
+		   break;
+
 	       default:
 		 exit_usage(myname);		 
 	       }
-       }
-
+	}
+	if (!RAW_flag) {
+		if ( geteuid() != 0 ) {
+			fprintf(stderr, "'fs_usage' must be run as root...\n");
+			exit(1);
+		}
+	}
         argc -= optind;
         argv += optind;
 
@@ -1779,72 +1932,78 @@ main(argc, argv)
 	      fprintf(stderr, "pid %d\n", pids[i]);
 	  }
 #endif
+	if (!RAW_flag) {
 
-	/* set up signal handlers */
-	signal(SIGINT, leave);
-	signal(SIGQUIT, leave);
+		/* set up signal handlers */
+		signal(SIGINT, leave);
+		signal(SIGQUIT, leave);
 
-	sigaction(SIGHUP, (struct sigaction *)NULL, &osa);
+		sigaction(SIGHUP, (struct sigaction *)NULL, &osa);
 
-	if (osa.sa_handler == SIG_DFL)
-	        signal(SIGHUP, leave);
-	signal(SIGTERM, leave);
+		if (osa.sa_handler == SIG_DFL)
+			signal(SIGHUP, leave);
+		signal(SIGTERM, leave);
+
+		/* grab the number of cpus */
+		size_t len;
+		mib[0] = CTL_HW;
+		mib[1] = HW_NCPU;
+		mib[2] = 0;
+		len = sizeof(num_cpus);
+		sysctl(mib, 2, &num_cpus, &len, NULL, 0);
+		num_events = EVENT_BASE * num_cpus;
+	}
 	signal(SIGWINCH, sigwinch);
 
-	/* grab the number of cpus */
-	size_t len;
-	mib[0] = CTL_HW;
-	mib[1] = HW_NCPU;
-	mib[2] = 0;
-	len = sizeof(num_cpus);
-	sysctl(mib, 2, &num_cpus, &len, NULL, 0);
-	num_events = EVENT_BASE * num_cpus;
-
 	if ((my_buffer = malloc(num_events * sizeof(kd_buf))) == (char *)0)
-	    quit("can't allocate memory for tracing info\n");
+		quit("can't allocate memory for tracing info\n");
 
-	if (ReadSharedCacheMap("/var/db/dyld/dyld_shared_cache_i386.map", &framework32))
-		ReadSharedCacheMap("/var/db/dyld/dyld_shared_cache_x86_64.map", &framework64);
-	else {
-		ReadSharedCacheMap("/var/db/dyld/dyld_shared_cache_ppc.map", &framework32);
-		ReadSharedCacheMap("/var/db/dyld/dyld_shared_cache_ppc64.map", &framework64);
+	if (ReadSharedCacheMap("/var/db/dyld/dyld_shared_cache_i386.map", &framework32, "/var/db/dyld/dyld_shared_cache_i386")) {
+		ReadSharedCacheMap("/var/db/dyld/dyld_shared_cache_x86_64.map", &framework64, "/var/db/dyld/dyld_shared_cache_x86_64");
+	} else {
+		ReadSharedCacheMap("/var/db/dyld/dyld_shared_cache_ppc.map", &framework32, "/var/db/dyld/dyld_shared_cache_ppc");
+		ReadSharedCacheMap("/var/db/dyld/dyld_shared_cache_ppc64.map", &framework64, "/var/db/dyld/dyld_shared_cache_ppc64");
 	}
 	SortFrameworkAddresses();
 
         cache_disk_names();
 
-	set_remove();
-	set_numbufs(num_events);
-	set_init();
+	if (!RAW_flag) {
 
-	if (exclude_pids == 0) {
-	        for (i = 0; i < num_of_pids; i++)
-		        set_pidcheck(pids[i], 1);
-	} else {
-	        for (i = 0; i < num_of_pids; i++)
-		        set_pidexclude(pids[i], 1);
+		set_remove();
+		set_numbufs(num_events);
+		set_init();
+
+		if (exclude_pids == 0) {
+			for (i = 0; i < num_of_pids; i++)
+				set_pidcheck(pids[i], 1);
+		} else {
+			for (i = 0; i < num_of_pids; i++)
+				set_pidexclude(pids[i], 1);
+		}
+
+		if (select_pid_mode && !one_good_pid)
+		{
+			/* 
+			   An attempt to restrict output to a given
+			   pid or command has failed. Exit gracefully
+			*/
+			set_remove();
+			exit_usage(myname);
+		}
+
+		set_enable(1);
+		init_arguments_buffer();
 	}
-
-	if (select_pid_mode && !one_good_pid)
-	  {
-	    /* 
-	       An attempt to restrict output to a given
-	       pid or command has failed. Exit gracefully
-	    */
-	    set_remove();
-	    exit_usage(myname);
-	  }
-
-	set_enable(1);
 	getdivisor();
-	init_arguments_buffer();
 
 	init_tables();
 
 	/* main loop */
 
 	while (1) {
-	        usleep(1000 * usleep_ms);
+		if (!RAW_flag)		
+			usleep(1000 * usleep_ms);
 
 		sample_sc();
 
@@ -1899,7 +2058,7 @@ void destroy_thread(struct th_info *ti) {
 
 
 struct th_info *find_empty(void) {
-        struct th_info *ti;
+	struct th_info *ti;
 
 	for (ti = &th_state[cur_start]; ti < &th_state[MAX_THREADS]; ti++, cur_start++) {
 	        if (ti->thread == 0) {
@@ -1915,7 +2074,7 @@ struct th_info *find_empty(void) {
 }
 
 
-struct th_info *find_thread(int thread, int type) {
+struct th_info *find_thread(uintptr_t thread, int type) {
         struct th_info *ti;
 
 	for (ti = &th_state[0]; ti <= &th_state[cur_max]; ti++) {
@@ -1936,7 +2095,7 @@ struct th_info *find_thread(int thread, int type) {
 
 
 void
-mark_thread_waited(int thread) {
+mark_thread_waited(uintptr_t thread) {
        struct th_info *ti;
 
        for (ti = th_state; ti <= &th_state[cur_max]; ti++) {
@@ -2113,65 +2272,78 @@ sample_sc()
 	kd_buf *kd;
 	int i, count;
 	size_t needed;
+	uint32_t my_buffer_size = 0;
 	void read_command_map();
 	void create_map_entry();
 
-        /* Get kernel buffer information */
-	get_bufinfo(&bufinfo);
-
+	if (!RAW_flag) {
+		/* Get kernel buffer information */
+		get_bufinfo(&bufinfo);
+	} else {
+		my_buffer_size = num_events * sizeof(kd_buf);
+	}
 	if (need_new_map) {
 	        read_command_map();
 	        need_new_map = 0;
 	}
-	needed = bufinfo.nkdbufs * sizeof(kd_buf);
-	mib[0] = CTL_KERN;
-	mib[1] = KERN_KDEBUG;
-	mib[2] = KERN_KDREADTR;		
-	mib[3] = 0;
-	mib[4] = 0;
-	mib[5] = 0;		/* no flags */
+	if (!RAW_flag) {
+		needed = bufinfo.nkdbufs * sizeof(kd_buf);
+		mib[0] = CTL_KERN;
+		mib[1] = KERN_KDEBUG;
+		mib[2] = KERN_KDREADTR;		
+		mib[3] = 0;
+		mib[4] = 0;
+		mib[5] = 0;		/* no flags */
 
-	if (sysctl(mib, 3, my_buffer, &needed, NULL, 0) < 0)
-                quit("trace facility failure, KERN_KDREADTR\n");
-	count = needed;
+		if (sysctl(mib, 3, my_buffer, &needed, NULL, 0) < 0)
+			quit("trace facility failure, KERN_KDREADTR\n");
+		count = needed;
 
-	if (count > (SAMPLE_SIZE / 8)) {
-	        if (usleep_ms > USLEEP_BEHIND)
-		        usleep_ms = USLEEP_BEHIND;
-	        else if (usleep_ms > USLEEP_MIN)
-	                usleep_ms /= 2;
+		if (count > (num_events / 8)) {
+			if (usleep_ms > USLEEP_BEHIND)
+				usleep_ms = USLEEP_BEHIND;
+			else if (usleep_ms > USLEEP_MIN)
+				usleep_ms /= 2;
 
-	} else	if (count < (SAMPLE_SIZE / 16)) {
-	        if (usleep_ms < USLEEP_MAX)
-	                usleep_ms *= 2;
-	}
-
-	if (bufinfo.flags & KDBG_WRAPPED) {
-	        fprintf(stderr, "fs_usage: buffer overrun, events generated too quickly: %d\n", count);
-
-	        for (i = 0; i <= cur_max; i++) {
-			th_state[i].thread = 0;
-			th_state[i].pid = 0;
-			th_state[i].pathptr = (long *)NULL;
-			th_state[i].pathname[0] = 0;
+		} else	if (count < (num_events / 16)) {
+			if (usleep_ms < USLEEP_MAX)
+		                usleep_ms *= 2;
 		}
-		cur_max = 0;
-		cur_start = 0;
-		need_new_map = 1;
-		map_is_the_same = 0;
+
+		if (bufinfo.flags & KDBG_WRAPPED) {
+			fprintf(stderr, "fs_usage: buffer overrun, events generated too quickly: %d\n", count);
+
+			for (i = 0; i <= cur_max; i++) {
+				th_state[i].thread = 0;
+				th_state[i].pid = 0;
+				th_state[i].pathptr = (uintptr_t *)NULL;
+				th_state[i].pathname[0] = 0;
+			}
+			cur_max = 0;
+			cur_start = 0;
+			need_new_map = 1;
+			map_is_the_same = 0;
 		
-		set_enable(0);
-		set_enable(1);
+			set_enable(0);
+			set_enable(1);
+		}
+	} else {
+		int bytes_read;
+
+                if ((bytes_read = read(RAW_fd, my_buffer, my_buffer_size)) < sizeof(kd_buf))
+			exit(0);
+		count = bytes_read / sizeof(kd_buf);
 	}
 	kd = (kd_buf *)my_buffer;
 #if 0
 	fprintf(stderr, "READTR returned %d items\n", count);
 #endif
 	for (i = 0; i < count; i++) {
-	        int debugid, thread;
+		uint32_t debugid;
+		uintptr_t thread;
 		int type;
-	        int index;
-		long *sargptr;
+		int index;
+		uintptr_t *sargptr;
 		uint64_t now;
 		long long l_usecs;
 		int secs;
@@ -2184,9 +2356,9 @@ sample_sc()
 		debugid = kd[i].debugid;
 		type    = kd[i].debugid & DBG_FUNC_MASK;
 
-                now = kd[i].timestamp & KDBG_TIMESTAMP_MASK;
+		now = kdbg_get_timestamp(&kd[i]);
 
-		if (i == 0)
+		if (i == 0 && !RAW_flag)
 		{
 		    curr_time = time((long *)0);
 		    /*
@@ -2200,6 +2372,8 @@ sample_sc()
 			    bias_secs = curr_time - secs;
 		    }
 		}
+		if (RAW_flag && bias_now == 0.0)
+			bias_now = now;
 		
 		if ((type & P_DISKIO_MASK) == P_DISKIO) {
 		        insert_diskio(type, kd[i].arg1, kd[i].arg2, kd[i].arg3, kd[i].arg4, thread, (double)now);
@@ -2268,6 +2442,7 @@ sample_sc()
 		        continue;
 		    break;
 
+		case MACH_idle:
 		case MACH_sched:
 		case MACH_stkhandoff:
                     mark_thread_waited(thread);
@@ -2295,8 +2470,8 @@ sample_sc()
 			     * kernel sends us more VFS_LOOKUP entries than we can
 			     *  handle.
 			     */
-			    if (sargptr >= &ti->pathname[NUMPARMS]) {
-				continue;
+				if ((uintptr_t)sargptr >= (uintptr_t)&ti->pathname[NUMPARMS]) {
+					continue;
 			    }
 
                             /*
@@ -2343,16 +2518,30 @@ sample_sc()
 
 		switch (type) {
 
+		    case SPEC_ioctl:
+		      if (kd[i].arg2 == DKIOCSYNCHRONIZECACHE)
+			    exit_syscall("IOCTL", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, FMT_SPEC_IOCTL, (double)now);
+		      else {
+			      if ((ti = find_thread(thread, type))) {
+				      destroy_thread(ti);
+			      }
+		      }
+		      continue;
+
 		    case MACH_pageout:
 		      if (kd[i].arg2) 
-			      exit_syscall("PAGE_OUT_D", thread, type, 0, kd[i].arg1, 0, 0, FMT_PGOUT, (double)now);
+			      exit_syscall("PAGE_OUT_ANON", thread, type, 0, kd[i].arg1, 0, 0, FMT_PGOUT, (double)now);
 		      else
-			      exit_syscall("PAGE_OUT_V", thread, type, 0, kd[i].arg1, 0, 0, FMT_PGOUT, (double)now);
+			      exit_syscall("PAGE_OUT_FILE", thread, type, 0, kd[i].arg1, 0, 0, FMT_PGOUT, (double)now);
 		      continue;
 
 		    case MACH_vmfault:
 		      if (kd[i].arg4 == DBG_PAGEIN_FAULT)
 			      exit_syscall("PAGE_IN", thread, type, 0, kd[i].arg1, kd[i].arg2, 0, FMT_PGIN, (double)now);
+		      else if (kd[i].arg4 == DBG_PAGEINV_FAULT)
+			      exit_syscall("PAGE_IN_FILE", thread, type, 0, kd[i].arg1, kd[i].arg2, 0, FMT_PGIN, (double)now);
+		      else if (kd[i].arg4 == DBG_PAGEIND_FAULT)
+			      exit_syscall("PAGE_IN_ANON", thread, type, 0, kd[i].arg1, kd[i].arg2, 0, FMT_PGIN, (double)now);
 		      else if (kd[i].arg4 == DBG_CACHE_HIT_FAULT)
 			      exit_syscall("CACHE_HIT", thread, type, 0, kd[i].arg1, kd[i].arg2, 0, FMT_CACHEHIT, (double)now);
 		      else {
@@ -2415,7 +2604,7 @@ sample_sc()
 
 
 void
-enter_syscall_now(int thread, int type, kd_buf *kd, char *name, double now)
+enter_syscall_now(uintptr_t thread, int type, kd_buf *kd, char *name, double now)
 {
        struct th_info *ti;
        int    secs;
@@ -2441,12 +2630,17 @@ enter_syscall_now(int thread, int type, kd_buf *kd, char *name, double now)
        if ((ti = find_empty()) == NULL)
 	       return;
                    
-       if ((type & CLASS_MASK) == FILEMGR_BASE) {
+       if ((type & CLASS_MASK) == FILEMGR_BASE &&
+	   (!RAW_flag || (now >= start_time && now <= end_time))) {
 
 	       filemgr_in_progress++;
 	       ti->in_filemgr = 1;
 
-	       l_usecs = (long long)(now / divisor);
+	       if (RAW_flag) {
+		       l_usecs = (long long)((now - bias_now) / divisor);
+		       l_usecs += ((long long)8 * (long long)3600 * (long long)1000000);
+	       } else
+		       l_usecs = (long long)(now / divisor);
 	       secs = l_usecs / 1000000;
 	       curr_time = bias_secs + secs;
 		   
@@ -2470,7 +2664,7 @@ enter_syscall_now(int thread, int type, kd_buf *kd, char *name, double now)
 		       nmclen = strlen(buf);
 		       printf("%s", buf);
 
-		       sprintf(buf, "(%d, 0x%x, 0x%x, 0x%x)", (short)kd->arg1, kd->arg2, kd->arg3, kd->arg4);
+		       sprintf(buf, "(%d, 0x%lx, 0x%lx, 0x%lx)", (short)kd->arg1, kd->arg2, kd->arg3, kd->arg4);
 		       argsclen = strlen(buf);
 		       
 		       /*
@@ -2500,7 +2694,7 @@ enter_syscall_now(int thread, int type, kd_buf *kd, char *name, double now)
 		       else
 			       printf("%-12.12s\n", map->command); 
 	       } else
-		       printf("  %-24.24s (%5d, %#x, 0x%x, 0x%x)\n",         name, (short)kd->arg1, kd->arg2, kd->arg3, kd->arg4);
+		       printf("  %-24.24s (%5d, %#lx, 0x%lx, 0x%lx)\n",         name, (short)kd->arg1, kd->arg2, kd->arg3, kd->arg4);
        }
        ti->thread = thread;
        ti->waited = 0;
@@ -2510,17 +2704,17 @@ enter_syscall_now(int thread, int type, kd_buf *kd, char *name, double now)
        ti->arg2   = kd->arg2;
        ti->arg3   = kd->arg3;
        ti->arg4   = kd->arg4;
-       ti->pathptr = (long *)NULL;
+       ti->pathptr = (uintptr_t *)NULL;
        ti->pathname[0] = 0;
 }
 
 
 void
-enter_syscall(int thread, int type, kd_buf *kd, char *name, double now)
+enter_syscall(uintptr_t thread, int type, kd_buf *kd, char *name, double now)
 {
        int index;
 
-       if (type == MACH_pageout || type == MACH_vmfault || type == MSC_map_fd) {
+       if (type == MACH_pageout || type == MACH_vmfault || type == MSC_map_fd || type == SPEC_ioctl) {
 	       enter_syscall_now(thread, type, kd, name, now);
 	       return;
        }
@@ -2560,7 +2754,7 @@ enter_syscall(int thread, int type, kd_buf *kd, char *name, double now)
 */
 
 void
-extend_syscall(int thread, int type, kd_buf *kd)
+extend_syscall(uintptr_t thread, int type, kd_buf *kd)
 {
        struct th_info *ti;
 
@@ -2616,7 +2810,7 @@ extend_syscall(int thread, int type, kd_buf *kd)
 
 
 void
-exit_syscall(char *sc_name, int thread, int type, int arg1, int arg2, int arg3, int arg4,
+exit_syscall(char *sc_name, uintptr_t thread, int type, int arg1, int arg2, int arg3, int arg4,
 	                    int format, double now)
 {
         struct th_info *ti;
@@ -2688,7 +2882,7 @@ int clip_64bit(char *s, uint64_t value)
 
 
 void
-format_print(struct th_info *ti, char *sc_name, int thread, int type, int arg1, int arg2, int arg3, int arg4,
+format_print(struct th_info *ti, char *sc_name, uintptr_t thread, int type, int arg1, int arg2, int arg3, int arg4,
 	     int format, double now, double stime, int waited, char *pathname, struct diskio *dio)
 {
         int secs;
@@ -2707,16 +2901,28 @@ format_print(struct th_info *ti, char *sc_name, int thread, int type, int arg1, 
 	uint64_t user_addr;
 	uint64_t user_size;
 	char *framework_name;
+	char *framework_type;
 	char *p1;
 	char *p2;
 	char buf[MAXWIDTH];
 	command_name = "";
 	int	need_msec_update = 0;
 	static char timestamp[32];
-	static int  last_timestamp = 0;
+	static int  last_timestamp = -1;
 	static int  timestamp_len = 0;
 	static int  last_msec = 0;
 
+
+	if (RAW_flag) {
+		l_usecs = (long long)((now - bias_now) / divisor);
+
+		if ((double)l_usecs < start_time || (double)l_usecs > end_time)
+			return;
+		l_usecs += ((long long)8 * (long long)3600 * (long long)1000000);
+	} else
+		l_usecs = (long long)(now / divisor);
+	secs = l_usecs / 1000000;
+	curr_time = bias_secs + secs;
 
 	class = type >> 24;
 
@@ -2735,10 +2941,6 @@ format_print(struct th_info *ti, char *sc_name, int thread, int type, int arg1, 
 		if (map)
 		        command_name = map->command;
 	}
-	l_usecs = (long long)(now / divisor);
-	secs = l_usecs / 1000000;
-	curr_time = bias_secs + secs;
-
 	if (last_timestamp != curr_time) {
 	        timestamp_len = sprintf(timestamp, "%-8.8s", &(ctime(&curr_time)[11]));
 		last_timestamp = curr_time;
@@ -2776,7 +2978,8 @@ format_print(struct th_info *ti, char *sc_name, int thread, int type, int arg1, 
 	else
 	        clen = printf("%s  %-17.17s", timestamp, sc_name);
        
-	framework_name = (char *)0;
+
+	framework_name = NULL;
 
 	if (columns > MAXCOLS || wideflag) {
 
@@ -2830,7 +3033,8 @@ format_print(struct th_info *ti, char *sc_name, int thread, int type, int arg1, 
 			 * pagein
 			 */
 			user_addr = ((uint64_t)arg2 << 32) | (uint32_t)arg3;
-		        framework_name = lookup_name(user_addr);
+
+		        lookup_name(user_addr, &framework_type, &framework_name);
 			clen += clip_64bit(" A=", user_addr);
 			break;
 
@@ -2840,7 +3044,7 @@ format_print(struct th_info *ti, char *sc_name, int thread, int type, int arg1, 
 			 */
 			user_addr = ((uint64_t)arg2 << 32) | (uint32_t)arg3;
 
-		        framework_name = lookup_name(user_addr);
+		        lookup_name(user_addr, &framework_type, &framework_name);
 			clen += clip_64bit(" A=", user_addr);
 			break;
 
@@ -2907,6 +3111,7 @@ format_print(struct th_info *ti, char *sc_name, int thread, int type, int arg1, 
 			 * fcntl
 			 */
 			char *p = NULL;
+			int  fd = -1;
 
 			if (arg1)
 			        clen += printf(" F=%-3d[%3d]", ti->arg1, arg1);
@@ -2979,6 +3184,21 @@ format_print(struct th_info *ti, char *sc_name, int thread, int type, int arg1, 
 			  p = "PATHPKG_CHECK";
 			  break;
 
+			case F_OPENFROM:
+			  p = "OPENFROM";
+			  
+			  if (arg1 == 0)
+				  fd = arg2;
+			  break;
+
+			case F_UNLINKFROM:
+			  p = "UNLINKFROM";
+			  break;
+
+			case F_CHECK_OPENEVT:
+			  p = "CHECK_OPENEVT";
+			  break;
+
 			case F_NOCACHE:
 			  if (ti->arg3)
 			          p = "CACHING OFF";
@@ -2986,10 +3206,20 @@ format_print(struct th_info *ti, char *sc_name, int thread, int type, int arg1, 
 			          p = "CACHING ON";
 			  break;
 
+			case F_GLOBAL_NOCACHE:
+			  if (ti->arg3)
+			          p = "CACHING OFF (GLOBAL)";
+			  else
+			          p = "CACHING ON (GLOBAL)";
+			  break;
+
 			}
-			if (p)
-			        clen += printf(" <%s>", p);
-			else
+			if (p) {
+				if (fd == -1)
+					clen += printf(" <%s>", p);
+				else
+					clen += printf(" <%s> F=%d", p, fd);
+			} else
 			        clen += printf(" <CMD=%d>", ti->arg2);
 
 			break;
@@ -3006,6 +3236,16 @@ format_print(struct th_info *ti, char *sc_name, int thread, int type, int arg1, 
 			        clen += printf(" F=%-3d", ti->arg1);
 
 		        clen += printf(" <CMD=0x%x>", ti->arg2);
+
+			break;
+		      }
+
+		      case FMT_SPEC_IOCTL:
+		      {
+			/*
+			 * fcntl
+			 */
+			clen += printf(" <DKIOCSYNCHRONIZECACHE>    /dev/%s", find_disk_name(arg1));
 
 			break;
 		      }
@@ -3178,6 +3418,7 @@ format_print(struct th_info *ti, char *sc_name, int thread, int type, int arg1, 
 			break;
 		      }
 
+		      case FMT_UMASK:
 		      case FMT_FCHMOD:
 		      case FMT_FCHMOD_EXT:
 		      case FMT_CHMOD:
@@ -3199,7 +3440,9 @@ format_print(struct th_info *ti, char *sc_name, int thread, int type, int arg1, 
 				else	
 				        clen += printf(" ");
 			}
-			if (format == FMT_FCHMOD || format == FMT_CHMOD)
+			if (format == FMT_UMASK)
+				mode = ti->arg1;
+			else if (format == FMT_FCHMOD || format == FMT_CHMOD)
 			        mode = ti->arg2;
 			else
 			        mode = ti->arg4;
@@ -3207,7 +3450,7 @@ format_print(struct th_info *ti, char *sc_name, int thread, int type, int arg1, 
 			get_mode_string(mode, &buf[0]);
 
 			if (arg1 == 0)
-			        clen += printf("<%s>     ", buf);
+			        clen += printf("<%s>      ", buf);
 			else
 			        clen += printf("<%s>", buf);
 			break;
@@ -3456,7 +3699,7 @@ format_print(struct th_info *ti, char *sc_name, int thread, int type, int arg1, 
 	        clen -= 3;
 
 	if (framework_name)
-	        len = sprintf(&buf[0], " %s ", framework_name);
+	        len = sprintf(&buf[0], " %s %s ", framework_type, framework_name);
 	else if (*pathname != '\0')
 	        len = sprintf(&buf[0], " %s ", pathname);
 	else
@@ -3558,31 +3801,63 @@ void read_command_map()
     }
 
     prev_total_threads = total_threads;
-    total_threads = bufinfo.nkdthreads;
-    size = bufinfo.nkdthreads * sizeof(kd_threadmap);
 
-    if (size)
-    {
-        if ((mapptr = (kd_threadmap *) malloc(size)))
-	{
-	     bzero (mapptr, size);
+    if (!RAW_flag) {
+
+	    total_threads = bufinfo.nkdthreads;
+	    size = bufinfo.nkdthreads * sizeof(kd_threadmap);
+
+	    if (size)
+	    {
+		    if ((mapptr = (kd_threadmap *) malloc(size)))
+		    {
+			    bzero (mapptr, size);
  
-	     /* Now read the threadmap */
-	     mib[0] = CTL_KERN;
-	     mib[1] = KERN_KDEBUG;
-	     mib[2] = KERN_KDTHRMAP;
-	     mib[3] = 0;
-	     mib[4] = 0;
-	     mib[5] = 0;		/* no flags */
-	     if (sysctl(mib, 3, mapptr, &size, NULL, 0) < 0)
-	     {
-		 /* This is not fatal -- just means I cant map command strings */
-		 free(mapptr);
-		 mapptr = 0;
-	     }
-	}
-    }
+			    /* Now read the threadmap */
+			    mib[0] = CTL_KERN;
+			    mib[1] = KERN_KDEBUG;
+			    mib[2] = KERN_KDTHRMAP;
+			    mib[3] = 0;
+			    mib[4] = 0;
+			    mib[5] = 0;		/* no flags */
+			    if (sysctl(mib, 3, mapptr, &size, NULL, 0) < 0)
+			    {
+				    /* This is not fatal -- just means I cant map command strings */
+				    free(mapptr);
+				    mapptr = 0;
+			    }
+		    }
+	    }
+    } else {
+	    uint32_t count_of_names;
 
+	    RAW_fd = open(RAW_file, O_RDONLY);
+
+	    if (RAW_fd < 0) {
+		    perror("Can't open RAW file");
+		    exit(1);
+	    }
+	    if (read(RAW_fd, &count_of_names, sizeof(uint32_t)) != sizeof(uint32_t)) {
+		    perror("read of RAW file failed");
+		    exit(2);
+	    }
+	    total_threads = count_of_names;
+	    size = count_of_names * sizeof(kd_threadmap);
+	    
+	    if (size)
+	    {
+		    if ((mapptr = (kd_threadmap *) malloc(size)))
+		    {
+			    bzero (mapptr, size);
+
+			    if (read(RAW_fd, mapptr, size) != size) {
+
+				    free(mapptr);
+				    mapptr = 0;
+			    }
+		    }
+	    }
+    }
     if (mapptr && (filter_mode & (NETWORK_FILTER | FILESYS_FILTER)))
     {
 	if (fdmapptr)
@@ -3633,7 +3908,7 @@ void read_command_map()
 }
 
 
-void create_map_entry(int thread, int pid, char *command)
+void create_map_entry(uintptr_t thread, int pid, char *command)
 {
     int i, n;
     kd_threadmap *map;
@@ -3644,7 +3919,7 @@ void create_map_entry(int thread, int pid, char *command)
 
     for (i = 0, map = 0; !map && i < total_threads; i++)
     {
-        if ((int)mapptr[i].thread == thread )
+        if (mapptr[i].thread == thread )
 	{
 	    map = &mapptr[i];   /* Reuse this entry, the thread has been
 				 * reassigned */
@@ -3721,7 +3996,7 @@ void create_map_entry(int thread, int pid, char *command)
 }
 
 
-kd_threadmap *find_thread_map(int thread)
+kd_threadmap *find_thread_map(uintptr_t thread)
 {
     int i;
     kd_threadmap *map;
@@ -3732,7 +4007,7 @@ kd_threadmap *find_thread_map(int thread)
     for (i = 0; i < total_threads; i++)
     {
         map = &mapptr[i];
-	if (map->valid && ((int)map->thread == thread))
+	if (map->valid && (map->thread == thread))
 	{
 	    return(map);
 	}
@@ -3740,7 +4015,7 @@ kd_threadmap *find_thread_map(int thread)
     return ((kd_threadmap *)0);
 }
 
-fd_threadmap *find_fd_thread_map(int thread)
+fd_threadmap *find_fd_thread_map(uintptr_t thread)
 {
     int i;
     fd_threadmap *fdmap = 0;
@@ -3751,7 +4026,7 @@ fd_threadmap *find_fd_thread_map(int thread)
     for (i = 0; i < total_threads; i++)
     {
         fdmap = &fdmapptr[i];
-	if (fdmap->fd_valid && ((int)fdmap->fd_thread == thread))
+	if (fdmap->fd_valid && (fdmap->fd_thread == thread))
 	{
 	    return(fdmap);
 	}
@@ -3761,7 +4036,7 @@ fd_threadmap *find_fd_thread_map(int thread)
 
 
 void
-kill_thread_map(int thread)
+kill_thread_map(uintptr_t thread)
 {
     kd_threadmap *map;
     fd_threadmap *fdmap;
@@ -3823,32 +4098,37 @@ argtopid(str)
 
 
 
-char *lookup_name(uint64_t user_addr) 
+void
+lookup_name(uint64_t user_addr, char **type, char **name) 
 {       
-        register int i;
-	register int start, last;
+        int i;
+	int start, last;
 	
-	if (numFrameworks && ((user_addr >= framework32.b_address && user_addr < framework32.e_address) ||
-			      (user_addr >= framework64.b_address && user_addr < framework64.e_address))) {
+	*name = NULL;
+	*type = NULL;
+
+	if (numFrameworks) {
+
+		if ((user_addr >= framework32.b_address && user_addr < framework32.e_address) ||
+		    (user_addr >= framework64.b_address && user_addr < framework64.e_address)) {
 			      
-		start = 0;
-		last  = numFrameworks;
+			start = 0;
+			last  = numFrameworks;
 
-		for (i = numFrameworks / 2; i >= 0 && i < numFrameworks; ) {
-
-			if (user_addr >= frameworkInfo[i].b_address && user_addr < frameworkInfo[i].e_address)
-				return(frameworkInfo[i].name);
-
-			if (user_addr >= frameworkInfo[i].b_address) {
-				start = i;
-				i = start + ((last - i) / 2);
-			} else {
-				last = i;
-				i = start + ((i - start) / 2);
+			for (i = numFrameworks / 2; start < last; i = start + ((last - start) / 2)) {
+				if (user_addr > frameworkInfo[i].e_address) {
+					start = i+1;
+				} else {
+					last = i;
+				}
+			}
+			if (start < numFrameworks &&
+			    user_addr >= frameworkInfo[start].b_address && user_addr < frameworkInfo[start].e_address) {
+				*type = frameworkType[frameworkInfo[start].r_type];
+				*name = frameworkInfo[start].name;
 			}
 		}
 	}
-	return (0);
 }
 
 
@@ -3882,18 +4162,18 @@ int scanline(char *inputstring, char **argv, int maxtokens)
 }
 
 
-int ReadSharedCacheMap(const char *path, LibraryRange *lr)
+int ReadSharedCacheMap(const char *path, LibraryRange *lr, char *linkedit_name)
 {
-	char buf[1024];
-
-	FILE		*fd;
-	uint64_t	b_frameworkAddress, b_frameworkDataAddress;
-	uint64_t	e_frameworkAddress, e_frameworkDataAddress;
-	char frameworkName[256];
-	char *tokens[64];
-	int  ntokens;
-	char *substring,*ptr;
-
+	uint64_t	b_address, e_address;
+	char	buf[1024];
+	char	*fnp;
+	FILE	*fd;
+	char	frameworkName[256];
+	char	*tokens[64];
+	int	ntokens;
+	int	type;
+	int	linkedit_found = 0;
+	char	*substring, *ptr;
 
 	bzero(buf, sizeof(buf));
 	bzero(tokens, sizeof(tokens));
@@ -3901,7 +4181,6 @@ int ReadSharedCacheMap(const char *path, LibraryRange *lr)
 	lr->b_address = 0;
 	lr->e_address = 0;
 
-    
 	if ((fd = fopen(path, "r")) == 0)
 	{
 		return 0;
@@ -3915,11 +4194,6 @@ int ReadSharedCacheMap(const char *path, LibraryRange *lr)
 	frameworkName[0] = 0;
 
 	for (;;) {
-		b_frameworkAddress = 0;
-		b_frameworkDataAddress = 0;
-		e_frameworkAddress = 0;
-		e_frameworkDataAddress = 0;
-
 		/*
 		 * Extract lib name from path name
 		 */
@@ -3957,6 +4231,9 @@ int ReadSharedCacheMap(const char *path, LibraryRange *lr)
 			strncpy(frameworkName, substring, 256);
 			frameworkName[255] = 0;
 		}
+		fnp = (char *)malloc(strlen(frameworkName) + 1);
+		strcpy(fnp, frameworkName);
+
 		while (fgets(buf, 1023, fd) && numFrameworks < (MAXINDEX - 2))
 		{
 			/*
@@ -3969,48 +4246,52 @@ int ReadSharedCacheMap(const char *path, LibraryRange *lr)
 			if (ntokens < 4)
 				continue;
 
-			if (strncmp(tokens[0], "__TEXT", 6) == 0) {
-				b_frameworkAddress = strtoull(tokens[1], 0, 16);
-				e_frameworkAddress = strtoull(tokens[3], 0, 16);
-			} else if (strncmp(tokens[0], "__DATA", 6) == 0) {
-				b_frameworkDataAddress = strtoull(tokens[1], 0, 16);
-				e_frameworkDataAddress = strtoull(tokens[3], 0, 16);
-			} else if (strncmp(tokens[0], "__LINKEDIT", 10) == 0)
+			if (strncmp(tokens[0], "__TEXT", 6) == 0)
+				type = TEXT_R;
+			else if (strncmp(tokens[0], "__DATA", 6) == 0)
+				type = DATA_R;
+			else if (strncmp(tokens[0], "__OBJC", 6) == 0)
+				type = OBJC_R;
+			else if (strncmp(tokens[0], "__IMPORT", 8) == 0)
+				type = IMPORT_R;
+			else if (strncmp(tokens[0], "__UNICODE", 9) == 0)
+				type = UNICODE_R;
+			else if (strncmp(tokens[0], "__IMAGE", 7) == 0)
+				type = IMAGE_R;
+			else if (strncmp(tokens[0], "__LINKEDIT", 10) == 0)
+				type = LINKEDIT_R;
+			else
+				type = -1;
+
+			if (type == LINKEDIT_R && linkedit_found)
 				break;
-		}
-		/*
-		 * Make sure that we have 2 addresses
-		 */
-		if (b_frameworkAddress && b_frameworkDataAddress) {
 
-			frameworkInfo[numFrameworks].b_address   = b_frameworkAddress;
-			frameworkInfo[numFrameworks].e_address   = e_frameworkAddress;
+			if (type != -1) {
+				b_address = strtoull(tokens[1], 0, 16);
+				e_address = strtoull(tokens[3], 0, 16);
 
-			frameworkInfo[numFrameworks+1].b_address = b_frameworkDataAddress;
-			frameworkInfo[numFrameworks+1].e_address = e_frameworkDataAddress;
-
-			frameworkInfo[numFrameworks].name = (char *)malloc(strlen(frameworkName) + 1);
-			strcpy(frameworkInfo[numFrameworks].name, frameworkName);
-			frameworkInfo[numFrameworks+1].name = frameworkInfo[numFrameworks].name;
-
-			numFrameworks += 2;
+				frameworkInfo[numFrameworks].b_address	= b_address;
+				frameworkInfo[numFrameworks].e_address	= e_address;
+				frameworkInfo[numFrameworks].r_type	= type;
+				
+				if (type == LINKEDIT_R) {
+					frameworkInfo[numFrameworks].name = linkedit_name;
+					linkedit_found = 1;
+				} else
+					frameworkInfo[numFrameworks].name = fnp;
 #if 0
-			printf("%s: %qx-%qx  %qx-%qx\n", frameworkName, b_frameworkAddress, e_frameworkAddress, b_frameworkDataAddress, e_frameworkDataAddress);
+				printf("%s(%d): %qx-%qx\n", frameworkInfo[numFrameworks].name, type, b_address, e_address);
 #endif
-			if (lr->b_address == 0)
-				lr->b_address = b_frameworkAddress;
+				if (lr->b_address == 0 || b_address < lr->b_address)
+					lr->b_address = b_address;
 
-			if (b_frameworkAddress < lr->b_address)
-				lr->b_address = b_frameworkAddress;
+				if (lr->e_address == 0 || e_address > lr->e_address)
+					lr->e_address = e_address;
 
-			if (b_frameworkDataAddress < lr->b_address)
-				lr->b_address = b_frameworkDataAddress;
-
-			if (e_frameworkAddress > lr->e_address)
-				lr->e_address = e_frameworkAddress;
-
-			if (e_frameworkDataAddress > lr->e_address)
-				lr->e_address = e_frameworkDataAddress;
+				numFrameworks++;
+			}
+			if (type == LINKEDIT_R)
+				break;
 		}
 		if (fgets(buf, 1023, fd) == 0)
 			break;
@@ -4019,6 +4300,9 @@ int ReadSharedCacheMap(const char *path, LibraryRange *lr)
 	}
 	fclose(fd);
 
+#if 0
+	printf("%s range, %qx-%qx\n", path, lr->b_address, lr->e_address);
+#endif
 	return 1;
 }
 
@@ -4035,7 +4319,7 @@ SortFrameworkAddresses()
 }
 
 
-struct diskio *insert_diskio(int type, int bp, int dev, int blkno, int io_size, int thread, double curtime)
+struct diskio *insert_diskio(int type, int bp, int dev, int blkno, int io_size, uintptr_t thread, double curtime)
 {
     register struct diskio *dio;
     register kd_threadmap  *map;
@@ -4073,7 +4357,7 @@ struct diskio *insert_diskio(int type, int bp, int dev, int blkno, int io_size, 
 }
 
 
-struct diskio *complete_diskio(int bp, int io_errno, int resid, int thread, double curtime)
+struct diskio *complete_diskio(int bp, int io_errno, int resid, uintptr_t thread, double curtime)
 {
     register struct diskio *dio;
     
@@ -4197,16 +4481,36 @@ void cache_disk_names()
 }
 
 
+void recache_disk_names()
+{
+	struct diskrec *dnp, *next_dnp;
+
+	for (dnp = disk_list; dnp; dnp = next_dnp) {
+		next_dnp = dnp->next;
+
+		free(dnp->diskname);
+		free(dnp);
+	}
+	disk_list = NULL;
+
+	cache_disk_names();
+}
+
+
 char *find_disk_name(int dev)
 {
     struct diskrec *dnp;
+    int	i;
     
     if (dev == NFS_DEV)
         return ("NFS");
         
-    for (dnp = disk_list; dnp; dnp = dnp->next) {
-        if (dnp->dev == dev)
-            return (dnp->diskname);
+    for (i = 0; i < 2; i++) {
+	    for (dnp = disk_list; dnp; dnp = dnp->next) {
+		    if (dnp->dev == dev)
+			    return (dnp->diskname);
+	    }
+	    recache_disk_names();
     }
     return ("NOTFOUND");
 }
@@ -4495,7 +4799,7 @@ get_real_command_name(int pid, char *cbuf, int csize)
      * was called with.
      */
     mib[0] = CTL_KERN;
-    mib[1] = KERN_PROCARGS;
+    mib[1] = KERN_PROCARGS2;
     mib[2] = pid;
     mib[3] = 0;
 

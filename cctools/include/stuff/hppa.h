@@ -25,55 +25,55 @@
 #endif
 
 __private_extern__ void calc_hppa_HILO(
-    unsigned long base,
-    unsigned long offset,
-    unsigned long *left21,
-    unsigned long *right14);
+    uint32_t base,
+    uint32_t offset,
+    uint32_t *left21,
+    uint32_t *right14);
 
-__private_extern__ unsigned long assemble_17(
-    unsigned long x,
-    unsigned long y,
-    unsigned long z);
+__private_extern__ uint32_t assemble_17(
+    uint32_t x,
+    uint32_t y,
+    uint32_t z);
 
-__private_extern__ unsigned long assemble_21(
-    unsigned long x);
+__private_extern__ uint32_t assemble_21(
+    uint32_t x);
 
-__private_extern__ unsigned long assemble_12(
-    unsigned long x,
-    unsigned long y);
+__private_extern__ uint32_t assemble_12(
+    uint32_t x,
+    uint32_t y);
 
-__private_extern__ unsigned long assemble_3(
-    unsigned long x);
+__private_extern__ uint32_t assemble_3(
+    uint32_t x);
 
-__private_extern__ unsigned long sign_ext(
-    unsigned long x,
-    unsigned long len);
+__private_extern__ uint32_t sign_ext(
+    uint32_t x,
+    uint32_t len);
 
-__private_extern__ unsigned long low_sign_ext(
-    unsigned long x,
-    unsigned long len);
+__private_extern__ uint32_t low_sign_ext(
+    uint32_t x,
+    uint32_t len);
 
-__private_extern__ unsigned long dis_assemble_21(
-    unsigned long as21);
+__private_extern__ uint32_t dis_assemble_21(
+    uint32_t as21);
 
-__private_extern__ unsigned long low_sign_unext(
-    unsigned long x,
-    unsigned long len);
+__private_extern__ uint32_t low_sign_unext(
+    uint32_t x,
+    uint32_t len);
 
 __private_extern__ void dis_assemble_17(
-    unsigned long as17,
-    unsigned long *x,
-    unsigned long *y,
-    unsigned long *z);
+    uint32_t as17,
+    uint32_t *x,
+    uint32_t *y,
+    uint32_t *z);
 
-__private_extern__ unsigned long sign_unext(
-    unsigned long x,
-    unsigned long len);
+__private_extern__ uint32_t sign_unext(
+    uint32_t x,
+    uint32_t len);
 
-__private_extern__ unsigned long dis_assemble_3(
-    unsigned long x);
+__private_extern__ uint32_t dis_assemble_3(
+    uint32_t x);
 
 __private_extern__ void dis_assemble_12(
-    unsigned long as12,
-    unsigned long *x,
-    unsigned long *y);
+    uint32_t as12,
+    uint32_t *x,
+    uint32_t *y);

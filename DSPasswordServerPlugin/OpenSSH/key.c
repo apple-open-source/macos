@@ -283,7 +283,7 @@ pwsf_key_read(Key *ret, char **cpp)
 		if (strncmp(cp, SSH_DSS " ", 7) != 0)
 			return 0;
 		cp += 7;
-		len = 2*strlen(cp);
+		len = 2*(int)strlen(cp);
 		blob = xmalloc(len);
 		n = uudecode(cp, blob, len);
 		if (n < 0) {

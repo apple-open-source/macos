@@ -15,8 +15,8 @@
 ;;
 ;; You should have received a copy of the GNU General Public License
 ;; along with GCC; see the file COPYING.  If not, write to the
-;; Free Software Foundation, 59 Temple Place - Suite 330, Boston,
-;; MA 02111-1307, USA.
+;; Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
+;; MA 02110-1301, USA.
 
 ;; Sources: IBM Red Book and White Paper on POWER4
 
@@ -173,6 +173,12 @@
   |(du2_power4,lsu2_power4,vec_power4)\
   |(du3_power4,lsu2_power4,vec_power4)\
   |(du4_power4,lsu1_power4,vec_power4)")
+
+(define_insn_reservation "power4-llsc" 11
+  (and (eq_attr "type" "load_l,store_c,sync")
+       (eq_attr "cpu" "power4"))
+  "du1_power4+du2_power4+du3_power4+du4_power4,\
+  lsu1_power4")
 
 
 ; Integer latency is 2 cycles
@@ -353,6 +359,12 @@
   |(du2_power4,fpu2_power4*35)\
   |(du3_power4,fpu2_power4*35)\
   |(du4_power4,fpu2_power4*35)")
+
+(define_insn_reservation "power4-isync" 2
+  (and (eq_attr "type" "isync")
+       (eq_attr "cpu" "power4"))
+  "du1_power4+du2_power4+du3_power4+du4_power4,\
+  lsu1_power4")
 
 
 ; VMX

@@ -30,14 +30,13 @@ if os.path.exists(xsl_dir):
   sys.exit(0)
 
 for i in candidate_xsldirs:
-  globs = glob.glob(i)
   # Crude method of preferring the highest version, when multiple exist
-  globs.sort() 
+  globs = sorted(glob.glob(i))
   globs.reverse()
   for j in globs:
-    if os.path.exists(os.path.join(i, 'html', 'docbook.xsl')):
-      os.symlink(i, xsl_dir)
-      print "Found and linked %s" % (i,)
+    if os.path.exists(os.path.join(j, 'html', 'docbook.xsl')):
+      os.symlink(j, xsl_dir)
+      print "Found and linked %s" % (j,)
       sys.exit(0)
 
 sys.stderr.write('ERROR: Failed to find a DocBook XSL directory\n')

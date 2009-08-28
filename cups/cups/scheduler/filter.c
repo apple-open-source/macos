@@ -1,9 +1,9 @@
 /*
- * "$Id: filter.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: filter.c 7694 2008-06-26 00:23:20Z mike $"
  *
  *   File type conversion routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -275,7 +275,7 @@ find_filters(mime_t           *mime,	/* I - MIME database */
     * Got a direct filter!
     */
 
-    DEBUG_puts("Direct filter found!");
+    DEBUG_puts("find_filters: Direct filter found!");
 
     if ((mintemp = cupsArrayNew(NULL, NULL)) == NULL)
       return (NULL);
@@ -287,8 +287,8 @@ find_filters(mime_t           *mime,	/* I - MIME database */
     if (!cost)
       return (mintemp);
 
-    DEBUG_puts("    Found direct filter:");
-    DEBUG_printf(("    %s (cost=%d)\n", current->filter, mincost));
+    DEBUG_puts("find_filters: Found direct filter:");
+    DEBUG_printf(("find_filters: %s (cost=%d)\n", current->filter, mincost));
   }
   else
   {
@@ -381,11 +381,13 @@ find_filters(mime_t           *mime,	/* I - MIME database */
     */
 
 #ifdef DEBUG
-    printf("    Returning %d filters:\n", cupsArrayCount(mintemp));
+    DEBUG_printf(("find_filters: Returning %d filters:\n",
+                  cupsArrayCount(mintemp)));
+
     for (current = (mime_filter_t *)cupsArrayFirst(mintemp);
          current;
 	 current = (mime_filter_t *)cupsArrayNext(mintemp))
-      printf("    %s\n", current->filter);
+      DEBUG_printf(("find_filters: %s\n", current->filter));
 #endif /* DEBUG */
 
     if (cost)
@@ -394,12 +396,12 @@ find_filters(mime_t           *mime,	/* I - MIME database */
     return (mintemp);
   }
 
-  DEBUG_puts("    Returning zippo...");
+  DEBUG_puts("find_filters: Returning zippo...");
 
   return (NULL);
 }
 
 
 /*
- * End of "$Id: filter.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: filter.c 7694 2008-06-26 00:23:20Z mike $".
  */

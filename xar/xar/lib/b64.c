@@ -246,8 +246,7 @@ static unsigned int raw_base64_decode(
     return B64_noError;
 }
 
-unsigned char* xar_from_base64(const unsigned char* input, int inputLength,
-   unsigned int *outputLength)
+unsigned char* xar_from_base64(const unsigned char* input, int inputLength, unsigned int *outputLength)
 {
     int err;
     unsigned char *output;

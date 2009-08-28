@@ -1,4 +1,3 @@
-/* APPLE LOCAL file mainline */
 /* Check that taking the address of a local variable marked 'volatile'
    by the compiler does not generate untoward errors.  */
 /* Developed by Ziemowit Laski <zlaski@apple.com>.  */

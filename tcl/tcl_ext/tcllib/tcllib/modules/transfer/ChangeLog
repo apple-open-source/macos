@@ -1,0 +1,107 @@
+2008-12-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.11.1 ========================
+	* 
+
+2008-10-16  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.11 ========================
+	* 
+
+2008-02-29  Andreas Kupries  <andreask@activestate.com>
+
+	* copyops.tcl (::transfer::copy::doString): Removed bogus trailing
+	* pkgIndex.tcl: closing bracket. Version bumped to 0.2
+	* copyops.man:
+
+2007-09-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.10 ========================
+	* 
+
+2007-06-22  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* receiver.tcl:    Replaced deprecated {expand} syntax in comments
+	* transmitter.tcl: with {*}.
+	* copyops.tcl:
+
+2007-03-22  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* transmitter.man: Fixed all warnings due to use of now deprecated
+	* receiver.man: commands. Added a section about how to give feedback.
+	* tqueue.man:
+	* copyops.man:
+	* connect.man:
+
+2006-10-03  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.9 ========================
+	* 
+
+2006-07-21  Andreas Kupries <andreask@activestate.com>
+
+	* copyops.tcl (::transfer::copy::HandlerChan): Removed superfluous
+	  closing bracket.
+
+	* connect.tcl: Prevent configuration for empty
+	  options. Propagation of callback command into the accept hook.
+
+	* dsource.tcl: instance variable 'type' conflicts with method
+	  argument 'type', fixed. Type 'channel' renamed to 'chan' for
+	  better match to copyops.
+
+	* ddest.tcl: instance variable 'type' conflicts with method
+	  argument 'type', fixed. Various syntax errors (argument swap),
+	  validation of -file fixed.
+
+	* receiver.tcl:    Added missing argument to callback.
+	* transmitter.tcl: Added missing argument to callback.
+
+2006-06-06  Andreas Kupries <andreask@activestate.com>
+
+	* transmitter.tcl: Fixed index/provide version mismatches.
+	* receiver.tcl: 
+	* dsource.tcl: 
+	* ddest.tcl: 
+	* connect.tcl: 
+
+2006-05-26  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* copyops.tcl (options): Fixed typo, missing brace after argument
+	  with default value.
+
+2006-05-24  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* transmitter.tcl: Compound objects, pulling connection setup and
+	* transmitter.man: data sources, data destination resp. together.
+	* receiver.tcl:
+	* receiver.man:
+	* pkgIndex.tcl:
+
+	* connect.tcl:  Connection setup, active, or passively waiting
+	* connect.man:  on the partner.
+	* pkgIndex.tcl:
+
+	* ddest.tcl:    Management of a destination, encapsulation
+	* ddest.man:    of all information needed to describe the
+	* pkgIndex.tcl: transfer destination.
+
+	* dsource.tcl:  Management of a source, encapsulation
+	* dsource.man:  of all information needed to describe the
+	* pkgIndex.tcl: transfer source.
+
+2006-05-23  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tqueue.tcl: Second package, management of a queue of
+	* tqueue.man: transfer requests, executed in fifo order.
+	* pkgIndex.tcl:
+
+	* copyops.man: Fixed markup of option arguments.
+
+	* coopyops.tcl: The first of a series of packages for the
+	* copyops.man:  transfer of data across channel. Most basic
+	* pkgIndex.tcl: commands.

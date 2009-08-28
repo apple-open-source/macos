@@ -1,10 +1,10 @@
 dnl -------------------------------------------------------- -*- autoconf -*-
-dnl Copyright 2000-2005 The Apache Software Foundation or its licensors, as
-dnl applicable.
-dnl
-dnl Licensed under the Apache License, Version 2.0 (the "License");
-dnl you may not use this file except in compliance with the License.
-dnl You may obtain a copy of the License at
+dnl Licensed to the Apache Software Foundation (ASF) under one or more
+dnl contributor license agreements.  See the NOTICE file distributed with
+dnl this work for additional information regarding copyright ownership.
+dnl The ASF licenses this file to You under the Apache License, Version 2.0
+dnl (the "License"); you may not use this file except in compliance with
+dnl the License.  You may obtain a copy of the License at
 dnl
 dnl     http://www.apache.org/licenses/LICENSE-2.0
 dnl
@@ -46,92 +46,76 @@ AC_DEFUN([APU_FIND_APR], [
   AC_SUBST(APR_BUILD_DIR)
 ])
 
+dnl
+dnl APU_TRY_EXPAT_LINK(
+dnl      test-message, cache-var-name, hdrs, libs,
+dnl      [actions-on-success], [actions-on-failure])
+dnl         
+dnl Tests linking against expat with libraries 'libs' and includes
+dnl 'hdrs', passing message + cache-var-name to AC_CACHE_CHECK.
+dnl On success, sets $expat_libs to libs, sets $apu_have_expat to 1, 
+dnl and runs actions-on-success; on failure runs actions-on-failure.
+dnl
+AC_DEFUN([APU_TRY_EXPAT_LINK], [
+AC_CACHE_CHECK([$1], [$2], [
+  apu_expat_LIBS=$LIBS
+  LIBS="$LIBS $4"
+  AC_TRY_LINK([#include <stdlib.h>
+#include <$3>], [XML_ParserCreate(NULL);],
+    [$2=yes], [$2=no])
+  LIBS=$apu_expat_LIBS
+])
+
+if test $[$2] = yes; then
+   AC_DEFINE([HAVE_]translit([$3], [a-z./], [A-Z__]), 1,
+             [Define if $3 is available])
+   apu_expat_libs="$4"
+   apu_has_expat=1
+   $5
+else
+   apu_has_expat=0
+   $6
+fi
+])
 
 dnl
-dnl APU_TEST_EXPAT(directory): test if Expat is located in the specified dir
+dnl APU_SYSTEM_EXPAT: tests for a system expat installation
+dnl If present, sets $apu_has_expat to 1 and adjusts LDFLAGS/CPPFLAGS
+dnl appropriately.  This is mostly for compatibility with existing
+dnl expat releases; all but the first APU_TRY_EXPAT_LINK call could
+dnl be dropped later.
 dnl
-dnl if present: sets expat_include_dir, expat_libs, possibly expat_old
-dnl
-AC_DEFUN([APU_TEST_EXPAT], [
-  AC_MSG_CHECKING(for Expat in ifelse($2,,$1,$2))
+AC_DEFUN([APU_SYSTEM_EXPAT], [
+ 
+  APU_TRY_EXPAT_LINK([Expat 1.95.x], apu_cv_expat_system, 
+    [expat.h], [-lexpat])
 
-  expat_libtool=""
-
-  if test -r "$1/lib/expat.h.in"; then
-    dnl Expat 1.95.* distribution
-    expat_include_dir="$1/lib"
-    expat_ldflags="-L$1/lib"
-    expat_libs="-lexpat"
-    expat_libtool="$1/lib/libexpat.la"
-  elif test -r "$1/include/expat.h" -a \
-    -r "$1/lib/libexpat.la"; then
-    dnl Expat 1.95.* installation (with libtool)
-    expat_include_dir="$1/include"
-    expat_ldflags="-L$1/lib"
-    expat_libs="-lexpat"
-    expat_libtool="$1/lib/libexpat.la"
-  elif test -r "$1/include/expat.h" -a \
-    -r "$1/lib64/libexpat.la"; then
-    dnl Expat 1.95.* installation on certain 64-bit platforms (with libtool)
-    expat_include_dir="$1/include"
-    expat_ldflags="-L$1/lib64"
-    expat_libs="-lexpat"
-    expat_libtool="$1/lib64/libexpat.la"
-  elif test -r "$1/include/expat.h" -a \
-    -r "$1/lib/libexpat.a"; then
-    dnl Expat 1.95.* installation (without libtool)
-    dnl FreeBSD textproc/expat2
-    expat_include_dir="$1/include"
-    expat_ldflags="-L$1/lib"
-    expat_libs="-lexpat"
-  elif test -r "$1/xmlparse.h"; then
-    dnl maybe an expat-lite. use this dir for both includes and libs
-    expat_include_dir="$1"
-    expat_ldflags="-L$1"
-    expat_libs="-lexpat"
-    expat_libtool="$1/libexpat.la"
-    expat_old=yes
-  elif test -r "$1/include/xmlparse.h" -a \
-       -r "$1/lib/libexpat.a"; then
-    dnl previously installed expat
-    expat_include_dir="$1/include"
-    expat_ldflags="-L$1/lib"
-    expat_libs="-lexpat"
-    expat_old=yes
-  elif test -r "$1/include/xml/xmlparse.h" -a \
-       -r "$1/lib/xml/libexpat.a"; then
-    dnl previously installed expat
-    expat_include_dir="$1/include/xml"
-    expat_ldflags="-L$1/lib"
-    expat_libs="-lexpat"
-    expat_old=yes
-  elif test -r "$1/include/xmltok/xmlparse.h"; then
-    dnl Debian distribution
-    expat_include_dir="$1/include/xmltok"
-    expat_ldflags="-L$1/lib"
-    expat_libs="-lxmlparse -lxmltok"
-    expat_old=yes
-  elif test -r "$1/include/xml/xmlparse.h" -a \
-       -r "$1/lib/libexpat.a"; then
-    dnl FreeBSD textproc/expat package
-    expat_include_dir="$1/include/xml"
-    expat_ldflags="-L$1/lib"
-    expat_libs="-lexpat"
-    expat_old=yes
-  elif test -r "$1/xmlparse/xmlparse.h"; then
-    dnl Expat 1.0 or 1.1 source directory
-    expat_include_dir="$1/xmlparse"
-    expat_ldflags="-L$1"
-    expat_libs="-lexpat"
-    expat_old=yes
+  if test $apu_has_expat = 0; then
+    APU_TRY_EXPAT_LINK([old Debian-packaged expat], apu_cv_expat_debian,
+       [xmltok/xmlparse.h], [-lxmlparse -lxmltok])
   fi
-  dnl ### test for installed Expat 1.95.* distros
 
-  if test -n "$expat_include_dir"; then
-    dnl ### more info about what we found there? version? using .la?
-    AC_MSG_RESULT(yes)
-  else
-    AC_MSG_RESULT(no)
+  if test $apu_has_expat = 0; then
+    APU_TRY_EXPAT_LINK([old FreeBSD-packaged expat], apu_cv_expat_freebsd,
+       [xml/xmlparse.h], [-lexpat])
+  fi
+
+  if test $apu_has_expat = 0; then
+    APU_TRY_EXPAT_LINK([Expat 1.0/1.1], apu_cv_expat_1011,
+       [xmlparse/xmlparse.h], [-lexpat])
+  fi
+
+  if test $apu_has_expat = 0; then
+    APR_ADDTO(LDFLAGS, [-L/usr/local/lib])
+    APR_ADDTO(CPPFLAGS, [-I/usr/local/include])
+ 
+    APU_TRY_EXPAT_LINK([Expat 1.95.x in /usr/local], 
+       apu_cv_expat_usrlocal, [expat.h], [-lexpat],
+       [APR_ADDTO(APRUTIL_INCLUDES, [-I/usr/local/include])
+        APR_ADDTO(APRUTIL_LDFLAGS, [-L/usr/local/lib])],[
+       APR_REMOVEFROM(LDFLAGS, [-L/usr/local/lib])
+       APR_REMOVEFROM(CPPFLAGS, [-I/usr/local/include])
+      ])
   fi
 ])
 
@@ -141,90 +125,58 @@ dnl APU_FIND_EXPAT: figure out where EXPAT is located (or use bundled)
 dnl
 AC_DEFUN([APU_FIND_EXPAT], [
 
+save_cppflags="$CPPFLAGS"
+save_ldflags="$LDFLAGS"
+
+apu_has_expat=0
+
+# Default: will use either external or bundled expat.
+apu_try_external_expat=1
+apu_try_builtin_expat=1
+
 AC_ARG_WITH([expat],
-[  --with-expat=DIR        specify Expat location or 'builtin'], [
+[  --with-expat=DIR        specify Expat location, or 'builtin'], [
   if test "$withval" = "yes"; then
     AC_MSG_ERROR([a directory must be specified for --with-expat])
   elif test "$withval" = "no"; then
     AC_MSG_ERROR([Expat cannot be disabled (at this time)])
   elif test "$withval" = "builtin"; then
-    abs_expatdir="`cd $srcdir/xml/expat && pwd`"
-    if test -d $abs_expatdir/. -a ! -d xml/expat/.; then
-      $mkdir_p xml/expat
-    fi
-    APU_TEST_EXPAT($abs_expatdir, xml/expat)
+    apu_try_external_expat=0
   else
-    abs_expatdir="`cd $withval && pwd`"
-    APU_TEST_EXPAT($abs_expatdir, $withval)
-    if test -z "$expat_include_dir"; then
-      AC_MSG_ERROR([Expat was not found (or recognized) in \"$withval\"])
+    # Add given path to standard search paths if appropriate:
+    if test "$withval" != "/usr"; then
+      APR_ADDTO(LDFLAGS, [-L$withval/lib])
+      APR_ADDTO(CPPFLAGS, [-I$withval/include])
+      APR_ADDTO(APRUTIL_INCLUDES, [-I$withval/include])
+      APR_ADDTO(APRUTIL_LDFLAGS, [-L$withval/lib])
     fi
+    # ...and refuse to fall back on the builtin expat.
+    apu_try_builtin_expat=0
   fi
 ])
 
-if test -z "$expat_include_dir"; then
-  for d in /usr /usr/local xml/expat-cvs xml/expat $srcdir/xml/expat ; do
-    APU_TEST_EXPAT($d)
-    if test -n "$expat_include_dir"; then
-      dnl For /usr installs of expat, we can't specify -L/usr/lib
-      if test "$d" = "/usr"; then
-        expat_ldflags=""
-      fi
-      break
-    fi
-  done
-fi
-if test -z "$expat_include_dir"; then
-  AC_MSG_ERROR([could not locate Expat. use --with-expat])
+if test $apu_try_external_expat = 1; then
+  APU_SYSTEM_EXPAT
 fi
 
-dnl If this expat doesn't use libtool natively, we'll mimic it for our
-dnl dependency library generation.
-if test -z "$expat_libtool"; then
-  expat_libtool="$expat_ldflags $expat_libs" 
-fi
-
-if test -n "$expat_old"; then
-  AC_DEFINE(APR_HAVE_OLD_EXPAT, 1, [define if Expat 1.0 or 1.1 was found])
-fi
-
-dnl special-case the bundled distribution (use absolute dirs)
-if test "$expat_include_dir" = "xml/expat/lib" -o "$expat_include_dir" = "xml/expat-cvs/lib"; then
-  bundled_subdir="`echo $expat_include_dir | sed -e 's%/lib%%'`"
-  APR_SUBDIR_CONFIG($bundled_subdir, [--prefix=$prefix --exec-prefix=$exec_prefix --libdir=$libdir --includedir=$includedir --bindir=$bindir])
-  expat_include_dir=$top_builddir/$bundled_subdir/lib
-  expat_ldflags="-L$top_builddir/$bundled_subdir/lib"
-  expat_libs="-lexpat"
-  expat_libtool=$top_builddir/$bundled_subdir/lib/libexpat.la
-  APR_XML_SUBDIRS="`echo $bundled_subdir | sed -e 's%xml/%%'`"
-  APR_ADDTO(APRUTIL_EXPORT_LIBS, [$expat_libtool])
-else
-if test "$expat_include_dir" = "$abs_srcdir/xml/expat/include" -o "$expat_include_dir" = "$abs_srcdir/xml/expat/lib"; then
+if test "${apu_has_expat}${apu_try_builtin_expat}" = "01"; then
   dnl This is a bit of a hack.  This only works because we know that
   dnl we are working with the bundled version of the software.
   bundled_subdir="xml/expat"
   APR_SUBDIR_CONFIG($bundled_subdir, [--prefix=$prefix --exec-prefix=$exec_prefix --libdir=$libdir --includedir=$includedir --bindir=$bindir])
-  expat_include_dir=$top_builddir/$bundled_subdir/lib
-  expat_ldflags="-L$top_builddir/$bundled_subdir/lib"
-  expat_libs="-lexpat"
-  expat_libtool=$top_builddir/$bundled_subdir/lib/libexpat.la
-  APR_XML_SUBDIRS="`echo $bundled_subdir | sed -e 's%xml/%%'`"
-  APR_ADDTO(APRUTIL_EXPORT_LIBS, [$expat_libtool])
-else
-  APR_ADDTO(APRUTIL_EXPORT_LIBS, [$expat_libs])
+  APR_ADDTO(APRUTIL_INCLUDES, [-I$top_builddir/$bundled_subdir/lib])
+  APR_ADDTO(LDFLAGS, [-L$top_builddir/$bundled_subdir/lib])
+  apu_expat_libs="$top_builddir/$bundled_subdir/lib/libexpat.la"
 fi
-fi
-APR_XML_DIR=$bundled_subdir
-APR_XML_EXPAT_OLD=$expat_old
-AC_SUBST(APR_XML_SUBDIRS)
-AC_SUBST(APR_XML_DIR)
-AC_SUBST(APR_XML_EXPAT_OLD)
 
-if test "$expat_include_dir" != "/usr/include"; then
-  APR_ADDTO(APRUTIL_INCLUDES, [-I$expat_include_dir])
-fi
-APR_ADDTO(APRUTIL_LDFLAGS, [$expat_ldflags])
-APR_ADDTO(APRUTIL_LIBS, [$expat_libtool])
+APR_ADDTO(APRUTIL_EXPORT_LIBS, [$apu_expat_libs])
+APR_ADDTO(APRUTIL_LIBS, [$apu_expat_libs])
+
+APR_XML_DIR=$bundled_subdir
+AC_SUBST(APR_XML_DIR)
+
+CPPFLAGS=$save_cppflags
+LDFLAGS=$save_ldflags
 ])
 
 
@@ -235,12 +187,15 @@ AC_DEFUN([APU_FIND_LDAPLIB], [
   if test ${apu_has_ldap} != "1"; then
     ldaplib=$1
     extralib=$2
-    unset ac_cv_lib_${ldaplib}_ldap_init
-    unset ac_cv_lib_${ldaplib}___ldap_init
+    # Clear the cache entry for subsequent APU_FIND_LDAPLIB invocations.
+    changequote(,)
+    ldaplib_cache_id="`echo $ldaplib | sed -e 's/[^a-zA-Z0-9_]/_/g'`"
+    changequote([,])
+    unset ac_cv_lib_${ldaplib_cache_id}_ldap_init
+    unset ac_cv_lib_${ldaplib_cache_id}___ldap_init
     AC_CHECK_LIB(${ldaplib}, ldap_init, 
       [
-        APR_ADDTO(APRUTIL_EXPORT_LIBS,[-l${ldaplib} ${extralib}])
-        APR_ADDTO(APRUTIL_LIBS,[-l${ldaplib} ${extralib}])
+        LDADD_ldap="-l${ldaplib} ${extralib}"
         AC_CHECK_LIB(${ldaplib}, ldapssl_client_init, apu_has_ldapssl_client_init="1", , ${extralib})
         AC_CHECK_LIB(${ldaplib}, ldapssl_client_deinit, apu_has_ldapssl_client_deinit="1", , ${extralib})
         AC_CHECK_LIB(${ldaplib}, ldapssl_add_trusted_cert, apu_has_ldapssl_add_trusted_cert="1", , ${extralib})
@@ -275,7 +230,22 @@ apu_has_ldap_novell="0"
 apu_has_ldap_microsoft="0"
 apu_has_ldap_netscape="0"
 apu_has_ldap_mozilla="0"
+apu_has_ldap_tivoli="0"
+apu_has_ldap_zos="0"
 apu_has_ldap_other="0"
+LDADD_ldap=""
+
+AC_ARG_WITH(lber,[  --with-lber=library     lber library to use],
+  [
+    if test "$withval" = "yes"; then
+      apu_liblber_name="lber"
+    else
+      apu_liblber_name="$withval"
+    fi
+  ],
+  [
+    apu_liblber_name="lber"
+  ])
 
 AC_ARG_WITH(ldap-include,[  --with-ldap-include=path  path to ldap include files with trailing slash])
 AC_ARG_WITH(ldap-lib,[  --with-ldap-lib=path    path to ldap lib file])
@@ -315,7 +285,8 @@ dnl The iPlanet C SDK 5.0 is as yet untested...
     fi
 
     test ${apu_has_ldap} != "1" && AC_MSG_ERROR(could not find an LDAP library)
-    AC_CHECK_LIB(lber, ber_init)
+    AC_CHECK_LIB($apu_liblber_name, ber_init,
+      [LDADD_ldap="${LDADD_ldap} -l${apu_liblber_name}"])
 
     AC_CHECK_HEADERS(lber.h, lber_h=["#include <lber.h>"])
 
@@ -376,6 +347,21 @@ dnl The iPlanet C SDK 5.0 is as yet untested...
                                            apr_cv_ldap_toolkit="Mozilla"])
         fi
         if test "x$apr_cv_ldap_toolkit" = "x"; then
+          AC_EGREP_CPP([International Business Machines], [$lber_h
+                       $ldap_h
+                       LDAP_VENDOR_NAME], [apu_has_ldap_tivoli="1"
+                                           apr_cv_ldap_toolkit="Tivoli"])
+        fi
+        if test "x$apr_cv_ldap_toolkit" = "x"; then
+          case "$host" in
+          *-ibm-os390)
+            AC_EGREP_CPP([IBM], [$lber_h
+                                 $ldap_h], [apu_has_ldap_zos="1"
+                                            apr_cv_ldap_toolkit="z/OS"])
+            ;;
+          esac
+        fi
+        if test "x$apr_cv_ldap_toolkit" = "x"; then
           apu_has_ldap_other="1"
           apr_cv_ldap_toolkit="unknown"
         fi
@@ -386,6 +372,36 @@ dnl The iPlanet C SDK 5.0 is as yet untested...
     LDFLAGS=$save_ldflags
     LIBS=$save_libs
   ])
+
+if test "$apu_has_ldap_openldap" = "1"; then
+    save_cppflags="$CPPFLAGS"
+    save_ldflags="$LDFLAGS"
+    save_libs="$LIBS"
+
+    CPPFLAGS="$CPPFLAGS $APRUTIL_INCLUDES"
+    LDFLAGS="$LDFLAGS $APRUTIL_LDFLAGS"
+    AC_CACHE_CHECK([style of ldap_set_rebind_proc routine], ac_cv_ldap_set_rebind_proc_style,
+    APR_TRY_COMPILE_NO_WARNING([
+    #ifdef HAVE_LBER_H
+    #include <lber.h>
+    #endif
+    #ifdef HAVE_LDAP_H
+    #include <ldap.h>
+    #endif
+    ], [
+    int tmp = ldap_set_rebind_proc((LDAP *)0, (LDAP_REBIND_PROC *)0, (void *)0);
+    /* use tmp to suppress the warning */
+    tmp=0;
+    ], ac_cv_ldap_set_rebind_proc_style=three, ac_cv_ldap_set_rebind_proc_style=two))
+
+    if test "$ac_cv_ldap_set_rebind_proc_style" = "three"; then
+        AC_DEFINE(LDAP_SET_REBIND_PROC_THREE, 1, [Define if ldap_set_rebind_proc takes three arguments])
+    fi
+
+    CPPFLAGS="$save_cppflags"
+    LDFLAGS="$save_ldflags"
+    LIBS="$save_libs"
+fi
 
 AC_SUBST(ldap_h)
 AC_SUBST(lber_h)
@@ -404,7 +420,10 @@ AC_SUBST(apu_has_ldap_novell)
 AC_SUBST(apu_has_ldap_microsoft)
 AC_SUBST(apu_has_ldap_netscape)
 AC_SUBST(apu_has_ldap_mozilla)
+AC_SUBST(apu_has_ldap_tivoli)
+AC_SUBST(apu_has_ldap_zos)
 AC_SUBST(apu_has_ldap_other)
+AC_SUBST(LDADD_ldap)
 
 ])
 

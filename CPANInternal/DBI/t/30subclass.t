@@ -6,6 +6,7 @@ $|=1;
 $^W=1;
 
 my $calls = 0;
+my %my_methods;
 
 
 # =================================================
@@ -19,21 +20,16 @@ my $calls = 0;
 package MyDBI;
 @MyDBI::ISA = qw(DBI);
 
-package MyDBI::dr;
-@MyDBI::dr::ISA = qw(DBI::dr);
-
-sub connect {
-    my ($drh, $dsn, $user, $pass, $attr) = @_;
-    my $dbh = $drh->SUPER::connect($dsn, $user, $pass, $attr);
-    delete $attr->{CompatMode};	# to test clone
-    return $dbh;
-}
+# the MyDBI::dr::connect method is NOT called!
+# you can either override MyDBI::connect()
+# or use MyDBI::db::connected()
 
 package MyDBI::db;
 @MyDBI::db::ISA = qw(DBI::db);
 
 sub prepare {
     my($dbh, @args) = @_;
+    ++$my_methods{prepare};
     ++$calls;
     my $sth = $dbh->SUPER::prepare(@args);
     return $sth;
@@ -45,6 +41,7 @@ package MyDBI::st;
 
 sub fetch {
     my($sth, @args) = @_;
+    ++$my_methods{fetch};
     ++$calls;
     # this is just to trigger (re)STORE on exit to test that the STORE
     # doesn't clear any erro condition
@@ -92,6 +89,7 @@ $dbh = DBI->connect("dbi:Sponge:foo","","", {
 	RaiseError => 1,
 	RootClass => "MyDBI",
 	CompatMode => 1, # just for clone test
+        dbi_foo => 1, # just to help debugging clone etc
 });
 isa_ok( $dbh, 'MyDBI::db');
 is($dbh->{CompatMode}, 1);
@@ -169,4 +167,5 @@ $dbh = eval { nonesuch2->connect("dbi:Sponge:foo","","", {
 ok( !defined($dbh), "Failed connect #2" );
 is(substr($@,0,36), q{Can't locate object method "connect"});
 
+print "@{[ %my_methods ]}\n";
 1;

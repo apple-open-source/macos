@@ -22,48 +22,116 @@
  */
 #include <CoreFoundation/CFBundlePriv.h>
 
-#include <IOKit/kext/KXKextManager.h>
+#include <IOKit/kext/OSKext.h>
+#include <IOKit/kext/OSKextPrivate.h>
 #include <IOKit/kext/fat_util.h>
 #include <IOKit/kext/macho_util.h>
 
 #include "kextfind_commands.h"
-#include "kextfind.h"
+#include "kextfind_main.h"
 #include "kextfind_query.h"
 
 /*******************************************************************************
 *
 *******************************************************************************/
-char * getKextPath(
-    KXKextRef theKext,
-    PathSpec pathSpec)
+CFStringRef copyPathForKext(
+    OSKextRef theKext,
+    PathSpec  pathSpec)
 {
-    char * result = NULL;
+    CFStringRef result          = CFSTR("(can't determine kext path)");
 
-    CFStringRef copiedPath = NULL;       // must release
-    CFStringRef kextPath = NULL;         // do NOT release
+    CFURLRef    kextURL         = OSKextGetURL(theKext);  // do not release
+    CFURLRef    absURL          = NULL;  // must release
+    OSKextRef   containerKext   = NULL;  // must release
+    CFURLRef    containerURL    = NULL;  // do not release
+    CFURLRef    containerAbsURL = NULL;  // must release
+    CFURLRef    repositoryURL   = NULL;  // must release
+    CFStringRef repositoryPath  = NULL;  // must release
+    CFStringRef kextPath        = NULL;  // must release
+
+
+    if (!kextURL) {
+        OSKextLog(theKext,
+            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+            "Kext has no URL!");
+        goto finish;
+    }
 
     if (pathSpec == kPathsNone) {
-        kextPath = KXKextGetBundleDirectoryName(theKext);
-        if (!kextPath) {
+        result = CFURLCopyLastPathComponent(kextURL);
+    } else if (pathSpec == kPathsFull) {
+        absURL = CFURLCopyAbsoluteURL(kextURL);
+        if (!absURL) {
+            OSKextLogMemError();
             goto finish;
         }
-        result = cStringForCFString(kextPath);
+        result = CFURLCopyFileSystemPath(absURL, kCFURLPOSIXPathStyle);
     } else if (pathSpec == kPathsRelative) {
-        kextPath = KXKextGetBundlePathInRepository(theKext);
-        if (!kextPath) {
+        CFRange relativeRange = { 0, 0 };
+
+        absURL = CFURLCopyAbsoluteURL(kextURL);
+        if (!absURL) {
+            OSKextLogMemError();
             goto finish;
         }
-        result = cStringForCFString(kextPath);
+
+        containerKext = OSKextCopyContainerForPluginKext(theKext);
+        if (containerKext) {
+            containerURL = OSKextGetURL(containerKext);
+            if (!containerURL) {
+                OSKextLog(containerKext,
+                    kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                    "Container kext has no URL!");
+                goto finish;
+            }
+            containerAbsURL = CFURLCopyAbsoluteURL(containerURL);
+            if (!containerAbsURL) {
+                OSKextLogMemError();
+                goto finish;
+            }
+            repositoryURL = CFURLCreateCopyDeletingLastPathComponent(
+                kCFAllocatorDefault, containerAbsURL);
+            if (!repositoryURL) {
+                OSKextLogMemError();
+                goto finish;
+            }
+        } else {
+            repositoryURL = CFURLCreateCopyDeletingLastPathComponent(
+                kCFAllocatorDefault, absURL);
+            if (!repositoryURL) {
+                OSKextLogMemError();
+                goto finish;
+            }
+        }
+
+        repositoryPath = CFURLCopyFileSystemPath(repositoryURL, kCFURLPOSIXPathStyle);
+        kextPath = CFURLCopyFileSystemPath(absURL, kCFURLPOSIXPathStyle);
+        if (!repositoryPath || !kextPath) {
+            OSKextLogMemError();
+            goto finish;
+        }
+        
+       /* We add 1 to the length of the repositoryPath to handle the
+        * intermediate '/' character.
+        */
+        relativeRange = CFRangeMake(1+CFStringGetLength(repositoryPath),
+            CFStringGetLength(kextPath) - (1+CFStringGetLength(repositoryPath)));
+        result = CFStringCreateWithSubstring(kCFAllocatorDefault,
+            kextPath, relativeRange);
     } else {
-        copiedPath = KXKextCopyAbsolutePath(theKext);
-        if (!copiedPath) {
-            goto finish;
-        }
-        result = cStringForCFString(copiedPath);
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+            "Internal error.");
+        goto finish;
     }
 
 finish:
-    if (copiedPath) CFRelease(copiedPath);
+    SAFE_RELEASE(absURL);
+    SAFE_RELEASE(containerKext);
+    SAFE_RELEASE(containerAbsURL);
+    SAFE_RELEASE(repositoryURL);
+    SAFE_RELEASE(repositoryPath);
+    SAFE_RELEASE(kextPath);
 
     return result;
 }
@@ -72,34 +140,40 @@ finish:
 *
 *******************************************************************************/
 void printKext(
-    KXKextRef theKext,
+    OSKextRef theKext,
     PathSpec pathSpec,
     Boolean extra_info,
     char lineEnd)
 {
-    CFBundleRef bundle = NULL;        // do NOT release
-    CFStringRef bundleID = NULL;      // do NOT release
-    CFStringRef bundleVersion = NULL; // do NOT release
+    CFStringRef   bundleID      = NULL;  // do NOT release
+    CFStringRef   bundleVersion = NULL;  // do NOT release
 
-    char * kext_path = NULL;          // must free
-    char * bundle_id = NULL;          // must free
-    char * bundle_version = NULL;     // must free
+    CFStringRef   kextPath      = NULL;  // must release
+    char        * kext_path     = NULL;  // must free
+    char        * bundle_id     = NULL;  // must free
+    char        * bundle_version = NULL;  // must free
 
-    kext_path = getKextPath(theKext, pathSpec);
+    kextPath = copyPathForKext(theKext, pathSpec);
+    if (!kextPath) {
+        OSKextLogMemError();
+        goto finish;
+    }
 
+    kext_path = createUTF8CStringForCFString(kextPath);
     if (!kext_path) {
+        OSKextLogMemError();
         goto finish;
     }
 
     if (extra_info) {
-        bundle = KXKextGetBundle(theKext);
-        bundleID = KXKextGetBundleIdentifier(theKext);
-        bundleVersion = CFBundleGetValueForInfoDictionaryKey(bundle,
+        bundleID = OSKextGetIdentifier(theKext);
+        bundleVersion = OSKextGetValueForInfoDictionaryKey(theKext,
             kCFBundleVersionKey);
 
-        bundle_id = cStringForCFString(bundleID);
-        bundle_version = cStringForCFString(bundleVersion);
+        bundle_id = createUTF8CStringForCFString(bundleID);
+        bundle_version = createUTF8CStringForCFString(bundleVersion);
         if (!bundle_id || !bundle_version) {
+            OSKextLogMemError();
             goto finish;
         }
 
@@ -110,9 +184,10 @@ void printKext(
     }
 
 finish:
-    if (kext_path)      free(kext_path);
-    if (bundle_id)      free(bundle_id);
-    if (bundle_version) free(bundle_version);
+    SAFE_RELEASE(kextPath);
+    SAFE_FREE(kext_path);
+    SAFE_FREE(bundle_id);
+    SAFE_FREE(bundle_version);
 
     return;
 }
@@ -158,6 +233,9 @@ finish:
     return result;
 }
 
+/*******************************************************************************
+*
+*******************************************************************************/
 void printProperty(
     CFStringRef label,
     CFStringRef propKey,
@@ -241,7 +319,7 @@ void printProperty(
         goto finish;
     }
 
-    allocString = cStringForCFString(outputString);
+    allocString = createUTF8CStringForCFString(outputString);
     if (!allocString) {
         goto finish;
     }
@@ -260,23 +338,17 @@ finish:
 *
 *******************************************************************************/
 void printKextProperty(
-    KXKextRef theKext,
+    OSKextRef theKext,
     CFStringRef propKey,
     char lineEnd)
 {
-    CFDictionaryRef infoDict = KXKextGetInfoDictionary(theKext);
     CFTypeRef       value = NULL;
 
-    if (!infoDict) {
-        goto finish;
-    }
-
-    value = CFDictionaryGetValue(infoDict, propKey);
+    value = OSKextGetValueForInfoDictionaryKey(theKext, propKey);
     if (value) {
         printProperty(NULL, propKey, value, lineEnd);
     }
 
-finish:
     return;
 }
 
@@ -284,7 +356,7 @@ finish:
 *
 *******************************************************************************/
 void printKextMatchProperty(
-    KXKextRef theKext,
+    OSKextRef theKext,
     CFStringRef propKey,
     char lineEnd)
 {
@@ -294,7 +366,8 @@ void printKextMatchProperty(
     CFIndex numPersonalities;
     CFIndex i;
 
-    personalitiesDict = KXKextCopyPersonalities(theKext);
+    personalitiesDict = OSKextGetValueForInfoDictionaryKey(theKext,
+        CFSTR(kIOKitPersonalitiesKey));
     if (!personalitiesDict) {
         goto finish;
     }
@@ -321,7 +394,6 @@ void printKextMatchProperty(
     }
 
 finish:
-    if (personalitiesDict) CFRelease(personalitiesDict);
     if (names)             free(names);
     if (personalities)     free(personalities);
 
@@ -331,10 +403,8 @@ finish:
 /*******************************************************************************
 *
 *******************************************************************************/
-extern fat_iterator _KXKextCopyFatIterator(KXKextRef aKext);
-
 void printKextArches(
-    KXKextRef theKext,
+    OSKextRef theKext,
     char lineEnd,
     Boolean printLineEnd)
 {
@@ -343,7 +413,7 @@ void printKextArches(
     const NXArchInfo * archinfo = NULL;
     Boolean printedOne = false;
 
-    fiter = _KXKextCopyFatIterator(theKext);
+    fiter = createFatIteratorForKext(theKext);
     if (!fiter) {
         goto finish;
     }
@@ -371,12 +441,13 @@ finish:
 *
 *******************************************************************************/
 void printKextDependencies(
-    KXKextRef theKext,
+    OSKextRef theKext,
     PathSpec pathSpec,
     Boolean extra_info,
     char lineEnd)
 {
-    CFArrayRef kextDependencies = KXKextCopyAllDependencies(theKext);
+    CFArrayRef kextDependencies = OSKextCopyAllDependencies(theKext,
+        /* needAll? */ false);
     CFIndex count, i;
 
     if (!kextDependencies) {
@@ -385,7 +456,7 @@ void printKextDependencies(
 
     count = CFArrayGetCount(kextDependencies);
     for (i = 0; i < count; i++) {
-        KXKextRef thisKext = (KXKextRef)CFArrayGetValueAtIndex(kextDependencies, i);
+        OSKextRef thisKext = (OSKextRef)CFArrayGetValueAtIndex(kextDependencies, i);
         printKext(thisKext, pathSpec, extra_info, lineEnd);
     }
 
@@ -398,12 +469,13 @@ finish:
 *
 *******************************************************************************/
 void printKextDependents(
-    KXKextRef theKext,
+    OSKextRef theKext,
     PathSpec pathSpec,
     Boolean extra_info,
     char lineEnd)
 {
-    CFArrayRef kextDependents = KXKextCopyAllDependents(theKext);
+    CFArrayRef kextDependents = OSKextCopyDependents(theKext,
+        /* direct? */ false);
     CFIndex count, i;
 
     if (!kextDependents) {
@@ -412,7 +484,7 @@ void printKextDependents(
 
     count = CFArrayGetCount(kextDependents);
     for (i = 0; i < count; i++) {
-        KXKextRef thisKext = (KXKextRef)CFArrayGetValueAtIndex(kextDependents, i);
+        OSKextRef thisKext = (OSKextRef)CFArrayGetValueAtIndex(kextDependents, i);
         printKext(thisKext, pathSpec, extra_info, lineEnd);
     }
 
@@ -425,12 +497,12 @@ finish:
 *
 *******************************************************************************/
 void printKextPlugins(
-    KXKextRef theKext,
+    OSKextRef theKext,
     PathSpec pathSpec,
     Boolean extra_info,
     char lineEnd)
 {
-    CFArrayRef plugins = KXKextGetPlugins(theKext);  // do NOT release
+    CFArrayRef plugins = OSKextCopyPlugins(theKext);  // must release
     CFIndex count, i;
 
     if (!plugins) {
@@ -439,134 +511,164 @@ void printKextPlugins(
 
     count = CFArrayGetCount(plugins);
     for (i = 0; i < count; i++) {
-        KXKextRef thisKext = (KXKextRef)CFArrayGetValueAtIndex(plugins, i);
+        OSKextRef thisKext = (OSKextRef)CFArrayGetValueAtIndex(plugins, i);
         printKext(thisKext, pathSpec, extra_info, lineEnd);
     }
 
 finish:
+    SAFE_RELEASE(plugins);
     return;
+}
+
+/*******************************************************************************
+* copyAdjustedPathForURL()
+*
+* This function takes an URL with a given kext, and adjusts it to be absolute
+* or relative to the kext's containing repository, properly handling plugin
+* kexts to include the repository-path of the containing kext as well.
+*******************************************************************************/
+CFStringRef copyAdjustedPathForURL(
+    OSKextRef theKext,
+    CFURLRef  urlToAdjust,
+    PathSpec  pathSpec)
+{
+    CFStringRef result       = NULL;
+    CFURLRef    absURL       = NULL;  // must release
+    CFStringRef absPath      = NULL;  // must release
+    CFStringRef kextAbsPath  = NULL;  // must release
+    CFStringRef kextRelPath  = NULL;  // must release
+    CFStringRef pathInKext   = NULL;  // must release
+    CFRange     scratchRange = { 0, 0 };
+
+    if (pathSpec != kPathsFull && pathSpec != kPathsRelative) {
+        OSKextLog(theKext,
+            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+            "Invalid argument to copyAdjustedPathForURL().");
+    }
+
+    absURL = CFURLCopyAbsoluteURL(urlToAdjust);
+    if (!absURL) {
+        OSKextLogMemError();
+        goto finish;
+    }
+
+    if (pathSpec == kPathsFull) {
+        result = CFURLCopyFileSystemPath(absURL, kCFURLPOSIXPathStyle);
+        goto finish;
+    }
+
+   /*****
+    * Okay, we are doing repository-relative paths here. Here's how!
+    * We are strip the matching part of the kext's absolute path
+    * from the URL/path handed in, which gives us the path in the kext.
+    * Then we tack that back onto the kext's repository-relative path. Got it?
+    */
+
+    kextAbsPath = copyPathForKext(theKext, kPathsFull);
+    kextRelPath = copyPathForKext(theKext, kPathsRelative);
+    absPath = CFURLCopyFileSystemPath(absURL, kCFURLPOSIXPathStyle);
+    if (!kextAbsPath || !kextRelPath || !absPath) {
+        goto finish;
+    }
+
+    scratchRange = CFRangeMake(CFStringGetLength(kextAbsPath),
+        CFStringGetLength(absPath) - CFStringGetLength(kextAbsPath));
+    pathInKext = CFStringCreateWithSubstring(kCFAllocatorDefault, absPath,
+        scratchRange);
+    if (!pathInKext) {
+        OSKextLogMemError();
+    }
+    result = CFStringCreateWithFormat(kCFAllocatorDefault, /* options */ 0,
+        CFSTR("%@%@"), kextRelPath, pathInKext);
+    
+finish:
+    SAFE_RELEASE(absURL);
+    SAFE_RELEASE(absPath);
+    SAFE_RELEASE(kextAbsPath);
+    SAFE_RELEASE(kextRelPath);
+    SAFE_RELEASE(pathInKext);
+    return result;
+}
+
+/*******************************************************************************
+* XXX: I'm really not sure this is completely reliable for getting a relative
+* XXX: path.
+*******************************************************************************/
+CFStringRef copyKextInfoDictionaryPath(
+    OSKextRef theKext,
+    PathSpec  pathSpec)
+{
+    CFStringRef   result      = NULL;
+    CFURLRef      kextURL     = NULL;  // do not release
+    CFURLRef      kextAbsURL  = NULL;  // must release
+    CFBundleRef   kextBundle  = NULL;  // must release
+    CFURLRef      infoDictURL = NULL;  // must release
+
+    kextURL = OSKextGetURL(theKext);
+    if (!kextURL) {
+        OSKextLog(theKext,
+            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+            "Kext has no URL!");
+        goto finish;
+    }
+    kextAbsURL = CFURLCopyAbsoluteURL(kextURL);
+    if (!kextAbsURL) {
+        OSKextLogMemError();
+        goto finish;
+    }
+
+    kextBundle = CFBundleCreate(kCFAllocatorDefault, kextAbsURL);
+    if (!kextBundle) {
+        OSKextLogMemError();
+        goto finish;
+    }
+    infoDictURL = _CFBundleCopyInfoPlistURL(kextBundle);
+    if (!infoDictURL) {
+        // not able to determine error here, bundle might have no plist
+        // (well, we should never have gotten here if that were the case)
+        result = CFStringCreateWithCString(kCFAllocatorDefault, "",
+            kCFStringEncodingUTF8);
+        goto finish;
+    }
+
+    result = copyAdjustedPathForURL(theKext, infoDictURL, pathSpec);
+
+finish:
+    SAFE_RELEASE(infoDictURL);
+    SAFE_RELEASE(kextBundle);
+    SAFE_RELEASE(kextAbsURL);
+    return result;
 }
 
 /*******************************************************************************
 *
 *******************************************************************************/
-const char * nameForIntegrityState(KXKextIntegrityState state)
-{
-    if (kKXKextIntegrityCorrect == state) {
-        return kIntegrityCorrect;
-    } else if (kKXKextIntegrityKextIsModified == state) {
-        return kIntegrityModified;
-    } else if (kKXKextIntegrityNoReceipt == state) {
-        return kIntegrityNoReceipt;
-    } else if (kKXKextIntegrityNotApple == state) {
-        return kIntegrityNotApple;
-    } else if (kKXKextIntegrityUnknown == state) {
-        return kIntegrityUnknown;
-    }
-    return NULL;
-}
-
-
-/*******************************************************************************
-* XXX: I'm really not sure this is completely reliable for getting a relative
-* XXX: path.
-*******************************************************************************/
-char * getAdjustedPath(
-    KXKextRef theKext,
-    CFURLRef pathToAdjust,
-    PathSpec pathSpec)
-{
-    char * result = NULL;
-    KXKextRepositoryRef repository = NULL;   // do not release
-    CFURLRef repositoryURL = NULL;  // must release
-    CFURLRef kextAbsURL = NULL;     // do not release
-    char infoDictPath[PATH_MAX];
-    char containingPath[PATH_MAX];
-
-    if (!CFURLGetFileSystemRepresentation(pathToAdjust, true,
-        (UInt8 *)infoDictPath, PATH_MAX)) {
-
-        goto finish;
-    }
-
-    if (pathSpec == kPathsFull) {
-        result = strdup(infoDictPath);
-        goto finish;
-    }
-
-    if (pathSpec == kPathsRelative) {
-        repository = KXKextGetRepository(theKext);
-        repositoryURL = KXKextRepositoryCopyURL(repository);
-        if (!repositoryURL) {
-            goto finish;
-        }
-
-        if (!CFURLGetFileSystemRepresentation(repositoryURL, true,
-            (UInt8 *)containingPath, PATH_MAX)) {
-
-            goto finish;
-        }
-
-        result = strdup(infoDictPath + strlen(containingPath) + 1);
-    }
-
-   /* No-paths for info-dict & executable are still relative to the kext.
-    */
-    if (pathSpec == kPathsNone) {
-        kextAbsURL = KXKextGetAbsoluteURL(theKext);
-        if (!kextAbsURL) {
-            goto finish;
-        }
-        if (!CFURLGetFileSystemRepresentation(kextAbsURL, true,
-            (UInt8 *)containingPath, PATH_MAX)) {
-
-            goto finish;
-        }
-
-        result = strdup(infoDictPath + strlen(containingPath)  + 1);
-    }
-
-finish:
-    if (repositoryURL) CFRelease(repositoryURL);
-    return result;
-}
-
-/*******************************************************************************
-* XXX: I'm really not sure this is completely reliable for getting a relative
-* XXX: path.
-*******************************************************************************/
-char * getKextInfoDictionaryPath(
-    KXKextRef theKext,
-    PathSpec pathSpec)
-{
-    char * result = NULL;
-    CFURLRef infoDictURL = NULL;    // must release
-
-    infoDictURL = _CFBundleCopyInfoPlistURL(KXKextGetBundle(theKext));
-    if (!infoDictURL) {
-        goto finish;
-    }
-
-    result = getAdjustedPath(theKext, infoDictURL, pathSpec);
-
-finish:
-    if (infoDictURL)   CFRelease(infoDictURL);
-    return result;
-}
-
 void printKextInfoDictionary(
-    KXKextRef theKext,
+    OSKextRef theKext,
     PathSpec pathSpec,
     char lineEnd)
 {
-    char * infoDictPath = NULL;  // must free
+    CFStringRef   infoDictPath = NULL;  // must release
+    char        * infoDictPathCString = NULL;  // must free
 
-    infoDictPath = getKextInfoDictionaryPath(theKext, pathSpec);
-    if (infoDictPath) {
-        printf("%s%c", infoDictPath, lineEnd);
-        free(infoDictPath);
+    infoDictPath = copyKextInfoDictionaryPath(theKext, pathSpec);
+    if (!infoDictPath) {
+        OSKextLogMemError();
+        goto finish;
     }
 
+    infoDictPathCString = createUTF8CStringForCFString(infoDictPath);
+    if (!infoDictPathCString) {
+        OSKextLogMemError();
+        goto finish;
+    }
+
+    printf("%s%c", infoDictPathCString, lineEnd);
+
+
+finish:
+    SAFE_FREE(infoDictPathCString);
+    SAFE_RELEASE(infoDictPath);
     return;
 }
 
@@ -574,21 +676,40 @@ void printKextInfoDictionary(
 * XXX: I'm really not sure this is completely reliable for getting a relative
 * XXX: path.
 *******************************************************************************/
-char * getKextExecutablePath(
-    KXKextRef theKext,
-    PathSpec pathSpec)
+CFStringRef copyKextExecutablePath(
+    OSKextRef theKext,
+    PathSpec  pathSpec)
 {
-    char * result = NULL;
-    CFURLRef executableURL = NULL;    // must release
+    CFStringRef   result = NULL;
+    CFURLRef      kextURL       = NULL;  // do not release
+    CFURLRef      kextAbsURL    = NULL;  // must release
+    CFURLRef      executableURL = NULL;    // must release
 
-    executableURL = CFBundleCopyExecutableURL(KXKextGetBundle(theKext));
-    if (!executableURL) {
+    kextURL = OSKextGetURL(theKext);
+    if (!kextURL) {
+        OSKextLog(theKext,
+            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+            "Kext has no URL!");
         goto finish;
     }
-    result = getAdjustedPath(theKext, executableURL, pathSpec);
+    kextAbsURL = CFURLCopyAbsoluteURL(kextURL);
+    if (!kextAbsURL) {
+        OSKextLogMemError();
+        goto finish;
+    }
+
+    executableURL = _CFBundleCopyExecutableURLInDirectory(kextAbsURL);
+    if (!executableURL) {
+        // not able to determine error here, bundle might have no executable
+        result = CFStringCreateWithCString(kCFAllocatorDefault, "",
+            kCFStringEncodingUTF8);
+        goto finish;
+    }
+    result = copyAdjustedPathForURL(theKext, executableURL, pathSpec);
 
 finish:
-    if (executableURL)   CFRelease(executableURL);
+    SAFE_RELEASE(executableURL);
+    SAFE_RELEASE(kextAbsURL);
     return result;
 }
 
@@ -597,16 +718,30 @@ finish:
 * XXX: path.
 *******************************************************************************/
 void printKextExecutable(
-    KXKextRef theKext,
+    OSKextRef theKext,
     PathSpec pathSpec,
     char lineEnd)
 {
-    char * executablePath = getKextExecutablePath(theKext, pathSpec);
+    CFStringRef   executablePath = NULL;  // must release
+    char        * executablePathCString = NULL;  // must free
 
-    if (executablePath) {
-        printf("%s%c", executablePath, lineEnd);
-        free(executablePath);
+    executablePath = copyKextExecutablePath(theKext, pathSpec);
+    if (!executablePath) {
+        OSKextLogMemError();
+        goto finish;
     }
 
+    executablePathCString = createUTF8CStringForCFString(executablePath);
+    if (!executablePathCString) {
+        OSKextLogMemError();
+        goto finish;
+    }
+
+    printf("%s%c", executablePathCString, lineEnd);
+
+
+finish:
+    SAFE_FREE(executablePathCString);
+    SAFE_RELEASE(executablePath);
     return;
 }

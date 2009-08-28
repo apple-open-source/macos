@@ -66,6 +66,20 @@ for_each_inferior (struct inferior_list *list,
 }
 
 void
+for_each_inferior_data (struct inferior_list *list, void *data,
+			void (*action) (struct inferior_list_entry *, void *))
+{
+  struct inferior_list_entry *cur = list->head, *next;
+
+  while (cur != NULL)
+    {
+      next = cur->next;
+      (*action) (cur, data);
+      cur = next;
+    }
+}
+
+void
 change_inferior_id (struct inferior_list *list,
 		    unsigned long new_id)
 {

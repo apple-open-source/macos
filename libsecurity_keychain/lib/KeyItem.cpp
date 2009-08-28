@@ -36,9 +36,9 @@
 #include "KCEventNotifier.h"
 
 // @@@ This needs to be shared.
-static CSSM_DB_NAME_ATTR(kInfoKeyPrintName, kSecKeyPrintName, "PrintName", 0, NULL, BLOB);
-static CSSM_DB_NAME_ATTR(kInfoKeyLabel, kSecKeyLabel, "Label", 0, NULL, BLOB);
-static CSSM_DB_NAME_ATTR(kInfoKeyApplicationTag, kSecKeyApplicationTag, "ApplicationTag", 0, NULL, BLOB);
+static CSSM_DB_NAME_ATTR(kInfoKeyPrintName, kSecKeyPrintName, (char*) "PrintName", 0, NULL, BLOB);
+static CSSM_DB_NAME_ATTR(kInfoKeyLabel, kSecKeyLabel, (char*) "Label", 0, NULL, BLOB);
+static CSSM_DB_NAME_ATTR(kInfoKeyApplicationTag, kSecKeyApplicationTag, (char*) "ApplicationTag", 0, NULL, BLOB);
 
 using namespace KeychainCore;
 
@@ -57,6 +57,24 @@ KeyItem::KeyItem(const Keychain &keychain, const PrimaryKey &primaryKey)  :
 	mPubKeyHash(Allocator::standard())
 {
 }
+
+KeyItem* KeyItem::make(const Keychain &keychain, const PrimaryKey &primaryKey, const CssmClient::DbUniqueRecord &uniqueId)
+{
+	KeyItem* k = new KeyItem(keychain, primaryKey, uniqueId);
+	keychain->addItem(primaryKey, k);
+	return k;
+}
+
+
+
+KeyItem* KeyItem::make(const Keychain &keychain, const PrimaryKey &primaryKey)
+{
+	KeyItem* k = new KeyItem(keychain, primaryKey);
+	keychain->addItem(primaryKey, k);
+	return k;
+}
+
+
 
 KeyItem::KeyItem(KeyItem &keyItem) :
 	ItemImpl(keyItem),
@@ -94,7 +112,13 @@ KeyItem::copyTo(const Keychain &keychain, Access *newAccess)
 		MacOSError::throwMe(errSecInvalidKeychain);
 
 	/* Get the destination keychains db. */
-	SSDb ssDb(safe_cast<SSDbImpl *>(&(*keychain->database())));
+	SSDbImpl* dbImpl = dynamic_cast<SSDbImpl*>(&(*keychain->database()));
+	if (dbImpl == NULL)
+	{
+		CssmError::throwMe(CSSMERR_CSSM_INVALID_POINTER);
+	}
+	
+	SSDb ssDb(dbImpl);
 
 	/* Make sure mKey is valid. */
 	key();
@@ -211,7 +235,13 @@ CssmClient::SSDbUniqueRecord
 KeyItem::ssDbUniqueRecord()
 {
 	DbUniqueRecordImpl *impl = &*dbUniqueRecord();
-	return CssmClient::SSDbUniqueRecord(safe_cast<Security::CssmClient::SSDbUniqueRecordImpl *>(impl));
+	Security::CssmClient::SSDbUniqueRecordImpl *simpl = dynamic_cast<Security::CssmClient::SSDbUniqueRecordImpl *>(impl);
+	if (simpl == NULL)
+	{
+		CssmError::throwMe(CSSMERR_CSSM_INVALID_POINTER);
+	}
+	
+	return CssmClient::SSDbUniqueRecord(simpl);
 }
 
 CssmClient::Key &
@@ -309,13 +339,15 @@ KeyItem::getCredentials(
 	//AutoAclEntryInfoList aclInfos;
 	//key()->getAcl(aclInfos);
 
+	bool smartcard = keychain() != NULL ? (keychain()->database()->dl()->guid() == gGuidAppleSdCSPDL) : false;
+		
 	AclFactory factory;
 	switch (credentialType)
 	{
 	case kSecCredentialTypeDefault:
-		return globals().credentials();
+		return smartcard?globals().smartcardItemCredentials():globals().itemCredentials();
 	case kSecCredentialTypeWithUI:
-		return factory.promptCred();
+		return smartcard?globals().smartcardItemCredentials():factory.promptCred();
 	case kSecCredentialTypeNoUI:
 		return factory.nullCred();
 	default:
@@ -324,7 +356,7 @@ KeyItem::getCredentials(
 }
 
 bool
-KeyItem::operator == (const KeyItem &other) const
+KeyItem::operator == (KeyItem &other)
 {
 	if (mKey && *mKey)
 	{
@@ -357,7 +389,13 @@ KeyItem::createPair(
 	if (!(keychain->database()->dl()->subserviceMask() & CSSM_SERVICE_CSP))
 		MacOSError::throwMe(errSecInvalidKeychain);
 
-	SSDb ssDb(safe_cast<SSDbImpl *>(&(*keychain->database())));
+	SSDbImpl* impl = dynamic_cast<SSDbImpl*>(&(*keychain->database()));
+	if (impl == NULL)
+	{
+		CssmError::throwMe(CSSMERR_CSSM_INVALID_POINTER);
+	}
+	
+	SSDb ssDb(impl);
 	CssmClient::CSP csp(keychain->csp());
 	CssmClient::CSP appleCsp(gGuidAppleCSP);
 
@@ -500,8 +538,21 @@ KeyItem::createPair(
 		publicKeyItem = keychain->item(CSSM_DL_DB_RECORD_PUBLIC_KEY, pubUniqueId);
 		privateKeyItem = keychain->item(CSSM_DL_DB_RECORD_PRIVATE_KEY, privUniqueId);
 
-		outPublicKey = safe_cast<KeyItem*>(&(*publicKeyItem));
-		outPrivateKey = safe_cast<KeyItem*>(&(*privateKeyItem));
+		KeyItem* impl = dynamic_cast<KeyItem*>(&(*publicKeyItem));
+		if (impl == NULL)
+		{
+			CssmError::throwMe(CSSMERR_CSSM_INVALID_POINTER);
+		}
+		
+		outPublicKey = impl;
+		
+		impl = dynamic_cast<KeyItem*>(&(*privateKeyItem));
+		if (impl == NULL)
+		{
+			CssmError::throwMe(CSSMERR_CSSM_INVALID_POINTER);
+		}
+		
+		outPrivateKey = impl;
 	}
 	catch (...)
 	{
@@ -550,7 +601,13 @@ KeyItem::importPair(
 	if (!(keychain->database()->dl()->subserviceMask() & CSSM_SERVICE_CSP))
 		MacOSError::throwMe(errSecInvalidKeychain);
 
-	SSDb ssDb(safe_cast<SSDbImpl *>(&(*keychain->database())));
+	SSDbImpl* impl = dynamic_cast<SSDbImpl *>(&(*keychain->database()));
+	if (impl == NULL)
+	{
+		CssmError::throwMe(CSSMERR_CSSM_INVALID_POINTER);
+	}
+	
+	SSDb ssDb(impl);
 	CssmClient::CSP csp(keychain->csp());
 	CssmClient::CSP appleCsp(gGuidAppleCSP);
 
@@ -702,8 +759,20 @@ KeyItem::importPair(
 		publicKeyItem = keychain->item(CSSM_DL_DB_RECORD_PUBLIC_KEY, pubUniqueId);
 		privateKeyItem = keychain->item(CSSM_DL_DB_RECORD_PRIVATE_KEY, privUniqueId);
 
-		outPublicKey = safe_cast<KeyItem*>(&(*publicKeyItem));
-		outPrivateKey = safe_cast<KeyItem*>(&(*privateKeyItem));
+		KeyItem* impl = dynamic_cast<KeyItem*>(&(*publicKeyItem));
+		if (impl == NULL)
+		{
+			CssmError::throwMe(CSSMERR_CSSM_INVALID_POINTER);
+		}
+		
+		outPublicKey = impl;
+		
+		impl = dynamic_cast<KeyItem*>(&(*privateKeyItem));
+		if (impl == NULL)
+		{
+			CssmError::throwMe(CSSMERR_CSSM_INVALID_POINTER);
+		}
+		outPrivateKey = impl;
 	}
 	catch (...)
 	{
@@ -756,7 +825,13 @@ KeyItem::generate(Keychain keychain,
 		if (!(keychain->database()->dl()->subserviceMask() & CSSM_SERVICE_CSP))
 			MacOSError::throwMe(errSecInvalidKeychain);
 	
-		ssDb = SSDb(safe_cast<SSDbImpl *>(&(*keychain->database())));
+		SSDbImpl* impl = dynamic_cast<SSDbImpl *>(&(*keychain->database()));
+		if (impl == NULL)
+		{
+			CssmError::throwMe(CSSMERR_CSSM_INVALID_POINTER);
+		}
+		
+		ssDb = SSDb(impl);
 		csp = keychain->csp();
 
 		// Generate a random label to use initially
@@ -874,5 +949,11 @@ KeyItem::generate(Keychain keychain,
 	if (keychain && keyItem)
 		keychain->postEvent(kSecAddEvent, keyItem);
 
-	return safe_cast<KeyItem*> (&*keyItem);
+	KeyItem* item = dynamic_cast<KeyItem*>(&*keyItem);
+	if (item == NULL)
+	{
+		CssmError::throwMe(CSSMERR_CSSM_INVALID_POINTER);
+	}
+	
+	return item;
 }

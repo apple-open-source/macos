@@ -1,6 +1,6 @@
 /* File format for coverage information
    Copyright (C) 1996, 1997, 1998, 2000, 2002,
-   2003, 2004 Free Software Foundation, Inc.
+   2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Bob Manson <manson@cygnus.com>.
    Completely remangled by Nathan Sidwell <nathan@codesourcery.com>.
 
@@ -18,8 +18,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* As a special exception, if you link this library with other files,
    some of which are compiled with GCC, to produce an executable,
@@ -195,7 +195,7 @@ typedef signed gcov_type __attribute__ ((mode (QI)));
 #endif
 
 
-#if defined (TARGET_HAS_F_SETLKW)
+#if defined (TARGET_POSIX_IO)
 #define GCOV_LOCKED 1
 #else
 #define GCOV_LOCKED 0
@@ -214,11 +214,7 @@ typedef HOST_WIDEST_INT gcov_type;
 #include <sys/types.h>
 #endif
 #else /*!IN_GCOV */
-#if LONG_LONG_TYPE_SIZE > 32
-#define GCOV_TYPE_NODE intDI_type_node
-#else
-#define GCOV_TYPE_NODE intSI_type_node
-#endif
+#define GCOV_TYPE_SIZE (LONG_LONG_TYPE_SIZE > 32 ? 64 : 32)
 #endif
 
 #if defined (HOST_HAS_F_SETLKW)
@@ -229,11 +225,15 @@ typedef HOST_WIDEST_INT gcov_type;
 
 #endif /* !IN_LIBGCOV */
 
-/* In gcov we want function linkage to be static. In libgcov we need
-   these functions to be extern, so prefix them with __gcov.  In the
-   compiler we want it extern, so that they can be accessed from
-   elsewhere.  */
+/* In gcov we want function linkage to be static.  In the compiler we want
+   it extern, so that they can be accessed from elsewhere.  In libgcov we
+   need these functions to be extern, so prefix them with __gcov.  In
+   libgcov they must also be hidden so that the instance in the executable
+   is not also used in a DSO.  */
 #if IN_LIBGCOV
+
+#include "tconfig.h"
+
 #define gcov_var __gcov_var
 #define gcov_open __gcov_open
 #define gcov_close __gcov_close
@@ -252,6 +252,16 @@ typedef HOST_WIDEST_INT gcov_type;
 /* Poison these, so they don't accidentally slip in.  */
 #pragma GCC poison gcov_write_string gcov_write_tag gcov_write_length
 #pragma GCC poison gcov_read_string gcov_sync gcov_time gcov_magic
+
+#ifdef HAVE_GAS_HIDDEN
+#define ATTRIBUTE_HIDDEN  __attribute__ ((__visibility__ ("hidden")))
+#else
+#define ATTRIBUTE_HIDDEN
+#endif
+
+#else
+
+#define ATTRIBUTE_HIDDEN
 
 #endif
 
@@ -432,30 +442,36 @@ struct gcov_info
 };
 
 /* Register a new object file module.  */
-extern void __gcov_init (struct gcov_info *);
+extern void __gcov_init (struct gcov_info *) ATTRIBUTE_HIDDEN;
 
 /* Called before fork, to avoid double counting.  */
-extern void __gcov_flush (void);
+extern void __gcov_flush (void) ATTRIBUTE_HIDDEN;
 
 /* The merge function that just sums the counters.  */
-extern void __gcov_merge_add (gcov_type *, unsigned);
+extern void __gcov_merge_add (gcov_type *, unsigned) ATTRIBUTE_HIDDEN;
 
 /* The merge function to choose the most common value.  */
-extern void __gcov_merge_single (gcov_type *, unsigned);
+extern void __gcov_merge_single (gcov_type *, unsigned) ATTRIBUTE_HIDDEN;
 
 /* The merge function to choose the most common difference between
    consecutive values.  */
-extern void __gcov_merge_delta (gcov_type *, unsigned);
+extern void __gcov_merge_delta (gcov_type *, unsigned) ATTRIBUTE_HIDDEN;
+
+/* The profiler functions.  */
+extern void __gcov_interval_profiler (gcov_type *, gcov_type, int, unsigned); 
+extern void __gcov_pow2_profiler (gcov_type *, gcov_type);
+extern void __gcov_one_value_profiler (gcov_type *, gcov_type);
 
 #ifndef inhibit_libc
 /* The wrappers around some library functions..  */
 extern pid_t __gcov_fork (void);
-extern int __gcov_execl (const char *, const char *, ...);
-extern int __gcov_execlp (const char *, const char *, ...);
-extern int __gcov_execle (const char *,  const char *, ...);
-extern int __gcov_execv (const char *, char *const []);
-extern int __gcov_execvp (const char *, char *const []);
-extern int __gcov_execve (const char *, char  *const [], char *const []);
+extern int __gcov_execl (const char *, const char *, ...) ATTRIBUTE_HIDDEN;
+extern int __gcov_execlp (const char *, const char *, ...) ATTRIBUTE_HIDDEN;
+extern int __gcov_execle (const char *,  const char *, ...) ATTRIBUTE_HIDDEN;
+extern int __gcov_execv (const char *, char *const []) ATTRIBUTE_HIDDEN;
+extern int __gcov_execvp (const char *, char *const []) ATTRIBUTE_HIDDEN;
+extern int __gcov_execve (const char *, char  *const [], char *const [])
+  ATTRIBUTE_HIDDEN;
 #endif
 
 #endif /* IN_LIBGCOV */
@@ -487,7 +503,7 @@ GCOV_LINKAGE struct gcov_var
   size_t alloc;
   gcov_unsigned_t *buffer;
 #endif
-} gcov_var;
+} gcov_var ATTRIBUTE_HIDDEN;
 
 /* Functions for reading and writing gcov files. In libgcov you can
    open the file for reading then writing. Elsewhere you can open the
@@ -499,29 +515,31 @@ GCOV_LINKAGE struct gcov_var
    functions for writing.  Your file may become corrupted if you break
    these invariants.  */
 #if IN_LIBGCOV
-GCOV_LINKAGE int gcov_open (const char */*name*/);
+GCOV_LINKAGE int gcov_open (const char */*name*/) ATTRIBUTE_HIDDEN;
 #else
 GCOV_LINKAGE int gcov_open (const char */*name*/, int /*direction*/);
 GCOV_LINKAGE int gcov_magic (gcov_unsigned_t, gcov_unsigned_t);
 #endif
-GCOV_LINKAGE int gcov_close (void);
+GCOV_LINKAGE int gcov_close (void) ATTRIBUTE_HIDDEN;
 
 /* Available everywhere.  */
 static gcov_position_t gcov_position (void);
 static int gcov_is_error (void);
 
-GCOV_LINKAGE gcov_unsigned_t gcov_read_unsigned (void);
-GCOV_LINKAGE gcov_type gcov_read_counter (void);
-GCOV_LINKAGE void gcov_read_summary (struct gcov_summary *);
+GCOV_LINKAGE gcov_unsigned_t gcov_read_unsigned (void) ATTRIBUTE_HIDDEN;
+GCOV_LINKAGE gcov_type gcov_read_counter (void) ATTRIBUTE_HIDDEN;
+GCOV_LINKAGE void gcov_read_summary (struct gcov_summary *) ATTRIBUTE_HIDDEN;
 
 #if IN_LIBGCOV
 /* Available only in libgcov */
-GCOV_LINKAGE void gcov_write_counter (gcov_type);
-GCOV_LINKAGE void gcov_write_tag_length (gcov_unsigned_t, gcov_unsigned_t);
+GCOV_LINKAGE void gcov_write_counter (gcov_type) ATTRIBUTE_HIDDEN;
+GCOV_LINKAGE void gcov_write_tag_length (gcov_unsigned_t, gcov_unsigned_t)
+    ATTRIBUTE_HIDDEN;
 GCOV_LINKAGE void gcov_write_summary (gcov_unsigned_t /*tag*/,
-				      const struct gcov_summary *);
+				      const struct gcov_summary *)
+    ATTRIBUTE_HIDDEN;
 static void gcov_rewrite (void);
-GCOV_LINKAGE void gcov_seek (gcov_position_t /*position*/);
+GCOV_LINKAGE void gcov_seek (gcov_position_t /*position*/) ATTRIBUTE_HIDDEN;
 #else
 /* Available outside libgcov */
 GCOV_LINKAGE const char *gcov_read_string (void);
@@ -531,7 +549,7 @@ GCOV_LINKAGE void gcov_sync (gcov_position_t /*base*/,
 
 #if !IN_GCOV
 /* Available outside gcov */
-GCOV_LINKAGE void gcov_write_unsigned (gcov_unsigned_t);
+GCOV_LINKAGE void gcov_write_unsigned (gcov_unsigned_t) ATTRIBUTE_HIDDEN;
 #endif
 
 #if !IN_GCOV && !IN_LIBGCOV
@@ -546,26 +564,12 @@ GCOV_LINKAGE void gcov_write_length (gcov_position_t /*position*/);
 GCOV_LINKAGE time_t gcov_time (void);
 #endif
 
-/* Make sure the library is used correctly.  */
-#if IN_LIBGCOV
-#if ENABLE_CHECKING
-#define GCOV_CHECK(EXPR) (!(EXPR) ? abort (), 0 : 0)
-#else
-/* Include EXPR, so that unused variable warnings do not occur.  */
-#define GCOV_CHECK(EXPR) ((void)(0 && (EXPR)))
-#endif
-#else
-#define GCOV_CHECK(EXPR) gcc_assert (EXPR)
-#endif
-#define GCOV_CHECK_READING() GCOV_CHECK(gcov_var.mode > 0)
-#define GCOV_CHECK_WRITING() GCOV_CHECK(gcov_var.mode < 0)
-
 /* Save the current position in the gcov file.  */
 
 static inline gcov_position_t
 gcov_position (void)
 {
-  GCOV_CHECK_READING ();
+  gcc_assert (gcov_var.mode > 0);
   return gcov_var.start + gcov_var.offset;
 }
 
@@ -583,7 +587,7 @@ gcov_is_error (void)
 static inline void
 gcov_rewrite (void)
 {
-  GCOV_CHECK_READING ();
+  gcc_assert (gcov_var.mode > 0);
   gcov_var.mode = -1;
   gcov_var.start = 0;
   gcov_var.offset = 0;

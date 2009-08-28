@@ -48,7 +48,7 @@ Boolean ReadLog(void *addr);        // addr is the kernal address of the info re
 Boolean DoRead(void *remote_addr, void *local_addr, int length);
 
 // iokit stuff
-
+#if 0
 // find this elsewhere ...
 extern "C" kern_return_t io_connect_method_structureI_structureO
 (
@@ -59,6 +59,7 @@ extern "C" kern_return_t io_connect_method_structureI_structureO
 	io_struct_inband_t output,
 	mach_msg_type_number_t *outputCnt
 );
+#endif
 
 typedef struct IrDACommand
 {
@@ -70,7 +71,7 @@ typedef IrDACommand *IrDACommandPtr;
 
 kern_return_t doCommand(io_connect_t con, unsigned char commandID,
 			void *inputData, unsigned long inputDataSize,
-			void *outputData, mach_msg_type_number_t *outputDataSize);
+			void *outputData, size_t *outputDataSize);
 
 kern_return_t openDevice(io_object_t obj, io_connect_t * con);
 kern_return_t closeDevice(io_connect_t con);
@@ -137,7 +138,7 @@ DumpLocalLog()
 	kr = openDevice(netif, &conObj);
 	if (kr == kIOReturnSuccess) {
 	    UInt32 inbuf[2];            // big buffer address passed to userclient
-	    mach_msg_type_number_t infosize;
+	    size_t infosize;
 	
 	    inbuf[0] = (UInt32)&bigbuffer[0];
 	    inbuf[1] = sizeof(bigbuffer);
@@ -218,7 +219,7 @@ getInterfaceWithName(mach_port_t masterPort, char *className)
 	obj = 0;
     }
 
-    IORegistryDisposeEnumerator(ite);
+    IOObjectRelease(ite);
 
     return obj;
 }
@@ -227,7 +228,7 @@ kern_return_t
 doCommand(io_connect_t con,
 	    unsigned char commandID,
 	    void *inputData, unsigned long inputDataSize,
-	    void *outputData, mach_msg_type_number_t *outputDataSize)
+	    void *outputData, size_t *outputDataSize)
 {
 	kern_return_t   err = KERN_SUCCESS;
 	//mach_msg_type_number_t  outSize = outputDataSize;
@@ -244,7 +245,7 @@ doCommand(io_connect_t con,
 		memcpy(command->data, inputData, inputDataSize);
 
     // Now we can (hopefully) transfer everything:
-    err = io_connect_method_structureI_structureO(
+    err = IOConnectCallStructMethod(
 			con,
 			0,                                  /* method index */
 			(char *) command,                   /* input[] */

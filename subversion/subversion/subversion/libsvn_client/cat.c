@@ -2,7 +2,7 @@
  * cat.c:  implementation of the 'cat' command
  *
  * ====================================================================
- * Copyright (c) 2000-2004 CollabNet.  All rights reserved.
+ * Copyright (c) 2000-2007 CollabNet.  All rights reserved.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution.  The terms
@@ -22,7 +22,6 @@
 
 /*** Includes. ***/
 
-#include <assert.h>
 #include "svn_client.h"
 #include "svn_string.h"
 #include "svn_error.h"
@@ -34,45 +33,36 @@
 #include "client.h"
 
 #include "svn_private_config.h"
+#include "private/svn_wc_private.h"
 
 
 /*** Code. ***/
 
 /* Helper function to handle copying a potentially translated version of
    local file PATH to OUTPUT.  REVISION must be one of the following: BASE,
-   COMMITTED, WORKING, or UNSPECIFIED.  If the revision is UNSPECIFIED, it
-   will default to BASE.  Uses POOL for temporary allocations. */
+   COMMITTED, WORKING.  Uses POOL for temporary allocations. */
 static svn_error_t *
 cat_local_file(const char *path,
                svn_stream_t *output,
                svn_wc_adm_access_t *adm_access,
                const svn_opt_revision_t *revision,
+               svn_cancel_func_t cancel_func,
+               void *cancel_baton,
                apr_pool_t *pool)
 {
   const svn_wc_entry_t *entry;
   apr_hash_t *kw = NULL;
   svn_subst_eol_style_t style;
   apr_hash_t *props;
-  const char *base;
   svn_string_t *eol_style, *keywords, *special;
   const char *eol = NULL;
   svn_boolean_t local_mod = FALSE;
   apr_time_t tm;
-  apr_file_t *input_file;
   svn_stream_t *input;
 
-  assert(revision->kind == svn_opt_revision_working ||
-         revision->kind == svn_opt_revision_base ||
-         revision->kind == svn_opt_revision_committed ||
-         revision->kind == svn_opt_revision_unspecified);
+  SVN_ERR_ASSERT(SVN_CLIENT__REVKIND_IS_LOCAL_TO_WC(revision->kind));
 
-  SVN_ERR(svn_wc_entry(&entry, path, adm_access, FALSE, pool));
-
-  if (! entry)
-    return svn_error_createf(SVN_ERR_UNVERSIONED_RESOURCE, NULL,
-                             _("'%s' is not under version control "
-                               "or doesn't exist"),
-                             svn_path_local_style(path, pool));
+  SVN_ERR(svn_wc__entry_versioned(&entry, path, adm_access, FALSE, pool));
 
   if (entry->kind != svn_node_file)
     return svn_error_createf(SVN_ERR_CLIENT_IS_DIRECTORY, NULL,
@@ -81,14 +71,15 @@ cat_local_file(const char *path,
 
   if (revision->kind != svn_opt_revision_working)
     {
-      SVN_ERR(svn_wc_get_pristine_copy_path(path, &base, pool));
+      SVN_ERR(svn_wc_get_pristine_contents(&input, path, pool, pool));
       SVN_ERR(svn_wc_get_prop_diffs(NULL, &props, path, adm_access, pool));
     }
   else
     {
       svn_wc_status2_t *status;
-      
-      base = path;
+
+      SVN_ERR(svn_stream_open_readonly(&input, path, pool, pool));
+
       SVN_ERR(svn_wc_prop_list(&props, path, adm_access, pool));
       SVN_ERR(svn_wc_status2(&status, path, adm_access, pool));
       if (status->text_status != svn_wc_status_normal)
@@ -101,10 +92,10 @@ cat_local_file(const char *path,
                           APR_HASH_KEY_STRING);
   special = apr_hash_get(props, SVN_PROP_SPECIAL,
                          APR_HASH_KEY_STRING);
-  
+
   if (eol_style)
     svn_subst_eol_style_from_value(&style, &eol, eol_style->data);
-  
+
   if (local_mod && (! special))
     {
       /* Use the modified time from the working copy if
@@ -135,26 +126,23 @@ cat_local_file(const char *path,
           fmt = "%ld";
           author = entry->cmt_author;
         }
-      
+
       SVN_ERR(svn_subst_build_keywords2
-              (&kw, keywords->data, 
+              (&kw, keywords->data,
                apr_psprintf(pool, fmt, entry->cmt_rev),
                entry->url, tm, author, pool));
     }
 
-  SVN_ERR(svn_io_file_open(&input_file, base,
-                           APR_READ, APR_OS_DEFAULT, pool));
-  input = svn_stream_from_aprfile2(input_file, FALSE, pool);
+  /* Our API contract says that OUTPUT will not be closed. The two paths
+     below close it, so disown the stream to protect it. The input will
+     be closed, which is good (since we opened it). */
+  output = svn_stream_disown(output, pool);
 
-  if ( eol || kw )
-    SVN_ERR(svn_subst_translate_stream3(input, output, eol, FALSE, kw,
-                                        TRUE, pool));
-  else
-    SVN_ERR(svn_stream_copy(input, output, pool));
+  /* Wrap the output stream if translation is needed. */
+  if (eol != NULL || kw != NULL)
+    output = svn_subst_stream_translated(output, eol, FALSE, kw, TRUE, pool);
 
-  SVN_ERR(svn_stream_close(input));
-
-  return SVN_NO_ERROR;
+  return svn_stream_copy3(input, output, cancel_func, cancel_baton, pool);
 }
 
 svn_error_t *
@@ -174,33 +162,41 @@ svn_client_cat2(svn_stream_t *out,
   const char *url;
   svn_stream_t *output = out;
 
+  /* ### Inconsistent default revision logic in this command. */
+  if (peg_revision->kind == svn_opt_revision_unspecified)
+    {
+      peg_revision = svn_cl__rev_default_to_head_or_working(peg_revision,
+                                                            path_or_url);
+      revision = svn_cl__rev_default_to_head_or_base(revision, path_or_url);
+    }
+  else
+    {
+      peg_revision = svn_cl__rev_default_to_head_or_working(peg_revision,
+                                                            path_or_url);
+      revision = svn_cl__rev_default_to_peg(revision, peg_revision);
+    }
+
   if (! svn_path_is_url(path_or_url)
-      && (peg_revision->kind == svn_opt_revision_base
-          || peg_revision->kind == svn_opt_revision_working
-          || peg_revision->kind == svn_opt_revision_committed
-          || peg_revision->kind == svn_opt_revision_unspecified)
-      && (revision->kind == svn_opt_revision_base
-          || revision->kind == svn_opt_revision_working
-          || revision->kind == svn_opt_revision_committed
-          || revision->kind == svn_opt_revision_unspecified))
+      && SVN_CLIENT__REVKIND_IS_LOCAL_TO_WC(peg_revision->kind)
+      && SVN_CLIENT__REVKIND_IS_LOCAL_TO_WC(revision->kind))
     {
       svn_wc_adm_access_t *adm_access;
-    
+
       SVN_ERR(svn_wc_adm_open3(&adm_access, NULL,
                                svn_path_dirname(path_or_url, pool), FALSE,
                                0, ctx->cancel_func, ctx->cancel_baton,
                                pool));
 
-      SVN_ERR(cat_local_file(path_or_url, out, adm_access, revision, pool));
+      SVN_ERR(cat_local_file(path_or_url, out, adm_access, revision,
+                             ctx->cancel_func, ctx->cancel_baton, pool));
 
-      SVN_ERR(svn_wc_adm_close(adm_access));
-
-      return SVN_NO_ERROR;
+      return svn_wc_adm_close2(adm_access, pool);
     }
 
   /* Get an RA plugin for this filesystem object. */
   SVN_ERR(svn_client__ra_session_from_path(&ra_session, &rev,
-                                           &url, path_or_url, peg_revision,
+                                           &url, path_or_url, NULL,
+                                           peg_revision,
                                            revision, ctx, pool));
 
   /* Make sure the object isn't a directory. */
@@ -209,7 +205,7 @@ svn_client_cat2(svn_stream_t *out,
     return svn_error_createf(SVN_ERR_CLIENT_IS_DIRECTORY, NULL,
                              _("URL '%s' refers to a directory"), url);
 
-  /* Grab some properties we need to know in order to figure out if anything 
+  /* Grab some properties we need to know in order to figure out if anything
      special needs to be done with this file. */
   SVN_ERR(svn_ra_get_file(ra_session, "", rev, NULL, NULL, &props, pool));
 
@@ -269,15 +265,4 @@ svn_client_cat2(svn_stream_t *out,
     SVN_ERR(svn_stream_close(output));
 
   return SVN_NO_ERROR;
-}
-
-svn_error_t *
-svn_client_cat(svn_stream_t *out,
-               const char *path_or_url,
-               const svn_opt_revision_t *revision,
-               svn_client_ctx_t *ctx,
-               apr_pool_t *pool)
-{
-  return svn_client_cat2(out, path_or_url, revision, revision,
-                         ctx, pool);
 }

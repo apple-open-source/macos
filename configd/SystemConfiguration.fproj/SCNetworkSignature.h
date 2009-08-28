@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2006, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,16 +24,14 @@
 #ifndef _SCNETWORKSIGNATURE_H
 #define _SCNETWORKSIGNATURE_H
 
-#include <AvailabilityMacros.h>
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
-
+#include <Availability.h>
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFArray.h>
 #include <netinet/in.h>
 
 /*!
 	@header SCNetworkSignature
-	@discussion The SCNetworkSignature API provides access to the 
+	@discussion The SCNetworkSignature API provides access to the
 		network identification information.  Each routable network
 		has an associated signature that is assigned a unique
 		identifier.  The unique identifier allows an application
@@ -61,7 +59,7 @@ extern const char * kSCNetworkSignatureActiveChangedNotifyName;
 		NULL if no networks are currently active.
  */
 CFArrayRef /* of CFStringRef's */
-SCNetworkSignatureCopyActiveIdentifiers(CFAllocatorRef alloc);
+SCNetworkSignatureCopyActiveIdentifiers(CFAllocatorRef alloc)			__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
 
 /*!
 	@function SCNetworkSignatureCopyActiveIdentifierForAddress
@@ -81,8 +79,6 @@ SCNetworkSignatureCopyActiveIdentifiers(CFAllocatorRef alloc);
  */
 CFStringRef
 SCNetworkSignatureCopyActiveIdentifierForAddress(CFAllocatorRef alloc,
-						 const struct sockaddr * addr);
-
-#endif	/* MAC_OS_X_VERSION_MAX_ALLOWED >= 1050 */
+						 const struct sockaddr * addr)	__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
 
 #endif	/* _SCNETWORKSIGNATURE_H */

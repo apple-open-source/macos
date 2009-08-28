@@ -31,6 +31,7 @@
 #define _IOKIT_IOFWWORKLOOP_H
 
 #include <IOKit/IOWorkLoop.h>
+#include <libkern/c++/OSSet.h>
 
 class IOFWWorkLoop : public IOWorkLoop
 {
@@ -41,6 +42,9 @@ protected:
 	static SInt32		sLockGroupCount;
 	lck_grp_t *			fLockGroup;
 
+	IOThread			fRemoveSourceThread;
+	OSSet *				fRemoveSourceDeferredSet;
+	
 	bool init( void );
 	void free( void );
 	
@@ -57,6 +61,9 @@ public:
     
     // Wake workloop up (closes gate if successful)
     virtual IOReturn wake( void *token );
+	
+	virtual IOReturn removeEventSource(IOEventSource *toRemove);
+
 };
 
 #endif /* ! _IOKIT_IOFWWORKLOOP_H */

@@ -72,7 +72,7 @@ EventTraceCauseDesc gTraceEvents[] = {
     {kLogDataRead,          "IrComm: read data"}
 };
 
-#define XTRACE(x, y, z)  IrDALogAdd( x, y, (int)z & 0xffff, gTraceEvents, true )  
+#define XTRACE(x, y, z)  IrDALogAdd( x, y, (uintptr_t)z & 0xffff, gTraceEvents, true )  
 #else
 #define XTRACE(x, y, z) ((void)0)
 #endif
@@ -105,7 +105,7 @@ IrComm::irComm(TIrGlue *irda, IrDAComm *irdacomm)
 {
     IrComm *obj = new IrComm;
     
-    XTRACE(kLogNew, (int)obj >> 16, obj);
+    XTRACE(kLogNew, 0, obj);
     
     if (obj && !obj->Init(irda, irdacomm)) {
 	obj->release();
@@ -118,7 +118,7 @@ IrComm::irComm(TIrGlue *irda, IrDAComm *irdacomm)
 void
 IrComm::free(void)
 {
-    XTRACE(kLogFree, (int)this >>16, this);
+    XTRACE(kLogFree, 0, this);
     
     ///xxx;
 
@@ -128,7 +128,7 @@ IrComm::free(void)
 Boolean
 IrComm::Init(TIrGlue *irda, IrDAComm *irdacomm)
 {
-    XTRACE(kLogInit, (int)this >> 16, this);
+    XTRACE(kLogInit, 0, this);
     UInt8 *classname = (UInt8 *)"IrDA:IrCOMM";  // same lsap for client and server!
     
     fIrDAComm = irdacomm;
@@ -271,7 +271,7 @@ Fail:
 void
 IrComm::Disconnect(void)
 {
-    int review_disconnect_logic;
+    //int review_disconnect_logic;
     
     XTRACE(kLogDisconnect, 0, 0);
     
@@ -340,7 +340,7 @@ void IrComm::TTPLookupComplete(IrDAErr result,UInt32 peerLSAPId)
     XTRACE(kLogLkupDone, result, peerLSAPId);
 
 #if (hasTracing > 0 && hasIrCommTracing > 0)
-    DebugLog("lookup complete, result=%ld, lsap=%ld", result, peerLSAPId);
+    DebugLog("lookup complete, result=%ld, lsap=%ld", (long int)result, (long int)peerLSAPId);
 #endif
     if (result == noErr && peerLSAPId > 0) {
 	DoConnectRequest (              // connect to a remote peer

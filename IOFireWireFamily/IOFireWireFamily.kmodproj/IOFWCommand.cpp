@@ -38,6 +38,7 @@
 
 // protected
 #include <IOKit/firewire/IOFireWireLink.h>
+#include <IOKit/firewire/IOFWUtils.h>
 
 // system
 #include <IOKit/assert.h>
@@ -191,7 +192,7 @@ IOReturn IOFWCommand::startExecution()
 	if( !IOFWCommand::fMembers->fSubmitTimeLatched )
 	{
 		IOFWCommand::fMembers->fSubmitTimeLatched = true;
-		clock_get_uptime( &(IOFWCommand::fMembers->fSubmitTime) );	// remember when we started
+		IOFWGetAbsoluteTime( &(IOFWCommand::fMembers->fSubmitTime) );	// remember when we started
 	}
 	
 	updateTimer();
@@ -346,7 +347,7 @@ void IOFWCommand::updateTimer()
 	{
         AbsoluteTime delta;
         clock_interval_to_absolutetime_interval(fTimeout, kMicrosecondScale, &delta);
-        clock_get_uptime(&fDeadline);
+        IOFWGetAbsoluteTime(&fDeadline);
         ADD_ABSOLUTETIME(&fDeadline, &delta);
         if(fQueue) 
 		{
@@ -433,7 +434,7 @@ void IOFWCommand::updateTimer()
 #if 0
                 {
                     AbsoluteTime now, dead;
-                    clock_get_uptime(&now);
+                    IOFWGetAbsoluteTime(&now);
                     IOLog("%s: insertAfter %s, time is %llx\n",
                         getMetaClass()->getClassName(), prev->getMetaClass()->getClassName(), AbsoluteTime_to_scalar(&now) );
                     {

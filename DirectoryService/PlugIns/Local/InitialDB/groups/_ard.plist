@@ -18,5 +18,9 @@
 	<array>
 		<string>*</string>
 	</array>
+	<key>realname</key>
+	<array>
+		<string>Apple Remote Desktop</string>
+	</array>
 </dict>
 </plist>

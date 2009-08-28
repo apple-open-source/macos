@@ -37,7 +37,7 @@
 # if	!defined(lint)
 static char copyright[] =
 "@(#) Copyright 1997 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: prfp.c,v 1.12 2006/03/27 22:56:06 abe Exp abe $";
+static char *rcsid = "$Id: prfp.c,v 1.14 2008/10/21 16:12:36 abe Exp $";
 # endif	/* !defined(lint) */
 
 #include "../lsof.h"
@@ -208,5 +208,5 @@ process_file(fp)
 	enter_nm("no more information");
 }
 #else	/* !defined(USE_LIB_PROCESS_FILE) */
-static char d1[] = "d"; static char *d2 = d1;
+char prfp_d1[] = "d"; char *prfp_d2 = prfp_d1;
 #endif	/* defined(USE_LIB_PROCESS_FILE) */

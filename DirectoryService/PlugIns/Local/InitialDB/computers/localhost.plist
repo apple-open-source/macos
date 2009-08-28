@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>kerberosServices</key>
+	<array>
+		<string>host</string>
+		<string>afpserver</string>
+		<string>cifs</string>
+		<string>vnc</string>
+	</array>
+	<key>name</key>
+	<array>
+		<string>localhost</string>
+	</array>
+	<key>ip_address</key>
+	<array>
+		<string>127.0.0.1</string>
+	</array>
+	<key>ipv6_address</key>
+	<array>
+		<string>::1</string>
+		<string>fe80::1%lo0</string>
+	</array>
+</dict>
+</plist>

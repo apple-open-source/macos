@@ -8,7 +8,7 @@ ProjectName           = OpenLDAP
 UserType              = Administrator
 ToolType              = Commands
 
-Extra_CC_Flags        = -DLDAP_DEPRECATED=1 -DSLAP_DYNACL=1 -DUSES_KRBNAME=1 -I/usr/local/BerkeleyDB/include -I${SRCROOT}/OpenLDAP/include -I${OBJROOT}/include -I${SRCROOT}/OpenLDAP/libraries/libldap -I${SRCROOT}/OpenLDAP/servers/slapd -I/usr/include/sasl -fno-common -gfull -funroll-loops -falign-loops=16
+Extra_CC_Flags        = -DLDAP_RESPONSE_RB_TREE=1 -DLDAP_DEPRECATED=1 -DLDAP_CONNECTIONLESS=1 -DSLAP_DYNACL=1 -DUSES_KRBNAME=1 -I/usr/local/BerkeleyDB/include -I${SRCROOT}/OpenLDAP/include -I${OBJROOT}/include -I${SRCROOT}/OpenLDAP/libraries/libldap -I${SRCROOT}/OpenLDAP/servers/slapd -I/usr/include/sasl -fno-common -gfull -funroll-loops -falign-loops=16
 Extra_LD_Flags        = -L${OBJROOT}/libraries -L/usr/local/BerkeleyDB/lib/
 Extra_Environment     = CPPFLAGS="-I/usr/include/sasl -I/usr/local/BerkeleyDB/include"
 Extra_Environment    += AR=${SRCROOT}/ar.sh
@@ -51,7 +51,9 @@ endif
 
 apple_port:
 	cp ${OBJROOT}/servers/slapd/slapd ${SYMROOT}/slapd
-	cp ${OBJROOT}/servers/slurpd/slurpd ${SYMROOT}/slurpd
+	for client in `ls ${OBJROOT}/clients/tools/`; do \
+		cp ${OBJROOT}/clients/tools/$$client ${SYMROOT}/; \
+	done
 	mkdir -p $(DSTROOT)/usr/local/OpenSourceLicenses/
 	cp $(SRCROOT)/OpenLDAP/LICENSE $(DSTROOT)/usr/local/OpenSourceLicenses/OpenLDAP.txt
 	mkdir -p $(DSTROOT)/usr/local/OpenSourceVersions/

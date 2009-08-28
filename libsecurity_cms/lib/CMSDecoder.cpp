@@ -498,7 +498,8 @@ OSStatus CMSDecoderCopySignerStatus(
 	if(secTrust != NULL) {
 		*secTrust = theTrust;
 		/* we'll release our reference at the end */
-		CFRetain(theTrust);
+		if (theTrust)
+			CFRetain(theTrust);
 	}
 	SecCmsSignerInfoRef signerInfo = 
 		SecCmsSignedDataGetSignerInfo(cmsDecoder->signedData, signerIndex);

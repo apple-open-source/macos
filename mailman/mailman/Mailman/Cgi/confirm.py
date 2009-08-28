@@ -1,4 +1,4 @@
-# Copyright (C) 2001-2005 by the Free Software Foundation, Inc.
+# Copyright (C) 2001-2008 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -529,6 +529,12 @@ def addrchange_confirm(mlist, doc, cookie):
             doc.addError(_("""%(newaddr)s is banned from subscribing to the
             %(realname)s list.  If you think this restriction is erroneous,
             please contact the list owners at %(owneraddr)s."""))
+        except Errors.MMAlreadyAMember:
+            realname = mlist.real_name
+            bad_confirmation(doc, _("""%(newaddr)s is already a member of
+            the %(realname)s list.  It is possible that you are attempting
+            to confirm a request for an address that has already been
+            subscribed."""))
         else:
             # The response
             listname = mlist.real_name

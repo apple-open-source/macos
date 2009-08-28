@@ -1,0 +1,41 @@
+# -*- tcl -*-
+
+# set mode xx
+# source this-file
+
+package require Memchan
+package require Trf
+
+catch {memchan}
+catch {zip}
+
+
+set result [open test.2.${mode}.data w]
+
+set f1000    [memchan];  set _ [open f1000    r]; unsupported0 $_ ${f1000};    close $_
+set f1000000 [memchan];  set _ [open f1000000 r]; unsupported0 $_ ${f1000000}; close $_
+
+fconfigure  ${f1000}    -translation binary
+fconfigure  ${f1000000} -translation binary
+
+
+proc do {a f} {
+    upvar f$f x
+
+    set          mb [memchan]
+    fconfigure  $mb -translation binary
+
+    $a   $x $mb
+    seek $x 0
+
+    close $mb
+}
+
+
+foreach a {crc crc-zlib adler sha haval md5} {
+    foreach t {1000 1000000} {
+	puts $result "set time($a,$t,$mode) [lindex [time {do $a $t} 1] 0]"
+    }
+}
+
+close $result

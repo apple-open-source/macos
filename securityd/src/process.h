@@ -32,6 +32,7 @@
 #include <security_agent_client/agentclient.h>
 #include <security_utilities/refcount.h>
 #include <security_utilities/ccaudit.h>
+#include <security_utilities/vproc++.h>
 #include "clientid.h"
 #include "csproxy.h"
 #include "localkey.h"
@@ -66,7 +67,9 @@ class AuthorizationToken;
 // but there's no evidence (yet) that this is worth the trouble.
 //
 class Process : public PerProcess,
-	public CodeSigningHost, public ClientIdentification {
+				public CodeSigningHost,
+				public ClientIdentification,
+				private VProc::Transaction {
 public:
 	Process(Port servicePort, TaskPort tPort,
 		const ClientSetupInfo *info, const char *identity,

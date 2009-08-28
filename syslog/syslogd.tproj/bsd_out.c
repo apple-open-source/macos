@@ -34,6 +34,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <netdb.h>
+#include <pthread.h>
 #include <notify.h>
 #include "daemon.h"
 
@@ -43,7 +44,6 @@
 #define ASL_KEY_FACILITY "Facility"
 #define FACILITY_KERNEL "kern"
 #define _PATH_CONSOLE "/dev/console"
-#define IndexNull ((uint32_t)-1)
 
 #define DST_TYPE_NONE 0
 #define DST_TYPE_FILE 1
@@ -52,8 +52,11 @@
 #define DST_TYPE_WALL 4
 #define DST_TYPE_NOTE 5
 
+#define CLOSE_ON_IDLE_SEC 60
+
 static asl_msg_t *query = NULL;
-static int reset = 0;
+static int reset = RESET_NONE;
+static pthread_mutex_t reset_lock = PTHREAD_MUTEX_INITIALIZER;
 
 struct config_rule
 {
@@ -76,101 +79,32 @@ static TAILQ_HEAD(cr, config_rule) bsd_out_rule;
 extern uint32_t asl_core_string_hash(const char *s, uint32_t inlen);
 
 int bsd_out_close();
+int bsd_out_network_reset(void);
 static int _parse_config_file(const char *);
 
 static void
 _do_reset(void)
 {
-	bsd_out_close();
-	_parse_config_file(_PATH_SYSLOG_CONF);
-}
-
-static char **
-_insertString(char *s, char **l, uint32_t x)
-{
-	int i, len;
-
-	if (s == NULL) return l;
-	if (l == NULL) 
+	pthread_mutex_lock(&reset_lock);
+	if (reset == RESET_NONE)
 	{
-		l = (char **)malloc(2 * sizeof(char *));
-		if (l == NULL) return NULL;
-
-		l[0] = strdup(s);
-		if (l[0] == NULL)
-		{
-			free(l);
-			return NULL;
-		}
-
-		l[1] = NULL;
-		return l;
+		pthread_mutex_unlock(&reset_lock);
+		return;
 	}
 
-	for (i = 0; l[i] != NULL; i++);
-	len = i + 1; /* count the NULL on the end of the list too! */
-
-	l = (char **)reallocf(l, (len + 1) * sizeof(char *));
-	if (l == NULL) return NULL;
-
-	if ((x >= (len - 1)) || (x == IndexNull))
+	if (reset == RESET_CONFIG)
 	{
-		l[len - 1] = strdup(s);
-		if (l[len - 1] == NULL)
-		{
-			free(l);
-			return NULL;
-		}
-
-		l[len] = NULL;
-		return l;
+		bsd_out_close();
+		_parse_config_file(_PATH_SYSLOG_CONF);
 	}
-
-	for (i = len; i > x; i--) l[i] = l[i - 1];
-	l[x] = strdup(s);
-	if (l[x] == NULL) return NULL;
-
-	return l;
-}
-
-static char **
-_explode(char *s, char *delim)
-{
-	char **l = NULL;
-	char *p, *t;
-	int i, n;
-
-	if (s == NULL) return NULL;
-
-	p = s;
-	while (p[0] != '\0')
+	else if (reset == RESET_NETWORK)
 	{
-		for (i = 0; ((p[i] != '\0') && (strchr(delim, p[i]) == NULL)); i++);
-		n = i;
-		t = malloc(n + 1);
-		if (t == NULL) return NULL;
-
-		for (i = 0; i < n; i++) t[i] = p[i];
-		t[n] = '\0';
-		l = _insertString(t, l, IndexNull);
-		free(t);
-		t = NULL;
-		if (p[i] == '\0') return l;
-		if (p[i + 1] == '\0') l = _insertString("", l, IndexNull);
-		p = p + i + 1;
+		bsd_out_network_reset();
 	}
+	
+	reset = RESET_NONE;
 
-	return l;
-}
-
-static void
-_freeList(char **l)
-{
-	int i;
-
-	if (l == NULL) return;
-	for (i = 0; l[i] != NULL; i++) free(l[i]);
-	free(l);
+	pthread_mutex_unlock(&reset_lock);
 }
 
 static int
@@ -225,7 +159,7 @@ _syslog_dst_open(struct config_rule *r)
 	if (r->dst[0] == '!')
 	{
 		r->type = DST_TYPE_NOTE;
-		r->fd = 0;
+		r->fd = -1;
 		return 0;
 	}
 
@@ -255,7 +189,7 @@ _syslog_dst_open(struct config_rule *r)
 			r->fd = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
 			if (r->fd < 0) continue;
 
-			r->addr = (struct sockaddr *)calloc(1, ai->ai_addrlen);
+			r->addr = (struct sockaddr *)malloc(ai->ai_addrlen);
 			if (r->addr == NULL) return -1;
 
 			memcpy(r->addr, ai->ai_addr, ai->ai_addrlen);
@@ -268,6 +202,8 @@ _syslog_dst_open(struct config_rule *r)
 		if (r->fd < 0)
 		{
 			asldebug("%s: connection failed for %s\n", MY_ID, (r->dst) + 1);
+			free(r->addr);
+			r->addr = NULL;
 			return -1;
 		}
 
@@ -276,6 +212,8 @@ _syslog_dst_open(struct config_rule *r)
 			close(r->fd);
 			r->fd = -1;
 			asldebug("%s: couldn't set O_NONBLOCK for fd %d: %s\n", MY_ID, r->fd, strerror(errno));
+			free(r->addr);
+			r->addr = NULL;
 			return -1;
 		}
 
@@ -287,7 +225,7 @@ _syslog_dst_open(struct config_rule *r)
 	if (strcmp(r->dst, "*") == 0)
 	{
 		r->type = DST_TYPE_WALL;
-		r->fd = 0;
+		r->fd = -1;
 		return 0;
 	}
 
@@ -300,6 +238,12 @@ static void
 _syslog_dst_close(struct config_rule *r)
 {
 	if (r == NULL) return;
+
+	if (r->addr != NULL)
+	{
+		free(r->addr);
+		r->addr = NULL;
+	}
 
 	switch (r->type)
 	{
@@ -315,8 +259,6 @@ _syslog_dst_close(struct config_rule *r)
 		{
 			if (r->fd >= 0) close(r->fd);
 			r->fd = -1;
-			if (r->addr != NULL) free(r->addr);
-			r->addr = NULL;
 			break;
 		}
 
@@ -331,6 +273,32 @@ _syslog_dst_close(struct config_rule *r)
 	}
 }
 
+static char *
+_clean_facility_name(char *s)
+{
+	uint32_t len;
+	char *p, *out;
+
+	if (s == NULL) return NULL;
+	len = strlen(s);
+	if (len == 0) return NULL;
+
+	p = s;
+
+	if ((*s == '\'') || (*s == '"'))
+	{
+		len--;
+		p++;
+		if (p[len - 1] == *s) len --;
+	}
+
+	out = calloc(1, len + 1);
+	if (out == NULL) return NULL;
+
+	memcpy(out, p, len);
+	return out;
+}
+
 static int
 _parse_line(char *s)
 {
@@ -342,7 +310,7 @@ _parse_line(char *s)
 	while ((*s == ' ') || (*s == '\t')) s++;
 	if (*s == '#') return -1;
 
-	semi = _explode(s, "; \t");
+	semi = explode(s, "; \t");
 
 	if (semi == NULL) return -1;
 	out = (struct config_rule *)calloc(1, sizeof(struct config_rule));
@@ -364,7 +332,7 @@ _parse_line(char *s)
 	for (i = 0; i < lasts; i++)
 	{
 		if (semi[i][0] == '\0') continue;
-		comma = _explode(semi[i], ",.");
+		comma = explode(semi[i], ",.");
 		lastc = -1;
 		for (j = 0; comma[j] != NULL; j++)
 		{
@@ -392,17 +360,17 @@ _parse_line(char *s)
 			if (out->facility == NULL) return -1;
 			if (out->pri == NULL) return -1;
 
-			out->facility[out->count] = strdup(comma[j]);
+			out->facility[out->count] = _clean_facility_name(comma[j]);
 			if (out->facility[out->count] == NULL) return -1;
 
 			out->pri[out->count] = pri;
 			out->count++;
 		}
 
-		_freeList(comma);
+		freeList(comma);
 	}
 
-	_freeList(semi);
+	freeList(semi);
 
 	TAILQ_INSERT_TAIL(&bsd_out_rule, out, entries);
 
@@ -470,7 +438,7 @@ bsd_log_string(const char *msg)
 static int
 _syslog_send_repeat_msg(struct config_rule *r)
 {
-	char vt[16], *p, *msg;
+	char vt[32], *p, *msg;
 	time_t tick;
 	int len, status;
 
@@ -521,7 +489,7 @@ _syslog_send_repeat_msg(struct config_rule *r)
 static int
 _syslog_send(asl_msg_t *msg, struct config_rule *r, char **out, char **fwd, time_t now)
 {
-	char *so, *sf, *vt, *p, *outmsg;
+	char vt[16], *so, *sf, *p, *outmsg;
 	const char *vtime, *vhost, *vident, *vpid, *vmsg, *vlevel, *vfacility, *vrefproc, *vrefpid;
 	size_t outlen, n;
 	time_t tick;
@@ -540,50 +508,23 @@ _syslog_send(asl_msg_t *msg, struct config_rule *r, char **out, char **fwd, time
 	}
 
 	msg_hash = 0;
-	vt = NULL;
 	outmsg = NULL;
 
 	/* Build output string if it hasn't been built by a previous rule-match */
 	if (*out == NULL)
 	{
+		tick = now;
 		vtime = asl_get(msg, ASL_KEY_TIME);
 		if (vtime != NULL)
 		{
-			tick = asl_parse_time(vtime);
-			if (tick != (time_t)-1)
-			{
-				p = ctime(&tick);
-				vt = malloc(16);
-				if (vt == NULL) return -1;
-
-				memcpy(vt, p+4, 15);
-				vt[15] = '\0';
-			}
-			else if (strlen(vtime) < 24) 
-			{
-				vt = strdup(vtime);
-				if (vt == NULL) return -1;
-			}
-			else
-			{
-				vt = malloc(16);
-				if (vt == NULL) return -1;
-
-				memcpy(vt, vtime+4, 15);
-				vt[15] = '\0';
-			}
+			/* aslmsg_verify converts time to seconds, but use current time if something went sour */
+			tick = atol(vtime);
+			if (tick == 0) tick = now;
 		}
 
-		if (vt == NULL)
-		{
-			tick = now;
-			p = ctime(&tick);
-			vt = malloc(16);
-			if (vt == NULL) return -1;
-
-			memcpy(vt, p+4, 15);
-			vt[15] = '\0';
-		}
+		p = ctime(&tick);
+		memcpy(vt, p+4, 15);
+		vt[15] = '\0';
 
 		vhost = asl_get(msg, ASL_KEY_HOST);
 		if (vhost == NULL) vhost = "localhost";
@@ -604,7 +545,7 @@ _syslog_send(asl_msg_t *msg, struct config_rule *r, char **out, char **fwd, time
 
 		n = 0;
 		/* Time + " " */
-		if (vt != NULL) n += (strlen(vt) + 1);
+		n += (strlen(vt) + 1);
 
 		/* Host + " " */
 		if (vhost != NULL) n += (strlen(vhost) + 1);
@@ -641,11 +582,8 @@ _syslog_send(asl_msg_t *msg, struct config_rule *r, char **out, char **fwd, time
 		so = calloc(1, n);
 		if (so == NULL) return -1;
 
-		if (vt != NULL)
-		{
-			strcat(so, vt);
-			strcat(so, " ");
-		}
+		strcat(so, vt);
+		strcat(so, " ");
 
 		if (vhost != NULL)
 		{
@@ -690,7 +628,6 @@ _syslog_send(asl_msg_t *msg, struct config_rule *r, char **out, char **fwd, time
 
 		strcat(so, "\n");
 
-		free(vt);
 		*out = so;
 	}
 
@@ -784,11 +721,9 @@ _syslog_send(asl_msg_t *msg, struct config_rule *r, char **out, char **fwd, time
 			return -1;
 		}
 
-		fprintf(pw, *out);
+		fprintf(pw, "%s", *out);
 		pclose(pw);
 	}
-
-	_syslog_dst_close(r);
 
 	if (is_dup == 1)
 	{
@@ -865,11 +800,7 @@ bsd_out_sendmsg(asl_msg_t *msg, const char *outid)
 	time_t tick;
 	uint64_t delta;
 
-	if (reset != 0)
-	{
-		_do_reset();
-		reset = 0;
-	}
+	if (reset != RESET_NONE) _do_reset();
 
 	if (msg == NULL) return -1;
 
@@ -901,6 +832,28 @@ bsd_out_sendmsg(asl_msg_t *msg, const char *outid)
 }
 
 void
+bsd_close_idle_files(time_t now)
+{
+	struct config_rule *r;
+	uint64_t delta;
+
+	for (r = bsd_out_rule.tqh_first; r != NULL; r = r->entries.tqe_next)
+	{
+		/* only applies to files */
+		if (r->type != DST_TYPE_FILE) continue;
+
+		/*
+		 * If the last message repeat count is non-zero, a bsd_flush_duplicates()
+		 * call will occur within 30 seconds.  Don't bother closing the file.
+		 */
+		if (r->last_count > 0) continue;
+
+		delta = now - r->last_time;
+		if (delta > CLOSE_ON_IDLE_SEC) _syslog_dst_close(r);
+	}
+}
+
+void
 bsd_flush_duplicates(time_t now)
 {
 	struct config_rule *r;
@@ -925,7 +878,6 @@ bsd_flush_duplicates(time_t now)
 			{
 				_syslog_dst_open(r);
 				_syslog_send_repeat_msg(r);
-				_syslog_dst_close(r);
 
 				r->last_count = 0;
 			}
@@ -971,7 +923,7 @@ bsd_out_init(void)
 int
 bsd_out_reset(void)
 {
-	reset = 1;
+	reset = global.reset;
 	return 0;
 }
 
@@ -1004,5 +956,22 @@ bsd_out_close(void)
 		free(r);
 	}
 
+	return 0;
+}
+
+int
+bsd_out_network_reset(void)
+{
+	struct config_rule *r;
+	
+	for (r = bsd_out_rule.tqh_first; r != NULL; r = r->entries.tqe_next)
+	{		
+		if (r->type == DST_TYPE_SOCK) 
+		{
+			close(r->fd);
+			r->fd = -1;
+		}
+	}
+	
 	return 0;
 }

@@ -1,4 +1,3 @@
-/* APPLE LOCAL file mainline */
 /* Test if caught exception objects are accessible inside the
    @catch block.  (Yes, I managed to break this.)  */
 /* Author: Ziemowit Laski <zlaski@apple.com> */
@@ -11,11 +10,10 @@
 
 const char *foo(void)
 {
-    @try {
-        return "foo";
-    }
-    @catch (Object* theException) {
-          return [theException name];
-    }
+  @try {
+    return "foo";
+  }
+  @catch (Object* theException) {
+    return [theException name];
+  }
 }
-

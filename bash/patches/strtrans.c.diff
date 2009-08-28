@@ -1,0 +1,15 @@
+--- /SourceCache/bash/bash-79/bash/lib/sh/strtrans.c	2006-07-27 06:43:14.000000000 -0700
++++ lib/sh/strtrans.c	2008-07-09 22:16:17.000000000 -0700
+@@ -76,7 +76,11 @@ ansicstr (string, len, flags, sawc, rlen
+ #endif
+ 	    case 'b': c = '\b'; break;
+ 	    case 'e': case 'E':		/* ESC -- non-ANSI */
+-	      c = ESC; break;
++		    if (0 == (flags & 1))
++			    c = ESC;
++		    else if (0 == (flags & 4))
++		            *r++ = '\\';
++		    break;
+ 	    case 'f': c = '\f'; break;
+ 	    case 'n': c = '\n'; break;
+ 	    case 'r': c = '\r'; break;

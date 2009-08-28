@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,6 +33,9 @@
 #define mig_external __private_extern__
 
 /* Turn MIG type checking on by default */
+#ifdef __MigTypeCheck
+#undef __MigTypeCheck
+#endif
 #define __MigTypeCheck	1
 
 /*

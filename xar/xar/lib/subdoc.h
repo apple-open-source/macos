@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005 Rob Braun
+ * Copyright (c) 2005-2007 Rob Braun
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,7 +28,7 @@
  */
 /*
  * 03-Apr-2005
- * DRI: Rob Braun <bbraun@opendarwin.org>
+ * DRI: Rob Braun <bbraun@synack.net>
  */
 
 #ifndef _XAR_SUBDOC_H_
@@ -44,6 +44,7 @@ struct __xar_subdoc_t {
 	const char *ns;
 	const char *blank1; /* filler for xar_file_t compatibility */
 	const char *blank2; /* filler for xar_file_t compatibility */
+	const char blank3; /* filler for xar_file_t compatibility */
 	const char *name;
 	struct __xar_subdoc_t *next;
 	const char *value; /* a subdoc should very rarely have a value */
@@ -55,5 +56,6 @@ struct __xar_subdoc_t {
 void xar_subdoc_unserialize(xar_subdoc_t s, xmlTextReaderPtr reader);
 void xar_subdoc_serialize(xar_subdoc_t s, xmlTextWriterPtr writer, int wrap);
 void xar_subdoc_free(xar_subdoc_t s);
+xar_subdoc_t xar_subdoc_find(xar_t x, const char *name);
 
 #endif /* _XAR_SUBDOC_H_ */

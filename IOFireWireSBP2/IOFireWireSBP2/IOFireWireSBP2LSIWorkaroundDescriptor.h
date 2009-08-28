@@ -20,6 +20,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#if __ppc__
+
 /*!
   @header IOFireWireSBP2LSIWorkaroundDescriptor
   Contains the class definition for IOFireWireSBP2LSIWorkaroundDescriptor.
@@ -29,6 +31,8 @@
 #define _IOKIT_IOFIREWIRESBP2LSIWORKAROUNDDESCRIPTOR_H
 
 #include <IOKit/IOMemoryDescriptor.h>
+
+class IOFireWireSBP2LSIRange;
 
 /*!
     @class IOFireWireSBP2LSIWorkaroundDescriptor
@@ -75,7 +79,6 @@
     - It is expected that the original memory descriptor has been prepared (wired)
 */
 
-class IOFireWireSBP2LSIRange;
 class IOFireWireSBP2LSIWorkaroundDescriptor : public IOGeneralMemoryDescriptor
 {
 	OSDeclareDefaultStructors(IOFireWireSBP2LSIWorkaroundDescriptor)
@@ -283,5 +286,7 @@ private:
     OSMetaClassDeclareReservedUnused(IOFireWireSBP2LSIWorkaroundDescriptor, 8);
     
 };
+
+#endif
 
 #endif

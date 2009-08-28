@@ -1555,7 +1555,7 @@ static void digestmd5_common_mech_dispose(void *conn_context,
 
     if (text->nonce) utils->free(text->nonce);
     if (text->cnonce) utils->free(text->cnonce);
-	if (text->digest_uri) utils->free(text->digest_uri);
+    if (text->digest_uri) utils->free(text->digest_uri);
 	
     if (text->cipher_free) text->cipher_free(text);
     
@@ -1714,7 +1714,7 @@ static char *create_response(context_t * text,
 			   Response	/* request-digest or response-digest */
 	    );
 	
-	*response_value = utils->malloc(HASHHEXLEN + 1);
+	*response_value = utils->realloc(*response_value, HASHHEXLEN + 1);
 	if (*response_value == NULL)
 	    return NULL;
 	memcpy(*response_value, Response, HASHHEXLEN);
@@ -2009,6 +2009,10 @@ digestmd5_server_mech_step1(server_context_t *stext,
     }
 
     text->authid = NULL;
+    if (text->realm != NULL) {
+	sparams->utils->free(text->realm);
+	text->realm = NULL;
+    }
     _plug_strdup(sparams->utils, realm, &text->realm, NULL);
     text->nonce = nonce;
     text->nonce_count = 1;
@@ -2064,7 +2068,8 @@ static int digestmd5_server_mech_step2(server_context_t *stext,
     
     /* can we mess with clientin? copy it to be safe */
     char           *in_start = NULL;
-    char           *in = NULL; 
+    char           *in = NULL;
+    cipher_free_t  *old_cipher_free = NULL;
     
     sparams->utils->log(sparams->utils->conn, SASL_LOG_DEBUG,
 			"DIGEST-MD5 server step 2");
@@ -2230,6 +2235,9 @@ static int digestmd5_server_mech_step2(server_context_t *stext,
 	    if (text->reauth->e[val].authid &&
 		!strcmp(username, text->reauth->e[val].authid)) {
 
+		if (text->realm != NULL) {
+		    sparams->utils->free(text->realm);
+		}
 		_plug_strdup(sparams->utils, text->reauth->e[val].realm,
 			     &text->realm, NULL);
 		_plug_strdup(sparams->utils, (const char *)text->reauth->e[val].nonce,
@@ -2375,6 +2383,14 @@ static int digestmd5_server_mech_step2(server_context_t *stext,
 	_plug_strdup(sparams->utils, "auth", &qop, NULL);      
     }
     
+    if (oparams->mech_ssf > 1) {
+	/* Remember the old cipher free function (if any).
+	   It will be called later, once we are absolutely
+	   sure that authentication was successful. */
+	old_cipher_free = text->cipher_free;
+	/* free the old cipher context first */
+    }
+    
     /* check which layer/cipher to use */
     if ((!strcasecmp(qop, "auth-conf")) && (cipher != NULL)) {
 	/* see what cipher was requested */
@@ -2484,6 +2500,9 @@ static int digestmd5_server_mech_step2(server_context_t *stext,
     text->rec_seqnum = 0;	/* for integrity/privacy */
     text->utils = sparams->utils;
 
+    /* Free the old security layer, if any */
+    if (old_cipher_free) old_cipher_free(text);
+
     /* used by layers */
     _plug_decode_init(&text->decode_context, text->utils,
 		      sparams->props.maxbufsize ? sparams->props.maxbufsize :
@@ -2496,11 +2515,12 @@ static int digestmd5_server_mech_step2(server_context_t *stext,
 	create_layer_keys(text, sparams->utils,text->HA1,n,enckey,deckey);
 	
 	/* initialize cipher if need be */
-	if (text->cipher_init)
+	if (text->cipher_init) {
 	    if (text->cipher_init(text, enckey, deckey) != SASL_OK) {
 		sparams->utils->seterror(sparams->utils->conn, 0,
 					 "couldn't init cipher");
 	    }
+	}
     }
     
     /*
@@ -2559,7 +2579,7 @@ static int digestmd5_server_mech_step2(server_context_t *stext,
 		text->reauth->e[val].nonce = text->nonce; text->nonce = NULL;
 		text->reauth->e[val].cnonce = cnonce; cnonce = NULL;
 	    }
-	    if (text->nonce_count <= text->reauth->e[val].nonce_count) {
+	    if (text->nonce_count < text->reauth->e[val].nonce_count) {
 		/* paranoia.  prevent replay attacks */
 		clear_reauth_entry(&text->reauth->e[val], SERVER, sparams->utils);
 	    }
@@ -2662,8 +2682,8 @@ static int digestmd5_server_mech_step(void *conn_context,
 				"DIGEST-MD5 reauth failed\n");
 
 	    /* re-initialize everything for a fresh start */
-	*serverout = NULL;
-	*serveroutlen = 0;
+	    *serverout = NULL;
+	    *serveroutlen = 0;
 	    memset(oparams, 0, sizeof(sasl_out_params_t));
 
 	    /* fall through and issue challenge */
@@ -2911,7 +2931,7 @@ static char *calculate_response(context_t * text,
 			   Response	/* request-digest or response-digest */
 	    );
 	
-	*response_value = utils->malloc(HASHHEXLEN + 1);
+	*response_value = utils->realloc(*response_value, HASHHEXLEN + 1);
 	if (*response_value == NULL)
 	    return NULL;
 	
@@ -2937,6 +2957,15 @@ static int make_client_response(context_t *text,
     char           *response = NULL;
     unsigned        resplen = 0;
     int result = SASL_OK;
+    cipher_free_t   *old_cipher_free = NULL;
+
+    if (oparams->mech_ssf > 1) {
+	/* Remember the old cipher free function (if any).
+	   It will be called later, once we are absolutely
+	   sure that authentication was successful. */
+	old_cipher_free = text->cipher_free;
+	/* free the old cipher context first */
+    }
 
     switch (ctext->protection) {
     case DIGEST_PRIVACY:
@@ -3123,6 +3152,9 @@ static int make_client_response(context_t *text,
     text->rec_seqnum = 0;	/* for integrity/privacy */
     text->utils = params->utils;
 
+    /* Free the old security layer, if any */
+    if (old_cipher_free) old_cipher_free(text);
+
     /* used by layers */
     _plug_decode_init(&text->decode_context, text->utils,
 		      params->props.maxbufsize ? params->props.maxbufsize :
@@ -3136,8 +3168,9 @@ static int make_client_response(context_t *text,
 			  enckey, deckey);
 	
 	/* initialize cipher if need be */
-	if (text->cipher_init)
-	    text->cipher_init(text, enckey, deckey);		       
+	if (text->cipher_init) {
+	    text->cipher_init(text, enckey, deckey);
+	}
     }
     
     result = SASL_OK;
@@ -3726,6 +3759,9 @@ digestmd5_client_mech_step1(client_context_t *ctext,
 	    !strcmp(text->reauth->e[val].authid, oparams->authid)) {
 
 	    /* we have info, so use it */
+	    if (text->realm != NULL) {
+		    params->utils->free(text->realm);
+	    }
 	    _plug_strdup(params->utils, text->reauth->e[val].realm,
 			 &text->realm, NULL);
 	    _plug_strdup(params->utils, (const char *)text->reauth->e[val].nonce,
@@ -3791,6 +3827,9 @@ static int digestmd5_client_mech_step2(client_context_t *ctext,
     
 	if (nrealm == 1) {
 	    /* only one choice! */
+	    if (text->realm != NULL) {
+		params->utils->free(text->realm);
+	    }
 	    text->realm = realms[0];
 
 	    /* free realms */
@@ -3827,15 +3866,6 @@ static int digestmd5_client_mech_step2(client_context_t *ctext,
     result = SASL_CONTINUE;
     
   FreeAllocatedMem:
-    if (realms) {
-	int lup;
-	
-	/* need to free all the realms */
-	for (lup = 0;lup < nrealm; lup++)
-	    params->utils->free(realms[lup]);
-	
-	params->utils->free(realms);
-    }
 
     return result;
 }
@@ -3961,7 +3991,6 @@ static int digestmd5_client_mech_step(void *conn_context,
 	    /* here's where we attempt fast reauth if possible */
 	    int reauth = 0;
 
-#if 0
 	    /* check if we have saved info for this server */
 	    if (params->utils->mutex_lock(text->reauth->mutex) == SASL_OK) { /* LOCK */
 		reauth = text->reauth->e[val].u.c.serverFQDN &&
@@ -3969,7 +3998,6 @@ static int digestmd5_client_mech_step(void *conn_context,
 				params->serverFQDN);
 		params->utils->mutex_unlock(text->reauth->mutex); /* UNLOCK */
 	    }
-#endif
 	    if (reauth) {
 		return digestmd5_client_mech_step1(ctext, params,
 						   serverin, serverinlen,

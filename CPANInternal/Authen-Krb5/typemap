@@ -1,0 +1,51 @@
+TYPEMAP
+
+Authen::Krb5::Ccache		T_PTROBJ_NU
+Authen::Krb5::Principal		T_PTROBJ_NU
+Authen::Krb5::AuthContext	T_PTROBJ_NU
+Authen::Krb5::Rcache		T_PTROBJ_NU
+Authen::Krb5::Creds		T_PTROBJ_NU
+Authen::Krb5::ApRepEncPart	T_PTROBJ_NU
+Authen::Krb5::Error		T_PTROBJ_NU
+Authen::Krb5::Ticket		T_PTROBJ_NU
+Authen::Krb5::Keytab		T_PTROBJ_NU
+Authen::Krb5::EncTktPart	T_PTROBJ_NU
+Authen::Krb5::Ccache            T_PTROBJ_NU
+Authen::Krb5::Principal         T_PTROBJ_NU
+Authen::Krb5::AuthContext       T_PTROBJ_NU
+Authen::Krb5::Rcache            T_PTROBJ_NU
+Authen::Krb5::Creds             T_PTROBJ_NU
+Authen::Krb5::Address		T_PTROBJ_NU
+Authen::Krb5::Keyblock		T_PTROBJ_NU
+Authen::Krb5::KeytabEntry	T_PTROBJ_NU
+Authen::Krb5::KeyBlock		T_PTROBJ_NU
+
+struct in_addr *	T_PTROBJ_NU
+krb5_error_code		T_INT
+krb5_int32		T_INT
+krb5_flags		T_INT
+krb5_timestamp		T_INT
+krb5_ui_4		T_INT
+krb5_enctype            T_INT
+krb5_kt_cursor *        T_PTROBJ_NU
+krb5_cc_cursor *        T_PTROBJ_NU
+krb5_kvno               T_U_INT
+
+INPUT
+
+T_PTROBJ_NU
+	if ($arg == &PL_sv_undef) {
+		$var = 0;
+	}
+	else if (sv_isa($arg, \"${ntype}\")) {
+		IV tmp = SvIV((SV*)SvRV($arg));
+		$var = ($type) tmp;
+	}
+	else {
+		croak(\"$var is not of type ${ntype}\");
+	}
+
+OUTPUT
+
+T_PTROBJ_NU
+	sv_setref_pv($arg, \"${ntype}\", (void*)$var);

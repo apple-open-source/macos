@@ -1,5 +1,5 @@
 #
-#  $Id: tc_attachments.rb 2038 2007-09-09 16:54:28Z el_oy $
+#  $Id: tc_attachments.rb 2178 2008-01-20 14:27:34Z el_oy $
 #
 #  Copyright (c) 2006 Jonathan Paisley
 #
@@ -126,5 +126,12 @@ class TC_Attachments < Test::Unit::TestCase
     
     dict =  OSX::NSDictionary.dictionaryWithDictionary({ str => num_b })
     assert_equal("#<NSCFDictionary {#{str.inspect}=>#{num_b.inspect}}>", dict.inspect)
+  end
+  
+  def test_nsnumber_and_float_roundtrip
+    f = 0.4242
+    assert_equal(f, f.to_ns.to_f)
+    assert_equal(f, f.to_ns.to_f.to_ns.to_f)
+    assert_equal(f, f.to_ns.to_ruby)
   end
 end

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>EnableTransactions</key>
+	<true/>
+	<key>KeepAlive</key>
+	<dict>
+		<key>OtherJobEnabled</key>
+		<dict>
+			<key>com.apple.AppleFileServer</key>
+			<true/>
+			<key>org.samba.smbd</key>
+			<true/>
+		</dict>
+		<key>PathState</key>
+		<dict>
+			<key>/etc/ScreenSharing.launchd</key>
+			<true/>
+			<key>/Library/Preferences/edu.mit.Kerberos.krb5kdc.launchd</key>
+			<true/>
+		</dict>
+	</dict>
+	<key>Label</key>
+	<string>edu.mit.Kerberos.krb5kdc</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/sbin/krb5kdc</string>
+		<string>-n</string>
+	</array>
+	<key>ServiceIPC</key>
+	<false/>
+</dict>
+</plist>

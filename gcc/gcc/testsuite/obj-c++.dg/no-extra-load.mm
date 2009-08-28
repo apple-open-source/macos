@@ -1,5 +1,5 @@
-// APPLE LOCAL file mainline
 // Radar 3926484
+
 // { dg-do compile }
 
 /* APPLE LOCAL radar 4894756 */
@@ -21,4 +21,5 @@ main ()
   Greeter *obj = [Greeter new];
   [obj greet: "Hello from Objective-C\n"];
 }
+
 /* { dg-final { scan-assembler-not "L_objc_msgSend\\\$non_lazy_ptr" } } */

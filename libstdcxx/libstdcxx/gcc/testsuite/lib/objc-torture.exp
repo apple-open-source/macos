@@ -12,7 +12,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 # This file was written by Rob Savoye. (rob@cygnus.com)
 
@@ -20,6 +20,24 @@ load_lib file-format.exp
 
 # The default option list can be overridden by
 # TORTURE_OPTIONS="{ { list1 } ... { listN } }"
+
+if ![info exists OBJC_RUNTIME_OPTIONS] {
+  set OBJC_RUNTIME_OPTIONS ""
+  foreach type {-fgnu-runtime -fnext-runtime} {
+    global srcdir subdir
+
+    set comp_output [objc_target_compile \
+    "$srcdir/$subdir/trivial.m" "trivial.exe" executable "additional_flags=$type"]
+
+    # If we get any error, then we failed
+    if ![string match "" $comp_output] then {
+      continue;
+    }
+    lappend OBJC_RUNTIME_OPTIONS $type
+  }
+}
+verbose -log "Using the following runtimes: $OBJC_RUNTIME_OPTIONS"
+
 
 if ![info exists TORTURE_OPTIONS] {
     # It is theoretically beneficial to group all of the O2/O3 options together,
@@ -30,27 +48,32 @@ if ![info exists TORTURE_OPTIONS] {
     # items below, even though -O3 is also specified, because some ports may
     # choose to disable inlining functions by default, even when optimizing.
     set TORTURE_OPTIONS [list \
-	{ -O0 } \
-	{ -O1 } \
-	{ -O2 } \
-	{ -O3 -fomit-frame-pointer } \
-	{ -O3 -fomit-frame-pointer -funroll-loops } \
-	{ -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions } \
-	{ -O3 -g } \
-	{ -Os } ]
+	" -O0 " \
+	" -O1 " \
+	" -O2 " \
+	" -O3 -fomit-frame-pointer " \
+	" -O3 -fomit-frame-pointer -funroll-loops " \
+	" -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions " \
+	" -O3 -g " \
+	" -Os " ]
 }
 
 
 # Split TORTURE_OPTIONS into two choices: one for testcases with loops and
-# one for testcases without loops.
+# one for testcases without loops. Add in the objc runtime options also.
 
-set torture_with_loops $TORTURE_OPTIONS
+set torture_with_loops ""
 set torture_without_loops ""
-foreach option $TORTURE_OPTIONS {
+foreach objc_option $OBJC_RUNTIME_OPTIONS {
+  foreach option $TORTURE_OPTIONS {
+  
     if ![string match "*loop*" $option] {
-	lappend torture_without_loops $option
+	lappend torture_without_loops "$option $objc_option"
     }
+    lappend torture_with_loops "$option $objc_option"
+  }
 }
+
 
 #
 # objc-torture-compile -- runs the Tege OBJC-torture test
@@ -65,7 +88,7 @@ proc objc-torture-compile { src option } {
 
     set output "$tmpdir/[file tail [file rootname $src]].o"
 
-    regsub "^$srcdir/?" $src "" testcase
+    regsub "(?q)$srcdir/" $src "" testcase
     # If we couldn't rip $srcdir out of `src' then just do the best we can.
     # The point is to reduce the unnecessary noise in the logs.  Don't strip
     # out too much because different testcases with the same name can confuse
@@ -80,7 +103,7 @@ proc objc-torture-compile { src option } {
     set options ""
     lappend options "additional_flags=-w $option"
 
-    set comp_output [objc_target_compile "$src" "$output" object $options];
+    set comp_output [objc_target_compile "$src" "$output" object $options]
     objc_check_compile $testcase $option $output $comp_output
     remote_file build delete $output
 }
@@ -98,9 +121,9 @@ proc objc-torture-execute { src args } {
     global tmpdir tool srcdir output compiler_conditional_xfail_data
 
     if { [llength $args] > 0 } {
-	set additional_flags [lindex $args 0];
+	set additional_flags [lindex $args 0]
     } else {
-	set additional_flags "";
+	set additional_flags ""
     }
     # Check for alternate driver.
     if [file exists [file rootname $src].x] {
@@ -123,7 +146,7 @@ proc objc-torture-execute { src args } {
 
     set executable $tmpdir/[file tail [file rootname $src].x]
 
-    regsub "^$srcdir/?" $src "" testcase
+    regsub "(?q)$srcdir/" $src "" testcase
     # If we couldn't rip $srcdir out of `src' then just do the best we can.
     # The point is to reduce the unnecessary noise in the logs.  Don't strip
     # out too much because different testcases with the same name can confuse
@@ -132,14 +155,14 @@ proc objc-torture-execute { src args } {
 	set testcase "[file tail [file dirname $src]]/[file tail $src]"
     }
 
-    set count 0;
-    set oldstatus "foo";
+    set count 0
+    set oldstatus "foo"
     foreach option $option_list {
 	if { $count > 0 } {
-	    set oldexec $execname;
+	    set oldexec $execname
 	}
-	set execname "${executable}${count}";
-	incr count;
+	set execname "${executable}${count}"
+	incr count
 
 	# torture_{compile,execute}_xfail are set by the .x script
 	# (if present)
@@ -153,15 +176,15 @@ proc objc-torture-execute { src args } {
             set ignore_me [eval $torture_eval_before_compile]
 	}
 
-	remote_file build delete $execname;
+	remote_file build delete $execname
 	verbose "Testing $testcase, $option" 1
 
 	set options ""
 	lappend options "additional_flags=-w $option"
 	if { $additional_flags != "" } {
-	    lappend options "additional_flags=$additional_flags";
+	    lappend options "additional_flags=$additional_flags"
 	}
-	set comp_output [objc_target_compile "$src" "${execname}" executable $options];
+	set comp_output [objc_target_compile "$src" "${execname}" executable $options]
 
 	if ![objc_check_compile "$testcase compilation" $option $execname $comp_output] {
 	    unresolved "$testcase execution, $option"
@@ -200,26 +223,26 @@ proc objc-torture-execute { src args } {
 	# Do not do this for native testing since the cost to load/execute
 	# the test is fairly small and the comparison step actually slows
 	# the entire process down because it usually does not "hit".
-	set skip 0;
+	set skip 0
 	if { ![isnative] && [info exists oldexec] } {
 	    if { [remote_file build cmp $oldexec $execname] == 0 } {
-		set skip 1;
+		set skip 1
 	    }
 	}
 	if { $skip == 0 } {
 	    set result [objc_load "$execname" "" ""]
-	    set status [lindex $result 0];
-	    set output [lindex $result 1];
+	    set status [lindex $result 0]
+	    set output [lindex $result 1]
 	}
         if { $oldstatus == "pass" } {
-	    remote_file build delete $oldexec;
+	    remote_file build delete $oldexec
         }
 	$status "$testcase execution, $option"
-	set oldstatus $status;
+	set oldstatus $status
     }
     if [info exists status] {
 	if { $status == "pass" } {
-	    remote_file build delete $execname;
+	    remote_file build delete $execname
 	}
     }
 }
@@ -253,9 +276,9 @@ proc search_for { file pattern } {
 proc objc-torture { args } {
     global srcdir subdir compiler_conditional_xfail_data
 
-    set src [lindex $args 0];
+    set src [lindex $args 0]
     if { [llength $args] > 1 } {
-	set options [lindex $args 1];
+	set options [lindex $args 1]
     } else {
 	set options ""
     }

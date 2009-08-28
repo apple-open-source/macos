@@ -52,7 +52,7 @@
 #include "ndrv_socket.h"
 
 int
-ndrv_socket(char * ifname)
+ndrv_socket(const char * ifname)
 {
     struct sockaddr_ndrv 	ndrv;
     int 			s;
@@ -62,7 +62,7 @@ ndrv_socket(char * ifname)
 	fprintf(stderr, "ndrv_socket: socket() failed: %s\n", strerror(errno));
 	goto failed;
     }
-    strncpy((char *)ndrv.snd_name, ifname, sizeof(ndrv.snd_name));
+    strlcpy((char *)ndrv.snd_name, ifname, sizeof(ndrv.snd_name));
     ndrv.snd_len = sizeof(ndrv);
     ndrv.snd_family = AF_NDRV;
     if (bind(s, (struct sockaddr *)&ndrv, sizeof(ndrv)) < 0) {
@@ -78,23 +78,28 @@ ndrv_socket(char * ifname)
 }
 
 int
-ndrv_socket_bind(int s, u_long family, u_short ether_type)
+ndrv_socket_bind(int s, u_int32_t family, const u_int16_t * ether_types,
+		 int ether_types_count)
 {
+    int				i;
     struct ndrv_protocol_desc	proto;
-    struct ndrv_demux_desc	demux;
+    struct ndrv_demux_desc *	demux;
     int				status;
 
-    bzero(&proto, sizeof(proto));
-    bzero(&demux, sizeof(demux));
+    demux = (struct ndrv_demux_desc *)
+	malloc(sizeof(*demux) * ether_types_count);
     proto.version = NDRV_PROTOCOL_DESC_VERS;
     proto.protocol_family = family;
-    proto.demux_count = 1;
-    proto.demux_list = &demux;
-    demux.type = NDRV_DEMUXTYPE_ETHERTYPE;
-    demux.length = sizeof(demux.data.ether_type);
-    demux.data.ether_type = htons(ether_type);
+    proto.demux_count = ether_types_count;
+    proto.demux_list = demux;
+    for (i = 0; i < ether_types_count; i++) {
+	demux[i].type = NDRV_DEMUXTYPE_ETHERTYPE;
+	demux[i].length = sizeof(demux[i].data.ether_type);
+	demux[i].data.ether_type = htons(ether_types[i]);
+    }
     status = setsockopt(s, SOL_NDRVPROTO, NDRV_SETDMXSPEC, 
 			(caddr_t)&proto, sizeof(proto));
+    free(demux);
     if (status < 0) {
         fprintf(stderr, "setsockopt(NDRV_SETDMXSPEC) failed: %s\n", 
 		strerror(errno));
@@ -104,7 +109,7 @@ ndrv_socket_bind(int s, u_long family, u_short ether_type)
 }
 
 int
-ndrv_socket_add_multicast(int s, struct sockaddr_dl * dl_p)
+ndrv_socket_add_multicast(int s, const struct sockaddr_dl * dl_p)
 {
     int			status;
 
@@ -119,7 +124,7 @@ ndrv_socket_add_multicast(int s, struct sockaddr_dl * dl_p)
 }
 
 int
-ndrv_socket_remove_multicast(int s, struct sockaddr_dl * dl_p)
+ndrv_socket_remove_multicast(int s, const struct sockaddr_dl * dl_p)
 {
     int			status;
 

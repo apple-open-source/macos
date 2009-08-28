@@ -2,8 +2,8 @@
 
   hash.c -
 
-  $Author: shyouhei $
-  $Date: 2007-08-22 12:42:36 +0900 (Wed, 22 Aug 2007) $
+  $Author: knu $
+  $Date: 2008-06-09 03:25:01 +0900 (Mon, 09 Jun 2008) $
   created at: Mon Nov 22 18:51:18 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -89,15 +89,16 @@ rb_any_hash(a)
     VALUE a;
 {
     VALUE hval;
+    int hnum;
 
     switch (TYPE(a)) {
       case T_FIXNUM:
       case T_SYMBOL:
-	return (int)a;
+	hnum = (int)a;
 	break;
 
       case T_STRING:
-	return rb_str_hash(a);
+	hnum = rb_str_hash(a);
 	break;
 
       default:
@@ -105,8 +106,10 @@ rb_any_hash(a)
 	if (!FIXNUM_P(hval)) {
 	    hval = rb_funcall(hval, '%', 1, INT2FIX(536870923));
 	}
-	return (int)FIX2LONG(hval);
+	hnum = (int)FIX2LONG(hval);
     }
+    hnum <<= 1;
+    return RSHIFT(hnum, 1);
 }
 
 static struct st_hash_type objhash = {
@@ -114,9 +117,11 @@ static struct st_hash_type objhash = {
     rb_any_hash,
 };
 
+typedef int st_foreach_func(st_data_t, st_data_t, st_data_t);
+
 struct foreach_safe_arg {
     st_table *tbl;
-    int (*func)();
+    st_foreach_func *func;
     st_data_t arg;
 };
 
@@ -144,16 +149,18 @@ st_foreach_safe(table, func, a)
     struct foreach_safe_arg arg;
 
     arg.tbl = table;
-    arg.func = func;
+    arg.func = (st_foreach_func *)func;
     arg.arg = a;
     if (st_foreach(table, foreach_safe_i, (st_data_t)&arg)) {
 	rb_raise(rb_eRuntimeError, "hash modified during iteration");
     }
 }
 
+typedef int rb_foreach_func(VALUE, VALUE, VALUE);
+
 struct hash_foreach_arg {
     VALUE hash;
-    int (*func)();
+    rb_foreach_func *func;
     VALUE arg;
 };
 
@@ -165,7 +172,7 @@ hash_foreach_iter(key, value, arg)
     int status;
     st_table *tbl;
 
-    tbl = RHASH(arg->hash)->tbl;    
+    tbl = RHASH(arg->hash)->tbl;
     if (key == Qundef) return ST_CONTINUE;
     status = (*arg->func)(key, value, arg->arg);
     if (RHASH(arg->hash)->tbl != tbl) {
@@ -218,7 +225,7 @@ rb_hash_foreach(hash, func, farg)
 
     RHASH(hash)->iter_lev++;
     arg.hash = hash;
-    arg.func = func;
+    arg.func = (rb_foreach_func *)func;
     arg.arg  = farg;
     rb_ensure(hash_foreach_call, (VALUE)&arg, hash_foreach_ensure, hash);
 }
@@ -259,7 +266,7 @@ rb_hash_new()
  *     Hash.new                          => hash
  *     Hash.new(obj)                     => aHash
  *     Hash.new {|hash, key| block }     => aHash
- *  
+ *
  *  Returns a new, empty hash. If this hash is subsequently accessed by
  *  a key that doesn't correspond to a hash entry, the value returned
  *  depends on the style of <code>new</code> used to create the hash. In
@@ -269,7 +276,7 @@ rb_hash_new()
  *  called with the hash object and the key, and should return the
  *  default value. It is the block's responsibility to store the value
  *  in the hash if required.
- *     
+ *
  *     h = Hash.new("Go Fish")
  *     h["a"] = 100
  *     h["b"] = 200
@@ -279,14 +286,14 @@ rb_hash_new()
  *     h["c"].upcase!   #=> "GO FISH"
  *     h["d"]           #=> "GO FISH"
  *     h.keys           #=> ["a", "b"]
- *     
+ *
  *     # While this creates a new default object each time
  *     h = Hash.new { |hash, key| hash[key] = "Go Fish: #{key}" }
  *     h["c"]           #=> "Go Fish: c"
  *     h["c"].upcase!   #=> "GO FISH: C"
  *     h["d"]           #=> "Go Fish: d"
  *     h.keys           #=> ["c", "d"]
- *     
+ *
  */
 
 static VALUE
@@ -316,11 +323,11 @@ rb_hash_initialize(argc, argv, hash)
 /*
  *  call-seq:
  *     Hash[ [key =>|, value]* ]   => hash
- *  
+ *
  *  Creates a new hash populated with the given objects. Equivalent to
  *  the literal <code>{ <i>key</i>, <i>value</i>, ... }</code>. Keys and
  *  values occur in pairs, so there must be an even number of arguments.
- *     
+ *
  *     Hash["a", 100, "b", 200]       #=> {"a"=>100, "b"=>200}
  *     Hash["a" => 100, "b" => 200]   #=> {"a"=>100, "b"=>200}
  *     { "a" => 100, "b" => 200 }     #=> {"a"=>100, "b"=>200}
@@ -332,16 +339,32 @@ rb_hash_s_create(argc, argv, klass)
     VALUE *argv;
     VALUE klass;
 {
-    VALUE hash;
+    VALUE hash, tmp;
     int i;
 
-    if (argc == 1 && TYPE(argv[0]) == T_HASH) {
-	hash = hash_alloc0(klass);
-	RHASH(hash)->tbl = st_copy(RHASH(argv[0])->tbl);
+    if (argc == 1) {
+	tmp = rb_check_convert_type(argv[0], T_HASH, "Hash", "to_hash");
+	if (!NIL_P(tmp)) {
+	    hash = hash_alloc0(klass);
+	    RHASH(hash)->tbl = st_copy(RHASH(tmp)->tbl);
+	    return hash;
+	}
 
-	return hash;
+	tmp = rb_check_array_type(argv[0]);
+	if (!NIL_P(tmp)) {
+	    long i;
+
+	    hash = hash_alloc(klass);
+	    for (i = 0; i < RARRAY_LEN(tmp); ++i) {
+		VALUE v = rb_check_array_type(RARRAY_PTR(tmp)[i]);
+		
+		if (NIL_P(v)) continue;
+		if (RARRAY_LEN(v) < 1 || 2 < RARRAY_LEN(v)) continue;
+		rb_hash_aset(hash, RARRAY_PTR(v)[0], RARRAY_PTR(v)[1]);
+	    }
+	    return hash;
+	}
     }
-
     if (argc % 2 != 0) {
 	rb_raise(rb_eArgError, "odd number of arguments for Hash");
     }
@@ -373,13 +396,13 @@ rb_hash_rehash_i(key, value, tbl)
 /*
  *  call-seq:
  *     hsh.rehash -> hsh
- *  
+ *
  *  Rebuilds the hash based on the current hash values for each key. If
  *  values of key objects have changed since they were inserted, this
  *  method will reindex <i>hsh</i>. If <code>Hash#rehash</code> is
  *  called while an iterator is traversing the hash, an
  *  <code>IndexError</code> will be raised in the iterator.
- *     
+ *
  *     a = [ "a", "b" ]
  *     c = [ "c", "d" ]
  *     h = { a => 100, c => 300 }
@@ -408,15 +431,15 @@ rb_hash_rehash(hash)
 /*
  *  call-seq:
  *     hsh[key]    =>  value
- *  
+ *
  *  Element Reference---Retrieves the <i>value</i> object corresponding
  *  to the <i>key</i> object. If not found, returns the a default value (see
  *  <code>Hash::new</code> for details).
- *     
+ *
  *     h = { "a" => 100, "b" => 200 }
  *     h["a"]   #=> 100
  *     h["c"]   #=> nil
- *     
+ *
  */
 
 VALUE
@@ -431,33 +454,45 @@ rb_hash_aref(hash, key)
     return val;
 }
 
+VALUE
+rb_hash_lookup(hash, key)
+    VALUE hash, key;
+{
+    VALUE val;
+
+    if (!st_lookup(RHASH(hash)->tbl, key, &val)) {
+	return Qnil; /* without Hash#default */
+    }
+    return val;
+}
+
 /*
  *  call-seq:
  *     hsh.fetch(key [, default] )       => obj
  *     hsh.fetch(key) {| key | block }   => obj
- *  
+ *
  *  Returns a value from the hash for the given key. If the key can't be
  *  found, there are several options: With no other arguments, it will
  *  raise an <code>IndexError</code> exception; if <i>default</i> is
  *  given, then that will be returned; if the optional code block is
  *  specified, then that will be run and its result returned.
- *     
+ *
  *     h = { "a" => 100, "b" => 200 }
  *     h.fetch("a")                            #=> 100
  *     h.fetch("z", "go fish")                 #=> "go fish"
  *     h.fetch("z") { |el| "go fish, #{el}"}   #=> "go fish, z"
- *     
+ *
  *  The following example shows that an exception is raised if the key
  *  is not found and a default value is not supplied.
- *     
+ *
  *     h = { "a" => 100, "b" => 200 }
  *     h.fetch("z")
- *     
+ *
  *  <em>produces:</em>
- *     
+ *
  *     prog.rb:2:in `fetch': key not found (IndexError)
  *      from prog.rb:2
- *     
+ *
  */
 
 static VALUE
@@ -489,21 +524,21 @@ rb_hash_fetch(argc, argv, hash)
 /*
  *  call-seq:
  *     hsh.default(key=nil)   => obj
- *  
+ *
  *  Returns the default value, the value that would be returned by
  *  <i>hsh</i>[<i>key</i>] if <i>key</i> did not exist in <i>hsh</i>.
  *  See also <code>Hash::new</code> and <code>Hash#default=</code>.
- *     
+ *
  *     h = Hash.new                            #=> {}
  *     h.default                               #=> nil
  *     h.default(2)                            #=> nil
- *     
+ *
  *     h = Hash.new("cat")                     #=> {}
  *     h.default                               #=> "cat"
  *     h.default(2)                            #=> "cat"
- *     
+ *
  *     h = Hash.new {|h,k| h[k] = k.to_i*10}   #=> {}
- *     h.default                               #=> 0
+ *     h.default                               #=> nil
  *     h.default(2)                            #=> 20
  */
 
@@ -526,11 +561,11 @@ rb_hash_default(argc, argv, hash)
 /*
  *  call-seq:
  *     hsh.default = obj     => hsh
- *  
+ *
  *  Sets the default value, the value returned for a key that does not
  *  exist in the hash. It is not possible to set the a default to a
  *  <code>Proc</code> that will be executed on each key lookup.
- *     
+ *
  *     h = { "a" => 100, "b" => 200 }
  *     h.default = "Go fish"
  *     h["a"]     #=> 100
@@ -556,10 +591,10 @@ rb_hash_set_default(hash, ifnone)
 /*
  *  call-seq:
  *     hsh.default_proc -> anObject
- *  
+ *
  *  If <code>Hash::new</code> was invoked with a block, return that
  *  block, otherwise return <code>nil</code>.
- *     
+ *
  *     h = Hash.new {|h,k| h[k] = k*k }   #=> {}
  *     p = h.default_proc                 #=> #<Proc:0x401b3d08@-:1>
  *     a = []                             #=> []
@@ -610,13 +645,13 @@ rb_hash_delete_key(hash, key)
 /*
  *  call-seq:
  *     hsh.index(value)    => key
- *  
+ *
  *  Returns the key for a given value. If not found, returns <code>nil</code>.
- *     
+ *
  *     h = { "a" => 100, "b" => 200 }
  *     h.index(200)   #=> "b"
  *     h.index(999)   #=> nil
- *     
+ *
  */
 
 static VALUE
@@ -637,9 +672,9 @@ rb_hash_index(hash, value)
  *  call-seq:
  *     hsh.indexes(key, ...)    => array
  *     hsh.indices(key, ...)    => array
- *  
+ *
  *  Deprecated in favor of <code>Hash#select</code>.
- *     
+ *
  */
 
 static VALUE
@@ -665,18 +700,17 @@ rb_hash_indexes(argc, argv, hash)
  *  call-seq:
  *     hsh.delete(key)                   => value
  *     hsh.delete(key) {| key | block }  => value
- *  
+ *
  *  Deletes and returns a key-value pair from <i>hsh</i> whose key is
- *  equal to <i>key</i>. If the key is not found, returns the
- *  <em>default value</em>. If the optional code block is given and the
- *  key is not found, pass in the key and return the result of
- *  <i>block</i>.
- *     
+ *  equal to <i>key</i>. If the key is not found, returns <code>nil</code>.
+ *  If the optional code block is given and the key is not found,
+ *  pass in the key and return the result of <i>block</i>.
+ *
  *     h = { "a" => 100, "b" => 200 }
  *     h.delete("a")                              #=> 100
  *     h.delete("z")                              #=> nil
  *     h.delete("z") { |el| "#{el} not found" }   #=> "z not found"
- *     
+ *
  */
 
 VALUE
@@ -725,11 +759,11 @@ shift_i_safe(key, value, var)
 /*
  *  call-seq:
  *     hsh.shift -> anArray or obj
- *  
+ *
  *  Removes a key-value pair from <i>hsh</i> and returns it as the
  *  two-item array <code>[</code> <i>key, value</i> <code>]</code>, or
  *  the hash's default value if the hash is empty.
- *     
+ *
  *     h = { 1 => "a", 2 => "b", 3 => "c" }
  *     h.shift   #=> [1, "a"]
  *     h         #=> {2=>"b", 3=>"c"}
@@ -781,19 +815,20 @@ delete_if_i(key, value, hash)
 /*
  *  call-seq:
  *     hsh.delete_if {| key, value | block }  -> hsh
- *  
+ *
  *  Deletes every key-value pair from <i>hsh</i> for which <i>block</i>
  *  evaluates to <code>true</code>.
- *     
+ *
  *     h = { "a" => 100, "b" => 200, "c" => 300 }
  *     h.delete_if {|key, value| key >= "b" }   #=> {"a"=>100}
- *     
+ *
  */
 
 VALUE
 rb_hash_delete_if(hash)
     VALUE hash;
 {
+    RETURN_ENUMERATOR(hash, 0, 0);
     rb_hash_modify(hash);
     rb_hash_foreach(hash, delete_if_i, hash);
     return hash;
@@ -802,7 +837,7 @@ rb_hash_delete_if(hash)
 /*
  *  call-seq:
  *     hsh.reject! {| key, value | block }  -> hsh or nil
- *  
+ *
  *  Equivalent to <code>Hash#delete_if</code>, but returns
  *  <code>nil</code> if no changes were made.
  */
@@ -811,7 +846,10 @@ VALUE
 rb_hash_reject_bang(hash)
     VALUE hash;
 {
-    int n = RHASH(hash)->tbl->num_entries;
+    int n;
+
+    RETURN_ENUMERATOR(hash, 0, 0);
+    n = RHASH(hash)->tbl->num_entries;
     rb_hash_delete_if(hash);
     if (n == RHASH(hash)->tbl->num_entries) return Qnil;
     return hash;
@@ -820,11 +858,11 @@ rb_hash_reject_bang(hash)
 /*
  *  call-seq:
  *     hsh.reject {| key, value | block }  -> a_hash
- *  
+ *
  *  Same as <code>Hash#delete_if</code>, but works on (and returns) a
  *  copy of the <i>hsh</i>. Equivalent to
  *  <code><i>hsh</i>.dup.delete_if</code>.
- *     
+ *
  */
 
 static VALUE
@@ -853,7 +891,7 @@ select_i(key, value, result)
  *
  *   h = { "cat" => "feline", "dog" => "canine", "cow" => "bovine" }
  *   h.values_at("cow", "cat")  #=> ["bovine", "feline"]
-*/
+ */
 
 VALUE
 rb_hash_values_at(argc, argv, hash)
@@ -873,27 +911,23 @@ rb_hash_values_at(argc, argv, hash)
 /*
  *  call-seq:
  *     hsh.select {|key, value| block}   => array
- *  
+ *
  *  Returns a new array consisting of <code>[key,value]</code>
  *  pairs for which the block returns true.
  *  Also see <code>Hash.values_at</code>.
- *     
+ *
  *     h = { "a" => 100, "b" => 200, "c" => 300 }
  *     h.select {|k,v| k > "a"}  #=> [["b", 200], ["c", 300]]
  *     h.select {|k,v| v < 200}  #=> [["a", 100]]
  */
 
 VALUE
-rb_hash_select(argc, argv, hash)
-    int argc;
-    VALUE *argv;
+rb_hash_select(hash)
     VALUE hash;
 {
     VALUE result;
 
-    if (argc > 0) {
-	rb_raise(rb_eArgError, "wrong number of arguments (%d for 0)", argc);
-    }
+    RETURN_ENUMERATOR(hash, 0, 0);
     result = rb_ary_new();
     rb_hash_foreach(hash, select_i, result);
     return result;
@@ -909,12 +943,12 @@ clear_i(key, value, dummy)
 /*
  *  call-seq:
  *     hsh.clear -> hsh
- *  
+ *
  *  Removes all key-value pairs from <i>hsh</i>.
- *     
+ *
  *     h = { "a" => 100, "b" => 200 }   #=> {"a"=>100, "b"=>200}
  *     h.clear                          #=> {}
- *     
+ *
  */
 
 static VALUE
@@ -933,18 +967,18 @@ rb_hash_clear(hash)
  *  call-seq:
  *     hsh[key] = value        => value
  *     hsh.store(key, value)   => value
- *  
+ *
  *  Element Assignment---Associates the value given by
  *  <i>value</i> with the key given by <i>key</i>.
  *  <i>key</i> should not have its value changed while it is in
  *  use as a key (a <code>String</code> passed as a key will be
  *  duplicated and frozen).
- *     
+ *
  *     h = { "a" => 100, "b" => 200 }
  *     h["a"] = 9
  *     h["c"] = 4
  *     h   #=> {"a"=>9, "b"=>200, "c"=>4}
- *     
+ *
  */
 
 VALUE
@@ -975,13 +1009,13 @@ replace_i(key, val, hash)
 /*
  *  call-seq:
  *     hsh.replace(other_hash) -> hsh
- *  
+ *
  *  Replaces the contents of <i>hsh</i> with the contents of
  *  <i>other_hash</i>.
- *     
+ *
  *     h = { "a" => 100, "b" => 200 }
  *     h.replace({ "c" => 300, "d" => 400 })   #=> {"c"=>300, "d"=>400}
- *     
+ *
  */
 
 static VALUE
@@ -1007,9 +1041,9 @@ rb_hash_replace(hash, hash2)
  *  call-seq:
  *     hsh.length    =>  fixnum
  *     hsh.size      =>  fixnum
- *  
+ *
  *  Returns the number of key-value pairs in the hash.
- *     
+ *
  *     h = { "d" => 100, "a" => 200, "v" => 300, "e" => 400 }
  *     h.length        #=> 4
  *     h.delete("a")   #=> 200
@@ -1027,11 +1061,11 @@ rb_hash_size(hash)
 /*
  *  call-seq:
  *     hsh.empty?    => true or false
- *  
+ *
  *  Returns <code>true</code> if <i>hsh</i> contains no key-value pairs.
- *     
+ *
  *     {}.empty?   #=> true
- *     
+ *
  */
 
 static VALUE
@@ -1055,15 +1089,15 @@ each_value_i(key, value)
 /*
  *  call-seq:
  *     hsh.each_value {| value | block } -> hsh
- *  
+ *
  *  Calls <i>block</i> once for each key in <i>hsh</i>, passing the
  *  value as a parameter.
- *     
+ *
  *     h = { "a" => 100, "b" => 200 }
  *     h.each_value {|value| puts value }
- *     
+ *
  *  <em>produces:</em>
- *     
+ *
  *     100
  *     200
  */
@@ -1072,6 +1106,7 @@ static VALUE
 rb_hash_each_value(hash)
     VALUE hash;
 {
+    RETURN_ENUMERATOR(hash, 0, 0);
     rb_hash_foreach(hash, each_value_i, 0);
     return hash;
 }
@@ -1088,15 +1123,15 @@ each_key_i(key, value)
 /*
  *  call-seq:
  *     hsh.each_key {| key | block } -> hsh
- *  
+ *
  *  Calls <i>block</i> once for each key in <i>hsh</i>, passing the key
  *  as a parameter.
- *     
+ *
  *     h = { "a" => 100, "b" => 200 }
  *     h.each_key {|key| puts key }
- *     
+ *
  *  <em>produces:</em>
- *     
+ *
  *     a
  *     b
  */
@@ -1104,6 +1139,7 @@ static VALUE
 rb_hash_each_key(hash)
     VALUE hash;
 {
+    RETURN_ENUMERATOR(hash, 0, 0);
     rb_hash_foreach(hash, each_key_i, 0);
     return hash;
 }
@@ -1120,24 +1156,25 @@ each_pair_i(key, value)
 /*
  *  call-seq:
  *     hsh.each_pair {| key_value_array | block } -> hsh
- *  
+ *
  *  Calls <i>block</i> once for each key in <i>hsh</i>, passing the key
  *  and value as parameters.
- *     
+ *
  *     h = { "a" => 100, "b" => 200 }
  *     h.each_pair {|key, value| puts "#{key} is #{value}" }
- *     
+ *
  *  <em>produces:</em>
- *     
+ *
  *     a is 100
  *     b is 200
- *     
+ *
  */
 
 static VALUE
 rb_hash_each_pair(hash)
     VALUE hash;
 {
+    RETURN_ENUMERATOR(hash, 0, 0);
     rb_hash_foreach(hash, each_pair_i, 0);
     return hash;
 }
@@ -1154,27 +1191,28 @@ each_i(key, value)
 /*
  *  call-seq:
  *     hsh.each {| key, value | block } -> hsh
- *  
+ *
  *  Calls <i>block</i> once for each key in <i>hsh</i>, passing the key
  *  and value to the block as a two-element array. Because of the assignment
  *  semantics of block parameters, these elements will be split out if the
  *  block has two formal parameters. Also see <code>Hash.each_pair</code>, which
  *  will be marginally more efficient for blocks with two parameters.
- *     
+ *
  *     h = { "a" => 100, "b" => 200 }
  *     h.each {|key, value| puts "#{key} is #{value}" }
- *     
+ *
  *  <em>produces:</em>
- *     
+ *
  *     a is 100
  *     b is 200
- *     
+ *
  */
 
 static VALUE
 rb_hash_each(hash)
     VALUE hash;
 {
+    RETURN_ENUMERATOR(hash, 0, 0);
     rb_hash_foreach(hash, each_i, 0);
     return hash;
 }
@@ -1191,10 +1229,10 @@ to_a_i(key, value, ary)
 /*
  *  call-seq:
  *     hsh.to_a -> array
- *  
+ *
  *  Converts <i>hsh</i> to a nested array of <code>[</code> <i>key,
  *  value</i> <code>]</code> arrays.
- *     
+ *
  *     h = { "c" => 300, "a" => 100, "d" => 400, "c" => 300  }
  *     h.to_a   #=> [["a", 100], ["c", 300], ["d", 400]]
  */
@@ -1214,17 +1252,17 @@ rb_hash_to_a(hash)
 
 /*
  *  call-seq:
- *     hsh.sort                    => array 
- *     hsh.sort {| a, b | block }  => array 
- * 
+ *     hsh.sort                    => array
+ *     hsh.sort {| a, b | block }  => array
+ *
  *  Converts <i>hsh</i> to a nested array of <code>[</code> <i>key,
  *  value</i> <code>]</code> arrays and sorts it, using
  *  <code>Array#sort</code>.
- *     
+ *
  *     h = { "a" => 20, "b" => 30, "c" => 10  }
  *     h.sort                       #=> [["a", 20], ["b", 30], ["c", 10]]
  *     h.sort {|a,b| a[1]<=>b[1]}   #=> [["c", 10], ["a", 20], ["b", 30]]
- *     
+ *
  */
 
 static VALUE
@@ -1298,12 +1336,12 @@ to_s_hash(hash)
 /*
  *  call-seq:
  *     hsh.to_s   => string
- *  
+ *
  *  Converts <i>hsh</i> to a string by converting the hash to an array
  *  of <code>[</code> <i>key, value</i> <code>]</code> pairs and then
  *  converting that array to a string using <code>Array#join</code> with
  *  the default separator.
- *     
+ *
  *     h = { "c" => 300, "a" => 100, "d" => 400, "c" => 300  }
  *     h.to_s   #=> "a100c300d400"
  */
@@ -1342,13 +1380,13 @@ keys_i(key, value, ary)
 /*
  *  call-seq:
  *     hsh.keys    => array
- *  
+ *
  *  Returns a new array populated with the keys from this hash. See also
  *  <code>Hash#values</code>.
- *     
+ *
  *     h = { "a" => 100, "b" => 200, "c" => 300, "d" => 400 }
  *     h.keys   #=> ["a", "b", "c", "d"]
- *     
+ *
  */
 
 static VALUE
@@ -1375,13 +1413,13 @@ values_i(key, value, ary)
 /*
  *  call-seq:
  *     hsh.values    => array
- *  
+ *
  *  Returns a new array populated with the values from <i>hsh</i>. See
  *  also <code>Hash#keys</code>.
- *     
+ *
  *     h = { "a" => 100, "b" => 200, "c" => 300 }
  *     h.values   #=> [100, 200, 300]
- *     
+ *
  */
 
 static VALUE
@@ -1402,13 +1440,13 @@ rb_hash_values(hash)
  *     hsh.include?(key)    => true or false
  *     hsh.key?(key)        => true or false
  *     hsh.member?(key)     => true or false
- *  
+ *
  *  Returns <code>true</code> if the given key is present in <i>hsh</i>.
- *     
+ *
  *     h = { "a" => 100, "b" => 200 }
  *     h.has_key?("a")   #=> true
  *     h.has_key?("z")   #=> false
- *     
+ *
  */
 
 static VALUE
@@ -1438,10 +1476,10 @@ rb_hash_search_value(key, value, data)
  *  call-seq:
  *     hsh.has_value?(value)    => true or false
  *     hsh.value?(value)        => true or false
- *  
+ *
  *  Returns <code>true</code> if the given value is present for some key
  *  in <i>hsh</i>.
- *     
+ *
  *     h = { "a" => 100, "b" => 200 }
  *     h.has_value?(100)   #=> true
  *     h.has_value?(999)   #=> false
@@ -1463,11 +1501,13 @@ rb_hash_has_value(hash, val)
 struct equal_data {
     int result;
     st_table *tbl;
+    int eql;
 };
 
 static int
-equal_i(key, val1, data)
-    VALUE key, val1;
+eql_i(key, val1, data)
+    VALUE key;
+    VALUE val1;
     struct equal_data *data;
 {
     VALUE val2;
@@ -1477,11 +1517,28 @@ equal_i(key, val1, data)
 	data->result = Qfalse;
 	return ST_STOP;
     }
-    if (!rb_equal(val1, val2)) {
+    if (!(data->eql ? rb_eql(val1, val2) : rb_equal(val1, val2))) {
 	data->result = Qfalse;
 	return ST_STOP;
     }
     return ST_CONTINUE;
+}
+
+static VALUE recursive_eql _((VALUE, VALUE, int));
+static VALUE
+recursive_eql(hash, dt, recur)
+    VALUE hash;
+    VALUE dt;
+    int recur;
+{
+    struct equal_data *data;
+
+    if (recur) return Qfalse;
+    data = (struct equal_data*)dt;
+    data->result = Qtrue;
+    rb_hash_foreach(hash, eql_i, (st_data_t)data);
+
+    return data->result;
 }
 
 static VALUE
@@ -1507,21 +1564,19 @@ hash_equal(hash1, hash2, eql)
     }
 
     data.tbl = RHASH(hash2)->tbl;
-    data.result = Qtrue;
-    rb_hash_foreach(hash1, equal_i, (st_data_t)&data);
-
-    return data.result;
+    data.eql = eql;
+    return rb_exec_recursive(recursive_eql, hash1, (VALUE)&data);
 }
 
 /*
  *  call-seq:
  *     hsh == other_hash    => true or false
- *  
+ *
  *  Equality---Two hashes are equal if they each contain the same number
  *  of keys and if each key-value pair is equal to (according to
  *  <code>Object#==</code>) the corresponding elements in the other
  *  hash.
- *     
+ *
  *     h1 = { "a" => 1, "c" => 2 }
  *     h2 = { 7 => 35, "c" => 2, "a" => 1 }
  *     h3 = { "a" => 1, "c" => 2, 7 => 35 }
@@ -1529,7 +1584,7 @@ hash_equal(hash1, hash2, eql)
  *     h1 == h2   #=> false
  *     h2 == h3   #=> true
  *     h3 == h4   #=> false
- *     
+ *
  */
 
 static VALUE
@@ -1537,6 +1592,66 @@ rb_hash_equal(hash1, hash2)
     VALUE hash1, hash2;
 {
     return hash_equal(hash1, hash2, Qfalse);
+}
+
+static int
+hash_i(key, val, hval)
+    VALUE key;
+    VALUE val;
+    int *hval;
+{
+    if (key == Qundef) return ST_CONTINUE;
+    *hval ^= rb_hash(key);
+    *hval ^= rb_hash(val);
+    return ST_CONTINUE;
+}
+
+static VALUE recursive_hash _((VALUE, VALUE, int));
+static VALUE
+recursive_hash(hash, dummy, recur)
+    VALUE hash;
+    VALUE dummy;
+    int recur;
+{
+    int hval;
+
+    if (recur) {
+	return LONG2FIX(0);
+    }
+    hval = RHASH(hash)->tbl->num_entries;
+    rb_hash_foreach(hash, hash_i, (st_data_t)&hval);
+    return INT2FIX(hval);
+}
+
+/*
+ *  call-seq:
+ *     array.hash   -> fixnum
+ *
+ *  Compute a hash-code for this array. Two arrays with the same content
+ *  will have the same hash code (and will compare using <code>eql?</code>).
+ */
+
+static VALUE
+rb_hash_hash(hash)
+    VALUE hash;
+{
+    return rb_exec_recursive(recursive_hash, hash, 0);
+}
+
+
+/*
+ *  call-seq:
+ *     hash.eql?(other)  -> true or false
+ *
+ *  Returns <code>true</code> if <i>hash</i> and <i>other</i> are
+ *  both hashes with the same content.
+ */
+
+static VALUE
+rb_hash_eql(hash1, hash2)
+    VALUE hash1, hash2;
+{
+    return hash_equal(hash1, hash2, Qtrue);
 }
 
 static int
@@ -1552,13 +1667,13 @@ rb_hash_invert_i(key, value, hash)
 /*
  *  call-seq:
  *     hsh.invert -> aHash
- *  
+ *
  *  Returns a new hash created by using <i>hsh</i>'s values as keys, and
  *  the keys as values.
- *     
+ *
  *     h = { "n" => 100, "m" => 100, "y" => 300, "d" => 200, "a" => 0 }
  *     h.invert   #=> {0=>"a", 100=>"n", 200=>"d", 300=>"y"}
- *     
+ *
  */
 
 static VALUE
@@ -1600,13 +1715,21 @@ rb_hash_update_block_i(key, value, hash)
  *     hsh.update(other_hash)                                 => hsh
  *     hsh.merge!(other_hash){|key, oldval, newval| block}    => hsh
  *     hsh.update(other_hash){|key, oldval, newval| block}    => hsh
- *  
- *  Adds the contents of <i>other_hash</i> to <i>hsh</i>, overwriting
- *  entries with duplicate keys with those from <i>other_hash</i>.
- *     
+ *
+ *  Adds the contents of <i>other_hash</i> to <i>hsh</i>.  If no
+ *  block is specified entries with duplicate keys are overwritten
+ *  with the values from <i>other_hash</i>, otherwise the value
+ *  of each duplicate key is determined by calling the block with
+ *  the key, its value in <i>hsh</i> and its value in <i>other_hash</i>.
+ *
  *     h1 = { "a" => 100, "b" => 200 }
  *     h2 = { "b" => 254, "c" => 300 }
  *     h1.merge!(h2)   #=> {"a"=>100, "b"=>254, "c"=>300}
+ *
+ *     h1 = { "a" => 100, "b" => 200 }
+ *     h2 = { "b" => 254, "c" => 300 }
+ *     h1.merge!(h2) { |key, v1, v2| v1 }
+ *                     #=> {"a"=>100, "b"=>200, "c"=>300}
  */
 
 static VALUE
@@ -1627,16 +1750,16 @@ rb_hash_update(hash1, hash2)
  *  call-seq:
  *     hsh.merge(other_hash)                              -> a_hash
  *     hsh.merge(other_hash){|key, oldval, newval| block} -> a_hash
- *  
+ *
  *  Returns a new hash containing the contents of <i>other_hash</i> and
  *  the contents of <i>hsh</i>, overwriting entries in <i>hsh</i> with
  *  duplicate keys with those from <i>other_hash</i>.
- *     
+ *
  *     h1 = { "a" => 100, "b" => 200 }
  *     h2 = { "b" => 254, "c" => 300 }
  *     h1.merge(h2)   #=> {"a"=>100, "b"=>254, "c"=>300}
  *     h1             #=> {"a"=>100, "b"=>200}
- *     
+ *
  */
 
 static VALUE
@@ -1732,7 +1855,8 @@ rb_f_getenv(obj, name)
 {
     char *nam, *env;
 
-    StringValue(name);
+    rb_secure(4);
+    SafeStringValue(name);
     nam = RSTRING(name)->ptr;
     if (strlen(nam) != RSTRING(name)->len) {
 	rb_raise(rb_eArgError, "bad environment variable name");
@@ -1764,12 +1888,13 @@ env_fetch(argc, argv)
     long block_given;
     char *nam, *env;
 
+    rb_secure(4);
     rb_scan_args(argc, argv, "11", &key, &if_none);
     block_given = rb_block_given_p();
     if (block_given && argc == 2) {
 	rb_warn("block supersedes default value argument");
     }
-    StringValue(key);
+    SafeStringValue(key);
     nam = RSTRING(key)->ptr;
     if (strlen(nam) != RSTRING(key)->len) {
 	rb_raise(rb_eArgError, "bad environment variable name");
@@ -1807,6 +1932,7 @@ rb_env_path_tainted()
     return path_tainted;
 }
 
+#if !defined(_WIN32) && !(defined(HAVE_SETENV) && defined(HAVE_UNSETENV))
 static int
 envix(nam)
     const char *nam;
@@ -1828,6 +1954,7 @@ envix(nam)
     FREE_ENVIRON(environ);
     return i;
 }
+#endif
 
 void
 ruby_setenv(name, value)
@@ -1964,8 +2091,10 @@ static VALUE
 env_keys()
 {
     char **env;
-    VALUE ary = rb_ary_new();
+    VALUE ary;
 
+    rb_secure(4);
+    ary = rb_ary_new();
     env = GET_ENVIRON(environ);
     while (*env) {
 	char *s = strchr(*env, '=');
@@ -1982,9 +2111,11 @@ static VALUE
 env_each_key(ehash)
     VALUE ehash;
 {
-    VALUE keys = env_keys();
+    VALUE keys;
     long i;
 
+    RETURN_ENUMERATOR(ehash, 0, 0);
+    keys = env_keys();	/* rb_secure(4); */
     for (i=0; i<RARRAY(keys)->len; i++) {
 	rb_yield(RARRAY(keys)->ptr[i]);
     }
@@ -1994,9 +2125,11 @@ env_each_key(ehash)
 static VALUE
 env_values()
 {
+    VALUE ary;
     char **env;
-    VALUE ary = rb_ary_new();
 
+    rb_secure(4);
+    ary = rb_ary_new();
     env = GET_ENVIRON(environ);
     while (*env) {
 	char *s = strchr(*env, '=');
@@ -2013,9 +2146,11 @@ static VALUE
 env_each_value(ehash)
     VALUE ehash;
 {
-    VALUE values = env_values();
+    VALUE values;
     long i;
 
+    RETURN_ENUMERATOR(ehash, 0, 0);
+    values = env_values();	/* rb_secure(4); */
     for (i=0; i<RARRAY(values)->len; i++) {
 	rb_yield(RARRAY(values)->ptr[i]);
     }
@@ -2028,9 +2163,11 @@ env_each_i(ehash, values)
     int values;
 {
     char **env;
-    VALUE ary = rb_ary_new();
+    VALUE ary;
     long i;
 
+    rb_secure(4);
+    ary = rb_ary_new();
     env = GET_ENVIRON(environ);
     while (*env) {
 	char *s = strchr(*env, '=');
@@ -2057,6 +2194,7 @@ static VALUE
 env_each(ehash)
     VALUE ehash;
 {
+    RETURN_ENUMERATOR(ehash, 0, 0);
     return env_each_i(ehash, Qfalse);
 }
 
@@ -2064,19 +2202,20 @@ static VALUE
 env_each_pair(ehash)
     VALUE ehash;
 {
+    RETURN_ENUMERATOR(ehash, 0, 0);
     return env_each_i(ehash, Qtrue);
 }
 
 static VALUE
-env_reject_bang()
+env_reject_bang(ehash)
+    VALUE ehash;
 {
     volatile VALUE keys;
     long i;
     int del = 0;
 
-    rb_secure(4);
-    keys = env_keys();
-
+    RETURN_ENUMERATOR(ehash, 0, 0);
+    keys = env_keys();	/* rb_secure(4); */
     for (i=0; i<RARRAY(keys)->len; i++) {
 	VALUE val = rb_f_getenv(Qnil, RARRAY(keys)->ptr[i]);
 	if (!NIL_P(val)) {
@@ -2092,9 +2231,11 @@ env_reject_bang()
 }
 
 static VALUE
-env_delete_if()
+env_delete_if(ehash)
+    VALUE ehash;
 {
-    env_reject_bang();
+    RETURN_ENUMERATOR(ehash, 0, 0);
+    env_reject_bang(ehash);
     return envtbl;
 }
 
@@ -2103,9 +2244,11 @@ env_values_at(argc, argv)
     int argc;
     VALUE *argv;
 {
-    VALUE result = rb_ary_new();
+    VALUE result;
     long i;
 
+    rb_secure(4);
+    result = rb_ary_new();
     for (i=0; i<argc; i++) {
 	rb_ary_push(result, rb_f_getenv(Qnil, argv[i]));
     }
@@ -2113,16 +2256,14 @@ env_values_at(argc, argv)
 }
 
 static VALUE
-env_select(argc, argv)
-    int argc;
-    VALUE *argv;
+env_select(ehash)
+    VALUE ehash;
 {
     VALUE result;
     char **env;
 
-    if (argc > 0) {
-	rb_raise(rb_eArgError, "wrong number of arguments (%d for 0)", argc);
-    }
+    RETURN_ENUMERATOR(ehash, 0, 0);
+    rb_secure(4);
     result = rb_ary_new();
     env = GET_ENVIRON(environ);
     while (*env) {
@@ -2146,10 +2287,8 @@ env_clear()
 {
     volatile VALUE keys;
     long i;
-    
-    rb_secure(4);
-    keys = env_keys();
 
+    keys = env_keys();	/* rb_secure(4); */
     for (i=0; i<RARRAY(keys)->len; i++) {
 	VALUE val = rb_f_getenv(Qnil, RARRAY(keys)->ptr[i]);
 	if (!NIL_P(val)) {
@@ -2169,9 +2308,10 @@ static VALUE
 env_inspect()
 {
     char **env;
-    VALUE str = rb_str_buf_new2("{");
-    VALUE i;
+    VALUE str, i;
 
+    rb_secure(4);
+    str = rb_str_buf_new2("{");
     env = GET_ENVIRON(environ);
     while (*env) {
 	char *s = strchr(*env, '=');
@@ -2199,8 +2339,10 @@ static VALUE
 env_to_a()
 {
     char **env;
-    VALUE ary = rb_ary_new();
+    VALUE ary;
 
+    rb_secure(4);
+    ary = rb_ary_new();
     env = GET_ENVIRON(environ);
     while (*env) {
 	char *s = strchr(*env, '=');
@@ -2226,6 +2368,7 @@ env_size()
     int i;
     char **env;
 
+    rb_secure(4);
     env = GET_ENVIRON(environ);
     for(i=0; env[i]; i++)
 	;
@@ -2238,6 +2381,7 @@ env_empty_p()
 {
     char **env;
 
+    rb_secure(4);
     env = GET_ENVIRON(environ);
     if (env[0] == 0) {
 	FREE_ENVIRON(environ);
@@ -2253,6 +2397,7 @@ env_has_key(env, key)
 {
     char *s;
 
+    rb_secure(4);
     s = StringValuePtr(key);
     if (strlen(s) != RSTRING(key)->len)
 	rb_raise(rb_eArgError, "bad environment variable name");
@@ -2266,7 +2411,9 @@ env_has_value(dmy, value)
 {
     char **env;
 
-    if (TYPE(value) != T_STRING) return Qfalse;
+    rb_secure(4);
+    value = rb_check_string_type(value);
+    if (NIL_P(value)) return Qfalse;
     env = GET_ENVIRON(environ);
     while (*env) {
 	char *s = strchr(*env, '=');
@@ -2290,6 +2437,7 @@ env_index(dmy, value)
     char **env;
     VALUE str;
 
+    rb_secure(4);
     StringValue(value);
     env = GET_ENVIRON(environ);
     while (*env) {
@@ -2318,6 +2466,7 @@ env_indexes(argc, argv)
 
     rb_warn("ENV.%s is deprecated; use ENV.values_at",
 	    rb_id2name(rb_frame_last_func()));
+    rb_secure(4);
     for (i=0;i<argc;i++) {
 	VALUE tmp = rb_check_string_type(argv[i]);
 	if (NIL_P(tmp)) {
@@ -2336,8 +2485,10 @@ static VALUE
 env_to_hash()
 {
     char **env;
-    VALUE hash = rb_hash_new();
+    VALUE hash;
 
+    rb_secure(4);
+    hash = rb_hash_new();
     env = GET_ENVIRON(environ);
     while (*env) {
 	char *s = strchr(*env, '=');
@@ -2362,6 +2513,7 @@ env_shift()
 {
     char **env;
 
+    rb_secure(4);
     env = GET_ENVIRON(environ);
     if (*env) {
 	char *s = strchr(*env, '=');
@@ -2399,9 +2551,10 @@ static VALUE
 env_replace(env, hash)
     VALUE env, hash;
 {
-    volatile VALUE keys = env_keys();
+    volatile VALUE keys;
     long i;
 
+    keys = env_keys();	/* rb_secure(4); */
     if (env == hash) return env;
     hash = to_hash(hash);
     rb_hash_foreach(hash, env_replace_i, keys);
@@ -2429,6 +2582,7 @@ static VALUE
 env_update(env, hash)
     VALUE env, hash;
 {
+    rb_secure(4);
     if (env == hash) return env;
     hash = to_hash(hash);
     rb_hash_foreach(hash, env_update_i, 0);
@@ -2441,15 +2595,15 @@ env_update(env, hash)
  *  arbitrary keys of any object type, not an integer index. The order
  *  in which you traverse a hash by either key or value may seem
  *  arbitrary, and will generally not be in the insertion order.
- *     
+ *
  *  Hashes have a <em>default value</em> that is returned when accessing
  *  keys that do not exist in the hash. By default, that value is
  *  <code>nil</code>.
- *  
+ *
  *  <code>Hash</code> uses <code>key.eql?</code> to test keys for equality.
  *  If you need to use instances of your own classes as keys in a <code>Hash</code>,
  *  it is recommended that you define both the <code>eql?</code> and <code>hash</code>
- *  methods. The <code>hash</code> method must have the property that 
+ *  methods. The <code>hash</code> method must have the property that
  *  <code>a.eql?(b)</code> implies <code>a.hash == b.hash</code>.
  *
  *    class MyClass
@@ -2464,17 +2618,17 @@ env_update(env, hash)
  *        @str.hash
  *      end
  *    end
- *    
+ *
  *    a = MyClass.new("some string")
  *    b = MyClass.new("some string")
  *    a.eql? b  #=> true
- *    
+ *
  *    h = {}
- *    
+ *
  *    h[a] = 1
  *    h[a]      #=> 1
  *    h[b]      #=> 1
- *    
+ *
  *    h[b] = 2
  *    h[a]      #=> 2
  *    h[b]      #=> 2
@@ -2504,6 +2658,8 @@ Init_Hash()
 
     rb_define_method(rb_cHash,"==", rb_hash_equal, 1);
     rb_define_method(rb_cHash,"[]", rb_hash_aref, 1);
+    rb_define_method(rb_cHash,"hash", rb_hash_hash, 0);
+    rb_define_method(rb_cHash,"eql?", rb_hash_eql, 1);
     rb_define_method(rb_cHash,"fetch", rb_hash_fetch, -1);
     rb_define_method(rb_cHash,"[]=", rb_hash_aset, 2);
     rb_define_method(rb_cHash,"store", rb_hash_aset, 2);
@@ -2530,7 +2686,7 @@ Init_Hash()
     rb_define_method(rb_cHash,"shift", rb_hash_shift, 0);
     rb_define_method(rb_cHash,"delete", rb_hash_delete, 1);
     rb_define_method(rb_cHash,"delete_if", rb_hash_delete_if, 0);
-    rb_define_method(rb_cHash,"select", rb_hash_select, -1);
+    rb_define_method(rb_cHash,"select", rb_hash_select, 0);
     rb_define_method(rb_cHash,"reject", rb_hash_reject, 0);
     rb_define_method(rb_cHash,"reject!", rb_hash_reject_bang, 0);
     rb_define_method(rb_cHash,"clear", rb_hash_clear, 0);
@@ -2565,7 +2721,7 @@ Init_Hash()
     rb_define_singleton_method(envtbl,"clear", env_clear, 0);
     rb_define_singleton_method(envtbl,"reject", env_reject, 0);
     rb_define_singleton_method(envtbl,"reject!", env_reject_bang, 0);
-    rb_define_singleton_method(envtbl,"select", env_select, -1);
+    rb_define_singleton_method(envtbl,"select", env_select, 0);
     rb_define_singleton_method(envtbl,"shift", env_shift, 0);
     rb_define_singleton_method(envtbl,"invert", env_invert, 0);
     rb_define_singleton_method(envtbl,"replace", env_replace, 1);

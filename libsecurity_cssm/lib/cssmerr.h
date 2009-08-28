@@ -33,9 +33,9 @@ extern "C" {
 
 /*
  * NOTE: To translate CSSM error codes into something vaguely
- * human-readable, use the cssmPerror and cssmErrorString functions
- * in cssmapple.h. These functions will also decode other Security
- * layer errors (i.e. those with names like kSec...).
+ * human-readable, use the cssmPerror function in cssmapple.h.
+ * This function will also decode other Security layer errors
+ * (i.e. those with names like kSec...).
  */
 
 

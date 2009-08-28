@@ -1,0 +1,14 @@
+[vset    encoding ascii85]
+[include encoding/header.inc]
+
+[para]
+
+This encoding transforms every block of four bytes into the Ascii85
+representation as defined in the 'Postscript Reference Manual' (2nd
+Edition, section 3.13, page 129).
+
+[include encoding/middle.inc]
+
+[keywords postscript]
+[include encoding/footer.inc]
+

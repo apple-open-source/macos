@@ -65,27 +65,31 @@ static const char cacheDir[] = "cache";
 // Note that the defaulted read functions do NOT write the default
 // to disk; they work fine in read-only disk areas.
 //
-static uint32 getFile(const string &path, uint32 defaultValue)
+static unsigned long getFile(const string &path, unsigned long defaultValue)
 {
 	try {
-		AutoFileDesc fd(path);
-		string s; fd.readAll(s);
-		uint32 value; sscanf(s.c_str(), "%ld", &value);
-		return value;
+		AutoFileDesc fd(path, O_RDONLY, FileDesc::modeMissingOk);
+		if (fd) {
+			string s; fd.readAll(s);
+			unsigned long value; sscanf(s.c_str(), "%lu", &value);
+			return value;
+		}
 	} catch (...) {
-		return defaultValue;
 	}
+	return defaultValue;
 }
 
 static string getFile(const string &path, const string &defaultValue)
 {
 	try {
-		AutoFileDesc fd(path);
-		string s; fd.readAll(s);
-		return s;
+		AutoFileDesc fd(path, O_RDONLY, FileDesc::modeMissingOk);
+		if (fd) {
+			string s; fd.readAll(s);
+			return s;
+		}
 	} catch (...) {
-		return defaultValue;
 	}
+	return defaultValue;
 }
 
 
@@ -131,14 +135,7 @@ TokenCache::TokenCache(const char *where)
 	makedir(path(configDir), O_CREAT, 0700, securityd);
 	makedir(path(tokensDir), O_CREAT, 0711, securityd);
 	
-	// get the path for the SSID file.  Don't call getFile unless the file exists (avoids exception overhead)
-	string idFilePath = path (lastSSIDFile);
-	struct stat st;
-	if (stat (idFilePath.c_str (), &st) == -1) {
-		mLastSubservice = 1;
-	} else {
-		mLastSubservice = getFile(idFilePath, 1);
-	}
+	mLastSubservice = getFile(path(lastSSIDFile), 1);
 	
 	// identify uid/gid for token daemons
 	struct passwd *pw = getpwnam(TOKEND_UID);

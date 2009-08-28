@@ -4,15 +4,15 @@
 	<key>OpenSourceProject</key>
 	<string>gzip</string>
 	<key>OpenSourceVersion</key>
-	<string>1.3.10</string>
+	<string>1.3.12</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.gzip.org/</string>
 	<key>OpenSourceURL</key>
-	<string>ftp://alpha.gnu.org/gnu/gzip/gzip-1.3.10.tar.gz</string>
+	<string>ftp://ftp.gnu.org/gnu/gzip/gzip-1.3.12.tar.gz</string>
 	<key>OpenSourceSHA1</key>
-	<string>745c95e9667240da8b10d2daed1aed953ea414ad</string>
+	<string>264e82876f201d9576626fbb1e0e9fe458efe9b9</string>
 	<key>OpenSourceImportDate</key>
-	<string>2006-01-24</string>
+	<string>2008-10-30</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>UNIX conformance.</string>

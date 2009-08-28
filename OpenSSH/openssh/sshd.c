@@ -1,4 +1,4 @@
-/* $OpenBSD: sshd.c,v 1.364 2008/07/10 18:08:11 markus Exp $ */
+/* $OpenBSD: sshd.c,v 1.366 2009/01/22 10:02:34 djm Exp $ */
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -117,11 +117,15 @@
 #include "ssh-gss.h"
 #endif
 #include "monitor_wrap.h"
-#include "monitor_fdpass.h"
 #include "version.h"
 
 #ifdef USE_SECURITY_SESSION_API
 #include <Security/AuthSession.h>
+#endif
+
+#ifdef __APPLE_SANDBOX_PRIVSEP_CHILDREN__
+#include <sandbox.h>
+#define SB_NAME "sshd"
 #endif
 
 #ifdef LIBWRAP
@@ -651,6 +655,17 @@ privsep_preauth(Authctxt *authctxt)
 
 		close(pmonitor->m_sendfd);
 
+#ifdef __APPLE_SANDBOX_PRIVSEP_CHILDREN__
+
+		char *error = NULL;
+		if (0 != sandbox_init(SB_NAME, SANDBOX_NAMED, &error)) {
+			verbose("%s: failed to load Seatbelt profile: %s", __func__, error);
+			sandbox_free_error(error);
+		}
+		
+		debug("privsep_preauth: successfully loaded Seatbelt profile for unprivileged child");
+#endif
+
 		/* Demote the child */
 		if (getuid() == 0 || geteuid() == 0)
 			privsep_preauth_child();
@@ -684,6 +699,18 @@ privsep_postauth(Authctxt *authctxt)
 		verbose("User child is on pid %ld", (long)pmonitor->m_pid);
 		close(pmonitor->m_recvfd);
 		buffer_clear(&loginmsg);
+
+#ifdef __APPLE_SANDBOX_PRIVSEP_CHILDREN__
+
+		char *error = NULL;
+		if (0 != sandbox_init(SB_NAME, SANDBOX_NAMED, &error)) {
+			verbose("%s: failed to load Seatbelt profile: %s", __func__, error);
+			sandbox_free_error(error);
+		}
+
+		debug("privsep_postauth: successfully loaded Seatbelt profile for unprivileged child");
+#endif
+
 		monitor_child_postauth(pmonitor);
 
 		/* NEVERREACHED */
@@ -1338,7 +1365,7 @@ main(int ac, char **av)
 				exit(1);
 			}
 			options.ports[options.num_ports++] = a2port(optarg);
-			if (options.ports[options.num_ports-1] == 0) {
+			if (options.ports[options.num_ports-1] <= 0) {
 				fprintf(stderr, "Bad port number.\n");
 				exit(1);
 			}
@@ -1949,17 +1976,17 @@ main(int ac, char **av)
 	audit_event(SSH_AUTH_SUCCESS);
 #endif
 
+#ifdef USE_PAM
+	if (options.use_pam) {
+		do_pam_setcred(1);
+		do_pam_session();
+	}
+#endif
 #ifdef GSSAPI
 	if (options.gss_authentication) {
 		temporarily_use_uid(authctxt->pw);
 		ssh_gssapi_storecreds();
 		restore_uid();
-	}
-#endif
-#ifdef USE_PAM
-	if (options.use_pam) {
-		do_pam_setcred(1);
-		do_pam_session();
 	}
 #endif
 

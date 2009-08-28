@@ -672,12 +672,23 @@ chapms2_check_success(unsigned char *msg, int len, unsigned char *private)
 	/* Authenticator Response matches. */
 	msg += MS_AUTH_RESPONSE_LENGTH; /* Eat it */
 	len -= MS_AUTH_RESPONSE_LENGTH;
-	if ((len >= 3) && !strncmp(msg, " M=", 3)) {
+	if ((len >= 3) && !strncmp(msg, " M=", 3))
+	{
+		//spec-conformant 
 		msg += 3; /* Eat the delimiter */
 	} else if (len) {
 		/* Packet has extra text which does not begin " M=" */
-		error("MS-CHAPv2 Success packet is badly formed.");
-		return 0;
+		
+		//we'll allow the missing-space case from the server, even though
+		//it's non-conforming to spec!
+		dbglog("Rcvd non-conforming MSCHAPv2 Success packet, len=%d", len);
+		if(len >= 2 && !strncmp(msg, "M=", 2))
+			msg += 2;
+		else
+		{
+			error("MS-CHAPv2 Success packet is badly formed.");
+			return 0;
+		}
 	}
 	return 1;
 }
@@ -979,7 +990,7 @@ GenerateAuthenticatorResponse(char *secret, int secret_len,
 
     /* Convert to ASCII hex string. */
     for (i = 0; i < MAX((MS_AUTH_RESPONSE_LENGTH / 2), sizeof(Digest)); i++)
-	sprintf(&authResponse[i * 2], "%02X", Digest[i]);
+	snprintf(&authResponse[i * 2], MS_AUTH_RESPONSE_LENGTH+1 - i * 2, "%02X", Digest[i]);
 }
 
 

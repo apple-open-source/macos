@@ -680,6 +680,18 @@ void CSPFullPluginSession::GenerateKey(CSSM_CC_HANDLE ccHandle,
     alg->generate(context, key, blank);
 }
 
+class ContextMinder
+{
+private:
+	CSSM_CC_HANDLE mHandle;
+
+public:
+	ContextMinder(CSSM_CC_HANDLE ccHandle) : mHandle(ccHandle) {}
+	~ContextMinder() {CSSM_DeleteContext(mHandle);}
+};
+
+
+
 void CSPFullPluginSession::GenerateKeyPair(CSSM_CC_HANDLE ccHandle,
                              const Context &context,
                              uint32 publicKeyUsage,
@@ -698,8 +710,122 @@ void CSPFullPluginSession::GenerateKeyPair(CSSM_CC_HANDLE ccHandle,
     setKey(publicKey, context, CSSM_KEYCLASS_PUBLIC_KEY, publicKeyAttr, publicKeyUsage);
     setKey(privateKey, context, CSSM_KEYCLASS_PRIVATE_KEY, privateKeyAttr, privateKeyUsage);
     alg->generate(context, publicKey, privateKey);
+	
     //@@@ handle labels
     //@@@ handle reference keys
+
+	bool encryptPublic = publicKeyUsage & CSSM_KEYUSE_ENCRYPT;
+	bool encryptPrivate = privateKeyUsage & CSSM_KEYUSE_ENCRYPT;
+
+	if (!(encryptPublic || encryptPrivate))
+	{
+		return ;
+	}
+	
+	// time to do the FIPS required test!
+	CSSM_CSP_HANDLE moduleHandle = handle();
+	CSSM_CC_HANDLE encryptHandle;
+	CSSM_ACCESS_CREDENTIALS nullCreds;
+	memset(&nullCreds, 0, sizeof(nullCreds));
+
+	CSSM_KEY_PTR encryptingKey, decryptingKey;
+	if (encryptPublic)
+	{
+		encryptingKey = &publicKey;
+		decryptingKey = &privateKey;
+	}
+	else
+	{
+		encryptingKey = &privateKey;
+		decryptingKey = &publicKey;
+	}
+	
+	// make data to be encrypted
+	unsigned bytesInKey = encryptingKey->KeyHeader.LogicalKeySizeInBits / 8;
+	u_int8_t buffer[bytesInKey];
+	unsigned i;
+	
+	for (i = 0; i < bytesInKey; ++i)
+	{
+		buffer[i] = i;
+	}
+	
+	CSSM_DATA clearBuf = {bytesInKey, buffer};
+	CSSM_DATA cipherBuf; // have the CSP allocate the resulting memory
+	CSSM_SIZE bytesEncrypted;
+	CSSM_DATA remData = {0, NULL};
+	CSSM_DATA decryptedBuf = {bytesInKey, buffer};
+	
+	CSSM_RETURN result = CSSM_CSP_CreateAsymmetricContext(moduleHandle, encryptingKey->KeyHeader.AlgorithmId,  &nullCreds, encryptingKey, CSSM_PADDING_NONE, &encryptHandle);
+	if (result != CSSM_OK)
+	{
+		CssmError::throwMe(result);
+	}
+	
+	ContextMinder encryptMinder(encryptHandle); // auto throw away if we error out
+	
+	CSSM_QUERY_SIZE_DATA qsData;
+	qsData.SizeInputBlock = bytesInKey;
+	result = CSSM_QuerySize(encryptHandle, CSSM_TRUE, 1, &qsData);
+	if (result == CSSMERR_CSP_INVALID_ALGORITHM)
+	{
+		return;
+	}
+	
+	uint8 cipherBuffer[qsData.SizeOutputBlock];
+	cipherBuf.Length = qsData.SizeOutputBlock;
+	cipherBuf.Data = cipherBuffer;
+
+	// do the encryption
+	result = CSSM_EncryptData(encryptHandle, &clearBuf, 1, &cipherBuf, 1, &bytesEncrypted, &remData);
+	if (result != CSSM_OK)
+	{
+		CssmError::throwMe(result);
+	}
+	
+	// check the result
+	if (memcmp(cipherBuf.Data, clearBuf.Data, clearBuf.Length) == 0)
+	{
+		// we have a match, that's not good news...
+		abort();
+	}
+	
+	// clean up
+	if (remData.Data != NULL)
+	{
+		free(remData.Data);
+	}
+	
+	// make a context to perform the decryption
+	CSSM_CC_HANDLE decryptHandle;
+	result = CSSM_CSP_CreateAsymmetricContext(moduleHandle, encryptingKey->KeyHeader.AlgorithmId, &nullCreds, decryptingKey, CSSM_PADDING_NONE, &decryptHandle);
+	ContextMinder decryptMinder(decryptHandle);
+
+	if (result != CSSM_OK)
+	{
+		CssmError::throwMe(result);
+	}
+	
+	result = CSSM_DecryptData(decryptHandle, &cipherBuf, 1, &decryptedBuf, 1, &bytesEncrypted, &remData);
+	if (result != CSSM_OK)
+	{
+		CssmError::throwMe(result);
+	}
+	
+	// check the results
+	for (i = 0; i < bytesInKey; ++i)
+	{
+		if (decryptedBuf.Data[i] != i)
+		{
+			// bad news
+			abort();
+		}
+	}
+	
+	if (remData.Data != NULL)
+	{
+		free(remData.Data);
+	}
 }
 
 void CSPFullPluginSession::ObtainPrivateKeyFromPublicKey(const CssmKey &PublicKey,

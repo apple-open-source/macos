@@ -1,0 +1,57 @@
+[page_begin mem/event/gen]
+	[nav_link [mem/sf/txt]]
+<br>
+	[site_xref]
+<br>
+	[mp_xref]
+[page_content]
+
+This page contains internal documentation and thoughts regarding the
+generation of file events for memory based channels.
+
+[p]
+
+The current scheme is to use periodic timers with a small delay
+greater than zero.
+
+[p]
+
+While thinking about the implementation of [mem/mp/fifo2] the
+following idea came up: Queue a pseudo-file event, wait for it to
+wander to the front of the event queue and queue the next pseudo-file
+event for the channel during the dispatch and execution of the first
+event.
+
+[p]
+
+This idea was shot down after a deeper investigation of the way file
+events are generated and handled by the tcl core. See the
+[tcl/io/fevent] for a writeup of the results of this investigation.
+
+For this package the essential result of this investigation is that
+the new scheme would starve all other event sources as the notifier
+would never again call <b>Tcl_WaitForEvent</b> to wait for external
+events. Especially if the user happens to activate an event handler
+for <i>writable</i> events on a memory channel.
+
+[p]
+
+It seems that the current solution is the best we can do, well except
+for setting the delay on the timers to zero. This will allow other
+events (sources) to squeeze in while reducing delay (and thus the
+impact on their transfer performance) for memory channels to the
+minimum.
+
+Creating and registering a completely new event source would be
+possible too but has the disadvantage of difficult cross-version
+support as the internal interfaces to the notifier changed several
+times.
+
+[p]
+
+The only type of memory channel which can be further optimized is
+[mem/mp/fifo2] because both sides can generate and queue events for
+the other side whenever data is written into the appropriate memory
+buffers.
+
+[page_end]

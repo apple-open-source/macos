@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -135,7 +135,7 @@ static DADiskRef __DADiskCreate( CFAllocatorRef allocator, const char * id )
         disk->_filesystem           = NULL;
         disk->_id                   = strdup( id );
         disk->_media                = IO_OBJECT_NULL;
-        disk->_mode                 = 0;
+        disk->_mode                 = 0750;
         disk->_options              = 0;
         disk->_propertyNotification = IO_OBJECT_NULL;
         disk->_serialization        = NULL;

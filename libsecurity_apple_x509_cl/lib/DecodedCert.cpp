@@ -178,10 +178,10 @@ CSSM_KEYUSE DecodedCert::inferKeyUsage() const
 				break;
 			}
 			else if(clCompareCssmData(thisUse, &CSSMOID_ServerAuth)) {
-				keyUse |= (CSSM_KEYUSE_VERIFY | CSSM_KEYUSE_ENCRYPT);	
+				keyUse |= (CSSM_KEYUSE_VERIFY | CSSM_KEYUSE_ENCRYPT | CSSM_KEYUSE_DERIVE);	
 			}
 			else if(clCompareCssmData(thisUse, &CSSMOID_ClientAuth)) {
-				keyUse |= (CSSM_KEYUSE_VERIFY | CSSM_KEYUSE_ENCRYPT);	
+				keyUse |= (CSSM_KEYUSE_VERIFY | CSSM_KEYUSE_ENCRYPT | CSSM_KEYUSE_DERIVE);	
 			}
 			else if(clCompareCssmData(thisUse, &CSSMOID_ExtendedUseCodeSigning)) {
 				keyUse |= CSSM_KEYUSE_VERIFY;	
@@ -214,6 +214,26 @@ CSSM_KEYUSE DecodedCert::inferKeyUsage() const
 				 * Kerberos PKINIT server: 
 				 * -- client verifies KDC signature in a CMS msg in AS-REP
 				 */
+				keyUse |= CSSM_KEYUSE_VERIFY;
+			}
+		}
+	}
+	
+	/* NetscapeCertType */
+	decodedExten = DecodedItem::findDecodedExt(CSSMOID_NetscapeCertType, 
+			false, 0, numFields);
+	if(decodedExten) {
+		/* nssObj() is a CSSM_DATA ptr, whose Data points to the bits we want */
+		CSSM_DATA *nctData = (CSSM_DATA *)decodedExten->nssObj();
+		if((nctData != NULL) && (nctData->Length > 0)) {
+			CE_NetscapeCertType nct = ((uint16)nctData->Data[0]) << 8;
+			if(nctData->Length > 1) {
+				nct |= nctData->Data[1];
+			}
+		
+			/* All this usage bits imply signature verify capability */
+			if(nct & (CE_NCT_SSL_Client | CE_NCT_SSL_Server | CE_NCT_SMIME | CE_NCT_ObjSign |
+					  CE_NCT_SSL_CA | CE_NCT_SMIME_CA | CE_NCT_ObjSignCA)) {
 				keyUse |= CSSM_KEYUSE_VERIFY;
 			}
 		}

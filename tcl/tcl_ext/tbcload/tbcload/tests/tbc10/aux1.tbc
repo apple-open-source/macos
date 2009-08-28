@@ -1,0 +1,101 @@
+# aux1.tcl --
+#
+#  Test file for compilation.
+#  Defines a proc that contains a simple foreach loop.
+#  Tests that support for aux data works.
+#
+# Copyright (c) 1998-2000 Ajuba Solutions
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+# 
+# RCS: @(#) $Id: aux1.tbc,v 1.2 2000/05/30 22:19:07 wart Exp $
+# TclPro::Compiler::Include
+
+if {[catch {package require tbcload 1.0} err] == 1} {
+    error "The TclPro ByteCode Loader is not available"
+}
+tbcload::bceval {
+TclPro ByteCode 1 0 1.0 8.0
+2 0 18 6 0 0 12 0 4 2 2 -1 -1
+18
+)?E<!(H&s!/HW<!-r=pv#!!
+2
+,B!
+2
+23!
+6
+x
+4
+,CHr@
+x
+1
+-v
+x
+3
+#)Hw
+p
+5 0 55 8 1 1 20 1 6 5 5 -1 -1
+55
+4;,>!?.EH&ih-(!e2xi6zyiE<!22>:v35>:v22Ppv2j:U!*|yTv0#>6#5cSs!)'!!
+5
+KK1G'#!
+5
+eQ=kw)!
+8
+x
+0
+
+x
+6
+sT2TAIPw
+x
+1
+m!
+x
+1
+N!
+x
+1
+A!
+x
+6
+82_`FWnw
+x
+6
+:<ylBLYw
+x
+4
+4wv/D
+1
+L 1 22 14 39 15 -1
+1
+F
+1 2 3
+1
+4
+1 5
+1
+8v
+0 0 257
+1
+m!
+1 0 1
+0
+
+2 0 513
+0
+
+3 0 513
+1
+7v
+4 0 1
+x
+19
+muF>+q,Y>+u8k>+wE(?+|/)'
+x
+15
+rpwhC;Z2b3<?<+EfqT+
+0
+0
+}

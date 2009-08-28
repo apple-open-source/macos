@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2007,2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -27,10 +27,34 @@
 
 class LaunchService;
 
+#define SMB_RUN_CONFIG_PATH	"/var/db/smb.conf"
+#define SMB_RUN_TEMPLATE	"/var/db/.smb.conf.XXXXXXXX"
+
+#define SMB_SHARES_CONFIG_PATH	"/var/db/samba/smb.shares"
+#define SMB_SHARES_TEMPLATE	"/var/db/samba/.smb.shares.XXXXXXXX"
+
+/* Base config file handling. */
+struct basic_config
+{
+    basic_config(const std::string& path, const std::string& tmpl)
+	: m_cpath(path), m_ctmpl(tmpl) {
+    }
+
+    virtual void format(std::ostream&) const = 0;
+    bool writeback() const;
+
+    typedef std::pair<std::string, std::string>		param_type;
+    typedef std::vector<param_type>			paramlist_type;
+
+private:
+    std::string m_cpath; // Path to write config file to
+    std::string m_ctmpl; // Path to use for mkstemp template
+};
+
 /* Class to encapsulate the state of the SMB configuration. Includes the state
  * of the smb.conf file and the service daemons.
  */
-class SmbConfig
+class SmbConfig : public basic_config
 {
 public:
     typedef enum {
@@ -41,9 +65,7 @@ public:
 	PROFILES
     } section_type;
 
-    typedef std::pair<std::string, std::string>		param_type;
-    typedef std::vector<param_type>			paramlist_type;
-    typedef std::map<section_type, paramlist_type>	smbconf_type;
+    typedef std::map<section_type, paramlist_type> smbconf_type;
 
     SmbConfig();
     ~SmbConfig();
@@ -67,14 +89,9 @@ public:
     /* Emit the formatted smb.conf to the given stream. */
     void format(std::ostream& out) const;
 
-    /* Write the formatted smb.conf back to the well-known filesystem
-     * location.
-     */
-    bool writeback(void) const;
-
 private:
     SmbConfig(const SmbConfig&); // nocopy
-    SmbConfig operator=(const SmbConfig&); // nocopy
+    SmbConfig& operator=(const SmbConfig&); // nocopy
 
     smbconf_type    m_smbconf;	    /* accumulated smb.conf parameters */
     paramlist_type  m_metaconf;	    /* accumulated smb.conf metadata */
@@ -86,7 +103,31 @@ private:
     LaunchService * m_winbind;
 };
 
-template <class T> SmbConfig::param_type
+/* Class to hold the collection of SMB share definitions. */
+class SmbShares : public basic_config
+{
+public:
+    typedef std::map<std::string, paramlist_type> smbshares_type;
+
+    SmbShares()
+	: basic_config(SMB_SHARES_CONFIG_PATH, SMB_SHARES_TEMPLATE) {
+    }
+    ~SmbShares() {
+    }
+
+    /* Emit the formatted smb.conf to the given stream. */
+    void format(std::ostream& out) const;
+
+    void set_param(const std::string& share_name, const param_type& param);
+
+private:
+    SmbShares(const SmbShares&); // nocopy
+    SmbShares& operator=(const SmbShares&); // nocopy
+
+    smbshares_type m_smbshares;
+};
+
+template <class T> basic_config::param_type
 make_smb_param(const std::string& key, const T& val)
 {
     std::ostringstream ostr;
@@ -94,10 +135,10 @@ make_smb_param(const std::string& key, const T& val)
     return make_smb_param<std::string>(key, ostr.str());
 }
 
-template <> SmbConfig::param_type
+template <> basic_config::param_type
 make_smb_param<std::string>(const std::string& key, const std::string& val);
 
-template <> SmbConfig::param_type
+template <> basic_config::param_type
 make_smb_param<bool>(const std::string& key, const bool& val);
 
 class SmbOption;

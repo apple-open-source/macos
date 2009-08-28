@@ -203,7 +203,7 @@ bool IOFireWireSBP2Login::initWithLUN( IOFireWireSBP2LUN * lun )
 	
 		// scan unit
 		status = getUnitInformation();
-		FWKLOG( ( "IOFireWireSBP2Login<0x%08lx> : fManagementOffset = 0x%lx, fMaxORBSize = %d, fMaxCommandBlockSize = %d\n", (UInt32)this, fManagementOffset, fMaxORBSize, fMaxCommandBlockSize ) );
+		FWKLOG( ( "IOFireWireSBP2Login<%p> : fManagementOffset = 0x%lx, fMaxORBSize = %d, fMaxCommandBlockSize = %d\n", this, fManagementOffset, fMaxORBSize, fMaxCommandBlockSize ) );
 	}
 	
 	if( status == kIOReturnSuccess )
@@ -264,7 +264,7 @@ IOReturn IOFireWireSBP2Login::getUnitInformation( void )
 		fManagementOffset = ((OSNumber*)prop)->unsigned32BitValue();
 	}
 	
-    FWKLOG( ("IOFireWireSBP2Login<0x%08lx> : status = %d, fManagementOffset = %d\n", (UInt32)this, status, fManagementOffset) );
+    FWKLOG( ("IOFireWireSBP2Login<%p> : status = %d, fManagementOffset = %d\n", this, status, fManagementOffset) );
 
     //
     // get unit characteristics
@@ -308,7 +308,7 @@ IOReturn IOFireWireSBP2Login::getUnitInformation( void )
 		}
 	}
 
-    FWKLOG( ("IOFireWireSBP2Login<0x%08lx> : fFastStartSupported = %d, fFastStartOffset = 0x%02lx, fFastStartMaxPayload = %d\n", (UInt32)this, fFastStartSupported, fFastStartOffset, fFastStartMaxPayload ) );
+    FWKLOG( ("IOFireWireSBP2Login<%p> : fFastStartSupported = %d, fFastStartOffset = 0x%02lx, fFastStartMaxPayload = %d\n", this, fFastStartSupported, fFastStartOffset, fFastStartMaxPayload ) );
 	
     return status;
 }
@@ -451,7 +451,7 @@ IOReturn IOFireWireSBP2Login::allocateResources( void )
     fLoginORB.loginResponseAddressLo = OSSwapHostToBigInt32(fLoginResponseAddress.addressLo);
     fLoginORB.loginResponseLength = OSSwapHostToBigInt16(sizeof( FWSBP2LoginResponse ));
     fLoginORB.lun = OSSwapHostToBigInt16(fLUN->getLUNumber());
-    FWKLOG( ("IOFireWireSBP2Login<0x%08lx>::allocateResources lun number = %d\n", (UInt32)this, OSSwapBigToHostInt16(fLoginORB.lun)) );
+    FWKLOG( ("IOFireWireSBP2Login<%p>::allocateResources lun number = %d\n", this, OSSwapBigToHostInt16(fLoginORB.lun)) );
     fLoginORB.statusFIFOAddressHi = OSSwapHostToBigInt32((fStatusBlockAddress.nodeID << 16) | fStatusBlockAddress.addressHi);
     fLoginORB.statusFIFOAddressLo = OSSwapHostToBigInt32(fStatusBlockAddress.addressLo);
 
@@ -701,7 +701,7 @@ void IOFireWireSBP2Login::free( void )
 {
     IOReturn						status = kIOReturnSuccess;
 
-    FWKLOG( ( "IOFireWireSBP2Login<0x%08lx> : free called\n", (UInt32)this ) );
+    FWKLOG( ( "IOFireWireSBP2Login<%p> : free called\n", this ) );
 
 	if( fControl && fTarget )
 	{
@@ -1046,7 +1046,7 @@ void * IOFireWireSBP2Login::getRefCon( void )
 void IOFireWireSBP2Login::setLoginFlags( UInt32 loginFlags )
 {
     fLoginFlags = loginFlags;
-    FWKLOG(( "IOFireWireSBP2Login<0x%08lx> : setLoginFlags : 0x%08lx\n", (UInt32)this, fLoginFlags ));
+    FWKLOG(( "IOFireWireSBP2Login<%p> : setLoginFlags : 0x%08lx\n", this, fLoginFlags ));
 }
 
 UInt32 IOFireWireSBP2Login::getLoginFlags( void )
@@ -1356,7 +1356,7 @@ IOReturn IOFireWireSBP2Login::executeLogin( void )
 {
     IOReturn status = kIOReturnSuccess;
     
-	FWKLOG( ( "IOFireWireSBP2Login<0x%08lx> : executeLogin\n", (UInt32)this ) );
+	FWKLOG( ( "IOFireWireSBP2Login<%p> : executeLogin\n", this ) );
 
 	if( fSuspended )
 	{
@@ -1381,7 +1381,7 @@ IOReturn IOFireWireSBP2Login::executeLogin( void )
     fLoginResponse.reconnectHold = 0;
 
     // set options
-    FWKLOG(( "IOFireWireSBP2Login<0x%08lx> : fLoginFlags : 0x%08lx\n", (UInt32)this, fLoginFlags ));
+    FWKLOG(( "IOFireWireSBP2Login<%p> : fLoginFlags : 0x%08lx\n", this, fLoginFlags ));
 
     fLoginORB.options = OSSwapHostToBigInt16(0x0000 | 0x8000);		// login | notify
     fLoginORB.options |= OSSwapHostToBigInt16(fReconnectTime << 4);
@@ -1442,7 +1442,7 @@ void IOFireWireSBP2Login::loginWriteCompleteStatic( void *refcon, IOReturn statu
 
 void IOFireWireSBP2Login::loginWriteComplete( IOReturn status, IOFireWireNub *device, IOFWCommand *fwCmd )
 {
-    FWKLOG( ("IOFireWireSBP2Login<0x%08lx> : login write complete\n", (UInt32)this) );
+    FWKLOG( ("IOFireWireSBP2Login<%p> : login write complete\n", this) );
 
     fLoginWriteInProgress = false;
  
@@ -1482,7 +1482,7 @@ void IOFireWireSBP2Login::loginTimeout( IOReturn status, IOFireWireBus *bus, IOF
     fLoginTimeoutTimerSet = false;
     if( status != kIOReturnSuccess )
     {
-        FWKLOG( ("IOFireWireSBP2Login<0x%08lx> : login timed out\n", (UInt32)this) );
+        FWKLOG( ("IOFireWireSBP2Login<%p> : login timed out\n", this) );
         
         // init state machine
         fLoginState = kLoginStateIdle;
@@ -1521,7 +1521,7 @@ void IOFireWireSBP2Login::loginRetryTimeout( IOReturn status, IOFireWireBus *bus
     fLoginRetryTimeoutTimerSet = false;
     if( status == kIOReturnTimeout )
     {
-        FWKLOG( ("IOFireWireSBP2Login<0x%08lx> : login retry timer fired\n", (UInt32)this) );
+        FWKLOG( ("IOFireWireSBP2Login<%p> : login retry timer fired\n", this) );
 		
 		IOReturn login_status = executeLogin();
 		if( login_status != kIOReturnSuccess )
@@ -1551,7 +1551,7 @@ void IOFireWireSBP2Login::abortLogin( void )
 
 void IOFireWireSBP2Login::completeLogin( IOReturn state, const void *buf, UInt32 len, void * buf2 )
 {
-	FWKLOG( ( "IOFireWireSBP2Login<0x%08lx> : completeLogin\n", (UInt32)this ) );
+	FWKLOG( ( "IOFireWireSBP2Login<%p> : completeLogin\n", this ) );
 	
 	if( (fLoginFlags & kFWSBP2DontSynchronizeMgmtAgent) == 0 )
 		fTarget->completeMgmtAgentAccess(  );
@@ -1610,7 +1610,7 @@ UInt32 IOFireWireSBP2Login::statusBlockWriteStatic(void *refcon, UInt16 nodeID, 
 UInt32 IOFireWireSBP2Login::statusBlockWrite( UInt16 nodeID, IOFWSpeed &speed, FWAddress addr, UInt32 len,
                                               const void *buf, IOFWRequestRefCon lockRead )
 {
-    FWKLOG( ( "IOFireWireSBP2Login<0x%08lx> : status block write\n", (UInt32)this ) );
+    FWKLOG( ( "IOFireWireSBP2Login<%p> : status block write\n", this ) );
 
     
 	if( len < 8 )
@@ -1724,7 +1724,7 @@ UInt32 IOFireWireSBP2Login::statusBlockWrite( UInt16 nodeID, IOFWSpeed &speed, F
                     }                   
                 }
                 
-                FWKLOG( ( "IOFireWireSBP2Login<0x%08lx> : solicited found = %d\n", (UInt32)this, found ) );
+                FWKLOG( ( "IOFireWireSBP2Login<%p> : solicited found = %d\n", this, found ) );
 				
 				bool deadBitIsSet = fStatusBlock.details & 0x08;
                 
@@ -1791,7 +1791,7 @@ UInt32 IOFireWireSBP2Login::statusBlockWrite( UInt16 nodeID, IOFWSpeed &speed, F
             if( ((fStatusBlock.details >> 4) & 3) == kFWSBP2RequestComplete &&
                 fStatusBlock.sbpStatus == kFWSBP2NoSense )
             {
-                FWKLOG( ( "IOFireWireSBP2Login<0x%08lx> : successful logout\n", (UInt32)this ) );
+                FWKLOG( ( "IOFireWireSBP2Login<%p> : successful logout\n", this ) );
                 fLoginState = kLoginStateIdle;
 				fUnsolicitedStatusEnableRequested = false;
 				
@@ -1801,7 +1801,7 @@ UInt32 IOFireWireSBP2Login::statusBlockWrite( UInt16 nodeID, IOFWSpeed &speed, F
             }
             else
             {
-                FWKLOG( ( "IOFireWireSBP2Login<0x%08lx> : logout failed!?\n", (UInt32)this ) );
+                FWKLOG( ( "IOFireWireSBP2Login<%p> : logout failed!?\n", this ) );
                 fLoginState = kLoginStateIdle;
 				completeLogout( kIOReturnError, client_status_block, len );
             }
@@ -1814,7 +1814,7 @@ UInt32 IOFireWireSBP2Login::statusBlockWrite( UInt16 nodeID, IOFWSpeed &speed, F
         case kLoginStateReconnect:
         case kLoginStateIdle:
         default:
-            FWKLOG( ( "IOFireWireSBP2Login<0x%08lx> : status block write on illegal state\n", (UInt32)this ) );
+            FWKLOG( ( "IOFireWireSBP2Login<%p> : status block write on illegal state\n", this ) );
             break;
     }
 
@@ -1831,7 +1831,7 @@ void IOFireWireSBP2Login::processLoginWrite( void )
 	if( ((fLoginStatusBlock.details >> 4) & 3) == kFWSBP2RequestComplete &&
 		fLoginStatusBlock.sbpStatus == kFWSBP2NoSense )
 	{
-		FWKLOG( ( "IOFireWireSBP2Login<0x%08lx> : successful login\n", (UInt32)this ) );
+		FWKLOG( ( "IOFireWireSBP2Login<%p> : successful login\n", this ) );
 
 		// get login ID and fetch agent address
 		fLoginID = OSSwapBigToHostInt16(fLoginResponse.loginID);
@@ -1900,7 +1900,7 @@ void IOFireWireSBP2Login::processLoginWrite( void )
 	}
 	else
 	{
-		FWKLOG( ( "IOFireWireSBP2Login<0x%08lx> : login failed\n", (UInt32)this ) );
+		FWKLOG( ( "IOFireWireSBP2Login<%p> : login failed\n", this ) );
 		fLoginState = kLoginStateIdle;
 
 		completeLogin( kIOReturnError, &fLoginStatusBlock, fLoginStatusBlockLen, NULL );
@@ -1920,7 +1920,7 @@ void IOFireWireSBP2Login::processLoginWrite( void )
 
 void IOFireWireSBP2Login::suspendedNotify( void )
 {
-    FWKLOG( ( "IOFireWireSBP2Login<0x%08lx> : suspendedNotify\n", (UInt32)this ) );
+    FWKLOG( ( "IOFireWireSBP2Login<%p> : suspendedNotify\n", this ) );
     
 	fSuspended = true;
 	
@@ -1954,7 +1954,7 @@ void IOFireWireSBP2Login::suspendedNotify( void )
         case kLoginStateIdle:
         case kLoginStateLoggingOut:
         default:
-            FWKLOG( ("IOFireWireSBP2Login<0x%08lx> : suspended notify, nothing to do\n", (UInt32)this) );
+            FWKLOG( ("IOFireWireSBP2Login<%p> : suspended notify, nothing to do\n", this) );
             break;
     }
 }
@@ -1966,7 +1966,7 @@ void IOFireWireSBP2Login::suspendedNotify( void )
 
 void IOFireWireSBP2Login::resumeNotify( void )
 {
-    FWKLOG( ( "IOFireWireSBP2Login<0x%08lx> : resume notify\n", (UInt32)this ) );
+    FWKLOG( ( "IOFireWireSBP2Login<%p> : resume notify\n", this ) );
 
     UInt32 generation = fControl->getGeneration();
 	fPhysicalAccessEnabled = fUnit->isPhysicalAccessEnabled();
@@ -2011,7 +2011,7 @@ void IOFireWireSBP2Login::resumeNotify( void )
 			case kLoginStateLoggingOut:
 			case kLoginStateConnected:
 			default:
-				FWKLOG( ("IOFireWireSBP2Login<0x%08lx> : resume notify, nothing to do\n", (UInt32)this) );
+				FWKLOG( ("IOFireWireSBP2Login<%p> : resume notify, nothing to do\n", this) );
 				break;
 		}
 	}
@@ -2023,7 +2023,7 @@ void IOFireWireSBP2Login::resumeNotify( void )
 
 void IOFireWireSBP2Login::terminateNotify( void )
 {
-    FWKLOG( ( "IOFireWireSBP2Login<0x%08lx> : terminate notify\n", (UInt32)this ) );
+    FWKLOG( ( "IOFireWireSBP2Login<%p> : terminate notify\n", this ) );
 	
 	if( fLogoutPending )
 	{
@@ -2047,7 +2047,7 @@ void IOFireWireSBP2Login::terminateNotify( void )
 			case kLoginStateConnected:
 			case kLoginStateTerminated:
 			default:
-				FWKLOG( ("IOFireWireSBP2Login<0x%08lx> : terminate notify, nothing to do\n", (UInt32)this) );
+				FWKLOG( ("IOFireWireSBP2Login<%p> : terminate notify, nothing to do\n", this) );
 				break;
 		}
 		
@@ -2106,7 +2106,7 @@ void IOFireWireSBP2Login::startReconnectTimer( void )
 	
 #if FWLOGGING
     if( fReconnectTimeoutTimerSet )
-    FWKLOG( ("IOFireWireSBP2Login<0x%08lx> : reconnect timeout set for %d microseconds \n", (UInt32)this, ((fManagementTimeout + 1000) * 1000)) );
+    FWKLOG( ("IOFireWireSBP2Login<%p> : reconnect timeout set for %d microseconds \n", this, ((fManagementTimeout + 1000) * 1000)) );
 #endif
     
 }
@@ -2122,7 +2122,7 @@ void IOFireWireSBP2Login::startReconnectTimer( void )
 
 void IOFireWireSBP2Login::doReconnect( void )
 {
-    FWKLOG( ("IOFireWireSBP2Login<0x%08lx> : reconnect\n", (UInt32)this) );
+    FWKLOG( ("IOFireWireSBP2Login<%p> : reconnect\n", this) );
     
 	IOReturn status = fTarget->beginIOCriticalSection();
 	if( status != kIOReturnSuccess )
@@ -2218,7 +2218,7 @@ void IOFireWireSBP2Login::reconnectWriteCompleteStatic( void *refcon, IOReturn s
 
 void IOFireWireSBP2Login::reconnectWriteComplete( IOReturn status, IOFireWireNub *device, IOFWCommand *fwCmd )
 {
-    FWKLOG( ("IOFireWireSBP2Login<0x%08lx> : reconnectWriteComplete \n", (UInt32)this) );
+    FWKLOG( ("IOFireWireSBP2Login<%p> : reconnectWriteComplete \n", this) );
 
     fReconnectWriteInProgress = false;
 
@@ -2247,7 +2247,7 @@ void IOFireWireSBP2Login::reconnectTimeoutStatic( void *refcon, IOReturn status,
 void IOFireWireSBP2Login::reconnectTimeout( IOReturn status, IOFireWireBus *bus, IOFWBusCommand *fwCmd )
 {
     fReconnectTimeoutTimerSet = false;
-    FWKLOG( ("IOFireWireSBP2Login<0x%08lx> : reconnect timeout proc, status = 0x%08lx\n", (UInt32)this, (UInt32)this, status) );
+    FWKLOG( ("IOFireWireSBP2Login<%p> : reconnect timeout proc, status = 0x%08lx\n", this, status) );
     
 	if( fInCriticalSection )
 	{
@@ -2295,14 +2295,14 @@ UInt32 IOFireWireSBP2Login::reconnectStatusBlockWriteStatic(void *refcon, UInt16
 UInt32 IOFireWireSBP2Login::reconnectStatusBlockWrite( UInt16 nodeID, IOFWSpeed &speed, FWAddress addr,
                                                        UInt32 len, const void *buf, IOFWRequestRefCon lockRead )
 {
-    FWKLOG( ("IOFireWireSBP2Login<0x%08lx> : reconnect status block write\n", (UInt32)this) );
+    FWKLOG( ("IOFireWireSBP2Login<%p> : reconnect status block write\n", this) );
 
 //IOLog("length %ld contents %08lx %08lx\n", len, *((UInt32 *)buf),  *(1+(UInt32 *)buf) );
 
     // this is possibly a belated reconnect acknowledgement. if so ignore it
     if( !fReconnectTimeoutTimerSet )
     {
-        FWKLOG( ("IOFireWireSBP2Login<0x%08lx> : reconnect status block write after timer went off\n", (UInt32)this) );
+        FWKLOG( ("IOFireWireSBP2Login<%p> : reconnect status block write after timer went off\n", this) );
         return kFWResponseComplete;
     }
 
@@ -2310,7 +2310,7 @@ UInt32 IOFireWireSBP2Login::reconnectStatusBlockWrite( UInt16 nodeID, IOFWSpeed 
     // if so ignore it
     if( fLoginGeneration != fControl->getGeneration() )
     {
-        FWKLOG( ("IOFireWireSBP2Login<0x%08lx> : reconnect status block write for wrong generation\n", (UInt32)this) );
+        FWKLOG( ("IOFireWireSBP2Login<%p> : reconnect status block write for wrong generation\n", this) );
         return kFWResponseComplete;
     }
 
@@ -2325,7 +2325,7 @@ UInt32 IOFireWireSBP2Login::reconnectStatusBlockWrite( UInt16 nodeID, IOFWSpeed 
     if( ( ( ( fReconnectStatusBlock.details >> 4 ) & 3 ) == kFWSBP2RequestComplete ) &&
         ( fReconnectStatusBlock.sbpStatus == kFWSBP2NoSense ) )
     {
-        FWKLOG( ( "IOFireWireSBP2Login<0x%08lx> : successful reconnect\n", (UInt32)this ) );
+        FWKLOG( ( "IOFireWireSBP2Login<%p> : successful reconnect\n", this ) );
 
 		// cancel timer, won't get here if its not set
 		fReconnectTimeoutCommand->cancel(kIOReturnAborted);
@@ -2364,7 +2364,7 @@ UInt32 IOFireWireSBP2Login::reconnectStatusBlockWrite( UInt16 nodeID, IOFWSpeed 
 	}
     else
     {
-        FWKLOG( ( "IOFireWireSBP2Login<0x%08lx> : reconnect failed\n", (UInt32)this ) );
+        FWKLOG( ( "IOFireWireSBP2Login<%p> : reconnect failed\n", this ) );
 
 		// cancel timer, won't get here if its not set
 		fReconnectTimeoutCommand->cancel(kIOReturnAborted);
@@ -2413,7 +2413,7 @@ void IOFireWireSBP2Login::reconnectRetryTimeout( IOReturn status, IOFireWireBus 
     fReconnectRetryTimeoutTimerSet = false;
     if( status == kIOReturnTimeout )
     {
-        FWKLOG( ("IOFireWireSBP2Login<0x%08lx> : reconnect retry timer fired\n", (UInt32)this) );
+        FWKLOG( ("IOFireWireSBP2Login<%p> : reconnect retry timer fired\n", this) );
 
 		doReconnect();
 	}
@@ -2436,9 +2436,9 @@ void IOFireWireSBP2Login::sendReconnectNotification( UInt32 event )
     params.reconnectStatusBlock = NULL;
     params.reconnectStatusBlockLength = 0;
 
-    FWKLOG( ( "IOFireWireSBP2Login<0x%08lx> : arg address 0x%08lx\n", (UInt32)this, &params ) );
+    FWKLOG( ( "IOFireWireSBP2Login<%p> : arg address 0x%08lx\n", this, &params ) );
 
-    FWKLOG( ( "IOFireWireSBP2Login<0x%08lx> : reconnectStatusBlock 0x%08lx, reconnectStatusBlockLength 0x%08lx\n", (UInt32)this, params.reconnectStatusBlock, params.reconnectStatusBlockLength ) );
+    FWKLOG( ( "IOFireWireSBP2Login<%p> : reconnectStatusBlock 0x%08lx, reconnectStatusBlockLength 0x%08lx\n", this, params.reconnectStatusBlock, params.reconnectStatusBlockLength ) );
 
     fTarget->messageClients( event, &params );
 	fLUN->messageClients( event, &params );
@@ -2457,8 +2457,8 @@ void IOFireWireSBP2Login::sendReconnectNotificationWithStatusBlock( UInt32 event
     params.reconnectStatusBlock = &fReconnectStatusBlock;
     params.reconnectStatusBlockLength = sizeof(FWSBP2StatusBlock);
 
-    FWKLOG( ( "IOFireWireSBP2Login<0x%08lx> : arg address 0x%08lx\n", (UInt32)this, &params ) );
-    FWKLOG( ( "IOFireWireSBP2Login<0x%08lx> : reconnectStatusBlock 0x%08lx, reconnectStatusBlockLength 0x%08lx\n", (UInt32)this, params.reconnectStatusBlock, params.reconnectStatusBlockLength ) );
+    FWKLOG( ( "IOFireWireSBP2Login<%p> : arg address 0x%08lx\n", this, &params ) );
+    FWKLOG( ( "IOFireWireSBP2Login<%p> : reconnectStatusBlock 0x%08lx, reconnectStatusBlockLength 0x%08lx\n", this, params.reconnectStatusBlock, params.reconnectStatusBlockLength ) );
     fTarget->messageClients( event, &params );
 	fLUN->messageClients( event, &params );
 }
@@ -2489,7 +2489,7 @@ IOReturn IOFireWireSBP2Login::staticExecuteLogout( OSObject *self, void *, void 
 
 IOReturn IOFireWireSBP2Login::executeLogout( void )
 {
-    FWKLOG( ( "IOFireWireSBP2Login<0x%08lx> : executeLogout\n", (UInt32)this ) );
+    FWKLOG( ( "IOFireWireSBP2Login<%p> : executeLogout\n", this ) );
 
 	// are we already processing a logout
 	if( fLoginState == kLoginStateLoggingOut || fLogoutPending )
@@ -2577,7 +2577,7 @@ void IOFireWireSBP2Login::logoutWriteCompleteStatic( void *refcon, IOReturn stat
 
 void IOFireWireSBP2Login::logoutWriteComplete( IOReturn status, IOFireWireNub *device, IOFWCommand *fwCmd )
 {
-    FWKLOG( ( "IOFireWireSBP2Login<0x%08lx> : logoutWriteComplete \n", (UInt32)this ) );
+    FWKLOG( ( "IOFireWireSBP2Login<%p> : logoutWriteComplete \n", this ) );
 
     fLogoutWriteInProgress = false;
     
@@ -2606,12 +2606,12 @@ void IOFireWireSBP2Login::logoutTimeoutStatic( void *refcon, IOReturn status, IO
 
 void IOFireWireSBP2Login::logoutTimeout( IOReturn status, IOFireWireBus *bus, IOFWBusCommand *fwCmd )
 {
-    FWKLOG( ( "IOFireWireSBP2Login<0x%08lx> : logoutTimeout \n", (UInt32)this ) );
+    FWKLOG( ( "IOFireWireSBP2Login<%p> : logoutTimeout \n", this ) );
     
     fLogoutTimeoutTimerSet = false;
     if( status != kIOReturnSuccess )
     {
-        FWKLOG( ("IOFireWireSBP2Login<0x%08lx> : logout timed out\n", (UInt32)this) );
+        FWKLOG( ("IOFireWireSBP2Login<%p> : logout timed out\n", this) );
 
         // back to idle
         fLoginState = kLoginStateIdle;
@@ -2621,7 +2621,7 @@ void IOFireWireSBP2Login::logoutTimeout( IOReturn status, IOFireWireBus *bus, IO
 
 void IOFireWireSBP2Login::completeLogout( IOReturn state, const void *buf, UInt32 len )
 {
-	FWKLOG( ( "IOFireWireSBP2Login<0x%08lx> : completeLogout\n", (UInt32)this ) );
+	FWKLOG( ( "IOFireWireSBP2Login<%p> : completeLogout\n", this ) );
 	
 	if( fInCriticalSection )
 	{
@@ -2826,7 +2826,7 @@ IOReturn IOFireWireSBP2Login::executeORB( IOFireWireSBP2ORB * orb )
 			( commandFlags & kFWSBP2CommandImmediate ) &&					// and this is an immediate orb
 			fORBToWrite )													// and we've already got another orb
         {
-            FWKLOG(("IOFireWireSBP2Login<0x%08lx> : fetchAgentWriteCommand still in use\n", (UInt32)this ));
+            FWKLOG(("IOFireWireSBP2Login<%p> : fetchAgentWriteCommand still in use\n", this ));
             status = kIOReturnNoResources;
         }
     }
@@ -3193,7 +3193,7 @@ void IOFireWireSBP2Login::fetchAgentRetryTimerStatic( void *refcon, IOReturn sta
 
 void IOFireWireSBP2Login::fetchAgentRetryTimer( IOReturn status, IOFireWireBus *bus, IOFWBusCommand *fwCmd )
 {
-    FWKLOG( ( "IOFireWireSBP2Login<0x%08lx>IOFireWireSBP2Login::fetchAgentRetryTimer\n", (UInt32)this ) );
+    FWKLOG( ( "IOFireWireSBP2Login<%p>IOFireWireSBP2Login::fetchAgentRetryTimer\n", this ) );
     
     fFetchAgentRetryTimerSet = false;
 
@@ -3275,7 +3275,7 @@ void IOFireWireSBP2Login::fetchAgentResetCompleteStatic( void *refcon, IOReturn 
 
 void IOFireWireSBP2Login::fetchAgentResetComplete( IOReturn status, IOFireWireNub *device, IOFWCommand *fwCmd )
 {
-    FWKLOG( ("IOFireWireSBP2Login<0x%08lx> : fetch agent reset complete\n", (UInt32)this) );
+    FWKLOG( ("IOFireWireSBP2Login<%p> : fetch agent reset complete\n", this) );
 
     fFetchAgentResetInProgress = false;
 	
@@ -3342,7 +3342,7 @@ void IOFireWireSBP2Login::doorbellCompleteStatic( void *refcon, IOReturn status,
 
 void IOFireWireSBP2Login::doorbellComplete( IOReturn status, IOFireWireNub *device, IOFWCommand *fwCmd )
 {
-    FWKLOG( ("IOFireWireSBP2Login<0x%08lx> : doorbell complete\n", (UInt32)this) );
+    FWKLOG( ("IOFireWireSBP2Login<%p> : doorbell complete\n", this) );
 
     fDoorbellInProgress = false;
 	
@@ -3413,7 +3413,7 @@ void IOFireWireSBP2Login::unsolicitedStatusEnableCompleteStatic( void *refcon, I
 
 void IOFireWireSBP2Login::unsolicitedStatusEnableComplete( IOReturn status, IOFireWireNub *device, IOFWCommand *fwCmd )
 {
-    FWKLOG( ("IOFireWireSBP2Login<0x%08lx> : unsolicitedStatusEnableComplete complete\n", (UInt32)this) );
+    FWKLOG( ("IOFireWireSBP2Login<%p> : unsolicitedStatusEnableComplete complete\n", this) );
 
     fUnsolicitedStatusEnableInProgress = false;
 
@@ -3456,7 +3456,7 @@ void IOFireWireSBP2Login::setBusyTimeoutCompleteStatic( void *refcon, IOReturn s
 
 void IOFireWireSBP2Login::setBusyTimeoutComplete( IOReturn status, IOFireWireNub *device, IOFWCommand *fwCmd )
 {
-    FWKLOG( ("IOFireWireSBP2Login<0x%08lx> : setBusyTimeoutComplete\n", (UInt32)this) );
+    FWKLOG( ("IOFireWireSBP2Login<%p> : setBusyTimeoutComplete\n", this) );
 
     fSetBusyTimeoutInProgress = false;	
 }
@@ -3548,7 +3548,7 @@ void IOFireWireSBP2Login::setAddressLoForLoginORBAndResponse( UInt32 addressLoOR
 	
 	fControl->closeGate();
 	
-	FWKLOG(( "IOFireWireSBP2Login::setAddressLoForLoginORBAndResponse<0x%08lx> - set ORB addressLo to 0x%08lx, set Response addressLo to 0x%08lx\n", (UInt32)this, addressLoORBMasked, addressLoResponseMasked ));
+	FWKLOG(( "IOFireWireSBP2Login::setAddressLoForLoginORBAndResponse<%p> - set ORB addressLo to 0x%08lx, set Response addressLo to 0x%08lx\n", this, addressLoORBMasked, addressLoResponseMasked ));
 	
 	space = OSDynamicCast( IOFWSBP2PseudoAddressSpace, fLoginORBAddressSpace );
 	if( space != NULL )

@@ -1,4 +1,4 @@
-#$Id: Makefile,v 1.1 1999/09/23 17:30:07 wsanchez Exp $
+#$Id: Makefile,v 1.7 1994/08/24 18:52:00 berg Exp $
 
 all: init
 	$(MAKE) make $@

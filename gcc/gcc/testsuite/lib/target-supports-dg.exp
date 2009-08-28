@@ -12,7 +12,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 # If this target does not support weak symbols, skip this test.
 
@@ -140,6 +140,15 @@ proc dg-require-mkfifo { args } {
     }
 }
 
+# If this target does not use __cxa_atexit, skip this test.
+
+proc dg-require-cxa-atexit { args } {
+    if { ![ check_cxa_atexit_available ] } {
+        upvar dg-do-what dg-do-what
+        set dg-do-what [list [lindex ${dg-do-what} 0] "N" "P"]
+    }
+}
+
 # Check the flags with which the test will be run against options in
 # a test directive that will skip or xfail that test.  The DejaGnu proc
 # check_conditional_xfail will look at the options in compiler_flags, so
@@ -170,7 +179,6 @@ proc check_test_flags { args } {
     return $answer
 }
 
-# APPLE LOCAL begin mainline
 # Compare flags for a test directive against flags that will be used to
 # compile the test: multilib flags, flags for torture options, and either
 # the default flags for this group of tests or flags specified with a
@@ -208,7 +216,6 @@ proc check-flags { args } {
     return $result
 }
 
-# APPLE LOCAL end mainline
 # Skip the test (report it as UNSUPPORTED) if the target list and
 # included flags are matched and the excluded flags are not matched.
 #
@@ -220,7 +227,6 @@ proc check-flags { args } {
 # group of tests or flags specified with a previous dg-options command.
 
 proc dg-skip-if { args } {
-    # APPLE LOCAL begin mainline
     # Don't bother if we're already skipping the test.
     upvar dg-do-what dg-do-what
     if { [lindex ${dg-do-what} 1] == "N" } {
@@ -240,7 +246,6 @@ proc dg-skip-if { args } {
             set dg-do-what [list [lindex ${dg-do-what} 0] "N" "P"]
 	}
     }
-    # APPLE LOCAL end mainline
 }
 
 # Like check_conditional_xfail, but callable from a dg test.
@@ -253,10 +258,41 @@ proc dg-xfail-if { args } {
     }
 
     set args [lreplace $args 0 0]
-    set selector "target [join [lindex $args 1]]"
+    set selector [list target [lindex $args 1]]
     if { [dg-process-target $selector] == "S" } {
 	global compiler_conditional_xfail_data
 	set compiler_conditional_xfail_data [lreplace $args 1 1 "*-*-*"]
+    }
+}
+
+# Record whether the program is expected to return a nonzero status.
+
+set shouldfail 0
+
+proc dg-shouldfail { args } {
+    # Don't bother if we're already skipping the test.
+    upvar dg-do-what dg-do-what
+    if { [lindex ${dg-do-what} 1] == "N" } {
+      return
+    }
+
+    global shouldfail
+
+    set args [lreplace $args 0 0]
+    if { [llength $args] > 1 } {
+	set selector [list target [lindex $args 1]]
+	if { [dg-process-target $selector] == "S" } {
+	    # The target matches, now check the flags.  These variables
+	    # are defined in DejaGnu's dg-test, needed by check-flags.
+	    upvar dg-extra-tool-flags dg-extra-tool-flags
+	    upvar tool_flags tool_flags
+
+	    if [check-flags $args] {
+		set shouldfail 1
+	    }
+	}
+    } else {
+	set shouldfail 1
     }
 }
 

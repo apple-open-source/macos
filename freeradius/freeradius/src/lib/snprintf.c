@@ -49,7 +49,10 @@
 
 */
 
-#include "autoconf.h"
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
+
+#include <freeradius-devel/autoconf.h>
 #include "snprintf.h"
 
 #ifndef HAVE_VSNPRINTF

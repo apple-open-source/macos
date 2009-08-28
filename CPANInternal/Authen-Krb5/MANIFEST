@@ -1,0 +1,14 @@
+COPYRIGHT
+Changes
+Krb5.pm
+Krb5.xs
+krb5_constants.c
+MANIFEST
+Makefile.PL
+README
+sample_client
+sample_server
+simple_client
+simple_server
+typemap
+TODO

@@ -1,0 +1,201 @@
+commit b4d05bfdd02bb993fe27d79977be0d117f6869f5
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Feb 1 10:47:34 2007 -0800
+
+    Version bump: 1.0.2
+
+commit ca186c58baf13be19feb9c4ed63c73fcbc3c374e
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Feb 1 10:46:56 2007 -0800
+
+    Fill in COPYING with copyright/license notices from source code files
+
+commit 67813a0abf40cf4e0a4c958b132a5679e734b14d
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Feb 1 10:44:42 2007 -0800
+
+    renamed: .cvsignore -> .gitignore
+
+commit 5c43b433c0f3042f24f41eb66d3453c72edd3698
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Feb 1 10:44:12 2007 -0800
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit a109dc6867135b8dcdb4a32d016dba96fc42b1fa
+Author: Eric S. Raymond <esr@thyrsus.com>
+Date:   Tue Jan 2 19:10:31 2007 -0800
+
+    Bug 9519: Markup problems in xfontsel.1x
+    
+    <https://bugs.freedesktop.org/show_bug.cgi?id=9519>
+
+commit 8e06c5f5100b2dc533291e6d305aecedec86abae
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Dec 21 02:29:50 2005 +0000
+
+    Update package version for X11R7 release.
+
+commit 7d5a9e2c6197215076884f438d88bab886f4fcfc
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Mon Dec 19 16:22:44 2005 +0000
+
+    Stub COPYING files
+
+commit 2bcdd77cbd56b099d1f521671be1a5f69f81fe84
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:07 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit d235b45cc12cbf9c04cf79e525033a3b0205c53d
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Dec 7 16:17:59 2005 +0000
+
+    Change to use the app-defaults default dir configured in libXt.
+
+commit 15308d1a18f86d783b2480b31ce168de3f9ca109
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Dec 6 22:48:22 2005 +0000
+
+    Change *man_SOURCES ==> *man_PRE to fix autotools warnings.
+
+commit 9d4606cf318bf4432068db87ee55572b2695d7ed
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:20 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit 982954c1edb0505be600e6b034d75aaa3d334f24
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Nov 28 22:01:42 2005 +0000
+
+    Change *mandir targets to use new *_MAN_DIR variables set by xorg-macros.m4
+        update to fix bug #5167 (Linux prefers *.1x man pages in man1 subdir)
+
+commit 1b58506131be085db5d35b6648d603385c7d8a37
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Mon Nov 21 10:35:00 2005 +0000
+
+    Another pass at .cvsignores for apps.
+
+commit 3582308724b9ef06ad0283fab21c52ed2ab400c0
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Sun Nov 20 22:08:52 2005 +0000
+
+    Add/improve .cvsignore files for apps.
+
+commit 3187b3402cc0bd738bc74593fbf25892b69c2b23
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:47:54 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit 63b7fa0f97e2f2da1817b8abd0a47d6bc5ee86f8
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Tue Oct 18 00:32:54 2005 +0000
+
+    Change default install dir for app-default files from
+        $(sysconfdir)/X11/app-defaults to $(libdir)/X11/app-defaults to match
+        the monolith & allow localization
+
+commit 27299597d3c7d2223de97a2fd510a33247795a8e
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Oct 17 23:56:22 2005 +0000
+
+    Use @APP_MAN_SUFFIX@ instead of $(APP_MAN_SUFFIX) in macro substitutions to
+        work better with BSD make
+
+commit 1f19bc1d0920fde791440d2a1b18ddb4c650a1d7
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Oct 14 00:25:45 2005 +0000
+
+    Use sed to fill in variables in man page
+
+commit 01e99cb7d65cb5159cb0b5d2f10ea304f837df42
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Aug 1 20:25:29 2005 +0000
+
+    Install man pages to section 1 instead of section m (Patch from Donnie
+        Berkholz)
+
+commit 327d6df6c97dd9d55e95dfabf002f78fe624e0ee
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:33 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit c3da8169ed2876732a86b7c1cb3d4e3cb6ba5046
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Tue Jul 26 15:44:02 2005 +0000
+
+    Replace more GNU make-ism's with more portable macros
+
+commit 1234c030c16eb1e0d6f8a8655bc1b093e43ef288
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Wed Jul 20 19:31:55 2005 +0000
+
+    Use a unique token for PKG_CHECK_MODULES. Otherwise, if you use a global
+        configure cache, you cache it, and the cached value is probably wrong.
+
+commit fb8c54ae47b8dd71f082fd0c4b705690c8aca524
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Fri Jul 1 18:11:22 2005 +0000
+
+    Build system for xfontsel
+
+commit cad003acf8e3a2ae88b9e0fda9f6d0a070bbd3c5
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 19:54:47 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit 5853543ca60db9bbb8db1b4b3d68fb30ada5a249
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:35:20 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit 7ce32771cd493a3fa27d2b0c584a95a8da54a262
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:13:05 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit 51284798e3b3af50838597e605a45e01d961d4ed
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:36:24 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit d65fdc557636a5a4454a11c3a9a0a58d95ec9ce0
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:24:07 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit 69ecccb0fa674314d8e72084dbaae3b248494d19
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:29:13 2003 +0000
+
+    XFree86 4.3.99.16 Bring the tree up to date for the Cygwin folks
+
+commit c9df46d65c9ba7c39c8c0fb355199ff3627ae76e
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:49:22 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit ec7cff5eb04007f30e0fa732bca8a55882f5482f
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:49:22 2003 +0000
+
+    Initial revision

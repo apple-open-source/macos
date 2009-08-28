@@ -107,7 +107,6 @@
 #include "system/locale.h"
 #include "system/network.h"
 #include "system/passwd.h"
-#include "system/printing.h"
 #include "system/readline.h"
 #include "system/select.h"
 #include "system/shmem.h"
@@ -223,6 +222,10 @@ typedef int ber_int_t;
 
 #if HAVE_SYS_ATTRIBUTES_H
 #include <sys/attributes.h>
+#endif
+
+#ifndef ENOATTR
+#define ENOATTR ENODATA
 #endif
 
 /* mutually exclusive (SuSE 8.2) */
@@ -756,8 +759,6 @@ struct functable2 {
    header file dependencies */
 
 struct printjob;
-
-struct smb_ldap_privates;
 
 /* forward declarations from smbldap.c */
 

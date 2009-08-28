@@ -72,7 +72,7 @@ static errno_t ppp_ipv6_preoutput(ifnet_t ifp, protocol_family_t protocol,
 									mbuf_t *packet, const struct sockaddr *dest, 
 									void *route, char *frame_type, char *link_layer_dest);
 static errno_t ppp_ipv6_ioctl(ifnet_t ifp, protocol_family_t protocol,
-									 u_int32_t command, void* argument);
+									 u_long command, void* argument);
 
 
 /* -----------------------------------------------------------------------------
@@ -107,7 +107,7 @@ errno_t ppp_ipv6_attach(ifnet_t ifp, protocol_family_t protocol)
     struct ifnet_attach_proto_param   reg;
     struct ppp_if		*wan = (struct ppp_if *)ifnet_softc(ifp);
     
-    LOGDBG(ifp, (LOGVAL, "ppp_ipv6_attach: name = %s, unit = %d\n", ifnet_name(ifp), ifnet_unit(ifp)));
+    LOGDBG(ifp, ("ppp_ipv6_attach: name = %s, unit = %d\n", ifnet_name(ifp), ifnet_unit(ifp)));
 
     if (wan->ipv6_attached) 
         return 0;	// already attached
@@ -120,7 +120,7 @@ errno_t ppp_ipv6_attach(ifnet_t ifp, protocol_family_t protocol)
 	ret = ifnet_attach_protocol(ifp, PF_INET6, &reg);
     LOGRETURN(ret, ret, "ppp_ipv6_attach: ifnet_attach_protocol error = 0x%x\n");
      
-    LOGDBG(ifp, (LOGVAL, "ppp_ipv6_attach: ifnet_attach_protocol family = 0x%x\n", protocol));
+    LOGDBG(ifp, ("ppp_ipv6_attach: ifnet_attach_protocol family = 0x%x\n", protocol));
     wan->ipv6_attached = 1;
 
     return 0;
@@ -135,14 +135,14 @@ void ppp_ipv6_detach(ifnet_t ifp, protocol_family_t protocol)
     int 		ret;
     struct ppp_if		*wan = (struct ppp_if *)ifnet_softc(ifp);
 
-    LOGDBG(ifp, (LOGVAL, "ppp_ipv6_detach\n"));
+    LOGDBG(ifp, ("ppp_ipv6_detach\n"));
 
     if (!wan->ipv6_attached)
         return;	// already detached
 
     ret = ifnet_detach_protocol(ifp, PF_INET6);
 	if (ret)
-        log(LOGVAL, "ppp_ipv6_detach: ifnet_detach_protocol error = 0x%x\n", ret);
+        IOLog("ppp_ipv6_detach: ifnet_detach_protocol error = 0x%x\n", ret);
 
     wan->ipv6_attached = 0;
 }
@@ -151,7 +151,7 @@ void ppp_ipv6_detach(ifnet_t ifp, protocol_family_t protocol)
 called from dlil when an ioctl is sent to the interface
 ----------------------------------------------------------------------------- */
 errno_t ppp_ipv6_ioctl(ifnet_t ifp, protocol_family_t protocol,
-									 u_int32_t command, void* argument)
+									 u_long command, void* argument)
 {
     struct ifaddr 	*ifa = (struct ifaddr *)argument;
     int 		error = 0;
@@ -160,7 +160,7 @@ errno_t ppp_ipv6_ioctl(ifnet_t ifp, protocol_family_t protocol,
 
         case SIOCSIFADDR:
         case SIOCAIFADDR:
-            LOGDBG(ifp, (LOGVAL, "ppp_ipv6_ioctl: cmd = SIOCSIFADDR/SIOCAIFADDR\n"));
+            LOGDBG(ifp, ("ppp_ipv6_ioctl: cmd = SIOCSIFADDR/SIOCAIFADDR\n"));
 
             // only an IPv6 address should arrive here
             if (ifa->ifa_addr->sa_family != AF_INET6) {

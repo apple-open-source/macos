@@ -481,7 +481,7 @@ public:
 		@param itsMac - destination is Mac or not.
 		@result Returns IOFireWireNub if successfull else 0.
 	*/
-	UInt32 getDeviceID(UWIDE eui64, bool *itsMac);
+	void* getDeviceID(UWIDE eui64, bool *itsMac);
 
 	/*!
 		@function getDrbFromEui64

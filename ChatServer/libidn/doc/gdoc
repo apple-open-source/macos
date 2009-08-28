@@ -1,14 +1,14 @@
 #!/usr/bin/perl
 
-## Copyright (c) 2002, 2003, 2004, 2005 Simon Josefsson          ##
-##                    added -texinfo, -listfunc                  ##
-##                    man page revamp                            ##
-##                    various improvements                       ##
-## Copyright (c) 1998 Michael Zucchi, All Rights Reserved        ##
-##                    hacked to allow -tex option --nmav         ##
-##                                                               ##
-## This software falls under the GNU Public License. Please read ##
-##              the COPYING file for more information            ##
+## Copyright (c) 2002, 2003, 2004, 2005, 2006, 2007 Simon Josefsson  ##
+##                    added -texinfo, -listfunc                      ##
+##                    man page revamp                                ##
+##                    various improvements                           ##
+## Copyright (c) 1998 Michael Zucchi, All Rights Reserved            ##
+##                    hacked to allow -tex option --nmav             ##
+##                                                                   ##
+## This software falls under the GNU Public License. Please read     ##
+##              the COPYING file for more information                ##
 
 #
 # This will read a 'c' file and scan for embedded comments in the
@@ -351,6 +351,8 @@ sub output_texinfo {
     my ($parameter, $section);
     my $count;
 
+    print "\@subheading ".$args{'function'}."\n";
+    print "\@anchor{".$args{'function'}."}\n";
     print "\@deftypefun {" . $args{'functiontype'} . "} ";
     print "{".$args{'function'}."} ";
     print "(";
@@ -630,7 +632,9 @@ sub output_man {
     }
     foreach $section (@{$args{'sectionlist'}}) {
 	print ".SH \"" . uc($section) . "\"\n";
-	output_highlight($args{'sections'}{$section});
+	$sec = $args{'sections'}{$section};
+	$sec =~ s/-/\\-/g;
+	output_highlight($sec);
     }
 
     if ($args{'bugsto'}) {
@@ -738,7 +742,7 @@ sub dump_function {
 
 	    if ($parameters{$param} eq "" && $param != "void") {
 		$parameters{$param} = "-- undescribed --";
-		print STDERR "Warning($lineno): Function parameter '$param' not described in '$function_name'\n";
+		print STDERR "warning: $lineno: Function parameter '$param' not described in '$function_name'\n";
 	    }
 
 	    push @parameterlist, $param;
@@ -747,7 +751,7 @@ sub dump_function {
 #	    print STDERR "param = '$param', type = '$type'\n";
 	}
     } else {
-	print STDERR "Error($lineno): cannot understand prototype: '$prototype'\n";
+	print STDERR "warning: $lineno: Cannot understand prototype: '$prototype'\n";
 	return;
     }
 
@@ -827,7 +831,7 @@ foreach $file (@ARGV) {
 		    print STDERR "Info($lineno): Scanning doc for $function\n";
 		}
 	    } else {
-		print STDERR "WARN($lineno): Cannot understand $_ on line $lineno",
+		print STDERR "warning: $lineno: Cannot understand $_ on line $lineno",
 		" - I thought it was a doc line\n";
 		$state = 0;
 	    }
@@ -869,7 +873,7 @@ foreach $file (@ARGV) {
 		}
 	    } else {
 		# i dont know - bad line?  ignore.
-		print STDERR "WARNING($lineno): bad line: $_"; 
+		print STDERR "warning: $lineno: Bad line: $_";
 	    }
 	} elsif ($state == 3) {	# scanning for function { (end of prototype)
 	    if (m#\s*/\*\s+MACDOC\s*#io) {

@@ -54,7 +54,7 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.]
  *
- * $FreeBSD: src/lib/libmd/sha.h,v 1.4 2001/03/17 10:00:50 phk Exp $
+ * $FreeBSD: src/lib/libmd/sha.h,v 1.5 2006/01/17 15:35:56 phk Exp $
  */
 
 #ifndef _SHA_H_
@@ -64,7 +64,8 @@
 #include <sys/types.h>		/* XXX switch to machine/ansi.h and __ types */
 
 #ifdef __APPLE__
-#include <openssl/sha.h>
+#define COMMON_DIGEST_FOR_OPENSSL
+#include <CommonCrypto/CommonDigest.h>
 #else /* !__APPLE__ */
 #define	SHA_CBLOCK	64
 #define	SHA_LBLOCK	16
@@ -85,13 +86,13 @@ typedef struct SHAstate_st {
 __BEGIN_DECLS
 #ifndef __APPLE__
 void	SHA1_Init(SHA_CTX *c);
-void	SHA1_Update(SHA_CTX *c, const unsigned char *data, size_t len);
+void	SHA1_Update(SHA_CTX *c, const void *data, size_t len);
 void	SHA1_Final(unsigned char *md, SHA_CTX *c);
 #endif /* !__APPLE__ */
 char   *SHA1_End(SHA_CTX *, char *);
 char   *SHA1_File(const char *, char *);
 char   *SHA1_FileChunk(const char *, char *, off_t, off_t);
-char   *SHA1_Data(const unsigned char *, unsigned int, char *);
+char   *SHA1_Data(const void *, unsigned int, char *);
 __END_DECLS
 
 #endif /* !_SHA_H_ */

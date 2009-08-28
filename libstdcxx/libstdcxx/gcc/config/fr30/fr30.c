@@ -1,5 +1,5 @@
 /* FR30 specific functions.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2004
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Cygnus Solutions.
 
@@ -17,8 +17,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 /*{{{  Includes */ 
 
@@ -243,9 +243,7 @@ fr30_expand_prologue (void)
     fr30_compute_frame_size (0, 0);
 
   /* This cases shouldn't happen.  Catch it now.  */
-  if (current_frame_info.total_size == 0
-      && current_frame_info.gmask)
-    abort ();
+  gcc_assert (current_frame_info.total_size || !current_frame_info.gmask);
 
   /* Allocate space for register arguments if this is a variadic function.  */
   if (current_frame_info.pretend_size)
@@ -367,9 +365,8 @@ fr30_expand_epilogue (void)
   int regno;
 
   /* Perform the inversion operations of the prologue.  */
-  if (! current_frame_info.initialised)
-    abort ();
-
+  gcc_assert (current_frame_info.initialised);
+  
   /* Pop local variables and arguments off the stack.
      If frame_pointer_needed is TRUE then the frame pointer register
      has actually been used as a frame pointer, and we can recover
@@ -430,8 +427,7 @@ fr30_setup_incoming_varargs (CUMULATIVE_ARGS *arg_regs_used_so_far,
   int size;
 
   /* All BLKmode values are passed by reference.  */
-  if (mode == BLKmode)
-    abort ();
+  gcc_assert (mode != BLKmode);
 
   /* ??? This run-time test as well as the code inside the if
      statement is probably unnecessary.  */
@@ -595,8 +591,7 @@ fr30_print_operand (FILE *file, rtx x, int code)
       switch (GET_CODE (x0))
 	{
 	case REG:
-	  if ((unsigned) REGNO (x0) >= ARRAY_SIZE (reg_names))
-	    abort ();
+	  gcc_assert ((unsigned) REGNO (x0) < ARRAY_SIZE (reg_names));
 	  fprintf (file, "@%s", reg_names [REGNO (x0)]);
 	  break;
 
@@ -738,104 +733,6 @@ fr30_arg_partial_bytes (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 #define Mmode enum machine_mode
 #endif
 
-/* Returns true if OPERAND is an integer value suitable for use in
-   an ADDSP instruction.  */
-int
-stack_add_operand (rtx operand, Mmode mode ATTRIBUTE_UNUSED)
-{
-  return
-    (GET_CODE (operand) == CONST_INT
-     && INTVAL (operand) >= -512
-     && INTVAL (operand) <=  508
-     && ((INTVAL (operand) & 3) == 0));
-}
-
-/* Returns true if OPERAND is an integer value suitable for use in
-   an ADD por ADD2 instruction, or if it is a register.  */
-int
-add_immediate_operand (rtx operand, Mmode mode ATTRIBUTE_UNUSED)
-{
-  return
-    (GET_CODE (operand) == REG
-     || (GET_CODE (operand) == CONST_INT
-	 && INTVAL (operand) >= -16
-	 && INTVAL (operand) <=  15));
-}
-
-/* Returns true if OPERAND is hard register in the range 8 - 15.  */
-int
-high_register_operand (rtx operand, Mmode mode ATTRIBUTE_UNUSED)
-{
-  return
-    (GET_CODE (operand) == REG
-     && REGNO (operand) <= 15
-     && REGNO (operand) >= 8);
-}
-
-/* Returns true if OPERAND is hard register in the range 0 - 7.  */
-int
-low_register_operand (rtx operand, Mmode mode ATTRIBUTE_UNUSED)
-{
-  return
-    (GET_CODE (operand) == REG
-     && REGNO (operand) <= 7);
-}
-
-/* Returns true if OPERAND is suitable for use in a CALL insn.  */
-int
-call_operand (rtx operand, Mmode mode ATTRIBUTE_UNUSED)
-{
-  return (GET_CODE (operand) == MEM
-	  && (GET_CODE (XEXP (operand, 0)) == SYMBOL_REF
-	      || GET_CODE (XEXP (operand, 0)) == REG));
-}
-
-/* Returns TRUE if OP is a valid operand of a DImode operation.  */
-int
-di_operand (rtx op, Mmode mode)
-{
-  if (register_operand (op, mode))
-    return TRUE;
-
-  if (mode != VOIDmode && GET_MODE (op) != VOIDmode && GET_MODE (op) != DImode)
-    return FALSE;
-
-  if (GET_CODE (op) == SUBREG)
-    op = SUBREG_REG (op);
-
-  switch (GET_CODE (op))
-    {
-    case CONST_DOUBLE:
-    case CONST_INT:
-      return TRUE;
-
-    case MEM:
-      return memory_address_p (DImode, XEXP (op, 0));
-
-    default:
-      return FALSE;
-    }
-}
-
-/* Returns TRUE if OP is a DImode register or MEM.  */
-int
-nonimmediate_di_operand (rtx op, Mmode mode)
-{
-  if (register_operand (op, mode))
-    return TRUE;
-
-  if (mode != VOIDmode && GET_MODE (op) != VOIDmode && GET_MODE (op) != DImode)
-    return FALSE;
-
-  if (GET_CODE (op) == SUBREG)
-    op = SUBREG_REG (op);
-
-  if (GET_CODE (op) == MEM)
-    return memory_address_p (DImode, XEXP (op, 0));
-
-  return FALSE;
-}
-
 /* Returns true iff all the registers in the operands array
    are in descending or ascending order.  */
 int
@@ -939,8 +836,7 @@ fr30_move_double (rtx * operands)
 	     must load it last.  Otherwise, load it first.  */
 	  int reverse = (refers_to_regno_p (dregno, dregno + 1, addr, 0) != 0);
 
-	  if (GET_CODE (addr) != REG)
-	    abort ();
+	  gcc_assert (GET_CODE (addr) == REG);
 	  
 	  dest0 = operand_subword (dest, reverse, TRUE, mode);
 	  dest1 = operand_subword (dest, !reverse, TRUE, mode);
@@ -993,8 +889,7 @@ fr30_move_double (rtx * operands)
       rtx src0;
       rtx src1;
 
-      if (GET_CODE (addr) != REG)
-	abort ();
+      gcc_assert (GET_CODE (addr) == REG);
       
       src0 = operand_subword (src, 0, TRUE, mode);
       src1 = operand_subword (src, 1, TRUE, mode);
@@ -1027,7 +922,7 @@ fr30_move_double (rtx * operands)
     }
   else
     /* This should have been prevented by the constraints on movdi_insn.  */
-    abort ();
+    gcc_unreachable ();
   
   val = get_insns ();
   end_sequence ();

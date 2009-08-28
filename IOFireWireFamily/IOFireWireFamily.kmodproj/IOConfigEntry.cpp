@@ -56,7 +56,7 @@ void IOConfigEntry::free()
 IOConfigEntry* IOConfigEntry::create(UInt32 key, IOConfigKeyType type, OSObject *obj)
 {
     IOConfigEntry* entry;
-    entry = new IOConfigEntry;
+    entry = OSTypeAlloc( IOConfigEntry );
     if(!entry)
         return NULL;
     if(!entry->init()) {
@@ -84,7 +84,7 @@ IOConfigEntry* IOConfigEntry::create(UInt32 key, UInt32 value)
 
     if(value > kConfigEntryValue)
         return NULL;	// Too big to fit!!
-    entry = new IOConfigEntry;
+    entry = OSTypeAlloc( IOConfigEntry );
     if(!entry)
         return NULL;
     if(!entry->init()) {
@@ -104,7 +104,7 @@ IOConfigEntry* IOConfigEntry::create(UInt32 key, UInt32 value)
 IOConfigEntry* IOConfigEntry::create(UInt32 key, FWAddress address)
 {
     IOConfigEntry* entry;
-    entry = new IOConfigEntry;
+    entry = OSTypeAlloc( IOConfigEntry );
     if(!entry)
         return NULL;
     if(!entry->init()) {

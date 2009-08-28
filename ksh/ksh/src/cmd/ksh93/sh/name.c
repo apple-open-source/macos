@@ -1,10 +1,10 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*          Copyright (c) 1982-2007 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
-*                      by AT&T Knowledge Ventures                      *
+*                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
 *            http://www.opensource.org/licenses/cpl1.0.txt             *
@@ -178,7 +178,7 @@ void nv_setlist(register struct argnod *arg,register int flags)
 	char		*trap=sh.st.trap[SH_DEBUGTRAP];
 	int		traceon = (sh_isoption(SH_XTRACE)!=0);
 	int		array = (flags&(NV_ARRAY|NV_IARRAY));
-	flags &= ~(NV_TYPE|NV_ARRAY);
+	flags &= ~(NV_TYPE|NV_ARRAY|NV_IARRAY);
 	if(sh_isoption(SH_ALLEXPORT))
 		flags |= NV_EXPORT;
 	if(sh.prefix)
@@ -323,7 +323,7 @@ void nv_setlist(register struct argnod *arg,register int flags)
 			cp++;
 #endif
 		np = nv_open(cp,sh.var_tree,flags);
-		if(!np->nvfun)
+		if(!np->nvfun && (flags&NV_NOREF))
 		{
 			if(sh.used_pos)
 				nv_onattr(np,NV_PARAM);
@@ -517,7 +517,7 @@ Namval_t *nv_create(const char *name, Dt_t *root, int flags, Namfun_t *dp)
 				char *sub=0;
 				if(c=='.') /* don't optimize */
 					sh.argaddr = 0;
-				else if(flags&NV_NOREF)
+				else if((flags&NV_NOREF) && (c!='[' || *cp!='.'))
 				{
 					if(c && !(flags&NV_NOADD))
 						nv_unref(np);
@@ -558,7 +558,7 @@ Namval_t *nv_create(const char *name, Dt_t *root, int flags, Namfun_t *dp)
 			{
 				if(!np)
 				{
-					if(*sp=='[' && *cp==0 && cp[-1]==']') 
+					if(!nq && *sp=='[' && *cp==0 && cp[-1]==']') 
 					{
 						/*
 						 * for backward compatibility
@@ -644,7 +644,7 @@ Namval_t *nv_create(const char *name, Dt_t *root, int flags, Namfun_t *dp)
 					if(nv_isarray(np) && (c=='[' || c=='.' || (flags&NV_ARRAY)))
 					{
 						*(sp=cp) = 0;
-						nq = nv_search(name,root,mode);
+						nq = nv_search(name,root,mode|((flags&NV_NOADD)?0:NV_ADD));
 						*sp = c;
 						if(nq && nv_isnull(nq))
 							nq = nv_arraychild(np,nq,c);
@@ -914,6 +914,8 @@ void nv_putval(register Namval_t *np, const char *string, int flags)
 	else if(!nv_isattr(np,NV_MINIMAL))
 		np->nvenv = 0;
 #endif /* SHOPT_BSH */
+	if(up->cp==Empty)
+		up->cp = 0;
 	if(nv_isattr (np, NV_INTEGER))
 	{
 		if(nv_isattr(np, NV_DOUBLE))
@@ -1204,7 +1206,7 @@ void nv_putval(register Namval_t *np, const char *string, int flags)
 		}
 		if(flags&NV_APPEND)
 			stakseek(offset);
-		if(tofree)
+		if(tofree && tofree!=Empty)
 			free((void*)tofree);
 	}
 	if(!was_local && ((flags&NV_EXPORT) || nv_isattr(np,NV_EXPORT)))
@@ -1580,9 +1582,26 @@ static void table_unset(register Dt_t *root, int flags, Dt_t *oroot)
 	{
 		if(nv_isref(np))
 			nv_unref(np);
+		if(nq=dtsearch(oroot,np))
+		{
+			if(nv_cover(nq))
+			{
+				int subshell = sh.subshell;
+				sh.subshell = 0;
+				if(nv_isattr(nq, NV_INTEGER))
+				{
+					Sfdouble_t d = nv_getnum(nq);
+					nv_putval(nq,(char*)&d,NV_LDOUBLE);
+				}
+				else
+					nv_putval(nq, nv_getval(nq), NV_RDONLY);
+				sh.subshell = subshell;
+				np->nvfun = 0;
+			}
+			if(nv_isattr(nq,NV_EXPORT))
+				sh_envput(sh.env,nq);
+		}
 		_nv_unset(np,flags);
-		if(oroot && (nq=nv_search(nv_name(np),oroot,0)) && nv_isattr(nq,NV_EXPORT))
-			sh_envput(sh.env,nq);
 		nq = (Namval_t*)dtnext(root,np);
 		dtdelete(root,np);
 		free((void*)np);
@@ -1946,7 +1965,7 @@ Sfdouble_t nv_getnum(register Namval_t *np)
      	if(nv_isattr (np, NV_INTEGER))
 	{
 		up= &np->nvalue;
-		if(!up->lp)
+		if(!up->lp || up->cp==Empty)
 			r = 0;
 		else if(nv_isattr(np, NV_DOUBLE))
 		{
@@ -2172,27 +2191,19 @@ static void ltou(register char const *str1,register char *str2)
  */
 static char *lastdot(register char *cp)
 {
-	register char *dp=cp, *ep=0;
+	register char *ep=0;
 	register int c;
 	while(c= *cp++)
 	{
-		*dp++ = c;
 		if(c=='[')
-			ep = cp;
+			cp = nv_endsubscript((Namval_t*)0,ep=cp,0);
 		else if(c=='.')
 		{
 			if(*cp=='[')
-			{
-				ep = nv_endsubscript((Namval_t*)0,cp,0);
-				c = ep-cp;
-				memcpy(dp,cp,c);
-				dp = sh_checkid(dp+1,dp+c);
-				cp = ep;
-			}
+				cp = nv_endsubscript((Namval_t*)0,cp,0);
 			ep = 0;
 		}
 	}
-	*dp = 0;
 	return(ep);
 }
 

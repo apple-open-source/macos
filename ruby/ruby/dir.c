@@ -2,8 +2,8 @@
 
   dir.c -
 
-  $Author: shyouhei $
-  $Date: 2007-05-23 04:22:14 +0900 (Wed, 23 May 2007) $
+  $Author: knu $
+  $Date: 2008-05-31 20:44:49 +0900 (Sat, 31 May 2008) $
   created at: Wed Jan  5 09:51:01 JST 1994
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -268,7 +268,7 @@ fnmatch_helper(pcur, scur, flags)
 	    const char *t;
 	    if (ISEND(s))
 		RETURN(FNM_NOMATCH);
-	    if (t = bracket(p + 1, s, flags)) {
+	    if ((t = bracket(p + 1, s, flags)) != 0) {
 		p = t;
 		Inc(s);
 		continue;
@@ -473,9 +473,9 @@ dir_inspect(dir)
 {
     struct dir_data *dirp;
 
-    GetDIR(dir, dirp);
+    Data_Get_Struct(dir, struct dir_data, dirp);
     if (dirp->path) {
-	char *c = rb_obj_classname(dir);
+	const char *c = rb_obj_classname(dir);
 	int len = strlen(c) + strlen(dirp->path) + 4;
 	VALUE s = rb_str_new(0, len);
 	snprintf(RSTRING_PTR(s), len+1, "#<%s:%s>", c, dirp->path);
@@ -499,7 +499,7 @@ dir_path(dir)
 {
     struct dir_data *dirp;
 
-    GetDIR(dir, dirp);
+    Data_Get_Struct(dir, struct dir_data, dirp);
     if (!dirp->path) return Qnil;
     return rb_str_new2(dirp->path);
 }
@@ -562,6 +562,7 @@ dir_each(dir)
     struct dir_data *dirp;
     struct dirent *dp;
 
+    RETURN_ENUMERATOR(dir, 0, 0);
     GetDIR(dir, dirp);
     rewinddir(dirp->dir);
     for (dp = readdir(dirp->dir); dp != NULL; dp = readdir(dirp->dir)) {
@@ -1008,7 +1009,7 @@ has_magic(s, flags)
     register const char *p = s;
     register char c;
 
-    while (c = *p++) {
+    while ((c = *p++) != 0) {
 	switch (c) {
 	  case '*':
 	  case '?':
@@ -1041,7 +1042,7 @@ find_dirsep(const char *s, int flags)
     register char c;
     int open = 0;
 
-    while (c = *p++) {
+    while ((c = *p++) != 0) {
 	switch (c) {
 	  case '[':
 	    open = 1;
@@ -1814,6 +1815,7 @@ dir_foreach(io, dirname)
 {
     VALUE dir;
 
+    RETURN_ENUMERATOR(io, 1, &dirname);
     dir = dir_open_dir(dirname);
     rb_ensure(dir_each, dir, dir_close, dir);
     return Qnil;
@@ -1970,6 +1972,7 @@ Init_Dir()
 
     rb_define_method(rb_cDir,"initialize", dir_initialize, 1);
     rb_define_method(rb_cDir,"path", dir_path, 0);
+    rb_define_method(rb_cDir,"inspect", dir_inspect, 0);
     rb_define_method(rb_cDir,"read", dir_read, 0);
     rb_define_method(rb_cDir,"each", dir_each, 0);
     rb_define_method(rb_cDir,"rewind", dir_rewind, 0);

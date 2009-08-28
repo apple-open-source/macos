@@ -1,21 +1,22 @@
 <HTML>
 <HEAD>
-<!-- Created by texi2html 1.56k from gperf.texi on 12 June 2003 -->
+<!-- This HTML file has been created by texi2html 1.51
+     from gperf.texi on 31 March 2007 -->
 
-<TITLE>Perfect Hash Function Generator - 2. Static search structures and GNU gperf</TITLE>
+<TITLE>Perfect Hash Function Generator - 2  Static search structures and GNU gperf</TITLE>
 </HEAD>
 <BODY>
 Go to the <A HREF="gperf_1.html">first</A>, <A HREF="gperf_3.html">previous</A>, <A HREF="gperf_5.html">next</A>, <A HREF="gperf_10.html">last</A> section, <A HREF="gperf_toc.html">table of contents</A>.
 <P><HR><P>
 
 
-<H1><A NAME="SEC6" HREF="gperf_toc.html#TOC6">2. Static search structures and GNU <CODE>gperf</CODE></A></H1>
+<H1><A NAME="SEC6" HREF="gperf_toc.html#TOC6">2  Static search structures and GNU <CODE>gperf</CODE></A></H1>
 <P>
 <A NAME="IDX2"></A>
 
-
+</P>
 <P>
-A <EM>static search structure</EM> is an Abstract Data Type with certain
+A <STRONG>static search structure</STRONG> is an Abstract Data Type with certain
 fundamental operations, e.g., <EM>initialize</EM>, <EM>insert</EM>,
 and <EM>retrieve</EM>.  Conceptually, all insertions occur before any
 retrievals.  In practice, <CODE>gperf</CODE> generates a <EM>static</EM> array
@@ -25,11 +26,11 @@ insertions.  It is a useful data structure for representing <EM>static
 search sets</EM>.  Static search sets occur frequently in software system
 applications.  Typical static search sets include compiler reserved
 words, assembler instruction opcodes, and built-in shell interpreter
-commands.  Search set members, called <EM>keywords</EM>, are inserted into
+commands.  Search set members, called <STRONG>keywords</STRONG>, are inserted into
 the structure only once, usually during program initialization, and are
 not generally modified at run-time.
 
-
+</P>
 <P>
 Numerous static search structure implementations exist, e.g.,
 arrays, linked lists, binary search trees, digital search tries, and
@@ -41,14 +42,14 @@ proportional to log <VAR>n</VAR>.  Conversely, hash table implementations
 often locate a table entry in constant time, but typically impose
 additional memory overhead and exhibit poor worst case performance.
 
-
+</P>
 <P>
 <A NAME="IDX3"></A>
 <EM>Minimal perfect hash functions</EM> provide an optimal solution for a
 particular class of static search sets.  A minimal perfect hash
 function is defined by two properties:
 
-
+</P>
 
 <UL>
 <LI>
@@ -74,7 +75,7 @@ behavior generates <EM>near-minimal</EM> perfect hash functions for
 keyword sets.  However, <CODE>gperf</CODE> provides many options that permit
 user control over the degree of minimality and perfection.
 
-
+</P>
 <P>
 Static search sets often exhibit relative stability over time.  For
 example, Ada's 63 reserved words have remained constant for nearly a
@@ -90,7 +91,7 @@ not yet part of the official GNU distribution.  Each compiler utilizes
 <CODE>gperf</CODE> to automatically generate static search structures that
 efficiently identify their respective reserved keywords.
 
-
+</P>
 <P><HR><P>
 Go to the <A HREF="gperf_1.html">first</A>, <A HREF="gperf_3.html">previous</A>, <A HREF="gperf_5.html">next</A>, <A HREF="gperf_10.html">last</A> section, <A HREF="gperf_toc.html">table of contents</A>.
 </BODY>

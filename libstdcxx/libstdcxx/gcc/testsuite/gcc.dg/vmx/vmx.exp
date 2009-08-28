@@ -1,4 +1,4 @@
-#   Copyright (C) 2004 Free Software Foundation, Inc.
+#   Copyright (C) 2004, 2006 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -12,18 +12,17 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  
 
 # GCC testsuite that uses the `dg.exp' driver.
 
 # Load support procs.
 load_lib gcc-dg.exp
 
-# Skip these tests for non-PowerPC targets and for Aix, where AltiVec
-# is not yet supported.  Also, skip these tests on the SPE because
-# AltiVec and E500 opcodes conflict.
-if {![istarget powerpc*-*-*] || [istarget powerpc*-*-aix*]
-    || [istarget powerpc*-*eabispe*] } {
+# Skip these tests for non-PowerPC targets and for targets where AltiVec
+# is not supported.
+if {![istarget powerpc*-*-*]
+    || ![check_effective_target_powerpc_altivec_ok] } {
     return
 }
 
@@ -32,7 +31,7 @@ if {![istarget powerpc*-*-*] || [istarget powerpc*-*-aix*]
 # nothing but extensions.
 global DEFAULT_VMXCFLAGS
 if ![info exists DEFAULT_VMXCFLAGS] then {
-    set DEFAULT_VMXCFLAGS "-maltivec -mabi=altivec -std=gnu99"
+    set DEFAULT_VMXCFLAGS "-maltivec -mabi=altivec -std=gnu99 -fgnu89-inline"
 }
 
 # If the target system supports AltiVec instructions, the default action

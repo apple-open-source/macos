@@ -936,7 +936,10 @@ retry:
     else
     {
 	if (eap != NULL && eap->force_ff != 0)
+	{
 	    fileformat = get_fileformat_force(curbuf, eap);
+	    try_unix = try_dos = try_mac = FALSE;
+	}
 	else if (curbuf->b_p_bin)
 	    fileformat = EOL_UNIX;		/* binary: use Unix format */
 	else if (*p_ffs == NUL)
@@ -2226,7 +2229,7 @@ failed:
     {
 	/* Use stderr for stdin, makes shell commands work. */
 	close(0);
-	dup(2);
+	ignored = dup(2);
     }
 #endif
 
@@ -2354,11 +2357,6 @@ failed:
 	    if (ff_error == EOL_DOS)
 	    {
 		STRCAT(IObuff, _("[CR missing]"));
-		c = TRUE;
-	    }
-	    if (ff_error == EOL_MAC)
-	    {
-		STRCAT(IObuff, _("[NL found]"));
 		c = TRUE;
 	    }
 	    if (split)
@@ -2726,7 +2724,7 @@ check_marks_read()
 {
     if (!curbuf->b_marks_read && get_viminfo_parameter('\'') > 0
 						  && curbuf->b_ffname != NULL)
-	read_viminfo(NULL, FALSE, TRUE, FALSE);
+	read_viminfo(NULL, VIF_WANT_MARKS);
 
     /* Always set b_marks_read; needed when 'viminfo' is changed to include
      * the ' parameter after opening a buffer. */
@@ -3476,7 +3474,7 @@ buf_write(buf, fname, sfname, start, end, eap, append, forceit,
 		{
 # ifdef UNIX
 #  ifdef HAVE_FCHOWN
-		    fchown(fd, st_old.st_uid, st_old.st_gid);
+		    ignored = fchown(fd, st_old.st_uid, st_old.st_gid);
 #  endif
 		    if (mch_stat((char *)IObuff, &st) < 0
 			    || st.st_uid != st_old.st_uid
@@ -4396,7 +4394,7 @@ restore_backup:
 		|| st.st_uid != st_old.st_uid
 		|| st.st_gid != st_old.st_gid)
 	{
-	    fchown(fd, st_old.st_uid, st_old.st_gid);
+	    ignored = fchown(fd, st_old.st_uid, st_old.st_gid);
 	    if (perm >= 0)	/* set permission again, may have changed */
 		(void)mch_setperm(wfname, perm);
 	}
@@ -5587,9 +5585,10 @@ check_for_bom(p, size, lenp, flags)
 	    name = "ucs-4le";	/* FF FE 00 00 */
 	    len = 4;
 	}
-	else if (flags == FIO_ALL || flags == (FIO_UCS2 | FIO_ENDIAN_L))
+	else if (flags == (FIO_UCS2 | FIO_ENDIAN_L))
 	    name = "ucs-2le";	/* FF FE */
-	else if (flags == (FIO_UTF16 | FIO_ENDIAN_L))
+	else if (flags == FIO_ALL || flags == (FIO_UTF16 | FIO_ENDIAN_L))
+	    /* utf-16le is preferred, it also works for ucs-2le text */
 	    name = "utf-16le";	/* FF FE */
     }
     else if (p[0] == 0xfe && p[1] == 0xff
@@ -6068,9 +6067,9 @@ vim_fgets(buf, size, fp)
 	{
 	    tbuf[FGETS_SIZE - 2] = NUL;
 #ifdef USE_CR
-	    fgets_cr((char *)tbuf, FGETS_SIZE, fp);
+	    ignoredp = fgets_cr((char *)tbuf, FGETS_SIZE, fp);
 #else
-	    fgets((char *)tbuf, FGETS_SIZE, fp);
+	    ignoredp = fgets((char *)tbuf, FGETS_SIZE, fp);
 #endif
 	} while (tbuf[FGETS_SIZE - 2] != NUL && tbuf[FGETS_SIZE - 2] != '\n');
     }
@@ -6156,6 +6155,47 @@ vim_rename(from, to)
      */
     if (mch_stat((char *)from, &st) < 0)
 	return -1;
+
+#ifdef UNIX
+    {
+	struct stat	st_to;
+	char		tempname[MAXPATHL + 1];
+
+	/* It's possible for the source and destination to be the same file.
+	 * This happens when "from" and "to" differ in case and are on a FAT32
+	 * filesystem.  In that case go through a temp file name. */
+	if (mch_stat((char *)to, &st_to) >= 0
+		&& st.st_dev == st_to.st_dev
+		&& st.st_ino == st_to.st_ino)
+	{
+	    /* Find a name that doesn't exist and is in the same directory.
+	     * Move "from" to "tempname" and then to "to". */
+	    if (STRLEN(from) >= MAXPATHL - 5)
+		return -1;
+	    STRCPY(tempname, from);
+	    for (n = 123; n < 99999; ++n)
+	    {
+		sprintf(gettail(tempname), "%d", n);
+		if (mch_stat(tempname, &st_to) < 0)
+		{
+		    if (mch_rename((char *)from, tempname) == 0)
+		    {
+			if (mch_rename(tempname, (char *)to) == 0)
+			    return 0;
+			/* Strange, the second step failed.  Try moving the
+			 * file back and return failure. */
+			mch_rename(tempname, (char *)from);
+			return -1;
+		    }
+		    /* If it fails for one temp name it will most likely fail
+		     * for any temp name, give up. */
+		    return -1;
+		}
+	    }
+	    return -1;
+	}
+    }
+#endif
 
     /*
      * Delete the "to" file, this is required on some systems to make the
@@ -8560,6 +8600,7 @@ apply_autocmds_group(event, fname, fname_io, force, group, buf, eap)
     char_u	*save_sourcing_name;
     linenr_T	save_sourcing_lnum;
     char_u	*save_autocmd_fname;
+    int		save_autocmd_fname_full;
     int		save_autocmd_bufnr;
     char_u	*save_autocmd_match;
     int		save_autocmd_busy;
@@ -8638,6 +8679,7 @@ apply_autocmds_group(event, fname, fname_io, force, group, buf, eap)
      * Save the autocmd_* variables and info about the current buffer.
      */
     save_autocmd_fname = autocmd_fname;
+    save_autocmd_fname_full = autocmd_fname_full;
     save_autocmd_bufnr = autocmd_bufnr;
     save_autocmd_match = autocmd_match;
     save_autocmd_busy = autocmd_busy;
@@ -8655,14 +8697,15 @@ apply_autocmds_group(event, fname, fname_io, force, group, buf, eap)
 	if (fname != NULL && *fname != NUL)
 	    autocmd_fname = fname;
 	else if (buf != NULL)
-	    autocmd_fname = buf->b_fname;
+	    autocmd_fname = buf->b_ffname;
 	else
 	    autocmd_fname = NULL;
     }
     else
 	autocmd_fname = fname_io;
     if (autocmd_fname != NULL)
-	autocmd_fname = FullName_save(autocmd_fname, FALSE);
+	autocmd_fname = vim_strsave(autocmd_fname);
+    autocmd_fname_full = FALSE; /* call FullName_save() later */
 
     /*
      * Set the buffer number to be used for <abuf>.
@@ -8847,6 +8890,7 @@ apply_autocmds_group(event, fname, fname_io, force, group, buf, eap)
     sourcing_lnum = save_sourcing_lnum;
     vim_free(autocmd_fname);
     autocmd_fname = save_autocmd_fname;
+    autocmd_fname_full = save_autocmd_fname_full;
     autocmd_bufnr = save_autocmd_bufnr;
     autocmd_match = save_autocmd_match;
 #ifdef FEAT_EVAL
@@ -8955,7 +8999,7 @@ auto_next_pat(apc, stop_at_last)
     {
 	apc->curpat = NULL;
 
-	/* only use a pattern when it has not been removed, has commands and
+	/* Only use a pattern when it has not been removed, has commands and
 	 * the group matches. For buffer-local autocommands only check the
 	 * buffer number. */
 	if (ap->pat != NULL && ap->cmds != NULL
@@ -9141,7 +9185,7 @@ static int include_groups = FALSE;
 set_context_in_autocmd(xp, arg, doautocmd)
     expand_T	*xp;
     char_u	*arg;
-    int		doautocmd;	/* TRUE for :doautocmd, FALSE for :autocmd */
+    int		doautocmd;	/* TRUE for :doauto*, FALSE for :autocmd */
 {
     char_u	*p;
     int		group;

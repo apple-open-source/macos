@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2006 International Business Machines
+// * Copyright (C) 2008 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/ti_ER.xml
@@ -12,18 +12,12 @@ ti_ER{
             "$",
             "ERN",
         }
-        USD{
-            "US$",
-            "USD",
+        ETB{
+            "ETB",
+            "ETB",
         }
     }
-    NumberPatterns{
-        "#,##0.###",
-        "¤#,##0.00",
-        "#,##0%",
-        "#E0",
-    }
-    Version{"1.39"}
+    Version{"1.50"}
     calendar{
         gregorian{
             DateTimeElements:intvector{
@@ -31,14 +25,14 @@ ti_ER{
                 1,
             }
             DateTimePatterns{
-                "h:mm:ss a",
-                "h:mm:ss a",
-                "h:mm:ss a",
-                "h:mm a",
+                "HH:mm:ss v",
+                "HH:mm:ss z",
+                "HH:mm:ss",
+                "HH:mm",
                 "EEEE፡ dd MMMM መዓልቲ yyyy G",
-                "dd MMMM yyyy",
-                "dd-MMM-yy",
-                "dd/MM/yy",
+                "yyyy MMMM d",
+                "yyyy MMM d",
+                "yyyy-MM-dd",
                 "{1} {0}",
             }
             dayNames{

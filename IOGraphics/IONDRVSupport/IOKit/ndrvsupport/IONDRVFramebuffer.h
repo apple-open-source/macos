@@ -171,14 +171,13 @@ private:
     static const IOTVector * _undefinedSymbolHandler( void * self, 
                             const char * libraryName, const char * symbolName );
     static bool _videoJackStateChangeHandler( void * target, void * ref,
-                            IOService * newService );
+                            IOService * newService, IONotifier * notifier );
     static void _avProbeAction( OSObject * p0, IOTimerEventSource * evtSrc );
     void displayI2CPower( bool enable );
     IOReturn ndrvSetPowerState( UInt32 newState );
     IOReturn ndrvUpdatePowerState( void );
     IOReturn ndrvSetDisplayPowerState( UInt32 newState );
     static IOReturn _probeAction( IONDRVFramebuffer * self, IOOptionBits options );
-    IOReturn mirrorInfo( UInt32 index );
     bool searchOfflineMode( IODisplayModeID * offlineMode );
     IOReturn processConnectChange( uintptr_t * value );
     IOReturn setMirror( IONDRVFramebuffer * other );

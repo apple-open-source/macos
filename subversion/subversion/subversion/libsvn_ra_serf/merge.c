@@ -2,7 +2,7 @@
  * merge.c :  MERGE response parsing functions for ra_serf
  *
  * ====================================================================
- * Copyright (c) 2006 CollabNet.  All rights reserved.
+ * Copyright (c) 2006-2007 CollabNet.  All rights reserved.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution.  The terms
@@ -28,14 +28,17 @@
 #include "svn_ra.h"
 #include "svn_dav.h"
 #include "svn_xml.h"
-#include "../libsvn_ra/ra_loader.h"
 #include "svn_config.h"
 #include "svn_delta.h"
 #include "svn_version.h"
 #include "svn_path.h"
+#include "svn_props.h"
+
+#include "private/svn_dav_protocol.h"
 #include "svn_private_config.h"
 
 #include "ra_serf.h"
+#include "../libsvn_ra/ra_loader.h"
 
 
 /*
@@ -93,7 +96,6 @@ struct svn_ra_serf__merge_context_t
   apr_size_t activity_url_len;
 
   const char *merge_url;
-  apr_size_t merge_url_len;
 
   int status;
 
@@ -131,7 +133,6 @@ start_merge(svn_ra_serf__xml_parser_t *parser,
             const char **attrs)
 {
   svn_ra_serf__merge_context_t *ctx = userData;
-  apr_pool_t *pool;
   merge_state_e state;
   merge_info_t *info;
 
@@ -229,7 +230,7 @@ start_merge(svn_ra_serf__xml_parser_t *parser,
     }
   else
     {
-      abort();
+      SVN_ERR_MALFUNCTION();
     }
 
   return SVN_NO_ERROR;
@@ -260,8 +261,8 @@ end_merge(svn_ra_serf__xml_parser_t *parser,
         {
           const char *str;
 
-          str = apr_hash_get(info->props, "version-name",
-                                 APR_HASH_KEY_STRING);
+          str = apr_hash_get(info->props, SVN_DAV__VERSION_NAME,
+                             APR_HASH_KEY_STRING);
           if (str)
             {
               ctx->commit_info->revision = SVN_STR_TO_REV(str);
@@ -273,8 +274,8 @@ end_merge(svn_ra_serf__xml_parser_t *parser,
 
           ctx->commit_info->date =
               apr_pstrdup(ctx->pool,
-                          apr_hash_get(info->props,
-                                       "creationdate", APR_HASH_KEY_STRING));
+                          apr_hash_get(info->props, SVN_DAV__CREATIONDATE,
+                                       APR_HASH_KEY_STRING));
 
           ctx->commit_info->author =
               apr_pstrdup(ctx->pool,
@@ -290,19 +291,22 @@ end_merge(svn_ra_serf__xml_parser_t *parser,
         {
           const char *href, *checked_in;
           svn_string_t checked_in_str;
-          apr_size_t href_len;
 
           href = apr_hash_get(info->props, "href", APR_HASH_KEY_STRING);
           checked_in = apr_hash_get(info->props, "checked-in",
                                     APR_HASH_KEY_STRING);
 
-          href_len = strlen(href);
-          if (href_len == ctx->merge_url_len)
-              href = "";
-          else if (href_len > ctx->merge_url_len)
-              href += ctx->merge_url_len + 1;
-          else
-             abort();
+          if (! svn_path_is_ancestor(ctx->merge_url, href))
+            {
+              /* ### need something better than APR_EGENERAL */
+              return svn_error_createf(APR_EGENERAL, NULL,
+                                       _("A MERGE response for '%s' is not a child "
+                                         "of the destination ('%s')"),
+                                       href, ctx->merge_url);
+            }
+          href = svn_path_is_child(ctx->merge_url, href, NULL);
+          if (! href) /* the paths are equal */
+            href = "";
 
           checked_in_str.data = checked_in;
           checked_in_str.len = strlen(checked_in);
@@ -348,6 +352,8 @@ end_merge(svn_ra_serf__xml_parser_t *parser,
         }
       info->prop_val = apr_pstrmemdup(info->pool, info->prop_val,
                                       info->prop_val_len);
+      if (strcmp(info->prop_name, "href") == 0)
+        info->prop_val = svn_path_canonicalize(info->prop_val, info->pool);
 
       /* Set our property. */
       apr_hash_set(info->props, info->prop_name, APR_HASH_KEY_STRING,
@@ -373,6 +379,8 @@ cdata_merge(svn_ra_serf__xml_parser_t *parser,
   svn_ra_serf__merge_context_t *ctx = userData;
   merge_state_e state;
   merge_info_t *info;
+
+  UNUSED_CTX(ctx);
 
   state = parser->state->current_state;
   info = parser->state->private;
@@ -402,9 +410,6 @@ setup_merge_headers(serf_bucket_t *headers,
   return APR_SUCCESS;
 }
 
-#define LOCK_HEADER "<S:lock-token-list xmlns:S=\"" SVN_XML_NAMESPACE "\">"
-#define LOCK_TRAILER "</S:lock-token-list>"
-
 void
 svn_ra_serf__merge_lock_token_list(apr_hash_t *lock_tokens,
                                    const char *parent,
@@ -413,15 +418,14 @@ svn_ra_serf__merge_lock_token_list(apr_hash_t *lock_tokens,
                                    apr_pool_t *pool)
 {
   apr_hash_index_t *hi;
-  serf_bucket_t *tmp;
 
   if (!lock_tokens || apr_hash_count(lock_tokens) == 0)
     return;
 
-  tmp = SERF_BUCKET_SIMPLE_STRING_LEN(LOCK_HEADER, sizeof(LOCK_HEADER) - 1,
-                                      alloc);
-
-  serf_bucket_aggregate_append(body, tmp);
+  svn_ra_serf__add_open_tag_buckets(body, alloc,
+                                    "S:lock-token-list",
+                                    "xmlns:S", SVN_XML_NAMESPACE,
+                                    NULL);
 
   for (hi = apr_hash_first(pool, lock_tokens);
        hi;
@@ -431,7 +435,6 @@ svn_ra_serf__merge_lock_token_list(apr_hash_t *lock_tokens,
       apr_ssize_t klen;
       void *val;
       svn_string_t path;
-      svn_stringbuf_t *xml_path = NULL;
 
       apr_hash_this(hi, &key, &klen, &val);
 
@@ -441,30 +444,19 @@ svn_ra_serf__merge_lock_token_list(apr_hash_t *lock_tokens,
       if (parent && !svn_path_is_ancestor(parent, key))
         continue;
 
-      svn_xml_escape_cdata_string(&xml_path, &path, pool);
+      svn_ra_serf__add_open_tag_buckets(body, alloc, "S:lock", NULL);
 
-      tmp = SERF_BUCKET_SIMPLE_STRING_LEN("<S:lock>",
-                                          sizeof("<S:lock>") - 1,
-                                          alloc);
-      serf_bucket_aggregate_append(body, tmp);
+      svn_ra_serf__add_open_tag_buckets(body, alloc, "lock-path", NULL);
+      svn_ra_serf__add_cdata_len_buckets(body, alloc, path.data, path.len);
+      svn_ra_serf__add_close_tag_buckets(body, alloc, "lock-path");
 
-      svn_ra_serf__add_tag_buckets(body, "lock-path", xml_path->data, alloc);
       svn_ra_serf__add_tag_buckets(body, "lock-token", val, alloc);
 
-      tmp = SERF_BUCKET_SIMPLE_STRING_LEN("</S:lock>",
-                                          sizeof("</S:lock>") - 1,
-                                          alloc);
-      serf_bucket_aggregate_append(body, tmp);
+      svn_ra_serf__add_close_tag_buckets(body, alloc, "S:lock");
     }
 
-  tmp = SERF_BUCKET_SIMPLE_STRING_LEN(LOCK_TRAILER, sizeof(LOCK_TRAILER) - 1,
-                                      alloc);
-  serf_bucket_aggregate_append(body, tmp);
+  svn_ra_serf__add_close_tag_buckets(body, alloc, "S:lock-token-list");
 }
-
-#define MERGE_HEADER "<?xml version=\"1.0\" encoding=\"utf-8\"?><D:merge xmlns:D=\"DAV:\"><D:source><D:href>"
-#define MERGE_BODY "</D:href></D:source><D:no-auto-merge/><D:no-checkout/><D:prop><D:checked-in/><D:version-name/><D:resourcetype/><D:creationdate/><D:creator-displayname/></D:prop>"
-#define MERGE_TRAILER "</D:merge>"
 
 static serf_bucket_t*
 create_merge_body(void *baton,
@@ -472,32 +464,38 @@ create_merge_body(void *baton,
                   apr_pool_t *pool)
 {
   svn_ra_serf__merge_context_t *ctx = baton;
-  serf_bucket_t *body_bkt, *tmp_bkt;
+  serf_bucket_t *body_bkt;
 
   body_bkt = serf_bucket_aggregate_create(alloc);
 
-  tmp_bkt = SERF_BUCKET_SIMPLE_STRING_LEN(MERGE_HEADER,
-                                          sizeof(MERGE_HEADER) - 1,
-                                          alloc);
-  serf_bucket_aggregate_append(body_bkt, tmp_bkt);
+  svn_ra_serf__add_xml_header_buckets(body_bkt, alloc);
+  svn_ra_serf__add_open_tag_buckets(body_bkt, alloc, "D:merge",
+                                    "xmlns:D", "DAV:",
+                                    NULL);
+  svn_ra_serf__add_open_tag_buckets(body_bkt, alloc, "D:source", NULL);
+  svn_ra_serf__add_open_tag_buckets(body_bkt, alloc, "D:href", NULL);
 
-  tmp_bkt = SERF_BUCKET_SIMPLE_STRING_LEN(ctx->activity_url,
-                                          ctx->activity_url_len,
-                                          alloc);
-  serf_bucket_aggregate_append(body_bkt, tmp_bkt);
+  svn_ra_serf__add_cdata_len_buckets(body_bkt, alloc,
+                                     ctx->activity_url, ctx->activity_url_len);
 
-  tmp_bkt = SERF_BUCKET_SIMPLE_STRING_LEN(MERGE_BODY,
-                                          sizeof(MERGE_BODY) - 1,
-                                          alloc);
-  serf_bucket_aggregate_append(body_bkt, tmp_bkt);
+  svn_ra_serf__add_close_tag_buckets(body_bkt, alloc, "D:href");
+  svn_ra_serf__add_close_tag_buckets(body_bkt, alloc, "D:source");
+
+  svn_ra_serf__add_tag_buckets(body_bkt, "D:no-auto-merge", NULL, alloc);
+  svn_ra_serf__add_tag_buckets(body_bkt, "D:no-checkout", NULL, alloc);
+
+  svn_ra_serf__add_open_tag_buckets(body_bkt, alloc, "D:prop", NULL);
+  svn_ra_serf__add_tag_buckets(body_bkt, "D:checked-in", NULL, alloc);
+  svn_ra_serf__add_tag_buckets(body_bkt, "D:" SVN_DAV__VERSION_NAME, NULL, alloc);
+  svn_ra_serf__add_tag_buckets(body_bkt, "D:resourcetype", NULL, alloc);
+  svn_ra_serf__add_tag_buckets(body_bkt, "D:" SVN_DAV__CREATIONDATE, NULL, alloc);
+  svn_ra_serf__add_tag_buckets(body_bkt, "D:creator-displayname", NULL, alloc);
+  svn_ra_serf__add_close_tag_buckets(body_bkt, alloc, "D:prop");
 
   svn_ra_serf__merge_lock_token_list(ctx->lock_tokens, NULL, body_bkt, alloc,
                                      pool);
 
-  tmp_bkt = SERF_BUCKET_SIMPLE_STRING_LEN(MERGE_TRAILER,
-                                          sizeof(MERGE_TRAILER) - 1,
-                                          alloc);
-  serf_bucket_aggregate_append(body_bkt, tmp_bkt);
+  svn_ra_serf__add_close_tag_buckets(body_bkt, alloc, "D:merge");
 
   return body_bkt;
 }
@@ -531,7 +529,6 @@ svn_ra_serf__merge_create_req(svn_ra_serf__merge_context_t **ret_ctx,
   merge_ctx->commit_info = svn_create_commit_info(pool);
 
   merge_ctx->merge_url = session->repos_url.path;
-  merge_ctx->merge_url_len = strlen(merge_ctx->merge_url);
 
   handler = apr_pcalloc(pool, sizeof(*handler));
 

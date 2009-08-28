@@ -113,7 +113,7 @@ startTimer(void)
  *           message about the timing performed; format is a printf
  *           type argument
  */
-static void
+static void XMLCDECL
 endTimer(const char *fmt, ...)
 {
     long msec;
@@ -149,7 +149,7 @@ startTimer(void)
 {
     begin = clock();
 }
-static void
+static void XMLCDECL
 endTimer(const char *fmt, ...)
 {
     long msec;
@@ -178,7 +178,7 @@ startTimer(void)
      * Do nothing
      */
 }
-static void
+static void XMLCDECL
 endTimer(char *format, ...)
 {
     /*
@@ -200,7 +200,7 @@ endTimer(char *format, ...)
 /*
  * empty SAX block
  */
-xmlSAXHandler emptySAXHandlerStruct = {
+static xmlSAXHandler emptySAXHandlerStruct = {
     NULL, /* internalSubset */
     NULL, /* isStandalone */
     NULL, /* hasInternalSubset */
@@ -235,7 +235,7 @@ xmlSAXHandler emptySAXHandlerStruct = {
     NULL  /* xmlStructuredErrorFunc */
 };
 
-xmlSAXHandlerPtr emptySAXHandler = &emptySAXHandlerStruct;
+static xmlSAXHandlerPtr emptySAXHandler = &emptySAXHandlerStruct;
 extern xmlSAXHandlerPtr debugSAXHandler;
 
 /************************************************************************
@@ -773,7 +773,7 @@ commentDebug(void *ctx ATTRIBUTE_UNUSED, const xmlChar *value)
  * Display and format a warning messages, gives file, line, position and
  * extra parameters.
  */
-static void
+static void XMLCDECL
 warningDebug(void *ctx ATTRIBUTE_UNUSED, const char *msg, ...)
 {
     va_list args;
@@ -796,7 +796,7 @@ warningDebug(void *ctx ATTRIBUTE_UNUSED, const char *msg, ...)
  * Display and format a error messages, gives file, line, position and
  * extra parameters.
  */
-static void
+static void XMLCDECL
 errorDebug(void *ctx ATTRIBUTE_UNUSED, const char *msg, ...)
 {
     va_list args;
@@ -819,7 +819,7 @@ errorDebug(void *ctx ATTRIBUTE_UNUSED, const char *msg, ...)
  * Display and format a fatalError messages, gives file, line, position and
  * extra parameters.
  */
-static void
+static void XMLCDECL
 fatalErrorDebug(void *ctx ATTRIBUTE_UNUSED, const char *msg, ...)
 {
     va_list args;
@@ -833,7 +833,7 @@ fatalErrorDebug(void *ctx ATTRIBUTE_UNUSED, const char *msg, ...)
     va_end(args);
 }
 
-xmlSAXHandler debugSAXHandlerStruct = {
+static xmlSAXHandler debugSAXHandlerStruct = {
     internalSubsetDebug,
     isStandaloneDebug,
     hasInternalSubsetDebug,
@@ -957,7 +957,7 @@ endElementNsDebug(void *ctx ATTRIBUTE_UNUSED,
 	fprintf(stdout, ", '%s')\n", (char *) URI);
 }
 
-xmlSAXHandler debugSAX2HandlerStruct = {
+static xmlSAXHandler debugSAX2HandlerStruct = {
     internalSubsetDebug,
     isStandaloneDebug,
     hasInternalSubsetDebug,
@@ -992,7 +992,7 @@ xmlSAXHandler debugSAX2HandlerStruct = {
     NULL
 };
 
-xmlSAXHandlerPtr debugSAX2Handler = &debugSAX2HandlerStruct;
+static xmlSAXHandlerPtr debugSAX2Handler = &debugSAX2HandlerStruct;
 
 /************************************************************************
  *									*
@@ -1004,6 +1004,7 @@ static void
 parseAndPrintFile(char *filename) {
     int res;
 
+#ifdef LIBXML_PUSH_ENABLED
     if (push) {
 	FILE *f;
 
@@ -1071,6 +1072,7 @@ parseAndPrintFile(char *filename) {
 	    fclose(f);
 	}
     } else {
+#endif /* LIBXML_PUSH_ENABLED */
 	if (!speed) {
 	    /*
 	     * Empty callbacks for checking
@@ -1118,7 +1120,9 @@ parseAndPrintFile(char *filename) {
 		fprintf(stdout, "xmlSAXUserParseFile returned error %d\n", res);
 	    }
 	}
+#ifdef LIBXML_PUSH_ENABLED
     }
+#endif
 }
 
 
@@ -1138,7 +1142,11 @@ int main(int argc, char **argv) {
 	    recovery++;
 	else if ((!strcmp(argv[i], "-push")) ||
 	         (!strcmp(argv[i], "--push")))
+#ifdef LIBXML_PUSH_ENABLED
 	    push++;
+#else
+	    fprintf(stderr,"'push' not enabled in library - ignoring\n");
+#endif /* LIBXML_PUSH_ENABLED */
 	else if ((!strcmp(argv[i], "-speed")) ||
 	         (!strcmp(argv[i], "--speed")))
 	    speed++;

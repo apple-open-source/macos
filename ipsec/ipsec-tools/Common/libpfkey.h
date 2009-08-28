@@ -154,6 +154,7 @@ struct sadb_msg *pfkey_recv __P((int));
 int pfkey_send __P((int, struct sadb_msg *, int));
 int pfkey_align __P((struct sadb_msg *, caddr_t *));
 int pfkey_check __P((caddr_t *));
+int pfkey_send_getsastats __P((int, u_int32_t, u_int64_t [], u_int32_t, u_int8_t, struct sastat [], u_int32_t));
 
 #ifndef __SYSDEP_SA_LEN__
 #define __SYSDEP_SA_LEN__

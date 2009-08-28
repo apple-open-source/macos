@@ -1,0 +1,204 @@
+<rdf:RDF xml:lang="en"
+  xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+  xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+  xmlns:gen="http://nm.wu-wien.ac.at/universal/rdf-general#"
+  xmlns:tech="http://nm.wu-wien.ac.at/universal/rdf-technical#"
+  xmlns:meta="http://nm.wu-wien.ac.at/universal/rdf-metametadata#"
+  xmlns:life="http://nm.wu-wien.ac.at/universal/rdf-lifecycle#"
+  xmlns:edu="http://nm.wu-wien.ac.at/universal/rdf-education#"
+  xmlns:class="http://nm.wu-wien.ac.at/universal/rdf-classification#"
+  xmlns:univ="http://nm.wu-wien.ac.at/universal/rdf-universal#">
+
+<rdf:Description about="http://nm.wu-wien.ac.at/Lehre/oo1/">
+  <gen:Title>Object Oriented Design and System Development</gen:Title>
+        <gen:Description>
+           Introduction to the concepts of object-oriented programing ...
+	</gen:Description>
+  <gen:AggregationLevel>Course</gen:AggregationLevel>
+  <gen:Identifier>WUW-WI-0012346</gen:Identifier>     
+  <gen:Keywords>
+    <rdf:Bag>
+       <rdf:li>object-oriented design</rdf:li>
+       <rdf:li>software architecture</rdf:li>
+    </rdf:Bag>
+  </gen:Keywords>
+  <gen:Language>de</gen:Language>
+  <tech:Format>application/pdf</tech:Format>
+  <tech:Size>56000</tech:Size>
+  <tech:Location>http://nm.wu-wien.ac.at/Lehre/oo1/01-handout.pdf</tech:Location>
+  <edu:IntendedUserRole>Student</edu:IntendedUserRole>
+  <edu:TypicalLearningTime>2 to 4 days</edu:TypicalLearningTime>
+  <edu:Context>University Second Cycle</edu:Context>
+  <edu:LearningResourceType>Lecture</edu:LearningResourceType>
+  <life:Contribute rdf:parseType="Resource">
+      <life:Role>Author</life:Role>
+      <life:Entity>Prof. Gustaf Neumann</life:Entity>
+      <life:Date>01.12.1999</life:Date>
+  </life:Contribute>
+  <life:Version>1.0</life:Version>
+  <univ:IntegrationInProgram>--</univ:IntegrationInProgram>
+  <univ:EctsCredits>2</univ:EctsCredits>
+  <meta:Language>en</meta:Language>
+  <class:Classification rdf:parseType="Resource">
+	<class:Purpose>Discipline</class:Purpose>
+	<class:Taxon>Information Systems</class:Taxon>
+  </class:Classification>
+</rdf:Description>
+
+<rdf:Description about="http://wwwi.wu-wien.ac.at/Studium/Abschnitt_2/LVA_allgemein/rexx.html">
+  <gen:Title>Introduction in the programming language object rexx</gen:Title>
+        <gen:Description>
+           This lecture offers an introduction of the programming language 'object rexx'.
+	</gen:Description>
+  <gen:AggregationLevel>Course</gen:AggregationLevel>
+  <gen:Identifier>WUW-WI-0011344</gen:Identifier>     
+  <gen:Keywords>
+    <rdf:Bag>
+       <rdf:li>rexx</rdf:li>
+       <rdf:li>UML</rdf:li>
+       <rdf:li>CORBA</rdf:li>
+    </rdf:Bag>
+  </gen:Keywords>
+  <gen:Language>de</gen:Language>
+  <tech:Format>text/html</tech:Format>
+  <tech:Size>0</tech:Size>
+  <tech:Location>http://wwwi.wu-wien.ac.at/Studium/Abschnitt_2/LVA_allgemein/rexx.html</tech:Location>
+  <edu:IntendedUserRole>Student</edu:IntendedUserRole>
+  <edu:TypicalLearningTime>3 weeks</edu:TypicalLearningTime>
+  <edu:Context>University First Cycle</edu:Context>
+  <edu:LearningResourceType>Lecture</edu:LearningResourceType>
+  <life:Contribute rdf:parseType="Resource">
+    <life:Role>Author</life:Role> 
+    <life:Entity>Prof.H. Werthner</life:Entity>
+    <life:Date>01.11.1999</life:Date>
+  </life:Contribute>
+  <life:Version>1.0</life:Version>
+  <univ:IntegrationInProgram>--</univ:IntegrationInProgram>
+  <univ:EctsCredits>2</univ:EctsCredits>
+  <meta:Language>en</meta:Language>
+  <class:Classification rdf:parseType="Resource">
+	<class:Purpose>Discipline</class:Purpose>
+	<class:Taxon>Information Systems</class:Taxon>
+  </class:Classification>
+</rdf:Description>
+
+<rdf:Description about="http://nm.wu-wien.ac.at/Lehre/oo2/">
+  <gen:Title>Object Oriented Development of Web-Based Applications</gen:Title>
+        <gen:Description>
+           This lecture offers the basic knowledge about the Internet and 
+           Internet Protocols from an applied point of view. Half of the
+ 	   lectures present the theoretical background knowledge, and the other
+           half exercises this knowledge with practical examples....
+	</gen:Description>
+  <gen:AggregationLevel>Course</gen:AggregationLevel>
+  <gen:Identifier>WUW-WI-0012345</gen:Identifier>     
+  <gen:Keywords>
+    <rdf:Bag>
+       <rdf:li>TCP/IP</rdf:li>
+       <rdf:li>Web Technolgy</rdf:li>
+       <rdf:li>Application Server</rdf:li>
+       <rdf:li>Agent Systems</rdf:li>
+       <rdf:li>XML</rdf:li>
+       <rdf:li>RDF</rdf:li>
+    </rdf:Bag>
+  </gen:Keywords>
+  <gen:Language>de</gen:Language>
+  <tech:Format>application/pdf</tech:Format>
+  <tech:Size>14000</tech:Size>
+  <tech:Location>http://nm.wu-wien.ac.at/Lehre/oo2/01-handout.pdf</tech:Location>
+  <edu:IntendedUserRole>Student</edu:IntendedUserRole>
+  <edu:TypicalLearningTime>2 to 4 days</edu:TypicalLearningTime>
+  <edu:Context>University Second Cycle</edu:Context>
+  <edu:LearningResourceType>Lecture</edu:LearningResourceType>
+  <life:Contribute rdf:parseType="Resource">
+    <life:Role>Author</life:Role> 
+    <life:Entity>Prof. Gustaf Neumann</life:Entity>
+    <life:Date>01.01.2000</life:Date>
+  </life:Contribute>
+  <life:Version>1.0</life:Version>
+  <univ:IntegrationInProgram>--</univ:IntegrationInProgram>
+  <univ:EctsCredits>2</univ:EctsCredits>
+  <meta:Language>en</meta:Language>
+  <class:Classification rdf:parseType="Resource">
+	<class:Purpose>Discipline</class:Purpose>
+	<class:Taxon>Information Systems</class:Taxon>
+  </class:Classification>
+</rdf:Description>
+
+<rdf:Description about="http://wwwi.wu-wien.ac.at/Studium/Abschnitt_2/Wahlfach/recht_vo.html">
+  <gen:Title>Legal aspects of information processing</gen:Title>
+        <gen:Description>
+        Introduction of the occuring legal problems in context of the use of information systems
+	</gen:Description>
+  <gen:AggregationLevel>Course</gen:AggregationLevel>
+  <gen:Identifier>WUW-WI-0036589</gen:Identifier>     
+  <gen:Keywords>
+    <rdf:Bag>
+       <rdf:li>information systems</rdf:li>
+       <rdf:li>legal aspects</rdf:li>
+       <rdf:li>data processing</rdf:li>
+    </rdf:Bag>
+  </gen:Keywords>
+  <gen:Language>de</gen:Language>
+  <tech:Format>text/html</tech:Format>
+  <tech:Size>0</tech:Size>
+  <tech:Location>http://wwwi.wu-wien.ac.at/Studium/Abschnitt_2/Wahlfach/recht_vo.html</tech:Location>
+  <edu:IntendedUserRole>Student</edu:IntendedUserRole>
+  <edu:TypicalLearningTime>1 month</edu:TypicalLearningTime>
+  <edu:Context>University Second Cycle</edu:Context>
+  <edu:LearningResourceType>Lecture</edu:LearningResourceType>
+  <life:Contribute rdf:parseType="Resource">
+    <life:Role>Author</life:Role> 
+    <life:Entity>Dr. Walter Blocher</life:Entity>
+    <life:Date>01.01.1999</life:Date>
+  </life:Contribute>
+  <life:Version>2.1</life:Version>
+  <univ:IntegrationInProgram>--</univ:IntegrationInProgram>
+  <univ:EctsCredits>2</univ:EctsCredits>
+  <meta:Language>en</meta:Language>
+  <class:Classification rdf:parseType="Resource">
+	<class:Purpose>Discipline</class:Purpose>
+	<class:Taxon>Information Systems</class:Taxon>
+  </class:Classification>
+</rdf:Description>
+
+<rdf:Description about="http://wwwi.wu-wien.ac.at/Studium/Abschnitt_2/Wahlfach/e_geldss98.html">
+  <gen:Title>Electronic cash, payment systems and security</gen:Title>
+        <gen:Description>
+        Introduction to electronic cash systems
+	</gen:Description>
+  <gen:AggregationLevel>Course</gen:AggregationLevel>
+  <gen:Identifier>WUW-WI-00352228</gen:Identifier>     
+  <gen:Keywords>
+    <rdf:Bag>
+       <rdf:li>electronic cash</rdf:li>
+       <rdf:li>security</rdf:li>
+       <rdf:li>electronic market place</rdf:li>
+    </rdf:Bag>
+  </gen:Keywords>
+  <gen:Language>de</gen:Language>
+  <tech:Format>application/zip</tech:Format>
+  <tech:Size>230000</tech:Size>
+  <tech:Location>http://wwwi.wu-wien.ac.at/finanz/elekgeld.zip</tech:Location>
+  <edu:IntendedUserRole>Student</edu:IntendedUserRole>
+  <edu:TypicalLearningTime>6 weeks</edu:TypicalLearningTime>
+  <edu:Context>University Second Cycle</edu:Context>
+  <edu:LearningResourceType>Lecture</edu:LearningResourceType>
+  <life:Contribute rdf:parseType="Resource">
+    <life:Role>Author</life:Role> 
+    <life:Entity>Prof. G. Müller</life:Entity>
+    <life:Date>01.01.1998</life:Date>
+  </life:Contribute>
+  <life:Version>2.1</life:Version>
+  <univ:IntegrationInProgram>--</univ:IntegrationInProgram>
+  <univ:EctsCredits>2</univ:EctsCredits>
+  <meta:Language>en</meta:Language>
+  <class:Classification rdf:parseType="Resource">
+	<class:Purpose>Discipline</class:Purpose>
+	<class:Taxon>Information Systems</class:Taxon>
+  </class:Classification>
+</rdf:Description>
+
+</rdf:RDF>
+
+

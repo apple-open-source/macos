@@ -284,8 +284,22 @@ struct host_info *host;
 	    char *slash;
 	    int mask = IPV6_ABITS;
 
-	    if (SGFAM(host->sin) != AF_INET6)
-		return (NO);
+	    /*
+	     * In some cases we don't get the sockaddr, only the addr.
+	     * We use inet_pton to convert it to its binary representation
+	     * and match against that.
+	     */
+	    if (host->sin == NULL) {
+		if (host->addr == NULL ||
+		    inet_pton(AF_INET6, host->addr, &hostin6) != 1) {
+		    return (NO);
+		}
+		hip = &hostin6;
+	    } else {
+		if (SGFAM(host->sin) != AF_INET6)
+		    return (NO);
+		hip = &host->sin->sg_sin6.sin6_addr;
+	    }
 
 	    if (cbr = strchr(tok, ']'))
 		*cbr = '\0';
@@ -301,10 +315,12 @@ struct host_info *host;
 		    tcpd_warn("bad IP6 prefix specification");
 		    return (NO);
 		}
-		hostin6 = host->sin->sg_sin6.sin6_addr;
-		hip = &hostin6;
-	    } else
-		hip = &host->sin->sg_sin6.sin6_addr;
+		/* Copy, because we need to modify it below */
+		if (host->sin != NULL) {
+		    hostin6 = host->sin->sg_sin6.sin6_addr;
+		    hip = &hostin6;
+		}
+	    }
 
 	    if (cbr == NULL || inet_pton(AF_INET6, tok+1, &in6) != 1) {
 		tcpd_warn("bad IP6 address specification");

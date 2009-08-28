@@ -231,6 +231,8 @@ bool RTL8139::init( OSDictionary *properties )
 
 bool RTL8139::start( IOService *provider )
 {
+	OSObject	*builtinProperty;
+
     bool success = false;
     
 	ELG( IOThreadSelf(), provider, 'Strt', "RTL8139::start - this, provider." );
@@ -251,6 +253,15 @@ bool RTL8139::start( IOService *provider )
 
         if ( false == pciNub->open( this ) )	// Open our provider.
             break;
+
+		fBuiltin = false;
+		builtinProperty = provider->getProperty( "built-in" );
+	    if ( builtinProperty )
+	    {
+	    	fBuiltin = true;
+			ELG( 0, 0, 'b-in', "RTL8139::start - found built-in property." );
+
+		}
 
         if ( false == initEventSources( provider ) )
             break;
@@ -292,8 +303,7 @@ bool RTL8139::start( IOService *provider )
 			break;
 
         success = true;
-    }
-    while ( false );
+	} while ( false );
 
 		// Close our provider, it will be re-opened on demand when
 		// our enable() is called by a client.
@@ -361,7 +371,7 @@ bool RTL8139::initEventSources( IOService *provider )
 						this,
 					   OSMemberFunctionCast(	IOInterruptEventAction,
 												this,
-												&RTL8139::interruptOccurred),
+												&RTL8139::interruptOccurred ),
 					   provider );
 
 	if ( !interruptSrc || (wl->addEventSource( interruptSrc ) != kIOReturnSuccess) )
@@ -419,9 +429,8 @@ bool RTL8139::initPCIConfigSpace( IOPCIDevice *provider )
 	provider->configWrite8( kIOPCIConfigCacheLineSize, 64 / sizeof( UInt32 ) );
 	provider->configWrite8( kIOPCIConfigLatencyTimer, 0xF8 );// max timer - low 3 bits ignored
 
-    DEBUG_LOG( "pciConfigInit() <===\n" );
-
-    return true;
+	DEBUG_LOG( "pciConfigInit() <===\n" );
+	return true;
 }/* end initPCIConfigSpace */
 
 	//---------------------------------------------------------------------------
@@ -436,7 +445,7 @@ bool RTL8139::createWorkLoop()
 
 //---------------------------------------------------------------------------
 
-IOWorkLoop * RTL8139::getWorkLoop( void ) const
+IOWorkLoop* RTL8139::getWorkLoop( void ) const
 {
 		// Override IOService::getWorkLoop() method to return the
 		//  work loop we allocated in createWorkLoop().
@@ -448,9 +457,9 @@ IOWorkLoop * RTL8139::getWorkLoop( void ) const
 
 	//---------------------------------------------------------------------------
 
-bool RTL8139::configureInterface( IONetworkInterface * netif )
+bool RTL8139::configureInterface( IONetworkInterface *netif )
 {
-    IONetworkData * data;
+    IONetworkData	*data;
 
 	ELG( this, netif, 'cfgI', "RTL8139::configureInterface " );
     DEBUG_LOG( "configureInterface() ===>\n" );
@@ -518,7 +527,7 @@ bool RTL8139::enableAdapter( UInt32 level )
 	UInt16	isr;
 	bool	success = false;
 
-	ELG( 0, level, 'enbA', "RTL8139::enableAdapter" );
+	ELG( 0, level, 'enbA', "RTL8139::enableAdapter - level" );
     DEBUG_LOG( "enableAdapter() ===>\n" );
     DEBUG_LOG( "enable level %ld\n", level);
 
@@ -558,6 +567,7 @@ bool RTL8139::enableAdapter( UInt32 level )
 			if ( isr & R_ISR_PUN )
 			{
 				csrWrite16( RTL_ISR, R_ISR_PUN );
+				ELG( i, isr, 'enbA', "RTL8139::enableAdapter - cleared PUN interrupt" );
 				DEBUG_LOG( "cleared PUN interrupt %x in %d\n", isr, i );
 				break;
 			}
@@ -702,11 +712,6 @@ IOReturn RTL8139::disable( IONetworkInterface* /*netif*/ )
     setActivationLevel( enabledByKDP ? kActivationLevel1 : kActivationLevel0 );
 
     DEBUG_LOG( "disable(netif) <===\n" );
-
-#if USE_ELG
-fpELG->evLogFlag = 0x03330333;	/// ??? delete this when ifconfig en0 down is fixed
-#endif // USE_ELG
-
 	return kIOReturnSuccess;
 }/* end disable netif */
 
@@ -736,10 +741,6 @@ IOReturn RTL8139::disable( IOKernelDebugger* /* debugger */ )
 
 	if ( enabledByBSD == false )
 		setActivationLevel( kActivationLevel0 );
-
-#if USE_ELG
-fpELG->evLogFlag = 0x03330333;	/// ??? delete this when ifconfig en0 down is fixed
-#endif // USE_ELG
 
 	return kIOReturnSuccess;
 }/* end disable debugger */
@@ -885,7 +886,6 @@ IOReturn RTL8139::getHardwareAddress( IOEthernetAddress *address )
         UInt32 int32;
     } idr;
 
-	ELG( 0, 0, 'gHWA', "RTL8139::getHardwareAddress" );
     DEBUG_LOG( "getHardwareAddress() ===>\n" );
 
 		// Fetch the hardware address bootstrapped from EEPROM.
@@ -899,6 +899,8 @@ IOReturn RTL8139::getHardwareAddress( IOEthernetAddress *address )
     idr.int32 = OSSwapLittleToHostInt32( csrRead32( RTL_IDR4 ) );
     address->bytes[4] = idr.bytes[0];
     address->bytes[5] = idr.bytes[1];
+
+	ELG(  *(UInt16*)address->bytes, *(UInt32*)&address->bytes[2], 'gHWA', "RTL8139::getHardwareAddress" );
 
     DEBUG_LOG( "getHardwareAddress() <===\n" );
 	return kIOReturnSuccess;
@@ -925,12 +927,8 @@ IOOutputQueue* RTL8139::createOutputQueue()
 
 IOReturn RTL8139::selectMedium( const IONetworkMedium *medium )
 {
-	int		index;
     bool	success;
 
-#if USE_ELG
-if ( fpELG->evLogFlag == 0xFeedBeef )	fpELG->evLogFlag = 0xDebeefed;	/// ??? delete this
-#endif // USE_ELG
 
 	ELG( 0, medium, 'sMed', "RTL8139::selectMedium" );
     if ( medium == 0 )

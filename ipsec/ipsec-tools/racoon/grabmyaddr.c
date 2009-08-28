@@ -86,11 +86,7 @@
 #ifndef HAVE_GETIFADDRS
 static unsigned int if_maxindex __P((void));
 #endif
-#ifdef __APPLE__
-static struct myaddrs *find_myaddr __P((struct myaddrs *, struct sockaddr *, int));
-#else
-static struct myaddrs *find_myaddr __P((struct myaddrs *, struct myaddrs *));
-#endif
+
 static int suitable_ifaddr __P((const char *, const struct sockaddr *));
 #ifdef INET6
 static int suitable_ifaddr6 __P((const char *, const struct sockaddr *));
@@ -300,9 +296,7 @@ clear_myaddr()
 	for (p = lcconf->myaddrs; p; p = next) {
 		next = p->next;
 
-		if (p->addr)
-			racoon_free(p->addr);
-		racoon_free(p);
+		delmyaddr(p);	
 	}
 
 	lcconf->myaddrs = NULL;
@@ -310,9 +304,8 @@ clear_myaddr()
 }
 
 
-static struct myaddrs *
-find_myaddr(db, addr, udp_encap)
-	struct myaddrs *db;
+struct myaddrs *
+find_myaddr(addr, udp_encap)
 	struct sockaddr *addr;
 	int udp_encap;
 {
@@ -323,7 +316,7 @@ find_myaddr(db, addr, udp_encap)
 	    NI_NUMERICHOST | niflags) != 0)
 		return NULL;
 
-	for (q = db; q; q = q->next) {
+	for (q = lcconf->myaddrs; q; q = q->next) {
 		if (!q->addr)
 			continue;
 		if (q->udp_encap && !udp_encap
@@ -379,18 +372,18 @@ grab_myaddrs()
 			continue;
 
 		if (!suitable_ifaddr(ifap->ifa_name, ifap->ifa_addr)) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(LLV_DEBUG2, LOCATION, NULL,
 				"unsuitable address: %s %s\n",
 				ifap->ifa_name,
 				saddrwop2str(ifap->ifa_addr));
 			continue;
 		}
 
-		p = find_myaddr(lcconf->myaddrs, ifap->ifa_addr, 0);
+		p = find_myaddr(ifap->ifa_addr, 0);
 		if (p) {
 			p->in_use = 1;
 #ifdef ENABLE_NATT
-			q = find_myaddr(lcconf->myaddrs, ifap->ifa_addr, 1);
+			q = find_myaddr(ifap->ifa_addr, 1);
 			if (q)
 				q->in_use = 1;
 #endif				
@@ -409,6 +402,14 @@ grab_myaddrs()
 				exit(1);
 				/*NOTREACHED*/
 			}
+			p->ifname = racoon_strdup(ifap->ifa_name);
+			if (p->ifname == NULL) {
+				plog(LLV_ERROR2, LOCATION, NULL,
+					"unable to duplicate ifname.\n");
+				exit(1);
+				/*NOTREACHED*/
+			}
+				
 			p->sock = -1;
 			p->in_use = 1;
 
@@ -497,7 +498,7 @@ suitable_ifaddr6(ifname, ifaddr)
 	}
 
 	memset(&ifr6, 0, sizeof(ifr6));
-	strncpy(ifr6.ifr_name, ifname, strlen(ifname));
+	strlcpy(ifr6.ifr_name, ifname, sizeof(ifr6.ifr_name));
 
 	ifr6.ifr_addr = *(const struct sockaddr_in6 *)ifaddr;
 
@@ -678,6 +679,9 @@ newmyaddr()
 
 	new->next = NULL;
 	new->addr = NULL;
+#ifdef __APPLE_
+	new->ifname = NULL;
+#endif
 
 	return new;
 }
@@ -703,6 +707,17 @@ dupmyaddr(struct myaddrs *old)
 		racoon_free(new);
 		return NULL;
 	}
+	if (old->ifname) {
+		new->ifname = racoon_strdup(old->ifname);
+		if (new->ifname == NULL) {
+			plog(LLV_ERROR, LOCATION, NULL,
+				"failed to allocate buffer for duplicate ifname.\n");
+			racoon_free(new->addr);
+			racoon_free(new);
+			return NULL;
+		}
+	}
+			
 	new->next = old->next;
 	old->next = new;
 
@@ -724,6 +739,10 @@ delmyaddr(myaddr)
 {
 	if (myaddr->addr)
 		racoon_free(myaddr->addr);
+#ifdef __APPLE__
+	if (myaddr->ifname)
+		racoon_free(myaddr->ifname);
+#endif
 	racoon_free(myaddr);
 }
 

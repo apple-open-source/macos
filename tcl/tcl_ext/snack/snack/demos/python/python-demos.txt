@@ -1,0 +1,42 @@
+Included Python demos
+--------------------------------------------------------------------------
+
+widget.py
+The basic Snack demonstrator.
+
+MinWave.py
+Minimal waveform example.
+
+MinSect.py
+Minimal section example.
+
+MinSpeg.py
+Minimal spectrogram example.
+
+echo.py
+Demo of echo filter with interactive parameter modification.
+
+sphere.py
+Demo that shows how to read NIST/Sphere format files.
+
+polarspec.py
+Polar spectrum plot of microphone input signal.
+
+spectrogram.py
+Spectrogram plot of microphone input signal.
+
+generator.py
+Simple real-time tone generator.
+
+notescale.py
+Example of on-the-fly beep generation.
+
+playnotes.py
+Another example of on-the-fly beep generation.
+
+mixplay.py
+An example of how to play two sounds at the same time with independent
+volume control.
+
+dataCmd.py
+An example of how to use the data command to transfer binary data into a sound object

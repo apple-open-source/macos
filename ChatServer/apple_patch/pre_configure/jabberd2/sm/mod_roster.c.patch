@@ -1,0 +1,32 @@
+--- /tmp/jabberd-2.1.24.1/sm/mod_roster.c	2008-04-27 02:57:18.000000000 -0700
++++ ./jabberd2/sm/mod_roster.c	2008-11-24 14:21:54.000000000 -0800
+@@ -240,6 +240,9 @@ static mod_ret_t _roster_in_sess_s10n(mo
+         pres_roster(sess, item);
+     }
+ 
++    if (storage_rate_limit(sess->user->sm->st, jid_user(sess->user->jid)) == st_RATELIMITED)
++        return -stanza_err_RESOURCE_CONSTRAINT;
++
+     /* save changes */
+     _roster_save_item(sess->user, item);
+     
+@@ -422,6 +425,9 @@ static void _roster_set_item(pkt_t pkt, 
+ 
+     log_debug(ZONE, "added %s to roster (to %d from %d ask %d name %s ngroups %d)", jid_full(item->jid), item->to, item->from, item->ask, item->name, item->ngroups);
+ 
++    if (storage_rate_limit(sess->user->sm->st, jid_user(sess->user->jid)) == st_RATELIMITED)
++        return -stanza_err_RESOURCE_CONSTRAINT;
++
+     /* save changes */
+     _roster_save_item(sess->user, item);
+ 
+@@ -632,6 +638,9 @@ static mod_ret_t _roster_pkt_user(mod_in
+             item->ask = 0;
+     }
+ 
++    if (storage_rate_limit(user->sm->st, pkt->from) == st_RATELIMITED)
++        return -stanza_err_RESOURCE_CONSTRAINT;
++
+     /* save changes */
+     _roster_save_item(user, item);
+ 

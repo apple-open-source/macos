@@ -23,9 +23,5 @@
 	<array>
 		<string>App Server Admins</string>
 	</array>
-	<key>smb_sid</key>
-	<array>
-		<string>S-1-5-21-181</string>
-	</array>
 </dict>
 </plist>

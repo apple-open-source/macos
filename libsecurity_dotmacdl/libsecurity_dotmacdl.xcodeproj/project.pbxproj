@@ -14,24 +14,15 @@
 		D653D56A069340D20022AAF3 /* DotMacRelation.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D653D568069340D20022AAF3 /* DotMacRelation.cpp */; };
 		D6587D0706951356008388D9 /* dotmac_common.mdsinfo in Resources */ = {isa = PBXBuildFile; fileRef = D6587D0606951356008388D9 /* dotmac_common.mdsinfo */; };
 		D67DA98E0693419100324D25 /* DocMacDLModule.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D67DA98C0693419100324D25 /* DocMacDLModule.cpp */; };
-		D6BCC754069345A600D6F2BF /* DotMacDLModule.h in Sources */ = {isa = PBXBuildFile; fileRef = D67DA98D0693419100324D25 /* DotMacDLModule.h */; };
-		D6D29E1A06933E1E0000CE60 /* PartialRelation.h in Sources */ = {isa = PBXBuildFile; fileRef = D6EFB0AC066528F800E68C0C /* PartialRelation.h */; };
 		D6D29E1B06933E1E0000CE60 /* PartialRelation.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D6EFB0AD066528F800E68C0C /* PartialRelation.cpp */; };
-		D6D29E1E06933E1E0000CE60 /* Relation.h in Sources */ = {isa = PBXBuildFile; fileRef = D6FE2B2206469C1500DA234F /* Relation.h */; };
 		D6D29E1F06933E1E0000CE60 /* Relation.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D6FE2B2306469C1500DA234F /* Relation.cpp */; };
-		D6D29E2006933E1E0000CE60 /* TableRelation.h in Sources */ = {isa = PBXBuildFile; fileRef = D661C5A60648673400A1CFFF /* TableRelation.h */; };
 		D6D29E2106933E1E0000CE60 /* TableRelation.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D661C5A70648673400A1CFFF /* TableRelation.cpp */; };
 		D6D29E2206933E1E0000CE60 /* Bridge.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D64218A8064A89DE00ABB3AE /* Bridge.cpp */; };
 		D6D29E2506933E1E0000CE60 /* CSSMStubs.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D64218BB064A94E200ABB3AE /* CSSMStubs.cpp */; };
-		D6D29E2606933E1E0000CE60 /* DataStorageLibrary.h in Sources */ = {isa = PBXBuildFile; fileRef = D64218B4064A8EF200ABB3AE /* DataStorageLibrary.h */; };
-		D6D29E2706933E1E0000CE60 /* CommonCode.h in Sources */ = {isa = PBXBuildFile; fileRef = D67BE6B6065931A400E26A3B /* CommonCode.h */; };
 		D6D29E2806933E1E0000CE60 /* CommonCode.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D67BE6B7065931A400E26A3B /* CommonCode.cpp */; };
 		D6D29E2906933E1E0000CE60 /* DataStorageLibrary.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D64218B5064A8EF200ABB3AE /* DataStorageLibrary.cpp */; };
-		D6D29E2A06933E1E0000CE60 /* AttachedInstance.h in Sources */ = {isa = PBXBuildFile; fileRef = D64218D1064A9E2800ABB3AE /* AttachedInstance.h */; };
 		D6D29E2B06933E1E0000CE60 /* AttachedInstance.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D64218D2064A9E2800ABB3AE /* AttachedInstance.cpp */; };
-		D6D29E2C06933E1E0000CE60 /* Mutex.h in Sources */ = {isa = PBXBuildFile; fileRef = D687EAE3064BF83800DF1A47 /* Mutex.h */; };
 		D6D29E2D06933E1E0000CE60 /* Mutex.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D687EAE4064BF83800DF1A47 /* Mutex.cpp */; };
-		D6D29E2E06933E1E0000CE60 /* Database.h in Sources */ = {isa = PBXBuildFile; fileRef = D687EB46064C06B500DF1A47 /* Database.h */; };
 		D6D29E2F06933E1E0000CE60 /* Database.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D687EB47064C06B500DF1A47 /* Database.cpp */; };
 		D6D29E3406933E610000CE60 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D66B17040639E5E200E30944 /* Security.framework */; };
 		D6FBE86406AEE00100CE8BBB /* security_utilities.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D6FBE86306AEE00100CE8BBB /* security_utilities.framework */; };
@@ -69,7 +60,7 @@
 		D6FBE86306AEE00100CE8BBB /* security_utilities.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = security_utilities.framework; path = /usr/local/SecurityPieces/Frameworks/security_utilities.framework; sourceTree = "<absolute>"; };
 		D6FE2B2206469C1500DA234F /* Relation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Relation.h; sourceTree = "<group>"; };
 		D6FE2B2306469C1500DA234F /* Relation.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Relation.cpp; sourceTree = "<group>"; };
-		D6FEBACA06518908003810E8 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = Info.plist; sourceTree = "<group>"; };
+		D6FEBACA06518908003810E8 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -190,7 +181,6 @@
 			productRefGroup = 4CA1FEBF052A3C8100F22E42 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
-			shouldCheckCompatibility = 1;
 			targets = (
 				D6D29E1506933DDA0000CE60 /* dotmacdl.bundle */,
 			);
@@ -214,25 +204,16 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				D6BCC754069345A600D6F2BF /* DotMacDLModule.h in Sources */,
 				D67DA98E0693419100324D25 /* DocMacDLModule.cpp in Sources */,
-				D6D29E1A06933E1E0000CE60 /* PartialRelation.h in Sources */,
 				D6D29E1B06933E1E0000CE60 /* PartialRelation.cpp in Sources */,
-				D6D29E1E06933E1E0000CE60 /* Relation.h in Sources */,
 				D6D29E1F06933E1E0000CE60 /* Relation.cpp in Sources */,
-				D6D29E2006933E1E0000CE60 /* TableRelation.h in Sources */,
 				D6D29E2106933E1E0000CE60 /* TableRelation.cpp in Sources */,
 				D6D29E2206933E1E0000CE60 /* Bridge.cpp in Sources */,
 				D6D29E2506933E1E0000CE60 /* CSSMStubs.cpp in Sources */,
-				D6D29E2606933E1E0000CE60 /* DataStorageLibrary.h in Sources */,
-				D6D29E2706933E1E0000CE60 /* CommonCode.h in Sources */,
 				D6D29E2806933E1E0000CE60 /* CommonCode.cpp in Sources */,
 				D6D29E2906933E1E0000CE60 /* DataStorageLibrary.cpp in Sources */,
-				D6D29E2A06933E1E0000CE60 /* AttachedInstance.h in Sources */,
 				D6D29E2B06933E1E0000CE60 /* AttachedInstance.cpp in Sources */,
-				D6D29E2C06933E1E0000CE60 /* Mutex.h in Sources */,
 				D6D29E2D06933E1E0000CE60 /* Mutex.cpp in Sources */,
-				D6D29E2E06933E1E0000CE60 /* Database.h in Sources */,
 				D6D29E2F06933E1E0000CE60 /* Database.cpp in Sources */,
 				D653D56A069340D20022AAF3 /* DotMacRelation.cpp in Sources */,
 			);
@@ -244,11 +225,10 @@
 		C27AD34F0987FCDE001272E0 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 29745;
+				CURRENT_PROJECT_VERSION = 36606;
 				DEAD_CODE_STRIPPING = YES;
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
@@ -268,10 +248,9 @@
 		C27AD3500987FCDE001272E0 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 29745;
+				CURRENT_PROJECT_VERSION = 36606;
 				DEAD_CODE_STRIPPING = YES;
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_OPTIMIZATION_LEVEL = s;
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
 				INFOPLIST_FILE = Info.plist;
@@ -291,7 +270,7 @@
 		C27AD3510987FCDE001272E0 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 29745;
+				CURRENT_PROJECT_VERSION = 36606;
 				DEAD_CODE_STRIPPING = YES;
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
@@ -313,6 +292,7 @@
 			buildSettings = {
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
 				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+				GCC_ENABLE_OBJC_GC = YES;
 			};
 			name = Development;
 		};
@@ -321,6 +301,7 @@
 			buildSettings = {
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
 				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+				GCC_ENABLE_OBJC_GC = YES;
 			};
 			name = Deployment;
 		};
@@ -329,6 +310,7 @@
 			buildSettings = {
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
 				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+				GCC_ENABLE_OBJC_GC = YES;
 			};
 			name = Default;
 		};

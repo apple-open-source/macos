@@ -708,7 +708,7 @@ _perforce_counter_values() {
 (( $+functions[_perforce_dates] )) ||
 _perforce_dates() {
   # Only useful in a file spec after `@'.
-  compset -P '*@'
+  compset -P '*@(|\\\<|\\\>)(|=)'
 
   # Date/time now in format required by Perforce.
   local now="$(date +%Y:%m:%d:%T)" name prefix
@@ -858,14 +858,20 @@ _perforce_resolved_files() {
 }
 
 
-(( $+functions[_perforce_subdirs] )) ||
-_perforce_subdirs() {
-  # This has no other function than to offer to add the `...' used
-  # by Perforce to indicate a recursive search of directories.
-  # Bit pathetic, really.
-  compset -P '*/'
-  compadd "$@" '...'
-}
+# This has no other function than to offer to add the `...' used
+# by Perforce to indicate a recursive search of directories.
+# Bit pathetic, really.
+#
+# This has been causing odd effects with prefixes so is turned off.
+#(( $+functions[_perforce_subdirs] )) ||
+#_perforce_subdirs() {
+#  if [[ $PREFIX = */* ]]; then
+#    local dir=${PREFIX%%[^/]#}
+#    compadd "$@" -J subdirs -p $dir ...
+#  else
+#    compadd "$@" -J subdirs ...
+#  fi
+#}
 
 
 (( $+functions[_perforce_depot_dirs] )) ||
@@ -1076,7 +1082,8 @@ _perforce_files() {
       altfiles+=("client-dirs:client directory:_perforce_client_dirs")
     fi
     altfiles+=("depot-dirs:directory in depot:_perforce_depot_dirs"
-      "subdirs:subdirectory search:_perforce_subdirs")
+#      "subdirs:subdirectory search:_perforce_subdirs"
+    )
     _alternative $altfiles
   elif [[ -n $unmaintained && -z $dodirs ]]; then
     # a la _cvs_nonentried_files: directories are never maintained,
@@ -1113,7 +1120,7 @@ _perforce_files() {
       altfiles+=("$type-files:$type file:_perforce_${type}_files")
     done
 
-    altfiles+=("subdirs:subdirectory search:_perforce_subdirs")
+#    altfiles+=("subdirs:subdirectory search:_perforce_subdirs")
     if zstyle -t ":completion:${curcontext}:" depot-files; then
       altfiles+=("depot-dirs:directory in depot:_perforce_depot_dirs")
     else
@@ -1126,13 +1133,15 @@ _perforce_files() {
       altfiles+=("depot-files:file in depot:_perforce_depot_files")
     fi
     altfiles+=("depot-dirs:directory in depot:_perforce_depot_dirs"
-      "subdirs:subdirectory search:_perforce_subdirs")
+#      "subdirs:subdirectory search:_perforce_subdirs"
+    )
     _alternative $altfiles
   else
     # Look locally.
-    _alternative \
-      "files:file:_path_files -R _perforce_file_suffix $dodirs" \
-      "subdirs:subdirectory search:_perforce_subdirs"
+#   _alternative \
+#      "files:file:_path_files -R _perforce_file_suffix $dodirs" \
+#      "subdirs:subdirectory search:_perforce_subdirs"
+    _path_files -R _perforce_file_suffix $dodirs
   fi
 }
 
@@ -1342,7 +1351,7 @@ _perforce_labels() {
       argv=($argv[1,-2])
       # Completing after `@'.
       file=${${(Q)PREFIX}%%@*}
-      compset -P '*@'
+      compset -P '*@(|\\\<|\\\>)(|=)'
     fi
 
     ll=(${${(f)"$(_perforce_call_p4 labels labels ${file:+\$file})"}//(#b)Label\ ([^[:blank:]]##)\ (*)/$match[1]:$match[2]})
@@ -1562,6 +1571,7 @@ _perforce_cmd_change() {
     '(-o -i)-d[discard newly created pending change]' \
     '(-d -i -f)-o[output specification to standard output]' \
     '(-d -o)-i[read specification from standard input]' \
+    '(-d -o)-u[force change of jobs or description by owner]' \
     "(-i)1::change:_perforce_changes$ctype"
 }
 
@@ -1719,6 +1729,7 @@ _perforce_cmd_edit() {
 (( $+functions[_perforce_cmd_filelog] )) ||
 _perforce_cmd_filelog() {
   _arguments -s : \
+    '-h[follow branc/copy from records]' \
     '-i[follow branches]' \
     '-l[long output, full change text]' \
     '-L[long output, truncated change text]' \
@@ -1814,6 +1825,7 @@ _perforce_cmd_group() {
     '-d[delete group]' \
     '-o[output to stdout]' \
     '-i[read from stdin]' \
+    '(-o)-a[allow non-super owner to modify group]' \
     '1::perforce group:_perforce_groups'
 }
 
@@ -1823,6 +1835,7 @@ _perforce_cmd_groups() {
   _arguments -s : \
     '-i[show indirect membership by subgroups]' \
     '-m[set max groups to show]:max groups: ' \
+    '-v[show summary data]' \
     '1::user or group name:_perforce_users_or_groups'
 }
 
@@ -1993,6 +2006,14 @@ _perforce_cmd_labelsync() {
 }
 
 
+(( $+functions[_perforce_cmd_license] )) ||
+_perforce_cmd_license() {
+  _arguments -s : \
+    '-o[write license to stdout]' \
+    '-i[read license from stdin]'
+}
+
+
 (( $+functions[_perforce_cmd_lock] )) ||
 _perforce_cmd_lock() {
   _arguments -s : \
@@ -2114,6 +2135,18 @@ _perforce_cmd_protect() {
 }
 
 
+(( $+functions[_perforce_cmd_protects] )) ||
+_perforce_cmd_protects() {
+  _arguments -s : \
+    '(-g -u)-a[show for all users]' \
+    '(-a -u)-g[select by group]:perforce group:_perforce_groups' \
+    '(-a -g)-u[select by user]:perforce user:_perforce_users' \
+    '-h[limit to host]:host:_perforce_hosts' \
+    '-m[single word summary]' \
+    '*:file:_perforce_files'
+}
+
+
 (( $+functions[_perforce_cmd_reopen] )) ||
 _perforce_cmd_reopen() {
   _arguments -s : \
@@ -2179,6 +2212,16 @@ _perforce_cmd_set() {
     '-s[set for whole system]' \
     '-S[set for specified service]:service: ' \
     "*::environment variable:_perforce_variables"
+}
+
+
+(( $+functions[_perforce_cmd_sizes] )) ||
+_perforce_cmd_sizes() {
+  _arguments -s : \
+    '-a[show for all revisions]' \
+    '-b[set blocksize]:blocksize in bytes: ' \
+    '-s[sum the file sizes]' \
+    '*:file:_perforce_files -tR'
 }
 
 

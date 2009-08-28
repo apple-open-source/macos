@@ -1,4 +1,3 @@
-/* APPLE LOCAL file mainline */
 /* Fix and continue should not interfere with computation of
    local (static) function addresses.  */
 /* Author: Ziemowit Laski <zlaski@apple.com> */

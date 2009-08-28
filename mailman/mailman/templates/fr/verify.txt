@@ -7,12 +7,12 @@ gardant l'en-tête Objet: intact, ou consultez la page :
 
 	%(confirmurl)s 
 
-ou bien encore mettez la ligne suivante - et seulement la ligne suivante -
+ou bien mettez la ligne suivante - et seulement la ligne suivante -
 dans le corps d'un message à l'attention de %(requestaddr)s: 
 
      confirm %(cookie)s
 
-Notez qu'un simple "répondre" devrait marcher pour la plupart des
+Notez qu'un simple "répondre" devrait fonctionner pour la plupart des
 lecteurs de courriel, puisque ceux-ci laissent en général l'en-tête Objet: au
 format correct (un "Re:" devant l'objet passe).
 

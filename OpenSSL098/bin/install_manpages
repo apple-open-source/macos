@@ -1,0 +1,208 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+use vars qw(
+	$OPENSSL_RELEASE
+	$X_EXT_SECT
+	$X_EXT_NAME
+	$X_POD2MAN
+	$MANSUFFIX
+	$TMPROOT
+	$INSTALL_OWNER
+	$INSTALL_GROUP
+	%FILE_BLACKLIST
+	);
+
+$MANSUFFIX = "ssl";
+$TMPROOT   = $ENV{'TEMP_FILES_DIR'};
+$INSTALL_OWNER = $ENV{'INSTALL_OWNER'};
+$INSTALL_GROUP = $ENV{'INSTALL_GROUP'};
+%FILE_BLACKLIST = ( 
+		'BN_INTERNAL' => 1,
+		'DGST' => 1
+	);
+
+use File::Basename;
+use File::Path;
+
+sub make_manpage($$$$$)
+{
+	my $manname = shift;
+	my $sec = shift;
+	my $pfile = shift;
+	my $mfile = shift;
+	my $mm = shift;
+
+	qx{$X_POD2MAN -s $sec -c OpenSSL -r $OPENSSL_RELEASE $pfile > "$TMPROOT/$manname"};
+	exit 1 if $?;
+
+	qx{install -o "$INSTALL_OWNER" -g "$INSTALL_GROUP" -m $mm "$TMPROOT/$manname" "$mfile"};
+	exit 1 if $?;
+}
+
+sub make_link($$)
+{
+	my $linkname = shift;
+	my $manfile = shift;
+
+	qx{ln -fs "$linkname" "$manfile"};
+	exit 1 if $?;
+}
+
+sub do_man($$$)
+{
+	my $src = shift;
+	my $dst = shift;
+	my $sec = shift;
+
+	my @files = ();
+
+	chdir($src);
+	open(LS, "ls -1 *.pod |");
+	while(<LS>)
+	{
+		chomp;
+		push(@files, $_);
+	}
+	close(LS);
+
+	printf("Looking for pods: \"%s\":\n", $src);
+	foreach my $podfile (@files)
+	{
+		my ($f_name, $f_path, $f_suffix) = fileparse($podfile, "\.pod");
+		my $fn = $f_name.$f_suffix;
+				
+		my @sect_names = qx{perl $X_EXT_NAME < $podfile};
+		return -1 if $?;
+		my @sect_numbs = qx{perl $X_EXT_SECT $sec < $podfile};
+		return -1 if $?; 
+		
+		if(defined $FILE_BLACKLIST{uc($f_name)})
+		{
+			printf("\t%s: blacklisted\n", $f_name);
+			next;
+		}
+
+		foreach my $s_numb (@sect_numbs)
+		{
+			chomp($s_numb);
+
+			foreach my $s_name (@sect_names)
+			{
+				chomp($s_name);
+
+				my $manname = $s_name.".".$s_numb.$MANSUFFIX;
+				my $linkname = $f_name.".".$s_numb.$MANSUFFIX;
+				my $manfile = $dst."/man".$s_numb."/".$manname;
+				my $linkfile = $dst."/man".$s_numb."/".$linkname;
+
+				my $exists = -e $manfile ? "exists" : "";
+				my $issym = -l $manfile ? "symlink" : "";
+
+				if ( $s_name eq $f_name )
+				{
+					printf("\t%s(%s): make %s %s %s\n", $f_name, $s_numb, $manname, $exists, $issym);
+					&make_manpage($s_name, $s_numb, $podfile, $manfile, "0644");
+				} else {
+					printf("\t%s(%s): link %s -> %s %s %s", $f_name, $s_numb, $manname, $linkname, $exists, $issym);
+					if( ! -e $linkfile )
+					{
+						printf("(also generating manpage)");
+						&make_manpage($f_name, $s_numb, $podfile, $linkfile, "0644");
+					}
+					printf("\n");
+					
+					&make_link($linkname, $manfile);
+				}
+			}
+		}
+	}
+}
+
+################################################################################
+#  MAIN MAIN MAIN MAIN MAIN MAIN MAIN MAIN MAIN MAIN MAIN MAIN MAIN MAIN MAIN  #
+################################################################################
+
+# Source directory, where tarball was expanded.
+my $srcdir = $ENV{'SRCROOT'}."/src";
+
+# Install prefix
+my $dstroot = $ENV{'DSTROOT'};
+
+# Release number, i.e. 0.9.8
+$OPENSSL_RELEASE = $ENV{'DYLIB_CURRENT_VERSION'};
+
+if (!defined $srcdir || !$srcdir)
+{
+	printf("Man source directory not given.\n");
+	exit(1);
+} else {
+	if( ! -d $srcdir )
+	{
+		printf("Man source directory incorrect \"%s\"\n", $srcdir);
+		exit(1);
+	}
+}
+$X_EXT_SECT  = $srcdir."/util/extract-section.pl";
+$X_EXT_NAME = $srcdir."/util/extract-names.pl";
+
+
+if ( !defined $dstroot || !$dstroot )
+{
+	printf("Dest directory not given.\n");
+	exit(1);
+} else {
+	if (! -d $dstroot )
+	{
+		mkpath($dstroot);
+	}
+}
+
+if ( !defined $OPENSSL_RELEASE || !$OPENSSL_RELEASE )
+{
+	printf("No release given.");
+	exit(1);
+}
+
+$X_POD2MAN  = qx{cd $srcdir/util && perl ./pod2mantest};
+chomp($X_POD2MAN);
+printf("Using pod2man: \"%s\".\n", $X_POD2MAN);
+
+# verify all man directories are created, ususally done by B&I
+$dstroot .= "/usr/share/man";
+
+my $retval = 0;
+$retval = &do_man($srcdir."/doc/apps",   $dstroot, 1);
+exit $retval if $retval;
+
+$retval = &do_man($srcdir."/doc/crypto", $dstroot, 3);
+exit $retval if $retval;
+
+$retval = &do_man($srcdir."/doc/ssl",    $dstroot, 3);
+exit $retval if $retval;
+
+
+qx{ln -fs "verify.1ssl" "$dstroot/man1/c_rehash.1ssl"};
+
+my @remove_files = (
+	"usr/share/man/man1/dgst.1ssl.gz",
+	"usr/share/man/man1/md2.1ssl.gz",
+	"usr/share/man/man1/md4.1ssl.gz",
+	"usr/share/man/man1/md5.1ssl.gz",
+	"usr/share/man/man1/mdc2.1ssl.gz",
+	"usr/share/man/man1/ripemd160.1ssl.gz",
+	"usr/share/man/man1/sha.1ssl.gz",
+	"usr/share/man/man1/sha1.1ssl.gz"
+);
+
+foreach my $rf (@remove_files)
+{
+	my $rff = $dstroot."/".$rf;
+	if (-e $rff)
+	{
+		printf("Removing %s.\n", $rf);
+		qx{rm -f "$rff"};
+	}
+}

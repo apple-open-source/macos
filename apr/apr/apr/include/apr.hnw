@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -85,7 +85,6 @@ extern "C" {
 #endif
 #define ENUM_BITFIELD(e,n,w)  signed int n : w
 
-#define APR_HAVE_ARPA_INET_H    0
 #define APR_HAVE_CONIO_H        0
 #define APR_HAVE_CRYPT_H        0
 #define APR_HAVE_CTYPE_H        1
@@ -194,6 +193,7 @@ extern "C" {
 #define APR_HAVE_STRUCT_RLIMIT  0
 #define APR_HAVE_UNION_SEMUN    0
 #define APR_HAVE_SCTP           0
+#define APR_HAVE_IOVEC          1
 
 /*  APR Feature Macros */
 #define APR_HAS_SHARED_MEMORY     0
@@ -236,11 +236,11 @@ typedef  unsigned char     apr_byte_t;
 
 typedef  short             apr_int16_t;
 typedef  unsigned short    apr_uint16_t;
-                                               
+
 typedef  int               apr_int32_t;
 typedef  unsigned int      apr_uint32_t;
-                                               
-typedef  long long		   apr_int64_t;
+
+typedef  long long          apr_int64_t;
 typedef  unsigned long long apr_uint64_t;
 
 typedef  size_t            apr_size_t;
@@ -255,6 +255,7 @@ typedef  int               apr_socklen_t;
 #else
 typedef  size_t            apr_socklen_t;
 #endif
+typedef  apr_uint64_t      apr_ino_t;
 
 /* Are we big endian? */
 /* XXX: Fatal assumption on Alpha platforms */
@@ -266,14 +267,87 @@ typedef  size_t            apr_socklen_t;
 #define APR_SIZEOF_VOIDP   4
 #endif
 
+#if APR_SIZEOF_VOIDP == 8
+typedef  apr_uint64_t            apr_uintptr_t;
+#else
+typedef  apr_uint32_t            apr_uintptr_t;
+#endif
+
 /* Mechanisms to properly type numeric literals */
 #define APR_INT64_C(val) (val##LL)
 #define APR_UINT64_C(val) (val##ULL)
+
+#ifdef INT16_MIN
+#define APR_INT16_MIN   INT16_MIN
+#else
+#define APR_INT16_MIN   (-0x7fff - 1)
+#endif
+
+#ifdef INT16_MAX
+#define APR_INT16_MAX  INT16_MAX
+#else
+#define APR_INT16_MAX   (0x7fff)
+#endif
+
+#ifdef UINT16_MAX
+#define APR_UINT16_MAX  UINT16_MAX
+#else
+#define APR_UINT16_MAX  (0xffff)
+#endif
+
+#ifdef INT32_MIN
+#define APR_INT32_MIN   INT32_MIN
+#else
+#define APR_INT32_MIN   (-0x7fffffff - 1)
+#endif
+
+#ifdef INT32_MAX
+#define APR_INT32_MAX  INT32_MAX
+#else
+#define APR_INT32_MAX  0x7fffffff
+#endif
+
+#ifdef UINT32_MAX
+#define APR_UINT32_MAX  UINT32_MAX
+#else
+#define APR_UINT32_MAX  (0xffffffffU)
+#endif
+
+#ifdef INT64_MIN
+#define APR_INT64_MIN   INT64_MIN
+#else
+#define APR_INT64_MIN   (APR_INT64_C(-0x7fffffffffffffff) - 1)
+#endif
+
+#ifdef INT64_MAX
+#define APR_INT64_MAX   INT64_MAX
+#else
+#define APR_INT64_MAX   APR_INT64_C(0x7fffffffffffffff)
+#endif
+
+#ifdef UINT64_MAX
+#define APR_UINT64_MAX  UINT64_MAX
+#else
+#define APR_UINT64_MAX  APR_UINT64_C(0xffffffffffffffff)
+#endif
+
+#define APR_SIZE_MAX    (~((apr_size_t)0))
 
 /* PROC mutex is a GLOBAL mutex on Netware */
 #define APR_PROC_MUTEX_IS_GLOBAL      1
 
 /* Definitions that APR programs need to work properly. */
+
+/**
+ * APR public API wrap for C++ compilers.
+ */
+#ifdef __cplusplus
+#define APR_BEGIN_DECLS     extern "C" {
+#define APR_END_DECLS       }
+#else
+#define APR_BEGIN_DECLS
+#define APR_END_DECLS
+#endif
 
 /** 
  * Thread callbacks from APR functions must be declared with APR_THREAD_FUNC, 
@@ -348,6 +422,8 @@ typedef  size_t            apr_socklen_t;
 typedef int apr_wait_t;
 
 #define APR_PATH_MAX PATH_MAX
+
+#define APR_DSOPATH "PATH"
 
 #define APR_INT64_T_FMT          "lld"
 #define APR_UINT64_T_FMT         "llu"

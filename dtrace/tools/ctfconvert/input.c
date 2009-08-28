@@ -345,9 +345,6 @@ struct symit_data {
 	char *si_curfile;
 	int si_nument;
 	int si_next;
-#if defined(__APPLE__)
-	Elf_Data thisData;
-#endif /* __APPLE__ */
 };
 
 symit_data_t *
@@ -362,42 +359,31 @@ symit_new(Elf *elf, const char *file)
 
 	si = xcalloc(sizeof (symit_data_t));
 
-#if !defined(__APPLE__)
 	if ((scn = elf_getscn(elf, symtabidx)) == NULL ||
 	    gelf_getshdr(scn, &si->si_shdr) == NULL ||
 	    (si->si_symd = elf_getdata(scn, NULL)) == NULL)
 		elfterminate(file, "Cannot read .symtab");
 
+#if !defined(__APPLE__)
 	if ((scn = elf_getscn(elf, si->si_shdr.sh_link)) == NULL ||
 	    (si->si_strd = elf_getdata(scn, NULL)) == NULL)
 		elfterminate(file, "Cannot read strings for .symtab");
-
-	si->si_nument = si->si_shdr.sh_size / si->si_shdr.sh_entsize;
 #else
-	if ((scn = elf_getscn(elf, symtabidx)) != NULL) {
-		if (gelf_getshdr(scn, &si->si_shdr) != NULL) {
-			Elf_Scn *symstrscn = elf_getscn(elf, si->si_shdr.sh_link);
-			
-			si->si_nument = si->si_shdr.sh_size / si->si_shdr.sh_entsize;
-			
-			if ((si->si_symd = elf_getdata(scn, NULL)) == NULL)
-				elfterminate(file, "Cannot read strings for .symtab");
-				
-			if (SHN_MACHO == si->si_shdr.sh_link) { /* Underlying file is Mach-o */
-				si->si_strd = &(si->thisData);
-				si->si_strd->d_buf = 
-					((char *)si->si_symd->d_buf) + si->si_shdr.sh_size;
-				si->si_strd->d_size = INT32_MAX;
-			} else {
-				if ((si->si_strd = elf_getdata(symstrscn, NULL)) == NULL)
-					elfterminate(file, "Cannot read strings for .symtab");
-			}
-		} else
+	if (SHN_MACHO != si->si_shdr.sh_link && SHN_MACHO_64 != si->si_shdr.sh_link) {
+		if ((scn = elf_getscn(elf, si->si_shdr.sh_link)) == NULL || 
+		    (si->si_strd = elf_getdata(scn, NULL)) == NULL)
 			elfterminate(file, "Cannot read strings for .symtab");
-	} else
-		elfterminate(file, "Cannot read strings for .symtab");
+	} else {
+		/* Underlying file is Mach-o */
+		int dir_idx;
 		
+		if ((dir_idx = findelfsecidx(elf, file, ".dir_str_table")) < 0 ||
+		    (scn = elf_getscn(elf, dir_idx)) == NULL ||
+		    (si->si_strd = elf_getdata(scn, NULL)) == NULL)
+			elfterminate(file, "Cannot read strings for .dir_str_table");
+	}
 #endif /* __APPLE__ */
+	si->si_nument = si->si_shdr.sh_size / si->si_shdr.sh_entsize;
 
 	return (si);
 }
@@ -437,10 +423,9 @@ static char
  }
 
 static GElf_Sym *
-gelf_getsym_macho(Elf_Data * data, int ndx, GElf_Sym * sym)
+gelf_getsym_macho(Elf_Data * data, int ndx, GElf_Sym * sym, const char *base)
 {
 	const struct nlist *nsym = (const struct nlist *)(data->d_buf);
-	const char *base = ((char *)nsym) + data->d_size;
 	const char *name;
 	char *tmp;
 	
@@ -456,12 +441,63 @@ gelf_getsym_macho(Elf_Data * data, int ndx, GElf_Sym * sym)
 	if ('_' == name[0])
 		name++; // Lop off omnipresent underscore to match DWARF convention
 
-	sym->st_name = (Elf32_Word)(name - base);
+	sym->st_name = (GElf_Sxword)(name - base);
 	sym->st_value = nsym->n_value;
 	sym->st_size = 0;
 	sym->st_info = GELF_ST_INFO((STB_GLOBAL), (STT_NOTYPE));
 	sym->st_other = 0;
 	sym->st_shndx = SHN_MACHO; /* Mark underlying file as Mach-o */
+	
+	if (nsym->n_type & N_STAB) { /* Detect C++ methods */
+	
+		switch(nsym->n_type) {
+		case N_FUN:
+			sym->st_info = GELF_ST_INFO((STB_GLOBAL), (STT_FUNC));
+			break;
+		case N_GSYM:
+			sym->st_info = GELF_ST_INFO((STB_GLOBAL), (STT_OBJECT));
+			break;
+		default:
+			break;
+		}
+		
+	} else if ((N_ABS | N_EXT) == (nsym->n_type & (N_TYPE | N_EXT)) ||
+		(N_SECT | N_EXT) == (nsym->n_type & (N_TYPE | N_EXT))) {
+
+		sym->st_info = GELF_ST_INFO((STB_GLOBAL), (nsym->n_desc)); 
+	} else if ((N_UNDF | N_EXT) == (nsym->n_type & (N_TYPE | N_EXT)) &&
+				nsym->n_sect == NO_SECT) {
+		sym->st_info = GELF_ST_INFO((STB_GLOBAL), (STT_OBJECT)); /* Common */
+	}
+	
+	return sym;
+}
+
+static GElf_Sym *
+gelf_getsym_macho_64(Elf_Data * data, int ndx, GElf_Sym * sym, const char *base)
+{
+	const struct nlist_64 *nsym = (const struct nlist_64 *)(data->d_buf);
+	const char *name;
+	char *tmp;
+	
+	nsym += ndx;
+	name = base + nsym->n_un.n_strx;
+	
+	if (0 == nsym->n_un.n_strx) // iff a null, "", name.
+		name = "null name"; // return NULL;
+
+	if ((tmp = demangleSymbolCString(name)))
+		name = tmp;
+
+	if ('_' == name[0])
+		name++; // Lop off omnipresent underscore to match DWARF convention
+
+	sym->st_name = (GElf_Sxword)(name - base);
+	sym->st_value = nsym->n_value;
+	sym->st_size = 0;
+	sym->st_info = GELF_ST_INFO((STB_GLOBAL), (STT_NOTYPE));
+	sym->st_other = 0;
+	sym->st_shndx = SHN_MACHO_64; /* Mark underlying file as Mach-o 64 */
 	
 	if (nsym->n_type & N_STAB) { /* Detect C++ methods */
 	
@@ -502,8 +538,11 @@ symit_next(symit_data_t *si, int type)
 		gelf_getsym(si->si_symd, si->si_next, &sym);
 #else
 		if (si->si_shdr.sh_link == SHN_MACHO) { /* Underlying file is Mach-o */
-			gelf_getsym_macho(si->si_symd, si->si_next, &si->si_cursym);
-			gelf_getsym_macho(si->si_symd, si->si_next, &sym);
+			gelf_getsym_macho(si->si_symd, si->si_next, &si->si_cursym, (const char *)(si->si_strd->d_buf));
+			gelf_getsym_macho(si->si_symd, si->si_next, &sym, (const char *)(si->si_strd->d_buf));
+		} else if (si->si_shdr.sh_link == SHN_MACHO_64) { /* Underlying file is Mach-o 64 */
+			gelf_getsym_macho_64(si->si_symd, si->si_next, &si->si_cursym, (const char *)(si->si_strd->d_buf));
+			gelf_getsym_macho_64(si->si_symd, si->si_next, &sym, (const char *)(si->si_strd->d_buf));
 		} else {
 			gelf_getsym(si->si_symd, si->si_next, &si->si_cursym);
 			gelf_getsym(si->si_symd, si->si_next, &sym);

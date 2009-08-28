@@ -1,0 +1,372 @@
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook V4.2//EN" [
+<!ENTITY % defs SYSTEM "X11/defs.ent"> %defs;
+]>
+
+<Article>
+
+<!-- Title information -->
+<articleinfo>
+
+<Title>Information for Solaris</Title>
+<AUTHOR
+>
+<FirstName>David Holland, modified by Marc Aurele La France</FirstName>
+</AUTHOR
+>
+<PubDate>2004 August 18
+</PubDate>
+
+</articleinfo>
+
+<!-- Table of contents -->
+
+<!-- Begin the document -->
+<Sect1>
+<Title>The VT-switching sub-system in Solaris x86</Title>
+
+<Para>
+The virtual terminal sub-system is a undocumented, and unsupported feature of
+Solaris x86 releases 2.1 through 7.  It is no longer present in Solaris 8 and
+later releases.
+Therefore if you use virtual terminals, you do so at <Emphasis remap="bf">YOUR OWN RISK</Emphasis>.
+</Para>
+
+<Para>
+Virtual terminals are not available in Solaris SPARC, and their availability
+has been removed in Solaris8 x86.
+</Para>
+
+<Para>
+When available, the virtual terminals of Solaris work basically the same way as
+most other SVR4 VT sub-systems.
+However, there are a number of limitations documented below.
+</Para>
+
+<Para>
+First, if you are running a Solaris 2.4 x86 system, and you want VT's, you will
+have to create the necessary devices first, so become root.
+</Para>
+
+<Para>
+Verify the chanmux device driver's major number is 100:
+</Para>
+
+<Para>
+
+<Screen>
+	# grep -i chanmux /etc/name_to_major
+	chanmux 100
+	#
+</Screen>
+
+If the number after 'chanmux' is anything but 100, I would suggest you
+immediately abort your attempt to create virtual terminals, and learn to live
+without them.
+</Para>
+
+<Para>
+However, if it is 100, then as root type the following commands to create the
+maximum allowable number of virtual terminals.
+</Para>
+
+<Para>
+
+<Screen>
+	# cd /dev
+	# mknod vt01 c 100 1
+	# mknod vt02 c 100 2
+	# mknod vt03 c 100 3
+	# mknod vt04 c 100 4
+	# mknod vt05 c 100 5
+	# mknod vt06 c 100 6
+	# mknod vt07 c 100 7
+</Screen>
+
+There is no need for a reconfiguration boot.
+</Para>
+
+<Para>
+Secondly, for both 2.1, and 2.4 x86 systems, add a few lines to the
+<Literal remap="tt">inittab</Literal> to enable logins on them.
+</Para>
+
+<Para>
+(<Emphasis remap="bf">Note</Emphasis>, do <Emphasis remap="bf">NOT</Emphasis> make a mistake here, you could lock yourself
+out of the system)
+</Para>
+
+<Para>
+
+<Screen>
+---------------------&#62;Snip Snip&#60;-----------------------------------------------
+v1:234:respawn:/usr/lib/saf/ttymon -g -h -p "`uname -n` VT01 login: " -T AT386 -d /dev/vt01 -l console
+v2:234:respawn:/usr/lib/saf/ttymon -g -h -p "`uname -n` VT02 login: " -T AT386 -d /dev/vt02 -l console
+v3:234:respawn:/usr/lib/saf/ttymon -g -h -p "`uname -n` VT03 login: " -T AT386 -d /dev/vt03 -l console
+v4:234:respawn:/usr/lib/saf/ttymon -g -h -p "`uname -n` VT04 login: " -T AT386 -d /dev/vt04 -l console
+----------------------&#62;End Here&#60;-----------------------------------------------
+</Screen>
+
+These four lines enable four VT's on Alt-SysReq-F1 through Alt-SysReq-F4.
+</Para>
+
+<Para>
+Then execute the command '<Literal remap="tt">init q</Literal>' to immediately enable the virtual
+terminals.
+</Para>
+
+<Para>
+The keys used for VT switching are as follows:
+</Para>
+
+<Para>
+<itemizedlist>
+<listitem>
+<para>
+<Literal remap="tt">Alt-SysReq-F1</Literal> through <Literal remap="tt">Alt-SysReq-F7</Literal>
+enable VT screens 1-7 respectively
+(if the VT is active).
+</para>
+</listitem>
+
+<listitem>
+<Para>
+<Literal remap="tt">Alt-SysReq-n</Literal> enables the next active VT screen.
+</Para>
+</listitem>
+
+<listitem>
+<Para>
+<Literal remap="tt">Alt-SysReq-p</Literal> enables the previous active VT screen.
+</Para>
+</listitem>
+
+<listitem>
+<Para>
+<Literal remap="tt">Alt-SysReq-h</Literal> returns to the console.
+</Para>
+</listitem>
+</itemizedlist>
+If you are using virtual terminals, you must leave at least one free for use by
+the Xserver.
+</Para>
+
+<Para>
+Limitations of the virtual terminal sub-system under Solaris x86:
+</Para>
+
+<Para>
+There are only a total of 8 available VT's (7 normal VT's + 1 console) not the
+usual 15.
+If you have all 8 allocated, and you attempt to allocate a additional VT you
+will panic the system.
+(This bug is worked around in the Solaris X11R&relvers; Xserver.)
+</Para>
+
+<Para>
+From a programming stand point, they work pretty much as documented in the
+AT&amp;T Unix System V/386 Release 4 Integrated Software Development Guide,
+however a number of <Literal remap="tt">ioctl()</Literal> calls are broken.
+</Para>
+
+</Sect1>
+
+<Sect1>
+<Title>Notes for building X11R&relvers; on Solaris</Title>
+
+<Para>
+
+<OrderedList>
+<ListItem>
+<Para>
+Both GCC, and the Sun Studio compilers are supported by X11R&relvers;.
+The minimum recommended GCC release is 2.7.2.
+Some earlier GCC's are known to not work and should be avoided.
+<Para>
+You should also make certain your version of GCC predefines `sun'.
+If needed edit <Literal remap="tt">/usr/local/lib/gcc-lib/*/*/specs</Literal>, and modify the
+<Literal remap="tt">*predefines:</Literal> line.
+</Para>
+
+<Para>
+On SPARCs, regardless of the compiler you use, ensure it generates 32-bit
+binaries.
+At this time, 64-bit binaries will probably not work.
+</Para>
+</ListItem>
+<ListItem>
+<Para>
+Also on SPARCs, you may be able to build the old deprecated Xsun* servers for
+older cg* graphics devices by adding "&num;define XsunServer YES" or "&num;define 
+Xsun24Server YES" or "&num;define XsunMonoServer YES" to &nbsp;xc/config/cf/host.def.
+These servers are no longer maintained nor supported and may not build in
+this release.</ListItem>
+<ListItem>
+<Para>
+A Threaded Xlib compiled with GCC has subtle problems.
+It'll work 98&percnt; of the time, however clients will occasionally exhibit
+strange hangs.
+Most notably image viewers such as xv-3.10 exhibit this problem.
+<Para>
+It is recommended that you set ThreadedX in <Literal remap="tt">&tilde;xc/config/cf/host.def</Literal> to
+NO, if you are using GCC.
+Sun's compilers do not have this problem.
+Whether this behaviour still exists with newer GCC's has not been verified.
+</Para>
+</ListItem>
+<ListItem>
+<Para>
+To build X11R&relvers; with GCC you need gcc and (optionally) c++filt from GNU
+binutils.
+Don't install gas or ld from GNU binutils, use the one provided by Sun.
+<Para>
+You might need to setup a /opt/SUNWspro/bin directory containing symbolic links
+named <Literal remap="tt">cc</Literal>, <Literal remap="tt">CC</Literal>, and <Literal remap="tt">c++filt</Literal> pointing respectively to the actual
+<Literal remap="tt">gcc</Literal>, <Literal remap="tt">g++</Literal> and <Literal remap="tt">c++filt</Literal> commands.
+</Para>
+</ListItem>
+<ListItem>
+<Para>
+If you are using Sun compilers to compile the X11R&relvers; distribution, you need to
+modify your PATH appropriately so the Sun compiler tools are available.
+Normally, they should be in <Literal remap="tt">/opt/SUNWspro/bin</Literal></ListItem>
+<ListItem>
+<Para>
+You <Emphasis remap="bf">MUST</Emphasis> put <Literal remap="tt">/usr/ccs/bin</Literal> at the front of your PATH.
+There are known problems with some GNU replacements for the utilities found
+there.
+So the <Literal remap="tt">/usr/ccs/bin</Literal> versions of these programs must be found before
+any possible GNU versions.
+(Most notably GNU '<Literal remap="tt">ar</Literal>' does not work during the build).</ListItem>
+
+</OrderedList>
+
+</Para>
+
+</Sect1>
+
+<Sect1>
+<Title>Notes for running Xorg on Solaris</Title>
+
+<Para>
+
+<OrderedList>
+<ListItem>
+<Para>
+Depending on the release or architecture of Solaris you are running, you might
+need to install an OS driver for an aperture device.
+<Para>
+Under Solaris x86 2.5 and later, there's a system driver (<Literal remap="tt">/dev/xsvc</Literal>)
+that provides this functionality.
+It will be detected automatically by the server, so you don't need to install
+the aperture driver.
+</Para>
+
+<Para>
+For older Solaris x86 and for Solaris SPARC releases, the source for this
+driver is included in
+<Literal remap="tt">xc/programs/Xserver/hw/xfree86/etc/apSolaris.shar</Literal> of the source
+distribution.
+This file can usually also be found in the <Literal remap="tt">/usr/X11R6/lib/X11/etc</Literal>
+directory when Xorg is installed.
+Building, and installing the driver is relatively straight forward. Please read
+its accompanying README file.
+</Para>
+</ListItem>
+<ListItem>
+<Para>
+If you have not made the Virtual Terminal devices, you will need to specify the
+terminal device to run the Xserver on.
+The correct device is vt00 so your <Literal remap="tt">xinit</Literal> command would look like
+so:
+<Para>
+
+<Screen>
+	xinit -- vt00
+</Screen>
+
+If you have made the virtual terminal devices you do not need to specify the VT
+to run the Xserver on.
+</Para>
+</ListItem>
+<ListItem>
+<Para>
+For old releases of Solaris you will probably want to set your LD&lowbar;LIBRARY&lowbar;PATH to
+<Literal remap="tt">/usr/X11R6/lib:/usr/openwin/lib:/usr/dt/lib</Literal>.
+Including <Literal remap="tt">/usr/X11R6/lib</Literal> in your LD&lowbar;LIBRARY&lowbar;PATH is probably not
+necessary, however it doesn't hurt. :)
+<Para>
+Including <Literal remap="tt">/usr/openwin/lib</Literal> in the LD&lowbar;LIBRARY&lowbar;PATH is recommended
+on older releases because some Sun supplied binaries were not compiled with LD&lowbar;RUN&lowbar;PATH set
+properly at compile time.
+</Para>
+
+<Para>
+Motif and CDE applications may require <Literal remap="tt">/usr/dt/lib</Literal> in your
+LD&lowbar;LIBRARY&lowbar;PATH too.
+</Para>
+</ListItem>
+<ListItem>
+<Para>
+Xqueue is <Emphasis remap="bf">NOT</Emphasis> supported under Solaris.
+The includes necessary for Xqueue are available, however the driver does not
+seem to be in the kernel.
+(Go figure)</ListItem>
+<ListItem>
+<Para>
+If you want to use xdm with Solaris, extract the files from the shar file in
+<Literal remap="tt">/usr/X11R6/lib/X11/etc/XdmConf.svr4</Literal> into a temporary directory.
+The <Literal remap="tt">README</Literal> file tells where the individual files need to be installed.
+Be sure to read through each file and make any site-specific changes that you
+need.</ListItem>
+
+</OrderedList>
+
+</Para>
+
+</Sect1>
+
+<Sect1>
+<Title>Known bugs, and work arounds with Solaris</Title>
+
+<Para>
+
+<OrderedList>
+<ListItem>
+<Para>
+The Solaris 2.1 for x86 OpenWindows filemgr does not work against a X11R5
+Xserver, it probably will also not work against a X11R6 Xserver.
+Attempting to 'Drag and Drop' a file causes the filemgr to abort with an
+'X error'
+<Para>
+Solaris x86 2.4 does not have this problem.
+</Para>
+
+<Para>
+There is no known work around.
+</Para>
+</ListItem>
+<ListItem>
+<Para>
+The SPARC port is still quite new, so instability is to be expected (and
+reported!).
+It might even have broken some aspects of the x86 port.</ListItem>
+
+</OrderedList>
+
+</Para>
+
+</Sect1>
+
+<Sect1>
+<Title>Bug Notification</Title>
+
+<Para>
+Bug reports should be reported at bugs.freedesktop.org using the 
+xorg product or sent to <EMAIL
+>xorg@lists.freedesktop.org</EMAIL
+>.
+</Para>
+
+</Sect1>
+
+</Article>

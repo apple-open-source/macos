@@ -1,6 +1,6 @@
 /* vim: ts=8:sw=4
  *
- * $Id: DBI.xs,v 11.38 2004/02/01 11:16:16 timbo Exp $
+ * $Id: DBI.xs 10993 2008-03-24 13:44:36Z timbo $
  *
  * Copyright (c) 1994-2003  Tim Bunce  Ireland.
  *
@@ -8,6 +8,7 @@
  */
 
 #define IN_DBI_XS 1	/* see DBIXS.h */
+#define PERL_NO_GET_CONTEXT
 
 #include "DBIXS.h"	/* DBI public interface for DBD's written in C	*/
 
@@ -21,6 +22,9 @@
 static int xsbypass = 0;	/* disable XSUB->XSUB shortcut		*/
 #else
 static int xsbypass = 1;	/* enable XSUB->XSUB shortcut		*/
+#endif
+#ifndef CvISXSUB
+#define CvISXSUB(sv) CvXSUB(sv)
 #endif
 
 #define DBI_MAGIC '~'
@@ -60,7 +64,7 @@ extern Pid_t getpid (void);
 
 
 static imp_xxh_t *dbih_getcom	   _((SV *h));
-static imp_xxh_t *dbih_getcom2	   _((SV *h, MAGIC **mgp));
+static imp_xxh_t *dbih_getcom2	   _((pTHX_ SV *h, MAGIC **mgp));
 static void       dbih_clearcom	   _((imp_xxh_t *imp_xxh));
 static int	  dbih_logmsg	   _((imp_xxh_t *imp_xxh, const char *fmt, ...));
 static SV	 *dbih_make_com	   _((SV *parent_h, imp_xxh_t *p_imp_xxh, const char *imp_class, STRLEN imp_size, STRLEN extra, SV *copy));
@@ -74,9 +78,9 @@ static int	 dbih_sth_bind_col _((SV *sth, SV *col, SV *ref, SV *attribs));
 static int      set_err_char _((SV *h, imp_xxh_t *imp_xxh, const char *err_c, IV err_i, const char *errstr, const char *state, const char *method));
 static int	set_err_sv   _((SV *h, imp_xxh_t *imp_xxh, SV *err, SV *errstr, SV *state, SV *method));
 static int	quote_type _((int sql_type, int p, int s, int *base_type, void *v));
-static int	dbi_hash _((const char *string, long i));
-static void	dbih_dumphandle _((SV *h, const char *msg, int level));
-static void	dbih_dumpcom _((imp_xxh_t *imp_xxh, const char *msg, int level));
+static I32	dbi_hash _((const char *string, long i));
+static void	dbih_dumphandle _((pTHX_ SV *h, const char *msg, int level));
+static int 	dbih_dumpcom _((pTHX_ imp_xxh_t *imp_xxh, const char *msg, int level));
 char *neatsvpv _((SV *sv, STRLEN maxlen));
 SV * preparse(SV *dbh, const char *statement, IV ps_return, IV ps_accept, void *foo);
 
@@ -114,10 +118,13 @@ typedef struct dbi_ima_st {
 #define IMA_NOT_FOUND_OKAY   	0x0800	/* no error if not found	*/
 #define IMA_EXECUTE	   	0x1000	/* do/execute: DBIcf_Executed	*/
 #define IMA_SHOW_ERR_STMT   	0x2000	/* dbh meth relates to Statement*/
+#define IMA_HIDE_ERR_PARAMVALUES 0x4000	/* ParamValues are not relevant */
+#define IMA_IS_FACTORY          0x8000	/* new h ie connect and prepare */
+#define IMA_CLEAR_CACHED_KIDS  0x10000	/* clear CachedKids before call	*/
 
 #define DBIc_STATE_adjust(imp_xxh, state)				 \
     (SvOK(state)	/* SQLSTATE is implemented by driver   */	 \
-	? (strEQ(SvPV(state,lna),"00000") ? &sv_no : sv_mortalcopy(state))\
+	? (strEQ(SvPV_nolen(state),"00000") ? &sv_no : sv_mortalcopy(state))\
 	: (SvTRUE(DBIc_ERR(imp_xxh))					 \
 	    ? sv_2mortal(newSVpv("S1000",5)) /* General error	*/	 \
 	    : &sv_no)			/* Success ("00000")	*/	 \
@@ -167,7 +174,7 @@ typedef struct {
 	dPERINTERP_SV; dPERINTERP_PTR(PERINTERP_t *, PERINTERP)
 #   define INIT_PERINTERP \
 	dPERINTERP;                                          \
-	Newz(0,PERINTERP,1,PERINTERP_t);                     \
+	PERINTERP = malloc_using_sv(sizeof(PERINTERP_t));    \
 	sv_setiv(perinterp_sv, PTR2IV(PERINTERP))
 
 #   undef DBIS
@@ -177,39 +184,68 @@ typedef struct {
     static PERINTERP_t Interp;
 #   define dPERINTERP typedef int _interp_DBI_dummy
 #   define PERINTERP (&Interp)
-#   define INIT_PERINTERP 
+#   define INIT_PERINTERP
 #endif
 
 #define g_dbi_last_h            (PERINTERP->dbi_last_h)
 
 /* --- */
 
+static void *
+malloc_using_sv(STRLEN len)
+{
+    dTHX;
+    SV *sv = newSV(len);
+    void *p = SvPVX(sv);
+    memzero(p, len);
+    return p;
+}
+
+static char *
+savepv_using_sv(char *str)
+{
+    char *buf = malloc_using_sv(strlen(str));
+    strcpy(buf, str);
+    return buf;
+}
+
+/* handy for embedding into condition expression for debugging */
+/*
+static int warn1(char *s) { warn(s); return 1; }
+static int dump1(SV *sv)  { dTHX; sv_dump(sv); return 1; }
+*/
+
+
+/* --- */
+
 static void
-check_version(const char *name, int dbis_cv, int dbis_cs, int need_dbixs_cv, int drc_s, 
+check_version(const char *name, int dbis_cv, int dbis_cs, int need_dbixs_cv, int drc_s,
 	int dbc_s, int stc_s, int fdc_s)
 {
+    dTHX;
     dPERINTERP;
     static const char msg[] = "you probably need to rebuild the DBD driver (or possibly the DBI)";
     (void)need_dbixs_cv;
     if (dbis_cv != DBISTATE_VERSION || dbis_cs != sizeof(*DBIS))
-	croak("DBI/DBD internal version mismatch (DBI is v%d/s%d, DBD %s expected v%d/s%d) %s.\n",
-	    DBISTATE_VERSION, sizeof(*DBIS), name, dbis_cv, dbis_cs, msg);
+	croak("DBI/DBD internal version mismatch (DBI is v%d/s%lu, DBD %s expected v%d/s%d) %s.\n",
+	    DBISTATE_VERSION, (long unsigned int)sizeof(*DBIS), name, dbis_cv, dbis_cs, msg);
     /* Catch structure size changes - We should probably force a recompile if the DBI	*/
     /* runtime version is different from the build time. That would be harsh but safe.	*/
     if (drc_s != sizeof(dbih_drc_t) || dbc_s != sizeof(dbih_dbc_t) ||
 	stc_s != sizeof(dbih_stc_t) || fdc_s != sizeof(dbih_fdc_t) )
-	    croak("%s (dr:%d/%d, db:%d/%d, st:%d/%d, fd:%d/%d), %s.\n",
+	    croak("%s (dr:%d/%ld, db:%d/%ld, st:%d/%ld, fd:%d/%ld), %s.\n",
 		"DBI/DBD internal structure mismatch",
-		drc_s, sizeof(dbih_drc_t), dbc_s, sizeof(dbih_dbc_t),
-		stc_s, sizeof(dbih_stc_t), fdc_s, sizeof(dbih_fdc_t), msg);
+		drc_s, (long)sizeof(dbih_drc_t), dbc_s, (long)sizeof(dbih_dbc_t),
+		stc_s, (long)sizeof(dbih_stc_t), fdc_s, (long)sizeof(dbih_fdc_t), msg);
 }
 
 static void
 dbi_bootinit(dbistate_t * parent_dbis)
 {
-INIT_PERINTERP;
+    dTHX;
+    INIT_PERINTERP;
 
-    Newz(dummy, DBIS, 1, dbistate_t);
+    DBIS = (struct dbistate_st*)malloc_using_sv(sizeof(struct dbistate_st));
 
     /* store version and size so we can spot DBI/DBD version mismatch	*/
     DBIS->check_version = check_version;
@@ -287,15 +323,16 @@ dbih_htype_name(int htype)
 char *
 neatsvpv(SV *sv, STRLEN maxlen) /* return a tidy ascii value, for debugging only */
 {
+    dTHX;
     dPERINTERP;
     STRLEN len;
     SV *nsv = Nullsv;
     SV *infosv = Nullsv;
     char *v, *quote;
 
-    /* We take care not to alter the supplied sv in any way at all.	*/
-    /* (but if it is SvGMAGICAL we have to call mg_get and that can	*/
-    /* have side effects, especially as it may e called twice overall.) */
+    /* We take care not to alter the supplied sv in any way at all.	 */
+    /* (but if it is SvGMAGICAL we have to call mg_get and that can	 */
+    /* have side effects, especially as it may be called twice overall.) */
 
     if (!sv)
 	return "Null!";				/* should never happen	*/
@@ -319,7 +356,7 @@ neatsvpv(SV *sv, STRLEN maxlen) /* return a tidy ascii value, for debugging only
 
     if (!SvOK(sv)) {
 	if (SvTYPE(sv) >= SVt_PVAV)
-	    return sv_reftype(sv,0);	/* raw AV/HV etc, not via a ref	*/
+	    return (char *)sv_reftype(sv,0);	/* raw AV/HV etc, not via a ref	*/
 	if (!infosv)
 	    return "undef";
 	sv_insert(infosv, 0,0, "undef",5);
@@ -327,7 +364,6 @@ neatsvpv(SV *sv, STRLEN maxlen) /* return a tidy ascii value, for debugging only
     }
 
     if (SvNIOK(sv)) {	  /* is a numeric value - so no surrounding quotes	*/
-	char buf[48];
 	if (SvPOK(sv)) {  /* already has string version of the value, so use it	*/
 	    v = SvPV(sv,len);
 	    if (len == 0) { v="''"; len=2; } /* catch &sv_no style special case	*/
@@ -338,9 +374,8 @@ neatsvpv(SV *sv, STRLEN maxlen) /* return a tidy ascii value, for debugging only
 	}
 	/* we don't use SvPV here since we don't want to alter sv in _any_ way	*/
 	if (SvIOK(sv))
-	     sprintf(buf, "%ld", (long)SvIVX(sv));
-	else sprintf(buf, "%g",  (double)SvNVX(sv));
-	nsv = sv_2mortal(newSVpv(buf, 0));
+	     nsv = newSVpvf("%"IVdf, SvIVX(sv));
+	else nsv = newSVpvf("%"NVgf, SvNVX(sv));
 	if (infosv)
 	    sv_catsv(nsv, infosv);
 	return SvPVX(nsv);
@@ -405,6 +440,7 @@ neatsvpv(SV *sv, STRLEN maxlen) /* return a tidy ascii value, for debugging only
 static int
 set_err_char(SV *h, imp_xxh_t *imp_xxh, const char *err_c, IV err_i, const char *errstr, const char *state, const char *method)
 {
+    dTHX;
     char err_buf[28];
     SV *err_sv, *errstr_sv, *state_sv, *method_sv;
     if (!err_c) {
@@ -421,6 +457,7 @@ set_err_char(SV *h, imp_xxh_t *imp_xxh, const char *err_c, IV err_i, const char 
 static int
 set_err_sv(SV *h, imp_xxh_t *imp_xxh, SV *err, SV *errstr, SV *state, SV *method)
 {
+    dTHX;
     dPERINTERP;
     SV *h_err;
     SV *h_errstr;
@@ -430,7 +467,8 @@ set_err_sv(SV *h, imp_xxh_t *imp_xxh, SV *err, SV *errstr, SV *state, SV *method
 
     if (    DBIc_has(imp_xxh, DBIcf_HandleSetErr)
 	&& (hook_svp = hv_fetch((HV*)SvRV(h),"HandleSetErr",12,0))
-	&&  hook_svp && SvOK(*hook_svp)
+	&&  hook_svp
+	&&  ((SvGMAGICAL(*hook_svp) && mg_get(*hook_svp)), SvOK(*hook_svp))
     ) {
 	dSP;
 	IV items;
@@ -476,12 +514,14 @@ set_err_sv(SV *h, imp_xxh_t *imp_xxh, SV *err, SV *errstr, SV *state, SV *method
 
     if (SvTRUE(h_errstr)) {
 	/* append current err, if any, to errstr if it's going to change */
-	if (SvTRUE(h_err) && SvTRUE(err))
+	if (SvTRUE(h_err) && SvTRUE(err) && strNE(SvPV_nolen(h_err), SvPV_nolen(err)))
 	    sv_catpvf(h_errstr, " [err was %s now %s]", SvPV_nolen(h_err), SvPV_nolen(err));
-	if (SvTRUE(h_state) && SvTRUE(state))
+	if (SvTRUE(h_state) && SvTRUE(state) && strNE(SvPV_nolen(h_state), SvPV_nolen(state)))
 	    sv_catpvf(h_errstr, " [state was %s now %s]", SvPV_nolen(h_state), SvPV_nolen(state));
-	sv_catpvn(h_errstr, "\n", 1);
-        sv_catsv(h_errstr, errstr);
+        if (strNE(SvPV_nolen(h_errstr), SvPV_nolen(errstr))) {
+            sv_catpvn(h_errstr, "\n", 1);
+            sv_catsv(h_errstr, errstr);
+        }
     }
     else
 	sv_setsv(h_errstr, errstr);
@@ -516,9 +556,8 @@ set_err_sv(SV *h, imp_xxh_t *imp_xxh, SV *err, SV *errstr, SV *state, SV *method
 
 
 static char *
-mkvname( HV *stash, const char *item, int uplevel)	/* construct a variable name	*/
+mkvname(pTHX_ HV *stash, const char *item, int uplevel)	/* construct a variable name	*/
 {
-    STRLEN lna;
     SV *sv = sv_newmortal();
     sv_setpv(sv, HvNAME(stash));
     if(uplevel) {
@@ -529,11 +568,13 @@ mkvname( HV *stash, const char *item, int uplevel)	/* construct a variable name	
     }
     sv_catpv(sv, "::");
     sv_catpv(sv, item);
-    return SvPV(sv, lna);
+    return SvPV_nolen(sv);
 }
 
+/* 32 bit magic FNV-0 and FNV-1 prime */
+#define FNV_32_PRIME ((UV)0x01000193)
 
-static int
+static I32
 dbi_hash(const char *key, long type)
 {
     if (type == 0) {
@@ -543,21 +584,21 @@ dbi_hash(const char *key, long type)
 	    hash = hash * 33 + *key++;
 	hash &= 0x7FFFFFFF;	/* limit to 31 bits		*/
 	hash |= 0x40000000;	/* set bit 31			*/
-	return -(int)hash;	/* return negative int	*/
+	return -(I32)hash;	/* return negative int	*/
     }
     else if (type == 1) {	/* Fowler/Noll/Vo hash	*/
 	/* see http://www.isthe.com/chongo/tech/comp/fnv/ */
 	U32 hash = 0x811c9dc5;
 	const unsigned char *s = (unsigned char *)key;    /* unsigned string */
 	while (*s) {
-	    /* multiply by the 32 bit FNV magic prime mod 2^64 */
+	    /* multiply by the 32 bit FNV magic prime mod 2^32 */
 	    hash *= FNV_32_PRIME;
 	    /* xor the bottom with the current octet */
 	    hash ^= (U32)*s++;
 	}
 	return hash;
     }
-    croak("DBI::hash(%d): invalid type", type);
+    croak("DBI::hash(%ld): invalid type", type);
     return 0; /* NOT REACHED */
 }
 
@@ -565,6 +606,7 @@ dbi_hash(const char *key, long type)
 static int
 dbih_logmsg(imp_xxh_t *imp_xxh, const char *fmt, ...)
 {
+    dTHX;
     dPERINTERP;
     va_list args;
 #ifdef I_STDARG
@@ -578,57 +620,82 @@ dbih_logmsg(imp_xxh_t *imp_xxh, const char *fmt, ...)
     return 1;
 }
 
+static void
+close_trace_file(pTHX)
+{
+    dPERINTERP;
+    if (DBILOGFP == PerlIO_stderr() || DBILOGFP == PerlIO_stdout())
+        return;
+
+    if (DBIS->logfp_ref == NULL)
+	PerlIO_close(DBILOGFP);
+    else {
+    /* DAA dec refcount and discard */
+	SvREFCNT_dec(DBIS->logfp_ref);
+	DBIS->logfp_ref = NULL;
+    }
+}
 
 static int
 set_trace_file(SV *file)
 {
+    dTHX;
     dPERINTERP;
-    STRLEN lna;
     const char *filename;
-    PerlIO *fp;
+    PerlIO *fp = Nullfp;
+    IO *io;
+
     if (!file)		/* no arg == no change */
 	return 0;
-    /* XXX need to support file being a filehandle object */
-    filename = (SvOK(file)) ? SvPV(file, lna) : Nullch;
-    /* undef arg == reset back to stderr */
-    if (!filename || strEQ(filename,"STDERR")) {
-	if (DBILOGFP != PerlIO_stderr() && DBILOGFP != PerlIO_stdout())
-	    PerlIO_close(DBILOGFP);
-	DBILOGFP = PerlIO_stderr();
-	return 1;
-    }
-    if (strEQ(filename,"STDOUT")) {
-	if (DBILOGFP != PerlIO_stderr() && DBILOGFP != PerlIO_stdout())
-	    PerlIO_close(DBILOGFP);
-	DBILOGFP = PerlIO_stdout();
-	return 1;
-    }
-    fp = PerlIO_open(filename, "a+");
-    if (fp == Nullfp) {
-	warn("Can't open trace file %s: %s", filename, Strerror(errno));
-	return 0;
+
+    /* DAA check for a filehandle */
+    if (SvROK(file)) {
+	io = sv_2io(file);
+	if (!io || !(fp = IoOFP(io))) {
+	    warn("DBI trace filehandle is not valid");
+	    return 0;
+	}
+	close_trace_file(aTHX);
+	SvREFCNT_inc(io);
+	DBIS->logfp_ref = io;
     }
     else {
-	if (DBILOGFP != PerlIO_stderr())
-	    PerlIO_close(DBILOGFP);
-	DBILOGFP = fp;
-	/* if this line causes your compiler or linker to choke	*/
-	/* then just comment it out, it's not essential.	*/
-	PerlIO_setlinebuf(fp);	/* force line buffered output */
-	return 1;
+	filename = (SvOK(file)) ? SvPV_nolen(file) : Nullch;
+	/* undef arg == reset back to stderr */
+	if (!filename || strEQ(filename,"STDERR")) {
+	    close_trace_file(aTHX);
+	    DBILOGFP = PerlIO_stderr();
+	    return 1;
+	}
+	if (strEQ(filename,"STDOUT")) {
+	    close_trace_file(aTHX);
+	    DBILOGFP = PerlIO_stdout();
+	    return 1;
+	}
+	fp = PerlIO_open(filename, "a+");
+	if (fp == Nullfp) {
+	    warn("Can't open trace file %s: %s", filename, Strerror(errno));
+	    return 0;
+	}
+	close_trace_file(aTHX);
     }
+    DBILOGFP = fp;
+    /* if this line causes your compiler or linker to choke	*/
+    /* then just comment it out, it's not essential.	*/
+    PerlIO_setlinebuf(fp);	/* force line buffered output */
+    return 1;
 }
-
 
 static IV
 parse_trace_flags(SV *h, SV *level_sv, IV old_level)
 {
+    dTHX;
     IV level;
     if (!level_sv || !SvOK(level_sv))
 	level = old_level;		/* undef: no change	*/
     else
     if (SvTRUE(level_sv)) {
-	if (looks_like_number(level_sv) && SvIV(level_sv)>=0)
+	if (looks_like_number(level_sv))
 	    level = SvIV(level_sv);	/* number: number	*/
 	else {				/* string: parse it	*/
 	    dSP;
@@ -652,6 +719,7 @@ parse_trace_flags(SV *h, SV *level_sv, IV old_level)
 static int
 set_trace(SV *h, SV *level_sv, SV *file)
 {
+    dTHX;
     dPERINTERP;
     D_imp_xxh(h);
     int RETVAL = DBIS->debug; /* Return trace level in effect now */
@@ -677,12 +745,13 @@ set_trace(SV *h, SV *level_sv, SV *file)
 
 
 static SV *
-dbih_inner(SV *orv, const char *what)
-{   /* convert outer to inner handle else croak(what) if what is not null */
+dbih_inner(pTHX_ SV *orv, const char *what)
+{   /* convert outer to inner handle else croak(what) if what is not NULL */
+    /* if what is NULL then return NULL for invalid handles */
     dPERINTERP;
     MAGIC *mg;
     SV *ohv;		/* outer HV after derefing the RV	*/
-    SV *hrv;		/* dni inner handle RV-to-HV		*/
+    SV *hrv;		/* dbi inner handle RV-to-HV		*/
 
     /* enable a raw HV (not ref-to-HV) to be passed in, eg DBIc_MY_H */
     ohv = SvROK(orv) ? SvRV(orv) : orv;
@@ -698,6 +767,8 @@ dbih_inner(SV *orv, const char *what)
 	croak("%s handle %s is not a DBI handle", what, neatsvpv(orv,0));
     }
     if (!SvMAGICAL(ohv)) {
+	if (!what)
+	    return NULL;
 	sv_dump(orv);
 	croak("%s handle %s is not a DBI handle (has no magic)",
 		what, neatsvpv(orv,0));
@@ -718,14 +789,6 @@ dbih_inner(SV *orv, const char *what)
 	hrv = mg->mg_obj;  /* inner hash of tie */
     }
 
-    /* extra checks if being paranoid */
-    if (DBIS_TRACE_LEVEL && (!SvROK(hrv) || SvTYPE(SvRV(hrv)) != SVt_PVHV)) {
-	if (!what)
-	    return NULL;
-	sv_dump(orv);
-	croak("panic: %s inner handle %s is not a hash ref",
-		what, neatsvpv(hrv,0));
-    }
     return hrv;
 }
 
@@ -737,14 +800,15 @@ dbih_inner(SV *orv, const char *what)
 static imp_xxh_t *
 dbih_getcom(SV *hrv) /* used by drivers via DBIS func ptr */
 {
-    imp_xxh_t *imp_xxh = dbih_getcom2(hrv, 0);
+    dTHX;
+    imp_xxh_t *imp_xxh = dbih_getcom2(aTHX_ hrv, 0);
     if (!imp_xxh)	/* eg after take_imp_data */
 	croak("Invalid DBI handle %s, has no dbi_imp_data", neatsvpv(hrv,0));
     return imp_xxh;
 }
 
 static imp_xxh_t *
-dbih_getcom2(SV *hrv, MAGIC **mgp) /* Get com struct for handle. Must be fast.	*/
+dbih_getcom2(pTHX_ SV *hrv, MAGIC **mgp) /* Get com struct for handle. Must be fast.	*/
 {
     dPERINTERP;
     imp_xxh_t *imp_xxh;
@@ -773,7 +837,7 @@ dbih_getcom2(SV *hrv, MAGIC **mgp) /* Get com struct for handle. Must be fast.	*
     }
     else {
 	/* Validate handle (convert outer to inner if required)	*/
-	hrv = dbih_inner(hrv, "dbih_getcom");
+	hrv = dbih_inner(aTHX_ hrv, "dbih_getcom");
 	mg  = mg_find(SvRV(hrv), DBI_MAGIC);
     }
     if (mgp)	/* let caller pickup magic struct for this handle */
@@ -791,7 +855,7 @@ dbih_getcom2(SV *hrv, MAGIC **mgp) /* Get com struct for handle. Must be fast.	*
 
 
 static SV *
-dbih_setup_attrib(SV *h, imp_xxh_t *imp_xxh, char *attrib, SV *parent, int read_only, int optional)
+dbih_setup_attrib(pTHX_ SV *h, imp_xxh_t *imp_xxh, char *attrib, SV *parent, int read_only, int optional)
 {
     dPERINTERP;
     STRLEN len = strlen(attrib);
@@ -838,14 +902,15 @@ dbih_setup_attrib(SV *h, imp_xxh_t *imp_xxh, char *attrib, SV *parent, int read_
 static SV *
 dbih_make_fdsv(SV *sth, const char *imp_class, STRLEN imp_size, const char *col_name)
 {
+    dTHX;
     dPERINTERP;
     D_imp_sth(sth);
     const STRLEN cn_len = strlen(col_name);
     imp_fdh_t *imp_fdh;
     SV *fdsv;
     if (imp_size < sizeof(imp_fdh_t) || cn_len<10 || strNE("::fd",&col_name[cn_len-4]))
-	croak("panic: dbih_makefdsv %s '%s' imp_size %d invalid",
-		imp_class, col_name, imp_size);
+	croak("panic: dbih_makefdsv %s '%s' imp_size %ld invalid",
+		imp_class, col_name, (long)imp_size);
     if (DBIS_TRACE_LEVEL >= 3)
 	PerlIO_printf(DBILOGFP,"    dbih_make_fdsv(%s, %s, %ld, '%s')\n",
 		neatsvpv(sth,0), imp_class, (long)imp_size, col_name);
@@ -860,6 +925,7 @@ dbih_make_fdsv(SV *sth, const char *imp_class, STRLEN imp_size, const char *col_
 static SV *
 dbih_make_com(SV *p_h, imp_xxh_t *p_imp_xxh, const char *imp_class, STRLEN imp_size, STRLEN extra, SV* imp_templ)
 {
+    dTHX;
     dPERINTERP;
     static const char *errmsg = "Can't make DBI com handle for %s: %s";
     HV *imp_stash;
@@ -872,7 +938,7 @@ dbih_make_com(SV *p_h, imp_xxh_t *p_imp_xxh, const char *imp_class, STRLEN imp_s
 
     if (imp_size == 0) {
 	/* get size of structure to allocate for common and imp specific data   */
-	const char *imp_size_name = mkvname(imp_stash, "imp_data_size", 0);
+	const char *imp_size_name = mkvname(aTHX_ imp_stash, "imp_data_size", 0);
 	imp_size = SvIV(perl_get_sv(imp_size_name, 0x05));
 	if (imp_size == 0) {
 	    imp_size = sizeof(imp_sth_t);
@@ -886,14 +952,14 @@ dbih_make_com(SV *p_h, imp_xxh_t *p_imp_xxh, const char *imp_class, STRLEN imp_s
 
     if (DBIS_TRACE_LEVEL >= 3)
 	PerlIO_printf(DBILOGFP,"    dbih_make_com(%s, %p, %s, %ld, %p) thr#%p\n",
-	    neatsvpv(p_h,0), p_imp_xxh, imp_class, (long)imp_size, imp_templ, PERL_GET_THX);
+	    neatsvpv(p_h,0), (void*)p_imp_xxh, imp_class, (long)imp_size, (void*)imp_templ, (void*)PERL_GET_THX);
 
     if (imp_templ && SvOK(imp_templ)) {
 	U32  imp_templ_flags;
 	/* validate the supplied dbi_imp_data looks reasonable,	*/
 	if (SvCUR(imp_templ) != imp_size)
-	    croak("Can't use dbi_imp_data of wrong size (%d not %d)",
-		SvCUR(imp_templ), imp_size);
+	    croak("Can't use dbi_imp_data of wrong size (%ld not %ld)",
+		(long)SvCUR(imp_templ), (long)imp_size);
 
 	/* copy the whole template */
 	dbih_imp_sv = newSVsv(imp_templ);
@@ -919,9 +985,12 @@ dbih_make_com(SV *p_h, imp_xxh_t *p_imp_xxh, const char *imp_class, STRLEN imp_s
 	DBIc_FLAGS(imp) = imp_templ_flags & (DBIcf_IMPSET|DBIcf_ACTIVE);
     }
     else {
-	dbih_imp_sv = newSV(imp_size); /* is grown to imp_size+1 */
+	dbih_imp_sv = newSV(imp_size); /* is grown to at least imp_size+1 */
 	imp = (imp_xxh_t*)(void*)SvPVX(dbih_imp_sv);
 	memzero((char*)imp, imp_size);
+        /* set up SV with SvCUR set ready for take_imp_data */
+        SvCUR_set(dbih_imp_sv, imp_size);
+        *SvEND(dbih_imp_sv) = '\0';
     }
 
     DBIc_DBISTATE(imp)  = DBIS;
@@ -965,7 +1034,7 @@ dbih_make_com(SV *p_h, imp_xxh_t *p_imp_xxh, const char *imp_class, STRLEN imp_s
 
 
 static void
-dbih_setup_handle(SV *orv, char *imp_class, SV *parent, SV *imp_datasv)
+dbih_setup_handle(pTHX_ SV *orv, char *imp_class, SV *parent, SV *imp_datasv)
 {
     dPERINTERP;
     SV *h;
@@ -979,8 +1048,8 @@ dbih_setup_handle(SV *orv, char *imp_class, SV *parent, SV *imp_datasv)
     imp_xxh_t *imp;
     imp_xxh_t *parent_imp;
 
-    h      = dbih_inner(orv, "dbih_setup_handle");
-    parent = dbih_inner(parent, NULL);	/* check parent valid (& inner)	*/
+    h      = dbih_inner(aTHX_ orv, "dbih_setup_handle");
+    parent = dbih_inner(aTHX_ parent, NULL);	/* check parent valid (& inner)	*/
     parent_imp = (parent) ? DBIh_COM(parent) : NULL;
 
     if (DBIS_TRACE_LEVEL >= 3)
@@ -992,7 +1061,7 @@ dbih_setup_handle(SV *orv, char *imp_class, SV *parent, SV *imp_datasv)
 
     strcpy(imp_mem_name, imp_class);
     strcat(imp_mem_name, "_mem");
-    if ( (imp_mem_stash = gv_stashpv(imp_mem_name, FALSE)) == NULL) 
+    if ( (imp_mem_stash = gv_stashpv(imp_mem_name, FALSE)) == NULL)
         croak(errmsg, neatsvpv(orv,0), imp_mem_name, "unknown _mem package");
 
     if ((svp = hv_fetch((HV*)SvRV(h), "dbi_imp_data", 12, 0))) {
@@ -1018,7 +1087,7 @@ dbih_setup_handle(SV *orv, char *imp_class, SV *parent, SV *imp_datasv)
 	/* Copy some attributes from parent if not defined locally and	*/
 	/* also take address of attributes for speed of direct access.	*/
 	/* parent is null for drh, in which case h must hold the values	*/
-#define COPY_PARENT(name,ro,opt) SvREFCNT_inc(dbih_setup_attrib(h,imp,(name),parent,ro,opt))
+#define COPY_PARENT(name,ro,opt) SvREFCNT_inc(dbih_setup_attrib(aTHX_ h,imp,(name),parent,ro,opt))
 #define DBIc_ATTR(imp, f) _imp2com(imp, attr.f)
 	/* XXX we should validate that these are the right type (refs etc)	*/
 	DBIc_ATTR(imp, Err)      = COPY_PARENT("Err",1,0);	/* scalar ref	*/
@@ -1026,22 +1095,25 @@ dbih_setup_handle(SV *orv, char *imp_class, SV *parent, SV *imp_datasv)
 	DBIc_ATTR(imp, Errstr)   = COPY_PARENT("Errstr",1,0);	/* scalar ref	*/
 	DBIc_ATTR(imp, TraceLevel)=COPY_PARENT("TraceLevel",0,0);/* scalar (int)*/
 	DBIc_ATTR(imp, FetchHashKeyName) = COPY_PARENT("FetchHashKeyName",0,0);	/* scalar ref */
+
 	if (parent) {
-	    dbih_setup_attrib(h,imp,"HandleSetErr",parent,0,1);
-	    dbih_setup_attrib(h,imp,"HandleError",parent,0,1);
-	    if (DBIc_has(parent_imp,DBIcf_Profile)) {
-		dbih_setup_attrib(h,imp,"Profile",parent,0,1);
-	    }
+	    dbih_setup_attrib(aTHX_ h,imp,"HandleSetErr",parent,0,1);
+	    dbih_setup_attrib(aTHX_ h,imp,"HandleError",parent,0,1);
+	    dbih_setup_attrib(aTHX_ h,imp,"ReadOnly",parent,0,1);
+            dbih_setup_attrib(aTHX_ h,imp,"Profile",parent,0,1);
 	    DBIc_LongReadLen(imp) = DBIc_LongReadLen(parent_imp);
 #ifdef sv_rvweaken
 	    if (1) {
 		AV *av;
 		/* add weakref to new (outer) handle into parents ChildHandles array */
 		tmp_svp = hv_fetch((HV*)SvRV(parent), "ChildHandles", 12, 1);
-		if (!SvROK(*tmp_svp))
-		    sv_setsv(*tmp_svp, (SV*)newRV_noinc((SV*)newAV()));
+		if (!SvROK(*tmp_svp)) {
+		    SV *ChildHandles_rvav = newRV_noinc((SV*)newAV());
+		    sv_setsv(*tmp_svp, ChildHandles_rvav);
+		    sv_free(ChildHandles_rvav);
+                }
 		av = (AV*)SvRV(*tmp_svp);
-		av_push(av, (SV*)sv_rvweaken(newRV((SV*)SvRV(orv))));
+                av_push(av, (SV*)sv_rvweaken(newRV((SV*)SvRV(orv))));
 		if (av_len(av) % 120 == 0) {
 		    /* time to do some housekeeping to remove dead handles */
 		    I32 i = av_len(av); /* 0 = 1 element */
@@ -1049,6 +1121,8 @@ dbih_setup_handle(SV *orv, char *imp_class, SV *parent, SV *imp_datasv)
 			SV *sv = av_shift(av);
 			if (SvOK(sv))
 			    av_push(av, sv);
+			else
+			   sv_free(sv);		/* keep it leak-free by Doru Petrescu pdoru.dbi@from.ro */
 		    }
 		}
 	    }
@@ -1078,7 +1152,7 @@ dbih_setup_handle(SV *orv, char *imp_class, SV *parent, SV *imp_datasv)
     /* Use DBI magic on inner handle to carry handle attributes 	*/
     sv_magic(SvRV(h), dbih_imp_sv, DBI_MAGIC, Nullch, 0);
     SvREFCNT_dec(dbih_imp_sv);	/* since sv_magic() incremented it	*/
-    SvRMAGICAL_on(SvRV(h));	/* so magic gets sv_clear'd ok		*/
+    SvRMAGICAL_on(SvRV(h));	/* so DBI magic gets sv_clear'd ok	*/
 
     DBI_SET_LAST_HANDLE(h);
 
@@ -1104,18 +1178,21 @@ dbih_setup_handle(SV *orv, char *imp_class, SV *parent, SV *imp_datasv)
 
 
 static void
-dbih_dumphandle(SV *h, const char *msg, int level)
+dbih_dumphandle(pTHX_ SV *h, const char *msg, int level)
 {
     D_imp_xxh(h);
-    dbih_dumpcom(imp_xxh, msg, level);
+    if (level >= 9) {
+        sv_dump(h);
+    }
+    dbih_dumpcom(aTHX_ imp_xxh, msg, level);
 }
 
-static void
-dbih_dumpcom(imp_xxh_t *imp_xxh, const char *msg, int level)
+static int
+dbih_dumpcom(pTHX_ imp_xxh_t *imp_xxh, const char *msg, int level)
 {
     dPERINTERP;
     SV *flags = sv_2mortal(newSVpv("",0));
-    STRLEN lna;
+    SV *inner;
     static const char pad[] = "      ";
     if (!msg)
 	msg = "dbih_dumpcom";
@@ -1143,49 +1220,67 @@ dbih_dumpcom(imp_xxh_t *imp_xxh, const char *msg, int level)
     if (DBIc_is(imp_xxh, DBIcf_TaintOut))	sv_catpv(flags,"TaintOut ");
     if (DBIc_is(imp_xxh, DBIcf_Profile))	sv_catpv(flags,"Profile ");
     if (DBIc_is(imp_xxh, DBIcf_Callbacks))	sv_catpv(flags,"Callbacks ");
-    PerlIO_printf(DBILOGFP,"%s FLAGS 0x%lx: %s\n", pad, (long)DBIc_FLAGS(imp_xxh), SvPV(flags,lna));
+    PerlIO_printf(DBILOGFP,"%s FLAGS 0x%lx: %s\n", pad, (long)DBIc_FLAGS(imp_xxh), SvPV_nolen(flags));
+    if (SvOK(DBIc_ERR(imp_xxh)))
+        PerlIO_printf(DBILOGFP,"%s ERR %s\n",	pad, neatsvpv((SV*)DBIc_ERR(imp_xxh),0));
+    if (SvOK(DBIc_ERR(imp_xxh)))
+        PerlIO_printf(DBILOGFP,"%s ERRSTR %s\n",	pad, neatsvpv((SV*)DBIc_ERRSTR(imp_xxh),0));
     PerlIO_printf(DBILOGFP,"%s PARENT %s\n",	pad, neatsvpv((SV*)DBIc_PARENT_H(imp_xxh),0));
     PerlIO_printf(DBILOGFP,"%s KIDS %ld (%ld Active)\n", pad,
 		    (long)DBIc_KIDS(imp_xxh), (long)DBIc_ACTIVE_KIDS(imp_xxh));
-    PerlIO_printf(DBILOGFP,"%s IMP_DATA %s\n", pad, neatsvpv(DBIc_IMP_DATA(imp_xxh),0));
+    if (DBIc_IMP_DATA(imp_xxh) && SvOK(DBIc_IMP_DATA(imp_xxh)))
+        PerlIO_printf(DBILOGFP,"%s IMP_DATA %s\n", pad, neatsvpv(DBIc_IMP_DATA(imp_xxh),0));
     if (DBIc_LongReadLen(imp_xxh) != DBIc_LongReadLen_init)
 	PerlIO_printf(DBILOGFP,"%s LongReadLen %ld\n", pad, (long)DBIc_LongReadLen(imp_xxh));
 
-    if (DBIc_TYPE(imp_xxh) <= DBIt_DB) {
-	const imp_dbh_t *imp_dbh = (imp_dbh_t*)imp_xxh;
-	if (DBIc_CACHED_KIDS(imp_dbh))
-	    PerlIO_printf(DBILOGFP,"%s CachedKids %d\n", pad, (int)HvKEYS(DBIc_CACHED_KIDS(imp_dbh)));
-    }
     if (DBIc_TYPE(imp_xxh) == DBIt_ST) {
 	const imp_sth_t *imp_sth = (imp_sth_t*)imp_xxh;
 	PerlIO_printf(DBILOGFP,"%s NUM_OF_FIELDS %d\n", pad, DBIc_NUM_FIELDS(imp_sth));
 	PerlIO_printf(DBILOGFP,"%s NUM_OF_PARAMS %d\n", pad, DBIc_NUM_PARAMS(imp_sth));
     }
+    inner = dbih_inner(aTHX_ (SV*)DBIc_MY_H(imp_xxh), msg);
+    if (!inner || !SvROK(inner))
+        return 1;
+    if (DBIc_TYPE(imp_xxh) <= DBIt_DB) {
+        SV **svp = hv_fetch((HV*)SvRV(inner), "CachedKids", 10, 0);
+	if (svp && SvROK(*svp) && SvTYPE(SvRV(*svp)) == SVt_PVHV) {
+            HV *hv = (HV*)SvRV(*svp);
+	    PerlIO_printf(DBILOGFP,"%s CachedKids %d\n", pad, (int)HvKEYS(hv));
+        }
+    }
     if (level > 0) {
         SV* value;
 	char *key;
 	I32   keylen;
-	SV *inner;
 	PerlIO_printf(DBILOGFP,"%s cached attributes:\n", pad);
-	inner = dbih_inner((SV*)DBIc_MY_H(imp_xxh), msg);
 	while ( (value = hv_iternextsv((HV*)SvRV(inner), &key, &keylen)) ) {
 	    PerlIO_printf(DBILOGFP,"%s   '%s' => %s\n", pad, key, neatsvpv(value,0));
 	}
     }
+    else if (DBIc_TYPE(imp_xxh) == DBIt_DB) {
+        SV **svp = hv_fetch((HV*)SvRV(inner), "Name", 4, 0);
+        if (svp && SvOK(*svp))
+            PerlIO_printf(DBILOGFP,"%s Name %s\n", pad, neatsvpv(*svp,0));
+    }
+    else if (DBIc_TYPE(imp_xxh) == DBIt_ST) {
+        SV **svp = hv_fetch((HV*)SvRV(inner), "Statement", 9, 0);
+        if (svp && SvOK(*svp))
+            PerlIO_printf(DBILOGFP,"%s Statement %s\n", pad, neatsvpv(*svp,0));
+    }
+    return 1;
 }
 
 
 static void
 dbih_clearcom(imp_xxh_t *imp_xxh)
 {
+    dTHX;
     dPERINTERP;
     dTHR;
-    dTHX;
     int dump = FALSE;
     int debug = DBIS_TRACE_LEVEL;
     int auto_dump = (debug >= 6);
     imp_xxh_t * const parent_xxh = DBIc_PARENT_COM(imp_xxh);
-
     /* Note that we're very much on our own here. DBIc_MY_H(imp_xxh) almost	*/
     /* certainly points to memory which has been freed. Don't use it!		*/
 
@@ -1194,8 +1289,8 @@ dbih_clearcom(imp_xxh_t *imp_xxh)
 #ifdef DBI_USE_THREADS
     if (DBIc_THR_USER(imp_xxh) != my_perl) { /* don't clear handle that belongs to another thread */
 	if (debug >= 3) {
-	    PerlIO_printf(DBILOGFP,"    skipped dbih_clearcom: DBI handle (type=%d, %s) is owned by thread %p not current thread %p\n", 
-		  DBIc_TYPE(imp_xxh), HvNAME(DBIc_IMP_STASH(imp_xxh)), DBIc_THR_USER(imp_xxh), my_perl) ;
+	    PerlIO_printf(DBILOGFP,"    skipped dbih_clearcom: DBI handle (type=%d, %s) is owned by thread %p not current thread %p\n",
+		  DBIc_TYPE(imp_xxh), HvNAME(DBIc_IMP_STASH(imp_xxh)), (void*)DBIc_THR_USER(imp_xxh), (void*)my_perl) ;
 	    PerlIO_flush(DBILOGFP);
 	}
 	return;
@@ -1203,44 +1298,43 @@ dbih_clearcom(imp_xxh_t *imp_xxh)
 #endif
 
     if (!DBIc_COMSET(imp_xxh)) {	/* should never happen	*/
-	dbih_dumpcom(imp_xxh, "dbih_clearcom: DBI handle already cleared", 0);
+	dbih_dumpcom(aTHX_ imp_xxh, "dbih_clearcom: DBI handle already cleared", 0);
 	return;
     }
 
     if (auto_dump)
-	dbih_dumpcom(imp_xxh,"DESTROY (dbih_clearcom)", 0);
+	dbih_dumpcom(aTHX_ imp_xxh,"DESTROY (dbih_clearcom)", 0);
 
     if (!dirty) {
-	if (DBIc_TYPE(imp_xxh) <= DBIt_DB) {
-	    imp_dbh_t *imp_dbh = (imp_dbh_t*)imp_xxh; /* works for DRH also */
-	    if (DBIc_CACHED_KIDS(imp_dbh)) {
-		warn("DBI handle 0x%x cleared whilst still holding %d cached kids",
-			DBIc_MY_H(imp_xxh), HvKEYS(DBIc_CACHED_KIDS(imp_dbh)) );
-		SvREFCNT_dec(DBIc_CACHED_KIDS(imp_dbh)); /* may recurse */
-		DBIc_CACHED_KIDS(imp_dbh) = Nullhv;
-	    }
-	}
 
-	if (DBIc_ACTIVE(imp_xxh)) {	/* bad news		*/
-	    warn("DBI handle 0x%x cleared whilst still active", DBIc_MY_H(imp_xxh));
-	    dump = TRUE;
+	if (DBIc_ACTIVE(imp_xxh)) {	/* bad news, potentially	*/
+            /* warn for sth, warn for dbh only if it has active sth or isn't AutoCommit */
+            if (DBIc_TYPE(imp_xxh) >= DBIt_ST
+            || (DBIc_ACTIVE_KIDS(imp_xxh) || !DBIc_has(imp_xxh, DBIcf_AutoCommit))
+            ) {
+                warn("DBI %s handle 0x%lx cleared whilst still active",
+                        dbih_htype_name(DBIc_TYPE(imp_xxh)), (unsigned long)DBIc_MY_H(imp_xxh));
+                dump = TRUE;
+            }
 	}
 
 	/* check that the implementor has done its own housekeeping	*/
 	if (DBIc_IMPSET(imp_xxh)) {
-	    warn("DBI handle 0x%x has uncleared implementors data", DBIc_MY_H(imp_xxh));
+	    warn("DBI %s handle 0x%lx has uncleared implementors data",
+                    dbih_htype_name(DBIc_TYPE(imp_xxh)), (unsigned long)DBIc_MY_H(imp_xxh));
 	    dump = TRUE;
 	}
 
 	if (DBIc_KIDS(imp_xxh)) {
-	    warn("DBI handle 0x%x has %d uncleared child handles",
-		    DBIc_MY_H(imp_xxh), (int)DBIc_KIDS(imp_xxh));
+	    warn("DBI %s handle 0x%lx has %d uncleared child handles",
+                    dbih_htype_name(DBIc_TYPE(imp_xxh)),
+		    (unsigned long)DBIc_MY_H(imp_xxh), (int)DBIc_KIDS(imp_xxh));
 	    dump = TRUE;
 	}
     }
 
     if (dump && !auto_dump) /* else was already dumped above */
-	dbih_dumpcom(imp_xxh, "dbih_clearcom", 0);
+	dbih_dumpcom(aTHX_ imp_xxh, "dbih_clearcom", 0);
 
     /* --- pre-clearing adjustments --- */
 
@@ -1284,30 +1378,46 @@ dbih_clearcom(imp_xxh_t *imp_xxh)
 static AV *
 dbih_setup_fbav(imp_sth_t *imp_sth)
 {
+    /*  Usually called to setup the row buffer for new sth.
+     *  Also called if the value of NUM_OF_FIELDS is altered,
+     *  in which case it adjusts the row buffer to match NUM_OF_FIELDS.
+     */
+    dTHX;
     dPERINTERP;
-    int i;
-    AV *av;
+    I32 i = DBIc_NUM_FIELDS(imp_sth);
+    AV *av = DBIc_FIELDS_AV(imp_sth);
 
-   if (DBIc_FIELDS_AV(imp_sth))
-	return DBIc_FIELDS_AV(imp_sth);
+    if (i < 0)
+        i = 0;
 
-    i = DBIc_NUM_FIELDS(imp_sth);
-    if (i <= 0 || i > 32000)	/* trap obvious mistakes */
-	croak("dbih_setup_fbav: invalid number of fields: %d%s",
-		i, ", NUM_OF_FIELDS attribute probably not set right");
-    av = newAV();
-    if (DBIS_TRACE_LEVEL >= 3)
-	PerlIO_printf(DBILOGFP,"    dbih_setup_fbav for %d fields => 0x%lx\n",
-		    i, (long)av);
+    if (av) {
+        if (av_len(av)+1 == i)  /* is existing array the right size? */
+            return av;
+        /* we need to adjust the size of the array */
+        if (DBIc_TRACE_LEVEL(imp_sth) >= 3)
+            PerlIO_printf(DBILOGFP,"    dbih_setup_fbav realloc from %ld to %ld fields\n", av_len(av)+1, i);
+        SvREADONLY_off(av);
+        if (i < av_len(av)+1) /* trim to size if too big */
+            av_fill(av, i-1);
+    }
+    else {
+        if (DBIc_TRACE_LEVEL(imp_sth) >= 3)
+            PerlIO_printf(DBILOGFP,"    dbih_setup_fbav alloc for %ld fields\n", i);
+        av = newAV();
+        DBIc_FIELDS_AV(imp_sth) = av;
+
+        /* row_count will need to be manually reset by the driver if the	*/
+        /* sth is re-executed (since this code won't get rerun)		*/
+        DBIc_ROW_COUNT(imp_sth) = 0;
+    }
+
     /* load array with writeable SV's. Do this backwards so	*/
     /* the array only gets extended once.			*/
     while(i--)			/* field 1 stored at index 0	*/
 	av_store(av, i, newSV(0));
+    if (DBIc_TRACE_LEVEL(imp_sth) >= 6)
+        PerlIO_printf(DBILOGFP,"    dbih_setup_fbav now %ld fields\n", av_len(av)+1);
     SvREADONLY_on(av);		/* protect against shift @$row etc */
-    /* row_count will need to be manually reset by the driver if the	*/
-    /* sth is re-executed (since this code won't get rerun)		*/
-    DBIc_ROW_COUNT(imp_sth) = 0;
-    DBIc_FIELDS_AV(imp_sth) = av;
     return av;
 }
 
@@ -1317,18 +1427,31 @@ dbih_get_fbav(imp_sth_t *imp_sth)
 {
     AV *av;
 
-    if ( (av = DBIc_FIELDS_AV(imp_sth)) == Nullav)
+    if ( (av = DBIc_FIELDS_AV(imp_sth)) == Nullav) {
 	av = dbih_setup_fbav(imp_sth);
-
-    if (1) { /* XXX turn into option later */
-	int i = DBIc_NUM_FIELDS(imp_sth);
+    }
+    else {
+	dTHX;
+	int i = av_len(av) + 1;
+        if (i != DBIc_NUM_FIELDS(imp_sth)) {
+            /*SV *sth = dbih_inner(aTHX_ (SV*)DBIc_MY_H(imp_sth), "_get_fbav");*/
+            /* warn via PrintWarn */
+            set_err_char(SvRV(DBIc_MY_H(imp_sth)), (imp_xxh_t*)imp_sth,
+                    "0", 0, "Number of row fields inconsistent with NUM_OF_FIELDS (driver bug)", "", "_get_fbav");
+            /*
+            DBIc_NUM_FIELDS(imp_sth) = i;
+            hv_delete((HV*)SvRV(sth), "NUM_OF_FIELDS", 13, G_DISCARD);
+            */
+        }
 	/* don't let SvUTF8 flag persist from one row to the next   */
 	/* (only affects drivers that use sv_setpv, but most XS do) */
+        /* XXX turn into option later (force on/force off/ignore) */
 	while(i--)                  /* field 1 stored at index 0    */
 	    SvUTF8_off(AvARRAY(av)[i]);
     }
 
     if (DBIc_is(imp_sth, DBIcf_TaintOut)) {
+        dTHX;
 	dTHR;
 	TAINT;	/* affects sv_setsv()'s called within same perl statement */
     }
@@ -1342,6 +1465,7 @@ dbih_get_fbav(imp_sth_t *imp_sth)
 static int
 dbih_sth_bind_col(SV *sth, SV *col, SV *ref, SV *attribs)
 {
+    dTHX;
     dPERINTERP;
     D_imp_sth(sth);
     AV *av;
@@ -1355,20 +1479,28 @@ dbih_sth_bind_col(SV *sth, SV *col, SV *ref, SV *attribs)
 		? "" : " (perhaps you need to call execute first)");
     }
 
-    if (!SvROK(ref) || SvTYPE(SvRV(ref)) >= SVt_PVBM)	/* XXX LV */
-	croak("Can't %s->bind_col(%s, %s,...), need a reference to a scalar",
-		neatsvpv(sth,0), neatsvpv(col,0), neatsvpv(ref,0));
-
     if ( (av = DBIc_FIELDS_AV(imp_sth)) == Nullav)
 	av = dbih_setup_fbav(imp_sth);
 
     if (DBIS_TRACE_LEVEL >= 3)
-	PerlIO_printf(DBILOGFP,"    dbih_sth_bind_col %s => %s\n",
-		neatsvpv(col,0), neatsvpv(ref,0));
+	PerlIO_printf(DBILOGFP,"    dbih_sth_bind_col %s => %s %s\n",
+		neatsvpv(col,0), neatsvpv(ref,0), neatsvpv(attribs,0));
 
     if (idx < 1 || idx > fields)
 	croak("bind_col: column %d is not a valid column (1..%d)",
 			idx, fields);
+
+    if (!SvOK(ref) && SvREADONLY(ref)) {   /* binding to literal undef */
+        /* presumably the call is just setting the TYPE or other atribs */
+        /* but this default method ignores attribs, so we just return   */
+        return 1;
+    }
+
+    /* Write this as > SVt_PVMG because in 5.8.x the next type */
+    /* is SVt_PVBM, whereas in 5.9.x it's SVt_PVGV.            */
+    if (!SvROK(ref) || SvTYPE(SvRV(ref)) > SVt_PVMG) /* XXX LV */
+	croak("Can't %s->bind_col(%s, %s,...), need a reference to a scalar",
+		neatsvpv(sth,0), neatsvpv(col,0), neatsvpv(ref,0));
 
     /* use supplied scalar as storage for this column */
     SvREADONLY_off(av);
@@ -1412,6 +1544,7 @@ quote_type(int sql_type, int p, int s, int *t, void *v)
 static int
 dbih_set_attr_k(SV *h, SV *keysv, int dbikey, SV *valuesv)
 {
+    dTHX;
     dPERINTERP;
     dTHR;
     D_imp_xxh(h);
@@ -1508,7 +1641,7 @@ dbih_set_attr_k(SV *h, SV *keysv, int dbikey, SV *valuesv)
         cacheit = 1; /* just save it in the hash */
     }
     else if (strEQ(key, "Profile")) {
-	static const char dbi_class[] = "DBI::Profile";
+	static const char profile_class[] = "DBI::Profile";
 	if (on && (!SvROK(valuesv) || (SvTYPE(SvRV(valuesv)) != SVt_PVHV)) ) {
 	    /* not a hash ref so use DBI::Profile to work out what to do */
 	    dTHR;
@@ -1517,18 +1650,17 @@ dbih_set_attr_k(SV *h, SV *keysv, int dbikey, SV *valuesv)
 	    TAINT_NOT; /* the require is presumed innocent till proven guilty */
 	    perl_require_pv("DBI/Profile.pm");
 	    if (SvTRUE(ERRSV)) {
-		STRLEN lna;
-		warn("Can't load %s: %s", dbi_class, SvPV(ERRSV,lna));
+		warn("Can't load %s: %s", profile_class, SvPV_nolen(ERRSV));
 		valuesv = &sv_undef;
 	    }
 	    else {
 		PUSHMARK(SP);
-		XPUSHs(sv_2mortal(newSVpv(dbi_class,0)));
+		XPUSHs(sv_2mortal(newSVpv(profile_class,0)));
 		XPUSHs(valuesv);
 		PUTBACK;
 		returns = perl_call_method("_auto_new", G_SCALAR);
 		if (returns != 1)
-		    croak("_auto_new");
+		    croak("%s _auto_new", profile_class);
 		SPAGAIN;
 		valuesv = POPs;
 		PUTBACK;
@@ -1538,8 +1670,8 @@ dbih_set_attr_k(SV *h, SV *keysv, int dbikey, SV *valuesv)
 	if (on && !sv_isobject(valuesv)) {
 	    /* not blessed already - so default to DBI::Profile */
 	    HV *stash;
-	    perl_require_pv(dbi_class);
-	    stash = gv_stashpv(dbi_class, GV_ADDWARN);
+	    perl_require_pv(profile_class);
+	    stash = gv_stashpv(profile_class, GV_ADDWARN);
 	    sv_bless(valuesv, stash);
 	}
 	DBIc_set(imp_xxh,DBIcf_Profile, on);
@@ -1565,15 +1697,11 @@ dbih_set_attr_k(SV *h, SV *keysv, int dbikey, SV *valuesv)
     else if (strEQ(key, "TaintOut")) {
 	DBIc_set(imp_xxh,DBIcf_TaintOut, on);
     }
-    else if (htype<=DBIt_DB && keylen==10 && strEQ(key, "CachedKids")) {
-	D_imp_dbh(h);	/* XXX also for drh */
-	if (DBIc_CACHED_KIDS(imp_dbh)) {
-	    SvREFCNT_dec(DBIc_CACHED_KIDS(imp_dbh));
-	    DBIc_CACHED_KIDS(imp_dbh) = Nullhv;
-	}
-	if (SvROK(valuesv)) {
-	    DBIc_CACHED_KIDS(imp_dbh) = (HV*)SvREFCNT_inc(SvRV(valuesv));
-	}
+    else if (htype<=DBIt_DB && keylen==10 && strEQ(key, "CachedKids")
+        /* only allow hash refs */
+        && SvROK(valuesv) && SvTYPE(SvRV(valuesv))==SVt_PVHV
+    ) {
+	cacheit = 1;
     }
     else if (keylen==9 && strEQ(key, "Callbacks")) {
 	if ( on && (!SvROK(valuesv) || (SvTYPE(SvRV(valuesv)) != SVt_PVHV)) )
@@ -1599,9 +1727,11 @@ dbih_set_attr_k(SV *h, SV *keysv, int dbikey, SV *valuesv)
     }
     else if (htype==DBIt_ST && strEQ(key, "NUM_OF_FIELDS")) {
 	D_imp_sth(h);
-	if (DBIc_NUM_FIELDS(imp_sth) > 0)	/* don't change NUM_FIELDS! */
-	    croak("NUM_OF_FIELDS already set to %d", DBIc_NUM_FIELDS(imp_sth));
-	DBIc_NUM_FIELDS(imp_sth) = SvIV(valuesv);
+        int new_num_fields = (SvOK(valuesv)) ? SvIV(valuesv) : -1;
+	DBIc_NUM_FIELDS(imp_sth) = new_num_fields;
+        if (DBIc_FIELDS_AV(imp_sth)) { /* modify existing fbav */
+            dbih_setup_fbav(imp_sth);
+        }
 	cacheit = 1;
     }
     else if (htype==DBIt_ST && strEQ(key, "NUM_OF_PARAMS")) {
@@ -1612,6 +1742,7 @@ dbih_set_attr_k(SV *h, SV *keysv, int dbikey, SV *valuesv)
     /* these are here due to clone() needing to set attribs through a public api */
     else if (htype<=DBIt_DB && (strEQ(key, "Name")
 			    || strEQ(key,"ImplementorClass")
+			    || strEQ(key,"ReadOnly")
 			    || strEQ(key,"Statement")
 			    || strEQ(key,"Username")
 	/* these are here for backwards histerical raisons */
@@ -1650,10 +1781,10 @@ dbih_set_attr_k(SV *h, SV *keysv, int dbikey, SV *valuesv)
 static SV *
 dbih_get_attr_k(SV *h, SV *keysv, int dbikey)
 {
+    dTHX;
     dPERINTERP;
     dTHR;
     D_imp_xxh(h);
-    STRLEN lna;
     STRLEN keylen;
     char  *key = SvPV(keysv, keylen);
     int    htype = DBIc_TYPE(imp_xxh);
@@ -1719,7 +1850,7 @@ dbih_get_attr_k(SV *h, SV *keysv, int dbikey)
                     assert(i == AvFILL(name_av)+1);
                     while (--i >= 0) {
                         sv = newSVsv(AvARRAY(name_av)[i]);
-                        name = SvPV(sv,lna);
+                        name = SvPV_nolen(sv);
                         if (key[5] != 'h') {	/* "NAME_hash" */
                             for (p = name; p && *p; ++p) {
 #ifdef toUPPER_LC
@@ -1745,7 +1876,7 @@ dbih_get_attr_k(SV *h, SV *keysv, int dbikey)
 		IV num_fields = DBIc_NUM_FIELDS(imp_sth);
                 valuesv = (num_fields < 0) ? &sv_undef : newSViv(num_fields);
                 if (num_fields > 0)
-                    cacheit = TRUE;	/* can't change once set */
+                    cacheit = TRUE;	/* can't change once set (XXX except for multiple result sets) */
             }
             else if (keylen==13 && strEQ(key, "NUM_OF_PARAMS")) {
                 D_imp_sth(h);
@@ -1778,7 +1909,7 @@ dbih_get_attr_k(SV *h, SV *keysv, int dbikey)
                 valuesv = &sv_undef;
             break;
         }
-        
+
     }
     else
     if (htype == DBIt_DB) {
@@ -1794,12 +1925,7 @@ dbih_get_attr_k(SV *h, SV *keysv, int dbikey)
     }
 
     if (valuesv == Nullsv && htype <= DBIt_DB) {
-        if (keylen==10  && strEQ(key, "CachedKids")) {
-	    D_imp_dbh(h);
-	    HV *hv = DBIc_CACHED_KIDS(imp_dbh);
-	    valuesv = (hv) ? newRV((SV*)hv) : &sv_undef;
-	}
-        else if (keylen==10 && strEQ(key, "AutoCommit")) {
+        if (keylen==10 && strEQ(key, "AutoCommit")) {
             valuesv = boolSV(DBIc_has(imp_xxh,DBIcf_AutoCommit));
         }
     }
@@ -1814,7 +1940,7 @@ dbih_get_attr_k(SV *h, SV *keysv, int dbikey)
                 valuesv = newSViv(DBIc_ACTIVE_KIDS(imp_xxh));
             }
             break;
-            
+
           case 'B':
             if (keylen==9 && strEQ(key, "BegunWork")) {
                 valuesv = boolSV(DBIc_has(imp_xxh,DBIcf_BegunWork));
@@ -1871,7 +1997,7 @@ dbih_get_attr_k(SV *h, SV *keysv, int dbikey)
 
           case 'L':
             if (keylen==11 && strEQ(key, "LongReadLen")) {
-                valuesv = newSVnv((double)DBIc_LongReadLen(imp_xxh));
+                valuesv = newSVnv((NV)DBIc_LongReadLen(imp_xxh));
             }
             else if (keylen==11 && strEQ(key, "LongTruncOk")) {
                 valuesv = boolSV(DBIc_has(imp_xxh,DBIcf_LongTruncOk));
@@ -1937,25 +2063,29 @@ dbih_get_attr_k(SV *h, SV *keysv, int dbikey)
         }
     }
 
-    /* finally check the actual hash just in case	*/
+    /* finally check the actual hash */
     if (valuesv == Nullsv) {
 	valuesv = &sv_undef;
 	cacheit = 0;
 	svp = hv_fetch((HV*)SvRV(h), key, keylen, FALSE);
 	if (svp)
 	    valuesv = newSVsv(*svp);	/* take copy to mortalize */
-	else if (!(	(*key=='H' && strEQ(key, "HandleError"))
+	else /* warn unless it's known attribute name */
+	if ( !( 	(*key=='H' && strEQ(key, "HandleError"))
 		||	(*key=='H' && strEQ(key, "HandleSetErr"))
 		||	(*key=='S' && strEQ(key, "Statement"))
+		||	(*key=='P' && strEQ(key, "ParamArrays"))
 		||	(*key=='P' && strEQ(key, "ParamValues"))
 		||	(*key=='P' && strEQ(key, "Profile"))
+		||	(*key=='R' && strEQ(key, "ReadOnly"))
 		||	(*key=='C' && strEQ(key, "CursorName"))
 		||	(*key=='C' && strEQ(key, "Callbacks"))
+		||	(*key=='U' && strEQ(key, "Username"))
 		||	!isUPPER(*key)	/* dbd_*, private_* etc */
 	))
 	    warn("Can't get %s->{%s}: unrecognised attribute name",neatsvpv(h,0),key);
     }
-    
+
     if (cacheit) {
 	hv_store((HV*)SvRV(h), key, keylen, newSVsv(valuesv), 0);
     }
@@ -1968,27 +2098,6 @@ dbih_get_attr_k(SV *h, SV *keysv, int dbikey)
 }
 
 
-static SV *			/* find attrib in handle or its parents	*/
-dbih_find_attr(SV *h, SV *keysv, int copydown, int spare)
-{
-    D_imp_xxh(h);
-    SV *ph;
-    STRLEN keylen;
-    char  *key = SvPV(keysv, keylen);
-    SV *valuesv;
-    SV **svp = hv_fetch((HV*)SvRV(h), key, keylen, FALSE);
-    if (svp)
-	valuesv = *svp;
-    else
-    if (!SvOK(ph=(SV*)DBIc_PARENT_H(imp_xxh)))
-	valuesv = Nullsv;
-    else /* recurse up */
-	valuesv = dbih_find_attr(ph, keysv, copydown, spare);
-    if (valuesv && copydown)
-	hv_store((HV*)SvRV(h), key, keylen, newSVsv(valuesv), 0);
-    return valuesv;	/* return actual sv, not a mortalised copy	*/
-}
-
 
 /* --------------------------------------------------------------------	*/
 /* Functions implementing Error and Event Handling.                   	*/
@@ -1997,6 +2106,7 @@ dbih_find_attr(SV *h, SV *keysv, int copydown, int spare)
 static SV *
 dbih_event(SV *hrv, const char *evtype, SV *a1, SV *a2)
 {
+    dTHX;
     /* We arrive here via DBIh_EVENT* macros (see DBIXS.h) called from	*/
     /* DBD driver C code OR $h->event() method (in DBD::_::common)	*/
     /* XXX VERY OLD INTERFACE/CONCEPT MAY GO SOON */
@@ -2015,6 +2125,7 @@ dbih_event(SV *hrv, const char *evtype, SV *a1, SV *a2)
 STATIC I32
 dbi_dopoptosub_at(PERL_CONTEXT *cxstk, I32 startingblock)
 {
+    dTHX;
     I32 i;
     register PERL_CONTEXT *cx;
     for (i = startingblock; i >= 0; i--) {
@@ -2035,16 +2146,16 @@ dbi_dopoptosub_at(PERL_CONTEXT *cxstk, I32 startingblock)
 }
 
 
-static char *
-dbi_caller(long *line)
+static COP *
+dbi_caller_cop()
 {
+    dTHX;
     register I32 cxix;
     register PERL_CONTEXT *cx;
     register PERL_CONTEXT *ccstack = cxstack;
     PERL_SI *top_si = PL_curstackinfo;
     char *stashname;
 
-    *line = -1;
     for ( cxix = dbi_dopoptosub_at(ccstack, cxstack_ix) ;; cxix = dbi_dopoptosub_at(ccstack, cxix - 1)) {
 	/* we may be in a higher stacklevel, so dig down deeper */
 	while (cxix < 0 && top_si->si_type != PERLSI_MAIN) {
@@ -2061,48 +2172,53 @@ dbi_caller(long *line)
 	stashname = CopSTASHPV(cx->blk_oldcop);
 	if (!stashname)
 	    continue;
-	if (!(stashname[0] == 'D'
-	    && stashname[1] == 'B'
-	    && strchr("DI", stashname[2])
-	    && (!stashname[3] || (stashname[3] == ':' && stashname[4] == ':')))) 
+	if (!(stashname[0] == 'D' && stashname[1] == 'B'
+                && strchr("DI", stashname[2])
+                    && (!stashname[3] || (stashname[3] == ':' && stashname[4] == ':'))))
 	{
-	    STRLEN len;
-	    *line = (I32)CopLINE(cx->blk_oldcop);
-	    return SvPV(GvSV(CopFILEGV(cx->blk_oldcop)), len);
+            return cx->blk_oldcop;
 	}
 	cxix = dbi_dopoptosub_at(ccstack, cxix - 1);
     }
     return NULL;
 }
 
-static char *
-log_where(int trace_level, SV *buf, int append, char *suffix)
+static void
+dbi_caller_string(SV *buf, COP *cop, char *prefix, int show_line, int show_path)
 {
-    dTHR;
-    if (!buf) {
-	buf = sv_2mortal(newSV(80));
-	sv_setpv(buf,"");
+    dTHX;
+    STRLEN len;
+    long  line = CopLINE(cop);
+    char *file = SvPV(GvSV(CopFILEGV(cop)), len);
+    if (!show_path) {
+        char *sep;
+        if ( (sep=strrchr(file,'/')) || (sep=strrchr(file,'\\')))
+            file = sep+1;
     }
-    else
-    if (!append)
+    if (show_line) {
+        sv_catpvf(buf, "%s%s line %ld", (prefix) ? prefix : "", file, line);
+    }
+    else {
+        sv_catpvf(buf, "%s%s",          (prefix) ? prefix : "", file);
+    }
+}
+
+static char *
+log_where(SV *buf, int append, char *prefix, char *suffix, int show_line, int show_caller, int show_path)
+{
+    dTHX;
+    dTHR;
+    if (!buf)
+	buf = sv_2mortal(newSVpv("",0));
+    else if (!append)
 	sv_setpv(buf,"");
     if (CopLINE(curcop)) {
-	STRLEN len;
-	long  near_line = CopLINE(curcop);
-	char *near_file = SvPV(GvSV(CopFILEGV(curcop)), len);
-	char *file = near_file;
-	if (trace_level <= 4) {
-	    char *sep;
-	    if ( (sep=strrchr(file,'/')) || (sep=strrchr(file,'\\')))
-		file = sep+1;
-	}
-	sv_catpvf(buf, " at %s line %ld", file, near_line);
-
-	if (trace_level >= 3) {
-	    long far_line;
-	    char *far_file = dbi_caller(&far_line);
-	    if (far_file && !(far_line==near_line && strEQ(far_file,near_file)) )
-		sv_catpvf(buf, " via %s line %ld", far_file, far_line);
+        COP *cop;
+        dbi_caller_string(buf, curcop, prefix, show_line, show_path);
+	if (show_caller && (cop = dbi_caller_cop())) {
+            SV *via = sv_2mortal(newSVpv("",0));
+            dbi_caller_string(via, cop, prefix, show_line, show_path);
+            sv_catpvf(buf, " via %s", SvPV_nolen(via));
 	}
     }
     if (dirty)
@@ -2114,27 +2230,36 @@ log_where(int trace_level, SV *buf, int append, char *suffix)
 
 
 static void
-clear_cached_kids(SV *h, imp_xxh_t *imp_xxh, const char *meth_name, int trace_level)
+clear_cached_kids(pTHX_ SV *h, imp_xxh_t *imp_xxh, const char *meth_name, int trace_level)
 {
-    dPERINTERP;
-    if (DBIc_TYPE(imp_xxh) <= DBIt_DB && DBIc_CACHED_KIDS((imp_drh_t*)imp_xxh)) {
-	if (DBIc_TRACE_LEVEL(imp_xxh) > trace_level)
-	    trace_level = DBIc_TRACE_LEVEL(imp_xxh);
-	if (trace_level >= 2) {
-	    PerlIO_printf(DBILOGFP,"    >> %s %s clearing %d CachedKids\n",
-		meth_name, neatsvpv(h,0), (int)HvKEYS(DBIc_CACHED_KIDS((imp_drh_t*)imp_xxh)));
-	    PerlIO_flush(DBILOGFP);
-	}
-	/* This will probably recurse through dispatch to DESTROY the kids */
-	/* For drh we should probably explicitly do dbh disconnects */
-	SvREFCNT_dec(DBIc_CACHED_KIDS((imp_drh_t*)imp_xxh));
-	DBIc_CACHED_KIDS((imp_drh_t*)imp_xxh) = Nullhv;
+    if (DBIc_TYPE(imp_xxh) <= DBIt_DB) {
+        SV **svp = hv_fetch((HV*)SvRV(h), "CachedKids", 10, 0);
+        if (svp && SvROK(*svp) && SvTYPE(SvRV(*svp)) == SVt_PVHV) {
+            HV *hv = (HV*)SvRV(*svp);
+            if (HvKEYS(hv)) {
+                dPERINTERP;
+                if (DBIc_TRACE_LEVEL(imp_xxh) > trace_level)
+                    trace_level = DBIc_TRACE_LEVEL(imp_xxh);
+                if (trace_level >= 2) {
+                    PerlIO_printf(DBILOGFP,"    >> %s %s clearing %d CachedKids\n",
+                        meth_name, neatsvpv(h,0), (int)HvKEYS(hv));
+                    PerlIO_flush(DBILOGFP);
+                }
+                /* This will probably recurse through dispatch to DESTROY the kids */
+                /* For drh we should probably explicitly do dbh disconnects */
+                hv_clear(hv);
+            }
+        }
     }
 }
 
-static double
+
+static NV
 dbi_time() {
 # ifdef HAS_GETTIMEOFDAY
+#   ifdef PERL_IMPLICIT_SYS
+    dTHX;
+#   endif
     struct timeval when;
     gettimeofday(&when, (struct timezone *) 0);
     return when.tv_sec + (when.tv_usec / 1000000.0);
@@ -2153,10 +2278,35 @@ dbi_time() {
 # endif
 }
 
-static void
-dbi_profile(SV *h, imp_xxh_t *imp_xxh, const char *statement, SV *method, double t1, double t2)
+
+static SV *
+_profile_next_node(SV *node, const char *name)
 {
-#define DBIprof_MAX_PATH_ELEM	9	/* STATEMENT->$Statement->$method */
+    /* step one level down profile Data tree and auto-vivify if required */
+    dTHX;
+    SV *orig_node = node;
+    if (SvROK(node))
+        node = SvRV(node);
+    if (SvTYPE(node) != SVt_PVHV) {
+        HV *hv = newHV();
+        if (SvOK(node)) {
+            char *key = "(demoted)";
+            warn("Profile data element %s replaced with new hash ref (for %s) and original value stored with key '%s'",
+                neatsvpv(orig_node,0), name, key);
+            hv_store(hv, key, strlen(key), SvREFCNT_inc(orig_node), 0);
+        }
+        sv_setsv(node, newRV_noinc((SV*)hv));
+        node = (SV*)hv;
+    }
+    node = *hv_fetch((HV*)node, name, strlen(name), 1);
+    return node;
+}
+
+
+static SV*
+dbi_profile(SV *h, imp_xxh_t *imp_xxh, SV *statement_sv, SV *method, NV t1, NV t2)
+{
+#define DBIprof_MAX_PATH_ELEM	100
 #define DBIprof_COUNT		0
 #define DBIprof_TOTAL_TIME	1
 #define DBIprof_FIRST_TIME	2
@@ -2165,124 +2315,217 @@ dbi_profile(SV *h, imp_xxh_t *imp_xxh, const char *statement, SV *method, double
 #define DBIprof_FIRST_CALLED	5
 #define DBIprof_LAST_CALLED	6
 #define DBIprof_max_index	6
-    double ti = t2 - t1;
-    const char *path[DBIprof_MAX_PATH_ELEM+1];
-    int idx = -1;
-    STRLEN lna;
+    dTHX;
+    NV ti = t2 - t1;
+    int src_idx = 0;
+    HV *dbh_outer_hv = NULL;
+    HV *dbh_inner_hv = NULL;
+    char *statement_pv;
+    char *method_pv;
     SV *profile;
     SV *tmp;
+    SV *dest_node;
     AV *av;
     HV *h_hv;
 
     const int call_depth = DBIc_CALL_DEPTH(imp_xxh);
     const int parent_call_depth = DBIc_PARENT_COM(imp_xxh) ? DBIc_CALL_DEPTH(DBIc_PARENT_COM(imp_xxh)) : 0;
     /* Only count calls originating from the application code	*/
-    /* *MAY* be made configurable later				*/
-    /* XXX BEWARE that if nested call profile data is merged	*/
-    /* with the non-nested data then we'll get invalid results	*/
     if (call_depth > 1 || parent_call_depth > 0)
-	return;
+	return &sv_undef;
 
     if (!DBIc_has(imp_xxh, DBIcf_Profile))
-	return;
+	return &sv_undef;
 
-    /* XXX need to switch to inner handle */
-    h_hv = (SvROK(h)) ? (HV*)SvRV(h) : (HV*)h;
+    method_pv = (SvTYPE(method)==SVt_PVCV) ? GvNAME(CvGV(method))
+                : isGV(method) ? GvNAME(method)
+                : SvOK(method) ? SvPV_nolen(method)
+                : "";
+
+    /* we don't profile DESTROY during global destruction */
+    if (dirty && instr(method_pv, "DESTROY"))
+        return &sv_undef;
+
+    h_hv = (HV*)SvRV(dbih_inner(aTHX_ h, "dbi_profile"));
 
     profile = *hv_fetch(h_hv, "Profile", 7, 1);
     if (profile && SvMAGICAL(profile))
 	mg_get(profile); /* FETCH */
     if (!profile || !SvROK(profile)) {
 	DBIc_set(imp_xxh, DBIcf_Profile, 0); /* disable */
-	if (!dirty)
-	    warn("Profile attribute isn't a hash ref (%s,%d)", neatsvpv(profile,0), SvTYPE(profile));
-	return;
+	if (SvOK(profile) && !dirty)
+	    warn("Profile attribute isn't a hash ref (%s,%ld)", neatsvpv(profile,0), (long)SvTYPE(profile));
+	return &sv_undef;
     }
 
-    if (!statement) {
+    /* statement_sv: undef = use $h->{Statement}, "" (&sv_no) = use empty string */
+
+    if (!SvOK(statement_sv)) {
 	SV **psv = hv_fetch(h_hv, "Statement", 9, 0);
-	statement = (psv && SvOK(*psv)) ? SvPV(*psv, lna) : "";
+	statement_sv = (psv && SvOK(*psv)) ? *psv : &sv_no;
     }
-    if (DBIc_DBISTATE(imp_xxh)->debug >= 4)
-	PerlIO_printf(DBIc_LOGPIO(imp_xxh), "dbi_profile %s %f %d %d q{%s}\n",
-		neatsvpv((SvTYPE(method)==SVt_PVCV) ? (SV*)CvGV(method) : method, 0),
-		ti, call_depth, parent_call_depth, statement);
+    statement_pv = SvPV_nolen(statement_sv);
 
-    idx = 0;
-    path[idx++] = "Data";
+    if (DBIc_DBISTATE(imp_xxh)->debug >= 4)
+	PerlIO_printf(DBIc_LOGPIO(imp_xxh), "       dbi_profile +%fs %s %s\n",
+            ti, method_pv, neatsvpv(statement_sv,0));
+
+    dest_node = _profile_next_node(profile, "Data");
+
     tmp = *hv_fetch((HV*)SvRV(profile), "Path", 4, 1);
-    if (SvROK(tmp) && SvTYPE(SvRV(tmp))==SVt_PVCV) {
-	/* call sub, use returned list of values as path */
-	/* if no values returned then don't save data	*/
-	path[idx++] = Nullch;
-    }
-    else if (SvROK(tmp) && SvTYPE(SvRV(tmp))==SVt_PVAV) {
+    if (SvROK(tmp) && SvTYPE(SvRV(tmp))==SVt_PVAV) {
 	int len;
 	av = (AV*)SvRV(tmp);
 	len = av_len(av); /* -1=empty, 0=one element */
-	for ( ;(idx-1) <= len && idx < DBIprof_MAX_PATH_ELEM; ++idx) {
-	    SV *pathsv = AvARRAY(av)[idx-1];
-	    const char *p;
-	    switch(SvIOK(pathsv) ? SvIV(pathsv) : 0) {
-	    case -2100000001:
-		p = statement;
-		break;
-	    case -2100000002:
-		p = (SvTYPE(method)==SVt_PVCV)
-			? GvNAME(CvGV(method))
-			: (isGV(method) ? GvNAME(method) : SvPV(method,lna));
-		break;
-	    case -2100000003:
-		if (SvTYPE(method) == SVt_PVCV) {
-		    p = SvPV((SV*)CvGV(method), lna);
-		}
-		else if (isGV(method)) {
-		    /* just using SvPV(method,lna) sometimes causes an error:	*/
-		    /* "Can't coerce GLOB to string" so we use gv_efullname()	*/
-		    SV *tmpsv = sv_2mortal(newSVpv("",0));
-		    gv_efullname(tmpsv, (GV*)method);
-		    p = SvPV(tmpsv,lna);
-		}
-		else {
-		    p = SvPV(method,lna);
-		}
-		break;
-	    default:
-		p = SvPV(pathsv,lna);
-		break;
-	    }
-	    path[idx] = p;
-	}
-    }
-    else if (SvOK(tmp)) {
-	DBIc_set(imp_xxh, DBIcf_Profile, 0); /* disable */
-	warn("Profile Path attribute isn't valid (%s)", neatsvpv(tmp,0));
-	return;
-    }
-    else {
-	path[idx++] = statement;
-    }
-    path[idx++] = Nullch;
 
-    tmp = profile;
-    for (idx=0; path[idx]; ++idx) {
-	if (SvROK(tmp))
-	    tmp = SvRV(tmp);
-	else if (SvTYPE(tmp) != SVt_PVHV) {
-	    HV *hv = newHV();
-	    if (SvOK(tmp))
-		warn("Profile data element %s replaced with new hash ref", neatsvpv(tmp,0));
-	    sv_setsv(tmp, newRV_noinc((SV*)hv));
-	    tmp = (SV*)hv;
+	while ( src_idx <= len ) {
+	    SV *pathsv = AvARRAY(av)[src_idx++];
+
+	    if (SvROK(pathsv) && SvTYPE(SvRV(pathsv))==SVt_PVCV) {
+		/* call sub, use returned list of values as path */
+                /* returning a ref to undef vetos this profile data */
+                dSP;
+                I32 ax;
+                SV *code_sv = SvRV(pathsv);
+                I32 items;
+                I32 item_idx;
+                EXTEND(SP, 4);
+                PUSHMARK(SP);
+                PUSHs(h);   /* push inner handle, then others params */
+		PUSHs( sv_2mortal(newSVpv(method_pv,0)));
+                PUTBACK;
+                SAVE_DEFSV; /* local($_) = $statement */
+                DEFSV = statement_sv;
+                items = call_sv(code_sv, G_ARRAY);
+                SPAGAIN;
+                SP -= items ;
+                ax = (SP - PL_stack_base) + 1 ;
+                for (item_idx=0; item_idx < items; ++item_idx) {
+                    SV *item_sv = ST(item_idx);
+                    if (SvROK(item_sv)) {
+                        if (!SvOK(SvRV(item_sv)))
+                            items = -2; /* flag that we're rejecting this profile data */
+                        else /* other refs reserved */
+                            warn("Ignored ref returned by code ref in Profile Path");
+                        break;
+                    }
+                    dest_node = _profile_next_node(dest_node, SvPV_nolen(item_sv));
+                }
+                PUTBACK;
+                if (items == -2) /* this profile data was vetoed */
+                    return &sv_undef;
+	    }
+            else if (SvROK(pathsv)) {
+                /* only meant for refs to scalars currently */
+                const char *p = SvPV_nolen(SvRV(pathsv));
+                dest_node = _profile_next_node(dest_node, p);
+            }
+	    else if (SvOK(pathsv)) {
+		STRLEN len;
+                const char *p = SvPV(pathsv,len);
+		if (p[0] == '!') { /* special cases */
+                    if (p[1] == 'S' && strEQ(p, "!Statement")) {
+                        dest_node = _profile_next_node(dest_node, statement_pv);
+                    }
+                    else if (p[1] == 'M' && strEQ(p, "!MethodName")) {
+                        dest_node = _profile_next_node(dest_node, method_pv);
+                    }
+                    else if (p[1] == 'M' && strEQ(p, "!MethodClass")) {
+                        if (SvTYPE(method) == SVt_PVCV) {
+                            p = SvPV_nolen((SV*)CvGV(method));
+                        }
+                        else if (isGV(method)) {
+                            /* just using SvPV_nolen(method) sometimes causes an error:	*/
+                            /* "Can't coerce GLOB to string" so we use gv_efullname()	*/
+                            SV *tmpsv = sv_2mortal(newSVpv("",0));
+#if (PERL_VERSION < 6)
+                            gv_efullname(tmpsv, (GV*)method);
+#else
+                            gv_efullname4(tmpsv, (GV*)method, "", TRUE);
+#endif
+                            p = SvPV_nolen(tmpsv);
+                            if (*p == '*') ++p; /* skip past leading '*' glob sigil */
+                        }
+                        else {
+                            p = method_pv;
+                        }
+                        dest_node = _profile_next_node(dest_node, p);
+                    }
+                    else if (p[1] == 'F' && strEQ(p, "!File")) {
+                        dest_node = _profile_next_node(dest_node, log_where(0, 0, "", "", 0, 0, 0));
+                    }
+                    else if (p[1] == 'F' && strEQ(p, "!File2")) {
+                        dest_node = _profile_next_node(dest_node, log_where(0, 0, "", "", 0, 1, 0));
+                    }
+                    else if (p[1] == 'C' && strEQ(p, "!Caller")) {
+                        dest_node = _profile_next_node(dest_node, log_where(0, 0, "", "", 1, 0, 0));
+                    }
+                    else if (p[1] == 'C' && strEQ(p, "!Caller2")) {
+                        dest_node = _profile_next_node(dest_node, log_where(0, 0, "", "", 1, 1, 0));
+                    }
+                    else if (p[1] == 'T' && (strEQ(p, "!Time") || strnEQ(p, "!Time~", 6))) {
+                        char timebuf[20];
+                        int factor = 1;
+                        if (p[5] == '~') {
+                            factor = atoi(&p[6]);
+                            if (factor == 0) /* sanity check to avoid div by zero error */
+                                factor = 3600;
+                        }
+                        sprintf(timebuf, "%ld", ((long)(dbi_time()/factor))*factor);
+                        dest_node = _profile_next_node(dest_node, timebuf);
+                    }
+                    else {
+                        warn("Unknown ! element in DBI::Profile Path: %s", p);
+                        dest_node = _profile_next_node(dest_node, p);
+                    }
+                }
+                else if (p[0] == '{' && p[len-1] == '}') { /* treat as name of dbh attribute to use */
+		    SV **attr_svp;
+		    if (!dbh_inner_hv) {	/* cache dbh handles the first time we need them */
+			imp_dbh_t *imp_dbh = (DBIc_TYPE(imp_xxh) <= DBIt_DB) ? (imp_dbh_t*)imp_xxh : (imp_dbh_t*)DBIc_PARENT_COM(imp_xxh);
+			dbh_outer_hv = DBIc_MY_H(imp_dbh);
+			if (SvTYPE(dbh_outer_hv) != SVt_PVHV)
+			    return &sv_undef;	/* presumably global destruction - bail */
+			dbh_inner_hv = (HV*)SvRV(dbih_inner(aTHX_ (SV*)dbh_outer_hv, "profile"));
+			if (SvTYPE(dbh_inner_hv) != SVt_PVHV)
+			    return &sv_undef;	/* presumably global destruction - bail */
+		    }
+		    /* fetch from inner first, then outer if key doesn't exist */
+		    /* (yes, this is an evil premature optimization) */
+		    p += 1; len -= 2; /* ignore the braces */
+		    if ((attr_svp = hv_fetch(dbh_inner_hv, p, len, 0)) == NULL) {
+			/* try outer (tied) hash - for things like AutoCommit	*/
+			/* (will always return something even for unknowns)	*/
+			if ((attr_svp = hv_fetch(dbh_outer_hv, p, len, 0))) {
+			    if (SvGMAGICAL(*attr_svp))
+				mg_get(*attr_svp); /* FETCH */
+			}
+		    }
+		    if (!attr_svp)
+			p -= 1; /* unignore the braces */
+		    else if (!SvOK(*attr_svp))
+			p = "";
+		    else if (!SvTRUE(*attr_svp) && SvPOK(*attr_svp) && SvNIOK(*attr_svp))
+			p = "0"; /* catch &sv_no style special case */
+		    else
+			p = SvPV_nolen(*attr_svp);
+                    dest_node = _profile_next_node(dest_node, p);
+		}
+                else {
+                    dest_node = _profile_next_node(dest_node, p);
+                }
+	    }
+            /* else undef, so ignore */
 	}
-	if (SvTYPE(tmp) != SVt_PVHV)
-	    break;
-	tmp = *hv_fetch((HV*)tmp, path[idx], strlen(path[idx]), 1);
-	/* warn("%d hv_fetch %s = %s", idx, path[idx], neatsvpv(tmp,0)); */
     }
-    if (!SvOK(tmp)) {
+    else { /* a bad Path value is treated as a Path of just Statement */
+        dest_node = _profile_next_node(dest_node, statement_pv);
+    }
+
+
+    if (!SvOK(dest_node)) {
 	av = newAV();
-	sv_setsv(tmp, newRV_noinc((SV*)av));
+	sv_setsv(dest_node, newRV_noinc((SV*)av));
 	av_store(av, DBIprof_COUNT,		newSViv(1));
 	av_store(av, DBIprof_TOTAL_TIME,	newSVnv(ti));
 	av_store(av, DBIprof_FIRST_TIME,	newSVnv(ti));
@@ -2290,35 +2533,39 @@ dbi_profile(SV *h, imp_xxh_t *imp_xxh, const char *statement, SV *method, double
 	av_store(av, DBIprof_MAX_TIME,		newSVnv(ti));
 	av_store(av, DBIprof_FIRST_CALLED,	newSVnv(t1));
 	av_store(av, DBIprof_LAST_CALLED,	newSVnv(t1));
-        return;
     }
-    if (SvROK(tmp))
-	tmp = SvRV(tmp);
-    if (SvTYPE(tmp) != SVt_PVAV)
-	croak("Invalid Profile data leaf element at depth %d: %s (type %d)",
-		idx, neatsvpv(tmp,0), SvTYPE(tmp));
-    av = (AV*)tmp;
-    sv_inc( *av_fetch(av, DBIprof_COUNT, 1));
-    tmp = *av_fetch(av, DBIprof_TOTAL_TIME, 1);
-    sv_setnv(tmp, SvNV(tmp) + ti);
-    tmp = *av_fetch(av, DBIprof_MIN_TIME, 1);
-    if (ti < SvNV(tmp)) sv_setnv(tmp, ti);
-    tmp = *av_fetch(av, DBIprof_MAX_TIME, 1);
-    if (ti > SvNV(tmp)) sv_setnv(tmp, ti);
-    sv_setnv( *av_fetch(av, DBIprof_LAST_CALLED, 1), t1);
-    return;
+    else {
+        tmp = dest_node;
+	if (SvROK(tmp))
+	    tmp = SvRV(tmp);
+	if (SvTYPE(tmp) != SVt_PVAV)
+	    croak("Invalid Profile data leaf element: %s (type %ld)",
+		    neatsvpv(tmp,0), (long)SvTYPE(tmp));
+	av = (AV*)tmp;
+	sv_inc( *av_fetch(av, DBIprof_COUNT, 1));
+	tmp = *av_fetch(av, DBIprof_TOTAL_TIME, 1);
+	sv_setnv(tmp, SvNV(tmp) + ti);
+	tmp = *av_fetch(av, DBIprof_MIN_TIME, 1);
+	if (ti < SvNV(tmp)) sv_setnv(tmp, ti);
+	tmp = *av_fetch(av, DBIprof_MAX_TIME, 1);
+	if (ti > SvNV(tmp)) sv_setnv(tmp, ti);
+	sv_setnv( *av_fetch(av, DBIprof_LAST_CALLED, 1), t1);
+    }
+    return dest_node; /* use with caution - copy first, ie sv_mortalcopy() */
 }
 
+
 static void
-dbi_profile_merge(SV *dest, SV *increment)
+dbi_profile_merge_nodes(SV *dest, SV *increment)
 {
+    dTHX;
     AV *d_av, *i_av;
     SV *tmp;
-    double i_nv;
+    NV i_nv;
     int i_is_earlier;
 
     if (!SvROK(dest) || SvTYPE(SvRV(dest)) != SVt_PVAV)
-	croak("dbi_profile_merge(%s, ...) requires array ref", neatsvpv(dest,0));
+	croak("dbi_profile_merge_nodes(%s, ...) requires array ref", neatsvpv(dest,0));
     d_av = (AV*)SvRV(dest);
 
     if (av_len(d_av) < DBIprof_max_index) {
@@ -2340,13 +2587,13 @@ dbi_profile_merge(SV *dest, SV *increment)
 	I32 keylen = 0;
 	hv_iterinit(hv);
 	while ( (tmp = hv_iternextsv(hv, &key, &keylen)) != NULL ) {
-	    dbi_profile_merge(dest, tmp);
+	    dbi_profile_merge_nodes(dest, tmp);
 	};
 	return;
     }
 
     if (!SvROK(increment) || SvTYPE(SvRV(increment)) != SVt_PVAV)
-	croak("dbi_profile_merge: increment not an array or hash ref");
+	croak("dbi_profile_merge_nodes: increment %s not an array or hash ref", neatsvpv(increment,0));
     i_av = (AV*)SvRV(increment);
 
     tmp = *av_fetch(d_av, DBIprof_COUNT, 1);
@@ -2386,7 +2633,8 @@ dbi_profile_merge(SV *dest, SV *increment)
 /* ----------------------------------------------------------------- */
 /* ---   The DBI dispatcher. The heart of the perl DBI.          --- */
 
-XS(XS_DBI_dispatch)         /* prototype must match XS produced code */
+XS(XS_DBI_dispatch);            /* prototype to pass -Wmissing-prototypes */
+XS(XS_DBI_dispatch)
 {
     dXSARGS;
     dPERINTERP;
@@ -2396,19 +2644,21 @@ XS(XS_DBI_dispatch)         /* prototype must match XS produced code */
     SV *st2 = ST(2);		/* used in debugging */
     SV *orig_h = h;
     SV *err_sv;
+    SV **tmp_svp;
     SV **hook_svp = 0;
     MAGIC *mg;
-    STRLEN lna;
     int gimme = GIMME;
     I32 trace_flags = DBIS->debug;	/* local copy may change during dispatch */
     I32 trace_level = (trace_flags & DBIc_TRACE_LEVEL_MASK);
     int is_DESTROY;
     int is_FETCH;
+    int is_unrelated_to_Statement = 0;
     int keep_error = FALSE;
     UV  ErrCount = UV_MAX;
     int i, outitems;
     int call_depth;
-    double profile_t1 = 0.0;
+    int is_nested_call;
+    NV profile_t1 = 0.0;
 
     const char	*meth_name = GvNAME(CvGV(cv));
     const dbi_ima_t	*ima = (dbi_ima_t*)CvXSUBANY(cv).any_ptr;
@@ -2424,7 +2674,7 @@ XS(XS_DBI_dispatch)         /* prototype must match XS produced code */
 	    (dirty?'!':' '), meth_name, neatsvpv(h,0),
 	    (long)SvREFCNT(h), (SvROK(h) ? (long)SvREFCNT(SvRV(h)) : (long)-1),
 	    (long)items, (int)gimme, (long)ima_flags, (long)PerlProc_getpid());
-	PerlIO_puts(logfp, log_where(trace_level, 0, 0, "\n"));
+	PerlIO_puts(logfp, log_where(0, 0, " at ","\n", 1, (trace_level >= 3), (trace_level >= 4)));
 	PerlIO_flush(logfp);
     }
 
@@ -2441,7 +2691,7 @@ XS(XS_DBI_dispatch)         /* prototype must match XS produced code */
     */
     if (SvROK(h) && SvRMAGICAL(SvRV(h)) && (mg=mg_find(SvRV(h),'P'))!=NULL) {
 
-        if (SvPVX(mg->mg_obj)==NULL) {  /* maybe global destruction */
+        if (mg->mg_obj==NULL || !SvOK(mg->mg_obj) || SvRV(mg->mg_obj)==NULL) {  /* maybe global destruction */
             if (trace_level >= 3)
                 PerlIO_printf(DBILOGFP,
 		    "%c   <> %s for %s ignored (inner handle gone)\n",
@@ -2458,14 +2708,21 @@ XS(XS_DBI_dispatch)         /* prototype must match XS produced code */
 		goto is_DESTROY_wrong_thread;
 	    }
 #endif
-	    if (imp_xxh && DBIc_TYPE(imp_xxh) <= DBIt_DB && DBIc_CACHED_KIDS((imp_drh_t*)imp_xxh))
-		clear_cached_kids(mg->mg_obj, imp_xxh, meth_name, trace_level);
-	    if (trace_level >= 3)
+	    if (imp_xxh && DBIc_TYPE(imp_xxh) <= DBIt_DB)
+		clear_cached_kids(aTHX_ mg->mg_obj, imp_xxh, meth_name, trace_level);
+	    if (trace_level >= 3) {
+                /* XXX might be better to move this down to after call_depth has been
+                 * incremented and then also SvREFCNT_dec(mg->mg_obj) to force an immediate
+                 * DESTROY of the inner handle if there are no other refs to it.
+                 * That way the inner DESTROY is properly flagged as a nested call,
+                 * and the outer DESTROY gets profiled more accurately, and callbacks work.
+                 */
                 PerlIO_printf(DBILOGFP,
 		    "%c   <> DESTROY(%s) ignored for outer handle (inner %s has ref cnt %ld)\n",
 		    (dirty?'!':' '), neatsvpv(h,0), neatsvpv(mg->mg_obj,0),
 		    (long)SvREFCNT(SvRV(mg->mg_obj))
 		);
+            }
 	    /* for now we ignore it since it'll be followed soon by	*/
 	    /* a destroy of the inner hash and that'll do the real work	*/
 
@@ -2473,7 +2730,7 @@ XS(XS_DBI_dispatch)         /* prototype must match XS produced code */
 	    /* pointing (without a refcnt inc) to the scalar that is    */
 	    /* being destroyed, so it'll contain random values later.	*/
 	    if (imp_xxh)
-		DBIc_MY_H(imp_xxh) = (void*)SvRV(mg->mg_obj); /* inner (untied) HV */
+		DBIc_MY_H(imp_xxh) = (HV*)SvRV(mg->mg_obj); /* inner (untied) HV */
 
 	    XSRETURN(0);
 	}
@@ -2481,10 +2738,10 @@ XS(XS_DBI_dispatch)         /* prototype must match XS produced code */
         ST(0) = h;      /* switch handle on stack to inner ref		*/
     }
 
-    imp_xxh = dbih_getcom2(h, 0); /* get common Internal Handle Attributes	*/
+    imp_xxh = dbih_getcom2(aTHX_ h, 0); /* get common Internal Handle Attributes	*/
     if (!imp_xxh) {
 	if (strEQ(meth_name, "can")) {	/* ref($h)->can("foo")		*/
-	    const char *can_meth = SvPV(st1,lna);
+	    const char *can_meth = SvPV_nolen(st1);
 	    SV *rv = &PL_sv_undef;
 	    GV *gv = gv_fetchmethod_autoload(gv_stashsv(orig_h,FALSE), can_meth, FALSE);
 	    if (gv && isGV(gv))
@@ -2517,39 +2774,6 @@ XS(XS_DBI_dispatch)         /* prototype must match XS produced code */
 		    | trace_level;
     }
 
-    if (DBIc_has(imp_xxh,DBIcf_Callbacks)
-	&& (hook_svp = hv_fetch((HV*)SvRV(h), "Callbacks", 9, 0))
-	&& HvKEYS((HV*)SvRV(*hook_svp))
-	&& (hook_svp = hv_fetch((HV*)SvRV(*hook_svp), meth_name, strlen(meth_name), 0))
-	&& SvROK(*hook_svp)
-    ) {
-	SV *code = SvRV(*hook_svp);
-	I32 count;
-	if (trace_level)
-	    PerlIO_printf(DBILOGFP, "%c   {{ %s callback %s being invoked\n",
-		(dirty?'!':' '), meth_name, neatsvpv(*hook_svp,0));
-	ENTER;
-	SAVETMPS;
-	EXTEND(SP, items+1);
-	PUSHMARK(SP);
-	PUSHs(h);			/* push inner handle, then others params */
-	for (i=1; i < items; ++i) {	/* start at 1 to skip handle */
-	    PUSHs( ST(i) );
-	}
-	PUTBACK;
-	SAVE_DEFSV; /* local($_) = $method_name */
-	DEFSV = sv_2mortal(newSVpv(meth_name,0));
-	count = call_sv(code, G_ARRAY);
-	if (count != 0)
-	    die("Callback for %s returned %d values but must not return any (temporary restriction in current version)", meth_name, count);
-	SPAGAIN;
-	FREETMPS;
-	LEAVE;
-	if (trace_level)
-	    PerlIO_printf(DBILOGFP, "%c   }} %s callback %s returned\n",
-		(dirty?'!':' '), meth_name, neatsvpv(*hook_svp,0));
-    }
-
 #ifdef DBI_USE_THREADS
 {
     PerlInterpreter * h_perl = DBIc_THR_USER(imp_xxh) ;
@@ -2560,13 +2784,14 @@ XS(XS_DBI_dispatch)         /* prototype must match XS produced code */
 	    if (trace_level >= 2) {
 		PerlIO_printf(DBILOGFP,"    DESTROY ignored because DBI %sh handle (%s) is owned by thread %p not current thread %p\n",
 		      dbih_htype_name(DBIc_TYPE(imp_xxh)), HvNAME(DBIc_IMP_STASH(imp_xxh)),
-		      (PerlInterpreter *)DBIc_THR_USER(imp_xxh), my_perl) ;
+		      (void*)DBIc_THR_USER(imp_xxh), (void*)my_perl) ;
 		PerlIO_flush(DBILOGFP);
 	    }
 	    XSRETURN(0); /* don't DESTROY handle, if it is not our's !*/
 	}
-	croak("%s %s failed: handle %d is owned by thread %x not current thread %x (%s)",
-	    HvNAME(DBIc_IMP_STASH(imp_xxh)), meth_name, DBIc_TYPE(imp_xxh), h_perl, my_perl,
+	croak("%s %s failed: handle %d is owned by thread %lx not current thread %lx (%s)",
+	    HvNAME(DBIc_IMP_STASH(imp_xxh)), meth_name, DBIc_TYPE(imp_xxh),
+            (unsigned long)h_perl, (unsigned long)my_perl,
 	    "handles can't be shared between threads and your driver may need a CLONE method added");
     }
 }
@@ -2575,13 +2800,13 @@ XS(XS_DBI_dispatch)         /* prototype must match XS produced code */
     /* Check method call against Internal Method Attributes */
     if (ima) {
 
-	if (ima_flags & (IMA_STUB|IMA_FUNC_REDIRECT|IMA_KEEP_ERR|IMA_KEEP_ERR_SUB|IMA_CLEAR_STMT|IMA_EXECUTE)) {
+	if (ima_flags & (IMA_STUB|IMA_FUNC_REDIRECT|IMA_KEEP_ERR|IMA_KEEP_ERR_SUB|IMA_CLEAR_STMT)) {
 
 	    if (ima_flags & IMA_STUB) {
 		if (*meth_name == 'c' && strEQ(meth_name,"can")) {
-		    const char *can_meth = SvPV(st1,lna);
+		    const char *can_meth = SvPV_nolen(st1);
 		    SV *dbi_msv = Nullsv;
-		    SV	*imp_msv; /* handle implementors method (GV or CV) */
+		    /* find handle implementors method (GV or CV) */
 		    if ( (imp_msv = (SV*)gv_fetchmethod_autoload(DBIc_IMP_STASH(imp_xxh), can_meth, FALSE)) ) {
 			/* return DBI's CV, not the implementors CV (else we'd bypass dispatch) */
 			/* and anyway, we may have hit a private method not part of the DBI	*/
@@ -2591,8 +2816,8 @@ XS(XS_DBI_dispatch)         /* prototype must match XS produced code */
 		    }
 		    if (trace_level >= 3) {
 			PerlIO *logfp = DBILOGFP;
-			PerlIO_printf(logfp,"    <- %s(%s) = %p (%s %p)\n", meth_name, can_meth, dbi_msv,
-				(imp_msv && isGV(imp_msv)) ? HvNAME(GvSTASH(imp_msv)) : "?", imp_msv);
+			PerlIO_printf(logfp,"    <- %s(%s) = %p (%s %p)\n", meth_name, can_meth, (void*)dbi_msv,
+				(imp_msv && isGV(imp_msv)) ? HvNAME(GvSTASH(imp_msv)) : "?", (void*)imp_msv);
 		    }
 		    ST(0) = (dbi_msv) ? sv_2mortal(newRV(dbi_msv)) : &PL_sv_undef;
 		    XSRETURN(1);
@@ -2600,19 +2825,14 @@ XS(XS_DBI_dispatch)         /* prototype must match XS produced code */
 		XSRETURN(0);
 	    }
 	    if (ima_flags & IMA_FUNC_REDIRECT) {
+                /* XXX this doesn't redispatch, nor consider the IMA of the new method */
 		SV *meth_name_sv = POPs;
 		PUTBACK;
 		--items;
 		if (!SvPOK(meth_name_sv) || SvNIOK(meth_name_sv))
 		    croak("%s->%s() invalid redirect method name %s",
 			    neatsvpv(h,0), meth_name, neatsvpv(meth_name_sv,0));
-		meth_name = SvPV(meth_name_sv, lna);
-	    }
-	    if (ima_flags & IMA_EXECUTE) {
-		imp_xxh_t *parent = DBIc_PARENT_COM(imp_xxh);
-		DBIc_on(imp_xxh, DBIcf_Executed);
-		if (parent)
-		    DBIc_on(parent, DBIcf_Executed);
+		meth_name = SvPV_nolen(meth_name_sv);
 	    }
 	    if (ima_flags & IMA_KEEP_ERR)
 		keep_error = TRUE;
@@ -2623,6 +2843,9 @@ XS(XS_DBI_dispatch)         /* prototype must match XS produced code */
 		/* don't use SvOK_off: dbh's Statement may be ref to sth's */
 		hv_store((HV*)SvRV(h), "Statement", 9, &sv_undef, 0);
 	    }
+	    if (ima_flags & IMA_CLEAR_CACHED_KIDS)
+                clear_cached_kids(aTHX_ h, imp_xxh, meth_name, trace_flags);
+
 	}
 
 	if (ima_flags & IMA_HAS_USAGE) {
@@ -2644,6 +2867,10 @@ XS(XS_DBI_dispatch)         /* prototype must match XS produced code */
 	}
     }
 
+    is_unrelated_to_Statement = ( (DBIc_TYPE(imp_xxh) == DBIt_ST) ? 0
+                                : (DBIc_TYPE(imp_xxh) == DBIt_DR) ? 1
+                                : (ima_flags & IMA_UNRELATED_TO_STMT) );
+
     if (tainting && items > 1		      /* method call has args	*/
 	&& DBIc_is(imp_xxh, DBIcf_TaintIn)    /* taint checks requested	*/
 	&& !(ima_flags & IMA_NO_TAINT_IN)
@@ -2652,7 +2879,7 @@ XS(XS_DBI_dispatch)         /* prototype must match XS produced code */
 	    if (SvTAINTED(ST(i))) {
 		char buf[100];
 		sprintf(buf,"parameter %d of %s->%s method call",
-			i, SvPV(h,lna), meth_name);
+			i, SvPV_nolen(h), meth_name);
 		tainted = 1;	/* needed for TAINT_PROPER to work	*/
 		TAINT_PROPER(buf);	/* die's */
 	    }
@@ -2673,9 +2900,6 @@ XS(XS_DBI_dispatch)         /* prototype must match XS produced code */
 		sv_setsv(DBIc_ERRSTR(parent_imp), DBIc_ERRSTR(imp_xxh));
 		sv_setsv(DBIc_STATE(parent_imp),  DBIc_STATE(imp_xxh));
 	    }
-
-	    if (DBIc_CACHED_KIDS((imp_drh_t*)imp_xxh))
-		clear_cached_kids(h, imp_xxh, meth_name, trace_flags);
 	}
 
 	if (DBIc_IADESTROY(imp_xxh)) { /* want's ineffective destroy	*/
@@ -2696,11 +2920,14 @@ XS(XS_DBI_dispatch)         /* prototype must match XS produced code */
 	}
     }
 
+    is_nested_call = (call_depth > 1 || (DBIc_PARENT_COM(imp_xxh) && DBIc_CALL_DEPTH(DBIc_PARENT_COM(imp_xxh))) >= 1);
+
+
     /* --- dispatch --- */
 
     if (!keep_error && !(*meth_name=='s' && strEQ(meth_name,"set_err"))) {
 	SV *err_sv;
-	if (trace_level >= 4 && SvOK(err_sv=DBIc_ERR(imp_xxh))) {
+	if (trace_level && SvOK(err_sv=DBIc_ERR(imp_xxh))) {
 	    PerlIO *logfp = DBILOGFP;
 	    PerlIO_printf(logfp, "    !! %s: %s CLEARED by call to %s method\n",
 		SvTRUE(err_sv) ? "ERROR" : strlen(SvPV_nolen(err_sv)) ? "warn" : "info",
@@ -2708,8 +2935,89 @@ XS(XS_DBI_dispatch)         /* prototype must match XS produced code */
 	}
 	DBIh_CLEAR_ERROR(imp_xxh);
     }
-    else	/* we check for change in ErrCount during call */
+    else {	/* we check for change in ErrCount during call */
 	ErrCount = DBIc_ErrCount(imp_xxh);
+    }
+
+    if (DBIc_has(imp_xxh,DBIcf_Callbacks)
+	&& (tmp_svp = hv_fetch((HV*)SvRV(h), "Callbacks", 9, 0))
+	&& (   (hook_svp = hv_fetch((HV*)SvRV(*tmp_svp), meth_name, strlen(meth_name), 0))
+              /* the "*" fallback callback only applies to non-nested calls
+               * and also doesn't apply to the 'set_err' or DESTROY methods.
+               * Nor during global destruction.
+               * Other restrictions may be added over time. */
+          || (!is_nested_call && !dirty && strNE(meth_name, "set_err") && strNE(meth_name, "DESTROY") &&
+               (hook_svp = hv_fetch((HV*)SvRV(*tmp_svp), "*", 1, 0))
+             )
+        )
+	&& SvROK(*hook_svp)
+    ) {
+        SV *orig_defsv;
+	SV *code = SvRV(*hook_svp);
+        I32 skip_dispatch = 0;
+	if (trace_level)
+	    PerlIO_printf(DBILOGFP, "%c   {{ %s callback %s being invoked\n",
+		(dirty?'!':' '), meth_name, neatsvpv(*hook_svp,0));
+
+        /* we don't use ENTER,SAVETMPS & FREETMPS,LEAVE because we may need mortal
+         * results to live long enough to be returned to our caller
+         */
+        /* we want to localize $_ for the callback but can't just to that alone
+         * because we're not using SAVETMPS & FREETMPS, so we have to get sneaky.
+         * We still localize, so we're safe from the callback dieing,
+         * but after the callback we manually restore the original $_.
+         */
+        orig_defsv = DEFSV; /* remember the current $_ */
+	SAVE_DEFSV;         /* local($_) = $method_name */
+	DEFSV = sv_2mortal(newSVpv(meth_name,0));
+
+	EXTEND(SP, items+1);
+	PUSHMARK(SP);
+	PUSHs(h);			/* push inner handle, then others params */
+	for (i=1; i < items; ++i) {	/* start at 1 to skip handle */
+	    PUSHs( ST(i) );
+	}
+	PUTBACK;
+	outitems = call_sv(code, G_ARRAY); /* call the callback code */
+	SPAGAIN;
+
+        /* The callback code can undef $_ to indicate to skip dispatch */
+        skip_dispatch = !SvOK(DEFSV);
+        /* put $_ back now, but with an incremented ref count to compensate
+         * for the ref count decrement that will happen when we exit the scope.
+         */
+        DEFSV = SvREFCNT_inc(orig_defsv);
+
+	if (trace_level)
+	    PerlIO_printf(DBILOGFP, "%c   }} %s callback %s returned%s\n",
+		(dirty?'!':' '), meth_name, neatsvpv(*hook_svp,0),
+                skip_dispatch ? ", actual method will not be called" : ""
+            );
+        if (skip_dispatch) {    /* XXX experimental */
+            int ix = outitems;
+            /* copy the new items down to the destination list */
+            while (ix-- > 0) {
+                if(0)warn("\tcopy down %d: %s overwriting %s\n", ix, SvPV_nolen(TOPs), SvPV_nolen(ST(ix)) );
+                ST(ix) = POPs;
+            }
+            imp_msv = *hook_svp; /* for trace and profile */
+            goto post_dispatch;
+        }
+        else {
+            if (outitems != 0)
+                die("Callback for %s returned %d values but must not return any (temporary restriction in current version)",
+                        meth_name, (int)outitems);
+            /* POP's and PUTBACK? to clear stack */
+        }
+    }
+
+    /* set Executed after Callbacks so it's not set if callback elects to skip the method */
+    if (ima_flags & IMA_EXECUTE) {
+        imp_xxh_t *parent = DBIc_PARENT_COM(imp_xxh);
+        DBIc_on(imp_xxh, DBIcf_Executed);
+        if (parent)
+            DBIc_on(parent, DBIcf_Executed);
+    }
 
     /* The "quick_FETCH" logic...					*/
     /* Shortcut for fetching attributes to bypass method call overheads */
@@ -2726,6 +3034,9 @@ XS(XS_DBI_dispatch)         /* prototype must match XS produced code */
 	    ) {
 		qsv = Nullsv;
 	    }
+	    /* disable profiling of FETCH of Profile data */
+	    if (*key == 'P' && strEQ(key, "Profile"))
+		profile_t1 = 0.0;
 	}
     }
 
@@ -2752,6 +3063,18 @@ XS(XS_DBI_dispatch)         /* prototype must match XS produced code */
 
 	imp_msv = (SV*)gv_fetchmethod_autoload(DBIc_IMP_STASH(imp_xxh), meth_name, FALSE);
 
+        /* if method was a 'func' then try falling back to real 'func' method */
+        if (!imp_msv && (ima_flags & IMA_FUNC_REDIRECT)) {
+            imp_msv = (SV*)gv_fetchmethod_autoload(DBIc_IMP_STASH(imp_xxh), "func", FALSE);
+            if (imp_msv) {
+                /* driver does have func method so undo the earlier 'func' stack changes */
+                PUSHs(sv_2mortal(newSVpv(meth_name,0)));
+                PUTBACK;
+                ++items;
+                meth_name = "func";
+            }
+        }
+
 	if (trace_level >= 2) {
 	    PerlIO *logfp = DBILOGFP;
 	    /* Full pkg method name (or just meth_name for ANON CODE)	*/
@@ -2764,7 +3087,7 @@ XS(XS_DBI_dispatch)         /* prototype must match XS produced code */
 	    if (imp_msv && isGV(imp_msv) && GvSTASH(imp_msv) != imp_stash)
 		PerlIO_printf(logfp, "in %s ", HvNAME(GvSTASH(imp_msv)));
 	    PerlIO_printf(logfp, "for %s (%s", HvNAME(imp_stash),
-			SvPV(orig_h,lna));
+			SvPV_nolen(orig_h));
 	    if (h != orig_h)	/* show inner handle to aid tracing */
 		 PerlIO_printf(logfp, "~0x%lx", (long)SvRV(h));
 	    else PerlIO_printf(logfp, "~INNER");
@@ -2773,7 +3096,7 @@ XS(XS_DBI_dispatch)         /* prototype must match XS produced code */
 		    (ima && i==ima->hidearg) ? "****" : neatsvpv(ST(i),0));
 	    }
 #ifdef DBI_USE_THREADS
-	    PerlIO_printf(logfp, ") thr#%p\n", DBIc_THR_USER(imp_xxh));
+	    PerlIO_printf(logfp, ") thr#%p\n", (void*)DBIc_THR_USER(imp_xxh));
 #else
 	    PerlIO_printf(logfp, ")\n");
 #endif
@@ -2796,12 +3119,13 @@ XS(XS_DBI_dispatch)         /* prototype must match XS produced code */
 	PUSHMARK(mark);  /* mark arguments again so we can pass them on	*/
 
 	/* Note: the handle on the stack is still an object blessed into a
-	 * DBI::* class and *not* the DBD::*::* class whose method is being
-	 * invoked. This *is* correct and should be largely transparent.
+	 * DBI::* class and not the DBD::*::* class whose method is being
+	 * invoked. This is correct and should be largely transparent.
 	 */
 
 	/* SHORT-CUT ALERT! */
-	if (xsbypass && isGV(imp_msv) && CvXSUB(GvCV(imp_msv))) {
+	if (xsbypass && isGV(imp_msv) && CvISXSUB(GvCV(imp_msv))
+	    && CvXSUB(GvCV(imp_msv))) {
 
 	    /* If we are calling an XSUB we jump directly to its C code and
 	     * bypass perl_call_sv(), pp_entersub() etc. This is fast.
@@ -2832,9 +3156,9 @@ XS(XS_DBI_dispatch)         /* prototype must match XS produced code */
 	}
 	SPAGAIN;
 
-	if (trace_level) { /* XXX restore local vars so ST(n) works below	*/
-	    sp -= outitems; ax = (sp - stack_base) + 1; 
-	}
+	/* XXX restore local vars so ST(n) works below	*/
+        SP -= outitems;
+        ax = (SP - stack_base) + 1;
 
 #ifdef DBI_save_hv_fetch_ent
 	if (is_FETCH)
@@ -2861,11 +3185,7 @@ XS(XS_DBI_dispatch)         /* prototype must match XS produced code */
 
     err_sv = DBIc_ERR(imp_xxh);
 
-    if (trace_level > 1
-	|| (trace_level == 1 /* don't trace nested calls at level 1 */
-	    && call_depth <= 1
-	    && (!DBIc_PARENT_COM(imp_xxh) || DBIc_CALL_DEPTH(DBIc_PARENT_COM(imp_xxh)) < 1))
-    ) {
+    if (trace_level > 1 || (trace_level == 1 && !is_nested_call) ) {
 	PerlIO *logfp = DBILOGFP;
 	const int is_fetch  = (*meth_name=='f' && DBIc_TYPE(imp_xxh)==DBIt_ST && strnEQ(meth_name,"fetch",5));
 	const int row_count = (is_fetch) ? DBIc_ROW_COUNT((imp_sth_t*)imp_xxh) : 0;
@@ -2888,12 +3208,12 @@ XS(XS_DBI_dispatch)         /* prototype must match XS produced code */
 	    if (is_DESTROY) /* show handle as first arg to DESTROY */
 		/* want to show outer handle so trace makes sense	*/
 		/* but outer handle has been destroyed so we fake it	*/
-		PerlIO_printf(logfp,"(%s=HASH(%p)", HvNAME(SvSTASH(SvRV(orig_h))), DBIc_MY_H(imp_xxh));
+		PerlIO_printf(logfp,"(%s=HASH(%p)", HvNAME(SvSTASH(SvRV(orig_h))), (void*)DBIc_MY_H(imp_xxh));
 	    else
 		PerlIO_printf(logfp,"(%s", neatsvpv(st1,0));
 	    if (items >= 3)
-		PerlIO_printf(logfp," %s", neatsvpv(st2,0));
-	    PerlIO_printf(logfp,"%s)", (items > 3) ? " ..." : "");
+		PerlIO_printf(logfp,", %s", neatsvpv(st2,0));
+	    PerlIO_printf(logfp,"%s)", (items > 3) ? ", ..." : "");
 	}
 
 	if (gimme & G_ARRAY)
@@ -2934,12 +3254,14 @@ XS(XS_DBI_dispatch)         /* prototype must match XS produced code */
 	else if (!imp_msv)
 	    PerlIO_printf(logfp," (not implemented)");
 	/* XXX add flag to show pid here? */
-	PerlIO_puts(logfp, log_where(trace_level, 0, 0, "\n")); /* add file and line number information */
+	/* add file and line number information */
+	PerlIO_puts(logfp, log_where(0, 0, " at ", "\n", 1, (trace_level >= 3), (trace_level >= 4)));
     skip_meth_return_trace:
 	PerlIO_flush(logfp);
     }
 
     if (ima_flags & IMA_END_WORK) { /* commit() or rollback() */
+        /* XXX does not consider if the method call actually worked or not */
 	DBIc_off(imp_xxh, DBIcf_Executed);
 
 	if (DBIc_has(imp_xxh, DBIcf_BegunWork)) {
@@ -2996,23 +3318,32 @@ XS(XS_DBI_dispatch)         /* prototype must match XS produced code */
 		break;
 	    default:
 		if (DBIc_WARN(imp_xxh)) {
-		    PerlIO_printf(DBILOGFP,"Don't know how to taint contents of returned %s (type %d)",
+		    PerlIO_printf(DBILOGFP,"Don't know how to taint contents of returned %s (type %d)\n",
 			neatsvpv(agg,0), (int)SvTYPE(agg));
 		}
 	    }
 	}
     }
 
+    /* if method returned a new handle, and that handle has an error on it
+     * then copy the error up into the parent handle
+     */
+    if (ima_flags & IMA_IS_FACTORY && SvROK(ST(0))) {
+        SV *h_new = ST(0);
+        D_impdata(imp_xxh_new, imp_xxh_t, h_new);
+        if (SvOK(DBIc_ERR(imp_xxh_new))) {
+            set_err_sv(h, imp_xxh, DBIc_ERR(imp_xxh_new), DBIc_ERRSTR(imp_xxh_new), DBIc_STATE(imp_xxh_new), &sv_no);
+        }
+    }
+
     if (   !keep_error			/* is a new err/warn/info		*/
-	&& call_depth <= 1		/* skip nested (internal) calls		*/
+	&& !is_nested_call		/* skip nested (internal) calls		*/
 	&& (
 	       /* is an error and has RaiseError|PrintError|HandleError set	*/
 	   (SvTRUE(err_sv) && DBIc_has(imp_xxh, DBIcf_RaiseError|DBIcf_PrintError|DBIcf_HandleError))
 	       /* is a warn (not info) and has PrintWarn set		*/
 	|| (  SvOK(err_sv) && strlen(SvPV_nolen(err_sv)) && DBIc_has(imp_xxh, DBIcf_PrintWarn))
 	)
-		   /* check that we're not nested inside a call to our parent	*/
-	&& (!DBIc_PARENT_COM(imp_xxh) || DBIc_CALL_DEPTH(DBIc_PARENT_COM(imp_xxh)) < 1)
     ) {
 	SV *msg;
 	SV **statement_svp = NULL;
@@ -3023,7 +3354,7 @@ XS(XS_DBI_dispatch)         /* prototype must match XS produced code */
 	if (*meth_name=='s' && strEQ(meth_name,"set_err")) {
 	    SV **sem_svp = hv_fetch((HV*)SvRV(h), "dbi_set_err_method", 18, GV_ADDWARN);
 	    if (SvOK(*sem_svp))
-		err_meth_name = SvPV(*sem_svp,lna);
+		err_meth_name = SvPV_nolen(*sem_svp);
 	}
 
 	/* XXX change to vsprintf into sv directly */
@@ -3037,20 +3368,22 @@ XS(XS_DBI_dispatch)         /* prototype must match XS produced code */
 		neatsvpv(DBIc_ERR(imp_xxh),0), neatsvpv(DBIc_STATE(imp_xxh),0) );
 
 	if (    DBIc_has(imp_xxh, DBIcf_ShowErrorStatement)
+	    && !is_unrelated_to_Statement
 	    && (DBIc_TYPE(imp_xxh) == DBIt_ST || ima_flags & IMA_SHOW_ERR_STMT)
-	    && !(ima_flags & IMA_UNRELATED_TO_STMT) /* error unrelated to Statement */
 	    && (statement_svp = hv_fetch((HV*)SvRV(h), "Statement", 9, 0))
 	    &&  statement_svp && SvOK(*statement_svp)
 	) {
-	    SV **svp;
+	    SV **svp = 0;
 	    sv_catpv(msg, " [for Statement \"");
 	    sv_catsv(msg, *statement_svp);
 
 	    /* fetch from tied outer handle to trigger FETCH magic  */
 	    /* could add DBIcf_ShowErrorParams (default to on?)		*/
-	    svp = hv_fetch((HV*)DBIc_MY_H(imp_xxh),"ParamValues",11,FALSE);
-	    if (svp && SvMAGICAL(*svp))
-		mg_get(*svp); /* XXX may recurse, may croak. could use eval */
+            if (!(ima_flags & IMA_HIDE_ERR_PARAMVALUES)) {
+                svp = hv_fetch((HV*)DBIc_MY_H(imp_xxh),"ParamValues",11,FALSE);
+                if (svp && SvMAGICAL(*svp))
+                    mg_get(*svp); /* XXX may recurse, may croak. could use eval */
+            }
 	    if (svp && SvRV(*svp) && SvTYPE(SvRV(*svp)) == SVt_PVHV && HvKEYS(SvRV(*svp))>0 ) {
 		HV *bvhv = (HV*)SvRV(*svp);
 		SV *sv;
@@ -3071,6 +3404,14 @@ XS(XS_DBI_dispatch)         /* prototype must match XS produced code */
 	    }
 	}
 
+        if (0) {
+            COP *cop = dbi_caller_cop();
+            if (cop && (CopLINE(cop) != CopLINE(curcop) || CopFILEGV(cop) != CopFILEGV(curcop))) {
+                dbi_caller_string(msg, cop, " called via ", 1, 0);
+            }
+        }
+
+        hook_svp = NULL;
 	if (    SvTRUE(err_sv)
 	    &&  DBIc_has(imp_xxh, DBIcf_HandleError)
 	    && (hook_svp = hv_fetch((HV*)SvRV(h),"HandleError",11,0))
@@ -3118,27 +3459,26 @@ XS(XS_DBI_dispatch)         /* prototype must match XS produced code */
 	}
 
 	if (profile_t1) { /* see also dbi_profile() call a few lines below */
-	    char *Statement = (ima_flags & IMA_UNRELATED_TO_STMT) ? "" : Nullch;
-	    dbi_profile(h, imp_xxh, Statement, imp_msv ? imp_msv : (SV*)cv,
+	    SV *statement_sv = (is_unrelated_to_Statement) ? &sv_no : &sv_undef;
+	    dbi_profile(h, imp_xxh, statement_sv, imp_msv ? imp_msv : (SV*)cv,
 		profile_t1, dbi_time());
 	}
 	if (is_warning) {
 	    if (DBIc_has(imp_xxh, DBIcf_PrintWarn))
-		warn("%s", SvPV(msg,lna));
+		warn("%s", SvPV_nolen(msg));
 	}
 	else if (!hook_svp && SvTRUE(err_sv)) {
 	    if (DBIc_has(imp_xxh, DBIcf_PrintError))
-		warn("%s", SvPV(msg,lna));
+		warn("%s", SvPV_nolen(msg));
 	    if (DBIc_has(imp_xxh, DBIcf_RaiseError))
-		croak("%s", SvPV(msg,lna));
+		croak("%s", SvPV_nolen(msg));
 	}
     }
     else if (profile_t1) { /* see also dbi_profile() call a few lines above */
-	char *Statement = (ima_flags & IMA_UNRELATED_TO_STMT) ? "" : Nullch;
-	dbi_profile(h, imp_xxh, Statement, imp_msv ? imp_msv : (SV*)cv,
+        SV *statement_sv = (is_unrelated_to_Statement) ? &sv_no : &sv_undef;
+	dbi_profile(h, imp_xxh, statement_sv, imp_msv ? imp_msv : (SV*)cv,
 		profile_t1, dbi_time());
     }
-
     XSRETURN(outitems);
 }
 
@@ -3154,7 +3494,7 @@ XS(XS_DBI_dispatch)         /* prototype must match XS produced code */
 #define DBIpp_cm_br 0x000008   /* {}      */
 #define DBIpp_cm_dw 0x000010   /* '-- ' dash dash whitespace */
 #define DBIpp_cm_XX 0x00001F   /* any of the above */
-     
+
 #define DBIpp_ph_qm 0x000100   /* ?       */
 #define DBIpp_ph_cn 0x000200   /* :1      */
 #define DBIpp_ph_cs 0x000400   /* :name   */
@@ -3173,7 +3513,8 @@ XS(XS_DBI_dispatch)         /* prototype must match XS produced code */
 SV *
 preparse(SV *dbh, const char *statement, IV ps_return, IV ps_accept, void *foo)
 {
-	D_imp_xxh(dbh);
+    dTHX;
+    D_imp_xxh(dbh);
 /*
 	The idea here is that ps_accept defines which constructs to
 	recognize (accept) as valid in the source string (other
@@ -3204,7 +3545,6 @@ preparse(SV *dbh, const char *statement, IV ps_return, IV ps_accept, void *foo)
 	even then, only with reluctance. We may (need to) drop it when
 	we add support for odbc escape sequences.
 */
-
     int idx = 1;
 
     char in_quote = '\0';
@@ -3227,14 +3567,14 @@ preparse(SV *dbh, const char *statement, IV ps_return, IV ps_accept, void *foo)
     src  = statement;
     dest = SvPVX(new_stmt_sv);
 
-    while( *src ) 
+    while( *src )
     {
 	if (*src == '%' && PS_return(DBIpp_ph_sp))
 	    *dest++ = '%';
 
 	if (in_comment)
 	{
-	     if (	(in_comment == '-' && (*src == '\n' || *(src+1) == '\0')) 
+	     if (	(in_comment == '-' && (*src == '\n' || *(src+1) == '\0'))
 		||	(in_comment == '#' && (*src == '\n' || *(src+1) == '\0'))
 		||	(in_comment == DBIpp_L_BRACE && *src == DBIpp_R_BRACE) /* XXX nesting? */
 		||	(in_comment == '/' && *src == '*' && *(src+1) == '/')
@@ -3255,7 +3595,7 @@ preparse(SV *dbh, const char *statement, IV ps_return, IV ps_accept, void *foo)
 		in_comment = '\0';
 		rt_comment = '\0';
 	     }
-             else 
+             else
 	     if (rt_comment)
                 *dest++ = *src++;
 	     else
@@ -3308,7 +3648,7 @@ preparse(SV *dbh, const char *statement, IV ps_return, IV ps_accept, void *foo)
 	    else if (PS_return(DBIpp_cm_dd) || PS_return(DBIpp_cm_dw)) {
                 *dest++ = rt_comment = '-';
                 *dest++ = '-';
-                if (PS_return(DBIpp_cm_dw)) *dest++ = ' '; 
+                if (PS_return(DBIpp_cm_dw)) *dest++ = ' ';
             }
 	    else if (PS_return(DBIpp_cm_hs)) {
                 *dest++ = rt_comment = '#';
@@ -3328,7 +3668,7 @@ preparse(SV *dbh, const char *statement, IV ps_return, IV ps_accept, void *foo)
 	    else if (PS_return(DBIpp_cm_dd) || PS_return(DBIpp_cm_dw)) {
                 *dest++ = rt_comment = '-';
                 *dest++ = '-';
-                if (PS_return(DBIpp_cm_dw)) *dest++ = ' '; 
+                if (PS_return(DBIpp_cm_dw)) *dest++ = ' ';
             }
 	    else if (PS_return(DBIpp_cm_cs)) {
                 *dest++ = rt_comment = '/';
@@ -3349,7 +3689,7 @@ preparse(SV *dbh, const char *statement, IV ps_return, IV ps_accept, void *foo)
 	    else if (PS_return(DBIpp_cm_dd) || PS_return(DBIpp_cm_dw)) {
                 *dest++ = rt_comment = '-';
                 *dest++ = '-';
-                if (PS_return(DBIpp_cm_dw)) *dest++ = ' '; 
+                if (PS_return(DBIpp_cm_dw)) *dest++ = ' ';
             }
 	    else if (PS_return(DBIpp_cm_cs)) {
                 *dest++ = rt_comment = '/';
@@ -3372,7 +3712,7 @@ preparse(SV *dbh, const char *statement, IV ps_return, IV ps_accept, void *foo)
 
 	/* only here for : or ? outside of a comment or literal	*/
 
-	start = dest;			/* save name inc colon	*/ 
+	start = dest;			/* save name inc colon	*/
 	*dest++ = *src++;		/* copy and move past first char */
 
 	if (*start == '?')		/* X/Open Standard */
@@ -3389,8 +3729,8 @@ preparse(SV *dbh, const char *statement, IV ps_return, IV ps_accept, void *foo)
 		   *start  = '%';
 		   *dest++ = 's';
             }
-	} 
-        else if (isDIGIT(*src)) {   /* :1 */ 
+	}
+        else if (isDIGIT(*src)) {   /* :1 */
 	    const int pln = atoi(src);
 	    style = ":1";
 
@@ -3414,8 +3754,8 @@ preparse(SV *dbh, const char *statement, IV ps_return, IV ps_accept, void *foo)
 		   while(isDIGIT(*src)) src++;
                    idx++;
             }
-	} 
-        else if (isALNUM(*src))         /* :name */ 
+	}
+        else if (isALNUM(*src))         /* :name */
         {
 	    style = ":name";
 
@@ -3495,6 +3835,7 @@ constant()
 	SQL_ALL_TYPES                    = SQL_ALL_TYPES
 	SQL_ARRAY                        = SQL_ARRAY
 	SQL_ARRAY_LOCATOR                = SQL_ARRAY_LOCATOR
+    SQL_BIGINT                       = SQL_BIGINT
 	SQL_BINARY                       = SQL_BINARY
 	SQL_BIT                          = SQL_BIT
 	SQL_BLOB                         = SQL_BLOB
@@ -3583,6 +3924,48 @@ _clone_dbis()
 
 
 void
+_new_handle(class, parent, attr_ref, imp_datasv, imp_class)
+    SV *	class
+    SV *	parent
+    SV *	attr_ref
+    SV *	imp_datasv
+    SV *	imp_class
+    PPCODE:
+    dPERINTERP;
+    HV *outer;
+    SV *outer_ref;
+    HV *class_stash = gv_stashsv(class, GV_ADDWARN);
+
+    if (DBIS_TRACE_LEVEL >= 3) {
+        PerlIO_printf(DBILOGFP, "    New %s (for %s, parent=%s, id=%s)\n",
+            neatsvpv(class,0), SvPV_nolen(imp_class), neatsvpv(parent,0), neatsvpv(imp_datasv,0));
+        (void)cv; /* avoid unused warning */
+    }
+
+    hv_store((HV*)SvRV(attr_ref), "ImplementorClass", 16, SvREFCNT_inc(imp_class), 0);
+
+    /* make attr into inner handle by blessing it into class */
+    sv_bless(attr_ref, class_stash);
+    /* tie new outer hash to inner handle */
+    outer = newHV(); /* create new hash to be outer handle */
+    outer_ref = newRV_noinc((SV*)outer);
+    /* make outer hash into a handle by blessing it into class */
+    sv_bless(outer_ref, class_stash);
+    /* tie outer handle to inner handle */
+    sv_magic((SV*)outer, attr_ref, PERL_MAGIC_tied, Nullch, 0);
+
+    dbih_setup_handle(aTHX_ outer_ref, SvPV_nolen(imp_class), parent, SvOK(imp_datasv) ? imp_datasv : Nullsv);
+
+    /* return outer handle, plus inner handle if not in scalar context */
+    sv_2mortal(outer_ref);
+    EXTEND(SP, 2);
+    PUSHs(outer_ref);
+    if (GIMME != G_SCALAR) {
+        PUSHs(attr_ref);
+    }
+
+
+void
 _setup_handle(sv, imp_class, parent, imp_datasv)
     SV *	sv
     char *	imp_class
@@ -3590,7 +3973,7 @@ _setup_handle(sv, imp_class, parent, imp_datasv)
     SV *	imp_datasv
     CODE:
     (void)cv;
-    dbih_setup_handle(sv, imp_class, parent, SvOK(imp_datasv) ? imp_datasv : Nullsv);
+    dbih_setup_handle(aTHX_ sv, imp_class, parent, SvOK(imp_datasv) ? imp_datasv : Nullsv);
     ST(0) = &sv_undef;
 
 
@@ -3609,7 +3992,7 @@ _handles(sv)
     PPCODE:
     /* return the outer and inner handle for any given handle */
     D_imp_xxh(sv);
-    SV *ih = sv_mortalcopy( dbih_inner(sv, "_handles") );
+    SV *ih = sv_mortalcopy( dbih_inner(aTHX_ sv, "_handles") );
     SV *oh = sv_2mortal(newRV((SV*)DBIc_MY_H(imp_xxh))); /* XXX dangerous */
     (void)cv;
     EXTEND(SP, 2);
@@ -3626,7 +4009,7 @@ neat(sv, maxlen=0)
     (void)cv;
 
 
-int
+I32
 hash(key, type=0)
     const char *key
     long type
@@ -3651,7 +4034,7 @@ looks_like_number(...)
 	else
 	    PUSHs(&sv_no);
     }
-	
+
 
 void
 _install_method(dbi_class, meth_name, file, attribs=Nullsv)
@@ -3668,7 +4051,6 @@ _install_method(dbi_class, meth_name, file, attribs=Nullsv)
     SV **svp;
     dbi_ima_t *ima = NULL;
     (void)dbi_class;
-    (void)cv; /* avoid 'unused variable' warning */
 
     if (strnNE(meth_name, "DBI::", 5))	/* XXX m/^DBI::\w+::\w+$/	*/
 	croak("install_method %s: invalid class", meth_name);
@@ -3690,17 +4072,16 @@ _install_method(dbi_class, meth_name, file, attribs=Nullsv)
 	DBD_ATTRIB_GET_IV(attribs, "H",1, svp, ima->hidearg);
 
 	if (trace_msg) {
-	    if (ima->flags)	  sv_catpvf(trace_msg, ", flags 0x%04x", ima->flags);
-	    if (ima->trace_level) sv_catpvf(trace_msg, ", T %d", ima->trace_level);
-	    if (ima->hidearg)	  sv_catpvf(trace_msg, ", H %d", ima->hidearg);
+	    if (ima->flags)	  sv_catpvf(trace_msg, ", flags 0x%04x", (unsigned)ima->flags);
+	    if (ima->trace_level) sv_catpvf(trace_msg, ", T %d", (unsigned)ima->trace_level);
+	    if (ima->hidearg)	  sv_catpvf(trace_msg, ", H %d", (unsigned)ima->hidearg);
 	}
 	if ( (svp=DBD_ATTRIB_GET_SVP(attribs, "U",1)) != NULL) {
-	    STRLEN lna;
 	    AV *av = (AV*)SvRV(*svp);
 	    ima->minargs = (U8)SvIV(*av_fetch(av, 0, 1));
 	    ima->maxargs = (U8)SvIV(*av_fetch(av, 1, 1));
 	    svp = av_fetch(av, 2, 0);
-	    ima->usage_msg  = savepv( (svp) ? SvPV(*svp,lna) : "");
+            ima->usage_msg = (svp) ? savepv_using_sv(SvPV_nolen(*svp)) : "";
 	    ima->flags |= IMA_HAS_USAGE;
 	    if (trace_msg && DBIS_TRACE_LEVEL >= 11)
 		sv_catpvf(trace_msg, ",\n    usage: min %d, max %d, '%s'",
@@ -3725,21 +4106,25 @@ trace(class, level_sv=&sv_undef, file=Nullsv)
     CODE:
     {
     dPERINTERP;
-    /* Return old/current value. No change if new value not given.	*/
-    IV level = parse_trace_flags(class, level_sv, (RETVAL = (DBIS) ? DBIS->debug : 0));
+    IV level;
     if (!DBIS) {
 	ix=ix;		/* avoid 'unused variable' warnings	*/
 	croak("DBI not initialised");
     }
+    /* Return old/current value. No change if new value not given.	*/
+    RETVAL = (DBIS) ? DBIS->debug : 0;
+    level = parse_trace_flags(class, level_sv, RETVAL);
     if (level)		/* call before or after altering DBI trace level */
         set_trace_file(file);
     if (level != RETVAL) {
 	if ((level & DBIc_TRACE_LEVEL_MASK) > 0) {
-	    PerlIO_printf(DBILOGFP,"    DBI %s%s default trace level set to 0x%lx/%ld (pid %d)\n",
+	    PerlIO_printf(DBILOGFP,"    DBI %s%s default trace level set to 0x%lx/%ld (pid %d) at %s\n",
 		XS_VERSION, dbi_build_opt,
                 (long)(level & DBIc_TRACE_FLAGS_MASK),
                 (long)(level & DBIc_TRACE_LEVEL_MASK),
-		(int)PerlProc_getpid());
+		(int)PerlProc_getpid(),
+                log_where(Nullsv, 0, "", "", 1, 1, 0)
+            );
 	    if (!PL_dowarn)
 		PerlIO_printf(DBILOGFP,"    Note: perl is running without the recommended perl -w option\n");
 	    PerlIO_flush(DBILOGFP);
@@ -3762,7 +4147,7 @@ dump_handle(sv, msg="DBI::dump_handle", level=0)
     int 	level
     CODE:
     (void)cv;
-    dbih_dumphandle(sv, msg, level);
+    dbih_dumphandle(aTHX_ sv, msg, level);
 
 
 
@@ -3780,47 +4165,69 @@ _svdump(sv)
     }
 
 
-double
+NV
 dbi_time()
 
 
-SV *
+void
 dbi_profile(h, statement, method, t1, t2)
     SV *h
     SV *statement
     SV *method
-    double t1
-    double t2
+    NV t1
+    NV t2
     CODE:
-    D_imp_xxh(h);
-    STRLEN lna = 0;
-    (void)cv;
-    dbi_profile(h, imp_xxh,
-	SvOK(statement) ? SvPV(statement,lna) : Nullch,
-	SvROK(method)   ? SvRV(method)        : method,
-	t1, t2
-    );
-    RETVAL = &sv_undef;
-    OUTPUT:
-    RETVAL
+    SV *leaf = &sv_undef;
+    (void)cv;   /* avoid unused var warnings */
+    if (SvROK(method))
+        method = SvRV(method);
+    if (dbih_inner(aTHX_ h, NULL)) {    /* is a DBI handle */
+        D_imp_xxh(h);
+        leaf = dbi_profile(h, imp_xxh, statement, method, t1, t2);
+    }
+    else if (SvROK(h) && SvTYPE(SvRV(h)) == SVt_PVHV) {
+        /* iterate over values %$h */
+        HV *hv = (HV*)SvRV(h);
+        SV *tmp;
+	char *key;
+	I32 keylen = 0;
+	hv_iterinit(hv);
+	while ( (tmp = hv_iternextsv(hv, &key, &keylen)) != NULL ) {
+            if (SvOK(tmp)) {
+                D_imp_xxh(tmp);
+                leaf = dbi_profile(tmp, imp_xxh, statement, method, t1, t2);
+            }
+	};
+    }
+    else {
+        croak("dbi_profile(%s,...) invalid handle argument", neatsvpv(h,0));
+    }
+    if (GIMME_V == G_VOID)
+        ST(0) = &sv_undef;  /* skip sv_mortalcopy if not needed */
+    else
+        ST(0) = sv_mortalcopy(leaf);
+
 
 
 SV *
-dbi_profile_merge(dest, ...)
+dbi_profile_merge_nodes(dest, ...)
     SV * dest
+    ALIAS:
+    dbi_profile_merge = 1
     CODE:
     {
 	if (!SvROK(dest) || SvTYPE(SvRV(dest)) != SVt_PVAV)
-	    croak("dbi_profile_merge(%s,...) not an array reference", neatsvpv(dest,0));
+	    croak("dbi_profile_merge_nodes(%s,...) destination is not an array reference", neatsvpv(dest,0));
 	if (items <= 1) {
-	    (void)cv;
+	    (void)cv;   /* avoid unused var warnings */
+	    (void)ix;
 	    RETVAL = 0;
 	}
 	else {
 	    /* items==2 for dest + 1 arg, ST(0) is dest, ST(1) is first arg */
 	    while (--items >= 1) {
 		SV *thingy = ST(items);
-		dbi_profile_merge(dest, thingy);
+		dbi_profile_merge_nodes(dest, thingy);
 	    }
 	    RETVAL = newSVsv(*av_fetch((AV*)SvRV(dest), DBIprof_TOTAL_TIME, 1));
 	}
@@ -3837,12 +4244,11 @@ FETCH(sv)
     CODE:
     dPERINTERP;
     /* Note that we do not come through the dispatcher to get here.	*/
-    STRLEN lna;
-    char *meth = SvPV(SvRV(sv),lna);	/* what should this tie do ?	*/
+    char *meth = SvPV_nolen(SvRV(sv));	/* what should this tie do ?	*/
     char type = *meth++;		/* is this a $ or & style	*/
     imp_xxh_t *imp_xxh = (DBI_LAST_HANDLE_OK) ? DBIh_COM(DBI_LAST_HANDLE) : NULL;
     int trace = 0;
-    double profile_t1 = 0.0;
+    NV profile_t1 = 0.0;
 
     if (imp_xxh && DBIc_has(imp_xxh,DBIcf_Profile))
 	profile_t1 = dbi_time();
@@ -3872,7 +4278,7 @@ FETCH(sv)
 	ST(0) = DBIc_STATE_adjust(imp_xxh, state);
     }
     else if (type == '$') { /* lookup scalar variable in implementors stash */
-	const char *vname = mkvname(DBIc_IMP_STASH(imp_xxh), meth, 0);
+	const char *vname = mkvname(aTHX_ DBIc_IMP_STASH(imp_xxh), meth, 0);
 	SV *vsv = perl_get_sv(vname, 1);
 	ST(0) = sv_mortalcopy(vsv);
     }
@@ -3893,17 +4299,29 @@ FETCH(sv)
 	}
 	PUSHMARK(mark);  /* reset mark (implies one arg as we were called with one arg?) */
 	perl_call_sv((SV*)GvCV(imp_gv), GIMME);
+        SPAGAIN;
 #ifdef DBI_save_hv_fetch_ent
 	PL_hv_fetch_ent_mh = save_mh;
 #endif
     }
     if (trace)
 	PerlIO_printf(DBILOGFP,"    <- $DBI::%s= %s\n", meth, neatsvpv(ST(0),0));
-    if (profile_t1)
-	dbi_profile(DBI_LAST_HANDLE, imp_xxh, Nullch, (SV*)cv, profile_t1, dbi_time());
+    if (profile_t1) {
+        SV *h = sv_2mortal(newRV(DBI_LAST_HANDLE));
+	dbi_profile(h, imp_xxh, &sv_undef, (SV*)cv, profile_t1, dbi_time());
+    }
 
 
 MODULE = DBI   PACKAGE = DBD::_::db
+
+void
+connected(...)
+    CODE:
+    /* defined here just to avoid AUTOLOAD */
+    (void)cv;
+    (void)items;
+    ST(0) = &sv_undef;
+
 
 SV *
 preparse(dbh, statement, ps_accept, ps_return, foo=Nullch)
@@ -3937,8 +4355,8 @@ take_imp_data(h)
      *
      * If the drivers imp_xxh_t structure contains SV*'s, or other interpreter
      * specific items, they should be freed by the drivers own take_imp_data()
-     * method. The drivers take_imp_data() method (or Driver.xst code) can then call
-     * SUPER::take_imp_data() to finalize the removal of the imp_xxh_t structure.
+     * method before it then calls SUPER::take_imp_data() to finalize removal
+     * of the imp_xxh_t structure.
      *
      * The driver needs to view the take_imp_data method as being nearly the
      * same as disconnect+DESTROY only not actually calling the database API to
@@ -3947,9 +4365,8 @@ take_imp_data(h)
      * in a 'clean' state such that if the drivers own DESTROY method was
      * called it would be able to properly handle the contents of the
      * structure. This is important in case a new handle created using this
-     * imp_data, possibly in a new thread, might end up being DESTROY's before
-     * the driver has had a chance to 're-setup' the data. See
-     * dbih_setup_handle()
+     * imp_data, possibly in a new thread, might end up being DESTROY'd before
+     * the driver has had a chance to 're-setup' the data. See dbih_setup_handle()
      *
      * All the above relates to the 'typical use case' for a compiled driver.
      * For a pure-perl driver using a socket pair, for example, the drivers
@@ -3971,10 +4388,8 @@ take_imp_data(h)
     /* Ideally there should be no child statement handles existing when
      * take_imp_data is called because when those statement handles are
      * destroyed they may need to interact with the 'zombie' parent dbh.
-     * So we do our best to kill neautralize them.
+     * So we do our best to neautralize them (finish & rebless)
      */
-    if (DBIc_TYPE(imp_xxh) <= DBIt_DB && DBIc_CACHED_KIDS((imp_dbh_t*)imp_xxh))
-	clear_cached_kids(h, imp_xxh, "take_imp_data", 0);
     if ((tmp_svp = hv_fetch((HV*)SvRV(h), "ChildHandles", 12, FALSE)) && SvROK(*tmp_svp)) {
 	AV *av = (AV*)SvRV(*tmp_svp);
 	HV *zombie_stash = gv_stashpv("DBI::zombie", GV_ADDWARN);
@@ -3982,10 +4397,16 @@ take_imp_data(h)
 	for (kidslots = AvFILL(av); kidslots >= 0; --kidslots) {
 	    SV **hp = av_fetch(av, kidslots, FALSE);
 	    if (hp && SvROK(*hp) && SvMAGICAL(SvRV(*hp))) {
+                PUSHMARK(sp);
+                XPUSHs(*hp);
+                PUTBACK;
+                perl_call_method("finish", G_SCALAR|G_DISCARD);
+                SPAGAIN;
+                PUTBACK;
 		sv_unmagic(SvRV(*hp), 'P'); /* untie */
 		sv_bless(*hp, zombie_stash); /* neutralise */
 	    }
-	}       
+	}
     }
     /* The above measures may not be sufficient if weakrefs aren't available
      * or something has a reference to the inner-handle of an sth.
@@ -4003,10 +4424,10 @@ take_imp_data(h)
      */
 
     /* --- perform the surgery */
-    dbih_getcom2(h, &mg);	/* get the MAGIC so we can change it	*/
+    dbih_getcom2(aTHX_ h, &mg);	/* get the MAGIC so we can change it	*/
     imp_xxh_sv = mg->mg_obj;	/* take local copy of the imp_data pointer */
     mg->mg_obj = Nullsv;	/* sever the link from handle to imp_xxh */
-    if (DBIc_TRACE_LEVEL(imp_xxh))
+    if (DBIc_TRACE_LEVEL(imp_xxh) >= 9)
 	sv_dump(imp_xxh_sv);
     /* --- housekeeping */
     DBIc_ACTIVE_off(imp_xxh);	/* silence warning from dbih_clearcom */
@@ -4017,9 +4438,7 @@ take_imp_data(h)
     /* (don't use magical DBIc_ACTIVE_on here)				*/
     DBIc_FLAGS(imp_xxh) |=  DBIcf_IMPSET | DBIcf_ACTIVE;
     /* --- tidy up the raw PV for life as a more normal string */
-    SvPOK_on(imp_xxh_sv);
-    SvCUR_set(imp_xxh_sv, SvLEN(imp_xxh_sv)-1); /* SvLEN(imp_xxh_sv)-1 == imp_size */
-    *SvEND(imp_xxh_sv) = '\0';
+    SvPOK_on(imp_xxh_sv);       /* SvCUR & SvEND were set at creation   */
     /* --- return the actual imp_xxh_sv on the stack */
     ST(0) = imp_xxh_sv;
 
@@ -4045,16 +4464,33 @@ _set_fbav(sth, src_rv)
     int i;
     AV *src_av;
     AV *dst_av = dbih_get_fbav(imp_sth);
-    const int num_fields = AvFILL(dst_av)+1;
+    int dst_fields = AvFILL(dst_av)+1;
+    int src_fields;
     (void)cv;
 
     if (!SvROK(src_rv) || SvTYPE(SvRV(src_rv)) != SVt_PVAV)
 	croak("_set_fbav(%s): not an array ref", neatsvpv(src_rv,0));
     src_av = (AV*)SvRV(src_rv);
-    if (AvFILL(src_av)+1 != num_fields)
-	croak("_set_fbav(%s): array has %d fields, should have %d",
-		neatsvpv(src_rv,0), AvFILL(src_av)+1, num_fields);
-    for(i=0; i < num_fields; ++i) {	/* copy over the row	*/
+    src_fields = AvFILL(src_av)+1;
+    if (src_fields != dst_fields) {
+	warn("_set_fbav(%s): array has %d elements, the statement handle row buffer has %d (and NUM_OF_FIELDS is %d)",
+		neatsvpv(src_rv,0), src_fields, dst_fields, DBIc_NUM_FIELDS(imp_sth));
+        SvREADONLY_off(dst_av);
+        if (src_fields < dst_fields) {
+            /* shrink the array - sadly this looses column bindings for the lost columns */
+            av_fill(dst_av, src_fields-1);
+            dst_fields = src_fields;
+        }
+        else {
+            av_fill(dst_av, src_fields-1);
+            /* av_fill pads with immutable undefs which we need to change */
+            for(i=dst_fields-1; i < src_fields; ++i) {
+                sv_setsv(AvARRAY(dst_av)[i], newSV(0));
+            }
+        }
+        SvREADONLY_on(dst_av);
+    }
+    for(i=0; i < dst_fields; ++i) {	/* copy over the row	*/
         /* If we're given the values, then taint them if required */
         if (DBIc_is(imp_sth, DBIcf_TaintOut))
             SvTAINT(AvARRAY(src_av)[i]);
@@ -4171,10 +4607,8 @@ fetchrow_hashref(sth, keyattrib=Nullch)
 	ka_av = (AV*)SvRV(ka_rv);
 	hv    = newHV();
 	for (i=0; i < num_fields; ++i) {	/* honor the original order as sent by the database */
-	    STRLEN len;
 	    SV  **field_name_svp = av_fetch(ka_av, i, 1);
-	    const char *field_name = SvPV(*field_name_svp, len);
-	    hv_store(hv, field_name, len, newSVsv((SV*)(AvARRAY(rowav)[i])), 0);
+	    hv_store_ent(hv, *field_name_svp, newSVsv((SV*)(AvARRAY(rowav)[i])), 0);
 	}
 	RETVAL = newRV((SV*)hv);
 	SvREFCNT_dec(hv);  	/* since newRV incremented it	*/
@@ -4205,6 +4639,7 @@ fetch(sth)
     XPUSHs(sth);
     PUTBACK;
     num_fields = perl_call_method("fetchrow", G_ARRAY);	/* XXX change the name later */
+    SPAGAIN;
     if (num_fields == 0) {
 	ST(0) = &sv_undef;
     } else {
@@ -4212,7 +4647,7 @@ fetch(sth)
 	AV *av = dbih_get_fbav(imp_sth);
 	if (num_fields != AvFILL(av)+1)
 	    croak("fetchrow returned %d fields, expected %d",
-		    num_fields, AvFILL(av)+1);
+		    num_fields, (int)AvFILL(av)+1);
 	SPAGAIN;
 	while(--num_fields >= 0)
 	    sv_setsv(AvARRAY(av)[num_fields], POPs);
@@ -4241,6 +4676,47 @@ finish(sth)
     (void)cv;
 
 
+void
+DESTROY(sth)
+    SV *        sth
+    PPCODE:
+    /* keep in sync with DESTROY in Driver.xst */
+    D_imp_sth(sth);
+    ST(0) = &sv_yes;
+    /* we don't test IMPSET here because this code applies to pure-perl drivers */
+    if (DBIc_IADESTROY(imp_sth)) { /* want's ineffective destroy    */
+        DBIc_ACTIVE_off(imp_sth);
+        if (DBIc_DBISTATE(imp_sth)->debug)
+                PerlIO_printf(DBIc_LOGPIO(imp_sth), "         DESTROY %s skipped due to InactiveDestroy\n", SvPV_nolen(sth));
+    }
+    if (DBIc_ACTIVE(imp_sth)) {
+        D_imp_dbh_from_sth;
+        if (!dirty && DBIc_ACTIVE(imp_dbh)) {
+            dSP;
+            PUSHMARK(sp);
+            XPUSHs(sth);
+            PUTBACK;
+            perl_call_method("finish", G_SCALAR);
+            SPAGAIN;
+            PUTBACK;
+        }
+        else {
+            DBIc_ACTIVE_off(imp_sth);
+        }
+    }
+
+
+MODULE = DBI   PACKAGE = DBI::st
+
+void
+TIEHASH(class, inner_ref)
+    SV * class
+    SV * inner_ref
+    CODE:
+    HV *stash = gv_stashsv(class, GV_ADDWARN); /* a new hash is supplied to us, we just need to bless and apply tie magic */
+    sv_bless(inner_ref, stash);
+    ST(0) = inner_ref;
+
 MODULE = DBI   PACKAGE = DBD::_::common
 
 
@@ -4264,7 +4740,7 @@ STORE(h, keysv, valuesv)
     if (!dbih_set_attr_k(h, keysv, 0, valuesv))
 	    ST(0) = &sv_no;
     (void)cv;
- 
+
 
 void
 FETCH(h, keysv)
@@ -4298,7 +4774,6 @@ state(h)
     SV * h
     CODE:
     D_imp_xxh(h);
-    STRLEN lna;
     SV *state = DBIc_STATE(imp_xxh);
     (void)cv;
     ST(0) = DBIc_STATE_adjust(imp_xxh, state);
@@ -4419,11 +4894,12 @@ swap_inner_handle(rh1, rh2, allow_reparent=0)
     {
     D_impdata(imp_xxh1, imp_xxh_t, rh1);
     D_impdata(imp_xxh2, imp_xxh_t, rh2);
-    SV *h1i = dbih_inner(rh1, "swap_inner_handle");
-    SV *h2i = dbih_inner(rh2, "swap_inner_handle");
+    SV *h1i = dbih_inner(aTHX_ rh1, "swap_inner_handle");
+    SV *h2i = dbih_inner(aTHX_ rh2, "swap_inner_handle");
     SV *h1  = (rh1 == h1i) ? (SV*)DBIc_MY_H(imp_xxh1) : SvRV(rh1);
     SV *h2  = (rh2 == h2i) ? (SV*)DBIc_MY_H(imp_xxh2) : SvRV(rh2);
     (void)cv;
+
     if (DBIc_TYPE(imp_xxh1) != DBIc_TYPE(imp_xxh2)) {
 	char buf[99];
 	sprintf(buf, "Can't swap_inner_handle between %sh and %sh",
@@ -4437,16 +4913,22 @@ swap_inner_handle(rh1, rh2, allow_reparent=0)
 	    Nullch, Nullch);
 	XSRETURN_NO;
     }
+
     SvREFCNT_inc(h1i);
     SvREFCNT_inc(h2i);
+
     sv_unmagic(h1, 'P');		/* untie(%$h1)  	*/
     sv_unmagic(h2, 'P');		/* untie(%$h2)  	*/
+
     sv_magic(h1, h2i, 'P', Nullch, 0);	/* tie %$h1, $h2i	*/
     DBIc_MY_H(imp_xxh2) = (HV*)h1;
+
     sv_magic(h2, h1i, 'P', Nullch, 0);	/* tie %$h2, $h1i	*/
     DBIc_MY_H(imp_xxh1) = (HV*)h2;
+
     SvREFCNT_dec(h1i);
     SvREFCNT_dec(h2i);
+
     ST(0) = &sv_yes;
     }
 

@@ -1,4 +1,4 @@
-/* $Id: strmode.c,v 1.2 2003/12/15 12:18:43 lukem Exp $ */
+/* $NetBSD: strmode.c,v 1.3 2008/09/21 16:35:25 lukem Exp $ */
 /* from	NetBSD: strmode.c,v 1.11 1999/09/20 04:39:47 lukem Exp */
 
 /*-

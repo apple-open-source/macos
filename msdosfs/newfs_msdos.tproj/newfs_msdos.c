@@ -404,7 +404,7 @@ main(int argc, char *argv[])
 	    opt_r = argto2(optarg, 1, "reserved sectors");
 	    break;
 	case 's':
-	    opt_s = argto4(optarg, 1, "file system size");
+	    opt_s = argto4(optarg, 1, "file system size (in sectors)");
 	    break;
 	case 'u':
 	    opt_u = argto2(optarg, 1, "sectors/track");
@@ -812,7 +812,7 @@ main(int argc, char *argv[])
 			  (u_int)tm->tm_min));
 		mk4(bsx->volid, x);
 		mklabel(bsx->label, opt_v ? opt_v : "NO NAME");
-		sprintf(buf, "FAT%u", fat);
+		snprintf(buf, sizeof(buf), "FAT%u", fat);
 		setstr(bsx->type, buf, sizeof(bsx->type));
 		if (!opt_B) {
 		    x1 += sizeof(struct bsx);
@@ -931,6 +931,19 @@ getdiskinfo(int fd, const char *fname, const char *dtype, int oflag,
 		warn("ioctl (GDINFO)");
 		errx(1, "%s: can't figure out partition info", fname);
 	}
+
+	/*
+	 * If bytes-per-sector was explicitly specified, but total number of
+	 * sectors was not explicitly specified, then find out how many sectors
+	 * of the given size would fit into the given partition (calculate the
+	 * size of the partition in bytes, and divide by the desired bytes per
+	 * sector).
+	 *
+	 * This makes it possible to create a disk image, and format it in
+	 * preparation for copying to a device with a different sector size.
+	 */
+	if (bpb->bps && !bpb->bsec)
+		bpb->bsec = (u_int64_t) (lab.d_partitions[0].p_size) * lab.d_secsize / bpb->bps;
 
 	if (!oflag)
 		bpb->hid = lab.d_partitions[0].p_offset;
@@ -1071,7 +1084,7 @@ usage(void)
     fprintf(stderr, "\t-n number of FATs\n");
     fprintf(stderr, "\t-o hidden sectors\n");
     fprintf(stderr, "\t-r reserved sectors\n");
-    fprintf(stderr, "\t-s file system size (sectors)\n");
+    fprintf(stderr, "\t-s file system size (in sectors)\n");
     fprintf(stderr, "\t-u sectors/track\n");
     fprintf(stderr, "\t-v filesystem/volume name\n");
     exit(1);

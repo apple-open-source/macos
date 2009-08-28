@@ -65,7 +65,7 @@
 #include <netinet/ip.h>
 
 #define MAX_STATES 16		/* must be > 2 and < 256 */
-#define MAX_HDR MLEN		/* XXX 4bsd-ism: should really be 128 */
+#define MAX_HDR MSIZE		/* XXX 4bsd-ism: should really be 128 */
 
 /*
  * Compressed packet format:

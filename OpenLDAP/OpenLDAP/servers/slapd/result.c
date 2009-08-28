@@ -1,8 +1,8 @@
 /* result.c - routines to send ldap results, errors, and referrals */
-/* $OpenLDAP: pkg/ldap/servers/slapd/result.c,v 1.244.2.20 2006/05/15 15:51:59 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/result.c,v 1.289.2.14 2008/05/28 16:28:18 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -51,14 +51,6 @@ int slap_freeself_cb( Operation *op, SlapReply *rs )
 	op->o_tmpfree( op->o_callback, op->o_tmpmemctx );
 	op->o_callback = NULL;
 
-	return SLAP_CB_CONTINUE;
-}
-
-int slap_replog_cb( Operation *op, SlapReply *rs )
-{
-	if ( rs->sr_err == LDAP_SUCCESS ) {
-		replog( op );
-	}
 	return SLAP_CB_CONTINUE;
 }
 
@@ -157,7 +149,6 @@ static long send_ldap_ber(
 	/* write the pdu */
 	while( 1 ) {
 		int err;
-		ber_socket_t	sd;
 
 		if ( connection_state_closing( conn ) ) {
 			ldap_pvt_thread_mutex_unlock( &conn->c_mutex );
@@ -166,11 +157,11 @@ static long send_ldap_ber(
 			return 0;
 		}
 
-		if ( ber_flush( conn->c_sb, ber, 0 ) == 0 ) {
+		if ( ber_flush2( conn->c_sb, ber, LBER_FLUSH_FREE_NEVER ) == 0 ) {
 			break;
 		}
 
-		err = errno;
+		err = sock_errno();
 
 		/*
 		 * we got an error.  if it's ewouldblock, we need to
@@ -178,7 +169,7 @@ static long send_ldap_ber(
 		 * it's a hard error and return.
 		 */
 
-		Debug( LDAP_DEBUG_CONNS, "ber_flush failed errno=%d reason=\"%s\"\n",
+		Debug( LDAP_DEBUG_CONNS, "ber_flush2 failed errno=%d reason=\"%s\"\n",
 		    err, sock_errstr(err), 0 );
 
 		if ( err != EWOULDBLOCK && err != EAGAIN ) {
@@ -192,8 +183,7 @@ static long send_ldap_ber(
 
 		/* wait for socket to be write-ready */
 		conn->c_writewaiter = 1;
-		ber_sockbuf_ctrl( conn->c_sb, LBER_SB_OPT_GET_FD, &sd );
-		slapd_set_write( sd, 1 );
+		slapd_set_write( conn->c_sd, 1 );
 
 		ldap_pvt_thread_cond_wait( &conn->c_write_cv, &conn->c_mutex );
 		conn->c_writewaiter = 0;
@@ -247,7 +237,7 @@ send_ldap_controls( Operation *o, BerElement *ber, LDAPControl **c )
 		if( rc == -1 ) return rc;
 	}
 
-#ifdef LDAP_DEVEL
+#ifdef SLAP_CONTROL_X_SORTEDRESULTS
 	/* this is a hack to avoid having to modify op->s_ctrls */
 	if( o->o_sortedresults ) {
 		BerElementBuffer berbuf;
@@ -277,6 +267,101 @@ send_ldap_controls( Operation *o, BerElement *ber, LDAPControl **c )
 	return rc;
 }
 
+/*
+ * slap_response_play()
+ *
+ * plays the callback list; rationale: a callback can
+ *   - remove itself from the list, by setting op->o_callback = NULL;
+ *     malloc()'ed callbacks should free themselves from inside the
+ *     sc_response() function.
+ *   - replace itself with another (list of) callback(s), by setting
+ *     op->o_callback = a new (list of) callback(s); in this case, it
+ *     is the callback's responsibility to to append existing subsequent
+ *     callbacks to the end of the list that is passed to the sc_response()
+ *     function.
+ *   - modify the list of subsequent callbacks by modifying the value
+ *     of the sc_next field from inside the sc_response() function; this
+ *     case does not require any handling from inside slap_response_play()
+ *
+ * To stop execution of the playlist, the sc_response() function must return
+ * a value different from SLAP_SC_CONTINUE.
+ *
+ * The same applies to slap_cleanup_play(); only, there is no means to stop
+ * execution of the playlist, since all cleanup functions must be called.
+ */
+static int
+slap_response_play(
+	Operation *op,
+	SlapReply *rs )
+{
+	int rc;
+
+	slap_callback	*sc = op->o_callback, **scp;
+
+	rc = SLAP_CB_CONTINUE;
+	for ( scp = &sc; *scp; ) {
+		slap_callback *sc_next = (*scp)->sc_next, **sc_nextp = &(*scp)->sc_next;
+
+		op->o_callback = *scp;
+		if ( op->o_callback->sc_response ) {
+			rc = op->o_callback->sc_response( op, rs );
+			if ( op->o_callback == NULL ) {
+				/* the callback has been removed;
+				 * repair the list */
+				*scp = sc_next;
+				sc_nextp = scp;
+
+			} else if ( op->o_callback != *scp ) {
+				/* a new callback has been inserted
+				 * in place of the existing one; repair the list */
+				*scp = op->o_callback;
+				sc_nextp = scp;
+			}
+			if ( rc != SLAP_CB_CONTINUE ) break;
+		}
+		scp = sc_nextp;
+	}
+
+	op->o_callback = sc;
+	return rc;
+}
+
+static int
+slap_cleanup_play(
+	Operation *op,
+	SlapReply *rs )
+{
+	slap_callback	*sc = op->o_callback, **scp;
+
+	for ( scp = &sc; *scp; ) {
+		slap_callback *sc_next = (*scp)->sc_next, **sc_nextp = &(*scp)->sc_next;
+
+		op->o_callback = *scp;
+		if ( op->o_callback->sc_cleanup ) {
+			(void)op->o_callback->sc_cleanup( op, rs );
+			if ( op->o_callback == NULL ) {
+				/* the callback has been removed;
+				 * repair the list */
+				*scp = sc_next;
+				sc_nextp = scp;
+
+			} else if ( op->o_callback != *scp ) {
+				/* a new callback has been inserted
+				 * after the existing one; repair the list */
+				/* a new callback has been inserted
+				 * in place of the existing one; repair the list */
+				*scp = op->o_callback;
+				sc_nextp = scp;
+			}
+			/* don't care about the result; do all cleanup */
+		}
+		scp = sc_nextp;
+	}
+
+	op->o_callback = sc;
+	return LDAP_SUCCESS;
+}
+
 static int
 send_ldap_response(
 	Operation *op,
@@ -287,31 +372,16 @@ send_ldap_response(
 	int		rc = LDAP_SUCCESS;
 	long	bytes;
 
-	if ( rs->sr_err == SLAPD_ABANDON ) {
+	if ( rs->sr_err == SLAPD_ABANDON || op->o_abandon ) {
 		rc = SLAPD_ABANDON;
 		goto clean2;
 	}
 
 	if ( op->o_callback ) {
-		slap_callback	*sc = op->o_callback, **sc_prev = &sc, *sc_next;
-
-		rc = SLAP_CB_CONTINUE;
-		for ( sc_next = op->o_callback; sc_next; op->o_callback = sc_next) {
-			sc_next = op->o_callback->sc_next;
-			if ( op->o_callback->sc_response ) {
-				slap_callback *sc2 = op->o_callback;
-				rc = op->o_callback->sc_response( op, rs );
-				if ( op->o_callback != sc2 ) {
-					*sc_prev = op->o_callback;
-				}
-				if ( rc != SLAP_CB_CONTINUE || !op->o_callback ) break;
-				if ( op->o_callback != sc2 ) continue;
-			}
-			sc_prev = &op->o_callback->sc_next;
+		rc = slap_response_play( op, rs );
+		if ( rc != SLAP_CB_CONTINUE ) {
+			goto clean2;
 		}
-
-		op->o_callback = sc;
-		if ( rc != SLAP_CB_CONTINUE ) goto clean2;
 	}
 
 #ifdef LDAP_CONNECTIONLESS
@@ -436,10 +506,10 @@ send_ldap_response(
 		goto cleanup;
 	}
 
-	ldap_pvt_thread_mutex_lock( &slap_counters.sc_sent_mutex );
-	ldap_pvt_mp_add_ulong( slap_counters.sc_pdu, 1 );
-	ldap_pvt_mp_add_ulong( slap_counters.sc_bytes, (unsigned long)bytes );
-	ldap_pvt_thread_mutex_unlock( &slap_counters.sc_sent_mutex );
+	ldap_pvt_thread_mutex_lock( &op->o_counters->sc_mutex );
+	ldap_pvt_mp_add_ulong( op->o_counters->sc_pdu, 1 );
+	ldap_pvt_mp_add_ulong( op->o_counters->sc_bytes, (unsigned long)bytes );
+	ldap_pvt_thread_mutex_unlock( &op->o_counters->sc_mutex );
 
 cleanup:;
 	/* Tell caller that we did this for real, as opposed to being
@@ -449,33 +519,23 @@ cleanup:;
 
 clean2:;
 	if ( op->o_callback ) {
-		slap_callback	*sc = op->o_callback, **sc_prev = &sc, *sc_next;
+		(void)slap_cleanup_play( op, rs );
+	}
 
-		for ( sc_next = op->o_callback; sc_next; op->o_callback = sc_next) {
-			sc_next = op->o_callback->sc_next;
-			if ( op->o_callback->sc_cleanup ) {
-				slap_callback *sc2 = op->o_callback;
-				(void)op->o_callback->sc_cleanup( op, rs );
-				if ( op->o_callback != sc2 ) {
-					*sc_prev = op->o_callback;
-				}
-				if ( !op->o_callback ) break;
-				if ( op->o_callback != sc2 ) continue;
-			}
-			sc_prev = &op->o_callback->sc_next;
+	if ( rs->sr_flags & REP_MATCHED_MUSTBEFREED ) {
+		rs->sr_flags ^= REP_MATCHED_MUSTBEFREED; /* paranoia */
+		if ( rs->sr_matched ) {
+			free( (char *)rs->sr_matched );
+			rs->sr_matched = NULL;
 		}
-		op->o_callback = sc;
 	}
 
-
-	if ( rs->sr_matched && rs->sr_flags & REP_MATCHED_MUSTBEFREED ) {
-		free( (char *)rs->sr_matched );
-		rs->sr_matched = NULL;
-	}
-
-	if ( rs->sr_ref && rs->sr_flags & REP_REF_MUSTBEFREED ) {
-		ber_bvarray_free( rs->sr_ref );
-		rs->sr_ref = NULL;
+	if ( rs->sr_flags & REP_REF_MUSTBEFREED ) {
+		rs->sr_flags ^= REP_REF_MUSTBEFREED; /* paranoia */
+		if ( rs->sr_ref ) {
+			ber_bvarray_free( rs->sr_ref );
+			rs->sr_ref = NULL;
+		}
 	}
 
 	return rc;
@@ -506,7 +566,7 @@ send_ldap_disconnect( Operation	*op, SlapReply *rs )
 	} else {
 		rs->sr_rspoid = LDAP_NOTICE_DISCONNECT;
 		rs->sr_tag = LDAP_RES_EXTENDED;
-		rs->sr_msgid = 0;
+		rs->sr_msgid = LDAP_RES_UNSOLICITED;
 	}
 
 	if ( send_ldap_response( op, rs ) == SLAP_CB_CONTINUE ) {
@@ -527,7 +587,7 @@ slap_send_ldap_result( Operation *op, SlapReply *rs )
 	rs->sr_type = REP_RESULT;
 
 	/* Propagate Abandons so that cleanup callbacks can be processed */
-	if ( rs->sr_err == SLAPD_ABANDON )
+	if ( rs->sr_err == SLAPD_ABANDON || op->o_abandon )
 		goto abandon;
 
 	assert( !LDAP_API_ERROR( rs->sr_err ) );
@@ -567,10 +627,18 @@ slap_send_ldap_result( Operation *op, SlapReply *rs )
 		rs->sr_ref = NULL;
 	}
 
+abandon:
 	rs->sr_tag = slap_req2res( op->o_tag );
 	rs->sr_msgid = (rs->sr_tag != LBER_SEQUENCE) ? op->o_msgid : 0;
 
-abandon:
+	if ( rs->sr_flags & REP_REF_MUSTBEFREED ) {
+		if ( rs->sr_ref == NULL ) {
+			rs->sr_flags ^= REP_REF_MUSTBEFREED;
+			ber_bvarray_free( oref );
+		}
+		oref = NULL; /* send_ldap_response() will free rs->sr_ref if != NULL */
+	}
+
 	if ( send_ldap_response( op, rs ) == SLAP_CB_CONTINUE ) {
 		if ( op->o_tag == LDAP_REQ_SEARCH ) {
 			char nbuf[64];
@@ -687,6 +755,13 @@ slap_send_search_entry( Operation *op, SlapReply *rs )
 		return LDAP_SIZELIMIT_EXCEEDED;
 	}
 
+	/* Every 64 entries, check for thread pool pause */
+	if ( ( ( rs->sr_nentries & 0x3f ) == 0x3f ) &&
+		ldap_pvt_thread_pool_pausing( &connection_pool ) > 0 )
+	{
+		return LDAP_BUSY;
+	}
+
 	rs->sr_type = REP_SEARCH;
 
 	/* eventually will loop through generated operational attribute types
@@ -695,7 +770,7 @@ slap_send_search_entry( Operation *op, SlapReply *rs )
 	/* NOTE: moved before overlays callback circling because
 	 * they may modify entry and other stuff in rs */
 	/* check for special all operational attributes ("+") type */
-	/* FIXME: maybe we could se this flag at the operation level;
+	/* FIXME: maybe we could set this flag at the operation level;
 	 * however, in principle the caller of send_search_entry() may
 	 * change the attribute list at each call */
 	rs->sr_attr_flags = slap_attr_flags( rs->sr_attrs );
@@ -706,26 +781,10 @@ slap_send_search_entry( Operation *op, SlapReply *rs )
 	}
 
 	if ( op->o_callback ) {
-		slap_callback	*sc = op->o_callback, **sc_prev = &sc, *sc_next;
-
-		rc = SLAP_CB_CONTINUE;
-		for ( sc_next = op->o_callback; sc_next; op->o_callback = sc_next )
-		{
-			sc_next = op->o_callback->sc_next;
-			if ( op->o_callback->sc_response ) {
-				slap_callback *sc2 = op->o_callback;
-				rc = op->o_callback->sc_response( op, rs );
-				if ( op->o_callback != sc2 ) {
-					*sc_prev = op->o_callback;
-				}
-				if ( rc != SLAP_CB_CONTINUE || !op->o_callback ) break;
-				if ( op->o_callback != sc2 ) continue;
-			}
-			sc_prev = &op->o_callback->sc_next;
+		rc = slap_response_play( op, rs );
+		if ( rc != SLAP_CB_CONTINUE ) {
+			goto error_return;
 		}
-
-		op->o_callback = sc;
-		if ( rc != SLAP_CB_CONTINUE ) goto error_return;
 	}
 
 	Debug( LDAP_DEBUG_TRACE, "=> send_search_entry: conn %lu dn=\"%s\"%s\n",
@@ -852,12 +911,16 @@ slap_send_search_entry( Operation *op, SlapReply *rs )
 		} else {
 			/* specific attrs requested */
 			if ( is_at_operational( desc->ad_type ) ) {
-				if ( !SLAP_OPATTRS( rs->sr_attr_flags ) &&
-					!ad_inlist( desc, rs->sr_attrs ) )
-				{
-					continue;
+				/* if not explicitly requested */
+				if ( !ad_inlist( desc, rs->sr_attrs )) {
+					/* if not all op attrs requested, skip */
+					if ( !SLAP_OPATTRS( rs->sr_attr_flags ))
+						continue;
+					/* if DSA-specific and replicating, skip */
+					if ( op->o_sync != SLAP_CONTROL_NONE &&
+						desc->ad_type->sat_usage == LDAP_SCHEMA_DSA_OPERATION )
+						continue;
 				}
-
 			} else {
 				if ( !userattrs && !ad_inlist( desc, rs->sr_attrs ) ) {
 					continue;
@@ -1147,11 +1210,11 @@ slap_send_search_entry( Operation *op, SlapReply *rs )
 		}
 		rs->sr_nentries++;
 
-		ldap_pvt_thread_mutex_lock( &slap_counters.sc_sent_mutex );
-		ldap_pvt_mp_add_ulong( slap_counters.sc_bytes, (unsigned long)bytes );
-		ldap_pvt_mp_add_ulong( slap_counters.sc_entries, 1 );
-		ldap_pvt_mp_add_ulong( slap_counters.sc_pdu, 1 );
-		ldap_pvt_thread_mutex_unlock( &slap_counters.sc_sent_mutex );
+		ldap_pvt_thread_mutex_lock( &op->o_counters->sc_mutex );
+		ldap_pvt_mp_add_ulong( op->o_counters->sc_bytes, (unsigned long)bytes );
+		ldap_pvt_mp_add_ulong( op->o_counters->sc_entries, 1 );
+		ldap_pvt_mp_add_ulong( op->o_counters->sc_pdu, 1 );
+		ldap_pvt_thread_mutex_unlock( &op->o_counters->sc_mutex );
 	}
 
 	Statslog( LDAP_DEBUG_STATS2, "%s ENTRY dn=\"%s\"\n",
@@ -1164,22 +1227,7 @@ slap_send_search_entry( Operation *op, SlapReply *rs )
 
 error_return:;
 	if ( op->o_callback ) {
-		slap_callback	*sc = op->o_callback, **sc_prev = &sc, *sc_next;
-
-		for ( sc_next = op->o_callback; sc_next; op->o_callback = sc_next) {
-			sc_next = op->o_callback->sc_next;
-			if ( op->o_callback->sc_cleanup ) {
-				slap_callback *sc2 = op->o_callback;
-				(void)op->o_callback->sc_cleanup( op, rs );
-				if ( op->o_callback != sc2 ) {
-					*sc_prev = op->o_callback;
-				}
-				if ( !op->o_callback ) break;
-				if ( op->o_callback != sc2 ) continue;
-			}
-			sc_prev = &op->o_callback->sc_next;
-		}
-		op->o_callback = sc;
+		(void)slap_cleanup_play( op, rs );
 	}
 
 	if ( e_flags ) {
@@ -1223,25 +1271,10 @@ slap_send_search_reference( Operation *op, SlapReply *rs )
 
 	rs->sr_type = REP_SEARCHREF;
 	if ( op->o_callback ) {
-		slap_callback	*sc = op->o_callback, **sc_prev = &sc, *sc_next;
-
-		rc = SLAP_CB_CONTINUE;
-		for ( sc_next = op->o_callback; sc_next; op->o_callback = sc_next) {
-			sc_next = op->o_callback->sc_next;
-			if ( op->o_callback->sc_response ) {
-				slap_callback *sc2 = op->o_callback;
-				rc = op->o_callback->sc_response( op, rs );
-				if ( op->o_callback != sc2 ) {
-					*sc_prev = op->o_callback;
-				}
-				if ( rc != SLAP_CB_CONTINUE || !op->o_callback ) break;
-				if ( op->o_callback != sc2 ) continue;
-			}
-			sc_prev = &op->o_callback->sc_next;
+		rc = slap_response_play( op, rs );
+		if ( rc != SLAP_CB_CONTINUE ) {
+			goto rel;
 		}
-
-		op->o_callback = sc;
-		if ( rc != SLAP_CB_CONTINUE ) goto rel;
 	}
 
 	Debug( LDAP_DEBUG_TRACE,
@@ -1341,11 +1374,15 @@ slap_send_search_reference( Operation *op, SlapReply *rs )
 	bytes = send_ldap_ber( op->o_conn, ber );
 	ber_free_buf( ber );
 
-	ldap_pvt_thread_mutex_lock( &slap_counters.sc_sent_mutex );
-	ldap_pvt_mp_add_ulong( slap_counters.sc_bytes, (unsigned long)bytes );
-	ldap_pvt_mp_add_ulong( slap_counters.sc_refs, 1 );
-	ldap_pvt_mp_add_ulong( slap_counters.sc_pdu, 1 );
-	ldap_pvt_thread_mutex_unlock( &slap_counters.sc_sent_mutex );
+	if ( bytes < 0 ) {
+		rc = LDAP_UNAVAILABLE;
+	} else {
+		ldap_pvt_thread_mutex_lock( &op->o_counters->sc_mutex );
+		ldap_pvt_mp_add_ulong( op->o_counters->sc_bytes, (unsigned long)bytes );
+		ldap_pvt_mp_add_ulong( op->o_counters->sc_refs, 1 );
+		ldap_pvt_mp_add_ulong( op->o_counters->sc_pdu, 1 );
+		ldap_pvt_thread_mutex_unlock( &op->o_counters->sc_mutex );
+	}
 #ifdef LDAP_CONNECTIONLESS
 	}
 #endif
@@ -1367,22 +1404,7 @@ slap_send_search_reference( Operation *op, SlapReply *rs )
 
 rel:
 	if ( op->o_callback ) {
-		slap_callback	*sc = op->o_callback, **sc_prev = &sc, *sc_next;
-
-		for ( sc_next = op->o_callback; sc_next; op->o_callback = sc_next) {
-			sc_next = op->o_callback->sc_next;
-			if ( op->o_callback->sc_cleanup ) {
-				slap_callback *sc2 = op->o_callback;
-				(void)op->o_callback->sc_cleanup( op, rs );
-				if ( op->o_callback != sc2 ) {
-					*sc_prev = op->o_callback;
-				}
-				if ( rc != SLAP_CB_CONTINUE || !op->o_callback ) break;
-				if ( op->o_callback != sc2 ) continue;
-			}
-			sc_prev = &op->o_callback->sc_next;
-		}
-		op->o_callback = sc;
+		(void)slap_cleanup_play( op, rs );
 	}
 
 	return rc;
@@ -1498,14 +1520,15 @@ int slap_read_controls(
 		op->o_preread_attrs : op->o_postread_attrs; 
 
 	bv.bv_len = entry_flatsize( rs->sr_entry, 0 );
-	bv.bv_val = op->o_tmpalloc(bv.bv_len, op->o_tmpmemctx );
+	bv.bv_val = op->o_tmpalloc( bv.bv_len, op->o_tmpmemctx );
 
 	ber_init2( ber, &bv, LBER_USE_DER );
 	ber_set_option( ber, LBER_OPT_BER_MEMCTX, &op->o_tmpmemctx );
 
 	/* create new operation */
 	myop = *op;
-	myop.o_bd = NULL;
+	/* FIXME: o_bd needed for ACL */
+	myop.o_bd = op->o_bd;
 	myop.o_res_ber = ber;
 	myop.o_callback = NULL;
 	myop.ors_slimit = 1;

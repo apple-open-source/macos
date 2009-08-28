@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2005, 2008, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,14 +24,16 @@
 #ifndef _SCNETWORKREACHABILITY_H
 #define _SCNETWORKREACHABILITY_H
 
-#include <AvailabilityMacros.h>
+#include <Availability.h>
+#include <TargetConditionals.h>
 #include <sys/cdefs.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SCNetwork.h>
-
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+#if	!TARGET_OS_IPHONE
+#include <dispatch/dispatch.h>
+#endif	// !TARGET_OS_IPHONE
 
 /*!
 	@header SCNetworkReachability
@@ -81,18 +83,101 @@ typedef struct {
 } SCNetworkReachabilityContext;
 
 /*!
+	@enum SCNetworkReachabilityFlags
+	@discussion Flags that indicate whether the specified network
+		nodename or address is reachable, whether a connection is
+		required, and whether some user intervention may be required
+		when establishing a connection.
+	@constant kSCNetworkReachabilityFlagsTransientConnection
+		This flag indicates that the specified nodename or address can
+		be reached via a transient connection, such as PPP.
+	@constant kSCNetworkReachabilityFlagsReachable
+		This flag indicates that the specified nodename or address can
+		be reached using the current network configuration.
+	@constant kSCNetworkReachabilityFlagsConnectionRequired
+		This flag indicates that the specified nodename or address can
+		be reached using the current network configuration, but a
+		connection must first be established.
+
+		As an example, this status would be returned for a dialup
+		connection that was not currently active, but could handle
+		network traffic for the target system.
+	@constant kSCNetworkReachabilityFlagsConnectionOnTraffic
+		This flag indicates that the specified nodename or address can
+		be reached using the current network configuration, but a
+		connection must first be established.  Any traffic directed
+		to the specified name or address will initiate the connection.
+
+		Note: this flag was previously named kSCNetworkReachabilityFlagsConnectionAutomatic
+	@constant kSCNetworkReachabilityFlagsInterventionRequired
+		This flag indicates that the specified nodename or address can
+		be reached using the current network configuration, but a
+		connection must first be established.  In addition, some
+		form of user intervention will be required to establish this
+		connection, such as providing a password, an authentication
+		token, etc.
+
+		Note: At the present time, this flag will only be returned
+		in the case where you have a dial-on-traffic configuration
+		(ConnectionOnTraffic), where an attempt to connect has
+		already been made, and where some error (e.g. no dial tone,
+		no answer, bad password, ...) was encountered during the
+		automatic connection attempt.  In this case the PPP controller
+		will stop attempting to establish a connection until the user
+		has intervened.
+	@constant kSCNetworkReachabilityFlagsConnectionOnDemand
+		This flag indicates that the specified nodename or address can
+		be reached using the current network configuration, but a
+		connection must first be established.
+		The connection will be established "On Demand" by the
+		CFSocketStream APIs.
+		Other APIs will not establish the connection.
+	@constant kSCNetworkReachabilityFlagsIsLocalAddress
+		This flag indicates that the specified nodename or address
+		is one associated with a network interface on the current
+		system.
+	@constant kSCNetworkReachabilityFlagsIsDirect
+		This flag indicates that network traffic to the specified
+		nodename or address will not go through a gateway, but is
+		routed directly to one of the interfaces in the system.
+#if	TARGET_OS_IPHONE
+	@constant kSCNetworkReachabilityFlagsIsWWAN
+		This flag indicates that the specified nodename or address can
+		be reached via an EDGE, GPRS, or other "cell" connection.
+#endif	// TARGET_OS_IPHONE
+ */
+enum {
+	kSCNetworkReachabilityFlagsTransientConnection	= 1<<0,
+	kSCNetworkReachabilityFlagsReachable		= 1<<1,
+	kSCNetworkReachabilityFlagsConnectionRequired	= 1<<2,
+	kSCNetworkReachabilityFlagsConnectionOnTraffic	= 1<<3,
+	kSCNetworkReachabilityFlagsInterventionRequired	= 1<<4,
+#if	(__MAC_OS_X_VERSION_MIN_REQUIRED >= 1060) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 30000) || TARGET_IPHONE_SIMULATOR
+	kSCNetworkReachabilityFlagsConnectionOnDemand	= 1<<5,
+#endif
+	kSCNetworkReachabilityFlagsIsLocalAddress	= 1<<16,
+	kSCNetworkReachabilityFlagsIsDirect		= 1<<17,
+#if	TARGET_OS_IPHONE
+	kSCNetworkReachabilityFlagsIsWWAN		= 1<<18,
+#endif	// TARGET_OS_IPHONE
+
+	kSCNetworkReachabilityFlagsConnectionAutomatic	= kSCNetworkReachabilityFlagsConnectionOnTraffic
+};
+typedef	uint32_t	SCNetworkReachabilityFlags;
+
+/*!
 	@typedef SCNetworkReachabilityCallBack
 	@discussion Type of the callback function used when the
 		reachability of a network address or name changes.
 	@param target The SCNetworkReachability reference being monitored
 		for changes.
-	@param flags The new SCNetworkConnectionFlags representing the
+	@param flags The new SCNetworkReachabilityFlags representing the
 		reachability status of the network address/name.
 	@param info A C pointer to a user-specified block of data.
  */
 typedef void (*SCNetworkReachabilityCallBack)	(
 						SCNetworkReachabilityRef	target,
-						SCNetworkConnectionFlags	flags,
+						SCNetworkReachabilityFlags	flags,
 						void				*info
 						);
 
@@ -112,7 +197,7 @@ SCNetworkReachabilityRef
 SCNetworkReachabilityCreateWithAddress		(
 						CFAllocatorRef			allocator,
 						const struct sockaddr		*address
-						)				AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER;
+						)				__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0);
 
 /*!
 	@function SCNetworkReachabilityCreateWithAddressPair
@@ -132,7 +217,7 @@ SCNetworkReachabilityCreateWithAddressPair	(
 						CFAllocatorRef			allocator,
 						const struct sockaddr		*localAddress,
 						const struct sockaddr		*remoteAddress
-						)				AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER;
+						)				__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0);
 
 /*!
 	@function SCNetworkReachabilityCreateWithName
@@ -150,7 +235,7 @@ SCNetworkReachabilityRef
 SCNetworkReachabilityCreateWithName		(
 						CFAllocatorRef			allocator,
 						const char			*nodename
-						)				AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER;
+						)				__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0);
 
 /*!
 	@function SCNetworkReachabilityGetTypeID
@@ -158,7 +243,7 @@ SCNetworkReachabilityCreateWithName		(
 		instances.
  */
 CFTypeID
-SCNetworkReachabilityGetTypeID			(void)				AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER;
+SCNetworkReachabilityGetTypeID			(void)				__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0);
 
 
 /*!
@@ -168,7 +253,7 @@ SCNetworkReachabilityGetTypeID			(void)				AVAILABLE_MAC_OS_X_VERSION_10_3_AND_L
 	@param target The network reference associated with the address or name
 		to be checked for reachability.
 	@param flags A pointer to memory that will be filled with the
-		SCNetworkConnectionFlags detailing the reachability
+		SCNetworkReachabilityFlags detailing the reachability
 		of the specified target.
 	@result Returns TRUE if the network connection flags are valid;
 		FALSE if the status could not be determined.
@@ -176,8 +261,8 @@ SCNetworkReachabilityGetTypeID			(void)				AVAILABLE_MAC_OS_X_VERSION_10_3_AND_L
 Boolean
 SCNetworkReachabilityGetFlags			(
 						SCNetworkReachabilityRef	target,
-						SCNetworkConnectionFlags	*flags
-						)				AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER;
+						SCNetworkReachabilityFlags	*flags
+						)				__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0);
 
 /*!
 	@function SCNetworkReachabilitySetCallback
@@ -197,7 +282,7 @@ SCNetworkReachabilitySetCallback		(
 						SCNetworkReachabilityRef	target,
 						SCNetworkReachabilityCallBack	callout,
 						SCNetworkReachabilityContext	*context
-						)				AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER;
+						)				__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0);
 
 /*!
 	@function SCNetworkReachabilityScheduleWithRunLoop
@@ -216,7 +301,7 @@ SCNetworkReachabilityScheduleWithRunLoop	(
 						SCNetworkReachabilityRef	target,
 						CFRunLoopRef			runLoop,
 						CFStringRef			runLoopMode
-						)				AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER;
+						)				__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0);
 
 /*!
 	@function SCNetworkReachabilityUnscheduleFromRunLoop
@@ -236,10 +321,26 @@ SCNetworkReachabilityUnscheduleFromRunLoop	(
 						SCNetworkReachabilityRef	target,
 						CFRunLoopRef			runLoop,
 						CFStringRef			runLoopMode
-						)				AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER;
+						)				__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0);
+
+#if	!TARGET_OS_IPHONE
+/*!
+	@function SCNetworkReachabilitySetDispatchQueue
+	@discussion Schedules callbacks for the given target on the given
+		dispatch queue.
+	@param target The address or name that is set up for asynchronous
+		notifications.  Must be non-NULL.
+	@param queue A libdispatch queue to run the callback on. Pass NULL to disable notifications, and release queue.
+	@result Returns TRUE if the target is unscheduled successfully;
+		FALSE otherwise.
+ */
+Boolean
+SCNetworkReachabilitySetDispatchQueue		(
+						SCNetworkReachabilityRef	target,
+						dispatch_queue_t		queue
+						)				__OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_NA);
+#endif	// !TARGET_OS_IPHONE
 
 __END_DECLS
-
-#endif	/* MAC_OS_X_VERSION_MAX_ALLOWED >= 1030 */
 
 #endif /* _SCNETWORKREACHABILITY_H */

@@ -1,0 +1,32 @@
+2008-12-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.11.1 ========================
+	* 
+
+2008-10-16  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.11 ========================
+	* 
+
+2008-03-14  Andreas Kupries <andreask@activestate.com>
+
+	* annealing.man: Cleaned up a bit, replaced deprecated [nl] usage
+	* montecarlo.man: with [para].
+	* random.man:
+
+2008-02-22  Arjen Markus <arjenmarkus@users.sourceforge.net>
+
+	* annealing.tcl: Added function for combinatorial problems
+	* annealing.man: Described new function
+
+2008-01-11  Arjen Markus <arjenmarkus@users.sourceforge.net>
+
+	* annealing.tcl: Package for simulated annealing added
+	* annealing.man: Description of simulated annealing added
+	* montecarlo.tcl: Package for Monte Carlo simulation added
+	* montecarlo.man: Description of Monte Carlo simulation added
+	* random.tcl: Package for random number generators added
+	* random.man: Description of random number generators added
+

@@ -134,6 +134,29 @@ macosx_inferior_destroy (macosx_inferior_status *s)
 {
   macosx_signal_thread_destroy (&s->signal_status);
   macosx_exception_thread_destroy (&s->exception_status);
+
+  /* We may have destroyed the signal thread before we reaped the
+     child.  Make sure we do that here or we'll pile up children till
+     we exit.  
+
+     Note, we sometimes get called before we've set up a child in
+     which case s->pid will be zero.  Don't wait on that...  */
+
+  if (s->pid != 0)
+    {
+      int retval;
+      int stat;
+      
+      retval = waitpid (s->pid, &stat, 0);
+
+      if (retval == -1)
+	inferior_debug (2, "Final waitpid returned error: \"%s\"\n", strerror (errno));
+      else if (retval == 0)
+	inferior_debug (2, "Final waitpid returned 0 - no children.");
+      else
+	inferior_debug (2, "Final waitpid returned %d.\n", retval);
+    }
+
 #if WITH_CFM
   macosx_cfm_thread_destroy (&s->cfm_status);
 #endif /* WITH_CFM */
@@ -233,6 +256,8 @@ macosx_inferior_resume_mach (macosx_inferior_status *s, int count)
       kret = task_resume (s->task);
       if (kret != KERN_SUCCESS)
         {
+	  inferior_debug (2, "resume task failed, (suspend count: %d)\n",
+			  s->suspend_count);
           return kret;
         }
       s->suspend_count--;
@@ -291,10 +316,12 @@ macosx_inferior_resume_ptrace (macosx_inferior_status *s, unsigned int thread,
 
   if ((s->stopped_in_softexc) && (thread != 0))
     {
+      inferior_debug (2, "Calling ptrace (%s, 0x%x, 0x%x, %d).\n",ptrace_request_unparse (PTRACE_THUPDATE),
+		       s->pid, thread, nsignal);
       if (call_ptrace (PTRACE_THUPDATE, s->pid, (PTRACE_ARG3_TYPE) thread, nsignal) != 0)
-        error ("Error calling ptrace (%s (0x%lx), %d, %d, %d): %s",
+        error ("Error calling ptrace (%s (0x%lx), %d, 0x%x, %d): %s",
                ptrace_request_unparse (PTRACE_THUPDATE),
-               (unsigned long) PTRACE_THUPDATE, s->pid, 1, nsignal,
+               (unsigned long) PTRACE_THUPDATE, s->pid, thread, nsignal,
                strerror (errno));
     }
 

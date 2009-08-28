@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -178,7 +178,11 @@ CFStringRef SecCopyErrorMessageString(OSStatus status, void *reserved);
 
 /*!
 @enum Security Error Codes 
-@abstract Represents the result codes.
+@abstract Result codes returned from Security framework functions.
+@constant errSecSuccess No error.
+@constant errSecUnimplemented Function or operation not implemented.
+@constant errSecParam One or more parameters passed to a function were not valid.
+@constant errSecAllocate Failed to allocate memory.
 @constant errSecNotAvailable No keychain is available.
 @constant errSecReadOnly Read only error.
 @constant errSecAuthFailed Authorization/Authentication failed.
@@ -196,7 +200,7 @@ CFStringRef SecCopyErrorMessageString(OSStatus status, void *reserved);
 @constant errSecInvalidSearchRef The search reference is invalid.
 @constant errSecNoSuchClass The keychain item class does not exist.
 @constant errSecNoDefaultKeychain A default keychain does not exist.
-@constant errSecInteractionNotAllowed Interaction is not allowed with the Security Server.
+@constant errSecInteractionNotAllowed User interaction is not allowed.
 @constant errSecReadOnlyAttr The attribute is read only.
 @constant errSecWrongSecVersion The version is incorrect.
 @constant errSecKeySizeNotAllowed The key size is not allowed.
@@ -222,8 +226,9 @@ CFStringRef SecCopyErrorMessageString(OSStatus status, void *reserved);
 @constant errSecInvalidTrustSettings The Trust Settings Record was corrupted.
 @constant errSecNoTrustSettings No Trust Settings were found. 
 @constant errSecPkcs12VerifyFailure MAC verification failed during PKCS12 Import.
+@constant errSecDecode Unable to decode the provided data.
 
-@discussion The assigned error space is discontinuous: -25240..-25279, -25290..25329.
+@discussion The assigned error space is discontinuous: e.g. -25240..-25279, -25290..25329, and so on.
 */
 
 /*
@@ -235,6 +240,11 @@ CFStringRef SecCopyErrorMessageString(OSStatus status, void *reserved);
 
 enum
 {
+    errSecSuccess                = 0,       /* No error. */
+    errSecUnimplemented          = -4,      /* Function or operation not implemented. */
+    errSecParam                  = -50,     /* One or more parameters passed to a function were not valid. */
+    errSecAllocate               = -108,    /* Failed to allocate memory. */
+
     errSecNotAvailable           = -25291,	/* No keychain is available. You may need to restart your computer. */
     errSecReadOnly               = -25292,	/* This keychain cannot be modified. */
     errSecAuthFailed             = -25293,	/* The user name or passphrase you entered is not correct. */
@@ -280,6 +290,8 @@ enum
 	errSecInvalidTrustSettings 	 = -25262,	/* The Trust Settings Record was corrupted. */
 	errSecNoTrustSettings		 = -25263,	/* No Trust Settings were found. */
 	errSecPkcs12VerifyFailure 	 = -25264,	/* MAC verification failed during PKCS12 Import. */
+	
+    errSecDecode                 = -26275,  /* Unable to decode the provided data. */
 };
 
 #if defined(__cplusplus)

@@ -27,6 +27,7 @@
 #include "reqparser.h"
 #include "antlrplugin.h"
 #include "cserror.h"
+#include "codesigning_dtrace.h"
 #include <CoreFoundation/CoreFoundation.h>
 #include <security_utilities/osxcode.h>
 
@@ -51,11 +52,10 @@ PluginHost::PluginHost()
 {
 	if (CFBundleRef securityFramework = CFBundleGetBundleWithIdentifier(CFSTR("com.apple.security")))
 		if (CFURLRef plugins = CFBundleCopyBuiltInPlugInsURL(securityFramework))
-			if (CFRef<CFURLRef> pluginURL = CFURLCreateWithFileSystemPathRelativeToBase(NULL,
-					CFSTR("csparser.bundle"), kCFURLPOSIXPathStyle, true, plugins)) {
-				secdebug("antlrplugin", "loading antlr parser plugin from %s", cfString(pluginURL).c_str());
+			if (CFRef<CFURLRef> pluginURL = makeCFURL("csparser.bundle", true, plugins)) {
 				plugin = new LoadableBundle(cfString(pluginURL).c_str());
 				plugin->load();
+				CODESIGN_LOAD_ANTLR();
 				antlr = reinterpret_cast<FindAntlrPlugin *>(plugin->lookupSymbol(FINDANTLRPLUGIN))();
 				return;
 			}

@@ -1,11 +1,11 @@
 ﻿# ***************************************************************************
 # *
-# *  Copyright (C) 2004-2006, International Business Machines
+# *  Copyright (C) 2004-2008, International Business Machines
 # *  Corporation; Unicode, Inc.; and others.  All Rights Reserved.
 # *
 # ***************************************************************************
 # File: Tamil_InterIndic.txt
-# Generated from CLDR: Thu Jul 20 16:27:18 PDT 2006
+# Generated from CLDR 
 #
 ொ>\uE04A;# VOWEL SIGN O
 ோ>\uE04B;# VOWEL SIGN OO
@@ -70,4 +70,4 @@
 ௰>\uE067\uE066;          # UNMAPPED Tamil-InterIndic: NUMBER TEN
 ௱>\uE067\uE066\uE066;     # UNMAPPED Tamil-InterIndic: NUMBER ONE HUNDRED
 ௲>\uE067\uE066\uE066\uE066;# UNMAPPED Tamil-InterIndic: NUMBER ONE THOUSAND
-0>\uE066;
+\u0BE6>\uE066;

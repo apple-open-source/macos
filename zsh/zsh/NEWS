@@ -2,8 +2,107 @@
 CHANGES FROM PREVIOUS VERSIONS OF ZSH
 -------------------------------------
 
-Major changes between versions 4.2 and 4.3
-------------------------------------------
+Note also the list of incompatibilities in the README file.
+
+Major changes between versions 4.3.6 and 4.3.9
+----------------------------------------------
+
+The option COMBINING_CHARS has been added.  When it is set, the
+line editor assumes the terminal is capable of displaying zero-width
+combining characters (typically accents) correctly as modifications
+to the base character, and will act accordingly.  Note it is not set
+by default owing to vagaries of terminals.  The system is reported
+to work on MacOS, where this is particularly important as accented
+characters in file names are stored in their decomposed form (i.e.
+with base and combining characters).
+
+The option HIST_FCNTL_LOCK has been added to provide locking of history
+files using the system call fcntl().  On recent NFS implementations this
+may provide better reliability.
+
+The syntax ~[...] provides a dynamic form of directory naming,
+supplementing the existing static ~name syntax.  A user-defined shell
+function, zsh_directory_name, is used to handle both expansion of names to
+directories and contraction of directories to names.
+
+Patterns can now be used in incremental searches with the new widgets
+history-incremental-pattern-search-backward and
+history-incremental-pattern-search-forward.  These are not bound to
+keys by default.
+
+Highlighting and colouring of sections of the command line is now
+supported, controlled by the array parameter zle_highlight and the ZLE
+special parameter region_highlight.
+
+Colouring of prompts is now supported within the shell by prompt
+escapes.  The prompt theme system has been updated.
+
+Various changes have been added to make debugging of shell code easier:
+  - As noted in README, the option DEBUG_BEFORE_CMD is now set by default.
+  - In DEBUG traps, $ZSH_DEBUG_CMD gives the code for which the trap is
+    called as a string.
+  - "setopt ERR_EXIT" in a DEBUG trap causes the code not to be executed.
+  - $ZSH_SUBSHELL indicates the subshell level at which code is being
+    executed.
+  - The zsh/parameter module has various additional arrays similar to
+    the existing $funcstack and $functrace, namely $funcsourcetrace
+    and $funcfiletrace.  The consistency and informativeness of
+    the output of all these arrays has been improved.
+  - Prompt escapes %x and %I show the source file and line number in
+    debug prompts (compare %N and %i which show names and line numbers
+    in the execution environment).
+  - The option NO_MULTI_FUNCDEF can turn off multiple definition of
+    functions at once, a rarely used feature that can cause problems
+    with misplaced "()".
+  - The "fc" builtin has been enhanced to make non-interactive use possible
+    and output consistent when the history is manipulated with "print -s".
+
+The completion style accept-exact-dirs has been added.  When true, this
+suppresses attempts to complete non-final directory segments of a filename
+path when the directory exists.  (For example, /home/pws/src/zsh/<TAB>
+discovers that /home/pws/src/zsh exists and leaves the directory component
+alone, while /h/p/s/z/<TAB> completes to /home/pws/src/zsh/... as before.)
+This should improve completion behaviour noticeably in special cases, such
+as remote paths under Cygwin.
+
+Major changes between versions 4.3.5 and 4.3.6
+----------------------------------------------
+
+cd, chdir, pushd and popd now take a -q option to suppress side effects
+including printing the directory stack (for pushd and popd) and executing
+the chpwd hook functions (for all four).
+
+The parameter subscript (e) flag now forces the argument to be treated
+as a string where it would previously have been treated as a pattern,
+for example ${array[(ie)*]} substitutes the index of the element whose
+value is "*".
+
+Major changes between versions 4.3.4 and 4.3.5
+----------------------------------------------
+
+- The new extended globbing flag (#cN,M) behaves similarly to the extended
+  regular expression syntax {N,M}.
+
+- The zsh/datetime module has been enhanced and a calendar function
+  system has been added along the lines of (but much enhanced from)
+  the traditional Unix "calendar" utility.  This is still under
+  development.  See the zshcalsys manual.  (The calendar functions
+  were in 4.3.4 but were not listed in this file.  There have been
+  significant enhancements since 4.3.4.)
+
+- A new module zsh/curses provides a builtin zcurses for access to
+  to the curses screen manipulation package.  See the entry for zsh/curses
+  in the zshmodules manual.
+
+- The module system has been enhanced to support the notion of "features"
+  that give more control over which builtins, parameters, conditions
+  and math functions are loaded from a module.  In particular,
+  "zmodload -F zsh/stat b:zstat" makes the builtin previously called
+  "stat" available as "zstat" (only) to avoid clashes with a system
+  command named "stat".
+
+Major changes between versions 4.2 and 4.3.4
+--------------------------------------------
 
 - There is support for multibyte character sets.  This is now reasonably
   close to complete, although Unicode combining characters don't work
@@ -44,6 +143,10 @@ Major changes between versions 4.2 and 4.3
   works correctly on multibyte characters if the appropriate support
   is present.  See the section FILENAME GENERATION in the zshexpn
   manual page.
+
+- Time comparisons on files when sorting or using test operators will
+  use high-resolution timestamps when available.  This gives a
+  resolution of a nanosecond instead of a second.
 
 - The idiom =(<<<...) is optimised so that the shell internally turns
   the ... into the contents of a file whose name is then substituted.
@@ -103,7 +206,7 @@ Changes in 4.2 since version 4.2.0
 
 - A new zle widget reset-prompt has been added to re-expand the current
   prompt.  Changes to the variable in use as well as changes in its
-  expanions are both taken into account.  The same effect is now forced by
+  expansions are both taken into account.  The same effect is now forced by
   a job change notification, making the %j prompt escape and %(j..) ternary
   expression more useful.
 

@@ -41,16 +41,30 @@
 #include <stdlib.h>			// for calloc()
 #include <poll.h>
 #include <sys/time.h>		// for struct timeval
-#include <machine/byte_order.h>
+#include <libkern/OSAtomic.h>
+#include <sys/socket.h>
+#include <netdb.h>
 
 #include "DSCThread.h"		// for GetCurThreadRunState()
 #include "DSTCPEndpoint.h"
 #ifdef DSSERVERTCP
-#include "CLog.h"
+	#include "CLog.h"
+#else
+	#define DbgLog(...)
 #endif
 #include "SharedConsts.h"	// for sComData
 #include "DirServicesConst.h"
 #include "DSTCPEndian.h"
+#include "DSSwapUtils.h"
+
+int32_t			DSTCPEndpoint::mMessageID	= 0;
+static uint8	paramBlob[]	= { \
+								0x30, 0x52, 0x06, 0x08, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x03, 0x30, 0x46, 0x02, 0x41,\
+								0x00, 0xa0, 0xd4, 0x42, 0xd5, 0x68, 0x08, 0x94, 0xc9, 0xef, 0xb7, 0x18, 0x9c, 0x0b, 0x72, 0x53,\
+								0xac, 0x8a, 0x7b, 0xc2, 0x40, 0x17, 0x96, 0x29, 0xd1, 0xf2, 0x96, 0xe8, 0x2b, 0x4e, 0x48, 0xaf,\
+								0x59, 0xbe, 0x29, 0xc4, 0x9b, 0x52, 0xda, 0x05, 0x18, 0x29, 0x73, 0xff, 0xd5, 0x26, 0x47, 0x53,\
+								0x54, 0x79, 0xf4, 0x39, 0x96, 0x6f, 0x61, 0x5e, 0xe6, 0xfc, 0x92, 0x7d, 0xf4, 0x20, 0x6e, 0xa9,\
+								0xa3, 0x02, 0x01, 0x02 };
 
 // ----------------------------------------------------------------------------
 //	* DSTCPEndpoint Class (static) Methods
@@ -63,80 +77,38 @@
 #pragma mark **** Instance Methods ****
 
 // ----------------------------------------------------------------------------
-//	* InitBuffers ()
-//
-// ----------------------------------------------------------------------------
-
-void DSTCPEndpoint::InitBuffers ( void )
-{
-	::memset(&mMySockAddr, 0, sizeof(mMySockAddr));
-	mRemoteHostIPString[0] = '\0';
-	::memset(&mRemoteSockAddr, 0, sizeof(mRemoteSockAddr));
-
-	// Allocate buffers
-	try {
-
-		mErrorBuffer = new char [kTCPErrorBufferLen];
-		if ( mErrorBuffer == nil ) throw((SInt32)eMemoryAllocError);
-	}
-
-	catch( SInt32 err )
-	{
-		throw(err);
-	}
-} // InitBuffers
-
-
-// ----------------------------------------------------------------------------
 //	* DSTCPEndpoint ()
 //
 // ----------------------------------------------------------------------------
 
-DSTCPEndpoint::DSTCPEndpoint (	const UInt32	inSessionID,
-								const UInt32	inOpenTimeout,
-								const UInt32	inRWTimeout ) :
-	mLogMsgSessionID(inSessionID),
-	mMyIPAddr (DSNetworkUtilities::GetOurIPAddress(0)),
+DSTCPEndpoint::DSTCPEndpoint (	const UInt32	inOpenTimeout,
+								const UInt32	inRWTimeout,
+								int				inSocket ) :
 	mRemoteHostIPAddr (0),
-	mListenFD (0),
-	mConnectFD (0),
-	mErrorBuffer (NULL),
-	mAborting (false),
+	mConnectFD (inSocket),
 	mWeHaveClosed (false),
 	mOpenTimeout (inOpenTimeout),
 	mRWTimeout (inRWTimeout),
-	mDefaultTimeout(inRWTimeout)
+	mDefaultTimeout(inRWTimeout),
+	fKeyState(eKeyStateAcceptClientKey)
+
 {
-	this->InitBuffers ();
+	memset( &mMySockAddr, 0, sizeof(mMySockAddr) );
+	mRemoteHostIPString[0] = '\0';
+	memset( &mRemoteSockAddr, 0, sizeof(mRemoteSockAddr) );
+	
+	bzero(&fPrivateKey, sizeof(fPrivateKey));
+	bzero(&fPublicKey, sizeof(fPublicKey));
+	bzero(&fDerivedKey, sizeof(fDerivedKey));
+		  
+	if ( cdsaCspAttach(&fcspHandle) == CSSM_OK )
+	{
+		//set the param block
+		fParamBlock.Data	= paramBlob;
+		fParamBlock.Length	= sizeof(paramBlob);
+	}
+
 } // DSTCPEndpoint Constructor
-
-
-// ----------------------------------------------------------------------------
-//	* DSTCPEndpoint () - Duplicating Constructor
-//
-// ----------------------------------------------------------------------------
-
-DSTCPEndpoint::DSTCPEndpoint (	const DSTCPEndpoint	*inEndpoint,
-								const UInt32 		inSessionID) :
-	mLogMsgSessionID(inSessionID),
-	mMyIPAddr (inEndpoint->mMyIPAddr),
-	mRemoteHostIPAddr (inEndpoint->mRemoteHostIPAddr),
-	mListenFD (inEndpoint->mListenFD),
-	mConnectFD (inEndpoint->mConnectFD),
-	mErrorBuffer (NULL),
-	mAborting (false),
-	mWeHaveClosed (false),
-	mOpenTimeout (inEndpoint->mOpenTimeout),
-	mRWTimeout (inEndpoint->mRWTimeout),
-	mDefaultTimeout(inEndpoint->mDefaultTimeout)
-{
-	this->InitBuffers ();
-
-	// Copy the relevent structures.
-	::memcpy(&mMySockAddr, &inEndpoint->mMySockAddr, sizeof (mMySockAddr));
-	::memcpy(mRemoteHostIPString, &inEndpoint->mRemoteHostIPString, sizeof (mRemoteHostIPString));
-	::memcpy(&mRemoteSockAddr, &inEndpoint->mRemoteSockAddr, sizeof (mRemoteSockAddr));
-} // DSTCPEndpoint Duplicating Constructor
 
 
 // ----------------------------------------------------------------------------
@@ -155,15 +127,14 @@ DSTCPEndpoint::~DSTCPEndpoint ( void )
 			DoTCPCloseSocket( mConnectFD );
 		}
 	}
-	catch( SInt32 err )
+	catch( ... )
 	{
 	}
 
-	if ( mErrorBuffer != NULL )
-	{
-		delete [] mErrorBuffer;
-		mErrorBuffer = NULL;
-	}
+	cdsaFreeKey( fcspHandle, &fPrivateKey );
+	cdsaFreeKey( fcspHandle, &fPublicKey );
+	cdsaFreeKey( fcspHandle, &fDerivedKey );
+	cdsaCspDetach( fcspHandle );	
 
 } // ~DSTCPEndpoint
 
@@ -175,14 +146,13 @@ DSTCPEndpoint::~DSTCPEndpoint ( void )
 //			port number
 // ----------------------------------------------------------------------------
 
-SInt32 DSTCPEndpoint::ConnectTo ( const UInt32 inIPAddress, const UInt16 inPort )
+SInt32 DSTCPEndpoint::ConnectTo ( struct addrinfo *inAddrInfo )
 {
 	int					err = eDSNoErr;
 	int					result = 0;
 	int					sockfd;
-	int					len = sizeof(struct sockaddr_in);
 	time_t				timesUp;
-	struct sockaddr_in	serverAddr;
+	struct sockaddr		*serverAddr = inAddrInfo->ai_addr;
 	int					rc = eDSNoErr;
 	bool				releaseZeroFD = false;
 
@@ -196,21 +166,11 @@ SInt32 DSTCPEndpoint::ConnectTo ( const UInt32 inIPAddress, const UInt16 inPort 
 
 		mConnectFD = sockfd;
 	
-		::memset( &serverAddr, 0, len );
-		serverAddr.sin_family		= AF_INET;
-		serverAddr.sin_port			= htons( inPort );	// convert the numbers to network byte order
-		serverAddr.sin_addr.s_addr	= htonl( inIPAddress );
-	
 		// although connect has its own timeout, to enable longer time out we use mOpenTimeout
 		timesUp = ::time(NULL) + mOpenTimeout;
 		while ( ::time(NULL) < timesUp )
 		{
-			result = ::connect( mConnectFD, (struct sockaddr *)&serverAddr, len );
-	
-			if ( mAborting == true )
-			{
-				return( kAbortedWarning );
-			}
+			result = ::connect( mConnectFD, serverAddr, serverAddr->sa_len );
 	
 			if ( result == -1 )
 			{
@@ -222,20 +182,12 @@ SInt32 DSTCPEndpoint::ConnectTo ( const UInt32 inIPAddress, const UInt16 inPort 
 						break;
 	
 					case ECONNREFUSED:
-						::memset(mErrorBuffer, 0, kTCPErrorBufferLen);
-						::strncpy(mErrorBuffer, ::strerror(err), kTCPErrorBufferLen);
-	
-						LOG2( kStdErr, "TCP connect error (%d) %s.", err, mErrorBuffer );
-						LOG2( kStdErr, "ConnectTo: connect() error: %d, %s", err, mErrorBuffer );
+						LOG2( kStdErr, "ConnectTo: connect() error: %d, %s", err, strerror(err) );
 						return( eDSIPUnreachable );					
 						break;
 						
 					default:	// other errors are serious
-						::memset(mErrorBuffer, 0, kTCPErrorBufferLen);
-						::strncpy(mErrorBuffer, ::strerror(err), kTCPErrorBufferLen);
-	
-						LOG2( kStdErr, "TCP connect error (%d) %s.", err, mErrorBuffer );
-						LOG2( kStdErr, "ConnectTo: connect() error: %d, %s", err, mErrorBuffer );
+						LOG2( kStdErr, "ConnectTo: connect() error: %d, %s", err, strerror(err) );
 						return( eDSTCPSendError );
 						break;
 				} // switch
@@ -248,13 +200,11 @@ SInt32 DSTCPEndpoint::ConnectTo ( const UInt32 inIPAddress, const UInt16 inPort 
 					rcSock = ::close( 0 );
 					if ( rcSock == -1 )
 					{
-						::memset( mErrorBuffer, 0, kTCPErrorBufferLen );
 						err = errno;
-						::strncpy( mErrorBuffer, ::strerror( err ), kTCPErrorBufferLen );
 #ifdef DSSERVERTCP
-						DbgLog( kLogTCPEndpoint, "DoTCPCloseSocket: close() on unused socket 0 failed with error %d: %s", err, mErrorBuffer );
+						DbgLog( kLogTCPEndpoint, "DoTCPCloseSocket: close() on unused socket 0 failed with error %d: %s", err, strerror(err) );
 #else
-						LOG2( kStdErr, "DoTCPCloseSocket: close() on unused socket 0 failed with error %d: %s", err, mErrorBuffer );
+						LOG2( kStdErr, "DoTCPCloseSocket: close() on unused socket 0 failed with error %d: %s", err, strerror(err) );
 #endif
 					}
 					else
@@ -279,7 +229,7 @@ SInt32 DSTCPEndpoint::ConnectTo ( const UInt32 inIPAddress, const UInt16 inPort 
 	{ 
 		// connection established, now we can safely copy the network information data members
 		// mActive = true;
-		::memcpy(&mRemoteSockAddr, &serverAddr, len);
+		memcpy(&mRemoteSockAddr, &serverAddr, sizeof(mRemoteSockAddr));
 		rc = this->SetSocketOption( mConnectFD, SO_NOSIGPIPE );
 		if ( rc != 0 )
 		{
@@ -295,108 +245,6 @@ SInt32 DSTCPEndpoint::ConnectTo ( const UInt32 inIPAddress, const UInt16 inPort 
 		return(eDSServerTimeout);
 	}
 } // ConnectTo
-
-// ----------------------------------------------------------------------------
-//	* ListenToPort ()
-//
-//		- Currently we listen on all network interfaces available. There may
-//			 be a need to specify which interface to listen on.
-// ----------------------------------------------------------------------------
-
-void DSTCPEndpoint::ListenToPort ( const UInt16 inPort )
-{
-	this->ListenToPortOnAddress( inPort, INADDR_ANY );
-} // ListenToPort
-
-
-// ----------------------------------------------------------------------------
-//	* ListenToPortOnAddress ()
-//
-//		- We set up to listen to the given port on only one network interface
-//			(one address) - Does not accept connection yet, only sets up the port..
-// ----------------------------------------------------------------------------
-
-void DSTCPEndpoint::ListenToPortOnAddress ( const UInt16 inPort, const UInt32 inWhichAddress )
-{
-	int		rc = 0;
-	int		sockfd;
-
-	::memset( &mMySockAddr, '\0', sizeof( mMySockAddr ) );
-	::memset( &mRemoteSockAddr, '\0', sizeof( mRemoteSockAddr ) );
-	mMySockAddr.sin_family		= AF_INET;
-	mMySockAddr.sin_addr.s_addr	= htonl( inWhichAddress );
-	mMySockAddr.sin_port		= htons( inPort );
-
-	sockfd = this->DoTCPOpenSocket();
-	if ( sockfd < 0 )
-	{
-		throw( (SInt32)eDSTCPReceiveError );
-	}
-	mListenFD = sockfd;
-
-	rc = this->SetSocketOption( mListenFD, SO_REUSEADDR );
-	if ( rc != 0 )
-	{
-		throw( (SInt32)eDSTCPReceiveError );
-	}
-
-	rc = this->SetSocketOption( mListenFD, SO_REUSEPORT );
-	if ( rc != 0 )
-	{
-		throw( (SInt32)eDSTCPReceiveError );
-	}
-
-	rc = this->DoTCPBind();
-	if ( rc != 0 )
-	{
-		throw( (SInt32)eDSTCPReceiveError );
-	}
-
-	rc = this->DoTCPListen();
-	if ( rc != 0 )
-	{
-		throw( (SInt32)eDSTCPReceiveError );
-	}
-} //  ListenToPortOnAddress
-
-
-// ----------------------------------------------------------------------------
-//	* AcceptConnection ()
-//
-// ----------------------------------------------------------------------------
-
-Boolean DSTCPEndpoint::AcceptConnection ()
-{
-	mConnectFD = 0;
-
-	return( (this->DoTCPAccept() == 0) );
-
-} // AcceptConnection
-
-
-// ----------------------------------------------------------------------------
-//	* SetTimeout ()
-//
-// ----------------------------------------------------------------------------
-
-void DSTCPEndpoint::SetTimeout ( const int inWhichTimeout, const int inSeconds )
-{
-	switch (inWhichTimeout)
-	{
-		case kOpenTimeoutType:
-			mOpenTimeout = inSeconds;
-			break;
-		case kRWTimeoutType:
-			mRWTimeout = inSeconds;
-			break;
-		case kDefaultTimeoutType:
-			mDefaultTimeout = inSeconds;
-			break;
-		default:
-			break;
-	}
-} // SetTimeout
-
 
 // ----------------------------------------------------------------------------
 //	* GetReverseAddressString ()
@@ -424,12 +272,6 @@ Boolean DSTCPEndpoint::Connected ( void ) const
 	struct pollfd fdToPoll;
 	int result;
 
-	if ( mAborting == true )
-	{
-		// throw((SInt32)kAbortedWarning);
-		return false;
-	}
-
 	if ( mConnectFD == -1 )
 		return false;
 	
@@ -442,149 +284,6 @@ Boolean DSTCPEndpoint::Connected ( void ) const
 	return ( (fdToPoll.revents & POLLHUP) == 0 );
 } // Connected
 
-
-// ----------------------------------------------------------------------------
-// ¥ EncryptDataInPlace
-//	Encrypt a block.
-// ----------------------------------------------------------------------------
-
-void DSTCPEndpoint::EncryptData ( void *inData, const UInt32 inBuffSize, void *&outData, UInt32 &outBuffSize )
-{
-	// do nothing, only applies to encrypted connections
-	outBuffSize = 0;
-	return;
-}
-
-
-// ----------------------------------------------------------------------------
-// ¥ DecryptDataInPlace
-//	Decrypt a block.
-// ----------------------------------------------------------------------------
-
-void DSTCPEndpoint::DecryptData ( void *inData, const UInt32 inBuffSize, void *&outData, UInt32 &outBuffSize )
-{
-	// do nothing, only applies to encrypted connections
-	outBuffSize = 0;
-	return;
-}
-
-
-// ----------------------------------------------------------------------------
-//	* WriteData ()
-//
-//		- Send data to the connected peer
-// ----------------------------------------------------------------------------
-
-UInt32 DSTCPEndpoint::WriteData ( const void *inData, const UInt32 inSize )
-{
-	struct timeval	tvTimeout	= { mRWTimeout, 0 };
-	const char		*aPtr 		= (const char *) inData;
-	int				err			= eDSNoErr;
-	int				rc			= 0;
-	UInt32			dataSize	= inSize;
-	UInt32			bytesWrote	= 0;
-	fd_set			aWriteSet;
-
-	while ( dataSize > 0 && aPtr != NULL ) 
-	{
-		struct timeval	tvTimeoutTime;
-		::gettimeofday( &tvTimeoutTime, NULL );
-		tvTimeoutTime.tv_sec += mRWTimeout;
-
-		tvTimeout.tv_sec = mRWTimeout;
-		
-		//if ( !this->Connected() )
-		//{
-			//throw( (SInt32)kConnectionLostWarning );
-		//}
-
-		// This ridiculous code is to handle "interrupted system calls"
-		// which are frequent on 10.0.1.
-
-		do {
-			FD_ZERO( &aWriteSet );
-			FD_SET( mConnectFD, &aWriteSet );
-			rc = ::select( mConnectFD+1, NULL, &aWriteSet, NULL, &tvTimeout );
-	
-			// Recompute the timeout and break if timeout exceeded.
-			if ( !mAborting && (rc == -1) && (EINTR == errno) )
-			{
-				struct timeval	tvNow;
-				::gettimeofday( &tvNow, NULL );
-				timersub( &tvTimeoutTime, &tvNow, &tvTimeout );
-				if ( tvTimeout.tv_sec < 0 )
-				{
-					break;
-				}
-			}
-		} while ( !mAborting && (rc == -1) && (EINTR == errno) );
-
-		if ( mAborting == true )
-		{
-			throw( (SInt32)kAbortedWarning );
-		}
-
-		if ( rc == 0 ) 
-		{
-#ifdef DSSERVERTCP
-			DbgLog( kLogTCPEndpoint, "WriteData(): select() timed out on %s", mRemoteHostIPString );
-#else
-			LOG1( kStdErr, "WriteData(): select() timed out on %s", mRemoteHostIPString );
-#endif
-			throw( (SInt32)kTimeoutError );
-		}
-		else if ( rc == -1 ) 
-		{
-#ifdef DSSERVERTCP
-			DbgLog( kLogTCPEndpoint, "WriteData: select() error %d: %s on %A.\n", errno, ::strerror( errno ), mRemoteHostIPAddr );
-#else
-			LOG3( kStdErr, "WriteData: select() error %d: %s on %A.\n", errno, ::strerror( errno ), mRemoteHostIPAddr );
-#endif
-			throw( (SInt32)eDSTCPSendError);
-		}
-		else if ( FD_ISSET(mConnectFD, &aWriteSet) )
-		{
-			//TODO do we need a socket level timeout here ie. setsocketopt with SO_SNDTIMEO
-			do
-			{
-				rc = ::sendto(mConnectFD, aPtr, dataSize, 0, NULL, 0);
-				if (mAborting == true)
-				{
-					throw((SInt32)kAbortedWarning);
-				}
-			} while ( (rc == -1) && (errno == EAGAIN) );
-			
-			if ( rc == -1 )
-			{
-				// handle error
-				err = errno;
-				::memset(mErrorBuffer, 0, kTCPErrorBufferLen);
-				::strncpy(mErrorBuffer, ::strerror(err), kTCPErrorBufferLen);
-#ifdef DSSERVERTCP
-				DbgLog( kLogTCPEndpoint, "WriteData: select() error %d: %s", err, mErrorBuffer );
-#else
-				LOG2( kStdErr, "WriteData: select() error %d: %s", err, mErrorBuffer );
-#endif
-				throw( (SInt32)eDSTCPSendError);
-			}
-#ifdef DSSERVERTCP
-			DbgLog( kLogTCPEndpoint, "WriteData(): sent %d bytes with endpoint %d and connectFD %d", rc, (UInt32)this, mConnectFD );
-#else
-			LOG3( kStdErr, "WriteData(): sent %d bytes with endpoint %d and connectFD %d", rc, (UInt32)this, mConnectFD );
-#endif
-			dataSize -= rc;
-			aPtr += rc;
-			bytesWrote += rc;
-		} 
-	} // while
-
-#ifdef DSSERVERTCP
-	DbgLog( kLogTCPEndpoint, "WriteData(): sent %d total bytes with endpoint %d and connectFD %d", bytesWrote, (UInt32)this, mConnectFD );
-#else
-	LOG3( kStdErr, "WriteData(): sent %d total bytes with endpoint %d and connectFD %d", bytesWrote, (UInt32)this, mConnectFD );
-#endif
-	return bytesWrote;
-} // WriteData
 
 // ----------------------------------------------------------------------------
 //	* CloseConnection()
@@ -603,44 +302,6 @@ void DSTCPEndpoint::CloseConnection ( void )
 		}
 	}
 }
-
-
-// ----------------------------------------------------------------------------
-//	* CloseListener()
-//
-// ----------------------------------------------------------------------------
-
-int DSTCPEndpoint::CloseListener ( void )
-{
-	int rc = 0;
-
-	if ( mListenFD > 0 )
-	{
-		rc = this->DoTCPCloseSocket( mListenFD );
-		if ( rc == eDSNoErr )
-		{
-			mListenFD = 0;
-		}
-	}
-	return rc;
-} // CloseListener
-
-
-// ----------------------------------------------------------------------------
-//	* Abort ()
-//
-// ----------------------------------------------------------------------------
-
-inline void DSTCPEndpoint::Abort ( void )
-{
-#ifdef DSSERVERTCP
-	DbgLog( kLogTCPEndpoint, "Aborting a TCPEndpoint..." );
-#else
-	LOG( kStdErr, "Aborting a TCPEndpoint..." );
-#endif
-	mAborting = true;
-	this->CloseConnection();
-} // Abort
 
 
 // ----------------------------------------------------------------------------
@@ -668,28 +329,20 @@ int DSTCPEndpoint::DoTCPOpenSocket (void)
 
 	if ( sockfd == -1 )
 	{
-		if ( mAborting == true )
-		{
-			throw( (SInt32)kAbortedWarning );
-		}
-		::memset( mErrorBuffer, 0, kTCPErrorBufferLen );
 		err = errno;
-		::strncpy( mErrorBuffer, ::strerror(err), kTCPErrorBufferLen );
 #ifdef DSSERVERTCP
-		ErrLog( kLogTCPEndpoint, "Unable to open a socket. error %d: %s", err, mErrorBuffer );
-		DbgLog( kLogTCPEndpoint, "DoTCPOpenSocket: socket() error %d: %s", err, mErrorBuffer );
+		DbgLog( kLogTCPEndpoint, "DoTCPOpenSocket: socket() error %d: %s", err, strerror(err) );
 #else
-		LOG2( kStdErr, "DoTCPOpenSocket: Unable to open a socket with error %d: %s", err, mErrorBuffer );
+		LOG2( kStdErr, "DoTCPOpenSocket: Unable to open a socket with error %d: %s", err, strerror(err) );
 #endif
 	}
 	err = errno;
 	if (err != 0)
 	{
-		::strncpy( mErrorBuffer, ::strerror(err), kTCPErrorBufferLen );
 #ifdef DSSERVERTCP
-		DbgLog( kLogTCPEndpoint, "DoTCPOpenSocket: socket error %d: %s with sockfd %d", err, mErrorBuffer, sockfd );
+		DbgLog( kLogTCPEndpoint, "DoTCPOpenSocket: socket error %d: %s with sockfd %d", err, strerror(err), sockfd );
 #else
-		LOG3( kStdErr, "DoTCPOpenSocket: socket error %d: %s with sockfd %d", err, mErrorBuffer, sockfd );
+		LOG3( kStdErr, "DoTCPOpenSocket: socket error %d: %s with sockfd %d", err, strerror(err), sockfd );
 #endif
 	}
 
@@ -711,7 +364,7 @@ int DSTCPEndpoint::SetSocketOption ( const int inSocket, const int inSocketOptio
 
 	if ( inSocket != 0 )
 	{
-		if ( (inSocket != mListenFD) && (inSocket != mConnectFD) )
+		if ( inSocket != mConnectFD )
 		{
 #ifdef DSSERVERTCP
 			ErrLog( kLogTCPEndpoint, "SetSocketOption: invalid socket: %d", inSocket );
@@ -724,21 +377,12 @@ int DSTCPEndpoint::SetSocketOption ( const int inSocket, const int inSocketOptio
 		rc = ::setsockopt( inSocket, SOL_SOCKET, inSocketOption, &val, len );
 		if ( rc != 0 ) 
 		{
-			if ( mAborting == true )
-			{
-				throw( (SInt32)kAbortedWarning );
-			}
-
-			::memset( mErrorBuffer, 0, kTCPErrorBufferLen );
-
 			err = errno;
-			::strncpy( mErrorBuffer, ::strerror( errno ), kTCPErrorBufferLen );
 
 #ifdef DSSERVERTCP
-			ErrLog( kLogTCPEndpoint, "Unable to set socket option: Message: \"%s\", Error: %d", mErrorBuffer, err );
-			DbgLog( kLogTCPEndpoint, "Unable to set socket option: Message: \"%s\", Error: %d", mErrorBuffer, err );
+			DbgLog( kLogError, "Unable to set socket option: Message: \"%s\", Error: %d", strerror(err), err );
 #else
-			LOG2( kStdErr, "Unable to set socket option: Message: \"%s\", Error: %d", mErrorBuffer, err );
+			LOG2( kStdErr, "Unable to set socket option: Message: \"%s\", Error: %d", strerror(err), err );
 #endif
 		}
 	}
@@ -746,151 +390,6 @@ int DSTCPEndpoint::SetSocketOption ( const int inSocket, const int inSocketOptio
 	return( 0 );
 
 } // SetSocketOption
-
-
-// ----------------------------------------------------------------------------
-//	* DoTCPBind ()
-//
-//		- Bind a socket to a port
-// ----------------------------------------------------------------------------
-
-int DSTCPEndpoint::DoTCPBind ( void )
-{
-			 int		err = eDSNoErr;
-	volatile int		rc = 0;
- 
-	if ( mAborting == true ) 
-	{
-		throw( (SInt32)kAbortedWarning );
-	}
-
-	rc = ::bind( mListenFD, (struct sockaddr *)&mMySockAddr, sizeof(mMySockAddr) );
-	if ( rc != 0 ) 
-	{
-		err = errno;
-		::memset( mErrorBuffer, 0, kTCPErrorBufferLen );
-		::strncpy( mErrorBuffer, ::strerror( err ), kTCPErrorBufferLen );
-#ifdef DSSERVERTCP
-		DbgLog( kLogTCPEndpoint, "DSTCPEndpoint: bind() error %d: %s", err, mErrorBuffer );
-#else
-		LOG2( kStdErr, "DSTCPEndpoint: bind() error %d: %s", err, mErrorBuffer );
-#endif
-	}
-
-	return( err );
-} //DoTCPBind
-
-// ----------------------------------------------------------------------------
-//	* DoTCPListen ()
-//
-// ----------------------------------------------------------------------------
-
-int DSTCPEndpoint::DoTCPListen ( void )
-{
-	int err = eDSNoErr;
-	int rc;
-
-	rc = ::listen( mListenFD, kTCPMaxListenBackLog );
-	if ( rc == -1 )
-	{
-		if ( mAborting == true )
-		{
-			return( rc );
-		}
-		::memset( mErrorBuffer, 0, kTCPErrorBufferLen );
-		err = errno;
-		::strncpy(mErrorBuffer, ::strerror(err), kTCPErrorBufferLen);
-#ifdef DSSERVERTCP
-		DbgLog( kLogTCPEndpoint, "DoTCPListen: listen() error %d: %s", err, mErrorBuffer );
-#else
-		LOG2( kStdErr, "DoTCPListen: listen() error %d: %s", err, mErrorBuffer );
-#endif
-	}
-	return (err);
-} //DoTCPlisten
-
-// ----------------------------------------------------------------------------
-//	* DoTCPAccept ()
-//
-//		- Wait for connection on the listening port. We use select() to avoid
-//			blocking in user time when no connection is available. The kernel
-//			will wake us up when a connection has been completed.
-// ----------------------------------------------------------------------------
-
-int DSTCPEndpoint::DoTCPAccept ( void )
-{
-	int			err		= eDSNoErr;
-	socklen_t	aLen	= sizeof( mRemoteSockAddr );
-	int			rc		= eDSNoErr;
-	fd_set		readSet;
-	
-	do {
-		FD_ZERO( &readSet );
-		FD_SET( mListenFD, &readSet );
-
-		// select blocks in kernel until a connection has been established.
-		rc = ::select( mListenFD + 1, &readSet, NULL, NULL, NULL );
-		if ( mAborting == true )
-		{
-			throw( (SInt32)kAbortedWarning );
-		}
-
-		if ( rc == -1 )
-		{
-#ifdef DSSERVERTCP
-			DbgLog( kLogTCPEndpoint, "DoTCPAccept: select() returned error %d: %s\n", errno, ::strerror( errno ) );
-#else
-			LOG2( kStdErr, "DoTCPAccept: select() returned error %d: %s\n", errno, ::strerror( errno ) );
-#endif
-
-			if ( errno != EINTR )
-			{
-				throw( (SInt32)eDSTCPReceiveError );
-			}
-
-			// Clear the bit and try again if call was interrupted.
-			FD_CLR( mListenFD, &readSet );
-		}
-	} while ( !FD_ISSET( mListenFD, &readSet ) );
-
-	mConnectFD = ::accept( mListenFD, (struct sockaddr *)&mRemoteSockAddr, (socklen_t*)&aLen );
-
-	if ( mAborting == true )
-	{
-		throw( (SInt32)kAbortedWarning );
-	}
-
-	if ( mConnectFD == -1 )
-	{
-#ifdef DSSERVERTCP
-		DbgLog( kLogTCPEndpoint,  "DoTCPAccept: select error %d: %s", errno, ::strerror( err ) );
-#else
-		LOG2( kStdErr,  "DoTCPAccept: select error %d: %s", errno, ::strerror( err ) );
-#endif
-		throw( (SInt32)eDSTCPReceiveError );
-	}
-
-	rc = this->SetSocketOption( mListenFD, SO_KEEPALIVE );
-	if ( rc != 0 )
-	{
-		throw( (SInt32)eDSTCPReceiveError );
-	}
-	rc = this->SetSocketOption( mListenFD, SO_NOSIGPIPE );
-	if ( rc != 0 )
-	{
-		throw( (SInt32)eDSTCPReceiveError );
-	}
-
-	if ( err == eDSNoErr )
-	{
-		// connection has established. remember the remote host.
-		mRemoteHostIPAddr = ntohl( mRemoteSockAddr.sin_addr.s_addr );
-		DSNetworkUtilities::IPAddrToString( mRemoteHostIPAddr, mRemoteHostIPString, MAXIPADDRSTRLEN );
-	}
- 
-	return( err );
-
-} // DoTCPAccept
 
 
 // ----------------------------------------------------------------------------
@@ -914,13 +413,11 @@ int DSTCPEndpoint::DoTCPCloseSocket ( const int inSockFD )
 	rc = ::close( inSockFD );
 	if ( rc == -1 )
 	{
-		::memset( mErrorBuffer, 0, kTCPErrorBufferLen );
 		err = errno;
-		::strncpy( mErrorBuffer, ::strerror( err ), kTCPErrorBufferLen );
 #ifdef DSSERVERTCP
-		DbgLog( kLogTCPEndpoint, "DoTCPCloseSocket: close() on socket %d failed with error %d: %s", inSockFD, err, mErrorBuffer );
+		DbgLog( kLogTCPEndpoint, "DoTCPCloseSocket: close() on socket %d failed with error %d: %s", inSockFD, err, strerror(err) );
 #else
-		LOG3( kStdErr, "DoTCPCloseSocket: close() on socket %d failed with error %d: %s", inSockFD, err, mErrorBuffer );
+		LOG3( kStdErr, "DoTCPCloseSocket: close() on socket %d failed with error %d: %s", inSockFD, err, strerror(err) );
 #endif
 	}
 
@@ -955,7 +452,7 @@ UInt32 DSTCPEndpoint::DoTCPRecvFrom ( void *ioBuffer, const UInt32 inBufferSize 
 		rc = ::select( mConnectFD+1, &readSet, NULL, NULL, &tvTimeout );
 
 		// Recompute the timeout and break if timeout exceeded.
-		if ( !mAborting && (rc == -1) && (EINTR == errno) )
+		if ( (rc == -1) && (EINTR == errno) )
 		{
 			struct timeval	tvNow;
 			::gettimeofday( &tvNow, NULL );
@@ -970,17 +467,8 @@ UInt32 DSTCPEndpoint::DoTCPRecvFrom ( void *ioBuffer, const UInt32 inBufferSize 
 				throw( (SInt32)eDSTCPReceiveError );
 			}
 		}
-	} while ( !mAborting && (rc == -1) && (EINTR == errno) );
+	} while ( (rc == -1) && (EINTR == errno) );
 
-	if ( mAborting == true )
-	{
-#ifdef DSSERVERTCP
-		DbgLog( kLogTCPEndpoint, "DSTCPEndpoint::DoTCPRecvFrom(): We have been aborted." );
-#else
-		LOG( kStdErr, "DSTCPEndpoint::DoTCPRecvFrom(): We have been aborted." );
-#endif
-		throw( (SInt32)kAbortedWarning );
-	}
 
 	if ( rc == 0 )
 	{
@@ -994,12 +482,10 @@ UInt32 DSTCPEndpoint::DoTCPRecvFrom ( void *ioBuffer, const UInt32 inBufferSize 
 	else if ( rc == -1 )
 	{
  		err = errno;
-		::memset(mErrorBuffer, 0, kTCPErrorBufferLen);
-		::strncpy(mErrorBuffer, ::strerror(err), kTCPErrorBufferLen);
 #ifdef DSSERVERTCP
-		DbgLog( kLogTCPEndpoint, "DoTCPRecvFrom: select() error %d: %s", err, mErrorBuffer );
+		DbgLog( kLogTCPEndpoint, "DoTCPRecvFrom: select() error %d: %s", err, strerror(err) );
 #else
-		LOG2( kStdErr, "DoTCPRecvFrom: select() error %d: %s", err, mErrorBuffer );
+		LOG2( kStdErr, "DoTCPRecvFrom: select() error %d: %s", err, strerror(err) );
 #endif
 		throw((SInt32)eDSTCPReceiveError);
 	} 
@@ -1012,10 +498,6 @@ UInt32 DSTCPEndpoint::DoTCPRecvFrom ( void *ioBuffer, const UInt32 inBufferSize 
 		{
 			bytesRead = ::recvfrom( mConnectFD, ioBuffer, inBufferSize, MSG_WAITALL, NULL, NULL );
 	
-			if ( mAborting == true )
-			{
-				throw( (SInt32)kAbortedWarning );
-			}
 		} while ( (bytesRead == -1) && (errno == EAGAIN) );
 		
 		if ( bytesRead == 0 )
@@ -1031,22 +513,20 @@ UInt32 DSTCPEndpoint::DoTCPRecvFrom ( void *ioBuffer, const UInt32 inBufferSize 
 		}
 		else if ( bytesRead == -1 )
 		{
-			::memset( mErrorBuffer, 0, kTCPErrorBufferLen );
 			err = errno;
-			::strncpy( mErrorBuffer, ::strerror(err), kTCPErrorBufferLen );
 #ifdef DSSERVERTCP
-			DbgLog( kLogTCPEndpoint, "DoTCPRecvFrom: recvfrom error %d: %s", err, mErrorBuffer );
+			DbgLog( kLogTCPEndpoint, "DoTCPRecvFrom: recvfrom error %d: %s", err, strerror(err) );
 #else
-			LOG2( kStdErr, "DoTCPRecvFrom: recvfrom error %d: %s", err, mErrorBuffer );
+			LOG2( kStdErr, "DoTCPRecvFrom: recvfrom error %d: %s", err, strerror(err) );
 #endif
 			throw( (SInt32)eDSTCPReceiveError );
 		}
 		else
 		{
 #ifdef DSSERVERTCP
-			DbgLog( kLogTCPEndpoint, "DoTCPRecvFrom(): received %d bytes with endpoint %d and connectFD %d", bytesRead, (UInt32)this, mConnectFD );
+			DbgLog( kLogTCPEndpoint, "DoTCPRecvFrom(): received %d bytes with endpoint %ld and connectFD %d", bytesRead, (long)this, mConnectFD );
 #else
-			LOG3( kStdErr, "DoTCPRecvFrom(): received %d bytes with endpoint %d and connectFD %d", bytesRead, (UInt32)this, mConnectFD );
+			LOG3( kStdErr, "DoTCPRecvFrom(): received %d bytes with endpoint %ld and connectFD %d", bytesRead, (long)this, mConnectFD );
 #endif
 		}
 	}
@@ -1054,105 +534,6 @@ UInt32 DSTCPEndpoint::DoTCPRecvFrom ( void *ioBuffer, const UInt32 inBufferSize 
 	return( (UInt32)bytesRead );
 
 } // DoTCPRecvFrom
-
-//------------------------------------------------------------------------------
-//	* GetClientMessage *****ONLY used by DSTCPConnection class
-//
-//------------------------------------------------------------------------------
-
-void * DSTCPEndpoint::GetClientMessage ( void )
-{
-	sComData			   *pOutMsg			= nil;
-	sComProxyData		   *pOutProxyMsg	= nil;
-	void				   *tmpOutMsg		= nil;
-	UInt32					buffLen			= 0;
-	UInt32					readBytes		= 0;
-	SInt32					siResult		= eDSNoErr;
-	void				   *inBuffer		= nil;
-	UInt32					inLength		= 0;
-
-	//need to read a tag and then a buffer length
-	siResult = SyncToMessageBody(true, &inLength);
-	
-	if ( (siResult == eDSNoErr) && (inLength != 0) )
-	{
-		//then alloc a data structure
-		inBuffer = (void *) calloc(1, inLength);
-		
-		if (inBuffer != nil)
-		{
-			try
-			{
-				//go ahead and read the message body of length inLength
-				//put the message data into inBuffer
-				readBytes = DoTCPRecvFrom(inBuffer, inLength);
-				if (readBytes != inLength)
-				{
-					//TODO need to recover somehow
-	#ifdef DSSERVERTCP
-					ErrLog( kLogTCPEndpoint, "GetClientMessage: Couldn't read entire message block" );
-	#endif
-					free(inBuffer);
-					inBuffer = nil;
-				}
-				else
-				{
-					DecryptData(inBuffer, inLength, tmpOutMsg, buffLen);
-					pOutProxyMsg = (sComProxyData *) tmpOutMsg;
-					if (buffLen == 0)
-					{
-						pOutProxyMsg= (sComProxyData *)inBuffer;
-						inBuffer 	= nil;
-						buffLen		= inLength;
-					}
-					if (pOutProxyMsg != nil)
-					{
-						if (NXSwapBigIntToHost(pOutProxyMsg->fDataSize) > buffLen - sizeof(sComProxyData))
-						{
-							//fprintf(stderr,"bad message fDataSize!\n");
-							//let's just throw the message out since it is probably malformed
-							free(pOutProxyMsg);
-							pOutProxyMsg = nil;
-						}
-						//else
-						//{
-							//place the endpoint handle into the pOutProxyMsg struct
-							//don't create a duplicate
-							//pOutProxyMsg->fPort = (UInt32) this; //don't need this since using direct dispatch
-							//KW use of this endpoint needs to be mutex protected?
-							//not likely since we force a single thread on the open API connection
-						//}
-					}
-				}
-			}
-			catch( SInt32 err )
-			{
-				if (pOutProxyMsg != nil)
-				{
-					free(pOutProxyMsg);
-					pOutProxyMsg = nil;
-				}
-				siResult = eDSTCPReceiveError; //not actually used
-			}
-			free(inBuffer);
-			inBuffer = nil;
-		}//if (inBuffer != nil)
-	}
-#ifndef __BIG_ENDIAN__
-	DSTCPEndian swapper(pOutProxyMsg, kDSSwapToHost);
-	swapper.AddIPAndPort( mRemoteHostIPAddr, ntohs( mRemoteSockAddr.sin_port ));
-    swapper.SwapMessage();
-#endif
-    
-	pOutMsg = AllocFromProxyStruct( pOutProxyMsg );
-	if (pOutProxyMsg != nil)
-	{
-		free(pOutProxyMsg);
-		pOutProxyMsg = nil;
-	}
-    return( pOutMsg );
-
-} // GetClientMessage
 
 
 // ----------------------------------------------------------------------------
@@ -1272,7 +653,7 @@ SInt32 DSTCPEndpoint::SyncToMessageBody(const Boolean inStripLeadZeroes, UInt32 
 			}
 			else
 			{
-				*outBuffLen = NXSwapBigIntToHost(buffLen);
+				*outBuffLen = ntohl(buffLen);
 			}
 		}		
 		catch( SInt32 err )
@@ -1297,61 +678,6 @@ SInt32 DSTCPEndpoint::SyncToMessageBody(const Boolean inStripLeadZeroes, UInt32 
 
 
 //------------------------------------------------------------------------------
-//	* SendClientReply *****ONLY used by CHandler class
-//
-//------------------------------------------------------------------------------
-
-SInt32 DSTCPEndpoint::SendClientReply ( void *inMsg )
-{
-	UInt32                  messageSize = 0;
-	sComProxyData  *inProxyMsg  = nil;
-	SInt32                  sendResult  = eDSNoErr;
-
-	inProxyMsg = AllocToProxyStruct( (sComData *)inMsg );
-	//let us only send the data that is present and not the entire buffer
-	inProxyMsg->fDataSize = inProxyMsg->fDataLength;
-	messageSize = sizeof(sComProxyData) + inProxyMsg->fDataLength;
-#ifndef __BIG_ENDIAN__
-	DSTCPEndian swapper(inProxyMsg, kDSSwapToBig);
-	swapper.AddIPAndPort( mRemoteHostIPAddr, ntohs( mRemoteSockAddr.sin_port ));
-	swapper.SwapMessage();
-#endif
-	sendResult = SendBuffer(inProxyMsg, messageSize);
-	free(inProxyMsg);
-	inProxyMsg = nil;
-	
-	return(sendResult);
-} // SendClientReply
-
-
-//------------------------------------------------------------------------------
-//	* SendServerMessage *****ONLY used by CMessaging class
-//
-//------------------------------------------------------------------------------
-
-SInt32 DSTCPEndpoint::SendServerMessage ( void *inMsg )
-{
-	UInt32                  messageSize = 0;
-	sComProxyData  *inProxyMsg  = nil;
-	SInt32                  sendResult  = eDSNoErr;
-
-	inProxyMsg = AllocToProxyStruct( (sComData *)inMsg );
-	//let us only send the data that is present and not the entire buffer
-	inProxyMsg->fDataSize = inProxyMsg->fDataLength;
-	messageSize = sizeof(sComProxyData) + inProxyMsg->fDataLength;
-#ifndef __BIG_ENDIAN__
-	DSTCPEndian swapper(inProxyMsg, kDSSwapToBig);
-	swapper.SwapMessage();
-#endif
-	sendResult = SendBuffer(inProxyMsg, messageSize);
-	free(inProxyMsg);
-	inProxyMsg = nil;
-	
-	return(sendResult);
-} // SendServerMessage
-
-
-//------------------------------------------------------------------------------
 //	* SendBuffer
 //
 //------------------------------------------------------------------------------
@@ -1359,82 +685,97 @@ SInt32 DSTCPEndpoint::SendServerMessage ( void *inMsg )
 SInt32 DSTCPEndpoint::SendBuffer ( void *inBuffer, UInt32 inLength )
 {
 	SInt32				result		= eDSNoErr;
-	char			   *sendBuffer	= nil;
-	UInt32				dataBuffLen	= 0;
-	UInt32				sendBuffLen	= 0;
-	UInt32				sentBytes	= 0;
-	void			   *outBuffer	= nil;
-	UInt32				outLength	= 0;
-	bool				bFreeOutBuff= true;
-
-	EncryptData(inBuffer, inLength, outBuffer, outLength);
-	if (outLength == 0)
-	{
-		outBuffer		= inBuffer;
-		outLength		= inLength;
-		bFreeOutBuff	= false;
-	}
-	//need to build the return message with the following parts
-	//tag, data length, data
-	//use char * variable of length kDSTCPEndpointMessageTagSize + 4 + sizeof(sComData) + pData->fDataSize
-	dataBuffLen = outLength;
-	sendBuffLen = kDSTCPEndpointMessageTagSize + 4 + dataBuffLen;
-	sendBuffer = (char *)calloc(sendBuffLen, 1);
-	strcpy(sendBuffer,"DSPX");
-	*(SInt32*)(sendBuffer+kDSTCPEndpointMessageTagSize) = NXSwapHostIntToBig(dataBuffLen);
-	memcpy(sendBuffer+kDSTCPEndpointMessageTagSize+4, outBuffer, outLength);
-
-	try
-	{
-		sentBytes = WriteData(sendBuffer, sendBuffLen);
-		//don't worry about "\r\n" at the end of the send?
-		if (sentBytes != sendBuffLen)
-		{
-			//TODO need to cleanup on error here
-#ifdef DSSERVERTCP
-			DbgLog( kLogTCPEndpoint, "SendBuffer(): attempted send of %d bytes only sent %d bytes", sendBuffLen, sentBytes );
-#else
-			LOG2( kStdErr, "SendBuffer(): attempted send of %d bytes only sent %d bytes", sendBuffLen, sentBytes );
-#endif
-			result = eDSTCPSendError;
-		}
-	}
-	catch( SInt32 err )
-	{
-#ifdef DSSERVERTCP
-		DbgLog( kLogTCPEndpoint, "SendBuffer(): failed send of %d bytes", sendBuffLen );
-#else
-		LOG1( kStdErr, "SendBuffer(): failed send of %d bytes", sendBuffLen );
-#endif
-		result = eDSTCPSendError;
-	}
+	UInt32				sendBuffLen = sizeof("DSPX") + sizeof(UInt32) + inLength;
+	char				*sendBuff	= (char *) calloc( sendBuffLen, sizeof(char) );
+	uint32_t			offset		= 0;
 	
-	if (sendBuffer != NULL)
-	{
-		free(sendBuffer);
-		sendBuffer = NULL;
-	}
-	if (bFreeOutBuff)
-	{
-		if (outBuffer != NULL)
-		{
-			free(outBuffer);
-			outBuffer = NULL;
-		}
-	}
+	bcopy( "DSPX", sendBuff, kDSTCPEndpointMessageTagSize );
+	*((UInt32 *) (sendBuff + kDSTCPEndpointMessageTagSize)) = htonl( inLength );
+	bcopy( inBuffer, sendBuff + kDSTCPEndpointMessageTagSize + sizeof(UInt32), inLength);
 
-	return( result );
+	// TODO: use dispatch, but not yet (wait until we redo this class to use it completely)
+	do
+	{
+		ssize_t sentBytes = send( mConnectFD, sendBuff + offset, sendBuffLen - offset, 0 );
+		if ( sentBytes < 0 ) {
+			switch ( errno ) {
+				case EINTR:
+				case EAGAIN:
+					break;
+				default:
+					DSFree( sendBuff );
+					return eDSTCPSendError;
+			}
+		}
+		else {
+			offset += sentBytes;
+		}
+		
+		if ( offset < sendBuffLen ) {
+			
+			fd_set	writeSet;
+			struct timeval tvTimeout = { 10, 0 };
+			
+			FD_ZERO( &writeSet );
+			FD_SET( mConnectFD, &writeSet );
+			
+			select( mConnectFD+1, NULL, &writeSet, NULL, &tvTimeout );
+			continue;
+		}
+		
+		break;
+	} while ( 1 );
+	
+	DSFree( sendBuff );
+
+	return result;
 
 } // SendBuffer
 
 
 //------------------------------------------------------------------------------
-//	* GetServerReply *****ONLY used by CMessaging class
-//    if the outMsg needs to grow we can allocate a bigger buffer here
-//    postcondition: *outMsg != nil
+//	* SendMessage
+//
 //------------------------------------------------------------------------------
 
-SInt32 DSTCPEndpoint::GetServerReply ( sComData **outMsg )
+SInt32 DSTCPEndpoint::SendMessage( sComData *inMsg )
+{
+	UInt32			messageSize = 0;
+	sComProxyData  *inProxyMsg  = nil;
+	SInt32			sendResult  = eDSNoErr;
+	void			*outBuffer	= NULL;
+	UInt32			outLength	= 0;
+	
+	inProxyMsg = AllocToProxyStruct( (sComData *)inMsg );
+	
+	//let us only send the data that is present and not the entire buffer
+	inProxyMsg->fDataSize = inProxyMsg->fDataLength;
+	messageSize = sizeof(sComProxyData) + inProxyMsg->fDataLength;
+	
+	inProxyMsg->fIPAddress = mRemoteHostIPAddr;
+	inProxyMsg->fPID = ntohs( mRemoteSockAddr.sin_port );
+	inProxyMsg->fMsgID = OSAtomicIncrement32( &mMessageID );
+	
+	if ( inProxyMsg->type.msgt_translate != 2 ) {
+		SwapProxyMessage( inProxyMsg, kDSSwapHostToNetworkOrder );
+	}
+
+	ProcessData( true, inProxyMsg, messageSize, outBuffer, outLength );
+
+	sendResult = SendBuffer( outBuffer, outLength );
+	
+	DSFree( inProxyMsg );
+	DSFree( outBuffer );
+	
+	return sendResult;
+} // SendMessage
+
+
+//------------------------------------------------------------------------------
+//	* GetReplyMessage
+//------------------------------------------------------------------------------
+
+SInt32 DSTCPEndpoint::GetReplyMessage( sComData **outMsg )
 {
 	SInt32					siResult		= eDSNoErr;
 	UInt32					buffLen			= 0;
@@ -1463,7 +804,7 @@ SInt32 DSTCPEndpoint::GetServerReply ( sComData **outMsg )
 			else
 			{
 				void *tmpOutMsg = nil;
-				DecryptData(inBuffer, inLength, tmpOutMsg, buffLen);
+				ProcessData( false, inBuffer, inLength, tmpOutMsg, buffLen );
 				outProxyMsg = (sComProxyData *)tmpOutMsg;
 				if (buffLen == 0)
 				{
@@ -1488,10 +829,10 @@ SInt32 DSTCPEndpoint::GetServerReply ( sComData **outMsg )
 	
     if (outProxyMsg != nil)
     {
-#ifndef __BIG_ENDIAN__
-        DSTCPEndian swapper(outProxyMsg, kDSSwapToHost);
-        swapper.SwapMessage();
-#endif
+		if ( outProxyMsg->type.msgt_translate != 2 ) {
+			SwapProxyMessage( outProxyMsg, kDSSwapNetworkToHostOrder );
+		}
+		
 		*outMsg = AllocFromProxyStruct( outProxyMsg );
 		free(outProxyMsg);
 		outProxyMsg = nil;
@@ -1499,28 +840,81 @@ SInt32 DSTCPEndpoint::GetServerReply ( sComData **outMsg )
 
 	return( siResult );
 
-} // GetServerReply
-
+} // GetReplyMessage
 
 //------------------------------------------------------------------------------
-//	* GetRemoteHostIPAddress
-//
+//	* ClientNegotiateKey
 //------------------------------------------------------------------------------
 
-UInt32 DSTCPEndpoint::GetRemoteHostIPAddress ( void )
+SInt32 DSTCPEndpoint::ClientNegotiateKey( void )
 {
-	return mRemoteHostIPAddr;
-}
+	SInt32	result;
+	void	*recvBuff		= NULL;
+	UInt32	recvBuffLen		= 0;
+	void	*sendBuff		= NULL;
+	UInt32	sendBuffLen		= 0;
+	
+	fKeyState = eKeyStateSendPublicKey;
+	
+	do
+	{
+		result = ProcessData( true, recvBuff, recvBuffLen, sendBuff, sendBuffLen );
+		DSFree( recvBuff );
+		
+		if ( fKeyState == eKeyStateValidKey )
+			break;
+		
+		// send the response
+		if ( result == eDSNoErr ) {
+			result = SendBuffer( sendBuff, sendBuffLen );
+			DSFree( sendBuff );
+		}
+		
+		// read the buffer len
+		if ( result == eDSNoErr ) {
+			result = SyncToMessageBody( true, &recvBuffLen );
+		}
+		
+		// read the payload
+		if ( result == eDSNoErr ) {
+			recvBuff = (UInt8 *) calloc( recvBuffLen, sizeof(char) );
+			
+			UInt32 readBytes = DoTCPRecvFrom( recvBuff, recvBuffLen );
+			if ( readBytes != recvBuffLen ) {
+				result = eDSCorruptBuffer;
+			}
+		}
+		
+	} while ( result == eDSNoErr );
+	
+	DSFree( sendBuff );
+	DSFree( recvBuff );
+	
+	return result;
+} // ClientNegotiateKey
+
 
 //------------------------------------------------------------------------------
-//	* GetRemoteHostPort
-//
+//	* ServerNegotiateKey
 //------------------------------------------------------------------------------
 
-UInt16 DSTCPEndpoint::GetRemoteHostPort ( void )
+SInt32 DSTCPEndpoint::ServerNegotiateKey( void *dataBuff, UInt32 dataBuffLen )
 {
-	return ( ntohs( mRemoteSockAddr.sin_port ) );
-}
+	void	*sendBuff	= NULL;
+	UInt32	sendBuffLen	= 0;
+	SInt32	result		= ProcessData( true, dataBuff, dataBuffLen, sendBuff, sendBuffLen );
+	
+	if ( result == eDSNoErr ) {
+		if ( sendBuffLen > 0 ) {
+			result = SendBuffer( sendBuff, sendBuffLen );
+		}
+	}
+
+	DSFree( sendBuff );
+
+	return result;
+} // ServerNegotiateKey
+
 
 //------------------------------------------------------------------------------
 //     * AllocToProxyStruct
@@ -1532,12 +926,15 @@ sComProxyData* DSTCPEndpoint::AllocToProxyStruct ( sComData *inDataMsg )
 	sComProxyData      *outProxyDataMsg = nil;
 	int					objIndex;
 
+	
 	if (inDataMsg != nil)
 	{
 		outProxyDataMsg = (sComProxyData *)calloc( 1, sizeof(sComProxyData) + inDataMsg->fDataSize );
 		
-		// this is copying the head data from sComProxyData to sComData
-		bcopy( inDataMsg, outProxyDataMsg, (char *)(outProxyDataMsg->obj) - (char *)outProxyDataMsg );
+		outProxyDataMsg->type = inDataMsg->type;
+		outProxyDataMsg->fMsgID = inDataMsg->fMsgID;
+		outProxyDataMsg->fDataSize = inDataMsg->fDataSize;
+		outProxyDataMsg->fDataLength = inDataMsg->fDataLength;
 
 		// this copies the sObject and the actual data
 		bcopy( inDataMsg->obj, outProxyDataMsg->obj, kObjSize + inDataMsg->fDataSize );
@@ -1547,6 +944,7 @@ sComProxyData* DSTCPEndpoint::AllocToProxyStruct ( sComData *inDataMsg )
 		{
 			if ( outProxyDataMsg->obj[ objIndex ].offset != 0 )
 			{
+				// sComData is larger than proxy struct
 				outProxyDataMsg->obj[ objIndex ].offset -= sizeof(sComData) - sizeof(sComProxyData);
 			}
 		}
@@ -1569,9 +967,12 @@ sComData* DSTCPEndpoint::AllocFromProxyStruct ( sComProxyData *inProxyDataMsg )
 	{
 		outDataMsg = (sComData *)calloc( 1, sizeof(sComData) + inProxyDataMsg->fDataSize );
 		
-		// this is copying the head data from sComProxyData to sComData
-		bcopy( inProxyDataMsg, outDataMsg, (char *)(inProxyDataMsg->obj) - (char *)inProxyDataMsg );
-		
+		outDataMsg->type = inProxyDataMsg->type;
+		outDataMsg->fMsgID = inProxyDataMsg->fMsgID;
+		outDataMsg->fPID = inProxyDataMsg->fPID;
+		outDataMsg->fDataSize = inProxyDataMsg->fDataSize;
+		outDataMsg->fDataLength = inProxyDataMsg->fDataLength;
+
 		// this copies the sObject and the actual data
 		bcopy( inProxyDataMsg->obj, outDataMsg->obj, kObjSize + inProxyDataMsg->fDataSize );
 		
@@ -1580,6 +981,7 @@ sComData* DSTCPEndpoint::AllocFromProxyStruct ( sComProxyData *inProxyDataMsg )
 		{
 			if ( outDataMsg->obj[ objIndex ].offset != 0 )
 			{
+				// sComData is larger than proxy struct
 				outDataMsg->obj[ objIndex ].offset += sizeof(sComData) - sizeof(sComProxyData);
 			}
 		}
@@ -1589,4 +991,173 @@ sComData* DSTCPEndpoint::AllocFromProxyStruct ( sComProxyData *inProxyDataMsg )
 	}
 
 	return ( outDataMsg );
+}
+
+SInt32 DSTCPEndpoint::ProcessData( bool bEncrypt, void *inBuffer, UInt32 inBufferLen, void *&outBuffer, UInt32 &outBufferLen )
+{
+	SInt32		result		= eDSCorruptBuffer;
+	CSSM_DATA	plainText	= { 0, NULL };
+	CSSM_DATA	cipherText	= { 0, NULL };
+	
+	switch ( fKeyState )
+	{
+		case eKeyStateSendPublicKey:
+			// build the send buffer with the auth tag
+			if ( cdsaDhGenerateKeyPair(fcspHandle, &fPublicKey, &fPrivateKey, DH_KEY_SIZE, &fParamBlock, NULL) == CSSM_OK )
+			{
+				outBufferLen = sizeof(FourCharCode) + fPublicKey.KeyData.Length;
+				
+				char *tempPtr = (char *) calloc( 1, outBufferLen );
+				*((FourCharCode *) tempPtr) = htonl( DSTCPAuthTag );
+				memcpy( tempPtr + sizeof(FourCharCode), fPublicKey.KeyData.Data, fPublicKey.KeyData.Length );
+				outBuffer = tempPtr;
+				result = eDSNoErr;
+			}
+			
+			DbgLog( kLogDebug, "DSTCPEndpointProcessData - Send Public Key - generate key pair - %s", 
+				   (result == eDSNoErr ? "succeeded" : "failed") );
+			fKeyState = eKeyStateGenerateChallenge;
+			break;
+			
+		case eKeyStateGenerateChallenge:
+			if ( cdsaDhKeyExchange(fcspHandle, &fPrivateKey, inBuffer, inBufferLen, &fDerivedKey, DERIVE_KEY_SIZE, DERIVE_KEY_ALG) == CSSM_OK )
+			{
+				fChallengeValue = arc4random();
+				
+				uint32_t temp = htonl( fChallengeValue );
+				
+				plainText.Data = (uint8_t *) &temp;
+				plainText.Length = sizeof(temp);
+				
+				if ( cdsaEncrypt(fcspHandle, &fDerivedKey, &plainText, &cipherText) == CSSM_OK )
+				{
+					outBuffer = cipherText.Data;
+					outBufferLen = cipherText.Length;
+					result = eDSNoErr;
+				}
+				
+				fChallengeValue++; // we are expecting +1 as the response
+			}
+			
+			DbgLog( kLogDebug, "DSTCPEndpointProcessData - Generate Challenge - challenge creation - %s", 
+				   (result == eDSNoErr ? "succeeded" : "failed") );
+			fKeyState = eKeyStateAcceptResponse;
+			break;
+			
+		case eKeyStateAcceptResponse:
+			cipherText.Data = (uint8_t *) inBuffer;
+			cipherText.Length = inBufferLen;
+			plainText.Data = NULL;
+			plainText.Length = 0;
+			
+			if ( cdsaDecrypt(fcspHandle, &fDerivedKey, &cipherText, &plainText) == CSSM_OK )
+			{
+				if ( plainText.Data != NULL && plainText.Length == sizeof(uint32_t) && fChallengeValue == ntohl(*((uint32_t*) plainText.Data)) )
+				{
+					fKeyState = eKeyStateValidKey;
+					result = eDSNoErr;
+				}
+				
+				DSFree( plainText.Data );
+			}
+			
+			DbgLog ( kLogDebug, "DSTCPEndpointProcessData - Accept Response - response was %s", 
+					(result == eDSNoErr ? "correct" : "incorrect") );
+			break;
+			
+		case eKeyStateAcceptClientKey:
+			if ( inBufferLen > sizeof(FourCharCode) )
+			{ 
+				char *tempPtr = (char *) inBuffer;
+				
+				if ( DSTCPAuthTag == ntohl(*((FourCharCode *) tempPtr)) )
+				{
+					tempPtr += sizeof(FourCharCode);
+					inBufferLen -= sizeof(FourCharCode);
+					
+					if ( cdsaDhGenerateKeyPair(fcspHandle, &fPublicKey, &fPrivateKey, DH_KEY_SIZE, &fParamBlock, NULL) == CSSM_OK )
+					{
+						if ( cdsaDhKeyExchange(fcspHandle, &fPrivateKey, tempPtr, inBufferLen, &fDerivedKey, DERIVE_KEY_SIZE, 
+											   DERIVE_KEY_ALG) == CSSM_OK )
+						{
+							outBufferLen = fPublicKey.KeyData.Length;
+							outBuffer = calloc( outBufferLen, sizeof(char) );
+							bcopy( fPublicKey.KeyData.Data, outBuffer, outBufferLen );
+							result = eDSNoErr;
+						}
+					}
+				}
+			}
+			
+			DbgLog( kLogDebug, "DSTCPEndpointProcessData - Accept Client Key - %s", (result == eDSNoErr ? "succeed" : "failed") );
+			fKeyState = eKeyStateGenerateResponse;
+			break;
+			
+		case eKeyStateGenerateResponse:
+			if ( inBufferLen != 0 )
+			{
+				cipherText.Data		= (uint8_t *) inBuffer;
+				cipherText.Length	= inBufferLen;
+				if ( cdsaDecrypt(fcspHandle, &fDerivedKey, &cipherText, &plainText) == CSSM_OK )
+				{
+					if ( plainText.Data != NULL && plainText.Length == 4 )
+					{
+						//add one to test blob received
+						uint32_t temp = ntohl( *((uint32_t *) plainText.Data) ) + 1;
+						(*(uint32_t *) plainText.Data) = htonl( temp );
+						
+						cipherText.Data		= NULL;
+						cipherText.Length	= 0;
+						
+						if ( cdsaEncrypt(fcspHandle, &fDerivedKey, &plainText, &cipherText) == CSSM_OK )
+						{
+							outBuffer = cipherText.Data;
+							outBufferLen = cipherText.Length;
+							result = eDSNoErr;
+						}
+						
+						DSFree ( plainText.Data );
+					}
+				}
+			}
+			
+			DbgLog( kLogDebug, "DSTCPEndpointProcessData - Generate Response - %s", (result == eDSNoErr ? "succeed" : "failed") );
+			fKeyState = eKeyStateValidKey;
+			break;
+			
+		case eKeyStateValidKey:
+			outBufferLen = 0;
+			if ( fDerivedKey.KeyData.Data != NULL )
+			{
+				if ( bEncrypt == true )
+				{
+					plainText.Data = (uint8_t *)inBuffer;
+					plainText.Length = inBufferLen;
+					
+					if ( cdsaEncrypt(fcspHandle, &fDerivedKey, &plainText, &cipherText) == CSSM_OK )
+					{
+						outBuffer = cipherText.Data;
+						outBufferLen = cipherText.Length;
+						DbgLog( kLogDebug, "DSTCPEndpointProcessData - Encrypted data - length %d", outBufferLen );
+						result = eDSNoErr;
+					}
+				}
+				else
+				{
+					cipherText.Data = (uint8_t *) inBuffer;
+					cipherText.Length = inBufferLen;
+					
+					if ( cdsaDecrypt(fcspHandle, &fDerivedKey, &cipherText, &plainText) == CSSM_OK )
+					{
+						outBuffer = plainText.Data;
+						outBufferLen = plainText.Length;
+						DbgLog( kLogDebug, "DSTCPEndpointProcessData - Decrypted data - length %d", outBufferLen );
+						result = eDSNoErr;
+					}
+				}
+			}
+			break;
+	}
+	
+	return result;
 }

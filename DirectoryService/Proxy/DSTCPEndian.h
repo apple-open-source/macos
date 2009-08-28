@@ -26,30 +26,22 @@
  * Provides routines to byte swap DSProxy buffers.
  */
 
-#ifndef __DSTCPEndian_h__
-#define __DSTCPEndian_h__ 1
+#ifndef __DSTCPENDIAN_H
+#define __DSTCPENDIAN_H
 
-#ifndef __BIG_ENDIAN__
+#if __LITTLE_ENDIAN__
 
-#include "SharedConsts.h"	// for sComProxyData
-#include "DSSwapUtils.h"
+	#include <unistd.h>
+	#include <sys/types.h>
+	#include "DSSwapUtils.h"
 
+	__BEGIN_DECLS
+	void SwapProxyMessage( struct sComProxyData* inMessage, eSwapDirection inDirection );
+	__END_DECLS
 
-class DSTCPEndian
-{
-public:
-    DSTCPEndian(sComProxyData* message, int direction);
-    
-    void SwapMessage(void);
-    
-	void AddIPAndPort( UInt32 inIPAddress, UInt32 inPort);
+#else
 
-private:
-    sComProxyData* fMessage;
-    bool toBig;
-	UInt32 fIPAddress;
-	UInt32 fPort;
-};
+	#define SwapProxyMessage(a,b)
 
 #endif
 

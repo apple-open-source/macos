@@ -31,20 +31,28 @@
  * SUCH DAMAGE.
  */
 
-#ifndef lint
 #if 0
-static char sccsid[] = "@(#)utility.c	8.2 (Berkeley) 12/15/93";
-#endif
-static const char rcsid[] =
-  "$FreeBSD: src/libexec/telnetd/utility.c,v 1.15 2001/07/20 15:14:03 ru Exp $";
+#ifndef lint
+static const char sccsid[] = "@(#)utility.c	8.4 (Berkeley) 5/30/95";
 #endif /* not lint */
+#endif
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/contrib/telnet/telnetd/utility.c,v 1.13 2003/05/04 02:54:49 obrien Exp $");
 
 #ifdef __FreeBSD__
 #include <locale.h>
 #include <sys/utsname.h>
 #endif
+#include <string.h>
 #define PRINTOPTIONS
 #include "telnetd.h"
+
+#ifdef	AUTHENTICATION
+#include <libtelnet/auth.h>
+#endif
+#ifdef	ENCRYPTION
+#include <libtelnet/encrypt.h>
+#endif
 
 /*
  * utility functions performing io related tasks
@@ -87,11 +95,10 @@ ttloop()
 /*
  * Check a descriptor to see if out of band data exists on it.
  */
-    int
-stilloob(s)
-    int	s;		/* socket number */
+int
+stilloob(int s)
 {
-    static struct timeval timeout = { 0 };
+    static struct timeval timeout = { 0, 0 };
     fd_set	excepts;
     int value;
 
@@ -112,8 +119,8 @@ stilloob(s)
     }
 }
 
-	void
-ptyflush()
+void
+ptyflush(void)
 {
 	int n;
 
@@ -143,9 +150,8 @@ ptyflush()
  * if the current address is a TELNET IAC ("I Am a Command")
  * character.
  */
-    char *
-nextitem(current)
-    char	*current;
+static char *
+nextitem(char *current)
 {
     if ((*current&0xff) != IAC) {
 	return current+1;
@@ -158,7 +164,7 @@ nextitem(current)
 	return current+3;
     case SB:		/* loop forever looking for the SE */
 	{
-	    register char *look = current+2;
+	    char *look = current+2;
 
 	    for (;;) {
 		if ((*look++&0xff) == IAC) {
@@ -172,7 +178,6 @@ nextitem(current)
 	return current+2;
     }
 }  /* end of nextitem */
-
 
 /*
  * netclear()
@@ -190,15 +195,19 @@ nextitem(current)
  * caller should be setting the urgent data pointer AFTER calling
  * us in any case.
  */
-    void
-netclear()
+void
+netclear(void)
 {
-    register char *thisitem, *next;
+    char *thisitem, *next;
     char *good;
 #define	wewant(p)	((nfrontp > p) && ((*p&0xff) == IAC) && \
 				((*(p+1)&0xff) != EC) && ((*(p+1)&0xff) != EL))
 
+#ifdef	ENCRYPTION
+    thisitem = nclearto > netobuf ? nclearto : netobuf;
+#else	/* ENCRYPTION */
     thisitem = netobuf;
+#endif	/* ENCRYPTION */
 
     while ((next = nextitem(thisitem)) <= nbackp) {
 	thisitem = next;
@@ -206,7 +215,11 @@ netclear()
 
     /* Now, thisitem is first before/at boundary. */
 
+#ifdef	ENCRYPTION
+    good = nclearto > netobuf ? nclearto : netobuf;
+#else	/* ENCRYPTION */
     good = netobuf;	/* where the good bytes go */
+#endif	/* ENCRYPTION */
 
     while (nfrontp > thisitem) {
 	if (wewant(thisitem)) {
@@ -217,7 +230,7 @@ netclear()
 		next = nextitem(next);
 	    } while (wewant(next) && (nfrontp > next));
 	    length = next-thisitem;
-	    bcopy(thisitem, good, length);
+	    memmove(good, thisitem, length);
 	    good += length;
 	    thisitem = next;
 	} else {
@@ -235,20 +248,28 @@ netclear()
  *		Send as much data as possible to the network,
  *	handling requests for urgent data.
  */
-    void
-netflush()
+void
+netflush(void)
 {
     int n;
     extern int not42;
 
-	while ((n = nfrontp - nbackp) > 0) {
+    while ((n = nfrontp - nbackp) > 0) {
 #if 0
 	/* XXX This causes output_data() to recurse and die */
-
 	DIAG(TD_REPORT, {
 	    n += output_data("td: netflush %d chars\r\n", n);
 	});
 #endif
+#ifdef	ENCRYPTION
+	if (encrypt_output) {
+		char *s = nclearto ? nclearto : nbackp;
+		if (nfrontp - s > 0) {
+			(*encrypt_output)((unsigned char *)s, nfrontp-s);
+			nclearto = nfrontp;
+		}
+	}
+#endif	/* ENCRYPTION */
 	/*
 	 * if no urgent data, or if the other side appears to be an
 	 * old 4.2 client (and thus unable to survive TCP urgent data),
@@ -272,19 +293,26 @@ netflush()
 		n = send(net, nbackp, n, MSG_OOB);	/* URGENT data */
 	    }
 	}
-       if (n == -1) {
-           if (errno == EWOULDBLOCK || errno == EINTR)
-               continue;
-           cleanup(0);
-           /* NOTREACHED */
-       }
-       nbackp += n;
-       if (nbackp >= neturg) {
-           neturg = 0;
-      }
-       if (nbackp == nfrontp) {
-           nbackp = nfrontp = netobuf;
-       }
+	if (n == -1) {
+	    if (errno == EWOULDBLOCK || errno == EINTR)
+		continue;
+	    cleanup(0);
+	    /* NOTREACHED */
+	}
+	nbackp += n;
+#ifdef	ENCRYPTION
+	if (nbackp > nclearto)
+	    nclearto = 0;
+#endif	/* ENCRYPTION */
+	if (nbackp >= neturg) {
+	    neturg = 0;
+	}
+	if (nbackp == nfrontp) {
+	    nbackp = nfrontp = netobuf;
+#ifdef	ENCRYPTION
+	    nclearto = 0;
+#endif	/* ENCRYPTION */
+	}
     }
     return;
 }  /* end of netflush */
@@ -295,25 +323,31 @@ netflush()
  */
 
 
-	void
-fatal(f, msg)
-	int f;
-	char *msg;
+void
+fatal(int f, const char *msg)
 {
 	char buf[BUFSIZ];
 
 	(void) snprintf(buf, sizeof(buf), "telnetd: %s.\r\n", msg);
+#ifdef	ENCRYPTION
+	if (encrypt_output) {
+		/*
+		 * Better turn off encryption first....
+		 * Hope it flushes...
+		 */
+		encrypt_send_end();
+		netflush();
+	}
+#endif	/* ENCRYPTION */
 	(void) write(f, buf, (int)strlen(buf));
 	sleep(1);	/*XXX*/
 	exit(1);
 }
 
-	void
-fatalperror(f, msg)
-	int f;
-	char *msg;
+void
+fatalperror(int f, const char *msg)
 {
-	char buf[BUFSIZ], *strerror();
+	char buf[BUFSIZ];
 
 	(void) snprintf(buf, sizeof(buf), "%s: %s", msg, strerror(errno));
 	fatal(f, buf);
@@ -321,15 +355,13 @@ fatalperror(f, msg)
 
 char editedhost[32];
 
-	void
-edithost(pat, host)
-	register char *pat;
-	register char *host;
+void
+edithost(char *pat, char *host)
 {
-	register char *res = editedhost;
+	char *res = editedhost;
 
 	if (!pat)
-		pat = "";
+		pat = strdup("");
 	while (*pat) {
 		switch (*pat) {
 
@@ -363,18 +395,16 @@ edithost(pat, host)
 
 static char *putlocation;
 
-	void
-putstr(s)
-	register char *s;
+static void
+putstr(const char *s)
 {
 
 	while (*s)
 		putchr(*s++);
 }
 
-	void
-putchr(cc)
-	int cc;
+void
+putchr(int cc)
 {
 	*putlocation++ = cc;
 }
@@ -382,27 +412,15 @@ putchr(cc)
 #ifdef __FreeBSD__
 static char fmtstr[] = { "%+" };
 #else
-/*
- * This is split on two lines so that SCCS will not see the M
- * between two % signs and expand it...
- */
-static char fmtstr[] = { "%l:%M\
-%P on %A, %d %B %Y" };
+static char fmtstr[] = { "%l:%M%P on %A, %d %B %Y" };
 #endif
 
-	void
-putf(cp, where)
-	register char *cp;
-	char *where;
+void
+putf(char *cp, char *where)
 {
 	char *slash;
 	time_t t;
 	char db[100];
-#ifdef	STREAMSPTY
-	extern char *index();
-#else
-	extern char *rindex();
-#endif
 #ifdef __FreeBSD__
 	static struct utsname kerninfo;
 
@@ -426,9 +444,9 @@ putf(cp, where)
 		case 't':
 #ifdef	STREAMSPTY
 			/* names are like /dev/pts/2 -- we want pts/2 */
-			slash = index(line+1, '/');
+			slash = strchr(line+1, '/');
 #else
-			slash = rindex(line, '/');
+			slash = strrchr(line, '/');
 #endif
 			if (slash == (char *) 0)
 				putstr(line);
@@ -479,10 +497,8 @@ putf(cp, where)
 /*
  * Print telnet options and commands in plain text, if possible.
  */
-	void
-printoption(fmt, option)
-	register char *fmt;
-	register int option;
+void
+printoption(const char *fmt, int option)
 {
 	if (TELOPT_OK(option))
 		output_data("%s %s\r\n", fmt, TELOPT(option));
@@ -493,22 +509,19 @@ printoption(fmt, option)
 	return;
 }
 
-    void
-printsub(direction, pointer, length)
-    char		direction;	/* '<' or '>' */
-    unsigned char	*pointer;	/* where suboption data sits */
-    int			length;		/* length of suboption data */
+void
+printsub(char direction, unsigned char *pointer, int length)
 {
-    register int i = 0;
+    int i = 0;
 
-        if (!(diagnostic & TD_OPTIONS))
+	if (!(diagnostic & TD_OPTIONS))
 		return;
 
 	if (direction) {
 	    output_data("td: %s suboption ",
 					direction == '<' ? "recv" : "send");
 	    if (length >= 3) {
-		register int j;
+		int j;
 
 		i = pointer[length-2];
 		j = pointer[length-1];
@@ -728,8 +741,8 @@ printsub(direction, pointer, length)
 	    break;
 
 	case TELOPT_STATUS: {
-	    register char *cp;
-	    register int j, k;
+	    const char *cp;
+	    int j, k;
 
 	    output_data("STATUS");
 
@@ -830,26 +843,26 @@ printsub(direction, pointer, length)
 		output_data("INFO ");
 	    env_common:
 		{
-		    register int noquote = 2;
+		    int noquote = 2;
 		    for (i = 2; i < length; i++ ) {
 			switch (pointer[i]) {
 			case NEW_ENV_VAR:
-			    output_data("\" VAR " + noquote);
+			    output_data("%s", "\" VAR " + noquote);
 			    noquote = 2;
 			    break;
 
 			case NEW_ENV_VALUE:
-			    output_data("\" VALUE " + noquote);
+			    output_data("%s", "\" VALUE " + noquote);
 			    noquote = 2;
 			    break;
 
 			case ENV_ESC:
-			    output_data("\" ESC " + noquote);
+			    output_data("%s", "\" ESC " + noquote);
 			    noquote = 2;
 			    break;
 
 			case ENV_USERVAR:
-			    output_data("\" USERVAR " + noquote);
+			    output_data("%s", "\" USERVAR " + noquote);
 			    noquote = 2;
 			    break;
 
@@ -875,7 +888,7 @@ printsub(direction, pointer, length)
 	    }
 	    break;
 
-#if	defined(AUTHENTICATION)
+#ifdef	AUTHENTICATION
 	case TELOPT_AUTHENTICATION:
 	    output_data("AUTHENTICATION");
 
@@ -904,7 +917,7 @@ printsub(direction, pointer, length)
 
     		{
 		    char buf[512];
-		    auth_printsub(&pointer[1], length - 1, buf, sizeof(buf));
+		    auth_printsub(&pointer[1], length - 1, (unsigned char*)buf, sizeof(buf));
 		    output_data("%s", buf);
 		}
 		break;
@@ -943,12 +956,86 @@ printsub(direction, pointer, length)
 	    break;
 #endif
 
+#ifdef	ENCRYPTION
+	case TELOPT_ENCRYPT:
+	    output_data("ENCRYPT");
+	    if (length < 2) {
+		output_data(" (empty suboption??\?)");
+		break;
+	    }
+	    switch (pointer[1]) {
+	    case ENCRYPT_START:
+		output_data(" START");
+		break;
+
+	    case ENCRYPT_END:
+		output_data(" END");
+		break;
+
+	    case ENCRYPT_REQSTART:
+		output_data(" REQUEST-START");
+		break;
+
+	    case ENCRYPT_REQEND:
+		output_data(" REQUEST-END");
+		break;
+
+	    case ENCRYPT_IS:
+	    case ENCRYPT_REPLY:
+		output_data(" %s ", (pointer[1] == ENCRYPT_IS) ?
+							"IS" : "REPLY");
+		if (length < 3) {
+		    output_data(" (partial suboption??\?)");
+		    break;
+		}
+		if (ENCTYPE_NAME_OK(pointer[2]))
+		    output_data("%s ", ENCTYPE_NAME(pointer[2]));
+		else
+		    output_data(" %d (unknown)", pointer[2]);
+
+		{
+		    char buf[512];
+		    encrypt_printsub(&pointer[1], length - 1, buf, sizeof(buf));
+		    output_data("%s", buf);
+		}
+		break;
+
+	    case ENCRYPT_SUPPORT:
+		i = 2;
+		output_data(" SUPPORT ");
+		while (i < length) {
+		    if (ENCTYPE_NAME_OK(pointer[i]))
+			output_data("%s ", ENCTYPE_NAME(pointer[i]));
+		    else
+			output_data("%d ", pointer[i]);
+		    i++;
+		}
+		break;
+
+	    case ENCRYPT_ENC_KEYID:
+		output_data(" ENC_KEYID");
+		goto encommon;
+
+	    case ENCRYPT_DEC_KEYID:
+		output_data(" DEC_KEYID");
+		goto encommon;
+
+	    default:
+		output_data(" %d (unknown)", pointer[1]);
+	    encommon:
+		for (i = 2; i < length; i++) {
+		    output_data(" %d", pointer[i]);
+		}
+		break;
+	    }
+	    break;
+#endif	/* ENCRYPTION */
 
 	default:
 	    if (TELOPT_OK(pointer[0]))
-	        output_data("%s (unknown)", TELOPT(pointer[0]));
+		output_data("%s (unknown)", TELOPT(pointer[0]));
 	    else
-	        output_data("%d (unknown)", pointer[i]);
+		output_data("%d (unknown)", pointer[i]);
 	    for (i = 1; i < length; i++) {
 		output_data(" %d", pointer[i]);
 	    }
@@ -960,13 +1047,10 @@ printsub(direction, pointer, length)
 /*
  * Dump a data buffer in hex and ascii to the output data stream.
  */
-	void
-printdata(tag, ptr, cnt)
-	register char *tag;
-	register char *ptr;
-	register int cnt;
+void
+printdata(const char *tag, char *ptr, int cnt)
 {
-	register int i;
+	int i;
 	char xbuf[30];
 
 	while (cnt) {

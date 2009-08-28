@@ -85,9 +85,9 @@ macNCopt_encodeAFPPath(struct in_addr iaddr, uint16_t port,
 		       const char * volname, uint32_t dirID,
 		       uint8_t pathtype, const char * pathname,
 		       char separator, void * buf,
-		       int * len_p, char * err);
+		       int * len_p, dhcpo_err_str_t * err);
 boolean_t
 macNCopt_str_to_type(const char * str, 
 		     int type, void * buf, int * len_p,
-		     char * err);
+		     dhcpo_err_str_t * err);
 #endif _S_MACNC_OPTIONS_H

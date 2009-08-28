@@ -1,7 +1,7 @@
 /*
  *  SQLWriteDSNToIni.c
  *
- *  $Id: SQLWriteDSNToIni.c,v 1.8 2006/01/20 15:58:35 source Exp $
+ *  $Id: SQLWriteDSNToIni.c,v 1.9 2007/09/04 06:23:03 source Exp $
  *
  *  Write a DSN connect string to a file
  *
@@ -136,7 +136,7 @@ WriteDSNToIni (LPCSTR lpszDSN, LPCSTR lpszDriver)
       if (!GetPrivateProfileString ((LPSTR) lpszDriver, "Driver", "",
 	      szBuffer, sizeof (szBuffer) - 1, "odbcinst.ini"))
 	{
-	  PUSH_ERROR (ODBC_ERROR_REQUEST_FAILED);
+	  PUSH_ERROR (ODBC_ERROR_INVALID_NAME);
 	  goto done;
 	}
     }

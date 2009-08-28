@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,20 +37,25 @@
 #include <mach/mach.h>
 #include <mach/message.h>
 #include <mach/mach_error.h>
-
+#include <sys/param.h>
+#include <sys/types.h>
+#include <pwd.h>
+#include <pthread.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCValidation.h>
+#include <SystemConfiguration/SCPrivate.h>
 #include <CoreFoundation/CFDictionary.h>
 #include <CoreFoundation/CFMachPort.h>
 #include <CoreFoundation/CFRunLoop.h>
 #include <SystemConfiguration/SCDPlugin.h>
+#include <TargetConditionals.h>
 
 #include "mylog.h"
 #include "myCFUtil.h"
 #include "controller.h"
 #include "server.h"
 #include "ClientControlInterface.h"
-#include <EAP8021X/EAPOLControlTypes.h>
+#include "EAPOLControlTypes.h"
 
 #ifndef kSCEntNetRefreshConfiguration
 #define kSCEntNetRefreshConfiguration	CFSTR("RefreshConfiguration")
@@ -61,9 +66,7 @@
 #endif kSCEntNetEAPOL
 
 static SCDynamicStoreRef	S_store;
-
-static boolean_t
-is_console_user(uid_t check_uid);
+static char * 			S_eapolclient_path = NULL;
 
 typedef struct eapolClient_s {
     LIST_ENTRY(eapolClient_s)	link;
@@ -85,23 +88,246 @@ typedef struct eapolClient_s {
     CFRunLoopSourceRef		session_rls;
     boolean_t			notification_sent;
     boolean_t			retry;
+    boolean_t			user_input_provided;
 
     boolean_t			keep_it;
     boolean_t			console_user;	/* started by console user */
-    boolean_t			system_mode;
+    EAPOLControlMode		mode;
     CFDictionaryRef		config_dict;
+    CFDictionaryRef		user_input_dict;
 
     CFDictionaryRef		status_dict;
+#if ! TARGET_OS_EMBEDDED
+    CFDictionaryRef		loginwindow_config;
+#endif /* ! TARGET_OS_EMBEDDED */
 } eapolClient, *eapolClientRef;
 
 static LIST_HEAD(clientHead, eapolClient_s)	S_head;
 static struct clientHead * S_clientHead_p = &S_head;
+
+#if TARGET_OS_EMBEDDED
+static __inline__ boolean_t
+is_console_user(uid_t check_uid)
+{
+    return (TRUE);
+}
+
+#else /* TARGET_OS_EMBEDDED */
+
+static SCNetworkInterfaceRef
+copy_interface_in_set(SCNetworkSetRef set, const char * ifname)
+{
+    int				count = 0;
+    int				i;
+    CFStringRef			ifname_cf = NULL;
+    CFArrayRef			services;
+    SCNetworkInterfaceRef	the_interface = NULL;
+
+    services = SCNetworkSetCopyServices(set);
+    if (services != NULL) {
+	count = CFArrayGetCount(services);
+	ifname_cf = CFStringCreateWithCString(NULL, ifname,
+					      kCFStringEncodingASCII);
+    }
+    for (i = 0; i < count; i++) {
+	CFStringRef		bsd_name;
+	SCNetworkInterfaceRef	sc_if;
+	SCNetworkServiceRef	service = CFArrayGetValueAtIndex(services, i);
+
+	sc_if = SCNetworkServiceGetInterface(service);
+	if (sc_if != NULL) {
+	    bsd_name = SCNetworkInterfaceGetBSDName(sc_if);
+	    if (bsd_name != NULL && CFEqual(bsd_name, ifname_cf)) {
+		the_interface = sc_if;
+		CFRetain(the_interface);
+		break;
+	    }
+	}
+    }
+    if (ifname_cf != NULL) {
+	CFRelease(ifname_cf);
+    }
+    if (services != NULL) {
+	CFRelease(services);
+    }
+    return (the_interface);
+}
+
+static SCNetworkInterfaceRef
+copy_if(const char * ifname)
+{
+    SCPreferencesRef		prefs;
+    SCNetworkSetRef		set = NULL;
+    SCNetworkInterfaceRef	sc_if = NULL;
+
+    prefs = SCPreferencesCreate(NULL,
+				CFSTR("EAPOLControlCopyLoginWindowProfile"),
+				NULL);
+    if (prefs == NULL) {
+	goto failed;
+    }
+    set = SCNetworkSetCopyCurrent(prefs);
+    if (set == NULL) {
+	goto failed;
+    }
+    sc_if = copy_interface_in_set(set, ifname);
+    if (sc_if == NULL) {
+	goto failed;
+    }
+
+ failed:
+    if (set != NULL) {
+	CFRelease(set);
+    }
+    if (prefs != NULL) {
+	CFRelease(prefs);
+    }
+    return (sc_if);
+}
+
+#define kEAPOLLoginWindow	CFSTR("EAPOL.LoginWindow")
+
+/*
+ * Function: copy_loginwindow_config
+ * Purpose:
+ *   Grabs the specified LoginWindow configuration for the specified
+ *   interface using the SCNetworkConfiguration API's.
+ */
+static CFDictionaryRef
+copy_loginwindow_config(const char * interface_name, CFStringRef unique_id)
+{
+    int				count;
+    CFDictionaryRef		dict;
+    int				i;
+    CFDictionaryRef		ret_dict = NULL;
+    SCNetworkInterfaceRef	sc_if;
+    void * *			values;
+    void *			values_static[10];
+    int				values_static_count = sizeof(values_static) / sizeof(values_static[0]);
+
+    sc_if = copy_if(interface_name);
+    if (sc_if == NULL) {
+	goto done;
+    }
+    dict = SCNetworkInterfaceGetExtendedConfiguration(sc_if, kEAPOLLoginWindow);
+    if (isA_CFDictionary(dict) == NULL) {
+	goto done;
+    }
+    count = CFDictionaryGetCount(dict);
+    if (count == 0) {
+	goto done;
+    }
+
+    /* get the list of profile dictionaries */
+    if (count > values_static_count) {
+	values = (void * *)malloc(sizeof(void *) * count);
+	if (values == NULL) {
+	    goto done;
+	}
+    }
+    else {
+	values = values_static;
+    }
+    CFDictionaryGetKeysAndValues(dict, NULL, (const void * *)values);
+
+    /* walk the list of LoginWindow profiles to find a match */
+    for (i = 0; i < count; i++) {
+	CFDictionaryRef		this_dict = (CFDictionaryRef)values[i];
+	CFStringRef		this_unique_id;
+	
+	if (isA_CFDictionary(this_dict) == NULL) {
+	    continue;
+	}
+	this_unique_id = CFDictionaryGetValue(this_dict,
+					      kEAPOLControlUniqueIdentifier);
+	if (isA_CFString(this_unique_id) == NULL) {
+	    continue;
+	}
+	if (CFEqual(this_unique_id, unique_id)) {
+	    ret_dict = CFRetain(this_dict);
+	    break;
+	}
+    }
+    if (values != values_static) {
+	free(values);
+    }
+    
+ done:
+    if (sc_if != NULL) {
+	CFRelease(sc_if);
+    }
+    return (ret_dict);
+}
+
+static void
+clear_loginwindow_config(eapolClientRef client)
+{
+    my_CFRelease(&client->loginwindow_config);
+    return;
+}
+
+static void
+set_loginwindow_config(eapolClientRef client)
+{
+    CFStringRef		unique_id;
+
+    clear_loginwindow_config(client);
+    if (client->config_dict != NULL) {
+	unique_id = CFDictionaryGetValue(client->config_dict,
+					 kEAPOLControlUniqueIdentifier);
+	if (isA_CFString(unique_id) != NULL) {
+	    client->loginwindow_config
+		= copy_loginwindow_config(client->if_name, unique_id);
+	}
+    }
+    return;
+}
+
+static uid_t
+login_window_uid(void)
+{
+    static uid_t	login_window_uid = -1;
+
+    /* look up the _securityagent user */
+    if (login_window_uid == -1) {
+	struct passwd *	pwd = getpwnam("_securityagent");
+	if (pwd == NULL) {
+	    my_log(LOG_NOTICE,
+		   "EAPOLController: getpwnam(_securityagent) failed");
+	    return (92);
+	}
+	login_window_uid = pwd->pw_uid;
+    }
+    return (login_window_uid);
+}
+
+static boolean_t
+is_console_user(uid_t check_uid)
+{
+    uid_t	uid;
+    CFStringRef user;
+
+    user = SCDynamicStoreCopyConsoleUser(S_store, &uid, NULL);
+    if (user == NULL) {
+	return (FALSE);
+    }
+    CFRelease(user);
+    return (check_uid == uid);
+}
+#endif /* TARGET_OS_EMBEDDED */
 
 static int
 eapolClientStop(eapolClientRef client);
 
 static void
 eapolClientSetState(eapolClientRef client, EAPOLControlState state);
+
+
+static CFNumberRef
+make_number(int val)
+{
+    return (CFNumberCreate(NULL, kCFNumberIntType, &val));
+}
 
 eapolClientRef
 eapolClientLookupInterface(const char * if_name)
@@ -162,6 +388,9 @@ eapolClientAdd(const char * if_name)
 void
 eapolClientRemove(eapolClientRef client)
 {
+#if ! TARGET_OS_EMBEDDED
+    clear_loginwindow_config(client);
+#endif /* ! TARGET_OS_EMBEDDED */
     LIST_REMOVE(client, link);
     free(client);
     return;
@@ -175,18 +404,19 @@ eapolClientInvalidate(eapolClientRef client)
     client->owner.uid = 0;
     client->owner.gid = 0;
     client->keep_it = FALSE;
-    client->system_mode = FALSE;
+    client->mode = kEAPOLControlModeNone;
     client->retry = FALSE;
     client->notification_sent = FALSE;
     client->console_user = FALSE;
+    client->user_input_provided = FALSE;
     my_CFRelease(&client->notification_key);
     my_CFRelease(&client->force_renew_key);
     if (client->notify_port != MACH_PORT_NULL) {
-	(void)mach_port_destroy(mach_task_self(), client->notify_port);
+	(void)mach_port_deallocate(mach_task_self(), client->notify_port);
 	client->notify_port = MACH_PORT_NULL;
     }
     if (client->bootstrap != MACH_PORT_NULL) {
-	(void)mach_port_destroy(mach_task_self(), client->bootstrap);
+	(void)mach_port_deallocate(mach_task_self(), client->bootstrap);
 	client->bootstrap = MACH_PORT_NULL;
     }
     if (client->session_cfport != NULL) {
@@ -199,6 +429,7 @@ eapolClientInvalidate(eapolClientRef client)
 	my_CFRelease(&client->session_rls);
     }
     my_CFRelease(&client->config_dict);
+    my_CFRelease(&client->user_input_dict);
     my_CFRelease(&client->status_dict);
     return;
 }
@@ -207,7 +438,6 @@ static void
 eapolClientNotify(eapolClientRef client)
 {
     mach_msg_empty_send_t	msg;
-    mach_msg_option_t		options;
     kern_return_t		status;
 
     if (client->notify_port == MACH_PORT_NULL) {
@@ -222,7 +452,6 @@ eapolClientNotify(eapolClientRef client)
     msg.header.msgh_remote_port = client->notify_port;
     msg.header.msgh_local_port = MACH_PORT_NULL;
     msg.header.msgh_id = 0;
-    options = MACH_SEND_TIMEOUT;
     status = mach_msg(&msg.header,			/* msg */
 		      MACH_SEND_MSG | MACH_SEND_TIMEOUT,/* options */
 		      msg.header.msgh_size,		/* send_size */
@@ -271,13 +500,12 @@ static void
 eapolClientPublishStatus(eapolClientRef client, CFDictionaryRef status_dict)
 
 {
-    if (S_store == NULL) {
-	return;
-    }
     CFRetain(status_dict);
     my_CFRelease(&client->status_dict);
     client->status_dict = status_dict;
-    SCDynamicStoreNotifyValue(S_store, eapolClientNotificationKey(client));
+    if (S_store != NULL) {
+	SCDynamicStoreNotifyValue(S_store, eapolClientNotificationKey(client));
+    }
     return;
 }
 
@@ -337,7 +565,7 @@ static int
 eapolClientStart(eapolClientRef client, uid_t uid, gid_t gid, 
 		 CFDictionaryRef config_dict, mach_port_t bootstrap)
 {
-    char * 	argv[] = { eapolclient_path, 
+    char * 	argv[] = { S_eapolclient_path, 
 			   "-i", 		/* 1 */
 			   client->if_name,	/* 2 */
 			   NULL,		/* 3 */
@@ -367,7 +595,7 @@ eapolClientStart(eapolClientRef client, uid_t uid, gid_t gid,
 	}
     }
     client->pid = _SCDPluginExecCommand(exec_callback, NULL, 0, 0,
-					eapolclient_path, argv);
+					S_eapolclient_path, argv);
     if (client->pid == -1) {
 	status = errno;
     }
@@ -376,10 +604,22 @@ eapolClientStart(eapolClientRef client, uid_t uid, gid_t gid,
 	    client->owner.uid = uid;
 	    client->owner.gid = gid;
 	    client->console_user = on_console;
+#if TARGET_OS_EMBEDDED
+	    client->mode = kEAPOLControlModeUser;
 	    client->bootstrap = bootstrap;
+#else /* TARGET_OS_EMBEDDED */
+	    if (on_console == FALSE
+		&& uid == login_window_uid()) {
+		client->mode = kEAPOLControlModeLoginWindow;
+	    }
+	    else {
+		client->mode = kEAPOLControlModeUser;
+		client->bootstrap = bootstrap;
+	    }
+#endif /* TARGET_OS_EMBEDDED */
 	}
 	else {
-	    client->system_mode = TRUE;
+	    client->mode = kEAPOLControlModeSystem;
 	}
 	if (config_dict != NULL) {
 	    client->config_dict = CFRetain(config_dict);
@@ -411,17 +651,45 @@ eapolClientUpdate(eapolClientRef client, CFDictionaryRef config_dict)
 	eapolClientNotify(client);
     }
     my_CFRelease(&client->config_dict);
+    my_CFRelease(&client->user_input_dict);
     client->config_dict = CFRetain(config_dict);
     client->retry = FALSE;
+    client->user_input_provided = FALSE;
 
  done:
     return (status);
 }
 
-static CFNumberRef
-make_command_number(EAPOLClientControlCommand command)
+static int
+eapolClientProvideUserInput(eapolClientRef client, CFDictionaryRef user_input)
 {
-    return (CFNumberCreate(NULL, kCFNumberIntType, &command));
+    int			status = 0;
+
+    switch (client->state) {
+    case kEAPOLControlStateRunning:
+	break;
+    case kEAPOLControlStateStarting:
+	status = EINVAL;
+	goto done;
+    case kEAPOLControlStateIdle:
+	status = ENOENT;
+	goto done;
+    default:
+	status = EBUSY;
+	goto done;
+    }
+
+    /* tell the client to re-read */
+    eapolClientNotify(client);
+    my_CFRelease(&client->user_input_dict);
+    if (user_input != NULL) {
+	client->user_input_dict = CFRetain(user_input);
+    }
+    client->retry = FALSE;
+    client->user_input_provided = TRUE;
+
+ done:
+    return (status);
 }
 
 int 
@@ -464,20 +732,6 @@ ControllerCopyStateAndStatus(if_name_t if_name,
     return (status);
 }
 
-static boolean_t
-is_console_user(uid_t check_uid)
-{
-    uid_t	uid;
-    CFStringRef user;
-
-    user = SCDynamicStoreCopyConsoleUser(S_store, &uid, NULL);
-    if (user == NULL) {
-	return (FALSE);
-    }
-    CFRelease(user);
-    return (check_uid == uid);
-}
-
 int
 ControllerStart(if_name_t if_name, uid_t uid, gid_t gid,
 		CFDictionaryRef config_dict, mach_port_t bootstrap)
@@ -504,10 +758,38 @@ ControllerStart(if_name_t if_name, uid_t uid, gid_t gid,
 	    goto done;
 	}
     }
+#if TARGET_OS_EMBEDDED
+    /* automatically map all requests by root to the mobile user */
+    if (uid == 0) {
+	static gid_t	mobile_gid = -1;
+	static uid_t	mobile_uid = -1;
+
+	if (mobile_uid == -1) {
+	    struct passwd *	pwd;
+
+	    /* lookup the mobile user */
+	    pwd = getpwnam("mobile");
+	    if (pwd != NULL) {
+		mobile_uid = pwd->pw_uid;
+		mobile_gid = pwd->pw_gid;
+	    }
+	    else {
+		my_log(LOG_NOTICE,
+		       "EAPOLController: getpwnam(mobile) failed");
+	    }
+	}
+	if (mobile_uid != -1) {
+	    uid = mobile_uid;
+	    if (mobile_gid != -1) {
+		gid = mobile_gid;
+	    }
+	}
+    }
+#endif /* TARGET_OS_EMBEDDED */    
     status = eapolClientStart(client, uid, gid, config_dict, bootstrap);
  done:
     if (status != 0) {
-	(void)mach_port_destroy(mach_task_self(), bootstrap);
+	(void)mach_port_deallocate(mach_task_self(), bootstrap);
     }
     return (status);
 }
@@ -545,6 +827,21 @@ eapolClientStop(eapolClientRef client)
 
 }
 
+#if ! TARGET_OS_EMBEDDED
+static boolean_t
+S_get_plist_boolean(CFDictionaryRef plist, CFStringRef key, boolean_t def)
+{
+    CFBooleanRef 	b;
+    boolean_t		ret = def;
+
+    b = isA_CFBoolean(CFDictionaryGetValue(plist, key));
+    if (b != NULL) {
+	ret = CFBooleanGetValue(b);
+    }
+    return (ret);
+}
+#endif /* ! TARGET_OS_EMBEDDED */
+
 int
 ControllerStop(if_name_t if_name, uid_t uid, gid_t gid)
 {
@@ -556,10 +853,33 @@ ControllerStop(if_name_t if_name, uid_t uid, gid_t gid)
 	status = ENOENT;
 	goto done;
     }
+#if TARGET_OS_EMBEDDED 
     if (uid != 0 && uid != client->owner.uid) {
 	status = EPERM;
 	goto done;
     }
+#else /* TARGET_OS_EMBEDDED */
+    if (uid != 0) {
+	if (uid != client->owner.uid) {
+	    if (client->mode == kEAPOLControlModeSystem
+		&& S_get_plist_boolean(client->config_dict, CFSTR("AllowStop"), 
+				       TRUE)
+		&& (uid == login_window_uid() || is_console_user(uid))) {
+		/* allow the change */
+	    }
+	    else {
+		status = EPERM;
+		goto done;
+	    }
+	}
+	else if (client->mode == kEAPOLControlModeLoginWindow
+		 && uid == login_window_uid()) {
+	    /* LoginWindow mode is being turned off, clear the config */
+	    clear_loginwindow_config(client);
+	} 
+    }
+
+#endif /* TARGET_OS_EMBEDDED */
     status = eapolClientStop(client);
  done:
     return (status);
@@ -583,6 +903,27 @@ ControllerUpdate(if_name_t if_name, uid_t uid, gid_t gid,
 	goto done;
     }
     status = eapolClientUpdate(client, config_dict);
+ done:
+    return (status);
+}
+
+int
+ControllerProvideUserInput(if_name_t if_name, uid_t uid, gid_t gid,
+			   CFDictionaryRef user_input)
+{
+    eapolClientRef 	client;
+    int			status = 0;
+
+    client = eapolClientLookupInterface(if_name);
+    if (client == NULL) {
+	status = ENOENT;
+	goto done;
+    }
+    if (uid != 0 && uid != client->owner.uid) {
+	status = EPERM;
+	goto done;
+    }
+    status = eapolClientProvideUserInput(client, user_input);
  done:
     return (status);
 }
@@ -673,8 +1014,8 @@ ControllerSetLogLevel(if_name_t if_name, uid_t uid, gid_t gid,
 					     client->config_dict);
 	if (level >= 0) {
 	    CFNumberRef		level_prop;
-	    level_prop = CFNumberCreate(NULL, kCFNumberSInt32Type,
-					&level);
+
+	    level_prop = make_number(level);
 	    CFDictionarySetValue(dict, kEAPOLControlLogLevel, level_prop);
 	    my_CFRelease(&level_prop);
 	}
@@ -694,6 +1035,96 @@ ControllerSetLogLevel(if_name_t if_name, uid_t uid, gid_t gid,
 
 }
 
+#if ! TARGET_OS_EMBEDDED
+
+static CFDictionaryRef
+system_eapol_copy(const char * if_name)
+{
+    CFDictionaryRef	dict;
+    CFStringRef		key;
+
+    key = SCDynamicStoreKeyCreate(NULL, CFSTR("%@/%@/%@/%s/%@"),
+				  kSCDynamicStoreDomainSetup,
+				  kSCCompNetwork,
+				  kSCCompInterface,
+				  if_name,
+				  kSCEntNetEAPOL);
+    dict = SCDynamicStoreCopyValue(S_store, key);
+    CFRelease(key);
+    return (dict);
+}
+
+int
+ControllerStartSystem(if_name_t if_name, uid_t uid, gid_t gid,
+		      CFDictionaryRef options)
+{
+    eapolClientRef 	client;
+    CFDictionaryRef	dict = NULL;
+    int			status = 0;
+
+    /* make sure that 802.1X isn't already running on the interface */
+    client = eapolClientLookupInterface(if_name);
+    if (client != NULL && client->state != kEAPOLControlStateIdle) {
+	if (client->state == kEAPOLControlStateRunning) {
+	    status = EEXIST;
+	}
+	else {
+	    status = EBUSY;
+	}
+	goto done;
+    }
+
+    /* verify that non-root caller is either loginwindow or a logged-in user */
+    if (uid != 0
+	&& uid != login_window_uid() 
+	&& is_console_user(uid) == FALSE) {
+	status = EPERM;
+	goto done;
+    }
+
+    /* check whether system mode is configured */
+    dict = system_eapol_copy(if_name);
+    if (dict == NULL) {
+	status = ESRCH;
+	goto done;
+    }
+
+    /* if there's no client entry yet, create it */
+    if (client == NULL) {
+	client = eapolClientAdd(if_name);
+	if (client == NULL) {
+	    status = ENOMEM;
+	    goto done;
+	}
+    }
+    /* start system mode over the specific interface */
+    status = eapolClientStart(client, 0, 0, dict, MACH_PORT_NULL);
+
+ done:
+    my_CFRelease(&dict);
+    return (status);
+}
+
+int 
+ControllerCopyLoginWindowConfiguration(if_name_t if_name, 
+				       CFDictionaryRef * config_data_p)
+{
+    eapolClientRef 	client;
+    int			status = 0;
+
+    *config_data_p = NULL;
+    client = eapolClientLookupInterface(if_name);
+    if (client == NULL
+	|| client->loginwindow_config == NULL) {
+	status = ENOENT;
+    }
+    else {
+	*config_data_p = CFRetain(client->loginwindow_config);
+    }
+    return (status);
+}
+#endif /* ! TARGET_OS_EMBEDDED */
+
 int
 ControllerClientAttach(pid_t pid, if_name_t if_name,
 		       mach_port_t notify_port,
@@ -701,8 +1132,8 @@ ControllerClientAttach(pid_t pid, if_name_t if_name,
 		       CFDictionaryRef * control_dict,
 		       mach_port_t * bootstrap)
 {
-    CFMutableDictionaryRef	dict = NULL;
-    CFNumberRef			command_cf = NULL;
+    CFMutableDictionaryRef	dict;
+    CFNumberRef			command_cf;
     eapolClientRef		client;
     int				result = 0;
 
@@ -733,24 +1164,35 @@ ControllerClientAttach(pid_t pid, if_name_t if_name,
 				     &kCFTypeDictionaryKeyCallBacks,
 				     &kCFTypeDictionaryValueCallBacks);
     if (client->state == kEAPOLControlStateStarting) {
-	command_cf = make_command_number(kEAPOLClientControlCommandRun);
+	CFNumberRef			mode_cf;
+
+	command_cf = make_number(kEAPOLClientControlCommandRun);
 	if (client->config_dict != NULL) {
 	    CFDictionarySetValue(dict, kEAPOLClientControlConfiguration,
 				 client->config_dict);
 	}
-			     
+	mode_cf = make_number(client->mode);
+	CFDictionarySetValue(dict, kEAPOLClientControlMode,
+			     mode_cf);
+	CFRelease(mode_cf);
     }
     else {
-	command_cf = make_command_number(kEAPOLClientControlCommandStop);
+	command_cf = make_number(kEAPOLClientControlCommandStop);
     }
     CFDictionarySetValue(dict, kEAPOLClientControlCommand, command_cf);
+    CFRelease(command_cf);
     *control_dict = dict;
     eapolClientSetState(client, kEAPOLControlStateRunning);
     client->keep_it = TRUE;
     *bootstrap = client->bootstrap;
+#if ! TARGET_OS_EMBEDDED
+    if (client->mode == kEAPOLControlModeLoginWindow) {
+	set_loginwindow_config(client);
+    }
+#endif /* ! TARGET_OS_EMBEDDED */
     return (result);
  failed:
-    (void)mach_port_destroy(mach_task_self(), notify_port);
+    (void)mach_port_deallocate(mach_task_self(), notify_port);
     return (result);
 
 }
@@ -766,7 +1208,7 @@ ControllerClientDetach(mach_port_t session_port)
 	result = EINVAL;
 	goto failed;
     }
-    my_log(LOG_DEBUG,  "EAPOLController: detached port 0x%x", session_port);
+    my_log(LOG_DEBUG,  "EAPOLController: detaching port 0x%x", session_port);
     eapolClientInvalidate(client);
  failed:
     return (result);
@@ -792,10 +1234,22 @@ ControllerClientGetConfig(mach_port_t session_port,
 				     &kCFTypeDictionaryValueCallBacks);
     if (client->state == kEAPOLControlStateRunning) {
 	if (client->retry) {
-	    command_cf = make_command_number(kEAPOLClientControlCommandRetry);
+	    command_cf = make_number(kEAPOLClientControlCommandRetry);
+	    client->retry = FALSE;
+	}
+	else if (client->user_input_provided) {
+	    command_cf
+		= make_number(kEAPOLClientControlCommandTakeUserInput);
+	    if (client->user_input_dict != NULL) {
+		CFDictionarySetValue(dict, 
+				     kEAPOLClientControlUserInput,
+				     client->user_input_dict);
+	    }
+	    client->user_input_provided = FALSE;
+	    my_CFRelease(&client->user_input_dict);
 	}
 	else {
-	    command_cf = make_command_number(kEAPOLClientControlCommandRun);
+	    command_cf = make_number(kEAPOLClientControlCommandRun);
 	    if (client->config_dict != NULL) {
 		CFDictionarySetValue(dict, kEAPOLClientControlConfiguration,
 				     client->config_dict);
@@ -803,12 +1257,11 @@ ControllerClientGetConfig(mach_port_t session_port,
 	}
     }
     else {
-	command_cf = make_command_number(kEAPOLClientControlCommandStop);
+	command_cf = make_number(kEAPOLClientControlCommandStop);
     }
     CFDictionarySetValue(dict, kEAPOLClientControlCommand, command_cf);
     *control_dict = dict;
     client->notification_sent = FALSE;
-    client->retry = FALSE;
     my_CFRelease(&command_cf);
  failed:
     return (result);
@@ -826,7 +1279,7 @@ ControllerClientReportStatus(mach_port_t session_port,
 	result = EINVAL;
 	goto failed;
     }
-    (void)eapolClientPublishStatus(client, status_dict);
+    eapolClientPublishStatus(client, status_dict);
  failed:
     return (result);
 }
@@ -847,25 +1300,59 @@ ControllerClientForceRenew(mach_port_t session_port)
     return (result);
 }
 
-int
-ControllerClientPortDead(mach_port_t session_port)
-{
-    eapolClientRef	client;
-    int			result = 0;
 
-    my_log(LOG_DEBUG,
-	   "EAPOLController: ControllerClientPortDead: port 0x%x died", 
-	   session_port);
-    client = eapolClientLookupSession(session_port);
-    if (client == NULL) {
-	result = ENOENT;
-	goto failed;
+#if TARGET_OS_EMBEDDED
+static SCDynamicStoreRef
+dynamic_store_create(void)
+{
+    SCDynamicStoreRef		store;
+
+    store = SCDynamicStoreCreate(NULL, CFSTR("EAPOLController"), NULL, NULL);
+    if (store == NULL) {
+	my_log(LOG_NOTICE, "EAPOLController: SCDynamicStoreCreate() failed, %s",
+	       SCErrorString(SCError()));
     }
-    eapolClientInvalidate(client);
-    eapolClientRemove(client);
- failed:
-    return (result);
+    return (store);
 }
+
+static void *
+ControllerThread(void * arg)
+{
+    server_start();
+    CFRunLoopRun();
+    return (arg);
+}
+
+static void
+ControllerBegin(void)
+{
+    pthread_attr_t	attr;
+    int			ret;
+    pthread_t		thread;
+
+    ret = pthread_attr_init(&attr);
+    if (ret != 0) {
+	my_log(LOG_NOTICE, "EAPOLController: pthread_attr_init failed %d", ret);
+	return;
+    }
+    ret = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+    if (ret != 0) {
+	my_log(LOG_NOTICE, 
+	       "EAPOLController: pthread_attr_setdetachstate failed %d", ret);
+	goto done;
+    }
+    ret = pthread_create(&thread, &attr, ControllerThread, NULL);
+    if (ret != 0) {
+	my_log(LOG_NOTICE, "EAPOLController: pthread_create failed %d", ret);
+	goto done;
+    }
+    
+ done:
+    (void)pthread_attr_destroy(&attr);
+    return;
+}
+
+#else /* TARGET_OS_EMBEDDED */
 
 static void
 console_user_changed()
@@ -878,8 +1365,13 @@ console_user_changed()
     LIST_FOREACH(scan, S_clientHead_p, link) {
 	if (scan->console_user) {
 	    if (user == NULL || scan->owner.uid != uid) {
+		/* user logged out or fast-user switch */
 		(void)eapolClientStop(scan);
+		clear_loginwindow_config(scan);
 	    }
+	}
+	else if (user == NULL) {
+	    clear_loginwindow_config(scan);
 	}
     }
     my_CFRelease(&user);
@@ -1091,7 +1583,7 @@ handle_config_changed()
 	    continue;
 	}
 	i = strlist_item_index(config_iflist, count, scan->if_name);
-	if (scan->system_mode) {
+	if (scan->mode == kEAPOLControlModeSystem) {
 	    if (i == INDEX_NONE) {
 		status = eapolClientStop(scan);
 		if (status != 0) {
@@ -1175,13 +1667,13 @@ eapol_handle_change(SCDynamicStoreRef store, CFArrayRef changes, void * arg)
     boolean_t		user_changed = FALSE;
 
     console_user_key = SCDynamicStoreKeyCreateConsoleUser(NULL);
-
     count = CFArrayGetCount(changes);
     if (count == 0) {
 	goto done;
     }
     for (i = 0; i < count; i++) {
 	CFStringRef	cache_key = CFArrayGetValueAtIndex(changes, i);
+
 	if (CFEqual(cache_key, console_user_key)) {
 	    user_changed = TRUE;
 	}
@@ -1207,7 +1699,7 @@ eapol_handle_change(SCDynamicStoreRef store, CFArrayRef changes, void * arg)
 }
 
 static SCDynamicStoreRef
-dynamic_store_create(SCDynamicStoreCallBack func, void * arg)
+dynamic_store_create(void)
 {
     CFMutableArrayRef		keys = NULL;
     CFStringRef			key;
@@ -1217,24 +1709,26 @@ dynamic_store_create(SCDynamicStoreCallBack func, void * arg)
     SCDynamicStoreContext	context;
 
     bzero(&context, sizeof(context));
-    context.info = arg;
     store = SCDynamicStoreCreate(NULL, CFSTR("EAPOLController"), 
-				 func, &context);
+				 eapol_handle_change, &context);
     if (store == NULL) {
 	my_log(LOG_NOTICE, "EAPOLController: SCDynamicStoreCreate() failed, %s",
 	       SCErrorString(SCError()));
 	return (NULL);
     }
+    keys = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+
     /* console user */
     key = SCDynamicStoreKeyCreateConsoleUser(NULL);
-    keys = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
     CFArrayAppendValue(keys, key);
     my_CFRelease(&key);
+
     /* list of interfaces */
     key = SCDynamicStoreKeyCreateNetworkInterface(NULL,
 						  kSCDynamicStoreDomainState);
     CFArrayAppendValue(keys, key);
     my_CFRelease(&key);
+
     /* requested interface configurations */
     key = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
 							kSCDynamicStoreDomainSetup,
@@ -1252,17 +1746,68 @@ dynamic_store_create(SCDynamicStoreCallBack func, void * arg)
     return (store);
 }
 
-void
-_ControllerInitialize()
+static void
+ControllerBegin(void)
 {
-    LIST_INIT(S_clientHead_p);
-    S_store = dynamic_store_create(eapol_handle_change, NULL);
+    server_start();
+    handle_config_changed();
+    return;
+}
+
+#endif /* TARGET_OS_EMBEDDED */
+
+/*
+ * configd plugin-specific routines:
+ */
+void
+load(CFBundleRef bundle, Boolean bundleVerbose)
+{
+    Boolean		ok;
+    uint8_t		path[MAXPATHLEN];
+    CFURLRef		url;
+
+    if (server_active()) {
+	my_log(LOG_NOTICE, "ipconfig server already active");
+	return;
+    }
+    /* get a path to eapolclient */
+    url = CFBundleCopyResourceURL(bundle, CFSTR("eapolclient"), NULL, NULL);
+    if (url == NULL) {
+	my_log(LOG_NOTICE, 
+	       "EAPOLController: failed to get URL for eapolclient");
+	return;
+    }
+    ok = CFURLGetFileSystemRepresentation(url, TRUE, path, sizeof(path));
+    CFRelease(url);
+    if (ok == FALSE) {
+	my_log(LOG_NOTICE, 
+	       "EAPOLController: failed to get path for eapolclient");
+	return;
+    }
+    S_eapolclient_path = strdup((const char *)path);
+
+    /* register the EAPOLController server port */
+    server_register();
     return;
 }
 
 void
-_ControllerBegin()
+start(const char *bundleName, const char *bundleDir)
 {
-    handle_config_changed();
+    if (S_eapolclient_path == NULL) {
+	return;
+    }
+    LIST_INIT(S_clientHead_p);
+    S_store = dynamic_store_create();
+    return;
+}
+
+void
+prime()
+{
+    if (S_eapolclient_path == NULL) {
+	return;
+    }
+    ControllerBegin();
     return;
 }

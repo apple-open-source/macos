@@ -147,6 +147,7 @@ struct cli_state {
 	BOOL use_kerberos;
 	BOOL fallback_after_kerberos;
 	BOOL use_spnego;
+ 	BOOL got_kerberos_mechanism; /* Server supports krb5 in SPNEGO. */
 
 	BOOL use_oplocks; /* should we use oplocks? */
 	BOOL use_level_II_oplocks; /* should we use level II oplocks? */

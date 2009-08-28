@@ -1,6 +1,6 @@
 #! @PYTHON@
 #
-# Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2008 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -131,6 +131,9 @@ def poll_newsgroup(mlist, conn, first, last, glock):
         glock.refresh()
         try:
             headers = conn.head(`num`)[3]
+            # I don't know how this happens, but skip an empty message.
+            if not headers:
+                raise _ContinueLoop
             found_to = 0
             beenthere = 0
             for header in headers:
@@ -184,9 +187,12 @@ def poll_newsgroup(mlist, conn, first, last, glock):
             syslog('fromusenet', str(e))
         except _ContinueLoop:
             continue
-        # Even if we don't post the message because it was seen on the
-        # list already, update the watermark
-        mlist.usenet_watermark = num
+    # Even if we don't post the message because it was seen on the
+    # list already, or if we skipped it as unparseable or empty,
+    # update the watermark. Note this used to be in the 'for' block
+    # but if the last message(s) raised _ContinueLoop, they wouldn't
+    # update the watermark.
+    mlist.usenet_watermark = num
 
 
 
@@ -206,8 +212,11 @@ def process_lists(glock):
         # Open the newsgroup, but let most exceptions percolate up.
         try:
             conn, first, last = open_newsgroup(mlist)
-        except (socket.error, nntplib.NNTPError):
-            break
+        except (socket.error, nntplib.NNTPError), e:
+            syslog('fromusenet',
+                   "%s: couldn't open newsgroup %s: skipping\n%s",
+                   listname, mlist.linked_newsgroup, e)
+            continue
         syslog('fromusenet', '%s: [%d..%d]' % (listname, first, last))
         try:
             try:

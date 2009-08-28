@@ -1,4 +1,3 @@
-/* APPLE LOCAL file mainline 2006-04-05 4484188 4383613 */
 /* __cxa_atexit backwards-compatibility support for Darwin.
    Copyright (C) 2006 Free Software Foundation, Inc.
 
@@ -28,8 +27,9 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 02110-1301, USA.  */
 
-/* APPLE LOCAL kext */
+/* Don't do anything if we are compiling for a kext multilib. */
 #ifdef __PIC__
+
 /* It is incorrect to include config.h here, because this file is being
    compiled for the target, and hence definitions concerning only the host
    do not apply.  */
@@ -533,5 +533,5 @@ atexit (atexit_callback func)
   r.has_arg = 0;
   return atexit_common (&r, &__dso_handle);
 }
-/* APPLE LOCAL kext */
+
 #endif /* __PIC__ */

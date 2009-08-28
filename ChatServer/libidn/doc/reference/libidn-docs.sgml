@@ -65,7 +65,7 @@
 
     <figure id="components">
       <title>Components of Libidn</title>
-      <graphic fileref="components.png" format="PNG"></graphic>
+      <graphic fileref="libidn-components.png" format="PNG"></graphic>
     </figure>
 
     <xi:include href="xml/idna.xml"/>

@@ -1,7 +1,7 @@
 /*
  *******************************************************************************
  *
- *   Copyright (C) 2003-2006, International Business Machines
+ *   Copyright (C) 2003-2008, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  *
  *******************************************************************************
@@ -31,7 +31,7 @@
 #include "unicode/putil.h"
 #include "idnaconf.h"
 
-static UChar unicodeIn[][41] ={
+static const UChar unicodeIn[][41] ={
     { 
         0x0644, 0x064A, 0x0647, 0x0645, 0x0627, 0x0628, 0x062A, 0x0643, 0x0644,
         0x0645, 0x0648, 0x0634, 0x0639, 0x0631, 0x0628, 0x064A, 0x061F, 0x0000
@@ -233,7 +233,7 @@ static const char *domainNames[] = {
 
 typedef struct ErrorCases ErrorCases;
 
-static struct ErrorCases{
+static const struct ErrorCases{
 
     UChar unicode[100];
     const char *ascii;
@@ -254,7 +254,7 @@ static struct ErrorCases{
         },
         "www.XN--8mb5595fsoa28orucya378bqre2tcwop06c5qbw82a1rffmae0361dea96b.com",
         U_IDNA_PROHIBITED_ERROR,
-        FALSE, TRUE, TRUE
+        FALSE, FALSE, TRUE
     },
 
     {
@@ -268,7 +268,7 @@ static struct ErrorCases{
         "www.XN--6lA2Bz548Fj1GuA391Bf1Gb1N59Ab29A7iA.com",
 
         U_IDNA_UNASSIGNED_ERROR,
-        FALSE, TRUE, TRUE
+        FALSE, FALSE, TRUE
     },
     {
         { 
@@ -281,7 +281,7 @@ static struct ErrorCases{
         },
         "www.xn--ghBGI4851OiyA33VqrD6Az86C4qF83CtRv93D5xBk15AzfG0nAgA0578DeA71C.com",
         U_IDNA_CHECK_BIDI_ERROR,
-        FALSE, TRUE, TRUE
+        FALSE, FALSE, TRUE
     },
     {
         { 
@@ -296,7 +296,7 @@ static struct ErrorCases{
         },
         "www.xn----b95Ew8SqA315Ao5FbuMlnNmhA.com",
         U_IDNA_STD3_ASCII_RULES_ERROR,
-        TRUE, TRUE, FALSE
+        TRUE, FALSE, FALSE
     },
     {
         { 
@@ -328,7 +328,7 @@ static struct ErrorCases{
       },
       "www.xn--989AoMsVi5E83Db1D2A355Cv1E0vAk1DwRv93D5xBh15A0Dt30A5JpSD879Ccm6FeA98C.com",
       U_IDNA_LABEL_TOO_LONG_ERROR,
-      FALSE, TRUE, TRUE
+      FALSE, FALSE, TRUE
     },  
     
     { 
@@ -340,7 +340,7 @@ static struct ErrorCases{
       },
       "www.xn--01-tvdmo.com",
       U_IDNA_CHECK_BIDI_ERROR,
-      FALSE, TRUE, TRUE
+      FALSE, FALSE, TRUE
     },  
     
     { 
@@ -352,7 +352,7 @@ static struct ErrorCases{
       },
       "www.XN--ghbgi278xia.com",
       U_IDNA_PROHIBITED_ERROR,
-      FALSE, TRUE, TRUE
+      FALSE, FALSE, TRUE
     },
     { 
       {
@@ -363,7 +363,7 @@ static struct ErrorCases{
       },
       "www.-abcde.com",
       U_IDNA_STD3_ASCII_RULES_ERROR,
-      TRUE, TRUE, FALSE
+      TRUE, FALSE, FALSE
     },
     { 
       {
@@ -374,7 +374,7 @@ static struct ErrorCases{
       },
       "www.abcde-.com",
       U_IDNA_STD3_ASCII_RULES_ERROR,
-      TRUE, TRUE, FALSE
+      TRUE, FALSE, FALSE
     },
     { 
       {
@@ -385,7 +385,7 @@ static struct ErrorCases{
       },
       "www.abcde@.com",
       U_IDNA_STD3_ASCII_RULES_ERROR,
-      TRUE, TRUE, FALSE
+      TRUE, FALSE, FALSE
     },
     { 
       {
@@ -396,7 +396,7 @@ static struct ErrorCases{
       },
       "www..com",
       U_IDNA_ZERO_LENGTH_LABEL_ERROR,
-      TRUE, TRUE, FALSE
+      TRUE, FALSE, FALSE
     },
     { 
       {0},
@@ -406,193 +406,6 @@ static struct ErrorCases{
     }
 };
 
-
-static struct ConformanceTestCases
-   {
-     const char *comment;
-     const char *in;
-     const char *out;
-     const char *profile;
-     int32_t flags;
-     UErrorCode expectedStatus;
-   }
-   conformanceTestCases[] =
-   {
-  
-     {
-       "Case folding ASCII U+0043 U+0041 U+0046 U+0045",
-       "\x43\x41\x46\x45", "\x63\x61\x66\x65",
-       "Nameprep", UIDNA_DEFAULT, 
-       U_ZERO_ERROR
-
-     },
-     {
-       "Case folding 8bit U+00DF (german sharp s)",
-       "\xC3\x9F", "\x73\x73", 
-       "Nameprep", UIDNA_DEFAULT, 
-       U_ZERO_ERROR  
-     },
-     {
-       "Non-ASCII multibyte space character U+1680",
-       "\xE1\x9A\x80", NULL, 
-       "Nameprep", UIDNA_DEFAULT,
-       U_IDNA_PROHIBITED_ERROR
-     },
-     {
-       "Non-ASCII 8bit control character U+0085",
-       "\xC2\x85", NULL, 
-       "Nameprep", UIDNA_DEFAULT,
-       U_IDNA_PROHIBITED_ERROR
-     },
-     {
-       "Non-ASCII multibyte control character U+180E",
-       "\xE1\xA0\x8E", NULL, 
-       "Nameprep", UIDNA_DEFAULT,
-       U_IDNA_PROHIBITED_ERROR
-     },
-     {
-       "Non-ASCII control character U+1D175",
-       "\xF0\x9D\x85\xB5", NULL, 
-       "Nameprep", UIDNA_DEFAULT,
-       U_IDNA_PROHIBITED_ERROR
-     },
-     {
-       "Plane 0 private use character U+F123",
-       "\xEF\x84\xA3", NULL, 
-       "Nameprep", UIDNA_DEFAULT,
-       U_IDNA_PROHIBITED_ERROR
-     },
-     {
-       "Plane 15 private use character U+F1234",
-       "\xF3\xB1\x88\xB4", NULL, 
-       "Nameprep", UIDNA_DEFAULT,
-       U_IDNA_PROHIBITED_ERROR
-     },
-     {
-       "Plane 16 private use character U+10F234",
-       "\xF4\x8F\x88\xB4", NULL, 
-       "Nameprep", UIDNA_DEFAULT,
-       U_IDNA_PROHIBITED_ERROR
-     },
-     {
-       "Non-character code point U+8FFFE",
-       "\xF2\x8F\xBF\xBE", NULL, 
-       "Nameprep", UIDNA_DEFAULT,
-       U_IDNA_PROHIBITED_ERROR
-     },
-     {
-       "Non-character code point U+10FFFF",
-       "\xF4\x8F\xBF\xBF", NULL,
-       "Nameprep", UIDNA_DEFAULT,
-       U_IDNA_PROHIBITED_ERROR 
-     },
- /* 
-     {
-       "Surrogate code U+DF42",
-       "\xED\xBD\x82", NULL, "Nameprep", UIDNA_DEFAULT,
-       U_IDNA_PROHIBITED_ERROR
-     },
-*/
-     {
-       "Non-plain text character U+FFFD",
-       "\xEF\xBF\xBD", NULL, 
-       "Nameprep", UIDNA_DEFAULT,
-       U_IDNA_PROHIBITED_ERROR
-     },
-     {
-       "Ideographic description character U+2FF5",
-       "\xE2\xBF\xB5", NULL, 
-       "Nameprep", UIDNA_DEFAULT,
-       U_IDNA_PROHIBITED_ERROR
-     },
-     {
-       "Display property character U+0341",
-       "\xCD\x81", "\xCC\x81",
-       "Nameprep", UIDNA_DEFAULT, U_ZERO_ERROR
-
-     },
-
-     {
-       "Left-to-right mark U+200E",
-       "\xE2\x80\x8E", "\xCC\x81", 
-       "Nameprep", UIDNA_DEFAULT,
-       U_IDNA_PROHIBITED_ERROR
-     },
-     {
-
-       "Deprecated U+202A",
-       "\xE2\x80\xAA", "\xCC\x81", 
-       "Nameprep", UIDNA_DEFAULT,
-       U_IDNA_PROHIBITED_ERROR
-     },
-     {
-       "Language tagging character U+E0001",
-       "\xF3\xA0\x80\x81", "\xCC\x81", 
-       "Nameprep", UIDNA_DEFAULT,
-       U_IDNA_PROHIBITED_ERROR
-     },
-     {
-       "Language tagging character U+E0042",
-       "\xF3\xA0\x81\x82", NULL, 
-       "Nameprep", UIDNA_DEFAULT,
-       U_IDNA_PROHIBITED_ERROR
-     },
-     {
-       "Bidi: RandALCat character U+05BE and LCat characters",
-       "\x66\x6F\x6F\xD6\xBE\x62\x61\x72", NULL, 
-       "Nameprep", UIDNA_DEFAULT,
-       U_IDNA_CHECK_BIDI_ERROR
-     },
-     {
-       "Bidi: RandALCat character U+FD50 and LCat characters",
-       "\x66\x6F\x6F\xEF\xB5\x90\x62\x61\x72", NULL,
-       "Nameprep",UIDNA_DEFAULT ,
-       U_IDNA_CHECK_BIDI_ERROR
-     },
-     {
-       "Bidi: RandALCat character U+FB38 and LCat characters",
-       "\x66\x6F\x6F\xEF\xB9\xB6\x62\x61\x72", "\x66\x6F\x6F\x20\xd9\x8e\x62\x61\x72",
-       "Nameprep", UIDNA_DEFAULT,
-       U_ZERO_ERROR
-     },
-     { "Bidi: RandALCat without trailing RandALCat U+0627 U+0031",
-       "\xD8\xA7\x31", NULL, 
-       "Nameprep", UIDNA_DEFAULT,
-       U_IDNA_CHECK_BIDI_ERROR
-     },
-     {
-       "Bidi: RandALCat character U+0627 U+0031 U+0628",
-       "\xD8\xA7\x31\xD8\xA8", "\xD8\xA7\x31\xD8\xA8",
-       "Nameprep", UIDNA_DEFAULT,
-       U_ZERO_ERROR
-     },
-     {
-       "Unassigned code point U+E0002",
-       "\xF3\xA0\x80\x82", NULL, 
-       "Nameprep", UIDNA_DEFAULT,
-       U_IDNA_UNASSIGNED_ERROR
-     },
-
-/*  // Invalid UTF-8
-     {
-       "Larger test (shrinking)",
-       "X\xC2\xAD\xC3\xDF\xC4\xB0\xE2\x84\xA1\x6a\xcc\x8c\xc2\xa0\xc2"
-       "\xaa\xce\xb0\xe2\x80\x80", "xssi\xcc\x87""tel\xc7\xb0 a\xce\xb0 ",
-       "Nameprep",
-       UIDNA_DEFAULT, U_ZERO_ERROR
-     },
-    {
-
-       "Larger test (expanding)",
-       "X\xC3\xDF\xe3\x8c\x96\xC4\xB0\xE2\x84\xA1\xE2\x92\x9F\xE3\x8c\x80",
-       "xss\xe3\x82\xad\xe3\x83\xad\xe3\x83\xa1\xe3\x83\xbc\xe3\x83\x88"
-       "\xe3\x83\xab""i\xcc\x87""tel\x28""d\x29\xe3\x82\xa2\xe3\x83\x91"
-       "\xe3\x83\xbc\xe3\x83\x88"
-       "Nameprep",
-       UIDNA_DEFAULT, U_ZERO_ERROR
-     },
-  */
-};
 
 
 
@@ -1119,7 +932,7 @@ void TestIDNA::testErrorCases(const char* IDNToASCIIName, TestFunc IDNToASCII,
     }
     
 }
-
+/*
 void TestIDNA::testConformance(const char* toASCIIName, TestFunc toASCII,
                                const char* IDNToASCIIName, TestFunc IDNToASCII,
                                const char* IDNToUnicodeName, TestFunc IDNToUnicode,
@@ -1174,10 +987,10 @@ void TestIDNA::testConformance(const char* toASCIIName, TestFunc toASCII,
     }
     
 }
-
+*/
 // test and ascertain
 // func(func(func(src))) == func(src)
-void TestIDNA::testChaining(UChar* src,int32_t numIterations,const char* testName,
+void TestIDNA::testChaining(const UChar* src,int32_t numIterations,const char* testName,
                   UBool useSTD3ASCIIRules, UBool caseInsensitive, TestFunc func){
     UChar even[MAX_DEST_SIZE];
     UChar odd[MAX_DEST_SIZE];
@@ -1440,8 +1253,7 @@ void TestIDNA::runIndexedTest( int32_t index, UBool exec, const char* &name, cha
         case 9: name = "TestDataFile"; if(exec) TestDataFile(); break;
         case 10: name = "TestRefIDNA"; if(exec) TestRefIDNA(); break;
         case 11: name = "TestIDNAMonkeyTest"; if(exec) TestIDNAMonkeyTest(); break;
-        case 12: name = "TestConformance"; if(exec) TestConformance();break;
-        case 13: 
+        case 12: 
             {
                 name = "TestConformanceTestVectors";
                 if(exec){
@@ -1482,10 +1294,7 @@ void TestIDNA::TestRootLabelSeparator(){
 void TestIDNA::TestChaining(){
     testChaining("uidna_toASCII",uidna_toASCII, "uidna_toUnicode", uidna_toUnicode);
 }
-void TestIDNA::TestConformance(){
-    testConformance("uidna_toASCII",uidna_toASCII,"uidna_IDNToASCII",uidna_IDNToASCII,
-                    "uidna_IDNToUnicode",uidna_IDNToUnicode, "uidna_toUnicode", uidna_toUnicode);
-}
+
 
 static const int loopCount = 100;
 static const int maxCharCount = 20;
@@ -1651,7 +1460,11 @@ void TestIDNA::TestIDNAMonkeyTest(){
 
     getInstance(status);    // Init prep
     if (U_FAILURE(status)) {
-        errln("Test could not initialize. Got %s", u_errorName(status));
+        if (status == U_FILE_ACCESS_ERROR) {
+            dataerrln("[DATA] Test could not initialize.");
+        } else {
+            errln("Test could not initialize. Got %s", u_errorName(status));
+        }
         return;
     }
 
@@ -1667,7 +1480,7 @@ void TestIDNA::TestIDNAMonkeyTest(){
     /* for debugging */
     for (i=0; i<(int)(sizeof(failures)/sizeof(failures[0])); i++){
         source.truncate(0);
-        source.append( failures[i] );
+        source.append( UnicodeString(failures[i], -1, US_INV) );
         source = source.unescape();
         source.append((UChar)0x0000);
         const UChar *src = source.getBuffer();
@@ -1677,13 +1490,13 @@ void TestIDNA::TestIDNAMonkeyTest(){
 
     
     source.truncate(0);
-    source.append("\\uCF18\\U00021161\\U000EEF11\\U0002BB82\\U0001D63C");
+    source.append(UNICODE_STRING_SIMPLE("\\uCF18\\U00021161\\U000EEF11\\U0002BB82\\U0001D63C"));
     debug(source.getBuffer(),source.length(),UIDNA_ALLOW_UNASSIGNED);
     
     { // test deletion of code points
-        UnicodeString source("\\u043f\\u00AD\\u034f\\u043e\\u0447\\u0435\\u043c\\u0443\\u0436\\u0435\\u043e\\u043d\\u0438\\u043d\\u0435\\u0433\\u043e\\u0432\\u043e\\u0440\\u044f\\u0442\\u043f\\u043e\\u0440\\u0443\\u0441\\u0441\\u043a\\u0438\\u0000");
+        UnicodeString source("\\u043f\\u00AD\\u034f\\u043e\\u0447\\u0435\\u043c\\u0443\\u0436\\u0435\\u043e\\u043d\\u0438\\u043d\\u0435\\u0433\\u043e\\u0432\\u043e\\u0440\\u044f\\u0442\\u043f\\u043e\\u0440\\u0443\\u0441\\u0441\\u043a\\u0438\\u0000", -1, US_INV);
         source = source.unescape();
-        UnicodeString expected("\\u043f\\u043e\\u0447\\u0435\\u043c\\u0443\\u0436\\u0435\\u043e\\u043d\\u0438\\u043d\\u0435\\u0433\\u043e\\u0432\\u043e\\u0440\\u044f\\u0442\\u043f\\u043e\\u0440\\u0443\\u0441\\u0441\\u043a\\u0438\\u0000");
+        UnicodeString expected("\\u043f\\u043e\\u0447\\u0435\\u043c\\u0443\\u0436\\u0435\\u043e\\u043d\\u0438\\u043d\\u0435\\u0433\\u043e\\u0432\\u043e\\u0440\\u044f\\u0442\\u043f\\u043e\\u0440\\u0443\\u0441\\u0441\\u043a\\u0438\\u0000", -1, US_INV);
         expected = expected.unescape();
         UnicodeString ascii("xn--b1abfaaepdrnnbgefbadotcwatmq2g4l");
         ascii.append((UChar)0x0000);
@@ -1726,7 +1539,11 @@ void TestIDNA::TestRefIDNA(){
     UErrorCode status = U_ZERO_ERROR;
     getInstance(status);    // Init prep
     if (U_FAILURE(status)) {
-        errln("Test could not initialize. Got %s", u_errorName(status));
+        if (status == U_FILE_ACCESS_ERROR) {
+            dataerrln("[DATA] Test could not initialize.");
+        } else {
+            errln("Test could not initialize. Got %s", u_errorName(status));
+        }
         return;
     }
 

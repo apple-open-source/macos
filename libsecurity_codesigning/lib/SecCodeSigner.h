@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2006-2007 Apple Computer, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,7 +23,7 @@
 
 /*!
 	@header SecCodeSigner
-	SecCodeSigner represents an object that signs code.
+	SecCodeSigner represents an object that can sign code.
 */
 #ifndef _H_SECCODESIGNER
 #define _H_SECCODESIGNER
@@ -43,20 +43,69 @@ typedef struct __SecCodeSigner *SecCodeSignerRef;	/* code signing object */
 
 /*!
 	@function SecCodeGetTypeID
-	Returns the type identifier of all SecCode instances.
+	Returns the type identifier of all SecCodeSigner instances.
 */
 CFTypeID SecCodeSignerGetTypeID(void);
 
 
 /*!
+	The following CFString constants can be used as keys in the parameters argument
+	of SecCodeSignerCreate to specify various modes and options of the signing operation.
+	Passing any keys not specified here may lead to undefined behavior and is not supported.
+	The same applies to passing objects of types not explicitly allowed here.
+
+	@constant kSecCodeSignerDetached Determines where the signature is written.
+		If this key is absent, the code being signed is modified to contain the signature,
+		replacing any signature already embedded there.
+		If the value is kCFNull, the signature is written to the system-wide detached
+		signature database. (You must have root privileges to write there.)
+		If the value of this key is a CFURL, the signature is written to a file at that location,
+		replacing any data there.
+		If the value is a CFMutableData, the signature is appended to that data.
+	@constant kSecCodeSignerDryRun A boolean value. If present and true, the actual writing
+		of the signature is inhibited, and the code is not modified, but all operations
+		leading up to this are performed normally, including the cryptographic access to
+		the signing identity (if any).
+	@constant kSecCodeSignerFlags A CFNumber specifying which flags to set in the code signature.
+		Note that depending on circumstances, this value may be augmented or modified
+		as part of the signing operation.
+	@constant kSecCodeSignerIdentifier If present, a CFString that explicitly specifies
+		the unique identifier string sealed into the code signature. If absent, the identifier
+		is derived implicitly from the code being signed.
+	@constant kSecCodeSignerIdentifierPrefix If the unique identifier string of the code signature
+		is implicitly generated, and the resulting string does not contain any "." (dot)
+		characters, then the (string) value of this parameter is prepended to the identifier.
+		By convention, the prefix is usually of the form "com.yourcompany.", but any value
+		is acceptable. If the kSecCodeSignerIdentifier parameter is specified, this parameter
+		is ineffective (but still allowed).
 	@constant kSecCodeSignerIdentity A SecIdentityRef describing the signing identity
-		to use for signing code. This is a mandatory parameter.
-	@constant kSecCodeSignerDetached If present, a detached code signature is generated.
-		If absent, code signature data is written into the target code (which must
-		be writable). The value is a CFURL identifying the file that is replaced with
-		the detached signature data.
-	@constant kSecCodeSignerRequirements Internal code requirements.
-	@constant kSecCodeSignerFlags Signature flags.
+		to use for signing code. This is a mandatory parameter for signing operations.
+		Its value must be either a SecIdentityRef specifying a cryptographic identity
+		valid for Code Signing, or the special value kCFNull to indicate ad-hoc signing.
+	@constant kSecCodeSignerOperation The type of operation to be performed. Valid values
+		are kSecCodeSignerOperationSign to sign code, and kSecCodeSignerOperationRemove
+		to remove any existing signature from code. The default operation is to sign code.
+	@constant kSecCodeSignerPageSize An integer value explicitly specifying the page size
+		used to sign the main executable. This must be a power of two. A value of zero indicates
+		infinite size (no paging).
+		Only certain page sizes are allowed in most circumstances, and specifying an inappropriate
+		size will lead to spurious verification failures. This is for expert use only.
+	@constant kSecCodeSignerRequirements Specifies the internal requirements to be sealed into
+		the code signature. Must be either a CFData containing the binary (compiled) form of
+		a requirements set (SuperBlob), or a CFString containing a valid text form to be
+		compiled into binary form. Default requirements are automatically generated if this
+		parameter is omitted, and defaults may be applied to particular requirement types
+		that are not specified; but any requirement type you specify is sealed exactly as
+		specified.
+	@constant kSecCodeSignerResourceRules A CFDictionary containing resource scanning rules
+		determining what resource files are sealed into the signature (and in what way).
+		A situation-dependent default is applied if this parameter is not specified.
+	@constant kSecCodeSignerSigningTime Specifies what date and time is sealed into the
+		code signature's CMS data. Can be either a CFDate object specifying a date, or
+		the value kCFNull indicating that no date should be included in the signature.
+		If not specified, the current date is chosen and sealed.
+		Since an ad-hoc signature has no CMS data, this argument is ineffective
+		for ad-hoc signing operations.
  */
 extern const CFStringRef kSecCodeSignerApplicationData;
 extern const CFStringRef kSecCodeSignerDetached;
@@ -81,11 +130,18 @@ extern const CFStringRef kSecCodeSignerSigningTime;
 		are applied to all parameters; note however that some parameters do not have
 		useful defaults, and will need to be set before signing is attempted.
 	@param flags Optional flags. Pass kSecCSDefaultFlags for standard behavior.
+		The kSecCSRemoveSignature flag requests that any existing signature be stripped
+		from the target code instead of signing.
 	@param staticCode On successful return, a SecStaticCode object reference representing
 	the file system origin of the given SecCode. On error, unchanged.
 	@result Upon success, noErr. Upon error, an OSStatus value documented in
 	CSCommon.h or certain other Security framework headers.
 */
+enum {
+	kSecCSRemoveSignature = 1 << 0,		// strip existing signature
+};
+
+
 OSStatus SecCodeSignerCreate(CFDictionaryRef parameters, SecCSFlags flags,
 	SecCodeSignerRef *signer);
 

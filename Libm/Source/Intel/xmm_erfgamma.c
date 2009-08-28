@@ -671,7 +671,7 @@ static inline double lgammaApprox ( double x, int *psigngam )
 				} // otherwise leave psigngam = 1
             }
 			
-		return log ( pi / fabs ( a * x ) ) - lgammaApprox ( -x, &dummy );
+		return log ( pi / __builtin_fabs ( a * x ) ) - lgammaApprox ( -x, &dummy );
 	}
       
 /*******************************************************************************
@@ -791,9 +791,22 @@ double lgamma ( double x ) //sets signgam as side effect
     return lgammaApprox ( x, &signgam );
 }
 
+double lgamma_r( double , int * );
+double lgamma_r( double x , int *psigngam ) // threadsafe.
+{
+	return lgammaApprox(x, psigngam);
+}
+
 float lgammaf( float x ) //sets signgam as side effect
 {
     return (float) lgammaApprox ( x, &signgam );
+}
+
+float lgammaf_r( float , int * );
+float lgammaf_r( float x , int *psigngam ) // threadsafe.
+{
+	double lg = lgammaApprox((double)x, psigngam);
+	return (float)lg;
 }
 
 /*******************************************************************************
@@ -1081,6 +1094,11 @@ long double lgammal ( long double x ) //sets signgam as side effect
     return lgammaApproxL ( x, &signgam );
 }
 
+long double lgammal_r ( long double, int * );
+long double lgammal_r ( long double x, int *psigngam )
+{
+	return lgammaApproxL ( x, psigngam );
+}
 
 #pragma mark -
 
@@ -1295,7 +1313,7 @@ static inline double ErrFunApprox ( double arg, double result, int which )
 	register double x, y, ysquared, numerator, denominator, del; 
 
 	x = arg;
-	y = fabs ( x );
+	y = __builtin_fabs ( x );
 
 /*******************************************************************************
 *      Evaluate  erfc  for |x| <= 0.46875.                                     *

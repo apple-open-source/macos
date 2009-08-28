@@ -17,6 +17,7 @@ You should have received a copy of the GNU General Public License
 along with GAS; see the file COPYING.  If not, write to
 the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
+#include <stdint.h>
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
@@ -73,7 +74,7 @@ FLONUM_TYPE *address_of_generic_floating_point_number)
   /* char *		last_digit; JF unused */
   int			number_of_digits_before_decimal;
   int			number_of_digits_after_decimal;
-  long int		decimal_exponent;
+  int32_t		decimal_exponent;
   int			number_of_digits_available;
   char			digits_sign_char;
 
@@ -318,7 +319,7 @@ FLONUM_TYPE *address_of_generic_floating_point_number)
 		 * Add this digit to digits_binary_low[].
 		 */
 
-		long int	carry;
+		int32_t	carry;
 		LITTLENUM_TYPE *	littlenum_pointer;
 		LITTLENUM_TYPE *	littlenum_limit;
 
@@ -331,9 +332,9 @@ FLONUM_TYPE *address_of_generic_floating_point_number)
 		     littlenum_pointer <= littlenum_limit;
 		     littlenum_pointer ++)
 		  {
-		    long int	work;
+		    int32_t	work;
 		    
-		    work = carry + 10 * (long)(*littlenum_pointer);
+		    work = carry + 10 * (int32_t)(*littlenum_pointer);
 		    * littlenum_pointer = work & LITTLENUM_MASK;
 		    carry = work >> LITTLENUM_NUMBER_OF_BITS;
 		  }

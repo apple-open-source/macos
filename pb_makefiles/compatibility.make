@@ -162,11 +162,3 @@ PROJTYPE_LDFLAGS += -arch_only $(ARCH)
 endif
 endif
 
-#
-# Old NeXT-internal projects use SGS, so set this for backward-compatibility.
-#
-
-ifndef VERSIONING_SYSTEM
-VERSIONING_SYSTEM = next-sgs
-endif
-

@@ -1,3 +1,27 @@
+#ifdef __APPLE__
+#include <glob.h>
+#include <stdlib.h>
+#include <string.h>
+
+char **
+glob_filename (const char *pathname)
+{
+	char **result = NULL;
+	glob_t g;
+	int i;
+
+	if (glob(pathname, 0, NULL, &g) == 0) {
+		result = malloc((g.gl_pathc + 1) * sizeof(char *));
+		for (i = 0; i < g.gl_pathc; i++) {
+			result[i] = strdup(g.gl_pathv[i]);
+		}
+		result[g.gl_pathc] = NULL;
+		globfree(&g);
+	}
+
+	return result;
+}
+#else
 /* File-name wildcard pattern matching for GNU.
    Copyright (C) 1985, 1988, 1989, 1990, 1991 Free Software Foundation, Inc.
 
@@ -680,3 +704,4 @@ main (argc, argv)
 }
 
 #endif /* TEST */
+#endif

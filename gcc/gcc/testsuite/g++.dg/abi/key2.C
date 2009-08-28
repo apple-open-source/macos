@@ -1,4 +1,3 @@
-// APPLE LOCAL file mainline 4.2 2006-03-01 4311680
 // On Darwin, key methods that are inline result in comdat style things.  */
 // PR darwin/25908
 

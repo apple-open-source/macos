@@ -1,4 +1,4 @@
-# $Id: 04node.t,v 1.1.1.1 2004/05/20 17:55:25 jpetri Exp $
+# $Id: 04node.t,v 1.1.1.2 2007/10/10 23:04:15 ahuda Exp $
 
 ##
 # this test checks the DOM Node interface of XML::LibXML
@@ -11,7 +11,7 @@
 
 use Test;
 
-BEGIN { plan tests => 130 };
+BEGIN { plan tests => 136 };
 use XML::LibXML;
 use XML::LibXML::Common qw(:libxml);
 
@@ -93,6 +93,8 @@ print "# 1.1 Node Attributes\n";
         print "# 1.2 Node Cloning\n";
         {
             my $cnode  = $doc->createElement("foo");
+	    $cnode->setAttribute('aaa','AAA');
+	    $cnode->setAttributeNS('http://ns','x:bbb','BBB');
             my $c1node = $doc->createElement("bar");
             $cnode->appendChild( $c1node );
             
@@ -100,11 +102,16 @@ print "# 1.1 Node Attributes\n";
             ok( $xnode );
             ok( $xnode->nodeName, "foo" );
             ok( not $xnode->hasChildNodes );
-            
+	    ok( $xnode->getAttribute('aaa'),'AAA' );
+	    ok( $xnode->getAttributeNS('http://ns','bbb'),'BBB' );
+
             $xnode = $cnode->cloneNode(1);
             ok( $xnode );
             ok( $xnode->nodeName, "foo" );
             ok( $xnode->hasChildNodes );
+	    ok( $xnode->getAttribute('aaa'),'AAA' );
+	    ok( $xnode->getAttributeNS('http://ns','bbb'),'BBB' );
+
             my @cn = $xnode->childNodes;
             ok( @cn );
             ok( scalar(@cn), 1);
@@ -112,11 +119,12 @@ print "# 1.1 Node Attributes\n";
             ok( !$cn[0]->isSameNode( $c1node ) );
 
             print "# clone namespaced elements\n";
-            my $nsnode = $doc->createElementNS( "foo", "foo:bar" );
+            my $nsnode = $doc->createElementNS( "fooNS", "foo:bar" );
 
             my $cnsnode = $nsnode->cloneNode(0);
-            ok( $cnsnode->nodeName, "bar" );
-            ok( $cnsnode->localNS(), undef );
+            ok( $cnsnode->nodeName, "foo:bar" );
+            ok( $cnsnode->localNS() );
+            ok( $cnsnode->namespaceURI(), 'fooNS' );
 
             print "# clone namespaced elements (recursive)\n";
             my $c2nsnode = $nsnode->cloneNode(1);
@@ -425,3 +433,19 @@ print "# 7. importing and adopting\n";
     ok( $xnode2->ownerDocument );
     ok( $doc3->isSameNode( $xnode2->ownerDocument ) );    
 }
+
+{
+  # appending empty fragment
+  my $doc = XML::LibXML::Document->new();
+  my $frag = $doc->createDocumentFragment();
+  my $root = $doc->createElement( 'foo' );
+  my $r = $root->appendChild( $frag );
+  ok( $r );
+}
+
+{ 
+  for my $obj (qw(Document DocumentFragment Comment CDATASection PI Text)) { 
+    
+  } 
+}
+

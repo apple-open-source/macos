@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2001,2008 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -29,7 +29,6 @@
 #define _H_LOCALKEY
 
 #include "key.h"
-#include <security_cdsa_utilities/handleobject.h>
 #include <security_cdsa_client/keyclient.h>
 
 
@@ -72,7 +71,7 @@ public:
     operator const CSSM_KEY & () { return keyValue(); }
     
     // yield the approximate external key header -- external attributes
-    void returnKey(Handle &h, CssmKey::Header &hdr);
+    void returnKey(U32HandleObject::Handle &h, CssmKey::Header &hdr);
 	
 	// generate the canonical key digest
 	const CssmData &canonicalDigest();

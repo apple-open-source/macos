@@ -39,12 +39,17 @@ using LowLevelMemoryUtilities::increment;
 
 
 //
-// Generic UNIX file descriptors
+// Canonical open of a file descriptor. All other open operations channel through this.
+// Note that we abuse the S_IFMT mode flags as operational options.
 //
 void FileDesc::open(const char *path, int flags, mode_t mode)
 {
-    checkSetFd(::open(path, flags, mode));
-    mAtEnd = false;
+	if ((mFd = ::open(path, flags, mode & ~S_IFMT)) == -1)
+		if (errno == ENOENT && (mode & S_IFMT) == modeMissingOk)
+			return;
+		else
+			UnixError::throwMe();
+	mAtEnd = false;
     secdebug("unixio", "open(%s,0x%x,0x%x) = %d", path, flags, mode, mFd);
 }
 
@@ -301,7 +306,15 @@ ssize_t FileDesc::getAttr(const char *name, void *value, size_t length,
 
 void FileDesc::removeAttr(const char *name, int options /* = 0 */)
 {
-	checkError(::fremovexattr(mFd, name, options));
+	if (::fremovexattr(mFd, name, options))
+		switch (errno) {
+		case ENOATTR:
+			if (!(options & XATTR_REPLACE))	// somewhat mis-using an API flag here...
+				return;		// attribute not found; we'll call that okay
+			// fall through
+		default:
+			UnixError::throwMe();
+		}
 }
 
 size_t FileDesc::listAttr(char *value, size_t length, int options /* = 0 */)

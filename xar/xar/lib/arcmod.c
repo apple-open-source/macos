@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005 Rob Braun
+ * Copyright (c) 2007 Rob Braun
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,7 +28,7 @@
  */
 /*
  * 03-Apr-2005
- * DRI: Rob Braun <bbraun@opendarwin.org>
+ * DRI: Rob Braun <bbraun@synack.net>
  */
 /*
  * Portions Copyright 2006, Apple Computer, Inc.
@@ -36,12 +36,15 @@
  */
 
 #include "arcmod.h"
+#include "archive.h"
 #include "stat.h"
 #include "data.h"
 #include "linuxattr.h"
 #include "fbsdattr.h"
 #include "darwinattr.h"
 #include "ext2.h"
+#include "xar.h"
+#include <string.h>
 
 struct arcmod xar_arcmods[] = {
 	{ xar_stat_archive, xar_stat_extract },      /* must be first */
@@ -51,7 +54,8 @@ struct arcmod xar_arcmods[] = {
 	{ xar_ext2attr_archive, xar_ext2attr_extract },
 	{ xar_data_archive, xar_data_extract },
 	/* Add new modules here */
-	{ NULL, xar_set_perm }
+	{ NULL, xar_set_perm },
+	{ NULL, xar_flags_extract }
 };
 
 /* xar_arcmod_archive
@@ -105,4 +109,38 @@ int32_t xar_arcmod_extract(xar_t x, xar_file_t f, const char *file, char *buffer
 
 int32_t xar_arcmod_verify(xar_t x, xar_file_t f){
 	return xar_data_verify(x,f);
+}
+
+/* xar_check_prop
+ * x: xar archive
+ * name: name of property to check
+ * Description: If XAR_OPT_PROPINCLUDE is set at all, only properties
+ * specified for inclusion will be added.
+ * If XAR_OPT_PROPINCLUDE is not set, and XAR_OPT_PROPEXCLUDE is set,
+ * properies specified by XAR_OPT_PROPEXCLUDE will be omitted.
+ * Returns: 0 for not to include, 1 for include.
+ */
+int32_t xar_check_prop(xar_t x, const char *name) {
+	xar_attr_t i;
+	char includeset = 0;
+
+	for(i = XAR(x)->attrs; i; i = XAR_ATTR(i)->next) {
+		if( strcmp(XAR_ATTR(i)->key, XAR_OPT_PROPINCLUDE) == 0 ) {
+			if( strcmp(XAR_ATTR(i)->value, name) == 0 )
+				return 1;
+			includeset = 1;
+		}
+	}
+
+	if( includeset )
+		return 0;
+
+	for(i = XAR(x)->attrs; i; i = XAR_ATTR(i)->next) {
+		if( strcmp(XAR_ATTR(i)->key, XAR_OPT_PROPEXCLUDE) == 0 ) {
+			if( strcmp(XAR_ATTR(i)->value, name) == 0 )
+				return 0;
+		}
+	}
+
+	return 1;
 }

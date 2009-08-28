@@ -15,6 +15,9 @@
 	Change History (most recent first):
 
 		$Log: MBCInteractivePlayer.mm,v $
+		Revision 1.17  2008/10/24 23:23:08  neerache
+		Add missing static declaration
+		
 		Revision 1.16  2007/03/01 23:51:26  neerache
 		Offer option to speak human moves <rdar://problem/4038206>
 		
@@ -322,7 +325,7 @@ pascal OSErr HandleSpeechDoneAppleEvent (const AppleEvent *theAEevt, AppleEvent*
 	[self updateNeedMouse:self];
 }
 
-const char *	sPieceName[] = {
+static const char *	sPieceName[] = {
 	"", "king", "queen", "bishop", "knight", "rook", "pawn"
 };
 

@@ -93,7 +93,7 @@ class Archiver:
         omask = os.umask(0)
         try:
             try:
-                os.mkdir(self.archive_dir()+'.mbox', 02775)
+                os.mkdir(self.archive_dir()+'.mbox', 0775)
             except OSError, e:
                 if e.errno <> errno.EEXIST: raise
                 # We also create an empty pipermail archive directory into
@@ -101,7 +101,7 @@ class Archiver:
                 # that lists that have not yet received a posting have
                 # /something/ as their index.html, and don't just get a 404.
             try:
-                os.mkdir(self.archive_dir(), 02775)
+                os.mkdir(self.archive_dir(), 0775)
             except OSError, e:
                 if e.errno <> errno.EEXIST: raise
             # See if there's an index.html file there already and if not,

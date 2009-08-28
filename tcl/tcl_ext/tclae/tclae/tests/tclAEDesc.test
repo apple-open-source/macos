@@ -1,0 +1,689 @@
+## -*- mode: Tcl; coding: utf-8; -*-
+ # ###################################################################
+ #  TclAE - AppleEvent extension for Tcl
+ # 
+ #  FILE: "tclAEDesc.test"
+ #                                    created: 8/30/2000 {7:44:57 AM} 
+ #                                last update: 2/28/03 {5:17:44 PM} 
+ #  Author: Jonathan Guyer
+ #  E-mail: jguyer@his.com
+ #    mail: POMODORO no seisan
+ #     www: http://www.his.com/jguyer/
+ #  
+ # ========================================================================
+ #               Copyright © 2000 Jonathan Guyer
+ #                      All rights reserved
+ # ========================================================================
+ # Permission to use, copy, modify, and distribute this software and its
+ # documentation for any purpose and without fee is hereby granted,
+ # provided that the above copyright notice appear in all copies and that
+ # both that the copyright notice and warranty disclaimer appear in
+ # supporting documentation.
+ # 
+ # Jonathan Guyer disclaims all warranties with regard to this software,
+ # including all implied warranties of merchantability and fitness.  In
+ # no event shall Jonathan Guyer be liable for any special, indirect or
+ # consequential damages or any damages whatsoever resulting from loss of
+ # use, data or profits, whether in an action of contract, negligence or
+ # other tortuous action, arising out of or in connection with the use or
+ # performance of this software.
+ # ========================================================================
+ #  Description: 
+ # 
+ #   This file contains a collection of tests for one or more of
+ #   the TclAE commands.  Sourcing this file into Tcl runs the
+ #   tests and generates output for errors.  No output means no
+ #   errors were found.
+ #   
+ #   Once initialized, leaks ~5 kiB / run. regsub?
+ #   
+ #  History
+ # 
+ #  modified   by  rev reason
+ #  ---------- --- --- -----------
+ #  2000-08-30 JEG 1.0 original
+ # ###################################################################
+ ##
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+	package require tcltest
+	namespace import ::tcltest::*
+}
+
+if {[catch {package require tclAE}]} {
+catch {puts "Cannot load TclAE"}
+}
+
+# Only run the test if we can load the TclAE package
+set ::tcltest::testConstraints(tclAE) [expr {[info commands tclAE::send] != ""}]
+set ::tcltest::testConstraints(tclAEshlb) [set ::tcltest::testConstraints(tclAE)]
+set ::tcltest::testConstraints(tclAEalphaTcl) 0
+set ::tcltest::testConstraints(tclAEbigEndian) [expr {$tcl_platform(byteOrder) eq "bigEndian"}]
+set ::tcltest::testConstraints(tclAElittleEndian) [expr {![set ::tcltest::testConstraints(tclAEbigEndian)]}]
+
+if {$tcl_platform(platform) == "macintosh"} {    
+	set testPath $env(SYS_FOLDER)
+}
+if {$tcl_platform(platform) == "unix" && $tcl_platform(os) == "Darwin"} {
+	set testPath "/System/"
+	set ::tcltest::testConstraints(macOnly) 1
+}
+
+
+# setup some general descriptors for the tests
+
+catch {tclAE::build "“this is a ∑tring”"} TEXTAEDesc
+catch {tclAE::build "long(2048)"} longAEDesc
+catch {tclAE::createDesc doub [binary format d "3.14159"]} doubleAEDesc
+catch {tclAE::build "\[4, “a string”, bool(«01»)\]"} listAEDesc
+catch {tclAE::build "{eeny:4, meny:“a string”, miny:bool(«01»)}"} recoAEDesc
+catch {tclAE::build "blah(«20432A65»)"} oddAEDesc
+catch {tclAE::build "true()"} trueAEDesc
+catch {tclAE::coerceData TEXT $testPath alis} alisAEDesc
+catch {tclAE::build “4”} numstringAEDesc
+
+
+
+test tclAEDesc-1.1 {tclAE::coerceData noargs} {macOnly tclAEshlb} {
+    set err [catch {tclAE::coerceData} msg]
+    list $err $msg
+} {1 {wrong # args: should be "tclAE::coerceData typeCode data toType"}}
+
+test tclAEDesc-1.2.1 {tclAE::coerceData long to TEXT} {macOnly tclAEbigEndian} {
+    catch {tclAE::coerceData long [binary format I 4] TEXT} tempAEDesc
+    list $tempAEDesc
+} {“4”}
+
+test tclAEDesc-1.2.2 {tclAE::coerceData long to TEXT} {macOnly tclAElittleEndian} {
+    catch {tclAE::coerceData long [binary format i 4] TEXT} tempAEDesc
+    list $tempAEDesc
+} {“4”}
+
+test tclAEDesc-1.3 {tclAE::coerceData path to alias} {macOnly tclAE} {
+    catch {tclAE::coerceData TEXT $testPath alis} tempAEDesc
+    regsub {(alis\(«)[0-9A-F]+(»\))} $tempAEDesc {\10123456789ABCDEF\2} gizmo
+    list $gizmo
+} {alis(«0123456789ABCDEF»)}
+
+
+
+test tclAEDesc-2.1 {tclAE::coerceDesc noargs} {macOnly tclAEshlb} {
+    set err [catch {tclAE::coerceDesc} msg]
+    list $err $msg
+} {1 {wrong # args: should be "tclAE::coerceDesc theAEDesc toType"}}
+
+test tclAEDesc-2.2 {tclAE::coerceDesc alias to path} {macOnly tclAE} {
+    catch {tclAE::coerceDesc $alisAEDesc TEXT} tempAEDesc
+    list $tempAEDesc
+} [list “$testPath”]
+
+test tclAEDesc-2.3 {tclAE::coerceDesc from AEDesc} {macOnly tclAE} {
+    catch {tclAE::coerceDesc $numstringAEDesc long} tempAEDesc
+    list $tempAEDesc
+} {4}
+
+test tclAEDesc-2.4 {tclAE::coerceDesc from gizmo} {macOnly tclAE} {
+    catch {tclAE::coerceDesc "long(43)" TEXT} tempAEDesc
+    list $tempAEDesc
+} {“43”}
+
+test tclAEDesc-2.5 {tclAE::coerceDesc failure} {macOnly tclAEshlb} {
+    catch {tclAE::coerceDesc "\[4, “a string”\]" TEXT} msg
+    list $msg
+} {{Couldn't coerce descriptor to 'TEXT': OSErr -1700}}
+
+
+
+test tclAEDesc-3.1 {tclAE::countItems noargs} {macOnly tclAEshlb} {
+    set err [catch {tclAE::countItems} msg]
+    list $err $msg
+} {1 {wrong # args: should be "tclAE::countItems theAEDescList"}}
+
+test tclAEDesc-3.2 {tclAE::countItems} {macOnly tclAE} {
+    catch {tclAE::countItems $listAEDesc} count
+    list $count
+} {3}
+
+test tclAEDesc-3.4 {tclAE::countItems non-list} {macOnly tclAEshlb} {
+    catch {tclAE::countItems $longAEDesc} msg
+    list $msg
+} [list "Couldn't count items in \"${longAEDesc}\": OSErr -1703"]
+# this used to throw -1704, but not in OS X (at least not in Tiger)
+
+
+test tclAEDesc-4.1 {tclAE::createDesc noargs} {macOnly tclAEshlb} {
+    set err [catch {tclAE::createDesc} msg]
+    list $err $msg
+} {1 {wrong # args: should be "tclAE::createDesc typeCode ?data?"}}
+
+# real AEGizmos quotes TEXT for some reason
+test tclAEDesc-4.2.1 {tclAE::createDesc} {macOnly tclAEshlb} {
+    catch {tclAE::createDesc TEXT} tempAEDesc
+    catch {tclAE::getDescType $tempAEDesc} type
+    list $type $tempAEDesc
+} {TEXT 'TEXT'()}
+
+
+
+test tclAEDesc-5.1 {tclAE::createList bad args} {macOnly tclAEshlb} {
+    set err [catch {tclAE::createList aa bb} msg]
+    list $err $msg
+} {1 {wrong # args: should be "tclAE::createList ?isRecord?"}}
+
+test tclAEDesc-5.2 {tclAE::createList} {macOnly tclAE} {
+    catch {tclAE::createList} tempAEDescList
+    catch {tclAE::getDescType $tempAEDescList} type
+    list $type $tempAEDescList
+} {list {[]}}
+
+test tclAEDesc-5.3 {tclAE::createList as record} {macOnly tclAE} {
+    catch {tclAE::createList 1} tempAERecord
+    catch {tclAE::getDescType $tempAERecord} type
+    list $type $tempAERecord
+} {reco {{}}}
+
+test tclAEDesc-5.4 {tclAE::createList bad boolean} {macOnly tclAE} {
+    catch {tclAE::createList a} msg
+    set msg
+} {expected boolean value but got "a"}
+
+
+
+test tclAEDesc-6.1 {tclAE::deleteItem no args} {macOnly tclAEshlb} {
+    set err [catch {tclAE::deleteItem} msg]
+    list $err $msg
+} {1 {wrong # args: should be "tclAE::deleteItem theAEDescList item"}}
+
+catch {tclAE::duplicateDesc $listAEDesc} tempAEDescList
+test tclAEDesc-6.2 {tclAE::deleteItem} {macOnly tclAE} {
+    catch {tclAE::deleteItem $tempAEDescList 1}
+    regsub {bool\(«0(.)»\)} $tempAEDescList  {\1} gizmo
+    list $gizmo 
+} {{[4, 1]}}
+
+catch {tclAE::duplicateDesc $listAEDesc} tempAEDescList
+test tclAEDesc-6.3 {tclAE::deleteItem bad index} {macOnly tclAEshlb} {
+    catch {tclAE::deleteItem $tempAEDescList 4} msg 
+    list $msg
+} [list "Couldn't delete item from \"${tempAEDescList}\": OSErr -1701"]
+
+
+
+test tclAEDesc-7.1 {tclAE::deleteKeyDesc no args} {macOnly tclAEshlb} {
+    set err [catch {tclAE::deleteKeyDesc} msg]
+    list $err $msg
+} {1 {wrong # args: should be "tclAE::deleteKeyDesc theAERecord theAEKeyword"}}
+
+catch {tclAE::duplicateDesc $recoAEDesc} tempAERecord
+test tclAEDesc-7.2 {tclAE::deleteKeyDesc} {macOnly tclAE} {
+    catch {tclAE::deleteKeyDesc $tempAERecord miny}
+    set tempAERecord 
+} {{eeny:4, meny:“a string”}}
+
+catch {tclAE::duplicateDesc $recoAEDesc} tempAERecord
+test tclAEDesc-7.3 {tclAE::deleteKeyDesc bad key} {macOnly tclAEshlb} {
+    catch {tclAE::deleteKeyDesc $tempAERecord "moe "} msg
+    list $msg
+} [list "Couldn't delete keyword 'moe ' from \"${tempAERecord}\": OSErr -1701"]
+
+
+
+test tclAEDesc-8.1 {tclAE::disposeDesc no args} {macOnly tclAEshlb} {
+    set err [catch {tclAE::disposeDesc} msg]
+    list $err $msg
+} {1 {wrong # args: should be "tclAE::disposeDesc theAEDesc"}}
+
+
+test tclAEDesc-9.1 {tclAE::duplicateDesc no args} {macOnly tclAEshlb} {
+    set err [catch {tclAE::duplicateDesc} msg]
+    list $err $msg
+} {1 {wrong # args: should be "tclAE::duplicateDesc theAEDesc"}}
+
+test tclAEDesc-9.2 {tclAE::duplicateDesc} {macOnly tclAE} {
+    catch {tclAE::duplicateDesc $recoAEDesc} copyAEDesc
+    regsub {bool\(«0(.)»\)} $recoAEDesc  {\1} gizmo1
+    list [string compare $gizmo1 $copyAEDesc]
+} {0}
+
+test tclAEDesc-9.3 {tclAE::duplicateDesc bad desc} {macOnly tclAEshlb} {
+    catch {tclAE::duplicateDesc "\{eeny:long4)"} copyAEDesc
+    set copyAEDesc
+} {Couldn't build descriptor: OSErr -1740}
+
+
+test tclAEDesc-10.1 {tclAE::getData no args} {macOnly tclAEshlb} {
+    set err [catch {tclAE::getData} msg]
+    list $err $msg
+} {1 {wrong # args: should be "tclAE::getData theAEDesc ?desiredType? ?typeCodePtr?"}}
+
+test tclAEDesc-10.2 {tclAE::getData from TEXT} {macOnly tclAE} {
+    catch {tclAE::getData $TEXTAEDesc} data
+    list $data
+} {{this is a ∑tring}}
+
+test tclAEDesc-10.3.1 {tclAE::getData from long} {macOnly tclAEbigEndian} {
+    catch {tclAE::getData $longAEDesc} data
+    catch {tclAE::getData $longAEDesc ????} hexd
+    list $data $hexd
+} [list 2048 [binary format I 2048]]
+test tclAEDesc-10.3.2 {tclAE::getData from long} {macOnly tclAElittleEndian} {
+    catch {tclAE::getData $longAEDesc} data
+    catch {tclAE::getData $longAEDesc ????} hexd
+    list $data $hexd
+} [list 2048 [binary format i 2048]]
+
+test tclAEDesc-10.4 {tclAE::getData from unknown} {macOnly tclAE} {
+    catch {tclAE::getData $oddAEDesc} data
+    catch {tclAE::getData $oddAEDesc ????} hexd
+    list $data $hexd
+} [list [binary format a* { C*e}] [binary format a* { C*e}]]
+
+test tclAEDesc-10.5 {tclAE::getData with coercion} {macOnly tclAE} {
+    catch {tclAE::getData $trueAEDesc bool} data
+    list $data
+} {1}
+
+test tclAEDesc-10.6 {tclAE::getData with coercion asking type} {macOnly tclAE} {
+    catch {tclAE::getData $trueAEDesc bool type}
+    list $type
+} {bool}
+
+test tclAEDesc-10.7 {tclAE::getData from double with coercion} {macOnly tclAEshlb} {
+    catch {tclAE::getData $doubleAEDesc} doub
+    catch {tclAE::getData $doubleAEDesc sing} sing
+    list [expr {abs($doub - 3.14159) < 1e-6}] [expr {abs($sing - 3.14159) < 1e-6}]
+} {1 1}
+
+
+test tclAEDesc-11.1 {tclAE::getDescType no args} {macOnly tclAEshlb} {
+    set err [catch {tclAE::getDescType} msg]
+    list $err $msg
+} {1 {wrong # args: should be "tclAE::getDescType theAEDesc"}}
+test tclAEDesc-11.2 {tclAE::getDescType from TEXT} {macOnly tclAE} {
+    catch {tclAE::getDescType $TEXTAEDesc} type
+    list $type
+} {TEXT}
+test tclAEDesc-11.3 {tclAE::getDescType from record} {macOnly tclAE} {
+    catch {tclAE::getDescType $recoAEDesc} type
+    list $type
+} {reco}
+
+
+test tclAEDesc-12.1 {tclAE::getKeyData no args} {macOnly tclAEshlb} {
+    set err [catch {tclAE::getKeyData} msg]
+    list $err $msg
+} {1 {wrong # args: should be "tclAE::getKeyData theAERecord theAEKeyword ?desiredType? ?typeCodePtr?"}}
+
+test tclAEDesc-12.2 {tclAE::getKeyData} {macOnly tclAE} {
+    catch {tclAE::getKeyData $recoAEDesc meny} data
+    list $data
+} {{a string}}
+
+test tclAEDesc-12.3.1 {tclAE::getKeyData} {macOnly tclAEbigEndian} {
+    catch {tclAE::getKeyData $recoAEDesc eeny} data
+    catch {tclAE::getKeyData $recoAEDesc eeny ????} hexd
+    list $data $hexd
+} [list 4 [binary format S 4]]
+test tclAEDesc-12.3.2 {tclAE::getKeyData} {macOnly tclAElittleEndian} {
+    catch {tclAE::getKeyData $recoAEDesc eeny} data
+    catch {tclAE::getKeyData $recoAEDesc eeny ????} hexd
+    list $data $hexd
+} [list 4 [binary format s 4]]
+
+test tclAEDesc-12.4 {tclAE::getKeyData with coercion} {macOnly tclAE} {
+    catch {tclAE::getKeyData $recoAEDesc eeny TEXT type} data
+    list $data $type
+} {4 TEXT}
+
+test tclAEDesc-12.5.1 {tclAE::getKeyData ask type} {macOnly tclAEbigEndian} {
+    catch {tclAE::getKeyData $recoAEDesc eeny **** type} data
+    catch {tclAE::getKeyData $recoAEDesc eeny ???? type} hexd
+    list $data $hexd $type
+} [list 4 [binary format S 4] shor]
+test tclAEDesc-12.5.2 {tclAE::getKeyData ask type} {macOnly tclAElittleEndian} {
+    catch {tclAE::getKeyData $recoAEDesc eeny **** type} data
+    catch {tclAE::getKeyData $recoAEDesc eeny ???? type} hexd
+    list $data $hexd $type
+} [list 4 [binary format s 4] shor]
+
+test tclAEDesc-12.6 {tclAE::getKeyData bad key} {macOnly tclAEshlb} {
+    catch {tclAE::getKeyData $recoAEDesc "moe "} msg
+    list $msg
+} [list "Couldn't get keyword 'moe ' from \"$recoAEDesc\": OSErr -1701"]
+
+
+test tclAEDesc-13.1 {tclAE::getKeyDesc no args} {macOnly tclAEshlb} {
+    set err [catch {tclAE::getKeyDesc} msg]
+    list $err $msg
+} {1 {wrong # args: should be "tclAE::getKeyDesc theAERecord theAEKeyword ?desiredType?"}}
+
+test tclAEDesc-13.2 {tclAE::getKeyDesc} {macOnly tclAE} {
+    catch {tclAE::getKeyDesc $recoAEDesc meny} tempAEDesc
+    list $tempAEDesc
+} {{“a string”}}
+
+test tclAEDesc-13.3 {tclAE::getKeyDesc with coercion} {macOnly tclAE} {
+    catch {tclAE::getKeyDesc $recoAEDesc eeny TEXT} tempAEDesc
+    list $tempAEDesc
+} {“4”}
+
+test tclAEDesc-13.4 {tclAE::getKeyDesc bad key} {macOnly tclAEshlb} {
+    catch {tclAE::getKeyDesc $recoAEDesc "moe "} msg
+    list $msg
+} [list "Couldn't get keyword 'moe ' from \"$recoAEDesc\": OSErr -1701"]
+
+
+
+test tclAEDesc-15.1 {tclAE::getNthData no args} {macOnly tclAEshlb} {
+    set err [catch {tclAE::getNthData} msg]
+    list $err $msg
+} {1 {wrong # args: should be "tclAE::getNthData theAEDescList index ?desiredType? ?theAEKeywordPtr? ?typeCodePtr?"}}
+
+test tclAEDesc-15.2 {tclAE::getNthData} {macOnly tclAE} {
+    catch {tclAE::getNthData $listAEDesc 1} data
+    list $data
+} {{a string}}
+
+test tclAEDesc-15.3.1 {tclAE::getNthData} {macOnly tclAEbigEndian} {
+    catch {tclAE::getNthData $listAEDesc 0} data
+    catch {tclAE::getNthData $listAEDesc 0 ????} hexd
+    list $data $hexd
+} [list 4 [binary format S 4]]
+test tclAEDesc-15.3.2 {tclAE::getNthData} {macOnly tclAElittleEndian} {
+    catch {tclAE::getNthData $listAEDesc 0} data
+    catch {tclAE::getNthData $listAEDesc 0 ????} hexd
+    list $data $hexd
+} [list 4 [binary format s 4]]
+
+test tclAEDesc-15.4 {tclAE::getNthData with coercion} {macOnly tclAE} {
+    catch {tclAE::getNthData $listAEDesc 0 TEXT key type} data
+    list $data $key $type
+} {4 **** TEXT}
+
+test tclAEDesc-15.5 {tclAE::getNthData from record} {macOnly tclAE} {
+    catch {tclAE::getNthData $recoAEDesc 1 **** key type} data
+    list $data $key $type
+} [list "a string" meny TEXT]
+
+test tclAEDesc-15.6 {tclAE::getNthData bad index} {macOnly tclAEshlb} {
+    catch {tclAE::getNthData $recoAEDesc 5} msg
+    list $msg
+} [list "Couldn't get item #5 from \"${recoAEDesc}\": OSErr -1701"]
+
+
+
+test tclAEDesc-16.1 {tclAE::getNthDesc no args} {macOnly tclAEshlb} {
+    set err [catch {tclAE::getNthDesc} msg]
+    list $err $msg
+} {1 {wrong # args: should be "tclAE::getNthDesc theAEDescList index ?desiredType? ?theAEKeywordPtr?"}}
+
+test tclAEDesc-16.2 {tclAE::getNthDesc} {macOnly tclAE} {
+    catch {tclAE::getNthDesc $listAEDesc 2} tempAEDesc
+    regsub {bool\(«0(.)»\)} $tempAEDesc  {\1} gizmo
+    list $gizmo
+} {1}
+
+test tclAEDesc-16.3 {tclAE::getNthDesc with coercion} {macOnly tclAE} {
+    catch {tclAE::getNthDesc $listAEDesc 2 shor} tempAEDesc
+    list $tempAEDesc
+} {1}
+
+test tclAEDesc-16.4 {tclAE::getNthDesc from record} {macOnly tclAE} {
+    catch {tclAE::getNthDesc $recoAEDesc 1 **** key} tempAEDesc
+    list $tempAEDesc $key
+} {{“a string”} meny}
+
+test tclAEDesc-16.5 {tclAE::getNthDesc bad index} {macOnly tclAEshlb} {
+    catch {tclAE::getNthDesc $listAEDesc 5} msg
+    list $msg
+} [list "Couldn't get item #5 from \"${listAEDesc}\": OSErr -1701"]
+
+
+test tclAEDesc-20.1 {tclAE::putData no args} {macOnly tclAEshlb} {
+    set err [catch {tclAE::putData} msg]
+    list $err $msg
+} {1 {wrong # args: should be "tclAE::putData theAEDescList index typeCode data"}}
+
+catch {tclAE::duplicateDesc $listAEDesc} tempAEDescList
+test tclAEDesc-20.2 {tclAE::putData} {macOnly tclAE} {
+    catch {tclAE::putData $tempAEDescList 2 TEXT "this is some new text"}
+    list $tempAEDescList
+} {{[4, “a string”, “this is some new text”]}}
+
+catch {tclAE::duplicateDesc $listAEDesc} tempAEDescList
+test tclAEDesc-20.3.1 {tclAE::putData insertion} {macOnly tclAEbigEndian} {
+    catch {tclAE::putData $tempAEDescList -1 shor [binary format S -34]}
+    regsub {bool\(«0(.)»\)} $tempAEDescList  {\1} gizmo
+    list $gizmo
+} {{[4, “a string”, 1, -34]}}
+test tclAEDesc-20.3.2 {tclAE::putData insertion} {macOnly tclAElittleEndian} {
+    catch {tclAE::putData $tempAEDescList -1 shor [binary format s -34]}
+    regsub {bool\(«0(.)»\)} $tempAEDescList  {\1} gizmo
+    list $gizmo
+} {{[4, “a string”, 1, -34]}}
+
+catch {tclAE::duplicateDesc $recoAEDesc} tempAERecord
+test tclAEDesc-20.4 {tclAE::putData in record} {macOnly tclAE} {
+    catch {tclAE::putData $tempAERecord 1 TEXT "this is some new text"} msg
+    list $msg
+} {{Couldn't put |this is some new text| as 'TEXT' into item #1 of "{eeny:4, meny:“a string”, miny:1}": OSErr -1703}}
+
+catch {tclAE::duplicateDesc $TEXTAEDesc} tempAEDesc
+test tclAEDesc-20.5 {tclAE::putData non-list} {macOnly tclAEshlb} {
+    catch {tclAE::putData $tempAEDesc 1 TEXT "this is some new text"} msg
+    list $msg
+} [list "Couldn't put |this is some new text| as 'TEXT' into item #1 of \"${tempAEDesc}\": OSErr -1703"]
+
+
+
+test tclAEDesc-21.1 {tclAE::putDesc no args} {macOnly tclAEshlb} {
+    set err [catch {tclAE::putDesc} msg]
+    list $err $msg
+} {1 {wrong # args: should be "tclAE::putDesc theAEDescList index theAEDesc"}}
+
+catch {tclAE::duplicateDesc $listAEDesc} tempAEDescList
+test tclAEDesc-21.2 {tclAE::putDesc} {macOnly tclAE} {
+    catch {tclAE::putDesc $tempAEDescList 2 $longAEDesc}
+    list $tempAEDescList
+} {{[4, “a string”, 2048]}}
+
+catch {tclAE::duplicateDesc $listAEDesc} tempAEDescList
+test tclAEDesc-21.3 {tclAE::putDesc insertion} {macOnly tclAE} {
+    catch {tclAE::putDesc $tempAEDescList -1 $TEXTAEDesc}
+    regsub {bool\(«0(.)»\)} $tempAEDescList  {\1} gizmo
+    list $gizmo
+} {{[4, “a string”, 1, TEXT(«74686973206973206120B77472696E67»)]}}
+
+catch {tclAE::duplicateDesc $recoAEDesc} tempAERecord
+test tclAEDesc-21.4 {tclAE::putDesc in record} {macOnly tclAE} {
+    catch {tclAE::putDesc $tempAERecord 1 $longAEDesc} msg
+    list $msg
+} [list "Couldn't put \"$longAEDesc\" into item #1 of \"$tempAERecord\": OSErr -1703"]
+
+catch {tclAE::duplicateDesc $TEXTAEDesc} tempAEDesc
+test tclAEDesc-21.5 {tclAE::putDesc non-list} {macOnly tclAEshlb} {
+    catch {tclAE::putDesc $tempAEDesc 1 $TEXTAEDesc} msg
+    list $msg
+} [list "Couldn't put \"${TEXTAEDesc}\" into item #1 of \"${tempAEDesc}\": OSErr -1703"]
+
+
+catch {tclAE::duplicateDesc $listAEDesc} tempAEDescList
+test tclAEDesc-21.6 {tclAE::putDesc subdescriptor} {macOnly tclAE} {
+    catch {tclAE::putDesc $tempAEDescList 2 $listAEDesc}
+    regsub {bool\(«0(.)»\)} $tempAEDescList  {\1} gizmo
+    list $gizmo
+} {{[4, “a string”, [4, “a string”, 1]]}}
+
+catch {tclAE::duplicateDesc $listAEDesc} tempAEDescList
+test tclAEDesc-21.7 {tclAE::putDesc gizmo} {macOnly tclAE} {
+    catch {tclAE::putDesc $tempAEDescList 0 "{this:56, 'is  ':“text”, a:bool(«01»), reco:long(4)}"}
+    regsub {bool\(«0(.)»\)} $tempAEDescList  {\1} gizmo
+    list $gizmo
+} {{[{this:56, is  :“text”, a   :1, reco:4}, “a string”, 1]}}
+
+
+
+test tclAEDesc-22.1 {tclAE::putKeyData no args} {macOnly tclAEshlb} {
+    set err [catch {tclAE::putKeyData} msg]
+    list $err $msg
+} {1 {wrong # args: should be "tclAE::putKeyData theAERecord theAEKeyword typeCode data"}}
+
+catch {tclAE::duplicateDesc $recoAEDesc} tempAERecord
+test tclAEDesc-22.2 {tclAE::putKeyData} {macOnly tclAE} {
+    catch {tclAE::putKeyData $tempAERecord meny TEXT "this is some new text"}
+    regsub {bool\(«0(.)»\)} $tempAERecord  {\1} gizmo
+    list $gizmo
+} {{{eeny:4, meny:“this is some new text”, miny:1}}}
+
+catch {tclAE::duplicateDesc $recoAEDesc} tempAERecord
+test tclAEDesc-22.3.1 {tclAE::putKeyData insertion} {macOnly tclAEbigEndian} {
+    catch {tclAE::putKeyData $tempAERecord tigr long [binary format I 43]}
+    regsub {bool\(«0(.)»\)} $tempAERecord  {\1} gizmo
+    list $gizmo
+} {{{eeny:4, meny:“a string”, miny:1, tigr:43}}}
+test tclAEDesc-22.3.2 {tclAE::putKeyData insertion} {macOnly tclAElittleEndian} {
+    catch {tclAE::putKeyData $tempAERecord tigr long [binary format i 43]}
+    regsub {bool\(«0(.)»\)} $tempAERecord  {\1} gizmo
+    list $gizmo
+} {{{eeny:4, meny:“a string”, miny:1, tigr:43}}}
+
+catch {tclAE::duplicateDesc $listAEDesc} tempAEDescList
+test tclAEDesc-22.4 {tclAE::putKeyData in list} {macOnly tclAEshlb} {
+    catch {tclAE::putKeyData $tempAEDescList moe TEXT "this is some new text"} msg
+    list $msg
+} [list "Couldn't put |this is some new text| as 'TEXT' into key 'moe' of \"${tempAEDescList}\": OSErr -1704"]
+
+
+
+test tclAEDesc-23.1 {tclAE::putKeyDesc no args} {macOnly tclAEshlb} {
+    set err [catch {tclAE::putKeyDesc} msg]
+    list $err $msg
+} {1 {wrong # args: should be "tclAE::putKeyDesc theAERecord theAEKeyword theAEDesc"}}
+
+catch {tclAE::duplicateDesc $recoAEDesc} tempAERecord
+test tclAEDesc-23.2 {tclAE::putKeyDesc} {macOnly tclAE} {
+    catch {tclAE::putKeyDesc $tempAERecord eeny $longAEDesc}
+    regsub {bool\(«0(.)»\)} $tempAERecord  {\1} gizmo
+    list $gizmo
+} {{{eeny:2048, meny:“a string”, miny:1}}}
+
+catch {tclAE::duplicateDesc $recoAEDesc} tempAERecord
+test tclAEDesc-23.3 {tclAE::putKeyDesc insertion} {macOnly tclAE} {
+    catch {tclAE::putKeyDesc $tempAERecord tigr $TEXTAEDesc}
+    regsub {bool\(«0(.)»\)} $tempAERecord  {\1} gizmo
+    list $gizmo
+} {{{eeny:4, meny:“a string”, miny:1, tigr:TEXT(«74686973206973206120B77472696E67»)}}}
+
+catch {tclAE::duplicateDesc $listAEDesc} tempAEDescList
+test tclAEDesc-23.4 {tclAE::putKeyDesc in list} {macOnly tclAE} {
+    catch {tclAE::putKeyDesc $tempAEDescList moe $longAEDesc}
+    regsub {bool\(«0(.)»\)} $tempAEDescList  {\1} gizmo
+    list $gizmo
+} {{[4, “a string”, 1]}}
+
+catch {tclAE::duplicateDesc $recoAEDesc} tempAERecord
+test tclAEDesc-23.5 {tclAE::putKeyDesc subdescriptor} {macOnly tclAE} {
+    catch {tclAE::putKeyDesc $tempAERecord meny $numstringAEDesc}
+    regsub {bool\(«0(.)»\)} $tempAERecord  {\1} gizmo
+    list $gizmo
+} {{{eeny:4, meny:“4”, miny:1}}}
+
+catch {tclAE::duplicateDesc $recoAEDesc} tempAERecord
+test tclAEDesc-23.6 {tclAE::putKeyDesc gizmo} {macOnly tclAE} {
+    catch {tclAE::putKeyDesc $tempAERecord miny "{a:34, reco:“text”}"} msg
+    list $tempAERecord
+} {{{eeny:4, meny:“a string”, miny:{a   :34, reco:“text”}}}}
+
+
+
+test tclAEDesc-24.1 {tclAE::replaceDescData no args} {macOnly tclAEshlb} {
+    set err [catch {tclAE::replaceDescData} msg]
+    list $err $msg
+} {1 {wrong # args: should be "tclAE::replaceDescData theAEDesc typeCode data"}}
+
+catch {tclAE::duplicateDesc $longAEDesc} tempAEDesc
+test tclAEDesc-24.2.1 {tclAE::replaceDescData long} {macOnly tclAEbigEndian} {
+    catch {tclAE::replaceDescData $tempAEDesc long [binary format I 16]}
+    list $tempAEDesc
+} {16}
+test tclAEDesc-24.2.2 {tclAE::replaceDescData long} {macOnly tclAElittleEndian} {
+    catch {tclAE::replaceDescData $tempAEDesc long [binary format i 16]}
+    list $tempAEDesc
+} {16}
+
+catch {tclAE::duplicateDesc $TEXTAEDesc} tempAEDesc
+test tclAEDesc-24.3 {tclAE::replaceDescData TEXT} {macOnly tclAE} {
+    catch {tclAE::replaceDescData $tempAEDesc TEXT "some ‘Mac™ish’ ≈text"}
+    list $tempAEDesc
+} {TEXT(«736F6D6520D44D6163AA697368D520C574657874»)}
+
+
+test tclAEDesc-25.1 {tclAE::setDescType no args} {macOnly tclAEshlb} {
+    set err [catch {tclAE::setDescType} msg]
+    list $err $msg
+} {1 {wrong # args: should be "tclAE::setDescType theAEDesc toType"}}
+
+catch {tclAE::build "TEXT(«326f»)"} tempAEDesc
+test tclAEDesc-25.2.1 {tclAE::setDescType long} {macOnly tclAEbigEndian} {
+    catch {set gizmo1 "|$tempAEDesc|"} gizmo1
+    catch {tclAE::setDescType $tempAEDesc shor}
+    catch {set gizmo2 "|$tempAEDesc|"} gizmo2
+    list $gizmo1 $gizmo2
+} {|“2o”| |12911|}
+test tclAEDesc-25.2.2 {tclAE::setDescType long} {macOnly tclAElittleEndian} {
+    catch {set gizmo1 "|$tempAEDesc|"} gizmo1
+    catch {tclAE::setDescType $tempAEDesc shor}
+    catch {set gizmo2 "|$tempAEDesc|"} gizmo2
+    list $gizmo1 $gizmo2
+} {|“2o”| |28466|}
+
+
+# cleanup
+
+catch {unset testPath}
+catch {unset tempAEDesc}
+catch {unset tempAEDescList}
+catch {unset tempAERecord}
+catch {unset copyAEDesc}
+catch {unset gizmo}
+catch {unset gizmo1}
+catch {unset gizmo2}
+catch {unset beforeList}
+catch {unset afterList}
+catch {unset msg}
+catch {unset err}
+catch {unset count}
+catch {unset data}
+catch {unset hexd}
+catch {unset key}
+catch {unset type}
+catch {unset type1}
+catch {unset type2}
+catch {unset descriptors}
+
+catch {unset TEXTAEDesc}
+catch {unset longAEDesc}
+catch {unset doubleAEDesc}
+catch {unset listAEDesc}
+catch {unset recoAEDesc}
+catch {unset oddAEDesc}
+catch {unset boolAEDesc}
+catch {unset alisAEDesc}
+catch {unset numstringAEDesc}
+
+
+::tcltest::cleanupTests
+return
+
+
+
+
+
+
+
+
+
+
+
+
+

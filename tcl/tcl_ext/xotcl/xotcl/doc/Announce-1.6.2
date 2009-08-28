@@ -1,0 +1,54 @@
+Dear XOTcl Community,
+
+XOTcl 1.6.2 is available. See below for more details.
+
+Best regards
+-gustaf neumann
+
+
+Announcing XOTcl 1.6.2
+*************************
+
+We are pleased to announce the availability of XOTcl 1.6.2
+
+Major changes relative to 1.6.1 are:
+
+   * Functional extensions:
+      - handle nonposargs in method "copy" properly
+
+      - new command ::xotcl::finalize 
+       (for forcing cleanup and destuctor execution at a time in 
+       a multi-threaded environment, where it is still safe to execute
+       all Tcl commands)
+
+   * Extended and generalized "info" method
+
+    - Added "<class> mixinof -closure ?pattern?"
+      Query the objects for which <class> is used as a per-object-mixin 
+      (directly or indirectly)
+
+   * Fixes for potential crashes
+
+    - Implemented proper downgrading of Classes to Objects (handle
+      cases, where something was created first as an object and is
+      reclassed/recreated later as a class) and vice versa
+
+    - Reset mixin order for per-object mixins, when the superclass of
+      a class is deleted, which is used as per-object mixin
+
+
+   * Improved documentation
+
+   * Extended regression tests
+
+   * Some code cleanup
+
+ 
+
+ For more details about the changes, please consult the ChangeLog and
+ documentation.
+
+MORE INFO
+  General and more detailed information about XOTcl and its components
+  can be found at http://www.xotcl.org
+

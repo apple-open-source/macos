@@ -19,8 +19,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -57,7 +57,8 @@ static int c4x_parse_pragma (const char *, tree *, tree *);
    the STRING_CST node of the string.  If SECT is null, then this
    pragma doesn't take a section string.  Returns 0 for a good pragma,
    -1 for a malformed pragma.  */
-#define BAD(msgid, arg) do { warning (msgid, arg); return -1; } while (0)
+#define BAD(gmsgid, arg) \
+  do { warning (OPT_Wpragmas, gmsgid, arg); return -1; } while (0)
 
 static int
 c4x_parse_pragma (name, func, sect)
@@ -67,26 +68,26 @@ c4x_parse_pragma (name, func, sect)
 {
   tree f, s, x;
 
-  if (c_lex (&x) != CPP_OPEN_PAREN)
+  if (pragma_lex (&x) != CPP_OPEN_PAREN)
     BAD ("missing '(' after '#pragma %s' - ignored", name);
 
-  if (c_lex (&f) != CPP_NAME)
+  if (pragma_lex (&f) != CPP_NAME)
     BAD ("missing function name in '#pragma %s' - ignored", name);
 
   if (sect)
     {
-      if (c_lex (&x) != CPP_COMMA)
+      if (pragma_lex (&x) != CPP_COMMA)
 	BAD ("malformed '#pragma %s' - ignored", name);
-      if (c_lex (&s) != CPP_STRING)
+      if (pragma_lex (&s) != CPP_STRING)
 	BAD ("missing section name in '#pragma %s' - ignored", name);
       *sect = s;
     }
 
-  if (c_lex (&x) != CPP_CLOSE_PAREN)
+  if (pragma_lex (&x) != CPP_CLOSE_PAREN)
     BAD ("missing ')' for '#pragma %s' - ignored", name);
 
-  if (c_lex (&x) != CPP_EOF)
-    warning ("junk at end of '#pragma %s'", name);
+  if (pragma_lex (&x) != CPP_EOF)
+    warning (OPT_Wpragmas, "junk at end of '#pragma %s'", name);
 
   *func = f;
   return 0;

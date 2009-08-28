@@ -18,9 +18,7 @@ Du kan også besøge din medlemsside på adressen
 
 På din medlemsside kan du ændre forskellige indstillinger vedrørende dit
 medlemskab, f.eks. din email-adresse eller om du vil modtage meddelelser i 
-sammendrag-modus eller ej. Adgangskoden til din medlemsside er
-
-    %(password)s
+sammendrag-modus eller ej. 
 
 Hvis du har spørgsmål eller problemer i forbindelse med ovenstående, så
 kan du kontakte listens ejer på adressen

@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/include/lber.h,v 1.94.2.4 2006/01/03 22:16:06 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/include/lber.h,v 1.99.2.4 2008/02/11 23:26:40 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -138,8 +138,12 @@ typedef struct lber_memory_fns {
 #define LBER_SB_OPT_NEEDS_WRITE		12
 #define LBER_SB_OPT_GET_MAX_INCOMING	13
 #define LBER_SB_OPT_SET_MAX_INCOMING	14
+
+/* Only meaningful ifdef LDAP_PF_LOCAL_SENDMSG */
+#define LBER_SB_OPT_UNGET_BUF	15
+
 /* Largest option used by the library */
-#define LBER_SB_OPT_OPT_MAX		14
+#define LBER_SB_OPT_OPT_MAX		15
 
 /* LBER IO operations stacking levels */
 #define LBER_SBIOD_LEVEL_PROVIDER	10
@@ -267,11 +271,14 @@ ber_get_stringb LDAP_P((
 	char *buf,
 	ber_len_t *len ));
 
+#define	LBER_BV_ALLOC	0x01	/* allocate/copy result, otherwise in-place */
+#define	LBER_BV_NOTERM	0x02	/* omit NUL-terminator if parsing in-place */
+
 LBER_F( ber_tag_t )
 ber_get_stringbv LDAP_P((
 	BerElement *ber,
 	struct berval *bv,
-	int alloc ));
+	int options ));
 
 LBER_F( ber_tag_t )
 ber_get_stringa LDAP_P((
@@ -316,9 +323,19 @@ ber_scanf LDAP_P((
 	LDAP_CONST char *fmt,
 	... ));
 
+LBER_F( int )
+ber_decode_oid LDAP_P((
+	struct berval *in,
+	struct berval *out ));
+
 /*
  * in encode.c
  */
+LBER_F( int )
+ber_encode_oid LDAP_P((
+	struct berval *in,
+	struct berval *out ));
+
 typedef int (*BEREncodeCallback) LDAP_P((
 	BerElement *ber,
 	void *data ));
@@ -402,6 +419,11 @@ ber_printf LDAP_P((
  */
 
 LBER_F( ber_slen_t )
+ber_skip_data LDAP_P((
+	BerElement *ber,
+	ber_len_t len ));
+
+LBER_F( ber_slen_t )
 ber_read LDAP_P((
 	BerElement *ber,
 	char *buf,
@@ -423,10 +445,20 @@ LBER_F( void )
 ber_free_buf LDAP_P(( BerElement *ber ));
 
 LBER_F( int )
-ber_flush LDAP_P((
+ber_flush2 LDAP_P((
 	Sockbuf *sb,
 	BerElement *ber,
 	int freeit ));
+#define LBER_FLUSH_FREE_NEVER		(0x0)	/* traditional behavior */
+#define LBER_FLUSH_FREE_ON_SUCCESS	(0x1)	/* traditional behavior */
+#define LBER_FLUSH_FREE_ON_ERROR	(0x2)
+#define LBER_FLUSH_FREE_ALWAYS		(LBER_FLUSH_FREE_ON_SUCCESS|LBER_FLUSH_FREE_ON_ERROR)
+
+LBER_F( int )
+ber_flush LDAP_P((
+	Sockbuf *sb,
+	BerElement *ber,
+	int freeit )); /* DEPRECATED */
 
 LBER_F( BerElement * )
 ber_alloc LDAP_P(( void )); /* DEPRECATED */
@@ -621,10 +653,6 @@ LBER_F( int * ) ber_errno_addr LDAP_P((void));
 #define LBER_ERROR_NONE		0
 #define LBER_ERROR_PARAM	0x1
 #define LBER_ERROR_MEMORY	0x2
-
-#ifdef LDAP_DEVEL
-#define LDAP_NULL_IS_NULL
-#endif
 
 LDAP_END_DECL
 

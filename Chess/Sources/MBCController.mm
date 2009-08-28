@@ -2,7 +2,7 @@
 	File:		MBCController.mm
 	Contains:	The controller tying the various agents together
 	Version:	1.0
-	Copyright:	© 2002-2007 by Apple Computer, Inc., all rights reserved.
+	Copyright:	Â© 2002-2008 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -15,8 +15,15 @@
 	Change History (most recent first):
 
 		$Log: MBCController.mm,v $
-		Revision 1.44.2.1  2007/03/31 03:47:35  neerache
-		Make document/save system work without UI changes <rdar://problem/4186113>
+		Revision 1.47  2008/11/20 23:13:11  neerache
+		<rdar://problem/5937079> Chess Save menu items/dialogs are incorrect
+		<rdar://problem/6328581> Update Chess copyright statements
+		
+		Revision 1.46  2008/10/24 22:21:06  neerache
+		<rdar://problem/5747583> Chess - turning on/off Allow Player to Speak Moves requires application relaunch to take effect
+		
+		Revision 1.45  2008/04/22 19:47:41  neerache
+		<rdar://problem/5750936> Adoption of Clean / Dirty API by Chess
 		
 		Revision 1.44  2007/03/02 07:40:46  neerache
 		Revise document handling & saving <rdar://problems/3776337&4186113>
@@ -199,6 +206,7 @@ const double kMBCSearchTimeBase	= 2.0;
 						  [[NSBundle mainBundle] 
 							  pathForResource:@"Defaults" ofType:@"plist"]];
 	[[NSUserDefaults standardUserDefaults] registerDefaults: defaults];
+	[[NSUserDefaults standardUserDefaults] synchronize];
 }
 
 - (void)copyOpeningBook:(NSString *)book
@@ -326,8 +334,6 @@ static id	sInstance;
 	fEngine		= [[MBCEngine alloc] init];
 	fInteractive= [[MBCInteractivePlayer alloc] initWithController:self];
 
-	[[MBCDocumentController alloc] init];
-
 	return self;
 }
 
@@ -389,6 +395,7 @@ static id	sInstance;
 
 	[defaults setObject:boardStyle forKey:kMBCBoardStyle];
 	[defaults setObject:pieceStyle forKey:kMBCPieceStyle];
+	[defaults synchronize];
 
 	[fView setStyleForBoard:boardStyle pieces:pieceStyle];
 #ifdef CHESS_TUNER
@@ -510,6 +517,8 @@ static id	sInstance;
 			  forKey:kMBCSpeakMoves];
 	[defaults setBool:[fSpeakHumanMoves intValue]
 			  forKey:kMBCSpeakHumanMoves];
+	
+	[fInteractive updateNeedMouse:sender];
 }
 
 - (IBAction) updateSearchTime:(id)sender
@@ -621,6 +630,7 @@ static id	sInstance;
 
 - (void)startNewGame
 {
+	[[NSDocumentController sharedDocumentController] newDocument:self];
 	[fBoard startGame:fVariant];
 	[self startGame];
 }
@@ -770,22 +780,6 @@ static id	sInstance;
 	[[self document] saveDocumentAs:sender];
 }
 
-- (IBAction) saveMoves:(id)sender
-{
-	NSDocument * doc = [self document];
-	NSURL * 	 url = [doc fileURL];
-
-	[doc setFileType:@"moves"];
-	[doc setFileURL:nil];
-	[doc runModalSavePanelForSaveOperation:NSSaveToOperation delegate:self didSaveSelector:@selector(movesSaved:didSave:contextInfo:) contextInfo:url];
-}
-
-- (void) movesSaved:(NSDocument *)doc didSave:(BOOL)whoCares contextInfo:(NSURL*)oldURL
-{
-	[doc setFileType:@"game"];
-	[doc setFileURL:oldURL];
-}
-
 #if HAS_FLOATING_BOARD
 - (IBAction) toggleFloating:(id)sender
 {
@@ -915,15 +909,10 @@ static id	sInstance;
 
 - (void)applicationWillTerminate:(NSNotification *)n
 {
-	if (fView) {
-		NSUserDefaults * defaults 	= [NSUserDefaults standardUserDefaults];
-
-		[defaults setFloat:fView->fElevation forKey:kMBCBoardAngle];
-		[defaults setFloat:fView->fAzimuth 	 forKey:kMBCBoardSpin];
-	}
-
+	NSUserDefaults * defaults 	= [NSUserDefaults standardUserDefaults];
 	[fView endGame];
 	[fEngine shutdown];
+	[defaults synchronize];
 }
 
 - (BOOL)validateMenuItem:(id <NSMenuItem>)menuItem

@@ -100,17 +100,19 @@ inet_firewire_input(
     switch (fw_type) 
 	{
         case FWTYPE_IP:
-			mbuf_pullup(&m, sizeof(struct ip));
-            if (m == NULL)
-                return EJUSTRETURN;
-			
-			errno_t ret = proto_input(PF_INET, m);
-			
-			if( ret )
-				mbuf_freem(m);
+			{
+				mbuf_pullup(&m, sizeof(struct ip));
+				if (m == NULL)
+					return EJUSTRETURN;
+				
+				errno_t ret = proto_input(PF_INET, m);
+				
+				if( ret )
+					mbuf_freem(m);
 
-			return ret;
-
+				return ret;
+			}
+			
         case FWTYPE_ARP:
             firewire_arpintr(m);
 			break;
@@ -196,10 +198,9 @@ inet_firewire_pre_output(
 //
 //  firewire_inet_prmod_ioctl
 //
-//   IN:	u_long       dl_tag
 //   IN:	ifnet_t ifp
-//   IN:	int          command
-//   IN:	caddr_t      data
+//   IN:	unsigned long	command
+//   IN:	caddr_t			data
 // 
 // Invoked by : 
 //  Invoked by dlil.c for dlil_output=>(*proto)->dl_pre_output=> 
@@ -210,10 +211,10 @@ inet_firewire_pre_output(
 ////////////////////////////////////////////////////////////////////////////////
 static errno_t
 firewire_inet_prmod_ioctl(
-    ifnet_t						ifp,
+    __unused ifnet_t			ifp,
     __unused protocol_family_t	protocol_family,
-    u_int32_t					command,
-    void*						data)
+    __unused unsigned long		command,
+    __unused void*				data)
 {
     return EOPNOTSUPP;
 }

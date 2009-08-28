@@ -201,7 +201,7 @@ OMPI_LOG_COMMAND(
     OMPI_LOG_COMMAND(
         [$OMPI_F77 $FFLAGS -c conftestf77.f],
         OMPI_LOG_COMMAND(
-            [$OMPI_F90 $FCFLAGS -o conftest conftestf90.o conftestf77.o $LIBS],
+            [$OMPI_F90 $FCFLAGS -o conftest conftestf90.o conftestf77.o $LDFLAGS $LIBS],
             [HAPPY=1],
             [HAPPY=0]),
 	[HAPPY=0]),
@@ -218,7 +218,7 @@ else
 fi
 
 unset HAPPY ompi_conftest_h
-/bin/rm -f conftest*
+rm -rf conftest*
 
 AC_LANG_POP(Fortran)
 ])dnl

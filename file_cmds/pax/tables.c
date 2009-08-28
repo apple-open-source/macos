@@ -1,4 +1,4 @@
-/*	$OpenBSD: tables.c,v 1.22 2004/11/29 16:23:22 otto Exp $	*/
+/*	$OpenBSD: tables.c,v 1.25 2007/09/02 15:19:08 deraadt Exp $	*/
 /*	$NetBSD: tables.c,v 1.4 1995/03/21 09:07:45 cgd Exp $	*/
 
 /*-
@@ -38,7 +38,7 @@
 #if 0
 static const char sccsid[] = "@(#)tables.c	8.1 (Berkeley) 5/31/93";
 #else
-static const char rcsid[] __attribute__((__unused__)) = "$OpenBSD: tables.c,v 1.22 2004/11/29 16:23:22 otto Exp $";
+static const char rcsid[] = "$OpenBSD: tables.c,v 1.25 2007/09/02 15:19:08 deraadt Exp $";
 #endif
 #endif /* not lint */
 
@@ -146,18 +146,12 @@ chk_lnk(ARCHD *arcn)
 		return(0);
 
 	/*
-	 * Conformance tests: ignore symlink because cannot create hard link to it 
-	 */
-	if ((arcn->type == PAX_SLK))
-		return(0);
-
-	/*
 	 * hash inode number and look for this file
 	 */
 	indx = ((unsigned)arcn->sb.st_ino) % L_TAB_SZ;
 	if ((pt = ltab[indx]) != NULL) {
 		/*
-		 * it's hash chain in not empty, walk down looking for it
+		 * its hash chain in not empty, walk down looking for it
 		 */
 		ppt = &(ltab[indx]);
 		while (pt != NULL) {
@@ -177,6 +171,9 @@ chk_lnk(ARCHD *arcn)
 			 */
 			arcn->ln_nlen = strlcpy(arcn->ln_name, pt->name,
 				sizeof(arcn->ln_name));
+			/* XXX truncate? */
+			if (arcn->nlen >= sizeof(arcn->name))
+				arcn->nlen = sizeof(arcn->name) - 1;
 			if (arcn->type == PAX_REG)
 				arcn->type = PAX_HRG;
 			else
@@ -607,6 +604,8 @@ sub_name(char *oname, int *onamelen, size_t onamesize)
 			 * and return (we know that oname has enough space)
 			 */
 			*onamelen = strlcpy(oname, pt->nname, onamesize);
+			if (*onamelen >= onamesize)
+				*onamelen = onamesize - 1; /* XXX truncate? */
 			return;
 		}
 		pt = pt->fow;
@@ -1103,7 +1102,7 @@ dir_start(void)
 		return(0);
 
 	dirsize = DIRP_SIZE;
-	if ((dirp = malloc(dirsize * sizeof(DIRDATA))) == NULL) {
+	if ((dirp = calloc(dirsize, sizeof(DIRDATA))) == NULL) {
 		paxwarn(1, "Unable to allocate memory for directory times");
 		return(-1);
 	}
@@ -1124,13 +1123,21 @@ dir_start(void)
  */
 
 void
-add_dir(char *name, struct stat *psb, int frc_mode)
+add_dir(char *name, size_t nlen, struct stat *psb, int frc_mode)
 {
 	DIRDATA *dblk;
+	char realname[MAXPATHLEN], *rp;
 
 	if (dirp == NULL)
 		return;
 
+	if (havechd && *name != '/') {
+		if ((rp = realpath(name, realname)) == NULL) {
+			paxwarn(1, "Cannot canonicalize %s", name);
+			return;
+		}
+		name = rp;
+	}
 	if (dircnt == dirsize) {
 		dblk = realloc(dirp, 2 * dirsize * sizeof(DIRDATA));
 		if (dblk == NULL) {
@@ -1218,7 +1225,7 @@ st_hash(char *name, int len, int tabsz)
 	u_int key = 0;
 	int steps;
 	int res;
-	u_int val;
+	u_int val = 0;
 
 	/*
 	 * only look at the tail up to MAXKEYLEN, we do not need to waste

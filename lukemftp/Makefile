@@ -4,7 +4,7 @@
 
 # Project Info
 Project         = tnftp
-Extra_CC_Flags  = -no-cpp-precomp -mdynamic-no-pic -O
+Extra_CC_Flags  = -Wall -mdynamic-no-pic -O2
 GnuNoBuild          = YES
 GnuAfterInstall     = post-install install-plist
 Extra_Configure_Flags     += --prefix=/usr --enable-ipv6 --bindir=$(DSTROOT)/usr/bin --mandir=$(DSTROOT)/usr/share/man
@@ -34,15 +34,14 @@ install-plist:
 # Automatic Extract & Patch
 AEP            = YES
 AEP_Project    = $(Project)
-AEP_Version    = 20050625
+AEP_Version    = 20070806
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
 AEP_Patches    = \
 		Makefile.in.patch \
-		PR-4305547.fetch.c.patch \
 		PR-4074918.ftp.c.patch \
-		PR-4856624.CID.patch
+		configure.patch
 
 install_source::
 ifeq ($(AEP),YES)

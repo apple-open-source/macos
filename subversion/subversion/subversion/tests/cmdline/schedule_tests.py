@@ -3,11 +3,11 @@
 #  schedule_tests.py:  testing working copy scheduling
 #                      (adds, deletes, reversion)
 #
-#  Subversion is a tool for revision control. 
+#  Subversion is a tool for revision control.
 #  See http://subversion.tigris.org for more information.
-#    
+#
 # ====================================================================
-# Copyright (c) 2000-2004 CollabNet.  All rights reserved.
+# Copyright (c) 2000-2004, 2008 CollabNet.  All rights reserved.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution.  The terms
@@ -18,14 +18,14 @@
 ######################################################################
 
 # General modules
-import string, sys, os, shutil
+import os
 
 # Our testing module
 import svntest
-from svntest import SVNAnyOutput
 
 # (abbreviation)
 Skip = svntest.testcase.Skip
+SkipUnless = svntest.testcase.SkipUnless
 XFail = svntest.testcase.XFail
 Item = svntest.wc.StateItem
 
@@ -50,20 +50,20 @@ Item = svntest.wc.StateItem
 def add_files(sbox):
   "schedule: add some files"
 
-  sbox.build()
+  sbox.build(read_only = True)
   wc_dir = sbox.wc_dir
 
   # Create some files, then schedule them for addition
   delta_path = os.path.join(wc_dir, 'delta')
   zeta_path = os.path.join(wc_dir, 'A', 'B', 'zeta')
   epsilon_path = os.path.join(wc_dir, 'A', 'D', 'G', 'epsilon')
-  
+
   svntest.main.file_append(delta_path, "This is the file 'delta'.")
   svntest.main.file_append(zeta_path, "This is the file 'zeta'.")
   svntest.main.file_append(epsilon_path, "This is the file 'epsilon'.")
-  
+
   svntest.main.run_svn(None, 'add', delta_path, zeta_path, epsilon_path)
-  
+
   # Make sure the adds show up as such in status
   expected_status = svntest.actions.get_virginal_state(wc_dir, 1)
   expected_status.add({
@@ -79,20 +79,20 @@ def add_files(sbox):
 def add_directories(sbox):
   "schedule: add some directories"
 
-  sbox.build()
+  sbox.build(read_only = True)
   wc_dir = sbox.wc_dir
 
   # Create some directories, then schedule them for addition
   X_path = os.path.join(wc_dir, 'X')
   Y_path = os.path.join(wc_dir, 'A', 'C', 'Y')
   Z_path = os.path.join(wc_dir, 'A', 'D', 'H', 'Z')
-  
+
   os.mkdir(X_path)
   os.mkdir(Y_path)
   os.mkdir(Z_path)
-  
+
   svntest.main.run_svn(None, 'add', X_path, Y_path, Z_path)
-  
+
   # Make sure the adds show up as such in status
   expected_status = svntest.actions.get_virginal_state(wc_dir, 1)
   expected_status.add({
@@ -108,7 +108,7 @@ def add_directories(sbox):
 def nested_adds(sbox):
   "schedule: add some nested files and directories"
 
-  sbox.build()
+  sbox.build(read_only = True)
   wc_dir = sbox.wc_dir
 
   # Create some directories then schedule them for addition
@@ -129,7 +129,7 @@ def nested_adds(sbox):
   os.mkdir(P_path)
   os.mkdir(Q_path)
   os.mkdir(R_path)
-  
+
   delta_path = os.path.join(X_path, 'delta')
   epsilon_path = os.path.join(Y_path, 'epsilon')
   upsilon_path = os.path.join(Y_path, 'upsilon')
@@ -142,7 +142,7 @@ def nested_adds(sbox):
 
   # Finally, let's try adding our new files and directories
   svntest.main.run_svn(None, 'add', X_path, Y_path, Z_path)
-    
+
   # Make sure the adds show up as such in status
   expected_status = svntest.actions.get_virginal_state(wc_dir, 1)
   expected_status.add({
@@ -165,7 +165,7 @@ def nested_adds(sbox):
 def add_executable(sbox):
   "schedule: add some executable files"
 
-  sbox.build()
+  sbox.build(read_only = True)
 
   def runTest(wc_dir, fileName, perm, executable):
     fileName = os.path.join(wc_dir, fileName)
@@ -179,7 +179,7 @@ def add_executable(sbox):
     svntest.main.run_svn(None, 'add', fileName)
     svntest.actions.run_and_verify_svn(None, expected_out, [],
                                        'propget', "svn:executable", fileName)
-    
+
   test_cases = [
     ("all_exe",   0777, 1),
     ("none_exe",  0666, 0),
@@ -195,7 +195,7 @@ def add_executable(sbox):
 def delete_files(sbox):
   "schedule: delete some files"
 
-  sbox.build()
+  sbox.build(read_only = True)
   wc_dir = sbox.wc_dir
 
   # Schedule some files for deletion
@@ -203,9 +203,9 @@ def delete_files(sbox):
   mu_path = os.path.join(wc_dir, 'A', 'mu')
   rho_path = os.path.join(wc_dir, 'A', 'D', 'G', 'rho')
   omega_path = os.path.join(wc_dir, 'A', 'D', 'H', 'omega')
-  
+
   svntest.main.run_svn(None, 'del', iota_path, mu_path, rho_path, omega_path)
-    
+
   # Make sure the deletes show up as such in status
   expected_status = svntest.actions.get_virginal_state(wc_dir, 1)
   expected_status.tweak('iota', 'A/mu', 'A/D/G/rho', 'A/D/H/omega',
@@ -218,7 +218,7 @@ def delete_files(sbox):
 def delete_dirs(sbox):
   "schedule: delete some directories"
 
-  sbox.build()
+  sbox.build(read_only = True)
   wc_dir = sbox.wc_dir
 
   # Schedule some directories for deletion (this is recursive!)
@@ -230,10 +230,10 @@ def delete_dirs(sbox):
   chi_path   = os.path.join(H_path, 'chi')
   omega_path = os.path.join(H_path, 'omega')
   psi_path   = os.path.join(H_path, 'psi')
-  
+
   # Now, delete (recursively) the directories.
   svntest.main.run_svn(None, 'del', E_path, F_path, H_path)
-    
+
   # Make sure the deletes show up as such in status
   expected_status = svntest.actions.get_virginal_state(wc_dir, 1)
   expected_status.tweak('A/B/E', 'A/B/E/alpha', 'A/B/E/beta',
@@ -258,10 +258,10 @@ def check_reversion(files, output):
   output.sort()
   expected_output.sort()
   if output != expected_output:
-    print "Expected output:", expected_output
-    print "Actual output:  ", output
+    print("Expected output: %s" % expected_output)
+    print("Actual output:   %s" % output)
     raise svntest.Failure
-    
+
 #----------------------------------------------------------------------
 
 def revert_add_files(sbox):
@@ -276,9 +276,10 @@ def revert_add_files(sbox):
   epsilon_path = os.path.join(wc_dir, 'A', 'D', 'G', 'epsilon')
   files = [delta_path, zeta_path, epsilon_path]
 
-  output, err = svntest.actions.run_and_verify_svn(None, None, [],
-                                                   'revert',
-                                                   '--recursive', wc_dir)
+  exit_code, output, err = svntest.actions.run_and_verify_svn(None, None, [],
+                                                              'revert',
+                                                              '--recursive',
+                                                              wc_dir)
   check_reversion(files, output)
 
 #----------------------------------------------------------------------
@@ -294,10 +295,11 @@ def revert_add_directories(sbox):
   Y_path = os.path.join(wc_dir, 'A', 'C', 'Y')
   Z_path = os.path.join(wc_dir, 'A', 'D', 'H', 'Z')
   files = [X_path, Y_path, Z_path]
-  
-  output, err = svntest.actions.run_and_verify_svn(None, None, [],
-                                                   'revert',
-                                                   '--recursive', wc_dir)
+
+  exit_code, output, err = svntest.actions.run_and_verify_svn(None, None, [],
+                                                              'revert',
+                                                              '--recursive',
+                                                              wc_dir)
   check_reversion(files, output)
 
 #----------------------------------------------------------------------
@@ -314,11 +316,12 @@ def revert_nested_adds(sbox):
   Z_path = os.path.join(wc_dir, 'A', 'D', 'H', 'Z')
   files = [X_path, Y_path, Z_path]
 
-  output, err = svntest.actions.run_and_verify_svn(None, None, [],
-                                                   'revert',
-                                                   '--recursive', wc_dir)
+  exit_code, output, err = svntest.actions.run_and_verify_svn(None, None, [],
+                                                              'revert',
+                                                              '--recursive',
+                                                              wc_dir)
   check_reversion(files, output)
-  
+
 #----------------------------------------------------------------------
 
 def revert_add_executable(sbox):
@@ -326,7 +329,7 @@ def revert_add_executable(sbox):
 
   add_executable(sbox)
   wc_dir = sbox.wc_dir
-  
+
   all_path = os.path.join(wc_dir, 'all_exe')
   none_path = os.path.join(wc_dir, 'none_exe')
   user_path = os.path.join(wc_dir, 'user_exe')
@@ -334,9 +337,10 @@ def revert_add_executable(sbox):
   other_path = os.path.join(wc_dir, 'other_exe')
   files = [all_path, none_path, user_path, group_path, other_path]
 
-  output, err = svntest.actions.run_and_verify_svn(None, None, [],
-                                                   'revert',
-                                                   '--recursive', wc_dir)
+  exit_code, output, err = svntest.actions.run_and_verify_svn(None, None, [],
+                                                              'revert',
+                                                              '--recursive',
+                                                              wc_dir)
   check_reversion(files, output)
 
 #----------------------------------------------------------------------
@@ -353,10 +357,11 @@ def revert_delete_files(sbox):
   rho_path = os.path.join(wc_dir, 'A', 'D', 'G', 'rho')
   omega_path = os.path.join(wc_dir, 'A', 'D', 'H', 'omega')
   files = [iota_path, mu_path, omega_path, rho_path]
-  
-  output, err = svntest.actions.run_and_verify_svn(None, None, [],
-                                                   'revert',
-                                                   '--recursive', wc_dir)
+
+  exit_code, output, err = svntest.actions.run_and_verify_svn(None, None, [],
+                                                              'revert',
+                                                              '--recursive',
+                                                              wc_dir)
   check_reversion(files, output)
 
 #----------------------------------------------------------------------
@@ -379,9 +384,10 @@ def revert_delete_dirs(sbox):
   files = [E_path, F_path, H_path,
            alpha_path, beta_path, chi_path, omega_path, psi_path]
 
-  output, err = svntest.actions.run_and_verify_svn(None, None, [],
-                                                   'revert',
-                                                   '--recursive', wc_dir)
+  exit_code, output, err = svntest.actions.run_and_verify_svn(None, None, [],
+                                                              'revert',
+                                                              '--recursive',
+                                                              wc_dir)
   check_reversion(files, output)
 
 
@@ -395,14 +401,14 @@ def revert_delete_dirs(sbox):
 # Suppose here is a scheduled-add file or directory which is
 # also missing.  If I want to make the working copy forget all
 # knowledge of the item ("unschedule" the addition), then either 'svn
-# revert' or 'svn rm' will make that happen by removing the entry from 
-# .svn/entries file. While 'svn revert' does with no error, 
-# 'svn rm' does it with error. 
+# revert' or 'svn rm' will make that happen by removing the entry from
+# .svn/entries file. While 'svn revert' does with no error,
+# 'svn rm' does it with error.
 
 def unschedule_missing_added(sbox):
   "unschedule addition on missing items"
 
-  sbox.build()
+  sbox.build(read_only = True)
   wc_dir = sbox.wc_dir
 
   # Create some files and dirs, then schedule them for addition
@@ -410,12 +416,12 @@ def unschedule_missing_added(sbox):
   file2_path = os.path.join(wc_dir, 'file2')
   dir1_path = os.path.join(wc_dir, 'dir1')
   dir2_path = os.path.join(wc_dir, 'dir2')
-  
+
   svntest.main.file_append(file1_path, "This is the file 'file1'.")
   svntest.main.file_append(file2_path, "This is the file 'file2'.")
   svntest.main.run_svn(None, 'add', file1_path, file2_path)
   svntest.main.run_svn(None, 'mkdir', dir1_path, dir2_path)
-  
+
   # Make sure the 4 adds show up as such in status
   expected_status = svntest.actions.get_virginal_state(wc_dir, 1)
   expected_status.add({
@@ -434,8 +440,8 @@ def unschedule_missing_added(sbox):
   svntest.main.safe_rmtree(dir2_path)
 
   # Unschedule the additions, using 'svn rm' and 'svn revert'.
-  svntest.main.run_svn(SVNAnyOutput, 'rm', file1_path)
-  svntest.main.run_svn(SVNAnyOutput, 'rm', dir1_path)
+  svntest.main.run_svn(svntest.verify.AnyOutput, 'rm', file1_path)
+  svntest.main.run_svn(svntest.verify.AnyOutput, 'rm', dir1_path)
   svntest.main.run_svn(None, 'revert', file2_path, dir2_path)
 
   # 'svn st' should now show absolutely zero local mods.
@@ -478,8 +484,7 @@ def delete_missing(sbox):
   svntest.actions.run_and_verify_commit(wc_dir,
                                         expected_output,
                                         expected_status,
-                                        None, None, None, None, None,
-                                        wc_dir)
+                                        None, wc_dir)
 
 #----------------------------------------------------------------------
 # Regression test for issue #854:
@@ -488,24 +493,20 @@ def delete_missing(sbox):
 def revert_inside_newly_added_dir(sbox):
   "revert inside a newly added dir"
 
-  sbox.build()
+  sbox.build(read_only = True)
   wc_dir = sbox.wc_dir
-  
-  was_cwd = os.getcwd()
+
   os.chdir(wc_dir)
 
-  try:
-    # Schedule a new directory for addition
-    os.mkdir('foo')
-    svntest.main.run_svn(None, 'add', 'foo')
+  # Schedule a new directory for addition
+  os.mkdir('foo')
+  svntest.main.run_svn(None, 'add', 'foo')
 
-    # Now change into the newly added directory, revert and make sure
-    # an error is output.
-    os.chdir('foo')
-    svntest.actions.run_and_verify_svn(None, None, SVNAnyOutput,
-                                       'revert', '.')
-  finally:
-    os.chdir(was_cwd)
+  # Now change into the newly added directory, revert and make sure
+  # an error is output.
+  os.chdir('foo')
+  svntest.actions.run_and_verify_svn(None, None, svntest.verify.AnyOutput,
+                                     'revert', '.')
 
 #----------------------------------------------------------------------
 # Regression test for issue #1609:
@@ -526,14 +527,14 @@ def status_add_deleted_directory(sbox):
   # rm -rf wc/foo
   # svn ci wc -m r2
   # svn mkdir wc/foo
-  
+
   A_path = os.path.join(wc_dir, 'A')
   svntest.actions.run_and_verify_svn(None, None, [], 'rm', A_path)
   svntest.main.safe_rmtree(A_path)
   svntest.actions.run_and_verify_svn(None, None, [],
                                      'ci', '-m', 'log msg', wc_dir)
   svntest.actions.run_and_verify_svn(None, None, [], 'mkdir', A_path)
-  
+
   expected_status = svntest.actions.get_virginal_state(wc_dir, 2)
   expected_status = svntest.wc.State(wc_dir,
                                      { ''     : Item(status='  ', wc_rev=1),
@@ -565,18 +566,11 @@ def add_recursive_already_versioned(sbox):
   delta_path = os.path.join(wc_dir, 'delta')
   zeta_path = os.path.join(wc_dir, 'A', 'B', 'zeta')
   epsilon_path = os.path.join(wc_dir, 'A', 'D', 'G', 'epsilon')
-  
+
   svntest.main.file_append(delta_path, "This is the file 'delta'.")
   svntest.main.file_append(zeta_path, "This is the file 'zeta'.")
   svntest.main.file_append(epsilon_path, "This is the file 'epsilon'.")
-  
-  saved_wd = os.getcwd()
-  try:
-    os.chdir(wc_dir)
-    svntest.main.run_svn(None, 'add', '--force', '.')
-  finally:
-    os.chdir(saved_wd)
-  
+
   # Make sure the adds show up as such in status
   expected_status = svntest.actions.get_virginal_state(wc_dir, 1)
   expected_status.add({
@@ -585,7 +579,22 @@ def add_recursive_already_versioned(sbox):
     'A/D/G/epsilon' : Item(status='A ', wc_rev=0),
     })
 
-  return svntest.actions.run_and_verify_status(wc_dir, expected_status)
+  # Perform the add with the --force flag, and check the status.
+  ### TODO:  This part won't work -- you have to be inside the working copy
+  ### or else Subversion will think you're trying to add the working copy
+  ### to its parent directory, and will (possibly, if the parent directory
+  ### isn't versioned) fail.
+  #svntest.main.run_svn(None, 'add', '--force', wc_dir)
+  #svntest.actions.run_and_verify_status(wc_dir, expected_status)
+
+  # Now revert, and do the adds again from inside the working copy.
+  svntest.main.run_svn(None, 'revert', '--recursive', wc_dir)
+  saved_wd = os.getcwd()
+  os.chdir(wc_dir)
+  svntest.main.run_svn(None, 'add', '--force', '.')
+  os.chdir(saved_wd)
+  svntest.actions.run_and_verify_status(wc_dir, expected_status)
+
 
 #----------------------------------------------------------------------
 # Regression test for the case where "svn mkdir" outside a working copy
@@ -596,37 +605,30 @@ def fail_add_directory(sbox):
   # This test doesn't use a working copy
   svntest.main.safe_rmtree(sbox.wc_dir)
   os.makedirs(sbox.wc_dir)
-  saved_wd = os.getcwd()
-  try:
-    os.chdir(sbox.wc_dir)
-    svntest.actions.run_and_verify_svn('Failed mkdir', None, SVNAnyOutput,
-                                       'mkdir', 'A')
-    if os.path.exists('A'):
-      raise svntest.Failure('svn mkdir created an unversioned directory')
-  finally:
-    os.chdir(saved_wd)
+
+  os.chdir(sbox.wc_dir)
+  svntest.actions.run_and_verify_svn('Failed mkdir',
+                                     None, svntest.verify.AnyOutput,
+                                     'mkdir', 'A')
+  if os.path.exists('A'):
+    raise svntest.Failure('svn mkdir created an unversioned directory')
 
 
 #----------------------------------------------------------------------
 # Regression test for #2440
-# Ideally this test should test for the exit status of the 
+# Ideally this test should test for the exit status of the
 # 'svn rm non-existent' invocation.
 # As the corresponding change to get the exit code of svn binary invoked needs
 # a change in many testcase, for now this testcase checks the stderr.
 def delete_non_existent(sbox):
   "'svn rm non-existent' should exit with an error"
-  
-  sbox.build()
-  wc_dir = sbox.wc_dir
-  
-  was_cwd = os.getcwd()
-  os.chdir(wc_dir)
 
-  try:
-    svntest.actions.run_and_verify_svn(None, None, SVNAnyOutput, 
-                                       'rm', '--force', 'non-existent')
-  finally:
-    os.chdir(was_cwd)
+  sbox.build(read_only = True)
+  wc_dir = sbox.wc_dir
+
+  os.chdir(wc_dir)
+  svntest.actions.run_and_verify_svn(None, None, svntest.verify.AnyOutput,
+                                     'rm', '--force', 'non-existent')
 
 ########################################################################
 # Run the tests
@@ -637,7 +639,7 @@ test_list = [ None,
               revert_add_files,
               revert_add_directories,
               revert_nested_adds,
-              Skip(revert_add_executable, (os.name != 'posix')),
+              SkipUnless(revert_add_executable, svntest.main.is_posix_os),
               revert_delete_files,
               revert_delete_dirs,
               unschedule_missing_added,

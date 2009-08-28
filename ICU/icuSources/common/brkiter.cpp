@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (C) 1997-2006, International Business Machines Corporation and    *
+* Copyright (C) 1997-2008, International Business Machines Corporation and    *
 * others. All Rights Reserved.                                                *
 *******************************************************************************
 *
@@ -29,7 +29,7 @@
 #include "unicode/ustring.h"
 #include "ucln_cmn.h"
 #include "cstring.h"
-#include "mutex.h"
+#include "umutex.h"
 #include "servloc.h"
 #include "locbased.h"
 #include "uresimp.h"
@@ -60,7 +60,7 @@ BreakIterator::buildInstance(const Locale& loc, const char *type, int32_t kind, 
     UResourceBundle *brkRules = &brkRulesStack;
     UResourceBundle *brkName  = &brkNameStack;
     RuleBasedBreakIterator *result = NULL;
-    
+
     if (U_FAILURE(status))
         return NULL;
 
@@ -96,7 +96,7 @@ BreakIterator::buildInstance(const Locale& loc, const char *type, int32_t kind, 
             uprv_strncpy(actualLocale,
                 ures_getLocale(brkName, &status),
                 sizeof(actualLocale)/sizeof(actualLocale[0]));
-            
+
             UChar* extStart=u_strchr(brkfname, 0x002e);
             int len = 0;
             if(extStart!=NULL){
@@ -110,7 +110,7 @@ BreakIterator::buildInstance(const Locale& loc, const char *type, int32_t kind, 
 
     ures_close(brkRules);
     ures_close(brkName);
-    
+
     UDataMemory* file = udata_open(U_ICUDATA_BRKITR, ext, fnbuff, &status);
     if (U_FAILURE(status)) {
         ures_close(b);
@@ -122,13 +122,13 @@ BreakIterator::buildInstance(const Locale& loc, const char *type, int32_t kind, 
 
     // If there is a result, set the valid locale and actual locale, and the kind
     if (U_SUCCESS(status) && result != NULL) {
-        U_LOCALE_BASED(locBased, *result);
+        U_LOCALE_BASED(locBased, *(BreakIterator*)result);
         locBased.setLocaleIDs(ures_getLocaleByType(b, ULOC_VALID_LOCALE, &status), actualLocale);
         result->setBreakType(kind);
     }
 
     ures_close(b);
-    
+
     if (U_FAILURE(status) && result != NULL) {  // Sometimes redundant check, but simple
         delete result;
         return NULL;
@@ -238,8 +238,6 @@ BreakIterator::~BreakIterator()
 //-------------------------------------------
 #if !UCONFIG_NO_SERVICE
 
-static ICULocaleService* gService = NULL;
-
 // -------------------------------------
 
 class ICUBreakIteratorFactory : public ICUResourceBundleFactory {
@@ -259,11 +257,11 @@ public:
         UErrorCode status = U_ZERO_ERROR;
         registerFactory(new ICUBreakIteratorFactory(), status);
     }
-    
+
     virtual UObject* cloneInstance(UObject* instance) const {
         return ((BreakIterator*)instance)->clone();
     }
-    
+
     virtual UObject* handleDefault(const ICUServiceKey& key, UnicodeString* /*actualID*/, UErrorCode& status) const {
         LocaleKey& lkey = (LocaleKey&)key;
         int32_t kind = lkey.kind();
@@ -271,7 +269,7 @@ public:
         lkey.currentLocale(loc);
         return BreakIterator::makeInstance(loc, kind, status);
     }
-    
+
     virtual UBool isDefault() const {
         return countFactories() == 1;
     }
@@ -283,8 +281,10 @@ U_NAMESPACE_END
 
 // defined in ucln_cmn.h
 
+static U_NAMESPACE_QUALIFIER ICULocaleService* gService = NULL;
+
 /**
- * Release all static memory held by breakiterator.  
+ * Release all static memory held by breakiterator.
  */
 U_CDECL_BEGIN
 static UBool U_CALLCONV breakiterator_cleanup(void) {
@@ -299,14 +299,12 @@ static UBool U_CALLCONV breakiterator_cleanup(void) {
 U_CDECL_END
 U_NAMESPACE_BEGIN
 
-static ICULocaleService* 
+static ICULocaleService*
 getService(void)
 {
     UBool needsInit;
-    umtx_lock(NULL);
-    needsInit = (UBool)(gService == NULL);
-    umtx_unlock(NULL);
-    
+    UMTX_CHECK(NULL, (UBool)(gService == NULL), needsInit);
+
     if (needsInit) {
         ICULocaleService  *tService = new ICUBreakIteratorService();
         umtx_lock(NULL);
@@ -323,31 +321,37 @@ getService(void)
 
 // -------------------------------------
 
-static UBool
-hasService(void) 
+static inline UBool
+hasService(void)
 {
-    Mutex mutex;
-    return gService != NULL;
+    UBool retVal;
+    UMTX_CHECK(NULL, gService != NULL, retVal);
+    return retVal;
 }
 
 // -------------------------------------
 
 URegistryKey U_EXPORT2
-BreakIterator::registerInstance(BreakIterator* toAdopt, const Locale& locale, UBreakIteratorType kind, UErrorCode& status) 
+BreakIterator::registerInstance(BreakIterator* toAdopt, const Locale& locale, UBreakIteratorType kind, UErrorCode& status)
 {
-    return getService()->registerInstance(toAdopt, locale, kind, status);
+    ICULocaleService *service = getService();
+    if (service == NULL) {
+        status = U_MEMORY_ALLOCATION_ERROR;
+        return NULL;
+    }
+    return service->registerInstance(toAdopt, locale, kind, status);
 }
 
 // -------------------------------------
 
 UBool U_EXPORT2
-BreakIterator::unregister(URegistryKey key, UErrorCode& status) 
+BreakIterator::unregister(URegistryKey key, UErrorCode& status)
 {
     if (U_SUCCESS(status)) {
         if (hasService()) {
             return gService->unregister(key, status);
         }
-        status = U_ILLEGAL_ARGUMENT_ERROR;
+        status = U_MEMORY_ALLOCATION_ERROR;
     }
     return FALSE;
 }
@@ -357,7 +361,11 @@ BreakIterator::unregister(URegistryKey key, UErrorCode& status)
 StringEnumeration* U_EXPORT2
 BreakIterator::getAvailableLocales(void)
 {
-  return getService()->getAvailableLocales();
+    ICULocaleService *service = getService();
+    if (service == NULL) {
+        return NULL;
+    }
+    return service->getAvailableLocales();
 }
 #endif /* UCONFIG_NO_SERVICE */
 
@@ -369,7 +377,7 @@ BreakIterator::createInstance(const Locale& loc, int32_t kind, UErrorCode& statu
     if (U_FAILURE(status)) {
         return NULL;
     }
-    
+
     u_init(&status);
 #if !UCONFIG_NO_SERVICE
     if (hasService()) {
@@ -400,7 +408,7 @@ BreakIterator::createInstance(const Locale& loc, int32_t kind, UErrorCode& statu
 
 // -------------------------------------
 
-BreakIterator* 
+BreakIterator*
 BreakIterator::makeInstance(const Locale& loc, int32_t kind, UErrorCode& status)
 {
 
@@ -410,7 +418,7 @@ BreakIterator::makeInstance(const Locale& loc, int32_t kind, UErrorCode& status)
 
     BreakIterator *result = NULL;
     switch (kind) {
-    case UBRK_CHARACTER: 
+    case UBRK_CHARACTER:
         result = BreakIterator::buildInstance(loc, "grapheme", kind, status);
         break;
     case UBRK_WORD:
@@ -436,7 +444,7 @@ BreakIterator::makeInstance(const Locale& loc, int32_t kind, UErrorCode& status)
     return result;
 }
 
-Locale 
+Locale
 BreakIterator::getLocale(ULocDataLocaleType type, UErrorCode& status) const {
     U_LOCALE_BASED(locBased, *this);
     return locBased.getLocale(type, status);

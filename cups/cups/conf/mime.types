@@ -1,5 +1,5 @@
 #
-# "$Id: mime.types 6649 2007-07-11 21:46:42Z mike $"
+# "$Id: mime.types 7670 2008-06-17 22:42:08Z mike $"
 #
 #   MIME types file for the Common UNIX Printing System (CUPS).
 #
@@ -7,7 +7,7 @@
 #   VERSIONS OF CUPS.  Instead, create a "local.types" file that
 #   reflects your local configuration changes.
 #
-#   Copyright 2007 by Apple Inc.
+#   Copyright 2007-2009 by Apple Inc.
 #   Copyright 1997-2007 by Easy Software Products.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -33,6 +33,8 @@
 #   extension				Pattern match on "*.extension"
 #   ascii(offset,length)		True if bytes are valid printable ASCII
 #					(CR, NL, TAB, BS, 32-126)
+#   priority(number)                    Sets priority of type (0=lowest,
+#                                       100=default, 200=highest)
 #   printable(offset,length)		True if bytes are printable 8-bit chars
 #					(CR, NL, TAB, BS, 32-126, 128-254)
 #   string(offset,"string")		True if bytes are identical to string
@@ -48,10 +50,12 @@
 #
 #   MIME type names are case-insensitive.  Internally they are converted
 #   to lowercase.  Multiple occurrences of a type will cause the provided
-#   rules to be appended to the existing definition.  Type names are sorted
-#   in ascending order, so if two types use the same rules to resolve a type
-#   (e.g. doc extension for two types), the returned type will be the first
-#   type in the sorted list.
+#   rules to be appended to the existing definition.  If two types use the same
+#   rules to resolve a type and have the same priority, e.g. "doc" extension for
+#   "text/bar" and "text/foo", the returned type will be the first type as
+#   sorted in alphanumerically ascending order without regard to case.  Thus,
+#   the "text/bar" type will match the "doc" extension first unless the
+#   "text/foo" type has specified a higher priority.
 #
 #   The "printable" rule differs from the "ascii" rule in that it also
 #   accepts 8-bit characters in the range 128-255.
@@ -149,12 +153,14 @@ application/rss+xml		rss
 # CUPS-specific types...
 #
 
+application/vnd.cups-banner	string(0,'#CUPS-BANNER')
 application/vnd.cups-command	string(0,'#CUPS-COMMAND')
-application/vnd.cups-form	string(0,"<CUPSFORM>")
 application/vnd.cups-pdf
 application/vnd.cups-postscript
 application/vnd.cups-ppd	ppd string(0,"*PPD-Adobe:")
-application/vnd.cups-raster	string(0,"RaSt") string(0,"tSaR")
+application/vnd.cups-raster	string(0,"RaSt") string(0,"tSaR") \
+				string(0,"RaS2") string(0,"2SaR") \
+				string(0,"RaS3") string(0,"3SaR")
 application/vnd.cups-raw	(string(0,<1B>E) + !string(2,<1B>%0B)) \
 				string(0,<1B>@) \
 				(contains(0,128,<1B>%-12345X) + \
@@ -171,5 +177,5 @@ application/vnd.cups-raw	(string(0,<1B>E) + !string(2,<1B>%0B)) \
 application/octet-stream
 
 #
-# End of "$Id: mime.types 6649 2007-07-11 21:46:42Z mike $".
+# End of "$Id: mime.types 7670 2008-06-17 22:42:08Z mike $".
 #

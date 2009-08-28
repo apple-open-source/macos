@@ -61,7 +61,6 @@ static char *ttyname_unthreaded(int fd);
 static pthread_mutex_t	ttyname_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_key_t	ttyname_key;
 static int		ttyname_init = 0;
-extern int __pthread_tsd_first;
 
 char *
 ttyname(int fd)
@@ -140,7 +139,7 @@ ttyname_threaded(int fd)
 		_pthread_mutex_lock(&ttyname_lock);
 		if (ttyname_init == 0) {
 			/* __PTK_LIBC_TTYNAME_KEY */
-			ttyname_key = __pthread_tsd_first+1;
+			ttyname_key = __LIBC_PTHREAD_KEY_TTYNAME;
 			if (pthread_key_init_np(ttyname_key, free)) {
 				int save = errno;
 				_pthread_mutex_unlock(&ttyname_lock);

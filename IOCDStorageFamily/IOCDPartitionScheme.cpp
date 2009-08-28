@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -29,11 +29,7 @@
 #define super IOPartitionScheme
 OSDefineMetaClassAndStructors(IOCDPartitionScheme, IOPartitionScheme);
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 #define kIOCDPartitionSchemeContentTable "Content Table"
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IOCDMedia * IOCDPartitionScheme::getProvider() const
 {
@@ -45,8 +41,6 @@ IOCDMedia * IOCDPartitionScheme::getProvider() const
 
     return (IOCDMedia *) IOService::getProvider();
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 bool IOCDPartitionScheme::init(OSDictionary * properties)
 {
@@ -70,8 +64,6 @@ bool IOCDPartitionScheme::init(OSDictionary * properties)
     return true;
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 void IOCDPartitionScheme::free()
 {
     //
@@ -82,8 +74,6 @@ void IOCDPartitionScheme::free()
 
     super::free();
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IOService * IOCDPartitionScheme::probe(IOService * provider, SInt32 * score)
 {
@@ -105,8 +95,6 @@ IOService * IOCDPartitionScheme::probe(IOService * provider, SInt32 * score)
 
     return ( _partitions ) ? this : 0;
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 bool IOCDPartitionScheme::start(IOService * provider)
 {
@@ -142,8 +130,6 @@ bool IOCDPartitionScheme::start(IOService * provider)
 
     return true;
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 OSSet * IOCDPartitionScheme::scan(SInt32 * score)
 {
@@ -647,8 +633,6 @@ scanErr:
     return 0;
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 bool IOCDPartitionScheme::isPartitionCorrupt(
                                     CDTOCDescriptor * /* partition          */ ,
                                     UInt64            /* partitionSize      */ ,
@@ -663,8 +647,6 @@ bool IOCDPartitionScheme::isPartitionCorrupt(
 
     return false;
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 bool IOCDPartitionScheme::isPartitionInvalid(
                                     CDTOCDescriptor * partition,
@@ -695,8 +677,6 @@ bool IOCDPartitionScheme::isPartitionInvalid(
 
     return false;
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IOMedia * IOCDPartitionScheme::instantiateMediaObject(
                                     CDTOCDescriptor * partition,
@@ -800,8 +780,6 @@ IOMedia * IOCDPartitionScheme::instantiateMediaObject(
     return newMedia;
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 IOMedia * IOCDPartitionScheme::instantiateDesiredMediaObject(
                                     CDTOCDescriptor * /* partition          */ ,
                                     UInt64            /* partitionSize      */ ,
@@ -816,12 +794,11 @@ IOMedia * IOCDPartitionScheme::instantiateDesiredMediaObject(
     return new IOMedia;
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-void IOCDPartitionScheme::read( IOService *          client,
-                                UInt64               byteStart,
-                                IOMemoryDescriptor * buffer,
-                                IOStorageCompletion  completion )
+void IOCDPartitionScheme::read( IOService *           client,
+                                UInt64                byteStart,
+                                IOMemoryDescriptor *  buffer,
+                                IOStorageAttributes * attributes,
+                                IOStorageCompletion * completion )
 {
     //
     // Read data from the storage object at the specified byte offset into the
@@ -839,15 +816,19 @@ void IOCDPartitionScheme::read( IOService *          client,
                            /* buffer     */ buffer,
                            /* sectorArea */ (CDSectorArea) kCDSectorAreaUser,
                            /* sectorType */ (CDSectorType) (byteStart >> 32),
+#ifdef __LP64__
+                           /* attributes */ attributes,
                            /* completion */ completion );
+#else /* !__LP64__ */
+                           /* completion */ completion ? *completion : (IOStorageCompletion) { 0 } );
+#endif /* !__LP64__ */
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-void IOCDPartitionScheme::write( IOService *          client,
-                                 UInt64               byteStart,
-                                 IOMemoryDescriptor * buffer,
-                                 IOStorageCompletion  completion )
+void IOCDPartitionScheme::write( IOService *           client,
+                                 UInt64                byteStart,
+                                 IOMemoryDescriptor *  buffer,
+                                 IOStorageAttributes * attributes,
+                                 IOStorageCompletion * completion )
 {
     //
     // Write data into the storage object at the specified byte offset from the
@@ -865,69 +846,27 @@ void IOCDPartitionScheme::write( IOService *          client,
                             /* buffer     */ buffer,
                             /* sectorArea */ (CDSectorArea) kCDSectorAreaUser,
                             /* sectorType */ (CDSectorType) (byteStart >> 32),
+#ifdef __LP64__
+                            /* attributes */ attributes,
                             /* completion */ completion );
+#else /* !__LP64__ */
+                            /* completion */ completion ? *completion : (IOStorageCompletion) { 0 } );
+#endif /* !__LP64__ */
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOCDPartitionScheme, 0);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOCDPartitionScheme, 1);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOCDPartitionScheme, 2);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOCDPartitionScheme, 3);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOCDPartitionScheme, 4);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOCDPartitionScheme, 5);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOCDPartitionScheme, 6);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOCDPartitionScheme, 7);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOCDPartitionScheme, 8);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-OSMetaClassDefineReservedUnused(IOCDPartitionScheme, 9);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
+OSMetaClassDefineReservedUnused(IOCDPartitionScheme,  0);
+OSMetaClassDefineReservedUnused(IOCDPartitionScheme,  1);
+OSMetaClassDefineReservedUnused(IOCDPartitionScheme,  2);
+OSMetaClassDefineReservedUnused(IOCDPartitionScheme,  3);
+OSMetaClassDefineReservedUnused(IOCDPartitionScheme,  4);
+OSMetaClassDefineReservedUnused(IOCDPartitionScheme,  5);
+OSMetaClassDefineReservedUnused(IOCDPartitionScheme,  6);
+OSMetaClassDefineReservedUnused(IOCDPartitionScheme,  7);
+OSMetaClassDefineReservedUnused(IOCDPartitionScheme,  8);
+OSMetaClassDefineReservedUnused(IOCDPartitionScheme,  9);
 OSMetaClassDefineReservedUnused(IOCDPartitionScheme, 10);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOCDPartitionScheme, 11);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOCDPartitionScheme, 12);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOCDPartitionScheme, 13);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOCDPartitionScheme, 14);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOCDPartitionScheme, 15);

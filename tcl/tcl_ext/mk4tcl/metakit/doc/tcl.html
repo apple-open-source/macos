@@ -1,0 +1,646 @@
+<HTML><HEAD>
+<TITLE>Metakit for Tcl</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF"><A NAME="top"></A>
+<A HREF="http://www.scriptics.com/"><IMG SRC="tcl.gif" WIDTH="51" HEIGHT="75" BORDER=0 align=left></A>
+<A HREF="http://www.equi4.com/"><IMG SRC="e4s.gif" vspace=3 WIDTH="97" HEIGHT="35" BORDER=0 align=right></A>
+<CENTER>
+<H2>&nbsp; &nbsp; &nbsp; Metakit for Tcl</H2>
+<I>The structured database which fits in the palm of your hand &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </I>
+<P>
+[ <A href="#Overview">Overview</A> 
+| <A href="#Terminology">Terminology</A>
+| <A HREF="#inst">Installation</A> 
+| <A HREF="#start">Getting started</A>
+| <A HREF="#ref">Mk4tcl Reference</A>
+]
+</CENTER>
+<P>
+<B>Buzzwords</B> - <A HREF=".">Metakit</A> is an embeddable database which runs on Unix, Windows, Macintosh, and other platforms.  It lets you build applications which store their data efficiently, in a portable way, and which will not need a complex runtime installation.  In terms of the data model, Metakit takes the middle ground between RDBMS, OODBMS, and flat-file databases - yet it is quite different from each of them.
+<P>
+<B>Technology</B> - Everything is stored variable-sized yet with efficient positional row access.  Changing an existing datafile structure is as simple as re-opening it with that new structure.  All changes are transacted.  You can mix and match software written in C++, Python, and Tcl.  Things can't get much more flexible...
+<P>
+<B>Tcl/Tk</B> - The extension for <A HREF="http://www.tcl.tk/">Tcl</A> is called "Mk4tcl".  It is being used in a number of commercial projects, for in-house use as well as in commercially distributed products.
+<P>
+<B>Mk4tcl 2.4.9.7</B> - is a final/production release.  The <A HREF="http://www.equi4.com/metakit.html">homepage</A> points to a download area with pre-compiled shared libraries for Unix, Windows, and Macintosh.  The Metakit source distribution includes this documentation, the Mk4tcl C++ source code, a small Tcl test suite, a "mkshow.tcl" utility which lets you examine data in any Metakit datafile from the command line, and a few more goodies.
+<P>
+<B>License and support</B> - Metakit 2 and up are distributed under the liberal
+X/MIT-style open source license. Commercial support is available through an Enterprise License.  See the <A HREF="http://www.equi4.com/mklicense.html">license</A> page for details.
+<P>
+<B>Credits</B> - Are due to Mark Roseman for providing the initial incentive and feedback, and to Matt Newman for a range of suggestions and ideas.  Evidently, Mk4tcl could not exist without the Tcl/Tk scripting platform and its superb extensibility.
+<P>
+<B>Updates</B> - The latest version of this document is at
+<a href="http://www.equi4.com/metakit/tcl.html">http://www.equi4.com/metakit/tcl.html</a>.
+<A name="Overview"><HR size=1></A><H2>Overview</H2>
+    Metakit is a machine- and language-independent toolkit for storing and managing
+    structured data.    This is a description of the <I>Mk4tcl</I> extension, which 
+    allows you to create, access, and manipulate Metakit datafiles using Tcl.
+    Here is a Tcl script which selects, sorts,
+     and displays some previously stored results:
+    <PRE>
+    mk::file open db phonebook.dat -readonly
+    foreach i [mk::select db.persons -glob name "Jon*" -sort date] {
+        puts "Found [mk::get db.persons!$i name phone date]"
+    }</PRE>
+    This script illustrates how easy it is to access stored data from Tcl.
+    What it does not show, however, is that numeric data can be stored in binary
+    format (yet remain fully portable), that datafiles can contain complex (nested)
+    datastructures, that the structure of datafiles can be adjusted at any time,
+    and that all modifications use the commit / rollback transaction model.
+<P>
+    In actual use, Metakit resembles more an array manipulation
+    package than a database - with the main access mechanism being
+    <I>'by position'</I>, not by primary key.
+    The  Tcl interface does not yet cover
+    all operations provided by the complete C++ interface of Metakit,
+    but as the <I>mk::select</I> command illsutrates, it
+    does include quite flexible forms of searching and sorting.
+<P>
+<P><A name="Terminology"><HR size=1></A><H2>Terminology</H2>
+    There are several ways to say the same thing, depending on where you're
+    coming from.  For example, the terms <I>table</I>, <I>list</I>, <I>collection</I>,
+    <I>array</I>, <I>sequence</I>, and <I>vector</I> all
+    denote a more or less similar concept.
+    To help avoid confusion, Metakit uses a simple
+    (but hopefully precise) terminology.
+<P>
+    The terms adopted by Metakit can be summarized as follows:
+<P>
+    <UL>
+        <LI>A <B>view</B> is an indexable collection of <B>rows</B>
+            (a <I>table</I> of <I>records</I>, an <I>array</I> of <I>elements</I>).
+        <LI>An <B>index</B> is a position in a <I>view</I>, used to specify a <I>row</I>
+            (the first row is at index zero).
+        <LI>Each view has an ordered
+            set of <B>properties</B>, used to refer to the data values of each row.
+        <LI>In Metakit, each (<I>view</I>, <I>index</I>, <I>property</I>) combination denotes
+            a single data value.
+        <LI>A different way to describe this combination would be:
+            (<I>matrix</I>, <I>row-index</I>, <I>column-id</I>).
+        <LI>Data values can be strings, numeric, untyped data,
+            or a nested view, called a <B>subview</B>.
+        <LI>A <B>cursor</B> is a reference to a specific row in a specific view,
+            i.e. a (<I>view</I>, <I>index</I>) tuple.
+    </UL>
+<P>
+    The <I>Mk4tcl</I> extension adds several notational conventions:
+<P>
+    <UL>
+        <LI>A <B>tag</B> is an identifier used to refer to an open datafile.
+        <LI>Top-level views are specified as <B>tag.viewname</B>.
+        <LI>Row <B>N</B> in such a view can be specified as <B>tag.viewname!N</B>.
+        <LI>Subviews extend this notation, e.g. <B>tag.viewname!N.subview</B>.
+        <LI>Sub-rows continue in the same way, e.g. <B>tag.viewname!N.subview!M</B>.
+        <LI>The specification of a view (either top-level or subview) is called a <B>path</B>.
+        <LI>Thus, both <I>tag.viewname</I> and <I>tag.viewname!N.subview</I> are paths.
+        <LI>In <I>Mk4tcl</I>, a cursor placed at the Nth row is equivalent to the string "<B>path!N</B>".
+        <LI>A trailing row index is allowed and ignored wherever a path is expected.
+        <LI>As a result, cursors are allowed (and frequently used) as path arguments.
+    </UL>
+<P>
+    A few more comments about the semantics of Metakit:
+<P>
+    <UL>
+        <LI>Views are <I>homogenous</I>: each row in a view contains the same type of
+            information.
+        <LI>This also implies that all subviews within the same view always
+            have the same structure.
+        <LI>Rows are either part of a view on file, or <I>temporary</I> (gone
+            when no longer referenced).
+        <LI>A cursor need not point to an existing row
+            (its current position may be out of range).
+    </UL>
+<P>
+<A NAME="inst"><HR size=1></A><H2>Installation</H2>
+
+<OL>
+<LI>Download the latest version from <A HREF="http://www.equi4.com/pub/mk/">http://www.equi4.com/pub/mk/</A>
+<LI>On Unix, rename the appropriate compiled extension to "Mk4tcl.so" (on Win/Mac, use the corresponding file)
+<LI>Do a small test, by running "demo.tcl".  If all is well, you should get some self-explanatory output
+<LI>Place the extension somewhere on Tcl's package search path (or just leave it in ".")
+</OL>
+<P>
+<A NAME="start"><HR size=1></A><H2>Getting started</H2>
+Create a datafile:
+<BLOCKQUOTE><PRE>package require Mk4tcl
+mk::file open db datafile.mk</PRE></BLOCKQUOTE>
+Create a view (this is the Metakit term for "table"):
+<BLOCKQUOTE><PRE>set vw [mk::view layout db.people {first last shoesize:I}]</PRE></BLOCKQUOTE>
+Add two rows (this is the Metakit term for "record"):
+<BLOCKQUOTE><PRE>mk::row append $vw first "John" last "Lennon" shoesize 44
+mk::row append $vw first "Flash" last "Gordon" shoesize 42</PRE></BLOCKQUOTE>
+Commit the changes to file:
+<BLOCKQUOTE><PRE>mk::file commit db</PRE></BLOCKQUOTE>
+Show a list of all people:
+<BLOCKQUOTE><PRE>mk::loop c $vw {puts [mk::get $c first last shoesize]}</PRE></BLOCKQUOTE>
+Show a list of all people, sorted by last name:
+<BLOCKQUOTE><PRE>foreach r [mk::select $vw -sort last] {puts [mk::get $vw!$r]}</PRE></BLOCKQUOTE>
+Show a list of all people with first name 'John':
+<BLOCKQUOTE><PRE>foreach r [mk::select $vw first "John"] {puts [mk::get $vw!$r]}</PRE></BLOCKQUOTE>
+<P>
+<A NAME="ref"><hr size=1></A>
+<DL><DT><H2>Mk4tcl Reference</H2><DD>
+<TABLE cellspacing=0 cellpadding=0 border=0><TR><TD><A href="#mk_file">mk::file</A></TD><TD width=20></TD><TD>Opening, closing, and saving datafiles</TD>
+<TR><TD><A href="#mk_view">mk::view</A></TD><TD width=20></TD><TD>View structure and size operations</TD>
+<TR><TD><A href="#mk_cursor">mk::cursor</A></TD><TD width=20></TD><TD>Cursor variables for positioning</TD>
+<TR><TD><A href="#mk_row">mk::row</A></TD><TD width=20></TD><TD>Create, insert, and delete rows</TD>
+<TR><TD><A href="#mk_get">mk::get</A></TD><TD width=20></TD><TD>Fetch values</TD>
+<TR><TD><A href="#mk_set">mk::set</A></TD><TD width=20></TD><TD>Store values</TD>
+<TR><TD><A href="#mk_loop">mk::loop</A></TD><TD width=20></TD><TD>Iterate over the rows of a view</TD>
+<TR><TD><A href="#mkselect">mk::select</A></TD><TD width=20></TD><TD>Selection and sorting</Td>
+<TR><TD><A href="#mk_channel">mk::channel</A></TD><TD width=20></TD><TD>Channel interface (new in 1.2)</Td>
+</TABLE><BR>
+<P><DT><A name="mk_file"><HR size=1></A><H2>mk::file</H2><DD><H3>Opening, closing, and saving datafiles</H3>
+<P><DT>SYNOPSIS<DD><B>mk::file</B> &nbsp;<B>open</B> <BR>
+<B>mk::file</B> &nbsp;<B>open</B> &nbsp;<I>tag</I> <BR>
+<B>mk::file</B> &nbsp;<B>open</B> &nbsp;<I>tag</I> &nbsp;<I>filename</I> &nbsp;?-readonly? &nbsp;?-nocommit? &nbsp;?-extend? &nbsp;?-shared? &nbsp;<BR>
+<B>mk::file</B> &nbsp;<B>views</B> &nbsp;<I>tag</I> &nbsp;<BR>
+<B>mk::file</B> &nbsp;<B>close</B> &nbsp;<I>tag</I> &nbsp;<BR>
+<B>mk::file</B> &nbsp;<B>commit</B> &nbsp;<I>tag</I> &nbsp;?-full? &nbsp;<BR>
+<B>mk::file</B> &nbsp;<B>rollback</B> &nbsp;<I>tag</I> &nbsp;?-full? &nbsp;<BR>
+<B>mk::file</B> &nbsp;<B>load</B> &nbsp;<I>tag</I> &nbsp;<I>channel</I> &nbsp;<BR>
+<B>mk::file</B> &nbsp;<B>save</B> &nbsp;<I>tag</I> &nbsp;<I>channel</I> &nbsp;<BR>
+<B>mk::file</B> &nbsp;<B>aside</B> &nbsp;<I>tag</I> &nbsp;<I>tag2</I> &nbsp;<BR>
+<B>mk::file</B> &nbsp;<B>autocommit</B> &nbsp;<I>tag</I> &nbsp;<BR>
+<P><DT>DESCRIPTION<DD>
+    The <I>mk::file</I> command is used to open and close Metakit datafiles.
+    It is also used to force pending changes to disk (<I>commit</I>),
+    to cancel the last changes (<I>rollback</I>), and to send/receive the entire
+    contents of a datafile over a Tcl <I>channel</I>, including sockets
+    (<I>load/save</I>).
+<P>
+    Without arguments, '<B>mk::file open</B>' returns the list of tags and filenames of all datasets which are currently open (of the form <I>tag1 name1 tag2 name2 ...</I>).
+<P>
+    The '<B>mk::file open</B>' command associates a datafile with a 
+    unique symbolic <I>tag</I>.  A tag must consist of alphanumeric characters,
+    and is used in the other commands to refer to a specfic open datafile.
+    If <I>filename</I> is omitted, a temporary in-memory dataset is created (which cannot use commit, but which you could save to an I/O channel).
+    When a datafile is closed, all pending changes will be written to file,
+    unless the <B>-nocommit</B> option is specified.  In that case, only an
+    explicit commit will save changes.  To open a file only for reading,
+    use the <B>-readonly</B> option.
+    Datafiles can be opened read-only by any number
+    of readers, or by a single writer (no other combinations are allowed).
+    There is an additional mode, specified by the <B>-extend</B> option: in this
+    case changes are always written at the end of the datafile.  This allows
+    modifications by one writer without affecting readers.  Readers can adjust
+    to new changes made that way by doing a "rollback" (see below).  The term
+    is slightly confusing in this case, since it really is a "roll-forward" ...
+    The <B>-shared</B> option causes an open datafile to be visible in every
+    Tcl interpreter, with thread locking as needed.  The datafile is still tied
+    to the current interpreter and will be closed when that interpreter is
+    terminated.
+<P>
+    The '<B>mk::file views</B>' command returns a list with the views
+    currently defined in the open datafile associated with <I>tag</I>.
+    You can use the <I>'mk::view layout'</I> command to determine the current
+    structure of each view.
+<P>
+    The '<B>mk::file close</B>' command closes the datafile and releases
+    all associated resources.  If not opened with <I>-readonly</I> or <I>-nocommit</I>,
+    all pending changes will be saved to file before closing it.  A <I>tag</I>
+    loses its special meaning after the corresponding datafile has been closed.
+<P>
+    The '<B>mk::file commit</B>' command flushes all pending changes to disk.
+    It should not be used on a file opened with the <I>-readonly</I> option.
+    The optional <I>-full</I> argument is only useful when a <I>commit-aside</I>
+    is active (see below).  In that case, changes are merged back into the main
+    datafile instead of being saved separately.  The aside dataset is cleared.
+<P>
+    The '<B>mk::file rollback</B>' command cancels all pending changes
+    and reverts the situation to match what was last stored on file.
+    When commit-aside is active, a full rollback cause the state to be
+    rollback to what it was without the aside changes.  The aside dataset 
+    will be ignored from now on.
+<P>
+    The '<B>mk::file load</B>' command replaces all views with
+    data read from any Tcl <I>channel</I>.  This data must have been
+    generated using '<B>mk::file save</B>'.  Changes are made permanent when
+    <I>commit</I> is called (explicitly or implicitly, when a datafile is closed),
+    or they can be reverted by calling <I>rollback</I>.
+<P>
+    The '<B>mk::file aside</B>' command starts a special "commit-aside" mode,
+    whereby changes are saved to a second database file.  This can be much
+    faster that standard commits, because only changes are saved.  In commit-
+    aside mode, the main datafile will not be modified it all, in fact it can
+    be opened in read-only mode.
+<P>
+    The '<B>mk::file autocommit</B>' command sets up a database file to
+    automatically issue a commit when the file is closed later.  This is
+    useful if the file was initially opened in <I>-nocommit</I> mode, but
+    you now want to change this setting (there is no way to return to
+    <I>-nocommit</I>, although a rollback has a similar effect).
+<P>
+<P><DT>EXAMPLES<DD>
+    Open a datafile (create it if necessary), for read-write access:
+    <PRE>
+    mk::file open db test.dat</PRE>
+
+    Display the structure of every view in the datafile:
+    <PRE>
+    foreach v [mk::file views db] {
+        puts [mk::view layout db.$v]
+    }</PRE>
+
+    Send all data across a TCP/IP socket connection:
+    <PRE>
+    set chan [socket 127.0.0.1 12345]
+    mk::file save db $chan
+    close $chan</PRE>
+
+    The trick to open a datafile stored inside another MK file (e.g. in VFS)
+    is to load/save data via an in-memory database - replace this:
+    <PRE>
+    mk::file open db test.dat -readonly</PRE>
+    by this:
+    <PRE>
+    mk::file open db
+    set fd [open test.dat]
+    mk::file load db $fd
+    close $fd</PRE>
+<P>
+<P><DT><A name="mk_view"><HR size=1></A><H2>mk::view</H2><DD><H3>View structure and size operations</H3>
+<P><DT>SYNOPSIS<DD><B>mk::view</B> &nbsp;<B>layout</B> &nbsp;<I>tag.view</I> &nbsp;<BR>
+<B>mk::view</B> &nbsp;<B>layout</B> &nbsp;<I>tag.view</I> &nbsp;<I>{structure}</I> &nbsp;<BR>
+<B>mk::view</B> &nbsp;<B>delete</B> &nbsp;<I>tag.view</I> &nbsp;<BR>
+<B>mk::view</B> &nbsp;<B>size</B> &nbsp;<I>path</I> &nbsp;<BR>
+<B>mk::view</B> &nbsp;<B>size</B> &nbsp;<I>path</I> &nbsp;<I>size</I> &nbsp;<BR>
+<B>mk::view</B> &nbsp;<B>info</B> &nbsp;<I>path</I> &nbsp;<BR>
+<P><DT>DESCRIPTION<DD>
+    The <I>mk::view</I> command is used to query or alter the structure of
+    a <I>view</I> in a datafile (<I>layout</I>, <I>delete</I>),
+    as well as the number of rows it contains (<I>size</I>).
+    The last command (<I>info</I>) returns the list of properties
+    currently defined for a view.
+<P>
+    The '<B>mk::view layout</B>' command returns a description of the current
+    datastructure of <I>tag.view</I>.  If a structure is specified, the
+    current data is restructured to match that, by adding new properties
+    with a default value, deleting obsolete ones, and reordering them.
+<P>
+    Structure definitions consist of a list of properties.
+    Subviews are specified as a sublist of two entries: the name and the
+    list of properties in that subview.  Note that subviews add <I>two</I>
+    levels of nesting (see <I>phones</I> in the phonebook example below).
+    The type of a property is specified 
+    by appending a suffix to the property name (the default type is string):
+<P>
+    <UL><DL compact>
+        <DT> <B>:S</B> <DD>
+            A <B>string</B> property for storing strings of any size, but no null bytes.
+        <DT> <B>:I</B>  <DD>
+            An <B>integer</B> property for efficiently storing values as integers (1..32 bits).
+        <DT> <B>:L</B>  <DD>
+            An <B>long</B> property for storing values as 64-bit integers.
+        <DT> <B>:F</B>  <DD>
+            A <B>float</B> property for storing single-precision floating point values (32 bits).
+        <DT> <B>:D</B>  <DD>
+            A <B>double</B> property for storing double-precision floating point values (64 bits).
+        <DT> <B>:B</B>  <DD>
+            A <B>binary</B> property for untyped binary data (including null bytes).
+        <DT> <B>:M</B>  <DD>
+            Obsolete (now treated as <B>:B</B>).
+    </DL></UL>
+<P>
+    Properties which are not listed int the layout will only remain set while
+    the datafile is open, but not be stored.  To make properties persist,
+    you must list them in the layout definition, and do so <I>before</I> setting them.
+<P>
+    The '<B>mk::view delete</B>' command completely removes a view and all
+    the data it contains from a datafile.
+<P>
+    The '<B>mk::view size</B>' command returns the number of rows contained
+    in the view identified as <I>tag.view</I>.  If an argument is specified,
+    the size of the view is adjusted accordingly, dropping the highest
+    rows if the size is decreased or adding new empty ones if the size is
+    increased.  The command <I>'mk::view size 0'</I> deletes all rows from a
+    view, but keeps the view in the datafile so rows can be added again later
+    (unlike <I>'mk::view delete'</I>.
+<P>
+    The '<B>mk::view info</B>' returns the list of properties which are currently
+    defined for <I>path</I>.<BR>
+<P>
+    Note that the <I>layout</I> and <I>delete</I> sub-commands operate only on top-level
+    views (of the form <I>tag.view</I>), whereas <I>size</I> and
+    <I>info</I> take a <I>path</I> as arguments, which is either a top-level
+    view or a nested subview
+    (of the form 'tag.view!index.subview!subindex...<I>etc</I>...subview').
+<P>
+<P><DT>EXAMPLES<DD>
+    Define a phonebook view which can store more than one
+    phone number for each person:
+    <PRE>
+    mk::view layout db.book {name address {phones {category phone}}}</PRE>
+    Add a new phonebook entry:
+    <PRE>
+    mk::row append db.book name "Steve" address "Down-under"</PRE>
+    Add two phone numbers to phone book entry zero, i.e. "Steve":
+    <PRE>
+    mk::row append db.book!0.phones category "home" phone "1234567"
+    mk::row append db.book!0.phones category "mobile" phone "2345678"</PRE>
+    Restructure the view in the datafile, adding an integer date field:
+    <PRE>
+    mk::view layout db.book {name address {phones {category phone}} date:I}</PRE>
+    
+    Delete all phonebook entries as well as its definition from the datafile:
+    <PRE>
+    mk::view delete db.book</PRE>
+<P>
+<P><DT><A name="mk_cursor"><HR size=1></A><H2>mk::cursor</H2><DD><H3>Cursor variables for positioning</H3>
+<P><DT>SYNOPSIS<DD><B>mk::cursor</B> &nbsp;<B>create</B> &nbsp;<I>cursorName</I> &nbsp;<I>?path?</I> &nbsp;<I>?index?</I> &nbsp;<BR>
+<B>mk::cursor</B> &nbsp;<B>position</B> &nbsp;<I>cursorName</I> &nbsp;<BR>
+<B>mk::cursor</B> &nbsp;<B>position</B> &nbsp;<I>cursorName</I> &nbsp;<I>0</I> &nbsp;<BR>
+<B>mk::cursor</B> &nbsp;<B>position</B> &nbsp;<I>cursorName</I> &nbsp;<I>end</I> &nbsp;<BR>
+<B>mk::cursor</B> &nbsp;<B>position</B> &nbsp;<I>cursorName</I> &nbsp;<I>index</I> &nbsp;<BR>
+<B>mk::cursor</B> &nbsp;<B>incr</B> &nbsp;<I>cursorName</I> &nbsp;<I>?step?</I> &nbsp;<BR>
+<P><DT>DESCRIPTION<DD>
+    The <I>mk::cursor</I> command is used to manipulate <I>'cursor variables'</I>,
+    which offer an efficient means of iterating and repositioning a 
+    <I>'reference to a row in a view'</I>.
+    Though cursors are equivalent to strings of the
+    form <I>somepath!N</I>, it is much more efficient to keep a cursor around
+    in a variable and to adjust it (using the <I>position</I> subcommand),
+    than evaluating a 'somepath!$index' expression every time a cursor is expected.
+<P>
+    The '<B>mk::cursor create</B>' command defines (or redefines) a cursor variable.
+    The <I>index</I> argument defaults to zero.  This is a convenience function, since
+    <I>'mk::cursor create X somePath N'</I> is equivalent to <I>'set X somePath!N'</I>.
+<P>
+    When both <I>path</I> and <I>index</I> arguments are omitted from
+    the <I>'mk::cursor create'</I> command,
+    a cursor pointing to an empty temporary view is created, 
+    which can be used as buffer for data not stored on file.
+<P>
+    The '<B>mk::cursor position</B>' command returns the current position of a cursor,
+    i.e. the 0-based index of the row it is pointing to.  If an extra argument is
+    specified, the cursor position will be adjusted accordingly.
+    The '<I>end</I>' pseudo-position
+    is the index of the last row (or -1 if the view is currently empty).
+    Note that if '<I>X</I>' is a cursor equivalent to <I>somePath!N</I>, then
+    <I>'mk::cursor position X M'</I> is equivalent to the far less efficient
+    <I>'set X somePath!M'</I>.
+<P>
+    The '<B>mk::cursor incr</B>' command adjusts the current position of a cursor
+    with a specified relative <I>step</I>, which can be positive as well as negative.
+    If <I>step</I> is zero, then this command does nothing.
+    The command <I>'mk::cursor incr X N'</I> is equivalent to
+    <I>'mk::cursor position X [expr {[mk::cursor position X] + N}]'</I>.
+<P>
+<P><DT><A name="mk_row"><HR size=1></A><H2>mk::row</H2><DD><H3>Create, insert, and delete rows</H3>
+<P><DT>SYNOPSIS<DD><B>mk::row</B> &nbsp;<B>create</B> &nbsp;<I>?prop</I> &nbsp;<I>value</I> &nbsp;<I>...?</I> &nbsp;<BR>
+<B>mk::row</B> &nbsp;<B>append</B> &nbsp;<I>path</I> &nbsp;<I>?prop</I> &nbsp;<I>value</I> &nbsp;<I>...?</I> &nbsp;<BR>
+<B>mk::row</B> &nbsp;<B>insert</B> &nbsp;<I>cursor</I> &nbsp;<I>count</I> &nbsp;<I>?cursor2?</I> &nbsp;<BR>
+<B>mk::row</B> &nbsp;<B>delete</B> &nbsp;<I>cursor</I> &nbsp;<I>?count?</I> &nbsp;<BR>
+<B>mk::row</B> &nbsp;<B>replace</B> &nbsp;<I>cursor</I> &nbsp;<I>?cursor2?</I> &nbsp;<BR>
+<P><DT>DESCRIPTION<DD>
+    The <I>mk::row</I> command deals with one or more rows of information.
+    There is a command to allocate a temporary row which is not part of any
+    datafile (<I>create</I>), and the usual set of container operations:
+    appending, inserting, deleting, and replacing rows.
+<P>
+    The '<B>mk::row create</B>' command creates an empty temporary row, which
+    is not stored in any datafile.
+    Each temporary rows starts out without any properties.
+    Setting a property in a row will implicitly add that
+    property if necessary.
+    The return value is a unique <I>cursor</I>, pointing to
+    this temporary row.  The row (and all data stored in it)
+    will cease to exist when no cursor references to it remain.
+<P>
+    The '<B>mk::row append</B>' command extends the view with a new row,
+    optionally setting some properties in it to the specified values.
+<P>
+    The '<B>mk::row insert</B>' command is similar to the <I>append</I> sub-command,
+    inserting the new row in a specified position instead of at the end.
+    The <B>count</B> argument can be used to efficiently insert
+    multiple copies of a row.
+<P>
+    The '<B>mk::row delete</B>' command deletes one or more rows from a view, starting
+    at the row pointed to by <I>cursor</I>.
+<P>
+    The '<B>mk::row replace</B>' command replaces one row with a copy of another one,
+    or clears its contents if <I>cursor2</I> is not specified.
+<P>
+<P><DT>EXAMPLES<DD>
+    Define a cursor pointing to a new empty row:
+    <PRE>
+    set cursor [mk::row create]</PRE>
+
+    Initialize a temporary view with 100 copies of the string "Hello":
+    <PRE>
+    mk::cursor create cursor 
+    mk::row insert $cursor 100 [mk::row create text "Hello"]</PRE>
+<P>
+<P><DT><A name="mk_get"><HR size=1></A><H2>mk::get</H2><DD><H3>Fetch values</H3>
+<P><DT>SYNOPSIS<DD><B>mk::get</B> &nbsp;<I>cursor</I> &nbsp;?-size?<BR>
+<B>mk::get</B> &nbsp;<I>cursor</I> &nbsp;?-size? &nbsp;<I>prop</I> &nbsp;<I>...</I> &nbsp;<BR>
+<P><DT>DESCRIPTION<DD>
+    The <B>mk::get</B> command fetches values from the row specified by <I>cursor</I>.
+<P>
+    Without argument, <I>get</I> returns a list of <I>'prop1 value1 prop2 value2 ...'</I>.
+    This format is most convenient for setting an array variable, as the following
+    example illustrates:
+    <PRE>
+    array set v [mk::get db.phonebook!0]
+    parray v</PRE>
+    Note that the <I>cursor</I> argument can be the value of a cursor variable,
+    or it can be synthesized on the spot, as in the above example.
+<P>
+	If the <b>-size</b> option is specified, the size of property values is
+	returned instead of their contents.  This is normally in bytes, but for 
+	integers it can be a negative value indicating the number of bits used
+	to store ints (-1, -2, or -4).  This is an efficient way to determine the
+	sizes of property values without fetching them.
+<P>
+    If arguments are specified in the <I>get</I> command, they are interpreted as
+    property names and a list will be returned
+    containing the values of these properties in the specified order.
+<P>
+    If <I>cursor</I> does not point to a valid row, default values are returned
+    instead (no properties, and empty strings or numeric zero's, according to
+    the property types).
+<P>
+<P><DT>EXAMPLES<DD>
+    Set up an array containing all the fields in the third row:
+    <PRE>
+    array set fields [mk::get db.phonebook!2]</PRE>
+
+    Created a line with some formatted fields:
+
+    <PRE>
+    puts [eval [list format {%-20s %d}] [mk::get db.phonebook!2 name date]]</PRE>
+<P>
+<P><DT><A name="mk_set"><HR size=1></A><H2>mk::set</H2><DD><H3>Store values</H3>
+<P><DT>SYNOPSIS<DD><B>mk::set</B> &nbsp;<I>cursor</I> &nbsp;<I>?prop</I> &nbsp;<I>value</I> &nbsp;<I>...?</I> &nbsp;<BR>
+<P><DT>DESCRIPTION<DD>
+    The <B>mk::set</B> command stores values into the row specified by <I>cursor</I>.
+<P>
+    If a property is specified which does not exist, it will be appended as a new
+    definition for the containing view.  As an important side effect, all other
+    rows in this view will now also have such a property, with an appropriate
+    default value for the property.  Note that when new
+    properties are defined in this way, they will be created as string properties
+    unless qualified by a type suffix (see <I>'mk::view layout'</I> for details on
+    property types and their default values).
+<P>
+    Using <I>mk::set</I> command without specifying properties
+    returns the current value and is identical to <I>mk::get</I>.
+<P>
+    If <I>cursor</I> points to a non-existent row past the end of the view,
+    an appropriate number of empty rows will be inserted first.
+<P>
+<P><DT><A name="mk_loop"><HR size=1></A><H2>mk::loop</H2><DD><H3>Iterate over the rows of a view</H3>
+<P><DT>SYNOPSIS<DD><B>mk::loop</B> &nbsp;<I>cursorName</I> &nbsp;<I>{body}</I> &nbsp;<BR>
+<B>mk::loop</B> &nbsp;<I>cursorName</I> &nbsp;<I>path</I> &nbsp;<I>{body}</I> &nbsp;<BR>
+<B>mk::loop</B> &nbsp;<I>cursorName</I> &nbsp;<I>path</I> &nbsp;<I>first</I> &nbsp;<I>?limit?</I> &nbsp;<I>?step?</I> &nbsp;<I>{body}</I> &nbsp;<BR>
+<P><DT>DESCRIPTION<DD>
+    The <B>mk::loop</B> command offers a convenient way to iterate over the
+    rows of a view.  Iteration can be restricted to a certain range, and
+    can optionally use a forward or backward step.  This is a convenience function
+    which is more efficient than performing explicit iteration over an
+    index and positioning a cursor.
+<P>
+    When called with just a <I>path</I> argument, the loop will iterate over all the rows
+    in the corresponding view.
+    The <I>cursorName</I> loop variable will be set (or reset) on each iteration,
+    and is created if it did not yet exist.
+<P>
+    When <I>path</I> is not specified, 
+    the <I>cursorName</I> variable must exist and be a valid
+    cursor, although its current position will be ignored.
+    The command <I>'mk::loop X {...}'</I> is identical to <I>'mk::loop X $X {...}'</I>.
+<P>
+    The <I>first</I> argument specifies
+    the first index position to use (default 0),
+    the <I>limit</I> argument specifies the last argument (default 'end'),
+    and the <I>step</I> argument specifies the increment (default 1).
+    If <I>step</I> is negative and <I>limit</I> exceeds <I>first</I>, then the loop body will 
+    never be executed.  A zero <I>step</I> value can lead to infinite
+    looping unless the <I>break</I> command is called inside the loop.
+<P>
+    The <I>first</I>, <I>limit</I>, and <I>step</I> arguments may be arbitrary integer
+    expressions and are evaluated exactly once when the loop is entered.
+<P>
+Note that you cannot easily use a loop to insert or delete rows, since changes to views do not adjust cursors pointing into that view.  Instead, you can use tricks like moving backwards (for deletions), or  splitting the work into two separate passes.
+        
+<P><DT><A name="mk_elect"><HR size=1></A><H2>mk::select</H2><DD><H3>Selection and sorting</H3>
+<P><DT>SYNOPSIS<DD><B>mk::select</B> &nbsp;<I>path</I> &nbsp;<I>?options</I> &nbsp;<I>...?</I> &nbsp;<BR>
+<P><DT>DESCRIPTION<DD>
+    The <B>mk::select</B> command combines a flexible selection operation with a way to sort
+    the resulting set of rows.  The result is a list of row index numbers (possibly
+    empty), which can be used to reposition a cursor and to address rows directly.
+<P>
+    A selection is specified using any combination of these criteria:
+    <UL><DL>
+        <DT> <I>prop</I> <I>value</I> <DD>
+            Numeric or case-insensitive match
+        <DT> <B>-min</B> <I>prop</I> <I>value</I> <DD>
+            Property must be greater or equal to value (case is ignored)
+        <DT> <B>-max</B> <I>prop</I> <I>value</I> <DD>
+            Property must be less or equal to value (case is ignored)
+        <DT> <B>-exact</B> <I>prop</I> <I>value</I> <DD>
+            Exact case-sensitive string match
+        <DT> <B>-glob</B> <I>prop</I> <I>pattern</I> <DD>
+            Match "glob-style" expression wildcard
+        <DT> <B>-globnc</B> <I>prop</I> <I>pattern</I> <DD>
+            Match "glob-style" expression, ignoring case
+        <DT> <B>-regexp</B> <I>prop</I> <I>pattern</I> <DD>
+            Match specified regular expression
+        <DT> <B>-keyword</B> <I>prop</I> <I>word</I> <DD>
+            Match word as free text or partial prefix
+    </DL></UL>
+    If multiple criteria are specified, then
+    selection succeeds only if all criteria are satisfied.
+    If <I>prop</I> is a list, selection succeeds if <I>any</I> of the
+    given properties satisfies the corresponding match.
+<P>
+    Optional selection constraints:
+    <UL><DL>
+        <DT> <B>-first</B> <I>pos</I> <DD>
+            Selection starts at specified row index
+        <DT> <B>-count</B> <I>num</I> <DD>
+            Return no more than this many results
+    </DL></UL>
+    Note: not yet very useful with sorting, which is
+    done after these constraints have been applied.
+<P>
+    To sort the set of rows (with or without preliminary selection), use:
+    <UL><DL>
+        <DT> <B>-sort</B> <I>prop</I> <BR>
+             <B>-sort</B> {<I>prop</I> ...} <DD>
+            Sort on one or more properties, ascending
+        <DT> <B>-rsort</B> <I>prop</I> <BR>
+             <B>-rsort</B> {<I>prop</I> ...} <DD>
+            Sort on one or more properties, descending
+    </DL></UL>
+    Multiple sort options are combined in the order given.
+<P>
+<P><DT>EXAMPLES<DD>
+    Select a range of entries:
+    <PRE>
+    foreach i [mk::select db.phonebook -min date 19980101 -max date 19980131] {
+        puts "Dated Jan 1998: [mk::get db.phonebook!$i name]"
+    }</PRE>
+
+    Search for a unique match (<I>'-count 2'</I>
+    speeds up selection when many entries match):
+    <PRE>
+    set v [mk::select db.phonebook -count 2 -glob name "John*"]
+    switch [llength $v] {
+        0       {puts "not found"}
+        1       {puts "found: [mk::get db.phonebook![lindex $v 0] name]"}
+        2       {puts "there is more than one entry matching 'John*'"}
+    }</PRE>
+
+    Sort by descending date and by ascending name:
+    <PRE>
+    foreach i [mk::select db.phonebook -rsort date -sort name] {
+        puts "Change log: [mk::get db.phonebook!$i date name]"
+    }</PRE>
+<P>
+<P><DT><A name="mk_channel"><HR size=1></A><H2>mk::channel</H2><DD><H3>Channel interface</H3>
+<P><DT>SYNOPSIS<DD><B>mk::channel</B> &nbsp;<I>path</I> &nbsp;<I>prop</I> &nbsp;<I>?mode?</I> &nbsp;<BR>
+<P><DT>DESCRIPTION<DD>
+    The <B>mk::channel</B> command provides a channel interface to binary
+    fields.  It needs the <i>path</i> of a row and the name of a binary
+    <i>prop</i>, and returns a channel
+    descriptor which can be used to read or write from.
+<P>
+    Channels are opened in one of three modes:
+    <BLOCKQUOTE>
+             <B>read</B> - <I>open for reading existing contents (default)</I> <BR>
+             <B>write</B> - <I>clear contents and start saving data</I><BR>
+             <B>append</B> - <I>keep contents, set seek pointer to end</I>
+    </BLOCKQUOTE>
+<P>
+    Note: do not insert or delete rows in a view within which there are
+    open channels, because subsequent reads and writes may end up going
+    to the wrong memo property.
+<P>
+<DT>EXAMPLES<DD>
+    Write a few values (with line separators):
+    <PRE>
+    mk::view layout db.v {b:B}
+    mk::view size db.v 1
+
+    set fd [mk::channel db.v!0 b w]
+    puts $fd one
+    puts $fd two
+    puts $fd three
+    close $fd</PRE>
+    
+    Read values back, line by line:
+    <PRE>
+    set fd [mk::channel db.v!0 b]
+    while {[gets $fd text] >= 0} {
+        puts $text
+    }
+    close $fd</PRE>
+<P>
+</DL>
+<!--END-->
+<P>
+<HR size=1>
+&copy; 2005 Jean-Claude Wippler &lt;<A HREF="mailto:jcw@equi4.com">jcw@equi4.com</A>&gt;
+</BODY>
+</HTML>

@@ -68,7 +68,7 @@ Index: samba/source/lib/util.c
 ===================================================================
 --- samba/source/lib/util.c.orig
 +++ samba/source/lib/util.c
-@@ -2920,52 +2920,6 @@ BOOL unix_wild_match(const char *pattern
+@@ -2923,52 +2923,6 @@ BOOL unix_wild_match(const char *pattern
  }
  
  /**********************************************************************

@@ -1,0 +1,14 @@
+TODO for Crypt::SSLeay
+
+1. Clear out the remaining CPAN bugs.
+
+2. Possible typo?
+
+=head1 CLIENT CERTIFICATE SUPPORT
+
+Client certificates are supported. PEM0encoded certificate and
+
+  -> should this read "PEM-encoded"? Check backpan.
+
+3. Look at the modules that use Crypt::SSLeay, and see if any
+useful tests can be created to test functionality they depend on.

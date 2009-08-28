@@ -40,7 +40,7 @@ namespace KeychainCore {
 // Make and break: trivial
 //
 TrustStore::TrustStore(Allocator &alloc)
-	: allocator(alloc), mRootsValid(false), mRootBytes(allocator)
+	: allocator(alloc), mRootsValid(false), mRootBytes(allocator), mMutex(Mutex::recursive)
 {
 }
 
@@ -53,6 +53,8 @@ TrustStore::~TrustStore()
 SecTrustUserSetting TrustStore::find(Certificate *cert, Policy *policy,
 	StorageManager::KeychainList &keychainList)
 {
+	StLock<Mutex> _(mMutex);
+	
 	if (Item item = findItem(cert, policy, keychainList)) {
 		// Make sure that the certificate is available in some keychain,
 		// to provide a basis for editing the trust setting that we're returning.
@@ -96,6 +98,8 @@ SecTrustUserSetting TrustStore::find(Certificate *cert, Policy *policy,
 //
 void TrustStore::assign(Certificate *cert, Policy *policy, SecTrustUserSetting trust)
 {
+	StLock<Mutex> _(mMutex);
+	
 	TrustData trustData = { UserTrustItem::currentVersion, trust };
 	Keychain defaultKeychain = Keychain::optional(NULL);
 	Keychain trustLocation = defaultKeychain;	// default keychain, unless trust entry found
@@ -158,6 +162,8 @@ void TrustStore::assign(Certificate *cert, Policy *policy, SecTrustUserSetting t
 Item TrustStore::findItem(Certificate *cert, Policy *policy,
 	StorageManager::KeychainList &keychainList)
 {
+	StLock<Mutex> _(mMutex);
+	
 	try {
 		SecKeychainAttribute attrs[2];
 		CssmAutoData certIndex(Allocator::standard());
@@ -183,6 +189,8 @@ Item TrustStore::findItem(Certificate *cert, Policy *policy,
 
 void TrustStore::getCssmRootCertificates(CertGroup &rootCerts)
 {
+	StLock<Mutex> _(mMutex);
+	
 	if (!mRootsValid)
 		loadRootCertificates();
 	rootCerts = CertGroup(CSSM_CERT_X_509v3, CSSM_CERT_ENCODING_BER, CSSM_CERTGROUP_DATA);
@@ -195,6 +203,8 @@ void TrustStore::getCssmRootCertificates(CertGroup &rootCerts)
 //
 void TrustStore::loadRootCertificates()
 {
+	StLock<Mutex> _(mMutex);
+	
 	CFRef<CFArrayRef> anchors;
 	OSStatus ortn;
 

@@ -1,0 +1,32 @@
+Konferencia %(listname)s práve prešla veľkou zmenou. Odo dnes je
+prevádzkovaná novým programom, ktorý sa volá "Mailman". Dúfame,
+že to vyrieši veľa problémov, ktoré sa mohli pri doterajšej prevádzke
+konferencie vyskytnúť.
+
+Ako sa to na Vás vzťahuje?
+
+1) Príspevky do konferencie budú od teraz zasielané na adresu:
+   %(listaddr)s.
+
+2) Bolo Vám pridelené unikátne heslo, ktoré znemožní, aby Vás niekto
+   cudzí nemohol bez Vašeho súhlasu odhlásiť. Heslo Vám bolo zaslané
+   v samostatnej správe, ktorú ste už mohli obdržať. Heslo Vám bude
+   pripomenuté e-mailom každý mesiac.
+
+3) Ak máte prístup do siete WWW, môžete kedykoľvek meniť nastavenia
+   svojej účasti v konferencii na stránke:
+
+    %(listinfo_url)s
+
+4) Ak nemáte prístup k sieti WWW, môžete svoje nastavenia spravovať
+   aj pomocou elektronickej pošty. Pošlite na adresu %(requestaddr)s
+   správu obsahujúcu v tele iba slovo "help" (bez uvodzoviek).
+   Dostanete automatickú odpoveď s ďalšími inštrukciami.
+
+Ohľadom ďalších otázok alebo problémov kontaktujte správcu konferencie
+na adrese:
+%(adminaddr)s.
+
+Táto správa bola vytvorená programom Mailman verzia %(version)s.
+Ďalšie informácie o tomto programe nájdete na webovej adrese:
+http://www.list.org/

@@ -1,29 +1,13 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-/*
  * Copyright (c) 1983, 1990, 1993
  *	The Regents of the University of California.  All rights reserved.
+ * Copyright (c) 2002 Networks Associates Technology, Inc.
+ * All rights reserved.
+ *
+ * Portions of this software were developed for the FreeBSD Project by
+ * ThinkSec AS and NAI Labs, the Security Research Division of Network
+ * Associates, Inc.  under DARPA/SPAWAR contract N66001-01-C-8035
+ * ("CBOSS"), as part of the DARPA CHATS research program.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -54,25 +38,45 @@
  * SUCH DAMAGE.
  */
 
+#ifndef lint
+static const char copyright[] =
+"@(#) Copyright (c) 1983, 1990, 1993\n\
+	The Regents of the University of California.  All rights reserved.\n";
+#endif /* not lint */
+
+#if 0
+#ifndef lint
+static const char sccsid[] = "@(#)rlogin.c	8.1 (Berkeley) 6/6/93";
+#endif /* not lint */
+#endif
+
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/rlogin/rlogin.c,v 1.40 2005/11/13 21:03:56 dwmalone Exp $");
 
 /*
  * rlogin - remote login
  */
+
 #include <sys/param.h>
+#include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <sys/wait.h>
-#include <sys/ioctl.h>
 
 #include <netinet/in.h>
 #include <netinet/in_systm.h>
 #include <netinet/ip.h>
+#include <netinet/tcp.h>
 
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
+#ifndef __APPLE__
+#include <libutil.h>
+#endif
 #include <netdb.h>
+#include <paths.h>
 #include <pwd.h>
 #include <setjmp.h>
 #include <termios.h>
@@ -82,13 +86,9 @@
 #include <string.h>
 #include <unistd.h>
 
-#ifdef __STDC__
 #include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
 
-#ifdef KERBEROS
+#if defined(KERBEROS)
 #include <kerberosIV/des.h>
 #include <kerberosIV/krb.h>
 
@@ -98,7 +98,7 @@ CREDENTIALS cred;
 Key_schedule schedule;
 int use_kerberos = 1, doencrypt;
 char dst_realm_buf[REALM_SZ], *dest_realm = NULL;
-#endif
+#endif /* KERBEROS */
 
 #ifndef TIOCPKT_WINDOW
 #define	TIOCPKT_WINDOW	0x80
@@ -109,74 +109,83 @@ char dst_realm_buf[REALM_SZ], *dest_realm = NULL;
 #define	SIGUSR1	30
 #endif
 
-int eight, litout, rem;
+int eight, rem;
+struct termios deftty;
+
+int family = PF_UNSPEC;
 
 int noescape;
 u_char escapechar = '~';
 
-#ifdef OLDSUN
-struct winsize {
-	unsigned short ws_row, ws_col;
-	unsigned short ws_xpixel, ws_ypixel;
-};
-#else
 #define	get_window_size(fd, wp)	ioctl(fd, TIOCGWINSZ, wp)
-#endif
 struct	winsize winsize;
 
-void		catch_child __P((int));
-void		copytochild __P((int));
-void		doit __P((sigset_t *)) __dead2;
-void		done __P((int)) __dead2;
-void		echo __P((char));
-u_int		getescape __P((char *));
-static void	do_exit __P((int));
-void		lostpeer __P((int));
-void		mode __P((int));
-void		msg __P((char *));
-void		oob __P((int));
-int		reader __P((sigset_t *));
-void		sendwindow __P((void));
-void		setsignal __P((int));
-int		speed __P((int));
-void		sigwinch __P((int));
-void		stop __P((char));
-void		usage __P((void)) __dead2;
-void		writer __P((void));
-void		writeroob __P((int));
-
-#ifdef	KERBEROS
-void		warning __P((const char *, ...));
+void		catch_child(int);
+void		copytochild(int);
+#ifdef __APPLE__
+void		doit(sigset_t *) __dead2;
+#else
+void		doit(long) __dead2;
 #endif
-#ifdef OLDSUN
-int		get_window_size __P((int, struct winsize *));
+void		done(int) __dead2;
+void		echo(char);
+u_int		getescape(const char *);
+void		lostpeer(int);
+void		mode(int);
+void		msg(const char *);
+void		oob(int);
+#ifdef __APPLE__
+int		reader(sigset_t *);
+#else
+int		reader(int);
+#endif
+void		sendwindow(void);
+void		setsignal(int);
+void		sigwinch(int);
+void		stop(char);
+void		usage(void) __dead2;
+void		writer(void);
+void		writeroob(int);
+
+#if defined(KERBEROS)
+void		warning(const char *, ...);
 #endif
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
 	struct passwd *pw;
 	struct servent *sp;
+	struct termios tty;
+#ifndef __APPLE__
+	long omask;
+#else
 	sigset_t smask;
-	uid_t uid;
-	int argoff, ch, dflag, one;
-	char *host, *p, *user, term[1024];
 	struct sigaction sa;
+#endif
+	int argoff, ch, dflag, Dflag, one;
+	uid_t uid;
+	char *host, *localname, *p, *user, term[1024];
+	speed_t ospeed;
+	struct sockaddr_storage ss;
+	socklen_t sslen;
+	size_t len, len2;
+	int i;
 
-	argoff = dflag = 0;
+	argoff = dflag = Dflag = 0;
 	one = 1;
-	host = user = NULL;
+	host = localname = user = NULL;
 
+#ifdef __APPLE__
 	if (argv[0] == NULL)
 		usage();
-	if (p = strrchr(argv[0], '/'))
+#endif
+	if ((p = rindex(argv[0], '/')))
 		++p;
 	else
 		p = argv[0];
 
-	if (strcmp(p, "rlogin") != 0)
+	if (strcmp(p, "rlogin"))
 		host = p;
 
 	/* handle "rlogin host flags" */
@@ -185,27 +194,38 @@ main(argc, argv)
 		argoff = 1;
 	}
 
-#ifdef KERBEROS
-#define	OPTIONS	"8EKLde:k:l:x"
+#if defined(KERBEROS)
+#define	OPTIONS	"468EKLde:k:l:x"
 #else
-#define	OPTIONS	"8EKLde:l:"
+#define	OPTIONS	"468DEde:i:l:"
 #endif
-	while ((ch = getopt(argc - argoff, argv + argoff, OPTIONS)) != EOF)
+	while ((ch = getopt(argc - argoff, argv + argoff, OPTIONS)) != -1)
 		switch(ch) {
+		case '4':
+			family = PF_INET;
+			break;
+
+		case '6':
+			family = PF_INET6;
+			break;
+
 		case '8':
 			eight = 1;
+			break;
+		case 'D':
+			Dflag = 1;
 			break;
 		case 'E':
 			noescape = 1;
 			break;
+#if defined(KERBEROS)
 		case 'K':
-#ifdef KERBEROS
 			use_kerberos = 0;
-#endif
 			break;
 		case 'L':
 			litout = 1;
 			break;
+#endif
 		case 'd':
 			dflag = 1;
 			break;
@@ -213,7 +233,11 @@ main(argc, argv)
 			noescape = 0;
 			escapechar = getescape(optarg);
 			break;
-#ifdef KERBEROS
+		case 'i':
+			if (getuid() != 0)
+				errx(1, "-i user: permission denied");
+			localname = optarg;
+#if defined(KERBEROS)
 		case 'k':
 			dest_realm = dst_realm_buf;
 			(void)strncpy(dest_realm, optarg, REALM_SZ);
@@ -222,31 +246,28 @@ main(argc, argv)
 		case 'l':
 			user = optarg;
 			break;
-#ifdef CRYPT
-#ifdef KERBEROS
+#if defined(KERBEROS) && defined(CRYPT)
 		case 'x':
 			doencrypt = 1;
 			des_set_key(cred.session, schedule);
 			break;
-#endif
 #endif
 		case '?':
 		default:
 			usage();
 		}
 	optind += argoff;
-	argc -= optind;
-	argv += optind;
 
 	/* if haven't gotten a host yet, do so */
-	if (!host && !(host = *argv++))
+	if (!host && !(host = argv[optind++]))
 		usage();
 
-	if (*argv)
+	if (argv[optind])
 		usage();
 
 	if (!(pw = getpwuid(uid = getuid())))
-		errx(1, "unknown user id.");
+		errx(1, "unknown user id");
+#ifdef __APPLE__
 	/* Accept user1@host format, though "-l user2" overrides user1 */
 	p = strchr(host, '@');
 	if (p) {
@@ -257,11 +278,14 @@ main(argc, argv)
 		if (*host == '\0')
 			usage();
 	}
+#endif
 	if (!user)
 		user = pw->pw_name;
+	if (!localname)
+		localname = pw->pw_name;
 
 	sp = NULL;
-#ifdef KERBEROS
+#if defined(KERBEROS)
 	if (use_kerberos) {
 		sp = getservbyname((doencrypt ? "eklogin" : "klogin"), "tcp");
 		if (sp == NULL) {
@@ -270,39 +294,63 @@ main(argc, argv)
 			    doencrypt ? "eklogin" : "klogin");
 		}
 	}
+	if (sp == NULL)
 #endif
+	sp = getservbyname("login", "tcp");
 	if (sp == NULL)
-		sp = getservbyname("login", "tcp");
-	if (sp == NULL)
-		errx(1, "login/tcp: unknown service.");
+		errx(1, "login/tcp: unknown service");
 
-	(void)snprintf(term, sizeof(term), "%s/%d",
-			((p = getenv("TERM")) ? p : "network"),
-			speed(0));
+	if ((p = getenv("TERM")) != NULL)
+		(void)strlcpy(term, p, sizeof(term));
+#if __APPLE__
+	else
+		(void)strcpy(term, "network");
+#endif
+	len = strlen(term);
+	if (len < (sizeof(term) - 1) && tcgetattr(0, &tty) == 0) {
+		/* start at 2 to include the / */
+		for (ospeed = i = cfgetospeed(&tty), len2 = 2; i > 9; len2++)
+			i /= 10;
+		if (len + len2 < sizeof(term))
+			(void)snprintf(term + len, len2 + 1, "/%ld", ospeed);
+	}
 
 	(void)get_window_size(0, &winsize);
 
+#ifdef __APPLE__
 	sigemptyset(&sa.sa_mask);
 	sa.sa_flags = SA_RESTART;
 	sa.sa_handler = lostpeer;
 	(void)sigaction(SIGPIPE, &sa, (struct sigaction *) 0);
+#else
+	(void)signal(SIGPIPE, lostpeer);
+#endif
 	/* will use SIGUSR1 for window size hack, so hold it off */
+#ifdef __APPLE__
 	sigemptyset(&smask);
 	sigaddset(&smask, SIGURG);
 	sigaddset(&smask, SIGUSR1);
 	(void)sigprocmask(SIG_SETMASK, &smask, &smask);
+#else
+	omask = sigblock(sigmask(SIGURG) | sigmask(SIGUSR1));
+#endif
 	/*
 	 * We set SIGURG and SIGUSR1 below so that an
 	 * incoming signal will be held pending rather than being
 	 * discarded. Note that these routines will be ready to get
 	 * a signal by the time that they are unblocked below.
 	 */
+#ifdef __APPLE__
 	sa.sa_handler = copytochild;
 	(void)sigaction(SIGURG, &sa, (struct sigaction *) 0);
 	sa.sa_handler = writeroob;
 	(void)sigaction(SIGUSR1, &sa, (struct sigaction *) 0);
+#else
+	(void)signal(SIGURG, copytochild);
+	(void)signal(SIGUSR1, writeroob);
+#endif
 
-#ifdef KERBEROS
+#if defined(KERBEROS)
 try_connect:
 	if (use_kerberos) {
 		struct hostent *hp;
@@ -317,7 +365,7 @@ try_connect:
 		if (dest_realm == NULL)
 			dest_realm = krb_realmofhost(host);
 
-#ifdef CRYPT
+#if defined(CRYPT)
 		if (doencrypt)
 			rem = krcmd_mutual(&host, sp->s_port, user, term, 0,
 			    dest_realm, &cred, schedule);
@@ -329,7 +377,7 @@ try_connect:
 			use_kerberos = 0;
 			sp = getservbyname("login", "tcp");
 			if (sp == NULL)
-				errx(1, "unknown service login/tcp.");
+				errx(1, "unknown service login/tcp");
 			if (errno == ECONNREFUSED)
 				warning("remote host doesn't support Kerberos");
 			if (errno == ENOENT)
@@ -337,14 +385,15 @@ try_connect:
 			goto try_connect;
 		}
 	} else {
-#ifdef CRYPT
+#if defined(CRYPT)
 		if (doencrypt)
-			errx(1, "the -x flag requires Kerberos authentication.");
+			errx(1, "the -x flag requires Kerberos authentication");
 #endif /* CRYPT */
 		rem = rcmd(&host, sp->s_port, pw->pw_name, user, term, 0);
 	}
-#else
-	rem = rcmd(&host, sp->s_port, pw->pw_name, user, term, 0);
+#else /* KERBEROS */
+	rem = rcmd_af(&host, sp->s_port, localname, user, term, 0, family);
+//	rem = rcmd(&host, sp->s_port, pw->pw_name, user, term, 0);
 #endif /* KERBEROS */
 
 	if (rem < 0)
@@ -352,82 +401,72 @@ try_connect:
 
 	if (dflag &&
 	    setsockopt(rem, SOL_SOCKET, SO_DEBUG, &one, sizeof(one)) < 0)
-		warn("setsockopt DEBUG (ignored)");
+		warn("setsockopt");
+	if (Dflag &&
+	    setsockopt(rem, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one)) < 0)
+		warn("setsockopt NODELAY (ignored)");
+
+	sslen = sizeof(ss);
 	one = IPTOS_LOWDELAY;
-	if (setsockopt(rem, IPPROTO_IP, IP_TOS, (char *)&one, sizeof(int)) < 0)
-		warn("setsockopt TOS (ignored)");
+	if (getsockname(rem, (struct sockaddr *)&ss, &sslen) == 0 &&
+	    ss.ss_family == AF_INET) {
+		if (setsockopt(rem, IPPROTO_IP, IP_TOS, (char *)&one,
+			       sizeof(int)) < 0)
+			warn("setsockopt TOS (ignored)");
+	} else
+		if (ss.ss_family == AF_INET)
+			warn("setsockopt getsockname failed");
 
 	(void)setuid(uid);
+#ifdef __APPLE__
 	doit(&smask);
+#else
+	doit(omask);
+#endif
 	/*NOTREACHED*/
 }
 
-#if BSD >= 198810
-int
-speed(fd)
-	int fd;
-{
-	struct termios tt;
-
-	(void)tcgetattr(fd, &tt);
-
-	return ((int) cfgetispeed(&tt));
-}
-#else
-int    speeds[] = {	/* for older systems, B0 .. EXTB */
-	0, 50, 75, 110,
-	134, 150, 200, 300,
-	600, 1200, 1800, 2400,
-	4800, 9600, 19200, 38400
-};
-
-int
-speed(fd)
-	int fd;
-{
-	struct termios tt;
-
-	(void)tcgetattr(fd, &tt);
-
-	return (speeds[(int)cfgetispeed(&tt)]);
-}
-#endif
-
-pid_t child;
-struct termios deftt;
-struct termios nott;
+int child;
 
 void
-doit(smask)
-	sigset_t *smask;
+#ifdef __APPLE__
+doit(sigset_t *omask)
+#else
+doit(long omask)
+#endif
 {
-	int i;
+
+//	int i;
+//	for (i = 0; i < NCCS; i++)
+//		nott.c_cc[i] = _POSIX_VDISABLE;
+//	tcgetattr(0, &deftt);
+//	nott.c_cc[VSTART] = deftt.c_cc[VSTART];
+//	nott.c_cc[VSTOP] = deftt.c_cc[VSTOP];
+#ifdef __APPLE__
 	struct sigaction sa;
 
-	for (i = 0; i < NCCS; i++)
-		nott.c_cc[i] = _POSIX_VDISABLE;
-	tcgetattr(0, &deftt);
-	nott.c_cc[VSTART] = deftt.c_cc[VSTART];
-	nott.c_cc[VSTOP] = deftt.c_cc[VSTOP];
 	sigemptyset(&sa.sa_mask);
 	sa.sa_flags = SA_RESTART;
 	sa.sa_handler = SIG_IGN;
 	(void)sigaction(SIGINT, &sa, (struct sigaction *) 0);
+#else
+	(void)signal(SIGINT, SIG_IGN);
+#endif
 	setsignal(SIGHUP);
 	setsignal(SIGQUIT);
+	mode(1);
 	child = fork();
 	if (child == -1) {
 		warn("fork");
 		done(1);
 	}
 	if (child == 0) {
-		mode(1);
-		if (reader(smask) == 0) {
-			msg("connection closed.");
+		if (reader(omask) == 0) {
+			msg("connection closed");
 			exit(0);
 		}
 		sleep(1);
-		msg("\007connection closed.");
+		msg("\007connection closed");
 		exit(1);
 	}
 
@@ -438,19 +477,24 @@ doit(smask)
 	 * signals to the child. We can now unblock SIGURG and SIGUSR1
 	 * that were set above.
 	 */
-	(void)sigprocmask(SIG_SETMASK, smask, (sigset_t *) 0);
+#ifdef __APPLE__
+	(void)sigprocmask(SIG_SETMASK, omask, (sigset_t *) 0);
 	sa.sa_handler = catch_child;
 	(void)sigaction(SIGCHLD, &sa, (struct sigaction *) 0);
+#else
+	(void)sigsetmask(omask);
+	(void)signal(SIGCHLD, catch_child);
+#endif
 	writer();
-	msg("closed connection.");
+	msg("closed connection");
 	done(0);
 }
 
 /* trap a signal, unless it is being ignored. */
 void
-setsignal(sig)
-	int sig;
+setsignal(int sig)
 {
+#ifdef __APPLE__
 	struct sigaction sa;
 	sigset_t sigs;
 
@@ -459,33 +503,41 @@ setsignal(sig)
 	sigprocmask(SIG_BLOCK, &sigs, &sigs);
 
 	sigemptyset(&sa.sa_mask);
-	sa.sa_handler = do_exit;
+	sa.sa_handler = exit;
 	sa.sa_flags = SA_RESTART;
 	(void)sigaction(sig, &sa, &sa);
 	if (sa.sa_handler == SIG_IGN)
 		(void)sigaction(sig, &sa, (struct sigaction *) 0);
 
 	(void)sigprocmask(SIG_SETMASK, &sigs, (sigset_t *) 0);
+#else
+	int omask = sigblock(sigmask(sig));
+
+	if (signal(sig, exit) == SIG_IGN)
+		(void)signal(sig, SIG_IGN);
+	(void)sigsetmask(omask);
+#endif
 }
 
 void
-done(status)
-	int status;
+done(int status)
 {
-	pid_t w;
-	int wstatus;
-	struct sigaction sa;
+	int w, wstatus;
 
 	mode(0);
 	if (child > 0) {
 		/* make sure catch_child does not snap it up */
+#if __APPLE__
+		struct sigaction sa;
 		sigemptyset(&sa.sa_mask);
 		sa.sa_handler = SIG_DFL;
 		sa.sa_flags = 0;
 		(void)sigaction(SIGCHLD, &sa, (struct sigaction *) 0);
+#else
+		(void)signal(SIGCHLD, SIG_DFL);
+#endif
 		if (kill(child, SIGKILL) >= 0)
-			while ((w = wait(&wstatus)) > 0 && w != child)
-				continue;
+			while ((w = wait(&wstatus)) > 0 && w != child);
 	}
 	exit(status);
 }
@@ -496,36 +548,39 @@ int dosigwinch;
  * This is called when the reader process gets the out-of-band (urgent)
  * request to turn on the window-changing protocol.
  */
+/* ARGSUSED */
 void
-writeroob(signo)
-	int signo;
+writeroob(int signo __unused)
 {
-	struct sigaction sa;
-
 	if (dosigwinch == 0) {
 		sendwindow();
+#ifdef __APPLE__
+		struct sigaction sa;
 		sigemptyset(&sa.sa_mask);
 		sa.sa_handler = sigwinch;
 		sa.sa_flags = SA_RESTART;
 		(void)sigaction(SIGWINCH, &sa, (struct sigaction *) 0);
+#else
+		(void)signal(SIGWINCH, sigwinch);
+#endif
 	}
 	dosigwinch = 1;
 }
 
+/* ARGSUSED */
 void
-catch_child(signo)
-	int signo;
+catch_child(int signo __unused)
 {
-	int status;
 	pid_t pid;
+	int status;
 
 	for (;;) {
-		pid = waitpid(-1, &status, WNOHANG|WUNTRACED);
+		pid = wait3(&status, WNOHANG|WUNTRACED, NULL);
 		if (pid == 0)
 			return;
 		/* if the child (reader) dies, just quit */
 		if (pid < 0 || (pid == child && !WIFSTOPPED(status)))
-			done(WEXITSTATUS(status) | WTERMSIG(status));
+			done(WTERMSIG(status) | WEXITSTATUS(status));
 	}
 	/* NOTREACHED */
 }
@@ -537,9 +592,9 @@ catch_child(signo)
  * ~<delayed-suspend char>	suspend rlogin process, but leave reader alone.
  */
 void
-writer()
+writer(void)
 {
-	register int bol, local, n;
+	int bol, local, n;
 	char c;
 
 	bol = 1;			/* beginning of line */
@@ -566,30 +621,28 @@ writer()
 			}
 		} else if (local) {
 			local = 0;
-			if (c == '.' || c == deftt.c_cc[VEOF]) {
+			if (c == '.' || CCEQ(deftty.c_cc[VEOF], c)) {
 				echo(c);
 				break;
 			}
-			if (c == deftt.c_cc[VSUSP] || c == deftt.c_cc[VDSUSP]) {
+			if (CCEQ(deftty.c_cc[VSUSP], c) ||
+			    CCEQ(deftty.c_cc[VDSUSP], c)) {
 				bol = 1;
 				echo(c);
 				stop(c);
 				continue;
 			}
 			if (c != escapechar)
-#ifdef CRYPT
-#ifdef KERBEROS
+#if defined(KERBEROS) && defined(CRYPT)
 				if (doencrypt)
 					(void)des_write(rem,
 					    (char *)&escapechar, 1);
 				else
 #endif
-#endif
-					(void)write(rem, &escapechar, 1);
+				(void)write(rem, &escapechar, 1);
 		}
 
-#ifdef CRYPT
-#ifdef KERBEROS
+#if defined(KERBEROS) && defined(CRYPT)
 		if (doencrypt) {
 			if (des_write(rem, &c, 1) == 0) {
 				msg("line gone");
@@ -597,26 +650,22 @@ writer()
 			}
 		} else
 #endif
-#endif
-			if (write(rem, &c, 1) == 0) {
-				msg("line gone");
-				break;
-			}
-		bol = c == deftt.c_cc[VKILL] || c == deftt.c_cc[VEOF] ||
-		    c == deftt.c_cc[VINTR] || c == deftt.c_cc[VSUSP] ||
+		if (write(rem, &c, 1) == 0) {
+			msg("line gone");
+			break;
+		}
+		bol = CCEQ(deftty.c_cc[VKILL], c) ||
+		    CCEQ(deftty.c_cc[VEOF], c) ||
+		    CCEQ(deftty.c_cc[VINTR], c) ||
+		    CCEQ(deftty.c_cc[VSUSP], c) ||
 		    c == '\r' || c == '\n';
 	}
 }
 
 void
-#if __STDC__
-echo(register char c)
-#else
-echo(c)
-	register char c;
-#endif
+echo(char c)
 {
-	register char *p;
+	char *p;
 	char buf[8];
 
 	p = buf;
@@ -636,35 +685,38 @@ echo(c)
 }
 
 void
-#if __STDC__
 stop(char cmdc)
-#else
-stop(cmdc)
-	char cmdc;
-#endif
 {
+	mode(0);
+#ifdef __APPLE__
 	struct sigaction sa;
 
-	mode(0);
 	sigemptyset(&sa.sa_mask);
 	sa.sa_handler = SIG_IGN;
 	sa.sa_flags = SA_RESTART;
 	(void)sigaction(SIGCHLD, &sa, (struct sigaction *) 0);
-	(void)kill(cmdc == deftt.c_cc[VSUSP] ? 0 : getpid(), SIGTSTP);
+#else
+	(void)signal(SIGCHLD, SIG_IGN);
+#endif
+	(void)kill(CCEQ(deftty.c_cc[VSUSP], cmdc) ? 0 : getpid(), SIGTSTP);
+#ifdef __APPLE__
 	sa.sa_handler = catch_child;
 	(void)sigaction(SIGCHLD, &sa, (struct sigaction *) 0);
+#else
+	(void)signal(SIGCHLD, catch_child);
+#endif
 	mode(1);
 	sigwinch(0);			/* check for size changes */
 }
 
+/* ARGSUSED */
 void
-sigwinch(signo)
-	int signo;
+sigwinch(int signo __unused)
 {
 	struct winsize ws;
 
 	if (dosigwinch && get_window_size(0, &ws) == 0 &&
-	    memcmp(&ws, &winsize, sizeof(ws))) {
+	    bcmp(&ws, &winsize, sizeof(ws))) {
 		winsize = ws;
 		sendwindow();
 	}
@@ -674,7 +726,7 @@ sigwinch(signo)
  * Send the window size to the server via the magic escape
  */
 void
-sendwindow()
+sendwindow(void)
 {
 	struct winsize *wp;
 	char obuf[4 + sizeof (struct winsize)];
@@ -689,14 +741,12 @@ sendwindow()
 	wp->ws_xpixel = htons(winsize.ws_xpixel);
 	wp->ws_ypixel = htons(winsize.ws_ypixel);
 
-#ifdef CRYPT
-#ifdef KERBEROS
+#if defined(KERBEROS) && defined(CRYPT)
 	if(doencrypt)
 		(void)des_write(rem, obuf, sizeof(obuf));
 	else
 #endif
-#endif
-		(void)write(rem, obuf, sizeof(obuf));
+	(void)write(rem, obuf, sizeof(obuf));
 }
 
 /*
@@ -706,19 +756,18 @@ sendwindow()
 #define	WRITING	2
 
 jmp_buf rcvtop;
-pid_t ppid;
 int rcvcnt, rcvstate;
+pid_t ppid;
 char rcvbuf[8 * 1024];
 
+/* ARGSUSED */
 void
-oob(signo)
-	int signo;
+oob(int signo __unused)
 {
-	struct termios tt;
-	int atmark, n, out, rcvd;
+	struct termios tty;
+	int atmark, n, rcvd;
 	char waste[BUFSIZ], mark;
 
-	out = O_RDWR;
 	rcvd = 0;
 	while (recv(rem, &mark, 1, MSG_OOB) < 0) {
 		switch (errno) {
@@ -728,7 +777,7 @@ oob(signo)
 			 * to send it yet if we are blocked for output and
 			 * our input buffer is full.
 			 */
-			if (rcvcnt < sizeof(rcvbuf)) {
+			if (rcvcnt < (int)sizeof(rcvbuf)) {
 				n = read(rem, rcvbuf + rcvcnt,
 				    sizeof(rcvbuf) - rcvcnt);
 				if (n <= 0)
@@ -749,24 +798,26 @@ oob(signo)
 		(void)kill(ppid, SIGUSR1);
 	}
 	if (!eight && (mark & TIOCPKT_NOSTOP)) {
-		tcgetattr(0, &tt);
-		tt.c_iflag &= ~(IXON | IXOFF);
-		tt.c_cc[VSTOP] = _POSIX_VDISABLE;
-		tt.c_cc[VSTART] = _POSIX_VDISABLE;
-		tcsetattr(0, TCSANOW, &tt);
+		(void)tcgetattr(0, &tty);
+		tty.c_iflag &= ~IXON;
+		(void)tcsetattr(0, TCSANOW, &tty);
+//		tt.c_iflag &= ~(IXON | IXOFF);
+//		tt.c_cc[VSTOP] = _POSIX_VDISABLE;
+//		tt.c_cc[VSTART] = _POSIX_VDISABLE;
 	}
 	if (!eight && (mark & TIOCPKT_DOSTOP)) {
-		tcgetattr(0, &tt);
-		tt.c_iflag |= (IXON|IXOFF);
-		tt.c_cc[VSTOP] = deftt.c_cc[VSTOP];
-		tt.c_cc[VSTART] = deftt.c_cc[VSTART];
-		tcsetattr(0, TCSANOW, &tt);
+		(void)tcgetattr(0, &tty);
+		tty.c_iflag |= (deftty.c_iflag & IXON);
+		(void)tcsetattr(0, TCSANOW, &tty);
+//		tt.c_iflag |= (IXON|IXOFF);
+//		tt.c_cc[VSTOP] = deftt.c_cc[VSTOP];
+//		tt.c_cc[VSTART] = deftt.c_cc[VSTART];
 	}
 	if (mark & TIOCPKT_FLUSHWRITE) {
-		(void)ioctl(1, TIOCFLUSH, (char *)&out);
+		(void)tcflush(1, TCIOFLUSH);
 		for (;;) {
 			if (ioctl(rem, SIOCATMARK, &atmark) < 0) {
-				warn("ioctl SIOCATMARK (ignored)");
+				warn("ioctl");
 				break;
 			}
 			if (atmark)
@@ -798,29 +849,40 @@ oob(signo)
 
 /* reader: read from remote: line -> 1 */
 int
-reader(smask)
-	sigset_t *smask;
+#if __APPLE__
+reader(sigset_t *smask)
+#else
+reader(int omask)
+#endif
 {
-	pid_t pid;
 	int n, remaining;
 	char *bufp;
+	pid_t pid;
+
+	pid = getpid();
+#if __APPLE__
 	struct sigaction sa;
 
-#if BSD >= 43 || defined(SUNOS4)
-	pid = getpid();		/* modern systems use positives for pid */
-#else
-	pid = -getpid();	/* old broken systems use negatives */
-#endif
 	sigemptyset(&sa.sa_mask);
 	sa.sa_flags = SA_RESTART;
 	sa.sa_handler = SIG_IGN;
 	(void)sigaction(SIGTTOU, &sa, (struct sigaction *) 0);
 	sa.sa_handler = oob;
 	(void)sigaction(SIGURG, &sa, (struct sigaction *) 0);
+	(void)sigaction(SIGUSR1, &sa, (struct sigaction *) 0);
+#else
+	(void)signal(SIGTTOU, SIG_IGN);
+	(void)signal(SIGURG, oob);
+	(void)signal(SIGUSR1, oob); /* When propogating SIGURG from parent */
+#endif
 	ppid = getppid();
 	(void)fcntl(rem, F_SETOWN, pid);
 	(void)setjmp(rcvtop);
+#if __APPLE__
 	(void)sigprocmask(SIG_SETMASK, smask, (sigset_t *) 0);
+#else
+	(void)sigsetmask(omask);
+#endif
 	bufp = rcvbuf;
 	for (;;) {
 		while ((remaining = rcvcnt - (bufp - rcvbuf)) > 0) {
@@ -837,14 +899,12 @@ reader(smask)
 		rcvcnt = 0;
 		rcvstate = READING;
 
-#ifdef CRYPT
-#ifdef KERBEROS
+#if defined(KERBEROS) && defined(CRYPT)
 		if (doencrypt)
 			rcvcnt = des_read(rem, rcvbuf, sizeof(rcvbuf));
 		else
 #endif
-#endif
-			rcvcnt = read(rem, rcvbuf, sizeof (rcvbuf));
+		rcvcnt = read(rem, rcvbuf, sizeof (rcvbuf));
 		if (rcvcnt == 0)
 			return (0);
 		if (rcvcnt < 0) {
@@ -857,144 +917,111 @@ reader(smask)
 }
 
 void
-mode(f)
-	int f;
+mode(int f)
 {
-	struct termios tt;
+	struct termios tty;
 
 	switch (f) {
 	case 0:
-		tcsetattr(0, TCSADRAIN, &deftt);
+		(void)tcsetattr(0, TCSANOW, &deftty);
+//		(void)tcsetattr(0, TCSADRAIN, &deftty);
 		break;
 	case 1:
-		tt = deftt;
-		tt.c_oflag &= ~(OPOST);
-		tt.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
-		tt.c_iflag &= ~(ICRNL);
-		tt.c_cc[VMIN] = 1;
-		tt.c_cc[VTIME] = 0;
+		(void)tcgetattr(0, &deftty);
+		tty = deftty;
+		/* This is loosely derived from sys/kern/tty_compat.c. */
+		tty.c_lflag &= ~(ECHO|ICANON|ISIG|IEXTEN);
+		tty.c_iflag &= ~ICRNL;
+		tty.c_oflag &= ~OPOST;
+		tty.c_cc[VMIN] = 1;
+		tty.c_cc[VTIME] = 0;
 		if (eight) {
-			tt.c_iflag &= ~(IXON | IXOFF | ISTRIP);
-			tt.c_cc[VSTOP] = _POSIX_VDISABLE;
-			tt.c_cc[VSTART] = _POSIX_VDISABLE;
+			tty.c_iflag &= IXOFF;
+			tty.c_cflag &= ~(CSIZE|PARENB);
+			tty.c_cflag |= CS8;
+//			tt.c_iflag &= ~(IXON | IXOFF | ISTRIP);
+//			tt.c_cc[VSTOP] = _POSIX_VDISABLE;
+//			tt.c_cc[VSTART] = _POSIX_VDISABLE;
 		}
-		/*if (litout)
-			lflags |= LLITOUT;*/
-		tcsetattr(0, TCSADRAIN, &tt);
+		(void)tcsetattr(0, TCSANOW, &tty);
+//		tcsetattr(0, TCSADRAIN, &tt);
 		break;
-
 	default:
 		return;
 	}
 }
 
+/* ARGSUSED */
 void
-lostpeer(signo)
-	int signo;
+lostpeer(int signo __unused)
 {
+#ifdef __APPLE__
 	struct sigaction sa;
 
 	sigemptyset(&sa.sa_mask);
 	sa.sa_flags = SA_RESTART;
 	sa.sa_handler = SIG_IGN;
 	(void)sigaction(SIGPIPE, &sa, (struct sigaction *) 0);
-	msg("\007connection closed.");
+#else
+	(void)signal(SIGPIPE, SIG_IGN);
+#endif
+	msg("\007connection closed");
 	done(1);
 }
 
-/* copy SIGURGs to the child process. */
+/* copy SIGURGs to the child process via SIGUSR1. */
+/* ARGSUSED */
 void
-copytochild(signo)
-	int signo;
+copytochild(int signo __unused)
 {
-
-	(void)kill(child, SIGURG);
-}
-
-static void do_exit(int signo)
-{
-    exit(signo);
+	(void)kill(child, SIGUSR1);
 }
 
 void
-msg(str)
-	char *str;
+msg(const char *str)
 {
-
 	(void)fprintf(stderr, "rlogin: %s\r\n", str);
 }
 
-#ifdef KERBEROS
+#if defined(KERBEROS)
 /* VARARGS */
 void
-#if __STDC__
 warning(const char *fmt, ...)
-#else
-warning(fmt, va_alist)
-	char *fmt;
-	va_dcl
-#endif
 {
 	va_list ap;
 
 	(void)fprintf(stderr, "rlogin: warning, using standard rlogin: ");
-#ifdef __STDC__
 	va_start(ap, fmt);
-#else
-	va_start(ap);
-#endif
 	vfprintf(stderr, fmt, ap);
 	va_end(ap);
 	(void)fprintf(stderr, ".\n");
 }
 #endif
 
-__dead void
-usage()
+void
+usage(void)
 {
 	(void)fprintf(stderr,
-	    "usage: rlogin [ -%s]%s[-e char] [ -l username ] [username@]host\n",
-#ifdef KERBEROS
-#ifdef CRYPT
-	    "8EKLx", " [-k realm] ");
+#ifdef __APPLE__
+	"usage: rlogin [-46%s]%s[-e char] [-i localname] [-l username] [username@]host\n",
 #else
-	    "8EKL", " [-k realm] ");
+	"usage: rlogin [-46%s]%s[-e char] [-i localname] [-l username] host\n",
 #endif
+#if defined(KERBEROS) && defined(CRYPT)
+	    "8EKLx", " [-k realm] ");
+#elif defined(KERBEROS)
+	    "8EKL", " [-k realm] ");
 #else
-	    "8EL", " ");
+	    "8DEd", " ");
 #endif
 	exit(1);
 }
 
-/*
- * The following routine provides compatibility (such as it is) between older
- * Suns and others.  Suns have only a `ttysize', so we convert it to a winsize.
- */
-#ifdef OLDSUN
-int
-get_window_size(fd, wp)
-	int fd;
-	struct winsize *wp;
-{
-	struct ttysize ts;
-	int error;
-
-	if ((error = ioctl(0, TIOCGSIZE, &ts)) != 0)
-		return (error);
-	wp->ws_row = ts.ts_lines;
-	wp->ws_col = ts.ts_cols;
-	wp->ws_xpixel = 0;
-	wp->ws_ypixel = 0;
-	return (0);
-}
-#endif
-
 u_int
-getescape(p)
-	register char *p;
+getescape(const char *p)
 {
 	long val;
-	int len;
+	size_t len;
 
 	if ((len = strlen(p)) == 1)	/* use any single char, including '\' */
 		return ((u_int)*p);

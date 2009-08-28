@@ -104,6 +104,7 @@ public:
                                         IOFixed                 x,
                                         IOFixed                 y,
                                         IOFixed                 z,
+                                        IOHIDAccelerometerType  type = 0,
                                         IOOptionBits            options = 0);
                                         
     static IOHIDEvent *     buttonEvent (

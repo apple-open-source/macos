@@ -864,10 +864,8 @@ static void remove_drivelist(void* context, io_iterator_t drivelist)
 		/* get name from properties */
 		name = (CFStringRef)CFDictionaryGetValue(properties,
 			CFSTR(kIOBSDNameKey));
-		CFRelease(properties);
-		if (!name) continue;
 
-		if (CFStringGetCString(name, bsdname, MAXDRIVENAME, CFStringGetSystemEncoding())) {
+		if (name && CFStringGetCString(name, bsdname, MAXDRIVENAME, CFStringGetSystemEncoding())) {
 			int i;
 			for (i = 0; i < num_devices; ++i) {
 				if (strcmp(bsdname,drivestat[i].name) == 0) {
@@ -881,7 +879,7 @@ static void remove_drivelist(void* context, io_iterator_t drivelist)
 				}
 			}
 		}
-		
+		CFRelease(properties);
 		IOObjectRelease(drive);
 	}
 }

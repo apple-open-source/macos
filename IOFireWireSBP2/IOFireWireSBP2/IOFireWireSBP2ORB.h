@@ -536,6 +536,12 @@ public:
 	*/
     
     virtual UInt64 getRefCon64( void );
+
+protected:
+	
+	UInt32	calculateTransferSizeLog( bool * clipping );
+
+
 };
     
 #endif

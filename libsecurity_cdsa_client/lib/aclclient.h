@@ -104,6 +104,8 @@ public:
 	const AccessCredentials *promptCred() const;		// enable interactive prompting
 	const AccessCredentials *unlockCred() const;
 	const AccessCredentials *cancelCred() const;
+	const AccessCredentials *promptedPINCred() const;
+	const AccessCredentials *promptedPINItemCred() const;
 
 	const AclOwnerPrototype &anyOwner() const;			// wide-open owner
 	const AclEntryInfo &anyAcl() const;					// wide-open ACL entry (authorizes anything)
@@ -135,7 +137,7 @@ public:
     public:
         PasswordChangeCredentials (const CssmData& password, Allocator& allocator);
     };
-	
+
 public:
 	class AnyResourceContext : public ResourceControlContext {
 	public:

@@ -1,0 +1,2403 @@
+2008-08-27  Rolf Ade  <rolf@pointsman.de>
+
+        * Makefile.in: Added missing space in target
+          pkgIndex.tcl-hand. Thanks to Gustaf Neumann for reporting
+          the problem and providing a fix.
+
+2008-05-25  Rolf Ade  <rolf@pointsman.de>
+
+        * lib/tdom.tcl: The XPath function element-available() should,
+          according to the rec, return true "if and only if the
+          <argument> is the name of an instruction". That is, not for
+          all known XSLT elements.
+
+2008-03-04  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/tclexpat.c: Editorial changes.
+
+        * generic/domhtml.c: 
+        * generic/domxslt.c: Added a few casts, to pacify picky
+          compliers.
+
+2007-12-26  Rolf Ade  <rolf@pointsman.de>
+        
+        * generic/dom.c
+        * generic/tcldom.c: Fixed a memory leak in case of
+          --enable-threads.
+
+2007-10-30  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/domhtml.c: 
+        * tests/htmlreader.test: ID Attributes in HTML documents
+          parsed with -html do now what you expect: you find it with
+          getElementById.
+
+2007-10-29  Rolf Ade  <rolf@pointsman.de>
+
+        * doc/domNode.*
+        * doc/domDoc.*: Fixed documentation error in the documentation
+          of the replaceChild method.
+
+2007-10-08  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/domhtml.c
+        * tests/htmlreader.test: Fixed handling of attributes without
+          value. Now, an attribute without value gets the attribute
+          name as value.
+
+2007-10-04  Rolf Ade  <rolf@pointsman.de>
+
+        * tests/domDoc.test: Fixed test domDoc-1.2: Test was broken in
+          case of locale != ISO-8859-1 (or -15).
+
+2007-10-03  Rolf Ade  <rolf@pointsman.de>
+
+        * win/makefile.vc: makefile.vc generated a pkgIndex.tcl file,
+          that didn't work in case of spaces in the install
+          path. Thanks to Koen Danckaert.
+
+2007-09-28  Rolf Ade  <rolf@pointsman.de>
+
+        * tests/all-bench.tcl
+        * tests/domNode.bench
+        * tests/xpath.bench: Added this files: Start of a benchmark
+          suite.
+
+2007-09-25  Rolf Ade  <rolf@pointsman.de>
+        
+        * win/makefile.vc
+        * win/nmakehlp.c
+        * win/rules.vc
+        * win/tdom.rc: Updated. (Thanks to Pat Thoyts.)
+
+        * tdom.m4
+        * extensions/tnc/configure: Fixes tnc building against
+          uninstalled tdom. (Thanks to Daniel A. Steffen.)
+
+2007-08-23  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/domxpath.c
+        * tests/dom.test
+        * tests/xmlsimple.test
+        * tests/xpath.test
+        * tests/xslt.test: Fixed bug triggered by invalid XSLT XPath
+          pattern (normal XPath expr (via selectNodes) wasn't
+          infected). Checked the code for similar spots and fixed a
+          few. Replaced a fprintf(stderr, ..) called in an
+          'impossible' case with a more appropriate domPanic call.
+
+2007-08-18  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/domxslt.c: Code cleanup in document()
+          implementation.
+
+        * generic/dom.c
+        * generic/dom.h
+        * generic/domxslt.c
+        * generic/tcldom.c: More constification and clean up.
+
+        * generic/dom.c
+        * generic/dom.h
+        * generic/domalloc.c
+        * generic/domxpath.c
+        * generic/domxpath.h
+        * generic/domxslt.c
+        * generic/tcldom.c
+        * generic/xmlsimple.c: Big const ification.
+
+2007-08-15  Rolf Ade  <rolf@pointsman.de>
+        
+        * configure
+        * configure.in
+        * unix/CONFIG
+        * tdom.m4: New default build: --disable-tdomalloc.
+
+        * CHANGES: Updated.
+
+        * README
+        * README.AOL
+        * configure
+        * configure-tcl8.0.5
+        * configure.in
+        * tests/loadtdom.tcl
+        * mac/Prefix/tDOMPrefix.h
+        * mac/Prefix/tDOMPrefix_OSX.h
+        * win/makefile.vc
+        * win/makefile805.vc:
+        * win/pkgIndex.tcl: Bumped version to 0.8.3.
+
+--- Release 0.8.2, 14. Aug. 2007 ---
+
+2007-08-13  Rolf Ade  <rolf@pointsman.de>
+
+        * win/pkgIndex.tcl: Bumped version to 0.8.2
+
+2007-08-12  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/tcldom.c: Corrected a typo in the doc cmd usage
+          message. Updated the asXML related parts of the doc and node
+          cmd usage msg. Corrected a typo in the error msg in case of
+          wrong # of args to asXML.
+
+        * generic/tdomStubLib.c: Ensure that the new code build also
+          with tcl8.0.x (although that old versions doesn't have
+          extension stubs tables.)
+
+        * extensions/tnc/configure
+        * extensions/tnc/configure.in
+        * extensions/tnc/tnc.c: Tweaks to build tnc with
+          win/msys/mingw.
+
+        * tdom.m4: Removed irritating breaks in TDOM_PATH_CONFIG.
+
+        * unix/tclAppInit.c: Editorial fix.
+
+        * generic/tdomStubLib.c: Rewritten from the scratch.
+
+2007-08-11  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/domxslt.c: Code cosmetic.
+
+        * generic/tcldom.c: Updated error msg in case of wrong # of
+          args to the asXML method to the new added option
+          -escapeAllQuot.
+
+        * generic/tdom.h
+        * generic/tclexpat.h: Fixed build problem with the build
+          environment win/msys/mingw.
+        
+        * generic/aolstub.cpp: Fixed editorial mistake in comment.
+
+        * unix/tclAppInit.c: Rewritten from the scratch. New feature:
+          tcldomsh will read ~/.tcldomshrc at start up.
+
+2007-08-07  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/dom.h: Another change needed, to complete the new
+          type of domDoc->documentNumber.
+
+2007-08-07  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/dom.c: Type gymnastic for 64 bit systems.
+
+        * generic/dom.c
+        * generic/dom.h
+        * generic/tcldom.c: Changed domDoc->documentNumber,
+          domUniqueNodeNr and domUniqueDocNr to unsigned long, to
+          prevent hard to debug / reproduce problems on 64 bit
+          systems.
+
+        * win/makefile.vc: Don't use precompiled headers.
+
+        * extensions/tnc/makefile.vc: Brought in sync with tdom core.
+
+        * generic/tclexpat.c: Compiler pacifying.
+
+        * generic/tdomDecls.h: Fixed a wrong function signature.
+
+        * generic/tdomStubLib.c: Made the compiler happy.
+
+        * generic/dom.c: Corrected an error msg.
+
+        * generic/tclexpat.c: Still problems on 64bit w/
+          -externalentitycommand. This health the biggest pain.
+
+2007-08-05  Rolf Ade  <rolf@pointsman.de>
+
+        * win/makefile.vc
+        * win/makefile805.vc: Bumped version to 0.8.2. Missed that in
+          0.8.2rc1
+
+        * README
+        * README.AOL
+        * configure
+        * configure-tcl8.0.5
+        * configure.in
+        * tests/loadtdom.tcl
+        * mac/Prefix/tDOMPrefix.h
+        * mac/Prefix/tDOMPrefix_OSX.h: Bumped version to 0.8.2.
+
+        * generic/domhtml.c
+        * generic/domxpath.c
+        * generic/domxslt.c
+        * generic/tcldom.c
+        * generic/xmlsimple.c: Casted arg of ctype.h is*
+          macros/function calles to unsigned char to reduce compiler
+          warning noise.
+
+        * generic/tcldom.c:
+        * tests/domDoc.test: In case of asXML with indentation: indent
+          XML comments as well.
+
+        * doc/domNode.*
+        * doc/domDoc.*: Added documentation to the new variable
+          references feature of the selectNodes method, for the
+          deleteXPathCache method and the -escapeAllQuot option of the
+          asXML method.
+
+        * generic/tcldom.c: Fixed a mem leak introduced by
+          deleteXPathCache. Added option -escapeAllQuot to the asXML
+          method.
+
+        * generic/tcldom.c
+        * tests/domDoc.test: Added method deleteXPathCache: basic
+          control over the xpath expression cache.
+        
+        * generic/tcldom.c
+        * generic/domxpath.c
+        * generic/domxpath.h
+        * generic/domxslt.c
+        * tests/xpath.test: Variable references (at the places allowed
+          by the XPath syntax) will now be resoved as Tcl variables,
+          relative to the scope of the expression. Ignoring the XPath
+          syntax rules at this point, any valid Tcl variable name will
+          work.
+
+2007-08-03  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/tcldom.c: Added doc method renameNode, without XML
+          namespace awareness. There will be a final (XML namespace
+          aware) method implementation after 0.8.2, therefore, this
+          will slip in as hidden or 'unsupported' and at least
+          undocumented method. 
+
+2007-07-31  Rolf Ade  <rolf@pointsman.de>
+ 
+        * generic/domxpath.c
+        * tests/xpath.test: Bug fix: floats in xpath expressions
+          starting with . could have an additional (erroneous) dot in
+          it without detection.
+
+        * expat/*
+        * extensions/tnc/tnc.c
+        * generic/dom.c
+        * generic/domxslt.c
+        * generic/tcldom.c
+        * generic/tclexpat.c
+        * generic/tdom.decls
+        * generic/tdom.h
+        * generic/tdomDecls.h: Update to expat 2.0.1; minor build
+          cosmetic.
+
+2007-07-27  Rolf Ade  <rolf@pointsman.de>
+
+        * tclconfig/tcl.m4
+        * tclconfig/README.txt
+        * configure.in
+        * configure
+        * extensions/tnc/configure.in
+        * extensions/tnc/configure: Updated to TEA 3.6. Rebuild configure.
+
+2007-07-25  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/dom.c: Fix for the -externalentitycommand problems
+          on (some) 64-bit plattforms.
+
+        * tests/xpath.test: Added a few tests related to white-space
+          in XPath expressions.
+
+2007-07-23  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/domhtml.c
+        * tests/htmlreader.test: Fix for problem reported by
+          http://tech.groups.yahoo.com/group/tdom/message/1666 
+
+2007-04-18  Rolf Ade  <rolf@pointsman.de>
+
+        * doc/domDoc.*: Emendation.
+
+2007-03-03  Rolf Ade  <rolf@pointsman.de>
+
+        * Makefile.in: Fixed (at least for most of the cases) bug in
+          test target, in case the user builds in a dir elsewhere. 
+
+2007-02-04  Rolf Ade  <rolf@pointsman.de>
+
+        * tdom.m4
+        * configure
+        * extensions/tnc/configure
+        * README
+        * unix/CONFIG: Modified the tdom.m4 configure macros to use
+          the current documentation style of TEA in case of configure
+          --help. Fixed a bug in the TDOM_ENABLE_DTD. Re-generated
+          configure and tnc configure. Added some explanations about
+          the tDOM specific configure options to unix/CONFIG and a
+          pointer to that information to README.
+
+        * extensions/tnc/tnc.c: Minor editorial changes.
+
+        * extensions/tnc/test.tcl: Fixed the loading of the tDOM
+          scripted library in case of run with tcldomsh. 
+
+        * generic/domxslt.c: Fixed bug in xsl:fallback handling.
+
+2007-02-02  Rolf Ade  <rolf@pointsman.de>
+
+        * tdom.m4
+        * configure: Corrected spelling error in tdom.m4, re-generated
+          configure. Thanks to Larry Virden for reporting.
+
+2007-01-16  Rolf Ade  <rolf@pointsman.de>
+
+        * extensions/tnc/configure.in: The build tool combination
+          TEA/cygwin/VC++ needs a crude hack.
+
+2007-01-10  Rolf Ade  <rolf@pointsman.de>
+
+        * Makefile.in: More corrections: Did not install the tDOM
+          stubs library. Minor other corrections related to
+          distclean. Again thanks to Andreas Kupries.
+
+        * extensions/tnc/Makefile.in: Don't call target install-doc
+          while installing - the tnc doc is in the top level doc dir.
+
+        * extensions/tnc/pkgIndex.tcl.in: Fixed the name of the shared
+          lib. Now uses @PKG_LIB_FILE@ for the dll name.
+    
+2007-01-09  Rolf Ade  <rolf@pointsman.de>
+
+        * Makefile.in: Did not install tdomConfig.sh anymore,
+          which causes trouble building tDOM extensions (including
+          tnc). Thanks to Andreas Kupries for reporting the problem
+          with analysis.
+
+2007-01-05  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/domxpath.c: In XPath expressions: Whitespace between
+          the abbreviated attribute axis specifier @ and the attribute
+          name is allowed.
+
+2006-11-22  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/domhtml.c: Normalize case of attribute also (not
+          only elements). Accept space on both sides of the = of
+          attribute values.
+
+2006-11-08  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/domxpath.c
+        * tests/xpath.test: Fixed seg fault in XPath expr parser for a
+          certain kind of erroneous XPath expressions.
+
+2006-08-26  Rolf Ade  <rolf@pointsman.de>
+
+        * CHANGES
+        * configure.in
+        * Makefile.in
+        * configure
+        * tclconfig/README.txt
+        * tclconfig/tcl.m4
+        * extensions/tnc/configure.in
+        * extensions/tnc/configure
+        * extensions/tnc/Makefile.in: Updated the TEA build system to
+          3.5. 
+
+2006-05-24  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/dom.c
+        * tests/dom.test: Fix of the isQName method: Strings with valid
+          prefix and non-NCNameStart char as first char after the ':'
+          wasn't detected as invalid QName.
+
+2006-01-08  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/domxslt.c
+        * tests/xslt.test: Fixed a rounding bug of format-number()
+          (http://groups.yahoo.com/group/tdom/message/1217).
+
+2006-01-06  Rolf Ade  <rolf@pointsman.de>
+
+        * doc/domDoc.*: Fixed markup errors.
+
+2005-12-10  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/dom.c
+        * generic/dom.h
+        * generic/domxslt.c
+        * tests/xslt.test: Fixed bug in namespace handling in
+          xsl:copy-of. 
+            
+2005-12-03  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/dom.c
+        * tests/domNode.test: Fix of the cloneNode method: if the node
+          to clone (or, in case of -deep, a node within the subtree to
+          clone) had a namespace declaration attribute then the result
+          was wrong.
+
+        * tests/domDoc.test: Added a test for the special handling of
+          the content of script/style tags in case of asHTML.
+
+2005-10-19  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/domxpath.c
+        * generic/domxpath.h
+        * tests/xpath.test: Fixed string-length() and substring() to
+          work on chars, as they should, not on bytes.
+
+2005-09-27  Rolf Ade  <rolf@pointsman.de>
+ 
+        * tests/htmlreader.test: Added a test case, reported by
+          Richard Suchenwirth, which crashes 0.8.0, but raises error
+          with current cvs head, without any mem problems.
+
+2005-09-24  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/domxslt.c: Doh! The code detected ill grouping-size
+          values and set errMsg accordingly, but didn't propagate the
+          error. Fixed. Do memory cleanup after detecting wrong
+          xsl:number level attribute value. Fixed memory leak in case
+          of incorrect xslt attributes of included or imported
+          xsl:stylesheet elements. Fixed memory leak in case of
+          syntactically wrong xsl:key use attribute XPath
+          expression. Fixed memory leak in case of toplevel
+          parameter or variables which are syntactically incorrect,
+          because they have both a select attribute and content.
+
+2005-09-19 Rolf Ade   <rolf@pointsman.de>
+
+        * generic/domxpath.c: Improved detection/reporting of XPath
+          syntax errors. Fixed two memory leaks in the XPath parser in
+          case of some kind of erroneous XPath expressions.
+
+2005-09-17  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/domxpath.c: id() on an empty node set should return
+          an empty string, according to the rec, not raise an error,
+          as it did up to now. Fixed a memory leak in concat() in the
+          case of xpath expressions as arguments, which raise
+          error. Normally, XPath expressions doens't raise error at
+          all; that's how XPath is designed. That is unfortunately not
+          completely true with current tDOM, because tDOM doesn't do
+          an as rigoros as possible argument check at XPath expression
+          parsing time (that will change) and because of user defined
+          XPath extension functions.
+
+2005-09-16  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/domxslt.c: Fixed memory fault in case of external
+          documents resolved based on the base URI of a node of the
+          source element.
+
+2005-09-13  Rolf Ade  <rolf@pointsman.de>
+        
+        * generic/domxpath.c: Bug fix: The namespace axis will be
+          empty unless the context node is an element.
+
+        * aclocal.m4
+        * configure
+        * tdom.m4
+        * tdomConfig.sh.in
+        * extensions/tnc/configure
+        * extensions/tnc/configure.in: Improvement of the build
+          system. Now works also with the tool combination
+          cygwin/TEA/VC++. Thanks to Andreas Kupries for his patch.
+    
+2005-08-26  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/tdominit.c: Removed tests about mt-ness of
+          tclsh/tdom, due to popular demand. Mt compiled tDOM now will
+          load into non-mt tclsh, as will a non-mt compiled tDOM into
+          a mt tclsh.
+          NOTES: 
+          Using a non-mt tDOM within only one thread of a mt
+          tclsh should work just fine. But never ever use a non-mt
+          tDOM in several threads of a mt tclsh. That may crash
+          randomly. Use, how surprising, an mt-enabled tDOM for
+          that. This will work fine.
+          Using a mt aware tDOM within a non-tm tclsh is little bit
+          slower and memory demanding. It will also have a few
+          methods, that are superfluous within the non-tm tcl
+          context. It should always work, but for best results use a
+          non-mt tDOM with non-mt tclsh.
+
+2005-08-20  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/dom.c
+        * generic/dom.h: Added function domPreviousSibling().
+
+        * generic/domxslt.c: Bug fix: Use domPreviousSibling() in
+          xsltNumber() to prevent erroneous results, if attribute
+          nodes are involved in the numbering.
+
+2005-06-10  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/dom.c
+        * generic/dom.h
+        * generic/domhtml.c
+        * generic/tcldom.c
+        * generic/xmlsimple.c: Internal dispersion: Cleaned up
+          rootNode/toplevel nodes connection, added new function
+          domSetDocumentElement.
+
+        * tcldom.c: Closed memory leak in case of not well-formed
+          input to the simple or html parser.  
+
+        * generic/domlock.h: Removed unused variable.
+
+        * tests/dom.test: Added test, to document handling of white
+          space outside the document element even in case of
+          -keepEmpties (it's markup white space and will be removed).
+
+        * tests/domDoc.test
+        * tests/htmlreader.test
+        * tests/xmlsimple.test: Added a few tests.
+
+2005-05-13  Rolf Ade  <rolf@pointsman.de>
+
+        * tests/htmlreader.test
+        * generic/domhtml.c: Fixed seg fault in case of some garbage
+          input.
+
+2005-05-12  Rolf Ade  <rolf@pointsman.de>
+
+        * tests/domNode.test
+        * generic/tcldom.c: Fix: domNode nodeValue $newValue didn't
+          check the newValue for being valid pcdata.
+
+2005-05-02  Rolf Ade  <rolf@pointsman.de>
+
+        * tests/parser.test    
+        * generic/tclexpat.c: Bug fix: expat parser method
+          parsechannel didn't (depending on the encoding of the
+          channel) report parsing errors.
+
+2005-04-11  Rolf Ade  <rolf@pointsman.de>
+
+        * tclconfig/ChangeLog
+        * tclconfig/ac_c_bigendian_cross.m4: Deleted.     
+            
+        * tclconfig/README.txt: Updated.    
+
+        * apps/xslt.tcl: Updated to request tdom 0.8.1.
+
+        * Makefile.in
+        * configure
+        * configure.in
+        * tdom.m4
+        * tdomConfig.sh.in
+        * tclconfig/tcl.m4
+        * extensions/tnc/Makefile.in
+        * extensions/tnc/configure
+        * extensions/tnc/configure.in
+        * extensions/tnc/tnc.c: Updated to use TEA 3.2. Thanks to
+          Daniel A. Steffen and Andreas Kupries for input.
+        
+2005-04-04  Rolf Ade  <rolf@pointsman.de>
+
+        * expat/expat.h: Removed last comma in enum XML_Status
+          declaration, to prevent compiler errors (xlc on AIX
+          64). (Current expat CVS head has the same fix.)
+
+2005-03-26  Rolf Ade  <rolf@pointsman.de>
+
+        * tests/xslt.test    
+        * generic/dom.c: Fix in domAppendNewElementNode(),
+          domAppendLiteralNode() and domAppendNewTextNode(): if the
+          created node is a child of doc->root, set the parentNode
+          according.
+
+        * generic/domxslt.c: Removed (anyway not correctly working)
+          work-around to set parent of the childs of doc->root
+          (problem now correctly fixed by changes in dom.c).
+
+        * tests/domNode.test
+        * generic/nodecmd.c: Changes, to prepare adding of node
+          creating cmds, which creates namespace aware nodes.  
+
+2005-03-21  Rolf Ade  <rolf@pointsman.de>
+
+        * tests/domDoc.test: Fixed flawed test, which slipped through,
+          somehow.
+
+2005-03-18  Rolf Ade  <rolf@pointsman.de>
+
+        * doc/domDoc.*
+        * doc/domNode.*
+        * CHANGES
+        * tests/domDoc.test
+        * generic/tcldom.c
+        * generic/dom.h
+        * generic/dom.c: Added document method selectNodesNamespaces,
+          to provide a document global XPath prefix/namespace mapping.
+
+2005-03-12  Rolf Ade  <rolf@pointsman.de>
+
+        * tests/xslt.test: Added two tests about two subtleties of
+          the XPath syntax: white space between the $ and a varname
+          are not allowed, while white space between the braces of
+          node() is allowed.
+
+2005-03-11  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/nodecmd.c
+        * tests/dom.test: Using of a node creating command outside of
+          node context after that node creating command was already
+          used in node context didn't raised error (as it should) but
+          could have all kinds of effects (including seg fault).
+
+2005-02-26  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/tcldom.c: Fix for MT-enabled tDOM: If a doc was
+          attached to more than one thread, nodeCmd creation was
+          borken (only one thread got a nodeCmd for a given node).
+
+2005-02-03  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/domxslt.c: Bug fix: current() did not work in
+          xsl:key use expressions. Moved setting of xs->current from
+          all about the place into evalXPath. A bit code massage, to
+          avoid bogus compiler warning.
+
+        * doc/domDoc.*
+        * tests/domDoc.test  
+        * generic/dom.c
+        * generic/domxslt.c
+        * generic/tcldom.c: Added support for xsl:output
+          cdata-section-elements attribute. Added method
+          cdataSectionElements to domDocs, as tcl interface to
+          cdata-section-elements.
+
+        * doc/domDoc.*: Added documentation for the domDoc method
+          internalSubset.
+
+        * generic/domxpath.c: Editorial changes.
+
+2005-02-02  Rolf Ade  <rolf@pointsman.de>
+
+        * win/makefile.vc: Updated to provide the new defines
+          PACKAGE_NAME and PACKAGE_VERSION introduced by the update to
+          TEA-3 support.
+
+2005-01-19  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/dom.c
+        * generic/dom.h
+        * generic/domhtml.c
+        * generic/xmlsimple.c: Renamed exported symbols attrNames and
+          tagNames to tdom_attrNames and tdom_tagNames, to avoid name
+          clash. startDoctypeDeclHandler() and
+          endDoctypeDeclHandler(): added missing static.
+
+2005-01-16  Zoran Vasiljevic  <zv@archiware.com>
+
+	* Makefile.in:                 Bumped version to 0.8.1.
+	* configure:                   Added TEA-3 support.
+	* configure.in:                Made AOLserver 4.x virtual-server aware
+	* tdom.m4:                     and added examples how to build the
+	* generic/aolstub.cpp:         lib as AOLserver module for 4.x series.
+	* generic/tdominit.c:          
+	* README:
+	* README.AOL:
+	* mac/Prefix/tDOMPrefix.h:
+	* mac/Prefix/tDOMPrefix_OSX.h:
+	* win/makefile.vc:
+	* win/makefile805.vc:
+	* win/pkgIndex.tcl:
+	* tclconfig/ChangeLog:
+	* tclconfig/tcl.m4:
+	* tests/loadtdom.tcl:
+	* unix/CONFIG:
+	
+2005-01-11  Rolf Ade  <rolf@pointsman.de>
+
+        * doc/domDoc.*
+        * doc/domNode.*: Added documentation for the -cache option of
+          the selectNodes method.
+
+        * lib/tdom.tcl: Scripted xpath function element-available:
+          moved xsl:output to the avaliable elements, since it's in
+          fact avaliable in the meantime (with exception of the
+          'version' and 'cdata-section-elements' attributes) - the
+          output options can be queried from the result doc, but it's
+          the responsibility of the application, to serialize the tree
+          according to that settings.
+
+2005-01-10  Rolf Ade  <rolf@pointsman.de>
+
+        * doc/dom.*: Corrected typo.     
+
+        * generic/dom.c: Fixed a leftover reference to embedded hash
+          table in domDocument struct.
+
+2005-01-10  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/dom.c
+        * generic/dom.h
+        * generic/domxpath.c
+        * generic/domxpath.h
+        * generic/tcldom.c
+        * tests/domNode.test: Don't embed Tcl_HashTables into dom Docs,
+          use pointers to the hash table. Added -cache option to the
+          selectNodes method.
+
+2005-01-07  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/dom.c
+        * generic/domalloc.c
+        * generic/domxslt.c
+        * generic/domxpath.c
+        * generic/tclexpat.c
+        * generic/nodecmd.c
+        * generic/nodecmd.h
+        * generic/tcldom.c
+        * tests/domDoc.test
+        * generic/tcldom.h: Clean up, to decrease (innocuous) compiler
+          warnings (thanks to Pat Thoyts for triggering input and
+          patch).
+
+        * win/makefile.vc: Improved VC++ compiler makefile. Thanks to
+          Pat Thoyts for contribution.
+
+        * win/nmakehlp.c
+        * win/rules.vc
+        * win/tdom.rc: Added this files. Thanks to Pat Thoyts for
+          contribution.      
+
+2005-01-06  Rolf Ade  <rolf@pointsman.de>
+        
+        * generic/tcldom.c
+        * tests/domDoc.test
+        * tests/domNode.test
+        * doc/domDoc.*
+        * doc/domNode:*: Handle multiple -namespaces options to
+          selectNodes method. Added methods transform and delete to
+          xsltCmds. Ensure, that documents created with the [dom
+          createDocument* methods] are created as docCmds in case of
+          'auto' creation mode.
+        
+        * tests/dom.test     Added a few tests: related to createNodeCmd
+        * tests/element.test (dom), node text method (domNode), chancing
+        * tests/parser.test  callback from within a callback (element,
+        * tests/xslt.test    parser) and catching of recursive xsl
+                             include/import (xslt).
+
+2004-12-21  Rolf Ade  <rolf@pointsman.de>                                   
+                                                                            
+        * generic/domxslt.c: xsl:key with match expressions, which          
+          matches attributes, did not work. Prevent, that a stylesheet      
+          import/include itself. Editorial changes.                         
+                                                                            
+        * generic/dom.c: domAppendNewElementNode(): Set the namespace       
+          of a per xslt transformation generated node wrong under           
+          certain circumstances. This fixes                                 
+          http://groups.yahoo.com/group/tdom/message/1008. Removed          
+          leftover (former local used) define TNODE.                        
+                                                                            
+2004-12-12  Rolf Ade  <rolf@pointsman.de>                                   
+                                                                            
+        * generic/domxpath.c                                                
+        * tests/xpath.test: xpath expressions ancestor-or-self::node()      
+          and parent::node() returned wrong result if the context node      
+          is /.                                                             
+                                                                            
+2004-12-10  Rolf Ade  <rolf@pointsman.de>                                   
+                                                                            
+        * doc/expat.*                                                       
+        * generic/tclexpat.c                                                
+        * generic/tclexpat.h                                                
+        * tests/parser.test: Don't allow the methods parse,                 
+          parsechannel, parsefile, free and reset from within a             
+          callback of the parser be used but raise a tcl error.             
+                                                                            
+2004-10-25  Rolf Ade  <rolf@pointsman.de>                                   
+                                                                            
+        * doc/domNode.*: Added documentation for the '-namespaces'          
+          option of the selectNodes method.                                 
+                                                                            
+        * doc/dom.*: Added a note to the -externalentitycommand option      
+          of the parse method, that the programmer is responsible for       
+          closing the channel, if the resolver script returns a
+          channel.      
+
+2004-09-29  Rolf Ade  <rolf@pointsman.de>
+
+        * win/pkgIndex.tcl: First [load] the lib, which has 
+          [package provide tdom], so that a [package require tdom]
+          within the script lib doesn't loop.
+
+        * generic/tcldom.c: Added the with 0.8 added doc methods to
+          the doc_usage.    
+
+2004-09-21  Rolf Ade  <rolf@pointsman.de>
+
+        * doc/domDoc.*: Add documentation for 'selectNodes' method.
+
+        * generic/dom.c
+        * generic/dom.h
+        * generic/domxpath.c
+        * generic/domxpath.h
+        * generic/domxslt.c
+        * generic/tcldom.c: Added the '-namespaces' option to the
+          selectNodes method. Not resolved namespace prefixes within
+          the xpath expression now raises an error.
+          *** POTENTIAL INCOMPATIBILITY *** 
+
+2004-09-13  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/domxslt.c: Corrected a typo in an error msg.
+
+2004-09-08  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/domxslt.c: Editorial changes.
+
+2004-09-02  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/domxpath.c
+        * generic/tcldom.c
+        * tests/domNode.test: toXPath method: fixed bug with
+          non-element top level nodes, closed mem leak.
+
+2004-08-23  Rolf Ade  <rolf@pointsman.de>
+
+        * README
+        * README.AOL: Corrected typos (thanks to G. Neumann)
+
+2004-08-20  Rolf Ade  <rolf@pointsman.de>
+
+        * expat/*: Update to expat 1.95.8.
+
+2004-08-19  Rolf Ade  <rolf@pointsman.de>
+
+        * unix/CONFIG    
+        * generic/dom.h
+        * generic/tcldom.c: Made tDOM work out of the box on 64-bit
+          systems like Itanium 2 (though --disable-tdomalloc configure
+          option at build time is still needed).
+
+2004-08-17  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/dom.h: Added fluff, to fix build problemx on AIX w/
+          xlc compiler.    
+
+        * generic/domxpath.c
+        * generic/tcldom.c: Removed unused variables.    
+
+2004-08-15  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/dom.h
+        * generic/dom.c
+        * generic/domxslt.c
+        * generic/tcldom.c
+        * generic/xmlsimple.h
+        * generic/xmlsimple.c
+        * tests/dom.test: Pass external entity resolver script around
+          in string representation (insteand of Tcl_Obj), to avoid
+          problems with mt builds.
+
+--- Release 0.8.0, 11. Aug. 2004 ---
+
+2004-08-10  Rolf Ade  <rolf@pointsman.de>
+
+        * extensions/tnc/makefile.vc: Link against tDOM 0.8.0.
+
+        * doc/dom.*: Corrected a spelling mistake.
+
+2004-07-28  Rolf Ade  <rolf@pointsman.de>
+
+        * lib/tdom.tcl: [namespace export] the public procs in
+          ::tDOM. Added a few more encodings to IANAEncoding2TclEncoding.
+
+2004-07-27  Rolf Ade  <rolf@pointsman.de>
+
+        * test/dom.test
+        * doc/dom.*
+        * generic/dom.h
+        * generic/tcldom.c: New (experimental) method setObjectCommands.
+
+        * test/domNode.test
+        * generic/dom.c
+        * generic/tclexpat.c
+        * generic/tcldom.c: Reworked internal base URI handling, to fix
+          a bug of the old approach and to be closer to (though not
+          fully support) what DOM 3 say about base URI handling.
+
+        * tests/dom.test  
+        * doc/dom.*
+        * generic/tcldom.c: New method createDocumentNode.
+
+        * tests/domDoc.test
+        * doc/domDoc.*
+        * generic/dom.c
+        * generic/tcldom.c: Added methods nodeType, getElementById,
+          firstChild, lastChild, appendChild, removeChild,
+          hasChildNodes, childNodes, ownerDocument, insertBefore,
+          replaceChild, appendFromList, appendXML, selectNodes,
+          baseURI, appendFromScript and insertBeforeFromScript to dom
+          docs. Beside other things, this allows much easier handling
+          of top level nodes. The result tree may not be an XML
+          document, but a general parsed entity.
+
+        * tests/domNode.test  
+        * doc/domNode.*
+        * generic/tcldom.c: Improved speed of the getAttribute
+          shortcut '@attname' (and, not so notable, of tcl coded
+          methods of the dom, domDoc and domNode cmds). Corrected typo
+          in domNode usage msg for getElementByID. Improved error msg
+          for getAttribute, if attribute is not found. Changed
+          behavior of getElementByID: if no element with the given id
+          is found, returns now the emtpy string, not a TCL_ERROR
+          (closer to DOM rec, getElementByID never raise an
+          exception). Bug fix: nodeName now returns the per DOM rec
+          correct values for comment and cdata section nodes (were as
+          yet reported as if they where text nodes).
+
+        * tests/entity.test  
+        * generic/tclexpat.c: Better error msg in case of 'filename'
+          and not valid file name.
+
+        * tests/xpath.test: Documented behaviour in case of using
+          (senseless, wrong) 'xslt variable' in selectNode exprs.
+
+        * tests/xslt.test: More tests for script errors in external
+          entity handler or errors in the requested external
+          entities.
+  
+2004-07-19  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/domxslt.c: Better error msg in case of XML parsing
+          errors in external entities.
+
+        * generic/nodecmd.c: Bug fix: Check, if refnode given to
+          insertBeforeFromScript is valid.   
+    
+2004-07-13  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/domxslt.c: Ensure, that the first element node of
+          the result tree is the documentElement of the generated
+          document.  
+
+        * tests/xmlsimple.test
+        * generic/xmlsimple.c: Empty CDATA sections should not create
+          a node.
+  
+2004-07-08  Rolf Ade  <rolf@pointsman.de>
+        
+        * generic/tdominit.c: Test, if a non-mt tDOM is tried to load
+          into a mt tclsh.
+
+2004-05-26  Rolf Ade  <rolf@pointsman.de>
+
+        * doc/dom.*
+        * tests/dom.test
+        * tests/domNode.test
+        * tests/tdomcmd.test
+        * generic/tcldom.c
+        * generic/dom.c
+        * generic/dom.h
+        * generic/nodecmd.h
+        * generic/nodecmd.c: Added isPIName, isComment, isCDATA and
+          isPIValue method to the dom command. Created new global
+          (thread wide) flags for name and value checks (Names and FQ
+          Names (element, attribute and processing instruction names),
+          text nodes, comments, CDATA sections and processing
+          instruction values). New methods setNameCheck and
+          setTextCheck to control this flags. 
+
+        * generic/nodecmd.c: Bug fix in case of 
+          appendFromScript script.
+
+        * generic/domxslt.c: Uses the new domIsComment, domIsPINAME
+          and domIsPIValue API functions of dom.c. Improved
+          xsl:processing-instruction processing (now instantiating the
+          content).
+
+        * generic/domxpath.c: Minor editorial changes.
+
+        * tests/domCmd.test: Deleted this file, moved the tests to
+          the new dom.test or domDoc.test.
+
+        * tests/dom.test: Moved the tests from this file to the new
+          domNode.test and collected dom command tests here.
+
+        * tests/domDoc.test
+        * tests/domNode.test: Created this files, tests from dom.test
+          and domCmd.test.  
+
+        * doc/expat.*  
+        * tests/xpath.test
+        * tests/xslt.test: Minor changes.
+  
+2004-05-11  Rolf Ade  <rolf@pointsman.de>
+
+        * apps/xslt.tcl: Fixed the test for running in a source tree
+          with tcldomsh. (doh!)
+
+2004-05-08  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/xmlsimple.c: Removed superfluous arg baseURI from
+          XML_SimpleParse().
+
+        * generic/domhtml.c
+        * tests/htmlreader.test: Fixed html-2.1 and html-2.2. (This
+          html reader is crusty stuff...)
+
+2004-03-26  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/domxpath.c: Fix of the template priority calculation
+          and clearing out of xpathGetPrio().
+
+2004-03-14  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/xmlsimple.c: Fixed a few simple parser seg faults in
+          case of not-wf input. See xmlconf/xmltest/not-wf/sa/022.xml,
+          xmlconf/xmltest/not-wf/sa/042.xml for examples.
+
+2003-12-30  Rolf Ade  <rolf@pointsman.de>
+
+        * Makefile.in
+        * extensions/tdomhtml/pkgIndex.tcl.in
+        * extensions/tnc/Makefile.in: Doh! Undo the last changes; I
+          fixed this already 2003-10-12.
+
+        * generic/dom.c: Removed superfluous comma from the
+          tdomMethod enum, which bothered the AIX xlc compiler.
+
+        * generic/domxpath.c: Editorial change: Removed some
+          superfluous casts to (char*) from tdomstrdup result - its
+          defined to return char*.
+  
+        * generic/domxpath.h
+        * generic/domxpath.c
+        * tests/xslt.test
+        * generic/domxslt.c: Implemented the special constraints on
+          certain xpath pattern/expr (no current() func in pattern, no
+          var references in template and key match pattern and key use
+          expr, no key() func in key match pattern and use expr.)
+
+2003-12-24  Rolf Ade  <rolf@pointsman.de>
+
+        * Makefile.in
+        * win/pkgIndex.tcl:     
+        * extensions/tnc/pkgIndex.tcl.in
+        * extensions/tdomhtml/pkgIndex.tcl.in
+        * extensions/example/pkgIndex.tcl.in: Bug fix: Protect against
+          spaces in the path to the package.
+
+2003-12-20  Rolf Ade  <rolf@pointsman.de>
+
+        * win/pkgIndex.tcl: Also updated to new version nr 0.8.0.
+    
+2003-12-17  Rolf Ade  <rolf@pointsman.de>
+
+        * doc/domNode.*
+        * generic/tcldom.c: Added baseURI method, which returns the
+          current base URI and has an optional argument to set the
+          base URI. (The getBaseURI is deprecated.)
+
+2003-12-15  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/dom.c
+        * generic/domxslt.c: More fixes to ensure ns integrity of xslt
+          result trees.
+
+2003-12-14  Rolf Ade  <rolf@pointsman.de>
+
+        * tests/attribute.text: Made test results independent from the
+          (undefined) order of [array get].
+
+        * tests/dom.test: Build expected result of some tests with
+          [list], instead of providing a string rep. This hides the
+          changes in list string rep by TIP 148, so that the tests
+          work both with pre- and post TIP 148 tcl.
+
+2003-12-11  Rolf Ade  <rolf@pointsman.de>
+
+        * tests/xslt.test
+        * generic/domxpath.c: Bug fix: double mem free in case of
+          pattern w/ FQ element with positional dependent predicate.
+
+        * generic/dom.c
+        * tests/domCmd.test
+        * tests/pcdata.test
+        * tests/tdomcmd.test
+        * generic/tclexpat.c: Bug fix: Don't quash white space of non
+          white space only content in trim mode.
+
+2003-12-09  Rolf Ade  <rolf@pointsman.de>
+
+        * lib/tdom.tcl: Improved regexp to extract encoding. Corrected
+          typo.        
+    
+        * generic/domxslt.c
+        * generic/domxpath.c
+        * generic/dom.c: Bug fix in namespace handling: copy-of from
+          result tree fragments could mess up ns handling, if a
+          default namespace is already in scope in the result tree.
+
+2003-12-08  Rolf Ade  <rolf@pointsman.de>
+
+        * win/makefile.vc
+        * win/makefile805.vc: Also updated to verson nr. 0.8.0.
+
+2003-11-28  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/tcldom.c: Switched back to Tcl_Panic() in one case,
+          to make MT builds work.
+
+        * generic/domxslt.c
+        * generic/dom.c: With MT tDOM, a domDoc extRefHandler
+          script may be used within another thread.
+
+2003-11-27  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/domxslt.c
+        * generic/dom.c
+        * tests/xslt.tests: Another fix, to ensure namespace integrity
+          of the result doc.
+
+2003-11-26  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/domxslt.c
+        * tests/xslt.test: Fix, to ensure namespace integrity of the
+          result doc. Fixed parentNode of documentElement and siblings
+          of the result tree.
+
+2003-11-24  Rolf Ade  <rolf@pointsman.de>
+
+        * tests/tdomcmd.test: Added this file.
+
+        * generic/dom.c
+        * tests/dom.test: Don't include PIs inside the internal subset
+          into the tree.
+
+        * generic/tcldom.c
+        * generic/dom.h
+        * generic/domxslt.c
+        * tests/xslt.test
+        * generic/dom.c: Added domDoc methods omit-xml-declaration,
+          indent, standalone, encoding and mediaType.
+          
+        * generic/tclexpat.c
+        * generic/tclexpat.h  
+        * generic/dom.c: Changed parserObj behavior: parser don't need
+          a reset call after a final parse or parsing error.
+          
+        * tests/xslt.test  
+        * generic/domxslt.c: Bug fix: seg fault for document('') with
+          stylesheet tree with empty baseURI. Minor
+          optimizations. Fixed invalid memory read.
+
+        * generic/tcldom.c
+        * tests/dom.test: (Probably) temporarily disabled
+          automatically clean up of nodeObjCmds, to work around bug:
+          Storing the same node in different evaluation contexts with
+          the optional objVar argument (as in [$doc documentElement
+          root]) at the same time did not work.
+
+        * generic/domxpath.c: Fixed a mem leak with some sum() calls
+          with NaN result. Fixed invalid memory read.
+
+        * generic/tcldom.c: Fixed mem leak with
+          -externalentitycommand. Fixed mem leak with parsing xml
+          document with external entity and parsing error in an
+          external entity. Minor code clean up. 
+          
+        * tests/parser.test:  
+        * generic/tclexpat.c: Fixed memory problem, if handler script
+          return TCL_ERROR. Made the cget method work for the parser
+          related options, even if there are no handler scripts set.
+
+        * generic/tcldom.c  
+        * generic/dom.c
+        * generic/tclexpat.c
+        * generic/domlock.c: Always use domPanic as panic function.  
+
+2003-11-20  Rolf Ade  <rolf@pointsman.de>
+         
+        * generic/domxslt.c: Bug fix: Setting a top-level xslt param
+          with -parameters and using this param for setting another
+          top level var could end in seg fauld.
+
+2003-11-10  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/tcldom.c: Replaced a C++ style comment with a C
+          style comment.
+    
+2003-11-02  Rolf Ade  <rolf@pointsman.de>
+
+        * tests/xpath.test: Added a few tests related to declarations
+          to chapter 4.2 and 4.4 in the errata to the XPath rec.
+
+        * generic/domxpath.h: Fixed memory leak, if floor or ceiling
+          are called with non-numbers.
+
+2003-11-01  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/domxslt.c: Minor bug fix: Special handling is
+          needed, if xsl:copy-of is used, to copy namespace nodes.
+
+2003-10-26  Rolf Ade  <rolf@pointsman.de>
+        
+        * apps/xslt.tcl: Removed not needed code.
+
+        * generic/dom.c
+        * tests/dom.test: Bug fix: Under some circumstances it was
+          possible, that an URI change for a subtree was not stored in
+          the tree (resulting in wrong base URI for that nodes).
+
+        * generic/domxpath.c: number() bug fix: Now works according to
+          the XPath rec understanding of a Number, not with the libc
+          understanding of a double.
+
+        * generic/domxpath.c
+        * generic/dom.h
+        * generic/dom.domxslt.c: Globalized the macro IS_XML_WHITESPACE.
+
+2003-10-24  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/domxslt.c: Bug fix for document() func, if called
+          with 2 args and first arg evaluates to the empty
+          string. Improved error reporting, if an XSLT variable is
+          tried to reset, although there is already such a variable in
+          scope: now the name of the var is also reported in the error
+          msg.
+
+        * apps/xslt.tcl: Updated to use the new asText option.
+
+2003-10-23  Rolf Ade  <rolf@pointsman.de>
+
+        * expat/*
+        * CHANGES: Update to expat 1.95.7.
+    
+2003-10-22  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/domxpath.c
+        * tests/xpath.test: Bug fix in the xpath lexer: In a union
+          expr, a NCName test with a name equal to an operator was
+          wrongly interpreted as operator.
+    
+2003-10-21  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/domxslt.c: Fixed bug with current(), if it is used
+          in the select expr of an xsl:sort.
+
+        * generic/domxpath.c
+        * generic/domxpath.h
+        * generic/domxslt.c: Changed handling of key node sets. It's a
+          somewhat focused optimization, for the price of a very small
+          overall cost. I've done it anyway, because it's a very
+          notable speed up for an important xslt pattern (the so
+          called Muenchian Method for grouping). 
+
+        * generic/tcldom.c: Removed two unused variables.
+
+2003-10-17  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/dom.c: Fixed dom parse -channel option, which got
+          accidentally broken, due to the lately switch from
+          Tcl_GetStringFromObj() to Tcl_GetString().
+
+        * generic/tcldom.c: Added again some recently implemented methods to
+          domObj_usage and node_usage, which got accidentally removed
+          by the lately editorial changes.
+
+2003-10-16  Zoran Vasiljevic  <zv@archiware.com>
+
+	* generic/tcldom.c: added "dom detachDocument" command
+	  to match the already present "dom attachDocument".
+	  This is used only for threaded tdom builds.
+
+	* generic/domlock.c: changed lock caching to accomodate for
+	  situation with huge number of created documnents
+	
+	  Also, added new "domDoc" command as a first-class tdom citizen,
+	  analogous to the already existing "domNode". It operates on the
+	  document token.
+
+	  Attempt has been made to start to follow Tcl-style-guide
+	  but we still have a way to go. The first thing is to try
+	  to force the 78-chars margin where possible/feasible.
+	  Therefore, many of the source files have been cosmetically
+	  touched, without code or functionality changes.
+
+2003-10-12  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/domxpath.c
+        * generic/domxslt.c: Removed not used vars.
+
+        * generic/dom.c
+        * generic/dom.h
+        * generic/domhtml.c
+        * generic/tcldom.c
+        * generic/tclexpat.c
+        * generic/tclexpat.h
+        * generic/xmlsimple.c: Merged domCreateEmptyDoc() and
+          domCreateDoc(), now there is only one API proc:
+          domCreateDoc().
+
+2003-10-10  Rolf Ade  <rolf@pointsman.de>
+
+        * Makefile.in
+        * extensions/tdomhtml/pkgIndex.tcl.in
+        * extensions/tnc/Makefile.in: Fixed pkgIndex.tcl problem, if
+          the path to the packages contains a space.
+
+        * doc/domDoc.*
+        * doc/domNode.*
+        * CHANGES  
+        * generic/dom.h
+        * generic/dom.c
+        * generic/tcldom.c
+        * tests/domCmd.test: Added implementation for new method
+          normalize (and as a by-product a C implementation for the
+          method appendData).
+
+2003-10-09  Rolf Ade  <rolf@pointsman.de>
+
+        * tests/domCmd.test    
+        * generic/tcldom.c: Made code robust against renaming of
+          domDoc cmds (well, unlikely, not to say very unlikely, but
+          at least it also simplified code and reduces obj size by a
+          few bytes). Changed sharedDocs hash table (only MT build)
+          from TCL_STRING_KEYS to TCL_ONE_WORD_KEYS.
+
+2003-10-08  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/tcldom.c: Fixed the preliminary (and MT only) method
+          renumber.
+
+2003-10-07  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/nodecmd.c
+        * generic/nodecmd.h
+        * generic/tcldom.c
+        * tests/dom.test
+        * doc/domNode.*
+        * CHANGES: Added new method insertBeforeFromScript to
+          domNodes. Bug fixes for appendFromScript: In case of error
+          in the script, the tree will not be altered. The
+          appendFromScript may only be used for ELEMENT_NODEs.
+
+2003-10-04  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/domxpath.h: Removed prototypes of functions, which
+          are not implemented. Editorial changes.
+
+        * generic/domxpath.h
+        * generic/domxpath.c
+        * generic/domxslt.c
+        * generic/tcldom.c
+        * tests/dom.test
+        * tests/domCmd.test
+        * CHANGES
+        * doc/domDoc.*
+        * doc/domNode.*: Added new method 'asText' to domDocs and
+          domNodes. Renamed xpathGetTextValue() to
+          xpathGetStringValue(), to be more according to the vocabular
+          of the XPath rec.
+
+2003-10-01  Rolf Ade  <rolf@pointsman.de>
+        
+        * generic/dom.c: Removed unnecessary check of 
+          domModuleIsInitialized in domReadDocument(). Corrected typo
+          in a comment.
+
+        * generic/dom.c
+        * generic/dom.h
+        * generic/domxpath.c
+        * generic/domxslt.c
+        * generic/tcldom.c
+        * tests/dom.test: Reworked usage of nodeNumber. It is now used
+          only in one place, the new domPrecedes function. Also in
+          domPrecedes is a fall-back mechanism, which is used if the
+          document has an invalid node numbering. Removed the forced
+          re-numbering in case of invalid node numbering of the doc
+          for every single selectNodes. Added preliminary method
+          renumber for MT-enabled builds. Carefully reviewed every
+          rsAddNode usage in domxpath.c. Some minor editorial
+          changes.
+
+2003-09-28  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/tclexpat.c: Removed two unused vars.
+
+        * tests/domnamespace.test
+        * generic/dom.h: Changed type of domNameSpaceIndex, domNodeFlags,
+          domAttrFlags, domDocFlags and info in dom*Node structs from
+          int to unsigned int. This fixes bug with docs with more than
+          128 different namespaces.
+
+        * tests/xpath.test
+        * generic/domxpath.c: Bug fix: preceding-sibling axes could
+          give wrong results in case the context node is a child of
+          rootNode (e.g the documentElement).
+
+        * tests/dom.test
+        * generic/tcldom.c
+        * generic/dom.c: Bug fix for replaceChild: If the node to
+          replace was wrong, the doc got mangled. Bug fix for
+          appendChild, replaceChild: the new node could not be a
+          sibling or child of node. Speed improvment in some cases for
+          removeChild, replaceChild, appendChild.
+
+2003-09-22  Rolf Ade  <rolf@pointsman.de>
+
+        * tests/dom.test
+        * doc/domNode.*
+        * generic/tcldom.c
+        * generic/dom.c: Reworked insertBefore: Bug fix: If the
+          refNode was invalid, the involved documents got mangled. Bug
+          fix: Dead loop, if the node to insert was the node
+          itself. Bug fix: the rootNode of node's document could be
+          used as node to insert. Bug fix: It was not possible, to
+          insert a node before refNode, which was already a children
+          of node. Bug fix: It was not possible, to insert a sibling
+          of node. Feature enhancement: If the refnode is the empty
+          string, the newNode is inserted at the end of the children
+          list of node. Optimization: Average speed was O(n/2) (n:
+          number of childs of node) in case the node to insert was out
+          of the tree, and 0((n+m)/2) (m: number of nodes in the
+          fragments list) in case the node to insert was out of the
+          fragments list. Now its O(1). 
+
+        * tests/dom.test: Removed 'knownBug' constraint from two
+          tests, which documented known bugs, that are fixed in the
+          meantime.
+
+2003-09-17  Rolf Ade  <rolf@pointsman.de>
+
+        * tests/cdata,test
+        * tests/element.test
+        * tests/parser.test: Added a few tests related to the new
+          flexibility of the -elementstartcommand, -elementendcommand
+          and -characterdatacommand scripts.
+          
+        * doc/expat.*: Added documentation for the now implemented
+          cget method. Added information about the default for the
+          -paramentityparsing option.
+  
+        * generic/tclexpat.c
+        * generic/tclexpat.h: Enhanced the new cget method of
+          parserObjs to also report the state of -noexpand,
+          -useForeignDTD, -paramentityparsing (those by doing the
+          bookkeeping with an enhanced TclGenExpatInfo struct, because
+          the expat parser do not proived an API to request this
+          settings) and -namespace. Improved argument check of the
+          parser obj method calls. Optimization for calling handler
+          scripts.
+
+2003-09-16  Zoran Vasiljevic  <zoran@archiware.com>
+
+	* Makefile.in: added SHLIB_CFLAGS to set of compiler
+	  switches in order to silence the picky linker.
+
+2003-09-14  Rolf Ade  <rolf@pointsman.de>
+
+        * lib/tdom.tcl: Fixed scripting bugs in
+          ::dom::domDoc::importNode and ::dom::domNode::length    
+
+        * Makefile.in: dist target: Don't include CVS dirs and hidden
+          files into the distribution file.
+          
+2003-09-14  Zoran Vasiljevic  <zoran@archiware.com>
+
+	* Makefile.in
+	* configure
+	* configure.in: made more TEA-2 compatible by moving the
+	  tcldomsh target out. Also, honour the MATH_LIBS as
+	  calculated by the tcl.m4 instead of plumbing our own.
+	  Also, fixed "make dist" to produce distribution file.
+
+	* tclconfig/ChangeLog
+	* tclconfig/tcl.m4: imported fresh new versions from SF
+
+	* unix/CONFIG: cleanup
+	* macosx/README: cleanup
+
+2003-09-14  Rolf Ade  <rolf@pointsman.de>
+
+        Merged fixes from 0.7.8 into HEAD. This includes:
+
+        2003-08-06  Zoran Vasiljevic  <zoran@archiware.com>
+
+        	* generic/nodecmd.c: removed optimized domAppendChild1
+        	  in favour of generic domAppendChild since former was
+        	  trashing memory in certain situations.
+
+        2003-08-06  Rolf Ade  <rolf@pointsman.de>
+
+                * tests/all.tcl
+                * tests/domCmd.test: Added contraint need_uri, so that
+                  the few tests, which needs the tcllib uri package
+                  are skipped, if the uri package isn't present.
+
+        2003-07-06  Rolf Ade  <rolf@pointsman.de>
+
+                * generic/tclexpat.c: Fixed bug in the subtree skipping
+                  feature of event handlers. Should be merged with HEAD.
+
+                * lib/tdom.tcl: Fixed error reporting in
+                  tDOM::extRefHandler.
+
+        2003-07-03  Zoran Vasiljevic  <zoran@archiware.com>
+
+        	* generic/domlock.c: fixed double mutex unlock.
+
+        	* generic/tcldom.c: allows same thread to issue several
+        	  "attachDocument" commands to artificially bump the 
+                  document refcount thus making the document sticky.
+        	  
+        	  Also, fixed variable tracing issues when tearing down the
+        	  dom document. Now, all node object command variables are
+        	  automatically untraced. This prevents memory trashing when
+        	  such variables are unset by user or by Tcl.
+
+
+2003-09-14  Rolf Ade  <rolf@pointsman.de>
+        
+        * generic/tclexpat.c: Added cget method implementation for all
+          parser options with the exceptions of -namespace,
+          -useForeignDTD and -paramentityparsing. Revamped behind the
+          scene code for handling of the -elementstartcommand,
+         -elementendcommand and -characterdatacommand options. Up to
+          now, the arguments to this options must have been the name
+          of an already defined tcl proc. This allowed a special high
+          performance calling of that procs. The new code behaves
+          exactly the same way for every script, which worked with
+          previous versions. Additionally it allows, to specify a not
+          already defined tcl proc and, probably more important,
+          allows 'arbitrary' tcl scripts as argument to that
+          options. All in this checkin in the work of Harry Moreau
+          (hmoreau@online.ie). Many thanks for this contribution.
+
+2003-06-13  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/tcldom.c: Added an argument check for XSLTCmds.
+
+2003-06-11  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/domxslt.c: Fixed a bug in xsl:number. If there is no
+          'count' attribute given to xsl:number, it must default to
+          the pattern that matches any node with the same node type as
+          the current node and, if the current node has an
+          expanded-name, with the same expanded-name as the current
+          node. But in case of PROCESSING_INSTRUCTION_NODEs as the
+          current node and no 'count' attribute, it counted all pi's
+          regardless of the name. Now, the name is respected, as it
+          should be.
+    
+2003-06-11  Zoran Vasiljevic  <zoran@archiware.com>
+
+	* generic/domlock.c: fixed double mutex unlock.
+
+2003-05-19  Rolf Ade  <rolf@pointsman.de>
+
+        * doc/dom.*: Corrected the documentation of the
+          createDocumentNS method: the args uri and docElementName
+          were documented in the wrong order (reported by Vico
+          Klump). Minor markup changes.
+
+2003-05-16  Zoran Vasiljevic  <zoran@archiware.com>
+
+	* generic/dom.h 
+	* generic/tdom.decls
+	* generic/tdomDecls.h
+	* generic/tdomStubInit.c 
+	* generic/tdomStubLib.c 
+	* generic/tdominit.c: fixed so it compiles cleanly when 
+	  -NS_AOLSERVER is defined.
+
+2003-05-16  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/dom.h
+	* generic/tcldom.c
+	* generic/domxslt.c
+	* generic/tclexpat.c: Switched to use XML_ParserCreate_MM(), to be
+	  able (at tDOM build time) to make the expat parser use custom
+	  *alloc/free() functions (macro MEM_SUITE in dom.h). For
+	  TCL_MEM_DEBUG and NS_AOLSERVER builds the mem functions, used by
+	  the parser default now to Tcl_Alloc()/Tcl_Realloc()/Tcl_Free().
+	  Switched to XML_FreeContentModel(), for freeing stored element
+	  content models.
+
+2003-05-11  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/dom.c
+        * generic/domxslt.c
+        * generic/xmlsimple.c: Renamed the documents rootNode (in the
+          sense of the XPath data model, that is not the document
+          element) from "(rootNode)" to "", in preparation for the
+          promissed 'domDoc without documentElement' feature, to fix a
+          somewhat outlying problem with xslt numbering and because
+          it's clearly more the 'right thing' according to the rec.
+
+        * generic/domxslt.c: Removed the arg xs from
+          sortNodeSetFastMerge(), because it isn't used.
+
+2003-04-20  Rolf Ade  <rolf@pointsman.de>
+
+        * extensions/tdomhtml/tdomhtml.tcl: Proc newdoc: New optional
+          argument (list of names of local variables) allows the use
+          of local variables (in the scope of the caller of newdoc) in
+          the script argument of newdoc. Contributed by Chuck Ferril.
+
+2003-04-16  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/domxslt.c: Optimization: Improved caching of
+          external documents.
+
+2003-04-12  Rolf Ade  <rolf@pointsman.de>
+
+        * README
+        * README.AOL
+        * configure.in
+        * configure
+        * configure-8.0.5
+        * tests/loadtdom.tcl
+        * mac/Prefix/tDOMPrefix.h
+        * mac/Prefix/tDOMPrefix_OSX.h    
+        * extensions/tnc/tnc.c: Bumped version to 0.8.0 (alpha).
+
+2003-04-09  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/dom.c: Fixed a bug in the creation of the error msg
+          in case of parsing errors in an external entity.
+
+        * generic/dom.c
+        * generic/dom.h
+        * generic/domxslt.c
+        * tests/domCmd.test
+        * doc/dom.*
+        * generic/tcldom.c: Added option -paramentityparsing to the
+          [dom parse] method. [dom parse] option parsing now uses
+          Tcl_GetIndexFromObj() (which additionally fixes a minor bug
+          with the current option parsing).
+        
+        * generic/tcldom.c: Removed an unused variable. Improved error
+          reporting in case of not found attribute. Better options
+          check for the 'xslt' methods. Changed implementation of the
+          dom method isQName to use the lately introduced API function
+          domIsQNAME.
+
+        * generic/tclexpat.c
+          tests/parser.test: Fixed a bug in the value parsing of the
+          -paramentityparsing option.
+
+        * tests/domCmd.test: Added tests for the interface of the
+          xsltCmds.
+
+        * tests/xpath.test: Added test which documents the bug prior
+          to domxpath.c r1.63.  
+  
+        * doc/dom.*: Added 'package require tdom' to the syntax
+          decription (http://groups.yahoo.com/group/tdom/message/446)
+
+        * doc/domDoc.*: Added documentation for the toXSLTcmd method
+          and the resulting xsltCmds. Corrected the documentation for
+          the xslt method (missed -ignoreUndeclaredParameters and
+          -xsltmessagecmd in the method syntax).  
+          
+2003-04-05  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/tclexpat.c: Bug fix: If the parsing state is already
+          not TCL_OK return in the notstandalonehandler immediately
+          success, otherwise the error msg will be overwritten with a
+          false diagnostic. A few editorial changes.
+
+2003-04-04  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/dom.c 
+        * generic/dom.h: Added domIsQNAME.
+
+        * generic/dom.c: Bug fix: For textNodes getLine/getColumn
+          method report the position of the first char of the text
+          node.
+
+        * generic/domxpath.c: Bug fix: Detects now some erroneous
+          XPath expressions. Added parameter number check to XPath
+          functions substring and concat (the last two XPath
+          functions, without such check, they must have slipped thou
+          somehow, up to now).
+
+        * generic/domxslt.c: Improved interal function reportError(),
+          can now be used with all kind of nodes not only element
+          nodes. Improved behavior in case of dubious numbering
+          (negative roman number or latin letters fall back to default
+          latin numbers). Fixed a potential memory leak (in case of
+          overwriting named templates without match attribute with an
+          other named template). Improved error reports: for more
+          detected errors there is now a line/column number
+          given. Plenty of improvements in detecting erroneous
+          stylesheets: more checks for format-number formatting
+          patters (although especically format-number patterns are
+          still a can of worms), added parameter number check for
+          additional XPath function current(), template, paramter,
+          variable, sort, choose, copy, and message elements.
+
+2003-03-26  Rolf Ade  <rolf@pointsman.de>
+        
+        * generic/domxslt.c: Fixed some memory problems, mostly in
+          case of erroneous stylesheets.
+
+--- Release 0.7.7, 25. Mar. 2003 ---
+
+2003-03-25  Rolf Ade  <rolf@pointsman.de>
+        
+        * configure.in
+        * configure
+        * configure-tcl8.0.5
+        * README
+        * README.AOL
+        * win/makefile.vc
+        * extensions/tnc/makefile.vc
+        * mac/Prefix/tDOMPrefix.h
+        * mac/Prefix/tDOMPrefix_OSX.h
+        * mac/tDOM_OSX.prj.xml: Bumped the version number to 0.7.7.
+
+        * generic/tcldom.c: Fixed error, which prevents building 0.7.6
+          with -DTCL_THREADS=1. (Arrrg.)
+
+--- Release 0.7.6, 24. Mar. 2003 ---
+
+2003-03-22  Rolf Ade  <rolf@pointsman.de>
+
+        * mac/Prefix/tDOMPrefix.h
+        * mac/Prefix/tDOMPrefix_OSX.h
+        * mac/Prefix/tncPrefix.h
+        * mac/Prefix/tncPrefix_OSX.h
+        * mac/tDOM_OSX.prj.xml: Final tweaking for 0.7.6.
+
+        * expat/VERSION
+        * expat/expat.h: Updated to an after 1.95.6 version, which
+          fixes the problem, that some compilers had with the 1.95.6
+          version.
+
+2003-03-22  Rolf Ade  <rolf@pointsman.de>
+
+        * README
+        * README.AOL
+        * configure.in
+        * configure
+        * configure-tcl8.0.5
+        * mac/tDOM.r
+        * mac/tDOM_OSX.prj.xml
+        * mac/tnc.r
+        * extensions/tnc/makefile.vc: Updated to new version number 0.7.6.
+        
+        * mac/tDOM/*: Added dir/files, to have a version number
+          independed output dir for the mac build.
+
+        * mac/tDOM.0.7.5/*
+        * mac/tDOM.0.7.5: Removed in favor of a version-less tDOM
+          output directory.
+
+        * configure
+        * configure.in: tdomstub_BUILD_SPEC must point to the
+          plattform specific build dir.
+
+        * generic/tcldom.h: Removed hard coded version number, uses
+          now VERSION define.
+          
+        * win/makefile.vc
+        * win/makefile805.vc
+        * win/pkgIndex.tcl: Updated to new version 0.7.6.
+
+        * extensions/tnc/tnc.c
+        * extensions/tnc/tests/tnc.c: Added code needed to handle
+          effects of the -useForeignDTD option.
+          
+        * doc/domNode.*
+        * generic/tcldom.c
+        * tests/dom.test: Renamed 'startBefore' method to the better
+          name 'precedes' and changed behavior: the method now
+          returns simply a boolean value.
+
+2003-03-19  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/tcldom.c    
+        * generic/domxslt.c    
+        * generic/dom.h    
+        * generic/dom.c: Replaced a few exit() code with Tcl_Panic(),
+          which ensures, that even windows users get a useful error
+          msg.
+
+        * generic/dom.c: Fixed a mem leak in handling external
+          entities.
+
+        * doc/expat.*
+        * doc/dom.*
+        * tests/domCmd.test
+        * tests/data/domCmd1.dtd
+        * tests/data/domCmd2.dtd
+        * tests/entity.test
+        * lib/tdom.tcl  
+        * tests/domCmd.test
+        * generic/tclexpat.c  
+        * generic/tcldom.c  
+        * generic/domxslt.c
+        * generic/dom.h
+        * generic/dom.c: Added option -useForeignDTD to dom parse 
+          and expat.
+
+        * generic/domxslt.c: Fixed several potential memory leaks
+          while processing erroneous stylesheets. Bug fix: added
+          missing memory clean to grouping-separator/grouping-size
+          support.
+
+        * generic/tcldom.c: Fixed potential memory problem while
+          processing erroneous stylesheet. Improved error msg in
+          case of script errors in the -externalentitycommand
+          script.
+
+        * doc/domNode.*
+        * tests/dom.test
+        * generic/tcldom.c: Added method 'startBefore', to compare the
+          relative order of two nodes out of the same document.
+  
+        * generic/nodecmd.c: Added explicit memory clean up of the
+          nodecmd stack, to reduce 'noice' while memory leak
+          debugging.
+
+        * tests/dom.test: Added a reminder for a minor known memory
+          problem.  
+
+        * tests/data/mondial-europe.xml: Added this file (used by the
+          usage example of xe).
+          
+        * xe/xe-input: Changed pathes to point to the location of
+          mondial-europe.xml.
+  
+2003-03-19  Zoran Vasiljevic  <zoran@archiware.com>
+
+	* Makefile.in: installs the tdomConfig.sh into the
+	  $(libdir) whatever that points to.
+
+2003-03-08  Zoran Vasiljevic  <zoran@archiware.com>
+
+	* expt/internal.h: disabled FASTCALL & friends
+	  since those do not work anywhere, as of my knowledge.
+
+2003-03-06  Zoran Vasiljevic  <zoran@archiware.com>
+
+	* generic/domalloc.c: removed include malloc.h since 
+	  not needed nor not found on macosx
+
+	* configure.in: adds "-lm" even when linking the shared image
+	  since Starkit users need that. Also, fixed alternative libdir
+	  usage when installing in non-standard (user-given) location.
+
+	* unix/CONFIG: new file. Adds some examples how to build
+	  the extension on some common Unix platforms.
+
+	* mac: added Bernards CodeWarrior files for Mac builds.
+	* macosx: added directory where we will supply the ProjectBuilder
+	  files (hopefully :)
+
+2003-03-03  Rolf Ade  <rolf@pointsman.de>
+
+        * tests/dom.test    
+        * generic/tcldom.c: Fixed bug with using the 'domNode' cmd
+          without argument (spotted by Bernard Desgraupes).
+
+2003-02-27  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/domxslt.c: xsl:number attributes grouping-separator
+          and grouping-size now also interpreted as attribute value
+          templates. (The last two (missing up to now only by mistake)
+          attribute value templates under the recognized xsl
+          attributes.) 
+
+2003-02-26  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/tcldom.c: Removed unused variables.
+
+        * lib/tdom.tcl
+          generic/dom.c: Improved ::tDOM::xml(Read|Open)File. Now
+          handles also utf-16 files with BOM right.
+
+        * generic/domxslt.c: Made some functions static. Removed a
+          TODO note, which already was done. Improved some error msgs
+          (now with line/column info, if avaliable). Bug fix:
+          xsltXPathFuncs must return -1 to signal error, because if
+          the source of the function call was inside of domxslt.c the
+          result code (rc) check rule is rc < 0. Fixed text in a
+          xsl:attribute error msg. Fixed memory leak in error case in
+          ExecAction, case forEach. Added a missing result code check
+          in ExecAction, case procinstr. Bug fix: Even literal result
+          element subtrees are relevant for xslt variable scope
+          (default case of ExecAction). Bug fix: the expression
+          context of the match expr of a xsl:template is the
+          xsl:template node. Now the xslt white space stripping is
+          done before the top level processing (was done after
+          toplevel processing).
+    
+2003-02-25  Rolf Ade  <rolf@pointsman.de>
+
+        * expat/VERSION    
+        * expat/internal.h: Applied post 1.95.6 patch, to fix compiler
+          warnings ("warning: `regparm' attribute directive ignored")
+          from gcc on Solaris.
+
+2003-02-22  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/tcldom.c
+        * generic/tdom.decls
+        * generic/tdom.h
+        * generic/tdomDecls.h
+        * generic/tdomStubInit.c: Added tcldom_getNodeFromName(),
+          tcldom_getDocumentFromName() and the dom.h typdefs to the
+          tDOM stubs table. Needed for the new tnc feature (and
+          elsewhere, on the long run).
+
+        * doc/tnc.*  
+        * extensions/tnc/configure
+        * extensions/tnc/configure.in
+        * extensions/tnc/makefile.vc
+        * extensions/tnc/test.tcl
+        * extensions/tnc/tnc.c: Added new tnc method getValidateCmd.
+          Changed to use the same memory allocator/free defines as
+          the tDOM core. Bumped the version to 0.3.
+  
+        * extensions/tnc/tests
+        * extensions/tnc/tests/all.tcl
+        * extensions/tnc/tests/loadtnc.tcl
+          extensions/tnc/tests/tnc.test: Started test suite for the
+          tcl interface of the tnc command and the validator
+          commands. 
+        
+        * generic/tclexpat.c: Better eContents cleanup. Bug fix: of
+          course we have to call the parserResetProcs of the
+          registered C handler sets while reseting the expat parser
+          command.
+
+        * lib/tdom.tcl: Smaller fixes. Changed the values of the
+          system-properties xsl:vendor (included me) and
+          xsl:vendor-url (to http://www.tdom.org).
+  
+2003-02-22  Zoran Vasiljevic  <zoran@archiware.com>
+
+	* generic/dom.h: Added (char*) cast to argument of Tcl_Free
+	  in the FREE macro. This avoids some compiler warnings.
+	* generic/dom.c: Added some typecasts to MALLOC to avoid
+	  compiler warnings.
+
+2003-02-21  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/domxslt.c: Bug fixes: Return after detecting the
+          error (xsltPathFuncs), ensure that savedLastNode is always
+          set right (ExecAction, case copy). Editorial changes.
+
+        * configure.in
+        * Makefile.in
+        * configure
+        * configure-tcl8.0.5: Don't remove tdomConfig.sh with a 'make
+          clean', only with a 'make distclean'.
+    
+2003-02-09  Rolf Ade  <rolf@pointsman.de>
+
+        * expat/*: Update to expat 1.95.6.
+
+        * apps/xslt.tcl: Updated to use the new -xsltmessagecmd option
+          of the xslt method and the -doctypeDeclaration of the
+          asXML/asHTML methods. Added a few comments.
+
+2003-02-09  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/dom.c
+        * generic/dom.h
+        * generic/domxslt.c
+        * generic/tcldom.c        
+        * doc/domDoc.*
+        * tests/domCmd.test: Public and system identifier information
+          are now stored (if parsed with the expat parser or generated
+          by the xslt engine, if given), exposed to the script level
+          (even writable, more than DOM 2 allows) and will be, on
+          demand, respected while serializing.
+
+        * generic/dom.c: Bug fix: Hold ID => node mapping consistent
+          even after resetting or removal of known ID attributes.
+
+        * generic/domxslt.c: Bug fix: invalid memory read.
+  
+        * generic/tcldom.c: Bug fix: invalid memory read.
+
+2003-01-30  Rolf Ade  <rolf@pointsman.de>
+        
+        * generic/dom.c
+        * generic/tcldom.c
+        * generic/xmlsimple.c
+        * tests/xslt.tests: Fixed bug reported by Wilhelm Klink
+          (http://groups.yahoo.com/group/tdom/message/404 see test
+          xslt-4.1). Again a problem (sideeffect) of renumbering
+          node->nodeNumber (which is necessary after modification of
+          the tree for some XPath expr to work). The keys of the
+          entries in the baseURIs hash table of the documents where
+          the nodeNumber of the (subtree root) nodes with new
+          baseURI. Since this nodeNumber isn't necessarily constant
+          over the lifetime of a node (because of the possibility of
+          re-numbering the tree), this could not work anymore. Instead
+          the nodeNumber, we now use the pointer to the node structure
+          as Key for the baseURIs hash table. This pointers stay
+          always constant, even if the nodeNumber changes. Additional
+          code was added to domFreeNode(), to ensure, that an entry in
+          the baseURIs hash table gets freed, if the related node is
+          in deed freed. Removed the yesterday added reseting of the
+          domUniqueNodeNr counter, because it turned out in testing,
+          that there are problems with sorting of resultSets, which
+          includes nodes from different documents (which may happen
+          with some special XSLT constructs (document() calls with a
+          nodeset as argument)). The reseting of the domUniqueNodeNr
+          is still desirable, but it turned out, that it should be
+          carefully considered, when it should be done.
+
+2003-01-29  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/dom.c
+        * generic/tcldom.c
+        * tests/xslt.test: Changed escaping of serialized XML. The
+          previous behavior wasn't 'wrong', but now we do it along the
+          lines of almost all other (important) tools and it seems
+          there's al least some xslt code out there, which banks on
+          this 'common' way of serializing. Though, there is a small
+          risk, that this is an incompatible change for a few users.
+
+        * generic/dom.c
+        * generic/dom.h
+        * generic/xmlsimple.c
+        * tests/dom.test: Fixed the problem of 'changing node
+          references' under some circumstances (reported by Wilhelm
+          Klink). This also decrease the possibility of a potential
+          problem for extremely long running single threaded tDOM
+          applications.
+
+        * generic/dom.c
+        * generic/tcldom.c
+        * tests/dom.test: Fix for the problem with ownerDocument
+          reported by Oleg Oleinick (see test dom-29.1).
+
+        * generic/tcldom.c
+        * tests/dom.test: Fixed bug with COMMENT_NODEs while using the
+          asList method (problem reported by Ramon Ribó). While at it,
+          also added code for handling processing instructions, which
+          was also missing, up to now.
+
+2003-01-11  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/dom.c
+        * generic/dom.h
+        * generic/domxslt.c
+        * generic/domxslt.h
+        * generic/tcldom.c: Added conversion of XSLT stylesheet DOM
+          trees to 'cached' xslt cmds (new domDoc method
+          toXSLTcmd). Works for non threaded tcl; needs additional
+          work for multi-threaded tcl and documentation.
+
+        * generic/domxslt.c: Fixed a bug introduced during rework of
+          the white space stripping for XML sources.
+
+        * generic/tclexpat.c: Editorial change (Typo in comment)
+  
+2002-12-28  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/domxslt.c
+        * generic/domxslt.h
+        * generic/tcldom.c
+        * doc/domNode.*
+        * doc/domDoc.*
+        * tests/xslt.test: The xslt method now understands also the
+          options -ignoreUndeclaredParameters and -xsltmessagecmd.
+
+        * tests/xpath.test
+        * generic/tcldom.h: Editorial changes.
+
+2002-12-23  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/domxslt.c: Reworked the white space stripping for XML
+          sources a bit. Better white space handling in token lists.
+
+2002-12-21  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/domxpath.c: Fixed the changes by me in rev. 1.60 in
+          the XPath Lexer.
+
+2002-12-20  Zoran Vasiljevic  (zoran@archiware.com)
+
+	* generic/tcldom.c
+	* generic/dom.c
+	* generic/domxpath.c
+	* generic/domalloc.c
+	* generic/domhtml.c
+	* generic/docxpath.c: added DBG macro arround some fprintf's
+
+2002-11-28  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/domxslt.c: Reuse already parsed trees only if it is
+          requested again for the same matter (as stylesheet or as
+          source dir), otherwise create a new tree, because of the
+          different white space stripping rules for stylesheets and
+          source documents.    
+
+2002-11-27  Rolf Ade  <rolf@pointsman.de>
+         
+        * win/makefile805.vc: Added this file. VC++ 6.0 makefile to
+          compile against tcl8.0.5, contributed by Sumit Pokhariyal.
+
+        * generic/domxpath.c: FQ names with a localname equal to a
+          XPath 'keyword' (for example ns1:div) are now recognized as
+          node test (they raised error up to now). Changed
+          generate-id() to return the more generic named 'id<idstr>'
+          instead of the up to now used 'node<idstr>'.
+
+--- Release 0.7.5, 27. Nov. 2002 ---
+
+2002-11-24  Rolf Ade  <rolf@pointsman.de>
+
+        * Makefile.in: Changed the order of the include dirs, to avoid
+          clash with tcldom.h out of TclDOM-2.4, which will be
+          installed in the same directory as tcl.h
+
+2002-11-22  Rolf Ade  <rolf@pointsman.de>
+
+        * configure-tcl8.0.5: Added this file. Special configure for
+          Tcl8.0.5 users.
+        
+        * README: Updated notes for Tcl8.0.5 users.  
+
+2002-11-21  Rolf Ade  <rolf@pointsman.de>
+
+        * doc/expat.*: We don't have a 'provide expat' anymore, it's
+          all tdom. Fixed a typo.
+
+2002-11-17  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/domxslt.c: Report error, if xsl:import elements not
+          come first.
+
+        * doc/tnc.*: Better wording.
+  
+2002-11-16  Rolf Ade  <rolf@pointsman.de>
+
+        * win/makefile.vc
+        * extensions/tnc/makefile.vc: A bit final tweaking for 0.7.5.    
+
+2002-11-16  Zoran Vasiljevic  <zoran@archiware.com>
+
+	* generic/dom.h
+	* generic/dom.c
+	* generic/tcldom.c
+	* generic/tclStubLib.c: fixed references to panic (now Tcl_Panic)
+	  Also, fixed some 8.0.5 compilation issues.
+
+        * README: added some 8.0.5 compilation notes
+
+2002-11-16  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/tcldom.c: Fixed bugs, which only raised there head
+          if compiled against tcl8.0.5.
+
+        * tests/all.tcl  
+        * tests/loadtdom.tcl
+        * tests/domCmd.test
+        * tests/domnamespace.test
+        * tests/htmlreader.test
+        * tests/i18n.test
+        * tests/xmlsimple.test
+        * tests/xslt.test: Made test suite also running under
+          tcl8.0.5. Added constraint to the tests, which uses i18n tcl
+          features.
+        
+        * doc/tnc.xml
+        * doc/tnc.html
+        * doc/tnc.n: Updated documentation.  
+
+2002-11-15  Zoran Vasiljevic  <zoran@archiware.com>
+
+	* generic/dom.h: added IS_DELETED node flag
+	  Changed domFreeNode to accept one additional parameter.
+	  This parameter is used to signal the function to 
+	  perform node-walk and invoke user-supplied callback w/o
+	  actually freeing the node. This functionality is required
+	  for example when a thread detaches from the shared DOM tree
+	  and wants to detach all eventual node commands from its
+	  interpreter.
+ 	  Added "struct domNode *deletedNodes" in the document structure
+	  This is the head of all nodes spliced out of the tree but not
+	  yet free'd. This is needed in order to avoid memory trashing
+	  when one thread deletes the node and the second thread still
+	  holds the reference to it over the nodecmd command.
+	  Added "struct domNode *nextDeleted" to maintain the list of
+	  deleted nodes, as explained above.
+	
+	* generic/tcldom.c: introduced changes in the way nodes are
+	  deleted from the tree in multi-threading shared-tree situations.
+	  We now do not delete nodes having references from nodecmds from
+	  different threads/interpreters. Instead, we put them on the 
+	  deleted nodes list and tear-down this list when we delete the
+	  document. 
+
+	* generic/tcldom.c: when a thread detaches from the shared dom tree
+	  it will now properly delete all commands attached to nodes.
+	  Also, the dom object command barks when attempting to use already
+	  deleted node (the node put on the deletion list).
+	
+2002-11-15  Rolf Ade  <rolf@pointsman.de>
+
+        * tests/dom.test: Added some tests for as yet not covered node
+          methods.
+
+        * tests/htmlreader.test: Minor fix: added tcltest cleanup.
+
+        * generic/tcldom.c: Changed 'attributes' method to return the
+          empty string as result for non element nodes, according to
+          the DOM 2 rec, chapter "Interface Node". Fixed a seg fault
+          in hasAttributeNS. Closed a mem leak in appendXML.
+
+        * lib/tdom.tcl: Added simple debugging feature to
+          tDOM::extRefHandler.
+
+2002-11-14  Zoran Vasiljevic  <zoran@archiware.com>
+
+	* generic/tcldom.c: fixed UMR report from Purify
+
+2002-11-12  Rolf Ade  <rolf@pointsman.de>
+
+        * win/makefile.vc
+        * extensions/tnc/makefile.vc: Updated to the new version nr
+          and the lib name convention of the new TEA 2 build system.
+
+2002-11-09  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/tcldom.c: HTML serializer: No content escaping for
+          the HTML tags script and style, according to XSLT rec
+          16.2. Fixed a memory problem during interp deletion.
+
+        * generic/dom.c
+        * generic/domxpath.c: Minor changes.
+
+2002-11-03  Rolf Ade  <rolf@pointsman.de>
+
+        * lib/tdom.tcl: tDOM::xmlOpenFile fix for files < 4 Byte size.    
+        
+        * generic/domxpath.c
+        * generic/domxpath.h: Fixed ridiculously long runtime of
+          certain // expr on certain documents. During analysis and
+          testing, it turned out, that it would have been an even
+          simpler approach, to simply expand the abbreviation // in
+          the according productions. Though, the choosen implentation
+          seems often to be (slightly) faster and is a start to
+          collect experiences with early predicate evaluation.
+
+2002-11-02  Zoran Vasiljevic  <zoran@archiware.com>
+
+	* lib/tdomhtml.tcl: removed in favour of new tdom extension
+
+	* extensions/tdomhtml: added new tdom extension for HTML
+	  generation based on tdomhtml.tcl and internal tdom 
+	  appendFromScript mechanism. This is a Tcl-only extension
+	  which merely needs to be "make install"'ed.
+
+	* Makefile.in: removed traces of tdomhtml.tcl file since it
+	  now lives in its own extension
+
+ 	* configure.in:
+	* configure: added TDOM_LD_SEARCH_FLAGS processing to help
+	  runtime linker locate eventual custom shared libraries
+
+2002-11-01  Rolf Ade  <rolf@pointsman.de>
+
+        * Makefile.in: Fixed 'missing separator' problem (using tab
+          instead of white space).
+
+        * lib/tdom.tcl: Updated function-available, corrected
+          ridiculous typo by my (element-avaliable ->
+          element-available). Somewhat fixed and updated
+          element-available.
+
+        * generic/domxpath.c
+        * tests/xpath.c: Full qualified XPath function names now are
+          accepted as syntactical correct expr. The function call is
+          resolved to the Tcl proc
+          dom::xpathFunc::<namespaceURI>::<functionLocalname>.
+
+        * generic/dom.c
+        * generic/dom.h
+        * generic/domxslt.c
+        * generic/nodecmd.c
+        * generic/tcldom.c
+        * tests/xpath.test: Fixed old problem with Combine Set XPath
+          expressions and XSLT sorts on trees, in which new nodes are
+          inserted after the initial parsing (doc order of result).
+    
+2002-10-31  Zoran Vasiljevic  <zoran@archiware.com>
+
+	* lib/tdom.tcl: does now "package require tdom" only,
+	  instead of "package provide tdom 0.7.5".
+	  The "package provide" with a correct version is
+ 	  done by the C-module now (which is better).
+	  Some cosmetic changes as well (keep 80-columns wide!).
+
+  	* lib/tdomhtml.tcl: renamed version of domhtml.tcl
+	  Also did some simplification in html2tcl, renamed some
+	  internal private functions and added namespace-wide 
+	  definitions of html command names. The _2tcl procedure
+	  now creates the missing elementNode commands as it
+	  parses the html code, on the fly.
+
+	* Makefile.in: changed order of loads in the pkgIndex.tcl.
+	  First the C-module is loaded, followed by the tdom.tcl 
+	  library file, followed by the tdomhtml.tcl library file.
+ 	  Thus, the tdomhtml.tcl has become the first class citizen.
+
+	* CHANGES: added this file
+
+2002-10-31  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/tcldom.c
+        * tests/dom.test: Fixed argument check of domObj method
+          documentElement. Fixed domNode method appendFromList (wrong
+          list format could result in seg fault). Thanks to Oleg
+          Oleinick, for reporting both problems.
+
+        * generic/domxslt.c
+        * generic/domxpath.c
+        * generic/dom.c: Fixed mem leaks/possible invalid read
+    
+2002-10-30  Zoran Vasiljevic  <zoran@archiware.com>
+
+	* generic/domxslt.c: added proper cast to arguments passed to
+	  FREE() macro to avoid compiler barking at us.
+
+2002-10-30  Rolf Ade  <rolf@pointsman.de>
+
+        * generic/tcldom.c: Added -escapeNonASCII and -htmlEntities
+          also to node_usage and domObj_usage.
+
+        * extensions/tnc/test.tcl: Updated to use new tDOM
+          features. Made more usable.    
+
+        * apps/xslt.tcl: Updated to using domDoc xslt method,
+          -escapeNonASCII for asXML and asHTML and additionally
+          -htmlEntities for asHTML.
+
+	* generic/domxslt.c: Implemented "Forwards-Compatible
+          Processing" (XSLT rec 2.5), with limitations: xsl:version
+          attributes on literal result elements are not
+          supported. Fixed a bug in XPath func
+          format-number(). XsltProcess now accepts also a
+          domDoc. Improved the setting of the documentElement of the
+          resultDoc.
+
+2002-10-29  Rolf Ade  <rolf@pointsman.de>
+
+	* generic/tcldom.c:
+        * doc/domDoc.*
+        * doc/domNode.*: Added -escapeNonASCII as option to the asXML
+          and asHTML methods and -htmlEntities as option to the asHTML
+          method. Added "xslt" method to domDoc commands.
+
+	* generic/dom.c: Better error reporting in case of parsing
+          errors in external entities.
+
+        * doc/expat.*: Fixed a documentation bug.
+  
+2002-10-29 Zoran Vasiljevic <zoran@archiware.com>
+
+	* generic/tcldom.c
+	* generic/nodecmd.c
+	* generic/nodecmd.h: modified "dom createNodeCmd" to accept the
+        -returnNodeCmd" optional argument. All commands created
+	with this option willreturn the dom object command for accessing 
+	the generated node.
+	
+	* ChangeLog: added this file

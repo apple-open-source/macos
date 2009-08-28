@@ -35,6 +35,8 @@
 extern "C" {
 #endif
 
+typedef struct KRBhelperContext *KRBHelperContextRef;
+
 /*
 	KRBCreateSession will start a kerberos session and return a pointer to a kerberosSession that is passed to the other SPIs.
 		inHostName is the name of the host to get the service principal and/or user principal for.  If inHostName is NULL, it is
@@ -43,14 +45,38 @@ extern "C" {
 			and is given the least priorty when other information is available
 		outKerberosSession is a pointer that should be passed to the other KRB functions.
 */
-OSStatus KRBCreateSession (CFStringRef inHostName, CFStringRef inAdvertisedPrincipal, void **outKerberosSession);
+OSStatus KRBCreateSession (CFStringRef inHostName, CFStringRef inAdvertisedPrincipal, void **outKerberosSession)
+    /* __attribute__((deprecated)) use KRBCreateSessionInfo */;
+
+
+/*
+	KRBCreateSession will start a kerberos session and return a pointer to a kerberosSession that is passed to the other SPIs.
+		inDict is a dictionary that should contain the following keys:
+
+			kKRBHostnameKey	the name of the host to get the service principal and/or user principal for.  If inHostName is NULL, it is
+					assumed that the local machine is the target.
+		Optional keys:
+			kKRBAdvertisedPrincipalKey
+					is a service principal guess (can be NULL), perhaps provided by the service. This is not secure 
+					and is given the least priorty when other information is available
+			kKRBNoLKDCKey	Don't try Local KDC if it will mean time penalties
+
+		outKerberosSession is a pointer that should be passed to the other KRB functions.
+*/
+
+
+OSStatus KRBCreateSessionInfo (CFDictionaryRef inDict, KRBHelperContextRef *outKerberosSession);
+
+#define	kKRBHostnameKey					CFSTR("Hostname")
+#define	kKRBAdvertisedPrincipalKey			CFSTR("AdvertisedPrincipal")
+#define	kKRBNoLKDCKey					CFSTR("NoLKDC")
 
 /*
 	KRBCopyREALM will return the best-guess REALM for the host that was passed to KRBCreateSession
 		inKerberosSession is the pointer returned by KRBCreateSession
 		outREALM is the REALM of the host
 */
-OSStatus KRBCopyRealm (void *inKerberosSession, CFStringRef *outRealm);
+OSStatus KRBCopyRealm (KRBHelperContextRef inKerberosSession, CFStringRef *outRealm);
 
 /*
 	KRBCopyKeychainLookupInfo will return a dictionary containing information related to Kerberos and keychain items.
@@ -63,15 +89,15 @@ OSStatus KRBCopyRealm (void *inKerberosSession, CFStringRef *outRealm);
 		
 		outKeychainLookupInfo
 			kKRBUsernameKey					: CFStringRef
-			kKRBKeychainAccountName			: CFStringRef
+			kKRBKeychainAccountNameKey			: CFStringRef
 			kKRBDisableSaveToKeychainKey	: CFBooleanRef
 		
 */	
 #define	kKRBDisableSaveToKeychainKey		CFSTR("DisableSaveToKeychain")
-#define kKRBKeychainAccountName				CFSTR("KeychainAccountName")
+#define kKRBKeychainAccountNameKey			CFSTR("KeychainAccountName")
 #define kKRBAgentBundleIdentifier			CFSTR("edu.mit.Kerberos.KerberosAgent")
 
-OSStatus KRBCopyKeychainLookupInfo (void *inKerberosSession, CFStringRef inUsername, CFDictionaryRef *outKeychainLookupInfo);
+OSStatus KRBCopyKeychainLookupInfo (KRBHelperContextRef inKerberosSession, CFStringRef inUsername, CFDictionaryRef *outKeychainLookupInfo);
 
 /*
 	KRBCopyServicePrincipal will return the service principal for the inServiceName on the host associated with inKerberosSession
@@ -80,7 +106,23 @@ OSStatus KRBCopyKeychainLookupInfo (void *inKerberosSession, CFStringRef inUsern
 			However it is highly recommended that this be set as it is insecure to rely on remotely provided information 
 		outServicePrincipal the service principal
  */
-OSStatus KRBCopyServicePrincipal (void *inKerberosSession, CFStringRef inServiceName, CFStringRef *outServicePrincipal);
+
+OSStatus KRBCopyServicePrincipal (KRBHelperContextRef inKerberosSession, CFStringRef inServiceName, CFStringRef *outServicePrincipal);
+
+
+/*
+	KRBCopyServicePrincipalInfo will return the service principal and optional a key that canolization shouldn't be done for the inServiceName on the host associated with inKerberosSession
+		inKerberosSession is the pointer returned by KRBCreateSession
+		inServiceName is the name of the service on the host, it can be NULL if inAdvertisedPrincipal was non-NULL.  
+			However it is highly recommended that this be set as it is insecure to rely on remotely provided information 
+		outServiceInfo a dictionary contain the key kKRBServicePrincipal and optionally kKRBNoCanon, both are strings.
+ */
+
+#define kKRBServicePrincipalKey			CFSTR("KRBServicePrincipal")
+#define kKRBNoCanonKey				CFSTR("KRBNoCanon")
+
+OSStatus KRBCopyServicePrincipalInfo (KRBHelperContextRef inKerberosSession, CFStringRef inServiceName, CFDictionaryRef *outServiceInfo);
+
 
 /*
 	 KRBCopyClientPrincipalInfo will return a dictionary with the user principal and other information.
@@ -111,13 +153,14 @@ OSStatus KRBCopyServicePrincipal (void *inKerberosSession, CFStringRef inService
 #define kKRBAllowKerberosUI					CFSTR("AllowKerberosUI")
 #define kKRBServerDisplayNameKey			CFSTR("ServerDisplayName")
 #define kKRBClientPrincipalKey              CFSTR("ClientPrincipal")
+#define kKRBAllowKerberosUIKey		    CFSTR("AllowKerberosUI");
 
 /* AllowKeberosUI values */
 #define kKRBOptionNoUI						CFSTR("NoUI")
 #define kKRBOptionAllowUI					CFSTR("AllowUI")
 #define kKRBOptionForceUI					CFSTR("ForceUI")
 
-OSStatus KRBCopyClientPrincipalInfo (void *inKerberosSession,  CFDictionaryRef inOptions, CFDictionaryRef *outClientPrincipalInfo);
+OSStatus KRBCopyClientPrincipalInfo (KRBHelperContextRef inKerberosSession,  CFDictionaryRef inOptions, CFDictionaryRef *outClientPrincipalInfo);
 
 	
 /*
@@ -131,7 +174,7 @@ OSStatus KRBCopyClientPrincipalInfo (void *inKerberosSession,  CFDictionaryRef i
 	 inClientPrincipalInfo the dictionary containing the
 	 kKRBClientPrincipalKey.
 */
-OSStatus KRBTestForExistingTicket (void *inKerberosSession, CFDictionaryRef inClientPrincipalInfo);
+OSStatus KRBTestForExistingTicket (KRBHelperContextRef inKerberosSession, CFDictionaryRef inClientPrincipalInfo);
 	
 
 /*
@@ -139,14 +182,57 @@ OSStatus KRBTestForExistingTicket (void *inKerberosSession, CFDictionaryRef inCl
 		inKerberosSession is the pointer returned by KRBCreateSession.
 		inClientPrincipalInfo is the outClientPrincipalInfo dictionary from KRBCopyClientPrincipalInfo.
 */
-OSStatus KRBAcquireTicket(void *inKerberosSession, CFDictionaryRef inClientPrincipalInfo);
+OSStatus KRBAcquireTicket(KRBHelperContextRef inKerberosSession, CFDictionaryRef inClientPrincipalInfo);
 
 
 /*
 	KRBCloseSession will release the kerberos session
 		inKerberosSession is the pointer returned by KRBCreateSession.
 */
-OSStatus KRBCloseSession (void *inKerberosSession);
+OSStatus KRBCloseSession (KRBHelperContextRef inKerberosSession);
+
+  /* compat backward */
+
+#define kKRBServicePrincipal			CFSTR("KRBServicePrincipal")
+#define kKRBNoCanon				CFSTR("KRBNoCanon")
+#define	kKRBHostname					CFSTR("Hostname")
+#define	kKRBAdvertisedPrincipal				CFSTR("AdvertisedPrincipal")
+#define	kKRBNoLKDC					CFSTR("NoLKDC")
+#define kKRBKeychainAccountName				CFSTR("KeychainAccountName")
+
+
+/*
+   Mark up the credential for user `clientprincipal' as used by
+   `identitier'. If the caller acquired ticket, pass in ticketAcquired
+   set to non-zero.
+   
+   For every identitier added to the clientprincipal, it should be
+   removed once by KRBCredAddReferenceAndLabel().
+   
+   The identitier is something that the caller can construct on
+   KRBCredFindByLabelAndRelease time, and probably the identitier looks like
+   this:
+   
+   vnc:hostname
+   fs:/Volume/mountpoint
+   	(not not afp: since the unmounter probably doesn't know its afp)
+
+ */
+
+OSStatus KRBCredAddReferenceAndLabel(CFStringRef clientPrincipal,
+				     CFStringRef identifier);
+
+/*
+ * Remove mark on the credential for 'identifier', and if its not a
+ * sso credential, remove the related kerberos credential cache when
+ * this was the last reference count.q
+ */
+
+OSStatus KRBCredFindByLabelAndRelease(CFStringRef identifier);
+
+OSStatus KRBCredAddReference(CFStringRef clientPrincipal);
+OSStatus KRBCredRemoveReference(CFStringRef clientPrincipal);
+
 
 #ifdef __cplusplus
 }

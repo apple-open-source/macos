@@ -1,59 +1,48 @@
 Project               = neon
-UserType              = Administrator
-ToolType              = Commands
-Extra_Configure_Flags = --enable-shared --enable-static \
-                        --with-expat --with-ssl \
-                        --bindir=/usr/local/bin \
-                        --mandir=/usr/local/share/man \
-                        --datadir=/usr/local/share \
-                        --includedir=/usr/local/include
-GnuNoBuild            = YES
-GnuNoInstall          = YES
-GnuAfterInstall       = install-plist post-install
+ProjectVersion        = 0.28.3
+Patches               = configure.diff neon-config.in.diff
 
-# Hack!
-build:: configure
-	ed - $(BuildDirectory)/config.h < $(SRCROOT)/files/fix_config.h.ed
-	$(_v) $(MAKE) -C $(BuildDirectory)
-install:: build
-	$(_v) $(MAKE) -C $(BuildDirectory) \
-		DESTDIR=$(DSTROOT) pkgconfigdir=/usr/local/lib/pkgconfig \
-		install
+include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
-include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
-
-Install_Target = install
-
-post-install:
-	ed - $(DSTROOT)/usr/local/bin/neon-config < $(SRCROOT)/files/remove_arch_flags.ed
-	ed - $(DSTROOT)/usr/local/lib/pkgconfig/neon.pc < $(SRCROOT)/files/remove_arch_flags.ed
-	$(CP) $(DSTROOT)/usr/lib/libneon.26.0.3.dylib $(SYMROOT)
-	$(STRIP) -x $(DSTROOT)/usr/lib/libneon.26.0.3.dylib
-	$(MKDIR) $(DSTROOT)/usr/local/lib
-	$(MV) $(DSTROOT)/usr/lib/libneon.a $(DSTROOT)/usr/local/lib
-
-# Automatic Extract & Patch
-AEP_Project    = neon
-AEP_Version    = 0.26.3
-AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
-AEP_Filename   = $(AEP_ProjVers).tar.gz
-AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = configure.diff
-
-# Extract the source.
-install_source::
-	$(TAR) -C $(SRCROOT) -zxf $(SRCROOT)/$(AEP_Filename)
-	$(RMDIR) $(SRCROOT)/$(Project)
-	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(Project)
-	for patchfile in $(AEP_Patches); do \
-		cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/files/$$patchfile || exit 1; \
-	done
+CONFIGURE_ENV  = CFLAGS="$(RC_CFLAGS) $(CC_Debug) $(CC_Optimize)"
+CONFIGURE_ARGS = --prefix=/usr \
+                 --enable-shared --disable-static \
+                 --with-expat --with-ssl \
+                 --bindir=/usr/local/bin \
+                 --mandir=/usr/local/share/man \
+                 --datadir=/usr/local/share \
+                 --includedir=/usr/local/include
 
 OSV = $(DSTROOT)/usr/local/OpenSourceVersions
 OSL = $(DSTROOT)/usr/local/OpenSourceLicenses
 
-install-plist:
-	$(MKDIR) $(OSV)
+install::
+	cd $(OBJROOT) && $(CONFIGURE_ENV) $(SRCROOT)/$(Project)/configure $(CONFIGURE_ARGS)
+	ed - $(OBJROOT)/config.h < $(SRCROOT)/files/fix_config.h.ed
+
+	$(MAKE) -C $(OBJROOT)
+
+	$(MAKE) -C $(OBJROOT) install DESTDIR=$(DSTROOT) pkgconfigdir=/usr/local/lib/pkgconfig
+	ed - $(DSTROOT)/usr/local/bin/neon-config < $(SRCROOT)/files/remove_arch_flags.ed
+	ed - $(DSTROOT)/usr/local/lib/pkgconfig/neon.pc < $(SRCROOT)/files/remove_arch_flags.ed
+
+	$(MKDIR) $(SYMROOT)/usr/lib
+	$(CP) $(DSTROOT)/usr/lib/libneon.27.1.3.dylib $(SYMROOT)/usr/lib
+	$(STRIP) -S $(DSTROOT)/usr/lib/libneon.27.1.3.dylib
+
+	$(MV) $(DSTROOT)/usr/lib/libneon.la $(DSTROOT)/usr/local/lib/libneon.la
+
+	$(MKDIR) $(OSV) $(OSL)
 	$(INSTALL_FILE) $(SRCROOT)/$(Project).plist $(OSV)/$(Project).plist
-	$(MKDIR) $(OSL)
-	$(INSTALL_FILE) $(Sources)/src/COPYING.LIB $(OSL)/$(Project).txt
+	$(INSTALL_FILE) $(SRCROOT)/$(Project)/src/COPYING.LIB $(OSL)/$(Project).txt
+
+# Extract the source.
+install_source::
+	$(RMDIR) $(SRCROOT)/$(Project) $(SRCROOT)/$(Project)-$(ProjectVersion)
+	$(TAR) -C $(SRCROOT) -zxf $(SRCROOT)/$(Project)-$(ProjectVersion).tar.gz
+	$(MV) $(SRCROOT)/$(Project)-$(ProjectVersion) $(SRCROOT)/$(Project)
+	@set -x && \
+	cd $(SRCROOT)/$(Project) && \
+	for patchfile in $(Patches); do \
+		patch -p0 -F0 -i $(SRCROOT)/files/$$patchfile || exit 1; \
+	done

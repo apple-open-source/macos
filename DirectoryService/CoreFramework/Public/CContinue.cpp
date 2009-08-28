@@ -30,12 +30,14 @@
 #include <stdlib.h>
 #include <string.h>
 
-// Prevent weak references since this is in a public framework.
-#pragma GCC visibility push(hidden)
 #include <vector>
 using std::vector;
-#pragma GCC visibility pop
 
+struct sContinueEntry
+{
+	UInt32	fRefNum;
+	void	*fPointer;
+};
 
 //------------------------------------------------------------------------------------
 //	* CContinue
@@ -43,22 +45,8 @@ using std::vector;
 
 CContinue::CContinue ( DeallocateProc *inProcPtr ) : fMutex("CContinue::fMutex")
 {
-	fHashArrayLength = 32;
-	fRefNumCount = 0;
-	fLookupTable = (sDSTableEntry**)calloc(fHashArrayLength, sizeof(sDSTableEntry*));
-
 	fDeallocProcPtr = inProcPtr;
-
-} // CContinue
-
-
-CContinue::CContinue ( DeallocateProc *inProcPtr, UInt32 inHashArrayLength ) : fMutex("CContinue::fMutex")
-{
-	fHashArrayLength = inHashArrayLength;
-	fRefNumCount = 0;
-	fLookupTable = (sDSTableEntry**)calloc(fHashArrayLength, sizeof(sDSTableEntry*));
-
-	fDeallocProcPtr = inProcPtr;
+	fNextContextID = 1;
 
 } // CContinue
 
@@ -72,338 +60,160 @@ CContinue::~CContinue ( void )
 } // ~CContinue
 
 
-//------------------------------------------------------------------------------------
-//	* AddItem
-//
-//		- Sets the ref count == 1
-//
-//------------------------------------------------------------------------------------
-
-SInt32 CContinue::AddItem ( void *inData, UInt32 inRefNum )
+tContextData CContinue::AddPointer( void *inPointer, UInt32 inRefNum )
 {
-	SInt32			siResult	= eDSNoErr;
-	UInt32			uiSlot		= 0;
-	UInt32			uiTmpRef	= 0;
-	sDSTableEntry	   *pNewEntry	= nil;
-	sDSTableEntry	   *pCurrEntry	= nil;
-
-	fMutex.WaitLock();
-
-	// Change the pointer into a long.
-	uiTmpRef = (UInt32)inData;
-
-	// Create the new entry object
-	pNewEntry = (sDSTableEntry *)::malloc( sizeof( sDSTableEntry ) );
-	if ( pNewEntry != nil )
+	tContextData contextValue = 0;
+	
+	if ( inPointer != NULL && inRefNum != 0 )
 	{
-		::memset( pNewEntry, 0, sizeof( sDSTableEntry ) );
-		pNewEntry->fRefNum		= inRefNum;
-		pNewEntry->fData		= inData;
-	}
-	else
-	{
-		siResult = eMemoryError;
-	}
+		fMutex.WaitLock();
 
-	if ( siResult == eDSNoErr )
-	{
-		// Calculate where we are going to put this entry
-		uiSlot = uiTmpRef % fHashArrayLength;
+		sContinueEntry *entry = new sContinueEntry;
+		
+		entry->fPointer = inPointer;
+		entry->fRefNum = inRefNum;
 
-		if ( fLookupTable[ uiSlot ] == nil )
+		// technically if we filled the entire 4 billion entries, we would have a loop
+		// but we couldn't allocate that many anyway
+		while ( fContextMap.find(fNextContextID) != fContextMap.end() )
 		{
-			// This slot is currently empty so this is the first one
-			fLookupTable[ uiSlot ] = pNewEntry;
-			fRefNumCount++;
+			// we never use 0
+			if ( 0 == ++fNextContextID )
+				fNextContextID++;
+		}
+
+		contextValue = fNextContextID;
+		fContextMap[contextValue] = entry;
+		fNextContextID++; // increment again since we just used this value
+		
+		fMutex.SignalLock();
+	}
+	
+	return contextValue;
+}
+
+void CContinue::RemovePointer( void *inPointer )
+{
+	void	*thePointer = NULL;
+	
+	fMutex.WaitLock();
+	
+	map<tContextData, sContinueEntry *>::iterator	iter;
+	for ( iter = fContextMap.begin(); iter != fContextMap.end(); iter++ )
+	{
+		sContinueEntry *entry = iter->second;
+		if ( entry->fPointer == inPointer )
+		{
+			thePointer = inPointer;
+			fContextMap.erase( iter++ );
+			DSDelete( entry );
+			break;
+		}
+	}
+	
+	fMutex.SignalLock();
+	
+	if ( fDeallocProcPtr != NULL && thePointer != NULL )
+		(fDeallocProcPtr)( thePointer );
+}
+
+	
+void CContinue::RemovePointersForRefNum( UInt32 inRefNum )
+{
+	vector<void *>	entryDataPendingDelete;
+	
+	fMutex.WaitLock();
+	
+	map<tContextData, sContinueEntry *>::iterator	iter = fContextMap.begin();
+	while ( iter != fContextMap.end() )
+	{
+		sContinueEntry *entry = iter->second;
+		if ( entry->fRefNum == inRefNum )
+		{
+			entryDataPendingDelete.push_back( entry->fPointer );
+			fContextMap.erase( iter++ );
+			DSDelete( entry );
 		}
 		else
 		{
-			// Check to see if this item has already been added
-			pCurrEntry = fLookupTable[ uiSlot ];
-			while ( pCurrEntry != nil )
-			{
-				if ( pCurrEntry->fData == inData )
-				{
-					// We found a duplicate.
-					siResult = eDSInvalidIndex;
-					free( pNewEntry );
-					pNewEntry = nil;
-					break;
-				}
-				pCurrEntry = pCurrEntry->fNext;
-			}
-
-			if ( siResult == eDSNoErr )
-			{
-				// This slot is occupied so add it to the head of the list
-				pCurrEntry = fLookupTable[ uiSlot ];
-
-				pNewEntry->fNext = pCurrEntry;
-
-				fLookupTable[ uiSlot ] = pNewEntry;
-				fRefNumCount++;
-			}
+			iter++;
 		}
 	}
-
-	fMutex.SignalLock();
-
-	return( siResult );
-
-} // AddItem
-
-
-//------------------------------------------------------------------------------------
-//	* VerifyItem
-//------------------------------------------------------------------------------------
-
-bool CContinue::VerifyItem ( void *inData )
-{
-	bool			bResult		= false;
-	UInt32			uiTmpRef	= 0;
-	UInt32			uiSlot		= 0;
-	sDSTableEntry	   *pEntry		= nil;
-
-	fMutex.WaitLock();
-
-	// Change the pointer into a long.
-	uiTmpRef = (UInt32)inData;
-
-	// Calculate where we thought we put it last
-	uiSlot = uiTmpRef % fHashArrayLength;
-
-	// Look across all entries at this position
-	pEntry = fLookupTable[ uiSlot ];
-	while ( pEntry != nil )
-	{
-		// Is it the one we want
-		if ( pEntry->fData == inData )
-		{
-			bResult = true;
-
-			break;
-		}
-		pEntry = pEntry->fNext;
-	}
-
-	fMutex.SignalLock();
-
-	// A return of NULL means that we did not find the item
-	return( bResult );
-
-} // VerifyItem
-
-
-//------------------------------------------------------------------------------------
-//	* RemoveItem
-//
-//		- Remove the item.  There could be duplicates, so we must deal with this.
-//
-//------------------------------------------------------------------------------------
-
-SInt32 CContinue::RemoveItem ( void *inData )
-{
-	SInt32			siResult	= eDSIndexNotFound;
-	UInt32			uiTmpRef	= 0;
-	UInt32			uiSlot		= 0;
-	sDSTableEntry	*pCurrEntry	= nil;
-	sDSTableEntry	*pPrevEntry	= nil;
-	void			*pData		= nil;
-
-	// nothing to do
-	if ( inData == NULL )
-		return eDSNoErr;
 	
-	fMutex.WaitLock();
-
-	// Change the pointer into a long.
-	uiTmpRef = (UInt32)inData;
-
-	// Calculate where we thought we put it last
-	uiSlot = uiTmpRef % fHashArrayLength;
-
-	// Look across all entries at this position
-	pCurrEntry = fLookupTable[ uiSlot ];
-	pPrevEntry = fLookupTable[ uiSlot ];
-	while ( pCurrEntry != nil )
+	fMutex.SignalLock();
+	
+	// Now the entry data can be deleted without deadlocking.
+	if ( fDeallocProcPtr != NULL )
 	{
-		// Is it the one we want
-		if ( pCurrEntry->fData == inData )
+		while ( entryDataPendingDelete.size() != 0 )
 		{
-			// Is it the first one in the list
-			if ( pCurrEntry == pPrevEntry )
-			{
-				// Remove the first item from the list
-				fLookupTable[ uiSlot ] = pCurrEntry->fNext;
-			}
-			else
-			{
-				// Keep the list linked
-				pPrevEntry->fNext = pCurrEntry->fNext;
-			}
+			(fDeallocProcPtr)( (void *) entryDataPendingDelete.back() );
+			entryDataPendingDelete.pop_back();
+		}
+	}
+}
 
-			if ( (fDeallocProcPtr != nil) && (pCurrEntry->fData != nil) )
-			{
-				// Save the data pointer so it can be freed later when
-				// mutex is unlocked to avoid deadlock.
-				pData = pCurrEntry->fData;
-			}
-			free( pCurrEntry );
-			pCurrEntry = nil;
-			fRefNumCount--;
-
+tDirStatus CContinue::RemoveContext( tContextData inContextData )
+{
+	tDirStatus	siResult	= eDSInvalidContinueData;
+	
+	if ( inContextData != 0 )
+	{
+		void *thePointer	= NULL;
+		
+		fMutex.WaitLock();
+		
+		map<tContextData, sContinueEntry *>::iterator	iter = fContextMap.find( inContextData );
+		if ( iter != fContextMap.end() )
+		{
+			thePointer = iter->second->fPointer;
+			DSDelete( iter->second );
+			fContextMap.erase( iter );
 			siResult = eDSNoErr;
-
-			break;
 		}
-
-		if ( pCurrEntry != nil )
+		
+		fMutex.SignalLock();
+		
+		// Now the entry data can be deleted without deadlocking.
+		if ( fDeallocProcPtr != NULL && thePointer != NULL )
 		{
-			pPrevEntry = pCurrEntry;
-			pCurrEntry = pPrevEntry->fNext;
-		}
+			(fDeallocProcPtr)( thePointer );
+		}		
 	}
+	else
+	{
+		siResult = eDSNoErr;
+	}
+	
+	return siResult;
+}
 
+void *CContinue::GetPointer( tContextData inContextData )
+{
+	void	*thePointer	= NULL;
+	
+	fMutex.WaitLock();
+	
+	map<tContextData, sContinueEntry *>::iterator	iter = fContextMap.find( inContextData );
+	if ( iter != fContextMap.end() )
+		thePointer = iter->second->fPointer;
+	
 	fMutex.SignalLock();
 	
-	// Now the entry's data can be deleted
-	// without deadlocking.
-	if ( pData != nil )
-	{
-		(fDeallocProcPtr)( pData );
-	}
+	return thePointer;
+}
 
-	return( siResult );
-
-} // RemoveItem
-
-
-//------------------------------------------------------------------------------------
-//	* RemoveItems
-//
-//		- Remove the items.  There could be duplicates, so we must deal with this.
-//
-//------------------------------------------------------------------------------------
-
-SInt32 CContinue::RemoveItems ( UInt32 inRefNum )
+UInt32 CContinue::GetRefNum( tContextData inContextData )
 {
-	bool			bGetNext	= true;
-	UInt32			i			= 0;
-	SInt32			siResult	= eDSIndexNotFound;
-	sDSTableEntry	*pCurrEntry	= nil;
-	sDSTableEntry	*pPrevEntry	= nil;
-	sDSTableEntry	*pDeadEntry	= nil;
-	vector<void*>	entryDataPendingDelete;
-
+	UInt32	refNum = 0;
+	
 	fMutex.WaitLock();
-
-	for ( i = 0; i < fHashArrayLength; i++ )
-	{
-		pCurrEntry = fLookupTable[ i ];
-		pPrevEntry = fLookupTable[ i ];
-		while ( pCurrEntry != nil )
-		{
-			bGetNext = true;
-
-			// Is it the one we want
-			if ( pCurrEntry->fRefNum == inRefNum )
-			{
-				pDeadEntry = pCurrEntry;
-
-				// Is it the first one in the list
-				if ( pCurrEntry == pPrevEntry )
-				{
-					// Remove the first item from the list
-					fLookupTable[ i ] = pCurrEntry->fNext;
-
-					pCurrEntry = fLookupTable[ i ];
-					pPrevEntry = fLookupTable[ i ];
-
-					bGetNext = false;
-				}
-				else
-				{
-					// Keep the list linked
-					pPrevEntry->fNext = pCurrEntry->fNext;
-
-					pCurrEntry = pPrevEntry;
-				}
-
-				if ( (fDeallocProcPtr != nil) && (pDeadEntry->fData != nil) )
-				{
-					// Save the data pointer so it can be freed later when
-					// mutex is unlocked to avoid deadlock.
-					entryDataPendingDelete.push_back( pDeadEntry->fData );
-				}
-				free( pDeadEntry );
-				pDeadEntry = nil;
-				fRefNumCount--;
-
-				siResult = eDSNoErr;
-			}
-
-			if ( pCurrEntry != nil )
-			{
-				if ( bGetNext == true )
-				{
-					pPrevEntry = pCurrEntry;
-					pCurrEntry = pPrevEntry->fNext;
-				}
-			}
-		}
-	}
-
+	
+	map<tContextData, sContinueEntry *>::iterator	iter = fContextMap.find( inContextData );
+	if ( iter != fContextMap.end() )
+		refNum = iter->second->fRefNum;
+	
 	fMutex.SignalLock();
 	
-	// Now the entry data can be deleted
-	// without deadlocking.
-	while ( entryDataPendingDelete.size() != 0 )
-	{
-		(fDeallocProcPtr)( entryDataPendingDelete.back() );
-		entryDataPendingDelete.pop_back();
-	}
-
-	return( siResult );
-
-} // RemoveItems
-
-
-//------------------------------------------------------------------------------------
-//	* GetRefNumForItem
-//------------------------------------------------------------------------------------
-
-UInt32 CContinue::GetRefNumForItem ( void *inData )
-{
-	UInt32			uiResult	= 0;
-	UInt32			uiTmpRef	= 0;
-	UInt32			uiSlot		= 0;
-	sDSTableEntry	   *pEntry		= nil;
-
-	fMutex.WaitLock();
-
-	// Change the pointer into a long.
-	uiTmpRef = (UInt32)inData;
-
-	// Calculate where we thought we put it last
-	uiSlot = uiTmpRef % fHashArrayLength;
-
-	// Look across all entries at this position
-	pEntry = fLookupTable[ uiSlot ];
-	while ( pEntry != nil )
-	{
-		// Is it the one we want
-		if ( pEntry->fData == inData )
-		{
-			uiResult = pEntry->fRefNum;
-
-			break;
-		}
-		pEntry = pEntry->fNext;
-	}
-
-	fMutex.SignalLock();
-
-	// A return of 0 means that we did not find the item
-	return( uiResult );
-
-} // GetRefNumForItem
+	return refNum;
+}

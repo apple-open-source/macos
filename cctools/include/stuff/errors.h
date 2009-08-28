@@ -36,7 +36,7 @@ __private_extern__ char *progname;
 
 /* defined in errors.c */
 /* number of detected calls to error() */
-__private_extern__ unsigned long errors;
+__private_extern__ uint32_t errors;
 
 __private_extern__ void warning(
     const char *format, ...)

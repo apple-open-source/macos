@@ -1,0 +1,5 @@
+
+	Tcl 8.1.1 does not need a separate patch kit.
+
+	The patch kit for Tcl 8.1 is applicable, see
+		Trf2.1.3/patches/v8.1/

@@ -30,7 +30,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)calendar.1  8.1 (Berkeley) 6/29/93
-.\" $FreeBSD: src/usr.bin/calendar/calendar.1,v 1.33 2002/11/19 00:30:38 grog Exp $
+.\" $FreeBSD: src/usr.bin/calendar/calendar.1,v 1.38 2005/02/13 22:25:20 ru Exp $
 .\"
 .Dd June 13, 2002
 .Dt CALENDAR 1
@@ -98,21 +98,6 @@ Print lines from today and the next
 .Ar num
 days (forward, future).
 Ignore weekends when calculating the number of days.
-.It Fl l Ar days
-Causes the program to ``look ahead'' a given number of days (default
-one) from the specified date and display their entries as well.
-.It Fl w Ar days
-Causes the program to add the specified number of days to the ``look
-ahead'' number if and only if the day specified is a Friday. The default
-value is two, which causes
-.Nm
-to print entries through the weekend on Fridays.
-.It Fl d Ar MMDD[[YY]YY]
-Display lines for the given date. By default, the current date is used.
-The year, which may be given in either two or four digit format, is used
-only for purposes of determining wether the given date falls on a Friday
-in that year (see below). If the year is not specified, the current
-year is assumed.
 .El
 .Pp
 To handle calendars in your national code table you can specify
@@ -143,7 +128,7 @@ or negative integer.
 ``Paskha'', is Orthodox Easter for this year, and may be followed by a
 positive or negative integer.
 .Pp
-Weekdays may be followed by ``-4'' ... ``+5'' (aliases for
+Weekdays may be followed by ``-4'' ...\& ``+5'' (aliases for
 last, first, second, third, fourth) for moving events like
 ``the last Monday in April''.
 .Pp
@@ -232,9 +217,9 @@ Calendar of events in France.
 .It Pa calendar.german
 Calendar of events in Germany.
 .It Pa calendar.history
-Everything  else, mostly U.S. historical events.
+Everything else, mostly U.S.\& historical events.
 .It Pa calendar.holiday
-Other  holidays, including the not-well-known, obscure, and
+Other holidays, including the not-well-known, obscure, and
 .Em really
 obscure.
 .It Pa calendar.judaic
@@ -242,16 +227,8 @@ Jewish holidays.
 This calendar should be updated yearly by the local system administrator
 so that roving holidays are set correctly for the current year.
 .It Pa calendar.music
-Musical  events,  births, and deaths.
-Strongly  oriented  toward  rock 'n' roll.
-.It Pa calendar.usholiday
-U.S. holidays.
-This calendar should be updated yearly by the local system administrator
-so that roving holidays are set correctly for the current year.
-.It Pa calendar.french
-French calendar.
-.It Pa calendar.german
-German calendar.
+Musical events, births, and deaths.
+Strongly oriented toward rock 'n' roll.
 .It Pa calendar.newzealand
 Calendar of events in New Zealand.
 .It Pa calendar.russian
@@ -259,15 +236,12 @@ Russian calendar.
 .It Pa calendar.southafrica
 Calendar of events in South Africa.
 .It Pa calendar.usholiday
-Calendar of holidays specific to the United States of America.
+U.S.\& holidays.
+This calendar should be updated yearly by the local system administrator
+so that roving holidays are set correctly for the current year.
 .It Pa calendar.world
 Includes all calendar files except for national files.
 .El
-.Sh SEE ALSO
-.Xr at 1 ,
-.Xr cpp 1 ,
-.Xr mail 1 ,
-.Xr cron 8
 .Sh COMPATIBILITY
 The
 .Nm
@@ -275,6 +249,11 @@ program previously selected lines which had the correct date anywhere
 in the line.
 This is no longer true, the date is only recognized when it occurs
 at the beginning of a line.
+.Sh SEE ALSO
+.Xr at 1 ,
+.Xr cpp 1 ,
+.Xr mail 1 ,
+.Xr cron 8
 .Sh HISTORY
 A
 .Nm
@@ -283,4 +262,4 @@ command appeared in
 .Sh BUGS
 The
 .Nm
-utility doesn't handle Jewish holidays and moon phases.
+utility does not handle Jewish holidays and moon phases.

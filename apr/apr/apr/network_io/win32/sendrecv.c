@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -190,12 +190,18 @@ APR_DECLARE(apr_status_t) apr_socket_recvfrom(apr_sockaddr_t *from,
 {
     apr_ssize_t rv;
 
+    from->salen = sizeof(from->sa);
+
     rv = recvfrom(sock->socketdes, buf, (int)*len, flags, 
                   (struct sockaddr*)&from->sa, &from->salen);
     if (rv == SOCKET_ERROR) {
         (*len) = 0;
         return apr_get_netos_error();
     }
+
+    apr_sockaddr_vars_set(from, from->sa.sin.sin_family, 
+                          ntohs(from->sa.sin.sin_port));
+
     (*len) = rv;
     if (rv == 0 && sock->type == SOCK_STREAM)
         return APR_EOF;

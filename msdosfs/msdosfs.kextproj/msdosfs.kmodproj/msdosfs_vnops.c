@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -74,7 +74,6 @@
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/vnode.h>
-#include <sys/resourcevar.h>	/* defines plimit structure in proc struct */
 #include <sys/kernel.h>
 #include <sys/stat.h>
 #include <sys/buf.h>
@@ -95,8 +94,6 @@
 #include <mach/boolean.h>
 #include <libkern/OSMalloc.h>
 
-#include <machine/spl.h>
-
 #include "bpb.h"
 #include "direntry.h"
 #include "denode.h"
@@ -115,8 +112,6 @@
 
 #define	GENERIC_DIRSIZ(dp) \
     ((sizeof (struct dirent) - (MAXNAMLEN+1)) + (((dp)->d_namlen+1 + 3) &~ 3))
-
-extern int groupmember(gid_t gid, ucred_t cred);
 
 /*
  * Prototypes for MSDOSFS vnode operations
@@ -282,8 +277,8 @@ msdosfs_create(ap)
 	struct denode *dep;
 	struct timespec ts;
 	int error;
-	u_long offset;		/* byte offset in directory for new entry */
-	u_long long_count;	/* number of long name entries needed */
+	uint32_t offset;		/* byte offset in directory for new entry */
+	uint32_t long_count;	/* number of long name entries needed */
 
 	lck_mtx_lock(pdep->de_lock);
 
@@ -458,7 +453,7 @@ msdosfs_getattr(ap)
 	VATTR_RETURN(vap, va_nlink, 1);
 	VATTR_RETURN(vap, va_total_size, dep->de_FileSize);
 	/* va_total_alloc is wrong for symlinks */
-	VATTR_RETURN(vap, va_total_alloc, (dep->de_FileSize + pmp->pm_crbomask) & ~pmp->pm_crbomask);
+	VATTR_RETURN(vap, va_total_alloc, ((off_t)dep->de_FileSize + pmp->pm_crbomask) & ~((off_t)pmp->pm_crbomask));
 	VATTR_RETURN(vap, va_data_size, dep->de_FileSize);
 	VATTR_RETURN(vap, va_data_alloc, vap->va_total_alloc);
 	VATTR_RETURN(vap, va_iosize, pmp->pm_iosize);
@@ -652,15 +647,15 @@ msdosfs_read(ap)
 	
 	if (vnode_isreg(vp)) {
 		error = cluster_read(vp, uio, (off_t)dep->de_FileSize, ap->a_ioflag);
-		if (error == 0 && (vfs_flags(pmp->pm_mountp) & MNT_NOATIME) == 0)
+		if (error == 0 && (vfs_flags(pmp->pm_mountp) & (MNT_RDONLY | MNT_NOATIME)) == 0)
 			dep->de_flag |= DE_ACCESS;
 	}
 	else
 	{
-		u_long blsize;
+		uint32_t blsize;
 		u_int n;
-		u_long diff;
-		u_long on;
+		uint32_t diff;
+		uint32_t on;
 		daddr64_t lbn;
 		buf_t bp;
 
@@ -916,6 +911,8 @@ msdosfs_pageout(
 	error = cluster_pageout(vp, ap->a_pl, ap->a_pl_offset, ap->a_f_offset,
 				ap->a_size, (off_t)dep->de_FileSize,
 				ap->a_flags);
+	if (!error)
+		dep->de_flag |= DE_UPDATE;
 	
 	return error;
 }
@@ -1020,7 +1017,7 @@ msdosfs_remove(ap)
     struct denode *dep = VTODE(vp);
     struct denode *ddep = VTODE(dvp);
     int error;
-	u_long cluster, offset;
+	uint32_t cluster, offset;
 	
 	msdosfs_lock_two(ddep, dep);
 	
@@ -1183,14 +1180,14 @@ msdosfs_rename(ap)
 	struct componentname *tcnp = ap->a_tcnp;
 	vfs_context_t context = ap->a_context;
 	u_char toname[SHORT_NAME_LEN], oldname[SHORT_NAME_LEN];
-	u_long to_diroffset;
-	u_long to_long_count;
+	uint32_t to_diroffset;
+	uint32_t to_long_count;
 	u_int32_t from_offset;
 	u_int8_t new_deLowerCase;	/* deLowerCase corresponding to toname */
 	int doingdirectory = 0, newparent = 0;
     int change_case;
 	int error;
-	u_long cn;
+	uint32_t cn;
 	daddr64_t bn = 0;
 	struct denode *fddep;	/* from file's parent directory	 */
 	struct denode *fdep;	/* from file or directory	 */
@@ -1198,7 +1195,7 @@ msdosfs_rename(ap)
 	struct denode *tdep;	/* to file or directory		 */
 	struct msdosfsmount *pmp;
 	struct buf *bp;
-	u_long cluster, offset;
+	uint32_t cluster, offset;
 	
 	fddep = VTODE(fdvp);
 	fdep = VTODE(fvp);
@@ -1316,17 +1313,18 @@ msdosfs_rename(ap)
         change_case = 1;
 	}
 
-	/* Make sure the destination vnode (if any) can be deleted */
-	/* Note that these readonly checks are additional impositions
-	   over and above the usual deletability checks */
-	if (tdep && (tdep->de_Attributes & ATTR_READONLY))
+	/* 
+	 * If there is a destination, and it's a file, make sure it isn't
+	 * read-only.
+	 */
+	if (tdep && (tdep->de_Attributes & (ATTR_READONLY | ATTR_DIRECTORY)) == ATTR_READONLY)
 	{
 		error = EPERM;
 		goto exit;
 	}
     
-	/* Make sure the source vnode can be changed */
-	if (fdep->de_Attributes & ATTR_READONLY)
+	/* If the source is a file, make sure it isn't read-only. */
+	if ((fdep->de_Attributes & (ATTR_READONLY | ATTR_DIRECTORY)) == ATTR_READONLY)
 	{
 		error = EPERM;
 		goto exit;
@@ -1505,9 +1503,9 @@ msdosfs_rename(ap)
 		dotdotp = (struct dosdirentry *)buf_dataptr(bp) + 1;
 
 		/* Update the starting cluster of ".." */
-		putushort(dotdotp->deStartCluster, tddep->de_StartCluster);
+		putuint16(dotdotp->deStartCluster, tddep->de_StartCluster);
 		if (FAT32(pmp))
-			putushort(dotdotp->deHighClust, tddep->de_StartCluster >> 16);
+			putuint16(dotdotp->deHighClust, tddep->de_StartCluster >> 16);
 
 		error = (int)buf_bdwrite(bp);
 		if (error) {
@@ -1572,14 +1570,14 @@ msdosfs_mkdir(ap)
 	struct dosdirentry *denp;
 	struct msdosfsmount *pmp = pdep->de_pmp;
 	struct buf *bp;
-	u_long newcluster, pcl;
+	uint32_t newcluster, pcl;
 	daddr64_t bn;
 	int error;
 	struct denode ndirent;
 	struct timespec ts;
 	char *bdata;
-	u_long offset;
-	u_long long_count;
+	uint32_t offset;
+	uint32_t long_count;
 
 	lck_mtx_lock(pdep->de_lock);
 	
@@ -1649,26 +1647,26 @@ msdosfs_mkdir(ap)
 	bzero(bdata, pmp->pm_bpcluster);
 	bcopy(&dosdirtemplate, bdata, sizeof dosdirtemplate);
 	denp = (struct dosdirentry *)bdata;
-	putushort(denp[0].deStartCluster, newcluster);
-	putushort(denp[0].deCDate, ndirent.de_CDate);
-	putushort(denp[0].deCTime, ndirent.de_CTime);
+	putuint16(denp[0].deStartCluster, newcluster);
+	putuint16(denp[0].deCDate, ndirent.de_CDate);
+	putuint16(denp[0].deCTime, ndirent.de_CTime);
 	denp[0].deCHundredth = ndirent.de_CHun;
-	putushort(denp[0].deADate, ndirent.de_ADate);
-	putushort(denp[0].deMDate, ndirent.de_MDate);
-	putushort(denp[0].deMTime, ndirent.de_MTime);
+	putuint16(denp[0].deADate, ndirent.de_ADate);
+	putuint16(denp[0].deMDate, ndirent.de_MDate);
+	putuint16(denp[0].deMTime, ndirent.de_MTime);
 	pcl = pdep->de_StartCluster;
 	if (FAT32(pmp) && pcl == pmp->pm_rootdirblk)
 		pcl = 0;
-	putushort(denp[1].deStartCluster, pcl);
-	putushort(denp[1].deCDate, ndirent.de_CDate);
-	putushort(denp[1].deCTime, ndirent.de_CTime);
+	putuint16(denp[1].deStartCluster, pcl);
+	putuint16(denp[1].deCDate, ndirent.de_CDate);
+	putuint16(denp[1].deCTime, ndirent.de_CTime);
 	denp[1].deCHundredth = ndirent.de_CHun;
-	putushort(denp[1].deADate, ndirent.de_ADate);
-	putushort(denp[1].deMDate, ndirent.de_MDate);
-	putushort(denp[1].deMTime, ndirent.de_MTime);
+	putuint16(denp[1].deADate, ndirent.de_ADate);
+	putuint16(denp[1].deMDate, ndirent.de_MDate);
+	putuint16(denp[1].deMTime, ndirent.de_MTime);
 	if (FAT32(pmp)) {
-		putushort(denp[0].deHighClust, newcluster >> 16);
-		putushort(denp[1].deHighClust, pdep->de_StartCluster >> 16);
+		putuint16(denp[0].deHighClust, newcluster >> 16);
+		putuint16(denp[1].deHighClust, pdep->de_StartCluster >> 16);
 	}
 
 	error = (int)buf_bdwrite(bp);
@@ -1739,7 +1737,7 @@ msdosfs_rmdir(ap)
 	vfs_context_t context = ap->a_context;
 	struct denode *ip, *dp;
 	int error;
-	u_long cluster, offset;
+	uint32_t cluster, offset;
 	
 	ip = VTODE(vp);
 	dp = VTODE(dvp);
@@ -1802,15 +1800,6 @@ msdosfs_rmdir(ap)
 		goto exit;
 	}
 
-	/* Make sure the directory isn't read-only */
-	/* Note that this is an additional imposition beyond the usual
-	   deletability rules */
-	if (ip->de_Attributes & ATTR_READONLY)
-	{
-		error = EPERM;
-		goto exit;
-	}
-    
 	/*
 	 * Delete the entry from the directory.  For dos filesystems this
 	 * gets rid of the directory entry on disk.  The in memory copy
@@ -1845,7 +1834,7 @@ msdosfs_rmdir(ap)
 	 * Truncate the directory that is being deleted.
 	 * detrunc internally updates dep->de_FileSize and calls ubc_setsize.
 	 */
-	error = detrunc(ip, (u_long)0, 0, context);
+	error = detrunc(ip, 0, 0, context);
 	if (DEBUG && error) panic("msdosfs_rmdir: detrunc returned %d\n", error);
 	cache_purge(vp);
 
@@ -1875,12 +1864,12 @@ msdosfs_readdir(ap)
 	struct msdosfsmount *pmp = dep->de_pmp;
 	vfs_context_t context = ap->a_context;
 	int diff;
-	long n;
-	u_long blsize;
-	long on;
-	u_long cn;
-	u_long fileno;
-	long bias = 0;
+	int32_t n;
+	uint32_t blsize;
+	int32_t on;
+	uint32_t cn;
+	uint32_t fileno;
+	int32_t bias = 0;
 	daddr64_t bn, lbn;
 	struct buf *bp;
 	struct dosdirentry *dentp;
@@ -2035,9 +2024,9 @@ msdosfs_readdir(ap)
 			 * This computation of d_fileno must match
 			 * the computation in defileid().
              */
-            fileno = getushort(dentp->deStartCluster);
+            fileno = getuint16(dentp->deStartCluster);
             if (FAT32(pmp))
-                fileno |= getushort(dentp->deHighClust) << 16;
+                fileno |= getuint16(dentp->deHighClust) << 16;
 			if (dentp->deAttributes & ATTR_DIRECTORY) {
             	if (fileno == MSDOSFSROOT) {
                     /* if this is the root directory */
@@ -2050,7 +2039,7 @@ msdosfs_readdir(ap)
 			} else {
                 if (fileno == 0)
                     fileno = FILENO_EMPTY;	/* constant for empty files */
-				if (getulong(dentp->deFileSize) == sizeof(struct symlink))
+				if (getuint32(dentp->deFileSize) == sizeof(struct symlink))
 					dirbuf.d_type = DT_UNKNOWN;	/* Might be a symlink */
 				else
 					dirbuf.d_type = DT_REG;
@@ -2062,13 +2051,11 @@ msdosfs_readdir(ap)
 				    dentp->deLowerCase);
 			}
 			
-			/* Convert SFM Unicode to Mac Unicode */
-			sfm2macfn(ucfn, unichars);
-
 			/* translate the name in ucfn into UTF-8 */
 			(void) utf8_encodestr(ucfn, unichars * 2,
 					(u_int8_t*)dirbuf.d_name, &outbytes,
-					sizeof(dirbuf.d_name), 0, UTF_DECOMPOSED);
+					sizeof(dirbuf.d_name), 0,
+					UTF_DECOMPOSED|UTF_SFM_CONVERSIONS);
 			dirbuf.d_namlen = outbytes;
 			dirbuf.d_reclen = GENERIC_DIRSIZ(&dirbuf);
 
@@ -2163,9 +2150,9 @@ msdosfs_blockmap(ap)
 	vnode_t vp = ap->a_vp;
 	struct denode *dep = VTODE(vp);
     struct msdosfsmount *pmp = dep->de_pmp;
-	u_long runsize;
-    u_long		cn;
-    u_long		numclusters;
+	uint32_t runsize;
+    uint32_t		cn;
+    uint32_t		numclusters;
     daddr64_t	bn;
 
 	if (ap->a_bpn == NULL)
@@ -2184,8 +2171,8 @@ msdosfs_blockmap(ap)
     error = pcbmap(dep, cn, numclusters, &bn, NULL, &runsize);
 
     /* Add the offset in physical (device) blocks from the start of the cluster */
-    bn += (((u_long)ap->a_foffset - de_cn2off(pmp, cn)) >> pmp->pm_bnshift);
-    runsize -= ((u_long)ap->a_foffset - (de_cn2off(pmp, cn)));
+    bn += (((uint32_t)ap->a_foffset - de_cn2off(pmp, cn)) >> pmp->pm_bnshift);
+    runsize -= ((uint32_t)ap->a_foffset - (de_cn2off(pmp, cn)));
     
     *ap->a_bpn = bn;
 	if (error == 0 && ap->a_run) {
@@ -2251,6 +2238,9 @@ msdosfs_pathconf(ap)
 		return 0;
 	case _PC_CASE_PRESERVING:
 		*ap->a_retval = 1;
+		return 0;
+	case _PC_FILESIZEBITS:
+		*ap->a_retval = 32;
 		return 0;
 	default:
 		return EINVAL;
@@ -2439,14 +2429,14 @@ static int msdosfs_symlink(struct vnop_symlink_args /* {
 	vfs_context_t context = ap->a_context;
 	unsigned length;		/* length of target path */
 	struct symlink *link = NULL;
-	u_long cn = 0;			/* first cluster of symlink */
-	u_long clusters, got;	/* count of clusters needed, actually allocated */
+	uint32_t cn = 0;			/* first cluster of symlink */
+	uint32_t clusters, got;	/* count of clusters needed, actually allocated */
 	buf_t bp = NULL;
 	struct denode ndirent;
 	struct denode *new_dep;
 	struct timespec ts;
-	u_long offset;
-	u_long long_count;
+	uint32_t offset;
+	uint32_t long_count;
 
 	lck_mtx_lock(dep->de_lock);
 	
@@ -2670,7 +2660,7 @@ exit:
 
 static int msdosfs_ioctl(struct vnop_ioctl_args /* {
 	vnode_t a_vp;
-	u_long a_command;
+	uint32_t a_command;
 	caddr_t a_data;
 	int a_fflag;
 	vfs_context_t a_context;

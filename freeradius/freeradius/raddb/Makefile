@@ -1,7 +1,7 @@
 #
 # Makefile
 #
-# Version:      $Id: Makefile,v 1.8.4.5 2007/07/16 11:39:08 pnixon Exp $
+# Version:      $Id$
 #
 
 include ../Make.inc
@@ -9,19 +9,34 @@ include ../Make.inc
 #
 #  The list of files to install.
 #
-FILES	= acct_users attrs clients clients.conf dictionary eap.conf \
-	  experimental.conf hints huntgroups ldap.attrmap \
-	  mssql.conf naslist naspasswd oraclesql.conf postgresql.conf \
-	  preproxy_users proxy.conf radiusd.conf realms snmp.conf \
-	  sql.conf sqlippool.conf postgresqlippool.conf users otp.conf
+FILES = acct_users attrs attrs.access_reject attrs.accounting_response	\
+	attrs.pre-proxy clients.conf dictionary eap.conf templates.conf	\
+	experimental.conf hints huntgroups ldap.attrmap otp.conf	\
+	policy.txt preproxy_users proxy.conf radiusd.conf		\
+	sql.conf sqlippool.conf users	policy.conf
 
+#
+#	This target is here for local debugging
+#
 all:
+	@if [ ! -d sites-enabled ]; then \
+		mkdir sites-enabled; \
+	fi
+	@if [ ! -f sites-enabled/default ]; then \
+		cd sites-enabled && ln -s ../sites-available/default; \
+	fi
+	@if [ ! -f sites-enabled/inner-tunnel ]; then \
+		cd sites-enabled && ln -s ../sites-available/inner-tunnel; \
+	fi
 
 install:
 	$(INSTALL) -d -m 750	$(R)$(raddbdir)
+	$(INSTALL) -d -m 750	$(R)$(raddbdir)/sites-available
+	$(INSTALL) -d -m 750	$(R)$(raddbdir)/sites-enabled
+	$(INSTALL) -d -m 750	$(R)$(raddbdir)/modules
 	@echo "Creating/updating files in $(R)$(raddbdir)"; \
-	for i in $(FILES); do \
-		[ ! -f $(R)$(raddbdir)/$$i ] && $(INSTALL) -m 640 $$i $(R)$(raddbdir); \
+	for i in $(FILES) `find sites-available/ modules/ -type f -print | sed 's/.*CVS.*//;s/.*~//;s/.*#.*//' `; do \
+		[ ! -f $(R)$(raddbdir)/$$i ] && $(INSTALL) -m 640 $$i $(R)$(raddbdir)/$$i; \
 		if [ "`find $$i -newer $(R)$(raddbdir)/$$i`" ]; then \
 			echo "** $(R)$(raddbdir)/$$i"; \
 			nt=1; \
@@ -40,13 +55,32 @@ install:
 		echo "** WARNING ** WARNING ** WARNING ** WARNING ** WARNING ** WARNING ** WARNING **";\
 		echo "** WARNING ** WARNING ** WARNING ** WARNING ** WARNING ** WARNING ** WARNING **";\
 	fi
-	chmod 640 $(R)$(raddbdir)/naspasswd $(R)$(raddbdir)/clients $(R)$(raddbdir)/clients.conf
+	chmod 640 $(R)$(raddbdir)/clients.conf
 	if [ ! -d $(R)$(raddbdir)/certs ]; then \
-		mkdir $(R)$(raddbdir)/certs; \
-		mkdir $(R)$(raddbdir)/certs/demoCA; \
-		cp certs/demoCA/* $(R)$(raddbdir)/certs/demoCA || true; \
-		cp certs/* $(R)$(raddbdir)/certs 2>/dev/null || true; \
+		$(INSTALL) -d -m 750	$(R)$(raddbdir)/certs; \
+		$(INSTALL) -m 750 certs/bootstrap $(R)$(raddbdir)/certs; \
+		for i in Makefile README xpextensions ca.cnf server.cnf client.cnf; do \
+			$(INSTALL) -m 640 certs/$$i $(R)$(raddbdir)/certs; \
+		done; \
+	fi
+	if [ ! -d $(R)$(raddbdir)/sql ]; then \
+		find sql -name CVS -prune -o -print | \
+		  while read file; do \
+		    if [ -d "$$file" ]; then \
+		      $(INSTALL) -d -m 750 "$(R)$(raddbdir)/$$file"; \
+		    else \
+		      $(INSTALL) -m 640 "$$file" "$(R)$(raddbdir)/$$file"; \
+		    fi; \
+		  done; \
+	fi
+	if [ ! -f $(R)$(raddbdir)/sites-enabled/default ]; then \
+		cd $(R)$(raddbdir)/sites-enabled/; \
+		ln -fs ../sites-available/default; \
+	fi
+	if [ ! -f $(R)$(raddbdir)/sites-enabled/inner-tunnel ]; then \
+		cd $(R)$(raddbdir)/sites-enabled/; \
+		ln -fs ../sites-available/inner-tunnel; \
 	fi
 
 clean:
-
+	rm -rf sites-enabled/inner-tunnel sites-enabled/default

@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1997-2004, International Business Machines
+*   Copyright (C) 1997-2007, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -24,8 +24,9 @@
 #ifndef DIGITLST_H
 #define DIGITLST_H
  
-#include "unicode/utypes.h"
 #include "unicode/uobject.h"
+
+#if !UCONFIG_NO_FORMATTING
 #include "unicode/decimfmt.h"
 #include <float.h>
 
@@ -65,7 +66,7 @@ U_NAMESPACE_BEGIN
  * derived by placing all the digits of the list to the right of the
  * decimal point, by 10^exponent.
  */
-class U_I18N_API DigitList : public UMemory { // Declare external to make compiler happy
+class DigitList : public UMemory { // Declare external to make compiler happy
 public:
     DigitList();
     ~DigitList();
@@ -90,13 +91,12 @@ public:
      */
     UBool operator==(const DigitList& other) const;
 
+private:
     /**
-     * Return true if another object is semantically unequal to this one.
-     * @param other The DigitList to  be compared for inequality
-     * @return true if another object is semantically unequal to this one.
-     * return false otherwise.
+     * Commented out due to lack of usage and low code coverage.
      */
-    UBool operator!=(const DigitList& other) const { return !operator==(other); }
+    inline UBool operator!=(const DigitList& other) const;
+public:
 
     /**
      * Clears out the digits.
@@ -252,7 +252,16 @@ DigitList::append(char digit)
         fDigits[fCount++] = digit;
 }
 
+#if 0
+inline UBool
+DigitList::operator!=(const DigitList& other) const {
+    return !operator==(other);
+}
+#endif
+
 U_NAMESPACE_END
+
+#endif // #if !UCONFIG_NO_FORMATTING
 #endif // _DIGITLST
 
 //eof

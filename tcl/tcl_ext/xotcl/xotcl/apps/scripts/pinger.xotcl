@@ -1,0 +1,64 @@
+#$Id: pinger.xotcl,v 1.1 2004/05/23 22:50:39 neumann Exp $
+# include the pattern
+source observer.xotcl
+
+Class Pinger
+@ @File {
+  description {
+    Pinger example for the observer pattern taken from the paper 
+    'Filters as a Language Support for Design Patterns in
+    Object-Oriented Scripting Languages'. 
+    It demonstrates how to observe a network connection.
+  }
+}
+
+Observer::Subject Pinger::Collector -parameter {hostName {update 1}}
+Observer Pinger::Diagram
+Observer Pinger::TextOutput
+
+Pinger::Collector instproc init args {
+  my instvar update hostName
+  set f [open "| ping -i $update $hostName" r]
+  fconfigure $f -blocking false
+  fileevent $f readable "[self] ping \[gets $f\]"
+}
+
+Pinger::Collector instproc getResponse {} {
+  puts "in--- [self] [format %-12s [self proc]] ([self class])"
+}
+
+Pinger::Collector instproc ping {string} {
+  puts "in--- [self] [format %-12s [self proc]] ([self class])"
+  puts $string
+}
+
+Pinger::Diagram instproc update {subject args} {
+  puts "in--- [self] [format %-12s [self proc]] ([self class]) -- SUBJECT: $subject"
+  $subject getResponse
+  # do something with the response
+}
+
+Pinger::TextOutput instproc update {subject args} {
+  puts "in--- [self] [format %-12s [self proc]] ([self class]) -- SUBJECT: $subject"
+  $subject getResponse
+  # do something with the response
+}
+
+namespace eval ::Pinger {
+  Collector ::c1 -hostName 132.252.180.231
+  Collector ::c2 -hostName 137.208.7.48
+  Diagram ::d1
+  Diagram ::d2
+  Diagram ::d3
+  TextOutput ::t1
+}
+
+c1 attachPre ping d1 d2
+c1 attachPost ping d2 d3
+c1 attachPost ping t1
+c2 attachPost ping t1 d2
+
+#c1 detachPre ping d1
+#c1 detachPost ping d2 d3
+vwait forever
+

@@ -17,9 +17,9 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301,
 # USA.
 #
-# $Id: configure.ac,v 1.153 2006/11/20 14:38:31 dolorous Exp $
+# $Id: configure.ac,v 1.160.2.6 2007/04/26 12:00:33 dolorous Exp $
 
-AC_INIT([GNU nano], [2.0.1], [nano-devel@gnu.org], [nano])
+AC_INIT([GNU nano], [2.0.6], [nano-devel@gnu.org], [nano])
 AC_CONFIG_SRCDIR([src/nano.c])
 AC_CANONICAL_TARGET([])
 AM_INIT_AUTOMAKE
@@ -53,20 +53,20 @@ AC_CHECK_HEADERS(getopt.h libintl.h limits.h regex.h sys/param.h wchar.h wctype.
 
 dnl Checks for options.
 
-AC_ARG_ENABLE(debug, 
+AC_ARG_ENABLE(debug,
 [  --enable-debug          Enable debugging (disabled by default)],
 [if test x$enableval = xyes; then
-    AC_DEFINE(DEBUG, 1, [Define this to enable nano debug messages and assert warnings.]) debug_support=yes
+    AC_DEFINE(DEBUG, 1, [Define this to enable debug messages and assert warnings.]) debug_support=yes
 fi])
 
 if test x$debug_support != xyes; then
-    AC_DEFINE(NDEBUG, 1, [Shut up the assert warnings :-)])
+    AC_DEFINE(NDEBUG, 1, [Shut up assert warnings :-)])
 fi
 
 AC_ARG_ENABLE(extra,
 [  --enable-extra          Enable extra features, currently only easter eggs],
 [if test x$enableval = xyes; then
-    AC_DEFINE(NANO_EXTRA, 1, [Define this to enable the extra stuff.]) extra_support=yes
+    AC_DEFINE(NANO_EXTRA, 1, [Define this to enable extra stuff.]) extra_support=yes
 fi])
 
 AC_ARG_ENABLE(tiny,
@@ -75,42 +75,42 @@ AC_ARG_ENABLE(tiny,
     AC_DEFINE(NANO_TINY, 1, [Define this to make the nano executable as small as possible.]) tiny_support=yes
     AC_DEFINE(DISABLE_BROWSER, 1, [Define this to disable the built-in file browser.])
     AC_DEFINE(DISABLE_HELP, 1, [Define this to disable the help text display.])
-    AC_DEFINE(DISABLE_JUSTIFY, 1, [Define this to disable the justify routine.])
+    AC_DEFINE(DISABLE_JUSTIFY, 1, [Define this to disable the justify routines.])
     AC_DEFINE(DISABLE_MOUSE, 1, [Define this to disable the mouse functions.])
-    AC_DEFINE(DISABLE_OPERATINGDIR, 1, [Define this to disable setting of the operating directory (chroot of sorts).])
+    AC_DEFINE(DISABLE_OPERATINGDIR, 1, [Define this to disable the setting of the operating directory (chroot of sorts).])
     AC_DEFINE(DISABLE_SPELLER, 1, [Define this to disable the spell checker functions.])
-    AC_DEFINE(DISABLE_TABCOMP, 1, [Define to disable the tab completion code Chris worked so hard on!])
-    AC_DEFINE(DISABLE_WRAPPING, 1, [Define this to disable any and all text wrapping.])
+    AC_DEFINE(DISABLE_TABCOMP, 1, [Define to disable the tab completion functions for files and search strings.])
+    AC_DEFINE(DISABLE_WRAPPING, 1, [Define this to disable all text wrapping.])
 fi])
 
 AC_ARG_ENABLE(browser,
-[  --disable-browser       Disable mini file browser],
+[  --disable-browser       Disable built-in file browser],
 [if test x$enableval != xyes; then
     AC_DEFINE(DISABLE_BROWSER, 1, [Define this to disable the built-in file browser.])
 fi])
 
 AC_ARG_ENABLE(help,
-[  --disable-help          Disable help function],
+[  --disable-help          Disable help functions],
 [if test x$enableval != xyes; then
     AC_DEFINE(DISABLE_HELP, 1, [Define this to disable the help text display.])
 fi])
 
 AC_ARG_ENABLE(justify,
-[  --disable-justify       Disable justify/unjustify function],
+[  --disable-justify       Disable justify/unjustify functions],
 [if test x$enableval != xyes; then
-    AC_DEFINE(DISABLE_JUSTIFY, 1, [Define this to disable the justify routine.]) 
+    AC_DEFINE(DISABLE_JUSTIFY, 1, [Define this to disable the justify routines.])
 fi])
 
 AC_ARG_ENABLE(mouse,
 [  --disable-mouse         Disable mouse support (and -m flag)],
 [if test x$enableval != xyes; then
-    AC_DEFINE(DISABLE_MOUSE, 1, [Define this to disable the mouse functions.])
+    AC_DEFINE(DISABLE_MOUSE, 1, [Define this to disable the mouse support.])
 fi])
 
 AC_ARG_ENABLE(operatingdir,
 [  --disable-operatingdir  Disable setting of operating directory (chroot of sorts)],
 [if test x$enableval != xyes; then
-    AC_DEFINE(DISABLE_OPERATINGDIR, 1, [Define this to disable setting of the operating directory (chroot of sorts).])
+    AC_DEFINE(DISABLE_OPERATINGDIR, 1, [Define this to disable the setting of the operating directory (chroot of sorts).])
 fi])
 
 AC_ARG_ENABLE(speller,
@@ -120,28 +120,28 @@ AC_ARG_ENABLE(speller,
 fi])
 
 AC_ARG_ENABLE(tabcomp,
-[  --disable-tabcomp       Disable tab completion code for a smaller binary],
+[  --disable-tabcomp       Disable tab completion functions],
 [if test x$enableval != xyes; then
-    AC_DEFINE(DISABLE_TABCOMP, 1, [Define to disable the tab completion code Chris worked so hard on!]) 
+    AC_DEFINE(DISABLE_TABCOMP, 1, [Define to disable the tab completion functions for files and search strings.])
 fi])
 
 AC_ARG_ENABLE(wrapping,
 [  --disable-wrapping      Disable all wrapping of text (and -w flag)],
 [if test x$enableval != xyes; then
-    AC_DEFINE(DISABLE_WRAPPING, 1, [Define this to disable any and all text wrapping.])
+    AC_DEFINE(DISABLE_WRAPPING, 1, [Define this to disable all text wrapping.])
 fi])
 
 AC_ARG_ENABLE(wrapping-as-root,
 [  --disable-wrapping-as-root  Disable wrapping of text as root by default],
 [if test x$enableval != xyes; then
-    AC_DEFINE(DISABLE_ROOTWRAPPING, 1, [Define this to disable wrapping as root by default.])
+    AC_DEFINE(DISABLE_ROOTWRAPPING, 1, [Define this to disable text wrapping as root by default.])
 fi])
 
 AC_ARG_ENABLE(color,
 [  --enable-color          Enable color and syntax highlighting],
 [if test x$enableval = xyes; then
     if test x$ac_cv_header_regex_h = xyes; then
-	AC_DEFINE(ENABLE_NANORC, 1, [Define this to use the .nanorc file.]) nanorc_support=yes
+	AC_DEFINE(ENABLE_NANORC, 1, [Define this to use .nanorc files.]) nanorc_support=yes
 	AC_DEFINE(ENABLE_COLOR, 1, [Define this to have syntax highlighting, requires regex.h and ENABLE_NANORC too!]) color_support=yes
     else
 	AC_MSG_ERROR([
@@ -159,18 +159,18 @@ AC_ARG_ENABLE(multibuffer,
 fi])
 
 AC_ARG_ENABLE(nanorc,
-[  --enable-nanorc         Enable use of .nanorc file],
+[  --enable-nanorc         Enable use of .nanorc files],
 [if test x$enableval = xyes; then
-    AC_DEFINE(ENABLE_NANORC, 1, [Define this to use the .nanorc file.]) nanorc_support=yes
+    AC_DEFINE(ENABLE_NANORC, 1, [Define this to use .nanorc files.]) nanorc_support=yes
 fi])
 
 AC_ARG_ENABLE(all,
 [  --enable-all            Enable ALL extra nano functionality (kitchen sink option)],
 [if test x$enableval = xyes; then
-    AC_DEFINE(ENABLE_NANORC, 1, [Define this to use the .nanorc file.]) nanorc_support=yes
+    AC_DEFINE(ENABLE_NANORC, 1, [Define this to use .nanorc files.]) nanorc_support=yes
     AC_DEFINE(ENABLE_COLOR, 1, [Define this to have syntax highlighting, requires regex.h and ENABLE_NANORC too!]) color_support=yes
     AC_DEFINE(ENABLE_MULTIBUFFER, 1, [Define this to enable multiple file buffers.]) multibuffer_support=yes
-    AC_DEFINE(NANO_EXTRA, 1, [Define this to enable the extra stuff.]) extra_support=yes
+    AC_DEFINE(NANO_EXTRA, 1, [Define this to enable extra stuff.]) extra_support=yes
 fi])
 
 AC_MSG_CHECKING([whether to enable UTF-8 support])
@@ -372,6 +372,7 @@ int main(void)
     esac], [AC_MSG_RESULT(no)])
 
 AM_CONDITIONAL(USE_COLOR, test x$color_support = xyes)
+AM_CONDITIONAL(USE_NANORC, test x$nanorc_support = xyes)
 
 dnl Checks for functions.
 

@@ -39,7 +39,7 @@ class CACRecord : public Tokend::Record
 public:
 	CACRecord(const unsigned char *application, const char *description) :
 		mApplication(application), mDescription(description) {}
-	~CACRecord();
+	virtual ~CACRecord();
 
 	virtual const char *description() { return mDescription; }
 
@@ -59,7 +59,7 @@ public:
 	CACCertificateRecord(const unsigned char *application,
 		const char *description) :
 		CACRecord(application, description) {}
-	~CACCertificateRecord();
+	virtual ~CACCertificateRecord();
 
 	virtual Tokend::Attribute *getDataAttribute(Tokend::TokenContext *tokenContext);
 };
@@ -69,8 +69,8 @@ class CACKeyRecord : public CACRecord
 	NOCOPY(CACKeyRecord)
 public:
 	CACKeyRecord(const unsigned char *application, const char *description,
-                 const Tokend::MetaRecord &metaRecord, bool signOnly);
-    ~CACKeyRecord();
+                 const Tokend::MetaRecord &metaRecord);
+    virtual ~CACKeyRecord();
 
 	size_t sizeInBits() const { return 1024; }
 	void computeCrypt(CACToken &cacToken, bool sign, const unsigned char *data,
@@ -79,7 +79,6 @@ public:
     virtual void getAcl(const char *tag, uint32 &count,
 		AclEntryInfo *&aclList);
 private:
-	bool mSignOnly;
 	AutoAclEntryInfoList mAclEntries;
 };
 
@@ -90,7 +89,7 @@ class CACTBRecord : public CACRecord
 public:
 	CACTBRecord(const unsigned char *application, const char *description) :
 		CACRecord(application, description) {}
-	~CACTBRecord();
+	virtual ~CACTBRecord();
 
 	virtual Tokend::Attribute *getDataAttribute(Tokend::TokenContext *tokenContext);
 
@@ -106,7 +105,7 @@ class CACVBRecord : public CACTBRecord
 public:
 	CACVBRecord(const unsigned char *application, const char *description) :
 		CACTBRecord(application, description) {}
-	~CACVBRecord();
+	virtual ~CACVBRecord();
 
 	virtual Tokend::Attribute *getDataAttribute(Tokend::TokenContext *tokenContext);
     virtual void getAcl(const char *tag, uint32 &count,

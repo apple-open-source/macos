@@ -1,7 +1,7 @@
 /*
  * files.c	Read config files into memory.
  *
- * Version:     $Id: files.c,v 1.85.4.3 2007/07/17 10:17:31 aland Exp $
+ * Version:     $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,33 +15,23 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2000  The FreeRADIUS server project
+ * Copyright 2000,2006  The FreeRADIUS server project
  * Copyright 2000  Miquel van Smoorenburg <miquels@cistron.nl>
  * Copyright 2000  Alan DeKok <aland@ox.org>
  */
 
-static const char rcsid[] = "$Id: files.c,v 1.85.4.3 2007/07/17 10:17:31 aland Exp $";
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
-#include "autoconf.h"
-#include "libradius.h"
+#include <freeradius-devel/radiusd.h>
+#include <freeradius-devel/rad_assert.h>
 
 #include <sys/stat.h>
 
-#ifdef HAVE_NETINET_IN_H
-#	include <netinet/in.h>
-#endif
-
-#include <stdlib.h>
-#include <string.h>
-#include <netdb.h>
 #include <ctype.h>
 #include <fcntl.h>
-
-#include "radiusd.h"
-
-int maximum_proxies;
 
 /*
  *	Free a PAIR_LIST
@@ -51,7 +41,7 @@ void pairlist_free(PAIR_LIST **pl)
 	PAIR_LIST *p, *next;
 
 	for (p = *pl; p; p = next) {
-		if (p->name) free(p->name);
+		/* name is allocated contiguous with p */
 		if (p->check) pairfree(&p->check);
 		if (p->reply) pairfree(&p->reply);
 		next = p->next;
@@ -74,14 +64,14 @@ int pairlist_read(const char *file, PAIR_LIST **list, int complain)
 	int mode = FIND_MODE_NAME;
 	char entry[256];
 	char buffer[8192];
-	char *ptr, *s;
+	const char *ptr;
 	VALUE_PAIR *check_tmp;
 	VALUE_PAIR *reply_tmp;
 	PAIR_LIST *pl = NULL, *t;
 	PAIR_LIST **last = &pl;
 	int lineno = 0;
 	int old_lineno = 0;
-	LRAD_TOKEN parsecode;
+	FR_TOKEN parsecode;
 	char newfile[8192];
 
 	/*
@@ -97,12 +87,14 @@ int pairlist_read(const char *file, PAIR_LIST **list, int complain)
 	}
 
 	parsecode = T_EOL;
+
 	/*
 	 *	Read the entire file into memory for speed.
 	 */
 	while(fgets(buffer, sizeof(buffer), fp) != NULL) {
 		lineno++;
 		if (!feof(fp) && (strchr(buffer, '\n') == NULL)) {
+			fclose(fp);
 			radlog(L_ERR, "%s[%d]: line too long", file, lineno);
 			pairlist_free(&pl);
 			return -1;
@@ -114,13 +106,8 @@ int pairlist_read(const char *file, PAIR_LIST **list, int complain)
 		 *	ignore it.
 		 */
 		ptr = buffer;
-		while ((ptr[0] == ' ') ||
-		       (ptr[0] == '\t') ||
-		       (ptr[0] == '\r') ||
-		       (ptr[0] == '\n')) {
-			ptr++;
-		}
-		if (ptr[0] == '\0') continue;
+		while (isspace((int) *ptr)) ptr++;
+		if (*ptr == '\0') continue;
 
 parse_again:
 		if(mode == FIND_MODE_NAME) {
@@ -148,10 +135,6 @@ parse_again:
 			if (strcasecmp(entry, "$include") == 0) {
 				while(isspace((int) *ptr))
 					ptr++;
-				s = ptr;
-				while (!isspace((int) *ptr))
-					ptr++;
-				*ptr = 0;
 
 				/*
 				 *	If it's an absolute pathname,
@@ -161,22 +144,31 @@ parse_again:
 				 *	files *relative* to the current
 				 *	file.
 				 */
-				if (*s != '/') {
-					strNcpy(newfile, file,
+				if (FR_DIR_IS_RELATIVE(ptr)) {
+					char *p;
+
+					strlcpy(newfile, file,
 						sizeof(newfile));
-					ptr = strrchr(newfile, '/');
-					strcpy(ptr + 1, s);
-					s = newfile;
+					p = strrchr(newfile, FR_DIR_SEP);
+					if (!p) {
+						p = newfile + strlen(newfile);
+						*p = FR_DIR_SEP;
+					}
+					getword(&ptr, p + 1,
+						sizeof(newfile) - 1 - (p - buffer));
+				} else {
+					getword(&ptr, newfile,
+						sizeof(newfile));
 				}
 
 				t = NULL;
-				if (pairlist_read(s, &t, 0) != 0) {
+				if (pairlist_read(newfile, &t, 0) != 0) {
 					pairlist_free(&pl);
 					radlog(L_ERR|L_CONS,
 					       "%s[%d]: Could not open included file %s: %s",
-					       file, lineno, s, strerror(errno));
+					       file, lineno, newfile, strerror(errno));
 					fclose(fp);
-				return -1;
+					return -1;
 				}
 				*last = t;
 
@@ -198,11 +190,11 @@ parse_again:
 			reply_tmp = NULL;
 			old_lineno = lineno;
 			parsecode = userparse(ptr, &check_tmp);
-			if (parsecode == T_INVALID) {
+			if (parsecode == T_OP_INVALID) {
 				pairlist_free(&pl);
 				radlog(L_ERR|L_CONS,
 				"%s[%d]: Parse error (check) for entry %s: %s",
-					file, lineno, entry, librad_errstr);
+					file, lineno, entry, fr_strerror());
 				fclose(fp);
 				return -1;
 			} else if (parsecode == T_COMMA) {
@@ -234,24 +226,33 @@ parse_again:
 					pairlist_free(&pl);
 					radlog(L_ERR|L_CONS,
 					       "%s[%d]: Parse error (reply) for entry %s: %s",
-					       file, lineno, entry, librad_errstr);
+					       file, lineno, entry, fr_strerror());
 					fclose(fp);
 					return -1;
 				}
 			}
 			else {
+				size_t entry_len;
+				char *q;
+
+				entry_len = strlen(entry) + 1;
+
 				/*
 				 *	Done with this entry...
 				 */
-				t = rad_malloc(sizeof(PAIR_LIST));
+				q = rad_malloc(sizeof(*t) + entry_len);
+				t = (PAIR_LIST *) q;
 
 				memset(t, 0, sizeof(*t));
-				t->name = strdup(entry);
 				t->check = check_tmp;
 				t->reply = reply_tmp;
 				t->lineno = old_lineno;
 				check_tmp = NULL;
 				reply_tmp = NULL;
+
+				q += sizeof(*t);
+				memcpy(q, entry, entry_len);
+				t->name = q;
 
 				*last = t;
 				last = &(t->next);
@@ -302,355 +303,3 @@ static void debug_pair_list(PAIR_LIST *pl)
 	}
 }
 #endif
-
-#ifndef BUILDDBM /* HACK HACK */
-
-/*
- *	Free a REALM list.
- */
-void realm_free(REALM *cl)
-{
-	REALM *next;
-
-	while(cl) {
-		next = cl->next;
-		free(cl);
-		cl = next;
-	}
-}
-
-/*
- *	Read the realms file.
- */
-int read_realms_file(const char *file)
-{
-	FILE *fp;
-	char buffer[256];
-	char realm[256];
-	char hostnm[256];
-	char opts[256];
-	char *s, *p;
-	int lineno = 0;
-	REALM *c, **tail;
-	int got_realm = FALSE;
-
-	realm_free(mainconfig.realms);
-	mainconfig.realms = NULL;
-	tail = &mainconfig.realms;
-
-	if ((fp = fopen(file, "r")) == NULL) {
-		/* The realms file is not mandatory.  If it exists it will
-		   be used, however, since the new style config files are
-		   more robust and flexible they are more likely to get used.
-		   So this is a non-fatal error.  */
-		return 0;
-	}
-
-	while(fgets(buffer, 256, fp) != NULL) {
-		lineno++;
-		if (!feof(fp) && (strchr(buffer, '\n') == NULL)) {
-			radlog(L_ERR, "%s[%d]: line too long", file, lineno);
-			return -1;
-		}
-		if (buffer[0] == '#' || buffer[0] == '\n')
-			continue;
-		p = buffer;
-		if (!getword(&p, realm, sizeof(realm)) ||
-				!getword(&p, hostnm, sizeof(hostnm))) {
-			radlog(L_ERR, "%s[%d]: syntax error", file, lineno);
-			continue;
-		}
-
-		got_realm = TRUE;
-		c = rad_malloc(sizeof(REALM));
-		memset(c, 0, sizeof(REALM));
-
-		if ((s = strchr(hostnm, ':')) != NULL) {
-			*s++ = 0;
-			c->auth_port = atoi(s);
-			c->acct_port = c->auth_port + 1;
-		} else {
-			c->auth_port = PW_AUTH_UDP_PORT;
-			c->acct_port = PW_ACCT_UDP_PORT;
-		}
-
-		if (strcmp(hostnm, "LOCAL") == 0) {
-			/*
-			 *	Local realms don't have an IP address,
-			 *	secret, or port.
-			 */
-			c->acct_ipaddr = c->ipaddr = htonl(INADDR_NONE);
-			c->secret[0] = '\0';
-			c->auth_port = 0;
-			c->acct_port = 0;
-
-		} else {
-			RADCLIENT *client;
-			c->ipaddr = ip_getaddr(hostnm);
-			c->acct_ipaddr = c->ipaddr;
-
-			if (c->ipaddr == htonl(INADDR_NONE)) {
-				radlog(L_CONS|L_ERR, "%s[%d]: Failed to look up hostname %s",
-				       file, lineno, hostnm);
-				free(c);
-				return -1;
-			}
-
-			/*
-			 *	Find the remote server in the "clients" list.
-			 *	If we can't find it, there's a big problem...
-			 */
-			client = client_find(c->ipaddr);
-			if (client == NULL) {
-				radlog(L_CONS|L_ERR, "%s[%d]: Cannot find 'clients' file entry of remote server %s for realm \"%s\"",
-				       file, lineno, hostnm, realm);
-				free(c);
-				return -1;
-			}
-			memcpy(c->secret, client->secret, sizeof(c->secret));
-		}
-
-		/*
-		 *	Double-check lengths to be sure they're sane
-		 */
-		if (strlen(hostnm) >= sizeof(c->server)) {
-			radlog(L_ERR, "%s[%d]: server name of length %d is greater than the allowed maximum of %d.",
-			       file, lineno,
-			       (int) strlen(hostnm),
-			       (int) sizeof(c->server) - 1);
-			free(c);
-			return -1;
-		}
-		if (strlen(realm) > sizeof(c->realm)) {
-			radlog(L_ERR, "%s[%d]: realm of length %d is greater than the allowed maximum of %d.",
-			       file, lineno,
-			       (int) strlen(realm),
-			       (int) sizeof(c->realm) - 1);
-			free(c);
-			return -1;
-		}
-
-		/*
-		 *	OK, they're sane, copy them over.
-		 */
-		strcpy(c->realm, realm);
-		strcpy(c->server, hostnm);
-		c->striprealm = TRUE;
-		c->active = TRUE;
-		c->acct_active = TRUE;
-
-		while (getword(&p, opts, sizeof(opts))) {
-			if (strcmp(opts, "nostrip") == 0)
-				c->striprealm = FALSE;
-			if (strstr(opts, "noacct") != NULL)
-				c->acct_port = 0;
-			if (strstr(opts, "trusted") != NULL)
-				c->trusted = 1;
-			if (strstr(opts, "notrealm") != NULL)
-				c->notrealm = 1;
-			if (strstr(opts, "notsuffix") != NULL)
-				c->notrealm = 1;
-		}
-
-		c->next = NULL;
-		*tail = c;
-		tail = &c->next;
-	}
-	fclose(fp);
-
-	/*
-	 *	Complain only if the realms file has content.
-	 */
-	if (got_realm) {
-		radlog(L_INFO, "Using deprecated realms file.  Support for this will go away soon.");
-	}
-
-	return 0;
-}
-#endif /* BUILDDBM */
-
-/*
- * Mark a host inactive
- */
-void realm_disable(uint32_t ipaddr, int port)
-{
-	REALM *cl;
-	time_t now;
-
-	now = time(NULL);
-	for(cl = mainconfig.realms; cl; cl = cl->next) {
-		if ((ipaddr == cl->ipaddr) && (port == cl->auth_port)) {
-			/*
-			 *	If we've received a reply (any reply)
-			 *	from the home server in the time spent
-			 *	re-sending this request, then don't mark
-			 *	the realm as dead.
-			 */
-			if (cl->last_reply > (( now - mainconfig.proxy_retry_delay * mainconfig.proxy_retry_count ))) {
-				continue;
-			}
-
-			cl->active = FALSE;
-			cl->wakeup = now + mainconfig.proxy_dead_time;
-			radlog(L_PROXY, "marking authentication server %s:%d for realm %s dead",
-				cl->server, port, cl->realm);
-		} else if ((ipaddr == cl->acct_ipaddr) && (port == cl->acct_port)) {
-			if (cl->last_reply > (( now - mainconfig.proxy_retry_delay * mainconfig.proxy_retry_count ))) {
-				continue;
-			}
-
-			cl->acct_active = FALSE;
-			cl->acct_wakeup = now + mainconfig.proxy_dead_time;
-			radlog(L_PROXY, "marking accounting server %s:%d for realm %s dead",
-				cl->acct_server, port, cl->realm);
-		}
-	}
-}
-
-/*
- *	Find a realm in the REALM list.
- */
-REALM *realm_find(const char *realm, int accounting)
-{
-	REALM *cl;
-	REALM *default_realm = NULL;
-	time_t now;
-	int dead_match = 0;
-
-	now = time(NULL);
-
-	/*
-	 *	If we're passed a NULL realm pointer,
-	 *	then look for a "NULL" realm string.
-	 */
-	if (realm == NULL) {
-		realm = "NULL";
-	}
-
-	for (cl = mainconfig.realms; cl; cl = cl->next) {
-		/*
-		 *	Wake up any sleeping realm.
-		 */
-		if (cl->wakeup <= now) {
-			cl->active = TRUE;
-		}
-		if (cl->acct_wakeup <= now) {
-			cl->acct_active = TRUE;
-		}
-
-		/*
-		 *	Asked for auth/acct, and the auth/acct server
-		 *	is not active.  Skip it.
-		 */
-		if ((!accounting && !cl->active) ||
-		    (accounting && !cl->acct_active)) {
-
-			/*
-			 *	We've been asked to NOT fall through
-			 *	to the DEFAULT realm if there are
-			 *	exact matches for this realm which are
-			 *	dead.
-			 */
-			if ((!mainconfig.proxy_fallback) &&
-			    (strcasecmp(cl->realm, realm) == 0)) {
-				dead_match = 1;
-			}
-			continue;
-		}
-
-		/*
-		 *	If it matches exactly, return it.
-		 *
-		 *	Note that we just want ONE live realm
-		 *	here.  We don't care about round-robin, or
-		 *	scatter techniques, as that's more properly
-		 *	the responsibility of the proxying code.
-		 */
-		if (strcasecmp(cl->realm, realm) == 0) {
-			return cl;
-		}
-
-		/*
-		 *	No default realm, try to set one.
-		 */
-		if ((default_realm == NULL) &&
-		    (strcmp(cl->realm, "DEFAULT") == 0)) {
-		  default_realm = cl;
-		}
-	} /* loop over all realms */
-
-	/*
-	 *	There WAS one or more matches which were marked dead,
-	 *	AND there were NO live matches, AND we've been asked
-	 *	to NOT fall through to the DEFAULT realm.  Therefore,
-	 *	we return NULL, which means "no match found".
-	 */
-	if (!mainconfig.proxy_fallback && dead_match) {
-		if (mainconfig.wake_all_if_all_dead) {
-			REALM *rcl = NULL;
-			for (cl = mainconfig.realms; cl; cl = cl->next) {
-				if(strcasecmp(cl->realm,realm) == 0) {
-					if (!accounting && !cl->active) {
-						cl->active = TRUE;
-						rcl = cl;
-					}
-					else if (accounting &&
-						 !cl->acct_active) {
-						cl->acct_active = TRUE;
-						rcl = cl;
-					}
-				}
-			}
-			return rcl;
-		}
-		else {
-			return NULL;
-		}
-	}
-
-	/*      If we didn't find the realm 'NULL' don't return the
-	 *      DEFAULT entry.
-	 */
-	if ((strcmp(realm, "NULL")) == 0) {
-	  return NULL;
-	}
-
-	/*
-	 *	Didn't find anything that matched exactly, return the
-	 *	DEFAULT realm.  We also return the DEFAULT realm if
-	 *	all matching realms were marked dead, and we were
-	 *	asked to fall through to the DEFAULT realm in this
-	 *	case.
-	 */
-	return default_realm;
-}
-
-/*
- *	Find a realm for a proxy reply by proxy's IP
- *
- *	Note that we don't do anything else.
- */
-REALM *realm_findbyaddr(uint32_t ipaddr, int port)
-{
-	REALM *cl;
-
-	/*
-	 *	Note that we do NOT check for inactive realms!
-	 *
-	 *	The purpose of this code is simply to find a matching
-	 *	source IP/Port pair, for a home server which is allowed
-	 *	to send us proxy replies.  If we get a reply, then it
-	 *	doesn't matter if we think the realm is inactive.
-	 */
-	for (cl = mainconfig.realms; cl != NULL; cl = cl->next) {
-		if ((ipaddr == cl->ipaddr) && (port == cl->auth_port)) {
-			return cl;
-
-		} else if ((ipaddr == cl->acct_ipaddr) && (port == cl->acct_port)) {
-			return cl;
-		}
-	}
-
-	return NULL;
-}
-

@@ -3,9 +3,9 @@
 /* Test for MS bitfield layout */
 /* Adapted from Donn Terry <donnte@microsoft.com> testcase
    posted to GCC-patches
-   http://gcc.gnu.org/ml/gcc-patches/2000-08/msg00577.html */ 
+   http://gcc.gnu.org/ml/gcc-patches/2000-08/msg00577.html */
 
-/* { dg-do run { target *-*-interix* *-*-mingw* *-*-cygwin* } } */
+/* { dg-do run { target *-*-interix* *-*-mingw* *-*-cygwin* i?86-*-darwin* } } */
 /* { dg-options "-mms-bitfields -D_TEST_MS_LAYOUT" } */
 
 #include <stddef.h>
@@ -19,22 +19,22 @@ struct one {
   int d;
   unsigned char a;
   unsigned short b:7;
-  char c;	
-};
+  char c;
+} ;
 
 struct two {
   int d;
   unsigned char a;
   unsigned int b:7;
-  char c;	    	
-};
+  char c;
+} ;
 
 struct three {
   short d;
   unsigned short a:3;
   unsigned short b:9;
   unsigned char c:7;
-};
+} ;
 
 
 /* Bitfields of size 0 have some truly odd behaviors. */
@@ -44,16 +44,16 @@ struct four {
   unsigned short b:9;
   unsigned int :0;  /* forces struct alignment to int */
   unsigned char c:7;
-};
+} ;
 
 struct five {
-  char a;	  	
+  char a;
   int :0;        /* ignored; prior field is not a bitfield. */
   char b;
   char c;
-};
+} ;
 
-struct six { 
+struct six {
   char a :8;
   int :0;	/* not ignored; prior field IS a bitfield, causes
 		   struct alignment as well. */
@@ -67,12 +67,12 @@ struct seven {
   int  :0;	/* Ignored; prior field is zero size bitfield. */
   char b;
   char c;
-};
+} ;
 
 struct eight { /* ms size 4 */
-  short b:3;  
+  short b:3;
   char  c;
-};
+} ;
 
 #ifdef _MSC_VER
 #define LONGLONG __int64
@@ -83,13 +83,13 @@ struct eight { /* ms size 4 */
 union nine {   /* ms size 8 */
   LONGLONG a:3;
   char  c;
-};
+} ;
 
 struct ten {   /* ms size 16 */
   LONGLONG a:3;
   LONGLONG b:3;
   char  c;
-};
+} ;
 
 
 #define val(s,f) (s.f)
@@ -151,7 +151,7 @@ int main(){
   struct eight test_eight;
   union nine test_nine;
   struct ten test_ten;
- 
+
 #if defined (_TEST_MS_LAYOUT) || defined (_MSC_VER)
   size_t exp_sizeof_one = 12;
   size_t exp_sizeof_two = 16;
@@ -180,7 +180,7 @@ int main(){
   size_t exp_sizeof_one = 8;
   size_t exp_sizeof_two = 8;
   size_t exp_sizeof_three = 6;
-  size_t exp_sizeof_four = 6;  
+  size_t exp_sizeof_four = 6;
   size_t exp_sizeof_five = 6;
   size_t exp_sizeof_six = 6;
   size_t exp_sizeof_seven = 6;
@@ -201,12 +201,12 @@ int main(){
 
 #endif
 
-  unsigned char i; 
+  unsigned char i;
   for ( i = 0; i < 16; i++ )
     filler[i] = i;
 
   check_struct_off (one);
-  check_struct_off (two);  
+  check_struct_off (two);
   check_struct_off (three);
   check_struct_off (four);
   check_struct_off (five);
@@ -217,7 +217,7 @@ int main(){
   check_struct_off (ten);
 
   check_struct_size (one);
-  check_struct_size (two);  
+  check_struct_size (two);
   check_struct_size (three);
   check_struct_size (four);
   check_struct_size (five);
@@ -229,4 +229,3 @@ int main(){
 
   return 0;
 };
-

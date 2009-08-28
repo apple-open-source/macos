@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -19,30 +19,9 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- * Copyright (c) 1998 Apple Computer, Inc.  All rights reserved. 
- *
- * IOPacketQueue.h
- *
- * HISTORY
- * 9-Dec-1998       Joe Liu (jliu) created.
- *
- */
 
 #ifndef _IOPACKETQUEUE_H
 #define _IOPACKETQUEUE_H
-
-#ifndef __MBUF_TRANSITION_STRIP
-#ifdef __MBUF_TRANSITION_
-# ifndef __MBUF_PROTO
-#  define __MBUF_PROTO mbuf_t
-# endif
-#else
-# ifndef __MBUF_PROTO
-#  define __MBUF_PROTO struct mbuf *
-# endif
-#endif
-#endif
 
 #include <libkern/c++/OSObject.h>
 #include <IOKit/IOLocks.h>
@@ -154,14 +133,14 @@ public:
     @result Returns the packet at the head of the queue. 
 */
 
-    virtual const __MBUF_PROTO peek() const;
+    virtual const mbuf_t peek() const;
 
 /*! @function prepend
     @abstract Adds a chain of packets to the head of the queue.
     @param m A chain of packets to add to the head of the queue. 
 */
 
-    virtual void prepend(__MBUF_PROTO m);
+    virtual void prepend(mbuf_t m);
 
 /*! @function prepend
     @abstract Removes all packets from the specified queue, and adds them
@@ -179,7 +158,7 @@ public:
     @result Always returns true. 
 */
 
-    virtual void lockPrepend(__MBUF_PROTO m);
+    virtual void lockPrepend(mbuf_t m);
 
 /*! @function enqueue
     @abstract Adds a chain of packets to the tail of the queue.
@@ -190,7 +169,7 @@ public:
     to accept the packet chain provided. 
 */
 
-    virtual bool enqueue(__MBUF_PROTO m);
+    virtual bool enqueue(mbuf_t m);
 
 /*! @function enqueue
     @abstract Removes all packets from the specified queue, and adds them
@@ -210,7 +189,7 @@ public:
     @result Returns the number of packets dropped and freed by the queue. 
 */
 
-    virtual UInt32 enqueueWithDrop(__MBUF_PROTO m);
+    virtual UInt32 enqueueWithDrop(mbuf_t m);
 
 /*! @function lockEnqueue
     @abstract Adds a chain of packets to the tail of a synchronized queue.
@@ -221,7 +200,7 @@ public:
     to accept the packet chain provided.
 */
 
-    virtual bool lockEnqueue(__MBUF_PROTO m);
+    virtual bool lockEnqueue(mbuf_t m);
 
 /*! @function lockEnqueueWithDrop
     @abstract Adds a chain of packets to the tail of a synchronized queue.
@@ -230,7 +209,7 @@ public:
     @result Returns the number of packets dropped and freed by the queue. 
 */
 
-    virtual UInt32 lockEnqueueWithDrop(__MBUF_PROTO m);
+    virtual UInt32 lockEnqueueWithDrop(mbuf_t m);
 
 /*! @function dequeue
     @abstract Removes a single packet from the head of the queue.
@@ -238,7 +217,7 @@ public:
     queue was empty. 
 */
 
-    virtual __MBUF_PROTO dequeue();
+    virtual mbuf_t dequeue();
 
 /*! @function lockDequeue
     @abstract Removes a single packet from the head of a synchronized queue.
@@ -247,7 +226,7 @@ public:
     queue was empty. 
 */
 
-    virtual __MBUF_PROTO lockDequeue();
+    virtual mbuf_t lockDequeue();
 
 /*! @function dequeueAll
     @abstract Removes all packets from the queue and returns the head of the
@@ -257,7 +236,7 @@ public:
     in the queue, or NULL if the queue was empty. 
 */
 
-    virtual __MBUF_PROTO dequeueAll();
+    virtual mbuf_t dequeueAll();
 
 /*! @function lockDequeueAll
     @abstract Removes all packets from a synchronized queue and returns the
@@ -268,7 +247,7 @@ public:
     in the queue, or NULL if the queue was empty. 
 */
 
-    virtual __MBUF_PROTO lockDequeueAll();
+    virtual mbuf_t lockDequeueAll();
 
 /*! @function flush
     @abstract Frees all packets currently held in the queue and releases them

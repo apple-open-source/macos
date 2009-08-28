@@ -7,6 +7,7 @@
  * daniel@veillard.com
  */
 #include "libxml_wrap.h"
+#include <libxml/xpathInternals.h>
 
 PyObject *
 libxml_intWrap(int val)
@@ -330,6 +331,24 @@ libxml_xmlParserCtxtPtrWrap(xmlParserCtxtPtr ctxt)
     return (ret);
 }
 
+/**
+ * libxml_xmlXPathDestructNsNode:
+ * cobj: xmlNsPtr namespace node
+ * desc: ignored string
+ *
+ * This function is called if and when a namespace node returned in
+ * an XPath node set is to be destroyed. That's the only kind of
+ * object returned in node set not directly linked to the original
+ * xmlDoc document, see xmlXPathNodeSetDupNs.
+ */
+static void
+libxml_xmlXPathDestructNsNode(void *cobj, void *desc ATTRIBUTE_UNUSED) {
+#ifdef DEBUG
+    fprintf(stderr, "libxml_xmlXPathDestructNsNode called %p\n", cobj);
+#endif
+    xmlXPathNodeSetFreeNs((xmlNsPtr) cobj);
+}
+
 PyObject *
 libxml_xmlXPathObjectPtrWrap(xmlXPathObjectPtr obj)
 {
@@ -380,8 +399,17 @@ libxml_xmlXPathObjectPtrWrap(xmlXPathObjectPtr obj)
                 ret = PyList_New(obj->nodesetval->nodeNr);
                 for (i = 0; i < obj->nodesetval->nodeNr; i++) {
                     node = obj->nodesetval->nodeTab[i];
-                    /* TODO: try to cast directly to the proper node type */
-                    PyList_SetItem(ret, i, libxml_xmlNodePtrWrap(node));
+                    if (node->type == XML_NAMESPACE_DECL) {
+		        PyObject *ns = 
+			    PyCObject_FromVoidPtrAndDesc((void *) node,
+                                     (char *) "xmlNsPtr",
+				     libxml_xmlXPathDestructNsNode);
+			PyList_SetItem(ret, i, ns);
+			/* make sure the xmlNsPtr is not destroyed now */
+			obj->nodesetval->nodeTab[i] = NULL;
+		    } else {
+			PyList_SetItem(ret, i, libxml_xmlNodePtrWrap(node));
+		    }
                 }
             }
             break;
@@ -395,10 +423,110 @@ libxml_xmlXPathObjectPtrWrap(xmlXPathObjectPtr obj)
             ret = PyString_FromString((char *) obj->stringval);
             break;
         case XPATH_POINT:
+        {
+            PyObject *node;
+            PyObject *indexIntoNode;
+            PyObject *tuple;
+
+            node = libxml_xmlNodePtrWrap(obj->user);
+            indexIntoNode = PyInt_FromLong((long) obj->index);
+
+            tuple = PyTuple_New(2);
+            PyTuple_SetItem(tuple, 0, node);
+            PyTuple_SetItem(tuple, 1, indexIntoNode);
+
+            ret = tuple;
+            break;
+        }
         case XPATH_RANGE:
+        {
+            unsigned short bCollapsedRange;
+
+            bCollapsedRange = ( (obj->user2 == NULL) ||
+		                ((obj->user2 == obj->user) && (obj->index == obj->index2)) );
+            if ( bCollapsedRange ) {
+                PyObject *node;
+                PyObject *indexIntoNode;
+                PyObject *tuple;
+                PyObject *list;
+
+                list = PyList_New(1);
+
+                node = libxml_xmlNodePtrWrap(obj->user);
+                indexIntoNode = PyInt_FromLong((long) obj->index);
+
+                tuple = PyTuple_New(2);
+                PyTuple_SetItem(tuple, 0, node);
+                PyTuple_SetItem(tuple, 1, indexIntoNode);
+
+                PyList_SetItem(list, 0, tuple);
+
+                ret = list;
+            } else {
+                PyObject *node;
+                PyObject *indexIntoNode;
+                PyObject *tuple;
+                PyObject *list;
+
+                list = PyList_New(2);
+
+                node = libxml_xmlNodePtrWrap(obj->user);
+                indexIntoNode = PyInt_FromLong((long) obj->index);
+
+                tuple = PyTuple_New(2);
+                PyTuple_SetItem(tuple, 0, node);
+                PyTuple_SetItem(tuple, 1, indexIntoNode);
+
+                PyList_SetItem(list, 0, tuple);
+
+                node = libxml_xmlNodePtrWrap(obj->user2);
+                indexIntoNode = PyInt_FromLong((long) obj->index2);
+
+                tuple = PyTuple_New(2);
+                PyTuple_SetItem(tuple, 0, node);
+                PyTuple_SetItem(tuple, 1, indexIntoNode);
+
+                PyList_SetItem(list, 1, tuple);
+
+                ret = list;
+            }
+            break;
+        }
         case XPATH_LOCATIONSET:
+        {
+            xmlLocationSetPtr set;
+
+            set = obj->user;
+            if ( set && set->locNr > 0 ) {
+                int i;
+                PyObject *list;
+
+                list = PyList_New(set->locNr);
+
+                for (i=0; i<set->locNr; i++) {
+                    xmlXPathObjectPtr setobj;
+                    PyObject *pyobj;
+
+                    setobj = set->locTab[i]; /*xmlXPathObjectPtr setobj*/
+
+                    pyobj = libxml_xmlXPathObjectPtrWrap(setobj);
+                    /* xmlXPathFreeObject(setobj) is called */
+                    set->locTab[i] = NULL;
+
+                    PyList_SetItem(list, i, pyobj);
+                }
+                set->locNr = 0;
+                ret = list;
+            } else {
+                Py_INCREF(Py_None);
+                ret = Py_None;
+            }
+            break;
+        }
         default:
+#ifdef DEBUG
             printf("Unable to convert XPath object type %d\n", obj->type);
+#endif
             Py_INCREF(Py_None);
             ret = Py_None;
     }
@@ -420,6 +548,21 @@ libxml_xmlXPathObjectPtrConvert(PyObject * obj)
     if PyFloat_Check
         (obj) {
         ret = xmlXPathNewFloat((double) PyFloat_AS_DOUBLE(obj));
+
+    } else if PyInt_Check(obj) {
+
+        ret = xmlXPathNewFloat((double) PyInt_AS_LONG(obj));
+
+#ifdef PyBool_Check
+    } else if PyBool_Check (obj) {
+
+        if (obj == Py_True) {
+          ret = xmlXPathNewBoolean(1);
+        }
+        else {
+          ret = xmlXPathNewBoolean(0);
+        }
+#endif
     } else if PyString_Check
         (obj) {
         xmlChar *str;
@@ -443,7 +586,9 @@ libxml_xmlXPathObjectPtrConvert(PyObject * obj)
 
             cur = NULL;
             if (PyCObject_Check(node)) {
+#ifdef DEBUG
                 printf("Got a CObject\n");
+#endif
                 cur = PyxmlNode_Get(node);
             } else if (PyInstance_Check(node)) {
                 PyInstanceObject *inst = (PyInstanceObject *) node;
@@ -463,7 +608,9 @@ libxml_xmlXPathObjectPtrConvert(PyObject * obj)
                     }
                     }
             } else {
+#ifdef DEBUG
                 printf("Unknown object in Python return list\n");
+#endif
             }
             if (cur != NULL) {
                 xmlXPathNodeSetAdd(set, cur);
@@ -471,7 +618,9 @@ libxml_xmlXPathObjectPtrConvert(PyObject * obj)
         }
         ret = xmlXPathWrapNodeSet(set);
     } else {
+#ifdef DEBUG
         printf("Unable to convert Python Object to XPath");
+#endif
     }
     Py_DECREF(obj);
     return (ret);
@@ -571,6 +720,7 @@ libxml_xmlRegexpPtrWrap(xmlRegexpPtr regexp)
 }
 #endif /* LIBXML_REGEXP_ENABLED */
 
+#ifdef LIBXML_READER_ENABLED
 PyObject *
 libxml_xmlTextReaderPtrWrap(xmlTextReaderPtr reader)
 {
@@ -606,6 +756,7 @@ libxml_xmlTextReaderLocatorPtrWrap(xmlTextReaderLocatorPtr locator)
                                      (char *) "xmlTextReaderLocatorPtr", NULL);
     return (ret);
 }
+#endif /* LIBXML_READER_ENABLED */
 
 #ifdef LIBXML_SCHEMAS_ENABLED
 PyObject *

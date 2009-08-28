@@ -106,20 +106,16 @@ LEAF(__adjust_sp,0)
 
 #elif defined(__arm__)
 
-#define	LEAF(name)					\
-	.align 2					@\
-	.globl	name					@\
-name:							@\
-	.set	__framesize,0
+#import	<architecture/arm/asm_help.h>
 
-LEAF(__sp)
+LEAF(__sp,0)
 	mov	r0,sp
 	bx	lr
 
 /*
  * void *_adjust_sp(void *sp)
  */
-LEAF(__adjust_sp)
+LEAF(__adjust_sp,0)
 	sub	r0, r0, #0x100
 	bx	lr
 

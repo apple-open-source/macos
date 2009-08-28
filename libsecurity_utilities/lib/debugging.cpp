@@ -45,80 +45,6 @@ namespace Debug {
 
 
 //
-// Main debug functions (global and in-scope)
-//
-void debug(const char *scope, const char *format, ...)
-{
-#if !defined(NDEBUG_CODE)
-	va_list args;
-	va_start(args, format);
-	Target::get().message(scope, format, args);
-	va_end(args);
-#endif
-}
-
-void vdebug(const char *scope, const char *format, va_list args)
-{
-#if !defined(NDEBUG_CODE)
-    Target::get().message(scope, format, args);
-#endif
-}
-
-bool debugging(const char *scope)
-{
-#if !defined(NDEBUG_CODE)
-	return Target::get().debugging(scope);
-#else
-    return false;
-#endif
-}
-
-
-//
-// Debug-delay function.
-// If the file indicated exists, read its first line and delay that many
-// seconds.
-//
-void delay(const char *file)
-{
-#if !defined(NDEBUG_CODE)
-	if (FILE *f = fopen(file, "r")) {
-		unsigned int seconds = 0;
-		fscanf(f, "%u", &seconds);
-		if (seconds < 10)
-			seconds = 10;
-		fclose(f);
-		debug("DELAY", "%s pid=%d delaying %d seconds", file, getpid(), seconds);
-		sleep(seconds);
-		debug("DELAY", "%s delay complete", file);
-	}
-#endif //NDEBUG_CODE
-}
-
-
-//
-// C equivalents for some basic uses
-//
-extern "C" {
-	int __security_debugging(const char *scope);
-	void __security_debug(const char *scope, const char *format, ...);
-};
-
-int __security_debugging(const char *scope)
-{ return debugging(scope); }
-
-void __security_debug(const char *scope, const char *format, ...)
-{
-#if !defined(NDEBUG_CODE)
-	va_list args;
-	va_start(args, format);
-	vdebug(scope, format, args);
-	va_end(args);
-#endif
-}
-
-
-//
 // Dump facility
 //
 bool dumping(const char *scope)
@@ -419,7 +345,7 @@ void Target::setFromEnvironment()
 				to(f);
 			} else {
 				to(stderr);
-				::debug(NULL, "cannot log to fd[%d]: %s", fd, strerror(errno));
+				secdebug("", "cannot log to fd[%d]: %s", fd, strerror(errno));
 			}
 		} else {	// if everything else fails, write a file
 			to(dest);
@@ -471,7 +397,7 @@ void Target::to(const char *filename)
 		to(new FileSink(f));
 	} else {
 		to(stderr);
-		::debug(NULL, "cannot debug to \"%s\": %s", filename, strerror(errno));
+		secdebug("", "cannot debug to \"%s\": %s", filename, strerror(errno));
 	}
 }
 
@@ -516,9 +442,9 @@ terminate_handler Target::previousTerminator;
 
 void Target::terminator()
 {
-	debug("exception", "uncaught exception terminates program");
+	secdebug("exception", "uncaught exception terminates program");
 	previousTerminator();
-	debug("exception", "prior termination handler failed to abort; forcing abort");
+	secdebug("exception", "prior termination handler failed to abort; forcing abort");
 	abort();
 }
 
@@ -584,21 +510,7 @@ void SyslogSink::configure(const char *options)
 {
 }
 
-
 #endif //NDEBUG_CODE
-
-
-//
-// kernel tracing support (C version)
-//
-extern "C" void security_ktrace(int);
-
-void security_ktrace(int code)
-{
-#if defined(ENABLE_SECTRACE)
-	syscall(180, code, 0, 0, 0, 0);
-#endif
-}
 
 
 } // end namespace Debug

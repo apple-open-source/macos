@@ -15,8 +15,8 @@ Known values for OPTION are:
   --prefix=DIR		change libxml prefix [default $prefix]
   --exec-prefix=DIR	change libxml exec prefix [default $exec_prefix]
   --libs		print library linking information
-  --libtool-libs        print linking information for use with libtool
   --cflags		print pre-processor and compiler flags
+  --modules		module support enabled
   --help		display this help and exit
   --version		output version information
 EOF
@@ -71,20 +71,32 @@ while test $# -gt 0; do
        	;;
 
     --libtool-libs)
-	echo ${libdir}/@XML_LIBTOOLLIBS@
+	if [ -r ${libdir}/@XML_LIBTOOLLIBS@ ]
+	then
+	    echo ${libdir}/@XML_LIBTOOLLIBS@
+	fi
         ;;
+
+    --modules)
+       	echo @WITH_MODULES@
+       	;;
 
     --libs)
         if [ "`uname`" = "Linux" ]
 	then
-	    if [ "@XML_LIBDIR@" = "-L/usr/lib64" ]
+	    if [ "@XML_LIBDIR@" = "-L/usr/lib" -o "@XML_LIBDIR@" = "-L/usr/lib64" ]
 	    then
 		echo @XML_LIBS@ 
 	    else
 		echo @XML_LIBDIR@ @XML_LIBS@ 
 	    fi
 	else
-	    echo @XML_LIBDIR@ @XML_LIBS@ 
+	    if [ "`uname`" = "Darwin" -a "@XML_LIBDIR@" = "-L/usr/lib" ]
+	    then
+		echo @XML_LIBS@ @WIN32_EXTRA_LIBADD@
+	    else
+		echo @XML_LIBDIR@ @XML_LIBS@ @WIN32_EXTRA_LIBADD@
+	    fi
 	fi
        	;;
 

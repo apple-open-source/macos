@@ -1,5 +1,5 @@
 /*
- * "$Id: jobs.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: jobs.c 7237 2008-01-22 01:38:39Z mike $"
  *
  *   Job status CGI for the Common UNIX Printing System (CUPS).
  *
@@ -77,7 +77,7 @@ main(int  argc,				/* I - Number of command-line arguments */
   * Do the operation...
   */
 
-  if ((op = cgiGetVariable("OP")) != NULL && job_id > 0)
+  if ((op = cgiGetVariable("OP")) != NULL && job_id > 0 && cgiIsPOST())
   {
    /*
     * Do the operation...
@@ -209,5 +209,5 @@ do_job_op(http_t      *http,		/* I - HTTP connection */
 
 
 /*
- * End of "$Id: jobs.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: jobs.c 7237 2008-01-22 01:38:39Z mike $".
  */

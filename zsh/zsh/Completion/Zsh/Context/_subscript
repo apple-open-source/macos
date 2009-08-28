@@ -3,14 +3,24 @@
 local expl ind osuf=']' flags sep
 
 if [[ "$1" = -q ]]; then
-  osuf='] '
   compquote osuf
+  osuf+=' '
   shift
 fi
 
 compset -P '\(([^\(\)]|\(*\))##\)' # remove subscript flags
 
-if [[ "$PREFIX" = :* ]]; then
+# Look for a dynamic name expansion.  Completion only gives us
+# the stuff inside the square brackets; we need to find out what's
+# outside.  We ought to check for quoting, really, but given we've
+# got to the subscript code " ~[" is pretty likely to be a dynamic
+# name expansion.  Also expand in anything that looks like an assignment
+# or colon list.
+integer pos=$((CURSOR+1))
+while [[ pos > 1 && $BUFFER[pos-1] != '[' ]]; do (( pos-- )); done
+if [[ $BUFFER[1,pos-1] = *[[:space:]:=]##\~\[ ]]; then
+  _dynamic_directory_name
+elif [[ "$PREFIX" = :* ]]; then
   _wanted characters expl 'character class' \
       compadd -p: -S ':]' alnum alpha ascii blank cntrl digit graph \
                           lower print punct space upper xdigit
@@ -67,12 +77,14 @@ elif compset -P '\('; then
 
   _values -s '' 'subscript flags' $flags
 elif [[ ${(Pt)${compstate[parameter]}} = assoc* ]]; then
-  local suf
-
+  local suf MATCH MBEGIN MEND
+  local -a keys
+  keys=(${${(kP)compstate[parameter]}//(#m)[\$\\\[\]\(\)\[\{\}]/\\$MATCH})
+  keys=(${keys//#%(#m)[*@]/(e)$MATCH})
   [[ "$RBUFFER" != (|\\)\]* ]] && suf="$osuf"
 
   _wanted association-keys expl 'association key' \
-      compadd -S "$suf" -k "$compstate[parameter]"
+      compadd -Q -S "$suf" -a keys
 elif [[ ${(Pt)${compstate[parameter]}} = array* ]]; then
   local list i j ret=1 disp
 

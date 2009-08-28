@@ -1,5 +1,5 @@
 /*
- * "$Id: env.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: env.c 7673 2008-06-18 22:31:26Z mike $"
  *
  *   Environment management routines for the Common UNIX Printing System (CUPS).
  *
@@ -82,6 +82,7 @@ cupsdInitEnv(void)
   cupsdSetEnv("CUPS_SERVERROOT", ServerRoot);
   cupsdSetEnv("CUPS_STATEDIR", StateDir);
   cupsdSetEnv("DYLD_LIBRARY_PATH", NULL);
+  cupsdSetEnv("HOME", TempDir);
   cupsdSetEnv("LD_ASSUME_KERNEL", NULL);
   cupsdSetEnv("LD_LIBRARY_PATH", NULL);
   cupsdSetEnv("LD_PRELOAD", NULL);
@@ -185,7 +186,7 @@ cupsdSetEnv(const char *name,		/* I - Name of variable */
 
   cupsdSetStringf(common_env + i, "%s=%s", name, value);
 
-  cupsdLogMessage(CUPSD_LOG_DEBUG2, "cupsdSetEnv: %s\n", common_env[i]);
+  cupsdLogMessage(CUPSD_LOG_DEBUG2, "cupsdSetEnv: %s", common_env[i]);
 }
 
 
@@ -236,5 +237,5 @@ clear_env(void)
 
 
 /*
- * End of "$Id: env.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: env.c 7673 2008-06-18 22:31:26Z mike $".
  */

@@ -1,0 +1,15 @@
+Vaša žiadosť zaslaná na adresu %(requestaddr)s:
+
+    %(cmd)s
+
+bola preposlaná správcovi konferencie.
+
+Pravdepodobne sa prihlasujete do uzavretej konferencie, ktorá
+vyžaduje na prihlásenie schválenie správcom.
+
+O rozhodnutí správcu budete informováný elektronickou poštou.
+
+Akékoľvek ďalšie otázky alebo dotazy zašlite správcovi konferencie:
+
+    %(adminaddr)s"
+

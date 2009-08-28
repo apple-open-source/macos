@@ -127,8 +127,8 @@ IOExternalMethod * AppleSamplePCIUserClient::getTargetAndMethodForIndex(
 }
 
 IOReturn AppleSamplePCIUserClient::externalMethod(
-	uint32_t selector, IOExternalMethodArguments * arguments,
-	IOExternalMethodDispatch * dispatch, OSObject * target, void * reference )
+        uint32_t selector, IOExternalMethodArguments * arguments,
+        IOExternalMethodDispatch * dispatch, OSObject * target, void * reference )
 {
 
     return (super::externalMethod(selector, arguments, NULL, this, NULL));
@@ -137,21 +137,21 @@ IOReturn AppleSamplePCIUserClient::externalMethod(
 
     switch (selector)
     {
-	case kAppleSampleMethod1:
-	    err = method1( (UInt32 *) arguments->structureInput, 
-			    (UInt32 *)  arguments->structureOutput,
-			    arguments->structureInputSize, (IOByteCount *) &arguments->structureOutputSize );
-	    break;
+        case kAppleSampleMethod1:
+            err = method1( (UInt32 *) arguments->structureInput, 
+                            (UInt32 *)  arguments->structureOutput,
+                            arguments->structureInputSize, (IOByteCount *) &arguments->structureOutputSize );
+            break;
 
-	case kAppleSampleMethod2:
-	    err = method2( (AppleSampleStructForMethod2 *) arguments->structureInput, 
-			    (AppleSampleResultsForMethod2 *)  arguments->structureOutput,
-			    arguments->structureInputSize, (IOByteCount *) &arguments->structureOutputSize );
-	    break;
+        case kAppleSampleMethod2:
+            err = method2( (AppleSampleStructForMethod2 *) arguments->structureInput, 
+                            (AppleSampleResultsForMethod2 *)  arguments->structureOutput,
+                            arguments->structureInputSize, (IOByteCount *) &arguments->structureOutputSize );
+            break;
 
-	default:
-	    err = kIOReturnBadArgument;
-	    break;
+        default:
+            err = kIOReturnBadArgument;
+            break;
     }
 
     IOLog("externalMethod(%d) 0x%x", selector, err);
@@ -164,11 +164,11 @@ IOReturn AppleSamplePCIUserClient::externalMethod(
  */
 
 IOReturn AppleSamplePCIUserClient::method1(
-					   UInt32 * dataIn, UInt32 * dataOut,
+                                           UInt32 * dataIn, UInt32 * dataOut,
                                            IOByteCount inputSize, IOByteCount * outputSize )
 {
-    IOReturn	ret;
-    IOItemCount	count;
+    IOReturn    ret;
+    IOItemCount count;
 
     IOLog("AppleSamplePCIUserClient::method1(");
 
@@ -189,7 +189,7 @@ IOReturn AppleSamplePCIUserClient::method1(
 }
 
 IOReturn AppleSamplePCIUserClient::method2( AppleSampleStructForMethod2 * structIn, 
-					    AppleSampleResultsForMethod2 * structOut,
+                                            AppleSampleResultsForMethod2 * structOut,
                                             IOByteCount inputSize, IOByteCount * outputSize )
 
 {
@@ -209,19 +209,19 @@ IOReturn AppleSamplePCIUserClient::method2( AppleSampleStructForMethod2 * struct
     {
         // construct a memory descriptor for the out of line client memory
 
-	// old 32 bit API - this will fail and log a backtrace if the task is 64 bit
+        // old 32 bit API - this will fail and log a backtrace if the task is 64 bit
         memDesc = IOMemoryDescriptor::withAddress( clientAddr, size, kIODirectionNone, fTask );
         if( !memDesc) {
             IOLog("IOMemoryDescriptor::withAddress failed\n");
         } else {
-	    memDesc->release();
-	}
+            memDesc->release();
+        }
 
-	// 64 bit API - works on all tasks, whether 64 bit or 32 bit
+        // 64 bit API - works on all tasks, whether 64 bit or 32 bit
         memDesc = IOMemoryDescriptor::withAddressRange( clientAddr, size, kIODirectionNone, fTask );
         if( !memDesc) {
             IOLog("IOMemoryDescriptor::withAddress failed\n");
-	    err = kIOReturnVMError;
+            err = kIOReturnVMError;
             continue;
         }
 
@@ -233,7 +233,7 @@ IOReturn AppleSamplePCIUserClient::method2( AppleSampleStructForMethod2 * struct
         }
 
         // Generate a DMA list for the client memory
-	err = fDriver->generateDMAAddresses(memDesc);
+        err = fDriver->generateDMAAddresses(memDesc);
 
         // Other methods to access client memory:
 
@@ -254,12 +254,12 @@ IOReturn AppleSamplePCIUserClient::method2( AppleSampleStructForMethod2 * struct
         // this map() will create a mapping in the users (the client of this IOUserClient) address space.
         memMap = memDesc->map(fTask, 0, kIOMapAnywhere);
         if( memMap)
-	{
-	    // old 32 bit API - this will truncate and log a backtrace if the task is 64 bit
+        {
+            // old 32 bit API - this will truncate and log a backtrace if the task is 64 bit
             IOVirtualAddress address32 = memMap->getVirtualAddress();
             IOLog("user32 mapped: 0x%x\n", address32);
 
-	    // new 64 bit API - same for 32 bit and 64 bit client tasks
+            // new 64 bit API - same for 32 bit and 64 bit client tasks
             mach_vm_address_t address64 = memMap->getAddress();
             IOLog("user64 mapped: 0x%qx\n", address64);
             memMap->release();
@@ -285,8 +285,8 @@ IOReturn AppleSamplePCIUserClient::method2( AppleSampleStructForMethod2 * struct
 
 IOReturn AppleSamplePCIUserClient::clientMemoryForType(
                                 UInt32 type,
-			        IOOptionBits * options,
-				IOMemoryDescriptor ** memory )
+                                IOOptionBits * options,
+                                IOMemoryDescriptor ** memory )
 {
     // Return a memory descriptor reference for some memory a client has requested 
     // be mapped into its address space.

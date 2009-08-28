@@ -1,5 +1,5 @@
 #
-# Copyright (c) 1999-2006 Apple Computer, Inc.  All Rights Reserved.
+# Copyright (c) 1999-2008 Apple Inc.  All Rights Reserved.
 # 
 # This file contains Original Code and/or Modifications of Original Code
 # as defined in and that are subject to the Apple Public Source License
@@ -18,19 +18,14 @@
 #
 
 MODULE_NAME = mod_bonjour
-MODULE_SRC = $(MODULE_NAME).c
 MODULE_SRC2 = $(MODULE_NAME)2.c
 MODULE = $(MODULE_NAME).so
 OTHER_SRC = 
 HEADERS =
 APXS2=/usr/sbin/apxs
-APXS1=/usr/sbin/apxs-1.3
 SRCFILES = Makefile $(MODULE_SRC) $(MODULE_SRC2) $(OTHER_SRC) $(HEADERS)
-INSTALLDIR1 := $(shell $(APXS1) -q LIBEXECDIR)
 INSTALLDIR2 := $(shell $(APXS2) -q LIBEXECDIR)
 
-export MACOSX_DEPLOYMENT_TARGET=10.4
-MORE_FLAGS = -DUSE_CHKUSRNAMPASSWD=1 
 MORE_FLAGS += -Wc,"$(RC_CFLAGS) -Wall -W -g"
 MORE_FLAGS += -Wl,"$(RC_CFLAGS) -framework DirectoryService -framework SystemConfiguration -framework CoreFoundation"
 
@@ -39,7 +34,6 @@ include $(MAKEFILEDIR)/platform.make
 include $(MAKEFILEDIR)/commands-$(OS).make
 
 all build $(MODULE): $(MODULE_SRC) $(OTHER_SRC)
-	$(APXS1) -c $(MORE_FLAGS) -o $(MODULE) $(MODULE_SRC) $(OTHER_SRC)
 	$(APXS2) -c $(MORE_FLAGS) -o $(MODULE) $(MODULE_SRC2) $(OTHER_SRC)
  
 installsrc:
@@ -52,12 +46,6 @@ installhdrs:
 	@echo "Installing header files..."
 
 install: $(MODULE)
-	@echo "Installing Apache 1.3 module..."
-	$(MKDIRS) $(SYMROOT)$(INSTALLDIR1)
-	$(CP) $(MODULE) $(SYMROOT)$(INSTALLDIR1)
-	$(CHMOD) 755 $(SYMROOT)$(INSTALLDIR1)/$(MODULE)
-	$(MKDIRS) $(DSTROOT)$(INSTALLDIR1)
-	$(STRIP) -x $(SYMROOT)$(INSTALLDIR1)/$(MODULE) -o $(DSTROOT)$(INSTALLDIR1)/$(MODULE)
 	@echo "Installing Apache 2.2 module..."
 	$(MKDIRS) $(SYMROOT)$(INSTALLDIR2)
 	$(CP) .libs/$(MODULE) $(SYMROOT)$(INSTALLDIR2)
@@ -67,4 +55,4 @@ install: $(MODULE)
 
 clean:
 	@echo "== Cleaning $(MODULE_NAME) =="
-	-$(RM) -r -f .libs $(MODULE_NAME).la $(MODULE_NAME).lo $(MODULE_NAME).slo $(MODULE_NAME).o $(MODULE)
+	-$(RM) -r -f .libs *.la *.lo *.slo *.o

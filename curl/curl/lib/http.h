@@ -8,7 +8,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2007, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2008, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -21,26 +21,31 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: http.h,v 1.33 2007-01-27 03:43:06 yangtse Exp $
+ * $Id: http.h,v 1.38 2008-08-04 22:00:22 bagder Exp $
  ***************************************************************************/
 #ifndef CURL_DISABLE_HTTP
-bool Curl_compareheader(char *headerline,     /* line to check */
+
+extern const struct Curl_handler Curl_handler_http;
+
+#ifdef USE_SSL
+extern const struct Curl_handler Curl_handler_https;
+#endif
+
+bool Curl_compareheader(const char *headerline,  /* line to check */
                         const char *header,   /* header keyword _with_ colon */
                         const char *content); /* content string to find */
+
+char *Curl_copy_header_value(const char *h);
 
 /* ftp can use this as well */
 CURLcode Curl_proxyCONNECT(struct connectdata *conn,
                            int tunnelsocket,
-                           char *hostname, int remote_port);
+                           const char *hostname, unsigned short remote_port);
 
 /* protocol-specific functions set up to be called by the main engine */
 CURLcode Curl_http(struct connectdata *conn, bool *done);
 CURLcode Curl_http_done(struct connectdata *, CURLcode, bool premature);
 CURLcode Curl_http_connect(struct connectdata *conn, bool *done);
-CURLcode Curl_https_connecting(struct connectdata *conn, bool *done);
-int Curl_https_getsock(struct connectdata *conn,
-                       curl_socket_t *socks,
-                       int numsocks);
 
 /* The following functions are defined in http_chunks.c */
 void Curl_httpchunk_init(struct connectdata *conn);
@@ -50,8 +55,9 @@ CHUNKcode Curl_httpchunk_read(struct connectdata *conn, char *datap,
 /* These functions are in http.c */
 void Curl_http_auth_stage(struct SessionHandle *data, int stage);
 CURLcode Curl_http_input_auth(struct connectdata *conn,
-                              int httpcode, char *header);
+                              int httpcode, const char *header);
 CURLcode Curl_http_auth_act(struct connectdata *conn);
+CURLcode Curl_http_perhapsrewind(struct connectdata *conn);
 
 int Curl_http_should_fail(struct connectdata *conn);
 

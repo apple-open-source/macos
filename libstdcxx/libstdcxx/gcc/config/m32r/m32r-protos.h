@@ -1,5 +1,5 @@
 /* Prototypes for m32r.c functions used in the md file & elsewhere.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
    This file is part of GCC.
@@ -16,20 +16,17 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 /* Function prototypes that cannot exist in v850.h due to dependency
    complications.  */
 #define Mmode enum machine_mode
 
-extern void   sbss_section (void);
-extern void   sdata_section (void);
 extern void   m32r_init (void);
 extern void   m32r_init_expanders (void);
 extern unsigned m32r_compute_frame_size (int);
 extern void   m32r_expand_prologue (void);
-extern void   m32r_finalize_pic (void);
 extern int    direct_return (void);
 extern void   m32r_load_pic_register (void);
 
@@ -47,7 +44,7 @@ extern void   m32r_initialize_trampoline (rtx, rtx, rtx);
 extern int    zero_and_one (rtx, rtx);
 extern char * emit_cond_move (rtx *, rtx);
 extern void   m32r_output_block_move (rtx, rtx *);
-extern void   m32r_expand_block_move (rtx *);
+extern int    m32r_expand_block_move (rtx *);
 extern void   m32r_print_operand (FILE *, rtx, int);
 extern void   m32r_print_operand_address (FILE *, rtx);
 extern int    m32r_not_same_reg (rtx, rtx);
@@ -58,35 +55,13 @@ extern rtx    m32r_return_addr (int);
 extern rtx    m32r_function_symbol (const char *);
 
 #ifdef HAVE_MACHINE_MODES
-extern int    call_address_operand (rtx, Mmode);
 extern int    call_operand (rtx, Mmode);
-extern int    symbolic_operand (rtx, Mmode);
 extern int    small_data_operand (rtx, Mmode);
 extern int    addr24_operand (rtx, Mmode);
 extern int    addr32_operand (rtx, Mmode);
 extern int    call26_operand (rtx, Mmode);
-extern int    seth_add3_operand (rtx, Mmode);
-extern int    cmp_int16_operand (rtx, Mmode);
-extern int    uint16_operand (rtx, Mmode);
-extern int    reg_or_int16_operand (rtx, Mmode);
-extern int    reg_or_uint16_operand (rtx, Mmode);
-extern int    reg_or_cmp_int16_operand (rtx, Mmode);
-extern int    two_insn_const_operand (rtx, Mmode);
-extern int    move_src_operand (rtx, Mmode);
-extern int    move_double_src_operand (rtx, Mmode);
-extern int    move_dest_operand (rtx, Mmode);
-extern int    eqne_comparison_operator (rtx, Mmode);
-extern int    signed_comparison_operator (rtx, Mmode);
 extern int    memreg_operand (rtx, Mmode);
 extern int    small_insn_p (rtx, Mmode);
-extern int    large_insn_p (rtx, Mmode);
-extern int    conditional_move_operand (rtx, Mmode);
-extern int    carry_compare_operand (rtx, Mmode);
-extern int    m32r_block_immediate_operand (rtx, Mmode);
-extern int    extend_operand (rtx, Mmode);
-extern int    reg_or_eq_int16_operand (rtx, Mmode);
-extern int    int8_operand (rtx, Mmode);
-extern int    reg_or_zero_operand (rtx, Mmode);
 
 #endif /* HAVE_MACHINE_MODES */
 

@@ -47,7 +47,7 @@ msg.c gripedefs.h: ../msgs/mess.en makemsg
 
 # glob.c does not have prototypes
 glob.o: glob.c ndir.h
-	$(CC) -c $(CWARNNP) $(CFLAGS) -I. $(DEFS) glob.c
+	$(CC) -c $(CWARNNP) $(CFLAGS) $(DEFS) glob.c
 
 man-config.o man-getopt.o man.o manpath.o to_cat.o: defs.h
 different.o man.o: different.h

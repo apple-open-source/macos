@@ -1,8 +1,0 @@
--- SQLite indexes to add as part of the Mac OS X Server 10.5.5 update.
-CREATE INDEX i_rosterg_owner ON "roster-groups"("collection-owner");
-CREATE INDEX i_rosterg_owner_jid ON "roster-groups"("collection-owner", "jid");
-CREATE INDEX i_vcard_owner ON "vcard"("collection-owner");
-CREATE INDEX i_queue_owner ON "queue"("collection-owner");
-CREATE INDEX i_private_owner ON "private"("collection-owner");
-CREATE INDEX i_discoi_owner ON "disco-items"("collection-owner");
-CREATE INDEX i_privacyi_owner ON "privacy-items"("collection-owner");

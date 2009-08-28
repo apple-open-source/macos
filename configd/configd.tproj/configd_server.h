@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2006, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -45,10 +45,7 @@ void		configdCallback	(CFMachPortRef		port,
 				 CFIndex		size,
 				 void			*info);
 
-boolean_t	server_active	(mach_port_t		*service_port);
-
-void		server_init	(mach_port_t		service_port,
-				 Boolean		enableRestart);
+void		server_init	(void);
 
 int		server_shutdown	(void);
 

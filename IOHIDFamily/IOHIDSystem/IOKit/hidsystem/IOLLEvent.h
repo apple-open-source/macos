@@ -1,7 +1,7 @@
 /*
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1999-2009 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -164,6 +164,7 @@ typedef struct _NXSize {	/* size */
 #define NX_SUBTYPE_DEFAULT					0
 #define NX_SUBTYPE_TABLET_POINT				1
 #define NX_SUBTYPE_TABLET_PROXIMITY			2
+#define NX_SUBTYPE_MOUSE_TOUCH              3
 
 /* sub types for system defined events */
 
@@ -364,7 +365,7 @@ typedef struct _NXTabletProximityData {
 	UInt16  systemTabletID;       /* system-assigned unique tablet ID */
 	UInt16  vendorPointerType;    /* vendor-defined pointer type */
 	UInt32  pointerSerialNumber;  /* vendor-defined serial number */
-	UInt64  uniqueID;             /* vendor-defined unique ID */
+	UInt64  uniqueID __attribute__ ((packed));             /* vendor-defined unique ID */
 	UInt32  capabilityMask;       /* capabilities mask of the device */
 	UInt8   pointerType;          /* type of pointing device */
 	UInt8   enterProximity;       /* non-zero = entering; zero = leaving */
@@ -477,7 +478,7 @@ typedef	union {
         UInt16  systemTabletID;       /* system-assigned unique tablet ID */
         UInt16  vendorPointerType;    /* vendor-defined pointer type */
         UInt32  pointerSerialNumber;  /* vendor-defined serial number */
-        UInt64  uniqueID;             /* vendor-defined unique ID */
+        UInt64  uniqueID __attribute__ ((packed));             /* vendor-defined unique ID */
         UInt32  capabilityMask;       /* capabilities mask of the device */
         UInt8   pointerType;          /* type of pointing device */
         UInt8   enterProximity;       /* non-zero = entering; zero = leaving */
@@ -497,10 +498,10 @@ typedef struct _NXEvent {
     struct {
         SInt32	x, y;					/* Base coordinates in window, */
     } 					location;	/* from bottom left */
-    UInt64              time;		/* time since launch */
+    UInt64              time __attribute__ ((packed));		/* time since launch */
     SInt32              flags;		/* key state flags */
     UInt32              window;		/* window number of assigned window */
-    UInt64              service_id; /* service id */
+    UInt64              service_id __attribute__ ((packed)); /* service id */
     SInt32              ext_pid;    /* external pid */
     NXEventData			data;		/* type-dependent data */
 } NXEvent, *NXEventPtr;
@@ -512,11 +513,11 @@ typedef struct _NXEvent {
     struct {
         SInt32	x, y;					/* Base coordinates in window, */
     } 					location;	/* from bottom left */
-    UInt64              time;		/* time since launch */
+    UInt64              time __attribute__ ((packed));		/* time since launch */
     SInt32              flags;		/* key state flags */
     UInt32              window;		/* window number of assigned window */
     NXEventData			data;		/* type-dependent data */
-    UInt64              service_id; /* service id */
+    UInt64              service_id __attribute__ ((packed)); /* service id */
     SInt32              ext_pid;    /* external pid */
 } NXEvent, *NXEventPtr;
 #endif

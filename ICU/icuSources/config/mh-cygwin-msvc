@@ -1,5 +1,5 @@
 ## Cygwin with Microsoft Visual C++ compiler specific setup
-## Copyright (c) 2001-2006, International Business Machines Corporation and
+## Copyright (c) 2001-2007, International Business Machines Corporation and
 ## others. All Rights Reserved.
 
 # We install sbin tools into the same bin directory because
@@ -32,20 +32,22 @@ LIBCPPFLAGS =
 
 ifeq ($(ENABLE_RELEASE),1)
 # Make sure that assertions are disabled
-CPPFLAGS+=-DU_RELEASE=1
+CPPFLAGS+=-DU_RELEASE=1#M#
 endif
 
 ifeq ($(ENABLE_DEBUG),1)
 # Pass debugging flag through
-CPPFLAGS+=-D_DEBUG=1
-ICULIBSUFFIX:=$(ICULIBSUFFIX)d
+CPPFLAGS+=-D_DEBUG=1#M#
+ICULIBSUFFIX:=$(ICULIBSUFFIX)d#M#
 endif
 
 # /GF pools strings and places them into read-only memory
 # /EHsc enables exception handling
 # /Zc:wchar_t makes wchar_t a native type. Required for C++ ABI compatibility.
+# -D_CRT_SECURE_NO_DEPRECATE is needed to quiet warnings about using standard C functions.
 CFLAGS+=/GF /nologo
 CXXFLAGS+=/GF /nologo /EHsc /Zc:wchar_t
+CPPFLAGS+=-D_CRT_SECURE_NO_DEPRECATE
 DEFS+=-DWIN32
 LDFLAGS+=/nologo
 
@@ -58,8 +60,8 @@ LINK.c=		LINK.EXE /subsystem:console $(LDFLAGS)
 LINK.cc=	LINK.EXE /subsystem:console $(LDFLAGS)
 
 ## Commands to make a shared library
-SHLIB.c=	LINK.EXE /subsystem:console /DLL $(LDFLAGS)
-SHLIB.cc=	LINK.EXE /subsystem:console /DLL $(LDFLAGS)
+SHLIB.c=	LINK.EXE /DLL $(LDFLAGS)
+SHLIB.cc=	LINK.EXE /DLL $(LDFLAGS)
 
 ## Compiler switch to embed a runtime search path
 LD_RPATH=	
@@ -79,6 +81,12 @@ OUTOPT = /out:
 LIBSICU = $(STATIC_PREFIX)$(ICUPREFIX)
 A = lib
 
+# Cygwin's ar can't handle Win64 right now. So we use Microsoft's tool instead.
+AR = LIB.EXE#M#
+ARFLAGS := /nologo $(ARFLAGS:r=)#M#
+RANLIB = ls -s#M#
+AR_OUTOPT = /OUT:#M#
+
 ## An import library is needed for z/OS and MSVC
 IMPORT_LIB_EXT = .lib
 
@@ -92,7 +100,11 @@ I18N_STUBNAME = in
 LIBICU = $(STATIC_PREFIX_WHEN_USED)$(ICUPREFIX)
 
 ## Link commands to link to ICU libs
+ifeq ($(wildcard $(LIBDIR)/$(LIBICU)$(DATA_STUBNAME)$(ICULIBSUFFIX).lib),)
 LIBICUDT=	$(top_builddir)/stubdata/$(LIBICU)$(DATA_STUBNAME)$(ICULIBSUFFIX).lib
+else
+LIBICUDT=	$(LIBDIR)/$(LIBICU)$(DATA_STUBNAME)$(ICULIBSUFFIX).lib
+endif
 LIBICUUC=	$(LIBDIR)/$(LIBICU)$(COMMON_STUBNAME)$(ICULIBSUFFIX).lib $(LIBICUDT)
 LIBICUI18N=	$(LIBDIR)/$(LIBICU)$(I18N_STUBNAME)$(ICULIBSUFFIX).lib
 LIBICULE=	$(LIBDIR)/$(LIBICU)$(LAYOUT_STUBNAME)$(ICULIBSUFFIX).lib
@@ -102,7 +114,7 @@ LIBCTESTFW=	$(top_builddir)/tools/ctestfw/$(LIBICU)$(CTESTFW_STUBNAME)$(ICULIBSU
 LIBICUTOOLUTIL=	$(LIBDIR)/$(LIBICU)$(TOOLUTIL_STUBNAME)$(ICULIBSUFFIX).lib
 
 ## These are the library specific LDFLAGS
-LDFLAGSICUDT=	/base:"0x4ad00000" /NOENTRY# The NOENTRY option is required for creating a resource-only DLL.
+LDFLAGSICUDT+=	/base:"0x4ad00000" /NOENTRY# The NOENTRY option is required for creating a resource-only DLL.
 LDFLAGSICUUC=	/base:"0x4a800000"# in-uc = 1MB
 LDFLAGSICUI18N=	/base:"0x4a900000"# io-in = 2MB
 LDFLAGSICUIO=	/base:"0x4ab00000"# le-io = 1MB
@@ -169,6 +181,14 @@ endif
 FINAL_SO_TARGET= $(basename $(SO_TARGET))$(SO_TARGET_VERSION_MAJOR).$(SO)
 MIDDLE_SO_TARGET=$(FINAL_SO_TARGET)
 
+## Starting in MSVC 2005, manifest files are required. This reduces the obnoxiousness of this feature.
+	POST_SO_BUILD_STEP = @([ -e $<.manifest ] && \
+	( echo Embedding manifest into $< && mt.exe -manifest $<.manifest -outputresource:"$<;2" && rm -rf $<.manifest )) \
+	|| true
+	POST_BUILD_STEP = ([ -e $@.manifest ] && \
+	( echo Embedding manifest into $@ && mt.exe -manifest $@.manifest -outputresource:"$@;1" && rm -rf $@.manifest )) \
+	|| true
+
 ## Special pkgdata information that is needed
 PKGDATA_VERSIONING = -r $(SO_TARGET_VERSION_MAJOR)
 ICUPKGDATA_INSTALL_DIR = $(shell cygpath -dma $(DESTDIR)$(ICUPKGDATA_DIR))#M#
@@ -186,10 +206,12 @@ ICULIBSUFFIX_VERSION = $(LIB_VERSION_MAJOR)
 ## Versioned libraries rules
 #%$(SO_TARGET_VERSION_MAJOR).$(SO): %$(SO_TARGET_VERSION).$(SO)
 #	$(RM) $@ && cp ${<F} $@
-# The following rule is a no op. We don't want symbolic links
+
+# The following rule is sometimes a no op.
+# We only want to do a post-build step when a manifest file doesn't exist.
 %.$(SO): %$(SO_TARGET_VERSION_MAJOR).$(SO)
 	@echo -n
-#	$(RM) $@ && ln -s ${<F} $@
+	$(POST_SO_BUILD_STEP)
 
 ## Install libraries as executable
 INSTALL-L=$(INSTALL_PROGRAM)

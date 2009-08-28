@@ -23,7 +23,7 @@
     .text
     .align 2
 
-#include "../sys/SYS.h"
+#include <mach/arm/syscall_sw.h>
 
 /* void sys_icache_invalidate(addr_t start, int length) */
 .globl	_sys_icache_invalidate

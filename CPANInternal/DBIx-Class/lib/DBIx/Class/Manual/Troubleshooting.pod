@@ -47,5 +47,13 @@ correctly.
 
 L<DBI> version 1.50 and L<DBD::Pg> 1.43 are known to work.
 
+=head2 ... Can't locate object method "source_name" via package ...
+
+There's likely a syntax error in the table class referred to elsewhere
+in this error message.  In particular make sure that the package
+declaration is correct, so for a schema C< MySchema > you need to
+specify a fully qualified namespace: C< package MySchema::MyTable; >
+for example.
+
 =cut
 

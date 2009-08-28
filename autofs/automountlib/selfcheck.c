@@ -56,8 +56,31 @@ self_check(hostname)
 	int res;
 	struct ifaddrs *ifaddrs;
 
+	/*
+	 * Check whether the host has a name that begins with ".";
+	 * if so, it's not a valid host name, and we return ENOENT.
+	 * That way, we avoid doing host name lookups for various
+	 * dot-file names, e.g. ".localized" and ".DS_Store".
+	 *
+	 * We want to avoid this so that we don't pass the name on to
+	 * getipnodebyname() and thus on to mDNSResponder, which will
+	 * whine about being handed a name beginning with ".".  (This
+	 * filtering *belongs* in lower-level routines such as
+	 * getipnodebyname(), gethostbyname(), etc. or routines
+	 * they call, so that we return errors for host names beginning
+	 * with "." before sending them to anybody else, so that even
+	 * "ping .localized" won't provoke mDNSResponder to whine, but
+	 * it's not being done there, alas, so we have to do it ourselves.)
+	 */
+	if (hostname[0] == '.') {
+		/*
+		 * This cannot possibly be any host, much less us.
+		 */
+		return (0);
+	}
+
 	if (getifaddrs(&ifaddrs) == -1) {
-		syslog(LOG_DEBUG, "getifaddrs failed:  %s\n",
+		syslog(LOG_ERR, "getifaddrs failed:  %s\n",
 		    strerror(errno));
 		return (0);
 	}
@@ -75,6 +98,8 @@ self_check_af(char *hostname, struct ifaddrs *ifaddrs, int family)
 	char **hostptr;
 	struct ifaddrs *ifaddr;
 	struct sockaddr *addr;
+	struct sockaddr_in *addr_in;
+	struct sockaddr_in6 *addr_in6;
 
 	if ((hostinfo = getipnodebyname(hostname, family, AI_DEFAULT,
 	    &error_num)) == NULL) {
@@ -94,9 +119,28 @@ self_check_af(char *hostname, struct ifaddrs *ifaddrs, int family)
 			addr = ifaddr->ifa_addr;
 			if (addr->sa_family != hostinfo->h_addrtype)
 				continue;
-			if (memcmp(*hostptr, addr->sa_data, hostinfo->h_length) == 0) {
-				freehostent(hostinfo);
-				return (1);
+			switch (addr->sa_family) {
+
+			case AF_INET:
+				addr_in = (struct sockaddr_in *)addr;
+				if (memcmp(*hostptr, &addr_in->sin_addr,
+				    hostinfo->h_length) == 0) {
+					freehostent(hostinfo);
+					return (1);
+				}
+				break;
+
+			case AF_INET6:
+				addr_in6 = (struct sockaddr_in6 *)addr;
+				if (memcmp(*hostptr, &addr_in6->sin6_addr,
+				    hostinfo->h_length) == 0) {
+					freehostent(hostinfo);
+					return (1);
+				}
+				break;
+
+			default:
+				break;
 			}
 		}
 	}

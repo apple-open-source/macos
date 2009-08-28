@@ -923,7 +923,7 @@ OSStatus impExpPkcs8Export(
 	}
 
 	/*
-	 * Special case for DSA: specify that the raw blob, pre-encrypt, is in 
+	 * Special case for DSA, ECDSA: specify that the raw blob, pre-encrypt, is in 
 	 * the PKCS8 PrivateKeyInfo format that openssl understands. The
 	 * default is BSAFE.
 	 */
@@ -932,9 +932,14 @@ OSStatus impExpPkcs8Export(
 		SecImpExpDbg("impExpPkcs8Export SecKeyGetCSSMKey error");
 		goto errOut;
 	}
-	if(cssmKey->KeyHeader.AlgorithmId == CSSM_ALGID_DSA) {
-		formatAttrType = CSSM_ATTRIBUTE_PRIVATE_KEY_FORMAT;
-		blobForm = CSSM_KEYBLOB_RAW_FORMAT_PKCS8;
+	switch(cssmKey->KeyHeader.AlgorithmId) {
+		case CSSM_ALGID_DSA:
+		case CSSM_ALGID_ECDSA:
+			formatAttrType = CSSM_ATTRIBUTE_PRIVATE_KEY_FORMAT;
+			blobForm = CSSM_KEYBLOB_RAW_FORMAT_PKCS8;
+			break;
+		default:
+			break;
 	}
 	
 	/* GO */

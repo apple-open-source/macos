@@ -26,6 +26,9 @@
 
 /* Overall crawler editor baton.  */
 struct edit_baton {
+  /* The target of the diff, relative to the root of the edit */
+  const char *target;
+
   /* The summarize callback passed down from the API */
   svn_client_diff_summarize_func_t summarize_func;
 
@@ -72,7 +75,14 @@ create_item_baton(struct edit_baton *edit_baton,
   struct item_baton *b = apr_pcalloc(pool, sizeof(*b));
 
   b->edit_baton = edit_baton;
-  b->path = apr_pstrdup(pool, path);
+  /* Issue #2765: b->path is supposed to be relative to the target.
+     If the target is a file, just use an empty path.  This way the
+     receiver can just concatenate this path to the original path
+     without doing any extra checks. */
+  if (node_kind == svn_node_file && strcmp(path, edit_baton->target) == 0)
+    b->path =  "";
+  else
+    b->path = apr_pstrdup(pool, path);
   b->node_kind = node_kind;
   b->item_pool = pool;
 
@@ -108,7 +118,7 @@ open_root(void *edit_baton,
           void **root_baton)
 {
   struct item_baton *ib = create_item_baton(edit_baton, "",
-                                            svn_node_dir, pool);;
+                                            svn_node_dir, pool);
 
   *root_baton = ib;
   return SVN_NO_ERROR;
@@ -138,9 +148,7 @@ delete_entry(const char *path,
   sum->path = path;
   sum->node_kind = kind;
 
-  SVN_ERR(eb->summarize_func(sum, eb->summarize_func_baton, pool));
-
-  return SVN_NO_ERROR;
+  return eb->summarize_func(sum, eb->summarize_func_baton, pool);
 }
 
 /* An editor function.  */
@@ -188,7 +196,7 @@ close_directory(void *dir_baton,
 {
   struct item_baton *ib = dir_baton;
   struct edit_baton *eb = ib->edit_baton;
-  
+
   if (ib->summarize)
     SVN_ERR(eb->summarize_func(ib->summarize, eb->summarize_func_baton,
                                pool));
@@ -308,6 +316,7 @@ svn_client__get_diff_summarize_editor(const char *target,
   svn_delta_editor_t *tree_editor = svn_delta_default_editor(pool);
   struct edit_baton *eb = apr_palloc(pool, sizeof(*eb));
 
+  eb->target = target;
   eb->summarize_func = summarize_func;
   eb->summarize_func_baton = item_baton;
   eb->ra_session = ra_session;
@@ -326,9 +335,7 @@ svn_client__get_diff_summarize_editor(const char *target,
   tree_editor->change_file_prop = change_prop;
   tree_editor->close_file = close_file;
 
-  SVN_ERR(svn_delta_get_cancellation_editor
-          (cancel_func, cancel_baton, tree_editor, eb, editor, edit_baton,
-           pool));
-
-  return SVN_NO_ERROR;
+  return svn_delta_get_cancellation_editor(cancel_func, cancel_baton,
+                                           tree_editor, eb, editor, edit_baton,
+                                           pool);
 }

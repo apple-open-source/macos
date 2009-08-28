@@ -24,7 +24,7 @@ EventTraceCauseDesc TraceEvents[] = {
     {kLogFree,          "CList: free, obj="},
     {kLogInit,          "CList: init, obj="}
 };
-#define XTRACE(x, y, z) IrDALogAdd( x, y, (int)z & 0xffff, TraceEvents, true )
+#define XTRACE(x, y, z) IrDALogAdd( x, y, (uintptr_t)z & 0xffff, TraceEvents, true )
 #else
 #define XTRACE(x, y, z) ((void) 0)
 #endif
@@ -37,11 +37,11 @@ EventTraceCauseDesc TraceEvents[] = {
 
 
 CList *
-CList::cList(long chunkSize)
+CList::cList(ArrayIndex chunkSize)
 {
     CList *obj = new CList;
     
-    XTRACE(kLogNew, (int)obj >> 16, obj);
+    XTRACE(kLogNew, 0, obj);
     
     if (obj && !obj->init(chunkSize)) {
 	obj->release();
@@ -52,14 +52,14 @@ CList::cList(long chunkSize)
 
 Boolean CList::init(ArrayIndex size)
 {
-    XTRACE(kLogInit, (int)this >> 16, this);
+    XTRACE(kLogInit, 0, this);
     
     return super::init(kDefaultElementSize, size);
 }
 
 void CList::free(void)
 {
-    XTRACE(kLogFree, (int)this >> 16, this);
+    XTRACE(kLogFree, 0, this);
     
     super::free();
 }
@@ -69,7 +69,7 @@ void CList::free(void)
 //----------------------------------------------------------------------------
 void* CList::At(ArrayIndex index)
 {
-    ULong* itemPtr = (ULong*) SafeElementPtrAt(index);
+    uintptr_t * itemPtr = (uintptr_t *)SafeElementPtrAt(index);
     return (itemPtr == nil) ? nil : (void*) (*itemPtr);
 
 } // CList::At
@@ -80,7 +80,7 @@ void* CList::At(ArrayIndex index)
 //----------------------------------------------------------------------------
 IrDAErr CList::InsertAt(ArrayIndex index, void* item)
 {
-    ULong data = (ULong) item;
+    uintptr_t data = (uintptr_t) item;
 
     return InsertElementsBefore(index, &data, 1);
 
@@ -149,7 +149,7 @@ IrDAErr CList::Replace(void* oldItem, void* newItem)
 //----------------------------------------------------------------------------
 IrDAErr CList::ReplaceAt(ArrayIndex index, void* newItem)
 {
-    ULong data = (ULong) newItem;
+    uintptr_t data = (uintptr_t) newItem;
 
     return ReplaceElementsAt(index, &data, 1);
 }

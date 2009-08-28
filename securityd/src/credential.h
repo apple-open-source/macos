@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2004,2009 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -29,15 +29,19 @@
 #include <set>
 
 namespace Authorization {
+    
+    // There should be an abstract base class for Credential so we can have 
+    // different kinds, e.g., those associated with smart-card auth, or those
+    // not requiring authentication as such at all.  (<rdar://problem/6556724>)
 
 /* Credentials are less than comparable so they can be put in sets or maps. */
 class CredentialImpl : public RefCount
 {
 public:
 		CredentialImpl();
-        CredentialImpl(const uid_t uid, const string &username, const string &realname, bool shared);
+        CredentialImpl(const uid_t uid, const string &username, const string &realname, const string &groupname, bool shared);
         CredentialImpl(const string &username, const string &password, bool shared);
-		CredentialImpl(const string &right, bool shared);
+		CredentialImpl(const string &right, const uid_t uid, bool shared);
         ~CredentialImpl();
 
         bool operator < (const CredentialImpl &other) const;
@@ -59,25 +63,32 @@ public:
 
         // We could make Rule a friend but instead we just expose this for now
         inline const uid_t uid() const { return mUid; }
-        inline const string& name() const { return mName; }
-        inline const string& realname() const { return mRealname; }
+        inline const string& username() const { return mUserName; }
+        inline const string& realname() const { return mRealName; }
 		inline const bool isRight() const { return mRight; }
+    inline const string &rightname() const { return mRightName; }
+    inline const string &groupname() const { return mGroupName; }
+    
+    // sometimes the Credential exists before we've validated it, so we need
+    // a setter for group name
+    inline void setGroupname(const string &group)  { mGroupName = group; }
+    
 private:
-        // Key
+        bool mShared;       // credential is shared
+    bool mRight;            // is least-privilege credential
+    string mRightName;      // least-privilege name
+    string mGroupName;      // if it's not least-priv, it boils down to 
+                            // user-in-group
+
+        // Fields below are not used by less-than operator
+
+        // The user that provided his password.
         uid_t mUid;
-
-        // True iff this credential is shared.
-        bool mShared;
-
-        // Fields below are not used by less than operator
-
-        // The username of the user that provided his password.
-        string mName;
-        string mRealname;
+        string mUserName;
+        string mRealName;
 
         CFAbsoluteTime mCreationTime;
         bool mValid;
-		bool mRight;
 };
 
 /* Credentials are less than comparable so they can be put in sets or maps. */
@@ -86,9 +97,9 @@ class Credential : public RefPointer<CredentialImpl>
 public:
         Credential();
         Credential(CredentialImpl *impl);
-        Credential(const uid_t uid, const string &username, const string &realname, bool shared);
+        Credential(const uid_t uid, const string &username, const string &realname, const string &groupname, bool shared);
         Credential(const string &username, const string &password, bool shared);
-		Credential(const string &right, bool shared);		
+		Credential(const string &right, const uid_t uid, bool shared);		
         ~Credential();
 
         bool operator < (const Credential &other) const;

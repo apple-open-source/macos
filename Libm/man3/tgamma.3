@@ -32,7 +32,7 @@
 .\"     from: @(#)erf.3	6.4 (Berkeley) 4/20/91
 .\"	$Id: tgamma.3,v 1.4 2004/12/20 21:35:46 scp Exp $
 .\"
-.Dd Oct 9, 2006
+.Dd July 02, 2008
 .Dt TGAMMA 3
 .Sh NAME
 .Nm tgamma ,
@@ -48,13 +48,17 @@
 .Ft float
 .Fn tgammaf "float x"
 .Ft double
+.Fn lgamma_r "double x, int *psigngam"
+.Ft long double
+.Fn lgammal_r "long double x, int *psigngam"
+.Ft float
+.Fn lgammaf_r "float x, int *psigngam"
+.Ft double
 .Fn lgamma "double x"
 .Ft long double
 .Fn lgammal "long double x"
 .Ft float
 .Fn lgammaf "float x"
-.Ft double
-.Fn gamma "double x"
 .Sh DESCRIPTION
 .Fn tgamma
 calculates the gamma function of x.
@@ -62,6 +66,16 @@ calculates the gamma function of x.
 calculates the natural logorithm of the absolute value of the gamma function of x.
 .Fn gamma
 is the same function as tgamma. Its use is deprecated. 
+.Pp
+.Fn lgamma_r
+is a thread-safe alternative to
+.Fn lgamma .
+Instead of setting the global variable
+.Fa signgam ,
+it stores the sign of Gamma(x) in the location pointed to by its second argument.
+In order to use the 
+.Fn lgamma_r
+function, define the macro _REENTRANT before including <math.h>.
 .Sh SPECIAL VALUES
 .Fn tgamma "±0"
 returns ±infinity and raises the "divide-by-zero" floating-point exception.
@@ -79,10 +93,6 @@ returns +infinity.
 generates a domain error if x is a negative integer or if the result cannnot be respresented when x is 0.
 .Pp
 A range error may occur if the magnitude of x is too large or too small.
-.Pp
-.Fn gamma
-has the same behavior as
-.Fn tgamma .
 .Pp
 .Fn lgamma "1"
 returns +0.
@@ -106,6 +116,26 @@ and its variants have the (non-threadsafe) side-effect of setting the global var
 .Fa signgam
 to ±1, equal to the sign of
 .Fn tgamma "x" .
+.Fn lgamma_r "x, psigngam"
+instead sets the user-allocated integer pointed to by the
+.Fa psigngam
+argument.
+.Pp
+.Fn gamma
+and
+.Fn gamma_r
+are deprecated, and should not be used.  The
+.Fn tgamma
+function should be used instead.  Note, however, that on some platforms,
+.Fn gamma
+and
+.Fn gamma_r
+historically computed the log of the Gamma function, instead of the Gamma function
+itself.  When porting code from such platforms, it will be necessary to use
+.Fn lgamma
+or 
+.Fn lgamma_r
+instead.
 .Sh SEE ALSO
 .Xr math 3
 .Sh STANDARDS

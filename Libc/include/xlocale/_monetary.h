@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2005, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,7 +25,8 @@
 #define _XLOCALE__MONETARY_H_
 
 __BEGIN_DECLS
-ssize_t	strfmon_l(char *, size_t, locale_t, const char *, ...);
+ssize_t	strfmon_l(char *, size_t, locale_t, const char *, ...)
+		__strfmonlike(4, 5);
 __END_DECLS
 
 #endif /* _XLOCALE__MONETARY_H_ */

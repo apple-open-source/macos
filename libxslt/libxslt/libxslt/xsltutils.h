@@ -12,11 +12,7 @@
 #ifndef __XML_XSLTUTILS_H__
 #define __XML_XSLTUTILS_H__
 
-#if defined(WIN32) && defined(_MSC_VER)
-#include <libxslt/xsltwin32config.h>
-#else
 #include <libxslt/xsltconfig.h>
-#endif
 #ifdef HAVE_STDARG_H
 #include <stdarg.h>
 #endif
@@ -76,10 +72,12 @@ extern "C" {
     (((n) != NULL) &&							\
      (((n)->type == XML_ELEMENT_NODE) ||				\
       ((n)->type == XML_TEXT_NODE) ||					\
+      ((n)->type == XML_CDATA_SECTION_NODE) ||				\
       ((n)->type == XML_ATTRIBUTE_NODE) ||				\
       ((n)->type == XML_DOCUMENT_NODE) ||				\
       ((n)->type == XML_HTML_DOCUMENT_NODE) ||				\
-      ((n)->type == XML_PI_NODE)))
+      ((n)->type == XML_COMMENT_NODE) ||				\
+      ((n)->type == XML_PI_NODE)))      
 
 /*
  * Our own version of namespaced atributes lookup.

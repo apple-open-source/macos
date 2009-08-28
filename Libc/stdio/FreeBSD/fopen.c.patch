@@ -1,0 +1,31 @@
+--- fopen.c.orig	2009-02-15 03:11:22.000000000 -0800
++++ fopen.c	2009-02-15 17:53:37.000000000 -0800
+@@ -34,6 +34,15 @@
+  * SUCH DAMAGE.
+  */
+ 
++#ifdef VARIANT_DARWINEXTSN
++#define _DARWIN_UNLIMITED_STREAMS
++#define COUNT	0
++#elif defined(VARIANT_LEGACY)
++#define COUNT	0
++#else
++#define COUNT	1
++#endif
++
+ #if defined(LIBC_SCCS) && !defined(lint)
+ static char sccsid[] = "@(#)fopen.c	8.1 (Berkeley) 6/4/93";
+ #endif /* LIBC_SCCS and not lint */
+@@ -61,10 +70,10 @@ fopen(file, mode)
+ 
+ 	if ((flags = __sflags(mode, &oflags)) == 0)
+ 		return (NULL);
+-	if ((fp = __sfp()) == NULL)
++	if ((fp = __sfp(COUNT)) == NULL)
+ 		return (NULL);
+ 	if ((f = _open(file, oflags, DEFFILEMODE)) < 0) {
+-		fp->_flags = 0;			/* release */
++		__sfprelease(fp);		/* release */
+ 		return (NULL);
+ 	}
+ 	fp->_file = f;

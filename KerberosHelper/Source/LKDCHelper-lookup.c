@@ -87,7 +87,6 @@ static LKDCHelperErrorType HandleEvents(DNSServiceRef serviceRef, lookupContext 
 		}
 	}
 
-fin:
 	LKDCLogExit (err);
 	return err;
 }
@@ -138,7 +137,7 @@ static void LookupRealmCallBack(
 			context->realm->servicePort = kerberosServicePort;
 
 			context->realm->ttl = ttl;
-			context->realm->absoluteTTL = 0;
+			context->realm->absoluteTTL = time(NULL) + ttl;
 			
 			if (flags & kDNSServiceFlagsMoreComing) {
 				LKDCLog ("More than one record, last one wins!!!");
@@ -279,14 +278,15 @@ LKDCHelperErrorType LKDCHostnameForRealm (const char *realm, LKDCLocator **l)
 {
 	LKDCLocator *p;
 	LKDCHelperErrorType error = kLKDCHelperSuccess;
+	time_t now = time(NULL);
 
 	LKDCLogEnter();
 
 	if (NULL == l || NULL == realm) { error = kLKDCHelperParameterError; goto Done; }
 
 	for (p = root; p != NULL; p = p->next) {
-		if (strcmp (p->realmName, realm) == 0) {
-			LKDCLog ("Cache hit");			
+		if (strcmp (p->realmName, realm) == 0 && p->absoluteTTL > now) {
+			LKDCLog ("Cache hit: %lus left", (unsigned long)(p->absoluteTTL - now));
 			goto Found;
 		}
 	}
@@ -312,14 +312,15 @@ LKDCHelperErrorType LKDCRealmForHostname (const char *hostname, LKDCLocator **l)
 {
 	LKDCLocator *p = NULL;
 	LKDCHelperErrorType error = kLKDCHelperSuccess;
+	time_t now = time(NULL);
 
 	LKDCLogEnter();
 
 	if (NULL == l || NULL == hostname) { error = kLKDCHelperParameterError; goto Done; }
 	
 	for (p = root; p != NULL; p = p->next) {
-		if (strcasecmp (p->serviceHost, hostname) == 0) {
-			LKDCLog ("Cache hit");			
+		if (strcasecmp (p->serviceHost, hostname) == 0 && p->absoluteTTL > now) {
+			LKDCLog ("Cache hit: %lus left", (unsigned long)(p->absoluteTTL - now));
 			goto Found;
 		}
 	}

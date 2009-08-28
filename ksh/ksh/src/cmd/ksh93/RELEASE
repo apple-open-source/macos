@@ -1,4 +1,46 @@
-07-06-28  --- Release ksh93s+  ---
+07-11-05  --- Release ksh93s+  ---
+07-11-05  A bug in which printf %d "'AB" did not diagnose unconverted characters
+	  has been fixed.
+07-11-05  printf %g "'A" support added for all floating point formats.
+07-11-01  A bug in which typeset -f fun did not display the function definition
+          when invoked in a subshell has been fixed.
+07-10-29  The sleep builtin was fixed so that all floating point constants
+	  are valid operands.
+07-10-10  A bug in which the locale was not being restored after
+          LANG=value command has been fixed.
+07-09-20  A bug in which a nameref to a compound variable that was local
+	  to the calling function would not expand correctly when displaying
+	  is value has been fixed.
+07-09-19  A bug which cause cause a core dump if .sh.edchar returned
+	  80 characters or more from a keyboard trap has been fixed.
+07-09-14  A bug in which could cause a core dump when more than 8 file
+	  descriptors were in use has been fixed.
+07-09-10  A bug in which creating a name reference to an instance of
+	  an array when the array name is itself a reference has been fixed.
+07-09-10  The file completion code has been modified so that after an = in
+	  any word, each : will be considered a path delimiter.
+07-09-06  A bug in which subprocess cleanup could corrupt the malloc() heap
+          has been fixed.
+07-08-26  A bug in which a name reference to an associatve array instance
+	  could cause the subscript to be evaluated as an arithmetic expression
+	  has been fixed.
+07-08-22  A bug in which the value of an array instance was of a compound
+	  variable was not expanded correctly has been fixed.
+07-08-14  A bug which could cause a core dump when a compound assignment was
+	  made to a compound variable element with a typeset -a attribute
+	  has been fixed.
+07-08-08  A bug in which a trap ignored in a subshell caused it to be
+	  ignored by the parent has been fixed.
+07-08-07  A bug in which the set command would generated erroneous output
+	  for a variable with the -RZ attribute if the variable name had been
+	  passed to a function has been fixed.
+07-08-02  A bug in which read x[1] could core dump has been fixed.
+07-08-02  A second bug in which after read x[sub] into an associative array
+	  of an element that hasn't been assigned could lead to a core dump
+	  has been fixed.
+07-07-31  A bug in which a pipeline that completed correctly could have
+	  an exit status of 127 when pipefail was enabled has been fixed.
+07-07-09  The SHOPT_AUDIT compile option has been added for keyboard logging.
 07-06-25  In vi insert mode, ksh no longer emits a backspace character
 	  before the carraige return when the newline is entered. 
 07-06-25  A bug in which pipefail would cause a command to return 0

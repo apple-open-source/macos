@@ -2593,13 +2593,13 @@ static struct vimoption
 #ifdef FEAT_VIMINFO
 			    (char_u *)&p_viminfo, PV_NONE,
 #if defined(MSDOS) || defined(MSWIN) || defined(OS2)
-			    {(char_u *)"", (char_u *)"'20,<50,s10,h,rA:,rB:"}
+			    {(char_u *)"", (char_u *)"'100,<50,s10,h,rA:,rB:"}
 #else
 # ifdef AMIGA
 			    {(char_u *)"",
-				 (char_u *)"'20,<50,s10,h,rdf0:,rdf1:,rdf2:"}
+				 (char_u *)"'100,<50,s10,h,rdf0:,rdf1:,rdf2:"}
 # else
-			    {(char_u *)"", (char_u *)"'20,<50,s10,h"}
+			    {(char_u *)"", (char_u *)"'100,<50,s10,h"}
 # endif
 #endif
 #else
@@ -4119,11 +4119,23 @@ do_set(arg, opt_flags)
 					   && options[opt_idx].var == VAR_WIN)
 		goto skip;
 
-	    /* Disallow changing some options from modelines */
-	    if ((opt_flags & OPT_MODELINE) && (flags & P_SECURE))
+	    /* Disallow changing some options from modelines. */
+	    if (opt_flags & OPT_MODELINE)
 	    {
-		errmsg = (char_u *)_("E520: Not allowed in a modeline");
-		goto skip;
+		if (flags & P_SECURE)
+		{
+		    errmsg = (char_u *)_("E520: Not allowed in a modeline");
+		    goto skip;
+		}
+#ifdef FEAT_DIFF
+		/* In diff mode some options are overruled.  This avoids that
+		 * 'foldmethod' becomes "marker" instead of "diff" and that
+		 * "wrap" gets set. */
+		if (curwin->w_p_diff
+			&& (options[opt_idx].indir == PV_FDM
+			    || options[opt_idx].indir == PV_WRAP))
+		    goto skip;
+#endif
 	    }
 
 #ifdef HAVE_SANDBOX
@@ -5268,6 +5280,21 @@ insecure_flag(opt_idx, opt_flags)
 }
 #endif
 
+#ifdef FEAT_TITLE
+static void redraw_titles __ARGS((void));
+
+/*
+ * Redraw the window title and/or tab page text later.
+ */
+static void redraw_titles()
+{
+    need_maketitle = TRUE;
+# ifdef FEAT_WINDOWS
+    redraw_tabline = TRUE;
+# endif
+}
+#endif
+
 /*
  * Set a string option to a new value (without checking the effect).
  * The string is copied into allocated memory.
@@ -5407,6 +5434,10 @@ did_set_string_option(opt_idx, varp, new_value_alloced, oldval, errbuf,
     int		did_chartab = FALSE;
     char_u	**gvarp;
     long_u	free_oldval = (options[opt_idx].flags & P_ALLOCED);
+#ifdef FEAT_GUI
+    /* set when changing an option that only requires a redraw in the GUI */
+    int		redraw_gui_only = FALSE;
+#endif
 
     /* Get the global option to compare with, otherwise we would have to check
      * two values for all local options. */
@@ -5668,7 +5699,7 @@ did_set_string_option(opt_idx, varp, new_value_alloced, oldval, errbuf,
 	    {
 # ifdef FEAT_TITLE
 		/* May show a "+" in the title now. */
-		need_maketitle = TRUE;
+		redraw_titles();
 # endif
 		/* Add 'fileencoding' to the swap file. */
 		ml_setflags(curbuf);
@@ -5687,7 +5718,7 @@ did_set_string_option(opt_idx, varp, new_value_alloced, oldval, errbuf,
 	    {
 		errmsg = mb_init();
 # ifdef FEAT_TITLE
-		need_maketitle = TRUE;
+		redraw_titles();
 # endif
 	    }
 	}
@@ -5796,7 +5827,7 @@ did_set_string_option(opt_idx, varp, new_value_alloced, oldval, errbuf,
 	    else
 		curbuf->b_p_tx = FALSE;
 #ifdef FEAT_TITLE
-	    need_maketitle = TRUE;
+	    redraw_titles();
 #endif
 	    /* update flag in swap file */
 	    ml_setflags(curbuf);
@@ -6055,6 +6086,7 @@ did_set_string_option(opt_idx, varp, new_value_alloced, oldval, errbuf,
 		    errmsg = (char_u *)N_("E596: Invalid font(s)");
 	    }
 	}
+	redraw_gui_only = TRUE;
     }
 # ifdef FEAT_XFONTSET
     else if (varp == &p_guifontset)
@@ -6063,6 +6095,7 @@ did_set_string_option(opt_idx, varp, new_value_alloced, oldval, errbuf,
 	    errmsg = (char_u *)N_("E597: can't select fontset");
 	else if (gui.in_use && gui_init_font(p_guifontset, TRUE) != OK)
 	    errmsg = (char_u *)N_("E598: Invalid fontset");
+	redraw_gui_only = TRUE;
     }
 # endif
 # ifdef FEAT_MBYTE
@@ -6072,6 +6105,7 @@ did_set_string_option(opt_idx, varp, new_value_alloced, oldval, errbuf,
 	    errmsg = (char_u *)N_("E533: can't select wide font");
 	else if (gui_get_wide_font() == FAIL)
 	    errmsg = (char_u *)N_("E534: Invalid wide font");
+	redraw_gui_only = TRUE;
     }
 # endif
 #endif
@@ -6133,13 +6167,24 @@ did_set_string_option(opt_idx, varp, new_value_alloced, oldval, errbuf,
 #ifdef FEAT_GUI
     /* 'guioptions' */
     else if (varp == &p_go)
+    {
 	gui_init_which_components(oldval);
+	redraw_gui_only = TRUE;
+    }
 #endif
 
 #if defined(FEAT_GUI_TABLINE)
     /* 'guitablabel' */
     else if (varp == &p_gtl)
+    {
 	redraw_tabline = TRUE;
+	redraw_gui_only = TRUE;
+    }
+    /* 'guitabtooltip' */
+    else if (varp == &p_gtt)
+    {
+	redraw_gui_only = TRUE;
+    }
 #endif
 
 #if defined(FEAT_MOUSE_TTY) && (defined(UNIX) || defined(VMS))
@@ -6717,7 +6762,11 @@ did_set_string_option(opt_idx, varp, new_value_alloced, oldval, errbuf,
 
     if (curwin->w_curswant != MAXCOL)
 	curwin->w_set_curswant = TRUE;  /* in case 'showbreak' changed */
-    check_redraw(options[opt_idx].flags);
+#ifdef FEAT_GUI
+    /* check redraw when it's not a GUI option or the GUI is active. */
+    if (!redraw_gui_only || gui.in_use)
+#endif
+	check_redraw(options[opt_idx].flags);
 
     return errmsg;
 }
@@ -7105,22 +7154,28 @@ set_bool_option(opt_idx, varp, value, opt_flags)
 	    curbuf->b_did_warn = FALSE;
 
 #ifdef FEAT_TITLE
-	need_maketitle = TRUE;
+	redraw_titles();
 #endif
     }
 
 #ifdef FEAT_TITLE
     /* when 'modifiable' is changed, redraw the window title */
     else if ((int *)varp == &curbuf->b_p_ma)
-	need_maketitle = TRUE;
+    {
+	redraw_titles();
+    }
     /* when 'endofline' is changed, redraw the window title */
     else if ((int *)varp == &curbuf->b_p_eol)
-	need_maketitle = TRUE;
-#ifdef FEAT_MBYTE
-    /* when 'bomb' is changed, redraw the window title */
+    {
+	redraw_titles();
+    }
+# ifdef FEAT_MBYTE
+    /* when 'bomb' is changed, redraw the window title and tab page text */
     else if ((int *)varp == &curbuf->b_p_bomb)
-	need_maketitle = TRUE;
-#endif
+    {
+	redraw_titles();
+    }
+# endif
 #endif
 
     /* when 'bin' is set also set some other options */
@@ -7128,7 +7183,7 @@ set_bool_option(opt_idx, varp, value, opt_flags)
     {
 	set_options_bin(old_value, curbuf->b_p_bin, opt_flags);
 #ifdef FEAT_TITLE
-	need_maketitle = TRUE;
+	redraw_titles();
 #endif
     }
 
@@ -7279,7 +7334,7 @@ set_bool_option(opt_idx, varp, value, opt_flags)
 	if (!value)
 	    save_file_ff(curbuf);	/* Buffer is unchanged */
 #ifdef FEAT_TITLE
-	need_maketitle = TRUE;
+	redraw_titles();
 #endif
 #ifdef FEAT_AUTOCMD
 	modified_was_set = value;
@@ -7714,7 +7769,7 @@ set_num_option(opt_idx, varp, value, errbuf, errbuflen, opt_flags)
 	newFoldLevel();
     }
 
-    /* 'foldminlevel' */
+    /* 'foldminlines' */
     else if (pp == &curwin->w_p_fml)
     {
 	foldUpdateAll(curwin);
@@ -7974,6 +8029,11 @@ set_num_option(opt_idx, varp, value, errbuf, errbuflen, opt_flags)
 	else /* curwin->w_p_scr > curwin->w_height */
 	    curwin->w_p_scr = curwin->w_height;
     }
+    if (p_hi < 0)
+    {
+	errmsg = e_positive;
+	p_hi = 0;
+    }
     if (p_report < 0)
     {
 	errmsg = e_positive;
@@ -8227,13 +8287,13 @@ set_option_value(name, number, string, opt_flags)
 	    {
 		if (number == 0 && string != NULL)
 		{
-		    int index;
+		    int idx;
 
 		    /* Either we are given a string or we are setting option
 		     * to zero. */
-		    for (index = 0; string[index] == '0'; ++index)
+		    for (idx = 0; string[idx] == '0'; ++idx)
 			;
-		    if (string[index] != NUL || index == 0)
+		    if (string[idx] != NUL || idx == 0)
 		    {
 			/* There's another character after zeros or the string
 			 * is empty.  In both cases, we are trying to set a
@@ -8323,7 +8383,7 @@ find_key_option(arg)
     {
 	--arg;			    /* put arg at the '<' */
 	modifiers = 0;
-	key = find_special_key(&arg, &modifiers, TRUE);
+	key = find_special_key(&arg, &modifiers, TRUE, TRUE);
 	if (modifiers)		    /* can't handle modifiers here */
 	    key = 0;
     }

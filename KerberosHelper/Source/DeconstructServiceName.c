@@ -232,14 +232,14 @@ static void mDNSServiceCallBack(
  */
 
 Boolean
-_CFNetServiceDeconstructServiceName(CFStringRef *inHostName, char **inHostNameString)
+_CFNetServiceDeconstructServiceName(CFStringRef inHostName, char **inHostNameString)
 {
 
 	Boolean result = false;
 	char serviceNameStr[MAX_ESCAPED_DOMAIN_NAME];
 	DNSServiceRef serviceRef = NULL;
 
-	if (CFStringGetCString(*inHostName, serviceNameStr, MAX_ESCAPED_DOMAIN_NAME, kCFStringEncodingUTF8)) {
+	if (CFStringGetCString(inHostName, serviceNameStr, MAX_ESCAPED_DOMAIN_NAME, kCFStringEncodingUTF8)) {
 		domainname domainName;
 
 		if (MakeDomainNameFromDNSNameString(&domainName, serviceNameStr)) {
@@ -275,7 +275,6 @@ _CFNetServiceDeconstructServiceName(CFStringRef *inHostName, char **inHostNameSt
 					goto Error;
 				}
 				
-				*inHostName = CFStringCreateWithCString (kCFAllocatorDefault, *inHostNameString, kCFStringEncodingASCII);
 				result = true;
 			}
 		}

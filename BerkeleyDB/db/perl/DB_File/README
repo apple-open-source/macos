@@ -1,12 +1,12 @@
-                                     DB_File
+                                  DB_File
 
-                                  Version 1.807
+                               Version 1.815
 
-                                  1st Nov 2003
+                             4th February 2007
 
- 	Copyright (c) 1995-2003 Paul Marquess. All rights reserved. This
-	program is free software; you can redistribute it and/or modify
-	it under the same terms as Perl itself.
+     Copyright (c) 1995-2007 Paul Marquess. All rights reserved. This
+      program is free software; you can redistribute it and/or modify
+                  it under the same terms as Perl itself.
 
 
 IMPORTANT NOTICE
@@ -136,6 +136,8 @@ This symptom can imply:
               to the directories where libdb.a and db.h are installed.
 
 
+
+
 Undefined symbol db_version
 ---------------------------
 
@@ -155,12 +157,13 @@ when you run the test harness:
   BEGIN failed--compilation aborted at t/db-btree.t line 21.
   dubious Test returned status 2 (wstat 512, 0x200)
 
-This error usually happens when you have both version 1 and version
-2 of Berkeley DB installed on your system and DB_File attempts to
-build using the db.h for Berkeley DB version 2 and the version 1
-library. Unfortunately the two versions aren't compatible with each
-other. The undefined symbol error is actually caused because Berkeley
-DB version 1 doesn't have the symbol db_version.
+This error usually happens when you have two version of Berkeley DB
+installed on your system -- specifically, if you have both version 1 and
+a newer version (i.e. version 2 or better) of Berkeley DB installed. If
+DB_File is built using the db.h for the newer Berkeley DB and the version
+1 Berkeley DB library you will trigger this error. Unfortunately the two
+versions aren't compatible with each other. The undefined symbol error is
+caused because Berkeley DB version 1 doesn't have the symbol db_version.
 
 Solution: Setting the LIB & INCLUDE variables in config.in to point to the
           correct directories can sometimes be enough to fix this
@@ -301,7 +304,7 @@ The solution is either:
 Linux Notes
 -----------
 
-Newer versions of Linux (e.g. RedHat 6, SuSe 6) ship with a C library
+Some older versions of Linux (e.g. RedHat 6, SuSe 6) ship with a C library
 that has version 2.x of Berkeley DB linked into it. This makes it
 difficult to build this module with anything other than the version of
 Berkeley DB that shipped with your Linux release. If you do try to use
@@ -454,6 +457,37 @@ IRIX NOTES
 If you are running IRIX, and want to use Berkeley DB version 1, you can
 get it from http://reality.sgi.com/ariel. It has the patches necessary
 to compile properly on IRIX 5.3.
+
+AIX NOTES
+---------
+
+I've had reports of a build failure like this on AIX 5.2 using the
+xlC compiler.
+
+        rm -f blib/arch/auto/DB_File/DB_File.so
+        LD_RUN_PATH="" ld  -bhalt:4 -bM:SRE -bI:/usr/local/5.8.1/lib/perl5/5.8.1/aix/CORE/perl.exp -bE:DB_File.exp -bnoentry -lc
+    -L/usr/local/lib version.o DB_File.o  -o blib/arch/auto/DB_File/DB_File.so
+    -L/usr/local/BerkeleyDB/lib -ldb -lpthread
+    ld: 0711-317 ERROR: Undefined symbol: .mutex_lock
+    ld: 0711-317 ERROR: Undefined symbol: .cond_signal
+    ld: 0711-317 ERROR: Undefined symbol: .mutex_unlock
+    ld: 0711-317 ERROR: Undefined symbol: .mutex_trylock
+    ld: 0711-317 ERROR: Undefined symbol: .cond_wait
+    ld: 0711-317 ERROR: Undefined symbol: .mutex_init
+    ld: 0711-317 ERROR: Undefined symbol: .cond_init
+    ld: 0711-317 ERROR: Undefined symbol: .mutex_destroy
+    ld: 0711-345 Use the -bloadmap or -bnoquiet option to obtain more information.
+    make: 1254-004 The error code from the last command is 8.
+
+Editing Makefile.PL, and changing the line 
+
+    $LIBS .= " -lpthread" if $^O eq 'aix' ;
+
+to this
+
+    $LIBS .= " -lthread" if $^O eq 'aix' ;
+
+fixed the problem.
 
 
 FEEDBACK

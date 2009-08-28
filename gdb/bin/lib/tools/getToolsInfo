@@ -1,14 +1,12 @@
 #! /bin/bash
 
-receipts=/Library/Receipts/DeveloperTools.pkg/Contents/Info.plist
-tools_version=`grep "IFPkgBuildVersion" $receipts -A 1 | grep string | cut -c10- | sed s/\<.*$//`
+tools_version=""
     
-echo "Dev Tools:      $tools_version"
 
 if [ $# -eq 0 ]
     then
     tmp_file=/tmp/tmp$$
-    echo "Xcode:          "`xcodebuild -version | sed 's/^.*s: //'`
+    echo "Xcode:          "`xcodebuild -version -version 2>/dev/null | sed 's/^.*s: //'`
     echo "gdb:            "`gdb -v | grep version | sed 's/^.*gdb/gdb/'`
     gcc -v 2> $tmp_file; echo "gcc:            "`grep version $tmp_file`
     echo "ld:             "`ld -v | sed 's/^.*version //'`

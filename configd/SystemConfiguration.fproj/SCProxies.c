@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -56,8 +56,6 @@ validate_proxy_content(CFMutableDictionaryRef	proxies,
 {
 	int		enabled	= 0;
 	CFNumberRef	num;
-	CFStringRef	host;
-	CFNumberRef	port	= NULL;
 
 	num = CFDictionaryGetValue(proxies, proxy_enable);
 	if (num != NULL) {
@@ -68,14 +66,20 @@ validate_proxy_content(CFMutableDictionaryRef	proxies,
 		}
 	}
 
-	host = CFDictionaryGetValue(proxies, proxy_host);
-	if (((enabled == 0) && (host != NULL)) ||
-	    ((enabled != 0) && !isA_CFString(host))) {
-		// pass only valid proxy hosts and only when enabled
-		goto disable;
+	if (proxy_host != NULL) {
+		CFStringRef	host;
+
+		host = CFDictionaryGetValue(proxies, proxy_host);
+		if (((enabled == 0) && (host != NULL)) ||
+		    ((enabled != 0) && !isA_CFString(host))) {
+			// pass only valid proxy hosts and only when enabled
+			goto disable;
+		}
 	}
 
 	if (proxy_port != NULL) {
+		CFNumberRef	port;
+
 		port = CFDictionaryGetValue(proxies, proxy_port);
 		if (((enabled == 0) && (port != NULL)) ||
 		    ((enabled != 0) && (port != NULL) && !isA_CFNumber(port))) {
@@ -107,7 +111,9 @@ validate_proxy_content(CFMutableDictionaryRef	proxies,
 	num = CFNumberCreate(NULL, kCFNumberIntType, &enabled);
 	CFDictionarySetValue(proxies, proxy_enable, num);
 	CFRelease(num);
-	CFDictionaryRemoveValue(proxies, proxy_host);
+	if (proxy_host != NULL) {
+		CFDictionaryRemoveValue(proxies, proxy_host);
+	}
 	if (proxy_port != NULL) {
 		CFDictionaryRemoveValue(proxies, proxy_port);
 	}
@@ -204,11 +210,17 @@ SCDynamicStoreCopyProxies(SCDynamicStoreRef store)
 			       NULL,
 			       NULL,
 			       0);
+	validate_proxy_content(newProxies,
+			       kSCPropNetProxiesProxyAutoDiscoveryEnable,
+			       NULL,
+			       NULL,
+			       NULL,
+			       0);
 
 	// validate FTP passive setting
 	num = CFDictionaryGetValue(newProxies, kSCPropNetProxiesFTPPassive);
 	if (num != NULL) {
-		int	enabled;
+		int	enabled	= 0;
 
 		if (!isA_CFNumber(num) ||
 		    !CFNumberGetValue(num, kCFNumberIntType, &enabled)) {
@@ -217,23 +229,6 @@ SCDynamicStoreCopyProxies(SCDynamicStoreRef store)
 			num = CFNumberCreate(NULL, kCFNumberIntType, &enabled);
 			CFDictionarySetValue(newProxies,
 					     kSCPropNetProxiesFTPPassive,
-					     num);
-			CFRelease(num);
-		}
-	}
-
-	// validate WPAD setting
-	num = CFDictionaryGetValue(newProxies, kSCPropNetProxiesProxyAutoDiscoveryEnable);
-	if (num != NULL) {
-		int	enabled;
-
-		if (!isA_CFNumber(num) ||
-		    !CFNumberGetValue(num, kCFNumberIntType, &enabled)) {
-			// if we don't like the enabled key/value
-			enabled = 0;
-			num = CFNumberCreate(NULL, kCFNumberIntType, &enabled);
-			CFDictionarySetValue(newProxies,
-					     kSCPropNetProxiesProxyAutoDiscoveryEnable,
 					     num);
 			CFRelease(num);
 		}

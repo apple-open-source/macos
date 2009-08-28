@@ -45,19 +45,13 @@ strtof_l(CONST char *s, char **sp, locale_t loc)
 	Long exp;
 	int k;
 	union { ULong L[1]; float f; } u;
-	FPI *fpi = &fpi0, fpi1;
 #ifdef Honor_FLT_ROUNDS
-	int rounding = Flt_Rounds;
+#include "gdtoa_fltrnds.h"
+#else
+#define fpi &fpi0
 #endif
 
 	NORMALIZE_LOCALE(loc);
-#ifdef Honor_FLT_ROUNDS
-	if (rounding != fpi0.rounding) {
-		fpi1 = fpi0; /* for thread safety */
-		fpi1.rounding = rounding;
-		fpi = &fpi1;
-		}
-#endif /* Honor_FLT_ROUNDS */
 	k = strtodg(s, sp, fpi, &exp, bits, loc);
 	switch(k & STRTOG_Retmask) {
 	  case STRTOG_NoNumber:

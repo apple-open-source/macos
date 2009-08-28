@@ -1,4 +1,5 @@
-/*	$NetBSD: ftpfts.h,v 1.3 2003/12/15 23:52:02 lukem Exp $	*/
+/* $NetBSD: ftpfts.h,v 1.7 2008/09/21 16:35:25 lukem Exp $ */
+/*	from NetBSD: fts.h,v 1.17 2008/03/07 10:38:31 lukem Exp */
 
 /*
  * Copyright (c) 1989, 1993
@@ -34,6 +35,22 @@
 #ifndef	_FTS_H_
 #define	_FTS_H_
 
+#ifndef	__fts_stat_t
+#define	__fts_stat_t	struct stat
+#endif
+#ifndef	__fts_nlink_t
+#define	__fts_nlink_t	nlink_t
+#endif
+#ifndef	__fts_ino_t
+#define	__fts_ino_t	ino_t
+#endif
+#ifndef	__fts_length_t
+#define	__fts_length_t	unsigned int
+#endif
+#ifndef	__fts_number_t
+#define	__fts_number_t	int64_t
+#endif
+
 typedef struct {
 	struct _ftsent *fts_cur;	/* current node */
 	struct _ftsent *fts_child;	/* linked list of children */
@@ -41,8 +58,8 @@ typedef struct {
 	dev_t fts_dev;			/* starting device # */
 	char *fts_path;			/* path for this descent */
 	int fts_rfd;			/* fd for root */
-	u_int fts_pathlen;		/* sizeof(path) */
-	u_int fts_nitems;		/* elements in the sort array */
+	unsigned int fts_pathlen;	/* sizeof(path) */
+	unsigned int fts_nitems;	/* elements in the sort array */
 	int (*fts_compar)		/* compare function */
 	    (const struct _ftsent **, const struct _ftsent **);
 
@@ -65,18 +82,18 @@ typedef struct _ftsent {
 	struct _ftsent *fts_cycle;	/* cycle node */
 	struct _ftsent *fts_parent;	/* parent directory */
 	struct _ftsent *fts_link;	/* next file in directory */
-	long fts_number;	        /* local numeric value */
+	__fts_number_t fts_number;      /* local numeric value */
 	void *fts_pointer;	        /* local address value */
 	char *fts_accpath;		/* access path */
 	char *fts_path;			/* root path */
 	int fts_errno;			/* errno for this node */
 	int fts_symfd;			/* fd for symlink */
-	u_short fts_pathlen;		/* strlen(fts_path) */
-	u_short fts_namelen;		/* strlen(fts_name) */
+	__fts_length_t fts_pathlen;	/* strlen(fts_path) */
+	__fts_length_t fts_namelen;	/* strlen(fts_name) */
 
-	ino_t fts_ino;			/* inode */
+	__fts_ino_t fts_ino;		/* inode */
 	dev_t fts_dev;			/* device */
-	nlink_t fts_nlink;		/* link count */
+	__fts_nlink_t fts_nlink;	/* link count */
 
 #define	FTS_ROOTPARENTLEVEL	-1
 #define	FTS_ROOTLEVEL		 0
@@ -96,20 +113,20 @@ typedef struct _ftsent {
 #define	FTS_SL		12		/* symbolic link */
 #define	FTS_SLNONE	13		/* symbolic link without target */
 #define	FTS_W		14		/* whiteout object */
-	u_short fts_info;		/* user flags for FTSENT structure */
+	unsigned short fts_info;	/* user flags for FTSENT structure */
 
 #define	FTS_DONTCHDIR	 0x01		/* don't chdir .. to the parent */
 #define	FTS_SYMFOLLOW	 0x02		/* followed a symlink to get here */
 #define	FTS_ISW		 0x04		/* this is a whiteout object */
-	u_short fts_flags;		/* private flags for FTSENT structure */
+	unsigned short fts_flags;	/* private flags for FTSENT structure */
 
 #define	FTS_AGAIN	 1		/* read node again */
 #define	FTS_FOLLOW	 2		/* follow symbolic link */
 #define	FTS_NOINSTR	 3		/* no instructions */
 #define	FTS_SKIP	 4		/* discard node */
-	u_short fts_instr;		/* fts_set() instructions */
+	unsigned short fts_instr;	/* fts_set() instructions */
 
-	struct stat *fts_statp;		/* stat(2) information */
+	__fts_stat_t *fts_statp;	/* stat(2) information */
 	char fts_name[1];		/* file name */
 } FTSENT;
 

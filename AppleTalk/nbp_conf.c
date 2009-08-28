@@ -50,34 +50,16 @@
 
 #include <string.h>
 #include <sys/errno.h>
-#include <netat/appletalk.h>
-#include <netat/nbp.h>
-#include <netat/zip.h>
+
+#include "at_proto.h"
+
+#define	SET_ERRNO(e) errno = e
 
 int nbp_confirm (entity, dest, retry)
      at_entity_t	*entity;
      at_inet_t	*dest;
      at_retry_t	*retry;
 {
-	int		got,
-			fd;
-	at_nbptuple_t	buf;
-
-	if (!valid_at_addr(dest)) {
-		errno = EINVAL;
-		return(-1);
-	}
-
-	got = _nbp_send_(NBP_CONFIRM, dest, entity, &buf, 1, retry);
-	switch(got) {
-	case 0:
-	case 1:
-#ifdef NOT_YET
-		if (got)
-			dest->socket = nbpIn->tuple[0].enu_addr.socket;
-#endif
-		return(got);
-	default:
-		return(-1);
-	}
+	SET_ERRNO(ENXIO);
+	return (-1);
 }	

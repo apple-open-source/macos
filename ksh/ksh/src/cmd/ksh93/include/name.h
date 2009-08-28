@@ -1,10 +1,10 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*          Copyright (c) 1982-2007 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
-*                      by AT&T Knowledge Ventures                      *
+*                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
 *            http://www.opensource.org/licenses/cpl1.0.txt             *
@@ -67,7 +67,6 @@ union Value
 #define ARRAY_NOCLONE	(16L<<ARRAY_BITS)	/* do not clone array disc */
 #define ARRAY_NOCHILD   (32L<<ARRAY_BITS)	/* skip compound arrays */
 #define ARRAY_SETSUB	(64L<<ARRAY_BITS)	/* set subscript */
-#define NV_ASETSUB	8			/* set subscript */
 
 /* These flags are used as options to array_get() */
 #define ARRAY_ASSIGN	0
@@ -155,7 +154,6 @@ struct Ufunction
 extern int		array_maxindex(Namval_t*);
 extern char 		*nv_endsubscript(Namval_t*, char*, int);
 extern Namfun_t 	*nv_cover(Namval_t*);
-extern Namarr_t 	*nv_arrayptr(Namval_t*);
 extern int		nv_setnotify(Namval_t*,char **);
 extern int		nv_unsetnotify(Namval_t*,char **);
 extern void		nv_setlist(struct argnod*, int);

@@ -1,25 +1,24 @@
-Your membership in the mailing list %(listname)s has been disabled
-%(reason)s.  You will not get any more messages from this
-list until you re-enable your membership.  You will receive
-%(noticesleft)s more reminders like this before your membership in the
-list is deleted.
+Prenumerata %(listname)s zosta³a wy³±czona %(reason)s.  
+Nie bêdziesz otrzymywa³ kolejnych wiadomo¶ci z tej listy do chwili
+ponownej aktywacji prenumeraty. Je¶li nie uaktywnisz prenumeraty,
+Twój adres zostanie usuniêty z listy (po wys³aniu %(noticesleft)s 
+ostrze¿eñ).
 
-To re-enable your membership, you can simply respond to this message
-(leaving the Subject: line intact), or visit the confirmation page at
+Aby ponownie uaktywniæ prenumeratê, odpowiedz na tê wiadomo¶æ
+(nie zmieniaj±c jej tematu) lub kliknij poni¿szy odno¶nik:
 
     %(confirmurl)s
 
-You can also visit your membership page at
+Mo¿esz równie¿ zalogowaæ siê na stronie ustawieñ prenumeraty:
 
     %(optionsurl)s
 
-On your membership page, you can change various delivery options such
-as your email address and whether you get digests or not.  As a
-reminder, your membership password is
+Strona z ustawieniami prenumeraty pozwala dostosowaæ jej opcje. 
+Aby siê zalogowaæ do ustawieñ, musisz podaæ has³o:
 
     %(password)s
 
-If you have any questions or problems, you can contact the list owner
-at
+W przypadku pytañ b±¼ problemów skontaktuj siê z administratorem
+pod adresem:
 
     %(owneraddr)s

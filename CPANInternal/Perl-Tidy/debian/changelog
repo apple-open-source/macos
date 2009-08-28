@@ -1,0 +1,97 @@
+perltidy (20071205-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- Steve Hancock <perltidy@users.sourceforge.net>  Wed, 05 Dec 2007 09:54:33 -0800
+
+perltidy (20070801-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- Steve Hancock <perltidy@users.sourceforge.net>  Tue, 31 Jul 2007 19:12:50 -0700
+
+perltidy (20070508-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- Steve Hancock <perltidy@users.sourceforge.net>  Tue, 08 May 2007 13:04:28 -0700
+
+perltidy (20070504-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- Steve Hancock <perltidy@users.sourceforge.net>  Fri, 04 May 2007 07:03:29 -0700
+ 
+perltidy (20070424-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- Steve Hancock <perltidy@users.sourceforge.net>  Tue, 24 Apr 2007 16:40:09 -0700
+ 
+perltidy (20060719-1) unstable; urgency=low
+
+  * New upstream release
+
+
+ -- Steve Hancock <perltidy@users.sourceforge.net>  Wed, 19 Jul 2006 16:16:15 -0700
+
+perltidy (20060614-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- Steve Hancock <perltidy@users.sourceforge.net>  Tue, 13 Jun 2006 18:59:02 -0700
+
+
+perltidy (20031021-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- Steve Hancock <perltidy@users.sourceforge.net>  Tue, 21 Oct 2003 20:50:49 -0700
+
+perltidy (20030726-1) unstable; urgency=low
+
+  * New upstream
+  * Changed Build-Depends perl (>= 5.8.0-7) to perl (>=5.6.1-7)
+
+ -- Steve Hancock <perltidy@users.sourceforge.net>  Sat, 26 Jul 2003 07:18:13 -0700
+
+perltidy (20021130-1) unstable; urgency=low
+
+  * New upstream
+  * Redid all debian packaging from scratch
+
+ -- Aubin Paul <aubin@punknews.org>  Sat, 30 Nov 2002 23:34:34 -0500
+
+perltidy (20011020-1) unstable; urgency=low
+
+  * New upstream release.
+  * Don't install perl2web in the man dir, but only in the doc dir
+  (closes: bug#113911, bug#103443, bug#101100).
+
+ -- Paolo Molaro <lupus@debian.org>  Sun, 11 Nov 2001 15:38:40 +0100
+
+perltidy (20010608-1) unstable; urgency=low
+
+  * New upstream release.
+  * New maintainer (Closes: bug#100250).
+
+ -- Paolo Molaro <lupus@debian.org>  Mon, 11 Jun 2001 11:54:54 +0200
+
+perltidy (20010328-1) unstable; urgency=low
+
+  * New upstream release.
+  * Corrected upstream email address in copyright file and manpages.
+  * Fixed lintian warning because of incorrect upstream changelog name.
+
+ -- Dr. Guenter Bechly <gbechly@debian.org>  Fri, 30 Mar 2001 10:57:12 +0200
+
+perltidy (20010323-1) unstable; urgency=low
+
+  * Initial Release; closes: #91927
+  * Adjusted paths in Makefile and fixed $DESTDIR problems.
+
+ -- Dr. Guenter Bechly <gbechly@debian.org>  Tue, 27 Mar 2001 19:39:30 +0200
+
+Local variables:
+mode: debian-changelog
+End:

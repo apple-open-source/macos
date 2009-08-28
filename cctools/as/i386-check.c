@@ -15,18 +15,18 @@ const seg_entry **use_it6 = one_byte_segment_defaults;
 const seg_entry **use_it7 = two_byte_segment_defaults;
 
 static char **get_operand(
-    unsigned long type);
+    uint32_t type);
 static char *get_suffix(
-    unsigned long type);
+    uint32_t type);
 
 int
 main(void)
 {
     const template *t;
     const prefix_entry *p;
-    long prefix;
+    int32_t prefix;
 
-    unsigned long i, j, type0, type1;
+    uint32_t i, j, type0, type1;
     char **op0, **op1;
     char *suffix;
 
@@ -157,7 +157,7 @@ main(void)
 static
 char *
 get_suffix(
-unsigned long type)
+uint32_t type)
 {
 	switch(type){
 	case Imm8:	return("b");
@@ -212,7 +212,7 @@ static char *hosed_table[] = { "hosed", NULL };
 static
 char **
 get_operand(
-unsigned long type)
+uint32_t type)
 {
 	switch(type){
 	case Reg8:	return(Reg8_table);

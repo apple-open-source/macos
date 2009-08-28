@@ -1,6 +1,6 @@
 #******************************************************************************
 #
-#   Copyright (C) 1999-2006, International Business Machines
+#   Copyright (C) 1999-2008, International Business Machines
 #   Corporation and others.  All Rights Reserved.
 #
 #******************************************************************************
@@ -54,6 +54,8 @@ ALL_TARGETS = $(TARGET) $(ALL_SO_TARGETS) $(BATCH_TARGET)
 DYNAMICCPPFLAGS = $(SHAREDLIBCPPFLAGS)
 DYNAMICCFLAGS = $(SHAREDLIBCFLAGS)
 DYNAMICCXXFLAGS = $(SHAREDLIBCXXFLAGS)
+CFLAGS += $(LIBCFLAGS)
+CXXFLAGS += $(LIBCXXFLAGS)
 
 ifneq ($(top_builddir),$(top_srcdir))
 CPPFLAGS += -I$(top_builddir)/common
@@ -78,12 +80,12 @@ utf_impl.o ustring.o ustrcase.o ucasemap.o cstring.o ustrfmt.o ustrtrns.o ustr_w
 normlzr.o unorm.o unormcmp.o unorm_it.o chariter.o schriter.o uchriter.o uiter.o \
 uchar.o uprops.o ucase.o propname.o ubidi_props.o ubidi.o ubidiwrt.o ubidiln.o ushape.o \
 uscript.o usc_impl.o unames.o \
-utrie.o uset_props.o uniset_props.o uset.o uniset.o usetiter.o ruleiter.o caniter.o unifilt.o unifunct.o \
+utrie.o bmpset.o unisetspan.o uset_props.o uniset_props.o uset.o uniset.o usetiter.o ruleiter.o caniter.o unifilt.o unifunct.o \
 uarrsort.o brkiter.o ubrk.o brkeng.o dictbe.o triedict.o \
 rbbi.o rbbidata.o rbbinode.o rbbirb.o rbbiscan.o rbbisetb.o rbbistbl.o rbbitblb.o \
 serv.o servnotf.o servls.o servlk.o servlkf.o servrbf.o servslkf.o \
 uidna.o usprep.o punycode.o \
-util.o util_props.o parsepos.o locbased.o cwchar.o wintz.o
+util.o util_props.o parsepos.o locbased.o cwchar.o wintz.o mutex.o dtintrv.o
 
 ## Header files to install
 HEADERS = $(srcdir)/unicode/*.h unicode/*.h
@@ -130,7 +132,6 @@ ifneq ($(FINAL_SO_TARGET),$(MIDDLE_SO_TARGET))
 	cd $(DESTDIR)$(libdir) && $(RM) $(notdir $(MIDDLE_SO_TARGET)) && ln -s $(notdir $(FINAL_SO_TARGET)) $(notdir $(MIDDLE_SO_TARGET))
 endif
 endif
-endif
 ifneq ($(IMPORT_LIB_EXT),)
 	$(INSTALL-L) $(FINAL_IMPORT_LIB) $(DESTDIR)$(libdir)
 ifneq ($(IMPORT_LIB),$(FINAL_IMPORT_LIB))
@@ -138,6 +139,7 @@ ifneq ($(IMPORT_LIB),$(FINAL_IMPORT_LIB))
 endif
 ifneq ($(MIDDLE_IMPORT_LIB),$(FINAL_IMPORT_LIB))
 	cd $(DESTDIR)$(libdir) && $(RM) $(notdir $(MIDDLE_IMPORT_LIB)) && ln -s $(notdir $(FINAL_IMPORT_LIB)) $(notdir $(MIDDLE_IMPORT_LIB))
+endif
 endif
 endif
 
@@ -176,7 +178,8 @@ unicode/platform.h: $(srcdir)/unicode/platform.h.in $(top_builddir)/config.statu
 	 && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
 
 ifneq ($(ENABLE_STATIC),)
-$(TARGET): $(TARGET)($(STATIC_OBJECTS))
+$(TARGET): $(STATIC_OBJECTS)
+	$(AR) $(ARFLAGS) $(AR_OUTOPT)$@ $^
 	$(RANLIB) $@
 endif
 

@@ -25,7 +25,7 @@
 .\"
 .\" $FreeBSD: src/lib/libc/posix1e/acl_set_qualifier.3,v 1.5 2002/12/18 12:45:09 ru Exp $
 .\"
-.Dd March 10, 2001
+.Dd Sept 2, 2008
 .Dt ACL_SET_QUALIFIER 3
 .Os
 .Sh NAME
@@ -46,6 +46,17 @@ is a POSIX.1e call that sets the qualifier of the tag for the ACL entry
 .Fa entry_d
 to the value referred to by
 .Fa tag_qualifier_p .
+.Pp
+The tag type of the ACL entry, as previously set with
+.Xr acl_set_tag_type 3 ,
+must be either
+.Dv ACL_EXTENDED_ALLOW
+or
+.Dv ACL_EXTENDED_DENY ,
+and
+.Fa tag_qualifier_p
+should be a pointer to a global unique identifier (of type
+.Ft guid_t ) .
 .Sh RETURN VALUES
 .Rv -std acl_set_qualifier
 .Sh ERRORS
@@ -73,6 +84,7 @@ by the hardware or system-imposed memory management constraints.
 .Sh SEE ALSO
 .Xr acl 3 ,
 .Xr acl_get_qualifier 3 ,
+.Xr acl_set_tag_type 3 ,
 .Xr posix1e 3
 .Sh STANDARDS
 POSIX.1e is described in IEEE POSIX.1e draft 17.

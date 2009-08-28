@@ -609,13 +609,15 @@ IOReturn IOHIDUPSClass::getCapabilities(CFSetRef * capabilities)
 //---------------------------------------------------------------------------
 void IOHIDUPSClass::getEventProcess(UPSHIDElement * elementRef, CFStringRef psKey, bool * changed)
 {
+    IOReturn err;
     bool ret = false;
     
     if ( !elementRef )
         return;
     
-    ret = updateElementValue(elementRef);
-    processEvent(elementRef);
+    ret = updateElementValue(elementRef, &err);
+    if (kIOReturnSuccess == err)
+        processEvent(elementRef);
     
     if ( ret && changed ) 
         *changed = ret;
@@ -1282,7 +1284,7 @@ bool IOHIDUPSClass::processEvent(UPSHIDElement *	hidElement)
                 }
                 // Update the Time to empty
                 // PS expects minutes but HID units are secs
-                if ( (hidElement = GetHIDElement(_upsElements, CFSTR(kIOPSTimeToEmptyKey))) && updateElementValue(hidElement) )
+                if ( (hidElement = GetHIDElement(_upsElements, CFSTR(kIOPSTimeToEmptyKey))) && updateElementValue(hidElement, NULL) )
                 {
                     FillDictinoaryWithInt(_upsEvent, CFSTR(kIOPSTimeToEmptyKey), hidElement->currentValue/60);
                 }
@@ -1326,13 +1328,14 @@ PROCESS_EVENT_UPDATE_AC:
 //---------------------------------------------------------------------------
 // updateElementValue
 //---------------------------------------------------------------------------
-bool IOHIDUPSClass::updateElementValue(UPSHIDElement *	tempHIDElement)
+bool IOHIDUPSClass::updateElementValue(UPSHIDElement *	tempHIDElement, IOReturn * error)
 {
     IOHIDEventStruct 	valueEvent;
     IOReturn		ret;
     bool		updated		= false;
     
-    
+    if (error)
+        *error = kIOReturnBadArgument;
     if ( !tempHIDElement)
         return false;
         
@@ -1356,6 +1359,8 @@ bool IOHIDUPSClass::updateElementValue(UPSHIDElement *	tempHIDElement)
         }
      }
 
+    if (error)
+        *error = ret;
     if (ret != kIOReturnSuccess)
         return updated;
 

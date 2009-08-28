@@ -32,6 +32,7 @@
 #include "EventException.h"
 #include "ExceptionCode.h"
 #include "Frame.h"
+#include "HTMLAudioElement.h"
 #include "HTMLImageElement.h"
 #include "HTMLScriptElement.h"
 #include "HTMLNames.h"
@@ -288,6 +289,10 @@ static inline bool isObservableThroughDOM(JSNode* jsNode)
             return true;
         if (node->hasTagName(scriptTag) && !static_cast<HTMLScriptElement*>(node)->haveFiredLoadEvent())
             return true;
+#if ENABLE(VIDEO)
+        if (node->hasTagName(audioTag) && !static_cast<HTMLAudioElement*>(node)->paused())
+            return true;
+#endif
     }
 
     return false;
@@ -325,10 +330,10 @@ void markActiveObjectsForContext(JSGlobalData& globalData, ScriptExecutionContex
     const HashSet<MessagePort*>& messagePorts = scriptExecutionContext->messagePorts();
     HashSet<MessagePort*>::const_iterator portsEnd = messagePorts.end();
     for (HashSet<MessagePort*>::const_iterator iter = messagePorts.begin(); iter != portsEnd; ++iter) {
-        if ((*iter)->hasPendingActivity()) {
+        // If the message port is remotely entangled, then always mark it as in-use because we can't determine reachability across threads.
+        if (!(*iter)->locallyEntangledPort() || (*iter)->hasPendingActivity()) {
             DOMObject* wrapper = getCachedDOMObjectWrapper(globalData, *iter);
-            // A port with pending activity must have a wrapper to mark its listeners, so no null check.
-            if (!wrapper->marked())
+            if (wrapper && !wrapper->marked())
                 wrapper->mark();
         }
     }
@@ -504,12 +509,43 @@ bool allowsAccessFromFrame(ExecState* exec, Frame* frame, String& message)
     return window && window->allowsAccessFrom(exec, message);
 }
 
+bool shouldAllowNavigation(ExecState* exec, Frame* frame)
+{
+    Frame* lexicalFrame = toLexicalFrame(exec);
+    return lexicalFrame && lexicalFrame->loader()->shouldAllowNavigation(frame);
+}
+
 void printErrorMessageForFrame(Frame* frame, const String& message)
 {
     if (!frame)
         return;
     if (JSDOMWindow* window = toJSDOMWindow(frame))
         window->printErrorMessage(message);
+}
+
+Frame* toLexicalFrame(ExecState* exec)
+{
+    return asJSDOMWindow(exec->lexicalGlobalObject())->impl()->frame();
+}
+
+Frame* toDynamicFrame(ExecState* exec)
+{
+    return asJSDOMWindow(exec->dynamicGlobalObject())->impl()->frame();
+}
+
+bool processingUserGesture(ExecState* exec)
+{
+    Frame* frame = toDynamicFrame(exec);
+    return frame && frame->script()->processingUserGesture();
+}
+
+KURL completeURL(ExecState* exec, const String& relativeURL)
+{
+    // For histoical reasons, we need to complete the URL using the dynamic frame.
+    Frame* frame = toDynamicFrame(exec);
+    if (!frame)
+        return KURL();
+    return frame->loader()->completeURL(relativeURL);
 }
 
 JSValue objectToStringFunctionGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot&)

@@ -1,8 +1,8 @@
-<!-- $Revision: 6665 $ -->
+<!-- $Revision: 5865 $ -->
 <HTML>
   <HEAD>
-    <TITLE><MM-List-Name> Info Page</TITLE>
-  
+    <TITLE>P&agrave;gina d'informaci&oacute; de la llista <MM-List-Name></TITLE>
+
   </HEAD>
   <BODY BGCOLOR="#ffffff">
 
@@ -14,104 +14,117 @@
 	<MM-List-Description></FONT></B>
 	  </TD>
 	</TR>
-	<tr>
+        <tr>
 	    <td colspan="2">
-	      <p>&nbsp;
+	      <p> 
 	    </td>
 	  </tr>
 	  <tr>
-	    
-    <TD COLSPAN="1" WIDTH="100%" BGCOLOR="#FFF0D0"> <B><FONT COLOR="#000000">Sobre</FONT><FONT COLOR="#000000"><MM-List-Name></FONT></B> 
-    </TD>
+	    <TD COLSPAN="1" WIDTH="100%" BGCOLOR="#FFF0D0">
+	      <B><FONT COLOR="#000000">Quant a la llista <MM-List-Name></FONT></B>
+	    </TD>
             <TD COLSPAN="1" WIDTH="100%" BGCOLOR="#FFF0D0">
               <MM-lang-form-start><MM-displang-box> <MM-list-langs>
               <MM-form-end>
     <MM-Subscribe-Form-Start>
-            </TD>
+           </TD>
 	  </TR>
 	    <tr>
 	      <td colspan="2">
 		<P><MM-List-Info></P>
-	  <p> Per veure la col.lecci&oacute; d'enviaments previs a la llista, visiti 
-        els Arxius.<MM-Restricted-List-Message> </p>
+	  <p> Per a veure l'historial d'enviaments, aneu als 
+		  arxius <MM-Archive> de la llista <MM-List-Name></MM-Archive>.
+	      <MM-Restricted-List-Message>
+	  </p>
 	</TD>
       </TR>
       <TR>
-	<TD COLSPAN="2" WIDTH="100%" BGCOLOR="#FFF0D0"> <B><FONT COLOR="#000000">Usant</FONT><FONT COLOR="#000000"><MM-List-Name></FONT></B> 
-    </TD>
+	<TD COLSPAN="2" WIDTH="100%" BGCOLOR="#FFF0D0">
+	  <B><FONT COLOR="#000000">Utilitzaci&oacute; de la llista <MM-List-Name></FONT></B>
+	</TD>
       </TR>
       <tr>
-	<td colspan="2"> Per enviar un missatge a tots els membres de la llistat, 
-      envii un email a 
-      <p>Es pot subscriure a la llista, o canviar la seva actual subscripci&oacute;, 
-        en les seccions seg&uuml;ents..
-    </td>
+	<td colspan="2">
+	  Per a enviar un missatge a tots els membres de la llista, 
+	  envieu un correu electr&ograve;nic a <A HREF="mailto:<MM-Posting-Addr>"><MM-Posting-Addr></A>.
+
+	  <p>A les seccions seg&uuml;ents us podreu subscriure a
+	    la llista, o canviar la vostra subscripci&oacute; actual. </p>
+	</td>
       </tr>
       <TR>
-	<TD COLSPAN="2" WIDTH="100%" BGCOLOR="#FFF0D0"> <B><FONT COLOR="#000000">Subscribint-se</FONT><FONT COLOR="#000000"><MM-List-Name></FONT></B> 
-    </TD>
+	<TD COLSPAN="2" WIDTH="100%" BGCOLOR="#FFF0D0">
+	  <B><FONT COLOR="#000000">Com subscriure's a la llista <MM-List-Name></FONT></B>
+	</TD>
       </TR>
-      
-  <tr> 
-    <td colspan="2">Per subscriure's ompli el seg&uuml;ent formulari. <MM-List-Subscription-Msg> 
+      <tr>
+	<td colspan="2">
+	  <P>
+	    Ompliu el formulari seg&uuml;ent per a
+	      subscriure-us a <MM-List-Name>.
+	  <MM-List-Subscription-Msg>
       <ul>
-        <TABLE BORDER="0" CELLSPACING="2" CELLPADDING="2"
+
+	      <TABLE BORDER="0" CELLSPACING="2" CELLPADDING="2"
 		WIDTH="70%" HEIGHT= "112">
-          <TR> 
-            <TD BGCOLOR="#dddddd" WIDTH="55%">El seu compte de correu:</TD>
-            <TD WIDTH="33%"><MM-Subscribe-Box> </TD>
-            <TD WIDTH="12%">&nbsp;</TD>
-          </TR>
-          <tr> 
-            <td bgcolor="#dddddd" width="55%">El seu nom (opcional):</td>
-            <td width="33%"><mm-fullname-box></td>
-            <TD WIDTH="12%">&nbsp;</TD>
-          </TR>
-          <TR> 
-            <TD COLSPAN="3"><FONT SIZE=-1> Podeu entrar una clau de pas en la 
-              casella seg&uuml;ent. Aix&ograve; nom&eacute;s d&oacute;na una seguretat 
-              baixa, per&ograve; evita que altra gent canvii la configuraci&oacute; 
-              de la seva subscripci&oacute;. <b>NO utilitzi una clau de pas valuosa 
-              </b>, ja que de vegades podr&agrave; ser re-enviada a vost&egrave; 
-              via email en format de text visible. Si desitja no entrar cap clau 
-              de pas, se li proveir&agrave; d'una generada autom&agrave;ticament, 
-              i la rebr&agrave; un cop hagi confirmat la seva subscripci&oacute;. 
-              A m&eacute;s, sempre pot demanar un recordatori de la seva clau 
-              quan editi les seves opcions personals. <MM-Reminder> </TD>
-          </TR>
-          <TR> 
-            <TD BGCOLOR="#dddddd">Esculli una clau de pas:</TD>
-            <TD><MM-New-Password-Box></TD>
-            <TD>&nbsp;</TD>
-          </TR>
-          <TR> 
-            <TD BGCOLOR="#dddddd"><p>Torni a escriure la clau:</p></TD>
-            <TD><MM-Confirm-Password></TD>
-            <TD>&nbsp; </TD>
-          </TR>
-          <tr> 
-            <TD BGCOLOR="#dddddd">En quin idioma vol mostrar els seus missatges?</TD>
-            <TD> <MM-list-langs></TD>
-            <TD>&nbsp; </TD>
-          </TR>
-          <mm-digest-question-start> 
-          <tr> 
-            <td>Vol rebre la llista de correu compilada di&agrave;riament en un 
-              sol mail? </td>
-            <td><MM-Undigest-Radio-Button> No <MM-Digest-Radio-Button> Yes </TD>
-          </tr>
-          <mm-digest-question-end> 
-          <tr> 
-            <td colspan="3"> <center>
-                <MM-Subscribe-Button></P></center> 
-        </TABLE>
-        <MM-Form-End> </ul>
-    </td>
+		<TR>
+		  <TD BGCOLOR="#dddddd" WIDTH="55%">La vostra adre&ccedil;a electr&ograve;nica:</TD>
+		  <TD WIDTH="33%"><MM-Subscribe-Box>
+	</TD>
+	<TD WIDTH="12%"> </TD></TR>
+      <tr>
+        <td bgcolor="#dddddd" width="55%">El vostre nom (opcional):</td>
+        <td width="33%"><mm-fullname-box></td>
+	<TD WIDTH="12%"> </TD></TR>
+      <TR>
+	<TD COLSPAN="3"><FONT SIZE=-1>Podeu introduir una contrasenya al quadre seg&uuml;ent. Aix&ograve; proporciona nom&eacute;s
+	    certa seguretat, per&ograve; evita que altres puguin canviar la configuraci&oacute; de la
+	    vostra subscripci&oacute;. Sobretot <b>NO utilitzeu una contrasenya valuosa</b>,
+	    ja que pot ser que a vegades se us re-envi&iuml; per correu electr&ograve;nic en
+	    format de text visible.
+
+            <p>En cas que no vulgueu introduir cap
+            contrasenya, se us n'assignar&agrave; una generada autom&agrave;ticament,
+            la qual rebreu un cop h&agrave;giu confirmat la vostra subscripci&oacute;. A m&eacute;s,
+            sempre podreu sol&middot;licitar-ne un recordatori quan
+            editeu les vostres opcions personals. 
+	    <MM-Reminder>
+	</TD>
+      </TR>  
+      <TR>
+	<TD BGCOLOR="#dddddd">Trieu una contrasenya:</TD>
+	<TD><MM-New-Password-Box></TD>
+	<TD> </TD></TR>
+      <TR> 
+	<TD BGCOLOR="#dddddd">Torneu a escriure la contrasenya:</p>
+	<TD><MM-Confirm-Password></TD>
+	<TD>  </TD></TR>
+      <tr>
+        <TD BGCOLOR="#dddddd">En quina llengua voleu
+que es mostrin els vostres missatges?</TD>
+        <TD> <MM-list-langs></TD></TR>
+      <mm-digest-question-start>
+      <tr>
+	<td>Voleu rebre el correu de la llista compilat en un sol missatge enviat a diari?
+	  </td>
+	<td><MM-Undigest-Radio-Button> No
+	    <MM-Digest-Radio-Button>  S&iacute;
+	</TD>
+      </tr>
+      <mm-digest-question-end>
+      <tr>
+              <td colspan="3">
+	  <center><MM-Subscribe-Button></P></center>
+    </TABLE>
+    <MM-Form-End>
+      </ul>
+      </td>
     </tr>
     <TR>
-      
-    <TD COLSPAN="2" WIDTH="100%" BGCOLOR="#FFF0D0"> <a name="subscribers"> <B><FONT COLOR="#000000"><MM-List-Name> 
-      Subscriptors</FONT></B></a></TD>
+      <TD COLSPAN="2" WIDTH="100%" BGCOLOR="#FFF0D0">
+      <a name="subscribers">
+        <B><FONT COLOR="#000000">Subscriptors de la llista <MM-List-Name></FONT></B></a>
+      </TD>
     </TR>
     <tr>
       <TD COLSPAN="2" WIDTH="100%">

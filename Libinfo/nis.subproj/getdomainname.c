@@ -29,11 +29,12 @@
 #include <sys/sysctl.h>
 
 int
-getdomainname(char *val, int len)
+getdomainname(char *val, int inlen)
 {
 	int mib[2];
+	size_t len = inlen;
 
 	mib[0] = CTL_KERN;
 	mib[1] = KERN_DOMAINNAME;
-	return sysctl(mib, 2, (void *)val, (size_t *)&len, NULL, 0);
+	return sysctl(mib, 2, val, &len, NULL, 0);
 }

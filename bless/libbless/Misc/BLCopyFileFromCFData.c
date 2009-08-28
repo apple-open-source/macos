@@ -46,7 +46,7 @@ int BLCopyFileFromCFData(BLContextPtr context, const CFDataRef data,
 	
     int fdw;
     CFDataRef theData = data;
-    int byteswritten;
+    ssize_t byteswritten;
 	
     fstore_t preall;
     int err = 0;
@@ -82,7 +82,7 @@ int BLCopyFileFromCFData(BLContextPtr context, const CFDataRef data,
     byteswritten = write(fdw, (char *)CFDataGetBytePtr(theData), CFDataGetLength(theData));
     if(byteswritten != CFDataGetLength(theData)) {
 		contextprintf(context, kBLLogLevelError,  "Error while writing to %s: %s\n", dest, strerror(errno) );
-		contextprintf(context, kBLLogLevelError,  "%d bytes written\n", byteswritten );
+		contextprintf(context, kBLLogLevelError,  "%ld bytes written\n", byteswritten );
 		close(fdw);
 		return 2;
     }

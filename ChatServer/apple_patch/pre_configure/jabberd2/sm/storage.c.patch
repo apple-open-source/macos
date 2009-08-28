@@ -1,0 +1,51 @@
+--- /tmp/jabberd-2.1.24.1/sm/storage.c	2008-04-27 02:57:18.000000000 -0700
++++ ./jabberd2/sm/storage.c	2008-11-24 14:21:54.000000000 -0800
+@@ -486,3 +486,48 @@ int storage_match(st_filter_t filter, os
+ 
+     return _storage_match(filter, o, os);
+ }
++
++
++// Rate limit check:  Prevent denial-of-service due to excessive database queries
++// Make sure owner is responsible for the query!
++st_ret_t storage_rate_limit(storage_t st, const char *owner) {
++    rate_t rt;
++    user_t user;
++    sess_t sess;
++    item_t item;
++
++    if (owner == NULL)
++    return st_SUCCESS;
++
++    user = xhash_get(st->sm->users, owner);
++    if (user != NULL) {
++        rt = (rate_t) xhash_get(st->sm->query_rates, owner);
++        if (rt == NULL) {
++            rt = rate_new(st->sm->query_rate_total, st->sm->query_rate_seconds, st->sm->query_rate_wait);
++            xhash_put(st->sm->query_rates, pstrdup(xhash_pool(st->sm->query_rates), owner), (void *) rt);
++            pool_cleanup(xhash_pool(st->sm->query_rates), (void (*)(void *)) rate_free, rt);
++        }
++
++        if(rate_check(rt) == 0) {
++            log_write(st->sm->log, LOG_WARNING, "[%s] is being disconnected, too many database queries within %d seconds", owner, st->sm->query_rate_seconds);
++            user = xhash_get(st->sm->users, owner);
++            for (sess = user->sessions; sess != NULL; sess = sess->next) {
++                sm_c2s_action(sess, "ended", NULL);
++            }
++            if(xhash_iter_first(user->roster))
++                do {
++                    xhash_iter_get(user->roster, NULL, (void *) &item);
++                    if(item->to) {
++                        pkt_router(pkt_create(user->sm, "presence", "unavailable", jid_full(item->jid), jid_full(user->jid)));
++                    }
++                } while(xhash_iter_next(user->roster));
++            return st_RATELIMITED;
++            } else {
++                rate_add(rt, 1);
++            }
++        } else {
++            log_debug(ZONE, "Error: could not get user data for %s", owner);
++    }
++    return st_SUCCESS;
++}
++

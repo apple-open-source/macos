@@ -1,0 +1,191 @@
+.\"     Title: XGetDeviceProperty
+.\"    Author: Peter Hutterer
+.\" Generator: DocBook XSL Stylesheets v1.73.2 <http://docbook.sf.net/>
+.\"      Date: <pubdate>July 9, 2008</pubdate>
+.\"    Manual: XINPUT FUNCTIONS
+.\"    Source: __xorgversion__
+.\"
+.TH "XGETDEVICEPROPERTY" "__libmansuffix__" "<pubdate>July 9, 2008</pubdate>" "__xorgversion__" "XINPUT FUNCTIONS"
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.SH "NAME"
+XGetDeviceProperty, XChangeDeviceProperty, XDeleteDeviceProperty - Get, change or delete a device's property.
+.SH "SYNTAX"
+.sp
+.ft B
+.nf
+#include <X11/extensions/XInput\.h>
+.fi
+.ft
+.HP 23
+.BI "int XGetDeviceProperty(Display\ *" "display" ", XDevice\ *" "device" ", Atom\ " "property" ", long\ " "offset" ", long\ " "length" ", Bool\ " "delete" ", Bool\ " "pending" ", Atom\ " "req_type" ", Atom\ *" "actual_type_return" ", int\ *" "actual_format_return" ", unsigned\ long\ *" "nitems_return" ", unsigned\ long\ *" "bytes_after_return" ", unsigned\ char\ **" "prop_return" ");"
+.HP 27
+.BI "void XChangeDeviceProperty(Display\ *" "display" ", XDevice\ *" "device" ", Atom\ " "property" ", Atom\ " "type" ", int\ " "format" ", int\ " "mode" ", const\ char\ *" "data" ", int\ " "nelements" ");"
+.HP 27
+.BI "void XDeleteDeviceProperty(Display\ *" "display" ", XDevice\ *" "device" ", Atom\ " "property" ");"
+.SH "ARGUMENTS"
+.PP
+.PP
+\fIactual_type_return\fR
+.RS 4
+Returns an atom identifier that defines the actual type of the property\.
+.RE
+.PP
+\fIactual_format_return\fR
+.RS 4
+Returns the actual format of the property\.
+.RE
+.PP
+\fIbytes_after_return\fR
+.RS 4
+Returns the number of bytes remaining to be read in the property if a partial read was performed\.
+.RE
+.PP
+\fIdata\fR
+.RS 4
+Specifies the property data\.
+.RE
+.PP
+\fIdelete\fR
+.RS 4
+Specifies a Boolean value that determines wether the property is deleted\.
+.RE
+.PP
+\fIdisplay\fR
+.RS 4
+Specifies the connection to the X server\.
+.RE
+.PP
+\fIdevice\fR
+.RS 4
+The device to grab\.
+.RE
+.PP
+\fIformat\fR
+.RS 4
+Specifies whether the data should be viewed as a list of 8\-bit, 16\-bit, or 32\-bit quantities\. Possible values are 8, 16, and 32\. This information allows the X server to correctly perform byte\-swap operations as necessary\. If the format is 16\-bit or 32\-bit, you must explicitly cast the data pointer to an (unsigned char*) in the call to
+\fBXChangeDeviceProperty\fR\.
+.RE
+.PP
+\fIlength\fR
+.RS 4
+Specifies the length in 32\-bit multiplies of the data to be retrieved\.
+.RE
+.PP
+\fImode\fR
+.RS 4
+Specifies the mode of operation\. You can pass
+\fBPropModeReplace\fR,
+\fBPropModePrepend\fR, or
+\fBPropModeAppend\fR\.
+.RE
+.PP
+\fInelements\fR
+.RS 4
+Specifies the number of elements in data\.
+.RE
+.PP
+\fInitems_return\fR
+.RS 4
+Returns the actual number of 8\-bit, 16\-bit, or 32\-bit items stored in the prop_return array\.
+.RE
+.PP
+\fInum_values\fR
+.RS 4
+Specifies the number of elements in the values list\.
+.RE
+.PP
+\fIoffset\fR
+.RS 4
+Specifies the offset in the specified property (in 32\-bit quantities) where the data is to be retrieved\.
+.RE
+.PP
+\fIpending\fR
+.RS 4
+Specifies whether to retrieve the pending state of the property or the current state\.
+.RE
+.PP
+\fIproperty\fR
+.RS 4
+Specifies the property to modify or query\.
+.RE
+.PP
+\fIprop_return\fR
+.RS 4
+Returns the data in the specified format\. If the returned format is 8, the returned data is represented as a char array\. If the returned format is 16, the returned data is represented as an array of short int type and should be cast to that type to obtain the elements\. If the returned format is 32, the property data will be stored as an array of longs (which in a 64\-bit application will be 64\-bit values that are padded in the upper 4 bytes)\.
+.RE
+.PP
+\fIreq_type\fR
+.RS 4
+Specifies the atom identifier associated with the property type or
+\fBAnyPropertyType\fR\.
+.RE
+.SH "DESCRIPTION"
+.PP
+The
+\fBXGetDeviceProperty\fR
+function returns the actual type of the property; the actual format of the property; the number of 8\-bit, 16\-bit, or 32\-bit items transferred; the number of bytes remaining to be read in the property; and a pointer to the data actually returned\. For a detailed description of this function, see the man page to
+\fBXGetWindowProperty\fR\.
+.PP
+The
+\fBXChangeDeviceProperty\fR
+function alters the property for the specified device and causes the server to generate a
+\fBXPropertyNotifyEvent\fR
+event on that device\. For a detailed description of this function, see the man page to
+\fBXChangeProperty\fR\.
+.PP
+The
+\fBXDeleteDeviceProperty\fR
+function deletes the specified device property\. Note that a client cannot delete a property created by a driver or the server\. Attempting to do so will result in a
+BadAtom
+error\.
+.PP
+
+\fBXGetDeviceProperty\fR
+can generate a
+BadAtom,
+BadDevice
+error\.
+.PP
+
+\fBXChangeDeviceProperty\fR
+can generate a
+BadDevice, a
+BadMatch, a
+BadAtom, and a
+BadValue
+error\.
+.PP
+
+\fBXDeleteDeviceProperty\fR
+can generate a
+BadDevice, and a
+BadAtom
+error\.
+.SH "DIAGNOSIS"
+.PP
+.PP
+BadAtom
+.RS 4
+A value does not describe a valid named identifier or the client attempted to remove a driver\-allocated property\.
+.RE
+.PP
+BadDevice
+.RS 4
+An invalid device was specified\. The device does not exist\.
+.RE
+.SH "SEE ALSO"
+.PP
+
+\fBXListDeviceProperties\fR,
+\fBXQueryDeviceProperty\fR,
+\fBXConfigureDeviceProperty\fR\.
+.SH "AUTHOR"
+.PP
+\fBPeter Hutterer\fR
+.sp -1n
+.IP "" 4
+Specification and implementation\.
+

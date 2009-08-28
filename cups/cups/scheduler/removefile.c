@@ -1,5 +1,5 @@
 /*
- * "$Id: removefile.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: removefile.c 7720 2008-07-11 22:46:21Z mike $"
  *
  *   "Secure" file removal function for the Common UNIX Printing System (CUPS).
  *
@@ -224,5 +224,5 @@ testmain(void)
 
 
 /*
- * End of "$Id: removefile.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: removefile.c 7720 2008-07-11 22:46:21Z mike $".
  */

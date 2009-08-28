@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -27,6 +27,7 @@
 with Atree;    use Atree;
 with Checks;   use Checks;
 with Einfo;    use Einfo;
+with Elists;   use Elists;
 with Exp_Aggr; use Exp_Aggr;
 with Exp_Ch7;  use Exp_Ch7;
 with Exp_Ch11; use Exp_Ch11;
@@ -44,6 +45,7 @@ with Rtsfind;  use Rtsfind;
 with Sinfo;    use Sinfo;
 with Sem;      use Sem;
 with Sem_Ch3;  use Sem_Ch3;
+with Sem_Ch5;  use Sem_Ch5;
 with Sem_Ch8;  use Sem_Ch8;
 with Sem_Ch13; use Sem_Ch13;
 with Sem_Eval; use Sem_Eval;
@@ -454,13 +456,13 @@ package body Exp_Ch5 is
             end if;
          end Check_Unconstrained_Bit_Packed_Array;
 
-      --  Gigi can always handle the assignment if the right side is a string
-      --  literal (note that overlap is definitely impossible in this case).
-      --  If the type is packed, a string literal is always converted into a
-      --  aggregate, except in the case of a null slice, for which no aggregate
-      --  can be written. In that case, rewrite the assignment as a null
-      --  statement, a length check has already been emitted to verify that
-      --  the range of the left-hand side is empty.
+      --  The back end can always handle the assignment if the right side is a
+      --  string literal (note that overlap is definitely impossible in this
+      --  case). If the type is packed, a string literal is always converted
+      --  into aggregate, except in the case of a null slice, for which no
+      --  aggregate can be written. In that case, rewrite the assignment as a
+      --  null statement, a length check has already been emitted to verify
+      --  that the range of the left-hand side is empty.
 
       --  Note that this code is not executed if we had an assignment of
       --  a string literal to a non-bit aligned component of a record, a
@@ -479,7 +481,7 @@ package body Exp_Ch5 is
       --  If either operand is bit packed, then we need a loop, since we
       --  can't be sure that the slice is byte aligned. Similarly, if either
       --  operand is a possibly unaligned slice, then we need a loop (since
-      --  gigi cannot handle unaligned slices).
+      --  the back end cannot handle unaligned slices).
 
       elsif Is_Bit_Packed_Array (L_Type)
         or else Is_Bit_Packed_Array (R_Type)
@@ -490,7 +492,7 @@ package body Exp_Ch5 is
 
       --  If we are not bit-packed, and we have only one slice, then no
       --  overlap is possible except in the parameter case, so we can let
-      --  gigi handle things.
+      --  the back end handle things.
 
       elsif not (L_Slice and R_Slice) then
          if Forwards_OK (N) then
@@ -504,7 +506,7 @@ package body Exp_Ch5 is
       if Nkind (Rhs) = N_String_Literal then
          declare
             Temp : constant Entity_Id :=
-                     Make_Defining_Identifier (Loc, Name_T);
+                     Make_Defining_Identifier (Loc, New_Internal_Name ('T'));
             Decl : Node_Id;
 
          begin
@@ -641,7 +643,6 @@ package body Exp_Ch5 is
          if not Loop_Required then
             if Forwards_OK (N) then
                return;
-
             else
                null;
                --  Here is where a memmove would be appropriate ???
@@ -843,7 +844,7 @@ package body Exp_Ch5 is
             then
 
                --  Call TSS procedure for array assignment, passing the
-               --  the explicit bounds of right- and left-hand side.
+               --  the explicit bounds of right and left hand sides.
 
                declare
                   Proc    : constant Node_Id :=
@@ -999,12 +1000,19 @@ package body Exp_Ch5 is
            Make_Assignment_Statement (Loc,
              Name =>
                Make_Indexed_Component (Loc,
-                 Prefix => Duplicate_Subexpr (Larray, Name_Req => True),
+                 Prefix      => Duplicate_Subexpr (Larray, Name_Req => True),
                  Expressions => ExprL),
              Expression =>
                Make_Indexed_Component (Loc,
-                 Prefix => Duplicate_Subexpr (Rarray, Name_Req => True),
+                 Prefix      => Duplicate_Subexpr (Rarray, Name_Req => True),
                  Expressions => ExprR));
+
+         --  We set assignment OK, since there are some cases, e.g. in object
+         --  declarations, where we are actually assigning into a constant.
+         --  If there really is an illegality, it was caught long before now,
+         --  and was flagged when the original assignment was analyzed.
+
+         Set_Assignment_OK (Name (Assign));
 
          --  Propagate the No_Ctrl_Actions flag to individual assignments
 
@@ -1356,9 +1364,8 @@ package body Exp_Ch5 is
    -- Expand_N_Assignment_Statement --
    -----------------------------------
 
-   --  For array types, deal with slice assignments and setting the flags
-   --  to indicate if it can be statically determined which direction the
-   --  move should go in. Also deal with generating range/length checks.
+   --  This procedure implements various cases where an assignment statement
+   --  cannot just be passed on to the back end in untransformed state.
 
    procedure Expand_N_Assignment_Statement (N : Node_Id) is
       Loc  : constant Source_Ptr := Sloc (N);
@@ -1469,7 +1476,8 @@ package body Exp_Ch5 is
 
             declare
                Uses_Transient_Scope : constant Boolean :=
-                  Scope_Is_Transient and then N = Node_To_Be_Wrapped;
+                                        Scope_Is_Transient
+                                          and then N = Node_To_Be_Wrapped;
 
             begin
                if Uses_Transient_Scope then
@@ -1535,7 +1543,7 @@ package body Exp_Ch5 is
       --  create dereferences but are not semantic aliasings.
 
       elsif Is_Private_Type (Etype (Lhs))
-        and then  Has_Discriminants (Typ)
+        and then Has_Discriminants (Typ)
         and then Nkind (Lhs) = N_Explicit_Dereference
         and then Comes_From_Source (Lhs)
       then
@@ -1614,29 +1622,13 @@ package body Exp_Ch5 is
            (Expression (Rhs), Designated_Type (Etype (Lhs)));
       end if;
 
-      --  Ada 2005 (AI-231): Generate conversion to the null-excluding
-      --  type to force the corresponding run-time check
+      --  Ada 2005 (AI-231): Generate the run-time check
 
       if Is_Access_Type (Typ)
-        and then
-          ((Is_Entity_Name (Lhs) and then Can_Never_Be_Null (Entity (Lhs)))
-             or else Can_Never_Be_Null (Etype (Lhs)))
+        and then Can_Never_Be_Null (Etype (Lhs))
+        and then not Can_Never_Be_Null (Etype (Rhs))
       then
-         Rewrite (Rhs, Convert_To (Etype (Lhs),
-                                   Relocate_Node (Rhs)));
-         Analyze_And_Resolve (Rhs, Etype (Lhs));
-      end if;
-
-      --  If we are assigning an access type and the left side is an
-      --  entity, then make sure that Is_Known_Non_Null properly
-      --  reflects the state of the entity after the assignment
-
-      if Is_Access_Type (Typ)
-        and then Is_Entity_Name (Lhs)
-        and then Known_Non_Null (Rhs)
-        and then Safe_To_Capture_Value (N, Entity (Lhs))
-      then
-         Set_Is_Known_Non_Null (Entity (Lhs), Known_Non_Null (Rhs));
+         Apply_Constraint_Check (Rhs, Etype (Lhs));
       end if;
 
       --  Case of assignment to a bit packed array element
@@ -1646,8 +1638,6 @@ package body Exp_Ch5 is
       then
          Expand_Bit_Packed_Element_Set (N);
          return;
-
-      --  Case of tagged type assignment
 
       elsif Is_Tagged_Type (Typ)
         or else (Controlled_Type (Typ) and then not Is_Array_Type (Typ))
@@ -1673,19 +1663,23 @@ package body Exp_Ch5 is
 
             if Is_Class_Wide_Type (Typ)
 
-            --  If the type is tagged, we may as well use the predefined
-            --  primitive assignment. This avoids inlining a lot of code
-            --  and in the class-wide case, the assignment is replaced by
-            --  a dispatch call to _assign. Note that this cannot be done
-            --  when discriminant checks are locally suppressed (as in
-            --  extension aggregate expansions) because otherwise the
-            --  discriminant check will be performed within the _assign
-            --  call.
+               --  If the type is tagged, we may as well use the predefined
+               --  primitive assignment. This avoids inlining a lot of code
+               --  and in the class-wide case, the assignment is replaced by
+               --  dispatch call to _assign. Note that this cannot be done
+               --  when discriminant checks are locally suppressed (as in
+               --  extension aggregate expansions) because otherwise the
+               --  discriminant check will be performed within the _assign
+               --  call. It is also suppressed for assignmments created by the
+               --  expander that correspond to initializations, where we do
+               --  want to copy the tag (No_Ctrl_Actions flag set True).
+               --  by the expander and we do not need to mess with tags ever
+               --  (Expand_Ctrl_Actions flag is set True in this case).
 
-            or else (Is_Tagged_Type (Typ)
-              and then Chars (Current_Scope) /= Name_uAssign
-              and then Expand_Ctrl_Actions
-              and then not Discriminant_Checks_Suppressed (Empty))
+               or else (Is_Tagged_Type (Typ)
+                          and then Chars (Current_Scope) /= Name_uAssign
+                          and then Expand_Ctrl_Actions
+                          and then not Discriminant_Checks_Suppressed (Empty))
             then
                --  Fetch the primitive op _assign and proper type to call
                --  it. Because of possible conflits between private and
@@ -1699,13 +1693,44 @@ package body Exp_Ch5 is
 
                begin
                   --  If the assignment is dispatching, make sure to use the
-                  --  ??? where is rest of this comment ???
+                  --  proper type.
 
                   if Is_Class_Wide_Type (Typ) then
                      F_Typ := Class_Wide_Type (F_Typ);
                   end if;
 
-                  L := New_List (
+                  L := New_List;
+
+                  --  In case of assignment to a class-wide tagged type, before
+                  --  the assignment we generate run-time check to ensure that
+                  --  the tag of the Target is covered by the tag of the source
+
+                  if Is_Class_Wide_Type (Typ)
+                    and then Is_Tagged_Type (Typ)
+                    and then Is_Tagged_Type (Underlying_Type (Etype (Rhs)))
+                  then
+                     Append_To (L,
+                       Make_Raise_Constraint_Error (Loc,
+                         Condition =>
+                           Make_Op_Not (Loc,
+                             Make_Function_Call (Loc,
+                               Name => New_Reference_To
+                                         (RTE (RE_CW_Membership), Loc),
+                               Parameter_Associations => New_List (
+                                 Make_Selected_Component (Loc,
+                                   Prefix =>
+                                     Duplicate_Subexpr (Lhs),
+                                   Selector_Name =>
+                                     Make_Identifier (Loc, Name_uTag)),
+                                 Make_Selected_Component (Loc,
+                                   Prefix =>
+                                     Duplicate_Subexpr (Rhs),
+                                   Selector_Name =>
+                                     Make_Identifier (Loc, Name_uTag))))),
+                         Reason => CE_Tag_Check_Failed));
+                  end if;
+
+                  Append_To (L,
                     Make_Procedure_Call_Statement (Loc,
                       Name => New_Reference_To (Op, Loc),
                       Parameter_Associations => New_List (
@@ -1787,8 +1812,8 @@ package body Exp_Ch5 is
             then
                declare
                   Blk : constant Entity_Id :=
-                    New_Internal_Entity (
-                      E_Block, Current_Scope, Sloc (N), 'B');
+                          New_Internal_Entity
+                            (E_Block, Current_Scope, Sloc (N), 'B');
 
                begin
                   Set_Scope (Blk, Current_Scope);
@@ -1803,7 +1828,11 @@ package body Exp_Ch5 is
                end;
             end if;
 
-            Analyze (N);
+            --  N has been rewritten to a block statement for which it is
+            --  known by construction that no checks are necessary: analyze
+            --  it with all checks suppressed.
+
+            Analyze (N, Suppress => All_Checks);
             return;
          end Tagged_Case;
 
@@ -2253,6 +2282,13 @@ package body Exp_Ch5 is
                Insert_Actions      (N, Condition_Actions (Hed));
                Set_Condition       (N, Condition (Hed));
                Set_Then_Statements (N, Then_Statements (Hed));
+
+               --  Hed might have been captured as the condition determining
+               --  the current value for an entity. Now it is detached from
+               --  the tree, so a Current_Value pointer in the condition might
+               --  need to be updated.
+
+               Check_Possible_Current_Value_Condition (N);
 
                if Is_Empty_List (Elsif_Parts (N)) then
                   Set_Elsif_Parts (N, No_List);
@@ -2757,79 +2793,37 @@ package body Exp_Ch5 is
          Analyze (Exp);
       end if;
 
-      --  Implement the rules of 6.5(8-10), which require a tag check in
-      --  the case of a limited tagged return type, and tag reassignment
-      --  for nonlimited tagged results. These actions are needed when
-      --  the return type is a specific tagged type and the result
-      --  expression is a conversion or a formal parameter, because in
-      --  that case the tag of the expression might differ from the tag
-      --  of the specific result type.
-
-      if Is_Tagged_Type (Utyp)
-        and then not Is_Class_Wide_Type (Utyp)
-        and then (Nkind (Exp) = N_Type_Conversion
-                    or else Nkind (Exp) = N_Unchecked_Type_Conversion
-                    or else (Is_Entity_Name (Exp)
-                               and then Ekind (Entity (Exp)) in Formal_Kind))
-      then
-         --  When the return type is limited, perform a check that the
-         --  tag of the result is the same as the tag of the return type.
-
-         if Is_Limited_Type (Return_Type) then
-            Insert_Action (Exp,
-              Make_Raise_Constraint_Error (Loc,
-                Condition =>
-                  Make_Op_Ne (Loc,
-                    Left_Opnd =>
-                      Make_Selected_Component (Loc,
-                        Prefix => Duplicate_Subexpr (Exp),
-                        Selector_Name =>
-                          New_Reference_To (Tag_Component (Utyp), Loc)),
-                    Right_Opnd =>
-                      Unchecked_Convert_To (RTE (RE_Tag),
-                        New_Reference_To
-                          (Access_Disp_Table (Base_Type (Utyp)), Loc))),
-                Reason => CE_Tag_Check_Failed));
-
-         --  If the result type is a specific nonlimited tagged type,
-         --  then we have to ensure that the tag of the result is that
-         --  of the result type. This is handled by making a copy of the
-         --  expression in the case where it might have a different tag,
-         --  namely when the expression is a conversion or a formal
-         --  parameter. We create a new object of the result type and
-         --  initialize it from the expression, which will implicitly
-         --  force the tag to be set appropriately.
-
-         else
-            Result_Id :=
-              Make_Defining_Identifier (Loc, New_Internal_Name ('R'));
-            Result_Exp := New_Reference_To (Result_Id, Loc);
-
-            Result_Obj :=
-              Make_Object_Declaration (Loc,
-                Defining_Identifier => Result_Id,
-                Object_Definition   => New_Reference_To (Return_Type, Loc),
-                Constant_Present    => True,
-                Expression          => Relocate_Node (Exp));
-
-            Set_Assignment_OK (Result_Obj);
-            Insert_Action (Exp, Result_Obj);
-
-            Rewrite (Exp, Result_Exp);
-            Analyze_And_Resolve (Exp, Return_Type);
-         end if;
-      end if;
-
       --  Deal with returning variable length objects and controlled types
 
       --  Nothing to do if we are returning by reference, or this is not
       --  a type that requires special processing (indicated by the fact
-      --  that it requires a cleanup scope for the secondary stack case)
+      --  that it requires a cleanup scope for the secondary stack case).
 
-      if Is_Return_By_Reference_Type (T)
-        or else not Requires_Transient_Scope (Return_Type)
-      then
+      if Is_Return_By_Reference_Type (T) then
          null;
+
+      elsif not Requires_Transient_Scope (Return_Type) then
+
+         --  Mutable records with no variable length components are not
+         --  returned on the sec-stack so we need to make sure that the
+         --  backend will only copy back the size of the actual value  and not
+         --  the maximum size. We create an actual subtype for this purpose
+
+         declare
+            Ubt  : constant Entity_Id := Underlying_Type (Base_Type (T));
+            Decl : Node_Id;
+            Ent  : Entity_Id;
+         begin
+            if Has_Discriminants (Ubt)
+              and then not Is_Constrained (Ubt)
+              and then not Has_Unchecked_Union (Ubt)
+            then
+               Decl := Build_Actual_Subtype (Ubt, Exp);
+               Ent := Defining_Identifier (Decl);
+               Insert_Action (Exp, Decl);
+               Rewrite (Exp, Unchecked_Convert_To (Ent, Exp));
+            end if;
+         end;
 
       --  Case of secondary stack not used
 
@@ -3015,6 +3009,12 @@ package body Exp_Ch5 is
          then
             Set_By_Ref (N);
 
+            --  Remove side effects from the expression now so that
+            --  other part of the expander do not have to reanalyze
+            --  this node without this optimization
+
+            Rewrite (Exp, Duplicate_Subexpr_No_Checks (Exp));
+
          --  For controlled types, do the allocation on the sec-stack
          --  manually in order to call adjust at the right time
          --    type Anon1 is access Return_Type;
@@ -3080,6 +3080,112 @@ package body Exp_Ch5 is
          end if;
       end if;
 
+      --  Implement the rules of 6.5(8-10), which require a tag check in
+      --  the case of a limited tagged return type, and tag reassignment
+      --  for nonlimited tagged results. These actions are needed when
+      --  the return type is a specific tagged type and the result
+      --  expression is a conversion or a formal parameter, because in
+      --  that case the tag of the expression might differ from the tag
+      --  of the specific result type.
+
+      if Is_Tagged_Type (Utyp)
+        and then not Is_Class_Wide_Type (Utyp)
+        and then (Nkind (Exp) = N_Type_Conversion
+                    or else Nkind (Exp) = N_Unchecked_Type_Conversion
+                    or else (Is_Entity_Name (Exp)
+                               and then Ekind (Entity (Exp)) in Formal_Kind))
+      then
+         --  When the return type is limited, perform a check that the
+         --  tag of the result is the same as the tag of the return type.
+
+         if Is_Limited_Type (Return_Type) then
+            Insert_Action (Exp,
+              Make_Raise_Constraint_Error (Loc,
+                Condition =>
+                  Make_Op_Ne (Loc,
+                    Left_Opnd =>
+                      Make_Selected_Component (Loc,
+                        Prefix => Duplicate_Subexpr (Exp),
+                        Selector_Name =>
+                          New_Reference_To (First_Tag_Component (Utyp), Loc)),
+                    Right_Opnd =>
+                      Unchecked_Convert_To (RTE (RE_Tag),
+                        New_Reference_To
+                          (Node (First_Elmt
+                                  (Access_Disp_Table (Base_Type (Utyp)))),
+                           Loc))),
+                Reason => CE_Tag_Check_Failed));
+
+         --  If the result type is a specific nonlimited tagged type,
+         --  then we have to ensure that the tag of the result is that
+         --  of the result type. This is handled by making a copy of the
+         --  expression in the case where it might have a different tag,
+         --  namely when the expression is a conversion or a formal
+         --  parameter. We create a new object of the result type and
+         --  initialize it from the expression, which will implicitly
+         --  force the tag to be set appropriately.
+
+         else
+            Result_Id :=
+              Make_Defining_Identifier (Loc, New_Internal_Name ('R'));
+            Result_Exp := New_Reference_To (Result_Id, Loc);
+
+            Result_Obj :=
+              Make_Object_Declaration (Loc,
+                Defining_Identifier => Result_Id,
+                Object_Definition   => New_Reference_To (Return_Type, Loc),
+                Constant_Present    => True,
+                Expression          => Relocate_Node (Exp));
+
+            Set_Assignment_OK (Result_Obj);
+            Insert_Action (Exp, Result_Obj);
+
+            Rewrite (Exp, Result_Exp);
+            Analyze_And_Resolve (Exp, Return_Type);
+         end if;
+
+      --  Ada 2005 (AI-344): If the result type is class-wide, then insert
+      --  a check that the level of the return expression's underlying type
+      --  is not deeper than the level of the master enclosing the function.
+      --  Always generate the check when the type of the return expression
+      --  is class-wide, when it's a type conversion, or when it's a formal
+      --  parameter. Otherwise, suppress the check in the case where the
+      --  return expression has a specific type whose level is known not to
+      --  be statically deeper than the function's result type.
+
+      elsif Ada_Version >= Ada_05
+        and then Is_Class_Wide_Type (Return_Type)
+        and then not Scope_Suppress (Accessibility_Check)
+        and then
+          (Is_Class_Wide_Type (Etype (Exp))
+            or else Nkind (Exp) = N_Type_Conversion
+            or else Nkind (Exp) = N_Unchecked_Type_Conversion
+            or else (Is_Entity_Name (Exp)
+                       and then Ekind (Entity (Exp)) in Formal_Kind)
+            or else Scope_Depth (Enclosing_Dynamic_Scope (Etype (Exp))) >
+                      Scope_Depth (Enclosing_Dynamic_Scope (Scope_Id)))
+      then
+         Insert_Action (Exp,
+           Make_Raise_Program_Error (Loc,
+             Condition =>
+               Make_Op_Gt (Loc,
+                 Left_Opnd =>
+                   Make_Function_Call (Loc,
+                     Name =>
+                       New_Reference_To
+                         (RTE (RE_Get_Access_Level), Loc),
+                     Parameter_Associations =>
+                       New_List (Make_Attribute_Reference (Loc,
+                                   Prefix         =>
+                                      Duplicate_Subexpr (Exp),
+                                   Attribute_Name =>
+                                      Name_Tag))),
+                 Right_Opnd =>
+                   Make_Integer_Literal (Loc,
+                     Scope_Depth (Enclosing_Dynamic_Scope (Scope_Id)))),
+             Reason => PE_Accessibility_Check_Failed));
+      end if;
+
    exception
       when RE_Not_Available =>
          return;
@@ -3127,7 +3233,7 @@ package body Exp_Ch5 is
       if not Ctrl_Act then
          null;
 
-      --  The left hand side is an uninitialized  temporary
+      --  The left hand side is an uninitialized temporary
 
       elsif Nkind (L) = N_Type_Conversion
         and then Is_Entity_Name (Expression (L))
@@ -3155,7 +3261,8 @@ package body Exp_Ch5 is
              Expression =>
                Make_Selected_Component (Loc,
                  Prefix        => Duplicate_Subexpr_No_Checks (L),
-                 Selector_Name => New_Reference_To (Tag_Component (T), Loc))));
+                 Selector_Name => New_Reference_To (First_Tag_Component (T),
+                                                    Loc))));
 
       --  Otherwise Tag_Tmp not used
 
@@ -3194,7 +3301,8 @@ package body Exp_Ch5 is
             --  Index of first byte to be copied after outermost record
             --  controller data.
 
-            Expr, Source_Size      : Node_Id;
+            Expr, Source_Size     : Node_Id;
+            Source_Actual_Subtype : Entity_Id;
             --  Used for computation of the size of the data to be copied
 
             Range_Type  : Entity_Id;
@@ -3269,26 +3377,27 @@ package body Exp_Ch5 is
                Expr := Expression (Expr);
             end if;
 
+            Source_Actual_Subtype := Etype (Expr);
+
+            if Has_Discriminants (Source_Actual_Subtype)
+              and then not Is_Constrained (Source_Actual_Subtype)
+            then
+               Append_To (Res,
+                 Build_Actual_Subtype (Source_Actual_Subtype, Expr));
+               Source_Actual_Subtype := Defining_Identifier (Last (Res));
+            end if;
+
             Source_Size :=
               Make_Op_Add (Loc,
                 Left_Opnd =>
                   Make_Attribute_Reference (Loc,
                     Prefix =>
-                      Expr,
+                      New_Occurrence_Of (Source_Actual_Subtype, Loc),
                     Attribute_Name =>
                       Name_Size),
                 Right_Opnd =>
                   Make_Integer_Literal (Loc,
                   System_Storage_Unit - 1));
-
-            --  If Expr is a type conversion, standard Ada does not allow
-            --  'Size to be taken on it, but Gigi can handle this case,
-            --  and thus we can determine the amount of data to be copied.
-            --  The appropriate circuitry is enabled only for conversions
-            --  that do not Come_From_Source.
-
-            Set_Comes_From_Source (Prefix (Left_Opnd (Source_Size)), False);
-
             Source_Size :=
               Make_Op_Divide (Loc,
                 Left_Opnd => Source_Size,
@@ -3484,7 +3593,8 @@ package body Exp_Ch5 is
              Name =>
                Make_Selected_Component (Loc,
                  Prefix        => Duplicate_Subexpr_No_Checks (L),
-                 Selector_Name => New_Reference_To (Tag_Component (T), Loc)),
+                 Selector_Name => New_Reference_To (First_Tag_Component (T),
+                                                    Loc)),
              Expression => New_Reference_To (Tag_Tmp, Loc)));
       end if;
 

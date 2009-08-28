@@ -24,8 +24,8 @@
 .Sh SYNOPSIS
 .Nm mount_hfs
 .Op Fl e Ar encoding
-.Op Fl u Ar uid
-.Op Fl g Ar gid
+.Op Fl u Ar user
+.Op Fl g Ar group
 .Op Fl m Ar mask
 .Op Fl o Ar options
 .Op Fl j
@@ -51,16 +51,22 @@ Specify the Macintosh encoding. The following encodings are supported:
 .Pp
 Arabic, ChineseSimp, ChineseTrad, Croatian, Cyrillic, Greek, Hebrew,
 Icelandic, Japanese, Korean, Roman (default), Romanian, Thai, Turkish
-.It Fl u Ar uid
+.It Fl u Ar user
 Set the owner of the files in the file system to
-.Pa uid . 
+.Pa user . 
 The default owner is the owner of the directory on which
 the file system is being mounted.
-.It Fl g Ar gid
+The
+.Pa user
+may be a user-name, or a numeric value.
+.It Fl g Ar group
 Set the group of the files in the file system to
-.Pa gid . 
+.Pa group . 
 The default group is the group of the directory on which
 the file system is being mounted.
+The
+.Pa group
+may be a group-name, or a numeric value.
 .It Fl m Ar mask
 Specify the maximum file permissions for files in the file system.
 (For example, a

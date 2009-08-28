@@ -34,7 +34,7 @@
 static void breakout_internal(
     char *filename,
     struct arch **archs,
-    unsigned long *narchs,
+    uint32_t *narchs,
     enum bool calculate_input_prebind_cksum,
     struct ofile *ofile);
 static void breakout_loop_through_archive(
@@ -46,7 +46,7 @@ static void cksum_object(
     enum bool calculate_input_prebind_cksum);
 static struct arch *new_arch(
     struct arch **archs,
-    unsigned long *narchs);
+    uint32_t *narchs);
 static struct member *new_member(
     struct arch *arch);
 
@@ -54,14 +54,14 @@ __private_extern__
 struct ofile *
 breakout_mem(
 void *membuf,
-unsigned long length,
+uint32_t length,
 char *filename,
 struct arch **archs,
-unsigned long *narchs,
+uint32_t *narchs,
 enum bool calculate_input_prebind_cksum)
 {
     struct ofile *ofile;
-    unsigned long previous_errors;
+    uint32_t previous_errors;
 
 	*archs = NULL;
 	*narchs = 0;
@@ -100,11 +100,11 @@ struct ofile *
 breakout(
 char *filename,
 struct arch **archs,
-unsigned long *narchs,
+uint32_t *narchs,
 enum bool calculate_input_prebind_cksum)
 {
     struct ofile *ofile;
-    unsigned long previous_errors;
+    uint32_t previous_errors;
 	
 	*archs = NULL;
 	*narchs = 0;
@@ -134,7 +134,7 @@ void
 breakout_internal(
 char *filename,
 struct arch **archs,
-unsigned long *narchs,
+uint32_t *narchs,
 enum bool calculate_input_prebind_cksum,
 struct ofile *ofile)
 {
@@ -225,7 +225,7 @@ struct ofile *ofile)
     struct member *member;
     enum bool flag;
     struct ar_hdr *ar_hdr;
-    unsigned long size, ar_name_size;
+    uint32_t size, ar_name_size;
     char ar_name_buf[sizeof(ofile->member_ar_hdr->ar_name) + 1];
     char ar_size_buf[sizeof(ofile->member_ar_hdr->ar_size) + 1];
 
@@ -301,12 +301,12 @@ struct ofile *ofile)
 		ar_hdr = allocate(sizeof(struct ar_hdr));
 		*ar_hdr = *(ofile->member_ar_hdr);
 		sprintf(ar_name_buf, "%s%-*lu", AR_EFMT1, 
-			(int)(sizeof(ar_hdr->ar_name) -
-			      (sizeof(AR_EFMT1) - 1)), ar_name_size);
+			(int)(sizeof(ar_hdr->ar_name) - (sizeof(AR_EFMT1) - 1)),
+		        (long unsigned int)ar_name_size);
 		memcpy(ar_hdr->ar_name, ar_name_buf,
 		      sizeof(ar_hdr->ar_name));
 		sprintf(ar_size_buf, "%-*ld",
-			(int)sizeof(ar_hdr->ar_size), size);
+			(int)sizeof(ar_hdr->ar_size), (long unsigned int)size);
 		memcpy(ar_hdr->ar_size, ar_size_buf,
 		      sizeof(ar_hdr->ar_size));
 
@@ -354,7 +354,7 @@ cksum_object(
 struct arch *arch,
 enum bool calculate_input_prebind_cksum)
 {
-    unsigned long i, buf_size, ncmds;
+    uint32_t i, buf_size, ncmds;
     struct load_command *lc;
     enum byte_sex host_byte_sex;
     char *buf;
@@ -424,20 +424,25 @@ __private_extern__
 void
 free_archs(
 struct arch *archs,
-unsigned long narchs)
+uint32_t narchs)
 {
-    unsigned long i, j;
+    uint32_t i, j;
 
 	for(i = 0; i < narchs; i++){
 	    if(archs[i].type == OFILE_ARCHIVE){
 		for(j = 0; j < archs[i].nmembers; j++){
-		    if(archs[i].members[j].type == OFILE_Mach_O)
+		    if(archs[i].members[j].type == OFILE_Mach_O){
+			if(archs[i].members[j].object->ld_r_ofile != NULL)
+			   ofile_unmap(archs[i].members[j].object->ld_r_ofile);
 			free(archs[i].members[j].object);
+		    }
 		}
 		if(archs[i].nmembers > 0 && archs[i].members != NULL)
 		    free(archs[i].members);
 	    }
 	    else if(archs[i].type == OFILE_Mach_O){
+		if(archs[i].object->ld_r_ofile != NULL)
+		    ofile_unmap(archs[i].object->ld_r_ofile);
 		free(archs[i].object);
 	    }
 	}
@@ -449,7 +454,7 @@ static
 struct arch *
 new_arch(
 struct arch **archs,
-unsigned long *narchs)
+uint32_t *narchs)
 {
     struct arch *arch;
 

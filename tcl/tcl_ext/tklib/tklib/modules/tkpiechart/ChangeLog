@@ -1,0 +1,46 @@
+2006-01-27  Andreas Kupries <andreask@activestate.com>
+
+	* pkgIndex.tcl:   Fixed problems with my change, see last entry.
+	* tkpiechart.tcl: New file, direct call of 'tclPkgSetup'.
+
+	* pie.tcl:        Added all the necessary 'package require'
+	* slice.tcl:      statements, particularly declared 'stooop'
+	* pielabel.tcl:   as needed.
+	* boxlabel.tcl:
+	* canlabel.tcl:
+	* perilabel.tcl:
+	* labarray.tcl:
+	* selector.tcl:
+	* objselec.tcl:
+	* relirect.tcl:
+
+2006-01-23  Andreas Kupries <andreask@activestate.com>
+
+	* pkgIndex.tcl: Replaced lazy with immediate loading.
+
+2006-01-10  Andreas Kupries <andreask@activestate.com>
+
+	* demo.tcl: Removed from the module, moved into directory
+	  "examples/tkpiechart".
+
+2005-11-10  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tklib 0.4.1 ========================
+	* 
+
+2005-11-02  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tklib 0.4 ========================
+	* 
+
+2005-11-02  Andreas Kupries <andreask@activestate.com>
+
+	* Added ChangeLog for future tracking of changes.
+
+2005-11-02 Jean-Luc Fontaine <jfontain@free.fr>
+
+	* Author of tkpiechart.
+
+

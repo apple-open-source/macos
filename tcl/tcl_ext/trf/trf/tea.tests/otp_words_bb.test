@@ -1,0 +1,84 @@
+# -*- tcl -*-
+# Commands covered:  otp_words
+#
+# This file contains a collection of tests for one or more of the trf
+# commands of the TRF extension. Sourcing this file into Tcl runs the
+# tests and generates output for errors.  No output means no errors were
+# found.
+#
+# Copyright (c) 1995 Andreas Kupries (a.kupries@westend.com)
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# $Id: otp_words_bb.test,v 1.1 1999/09/19 10:33:30 aku Exp $
+
+
+test otp_words-1.0 {otp_words, conversion errors} {
+    catch {otp_words -mode encode XX} msg
+    set msg
+} {input string must be a multiple of 64-bits}
+
+test otp_words-1.1 {otp_words, conversion errors} {
+    catch {otp_words -mode encode XXXXYYYYZ} msg
+    set msg
+} {input string must be a multiple of 64-bits}
+
+
+test otp_words-1.2 {otp_words, conversion errors} {
+    catch {otp_words -mode decode 101010090010101010200} msg
+    set msg
+} {word too long}
+
+test otp_words-1.3 {otp_words, conversion errors} {
+    catch {otp_words -mode decode XXXX} msg
+    set msg
+} {too few words}
+
+test otp_words-1.4 {otp_words, conversion errors} {
+    catch {otp_words -mode decode {XXXX  XXXX}} msg
+    set msg
+} {empty word}
+
+test otp_words-1.5 {otp_words, conversion errors} {
+    catch {otp_words -mode decode {XXX YYY ZZZ AAA BBB CCC}} msg
+    set msg
+} {unknown word "XXX"}
+
+
+foreach {index string encode} {
+    1 {9E87 6134 D904 99DD}  {INCH SEA ANNE LONG AHEM TOUR}
+    2 {7965 E054 36F5 029F}  {EASE OIL FUM CURE AWRY AVIS}
+    3 {50FE 1962 C496 5880}  {BAIL TUFT BITS GANG CHEF THY}
+    4 {8706 6DD9 644B F206}  {FULL PEW DOWN ONCE MORT ARC}
+    5 {7CD3 4C10 40AD D14B}  {FACT HOOF AT FIST SITE KENT}
+    6 {5AA3 7A81 F212 146C}  {BODE HOP JAKE STOW JUT RAP}
+    7 {F205 7539 43DE 4CF9}  {ULAN NEW ARMY FUSE SUIT EYED}
+    8 {DDCD AC95 6F23 4937}  {SKIM CULT LOB SLAM POE HOWL}
+    9 {B203 E28F A525 BE47}  {LONG IVY JULY AJAR BOND LEE}
+
+
+} {
+    regsub -all { } $string {} ostring
+    set ostring [hex -mode decode $ostring]
+
+    test otp_words-2.$index {otp_words, encode string} {
+	otp_words -mode encode $ostring
+    } $encode	;#{}
+
+    test otp_words-3.$index {otp_words, decode string} {
+	otp_words -mode decode $encode
+    } $ostring	;#{}
+
+    # redundant tests following
+    test otp_words-4.$index {otp_words, encode/decode identity} {
+	otp_words -mode decode [otp_words -mode encode $ostring]
+    } $ostring	;#{}
+
+    test otp_words-5.$index {otp_words, decode/encode identity} {
+	otp_words -mode encode [otp_words -mode decode $encode]
+    } $encode	;#{}
+}
+
+
+::tcltest::cleanupTests

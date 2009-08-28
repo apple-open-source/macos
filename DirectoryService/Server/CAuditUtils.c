@@ -64,6 +64,7 @@ static const char *sAuditAttrTable[] =
 	kDSNAttrNamePrefix,
 	kDSNAttrNameSuffix,
 	kDSNAttrComputers,
+	kDSNAttrAuthenticationAuthority,
 	
 	/* end */
 	NULL
@@ -113,48 +114,44 @@ static const char *sAuditMethodTable[ kAuditAuthMethodConsts ] =
 	NULL
 };
 
-static const char *sAuditControlStr[ kAuditControlStrConsts ] = 
-{
-	// "New user [<domain>:<shortname>]",														// AUE_create_user
-	"New user [<%s>:<%s>]",
+// "New user [<domain>:<shortname>]",														// AUE_create_user
+#define	kAuditCtlStrNewUser	"New user [<%s>:<%s>]"
 	
-	// (In the following, if the short name is changing, use the old shortname following "Modify user.")
+// (In the following, if the short name is changing, use the old shortname following "Modify user.")
 	
-	// "Modify user <shortname> <UID|GID|SHORTNAME|LONGNAME>: old = <oldval>, new = <newval>",  // AUE_modify_user
-	"Modify user <%s>: attribute = <%s>, value = <%s>",
-	"Modify user <%s>: new attribute <%s> = <%s>",
+// "Modify user <shortname> <UID|GID|SHORTNAME|LONGNAME>: old = <oldval>, new = <newval>",  // AUE_modify_user
+#define	kAuditCtlStrModifyUser1	"Modify user <%s>: attribute = <%s>, value = <%s>"
+#define	kAuditCtlStrModifyUser2	"Modify user <%s>: new attribute <%s> = <%s>"
 	
-	// "Modify password for user <shortname>",													// AUE_modify_password
-	"Modify password for user <%s>",
+// "Modify password for user <shortname>",													// AUE_modify_password
+#define	kAuditCtlStrModifyPassword	"Modify password for user <%s>"
 	
-	// "Delete user [<uid>, <gid>, <shortname>, <longname>]",									// AUE_delete_user
-	"Delete user [<%lu>, <%lu>, <%s>, <%s>]",
+// "Delete user [<uid>, <gid>, <shortname>, <longname>]",									// AUE_delete_user
+#define	kAuditCtlStrDeleteUser	"Delete user [<%lu>, <%lu>, <%s>, <%s>]"
 	
-	// "Add group [<groupname>]",																// AUE_create_group
-	"Add group [<%s>]",
+// "Add group [<groupname>]",																// AUE_create_group
+#define	kAuditCtlStrCreateGroup	"Add group [<%s>]"
 	
-	// "Delete group [<gid>, <groupname>]",														// AUE_delete_group
-	"Delete group [<%lu>, <%s>]",
+// "Delete group [<gid>, <groupname>]",														// AUE_delete_group
+#define	kAuditCtlStrDeleteGroup	"Delete group [<%lu>, <%s>]"
 	
-	// (In the following, if the name is changing, use the old name following "Modify group.")
+// (In the following, if the name is changing, use the old name following "Modify group.")
 	
-	// "Modify group <groupname> <GID|NAME>: old = <oldval>, new = <newval>",					// AUE_modify_group (membership)
-	"Modify group <%s> <%lu>: old = <%s>, new = <%s>",
-	"Modify group <%s>: attribute = <%s>, value = <%s>",
+// "Modify group <groupname> <GID|NAME>: old = <oldval>, new = <newval>",					// AUE_modify_group (membership)
+#define	kAuditCtlStrModifyGroupMembership1	"Modify group <%s> <%lu>: old = <%s>, new = <%s>"
+#define	kAuditCtlStrModifyGroupMembership2	"Modify group <%s>: attribute = <%s>, value = <%s>"
 	
-	// "Add user <shortname> to group <groupname>",												// AUE_add_to_group
-	"Add user <%s> to group <%s>",
+// "Add user <shortname> to group <groupname>",												// AUE_add_to_group
+#define	kAuditCtlStrAddToGroup	"Add user <%s> to group <%s>"
 	
-	// "Removed user <shortname> from group <groupname>"										// AUE_remove_from_group
-	"Removed user <%s> from group <%s>",
+// "Removed user <shortname> from group <groupname>"										// AUE_remove_from_group
+#define	kAuditCtlStrRemoveFromGroup	"Removed user <%s> from group <%s>"
 
-	// "Modify group <groupname> <GID|NAME>: old = <oldval>, new = <newval>",					// AUE_modify_group (non-membership-attribute)
-	"Modify group <%s>: attribute = <%s>, value = <%s>",
+// "Modify group <groupname> <GID|NAME>: old = <oldval>, new = <newval>",					// AUE_modify_group (non-membership-attribute)
+#define	kAuditCtlStrModifyGroupAttribute	"Modify group <%s>: attribute = <%s>, value = <%s>"
 	
-	// "Authentication for user <shortname>",													// 
-	"Authentication for user <%s>"
-	
-};
+// "Authentication for user <shortname>",													// 
+#define	kAuditCtlStrAuthenticateUser	"Authentication for user <%s>"
 
 //------------------------------------------------------------------------------------
 //	* AuditForThisEvent
@@ -176,8 +173,9 @@ UInt32 AuditForThisEvent( UInt32 inType, void *inData, char **outTextStr )
 	const char			*recNameToUseStr			= NULL;
 	tDataNodePtr		pAttrType					= NULL;
 	tDataNodePtr		pAttrValue					= NULL;
-	const char			*attrValueNameStr			= NULL;
+	char				*attrValueNameStr			= NULL;
 	tDataNodePtr		pAuthMethod					= NULL;
+	tDataNodePtr		pTempAttrValue				= NULL;
 	tDataBufferPtr		authBuffer					= NULL;
 	AuditTypeHint		hint						= kATHChange;
 	char				textStr[256]				= {0};
@@ -203,13 +201,13 @@ UInt32 AuditForThisEvent( UInt32 inType, void *inData, char **outTextStr )
 				if ( strcmp( recType->fBufferData, kDSStdRecordTypeUsers ) == 0 )
 				{
 					eventCode = AUE_create_user;
-					snprintf( textStr, sizeof(textStr), sAuditControlStr[kAuditCtlStrNewUser], "", recNameToUseStr );
+					snprintf( textStr, sizeof(textStr), kAuditCtlStrNewUser, "", recNameToUseStr );
 				}
 				else
 				if ( strcmp( recType->fBufferData, kDSStdRecordTypeGroups ) == 0 )
 				{
 					eventCode = AUE_create_group;
-					snprintf( textStr, sizeof(textStr), sAuditControlStr[kAuditCtlStrCreateGroup], recNameToUseStr );
+					snprintf( textStr, sizeof(textStr), kAuditCtlStrCreateGroup, recNameToUseStr );
 				}
 			}
 			break;
@@ -272,8 +270,11 @@ UInt32 AuditForThisEvent( UInt32 inType, void *inData, char **outTextStr )
 			{
 				recRef = ((sSetAttributeValues *)inData)->fInRecRef;
 				pAttrType = ((sSetAttributeValues *)inData)->fInAttrType;
-				if ( ((sSetAttributeValues *)inData)->fInAttrValueList != NULL )
-					pAttrValue = ((sSetAttributeValues *)inData)->fInAttrValueList->fDataListHead;
+				if ( ((sSetAttributeValues *)inData)->fInAttrValueList != NULL ) {
+					if (dsDataListGetNodeAllocPriv(((sSetAttributeValues *)inData)->fInAttrValueList, 1, &pTempAttrValue) == eDSNoErr) {
+						pAttrValue = pTempAttrValue;
+					}
+				}
 				AuditUserOrGroupRecord( recRef, &recNameStr, &recTypeStr, &eventCode );
 			}
 			break;
@@ -289,13 +290,13 @@ UInt32 AuditForThisEvent( UInt32 inType, void *inData, char **outTextStr )
 					if ( strcmp( (const char *)recTypeStr, kDSStdRecordTypeUsers ) == 0 )
 					{
 						eventCode = AUE_delete_user;
-						snprintf( textStr, sizeof(textStr), sAuditControlStr[kAuditCtlStrDeleteUser], "", "", recNameToUseStr, "" );
+						snprintf( textStr, sizeof(textStr), kAuditCtlStrDeleteUser, 99L, 99L, recNameToUseStr, "" );
 					}
 					else
 					if ( strcmp( (const char *)recTypeStr, kDSStdRecordTypeGroups ) == 0 )
 					{
 						eventCode = AUE_delete_group;
-						snprintf( textStr, sizeof(textStr), sAuditControlStr[kAuditCtlStrDeleteGroup], "", recNameToUseStr );
+						snprintf( textStr, sizeof(textStr), kAuditCtlStrDeleteGroup, 99L, recNameToUseStr );
 					}
 				}
 			}
@@ -359,19 +360,50 @@ UInt32 AuditForThisEvent( UInt32 inType, void *inData, char **outTextStr )
 			
 			if ( attrIsAudited )
 			{
-				attrValueNameStr = (pAttrValue != NULL) ? pAttrValue->fBufferData : "";
+				attrValueNameStr = (pAttrValue != NULL) ? dsCStrFromCharacters(pAttrValue->fBufferData, pAttrValue->fBufferLength) : strdup("");
 				
 				if ( eventCode == AUE_modify_user )
 				{
 					recNameToUseStr = (recNameStr != NULL) ? recNameStr : kAuditUnknownNameStr;
-					switch( hint )
-					{
-						case kATHAdd:
-							snprintf( textStr, sizeof(textStr), sAuditControlStr[kAuditCtlStrModifyUser2], recNameToUseStr, pAttrType->fBufferData, attrValueNameStr );
-							break;
+					
+					// we handle the authentication authority with special checking
+					if (strcmp(pAttrType->fBufferData, kDSNAttrAuthenticationAuthority) == 0) {
+						bool hasDisableTag = (strcasestr(attrValueNameStr, kDSTagAuthAuthorityDisabledUser) != NULL);
 						
-						default:
-							snprintf( textStr, sizeof(textStr), sAuditControlStr[kAuditCtlStrModifyUser1], recNameToUseStr, pAttrType->fBufferData, attrValueNameStr );
+						switch( hint ) {
+							case kATHAdd:
+							case kATHChange:
+								if (hasDisableTag == true) {
+									snprintf(textStr, sizeof(textStr), "%s disabled by adding ';DisabledUser;'", recNameToUseStr);
+									eventCode = AUE_disable_user;
+									break;
+								}
+								else if (dsIsRecordDisabledInternal(recRef) == true) {
+									snprintf(textStr, sizeof(textStr), "%s enabled by removing ';DisabledUser;'", recNameToUseStr);
+									eventCode = AUE_enable_user;
+								}
+								
+								break;
+								
+							case kATHRemove:
+								if (hasDisableTag == false) {
+									snprintf(textStr, sizeof(textStr), "%s enabled by removing ';DisabledUser;'", recNameToUseStr);
+									eventCode = AUE_enable_user;
+								}
+								break;
+						}
+					}
+					else {
+						switch( hint )
+						{
+							case kATHAdd:
+								snprintf( textStr, sizeof(textStr), kAuditCtlStrModifyUser2, recNameToUseStr, pAttrType->fBufferData, attrValueNameStr );
+								break;
+								
+							default:
+								snprintf( textStr, sizeof(textStr), kAuditCtlStrModifyUser1, recNameToUseStr, pAttrType->fBufferData, attrValueNameStr );
+								break;
+						}
 					}
 				}
 				else
@@ -386,28 +418,30 @@ UInt32 AuditForThisEvent( UInt32 inType, void *inData, char **outTextStr )
 						{
 							case kATHChange:
 								//eventCode = AUE_modify_group;
-								snprintf( textStr, sizeof(textStr), sAuditControlStr[kAuditCtlStrModifyGroupMembership2], recNameToUseStr, attrValueNameStr );
+								snprintf( textStr, sizeof(textStr), kAuditCtlStrModifyGroupMembership2, recNameToUseStr, attrValueNameStr, "" );
 								break;
 							
 							case kATHAdd:
 								eventCode = AUE_add_to_group;
 								if ( attrValueNameStr == NULL || *attrValueNameStr == '\0' )
-									snprintf( textStr, sizeof(textStr), sAuditControlStr[kAuditCtlStrModifyGroupAttribute], recNameToUseStr, pAttrType->fBufferData, "" );
+									snprintf( textStr, sizeof(textStr), kAuditCtlStrModifyGroupAttribute, recNameToUseStr, pAttrType->fBufferData, "" );
 								else
-									snprintf( textStr, sizeof(textStr), sAuditControlStr[kAuditCtlStrAddToGroup], attrValueNameStr, recNameToUseStr );
+									snprintf( textStr, sizeof(textStr), kAuditCtlStrAddToGroup, attrValueNameStr, recNameToUseStr );
 								break;
 							
 							case kATHRemove:
 								eventCode = AUE_remove_from_group;
-								snprintf( textStr, sizeof(textStr), sAuditControlStr[kAuditCtlStrRemoveFromGroup], attrValueNameStr, recNameToUseStr );
+								snprintf( textStr, sizeof(textStr), kAuditCtlStrRemoveFromGroup, attrValueNameStr, recNameToUseStr );
 								break;
 						}
 					}
 					else
 					{
-						snprintf( textStr, sizeof(textStr), sAuditControlStr[kAuditCtlStrModifyGroupAttribute], recNameToUseStr, pAttrType->fBufferData, attrValueNameStr );
+						snprintf( textStr, sizeof(textStr), kAuditCtlStrModifyGroupAttribute, recNameToUseStr, pAttrType->fBufferData, attrValueNameStr );
 					}
 				}
+
+				free(attrValueNameStr);
 			} //if ( attrIsAudited )
 			else
 			{
@@ -438,13 +472,13 @@ UInt32 AuditForThisEvent( UInt32 inType, void *inData, char **outTextStr )
 					if ( idx > kAuditAuthChangeConsts )
 					{
 						eventCode = AUE_auth_user;
-						snprintf( textStr, sizeof(textStr), sAuditControlStr[kAuditCtlStrAuthenticateUser], recNameToUseStr );
+						snprintf( textStr, sizeof(textStr), kAuditCtlStrAuthenticateUser, recNameToUseStr );
 					}
 					else
 					if ( idx < kAuditAuthPasswordChangeConsts )
 					{
 						eventCode = AUE_modify_password;
-						snprintf( textStr, sizeof(textStr), sAuditControlStr[kAuditCtlStrModifyPassword], recNameToUseStr );
+						snprintf( textStr, sizeof(textStr), kAuditCtlStrModifyPassword, recNameToUseStr );
 					}
 				}
 			}
@@ -473,7 +507,7 @@ UInt32 AuditForThisEvent( UInt32 inType, void *inData, char **outTextStr )
 					recNameToUseStr = (recNameStr != NULL) ? recNameStr : kAuditUnknownNameStr;
 					
 					eventCode = AUE_auth_user;
-					snprintf( textStr, sizeof(textStr), sAuditControlStr[kAuditCtlStrAuthenticateUser], recNameToUseStr );
+					snprintf( textStr, sizeof(textStr), kAuditCtlStrAuthenticateUser, recNameToUseStr );
 				}
 			}
 			else
@@ -482,10 +516,18 @@ UInt32 AuditForThisEvent( UInt32 inType, void *inData, char **outTextStr )
 			}
 		}
 		
-		if ( outTextStr != NULL && textStr[0] != '\0' )
-		{
+		if ( outTextStr != NULL && textStr[0] != '\0' ) {
 			*outTextStr = strdup( textStr );
-		}		
+		}
+		else {
+			// no string, no eventCode
+			eventCode = 0;
+		}
+	}
+	
+	if (pTempAttrValue != NULL) {
+		dsDataNodeDeAllocate(0, pTempAttrValue);
+		pTempAttrValue = NULL;
 	}
 	
 	DSFree( recTypeStr );
@@ -538,7 +580,7 @@ tDirStatus AuditGetRecordRefInfo( tRecordReference inRecRef, char **outRecNameSt
 	tDirStatus siResult = eDSNoErr;
 	tRecordEntryPtr recInfoPtr = NULL;
 	
-	siResult = dsGetRecordReferenceInfo( inRecRef, &recInfoPtr );
+	siResult = dsGetRecordReferenceInfoInternal( inRecRef, &recInfoPtr );
 	if ( siResult == eDSNoErr )
 	{
 		siResult = dsGetRecordTypeFromEntry( recInfoPtr, outRecTypeStr );

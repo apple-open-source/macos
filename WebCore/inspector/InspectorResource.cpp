@@ -35,10 +35,10 @@
 #include "DocLoader.h"
 #include "DocumentLoader.h"
 #include "Frame.h"
+#include "InspectorFrontend.h"
+#include "InspectorJSONObject.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
-#include "ScriptFunctionCall.h"
-#include "ScriptObject.h"
 #include "TextEncoding.h"
 
 namespace WebCore {
@@ -47,6 +47,7 @@ InspectorResource::InspectorResource(long long identifier, DocumentLoader* loade
     : m_identifier(identifier)
     , m_loader(loader)
     , m_frame(loader->frame())
+    , m_scriptObjectCreated(false)
     , m_expectedContentLength(0)
     , m_cached(false)
     , m_finished(false)
@@ -104,155 +105,111 @@ void InspectorResource::updateResponse(const ResourceResponse& response)
     m_changes.set(TypeChange);
 }
 
-static ScriptObject createHeadersObject(ScriptState* scriptState, const HTTPHeaderMap& headers, bool hadException)
+static void populateHeadersObject(InspectorJSONObject* object, const HTTPHeaderMap& headers)
 {
-    ScriptObject object = ScriptObject::createNew(scriptState);
     HTTPHeaderMap::const_iterator end = headers.end();
     for (HTTPHeaderMap::const_iterator it = headers.begin(); it != end; ++it) {
-        if (!object.set(scriptState, it->first.string(), it->second)) {
-            hadException = true;
-            break;
-        }
+        object->set(it->first.string(), it->second);
     }
-
-    return object;
 }
 
-void InspectorResource::createScriptObject(ScriptState* scriptState, const ScriptObject& webInspector)
+void InspectorResource::createScriptObject(InspectorFrontend* frontend)
 {
-    if (m_scriptObject.hasNoValue()) {
-        bool hadException = false;
-
-        ScriptFunctionCall resourceConstructor(scriptState, webInspector, "Resource");
-        ScriptObject requestHeaders = createHeadersObject(scriptState, m_requestHeaderFields, hadException);
-        if (hadException)
+    if (!m_scriptObjectCreated) {
+        InspectorJSONObject jsonObject = frontend->newInspectorJSONObject();
+        InspectorJSONObject requestHeaders = frontend->newInspectorJSONObject();
+        populateHeadersObject(&requestHeaders, m_requestHeaderFields);
+        jsonObject.set("requestHeaders", requestHeaders);
+        jsonObject.set("requestURL", requestURL());
+        jsonObject.set("host", m_requestURL.host());
+        jsonObject.set("path", m_requestURL.path());
+        jsonObject.set("lastPathComponent", m_requestURL.lastPathComponent());
+        jsonObject.set("isMainResource", m_isMainResource);
+        jsonObject.set("cached", m_cached);
+        if (!frontend->addResource(m_identifier, jsonObject))
             return;
 
-        resourceConstructor.appendArgument(requestHeaders);
-        resourceConstructor.appendArgument(requestURL());
-        resourceConstructor.appendArgument(m_requestURL.host());
-        resourceConstructor.appendArgument(m_requestURL.path());
-        resourceConstructor.appendArgument(m_requestURL.lastPathComponent());
-        resourceConstructor.appendArgument(m_identifier);
-        resourceConstructor.appendArgument(m_isMainResource);
-        resourceConstructor.appendArgument(m_cached);
-
-        m_scriptObject = resourceConstructor.construct(hadException);
-        if (hadException)
-            return;
-
-        ScriptFunctionCall addResource(scriptState, webInspector, "addResource");
-        addResource.appendArgument(m_scriptObject);
-        addResource.call(hadException);
-        if (hadException)
-            return;
-
+        m_scriptObjectCreated = true;
         m_changes.clear(RequestChange);
     }
-
-    updateScriptObject(scriptState);
+    updateScriptObject(frontend);
 }
 
-void InspectorResource::updateScriptObject(ScriptState* scriptState)
+void InspectorResource::updateScriptObject(InspectorFrontend* frontend)
 {
-    if (m_scriptObject.hasNoValue())
+    if (!m_scriptObjectCreated)
         return;
 
     if (m_changes.hasChange(NoChange))
         return;
 
-    bool hadException = false;
-
+    InspectorJSONObject jsonObject = frontend->newInspectorJSONObject();
     if (m_changes.hasChange(RequestChange)) {
-        if (!m_scriptObject.set(scriptState, "url", requestURL()))
-            return;
-
-        if (!m_scriptObject.set(scriptState, "domain", m_requestURL.host()))
-            return;
-
-        if (!m_scriptObject.set(scriptState, "path", m_requestURL.path()))
-            return;
-
-        if (!m_scriptObject.set(scriptState, "lastPathComponent", m_requestURL.lastPathComponent()))
-            return;
-
-        ScriptObject requestHeaders = createHeadersObject(scriptState, m_requestHeaderFields, hadException);
-        if (hadException)
-            return;
-
-        if (!m_scriptObject.set(scriptState, "requestHeaders", requestHeaders))
-            return;
-
-        if (!m_scriptObject.set(scriptState, "mainResource", m_isMainResource))
-            return;
+        jsonObject.set("url", requestURL());
+        jsonObject.set("domain", m_requestURL.host());
+        jsonObject.set("path", m_requestURL.path());
+        jsonObject.set("lastPathComponent", m_requestURL.lastPathComponent());
+        InspectorJSONObject requestHeaders = frontend->newInspectorJSONObject();
+        populateHeadersObject(&requestHeaders, m_requestHeaderFields);
+        jsonObject.set("requestHeaders", requestHeaders);
+        jsonObject.set("mainResource", m_isMainResource);
+        jsonObject.set("didRequestChange", true);
     }
 
     if (m_changes.hasChange(ResponseChange)) {
-        if (!m_scriptObject.set(scriptState, "mimeType", m_mimeType))
-            return;
-
-        if (!m_scriptObject.set(scriptState, "suggestedFilename", m_suggestedFilename))
-            return;
-
-        if (!m_scriptObject.set(scriptState, "expectedContentLength", m_expectedContentLength))
-            return;
-
-        if (!m_scriptObject.set(scriptState, "statusCode", m_responseStatusCode))
-            return;
-
-        if (!m_scriptObject.set(scriptState, "suggestedFilename", m_suggestedFilename))
-            return;
-
-        ScriptObject responseHeaders = createHeadersObject(scriptState, m_responseHeaderFields, hadException);
-        if (hadException)
-            return;
-
-        if (!m_scriptObject.set(scriptState, "responseHeaders", responseHeaders))
-            return;
+        jsonObject.set("mimeType", m_mimeType);
+        jsonObject.set("suggestedFilename", m_suggestedFilename);
+        jsonObject.set("expectedContentLength", m_expectedContentLength);
+        jsonObject.set("statusCode", m_responseStatusCode);
+        jsonObject.set("suggestedFilename", m_suggestedFilename);
+        InspectorJSONObject responseHeaders = frontend->newInspectorJSONObject();
+        populateHeadersObject(&responseHeaders, m_responseHeaderFields);
+        jsonObject.set("responseHeaders", responseHeaders);
+        jsonObject.set("didResponseChange", true);
     }
 
-    if (m_changes.hasChange(TypeChange) && !m_scriptObject.set(scriptState, "type", static_cast<int>(type())))
-        return;
-
-    if (m_changes.hasChange(LengthChange) && !m_scriptObject.set(scriptState, "contentLength", m_length))
-        return;
+    if (m_changes.hasChange(TypeChange)) {
+        jsonObject.set("type", static_cast<int>(type()));
+        jsonObject.set("didTypeChange", true);
+    }
+    
+    if (m_changes.hasChange(LengthChange)) {
+        jsonObject.set("contentLength", m_length);
+        jsonObject.set("didLengthChange", true);
+    }
 
     if (m_changes.hasChange(CompletionChange)) {
-        if (!m_scriptObject.set(scriptState, "failed", m_failed))
-            return;
-
-        if (!m_scriptObject.set(scriptState, "finished", m_finished))
-            return;
+        jsonObject.set("failed", m_failed);
+        jsonObject.set("finished", m_finished);
+        jsonObject.set("didCompletionChange", true);
     }
 
     if (m_changes.hasChange(TimingChange)) {
-        if (m_startTime > 0 && !m_scriptObject.set(scriptState, "startTime", m_startTime))
-            return;
-        if (m_responseReceivedTime > 0 && !m_scriptObject.set(scriptState, "responseReceivedTime", m_responseReceivedTime))
-            return;
-        if (m_endTime > 0 &&  !m_scriptObject.set(scriptState, "endTime", m_endTime))
-            return;
+        if (m_startTime > 0)
+            jsonObject.set("startTime", m_startTime);
+        if (m_responseReceivedTime > 0)
+            jsonObject.set("responseReceivedTime", m_responseReceivedTime);
+        if (m_endTime > 0)
+            jsonObject.set("endTime", m_endTime);
+        jsonObject.set("didTimingChange", true);
     }
-
+    if (!frontend->updateResource(m_identifier, jsonObject))
+        return;
     m_changes.clearAll();
 }
 
-void InspectorResource::releaseScriptObject(ScriptState* scriptState, const ScriptObject& webInspector, bool callRemoveResource)
+void InspectorResource::releaseScriptObject(InspectorFrontend* frontend, bool callRemoveResource)
 {
-    if (m_scriptObject.hasNoValue())
+    if (!m_scriptObjectCreated)
         return;
 
-    ScriptObject scriptObject = m_scriptObject;
-    m_scriptObject = ScriptObject();
+    m_scriptObjectCreated = false;
     m_changes.setAll();
 
     if (!callRemoveResource)
         return;
 
-    ScriptFunctionCall removeResource(scriptState, webInspector, "removeResource");
-    removeResource.appendArgument(scriptObject);
-    bool hadException;
-    removeResource.call(hadException);
+    frontend->removeResource(m_identifier);
 }
 
 InspectorResource::Type InspectorResource::type() const

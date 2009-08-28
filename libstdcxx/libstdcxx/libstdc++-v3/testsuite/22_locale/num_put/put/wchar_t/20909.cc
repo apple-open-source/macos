@@ -1,4 +1,6 @@
-// 2005-04-09  Paolo Carlini  <pcarlini@suse.de>
+// { dg-require-namedlocale "" }
+
+// 2005-04-08  Paolo Carlini  <pcarlini@suse.de>
 
 // Copyright (C) 2005 Free Software Foundation
 //
@@ -15,7 +17,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // 22.2.2.2.1  num_put members
@@ -31,7 +33,7 @@ void test01()
   bool test __attribute__((unused)) = true;
 
   // A locale that expects grouping.
-  locale loc_de = __gnu_test::try_named_locale("de_DE");
+  locale loc_de = locale("de_DE");
 
   const wstring empty;
   wstring result;

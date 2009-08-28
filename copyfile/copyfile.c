@@ -42,6 +42,8 @@
 #include <sys/acl.h>
 #include <libkern/OSByteOrder.h>
 #include <membership.h>
+#include <fts.h>
+#include <libgen.h>
 
 #include <TargetConditionals.h>
 #if !TARGET_OS_EMBEDDED
@@ -63,6 +65,10 @@ static void *qtn_file_clone(void *x) { return NULL; }
 
 #include "copyfile.h"
 
+enum cfInternalFlags {
+	cfDelayAce = 1,
+};
+
 /*
  * The state structure keeps track of
  * the source filename, the destination filename, their
@@ -81,11 +87,47 @@ struct _copyfile_state
     struct stat sb;
     filesec_t fsec;
     copyfile_flags_t flags;
+    unsigned int	internal_flags;
     void *stats;
     uint32_t debug;
-    void *callbacks;
+    copyfile_callback_t	statuscb;
+    void	*ctx;
     qtn_file_t qinfo;	/* Quarantine information -- probably NULL */
+    filesec_t original_fsec;
+    filesec_t permissive_fsec;
+    off_t totalCopied;
+    int err;
 };
+
+struct acl_entry {
+        u_int32_t       ae_magic;
+#define _ACL_ENTRY_MAGIC        0xac1ac101
+        u_int32_t       ae_tag;
+        guid_t          ae_applicable;
+        u_int32_t       ae_flags;
+        u_int32_t       ae_perms;
+};
+
+#define PACE(ace)  do { \
+	struct acl_entry *__t = (struct acl_entry*)(ace); \
+	fprintf(stderr, "%s(%d): " #ace " = { flags = %#x, perms = %#x }\n", __FUNCTION__, __LINE__, __t->ae_flags, __t->ae_perms); \
+	} while (0)
+
+#define PACL(ace) \
+	do { \
+		ssize_t __l; char *__cp = acl_to_text(ace, &__l); \
+		fprintf(stderr, "%s(%d):  " #ace " = %s\n", __FUNCTION__, __LINE__, __cp ? __cp : "(null)"); \
+	} while (0)
+
+static int
+acl_compare_permset_np(acl_permset_t p1, acl_permset_t p2)
+{
+	struct pm { u_int32_t ap_perms; } *ps1, *ps2;
+	ps1 = (struct pm*) p1;
+	ps2 = (struct pm*) p2;
+
+    return ((ps1->ap_perms == ps2->ap_perms) ? 1 : 0);
+}
 
 /*
  * Internally, the process is broken into a series of
@@ -145,13 +187,529 @@ static int copyfile_quarantine(copyfile_state_t s)
 	{
 	    qtn_file_free(s->qinfo);
 	    s->qinfo = NULL;
-	    errno = error;
 	    rv = -1;
 	    goto done;
 	}
     }
 done:
     return rv;
+}
+
+static int
+add_uberace(acl_t *acl)
+{
+	acl_entry_t entry;
+	acl_permset_t permset;
+	uuid_t qual;
+
+	if (mbr_uid_to_uuid(getuid(), qual) != 0)
+		goto error_exit;
+
+	/*
+	 * First, we create an entry, and give it the special name
+	 * of ACL_FIRST_ENTRY, thus guaranteeing it will be first.
+	 * After that, we clear out all the permissions in it, and
+	 * add three permissions:  WRITE_DATA, WRITE_ATTRIBUTES, and
+	 * WRITE_EXTATTRIBUTES.  We put these into an ACE that allows
+	 * the functionality, and put this into the ACL.
+	 */
+	if (acl_create_entry_np(acl, &entry, ACL_FIRST_ENTRY) == -1)
+		goto error_exit;
+	if (acl_get_permset(entry, &permset) == -1)
+		goto error_exit;
+	if (acl_clear_perms(permset) == -1)
+		goto error_exit;
+	if (acl_add_perm(permset, ACL_WRITE_DATA) == -1)
+		goto error_exit;
+	if (acl_add_perm(permset, ACL_WRITE_ATTRIBUTES) == -1)
+		goto error_exit;
+	if (acl_add_perm(permset, ACL_WRITE_EXTATTRIBUTES) == -1)
+		goto error_exit;
+	if (acl_add_perm(permset, ACL_APPEND_DATA) == -1)
+		goto error_exit;
+	if (acl_add_perm(permset, ACL_WRITE_SECURITY) == -1)
+		goto error_exit;
+	if (acl_set_tag_type(entry, ACL_EXTENDED_ALLOW) == -1)
+		goto error_exit;
+
+	if(acl_set_permset(entry, permset) == -1)
+		goto error_exit;
+	if(acl_set_qualifier(entry, qual) == -1)
+		goto error_exit;
+
+	return 0;
+error_exit:
+	return -1;
+}
+
+static int
+is_uberace(acl_entry_t ace)
+{
+	int retval = 0;
+	acl_permset_t perms, tperms;
+	acl_t tacl;
+	acl_entry_t tentry;
+	acl_tag_t tag;
+	guid_t *qual;
+	uuid_t myuuid;
+
+	// Who am I, and who is the ACE for?
+	mbr_uid_to_uuid(geteuid(), myuuid);
+	qual = (guid_t*)acl_get_qualifier(ace);
+
+	// Need to create a temporary acl, so I can get the uberace template.
+	tacl = acl_init(1);
+	if (tacl == NULL) {
+		goto done;
+	}
+	add_uberace(&tacl);
+	if (acl_get_entry(tacl, ACL_FIRST_ENTRY, &tentry) != 0) {
+		goto done;
+	}
+	acl_get_permset(tentry, &tperms);
+
+	// Now I need to get
+	acl_get_tag_type(ace, &tag);
+	acl_get_permset(ace, &perms);
+
+	if (tag == ACL_EXTENDED_ALLOW &&
+		(memcmp(qual, myuuid, sizeof(myuuid)) == 0) &&
+		acl_compare_permset_np(tperms, perms))
+		retval = 1;
+
+done:
+
+	if (tacl)
+		acl_free(tacl);
+
+	return retval;
+}
+
+static void
+remove_uberace(int fd, struct stat *sbuf)
+{
+	filesec_t fsec = NULL;
+	acl_t acl = NULL;
+	acl_entry_t entry;
+	struct stat sb;
+
+	fsec = filesec_init();
+	if (fsec == NULL) {
+		goto noacl;
+	}
+
+	if (fstatx_np(fd, &sb, fsec) != 0) {
+		if (errno == ENOTSUP)
+			goto noacl;
+		goto done;
+	}
+
+	if (filesec_get_property(fsec, FILESEC_ACL, &acl) != 0) {
+		goto done;
+	}
+
+	if (acl_get_entry(acl, ACL_FIRST_ENTRY, &entry) == 0) {
+		if (is_uberace(entry))
+		{
+			mode_t m = sbuf->st_mode & ~S_IFMT;
+
+			if (acl_delete_entry(acl, entry) != 0 ||
+				filesec_set_property(fsec, FILESEC_ACL, &acl) != 0 ||
+				filesec_set_property(fsec, FILESEC_MODE, &m) != 0 ||
+				fchmodx_np(fd, fsec) != 0)
+				goto noacl;
+		}
+	}
+
+done:
+	if (acl)
+		acl_free(acl);
+	if (fsec)
+		filesec_free(fsec);
+	return;
+
+noacl:
+	fchmod(fd, sbuf->st_mode & ~S_IFMT);
+	goto done;
+}
+
+static void
+reset_security(copyfile_state_t s)
+{
+    /* If we haven't reset the file security information
+     * (COPYFILE_SECURITY is not set in flags)
+     * restore back the permissions the file had originally
+     *
+     * One of the reasons this seems so complicated is that
+     * it is partially at odds with copyfile_security().
+     *
+     * Simplisticly, we are simply trying to make sure we
+     * only copy what was requested, and that we don't stomp
+     * on what wasn't requested.
+     */
+
+#ifdef COPYFILE_RECURSIVE
+	if (s->dst_fd > -1) {
+		struct stat sbuf;
+
+		if (s->src_fd > -1 && (s->flags & COPYFILE_STAT))
+			fstat(s->src_fd, &sbuf);
+		else
+			fstat(s->dst_fd, &sbuf);
+		
+		if (!(s->internal_flags & cfDelayAce))
+			remove_uberace(s->dst_fd, &sbuf);
+	}
+#else
+    if (s->permissive_fsec && (s->flags & COPYFILE_SECURITY) != COPYFILE_SECURITY) {
+	if (s->flags & COPYFILE_ACL) {
+		/* Just need to reset the BSD information -- mode, owner, group */
+		(void)fchown(s->dst_fd, s->dst_sb.st_uid, s->dst_sb.st_gid);
+		(void)fchmod(s->dst_fd, s->dst_sb.st_mode);
+	} else {
+		/*
+		 * flags is either COPYFILE_STAT, or neither; if it's
+		 * neither, then we restore both ACL and POSIX permissions;
+		 * if it's STAT, however, then we only want to restore the
+		 * ACL (which may be empty).  We do that by removing the
+		 * POSIX information from the filesec object.
+		 */
+		if (s->flags & COPYFILE_STAT) {
+			copyfile_unset_posix_fsec(s->original_fsec);
+		}
+		if (fchmodx_np(s->dst_fd, s->original_fsec) < 0 && errno != ENOTSUP)
+		    copyfile_warn("restoring security information");
+	}
+    }
+
+    if (s->permissive_fsec) {
+	filesec_free(s->permissive_fsec);
+	s->permissive_fsec = NULL;
+    }
+
+    if (s->original_fsec) {
+	filesec_free(s->original_fsec);
+	s->original_fsec = NULL;
+    }
+#endif
+
+    return;
+}
+
+/*
+ * copytree -- recursively copy a hierarchy.
+ *
+ * Unlike normal copyfile(), copytree() can copy an entire hierarchy.
+ * Care is taken to keep the ACLs set up correctly, in addition to the
+ * normal copying that is done.  (When copying a hierarchy, we can't
+ * get rid of the "allow-all-writes" ACE on a directory until we're done
+ * copying the *contents* of the directory.)
+ *
+ * The other big difference from copyfile (for the moment) is that copytree()
+ * will use a call-back function to pass along information about what is
+ * about to be copied, and whether or not it succeeded.
+ *
+ * copytree() is called from copyfile() -- but copytree() itself then calls
+ * copyfile() to copy each individual object.
+ *
+ * XXX - no effort is made to handle overlapping hierarchies at the moment.
+ *
+ */
+
+static int
+copytree(copyfile_state_t s)
+{
+	char *slash;
+	int retval = 0;
+	int (*sfunc)(const char *, struct stat *);
+	copyfile_callback_t status = NULL;
+	char srcisdir = 0, dstisdir = 0, dstexists = 0;
+	struct stat sbuf;
+	char *src, *dst;
+	const char *dstpathsep = "";
+#ifdef NOTYET
+	char srcpath[PATH_MAX * 2 + 1], dstpath[PATH_MAX * 2 + 1];
+#endif
+	char *srcroot;
+	FTS *fts = NULL;
+	FTSENT *ftsent;
+	ssize_t offset = 0;
+	const char *paths[2] =  { 0 };
+	unsigned int flags = 0;
+	int fts_flags = FTS_NOCHDIR;
+
+	if (s == NULL) {
+		errno = EINVAL;
+		retval = -1;
+		goto done;
+	}
+	if (s->flags & (COPYFILE_MOVE | COPYFILE_UNLINK | COPYFILE_CHECK | COPYFILE_PACK | COPYFILE_UNPACK)) {
+		errno = EINVAL;
+		retval = -1;
+		goto done;
+	}
+
+	flags = s->flags & (COPYFILE_ALL | COPYFILE_NOFOLLOW | COPYFILE_VERBOSE);
+
+	paths[0] = src = s->src;
+	dst = s->dst;
+
+	if (src == NULL || dst == NULL) {
+		errno = EINVAL;
+		retval = -1;
+		goto done;
+	}
+
+	sfunc = (flags & COPYFILE_NOFOLLOW_SRC) ? lstat : stat;
+	if ((sfunc)(src, &sbuf) == -1) {
+		retval = -1;
+		goto done;
+	}
+	if (sbuf.st_mode & S_IFDIR) {
+		srcisdir = 1;
+	}
+
+	sfunc = (flags & COPYFILE_NOFOLLOW_DST) ? lstat : stat;
+	if ((sfunc)(dst, &sbuf) == -1) {
+		if (errno != ENOENT) {
+			retval = -1;
+			goto done;
+		}
+	} else {
+		dstexists = 1;
+		if ((sbuf.st_mode & S_IFMT) == S_IFDIR) {
+			dstisdir = 1;
+		}
+	}
+
+#ifdef NOTYET
+	// This doesn't handle filesystem crossing and case sensitivity
+	// So there's got to be a better way
+
+	if (realpath(src, srcpath) == NULL) {
+		retval = -1;
+		goto done;
+	}
+
+	if (realpath(dst, dstpath) == NULL &&
+		(errno == ENOENT && realpath(dirname(dst), dstpath) == NULL)) {
+		retval = -1;
+		goto done;
+	}
+	if (strstr(srcpath, dstpath) != NULL) {
+		errno = EINVAL;
+		retval = -1;
+		goto done;
+	}
+#endif
+	srcroot = basename((char*)src);
+	if (srcroot == NULL) {
+		retval = -1;
+		goto done;
+	}
+
+	/*
+	 * To work on as well:
+	 * We have a few cases when copying a hierarchy:
+	 * 1)  src is a non-directory, dst is a directory;
+	 * 2)  src is a non-directory, dst is a non-directory;
+	 * 3)  src is a non-directory, dst does not exist;
+	 * 4)  src is a directory, dst is a directory;
+	 * 5)  src is a directory, dst is a non-directory;
+	 * 6)  src is a directory, dst does not exist
+	 *
+	 * (1) copies src to dst/basename(src).
+	 * (2) fails if COPYFILE_EXCLUSIVE is set, otherwise copies src to dst.
+	 * (3) and (6) copy src to the name dst.
+	 * (4) copies the contents of src to the contents of dst.
+	 * (5) is an error.
+	 */
+
+	if (dstisdir) {
+		// copy /path/to/src to /path/to/dst/src
+		// Append "/" and (fts_path - strlen(basename(src))) to dst?
+		dstpathsep = "/";
+		slash = strrchr(src, '/');
+		if (slash == NULL)
+			offset = 0;
+		else
+			offset = slash - src + 1;
+	} else {
+		// copy /path/to/src to /path/to/dst
+		// append (fts_path + strlen(src)) to dst?
+		dstpathsep = "";
+		offset = strlen(src);
+	}
+
+	if (s->flags | COPYFILE_NOFOLLOW_SRC)
+		fts_flags |= FTS_PHYSICAL;
+	else
+		fts_flags |= FTS_LOGICAL;
+
+	fts = fts_open((char * const *)paths, fts_flags, NULL);
+
+	status = s->statuscb;
+	while ((ftsent = fts_read(fts)) != NULL) {
+		int rv = 0;
+		char *dstfile = NULL;
+		int cmd = 0;
+		copyfile_state_t tstate = copyfile_state_alloc();
+		if (tstate == NULL) {
+			errno = ENOMEM;
+			retval = -1;
+			break;
+		}
+		tstate->statuscb = s->statuscb;
+		tstate->ctx = s->ctx;
+		asprintf(&dstfile, "%s%s%s", dst, dstpathsep, ftsent->fts_path + offset);
+		if (dstfile == NULL) {
+			copyfile_state_free(tstate);
+			errno = ENOMEM;
+			retval = -1;
+			break;
+		}
+		switch (ftsent->fts_info) {
+		case FTS_D:
+			tstate->internal_flags |= cfDelayAce;
+			cmd = COPYFILE_RECURSE_DIR;
+			break;
+		case FTS_SL:
+		case FTS_SLNONE:
+		case FTS_DEFAULT:
+		case FTS_F:
+			cmd = COPYFILE_RECURSE_FILE;
+			break;
+		case FTS_DP:
+			cmd = COPYFILE_RECURSE_DIR_CLEANUP;
+			break;
+		case FTS_DNR:
+		case FTS_ERR:
+		case FTS_NS:
+		case FTS_NSOK:
+		default:
+			errno = ftsent->fts_errno;
+			if (status) {
+				rv = (*status)(COPYFILE_RECURSE_ERROR, COPYFILE_ERR, tstate, ftsent->fts_path, dstfile, s->ctx);
+				if (rv == COPYFILE_SKIP || rv == COPYFILE_CONTINUE) {
+					errno = 0;
+					goto skipit;
+				}
+				if (rv == COPYFILE_QUIT) {
+					retval = -1;
+					goto stopit;
+				}
+			} else {
+				retval = -1;
+				goto stopit;
+			}
+		case FTS_DOT:
+			goto skipit;
+
+		}
+
+		if (cmd == COPYFILE_RECURSE_DIR || cmd == COPYFILE_RECURSE_FILE) {
+			if (status) {
+				rv = (*status)(cmd, COPYFILE_START, tstate, ftsent->fts_path, dstfile, s->ctx);
+				if (rv == COPYFILE_SKIP) {
+					if (cmd == COPYFILE_RECURSE_DIR) {
+						rv = fts_set(fts, ftsent, FTS_SKIP);
+						if (rv == -1) {
+							rv = (*status)(0, COPYFILE_ERR, tstate, ftsent->fts_path, dstfile, s->ctx);
+							if (rv == COPYFILE_QUIT)
+								retval = -1;
+						}
+					}
+					goto skipit;
+				}
+				if (rv == COPYFILE_QUIT) {
+					retval = -1; errno = 0;
+					goto stopit;
+				}
+			}
+			rv = copyfile(ftsent->fts_path, dstfile, tstate, flags);
+			if (rv < 0) {
+				if (status) {
+					rv = (*status)(cmd, COPYFILE_ERR, tstate, ftsent->fts_path, dstfile, s->ctx);
+					if (rv == COPYFILE_QUIT) {
+						retval = -1;
+						goto stopit;
+					} else
+						rv = 0;
+					goto skipit;
+				} else {
+					retval = -1;
+					goto stopit;
+				}
+			}
+			if (status) {
+				rv = (*status)(cmd, COPYFILE_FINISH, tstate, ftsent->fts_path, dstfile, s->ctx);
+				if (rv == COPYFILE_QUIT) {
+					retval = -1; errno = 0;
+					goto stopit;
+				}
+			}
+		} else if (cmd == COPYFILE_RECURSE_DIR_CLEANUP) {
+			int tfd;
+
+			if (status) {
+				rv = (*status)(cmd, COPYFILE_START, tstate, ftsent->fts_path, dstfile, s->ctx);
+				if (rv == COPYFILE_QUIT) {
+					retval = -1; errno = 0;
+					goto stopit;
+				} else if (rv == COPYFILE_SKIP) {
+					rv = 0;
+					goto skipit;
+				}
+			}
+			tfd = open(dstfile,  O_RDONLY);
+			if (tfd != -1) {
+				struct stat sb;
+				if (s->flags & COPYFILE_STAT) {
+					(s->flags & COPYFILE_NOFOLLOW_SRC ? lstat : stat)(ftsent->fts_path, &sb);
+				} else {
+					(s->flags & COPYFILE_NOFOLLOW_DST ? lstat : stat)(dstfile, &sb);
+				}
+				remove_uberace(tfd, &sb);
+				close(tfd);
+				if (status) {
+					rv = (*status)(COPYFILE_RECURSE_DIR_CLEANUP, COPYFILE_FINISH, tstate, ftsent->fts_path, dstfile, s->ctx);
+					if (rv == COPYFILE_QUIT) {
+						rv = -1; errno = 0;
+						goto stopit;
+					}
+				}
+			} else {
+				if (status) {
+					rv = (*status)(COPYFILE_RECURSE_DIR_CLEANUP, COPYFILE_ERR, tstate, ftsent->fts_path, dstfile, s->ctx);
+					if (rv == COPYFILE_QUIT) {
+						retval = -1;
+						goto stopit;
+					} else if (rv == COPYFILE_SKIP || rv == COPYFILE_CONTINUE) {
+						if (rv == COPYFILE_CONTINUE)
+							errno = 0;
+						retval = 0;
+						goto skipit;
+					}
+				} else {
+					retval = -1;
+					goto stopit;
+				}
+			}
+			rv = 0;
+		}
+skipit:
+stopit:
+		copyfile_state_free(tstate);
+		free(dstfile);
+		if (retval == -1)
+			break;
+	}
+
+done:
+	if (fts)
+		fts_close(fts);
+
+	return retval;
 }
 
 /*
@@ -181,7 +739,7 @@ int fcopyfile(int src_fd, int dst_fd, copyfile_state_t state, copyfile_flags_t f
 	s->src_fd = src_fd;
 	if (fstatx_np(s->src_fd, &s->sb, s->fsec) != 0)
 	{
-	    if (errno == ENOTSUP)
+	    if (errno == ENOTSUP || errno == EPERM)
 		fstat(s->src_fd, &s->sb);
 	    else
 	    {
@@ -219,8 +777,15 @@ int fcopyfile(int src_fd, int dst_fd, copyfile_state_t state, copyfile_flags_t f
 	(void)fchmod(s->dst_fd, dst_sb.st_mode & ~S_IFMT);
     }
 
-    if (state == NULL)
+    if (s->err) {
+	errno = s->err;
+	s->err = 0;
+    }
+    if (state == NULL) {
+	int t = errno;
 	copyfile_state_free(s);
+	errno = t;
+    }
 
     return ret;
 
@@ -235,10 +800,9 @@ int fcopyfile(int src_fd, int dst_fd, copyfile_state_t state, copyfile_flags_t f
 int copyfile(const char *src, const char *dst, copyfile_state_t state, copyfile_flags_t flags)
 {
     int ret = 0;
+    int createdst = 0;
     copyfile_state_t s = state;
-    filesec_t original_fsec = NULL;
-    filesec_t permissive_fsec = NULL;
-    struct stat sb;
+    struct stat dst_sb;
 
     if (src == NULL && dst == NULL)
     {
@@ -284,13 +848,23 @@ int copyfile(const char *src, const char *dst, copyfile_state_t state, copyfile_
     COPYFILE_SET_FNAME(src, s);
     COPYFILE_SET_FNAME(dst, s);
 
+    if (s->flags & COPYFILE_RECURSIVE) {
+	ret = copytree(s);
+	goto exit;
+    }
+
     /*
      * Get a copy of the source file's security settings
      */
-    if ((original_fsec = filesec_init()) == NULL)
+    if ((s->original_fsec = filesec_init()) == NULL)
 	goto error_exit;
 
-    if(statx_np(s->dst, &sb, original_fsec) == 0)
+    if ((s->flags & COPYFILE_NOFOLLOW_DST) && lstat(s->dst, &dst_sb) == 0 &&
+	(dst_sb.st_mode & S_IFLNK)) {
+	if (s->permissive_fsec)
+	    free(s->permissive_fsec);
+	s->permissive_fsec = NULL;
+    } else if(statx_np(s->dst, &dst_sb, s->original_fsec) == 0)
     {
 	   /*
 	    * copyfile_fix_perms() will make a copy of the permission set,
@@ -298,20 +872,22 @@ int copyfile(const char *src, const char *dst, copyfile_state_t state, copyfile_
 	    * to the file and set attributes.
 	    */
 
-	if((permissive_fsec = copyfile_fix_perms(s, &original_fsec)) != NULL)
+	if((s->permissive_fsec = copyfile_fix_perms(s, &s->original_fsec)) != NULL)
 	{
 	    /*
 	     * Set the permissions for the destination to our copy.
 	     * We should get ENOTSUP from any filesystem that simply
 	     * doesn't support it.
 	     */
-	    if (chmodx_np(s->dst, permissive_fsec) < 0 && errno != ENOTSUP)
+	    if (chmodx_np(s->dst, s->permissive_fsec) < 0 && errno != ENOTSUP)
 	    {
 		copyfile_warn("setting security information");
-		filesec_free(permissive_fsec);
-		permissive_fsec = NULL;
+		filesec_free(s->permissive_fsec);
+		s->permissive_fsec = NULL;
 	    }
 	}
+    } else if (errno == ENOENT) {
+	createdst = 1;
     }
 
     /*
@@ -327,52 +903,37 @@ int copyfile(const char *src, const char *dst, copyfile_state_t state, copyfile_
 	goto error_exit;
 
     ret = copyfile_internal(s, flags);
+    if (ret == -1)
+	goto error_exit;
 
-    /* If we haven't reset the file security information
-     * (COPYFILE_SECURITY is not set in flags)
-     * restore back the permissions the file had originally
-     *
-     * One of the reasons this seems so complicated is that
-     * it is partially at odds with copyfile_security().
-     *
-     * Simplisticly, we are simply trying to make sure we
-     * only copy what was requested, and that we don't stomp
-     * on what wasn't requsted.
-     */
-
-    if (permissive_fsec && (s->flags & COPYFILE_SECURITY) != COPYFILE_SECURITY) {
-	if (s->flags & COPYFILE_ACL) {
-		/* Just need to reset the BSD information -- mode, owner, group */
-		(void)fchown(s->dst_fd, sb.st_uid, sb.st_gid);
-		(void)fchmod(s->dst_fd, sb.st_mode);
-	} else {
-		/*
-		 * flags is either COPYFILE_STAT, or neither; if it's
-		 * neither, then we restore both ACL and POSIX permissions;
-		 * if it's STAT, however, then we only want to restore the
-		 * ACL (which may be empty).  We do that by removing the
-		 * POSIX information from the filesec object.
-		 */
-		if (s->flags & COPYFILE_STAT) {
-			copyfile_unset_posix_fsec(original_fsec);
-		}
-		if (fchmodx_np(s->dst_fd, original_fsec) < 0 && errno != ENOTSUP)
-		    copyfile_warn("restoring security information");
+#ifdef COPYFILE_RECURSIVE
+    if (!(flags & COPYFILE_STAT)) {
+	if (!createdst)
+	{
+	/* Just need to reset the BSD information -- mode, owner, group */
+	(void)fchown(s->dst_fd, dst_sb.st_uid, dst_sb.st_gid);
+	(void)fchmod(s->dst_fd, dst_sb.st_mode);
 	}
     }
-exit:
-    if (state == NULL)
-	copyfile_state_free(s);
+#endif
 
-    if (original_fsec)
-	filesec_free(original_fsec);
-    if (permissive_fsec)
-	filesec_free(permissive_fsec);
+    reset_security(s);
+
+exit:
+    if (state == NULL) {
+	int t = errno;
+	copyfile_state_free(s);
+	errno = t;
+    }
 
     return ret;
 
 error_exit:
     ret = -1;
+    if (s->err) {
+	errno = s->err;
+	s->err = 0;
+    }
     goto exit;
 }
 
@@ -433,9 +994,8 @@ static int copyfile_internal(copyfile_state_t s, copyfile_flags_t flags)
 
     if (s->dst_fd < 0 || s->src_fd < 0)
     {
-	copyfile_debug(1, "file descriptors not open (src: %d, dst: %d)",
-	s->src_fd, s->dst_fd);
-	errno = EINVAL;
+	copyfile_debug(1, "file descriptors not open (src: %d, dst: %d)", s->src_fd, s->dst_fd);
+	s->err = EINVAL;
 	return -1;
     }
 
@@ -448,7 +1008,7 @@ static int copyfile_internal(copyfile_state_t s, copyfile_flags_t flags)
     {
 	if ((ret = copyfile_pack(s)) < 0)
 	{
-	    unlink(s->dst);
+	    if (s->dst) unlink(s->dst);
 	    goto exit;
 	}
 	goto exit;
@@ -487,7 +1047,7 @@ static int copyfile_internal(copyfile_state_t s, copyfile_flags_t flags)
     {
 	if ((ret = copyfile_xattr(s)) < 0)
 	{
-	    if (errno != ENOTSUP)
+	    if (errno != ENOTSUP && errno != EPERM)
 		copyfile_warn("error processing extended attributes");
 	    goto exit;
 	}
@@ -504,7 +1064,7 @@ static int copyfile_internal(copyfile_state_t s, copyfile_flags_t flags)
 	{
 	    copyfile_warn("error processing data");
 	    if (s->dst && unlink(s->dst))
-		    copyfile_warn("%s: remove", s->src);
+		    copyfile_warn("%s: remove", s->src ? s->src : "(null src)");
 	    goto exit;
 	}
     }
@@ -568,6 +1128,12 @@ int copyfile_state_free(copyfile_state_t s)
 	if (s->fsec)
 	    filesec_free(s->fsec);
 
+	if (s->original_fsec)
+	    filesec_free(s->original_fsec);
+
+	if (s->permissive_fsec)
+	    filesec_free(s->permissive_fsec);
+
 	if (s->qinfo)
 	    qtn_file_free(s->qinfo);
 
@@ -621,6 +1187,10 @@ static filesec_t copyfile_fix_perms(copyfile_state_t s __unused, filesec_t *fsec
 
     if (filesec_get_property(ret_fsec, FILESEC_ACL, &acl) == 0)
     {
+#ifdef COPYFILE_RECURSIVE
+	if (add_uberace(&acl))
+		goto error_exit;
+#else
 	acl_entry_t entry;
 	acl_permset_t permset;
 	uuid_t qual;
@@ -655,6 +1225,7 @@ static filesec_t copyfile_fix_perms(copyfile_state_t s __unused, filesec_t *fsec
 	    goto error_exit;
 	if(acl_set_qualifier(entry, qual) == -1)
 	    goto error_exit;
+#endif
 
 	if (filesec_set_property(ret_fsec, FILESEC_ACL, &acl) != 0)
 	    goto error_exit;
@@ -711,17 +1282,17 @@ static int copyfile_unset_acl(copyfile_state_t s)
     int ret = 0;
     if (filesec_set_property(s->fsec, FILESEC_ACL, NULL) == -1)
     {
-	copyfile_debug(5, "unsetting acl attribute on %s", s->dst);
+	copyfile_debug(5, "unsetting acl attribute on %s", s->dst ? s->dst : "(null dst)");
 	++ret;
     }
     if (filesec_set_property(s->fsec, FILESEC_UUID, NULL) == -1)
     {
-	copyfile_debug(5, "unsetting uuid attribute on %s", s->dst);
+	copyfile_debug(5, "unsetting uuid attribute on %s", s->dst ? s->dst : "(null dst)");
 	++ret;
     }
     if (filesec_set_property(s->fsec, FILESEC_GRPUUID, NULL) == -1)
     {
-	copyfile_debug(5, "unsetting group uuid attribute on %s", s->dst);
+	copyfile_debug(5, "unsetting group uuid attribute on %s", s->dst ? s->dst : "(null dst)");
 	++ret;
     }
     return ret;
@@ -753,8 +1324,8 @@ static int copyfile_open(copyfile_state_t s)
 	{
 	    case S_IFLNK:
 		islnk = 1;
-		if (s->sb.st_size > (off_t)SIZE_T_MAX) {
-			errno = ENOMEM;	/* too big for us to copy */
+		if ((size_t)s->sb.st_size > SIZE_T_MAX) {
+			s->err = ENOMEM;	/* too big for us to copy */
 			return -1;
 		}
 		osrc = O_SYMLINK;
@@ -765,8 +1336,10 @@ static int copyfile_open(copyfile_state_t s)
 	    case S_IFREG:
 		break;
 	    default:
-		errno = ENOTSUP;
-		return -1;
+		if (!(strcmp(s->src, "/dev/null") == 0 && (s->flags & COPYFILE_METADATA))) {
+			s->err = ENOTSUP;
+			return -1;
+		}
 	}
 	/*
 	 * If we're packing, then we are actually
@@ -814,8 +1387,15 @@ static int copyfile_open(copyfile_state_t s)
 	    }
 	}
 
-	if (s->flags & COPYFILE_NOFOLLOW_DST)
+	if (s->flags & COPYFILE_NOFOLLOW_DST) {
+		struct stat st;
+
 		dsrc = O_NOFOLLOW;
+		if (lstat(s->dst, &st) != -1) {
+			if ((st.st_mode & S_IFMT) == S_IFLNK)
+				dsrc = O_SYMLINK;
+		}
+	}
 
 	if (islnk) {
 		size_t sz = (size_t)s->sb.st_size + 1;
@@ -884,6 +1464,16 @@ static int copyfile_open(copyfile_state_t s)
 		    if(chmod(s->dst, (s->sb.st_mode | S_IWUSR) & ~S_IFMT) == 0)
 			continue;
 		    else {
+			/*
+			 * If we're trying to write to a directory to which we don't
+			 * have access, the create above would have failed, but chmod
+			 * here would have given us ENOENT.  But the real error is
+			 * still one of access, so we change the errno we're reporting.
+			 * This could cause confusion with a race condition.
+			 */
+
+			if (errno == ENOENT)
+				errno = EACCES;
 			break;
 		    }
 		case EISDIR:
@@ -904,7 +1494,7 @@ static int copyfile_open(copyfile_state_t s)
     {
 	copyfile_debug(1, "file descriptors not open (src: %d, dst: %d)",
 		s->src_fd, s->dst_fd);
-	errno = EINVAL;
+	s->err = EINVAL;
 	return -1;
     }
     return 0;
@@ -928,7 +1518,7 @@ static copyfile_flags_t copyfile_check(copyfile_state_t s)
 
     if (!s->src)
     {
-	errno = EINVAL;
+	s->err = EINVAL;
 	return -1;
     }
 
@@ -1012,7 +1602,14 @@ static int copyfile_data(copyfile_state_t s)
     ssize_t nread;
     int ret = 0;
     size_t iBlocksize = 0;
+    size_t oBlocksize = 0;
+    const size_t onegig = 1 << 30;
     struct statfs sfs;
+    copyfile_callback_t status = s->statuscb;
+
+    /* Unless it's a normal file, we don't copy.  For now, anyway */
+    if ((s->sb.st_mode & S_IFMT) != S_IFREG)
+	return 0;
 
     if (fstatfs(s->src_fd, &sfs) == -1) {
 	iBlocksize = s->sb.st_blksize;
@@ -1020,11 +1617,25 @@ static int copyfile_data(copyfile_state_t s)
 	iBlocksize = sfs.f_iosize;
     }
 
+    /* Work-around for 6453525, limit blocksize to 1G */
+    if (iBlocksize > onegig) {
+	iBlocksize = onegig;
+    }
+
     if ((bp = malloc(iBlocksize)) == NULL)
 	return -1;
 
+    if (fstatfs(s->dst_fd, &sfs) == -1 || sfs.f_iosize == 0) {
+	oBlocksize = iBlocksize;
+    } else {
+	oBlocksize = sfs.f_iosize;
+	if (oBlocksize > onegig)
+	    oBlocksize = onegig;
+    }
+
     blen = iBlocksize;
 
+    s->totalCopied = 0;
 /* If supported, do preallocation for Xsan / HFS volumes */
 #ifdef F_PREALLOCATE
     {
@@ -1041,36 +1652,57 @@ static int copyfile_data(copyfile_state_t s)
 
     while ((nread = read(s->src_fd, bp, blen)) > 0)
     {
-	size_t nwritten;
+	ssize_t nwritten;
 	size_t left = nread;
 	void *ptr = bp;
+	int loop = 0;
 
 	while (left > 0) {
-		int loop = 0;
-		nwritten = write(s->dst_fd, ptr, left);
+		nwritten = write(s->dst_fd, ptr, MIN(left, oBlocksize));
 		switch (nwritten) {
 		case 0:
 			if (++loop > 5) {
 				copyfile_warn("writing to output %d times resulted in 0 bytes written", loop);
 				ret = -1;
-				errno = EAGAIN;
+				s->err = EAGAIN;
 				goto exit;
 			}
 			break;
 		case -1:
 			copyfile_warn("writing to output file got error");
+			if (status) {
+				int rv = (*status)(COPYFILE_COPY_DATA, COPYFILE_ERR, s, s->src, s->dst, s->ctx);
+				if (rv == COPYFILE_SKIP) {	// Skip the data copy
+					ret = 0;
+					goto exit;
+				}
+				if (rv == COPYFILE_CONTINUE) {	// Retry the write
+					errno = 0;
+					continue;
+				}
+			}
 			ret = -1;
 			goto exit;
 		default:
 			left -= nwritten;
 			ptr = ((char*)ptr) + nwritten;
+			loop = 0;
 			break;
+		}
+		s->totalCopied += nwritten;
+		if (status) {
+			int rv = (*status)(COPYFILE_COPY_DATA, COPYFILE_PROGRESS,  s, s->src, s->dst, s->ctx);
+			if (rv == COPYFILE_QUIT) {
+				ret = -1; s->err = ECANCELED;
+				goto exit;
+			}
 		}
 	}
     }
     if (nread < 0)
     {
-	copyfile_warn("reading from %s", s->src);
+	copyfile_warn("reading from %s", s->src ? s->src : "(null src)");
+	ret = -1;
 	goto exit;
     }
 
@@ -1081,6 +1713,10 @@ static int copyfile_data(copyfile_state_t s)
     }
 
 exit:
+    if (ret == -1)
+    {
+	s->err = errno;
+    }
     free(bp);
     return ret;
 }
@@ -1094,6 +1730,7 @@ exit:
 static int copyfile_security(copyfile_state_t s)
 {
     int copied = 0;
+    int has_uberace = 0;
     acl_flagset_t flags;
     struct stat sb;
     acl_entry_t entry_src = NULL, entry_dst = NULL;
@@ -1111,7 +1748,7 @@ static int copyfile_security(copyfile_state_t s)
 	if (filesec_get_property(s->fsec, FILESEC_ACL, &acl_src))
 	{
 	    if (errno == ENOENT)
-		goto no_acl;
+		acl_src = NULL;
 	    else
 		goto error_exit;
 	}
@@ -1125,27 +1762,77 @@ static int copyfile_security(copyfile_state_t s)
 	if (filesec_get_property(fsec_dst, FILESEC_ACL, &acl_dst))
 	{
 	    if (errno == ENOENT)
-		acl_dst = acl_init(4);
+		acl_dst = NULL;
 	    else
 		goto error_exit;
 	}
-
-	for (;acl_get_entry(acl_src,
-	    entry_src == NULL ? ACL_FIRST_ENTRY : ACL_NEXT_ENTRY,
-	    &entry_src) == 0;)
+	else
 	{
-	    acl_get_flagset_np(entry_src, &flags);
-	    if (!acl_get_flag_np(flags, ACL_ENTRY_INHERITED))
-	    {
-		if ((ret = acl_create_entry(&acl_dst, &entry_dst)) == -1)
-		    goto error_exit;
+		acl_t tmp = acl_init(4);
+		acl_entry_t ace = NULL;
+		int count = 0;
 
-		if ((ret = acl_copy_entry(entry_dst, entry_src)) == -1)
-		    goto error_exit;
+		if (tmp == NULL)
+			goto error_exit;
 
-		copyfile_debug(2, "copied acl entry from %s to %s", s->src, s->dst);
-		copied++;
-	    }
+
+		for (; acl_get_entry(acl_dst,
+			ace == NULL ? ACL_FIRST_ENTRY : ACL_NEXT_ENTRY,
+			&ace) == 0;)
+		{
+			if (count++ == 0 && is_uberace(ace)) {
+				if ((ret = acl_create_entry(&tmp, &entry_dst)) == -1)
+					break;
+				if ((ret = acl_copy_entry(entry_dst, ace)) == -1)
+					break;
+				has_uberace = 1;
+				continue;
+			}
+			acl_get_flagset_np(ace, &flags);
+			if (acl_get_flag_np(flags, ACL_ENTRY_INHERITED))
+			{
+				if ((ret = acl_create_entry(&tmp, &entry_dst)) == -1)
+					break;
+				if ((ret = acl_copy_entry(entry_dst, ace)) == -1)
+					break;
+			}
+		}
+		acl_free(acl_dst);
+		acl_dst = tmp;
+
+		if (ret == -1)
+			goto error_exit;
+	}
+
+	if (acl_src == NULL && acl_dst == NULL)
+		goto no_acl;
+
+	if (acl_src) {
+		if (acl_dst == NULL)
+			acl_dst = acl_init(4);
+		for (copied = 0;acl_get_entry(acl_src,
+		    entry_src == NULL ? ACL_FIRST_ENTRY : ACL_NEXT_ENTRY,
+		    &entry_src) == 0;)
+		{
+		    acl_get_flagset_np(entry_src, &flags);
+		    if (!acl_get_flag_np(flags, ACL_ENTRY_INHERITED))
+		    {
+			if ((ret = acl_create_entry(&acl_dst, &entry_dst)) == -1)
+			    goto error_exit;
+
+			if ((ret = acl_copy_entry(entry_dst, entry_src)) == -1)
+			    goto error_exit;
+
+			copyfile_debug(2, "copied acl entry from %s to %s",
+				s->src ? s->src : "(null src)",
+				s->dst ? s->dst : "(null dst)");
+			copied++;
+		    }
+		}
+	}
+	if (!has_uberace && (s->internal_flags & cfDelayAce)) {
+		if (add_uberace(&acl_dst))
+			goto error_exit;
 	}
 	if (!filesec_set_property(s->fsec, FILESEC_ACL, &acl_dst))
 	{
@@ -1176,15 +1863,36 @@ no_acl:
 	    /* FALLTHROUGH */
 	case COPYFILE_ACL | COPYFILE_STAT:
 	    if (fchmodx_np(s->dst_fd, tmp_fsec) < 0) {
-		if (errno == ENOTSUP) {
-		    if (COPYFILE_STAT & s->flags)
-			fchmod(s->dst_fd, s->sb.st_mode);
-		} else
-		    copyfile_warn("setting security information: %s", s->dst);
+		acl_t acl = NULL;
+		/*
+		 * The call could have failed for a number of reasons, since
+		 * it does a number of things:  it changes the mode of the file,
+		 * sets the owner and group, and applies an ACL (if one exists).
+		 * The typical failure is going to be trying to set the group of
+		 * the destination file to match the source file, when the process
+		 * doesn't have permission to put files in that group.  We try to
+		 * work around this by breaking the steps out and doing them
+		 * discretely.  We don't care if the fchown fails, but we do care
+		 * if the mode or ACL can't be set.  For historical reasons, we
+		 * simply log those failures, however.
+		 */
+
+#define NS(x)	((x) ? (x) : "(null string)")
+		if (fchmod(s->dst_fd, s->sb.st_mode) == -1) {
+			copyfile_warn("could not change mode of destination file %s to match source file %s", NS(s->dst), NS(s->src));
+		}
+		(void)fchown(s->dst_fd, s->sb.st_uid, s->sb.st_gid);
+		if (filesec_get_property(tmp_fsec, FILESEC_ACL, &acl) == 0) {
+			if (acl_set_fd(s->dst_fd, acl) == -1) {
+				copyfile_warn("could not apply acl to destination file %s from source file %s", NS(s->dst), NS(s->src));
+			}
+			acl_free(acl);
+		}
 	    }
+#undef NS
 	    break;
 	case COPYFILE_STAT:
-	    fchmod(s->dst_fd, s->sb.st_mode);
+	    (void)fchmod(s->dst_fd, s->sb.st_mode);
 	    break;
     }
     filesec_free(tmp_fsec);
@@ -1216,7 +1924,7 @@ static int copyfile_stat(copyfile_state_t s)
      */
     if (fchflags(s->dst_fd, (u_int)s->sb.st_flags))
 	if (errno != EOPNOTSUPP || s->sb.st_flags != 0)
-	    copyfile_warn("%s: set flags (was: 0%07o)", s->dst, s->sb.st_flags);
+	    copyfile_warn("%s: set flags (was: 0%07o)", s->dst ? s->dst : "(null dst)", s->sb.st_flags);
 
     /* If this fails, we don't care */
     (void)fchown(s->dst_fd, s->sb.st_uid, s->sb.st_gid);
@@ -1228,7 +1936,7 @@ static int copyfile_stat(copyfile_state_t s)
     tval[1].tv_sec = s->sb.st_mtime;
     tval[0].tv_usec = tval[1].tv_usec = 0;
     if (futimes(s->dst_fd, tval))
-	    copyfile_warn("%s: set times", s->dst);
+	    copyfile_warn("%s: set times", s->dst ? s->dst : "(null dst)");
     return 0;
 }
 
@@ -1283,7 +1991,7 @@ static int copyfile_xattr(copyfile_state_t s)
     } else
     if (nsize < 0)
     {
-	if (errno == ENOTSUP)
+	if (errno == ENOTSUP || errno == EPERM)
 	    return 0;
 	else
 	    return -1;
@@ -1292,7 +2000,7 @@ static int copyfile_xattr(copyfile_state_t s)
     /* get name list of EAs on source */
     if ((nsize = flistxattr(s->src_fd, 0, 0, 0)) < 0)
     {
-	if (errno == ENOTSUP)
+	if (errno == ENOTSUP || errno == EPERM)
 	    return 0;
 	else
 	    return -1;
@@ -1407,6 +2115,17 @@ int copyfile_state_get(copyfile_state_t s, uint32_t flag, void *ret)
 	    ret = s->callbacks.progress;
 	    break;
 #endif
+#ifdef	COPYFILE_STATE_STATUS_CB
+	case COPYFILE_STATE_STATUS_CB:
+	    *(copyfile_callback_t*)ret = s->statuscb;
+	    break;
+	case COPYFILE_STATE_STATUS_CTX:
+	    *(void**)ret = s->ctx;
+	    break;
+	case COPYFILE_STATE_COPIED:
+	    *(off_t*)ret = s->totalCopied;
+	    break;
+#endif
 	default:
 	    errno = EINVAL;
 	    ret = NULL;
@@ -1468,6 +2187,14 @@ int copyfile_state_set(copyfile_state_t s, uint32_t flag, const void * thing)
 	    break;
 	case COPYFILE_STATE_PROGRESS_CB:
 	     s->callbacks.progress = thing;
+	    break;
+#endif
+#ifdef COPYFILE_STATE_STATUS_CB
+	case COPYFILE_STATE_STATUS_CB:
+	    s->statuscb = (copyfile_callback_t)thing;
+	    break;
+	case COPYFILE_STATE_STATUS_CTX:
+	    s->ctx = (void*)thing;
 	    break;
 #endif
 	default:
@@ -1888,7 +2615,7 @@ static int copyfile_unpack(copyfile_state_t s)
 
 	    if ((namebuf = (char*) malloc(bytes)) == NULL)
 	    {
-		errno = ENOMEM;
+		s->err = ENOMEM;
 		goto exit;
 	    }
 	    bytes = flistxattr(s->dst_fd, namebuf, bytes, 0);
@@ -1901,7 +2628,7 @@ static int copyfile_unpack(copyfile_state_t s)
 	}
 	else if (bytes < 0)
 	{
-	    if (errno != ENOTSUP)
+	    if (errno != ENOTSUP && errno != EPERM)
 	    goto exit;
 	}
     }
@@ -1977,6 +2704,7 @@ static int copyfile_unpack(copyfile_state_t s)
 		if (COPYFILE_VERBOSE & s->flags)
 		    copyfile_warn("Incomplete or corrupt attribute entry");
 		error = -1;
+		s->err = EINVAL;
 		goto exit;
 	    }
 
@@ -1984,6 +2712,7 @@ static int copyfile_unpack(copyfile_state_t s)
 		if (COPYFILE_VERBOSE & s->flags)
 		    copyfile_warn("Incomplete or corrupt attribute entry");
 		error = -1;
+		s->err = EINVAL;
 		goto exit;
 	    }
 
@@ -1991,6 +2720,7 @@ static int copyfile_unpack(copyfile_state_t s)
 		if (COPYFILE_VERBOSE & s->flags)
 		    copyfile_warn("Corrupt attribute entry (only %d bytes)", entry->namelen);
 		    error = -1;
+		    s->err = EINVAL;
 		    goto exit;
 	    }
 
@@ -1998,6 +2728,7 @@ static int copyfile_unpack(copyfile_state_t s)
 		if (COPYFILE_VERBOSE & s->flags)
 		    copyfile_warn("Corrupt attribute entry (name length is %d bytes)", entry->namelen);
 		error = -1;
+		s->err = EINVAL;
 		goto exit;
 	    }
 
@@ -2005,6 +2736,7 @@ static int copyfile_unpack(copyfile_state_t s)
 		if (COPYFILE_VERBOSE & s->flags)
 		    copyfile_warn("Incomplete or corrupt attribute entry");
 		error = -1;
+		s->err = EINVAL;
 		goto exit;
 	    }
 
@@ -2013,6 +2745,7 @@ static int copyfile_unpack(copyfile_state_t s)
 		if (COPYFILE_VERBOSE & s->flags)
 		    copyfile_warn("Corrupt attribute entry (name is not NUL-terminated)");
 		error = -1;
+		s->err = EINVAL;
 		goto exit;
 	    }
 
@@ -2024,6 +2757,7 @@ static int copyfile_unpack(copyfile_state_t s)
 	    if (dataptr > endptr || dataptr < buffer) {
 		copyfile_debug(1, "Entry %d overflows:  offset = %u", entry->offset);
 		error = -1;
+		s->err = EINVAL;	/* Invalid buffer */
 		goto exit;
 	    }
 	    if (((char*)dataptr + entry->length) > (char*)endptr ||
@@ -2034,6 +2768,7 @@ static int copyfile_unpack(copyfile_state_t s)
 		copyfile_debug(1, "Entry %d length overflows:  offset = %u, length = %u",
 			entry->offset, entry->length);
 		error = -1;
+		s->err = EINVAL;	/* Invalid buffer */
 		goto exit;
 	    }
 
@@ -2131,10 +2866,13 @@ static int copyfile_unpack(copyfile_state_t s)
 		}
 	    }
 	    /* And, finally, everything else */
-	    else if (COPYFILE_XATTR & s->flags && (fsetxattr(s->dst_fd, (char *)entry->name, dataptr, entry->length, 0, 0))) {
-		if (COPYFILE_VERBOSE & s->flags)
-			copyfile_warn("error %d setting attribute %s", error, entry->name);
-		break;
+	    else if (COPYFILE_XATTR & s->flags) {
+		 if (fsetxattr(s->dst_fd, (char *)entry->name, dataptr, entry->length, 0, 0) == -1) {
+			if (COPYFILE_VERBOSE & s->flags)
+				copyfile_warn("error %d setting attribute %s", error, entry->name);
+			error = -1;
+			goto exit;
+		}
 	    }
 	    entry = ATTR_NEXT(entry);
 	}
@@ -2234,7 +2972,7 @@ static int copyfile_unpack(copyfile_state_t s)
 	    tval[0].tv_usec = tval[1].tv_usec = 0;
 
 	    if (futimes(s->dst_fd, tval))
-		copyfile_warn("%s: set times", s->dst);
+		copyfile_warn("%s: set times", s->dst ? s->dst : "(null dst)");
 	}
 bad:
 	if (rsrcforkdata)
@@ -2334,7 +3072,7 @@ static int copyfile_pack_rsrcfork(copyfile_state_t s, attr_header_t *filehdr)
     }
 
     if (datasize > INT_MAX) {
-	errno = EINVAL;
+	s->err = EINVAL;
 	ret = -1;
 	goto done;
     }
@@ -2424,7 +3162,7 @@ static int copyfile_pack(copyfile_state_t s)
      * Fill in the initial Attribute Header.
      */
     filehdr->magic       = ATTR_HDR_MAGIC;
-    filehdr->debug_tag   = s->sb.st_ino;
+    filehdr->debug_tag   = (u_int32_t)s->sb.st_ino;
     filehdr->data_start  = (u_int32_t)sizeof(attr_header_t);
 
     /*

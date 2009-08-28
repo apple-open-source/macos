@@ -1,5 +1,5 @@
 /*
- * $Id: dl.c 18477 2008-08-11 00:36:08Z shyouhei $
+ * $Id: dl.c 18479 2008-08-11 00:37:21Z shyouhei $
  */
 
 #include <ruby.h>
@@ -559,7 +559,7 @@ rb_ary_to_ptr(int argc, VALUE argv[], VALUE self)
 VALUE
 rb_io_to_ptr(VALUE self)
 {
-  OpenFile *fptr;
+  rb_io_t *fptr;
   FILE     *fp;
 
   GetOpenFile(self, fptr);

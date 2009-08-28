@@ -1,8 +1,8 @@
 /* rwmdn.c - massages dns */
-/* $OpenLDAP: pkg/ldap/servers/slapd/overlays/rwmdn.c,v 1.11.2.7 2006/01/03 22:16:25 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/overlays/rwmdn.c,v 1.18.2.4 2008/02/11 23:26:49 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2006 The OpenLDAP Foundation.
+ * Copyright 1999-2008 The OpenLDAP Foundation.
  * Portions Copyright 1999-2003 Howard Chu.
  * Portions Copyright 2000-2003 Pierangelo Masarati.
  * All rights reserved.
@@ -142,7 +142,6 @@ rwm_dn_massage_pretty_normalize(
 	return rc;
 }
 
-#ifdef ENABLE_REWRITE
 /*
  * massages "in" into "dn"
  * 
@@ -158,27 +157,31 @@ rwm_dn_massage(
 	int		rc = 0;
 	struct berval	mdn;
 	static char	*dmy = "";
+	char *in_val;
 
 	assert( dc != NULL );
 	assert( in != NULL );
 	assert( dn != NULL );
 
+	/* protect from NULL berval */
+	in_val = in->bv_val ? in->bv_val : dmy;
+
 	rc = rewrite_session( dc->rwmap->rwm_rw, dc->ctx,
-			( in->bv_val ? in->bv_val : dmy ), 
-			dc->conn, &mdn.bv_val );
+			in_val, dc->conn, &mdn.bv_val );
 	switch ( rc ) {
 	case REWRITE_REGEXEC_OK:
-		if ( !BER_BVISNULL( &mdn ) && mdn.bv_val != in->bv_val ) {
+		if ( !BER_BVISNULL( &mdn ) && mdn.bv_val != in_val ) {
 			mdn.bv_len = strlen( mdn.bv_val );
 			*dn = mdn;
 		} else {
-			*dn = *in;
+			dn->bv_len = in->bv_len;
+			dn->bv_val = in_val;
 		}
 		rc = LDAP_SUCCESS;
 
 		Debug( LDAP_DEBUG_ARGS,
 			"[rw] %s: \"%s\" -> \"%s\"\n",
-			dc->ctx, in->bv_val, dn->bv_val );
+			dc->ctx, in_val, dn->bv_val );
 		break;
  		
  	case REWRITE_REGEXEC_UNWILLING:
@@ -208,112 +211,5 @@ rwm_dn_massage(
 
 	return rc;
 }
-
-#else /* ! ENABLE_REWRITE */
-/*
- * rwm_dn_massage
- * 
- * Aliases the suffix; based on suffix_alias (servers/slapd/suffixalias.c).
- */
-int
-rwm_dn_massage(
-	dncookie *dc,
-	struct berval *in,
-	struct berval *dn
-)
-{
-	int     	i, src, dst;
-	struct berval	tmpin;
-
-	assert( dc != NULL );
-	assert( in != NULL );
-	assert( dn != NULL );
-
-	BER_BVZERO( dn );
-
-	if ( BER_BVISNULL( in ) ) {
-		return LDAP_SUCCESS;
-	}
-
-	if ( dc->rwmap == NULL || dc->rwmap->rwm_suffix_massage == NULL ) {
-		*dn = *in;
-		return LDAP_SUCCESS;
-	}
-
-	if ( dc->tofrom ) {
-		src = 0 + dc->normalized;
-		dst = 2 + dc->normalized;
-
-		tmpin = *in;
-
-	} else {
-		int	rc;
-
-		src = 2 + dc->normalized;
-		dst = 0 + dc->normalized;
-
-		/* DN from remote server may be in arbitrary form.
-		 * Pretty it so we can parse reliably.
-		 */
-		if ( dc->normalized ) {
-			rc = dnNormalize( 0, NULL, NULL, in, &tmpin, NULL );
-
-		} else {
-			rc = dnPretty( NULL, in, &tmpin, NULL );
-		}
-
-		if ( rc != LDAP_SUCCESS ) {
-			return rc;
-		}
-	}
-
-	for ( i = 0;
-			!BER_BVISNULL( &dc->rwmap->rwm_suffix_massage[i] );
-			i += 4 )
-	{
-		int aliasLength = dc->rwmap->rwm_suffix_massage[i+src].bv_len;
-		int diff = tmpin.bv_len - aliasLength;
-
-		if ( diff < 0 ) {
-			/* alias is longer than dn */
-			continue;
-
-		} else if ( diff > 0 && ( !DN_SEPARATOR(tmpin.bv_val[diff-1])))
-		{
-			/* FIXME: DN_SEPARATOR() is intended to work
-			 * on a normalized/pretty DN, so that ';'
-			 * is never used as a DN separator */
-			continue;
-			/* At a DN Separator */
-		}
-
-		if ( !strcmp( dc->rwmap->rwm_suffix_massage[i+src].bv_val,
-					&tmpin.bv_val[diff] ) )
-		{
-			dn->bv_len = diff + dc->rwmap->rwm_suffix_massage[i+dst].bv_len;
-			dn->bv_val = ch_malloc( dn->bv_len + 1 );
-			strncpy( dn->bv_val, tmpin.bv_val, diff );
-			strcpy( &dn->bv_val[diff], dc->rwmap->rwm_suffix_massage[i+dst].bv_val );
-			Debug( LDAP_DEBUG_ARGS,
-				"rwm_dn_massage:"
-				" converted \"%s\" to \"%s\"\n",
-				in->bv_val, dn->bv_val, 0 );
-
-			break;
-		}
-	}
-
-	if ( tmpin.bv_val != in->bv_val ) {
-		ch_free( tmpin.bv_val );
-	}
-
-	/* Nothing matched, just return the original DN */
-	if ( BER_BVISNULL( dn ) ) {
-		*dn = *in;
-	}
-
-	return LDAP_SUCCESS;
-}
-#endif /* ! ENABLE_REWRITE */
 
 #endif /* SLAPD_OVER_RWM */

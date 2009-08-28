@@ -41,7 +41,6 @@
  */
 #include <architecture/ppc/mode_independent_asm.h>
 
-#include "SYS.h"
 #include "_setjmp.h"
 
 /*

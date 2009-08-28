@@ -1,3 +1,5 @@
+@subheading idna_to_ascii_4i
+@anchor{idna_to_ascii_4i}
 @deftypefun {int} {idna_to_ascii_4i} (const uint32_t * @var{in}, size_t @var{inlen}, char * @var{out}, int @var{flags})
 @var{in}: input array with unicode code points.
 

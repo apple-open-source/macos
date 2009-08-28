@@ -2,8 +2,8 @@
 
   pack.c -
 
-  $Author: shyouhei $
-  $Date: 2007-02-28 21:05:21 +0900 (Wed, 28 Feb 2007) $
+  $Author: knu $
+  $Date: 2008-06-06 19:39:57 +0900 (Fri, 06 Jun 2008) $
   created at: Thu Feb 10 15:17:05 JST 1994
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -366,7 +366,7 @@ num2i32(x)
 #endif
 static const char toofew[] = "too few arguments";
 
-static void encodes _((VALUE,char*,long,int));
+static void encodes _((VALUE,const char*,long,int));
 static void qpencode _((VALUE,VALUE,long));
 
 static int uv_to_utf8 _((char*,unsigned long));
@@ -441,13 +441,13 @@ static VALUE
 pack_pack(ary, fmt)
     VALUE ary, fmt;
 {
-    static char *nul10 = "\0\0\0\0\0\0\0\0\0\0";
-    static char *spc10 = "          ";
+    static const char nul10[] = "\0\0\0\0\0\0\0\0\0\0";
+    static const char spc10[] = "          ";
     char *p, *pend;
     VALUE res, from, associates = 0;
     char type;
     long items, len, idx, plen;
-    char *ptr;
+    const char *ptr;
 #ifdef NATINT_PACK
     int natint;		/* native integer */
 #endif
@@ -1004,21 +1004,21 @@ pack_pack(ary, fmt)
     return res;
 }
 
-static char uu_table[] =
+static const char uu_table[] =
 "`!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_";
-static char b64_table[] =
+static const char b64_table[] =
 "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 static void
 encodes(str, s, len, type)
     VALUE str;
-    char *s;
+    const char *s;
     long len;
     int type;
 {
     char *buff = ALLOCA_N(char, len * 4 / 3 + 6);
     long i = 0;
-    char *trans = type == 'u' ? uu_table : b64_table;
+    const char *trans = type == 'u' ? uu_table : b64_table;
     int padding;
 
     if (type == 'u') {
@@ -1304,7 +1304,7 @@ static VALUE
 pack_unpack(str, fmt)
     VALUE str, fmt;
 {
-    static char *hexdigits = "0123456789abcdef0123456789ABCDEFx";
+    static const char hexdigits[] = "0123456789abcdef0123456789ABCDEFx";
     char *s, *send;
     char *p, *pend;
     VALUE ary;
@@ -1338,7 +1338,7 @@ pack_unpack(str, fmt)
 	}
 	star = 0;
 	if (*p == '_' || *p == '!') {
-	    char *natstr = "sSiIlL";
+	    static const char natstr[] = "sSiIlL";
 
 	    if (strchr(natstr, type)) {
 #ifdef NATINT_PACK
@@ -1884,8 +1884,8 @@ pack_unpack(str, fmt)
 
 	  case 'P':
 	    if (sizeof(char *) <= send - s) {
+		VALUE tmp = Qnil;
 		char *t;
-		VALUE tmp;
 
 		memcpy(&t, s, sizeof(char *));
 		s += sizeof(char *);
@@ -1915,9 +1915,6 @@ pack_unpack(str, fmt)
 			rb_raise(rb_eArgError, "non associated pointer");
 		    }
 		}
-		else {
-		    tmp = Qnil;
-		}
 		rb_ary_push(ary, tmp);
 	    }
 	    break;
@@ -1929,7 +1926,7 @@ pack_unpack(str, fmt)
 		if (send - s < sizeof(char *))
 		    break;
 		else {
-		    VALUE tmp;
+		    VALUE tmp = Qnil;
 		    char *t;
 
 		    memcpy(&t, s, sizeof(char *));
@@ -1953,9 +1950,6 @@ pack_unpack(str, fmt)
 			if (p == pend) {
 			    rb_raise(rb_eArgError, "non associated pointer");
 			}
-		    }
-		    else {
-			tmp = Qnil;
 		    }
 		    rb_ary_push(ary, tmp);
 		}

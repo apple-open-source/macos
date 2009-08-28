@@ -6,6 +6,18 @@ AC_CONFIG_AUX_DIR(..)
 AC_CANONICAL_SYSTEM
 AC_PROG_CC
 
+# Figure out what compiler warnings we can enable.
+# See config/warnings.m4 for details.
+
+ACX_PROG_CC_WARNING_OPTS([-W -Wall -Wwrite-strings -Wstrict-prototypes \
+			  -Wmissing-prototypes -Wold-style-definition \
+			  -Wmissing-format-attribute -Wno-overlength-strings])
+ACX_PROG_CC_WARNING_ALMOST_PEDANTIC([-Wno-long-long])
+
+# Only enable with --enable-werror-always until existing warnings are
+# corrected.
+ACX_PROG_CC_WARNINGS_ARE_ERRORS([manual])
+
 # Determine the noncanonical target name, for directory use.
 ACX_NONCANONICAL_TARGET
 
@@ -52,8 +64,6 @@ if test $TARGET = twoprocess; then
 		  [Define if testing and fixing are done by separate process])
 fi
 
-TL_AC_GCC_VERSION([$srcdir/..])
-
 case $host in
 	vax-dec-bsd* )
 		AC_DEFINE(exit, xexit, [Define to xexit if the host system does not support atexit])
@@ -74,7 +84,7 @@ define(fixincludes_UNLOCKED_FUNCS, clearerr_unlocked feof_unlocked dnl
   fread_unlocked fwrite_unlocked getchar_unlocked getc_unlocked dnl
   putchar_unlocked putc_unlocked)
 AC_CHECK_FUNCS(fixincludes_UNLOCKED_FUNCS)
-AC_CHECK_DECLS(m4_split(m4_normalize(abort errno fixincludes_UNLOCKED_FUNCS)))
+AC_CHECK_DECLS(m4_split(m4_normalize(abort asprintf basename errno vasprintf fixincludes_UNLOCKED_FUNCS)))
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
@@ -97,5 +107,5 @@ fi
 AC_SUBST(MAINT)
 
 AC_CONFIG_HEADERS(config.h, [echo timestamp > stamp-h])
-AC_CONFIG_FILES(Makefile mkheaders)
+AC_CONFIG_FILES(Makefile mkheaders.almost:mkheaders.in)
 AC_OUTPUT

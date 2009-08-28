@@ -1,4 +1,31 @@
-# $Id: dist.mk,v 1.498 2005/10/09 14:41:57 tom Exp $
+##############################################################################
+# Copyright (c) 1998-2007,2008 Free Software Foundation, Inc.                #
+#                                                                            #
+# Permission is hereby granted, free of charge, to any person obtaining a    #
+# copy of this software and associated documentation files (the "Software"), #
+# to deal in the Software without restriction, including without limitation  #
+# the rights to use, copy, modify, merge, publish, distribute, distribute    #
+# with modifications, sublicense, and/or sell copies of the Software, and to #
+# permit persons to whom the Software is furnished to do so, subject to the  #
+# following conditions:                                                      #
+#                                                                            #
+# The above copyright notice and this permission notice shall be included in #
+# all copies or substantial portions of the Software.                        #
+#                                                                            #
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR #
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,   #
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL    #
+# THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER      #
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING    #
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER        #
+# DEALINGS IN THE SOFTWARE.                                                  #
+#                                                                            #
+# Except as contained in this notice, the name(s) of the above copyright     #
+# holders shall not be used in advertising or otherwise to promote the sale, #
+# use or other dealings in this Software without prior written               #
+# authorization.                                                             #
+##############################################################################
+# $Id: dist.mk,v 1.671 2008/11/02 00:58:38 tom Exp $
 # Makefile for creating ncurses distributions.
 #
 # This only needs to be used directly as a makefile by developers, but
@@ -9,16 +36,18 @@ SHELL = /bin/sh
 
 # These define the major/minor/patch versions of ncurses.
 NCURSES_MAJOR = 5
-NCURSES_MINOR = 5
-NCURSES_PATCH = 20051010
+NCURSES_MINOR = 7
+NCURSES_PATCH = 20081102
 
 # We don't append the patch to the version, since this only applies to releases
 VERSION = $(NCURSES_MAJOR).$(NCURSES_MINOR)
 
-# The most recent html files were generated with lynx 2.8.5, configured with
+# The most recent html files were generated with lynx 2.8.6, using ncurses
+# configured with
 #	--without-manpage-renames
-# on Debian/testing.
-DUMP	= lynx -dump
+# on Debian/testing.  The -scrollbar and -width options are used to make lynx
+# use 79 columns as it did in 2.8.5 and before.
+DUMP	= lynx -dump -scrollbar=0 -width=79
 DUMP2	= $(DUMP) -nolist
 
 GNATHTML= `type -p gnathtml || type -p gnathtml.pl`
@@ -62,6 +91,11 @@ doc/hackguide.doc: doc/html/hackguide.html
 #
 # The distributed html files are formatted using
 #	configure --without-manpage-renames
+#
+# The edit_man.sed script is built as a side-effect of installing the manpages.
+# If that conflicts with the --without-manpage-renames, you can install those
+# in a different location using the --with-install-prefix option of the
+# configure script.
 MANPROG	= tbl | nroff -mandoc -rLL=65n -rLT=71n -Tascii
 
 manhtml:
@@ -77,6 +111,7 @@ manhtml:
 	   fi ;\
 	done
 	# change some things to make weblint happy:
+	@cat man_alias.sed           >> subst.tmp
 	@echo 's/<B>/<STRONG>/g'     >> subst.tmp
 	@echo 's/<\/B>/<\/STRONG>/g' >> subst.tmp
 	@echo 's/<I>/<EM>/g'         >> subst.tmp

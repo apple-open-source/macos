@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,7 +42,7 @@ struct __DAResponseContext
 typedef struct __DAResponseContext __DAResponseContext;
 
 const CFGregorianUnits __kDAResponseTimerGrace = { 0, 0, 0, 0, 0,  1 };
-const CFGregorianUnits __kDAResponseTimerLimit = { 0, 0, 0, 0, 0, 15 };
+const CFGregorianUnits __kDAResponseTimerLimit = { 0, 0, 0, 0, 0, 10 };
 
 static void __DAResponseTimerRefresh( void );
 

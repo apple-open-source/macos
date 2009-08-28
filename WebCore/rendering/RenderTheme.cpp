@@ -42,6 +42,12 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
+static Color& customFocusRingColor()
+{
+    DEFINE_STATIC_LOCAL(Color, color, ());
+    return color;
+}
+
 RenderTheme::RenderTheme()
 #if USE(NEW_THEME)
     : m_theme(platformTheme())
@@ -62,7 +68,7 @@ void RenderTheme::adjustStyle(CSSStyleSelector* selector, RenderStyle* style, El
     else if (style->display() == COMPACT || style->display() == RUN_IN || style->display() == LIST_ITEM || style->display() == TABLE)
         style->setDisplay(BLOCK);
 
-    if (UAHasAppearance && theme()->isControlStyled(style, border, background, backgroundColor)) {
+    if (UAHasAppearance && isControlStyled(style, border, background, backgroundColor)) {
         if (part == MenulistPart) {
             style->setAppearance(MenulistButtonPart);
             part = MenulistButtonPart;
@@ -262,6 +268,10 @@ bool RenderTheme::paint(RenderObject* o, const RenderObject::PaintInfo& paintInf
             return paintMediaSeekBackButton(o, paintInfo, r);
         case MediaSeekForwardButtonPart:
             return paintMediaSeekForwardButton(o, paintInfo, r);
+        case MediaRewindButtonPart:
+            return paintMediaRewindButton(o, paintInfo, r);
+        case MediaReturnToRealtimeButtonPart:
+            return paintMediaReturnToRealtimeButton(o, paintInfo, r);
         case MediaSliderPart:
             return paintMediaSliderTrack(o, paintInfo, r);
         case MediaSliderThumbPart:
@@ -272,8 +282,8 @@ bool RenderTheme::paint(RenderObject* o, const RenderObject::PaintInfo& paintInf
             return paintMediaTimeRemaining(o, paintInfo, r);
         case MediaCurrentTimePart:
             return paintMediaCurrentTime(o, paintInfo, r);
-        case MediaTimelineContainerPart:
-            return paintMediaTimelineContainer(o, paintInfo, r);
+        case MediaControlsBackgroundPart:
+            return paintMediaControlsBackground(o, paintInfo, r);
         case MenulistButtonPart:
         case TextFieldPart:
         case TextAreaPart:
@@ -847,6 +857,16 @@ Color RenderTheme::platformActiveTextSearchHighlightColor() const
 Color RenderTheme::platformInactiveTextSearchHighlightColor() const
 {
     return Color(255, 255, 0); // Yellow.
+}
+
+void RenderTheme::setCustomFocusRingColor(const Color& c)
+{
+    customFocusRingColor() = c;
+}
+
+Color RenderTheme::focusRingColor()
+{
+    return customFocusRingColor().isValid() ? customFocusRingColor() : defaultTheme()->platformFocusRingColor();
 }
 
 } // namespace WebCore

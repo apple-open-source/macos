@@ -106,14 +106,14 @@ int pppoe_domain_init(int init_arg)
     int 	ret = KERN_SUCCESS;
     struct domain *pppdomain;
     
-    log(LOGVAL, "PPPoE domain init\n");
+    IOLog("PPPoE domain init\n");
 
     if (pppoe_domain_inited)
         return(KERN_SUCCESS);
 
     pppdomain = pffinddomain(PF_PPP);
     if (!pppdomain) {
-        log(LOGVAL, "PPPoE domain init : PF_PPP domain does not exist...\n");
+        IOLog("PPPoE domain init : PF_PPP domain does not exist...\n");
         return(KERN_FAILURE);
     }
     	
@@ -121,13 +121,13 @@ int pppoe_domain_init(int init_arg)
 	
     ret = pppoe_rfc_init();
     if (ret) {
-        log(LOGVAL, "PPPoE domain init : can't init PPPoE protocol RFC, err : %d\n", ret);
+        IOLog("PPPoE domain init : can't init PPPoE protocol RFC, err : %d\n", ret);
         goto end;
     }
     
     ret = pppoe_add(pppdomain);
     if (ret) {
-        log(LOGVAL, "PPPoE domain init : can't add proto to PPPoE domain, err : %d\n", ret);
+        IOLog("PPPoE domain init : can't add proto to PPPoE domain, err : %d\n", ret);
         pppoe_rfc_dispose();
         goto end;
     }
@@ -149,7 +149,7 @@ int pppoe_domain_terminate(int term_arg)
     int 	ret = KERN_SUCCESS;
     struct domain *pppdomain;
     
-    log(LOGVAL, "PPPoE domain terminate\n");
+    IOLog("PPPoE domain terminate\n");
 
     if (!pppoe_domain_inited)
         return(KERN_SUCCESS);
@@ -157,7 +157,7 @@ int pppoe_domain_terminate(int term_arg)
 	pppdomain = pffinddomain(PF_PPP);
     if (!pppdomain) {
         // humm.. should not happen
-        log(LOGVAL, "PPPoE domain terminate : PF_PPP domain does not exist...\n");
+        IOLog("PPPoE domain terminate : PF_PPP domain does not exist...\n");
         return KERN_FAILURE;
     }
 
@@ -165,19 +165,19 @@ int pppoe_domain_terminate(int term_arg)
 	
     ret = pppoe_rfc_dispose();
     if (ret) {
-        log(LOGVAL, "PPPoE domain is in use and cannot terminate, err : %d\n", ret);
+        IOLog("PPPoE domain is in use and cannot terminate, err : %d\n", ret);
         goto end;
     }
 
     ret = pppoe_wan_dispose();
     if (ret) {
-        log(LOGVAL, "PPPoE domain terminate : pppoe_wan_dispose, err : %d\n", ret);
+        IOLog("PPPoE domain terminate : pppoe_wan_dispose, err : %d\n", ret);
         goto end;
     }
     
     ret = pppoe_remove(pppdomain);
     if (ret) {
-        log(LOGVAL, "PPPoE domain terminate : can't del proto from PPPoE domain, err : %d\n", ret);
+        IOLog("PPPoE domain terminate : can't del proto from PPPoE domain, err : %d\n", ret);
         goto end;
     }
 

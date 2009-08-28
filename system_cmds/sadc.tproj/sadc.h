@@ -37,10 +37,10 @@
 
 struct record_hdr
 {
-    int    rec_type;
-    int   rec_version;    
-    int   rec_count;
-    long  rec_size;
+	int32_t	rec_type;
+	int32_t	rec_version;    
+	int32_t	rec_count;
+	int32_t	rec_size;
 };
 
 #define rec_data rec_size
@@ -55,36 +55,37 @@ struct record_hdr
 
 struct drivepath
 {
-    int	        drivepath_id;            /* compressed table id */
-    int         state;
-    char        BSDName[MAXDRIVENAME + 1];
-    io_string_t ioreg_path;              /* unique id, hardware path */
+	int32_t	drivepath_id;		/* compressed table id */
+	int32_t	state;
+	char	BSDName[MAXDRIVENAME + 1];
+	io_string_t	ioreg_path;	/* unique id, hardware path */
 };
     
 
 struct drivestats
 {
-    io_registry_entry_t    	driver;
-    int				drivepath_id;
-    u_int64_t			blocksize;
-    
-    u_int64_t			Reads;    
-    u_int64_t			BytesRead;
-    
-    u_int64_t			Writes;    
-    u_int64_t			BytesWritten;
-    
-    u_int64_t			LatentReadTime;
-    u_int64_t			LatentWriteTime;
-    
-    u_int64_t			ReadErrors;
-    u_int64_t			WriteErrors;
-    
-    u_int64_t			ReadRetries;
-    u_int64_t			WriteRetries;    
+	io_registry_entry_t    	driver;
 
-    u_int64_t			TotalReadTime;
-    u_int64_t			TotalWriteTime;
+	int32_t			drivepath_id;
+	uint64_t		blocksize;
+
+	uint64_t		Reads;
+	uint64_t		BytesRead;
+
+	uint64_t		Writes;
+	uint64_t		BytesWritten;
+
+	uint64_t		LatentReadTime;
+	uint64_t		LatentWriteTime;
+
+	uint64_t		ReadErrors;
+	uint64_t		WriteErrors;
+
+	uint64_t		ReadRetries;
+	uint64_t		WriteRetries;
+
+	uint64_t		TotalReadTime;
+	uint64_t		TotalWriteTime;
 };
 
 
@@ -103,17 +104,17 @@ struct drivestats
 
 struct netstats
 {
-    char		    tname_unit[MAX_TNAME_UNIT_SIZE + 1];
-    unsigned long           gen_counter;        /* unit generation counter */
+	char		tname_unit[MAX_TNAME_UNIT_SIZE + 1];
+	uint32_t	gen_counter;        /* unit generation counter */
     
-    unsigned long long      net_ipackets;
-    unsigned long long      net_ierrors;        
-    unsigned long long      net_opackets;
-    unsigned long long      net_oerrors;
-    unsigned long long      net_collisions;    
-    unsigned long long      net_ibytes;
-    unsigned long long      net_obytes;
-    unsigned long long      net_imcasts;
-    unsigned long long      net_omcasts;
-    unsigned long long	    net_drops;
+	uint64_t	net_ipackets;
+	uint64_t	net_ierrors;        
+	uint64_t	net_opackets;
+	uint64_t	net_oerrors;
+	uint64_t	net_collisions;    
+	uint64_t	net_ibytes;
+	uint64_t	net_obytes;
+	uint64_t	net_imcasts;
+	uint64_t	net_omcasts;
+	uint64_t	net_drops;
 };

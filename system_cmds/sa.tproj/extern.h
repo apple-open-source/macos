@@ -27,7 +27,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $FreeBSD: src/usr.sbin/sa/extern.h,v 1.5 2002/07/11 22:11:20 alfred Exp $
+ * $FreeBSD: src/usr.sbin/sa/extern.h,v 1.7 2007/05/22 06:51:38 dds Exp $
  */
 
 #include <sys/types.h>
@@ -36,31 +36,55 @@
 
 /* structures */
 
+/* All times are stored in 1e-6s units. */
+
 struct cmdinfo {
 	char		ci_comm[MAXCOMLEN+2];	/* command name (+ '*') */
-	u_long		ci_uid;			/* user id */
+	uid_t		ci_uid;			/* user id */
+#ifdef __APPLE__
 	u_quad_t	ci_calls;		/* number of calls */
 	u_quad_t	ci_etime;		/* elapsed time */
 	u_quad_t	ci_utime;		/* user time */
 	u_quad_t	ci_stime;		/* system time */
 	u_quad_t	ci_mem;			/* memory use */
 	u_quad_t	ci_io;			/* number of disk i/o ops */
+#else
+	double		ci_etime;		/* elapsed time */
+	double		ci_utime;		/* user time */
+	double		ci_stime;		/* system time */
+	double		ci_mem;			/* memory use */
+	double		ci_io;			/* number of disk i/o ops */
+#endif
 	u_int		ci_flags;		/* flags; see below */
 };
 #define	CI_UNPRINTABLE	0x0001			/* unprintable chars in name */
 
 struct userinfo {
-	u_long		ui_uid;			/* user id; for consistency */
+	uid_t		ui_uid;			/* user id; for consistency */
 	u_quad_t	ui_calls;		/* number of invocations */
+#ifdef __APPLE__
 	u_quad_t	ui_utime;		/* user time */
 	u_quad_t	ui_stime;		/* system time */
 	u_quad_t	ui_mem;			/* memory use */
 	u_quad_t	ui_io;			/* number of disk i/o ops */
+#else
+	double		ui_utime;		/* user time */
+	double		ui_stime;		/* system time */
+	double		ui_mem;			/* memory use */
+	double		ui_io;			/* number of disk i/o ops */
+#endif
 };
 
 /* typedefs */
 
 typedef	int (*cmpf_t)(const DBT *, const DBT *);
+
+/* external functions in db.c */
+int db_copy_in(DB **mdb, const char *dbname, const char *name,
+    BTREEINFO *bti, int (*v1_to_v2)(DBT *key, DBT *data));
+int db_copy_out(DB *mdb, const char *dbname, const char *name,
+    BTREEINFO *bti);
+void db_destroy(DB *db, const char *uname);
 
 /* external functions in pdb.c */
 int	pacct_init(void);
@@ -68,6 +92,11 @@ void	pacct_destroy(void);
 int	pacct_add(const struct cmdinfo *);
 int	pacct_update(void);
 void	pacct_print(void);
+
+#ifndef __APPLE__
+/* external functions in readrec.c */
+int	readrec_forward(FILE *f, struct acctv2 *av2);
+#endif
 
 /* external functions in usrdb.c */
 int	usracct_init(void);
@@ -82,6 +111,7 @@ extern int	aflag, bflag, cflag, dflag, Dflag, fflag, iflag, jflag, kflag;
 extern int	Kflag, lflag, mflag, qflag, rflag, sflag, tflag, uflag, vflag;
 extern u_quad_t	cutoff;
 extern cmpf_t	sa_cmp;
+extern const char *pdb_file, *usrdb_file;
 
 /* some #defines to help with db's stupidity */
 

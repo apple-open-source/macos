@@ -44,7 +44,6 @@
 #include <fcntl.h>
 #include <syslog.h>
 #include <netdb.h>
-#include <utmp.h>
 #include <pwd.h>
 #include <setjmp.h>
 #include <sys/param.h>
@@ -116,7 +115,7 @@ int l2tpvpn_accept(void);
 int l2tpvpn_refuse(void);
 void l2tpvpn_close(void);
 
-static u_long load_kext(char *kext);
+static u_long load_kext(char *kext, int byBundleID);
 
 /* -----------------------------------------------------------------------------
 plugin entry point, called by vpnd
@@ -148,16 +147,20 @@ int start(struct vpn_channel* the_vpn_channel, CFBundleRef ref, CFBundleRef pppr
             vpnlog(LOG_DEBUG, "L2TP plugin: first call to socket failed - attempting to load kext\n");
             if (url = CFBundleCopyBundleURL(pppref)) {
                 name[0] = 0;
-                CFURLGetFileSystemRepresentation(url, 0, name, MAXPATHLEN - 1);
+                CFURLGetFileSystemRepresentation(url, 0, (UInt8 *)name, MAXPATHLEN - 1);
                 CFRelease(url);
-                strcat(name, "/");
+                strlcat(name, "/", sizeof(name));
                 if (url = CFBundleCopyBuiltInPlugInsURL(pppref)) {
-                    CFURLGetFileSystemRepresentation(url, 0, name + strlen(name), 
+                    CFURLGetFileSystemRepresentation(url, 0, (UInt8 *)(name + strlen(name)), 
                                 MAXPATHLEN - strlen(name) - strlen(L2TP_NKE) - 1);
                     CFRelease(url);
-                    strcat(name, "/");
-                    strcat(name, L2TP_NKE);
-                    if (!load_kext(name))
+                    strlcat(name, "/", sizeof(name));
+                    strlcat(name, L2TP_NKE, sizeof(name));
+#ifndef TARGET_EMBEDDED_OS
+                    if (!load_kext(name, 0))
+#else
+                    if (!load_kext(L2TP_NKE_ID, 1))
+#endif
                         while ((listen_sockfd = socket(PF_PPP, SOCK_DGRAM, PPPPROTO_L2TP)) < 0)
                             if (errno != EINTR)
                                 break;
@@ -170,6 +173,7 @@ int start(struct vpn_channel* the_vpn_channel, CFBundleRef ref, CFBundleRef pppr
         }
     }
     
+#ifndef TARGET_EMBEDDED_OS
 	/* increase the number of threads for l2tp to nb cpus - 1 */
     len = sizeof(int); 
 	sysctlbyname("hw.ncpu", &nb_cpu, &len, NULL, 0);
@@ -180,6 +184,7 @@ int start(struct vpn_channel* the_vpn_channel, CFBundleRef ref, CFBundleRef pppr
 			sysctlbyname("net.ppp.l2tp.nb_threads", 0, 0, &nb_threads, sizeof(int));
 		}
 	}
+#endif
 
     /* retain reference */
     bundle = ref;
@@ -333,7 +338,7 @@ int l2tpvpn_health_check(int *outfd, int event)
 
 			bzero(&sun, sizeof(sun));
 			sun.sun_family = AF_LOCAL;
-			strncpy(sun.sun_path, "/etc/racoon/vpncontrol.sock", sizeof(sun.sun_path));
+			strncpy(sun.sun_path, "/var/run/vpncontrol.sock", sizeof(sun.sun_path));
 
 			if (connect(racoon_sockfd,  (struct sockaddr *)&sun, sizeof(sun)) < 0) {
 				vpnlog(LOG_ERR, "Unable to connect racoon control socket (errno = %d)\n", errno);
@@ -431,7 +436,7 @@ int l2tpvpn_lb_redirect(struct in_addr *cluster_addr, struct in_addr *redirect_a
 /* ----------------------------------------------------------------------------- 
     system call wrappers
 ----------------------------------------------------------------------------- */
-int l2tp_sys_getsockopt(int sockfd, int level, int optname, void *optval, int *optlen)
+int l2tp_sys_getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optlen)
 {
     while (getsockopt(sockfd, level, optname, optval, optlen) < 0)
         if (errno != EINTR) {
@@ -441,7 +446,7 @@ int l2tp_sys_getsockopt(int sockfd, int level, int optname, void *optval, int *o
     return 0;
 }
 
-int l2tp_sys_setsockopt(int sockfd, int level, int optname, const void *optval, int optlen)
+int l2tp_sys_setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t optlen)
 {
     while (setsockopt(sockfd, level, optname, optval, optlen) < 0)
         if (errno != EINTR) {
@@ -452,7 +457,7 @@ int l2tp_sys_setsockopt(int sockfd, int level, int optname, const void *optval, 
 }
 
 int l2tp_sys_recvfrom(int sockfd, void *buff, size_t nbytes, int flags,
-            struct sockaddr *from, int *addrlen)
+            struct sockaddr *from, socklen_t *addrlen)
 {
     while (recvfrom(sockfd, buff, nbytes, flags, from, addrlen) < 0)
         if (errno != EINTR) {
@@ -467,7 +472,7 @@ int l2tp_sys_recvfrom(int sockfd, void *buff, size_t nbytes, int flags,
 ----------------------------------------------------------------------------- */
 int set_flag(int fd, int set, u_int32_t flag)
 {
-    int 	optlen;
+    socklen_t 	optlen;
     u_int32_t	flags;
     
     optlen = 4;
@@ -499,7 +504,7 @@ static void closeall()
 /* -----------------------------------------------------------------------------
     load_kext
 ----------------------------------------------------------------------------- */
-static u_long load_kext(char *kext)
+u_long load_kext(char *kext, int byBundleID)
 {
     int pid;
 
@@ -509,7 +514,10 @@ static u_long load_kext(char *kext)
     if (pid == 0) {
         closeall();
         // PPP kernel extension not loaded, try load it...
-        execle("/sbin/kextload", "kextload", kext, (char *)0, (char *)0);
+		if (byBundleID)
+			execle("/sbin/kextload", "kextload", "-b", kext, (char *)0, (char *)0);
+		else
+			execle("/sbin/kextload", "kextload", kext, (char *)0, (char *)0);
         exit(1);
     }
 
@@ -525,7 +533,7 @@ static u_long load_kext(char *kext)
 ----------------------------------------------------------------------------- */
 int l2tp_set_ouraddress(int fd, struct sockaddr *addr)
 {
-    int optlen;
+    socklen_t optlen;
 
     setsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_OURADDRESS, addr, sizeof(*addr));
     /* get the address to retrieve the actual port used */
@@ -571,9 +579,9 @@ int l2tpvpn_listen(void)
 		int						natt_multiple_users;
 
 		/* get authentication method from the IPSec dict */
-		auth_method = CFDictionaryGetValue(ipsec_settings, kRASPropIPSecProposalAuthenticationMethod);
+		auth_method = CFDictionaryGetValue(ipsec_settings, kRASPropIPSecAuthenticationMethod);
 		if (!isString(auth_method))
-			auth_method = kRASValIPSecProposalAuthenticationMethodSharedSecret;
+			auth_method = kRASValIPSecAuthenticationMethodSharedSecret;
 
 		/* get setting for nat traversal multiple user support - default is enabled for server */
 		GetIntFromDict(ipsec_settings, kRASPropIPSecNattMultipleUsersEnabled, &natt_multiple_users, 1);
@@ -583,11 +591,11 @@ int l2tpvpn_listen(void)
 			auth_method, 0, natt_multiple_users, 0); 
 
 		/* set the authentication information */
-		if (CFEqual(auth_method, kRASValIPSecProposalAuthenticationMethodSharedSecret)) {
+		if (CFEqual(auth_method, kRASValIPSecAuthenticationMethodSharedSecret)) {
 			string = CFDictionaryGetValue(ipsec_settings, kRASPropIPSecSharedSecret);
 			if (isString(string)) 
 				CFDictionarySetValue(ipsec_dict, kRASPropIPSecSharedSecret, string);
-			else if (isData(string) && ((CFDataGetLength(string) % sizeof(UniChar)) == 0)) {
+			else if (isData(string) && ((CFDataGetLength((CFDataRef)string) % sizeof(UniChar)) == 0)) {
 				CFStringEncoding    encoding;
 
 				data = (CFDataRef)string;
@@ -604,7 +612,7 @@ int l2tpvpn_listen(void)
 			if (isString(string)) 
 				CFDictionarySetValue(ipsec_dict, kRASPropIPSecSharedSecretEncryption, string);
 		}
-		else if (CFEqual(auth_method, kRASValIPSecProposalAuthenticationMethodCertificate)) {
+		else if (CFEqual(auth_method, kRASValIPSecAuthenticationMethodCertificate)) {
 			data = CFDictionaryGetValue(ipsec_settings, kRASPropIPSecLocalCertificate);
 			if (isData(data)) 
 				CFDictionarySetValue(ipsec_dict, kRASPropIPSecLocalCertificate, data);
@@ -639,7 +647,7 @@ int l2tpvpn_accept(void)
 {
 
     u_int8_t			recv_buf[1500];
-    int				addrlen;
+    socklen_t				addrlen;
     struct sockaddr_in6		from;
     int 			newSockfd; 
     
@@ -674,7 +682,7 @@ int l2tpvpn_accept(void)
 int l2tpvpn_refuse(void) 
 {
     u_int8_t			recv_buf[1500];
-    int				addrlen;
+    socklen_t				addrlen;
     struct sockaddr_in6		from;    
     int 			newSockfd; 
     

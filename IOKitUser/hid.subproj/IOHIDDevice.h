@@ -1,8 +1,7 @@
 /*
- *
- * @APPLE_LICENSE_HEADER_START@
+ * Copyright (c) 1999-2008 Apple Computer, Inc.  All Rights Reserved.
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * @APPLE_LICENSE_HEADER_START@
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -76,6 +75,20 @@ IOHIDDeviceRef IOHIDDeviceCreate(
                                 CFAllocatorRef                  allocator, 
                                 io_service_t                    service)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+/*!
+    @function   IOHIDDeviceGetService
+    @abstract   Returns the io_service_t for an IOHIDDevice, if it has one.
+    @discussion If the IOHIDDevice references an object in the kernel, this is
+                used to get the io_service_t for that object.
+    @param      device Reference to an IOHIDDevice.
+    @result     Returns the io_service_t if the IOHIDDevice has one, or 
+                MACH_PORT_NULL if it does not.
+ */
+CF_EXPORT
+io_service_t IOHIDDeviceGetService(
+                                 IOHIDDeviceRef                  device)
+AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
 	@function   IOHIDDeviceOpen

@@ -58,7 +58,7 @@ routine checkUsernameAndPassword
 );
 
 /*
- * This is used for creating a new session, for future use
+ * This is used for creating a new session
  */
 
 routine create_api_session
@@ -66,7 +66,7 @@ routine create_api_session
 		server              : mach_port_t;
 	out newServer           : mach_port_t = MACH_MSG_TYPE_MAKE_SEND;
 	
-    ServerAuditToken atoken	: audit_token_t
+    AuditToken atoken       : audit_token_t
 );
 
 /*
@@ -82,4 +82,14 @@ routine api_call
     out reply_msg_ool       : pointer_t, Dealloc;
 	
     ServerAuditToken atoken	: audit_token_t
+);
+
+/*
+ * This is for closing out the session
+ */
+ 
+routine close_api_session
+(
+                        server  : mach_port_t;
+    ServerAuditToken    atoken	: audit_token_t
 );

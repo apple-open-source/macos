@@ -37,9 +37,9 @@ class HTMLElement;
 class Node;
 class Position;
 class Range;
-class VisibleSelection;
 class String;
 class VisiblePosition;
+class VisibleSelection;
 
 Position rangeCompliantEquivalent(const Position&);
 Position rangeCompliantEquivalent(const VisiblePosition&);
@@ -51,6 +51,7 @@ Node* highestEditableRoot(const Position&);
 VisiblePosition firstEditablePositionAfterPositionInRoot(const Position&, Node*);
 VisiblePosition lastEditablePositionBeforePositionInRoot(const Position&, Node*);
 int comparePositions(const Position&, const Position&);
+int comparePositions(const VisiblePosition&, const VisiblePosition&);
 Node* lowestEditableAncestor(Node*);
 bool isContentEditable(const Node*);
 Position nextCandidate(const Position&);
@@ -122,7 +123,8 @@ Node* enclosingAnchorElement(const Position&);
 bool isListElement(Node*);
 HTMLElement* enclosingList(Node*);
 HTMLElement* outermostEnclosingList(Node*);
-Node* enclosingListChild(Node*);
+HTMLElement* enclosingListChild(Node*);
+bool canMergeLists(Element* firstList, Element* secondList);
 Node* highestAncestor(Node*);
 bool isTableElement(Node*);
 bool isTableCell(const Node*);
@@ -133,7 +135,7 @@ bool lineBreakExistsAtVisiblePosition(const VisiblePosition&);
 VisibleSelection selectionForParagraphIteration(const VisibleSelection&);
 
 int indexForVisiblePosition(VisiblePosition&);
-
+bool isVisibilyAdjacent(const Position& first, const Position& second);
 }
 
 #endif

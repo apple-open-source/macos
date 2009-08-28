@@ -1,7 +1,7 @@
 # Project info
 Project           = ncurses
-ProjectVersion    = 5.5
-Patches           = make.diff hex.diff dynamic-no-pic.diff wgetbkgrnd.diff
+ProjectVersion    = 5.7
+Patches           = make.diff hex.diff dynamic-no-pic.diff wgetbkgrnd.diff ungetch_guard.diff opaque_fix.diff supress_usr_lib.diff
 
 # This shouldn't change, needed for compatibility.
 ABIVersion        = 5.4
@@ -10,6 +10,14 @@ Configure_Flags = --with-shared --without-normal --without-debug \
 	--enable-termcap --enable-widec --with-abi-version=$(ABIVersion) \
 	--without-cxx-binding --without-cxx \
 	--mandir=$(MANDIR)
+
+SDKROOT ?= /
+Extra_CC_Flags = -isysroot $(SDKROOT)
+# BUILD_CC and BUILD_CFLAGS are used by ncurses to make
+# build tools that run natively as part of the build
+ifneq ($(SDKROOT),/)
+Extra_Environment = BUILD_CC=/usr/bin/cc BUILD_CFLAGS="-isysroot /"
+endif
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
@@ -27,7 +35,7 @@ install_source::
 
 install::
 	cd $(OBJROOT) && $(Environment) $(SRCROOT)/$(Project)/configure \
-		--prefix=/usr --disable-dependency-tracking \
+		--prefix=/usr --disable-dependency-tracking --disable-mixed-case \
 		$(Configure_Flags)
 	$(MAKE) -C $(OBJROOT)
 	$(MAKE) -C $(OBJROOT) install DESTDIR=$(DSTROOT)
@@ -48,10 +56,10 @@ install::
 	done
 	$(MKDIR) $(SYMROOT)/usr/bin
 	@for binary in clear infocmp tack tic toe tput tset; do \
-		lipo -remove x86_64 -remove ppc64 -output $(DSTROOT)/usr/bin/$${binary} $(DSTROOT)/usr/bin/$${binary}; \
 		$(CP) $(DSTROOT)/usr/bin/$${binary} $(SYMROOT)/usr/bin; \
 		$(STRIP) -x $(DSTROOT)/usr/bin/$${binary}; \
 	done
 
+	$(INSTALL_FILE) $(SRCROOT)/ncurses5.4-config.1 $(DSTROOT)/usr/share/man/man1
 	$(MAKE) compress_man_pages
 	echo ".so man3/curs_termcap.3x.gz" > $(DSTROOT)/usr/share/man/man3/termcap.3

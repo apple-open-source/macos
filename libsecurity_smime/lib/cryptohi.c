@@ -537,7 +537,7 @@ WRAP_PubUnwrapSymKey(SecPrivateKeyRef privkey, CSSM_DATA_PTR encKey, SECOidTag b
     }
 
     // @@@ Export this key from the csp/dl and import it to the standard csp
-    rv = SecKeyCreate(&unwrappedKey, &bulkkey);
+    rv = SecKeyCreateWithCSSMKey(&unwrappedKey, &bulkkey);
     if (rv)
 	goto loser;
 

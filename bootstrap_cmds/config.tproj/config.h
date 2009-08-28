@@ -179,6 +179,7 @@ extern const char	*machinename;
 #define MACHINE_SPARC	18
 #define MACHINE_PPC	19
 #define MACHINE_ARM	20
+#define MACHINE_X86_64	21
 
 /*
  * For each machine, a set of CPU's may be specified as supported.
@@ -274,6 +275,7 @@ void hppa_ioconf(void);
 void sparc_ioconf(void);
 void ppc_ioconf(void);
 void arm_ioconf(void);
+void x86_64_ioconf(void);
 
 void swapconf(void);
 

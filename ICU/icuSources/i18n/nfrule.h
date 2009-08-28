@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (C) 1997-2005, International Business Machines
+* Copyright (C) 1997-2008, International Business Machines
 * Corporation and others. All Rights Reserved.
 *******************************************************************************
 */
@@ -86,8 +86,8 @@ private:
                             double upperBound) const;
     void stripPrefix(UnicodeString& text, const UnicodeString& prefix, ParsePosition& pp) const;
 
-    int32_t prefixLength(const UnicodeString& str, const UnicodeString& prefix) const;
-    UBool allIgnorable(const UnicodeString& str) const;
+    int32_t prefixLength(const UnicodeString& str, const UnicodeString& prefix, UErrorCode& status) const;
+    UBool allIgnorable(const UnicodeString& str, UErrorCode& status) const;
     int32_t findText(const UnicodeString& str, const UnicodeString& key, 
                      int32_t startingAt, int32_t* resultCount) const;
 

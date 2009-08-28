@@ -1,8 +1,8 @@
 /* rwmconf.c - rewrite/map configuration file routines */
-/* $OpenLDAP: pkg/ldap/servers/slapd/overlays/rwmconf.c,v 1.16.2.7 2006/01/03 22:16:25 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/overlays/rwmconf.c,v 1.25.2.3 2008/02/11 23:26:48 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2006 The OpenLDAP Foundation.
+ * Copyright 1999-2008 The OpenLDAP Foundation.
  * Portions Copyright 1999-2003 Howard Chu.
  * Portions Copyright 2000-2003 Pierangelo Masarati.
  * All rights reserved.
@@ -47,6 +47,7 @@ rwm_map_config(
 	struct ldapmapping	*mapping;
 	char			*src, *dst;
 	int			is_oc = 0;
+	int			rc = 0;
 
 	if ( argc < 3 || argc > 4 ) {
 		fprintf( stderr,
@@ -73,7 +74,7 @@ rwm_map_config(
 	if ( strcmp( argv[2], "*" ) == 0 ) {
 		if ( argc < 4 || strcmp( argv[3], "*" ) == 0 ) {
 			map->drop_missing = ( argc < 4 );
-			return 0;
+			goto success_return;
 		}
 		src = dst = argv[3];
 
@@ -148,13 +149,6 @@ rwm_map_config(
 					fname, lineno, dst );
 				goto error_return;
 			}
-
-#if 0
-			mapping[0].m_dst_oc = ch_malloc( sizeof( ObjectClass ) );
-			memset( mapping[0].m_dst_oc, 0, sizeof( ObjectClass ) );
-			mapping[0].m_dst_oc->soc_cname = mapping[0].m_dst;
-			mapping[0].m_flags |= RWMMAP_F_FREE_DST;
-#endif
 		}
 		mapping[1].m_src_oc = mapping[0].m_dst_oc;
 
@@ -217,7 +211,7 @@ rwm_map_config(
 			|| avl_find( map->remap, (caddr_t)&mapping[1], rwm_mapping_cmp ) != NULL)
 	{
 		fprintf( stderr,
-			"%s: line %d: duplicate mapping found" SLAPD_CONF_UNKNOWN_IGNORED ".\n",
+			"%s: line %d: duplicate mapping found.\n",
 			fname, lineno );
 		/* FIXME: free stuff */
 		goto error_return;
@@ -230,7 +224,13 @@ rwm_map_config(
 	avl_insert( &map->remap, (caddr_t)&mapping[1],
 				rwm_mapping_cmp, rwm_mapping_dup );
 
-	return 0;
+success_return:;
+	if ( !is_oc && map->map == NULL ) {
+		/* only init if required */
+		rc = rwm_map_init( map, &mapping ) != LDAP_SUCCESS;
+	}
+
+	return rc;
 
 error_return:;
 	if ( mapping ) {
@@ -240,7 +240,6 @@ error_return:;
 	return 1;
 }
 
-#ifdef ENABLE_REWRITE
 static char *
 rwm_suffix_massage_regexize( const char *s )
 {
@@ -406,6 +405,5 @@ rwm_suffix_massage_config(
 
 	return 0;
 }
-#endif /* ENABLE_REWRITE */
 
 #endif /* SLAPD_OVER_RWM */

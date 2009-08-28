@@ -31,6 +31,7 @@
 #include <stdio.h>		// for sprintf()
 #include <stdarg.h>
 #include <time.h>
+#include <sys/types.h>
 
 #include "CString.h"
 #include "PrivateTypes.h"
@@ -160,7 +161,7 @@ CString::~CString()
 	if ( mData == NULL )
 		return;
 
-	delete mData;
+	delete [] mData;
 	mData = NULL;
 	mLength = 0;
 	mSize = 0;
@@ -176,7 +177,7 @@ int CString::GetLength ( void ) const
 { 
 	if ( mData != NULL )
 	{
-		return( ::strlen( mData ) );
+		return( (int) ::strlen( mData ) );
 	}
 	else
 	{
@@ -222,7 +223,7 @@ void CString::Set ( const char *str )
 		return;
 	}
 
-	register int	len = ::strlen ( str );
+	int	len = (int) ::strlen ( str );
 
 	Grow( len + 1 );
 	strcpy( mData, str );
@@ -251,7 +252,7 @@ void CString::Set ( const char *str, int len )
 
 	Grow( len + 1 );
 
-	register int	strLen = ::strlen ( str );
+	int	strLen = (int) ::strlen ( str );
 	mLength = ( ( strLen < len ) ? strLen : len );
 	::memcpy( mData, str, mLength );
 	mData[mLength] = '\0';
@@ -267,7 +268,7 @@ void CString::Set ( const unsigned char *pstr )
 {
 	if ( pstr == nil ) throw((SInt32)eParameterError);
 
-	register int	len = ( int ) *pstr++;
+	int	len = ( int ) *pstr++;
 
 	mLength = 0;
 
@@ -293,7 +294,7 @@ void CString::Set ( const unsigned char *pstr )
 
 void CString::Set ( const CString &cs )
 {
-	register int	len = cs.mLength;
+	int	len = cs.mLength;
 
 	mLength = 0;
 
@@ -337,7 +338,7 @@ void CString::Append ( const char *str )
 	if ( !*str )
 		return;
 
-	register int	len = ::strlen ( str );
+	int	len = (int) ::strlen ( str );
 	Grow( mLength + len + 1 );
 	// strcpy will add the terminator.
 	::strcpy( &mData[mLength], str );
@@ -358,7 +359,7 @@ void CString::Append ( const char *str, int arglen )
 	if ( !arglen || !*str )
 		return;
 
-	register int len = ::strlen ( str );
+	int len = (int) ::strlen ( str );
 	if ( arglen < len )
 	{
 		len = arglen;
@@ -382,7 +383,7 @@ void CString::Append ( const unsigned char *pstr )
 {
 	if ( pstr == nil ) throw((SInt32)eParameterError);
 
-	register int	len = ( int ) *pstr++;
+	int	len = ( int ) *pstr++;
 
 	// Handle the corner case.
 	if ( !len )
@@ -405,7 +406,7 @@ void CString::Append ( const unsigned char *pstr )
 
 void CString::Append ( const CString &cs )
 {
-	register int	len = cs.mLength;
+	int	len = cs.mLength;
 
 	// Handle the corner case.
 	if ( !len )
@@ -441,34 +442,34 @@ void CString::Prepend ( const char *str )
 		return;
 	}
 
-	register int	len = ::strlen ( str );
-	register int	newlen = mLength + len + 1;
+	size_t	len = ::strlen ( str );
+	int	newlen = (int) (mLength + len + 1);
 
 	// Handle the easy case first: allocate a new block and copy into it.
 	if ( newlen > mSize )
 	{
-		register int	pow2 = 16;
+		int	pow2 = 16;
 		while ( pow2 < newlen )
 			pow2 <<= 1;
-		register char	*newData = new char [pow2];
+		char	*newData = new char [pow2];
 		if ( newData == nil ) throw((SInt32)eMemoryAllocError);
 		::strcpy( newData, str );
 		::strcpy( &newData[len], mData );
 		delete []mData;
 		mSize = pow2;
-		mLength += len;
+		mLength += (UInt32) len;
 		mData = newData;
 	}
 	else
 	{
-		register char	*cpNew = &mData[--newlen];
-		register char	*cpOld = &mData[( newlen = mLength )];
+		char	*cpNew = &mData[--newlen];
+		char	*cpOld = &mData[( newlen = mLength )];
 		// Copy the string backwards, starting with the terminator.
 		for ( newlen++; newlen--; )
 			*cpNew-- = *cpOld--;
 		// Copy the prepended string; using memcpy() to avoid the terminator.
 		::memcpy( mData, str, len );
-		mLength += len;
+		mLength += (UInt32) len;
 	}
 } // Prepend
 
@@ -516,19 +517,22 @@ void CString::Vsprintf ( const char *pattern, va_list args )
 	// Use a temp buffer big enough to hold one 64-bit value more than
 	// the default size.
 	char			caTemp [kCStringDefSize + 32];
-	register char  *cpTemp = caTemp;
-	UInt32			ulArg;
-	SInt32			lArg;
+	char  *cpTemp = caTemp;
+	unsigned long	ulArg;
+	long			lArg;
+	u_int32_t		uiArg;
+	int32_t			iArg;
 	double			dArg;
 	int				nArg;
 	char		   *szpArg;
 	unsigned char  *spArg;
 	FourCharCode	fccArg;
 	CString		   *cspArg;
+	in_addr_t		ipv4Address;
 
 	this->Clear();
 	
-	for ( register const char *p = pattern; *p; p++ )
+	for ( const char *p = pattern; *p; p++ )
 	{
 		// The threshold minimizes the calls to Grow() and is arbitrary.
 		if ( ( cpTemp - caTemp ) > kCStringDefSize )
@@ -547,12 +551,12 @@ void CString::Vsprintf ( const char *pattern, va_list args )
 			{
 				// non-standard ( A = IP Address )!
 				case 'A':
-					ulArg = va_arg ( args, UInt32 );
-					cpTemp += ::sprintf ( cpTemp, "%ld.%ld.%ld.%ld",
-											((ulArg >> 24) & 0xFF),
-											((ulArg >> 16) & 0xFF),
-											((ulArg >>  8) & 0xFF),
-											(ulArg & 0xFF) );
+					ipv4Address = va_arg ( args, in_addr_t );
+					cpTemp += ::sprintf ( cpTemp, "%d.%d.%d.%d",
+											((ipv4Address >> 24) & 0xFF),
+											((ipv4Address >> 16) & 0xFF),
+											((ipv4Address >>  8) & 0xFF),
+											(ipv4Address & 0xFF) );
 					break;
 
 				// non-standard! (D = Date in localtime ie. no longer UTC/GMT, no arg)
@@ -626,22 +630,34 @@ void CString::Vsprintf ( const char *pattern, va_list args )
 
 				// non-standard ( long expected )!
 				case 'X':
-					ulArg = va_arg ( args, UInt32 );
+					ulArg = va_arg ( args, unsigned long );
+#ifdef __LP64__
+					cpTemp += ::sprintf ( cpTemp, "0x%016lX", ulArg );
+#else
 					cpTemp += ::sprintf ( cpTemp, "0x%08lX", ulArg );
+#endif
+					break;
+					
+				case 'u': // this is a 32-bit unsigned int
+					uiArg = va_arg ( args, u_int32_t );
+					cpTemp += ::sprintf ( cpTemp, "%u", uiArg );
 					break;
 
-				// non-standard ( long expected )!
-				case 'u':
-					ulArg = va_arg ( args, UInt32 );
+				case 'U': // this is a unsigned long (64 or 32 depending on LP64)
+					ulArg = va_arg ( args, unsigned long );
 					cpTemp += ::sprintf ( cpTemp, "%lu", ulArg );
 					break;
-
-				// non-standard ( not used as modifier )!
-				case 'l':
-					lArg = va_arg ( args, SInt32 );
-					cpTemp += ::sprintf ( cpTemp, "%ld", lArg );
+				
+				case 'l': // this is a 32-bit signed int
+					iArg = va_arg ( args, int32_t );
+					cpTemp += ::sprintf ( cpTemp, "%d", iArg );
 					break;
 
+				case 'L': // this is a long (64 or 32 depending on LP64)
+					lArg = va_arg ( args, long );
+					cpTemp += ::sprintf ( cpTemp, "%ld", lArg );
+					break;
+					
 				case 'c':
 					*cpTemp++ = va_arg ( args, int );
 					break;
@@ -718,13 +734,13 @@ void CString::Grow( int newSize )
 	// The comparison is an optimization for the most common case.
 	if ( newSize != kCStringDefSize )
 	{
-		register int	pow2 = 16;
+		int	pow2 = 16;
 		while ( pow2 < newSize )
 			pow2 <<= 1;
 		newSize = pow2;
 	}
 
-	register char	*newData = new char [newSize];
+	char	*newData = new char [newSize];
 	if ( newData == nil ) throw((SInt32)eMemoryAllocError);
 
 	if ( mLength )
@@ -738,7 +754,7 @@ void CString::Grow( int newSize )
 
 	if ( mData != NULL )
 	{
-		delete mData;
+		delete [] mData;
 	}
 
 	mSize = newSize;

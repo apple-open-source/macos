@@ -7,36 +7,31 @@
 # Project info
 Project               = metakit
 ProjectName           = Mk4Tcl
+ProjectPlistName      = mk4tcl
 
-Configure             = $(Sources)/unix/configure
-Extra_Configure_Flags = $(TEA_Configure_Flags) \
-                        --with-tcl=$(TclHeaders),$(TclExtLibDir)
-Extra_Environment     = CC=g++ $(TEA_Environment)
+# Fetch info
+Release               = 2.4.9.7
+ImportDate            = 2008-09-06
+SvnUrl                = svn://svn.equi4.com/$(Project)/trunk
 
-GnuAfterInstall       = install-doc fix-owner
+Configure             = $(Sources)/tcl/configure
+Configure_Products    = config.h
+Extra_Configure_Flags = $(TEA_Configure_Flags)
+Extra_Environment     = CC=g++ $(TEA_Environment) CONFIG_SITE= \
+                        MAKE_LIB='$${SHLIB_LD} -o $$@ $$(PKG_OBJECTS) $${SHLIB_LD_LIBS} -Wl,-exported_symbols_list -Wl,$(SRCROOT)/$(ProjectName).exports'
+
+GnuAfterInstall       = strip install-doc fix-perms
 
 # include TEA Tcl extension build support
 include ../TEA.make
 
-# Force gcc-4.0 (or configure will fail)
-CC                    = gcc-4.0
-CXX                   = g++-4.0
+Install_Target        = install-binaries
 
-Install_Target        = install-tcl
-
-# patch config.h
-ConfigStamp2 = $(ConfigStamp)2
-
-configure:: $(ConfigStamp2)
-
-$(ConfigStamp2): $(ConfigStamp)
-	cp $(BuildDirectory)/config.h $(BuildDirectory)/config.h.bak
-	$(_v) ed - $(BuildDirectory)/config.h < $(SRCROOT)/config.h.ed
-	$(_v) $(TOUCH) $(ConfigStamp2)
-	cp $(SRCROOT)/Mk4tcl.exports $(BuildDirectory)/../
+TclExtDir             = Mk4tcl
 
 install-doc:
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/$(TclExtHtmlDir)"
 	$(_v) $(INSTALL_FILE) "$(Sources)"/doc/tcl.html \
 	        "$(DSTROOT)/$(TclExtHtmlDir)/$(ProjectName).html"
-	$(_v) $(INSTALL_FILE) "$(Sources)"/doc/*.gif "$(DSTROOT)/$(TclExtHtmlDir)"
+	$(_v) $(INSTALL_FILE) "$(Sources)"/doc/{format.html,*.gif} \
+	        "$(DSTROOT)/$(TclExtHtmlDir)"

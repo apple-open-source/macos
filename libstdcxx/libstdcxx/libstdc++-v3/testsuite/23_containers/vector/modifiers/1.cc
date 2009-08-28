@@ -1,6 +1,6 @@
 // 1999-11-09 bkoz
 
-// Copyright (C) 1999, 2001, 2004 Free Software Foundation, Inc.
+// Copyright (C) 1999, 2001, 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -15,7 +15,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // 23.2.4.3 vector modifiers
@@ -48,12 +48,6 @@ test01()
   A<B>*		pnp01 = &np01;
   vec02.insert(vec02.begin(), pnp01, pnp01 + 1);
 }
-
-#if !__GXX_WEAK__ && _MT_ALLOCATOR_H
-// Explicitly instantiate for systems with no COMDAT or weak support.
-template class __gnu_cxx::__mt_alloc<int>;
-template class __gnu_cxx::__mt_alloc<A<B> >;
-#endif
 
 int main()
 {

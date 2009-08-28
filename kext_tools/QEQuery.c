@@ -21,6 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 #include "QEQuery.h"
+#include "kext_tools_util.h"
 
 /*******************************************************************************
 * The internal query engine object definition.
@@ -92,7 +93,7 @@ struct __QEQuery {
 #define kQEQueryPredicateAnd    CFSTR("_QEQueryAndGroup")
 #define kQEQueryPredicateOr     CFSTR("_QEQueryOrGroup")
 
-#define kMsgStringConversionError  "string conversion error\n"
+#define kMsgStringConversionError  "string conversion error"
 
 /*******************************************************************************
 * Internal function prototypes.
@@ -885,6 +886,7 @@ QEQueryElementGetPredicate(CFDictionaryRef element)
 CFMutableArrayRef
 QEQueryElementGetArguments(CFDictionaryRef element)
 {
+	CFMutableDictionaryRef dict = (CFMutableDictionaryRef)element;
     CFMutableArrayRef args = (CFMutableArrayRef)CFDictionaryGetValue(
         element, kQEQueryKeyArguments);
     if (!args) {
@@ -893,7 +895,7 @@ QEQueryElementGetArguments(CFDictionaryRef element)
         if (!args) {
             goto finish;
         }
-        QEQueryElementSetArgumentsArray((CFMutableDictionaryRef)element, args);
+        QEQueryElementSetArgumentsArray(dict, args);
         CFRelease(args);
     }
 finish:
@@ -1001,32 +1003,6 @@ finish:
 
 #pragma mark Debug Printing (Crufty)
 
-/*******************************************************************************
-*
-*******************************************************************************/
-char *
-cStringForCFString(CFStringRef cfString)
-{
-    uint32_t stringLength = 0;
-    char * string = NULL;
-
-    stringLength = CFStringGetMaximumSizeForEncoding(
-        CFStringGetLength(cfString), kCFStringEncodingUTF8);
-    string = (char *)malloc(stringLength);
-    if (!string) {
-        goto finish;
-    }
-    if (!CFStringGetCString(cfString, string, stringLength,
-        kCFStringEncodingUTF8)) {
-
-        free(string);
-        string = NULL;
-        goto finish;
-    }
-finish:
-    return string;
-}
-
 /******************************************************************************/
 
 void
@@ -1052,7 +1028,7 @@ _QEQueryElementPrint(CFDictionaryRef element, Boolean printOuterDelimiter)
             count = CFArrayGetCount(elements);
             if (count) {
                 if (printOuterDelimiter) {
-                    printf(andGroup ? andGroupOpen : "(");fflush(stdout);
+                    printf("%s", andGroup ? andGroupOpen : "(");fflush(stdout);
                 }
                 for (i = 0; i < count; i++) {
                     if (i) {
@@ -1062,7 +1038,7 @@ _QEQueryElementPrint(CFDictionaryRef element, Boolean printOuterDelimiter)
                         true);
                 }
                 if (printOuterDelimiter) {
-                    printf(andGroup ? andGroupClose : ")");fflush(stdout);
+                    printf("%s", andGroup ? andGroupClose : ")");fflush(stdout);
                 }
             }
         }
@@ -1070,13 +1046,13 @@ _QEQueryElementPrint(CFDictionaryRef element, Boolean printOuterDelimiter)
         char * predicate = NULL;
         CFArrayRef arguments = NULL;
 
-        predicate = cStringForCFString(value);
+        predicate = createUTF8CStringForCFString(value);
         if (!predicate) {
             fprintf(stderr, "%s", kMsgStringConversionError);fflush(stderr);
             goto finish;
         }
 
-        printf(predicate);fflush(stdout);
+        printf("%s", predicate);fflush(stdout);
         free(predicate);
 
         arguments = CFDictionaryGetValue(element, kQEQueryKeyArguments);
@@ -1086,7 +1062,7 @@ _QEQueryElementPrint(CFDictionaryRef element, Boolean printOuterDelimiter)
                 for (i = 0; i < count; i++) {
                     CFStringRef argString = CFArrayGetValueAtIndex(arguments, i);
                     if (CFGetTypeID(argString) == CFStringGetTypeID()) {
-                        char * arg = cStringForCFString(argString);
+                        char * arg = createUTF8CStringForCFString(argString);
                         if (!arg) {
                             fprintf(stderr, "%s", kMsgStringConversionError);fflush(stderr);
                             goto finish;
@@ -1107,7 +1083,7 @@ finish:
 /*******************************************************************************
 *
 *******************************************************************************/
-extern void printPList(FILE * stream, CFTypeRef plist);
+//extern void printPList(FILE * stream, CFTypeRef plist);
 
 void
 QEQueryPrint(QEQueryRef query)

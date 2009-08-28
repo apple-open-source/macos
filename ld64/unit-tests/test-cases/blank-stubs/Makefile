@@ -23,7 +23,6 @@
 TESTROOT = ../..
 include ${TESTROOT}/include/common.makefile
 
-
 ALL_ARCH_OPTIONS = $(patsubst %,-arch %,$(VALID_ARCHS))
 
 #
@@ -59,4 +58,4 @@ all:
 	
 
 clean:
-	rm -rf *.dylib main
+	rm -rf libfoo.dylib main

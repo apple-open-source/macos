@@ -1,3 +1,14 @@
+New in 3.0.3:
+
+* The generated C code is compatible with gcc-4.3.x in c99 or gnu99 mode.
+
+New in 3.0.2:
+
+* Compiles with g++-4.0.x.
+* Added option --length-table-name.
+* Added declaration %define length-table-name.
+* Fixed  #line directives for filenames containing backslashes.
+
 New in 3.0.1:
 
 * Bug fix.

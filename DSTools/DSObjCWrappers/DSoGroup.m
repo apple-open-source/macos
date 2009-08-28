@@ -34,6 +34,8 @@
 #import "DSoException.h"
 #import "DSoRecordPriv.h"
 
+#import <membership.h>
+
 @implementation DSoGroup
 
 // ----------------------------------------------------------------------------
@@ -72,30 +74,20 @@
 
 - (BOOL) isMember:(DSoUser*)inUser
 {
-#warning need to use memberd here, should not be checking if users is a direct member
-    NSString				   *szpUser = nil;
-	NSString				   *sValue  = nil;
-    unsigned long               ulIndex = 1;
+	uuid_t	user_uuid;
+	uuid_t	group_uuid;
+	int		isMember;
 
     if ([inUser getGid] == [self getGid])
         return YES;
 
-    szpUser = [inUser getName];
-    
-    @try
-    {
-        while (1)
-		{
-            sValue = [self getAttribute:kDSNAttrGroupMembership index:ulIndex++];
-            if ([sValue isEqualToString:szpUser])
-                return YES;
-        }
-    } @catch( DSoException *exception ) {
-        // just let the default return occur
-    } @catch( NSException *exception ) {
-        // if not a DSoException, throw it..
-        @throw;
-    }
+	if ( mbr_uid_to_uuid([inUser getUid], user_uuid) == 0 ) {
+		if ( mbr_gid_to_uuid([self getGid], group_uuid) == 0 ) {
+			if ( mbr_check_membership(user_uuid, group_uuid, &isMember) == 0 && isMember != 0 ) {
+				return YES;
+			}
+		}
+	}
 
     return NO;
 }

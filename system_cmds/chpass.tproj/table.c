@@ -74,22 +74,22 @@ char e2[] = ":,";
 #include "open_directory.h"
 
 ENTRY list[] = {
-	{ "Login",						display_string,	p_login,	1,   5, e1,	CFSTR(kDSNAttrRecordName), },
-	{ "Password",					display_string,	p_passwd,	1,   8, e1,	CFSTR(kDS1AttrPassword), },
-	{ "Uid [#]",					display_string,	p_uid,		1,   3, e1,	CFSTR(kDS1AttrUniqueID), },
-	{ "Gid [# or name]",			display_string,	p_gid,		1,   3, e1,	CFSTR(kDS1AttrPrimaryGroupID), },
-	{ "Generated uid",				display_string,	p_uuid,		1,	13,	NULL,	CFSTR(kDS1AttrGeneratedUID), },
+	{ "Login",						display_string,	p_login,	1,   5, e1,	&kODAttributeTypeRecordName, },
+	{ "Password",					display_string,	p_passwd,	1,   8, e1,	&kODAttributeTypePassword, },
+	{ "Uid [#]",					display_string,	p_uid,		1,   3, e1,	&kODAttributeTypeUniqueID, },
+	{ "Gid [# or name]",			display_string,	p_gid,		1,   3, e1,	&kODAttributeTypePrimaryGroupID, },
+	{ "Generated uid",				display_string,	p_uuid,		1,	13,	NULL,	&kODAttributeTypeGUID, },
 #if 0
 	{ "Change [month day year]",	display_time,	p_change,	1,   6, NULL,	CFSTR(kDS1AttrChange), },
-	{ "Expire [month day year]",	display_time,	p_expire,	1,   6, NULL,	CFSTR(kDS1AttrExpire), },
+	{ "Expire [month day year]",	display_time,	p_expire,	1,   6, NULL,	kODAttributeTypeExpire, },
 	{ "Class",						display_string,	p_class,	0,   5, e1,	CFSTR(""),			"Class" },
 #endif
-	{ "Home directory",				display_string,	p_hdir,		1,  14, e1,	CFSTR(kDS1AttrNFSHomeDirectory), },
-	{ "Shell",						display_string,	p_shell,	1,   5, e1,	CFSTR(kDS1AttrUserShell), },
-	{ "Full Name",					display_string,	p_gecos,	1,   9, e2,	CFSTR(kDS1AttrDistinguishedName), },
-	{ "Office Location",			display_string,	p_gecos,	1,   8, e2,	CFSTR(kDSNAttrBuilding), },
-	{ "Office Phone",				display_string,	p_gecos,	1,  12, e2,	CFSTR(kDSNAttrPhoneNumber),	},
-	{ "Home Phone",					display_string,	p_gecos,	1,  10, e2,	CFSTR(kDSNAttrHomePhoneNumber),	},
+	{ "Home directory",				display_string,	p_hdir,		1,  14, e1,	&kODAttributeTypeNFSHomeDirectory, },
+	{ "Shell",						display_string,	p_shell,	1,   5, e1,	&kODAttributeTypeUserShell, },
+	{ "Full Name",					display_string,	p_gecos,	1,   9, e2,	&kODAttributeTypeFullName, },
+	{ "Office Location",			display_string,	p_gecos,	1,   8, e2,	&kODAttributeTypeBuilding, },
+	{ "Office Phone",				display_string,	p_gecos,	1,  12, e2,	&kODAttributeTypePhoneNumber,	},
+	{ "Home Phone",					display_string,	p_gecos,	1,  10, e2,	&kODAttributeTypeHomePhoneNumber,	},
 	{ NULL,							NULL,			NULL,		0,	0,	NULL,	NULL,},
 };
 #else /* OPEN_DIRECTORY */

@@ -25,14 +25,14 @@ extern "C" {
 /**
  * LIBXSLT_VERSION:
  *
- * the version number: 1.2.3 value is 1002003
+ * the version number: 1.2.3 value is 10203
  */
 #define LIBXSLT_VERSION @LIBXSLT_VERSION_NUMBER@
 
 /**
  * LIBXSLT_VERSION_STRING:
  *
- * the version number string, 1.2.3 value is "1002003"
+ * the version number string, 1.2.3 value is "10203"
  */
 #define LIBXSLT_VERSION_STRING "@LIBXSLT_VERSION_NUMBER@"
 
@@ -77,7 +77,7 @@ extern "C" {
 /**
  * XSLT_NEED_TRIO:
  *
- * should be activated in the existing libc library lacks some of the
+ * should be activated if the existing libc library lacks some of the
  * string formatting function, in that case reuse the Trio ones already
  * compiled in the libxml2 library.
  */
@@ -93,6 +93,10 @@ extern "C" {
 #endif
 #endif
 
+#ifdef	XSLT_NEED_TRIO
+#define	TRIO_REPLACE_STDIO
+#endif
+
 /**
  * WITH_XSLT_DEBUGGER:
  *
@@ -104,6 +108,19 @@ extern "C" {
 #ifndef WITH_DEBUGGER
 #define WITH_DEBUGGER
 #endif
+#endif
+
+/**
+ * WITH_MODULES:
+ *
+ * Whether module support is configured into libxslt
+ * Note: no default module path for win32 platforms
+ */
+#if @WITH_MODULES@
+#ifndef WITH_MODULES
+#define WITH_MODULES
+#endif
+#define LIBXSLT_DEFAULT_PLUGINS_PATH() "@LIBXSLT_DEFAULT_PLUGINS_PATH@"
 #endif
 
 /**

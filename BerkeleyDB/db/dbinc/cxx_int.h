@@ -1,14 +1,13 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1997-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1997,2007 Oracle.  All rights reserved.
  *
- * $Id: cxx_int.h,v 1.2 2004/03/30 01:21:28 jtownsen Exp $
+ * $Id: cxx_int.h,v 12.6 2007/05/17 15:15:05 bostic Exp $
  */
 
-#ifndef _CXX_INT_H_
-#define	_CXX_INT_H_
+#ifndef _DB_CXX_INT_H_
+#define	_DB_CXX_INT_H_
 
 // private data structures known to the implementation only
 
@@ -27,30 +26,25 @@
 // for a wrapper class that has an underlying pointer representation.
 //
 #define	WRAPPED_CLASS(_WRAPPER_CLASS, _IMP_CLASS, _WRAPPED_TYPE)           \
-									   \
 	class _IMP_CLASS {};                                               \
 									   \
-	inline _WRAPPED_TYPE unwrap(_WRAPPER_CLASS *val)                   \
+	inline _WRAPPED_TYPE *unwrap(_WRAPPER_CLASS *val)                  \
 	{                                                                  \
 		if (!val) return (0);                                      \
-		return ((_WRAPPED_TYPE)((void *)(val->imp())));            \
+		return (val->get_##_WRAPPED_TYPE());                       \
 	}                                                                  \
 									   \
-	inline const _WRAPPED_TYPE unwrapConst(const _WRAPPER_CLASS *val)  \
+	inline const _WRAPPED_TYPE *unwrapConst(const _WRAPPER_CLASS *val) \
 	{                                                                  \
 		if (!val) return (0);                                      \
-		return ((const _WRAPPED_TYPE)((void *)(val->constimp()))); \
-	}                                                                  \
-									   \
-	inline _IMP_CLASS *wrap(_WRAPPED_TYPE val)                         \
-	{                                                                  \
-		return ((_IMP_CLASS*)((void *)val));                       \
+		return (val->get_const_##_WRAPPED_TYPE());                 \
 	}
 
-WRAPPED_CLASS(DbMpoolFile, DbMpoolFileImp, DB_MPOOLFILE*)
-WRAPPED_CLASS(Db, DbImp, DB*)
-WRAPPED_CLASS(DbEnv, DbEnvImp, DB_ENV*)
-WRAPPED_CLASS(DbTxn, DbTxnImp, DB_TXN*)
+WRAPPED_CLASS(Db, DbImp, DB)
+WRAPPED_CLASS(DbEnv, DbEnvImp, DB_ENV)
+WRAPPED_CLASS(DbMpoolFile, DbMpoolFileImp, DB_MPOOLFILE)
+WRAPPED_CLASS(DbSequence, DbSequenceImp, DB_SEQUENCE)
+WRAPPED_CLASS(DbTxn, DbTxnImp, DB_TXN)
 
 // A tristate integer value used by the DB_ERROR macro below.
 // We chose not to make this an enumerated type so it can
@@ -78,4 +72,4 @@ WRAPPED_CLASS(DbTxn, DbTxnImp, DB_TXN*)
 /* values for Db::flags_ */
 #define	DB_CXX_PRIVATE_ENV      0x00000001
 
-#endif /* !_CXX_INT_H_ */
+#endif /* !_DB_CXX_INT_H_ */

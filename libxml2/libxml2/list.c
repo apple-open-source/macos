@@ -314,14 +314,14 @@ int xmlListAppend(xmlListPtr l, void *data)
     if (lkNew == NULL) {
         xmlGenericError(xmlGenericErrorContext, 
 		        "Cannot initialize memory for new link");
-        return (0);
+        return (1);
     }
     lkNew->data = data;
     lkNew->next = lkPlace->next;
     (lkPlace->next)->prev = lkNew;
     lkPlace->next = lkNew;
     lkNew->prev = lkPlace;
-    return 1;
+    return 0;
 }
 
 /**
@@ -775,3 +775,5 @@ xmlListCopy(xmlListPtr cur, const xmlListPtr old)
 }
 /* xmlListUnique() */
 /* xmlListSwap */
+#define bottom_list
+#include "elfgcchack.h"

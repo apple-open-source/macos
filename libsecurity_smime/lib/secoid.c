@@ -154,6 +154,19 @@
 /* { 1.3.6.1.4.1.311 } */
 #define MICROSOFT_OID 0x2b, 0x6, 0x1, 0x4, 0x1, 0x82, 0x37
 
+/* ECDSA OIDs from X9.62 */
+#define ANSI_X9_62						0x2A, 0x86, 0x48, 0xCE, 0x3D
+#define ANSI_X9_62_FIELD_TYPE			ANSI_X9_62, 1
+#define ANSI_X9_62_PUBKEY_TYPE			ANSI_X9_62, 2
+#define ANSI_X9_62_SIG_TYPE				ANSI_X9_62, 4
+
+/* X9.63 schemes */
+#define ANSI_X9_63						0x2B, 0x81, 0x05, 0x10, 0x86, 0x48, 0x3F
+#define ANSI_X9_63_SCHEME				ANSI_X9_63, 0
+
+/* ECDH curves */
+#define CERTICOM_ELL_CURVE				0x2B, 0x81, 0x04, 0x00
+
 #define CONST_OID static const unsigned char
 
 CONST_OID md2[]        				= { DIGEST, 0x02 };
@@ -425,6 +438,21 @@ CONST_OID aes256_KEY_WRAP[]			= { AES, 45 };
 CONST_OID sha256[]                              = { SHAXXX, 1 };
 CONST_OID sha384[]                              = { SHAXXX, 2 };
 CONST_OID sha512[]                              = { SHAXXX, 3 };
+
+CONST_OID ecdsaWithSHA1[]			= { ANSI_X9_62_SIG_TYPE, 1 };
+CONST_OID ecPublicKey[]				= { ANSI_X9_62_PUBKEY_TYPE, 1 };
+/* This OID doesn't appear in a CMS msg */
+CONST_OID ecdsaSig[]				= { ANSI_X9_62_SIG_TYPE };
+
+/* ECDH curves */
+CONST_OID secp256r1[]				= { 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x07 };
+CONST_OID secp384r1[]				= { CERTICOM_ELL_CURVE, 0x22 };
+CONST_OID secp521r1[]				= { CERTICOM_ELL_CURVE, 0x23 };
+
+/* RFC 3278 */
+CONST_OID dhSinglePassStdDHsha1kdf[]		= {ANSI_X9_63_SCHEME, 2 };
+CONST_OID dhSinglePassCofactorDHsha1kdf[]	= {ANSI_X9_63_SCHEME, 3 };
+CONST_OID mqvSinglePassSha1kdf[]			= {ANSI_X9_63_SCHEME, 4 };
 
 /* a special case: always associated with a caller-specified OID */
 CONST_OID noOid[]				= { 0 };
@@ -1029,18 +1057,18 @@ const static SECOidData oids[] = {
 	"Microsoft S/MIME Encryption Key Preference", 
 	CSSM_ALGID_NONE, INVALID_CERT_EXTENSION ),
 
-    OD( sha256, SEC_OID_SHA256, "SHA-256", CSSM_ALGID_NONE, INVALID_CERT_EXTENSION),
-    OD( sha384, SEC_OID_SHA384, "SHA-384", CSSM_ALGID_NONE, INVALID_CERT_EXTENSION),
-    OD( sha512, SEC_OID_SHA512, "SHA-512", CSSM_ALGID_NONE, INVALID_CERT_EXTENSION),
+    OD( sha256, SEC_OID_SHA256, "SHA-256", CSSM_ALGID_SHA256, INVALID_CERT_EXTENSION),
+    OD( sha384, SEC_OID_SHA384, "SHA-384", CSSM_ALGID_SHA384, INVALID_CERT_EXTENSION),
+    OD( sha512, SEC_OID_SHA512, "SHA-512", CSSM_ALGID_SHA512, INVALID_CERT_EXTENSION),
 
     OD( pkcs1SHA256WithRSAEncryption, SEC_OID_PKCS1_SHA256_WITH_RSA_ENCRYPTION,
-	"PKCS #1 SHA-256 With RSA Encryption", CSSM_ALGID_NONE,
+	"PKCS #1 SHA-256 With RSA Encryption", CSSM_ALGID_SHA256WithRSA,
 	INVALID_CERT_EXTENSION ),
     OD( pkcs1SHA384WithRSAEncryption, SEC_OID_PKCS1_SHA384_WITH_RSA_ENCRYPTION,
-	"PKCS #1 SHA-384 With RSA Encryption", CSSM_ALGID_NONE,
+	"PKCS #1 SHA-384 With RSA Encryption", CSSM_ALGID_SHA384WithRSA,
 	INVALID_CERT_EXTENSION ),
     OD( pkcs1SHA512WithRSAEncryption, SEC_OID_PKCS1_SHA512_WITH_RSA_ENCRYPTION,
-	"PKCS #1 SHA-512 With RSA Encryption", CSSM_ALGID_NONE,
+	"PKCS #1 SHA-512 With RSA Encryption", CSSM_ALGID_SHA512WithRSA,
 	INVALID_CERT_EXTENSION ),
 
     OD( aes128_KEY_WRAP, SEC_OID_AES_128_KEY_WRAP,
@@ -1054,6 +1082,24 @@ const static SECOidData oids[] = {
     OD( noOid, SEC_OID_OTHER,
 	"Caller-specified eContentType", CSSM_ALGID_NONE, INVALID_CERT_EXTENSION),
 
+    OD( ecPublicKey, SEC_OID_EC_PUBLIC_KEY,
+	"ECDSA Public Key", CSSM_ALGID_ECDSA,
+	INVALID_CERT_EXTENSION ),
+    OD( ecdsaWithSHA1, SEC_OID_ECDSA_WithSHA1,
+	"SHA-1 With ECDSA", CSSM_ALGID_SHA1WithECDSA,
+	INVALID_CERT_EXTENSION ),
+    OD( dhSinglePassStdDHsha1kdf, SEC_OID_DH_SINGLE_STD_SHA1KDF,
+	"ECDH With SHA1 KDF", CSSM_ALGID_ECDH_X963_KDF,
+	INVALID_CERT_EXTENSION ),
+    OD( secp256r1, SEC_OID_SECP_256_R1,
+	"secp256r1", CSSM_ALGID_NONE,
+	INVALID_CERT_EXTENSION ),
+    OD( secp384r1, SEC_OID_SECP_384_R1,
+	"secp384r1", CSSM_ALGID_NONE,
+	INVALID_CERT_EXTENSION ),
+    OD( secp521r1, SEC_OID_SECP_521_R1,
+	"secp521r1", CSSM_ALGID_NONE,
+	INVALID_CERT_EXTENSION ),
 };
 
 /*

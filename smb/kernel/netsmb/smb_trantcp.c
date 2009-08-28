@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,9 +32,6 @@
  * SUCH DAMAGE.
  *
  */
-
-#define ABSOLUTETIME_SCALAR_TYPE
-#define APPLE_PRIVATE 1
 
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -77,26 +74,28 @@ SYSCTL_DECL(_net_smb_fs);
 SYSCTL_INT(_net_smb_fs, OID_AUTO, tcpsndbuf, CTLFLAG_RW, &smb_tcpsndbuf, 0, "");
 SYSCTL_INT(_net_smb_fs, OID_AUTO, tcprcvbuf, CTLFLAG_RW, &smb_tcprcvbuf, 0, "");
 
-static int  nbssn_recv(struct nbpcb *nbp, mbuf_t *mpp, int *lenp,
-	u_int8_t *rpcodep, struct timespec *tsp);
+static int nbssn_recv(struct nbpcb *nbp, mbuf_t *mpp, int *lenp, u_int8_t *rpcodep, 
+					  struct timespec *wait_time);
 static int  smb_nbst_disconnect(struct smb_vc *vcp);
 
 static int
 nb_setsockopt_int(socket_t so, int level, int name, int val)
 {
-	return (sock_setsockopt(so, level, name, &val, sizeof(val)));
+	return (sock_setsockopt(so, level, name, &val, (int)sizeof(val)));
 }
 
 static void
 nb_upcall(socket_t so, void *arg, int waitflag)
 {
-	#pragma unused(so, waitflag)
+#pragma unused(so, waitflag)
 	struct nbpcb *nbp = (struct nbpcb *)arg;
 
-	/* sanity */
-	if (arg == NULL)
+	/* sanity check make sure everything seems ok */
+	if ((so == NULL) || (nbp == NULL) || (nbp->nbp_tso == NULL) || (nbp->nbp_tso != so)) {
+		SMBDEBUG("UPCALLED: so = %p nbp = %p nbp->nbp_tso = %p\n", so, nbp, (nbp) ? nbp->nbp_tso : NULL);
 		return;
-
+	}
+		
 	lck_mtx_lock(&nbp->nbp_lock);
 
 	nbp->nbp_flags |= NBF_UPCALLED;
@@ -160,15 +159,15 @@ nb_connect_in(struct nbpcb *nbp, struct sockaddr_in *to)
 	nbp->nbp_tso = so;
 	tv.tv_sec = SMBSBTIMO;
 	tv.tv_usec = 0;
-	error = sock_setsockopt(so, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+	error = sock_setsockopt(so, SOL_SOCKET, SO_RCVTIMEO, &tv, (int)sizeof(tv));
 	if (error)
 		goto bad;
-	error = sock_setsockopt(so, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+	error = sock_setsockopt(so, SOL_SOCKET, SO_SNDTIMEO, &tv, (int)sizeof(tv));
 	if (error)
 		goto bad;
 
 	do {
-		error = sock_setsockopt(so, SOL_SOCKET, SO_SNDBUF, &nbp->nbp_sndbuf, sizeof(nbp->nbp_sndbuf));
+		error = sock_setsockopt(so, SOL_SOCKET, SO_SNDBUF, &nbp->nbp_sndbuf, (int)sizeof(nbp->nbp_sndbuf));
 		if (error) {
 			nbp->nbp_sndbuf /= 2;
 			SMBDEBUG("sock_setsockopt error = %d nbp_sndbuf = %d\n", error, nbp->nbp_sndbuf);
@@ -178,7 +177,7 @@ nb_connect_in(struct nbpcb *nbp, struct sockaddr_in *to)
 		goto bad;
 
 	do {
-		error = sock_setsockopt(so, SOL_SOCKET, SO_RCVBUF, &nbp->nbp_rcvbuf, sizeof(nbp->nbp_rcvbuf));
+		error = sock_setsockopt(so, SOL_SOCKET, SO_RCVBUF, &nbp->nbp_rcvbuf, (int)sizeof(nbp->nbp_rcvbuf));
 		if (error) {
 			nbp->nbp_sndbuf /= 2;
 			SMBDEBUG("sock_setsockopt error = %d nbp_rcvbuf = %d\n", error, nbp->nbp_rcvbuf);
@@ -198,6 +197,8 @@ nb_connect_in(struct nbpcb *nbp, struct sockaddr_in *to)
 	error = nb_setsockopt_int(so, SOL_SOCKET, SO_NOADDRERR, 1);
 	if (error)	/* Should we error out if this fails? */
 		goto bad;
+	/* just playin' it safe */
+	nb_setsockopt_int(so, SOL_SOCKET, SO_UPCALLCLOSEWAIT, 1);
 	
 	error = sock_nointerrupt(so, 0);
 	if (error)
@@ -265,7 +266,7 @@ nbssn_rq_request(struct nbpcb *nbp)
 	mb_put_uint32le(mbp, 0);
 	nb_put_name(mbp, nbp->nbp_paddr);
 	nb_put_name(mbp, nbp->nbp_laddr);
-	nb_sethdr(mbp->mb_top, NB_SSN_REQUEST, mb_fixhdr(mbp) - 4);
+	nb_sethdr(mbp->mb_top, NB_SSN_REQUEST, (u_int32_t)(mb_fixhdr(mbp) - 4));
 	error = sock_sendmbuf(nbp->nbp_tso, NULL, (mbuf_t)mbp->mb_top, 0, NULL);
 	if (!error)
 		nbp->nbp_state = NBST_RQSENT;
@@ -322,9 +323,8 @@ nbssn_rq_request(struct nbpcb *nbp)
 	return (error);
 }
 
-static int
-nbssn_recvhdr(struct nbpcb *nbp, int *lenp,
-	u_int8_t *rpcodep, u_int64_t abstime)
+static int nbssn_recvhdr(struct nbpcb *nbp, u_int32_t *lenp, u_int8_t *rpcodep, 
+						 struct timespec *wait_time)
 {
 	struct iovec aio;
 	u_int32_t len;
@@ -333,6 +333,7 @@ nbssn_recvhdr(struct nbpcb *nbp, int *lenp,
 	size_t resid, recvdlen;
 	struct msghdr msg;
 	struct smbiod *iod = nbp->nbp_vc->vc_iod;
+	int flags = MSG_DONTWAIT;
 
 	resid = sizeof(len);
 	bytep = (u_int8_t *)&len;
@@ -342,69 +343,60 @@ nbssn_recvhdr(struct nbpcb *nbp, int *lenp,
 		bzero(&msg, sizeof(msg));
 		msg.msg_iov = &aio;
 		msg.msg_iovlen = 1;
-		/*
-		 * We don't wait for all the data to be available; we
-		 * want to know when the first bit of data arrives, so
-		 * we can get the network-layer round-trip time, which
-		 * we use as the basis for other timeouts.  (Note
-		 * that even if we *did* wait for all the data to
-		 * be available, we still might not get all the data,
-		 * as there might be a timeout, e.g. due to the machine
-		 * going to sleep and waking up later.)
-		 */
-		error = sock_receive(nbp->nbp_tso, &msg, MSG_DONTWAIT,
-				     &recvdlen);
-		if (error) {
-			/*
-			 * If we've gotten a socket timeout, and if we were
-			 * given a deadline (which is presumably further in
-			 * the future than the socket receive timeout, so
-			 * that we'd get a socket receive timeout before the
-			 * deadline expires), check whether we've been
-			 * upcalled (to deliver more data) and, if not,
-			 * wait for the deadline to expire or for an
-			 * upcall with more data.
-			 */
-			if (error == EWOULDBLOCK && abstime) {
-				lck_mtx_lock(&nbp->nbp_lock);
-				if (!(nbp->nbp_flags & NBF_UPCALLED)) {
-					msleep1(&iod->iod_flags,
-					    &nbp->nbp_lock, PWAIT, "nbssn",
-					    abstime);
 
-					/*
-					 * The only reason for the deadline
-					 * is to get an initial round-trip
-					 * time estimate, so we only want
-					 * the deadline for the first sleep
-					 * (note that the deadline might
-					 * have passed by the time the first
-					 * sleep finishes).
-					 */
-					abstime = 0;
-				}
-				lck_mtx_unlock(&nbp->nbp_lock);
-				continue;
-			}
-			if (error == EWOULDBLOCK && resid != sizeof(len))
-				continue;
-			return (error);
+		/*
+		 * We are trying to read the nbt header which is 4 bytes long. The first
+		 * time though the loop we set the flag to be MSG_DONTWAIT. Once we receive
+		 * at least one byte then we will reset the flag to MSG_WAITALL. This means
+		 * once we get part of the header we will only wait 5 seconds before giving
+		 * up. 
+		 */
+		error = sock_receive(nbp->nbp_tso, &msg, flags, &recvdlen);
+		/*
+		 * If we have wait_time then we want to wait here for some amount of time 
+		 * that is determined by wait_time.
+		 */
+		if ((error == EWOULDBLOCK) && wait_time) {
+			lck_mtx_lock(&nbp->nbp_lock);
+			if (!(nbp->nbp_flags & NBF_UPCALLED))
+				msleep(&iod->iod_flags, &nbp->nbp_lock, PWAIT, "nbssn", wait_time);
+			lck_mtx_unlock(&nbp->nbp_lock);
+			wait_time = 0;	/* We are suppose to have some data waitig by now */
+			flags = MSG_WAITALL; /* Wait for all four bytes */
+			continue;
 		}
-		if (recvdlen > resid) {
-			/* This "shouldn't happen" */
-			SMBERROR("got more data than we asked for!\n");
-			return (EPIPE);
+
+		/*
+		 * If we didn't get an error and recvdlen is zero then we have reached
+		 * EOF. So the socket has the SS_CANTRCVMORE flag set. This means the other 
+		 * side has closed their side of the connection.
+		 */
+		if ((error == 0) && (recvdlen == 0) && resid) {
+			SMBWARNING("Server closed their side of the connection.\n");
+			error = EPIPE;
 		}
+		/* This should never happen, someday should we make it just a debug assert. */
+		if ((error == 0) && (recvdlen > resid)) {
+			SMBERROR("Got more data than we asked for!\n");
+			error = EPIPE;
+		}
+		/* The connect got closed */
 		if (!sock_isconnected(nbp->nbp_tso)) {
 			nbp->nbp_state = NBST_CLOSED;
 			NBDEBUG("session closed by peer\n");
-			return (ECONNRESET);
+			error = EPIPE;
 		}
-		if (recvdlen == 0) {
-			/* This isn't always a bad thing, so make it a warning only */
-			SMBWARNING("connection closed out from under us\n");
-			return (EPIPE);
+		if (error) {
+			if ((error == EWOULDBLOCK) && resid && (resid < sizeof(len)))
+				SMBERROR("Timed out reading the nbt header: missing %ld bytes\n", resid);
+			return error;
 		}
+		
+		/* 
+		 * At this point we have received some data, reset the flag to wait. We got
+		 * part of the 4 byte length field only wait 5 seconds to get the rest.
+		 */
+		flags = MSG_WAITALL;
 		resid -= recvdlen;
 		bytep += recvdlen;
 	}
@@ -435,29 +427,22 @@ nbssn_recvhdr(struct nbpcb *nbp, int *lenp,
 	return (0);
 }
 
-static int
-nbssn_recv(struct nbpcb *nbp, mbuf_t *mpp, int *lenp,
-	u_int8_t *rpcodep, struct timespec *tsp)
+static int nbssn_recv(struct nbpcb *nbp, mbuf_t *mpp, int *lenp, u_int8_t *rpcodep, 
+					  struct timespec *wait_time)
 {
 	socket_t so = nbp->nbp_tso;
 	mbuf_t m;
 	mbuf_t tm;
 	u_int8_t rpcode;
-	int len, resid, error;
-	size_t recvdlen;
-	uint64_t	abstime = 0;
+	u_int32_t len;
+	int32_t error;
+	size_t recvdlen, resid;
 
 	if (so == NULL)
 		return (ENOTCONN);
 	if (mpp)
 		*mpp = NULL;
 	m = NULL;
-	if (tsp) {
-		nanoseconds_to_absolutetime(tsp->tv_nsec +
-					    NSEC_PER_SEC*(uint64_t)tsp->tv_sec,
-					    &abstime);
-		clock_absolutetime_interval_to_deadline(abstime, &abstime);
-	}
 	for(;;) {
 		/*
 		 * Read the response header.
@@ -465,24 +450,12 @@ nbssn_recv(struct nbpcb *nbp, mbuf_t *mpp, int *lenp,
 		lck_mtx_lock(&nbp->nbp_lock);
 		nbp->nbp_flags &= ~NBF_UPCALLED;
 		lck_mtx_unlock(&nbp->nbp_lock);
-		error = nbssn_recvhdr(nbp, &len, &rpcode, abstime);
+		error = nbssn_recvhdr(nbp, &len, &rpcode, wait_time);
 		if (error)
 			return (error);
 
 		/*
-		 * Warn about keepalives with data - they're not
-		 * supposed to have any, and if we have a problem
-		 * at this point, perhaps the length didn't
-		 * reflect the actual data in the packet.
-		 */
-		if (rpcode == NB_SSN_KEEPALIVE && len != 0) {
-			SMBERROR("Keepalive received with non-zero length %d\n",
-			    len);
-		}
-
-		/*
-		 * Loop, blocking, for data following the response header,
-		 * if any.
+		 * Loop, blocking, for data following the response header, if any.
 		 *
 		 * Note that we can't simply block here with MSG_WAITALL for the
 		 * entire response size, as it may be larger than the TCP
@@ -495,7 +468,7 @@ nbssn_recv(struct nbpcb *nbp, mbuf_t *mpp, int *lenp,
 		 * the TCP code at the completion of each call.
 		 */
 		resid = len;
-		while (resid > 0) {
+		while (resid != 0) {
 			struct timespec tstart, tend;
 			tm = NULL;
 			/*
@@ -511,12 +484,12 @@ nbssn_recv(struct nbpcb *nbp, mbuf_t *mpp, int *lenp,
 			 * message. Since we can't send in this state there is no way for us to know that 
 			 * the connect is really down. 
 			 */
-			nanotime(&tstart);
+			nanouptime(&tstart);
 			do {
-				recvdlen = min(resid, NB_SORECEIVE_CHUNK);
+				recvdlen = MIN(resid, NB_SORECEIVE_CHUNK);
 				error = sock_receivembuf(so, NULL, &tm, MSG_WAITALL, &recvdlen);
 				if (error == EAGAIN) {
-					nanotime(&tend);
+					nanouptime(&tend);
 					/* We fell asleep reset our timer to the wake up timer */
 					if (tstart.tv_sec < gWakeTime.tv_sec)
 						tstart.tv_sec = gWakeTime.tv_sec;
@@ -527,23 +500,36 @@ nbssn_recv(struct nbpcb *nbp, mbuf_t *mpp, int *lenp,
 					}
 				}
 			} while ((error == EAGAIN) || (error == EINTR) || (error == ERESTART));
+			/*
+			 * If we didn't get an error and recvdlen is zero then we have reached
+			 * EOF. So the socket has the SS_CANTRCVMORE flag set. This means the other 
+			 * side has closed their side of the connection.
+			 */
+			if ((error == 0) && (recvdlen == 0) && resid) {
+				SMBWARNING("Server closed their side of the connection.\n");
+				error = EPIPE;
+			}
+			/*
+			 * This should never happen, someday should we make it just
+			 * a debug assert.
+			 */
+			if ((error == 0) && (recvdlen > resid)) {
+				SMBERROR("Got more data than we asked for!\n");
+				if (tm)
+					mbuf_freem(tm);
+				error = EPIPE;
+			}
 			if (error)
 				goto out;
-			if (recvdlen > resid) {
-				/* This "shouldn't happen" */
-				SMBERROR("got more data than we asked for!\n");
-				error = EPIPE;
-				goto out;
-			}
+			
 			resid -= recvdlen;
-			/* append received chunk to previous chunk(s) */
+			/*
+			 * Append received chunk to previous chunk. Just glue 
+			 * the new chain on the end. Consumer will pullup as required.
+			 */
 			if (!m) {
 				m = (mbuf_t )tm;
-			} else {
-				/*
-				 * Just glue the new chain on the end.
-				 * Consumer will pullup as required.
-				 */
+			} else if (tm) {
 				mbuf_cat_internal(m, (mbuf_t )tm);
 			}
 		}
@@ -650,9 +636,10 @@ smb_nbst_done(struct smb_vc *vcp)
 		free(nbp->nbp_laddr, M_SONAME);
 	if (nbp->nbp_paddr)
 		free(nbp->nbp_paddr, M_SONAME);
+	/* The vc_tdata is no longer valid */
+	vcp->vc_tdata = NULL;
 	lck_mtx_destroy(&nbp->nbp_lock, nbp_lck_group);
 	free(nbp, M_NBDATA);
-	vcp->vc_tdata = NULL;
 	return (0);
 }
 
@@ -663,6 +650,7 @@ smb_nbst_bind(struct smb_vc *vcp, struct sockaddr *sap)
 	struct sockaddr_nb *snb;
 	int error, slen;
 
+	DBG_ASSERT(vcp->vc_tdata != NULL);
 	NBDEBUG("\n");
 	error = EINVAL;
 	do {
@@ -727,11 +715,11 @@ smb_nbst_connect(struct smb_vc *vcp, struct sockaddr *sap)
 	 * round trip is very fast the subsequent 4 sec
 	 * timeouts are simply too short.
 	 */
-	nanotime(&ts1);
+	nanouptime(&ts1);
 	error = nb_connect_in(nbp, &sin);
 	if (error)
 		return (error);
-	nanotime(&ts2);
+	nanouptime(&ts2);
 	timespecsub(&ts2, &ts1);
 	timespecadd(&ts2, &ts2);
 	timespecadd(&ts2, &ts2);	/*  * 4 */
@@ -784,7 +772,7 @@ smb_nbst_send(struct smb_vc *vcp, mbuf_t m0)
 	}
 	if (mbuf_prepend(&m0, 4, MBUF_WAITOK))
 		return (ENOBUFS);
-	nb_sethdr(m0, NB_SSN_MESSAGE, m_fixhdr(m0) - 4);
+	nb_sethdr(m0, NB_SSN_MESSAGE, (u_int32_t)(m_fixhdr(m0) - 4));
 	error = sock_sendmbuf(nbp->nbp_tso, NULL, (mbuf_t)m0, 0, NULL);
 	return (error);
 abort:

@@ -374,11 +374,12 @@ SecCmsEnvelopedDataDecodeBeforeData(SecCmsEnvelopedDataRef envd)
 						    bulkalgtag);
     if (bulkkey == NULL) {
 	/* no success finding a bulk key */
+	rv = errSecDataNotAvailable;
 	goto loser;
     }
 
     SecCmsContentInfoSetBulkKey(cinfo, bulkkey);
-    // @@@ See 3401088 for details.  We need to CFRelease cinfo->bulkkey before recipient->privkey gets CFReleased. It's created with SecKeyCreate which is not safe currently.  If the private key's SecKeyRef from which we extracted the CSP gets CFRelease before the builkkey does we crash.  We should really fix SecKeyCreate which is a huge hack currently.  To work around this we add recipient->privkey to the cinfo so it gets when cinfo is destroyed.
+    // @@@ See 3401088 for details.  We need to CFRelease cinfo->bulkkey before recipient->privkey gets CFReleased. It's created with SecKeyCreateWithCSSMKey which is not safe currently.  If the private key's SecKeyRef from which we extracted the CSP gets CFRelease before the builkkey does we crash.  We should really fix SecKeyCreateWithCSSMKey which is a huge hack currently.  To work around this we add recipient->privkey to the cinfo so it gets when cinfo is destroyed.
     CFRetain(recipient->privkey);
     cinfo->privkey = recipient->privkey;
 

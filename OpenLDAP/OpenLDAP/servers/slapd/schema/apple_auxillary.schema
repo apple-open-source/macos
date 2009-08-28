@@ -1,0 +1,19 @@
+##############################################
+# the schema entries below have been pulled in from
+# the microsoft schema
+# altSecurityIdentities - used to store Kerberos 
+# user account names used in authentication
+# servicePrincipalName - List of principal names used 
+# for mutual authentication with an instance of a service
+##############################################
+attributetype ( 1.2.840.113556.1.4.867
+	NAME 'altSecurityIdentities'
+	EQUALITY caseIgnoreMatch
+	SUBSTR caseIgnoreSubstringsMatch
+	SYNTAX '1.3.6.1.4.1.1466.115.121.1.15' )
+	
+attributetype ( 1.2.840.113556.1.4.771
+	NAME 'servicePrincipalName'
+	EQUALITY caseExactMatch
+	SUBSTR caseExactSubstringsMatch
+	SYNTAX '1.3.6.1.4.1.1466.115.121.1.15' )

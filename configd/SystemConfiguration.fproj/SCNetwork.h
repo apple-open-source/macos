@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,6 +24,7 @@
 #ifndef _SCNETWORK_H
 #define _SCNETWORK_H
 
+#include <Availability.h>
 #include <sys/cdefs.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -53,6 +54,10 @@
 		nodename or address is reachable, whether a connection is
 		required, and whether some user intervention may be required
 		when establishing a connection.
+
+		Note: the SCNetworkConnection flags have been deprecated
+		in favor of the newer SCNetworkReachability flags defined
+		in SCNetworkReachability.h.
 	@constant kSCNetworkFlagsTransientConnection
 		This flag indicates that the specified nodename or address can
 		be reached via a transient connection, such as PPP.
@@ -104,7 +109,7 @@ enum {
 	kSCNetworkFlagsConnectionAutomatic	= 1<<3,
 	kSCNetworkFlagsInterventionRequired	= 1<<4,
 	kSCNetworkFlagsIsLocalAddress		= 1<<16,
-	kSCNetworkFlagsIsDirect			= 1<<17
+	kSCNetworkFlagsIsDirect			= 1<<17,
 };
 typedef	uint32_t	SCNetworkConnectionFlags;
 
@@ -114,6 +119,18 @@ __BEGIN_DECLS
 	@function SCNetworkCheckReachabilityByAddress
 	@discussion Determines if the given network address is
 		reachable using the current network configuration.
+
+		Note: this API has been deprecated but you can
+		      get equivalent results with :
+<pre>
+	SCNetworkReachabiltyRef   target;
+	SCNetworkReachabiltyFlags flags = 0;
+	Boolean                   ok;
+
+	target = SCNetworkReachabilityCreateWithAddress(NULL, address);
+	ok = SCNetworkReachabilityGetFlags(target, &flags);
+	CFRelease(target);
+</pre>
 	@param address The network address of the desired host.
 	@param addrlen The length, in bytes, of the address.
 	@param flags A pointer to memory that will be filled with a
@@ -127,12 +144,24 @@ SCNetworkCheckReachabilityByAddress	(
 					const struct sockaddr		*address,
 					socklen_t			addrlen,
 					SCNetworkConnectionFlags	*flags
-					);
+					)				__OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA);
 
 /*!
 	@function SCNetworkCheckReachabilityByName
 	@discussion Determines if the given network host or node name is
 		reachable using the current network configuration.
+
+		Note: this API has been deprecated but you can
+		      get equivalent results with :
+<pre>
+	SCNetworkReachabiltyRef   target;
+	SCNetworkReachabiltyFlags flags = 0;
+	Boolean                   ok;
+
+	target = SCNetworkReachabilityCreateWithName(NULL, name);
+	ok = SCNetworkReachabilityGetFlags(target, &flags);
+	CFRelease(target);
+</pre>
 	@param nodename The node name of the desired host. This name would
 		be the same as that passed to the gethostbyname(3) or
 		getaddrinfo(3) functions.
@@ -146,7 +175,7 @@ Boolean
 SCNetworkCheckReachabilityByName	(
 					const char			*nodename,
 					SCNetworkConnectionFlags	*flags
-					);
+					)				__OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA);
 
 /*!
 	@function SCNetworkInterfaceRefreshConfiguration
@@ -162,8 +191,8 @@ SCNetworkCheckReachabilityByName	(
  */
 Boolean
 SCNetworkInterfaceRefreshConfiguration	(
-					CFStringRef ifName
-					)	DEPRECATED_IN_MAC_OS_X_VERSION_10_5_AND_LATER;
+					CFStringRef			ifName
+					)				__OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA);
 
 __END_DECLS
 

@@ -33,7 +33,7 @@
 /* Begin PBXCopyFilesBuildPhase section */
 		25840CFC0C7A29E800864AAA /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man3/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -42,7 +42,7 @@
 				25840CF90C7A295600864AAA /* ffi_prep_cif.3 in CopyFiles */,
 				25840CFB0C7A295600864AAA /* ffi_prep_closure.3 in CopyFiles */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 /* End PBXCopyFilesBuildPhase section */
 
@@ -246,6 +246,7 @@
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				DEPLOYMENT_LOCATION = NO;
+				EXPORTED_SYMBOLS_FILE = "libffi-exports.sym";
 				GCC_OPTIMIZATION_LEVEL = 3;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
@@ -265,16 +266,15 @@
 				ALWAYS_SEARCH_USER_PATHS = YES;
 				ARCHS = (
 					ppc,
-					ppc64,
 					i386,
 					x86_64,
 				);
 				DEPLOYMENT_LOCATION = NO;
+				EXPORTED_SYMBOLS_FILE = "libffi-exports.sym";
 				GCC_OPTIMIZATION_LEVEL = 3;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				INSTALL_PATH = "";
-				OTHER_CFLAGS = "-DMACOSX";
 				PREBINDING = NO;
 				PUBLIC_HEADERS_FOLDER_PATH = ../include/ffi;
 			};
@@ -287,7 +287,6 @@
 				EXECUTABLE_PREFIX = lib;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = /usr/local/lib;
 				PREBINDING = NO;
@@ -303,7 +302,7 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				EXECUTABLE_PREFIX = lib;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = s;
 				INSTALL_PATH = /usr/lib;
 				PREBINDING = NO;
 				PRODUCT_NAME = ffi;

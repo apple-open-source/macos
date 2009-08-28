@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -38,6 +38,7 @@
 
 int (*WSAStartupWithNLMHandle)( WORD version, LPWSADATA data, void *handle ) = NULL;
 int (*WSACleanupWithNLMHandle)( void *handle ) = NULL;
+apr_status_t apr_ldap_rebind_init(apr_pool_t *pool);
 
 static int wsa_startup_with_handle (WORD wVersionRequested, LPWSADATA data, void *handle)
 {
@@ -151,6 +152,7 @@ APR_DECLARE(apr_status_t) apr_initialize(void)
 #endif
 
     apr_signal_init(pool);
+    apr_ldap_rebind_init(pool);
 
     return APR_SUCCESS;
 }

@@ -4,15 +4,15 @@
 	<key>OpenSourceProject</key>
 	<string>neon</string>
 	<key>OpenSourceVersion</key>
-	<string>0.26.3</string>
+	<string>0.28.3</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://webdav.org/neon/</string>
 	<key>OpenSourceURL</key>
-	<string>http://webdav.org/neon/neon-0.26.3.tar.gz</string>
+	<string>http://webdav.org/neon/neon-0.28.3.tar.gz</string>
 	<key>OpenSourceSHA1</key>
-	<string>8f3191cc6fe0aee5323dac58b03362cddc5d80d0</string>
+	<string>544a92dbfba144ec600506cadbda92ae0b0eb9b0</string>
 	<key>OpenSourceImportDate</key>
-	<string>2007-04-02</string>
+	<string>2008-09-03</string>
 	<key>OpenSourceLicense</key>
 	<string>LGPL</string>
 	<key>OpenSourceLicenseFile</key>

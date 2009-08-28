@@ -1,6 +1,6 @@
 #######################################################################
 #
-# $Id: rules.mak,v 1.49.6.2.2.4 2006/07/06 16:42:57 aland Exp $
+# $Id$
 #
 #  Each module should have a few common defines at the TOP of the
 # Makefile, and the 'include ../rules.mak'
@@ -42,7 +42,7 @@ all: build-module
 #######################################################################
 LT_OBJS		+= $(SRCS:.c=.lo)
 LT_OBJS		+= $(SRCS:.cpp=.lo)
-CFLAGS		+= -I$(top_builddir)/src/include
+CFLAGS		+= -I$(top_builddir)/src -I$(top_builddir)/libltdl
 
 #######################################################################
 #
@@ -52,7 +52,8 @@ CFLAGS		+= -I$(top_builddir)/src/include
 #######################################################################
 SERVER_HEADERS	= $(top_builddir)/src/include/radius.h  \
 		  $(top_builddir)/src/include/radiusd.h \
-		  $(top_builddir)/src/include/modules.h
+		  $(top_builddir)/src/include/modules.h \
+		  $(top_builddir)/src/include/libradius.h
 
 $(LT_OBJS): $(SERVER_HEADERS)
 
@@ -107,14 +108,16 @@ endif
 
 build-module: $(TARGET).la $(RLM_UTILS)
 	@[ "x$(RLM_SUBDIRS)" = "x" ] || $(MAKE) $(MFLAGS) WHAT_TO_MAKE=all common
-	@[ -d .libs ] && cp .libs/* $(top_builddir)/src/modules/lib
-	@cp $< $(top_builddir)/src/modules/lib
+	@[ -d $(top_builddir)/src/modules/lib/.libs ] || mkdir $(top_builddir)/src/modules/lib/.libs
+	for x in .libs/* $^; do \
+		rm -rf $(top_builddir)/src/modules/lib/$$x; \
+		ln -s $(PWD)/$(TARGET)/$$x $(top_builddir)/src/modules/lib/$$x; \
+	done
 
 $(TARGET).la: $(LT_OBJS)
 	$(LIBTOOL) --mode=link $(CC) -release $(RADIUSD_VERSION) \
 	-module $(LINK_MODE) $(LDFLAGS) $(RLM_LDFLAGS) -o $@     \
-	-rpath $(libdir) $^ $(top_builddir)/src/lib/libradius.la \
-	$(RLM_LIBS) $(LIBS)
+	-rpath $(libdir) $^ $(LIBRADIUS) $(RLM_LIBS) $(LIBS)
 
 #######################################################################
 #
@@ -146,10 +149,10 @@ reconfig:
 	@if [ -f configure.in ]; then \
 		[ "x$(AUTOCONF)" != "x" ] && $(AUTOCONF) -I $(top_builddir); \
 	fi
-	@if [ -f config.h.in ]; then \
-		[ "x$(AUTOHEADER)" != "x" ] && $(AUTOHEADER); \
+	@[ "x$(AUTOHEADER)" != "x" ] && [ -f ./configure.in ] && \
+	if grep AC_CONFIG_HEADERS configure.in >/dev/null; then\
+		$(AUTOHEADER);\
 	fi
-		
 
 #
 #  Do any module-specific installation.

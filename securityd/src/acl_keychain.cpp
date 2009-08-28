@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004,2007 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2000-2004,2007-2008 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -47,7 +47,6 @@
 #include "connection.h"
 #include "database.h"
 #include "server.h"
-#include "osxcodewrap.h"
 #include <security_utilities/debugging.h>
 #include <security_utilities/logging.h>
 #include <security_cdsa_utilities/osxverifier.h>
@@ -111,7 +110,7 @@ bool KeychainPromptAclSubject::validate(const AclValidationContext &context,
 				process.getPath().c_str(), process.pid());
 			break;
 		default:							// something else went wrong
-			secdebug("kcacl", "client validation failed rc=%ld, suppressing prompt", validation);
+			secdebug("kcacl", "client validation failed rc=%d, suppressing prompt", int32_t(validation));
 			return false;
 		}
 		
@@ -122,31 +121,39 @@ bool KeychainPromptAclSubject::validate(const AclValidationContext &context,
         bool needPassphrase = db && (selector.flags & CSSM_ACL_KEYCHAIN_PROMPT_REQUIRE_PASSPHRASE);
 
 		// an application (i.e. Keychain Access.app :-) can force this option
-		if (clientCode) {
+		if (clientCode && validation == noErr) {
 			CFRef<CFDictionaryRef> dict;
-			if (!SecCodeCopySigningInformation(clientCode, kSecCSDefaultFlags, &dict.aref()))
+			if (SecCodeCopySigningInformation(clientCode, kSecCSDefaultFlags, &dict.aref()) == noErr)
 				if (CFDictionaryRef info = CFDictionaryRef(CFDictionaryGetValue(dict, kSecCodeInfoPList)))
 					needPassphrase |=
 						(CFDictionaryGetValue(info, CFSTR("SecForcePassphrasePrompt")) != NULL);
 		}
 
 		// pop The Question
-		QueryKeychainUse query(needPassphrase, db);
-        query.inferHints(Server::process());
-		query.addHint(AGENT_HINT_CLIENT_VALIDITY, &validation, sizeof(validation));
-        if (query.queryUser(db ? db->dbName() : NULL, 
-			description.c_str(), context.authorization()) != SecurityAgent::noReason)
-			return false;
+		if (db && db->belongsToSystem() && !hasAuthorizedForSystemKeychain()) {
+			QueryKeychainAuth query;
+			query.inferHints(Server::process());
+			if (query(db ? db->dbName() : NULL, description.c_str(), context.authorization(), NULL) != SecurityAgent::noReason)
+				return false;
+			return true;
+		} else {
+			QueryKeychainUse query(needPassphrase, db);
+			query.inferHints(Server::process());
+			query.addHint(AGENT_HINT_CLIENT_VALIDITY, &validation, sizeof(validation));
+			if (query.queryUser(db ? db->dbName() : NULL, 
+				description.c_str(), context.authorization()) != SecurityAgent::noReason)
+				return false;
 
-		// process an "always allow..." response
-		if (query.remember && clientCode) {
-			RefPointer<OSXCode> clientXCode = new OSXCodeWrap(clientCode);
-			RefPointer<AclSubject> subject = new CodeSignatureAclSubject(OSXVerifier(clientXCode));
-			SecurityServerAcl::addToStandardACL(context, subject);
+			// process an "always allow..." response
+			if (query.remember && clientCode) {
+				RefPointer<OSXCode> clientXCode = new OSXCodeWrap(clientCode);
+				RefPointer<AclSubject> subject = new CodeSignatureAclSubject(OSXVerifier(clientXCode));
+				SecurityServerAcl::addToStandardACL(context, subject);
+			}
+
+			// finally, return the actual user response
+			return query.allow;
 		}
-
-		// finally, return the actual user response
-		return query.allow;
     }
 	return false;        // default to deny without prejudice
 }
@@ -162,6 +169,18 @@ CssmList KeychainPromptAclSubject::toList(Allocator &alloc) const
 		new(alloc) ListElement(alloc, CssmData::wrap(selector)),
         new(alloc) ListElement(alloc, description));
 }
+
+//
+// Has the caller recently authorized in such a way as to render unnecessary
+// the usual QueryKeychainAuth dialog?  (The right is specific to Keychain 
+// Access' way of editing a system keychain.)  
+//
+bool KeychainPromptAclSubject::hasAuthorizedForSystemKeychain() const
+{
+    string rightString = "system.keychain.modify";
+    return Server::session().isRightAuthorized(rightString, Server::connection(), false/*no UI*/);
+}
+
 
 
 //

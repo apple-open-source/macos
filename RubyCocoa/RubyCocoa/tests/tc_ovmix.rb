@@ -101,6 +101,12 @@ class OSX::DirectOverride
   end
 end
 
+class OSX::DirectOverrideChild
+  def overrideMe
+    'bar'
+  end
+end
+
 class OSX::NSObject
   def self.mySuperClassMethod
     'bar'
@@ -143,6 +149,22 @@ class TC_OVMIX < Test::Unit::TestCase
     assert_kind_of(OSX::NSString, OSX::DirectOverride.performSelector('classOverrideMe'))
     assert_equal('bar', OSX::DirectOverride.performSelector('classOverrideMe').to_s)
     OSX::DirectOverride.checkOverridenMethods
+  end
+
+  def test_direct_inheritance
+    assert(OSX::DirectOverrideParent.ancestors.include?(OSX::NSObject))
+    p = OSX::DirectOverrideParent.alloc.init
+    assert_kind_of(OSX::NSString, p.performSelector('overrideMe'))
+    assert_equal('foo', p.performSelector('overrideMe').to_s)
+    p.checkOverride('foo')
+    
+    assert(OSX::DirectOverrideChild.ancestors.include?(OSX::NSObject))
+    assert(OSX::DirectOverrideChild.ancestors.include?(
+      OSX::DirectOverrideParent))
+    c = OSX::DirectOverrideChild.alloc.init
+    assert_kind_of(OSX::NSString, c.performSelector('overrideMe'))
+    assert_equal('bar', c.performSelector('overrideMe').to_s)
+    c.checkOverride('bar')
   end
 
   def test_super_method

@@ -23,34 +23,55 @@
 
 static void
 exsltNodeSetFunction (xmlXPathParserContextPtr ctxt, int nargs) {
-    xmlChar *strval;
-    xmlNodePtr retNode;
-    xmlXPathObjectPtr ret;
-
     if (nargs != 1) {
 	xmlXPathSetArityError(ctxt);
 	return;
     }
-
     if (xmlXPathStackIsNodeSet (ctxt)) {
 	xsltFunctionNodeSet (ctxt, nargs);
 	return;
-    }
-
-    strval = xmlXPathPopString (ctxt);
-    retNode = xmlNewDocText (NULL, strval);
-    ret = xmlXPathNewValueTree (retNode);
-    if (ret == NULL) {
-        xsltGenericError(xsltGenericErrorContext,
-			 "exsltNodeSetFunction: ret == NULL\n");
     } else {
-        ret->type = XPATH_NODESET;
+	xmlDocPtr fragment;
+	xsltTransformContextPtr tctxt = xsltXPathGetTransformContext(ctxt);
+	xmlNodePtr txt;
+	xmlChar *strval;
+	xmlXPathObjectPtr obj;
+	/*
+	* SPEC EXSLT:
+	* "You can also use this function to turn a string into a text
+	* node, which is helpful if you want to pass a string to a
+	* function that only accepts a node-set."
+	*/
+	fragment = xsltCreateRVT(tctxt);
+	if (fragment == NULL) {
+	    xsltTransformError(tctxt, NULL, tctxt->inst,
+		"exsltNodeSetFunction: Failed to create a tree fragment.\n");
+	    tctxt->state = XSLT_STATE_STOPPED; 
+	    return;
+	}
+	xsltRegisterLocalRVT(tctxt, fragment);
+
+	strval = xmlXPathPopString (ctxt);
+	
+	txt = xmlNewDocText (fragment, strval);
+	xmlAddChild((xmlNodePtr) fragment, txt);
+	obj = xmlXPathNewNodeSet(txt);	
+	if (obj == NULL) {
+	    xsltTransformError(tctxt, NULL, tctxt->inst,
+		"exsltNodeSetFunction: Failed to create a node set object.\n");
+	    tctxt->state = XSLT_STATE_STOPPED;
+	} else {
+	    /*
+	     * Mark it as a function result in order to avoid garbage
+	     * collecting of tree fragments
+	     */
+	    xsltExtensionInstructionResultRegister(tctxt, obj);
+	}
+	if (strval != NULL)
+	    xmlFree (strval);
+	
+	valuePush (ctxt, obj);
     }
-
-    if (strval != NULL)
-	xmlFree (strval);
-
-    valuePush (ctxt, ret);
 }
 
 static void

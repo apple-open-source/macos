@@ -1,6 +1,175 @@
 Libidn NEWS -- History of user-visible changes.                 -*- outline -*-
-Copyright (C) 2002, 2003, 2004, 2005 Simon Josefsson
+Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007 Simon Josefsson
 See the end for copying conditions.
+
+* Version 0.6.14 (released 2007-05-31)
+
+** Libidn is now developed using Git instead of CVS.
+A public git mirror is available from
+<http://repo.or.cz/w/libidn.git>.  If you have pulled from this
+repository before this release, you need to erase your clone because
+it has been re-generated from scratch.
+
+** API and ABI is backwards compatible with the previous version.
+
+* Version 0.6.13 (released 2007-05-31)
+
+** Documentation fixes.
+Clarify that the C# and Java libraries are licensed under the LGPL.
+Earlier, some places incorrectly said that these were licensed under
+the GPL.  If you encounter other places that still suggest that GPL
+applies to the C# and Java library, please let me know.
+
+** Updated Polish and Vietnamese translations.
+Thanks to Jakub Bogusz <qboosh@pld-linux.org> and Clytie Siddall
+<clytie@riverland.net.au>.
+
+** Install images for the manual in $infodir.
+This fixes the broken image in the info manual.  Image files will be
+called libidn-*.png to avoid namespace collisions with images from
+other info manuals.
+
+** Update gnulib files.
+
+** API and ABI is backwards compatible with the previous version.
+
+* Version 0.6.12 (released 2007-04-25)
+
+** Use AM_JAVACFLAGS instead of JAVACFLAGS in java/misc/Makefile.am.
+Reported by Petteri Räty <betelgeuse@gentoo.org>.
+
+** Update gnulib files.
+
+** API and ABI is backwards compatible with the previous version.
+
+* Version 0.6.11 (released 2007-03-13)
+
+** Update of the C# Libidn port, by Alexander Gnauck.
+The code has been refactored and the namespace has been modified to
+comply with .NET naming conventions.  An IDNA bug was fixed.
+
+** Update gnulib files.
+We now use the "striconv" module instead of the "iconvme", which
+causes a slight increase of code size (from 303kb to 319kb with
+debugging symbols on i386).  The reason is the use of a new locale
+independent strcasecmp, which may cause faster operation in some
+locales where, e.g., "ASCII" and "ascii" are not treated as the same.
+
+** API and ABI is backwards compatible with the previous version.
+
+* Version 0.6.10 (released 2007-01-04)
+
+** Corrected year in copyright notices.
+
+** Update gnulib files.
+Including the code to convert strings between different encodings
+(noted in case this introduces problems).
+
+** API and ABI is backwards compatible with the previous version.
+
+* Version 0.6.9 (released 2006-11-30)
+
+** The Java code is fixed to properly translate any non-ASCII dot into '.'.
+Reported and fixed by "Stephane Mikaty" <mikaty@ecircle-ag.com>.
+
+** Update gnulib files.
+
+** Bump tool versions to autoconf 2.61, automake 1.10, and gettext 0.16.
+
+** Old versions of iconv.m4, codeset.m4 and lib-link.m4 removed from m4/.
+Modern versions are part of gnulib.
+
+** API and ABI is backwards compatible with the previous version.
+
+* Version 0.6.8 (released 2006-10-18)
+
+** The gnulib directory is separated into two directories.
+One gnulib directory (lib/gl/) for the LGPL library in lib/, and one
+gnulib directory (gl/) for the GPL tools in src/.  This allows the
+GPL'd tools to use more gnulib modules than before, since earlier all
+gnulib files had to be LGPL.
+
+** Update gnulib files.
+
+** Some minor cleanups, like assuming locale.h and setlocale().
+
+** API and ABI is backwards compatible with the previous version.
+
+* Version 0.6.7 (released 2006-09-13)
+
+** Fix build failure of idn-int.h on C99 platforms.
+Reported by Paul Howarth <paul@city-fan.org>.
+
+** The manual includes the GPL license, for the command-line tools.
+
+** The function, variable and concept index is moved to the end of the manual.
+
+** Update gnulib files.
+
+** API and ABI is backwards compatible with the previous version.
+
+* Version 0.6.6 (released 2006-08-23)
+
+** Instead of AX_CREATE_STDINT_H, use the stdint gnulib module, for idn-int.h.
+This solves building on some HPPA systems.  Note that the generated
+idn-int.h is specific to the build environment that libidn was built
+under, and is not generally usable by any other compiler (if any) on
+the host.  This was true before too.
+
+** Update gnulib files.
+
+** API and ABI is backwards compatible with the previous version.
+
+* Version 0.6.5 (released 2006-06-07)
+
+** Link the library with external libintl, for gettext.
+This fixes building on FreeBSD, reported by Kirill Ponomarew
+<krion@voodoo.bawue.com>.
+
+** Update doxygen config file to version 1.4.7.
+
+** API and ABI is backwards compatible with the previous version.
+
+* Version 0.6.4 (released 2006-06-07)
+
+** Fix translation of error messages.
+Thanks to Joe Orton <jorton@redhat.com>.
+
+** Fix warnings on 64-bit platforms.
+Thanks to Joe Orton <jorton@redhat.com>.
+
+** The tests are run under valgrind, if it is installed.
+Use --disable-valgrind-tests to unconditionally disable this.  It is
+disabled by default for cross compiles.
+
+** API and ABI is backwards compatible with the previous version.
+
+* Version 0.6.3 (released 2006-03-08)
+
+** Fixes for the build environment.
+
+** API and ABI is backwards compatible with the previous version.
+
+* Version 0.6.2 (released 2006-02-07)
+
+** Fix objdir != srcdir builds for the Java documentation.
+Thanks to Bernard Leak <bernard@brenda-arkle.demon.co.uk>.
+
+** Update of gnulib files.
+
+** API and ABI is backwards compatible with the previous version.
+
+* Version 0.6.1 (released 2006-01-20)
+
+** Make it possible to cross-compile to mingw32.
+You can build Libidn for Windows by invoking `./configure
+--host=i586-mingw32msvc' (or similar).
+
+** Minor changes in how the C# code is built.
+
+** Update of gnulib files.
+
+** API and ABI is backwards compatible with the previous version.
 
 * Version 0.6.0 (released 2005-12-03)
 

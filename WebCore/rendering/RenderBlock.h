@@ -42,7 +42,9 @@ class RootInlineBox;
 struct BidiRun;
 
 template <class Iterator, class Run> class BidiResolver;
+template <class Iterator> class MidpointState;
 typedef BidiResolver<InlineIterator, BidiRun> InlineBidiResolver;
+typedef MidpointState<InlineIterator> LineMidpointState;
 
 enum CaretType { CursorCaret, DragCaret };
 
@@ -140,7 +142,8 @@ public:
 
     virtual void updateBeforeAfterContent(PseudoId);
 
-    RootInlineBox* createRootInlineBox();
+    RootInlineBox* createAndAppendRootInlineBox();
+    virtual RootInlineBox* createRootInlineBox(); // Subclassed by SVG and Ruby.
 
     // Called to lay out the legend for a fieldset.
     virtual RenderObject* layoutLegend(bool /*relayoutChildren*/) { return 0; }
@@ -150,25 +153,28 @@ public:
         FloatWithRect(RenderBox* f)
             : object(f)
             , rect(IntRect(f->x() - f->marginLeft(), f->y() - f->marginTop(), f->width() + f->marginLeft() + f->marginRight(), f->height() + f->marginTop() + f->marginBottom()))
+            , everHadLayout(f->m_everHadLayout)
         {
         }
 
         RenderBox* object;
         IntRect rect;
+        bool everHadLayout;
     };
 
-    void bidiReorderLine(InlineBidiResolver&, const InlineIterator& end);
-    RootInlineBox* determineStartPosition(bool& firstLine, bool& fullLayout, InlineBidiResolver&, Vector<FloatWithRect>& floats, unsigned& numCleanFloats);
+    void bidiReorderLine(InlineBidiResolver&, const InlineIterator& end, bool previousLineBrokeCleanly);
+    RootInlineBox* determineStartPosition(bool& firstLine, bool& fullLayout, bool& previousLineBrokeCleanly,
+                                          InlineBidiResolver&, Vector<FloatWithRect>& floats, unsigned& numCleanFloats);
     RootInlineBox* determineEndPosition(RootInlineBox* startBox, InlineIterator& cleanLineStart,
                                         BidiStatus& cleanLineBidiStatus,
                                         int& yPos);
     bool matchedEndLine(const InlineBidiResolver&, const InlineIterator& endLineStart, const BidiStatus& endLineStatus,
                         RootInlineBox*& endLine, int& endYPos, int& repaintBottom, int& repaintTop);
-    bool generatesLineBoxesForInlineChild(RenderObject*);
-    void skipTrailingWhitespace(InlineIterator&);
-    int skipLeadingWhitespace(InlineBidiResolver&, bool firstLine);
+    bool generatesLineBoxesForInlineChild(RenderObject*, bool isLineEmpty = true, bool previousLineBrokeCleanly = true);
+    void skipTrailingWhitespace(InlineIterator&, bool isLineEmpty, bool previousLineBrokeCleanly);
+    int skipLeadingWhitespace(InlineBidiResolver&, bool firstLine, bool isLineEmpty, bool previousLineBrokeCleanly);
     void fitBelowFloats(int widthToFit, bool firstLine, int& availableWidth);
-    InlineIterator findNextLineBreak(InlineBidiResolver&, bool firstLine, EClear* clear = 0);
+    InlineIterator findNextLineBreak(InlineBidiResolver&, bool firstLine, bool& isLineEmpty, bool& previousLineBrokeCleanly, EClear* clear = 0);
     RootInlineBox* constructLine(unsigned runCount, BidiRun* firstRun, BidiRun* lastRun, bool firstLine, bool lastLine, RenderObject* endObject);
     InlineFlowBox* createLineBoxes(RenderObject*, bool firstLine);
     void computeHorizontalPositionsForLine(RootInlineBox*, bool firstLine, BidiRun* firstRun, BidiRun* trailingSpaceRun, bool reachedEnd);
@@ -325,6 +331,14 @@ public:
     // style from this RenderBlock.
     RenderBlock* createAnonymousBlock() const;
 
+    // Delay update scrollbar until finishDelayRepaint() will be
+    // called.  This function is used when a flexbox is layouting its
+    // descendant.  If multiple startDelayRepaint() is called,
+    // finishDelayRepaint() will do nothing until finishDelayRepaint()
+    // is called same times.
+    static void startDelayUpdateScrollInfo();
+    static void finishDelayUpdateScrollInfo();
+
 private:
     void adjustPointToColumnContents(IntPoint&) const;
     void adjustForBorderFit(int x, int& left, int& right) const; // Helper function for borderFitAdjust
@@ -339,7 +353,6 @@ protected:
     virtual bool hasLineIfEmpty() const;
     bool layoutOnlyPositionedObjects();
 
-    virtual RootInlineBox* createRootBox(); // Subclassed by SVG.
     
 private:
     Position positionForBox(InlineBox*, bool start = true) const;
@@ -353,6 +366,8 @@ private:
     int layoutColumns(int endOfContent = -1);
 
     bool expandsToEncloseOverhangingFloats() const;
+
+    void updateScrollInfoAfterLayout();
 
 protected:
     struct FloatingObject {
@@ -453,10 +468,10 @@ protected:
 
     void adjustPositionedBlock(RenderBox* child, const MarginInfo&);
     void adjustFloatingBlock(const MarginInfo&);
-    RenderBox* handleSpecialChild(RenderBox* child, const MarginInfo&, bool& handled);
-    RenderBox* handleFloatingChild(RenderBox* child, const MarginInfo&, bool& handled);
-    RenderBox* handlePositionedChild(RenderBox* child, const MarginInfo&, bool& handled);
-    RenderBox* handleRunInChild(RenderBox* child, bool& handled);
+    bool handleSpecialChild(RenderBox* child, const MarginInfo&);
+    bool handleFloatingChild(RenderBox* child, const MarginInfo&);
+    bool handlePositionedChild(RenderBox* child, const MarginInfo&);
+    bool handleRunInChild(RenderBox* child);
     int collapseMargins(RenderBox* child, MarginInfo&);
     int clearFloatsIfNeeded(RenderBox* child, MarginInfo&, int oldTopPosMargin, int oldTopNegMargin, int yPos);
     int estimateVerticalPosition(RenderBox* child, const MarginInfo&);

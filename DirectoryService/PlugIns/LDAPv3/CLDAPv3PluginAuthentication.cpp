@@ -48,7 +48,7 @@
 #include "LDAPv3SupportFunctions.h"
 
 extern "C" {
-	#include "saslutil.h"
+	#include <sasl/saslutil.h>
 };
 
 #include "CLDAPv3Plugin.h"
@@ -69,7 +69,6 @@ using namespace std;
 #include "DSLDAPUtils.h"
 #include "buffer_unpackers.h"
 #include "CDSPluginUtils.h"
-#include "CLDAPPlugInPrefs.h"
 #include "CPlugInObjectRef.h"
 
 #pragma mark -
@@ -79,8 +78,6 @@ using namespace std;
 #define LDAPCOMEXPSPECIALCHARS		"()|&"
 
 #define kSpaceForPreferredKeyValuePair	1024
-
-#define O_CREAT_TRUNC_WR_EXLOCK			(O_CREAT | O_TRUNC | O_WRONLY | O_EXLOCK)
 
 #define kKDCRecordRealmToken			"[realms]"
 #define kKDCEndOfRealmNameMarker		"= {"
@@ -120,14 +117,14 @@ static int standard_password_replace( LDAP *ld, char *dn, char *oldPwd, char *ne
 	pwdDelete[1] = NULL;
 	LDAPMod modDelete = {};
 	modDelete.mod_op = LDAP_MOD_DELETE;
-	modDelete.mod_type = "userPassword";
+	modDelete.mod_type = (char *)"userPassword";
 	modDelete.mod_values = pwdDelete;
 	char *pwdCreate[2] = {};
 	pwdCreate[0] = newPwd;
 	pwdCreate[1] = NULL;
 	LDAPMod modAdd = {};
 	modAdd.mod_op = LDAP_MOD_ADD;
-	modAdd.mod_type = "userPassword";
+	modAdd.mod_type = (char *)"userPassword";
 	modAdd.mod_values = pwdCreate;
 	
 	LDAPMod *mods[3] = {};
@@ -145,7 +142,7 @@ static int standard_password_create( LDAP *ld, char *dn, char *newPwd )
 	pwdCreate[1] = NULL;
 	LDAPMod modReplace = {};
 	modReplace.mod_op = LDAP_MOD_REPLACE;
-	modReplace.mod_type = "userPassword";
+	modReplace.mod_type = (char *)"userPassword";
 	modReplace.mod_values = pwdCreate;
 	
 	LDAPMod *mods[2] = {};
@@ -330,7 +327,8 @@ SInt32 CLDAPv3Plugin::TryPWSPasswordSet( tDirNodeReference inNodeRef, UInt32 inA
 				tDataBufferPtr  pAuthType			= NULL;
 				UInt32			newPWSlength		= 0;
 				int				iLength				= 0;
-				
+				char			*pUserDN			= NULL;
+
 				if ( newAuthMethod != NULL )
 				{
 					siResult = dsDoDirNodeAuth( inNodeRef, newAuthMethod, true, authData, authResult, &continueData );
@@ -416,6 +414,51 @@ SInt32 CLDAPv3Plugin::TryPWSPasswordSet( tDirNodeReference inNodeRef, UInt32 inA
 							}
 						}
 						
+						if ( siResult == eDSNoErr && (pUserDN = GetDNForRecordName(pUsername, pContext, inRecordType)) != NULL )
+						{
+							// now lets set the attribute
+							size_t buffLen = sizeof("Kerberos:") + strlen( kerbPrinc );
+							char *altID = (char *) malloc( buffLen );
+							
+							strlcpy( altID, "Kerberos:", buffLen );
+							strlcat( altID, kerbPrinc, buffLen );
+							
+							// now lets see if it already exists
+							UInt32	count		= 0;
+							char	**values	= NULL;
+							bool	bFound		= false;
+							
+							if ( LookupAttribute(pContext, inRecordType, pUsername, kDSNAttrAltSecurityIdentities, &count, &values) == eDSNoErr )
+							{
+								for ( UInt32 ii = 0; ii < count; ii++ )
+								{
+									char *temp = values[ii];
+									
+									if ( temp != NULL && strcmp(temp, altID) == 0 ) {
+										bFound = true;
+									}
+								}
+							}
+							
+							// if it wasn't found add it to the list, using a single op that includes old values
+							if ( bFound == false )
+							{
+								values = (char **) reallocf( values, (count + 2) * sizeof(char *) );
+								values[count++] = altID;
+								values[count] = NULL;
+								
+								tDirStatus tempResult = SetAttributeValueForDN( pContext, pUserDN, inRecordType, 
+																			    kDSNAttrAltSecurityIdentities, (const char **) values );
+								DbgLog( kLogInfo, "CLDAPv3Plugin::TryPWSPasswordSet - Adding '%s' to AltSecurityIdentities - %s (%d)", 
+									    altID, (tempResult == eDSNoErr ? "success" : "failed"), tempResult );
+								
+								altID = NULL;
+							}
+							
+							DSFree( altID );
+							DSFreeStringList( values );
+						}
+						
 						DSFreeString( kerbPrinc );
 					}
 				}
@@ -424,28 +467,28 @@ SInt32 CLDAPv3Plugin::TryPWSPasswordSet( tDirNodeReference inNodeRef, UInt32 inA
 				if ( siResult == eDSNoErr && newAuthority )
 				{
 					// let's get the DN for the record that we're updating
-					char *pUserDN = GetDNForRecordName( pUsername, pContext, inRecordType );
+					if ( pUserDN == NULL )
+						pUserDN = GetDNForRecordName( pUsername, pContext, inRecordType );
+					
 					if ( pUserDN )
 					{
 						// Let's set the authentication authority now...  We use a special internal routine so we don't
 						// get a different record on a different node and for speed.
-						char *pValues[] = { newAuthority, newKerbAuthority, NULL };
+						const char *pValues[] = { newAuthority, newKerbAuthority, NULL };
 						siResult = SetAttributeValueForDN( pContext, pUserDN, inRecordType, kDSNAttrAuthenticationAuthority, pValues );
 						if ( siResult == eDSNoErr )
 						{
 							// let's put the password marker too...
-							char *pValues2[] = { kDSValueNonCryptPasswordMarker, NULL };
+							const char *pValues2[] = { kDSValueNonCryptPasswordMarker, NULL };
 							SetAttributeValueForDN( pContext, pUserDN, inRecordType, kDS1AttrPassword, pValues2 );
 						}
-						
-						free( pUserDN );
-						pUserDN = NULL;
 					}
 				}
-				
+
 				DSFreeString( newKerbAuthority );
 				DSFreeString( newAuthority );
 				DSFreeString( newPWSid );
+				DSFree( pUserDN );
 				
 				if ( pAuthType != NULL ) 
 				{
@@ -453,8 +496,8 @@ SInt32 CLDAPv3Plugin::TryPWSPasswordSet( tDirNodeReference inNodeRef, UInt32 inA
 					pAuthType = NULL;
 				}
 			}
-			free( pUserID );
-			pUserID = NULL;
+			
+			DSFree( pUserID );
 		}
 		
 		if ( authData != NULL )
@@ -545,6 +588,7 @@ SInt32 CLDAPv3Plugin::DoAuthenticationOnRecordType ( sDoDirNodeAuthOnRecordType 
 	char*						userName			= NULL;
 	int							userNameBuffLen		= 0;
 	LDAPv3AuthAuthorityHandlerProc	handlerProc 	= NULL;
+	tContextData				uiContinue			= 0;
 		
 	pContext = gLDAPContextTable->GetObjectForRefNum( inData->fInNodeRef );
 	if ( pContext == NULL )
@@ -562,11 +606,11 @@ SInt32 CLDAPv3Plugin::DoAuthenticationOnRecordType ( sDoDirNodeAuthOnRecordType 
 
 	do
 	{		
-		if ( inData->fIOContinueData != NULL )
+		if ( inData->fIOContinueData != 0 )
 		{
 			// get info from continue
-			pContinueData = (sLDAPContinueData *)inData->fIOContinueData;
-			if ( gLDAPContinueTable->VerifyItem( pContinueData ) == false ) {
+			pContinueData = (sLDAPContinueData *) gLDAPContinueTable->GetPointer( inData->fIOContinueData );
+			if ( pContinueData == NULL ) {
 				siResult = eDSInvalidContinueData;
 				break;
 			}
@@ -575,6 +619,9 @@ SInt32 CLDAPv3Plugin::DoAuthenticationOnRecordType ( sDoDirNodeAuthOnRecordType 
 				siResult = eDSInvalidContinueData;
 				break;
 			}
+			
+			uiContinue = inData->fIOContinueData;
+			pContinueData->Retain();
 			
 			handlerProc = (LDAPv3AuthAuthorityHandlerProc)(pContinueData->fAuthHandlerProc);
 			if (handlerProc != NULL)
@@ -586,6 +633,8 @@ SInt32 CLDAPv3Plugin::DoAuthenticationOnRecordType ( sDoDirNodeAuthOnRecordType 
 										 pContinueData->fAuthAuthorityData, NULL,
                                          fLDAPConnectionMgr, inRecordType);
 			}
+			
+			pContinueData->Release();
 		}
 		else
 		{
@@ -612,11 +661,12 @@ SInt32 CLDAPv3Plugin::DoAuthenticationOnRecordType ( sDoDirNodeAuthOnRecordType 
 											inData->fInDirNodeAuthOnlyFlag, NULL, NULL,
 											fLDAPConnectionMgr, inRecordType );
 				
-				if ( pContinueData != NULL )
+				if ( pContinueData != NULL ) {
 					pContinueData->fAuthHandlerProc = (void *)DoKerberosAuth;
+					inData->fIOContinueData = gLDAPContinueTable->AddPointer( pContinueData, inData->fInNodeRef );
+				}
 				
 				inData->fResult = siResult;
-				inData->fIOContinueData = pContinueData;
 				
 				DSRelease( pContext );
 				return( siResult );
@@ -785,6 +835,7 @@ SInt32 CLDAPv3Plugin::DoAuthenticationOnRecordType ( sDoDirNodeAuthOnRecordType 
 								// remember the proc we used
 								pContinueData->fAuthHandlerProc = (void*)handlerProc;
 								pContinueData->fAuthAuthorityData = (char *)strdup(authData.authData.c_str());
+								uiContinue = gLDAPContinueTable->AddPointer( pContinueData, inData->fInNodeRef );
 								break;
 							}
 							else
@@ -878,8 +929,11 @@ SInt32 CLDAPv3Plugin::DoAuthenticationOnRecordType ( sDoDirNodeAuthOnRecordType 
 	DSFree(userName);
 
 	inData->fResult = siResult;
-	inData->fIOContinueData = pContinueData;
-
+	inData->fIOContinueData = uiContinue;
+	
+	if ( uiContinue != 0 && pContinueData == NULL )
+		gLDAPContinueTable->RemoveContext( uiContinue );
+	
 	DSRelease( pContext );
 
 	return( siResult );
@@ -965,16 +1019,13 @@ SInt32 CLDAPv3Plugin::DoKerberosAuth(	tDirNodeReference inNodeRef,
 			
 			if ( result == eDSNoErr )
 			{
-				*inOutContinueData = (sLDAPContinueData *)calloc( 1, sizeof(sLDAPContinueData) );
+				*inOutContinueData = new sLDAPContinueData;
 				if ( *inOutContinueData == NULL )
 					return eMemoryError;
-
-				gLDAPContinueTable->AddItem( *inOutContinueData, inNodeRef );
 			}
 		}
 		else
 		{
-			gLDAPContinueTable->RemoveItem( *inOutContinueData );
 			*inOutContinueData = NULL;
 			
 			gKerberosMutex->WaitLock();
@@ -1028,7 +1079,6 @@ SInt32 CLDAPv3Plugin::DoKerberosAuth(	tDirNodeReference inNodeRef,
 						{
 							krb5_get_init_creds_opt_init( &options );
 							krb5_get_init_creds_opt_set_tkt_life( &options, 30 );
-							krb5_get_init_creds_opt_set_address_list( &options, NULL );
 							
 							result = krb5_get_init_creds_password( krbContext, &credentials, principal, pPassword, NULL, 0, 0, NULL, &options );
 						}
@@ -1140,8 +1190,7 @@ SInt32 CLDAPv3Plugin::DoPasswordServerAuth(
 				}
 				if ( *inOutContinueData == nil )
 				{
-					pContinue = (sLDAPContinueData *)calloc( 1, sizeof( sLDAPContinueData ) );
-					gLDAPContinueTable->AddItem( pContinue, inNodeRef );
+					pContinue = new sLDAPContinueData;
 					
 					// make a buffer for the user ID
 					authDataBuff = dsDataBufferAllocatePriv( uidStrLen + 1 );
@@ -1157,10 +1206,6 @@ SInt32 CLDAPv3Plugin::DoPasswordServerAuth(
 				else
 				{
 					pContinue = *inOutContinueData;
-					if ( gLDAPContinueTable->VerifyItem( pContinue ) == false ) {
-						returnValue = eDSInvalidContinueData;
-						goto cleanup;
-					}
 				}
 				break;
 				
@@ -1503,16 +1548,11 @@ SInt32 CLDAPv3Plugin::DoPasswordServerAuth(
 					
 					if ( *inOutContinueData == nil )
 					{
-						pContinue = (sLDAPContinueData *)calloc( 1, sizeof( sLDAPContinueData ) );
-						gLDAPContinueTable->AddItem( pContinue, inNodeRef );
+						pContinue = new sLDAPContinueData;
 					}
 					else
 					{
 						pContinue = *inOutContinueData;
-						if ( gLDAPContinueTable->VerifyItem( pContinue ) == false ) {
-							returnValue = eDSInvalidContinueData;
-							goto cleanup;
-						}
 					}
 				}
 		}
@@ -2407,17 +2447,48 @@ SInt32 CLDAPv3Plugin::PWSetReplicaData( sLDAPContextData *inContext, const char 
 					xmlStr = ConvertCFDictionaryToXMLStr( replicaListDict, &xmlStrLen );
 					if ( xmlStr != NULL )
 					{
+						bool rewriteHintFile = true;
+
 						if ( xmlStrLen < gPWSReplicaListXMLBuffer->fBufferSize )
 						{
-							gPWSReplicaListXMLBuffer->fBufferLength = xmlStrLen;
-							strcpy( gPWSReplicaListXMLBuffer->fBufferData, xmlStr );
+							struct stat hintFileStat;
+
+							// If file exists, and new data appears to match what we've already cached/written,
+							// don't bother rewriting the hint file.
+							if ( stat(kLDAPReplicaHintFilePath, &hintFileStat) == 0 &&
+								hintFileStat.st_size == xmlStrLen &&
+								gPWSReplicaListXMLBuffer->fBufferLength == xmlStrLen &&
+								strncmp(gPWSReplicaListXMLBuffer->fBufferData, xmlStr, xmlStrLen) == 0 )
+							{
+								rewriteHintFile = false;
+							}
+
+							if ( rewriteHintFile ) {
+								gPWSReplicaListXMLBuffer->fBufferLength = xmlStrLen;
+								strlcpy( gPWSReplicaListXMLBuffer->fBufferData, xmlStr, xmlStrLen + 1 );
+							}
 						}
-						
-						// leave a breadcrumb for the KDC realm plug-in
-						int fd = open( kLDAPReplicaHintFilePath, O_CREAT_TRUNC_WR_EXLOCK, 0644 );
-						if ( fd != -1 ) {
-							write( fd, xmlStr, xmlStrLen );
-							close( fd );
+
+						if ( rewriteHintFile ) {
+							bool rewriteOk = false;
+
+							// leave a breadcrumb for the KDC realm plug-in
+							unlink( kLDAPReplicaHintFilePath ); // we remove the old file and recreate
+							
+							// needs to be world readable because any user needs to read this file
+							int fd = open( kLDAPReplicaHintFilePath, O_NOFOLLOW | O_CREAT | O_EXCL | O_WRONLY | O_EXLOCK, 0644 );
+							if ( fd != -1 ) {
+								ssize_t bytesWritten = write( fd, xmlStr, xmlStrLen );
+								if ( bytesWritten == xmlStrLen ) {
+									rewriteOk = true;
+								}
+								close( fd );
+							}
+
+							if ( !rewriteOk ) {
+								DbgLog( kLogError, "Unable to rewrite LDAP hint file %s - %d", kLDAPReplicaHintFilePath, errno );
+								unlink( kLDAPReplicaHintFilePath );
+							}
 						}
 						
 						DSFreeString( xmlStr );
@@ -2936,7 +3007,6 @@ bool CLDAPv3Plugin::KDCHasNonLocalRealm( sLDAPContextData *inContext )
 							
 								if ( tptr != NULL )
 								{
-									printf("comparing block: %s\n", tptr);
 									if ( strstr(tptr, "LKDC") == NULL )
 										hasNonLocalRealm = true;
 									

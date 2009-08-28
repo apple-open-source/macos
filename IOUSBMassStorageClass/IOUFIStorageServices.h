@@ -20,6 +20,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+ 
 
 #ifndef _IOKIT_UFI_STORAGE_SERVICES_H_
 #define _IOKIT_UFI_STORAGE_SERVICES_H_
@@ -29,6 +30,7 @@
 #include <IOKit/IOTypes.h>
 #include <IOKit/storage/IOBlockStorageDevice.h>
 #include <IOKit/usb/IOUSBMassStorageUFISubclass.h>
+
 
 class IOUFIStorageServices : public IOBlockStorageDevice
 {
@@ -61,10 +63,17 @@ public:
                                 				 IOReturn			status,
                                 				 UInt64 			actualByteCount );
 
-	virtual IOReturn	doAsyncReadWrite ( 	IOMemoryDescriptor *	buffer,
+    // Deprecated
+    virtual IOReturn    doAsyncReadWrite (	IOMemoryDescriptor *	buffer,
 											UInt32					block,
 											UInt32					nblks,
 											IOStorageCompletion		completion );
+                                            
+	virtual IOReturn	doAsyncReadWrite (  IOMemoryDescriptor *    buffer,
+                                            UInt64                  block, 
+                                            UInt64                  nblks,
+                                            IOStorageAttributes *   attributes,
+                                            IOStorageCompletion *   completion );
 
 	virtual IOReturn	doSyncReadWrite ( 	IOMemoryDescriptor *	buffer,
 											UInt32					block,
@@ -100,16 +109,16 @@ public:
     virtual IOReturn	reportPollRequirements ( 	bool * pollIsRequired,
     												bool * pollIsExpensive );
     
-    virtual IOReturn	reportMaxReadTransfer ( UInt64 blockSize, UInt64 * max );
-    
     virtual IOReturn	reportMaxValidBlock ( UInt64 * maxBlock );
-    
-    virtual IOReturn	reportMaxWriteTransfer ( UInt64 blockSize, UInt64 * max );
     
     virtual IOReturn	reportRemovability ( bool * isRemovable );
     
     virtual IOReturn	reportWriteProtection ( bool * isWriteProtected );
 
+    virtual IOReturn	getWriteCacheState ( bool * enabled );
+	
+	virtual IOReturn	setWriteCacheState ( bool enabled );
+    
 	// Space reserved for future expansion.
     OSMetaClassDeclareReservedUnused( IOUFIStorageServices, 1 );
     OSMetaClassDeclareReservedUnused( IOUFIStorageServices, 2 );

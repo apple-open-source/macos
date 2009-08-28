@@ -12,17 +12,17 @@ function select_printers() {
 <FORM METHOD="POST" ACTION="/admin/" NAME="export_samba">
 <INPUT TYPE="HIDDEN" NAME="OP" VALUE="export-samba">
 
-<H2 CLASS="title">Wyeksportuj drukarki do Samby</H2>
+<H2 CLASS="title">Eksportowanie drukarek do Samby</H2>
 
 {error?<P>Nie można wyeksportować drukarek do Samby\:</P>
 <BLOCKQUOTE>{error}</BLOCKQUOTE>
-<P>Zobacz plik <A HREF="/admin/log/error_log"
+<P>Proszę zobaczyć plik <A HREF="/admin/log/error_log"
 TARGET="_blank">error_log</A>, aby uzyskać więcej informacji.</P>:
-<P>Ta strona pozwala na wyeksportowanie drukarek do Samby, więc
-klienci Windows mogą mieć do nich dostęp przez ikony <VAR>Otoczenie
-sieciowe</VAR> lub <VAR>Miejsca sieciowe</VAR> na ich
-pulpitach. Poprzednio musisz zainstalować sterowniki drukarek
-Windows PostScript tak, jak to opisano na stronie podręcznika <A
+<P>Ta strona umożliwia wyeksportowanie drukarek do Samby, aby
+klienci Windows mogli mieć do nich dostęp przez ikonę <VAR>Otoczenie
+sieciowe</VAR> lub <VAR>Miejsca sieciowe</VAR> na pulpitach.
+Należy wcześniej zainstalować sterowniki drukarki Windows PostScript,
+tak jak opisano na stronie podręcznika <A
 HREF="/help/man-cupsaddsmb.html"
 TARGET="_blank">cupsaddsmb(8)</A>.</P>}
 
@@ -39,7 +39,7 @@ onChange="select_printers()"> Wyeksportuj wszystkie drukarki
 </TR>
 <TR>
 <TH CLASS="label">Nazwa użytkownika Samby:</TH>
-<TD><INPUT TYPE="TEXT" NAME="USERNAME" VALUE="{?USERNAME}"> (wymagane)</TD>
+<TD><INPUT TYPE="TEXT" NAME="USERNAME" VALUE="{?USERNAME}"> (wymagana)</TD>
 </TR>
 <TR>
 <TH CLASS="label">Hasło Samby:</TH>
@@ -47,8 +47,7 @@ onChange="select_printers()"> Wyeksportuj wszystkie drukarki
 </TR>
 <TR>
 <TD></TD>
-<TD><INPUT TYPE="IMAGE" SRC="/images/button-export-samba.gif"
-ALT="Wyeksportuj drukarki do Samby"></TD>
+<TD><INPUT TYPE="SUBMIT" VALUE="Wyeksportuj drukarki do Samby"></TD>
 </TR>
 </TABLE>
 

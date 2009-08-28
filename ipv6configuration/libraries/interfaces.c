@@ -1,22 +1,23 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
@@ -57,7 +58,7 @@ if_next_entry(interface_list_t * interfaces, char * name)
     interface_t * entry;
 
     if (interfaces->count >= interfaces->size)
-        return (NULL);
+	return (NULL);
 
     entry = interfaces->list + interfaces->count++;
     bzero(entry, sizeof(*entry));
@@ -76,7 +77,7 @@ if_build_interface_list(interface_list_t * interfaces)
 	return FALSE;
     }
 
-    for (ifa = ifaddrs; ifa != NULL && ifa->ifa_addr != NULL; 
+    for (ifa = ifaddrs; ifa != NULL && ifa->ifa_addr != NULL;
 	 ifa = ifa->ifa_next) {
 	/* count the number of AF_INET6 and AF_LINK that were returned */
 	if ((ifa->ifa_addr->sa_family == AF_INET6) ||
@@ -102,7 +103,7 @@ if_build_interface_list(interface_list_t * interfaces)
 		struct sockaddr_dl * 	dl_p;
 		interface_t *		entry;
 		struct if_data *	if_data;
-		u_char 			name[IFNAMSIZ + 1];
+		char 			name[IFNAMSIZ + 1];
 
 		dl_p = (struct sockaddr_dl *)ifa->ifa_addr;
 		strncpy(name, ifa->ifa_name, sizeof(name));
@@ -114,26 +115,25 @@ if_build_interface_list(interface_list_t * interfaces)
 		    if (entry == NULL) {
 			/* NOT REACHED */
 			syslog(LOG_ERR,
-                                "if_build_interface_list interfaces: if_next_entry returns NULL");
+			       "if_build_interface_list interfaces: if_next_entry returns NULL");
 			continue;
 		    }
 		    entry->flags = ifa->ifa_flags;
 		}
 		if (dl_p->sdl_alen > sizeof(entry->link_address.addr)) {
-                    syslog(LOG_DEBUG,
-                            "%s: link type %d address length %d > %d", name,
-			       dl_p->sdl_type, dl_p->sdl_alen, 
-			       sizeof(entry->link_address.addr));
-			entry->link_address.alen 
-				= sizeof(entry->link_address.addr);
-                }
-                else {
-			entry->link_address.alen = dl_p->sdl_alen;
-                }
-                bcopy(dl_p->sdl_data + dl_p->sdl_nlen, entry->link_address.addr,
+		    syslog(LOG_DEBUG,
+			   "%s: link type %d address length %d > %d", name,
+			   dl_p->sdl_type, dl_p->sdl_alen,
+			   sizeof(entry->link_address.addr));
+		    entry->link_address.alen = sizeof(entry->link_address.addr);
+		}
+		else {
+		    entry->link_address.alen = dl_p->sdl_alen;
+		}
+		bcopy(dl_p->sdl_data + dl_p->sdl_nlen, entry->link_address.addr,
 		      entry->link_address.alen);
-                entry->link_address.type = dl_p->sdl_type;
-                entry->link_address.index = dl_p->sdl_index;
+		entry->link_address.type = dl_p->sdl_type;
+		entry->link_address.index = dl_p->sdl_index;
 		if_data = (struct if_data *)ifa->ifa_data;
 		entry->type = if_data->ifi_type;
 		break;
@@ -143,7 +143,7 @@ if_build_interface_list(interface_list_t * interfaces)
 
     /* make it the "right" size (plus 1 more in case it's 0) */
     interfaces->list = (interface_t *)realloc(interfaces->list,
-			sizeof(*(interfaces->list)) * (interfaces->count + 1));
+					      sizeof(*(interfaces->list)) * (interfaces->count + 1));
 
     freeifaddrs(ifaddrs);
     return (TRUE);
@@ -165,7 +165,7 @@ __private_extern__ interface_t *
 ifl_at_index(interface_list_t * list_p, int i)
 {
     if (i >= list_p->count || i < 0)
-        return (NULL);
+	return (NULL);
     return (list_p->list + i);
 }
 
@@ -175,8 +175,8 @@ ifl_find_name(interface_list_t * list_p, const char * name)
     int i;
 
     for (i = 0; i < list_p->count; i++) {
-        if (strcmp(list_p->list[i].name, name) == 0)
-            return (list_p->list + i);
+	if (strcmp(list_p->list[i].name, name) == 0)
+	    return (list_p->list + i);
     }
     return (NULL);
 }
@@ -186,9 +186,9 @@ ifl_init()
 {
     interface_list_t * list_p = (interface_list_t *)malloc(sizeof(*list_p));
     if (list_p == NULL || if_build_interface_list(list_p) == FALSE) {
-        if (list_p)
-            free(list_p);
-        return (NULL);
+	if (list_p)
+	    free(list_p);
+	return (NULL);
     }
     return (list_p);
 }
@@ -197,13 +197,12 @@ __private_extern__ void
 ifl_free(interface_list_t * * iflist)
 {
     if (iflist != NULL && *iflist != NULL) {
-        interface_list_t * 	list_p = *iflist;
-        int	i;
+	interface_list_t * 	list_p = *iflist;
 
-        if (list_p->list)
-            free(list_p->list);
-        free(list_p);
-        *iflist = NULL;
+	if (list_p->list)
+	    free(list_p->list);
+	free(list_p);
+	*iflist = NULL;
     }
     return;
 }
@@ -238,11 +237,11 @@ if_free(interface_t * * if_p_p)
     interface_t * if_p;
 
     if (if_p_p == NULL) {
-        return;
+	return;
     }
     if_p = *if_p_p;
     if (if_p == NULL) {
-        return;
+	return;
     }
     free(if_p);
     *if_p_p = NULL;
@@ -256,7 +255,7 @@ if_dup(interface_t * intface)
 
     new_p = (interface_t *)calloc(1, sizeof(*new_p));
     if (new_p == NULL) {
-        return (NULL);
+	return (NULL);
     }
     *new_p = *intface;
     return (new_p);
@@ -308,7 +307,7 @@ if_link_update(interface_t * if_p)
 	else {
 	    if_p->link_address.alen = dl_p->sdl_alen;
 	}
-	bcopy(dl_p->sdl_data + dl_p->sdl_nlen, 
+	bcopy(dl_p->sdl_data + dl_p->sdl_nlen,
 	      if_p->link_address.addr, if_p->link_address.alen);
 	if_p->link_address.type = dl_p->sdl_type;
     }

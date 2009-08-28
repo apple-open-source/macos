@@ -108,7 +108,8 @@ sub transform_sql {
   return sprintf($sql, @args);
 }
 
-package DBIx::ContextualFetch::st;
+package
+  DBIx::ContextualFetch::st; # HIDE FROM PAUSE THIS IS NOT OUR CLASS
 
 no warnings 'redefine';
 

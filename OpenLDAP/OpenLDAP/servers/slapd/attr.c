@@ -1,8 +1,8 @@
 /* attr.c - routines for dealing with attributes */
-/* $OpenLDAP: pkg/ldap/servers/slapd/attr.c,v 1.100.2.10 2006/01/03 22:16:13 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/attr.c,v 1.112.2.8 2008/07/10 00:17:13 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,37 +40,130 @@
 
 #include "slap.h"
 
+/*
+ * Allocate in chunks, minimum of 1000 at a time.
+ */
+#define	CHUNK_SIZE	1000
+typedef struct slap_list {
+	struct slap_list *next;
+} slap_list;
+static slap_list *attr_chunks;
+static Attribute *attr_list;
+static ldap_pvt_thread_mutex_t attr_mutex;
+
+int
+attr_prealloc( int num )
+{
+	Attribute *a;
+	slap_list *s;
+
+	if (!num) return 0;
+
+	s = ch_calloc( 1, sizeof(slap_list) + num * sizeof(Attribute));
+	s->next = attr_chunks;
+	attr_chunks = s;
+
+	a = (Attribute *)(s+1);
+	for ( ;num>1; num--) {
+		a->a_next = a+1;
+		a++;
+	}
+	a->a_next = attr_list;
+	attr_list = (Attribute *)(s+1);
+
+	return 0;
+}
+
 Attribute *
 attr_alloc( AttributeDescription *ad )
 {
-	Attribute *a = ch_malloc( sizeof(Attribute) );
+	Attribute *a;
 
-	a->a_desc = ad;
+	ldap_pvt_thread_mutex_lock( &attr_mutex );
+	if ( !attr_list )
+		attr_prealloc( CHUNK_SIZE );
+	a = attr_list;
+	attr_list = a->a_next;
 	a->a_next = NULL;
-	a->a_flags = 0;
-	a->a_vals = NULL;
-	a->a_nvals = NULL;
-#ifdef LDAP_COMP_MATCH
-	a->a_comp_data = NULL;
-#endif
+	ldap_pvt_thread_mutex_unlock( &attr_mutex );
+	
+	a->a_desc = ad;
 
 	return a;
 }
 
-void
-attr_free( Attribute *a )
+/* Return a list of num attrs */
+Attribute *
+attrs_alloc( int num )
 {
-	if ( a->a_nvals && a->a_nvals != a->a_vals ) {
-		ber_bvarray_free( a->a_nvals );
+	Attribute *head = NULL;
+	Attribute **a;
+
+	ldap_pvt_thread_mutex_lock( &attr_mutex );
+	for ( a = &attr_list; *a && num > 0; a = &(*a)->a_next ) {
+		if ( !head )
+			head = *a;
+		num--;
+	}
+	attr_list = *a;
+	if ( num > 0 ) {
+		attr_prealloc( num > CHUNK_SIZE ? num : CHUNK_SIZE );
+		*a = attr_list;
+		for ( ; *a && num > 0; a = &(*a)->a_next ) {
+			if ( !head )
+				head = *a;
+			num--;
+		}
+		attr_list = *a;
+	}
+	*a = NULL;
+	ldap_pvt_thread_mutex_unlock( &attr_mutex );
+
+	return head;
+}
+
+
+void
+attr_clean( Attribute *a )
+{
+	if ( a->a_nvals && a->a_nvals != a->a_vals &&
+		!( a->a_flags & SLAP_ATTR_DONT_FREE_VALS )) {
+		if ( a->a_flags & SLAP_ATTR_DONT_FREE_DATA ) {
+			free( a->a_nvals );
+		} else {
+			ber_bvarray_free( a->a_nvals );
+		}
 	}
 	/* a_vals may be equal to slap_dummy_bv, a static empty berval;
 	 * this is used as a placeholder for attributes that do not carry
 	 * values, e.g. when proxying search entries with the "attrsonly"
 	 * bit set. */
-	if ( a->a_vals != &slap_dummy_bv ) {
-		ber_bvarray_free( a->a_vals );
+	if ( a->a_vals != &slap_dummy_bv &&
+		!( a->a_flags & SLAP_ATTR_DONT_FREE_VALS )) {
+		if ( a->a_flags & SLAP_ATTR_DONT_FREE_DATA ) {
+			free( a->a_vals );
+		} else {
+			ber_bvarray_free( a->a_vals );
+		}
 	}
-	free( a );
+	a->a_desc = NULL;
+	a->a_vals = NULL;
+	a->a_nvals = NULL;
+#ifdef LDAP_COMP_MATCH
+	a->a_comp_data = NULL;
+#endif
+	a->a_flags = 0;
+	a->a_numvals = 0;
+}
+
+void
+attr_free( Attribute *a )
+{
+	attr_clean( a );
+	ldap_pvt_thread_mutex_lock( &attr_mutex );
+	a->a_next = attr_list;
+	attr_list = a;
+	ldap_pvt_thread_mutex_unlock( &attr_mutex );
 }
 
 #ifdef LDAP_COMP_MATCH
@@ -93,32 +186,38 @@ comp_tree_free( Attribute *a )
 void
 attrs_free( Attribute *a )
 {
-	Attribute *next;
+	if ( a ) {
+		Attribute *b = (Attribute *)0xBAD, *tail, *next;
 
-	for( ; a != NULL ; a = next ) {
-		next = a->a_next;
-		attr_free( a );
+		/* save tail */
+		tail = a;
+		do {
+			next = a->a_next;
+			attr_clean( a );
+			a->a_next = b;
+			b = a;
+			a = next;
+		} while ( next );
+
+		ldap_pvt_thread_mutex_lock( &attr_mutex );
+		/* replace NULL with current attr list and let attr list
+		 * start from last attribute returned to list */
+		tail->a_next = attr_list;
+		attr_list = b;
+		ldap_pvt_thread_mutex_unlock( &attr_mutex );
 	}
 }
 
-Attribute *
-attr_dup( Attribute *a )
+static void
+attr_dup2( Attribute *tmp, Attribute *a )
 {
-	Attribute *tmp;
-
-	if ( a == NULL) return NULL;
-
-	tmp = attr_alloc( a->a_desc );
-
+	tmp->a_flags = a->a_flags & SLAP_ATTR_PERSISTENT_FLAGS;
 	if ( a->a_vals != NULL ) {
 		int	i;
 
-		for ( i = 0; !BER_BVISNULL( &a->a_vals[i] ); i++ ) {
-			/* EMPTY */ ;
-		}
-
-		tmp->a_vals = ch_malloc( (i + 1) * sizeof(struct berval) );
-		for ( i = 0; !BER_BVISNULL( &a->a_vals[i] ); i++ ) {
+		tmp->a_numvals = a->a_numvals;
+		tmp->a_vals = ch_malloc( (tmp->a_numvals + 1) * sizeof(struct berval) );
+		for ( i = 0; i < tmp->a_numvals; i++ ) {
 			ber_dupbv( &tmp->a_vals[i], &a->a_vals[i] );
 			if ( BER_BVISNULL( &tmp->a_vals[i] ) ) break;
 			/* FIXME: error? */
@@ -131,7 +230,7 @@ attr_dup( Attribute *a )
 		if ( a->a_nvals != a->a_vals ) {
 			int	j;
 
-			tmp->a_nvals = ch_malloc( (i + 1) * sizeof(struct berval) );
+			tmp->a_nvals = ch_malloc( (tmp->a_numvals + 1) * sizeof(struct berval) );
 			for ( j = 0; !BER_BVISNULL( &a->a_nvals[j] ); j++ ) {
 				assert( j < i );
 				ber_dupbv( &tmp->a_nvals[j], &a->a_nvals[j] );
@@ -144,33 +243,200 @@ attr_dup( Attribute *a )
 		} else {
 			tmp->a_nvals = tmp->a_vals;
 		}
-
-	} else {
-		tmp->a_vals = NULL;
-		tmp->a_nvals = NULL;
 	}
+}
+
+Attribute *
+attr_dup( Attribute *a )
+{
+	Attribute *tmp;
+
+	if ( a == NULL) return NULL;
+
+	tmp = attr_alloc( a->a_desc );
+	attr_dup2( tmp, a );
 	return tmp;
 }
 
 Attribute *
 attrs_dup( Attribute *a )
 {
-	Attribute *tmp, **next;
+	int i;
+	Attribute *tmp, *anew;
 
 	if( a == NULL ) return NULL;
 
-	tmp = NULL;
-	next = &tmp;
-
-	for( ; a != NULL ; a = a->a_next ) {
-		*next = attr_dup( a );
-		next = &((*next)->a_next);
+	/* count them */
+	for( tmp=a,i=0; tmp; tmp=tmp->a_next ) {
+		i++;
 	}
-	*next = NULL;
 
-	return tmp;
+	anew = attrs_alloc( i );
+
+	for( tmp=anew; a; a=a->a_next ) {
+		tmp->a_desc = a->a_desc;
+		attr_dup2( tmp, a );
+		tmp=tmp->a_next;
+	}
+
+	return anew;
 }
 
+int
+attr_valfind(
+	Attribute *a,
+	unsigned flags,
+	struct berval *val,
+	unsigned *slot,
+	void *ctx )
+{
+	struct berval nval = BER_BVNULL, *cval;
+	MatchingRule *mr;
+	const char *text;
+	int match = -1, rc;
+	unsigned i;
+
+	if ( flags & SLAP_MR_ORDERING )
+		mr = a->a_desc->ad_type->sat_ordering;
+	else
+		mr = a->a_desc->ad_type->sat_equality;
+
+	if( !SLAP_IS_MR_ASSERTED_VALUE_NORMALIZED_MATCH( flags ) &&
+		mr->smr_normalize )
+	{
+		rc = (mr->smr_normalize)(
+			flags & (SLAP_MR_TYPE_MASK|SLAP_MR_SUBTYPE_MASK|SLAP_MR_VALUE_OF_SYNTAX),
+			a->a_desc->ad_type->sat_syntax,
+			mr, val, &nval, ctx );
+
+		if( rc != LDAP_SUCCESS ) {
+			return LDAP_INVALID_SYNTAX;
+		}
+		cval = &nval;
+	} else {
+		cval = val;
+	}
+
+	if ( a->a_flags & SLAP_ATTR_SORTED_VALS ) {
+		/* Binary search */
+		unsigned base = 0, n = a->a_numvals;
+
+		while ( 0 < n ) {
+			unsigned pivot = n >> 1;
+			i = base + pivot;
+			rc = value_match( &match, a->a_desc, mr, flags,
+				&a->a_nvals[i], cval, &text );
+			if ( rc == LDAP_SUCCESS && match == 0 )
+				break;
+			if ( match < 0 ) {
+				base = i+1;
+				n -= pivot+1;
+			} else {
+				n = pivot;
+			}
+		}
+		if ( match < 0 )
+			i++;
+	} else {
+	/* Linear search */
+		for ( i = 0; i < a->a_numvals; i++ ) {
+			const char *text;
+
+			rc = ordered_value_match( &match, a->a_desc, mr, flags,
+				&a->a_nvals[i], cval, &text );
+			if ( rc == LDAP_SUCCESS && match == 0 )
+				break;
+		}
+	}
+	if ( slot )
+		*slot = i;
+	if ( match )
+		rc = LDAP_NO_SUCH_ATTRIBUTE;
+	if ( nval.bv_val )
+		slap_sl_free( nval.bv_val, ctx );
+
+	return rc;
+}
+
+int
+attr_valadd(
+	Attribute *a,
+	BerVarray vals,
+	BerVarray nvals,
+	int nn )
+{
+	int		i;
+	BerVarray	v2;
+
+	v2 = (BerVarray) SLAP_REALLOC( (char *) a->a_vals,
+		    (a->a_numvals + nn + 1) * sizeof(struct berval) );
+	if( v2 == NULL ) {
+		Debug(LDAP_DEBUG_TRACE,
+		  "attr_valadd: SLAP_REALLOC failed.\n", 0, 0, 0 );
+		return LBER_ERROR_MEMORY;
+	}
+	a->a_vals = v2;
+	if ( nvals ) {
+		v2 = (BerVarray) SLAP_REALLOC( (char *) a->a_nvals,
+				(a->a_numvals + nn + 1) * sizeof(struct berval) );
+		if( v2 == NULL ) {
+			Debug(LDAP_DEBUG_TRACE,
+			  "attr_valadd: SLAP_REALLOC failed.\n", 0, 0, 0 );
+			return LBER_ERROR_MEMORY;
+		}
+		a->a_nvals = v2;
+	} else {
+		a->a_nvals = a->a_vals;
+	}
+
+	/* If sorted and old vals exist, must insert */
+	if (( a->a_flags & SLAP_ATTR_SORTED_VALS ) && a->a_numvals ) {
+		unsigned slot;
+		int j, rc;
+		v2 = nvals ? nvals : vals;
+		for ( i = 0; i < nn; i++ ) {
+			rc = attr_valfind( a, SLAP_MR_EQUALITY | SLAP_MR_VALUE_OF_ASSERTION_SYNTAX |
+				SLAP_MR_ASSERTED_VALUE_NORMALIZED_MATCH | SLAP_MR_ATTRIBUTE_VALUE_NORMALIZED_MATCH,
+				&v2[i], &slot, NULL );
+			if ( rc != LDAP_NO_SUCH_ATTRIBUTE ) {
+				/* should never happen */
+				if ( rc == LDAP_SUCCESS )
+					rc = LDAP_TYPE_OR_VALUE_EXISTS;
+				return rc;
+			}
+			for ( j = a->a_numvals; j >= slot; j-- ) {
+				a->a_vals[j+1] = a->a_vals[j];
+				if ( nvals )
+					a->a_nvals[j+1] = a->a_nvals[j];
+			}
+			ber_dupbv( &a->a_nvals[slot], &v2[i] );
+			if ( nvals )
+				ber_dupbv( &a->a_vals[slot], &vals[i] );
+			a->a_numvals++;
+		}
+		BER_BVZERO( &a->a_vals[a->a_numvals] );
+		if ( a->a_vals != a->a_nvals )
+			BER_BVZERO( &a->a_nvals[a->a_numvals] );
+	} else {
+		v2 = &a->a_vals[a->a_numvals];
+		for ( i = 0 ; i < nn; i++ ) {
+			ber_dupbv( &v2[i], &vals[i] );
+			if ( BER_BVISNULL( &v2[i] ) ) break;
+		}
+		BER_BVZERO( &v2[i] );
+
+		if ( nvals ) {
+			v2 = &a->a_nvals[a->a_numvals];
+			for ( i = 0 ; i < nn; i++ ) {
+				ber_dupbv( &v2[i], &nvals[i] );
+				if ( BER_BVISNULL( &v2[i] ) ) break;
+			}
+			BER_BVZERO( &v2[i] );
+		}
+		a->a_numvals += i;
+	}
+	return 0;
+}
 
 /*
  * attr_merge - merge the given type and value with the list of
@@ -190,7 +456,7 @@ attr_merge(
 	BerVarray	vals,
 	BerVarray	nvals )
 {
-	int rc;
+	int i = 0;
 
 	Attribute	**a;
 
@@ -208,32 +474,33 @@ attr_merge(
 		 * of nvals and the value of (*a)->a_nvals must be consistent
 		 */
 		assert( ( nvals == NULL && (*a)->a_nvals == (*a)->a_vals )
-				|| ( nvals != NULL && (*a)->a_nvals != (*a)->a_vals ) );
+				|| ( nvals != NULL && (
+					( (*a)->a_vals == NULL && (*a)->a_nvals == NULL )
+					|| ( (*a)->a_nvals != (*a)->a_vals ) ) ) );
 	}
 
-	rc = value_add( &(*a)->a_vals, vals );
-
-	if ( rc == LDAP_SUCCESS ) {
-		if ( nvals ) {
-			rc = value_add( &(*a)->a_nvals, nvals );
-			/* FIXME: what if rc != LDAP_SUCCESS ? */
-		} else {
-			(*a)->a_nvals = (*a)->a_vals;
-		}
+	if ( vals != NULL ) {
+		for ( ; !BER_BVISNULL( &vals[i] ); i++ ) ;
 	}
-
-	return rc;
+	return attr_valadd( *a, vals, nvals, i );
 }
 
+/*
+ * if a normalization function is defined for the equality matchingRule
+ * of desc, the value is normalized and stored in nval; otherwise nval 
+ * is NULL
+ */
 int
-attr_merge_normalize(
-	Entry		*e,
-	AttributeDescription *desc,
-	BerVarray	vals,
-	void	 *memctx )
+attr_normalize(
+	AttributeDescription	*desc,
+	BerVarray		vals,
+	BerVarray		*nvalsp,
+	void	 		*memctx )
 {
+	int		rc = LDAP_SUCCESS;
 	BerVarray	nvals = NULL;
-	int		rc;
+
+	*nvalsp = NULL;
 
 	if ( desc->ad_type->sat_equality &&
 		desc->ad_type->sat_equality->smr_normalize )
@@ -244,7 +511,7 @@ attr_merge_normalize(
 
 		nvals = slap_sl_calloc( sizeof(struct berval), i + 1, memctx );
 		for ( i = 0; !BER_BVISNULL( &vals[i] ); i++ ) {
-			rc = (*desc->ad_type->sat_equality->smr_normalize)(
+			rc = desc->ad_type->sat_equality->smr_normalize(
 					SLAP_MR_VALUE_OF_ATTRIBUTE_SYNTAX,
 					desc->ad_type->sat_syntax,
 					desc->ad_type->sat_equality,
@@ -252,18 +519,38 @@ attr_merge_normalize(
 
 			if ( rc != LDAP_SUCCESS ) {
 				BER_BVZERO( &nvals[i + 1] );
-				goto error_return;
+				break;
 			}
 		}
 		BER_BVZERO( &nvals[i] );
+		*nvalsp = nvals;
 	}
 
-	rc = attr_merge( e, desc, vals, nvals );
-
-error_return:;
-	if ( nvals != NULL ) {
+	if ( rc != LDAP_SUCCESS && nvals != NULL ) {
 		ber_bvarray_free_x( nvals, memctx );
 	}
+
+	return rc;
+}
+
+int
+attr_merge_normalize(
+	Entry			*e,
+	AttributeDescription	*desc,
+	BerVarray		vals,
+	void	 		*memctx )
+{
+	BerVarray	nvals = NULL;
+	int		rc;
+
+	rc = attr_normalize( desc, vals, &nvals, memctx );
+	if ( rc == LDAP_SUCCESS ) {
+		rc = attr_merge( e, desc, vals, nvals );
+		if ( nvals != NULL ) {
+			ber_bvarray_free_x( nvals, memctx );
+		}
+	}
+
 	return rc;
 }
 
@@ -274,7 +561,6 @@ attr_merge_one(
 	struct berval	*val,
 	struct berval	*nval )
 {
-	int rc;
 	Attribute	**a;
 
 	for ( a = &e->e_attrs; *a != NULL; a = &(*a)->a_next ) {
@@ -287,16 +573,39 @@ attr_merge_one(
 		*a = attr_alloc( desc );
 	}
 
-	rc = value_add_one( &(*a)->a_vals, val );
+	return attr_valadd( *a, val, nval, 1 );
+}
 
-	if ( rc == LDAP_SUCCESS ) {
-		if ( nval ) {
-			rc = value_add_one( &(*a)->a_nvals, nval );
-			/* FIXME: what if rc != LDAP_SUCCESS ? */
-		} else {
-			(*a)->a_nvals = (*a)->a_vals;
+/*
+ * if a normalization function is defined for the equality matchingRule
+ * of desc, the value is normalized and stored in nval; otherwise nval 
+ * is NULL
+ */
+int
+attr_normalize_one(
+	AttributeDescription *desc,
+	struct berval	*val,
+	struct berval	*nval,
+	void		*memctx )
+{
+	int		rc = LDAP_SUCCESS;
+
+	BER_BVZERO( nval );
+
+	if ( desc->ad_type->sat_equality &&
+		desc->ad_type->sat_equality->smr_normalize )
+	{
+		rc = desc->ad_type->sat_equality->smr_normalize(
+				SLAP_MR_VALUE_OF_ATTRIBUTE_SYNTAX,
+				desc->ad_type->sat_syntax,
+				desc->ad_type->sat_equality,
+				val, nval, memctx );
+
+		if ( rc != LDAP_SUCCESS ) {
+			return rc;
 		}
 	}
+
 	return rc;
 }
 
@@ -307,22 +616,12 @@ attr_merge_normalize_one(
 	struct berval	*val,
 	void		*memctx )
 {
-	struct berval	nval;
+	struct berval	nval = BER_BVNULL;
 	struct berval	*nvalp = NULL;
 	int		rc;
 
-	if ( desc->ad_type->sat_equality &&
-		desc->ad_type->sat_equality->smr_normalize )
-	{
-		rc = (*desc->ad_type->sat_equality->smr_normalize)(
-				SLAP_MR_VALUE_OF_ATTRIBUTE_SYNTAX,
-				desc->ad_type->sat_syntax,
-				desc->ad_type->sat_equality,
-				val, &nval, memctx );
-
-		if ( rc != LDAP_SUCCESS ) {
-			return rc;
-		}
+	rc = attr_normalize_one( desc, val, &nval, memctx );
+	if ( rc == LDAP_SUCCESS && !BER_BVISNULL( &nval ) ) {
 		nvalp = &nval;
 	}
 
@@ -397,3 +696,22 @@ attr_delete(
 	return LDAP_NO_SUCH_ATTRIBUTE;
 }
 
+int
+attr_init( void )
+{
+	ldap_pvt_thread_mutex_init( &attr_mutex );
+	return 0;
+}
+
+int
+attr_destroy( void )
+{
+	slap_list *a;
+
+	for ( a=attr_chunks; a; a=attr_chunks ) {
+		attr_chunks = a->next;
+		free( a );
+	}
+	ldap_pvt_thread_mutex_destroy( &attr_mutex );
+	return 0;
+}

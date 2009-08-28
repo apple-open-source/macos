@@ -4,7 +4,7 @@
  * The development of the EAP/SIM support was funded by Internet Foundation
  * Austria (http://www.nic.at/ipa).
  *
- * Version:     $Id: rlm_eap_sim.c,v 1.12.4.1 2007/02/15 12:51:38 aland Exp $
+ * Version:     $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -18,14 +18,17 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
  * Copyright 2003  Michael Richardson <mcr@sandelman.ottawa.on.ca>
- * Copyright 2003  The FreeRADIUS server project
+ * Copyright 2003,2006  The FreeRADIUS server project
  *
  */
 
-#include "autoconf.h"
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
+
+#include <freeradius-devel/autoconf.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -34,7 +37,7 @@
 #include "eap_types.h"
 #include "eap_sim.h"
 
-#include <rad_assert.h>
+#include <freeradius-devel/rad_assert.h>
 
 struct eap_sim_server_state {
 	enum eapsim_serverstates state;
@@ -46,18 +49,18 @@ struct eap_sim_server_state {
  * Add value pair to reply
  */
 static void add_reply(VALUE_PAIR** vp,
-		      const char* name, const char* value, int len)
+		      const char* name, const uint8_t *value, size_t len)
 {
 	VALUE_PAIR *reply_attr;
 	reply_attr = pairmake(name, "", T_OP_EQ);
 	if (!reply_attr) {
 		DEBUG("rlm_eap_sim: "
 		      "add_reply failed to create attribute %s: %s\n",
-		      name, librad_errstr);
+		      name, fr_strerror());
 		return;
 	}
 
-	memcpy(reply_attr->strvalue, value, len);
+	memcpy(reply_attr->vp_strvalue, value, len);
 	reply_attr->length = len;
 	pairadd(vp, reply_attr);
 }
@@ -106,7 +109,7 @@ static int eap_sim_sendstart(EAP_HANDLER *handler)
 	/* the version list. We support only version 1. */
 	newvp = paircreate(ATTRIBUTE_EAP_SIM_BASE+PW_EAP_SIM_VERSION_LIST,
 			PW_TYPE_OCTETS);
-	words = (uint16_t *)newvp->strvalue;
+	words = (uint16_t *)newvp->vp_strvalue;
 	newvp->length = 3*sizeof(uint16_t);
 	words[0] = htons(1*sizeof(uint16_t));
 	words[1] = htons(EAP_SIM_VERSION);
@@ -115,7 +118,7 @@ static int eap_sim_sendstart(EAP_HANDLER *handler)
 
 	/* set the EAP_ID - new value */
 	newvp = paircreate(ATTRIBUTE_EAP_ID, PW_TYPE_INTEGER);
-	newvp->lvalue = ess->sim_id++;
+	newvp->vp_integer = ess->sim_id++;
 	pairreplace(vps, newvp);
 
 	/* record it in the ess */
@@ -126,13 +129,13 @@ static int eap_sim_sendstart(EAP_HANDLER *handler)
 	newvp = paircreate(ATTRIBUTE_EAP_SIM_BASE+PW_EAP_SIM_FULLAUTH_ID_REQ,
 			   PW_TYPE_OCTETS);
 	newvp->length = 2;
-	newvp->strvalue[0]=0;
-	newvp->strvalue[0]=1;
+	newvp->vp_strvalue[0]=0;
+	newvp->vp_strvalue[0]=1;
 	pairadd(vps, newvp);
 
 	/* the SUBTYPE, set to start. */
 	newvp = paircreate(ATTRIBUTE_EAP_SIM_SUBTYPE, PW_TYPE_INTEGER);
-	newvp->lvalue = eapsim_start;
+	newvp->vp_integer = eapsim_start;
 	pairreplace(vps, newvp);
 
 	return 1;
@@ -156,7 +159,7 @@ static int eap_sim_getchalans(VALUE_PAIR *vps, int chalno,
 		       vp->length);
 		return 0;
 	}
-	memcpy(ess->keys.rand[chalno], vp->strvalue, EAPSIM_RAND_SIZE);
+	memcpy(ess->keys.rand[chalno], vp->vp_strvalue, EAPSIM_RAND_SIZE);
 
 	vp = pairfind(vps, ATTRIBUTE_EAP_SIM_SRES1+chalno);
 	if(vp == NULL) {
@@ -169,7 +172,7 @@ static int eap_sim_getchalans(VALUE_PAIR *vps, int chalno,
 		       vp->length);
 		return 0;
 	}
-	memcpy(ess->keys.sres[chalno], vp->strvalue, EAPSIM_SRES_SIZE);
+	memcpy(ess->keys.sres[chalno], vp->vp_strvalue, EAPSIM_SRES_SIZE);
 
 	vp = pairfind(vps, ATTRIBUTE_EAP_SIM_KC1+chalno);
 	if(vp == NULL) {
@@ -182,7 +185,7 @@ static int eap_sim_getchalans(VALUE_PAIR *vps, int chalno,
 		       vp->length);
 		return 0;
 	}
-	memcpy(ess->keys.Kc[chalno], vp->strvalue, EAPSIM_Kc_SIZE);
+	memcpy(ess->keys.Kc[chalno], vp->vp_strvalue, EAPSIM_Kc_SIZE);
 
 	return 1;
 }
@@ -223,22 +226,24 @@ static int eap_sim_sendchallenge(EAP_HANDLER *handler)
 	/* outvps is the data to the client. */
 	outvps= &handler->request->reply->vps;
 
-	printf("+++> EAP-sim decoded packet:\n");
-	vp_printlist(stdout, *invps);
+	if ((debug_flag > 0) && fr_log_fp) {
+		fprintf(fr_log_fp, "+++> EAP-sim decoded packet:\n");
+		debug_pair_list(*invps);
+	}
 
 	/* okay, we got the challenges! Put them into an attribute */
 	newvp = paircreate(ATTRIBUTE_EAP_SIM_BASE+PW_EAP_SIM_RAND,
 			   PW_TYPE_OCTETS);
-	memset(newvp->strvalue,    0, 2); /* clear reserved bytes */
-	memcpy(newvp->strvalue+2+EAPSIM_RAND_SIZE*0, ess->keys.rand[0], EAPSIM_RAND_SIZE);
-	memcpy(newvp->strvalue+2+EAPSIM_RAND_SIZE*1, ess->keys.rand[1], EAPSIM_RAND_SIZE);
-	memcpy(newvp->strvalue+2+EAPSIM_RAND_SIZE*2, ess->keys.rand[2], EAPSIM_RAND_SIZE);
+	memset(newvp->vp_strvalue,    0, 2); /* clear reserved bytes */
+	memcpy(newvp->vp_strvalue+2+EAPSIM_RAND_SIZE*0, ess->keys.rand[0], EAPSIM_RAND_SIZE);
+	memcpy(newvp->vp_strvalue+2+EAPSIM_RAND_SIZE*1, ess->keys.rand[1], EAPSIM_RAND_SIZE);
+	memcpy(newvp->vp_strvalue+2+EAPSIM_RAND_SIZE*2, ess->keys.rand[2], EAPSIM_RAND_SIZE);
 	newvp->length = 2+EAPSIM_RAND_SIZE*3;
 	pairadd(outvps, newvp);
 
 	/* set the EAP_ID - new value */
 	newvp = paircreate(ATTRIBUTE_EAP_ID, PW_TYPE_INTEGER);
-	newvp->lvalue = ess->sim_id++;
+	newvp->vp_integer = ess->sim_id++;
 	pairreplace(outvps, newvp);
 
 	/* make a copy of the identity */
@@ -261,18 +266,18 @@ static int eap_sim_sendchallenge(EAP_HANDLER *handler)
 
 	newvp = paircreate(ATTRIBUTE_EAP_SIM_BASE+PW_EAP_SIM_MAC,
 			   PW_TYPE_OCTETS);
-	memcpy(newvp->strvalue, ess->keys.nonce_mt, 16);
+	memcpy(newvp->vp_strvalue, ess->keys.nonce_mt, 16);
 	newvp->length = 16;
 	pairreplace(outvps, newvp);
 
 	newvp = paircreate(ATTRIBUTE_EAP_SIM_KEY, PW_TYPE_OCTETS);
-	memcpy(newvp->strvalue, ess->keys.K_aut, 16);
+	memcpy(newvp->vp_strvalue, ess->keys.K_aut, 16);
 	newvp->length = 16;
 	pairreplace(outvps, newvp);
 
 	/* the SUBTYPE, set to challenge. */
 	newvp = paircreate(ATTRIBUTE_EAP_SIM_SUBTYPE, PW_TYPE_INTEGER);
-	newvp->lvalue = eapsim_challenge;
+	newvp->vp_integer = eapsim_challenge;
 	pairreplace(outvps, newvp);
 
 	return 1;
@@ -302,7 +307,7 @@ static int eap_sim_sendsuccess(EAP_HANDLER *handler)
 
 	/* set the EAP_ID - new value */
 	newvp = paircreate(ATTRIBUTE_EAP_ID, PW_TYPE_INTEGER);
-	newvp->lvalue = ess->sim_id++;
+	newvp->vp_integer = ess->sim_id++;
 	pairreplace(outvps, newvp);
 
 	p = ess->keys.msk;
@@ -448,7 +453,7 @@ static int process_eap_sim_start(EAP_HANDLER *handler, VALUE_PAIR *vps)
 		DEBUG2("   EAP-Sim version field is too short.");
 		return 0;
 	}
-	memcpy(&simversion, selectedversion_vp->strvalue, sizeof(simversion));
+	memcpy(&simversion, selectedversion_vp->vp_strvalue, sizeof(simversion));
 	simversion = ntohs(simversion);
 	if(simversion != EAP_SIM_VERSION) {
 		DEBUG2("   EAP-Sim version %d is unknown.", simversion);
@@ -456,7 +461,7 @@ static int process_eap_sim_start(EAP_HANDLER *handler, VALUE_PAIR *vps)
 	}
 
 	/* record it for later keying */
- 	memcpy(ess->keys.versionselect, selectedversion_vp->strvalue,
+ 	memcpy(ess->keys.versionselect, selectedversion_vp->vp_strvalue,
 	       sizeof(ess->keys.versionselect));
 
 	/*
@@ -466,7 +471,7 @@ static int process_eap_sim_start(EAP_HANDLER *handler, VALUE_PAIR *vps)
 		DEBUG2("   EAP-Sim nonce_mt must be 16 bytes (+2 bytes padding), not %d", nonce_vp->length);
 		return 0;
 	}
-	memcpy(ess->keys.nonce_mt, nonce_vp->strvalue+2, 16);
+	memcpy(ess->keys.nonce_mt, nonce_vp->vp_strvalue+2, 16);
 
 	/* everything looks good, change states */
 	eap_sim_stateenter(handler, ess, eapsim_server_challenge);
@@ -484,8 +489,8 @@ static int process_eap_sim_start(EAP_HANDLER *handler, VALUE_PAIR *vps)
 static int process_eap_sim_challenge(EAP_HANDLER *handler, VALUE_PAIR *vps)
 {
 	struct eap_sim_server_state *ess;
-	unsigned char srescat[EAPSIM_SRES_SIZE*3];
-	unsigned char calcmac[EAPSIM_CALCMAC_SIZE];
+	uint8_t srescat[EAPSIM_SRES_SIZE*3];
+	uint8_t calcmac[EAPSIM_CALCMAC_SIZE];
 
 	ess = (struct eap_sim_server_state *)handler->opaque;
 
@@ -500,7 +505,7 @@ static int process_eap_sim_challenge(EAP_HANDLER *handler, VALUE_PAIR *vps)
 		DEBUG2("MAC check succeed\n");
 	} else {
 		int i, j;
-		unsigned char macline[20*3];
+		char macline[20*3];
 		char *m = macline;
 
 		j=0;
@@ -555,7 +560,7 @@ static int eap_sim_authenticate(void *arg, EAP_HANDLER *handler)
 		DEBUG2("   no subtype attribute was created, message dropped");
 		return 0;
 	}
-	subtype = vp->lvalue;
+	subtype = vp->vp_integer;
 
 	/*
 	 *	Client error supersedes anything else.
@@ -625,68 +630,3 @@ EAP_TYPE rlm_eap_sim = {
 	eap_sim_authenticate,		/* authentication */
 	NULL				/* XXX detach */
 };
-
-/*
- * $Log: rlm_eap_sim.c,v $
- * Revision 1.12.4.1  2007/02/15 12:51:38  aland
- * 	Handle Client-Error code.  If the client sends us one, we stop
- * 	talking EAP-SIM.
- *
- * 	This closes #419
- *
- * Revision 1.12  2004/03/19 02:20:35  mcr
- * 	increment the EAP-id on each stage of the transaction.
- *
- * Revision 1.11  2004/02/26 19:04:31  aland
- * 	perl -i -npe "s/[ \t]+$//g" `find src -name "*.[ch]" -print`
- *
- * 	Whitespace changes only, from a fresh checkout.
- *
- * 	For bug # 13
- *
- * Revision 1.10  2004/01/30 20:35:33  mcr
- * 	capture the RAND/SRES/Kc when we initialize the SIM
- * 	rather than later, when they may have changed.
- *
- * Revision 1.9  2004/01/30 19:38:29  mcr
- * 	added some debugging of why EAP-sim might not want to
- * 	handle the request - lacking RAND1 attribute.
- *
- * Revision 1.8  2003/12/29 01:13:43  mcr
- * 	if the un-marshalling fails, then fail the packet.
- *
- * Revision 1.7  2003/11/22 00:21:17  mcr
- * 	send the encryption keys to the AccessPoint.
- *
- * Revision 1.6  2003/11/22 00:10:18  mcr
- * 	the version list attribute's length of versions is in bytes,
- * 	not entries.
- *
- * Revision 1.5  2003/11/21 19:15:51  mcr
- * 	rename "SIM-Chal" to "SIM-Rand" to sync with names in official
- * 	documentation.
- *
- * Revision 1.4  2003/11/21 19:02:19  mcr
- * 	pack the RAND attribute properly - should have 2 bytes
- * reserved.
- *
- * Revision 1.3  2003/11/06 15:45:12  aland
- * 	u_int -> uint
- *
- * Revision 1.2  2003/10/31 22:33:45  mcr
- * 	fixes for version list length types.
- * 	do not include length in hash.
- * 	use defines rather than constant sizes.
- *
- * Revision 1.1  2003/10/29 02:49:19  mcr
- * 	initial commit of eap-sim
- *
- * Revision 1.3  2003/09/14 00:44:42  mcr
- * 	finished trivial challenge state.
- *
- *
- * Local Variables:
- * c-file-style: "linux"
- * End Variables:
- *
- */

@@ -3,19 +3,20 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -119,7 +120,7 @@ int	editit __P((char *));
 void	freeprivs __P((struct quotause *));
 int	getentry __P((char *, int));
 int	hasquota __P((struct statfs *, int, char **));
-void	putprivs __P((long, int, struct quotause *));
+void	putprivs __P((uid_t, int, struct quotause *));
 int	readprivs __P((struct quotause *, int));
 int	readtimes __P((struct quotause *, int));
 void	usage __P((void));
@@ -128,8 +129,8 @@ int	writetimes __P((struct quotause *, int, int));
 
 #ifdef __APPLE__
 int	qfinit(int, struct statfs *, int);
-int	qflookup(int, u_long, int, struct dqblk *);
-int	qfupdate(int, u_long, int, struct dqblk *);
+int	qflookup(int, uid_t, int, struct dqblk *);
+int	qfupdate(int, uid_t, int, struct dqblk *);
 #endif /* __APPLE__ */
 
 
@@ -141,7 +142,7 @@ main(argc, argv)
 	register struct quotause *qup, *protoprivs, *curprivs;
 	extern char *optarg;
 	extern int optind;
-	register long id, protoid;
+	register uid_t id, protoid;
 	register int quotatype, tmpfd;
 	char *protoname = NULL, ch;
 	int tflag = 0, pflag = 0;
@@ -289,7 +290,7 @@ getentry(name, quotatype)
 		return (atoi(name));
 	switch(quotatype) {
 	case USRQUOTA:
-		if ((pw = getpwnam(name)))
+		if ((pw = getpwnam(name)) != NULL)
 			return (pw->pw_uid);
 		fprintf(stderr, "%s: no such user\n", name);
 		break;
@@ -312,13 +313,14 @@ getentry(name, quotatype)
 #ifdef __APPLE__
 struct quotause *
 getprivs(id, quotatype)
-	register long id;
+	register uid_t id;
 	int quotatype;
 {
 	struct statfs *fst;
 	register struct quotause *qup, *quptail;
 	struct quotause *quphead;
-	int qcmd, qupsize, fd;
+	int qcmd, fd;
+	size_t qupsize;
 	char *qfpathname;
 	static int warned = 0;
 	int nfst, i;
@@ -382,8 +384,8 @@ getprivs(id, quotatype)
 			}
 			close(fd);
 		}
-		strcpy(qup->qfname, qfpathname);
-		strcpy(qup->fsname, fst[i].f_mntonname);
+		strcpy(qup->qfname, qfpathname);	// malloc'd size is correct for this
+		strlcpy(qup->fsname, fst[i].f_mntonname, sizeof(qup->fsname));
 
 		if (quphead == NULL)
 			quphead = qup;
@@ -403,7 +405,8 @@ getprivs(id, quotatype)
 	register struct fstab *fs;
 	register struct quotause *qup, *quptail;
 	struct quotause *quphead;
-	int qcmd, qupsize, fd;
+	int qcmd, fd;
+	size_t qupsize;
 	char *qfpathname;
 	static int warned = 0;
 	extern int errno;
@@ -465,8 +468,8 @@ getprivs(id, quotatype)
 			}
 			close(fd);
 		}
-		strcpy(qup->qfname, qfpathname);
-		strcpy(qup->fsname, fs->fs_file);
+		strcpy(qup->qfname, qfpathname);	// malloc'd size is correct for this
+		strlcpy(qup->fsname, fs->fs_file, sizeof(qup->fsname));
 		if (quphead == NULL)
 			quphead = qup;
 		else
@@ -492,7 +495,7 @@ qfinit(fd, fst, type)
 {
 	struct dqfilehdr dqhdr = {0};
 	u_int64_t fs_size;
-	int max = 0;
+	int64_t max = 0;
 
 	/*
 	 * Calculate the size of the hash table from the size of
@@ -519,7 +522,7 @@ qfinit(fd, fst, type)
 	}
 	/* Round up to a power of 2 */
 	if (max && !powerof2(max)) {
-		int x = max;
+		int64_t x = max;
 		max = 4;
 		while (x>>1 != 1) {
 			x = x >> 1;
@@ -530,7 +533,7 @@ qfinit(fd, fst, type)
 	(void) ftruncate(fd, (off_t)((max + 1) * sizeof(struct dqblk)));
 	dqhdr.dqh_magic      = OSSwapHostToBigInt32(quotamagic[type]);
 	dqhdr.dqh_version    = OSSwapHostToBigConstInt32(QF_VERSION);
-	dqhdr.dqh_maxentries = OSSwapHostToBigInt32(max);
+	dqhdr.dqh_maxentries = OSSwapHostToBigInt32((int32_t)max);
 	dqhdr.dqh_btime      = OSSwapHostToBigConstInt32(MAX_DQ_TIME);
 	dqhdr.dqh_itime      = OSSwapHostToBigConstInt32(MAX_IQ_TIME);
 	memmove(dqhdr.dqh_string, QF_STRING_TAG, strlen(QF_STRING_TAG));
@@ -546,13 +549,13 @@ qfinit(fd, fst, type)
 int
 qflookup(fd, id, type, dqbp)
 	int fd;
-	u_long id;
+	uid_t id;
 	int type;
 	struct dqblk *dqbp;
 {
 	struct dqfilehdr dqhdr;
 	int i, skip, last, m;
-	u_long mask;
+	int mask;
 
 	bzero(dqbp, sizeof(struct dqblk));
 
@@ -610,7 +613,7 @@ qflookup(fd, id, type, dqbp)
  */
 void
 putprivs(id, quotatype, quplist)
-	long id;
+	uid_t id;
 	int quotatype;
 	struct quotause *quplist;
 {
@@ -653,14 +656,14 @@ putprivs(id, quotatype, quplist)
 int
 qfupdate(fd, id, type, dqbp)
 	int fd;
-	u_long id;
+	uid_t id;
 	int type;
 	struct dqblk *dqbp;
 {
 	struct dqblk dqbuf;
 	struct dqfilehdr dqhdr;
 	int i, skip, last, m;
-	u_long mask;
+	unsigned int mask;
 
 	if (id == 0)
 		return (0);
@@ -693,20 +696,21 @@ qfupdate(fd, id, type, dqbp)
 		 * or we encounter a matching id.
 		 */
 		if (dqbuf.dqb_id == 0 || OSSwapBigToHostInt32(dqbuf.dqb_id) == id) {
-
 			/* Convert buffer to big endian before writing. */
-			dqbp->dqb_bhardlimit = OSSwapHostToBigInt64(dqbp->dqb_bhardlimit);
-			dqbp->dqb_bsoftlimit = OSSwapHostToBigInt64(dqbp->dqb_bsoftlimit);
-			dqbp->dqb_curbytes   = OSSwapHostToBigInt64(dqbp->dqb_curbytes);
-			dqbp->dqb_ihardlimit = OSSwapHostToBigInt32(dqbp->dqb_ihardlimit);
-			dqbp->dqb_isoftlimit = OSSwapHostToBigInt32(dqbp->dqb_isoftlimit);
-			dqbp->dqb_curinodes  = OSSwapHostToBigInt32(dqbp->dqb_curinodes);
-			dqbp->dqb_btime      = OSSwapHostToBigInt32(dqbp->dqb_btime);
-			dqbp->dqb_itime      = OSSwapHostToBigInt32(dqbp->dqb_itime);
-			dqbp->dqb_id         = OSSwapHostToBigInt32(id);
+			struct dqblk tblk;
+
+			tblk.dqb_bhardlimit = OSSwapHostToBigInt64(dqbp->dqb_bhardlimit);
+			tblk.dqb_bsoftlimit = OSSwapHostToBigInt64(dqbp->dqb_bsoftlimit);
+			tblk.dqb_curbytes   = OSSwapHostToBigInt64(dqbp->dqb_curbytes);
+			tblk.dqb_ihardlimit = OSSwapHostToBigInt32(dqbp->dqb_ihardlimit);
+			tblk.dqb_isoftlimit = OSSwapHostToBigInt32(dqbp->dqb_isoftlimit);
+			tblk.dqb_curinodes  = OSSwapHostToBigInt32(dqbp->dqb_curinodes);
+			tblk.dqb_btime      = OSSwapHostToBigInt32((int)dqbp->dqb_btime);
+			tblk.dqb_itime      = OSSwapHostToBigInt32((int)dqbp->dqb_itime);
+			tblk.dqb_id         = OSSwapHostToBigInt32(id);
 
 			lseek(fd, dqoffset(i), L_SET);
-			if (write(fd, dqbp, sizeof (struct dqblk)) !=
+			if (write(fd, &tblk, sizeof (struct dqblk)) !=
 			    sizeof (struct dqblk)) {
 			    	return (-1);
 			}
@@ -725,7 +729,7 @@ int
 editit(tmpfile)
 	char *tmpfile;
 {
-	long omask;
+	int omask;
 	int pid, stat;
 	extern char *getenv();
 
@@ -747,10 +751,14 @@ editit(tmpfile)
 	}
 	if (pid == 0) {
 		register char *ed;
+		struct passwd *pwd = getpwuid(getuid());
+		gid_t newgid = getgid();
 
-		sigsetmask(omask);
-		setgid(getgid());
+		setgid(newgid);
+		if (pwd) initgroups(pwd->pw_name, newgid);
 		setuid(getuid());
+		sigsetmask(omask);
+
 		if ((ed = getenv("EDITOR")) == (char *)0)
 			ed = _PATH_VI;
 		execlp(ed, ed, tmpfile, NULL);
@@ -1034,8 +1042,8 @@ readtimes(quplist, infd)
 		for (qup = quplist; qup; qup = qup->next) {
 			if (strcmp(fsp, qup->fsname))
 				continue;
-			qup->dqblk.dqb_btime = bseconds;
-			qup->dqblk.dqb_itime = iseconds;
+			qup->dqblk.dqb_btime = (uint32_t) bseconds;
+			qup->dqblk.dqb_itime = (uint32_t) iseconds;
 			qup->flags |= FOUND;
 			break;
 		}
@@ -1067,15 +1075,15 @@ cvtstoa(time)
 
 	if (time % (24 * 60 * 60) == 0) {
 		time /= 24 * 60 * 60;
-		sprintf(buf, "%d day%s", (int)time, time == 1 ? "" : "s");
+		snprintf(buf, sizeof(buf), "%d day%s", (int)time, time == 1 ? "" : "s");
 	} else if (time % (60 * 60) == 0) {
 		time /= 60 * 60;
-		sprintf(buf, "%d hour%s", (int)time, time == 1 ? "" : "s");
+		snprintf(buf, sizeof(buf), "%d hour%s", (int)time, time == 1 ? "" : "s");
 	} else if (time % 60 == 0) {
 		time /= 60;
-		sprintf(buf, "%d minute%s", (int)time, time == 1 ? "" : "s");
+		snprintf(buf, sizeof(buf), "%d minute%s", (int)time, time == 1 ? "" : "s");
 	} else
-		sprintf(buf, "%d second%s", (int)time, time == 1 ? "" : "s");
+		snprintf(buf, sizeof(buf), "%d second%s", (int)time, time == 1 ? "" : "s");
 	return (buf);
 }
 
@@ -1152,8 +1160,8 @@ hasquota(fst, type, qfnamep)
 	static char buf[BUFSIZ];
 
 	if (!initname) {
-		sprintf(usrname, "%s%s", qfextension[USRQUOTA], qfname);
-		sprintf(grpname, "%s%s", qfextension[GRPQUOTA], qfname);
+		snprintf(usrname, sizeof(usrname), "%s%s", qfextension[USRQUOTA], qfname);
+		snprintf(grpname, sizeof(grpname), "%s%s", qfextension[GRPQUOTA], qfname);
 		initname = 1;
 	}
 
@@ -1162,14 +1170,14 @@ hasquota(fst, type, qfnamep)
 	  on disk quota files.
 	*/
 
-        (void)sprintf(buf, "%s/%s.%s", fst->f_mntonname,
+        (void)snprintf(buf, sizeof(buf), "%s/%s.%s", fst->f_mntonname,
 		      QUOTAOPSNAME, qfextension[type] );
         if (stat(buf, &sb) != 0) {
           /* There appears to be no mount option file */
           return(0);
         }
 
-	(void) sprintf(buf, "%s/%s.%s", fst->f_mntonname, qfname, qfextension[type]);
+	(void) snprintf(buf, sizeof(buf), "%s/%s.%s", fst->f_mntonname, qfname, qfextension[type]);
 	*qfnamep = buf;
 	return (1);
 }
@@ -1185,11 +1193,11 @@ hasquota(fs, type, qfnamep)
 	static char buf[BUFSIZ];
 
 	if (!initname) {
-		sprintf(usrname, "%s%s", qfextension[USRQUOTA], qfname);
-		sprintf(grpname, "%s%s", qfextension[GRPQUOTA], qfname);
+		snprintf(usrname, sizeof(usrname), "%s%s", qfextension[USRQUOTA], qfname);
+		snprintf(grpname, sizeof(grpname), "%s%s", qfextension[GRPQUOTA], qfname);
 		initname = 1;
 	}
-	strcpy(buf, fs->fs_mntops);
+	strlcpy(buf, fs->fs_mntops, sizeof(buf));
 	for (opt = strtok(buf, ","); opt; opt = strtok(NULL, ",")) {
 		if (cp = index(opt, '='))
 			*cp++ = '\0';
@@ -1204,7 +1212,7 @@ hasquota(fs, type, qfnamep)
 		*qfnamep = cp;
 		return (1);
 	}
-	(void) sprintf(buf, "%s/%s.%s", fs->fs_file, qfname, qfextension[type]);
+	(void) snprintf(buf, sizeof(buf), "%s/%s.%s", fs->fs_file, qfname, qfextension[type]);
 	*qfnamep = buf;
 	return (1);
 }

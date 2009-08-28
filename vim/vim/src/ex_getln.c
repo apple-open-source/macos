@@ -2524,7 +2524,7 @@ realloc_cmdbuff(len)
 	    && ccline.xpc->xp_context != EXPAND_NOTHING
 	    && ccline.xpc->xp_context != EXPAND_UNSUCCESSFUL)
     {
-	int i = ccline.xpc->xp_pattern - p;
+	int i = (int)(ccline.xpc->xp_pattern - p);
 
 	/* If xp_pattern points inside the old cmdbuff it needs to be adjusted
 	 * to point into the newly allocated memory. */
@@ -4897,7 +4897,7 @@ ExpandRTDir(pat, num_file, file, dirname)
     if (s == NULL)
 	return FAIL;
     sprintf((char *)s, "%s/%s*.vim", dirname, pat);
-    all = globpath(p_rtp, s);
+    all = globpath(p_rtp, s, 0);
     vim_free(s);
     if (all == NULL)
 	return FAIL;
@@ -4938,9 +4938,10 @@ ExpandRTDir(pat, num_file, file, dirname)
  * newlines.  Returns NULL for an error or no matches.
  */
     char_u *
-globpath(path, file)
+globpath(path, file, expand_options)
     char_u	*path;
     char_u	*file;
+    int		expand_options;
 {
     expand_T	xpc;
     char_u	*buf;
@@ -4969,10 +4970,10 @@ globpath(path, file)
 	{
 	    add_pathsep(buf);
 	    STRCAT(buf, file);
-	    if (ExpandFromContext(&xpc, buf, &num_p, &p, WILD_SILENT) != FAIL
-								 && num_p > 0)
+	    if (ExpandFromContext(&xpc, buf, &num_p, &p,
+			     WILD_SILENT|expand_options) != FAIL && num_p > 0)
 	    {
-		ExpandEscape(&xpc, buf, num_p, p, WILD_SILENT);
+		ExpandEscape(&xpc, buf, num_p, p, WILD_SILENT|expand_options);
 		for (len = 0, i = 0; i < num_p; ++i)
 		    len += (int)STRLEN(p[i]) + 1;
 
@@ -6051,7 +6052,7 @@ ex_window()
 	cmdwin_type = '-';
 
     /* Create the command-line buffer empty. */
-    (void)do_ecmd(0, NULL, NULL, NULL, ECMD_ONE, ECMD_HIDE);
+    (void)do_ecmd(0, NULL, NULL, NULL, ECMD_ONE, ECMD_HIDE, NULL);
     (void)setfname(curbuf, (char_u *)"[Command Line]", NULL, TRUE);
     set_option_value((char_u *)"bt", 0L, (char_u *)"nofile", OPT_LOCAL);
     set_option_value((char_u *)"swf", 0L, NULL, OPT_LOCAL);

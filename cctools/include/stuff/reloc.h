@@ -27,11 +27,11 @@
 #import <mach/machine.h>
 #import "stuff/bool.h"
 
-__private_extern__ unsigned long reloc_pair_r_type(
+__private_extern__ uint32_t reloc_pair_r_type(
     cpu_type_t cputype);
 __private_extern__ enum bool reloc_has_pair(
     cpu_type_t cputype,
-    unsigned long r_type);
+    uint32_t r_type);
 __private_extern__ enum bool reloc_is_sectdiff(
     cpu_type_t cputype,
-    unsigned long r_type);
+    uint32_t r_type);

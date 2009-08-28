@@ -49,7 +49,8 @@ typedef struct _xlocale *		locale_t;
 #define LC_NUMERIC_MASK			(1 << 4)
 #define LC_TIME_MASK			(1 << 5)
 
-#define _LC_LAST_MASK			(1 << (6 - 1))
+#define _LC_NUM_MASK			6
+#define _LC_LAST_MASK			(1 << (_LC_NUM_MASK - 1))
 
 #define LC_GLOBAL_LOCALE		((locale_t)-1)
 

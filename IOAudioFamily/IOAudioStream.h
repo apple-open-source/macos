@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2009 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -24,8 +24,13 @@
 #define _IOKIT_IOAUDIOSTREAM_H
 
 #include <IOKit/IOService.h>
+#ifndef IOAUDIOFAMILY_SELF_BUILD
 #include <IOKit/audio/IOAudioEngine.h>
 #include <IOKit/audio/IOAudioTypes.h>
+#else
+#include "IOAudioEngine.h"
+#include "IOAudioTypes.h"
+#endif
 
 class OSSymbol;
 class OSArray;

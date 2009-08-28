@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2006, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -77,12 +77,9 @@ interface_update_status(const char *if_name, CFBooleanRef active,
 {
 	CFStringRef		key		= NULL;
 	CFMutableDictionaryRef	newDict		= NULL;
-	CFBooleanRef		state		= NULL;
 
 	key = create_interface_key(if_name);
 	newDict = copy_entity(key);
-	state = isA_CFBoolean(CFDictionaryGetValue(newDict,
-						   kSCPropNetLinkActive));
 	/* if new status available, update cache */
 	if (active == NULL) {
 	    CFDictionaryRemoveValue(newDict, kSCPropNetLinkActive);

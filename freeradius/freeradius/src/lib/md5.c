@@ -1,30 +1,35 @@
-/* MD5 message-digest algorithm */
-
-/* This file is licensed under the LGPL, but is largely derived from
- * public domain source code
+/*
+ *  md5.c	MD5 message-digest algorithm
+ *
+ *  Version:	$Id$
+ *
+ *  This file is licensed under the LGPL, but is largely derived
+ *  from public domain source code.
  */
+
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
+
+#include <freeradius-devel/libradius.h>
 
 /*
  *  FORCE MD5 TO USE OUR MD5 HEADER FILE!
- *
  *  If we don't do this, it might pick up the systems broken MD5.
- *  - Alan DeKok <aland@ox.org>
  */
 #include "../include/md5.h"
 
-void librad_md5_calc(unsigned char *output, unsigned char *input,
-		     unsigned int inputlen);
-
-void librad_md5_calc(unsigned char *output, unsigned char *input,
+void fr_md5_calc(uint8_t *output, const uint8_t *input,
 		     unsigned int inlen)
 {
-	MD5_CTX	context;
+	FR_MD5_CTX	context;
 
-	MD5Init(&context);
-	MD5Update(&context, input, inlen);
-	MD5Final(output, &context);
+	fr_MD5Init(&context);
+	fr_MD5Update(&context, input, inlen);
+	fr_MD5Final(output, &context);
 }
 
+
+#ifndef WITH_OPENSSL_MD5
 /*	The below was retrieved from
  *	http://www.openbsd.org/cgi-bin/cvsweb/~checkout~/src/sys/crypto/md5.c?rev=1.1
  *	with the following changes:
@@ -45,8 +50,8 @@ void librad_md5_calc(unsigned char *output, unsigned char *input,
  * with every copy.
  *
  * To compute the message digest of a chunk of bytes, declare an
- * MD5Context structure, pass it to MD5Init, call MD5Update as
- * needed on buffers full of bytes, and then call MD5Final, which
+ * MD5Context structure, pass it to fr_MD5Init, call fr_MD5Update as
+ * needed on buffers full of bytes, and then call fr_MD5Final, which
  * will fill a supplied 16-byte array with the digest.
  */
 
@@ -70,7 +75,7 @@ void librad_md5_calc(unsigned char *output, unsigned char *input,
 	(cp)[1] = (value) >> 8;						\
 	(cp)[0] = (value); } while (0)
 
-static uint8_t PADDING[MD5_BLOCK_LENGTH] = {
+static const uint8_t PADDING[MD5_BLOCK_LENGTH] = {
 	0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
@@ -81,7 +86,7 @@ static uint8_t PADDING[MD5_BLOCK_LENGTH] = {
  * initialization constants.
  */
 void
-MD5Init(MD5_CTX *ctx)
+fr_MD5Init(FR_MD5_CTX *ctx)
 {
 	ctx->count[0] = 0;
 	ctx->count[1] = 0;
@@ -96,7 +101,7 @@ MD5Init(MD5_CTX *ctx)
  * of bytes.
  */
 void
-MD5Update(MD5_CTX *ctx, const unsigned char *input, size_t len)
+fr_MD5Update(FR_MD5_CTX *ctx, const unsigned char *input, size_t len)
 {
 	size_t have, need;
 
@@ -112,12 +117,10 @@ MD5Update(MD5_CTX *ctx, const unsigned char *input, size_t len)
 	}
 	ctx->count[1] += ((uint32_t)len >> 29);
 
-	
-
 	if (len >= need) {
 		if (have != 0) {
 			memcpy(ctx->buffer + have, input, need);
-			MD5Transform(ctx->state, ctx->buffer);
+			fr_MD5Transform(ctx->state, ctx->buffer);
 			input += need;
 			len -= need;
 			have = 0;
@@ -125,7 +128,7 @@ MD5Update(MD5_CTX *ctx, const unsigned char *input, size_t len)
 
 		/* Process data in MD5_BLOCK_LENGTH-byte chunks. */
 		while (len >= MD5_BLOCK_LENGTH) {
-			MD5Transform(ctx->state, input);
+			fr_MD5Transform(ctx->state, input);
 			input += MD5_BLOCK_LENGTH;
 			len -= MD5_BLOCK_LENGTH;
 		}
@@ -141,7 +144,7 @@ MD5Update(MD5_CTX *ctx, const unsigned char *input, size_t len)
  * 1 0* (64-bit count of bits processed, MSB-first)
  */
 void
-MD5Final(unsigned char digest[MD5_DIGEST_LENGTH], MD5_CTX *ctx)
+fr_MD5Final(uint8_t digest[MD5_DIGEST_LENGTH], FR_MD5_CTX *ctx)
 {
 	uint8_t count[8];
 	size_t padlen;
@@ -155,14 +158,14 @@ MD5Final(unsigned char digest[MD5_DIGEST_LENGTH], MD5_CTX *ctx)
 	    ((ctx->count[0] >> 3) & (MD5_BLOCK_LENGTH - 1));
 	if (padlen < 1 + 8)
 		padlen += MD5_BLOCK_LENGTH;
-	MD5Update(ctx, PADDING, padlen - 8);		/* padlen - 8 <= 64 */
-	MD5Update(ctx, count, 8);
+	fr_MD5Update(ctx, PADDING, padlen - 8); /* padlen - 8 <= 64 */
+	fr_MD5Update(ctx, count, 8);
 
 	if (digest != NULL) {
 		for (i = 0; i < 4; i++)
 			PUT_32BIT_LE(digest + i * 4, ctx->state[i]);
 	}
-	bzero(ctx, sizeof(*ctx));	/* in case it's sensitive */
+	memset(ctx, 0, sizeof(*ctx));	/* in case it's sensitive */
 }
 
 
@@ -180,11 +183,11 @@ MD5Final(unsigned char digest[MD5_DIGEST_LENGTH], MD5_CTX *ctx)
 
 /*
  * The core of the MD5 algorithm, this alters an existing MD5 hash to
- * reflect the addition of 16 longwords of new data.  MD5Update blocks
+ * reflect the addition of 16 longwords of new data.  fr_MD5Update blocks
  * the data and converts bytes into longwords for this routine.
  */
 void
-MD5Transform(uint32_t state[4], const uint8_t block[MD5_BLOCK_LENGTH])
+fr_MD5Transform(uint32_t state[4], const uint8_t block[MD5_BLOCK_LENGTH])
 {
 	uint32_t a, b, c, d, in[MD5_BLOCK_LENGTH / 4];
 
@@ -274,3 +277,4 @@ MD5Transform(uint32_t state[4], const uint8_t block[MD5_BLOCK_LENGTH])
 	state[2] += c;
 	state[3] += d;
 }
+#endif

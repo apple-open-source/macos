@@ -137,12 +137,13 @@ enum {
     kBDeviceNameCmd                   = 0x21,     // READ BLOCK
     kBDeviceChemistryCmd              = 0x22,     // READ BLOCK
     kBManufactureDataCmd              = 0x23,     // READ BLOCK
-/* Cell Voltage */
     kBReadCellVoltage4Cmd             = 0x3c,     // READ WORD
     kBReadCellVoltage3Cmd             = 0x3d,     // READ WORD
     kBReadCellVoltage2Cmd             = 0x3e,     // READ WORD
-    kBReadCellVoltage1Cmd             = 0x3f,      // READ WORD
-    kBManufacturerInfoCmd             = 0x70
+    kBReadCellVoltage1Cmd             = 0x3f,     // READ WORD
+    kBManufacturerInfoCmd             = 0x70,     // READ BLOCK
+	kBReserveCapacityCmd			  = 0x8B,     // READ WORD
+    kBDesignCycleCount9CCmd           = 0x9C      // READ WORD
 };
 
 /*  Smart Battery Extended Registers                    */
@@ -150,6 +151,11 @@ enum {
 /*  TI Literature SLUU264                               */
 enum {
     kBExtendedPFStatusCmd             = 0x53
+};
+
+/* Apple Hardware Serial Number */
+enum {
+    kBAppleHardwareSerialCmd          = 0x76      // READ BLOCK
 };
 
 /*  Battery Mode Bits                                   */

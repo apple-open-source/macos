@@ -25,7 +25,7 @@
 //
 #include "clientid.h"
 #include "server.h"
-#include "osxcodewrap.h"
+#include <Security/SecCodePriv.h>
 
 
 //
@@ -44,10 +44,12 @@ ClientIdentification::ClientIdentification()
 //
 void ClientIdentification::setup(pid_t pid)
 {
-	if (IFDEBUG(OSStatus rc =)SecCodeCreateWithPID(pid, kSecCSDefaultFlags,
+	StLock<Mutex> _(mLock);
+	if (OSStatus rc = SecCodeCreateWithPID(pid, kSecCSDefaultFlags,
 			&mClientProcess.aref()))
-		secdebug("clientid", "could not get code for process %d: OSStatus=%ld",
-			pid, rc);
+		secdebug("clientid", "could not get code for process %d: OSStatus=%d",
+			pid, int32_t(rc));
+	mGuests.erase(mGuests.begin(), mGuests.end());
 }
 
 
@@ -174,7 +176,7 @@ static void dumpCode(SecCodeRef code)
 {
 	CFRef<CFURLRef> path;
 	if (OSStatus rc = SecCodeCopyPath(code, kSecCSDefaultFlags, &path.aref()))
-		Debug::dump("unknown(rc=%ld)", rc);
+		Debug::dump("unknown(rc=%d)", int32_t(rc));
 	else
 		Debug::dump("%s", cfString(path).c_str());
 }

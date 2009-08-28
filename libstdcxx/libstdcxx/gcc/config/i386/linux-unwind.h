@@ -1,5 +1,5 @@
 /* DWARF2 EH unwinding support for AMD x86-64 and x86.
-   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -23,8 +23,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Do code reading to identify a signal frame, and set the frame
    state data appropriately.  See unwind-dw2.c for the structs.
@@ -52,7 +52,10 @@ x86_64_fallback_frame_state (struct _Unwind_Context *context,
       && *(unsigned long *)(pc+1) == 0x050f0000000fc0c7)
     {
       struct ucontext *uc_ = context->cfa;
-      sc = (struct sigcontext *) &uc_->uc_mcontext;
+      /* The void * cast is necessary to avoid an aliasing warning.
+         The aliasing warning is correct, but should not be a problem
+         because it does not alias anything.  */
+      sc = (struct sigcontext *) (void *) &uc_->uc_mcontext;
     }
   else
     return _URC_END_OF_STACK;
@@ -97,6 +100,7 @@ x86_64_fallback_frame_state (struct _Unwind_Context *context,
   fs->regs.reg[16].how = REG_SAVED_OFFSET;
   fs->regs.reg[16].loc.offset = (long)&sc->rip - new_cfa;
   fs->retaddr_column = 16;
+  fs->signal_frame = 1;
   return _URC_NO_REASON;
 }
 
@@ -138,7 +142,10 @@ x86_fallback_frame_state (struct _Unwind_Context *context,
 	struct siginfo info;
 	struct ucontext uc;
       } *rt_ = context->cfa;
-      sc = (struct sigcontext *) &rt_->uc.uc_mcontext;
+      /* The void * cast is necessary to avoid an aliasing warning.
+         The aliasing warning is correct, but should not be a problem
+         because it does not alias anything.  */
+      sc = (struct sigcontext *) (void *) &rt_->uc.uc_mcontext;
     }
   else
     return _URC_END_OF_STACK;
@@ -166,6 +173,7 @@ x86_fallback_frame_state (struct _Unwind_Context *context,
   fs->regs.reg[8].how = REG_SAVED_OFFSET;
   fs->regs.reg[8].loc.offset = (long)&sc->REG_NAME(eip) - new_cfa;
   fs->retaddr_column = 8;
+  fs->signal_frame = 1;
   return _URC_NO_REASON;
 }
 #endif /* not glibc 2.0 */

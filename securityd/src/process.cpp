@@ -30,6 +30,7 @@
 #include "session.h"
 #include "tempdatabase.h"
 #include "authority.h"
+#include "child.h"          // ServerChild (really UnixPlusPlus::Child)::find()
 
 #include <security_utilities/logging.h>	//@@@ debug only
 #include "agentquery.h"
@@ -56,11 +57,16 @@ Process::Process(Port servicePort, TaskPort taskPort,
 	setup(info);
 	ClientIdentification::setup(this->pid());
 
-	secdebug("SS", "New process %p(%d) uid=%d gid=%d session=%p TP=%d %sfor %s",
-		this, mPid, mUid, mGid, &session(),
-        mTaskPort.port(),
-		mByteFlipped ? "FLIP " : "",
-		(identity && identity[0]) ? identity : "(unknown)");
+    // NB: ServerChild::find() should only be used to determine
+    // *existence*.  Don't use the returned Child object for anything else, 
+    // as it is not protected against its underlying process's destruction.  
+	if (this->pid() == getpid() // called ourselves (through some API). Do NOT record this as a "dirty" transaction
+        || ServerChild::find<ServerChild>(this->pid()))   // securityd's child; do not mark this txn dirty
+		VProc::Transaction::deactivate();
+
+	if (SECURITYD_CLIENT_NEW_ENABLED())
+		SECURITYD_CLIENT_NEW(this, this->pid(), &this->session(),			
+			(char *)codePath(this->processCode()).c_str(), taskPort, mUid, mGid, mByteFlipped);
 }
 
 
@@ -85,14 +91,16 @@ void Process::reset(Port servicePort, TaskPort taskPort,
 			(identity && identity[0]) ? identity : "(unknown)");
 		//CssmError::throwMe(CSSM_ERRCODE_VERIFICATION_FAILURE);		// liar
 	}
-	
-	string oldPath = codePath(processCode());
 	setup(info);
-	ClientIdentification::setup(this->pid());
-	if (codePath(processCode()) == oldPath) {
-		secdebug("SS", "process %p(%d) path unchanged; assuming client-side reset", this, mPid);
+	CFRef<SecCodeRef> oldCode;  // DO NOT MAKE THE ASSIGNMENT HERE.  If you do, you will invoke the copy constructor, not the assignment operator.  For the CFRef
+								// template, they have very different meanings (assignment retains the CFRef, copy does not).
+	oldCode = processCode();	// This is the right place to do the assignment.
+
+	ClientIdentification::setup(this->pid());	// re-constructs processCode()
+	if (CFEqual(oldCode, processCode())) {
+		secdebug("SS", "process %p(%d) unchanged; assuming client-side reset", this, mPid);
 	} else {
-		secdebug("SS", "process %p(%d) path changed; assuming exec with full reset", this, mPid);
+		secdebug("SS", "process %p(%d) changed; assuming exec with full reset", this, mPid);
 		CodeSigningHost::reset();
 	}
 	
@@ -114,7 +122,7 @@ void Process::setup(const ClientSetupInfo *info)
 		pversion = info->version;
 		mByteFlipped = false;
 	} else if (info->order == 0x34120000) { // flip side up
-		pversion = ntohl(info->version);
+		pversion = flip(info->version);
 		mByteFlipped = true;
 	} else // non comprende
 		CssmError::throwMe(CSSM_ERRCODE_INCOMPATIBLE_VERSION);
@@ -130,6 +138,8 @@ void Process::setup(const ClientSetupInfo *info)
 //
 Process::~Process()
 {
+	SECURITYD_CLIENT_RELEASE(this, this->pid());
+
 	// tell all our authorizations that we're gone
 	IFDEBUG(if (!mAuthorizations.empty()) 
 		secdebug("SS", "Process %p(%d) clearing %d authorizations", 
@@ -141,9 +151,6 @@ Process::~Process()
 		if (auth->endProcess(*this))
 			delete auth;
     }
-
-	// no need to lock here; the client process has no more active threads
-	secdebug("SS", "Process %p(%d) has died", this, mPid);
 	
     // release our name for the process's task port
 	if (mTaskPort)
@@ -191,8 +198,7 @@ void Process::changeSession(Port servicePort)
 {
 	// re-parent
 	parent(Session::find(servicePort));
-	
-	secdebug("SS", "process %p(%d) changed session to %p", this, pid(), &session());
+	SECURITYD_CLIENT_CHANGE_SESSION(this, &this->session());
 }
 
 

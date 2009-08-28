@@ -54,10 +54,14 @@
 #ifndef _VPN_CONTROL_H
 #define _VPN_CONTROL_H
 
+#include "algorithm_types.h"
+#include <net/if.h>
+
 #define VPNCONTROLSOCK_PATH ADMINPORTDIR "/vpncontrol.sock"
 
 #define FROM_LOCAL	0
 #define FROM_REMOTE 1
+
 
 extern char *vpncontrolsock_path;
 extern uid_t vpncontrolsock_owner;
@@ -72,13 +76,94 @@ extern mode_t vpncontrolsock_mode;
 #define VPNCTL_CMD_UNBIND				0x0002
 #define VPNCTL_CMD_REDIRECT				0x0003
 #define VPNCTL_CMD_PING					0x0004
+#define VPNCTL_CMD_CONNECT				0x0011
+#define VPNCTL_CMD_DISCONNECT			0x0012
+#define VPNCTL_CMD_START_PH2			0x0013
+#define VPNCTL_CMD_XAUTH_INFO			0x0014
+#define VPNCTL_CMD_START_DPD			0x0015
 #define VPNCTL_STATUS_IKE_FAILED		0x8001
 #define VPNCTL_STATUS_PH1_START_US		0x8011
 #define VPNCTL_STATUS_PH1_START_PEER	0x8012
 #define VPNCTL_STATUS_PH1_ESTABLISHED	0x8013
 #define VPNCTL_STATUS_PH2_START			0x8021
 #define VPNCTL_STATUS_PH2_ESTABLISHED	0x8022
+#define VPNCTL_STATUS_NEED_AUTHINFO		0x8101
+#define VPNCTL_STATUS_NEED_REAUTHINFO	0x8102
 
+/*
+ * Flags
+ */
+#define VPNCTL_FLAG_MODECFG_USED		0x0001
+
+/*
+ * XAUTH Attribute Types
+ */
+#ifndef __IPSEC_BUILD__
+#define	XAUTH_TYPE                16520
+#define	XAUTH_USER_NAME           16521
+#define	XAUTH_USER_PASSWORD       16522
+#define	XAUTH_PASSCODE            16523
+#define	XAUTH_MESSAGE             16524
+#define	XAUTH_CHALLENGE           16525
+#define	XAUTH_DOMAIN              16526
+#define	XAUTH_STATUS              16527
+#define	XAUTH_NEXT_PIN            16528
+#define	XAUTH_ANSWER              16529
+
+
+/* Types for XAUTH_TYPE */
+#define	XAUTH_TYPE_GENERIC 	0
+#define	XAUTH_TYPE_CHAP    	1
+#define	XAUTH_TYPE_OTP     	2
+#define	XAUTH_TYPE_SKEY    	3
+
+
+/* Mode cfg Attribute types */
+#define INTERNAL_IP4_ADDRESS        1
+#define INTERNAL_IP4_NETMASK        2
+#define INTERNAL_IP4_DNS            3
+#define INTERNAL_IP4_NBNS           4
+#define INTERNAL_ADDRESS_EXPIRY     5
+#define INTERNAL_IP4_DHCP           6
+#define APPLICATION_VERSION         7
+#define INTERNAL_IP6_ADDRESS        8
+#define INTERNAL_IP6_NETMASK        9
+#define INTERNAL_IP6_DNS           10
+#define INTERNAL_IP6_NBNS          11
+#define INTERNAL_IP6_DHCP          12
+#define INTERNAL_IP4_SUBNET        13
+#define SUPPORTED_ATTRIBUTES       14
+#define INTERNAL_IP6_SUBNET        15
+
+#define UNITY_BANNER			28672
+#define UNITY_SAVE_PASSWD		28673
+#define UNITY_DEF_DOMAIN		28674
+#define UNITY_SPLITDNS_NAME		28675
+#define UNITY_SPLIT_INCLUDE		28676
+#define UNITY_NATT_PORT			28677
+#define UNITY_LOCAL_LAN			28678
+#define UNITY_PFS				28679
+#define UNITY_FW_TYPE			28680
+#define UNITY_BACKUP_SERVERS	28681
+#define UNITY_DDNS_HOSTNAME		28682
+
+/* 3.3 Data Attributes
+         0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+        !A!       Attribute Type        !    AF=0  Attribute Length     !
+        !F!                             !    AF=1  Attribute Value      !
+        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+        .                   AF=0  Attribute Value                       .
+        .                   AF=1  Not Transmitted                       .
+        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*/
+struct isakmp_data {
+	u_int16_t type;		/* defined by DOI-spec, and Attribute Format */
+	u_int16_t lorv;		/* if f equal 1, Attribute Length */
+	/* if f equal 0, Attribute Value */
+	/* if f equal 1, Attribute Value */
+};
+#endif
 
 /* commands and status for vpn control. */
 /* network byte order. */
@@ -99,6 +184,8 @@ struct vpnctl_hdr {
 struct vpnctl_cmd_bind {
 	struct vpnctl_hdr		hdr;
 	u_int32_t				address;	/* 0xFFFFFFFF = all */
+	u_int16_t				vers_len;	/* if zero - no version provided */
+	/* name/version string of length vers_len */
 };
 
 /* unbind to stop receiving status for specified address */
@@ -107,14 +194,64 @@ struct vpnctl_cmd_unbind {
 	u_int32_t				address;	/* 0xFFFFFFFF = all */
 };
 
-/* redirect client to specified address */
-struct vpnctl_cmd_redirect {
+
+/* connect to specified address */
+struct vpnctl_cmd_connect{
 	struct vpnctl_hdr		hdr;
 	u_int32_t				address;
+};
+
+struct vpnctl_sa_selector {
+	u_int32_t		src_tunnel_address;
+	u_int32_t		src_tunnel_mask;
+	u_int32_t		dst_tunnel_address;
+	u_int32_t		dst_tunnel_mask;
+	u_int16_t		src_tunnel_port;
+	u_int16_t		dst_tunnel_port;
+	u_int16_t		ul_protocol;
+	u_int16_t		reserved;
+};
+
+struct vpnctl_algo {
+	u_int16_t	algo_class;
+	u_int16_t	algo;
+	u_int16_t	key_len;	/* for enc algorithms only */
+	u_int16_t	reserved;
+};
+
+/* start phase 2 */
+struct vpnctl_cmd_start_ph2 {
+	struct vpnctl_hdr		hdr;
+	u_int32_t				address;
+	u_int32_t				lifetime;  /* seconds */
+	u_int16_t				pfs_group;	/* defined in algorithm_types.h */
+	u_int16_t				selector_count;
+	u_int16_t				algo_count;
+	u_int16_t				reserved;
+	/* array of struct vpnctl_sa_selector */
+	/* array of struct vpnctl_algo */
+};
+
+/* set xauth info */
+struct vpnctl_cmd_xauth_info {	
+	struct vpnctl_hdr		hdr;
+	u_int32_t				address;
+	/* packed array of variable sized struct isakmp_data */
+};
+
+/* redirect client to specified address */
+struct vpnctl_cmd_redirect {	
+ 	struct vpnctl_hdr		hdr;
+ 	u_int32_t				address;
 	u_int32_t				redirect_address;
 	u_int16_t				force;
 };
 
+/* start dpd */
+struct vpnctl_cmd_start_dpd {
+	struct vpnctl_hdr		hdr;
+	u_int32_t               address;
+};
 
 /*
  * IKE Notify codes - mirrors codes in isakmp.h
@@ -150,6 +287,9 @@ struct vpnctl_cmd_redirect {
 #define VPNCTL_NTYPE_UNSUPPORTED_EXCHANGE_TYPE	29
 #define VPNCTL_NTYPE_UNEQUAL_PAYLOAD_LENGTHS	30
 #define VPNCTL_NTYPE_LOAD_BALANCE				40501
+#define VPNCTL_NTYPE_PEER_DEAD					50001	/* detected by DPD */
+#define VPNCTL_NTYPE_PH1_DELETE					50002	/* received a delete payload leaving no PH1 SA for the remote address */
+#define VPNCTL_NTYPE_IDLE_TIMEOUT				50003
 #define VPNCTL_NTYPE_INTERNAL_ERROR				-1
 
 
@@ -157,7 +297,36 @@ struct vpnctl_cmd_redirect {
 struct vpnctl_status_phase_change {
 	struct vpnctl_hdr			hdr;
 	u_int32_t					address;
+	/* The following is included when VPNCTL_FLAG_MODECFG_USED flag set */
+	// struct vpnctl_modecfg_params	mode_cfg;
+
 };
+
+
+/* packet format for auth needed status */
+struct vpnctl_status_need_authinfo {
+	struct vpnctl_hdr			hdr;
+	u_int32_t					address;
+	/* packed array of variable sized struct isakmp_data */
+};
+
+
+struct split_address {
+	u_int32_t	splitaddr;
+	u_int32_t	splitmask;
+};
+
+struct vpnctl_modecfg_params {	
+	u_int32_t					outer_local_addr;
+	u_int16_t					outer_remote_port;
+	u_int16_t					outer_local_port;
+	u_int8_t					ifname[IFNAMSIZ];
+	/*
+	 *	ifname for outer_local_addr (not null terminated)
+	 *	followed by packed array of attributes (struct isakmp_data)
+	 */
+};
+
 
 /* Packet formats for failed status */
 struct vpnctl_status_failed {

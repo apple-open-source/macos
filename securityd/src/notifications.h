@@ -114,11 +114,11 @@ public:
 	};
 	
 private:
-	static void Listener::sendNotification(Notification *message);
+	static void sendNotification(Notification *message);
     
 private:
     typedef multimap<mach_port_t, RefPointer<Listener> > ListenerMap;
-    static ListenerMap listeners;
+    static ListenerMap& listeners;
     static Mutex setLock;
 };
 

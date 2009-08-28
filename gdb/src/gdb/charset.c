@@ -1232,8 +1232,6 @@ extern initialize_file_ftype _initialize_charset; /* -Wmissing-prototype */
 void
 _initialize_charset (void)
 {
-  struct cmd_list_element *new_cmd;
-
   /* Register all the character set GDB knows about.
 
      You should use the same names that iconv does, where possible, to

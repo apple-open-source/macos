@@ -1,0 +1,216 @@
+diff -up ./tailor.h ../zip.Apple/tailor.h
+--- ./tailor.h	2008-05-06 21:38:12.000000000 -0700
++++ ../zip.Apple/tailor.h	2008-09-22 17:24:13.000000000 -0700
+@@ -707,7 +707,11 @@ typedef struct ztimbuf {
+ # define zstat stat
+ # define zfstat fstat
+ # define zlstat lstat
++#ifdef __APPLE__
++# define zfseeko fseeko
++#else
+ # define zfseeko fseek
++#endif
+ # define zftello ftell
+ # define zfopen fopen
+ # define zfdopen fdopen
+diff -up ./zip.c ../zip.Apple/zip.c
+--- ./zip.c	2008-07-05 12:34:06.000000000 -0700
++++ ../zip.Apple/zip.c	2008-09-22 17:24:13.000000000 -0700
+@@ -15,6 +15,7 @@
+ 
+ #include "zip.h"
+ #include <time.h>       /* for tzset() declaration */
++#include <spawn.h>		/* posix_spawnp */
+ #if defined(WIN32) || defined(WINDLL)
+ #  define WIN32_LEAN_AND_MEAN
+ #  include <windows.h>
+@@ -924,7 +925,7 @@ local void help_extended()
+ "  -TT cmd   use command cmd instead of 'unzip -tqq' to test archive",
+ "             On Unix, to use unzip in current directory, could use:",
+ "               zip archive file1 file2 -T -TT \"./unzip -tqq\"",
+-"             In cmd, {} replaced by temp archive path, else temp appended.",
++/*"             In cmd, {} replaced by temp archive path, else temp appended.",*/
+ "             The return code is checked for success (0 on Unix)",
+ "",
+ "Fixing archives:",
+@@ -1028,8 +1029,7 @@ local void help_extended()
+ 
+   for (i = 0; i < sizeof(text)/sizeof(char *); i++)
+   {
+-    printf(text[i]);
+-    putchar('\n');
++    puts(text[i]);
+   }
+ #ifdef DOS
+   check_for_windows("Zip");
+@@ -1225,8 +1225,7 @@ local void version_info()
+             CR_MAJORVER, CR_MINORVER, CR_BETA_VER, CR_VERSION_DATE);
+   for (i = 0; i < sizeof(cryptnote)/sizeof(char *); i++)
+   {
+-    printf(cryptnote[i]);
+-    putchar('\n');
++    puts(cryptnote[i]);
+   }
+   ++i;  /* crypt support means there IS at least one compilation option */
+ #endif /* CRYPT */
+@@ -1423,83 +1422,78 @@ local void check_zipfile(zipname, zippat
+   if (status != 0) {
+ 
+ #else /* (MSDOS && !__GO32__) || __human68k__ */
+-  char *cmd;
+   int result;
+ 
+   /* Tell picky compilers to shut up about unused variables */
+   zippath = zippath;
+ 
+   if (unzip_path) {
++    char *argv[3];
++    int argc = 0;
++    int rc;
++    pid_t pid;
+     /* user gave us a path to some unzip (may not be UnZip) */
+-    char *here;
+-    int len;
+ 
+-    /* Replace first {} with archive name.  If no {} append name to string. */
+-    here = strstr(unzip_path, "{}");
+-
+-    if ((cmd = malloc(strlen(unzip_path) + strlen(zipname) + 3)) == NULL) {
+-      ziperr(ZE_MEM, "building command string for testing archive");
++    if (strstr(unzip_path, "{}")) {
++      ziperr(ZE_PARMS, "{} in -TT not supported");
+     }
++    argv[argc] = unzip_path;
++    argc++;
++    argv[argc] = zipname;
++    argc++;
++    argv[argc] = NULL;
+ 
+-    if (here) {
+-      /* have {} so replace with temp name */
+-      len = here - unzip_path;
+-      strcpy(cmd, unzip_path);
+-      cmd[len] = '\0';
+-      strcat(cmd, " ");
+-# ifdef UNIX
+-      strcat(cmd, "'");    /* accept space or $ in name */
+-      strcat(cmd, zipname);
+-      strcat(cmd, "'");
+-# else
+-      strcat(cmd, zipname);
+-# endif
+-      strcat(cmd, " ");
+-      strcat(cmd, here + 2);
+-    } else {
+-      /* No {} so append temp name to end */
+-      strcpy(cmd, unzip_path);
+-      strcat(cmd, " ");
+-# ifdef UNIX
+-      strcat(cmd, "'");    /* accept space or $ in name */
+-      strcat(cmd, zipname);
+-      strcat(cmd, "'");
+-# else
+-      strcat(cmd, zipname);
+-# endif
+-    }
++    rc = posix_spawnp(&pid, argv[0], NULL, NULL, argv, NULL);
+     free(unzip_path);
+     unzip_path = NULL;
+-
++    if (rc == 0) {
++       int status;
++       waitpid(pid, &status, 0);
++       if (WIFEXITED(status))
++	 result = WEXITSTATUS(status);
++       else
++	 result = 1;
++    } else
++      result = 1;
+   } else {
+-    if ((cmd = malloc(20 + strlen(zipname))) == NULL) {
+-      ziperr(ZE_MEM, "building command string for testing archive");
+-    }
+-
+-    strcpy(cmd, "unzip -t ");
++    char *argv[10];
++    int argc = 0;
++    pid_t pid;
++    int rc;
++
++    argv[argc] = "unzip";
++    argc++;
++    argv[argc] = "-t";
++    argc++;
+ # ifdef QDOS
+-    strcat(cmd, "-Q4 ");
++    argv[argc] = "-Q4";
++    argc++;
+ # endif
+-    if (!verbose) strcat(cmd, "-qq ");
++    if (!verbose) {
++      argv[argc] = "-qq";
++      argc++;
++    }
+     if (check_unzip_version("unzip") == 0)
+       ZIPERR(ZE_TEST, zipfile);
+-
+-# ifdef UNIX
+-    strcat(cmd, "'");    /* accept space or $ in name */
+-    strcat(cmd, zipname);
+-    strcat(cmd, "'");
+-# else
+-    strcat(cmd, zipname);
+-# endif
++    argv[argc] = zipname;
++    argc++;
++    argv[argc] = NULL;
++    rc = posix_spawnp(&pid, argv[0], NULL, NULL, argv, NULL);
++    if (rc == 0) {
++       int status;
++       waitpid(pid, &status, 0);
++       if (WIFEXITED(status))
++	 result = WEXITSTATUS(status);
++       else
++	 result = 1;
++    } else
++      result = 1;
+   }
+ 
+-  result = system(cmd);
+ # ifdef VMS
+   /* Convert success severity to 0, others to non-zero. */
+   result = ((result & STS$M_SEVERITY) != STS$M_SUCCESS);
+ # endif /* def VMS */
+-  free(cmd);
+-  cmd = NULL;
+   if (result) {
+ #endif /* ?((MSDOS && !__GO32__) || __human68k__) */
+ 
+@@ -4373,7 +4367,7 @@ char **argv;            /* command line 
+                    z->trash ? "up to date" : "missing or early");
+         }
+         else if (diff_mode && tf == z->tim &&
+-                 ((isdirname && (zoff_t)usize == -1) || (usize == z->len))) {
++                 ((isdirname && usize == (uzoff_t)~0) || (usize == (uzoff_t)z->len))) {
+           /* if in diff mode only include if file time or size changed */
+           /* usize is -1 for directories */
+           z->mark = 0;
+@@ -4381,7 +4375,7 @@ char **argv;            /* command line 
+         else {
+           /* usize is -1 for directories and -2 for devices */
+           if (tf == z->tim &&
+-              ((z->len == 0 && (zoff_t)usize == -1)
++              ((z->len == 0 && usize == (uzoff_t)~0)
+                || usize == z->len)) {
+             /* FileSync uses the current flag */
+             /* Consider an entry current if file time is the same
+@@ -4993,7 +4987,7 @@ char **argv;            /* command line 
+     if (z->mark == 1)
+     {
+       uzoff_t len;
+-      if ((zoff_t)z->len == -1)
++      if (z->len == (uzoff_t)~0)
+         /* device */
+         len = 0;
+       else
+

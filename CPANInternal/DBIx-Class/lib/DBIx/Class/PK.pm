@@ -30,6 +30,9 @@ sub _ident_values {
 Re-selects the row from the database, losing any changes that had
 been made.
 
+This method can also be used to refresh from storage, retrieving any
+changes made since the row was last read from storage.
+
 =cut
 
 sub discard_changes {

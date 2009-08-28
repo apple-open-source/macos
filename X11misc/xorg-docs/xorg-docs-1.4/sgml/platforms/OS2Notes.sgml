@@ -1,0 +1,454 @@
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook V4.2//EN" [
+<!ENTITY % defs SYSTEM "X11/defs.ent"> %defs;
+]>
+
+<Article>
+
+<articleinfo>
+
+<Title>Notes on Rebuilding X11R&relvers;/OS2 from Scratch</Title>
+<AUTHOR>
+<firstname>Holger</firstname><surname>Veit</surname>
+</AUTHOR>
+<PubDate>Last modified March 8th, 2000</PubDate>
+
+</articleinfo>
+
+<Sect1>
+<Title>Preface</Title>
+
+<Para>
+X11 was initially developed on Unix-based systems. Usually
+Unix systems provide a rich number of tools and utilities to get certain
+things done. Under OS/2, these tools are not installed, but ports are
+available which are sometimes functionally equivalent to Unix utilities
+with the same name, but also differ sometimes in a subtle way.
+This guide will give you hints if you intend to rebuild the system
+from scratch under OS/2.
+</Para>
+
+<Para>
+Please also read <ULink
+URL="OS2.html"
+>README.OS2</ULink
+> for end-user
+information, and set at least the environment variables described there.
+</Para>
+
+<Para>
+At the current time, the most recent version available is X11R&relvers;
+This is a full and unrestricted version which comes with complete source 
+code. 4.0 is a highly experimental release, so many features that might
+have worked in earlier versions, may now no longer work, or work differently.
+Be aware that for OS/2, X11R&relvers; is considered to be alpha software.
+</Para>
+
+</Sect1>
+
+<Sect1>
+<Title>Tools required</Title>
+
+<Para>
+I have tried to reduce the number of external tools, but when looking back
+it seems I were not very successful. At least I managed to get everything
+working with the native CMD.EXE shell only. However, there is still plenty
+of software required.
+Most of this software is available from <Literal remap="tt">hobbes.nmsu.edu</Literal> or <Literal remap="tt">ftp.leo.org</Literal>
+via anonymous FTP. The following shopping list shows what you will need:
+</Para>
+
+<Para>
+
+<ItemizedList>
+<ListItem>
+
+<Para>
+gcc	EMX/gcc emx 0.9C patch4 or later (0.9d preferred!)
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+gzip	GNU zip/unzip
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+tar	GNU tar
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+patch	Larry Wall's patch utility (attention: incompatible tool with same name in OS/2)
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+install	BSD/GNU install
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+rm,mv,cp	GNU file utilities
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+tee,..	GNU shell utilities
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+groff	GNU nroff/troff
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+sed	GNU sed stream editor
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+grep	GNU grep
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+gawk	GNU awk
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+make	GNU make 3.71/3.72 (use the one from Xprog.zip!)
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+flex	GNU flex
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+bison	GNU bison
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+m4	GNU m4
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+find	GNU find    (attention: incompatible tool with the same name in OS/2)
+</Para>
+</ListItem>
+
+</ItemizedList>
+
+</Para>
+
+<Para>
+If there is no version number given, any new version will do. Particularly
+critical is only EMX/gcc and GNU make. Note that the second GCC implementation
+which might still be available from some archives is NOT compatible.
+</Para>
+
+<Para>
+Furthermore, you need the X11R&relvers; sources. These are available from 
+the common X.Org repositories. Look into a directory which is 
+often named /pub/R7.1.
+</Para>
+
+</Sect1>
+
+<Sect1>
+<Title>Compiling and Installing</Title>
+
+<Para>
+You need about 300MB of free HPFS space for the whole system. This does not
+include space for the postscript and troff documentation files. I have never
+installed them. Nor did I install the test subtree.
+</Para>
+
+<Para>
+
+<OrderedList>
+<ListItem>
+
+<Para>
+Install all the above utilities. Refer to the corresponding documentation.
+Verify that everything works well, particularly EMX.
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+It is a good idea to use the same or a similar structure I have.
+I have made a directory <Literal remap="tt">&bsol;x11</Literal> on the partition for compiling and have
+put everything below this tree. I found that a clean tree occupies
+less than the half space of the disk, this gives me the opportunity to
+rename this tree to <Literal remap="tt">&bsol;x11old</Literal> and copy a new version to the
+same disk to produce diffs. Last time the complete tree was
+arranged under the root directory <Literal remap="tt">xc</Literal>, this would become 
+<Literal remap="tt">&bsol;x11&bsol;xc</Literal> then.
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+To unpack the files you would usually execute the command
+
+<Screen>
+gzip -dc file.tar.gz | tar xvf -
+</Screen>
+ 
+in the <Literal remap="tt">&bsol;x11</Literal> directory. At the end you will usually see the
+irritating, but non-fatal message "gzip: stdout Broken pipe". Ignore it.
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+After that, is is likely necessary to apply some patches, either from
+the X.Org Foundation. Before you do this, enter
+
+<Screen>
+      chmod -R a+rw &bsol;x11&bsol;xc
+      
+</Screen>
+ 
+to make certain files in the tree writable.
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+There should be a file <Literal remap="tt">added-XXX</Literal> accompanying the patch file
+which lists the files that are newly created. The patch program has
+a problem with creating new directories, so we need to create them
+on advance. For each <Literal remap="tt">added-XXX</Literal> file you find, execute from
+<Literal remap="tt">&bsol;x11</Literal> 
+<Screen>
+xc&bsol;config&bsol;util&bsol;added added-XXX
+</Screen>
+
+If there is no <Literal remap="tt">added-XXX</Literal> file available, you can make one with
+the following instructions:
+
+<Screen>
+      grep "&bsol;*&bsol;*&bsol;* xc/" patchfile &#62;added-file
+      
+</Screen>
+
+Edit <Literal remap="tt">added-file</Literal> with a text editor and remove the <Literal remap="tt">*** </Literal> at
+the beginning and the time stamp at the end (search for a TAB and
+erase to the end of the line). You get a list of file paths, one in a
+line, which is the input to the added utility.
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+After that you can apply the patches in the right order. Usually this
+is done by a command
+
+<Screen>
+      patch -p -E &#60;patchfile 2&#62;&#38;1 | tee patchlog
+      
+</Screen>
+
+from the <Literal remap="tt">&bsol;x11</Literal> directory. Be aware to use the right
+patch - OS/2 has a utility with the same name and different functionality.
+Don't use the recommended <Literal remap="tt">-s</Literal> option, this makes <Literal remap="tt">patch</Literal> quiet,
+and you won't see problems in the patchlog file. Use
+
+<Screen>
+      find &bsol;x11 -name *.rej -print 
+      find &bsol;x11 -name *# -print
+      
+</Screen>
+
+to find any rejects and unapplied patches (attention: yet another OS/2
+program with wrong functionality). Normally there shouldn't
+be any problems of this kind, else you have made a mistake. Finally
+remove the original files with
+
+<Screen>
+      find &bsol;x11 -name *.orig -print -exec rm {} ;
+      
+</Screen>
+
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+Go to the <Literal remap="tt">xc/config/cf</Literal> directory and edit the <Literal remap="tt">xorgsite.def</Literal>
+file to match your requirements (you probably don't want to compile
+all X servers). Certain changes must be set to the following values:
+
+<ItemizedList>
+<ListItem>
+
+<Para>
+Disable if not already done any PC98 server; PC98 (Japanese X11R&relvers;)
+does not work yet. Porters from Japan are welcome!
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+<Literal remap="tt">&num;define WacomSupport            NO
+&num;define ElographicsSupport      NO</Literal>
+Both options are not yet supported.
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+Tcl* and Tk* don't need to be set explicitly. Reasonable defaults
+are in the other config files, provided you have a complete 
+X11R&relvers;/OS2 binary tree with the tcl/tk runtime support installed.
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+<Literal remap="tt">&num;define BuildDynamicLoading   NO</Literal>
+This does not work.
+</Para>
+</ListItem>
+
+</ItemizedList>
+
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+Go to the directory <Literal remap="tt">xc&bsol;util&bsol;compress</Literal> and 
+<Literal remap="tt">make compress.exe</Literal> there. Install the program produced 
+there in your path. I stumbled more than once on half-ported
+compress programs on OS/2 ftp servers that are defective w.r.t.
+reading and writing stdin/stdout. In some stage (font compression)
+otherwise you will get a core dump of mkfontdir, because all
+compressed fonts are corrupt.
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+Set the environment variable <Literal remap="tt">X11ROOT</Literal> to something different than
+it is; otherwise the installation process will overwrite your
+original X11R&relvers;/OS2 installation. If you have not set this variable,
+go back to the prefix section of this document: you have forgotten
+something.
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+Copy the file <Literal remap="tt">xc/programs/Xserver/hw/xfree86/etc/bindist/OS2/host.def.os2</Literal>
+to the location <Literal remap="tt">xc/config/cf/host.def</Literal>. Use this file to do
+any specific modifications to imake variables, rather than editing
+the file xorg.cf, imake.tmpl, or os2.cf directly.
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+Copy the file <Literal remap="tt">xc/config/util/buildos2.cmd</Literal> into the <Literal remap="tt">xc</Literal>
+directory. If this is a second or later attempt, you might need to
+copy the saved toplevel Makefile.os2 back to Makefile.
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+Execute this <Literal remap="tt">buildos2.cmd</Literal> command in the <Literal remap="tt">xc</Literal> directory;
+it will produce a logfile <Literal remap="tt">buildxc.log</Literal> in this directory.
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+Go have a bucket of coffee, or better, buy new coffee - in Colombia!
+The compile will need between 2 and 20 hours, depending on your
+selections, and the horse power of your hardware.
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+When finished, view the logfile for errors, and fix the problems if
+there are some. I have managed to compile the whole system
+flawlessly, so there is at least one configuration that works.
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+Finally, from the <Literal remap="tt">xc</Literal> dir, execute
+
+<Screen>
+      xmake install
+      xmake install.man
+      
+</Screen>
+
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+There are a few minor glitches in the installation:
+
+<OrderedList>
+<ListItem>
+
+<Para>
+The xdm and linkkit directories will fail in compile and installation.
+This is no problem and has no effect on the rest of the system.
+</Para>
+</ListItem>
+<ListItem>
+
+<Para>
+The imake.exe which is installed in <Literal remap="tt">&bsol;X11R&relvers;&bsol;bin</Literal> is usually defective.
+The one which was built initially and installed in the root directory
+of the drive where you have the source tree is okay. So simply copy
+this <Literal remap="tt">&bsol;imake.exe</Literal> to the <Literal remap="tt">&bsol;X11R&relvers;&bsol;bin</Literal> directory 
+manually. Some day this might be fixed.
+</Para>
+</ListItem>
+
+</OrderedList>
+
+</Para>
+</ListItem>
+
+</OrderedList>
+
+</Para>
+
+<Para>
+Well, you see, this was quite easy :-)
+</Para>
+
+</Sect1>
+
+</Article>

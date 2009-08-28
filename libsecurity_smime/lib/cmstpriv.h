@@ -292,8 +292,8 @@ typedef enum {
 struct SecCmsOriginatorIdentifierOrKeyStr {
     SecCmsOriginatorIDOrKeySelector identifierType;
     union {
-	SecCmsIssuerAndSN		*issuerAndSN;		/* static-static */
-	CSSM_DATA_PTR subjectKeyID;		/* static-static */
+	SecCmsIssuerAndSN			*issuerAndSN;			/* static-static */
+	CSSM_DATA					subjectKeyID;			/* static-static */
 	SecCmsOriginatorPublicKey	originatorPublicKey;	/* ephemeral-static */
     } id;
 };
@@ -329,7 +329,7 @@ typedef struct SecCmsRecipientEncryptedKeyStr SecCmsRecipientEncryptedKey;
 struct SecCmsKeyAgreeRecipientInfoStr {
     CSSM_DATA				version;
     SecCmsOriginatorIdentifierOrKey	originatorIdentifierOrKey;
-    CSSM_DATA_PTR 				ukm;				/* optional */
+    CSSM_DATA 				ukm;				/* optional */
     SECAlgorithmID			keyEncAlg;
     SecCmsRecipientEncryptedKey **	recipientEncryptedKeys;
 };

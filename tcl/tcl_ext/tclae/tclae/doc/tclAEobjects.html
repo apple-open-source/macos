@@ -1,0 +1,302 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+
+<HTML>
+
+<HEAD>
+
+<META http-equiv="content-type"  CONTENT="text/html; charset=macintosh">
+<title>Resolving and Creating Object Specifier Records</title>
+<LINK HREF="tclae.css" REL="stylesheet" TYPE="text/css">
+
+</HEAD>
+
+<body>
+
+<div class="index">
+<!-- #DOCINDEX TYPE="UL" DEPTH="2" -->
+
+<ul>
+	<li><a href="#AppleEvent Objec">AppleEvent Object Specifier Records</a>
+
+	<ul>
+		<li><a href="#tclAE::setObjectCallbacks">tclAE::setObjectCallbacks</a>
+		<li><a href="#tclAE::resolve">tclAE::resolve</a>
+		<li><a href="#tclAE::callObjectAccessor">tclAE::callObjectAccessor</a>
+		<li><a href="#tclAE::getObjectAccessor">tclAE::getObjectAccessor</a>
+		<li><a 
+		href="#tclAE::installObjectAccessor">tclAE::installObjectAccessor</a>
+		<li><a href="#tclAE::removeObjectAccessor">tclAE::removeObjectAccessor</a>
+		<li><a href="#tclAE::disposeToken">tclAE::disposeToken</a>
+	</ul>
+	
+</ul>
+
+<!-- /#DOCINDEX -->
+</div>
+
+<P>
+This page describes TclÆ calls for creating and interpreting object 
+specifier records. For information on the associated ToolBox calls and data 
+types, see <A 
+HREF="http://developer.apple.com/techpubs/mac/IAC/IAC-231.html">INSIDE 
+MACINTOSH: Interapplication Communication:Resolving and Creating Object 
+Specifier Records</A>.
+</P>
+
+<HR>
+
+<H1><a name="AppleEvent Objec">AppleEvent Object Specifier Records</a></H1>
+
+<div class="definition">
+<H2><a name="tclAE::setObjectCallbacks"><CODE>tclAE::setObjectCallbacks</CODE></a></H2>
+
+<P>
+Tcl wrapper for ToolBox <CODE>AESetObjectCallbacks</CODE> call.
+</P>
+
+<H3>Synopsis</H3>
+
+<CODE>
+tclAE::setObjectCallbacks 
+<VAR>compareProc</VAR> 
+<VAR>countProc</VAR>
+<VAR>disposeTokenProc</VAR>
+<VAR>getMarkTokenProc</VAR>
+<VAR>markProc</VAR>
+<VAR>adjustMarksProc</VAR>
+</CODE>
+
+<H3>Result</H3>
+
+<P>
+None.
+</P>
+
+<H3>Description</H3>
+
+<P>
+This call stores Tcl procs to be used during resolution of 
+AppleEvent object specifier records.
+</P>
+</div>
+
+<div class="definition">
+<H2><a name="tclAE::resolve"><CODE>tclAE::resolve</CODE></a></H2>
+
+<P>
+Tcl wrapper for ToolBox <CODE>AEResolve</CODE> call.
+</P>
+
+<H3>Synopsis</H3>
+
+<CODE>
+tclAE::resolve
+[<var>flags</var>]
+<VAR>objectSpecifier</VAR>
+</CODE>
+
+<H3>Result</H3>
+
+<P>
+Resolved token.
+</P>
+
+<H3>Description</H3>
+
+<P>
+Resolves the object specifier record passed in the 
+<code><VAR>objectSpecifier</VAR></code> parameter with the help of your 
+object accessor functions.
+</P>
+
+<p>
+<code>flags</code> can be:
+</p>
+
+<dl COMPACT>
+	<dt><CODE>-m</CODE>
+	<dd>application provides marking callback functions
+	
+	<dt><CODE>-w</CODE>
+	<dd>application supports whose tests (supports key form 
+	<code>formWhose</code>)
+</dl>
+
+</div>
+
+<div class="definition">
+<H2><a name="tclAE::callObjectAccessor"><CODE>tclAE::callObjectAccessor</CODE></a></H2>
+
+<P>
+Tcl wrapper for ToolBox <CODE>AECallObjectAccessor</CODE> call.
+</P>
+
+<H3>Synopsis</H3>
+
+<CODE>
+tclAE::resolve
+<var>desiredClass</var>
+<var>containerToken</var>
+<var>containerClass</var>
+<var>keyForm</var> 
+<var>keyData</var>
+</CODE>
+
+<H3>Result</H3>
+
+<P>
+Resolved token.
+</P>
+
+<H3>Description</H3>
+
+<P>
+Invokes the appropriate object accessor proc for a specific desired 
+type and container type.
+</P>
+
+</div>
+
+<div class="definition">
+<H2><a name="tclAE::getObjectAccessor"><CODE>tclAE::getObjectAccessor</CODE></a></H2>
+
+<P>
+Tcl wrapper for ToolBox <CODE>AEGetObjectAccessor</CODE> call.
+</P>
+
+<H3>Synopsis</H3>
+
+<CODE>
+tclAE::getObjectAccessor
+<var>desiredClass</var>
+<var>containerType</var>
+</CODE>
+
+<H3>Result</H3>
+
+<P>
+Object accessor proc.
+</P>
+
+<H3>Description</H3>
+
+<P>
+Gets an object accessor proc from the object accessor hash table.
+</P>
+
+</div>
+
+<div class="definition">
+<H2><a name="tclAE::installObjectAccessor"><CODE>tclAE::installObjectAccessor</CODE></a></H2>
+
+<P>
+Tcl wrapper for ToolBox <CODE>AEInstallObjectAccessor</CODE> call.
+</P>
+
+<H3>Synopsis</H3>
+
+<CODE>
+tclAE::installObjectAccessor
+<var>desiredClass</var>
+<var>containerType</var>
+<var>theAccessor</var>
+</CODE>
+
+<H3>Result</H3>
+
+<P>
+None.
+</P>
+
+<H3>Description</H3>
+
+<P>
+Adds or replaces an entry for an object accessor proc to the object 
+accessor hash table.
+</P>
+
+</div>
+
+<div class="definition">
+<H2><a name="tclAE::removeObjectAccessor"><CODE>tclAE::removeObjectAccessor</CODE></a></H2>
+
+<P>
+Tcl wrapper for ToolBox <CODE>AERemoveObjectAccessor</CODE> call.
+</P>
+
+<H3>Synopsis</H3>
+
+<CODE>
+tclAE::removeObjectAccessor
+<var>desiredClass</var>
+<var>containerType</var>
+<var>theAccessor</var>
+</CODE>
+
+<H3>Result</H3>
+
+<P>
+None.
+</P>
+
+<H3>Description</H3>
+
+<P>
+Removes an object accessor proc from the object accessor hash table.
+</P>
+
+</div>
+
+<div class="definition">
+<H2><a name="tclAE::disposeToken"><CODE>tclAE::disposeToken</CODE></a></H2>
+
+<P>
+Tcl wrapper for ToolBox <CODE>AEDisposeToken</CODE> call.
+</P>
+
+<H3>Synopsis</H3>
+
+<CODE>
+tclAE::disposeToken
+<VAR>theToken</VAR>
+</CODE>
+
+<H3>Result</H3>
+
+<P>
+None.
+</P>
+
+<H3>Description</H3>
+
+<P>
+Deallocates the memory used by a token.
+</P>
+
+</div>
+
+<HR>
+
+<P>
+Copyright © 2001–2003 Jonathan E. Guyer<BR>
+All rights reserved.
+</P>
+
+<p>
+<!-- #LASTMODIFIED TEXT="Last modified" FORM="LONG,WEEKDAY,TIME,SECONDS"-->
+Last modified Monday, March 3, 2003 11:55:06 PM
+<!-- /#LASTMODIFIED -->
+</p>
+
+<p>
+<a href="http://jigsaw.w3.org/css-validator/"><img 
+style="border:0;width:88px;height:31px" 
+src="http://jigsaw.w3.org/css-validator/images/vcss" alt="Valid CSS!"></a> 
+<a href="http://validator.w3.org/check/referer"><img border="0" 
+src="http://www.w3.org/Icons/valid-html40" alt="Valid HTML 4.0!" 
+height="31" width="88"></a>
+</p>
+
+</BODY>
+
+</HTML>

@@ -39,6 +39,9 @@
    fi
  }
 
+ mkdir zmodload.tmp
+ cd zmodload.tmp
+
 %test
 
 # This first test depends on knowing that zsh is run with +Z from the
@@ -49,9 +52,11 @@
 >zmodload zsh/main
 >zmodload zsh/parameter
 
+# You use to need zmodload -i to avoid an error.
+# That has been deemed pointless, so now an attempt
+# to load a loaded module should succeed.
  zmodload zsh/main
-1:Test reloading an already-loaded module
-?(eval):zmodload:1: module zsh/main already loaded.
+0:Test reloading an already-loaded module
 
 # Loop over the modules found above and attempt to load each one.  Use
 # the -i flag in case dependencies cause multiple modules to be loaded,
@@ -81,17 +86,33 @@
  zmodload -ub bogus
 0:Add/remove autoloaded builtin
 
+ zmodload -ub bogus
+1:Fail to remove unautoloaded builtin
+?(eval):zmodload:1: bogus: no such builtin
+
  zmodload -ac bogus
  zmodload -uc bogus
 0:Add/remove autoloaded condition
+
+ zmodload -uc bogus
+1:Fail to remove unautoloaded condition
+?(eval):zmodload:1: bogus: no such condition
 
  zmodload -ap bogus
  zmodload -up bogus
 0:Add/remove autoloaded parameter
 
+ zmodload -up bogus
+1:Fail to remove unautoloaded parameter
+?(eval):zmodload:1: bogus: no such parameter
+
  zmodload -af bogus
  zmodload -uf bogus
 0:Add/remove autoloaded math function
+
+ zmodload -uf bogus
+1:Fail to remove unautoloaded math function
+?(eval):zmodload:1: bogus: no such math function
 
 # If the "example" module is available, test various autoloading behavior.
 
@@ -100,9 +121,86 @@
    zmodload -ab zsh/example example
    builtin example
    zmodload -e zsh/example
- else print -u8 Warning: zsh/example not linked: not checking autoloading
+ else print -u$ZTST_fd Warning: zsh/example not linked: not checking autoloading
  fi
 0d:Autoload a module via a builtin
+
+  zmodload -u zsh/example
+  builtin example
+0d:Autoloads are persistent
+
+  (zmodload -u zsh/parameter
+  zmodload -aF zsh/parameter b:fail
+  fail
+  print "Shouldn't get here.")
+1:Failed builtin autoload
+?(eval):3: module `zsh/parameter' has no such feature: `b:fail': autoload cancelled
+?(eval):3: unknown builtin: fail
+
+  (zmodload -u zsh/parameter
+  zmodload -aF zsh/parameter p:fail
+  print $fail
+  print "Shouldn't get here.")
+1:Failed parameter autoload
+?(eval):3: module `zsh/parameter' has no such feature: `p:fail': autoload cancelled
+?(eval):3: unknown parameter: fail
+
+  (zmodload -u zsh/parameter
+  zmodload -aF zsh/parameter c:fail
+  [[ -fail foo ]]
+  print "Shouldn't get here.")
+2:Failed condition autoload
+?(eval):3: module `zsh/parameter' has no such feature: `c:fail': autoload cancelled
+?(eval):3: unknown condition: -foo
+
+  (zmodload -u zsh/parameter
+  zmodload -aF zsh/parameter f:fail
+  (( fail() )) )
+2:Failed math function autoload
+?(eval):3: module `zsh/parameter' has no such feature: `f:fail': autoload cancelled
+?(eval):3: unknown function: fail
+
+  zmodload -aF zsh/parameter f:fail2
+1:Immediate autoload failure on non-existent feature when module loaded
+?(eval):zmodload:1: module `zsh/parameter' has no such feature: `f:fail2'
+
+  (zmodload -u zsh/parameter
+  zmodload -aF zsh/parameter p:fail
+  print $(( ${#modules} > 1 )) )
+0:Autoloads checked on loading but don't necessarily effect current command
+>1
+?(eval):3: module `zsh/parameter' has no such feature: `p:fail': autoload cancelled
+
+  zmodload -laF zsh/parameter
+0:List default autoloads
+>p:aliases
+>p:builtins
+>p:commands
+>p:dirstack
+>p:dis_aliases
+>p:dis_builtins
+>p:dis_functions
+>p:dis_galiases
+>p:dis_reswords
+>p:dis_saliases
+>p:funcfiletrace
+>p:funcsourcetrace
+>p:funcstack
+>p:functions
+>p:functrace
+>p:galiases
+>p:history
+>p:historywords
+>p:jobdirs
+>p:jobstates
+>p:jobtexts
+>p:modules
+>p:nameddirs
+>p:options
+>p:parameters
+>p:reswords
+>p:saliases
+>p:userdirs
 
  if [[ $mods[(r)zsh/example] == zsh/example ]]; then
    zmodload -u zsh/example
@@ -151,6 +249,11 @@
  zmodload -e example
 1:Delete the module alias again
 
+  zmodload >zmodload_list
+  print -l ${(o)mods} >mods_list
+  diff zmodload_list mods_list
+0:Listing with zmodload should give all our modules.
+
 # Don't unload the main module.
 # Do unload zsh/parameter, but reload it as it is needed.
 
@@ -158,6 +261,11 @@
  zmodunload $mods
  zmodload zsh/parameter
 0d:Unload the modules loaded by this test suite
+
+  zmodload -aF zsh/zftp b:zftp
+  zmodload -LaF | grep zftp
+0:Listing feature autoloads includes unloaded modules
+>zmodload -Fa zsh/zftp b:zftp
 
 %clean
 

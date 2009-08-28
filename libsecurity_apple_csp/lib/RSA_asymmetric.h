@@ -62,7 +62,7 @@ public:
 		size_t			&plainTextLen,		// in/out, throws on overflow
 		bool			final);
 
-	size_t RSA_CryptContext::outputSize(
+	size_t outputSize(
 		bool 			final,				// ignored
 		size_t 			inSize = 0); 		// output for given input size
 

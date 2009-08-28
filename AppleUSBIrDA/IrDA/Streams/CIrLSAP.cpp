@@ -128,7 +128,7 @@ EventTraceCauseDesc gTraceEvents[] = {
 
 };
 
-#define XTRACE(x, y, z) IrDALogAdd( x, y, (int)z & 0xffff, gTraceEvents, true )
+#define XTRACE(x, y, z) IrDALogAdd( x, y, (uintptr_t)z & 0xffff, gTraceEvents, true )
 
 #else
     #define XTRACE(x, y, z) ((void)0)
@@ -144,7 +144,7 @@ CIrLSAP::free()
 {
     TIASService  *nameService;      // glue's name service (if any)
 
-    XTRACE(kLogFree, (int)this >> 16, this);
+    XTRACE(kLogFree, 0, this);
     
     if (fIrDA) {
 	nameService = fIrDA->GetNameService();      // get existing name service
@@ -178,7 +178,7 @@ Boolean CIrLSAP::Init(TIrGlue *irda, UInt32 desiredLSAPId, UInt8 * className, UI
 {   
     IrDAErr err;
 	
-    XTRACE(kLogInit, (int)this >> 16, this);
+    XTRACE(kLogInit, 0, this);
     XTRACE(kLogInit, 0, desiredLSAPId);
 
     fState          = kIrLSAPDisconnected;
@@ -222,9 +222,9 @@ Boolean CIrLSAP::Init(TIrGlue *irda, UInt32 desiredLSAPId, UInt8 * className, UI
     fMyLSAPId = desiredLSAPId;
 	
     if (className)
-	strcpy((char *)&fClassName[0], (char *)className);
+	strlcpy((char *)&fClassName[0], (char *)className, sizeof(fClassName));
     if (attributeName)
-	strcpy((char * )&fAttrName[0], (char *)attributeName);
+	strlcpy((char * )&fAttrName[0], (char *)attributeName, sizeof(fAttrName));
 
     
     // FIXME - this should only be done if we set up a listener
@@ -262,7 +262,7 @@ IrDAErr CIrLSAP::Discover( UInt32 slots )
 {
     TIrDiscoverRequest * request;
     
-    XTRACE(kDiscoverStartEvent, (int)this >> 16, this);
+    XTRACE(kDiscoverStartEvent, 0, this);
     
     if (GetState() != kIrLSAPDisconnected) {    // sanity check
 	XTRACE(kDiscoverStartEvent, 0xffff, GetState());
@@ -306,8 +306,8 @@ IrDAErr CIrLSAP::LSAPLookup(UInt8 * className, UInt8 * attributeName, UInt32 rem
     fPeerAddr = remoteAddr;         // FIXME Client should supply address with connect request
     
     // Save connect class name until we have connected to the peer devs name server
-    strcpy( ( char * )&fConnectClassName, ( const char * )className );
-    strcpy( ( char * )&fAttributeName, ( const char * )attributeName );
+    strlcpy( ( char * )&fConnectClassName, ( const char * )className, sizeof(fConnectClassName));
+    strlcpy( ( char * )&fAttributeName, ( const char * )attributeName, sizeof(fAttributeName));
 
     // Create, init name server client
     if (fNameClient == nil) {                       // jdg: if first time we've done a lookup
@@ -359,7 +359,7 @@ IrDAErr CIrLSAP::Connect( CBufferSegment *connectData )
 {
     IrDAErr err;
     XTRACE( kConnectStartEvent, fPeerLSAPId, fPeerAddr );
-    XTRACE( kConnectStartEvent, (int)this >> 16, this );
+    XTRACE( kConnectStartEvent, 0, this );
     
     if (GetState() != kIrLSAPDisconnected) {    // sanity check
 	XTRACE(kConnectStartEvent, 0xffff, GetState());
@@ -390,8 +390,8 @@ IrDAErr CIrLSAP::DataPut( CBufferSegment * putBuffer )
 {
     TIrPutRequest *putRequest;
     XTRACE( kPutStartEvent, fMyLSAPId, fPeerLSAPId );
-    XTRACE( kPutStartEvent, (int)this >> 16, this );
-    XTRACE( kPutStartEvent, (int)putBuffer >> 16, putBuffer);
+    XTRACE( kPutStartEvent, 0, this );
+    XTRACE( kPutStartEvent, 0, putBuffer);
     
     if (GetState() != kIrLSAPConnected) {
 	XTRACE(kPutStartEvent, 0xffff, GetState());
@@ -430,7 +430,7 @@ IrDAErr CIrLSAP::DataGet( CBufferSegment * getBuffer )
 {
     TIrGetRequest *getRequest;
     XTRACE( kGetStartEvent, fMyLSAPId, fPeerLSAPId );
-    XTRACE( kGetStartEvent, (int)this >> 16, this );
+    XTRACE( kGetStartEvent, 0, this );
 
     if (GetState() != kIrLSAPConnected) {
 	XTRACE(kGetStartEvent, 0xffff, GetState());
@@ -468,8 +468,8 @@ IrDAErr CIrLSAP::Listen(CBufferSegment *connectData)
     IrDAErr err;
     
     XTRACE( kListenStartEvent, 0, fMyLSAPId);
-    XTRACE( kListenStartEvent, (int)this >> 16, this);
-    XTRACE( kListenStartEvent, (int)connectData >> 16, connectData);
+    XTRACE( kListenStartEvent, 0, this);
+    XTRACE( kListenStartEvent, 0, connectData);
 
     if (GetState() != kIrLSAPDisconnected) {    // sanity check
 	XTRACE(kListenStartEvent, 0xffff, GetState());
@@ -501,7 +501,7 @@ IrDAErr CIrLSAP::Accept(CBufferSegment *connectData)
 
     XTRACE( kAcceptStartEvent, fMyLSAPId, fPeerLSAPId);
     XTRACE( kAcceptStartEvent, fPeerAddr>>16, fPeerAddr );
-    XTRACE( kAcceptStartEvent, (int)this>>16, this);
+    XTRACE( kAcceptStartEvent, (uintptr_t)this>>16, this);
 
     if (GetState() != kIrLSAPListenComplete) {  // sanity check
 	XTRACE(kAcceptStartEvent, 0xffff, GetState());
@@ -537,7 +537,7 @@ void CIrLSAP::Disconnect()
     //TIrDisconnectRequest *disconnectRequest;
     
     XTRACE( kDisconnectStartEvent, fMyLSAPId, fPeerLSAPId );
-    XTRACE( kDisconnectStartEvent, (int)this >> 16, this );
+    XTRACE( kDisconnectStartEvent, 0, this );
     
     if (GetState() == kIrLSAPDisconnected) {        // if we're already disconnected
 	check(fConnected == false);                 // sanity check
@@ -579,7 +579,7 @@ void CIrLSAP::Disconnect()
 IrDAErr CIrLSAP::CancelPuts( void ) 
 {
     TIrCancelPutEvent *cancelRequest;
-    XTRACE( kCancelPuts, (int)this >> 16, this);
+    XTRACE( kCancelPuts, 0, this);
 
     if (GetState() != kIrLSAPConnected) {   // if we're not connected
 	XTRACE(kCancelPuts, 0xffff, GetState());
@@ -611,7 +611,7 @@ IrDAErr CIrLSAP::CancelGets( void )
 {
     TIrCancelGetEvent *cancelRequest;
     
-    XTRACE( kCancelGets, (int)this >> 16, this);
+    XTRACE( kCancelGets, 0, this);
 
     if (GetState() != kIrLSAPConnected) {       // if we're not connected
 	XTRACE(kCancelGets, 0xffff, GetState());
@@ -645,7 +645,7 @@ AllocateRequestBlock:
 void CIrLSAP::NextState( UInt32 event )
 {
     XTRACE( kLSAPEventProcess, ( UInt16 )event, GetState() );
-    XTRACE( kLSAPEventProcess, (int)this >> 16, this);
+    XTRACE( kLSAPEventProcess, 0, this);
 
     // The only overlap of state/events is ConnectReply, when the connect
     // could be either at our client's request or as part of a client
@@ -747,7 +747,7 @@ void CIrLSAP::HandleDiscoverComplete()
 	    dscInfo = ( TIrDscInfo * )fDiscoverList->At( index );
 	    fDiscoverInfo[index].serviceHints   = dscInfo->GetServiceHints();
 	    fDiscoverInfo[index].addr           = dscInfo->GetDeviceAddr();
-	    dscInfo->GetNickname( fDiscoverInfo[index].name );
+	    dscInfo->GetNickname( fDiscoverInfo[index].name, sizeof(fDiscoverInfo[index].name) );
 	}
     }
     SetState( kIrLSAPDisconnected );        // discover done, disconnected again
@@ -773,11 +773,10 @@ void CIrLSAP::HandleDiscoverComplete()
 void CIrLSAP::HandleDisconnectComplete()
 {
     TIrDisconnectReply * reply = ( TIrDisconnectReply * )GetCurrentEvent();
-    IrDAErr result = reply->fResult;
     
     //UInt32 enterState = GetState();               // Remember what the state was
 
-    XTRACE( kDisconnectCompleteEvent, result, GetState() );
+    XTRACE( kDisconnectCompleteEvent, reply->fResult, GetState() );
     fConnected = false;
     SetState( kIrLSAPDisconnected );
     DisconnectComplete();                   // virtual.  cb to client
@@ -1020,7 +1019,7 @@ void CIrLSAP::HandleListenComplete()
     }
     
     XTRACE( kListenCompleteEvent, fPeerLSAPId, fPeerAddr );
-    XTRACE( kListenCompleteEvent, (int)this >> 16, this);
+    XTRACE( kListenCompleteEvent, 0, this);
     
     // "Bug" workaround.  Fixme?  We'd like the QOS values, but they're
     // not getting set by the lower layers.  Grab 'em from glue and 
@@ -1037,8 +1036,8 @@ void CIrLSAP::HandleListenComplete()
     
     check(fLastListenBuffer == reply->fData);
     if (fLastListenBuffer != reply->fData) {
-	XTRACE(kLogListenCompleteErr, (int)fLastListenBuffer >> 16, fLastListenBuffer);
-	XTRACE(kLogListenCompleteErr, (int)reply->fData >> 16,      reply->fData);
+	XTRACE(kLogListenCompleteErr, 0, fLastListenBuffer);
+	XTRACE(kLogListenCompleteErr, 0,      reply->fData);
     }
     
     ListenComplete( result, fPeerAddr, fPeerLSAPId, reply->fMyQOS, reply->fPeerQOS, (CBufferSegment *)reply->fData);

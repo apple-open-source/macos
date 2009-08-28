@@ -3,7 +3,7 @@
   ruby.c -
 
   $Author: shyouhei $
-  $Date: 2008-07-10 18:36:08 +0900 (Thu, 10 Jul 2008) $
+  $Date: 2008-07-10 18:38:35 +0900 (Thu, 10 Jul 2008) $
   created at: Tue Aug 10 12:47:31 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -65,7 +65,7 @@ static VALUE do_loop = Qfalse, do_print = Qfalse;
 static VALUE do_check = Qfalse, do_line = Qfalse;
 static VALUE do_split = Qfalse;
 
-static char *script;
+static const char *script;
 
 static int origargc;
 static char **origargv;
@@ -77,7 +77,7 @@ usage(name)
     /* This message really ought to be max 23 lines.
      * Removed -h because the user already knows that option. Others? */
 
-    static char *usage_msg[] = {
+    static const char *const usage_msg[] = {
 "-0[octal]       specify record separator (\\0, if no argument)",
 "-a              autosplit mode with -n or -p (splits $_ into $F)",
 "-c              check syntax only",
@@ -103,7 +103,7 @@ usage(name)
 "--version       print the version",
 NULL
 };
-    char **p = usage_msg;
+    const char *const *p = usage_msg;
 
     printf("Usage: %s [switches] [--] [programfile] [arguments]\n", name);
     while (*p)
@@ -321,6 +321,13 @@ ruby_init_loadpath()
 #endif
     incpush(RUBY_RELATIVE(RUBY_SITE_ARCHLIB));
     incpush(RUBY_RELATIVE(RUBY_SITE_LIB));
+
+    incpush(RUBY_RELATIVE(RUBY_VENDOR_LIB2));
+#ifdef RUBY_VENDOR_THIN_ARCHLIB
+    incpush(RUBY_RELATIVE(RUBY_VENDOR_THIN_ARCHLIB));
+#endif
+    incpush(RUBY_RELATIVE(RUBY_VENDOR_ARCHLIB));
+    incpush(RUBY_RELATIVE(RUBY_VENDOR_LIB));
 
     incpush(RUBY_RELATIVE(RUBY_LIB));
 #ifdef RUBY_THIN_ARCHLIB
@@ -802,6 +809,9 @@ proc_options(argc, argv)
 	}
 	else {
 	    script = argv[0];
+#if defined DOSISH || defined __CYGWIN__
+	    translate_char(argv[0], '\\', '/');
+#endif
 	    if (script[0] == '\0') {
 		script = "-";
 	    }
@@ -818,10 +828,10 @@ proc_options(argc, argv)
 		if (!script) script = argv[0];
 		script = ruby_sourcefile = rb_source_filename(script);
 		script_node = NEW_NEWLINE(0);
-	    }
 #if defined DOSISH || defined __CYGWIN__
-	    translate_char(script, '\\', '/');
+		translate_char(ruby_sourcefile, '\\', '/');
 #endif
+	    }
 	    argc--; argv++;
 	}
     }

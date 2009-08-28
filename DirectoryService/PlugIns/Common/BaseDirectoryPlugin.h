@@ -29,6 +29,7 @@
 #include <DirectoryServiceCore/DSMutexSemaphore.h>
 #include <DirectoryServiceCore/CLog.h>
 #include <DirectoryServiceCore/BaseDirectoryPluginTypes.h>
+#include <dispatch/dispatch.h>
 
 #if defined(SERVERINTERNAL)
 	#include "CServerPlugin.h"
@@ -138,6 +139,7 @@ class BaseDirectoryPlugin : public CServerPlugin
 		static void				*MakeContextData			( CntxDataType dataType );
 		static tDirStatus		CleanContextData			( void *inContext );
 		static void				ContextDeallocProc			( void *inContextData );
+		static UInt32			CalculateCRCWithLength		( const void *inData, UInt32 inLength );
 
 	protected:
 		DSMutexSemaphore		*fKerberosMutex;
@@ -151,7 +153,7 @@ class BaseDirectoryPlugin : public CServerPlugin
 		// fBasePluginMutex should be used to access any of the following variables
 		CFRunLoopRef			fPluginRunLoop;
 		UInt32					fState;
-		CFRunLoopTimerRef		fTransitionTimer;
+		dispatch_source_t		fTransitionTimer;
 	
 		UInt32					fCustomCallReadConfigSize;
 		UInt32					fCustomCallReadConfig;
@@ -160,9 +162,9 @@ class BaseDirectoryPlugin : public CServerPlugin
 	
 		CPlugInRef				*fContextHash;
 		CContinue				*fContinueHash;
+		dispatch_queue_t		fQueue;
 	
 	private:
-		static void					BDPIHandleNetTransition( CFRunLoopTimerRef timer, void *info );
 		static CFMutableArrayRef	CreateCFArrayFromList( tDataListPtr attribList );
 		static CFDataRef			GetDSBufferFromDictionary( CFDictionaryRef inDictionary );
 };

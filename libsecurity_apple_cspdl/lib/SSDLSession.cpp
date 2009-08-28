@@ -54,6 +54,7 @@ SSDLSession::SSDLSession(CSSM_MODULE_HANDLE handle,
 	mDL->version(version);
 	mDL->subserviceId(subserviceId);
 	mDL->flags(attachFlags);
+	// fprintf(stderr, "%p: Created %p\n", pthread_self(), this);
 }
 
 SSDLSession::~SSDLSession()
@@ -118,6 +119,7 @@ SSDLSession::DbCreate(const char *inDbName,
 							  inDbName, inDbLocation));
 	db->dbInfo(NULL);
 	outDbHandle = makeDbHandle(db);
+	// fprintf(stderr, "%p %p was created for %s in session %p\n", pthread_self(), (void*) outDbHandle, inDbName, this);
 }
 
 void
@@ -140,6 +142,7 @@ SSDLSession::CreateWithBlob(const char *DbName,
 					   blob);
 	db->dbInfo(NULL);
 	DbHandle = makeDbHandle(db);
+	// fprintf(stderr, "%p %p was created with a blob in session %p\n", pthread_self(), (void*) DbHandle, this);
 }
 
 void
@@ -158,6 +161,7 @@ SSDLSession::DbOpen(const char *inDbName,
 											  CSSM_SERVICE_DL | CSSM_SERVICE_CSP),
 							inDbName, inDbLocation));
 	outDbHandle = makeDbHandle(db);
+	// fprintf(stderr, "%p %p was opened for %s in session %p\n", pthread_self(), (void*) outDbHandle, inDbName, this);
 }
 
 // Operations using DbContext instances.
@@ -1311,6 +1315,7 @@ SSDLSession::makeDbHandle(SSDatabase &inDb)
 	CSSM_DB_HANDLE aDbHandle = inDb->handle().DBHandle;
 	IFDEBUG(bool inserted =) mDbHandleMap.insert(DbHandleMap::value_type(aDbHandle, inDb)).second;
 	assert(inserted);
+	// fprintf(stderr, "%p Added %p to %p\n", pthread_self(), (void*) aDbHandle, (void*) this);
 	return aDbHandle;
 }
 
@@ -1320,9 +1325,13 @@ SSDLSession::killDbHandle(CSSM_DB_HANDLE inDbHandle)
 	StLock<Mutex> _(mDbHandleLock);
 	DbHandleMap::iterator it = mDbHandleMap.find(inDbHandle);
 	if (it == mDbHandleMap.end())
+	{
+		// fprintf(stderr, "Can't find %p in %p\n", (void*) inDbHandle, this);
 		CssmError::throwMe(CSSMERR_DL_INVALID_DB_HANDLE);
-
+	}
+	
 	SSDatabase db = it->second;
+	// fprintf(stderr, "%p Removed %p from %p\n", pthread_self(), (void*) it->first, (void*) this);
 	mDbHandleMap.erase(it);
 	return db;
 }
@@ -1331,9 +1340,20 @@ SSDatabase
 SSDLSession::findDbHandle(CSSM_DB_HANDLE inDbHandle)
 {
 	StLock<Mutex> _(mDbHandleLock);
+	// fprintf(stderr, "%p Looking for %p in %p\n", pthread_self(), (void*) inDbHandle, (void*) this);
 	DbHandleMap::iterator it = mDbHandleMap.find(inDbHandle);
 	if (it == mDbHandleMap.end())
+	{
+		// fprintf(stderr, "%p Can't find %p in %p\n", pthread_self(), (void*) inDbHandle, this);
+		DbHandleMap::iterator it = mDbHandleMap.begin();
+		while (it != mDbHandleMap.end())
+		{
+			// fprintf(stderr, "\t%p\n", (void*) it->first);
+			it++;
+		}
+		
 		CssmError::throwMe(CSSMERR_DL_INVALID_DB_HANDLE);
+	}
 
 	return it->second;
 }

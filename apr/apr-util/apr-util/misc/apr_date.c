@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -334,7 +334,7 @@ APU_DECLARE(apr_time_t) apr_date_parse_rfc(const char *date)
     if (!date)
         return APR_DATE_BAD;
 
-    /* Not all dates have text months at the beginning. */
+    /* Not all dates have text days at the beginning. */
     if (!apr_isdigit(date[0]))
     {
         while (*date && apr_isspace(*date)) /* Find first non-whitespace char */
@@ -361,7 +361,7 @@ APU_DECLARE(apr_time_t) apr_date_parse_rfc(const char *date)
 
         monstr = date + 3;
         timstr = date + 12;
-        gmtstr = date + 20;
+        gmtstr = date + 21;
 
         TIMEPARSE_STD(ds, timstr);
     }
@@ -418,7 +418,9 @@ APU_DECLARE(apr_time_t) apr_date_parse_rfc(const char *date)
     }
     else if (apr_date_checkmask(date, "## @$$ ## ##:##:## *")) {
         /* This is the old RFC 1123 date format - many many years ago, people
-         * used two-digit years.  Oh, how foolish.  */
+         * used two-digit years.  Oh, how foolish.
+         *
+         * Two-digit day, two-digit year version. */
         ds.tm_year = ((date[7] - '0') * 10) + (date[8] - '0');
 
         if (ds.tm_year < 70)
@@ -432,9 +434,29 @@ APU_DECLARE(apr_time_t) apr_date_parse_rfc(const char *date)
 
         TIMEPARSE_STD(ds, timstr);
     } 
+    else if (apr_date_checkmask(date, " # @$$ ## ##:##:## *")) {
+        /* This is the old RFC 1123 date format - many many years ago, people
+         * used two-digit years.  Oh, how foolish.
+         *
+         * Space + one-digit day, two-digit year version.*/
+        ds.tm_year = ((date[7] - '0') * 10) + (date[8] - '0');
+
+        if (ds.tm_year < 70)
+            ds.tm_year += 100;
+
+        ds.tm_mday = (date[1] - '0');
+
+        monstr = date + 3;
+        timstr = date + 10;
+        gmtstr = date + 19;
+
+        TIMEPARSE_STD(ds, timstr);
+    } 
     else if (apr_date_checkmask(date, "# @$$ ## ##:##:## *")) {
         /* This is the old RFC 1123 date format - many many years ago, people
-         * used two-digit years.  Oh, how foolish.  */
+         * used two-digit years.  Oh, how foolish.
+         *
+         * One-digit day, two-digit year version. */
         ds.tm_year = ((date[6] - '0') * 10) + (date[7] - '0');
 
         if (ds.tm_year < 70)
@@ -521,7 +543,7 @@ APU_DECLARE(apr_time_t) apr_date_parse_rfc(const char *date)
 
         monstr = date + 3;
         timstr = date + 12;
-        gmtstr = date + 20;
+        gmtstr = date + 21;
 
         TIMEPARSE_STD(ds, timstr);
     }
@@ -583,22 +605,21 @@ APU_DECLARE(apr_time_t) apr_date_parse_rfc(const char *date)
      * If there is any confusion, tm_gmtoff will remain 0.
      */
     ds.tm_gmtoff = 0;
-    if (gmtstr && *gmtstr != '\0') {
-        /* Do we have a GMT? */
-        if (*(++gmtstr) != '\0') {
-            int offset;
-            switch (*(gmtstr++)) {
-            case '-':
-                offset = atoi(gmtstr);
-                ds.tm_gmtoff -= (offset / 100) * 60 * 60;
-                ds.tm_gmtoff -= (offset % 100) * 60;
-                break;
-            case '+':
-                offset = atoi(gmtstr);
-                ds.tm_gmtoff += (offset / 100) * 60 * 60;
-                ds.tm_gmtoff += (offset % 100) * 60;
-                break;
-            }
+
+    /* Do we have a timezone ? */
+    if (gmtstr) {
+        int offset;
+        switch (*gmtstr) {
+        case '-':
+            offset = atoi(gmtstr+1);
+            ds.tm_gmtoff -= (offset / 100) * 60 * 60;
+            ds.tm_gmtoff -= (offset % 100) * 60;
+            break;
+        case '+':
+            offset = atoi(gmtstr+1);
+            ds.tm_gmtoff += (offset / 100) * 60 * 60;
+            ds.tm_gmtoff += (offset % 100) * 60;
+            break;
         }
     }
 

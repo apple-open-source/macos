@@ -43,7 +43,6 @@
 
 #define RCSID	"$Id: acscp.c,v 1.12 2006/03/01 01:07:44 lindak Exp $"
 
-
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -111,6 +110,7 @@ struct notifier *acsp_down_notifier = NULL;
 //
 // local vars
 //
+static int acscp_is_open;		/* haven't called np_finished() */
 
 // option vars from command line options - these override plist settings
 // these will have to be passed to the plugin
@@ -221,7 +221,7 @@ struct protent acscp_protent = {
     NULL,
     NULL,
     acscp_state,
-    NULL
+    acsp_printpkt
 };
 
 
@@ -281,6 +281,7 @@ static void
 acscp_open(int unit)
 {
     fsm_open(&acscp_fsm[unit]);
+    acscp_is_open = 1;
 }
 
 
@@ -825,11 +826,12 @@ static void
 acscp_finished(f)
     fsm *f;
 {
-    np_finished(f->unit, PPP_ACSP);
+	if (acscp_is_open) {
+		acscp_is_open = 0;
+        np_finished(f->unit, PPP_ACSP);
+    }
 }
 
-
-#if 0
 /*
  * acscp_printpkt - print the contents of an acscp packet.
  */
@@ -837,7 +839,6 @@ static char *acscp_codenames[] = {
     "ConfReq", "ConfAck", "ConfNak", "ConfRej",
     "TermReq", "TermAck", "CodeRej"
 };
-#endif
 
 static int
 acscp_printpkt(p, plen, printer, arg)
@@ -846,8 +847,6 @@ acscp_printpkt(p, plen, printer, arg)
     void (*printer) __P((void *, char *, ...));
     void *arg;
 {
-    return 0;
-#if 0
     int code, id, len, olen;
     u_char *pstart, *optend;
     u_int32_t cilong;
@@ -923,7 +922,6 @@ acscp_printpkt(p, plen, printer, arg)
     }
 
     return p - pstart;
-#endif
 }
 
 

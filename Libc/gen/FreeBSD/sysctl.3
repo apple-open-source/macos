@@ -282,6 +282,7 @@ privilege may change the value.
 .It "HW_NCPU	integer	no"
 .It "HW_BYTEORDER	integer	no"
 .It "HW_PHYSMEM	integer	no"
+.It "HW_MEMSIZE	integer	no"
 .It "HW_USERMEM	integer	no"
 .It "HW_PAGESIZE	integer	no"
 .It "HW_FLOATINGPOINT	integer	no"
@@ -300,7 +301,9 @@ The number of cpus.
 .It Li HW_BYTEORDER
 The byteorder (4,321, or 1,234).
 .It Li HW_PHYSMEM
-The bytes of physical memory.
+The bytes of physical memory represented by a 32-bit integer (for backward compatibility). Use HW_MEMSIZE instead.
+.It Li HW_MEMSIZE
+The bytes of physical memory represented by a 64-bit integer.
 .It Li HW_USERMEM
 The bytes of non-kernel memory.
 .It Li HW_PAGESIZE

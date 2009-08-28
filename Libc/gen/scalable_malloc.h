@@ -32,10 +32,23 @@
 #define SCALABLE_MALLOC_DO_SCRIBBLE		(1 << 3)
     // write 0x55 onto free blocks
 #define SCALABLE_MALLOC_ABORT_ON_ERROR (1 << 4)
-    // call abort() on a malloc or free error, such as a double free
-	
+    // call abort() on any malloc error, such as double free or out of memory.
+#define SCALABLE_MALLOC_PURGEABLE (1 << 5)
+    // allocate objects such that they may be used with VM purgability APIs
+#define SCALABLE_MALLOC_ABORT_ON_CORRUPTION (1 << 6)
+    // call abort() on malloc errors, but not on out of memory.
+
 extern malloc_zone_t *create_scalable_zone(size_t initial_size, unsigned debug_flags);
     /* Create a new zone that scales for small objects or large objects */
+
+extern malloc_zone_t *create_purgeable_zone(size_t initial_size, malloc_zone_t *malloc_default_zone, unsigned debug_flags);
+    /* Create a new zone that supports malloc_make{un}purgeable() discipline. */
+
+extern malloc_zone_t *create_legacy_scalable_zone(size_t initial_size, unsigned debug_flags);
+    /*
+     * For use by CheckFix: create a new zone whose behavior is, apart from
+     * the use of death-row and per-CPU magazines, that of Leopard.
+     */
 
 /*****	Private API for debug and performance tools	********/
 

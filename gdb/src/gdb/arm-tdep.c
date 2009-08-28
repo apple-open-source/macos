@@ -30,6 +30,7 @@
 #include "gdb_string.h"
 #include "dis-asm.h"		/* For register styles. */
 #include "regcache.h"
+#include "reggroups.h"
 #include "doublest.h"
 #include "value.h"
 #include "arch-utils.h"
@@ -49,7 +50,23 @@
 
 #include "gdb_assert.h"
 
+/* Support routines for single stepping.  Calculate the next PC value.  */
+#define submask(x) ((1L << ((x) + 1)) - 1)
+#define bit(obj,st) (((obj) >> (st)) & 1)
+#define bits(obj,st,fn) (((obj) >> (st)) & submask ((fn) - (st)))
+#define sbits(obj,st,fn) \
+  ((long) (bits(obj,st,fn) | ((long) bit(obj,fn) * ~ submask (fn - st))))
+#define BranchDest(addr,instr) \
+  ((CORE_ADDR) (((long) (addr)) + 8 + (sbits (instr, 0, 23) << 2)))
+#define ARM_PC_32 1
+
 static int arm_debug;
+static void
+show_arm_debug (struct ui_file *file, int from_tty,
+		struct cmd_list_element *c, const char *value)
+{
+  fprintf_filtered (file, _("ARM debugging is %s.\n"), value);
+}
 
 /* Each OS has a different mechanism for accessing the various
    registers stored in the sigcontext structure.
@@ -108,6 +125,7 @@ static const char *fp_model_strings[] =
   "fpa",
   "softvfp",
   "vfp",
+  "none",
   NULL
 };
 
@@ -142,16 +160,83 @@ static char * arm_register_name_strings[] =
  "r4",  "r5",  "r6",  "r7",	/*  4  5  6  7 */
  "r8",  "r9",  "r10", "r11",	/*  8  9 10 11 */
  "r12", "sp",  "lr",  "pc",	/* 12 13 14 15 */
+#ifdef TM_NEXTSTEP  
+/* APPLE LOCAL START: Set f0-f7 and fps reg names blank so they 
+   don't show up in "info all-registers" or "info float" commands. 
+   We reserve the register numbers and register cache space for them
+   so we can maintian FSF gdbserver compatability. If these register 
+   do need to be displayed, we can re-set the names to valid values 
+   using a new command.  */
+  "",    "",    "",    "",	/* 16 17 18 19 */
+  "",    "",    "",    "",	/* 20 21 22 23 */
+  "", "cpsr",                   /* 24 25       */
+/* APPLE LOCAL START: VFP Register Support.  */
+ "s0",  "s1",  "s2",  "s3",     /* 26 27 28 29 */
+ "s4",  "s5",  "s6",  "s7",     /* 30 31 32 33 */
+ "s8",  "s9",  "s10", "s11",    /* 34 35 36 37 */
+ "s12", "s13", "s14", "s15",    /* 38 39 40 41 */
+ "s16", "s17", "s18", "s19",    /* 42 43 44 45 */
+ "s20", "s21", "s22", "s23",    /* 46 47 48 49 */
+ "s24", "s25", "s26", "s27",    /* 50 51 52 53 */
+ "s28", "s29", "s30", "s31",	/* 54 55 56 57 */
+ "fpscr",                       /* 58          */
+ "d0",  "d1",  "d2",  "d3",	/* 59 60 61 62 */
+ "d4",  "d5",  "d6",  "d7",	/* 63 64 65 66 */
+ "d8",  "d9",  "d10", "d11",	/* 67 68 69 70 */
+ "d12", "d13", "d14", "d15",	/* 71 72 73 64 */
+/* APPLE LOCAL END.  */
+#else
  "f0",  "f1",  "f2",  "f3",	/* 16 17 18 19 */
  "f4",  "f5",  "f6",  "f7",	/* 20 21 22 23 */
  "fps", "cpsr" };		/* 24 25       */
+#endif
+};
+
 static char **arm_register_names = arm_register_name_strings;
+
+/* APPLE LOCAL START: Register byte offset table.  */
+static int arm_register_offsets[] =
+{   0,   4,   8,  12,	/*  0  1  2  3 (r0  - r3 ) */
+   16,  20,  24,  28,	/*  4  5  6  7 (r4  - r7 ) */
+   32,  36,  40,  44,   /*  8  9 10 11 (r8  - r11) */
+   48,  52,  56,  60,	/* 12 13 14 15 (r12 - pc ) */
+   64,  76,  88, 100,	/* 16 17 18 19 (f0  - f3 ) */
+  112, 124, 136, 148,	/* 20 21 22 23 (f4  - f7 ) */
+  160, 164,             /* 24 25       (fps, cpsr) */
+  168, 172, 176, 180,	/* 26 27 28 29 (s0  - s3 ) */
+  184, 188, 192, 196,   /* 30 31 32 33 (s4  - s7 ) */
+  200, 204, 208, 212,   /* 34 35 36 37 (s8  - s11) */
+  216, 220, 224, 228,   /* 38 39 40 41 (s12 - s15) */
+  232, 236, 240, 244,   /* 42 43 44 45 (s16 - s19) */
+  248, 252, 256, 260,   /* 46 47 48 49 (s20 - s23) */
+  264, 268, 272, 276,   /* 50 51 52 53 (s24 - s27) */
+  280, 284, 288, 292,	/* 54 55 56 57 (s28 - s31) */
+  296,                  /* 58          (fpscr)     */
+  /* d0-d31 pseudo register offsets overlay s0-s31 offsets.  */
+  168, 176, 184, 192,	/* 59 60 61 62 (d0  - d3 ) */
+  200, 208, 216, 224,	/* 63 64 65 66 (d4  - d7 ) */
+  232, 240, 248, 256,   /* 67 68 69 70 (d8  - d11) */
+  264, 272, 280, 288	/* 71 72 73 64 (d12 - d15) */
+};
+/* APPLE LOCAL END.  */
+
+
+/* APPLE LOCAL START: Built in type for displaying ARM PSR 
+   and FPSCR register contents.  */
+struct type *builtin_type_arm_psr = NULL;
+struct type *builtin_type_arm_fpscr = NULL;
+/* APPLE LOCAL END.  */
 
 /* Valid register name styles.  */
 static const char **valid_disassembly_styles;
 
 /* Disassembly style to use. Default to "std" register names.  */
 static const char *disassembly_style;
+
+/* Temp variable used by the "set/show arm show-opcode-bytes" for whether
+   we are to show opcode bytes when displaying disassembly.  */
+static int show_opcode_bytes = 0;
+
 /* Index to that option in the opcodes table.  */
 static int current_option;
 
@@ -159,6 +244,10 @@ static int current_option;
    style.  */
 static void set_disassembly_style_sfunc(char *, int,
 					 struct cmd_list_element *);
+
+static void arm_set_show_opcode_bytes (char *args, int from_tty, 
+				       struct cmd_list_element *c);
+
 static void set_disassembly_style (void);
 
 static void convert_from_extended (const struct floatformat *, const void *,
@@ -172,6 +261,9 @@ struct arm_prologue_cache
      caller's stack pointer when this function was called.  It is used
      to identify this frame.  */
   CORE_ADDR prev_sp;
+  
+  /* Also known as the start of the function.  */
+  CORE_ADDR prologue_start; 
 
   /* The frame base for this frame is just prev_sp + frame offset -
      frame size.  FRAMESIZE is the size of this stack frame, and
@@ -183,14 +275,275 @@ struct arm_prologue_cache
 
   /* The register used to hold the frame pointer for this frame.  */
   int framereg;
+  
+  int prev_pc_is_thumb;	/* previous function is a thumb function.  */
 
   /* Saved register offsets.  */
   struct trad_frame_saved_reg *saved_regs;
 };
 
-/* Addresses for calling Thumb functions have the bit 0 set.
+typedef struct arm_prologue_cache arm_prologue_cache_t;
+
+arm_prologue_cache_t *
+get_arm_prologue_cache (struct frame_info *frame)
+{
+  arm_prologue_cache_t *arm_frame_cache = NULL;
+
+  if (frame)
+    {
+      enum frame_type frame_type = get_frame_type (frame);
+      if (frame_type != DUMMY_FRAME)
+	{
+	  void **frame_cache = frame_cache_hack (frame);
+	  if (frame_cache)
+	    arm_frame_cache = *frame_cache;
+	}
+    }
+
+  return arm_frame_cache;
+}
+
+
+/* APPLE LOCAL START: Centralize the prologue scan and skip code.
+
+   I reworked the way the ARM and Thumb function prologues were
+   implemented since the the skip and scan prologue functions were not
+   using the same code. Now we build an array for all prologue opcodes
+   we are interested in parsing. Each table entry is a arm_opcode_info_t
+   structure that contains a mask to apply to the opcode, and a value to
+   compare it to, and if equal, we can look at the flags for that entry
+   to be able to tell more about the opcode. Each entry can have an
+   optional callback function that can called when scanning the
+   prologue. A description member is also available for debugging and
+   logging purposes. This change allows the stack prologue skipping and
+   parsing to use the same data so the two can't get out of date. It
+   should also make it easier to add new opcodes and maintain existing
+   ones.
+ */
+
+/* Maintain any state needed by the arm_scan_prolog_ftype callback
+   functions in this structure to keep the number are arguments for 
+   the callback down.  */
+struct arm_prologue_state
+{
+  CORE_ADDR pc;	  /* Current PC value for instruction.  */
+  int sp_offset;
+  int fp_offset;
+  int ip_offset;
+  int findmask;
+  int reg_saved_in_reg[16];
+  CORE_ADDR reg_loaded_from_address[16];
+};
+
+typedef struct arm_prologue_state arm_prologue_state_t;
+
+/* Callback definition for prologue instruction scanning functions 
+   used in the arm_opcode_info_tag structure.  */
+typedef void (arm_scan_prolog_ftype) (const uint32_t insn, 
+				      arm_prologue_cache_t *cache,
+				      arm_prologue_state_t *state);
+
+/* 
+  Definitions for the arm_opcode_info_tag TYPE member.
+  
+  prolog_ignore - Ignore any of these opcodes as they could be before,
+		  in the middle, or after valid prologue opcodes.
+		       
+  prolog_yes    - The instruction is normally a vital part of a function 
+		  prologue. Entries set to this value usually have a valid
+		  SCAN_PROLOG filled so we can garner information from the
+		  instruction that will enable us to build our frame cache.
+		      
+  prolog_no     - Instructions that can't be in a prologue. We will 
+		  currently scan until we hit the prologue limit length
+		  (MAX_ARM_PROLOGUE_SIZE bytes for ARM and 
+		  MAX_THUMB_PROLOGUE_SIZE for Thumb) so that we can deal
+		  with assembly functions that do some sanity checking on
+		  args and bail before creating a proper stack frame.
+
+  prolog_tail   - Set this for instructions that are considered part of
+		  a prologue only if they follow other valid prologue 
+		  instructions (prolog_yes), yet not after any that
+		  aren't (prolog_no) such as "str Rd, [sp, #-n]!" 
+		  where Rd is r0, r1, r2, or r3.
+ */
+
+enum
+{
+  prolog_ignore = 0,
+  prolog_yes,
+  prolog_no,
+  prolog_tail
+};
+
+struct arm_opcode_info_tag
+{
+  uint32_t mask;	/* Mask to apply to the instruction.  */
+  uint32_t value;	/* Value to compare to the masked instruction.  */
+  unsigned char type;	/* prolog instruction type (prolog_xxx enums).  */
+  arm_scan_prolog_ftype *scan_prolog;
+  const char *description;
+};
+
+typedef struct arm_opcode_info_tag arm_opcode_info_t;
+
+static uint32_t data_proc_immediate (const uint32_t insn);
+
+/* Prologue scanning function declarations.  */
+
+static void arm_scan_prolog_insn_stmfd_sp (const uint32_t insn, 
+					   arm_prologue_cache_t *cache,
+					   arm_prologue_state_t *state);
+
+static void arm_scan_prolog_insn_data_proc_imm (const uint32_t insn, 
+						arm_prologue_cache_t *cache,
+						arm_prologue_state_t *state);
+
+static void arm_scan_prolog_insn_mov_ip_sp (const uint32_t insn, 
+					    arm_prologue_cache_t *cache,
+					    arm_prologue_state_t *state);
+
+static void arm_scan_prolog_insn_str_rd_sp (const uint32_t insn, 
+					    arm_prologue_cache_t *cache,
+					    arm_prologue_state_t *state);
+
+static void arm_scan_prolog_insn_stmfd_sp (const uint32_t insn, 
+					   arm_prologue_cache_t *cache,
+					   arm_prologue_state_t *state);
+
+static void arm_scan_prolog_insn_stfe_fn_sp_minus_12 (const uint32_t insn, 
+						      arm_prologue_cache_t *cache,
+						      arm_prologue_state_t *state);
+
+static void arm_scan_prolog_insn_sfmfd_fn_4_sp (const uint32_t insn, 
+						arm_prologue_cache_t *cache,
+						arm_prologue_state_t *state);
+
+static void arm_scan_prolog_insn_fstmdb (const uint32_t insn, 
+					  arm_prologue_cache_t *cache,
+					  arm_prologue_state_t *state);
+
+static void thumb_scan_prolog_insn_push (const uint32_t insn, 
+					 arm_prologue_cache_t *cache,
+					 arm_prologue_state_t *state);
+
+static void thumb_scan_prolog_insn_sub4_sp_imm (const uint32_t insn, 
+						arm_prologue_cache_t *cache,
+						arm_prologue_state_t *state);
+
+
+static void thumb_scan_prolog_insn_add6_r7_sp (const uint32_t insn, 
+					       arm_prologue_cache_t *cache,
+					       arm_prologue_state_t *state);
+					       
+static void thumb_scan_prolog_insn_add_sp_rm (const uint32_t insn, 
+					      arm_prologue_cache_t *cache,
+					      arm_prologue_state_t *state);
+
+static void thumb_scan_prolog_insn_ldr_rd_pc_rel (const uint32_t insn, 
+						  arm_prologue_cache_t *cache,
+						  arm_prologue_state_t *state);
+
+static void thumb_scan_prolog_insn_mov_r7_sp (const uint32_t insn, 
+					      arm_prologue_cache_t *cache,
+					      arm_prologue_state_t *state);
+
+static void thumb_scan_prolog_insn_mov_rlo_rhi (const uint32_t insn, 
+						arm_prologue_cache_t *cache,
+						arm_prologue_state_t *state);
+
+
+/* ARM Prologue Instruction Information
+   This table gets used by arm_macosx_scan_prologue and 
+   arm_macosx_skip_prologue so the two functions don't get out of sync. 
+   Each entry consists of:
+   - A mask to apply to a potential prologue instruction.
+   - A value to compare it to after it is masked.
+   - Information about if the instruction is, is not, or could be part
+     of a prologue.
+   - An optional callback function for scanning the prologue instruction.
+   - A description for debugging and logging this table
+   
+   This should allow stack prologue scan and skipping to be easily 
+   maintained and updated for new opcodes.  */
+
+static arm_opcode_info_t arm_opcode_info[] =
+{
+/*  mask        value       type        scan_prolog                         description
+    ----------  ----------  ----------  ----------------------------------  ------------------  */
+  { 0xffff0000, 0xe92d0000, prolog_yes, arm_scan_prolog_insn_stmfd_sp,      "stmfd sp!,{...}"},
+#if __ARM_FP_REG == 11
+  /* Normal ARM ABI uses R11 as the FP for ARM.  */
+  { 0xfffff000, 0xe24cb000, prolog_yes, arm_scan_prolog_insn_data_proc_imm, "sub r11, ip, #n"},
+#else
+  /* APPLE LOCAL ADDITION: Darwin uses R7 as the FP for ARM.  */
+  { 0xfffff000, 0xe24c7000, prolog_yes, arm_scan_prolog_insn_data_proc_imm, "sub r7, ip, #n"},
+  { 0xfffff000, 0xe28d7000, prolog_yes, arm_scan_prolog_insn_data_proc_imm, "add r7, sp, #n"},
+#endif
+  { 0xfffff000, 0xe24dd000, prolog_yes, arm_scan_prolog_insn_data_proc_imm, "sub sp, sp, #n"},
+  { 0xfffff000, 0xe28dc000, prolog_yes, arm_scan_prolog_insn_data_proc_imm, "add ip, sp, #n"},
+  { 0xffffffff, 0xe24dc000, prolog_yes, arm_scan_prolog_insn_data_proc_imm, "sub ip, sp, #n"},
+  { 0xffffffff, 0xe1a0c00d, prolog_yes, arm_scan_prolog_insn_mov_ip_sp,     "mov ip, sp"},
+  { 0xffff0000, 0xe52d0000, prolog_yes, arm_scan_prolog_insn_str_rd_sp,     "str Rd, [sp, #-n]!"},
+  { 0xffbf0fff, 0xec2d0200, prolog_yes, arm_scan_prolog_insn_sfmfd_fn_4_sp, "sfmfd fn, <cnt>, [sp]!"},
+  { 0xffff8fff, 0xed6d0103, prolog_yes, arm_scan_prolog_insn_stfe_fn_sp_minus_12, "stfe fn, [sp, #-12]!"},
+  { 0xffbf0e00, 0xed2d0a00, prolog_yes, arm_scan_prolog_insn_fstmdb,	    "fstmdb sp!, {...}"},
+  /* After all possible prologue instructions, specify any instructions that
+     can't be in a prologue.  */
+  { 0x0f000000, 0x0b000000, prolog_no , NULL,                               "bl"},
+  { 0xfe000000, 0xfa000000, prolog_no , NULL,                               "blx(1)"},
+  { 0x0ffffff0, 0x012fff30, prolog_no , NULL,                               "blx(2)"},
+  { 0xfe200000, 0xe8200000, prolog_no , NULL,                               "ldm"}
+};
+
+#define ARM_OPCOPE_INFO_COUNT	(sizeof (arm_opcode_info)/sizeof (arm_opcode_info_t))
+
+
+
+/* Thumb Prologue Instruction Information
+   This table gets used by thumb_macosx_scan_prologue and 
+   thumb_macosx_skip_prologue so the two functions don't get out of
+   sync. Each entry consists of:
+   - A mask to apply to a potential prologue instruction.
+   - A value to compare it to after it is masked.
+   - Information about if the instruction is, is not, or could be part
+     of a prologue.
+   - An optional callback function for scanning the prologue instruction.
+   - A description for debugging and logging this table
+   
+   This should allow stack prologue scan and skipping to be easily 
+   maintained and updated for new opcodes.  */
+
+static arm_opcode_info_t thumb_opcode_info[] =  
+{
+/*  mask        value       type        scan_prolog                              description
+    ----------  ----------  ----------  ---------------------------------------- ------------------  */
+  { 0xfffffe00, 0xb400    , prolog_yes   , thumb_scan_prolog_insn_push,          "push {...}"},
+  { 0xffffff80, 0xb080    , prolog_yes   , thumb_scan_prolog_insn_sub4_sp_imm,   "sub(4) sp, #imm"},
+  { 0xffffff00, 0xaf00    , prolog_yes   , thumb_scan_prolog_insn_add6_r7_sp,    "add(6) r7, sp, #imm"},
+  { 0xffffff87, 0x4485    , prolog_yes   , thumb_scan_prolog_insn_add_sp_rm,     "add(4) sp, <Rm>"},
+  { 0xfffff800, 0x4800    , prolog_ignore, thumb_scan_prolog_insn_ldr_rd_pc_rel, "ldr(3) <Rd>, [PC, #imm]"},
+  { 0xffffffff, 0x466f    , prolog_yes   , thumb_scan_prolog_insn_mov_r7_sp,     "mov r7, sp"},
+  { 0xffffffc0, 0x4640    , prolog_ignore, thumb_scan_prolog_insn_mov_rlo_rhi,   "mov r0-r7, r8-r15"},
+  /* After all possible prologue instructions, specify any instructions that
+     can't be in a prologue.  */
+  { 0xffffff80, 0xb000    , prolog_no    , NULL, "add(7) sp, #imm"},
+  { 0xfffffe00, 0xbc00    , prolog_no    , NULL, "pop {...}"},
+  { 0xe0000000, 0xe0000000, prolog_no    , NULL, "bl, blx <target_addr>"},
+  { 0xffffff80, 0x4780    , prolog_no    , NULL, "blx <Rm>"},
+  { 0xffffff00, 0xdf00    , prolog_no    , NULL, "swi <immed_8>"},
+};
+
+#define THUMB_OPCOPE_INFO_COUNT	(sizeof (thumb_opcode_info)/sizeof (arm_opcode_info_t))
+#define MAX_THUMB_PROLOGUE_SIZE	40
+#define MAX_ARM_PROLOGUE_SIZE	64
+
+/* APPLE LOCAL END: Centralize the prologue scan and skip code.  */
+
+/* Addresses for calling Thumb functions have the bit 0 set and if
+   bit 1 is set, it has to be thumb since it isn't a mutliple of four.
    Here are some macros to test, set, or clear bit 0 of addresses.  */
-#define IS_THUMB_ADDR(addr)	((addr) & 1)
+#define IS_THUMB_ADDR(addr)	((addr) & 3)
 #define MAKE_THUMB_ADDR(addr)	((addr) | 1)
 #define UNMAKE_THUMB_ADDR(addr) ((addr) & ~1)
 
@@ -221,6 +574,40 @@ arm_pc_is_thumb (CORE_ADDR memaddr)
       return 0;
     }
 }
+
+/* Read a 16 or 32 bit thumb opcode from ADDR and specify the size of the
+   opcode by filling the size in bytes in OPCODE_SIZE_PTR if it is not 
+   NULL. Returns the opcode that was read in a single 32 bit value. If the
+   thumb opcode size is 2 bytes, the opcode will be returned in bits 15:0,
+   with bits 31:16 set to zero. If the thumb opcode size is 4 bytes, the 
+   first 16 bit opcode will be in bits 31:16, and the second 16 bit opcode 
+   will be in bits 15:0.  */
+static uint32_t
+read_thumb_instruction (CORE_ADDR addr, uint32_t *opcode_size_ptr)
+{
+  uint32_t insn = read_memory_unsigned_integer (addr, 2);
+  
+  /* Check if this is a 32 bit instruction and read the low 16 bits
+     after shifting the high 16 bits into 31:16.  */
+  if ((insn & 0xf800) == 0xf000)	
+    {
+      /* long branch with link, and blx */
+      insn = insn << 16 | read_memory_unsigned_integer (addr + 2, 2);
+      
+      /* Fill in the opcode size if requested.  */
+      if (opcode_size_ptr)
+	*opcode_size_ptr = 4;
+    }
+  else
+    {
+      /* Fill in the opcode size if requested.  */
+      if (opcode_size_ptr)
+	*opcode_size_ptr = 2;
+    }
+  
+  return insn;
+}
+
 
 /* Remove useless bits from addresses in a running program.  */
 static CORE_ADDR
@@ -331,6 +718,111 @@ thumb_skip_prologue (CORE_ADDR pc, CORE_ADDR func_end)
   return current_pc;
 }
 
+static CORE_ADDR
+thumb_macosx_skip_prologue (CORE_ADDR pc, CORE_ADDR func_end)
+{
+  int i;
+  CORE_ADDR current_pc;
+
+  /* APPLE LOCAL ADDITION: Make sure we find some prologue opcodes by keeping 
+     track of the last valid prologue instruction we find in END_PROLOGUE.
+     The PC passed in may not be at the start of a function and the last
+     'else' in the for loop could think that all instructions up until the
+     end of the function could be due to "optimized prologue instruction
+     scheduling". So END_PROLOGUE should only get set to CURRENT_PC if we
+     recognized the instruction as a prologue instruction.  */
+  CORE_ADDR last_prologue_inst_addr = pc;
+  if (arm_debug > 3)
+    fprintf_unfiltered (gdb_stdlog, "thumb_macosx_skip_prologue (0x%s, 0x%s)\n", 
+			paddr (pc), paddr (func_end));
+  /* findmask:
+     bit 0 - push { rlist }
+     bit 1 - mov r7, sp  OR  add r7, sp, #imm  (setting of r7)
+     bit 2 - sub sp, #simm  OR  add sp, #simm  (adjusting of sp)
+  */
+  CORE_ADDR max_prologue_addr = func_end;
+  if (max_prologue_addr > pc + MAX_THUMB_PROLOGUE_SIZE)
+    max_prologue_addr = pc + MAX_THUMB_PROLOGUE_SIZE;
+    
+  uint32_t opcode_size = 2;  /* Size in bytes of the thumb instruction.  */
+  for (current_pc = pc;
+       current_pc < max_prologue_addr;
+       current_pc += opcode_size)
+    {
+      /* Read a 16 or 32 bit thumb instruction into a 32 bit value.  */
+      uint32_t insn = read_thumb_instruction (current_pc, &opcode_size);
+      
+      /* Make sure we got a 2 or 4 byte opcode size. We could conceivably 
+         got an opcode_size of zero if we failed to read memory. */
+      if ((opcode_size != 2) && (opcode_size != 4))
+	break;
+
+      if (arm_debug > 3)
+	{
+	  if (opcode_size == 4)
+	    fprintf_unfiltered (gdb_stdlog, " 0x%s: 0x%8.8x", 
+				paddr (current_pc), insn);      
+	  else
+	    fprintf_unfiltered (gdb_stdlog, " 0x%s: 0x%4.4x    ", 
+				paddr (current_pc), insn);
+	}
+     
+      /* Iterate through our opcode information array and figure out which
+	 instructions can be part of a progloue, or which ones can't be
+	 part of a prologue.  */
+      for (i=0; i<THUMB_OPCOPE_INFO_COUNT; i++)
+	{
+	  if ((insn & thumb_opcode_info[i].mask) == thumb_opcode_info[i].value)
+	    {
+	      if (arm_debug > 3)
+		fprintf_unfiltered (gdb_stdlog, " -> [%3d] %-30s ", i, 
+				thumb_opcode_info[i].description);
+
+	      unsigned char opcode_type = thumb_opcode_info[i].type;
+	      if (opcode_type == prolog_yes)
+		{
+		  /* We have a proglogue opcode. */
+		  if (arm_debug > 3)
+		    fprintf_unfiltered (gdb_stdlog, "prolog_yes");
+		  last_prologue_inst_addr = current_pc + opcode_size;
+		  break;
+		}
+	      else if (opcode_type == prolog_no)
+		{
+		  if (arm_debug > 3)
+		    fprintf_unfiltered (gdb_stdlog, "prolog_no");
+		  /* We have an instruction that can't appear in a 
+		     proglogue, so return the last instruction that 
+		     was a valid prologue opcode. */
+		  current_pc = max_prologue_addr;
+		  break;
+		}
+	      else if (opcode_type == prolog_tail)
+		{
+		  if (arm_debug > 3)
+		    fprintf_unfiltered (gdb_stdlog, "prolog_tail");
+		  if (last_prologue_inst_addr != pc)
+		    {
+		      /* Only increment the last prologue address if
+		         we have already found valid prolog instructions
+			 already.  */
+		      last_prologue_inst_addr = current_pc + opcode_size;
+		    }
+		}
+	      else
+		{
+		  if (arm_debug > 3)
+		    fprintf_unfiltered (gdb_stdlog, "prolog_ignore");
+		}
+	    }
+	}
+      if (arm_debug > 3)
+	fprintf_unfiltered (gdb_stdlog, "\n");
+    }
+
+  return last_prologue_inst_addr;
+}
+
 /* Advance the PC across any function entry prologue instructions to
    reach some "real" code.
 
@@ -361,7 +853,7 @@ arm_skip_prologue (CORE_ADDR pc)
 
   /* See what the symbol table says.  */
 
-  if (find_pc_partial_function (pc, &func_name, &func_addr, &func_end))
+  if (find_pc_partial_function_no_inlined (pc, &func_name, &func_addr, &func_end))
     {
       struct symbol *sym;
 
@@ -401,8 +893,8 @@ arm_skip_prologue (CORE_ADDR pc)
       if ((inst & 0xfffff000) == 0xe24dc000)    /* sub ip, sp #n */
 	continue;
 
-      /* Some prologues begin with "str lr, [sp, #-4]!".  */
-      if (inst == 0xe52de004)			/* str lr, [sp, #-4]! */
+      /* Some prologues begin with "str Rd, [sp, #-n]!".  */
+      if ((inst & 0xffff0000) == 0xe52d0000)	/* str Rd, [sp, #-n]! */
 	continue;
 
       if ((inst & 0xfffffff0) == 0xe92d0000)	/* stmfd sp!,{a1,a2,a3,a4} */
@@ -447,6 +939,194 @@ arm_skip_prologue (CORE_ADDR pc)
   return skip_pc;		/* End of prologue */
 }
 
+static CORE_ADDR
+arm_macosx_skip_prologue_addr_ctx (struct address_context *pc_addr_ctx)
+{
+  CORE_ADDR pc = pc_addr_ctx->address;
+  uint32_t insn;
+  uint32_t i;
+  CORE_ADDR current_pc;
+  CORE_ADDR prologue_start, prologue_end = 0;
+  CORE_ADDR last_prologue_inst_addr = pc;
+
+  /* If we're in a dummy frame, don't even try to skip the prologue.  */
+  if (deprecated_pc_in_call_dummy (pc))
+    return pc;
+    
+  /* One way to find the end of the prologue (which works well
+     for unoptimized code) is to do the following:
+
+	struct symtab_and_line sal = find_pc_line (prologue_start, 0);
+
+	if (sal.line == 0)
+	  prologue_end = prev_pc;
+	else if (sal.end < prologue_end)
+	  prologue_end = sal.end;
+
+     This mechanism is very accurate so long as the optimizer
+     doesn't move any instructions from the function body into the
+     prologue.  If this happens, sal.end will be the last
+     instruction in the first hunk of prologue code just before
+     the first instruction that the scheduler has moved from
+     the body to the prologue.
+
+     In order to make sure that we scan all of the prologue
+     instructions, we use a slightly less accurate mechanism which
+     may scan more than necessary.  To help compensate for this
+     lack of accuracy, the prologue scanning loop below contains
+     several clauses which'll cause the loop to terminate early if
+     an implausible prologue instruction is encountered.  
+     
+     The expression
+     
+	  prologue_start + MAX_ARM_PROLOGUE_SIZE
+	
+     is a suitable endpoint since it accounts for the largest
+     possible prologue plus up to five instructions inserted by
+     the scheduler.  */
+
+  /* See what the symbol table says.  */
+  if (pc_addr_ctx->symbol 
+      && SYMBOL_CLASS (pc_addr_ctx->symbol) == LOC_BLOCK
+      && SYMBOL_BLOCK_VALUE (pc_addr_ctx->symbol))
+    {
+      prologue_start = SYMBOL_BLOCK_VALUE (pc_addr_ctx->symbol)->startaddr;
+      prologue_end =  SYMBOL_BLOCK_VALUE (pc_addr_ctx->symbol)->endaddr;
+    }
+  else
+  if (!find_pc_partial_function_no_inlined (pc, NULL, &prologue_start, &prologue_end))
+    {
+      /* We didn't find any function bounds for the given PC, just use 
+	 the current PC as the prologue start address.  */
+      prologue_start = pc;
+    }
+
+  /* We don't use the line table to find the prolgue start and end 
+     since there could be optimized instructions built into the prologue,
+     so make sure to limit the end to MAX_ARM_PROLOGUE_SIZE bytes past the start if needed.  */
+  if (prologue_end == 0 || prologue_end > pc + MAX_ARM_PROLOGUE_SIZE)
+    prologue_end = prologue_start + MAX_ARM_PROLOGUE_SIZE;
+
+  /* Check if this is Thumb code.  */
+  if (arm_pc_is_thumb (pc))
+    return thumb_macosx_skip_prologue (pc, prologue_end);
+
+  if (arm_debug > 3)
+    fprintf_unfiltered (gdb_stdlog, "arm_macosx_skip_prologue (0x%s)\n", paddr (pc));
+
+  for (current_pc = pc; current_pc < prologue_end; current_pc += 4)
+    {
+      insn = read_memory_unsigned_integer (current_pc, 4);
+      if (arm_debug > 3)
+	fprintf_unfiltered (gdb_stdlog, "  0x%s: 0x%8.8x", paddr (current_pc), insn);
+     
+      /* Iterate through our opcode information array and figure out which
+	 instructions can be part of a progloue, or which ones can't be
+	 part of a prologue.  */
+      for (i=0; i<ARM_OPCOPE_INFO_COUNT; i++)
+	{
+	  if ((insn & arm_opcode_info[i].mask) == arm_opcode_info[i].value)
+	    {
+	      if (arm_debug > 3)
+		fprintf_unfiltered (gdb_stdlog, " -> [%3d] %-30s ", 
+				    i, arm_opcode_info[i].description);
+
+	      unsigned char opcode_type = arm_opcode_info[i].type;
+	      if (opcode_type == prolog_yes)
+		{
+		  /* We have a proglogue opcode. */
+		  if (arm_debug > 3)
+		    fprintf_unfiltered (gdb_stdlog, "prolog_yes");
+		  last_prologue_inst_addr = current_pc + 4;
+		  break;
+		}
+	      else if (opcode_type == prolog_no)
+		{
+		  if (arm_debug > 3)
+		    fprintf_unfiltered (gdb_stdlog, "prolog_no");
+		  /* We have an instruction that can't appear in a 
+		     proglogue, so return the last instruction that 
+		     was a valid prologue opcode. */
+		  current_pc = prologue_end;
+		  break;
+		}
+	      else if (opcode_type == prolog_tail)
+		{
+		  if (arm_debug > 3)
+		    fprintf_unfiltered (gdb_stdlog, "prolog_tail");
+		  if (last_prologue_inst_addr != pc)
+		    last_prologue_inst_addr = pc;
+		}
+	      else
+		{
+		  if (arm_debug > 3)
+		    fprintf_unfiltered (gdb_stdlog, "prolog_ignore");
+		}
+	    }
+	}
+      if (arm_debug > 3)
+	fprintf_unfiltered (gdb_stdlog, "\n");
+    }
+
+  return last_prologue_inst_addr;		/* End of prologue */
+}
+
+/* APPLE LOCAL: Convert a DWARF 2 register number to a GDB register number.  */
+static int
+arm_dwarf2_reg_to_regnum (int num)
+{
+  /* Core registers.  */
+  if (0 <= num && num <= ARM_PC_REGNUM)
+    return num;
+
+  /* FPA registers, ARM_F0_REGNUM .. ARM_F7_REGNUM */
+  if (16 <= num && num <= 23)
+    return num - 16 + ARM_F0_REGNUM;
+
+  /* FIXME gcc 4.0 starts the VFP-v1 registers at 63 (63 == S0).
+     The ARM DWARF ABI doc specifies 64 == S0.
+     gcc 4.2 correctly remaps its internal regnums so 64 == S0.
+     For now, have gdb assume the incorrect gcc-4.0 register numbering;
+     we should probably  switch all of these to use the new 256-287 DWARF 
+     register numbers to avoid ambiguity.  */
+  if (63 <= num && num <= 94)
+    return num - 63 + ARM_FIRST_VFP_REGNUM;
+
+  /* Handle 95 specially in case we're processing output from a compiler
+     that uses the correct 64..95 register numbers for the VFP-v1 regs.  */
+  if (num == 95)
+    return ARM_LAST_VFP_REGNUM;
+
+  /* Obsolete register numbers for the FPA register 0-7 */
+  if (96 <= num && num <= 103)
+    return num - 96 + ARM_F0_REGNUM;
+
+  /* Map the new VFP-v3/Neon register numbers to S0..S31 as per the 
+     recommendation in the ARM "DWARF for the ARM Architecture" ABI doc.
+     gdb may need to map these to different internal registers if
+     we start to work on a target with the real VFP-v3 (thirty-two
+     64-bit regs) support.  But presumably such a target would just
+     change the definition of the VFP registers so that they were 64-bits
+     wide.  */
+  if (256 <= num && num <= 287)
+    return num - 256 + ARM_FIRST_VFP_REGNUM;
+
+  return num;
+}
+
+/* APPLE LOCAL START: new prologue skip code.  */
+static CORE_ADDR
+arm_macosx_skip_prologue (CORE_ADDR pc)
+{
+  struct address_context pc_addr_ctx;
+  init_address_context (&pc_addr_ctx);
+  pc_addr_ctx.address = pc;
+  return arm_macosx_skip_prologue_addr_ctx (&pc_addr_ctx);
+}
+
+/* APPLE LOCAL END: new prologue skip code.  */
+
+
 /* *INDENT-OFF* */
 /* Function: thumb_scan_prologue (helper function for arm_scan_prologue)
    This function decodes a Thumb function prologue to determine:
@@ -470,7 +1150,7 @@ arm_skip_prologue (CORE_ADDR pc)
 /* *INDENT-ON* */
 
 static void
-thumb_scan_prologue (CORE_ADDR prev_pc, struct arm_prologue_cache *cache)
+thumb_scan_prologue (CORE_ADDR prev_pc, arm_prologue_cache_t *cache)
 {
   CORE_ADDR prologue_start;
   CORE_ADDR prologue_end;
@@ -485,7 +1165,12 @@ thumb_scan_prologue (CORE_ADDR prev_pc, struct arm_prologue_cache *cache)
   int findmask = 0;
   int i;
 
-  if (find_pc_partial_function (prev_pc, NULL, &prologue_start, &prologue_end))
+  if (arm_debug > 3)
+    fprintf_unfiltered (gdb_stdlog, "thumb_scan_prologue (0x%s, %p)\n", 
+			paddr (prev_pc), cache);
+
+  if (find_pc_partial_function_no_inlined (prev_pc, NULL, &prologue_start, 
+					   &prologue_end))
     {
       struct symtab_and_line sal = find_pc_line (prologue_start, 0);
 
@@ -583,6 +1268,244 @@ thumb_scan_prologue (CORE_ADDR prev_pc, struct arm_prologue_cache *cache)
     }
 }
 
+static void
+thumb_macosx_scan_prologue (CORE_ADDR prev_pc, arm_prologue_cache_t *cache)
+{
+  CORE_ADDR prologue_end;
+  uint32_t insn = 0;
+  /* Which register has been copied to register n?  */
+  arm_prologue_state_t state = {0};
+  /* findmask:
+     bit 0 - push { rlist }
+     bit 1 - mov r7, sp  OR  add r7, sp, #imm  (setting of r7)
+     bit 2 - sub sp, #simm  OR  add sp, #simm  (adjusting of sp)
+  */
+  int i;
+  /* Initialize the saved register map.  When register H is copied to
+     register L, we will put H in saved_reg[L].  */
+  for (i = 0; i < 16; i++)
+    {
+      state.reg_saved_in_reg[i] = i;
+      state.reg_loaded_from_address[i] = INVALID_ADDRESS;
+    }
+
+  if (arm_debug > 3)
+    fprintf_unfiltered (gdb_stdlog, "thumb_macosx_scan_prologue (0x%s, %p)\n", 
+			paddr (prev_pc), cache);
+
+
+  cache->prologue_start = prologue_end = state.pc = 0;
+
+  /* Find the function prologue.  If we can't find the function in
+     the symbol table, peek in the stack frame to find the PC.  */
+  if (find_pc_partial_function_no_inlined (prev_pc, NULL, &cache->prologue_start, 
+					   &prologue_end))
+    {
+      /* One way to find the end of the prologue (which works well
+         for unoptimized code) is to do the following:
+
+	    struct symtab_and_line sal = find_pc_line (cache->prologue_start, 0);
+
+	    if (sal.line == 0)
+	      prologue_end = prev_pc;
+	    else if (sal.end < prologue_end)
+	      prologue_end = sal.end;
+
+	 This mechanism is very accurate so long as the optimizer
+	 doesn't move any instructions from the function body into the
+	 prologue.  If this happens, sal.end will be the last
+	 instruction in the first hunk of prologue code just before
+	 the first instruction that the scheduler has moved from
+	 the body to the prologue.
+
+	 In order to make sure that we scan all of the prologue
+	 instructions, we use a slightly less accurate mechanism which
+	 may scan more than necessary.  To help compensate for this
+	 lack of accuracy, the prologue scanning loop below contains
+	 several clauses which'll cause the loop to terminate early if
+	 an implausible prologue instruction is encountered.  
+	 
+	 The expression
+	 
+	      cache->prologue_start + MAX_THUMB_PROLOGUE_SIZE
+	    
+	 is a suitable endpoint since it accounts for the largest
+	 possible prologue plus up to five instructions inserted by
+	 the scheduler.  */
+         
+      if (prologue_end > cache->prologue_start + MAX_THUMB_PROLOGUE_SIZE)
+	  prologue_end = cache->prologue_start + MAX_THUMB_PROLOGUE_SIZE;
+      if (arm_debug > 4)
+	fprintf_unfiltered (gdb_stdlog, 
+			    "prologue_start found in symbols starting at 0x%s\n",
+			    paddr (cache->prologue_start));      
+    }
+  else
+    {
+      /* We have no symbol information.  We need to search backward for a 
+         push instruction.  */
+
+      /* Initialize the prologue start and end addresses in case we don't
+	 find anything useful.  */
+      cache->prologue_start = prologue_end = 0;
+      ULONGEST ulongest = 0; 
+      CORE_ADDR prologue_pc;
+      uint32_t count = 0;
+      uint32_t consecutive_zero_opcodes = 0;
+      if (arm_debug > 4)
+	fprintf_unfiltered (gdb_stdlog, 
+			"Find prologue_start by reading memory opcodes:\n");      
+
+      for (prologue_pc = prev_pc;
+	   safe_read_memory_unsigned_integer (prologue_pc, 2, &ulongest);
+	   prologue_pc -= 2)
+	{
+	  insn = ulongest;
+	  if (insn == 0)
+	    consecutive_zero_opcodes++;
+	  else
+	    consecutive_zero_opcodes = 0;
+	  if (consecutive_zero_opcodes > 1)
+	    {
+	      if (arm_debug > 4)
+		fprintf_unfiltered (gdb_stdlog, 
+				    "  prologue_start - unable find start \
+of function, aborting at 0x%s after consecutive 0x00000000 opcodes\n",
+				    paddr (prologue_pc));
+	      return;
+	    }
+
+	  if (arm_debug > 4)
+	    fprintf_unfiltered (gdb_stdlog, " 0x%s: 0x%4.4x\n",
+				paddr (prologue_pc), insn);      
+
+	  if ((insn & 0xff80) == 0xb580)	/* push { lr, r7, ... } */
+	    {
+	      /* Also check for pretend arguments just in case.  */
+	      if (safe_read_memory_unsigned_integer (prologue_pc - 2, 2, &ulongest))
+		 {
+		    uint32_t prev_insn = ulongest;
+		    if ((prev_insn & 0xffffff80) == 0xb080)	/* sub sp, #n (subtract immediated from SP)  */
+		      {
+			/* We found some pretend arguments just before our
+			   PUSH instruction, so this is the start of the
+			   function prologue. This happens when an argument
+			   value is split between regs and stack such as:
+			   int f (int x, int y, int z, long long ll);   */
+			prologue_pc = prologue_pc - 2;
+		      }
+		  }
+
+	    
+	      /* Watch for a push that would start a frame.  */
+	      cache->prologue_start = prologue_pc;
+	      prologue_end = cache->prologue_start + MAX_THUMB_PROLOGUE_SIZE;	/* See above.  */
+	      if (arm_debug > 4)
+		fprintf_unfiltered (gdb_stdlog, 
+				    "prologue_start - found start of function 0x%s: 0x%s\n",
+				    paddr (prologue_pc),
+				    paddr (insn));
+
+	      break;
+	    }
+	  /* Only check a certain number of instructions before we give
+	     when trying to find the start of a function.  */
+	  if (count++ > 256)
+	    {
+	      if (arm_debug > 4)
+		fprintf_unfiltered (gdb_stdlog, 
+				    "prologue_start - unable find start of function within 256 opcodes from 0x%s\n",
+				    paddr (prev_pc));
+	      return;
+	    }
+	}
+	
+    }
+
+  prologue_end = min (prologue_end, prev_pc);
+
+
+  /* Search the prologue looking for instructions that set up the
+     frame pointer, adjust the stack pointer, and save registers.
+     Do this until all basic prolog instructions are found.  */
+
+  cache->framesize = 0;
+  uint32_t opcode_size = 2;  /* Size in bytes of the thumb instruction.  */
+  for (state.pc = cache->prologue_start;
+       state.pc < prologue_end;
+       state.pc += opcode_size)
+    {
+      /* Read a 16 or 32 bit thumb instruction into a 32 bit value.  */
+      insn = read_thumb_instruction (state.pc, &opcode_size);
+
+      /* Make sure we got a 2 or 4 byte opcode size. We could conceivably 
+         got an opcode_size of zero if we failed to read memory. */
+      if ((opcode_size != 2) && (opcode_size != 4))
+	break;
+      
+      if (arm_debug > 3)
+	{
+	  if (opcode_size == 4)
+	    fprintf_unfiltered (gdb_stdlog, "  0x%s: 0x%8.8x", 
+				paddr (state.pc), insn);      
+	  else
+	    fprintf_unfiltered (gdb_stdlog, "  0x%s: 0x%4.4x    ", 
+				paddr (state.pc), insn);
+	}
+
+      for (i=0; i<THUMB_OPCOPE_INFO_COUNT; i++)
+	{
+	  if ((insn & thumb_opcode_info[i].mask) == thumb_opcode_info[i].value)
+	    {
+	      /* We have a matching opcode, check if we need to scan it! */
+	      if (arm_debug > 3)
+		fprintf_unfiltered (gdb_stdlog, " -> {%3d} %-30s ",
+				    i, thumb_opcode_info[i].description);
+
+	      unsigned char opcode_type = thumb_opcode_info[i].type;
+
+      	      /* Call the prolog scan callback function if there is one.  */
+	      if (thumb_opcode_info[i].scan_prolog != NULL)
+		{
+		  thumb_opcode_info[i].scan_prolog(insn, cache, &state);
+		}
+
+	      if (opcode_type == prolog_yes)
+		{
+		  /* We have a proglogue opcode, scan the prologue instruction
+		     if there is a callback.  */
+		  if (arm_debug > 3)
+		    fprintf_unfiltered (gdb_stdlog, "prolog_yes");
+		  break;
+		}
+	      else if (opcode_type == prolog_no)
+		{
+		  if (arm_debug > 3)
+		    fprintf_unfiltered (gdb_stdlog, "prolog_no");
+
+		  /* We have an instruction that can't appear in a 
+		     proglogue, so we should stop parsing.  */
+		  state.pc = prologue_end;
+		  break;
+		}
+	      else if (opcode_type == prolog_tail)
+		{
+		  if (arm_debug > 3)
+		    fprintf_unfiltered (gdb_stdlog, "prolog_tail");
+		}
+	      else
+		{
+		  if (arm_debug > 3)
+		    fprintf_unfiltered (gdb_stdlog, "prolog_ignore");
+		}
+	    }
+	}
+      if (arm_debug > 3)
+	fprintf_unfiltered (gdb_stdlog, "\n");
+    }
+}
+
+
 /* This function decodes an ARM function prologue to determine:
    1) the size of the stack frame
    2) which registers are saved on it
@@ -654,6 +1577,7 @@ static void
 arm_scan_prologue (struct frame_info *next_frame, struct arm_prologue_cache *cache)
 {
   int regno, sp_offset, fp_offset, ip_offset;
+  unsigned int insn;
   CORE_ADDR prologue_start, prologue_end, current_pc;
   CORE_ADDR prev_pc = frame_pc_unwind (next_frame);
 
@@ -668,10 +1592,16 @@ arm_scan_prologue (struct frame_info *next_frame, struct arm_prologue_cache *cac
       thumb_scan_prologue (prev_pc, cache);
       return;
     }
+  if (arm_debug > 3)
+    fprintf_unfiltered (gdb_stdlog, "arm_scan_prologue (0x%s, %p)\n", 
+			paddr (prev_pc), cache);
+
+  prologue_start = prologue_end = current_pc = 0;
 
   /* Find the function prologue.  If we can't find the function in
      the symbol table, peek in the stack frame to find the PC.  */
-  if (find_pc_partial_function (prev_pc, NULL, &prologue_start, &prologue_end))
+  if (find_pc_partial_function_no_inlined (prev_pc, NULL, &prologue_start, 
+					   &prologue_end))
     {
       /* One way to find the end of the prologue (which works well
          for unoptimized code) is to do the following:
@@ -709,6 +1639,10 @@ arm_scan_prologue (struct frame_info *next_frame, struct arm_prologue_cache *cac
 	{
 	  prologue_end = prologue_start + 64;	/* See above.  */
 	}
+      if (arm_debug > 4)
+	fprintf_unfiltered (gdb_stdlog, 
+			    "prologue_start found in symbols starting at 0x%s\n",
+			    paddr (prologue_start));      
     }
   else
     {
@@ -725,7 +1659,8 @@ arm_scan_prologue (struct frame_info *next_frame, struct arm_prologue_cache *cac
         return;
       else
         {
-          prologue_start = ADDR_BITS_REMOVE (return_value) - 8;
+          prologue_start = gdbarch_addr_bits_remove 
+			     (current_gdbarch, return_value) - 8;
           prologue_end = prologue_start + 64;	/* See above.  */
         }
     }
@@ -760,7 +1695,12 @@ arm_scan_prologue (struct frame_info *next_frame, struct arm_prologue_cache *cac
        current_pc < prologue_end;
        current_pc += 4)
     {
-      unsigned int insn = read_memory_unsigned_integer (current_pc, 4);
+      insn = read_memory_unsigned_integer (current_pc, 4);
+
+      if (arm_debug > 4)
+	fprintf_unfiltered (gdb_stdlog, " 0x%s: 0x%8.8x\n",
+				    paddr (current_pc), insn);      
+
 
       if (insn == 0xe1a0c00d)		/* mov ip, sp */
 	{
@@ -887,24 +1827,310 @@ arm_scan_prologue (struct frame_info *next_frame, struct arm_prologue_cache *cac
     cache->frameoffset = 0;
 }
 
-static struct arm_prologue_cache *
+/* Get the real frame for this frame by getting the previous frame as long as
+   THIS_FRAME is inlined. We do this so we can check the real type of the 
+   current frame (is this frame really a sigtramp frame, or is it really a
+   normal frame).  */
+
+struct frame_info *
+get_non_inlined_frame (struct frame_info *this_frame)
+{
+  while (this_frame != NULL)
+    {
+      if (get_frame_type(this_frame) != INLINED_FRAME)
+	break;
+      this_frame = get_prev_frame (this_frame);
+    }
+  return this_frame;
+}
+
+static void
+arm_macosx_scan_prologue (struct frame_info *next_frame, arm_prologue_cache_t *cache)
+{
+  arm_prologue_state_t state = {0};
+  int i;
+  uint32_t insn;
+  CORE_ADDR prologue_end;
+  CORE_ADDR prev_pc = frame_pc_unwind (next_frame);
+
+  arm_prologue_cache_t *next_cache;
+  
+  next_cache = get_arm_prologue_cache (next_frame);
+  /* Assume there is no frame until proven otherwise.  */
+  cache->framereg = ARM_SP_REGNUM;
+  cache->framesize = 0;
+  cache->frameoffset = 0;
+  
+  /* If we are above frame zero, then we assume we have an R7 frame pointer
+     as long the previous frame is not a sigtramp frame. We have to be careful
+     when tracking down the previous frame because we want the previous frame
+     to the real frame that corresponds to NEXT_FRAME. NEXT_FRAME could be
+     an inlined frame with n number of other inlined frames before we get
+     to the real next frame. Then we must do the same to get to the real
+     previous frame. We do this in case REAL_NEXT_FRAME is a leaf function
+     and PREV_BASE_FRAME is a sigtramp frame. 
+     
+     If we have a leaf function that is called by a sigtramp with no inline
+     frames, the problem case would look like this:
+     
+     # Function	  frame type	  variable
+     - ---------- --------------- ----------------------------------------
+     2 leaf_func  NORMAL_FRAME    NEXT_FRAME == REAL_NEXT_FRAME
+     1 sigtramp   SIGTRAMP_FRAME  REAL_PREV_FRAME
+     0 sighandler SENTINEL_FRAME
+     
+     
+     If we have a leaf function that is called by a sigtramp with inline
+     frames, the problem case would look like this:
+
+     # Function   frame type      variable
+     - ---------- --------------- ----------------------------------------
+     6 leaf_func  INLINED_FRAME   NEXT_FRAME
+     5 leaf_func  INLINED_FRAME
+     4 leaf_func  NORMAL_FRAME    REAL_NEXT_FRAME
+     3 sigtramp   INLINED_FRAME
+     2 sigtramp   INLINED_FRAME
+     1 sigtramp   SIGTRAMP_FRAME  REAL_PREV_FRAME
+     0 sighandler SENTINEL_FRAME
+
+  */
+  if (frame_relative_level (next_frame) > 0)
+    {
+      struct frame_info *real_next_frame;
+      struct frame_info *real_prev_frame;
+
+      /* Get the non-inlined frame for NEXT_FRAME.  */
+      real_next_frame = get_non_inlined_frame (next_frame);
+      /* Check for NULL since we can't pass NULL to get_prev_frame ().  */
+      if (real_next_frame != NULL)
+	{
+	  /* Get the non-inlined frame previous to REAL_NEXT_FRAME.  */
+	  real_prev_frame = get_non_inlined_frame (get_prev_frame (
+							      real_next_frame));
+	  if (real_prev_frame != NULL)
+	    {
+	      /* Make sure the previous real frame is a normal frame (and not
+	         a SIGTRAMP_FRAME).  */
+	      if (get_frame_type (real_prev_frame) != SIGTRAMP_FRAME)
+		{
+		  /* Our current base frame and the previous base frame are
+		     normal, so we can safely assume our frame register is
+		     ARM_FP_REGNUM.  */
+		  cache->framereg = ARM_FP_REGNUM;
+		}
+	    }
+	}
+    }
+  
+
+  /* Check for Thumb prologue.  */
+  if ((next_cache && next_cache->prev_pc_is_thumb) || arm_pc_is_thumb (prev_pc))
+    {
+      thumb_macosx_scan_prologue (prev_pc, cache);
+      return;
+    }
+
+  if (arm_debug > 3)
+    fprintf_unfiltered (gdb_stdlog, "arm_macosx_scan_prologue (0x%s, %p)\n", 
+			paddr (prev_pc), cache);
+
+  cache->prologue_start = prologue_end = state.pc = 0;
+
+  /* Find the function prologue.  If we can't find the function in
+     the symbol table, peek in the stack frame to find the PC.  */
+  if (find_pc_partial_function_no_inlined (prev_pc, NULL, 
+					   &cache->prologue_start, 
+					   &prologue_end))
+    {
+      /* One way to find the end of the prologue (which works well
+         for unoptimized code) is to do the following:
+
+	    struct symtab_and_line sal = find_pc_line (cache->prologue_start, 0);
+
+	    if (sal.line == 0)
+	      prologue_end = prev_pc;
+	    else if (sal.end < prologue_end)
+	      prologue_end = sal.end;
+
+	 This mechanism is very accurate so long as the optimizer
+	 doesn't move any instructions from the function body into the
+	 prologue.  If this happens, sal.end will be the last
+	 instruction in the first hunk of prologue code just before
+	 the first instruction that the scheduler has moved from
+	 the body to the prologue.
+
+	 In order to make sure that we scan all of the prologue
+	 instructions, we use a slightly less accurate mechanism which
+	 may scan more than necessary.  To help compensate for this
+	 lack of accuracy, the prologue scanning loop below contains
+	 several clauses which'll cause the loop to terminate early if
+	 an implausible prologue instruction is encountered.  
+	 
+	 The expression
+	 
+	      cache->prologue_start + MAX_ARM_PROLOGUE_SIZE
+	    
+	 is a suitable endpoint since it accounts for the largest
+	 possible prologue plus up to five instructions inserted by
+	 the scheduler.  */
+         
+      if (prologue_end > cache->prologue_start + MAX_ARM_PROLOGUE_SIZE)
+	{
+	  prologue_end = cache->prologue_start + MAX_ARM_PROLOGUE_SIZE;	/* See above.  */
+	}
+      if (arm_debug > 4)
+	fprintf_unfiltered (gdb_stdlog, 
+			    "  prologue_start found in symbols starting at 0x%s\n",
+			    paddr (cache->prologue_start));      
+    }
+  else
+    {
+      /* We have no symbol information.  Our only option is to assume this
+	 function has a standard stack frame and the normal frame register.
+	 Then, we can find the value of our frame pointer on entrance to
+	 the callee (or at the present moment if this is the innermost frame).
+	 The value stored there should be the address of the stmfd + 8.  */
+
+      LONGEST return_value;
+      CORE_ADDR frame_loc = frame_unwind_register_unsigned (next_frame, ARM_FP_REGNUM);
+      if (!safe_read_memory_integer (frame_loc, 4, &return_value))
+	{
+	  if (arm_debug > 4)
+	    fprintf_unfiltered (gdb_stdlog, 
+				"  prologue_start unable to read function start on frame from 0x%s\n",
+				paddr (frame_loc));
+	  return;
+	}
+      else
+	{
+	  cache->prologue_start = ADDR_BITS_REMOVE (return_value) - 8;
+	  prologue_end = cache->prologue_start + MAX_ARM_PROLOGUE_SIZE;	/* See above.  */
+	  if (arm_debug > 4)
+	    fprintf_unfiltered (gdb_stdlog, 
+				"  prologue_start found function start on frame: [0x%s] => 0x%s\n",
+				paddr (frame_loc),
+				paddr (cache->prologue_start));      
+	}
+    }
+
+  prologue_end = min (prologue_end, prev_pc);
+
+  /* Now search the prologue looking for instructions that set up the
+     frame pointer, adjust the stack pointer, and save registers.
+
+     Be careful, however, and if it doesn't look like a prologue,
+     don't try to scan it.  If, for instance, a frameless function
+     begins with stmfd sp!, then we will tell ourselves there is
+     a frame, which will confuse stack traceback, as well as "finish" 
+     and other operations that rely on a knowledge of the stack
+     traceback.
+
+     In the APCS, the prologue should start with  "mov ip, sp" so
+     if we don't see this as the first insn, we will stop.  
+
+     [Note: This doesn't seem to be true any longer, so it's now an
+     optional part of the prologue.  - Kevin Buettner, 2001-11-20]
+
+     [Note further: The "mov ip,sp" only seems to be missing in
+     frameless functions at optimization level "-O2" or above,
+     in which case it is often (but not always) replaced by
+     "str lr, [sp, #-4]!".  - Michael Snyder, 2002-04-23]  */
+
+  for (state.pc = cache->prologue_start;
+       state.pc < prologue_end;
+       state.pc += 4)
+    {
+      insn = read_memory_unsigned_integer (state.pc, 4);
+
+      if (arm_debug > 3)
+	fprintf_unfiltered (gdb_stdlog, "  0x%s: 0x%8.8x ",
+				    paddr (state.pc), insn);      
+
+
+      for (i=0; i<ARM_OPCOPE_INFO_COUNT; i++)
+	{
+	  if ((insn & arm_opcode_info[i].mask) == arm_opcode_info[i].value)
+	    {
+	      if (arm_debug > 3)
+		fprintf_unfiltered (gdb_stdlog, " -> {%3d} %-30s ", 
+				    i, arm_opcode_info[i].description);
+
+	      /* We have a matching opcode, check if we need to scan it! */
+	      unsigned char opcode_type = arm_opcode_info[i].type;
+	      
+	      /* Call the prolog scan callback function if there is one.  */
+	      if (arm_opcode_info[i].scan_prolog != NULL)
+		{
+		  arm_opcode_info[i].scan_prolog(insn, cache, &state);
+		}
+		
+	      if (opcode_type == prolog_yes)
+		{
+		  /* We have a proglogue opcode, scan the prologue instruction
+		     if there is a callback.  */
+		  if (arm_debug > 3)
+		    fprintf_unfiltered (gdb_stdlog, "prolog_yes");
+		  break;
+		}
+	      else if (opcode_type == prolog_no)
+		{
+		  if (arm_debug > 3)
+		    fprintf_unfiltered (gdb_stdlog, "prolog_no");
+
+		  /* We have an instruction that can't appear in a 
+		     proglogue, so we should stop parsing.  */
+		  state.pc = prologue_end;
+		  break;
+		}
+	      else if (opcode_type == prolog_tail)
+		{
+		  if (arm_debug > 3)
+		    fprintf_unfiltered (gdb_stdlog, "prolog_tail");
+		}
+	      else
+		{
+		  if (arm_debug > 3)
+		    fprintf_unfiltered (gdb_stdlog, "prolog_ignore");
+		}
+	    }
+	}
+      if (arm_debug > 3)
+	fprintf_unfiltered (gdb_stdlog, "\n");
+    }
+
+  /* The frame size is just the negative of the offset (from the
+     original SP) of the last thing thing we pushed on the stack. 
+     The frame offset is [new FP] - [new SP].  */
+  cache->framesize = -state.sp_offset;
+  if (cache->framereg == ARM_FP_REGNUM)
+    cache->frameoffset = state.fp_offset - state.sp_offset;
+  else
+    cache->frameoffset = 0;
+}
+
+
+
+static arm_prologue_cache_t *
 arm_make_prologue_cache (struct frame_info *next_frame)
 {
   int reg;
-  struct arm_prologue_cache *cache;
+  arm_prologue_cache_t *cache;
   CORE_ADDR unwound_fp;
 
-  cache = frame_obstack_zalloc (sizeof (struct arm_prologue_cache));
+  cache = frame_obstack_zalloc (sizeof (arm_prologue_cache_t));
   cache->saved_regs = trad_frame_alloc_saved_regs (next_frame);
 
+#ifdef TM_NEXTSTEP
+  arm_macosx_scan_prologue (next_frame, cache);
+#else
   arm_scan_prologue (next_frame, cache);
+#endif
 
   unwound_fp = frame_unwind_register_unsigned (next_frame, cache->framereg);
   if (unwound_fp == 0)
     return cache;
 
   cache->prev_sp = unwound_fp + cache->framesize - cache->frameoffset;
-
   /* Calculate actual addresses of saved registers using offsets
      determined by arm_scan_prologue.  */
   for (reg = 0; reg < NUM_REGS; reg++)
@@ -922,7 +2148,7 @@ arm_prologue_this_id (struct frame_info *next_frame,
 		      void **this_cache,
 		      struct frame_id *this_id)
 {
-  struct arm_prologue_cache *cache;
+  arm_prologue_cache_t *cache;
   struct frame_id id;
   CORE_ADDR func;
 
@@ -931,6 +2157,15 @@ arm_prologue_this_id (struct frame_info *next_frame,
   cache = *this_cache;
 
   func = frame_func_unwind (next_frame);
+
+  /* APPLE LOCAL ADDITION: If we didn't get anything sensical from a call
+     to frame_func_unwind, see if we were able to find our prologue
+     start in our arch specific prologue cache information and use
+     it. This will allow us to stack crawl through code that has no
+     symbols.  */
+  if (func == 0 && cache != NULL)
+    func = cache->prologue_start;
+  /* APPLE LOCAL END  */
 
   /* This is meant to halt the backtrace at "_start".  Make sure we
      don't halt it at a generic dummy frame. */
@@ -955,7 +2190,7 @@ arm_prologue_prev_register (struct frame_info *next_frame,
 			    int *realnump,
 			    gdb_byte *valuep)
 {
-  struct arm_prologue_cache *cache;
+  arm_prologue_cache_t *cache;
 
   if (*this_cache == NULL)
     *this_cache = arm_make_prologue_cache (next_frame);
@@ -994,14 +2229,12 @@ arm_prologue_unwind_sniffer (struct frame_info *next_frame)
   return &arm_prologue_unwind;
 }
 
-static struct arm_prologue_cache *
+static arm_prologue_cache_t *
 arm_make_stub_cache (struct frame_info *next_frame)
 {
-  int reg;
-  struct arm_prologue_cache *cache;
-  CORE_ADDR unwound_fp;
+  arm_prologue_cache_t *cache;
 
-  cache = frame_obstack_zalloc (sizeof (struct arm_prologue_cache));
+  cache = frame_obstack_zalloc (sizeof (arm_prologue_cache_t));
   cache->saved_regs = trad_frame_alloc_saved_regs (next_frame);
 
   cache->prev_sp = frame_unwind_register_unsigned (next_frame, ARM_SP_REGNUM);
@@ -1016,7 +2249,7 @@ arm_stub_this_id (struct frame_info *next_frame,
 		  void **this_cache,
 		  struct frame_id *this_id)
 {
-  struct arm_prologue_cache *cache;
+  arm_prologue_cache_t *cache;
 
   if (*this_cache == NULL)
     *this_cache = arm_make_stub_cache (next_frame);
@@ -1035,7 +2268,7 @@ struct frame_unwind arm_stub_unwind = {
 static const struct frame_unwind *
 arm_stub_unwind_sniffer (struct frame_info *next_frame)
 {
-  char dummy[4];
+  gdb_byte dummy[4];
 
   if (in_plt_section (frame_unwind_address_in_block (next_frame), NULL)
       || target_read_memory (frame_pc_unwind (next_frame), dummy, 4) != 0)
@@ -1047,7 +2280,7 @@ arm_stub_unwind_sniffer (struct frame_info *next_frame)
 static CORE_ADDR
 arm_normal_frame_base (struct frame_info *next_frame, void **this_cache)
 {
-  struct arm_prologue_cache *cache;
+  arm_prologue_cache_t *cache;
 
   if (*this_cache == NULL)
     *this_cache = arm_make_prologue_cache (next_frame);
@@ -1063,13 +2296,299 @@ struct frame_base arm_normal_base = {
   arm_normal_frame_base
 };
 
-static struct arm_prologue_cache *
+#ifdef TM_NEXTSTEP  
+/* APPLE LOCAL: Install the Mac OS X specific sigtramp sniffer.
+
+   Mac OS X _sigtramp frame format
+
+[FP+  0] previous FP
+[FP+  4] previous PC
+[FP+  8] arg
+[FP+ 12] siginfo.si_signo
+[FP+ 16] siginfo.si_errno
+[FP+ 20] siginfo.si_code
+[FP+ 24] siginfo.si_pid
+[FP+ 28] siginfo.si_uid
+[FP+ 32] siginfo.si_status
+[FP+ 36] siginfo.si_addr
+[FP+ 40] siginfo.si_value
+[FP+ 44] siginfo.si_band
+[FP+ 48] siginfo.__pad[0]
+[FP+ 52] siginfo.__pad[1]
+[FP+ 56] siginfo.__pad[2]
+[FP+ 60] siginfo.__pad[3]
+[FP+ 64] siginfo.__pad[4]
+[FP+ 68] siginfo.__pad[5]
+[FP+ 72] siginfo.__pad[6]
+[FP+ 76] ucontext.uc_onstack
+[FP+ 80] ucontext.uc_sigmask
+[FP+ 84] ucontext.uc_stack.ss_sp
+[FP+ 88] ucontext.uc_stack.ss_size
+[FP+ 92] ucontext.uc_stack.ss_flags
+[FP+ 96] ucontext.uc_link
+[FP+100] ucontext.uc_mcsize
+[FP+104] ucontext.uc_mcontext
+[FP+108] mcontext.es.__exception
+[FP+112] mcontext.es.__fsr
+[FP+116] mcontext.es.__far
+[FP+120] mcontext.ss.R0		 ARM_THREAD_STATE
+[FP+124] mcontext.ss.R1
+[FP+128] mcontext.ss.R2
+[FP+132] mcontext.ss.R3
+[FP+136] mcontext.ss.R4
+[FP+140] mcontext.ss.R5
+[FP+144] mcontext.ss.R6
+[FP+148] mcontext.ss.R7
+[FP+152] mcontext.ss.R8
+[FP+156] mcontext.ss.R9
+[FP+160] mcontext.ss.R10
+[FP+164] mcontext.ss.R11
+[FP+168] mcontext.ss.R12
+[FP+172] mcontext.ss.SP
+[FP+176] mcontext.ss.LR
+[FP+180] mcontext.ss.PC
+[FP+184] mcontext.ss.CPSR
+[FP+188] mcontext.fs.s0		  ARM_VFP_STATE
+[FP+192] mcontext.fs.s1
+[FP+196] mcontext.fs.s2
+[FP+200] mcontext.fs.s3
+[FP+204] mcontext.fs.s4
+[FP+208] mcontext.fs.s5
+[FP+212] mcontext.fs.s6
+[FP+216] mcontext.fs.s7
+[FP+220] mcontext.fs.s8
+[FP+224] mcontext.fs.s9
+[FP+228] mcontext.fs.s10
+[FP+232] mcontext.fs.s11
+[FP+236] mcontext.fs.s12
+[FP+240] mcontext.fs.s13
+[FP+244] mcontext.fs.s14
+[FP+248] mcontext.fs.s15
+[FP+252] mcontext.fs.s16
+[FP+256] mcontext.fs.s17
+[FP+260] mcontext.fs.s18
+[FP+264] mcontext.fs.s19
+[FP+268] mcontext.fs.s20
+[FP+272] mcontext.fs.s21
+[FP+276] mcontext.fs.s22
+[FP+280] mcontext.fs.s23
+[FP+284] mcontext.fs.s24
+[FP+288] mcontext.fs.s25
+[FP+292] mcontext.fs.s26
+[FP+296] mcontext.fs.s27
+[FP+300] mcontext.fs.s28
+[FP+304] mcontext.fs.s29
+[FP+308] mcontext.fs.s30
+[FP+312] mcontext.fs.s31
+[FP+316] mcontext.fs.FPSCR
+
+*/
+/* Define register sizes and register group sizes for the general purpose,
+   FP and VFP registers.  */
+enum 
+{ 
+  GP_REG_SIZE = 4,
+  FP_REG_SIZE = 12,
+  VFP_REG_SIZE = 4,
+  SR_REG_SIZE = 4,
+  EXC_STATE_SIZE = (3 * GP_REG_SIZE), 
+  GP_STATE_SIZE = (((ARM_MACOSX_NUM_GP_REGS) * GP_REG_SIZE) + SR_REG_SIZE),
+  FP_STATE_SIZE = (((ARM_MACOSX_NUM_FP_REGS) * FP_REG_SIZE) + SR_REG_SIZE),
+  VFP_STATE_SIZE = (((ARM_MACOSX_NUM_VFP_REGS) * VFP_REG_SIZE) + SR_REG_SIZE) 
+};
+
+static arm_prologue_cache_t *
+arm_macosx_sigtramp_frame_cache (struct frame_info *next_frame, void **this_cache)
+{
+
+  arm_prologue_cache_t *cache = NULL;
+  CORE_ADDR mcontext_addr = 0;
+  CORE_ADDR gpr_addr = 0;
+  CORE_ADDR fpr_addr = 0;
+  CORE_ADDR vfp_addr = 0;
+  ULONGEST mcontext_size = 0;
+  CORE_ADDR frame_base = 0;
+  int reg_size = 0;
+  unsigned int i = 0;
+
+  /* Have we already built this cache?  */
+  if (*this_cache)
+    return *this_cache;
+
+  /* Make a normal frame cache first so we can tell a bit about where
+     we are in the _sigtramp frame and so we can get our frame base.  */
+  *this_cache = cache = arm_make_prologue_cache (next_frame);
+
+  /* Figure out what our frame base is so we can reliably find the
+     sigtramp information on the frame.  */
+  frame_base = cache->prev_sp + cache->frameoffset - cache->framesize;
+
+  /* Extract the ucontext.uc_mcsize and ucontext.uc_mcontext.  */
+  mcontext_size = read_memory_unsigned_integer (frame_base + 100, GP_REG_SIZE);
+  mcontext_addr = read_memory_unsigned_integer (frame_base + 104, GP_REG_SIZE);
+
+  /* Determine what registers are saved in the signal context based on
+     the size of the mcontext structure.  */
+  switch (mcontext_size)
+    {
+    case (EXC_STATE_SIZE + GP_STATE_SIZE + VFP_STATE_SIZE):
+      vfp_addr = mcontext_addr + EXC_STATE_SIZE + GP_STATE_SIZE;
+      gpr_addr = mcontext_addr + EXC_STATE_SIZE;
+      break;
+
+    case (EXC_STATE_SIZE + GP_STATE_SIZE):
+      gpr_addr = mcontext_addr + EXC_STATE_SIZE;
+      break;
+
+    case (EXC_STATE_SIZE + GP_STATE_SIZE + FP_STATE_SIZE):
+      fpr_addr = mcontext_addr + EXC_STATE_SIZE + GP_STATE_SIZE;
+      gpr_addr = mcontext_addr + EXC_STATE_SIZE;
+      break;
+
+    default:
+      warning ("unrecognized length (0x%lx) for sigtramp context",
+               (unsigned long) mcontext_size);
+      break;
+    }
+
+  /* Use any addresses found to extract the information from the 
+     context structure.  */
+  if (gpr_addr != 0)
+    {
+      reg_size = GP_REG_SIZE;
+      for (i = 0; i < ARM_MACOSX_NUM_GP_REGS; i++)
+	cache->saved_regs[ARM_R0_REGNUM + i].addr = gpr_addr + (i * reg_size);
+      cache->saved_regs[ARM_PS_REGNUM].addr = gpr_addr + (i * reg_size);
+    }
+
+  if (fpr_addr != 0)
+    {
+      reg_size = FP_REGISTER_SIZE;
+      for (i = 0; i < ARM_MACOSX_NUM_FP_REGS; i++)
+	cache->saved_regs[ARM_F0_REGNUM + i].addr = fpr_addr + (i * reg_size);
+      cache->saved_regs[ARM_FPS_REGNUM].addr = fpr_addr + (i * reg_size);
+    }
+
+  if (vfp_addr != 0)
+    {
+      reg_size = VFP_REG_SIZE;
+      for (i = 0; i < 32; i++)
+	cache->saved_regs[ARM_FIRST_VFP_REGNUM + i].addr = vfp_addr + (i * reg_size);
+      cache->saved_regs[ARM_FPSCR_REGNUM].addr = vfp_addr + (i * reg_size);
+    }
+
+  return cache;
+}
+
+static void
+arm_macosx_sigtramp_frame_this_id (struct frame_info *next_frame, 
+				   void **this_cache, struct frame_id *this_id)
+{
+  struct frame_id id;
+  CORE_ADDR func;
+  arm_prologue_cache_t *cache;
+
+  if (*this_cache == NULL)
+    *this_cache = arm_macosx_sigtramp_frame_cache (next_frame, this_cache);
+    
+  cache = *this_cache;
+
+  func = frame_func_unwind (next_frame);
+
+  /* If we didn't get anything sensical from a call to frame_func_unwind, 
+     see if we were able to find our prologue start in our arch specific 
+     prologue cache information and use it. This will allow us to stack 
+     crawl through code that has no symbols.  */
+  if (func == 0 && cache != NULL)
+    func = cache->prologue_start;
+
+  /* If we've hit a wall, stop.  */
+  if (cache->prev_sp == 0)
+    return;
+
+  id = frame_id_build (cache->prev_sp, func);
+  *this_id = id;
+}
+
+/* Extract a register from our sigtramp cache.  */
+static void
+arm_macosx_sigtramp_frame_prev_register (struct frame_info *next_frame,
+                                  void **this_cache,
+                                  int regnum, int *optimizedp,
+                                  enum lval_type *lvalp, CORE_ADDR * addrp,
+                                  int *realnump, gdb_byte *valuep)
+{
+  arm_prologue_cache_t *cache;
+
+  if (*this_cache == NULL)
+    *this_cache = arm_macosx_sigtramp_frame_cache (next_frame, this_cache);
+    
+  cache = *this_cache;
+
+  trad_frame_get_prev_register (next_frame, cache->saved_regs, regnum,
+				optimizedp, lvalp, addrp, realnump, valuep);
+}
+
+static const struct frame_unwind arm_macosx_sigtramp_frame_unwind = {
+  SIGTRAMP_FRAME,
+  arm_macosx_sigtramp_frame_this_id,
+  arm_macosx_sigtramp_frame_prev_register
+};
+
+
+static const struct frame_unwind *
+arm_macosx_sigtramp_unwind_sniffer (struct frame_info *next_frame)
+{
+  /* Function statics that will keep a cached address range from the
+     expensive find_pc_partial_function function results.  */
+  static struct minimal_symbol *g_sigtramp_msymbol = NULL;
+  static CORE_ADDR g_sigtramp_start = 0;
+  static CORE_ADDR g_sigtramp_end = 0;
+  
+  /* Lookup the minimal symbol for _sigtramp.  */
+  struct minimal_symbol *msymbol;
+  msymbol = lookup_minimal_symbol ("_sigtramp", NULL, NULL);
+  if (msymbol)
+    {
+      /* Check if we need to cache (or re-cache) the results.  */
+      CORE_ADDR addr = SYMBOL_VALUE_ADDRESS (msymbol);
+      if (msymbol != g_sigtramp_msymbol || addr != g_sigtramp_start)
+        {
+          char *name = NULL;
+          CORE_ADDR start = 0;
+          CORE_ADDR end = 0;
+          if (find_pc_partial_function_no_inlined (addr, &name, &start, &end))
+            {
+              /* Make sure nothing went awry in the address to name and
+                 function bounds lookup.  */
+              if (name && strcmp ("_sigtramp", name) == 0)
+                {
+                  g_sigtramp_msymbol = msymbol;
+                  g_sigtramp_start = start;
+                  g_sigtramp_end = end;
+                }
+            }
+        }
+    }
+  
+  if (g_sigtramp_start != 0)
+    {
+      CORE_ADDR pc = frame_pc_unwind (next_frame);
+
+      if (pc >= g_sigtramp_start && pc < g_sigtramp_end)
+        return &arm_macosx_sigtramp_frame_unwind;
+    }
+  return NULL;
+}
+
+#else
+static arm_prologue_cache_t *
 arm_make_sigtramp_cache (struct frame_info *next_frame)
 {
-  struct arm_prologue_cache *cache;
+  arm_prologue_cache_t *cache;
   int reg;
 
-  cache = frame_obstack_zalloc (sizeof (struct arm_prologue_cache));
+  cache = frame_obstack_zalloc (sizeof (arm_prologue_cache_t));
 
   cache->prev_sp = frame_unwind_register_unsigned (next_frame, ARM_SP_REGNUM);
 
@@ -1094,7 +2613,7 @@ arm_sigtramp_this_id (struct frame_info *next_frame,
 		      void **this_cache,
 		      struct frame_id *this_id)
 {
-  struct arm_prologue_cache *cache;
+  arm_prologue_cache_t *cache;
 
   if (*this_cache == NULL)
     *this_cache = arm_make_sigtramp_cache (next_frame);
@@ -1115,7 +2634,7 @@ arm_sigtramp_prev_register (struct frame_info *next_frame,
 			    int *realnump,
 			    gdb_byte *valuep)
 {
-  struct arm_prologue_cache *cache;
+  arm_prologue_cache_t *cache;
 
   if (*this_cache == NULL)
     *this_cache = arm_make_sigtramp_cache (next_frame);
@@ -1141,6 +2660,8 @@ arm_sigtramp_unwind_sniffer (struct frame_info *next_frame)
   return NULL;
 }
 
+#endif
+
 /* Assuming NEXT_FRAME->prev is a dummy, return the frame ID of that
    dummy frame.  The frame ID's base needs to match the TOS value
    saved by save_dummy_frame_tos() and returned from
@@ -1154,6 +2675,47 @@ arm_unwind_dummy_id (struct gdbarch *gdbarch, struct frame_info *next_frame)
 			 frame_pc_unwind (next_frame));
 }
 
+/* Given THIS_FRAME, find the previous frame's resume PC using the FP
+   if it is safe to do so (if we are not the bottom most frame). If the
+   PC can't be safely extracted from the frame, return DEFAULT_PC.  */
+
+static CORE_ADDR
+arm_unwind_pc_using_fp (struct frame_info *this_frame, CORE_ADDR default_pc)
+{
+  CORE_ADDR pc = default_pc;
+
+  /* If this isn't the bottom most frame then lets verify that this
+     matches the previous PC at [FP+4].  */
+  if (get_frame_type(this_frame) == NORMAL_FRAME &&
+      frame_relative_level (this_frame) > 0)
+    {
+      void **this_cache = frame_cache_hack (this_frame);
+      arm_prologue_cache_t *cache;
+
+      if (*this_cache == NULL)
+	*this_cache = arm_make_prologue_cache ( get_next_frame (this_frame));
+      cache = *this_cache;
+  
+      /* Verify we have a frame that isn't just the stack pointer.  */
+      if (cache && cache->framereg == ARM_FP_REGNUM)
+	{
+	  ULONGEST fp_pc;
+	  CORE_ADDR fp = get_frame_register_unsigned (this_frame, ARM_FP_REGNUM);
+	  if (fp != 0 && safe_read_memory_unsigned_integer (fp+4, 4, &fp_pc))
+	    {
+	      if (pc != fp_pc)
+		{
+		  /* Our previous PC doesn't match the PC we found by walking 
+		     the frame pointer. We need to determine if we should use
+		     this prev_pc or not.  */
+		     pc = fp_pc;	/* For now always use it.  */
+		}
+	    }
+	}
+    }
+  return pc;  /* RAW PC value with the thumb bit (bit zero) still set.  */
+}
+
 /* Given THIS_FRAME, find the previous frame's resume PC (which will
    be used to construct the previous frame's ID, after looking up the
    containing function).  */
@@ -1161,9 +2723,27 @@ arm_unwind_dummy_id (struct gdbarch *gdbarch, struct frame_info *next_frame)
 static CORE_ADDR
 arm_unwind_pc (struct gdbarch *gdbarch, struct frame_info *this_frame)
 {
+  arm_prologue_cache_t *cache = NULL;
   CORE_ADDR pc;
   pc = frame_unwind_register_unsigned (this_frame, ARM_PC_REGNUM);
-  return IS_THUMB_ADDR (pc) ? UNMAKE_THUMB_ADDR (pc) : pc;
+#ifdef TM_NEXTSTEP  
+  cache = get_arm_prologue_cache (this_frame);
+  /* APPLE LOCAL ADDITION: Try and use the frame pointer to locate the 
+     previous PC.  */
+  pc = arm_unwind_pc_using_fp(this_frame, pc);
+#endif
+  if (IS_THUMB_ADDR (pc))
+    {
+      if (cache)
+	cache->prev_pc_is_thumb = 1;
+      pc = UNMAKE_THUMB_ADDR (pc);
+    }
+  else
+    {
+      if (cache)
+	cache->prev_pc_is_thumb = 0;
+    }
+  return pc;
 }
 
 static CORE_ADDR
@@ -1241,7 +2821,7 @@ arm_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
      passing register.  */
   if (struct_return)
     {
-      if (arm_debug)
+      if (arm_debug > 5)
 	fprintf_unfiltered (gdb_stdlog, "struct return in %s = 0x%s\n",
 			    REGISTER_NAME (argreg), paddr (struct_addr));
       regcache_cooked_write_unsigned (regcache, argreg, struct_addr);
@@ -1289,7 +2869,7 @@ arm_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
 	      /* The argument is being passed in a general purpose
 		 register.  */
 	      CORE_ADDR regval = extract_unsigned_integer (val, partial_len);
-	      if (arm_debug)
+	      if (arm_debug > 5)
 		fprintf_unfiltered (gdb_stdlog, "arg %d in %s = 0x%s\n",
 				    argnum, REGISTER_NAME (argreg),
 				    phex (regval, DEPRECATED_REGISTER_SIZE));
@@ -1299,7 +2879,7 @@ arm_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
 	  else
 	    {
 	      /* Push the arguments onto the stack.  */
-	      if (arm_debug)
+	      if (arm_debug > 5)
 		fprintf_unfiltered (gdb_stdlog, "arg %d @ sp + %d\n",
 				    argnum, nstack);
 	      si = push_stack_item (si, val, DEPRECATED_REGISTER_SIZE);
@@ -1350,21 +2930,158 @@ static void
 arm_print_float_info (struct gdbarch *gdbarch, struct ui_file *file,
 		      struct frame_info *frame, const char *args)
 {
-  unsigned long status = read_register (ARM_FPS_REGNUM);
-  int type;
+  static const char* enabled_strings[2] = {"disabled", "enabled"};
+  static const char* Rmode_strings[4] = {
+    "Round to nearest (RN) mode",
+    "Round towards plus infinity (RP) mode",
+    "Round towards minus infinity (RM) mode",
+    "Round towards zero (RZ) mode"
+  };
+  uint32_t fpscr = read_register (ARM_FPSCR_REGNUM);
+  uint32_t b;
+  printf (_("VFP fpscr = 0x%8.8x\n"), fpscr);
+  printf (_("     N = %u  Set if comparison produces a less than result\n"),
+	  bit (fpscr, 31));
+  printf (_("     Z = %u  Set if comparison produces an equal result\n"), 
+	  bit (fpscr, 30));
+  printf (_("     C = %u  Set if comparison produces an equal, greater "
+	  "than, or unordered result\n"), 
+	  bit (fpscr, 29));
+  printf (_("     V = %u  Set if comparison produces an unordered result\n"), 
+	  bit (fpscr, 28));
+  b = bit (fpscr, 25);
+  printf (_("    DN = %u  default NaN mode %s\n"), b, enabled_strings[b]);
+  b = bit (fpscr, 24);
+  printf (_("    Fz = %u  flush-to-zero mode %s\n"), b, enabled_strings[b]);
+  b = bits (fpscr, 22, 23);
+  printf (_(" Rmode = %u  %s\n"), b, Rmode_strings[b]);
+  printf (_("Stride = %u\n"), bits (fpscr, 20, 21));
+  printf (_("   LEN = %u\n"), bits (fpscr, 16, 18));
+  printf (_("   IDE = %u  Input Subnormal exception\n"), bit (fpscr, 15));
+  printf (_("   IXE = %u  Inexact exception\n"), bit (fpscr, 12));
+  printf (_("   UFE = %u  Underflow exception\n"), bit (fpscr, 11));
+  printf (_("   OFE = %u  Overflow exception\n"), bit (fpscr, 10));
+  printf (_("   DZE = %u  Division by Zero exception\n"), bit (fpscr, 9));
+  printf (_("   IOE = %u  Invalid Operation exception\n"), bit (fpscr, 8));
+  printf (_("   IDC = %u  Input Subnormal cumulative\n"), bit (fpscr, 7));
+  printf (_("   IXC = %u  Inexact cumulative\n"), bit (fpscr, 4));
+  printf (_("   UFC = %u  Underflow cumulative\n"), bit (fpscr, 3));
+  printf (_("   OFC = %u  Overflow cumulative\n"), bit (fpscr, 2));
+  printf (_("   DZC = %u  Division by Zero cumulative\n"), bit (fpscr, 1));
+  printf (_("   IOC = %u  Invalid Operation cumulative\n"), bit (fpscr, 0));
 
-  type = (status >> 24) & 127;
-  if (status & (1 << 31))
-    printf (_("Hardware FPU type %d\n"), type);
-  else
-    printf (_("Software FPU type %d\n"), type);
-  /* i18n: [floating point unit] mask */
-  fputs (_("mask: "), stdout);
-  print_fpu_flags (status >> 16);
-  /* i18n: [floating point unit] flags */
-  fputs (_("flags: "), stdout);
-  print_fpu_flags (status);
+  /* If the FPS register has a valid name, them print out it's value.  */
+  if (arm_register_names[ARM_FPS_REGNUM] == NULL || 
+      *arm_register_names[ARM_FPS_REGNUM] != '\0')
+  {  
+    uint32_t status = read_register (ARM_FPS_REGNUM);
+    int type;
+
+    type = (status >> 24) & 127;
+    if (status & (1 << 31))
+      printf (_("Hardware FPU type %d\n"), type);
+    else
+      printf (_("Software FPU type %d\n"), type);
+    /* i18n: [floating point unit] mask */
+    fputs (_("mask: "), stdout);
+    print_fpu_flags (status >> 16);
+    /* i18n: [floating point unit] flags */
+    fputs (_("flags: "), stdout);
+    print_fpu_flags (status);
+  }
 }
+
+
+
+/* APPLE LOCAL BEGIN: Add PSR and FPSCR built in types for displaying
+   register contents as bitfields.  */
+static struct type *
+build_builtin_type_arm_psr_mode_enum (void)
+{
+  static struct gdbtypes_enum_info mode_enums[] = {
+    {"usr",	0x10 },
+    {"fiq",	0x11 },
+    {"irq",	0x12 },
+    {"svc",	0x13 },
+    {"dbg",	0x15 },	/* XScale debug mode.  */
+    {"abt",	0x17 },
+    {"und",	0x1d },
+    {"sys",	0x1f }
+  };
+  uint32_t num_mode_enums = sizeof (mode_enums)/sizeof (mode_enums[0]);
+  return build_builtin_enum ("__gdb_builtin_type_arm_psr_mode_enum", 4, 
+			     TYPE_FLAG_UNSIGNED, mode_enums, num_mode_enums);
+}
+
+static struct type *
+build_builtin_type_arm_psr (void)
+{
+  struct gdbtypes_bitfield_info psr_bitfields[] = {
+    /* Print entire value first and use the void data pointer
+       so that the value gets displayed as hex by default. By giving
+       the value an empty name, the register value can be assigned
+       in expressions using "p $cpsr = 0x00000000, yet the bitfield
+       values can still be accessed and modified individually.*/
+    {"",	builtin_type_void_data_ptr,  31,  0 },
+    {"n",	builtin_type_uint32,  31, 31 },
+    {"z",	builtin_type_uint32,  30, 30 },
+    {"c",	builtin_type_uint32,  29, 29 },
+    {"v",	builtin_type_uint32,  28, 28 },
+    {"q",	builtin_type_uint32,  27, 27 },
+    {"j",	builtin_type_uint32,  24, 24 },
+    {"ge",      builtin_type_uint32,  19, 16 },
+    {"e",	builtin_type_uint32,   9,  9 },
+    {"a",	builtin_type_uint32,   8,  8 },
+    {"i",	builtin_type_uint32,   7,  7 },
+    {"f",	builtin_type_uint32,   6,  6 },
+    {"t",	builtin_type_uint32,   5,  5 },
+    {"mode",    build_builtin_type_arm_psr_mode_enum (),   4,  0 },
+  };
+
+  uint32_t num_psr_bitfields = sizeof (psr_bitfields)/sizeof (psr_bitfields[0]);
+  return build_builtin_bitfield ("__gdb_builtin_type_arm_psr", 4, 
+				psr_bitfields, num_psr_bitfields);
+}
+
+static struct type *
+build_builtin_type_arm_fpscr (void)
+{
+  struct gdbtypes_bitfield_info fpscr_bitfields[] = {
+    /* Print entire value first and use the void data pointer
+       so that the value gets displayed as hex by default. By giving
+       the value an empty name, the register value can be assigned
+       in expressions using "p $fpscr = 0x00000000, yet the bitfield
+       values can still be accessed and modified individually.*/
+    {"",	builtin_type_void_data_ptr,  31,  0 },
+    {"n",	builtin_type_uint32,  31, 31 },
+    {"z",	builtin_type_uint32,  30, 30 },
+    {"c",	builtin_type_uint32,  29, 29 },
+    {"v",	builtin_type_uint32,  28, 28 },
+    {"dn",      builtin_type_uint32,  25, 25 },
+    {"fz",      builtin_type_uint32,  24, 24 },
+    {"rmode",   builtin_type_uint32,  23, 22 },
+    {"stride",  builtin_type_uint32,  21, 20 },
+    {"len",     builtin_type_uint32,  18, 16 },
+    {"ide",     builtin_type_uint32,  15, 15 },
+    {"ixe",     builtin_type_uint32,  12, 12 },
+    {"ufe",     builtin_type_uint32,  11, 11 },
+    {"ofe",     builtin_type_uint32,  10, 10 },
+    {"dze",     builtin_type_uint32,   9,  9 },
+    {"ioe",     builtin_type_uint32,   8,  8 },
+    {"idc",     builtin_type_uint32,   7,  7 },
+    {"ixc",     builtin_type_uint32,   4,  4 },
+    {"ufc",     builtin_type_uint32,   3,  3 },
+    {"ofc",     builtin_type_uint32,   2,  2 },
+    {"dzc",     builtin_type_uint32,   1,  1 },
+    {"ioc",     builtin_type_uint32,   0,  0 }
+  };
+  uint32_t num_fpscr_bitfields = sizeof (fpscr_bitfields)/
+				 sizeof (fpscr_bitfields[0]);
+  return build_builtin_bitfield ("__gdb_builtin_type_arm_fpscr", 4, 
+				fpscr_bitfields, num_fpscr_bitfields);
+}
+
+/* APPLE LOCAL END */
 
 /* Return the GDB type object for the "standard" data type of data in
    register N.  */
@@ -1379,8 +3096,33 @@ arm_register_type (struct gdbarch *gdbarch, int regnum)
       else
 	return builtin_type_arm_ext_littlebyte_bigword;
     }
+  /* APPLE LOCAL START: Use new ARM PSR built in type.  */
+  else if (regnum == ARM_PS_REGNUM)
+    return builtin_type_arm_psr;
+  /* APPLE LOCAL END.  */
   else
-    return builtin_type_int32;
+    {
+      if (regnum < ARM_FIRST_VFP_REGNUM)
+	return builtin_type_int32;
+      if (regnum == ARM_FPSCR_REGNUM)
+	return builtin_type_arm_fpscr;
+      else if (regnum >= ARM_FIRST_VFP_REGNUM && 
+	  regnum < ARM_FIRST_VFP_PSEUDO_REGNUM)
+	{
+	  if (TARGET_BYTE_ORDER == BFD_ENDIAN_BIG)
+	    return builtin_type_ieee_single_big;
+	  else
+	    return builtin_type_ieee_single_little;
+	}
+      else if (regnum <= ARM_LAST_VFP_PSEUDO_REGNUM)
+	{
+	  if (TARGET_BYTE_ORDER == BFD_ENDIAN_BIG)
+	    return builtin_type_ieee_double_big;
+	  else
+	    return builtin_type_ieee_double_little;
+	}
+    }
+  return builtin_type_int32;
 }
 
 /* Index within `registers' of the first byte of the space for
@@ -1389,15 +3131,8 @@ arm_register_type (struct gdbarch *gdbarch, int regnum)
 static int
 arm_register_byte (int regnum)
 {
-  if (regnum < ARM_F0_REGNUM)
-    return regnum * INT_REGISTER_SIZE;
-  else if (regnum < ARM_PS_REGNUM)
-    return (NUM_GREGS * INT_REGISTER_SIZE
-	    + (regnum - ARM_F0_REGNUM) * FP_REGISTER_SIZE);
-  else
-    return (NUM_GREGS * INT_REGISTER_SIZE
-	    + NUM_FREGS * FP_REGISTER_SIZE
-	    + (regnum - ARM_FPS_REGNUM) * STATUS_REGISTER_SIZE);
+  /* APPLE LOCAL: Use register byte offset table.   */
+  return arm_register_offsets[regnum];
 }
 
 /* Map GDB internal REGNUM onto the Arm simulator register numbers.  */
@@ -1453,7 +3188,7 @@ convert_to_extended (const struct floatformat *fmt, void *dbl, const void *ptr)
 }
 
 static int
-condition_true (unsigned long cond, unsigned long status_reg)
+condition_true (uint32_t cond, uint32_t status_reg)
 {
   if (cond == INST_AL || cond == INST_NV)
     return 1;
@@ -1494,35 +3229,595 @@ condition_true (unsigned long cond, unsigned long status_reg)
   return 1;
 }
 
-/* Support routines for single stepping.  Calculate the next PC value.  */
-#define submask(x) ((1L << ((x) + 1)) - 1)
-#define bit(obj,st) (((obj) >> (st)) & 1)
-#define bits(obj,st,fn) (((obj) >> (st)) & submask ((fn) - (st)))
-#define sbits(obj,st,fn) \
-  ((long) (bits(obj,st,fn) | ((long) bit(obj,fn) * ~ submask (fn - st))))
-#define BranchDest(addr,instr) \
-  ((CORE_ADDR) (((long) (addr)) + 8 + (sbits (instr, 0, 23) << 2)))
-#define ARM_PC_32 1
+/* APPLE LOCAL: Centralize the prologue scan and skip code. */
 
-static unsigned long
-shifted_reg_val (unsigned long inst, int carry, unsigned long pc_val,
-		 unsigned long status_reg)
+/* Callback for arm_macosx_scan_prologue for the "mov ip, sp" opcode.  */
+static void
+arm_scan_prolog_insn_mov_ip_sp (const uint32_t insn, 
+				  arm_prologue_cache_t *cache,
+				  arm_prologue_state_t *state)
 {
-  unsigned long res, shift;
-  int rm = bits (inst, 0, 3);
-  unsigned long shifttype = bits (inst, 5, 6);
+  state->ip_offset = 0;
+}
 
-  if (bit (inst, 4))
+/* Callback for arm_macosx_scan_prologue that scans prologue instructions that
+   are addressing mode 1 data processing commands whose shifter operand 
+   is an immediate (bit 25 set).  */
+static void
+arm_scan_prolog_insn_data_proc_imm (const uint32_t insn, 
+				  arm_prologue_cache_t *cache,
+				  arm_prologue_state_t *state)
+{
+  uint32_t data_processing_op = bits (insn, 21, 24);
+  int Rd = bits (insn, 12, 15);
+  int Rn = bits (insn, 16, 19);
+  int handled = 0;
+
+  uint32_t imm = data_proc_immediate (insn);
+
+  if (Rd == ARM_FP_REGNUM)
     {
-      int rs = bits (inst, 8, 11);
+      /* Data processing instructions to the FP.  */
+      if (Rn == ARM_SP_REGNUM)
+	{
+	  switch (data_processing_op)
+	    {
+	      case ARM_DATA_PROC_OP_ADD:  /* add fp, sp #n  */
+		state->fp_offset = imm + state->sp_offset;	    
+		cache->framereg = ARM_FP_REGNUM;
+		handled = 1;
+		break;
+	    }
+	}
+      else if (Rn == ARM_IP_REGNUM)
+	{
+	  switch (data_processing_op)
+	    {
+	      case ARM_DATA_PROC_OP_SUB:  /* sub fp, ip #n  */
+		state->fp_offset = -imm + state->ip_offset;
+		cache->framereg = ARM_FP_REGNUM;
+		handled = 1;
+		break;
+	    }
+	}
+    }
+  else if (Rd == ARM_IP_REGNUM)
+    {
+      /* Data processing instructions to the IP.  */
+       if (Rn == ARM_SP_REGNUM)
+	{
+     	  switch (data_processing_op)
+	    {
+	      case ARM_DATA_PROC_OP_SUB:  /* sub ip, sp #n */
+		state->ip_offset = -imm;
+		handled = 1;
+		break;
+		
+	      case ARM_DATA_PROC_OP_ADD:  /* add ip, sp #n */
+		state->ip_offset = imm;
+		handled = 1;
+		break;
+	    }
+	}
+    }
+  else if (Rd == ARM_SP_REGNUM)
+    {
+      /* Data processing instructions to the SP.  */
+      if (Rn == ARM_SP_REGNUM)
+	{
+     	  switch (data_processing_op)
+	    {
+	      case ARM_DATA_PROC_OP_SUB:  /* sub sp, sp #n */
+		state->sp_offset -= imm; 
+		handled = 1;
+		break;
+	    }
+	}
+    }
+
+  if (!handled)
+      warning ("Unhandled case in arm_scan_prolog_insn_arithmetic_rd_sp_imm "
+	       "for instruction 0x%8.8x\n", insn);    
+}
+
+/* Callback for arm_macosx_scan_prologue that scans prologue instructions that
+   are store operations to the SP that also update the SP.  */
+static void
+arm_scan_prolog_insn_str_rd_sp (const uint32_t insn, 
+				  arm_prologue_cache_t *cache,
+				  arm_prologue_state_t *state)
+{
+    /* str Rd, [sp, #-n]! */
+    long Rd = bits (insn, 12, 15);
+    long offset_12 = (insn & 0xfff);
+    state->sp_offset -= offset_12;
+    cache->saved_regs[Rd].addr = state->sp_offset;
+}
+
+/* Callback for arm_macosx_scan_prologue that scans prologue instructions that
+   are store multiple register values by first decrementing the SP by
+   the number of registers and then stores them sequentially in memory.  */
+static void
+arm_scan_prolog_insn_stmfd_sp (const uint32_t insn, 
+				  arm_prologue_cache_t *cache,
+				  arm_prologue_state_t *state)
+{
+  /* stmfd sp!,{...} */
+  int mask = insn & 0xffff;
+  int regno;
+  
+  /* Calculate offsets of saved registers.  */
+  for (regno = ARM_PC_REGNUM; regno >= 0; regno--)
+    if (mask & (1 << regno))
+      {
+	state->sp_offset -= 4;
+	cache->saved_regs[regno].addr = state->sp_offset;
+      }
+}
+
+static void
+arm_scan_prolog_insn_stfe_fn_sp_minus_12 (const uint32_t insn, 
+				  arm_prologue_cache_t *cache,
+				  arm_prologue_state_t *state)
+{
+  /* stfe f?, [sp, -#c]! */
+  int regno = ARM_F0_REGNUM + ((insn >> 12) & 0x07);
+  state->sp_offset -= 12;
+  cache->saved_regs[regno].addr = state->sp_offset;
+}
+
+
+static void
+arm_scan_prolog_insn_sfmfd_fn_4_sp (const uint32_t insn, 
+				  arm_prologue_cache_t *cache,
+				  arm_prologue_state_t *state)
+{
+  /* sfmfd f0, 4, [sp!] */
+  int n_saved_fp_regs;
+  uint32_t fp_start_reg, fp_bound_reg;
+
+  if ((insn & 0x800) == 0x800)		/* N0 is set */
+    {
+      if ((insn & 0x40000) == 0x40000)	/* N1 is set */
+	n_saved_fp_regs = 3;
+      else
+	n_saved_fp_regs = 1;
+    }
+  else
+    {
+      if ((insn & 0x40000) == 0x40000)	/* N1 is set */
+	n_saved_fp_regs = 2;
+      else
+	n_saved_fp_regs = 4;
+    }
+
+  fp_start_reg = ARM_F0_REGNUM + ((insn >> 12) & 0x7);
+  fp_bound_reg = fp_start_reg + n_saved_fp_regs;
+  for (; fp_start_reg < fp_bound_reg; fp_start_reg++)
+    {
+      state->sp_offset -= 12;
+      cache->saved_regs[fp_start_reg++].addr = state->sp_offset;
+    }
+}
+
+static void
+arm_scan_prolog_insn_fstmdb (const uint32_t insn, arm_prologue_cache_t *cache,
+			      arm_prologue_state_t *state)
+{
+  /* fstmdb sp!, {...} ; for single, double and and unknown precisions. */
+  int32_t lo_reg = -1; 
+  int32_t hi_reg = -1;
+  uint32_t float_op = bits (insn, 8, 11);
+  uint32_t offset = insn & 0xFFu;
+  int32_t Sn; /* Must be a signed value.  */
+
+  switch (float_op)
+    {
+      case 0xa:	/* 0b1010 - Single Precision VFP regs (s0-s31) */
+	{
+	  uint32_t Fd = bits (insn, 12, 15);
+	  uint32_t d = bit (insn, 22); 
+	  /* Since Single precision regs go from 0-31, and Fd is only
+	     4 bits, we need to use bit 22 as the LSBit:
+	       - Sn[4:1] = Fd
+	       - Sn[0] = d  */
+	  lo_reg = (Fd << 1) + d; 
+	  hi_reg = lo_reg + offset - 1;
+	}
+	break;
+
+      case 0xb:	/* 0b1010 - Double Precision VFP regs (d0-d15) */
+	{
+	  uint32_t Dd = bits (insn, 12, 15);
+	  /* Skip bit zero of the offset in bits 7:0 since if it is set, 
+	     it implies this insn is a fstmdbx and it doesn't change how
+	     we handle the two.  */
+	  offset = offset & 0xFEu;
+	  lo_reg = (Dd * 2) + ARM_FIRST_VFP_REGNUM;
+	  hi_reg = lo_reg + offset - 1;
+	}
+	break;
+      
+      default:
+	warning (_("arm_scan_prolog_insn_fstmdb unhandled float op: 0x%x"), 
+		 float_op);
+	return;
+    }
+    
+  /* Calculate offsets of saved registers for the Single Precision VFP
+     regs only, since the values of the double precisions registers will
+     also get updated. Note the Sn must be signed integer for this to work
+     in all cases. */
+  if (lo_reg >= 0 && hi_reg >= lo_reg)
+    {
+      for (Sn = hi_reg; Sn >= lo_reg; Sn--)
+	{
+	  state->sp_offset -= 4;
+	  cache->saved_regs[Sn].addr = state->sp_offset;
+	}
+    }
+  else
+    {
+      warning (_("arm_scan_prolog_insn_fstmdb got invalid register range: "
+	       "s%d-s%d"), lo_reg, hi_reg);
+    }
+}
+
+
+static void 
+thumb_scan_prolog_insn_push (const uint32_t insn, 
+			     arm_prologue_cache_t *cache,
+			     arm_prologue_state_t *state)			     
+{
+  int regno;
+  state->findmask |= 1;		/* push found */
+  /* Bits 0-7 contain a mask for registers R0-R7.  Bit 8 says
+     whether to save LR (R14).  */
+  uint32_t mask = (insn & 0xff) | ((insn & 0x100) << 6);
+
+  /* Calculate offsets of saved R0-R7 and LR.  */
+  for (regno = ARM_LR_REGNUM; regno >= 0; regno--)
+    if (mask & (1 << regno))
+      {
+	cache->framesize += 4;
+	cache->saved_regs[state->reg_saved_in_reg[regno]].addr = -cache->framesize;
+	/* Reset saved register map.  */
+	state->reg_saved_in_reg[regno] = regno;
+      }
+}
+
+static void 
+thumb_scan_prolog_insn_sub4_sp_imm (const uint32_t insn, 
+				    arm_prologue_cache_t *cache,
+				    arm_prologue_state_t *state)
+{
+  int offset;
+  if ((state->findmask & 1) == 0) /* before push?  */
+    return;
+  else
+    state->findmask |= 4;	  /* sub sp found */
+
+  offset = bits (insn, 0, 6) * 4; /* get scaled offset */
+  cache->frameoffset += offset;
+  cache->framesize += offset;
+}
+
+
+static void 
+thumb_scan_prolog_insn_add6_r7_sp (const uint32_t insn, 
+				   arm_prologue_cache_t *cache,
+				   arm_prologue_state_t *state)
+{
+  state->findmask |= 2;	  /* setting of r7 found */
+  cache->framereg = THUMB_FP_REGNUM;
+  /* get scaled offset */
+  cache->frameoffset = (insn & 0xff) << 2;
+}
+
+static void 
+thumb_scan_prolog_insn_add_sp_rm (const uint32_t insn, 
+				   arm_prologue_cache_t *cache,
+				   arm_prologue_state_t *state)
+{
+  /* Make sure we have found our push instruction first.  */
+  if ((state->findmask & 1) == 0) 
+    return; /* before push.  */
+
+  /* add/sub sp found */
+  state->findmask |= 4;	  
+  
+  uint32_t Rm = bits (insn, 3, 6);
+  CORE_ADDR rm_load_addr = state->reg_loaded_from_address[Rm];
+
+  if (rm_load_addr != INVALID_ADDRESS)
+    {
+      int32_t offset = read_memory_integer (rm_load_addr, 4);
+
+      if (arm_debug > 6)
+	fprintf_unfiltered (gdb_stdlog, "thumb_scan_prolog_insn_add_sp_rm () "
+			    "read immediate from [0x%s] = 0x%8.8x (%d)\n", 
+			    paddr (rm_load_addr), offset, offset);
+
+      cache->frameoffset -= offset;
+      cache->framesize -= offset;
+    }
+  else
+    {
+      /* If we see this warning it means are trying to add sp, <Rm>
+         and we don't know what the contents of Rm are (our state doesn't).
+	 We currently handle PC relative immediate loads into registers
+	 by saving the load address (see the function below named
+	 thumb_scan_prolog_insn_ldr_rd_pc_relative ()). We may need to
+	 add support for more ways to load a register in the future. Post
+	 a warning so we know that we need to take care of such issues.  */
+      warning (_("thumb_scan_prolog_insn_add_sp_rm: add sp, r%u "
+	       "encountered with unknown contents for r%u"), Rm, Rm);
+    }
+}
+
+/* If we track PC relative loads into registers we can catch large
+   modifications to the stack pointer with code such as:
+     0x00001a64:  b5b0     push   {r4, r5, r7, lr}
+     0x00001a66:  af02     add    r7, sp, #8
+     0x00001a68:  4c33     ldr    r4, [pc, #imm]
+     0x00001a6a:  44a5     add    sp, r4
+   We just need to save the load address from which reg Rm (r4 in this
+   case) gets loaded from (done in thumb_scan_prolog_insn_ldr_rd_pc_rel ()) 
+   and we can read the immediate data from memory (done in
+   thumb_scan_prolog_insn_add_sp_rm ()) and figure out the stack offset
+   for large thumb stacks.  */
+static void
+thumb_scan_prolog_insn_ldr_rd_pc_rel (const uint32_t insn, 
+				      arm_prologue_cache_t *cache,
+				      arm_prologue_state_t *state)
+{
+  uint32_t Rd = bits (insn, 8, 10); 
+  uint32_t immed_8 = bits (insn, 0, 7);
+  
+  /* The PC is the value for this instruction, so we need to add four
+     since the PC is 4 past the current location in the CPU pipeline. 
+     We also need to mask PC bit 1 (and we do bit zero for good 
+     measure) to zero. */
+  state->reg_loaded_from_address[Rd] = (state->pc & 0xFFFFFFFC) + 4 + 
+				       (immed_8 * 4);
+  if (arm_debug > 6)
+    fprintf_unfiltered (gdb_stdlog, "thumb_scan_prolog_insn_ldr_rd_pc_rel () "
+			"r%u #imm @ 0x%s\n", Rd, 
+			paddr (state->reg_loaded_from_address[Rd]));
+}
+
+
+static void
+thumb_scan_prolog_insn_mov_r7_sp (const uint32_t insn, 
+				  arm_prologue_cache_t *cache,
+				  arm_prologue_state_t *state)
+{
+  state->findmask |= 2;			/* setting of r7 found */
+  cache->framereg = THUMB_FP_REGNUM;
+  cache->frameoffset = 0;
+  state->reg_saved_in_reg[THUMB_FP_REGNUM] = ARM_SP_REGNUM;
+}
+
+static void 
+thumb_scan_prolog_insn_mov_rlo_rhi (const uint32_t insn, 
+				    arm_prologue_cache_t *cache,
+				    arm_prologue_state_t *state)
+{
+  int lo_reg = insn & 7;		    /* dest.  register (r0-r7) */
+  int hi_reg = ((insn >> 3) & 7) + 8;	    /* source register (r8-15) */
+  state->reg_saved_in_reg[lo_reg] = hi_reg; /* remember hi reg was saved */
+}
+
+static uint32_t
+data_proc_immediate (const uint32_t insn)
+{
+  uint32_t imm = bits (insn, 0, 7);		/* immediate value */
+  uint32_t rot = 2 * bits (insn, 8, 11);	/* rotate amount */
+  imm = (imm >> rot) | (imm << (32 - rot));
+  return imm;
+}
+
+/* APPLE LOCAL END: Centralize the prologue scan and skip code. */
+
+/* APPLE LOCAL BEGIN: switch glue recognition.  */
+/* This is set into the IN_SWITCH_GLUE macro.  FIXME - should be
+   a gdbarch vector thing.  */
+int
+arm_macosx_in_switch_glue (CORE_ADDR pc)
+{
+  int retval;
+  char *name;
+
+  retval = find_pc_partial_function (pc, &name,  NULL, NULL);
+  if (retval)
+    {
+      if (strstr (name, "__switch") == name)
+	{
+	  char *end = name + strlen ("__switch");
+	  int len = strlen (end);
+	  if ((len == 1 && *end == '8')
+	      || (len == 2 
+		  && ((*end == 'u' && *(end + 1) == '8')
+		      || (*end == '1' && *(end + 1) == '6')
+		      || (*end == '3' && *(end + 1) == '2'))))
+	    {
+	      return 1;
+	    }
+	}
+    }
+  return 0;
+}
+
+/* APPLE LOCAL BEGIN: fast stacks. */
+
+/*
+ * This is set to the FAST_COUNT_STACK macro for arm.  The return value
+ * is 1 if no errors were encountered traversing the stack, and 0 otherwise.
+ * It sets COUNT to the stack depth.  If PRINT_FUN is non-null, then 
+ * it will be passed the pc & fp for each frame as it is encountered.
+ */
+
+/*
+ * COUNT_LIMIT parameter sets a limit on the number of frames that
+ * will be counted by this function.  -1 means unlimited.
+ *
+ * PRINT_LIMIT parameter sets a limit on the number of frames for
+ * which the full information is printed.  -1 means unlimited.
+ *
+ */
+
+int
+arm_macosx_fast_show_stack (unsigned int count_limit, unsigned int print_limit,
+			    unsigned int *count,
+			    void (print_fun) (struct ui_out * uiout, 
+					      int frame_num,
+					      CORE_ADDR pc, CORE_ADDR fp))
+{
+  CORE_ADDR fp, prev_fp;
+  static CORE_ADDR sigtramp_start = 0;
+  static CORE_ADDR sigtramp_end = 0;
+  unsigned int i = 0;
+  int more_frames;
+  int success = 1;
+  struct frame_info *fi;
+  ULONGEST next_fp = 0;
+  ULONGEST pc = 0;
+  int wordsize = gdbarch_tdep (current_gdbarch)->wordsize;
+
+  more_frames = fast_show_stack_trace_prologue (count_limit, print_limit, 
+						wordsize, &sigtramp_start, 
+						&sigtramp_end, &i, &fi, 
+						print_fun);
+
+  if (more_frames < 0)
+    {
+      /* An error occurred during the initial stack frames.  */
+      success = 0;
+    }
+  else if (more_frames == 0)
+    {
+      /* We already have all the frames we need.  */
+      success = 1;
+    }
+  else if (i < count_limit)
+    {
+      /* We got some stack frames and still need more.  */
+      arm_prologue_cache_t *cache = get_arm_prologue_cache (fi);
+      fp = get_frame_register_unsigned (fi, cache ? cache->framereg : 
+					   ARM_FP_REGNUM);
+      prev_fp = fp;
+      int done = (fp == 0);
+
+      while (!done && i < count_limit)
+	{
+	  int add_frame = 0;
+	  CORE_ADDR next_fp_addr = 0;
+	  CORE_ADDR next_pc_addr = 0;
+	  if ((sigtramp_start <= pc) && (pc < sigtramp_end))
+	    {
+	      CORE_ADDR mcontext_addr;
+	      CORE_ADDR gpr_addr;
+	      /* We are in signal trampoline.  */
+	      mcontext_addr = read_memory_unsigned_integer (fp + 104, GP_REG_SIZE);
+	      gpr_addr = mcontext_addr + EXC_STATE_SIZE;
+	      next_fp_addr = gpr_addr + (ARM_FP_REGNUM * GP_REG_SIZE);
+	      next_pc_addr = gpr_addr + (ARM_PC_REGNUM * GP_REG_SIZE);
+	    }        
+	  else
+	    {
+	      /* We have a normal frame.  */
+	      next_fp_addr = fp;
+	      next_pc_addr = fp + 4;
+	    }
+	    
+	  if (next_fp_addr != 0 && next_pc_addr != 0)
+	    {
+	      /* Read the next FP by dereferencing the current FP.  */
+	      if (safe_read_memory_unsigned_integer (next_fp_addr, GP_REG_SIZE, 
+						     &next_fp))
+		{
+		  if (next_fp == 0)
+		    done = 1; /* normal end of our FP chain.  */
+		  else if (next_fp == fp)
+		    {
+		      warning ("Frame pointer point back at the previous frame");
+		      done = 1; /* Avoid infinite loop.  */
+		      success = 0;  /* This is not good, return error... */
+		    }
+		  else 
+		    {
+		      /* Read the previous PC value.  */
+		      if (safe_read_memory_unsigned_integer (next_pc_addr, 
+							     GP_REG_SIZE, &pc))
+			{
+			  if (pc == 0)
+			    done = 1;
+			  else
+			    add_frame = 1; 
+			}
+		      else
+			{
+			  done = 1; /* Couldn't read the previous PC.  */
+			}
+		    }
+		}
+	      else
+		{
+		  done = 1; /* Couldn't read the previous FP.  */
+		}
+	    }
+	  else
+	    {
+	      done = 1; /* Invalid previous FP and PC addresses.  */
+	    }
+
+	  if (add_frame)
+	    {
+	      prev_fp = fp;
+	      fp = next_fp;
+	      /* Strip bit zero (thumb bit) for any return addresses since
+	         we read this from memory.  */
+	      pc = ADDR_BITS_REMOVE (pc);
+	      pc_set_load_state (pc, OBJF_SYM_ALL, 0);
+      
+	      if (print_fun && (i < print_limit))
+		print_fun (uiout, i, pc, fp);
+	      i++;
+
+	      if (!backtrace_past_main && addr_inside_main_func (pc))
+		done = 1;
+	    }
+	  else
+	    done = 1;
+	}
+    }
+
+  if (print_fun)
+    ui_out_end (uiout, ui_out_type_list);
+
+  *count = i;
+  return success;
+}
+
+static uint32_t
+shifted_reg_val (uint32_t insn, int carry, uint32_t pc_val,
+		 uint32_t status_reg)
+{
+  uint32_t res, shift;
+  int rm = bits (insn, 0, 3);
+  uint32_t shifttype = bits (insn, 5, 6);
+
+  if (bit (insn, 4))
+    {
+      int rs = bits (insn, 8, 11);
       shift = (rs == 15 ? pc_val + 8 : read_register (rs)) & 0xFF;
     }
   else
-    shift = bits (inst, 7, 11);
+    shift = bits (insn, 7, 11);
 
   res = (rm == 15
 	 ? ((pc_val | (ARM_PC_32 ? 0 : status_reg))
-	    + (bit (inst, 4) ? 12 : 8))
+	    + (bit (insn, 4) ? 12 : 8))
 	 : read_register (rm));
 
   switch (shifttype)
@@ -1557,7 +3852,7 @@ shifted_reg_val (unsigned long inst, int carry, unsigned long pc_val,
 /* Return number of 1-bits in VAL.  */
 
 static int
-bitcount (unsigned long val)
+bitcount (uint32_t val)
 {
   int nbits;
   for (nbits = 0; val != 0; nbits++)
@@ -1568,10 +3863,15 @@ bitcount (unsigned long val)
 CORE_ADDR
 thumb_get_next_pc (CORE_ADDR pc)
 {
-  unsigned long pc_val = ((unsigned long) pc) + 4;	/* PC after prefetch */
+  uint32_t pc_val = ((uint32_t) pc) + 4;	/* PC after prefetch */
   unsigned short inst1 = read_memory_integer (pc, 2);
   CORE_ADDR nextpc = pc + 2;		/* default is next instruction */
-  unsigned long offset;
+  uint32_t offset;
+
+  if (arm_debug)
+    fprintf_unfiltered (gdb_stdlog, "thumb_get_next_pc (%s) : 0x%4.4x", 
+			paddr (pc), inst1);
+
 
   if ((inst1 & 0xff00) == 0xbd00)	/* pop {rlist, pc} */
     {
@@ -1588,8 +3888,8 @@ thumb_get_next_pc (CORE_ADDR pc)
     }
   else if ((inst1 & 0xf000) == 0xd000)	/* conditional branch */
     {
-      unsigned long status = read_register (ARM_PS_REGNUM);
-      unsigned long cond = bits (inst1, 8, 11);
+      uint32_t status = read_register (ARM_PS_REGNUM);
+      uint32_t cond = bits (inst1, 8, 11);
       if (cond != 0x0f && condition_true (cond, status))    /* 0x0f = SWI */
 	nextpc = pc_val + (sbits (inst1, 0, 7) << 1);
     }
@@ -1600,6 +3900,9 @@ thumb_get_next_pc (CORE_ADDR pc)
   else if ((inst1 & 0xf800) == 0xf000)	/* long branch with link, and blx */
     {
       unsigned short inst2 = read_memory_integer (pc + 2, 2);
+      if (arm_debug)
+	fprintf_unfiltered (gdb_stdlog, "%4.4x", inst2);
+
       offset = (sbits (inst1, 0, 10) << 12) + (bits (inst2, 0, 10) << 1);
       nextpc = pc_val + offset;
       /* For BLX make sure to clear the low bits.  */
@@ -1617,6 +3920,10 @@ thumb_get_next_pc (CORE_ADDR pc)
       if (nextpc == pc)
 	error (_("Infinite loop detected"));
     }
+  else if ((inst1 & 0xff87) == 0x4687)  /* mov pc, <Rm> */
+    {
+      nextpc = read_register (bits (inst1, 3, 6));
+    }
 
   return nextpc;
 }
@@ -1624,18 +3931,22 @@ thumb_get_next_pc (CORE_ADDR pc)
 CORE_ADDR
 arm_get_next_pc (CORE_ADDR pc)
 {
-  unsigned long pc_val;
-  unsigned long this_instr;
-  unsigned long status;
+  uint32_t pc_val;
+  uint32_t this_instr;
+  uint32_t status;
   CORE_ADDR nextpc;
 
   if (arm_pc_is_thumb (pc))
     return thumb_get_next_pc (pc);
 
-  pc_val = (unsigned long) pc;
+  pc_val = (uint32_t) pc;
   this_instr = read_memory_integer (pc, 4);
   status = read_register (ARM_PS_REGNUM);
   nextpc = (CORE_ADDR) (pc_val + 4);	/* Default case */
+
+  if (arm_debug)
+    fprintf_unfiltered (gdb_stdlog, "arm_get_next_pc (%s) : 0x%8.8x", 
+			paddr (pc), this_instr);
 
   if (condition_true (bits (this_instr, 28, 31), status))
     {
@@ -1646,8 +3957,8 @@ arm_get_next_pc (CORE_ADDR pc)
 	case 0x2:
 	case 0x3:
 	  {
-	    unsigned long operand1, operand2, result = 0;
-	    unsigned long rn;
+	    uint32_t operand1, operand2, result = 0;
+	    uint32_t rn;
 	    int c;
 
 	    if (bits (this_instr, 12, 15) != 15)
@@ -1677,70 +3988,65 @@ arm_get_next_pc (CORE_ADDR pc)
 	    operand1 = (rn == 15) ? pc_val + 8 : read_register (rn);
 
 	    if (bit (this_instr, 25))
-	      {
-		unsigned long immval = bits (this_instr, 0, 7);
-		unsigned long rotate = 2 * bits (this_instr, 8, 11);
-		operand2 = ((immval >> rotate) | (immval << (32 - rotate)))
-		  & 0xffffffff;
-	      }
+	      operand2 = data_proc_immediate (this_instr);
 	    else		/* operand 2 is a shifted register */
 	      operand2 = shifted_reg_val (this_instr, c, pc_val, status);
 
 	    switch (bits (this_instr, 21, 24))
 	      {
-	      case 0x0:	/*and */
+	      case ARM_DATA_PROC_OP_AND:	/*and */
 		result = operand1 & operand2;
 		break;
 
-	      case 0x1:	/*eor */
+	      case ARM_DATA_PROC_OP_EOR:	/*eor */
 		result = operand1 ^ operand2;
 		break;
 
-	      case 0x2:	/*sub */
+	      case ARM_DATA_PROC_OP_SUB:	/*sub */
 		result = operand1 - operand2;
 		break;
 
-	      case 0x3:	/*rsb */
+	      case ARM_DATA_PROC_OP_RSB:	/*rsb */
 		result = operand2 - operand1;
 		break;
 
-	      case 0x4:	/*add */
+	      case ARM_DATA_PROC_OP_ADD:	/*add */
 		result = operand1 + operand2;
 		break;
 
-	      case 0x5:	/*adc */
+	      case ARM_DATA_PROC_OP_ADC:	/*adc */
 		result = operand1 + operand2 + c;
 		break;
 
-	      case 0x6:	/*sbc */
+	      case ARM_DATA_PROC_OP_SBC:	/*sbc */
 		result = operand1 - operand2 + c;
 		break;
 
-	      case 0x7:	/*rsc */
+	      case ARM_DATA_PROC_OP_RSC:	/*rsc */
 		result = operand2 - operand1 + c;
 		break;
 
-	      case 0x8:
-	      case 0x9:
-	      case 0xa:
-	      case 0xb:	/* tst, teq, cmp, cmn */
-		result = (unsigned long) nextpc;
+	      case ARM_DATA_PROC_OP_TST:
+	      case ARM_DATA_PROC_OP_TEQ:
+	      case ARM_DATA_PROC_OP_CMP:
+	      case ARM_DATA_PROC_OP_CMN:	/* tst, teq, cmp, cmn */
+		result = (uint32_t) nextpc;
 		break;
 
-	      case 0xc:	/*orr */
+	      case ARM_DATA_PROC_OP_ORR:	/*orr */
 		result = operand1 | operand2;
 		break;
 
-	      case 0xd:	/*mov */
+	      case ARM_DATA_PROC_OP_MOV:	/*mov */
 		/* Always step into a function.  */
 		result = operand2;
 		break;
 
-	      case 0xe:	/*bic */
+	      case ARM_DATA_PROC_OP_BIC:	/*bic */
 		result = operand1 & ~operand2;
 		break;
 
-	      case 0xf:	/*mvn */
+	      case ARM_DATA_PROC_OP_MVN:	/*mvn */
 		result = ~operand2;
 		break;
 	      }
@@ -1761,8 +4067,8 @@ arm_get_next_pc (CORE_ADDR pc)
 	      if (bits (this_instr, 12, 15) == 15)
 		{
 		  /* rd == pc */
-		  unsigned long rn;
-		  unsigned long base;
+		  uint32_t rn;
+		  uint32_t base;
 
 		  if (bit (this_instr, 22))
 		    error (_("Invalid update to pc in instruction"));
@@ -1774,7 +4080,7 @@ arm_get_next_pc (CORE_ADDR pc)
 		    {
 		      /* pre-indexed */
 		      int c = (status & FLAG_C) ? 1 : 0;
-		      unsigned long offset =
+		      uint32_t offset =
 		      (bit (this_instr, 25)
 		       ? shifted_reg_val (this_instr, c, pc_val, status)
 		       : bits (this_instr, 0, 11));
@@ -1808,7 +4114,7 @@ arm_get_next_pc (CORE_ADDR pc)
 		  if (bit (this_instr, 23))
 		    {
 		      /* up */
-		      unsigned long reglist = bits (this_instr, 0, 14);
+		      uint32_t reglist = bits (this_instr, 0, 14);
 		      offset = bitcount (reglist) * 4;
 		      if (bit (this_instr, 24))		/* pre */
 			offset += 4;
@@ -1817,7 +4123,7 @@ arm_get_next_pc (CORE_ADDR pc)
 		    offset = -4;
 
 		  {
-		    unsigned long rn_val =
+		    uint32_t rn_val =
 		    read_register (bits (this_instr, 16, 19));
 		    nextpc =
 		      (CORE_ADDR) read_memory_integer ((CORE_ADDR) (rn_val
@@ -1873,15 +4179,28 @@ static void
 arm_software_single_step (enum target_signal sig, int insert_bpt)
 {
   static int next_pc;		 /* State between setting and unsetting.  */
-  static char break_mem[BREAKPOINT_MAX]; /* Temporary storage for mem@bpt */
+  static gdb_byte break_mem[BREAKPOINT_MAX]; /* Temporary storage for mem@bpt */
+  /* APPLE LOCAL: When you set a single step breakpoint you have to lock
+     the scheduler to this thread.  Otherwise - at least on MacOS X - a bunch
+     of threads might hit the step breakpoint.  */
+  static enum scheduler_locking_mode old_mode;
 
   if (insert_bpt)
     {
       next_pc = arm_get_next_pc (read_register (ARM_PC_REGNUM));
+      if (arm_debug)
+	fprintf_unfiltered (gdb_stdlog, "==> next_pc = %s\n", paddr (next_pc));
+
       target_insert_breakpoint (next_pc, break_mem);
+      if (current_target.to_has_thread_control & tc_schedlock)
+	old_mode = set_scheduler_locking_mode (scheduler_locking_on);
     }
   else
-    target_remove_breakpoint (next_pc, break_mem);
+    {
+      target_remove_breakpoint (next_pc, break_mem);
+      if (current_target.to_has_thread_control & tc_schedlock)
+	set_scheduler_locking_mode (old_mode);
+    }
 }
 
 #include "bfd-in2.h"
@@ -1966,16 +4285,27 @@ gdb_print_insn_arm (bfd_vma memaddr, disassemble_info *info)
 #define ARM_BE_BREAKPOINT {0xE7,0xFF,0xDE,0xFE}
 #endif
 #ifndef THUMB_LE_BREAKPOINT
+#ifdef TM_NEXTSTEP
+/* APPLE LOCAL: Don't use a SWI instruction for Thumb breakpoints.  */
+#define THUMB_LE_BREAKPOINT {0xfe,0xde}
+#else
 #define THUMB_LE_BREAKPOINT {0xfe,0xdf}
 #endif
+#endif
 #ifndef THUMB_BE_BREAKPOINT
+#ifdef TM_NEXTSTEP
+/* APPLE LOCAL: Don't use a SWI instruction for Thumb breakpoints.  */
+#define THUMB_BE_BREAKPOINT {0xde,0xfe}
+#else
 #define THUMB_BE_BREAKPOINT {0xdf,0xfe}
 #endif
+#endif
 
-static const char arm_default_arm_le_breakpoint[] = ARM_LE_BREAKPOINT;
-static const char arm_default_arm_be_breakpoint[] = ARM_BE_BREAKPOINT;
-static const char arm_default_thumb_le_breakpoint[] = THUMB_LE_BREAKPOINT;
-static const char arm_default_thumb_be_breakpoint[] = THUMB_BE_BREAKPOINT;
+
+static const gdb_byte arm_default_arm_le_breakpoint[] = ARM_LE_BREAKPOINT;
+static const gdb_byte arm_default_arm_be_breakpoint[] = ARM_BE_BREAKPOINT;
+static const gdb_byte arm_default_thumb_le_breakpoint[] = THUMB_LE_BREAKPOINT;
+static const gdb_byte arm_default_thumb_be_breakpoint[] = THUMB_BE_BREAKPOINT;
 
 /* Determine the type and size of breakpoint to insert at PCPTR.  Uses
    the program counter value to determine whether a 16-bit or 32-bit
@@ -2035,12 +4365,25 @@ arm_extract_return_value (struct type *type, struct regcache *regs,
 
 	case ARM_FLOAT_SOFT_FPA:
 	case ARM_FLOAT_SOFT_VFP:
+	case ARM_FLOAT_NONE:
+	case ARM_FLOAT_VFP:
 	  regcache_cooked_read (regs, ARM_A1_REGNUM, valbuf);
 	  if (TYPE_LENGTH (type) > 4)
 	    regcache_cooked_read (regs, ARM_A1_REGNUM + 1,
 				  valbuf + INT_REGISTER_SIZE);
 	  break;
 
+/*	APPLE FUTURE ADDITION: We may need to comment out the ARM_FLOAT_VFP
+	case above and use this code if we decide to send and return float 
+	and double values in the VFP registers in the future. Currently we
+	don't adopt this optional procedure call standard.
+	case ARM_FLOAT_VFP:
+	  if (TYPE_LENGTH (type) <= 4)
+	    regcache_cooked_read (regs, ARM_FIRST_VFP_REGNUM, valbuf);
+	  else if (TYPE_LENGTH (type) <= 8)
+	    regcache_cooked_read (regs, ARM_FIRST_VFP_PSEUDO_REGNUM, valbuf);
+	  break;
+*/
 	default:
 	  internal_error
 	    (__FILE__, __LINE__,
@@ -2111,7 +4454,7 @@ arm_extract_struct_value_address (struct regcache *regcache)
    register, 1 if it must be returned in memory.  */
 
 static int
-arm_use_struct_convention (int gcc_p, struct type *type)
+arm_return_in_memory (struct gdbarch *gdbarch, struct type *type)
 {
   int nRc;
   enum type_code code;
@@ -2211,7 +4554,7 @@ arm_store_return_value (struct type *type, struct regcache *regs,
 {
   if (TYPE_CODE (type) == TYPE_CODE_FLT)
     {
-      char buf[MAX_REGISTER_SIZE];
+      gdb_byte buf[MAX_REGISTER_SIZE];
 
       switch (gdbarch_tdep (current_gdbarch)->fp_model)
 	{
@@ -2223,12 +4566,25 @@ arm_store_return_value (struct type *type, struct regcache *regs,
 
 	case ARM_FLOAT_SOFT_FPA:
 	case ARM_FLOAT_SOFT_VFP:
+	case ARM_FLOAT_NONE:
+	case ARM_FLOAT_VFP:
 	  regcache_cooked_write (regs, ARM_A1_REGNUM, valbuf);
 	  if (TYPE_LENGTH (type) > 4)
 	    regcache_cooked_write (regs, ARM_A1_REGNUM + 1, 
 				   valbuf + INT_REGISTER_SIZE);
 	  break;
 
+/*	APPLE FUTURE ADDITION: We may need to comment out the ARM_FLOAT_VFP
+	case above and use this code if we decide to send and return float 
+	and double values in the VFP registers in the future. Currently we
+	don't adopt this optional procedure call standard.
+	case ARM_FLOAT_VFP:
+	  if (TYPE_LENGTH (type) <= 4)
+	    regcache_cooked_read (regs, ARM_FIRST_VFP_REGNUM, valbuf);
+	  else if (TYPE_LENGTH (type) <= 8)
+	    regcache_cooked_read (regs, ARM_FIRST_VFP_PSEUDO_REGNUM, valbuf);
+	  break;
+*/
 	default:
 	  internal_error
 	    (__FILE__, __LINE__,
@@ -2289,11 +4645,47 @@ arm_store_return_value (struct type *type, struct regcache *regs,
     }
 }
 
+/* APPLE LOCAL: This is how it works on TOT.  */
+/* Handle function return values.  */
+
+static enum return_value_convention
+arm_return_value (struct gdbarch *gdbarch, struct type *valtype,
+		  struct regcache *regcache, gdb_byte *readbuf,
+		  const gdb_byte *writebuf)
+{
+  if (TYPE_CODE (valtype) == TYPE_CODE_STRUCT
+      || TYPE_CODE (valtype) == TYPE_CODE_UNION
+      || TYPE_CODE (valtype) == TYPE_CODE_ARRAY)
+    {
+      if (arm_return_in_memory (gdbarch, valtype))
+	{
+	  if (writebuf || readbuf)
+	    {
+	      CORE_ADDR r0 = arm_extract_struct_value_address (regcache);
+	      if (writebuf)
+		target_write_memory (r0, writebuf, TYPE_LENGTH (valtype));
+
+	      if (readbuf)
+		target_read_memory (r0, readbuf, TYPE_LENGTH (valtype));
+	    }
+	  return RETURN_VALUE_ABI_RETURNS_ADDRESS;
+	}
+    }
+
+  if (writebuf)
+    arm_store_return_value (valtype, regcache, writebuf);
+
+  if (readbuf)
+    arm_extract_return_value (valtype, regcache, readbuf);
+
+  return RETURN_VALUE_REGISTER_CONVENTION;
+}
+
 static int
 arm_get_longjmp_target (CORE_ADDR *pc)
 {
   CORE_ADDR jb_addr;
-  char buf[INT_REGISTER_SIZE];
+  gdb_byte buf[INT_REGISTER_SIZE];
   struct gdbarch_tdep *tdep = gdbarch_tdep (current_gdbarch);
   
   jb_addr = read_register (ARM_A1_REGNUM);
@@ -2471,6 +4863,12 @@ set_disassembly_style_sfunc (char *args, int from_tty,
   set_disassembly_style ();
 }
 
+void
+arm_set_show_opcode_bytes (char *args, int from_tty, struct cmd_list_element *c)
+{
+  set_arm_show_opcode_bytes_option (show_opcode_bytes);
+}
+
 /* Return the ARM register name corresponding to register I.  */
 static const char *
 arm_register_name (int i)
@@ -2501,11 +4899,13 @@ set_disassembly_style (void)
     {
       arm_register_names[ARM_FPS_REGNUM] = "FPS";
       arm_register_names[ARM_PS_REGNUM] = "CPSR";
+      arm_register_names[ARM_FPSCR_REGNUM] = "FPSCR";
     }
   else
     {
       arm_register_names[ARM_FPS_REGNUM] = "fps";
       arm_register_names[ARM_PS_REGNUM] = "cpsr";
+      arm_register_names[ARM_FPSCR_REGNUM] = "fpscr";
     }
 
   /* Synchronize the disassembler.  */
@@ -2568,7 +4968,7 @@ arm_write_pc (CORE_ADDR pc, ptid_t ptid)
 static enum gdb_osabi
 arm_elf_osabi_sniffer (bfd *abfd)
 {
-  unsigned int elfosabi, eflags;
+  unsigned int elfosabi;
   enum gdb_osabi osabi = GDB_OSABI_UNKNOWN;
 
   elfosabi = elf_elfheader (abfd)->e_ident[EI_OSABI];
@@ -2585,6 +4985,37 @@ arm_elf_osabi_sniffer (bfd *abfd)
 }
 
 
+int
+arm_register_reggroup_p (struct gdbarch *gdbarch, int regnum,
+                         struct reggroup *group)
+{
+  struct gdbarch_tdep *tdep = gdbarch_tdep (current_gdbarch);
+
+  if (tdep->fp_model == ARM_FLOAT_VFP)
+    {
+      if (regnum >= ARM_FIRST_VFP_REGNUM)
+	{
+	  if (group == float_reggroup
+	      || group == all_reggroup)
+	    return 1;
+	  else
+	    return 0;
+	}
+    }
+
+  if (regnum == ARM_FPS_REGNUM)
+  {
+    if (group == float_reggroup
+	|| group == all_reggroup)
+      return 1;
+    else
+      return 0;
+  }
+      
+  return default_register_reggroup_p (gdbarch, regnum, group);
+}
+
+
 /* Initialize the current architecture based on INFO.  If possible,
    re-use an architecture from ARCHES, which is a list of
    architectures already created during this debugging session.
@@ -2683,7 +5114,11 @@ arm_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	 uses that now, and we now provide a way for the user to force
 	 the model.  So default to the most useful variant.  */
       if (fp_model == ARM_FLOAT_AUTO)
-	fp_model = ARM_FLOAT_SOFT_FPA;
+	fp_model = ARM_FLOAT_NONE;  /* APPLE LOCAL: default to no fp or fp
+				       emulation (for libgcc which has float
+				       sw support, but it just doesn't attempt
+				       to emulate floating point registers in
+				       memory).  */
     }
 
   /* If there is already a candidate, use it.  */
@@ -2712,6 +5147,14 @@ arm_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   tdep->arm_abi = arm_abi;
   tdep->fp_model = fp_model;
 
+#ifdef TM_NEXTSTEP
+  /* APPLE LOCAL HACK - we set the wordsize to 4 to keep the dyld code happy.  */
+  tdep->wordsize = 4;
+#endif
+
+  /* APPLE LOCAL Map the DWARF register numbers to gdb's internal numberings. */
+  set_gdbarch_dwarf2_reg_to_regnum (gdbarch, arm_dwarf2_reg_to_regnum);
+
   /* Breakpoints.  */
   switch (info.byte_order)
     {
@@ -2736,6 +5179,11 @@ arm_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 		      _("arm_gdbarch_init: bad byte order for float format"));
     }
 
+#ifdef TM_NEXTSTEP
+  /* APPLE LOCAL - For now lets turn off all the floating point stuff.  */
+  set_gdbarch_register_reggroup_p (gdbarch, arm_register_reggroup_p);
+#endif
+
   /* On ARM targets char defaults to unsigned.  */
   set_gdbarch_char_signed (gdbarch, 0);
 
@@ -2759,7 +5207,13 @@ arm_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   set_gdbarch_addr_bits_remove (gdbarch, arm_addr_bits_remove);
 
   /* Advance PC across function entry code.  */
+#ifdef TM_NEXTSTEP
+  set_gdbarch_skip_prologue_addr_ctx (gdbarch, 
+				      arm_macosx_skip_prologue_addr_ctx);
+  set_gdbarch_skip_prologue (gdbarch, arm_macosx_skip_prologue);
+#else
   set_gdbarch_skip_prologue (gdbarch, arm_skip_prologue);
+#endif
 
   /* Get the PC when a frame might not be available.  */
   set_gdbarch_deprecated_saved_pc_after_call (gdbarch, arm_saved_pc_after_call);
@@ -2787,11 +5241,14 @@ arm_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   set_gdbarch_register_name (gdbarch, arm_register_name);
 
   /* Returning results.  */
+#if 0 /* APPLE LOCAL: This is the old way */
   set_gdbarch_extract_return_value (gdbarch, arm_extract_return_value);
   set_gdbarch_store_return_value (gdbarch, arm_store_return_value);
   set_gdbarch_deprecated_use_struct_convention (gdbarch, arm_use_struct_convention);
   set_gdbarch_deprecated_extract_struct_value_address (gdbarch, arm_extract_struct_value_address);
-
+#else
+  set_gdbarch_return_value (gdbarch, arm_return_value);
+#endif
   /* Single stepping.  */
   /* XXX For an RDI target we should ask the target if it can single-step.  */
   set_gdbarch_software_single_step (gdbarch, arm_software_single_step);
@@ -2808,8 +5265,15 @@ arm_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   gdbarch_init_osabi (info, gdbarch);
 
   /* Add some default predicates.  */
+#ifdef TM_NEXTSTEP  
+  /* APPLE LOCAL: Install the Mac OS X specific sigtramp sniffer.  */
+  frame_unwind_append_sniffer (gdbarch, arm_macosx_sigtramp_unwind_sniffer);
+#else
+  /* APPLE LOCAL: We don't have these ".plt stubs" so don't add the
+     sniffer for them.  */
   frame_unwind_append_sniffer (gdbarch, arm_stub_unwind_sniffer);
   frame_unwind_append_sniffer (gdbarch, arm_sigtramp_unwind_sniffer);
+#endif
   frame_unwind_append_sniffer (gdbarch, dwarf2_frame_sniffer);
   frame_unwind_append_sniffer (gdbarch, arm_prologue_unwind_sniffer);
 
@@ -2861,8 +5325,8 @@ arm_dump_tdep (struct gdbarch *current_gdbarch, struct ui_file *file)
   if (tdep == NULL)
     return;
 
-  fprintf_unfiltered (file, _("arm_dump_tdep: Lowest pc = 0x%lx"),
-		      (unsigned long) tdep->lowest_pc);
+  fprintf_unfiltered (file, _("arm_dump_tdep: Lowest pc = 0x%s"),
+		      paddr (tdep->lowest_pc));
 }
 
 extern initialize_file_ftype _initialize_arm_tdep; /* -Wmissing-prototypes */
@@ -2872,7 +5336,6 @@ _initialize_arm_tdep (void)
 {
   struct ui_file *stb;
   long length;
-  struct cmd_list_element *new_set, *new_show;
   const char *setname;
   const char *setdesc;
   const char *const *regnames;
@@ -2880,6 +5343,11 @@ _initialize_arm_tdep (void)
   static char *helptext;
   char regdesc[1024], *rdptr = regdesc;
   size_t rest = sizeof (regdesc);
+
+  /* APPLE LOCAL START: Build ARM PSR and FPSCR built in types.  */
+  builtin_type_arm_psr = build_builtin_type_arm_psr ();
+  builtin_type_arm_fpscr = build_builtin_type_arm_fpscr ();
+  /* APPLE LOCAL END.  */
 
   gdbarch_register (bfd_arch_arm, arm_gdbarch_init, arm_dump_tdep);
 
@@ -2915,7 +5383,7 @@ _initialize_arm_tdep (void)
       rdptr += length;
       rest -= length;
       /* Copy the default names (if found) and synchronize disassembler.  */
-      if (!strcmp (setname, "std"))
+      if (!strcmp (setname, "gcc"))
 	{
           disassembly_style = setname;
           current_option = i;
@@ -2945,6 +5413,15 @@ _initialize_arm_tdep (void)
 		       NULL, /* FIXME: i18n: The disassembly style is \"%s\".  */
 		       &setarmcmdlist, &showarmcmdlist);
 
+  add_setshow_boolean_cmd ("show-opcode-bytes", no_class, &show_opcode_bytes,
+			   _("Set ARM and Thumb opcode byte display in disassembly."),
+			   _("Show ARM and Thumb opcode byte display in disassembly."),
+			   _("When on, the hex representation of the opcode "
+			     "bytes will be displayed along\nwith any disassembly."),
+			   arm_set_show_opcode_bytes,
+			   NULL,
+			   &setarmcmdlist, &showarmcmdlist);
+
   add_setshow_boolean_cmd ("apcs32", no_class, &arm_apcs_32,
 			   _("Set usage of ARM 32-bit mode."),
 			   _("Show usage of ARM 32-bit mode."),
@@ -2961,7 +5438,8 @@ _initialize_arm_tdep (void)
 softfpa - Software FP, mixed-endian doubles on little-endian ARMs.\n\
 fpa - FPA co-processor (GCC compiled).\n\
 softvfp - Software FP with pure-endian doubles.\n\
-vfp - VFP co-processor."),
+vfp - VFP co-processor.\n\
+none - No floating point hardware or software emulation."),
 			set_fp_model_sfunc, show_fp_model,
 			&setarmcmdlist, &showarmcmdlist);
 
@@ -2973,11 +5451,12 @@ vfp - VFP co-processor."),
 			&setarmcmdlist, &showarmcmdlist);
 
   /* Debugging flag.  */
-  add_setshow_boolean_cmd ("arm", class_maintenance, &arm_debug,
+  add_setshow_zinteger_cmd ("arm", class_maintenance, &arm_debug,
 			   _("Set ARM debugging."),
 			   _("Show ARM debugging."),
-			   _("When on, arm-specific debugging is enabled."),
+			   _("When non-zero, arm-specific debugging is enabled."),
 			   NULL,
-			   NULL, /* FIXME: i18n: "ARM debugging is %s.  */
+			   show_arm_debug,
 			   &setdebuglist, &showdebuglist);
 }
+

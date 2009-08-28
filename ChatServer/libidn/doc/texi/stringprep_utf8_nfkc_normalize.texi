@@ -1,3 +1,5 @@
+@subheading stringprep_utf8_nfkc_normalize
+@anchor{stringprep_utf8_nfkc_normalize}
 @deftypefun {char *} {stringprep_utf8_nfkc_normalize} (const char * @var{str}, ssize_t @var{len})
 @var{str}: a UTF-8 encoded string.
 

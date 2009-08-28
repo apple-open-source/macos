@@ -1,8 +1,8 @@
 /* thr_nt.c - wrapper around NT threads */
-/* $OpenLDAP: pkg/ldap/libraries/libldap_r/thr_nt.c,v 1.29.2.3 2006/01/03 22:16:09 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap_r/thr_nt.c,v 1.32.2.5 2008/02/11 23:26:42 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -17,6 +17,10 @@
 #include "portable.h"
 
 #if defined( HAVE_NT_THREADS )
+
+#define _WIN32_WINNT 0x0400
+#include <windows.h>
+#include <process.h>
 
 #include "ldap_pvt_thread.h" /* Get the thread interface */
 #define LDAP_THREAD_IMPLEMENTATION
@@ -192,6 +196,39 @@ ldap_pvt_thread_t
 ldap_pvt_thread_self( void )
 {
 	return GetCurrentThreadId();
+}
+
+int
+ldap_pvt_thread_key_create( ldap_pvt_thread_key_t *keyp )
+{
+	DWORD key = TlsAlloc();
+	if ( key != TLS_OUT_OF_INDEXES ) {
+		*keyp = key;
+		return 0;
+	} else {
+		return -1;
+	}
+}
+
+int
+ldap_pvt_thread_key_destroy( ldap_pvt_thread_key_t key )
+{
+	/* TlsFree returns 0 on failure */
+	return( TlsFree( key ) == 0 );
+}
+
+int
+ldap_pvt_thread_key_setdata( ldap_pvt_thread_key_t key, void *data )
+{
+	return ( TlsSetValue( key, data ) == 0 );
+}
+
+int
+ldap_pvt_thread_key_getdata( ldap_pvt_thread_key_t key, void **data )
+{
+	void *ptr = TlsGetValue( key );
+	*data = ptr;
+	return( ptr ? GetLastError() : 0 );
 }
 
 #endif

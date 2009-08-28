@@ -34,6 +34,13 @@
 # ~ $
 #
 
+configuration=Development
+
+if [ $1 = -config ]; then
+	configuration="$2"
+	shift 2
+fi
+
 if [ $# -eq 0 ]; then
 	if [ -z "$MACHINE" ]; then
 		echo 'No arguments, and $MACHINE not set!' 1>&2
@@ -45,12 +52,12 @@ fi
 for m
 do
 	ssh root@$m kextunload -b com.apple.filesystems.msdosfs
-	scp -r build/Development/msdosfs.kext root@$m:"~$USER"
+	scp -r build/$configuration/msdosfs.kext root@$m:"~$USER"
 	ssh root@$m chgrp -R wheel "~$USER/msdosfs.kext"
 	ssh root@$m touch /System/Library/Extensions
-	ssh root@$m kextload -s /tmp "~$USER/msdosfs.kext" || exit
+	ssh root@$m kextutil -s /tmp "~$USER/msdosfs.kext" || exit
 	mkdir -p /tmp/$m
 	scp root@$m:/tmp/"com.apple.*.sym" /tmp/$m
 	rm -rf /tmp/$m/msdosfs.kext{,.dSYM}
-	cp -r build/Development/msdosfs.kext{,.dSYM} /tmp/$m
+	cp -r build/$configuration/msdosfs.kext{,.dSYM} /tmp/$m
 done

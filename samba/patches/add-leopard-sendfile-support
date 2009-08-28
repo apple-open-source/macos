@@ -2,7 +2,7 @@ Index: samba/source/configure.in
 ===================================================================
 --- samba/source/configure.in.orig
 +++ samba/source/configure.in
-@@ -5576,6 +5576,40 @@ samba_cv_HAVE_SENDFILE=yes,samba_cv_HAVE
+@@ -5634,6 +5634,40 @@ samba_cv_HAVE_SENDFILE=yes,samba_cv_HAVE
  	fi
  	;;
  

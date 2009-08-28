@@ -45,6 +45,7 @@
 #include "block.h"
 #include "cp-support.h"
 #include "dictionary.h"
+#include "inlining.h"
 
 /* Ask buildsym.h to define the vars it normally declares `extern'.  */
 #define	EXTERN
@@ -722,6 +723,9 @@ start_subfile (char *name, char *dirname)
      later via a call to record_debugformat. */
   subfile->debugformat = NULL;
 
+  /* Similarly for the producer.  */
+  subfile->producer = NULL;
+
   /* If the filename of this subfile ends in .C, then change the
      language of any pending subfiles from C to C++.  We also accept
      any other C++ suffixes accepted by deduce_language_from_filename.  */
@@ -844,6 +848,20 @@ record_line (struct subfile *subfile, int line, CORE_ADDR pc, CORE_ADDR end_pc,
 {
   struct linetable_entry *e;
   /* Ignore the dummy line number in libg.o */
+
+  if (dwarf2_debug_inlined_stepping)
+    {
+      if (entry_type != NORMAL_LT_ENTRY)
+	{
+	  if (entry_type == INLINED_CALL_SITE_LT_ENTRY)
+	    fprintf_unfiltered (gdb_stdout, "     INLINED CALL SITE,  ");
+	  else
+	    fprintf_unfiltered (gdb_stdout, "     INLINED SUBROUTINE, ");
+	  fprintf_unfiltered (gdb_stdout, "0x%x  - 0x%x, ", 
+			      (unsigned int) pc, (unsigned int) end_pc);
+	  fprintf_unfiltered (gdb_stdout, "%s:%d\n", subfile->name, line);
+	}
+    }
 
   if (line == 0xffff)
     {
@@ -1127,6 +1145,12 @@ end_symtab (CORE_ADDR end_addr, struct objfile *objfile, int section)
 						  &objfile->objfile_obstack);
 	    }
 
+          /* Similarly for the producer.  */
+          if (subfile->producer != NULL)
+            symtab->producer = obsavestring (subfile->producer,
+                                             strlen (subfile->producer),
+                                             &objfile->objfile_obstack);
+
 	  /* All symtabs for the main file and the subfiles share a
 	     blockvector, so we need to clear primary for everything
 	     but the main file.  */
@@ -1149,6 +1173,8 @@ end_symtab (CORE_ADDR end_addr, struct objfile *objfile, int section)
 	{
 	  xfree ((void *) subfile->debugformat);
 	}
+      if (subfile->producer != NULL)
+        xfree (subfile->producer);
 
       nextsub = subfile->next;
       xfree ((void *) subfile);
@@ -1223,6 +1249,17 @@ void
 record_debugformat (char *format)
 {
   current_subfile->debugformat = savestring (format, strlen (format));
+}
+
+void
+record_producer (const char *producer)
+{
+  /* The producer is not always provided in the debugging info.
+     Do nothing if PRODUCER is NULL.  */
+  if (producer == NULL)
+    return;
+
+  current_subfile->producer = savestring (producer, strlen (producer));
 }
 
 /* Merge the first symbol list SRCLIST into the second symbol list

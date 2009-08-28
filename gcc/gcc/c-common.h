@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_C_COMMON_H
 #define GCC_C_COMMON_H
@@ -30,9 +30,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    0: TREE_NEGATED_INT (in INTEGER_CST).
       IDENTIFIER_MARKED (used by search routines).
       DECL_PRETTY_FUNCTION_P (in VAR_DECL)
-      STMT_EXPR_NO_SCOPE (in STMT_EXPR)
    1: C_DECLARED_LABEL_FLAG (in LABEL_DECL)
-      STMT_IS_FULL_EXPR_P (in _STMT)
       STATEMENT_LIST_STMT_EXPR (in STATEMENT_LIST)
    2: unused
    3: STATEMENT_LIST_HAS_LABEL (in STATEMENT_LIST)
@@ -76,6 +74,7 @@ enum rid
   RID_ASM,       RID_TYPEOF,   RID_ALIGNOF,  RID_ATTRIBUTE,  RID_VA_ARG,
   RID_EXTENSION, RID_IMAGPART, RID_REALPART, RID_LABEL,      RID_CHOOSE_EXPR,
   RID_TYPES_COMPATIBLE_P,
+  RID_DFLOAT32, RID_DFLOAT64, RID_DFLOAT128,
 
   /* Too many ways of getting the name of a function as a string */
   RID_FUNCTION_NAME, RID_PRETTY_FUNCTION_NAME, RID_C99_FUNCTION_NAME,
@@ -85,9 +84,9 @@ enum rid
   RID_PUBLIC,   RID_PRIVATE,  RID_PROTECTED,
   RID_TEMPLATE, RID_NULL,     RID_CATCH,
   RID_DELETE,   RID_FALSE,    RID_NAMESPACE,
-  RID_NEW,      RID_OFFSETOF, RID_OPERATOR, 
-  RID_THIS,     RID_THROW,    RID_TRUE,     
-  RID_TRY,      RID_TYPENAME, RID_TYPEID,   
+  RID_NEW,      RID_OFFSETOF, RID_OPERATOR,
+  RID_THIS,     RID_THROW,    RID_TRUE,
+  RID_TRY,      RID_TYPENAME, RID_TYPEID,
   RID_USING,
 
   /* casts */
@@ -98,7 +97,7 @@ enum rid
   RID_AT_CLASS,    RID_AT_ALIAS,     RID_AT_DEFS,
   /* APPLE LOCAL radar 4564694 */
   RID_AT_PACKAGE,  RID_AT_PRIVATE,  RID_AT_PROTECTED, RID_AT_PUBLIC,
-  RID_AT_PROTOCOL, RID_AT_SELECTOR,  
+  RID_AT_PROTOCOL, RID_AT_SELECTOR,
   RID_AT_THROW,	   RID_AT_TRY,       RID_AT_CATCH,
   RID_AT_FINALLY,  RID_AT_SYNCHRONIZED,
   RID_AT_INTERFACE,
@@ -112,7 +111,7 @@ enum rid
   /* APPLE LOCAL end objc new property */
   RID_AT_IMPLEMENTATION,
   /* APPLE LOCAL C* property (Radar 4436866, 4591909, 4621020) */
-  RID_READONLY, RID_DYNAMIC, RID_GETTER, RID_SETTER, RID_WEAK, RID_IVAR,
+  RID_READONLY, RID_GETTER, RID_SETTER, 
   /* APPLE LOCAL objc new property */
   RID_READWRITE, RID_ASSIGN, RID_RETAIN, RID_COPY,
   /* APPLE LOCAL radar 4947014 - objc atomic property */
@@ -120,10 +119,6 @@ enum rid
 
   RID_MAX,
 
-  /* APPLE LOCAL begin C* property (Radar 4436866) */
-  RID_FIRST_PATTR = RID_READONLY,
-  RID_LAST_PATTR = RID_IVAR,
-  /* APPLE LOCAL end C* property (Radar 4436866) */
   RID_FIRST_MODIFIER = RID_STATIC,
   RID_LAST_MODIFIER = RID_ONEWAY,
 
@@ -147,22 +142,9 @@ enum rid
     /* APPLE LOCAL end radar 4947014 - objc atomic property */  \
 /* APPLE LOCAL end objc new property */
 
-/* APPLE LOCAL begin C* property (Radar 4436866) */
-#define OBJC_IS_PATTR_KEYWORD(rid) \
-  ((unsigned int) (rid) >= (unsigned int) RID_FIRST_PATTR && \
-  (unsigned int) (rid) <= (unsigned int) RID_LAST_PATTR)
-/* APPLE LOCAL end C* property (Radar 4436866) */
-
 #define OBJC_IS_AT_KEYWORD(rid) \
   ((unsigned int) (rid) >= (unsigned int) RID_FIRST_AT && \
    (unsigned int) (rid) <= (unsigned int) RID_LAST_AT)
-
-/* APPLE LOCAL begin objc new property */
-#define OBJC_IS_NEW_AT_KEYWORD(rid) \
-  (((OBJC_IS_AT_KEYWORD(rid) || \
-    (unsigned int) (rid) == RID_AT_SYNTHESIZE || \
-    (unsigned int) (rid) == RID_DYNAMIC)))
-/* APPLE LOCAL end objc new property */
 
 #define OBJC_IS_PQ_KEYWORD(rid) \
   ((unsigned int) (rid) >= (unsigned int) RID_FIRST_PQ && \
@@ -207,7 +189,7 @@ enum c_tree_index
     CTI_PRETTY_FUNCTION_NAME_DECL,
     CTI_C99_FUNCTION_NAME_DECL,
     CTI_SAVED_FUNCTION_NAME_DECLS,
-    
+
     CTI_VOID_ZERO,
 
     CTI_NULL,
@@ -274,10 +256,6 @@ struct sorted_fields_type GTY(())
 /* Mark which labels are explicitly declared.
    These may be shadowed, and may be referenced from nested functions.  */
 #define C_DECLARED_LABEL_FLAG(label) TREE_LANG_FLAG_1 (label)
-
-/* Flag strings given by __FUNCTION__ and __PRETTY_FUNCTION__ for a
-   warning if they undergo concatenation.  */
-#define C_ARTIFICIAL_STRING_P(NODE) TREE_LANG_FLAG_0 (NODE)
 
 typedef enum c_language_kind
 {
@@ -347,18 +325,21 @@ extern void (*lang_post_pch_load) (void);
 
 extern void push_file_scope (void);
 extern void pop_file_scope (void);
-extern int yyparse (void);
 extern stmt_tree current_stmt_tree (void);
 extern tree push_stmt_list (void);
 extern tree pop_stmt_list (tree);
 extern tree add_stmt (tree);
 extern void push_cleanup (tree, tree, bool);
+extern tree pushdecl_top_level (tree);
+extern tree pushdecl (tree);
+extern tree build_modify_expr (tree, enum tree_code, tree);
+extern tree build_indirect_ref (tree, const char *);
 
 extern int c_expand_decl (tree);
 
 extern int field_decl_cmp (const void *, const void *);
-extern void resort_sorted_fields (void *, void *, gt_pointer_operator, 
-                                  void *);
+extern void resort_sorted_fields (void *, void *, gt_pointer_operator,
+				  void *);
 extern bool has_c_linkage (tree decl);
 
 /* Switches common to the C front ends.  */
@@ -450,6 +431,12 @@ extern int flag_short_wchar;
 extern int flag_lvalue_cast_assign;
 /* APPLE LOCAL end lvalue cast */
 
+/* APPLE LOCAL begin 5612787 mainline sse4 */
+/* Nonzero means allow implicit conversions between vectors with
+   differing numbers of subparts and/or differing element types.  */
+extern int flag_lax_vector_conversions;
+/* APPLE LOCAL end 5612787 mainline sse4 */
+
 /* Nonzero means allow Microsoft extensions without warnings or errors.  */
 extern int flag_ms_extensions;
 
@@ -470,14 +457,9 @@ extern int flag_const_strings;
 
 extern int flag_signed_bitfields;
 
-/* Nonzero means warn about deprecated conversion from string constant to
-   `char *'.  */
+/* Warn about #pragma directives that are not recognized.  */
 
-extern int warn_write_strings;
-
-/* Warn about #pragma directives that are not recognized.  */      
-
-extern int warn_unknown_pragmas; /* Tri state variable.  */  
+extern int warn_unknown_pragmas; /* Tri state variable.  */
 
 /* Warn about format/argument anomalies in calls to formatted I/O functions
    (*printf, *scanf, strftime, strfmon, etc.).  */
@@ -524,16 +506,6 @@ extern int warn_main;
 
 extern int flag_gen_declaration;
 
-/* Generate code for GNU or NeXT runtime environment.  */
-
-extern int flag_next_runtime;
-
-/* APPLE LOCAL begin mainline */
-/* Generate special '- .cxx_construct' and '- .cxx_destruct' methods
-   to initialize any non-POD ivars in ObjC++ classes.  */
-
-extern int flag_objc_call_cxx_cdtors;
-/* APPLE LOCAL end mainline */
 /* APPLE LOCAL begin radar 2848255 */
 extern int flag_objc_zerocost_exceptions;
 bool objc2_valid_objc_catch_type (tree);
@@ -642,13 +614,11 @@ extern int flag_working_directory;
 
 extern int flag_use_cxa_atexit;
 
-/* APPLE LOCAL begin mainline 2006-02-24 4086777 */
 /* Nonzero to use __cxa_get_exception_ptr in the C++ exception-handling
    logic.  */
 
 extern int flag_use_cxa_get_exception_ptr;
 
-/* APPLE LOCAL end mainline 2006-02-24 4086777 */
 /* Nonzero means make the default pedwarns warnings instead of errors.
    The value of this flag is ignored if -pedantic is specified.  */
 
@@ -660,14 +630,6 @@ extern int flag_permissive;
    assertions and optimize accordingly, but not check them.  */
 
 extern int flag_enforce_eh_specs;
-
-/* APPLE LOCAL begin structor thunks */
-/* Nonzero if we prefer to clone con/de/structors.
-   Alternative is to gen multiple tiny thunk-esque things that
-   call/jump to a unified con/de/structor.  This is a classic
-   size/speed tradeoff.  */
-extern int flag_clone_structors;
-/* APPLE LOCAL end structor thunks */
 
 /* APPLE LOCAL begin private extern  Radar 2872481 --ilr */
 /* Nonzero if -fpreprocessed specified.  This is needed by init_reswords()
@@ -739,7 +701,7 @@ extern void finish_fname_decls (void);
 extern const char *fname_as_string (int);
 extern tree fname_decl (unsigned, tree);
 
-extern void check_function_arguments (tree, tree);
+extern void check_function_arguments (tree, tree, tree);
 extern void check_function_arguments_recurse (void (*)
 					      (void *, tree,
 					       unsigned HOST_WIDE_INT),
@@ -756,27 +718,29 @@ extern tree c_common_type_for_size (unsigned int, int);
 extern tree c_common_unsigned_type (tree);
 extern tree c_common_signed_type (tree);
 extern tree c_common_signed_or_unsigned_type (int, tree);
+extern tree c_build_bitfield_integer_type (unsigned HOST_WIDE_INT, int);
 extern tree c_common_truthvalue_conversion (tree);
 extern void c_apply_type_quals_to_decl (int, tree);
-extern tree c_sizeof_or_alignof_type (tree, enum tree_code, int);
+extern tree c_sizeof_or_alignof_type (tree, bool, int);
 extern tree c_alignof_expr (tree);
 /* Print an error message for invalid operands to arith operation CODE.
    NOP_EXPR is used as a special case (see truthvalue_conversion).  */
-extern void binary_op_error (enum tree_code);
+/* APPLE LOCAL 5612787 mainline sse4 */
+extern void binary_op_error (enum tree_code, tree, tree);
 extern tree fix_string_type (tree);
 struct varray_head_tag;
 extern void constant_expression_warning (tree);
-/* APPLE LOCAL ARM 4683958 mainline */
-extern void strict_aliasing_warning(tree, tree, tree);
 /* APPLE LOCAL mainline */
 extern void warnings_for_convert_and_check (tree, tree, tree);
+extern void strict_aliasing_warning(tree, tree, tree);
+extern void empty_body_warning (tree, tree);
 extern tree convert_and_check (tree, tree);
 extern void overflow_warning (tree);
-extern void unsigned_conversion_warning (tree, tree);
 extern bool c_determine_visibility (tree);
+extern bool same_scalar_type_ignoring_signedness (tree, tree);
 
-#define c_sizeof(T)  c_sizeof_or_alignof_type (T, SIZEOF_EXPR, 1)
-#define c_alignof(T) c_sizeof_or_alignof_type (T, ALIGNOF_EXPR, 1)
+#define c_sizeof(T)  c_sizeof_or_alignof_type (T, true, 1)
+#define c_alignof(T) c_sizeof_or_alignof_type (T, false, 1)
 
 /* Subroutine of build_binary_op, used for comparison operations.
    See if the operands have both been converted from subword integer types
@@ -796,6 +760,8 @@ extern void c_common_nodes_and_builtins (void);
 extern void set_builtin_user_assembler_name (tree decl, const char *asmspec);
 
 extern void disable_builtin_function (const char *);
+
+extern void set_compound_literal_name (tree decl);
 
 extern tree build_va_arg (tree, tree);
 
@@ -824,12 +790,6 @@ extern void finish_file	(void);
 
 /* These macros provide convenient access to the various _STMT nodes.  */
 
-/* Nonzero if this statement should be considered a full-expression,
-   i.e., if temporaries created during this statement should have
-   their destructors run at the end of this statement.  (In C, this
-   will always be false, since there are no destructors.)  */
-#define STMT_IS_FULL_EXPR_P(NODE) TREE_LANG_FLAG_1 ((NODE))
-
 /* Nonzero if a given STATEMENT_LIST represents the outermost binding
    if a statement expression.  */
 #define STATEMENT_LIST_STMT_EXPR(NODE) \
@@ -838,46 +798,6 @@ extern void finish_file	(void);
 /* Nonzero if a label has been added to the statement list.  */
 #define STATEMENT_LIST_HAS_LABEL(NODE) \
   TREE_LANG_FLAG_3 (STATEMENT_LIST_CHECK (NODE))
-
-/* WHILE_STMT accessors. These give access to the condition of the
-   while statement and the body of the while statement, respectively.  */
-#define WHILE_COND(NODE)        TREE_OPERAND (WHILE_STMT_CHECK (NODE), 0)
-#define WHILE_BODY(NODE)        TREE_OPERAND (WHILE_STMT_CHECK (NODE), 1)
-
-/* DO_STMT accessors. These give access to the condition of the do
-   statement and the body of the do statement, respectively.  */
-#define DO_COND(NODE)           TREE_OPERAND (DO_STMT_CHECK (NODE), 0)
-#define DO_BODY(NODE)           TREE_OPERAND (DO_STMT_CHECK (NODE), 1)
-
-/* APPLE LOCAL begin C* language */
-/* Used as a flag to indicate synthesized inner do-while loop of a 
-   foreach statement.  Used for generation of break/continue statement 
-   of the loop. */
-#define DO_FOREACH(NODE)           TREE_OPERAND (DO_STMT_CHECK (NODE), 2)
-/* APPLE LOCAL end C* language */
-
-/* EXPR_STMT accessor. This gives the expression associated with an
-   expression statement.  */
-#define EXPR_STMT_EXPR(NODE)    TREE_OPERAND (EXPR_STMT_CHECK (NODE), 0)
-
-/* FOR_STMT accessors. These give access to the init statement,
-   condition, update expression, and body of the for statement,
-   respectively.  */
-#define FOR_INIT_STMT(NODE)     TREE_OPERAND (FOR_STMT_CHECK (NODE), 0)
-#define FOR_COND(NODE)          TREE_OPERAND (FOR_STMT_CHECK (NODE), 1)
-#define FOR_EXPR(NODE)          TREE_OPERAND (FOR_STMT_CHECK (NODE), 2)
-#define FOR_BODY(NODE)          TREE_OPERAND (FOR_STMT_CHECK (NODE), 3)
-
-#define SWITCH_STMT_COND(NODE)	TREE_OPERAND (SWITCH_STMT_CHECK (NODE), 0)
-#define SWITCH_STMT_BODY(NODE)	TREE_OPERAND (SWITCH_STMT_CHECK (NODE), 1)
-#define SWITCH_STMT_TYPE(NODE)	TREE_OPERAND (SWITCH_STMT_CHECK (NODE), 2)
-
-/* STMT_EXPR accessor.  */
-#define STMT_EXPR_STMT(NODE)    TREE_OPERAND (STMT_EXPR_CHECK (NODE), 0)
-
-/* Nonzero if this statement-expression does not have an associated scope.  */
-#define STMT_EXPR_NO_SCOPE(NODE) \
-   TREE_LANG_FLAG_0 (STMT_EXPR_CHECK (NODE))
 
 /* COMPOUND_LITERAL_EXPR accessors.  */
 #define COMPOUND_LITERAL_EXPR_DECL_STMT(NODE)		\
@@ -895,26 +815,6 @@ enum c_tree_code {
 
 #undef DEFTREECODE
 
-#define c_common_stmt_codes				\
-   EXPR_STMT,		FOR_STMT,			\
-   WHILE_STMT,		DO_STMT,			\
-   BREAK_STMT,		CONTINUE_STMT,	SWITCH_STMT
-
-/* TRUE if a code represents a statement.  The front end init
-   langhook should take care of initialization of this array.  */
-extern bool statement_code_p[MAX_TREE_CODES];
-
-#define STATEMENT_CODE_P(CODE) statement_code_p[(int) (CODE)]
-
-#define INIT_STATEMENT_CODES(STMT_CODES)			\
-  do {								\
-    unsigned int i;						\
-    memset (&statement_code_p, 0, sizeof (statement_code_p));	\
-    for (i = 0; i < ARRAY_SIZE (STMT_CODES); i++)		\
-      statement_code_p[STMT_CODES[i]] = true;			\
-  } while (0)
-
-extern int stmts_are_full_exprs_p (void);
 extern int anon_aggr_type_p (tree);
 
 /* For a VAR_DECL that is an anonymous union, these are the various
@@ -933,15 +833,17 @@ extern void emit_local_var (tree);
 extern tree do_case (tree, tree);
 extern tree build_stmt (enum tree_code, ...);
 extern tree build_case_label (tree, tree, tree);
-extern tree build_continue_stmt (void);
-extern tree build_break_stmt (void);
 
 /* These functions must be defined by each front-end which implements
    a variant of the C language.  They are used in c-common.c.  */
 
 extern tree build_unary_op (enum tree_code, tree, int);
 extern tree build_binary_op (enum tree_code, tree, tree, int);
-extern int lvalue_p (tree);
+extern tree perform_integral_promotions (tree);
+
+/* These functions must be defined by each front-end which implements
+   a variant of the C language.  They are used by port files.  */
+
 extern tree default_conversion (tree);
 
 /* Given two integer or real types, return the type for their sum.
@@ -958,17 +860,21 @@ extern int case_compare (splay_tree_key, splay_tree_key);
 
 extern tree c_add_case_label (splay_tree, tree, tree, tree, tree);
 
-extern void c_do_switch_warnings (splay_tree, tree);
+extern void c_do_switch_warnings (splay_tree, location_t, tree, tree);
 
 extern tree build_function_call (tree, tree);
+
+extern tree resolve_overloaded_builtin (tree, tree);
 
 extern tree finish_label_address_expr (tree);
 
 /* Same function prototype, but the C and C++ front ends have
    different implementations.  Used in c-common.c.  */
 extern tree lookup_label (tree);
+extern tree lookup_name (tree);
 
-extern int vector_types_convertible_p (tree t1, tree t2);
+/* APPLE LOCAL 5612787 mainline sse4 */
+extern int vector_types_convertible_p (tree t1, tree t2, bool emit_lax_note);
 
 extern rtx c_expand_expr (tree, rtx, enum machine_mode, int, rtx *);
 
@@ -1007,23 +913,31 @@ extern void c_warn_unused_result (tree *);
 
 extern void verify_sequence_points (tree);
 
-extern tree fold_offsetof (tree);
+extern tree fold_offsetof (tree, tree);
 
 /* Places where an lvalue, or modifiable lvalue, may be required.
-   Used to select diagnostic messages in lvalue_or_else and
+   Used to select diagnostic messages in lvalue_error and
    readonly_error.  */
 enum lvalue_use {
   lv_assign,
   lv_increment,
   lv_decrement,
   lv_addressof,
-  lv_asm
+  /* APPLE LOCAL begin radar 5130983 */
+  lv_asm,
+  lv_foreach
+  /* APPLE LOCAL end radar 5130983 */
 };
 
-/* APPLE LOCAL non lvalue assign */
-extern int lvalue_or_else (tree *, enum lvalue_use);
+extern void lvalue_error (enum lvalue_use);
+/* APPLE LOCAL lvalue assign */
+extern bool lvalue_or_else_1 (tree *ref, enum lvalue_use use);
 
 extern int complete_array_type (tree *, tree, bool);
+
+extern tree builtin_type_for_size (int, bool);
+
+extern void warn_array_subscript_with_type_char (tree);
 
 /* In c-gimplify.c  */
 extern void c_genericize (tree);
@@ -1037,14 +951,12 @@ extern void c_common_read_pch (cpp_reader *pfile, const char *name, int fd,
 			       const char *orig);
 extern void c_common_write_pch (void);
 extern void c_common_no_more_pch (void);
-extern void c_common_pch_pragma (cpp_reader *pfile);
-/* APPLE LOCAL begin mainline 4.1 2005-06-17 3988498 */
+extern void c_common_pch_pragma (cpp_reader *pfile, const char *);
 extern void c_common_print_pch_checksum (FILE *f);
 
 /* In *-checksum.c */
 extern const unsigned char executable_checksum[16];
 
-/* APPLE LOCAL end mainline 4.1 2005-06-17 3988498 */
 extern void builtin_define_with_value (const char *, const char *, int);
 extern void c_stddef_cpp_builtins (void);
 extern void fe_file_change (const struct line_map *);
@@ -1066,11 +978,10 @@ extern tree objc_common_type (tree, tree);
 extern tree objc_non_volatilized_type (tree);
 /* APPLE LOCAL radar 4697411 */
 extern void objc_volatilize_component_ref (tree, tree);
-/* APPLE LOCAL begin mainline */
-/* Prototype for 'objc_comptypes' removed.  */
-extern bool objc_compare_types (tree, tree, int, tree);
-/* APPLE LOCAL radar 4229905 */
-extern bool objc_have_common_type (tree, tree, int, tree);
+/* APPLE LOCAL radar 6231433 */
+extern bool objc_compare_types (tree, tree, int, tree, const char *);
+/* APPLE LOCAL radar 4229905 - radar 6231433 */
+extern bool objc_have_common_type (tree, tree, int, tree, const char *);
 /* APPLE LOCAL radar 4133425 */
 extern bool objc_diagnose_private_ivar (tree);
 /* APPLE LOCAL radar 4507230 */
@@ -1078,7 +989,6 @@ bool objc_type_valid_for_messaging (tree);
 extern void objc_volatilize_decl (tree);
 extern bool objc_type_quals_match (tree, tree);
 extern tree objc_rewrite_function_call (tree, tree);
-/* APPLE LOCAL end mainline */
 extern tree objc_message_selector (void);
 extern tree objc_lookup_ivar (tree, tree);
 extern void objc_clear_super_receiver (void);
@@ -1086,7 +996,8 @@ extern int objc_is_public (tree, tree);
 extern tree objc_is_id (tree);
 extern void objc_declare_alias (tree, tree);
 extern void objc_declare_class (tree);
-extern void objc_declare_protocols (tree);
+/* APPLE LOCAL radar 4947311 - protocol attributes */
+extern void objc_declare_protocols (tree, tree);
 extern tree objc_build_message_expr (tree);
 extern tree objc_finish_message_expr (tree, tree, tree);
 extern tree objc_build_selector_expr (tree);
@@ -1103,20 +1014,24 @@ extern void objc_detect_field_duplicates (tree);
 /* APPLE LOCAL radar 4548636 */
 extern void objc_start_class_interface (tree, tree, tree, tree);
 extern void objc_start_category_interface (tree, tree, tree);
-extern void objc_start_protocol (tree, tree);
+/* APPLE LOCAL radar 4947311 - protocol attributes */
+extern void objc_start_protocol (tree, tree, tree);
 extern void objc_continue_interface (void);
 extern void objc_finish_interface (void);
 extern void objc_start_class_implementation (tree, tree);
 extern void objc_start_category_implementation (tree, tree);
-/* APPLE LOCAL radar 4533974 - ObjC new protocol */
-extern void objc_protocol_implementation (tree);
 /* APPLE LOCAL radar 4592503 */
 extern void objc_checkon_weak_attribute (tree);
+/* APPLE LOCAL begin radar 5847976 */
+extern tree build_block_object_assign_call_exp (tree, tree, int);
+extern tree build_block_object_dispose_call_exp (tree, int);
+extern int objc_is_gcable_type (tree);
+/* APPLE LOCAL end radar 5847976 */
 extern void objc_continue_implementation (void);
 extern void objc_finish_implementation (void);
 extern void objc_set_visibility (int);
 extern void objc_set_method_type (enum tree_code);
-extern tree objc_build_method_signature (tree, tree, tree);
+extern tree objc_build_method_signature (tree, tree, tree, bool);
 /* APPLE LOCAL begin radar 3803157 - objc attribute */
 extern bool objc_method_decl (enum tree_code);
 extern void objc_add_method_declaration (tree, tree);
@@ -1124,27 +1039,26 @@ extern void objc_start_method_definition (tree, tree);
 /* APPLE LOCAL end radar 3803157 - objc attribute */
 extern void objc_finish_method_definition (tree);
 extern void objc_add_instance_variable (tree);
-extern tree objc_build_keyword_decl (tree, tree, tree);
+/* APPLE LOCAL radar 4157812 */
+extern tree objc_build_keyword_decl (tree, tree, tree, tree);
 extern tree objc_build_throw_stmt (tree);
 extern void objc_begin_try_stmt (location_t, tree);
-/* APPLE LOCAL LOCAL mainline */
 extern tree objc_finish_try_stmt (void);
 extern void objc_begin_catch_clause (tree);
 extern void objc_finish_catch_clause (void);
 extern void objc_build_finally_clause (location_t, tree);
-/* APPLE LOCAL mainline */
 extern tree objc_build_synchronized (location_t, tree, tree);
 extern int objc_static_init_needed_p (void);
 extern tree objc_generate_static_init_call (tree);
-/* APPLE LOCAL mainline */
 extern tree objc_generate_write_barrier (tree, enum tree_code, tree);
-/* APPLE LOCAL begin radar 5276085 */
+/* APPLE LOCAL radar 5276085 */
 extern void objc_weak_reference_expr (tree*);
+/* APPLE LOCAL begin 5276085 */
 extern tree objc_build_weak_reference_tree (tree);
-/* APPLE LOCAL end radar 5276085 */
+/* APPLE LOCAL end 5276085 */
+
 /* APPLE LOCAL begin C* language */
 extern void objc_set_method_opt (int);
-
 void objc_finish_foreach_loop (location_t, tree, tree, tree, tree);
 tree objc_build_component_ref (tree, tree);
 tree objc_build_foreach_components (tree, tree*, tree*, tree*, 
@@ -1153,30 +1067,45 @@ tree objc_build_foreach_components (tree, tree*, tree*, tree*,
 /* APPLE LOCAL begin C* property (Radar 4436866) */
 void objc_set_property_attr (int, tree);
 void objc_add_property_variable (tree);
-tree objc_build_getter_call (tree, tree);
+/* APPLE LOCAL begin radar 5285911 */
+tree objc_build_property_reference_expr (tree, tree);
+bool objc_property_reference_expr (tree);
+/* APPLE LOCAL end radar 5285911 */
+/* APPLE LOCAL radar 5802025 */
+tree objc_build_property_getter_func_call (tree);
 tree objc_build_setter_call (tree, tree);
 /* APPLE LOCAL end C* property (Radar 4436866) */
 /* APPLE LOCAL radar 4712269 */
 tree objc_build_incr_decr_setter_call (enum tree_code, tree, tree);
-/* APPLE LOCAL objc new property */
+/* APPLE LOCAL begin objc new property */
 void objc_declare_property_impl (int, tree);
+/* APPLE LOCAL radar 5285911 */
+/* objc_property_call decl removed. */
+/* APPLE LOCAL end objc new property */
 
-/* APPLE LOCAL ObjC new abi */
+/* APPLE LOCAL begin ObjC new abi */
 extern tree objc_v2_build_ivar_ref (tree datum, tree component);
+/* APPLE LOCAL end ObjC new abi */
 
-/* APPLE LOCAL C* warnings to easy porting to new abi */
+/* APPLE LOCAL begin C* warnings to easy porting to new abi */
 void diagnose_selector_cast (tree cast_type, tree sel_exp);
+/* APPLE LOCAL end C* warnings to easy porting to new abi */
 
 /* APPLE LOCAL begin radar 4441049 */
 tree objc_v2_component_ref_field_offset (tree);
 tree objc_v2_bitfield_ivar_bitpos (tree);
 /* APPLE LOCAL end radar 4441049 */
 
-/* APPLE LOCAL radar 4985544 */
+/* APPLE LOCAL begin 4985544 */
 bool objc_check_format_nsstring (tree, unsigned HOST_WIDE_INT, bool *);
+/* APPLE LOCAL end 4985544 */
 
-/* APPLE LOCAL radar 2996215 */
-tree objc_create_init_utf16_var (const unsigned char *, size_t, size_t *);
+/* APPLE LOCAL radar 5202926 */
+bool objc_anonymous_local_objc_name (const char *);
+/* APPLE LOCAL begin radar 5195402 */
+bool objc_check_nsstring_pointer_type (tree);
+bool objc_check_cfstringref_type (tree);
+/* APPLE LOCAL end radar 5195402 */
 
 /* The following are provided by the C and C++ front-ends, and called by
    ObjC/ObjC++.  */
@@ -1188,11 +1117,141 @@ extern void init_pp_output (FILE *);
 extern void preprocess_file (cpp_reader *);
 extern void pp_file_change (const struct line_map *);
 extern void pp_dir_change (cpp_reader *, const char *);
+extern bool check_missing_format_attribute (tree, tree);
 
 /* APPLE LOCAL begin AltiVec */
 /* The following function will convert expressions into
    vector initializers.  */
 extern tree vector_constructor_from_expr (tree, tree);
 /* APPLE LOCAL end AltiVec */
+
+/* APPLE LOCAL begin radar 5847976 */
+/* Runtime support functions used by compiler when generating copy/dispose helpers */
+enum {
+    BLOCK_FIELD_IS_OBJECT   =  3,  /* id, NSObject, __attribute__((NSObject)), block, ... */
+    BLOCK_FIELD_IS_BLOCK    =  7,  /* a block variable */
+    BLOCK_FIELD_IS_BYREF    =  8,  /* the on stack structure holding the __block variable */
+    BLOCK_FIELD_IS_WEAK     = 16,  /* declared __weak, only used in byref copy helpers */
+    BLOCK_BYREF_CALLER      = 128  /* called from __block (byref) copy/dispose support routines */
+};
+/* APPLE LOCAL end radar 5847976 */
+/* APPLE LOCAL begin radar 5732232 - blocks */
+enum {
+     BLOCK_NEEDS_FREE =        (1 << 24),
+     BLOCK_HAS_COPY_DISPOSE =  (1 << 25),
+     /* APPLE LOCAL radar 6214617 */
+     BLOCK_HAS_CXX_OBJ =       (1 << 26), 
+     BLOCK_IS_GC =             (1 << 27),
+     /* APPLE LOCAL radar 5822844 */
+     BLOCK_IS_GLOBAL = 	       (1 << 28),
+     /* APPLE LOCAL radar 5847213 */
+     BLOCK_HAS_DESCRIPTOR =    (1 << 29)
+};
+
+struct block_sema_info {
+  tree helper_func_decl;
+  tree copy_helper_func_decl;
+  tree destroy_helper_func_decl;
+  tree block_arg_ptr_type;
+  /* This is for C.  */
+  struct c_arg_info * arg_info;
+  tree block_ref_decl_list;
+  tree block_byref_decl_list;
+  /* APPLE LOCAL radar 5803600 */
+  tree block_byref_global_decl_list;
+  tree block_original_ref_decl_list;
+  /* APPLE LOCAL radar 5847213 - tree block_original_byref_decl_list is removed. */
+  tree block_body;
+  bool BlockHasCopyDispose;
+  /* APPLE LOCAL radar 6214617 */
+  bool BlockImportsCxxObjects;
+  /* APPLE LOCAL radar 6185344 */
+  bool block_has_return_type; /* When true, block has a declared return type. */
+
+  /* the_scope - This is the scope for the block itself, which
+     contains arguments etc.  Use only for C.  */
+  struct c_scope *the_scope;
+  /* Same as the above, only for C++.  */
+  struct cp_binding_level *cp_the_scope;
+
+  /* return_type - This will get set to block result type, by looking
+     at return types, if any, in the block body. */
+  tree return_type;
+
+  /* prev_block_info - If this is nested inside another block, this points
+     to the outer block. */
+  struct block_sema_info *prev_block_info;
+};
+
+extern struct block_sema_info *cur_block;
+extern tree build_helper_func_decl (tree, tree);
+extern tree build_block_byref_decl (tree, tree, tree);
+extern tree build_block_ref_decl (tree, tree);
+extern tree begin_block (void);
+extern struct block_sema_info *finish_block (tree);
+extern bool in_imm_block (void);
+extern bool lookup_name_in_block (tree, tree*);
+extern void push_to_top_level (void);
+extern void pop_from_top_level (void);
+extern void start_block_helper_function (tree func_decl);
+extern void block_build_prologue (struct block_sema_info *block_impl);
+extern tree c_finish_return (tree);
+extern bool block_requires_copying (tree);
+/* APPLE LOCAL begin radar 5803600 */
+extern void add_block_global_byref_list (tree);
+extern bool in_block_global_byref_list (tree);
+/* APPLE LOCAL end radar 5803600 */
+/* APPLE LOCAL end radar 5732232 - blocks */
+/* APPLE LOCAL begin radar 5932809 - copyable byref blocks */
+extern tree build_byref_local_var_access (tree, tree);
+extern tree do_digest_init (tree, tree);
+/* APPLE LOCAL end radar 5932809 - copyable byref blocks */
+/* APPLE LOCAL begin radar 6237713 */
+extern bool any_recognized_block_attribute (tree);
+/* APPLE LOCAL end radar 6237713 */
+
+/* APPLE LOCAL begin radar 5847213 */
+extern tree build_block_descriptor_type (bool);
+/* APPLE LOCAL end radar 5847213 */
+/* APPLE LOCAL begin radar 6083129 - byref escapes */
+extern tree build_block_byref_release_exp (tree);
+/* APPLE LOCAL end radar 6083129 - byref escapes */
+
+/* APPLE LOCAL radar 6040305 - blocks */
+extern tree build_indirect_object_id_exp (tree);
+/* APPLE LOCAL begin radar 6212722 */
+extern tree array_to_pointer_conversion (tree);
+extern tree function_to_pointer_conversion (tree);
+/* APPLE LOCAL end radar 6212722 */
+
+/* APPLE LOCAL radar 6160536 */
+extern tree build_block_helper_name (int);
+
+/* APPLE LOCAL radar 6353006  */
+extern tree c_build_generic_block_struct_type (void);
+
+/* In c-omp.c  */
+extern tree c_finish_omp_master (tree);
+extern tree c_finish_omp_critical (tree, tree);
+extern tree c_finish_omp_ordered (tree);
+extern void c_finish_omp_barrier (void);
+extern tree c_finish_omp_atomic (enum tree_code, tree, tree);
+extern void c_finish_omp_flush (void);
+extern tree c_finish_omp_for (location_t, tree, tree, tree, tree, tree, tree);
+extern void c_split_parallel_clauses (tree, tree *, tree *);
+extern enum omp_clause_default_kind c_omp_predetermined_sharing (tree);
+
+/* Not in c-omp.c; provided by the front end.  */
+extern bool c_omp_sharing_predetermined (tree);
+extern tree c_omp_remap_decl (tree, bool);
+
+/* In order for the format checking to accept the C frontend
+   diagnostic framework extensions, you must include this file before
+   toplev.h, not after.  The C front end formats are a subset of those
+   for C++, so they are the appropriate set to use in common code;
+   cp-tree.h overrides this for C++.  */
+#ifndef GCC_DIAG_STYLE
+#define GCC_DIAG_STYLE __gcc_cdiag__
+#endif
 
 #endif /* ! GCC_C_COMMON_H */

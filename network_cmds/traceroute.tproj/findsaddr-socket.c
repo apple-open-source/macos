@@ -196,9 +196,9 @@ findsaddr(register const struct sockaddr_in *to,
 			}
 
 			if (SALEN(sa) == 0)
-				cp += sizeof(long);
+				cp += sizeof (u_int32_t);
 			else
-				cp += roundup(SALEN(sa), sizeof(long));
+				cp += roundup(SALEN(sa), sizeof (u_int32_t));
 		}
 
 	return ("failed!");

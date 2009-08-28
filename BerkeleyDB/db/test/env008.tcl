@@ -1,9 +1,8 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1999-2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 1999,2007 Oracle.  All rights reserved.
 #
-# $Id: env008.tcl,v 1.2 2004/03/30 01:24:07 jtownsen Exp $
+# $Id: env008.tcl,v 12.5 2007/05/17 15:15:55 bostic Exp $
 #
 # TEST	env008
 # TEST	Test environments and subdirectories.

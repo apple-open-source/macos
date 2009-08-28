@@ -1,0 +1,156 @@
+svfile DESCRIPTION {
+    {    version	   @mFullVersion@}
+    {    version	   2.1.3}
+    {    date           {@mDate@}}
+    {    date           {DEC-06-2008}}
+}
+svfile LSM {
+    {Version:        @mFullVersion@}
+    {Version:        2.1.3}
+    {Entered-date:   @mDate@}
+    {Entered-date:   DEC-06-2008}
+}
+svfile ANNOUNCE {
+    {I hereby announce @mName@ @mFullVersion@.}
+    {I hereby announce trf 2.1.3.}
+    {	@mDate@}
+    {	DEC-06-2008}
+}
+svfile ANNOUNCE.MAIL {
+    {Subject:      @mName@ @mFullVersion@}
+    {Subject:      trf 2.1.3}
+    {I hereby announce @mName@ @mFullVersion@.}
+    {I hereby announce trf 2.1.3.}
+}
+svfile README {
+    {		(Version @mFullVersion@ / @mDate@)}
+    {		(Version 2.1.3 / DEC-06-2008)}
+}
+svfile README.tea {
+    {		(Version @mFullVersion@ / @mDate@)}
+    {		(Version 2.1.3 / DEC-06-2008)}
+}
+svfile win/README {
+    {		(Version @mFullVersion@ / @mDate@)}
+    {		(Version 2.1.3 / DEC-06-2008)}
+    {	Trf @mFullVersion@ Source Distribution}
+    {	Trf 2.1.3 Source Distribution}
+}
+svfile mac/README {
+    {		(Version @mFullVersion@ / @mDate@)}
+    {		(Version 2.1.3 / DEC-06-2008)}
+}
+svfile unix/README {
+    {		(Version @mFullVersion@ / @mDate@)}
+    {		(Version 2.1.3 / DEC-06-2008)}
+}
+svfile unix/configure.in {
+    TRF_VERSION=@mVersion@
+    TRF_VERSION=2.1
+    TRF_MAJOR_VERSION=@mMajor@
+    TRF_MAJOR_VERSION=2
+    TRF_MINOR_VERSION=@mMinor@
+    TRF_MINOR_VERSION=1
+}
+svfile unix/Makefile.in {
+    {# This file is a Makefile for TRF (@mFullVersion@, as of @mDate@).}
+    {# This file is a Makefile for TRF (2.1.3, as of DEC-06-2008).}
+    {VERSION		=	@mVersion@}
+    {VERSION		=	2.1}
+}
+svfile configure.in {
+    {# Configure script for package '@mName@', as distributed at @mDate@.}
+    {# Configure script for package 'trf', as distributed at DEC-06-2008.}
+    MAJOR_VERSION=@mMajor@
+    MAJOR_VERSION=2
+    MINOR_VERSION=@mMinor@
+    MINOR_VERSION=1
+}
+svfile win/trf.rc {
+    {VALUE "OriginalFilename", "trf@mShortDosVersion@80.dll\0"}
+    {VALUE "OriginalFilename", "trf2180.dll\0"}
+    {VALUE "FileVersion",      "@mVersion@"}
+    {VALUE "FileVersion",      "2.1"}
+    {VALUE "ProductName",      "Trf @mVersion@ for Windows\0"}
+    {VALUE "ProductName",      "Trf 2.1 for Windows\0"}
+    {VALUE "ProductVersion",   "@mVersion@"}
+    {VALUE "ProductVersion",   "2.1"}
+}
+svfile win/Makefile.gnu {
+    {# This file is a Makefile for Trf @mFullVersion@ (as of @mDate@), usable for CygWin B20.1}
+    {# This file is a Makefile for Trf 2.1.3 (as of DEC-06-2008), usable for CygWin B20.1}
+    {VERSION		= @mFullVersion@}
+    {VERSION		= 2.1.3}
+    {TRF_DLL_FILE	    = ${EXTENSION}@mShortDosVersion@.dll}
+    {TRF_DLL_FILE	    = ${EXTENSION}21.dll}
+    {TRF_LIB_FILE	    = lib${EXTENSION}@mShortDosVersion@.a}
+    {TRF_LIB_FILE	    = lib${EXTENSION}21.a}
+    {TRF_STATIC_LIB_FILE = lib${EXTENSION}@mShortDosVersion@s.a}
+    {TRF_STATIC_LIB_FILE = lib${EXTENSION}21s.a}
+    {TRF_STUB_LIB_FILE   = lib${EXTENSION}stub@mShortDosVersion@.a}
+    {TRF_STUB_LIB_FILE   = lib${EXTENSION}stub21.a}
+}
+svfile win/makefile.vc {
+    {# Visual C++ 2.x, 4.0, 5.0 and 6.0 makefile for Trf @mFullVersion@ (@mDate@)}
+    {# Visual C++ 2.x, 4.0, 5.0 and 6.0 makefile for Trf 2.1.3 (DEC-06-2008)}
+    {VERSION		= "@mFullVersion@"}
+    {VERSION		= "2.1.3"}
+    {SHORTVERSION	= "@mShortDosVersion@"}
+    {SHORTVERSION	= "21"}
+}
+svfile win/makefile.vc5 {
+    {# Visual C++ 2.x and 4.0 makefile for Trf @mFullVersion@ (@mDate@)}
+    {# Visual C++ 2.x and 4.0 makefile for Trf 2.1.3 (DEC-06-2008)}
+    {VERSION		= "@mFullVersion@"}
+    {VERSION		= "2.1.3"}
+    {SHORTVERSION	= "@mShortDosVersion@"}
+    {SHORTVERSION	= "21"}
+}
+svfile win/pkgIndex.tcl {
+    {# Window package index for Trf @mFullVersion@ (as of @mDate@)}
+    {# Window package index for Trf 2.1.3 (as of DEC-06-2008)}
+    {    package ifneeded Trf @mVersion@ "load [list [file join $dir trf@mShortDosVersion@$version.dll]] Trf"}
+    {    package ifneeded Trf 2.1 "load [list [file join $dir trf21$version.dll]] Trf"}
+}
+svfile PORTING {
+    {as of @mFullVersion@, @mDate@}
+    {as of 2.1.3, DEC-06-2008}
+}
+svfile generic/patchlevel.h {
+    { * Distributed at @mDate@.}
+    { * Distributed at DEC-06-2008.}
+    {#define TRF_PATCH_LEVEL	"@mFullVersion@"}
+    {#define TRF_PATCH_LEVEL	"2.1.3"}
+}
+svfile generic/transform.h {
+    { * Distributed at @mDate@.}
+    { * Distributed at DEC-06-2008.}
+    {#define TRF_VERSION		"@mVersion@"}
+    {#define TRF_VERSION		"2.1"}
+    {#define TRF_MAJOR_VERSION	@mMajor@}
+    {#define TRF_MAJOR_VERSION	2}
+    {#define TRF_MINOR_VERSION	@mMinor@}
+    {#define TRF_MINOR_VERSION	1}
+}
+svfile win/Makefile.cross {
+    {# This file is a Makefile for Trf @mFullVersion@ (as of @mDate@), usable for CygWin B20.1}
+    {# This file is a Makefile for Trf 2.1.3 (as of DEC-06-2008), usable for CygWin B20.1}
+    {VERSION			= @mFullVersion@}
+    {VERSION			= 2.1.3}
+    {TRF_DLL_FILE	    = ${EXTENSION}@mShortDosVersion@.dll}
+    {TRF_DLL_FILE	    = ${EXTENSION}21.dll}
+    {TRF_LIB_FILE	    = lib${EXTENSION}@mShortDosVersion@.a}
+    {TRF_LIB_FILE	    = lib${EXTENSION}21.a}
+    {TRF_STATIC_LIB_FILE = lib${EXTENSION}@mShortDosVersion@s.a}
+    {TRF_STATIC_LIB_FILE = lib${EXTENSION}21s.a}
+    {TRF_STUB_LIB_FILE   = lib${EXTENSION}stub@mShortDosVersion@.a}
+    {TRF_STUB_LIB_FILE   = lib${EXTENSION}stub21.a}
+}
+svfile patches/v8.1.1/README {
+    {		Trf@mFullVersion@/patches/v8.1/}
+    {		Trf2.1.3/patches/v8.1/}
+}
+svfile common/trf_version.inc {
+    {[vset trf_version 2.1.3]}
+    {[vset trf_version @mFullVersion@]}
+}

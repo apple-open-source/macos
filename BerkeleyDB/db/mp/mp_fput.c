@@ -1,48 +1,52 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1996,2007 Oracle.  All rights reserved.
+ *
+ * $Id: mp_fput.c,v 12.36 2007/06/05 11:55:28 mjc Exp $
  */
+
 #include "db_config.h"
 
-#ifndef lint
-static const char revid[] = "$Id: mp_fput.c,v 1.2 2004/03/30 01:23:44 jtownsen Exp $";
-#endif /* not lint */
-
-#ifndef NO_SYSTEM_INCLUDES
-#include <sys/types.h>
-
-#endif
-
 #include "db_int.h"
-#include "dbinc/db_shash.h"
 #include "dbinc/log.h"
 #include "dbinc/mp.h"
 
-static void __memp_reset_lru __P((DB_ENV *, REGINFO *));
+static int __memp_reset_lru __P((DB_ENV *, REGINFO *));
 
 /*
  * __memp_fput_pp --
  *	DB_MPOOLFILE->put pre/post processing.
  *
- * PUBLIC: int __memp_fput_pp __P((DB_MPOOLFILE *, void *, u_int32_t));
+ * PUBLIC: int __memp_fput_pp
+ * PUBLIC:     __P((DB_MPOOLFILE *, void *, DB_CACHE_PRIORITY, u_int32_t));
  */
 int
-__memp_fput_pp(dbmfp, pgaddr, flags)
+__memp_fput_pp(dbmfp, pgaddr, priority, flags)
 	DB_MPOOLFILE *dbmfp;
 	void *pgaddr;
+	DB_CACHE_PRIORITY priority;
 	u_int32_t flags;
 {
 	DB_ENV *dbenv;
-	int ret;
+	DB_THREAD_INFO *ip;
+	int ret, t_ret;
 
 	dbenv = dbmfp->dbenv;
 	PANIC_CHECK(dbenv);
+	if (flags != 0)
+		return (__db_ferr(dbenv, "DB_MPOOLFILE->put", 0));
 
-	ret = __memp_fput(dbmfp, pgaddr, flags);
-	if (IS_ENV_REPLICATED(dbenv))
-		__op_rep_exit(dbenv);
+	MPF_ILLEGAL_BEFORE_OPEN(dbmfp, "DB_MPOOLFILE->put");
+
+	ENV_ENTER(dbenv, ip);
+
+	ret = __memp_fput(dbmfp, pgaddr, priority);
+	if (IS_ENV_REPLICATED(dbenv) &&
+	    (t_ret = __op_rep_exit(dbenv)) != 0 && ret == 0)
+		ret = t_ret;
+
+	ENV_LEAVE(dbenv, ip);
 	return (ret);
 }
 
@@ -50,43 +54,28 @@ __memp_fput_pp(dbmfp, pgaddr, flags)
  * __memp_fput --
  *	DB_MPOOLFILE->put.
  *
- * PUBLIC: int __memp_fput __P((DB_MPOOLFILE *, void *, u_int32_t));
+ * PUBLIC: int __memp_fput __P((DB_MPOOLFILE *, void *, DB_CACHE_PRIORITY));
  */
 int
-__memp_fput(dbmfp, pgaddr, flags)
+__memp_fput(dbmfp, pgaddr, priority)
 	DB_MPOOLFILE *dbmfp;
 	void *pgaddr;
-	u_int32_t flags;
+	DB_CACHE_PRIORITY priority;
 {
-	BH *fbhp, *bhp, *prev;
+	BH *bhp;
 	DB_ENV *dbenv;
 	DB_MPOOL *dbmp;
 	DB_MPOOL_HASH *hp;
 	MPOOL *c_mp;
-	u_int32_t n_cache;
-	int adjust, ret;
+	MPOOLFILE *mfp;
+	REGINFO *infop;
+	int adjust, pfactor, ret, t_ret;
 
 	dbenv = dbmfp->dbenv;
-	MPF_ILLEGAL_BEFORE_OPEN(dbmfp, "DB_MPOOLFILE->put");
-
 	dbmp = dbenv->mp_handle;
-	/* Validate arguments. */
-	if (flags) {
-		if ((ret = __db_fchk(dbenv, "memp_fput", flags,
-		    DB_MPOOL_CLEAN | DB_MPOOL_DIRTY | DB_MPOOL_DISCARD)) != 0)
-			return (ret);
-		if ((ret = __db_fcchk(dbenv, "memp_fput",
-		    flags, DB_MPOOL_CLEAN, DB_MPOOL_DIRTY)) != 0)
-			return (ret);
-
-		if (LF_ISSET(DB_MPOOL_DIRTY) && F_ISSET(dbmfp, MP_READONLY)) {
-			__db_err(dbenv,
-			    "%s: dirty flag set for readonly file page",
-			    __memp_fn(dbmfp));
-			return (EACCES);
-		}
-	}
-
+	mfp = dbmfp->mfp;
+	bhp = (BH *)((u_int8_t *)pgaddr - SSZA(BH, buf));
+	ret = 0;
 
 	/*
 	 * If we're mapping the file, there's nothing to do.  Because we can
@@ -99,62 +88,48 @@ __memp_fput(dbmfp, pgaddr, flags)
 		return (0);
 
 #ifdef DIAGNOSTIC
-	{ int ret;
 	/*
 	 * Decrement the per-file pinned buffer count (mapped pages aren't
 	 * counted).
 	 */
-	R_LOCK(dbenv, dbmp->reginfo);
+	MPOOL_SYSTEM_LOCK(dbenv);
 	if (dbmfp->pinref == 0) {
-		ret = EINVAL;
-		__db_err(dbenv,
+		MPOOL_SYSTEM_UNLOCK(dbenv);
+		__db_errx(dbenv,
 		    "%s: more pages returned than retrieved", __memp_fn(dbmfp));
-	} else {
-		ret = 0;
-		--dbmfp->pinref;
+		return (__db_panic(dbenv, EACCES));
 	}
-	R_UNLOCK(dbenv, dbmp->reginfo);
-	if (ret != 0)
-		return (ret);
-	}
+	--dbmfp->pinref;
+	MPOOL_SYSTEM_UNLOCK(dbenv);
 #endif
 
 	/* Convert a page address to a buffer header and hash bucket. */
-	bhp = (BH *)((u_int8_t *)pgaddr - SSZA(BH, buf));
-	n_cache = NCACHE(dbmp->reginfo[0].primary, bhp->mf_offset, bhp->pgno);
-	c_mp = dbmp->reginfo[n_cache].primary;
-	hp = R_ADDR(&dbmp->reginfo[n_cache], c_mp->htab);
-	hp = &hp[NBUCKET(c_mp, bhp->mf_offset, bhp->pgno)];
-
-	MUTEX_LOCK(dbenv, &hp->hash_mutex);
-
-	/* Set/clear the page bits. */
-	if (LF_ISSET(DB_MPOOL_CLEAN) &&
-	    F_ISSET(bhp, BH_DIRTY) && !F_ISSET(bhp, BH_DIRTY_CREATE)) {
-		DB_ASSERT(hp->hash_page_dirty != 0);
-		--hp->hash_page_dirty;
-		F_CLR(bhp, BH_DIRTY);
-	}
-	if (LF_ISSET(DB_MPOOL_DIRTY) && !F_ISSET(bhp, BH_DIRTY)) {
-		++hp->hash_page_dirty;
-		F_SET(bhp, BH_DIRTY);
-	}
-	if (LF_ISSET(DB_MPOOL_DISCARD))
-		F_SET(bhp, BH_DISCARD);
+	MP_GET_BUCKET(dbmfp, bhp->pgno, &infop, hp, ret);
+	if (ret != 0)
+		return (ret);
+	c_mp = infop->primary;
 
 	/*
 	 * Check for a reference count going to zero.  This can happen if the
 	 * application returns a page twice.
 	 */
 	if (bhp->ref == 0) {
-		__db_err(dbenv, "%s: page %lu: unpinned page returned",
+		__db_errx(dbenv, "%s: page %lu: unpinned page returned",
 		    __memp_fn(dbmfp), (u_long)bhp->pgno);
-		MUTEX_UNLOCK(dbenv, &hp->hash_mutex);
-		return (EINVAL);
+		DB_ASSERT(dbenv, bhp->ref != 0);
+		MUTEX_UNLOCK(dbenv, hp->mtx_hash);
+		return (__db_panic(dbenv, EACCES));
 	}
 
 	/* Note the activity so allocation won't decide to quit. */
 	++c_mp->put_counter;
+
+	/* Mark the file dirty. */
+	if (F_ISSET(bhp, BH_DIRTY)) {
+		mfp->file_written = 1;
+
+		DB_ASSERT(dbenv, !SH_CHAIN_HASNEXT(bhp, vc));
+	}
 
 	/*
 	 * If more than one reference to the page or a reference other than a
@@ -162,13 +137,16 @@ __memp_fput(dbmfp, pgaddr, flags)
 	 * discard flags (for now) and leave the buffer's priority alone.
 	 */
 	if (--bhp->ref > 1 || (bhp->ref == 1 && !F_ISSET(bhp, BH_LOCKED))) {
-		MUTEX_UNLOCK(dbenv, &hp->hash_mutex);
+		MUTEX_UNLOCK(dbenv, hp->mtx_hash);
 		return (0);
 	}
 
+	/* The buffer should not be accessed again. */
+	MVCC_MPROTECT(bhp->buf, mfp->stat.st_pagesize, 0);
+
 	/* Update priority values. */
-	if (F_ISSET(bhp, BH_DISCARD) ||
-	    dbmfp->mfp->priority == MPOOL_PRI_VERY_LOW)
+	if (priority == DB_PRIORITY_VERY_LOW ||
+	    mfp->priority == MPOOL_PRI_VERY_LOW)
 		bhp->priority = 0;
 	else {
 		/*
@@ -178,49 +156,50 @@ __memp_fput(dbmfp, pgaddr, flags)
 		 */
 		bhp->priority = c_mp->lru_count;
 
+		switch (priority) {
+		default:
+		case DB_PRIORITY_UNCHANGED:
+			pfactor = mfp->priority;
+			break;
+		case DB_PRIORITY_VERY_LOW:
+			pfactor = MPOOL_PRI_VERY_LOW;
+			break;
+		case DB_PRIORITY_LOW:
+			pfactor = MPOOL_PRI_LOW;
+			break;
+		case DB_PRIORITY_DEFAULT:
+			pfactor = MPOOL_PRI_DEFAULT;
+			break;
+		case DB_PRIORITY_HIGH:
+			pfactor = MPOOL_PRI_HIGH;
+			break;
+		case DB_PRIORITY_VERY_HIGH:
+			pfactor = MPOOL_PRI_VERY_HIGH;
+			break;
+		}
+
 		adjust = 0;
-		if (dbmfp->mfp->priority != 0)
-			adjust =
-			    (int)c_mp->stat.st_pages / dbmfp->mfp->priority;
+		if (pfactor != 0)
+			adjust = (int)c_mp->stat.st_pages / pfactor;
+
 		if (F_ISSET(bhp, BH_DIRTY))
-			adjust += c_mp->stat.st_pages / MPOOL_PRI_DIRTY;
+			adjust += (int)c_mp->stat.st_pages / MPOOL_PRI_DIRTY;
 
 		if (adjust > 0) {
-			if (UINT32_T_MAX - bhp->priority >= (u_int32_t)adjust)
+			if (UINT32_MAX - bhp->priority >= (u_int32_t)adjust)
 				bhp->priority += adjust;
 		} else if (adjust < 0)
 			if (bhp->priority > (u_int32_t)-adjust)
 				bhp->priority += adjust;
 	}
 
-	/*
-	 * Buffers on hash buckets are sorted by priority -- move the buffer
-	 * to the correct position in the list.
-	 */
-	if ((fbhp =
-	     SH_TAILQ_FIRST(&hp->hash_bucket, __bh)) ==
-	     SH_TAILQ_LAST(&hp->hash_bucket, hq, __bh))
-		goto done;
-
-	if (fbhp == bhp)
-		fbhp = SH_TAILQ_NEXT(fbhp, hq, __bh);
-	SH_TAILQ_REMOVE(&hp->hash_bucket, bhp, hq, __bh);
-
-	for (prev = NULL; fbhp != NULL;
-	    prev = fbhp, fbhp = SH_TAILQ_NEXT(fbhp, hq, __bh))
-		if (fbhp->priority > bhp->priority)
-			break;
-	if (prev == NULL)
-		SH_TAILQ_INSERT_HEAD(&hp->hash_bucket, bhp, hq, __bh);
+	if (SH_TAILQ_FIRST(&hp->hash_bucket, __bh) ==
+	    SH_TAILQ_LAST(&hp->hash_bucket, hq, __bh))
+		hp->hash_priority = BH_PRIORITY(bhp);
 	else
-		SH_TAILQ_INSERT_AFTER(&hp->hash_bucket, prev, bhp, hq, __bh);
-
-done:
-	/* Reset the hash bucket's priority. */
-	hp->hash_priority = SH_TAILQ_FIRST(&hp->hash_bucket, __bh)->priority;
-
+		__memp_bucket_reorder(dbenv, hp, bhp);
 #ifdef DIAGNOSTIC
-	__memp_check_order(hp);
+	__memp_check_order(dbenv, hp);
 #endif
 
 	/*
@@ -234,34 +213,35 @@ done:
 	if (F_ISSET(bhp, BH_LOCKED) && bhp->ref_sync != 0)
 		--bhp->ref_sync;
 
-	MUTEX_UNLOCK(dbenv, &hp->hash_mutex);
+	MUTEX_UNLOCK(dbenv, hp->mtx_hash);
 
 	/*
 	 * On every buffer put we update the buffer generation number and check
 	 * for wraparound.
 	 */
-	if (++c_mp->lru_count == UINT32_T_MAX)
-		__memp_reset_lru(dbenv, dbmp->reginfo);
+	if (++c_mp->lru_count == UINT32_MAX)
+		if ((t_ret =
+		    __memp_reset_lru(dbenv, dbmp->reginfo)) != 0 && ret == 0)
+			ret = t_ret;
 
-	return (0);
+	return (ret);
 }
 
 /*
  * __memp_reset_lru --
  *	Reset the cache LRU counter.
  */
-static void
-__memp_reset_lru(dbenv, memreg)
+static int
+__memp_reset_lru(dbenv, infop)
 	DB_ENV *dbenv;
-	REGINFO *memreg;
+	REGINFO *infop;
 {
-	BH *bhp;
+	BH *bhp, *tbhp;
 	DB_MPOOL_HASH *hp;
 	MPOOL *c_mp;
-	int bucket;
+	u_int32_t bucket, priority;
 
-	c_mp = memreg->primary;
-
+	c_mp = infop->primary;
 	/*
 	 * Update the counter so all future allocations will start at the
 	 * bottom.
@@ -269,7 +249,7 @@ __memp_reset_lru(dbenv, memreg)
 	c_mp->lru_count -= MPOOL_BASE_DECREMENT;
 
 	/* Adjust the priority of every buffer in the system. */
-	for (hp = R_ADDR(memreg, c_mp->htab),
+	for (hp = R_ADDR(infop, c_mp->htab),
 	    bucket = 0; bucket < c_mp->htab_buckets; ++hp, ++bucket) {
 		/*
 		 * Skip empty buckets.
@@ -277,15 +257,42 @@ __memp_reset_lru(dbenv, memreg)
 		 * We can check for empty buckets before locking as we
 		 * only care if the pointer is zero or non-zero.
 		 */
-		if (SH_TAILQ_FIRST(&hp->hash_bucket, __bh) == NULL)
+		if (SH_TAILQ_FIRST(&hp->hash_bucket, __bh) == NULL) {
+			c_mp->lru_reset++;
 			continue;
+		}
 
-		MUTEX_LOCK(dbenv, &hp->hash_mutex);
-		for (bhp = SH_TAILQ_FIRST(&hp->hash_bucket, __bh);
-		    bhp != NULL; bhp = SH_TAILQ_NEXT(bhp, hq, __bh))
-			if (bhp->priority != UINT32_T_MAX &&
-			    bhp->priority > MPOOL_BASE_DECREMENT)
-				bhp->priority -= MPOOL_BASE_DECREMENT;
-		MUTEX_UNLOCK(dbenv, &hp->hash_mutex);
+		MUTEX_LOCK(dbenv, hp->mtx_hash);
+		c_mp->lru_reset++;
+		/*
+		 * We need to take a little care that the bucket does
+		 * not become unsorted.  This is highly unlikely but
+		 * possible.
+		 */
+		priority = 0;
+		SH_TAILQ_FOREACH(bhp, &hp->hash_bucket, hq, __bh) {
+			for (tbhp = bhp; tbhp != NULL;
+			    tbhp = SH_CHAIN_PREV(tbhp, vc, __bh)) {
+				if (tbhp->priority != UINT32_MAX &&
+				    tbhp->priority > MPOOL_BASE_DECREMENT) {
+					tbhp->priority -= MPOOL_BASE_DECREMENT;
+					if (tbhp->priority < priority)
+						tbhp->priority = priority;
+				}
+			}
+			priority = bhp->priority;
+		}
+		/*
+		 * Reset the hash bucket's priority.  The chain is never empty
+		 * in this case, so tbhp will never be NULL.
+		 */
+		if ((tbhp =
+		    SH_TAILQ_FIRST(&hp->hash_bucket, __bh)) != NULL)
+			hp->hash_priority = BH_PRIORITY(tbhp);
+		MUTEX_UNLOCK(dbenv, hp->mtx_hash);
 	}
+	c_mp->lru_reset = 0;
+
+	COMPQUIET(dbenv, NULL);
+	return (0);
 }

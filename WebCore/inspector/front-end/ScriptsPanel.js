@@ -163,6 +163,39 @@ WebInspector.ScriptsPanel = function()
 
     this._breakpointsURLMap = {};
 
+    this._shortcuts = {};
+
+    var isMac = InspectorController.platform().indexOf("mac-") === 0;
+    var platformSpecificModifier = isMac ? WebInspector.KeyboardShortcut.Modifiers.Meta : WebInspector.KeyboardShortcut.Modifiers.Ctrl;
+
+    // Continue.
+    var handler = this.pauseButton.click.bind(this.pauseButton);
+    var shortcut = WebInspector.KeyboardShortcut.makeKey(WebInspector.KeyboardShortcut.KeyCodes.F8);
+    this._shortcuts[shortcut] = handler;
+    var shortcut = WebInspector.KeyboardShortcut.makeKey(WebInspector.KeyboardShortcut.KeyCodes.Slash, platformSpecificModifier);
+    this._shortcuts[shortcut] = handler;
+
+    // Step over.
+    var handler = this.stepOverButton.click.bind(this.stepOverButton);
+    var shortcut = WebInspector.KeyboardShortcut.makeKey(WebInspector.KeyboardShortcut.KeyCodes.F10);
+    this._shortcuts[shortcut] = handler;
+    var shortcut = WebInspector.KeyboardShortcut.makeKey(WebInspector.KeyboardShortcut.KeyCodes.SingleQuote, platformSpecificModifier);
+    this._shortcuts[shortcut] = handler;
+
+    // Step into.
+    var handler = this.stepIntoButton.click.bind(this.stepIntoButton);
+    var shortcut = WebInspector.KeyboardShortcut.makeKey(WebInspector.KeyboardShortcut.KeyCodes.F11);
+    this._shortcuts[shortcut] = handler;
+    var shortcut = WebInspector.KeyboardShortcut.makeKey(WebInspector.KeyboardShortcut.KeyCodes.Semicolon, platformSpecificModifier);
+    this._shortcuts[shortcut] = handler;
+
+    // Step out.
+    var handler = this.stepOutButton.click.bind(this.stepOutButton);
+    var shortcut = WebInspector.KeyboardShortcut.makeKey(WebInspector.KeyboardShortcut.KeyCodes.F11, WebInspector.KeyboardShortcut.Modifiers.Shift);
+    this._shortcuts[shortcut] = handler;
+    var shortcut = WebInspector.KeyboardShortcut.makeKey(WebInspector.KeyboardShortcut.KeyCodes.Semicolon, WebInspector.KeyboardShortcut.Modifiers.Shift, platformSpecificModifier);
+    this._shortcuts[shortcut] = handler;
+
     this.reset();
 }
 
@@ -204,6 +237,10 @@ WebInspector.ScriptsPanel.prototype = {
             if (!view || view === this.visibleView)
                 continue;
             view.visible = false;
+        }
+        if (this._attachDebuggerWhenShown) {
+            InspectorController.enableDebuggerFromFrontend(false);
+            delete this._attachDebuggerWhenShown;
         }
     },
 
@@ -312,33 +349,53 @@ WebInspector.ScriptsPanel.prototype = {
             sourceFrame.removeBreakpoint(breakpoint);
     },
 
-    evaluateInSelectedCallFrame: function(code, updateInterface)
+    evaluateInSelectedCallFrame: function(code, updateInterface, callback)
     {
         var selectedCallFrame = this.sidebarPanes.callstack.selectedCallFrame;
         if (!this._paused || !selectedCallFrame)
             return;
+
         if (typeof updateInterface === "undefined")
             updateInterface = true;
-        var result = selectedCallFrame.evaluate(code);
-        if (updateInterface)
-            this.sidebarPanes.scopechain.update(selectedCallFrame);
-        return result;
+
+        var self = this;
+        function updatingCallbackWrapper(result)
+        {
+            callback(result);
+            if (updateInterface)
+                self.sidebarPanes.scopechain.update(selectedCallFrame);
+        }        
+        this.doEvalInCallFrame(selectedCallFrame, code, updatingCallbackWrapper);
     },
 
-    variablesInScopeForSelectedCallFrame: function()
+    doEvalInCallFrame: function(callFrame, code, callback)
     {
-        var selectedCallFrame = this.sidebarPanes.callstack.selectedCallFrame;
-        if (!this._paused || !selectedCallFrame)
-            return {};
+        var panel = this;
+        function delayedEvaluation()
+        {
+            if (!code) {
+                // Evaluate into properties in scope of the selected call frame.
+                callback(panel._variablesInScope(callFrame));
+                return;
+            }
+            try {
+                callback(callFrame.evaluate(code));
+            } catch (e) {
+                callback(e, true);
+            }
+        }
+        setTimeout(delayedEvaluation, 0);
+    },
 
+    _variablesInScope: function(callFrame)
+    {
         var result = {};
-        var scopeChain = selectedCallFrame.scopeChain;
+        var scopeChain = callFrame.scopeChain;
         for (var i = 0; i < scopeChain.length; ++i) {
             var scopeObject = scopeChain[i];
             for (var property in scopeObject)
                 result[property] = true;
         }
-
         return result;
     },
 
@@ -366,6 +423,15 @@ WebInspector.ScriptsPanel.prototype = {
         this._stepping = false;
 
         this._clearInterface();
+    },
+
+    attachDebuggerWhenShown: function()
+    {
+        if (this.element.parentElement) {
+            InspectorController.enableDebuggerFromFrontend(false);
+        } else {
+            this._attachDebuggerWhenShown = true;
+        }
     },
 
     debuggerWasEnabled: function()
@@ -452,6 +518,19 @@ WebInspector.ScriptsPanel.prototype = {
         if (!view)
             return;
         this._showScriptOrResource((view.resource || view.script));
+    },
+
+    handleKeyEvent: function(event)
+    {
+        var shortcut = WebInspector.KeyboardShortcut.makeKeyFromEvent(event);
+        var handler = this._shortcuts[shortcut];
+        if (handler) {
+            handler(event);
+            event.preventDefault();
+            event.handled = true;
+        } else {
+            this.sidebarPanes.callstack.handleKeyEvent(event);
+        }
     },
 
     scriptViewForScript: function(script)
@@ -771,19 +850,19 @@ WebInspector.ScriptsPanel.prototype = {
     {
         if (InspectorController.debuggerEnabled())
             return;
-        this._toggleDebugging();
+        this._toggleDebugging(this.panelEnablerView.alwaysEnabled);
     },
 
-    _toggleDebugging: function()
+    _toggleDebugging: function(optionalAlways)
     {
         this._paused = false;
         this._waitingToPause = false;
         this._stepping = false;
 
         if (InspectorController.debuggerEnabled())
-            InspectorController.disableDebugger();
+            InspectorController.disableDebugger(true);
         else
-            InspectorController.enableDebugger();
+            InspectorController.enableDebuggerFromFrontend(!!optionalAlways);
     },
 
     _togglePauseOnExceptions: function()

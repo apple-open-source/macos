@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 2000-2006, International Business Machines Corporation and
+ * Copyright (c) 2000-2007, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /*
@@ -10,7 +10,7 @@
 *
 *   Date          Name        Description
 *   08/05/2000    Yves       Creation 
-*******************************************************************************
+******************************************************************************
 */
 
 #include "unicode/ucnv.h"
@@ -174,7 +174,7 @@ static UBool doTestNames(const char *name, const char *standard, const char **ex
     int32_t enumCount = uenum_count(myEnum, &err);
     int32_t idx, len, repeatTimes = 3;
     if (size != enumCount) {
-        log_err("FAIL: different size arrays. Got %d. Expected %d\n", enumCount, size);
+        log_err("FAIL: different size arrays for %s. Got %d. Expected %d\n", name, enumCount, size);
         return 0;
     }
     if (size < 0 && myEnum) {
@@ -268,6 +268,7 @@ static void TestStandardNames()
         "csASCII",
         "iso-ir-6",
         "cp367",
+        "IBM367",
     };
     static const char *asciiMIME[] = {
         "US-ASCII"

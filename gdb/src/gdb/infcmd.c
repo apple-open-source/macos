@@ -53,7 +53,7 @@
 #include "gdb_assert.h"
 /* APPLE LOCAL - subroutine inlining  */
 #include "inlining.h"
-#include "exceptions.h"
+#include "macosx/macosx-nat-dyld.h"
 
 /* APPLE LOCAL checkpoints */
 #include "checkpoint.h"
@@ -122,6 +122,8 @@ static void signal_command (char *, int);
 static void jump_command (char *, int);
 
 static void step_1 (int, int, char *);
+static void step_1_inlining (int, int, char *);
+static void step_1_no_inlining (int, int, char *);
 /* APPLE LOCAL make step_once globally visible */
 static void step_1_continuation (struct continuation_arg *arg);
 
@@ -496,6 +498,10 @@ run_command_1 (char *args, int from_tty, int tbreak_at_main)
   /* APPLE LOCAL checkpoints */
   clear_all_checkpoints ();
 
+  /* APPLE LOCAL: discard ObjC Runtime cleanups, and reset proceed_from_hand_call.  */
+  do_hand_call_cleanups (ALL_CLEANUPS);
+  proceed_from_hand_call = 0;
+  
   /* Purge old solib objfiles. */
   objfile_purge_solibs ();
 
@@ -747,8 +753,30 @@ disable_longjmp_breakpoint_cleanup (void *ignore)
   disable_longjmp_breakpoint ();
 }
 
+/* APPLE LOCAL begin stepping through inlined subroutines  */
+
+/* The following function calls either the original step_1 function
+   (now called step_1_no_inlining), to not attempt to properly
+   maneuver through inlined code on a synchronous target; or it will
+   call step_1_inlining, to attempt to properly handle inlined code.
+   Which function it calls depends on dwarf2_allow_inlined_stepping,
+   which the user can control with 'set inlined-stepping <on/off>'.  */
+
 static void
 step_1 (int skip_subroutines, int single_inst, char *count_string)
+{
+  if (dwarf2_allow_inlined_stepping)
+    step_1_inlining (skip_subroutines, single_inst, count_string);
+  else
+    step_1_no_inlining (skip_subroutines, single_inst, count_string);
+}
+
+/* This is the original step_1 routine, which will be called if the
+   inlined-stepping option is turned off.  */
+
+static void
+step_1_no_inlining (int skip_subroutines, int single_inst, char *count_string)
+/* APPLE LOCAL end stepping through inlined subroutines  */
 {
   int count = 1;
   struct frame_info *frame;
@@ -797,6 +825,10 @@ step_1 (int skip_subroutines, int single_inst, char *count_string)
   /* In synchronous case, all is well, just use the regular for loop. */
   if (!target_can_async_p ())
     {
+      /* APPLE LOCAL: Stepping command hook here.  */
+      if (stepping_command_hook)
+	stepping_command_hook ();
+
       for (; count > 0; count--)
 	{
 	  clear_proceed_status ();
@@ -812,8 +844,9 @@ step_1 (int skip_subroutines, int single_inst, char *count_string)
 	      if (step_range_end == 0)
 		{
 		  char *name;
-		  if (find_pc_partial_function (stop_pc, &name, &step_range_start,
-						&step_range_end) == 0)
+		  if (find_pc_partial_function_no_inlined (stop_pc, &name, 
+							   &step_range_start,
+							   &step_range_end) == 0)
 		    error (_("Cannot find bounds of current function"));
 
 		  target_terminal_ours ();
@@ -863,6 +896,417 @@ which has no line number information.\n"), name);
 	/* APPLE LOCAL end step command hook */
     }
 }
+
+/* APPLE LOCAL begin stepping through inlined subroutines  */
+
+/* The following function is a modified version of the step_1
+   function, to allow for properly maneuvering through inlined subroutines.
+   The modifications in this function are being copied from
+   step_once.  */
+
+static void
+step_1_inlining (int skip_subroutines, int single_inst, char *count_string)
+{
+  int count = 1;
+  struct frame_info *frame;
+  struct cleanup *cleanups = 0;
+  int async_exec = 0;
+  /* APPLE LOCAL begin subroutine inlining  */
+  char *file_name = NULL;
+  int line_num = 0;
+  int column = 0;
+  int stack_pos = 0;
+  int do_proceed = 1;
+  CORE_ADDR end_of_line = (CORE_ADDR) 0;
+  CORE_ADDR inline_start_pc = (CORE_ADDR) 0;
+  CORE_ADDR tmp_end = (CORE_ADDR) 0;
+  /* APPLE LOCAL end subroutine inlining  */
+
+  ERROR_NO_INFERIOR;
+
+  if (count_string)
+    async_exec = strip_bg_char (&count_string);
+
+  /* If we get a request for running in the bg but the target
+     doesn't support it, error out. */
+  if (async_exec && !target_can_async_p ())
+    error (_("Asynchronous execution not supported on this target."));
+
+  /* If we don't get a request of running in the bg, then we need
+     to simulate synchronous (fg) execution. */
+  /* APPLE LOCAL begin subroutine inlining  */
+  if (!async_exec && target_can_async_p ()
+      && !single_inst
+      && (skip_subroutines 
+	  || !at_inlined_call_site_p (&file_name, &line_num, &column)))
+  /* APPLE LOCAL end subroutine inlining  */
+    {
+      /* Simulate synchronous execution */
+      async_disable_stdin ();
+    }
+
+  count = count_string ? parse_and_eval_long (count_string) : 1;
+
+  if (!single_inst || skip_subroutines)		/* leave si command alone */
+    {
+      enable_longjmp_breakpoint ();
+      if (!target_can_async_p ())
+	cleanups = make_cleanup (disable_longjmp_breakpoint_cleanup, 
+				 0 /*ignore*/);
+      else
+        make_exec_cleanup (disable_longjmp_breakpoint_cleanup, 0 /*ignore*/);
+    }
+
+  /* In synchronous case, all is well, just use the regular for loop. */
+  if (!target_can_async_p ())
+    {
+      /* APPLE LOCAL: Stepping command hook here.  */
+      if (stepping_command_hook)
+	stepping_command_hook ();
+
+      for (; count > 0; count--)
+	{
+	  if (!single_inst
+	      && ((stack_pos = at_inlined_call_site_p (&file_name, &line_num,
+						       &column))
+		  || rest_of_line_contains_inlined_subroutine (&end_of_line))
+	      && skip_subroutines)
+	    {
+	      /* We're trying to 'next' over an inlined funcion call.  If so,
+		 find the pc for the end of the 'current' inlined subroutine
+		 (we may be nested  several inlinings deep), and set the
+		 step_range_end to that address.  */
+
+	      struct symtab_and_line sal;
+	      struct symtab_and_line *cur = NULL;
+
+	      /* Find end PC for current inlined subroutine.  */
+
+	      frame = get_current_frame ();
+
+	      if (line_num != 0)
+		{
+		  /* The inlined subroutine is the first bit of code for the
+		     line;  it might not be ALL the code for the line
+		     however.  First find the sal for the inlined 
+		     subroutine.  */
+		  CORE_ADDR start_pc;
+
+		  start_pc = 
+		         global_inlined_call_stack.records[stack_pos].start_pc;
+		  sal = find_pc_line (start_pc, 0);
+		  while (sal.entry_type != INLINED_CALL_SITE_LT_ENTRY
+			 || sal.line != line_num)
+		    {
+		      cur = sal.next;
+		      if (!cur)
+			break;
+		      sal = *cur;
+		    }
+
+		  if (sal.entry_type == INLINED_CALL_SITE_LT_ENTRY
+		      && sal.line == line_num)
+		    sal.pc = sal.end;
+
+		  /* If there is more code to the line than the inlined
+		     subroutine, make the 'next' command step over the rest of
+		     the line as well.  */
+
+		  if (end_of_line != 0
+		      && sal.pc != end_of_line)
+		    sal.pc = end_of_line;
+		  else
+		    {
+		      /* Check to see if there is any more to this line... */
+		      struct symtab_and_line tmp_sal;
+
+		      tmp_sal = find_pc_line (sal.end, 0);
+		      if (tmp_sal.symtab == sal.symtab
+			  && tmp_sal.line == sal.line
+			  && tmp_sal.entry_type == NORMAL_LT_ENTRY
+			  && tmp_sal.end > sal.end)
+			{
+			  sal.pc = tmp_sal.end;
+			  sal.end = tmp_sal.end;
+			}
+		    }
+		}
+	      else
+		{
+		  /* There is code for this line before we get to the
+		     inlined subroutine; there may be code for this line
+		     after the inlined subroutine as well.  We want the
+		     'next' command to step over ALL the code for the
+		     line.  */
+
+		  gdb_assert (end_of_line != 0);
+		  
+		  if (in_inlined_function_call_p (&tmp_end))
+		    {
+		      if (tmp_end && tmp_end < end_of_line)
+			end_of_line = tmp_end;
+		    }
+
+		  sal = find_pc_line (stop_pc, 0);
+		  sal.pc = end_of_line;
+		  sal.end = end_of_line;
+		}
+
+	      /* Set the global values for the 'next'. */
+
+	      clear_proceed_status ();
+
+	      /* Tell the user what's going on.  */
+
+	      if (dwarf2_debug_inlined_stepping)
+		ui_out_text (uiout, 
+			     "** Stepping over inlined function code.  **\n");
+	      
+	      /* Set up various necessary variables to make sure we actually
+		 stop at the right time.  */
+
+	      if (!frame)
+		error (_("No current frame"));
+	      step_frame_id = get_frame_id (frame);
+	      step_range_start = stop_pc;
+	      step_range_end = sal.pc;
+	      step_over_calls = STEP_OVER_ALL;
+	      stepping_over_inlined_subroutine = 1;
+	      if (current_inlined_subroutine_stack_size() > 0
+		  && stack_pos > 0
+		  && stack_pos < current_inlined_subroutine_stack_size ())
+		stepping_ranges = 
+		           global_inlined_call_stack.records[stack_pos].ranges;
+	      else
+		stepping_ranges = 0;
+
+	      do_proceed = 1;
+
+	    }
+	  else if (!single_inst
+		   && at_inlined_call_site_p (&file_name, &line_num, & column))
+	    {
+	      struct symtab_and_line sal;
+	      struct symtab_and_line *cur = NULL;
+	      int func_first_line = 0;
+	      int found = 0;
+
+	      stepping_into_inlined_subroutine = 1;
+
+	      if (current_inlined_subroutine_stack_position ()
+		  < current_inlined_subroutine_stack_size ())
+		{
+		  /* Set up hte SAL for printing out the current source
+		     location.  */
+
+		  step_into_current_inlined_subroutine ();
+
+		  sal = find_pc_line 
+		            (current_inlined_subroutine_call_stack_start_pc (),
+			     0);
+		  
+		  for (cur = &sal; cur; cur = cur->next)
+		    if (cur->entry_type == INLINED_SUBROUTINE_LT_ENTRY
+			&& cur->pc == 
+			      current_inlined_subroutine_call_stack_start_pc ()
+			&& cur->end == 
+			       current_inlined_subroutine_call_stack_end_pc ())
+		      {
+			sal.symtab = cur->symtab;
+			sal.pc = cur->pc;
+			sal.end = cur->end;
+			sal.line = cur->line;
+			sal.entry_type = cur->entry_type;
+			break;
+		      }
+
+		  /* Flush the existing frames.  This is necessary
+		     because we will need to create a new
+		     INLINED_FRAME at level zero for the inlined
+		     subroutine we are "stepping" into.  */
+
+		  flush_cached_frames ();
+		}
+	      else
+		{
+		  /* We're stepping from the call site of our
+		     innermost inlined subroutine into the innermost
+		     inlined subroutine.  We don't actually run the
+		     inferior, because the PC is already AT the
+		     beginning of the inlined subroutine.  This is
+		     purely a context change from the user's
+		     perspective to make maneuvering through inlined
+		     subroutines less confusion: We've forced a stop
+		     at the call site, where there is not executable
+		     code, before diving into the subroutine.  */
+		 
+		  /* Find the INLINED_SUBROUTINE line table entry for
+		     the current PC, with information matching the
+		     current record in the
+		     global_inlined_call_stack.  */
+
+		  sal = find_pc_line (stop_pc, 0);
+		  
+		  while (!found)
+		    {
+		      if (sal.entry_type == INLINED_SUBROUTINE_LT_ENTRY
+			  && sal.pc == 
+                              current_inlined_subroutine_call_stack_start_pc ()
+			  && sal.end == 
+			       current_inlined_subroutine_call_stack_end_pc ())
+			found = 1;
+		      else
+			{
+			  cur = sal.next;
+			  if (!cur)
+			    break;
+			  sal = *cur;
+			}
+		    }
+		  
+		  /* Stepping into an inlined function requires
+		     creating a new INLINED_FRAME, at level 0, so we
+		     need to flush the current set of frames.  */
+
+		  flush_cached_frames ();
+		  
+		  /* Update the global_inlined_call_stack data
+		     appropriately.  */
+
+		  step_into_current_inlined_subroutine ();
+		}
+
+	      /* Tell the user what we are doing.  */
+	      if (dwarf2_debug_inlined_stepping)
+		ui_out_text (uiout,
+		     "** Simulating stepping into inlined subroutines.  **\n");
+
+	      /* Tell emacs (or anything else using annotations) to update
+		 the location.  */
+
+	      if (at_inlined_call_site_p (&file_name, &line_num, &column))
+		func_first_line = line_num;
+	      else
+		func_first_line = inlined_function_find_first_line (sal);
+
+	      annotate_starting ();
+	      annotate_frames_invalid ();
+	      breakpoints_changed ();
+	      annotate_frames_invalid ();
+	      if (annotation_level == 0)
+		print_source_lines (sal.symtab, func_first_line, 1, 0);
+	      else
+		identify_source_line (sal.symtab, func_first_line, 0, sal.pc);
+	      annotate_frame_end ();
+	      annotate_stopped ();
+
+	      /* Make sure the mi interpreter updates the current location
+		 appropriately (including fooling it into believing the
+		 inferior has run, so it can properly finish its 'step'
+		 command).  */
+
+	      target_executing = 0;
+	      do_proceed = 0;
+	    }
+	  else
+	    {
+	      /* "Normal" synchronous stepping case (not stepping into or
+		 over an inlined subroutine.  */
+
+	      if (!single_inst
+		  && rest_of_line_contains_inlined_subroutine (&end_of_line))
+		find_next_inlined_subroutine (stop_pc, &inline_start_pc, 
+					      end_of_line);
+
+	      clear_proceed_status ();
+
+	      frame = get_current_frame ();
+
+	      while (frame
+		     && get_frame_type (frame) == INLINED_FRAME)
+		frame = get_prev_frame (frame);
+
+	      if (!frame)		/* Avoid coredump here.  Why tho? */
+		error (_("No current frame"));
+	      step_frame_id = get_frame_id (frame);
+
+	      if (!single_inst)
+		{
+		  find_pc_line_pc_range (stop_pc, &step_range_start, 
+					 &step_range_end);
+
+		  if (inline_start_pc)
+		    {
+		      step_range_end = inline_start_pc;
+		      /* APPLE LOCAL remember stepping into inlined
+			 subroutine across intervening function
+			 calls.  */
+		      inlined_step_range_end = inline_start_pc;
+		      stepping_into_inlined_subroutine = 1;
+		      if (dwarf2_debug_inlined_stepping)
+			ui_out_text (uiout,
+		      "** Stepping to beginning of inlined subroutine.  **\n");
+		    }
+		  
+		  if (step_range_end == 0)
+		    {
+		      char *name;
+		      if (find_pc_partial_function (stop_pc, &name, 
+						    &step_range_start,
+						&step_range_end) == 0)
+			error (_("Cannot find bounds of current function"));
+
+		      target_terminal_ours ();
+		      printf_filtered (_("\
+Single stepping until exit from function %s, \n\
+which has no line number information.\n"), name);
+		    }
+		}
+	      else
+		{
+		  /* Say we are stepping, but stop after one insn
+		     whatever it does.  */
+		  step_range_start = step_range_end = 1;
+		  if (!skip_subroutines)
+		    /* It is stepi. Don't step over function calls,
+		       not even to functions lacking line numbers.  */
+		    step_over_calls = STEP_OVER_NONE;
+		}
+	      
+	      if (skip_subroutines)
+		step_over_calls = STEP_OVER_ALL;
+
+	      step_multi = (count > 1);
+	    }
+
+	  if (do_proceed)
+	    proceed ((CORE_ADDR) -1, TARGET_SIGNAL_DEFAULT, 1);
+
+	  if (!stop_step)
+	    break;
+	}
+
+      if (!single_inst || skip_subroutines)
+	do_cleanups (cleanups);
+      return;
+    }
+  /* In case of asynchronous target things get complicated, do only
+     one step for now, before returning control to the event loop. Let
+     the continuation figure out how many other steps we need to do,
+     and handle them one at the time, through step_once(). */
+  else
+    {
+      if (target_can_async_p ())
+	/* APPLE LOCAL begin step command hook */
+	{
+	  if (stepping_command_hook)
+            stepping_command_hook ();
+	  step_once (skip_subroutines, single_inst, count);
+	}
+	/* APPLE LOCAL end step command hook */
+    }
+}
+/* APPLE LOCAL end stepping through inlined subroutines  */
 
 /* Called after we are done with one step operation, to check whether
    we need to step again, before we print the prompt and return control
@@ -958,6 +1402,23 @@ step_once (int skip_subroutines, int single_inst, int count)
 	  if (end_of_line != 0
 	      && sal.pc != end_of_line)
 	    sal.pc = end_of_line;
+	  else
+	    {
+	      /* Check to see if there is any more to this line... */
+	      struct symtab_and_line tmp_sal;
+
+	      tmp_sal = find_pc_line (sal.end, 0);
+	      if (tmp_sal.symtab == sal.symtab
+		  && tmp_sal.line == sal.line
+		  && tmp_sal.entry_type == NORMAL_LT_ENTRY
+		  && tmp_sal.end > sal.end)
+		{
+		  sal.pc = tmp_sal.end;
+		  sal.end = tmp_sal.end;
+		}
+	    }
+
+	  
 	}
       else
 	{
@@ -985,7 +1446,8 @@ step_once (int skip_subroutines, int single_inst, int count)
 
       /* Tell the user what's going on.  */
 
-      ui_out_text  (uiout, "** Stepping over inlined function code. **\n");
+      if (dwarf2_debug_inlined_stepping)
+	ui_out_text  (uiout, "** Stepping over inlined function code. **\n");
 	  
       /* Set up various necessary variables to make sure we actually stop when
 	 we get to the breakpoint.  */
@@ -1009,40 +1471,21 @@ step_once (int skip_subroutines, int single_inst, int count)
   else if (!single_inst 
 	   && at_inlined_call_site_p (&file_name, &line_num, &column))
     {
+      /* APPLE LOCAL radar 6130399  */
+      struct frame_info *fi;
       struct symtab_and_line sal;
-      struct symtab_and_line tmp_sal;
       struct symtab_and_line *cur = NULL;
-      struct symbol *func_sym = NULL;
-      struct symtab *tmp_symtab;
-      char *func_name = NULL;
       int func_first_line = 0;
       int found = 0;
 
       stepping_into_inlined_subroutine = 1;
 
-      func_name = current_inlined_subroutine_function_name ();
-      if (func_name)
-	func_sym = lookup_symbol ((const char *) func_name,
-				  get_selected_block (0), VAR_DOMAIN, 0, 
-				  &tmp_symtab);
-
-      if (func_sym)
-	{
-	  struct gdb_exception e;
-	  TRY_CATCH (e, RETURN_MASK_ERROR)
-	  {
-	    tmp_sal = find_function_start_sal (func_sym, 1);
-	  }
-	  if (e.reason != NO_ERROR)
-	    error ("Can't step into \"%s\" - try \"next\" instead.", func_name);
-				
-	  func_first_line = tmp_sal.line;
-	}
-      
       if (current_inlined_subroutine_stack_position ()
 	   < current_inlined_subroutine_stack_size ())
 	{
 	  /* Set up the SAL for printing out the current source location.  */
+
+	  step_into_current_inlined_subroutine ();
 
 	  sal = find_pc_line (current_inlined_subroutine_call_stack_start_pc (),
 			      0);
@@ -1059,8 +1502,6 @@ step_once (int skip_subroutines, int single_inst, int count)
 		sal.entry_type = cur->entry_type;
 		break;
 	      }
-	  
-	  step_into_current_inlined_subroutine ();
 
 	  /* Flush the existing frames.  This is necessary because we will need
 	     to create a new INLINED_FRAME at level zero for the inlined 
@@ -1116,27 +1557,32 @@ step_once (int skip_subroutines, int single_inst, int count)
 	}
 
       /* Tell the user what we are doing.  */
-	  
-      ui_out_text (uiout, 
-		   "** Simulating stepping into inlined subroutine.  **\n");
+      if (dwarf2_debug_inlined_stepping)
+	ui_out_text (uiout, 
+		     "** Simulating stepping into inlined subroutine.  **\n");
 	  
       /* Tell emacs (or anything else using annotations) to update the 
 	 location.  */
 
       if (at_inlined_call_site_p (&file_name, &line_num, &column))
-	func_first_line = line_num;
-
-      if (!func_first_line)
-	func_first_line = sal.line;
+	  func_first_line = line_num;
+      else
+	func_first_line = inlined_function_find_first_line (sal);
 
       annotate_starting ();
       annotate_frames_invalid ();
       breakpoints_changed ();
       annotate_frames_invalid ();
+
+      /* APPLE LOCAL begin radar 6130399  */
+      fi = get_current_frame ();
+      print_inlined_frame (fi, 0, SRC_AND_LOC, 1, sal, func_first_line);
       if (annotation_level == 0)
-	print_source_lines (sal.symtab, func_first_line, 1, 0);
+	print_source_lines (sal.symtab, func_first_line, 1, 0); 
       else
 	identify_source_line (sal.symtab, func_first_line, 0, sal.pc);
+      /* APPLE LOCAL end radar 6130399  */
+
       annotate_frame_end ();
       annotate_stopped ();
 	  
@@ -1155,7 +1601,8 @@ step_once (int skip_subroutines, int single_inst, int count)
 	  /* APPLE LOCAL begin subroutine inlining  */
 	  if (!single_inst
 	      && rest_of_line_contains_inlined_subroutine (&end_of_line))
-	    find_next_inlined_subroutine (stop_pc, &inline_start_pc);
+	    find_next_inlined_subroutine (stop_pc, &inline_start_pc, 
+					  end_of_line);
 	  /* APPLE LOCAL end subroutine inlining  */
 	      
 	  clear_proceed_status ();
@@ -1178,9 +1625,13 @@ step_once (int skip_subroutines, int single_inst, int count)
 	      if (inline_start_pc)
 		{
 		  step_range_end = inline_start_pc;
+		  /* APPLE LOCAL remember stepping into inlined
+		     subroutine across intervening function calls.  */
+		  inlined_step_range_end = inline_start_pc;
 		  stepping_into_inlined_subroutine = 1;
-		  ui_out_text (uiout, 
-			 "** Stepping to beginning of inlined subroutine.  **\n");
+		  if (dwarf2_debug_inlined_stepping)
+		    ui_out_text (uiout, 
+		        "** Stepping to beginning of inlined subroutine.  **\n");
 		}
 	      /* APPLE LOCAL end subroutine inlining  */
 
@@ -1970,6 +2421,7 @@ finish_command (char *arg, int from_tty)
 {
   struct symtab_and_line sal;
   struct frame_info *frame;
+  struct frame_info *selected_frame;
   struct symbol *function;
   struct breakpoint *breakpoint;
   struct cleanup *old_chain;
@@ -2011,10 +2463,12 @@ finish_command (char *arg, int from_tty)
 	error (_("The \"finish\" command does not take any arguments."));
       if (!target_has_execution)
 	error (_("The program is not running."));
-      if (deprecated_selected_frame == NULL)
-	error (_("No selected frame."));
 
-      frame = get_prev_frame (deprecated_selected_frame);
+      /* APPLE LOCAL: If there's no selected frame, default to the
+	 current frame.  */
+      selected_frame = get_selected_frame ("No selected frame.");
+
+      frame = get_prev_frame (selected_frame);
       if (frame == 0)
 	error (_("\"finish\" not meaningful in the outermost frame."));
 
@@ -2034,14 +2488,14 @@ finish_command (char *arg, int from_tty)
 
       /* Find the function we will return from.  */
       
-      function = find_pc_function (get_frame_pc (deprecated_selected_frame));
+      function = find_pc_function (get_frame_pc (selected_frame));
       
       /* Print info on the selected frame, including level number but not
 	 source.  */
       if (from_tty)
 	{
 	  printf_filtered (_("Run till exit from "));
-	  print_stack_frame (get_selected_frame (NULL), 1, LOCATION);
+	  print_stack_frame (selected_frame, 1, LOCATION);
 	}
   
       /* If running asynchronously and the target support asynchronous

@@ -1,24 +1,14 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1996,2007 Oracle.  All rights reserved.
  *
- * $Id: db.src,v 1.2 2004/03/30 01:21:24 jtownsen Exp $
+ * $Id: db.src,v 12.9 2007/05/17 15:14:56 bostic Exp $
  */
 
 PREFIX	__db
 DBPRIVATE
 
-INCLUDE	#include "db_config.h"
-INCLUDE
-INCLUDE #ifndef NO_SYSTEM_INCLUDES
-INCLUDE #include <sys/types.h>
-INCLUDE
-INCLUDE #include <ctype.h>
-INCLUDE #include <string.h>
-INCLUDE #endif
-INCLUDE
 INCLUDE #include "db_int.h"
 INCLUDE #include "dbinc/crypto.h"
 INCLUDE #include "dbinc/db_page.h"
@@ -44,7 +34,7 @@ INCLUDE
  * If the dbt was NULL then the hdr is a complete item to be
  * pasted on the page.
  */
-BEGIN addrem		41
+BEGIN addrem		42	41
 ARG	opcode		u_int32_t	lu
 DB	fileid		int32_t		ld
 ARG	pgno		db_pgno_t	lu
@@ -70,7 +60,7 @@ END
  *		may be used later if we actually do overwrites of big key/
  *		data items in place.
  */
-BEGIN big		43
+BEGIN big		42	43
 ARG	opcode		u_int32_t	lu
 DB	fileid		int32_t		ld
 ARG	pgno		db_pgno_t	lu
@@ -90,7 +80,7 @@ END
  * adjust:	the adjustment being made.
  * lsn:		the page's original lsn.
  */
-BEGIN ovref		44
+BEGIN ovref		42	44
 DB	fileid		int32_t		ld
 ARG	pgno		db_pgno_t	lu
 ARG	adjust		int32_t		ld
@@ -108,7 +98,7 @@ END
  * next:	the next page.
  * lsn_next:	the previous page's original lsn.
  */
-BEGIN relink		45
+BEGIN_COMPAT relink		42	45
 ARG	opcode		u_int32_t	lu
 DB	fileid		int32_t		ld
 ARG	pgno		db_pgno_t	lu
@@ -128,7 +118,7 @@ END
  * data:	data parameter
  * flags:	flags parameter
  */
-BEGIN debug		47
+BEGIN debug		42	47
 DBT	op		DBT		s
 ARG	fileid		int32_t		ld
 DBT	key		DBT		s
@@ -139,7 +129,7 @@ END
 /*
  * noop -- do nothing, but get an LSN.
  */
-BEGIN noop		48
+BEGIN noop		42	48
 DB	fileid		int32_t		ld
 ARG	pgno		db_pgno_t	lu
 POINTER	prevlsn		DB_LSN *	lu
@@ -148,14 +138,16 @@ END
 /*
  * pg_alloc: used to record allocating a new page.
  *
- * meta_lsn:	the meta-data page's original lsn.
- * meta_pgno	the meta-data page number.
+ * meta_lsn:	the original lsn of the page reference by meta_pgno.
+ * meta_pgno	the page pointing at the allocated page in the free list.
+ *			If the list is unsorted this is the metadata page.
  * page_lsn:	the allocated page's original lsn.
  * pgno:	the page allocated.
  * ptype:	the type of the page allocated.
  * next:	the next page on the free list.
+ * last_pgno:	the last page in the file after this op (4.3+).
  */
-BEGIN pg_alloc	49
+BEGIN_COMPAT pg_alloc	42	49
 DB	fileid		int32_t		ld
 POINTER	meta_lsn	DB_LSN *	lu
 ARG	meta_pgno	db_pgno_t	lu
@@ -165,22 +157,47 @@ ARG	ptype		u_int32_t	lu
 ARG	next		db_pgno_t	lu
 END
 
+BEGIN pg_alloc	43	49
+DB	fileid		int32_t		ld
+POINTER	meta_lsn	DB_LSN *	lu
+ARG	meta_pgno	db_pgno_t	lu
+POINTER	page_lsn	DB_LSN *	lu
+ARG	pgno		db_pgno_t	lu
+ARG	ptype		u_int32_t	lu
+ARG	next		db_pgno_t	lu
+ARG	last_pgno	db_pgno_t	lu
+END
+
 /*
  * pg_free: used to record freeing a page.
+ *	If we are maintaining a sorted free list (during compact) meta_pgno
+ * will be non-zero and refer to the page that preceeds the one we are freeing
+ * in the free list.  Meta_lsn will then be the lsn of that page.
  *
  * pgno:	the page being freed.
  * meta_lsn:	the meta-data page's original lsn.
  * meta_pgno:	the meta-data page number.
  * header:	the header from the free'd page.
  * next:	the previous next pointer on the metadata page.
+ * last_pgno:	the last page in the file before this op (4.3+).
  */
-BEGIN pg_free		50
+BEGIN_COMPAT pg_free		42	50
 DB	fileid		int32_t		ld
 ARG	pgno		db_pgno_t	lu
 POINTER	meta_lsn	DB_LSN *	lu
 ARG	meta_pgno	db_pgno_t	lu
 PGDBT	header		DBT		s
 ARG	next		db_pgno_t	lu
+END
+
+BEGIN pg_free		43	50
+DB	fileid		int32_t		ld
+ARG	pgno		db_pgno_t	lu
+POINTER	meta_lsn	DB_LSN *	lu
+ARG	meta_pgno	db_pgno_t	lu
+PGDBT	header		DBT		s
+ARG	next		db_pgno_t	lu
+ARG	last_pgno	db_pgno_t	lu
 END
 
 /*
@@ -190,7 +207,7 @@ END
  *	recovery to itself return DB_RUNRECOVERY, as only catastrophic
  *	recovery can fix things.
  */
-BEGIN cksum		51
+BEGIN cksum		42	51
 END
 
 /*
@@ -202,8 +219,9 @@ END
  * header:	the header and index entries from the free'd page.
  * data:	the data from the free'd page.
  * next:	the previous next pointer on the metadata page.
+ * last_pgno:	the last page in the file before this op (4.3+).
  */
-BEGIN pg_freedata		52
+BEGIN_COMPAT pg_freedata		42	52
 DB	fileid		int32_t		ld
 ARG	pgno		db_pgno_t	lu
 POINTER	meta_lsn	DB_LSN *	lu
@@ -213,12 +231,23 @@ ARG	next		db_pgno_t	lu
 PGDBT	data		DBT		s
 END
 
+BEGIN pg_freedata		43	52
+DB	fileid		int32_t		ld
+ARG	pgno		db_pgno_t	lu
+POINTER	meta_lsn	DB_LSN *	lu
+ARG	meta_pgno	db_pgno_t	lu
+PGDBT	header		DBT		s
+ARG	next		db_pgno_t	lu
+ARG	last_pgno	db_pgno_t	lu
+PGDBT	data		DBT		s
+END
+
 /*
  * pg_prepare: used to record an aborted page in a prepared transaction.
  *
  * pgno:	the page being freed.
  */
-BEGIN pg_prepare		53
+BEGIN pg_prepare		42	53
 DB	fileid		int32_t		ld
 ARG	pgno		db_pgno_t	lu
 END
@@ -232,7 +261,7 @@ END
  * header:	the header from the free'd page.
  * next:	the previous next pointer on the metadata page.
  */
-BEGIN pg_new		54
+BEGIN pg_new		42	54
 DB	fileid		int32_t		ld
 ARG	pgno		db_pgno_t	lu
 POINTER	meta_lsn	DB_LSN *	lu
@@ -240,3 +269,38 @@ ARG	meta_pgno	db_pgno_t	lu
 PGDBT	header		DBT		s
 ARG	next		db_pgno_t	lu
 END
+
+/*
+ * pg_init: used to reinitialize a page during truncate.
+ *
+ * pgno:	the page being initialized.
+ * header:	the header from the page.
+ * data:	data that used to be on the page.
+ */
+BEGIN pg_init		43	60
+DB	fileid		int32_t		ld
+ARG	pgno		db_pgno_t	lu
+PGDBT	header		DBT		s
+PGDBT	data		DBT		s
+END
+
+/*
+ * pg_sort: sort the free list
+ *
+ * meta:	meta page number
+ * meta_lsn:	lsn on meta page.
+ * last_free:	page number of new last free page.
+ * last_lsn;	lsn of last free page.
+ * last_pgno:	current last page number.
+ * list:	list of pages and lsns to sort.
+ */
+BEGIN pg_sort		44	61
+DB	fileid		int32_t		ld
+ARG	meta		db_pgno_t	lu
+POINTER	meta_lsn	DB_LSN *	lu
+ARG	last_free	db_pgno_t	lu
+POINTER	last_lsn	DB_LSN *	lu
+ARG	last_pgno	db_pgno_t	lu
+DBT	list		DBT		s
+END
+

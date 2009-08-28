@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -62,7 +62,6 @@
  * Network Entity Keys
  *
  *   kSCEntNetAirPort                                   "AirPort"                      CFDictionary
- *   kSCEntNetAppleTalk                                 "AppleTalk"                    CFDictionary
  *   kSCEntNetDHCP                                      "DHCP"                         CFDictionary
  *   kSCEntNetDNS                                       "DNS"                          CFDictionary
  *   kSCEntNetEthernet                                  "Ethernet"                     CFDictionary
@@ -116,23 +115,6 @@
  *   --- kSCPropNetAirPortPasswordEncryption values ---
  *   kSCValNetAirPortAuthPasswordEncryptionKeychain     "Keychain"
  *
- * kSCEntNetAppleTalk Entity Keys
- *
- *   kSCPropNetAppleTalkComputerName                    "ComputerName"                 CFString
- *   kSCPropNetAppleTalkComputerNameEncoding            "ComputerNameEncoding"         CFNumber
- *   kSCPropNetAppleTalkConfigMethod                    "ConfigMethod"                 CFString
- *   kSCPropNetAppleTalkDefaultZone                     "DefaultZone"                  CFString
- *   kSCPropNetAppleTalkNetworkID                       "NetworkID"                    CFNumber
- *   kSCPropNetAppleTalkNetworkRange                    "NetworkRange"                 CFArray[CFNumber]
- *   kSCPropNetAppleTalkNodeID                          "NodeID"                       CFNumber
- *   kSCPropNetAppleTalkSeedNetworkRange                "SeedNetworkRange"             CFArray[CFNumber]
- *   kSCPropNetAppleTalkSeedZones                       "SeedZones"                    CFArray[CFString]
- *
- *   --- kSCPropNetAppleTalkConfigMethod values ---
- *   kSCValNetAppleTalkConfigMethodNode                 "Node"
- *   kSCValNetAppleTalkConfigMethodRouter               "Router"
- *   kSCValNetAppleTalkConfigMethodSeedRouter           "SeedRouter"
- *
  * kSCEntNetDNS Entity Keys
  *
  *   kSCPropNetDNSDomainName                            "DomainName"                   CFString
@@ -169,6 +151,7 @@
  *   kSCValNetInterfaceTypeFireWire                     "FireWire"
  *   kSCValNetInterfaceTypePPP                          "PPP"
  *   kSCValNetInterfaceType6to4                         "6to4"
+ *   kSCValNetInterfaceTypeIPSec                        "IPSec"
  *
  *   --- kSCPropNetServiceSubType values (for PPP) ---
  *   kSCValNetInterfaceSubTypePPPoE                     "PPPoE"
@@ -178,22 +161,34 @@
  *
  * kSCEntNetIPSec Entity Keys
  *
+ *   kSCPropNetIPSecAuthenticationMethod                "AuthenticationMethod"         CFString
+ *   kSCPropNetIPSecLocalCertificate                    "LocalCertificate"             CFData
  *   kSCPropNetIPSecLocalIdentifier                     "LocalIdentifier"              CFString
  *   kSCPropNetIPSecLocalIdentifierType                 "LocalIdentifierType"          CFString
- *   kSCPropNetIPSecAuthenticationMethod                "AuthenticationMethod"         CFString
  *   kSCPropNetIPSecSharedSecret                        "SharedSecret"                 CFString
  *   kSCPropNetIPSecSharedSecretEncryption              "SharedSecretEncryption"       CFString
- *   kSCPropNetIPSecLocalCertificate                    "LocalCertificate"             CFData
+ *   kSCPropNetIPSecConnectTime                         "ConnectTime"                  CFNumber
+ *   kSCPropNetIPSecRemoteAddress                       "RemoteAddress"                CFString
+ *   kSCPropNetIPSecStatus                              "Status"                       CFNumber
+ *   kSCPropNetIPSecXAuthEnabled                        "XAuthEnabled"                 CFNumber (0 or 1)
+ *   kSCPropNetIPSecXAuthName                           "XAuthName"                    CFString
+ *   kSCPropNetIPSecXAuthPassword                       "XAuthPassword"                CFString
+ *   kSCPropNetIPSecXAuthPasswordEncryption             "XAuthPasswordEncryption"      CFString
  *
  *   --- kSCPropNetIPSecAuthenticationMethod values ---
  *   kSCValNetIPSecAuthenticationMethodSharedSecret     "SharedSecret"
  *   kSCValNetIPSecAuthenticationMethodCertificate      "Certificate"
+ *   kSCValNetIPSecAuthenticationMethodHybrid           "Hybrid"
+ *
+ *   --- kSCPropNetIPSecLocalIdentifierType values ---
+ *   kSCValNetIPSecLocalIdentifierTypeKeyID             "KeyID"
  *
  *   --- kSCPropNetIPSecSharedSecretEncryption values ---
  *   kSCValNetIPSecSharedSecretEncryptionKeychain       "Keychain"
  *
- *   --- kSCPropNetIPSecLocalIdentifierType values ---
- *   kSCValNetIPSecLocalIdentifierTypeKeyID             "KeyID"
+ *   --- kSCPropNetIPSecXAuthPasswordEncryption values ---
+ *   kSCValNetIPSecXAuthPasswordEncryptionKeychain      "Keychain"
+ *   kSCValNetIPSecXAuthPasswordEncryptionPrompt        "Prompt"
  *
  * kSCEntNetIPv4 Entity Keys
  *
@@ -206,6 +201,7 @@
  *   kSCPropNetIPv4BroadcastAddresses                   "BroadcastAddresses"           CFArray[CFString]
  *
  *   --- kSCPropNetIPv4ConfigMethod values ---
+ *   kSCValNetIPv4ConfigMethodAutomatic                 "Automatic"
  *   kSCValNetIPv4ConfigMethodBOOTP                     "BOOTP"
  *   kSCValNetIPv4ConfigMethodDHCP                      "DHCP"
  *   kSCValNetIPv4ConfigMethodINFORM                    "INFORM"
@@ -476,18 +472,22 @@
  */
 
 
-#ifndef _SCSCHEMADEFINITIONS_H
-#define _SCSCHEMADEFINITIONS_H
+#ifndef	_SCSCHEMADEFINITIONS_H
+#ifdef	USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS
+#include <SystemConfiguration/_SCSchemaDefinitions.h>
+#else	/* USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS */
+#define	_SCSCHEMADEFINITIONS_H
 
 /* -------------------- Macro declarations -------------------- */
 
-#include <AvailabilityMacros.h>
+#include <Availability.h>
+#include <TargetConditionals.h>
 
 /*
  * let's "do the right thing" for those wishing to build for
  * Mac OS X 10.1.0 ... 10.2.x
  */
-#if MAC_OS_X_VERSION_MIN_REQUIRED <= 1020
+#if defined(__MAC_OS_X_VERSION_MIN_REQUIRED) && (__MAC_OS_X_VERSION_MIN_REQUIRED <= 1020) && !defined(__IPHONE_OS_VERSION_MIN_REQUIRED)
   #ifndef SCSTR
     #include <CoreFoundation/CFString.h>
     #define SCSTR(s) CFSTR(s)
@@ -519,7 +519,7 @@
     #define SC_SCHEMA_DECLARATION(k,q)	extern NSString * k q;
   #endif
 #endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) && (MAC_OS_X_VERSION_MAX_ALLOWED <= 1040)
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) && (__MAC_OS_X_VERSION_MAX_ALLOWED <= 1040) && !defined(__IPHONE_OS_VERSION_MIN_REQUIRED)
   #ifndef SCSTR
     #include <CoreFoundation/CFString.h>
     #define SCSTR(s) CFSTR(s)
@@ -663,7 +663,7 @@ extern const CFStringRef kSCEntNetAirPort;
 
 /*!
   @const kSCEntNetAppleTalk
-  @availability Introduced in Mac OS X 10.1.
+  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.6.
  */
 extern const CFStringRef kSCEntNetAppleTalk;
 
@@ -911,73 +911,73 @@ extern const CFStringRef kSCValNetAirPortAuthPasswordEncryptionKeychain;
 
 /*!
   @const kSCPropNetAppleTalkComputerName
-  @availability Introduced in Mac OS X 10.1.
+  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.6.
  */
 extern const CFStringRef kSCPropNetAppleTalkComputerName;
 
 /*!
   @const kSCPropNetAppleTalkComputerNameEncoding
-  @availability Introduced in Mac OS X 10.1.
+  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.6.
  */
 extern const CFStringRef kSCPropNetAppleTalkComputerNameEncoding;
 
 /*!
   @const kSCPropNetAppleTalkConfigMethod
-  @availability Introduced in Mac OS X 10.1.
+  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.6.
  */
 extern const CFStringRef kSCPropNetAppleTalkConfigMethod;
 
 /*!
   @const kSCPropNetAppleTalkDefaultZone
-  @availability Introduced in Mac OS X 10.1.
+  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.6.
  */
 extern const CFStringRef kSCPropNetAppleTalkDefaultZone;
 
 /*!
   @const kSCPropNetAppleTalkNetworkID
-  @availability Introduced in Mac OS X 10.1.
+  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.6.
  */
 extern const CFStringRef kSCPropNetAppleTalkNetworkID;
 
 /*!
   @const kSCPropNetAppleTalkNetworkRange
-  @availability Introduced in Mac OS X 10.2.
+  @availability Introduced in Mac OS X 10.2, but later deprecated in Mac OS X 10.6.
  */
 extern const CFStringRef kSCPropNetAppleTalkNetworkRange;
 
 /*!
   @const kSCPropNetAppleTalkNodeID
-  @availability Introduced in Mac OS X 10.1.
+  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.6.
  */
 extern const CFStringRef kSCPropNetAppleTalkNodeID;
 
 /*!
   @const kSCPropNetAppleTalkSeedNetworkRange
-  @availability Introduced in Mac OS X 10.1.
+  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.6.
  */
 extern const CFStringRef kSCPropNetAppleTalkSeedNetworkRange;
 
 /*!
   @const kSCPropNetAppleTalkSeedZones
-  @availability Introduced in Mac OS X 10.1.
+  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.6.
  */
 extern const CFStringRef kSCPropNetAppleTalkSeedZones;
 
 /*!
   @const kSCValNetAppleTalkConfigMethodNode
-  @availability Introduced in Mac OS X 10.1.
+  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.6.
  */
 extern const CFStringRef kSCValNetAppleTalkConfigMethodNode;
 
 /*!
   @const kSCValNetAppleTalkConfigMethodRouter
-  @availability Introduced in Mac OS X 10.1.
+  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.6.
  */
 extern const CFStringRef kSCValNetAppleTalkConfigMethodRouter;
 
 /*!
   @const kSCValNetAppleTalkConfigMethodSeedRouter
-  @availability Introduced in Mac OS X 10.1.
+  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.6.
  */
 extern const CFStringRef kSCValNetAppleTalkConfigMethodSeedRouter;
 
@@ -1130,6 +1130,12 @@ extern const CFStringRef kSCValNetInterfaceTypePPP;
 extern const CFStringRef kSCValNetInterfaceType6to4;
 
 /*!
+  @const kSCValNetInterfaceTypeIPSec
+  @availability Introduced in Mac OS X 10.6.
+ */
+extern const CFStringRef kSCValNetInterfaceTypeIPSec;
+
+/*!
   @const kSCValNetInterfaceSubTypePPPoE
   @availability Introduced in Mac OS X 10.1.
  */
@@ -1158,6 +1164,18 @@ extern const CFStringRef kSCValNetInterfaceSubTypeL2TP;
  */
 
 /*!
+  @const kSCPropNetIPSecAuthenticationMethod
+  @availability Introduced in Mac OS X 10.5.
+ */
+extern const CFStringRef kSCPropNetIPSecAuthenticationMethod;
+
+/*!
+  @const kSCPropNetIPSecLocalCertificate
+  @availability Introduced in Mac OS X 10.5.
+ */
+extern const CFStringRef kSCPropNetIPSecLocalCertificate;
+
+/*!
   @const kSCPropNetIPSecLocalIdentifier
   @availability Introduced in Mac OS X 10.5.
  */
@@ -1168,12 +1186,6 @@ extern const CFStringRef kSCPropNetIPSecLocalIdentifier;
   @availability Introduced in Mac OS X 10.5.
  */
 extern const CFStringRef kSCPropNetIPSecLocalIdentifierType;
-
-/*!
-  @const kSCPropNetIPSecAuthenticationMethod
-  @availability Introduced in Mac OS X 10.5.
- */
-extern const CFStringRef kSCPropNetIPSecAuthenticationMethod;
 
 /*!
   @const kSCPropNetIPSecSharedSecret
@@ -1188,10 +1200,46 @@ extern const CFStringRef kSCPropNetIPSecSharedSecret;
 extern const CFStringRef kSCPropNetIPSecSharedSecretEncryption;
 
 /*!
-  @const kSCPropNetIPSecLocalCertificate
-  @availability Introduced in Mac OS X 10.5.
+  @const kSCPropNetIPSecConnectTime
+  @availability Introduced in Mac OS X 10.6.
  */
-extern const CFStringRef kSCPropNetIPSecLocalCertificate;
+extern const CFStringRef kSCPropNetIPSecConnectTime;
+
+/*!
+  @const kSCPropNetIPSecRemoteAddress
+  @availability Introduced in Mac OS X 10.6.
+ */
+extern const CFStringRef kSCPropNetIPSecRemoteAddress;
+
+/*!
+  @const kSCPropNetIPSecStatus
+  @availability Introduced in Mac OS X 10.6.
+ */
+extern const CFStringRef kSCPropNetIPSecStatus;
+
+/*!
+  @const kSCPropNetIPSecXAuthEnabled
+  @availability Introduced in Mac OS X 10.6.
+ */
+extern const CFStringRef kSCPropNetIPSecXAuthEnabled;
+
+/*!
+  @const kSCPropNetIPSecXAuthName
+  @availability Introduced in Mac OS X 10.6.
+ */
+extern const CFStringRef kSCPropNetIPSecXAuthName;
+
+/*!
+  @const kSCPropNetIPSecXAuthPassword
+  @availability Introduced in Mac OS X 10.6.
+ */
+extern const CFStringRef kSCPropNetIPSecXAuthPassword;
+
+/*!
+  @const kSCPropNetIPSecXAuthPasswordEncryption
+  @availability Introduced in Mac OS X 10.6.
+ */
+extern const CFStringRef kSCPropNetIPSecXAuthPasswordEncryption;
 
 /*!
   @const kSCValNetIPSecAuthenticationMethodSharedSecret
@@ -1206,16 +1254,34 @@ extern const CFStringRef kSCValNetIPSecAuthenticationMethodSharedSecret;
 extern const CFStringRef kSCValNetIPSecAuthenticationMethodCertificate;
 
 /*!
-  @const kSCValNetIPSecSharedSecretEncryptionKeychain
+  @const kSCValNetIPSecAuthenticationMethodHybrid
   @availability Introduced in Mac OS X 10.5.
  */
-extern const CFStringRef kSCValNetIPSecSharedSecretEncryptionKeychain;
+extern const CFStringRef kSCValNetIPSecAuthenticationMethodHybrid;
 
 /*!
   @const kSCValNetIPSecLocalIdentifierTypeKeyID
   @availability Introduced in Mac OS X 10.5.
  */
 extern const CFStringRef kSCValNetIPSecLocalIdentifierTypeKeyID;
+
+/*!
+  @const kSCValNetIPSecSharedSecretEncryptionKeychain
+  @availability Introduced in Mac OS X 10.5.
+ */
+extern const CFStringRef kSCValNetIPSecSharedSecretEncryptionKeychain;
+
+/*!
+  @const kSCValNetIPSecXAuthPasswordEncryptionKeychain
+  @availability Introduced in Mac OS X 10.6.
+ */
+extern const CFStringRef kSCValNetIPSecXAuthPasswordEncryptionKeychain;
+
+/*!
+  @const kSCValNetIPSecXAuthPasswordEncryptionPrompt
+  @availability Introduced in Mac OS X 10.6.
+ */
+extern const CFStringRef kSCValNetIPSecXAuthPasswordEncryptionPrompt;
 
 /*!
   @group kSCEntNetIPv4 Entity Keys
@@ -1262,6 +1328,12 @@ extern const CFStringRef kSCPropNetIPv4DestAddresses;
   @availability Introduced in Mac OS X 10.1.
  */
 extern const CFStringRef kSCPropNetIPv4BroadcastAddresses;
+
+/*!
+  @const kSCValNetIPv4ConfigMethodAutomatic
+  @availability Introduced in Mac OS X 10.6.
+ */
+extern const CFStringRef kSCValNetIPv4ConfigMethodAutomatic;
 
 /*!
   @const kSCValNetIPv4ConfigMethodBOOTP
@@ -2315,2754 +2387,2333 @@ extern const CFStringRef kSCPropUsersConsoleUserGID;
 /* -------------------- Schema declarations -------------------- */
 
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCResvLink, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCResvLink, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCResvLink                                                   \
 	  SC_SCHEMA_KV(kSCResvLink                                      \
 		      ,"__LINK__"                                       \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCResvInactive, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCResvInactive, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCResvInactive                                               \
 	  SC_SCHEMA_KV(kSCResvInactive                                  \
 		      ,"__INACTIVE__"                                   \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropInterfaceName, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropInterfaceName, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropInterfaceName                                          \
 	  SC_SCHEMA_KV(kSCPropInterfaceName                             \
 		      ,"InterfaceName"                                  \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropMACAddress, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropMACAddress, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropMACAddress                                             \
 	  SC_SCHEMA_KV(kSCPropMACAddress                                \
 		      ,"MACAddress"                                     \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropUserDefinedName, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropUserDefinedName, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropUserDefinedName                                        \
 	  SC_SCHEMA_KV(kSCPropUserDefinedName                           \
 		      ,"UserDefinedName"                                \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropVersion, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropVersion, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropVersion                                                \
 	  SC_SCHEMA_KV(kSCPropVersion                                   \
 		      ,"Version"                                        \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPrefCurrentSet, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPrefCurrentSet, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPrefCurrentSet                                             \
 	  SC_SCHEMA_KV(kSCPrefCurrentSet                                \
 		      ,"CurrentSet"                                     \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPrefNetworkServices, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPrefNetworkServices, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPrefNetworkServices                                        \
 	  SC_SCHEMA_KV(kSCPrefNetworkServices                           \
 		      ,"NetworkServices"                                \
 		      ,CFDictionary                                     )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPrefSets, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPrefSets, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPrefSets                                                   \
 	  SC_SCHEMA_KV(kSCPrefSets                                      \
 		      ,"Sets"                                           \
 		      ,CFDictionary                                     )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPrefSystem, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPrefSystem, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPrefSystem                                                 \
 	  SC_SCHEMA_KV(kSCPrefSystem                                    \
 		      ,"System"                                         \
 		      ,CFDictionary                                     )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCCompNetwork, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCCompNetwork, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCCompNetwork                                                \
 	  SC_SCHEMA_KV(kSCCompNetwork                                   \
 		      ,"Network"                                        \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCCompService, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCCompService, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCCompService                                                \
 	  SC_SCHEMA_KV(kSCCompService                                   \
 		      ,"Service"                                        \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCCompGlobal, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCCompGlobal, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCCompGlobal                                                 \
 	  SC_SCHEMA_KV(kSCCompGlobal                                    \
 		      ,"Global"                                         \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCCompHostNames, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  SC_SCHEMA_DECLARATION(kSCCompHostNames, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCCompHostNames                                              \
 	  SC_SCHEMA_KV(kSCCompHostNames                                 \
 		      ,"HostNames"                                      \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCCompInterface, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCCompInterface, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCCompInterface                                              \
 	  SC_SCHEMA_KV(kSCCompInterface                                 \
 		      ,"Interface"                                      \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCCompSystem, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCCompSystem, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCCompSystem                                                 \
 	  SC_SCHEMA_KV(kSCCompSystem                                    \
 		      ,"System"                                         \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCCompUsers, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCCompUsers, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCCompUsers                                                  \
 	  SC_SCHEMA_KV(kSCCompUsers                                     \
 		      ,"Users"                                          \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCCompAnyRegex, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCCompAnyRegex, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCCompAnyRegex                                               \
 	  SC_SCHEMA_KV(kSCCompAnyRegex                                  \
 		      ,"[^/]+"                                          \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCEntNetAirPort, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCEntNetAirPort, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCEntNetAirPort                                              \
 	  SC_SCHEMA_KV(kSCEntNetAirPort                                 \
 		      ,"AirPort"                                        \
 		      ,CFDictionary                                     )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCEntNetAppleTalk, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+#if !TARGET_OS_IPHONE
+
+  SC_SCHEMA_DECLARATION(kSCEntNetAppleTalk, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010)
   #define kSCEntNetAppleTalk                                            \
 	  SC_SCHEMA_KV(kSCEntNetAppleTalk                               \
 		      ,"AppleTalk"                                      \
 		      ,CFDictionary                                     )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCEntNetDHCP, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+#endif // !TARGET_OS_IPHONE
+
+  SC_SCHEMA_DECLARATION(kSCEntNetDHCP, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCEntNetDHCP                                                 \
 	  SC_SCHEMA_KV(kSCEntNetDHCP                                    \
 		      ,"DHCP"                                           \
 		      ,CFDictionary                                     )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCEntNetDNS, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCEntNetDNS, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCEntNetDNS                                                  \
 	  SC_SCHEMA_KV(kSCEntNetDNS                                     \
 		      ,"DNS"                                            \
 		      ,CFDictionary                                     )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCEntNetEthernet, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCEntNetEthernet, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCEntNetEthernet                                             \
 	  SC_SCHEMA_KV(kSCEntNetEthernet                                \
 		      ,"Ethernet"                                       \
 		      ,CFDictionary                                     )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCEntNetFireWire, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  SC_SCHEMA_DECLARATION(kSCEntNetFireWire, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCEntNetFireWire                                             \
 	  SC_SCHEMA_KV(kSCEntNetFireWire                                \
 		      ,"FireWire"                                       \
 		      ,CFDictionary                                     )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCEntNetInterface, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCEntNetInterface, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCEntNetInterface                                            \
 	  SC_SCHEMA_KV(kSCEntNetInterface                               \
 		      ,"Interface"                                      \
 		      ,CFDictionary                                     )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
-  SC_SCHEMA_DECLARATION(kSCEntNetIPSec, AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1050)
+  SC_SCHEMA_DECLARATION(kSCEntNetIPSec, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCEntNetIPSec                                                \
 	  SC_SCHEMA_KV(kSCEntNetIPSec                                   \
 		      ,"IPSec"                                          \
 		      ,CFDictionary                                     )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCEntNetIPv4, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCEntNetIPv4, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCEntNetIPv4                                                 \
 	  SC_SCHEMA_KV(kSCEntNetIPv4                                    \
 		      ,"IPv4"                                           \
 		      ,CFDictionary                                     )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCEntNetIPv6, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCEntNetIPv6, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCEntNetIPv6                                                 \
 	  SC_SCHEMA_KV(kSCEntNetIPv6                                    \
 		      ,"IPv6"                                           \
 		      ,CFDictionary                                     )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCEntNetL2TP, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  SC_SCHEMA_DECLARATION(kSCEntNetL2TP, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCEntNetL2TP                                                 \
 	  SC_SCHEMA_KV(kSCEntNetL2TP                                    \
 		      ,"L2TP"                                           \
 		      ,CFDictionary                                     )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCEntNetLink, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCEntNetLink, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCEntNetLink                                                 \
 	  SC_SCHEMA_KV(kSCEntNetLink                                    \
 		      ,"Link"                                           \
 		      ,CFDictionary                                     )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCEntNetModem, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCEntNetModem, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCEntNetModem                                                \
 	  SC_SCHEMA_KV(kSCEntNetModem                                   \
 		      ,"Modem"                                          \
 		      ,CFDictionary                                     )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
-  SC_SCHEMA_DECLARATION(kSCEntNetNetInfo, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+#if !TARGET_OS_IPHONE
+
+  SC_SCHEMA_DECLARATION(kSCEntNetNetInfo, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010)
   #define kSCEntNetNetInfo                                              \
 	  SC_SCHEMA_KV(kSCEntNetNetInfo                                 \
 		      ,"NetInfo"                                        \
 		      ,CFDictionary                                     )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCEntNetPPP, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+#endif // !TARGET_OS_IPHONE
+
+  SC_SCHEMA_DECLARATION(kSCEntNetPPP, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCEntNetPPP                                                  \
 	  SC_SCHEMA_KV(kSCEntNetPPP                                     \
 		      ,"PPP"                                            \
 		      ,CFDictionary                                     )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCEntNetPPPoE, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCEntNetPPPoE, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCEntNetPPPoE                                                \
 	  SC_SCHEMA_KV(kSCEntNetPPPoE                                   \
 		      ,"PPPoE"                                          \
 		      ,CFDictionary                                     )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCEntNetPPPSerial, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  SC_SCHEMA_DECLARATION(kSCEntNetPPPSerial, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCEntNetPPPSerial                                            \
 	  SC_SCHEMA_KV(kSCEntNetPPPSerial                               \
 		      ,"PPPSerial"                                      \
 		      ,CFDictionary                                     )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCEntNetPPTP, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  SC_SCHEMA_DECLARATION(kSCEntNetPPTP, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCEntNetPPTP                                                 \
 	  SC_SCHEMA_KV(kSCEntNetPPTP                                    \
 		      ,"PPTP"                                           \
 		      ,CFDictionary                                     )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCEntNetProxies, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCEntNetProxies, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCEntNetProxies                                              \
 	  SC_SCHEMA_KV(kSCEntNetProxies                                 \
 		      ,"Proxies"                                        \
 		      ,CFDictionary                                     )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
-  SC_SCHEMA_DECLARATION(kSCEntNetSMB, AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1050)
+#if !TARGET_OS_IPHONE
+
+  SC_SCHEMA_DECLARATION(kSCEntNetSMB, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCEntNetSMB                                                  \
 	  SC_SCHEMA_KV(kSCEntNetSMB                                     \
 		      ,"SMB"                                            \
 		      ,CFDictionary                                     )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCEntNet6to4, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+#endif // !TARGET_OS_IPHONE
+
+  SC_SCHEMA_DECLARATION(kSCEntNet6to4, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCEntNet6to4                                                 \
 	  SC_SCHEMA_KV(kSCEntNet6to4                                    \
 		      ,"6to4"                                           \
 		      ,CFDictionary                                     )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetOverridePrimary, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  SC_SCHEMA_DECLARATION(kSCPropNetOverridePrimary, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetOverridePrimary                                     \
 	  SC_SCHEMA_KV(kSCPropNetOverridePrimary                        \
 		      ,"OverridePrimary"                                \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetServiceOrder, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetServiceOrder, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetServiceOrder                                        \
 	  SC_SCHEMA_KV(kSCPropNetServiceOrder                           \
 		      ,"ServiceOrder"                                   \
 		      ,CFArray[CFString]                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPOverridePrimary, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPOverridePrimary, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPOverridePrimary                                  \
 	  SC_SCHEMA_KV(kSCPropNetPPPOverridePrimary                     \
 		      ,"PPPOverridePrimary"                             \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetInterfaces, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  SC_SCHEMA_DECLARATION(kSCPropNetInterfaces, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetInterfaces                                          \
 	  SC_SCHEMA_KV(kSCPropNetInterfaces                             \
 		      ,"Interfaces"                                     \
 		      ,CFArray[CFString]                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetLocalHostName, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  SC_SCHEMA_DECLARATION(kSCPropNetLocalHostName, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetLocalHostName                                       \
 	  SC_SCHEMA_KV(kSCPropNetLocalHostName                          \
 		      ,"LocalHostName"                                  \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetAirPortAllowNetCreation, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  SC_SCHEMA_DECLARATION(kSCPropNetAirPortAllowNetCreation, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetAirPortAllowNetCreation                             \
 	  SC_SCHEMA_KV(kSCPropNetAirPortAllowNetCreation                \
 		      ,"AllowNetCreation"                               \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetAirPortAuthPassword, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetAirPortAuthPassword, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetAirPortAuthPassword                                 \
 	  SC_SCHEMA_KV(kSCPropNetAirPortAuthPassword                    \
 		      ,"AuthPassword"                                   \
 		      ,CFData                                           )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetAirPortAuthPasswordEncryption, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetAirPortAuthPasswordEncryption, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetAirPortAuthPasswordEncryption                       \
 	  SC_SCHEMA_KV(kSCPropNetAirPortAuthPasswordEncryption          \
 		      ,"AuthPasswordEncryption"                         \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetAirPortJoinMode, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  SC_SCHEMA_DECLARATION(kSCPropNetAirPortJoinMode, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetAirPortJoinMode                                     \
 	  SC_SCHEMA_KV(kSCPropNetAirPortJoinMode                        \
 		      ,"JoinMode"                                       \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetAirPortPowerEnabled, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetAirPortPowerEnabled, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetAirPortPowerEnabled                                 \
 	  SC_SCHEMA_KV(kSCPropNetAirPortPowerEnabled                    \
 		      ,"PowerEnabled"                                   \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetAirPortPreferredNetwork, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetAirPortPreferredNetwork, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetAirPortPreferredNetwork                             \
 	  SC_SCHEMA_KV(kSCPropNetAirPortPreferredNetwork                \
 		      ,"PreferredNetwork"                               \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetAirPortSavePasswords, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  SC_SCHEMA_DECLARATION(kSCPropNetAirPortSavePasswords, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetAirPortSavePasswords                                \
 	  SC_SCHEMA_KV(kSCPropNetAirPortSavePasswords                   \
 		      ,"SavePasswords"                                  \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetAirPortJoinModeAutomatic, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  SC_SCHEMA_DECLARATION(kSCValNetAirPortJoinModeAutomatic, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetAirPortJoinModeAutomatic                             \
 	  SC_SCHEMA_KV(kSCValNetAirPortJoinModeAutomatic                \
 		      ,"Automatic"                                      \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetAirPortJoinModePreferred, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  SC_SCHEMA_DECLARATION(kSCValNetAirPortJoinModePreferred, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetAirPortJoinModePreferred                             \
 	  SC_SCHEMA_KV(kSCValNetAirPortJoinModePreferred                \
 		      ,"Preferred"                                      \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
-  SC_SCHEMA_DECLARATION(kSCValNetAirPortJoinModeRanked, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1040)
+  SC_SCHEMA_DECLARATION(kSCValNetAirPortJoinModeRanked, __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetAirPortJoinModeRanked                                \
 	  SC_SCHEMA_KV(kSCValNetAirPortJoinModeRanked                   \
 		      ,"Ranked"                                         \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetAirPortJoinModeRecent, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  SC_SCHEMA_DECLARATION(kSCValNetAirPortJoinModeRecent, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetAirPortJoinModeRecent                                \
 	  SC_SCHEMA_KV(kSCValNetAirPortJoinModeRecent                   \
 		      ,"Recent"                                         \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetAirPortJoinModeStrongest, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  SC_SCHEMA_DECLARATION(kSCValNetAirPortJoinModeStrongest, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetAirPortJoinModeStrongest                             \
 	  SC_SCHEMA_KV(kSCValNetAirPortJoinModeStrongest                \
 		      ,"Strongest"                                      \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetAirPortAuthPasswordEncryptionKeychain, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  SC_SCHEMA_DECLARATION(kSCValNetAirPortAuthPasswordEncryptionKeychain, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetAirPortAuthPasswordEncryptionKeychain                \
 	  SC_SCHEMA_KV(kSCValNetAirPortAuthPasswordEncryptionKeychain   \
 		      ,"Keychain"                                       \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkComputerName, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+#if !TARGET_OS_IPHONE
+
+  SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkComputerName, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010)
   #define kSCPropNetAppleTalkComputerName                               \
 	  SC_SCHEMA_KV(kSCPropNetAppleTalkComputerName                  \
 		      ,"ComputerName"                                   \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkComputerNameEncoding, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkComputerNameEncoding, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010)
   #define kSCPropNetAppleTalkComputerNameEncoding                       \
 	  SC_SCHEMA_KV(kSCPropNetAppleTalkComputerNameEncoding          \
 		      ,"ComputerNameEncoding"                           \
 		      ,CFNumber                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkConfigMethod, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkConfigMethod, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010)
   #define kSCPropNetAppleTalkConfigMethod                               \
 	  SC_SCHEMA_KV(kSCPropNetAppleTalkConfigMethod                  \
 		      ,"ConfigMethod"                                   \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkDefaultZone, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkDefaultZone, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010)
   #define kSCPropNetAppleTalkDefaultZone                                \
 	  SC_SCHEMA_KV(kSCPropNetAppleTalkDefaultZone                   \
 		      ,"DefaultZone"                                    \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkNetworkID, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkNetworkID, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010)
   #define kSCPropNetAppleTalkNetworkID                                  \
 	  SC_SCHEMA_KV(kSCPropNetAppleTalkNetworkID                     \
 		      ,"NetworkID"                                      \
 		      ,CFNumber                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkNetworkRange, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkNetworkRange, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2,__MAC_10_6,__IPHONE_NA,__IPHONE_NA))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1020)
   #define kSCPropNetAppleTalkNetworkRange                               \
 	  SC_SCHEMA_KV(kSCPropNetAppleTalkNetworkRange                  \
 		      ,"NetworkRange"                                   \
 		      ,CFArray[CFNumber]                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkNodeID, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkNodeID, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010)
   #define kSCPropNetAppleTalkNodeID                                     \
 	  SC_SCHEMA_KV(kSCPropNetAppleTalkNodeID                        \
 		      ,"NodeID"                                         \
 		      ,CFNumber                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkSeedNetworkRange, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkSeedNetworkRange, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010)
   #define kSCPropNetAppleTalkSeedNetworkRange                           \
 	  SC_SCHEMA_KV(kSCPropNetAppleTalkSeedNetworkRange              \
 		      ,"SeedNetworkRange"                               \
 		      ,CFArray[CFNumber]                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkSeedZones, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetAppleTalkSeedZones, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010)
   #define kSCPropNetAppleTalkSeedZones                                  \
 	  SC_SCHEMA_KV(kSCPropNetAppleTalkSeedZones                     \
 		      ,"SeedZones"                                      \
 		      ,CFArray[CFString]                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetAppleTalkConfigMethodNode, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCValNetAppleTalkConfigMethodNode, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010)
   #define kSCValNetAppleTalkConfigMethodNode                            \
 	  SC_SCHEMA_KV(kSCValNetAppleTalkConfigMethodNode               \
 		      ,"Node"                                           \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetAppleTalkConfigMethodRouter, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCValNetAppleTalkConfigMethodRouter, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010)
   #define kSCValNetAppleTalkConfigMethodRouter                          \
 	  SC_SCHEMA_KV(kSCValNetAppleTalkConfigMethodRouter             \
 		      ,"Router"                                         \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetAppleTalkConfigMethodSeedRouter, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCValNetAppleTalkConfigMethodSeedRouter, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010)
   #define kSCValNetAppleTalkConfigMethodSeedRouter                      \
 	  SC_SCHEMA_KV(kSCValNetAppleTalkConfigMethodSeedRouter         \
 		      ,"SeedRouter"                                     \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetDNSDomainName, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+#endif // !TARGET_OS_IPHONE
+
+  SC_SCHEMA_DECLARATION(kSCPropNetDNSDomainName, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetDNSDomainName                                       \
 	  SC_SCHEMA_KV(kSCPropNetDNSDomainName                          \
 		      ,"DomainName"                                     \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
-  SC_SCHEMA_DECLARATION(kSCPropNetDNSOptions, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1040)
+  SC_SCHEMA_DECLARATION(kSCPropNetDNSOptions, __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetDNSOptions                                          \
 	  SC_SCHEMA_KV(kSCPropNetDNSOptions                             \
 		      ,"Options"                                        \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetDNSSearchDomains, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetDNSSearchDomains, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetDNSSearchDomains                                    \
 	  SC_SCHEMA_KV(kSCPropNetDNSSearchDomains                       \
 		      ,"SearchDomains"                                  \
 		      ,CFArray[CFString]                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
-  SC_SCHEMA_DECLARATION(kSCPropNetDNSSearchOrder, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1040)
+  SC_SCHEMA_DECLARATION(kSCPropNetDNSSearchOrder, __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetDNSSearchOrder                                      \
 	  SC_SCHEMA_KV(kSCPropNetDNSSearchOrder                         \
 		      ,"SearchOrder"                                    \
 		      ,CFNumber                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetDNSServerAddresses, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetDNSServerAddresses, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetDNSServerAddresses                                  \
 	  SC_SCHEMA_KV(kSCPropNetDNSServerAddresses                     \
 		      ,"ServerAddresses"                                \
 		      ,CFArray[CFString]                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
-  SC_SCHEMA_DECLARATION(kSCPropNetDNSServerPort, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1040)
+  SC_SCHEMA_DECLARATION(kSCPropNetDNSServerPort, __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetDNSServerPort                                       \
 	  SC_SCHEMA_KV(kSCPropNetDNSServerPort                          \
 		      ,"ServerPort"                                     \
 		      ,CFNumber                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
-  SC_SCHEMA_DECLARATION(kSCPropNetDNSServerTimeout, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1040)
+  SC_SCHEMA_DECLARATION(kSCPropNetDNSServerTimeout, __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetDNSServerTimeout                                    \
 	  SC_SCHEMA_KV(kSCPropNetDNSServerTimeout                       \
 		      ,"ServerTimeout"                                  \
 		      ,CFNumber                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetDNSSortList, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetDNSSortList, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetDNSSortList                                         \
 	  SC_SCHEMA_KV(kSCPropNetDNSSortList                            \
 		      ,"SortList"                                       \
 		      ,CFArray[CFString]                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
-  SC_SCHEMA_DECLARATION(kSCPropNetDNSSupplementalMatchDomains, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1040)
+  SC_SCHEMA_DECLARATION(kSCPropNetDNSSupplementalMatchDomains, __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetDNSSupplementalMatchDomains                         \
 	  SC_SCHEMA_KV(kSCPropNetDNSSupplementalMatchDomains            \
 		      ,"SupplementalMatchDomains"                       \
 		      ,CFArray[CFString]                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
-  SC_SCHEMA_DECLARATION(kSCPropNetDNSSupplementalMatchOrders, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1040)
+  SC_SCHEMA_DECLARATION(kSCPropNetDNSSupplementalMatchOrders, __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetDNSSupplementalMatchOrders                          \
 	  SC_SCHEMA_KV(kSCPropNetDNSSupplementalMatchOrders             \
 		      ,"SupplementalMatchOrders"                        \
 		      ,CFArray[CFNumber]                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetEthernetMediaSubType, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  SC_SCHEMA_DECLARATION(kSCPropNetEthernetMediaSubType, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetEthernetMediaSubType                                \
 	  SC_SCHEMA_KV(kSCPropNetEthernetMediaSubType                   \
 		      ,"MediaSubType"                                   \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetEthernetMediaOptions, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  SC_SCHEMA_DECLARATION(kSCPropNetEthernetMediaOptions, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetEthernetMediaOptions                                \
 	  SC_SCHEMA_KV(kSCPropNetEthernetMediaOptions                   \
 		      ,"MediaOptions"                                   \
 		      ,CFArray[CFString]                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetEthernetMTU, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  SC_SCHEMA_DECLARATION(kSCPropNetEthernetMTU, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetEthernetMTU                                         \
 	  SC_SCHEMA_KV(kSCPropNetEthernetMTU                            \
 		      ,"MTU"                                            \
 		      ,CFNumber                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetInterfaceDeviceName, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetInterfaceDeviceName, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetInterfaceDeviceName                                 \
 	  SC_SCHEMA_KV(kSCPropNetInterfaceDeviceName                    \
 		      ,"DeviceName"                                     \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetInterfaceHardware, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetInterfaceHardware, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetInterfaceHardware                                   \
 	  SC_SCHEMA_KV(kSCPropNetInterfaceHardware                      \
 		      ,"Hardware"                                       \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetInterfaceType, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetInterfaceType, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetInterfaceType                                       \
 	  SC_SCHEMA_KV(kSCPropNetInterfaceType                          \
 		      ,"Type"                                           \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetInterfaceSubType, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetInterfaceSubType, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetInterfaceSubType                                    \
 	  SC_SCHEMA_KV(kSCPropNetInterfaceSubType                       \
 		      ,"SubType"                                        \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetInterfaceSupportsModemOnHold, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  SC_SCHEMA_DECLARATION(kSCPropNetInterfaceSupportsModemOnHold, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetInterfaceSupportsModemOnHold                        \
 	  SC_SCHEMA_KV(kSCPropNetInterfaceSupportsModemOnHold           \
 		      ,"SupportsModemOnHold"                            \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetInterfaceTypeEthernet, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCValNetInterfaceTypeEthernet, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetInterfaceTypeEthernet                                \
 	  SC_SCHEMA_KV(kSCValNetInterfaceTypeEthernet                   \
 		      ,"Ethernet"                                       \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetInterfaceTypeFireWire, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  SC_SCHEMA_DECLARATION(kSCValNetInterfaceTypeFireWire, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetInterfaceTypeFireWire                                \
 	  SC_SCHEMA_KV(kSCValNetInterfaceTypeFireWire                   \
 		      ,"FireWire"                                       \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetInterfaceTypePPP, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCValNetInterfaceTypePPP, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetInterfaceTypePPP                                     \
 	  SC_SCHEMA_KV(kSCValNetInterfaceTypePPP                        \
 		      ,"PPP"                                            \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetInterfaceType6to4, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  SC_SCHEMA_DECLARATION(kSCValNetInterfaceType6to4, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetInterfaceType6to4                                    \
 	  SC_SCHEMA_KV(kSCValNetInterfaceType6to4                       \
 		      ,"6to4"                                           \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetInterfaceSubTypePPPoE, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+  SC_SCHEMA_DECLARATION(kSCValNetInterfaceTypeIPSec, __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1060) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
+  #define kSCValNetInterfaceTypeIPSec                                   \
+	  SC_SCHEMA_KV(kSCValNetInterfaceTypeIPSec                      \
+		      ,"IPSec"                                          \
+		      ,                                                 )
 #endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+
+  SC_SCHEMA_DECLARATION(kSCValNetInterfaceSubTypePPPoE, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetInterfaceSubTypePPPoE                                \
 	  SC_SCHEMA_KV(kSCValNetInterfaceSubTypePPPoE                   \
 		      ,"PPPoE"                                          \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetInterfaceSubTypePPPSerial, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCValNetInterfaceSubTypePPPSerial, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetInterfaceSubTypePPPSerial                            \
 	  SC_SCHEMA_KV(kSCValNetInterfaceSubTypePPPSerial               \
 		      ,"PPPSerial"                                      \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetInterfaceSubTypePPTP, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  SC_SCHEMA_DECLARATION(kSCValNetInterfaceSubTypePPTP, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetInterfaceSubTypePPTP                                 \
 	  SC_SCHEMA_KV(kSCValNetInterfaceSubTypePPTP                    \
 		      ,"PPTP"                                           \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetInterfaceSubTypeL2TP, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  SC_SCHEMA_DECLARATION(kSCValNetInterfaceSubTypeL2TP, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetInterfaceSubTypeL2TP                                 \
 	  SC_SCHEMA_KV(kSCValNetInterfaceSubTypeL2TP                    \
 		      ,"L2TP"                                           \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
-  SC_SCHEMA_DECLARATION(kSCPropNetIPSecLocalIdentifier, AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1050)
-  #define kSCPropNetIPSecLocalIdentifier                                \
-	  SC_SCHEMA_KV(kSCPropNetIPSecLocalIdentifier                   \
-		      ,"LocalIdentifier"                                \
-		      ,CFString                                         )
-#endif
-
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
-  SC_SCHEMA_DECLARATION(kSCPropNetIPSecLocalIdentifierType, AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1050)
-  #define kSCPropNetIPSecLocalIdentifierType                            \
-	  SC_SCHEMA_KV(kSCPropNetIPSecLocalIdentifierType               \
-		      ,"LocalIdentifierType"                            \
-		      ,CFString                                         )
-#endif
-
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
-  SC_SCHEMA_DECLARATION(kSCPropNetIPSecAuthenticationMethod, AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1050)
+  SC_SCHEMA_DECLARATION(kSCPropNetIPSecAuthenticationMethod, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetIPSecAuthenticationMethod                           \
 	  SC_SCHEMA_KV(kSCPropNetIPSecAuthenticationMethod              \
 		      ,"AuthenticationMethod"                           \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
-  SC_SCHEMA_DECLARATION(kSCPropNetIPSecSharedSecret, AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1050)
-  #define kSCPropNetIPSecSharedSecret                                   \
-	  SC_SCHEMA_KV(kSCPropNetIPSecSharedSecret                      \
-		      ,"SharedSecret"                                   \
-		      ,CFString                                         )
-#endif
-
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
-  SC_SCHEMA_DECLARATION(kSCPropNetIPSecSharedSecretEncryption, AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1050)
-  #define kSCPropNetIPSecSharedSecretEncryption                         \
-	  SC_SCHEMA_KV(kSCPropNetIPSecSharedSecretEncryption            \
-		      ,"SharedSecretEncryption"                         \
-		      ,CFString                                         )
-#endif
-
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
-  SC_SCHEMA_DECLARATION(kSCPropNetIPSecLocalCertificate, AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1050)
+  SC_SCHEMA_DECLARATION(kSCPropNetIPSecLocalCertificate, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetIPSecLocalCertificate                               \
 	  SC_SCHEMA_KV(kSCPropNetIPSecLocalCertificate                  \
 		      ,"LocalCertificate"                               \
 		      ,CFData                                           )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
-  SC_SCHEMA_DECLARATION(kSCValNetIPSecAuthenticationMethodSharedSecret, AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER)
+  SC_SCHEMA_DECLARATION(kSCPropNetIPSecLocalIdentifier, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
+  #define kSCPropNetIPSecLocalIdentifier                                \
+	  SC_SCHEMA_KV(kSCPropNetIPSecLocalIdentifier                   \
+		      ,"LocalIdentifier"                                \
+		      ,CFString                                         )
 #endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1050)
+
+  SC_SCHEMA_DECLARATION(kSCPropNetIPSecLocalIdentifierType, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
+  #define kSCPropNetIPSecLocalIdentifierType                            \
+	  SC_SCHEMA_KV(kSCPropNetIPSecLocalIdentifierType               \
+		      ,"LocalIdentifierType"                            \
+		      ,CFString                                         )
+#endif
+
+  SC_SCHEMA_DECLARATION(kSCPropNetIPSecSharedSecret, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
+  #define kSCPropNetIPSecSharedSecret                                   \
+	  SC_SCHEMA_KV(kSCPropNetIPSecSharedSecret                      \
+		      ,"SharedSecret"                                   \
+		      ,CFString                                         )
+#endif
+
+  SC_SCHEMA_DECLARATION(kSCPropNetIPSecSharedSecretEncryption, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
+  #define kSCPropNetIPSecSharedSecretEncryption                         \
+	  SC_SCHEMA_KV(kSCPropNetIPSecSharedSecretEncryption            \
+		      ,"SharedSecretEncryption"                         \
+		      ,CFString                                         )
+#endif
+
+  SC_SCHEMA_DECLARATION(kSCPropNetIPSecConnectTime, __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1060) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
+  #define kSCPropNetIPSecConnectTime                                    \
+	  SC_SCHEMA_KV(kSCPropNetIPSecConnectTime                       \
+		      ,"ConnectTime"                                    \
+		      ,CFNumber                                         )
+#endif
+
+  SC_SCHEMA_DECLARATION(kSCPropNetIPSecRemoteAddress, __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1060) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
+  #define kSCPropNetIPSecRemoteAddress                                  \
+	  SC_SCHEMA_KV(kSCPropNetIPSecRemoteAddress                     \
+		      ,"RemoteAddress"                                  \
+		      ,CFString                                         )
+#endif
+
+  SC_SCHEMA_DECLARATION(kSCPropNetIPSecStatus, __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1060) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
+  #define kSCPropNetIPSecStatus                                         \
+	  SC_SCHEMA_KV(kSCPropNetIPSecStatus                            \
+		      ,"Status"                                         \
+		      ,CFNumber                                         )
+#endif
+
+  SC_SCHEMA_DECLARATION(kSCPropNetIPSecXAuthEnabled, __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1060) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
+  #define kSCPropNetIPSecXAuthEnabled                                   \
+	  SC_SCHEMA_KV(kSCPropNetIPSecXAuthEnabled                      \
+		      ,"XAuthEnabled"                                   \
+		      ,CFNumber (0 or 1)                                )
+#endif
+
+  SC_SCHEMA_DECLARATION(kSCPropNetIPSecXAuthName, __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1060) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
+  #define kSCPropNetIPSecXAuthName                                      \
+	  SC_SCHEMA_KV(kSCPropNetIPSecXAuthName                         \
+		      ,"XAuthName"                                      \
+		      ,CFString                                         )
+#endif
+
+  SC_SCHEMA_DECLARATION(kSCPropNetIPSecXAuthPassword, __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1060) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
+  #define kSCPropNetIPSecXAuthPassword                                  \
+	  SC_SCHEMA_KV(kSCPropNetIPSecXAuthPassword                     \
+		      ,"XAuthPassword"                                  \
+		      ,CFString                                         )
+#endif
+
+  SC_SCHEMA_DECLARATION(kSCPropNetIPSecXAuthPasswordEncryption, __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1060) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
+  #define kSCPropNetIPSecXAuthPasswordEncryption                        \
+	  SC_SCHEMA_KV(kSCPropNetIPSecXAuthPasswordEncryption           \
+		      ,"XAuthPasswordEncryption"                        \
+		      ,CFString                                         )
+#endif
+
+  SC_SCHEMA_DECLARATION(kSCValNetIPSecAuthenticationMethodSharedSecret, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetIPSecAuthenticationMethodSharedSecret                \
 	  SC_SCHEMA_KV(kSCValNetIPSecAuthenticationMethodSharedSecret   \
 		      ,"SharedSecret"                                   \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
-  SC_SCHEMA_DECLARATION(kSCValNetIPSecAuthenticationMethodCertificate, AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1050)
+  SC_SCHEMA_DECLARATION(kSCValNetIPSecAuthenticationMethodCertificate, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetIPSecAuthenticationMethodCertificate                 \
 	  SC_SCHEMA_KV(kSCValNetIPSecAuthenticationMethodCertificate    \
 		      ,"Certificate"                                    \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
-  SC_SCHEMA_DECLARATION(kSCValNetIPSecSharedSecretEncryptionKeychain, AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1050)
-  #define kSCValNetIPSecSharedSecretEncryptionKeychain                  \
-	  SC_SCHEMA_KV(kSCValNetIPSecSharedSecretEncryptionKeychain     \
-		      ,"Keychain"                                       \
+  SC_SCHEMA_DECLARATION(kSCValNetIPSecAuthenticationMethodHybrid, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
+  #define kSCValNetIPSecAuthenticationMethodHybrid                      \
+	  SC_SCHEMA_KV(kSCValNetIPSecAuthenticationMethodHybrid         \
+		      ,"Hybrid"                                         \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
-  SC_SCHEMA_DECLARATION(kSCValNetIPSecLocalIdentifierTypeKeyID, AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1050)
+  SC_SCHEMA_DECLARATION(kSCValNetIPSecLocalIdentifierTypeKeyID, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetIPSecLocalIdentifierTypeKeyID                        \
 	  SC_SCHEMA_KV(kSCValNetIPSecLocalIdentifierTypeKeyID           \
 		      ,"KeyID"                                          \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetIPv4Addresses, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+  SC_SCHEMA_DECLARATION(kSCValNetIPSecSharedSecretEncryptionKeychain, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
+  #define kSCValNetIPSecSharedSecretEncryptionKeychain                  \
+	  SC_SCHEMA_KV(kSCValNetIPSecSharedSecretEncryptionKeychain     \
+		      ,"Keychain"                                       \
+		      ,                                                 )
 #endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+
+  SC_SCHEMA_DECLARATION(kSCValNetIPSecXAuthPasswordEncryptionKeychain, __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1060) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
+  #define kSCValNetIPSecXAuthPasswordEncryptionKeychain                 \
+	  SC_SCHEMA_KV(kSCValNetIPSecXAuthPasswordEncryptionKeychain    \
+		      ,"Keychain"                                       \
+		      ,                                                 )
+#endif
+
+  SC_SCHEMA_DECLARATION(kSCValNetIPSecXAuthPasswordEncryptionPrompt, __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_3_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1060) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 30000)/*SPI*/
+  #define kSCValNetIPSecXAuthPasswordEncryptionPrompt                   \
+	  SC_SCHEMA_KV(kSCValNetIPSecXAuthPasswordEncryptionPrompt      \
+		      ,"Prompt"                                         \
+		      ,                                                 )
+#endif
+
+  SC_SCHEMA_DECLARATION(kSCPropNetIPv4Addresses, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetIPv4Addresses                                       \
 	  SC_SCHEMA_KV(kSCPropNetIPv4Addresses                          \
 		      ,"Addresses"                                      \
 		      ,CFArray[CFString]                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetIPv4ConfigMethod, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetIPv4ConfigMethod, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetIPv4ConfigMethod                                    \
 	  SC_SCHEMA_KV(kSCPropNetIPv4ConfigMethod                       \
 		      ,"ConfigMethod"                                   \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetIPv4DHCPClientID, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetIPv4DHCPClientID, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetIPv4DHCPClientID                                    \
 	  SC_SCHEMA_KV(kSCPropNetIPv4DHCPClientID                       \
 		      ,"DHCPClientID"                                   \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetIPv4Router, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetIPv4Router, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetIPv4Router                                          \
 	  SC_SCHEMA_KV(kSCPropNetIPv4Router                             \
 		      ,"Router"                                         \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetIPv4SubnetMasks, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetIPv4SubnetMasks, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetIPv4SubnetMasks                                     \
 	  SC_SCHEMA_KV(kSCPropNetIPv4SubnetMasks                        \
 		      ,"SubnetMasks"                                    \
 		      ,CFArray[CFString]                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetIPv4DestAddresses, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetIPv4DestAddresses, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetIPv4DestAddresses                                   \
 	  SC_SCHEMA_KV(kSCPropNetIPv4DestAddresses                      \
 		      ,"DestAddresses"                                  \
 		      ,CFArray[CFString]                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetIPv4BroadcastAddresses, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetIPv4BroadcastAddresses, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetIPv4BroadcastAddresses                              \
 	  SC_SCHEMA_KV(kSCPropNetIPv4BroadcastAddresses                 \
 		      ,"BroadcastAddresses"                             \
 		      ,CFArray[CFString]                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetIPv4ConfigMethodBOOTP, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
+  SC_SCHEMA_DECLARATION(kSCValNetIPv4ConfigMethodAutomatic, __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1060) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
+  #define kSCValNetIPv4ConfigMethodAutomatic                            \
+	  SC_SCHEMA_KV(kSCValNetIPv4ConfigMethodAutomatic               \
+		      ,"Automatic"                                      \
+		      ,                                                 )
 #endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+
+  SC_SCHEMA_DECLARATION(kSCValNetIPv4ConfigMethodBOOTP, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetIPv4ConfigMethodBOOTP                                \
 	  SC_SCHEMA_KV(kSCValNetIPv4ConfigMethodBOOTP                   \
 		      ,"BOOTP"                                          \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetIPv4ConfigMethodDHCP, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCValNetIPv4ConfigMethodDHCP, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetIPv4ConfigMethodDHCP                                 \
 	  SC_SCHEMA_KV(kSCValNetIPv4ConfigMethodDHCP                    \
 		      ,"DHCP"                                           \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetIPv4ConfigMethodINFORM, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCValNetIPv4ConfigMethodINFORM, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetIPv4ConfigMethodINFORM                               \
 	  SC_SCHEMA_KV(kSCValNetIPv4ConfigMethodINFORM                  \
 		      ,"INFORM"                                         \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetIPv4ConfigMethodLinkLocal, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  SC_SCHEMA_DECLARATION(kSCValNetIPv4ConfigMethodLinkLocal, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetIPv4ConfigMethodLinkLocal                            \
 	  SC_SCHEMA_KV(kSCValNetIPv4ConfigMethodLinkLocal               \
 		      ,"LinkLocal"                                      \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetIPv4ConfigMethodManual, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCValNetIPv4ConfigMethodManual, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetIPv4ConfigMethodManual                               \
 	  SC_SCHEMA_KV(kSCValNetIPv4ConfigMethodManual                  \
 		      ,"Manual"                                         \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetIPv4ConfigMethodPPP, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCValNetIPv4ConfigMethodPPP, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetIPv4ConfigMethodPPP                                  \
 	  SC_SCHEMA_KV(kSCValNetIPv4ConfigMethodPPP                     \
 		      ,"PPP"                                            \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetIPv6Addresses, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetIPv6Addresses, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetIPv6Addresses                                       \
 	  SC_SCHEMA_KV(kSCPropNetIPv6Addresses                          \
 		      ,"Addresses"                                      \
 		      ,CFArray[CFString]                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetIPv6ConfigMethod, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetIPv6ConfigMethod, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetIPv6ConfigMethod                                    \
 	  SC_SCHEMA_KV(kSCPropNetIPv6ConfigMethod                       \
 		      ,"ConfigMethod"                                   \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetIPv6DestAddresses, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  SC_SCHEMA_DECLARATION(kSCPropNetIPv6DestAddresses, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetIPv6DestAddresses                                   \
 	  SC_SCHEMA_KV(kSCPropNetIPv6DestAddresses                      \
 		      ,"DestAddresses"                                  \
 		      ,CFArray[CFString]                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetIPv6Flags, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  SC_SCHEMA_DECLARATION(kSCPropNetIPv6Flags, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetIPv6Flags                                           \
 	  SC_SCHEMA_KV(kSCPropNetIPv6Flags                              \
 		      ,"Flags"                                          \
 		      ,CFNumber                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetIPv6PrefixLength, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  SC_SCHEMA_DECLARATION(kSCPropNetIPv6PrefixLength, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetIPv6PrefixLength                                    \
 	  SC_SCHEMA_KV(kSCPropNetIPv6PrefixLength                       \
 		      ,"PrefixLength"                                   \
 		      ,CFArray[CFNumber]                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetIPv6Router, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  SC_SCHEMA_DECLARATION(kSCPropNetIPv6Router, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetIPv6Router                                          \
 	  SC_SCHEMA_KV(kSCPropNetIPv6Router                             \
 		      ,"Router"                                         \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetIPv6ConfigMethodAutomatic, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  SC_SCHEMA_DECLARATION(kSCValNetIPv6ConfigMethodAutomatic, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetIPv6ConfigMethodAutomatic                            \
 	  SC_SCHEMA_KV(kSCValNetIPv6ConfigMethodAutomatic               \
 		      ,"Automatic"                                      \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetIPv6ConfigMethodManual, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  SC_SCHEMA_DECLARATION(kSCValNetIPv6ConfigMethodManual, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetIPv6ConfigMethodManual                               \
 	  SC_SCHEMA_KV(kSCValNetIPv6ConfigMethodManual                  \
 		      ,"Manual"                                         \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetIPv6ConfigMethodRouterAdvertisement, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  SC_SCHEMA_DECLARATION(kSCValNetIPv6ConfigMethodRouterAdvertisement, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetIPv6ConfigMethodRouterAdvertisement                  \
 	  SC_SCHEMA_KV(kSCValNetIPv6ConfigMethodRouterAdvertisement     \
 		      ,"RouterAdvertisement"                            \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetIPv6ConfigMethod6to4, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  SC_SCHEMA_DECLARATION(kSCValNetIPv6ConfigMethod6to4, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetIPv6ConfigMethod6to4                                 \
 	  SC_SCHEMA_KV(kSCValNetIPv6ConfigMethod6to4                    \
 		      ,"6to4"                                           \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNet6to4Relay, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  SC_SCHEMA_DECLARATION(kSCPropNet6to4Relay, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNet6to4Relay                                           \
 	  SC_SCHEMA_KV(kSCPropNet6to4Relay                              \
 		      ,"Relay"                                          \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetLinkActive, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetLinkActive, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetLinkActive                                          \
 	  SC_SCHEMA_KV(kSCPropNetLinkActive                             \
 		      ,"Active"                                         \
 		      ,CFBoolean                                        )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetLinkDetaching, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  SC_SCHEMA_DECLARATION(kSCPropNetLinkDetaching, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetLinkDetaching                                       \
 	  SC_SCHEMA_KV(kSCPropNetLinkDetaching                          \
 		      ,"Detaching"                                      \
 		      ,CFBoolean                                        )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
-  SC_SCHEMA_DECLARATION(kSCPropNetModemAccessPointName, AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1050)
+  SC_SCHEMA_DECLARATION(kSCPropNetModemAccessPointName, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetModemAccessPointName                                \
 	  SC_SCHEMA_KV(kSCPropNetModemAccessPointName                   \
 		      ,"AccessPointName"                                \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
-  SC_SCHEMA_DECLARATION(kSCPropNetModemConnectionPersonality, AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1050)
+  SC_SCHEMA_DECLARATION(kSCPropNetModemConnectionPersonality, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetModemConnectionPersonality                          \
 	  SC_SCHEMA_KV(kSCPropNetModemConnectionPersonality             \
 		      ,"ConnectionPersonality"                          \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetModemConnectionScript, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetModemConnectionScript, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetModemConnectionScript                               \
 	  SC_SCHEMA_KV(kSCPropNetModemConnectionScript                  \
 		      ,"ConnectionScript"                               \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetModemConnectSpeed, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  SC_SCHEMA_DECLARATION(kSCPropNetModemConnectSpeed, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetModemConnectSpeed                                   \
 	  SC_SCHEMA_KV(kSCPropNetModemConnectSpeed                      \
 		      ,"ConnectSpeed"                                   \
 		      ,CFNumber                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetModemDataCompression, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetModemDataCompression, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetModemDataCompression                                \
 	  SC_SCHEMA_KV(kSCPropNetModemDataCompression                   \
 		      ,"DataCompression"                                \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
-  SC_SCHEMA_DECLARATION(kSCPropNetModemDeviceContextID, AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1050)
+  SC_SCHEMA_DECLARATION(kSCPropNetModemDeviceContextID, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetModemDeviceContextID                                \
 	  SC_SCHEMA_KV(kSCPropNetModemDeviceContextID                   \
 		      ,"DeviceContextID"                                \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
-  SC_SCHEMA_DECLARATION(kSCPropNetModemDeviceModel, AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1050)
+  SC_SCHEMA_DECLARATION(kSCPropNetModemDeviceModel, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetModemDeviceModel                                    \
 	  SC_SCHEMA_KV(kSCPropNetModemDeviceModel                       \
 		      ,"DeviceModel"                                    \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
-  SC_SCHEMA_DECLARATION(kSCPropNetModemDeviceVendor, AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1050)
+  SC_SCHEMA_DECLARATION(kSCPropNetModemDeviceVendor, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetModemDeviceVendor                                   \
 	  SC_SCHEMA_KV(kSCPropNetModemDeviceVendor                      \
 		      ,"DeviceVendor"                                   \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetModemDialMode, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetModemDialMode, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetModemDialMode                                       \
 	  SC_SCHEMA_KV(kSCPropNetModemDialMode                          \
 		      ,"DialMode"                                       \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetModemErrorCorrection, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetModemErrorCorrection, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetModemErrorCorrection                                \
 	  SC_SCHEMA_KV(kSCPropNetModemErrorCorrection                   \
 		      ,"ErrorCorrection"                                \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetModemHoldCallWaitingAudibleAlert, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  SC_SCHEMA_DECLARATION(kSCPropNetModemHoldCallWaitingAudibleAlert, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetModemHoldCallWaitingAudibleAlert                    \
 	  SC_SCHEMA_KV(kSCPropNetModemHoldCallWaitingAudibleAlert       \
 		      ,"HoldCallWaitingAudibleAlert"                    \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetModemHoldDisconnectOnAnswer, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  SC_SCHEMA_DECLARATION(kSCPropNetModemHoldDisconnectOnAnswer, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetModemHoldDisconnectOnAnswer                         \
 	  SC_SCHEMA_KV(kSCPropNetModemHoldDisconnectOnAnswer            \
 		      ,"HoldDisconnectOnAnswer"                         \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetModemHoldEnabled, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  SC_SCHEMA_DECLARATION(kSCPropNetModemHoldEnabled, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetModemHoldEnabled                                    \
 	  SC_SCHEMA_KV(kSCPropNetModemHoldEnabled                       \
 		      ,"HoldEnabled"                                    \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetModemHoldReminder, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  SC_SCHEMA_DECLARATION(kSCPropNetModemHoldReminder, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetModemHoldReminder                                   \
 	  SC_SCHEMA_KV(kSCPropNetModemHoldReminder                      \
 		      ,"HoldReminder"                                   \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetModemHoldReminderTime, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  SC_SCHEMA_DECLARATION(kSCPropNetModemHoldReminderTime, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetModemHoldReminderTime                               \
 	  SC_SCHEMA_KV(kSCPropNetModemHoldReminderTime                  \
 		      ,"HoldReminderTime"                               \
 		      ,CFNumber                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetModemNote, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  SC_SCHEMA_DECLARATION(kSCPropNetModemNote, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetModemNote                                           \
 	  SC_SCHEMA_KV(kSCPropNetModemNote                              \
 		      ,"Note"                                           \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetModemPulseDial, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetModemPulseDial, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetModemPulseDial                                      \
 	  SC_SCHEMA_KV(kSCPropNetModemPulseDial                         \
 		      ,"PulseDial"                                      \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetModemSpeaker, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetModemSpeaker, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetModemSpeaker                                        \
 	  SC_SCHEMA_KV(kSCPropNetModemSpeaker                           \
 		      ,"Speaker"                                        \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetModemSpeed, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetModemSpeed, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetModemSpeed                                          \
 	  SC_SCHEMA_KV(kSCPropNetModemSpeed                             \
 		      ,"Speed"                                          \
 		      ,CFNumber                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetModemDialModeIgnoreDialTone, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCValNetModemDialModeIgnoreDialTone, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetModemDialModeIgnoreDialTone                          \
 	  SC_SCHEMA_KV(kSCValNetModemDialModeIgnoreDialTone             \
 		      ,"IgnoreDialTone"                                 \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetModemDialModeManual, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCValNetModemDialModeManual, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetModemDialModeManual                                  \
 	  SC_SCHEMA_KV(kSCValNetModemDialModeManual                     \
 		      ,"Manual"                                         \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetModemDialModeWaitForDialTone, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCValNetModemDialModeWaitForDialTone, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetModemDialModeWaitForDialTone                         \
 	  SC_SCHEMA_KV(kSCValNetModemDialModeWaitForDialTone            \
 		      ,"WaitForDialTone"                                \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
-  SC_SCHEMA_DECLARATION(kSCPropNetNetInfoBindingMethods, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+#if !TARGET_OS_IPHONE
+
+  SC_SCHEMA_DECLARATION(kSCPropNetNetInfoBindingMethods, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010)
   #define kSCPropNetNetInfoBindingMethods                               \
 	  SC_SCHEMA_KV(kSCPropNetNetInfoBindingMethods                  \
 		      ,"BindingMethods"                                 \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
-  SC_SCHEMA_DECLARATION(kSCPropNetNetInfoServerAddresses, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetNetInfoServerAddresses, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010)
   #define kSCPropNetNetInfoServerAddresses                              \
 	  SC_SCHEMA_KV(kSCPropNetNetInfoServerAddresses                 \
 		      ,"ServerAddresses"                                \
 		      ,CFArray[CFString]                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
-  SC_SCHEMA_DECLARATION(kSCPropNetNetInfoServerTags, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetNetInfoServerTags, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010)
   #define kSCPropNetNetInfoServerTags                                   \
 	  SC_SCHEMA_KV(kSCPropNetNetInfoServerTags                      \
 		      ,"ServerTags"                                     \
 		      ,CFArray[CFString]                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
-  SC_SCHEMA_DECLARATION(kSCPropNetNetInfoBroadcastServerTag, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetNetInfoBroadcastServerTag, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010)
   #define kSCPropNetNetInfoBroadcastServerTag                           \
 	  SC_SCHEMA_KV(kSCPropNetNetInfoBroadcastServerTag              \
 		      ,"BroadcastServerTag"                             \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
-  SC_SCHEMA_DECLARATION(kSCValNetNetInfoBindingMethodsBroadcast, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCValNetNetInfoBindingMethodsBroadcast, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010)
   #define kSCValNetNetInfoBindingMethodsBroadcast                       \
 	  SC_SCHEMA_KV(kSCValNetNetInfoBindingMethodsBroadcast          \
 		      ,"Broadcast"                                      \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
-  SC_SCHEMA_DECLARATION(kSCValNetNetInfoBindingMethodsDHCP, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCValNetNetInfoBindingMethodsDHCP, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010)
   #define kSCValNetNetInfoBindingMethodsDHCP                            \
 	  SC_SCHEMA_KV(kSCValNetNetInfoBindingMethodsDHCP               \
 		      ,"DHCP"                                           \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
-  SC_SCHEMA_DECLARATION(kSCValNetNetInfoBindingMethodsManual, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCValNetNetInfoBindingMethodsManual, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010)
   #define kSCValNetNetInfoBindingMethodsManual                          \
 	  SC_SCHEMA_KV(kSCValNetNetInfoBindingMethodsManual             \
 		      ,"Manual"                                         \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
-  SC_SCHEMA_DECLARATION(kSCValNetNetInfoDefaultServerTag, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCValNetNetInfoDefaultServerTag, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010)
   #define kSCValNetNetInfoDefaultServerTag                              \
 	  SC_SCHEMA_KV(kSCValNetNetInfoDefaultServerTag                 \
 		      ,"network"                                        \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPACSPEnabled, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+#endif // !TARGET_OS_IPHONE
+
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPACSPEnabled, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPACSPEnabled                                      \
 	  SC_SCHEMA_KV(kSCPropNetPPPACSPEnabled                         \
 		      ,"ACSPEnabled"                                    \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPConnectTime, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPConnectTime, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPConnectTime                                      \
 	  SC_SCHEMA_KV(kSCPropNetPPPConnectTime                         \
 		      ,"ConnectTime"                                    \
 		      ,CFNumber                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPDeviceLastCause, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPDeviceLastCause, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPDeviceLastCause                                  \
 	  SC_SCHEMA_KV(kSCPropNetPPPDeviceLastCause                     \
 		      ,"DeviceLastCause"                                \
 		      ,CFNumber                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPDialOnDemand, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPDialOnDemand, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPDialOnDemand                                     \
 	  SC_SCHEMA_KV(kSCPropNetPPPDialOnDemand                        \
 		      ,"DialOnDemand"                                   \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPDisconnectOnFastUserSwitch, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1040)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPDisconnectOnFastUserSwitch, __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPDisconnectOnFastUserSwitch                       \
 	  SC_SCHEMA_KV(kSCPropNetPPPDisconnectOnFastUserSwitch          \
 		      ,"DisconnectOnFastUserSwitch"                     \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPDisconnectOnIdle, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPDisconnectOnIdle, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPDisconnectOnIdle                                 \
 	  SC_SCHEMA_KV(kSCPropNetPPPDisconnectOnIdle                    \
 		      ,"DisconnectOnIdle"                               \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPDisconnectOnIdleTimer, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPDisconnectOnIdleTimer, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPDisconnectOnIdleTimer                            \
 	  SC_SCHEMA_KV(kSCPropNetPPPDisconnectOnIdleTimer               \
 		      ,"DisconnectOnIdleTimer"                          \
 		      ,CFNumber                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPDisconnectOnLogout, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPDisconnectOnLogout, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPDisconnectOnLogout                               \
 	  SC_SCHEMA_KV(kSCPropNetPPPDisconnectOnLogout                  \
 		      ,"DisconnectOnLogout"                             \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPDisconnectOnSleep, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPDisconnectOnSleep, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPDisconnectOnSleep                                \
 	  SC_SCHEMA_KV(kSCPropNetPPPDisconnectOnSleep                   \
 		      ,"DisconnectOnSleep"                              \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPDisconnectTime, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPDisconnectTime, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPDisconnectTime                                   \
 	  SC_SCHEMA_KV(kSCPropNetPPPDisconnectTime                      \
 		      ,"DisconnectTime"                                 \
 		      ,CFNumber                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPIdleReminderTimer, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPIdleReminderTimer, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPIdleReminderTimer                                \
 	  SC_SCHEMA_KV(kSCPropNetPPPIdleReminderTimer                   \
 		      ,"IdleReminderTimer"                              \
 		      ,CFNumber                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPIdleReminder, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPIdleReminder, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPIdleReminder                                     \
 	  SC_SCHEMA_KV(kSCPropNetPPPIdleReminder                        \
 		      ,"IdleReminder"                                   \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPLastCause, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPLastCause, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPLastCause                                        \
 	  SC_SCHEMA_KV(kSCPropNetPPPLastCause                           \
 		      ,"LastCause"                                      \
 		      ,CFNumber                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPLogfile, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPLogfile, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPLogfile                                          \
 	  SC_SCHEMA_KV(kSCPropNetPPPLogfile                             \
 		      ,"Logfile"                                        \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPPlugins, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPPlugins, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPPlugins                                          \
 	  SC_SCHEMA_KV(kSCPropNetPPPPlugins                             \
 		      ,"Plugins"                                        \
 		      ,CFArray[CFString]                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPRetryConnectTime, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPRetryConnectTime, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPRetryConnectTime                                 \
 	  SC_SCHEMA_KV(kSCPropNetPPPRetryConnectTime                    \
 		      ,"RetryConnectTime"                               \
 		      ,CFNumber                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPSessionTimer, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPSessionTimer, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPSessionTimer                                     \
 	  SC_SCHEMA_KV(kSCPropNetPPPSessionTimer                        \
 		      ,"SessionTimer"                                   \
 		      ,CFNumber                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPStatus, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPStatus, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPStatus                                           \
 	  SC_SCHEMA_KV(kSCPropNetPPPStatus                              \
 		      ,"Status"                                         \
 		      ,CFNumber                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPUseSessionTimer, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPUseSessionTimer, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPUseSessionTimer                                  \
 	  SC_SCHEMA_KV(kSCPropNetPPPUseSessionTimer                     \
 		      ,"UseSessionTimer"                                \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPVerboseLogging, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPVerboseLogging, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPVerboseLogging                                   \
 	  SC_SCHEMA_KV(kSCPropNetPPPVerboseLogging                      \
 		      ,"VerboseLogging"                                 \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPAuthEAPPlugins, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPAuthEAPPlugins, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPAuthEAPPlugins                                   \
 	  SC_SCHEMA_KV(kSCPropNetPPPAuthEAPPlugins                      \
 		      ,"AuthEAPPlugins"                                 \
 		      ,CFArray[CFString]                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPAuthName, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPAuthName, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPAuthName                                         \
 	  SC_SCHEMA_KV(kSCPropNetPPPAuthName                            \
 		      ,"AuthName"                                       \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPAuthPassword, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPAuthPassword, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPAuthPassword                                     \
 	  SC_SCHEMA_KV(kSCPropNetPPPAuthPassword                        \
 		      ,"AuthPassword"                                   \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPAuthPasswordEncryption, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPAuthPasswordEncryption, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPAuthPasswordEncryption                           \
 	  SC_SCHEMA_KV(kSCPropNetPPPAuthPasswordEncryption              \
 		      ,"AuthPasswordEncryption"                         \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPAuthPrompt, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPAuthPrompt, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPAuthPrompt                                       \
 	  SC_SCHEMA_KV(kSCPropNetPPPAuthPrompt                          \
 		      ,"AuthPrompt"                                     \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPAuthProtocol, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPAuthProtocol, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPAuthProtocol                                     \
 	  SC_SCHEMA_KV(kSCPropNetPPPAuthProtocol                        \
 		      ,"AuthProtocol"                                   \
 		      ,CFArray[CFString]                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetPPPAuthPasswordEncryptionKeychain, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  SC_SCHEMA_DECLARATION(kSCValNetPPPAuthPasswordEncryptionKeychain, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetPPPAuthPasswordEncryptionKeychain                    \
 	  SC_SCHEMA_KV(kSCValNetPPPAuthPasswordEncryptionKeychain       \
 		      ,"Keychain"                                       \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
-  SC_SCHEMA_DECLARATION(kSCValNetPPPAuthPasswordEncryptionToken, AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1050)
+  SC_SCHEMA_DECLARATION(kSCValNetPPPAuthPasswordEncryptionToken, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetPPPAuthPasswordEncryptionToken                       \
 	  SC_SCHEMA_KV(kSCValNetPPPAuthPasswordEncryptionToken          \
 		      ,"Token"                                          \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetPPPAuthPromptBefore, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  SC_SCHEMA_DECLARATION(kSCValNetPPPAuthPromptBefore, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetPPPAuthPromptBefore                                  \
 	  SC_SCHEMA_KV(kSCValNetPPPAuthPromptBefore                     \
 		      ,"Before"                                         \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetPPPAuthPromptAfter, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  SC_SCHEMA_DECLARATION(kSCValNetPPPAuthPromptAfter, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetPPPAuthPromptAfter                                   \
 	  SC_SCHEMA_KV(kSCValNetPPPAuthPromptAfter                      \
 		      ,"After"                                          \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetPPPAuthProtocolCHAP, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCValNetPPPAuthProtocolCHAP, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetPPPAuthProtocolCHAP                                  \
 	  SC_SCHEMA_KV(kSCValNetPPPAuthProtocolCHAP                     \
 		      ,"CHAP"                                           \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetPPPAuthProtocolEAP, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  SC_SCHEMA_DECLARATION(kSCValNetPPPAuthProtocolEAP, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetPPPAuthProtocolEAP                                   \
 	  SC_SCHEMA_KV(kSCValNetPPPAuthProtocolEAP                      \
 		      ,"EAP"                                            \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetPPPAuthProtocolMSCHAP1, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  SC_SCHEMA_DECLARATION(kSCValNetPPPAuthProtocolMSCHAP1, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetPPPAuthProtocolMSCHAP1                               \
 	  SC_SCHEMA_KV(kSCValNetPPPAuthProtocolMSCHAP1                  \
 		      ,"MSCHAP1"                                        \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetPPPAuthProtocolMSCHAP2, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  SC_SCHEMA_DECLARATION(kSCValNetPPPAuthProtocolMSCHAP2, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetPPPAuthProtocolMSCHAP2                               \
 	  SC_SCHEMA_KV(kSCValNetPPPAuthProtocolMSCHAP2                  \
 		      ,"MSCHAP2"                                        \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetPPPAuthProtocolPAP, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCValNetPPPAuthProtocolPAP, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetPPPAuthProtocolPAP                                   \
 	  SC_SCHEMA_KV(kSCValNetPPPAuthProtocolPAP                      \
 		      ,"PAP"                                            \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPCommAlternateRemoteAddress, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPCommAlternateRemoteAddress, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPCommAlternateRemoteAddress                       \
 	  SC_SCHEMA_KV(kSCPropNetPPPCommAlternateRemoteAddress          \
 		      ,"CommAlternateRemoteAddress"                     \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPCommConnectDelay, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPCommConnectDelay, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPCommConnectDelay                                 \
 	  SC_SCHEMA_KV(kSCPropNetPPPCommConnectDelay                    \
 		      ,"CommConnectDelay"                               \
 		      ,CFNumber                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPCommDisplayTerminalWindow, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPCommDisplayTerminalWindow, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPCommDisplayTerminalWindow                        \
 	  SC_SCHEMA_KV(kSCPropNetPPPCommDisplayTerminalWindow           \
 		      ,"CommDisplayTerminalWindow"                      \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPCommRedialCount, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPCommRedialCount, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPCommRedialCount                                  \
 	  SC_SCHEMA_KV(kSCPropNetPPPCommRedialCount                     \
 		      ,"CommRedialCount"                                \
 		      ,CFNumber                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPCommRedialEnabled, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPCommRedialEnabled, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPCommRedialEnabled                                \
 	  SC_SCHEMA_KV(kSCPropNetPPPCommRedialEnabled                   \
 		      ,"CommRedialEnabled"                              \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPCommRedialInterval, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPCommRedialInterval, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPCommRedialInterval                               \
 	  SC_SCHEMA_KV(kSCPropNetPPPCommRedialInterval                  \
 		      ,"CommRedialInterval"                             \
 		      ,CFNumber                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPCommRemoteAddress, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPCommRemoteAddress, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPCommRemoteAddress                                \
 	  SC_SCHEMA_KV(kSCPropNetPPPCommRemoteAddress                   \
 		      ,"CommRemoteAddress"                              \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPCommTerminalScript, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPCommTerminalScript, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPCommTerminalScript                               \
 	  SC_SCHEMA_KV(kSCPropNetPPPCommTerminalScript                  \
 		      ,"CommTerminalScript"                             \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPCommUseTerminalScript, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPCommUseTerminalScript, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPCommUseTerminalScript                            \
 	  SC_SCHEMA_KV(kSCPropNetPPPCommUseTerminalScript               \
 		      ,"CommUseTerminalScript"                          \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPCCPEnabled, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPCCPEnabled, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPCCPEnabled                                       \
 	  SC_SCHEMA_KV(kSCPropNetPPPCCPEnabled                          \
 		      ,"CCPEnabled"                                     \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPCCPMPPE40Enabled, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1040)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPCCPMPPE40Enabled, __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPCCPMPPE40Enabled                                 \
 	  SC_SCHEMA_KV(kSCPropNetPPPCCPMPPE40Enabled                    \
 		      ,"CCPMPPE40Enabled"                               \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPCCPMPPE128Enabled, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1040)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPCCPMPPE128Enabled, __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPCCPMPPE128Enabled                                \
 	  SC_SCHEMA_KV(kSCPropNetPPPCCPMPPE128Enabled                   \
 		      ,"CCPMPPE128Enabled"                              \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPIPCPCompressionVJ, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPIPCPCompressionVJ, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPIPCPCompressionVJ                                \
 	  SC_SCHEMA_KV(kSCPropNetPPPIPCPCompressionVJ                   \
 		      ,"IPCPCompressionVJ"                              \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPIPCPUsePeerDNS, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1040)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPIPCPUsePeerDNS, __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPIPCPUsePeerDNS                                   \
 	  SC_SCHEMA_KV(kSCPropNetPPPIPCPUsePeerDNS                      \
 		      ,"IPCPUsePeerDNS"                                 \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPEchoEnabled, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPEchoEnabled, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPLCPEchoEnabled                                   \
 	  SC_SCHEMA_KV(kSCPropNetPPPLCPEchoEnabled                      \
 		      ,"LCPEchoEnabled"                                 \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPEchoFailure, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPEchoFailure, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPLCPEchoFailure                                   \
 	  SC_SCHEMA_KV(kSCPropNetPPPLCPEchoFailure                      \
 		      ,"LCPEchoFailure"                                 \
 		      ,CFNumber                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPEchoInterval, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPEchoInterval, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPLCPEchoInterval                                  \
 	  SC_SCHEMA_KV(kSCPropNetPPPLCPEchoInterval                     \
 		      ,"LCPEchoInterval"                                \
 		      ,CFNumber                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPCompressionACField, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPCompressionACField, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPLCPCompressionACField                            \
 	  SC_SCHEMA_KV(kSCPropNetPPPLCPCompressionACField               \
 		      ,"LCPCompressionACField"                          \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPCompressionPField, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPCompressionPField, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPLCPCompressionPField                             \
 	  SC_SCHEMA_KV(kSCPropNetPPPLCPCompressionPField                \
 		      ,"LCPCompressionPField"                           \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPMRU, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPMRU, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPLCPMRU                                           \
 	  SC_SCHEMA_KV(kSCPropNetPPPLCPMRU                              \
 		      ,"LCPMRU"                                         \
 		      ,CFNumber                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPMTU, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPMTU, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPLCPMTU                                           \
 	  SC_SCHEMA_KV(kSCPropNetPPPLCPMTU                              \
 		      ,"LCPMTU"                                         \
 		      ,CFNumber                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPReceiveACCM, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPReceiveACCM, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPLCPReceiveACCM                                   \
 	  SC_SCHEMA_KV(kSCPropNetPPPLCPReceiveACCM                      \
 		      ,"LCPReceiveACCM"                                 \
 		      ,CFNumber                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPTransmitACCM, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPLCPTransmitACCM, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetPPPLCPTransmitACCM                                  \
 	  SC_SCHEMA_KV(kSCPropNetPPPLCPTransmitACCM                     \
 		      ,"LCPTransmitACCM"                                \
 		      ,CFNumber                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetL2TPIPSecSharedSecret, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  SC_SCHEMA_DECLARATION(kSCPropNetL2TPIPSecSharedSecret, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetL2TPIPSecSharedSecret                               \
 	  SC_SCHEMA_KV(kSCPropNetL2TPIPSecSharedSecret                  \
 		      ,"IPSecSharedSecret"                              \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetL2TPIPSecSharedSecretEncryption, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  SC_SCHEMA_DECLARATION(kSCPropNetL2TPIPSecSharedSecretEncryption, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetL2TPIPSecSharedSecretEncryption                     \
 	  SC_SCHEMA_KV(kSCPropNetL2TPIPSecSharedSecretEncryption        \
 		      ,"IPSecSharedSecretEncryption"                    \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetL2TPTransport, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  SC_SCHEMA_DECLARATION(kSCPropNetL2TPTransport, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetL2TPTransport                                       \
 	  SC_SCHEMA_KV(kSCPropNetL2TPTransport                          \
 		      ,"Transport"                                      \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetL2TPIPSecSharedSecretEncryptionKeychain, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  SC_SCHEMA_DECLARATION(kSCValNetL2TPIPSecSharedSecretEncryptionKeychain, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetL2TPIPSecSharedSecretEncryptionKeychain              \
 	  SC_SCHEMA_KV(kSCValNetL2TPIPSecSharedSecretEncryptionKeychain \
 		      ,"Keychain"                                       \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetL2TPTransportIP, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  SC_SCHEMA_DECLARATION(kSCValNetL2TPTransportIP, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetL2TPTransportIP                                      \
 	  SC_SCHEMA_KV(kSCValNetL2TPTransportIP                         \
 		      ,"IP"                                             \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCValNetL2TPTransportIPSec, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)
+  SC_SCHEMA_DECLARATION(kSCValNetL2TPTransportIPSec, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetL2TPTransportIPSec                                   \
 	  SC_SCHEMA_KV(kSCValNetL2TPTransportIPSec                      \
 		      ,"IPSec"                                          \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesExceptionsList, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesExceptionsList, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetProxiesExceptionsList                               \
 	  SC_SCHEMA_KV(kSCPropNetProxiesExceptionsList                  \
 		      ,"ExceptionsList"                                 \
 		      ,CFArray[CFString]                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesExcludeSimpleHostnames, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1040)
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesExcludeSimpleHostnames, __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetProxiesExcludeSimpleHostnames                       \
 	  SC_SCHEMA_KV(kSCPropNetProxiesExcludeSimpleHostnames          \
 		      ,"ExcludeSimpleHostnames"                         \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesFTPEnable, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesFTPEnable, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetProxiesFTPEnable                                    \
 	  SC_SCHEMA_KV(kSCPropNetProxiesFTPEnable                       \
 		      ,"FTPEnable"                                      \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesFTPPassive, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesFTPPassive, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetProxiesFTPPassive                                   \
 	  SC_SCHEMA_KV(kSCPropNetProxiesFTPPassive                      \
 		      ,"FTPPassive"                                     \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesFTPPort, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesFTPPort, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetProxiesFTPPort                                      \
 	  SC_SCHEMA_KV(kSCPropNetProxiesFTPPort                         \
 		      ,"FTPPort"                                        \
 		      ,CFNumber                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesFTPProxy, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesFTPProxy, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetProxiesFTPProxy                                     \
 	  SC_SCHEMA_KV(kSCPropNetProxiesFTPProxy                        \
 		      ,"FTPProxy"                                       \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesGopherEnable, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesGopherEnable, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetProxiesGopherEnable                                 \
 	  SC_SCHEMA_KV(kSCPropNetProxiesGopherEnable                    \
 		      ,"GopherEnable"                                   \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesGopherPort, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesGopherPort, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetProxiesGopherPort                                   \
 	  SC_SCHEMA_KV(kSCPropNetProxiesGopherPort                      \
 		      ,"GopherPort"                                     \
 		      ,CFNumber                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesGopherProxy, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesGopherProxy, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetProxiesGopherProxy                                  \
 	  SC_SCHEMA_KV(kSCPropNetProxiesGopherProxy                     \
 		      ,"GopherProxy"                                    \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesHTTPEnable, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesHTTPEnable, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetProxiesHTTPEnable                                   \
 	  SC_SCHEMA_KV(kSCPropNetProxiesHTTPEnable                      \
 		      ,"HTTPEnable"                                     \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesHTTPPort, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesHTTPPort, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetProxiesHTTPPort                                     \
 	  SC_SCHEMA_KV(kSCPropNetProxiesHTTPPort                        \
 		      ,"HTTPPort"                                       \
 		      ,CFNumber                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesHTTPProxy, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesHTTPProxy, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetProxiesHTTPProxy                                    \
 	  SC_SCHEMA_KV(kSCPropNetProxiesHTTPProxy                       \
 		      ,"HTTPProxy"                                      \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesHTTPSEnable, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesHTTPSEnable, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetProxiesHTTPSEnable                                  \
 	  SC_SCHEMA_KV(kSCPropNetProxiesHTTPSEnable                     \
 		      ,"HTTPSEnable"                                    \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesHTTPSPort, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesHTTPSPort, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetProxiesHTTPSPort                                    \
 	  SC_SCHEMA_KV(kSCPropNetProxiesHTTPSPort                       \
 		      ,"HTTPSPort"                                      \
 		      ,CFNumber                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesHTTPSProxy, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesHTTPSProxy, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetProxiesHTTPSProxy                                   \
 	  SC_SCHEMA_KV(kSCPropNetProxiesHTTPSProxy                      \
 		      ,"HTTPSProxy"                                     \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesRTSPEnable, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesRTSPEnable, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetProxiesRTSPEnable                                   \
 	  SC_SCHEMA_KV(kSCPropNetProxiesRTSPEnable                      \
 		      ,"RTSPEnable"                                     \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesRTSPPort, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesRTSPPort, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetProxiesRTSPPort                                     \
 	  SC_SCHEMA_KV(kSCPropNetProxiesRTSPPort                        \
 		      ,"RTSPPort"                                       \
 		      ,CFNumber                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesRTSPProxy, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesRTSPProxy, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetProxiesRTSPProxy                                    \
 	  SC_SCHEMA_KV(kSCPropNetProxiesRTSPProxy                       \
 		      ,"RTSPProxy"                                      \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesSOCKSEnable, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesSOCKSEnable, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetProxiesSOCKSEnable                                  \
 	  SC_SCHEMA_KV(kSCPropNetProxiesSOCKSEnable                     \
 		      ,"SOCKSEnable"                                    \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesSOCKSPort, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesSOCKSPort, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetProxiesSOCKSPort                                    \
 	  SC_SCHEMA_KV(kSCPropNetProxiesSOCKSPort                       \
 		      ,"SOCKSPort"                                      \
 		      ,CFNumber                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesSOCKSProxy, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesSOCKSProxy, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetProxiesSOCKSProxy                                   \
 	  SC_SCHEMA_KV(kSCPropNetProxiesSOCKSProxy                      \
 		      ,"SOCKSProxy"                                     \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesProxyAutoConfigEnable, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1040)
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesProxyAutoConfigEnable, __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetProxiesProxyAutoConfigEnable                        \
 	  SC_SCHEMA_KV(kSCPropNetProxiesProxyAutoConfigEnable           \
 		      ,"ProxyAutoConfigEnable"                          \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesProxyAutoConfigURLString, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1040)
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesProxyAutoConfigURLString, __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetProxiesProxyAutoConfigURLString                     \
 	  SC_SCHEMA_KV(kSCPropNetProxiesProxyAutoConfigURLString        \
 		      ,"ProxyAutoConfigURLString"                       \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
-  SC_SCHEMA_DECLARATION(kSCPropNetProxiesProxyAutoDiscoveryEnable, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1040)
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesProxyAutoDiscoveryEnable, __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetProxiesProxyAutoDiscoveryEnable                     \
 	  SC_SCHEMA_KV(kSCPropNetProxiesProxyAutoDiscoveryEnable        \
 		      ,"ProxyAutoDiscoveryEnable"                       \
 		      ,CFNumber (0 or 1)                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
-  SC_SCHEMA_DECLARATION(kSCPropNetSMBNetBIOSName, AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1050)
+#if !TARGET_OS_IPHONE
+
+  SC_SCHEMA_DECLARATION(kSCPropNetSMBNetBIOSName, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetSMBNetBIOSName                                      \
 	  SC_SCHEMA_KV(kSCPropNetSMBNetBIOSName                         \
 		      ,"NetBIOSName"                                    \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
-  SC_SCHEMA_DECLARATION(kSCPropNetSMBNetBIOSNodeType, AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1050)
+  SC_SCHEMA_DECLARATION(kSCPropNetSMBNetBIOSNodeType, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetSMBNetBIOSNodeType                                  \
 	  SC_SCHEMA_KV(kSCPropNetSMBNetBIOSNodeType                     \
 		      ,"NetBIOSNodeType"                                \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
-  SC_SCHEMA_DECLARATION(kSCPropNetSMBNetBIOSScope, AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1050)
+  SC_SCHEMA_DECLARATION(kSCPropNetSMBNetBIOSScope, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetSMBNetBIOSScope                                     \
 	  SC_SCHEMA_KV(kSCPropNetSMBNetBIOSScope                        \
 		      ,"NetBIOSScope"                                   \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
-  SC_SCHEMA_DECLARATION(kSCPropNetSMBWINSAddresses, AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1050)
+  SC_SCHEMA_DECLARATION(kSCPropNetSMBWINSAddresses, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetSMBWINSAddresses                                    \
 	  SC_SCHEMA_KV(kSCPropNetSMBWINSAddresses                       \
 		      ,"WINSAddresses"                                  \
 		      ,CFArray[CFString]                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
-  SC_SCHEMA_DECLARATION(kSCPropNetSMBWorkgroup, AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1050)
+  SC_SCHEMA_DECLARATION(kSCPropNetSMBWorkgroup, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropNetSMBWorkgroup                                        \
 	  SC_SCHEMA_KV(kSCPropNetSMBWorkgroup                           \
 		      ,"Workgroup"                                      \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
-  SC_SCHEMA_DECLARATION(kSCValNetSMBNetBIOSNodeTypeBroadcast, AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1050)
+  SC_SCHEMA_DECLARATION(kSCValNetSMBNetBIOSNodeTypeBroadcast, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetSMBNetBIOSNodeTypeBroadcast                          \
 	  SC_SCHEMA_KV(kSCValNetSMBNetBIOSNodeTypeBroadcast             \
 		      ,"Broadcast"                                      \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
-  SC_SCHEMA_DECLARATION(kSCValNetSMBNetBIOSNodeTypePeer, AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1050)
+  SC_SCHEMA_DECLARATION(kSCValNetSMBNetBIOSNodeTypePeer, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetSMBNetBIOSNodeTypePeer                               \
 	  SC_SCHEMA_KV(kSCValNetSMBNetBIOSNodeTypePeer                  \
 		      ,"Peer"                                           \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
-  SC_SCHEMA_DECLARATION(kSCValNetSMBNetBIOSNodeTypeMixed, AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1050)
+  SC_SCHEMA_DECLARATION(kSCValNetSMBNetBIOSNodeTypeMixed, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetSMBNetBIOSNodeTypeMixed                              \
 	  SC_SCHEMA_KV(kSCValNetSMBNetBIOSNodeTypeMixed                 \
 		      ,"Mixed"                                          \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
-  SC_SCHEMA_DECLARATION(kSCValNetSMBNetBIOSNodeTypeHybrid, AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1050)
+  SC_SCHEMA_DECLARATION(kSCValNetSMBNetBIOSNodeTypeHybrid, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCValNetSMBNetBIOSNodeTypeHybrid                             \
 	  SC_SCHEMA_KV(kSCValNetSMBNetBIOSNodeTypeHybrid                \
 		      ,"Hybrid"                                         \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCEntUsersConsoleUser, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+#endif // !TARGET_OS_IPHONE
+
+#if !TARGET_OS_IPHONE
+
+  SC_SCHEMA_DECLARATION(kSCEntUsersConsoleUser, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCEntUsersConsoleUser                                        \
 	  SC_SCHEMA_KV(kSCEntUsersConsoleUser                           \
 		      ,"ConsoleUser"                                    \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropSystemComputerName, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+#endif // !TARGET_OS_IPHONE
+
+  SC_SCHEMA_DECLARATION(kSCPropSystemComputerName, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropSystemComputerName                                     \
 	  SC_SCHEMA_KV(kSCPropSystemComputerName                        \
 		      ,"ComputerName"                                   \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropSystemComputerNameEncoding, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropSystemComputerNameEncoding, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCPropSystemComputerNameEncoding                             \
 	  SC_SCHEMA_KV(kSCPropSystemComputerNameEncoding                \
 		      ,"ComputerNameEncoding"                           \
 		      ,CFNumber                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCDynamicStoreDomainFile, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCDynamicStoreDomainFile, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCDynamicStoreDomainFile                                     \
 	  SC_SCHEMA_KV(kSCDynamicStoreDomainFile                        \
 		      ,"File:"                                          \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCDynamicStoreDomainPlugin, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCDynamicStoreDomainPlugin, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCDynamicStoreDomainPlugin                                   \
 	  SC_SCHEMA_KV(kSCDynamicStoreDomainPlugin                      \
 		      ,"Plugin:"                                        \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCDynamicStoreDomainSetup, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCDynamicStoreDomainSetup, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCDynamicStoreDomainSetup                                    \
 	  SC_SCHEMA_KV(kSCDynamicStoreDomainSetup                       \
 		      ,"Setup:"                                         \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCDynamicStoreDomainState, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCDynamicStoreDomainState, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCDynamicStoreDomainState                                    \
 	  SC_SCHEMA_KV(kSCDynamicStoreDomainState                       \
 		      ,"State:"                                         \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCDynamicStoreDomainPrefs, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCDynamicStoreDomainPrefs, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCDynamicStoreDomainPrefs                                    \
 	  SC_SCHEMA_KV(kSCDynamicStoreDomainPrefs                       \
 		      ,"Prefs:"                                         \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCDynamicStorePropSetupCurrentSet, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCDynamicStorePropSetupCurrentSet, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCDynamicStorePropSetupCurrentSet                            \
 	  SC_SCHEMA_KV(kSCDynamicStorePropSetupCurrentSet               \
 		      ,"CurrentSet"                                     \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCDynamicStorePropSetupLastUpdated, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCDynamicStorePropSetupLastUpdated, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCDynamicStorePropSetupLastUpdated                           \
 	  SC_SCHEMA_KV(kSCDynamicStorePropSetupLastUpdated              \
 		      ,"LastUpdated"                                    \
 		      ,                                                 )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCDynamicStorePropNetInterfaces, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCDynamicStorePropNetInterfaces, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCDynamicStorePropNetInterfaces                              \
 	  SC_SCHEMA_KV(kSCDynamicStorePropNetInterfaces                 \
 		      ,"Interfaces"                                     \
 		      ,CFArray[CFString]                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCDynamicStorePropNetPrimaryInterface, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCDynamicStorePropNetPrimaryInterface, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCDynamicStorePropNetPrimaryInterface                        \
 	  SC_SCHEMA_KV(kSCDynamicStorePropNetPrimaryInterface           \
 		      ,"PrimaryInterface"                               \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCDynamicStorePropNetPrimaryService, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCDynamicStorePropNetPrimaryService, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCDynamicStorePropNetPrimaryService                          \
 	  SC_SCHEMA_KV(kSCDynamicStorePropNetPrimaryService             \
 		      ,"PrimaryService"                                 \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCDynamicStorePropNetServiceIDs, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCDynamicStorePropNetServiceIDs, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
   #define kSCDynamicStorePropNetServiceIDs                              \
 	  SC_SCHEMA_KV(kSCDynamicStorePropNetServiceIDs                 \
 		      ,"ServiceIDs"                                     \
 		      ,CFArray[CFString]                                )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropUsersConsoleUserName, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+#if !TARGET_OS_IPHONE
+
+  SC_SCHEMA_DECLARATION(kSCPropUsersConsoleUserName, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_4,__IPHONE_NA,__IPHONE_NA))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010)
   #define kSCPropUsersConsoleUserName                                   \
 	  SC_SCHEMA_KV(kSCPropUsersConsoleUserName                      \
 		      ,"Name"                                           \
 		      ,CFString                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropUsersConsoleUserUID, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropUsersConsoleUserUID, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_4,__IPHONE_NA,__IPHONE_NA))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010)
   #define kSCPropUsersConsoleUserUID                                    \
 	  SC_SCHEMA_KV(kSCPropUsersConsoleUserUID                       \
 		      ,"UID"                                            \
 		      ,CFNumber                                         )
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-  SC_SCHEMA_DECLARATION(kSCPropUsersConsoleUserGID, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4)
-#endif
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)
+  SC_SCHEMA_DECLARATION(kSCPropUsersConsoleUserGID, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_4,__IPHONE_NA,__IPHONE_NA))
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010)
   #define kSCPropUsersConsoleUserGID                                    \
 	  SC_SCHEMA_KV(kSCPropUsersConsoleUserGID                       \
 		      ,"GID"                                            \
 		      ,CFNumber                                         )
 #endif
 
-#endif /* _SCSCHEMADEFINITIONS_H */
+#endif // !TARGET_OS_IPHONE
+
+#endif	/* USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS */
+#endif	/* _SCSCHEMADEFINITIONS_H */

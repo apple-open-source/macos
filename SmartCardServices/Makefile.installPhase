@@ -30,6 +30,7 @@ install:
 	chmod 644 $(PCSCDIR)/drivers/*.bundle/Contents/*.*
 	chmod 644 $(PCSCDIR)/drivers/*.bundle/Contents/MacOS/*
 	/usr/bin/strip -S $(PCSCDIR)/drivers/*.bundle/Contents/MacOS/*
+ifdef haveExtensions
 	mkdir -p $(EXTENSIONS_DIR)
 	chmod 755 $(DSTROOT)/System
 	chmod 755 $(DSTROOT)/System/Library
@@ -49,11 +50,12 @@ install:
 	chmod 644 $(EXTENSIONS_DIR)/*.kext/Contents/MacOS/*
 	-chmod 644 $(EXTENSIONS_DIR)/*.kext/Contents/Resources/*.lproj/*.*
 	/usr/bin/strip -S $(EXTENSIONS_DIR)/*.kext/Contents/MacOS/*
+endif
 
 	mkdir -p $(SCRIPTS_LOCATION)
 
 	cp installPhase/scripts/sc_auth $(SCRIPTS_LOCATION)
-	chown root:admin $(SCRIPTS_LOCATION)/sc_auth
+	chown root:wheel $(SCRIPTS_LOCATION)/sc_auth
 	chmod 755 $(SCRIPTS_LOCATION)/sc_auth
 
 # Copy over man pages
@@ -68,10 +70,6 @@ install:
 # Deleting CVS subdirectories from the copy phase
 
 	rm -rf `find $(PCSCDIR)/drivers -name CVS`
-
-	mkdir -p $(PKCS11_DIR)
-	cp installPhase/PKCS11/pkcs11.shlb $(PKCS11_DIR)
-	chmod 755 $(PKCS11_DIR)/pkcs11.shlb
 
 installhdrs:
 	@echo null installhdrs.

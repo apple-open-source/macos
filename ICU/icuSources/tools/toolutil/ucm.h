@@ -1,20 +1,18 @@
 /*
-*******************************************************************************
-*
-*   Copyright (C) 2003-2005, International Business Machines
-*   Corporation and others.  All Rights Reserved.
-*
-*******************************************************************************
-*   file name:  ucm.h
-*   encoding:   US-ASCII
-*   tab size:   8 (not used)
-*   indentation:4
-*
-*   created on: 2003jun20
-*   created by: Markus W. Scherer
-*
-*   Definitions for the .ucm file parser and handler module ucm.c.
-*/
+ *******************************************************************************
+ *   Copyright (C) 2003-2007, International Business Machines
+ *   Corporation and others.  All Rights Reserved.
+ *******************************************************************************
+ *   file name:  ucm.h
+ *   encoding:   US-ASCII
+ *   tab size:   8 (not used)
+ *   indentation:4
+ *
+ *   created on: 2003jun20
+ *   created by: Markus W. Scherer
+ *
+ *   Definitions for the .ucm file parser and handler module ucm.c.
+ */
 
 #ifndef __UCM_H__
 #define __UCM_H__
@@ -28,6 +26,12 @@
 #if !UCONFIG_NO_CONVERSION
 
 U_CDECL_BEGIN
+
+/* constants for UCMapping.moveFlag */
+enum {
+    UCM_MOVE_TO_EXT=1,
+    UCM_REMOVE_MAPPING=2
+};
 
 /*
  * Per-mapping data structure
@@ -52,6 +56,7 @@ typedef struct UCMapping {
     int8_t uLen, bLen, f, moveFlag;
 } UCMapping;
 
+/* constants for UCMTable.flagsType */
 enum {
     UCM_FLAGS_INITIAL,  /* no mappings parsed yet */
     UCM_FLAGS_EXPLICIT, /* .ucm file has mappings with | fallback indicators */
@@ -150,6 +155,13 @@ ucm_resetTable(UCMTable *table);
 U_CAPI void U_EXPORT2
 ucm_sortTable(UCMTable *t);
 
+/*
+ * Remove mappings with their move flag set from the base table
+ * and move some of them (with UCM_MOVE_TO_EXT) to the extension table.
+ */
+U_CAPI void U_EXPORT2
+ucm_moveMappings(UCMTable *base, UCMTable *ext);
+
 /**
  * Read a table from a .ucm file, from after the CHARMAP line to
  * including the END CHARMAP line.
@@ -186,7 +198,7 @@ ucm_checkValidity(UCMTable *ext, UCMStates *baseStates);
  *
  * For both tables in the same file, the extension table is automatically
  * built.
- * For separate files, the extension file can use a complete mapping table,
+ * For separate files, the extension file can use a complete mapping table (.ucm file),
  * so that common mappings need not be stripped out manually.
  *
  *

@@ -29,6 +29,7 @@ main(int argc, char **argv)
 	struct autofs_args mnt_args;
 	char mount_path[PATH_MAX];
 	char *path;
+	long argval;
 	int32_t timeout = 0;
 	int32_t direct = 0;
 
@@ -40,12 +41,15 @@ main(int argc, char **argv)
 			break;
 
 		case 't':
-			timeout = strtol(optarg, &p, 10);
-			if (p == NULL || *p != '\0') {
+			errno = 0;
+			argval = strtol(optarg, &p, 10);
+			if (p == NULL || *p != '\0' || errno != 0 ||
+			    argval > INT_MAX) {
 				fprintf(stderr, "%s: timeout \"%s\" not valid.\n", getprogname(), optarg);
 				fprintf(stderr, usage, getprogname());
 				return (EXIT_FAILURE);
 			}
+			timeout = (int32_t)argval;
 			break;
 
 		default:

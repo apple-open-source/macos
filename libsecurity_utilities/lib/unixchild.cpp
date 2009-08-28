@@ -194,16 +194,28 @@ void Child::kill(int signal)
 //
 // Kill with prejudice.
 // This will make a serious attempt to *synchronously* kill the process before
-// returning. If that doesn't work for some reason, we throw(!).
+// returning. If that doesn't work for some reason, abandon the child.
 // This is one thing you can do in the destructor of your subclass to legally
 // dispose of your Child's process.
 //
 void Child::kill()
 {
-	StLock<Mutex> _(mChildren());
-	if (mState == alive) {
-		secdebug("unixchild", "kill-with-prejudice is not implemented");
-		assert(false);
+	// note that we mustn't hold the lock across these calls
+	if (this->state() == alive) {
+		this->kill(SIGTERM);				// shoot it once
+		checkChildren();					// check for quick death
+		if (this->state() == alive) {
+			usleep(200000);					// give it some time to die
+			if (this->state() == alive) {	// could have been reaped by another thread
+				checkChildren();			// check again
+				if (this->state() == alive) {	// it... just... won't... die...
+					this->kill(SIGKILL);	// take THAT!
+					checkChildren();
+					if (this->state() == alive) // stuck zombie
+						this->abandon();	// leave the body behind
+				}
+			}
+		}
 	} else
 		secdebug("unixchild", "%p (pid %d) not alive; ignoring request to kill it", this, pid());
 }

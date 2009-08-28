@@ -74,7 +74,7 @@ static errno_t ppp_ip_preoutput(ifnet_t ifp, protocol_family_t protocol,
 									mbuf_t *packet, const struct sockaddr *dest, 
 									void *route, char *frame_type, char *link_layer_dest);
 static errno_t ppp_ip_ioctl(ifnet_t ifp, protocol_family_t protocol,
-									 u_int32_t command, void* argument);
+									 u_long command, void* argument);
 
 /* -----------------------------------------------------------------------------
 Globals
@@ -109,7 +109,7 @@ errno_t ppp_ip_attach(ifnet_t ifp, protocol_family_t protocol)
     struct ifnet_attach_proto_param   reg;
     struct ppp_if		*wan = (struct ppp_if *)ifnet_softc(ifp);
     
-    LOGDBG(ifp, (LOGVAL, "ppp_ip_attach: name = %s, unit = %d\n", ifnet_name(ifp), ifnet_unit(ifp)));
+    LOGDBG(ifp, ("ppp_ip_attach: name = %s, unit = %d\n", ifnet_name(ifp), ifnet_unit(ifp)));
 
     if (wan->ip_attached) 
         return 0;	// already attached
@@ -122,7 +122,7 @@ errno_t ppp_ip_attach(ifnet_t ifp, protocol_family_t protocol)
 	ret = ifnet_attach_protocol(ifp, PF_INET, &reg);
     LOGRETURN(ret, ret, "ppp_ip_attach: ifnet_attach_protocol error = 0x%x\n");
 	
-    LOGDBG(ifp, (LOGVAL, "ppp_i6_attach: ifnet_attach_protocol family = 0x%x\n", protocol));
+    LOGDBG(ifp, ("ppp_i6_attach: ifnet_attach_protocol family = 0x%x\n", protocol));
 	ifnet_find_by_name("lo0", &wan->lo_ifp);
 	wan->ip_attached = 1;
 	
@@ -138,7 +138,7 @@ void ppp_ip_detach(ifnet_t ifp, protocol_family_t protocol)
     int 		ret;
     struct ppp_if		*wan = (struct ppp_if *)ifnet_softc(ifp);
 
-    LOGDBG(ifp, (LOGVAL, "ppp_ip_detach\n"));
+    LOGDBG(ifp, ("ppp_ip_detach\n"));
 
     if (!wan->ip_attached)
         return;	// already detached
@@ -148,7 +148,7 @@ void ppp_ip_detach(ifnet_t ifp, protocol_family_t protocol)
 
     ret = ifnet_detach_protocol(ifp, PF_INET);
 	if (ret)
-        log(LOGVAL, "ppp_ip_detach: ifnet_detach_protocol error = 0x%x\n", ret);
+        IOLog("ppp_ip_detach: ifnet_detach_protocol error = 0x%x\n", ret);
 
     wan->ip_attached = 0;
 }
@@ -157,7 +157,7 @@ void ppp_ip_detach(ifnet_t ifp, protocol_family_t protocol)
 called from dlil when an ioctl is sent to the interface
 ----------------------------------------------------------------------------- */
 errno_t ppp_ip_ioctl(ifnet_t ifp, protocol_family_t protocol,
-									 u_int32_t command, void* argument)
+									 u_long command, void* argument)
 {
     struct ifaddr 	*ifa = (struct ifaddr *)argument;
     //struct in_ifaddr 	*ia = (struct in_ifaddr *)data;
@@ -169,7 +169,7 @@ errno_t ppp_ip_ioctl(ifnet_t ifp, protocol_family_t protocol,
 
         case SIOCSIFADDR:
         case SIOCAIFADDR:
-            LOGDBG(ifp, (LOGVAL, "ppp_ip_ioctl: cmd = SIOCSIFADDR/SIOCAIFADDR\n"));
+            LOGDBG(ifp, ("ppp_ip_ioctl: cmd = SIOCSIFADDR/SIOCAIFADDR\n"));
 
             // only an IPv4 address should arrive here
             if (ifa->ifa_addr->sa_family != AF_INET) {

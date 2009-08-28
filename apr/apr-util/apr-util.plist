@@ -1,22 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<array>
 <dict>
 	<key>OpenSourceProject</key>
 	<string>apr-util</string>
 	<key>OpenSourceVersion</key>
-	<string>1.2.7</string>
+	<string>1.3.7</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://apr.apache.org/</string>
 	<key>OpenSourceURL</key>
-	<string>http://apache.org/dist/apr/apr-util-1.2.7.tar.bz2</string>
+	<string>http://apache.org/dist/apr/apr-util-1.3.7.tar.bz2</string>
 	<key>OpenSourceSHA1</key>
-	<string>1b25cf401f21e404f1a9ecded77bc6e0c484d441</string>
+	<string>7fb9be40c978bf912d459342ec99f2bbd4235fa8</string>
 	<key>OpenSourceImportDate</key>
-	<string>2006-05-23</string>
+	<string>2009-06-16</string>
 	<key>OpenSourceLicense</key>
-	<string>BSD</string>
+	<string>Apache</string>
 	<key>OpenSourceLicenseFile</key>
 	<string>apr-util.txt</string>
 </dict>
-</array>
 </plist>

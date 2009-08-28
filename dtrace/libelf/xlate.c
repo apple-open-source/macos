@@ -2,9 +2,8 @@
  * CDDL HEADER START
  *
  * The contents of this file are subject to the terms of the
- * Common Development and Distribution License, Version 1.0 only
- * (the "License").  You may not use this file except in compliance
- * with the License.
+ * Common Development and Distribution License (the "License").
+ * You may not use this file except in compliance with the License.
  *
  * You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
  * or http://www.opensolaris.org/os/licensing.
@@ -19,20 +18,15 @@
  *
  * CDDL HEADER END
  */
+
 /*
- * Copyright 2004 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)xlate.m4	1.26	05/06/08 SMI"
-
-// XXX_PRAGMA_WEAK #pragma weak elf32_fsize = _elf32_fsize
-// XXX_PRAGMA_WEAK #pragma weak elf_version = _elf_version
-// XXX_PRAGMA_WEAK #pragma weak elf32_xlatetof = _elf32_xlatetof
-// XXX_PRAGMA_WEAK #pragma weak elf32_xlatetom = _elf32_xlatetom
+#pragma ident	"@(#)xlate.m4	1.30	08/05/31 SMI"
 
 #if !defined(__APPLE__)
-#include "syn.h"
 #include <memory.h>
 #include <libelf.h>
 #include <link.h>
@@ -42,7 +36,6 @@
 #include <msg.h>
 #include <sgs.h>
 #else /* is Apple Mac OS X */
-#include "syn.h"
 #include <memory.h>
 #include <libelf.h>
 #include <link.h>
@@ -50,9 +43,10 @@
 /* NOTHING */ /* In lieu of Solaris <sys/elf_amd64.h> */
 #include <decl.h>
 #include <msg.h>
-#include <string.h>
 /* NOTHING */ /* In lieu of Solaris <sys/sgs.h> */
+#include <string.h>
 #endif /* __APPLE__ */
+
 
 /*
  * fmsize:  Array used to determine what size the the structures
@@ -789,18 +783,6 @@ static const Elf_Type	mtype[EV_CURRENT][SHT_NUM] =
 
 
 size_t
-_elf32_entsz(Elf32_Word shtype, unsigned ver)
-{
-	Elf_Type	ttype;
-
-	if (shtype >= sizeof (mtype[0]) / sizeof (mtype[0][0]) ||
-	    (ttype = mtype[ver - 1][shtype]) == ELF_T_BYTE)
-		return (0);
-	return (fmsize[ver - 1][ttype].s_filesz);
-}
-
-
-size_t
 elf32_fsize(Elf_Type type, size_t count, unsigned ver)
 {
 	if (--ver >= EV_CURRENT) {
@@ -831,6 +813,11 @@ _elf32_mtype(Elf * elf, Elf32_Word shtype, unsigned ver)
 		return (mtype[ver - 1][shtype]);
 
 	switch (shtype) {
+	case SHT_SUNW_symsort:
+	case SHT_SUNW_tlssort:
+		return (ELF_T_WORD);
+	case SHT_SUNW_LDYNSYM:
+		return (ELF_T_SYM);
 	case SHT_SUNW_dof:
 		return (ELF_T_BYTE);
 	case SHT_SUNW_cap:
@@ -894,6 +881,47 @@ _elf32_mtype(Elf * elf, Elf32_Word shtype, unsigned ver)
 }
 
 
+size_t
+_elf32_entsz(Elf *elf, Elf32_Word shtype, unsigned ver)
+{
+	Elf_Type	ttype;
+
+	ttype = _elf32_mtype(elf, shtype, ver);
+	return ((ttype == ELF_T_BYTE) ? 0 : fmsize[ver - 1][ttype].s_filesz); 
+}
+
+
+/*
+ * Determine the data encoding used by the current system.
+ */
+uint_t
+_elf_sys_encoding(void)
+{
+	union {
+		Elf32_Word	w;
+		unsigned char	c[W_sizeof];
+	} u;
+
+	u.w = 0x10203;
+	/*CONSTANTCONDITION*/
+	if (~(Elf32_Word)0 == -(Elf32_Sword)1 && (((((((Elf32_Word)(u.c)[W_L3]<<8)
+		+(u.c)[W_L2])<<8)
+		+(u.c)[W_L1])<<8)
+		+(u.c)[W_L0]) == 0x10203)
+		return (ELFDATA2LSB);
+
+	/*CONSTANTCONDITION*/
+	if (~(Elf32_Word)0 == -(Elf32_Sword)1 && (((((((Elf32_Word)(u.c)[W_M3]<<8)
+		+(u.c)[W_M2])<<8)
+		+(u.c)[W_M1])<<8)
+		+(u.c)[W_M0]) == 0x10203)
+		return (ELFDATA2MSB);
+
+	/* Not expected to occur */
+	return (ELFDATANONE);
+}
+
+
 /*
  * XX64	This routine is also used to 'version' interactions with Elf64
  *	applications, but there's no way to figure out if the caller is
@@ -904,13 +932,6 @@ unsigned
 elf_version(unsigned ver)
 {
 	register unsigned	j;
-	union
-	{
-		Elf32_Word	w;
-		unsigned char	c[W_sizeof];
-	} u;
-
-
 
 	if (ver == EV_NONE)
 		return EV_CURRENT;
@@ -929,21 +950,7 @@ elf_version(unsigned ver)
 	}
 	_elf_work = ver;
 
-	u.w = 0x10203;
-	/*CONSTANTCONDITION*/
-	if (~(Elf32_Word)0 == -(Elf32_Sword)1
-	&& (((((((Elf32_Word)(u.c)[W_L3]<<8)
-		+(u.c)[W_L2])<<8)
-		+(u.c)[W_L1])<<8)
-		+(u.c)[W_L0]) == 0x10203)
-		_elf_encode = ELFDATA2LSB;
-	/*CONSTANTCONDITION*/
-	else if (~(Elf32_Word)0 == -(Elf32_Sword)1
-	&& (((((((Elf32_Word)(u.c)[W_M3]<<8)
-		+(u.c)[W_M2])<<8)
-		+(u.c)[W_M1])<<8)
-		+(u.c)[W_M0]) == 0x10203)
-		_elf_encode = ELFDATA2MSB;
+	_elf_encode = _elf_sys_encoding();
 
 	(void) mutex_unlock(&_elf_globals_mutex);
 
@@ -1031,12 +1038,12 @@ elf32_xlatetom(Elf_Data *dst, const Elf_Data *src, unsigned encode)
 
 
 /*
- * xlate to file 
+ * xlate to file format
  *
  *	..._tof(name, data) -- macros
  *
- *	Recall that the file  must be no larger than the
- *	memory  (equal versions).  Use "forward" copy.
+ *	Recall that the file format must be no larger than the
+ *	memory format (equal versions).  Use "forward" copy.
  *	All these routines require non-null, non-zero arguments.
  */
 
@@ -2545,12 +2552,12 @@ verneed_2M11_tof(unsigned char *dst, Elf32_Verneed *src, size_t cnt)
 }
 
 
-/* xlate to memory 
+/* xlate to memory format
  *
  *	..._tom(name, data) -- macros
  *
- *	Recall that the memory  may be larger than the
- *	file  (equal versions).  Use "backward" copy.
+ *	Recall that the memory format may be larger than the
+ *	file format (equal versions).  Use "backward" copy.
  *	All these routines require non-null, non-zero arguments.
  */
 
@@ -2899,15 +2906,18 @@ note_2L11_tom(Elf32_Nhdr *dst, unsigned char *src, size_t cnt)
 		+(src)[N1_type_L1])<<8)
 		+(src)[N1_type_L0]);
 		nhdr = dst;
+		/* LINTED */
 		dst = (Elf32_Nhdr *)((char *)dst + sizeof (Elf32_Nhdr));
 		namestr = src + N1_sizeof;
 		field_sz = S_ROUND(nhdr->n_namesz, sizeof (Elf32_Word));
 		(void)memcpy((void *)dst, namestr, field_sz);
 		desc = namestr + field_sz;
+		/* LINTED */
 		dst = (Elf32_Nhdr *)((char *)dst + field_sz);
 		field_sz = nhdr->n_descsz;
 		(void)memcpy(dst, desc, field_sz);
 		field_sz = S_ROUND(field_sz, sizeof (Elf32_Word));
+		/* LINTED */
 		dst = (Elf32_Nhdr *)((char *)dst + field_sz);
 		src = (unsigned char *)desc + field_sz;
 	}
@@ -2938,15 +2948,18 @@ note_2M11_tom(Elf32_Nhdr *dst, unsigned char *src, size_t cnt)
 		+(src)[N1_type_M1])<<8)
 		+(src)[N1_type_M0]);
 		nhdr = dst;
+		/* LINTED */
 		dst = (Elf32_Nhdr *)((char *)dst + sizeof (Elf32_Nhdr));
 		namestr = src + N1_sizeof;
 		field_sz = S_ROUND(nhdr->n_namesz, sizeof (Elf32_Word));
 		(void)memcpy((void *)dst, namestr, field_sz);
 		desc = namestr + field_sz;
+		/* LINTED */
 		dst = (Elf32_Nhdr *)((char *)dst + field_sz);
 		field_sz = nhdr->n_descsz;
 		(void)memcpy(dst, desc, field_sz);
 		field_sz = S_ROUND(field_sz, sizeof (Elf32_Word));
+		/* LINTED */
 		dst = (Elf32_Nhdr *)((char *)dst + field_sz);
 		src = (unsigned char *)desc + field_sz;
 	}

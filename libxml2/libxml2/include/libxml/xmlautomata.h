@@ -13,6 +13,7 @@
 #include <libxml/xmlversion.h>
 #include <libxml/tree.h>
 
+#ifdef LIBXML_REGEXP_ENABLED
 #ifdef LIBXML_AUTOMATA_ENABLED
 #include <libxml/xmlregexp.h>
 
@@ -64,6 +65,14 @@ XMLPUBFUN xmlAutomataStatePtr XMLCALL
 						 const xmlChar *token,
 						 const xmlChar *token2,
 						 void *data);
+XMLPUBFUN xmlAutomataStatePtr XMLCALL
+                    xmlAutomataNewNegTrans	(xmlAutomataPtr am,
+						 xmlAutomataStatePtr from,
+						 xmlAutomataStatePtr to,
+						 const xmlChar *token,
+						 const xmlChar *token2,
+						 void *data);
+
 XMLPUBFUN xmlAutomataStatePtr XMLCALL	
 		    xmlAutomataNewCountTrans	(xmlAutomataPtr am,
 						 xmlAutomataStatePtr from,
@@ -132,4 +141,6 @@ XMLPUBFUN int XMLCALL
 #endif 
 
 #endif /* LIBXML_AUTOMATA_ENABLED */
+#endif /* LIBXML_REGEXP_ENABLED */
+
 #endif /* __XML_AUTOMATA_H__ */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,8 +20,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1999 Apple Computer, Inc.  All rights reserved. 
- *
  * IOEthernetController.cpp
  *
  * Abstract Ethernet controller superclass.
@@ -141,32 +139,60 @@ bool IOEthernetController::publishProperties()
         }
 
         // Publish Ethernet defined packet filters.
-        
+
         dict = OSDynamicCast(OSDictionary, getProperty(kIOPacketFilters));
         if ( dict )
         {
-            UInt32     filters;
-            OSNumber * num;
-            OSDictionary *newdict;
-			
-            if ( getPacketFilters(gIOEthernetWakeOnLANFilterGroup,
-                                  &filters) != kIOReturnSuccess )
+            OSNumber *      num;
+            OSDictionary *  newdict;
+            UInt32          supported = 0;
+            UInt32          disabled  = 0;
+
+            // Supported WOL filters
+            if ( getPacketFilters(
+                    gIOEthernetWakeOnLANFilterGroup,
+                    &supported) != kIOReturnSuccess )
             {
-                break;
+                supported = 0;
             }
 
-            num = OSNumber::withNumber(filters, sizeof(filters) * 8);
-            if (num == 0)
-                break;
-			//to avoid race condition with external threads we'll modify a copy of dictionary
-			newdict = OSDictionary::withDictionary(dict); //copy the dictionary
-			if(newdict)
+            // Disabled WOL filters
+            if ( getPacketFilters(
+                    gIOEthernetDisabledWakeOnLANFilterGroup,
+                    &disabled) != kIOReturnSuccess )
+            {
+                disabled = 0;
+            }
+
+			newdict = OSDictionary::withDictionary(
+                        dict, dict->getCount() + (supported ? 2 : 1));
+			if (newdict)
 			{
-				ret = newdict->setObject(gIOEthernetWakeOnLANFilterGroup, num); //and add the WOL group to it
-				setProperty(kIOPacketFilters, newdict); //then replace the property with the new dictionary
-				newdict->release();
-			}
-            num->release();
+                // Supported WOL filters
+                num = OSNumber::withNumber(supported, sizeof(supported) * 8);
+                if (num)
+                {
+                    ret = newdict->setObject(gIOEthernetWakeOnLANFilterGroup, num);
+                    num->release();
+                }
+
+                // Disabled WOL filters
+                if (supported)
+                {
+                    num = OSNumber::withNumber(disabled, sizeof(disabled) * 8);
+                    if (num)
+                    {
+                        ret = newdict->setObject(
+                            gIOEthernetDisabledWakeOnLANFilterGroup, num);
+                        num->release();
+                    }
+                }
+
+                if (ret)
+                    setProperty(kIOPacketFilters, newdict);
+
+                newdict->release();
+            }
         }
     }
     while (false);

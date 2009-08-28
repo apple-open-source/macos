@@ -524,7 +524,9 @@ auth_name(unsigned char *data, int cnt)
 	savename[cnt] = '\0';	/* Null terminate */
 	if (auth_debug_mode)
 		printf(">>>%s: Got NAME [%s]\r\n", Name, savename);
+#ifdef	ENCRYPTION
 	auth_encrypt_user(savename);
+#endif
 }
 
 int

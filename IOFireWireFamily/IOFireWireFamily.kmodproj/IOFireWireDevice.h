@@ -40,9 +40,9 @@ class IOFireWireDevice;
 
 #pragma mark -
 
-/*
- * An IOFireWireDeviceAux is for internal use only. You should never subclass IOFireWireDeviceAux 
- */
+/*! @class IOFireWireDeviceAux
+	@discussion An IOFireWireDeviceAux is for internal use only. You should never subclass IOFireWireDeviceAux 
+*/
 
 class IOFireWireDeviceAux : public IOFireWireNubAux
 {

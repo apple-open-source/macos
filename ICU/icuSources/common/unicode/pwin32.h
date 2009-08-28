@@ -1,20 +1,20 @@
 /*
-******************************************************************************
-*
-*   Copyright (C) 1997-2006, International Business Machines
-*   Corporation and others.  All Rights Reserved.
-*
-******************************************************************************
-*
-*  FILE NAME : platform.h
-*
-*   Date        Name        Description
-*   05/13/98    nos         Creation (content moved here from ptypes.h).
-*   03/02/99    stephen     Added AS400 support.
-*   03/30/99    stephen     Added Linux support.
-*   04/13/99    stephen     Reworked for autoconf.
-******************************************************************************
-*/
+ ******************************************************************************
+ *
+ *   Copyright (C) 1997-2007, International Business Machines
+ *   Corporation and others.  All Rights Reserved.
+ *
+ ******************************************************************************
+ *
+ *  FILE NAME : platform.h
+ *
+ *   Date        Name        Description
+ *   05/13/98    nos         Creation (content moved here from ptypes.h).
+ *   03/02/99    stephen     Added AS400 support.
+ *   03/30/99    stephen     Added Linux support.
+ *   04/13/99    stephen     Reworked for autoconf.
+ ******************************************************************************
+ */
 
  /**
   * \file
@@ -218,7 +218,7 @@ Intel can define _M_IX86 or _M_X64
 
 /* Determine whether to enable tracing. */
 #ifndef U_ENABLE_TRACING
-#define U_ENABLE_TRACING 1
+#define U_ENABLE_TRACING 0
 #endif
 
 /* Do we allow ICU users to use the draft APIs by default? */
@@ -240,6 +240,16 @@ Intel can define _M_IX86 or _M_X64
 
 #define U_HAVE_WCSCPY 1
 
+/**
+ * \def U_DECLARE_UTF16
+ * Do not use this macro. Use the UNICODE_STRING or U_STRING_DECL macros
+ * instead.
+ * @internal
+ */
+#if 1
+#define U_DECLARE_UTF16(string) L ## string
+#endif
+
 /*===========================================================================*/
 /* Information about POSIX support                                           */
 /*===========================================================================*/
@@ -252,6 +262,9 @@ Intel can define _M_IX86 or _M_X64
 #endif
 #if 1
 #define U_TZNAME        _tzname
+#endif
+#if 1
+#define U_DAYLIGHT      _daylight
 #endif
 
 #define U_HAVE_MMAP 0

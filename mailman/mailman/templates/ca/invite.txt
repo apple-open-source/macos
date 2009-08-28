@@ -1,17 +1,19 @@
-La seva adreça "%(email)s" ha estat convidada a unir-se a la llista de correu %(listname)s
-a %(hostname)s per el propietari de la llista de correu %(listname)s.
+El propietari de la llista de correu %(listname)s ha convidat la vostra
+adreÃ§a electrÃ²nica Â«%(email)sÂ» a unir-se a la llista %(listname)s a
+%(hostname)s.  Podeu acceptar la invitaciÃ³ simplement responent a aquest
+missatge sense canviar la capÃ§alera de l'Assumpte:.
 
-Podeu acceptar la invitació simplement responent aquest missatge, mantenint el títol intacte.
-
-També podeu visitar-nos a:
+TambÃ© podeu anar a aquesta pÃ gina web:
 
     %(confirmurl)s
 
-O bé, haurieu d'incloure la següent línia -- i només la següent línia -- en un missatge a  %(requestaddr)s:
+O bÃ© haurÃ­eu d'incloure la lÃ­nia segÃ¼ent -i nomÃ©s aquesta lÃ­nia- en un
+missatge a %(requestaddr)s:
 
     confirm %(cookie)s
 
-Simplement enviant un 'reply' hauria de funcionar en la majoria de programes de correu.
+Tingueu en compte que simplement amb l'enviament d'una resposta (Â«replyÂ»)
+ja n'hi hauria d'haver prou en la majoria de lectors de correu.
 
-Si voleu declinar aquesta invitació, simplement ignoreu aquest missatge. Si
-teniu alguna pregunta, si us plau envieu-la a %(listowner)s.
+Si voleu declinar aquesta invitaciÃ³, simplement cal que descarteu aquest
+missatge.  Si teniu cap pregunta, envieu-la a %(listowner)s.

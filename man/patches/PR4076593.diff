@@ -5,6 +5,6 @@
  
      shift
 -done
-+done | ${PAGER:-more -E}
++done | eval ${PAGER:-more -E}
  
  exit

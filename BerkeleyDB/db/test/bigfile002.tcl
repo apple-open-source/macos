@@ -1,9 +1,8 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 2001-2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 2001,2007 Oracle.  All rights reserved.
 #
-# $Id: bigfile002.tcl,v 1.2 2004/03/30 01:24:07 jtownsen Exp $
+# $Id: bigfile002.tcl,v 12.7 2007/05/17 15:15:55 bostic Exp $
 #
 # TEST	bigfile002
 # TEST	This one should be faster and not require so much disk space,
@@ -12,8 +11,7 @@
 proc bigfile002 { args } {
 	source ./include.tcl
 
-	puts -nonewline \
-	    "Bigfile002: Creating large, sparse file through mpool..."
+	puts "Bigfile002: Creating large, sparse file through mpool..."
 	flush stdout
 
 	env_cleanup $testdir
@@ -32,12 +30,10 @@ proc bigfile002 { args } {
 	error_check_good pg_set [$pg is_setto A] 1
 
 	# Put page back.
-	error_check_good pg_put [$pg put -dirty] 0
+	error_check_good pg_put [$pg put] 0
 
 	# Fsync.
 	error_check_good fsync [$file fsync] 0
-
-	puts "succeeded."
 
 	# Close.
 	error_check_good fclose [$file close] 0

@@ -1,5 +1,5 @@
 /* params.c - Run-time parameters.
-   Copyright (C) 2001, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2003, 2004, 2005 Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>.
 
 This file is part of GCC.
@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.
 
 */
 
@@ -61,8 +61,7 @@ set_param_value (const char *name, int value)
   size_t i;
 
   /* Make sure nobody tries to set a parameter to an invalid value.  */
-  if (value == INVALID_PARAM_VAL)
-    abort ();
+  gcc_assert (value != INVALID_PARAM_VAL);
 
   /* Scan the parameter table to find a matching entry.  */
   for (i = 0; i < num_compiler_params; ++i)

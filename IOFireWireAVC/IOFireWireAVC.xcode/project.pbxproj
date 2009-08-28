@@ -107,9 +107,9 @@
 /* Begin PBXFileReference section */
 		1A224C3EFF42367911CA2CB7 /* IOFireWireAVCUnit.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOFireWireAVCUnit.h; path = IOFireWireAVC/IOFireWireAVCUnit.h; sourceTree = "<group>"; };
 		1A224C3FFF42367911CA2CB7 /* IOFireWireAVCUnit.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = IOFireWireAVCUnit.cpp; path = IOFireWireAVC/IOFireWireAVCUnit.cpp; sourceTree = "<group>"; };
-		7DDEC06F064B0D6C001B4C4A /* Info-IOFireWireAVC.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "Info-IOFireWireAVC.plist"; sourceTree = "<group>"; };
+		7DDEC06F064B0D6C001B4C4A /* Info-IOFireWireAVC.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IOFireWireAVC.plist"; sourceTree = "<group>"; };
 		7DDEC070064B0D6D001B4C4A /* IOFireWireAVC.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOFireWireAVC.kext; sourceTree = BUILT_PRODUCTS_DIR; };
-		7DDEC085064B0D6D001B4C4A /* Info-IOFireWireAVCLib.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "Info-IOFireWireAVCLib.plist"; sourceTree = "<group>"; };
+		7DDEC085064B0D6D001B4C4A /* Info-IOFireWireAVCLib.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IOFireWireAVCLib.plist"; sourceTree = "<group>"; };
 		7DDEC086064B0D6D001B4C4A /* IOFireWireAVCLib.plugin */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOFireWireAVCLib.plugin; sourceTree = BUILT_PRODUCTS_DIR; };
 		8C274CA0018F448104CE206D /* IOFireWirePCRSpace.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = IOFireWirePCRSpace.cpp; path = IOFireWireAVC/IOFireWirePCRSpace.cpp; sourceTree = "<group>"; };
 		8C274CA1018F448104CE206D /* IOFireWirePCRSpace.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOFireWirePCRSpace.h; path = IOFireWireAVC/IOFireWirePCRSpace.h; sourceTree = "<group>"; };
@@ -439,7 +439,6 @@
 			buildSettings = {
 				ARCHS = (
 					ppc,
-					ppc64,
 					i386,
 					x86_64,
 				);
@@ -450,7 +449,6 @@
 				INFOPLIST_FILE = "Info-IOFireWireAVCLib.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOFireWireAVC.kext/Contents/PlugIns/";
-				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = (
 					"-bundle",
@@ -475,7 +473,6 @@
 			buildSettings = {
 				ARCHS = (
 					ppc,
-					ppc64,
 					i386,
 					x86_64,
 				);
@@ -507,14 +504,13 @@
 			buildSettings = {
 				ARCHS = (
 					ppc,
-					ppc64,
 					i386,
 					x86_64,
 				);
+				GCC_OPTIMIZATION_LEVEL = 0;
 				INFOPLIST_FILE = "Info-IOFireWireAVCLib.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOFireWireAVC.kext/Contents/PlugIns/";
-				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "-DFIRELOG=1";
 				OTHER_LDFLAGS = (
 					"-bundle",
@@ -538,7 +534,6 @@
 			buildSettings = {
 				ARCHS = (
 					ppc,
-					ppc64,
 					i386,
 					x86_64,
 				);
@@ -567,6 +562,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = (
+					x86_64,
 					ppc,
 					i386,
 				);
@@ -584,15 +580,14 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireAVC;
-				MODULE_VERSION = 2.2.3;
-				OPTIMIZATION_CFLAGS = "-O0";
+				MODULE_VERSION = 4.0.6;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PREBINDING = NO;
 				PRODUCT_NAME = IOFireWireAVC;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc7400 ppc970 i386 ppc";
+				VALID_ARCHS = "ppc7400 ppc970 i386 ppc x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -607,6 +602,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = (
+					x86_64,
 					ppc,
 					i386,
 				);
@@ -621,14 +617,14 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireAVC;
-				MODULE_VERSION = 2.2.3;
+				MODULE_VERSION = 4.0.6;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PREBINDING = NO;
 				PRODUCT_NAME = IOFireWireAVC;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc7400 ppc970 i386 ppc";
+				VALID_ARCHS = "ppc7400 ppc970 i386 ppc x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -643,11 +639,13 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = (
+					x86_64,
 					ppc,
 					i386,
 				);
 				FIRELOG = 1;
 				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = FIREWIREPRIVATE;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "Info-IOFireWireAVC.plist";
@@ -657,15 +655,14 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireAVC;
-				MODULE_VERSION = 2.2.3;
-				OPTIMIZATION_CFLAGS = "-O0";
+				MODULE_VERSION = 4.0.6;
 				OTHER_CFLAGS = "-DFIRELOG=1";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PREBINDING = NO;
 				PRODUCT_NAME = IOFireWireAVC;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc7400 ppc970 i386 ppc";
+				VALID_ARCHS = "ppc7400 ppc970 i386 ppc x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -679,6 +676,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = (
+					x86_64,
 					ppc,
 					i386,
 				);
@@ -692,14 +690,14 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireAVC;
-				MODULE_VERSION = 2.2.3;
+				MODULE_VERSION = 4.0.6;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PREBINDING = NO;
 				PRODUCT_NAME = IOFireWireAVC;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc7400 ppc970 i386 ppc";
+				VALID_ARCHS = "ppc7400 ppc970 i386 ppc x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -716,7 +714,6 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -752,7 +749,7 @@
 		30EC56970895F6B80057E458 /* FireLog */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				OPTIMIZATION_CFLAGS = "-O0";
+				GCC_OPTIMIZATION_LEVEL = 0;
 				OTHER_CFLAGS = "-DFIRELOG=1";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";

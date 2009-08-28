@@ -1,0 +1,4 @@
+/^h5 =/s/$/ pldtrace.h/
+/-o perl/s//-mdynamic-no-pic &/
+g,//$,d
+w

@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -48,7 +48,7 @@ nwld_named_section_asm_out_constructor (rtx symbol, int priority)
 	   MAX_INIT_PRIORITY - priority);
 #endif
 
-  named_section_flags (section, 0);
+  switch_to_section (get_section (section, 0, NULL));
   assemble_align (POINTER_SIZE);
   assemble_integer (symbol, POINTER_SIZE / BITS_PER_UNIT, POINTER_SIZE, 1);
 }
@@ -68,7 +68,7 @@ nwld_named_section_asm_out_destructor (rtx symbol, int priority)
 	   MAX_INIT_PRIORITY - priority);
 #endif
 
-  named_section_flags (section, 0);
+  switch_to_section (get_section (section, 0, NULL));
   assemble_align (POINTER_SIZE);
   assemble_integer (symbol, POINTER_SIZE / BITS_PER_UNIT, POINTER_SIZE, 1);
 }

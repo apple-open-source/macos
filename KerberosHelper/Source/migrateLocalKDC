@@ -1,0 +1,200 @@
+#!/usr/bin/perl
+# 
+# Copyright (c) 2009 Apple Inc. All rights reserved.
+#
+# @APPLE_LICENSE_HEADER_START@
+#
+# This file contains Original Code and/or Modifications of Original Code
+# as defined in and that are subject to the Apple Public Source License
+# Version 2.0 (the 'License'). You may not use this file except in
+# compliance with the License. Please obtain a copy of the License at
+# http://www.opensource.apple.com/apsl/ and read it before using this
+# file.
+#
+# The Original Code and all software distributed under the License are
+# distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+# EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+# INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+# Please see the License for the specific language governing rights and
+# limitations under the License.
+#
+# @APPLE_LICENSE_HEADER_END@
+#
+# This script migrates a LocalKDC database
+
+use strict;
+use Errno qw(:POSIX);
+use File::Basename;
+
+my $progname = basename ($0);
+
+chdir '/' or die "chdir: $!\n";
+
+if ($< != 0) {
+	print 'Error: '. $progname ." needs to be run by root\n";
+	exit EPERM();
+}
+
+umask 022;
+
+my ($source);
+
+my $argc = scalar @ARGV;
+my $i;
+for ($i = 0; $i < $argc; ++$i) {
+	if ($ARGV[$i] eq '--source') {
+		die "Error: --source requires an argument\n" unless ++$i < $argc;
+		$source = $ARGV[$i];
+	} else {
+		die "Error: unknown argument $ARGV[$i]\n";
+	}
+}
+
+die "--source not defined" unless defined $source;
+
+#
+# If there is no database, skip migration
+#
+
+-d "$source/var/db/krb5kdc" or exit 0;
+
+#
+# Read in realm names, target and source realm names
+#
+
+my $KDC_LOCAL;
+my $kdc_local = '/var/db/dslocal/nodes/Default/config/KerberosKDC.plist';
+
+if (not open (KDC_LOCAL, '/usr/libexec/PlistBuddy -c "Print :realname:" '. $kdc_local. '|')) {
+	print 'Error: '. $progname ." failed to find $kdc_local\n";
+	exit 1;
+}
+my $targetrealm = join ('', <KDC_LOCAL>);
+close KDC_LOCAL;
+$targetrealm =~ s/^.*(LKDC:SHA1\.[0-9A-F]{40}).*$/\1/s;
+
+if ($targetrealm eq '') {
+	print 'Error: '. $progname ." cannot parse $kdc_local\n";
+	exit 1;
+}
+
+my $migrationkdcconf = "/var/db/krb5kdc/kdc.conf.old";
+my $migrationdump = "/var/db/krb5kdc/lkdc-migration-dump";
+
+my ($IN, $OUT, $configrealm, %sourceusers, %targetusers);
+
+open IN, "$source/var/db/krb5kdc/kdc.conf" or die "open source kdc.conf: $!";
+open OUT, ">$migrationkdcconf";
+
+while(<IN>) {
+    s@/var/db/krb5kdc/@$source/var/db/krb5kdc/@;
+    $configrealm = $1 if (m/(LKDC:.*) = {/);
+    print OUT $_;
+}
+close IN;
+close OUT;
+
+die "no Local KDC realm in source kdc.conf" unless defined $configrealm;
+
+print "-----> targetrealm: $targetrealm\n";
+print "-----> configrealm: $configrealm\n";
+
+#
+# Load in the database and transfor the dumpfile to the new masterkey
+#
+
+$ENV{'KRB5_KDC_PROFILE'} = $migrationkdcconf;
+
+open IN, "/usr/sbin/kdb5_util -r $configrealm ".
+    "dump ".
+    "-mkey_convert ".
+    "-new_mkey_file /var/db/krb5kdc/.k5.$targetrealm ".
+    "-new_mkey_principal K/M\@$targetrealm |";
+open OUT, ">$migrationdump";
+
+my ($user, $realm, $sourcerealm);
+
+#
+# Iterate over the data base and strip out all principals that doesn't
+# seem to be users and save them in the output dump file
+#
+
+while(<IN>) {
+    # keep header
+    if (m/^kdb5_util load_dump version/) {
+	print OUT $_;
+	next;
+    }
+
+    next if (not m/^princ\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+([^@]*)\@([^ \t]*)\s+/);
+    ($user, $realm) = ($1, $2);
+    # skip admin/meta principals
+    next if ($user eq "K/M");
+    next if ($user =~ "^kadmin/"); # ignore kadmin foo
+    next if ($user =~ m@^krbtgt/.*@); # ignore tgt and cross realm
+    next if ($user =~ m@^.*/LKDC:*@); # ignore LKDC services
+
+    print OUT $_;
+
+    $sourceusers{$user} = 1;
+
+    #
+    # Verify all principals are from the same realm
+    #
+
+    if (defined $sourcerealm and ($sourcerealm ne $realm)) {
+	print "Error: $progname realm ($realm) changed ".
+	    "source realm ($sourcerealm)\n";
+	exit EINVAL();
+    }
+    $sourcerealm = $realm;
+
+}
+close IN;
+close OUT;
+
+#
+# Switch over to the new database
+#
+
+$ENV{'KRB5_KDC_PROFILE'} = '/var/db/krb5kdc/kdc.conf';
+
+#
+# check that the dump contained what we expected
+#
+
+if ($configrealm ne $sourcerealm) {
+    die "missmatch between database and kdc.conf realm" 
+}
+
+print "-----> migration kdc.conf: $migrationkdcconf\n";
+print "-----> migration dump: $migrationdump\n";
+
+# Load the migration dump into the database
+system("/usr/sbin/kdb5_util load -update $migrationdump");
+
+# Rename all users to the new realm name
+foreach my $a (keys %sourceusers) {
+    print "-----> renaming user: $a\n";
+    system("/usr/sbin/kadmin.local ".
+	   "-r $targetrealm ".
+	   "-p kadmin/local\@$targetrealm ".
+	   "-q \"renprinc -force $a\@$sourcerealm $a\@$targetrealm\"");
+    system("/usr/sbin/kadmin.local ".
+	   "-r $targetrealm ".
+	   "-p kadmin/local\@$targetrealm ".
+	   "-q \"modprinc -allow_svr $a\@$targetrealm\"");
+}
+
+unlink $migrationkdcconf;
+unlink $migrationdump;
+
+#
+# Restart KDC since to might have cached part of the database
+# and the it will have the wrong data
+#
+
+system("killall krb5kdc");
+
+exit 0;

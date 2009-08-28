@@ -150,6 +150,42 @@ executing tt(myfunc), use:
 
 example(autoload +X myfunc)
 
+sect(Anonymous Functions)
+cindex(anonymous functions)
+cindex(functions, anonymous)
+
+If no name is given for a function, it is `anonymous' and is handled
+specially.  Either form of function definition may be used: a `tt(())' with
+no preceding name, or a `tt(function)' with an immediately following open
+brace.  The function is executed immediately at the point of definition and
+is not stored for future use.  The function name is set to `tt((anon))' and
+the parameter list passed to the function is empty.  Note that this means
+the argument list of any enclosing script or function is hidden.
+Redirections may be applied to the anonymous function in the same manner as
+to a current-shell structure enclosed in braces.  The main use of anonymous
+functions is to provide a scope for local variables.  This is particularly
+convenient in start-up files as these do not provide their own local
+variable scope.
+
+For example,
+
+example(variable=outside
+function {
+  local variable=inside
+  print "I am $variable"
+}
+print "I am $variable")
+
+outputs the following:
+
+example(I am inside
+I am outside)
+
+Note that function definitions with arguments that expand to nothing,
+for example `tt(name=; function $name { )var(...)tt( })', are not
+treated as anonymous functions.  Instead, they are treated as normal
+function definitions where the definition is silently discarded.
+
 sect(Special Functions)
 Certain functions, if defined, have special meaning to the shell.
 
@@ -188,7 +224,9 @@ Hence the set of functions is always called together.
 findex(precmd)
 vindex(precmd_functions)
 item(tt(precmd))(
-Executed before each prompt.
+Executed before each prompt.  Note that precommand functions are not
+re-executed simply because the command line is redrawn, as happens, for
+example, when a notification about an exiting job is displayed.
 )
 findex(preexec)
 vindex(preexec_functions)
@@ -202,6 +240,34 @@ passed in two different forms: the second argument is a single-line,
 size-limited version of the command (with things like function bodies
 elided); the third argument contains the full text that is being
 executed.
+)
+findex(zshaddhistory)
+vindex(zshaddhistory_functions)
+item(tt(zshaddhistory))(
+cindex(history, hook when line is saved)
+Executed when a history line has been read interactively, but
+before it is executed.  The sole argument is the complete history
+line (so that any terminating newline will still be present).
+
+If any of the hook functions return a non-zero value the history
+line will not be saved, although it lingers in the history until the
+next line is executed allow you to reuse or edit it immediately.
+
+A hook function may call `tt(fc -p) var(...)' to switch the history
+context so that the history is saved in a different file from the
+that in the global tt(HISTFILE) parameter.  This is handled specially:
+the history context is automatically restored after the processing
+of the history line is finished.
+
+The following example function first adds the history line to the normal
+history with the newline stripped,  which is usually the correct behaviour.
+Then it switches the history context so that the line will
+be written to a history file in the current directory.
+
+example(zshaddhistory+LPAR()RPAR() {
+  print -sr -- ${1%%$'\n'}
+  fc -p .zsh_local_history
+})
 )
 findex(zshexit)
 vindex(zshexit_functions)
@@ -242,7 +308,12 @@ executed inside other traps.
 )
 findex(TRAPDEBUG)
 item(tt(TRAPDEBUG))(
-Executed after each command.
+If the option tt(DEBUG_BEFORE_CMD) is set (as it is by default), executed
+before each command; otherwise executed after each command.  See
+the description of the tt(trap) builtin in
+ifnzman(noderef(Shell Builtin Commands))\
+ifzman(zmanref(zshbuiltins)) for details of additional features provided
+in debug traps.
 )
 findex(TRAPEXIT)
 item(tt(TRAPEXIT))(

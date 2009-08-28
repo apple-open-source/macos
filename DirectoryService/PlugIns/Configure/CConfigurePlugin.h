@@ -34,6 +34,7 @@
 #include "PrivateTypes.h"
 #include "PluginData.h"
 #include "CServerPlugin.h"
+#include "BaseDirectoryPlugin.h"
 
 typedef struct {
 	UInt32 offset;

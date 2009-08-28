@@ -75,28 +75,29 @@ class CAuthFileBase
 		virtual int						addWeakAuthMethod( const char *inMethod );
 		virtual int						removeWeakAuthMethod( const char *inMethod );
 
-		virtual int						expandDatabase( unsigned long inNumSlots, long *outSlot );
-		virtual long					nextSlot(void);
-		virtual void					getGMTime(struct tm *inOutGMT);
+		virtual int						expandDatabase( uint32_t inNumSlots, uint32_t *outSlot );
+		virtual uint32_t				nextSlot(void);
+		virtual void					getGMTime(struct tm *outGMT);
+        virtual void					getGMTime(BSDTimeStructCopy *outGMT);
 		virtual UInt32					getTimeForRef(void);
 		virtual UInt32					getRandom(void);
 
 		virtual int						addRSAKeys(unsigned int inBitCount = 1024);
-		virtual int						addRSAKeys(unsigned char *publicKey, unsigned long publicKeyLen, unsigned char *privateKey, unsigned long privateKeyLen );
+		virtual int						addRSAKeys(unsigned char *publicKey, uint32_t publicKeyLen, unsigned char *privateKey, uint32_t privateKeyLen );
 		virtual int						addGenesisPassword(const char *username, const char *password, PWFileEntry *outPWRec = NULL);
 
 		virtual int						addPassword(PWFileEntry *passwordRec, bool obfuscate = true);
 		virtual int						initPasswordRecord(PWFileEntry *passwordRec, bool obfuscate = true);
-		virtual int						addPasswordAtSlot(PWFileEntry *passwordRec, long slot, bool obfuscate = true, bool setModDate = true);
-		virtual int						addPasswordAtSlotFast(PWFileEntry *passwordRec, long slot);
-		virtual int						setPasswordAtSlot(PWFileEntry *passwordRec, long slot, bool obfuscate = true, bool setModDate = true);
-		virtual int						setPasswordAtSlotFast(PWFileEntry *passwordRec, long slot);
+		virtual int						addPasswordAtSlot(PWFileEntry *passwordRec, uint32_t slot, bool obfuscate = true, bool setModDate = true);
+		virtual int						addPasswordAtSlotFast(PWFileEntry *passwordRec, uint32_t slot);
+		virtual int						setPasswordAtSlot(PWFileEntry *passwordRec, uint32_t slot, bool obfuscate = true, bool setModDate = true);
+		virtual int						setPasswordAtSlotFast(PWFileEntry *passwordRec, uint32_t slot);
 		//virtual void					addHashes( const char *inRealm, PWFileEntry *inOutPasswordRec );
 		virtual void					addHashDigestMD5(const char *inRealm, PWFileEntry *inOutPasswordRec);
 		virtual void					addHashCramMD5(PWFileEntry *inOutPasswordRec);
-		static void						getHashCramMD5(const unsigned char *inPassword, long inPasswordLen, unsigned char *outHash, unsigned long *outHashLen );
+		static void						getHashCramMD5(const unsigned char *inPassword, size_t inPasswordLen, unsigned char *outHash, size_t *outHashLen );
 		virtual bool					ConvertBinaryToHex(const unsigned char *inData, long len, char *outHexStr);
-		virtual int						getPasswordRec(long slot, PWFileEntry *passRec, bool unObfuscate = true);
+		virtual int						getPasswordRec(uint32_t slot, PWFileEntry *passRec, bool unObfuscate = true);
 		virtual int						getValidPasswordRec(PWFileEntry *passwordRec, bool *outFromSpillBucket = NULL, bool unObfuscate = true);
 		virtual int						freeSlot(PWFileEntry *passwordRec);
 		virtual void					passwordRecRefToString(PWFileEntry *inPasswordRec, char *outRefStr);

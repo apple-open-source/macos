@@ -2,7 +2,7 @@
  * Copyright (c) 2000, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -111,9 +111,8 @@ int  nb_snballoc(int namelen, struct sockaddr_nb **);
 int  nb_sockaddr(struct sockaddr *, struct nb_name *, struct sockaddr_nb **);
 
 int  nb_resolvehost_in(const char *, struct sockaddr **, u_int16_t, int);
-int  nbns_resolvename(const char *, struct nb_ctx *, struct smb_ctx *, struct sockaddr **, int allow_local_conn, u_int16_t port);
-int  nbns_getnodestatus(struct sockaddr *targethost,
-	struct nb_ctx *ctx, char *system, char *workgroup);
+int  nbns_resolvename(const char *, struct nb_ctx *, struct sockaddr **, int allow_local_conn, u_int16_t port);
+int  nbns_getnodestatus(struct sockaddr *targethost, struct nb_ctx *ctx, char *nbt_server, char *workgroup);
 int isLocalNetworkAddress(u_int32_t addr);
 int  nb_getlocalname(char *name, size_t);
 int  nb_enum_if(struct nb_ifdesc **, int);

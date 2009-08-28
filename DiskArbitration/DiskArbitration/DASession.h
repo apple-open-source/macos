@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -82,7 +82,7 @@ extern void DASessionUnscheduleFromRunLoop( DASessionRef session, CFRunLoopRef r
  * Type of a reference to DAApprovalSession instances.
  */
 
-typedef struct __DAApprovalSession * DAApprovalSessionRef;
+typedef struct __DASession * DAApprovalSessionRef;
 
 /*!
  * @function   DAApprovalSessionGetTypeID

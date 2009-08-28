@@ -25,14 +25,17 @@
 #include <Security/oidscrl.h>
 #include <Security/x509defs.h>
 #include <Security/oidsattr.h>
+#include <Security/oidsalg.h>
 #include <Security/cssmapple.h>
 #include <string.h>
 #include "cuPrintCert.h"
 #include "cuOidParser.h"
 #include "cuTimeStr.h"
 #include <Security/certextensions.h>
+#include <Security/SecAsn1Coder.h>
+#include <Security/keyTemplates.h>
 
-static char *months[] = {
+static const char *months[] = {
 	"Jan", "Feb", "Mar", "Apr", "May", "Jun", 
 	"Jul", "Aug", "Sep", "Oct", "Nov", "Dec" 
 };
@@ -90,7 +93,7 @@ static void printDataAsHex(
 /*
  * Identify CSSM_BER_TAG with a C string.
  */
-static char *tagTypeString(
+static const char *tagTypeString(
 	CSSM_BER_TAG tagType)
 {
 	static char unknownType[80];
@@ -161,8 +164,8 @@ static void printOid(OidParser &parser, const CSSM_DATA *oid)
 #define BLOB_LENGTH_PRINT	3
 
 static void printBlobBytes(
-	char 			*blobType,
-	char 			*quanta,		// e.g., "bytes', "bits"
+	const char 			*blobType,
+	const char 			*quanta,		// e.g., "bytes', "bits"
 	uint32			bytesToPrint,
 	const CSSM_DATA	*thing)
 {
@@ -249,17 +252,6 @@ static void printDerThing(
 	}
 }
 
-static void printSigAlg(
-	const CSSM_X509_ALGORITHM_IDENTIFIER *sigAlg,
-	OidParser 							&parser)
-{
-	printOid(parser, &sigAlg->algorithm);
-	if(sigAlg->parameters.Data != NULL) {
-		printf("   alg params      : ");
-		printDataAsHex(&sigAlg->parameters, 8);
-	}
-}
-
 /* compare two OIDs, return CSSM_TRUE if identical */
 static CSSM_BOOL compareOids(
 	const CSSM_OID *oid1,
@@ -279,13 +271,70 @@ static CSSM_BOOL compareOids(
 	}
 }	
 
+/* 
+ * Following a CSSMOID_ECDSA_WithSpecified algorithm is another encoded
+ * CSSM_X509_ALGORITHM_IDENTIFIER containing the digest algorithm OID. 
+ * Decode and print the OID.
+ */
+static void printECDSA_SigAlgParams(
+	const CSSM_DATA *params,
+	OidParser &parser)
+{
+	SecAsn1CoderRef coder = NULL;
+	if(SecAsn1CoderCreate(&coder)) {
+		printf("***Error in SecAsn1CoderCreate()\n");
+		return;
+	}
+	CSSM_X509_ALGORITHM_IDENTIFIER algParams;
+	memset(&algParams, 0, sizeof(algParams));
+	if(SecAsn1DecodeData(coder, params, kSecAsn1AlgorithmIDTemplate,
+			&algParams)) {
+		printf("***Error decoding CSSM_X509_ALGORITHM_IDENTIFIER\n");
+		goto errOut;
+	}
+	printOid(parser, &algParams.algorithm);
+errOut:
+	SecAsn1CoderRelease(coder);
+}
+
+static void printSigAlg(
+	const CSSM_X509_ALGORITHM_IDENTIFIER *sigAlg,
+	OidParser 							&parser)
+{
+	printOid(parser, &sigAlg->algorithm);
+	if(sigAlg->parameters.Data != NULL) {
+		printf("   alg params      : ");
+		if(compareOids(&sigAlg->algorithm, &CSSMOID_ecPublicKey) &&
+		   (sigAlg->parameters.Data[0] == BER_TAG_OID) &&
+		   (sigAlg->parameters.Length > 2)) {
+			/* 
+			 * An OID accompanying an ECDSA public key. The OID is an ECDSA curve. 
+			 * Do a quickie DER-decode of the OID - it's here in encoded form
+			 * because this field is an ASN_ANY - and print the resulting OID.
+			 */
+			CSSM_OID curveOid = {sigAlg->parameters.Length-2, sigAlg->parameters.Data+2};
+			printOid(parser, &curveOid);
+		}
+		else if(compareOids(&sigAlg->algorithm, &CSSMOID_ECDSA_WithSpecified)) {
+			/* 
+			 * The accompanying params specify the digest algorithm.
+			 */ 
+			printECDSA_SigAlgParams(&sigAlg->parameters, parser);
+		}
+		else {
+			/* All others - ASN_ANY - punt */
+			printDataAsHex(&sigAlg->parameters, 8);
+		}
+	}
+}
+
 static void printRdn(
 	const CSSM_X509_RDN			*rdnp,
 	OidParser 					&parser)
 {
 	CSSM_X509_TYPE_VALUE_PAIR 	*ptvp;
 	unsigned					pairDex;
-	char						*fieldName;
+	const char						*fieldName;
 	
 	for(pairDex=0; pairDex<rdnp->numberOfPairs; pairDex++) {
 		ptvp = &rdnp->AttributeTypeAndValue[pairDex];
@@ -365,6 +414,9 @@ static void printKeyHeader(
 			break;
 		case CSSM_ALGID_DH:
 			printf("Diffie-Hellman\n");
+			break;
+		case CSSM_ALGID_ECDSA:
+			printf("ECDSA\n");
 			break;
 		default:
 			printf("Unknown(%u(d), 0x%x)\n", (unsigned)hdr.AlgorithmId, 
@@ -1104,6 +1156,18 @@ void printCertField(
 			printDataAsHex(thisData, 8);
 		}
 	}
+	else if(cuCompareCssmData(thisOid, &CSSMOID_X509V1IssuerNameStd)) {
+		if(verbose) {
+			printf("DER-encoded issuer : ");
+			printDataAsHex(thisData, 8);
+		}
+	}
+	else if(cuCompareCssmData(thisOid, &CSSMOID_X509V1SubjectNameStd)) {
+		if(verbose) {
+			printf("DER-encoded subject: ");
+			printDataAsHex(thisData, 8);
+		}
+	}
 	else {
 		printf("Other field:       : "); printOid(parser, thisOid);
 	}
@@ -1187,7 +1251,7 @@ void printCrlEntryExten(
 			return;
 		}
 		CE_CrlReason *cr = (CE_CrlReason *)thisData;
-		char *reason = "UNKNOWN";
+		const char *reason = "UNKNOWN";
 		switch(*cr) {
 			case CE_CR_Unspecified: 
 				reason = "CE_CR_Unspecified"; break;

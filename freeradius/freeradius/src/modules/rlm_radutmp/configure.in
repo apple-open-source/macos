@@ -1,5 +1,6 @@
+AC_PREREQ([2.53])
 AC_INIT(rlm_radutmp.c)
-AC_REVISION($Revision: 1.1 $)
+AC_REVISION($Revision$)
 AC_DEFUN(modname,[rlm_radutmp])
 
 if test x$with_[]modname != xno; then

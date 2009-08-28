@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,12 +43,12 @@
 #include <sys/stat.h>
 #include <sys/malloc.h>
 #include <sys/sysctl.h>
+#include <libkern/OSAtomic.h>
 
 #include <sys/kauth.h>
 
 #include <sys/syslog.h>
 #include <sys/smb_apple.h>
-#include <sys/smb_iconv.h>
 #include <sys/mchain.h>
 
 #include <netsmb/smb.h>
@@ -68,7 +68,11 @@ int smbfs_module_stop(kmod_info_t *ki, void *data);
 static int smbfs_root(struct mount *, vnode_t *, vfs_context_t);
 static int smbfs_init(struct vfsconf *vfsp);
 
-__private_extern__ int smbfs_loglevel = 0;
+#ifdef SMB_DEBUG
+__private_extern__ int smbfs_loglevel = SMB_LOW_LOG_LEVEL;
+#else // SMB_DEBUG
+__private_extern__ int smbfs_loglevel = SMB_NO_LOG_LEVEL;
+#endif // SMB_DEBUG
 
 static int smbfs_version = SMBFS_VERSION;
 static int mount_cnt = 0;
@@ -102,23 +106,16 @@ lck_attr_t *srs_lck_attr;
 lck_grp_attr_t *nbp_grp_attr;
 lck_grp_t *nbp_lck_group;
 lck_attr_t *nbp_lck_attr;
-
-lck_grp_attr_t   * iconv_lck_grp_attr;
-lck_grp_t  * iconv_lck_grp;
-lck_attr_t * iconv_lck_attr;
-lck_mtx_t * iconv_lck;
-
 lck_grp_attr_t   * dev_lck_grp_attr;
 lck_grp_t  * dev_lck_grp;
 lck_attr_t * dev_lck_attr;
 lck_mtx_t * dev_lck;
-
 lck_grp_attr_t   * hash_lck_grp_attr;
 lck_grp_t  * hash_lck_grp;
 lck_attr_t * hash_lck_attr;
 
 struct smbmnt_carg {
-	vfs_context_t vfsctx;
+	vfs_context_t context;
 	struct mount *mp;
 	int found;
 };
@@ -131,10 +128,6 @@ SYSCTL_INT(_net_smb_fs, OID_AUTO, loglevel, CTLFLAG_RW,  &smbfs_loglevel, 0, "")
 extern struct sysctl_oid sysctl__net_smb;
 extern struct sysctl_oid sysctl__net_smb_fs_version;
 extern struct sysctl_oid sysctl__net_smb_fs_loglevel;
-extern struct sysctl_oid sysctl__net_smb_fs_iconv;
-extern struct sysctl_oid sysctl__net_smb_fs_iconv_add;
-extern struct sysctl_oid sysctl__net_smb_fs_iconv_cslist;
-extern struct sysctl_oid sysctl__net_smb_fs_iconv_drvlist;
 extern struct sysctl_oid sysctl__net_smb_fs_tcpsndbuf;
 extern struct sysctl_oid sysctl__net_smb_fs_tcprcvbuf;
 
@@ -197,12 +190,6 @@ static void smbnet_lock_init()
 	nbp_lck_attr = lck_attr_alloc_init();
 	nbp_grp_attr = lck_grp_attr_alloc_init();
 	nbp_lck_group = lck_grp_alloc_init("smb-nbp", nbp_grp_attr);
-
-	
-	iconv_lck_attr = lck_attr_alloc_init();
-	iconv_lck_grp_attr = lck_grp_attr_alloc_init();
-	iconv_lck_grp = lck_grp_alloc_init("smb-dev", iconv_lck_grp_attr);
-	iconv_lck = lck_mtx_alloc_init(iconv_lck_grp, iconv_lck_attr);
 	
 	dev_lck_attr = lck_attr_alloc_init();
 	dev_lck_grp_attr = lck_grp_attr_alloc_init();
@@ -215,10 +202,6 @@ static void smbnet_lock_uninit()
 	lck_grp_free(dev_lck_grp);
 	lck_grp_attr_free(dev_lck_grp_attr);
 	lck_attr_free(dev_lck_attr);
-	
-	lck_grp_free(iconv_lck_grp);
-	lck_grp_attr_free(iconv_lck_grp_attr);
-	lck_attr_free(iconv_lck_attr);
 	
 	lck_grp_free(nbp_lck_group);
 	lck_grp_attr_free(nbp_grp_attr);
@@ -266,14 +249,16 @@ static void smbnet_lock_uninit()
  * appropriate Active Directory or LDAP server, falling back to the file
  * server itself in the "ad hoc" scenario.
  */
+
+static const u_int8_t tmpuuid1[12] = {0xFF, 0xFF, 0xEE, 0xEE, 0xDD, 0xDD, 0xCC, 0xCC, 0xBB, 0xBB, 0xAA, 0xAA};
+static const u_int8_t tmpuuid2[12] = {0xAA, 0xAA, 0xBB, 0xBB, 0xCC, 0xCC, 0xDD, 0xDD, 0xEE, 0xEE, 0xFF, 0xFF};
+
 #define IS_MEMBERD_TEMPUUID(uuidp) \
-	((*(u_int64_t *)(uuidp) == 0xFFFFEEEEDDDDCCCCULL &&	\
-	  *((u_int32_t *)(uuidp)+2) == 0xBBBBAAAA) ||		\
-	 (*(u_int64_t *)(uuidp) == 0xAAAABBBBCCCCDDDDULL &&	\
-	 *((u_int32_t *)(uuidp)+2) == 0xEEEEFFFF))
+		((bcmp(uuidp, tmpuuid1, sizeof(tmpuuid1)) == 0) || \
+		(bcmp(uuidp, tmpuuid2, sizeof(tmpuuid2)) == 0))
 
 static int
-smbfs_aclsflunksniff(struct smbmount *smp, struct smb_cred *scrp)
+smbfs_aclsflunksniff(struct smbmount *smp, vfs_context_t context)
 {
 	struct smbnode *np;
 	struct smb_share *ssp = smp->sm_share;
@@ -283,9 +268,9 @@ smbfs_aclsflunksniff(struct smbmount *smp, struct smb_cred *scrp)
 	ntsid_t	kntsid;
 	guid_t	guid;
 	u_int8_t	ntauth[SIDAUTHSIZE] = { 0, 0, 0, 0, 0, 5 };
-	uid_t	uid;
+	uid_t	uid, root_gid, root_uid;
 	u_int16_t	fid = 0;
-	int seclen = 0;
+	size_t seclen = 0;
 
 	/*
 	 * Does the server claim ACL support for this volume?
@@ -293,6 +278,14 @@ smbfs_aclsflunksniff(struct smbmount *smp, struct smb_cred *scrp)
 	if (!(ssp->ss_attributes & FILE_PERSISTENT_ACLS))
 		return (-1);
 		
+	/*
+	 * We have ntwrk_sids when the whoami call can traslate the owner sid
+	 * to a uid and it matches the local users uid. Now if we got whoami call,
+	 * but couldn't translate the sid should we turn off ACLs? For now leave it
+	 * the old way, but in the future we may want to turn off ACL.
+	 */
+	if (smp->ntwrk_sids != NULL)
+		return (0);
 	/* 
 	 * We do not have a lock on the smbnode so get it here. This code needs
 	 * to be re-written once we have a better way of testing for ACL support.
@@ -305,56 +298,64 @@ smbfs_aclsflunksniff(struct smbmount *smp, struct smb_cred *scrp)
 		
 	np = VTOSMB(smp->sm_rvp);
 	np->n_lastvop = smbfs_aclsflunksniff;
-	error = smbfs_smb_tmpopen(np, STD_RIGHT_READ_CONTROL_ACCESS, scrp, &fid);
+	error = smbfs_smb_tmpopen(np, STD_RIGHT_READ_CONTROL_ACCESS, context, &fid);
 	if (error == 0) {
-		error = smbfs_smb_getsec(ssp, fid, scrp, OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION, &w_secp, &seclen);
+		error = smbfs_smb_getsec(ssp, fid, context, OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION, &w_secp, &seclen);
 		/* If we get an error on close, not sure what we would do with it at this point */
-		(void)smbfs_smb_tmpclose(np, fid, scrp);
+		(void)smbfs_smb_tmpclose(np, fid, context);
 	}
 	/* If we cannot get the root vnodes security descriptor, then just get out. */
 	if (error || (w_secp == NULL)) {
 		SMBDEBUG("Failed getting the root vnode security descriptor! error = %d\n", error);
 		goto err;
 	}
-	usidp = sdowner(w_secp);
+	usidp = sdowner(w_secp, seclen);
 	if (!usidp) 
 		goto err;
 
-	smb_sid_endianize(usidp);
-	smb_sid2sid16(usidp, &kntsid);
+	smb_sid2sid16(usidp, &kntsid, (char*)w_secp+seclen);
 	error = kauth_cred_ntsid2guid(&kntsid, &guid);
 	if (error) {
 		SMBDEBUG("kauth_cred_ntsid2guid error %d (owner)\n", error);
 		goto err;
 	}
 	if (IS_MEMBERD_TEMPUUID(&guid)) {
-		SMBWARNING("(fyi) user sid %s didnt map\n", smb_sid2str(usidp));
+		if (smbfs_loglevel == SMB_ACL_LOG_LEVEL)
+			smb_printsid(usidp, (char*)w_secp+seclen, "On mount user check didn't map", NULL, 0, 0);
 		goto err;
 	}
-	gsidp = sdgroup(w_secp);
+	error = kauth_cred_ntsid2uid(&kntsid, &root_uid);
+	if (error)
+		root_uid = KAUTH_UID_NONE;
+		
+	gsidp = sdgroup(w_secp, seclen);
 	if (!gsidp)
 		goto err;
 
-	smb_sid_endianize(gsidp);
-	smb_sid2sid16(gsidp, &kntsid);
+	smb_sid2sid16(gsidp, &kntsid, (char*)w_secp+seclen);
 	error = kauth_cred_ntsid2guid(&kntsid, &guid);
 	if (error) {
 		SMBDEBUG("kauth_cred_ntsid2guid error %d (group)\n", error);
 		goto err;
 	}
 	if (IS_MEMBERD_TEMPUUID(&guid)) {
-		SMBWARNING("group sid %s didnt map\n", smb_sid2str(gsidp));
+		if (smbfs_loglevel == SMB_ACL_LOG_LEVEL)
+			smb_printsid(gsidp, (char*)w_secp+seclen, "On mount group check didn't map", NULL, 0, 0);
 		goto err;
 	}
-
+	error = kauth_cred_ntsid2uid(&kntsid, &root_gid);
+	if (error)
+		root_gid = KAUTH_UID_NONE;
+	
 	/*
 	 * Can our DS subsystem give us a SID for the mounting user?
 	 */
 	error = kauth_cred_uid2ntsid(smp->sm_args.uid, &kntsid);
 	if (error) {
 		/* kauth_cred_uid2ntsid will return ENOENT if the lookup failed, report any other errors */
-		if (error != ENOENT)
-			SMBDEBUG("sm_args.uid %d, error %d\n", smp->sm_args.uid, error);		
+		if (error != ENOENT) {
+			SMBDEBUG("sm_args.uid %d, error %d\n", smp->sm_args.uid, error);
+		}
 		goto err;
 	}
 	/*
@@ -365,27 +366,48 @@ smbfs_aclsflunksniff(struct smbmount *smp, struct smb_cred *scrp)
 	 * those around 1000 are real users.
 	 */
 	if ((kntsid.sid_kind != 1) || (bcmp(kntsid.sid_authority, ntauth, sizeof(ntauth))) ||
-	    (kntsid.sid_authcount < 1) || (kntsid.sid_authorities[0] <= 20) || (kntsid.sid_authorities[0] == 32)) {
-		SMBWARNING("sm_args.uid %d, sid %s\n", smp->sm_args.uid, smb_sid2str((struct ntsid *)&kntsid));
+	    (kntsid.sid_authcount < 1) || (kntsid.sid_authorities[0] <= 20) || (kntsid.sid_authorities[0] == 32)) {		
+		SMBWARNING("SID check failed - sm_args.uid %d \n", smp->sm_args.uid);
 		goto err;
 	}
 	error = kauth_cred_ntsid2uid(&kntsid, &uid);
 	if (error) {
 		/* kauth_cred_ntsid2uid will return ENOENT if the lookup failed, report any other errors */
-		if (error != ENOENT)
-			SMBDEBUG("sid %s, error %d\n", smb_sid2str((struct ntsid *)&kntsid), error);
+		if (error != ENOENT) {
+			SMBDEBUG("kauth_cred_ntsid2uid didn't return ENOENT? error %d\n", error);
+		}
 		goto err;
-	}
-	if (uid == smp->sm_args.uid)
-		goto out;
+	}	
 	
-	SMBWARNING("sm_args.uid %d, uid %d\n", smp->sm_args.uid, uid);
+	SMBWARNING("local uid %d, translated uid %d network uid = %lld\n", 
+			   smp->sm_args.uid, uid, smp->ntwrk_uid);
+	/*
+	 * Really need to find a better way to tell if the server is in the same
+	 * domain as the client. Nothing we can do about that currently, someday
+	 * the whole ACL, POSIX MODE, UID, GID, SID and VNOP_ACCESS code needs to
+	 * be rewritten, but that day is not this day.
+	 */
 	
-err:;
+	/* We can't translate the owner of the root node to a SID and back to a matching uid */
+	if (uid != smp->sm_args.uid)
+		goto err;	/* So turn off ACL support */
+	
+	/* 
+	 * This is a UNIX server that supports the whoami call. The local user and
+	 * network user don't match so lets not do ACLS.
+	 */
+	if ((UNIX_CAPS(SSTOVC(ssp)) & CIFS_UNIX_POSIX_PATH_OPERATIONS_CAP) &&
+		(smp->sm_args.uid != (uid_t)smp->ntwrk_uid))
+		goto err;	/* So turn off ACL support */
+	
+	/* Now lets do ACLs */
+	goto out;
+	
+err:
 	/* We failed, but without an error return an error */
 	if (!error)
 		error = -1;
-out:;
+out:
 	if (w_secp)
 		FREE(w_secp, M_TEMP);
 	smbnode_unlock(VTOSMB(smp->sm_rvp));
@@ -394,15 +416,16 @@ out:;
 
 static int
 smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data,
-	    vfs_context_t vfsctx)
+	    vfs_context_t context)
 {
+#pragma unused (devvp)
 	struct smb_mount_args *args = NULL;		/* will hold data from mount request */
 	struct smbmount *smp = NULL;
 	struct smb_vc *vcp;
 	struct smb_share *ssp = NULL;
 	vnode_t vp;
-	struct smb_cred scred;
 	int error;
+	u_int32_t	save_attributes;	/* File System Attributes */
 
 	if (data == USER_ADDR_NULL) {
 		SMBDEBUG("missing data argument\n");
@@ -424,36 +447,37 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data,
 		return (error);		
 	}
 	
-#ifdef RADAR_5618109
-	if (args->version != SMBFS_VERSION) {
-		SMBERROR("mount version mismatch: kernel=%d, mount=%d\n", SMBFS_VERSION, args->version);
+	if (args->version != SMB_IOC_STRUCT_VERSION) {
+		SMBERROR("Mount structure version mismatch: kernel=%d, mount=%d\n", 
+				 SMB_IOC_STRUCT_VERSION, args->version);
 		free(args, M_SMBFSDATA);		
 		return (EINVAL);
 	}
-#endif // RADAR_5618109
 	
-	/* Get the debug level as soon as possible. */
-	smbfs_loglevel =  args->debug_level;
+	/* Set the debug level if past down to us. */
+	if (args->debug_level)
+		smbfs_loglevel =  args->debug_level;
 	error = smb_dev2share(args->dev, &ssp);
 	if (error) {
 		SMBDEBUG("invalid device handle %d (%d)\n", args->dev, error);
 		free(args, M_SMBFSDATA);		
 		return (error);
 	}
-	smb_scred_init(&scred, vfsctx);
 	vcp = SSTOVC(ssp);
-	smb_share_unlock(ssp);
-
+	
 	MALLOC(smp, struct smbmount*, sizeof(*smp), M_SMBFSDATA, M_WAITOK);
 	if (smp == NULL) {
 		error = ENOMEM;
 		goto bad;
 	}
 	bzero(smp, sizeof(*smp));
-	smp->sm_flags |= kInMountSMBFS;
+
+	lck_mtx_lock(&ssp->ss_stlock);
+	ssp->ss_flags |= SMBS_INMOUNT;
+	lck_mtx_unlock(&ssp->ss_stlock);
+
 	smp->sm_mp = mp;
 	vfs_setfsprivate(mp, (void *)smp);
-	ssp->ss_mount = smp;
 	smp->sm_hash = hashinit(desiredvnodes, M_SMBFSHASH, &smp->sm_hashlen);
 	if (smp->sm_hash == NULL)
 		goto bad;
@@ -465,10 +489,25 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data,
 	smp->sm_rvp = NULL;
 	/* Save any passed in arguments that we may need */
 	smp->sm_args.altflags = args->altflags;
+	/* If the volume is soft mounted then the share is soft mounted */
+	lck_mtx_lock(&ssp->ss_stlock);
+	if (args->altflags & SMBFS_MNT_SOFT)
+		ssp->ss_flags |= SMBS_MNT_SOFT;
+	lck_mtx_unlock(&ssp->ss_stlock);
+	
 	smp->sm_args.uid = args->uid;
 	smp->sm_args.gid = args->gid;
 	smp->sm_args.file_mode = args->file_mode & ACCESSPERMS;
 	smp->sm_args.dir_mode  = args->dir_mode & ACCESSPERMS;
+	if (args->volume_name[0])
+		smp->sm_args.volume_name = smb_strdup(args->volume_name, sizeof(args->volume_name));
+	else 
+		smp->sm_args.volume_name = NULL;
+
+	lck_mtx_lock(&ssp->ss_mntlock);
+	/* The smp has the sm_mp, so now add the smb mount pointer to the share */
+	ssp->ss_mount = smp;
+	lck_mtx_unlock(&ssp->ss_mntlock);
 	
 	/*
 	 * Ensure cached info is set to reasonable values.
@@ -478,13 +517,19 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data,
 	 * we do so make an internal call to fill in the default
 	 * values.
 	 */
-	(void)smbfs_smb_statfs(ssp, vfs_statfs(mp), &scred);
-	
+	(void)smbfs_smb_statfs(ssp, vfs_statfs(mp), context);
+	/*
+	 * Need to get the remote server's file system information
+	 * here before we do anything else. Make sure we have the servers or
+	 * the default value for ss_maxfilenamelen. NOTE: We use it in strnlen.
+	 */
+	smbfs_smb_qfsattr(ssp, smp, context);
+
 	/* Copy in the from name, used for reconnects and other things  */
 	strlcpy(vfs_statfs(mp)->f_mntfromname, args->url_fromname, MAXPATHLEN);
 	/* See if they sent use a starting path to use */
 	if (args->path_len)
-		smbfs_create_start_path(vcp, smp, args);
+		smbfs_create_start_path(smp, args);
 	
 	/* Now get the mounted volumes unique id */
 	smp->sm_args.unique_id_len = args->unique_id_len;
@@ -497,20 +542,31 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data,
 	args = NULL;
 	
 	vfs_setauthopaque(mp);
-	vfs_clearauthopaqueaccess(mp);
+	vfs_clearauthopaqueaccess(mp); /* Turns off VNOP_ACCESS calls */
+	vfs_clearextendedsecurity(mp); /* Turn off any extended security support for now */
 	vfs_getnewfsid(mp);
-	error = smbfs_root(mp, &vp, vfsctx);
+	/* 
+	 * We currently have no idea if we are supporting acls or not yet. So remove
+	 * acl support while we are looking up the root vnode. If smbfs_aclsflunksniff
+	 * decides that acls are support then it will update the root vnode information.
+	 */	 
+	save_attributes = ssp->ss_attributes;
+	ssp->ss_attributes &= ~FILE_PERSISTENT_ACLS;
+	error = smbfs_root(mp, &vp, context);
 	if (error)
 		goto bad;
-	vfs_clearextendedsecurity(mp);
-	smbfs_smb_qfsattr(ssp, &scred);
-	if (smbfs_aclsflunksniff(smp, &scred)) {
+	/* Reset the ss_attributes to what they were before this call */
+	ssp->ss_attributes = save_attributes;
+
+	if (smbfs_aclsflunksniff(smp, context)) {
 		ssp->ss_attributes &= ~FILE_PERSISTENT_ACLS;
+		SMBWARNING("Turning off ACLs for %s\n", vfs_statfs(mp)->f_mntfromname);
 	} else {
 		vfs_setextendedsecurity(mp);
 		/* Tell the upper level its ok to cache access information */
 		vfs_setauthcache_ttl(mp, SMB_ACL_MAXTIMO);
-		SMBWARNING("vfs_authcache_ttl = %d\n", vfs_authcache_ttl(mp));
+		SMBWARNING("Turning on ACLs for %s using vfs_authcache_ttl = %d\n", 
+				   vfs_statfs(mp)->f_mntfromname, vfs_authcache_ttl(mp));
 	}
 
 	/* 
@@ -539,16 +595,22 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data,
 	if (ssp->ss_attributes & FILE_NAMED_STREAMS) {
 		struct smbfattr fap;
 		
-		if ((smp->sm_args.altflags & SMBFS_MNT_STREAMS_ON) || (UNIX_SERVER(SSTOVC(ssp)))) {
-			if (smbfs_smb_query_info(VTOSMB(vp), SMB_STREAMS_OFF, strlen(SMB_STREAMS_OFF), &fap, &scred) == 0)
+		/* Need to support NT messages if we are going to do streams, must be a stupid NAS server */
+		if ((vcp->vc_sopt.sv_caps & SMB_CAP_NT_SMBS) != SMB_CAP_NT_SMBS)
+			ssp->ss_attributes &= ~FILE_NAMED_STREAMS;
+		else if ((smp->sm_args.altflags & SMBFS_MNT_STREAMS_ON) || (UNIX_SERVER(SSTOVC(ssp)))) {
+			if (smbfs_smb_query_info(VTOSMB(vp), SMB_STREAMS_OFF, sizeof(SMB_STREAMS_OFF) - 1, &fap, context) == 0)
 				ssp->ss_attributes &= ~FILE_NAMED_STREAMS;
 		}
-		else if (smbfs_smb_query_info(VTOSMB(vp), SMB_STREAMS_ON, strlen(SMB_STREAMS_ON), &fap, &scred) != 0)
+		else if (smbfs_smb_query_info(VTOSMB(vp), SMB_STREAMS_ON, sizeof(SMB_STREAMS_ON) -1 , &fap, context) != 0)
 			ssp->ss_attributes &= ~FILE_NAMED_STREAMS;
 		/* We would like to know if this is a SFM Volume, skip this check for unix servers. */
 		if ((! UNIX_SERVER(SSTOVC(ssp))) && (ssp->ss_attributes & FILE_NAMED_STREAMS)) {
-			if (smbfs_smb_qstreaminfo(VTOSMB(vp), &scred, NULL, NULL, SFM_DESKTOP_NAME, NULL) == 0)
+			if (smbfs_smb_qstreaminfo(VTOSMB(vp), context, NULL, NULL, SFM_DESKTOP_NAME, NULL) == 0) {
+				lck_mtx_lock(&ssp->ss_stlock);
 				ssp->ss_flags |= SMBS_SFM_VOLUME;
+				lck_mtx_unlock(&ssp->ss_stlock);
+			}
 		}
 	}
 
@@ -560,12 +622,20 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data,
 	 * routine. So we will no longer have a error case at this point.
 	 */
 	mount_cnt++;
-	smp->sm_flags &= ~kInMountSMBFS;
+	lck_mtx_lock(&ssp->ss_stlock);
+	ssp->ss_flags &= ~SMBS_INMOUNT;
+	lck_mtx_unlock(&ssp->ss_stlock);
+	OSAddAtomic(1, &vcp->vc_volume_cnt);
+	if (vcp->throttle_info)
+		throttle_info_mount_ref(mp, vcp->throttle_info);
+	smbfs_notify_change_create_thread(smp);
 	return (0);
 bad:
 	if (ssp) {
-		ssp->ss_mount = NULL;	/* ssp->ss_mount is smp and we will free it below  */ 
-		smb_share_put(ssp, &scred);
+		lck_mtx_lock(&ssp->ss_mntlock);
+		ssp->ss_mount = NULL;	/* ssp->ss_mount is smp which we free below  */ 
+		lck_mtx_unlock(&ssp->ss_mntlock);
+		smb_share_rele(ssp, context);
 	}
 	if (smp) {
 		vfs_setfsprivate(mp, (void *)0);
@@ -574,12 +644,15 @@ bad:
 		lck_mtx_free(smp->sm_hashlock, hash_lck_grp);
 		lck_mtx_destroy(&smp->sm_statfslock, smbfs_mutex_group);
 		lck_mtx_destroy(&smp->sm_renamelock, smbfs_mutex_group);
+		SMB_STRFREE(smp->sm_args.volume_name);	
 		if (smp->sm_args.path)
 			free(smp->sm_args.path, M_SMBFSDATA);
 		if (smp->sm_args.unique_id)
 			free(smp->sm_args.unique_id, M_SMBFSDATA);
 		if (smp->ntwrk_gids)
 		    free(smp->ntwrk_gids, M_TEMP);
+		if (smp->ntwrk_sids)
+		    free(smp->ntwrk_sids, M_TEMP);
 		free(smp, M_SMBFSDATA);
 	}
 	if (args)	/* Done with the args free them */
@@ -590,11 +663,11 @@ bad:
 
 /* Unmount the filesystem described by mp. */
 static int
-smbfs_unmount(struct mount *mp, int mntflags, vfs_context_t vfsctx)
+smbfs_unmount(struct mount *mp, int mntflags, vfs_context_t context)
 {
 	struct smbmount *smp = VFSTOSMBFS(mp);
+	struct smb_vc *vcp = SSTOVC(smp->sm_share);
 	vnode_t vp;
-	struct smb_cred scred;
 	int error, flags;
 
 	SMBVDEBUG("smbfs_unmount: flags=%04x\n", mntflags);
@@ -603,7 +676,7 @@ smbfs_unmount(struct mount *mp, int mntflags, vfs_context_t vfsctx)
 		flags |= FORCECLOSE;
 		wakeup(&smp->sm_status); /* sleeps are down in smb_rq.c */
 	}
-	error = smbfs_root(mp, &vp, vfsctx);
+	error = smbfs_root(mp, &vp, context);
 	if (error)
 		return (error);
 
@@ -617,11 +690,14 @@ smbfs_unmount(struct mount *mp, int mntflags, vfs_context_t vfsctx)
 		vnode_put(vp);
 		return (EBUSY);
 	}
+	smp->sm_rvp = NULL;	/* We no longer have a reference so clear it out */
 	vnode_rele(vp);	/* to drop ref taken by smbfs_mount */
 	vnode_put(vp);	/* to drop ref taken by VFS_ROOT above */
-	smp->sm_rvp = NULL;	/* We no longer have a reference so clear it out */
 
 	(void)vflush(mp, NULLVP, FORCECLOSE);
+
+	OSAddAtomic(-1, &vcp->vc_volume_cnt);
+	smbfs_notify_change_destroy_thread(smp);
 
 	if (flags & FORCECLOSE) {
 		/*
@@ -629,9 +705,15 @@ smbfs_unmount(struct mount *mp, int mntflags, vfs_context_t vfsctx)
 		 */
 		smb_iod_shutdown_share(smp->sm_share);
 	}
-	smb_scred_init(&scred, vfsctx);
+	if (vcp->throttle_info)
+		throttle_info_mount_rel(mp);
+
+	/* Remove the smb mount pointer from the share before freeing it */
+	lck_mtx_lock(&smp->sm_share->ss_mntlock);
 	smp->sm_share->ss_mount = NULL;
-	smb_share_put(smp->sm_share, &scred);
+	lck_mtx_unlock(&smp->sm_share->ss_mntlock);
+	 
+	smb_share_rele(smp->sm_share, context);
 	vfs_setfsprivate(mp, (void *)0);
 
 	if (smp->sm_hash) {
@@ -641,12 +723,15 @@ smbfs_unmount(struct mount *mp, int mntflags, vfs_context_t vfsctx)
 	lck_mtx_free(smp->sm_hashlock, hash_lck_grp);
 	lck_mtx_destroy(&smp->sm_statfslock, smbfs_mutex_group);
 	lck_mtx_destroy(&smp->sm_renamelock, smbfs_mutex_group);
+	SMB_STRFREE(smp->sm_args.volume_name);	
 	if (smp->sm_args.path)
 		free(smp->sm_args.path, M_SMBFSDATA);
 	if (smp->sm_args.unique_id)
 		free(smp->sm_args.unique_id, M_SMBFSDATA);
 	if (smp->ntwrk_gids)
 	    free(smp->ntwrk_gids, M_TEMP);
+	if (smp->ntwrk_sids)
+		free(smp->ntwrk_sids, M_TEMP);
 	free(smp, M_SMBFSDATA);
 	vfs_clearflags(mp, MNT_LOCAL);
 	/* We should never have an error here, but just in case lets check for it */
@@ -658,7 +743,7 @@ smbfs_unmount(struct mount *mp, int mntflags, vfs_context_t vfsctx)
 /* 
  * Return locked root vnode of a filesystem
  */
-static int smbfs_root(struct mount *mp, vnode_t *vpp, vfs_context_t vfsctx)
+static int smbfs_root(struct mount *mp, vnode_t *vpp, vfs_context_t context)
 {
 	struct smbmount *smp = VFSTOSMBFS(mp);
 	vnode_t vp;
@@ -678,7 +763,7 @@ static int smbfs_root(struct mount *mp, vnode_t *vpp, vfs_context_t vfsctx)
 	
 	/* Fill in the deafult values that we already know about the root vnode */
 	bzero(&fattr, sizeof(fattr));
-	nanotime(&fattr.fa_reqtime);
+	nanouptime(&fattr.fa_reqtime);
 	fattr.fa_attr = SMB_FA_DIR;
 	fattr.fa_vtype = VDIR;
 	fattr.fa_ino = 2;
@@ -687,7 +772,7 @@ static int smbfs_root(struct mount *mp, vnode_t *vpp, vfs_context_t vfsctx)
 	 * to make sure all is well with the root node. Could get an error if the device is not 
 	 * ready are we have no access.
 	 */
-	error = smbfs_nget(mp, NULL, "TheRooT", 7, &fattr, &vp, 0, vfsctx);
+	error = smbfs_nget(mp, NULL, "TheRooT", 7, &fattr, &vp, 0, context);
 	if (error)
 		return (error);
 	/* 
@@ -724,9 +809,9 @@ static int smbfs_root(struct mount *mp, vnode_t *vpp, vfs_context_t vfsctx)
  */
 /* ARGSUSED */
 static int
-smbfs_start(struct mount *mp, int flags, vfs_context_t vfsctx)
+smbfs_start(struct mount *mp, int flags, vfs_context_t context)
 {
-	#pragma unused(mp, flags, vfsctx)
+	#pragma unused(mp, flags, context)
 	return 0;
 }
 
@@ -749,13 +834,12 @@ smbfs_init(struct vfsconf *vfsp)
 /*
  * smbfs_statfs call
  */
-static int smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_context_t vfsctx)
+static int smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_context_t context)
 {
 	struct smbmount *smp = VFSTOSMBFS(mp);
 	struct smb_share *ssp = smp->sm_share;
 	struct smb_vc *vcp = SSTOVC(ssp);
 	struct vfsstatfs cachedstatfs;
-	struct smb_cred scred;
 	struct timespec ts;
 	int error = 0;
 
@@ -773,17 +857,17 @@ static int smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_contex
 	else {
 		smp->sm_status |= SM_STATUS_STATFS;
 		lck_mtx_unlock(&smp->sm_statfslock);
+		nanouptime(&ts);
 		/* We always check the first time otherwise only if they ask and our cache is stale. */
 		if ((smp->sm_statfstime == 0) ||
-			((ts.tv_sec - smp->sm_statfstime > SM_MAX_STATFSTIME) &&
+			(((ts.tv_sec - smp->sm_statfstime) > SM_MAX_STATFSTIME) &&
 			(VFSATTR_IS_ACTIVE(fsap, f_bsize) || VFSATTR_IS_ACTIVE(fsap, f_blocks) ||
 			 VFSATTR_IS_ACTIVE(fsap, f_bfree) || VFSATTR_IS_ACTIVE(fsap, f_bavail) ||
 			 VFSATTR_IS_ACTIVE(fsap, f_files) || VFSATTR_IS_ACTIVE(fsap, f_ffree)))) {
 			/* update cached from-the-server data */
-			smb_scred_init(&scred, vfsctx);
-			error = smbfs_smb_statfs(ssp, &cachedstatfs, &scred);
+			error = smbfs_smb_statfs(ssp, &cachedstatfs, context);
 			if (error == 0) {
-				nanotime(&ts);
+				nanouptime(&ts);
 				smp->sm_statfstime = ts.tv_sec;
 				lck_mtx_lock(&smp->sm_statfslock);
 				smp->sm_statfsbuf = cachedstatfs;
@@ -870,6 +954,13 @@ static int smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_contex
 		if (ssp->ss_attributes & FILE_NAMED_STREAMS)
 			cap->capabilities[VOL_CAPABILITIES_INTERFACES] |= VOL_CAP_INT_NAMEDSTREAMS | VOL_CAP_INT_EXTENDED_ATTR;			
 		
+		if ((vcp->vc_sopt.sv_caps & SMB_CAP_NT_SMBS) != SMB_CAP_NT_SMBS) {
+			SMBWARNING("Notifications are not support on %s volume\n", (smp->sm_args.volume_name) ? smp->sm_args.volume_name : "");		
+		} else if ((smp->sm_args.altflags & SMBFS_MNT_NOTIFY_OFF) == SMBFS_MNT_NOTIFY_OFF) {
+			SMBWARNING("Notifications have been turned off for %s volume\n", (smp->sm_args.volume_name) ? smp->sm_args.volume_name : "");		
+		} else 
+			cap->capabilities[VOL_CAPABILITIES_INTERFACES] |= VOL_CAP_INT_REMOTE_EVENT;			
+		
 		cap->capabilities[VOL_CAPABILITIES_RESERVED1] = 0;
 		cap->capabilities[VOL_CAPABILITIES_RESERVED2] = 0;
 		/*
@@ -912,6 +1003,7 @@ static int smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_contex
 			VOL_CAP_INT_MANLOCK |
 			VOL_CAP_INT_NAMEDSTREAMS |
 			VOL_CAP_INT_EXTENDED_ATTR |
+			VOL_CAP_INT_REMOTE_EVENT |
 			0;
 		
 		cap->valid[VOL_CAPABILITIES_RESERVED1] = 0;
@@ -1091,22 +1183,17 @@ static int smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_contex
 	  */
 	VFSATTR_RETURN(fsap, f_fssubtype, ssp->ss_fstype);
 		
-	/*
-	 * ref 3984574.  Returning null here keeps vfs from returning
-	 * f_mntonname, and causes CarbonCore (File Mgr) to use the
-	 * f_mntfromname, as it did (& still does) when an error is returned.
-	 */
 	if (VFSATTR_IS_ACTIVE(fsap, f_vol_name) && fsap->f_vol_name) {
-		/*
-		 * They could be trying to mount a share call "/" in that case our from name
-		 * will have it escaped out. So look at the to name and see if it has the 
-		 * percent escape name, if so return to the finder that our name is "/".
-		 */
-		if (strncmp(vfs_statfs(mp)->f_mntonname, SMBFS_SLASH_TONAME, strlen(vfs_statfs(mp)->f_mntonname)+1) == 0) {
-			fsap->f_vol_name[0] = '/';
-			fsap->f_vol_name[1] = '\0';			
-		} else
-			*fsap->f_vol_name = '\0';
+		if (smp->sm_args.volume_name) {
+			strlcpy(fsap->f_vol_name, smp->sm_args.volume_name, MAXPATHLEN);
+		} else {
+			/*
+			 * ref 3984574.  Returning null here keeps vfs from returning
+			 * f_mntonname, and causes CarbonCore (File Mgr) to use the
+			 * f_mntfromname, as it did (& still does) when an error is returned.
+			 */			
+			*fsap->f_vol_name = '\0';			
+		}
 		VFSATTR_SET_SUPPORTED(fsap, f_vol_name);
 	}
 	
@@ -1124,7 +1211,7 @@ static int smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_contex
 }
 
 struct smbfs_sync_cargs {
-	vfs_context_t	vfsctx;
+	vfs_context_t	context;
 	int	waitfor;
 	int	error;
 };
@@ -1168,14 +1255,14 @@ smbfs_sync_callback(vnode_t vp, void *args)
 
 	if (!vnode_isdir(vp)) {
 		/* See if the file needs to be reopened. Ignore the error if being revoke it will get caught below */
-		(void)smbfs_smb_reopen_file(np, cargs->vfsctx);
+		(void)smbfs_smb_reopen_file(np, cargs->context);
 
 		lck_mtx_lock(&np->f_openStateLock);
 		if (np->f_openState == kNeedRevoke) {
 			lck_mtx_unlock(&np->f_openStateLock);
 			SMBWARNING("revoking %s\n", np->n_name);
 			smbnode_unlock(np);
-			vn_revoke(vp, REVOKEALL, cargs->vfsctx);
+			vn_revoke(vp, REVOKEALL, cargs->context);
 			return (VNODE_RETURNED);
 		}
 		lck_mtx_unlock(&np->f_openStateLock);
@@ -1183,11 +1270,30 @@ smbfs_sync_callback(vnode_t vp, void *args)
 	}
 	
 	if (vnode_hasdirtyblks(vp)) {
-		error = smbfs_fsync(vp, cargs->waitfor, 0, cargs->vfsctx);
+		error = smbfs_fsync(vp, cargs->waitfor, 0, cargs->context);
 		if (error)
 			cargs->error = error;
 	}
+
+	/* Someone is monitoring this node see if we have any work */
+	if (vnode_ismonitored(vp)) {
+		int updateNotifyNode = FALSE;
 		
+		if (vnode_isdir(vp) && !(np->n_flag & N_POLLNOTIFY)) {
+			/* 
+			 * The smbfs_restart_change_notify will now handle not only reopening 
+			 * of notifcation, but also the closing of notifications. This is done to force 
+			 * items into polling when we have too many items.
+			 */
+			smbfs_restart_change_notify(np, cargs->context);
+			updateNotifyNode = np->d_needsUpdate;			
+		} else
+			updateNotifyNode = TRUE;
+		/* Looks like something change udate the notify routines and our cache */ 
+		if (updateNotifyNode)
+			error = smbfs_update_cache(vp, NULL, cargs->context);
+	}
+	
 	smbnode_unlock(np);
 	return (VNODE_RETURNED);
 }
@@ -1197,7 +1303,7 @@ smbfs_sync_callback(vnode_t vp, void *args)
  */
 /* ARGSUSED */
 static int
-smbfs_sync(struct mount *mp, int waitfor, vfs_context_t vfsctx)
+smbfs_sync(struct mount *mp, int waitfor, vfs_context_t context)
 {
 	struct smbfs_sync_cargs args;
 	struct smb_share *ssp = VFSTOSMBFS(mp)->sm_share;
@@ -1212,7 +1318,7 @@ smbfs_sync(struct mount *mp, int waitfor, vfs_context_t vfsctx)
 	if (ssp->ss_flags & SMBS_RECONNECTING)
 		return 0;
 	
-	args.vfsctx = vfsctx;
+	args.context = context;
 	args.waitfor = waitfor;
 	args.error = 0;
 	/*
@@ -1233,18 +1339,18 @@ smbfs_sync(struct mount *mp, int waitfor, vfs_context_t vfsctx)
 /* ARGSUSED */
 static int
 smbfs_vget(struct mount *mp, ino64_t ino, vnode_t *vpp,
-	   vfs_context_t vfsctx)
+	   vfs_context_t context)
 {
-	#pragma unused(mp, ino, vpp, vfsctx)
+	#pragma unused(mp, ino, vpp, context)
 	return (ENOTSUP);
 }
 
 /* ARGSUSED */
 static int
 smbfs_fhtovp(struct mount *mp, int fhlen, unsigned char *fhp, vnode_t *vpp,
-	     vfs_context_t vfsctx)
+	     vfs_context_t context)
 {
-	#pragma unused(mp, fhlen, fhp, vpp, vfsctx)
+	#pragma unused(mp, fhlen, fhp, vpp, context)
 	return (EINVAL);
 }
 
@@ -1253,9 +1359,9 @@ smbfs_fhtovp(struct mount *mp, int fhlen, unsigned char *fhp, vnode_t *vpp,
  */
 /* ARGSUSED */
 static int
-smbfs_vptofh(vnode_t vp, int *fhlen, unsigned char *fhp, vfs_context_t vfsctx)
+smbfs_vptofh(vnode_t vp, int *fhlen, unsigned char *fhp, vfs_context_t context)
 {
-	#pragma unused(vp, fhlen, fhp, vfsctx)
+	#pragma unused(vp, fhlen, fhp, context)
 	return (EINVAL);
 }
 
@@ -1265,7 +1371,7 @@ smbfs_vptofh(vnode_t vp, int *fhlen, unsigned char *fhp, vfs_context_t vfsctx)
  */
 static int
 smbfs_sysctl(int * name, u_int namelen, user_addr_t oldp, size_t * oldlenp,
-	     user_addr_t newp, size_t newlen, vfs_context_t vfsctx)
+	     user_addr_t newp, size_t newlen, vfs_context_t context)
 {
 	#pragma unused(oldlenp, newp, newlen)
 
@@ -1285,7 +1391,7 @@ smbfs_sysctl(int * name, u_int namelen, user_addr_t oldp, size_t * oldlenp,
 	switch (name[0]) {
 	    case VFS_CTL_QUERY:
 		req = CAST_DOWN(struct sysctl_req *, oldp);	/* we're new style vfs sysctl. */
-		if (vfs_context_is64bit(vfsctx)) {
+		if (vfs_context_is64bit(context)) {
 			error = SYSCTL_IN(req, &user_vc, sizeof(user_vc));
 			if (error) break;
 			mp = vfs_getvfs(&user_vc.vc_fsid);
@@ -1343,10 +1449,12 @@ static struct vfsops smbfs_vfsops = {
 	smbfs_fhtovp,
 	smbfs_vptofh,
 	smbfs_init,
-	smbfs_sysctl
+	smbfs_sysctl,
+	NULL,
+	{0}
 };
 
-PRIVSYM int smbfs_module_start(kmod_info_t *ki, void *data)
+int smbfs_module_start(kmod_info_t *ki, void *data)
 {
 #pragma unused(data)
 	struct vfs_fsentry vfe;
@@ -1358,7 +1466,9 @@ PRIVSYM int smbfs_module_start(kmod_info_t *ki, void *data)
 	vfe.vfe_vopcnt = 1; /* We just have vnode operations for regular files and directories */
 	vfe.vfe_opvdescs = smbfs_vnodeop_opv_desc_list;
 	strlcpy(vfe.vfe_fsname, smbfs_name, sizeof(vfe.vfe_fsname));
-	vfe.vfe_flags = VFS_TBLTHREADSAFE | VFS_TBLFSNODELOCK | VFS_TBLNOTYPENUM | VFS_TBL64BITREADY;  /* fine grain locking & 64bit mount & sysctl & ioctl */
+	vfe.vfe_flags = VFS_TBLTHREADSAFE | VFS_TBLFSNODELOCK | VFS_TBLNOTYPENUM | 
+					VFS_TBL64BITREADY | VFS_TBLREADDIR_EXTENDED;
+
 	vfe.vfe_reserv[0] = 0;
 	vfe.vfe_reserv[1] = 0;
 
@@ -1367,19 +1477,6 @@ PRIVSYM int smbfs_module_start(kmod_info_t *ki, void *data)
 		goto out;
 
 	smbnet_lock_init();	/* Initialize the network locks */
-
-	SEND_EVENT(iconv, MOD_LOAD);
-	SEND_EVENT(iconv_ces, MOD_LOAD);
-
-	SEND_EVENT(iconv_xlat, MOD_LOAD);
-	/* Bring up UTF-8 converter */
-	SEND_EVENT(iconv_utf8, MOD_LOAD);
-	iconv_add("utf8", "utf-8", "ucs-2");
-	iconv_add("utf8", "ucs-2", "utf-8");
-	/* Bring up default codepage converter */
-	SEND_EVENT(iconv_codepage, MOD_LOAD);
-	iconv_add("codepage", "utf-8", "cp437");
-	iconv_add("codepage", "cp437", "utf-8");
 	
 	/* This just calls nsmb_dev_load */
 	SEND_EVENT(dev_netsmb, MOD_LOAD);
@@ -1389,12 +1486,7 @@ PRIVSYM int smbfs_module_start(kmod_info_t *ki, void *data)
 	
 	sysctl_register_oid(&sysctl__net_smb_fs_version);
 	sysctl_register_oid(&sysctl__net_smb_fs_loglevel);
-	
-	sysctl_register_oid(&sysctl__net_smb_fs_iconv);
-	sysctl_register_oid(&sysctl__net_smb_fs_iconv_add);
-	sysctl_register_oid(&sysctl__net_smb_fs_iconv_cslist);
-	sysctl_register_oid(&sysctl__net_smb_fs_iconv_drvlist);
-	
+		
 	sysctl_register_oid(&sysctl__net_smb_fs_tcpsndbuf);
 	sysctl_register_oid(&sysctl__net_smb_fs_tcprcvbuf);
 	
@@ -1405,7 +1497,7 @@ out:
 }
 
 
-PRIVSYM int smbfs_module_stop(kmod_info_t *ki, void *data)
+int smbfs_module_stop(kmod_info_t *ki, void *data)
 {
 #pragma unused(ki)
 #pragma unused(data)
@@ -1421,10 +1513,6 @@ PRIVSYM int smbfs_module_stop(kmod_info_t *ki, void *data)
 	sysctl_unregister_oid(&sysctl__net_smb_fs_tcpsndbuf);
 	sysctl_unregister_oid(&sysctl__net_smb_fs_tcprcvbuf);
 
-	sysctl_unregister_oid(&sysctl__net_smb_fs_iconv_drvlist);
-	sysctl_unregister_oid(&sysctl__net_smb_fs_iconv_cslist);
-	sysctl_unregister_oid(&sysctl__net_smb_fs_iconv_add);
-	sysctl_unregister_oid(&sysctl__net_smb_fs_iconv);
 	
 	sysctl_unregister_oid(&sysctl__net_smb_fs_version);
 	sysctl_unregister_oid(&sysctl__net_smb_fs_loglevel);
@@ -1435,14 +1523,8 @@ PRIVSYM int smbfs_module_stop(kmod_info_t *ki, void *data)
 	/* This just calls nsmb_dev_load */
 	SEND_EVENT(dev_netsmb, MOD_UNLOAD);
 
-	SEND_EVENT(iconv_xlat, MOD_UNLOAD);
-	SEND_EVENT(iconv_utf8, MOD_UNLOAD);
-	SEND_EVENT(iconv_ces, MOD_UNLOAD);
-	SEND_EVENT(iconv, MOD_UNLOAD);
-
 	smbfs_remove_sleep_wake_notifier();
 
-	lck_mtx_free(iconv_lck, iconv_lck_grp);
 	lck_mtx_free(dev_lck, dev_lck_grp);
 	smbfs_lock_uninit();	/* Free up the file system locks */
 	smbnet_lock_uninit();	/* Free up the network locks */

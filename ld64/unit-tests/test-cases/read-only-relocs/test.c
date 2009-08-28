@@ -23,8 +23,12 @@
  */
 
 int a=0; 
+extern int b;
+extern void func();
 
-int foo(void) 
+int main() 
 { 
-	return a; 
+	func();
+	return a+b; 
 }
+

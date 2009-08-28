@@ -2,8 +2,8 @@
 
   dbm.c -
 
-  $Author: shyouhei $
-  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+  $Author: knu $
+  $Date: 2008-05-19 00:02:36 +0900 (Mon, 19 May 2008) $
   created at: Mon Jan 24 15:59:52 JST 1994
 
   Copyright (C) 1995-2001 Yukihiro Matsumoto
@@ -812,5 +812,7 @@ Init_dbm()
 
 #ifdef DB_VERSION_STRING
     rb_define_const(rb_cDBM, "VERSION",  rb_str_new2(DB_VERSION_STRING));
+#else
+    rb_define_const(rb_cDBM, "VERSION",  rb_str_new2("unknown"));
 #endif
 }

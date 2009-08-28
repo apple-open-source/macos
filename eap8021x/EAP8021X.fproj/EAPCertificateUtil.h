@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2001-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -44,6 +44,7 @@
 #include <CoreFoundation/CFArray.h>
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFPropertyList.h>
+#include <TargetConditionals.h>
 
 /*
  * Type: EAPSecIdentityHandleRef
@@ -167,5 +168,16 @@ EAPSecCertificateCopyAttributesDictionary(SecCertificateRef cert);
  */
 CFStringRef
 EAPSecCertificateCopyUserNameString(SecCertificateRef cert);
+
+#if TARGET_OS_EMBEDDED
+/*
+ * Function EAPSecCertificateCopySHA1DigestString
+ * Purpose:
+ *   Return the SHA1 digest for the given cert as a CFString.
+ */
+CFStringRef
+EAPSecCertificateCopySHA1DigestString(SecCertificateRef cert);
+
+#endif /* TARGET_OS_EMBEDDED */
 
 #endif _EAP8021X_EAPCERTIFICATE_UTIL_H

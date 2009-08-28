@@ -53,7 +53,7 @@ int main (int argc, char * const argv[])
 			case 'r':
 				error = LKDCGetLocalRealm (&string);
 				if (0 != error) {
-					fprintf (stderr, "LKDCGetLocalRealm -> %d (%s): %s\n", error, LKDCHelperError (error));
+					fprintf (stderr, "LKDCGetLocalRealm -> %d: %s\n", error, LKDCHelperError (error));
 				} else {
 					printf ("%s\n", string);
 				}

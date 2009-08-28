@@ -47,11 +47,15 @@ static const char rcsid[] =
 #include <mach/mach_init.h>        /* for bootstrap_port */
 #include <vproc.h>
 #include <vproc_priv.h>
+#include <bootstrap_priv.h>
 #endif /* __APPLE__ */
 
 static void		child_process __P((entry *, user *)),
 			do_univ __P((user *));
 
+#ifdef __APPLE__
+extern vproc_err_t _vproc_post_fork_ping(void);
+#endif
 
 void
 do_command(e, u)
@@ -287,10 +291,6 @@ child_process(e, u)
 		do_univ(u);
 
 #ifdef __APPLE__
-		/* move into background session */
-		 if (_vprocmgr_move_subset_to_user(geteuid(), VPROCMGR_SESSION_BACKGROUND) != NULL)
-		   warn("can't migrate to background session");
-
 		/* Set user's entire context, but skip the environment
 		 * as cron provides a separate interface for this
 		 */
@@ -324,6 +324,22 @@ child_process(e, u)
 				warn("getgrnam(\"%s\")", e->gname);
 				_exit(ERROR_EXIT);
 			}
+		}
+
+		/* move to the correct bootstrap */
+		/* similar to but simpler than pam_launchd */
+		mach_port_t puc = MACH_PORT_NULL;
+		kern_return_t kr = bootstrap_look_up_per_user(bootstrap_port, NULL, uid, &puc);
+		if (kr != BOOTSTRAP_SUCCESS) {
+			warnx("could not look up per-user bootstrap for uid %u", uid);
+			_exit(ERROR_EXIT);
+		}
+		mach_port_mod_refs(mach_task_self(), bootstrap_port, MACH_PORT_RIGHT_SEND, -1);
+		task_set_bootstrap_port(mach_task_self(), puc);
+		bootstrap_port = puc;
+		if (_vproc_post_fork_ping() != NULL) {
+			warnx("failed to setup exception ports");
+			_exit(ERROR_EXIT);
 		}
 #endif /* __APPLE__ */
 # if defined(LOGIN_CAP)

@@ -94,6 +94,7 @@ Possible keywords may include:
 .It Va minauth      Ta "+ + - -" Ta "minimum authentication level allowed"
 .It Va streams      Ta "+ + - -" Ta "use NTFS Streams if supported by the server"
 .It Va soft         Ta "+ + - -" Ta "Make the mount soft.  Fail file system calls after a number of seconds."
+.It Va notify_off   Ta "+ + - -" Ta "Turn off using notifications"
 .It Va domain       Ta "+ + + +" Ta "The domain name to use when logging into the server."
 .El
 .Pp
@@ -117,6 +118,10 @@ LM - Kerberos authentication is attempted if a Kerberos token can be
 obtained, otherwise NTLMv2 authentication is attempted and, if that
 fails, NTLMv1 authentication is attempted, including the LM hash; if the
 server doesn't support encrypted passwords, the authentication fails.
+.It Li ntlmv2_off
+Turn NTLMv2 Off - Kerberos authentication is attempted if a Kerberos token can be
+obtained, otherwise NTLMv1 authentication is attempted, including the LM hash; 
+if the server doesn't support encrypted passwords,  plain-text passwords are used.
 .It Li none
 none - The same as
 .Li lm
@@ -153,6 +158,7 @@ or may not match your environment:
 minauth=ntlmv2
 streams=yes
 soft=yes
+notify_off=yes
 domain=DOMAIN
 [WIN98]
 addr=windows98.apple.com

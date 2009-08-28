@@ -3,7 +3,7 @@
 #	Attributes and values defined in RFC 2869.
 #	http://www.ietf.org/rfc/rfc2869.txt
 #
-#	$Id: dictionary.rfc2869,v 1.2.2.1 2005/11/30 22:17:30 aland Exp $
+#	$Id$
 #
 ATTRIBUTE	Acct-Input-Gigawords			52	integer
 ATTRIBUTE	Acct-Output-Gigawords			53	integer

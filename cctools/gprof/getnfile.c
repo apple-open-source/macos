@@ -33,31 +33,31 @@
 #include "gprof.h"
 
 struct shlib_text_range *shlib_text_ranges = NULL;
-unsigned long nshlib_text_ranges = 0;
+uint32_t nshlib_text_ranges = 0;
 
 static struct ofile ofile = { 0 };
 
 #ifdef __OPENSTEP__
-static unsigned long link_edit_address;
-static unsigned long address_func(
-    unsigned long size,
-    unsigned long headers_size);
+static uint32_t link_edit_address;
+static uint32_t address_func(
+    uint32_t size,
+    uint32_t headers_size);
 #endif
 
 static void count_func_symbols(
     struct nlist *symbols,
     struct nlist_64 *symbols64,
-    unsigned long nsymbols,
+    uint32_t nsymbols,
     char *strings,
-    unsigned long strsize);
+    uint32_t strsize);
 
 static void load_func_symbols(
     struct nlist *symbols,
     struct nlist_64 *symbols64,
-    unsigned long nsymbols,
+    uint32_t nsymbols,
     char *strings,
-    unsigned long strsize,
-    unsigned long vmaddr_slide);
+    uint32_t strsize,
+    uint64_t vmaddr_slide);
 
 static enum bool funcsymbol(
     uint8_t n_type,
@@ -71,16 +71,16 @@ static int valcmp(
 static void count_N_SO_stabs(
     struct nlist *symbols,
     struct nlist_64 *symbols64,
-    unsigned long nsymbols,
+    uint32_t nsymbols,
     char *strings,
-    unsigned long strsize);
+    uint32_t strsize);
 
 static void load_files(
     struct nlist *symbols,
     struct nlist_64 *symbols64,
-    unsigned long nsymbols,
+    uint32_t nsymbols,
     char *strings,
-    unsigned long strsize);
+    uint32_t strsize);
 
 static struct arch_flag host_arch_flag;
 
@@ -100,7 +100,7 @@ void)
     struct nlist_64 *symbols64;
 #ifdef notdef
     struct ofile lib_ofile;
-    unsigned long k;
+    uint32_t k;
     struct fvmlib_command *fl;
     struct load_command *lib_lc;
     struct symtab_command *lib_st;
@@ -374,7 +374,7 @@ void
 get_rld_state_symbols(
 void)
 {
-    unsigned long i, j, save_nname;
+    uint32_t i, j, save_nname;
     NXStream *stream;
     struct mach_header **headers;
     char *object_addr;
@@ -398,7 +398,7 @@ void)
 	 * Preform an rld_load() for each state at the state's address.
 	 */
 	for(i = 0; i < grld_nloaded_states; i++){
-	    link_edit_address = (unsigned long)grld_loaded_state[i].header_addr;
+	    link_edit_address = (uint32_t)grld_loaded_state[i].header_addr;
 	    rld_address_func(address_func);
 	    if(rld_load(stream, &(headers[i]),
 			grld_loaded_state[i].object_filenames,
@@ -477,10 +477,10 @@ void)
 }
 
 static
-unsigned long
+uint32_t
 address_func(
-unsigned long size,
-unsigned long headers_size)
+uint32_t size,
+uint32_t headers_size)
 {
 	return(link_edit_address);
 }
@@ -490,7 +490,7 @@ void
 get_dyld_state_symbols(
 void)
 {
-    unsigned long i, j, save_nname, ncmds;
+    uint32_t i, j, save_nname, ncmds;
     struct ofile *ofiles;
     struct load_command *lc;
     struct segment_command *sg;
@@ -627,11 +627,11 @@ void
 count_func_symbols(
 struct nlist *symbols,
 struct nlist_64 *symbols64,
-unsigned long nsymbols,
+uint32_t nsymbols,
 char *strings,
-unsigned long strsize)
+uint32_t strsize)
 {
-    unsigned long i;
+    uint32_t i;
     uint32_t n_strx;
     uint8_t n_type;
     uint8_t n_sect;
@@ -659,12 +659,12 @@ void
 load_func_symbols(
 struct nlist *symbols,
 struct nlist_64 *symbols64,
-unsigned long nsymbols,
+uint32_t nsymbols,
 char *strings,
-unsigned long strsize,
-unsigned long vmaddr_slide)
+uint32_t strsize,
+uint64_t vmaddr_slide)
 {
-    unsigned long i;
+    uint32_t i;
     uint32_t n_strx;
     uint8_t n_type;
     uint8_t n_sect;
@@ -748,11 +748,11 @@ void
 count_N_SO_stabs(
 struct nlist *symbols,
 struct nlist_64 *symbols64,
-unsigned long nsymbols,
+uint32_t nsymbols,
 char *strings,
-unsigned long strsize)
+uint32_t strsize)
 {
-    unsigned long i, len;
+    uint32_t i, len;
     char *name;
     uint32_t n_strx;
     uint8_t n_type;
@@ -787,11 +787,11 @@ void
 load_files(
 struct nlist *symbols,
 struct nlist_64 *symbols64,
-unsigned long nsymbols,
+uint32_t nsymbols,
 char *strings,
-unsigned long strsize)
+uint32_t strsize)
 {
-    unsigned long i;
+    uint32_t i;
     char *s, *name;
     int len;
     int oddeven;
@@ -847,7 +847,7 @@ get_text_min_max(
 uint64_t *text_min,
 uint64_t *text_max)
 {
-    unsigned long i, j, ncmds;
+    uint32_t i, j, ncmds;
     struct load_command *lc;
     struct segment_command *sg;
     struct segment_command_64 *sg64;

@@ -1,0 +1,3621 @@
+FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$6|RESULT$14|RESULT_ALLDECS$7|SUBLANG$4|TYPE$935|@interface ObjCClassAlpha : NSObject
+{
+    /*All instance variables are private*/
+    id                  _titleCell;
+    id                  _contentView;
+    NSSize              _offsets;
+    NSRect              _borderRect;
+    NSRect              _titleRect;
+    id                  _unused;
+}
+
+/*!
+        @method classOneMethodOne
+        @abstract Returns the receiver's border type.
+        @discussion Returns the receiver's border type. Border types are defined
+        in NSView.h. Currently, the following border types are defined:
+
+                * NSNoBorder
+
+                * NSLineBorder
+
+                * NSBezelBorder
+
+                * NSGrooveBorder
+
+        By default, an NSBox's border type is NSGrooveBorder.
+*/
+- (NSBorderType)classOneMethodOne;
+
+/*!     
+        @method classOneMethodTwo
+        @abstract Returns a constant representing the title position.
+*/
+- (NSTitlePosition)classOneMethodTwo;
+
+@end
+$254|/*!
+        @class ObjCClassAlpha
+        @abstract ObjCClassAlpha provides a visual grouping element.
+        @discussion An NSBox object is a simple NSView that can do two things:
+        It can draw a border around itself, and it can title itself.
+*/
+$0|$19743|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 1
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/ObjC_class_5.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/ObjC_class_5.test
+$parserState->{ISFORWARDDECLARATION} => 0
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} =>  
+$parserState->{classIsObjC} => 1
+$parserState->{classtype} => @interface
+$parserState->{forceClassDone} => 1
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 1
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 18
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => end
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occSuper} => NSObject
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 1
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{preclasssodtype} => interface
+$parserState->{prekeywordsodname} => 
+$parserState->{prekeywordsodtype} => 
+$parserState->{returntype} => @interface ObjCClassAlpha : NSObject
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => class
+$parserState->{sodname} => end
+$parserState->{sodtype} =>  ObjCClassAlpha NSObject
+$parserState->{sodtypeclasstoken} => interface
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 2
+$parserState->{storeDec} => 
+$parserState->{typestring} => ObjCClassAlpha
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 18
+typelist: @interface
+namelist: ObjCClassAlpha
+posstypes: NSObject
+value: 
+returntype: ObjCClassAlpha NSObject
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 18
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---@
++---interface
+|   +--- 
+|   +---ObjCClassAlpha
+|   +--- 
+|   +---:
+|   +--- 
+|   +---NSObject
+|   +---[ NEWLINE ]
+|   +---{
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +---/*
+|   |   |   +---All
+|   |   |   +--- instance variables are private
+|   |   |   +---*/
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +---                  
+|   |   +---_titleCell
+|   |   +---;
+|   |   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +---                  
+|   |   +---_contentView
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-NSSize (HAS STATE)
+|   |   +---              
+|   |   +---_offsets
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-NSRect (HAS STATE)
+|   |   +---              
+|   |   +---_borderRect
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-NSRect (HAS STATE)
+|   |   +---              
+|   |   +---_titleRect
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +---                  
+|   |   +---_unused
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---}
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@method classOneMethodOne
+|   |   +---
+@abstract Returns the receiver's border type.
+|   |   +---
+@discussion Returns the receiver's border type. Border types are defined
+|   |   +---
+in NSView.h. Currently, the following border types are defined:
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSNoBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSLineBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSBezelBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSGrooveBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+By default, an NSBox's border type is NSGrooveBorder.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-- (HAS STATE)
+|   |   +--- 
+|   |   +---(
+|   |   |   +---NSBorderType
+|   |   |   +---)
+|   |   +---classOneMethodOne
+|   |   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---     
+|   |   +---
+@method classOneMethodTwo
+|   |   +---
+@abstract Returns a constant representing the title position.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-- (HAS STATE)
+|   |   +--- 
+|   |   +---(
+|   |   |   +---NSTitlePosition
+|   |   |   +---)
+|   |   +---classOneMethodTwo
+|   |   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---@
+|   +---@end
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: ObjC class 5
+APIUID: //test_ref/doc/header/ObjC_class_5.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::ObjCClass
+    NAME: ObjCClassAlpha
+    APIUID: 
+    ABSTRACT: "<p>ObjCClassAlpha provides a visual grouping element.
+"
+    DISCUSSION: "<p>An NSBox object is a simple NSView that can do two things:
+It can draw a border around itself, and it can title itself.
+"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::ObjCClass"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "1"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p><b>Superclass:</b> <!-- a logicalPath="//test_ref/occ/cl/NSObject" -->NSObject<!-- /a --><br>
+<b>Declared In:</b> <a href="../../index.html" target="_top">ObjC class 5</a><br>
+</p>
+    LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Method
+        NAME: classOneMethodOne
+        APIUID: //test_ref/occ/instm/ObjCClassAlpha/classOneMethodOne
+        ABSTRACT: "<p>Returns the receiver's border type.
+"
+        DISCUSSION: "<p>Returns the receiver's border type. Border types are defined
+in NSView.h. Currently, the following border types are defined:
+</p>
+<p>* NSNoBorder
+</p>
+<p>* NSLineBorder
+</p>
+<p>* NSBezelBorder
+</p>
+<p>* NSGrooveBorder
+</p>
+<p>By default, an NSBox's border type is NSGrooveBorder.
+"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "NSBorderType"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Method"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Method
+        NAME: classOneMethodTwo
+        APIUID: //test_ref/occ/instm/ObjCClassAlpha/classOneMethodTwo
+        ABSTRACT: "<p>Returns a constant representing the title position.
+"
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "NSTitlePosition"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Method"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: ObjCClassAlpha (HeaderDoc::ObjCClass)
++---@
++---interface
+|   +--- 
+|   +---ObjCClassAlpha
+|   +--- 
+|   +---:
+|   +--- 
+|   +---NSObject
+|   +---[ NEWLINE ]
+|   +---{
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +---/*
+|   |   |   +---All
+|   |   |   +--- instance variables are private
+|   |   |   +---*/
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +---                  
+|   |   +---_titleCell
+|   |   +---;
+|   |   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +---                  
+|   |   +---_contentView
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-NSSize (HAS STATE)
+|   |   +---              
+|   |   +---_offsets
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-NSRect (HAS STATE)
+|   |   +---              
+|   |   +---_borderRect
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-NSRect (HAS STATE)
+|   |   +---              
+|   |   +---_titleRect
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +---                  
+|   |   +---_unused
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---}
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@method classOneMethodOne
+|   |   +---
+@abstract Returns the receiver's border type.
+|   |   +---
+@discussion Returns the receiver's border type. Border types are defined
+|   |   +---
+in NSView.h. Currently, the following border types are defined:
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSNoBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSLineBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSBezelBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSGrooveBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+By default, an NSBox's border type is NSGrooveBorder.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-- (HAS STATE)
+|   |   +--- 
+|   |   +---(
+|   |   |   +---NSBorderType
+|   |   |   +---)
+|   |   +---classOneMethodOne
+|   |   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---     
+|   |   +---
+@method classOneMethodTwo
+|   |   +---
+@abstract Returns a constant representing the title position.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-- (HAS STATE)
+|   |   +--- 
+|   |   +---(
+|   |   |   +---NSTitlePosition
+|   |   |   +---)
+|   |   +---classOneMethodTwo
+|   |   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---@
+|   +---@end
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: classOneMethodOne (HeaderDoc::Method)
++-*-- (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---NSBorderType
+|   |   +---)
+|   +---classOneMethodOne
+|   +---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +---     
+|   +---
+@method classOneMethodTwo
+|   +---
+@abstract Returns a constant representing the title position.
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++-*-- (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---NSTitlePosition
+|   |   +---)
+|   +---classOneMethodTwo
+|   +---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---@
++---@end
+END OF OBJECT
+
+
+OBJECT: classOneMethodTwo (HeaderDoc::Method)
++-*-- (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---NSTitlePosition
+|   |   +---)
+|   +---classOneMethodTwo
+|   +---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---@
++---@end
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: ObjCClassAlpha (HeaderDoc::ObjCClass)
+	@<!-- a logicalPath="//test_ref/occ/cl/interface //test_ref/occ/tdef/interface //test_ref/occ/tag/interface //test_ref/occ/econst/interface //test_ref/occ/struct/interface //test_ref/occ/clconst/interface //test_ref/occ/intf/interface" --><span class="type">interface</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/cl/ObjCClassAlpha //test_ref/occ/tdef/ObjCClassAlpha //test_ref/occ/tag/ObjCClassAlpha //test_ref/occ/econst/ObjCClassAlpha //test_ref/occ/struct/ObjCClassAlpha //test_ref/occ/clconst/ObjCClassAlpha //test_ref/occ/intf/ObjCClassAlpha" --><span class="type">ObjCClassAlpha</span><!-- /a --> : <!-- a logicalPath="//test_ref/occ/cl/NSObject //test_ref/occ/tdef/NSObject //test_ref/occ/tag/NSObject //test_ref/occ/econst/NSObject //test_ref/occ/struct/NSObject //test_ref/occ/clconst/NSObject //test_ref/occ/intf/NSObject" --><span class="type">NSObject</span><!-- /a --> { 
+	        <span class="comment">/*All instance variables are private*/</span>
+	        <!-- a logicalPath="//test_ref/occ/cl/id //test_ref/occ/tdef/id //test_ref/occ/tag/id //test_ref/occ/econst/id //test_ref/occ/struct/id //test_ref/occ/clconst/id //test_ref/occ/intf/id" --><span class="type">id</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_titleCell //test_ref/occ/data/_titleCell" --><span class="var">_titleCell</span><!-- /a -->; 
+	        <!-- a logicalPath="//test_ref/occ/cl/id //test_ref/occ/tdef/id //test_ref/occ/tag/id //test_ref/occ/econst/id //test_ref/occ/struct/id //test_ref/occ/clconst/id //test_ref/occ/intf/id" --><span class="type">id</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_contentView //test_ref/occ/data/_contentView" --><span class="var">_contentView</span><!-- /a -->; 
+	        <!-- a logicalPath="//test_ref/occ/cl/NSSize //test_ref/occ/tdef/NSSize //test_ref/occ/tag/NSSize //test_ref/occ/econst/NSSize //test_ref/occ/struct/NSSize //test_ref/occ/clconst/NSSize //test_ref/occ/intf/NSSize" --><span class="type">NSSize</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_offsets //test_ref/occ/data/_offsets" --><span class="var">_offsets</span><!-- /a -->; 
+	        <!-- a logicalPath="//test_ref/occ/cl/NSRect //test_ref/occ/tdef/NSRect //test_ref/occ/tag/NSRect //test_ref/occ/econst/NSRect //test_ref/occ/struct/NSRect //test_ref/occ/clconst/NSRect //test_ref/occ/intf/NSRect" --><span class="type">NSRect</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_borderRect //test_ref/occ/data/_borderRect" --><span class="var">_borderRect</span><!-- /a -->; 
+	        <!-- a logicalPath="//test_ref/occ/cl/NSRect //test_ref/occ/tdef/NSRect //test_ref/occ/tag/NSRect //test_ref/occ/econst/NSRect //test_ref/occ/struct/NSRect //test_ref/occ/clconst/NSRect //test_ref/occ/intf/NSRect" --><span class="type">NSRect</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_titleRect //test_ref/occ/data/_titleRect" --><span class="var">_titleRect</span><!-- /a -->; 
+	        <!-- a logicalPath="//test_ref/occ/cl/id //test_ref/occ/tdef/id //test_ref/occ/tag/id //test_ref/occ/econst/id //test_ref/occ/struct/id //test_ref/occ/clconst/id //test_ref/occ/intf/id" --><span class="type">id</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_unused //test_ref/occ/data/_unused" --><span class="var">_unused</span><!-- /a -->; 
+	        }  <span class="comment">/*!
+	@method classOneMethodOne
+	@abstract Returns the receiver's border type.
+	@discussion Returns the receiver's border type. Border types are defined
+	in NSView.h. Currently, the following border types are defined:
+	
+	* NSNoBorder
+	
+	* NSLineBorder
+	
+	* NSBezelBorder
+	
+	* NSGrooveBorder
+	
+	By default, an NSBox's border type is NSGrooveBorder.</span>
+	        <span class="comment">*/</span>
+	    - (
+	            <span class="param">NSBorderType</span>)<!-- a logicalPath="//test_ref/occ/econst/classOneMethodOne //test_ref/occ/data/classOneMethodOne" --><span class="var">classOneMethodOne</span><!-- /a -->;   <span class="comment">/*! 
+	@method classOneMethodTwo
+	@abstract Returns a constant representing the title position.</span>
+	        <span class="comment">*/</span>
+	    - (
+	            <span class="param">NSTitlePosition</span>)<!-- a logicalPath="//test_ref/occ/econst/classOneMethodTwo //test_ref/occ/data/classOneMethodTwo" --><span class="var">classOneMethodTwo</span><!-- /a -->;   @@end 
+END OF OBJECT
+
+
+OBJECT: classOneMethodOne (HeaderDoc::Method)
+	- (<!-- a logicalPath="//test_ref/occ/cl/NSBorderType //test_ref/occ/tdef/NSBorderType //test_ref/occ/tag/NSBorderType //test_ref/occ/econst/NSBorderType //test_ref/occ/struct/NSBorderType //test_ref/occ/clconst/NSBorderType //test_ref/occ/intf/NSBorderType" --><span class="type">NSBorderType</span><!-- /a -->)<!-- a logicalPath="//test_ref/occ/econst/classOneMethodOne //test_ref/occ/data/classOneMethodOne" --><span class="var">classOneMethodOne</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: classOneMethodTwo (HeaderDoc::Method)
+	- (<!-- a logicalPath="//test_ref/occ/cl/NSTitlePosition //test_ref/occ/tdef/NSTitlePosition //test_ref/occ/tag/NSTitlePosition //test_ref/occ/econst/NSTitlePosition //test_ref/occ/struct/NSTitlePosition //test_ref/occ/clconst/NSTitlePosition //test_ref/occ/intf/NSTitlePosition" --><span class="type">NSTitlePosition</span><!-- /a -->)<!-- a logicalPath="//test_ref/occ/econst/classOneMethodTwo //test_ref/occ/data/classOneMethodTwo" --><span class="var">classOneMethodTwo</span><!-- /a -->; 
+END OF OBJECT
+
+
+
+$31215|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 1
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/ObjC_class_5.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/ObjC_class_5.test
+$parserState->{ISFORWARDDECLARATION} => 0
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} =>  
+$parserState->{classIsObjC} => 1
+$parserState->{classtype} => @interface
+$parserState->{forceClassDone} => 1
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 1
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 18
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => end
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occSuper} => NSObject
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 1
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{preclasssodtype} => interface
+$parserState->{prekeywordsodname} => 
+$parserState->{prekeywordsodtype} => 
+$parserState->{returntype} => @interface ObjCClassAlpha : NSObject
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => class
+$parserState->{sodname} => end
+$parserState->{sodtype} =>  ObjCClassAlpha NSObject
+$parserState->{sodtypeclasstoken} => interface
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 2
+$parserState->{storeDec} => 
+$parserState->{typestring} => ObjCClassAlpha
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 18
+typelist: @interface
+namelist: ObjCClassAlpha
+posstypes: NSObject
+value: 
+returntype: ObjCClassAlpha NSObject
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 18
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---@
++---interface
+|   +--- 
+|   +---ObjCClassAlpha
+|   +--- 
+|   +---:
+|   +--- 
+|   +---NSObject
+|   +---[ NEWLINE ]
+|   +---{
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +---/*
+|   |   |   +---All
+|   |   |   +--- instance variables are private
+|   |   |   +---*/
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +---                  
+|   |   +---_titleCell
+|   |   +---;
+|   |   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +---                  
+|   |   +---_contentView
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-NSSize (HAS STATE)
+|   |   +---              
+|   |   +---_offsets
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-NSRect (HAS STATE)
+|   |   +---              
+|   |   +---_borderRect
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-NSRect (HAS STATE)
+|   |   +---              
+|   |   +---_titleRect
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +---                  
+|   |   +---_unused
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---}
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@method classOneMethodOne
+|   |   +---
+@abstract Returns the receiver's border type.
+|   |   +---
+@discussion Returns the receiver's border type. Border types are defined
+|   |   +---
+in NSView.h. Currently, the following border types are defined:
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSNoBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSLineBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSBezelBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSGrooveBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+By default, an NSBox's border type is NSGrooveBorder.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-- (HAS STATE)
+|   |   +--- 
+|   |   +---(
+|   |   |   +---NSBorderType
+|   |   |   +---)
+|   |   +---classOneMethodOne
+|   |   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---     
+|   |   +---
+@method classOneMethodTwo
+|   |   +---
+@abstract Returns a constant representing the title position.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-- (HAS STATE)
+|   |   +--- 
+|   |   +---(
+|   |   |   +---NSTitlePosition
+|   |   |   +---)
+|   |   +---classOneMethodTwo
+|   |   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---@
+|   +---@end
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: ObjC class 5
+APIUID: //test_ref/doc/header/ObjC_class_5.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::ObjCClass
+    NAME: ObjCClassAlpha
+    APIUID: 
+    ABSTRACT: "<p>ObjCClassAlpha provides a visual grouping element.
+"
+    DISCUSSION: "<p>An NSBox object is a simple NSView that can do two things:
+It can draw a border around itself, and it can title itself.
+"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::ObjCClass"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "1"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p><b>Superclass:</b> <!-- a logicalPath="//test_ref/occ/cl/NSObject" -->NSObject<!-- /a --><br>
+<b>Declared In:</b> <a href="../../index.html" target="_top">ObjC class 5</a><br>
+</p>
+    LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Method
+        NAME: classOneMethodOne
+        APIUID: //test_ref/occ/instm/ObjCClassAlpha/classOneMethodOne
+        ABSTRACT: "<p>Returns the receiver's border type.
+"
+        DISCUSSION: "<p>Returns the receiver's border type. Border types are defined
+in NSView.h. Currently, the following border types are defined:
+</p>
+<p>* NSNoBorder
+</p>
+<p>* NSLineBorder
+</p>
+<p>* NSBezelBorder
+</p>
+<p>* NSGrooveBorder
+</p>
+<p>By default, an NSBox's border type is NSGrooveBorder.
+"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "NSBorderType"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Method"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Method
+        NAME: classOneMethodTwo
+        APIUID: //test_ref/occ/instm/ObjCClassAlpha/classOneMethodTwo
+        ABSTRACT: "<p>Returns a constant representing the title position.
+"
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "NSTitlePosition"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Method"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: _titleCell
+        APIUID: //test_ref/occ/data/ObjCClassAlpha/_titleCell
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "id"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "1"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: _contentView
+        APIUID: //test_ref/occ/data/ObjCClassAlpha/_contentView
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "id"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "1"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: _offsets
+        APIUID: //test_ref/occ/data/ObjCClassAlpha/_offsets
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "NSSize"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "1"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: _borderRect
+        APIUID: //test_ref/occ/data/ObjCClassAlpha/_borderRect
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "NSRect"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "1"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: _titleRect
+        APIUID: //test_ref/occ/data/ObjCClassAlpha/_titleRect
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "NSRect"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "1"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: _unused
+        APIUID: //test_ref/occ/data/ObjCClassAlpha/_unused
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "id"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "1"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: ObjCClassAlpha (HeaderDoc::ObjCClass)
++---@
++---interface
+|   +--- 
+|   +---ObjCClassAlpha
+|   +--- 
+|   +---:
+|   +--- 
+|   +---NSObject
+|   +---[ NEWLINE ]
+|   +---{
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +---/*
+|   |   |   +---All
+|   |   |   +--- instance variables are private
+|   |   |   +---*/
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +---                  
+|   |   +---_titleCell
+|   |   +---;
+|   |   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +---                  
+|   |   +---_contentView
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-NSSize (HAS STATE)
+|   |   +---              
+|   |   +---_offsets
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-NSRect (HAS STATE)
+|   |   +---              
+|   |   +---_borderRect
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-NSRect (HAS STATE)
+|   |   +---              
+|   |   +---_titleRect
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +---                  
+|   |   +---_unused
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---}
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@method classOneMethodOne
+|   |   +---
+@abstract Returns the receiver's border type.
+|   |   +---
+@discussion Returns the receiver's border type. Border types are defined
+|   |   +---
+in NSView.h. Currently, the following border types are defined:
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSNoBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSLineBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSBezelBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSGrooveBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+By default, an NSBox's border type is NSGrooveBorder.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-- (HAS STATE)
+|   |   +--- 
+|   |   +---(
+|   |   |   +---NSBorderType
+|   |   |   +---)
+|   |   +---classOneMethodOne
+|   |   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---     
+|   |   +---
+@method classOneMethodTwo
+|   |   +---
+@abstract Returns a constant representing the title position.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-- (HAS STATE)
+|   |   +--- 
+|   |   +---(
+|   |   |   +---NSTitlePosition
+|   |   |   +---)
+|   |   +---classOneMethodTwo
+|   |   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---@
+|   +---@end
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: classOneMethodOne (HeaderDoc::Method)
++-*-- (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---NSBorderType
+|   |   +---)
+|   +---classOneMethodOne
+|   +---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +---     
+|   +---
+@method classOneMethodTwo
+|   +---
+@abstract Returns a constant representing the title position.
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++-*-- (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---NSTitlePosition
+|   |   +---)
+|   +---classOneMethodTwo
+|   +---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---@
++---@end
+END OF OBJECT
+
+
+OBJECT: classOneMethodTwo (HeaderDoc::Method)
++-*-- (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---NSTitlePosition
+|   |   +---)
+|   +---classOneMethodTwo
+|   +---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---@
++---@end
+END OF OBJECT
+
+
+OBJECT: _titleCell (HeaderDoc::Var)
++-*-id (HAS STATE)
++---                  
++---_titleCell
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---    
++-*-id (HAS STATE)
++---                  
++---_contentView
++---;
++--- 
++---[ NEWLINE ]
++---    
++-*-NSSize (HAS STATE)
++---              
++---_offsets
++---;
++--- 
++---[ NEWLINE ]
++---    
++-*-NSRect (HAS STATE)
++---              
++---_borderRect
++---;
++--- 
++---[ NEWLINE ]
++---    
++-*-NSRect (HAS STATE)
++---              
++---_titleRect
++---;
++--- 
++---[ NEWLINE ]
++---    
++-*-id (HAS STATE)
++---                  
++---_unused
++---;
++--- 
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: _contentView (HeaderDoc::Var)
++-*-id (HAS STATE)
++---                  
++---_contentView
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---    
++-*-NSSize (HAS STATE)
++---              
++---_offsets
++---;
++--- 
++---[ NEWLINE ]
++---    
++-*-NSRect (HAS STATE)
++---              
++---_borderRect
++---;
++--- 
++---[ NEWLINE ]
++---    
++-*-NSRect (HAS STATE)
++---              
++---_titleRect
++---;
++--- 
++---[ NEWLINE ]
++---    
++-*-id (HAS STATE)
++---                  
++---_unused
++---;
++--- 
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: _offsets (HeaderDoc::Var)
++-*-NSSize (HAS STATE)
++---              
++---_offsets
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---    
++-*-NSRect (HAS STATE)
++---              
++---_borderRect
++---;
++--- 
++---[ NEWLINE ]
++---    
++-*-NSRect (HAS STATE)
++---              
++---_titleRect
++---;
++--- 
++---[ NEWLINE ]
++---    
++-*-id (HAS STATE)
++---                  
++---_unused
++---;
++--- 
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: _borderRect (HeaderDoc::Var)
++-*-NSRect (HAS STATE)
++---              
++---_borderRect
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---    
++-*-NSRect (HAS STATE)
++---              
++---_titleRect
++---;
++--- 
++---[ NEWLINE ]
++---    
++-*-id (HAS STATE)
++---                  
++---_unused
++---;
++--- 
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: _titleRect (HeaderDoc::Var)
++-*-NSRect (HAS STATE)
++---              
++---_titleRect
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---    
++-*-id (HAS STATE)
++---                  
++---_unused
++---;
++--- 
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: _unused (HeaderDoc::Var)
++-*-id (HAS STATE)
++---                  
++---_unused
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: ObjCClassAlpha (HeaderDoc::ObjCClass)
+	@<!-- a logicalPath="//test_ref/occ/cl/interface //test_ref/occ/tdef/interface //test_ref/occ/tag/interface //test_ref/occ/econst/interface //test_ref/occ/struct/interface //test_ref/occ/clconst/interface //test_ref/occ/intf/interface" --><span class="type">interface</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/cl/ObjCClassAlpha //test_ref/occ/tdef/ObjCClassAlpha //test_ref/occ/tag/ObjCClassAlpha //test_ref/occ/econst/ObjCClassAlpha //test_ref/occ/struct/ObjCClassAlpha //test_ref/occ/clconst/ObjCClassAlpha //test_ref/occ/intf/ObjCClassAlpha" --><span class="type">ObjCClassAlpha</span><!-- /a --> : <!-- a logicalPath="//test_ref/occ/cl/NSObject //test_ref/occ/tdef/NSObject //test_ref/occ/tag/NSObject //test_ref/occ/econst/NSObject //test_ref/occ/struct/NSObject //test_ref/occ/clconst/NSObject //test_ref/occ/intf/NSObject" --><span class="type">NSObject</span><!-- /a --> { 
+	        <span class="comment">/*All instance variables are private*/</span>
+	        <!-- a logicalPath="//test_ref/occ/cl/id //test_ref/occ/tdef/id //test_ref/occ/tag/id //test_ref/occ/econst/id //test_ref/occ/struct/id //test_ref/occ/clconst/id //test_ref/occ/intf/id" --><span class="type">id</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_titleCell //test_ref/occ/data/_titleCell" --><span class="var">_titleCell</span><!-- /a -->; 
+	        <!-- a logicalPath="//test_ref/occ/cl/id //test_ref/occ/tdef/id //test_ref/occ/tag/id //test_ref/occ/econst/id //test_ref/occ/struct/id //test_ref/occ/clconst/id //test_ref/occ/intf/id" --><span class="type">id</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_contentView //test_ref/occ/data/_contentView" --><span class="var">_contentView</span><!-- /a -->; 
+	        <!-- a logicalPath="//test_ref/occ/cl/NSSize //test_ref/occ/tdef/NSSize //test_ref/occ/tag/NSSize //test_ref/occ/econst/NSSize //test_ref/occ/struct/NSSize //test_ref/occ/clconst/NSSize //test_ref/occ/intf/NSSize" --><span class="type">NSSize</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_offsets //test_ref/occ/data/_offsets" --><span class="var">_offsets</span><!-- /a -->; 
+	        <!-- a logicalPath="//test_ref/occ/cl/NSRect //test_ref/occ/tdef/NSRect //test_ref/occ/tag/NSRect //test_ref/occ/econst/NSRect //test_ref/occ/struct/NSRect //test_ref/occ/clconst/NSRect //test_ref/occ/intf/NSRect" --><span class="type">NSRect</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_borderRect //test_ref/occ/data/_borderRect" --><span class="var">_borderRect</span><!-- /a -->; 
+	        <!-- a logicalPath="//test_ref/occ/cl/NSRect //test_ref/occ/tdef/NSRect //test_ref/occ/tag/NSRect //test_ref/occ/econst/NSRect //test_ref/occ/struct/NSRect //test_ref/occ/clconst/NSRect //test_ref/occ/intf/NSRect" --><span class="type">NSRect</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_titleRect //test_ref/occ/data/_titleRect" --><span class="var">_titleRect</span><!-- /a -->; 
+	        <!-- a logicalPath="//test_ref/occ/cl/id //test_ref/occ/tdef/id //test_ref/occ/tag/id //test_ref/occ/econst/id //test_ref/occ/struct/id //test_ref/occ/clconst/id //test_ref/occ/intf/id" --><span class="type">id</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_unused //test_ref/occ/data/_unused" --><span class="var">_unused</span><!-- /a -->; 
+	        }  <span class="comment">/*!
+	@method classOneMethodOne
+	@abstract Returns the receiver's border type.
+	@discussion Returns the receiver's border type. Border types are defined
+	in NSView.h. Currently, the following border types are defined:
+	
+	* NSNoBorder
+	
+	* NSLineBorder
+	
+	* NSBezelBorder
+	
+	* NSGrooveBorder
+	
+	By default, an NSBox's border type is NSGrooveBorder.</span>
+	        <span class="comment">*/</span>
+	    - (
+	            <span class="param">NSBorderType</span>)<!-- a logicalPath="//test_ref/occ/econst/classOneMethodOne //test_ref/occ/data/classOneMethodOne" --><span class="var">classOneMethodOne</span><!-- /a -->;   <span class="comment">/*! 
+	@method classOneMethodTwo
+	@abstract Returns a constant representing the title position.</span>
+	        <span class="comment">*/</span>
+	    - (
+	            <span class="param">NSTitlePosition</span>)<!-- a logicalPath="//test_ref/occ/econst/classOneMethodTwo //test_ref/occ/data/classOneMethodTwo" --><span class="var">classOneMethodTwo</span><!-- /a -->;   @@end 
+END OF OBJECT
+
+
+OBJECT: classOneMethodOne (HeaderDoc::Method)
+	- (<!-- a logicalPath="//test_ref/occ/cl/NSBorderType //test_ref/occ/tdef/NSBorderType //test_ref/occ/tag/NSBorderType //test_ref/occ/econst/NSBorderType //test_ref/occ/struct/NSBorderType //test_ref/occ/clconst/NSBorderType //test_ref/occ/intf/NSBorderType" --><span class="type">NSBorderType</span><!-- /a -->)<!-- a logicalPath="//test_ref/occ/econst/classOneMethodOne //test_ref/occ/data/classOneMethodOne" --><span class="var">classOneMethodOne</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: classOneMethodTwo (HeaderDoc::Method)
+	- (<!-- a logicalPath="//test_ref/occ/cl/NSTitlePosition //test_ref/occ/tdef/NSTitlePosition //test_ref/occ/tag/NSTitlePosition //test_ref/occ/econst/NSTitlePosition //test_ref/occ/struct/NSTitlePosition //test_ref/occ/clconst/NSTitlePosition //test_ref/occ/intf/NSTitlePosition" --><span class="type">NSTitlePosition</span><!-- /a -->)<!-- a logicalPath="//test_ref/occ/econst/classOneMethodTwo //test_ref/occ/data/classOneMethodTwo" --><span class="var">classOneMethodTwo</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: _titleCell (HeaderDoc::Var)
+	<!-- a logicalPath="//test_ref/occ/cl/id //test_ref/occ/tdef/id //test_ref/occ/tag/id //test_ref/occ/econst/id //test_ref/occ/struct/id //test_ref/occ/clconst/id //test_ref/occ/intf/id" --><span class="type">id</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_titleCell //test_ref/occ/data/_titleCell" --><span class="var">_titleCell</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: _contentView (HeaderDoc::Var)
+	<!-- a logicalPath="//test_ref/occ/cl/id //test_ref/occ/tdef/id //test_ref/occ/tag/id //test_ref/occ/econst/id //test_ref/occ/struct/id //test_ref/occ/clconst/id //test_ref/occ/intf/id" --><span class="type">id</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_contentView //test_ref/occ/data/_contentView" --><span class="var">_contentView</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: _offsets (HeaderDoc::Var)
+	<!-- a logicalPath="//test_ref/occ/cl/NSSize //test_ref/occ/tdef/NSSize //test_ref/occ/tag/NSSize //test_ref/occ/econst/NSSize //test_ref/occ/struct/NSSize //test_ref/occ/clconst/NSSize //test_ref/occ/intf/NSSize" --><span class="type">NSSize</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_offsets //test_ref/occ/data/_offsets" --><span class="var">_offsets</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: _borderRect (HeaderDoc::Var)
+	<!-- a logicalPath="//test_ref/occ/cl/NSRect //test_ref/occ/tdef/NSRect //test_ref/occ/tag/NSRect //test_ref/occ/econst/NSRect //test_ref/occ/struct/NSRect //test_ref/occ/clconst/NSRect //test_ref/occ/intf/NSRect" --><span class="type">NSRect</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_borderRect //test_ref/occ/data/_borderRect" --><span class="var">_borderRect</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: _titleRect (HeaderDoc::Var)
+	<!-- a logicalPath="//test_ref/occ/cl/NSRect //test_ref/occ/tdef/NSRect //test_ref/occ/tag/NSRect //test_ref/occ/econst/NSRect //test_ref/occ/struct/NSRect //test_ref/occ/clconst/NSRect //test_ref/occ/intf/NSRect" --><span class="type">NSRect</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_titleRect //test_ref/occ/data/_titleRect" --><span class="var">_titleRect</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: _unused (HeaderDoc::Var)
+	<!-- a logicalPath="//test_ref/occ/cl/id //test_ref/occ/tdef/id //test_ref/occ/tag/id //test_ref/occ/econst/id //test_ref/occ/struct/id //test_ref/occ/clconst/id //test_ref/occ/intf/id" --><span class="type">id</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_unused //test_ref/occ/data/_unused" --><span class="var">_unused</span><!-- /a -->; 
+END OF OBJECT
+
+
+
+_$40|testsuite/parser_tests/ObjC_class_5.test$1|C$12|ObjC class 5$19743|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 1
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/ObjC_class_5.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/ObjC_class_5.test
+$parserState->{ISFORWARDDECLARATION} => 0
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} =>  
+$parserState->{classIsObjC} => 1
+$parserState->{classtype} => @interface
+$parserState->{forceClassDone} => 1
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 1
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 18
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => end
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occSuper} => NSObject
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 1
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{preclasssodtype} => interface
+$parserState->{prekeywordsodname} => 
+$parserState->{prekeywordsodtype} => 
+$parserState->{returntype} => @interface ObjCClassAlpha : NSObject
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => class
+$parserState->{sodname} => end
+$parserState->{sodtype} =>  ObjCClassAlpha NSObject
+$parserState->{sodtypeclasstoken} => interface
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 2
+$parserState->{storeDec} => 
+$parserState->{typestring} => ObjCClassAlpha
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 18
+typelist: @interface
+namelist: ObjCClassAlpha
+posstypes: NSObject
+value: 
+returntype: ObjCClassAlpha NSObject
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 18
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---@
++---interface
+|   +--- 
+|   +---ObjCClassAlpha
+|   +--- 
+|   +---:
+|   +--- 
+|   +---NSObject
+|   +---[ NEWLINE ]
+|   +---{
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +---/*
+|   |   |   +---All
+|   |   |   +--- instance variables are private
+|   |   |   +---*/
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +---                  
+|   |   +---_titleCell
+|   |   +---;
+|   |   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +---                  
+|   |   +---_contentView
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-NSSize (HAS STATE)
+|   |   +---              
+|   |   +---_offsets
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-NSRect (HAS STATE)
+|   |   +---              
+|   |   +---_borderRect
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-NSRect (HAS STATE)
+|   |   +---              
+|   |   +---_titleRect
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +---                  
+|   |   +---_unused
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---}
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@method classOneMethodOne
+|   |   +---
+@abstract Returns the receiver's border type.
+|   |   +---
+@discussion Returns the receiver's border type. Border types are defined
+|   |   +---
+in NSView.h. Currently, the following border types are defined:
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSNoBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSLineBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSBezelBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSGrooveBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+By default, an NSBox's border type is NSGrooveBorder.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-- (HAS STATE)
+|   |   +--- 
+|   |   +---(
+|   |   |   +---NSBorderType
+|   |   |   +---)
+|   |   +---classOneMethodOne
+|   |   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---     
+|   |   +---
+@method classOneMethodTwo
+|   |   +---
+@abstract Returns a constant representing the title position.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-- (HAS STATE)
+|   |   +--- 
+|   |   +---(
+|   |   |   +---NSTitlePosition
+|   |   |   +---)
+|   |   +---classOneMethodTwo
+|   |   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---@
+|   +---@end
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: ObjC class 5
+APIUID: //test_ref/doc/header/ObjC_class_5.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::ObjCClass
+    NAME: ObjCClassAlpha
+    APIUID: 
+    ABSTRACT: "<p>ObjCClassAlpha provides a visual grouping element.
+"
+    DISCUSSION: "<p>An NSBox object is a simple NSView that can do two things:
+It can draw a border around itself, and it can title itself.
+"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::ObjCClass"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "1"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p><b>Superclass:</b> <!-- a logicalPath="//test_ref/occ/cl/NSObject" -->NSObject<!-- /a --><br>
+<b>Declared In:</b> <a href="../../index.html" target="_top">ObjC class 5</a><br>
+</p>
+    LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Method
+        NAME: classOneMethodOne
+        APIUID: //test_ref/occ/instm/ObjCClassAlpha/classOneMethodOne
+        ABSTRACT: "<p>Returns the receiver's border type.
+"
+        DISCUSSION: "<p>Returns the receiver's border type. Border types are defined
+in NSView.h. Currently, the following border types are defined:
+</p>
+<p>* NSNoBorder
+</p>
+<p>* NSLineBorder
+</p>
+<p>* NSBezelBorder
+</p>
+<p>* NSGrooveBorder
+</p>
+<p>By default, an NSBox's border type is NSGrooveBorder.
+"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "NSBorderType"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Method"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Method
+        NAME: classOneMethodTwo
+        APIUID: //test_ref/occ/instm/ObjCClassAlpha/classOneMethodTwo
+        ABSTRACT: "<p>Returns a constant representing the title position.
+"
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "NSTitlePosition"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Method"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: ObjCClassAlpha (HeaderDoc::ObjCClass)
++---@
++---interface
+|   +--- 
+|   +---ObjCClassAlpha
+|   +--- 
+|   +---:
+|   +--- 
+|   +---NSObject
+|   +---[ NEWLINE ]
+|   +---{
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +---/*
+|   |   |   +---All
+|   |   |   +--- instance variables are private
+|   |   |   +---*/
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +---                  
+|   |   +---_titleCell
+|   |   +---;
+|   |   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +---                  
+|   |   +---_contentView
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-NSSize (HAS STATE)
+|   |   +---              
+|   |   +---_offsets
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-NSRect (HAS STATE)
+|   |   +---              
+|   |   +---_borderRect
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-NSRect (HAS STATE)
+|   |   +---              
+|   |   +---_titleRect
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +---                  
+|   |   +---_unused
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---}
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@method classOneMethodOne
+|   |   +---
+@abstract Returns the receiver's border type.
+|   |   +---
+@discussion Returns the receiver's border type. Border types are defined
+|   |   +---
+in NSView.h. Currently, the following border types are defined:
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSNoBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSLineBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSBezelBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSGrooveBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+By default, an NSBox's border type is NSGrooveBorder.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-- (HAS STATE)
+|   |   +--- 
+|   |   +---(
+|   |   |   +---NSBorderType
+|   |   |   +---)
+|   |   +---classOneMethodOne
+|   |   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---     
+|   |   +---
+@method classOneMethodTwo
+|   |   +---
+@abstract Returns a constant representing the title position.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-- (HAS STATE)
+|   |   +--- 
+|   |   +---(
+|   |   |   +---NSTitlePosition
+|   |   |   +---)
+|   |   +---classOneMethodTwo
+|   |   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---@
+|   +---@end
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: classOneMethodOne (HeaderDoc::Method)
++-*-- (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---NSBorderType
+|   |   +---)
+|   +---classOneMethodOne
+|   +---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +---     
+|   +---
+@method classOneMethodTwo
+|   +---
+@abstract Returns a constant representing the title position.
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++-*-- (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---NSTitlePosition
+|   |   +---)
+|   +---classOneMethodTwo
+|   +---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---@
++---@end
+END OF OBJECT
+
+
+OBJECT: classOneMethodTwo (HeaderDoc::Method)
++-*-- (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---NSTitlePosition
+|   |   +---)
+|   +---classOneMethodTwo
+|   +---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---@
++---@end
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: ObjCClassAlpha (HeaderDoc::ObjCClass)
+	@<!-- a logicalPath="//test_ref/occ/cl/interface //test_ref/occ/tdef/interface //test_ref/occ/tag/interface //test_ref/occ/econst/interface //test_ref/occ/struct/interface //test_ref/occ/clconst/interface //test_ref/occ/intf/interface" --><span class="type">interface</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/cl/ObjCClassAlpha //test_ref/occ/tdef/ObjCClassAlpha //test_ref/occ/tag/ObjCClassAlpha //test_ref/occ/econst/ObjCClassAlpha //test_ref/occ/struct/ObjCClassAlpha //test_ref/occ/clconst/ObjCClassAlpha //test_ref/occ/intf/ObjCClassAlpha" --><span class="type">ObjCClassAlpha</span><!-- /a --> : <!-- a logicalPath="//test_ref/occ/cl/NSObject //test_ref/occ/tdef/NSObject //test_ref/occ/tag/NSObject //test_ref/occ/econst/NSObject //test_ref/occ/struct/NSObject //test_ref/occ/clconst/NSObject //test_ref/occ/intf/NSObject" --><span class="type">NSObject</span><!-- /a --> { 
+	        <span class="comment">/*All instance variables are private*/</span>
+	        <!-- a logicalPath="//test_ref/occ/cl/id //test_ref/occ/tdef/id //test_ref/occ/tag/id //test_ref/occ/econst/id //test_ref/occ/struct/id //test_ref/occ/clconst/id //test_ref/occ/intf/id" --><span class="type">id</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_titleCell //test_ref/occ/data/_titleCell" --><span class="var">_titleCell</span><!-- /a -->; 
+	        <!-- a logicalPath="//test_ref/occ/cl/id //test_ref/occ/tdef/id //test_ref/occ/tag/id //test_ref/occ/econst/id //test_ref/occ/struct/id //test_ref/occ/clconst/id //test_ref/occ/intf/id" --><span class="type">id</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_contentView //test_ref/occ/data/_contentView" --><span class="var">_contentView</span><!-- /a -->; 
+	        <!-- a logicalPath="//test_ref/occ/cl/NSSize //test_ref/occ/tdef/NSSize //test_ref/occ/tag/NSSize //test_ref/occ/econst/NSSize //test_ref/occ/struct/NSSize //test_ref/occ/clconst/NSSize //test_ref/occ/intf/NSSize" --><span class="type">NSSize</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_offsets //test_ref/occ/data/_offsets" --><span class="var">_offsets</span><!-- /a -->; 
+	        <!-- a logicalPath="//test_ref/occ/cl/NSRect //test_ref/occ/tdef/NSRect //test_ref/occ/tag/NSRect //test_ref/occ/econst/NSRect //test_ref/occ/struct/NSRect //test_ref/occ/clconst/NSRect //test_ref/occ/intf/NSRect" --><span class="type">NSRect</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_borderRect //test_ref/occ/data/_borderRect" --><span class="var">_borderRect</span><!-- /a -->; 
+	        <!-- a logicalPath="//test_ref/occ/cl/NSRect //test_ref/occ/tdef/NSRect //test_ref/occ/tag/NSRect //test_ref/occ/econst/NSRect //test_ref/occ/struct/NSRect //test_ref/occ/clconst/NSRect //test_ref/occ/intf/NSRect" --><span class="type">NSRect</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_titleRect //test_ref/occ/data/_titleRect" --><span class="var">_titleRect</span><!-- /a -->; 
+	        <!-- a logicalPath="//test_ref/occ/cl/id //test_ref/occ/tdef/id //test_ref/occ/tag/id //test_ref/occ/econst/id //test_ref/occ/struct/id //test_ref/occ/clconst/id //test_ref/occ/intf/id" --><span class="type">id</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_unused //test_ref/occ/data/_unused" --><span class="var">_unused</span><!-- /a -->; 
+	        }  <span class="comment">/*!
+	@method classOneMethodOne
+	@abstract Returns the receiver's border type.
+	@discussion Returns the receiver's border type. Border types are defined
+	in NSView.h. Currently, the following border types are defined:
+	
+	* NSNoBorder
+	
+	* NSLineBorder
+	
+	* NSBezelBorder
+	
+	* NSGrooveBorder
+	
+	By default, an NSBox's border type is NSGrooveBorder.</span>
+	        <span class="comment">*/</span>
+	    - (
+	            <span class="param">NSBorderType</span>)<!-- a logicalPath="//test_ref/occ/econst/classOneMethodOne //test_ref/occ/data/classOneMethodOne" --><span class="var">classOneMethodOne</span><!-- /a -->;   <span class="comment">/*! 
+	@method classOneMethodTwo
+	@abstract Returns a constant representing the title position.</span>
+	        <span class="comment">*/</span>
+	    - (
+	            <span class="param">NSTitlePosition</span>)<!-- a logicalPath="//test_ref/occ/econst/classOneMethodTwo //test_ref/occ/data/classOneMethodTwo" --><span class="var">classOneMethodTwo</span><!-- /a -->;   @@end 
+END OF OBJECT
+
+
+OBJECT: classOneMethodOne (HeaderDoc::Method)
+	- (<!-- a logicalPath="//test_ref/occ/cl/NSBorderType //test_ref/occ/tdef/NSBorderType //test_ref/occ/tag/NSBorderType //test_ref/occ/econst/NSBorderType //test_ref/occ/struct/NSBorderType //test_ref/occ/clconst/NSBorderType //test_ref/occ/intf/NSBorderType" --><span class="type">NSBorderType</span><!-- /a -->)<!-- a logicalPath="//test_ref/occ/econst/classOneMethodOne //test_ref/occ/data/classOneMethodOne" --><span class="var">classOneMethodOne</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: classOneMethodTwo (HeaderDoc::Method)
+	- (<!-- a logicalPath="//test_ref/occ/cl/NSTitlePosition //test_ref/occ/tdef/NSTitlePosition //test_ref/occ/tag/NSTitlePosition //test_ref/occ/econst/NSTitlePosition //test_ref/occ/struct/NSTitlePosition //test_ref/occ/clconst/NSTitlePosition //test_ref/occ/intf/NSTitlePosition" --><span class="type">NSTitlePosition</span><!-- /a -->)<!-- a logicalPath="//test_ref/occ/econst/classOneMethodTwo //test_ref/occ/data/classOneMethodTwo" --><span class="var">classOneMethodTwo</span><!-- /a -->; 
+END OF OBJECT
+
+
+
+$31215|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 1
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/ObjC_class_5.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/ObjC_class_5.test
+$parserState->{ISFORWARDDECLARATION} => 0
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} =>  
+$parserState->{classIsObjC} => 1
+$parserState->{classtype} => @interface
+$parserState->{forceClassDone} => 1
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 1
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 18
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => end
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occSuper} => NSObject
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 1
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{preclasssodtype} => interface
+$parserState->{prekeywordsodname} => 
+$parserState->{prekeywordsodtype} => 
+$parserState->{returntype} => @interface ObjCClassAlpha : NSObject
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => class
+$parserState->{sodname} => end
+$parserState->{sodtype} =>  ObjCClassAlpha NSObject
+$parserState->{sodtypeclasstoken} => interface
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 2
+$parserState->{storeDec} => 
+$parserState->{typestring} => ObjCClassAlpha
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 18
+typelist: @interface
+namelist: ObjCClassAlpha
+posstypes: NSObject
+value: 
+returntype: ObjCClassAlpha NSObject
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 18
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---@
++---interface
+|   +--- 
+|   +---ObjCClassAlpha
+|   +--- 
+|   +---:
+|   +--- 
+|   +---NSObject
+|   +---[ NEWLINE ]
+|   +---{
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +---/*
+|   |   |   +---All
+|   |   |   +--- instance variables are private
+|   |   |   +---*/
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +---                  
+|   |   +---_titleCell
+|   |   +---;
+|   |   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +---                  
+|   |   +---_contentView
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-NSSize (HAS STATE)
+|   |   +---              
+|   |   +---_offsets
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-NSRect (HAS STATE)
+|   |   +---              
+|   |   +---_borderRect
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-NSRect (HAS STATE)
+|   |   +---              
+|   |   +---_titleRect
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +---                  
+|   |   +---_unused
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---}
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@method classOneMethodOne
+|   |   +---
+@abstract Returns the receiver's border type.
+|   |   +---
+@discussion Returns the receiver's border type. Border types are defined
+|   |   +---
+in NSView.h. Currently, the following border types are defined:
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSNoBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSLineBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSBezelBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSGrooveBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+By default, an NSBox's border type is NSGrooveBorder.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-- (HAS STATE)
+|   |   +--- 
+|   |   +---(
+|   |   |   +---NSBorderType
+|   |   |   +---)
+|   |   +---classOneMethodOne
+|   |   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---     
+|   |   +---
+@method classOneMethodTwo
+|   |   +---
+@abstract Returns a constant representing the title position.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-- (HAS STATE)
+|   |   +--- 
+|   |   +---(
+|   |   |   +---NSTitlePosition
+|   |   |   +---)
+|   |   +---classOneMethodTwo
+|   |   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---@
+|   +---@end
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: ObjC class 5
+APIUID: //test_ref/doc/header/ObjC_class_5.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::ObjCClass
+    NAME: ObjCClassAlpha
+    APIUID: 
+    ABSTRACT: "<p>ObjCClassAlpha provides a visual grouping element.
+"
+    DISCUSSION: "<p>An NSBox object is a simple NSView that can do two things:
+It can draw a border around itself, and it can title itself.
+"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::ObjCClass"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "1"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p><b>Superclass:</b> <!-- a logicalPath="//test_ref/occ/cl/NSObject" -->NSObject<!-- /a --><br>
+<b>Declared In:</b> <a href="../../index.html" target="_top">ObjC class 5</a><br>
+</p>
+    LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Method
+        NAME: classOneMethodOne
+        APIUID: //test_ref/occ/instm/ObjCClassAlpha/classOneMethodOne
+        ABSTRACT: "<p>Returns the receiver's border type.
+"
+        DISCUSSION: "<p>Returns the receiver's border type. Border types are defined
+in NSView.h. Currently, the following border types are defined:
+</p>
+<p>* NSNoBorder
+</p>
+<p>* NSLineBorder
+</p>
+<p>* NSBezelBorder
+</p>
+<p>* NSGrooveBorder
+</p>
+<p>By default, an NSBox's border type is NSGrooveBorder.
+"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "NSBorderType"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Method"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Method
+        NAME: classOneMethodTwo
+        APIUID: //test_ref/occ/instm/ObjCClassAlpha/classOneMethodTwo
+        ABSTRACT: "<p>Returns a constant representing the title position.
+"
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "NSTitlePosition"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Method"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: _titleCell
+        APIUID: //test_ref/occ/data/ObjCClassAlpha/_titleCell
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "id"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "1"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: _contentView
+        APIUID: //test_ref/occ/data/ObjCClassAlpha/_contentView
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "id"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "1"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: _offsets
+        APIUID: //test_ref/occ/data/ObjCClassAlpha/_offsets
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "NSSize"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "1"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: _borderRect
+        APIUID: //test_ref/occ/data/ObjCClassAlpha/_borderRect
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "NSRect"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "1"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: _titleRect
+        APIUID: //test_ref/occ/data/ObjCClassAlpha/_titleRect
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "NSRect"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "1"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: _unused
+        APIUID: //test_ref/occ/data/ObjCClassAlpha/_unused
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "id"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "1"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: ObjCClassAlpha (HeaderDoc::ObjCClass)
++---@
++---interface
+|   +--- 
+|   +---ObjCClassAlpha
+|   +--- 
+|   +---:
+|   +--- 
+|   +---NSObject
+|   +---[ NEWLINE ]
+|   +---{
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +---/*
+|   |   |   +---All
+|   |   |   +--- instance variables are private
+|   |   |   +---*/
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +---                  
+|   |   +---_titleCell
+|   |   +---;
+|   |   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +---                  
+|   |   +---_contentView
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-NSSize (HAS STATE)
+|   |   +---              
+|   |   +---_offsets
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-NSRect (HAS STATE)
+|   |   +---              
+|   |   +---_borderRect
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-NSRect (HAS STATE)
+|   |   +---              
+|   |   +---_titleRect
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +---                  
+|   |   +---_unused
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---}
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@method classOneMethodOne
+|   |   +---
+@abstract Returns the receiver's border type.
+|   |   +---
+@discussion Returns the receiver's border type. Border types are defined
+|   |   +---
+in NSView.h. Currently, the following border types are defined:
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSNoBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSLineBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSBezelBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSGrooveBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+By default, an NSBox's border type is NSGrooveBorder.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-- (HAS STATE)
+|   |   +--- 
+|   |   +---(
+|   |   |   +---NSBorderType
+|   |   |   +---)
+|   |   +---classOneMethodOne
+|   |   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---     
+|   |   +---
+@method classOneMethodTwo
+|   |   +---
+@abstract Returns a constant representing the title position.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-- (HAS STATE)
+|   |   +--- 
+|   |   +---(
+|   |   |   +---NSTitlePosition
+|   |   |   +---)
+|   |   +---classOneMethodTwo
+|   |   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---@
+|   +---@end
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: classOneMethodOne (HeaderDoc::Method)
++-*-- (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---NSBorderType
+|   |   +---)
+|   +---classOneMethodOne
+|   +---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +---     
+|   +---
+@method classOneMethodTwo
+|   +---
+@abstract Returns a constant representing the title position.
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++-*-- (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---NSTitlePosition
+|   |   +---)
+|   +---classOneMethodTwo
+|   +---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---@
++---@end
+END OF OBJECT
+
+
+OBJECT: classOneMethodTwo (HeaderDoc::Method)
++-*-- (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---NSTitlePosition
+|   |   +---)
+|   +---classOneMethodTwo
+|   +---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---@
++---@end
+END OF OBJECT
+
+
+OBJECT: _titleCell (HeaderDoc::Var)
++-*-id (HAS STATE)
++---                  
++---_titleCell
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---    
++-*-id (HAS STATE)
++---                  
++---_contentView
++---;
++--- 
++---[ NEWLINE ]
++---    
++-*-NSSize (HAS STATE)
++---              
++---_offsets
++---;
++--- 
++---[ NEWLINE ]
++---    
++-*-NSRect (HAS STATE)
++---              
++---_borderRect
++---;
++--- 
++---[ NEWLINE ]
++---    
++-*-NSRect (HAS STATE)
++---              
++---_titleRect
++---;
++--- 
++---[ NEWLINE ]
++---    
++-*-id (HAS STATE)
++---                  
++---_unused
++---;
++--- 
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: _contentView (HeaderDoc::Var)
++-*-id (HAS STATE)
++---                  
++---_contentView
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---    
++-*-NSSize (HAS STATE)
++---              
++---_offsets
++---;
++--- 
++---[ NEWLINE ]
++---    
++-*-NSRect (HAS STATE)
++---              
++---_borderRect
++---;
++--- 
++---[ NEWLINE ]
++---    
++-*-NSRect (HAS STATE)
++---              
++---_titleRect
++---;
++--- 
++---[ NEWLINE ]
++---    
++-*-id (HAS STATE)
++---                  
++---_unused
++---;
++--- 
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: _offsets (HeaderDoc::Var)
++-*-NSSize (HAS STATE)
++---              
++---_offsets
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---    
++-*-NSRect (HAS STATE)
++---              
++---_borderRect
++---;
++--- 
++---[ NEWLINE ]
++---    
++-*-NSRect (HAS STATE)
++---              
++---_titleRect
++---;
++--- 
++---[ NEWLINE ]
++---    
++-*-id (HAS STATE)
++---                  
++---_unused
++---;
++--- 
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: _borderRect (HeaderDoc::Var)
++-*-NSRect (HAS STATE)
++---              
++---_borderRect
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---    
++-*-NSRect (HAS STATE)
++---              
++---_titleRect
++---;
++--- 
++---[ NEWLINE ]
++---    
++-*-id (HAS STATE)
++---                  
++---_unused
++---;
++--- 
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: _titleRect (HeaderDoc::Var)
++-*-NSRect (HAS STATE)
++---              
++---_titleRect
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---    
++-*-id (HAS STATE)
++---                  
++---_unused
++---;
++--- 
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: _unused (HeaderDoc::Var)
++-*-id (HAS STATE)
++---                  
++---_unused
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: ObjCClassAlpha (HeaderDoc::ObjCClass)
+	@<!-- a logicalPath="//test_ref/occ/cl/interface //test_ref/occ/tdef/interface //test_ref/occ/tag/interface //test_ref/occ/econst/interface //test_ref/occ/struct/interface //test_ref/occ/clconst/interface //test_ref/occ/intf/interface" --><span class="type">interface</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/cl/ObjCClassAlpha //test_ref/occ/tdef/ObjCClassAlpha //test_ref/occ/tag/ObjCClassAlpha //test_ref/occ/econst/ObjCClassAlpha //test_ref/occ/struct/ObjCClassAlpha //test_ref/occ/clconst/ObjCClassAlpha //test_ref/occ/intf/ObjCClassAlpha" --><span class="type">ObjCClassAlpha</span><!-- /a --> : <!-- a logicalPath="//test_ref/occ/cl/NSObject //test_ref/occ/tdef/NSObject //test_ref/occ/tag/NSObject //test_ref/occ/econst/NSObject //test_ref/occ/struct/NSObject //test_ref/occ/clconst/NSObject //test_ref/occ/intf/NSObject" --><span class="type">NSObject</span><!-- /a --> { 
+	        <span class="comment">/*All instance variables are private*/</span>
+	        <!-- a logicalPath="//test_ref/occ/cl/id //test_ref/occ/tdef/id //test_ref/occ/tag/id //test_ref/occ/econst/id //test_ref/occ/struct/id //test_ref/occ/clconst/id //test_ref/occ/intf/id" --><span class="type">id</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_titleCell //test_ref/occ/data/_titleCell" --><span class="var">_titleCell</span><!-- /a -->; 
+	        <!-- a logicalPath="//test_ref/occ/cl/id //test_ref/occ/tdef/id //test_ref/occ/tag/id //test_ref/occ/econst/id //test_ref/occ/struct/id //test_ref/occ/clconst/id //test_ref/occ/intf/id" --><span class="type">id</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_contentView //test_ref/occ/data/_contentView" --><span class="var">_contentView</span><!-- /a -->; 
+	        <!-- a logicalPath="//test_ref/occ/cl/NSSize //test_ref/occ/tdef/NSSize //test_ref/occ/tag/NSSize //test_ref/occ/econst/NSSize //test_ref/occ/struct/NSSize //test_ref/occ/clconst/NSSize //test_ref/occ/intf/NSSize" --><span class="type">NSSize</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_offsets //test_ref/occ/data/_offsets" --><span class="var">_offsets</span><!-- /a -->; 
+	        <!-- a logicalPath="//test_ref/occ/cl/NSRect //test_ref/occ/tdef/NSRect //test_ref/occ/tag/NSRect //test_ref/occ/econst/NSRect //test_ref/occ/struct/NSRect //test_ref/occ/clconst/NSRect //test_ref/occ/intf/NSRect" --><span class="type">NSRect</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_borderRect //test_ref/occ/data/_borderRect" --><span class="var">_borderRect</span><!-- /a -->; 
+	        <!-- a logicalPath="//test_ref/occ/cl/NSRect //test_ref/occ/tdef/NSRect //test_ref/occ/tag/NSRect //test_ref/occ/econst/NSRect //test_ref/occ/struct/NSRect //test_ref/occ/clconst/NSRect //test_ref/occ/intf/NSRect" --><span class="type">NSRect</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_titleRect //test_ref/occ/data/_titleRect" --><span class="var">_titleRect</span><!-- /a -->; 
+	        <!-- a logicalPath="//test_ref/occ/cl/id //test_ref/occ/tdef/id //test_ref/occ/tag/id //test_ref/occ/econst/id //test_ref/occ/struct/id //test_ref/occ/clconst/id //test_ref/occ/intf/id" --><span class="type">id</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_unused //test_ref/occ/data/_unused" --><span class="var">_unused</span><!-- /a -->; 
+	        }  <span class="comment">/*!
+	@method classOneMethodOne
+	@abstract Returns the receiver's border type.
+	@discussion Returns the receiver's border type. Border types are defined
+	in NSView.h. Currently, the following border types are defined:
+	
+	* NSNoBorder
+	
+	* NSLineBorder
+	
+	* NSBezelBorder
+	
+	* NSGrooveBorder
+	
+	By default, an NSBox's border type is NSGrooveBorder.</span>
+	        <span class="comment">*/</span>
+	    - (
+	            <span class="param">NSBorderType</span>)<!-- a logicalPath="//test_ref/occ/econst/classOneMethodOne //test_ref/occ/data/classOneMethodOne" --><span class="var">classOneMethodOne</span><!-- /a -->;   <span class="comment">/*! 
+	@method classOneMethodTwo
+	@abstract Returns a constant representing the title position.</span>
+	        <span class="comment">*/</span>
+	    - (
+	            <span class="param">NSTitlePosition</span>)<!-- a logicalPath="//test_ref/occ/econst/classOneMethodTwo //test_ref/occ/data/classOneMethodTwo" --><span class="var">classOneMethodTwo</span><!-- /a -->;   @@end 
+END OF OBJECT
+
+
+OBJECT: classOneMethodOne (HeaderDoc::Method)
+	- (<!-- a logicalPath="//test_ref/occ/cl/NSBorderType //test_ref/occ/tdef/NSBorderType //test_ref/occ/tag/NSBorderType //test_ref/occ/econst/NSBorderType //test_ref/occ/struct/NSBorderType //test_ref/occ/clconst/NSBorderType //test_ref/occ/intf/NSBorderType" --><span class="type">NSBorderType</span><!-- /a -->)<!-- a logicalPath="//test_ref/occ/econst/classOneMethodOne //test_ref/occ/data/classOneMethodOne" --><span class="var">classOneMethodOne</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: classOneMethodTwo (HeaderDoc::Method)
+	- (<!-- a logicalPath="//test_ref/occ/cl/NSTitlePosition //test_ref/occ/tdef/NSTitlePosition //test_ref/occ/tag/NSTitlePosition //test_ref/occ/econst/NSTitlePosition //test_ref/occ/struct/NSTitlePosition //test_ref/occ/clconst/NSTitlePosition //test_ref/occ/intf/NSTitlePosition" --><span class="type">NSTitlePosition</span><!-- /a -->)<!-- a logicalPath="//test_ref/occ/econst/classOneMethodTwo //test_ref/occ/data/classOneMethodTwo" --><span class="var">classOneMethodTwo</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: _titleCell (HeaderDoc::Var)
+	<!-- a logicalPath="//test_ref/occ/cl/id //test_ref/occ/tdef/id //test_ref/occ/tag/id //test_ref/occ/econst/id //test_ref/occ/struct/id //test_ref/occ/clconst/id //test_ref/occ/intf/id" --><span class="type">id</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_titleCell //test_ref/occ/data/_titleCell" --><span class="var">_titleCell</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: _contentView (HeaderDoc::Var)
+	<!-- a logicalPath="//test_ref/occ/cl/id //test_ref/occ/tdef/id //test_ref/occ/tag/id //test_ref/occ/econst/id //test_ref/occ/struct/id //test_ref/occ/clconst/id //test_ref/occ/intf/id" --><span class="type">id</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_contentView //test_ref/occ/data/_contentView" --><span class="var">_contentView</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: _offsets (HeaderDoc::Var)
+	<!-- a logicalPath="//test_ref/occ/cl/NSSize //test_ref/occ/tdef/NSSize //test_ref/occ/tag/NSSize //test_ref/occ/econst/NSSize //test_ref/occ/struct/NSSize //test_ref/occ/clconst/NSSize //test_ref/occ/intf/NSSize" --><span class="type">NSSize</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_offsets //test_ref/occ/data/_offsets" --><span class="var">_offsets</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: _borderRect (HeaderDoc::Var)
+	<!-- a logicalPath="//test_ref/occ/cl/NSRect //test_ref/occ/tdef/NSRect //test_ref/occ/tag/NSRect //test_ref/occ/econst/NSRect //test_ref/occ/struct/NSRect //test_ref/occ/clconst/NSRect //test_ref/occ/intf/NSRect" --><span class="type">NSRect</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_borderRect //test_ref/occ/data/_borderRect" --><span class="var">_borderRect</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: _titleRect (HeaderDoc::Var)
+	<!-- a logicalPath="//test_ref/occ/cl/NSRect //test_ref/occ/tdef/NSRect //test_ref/occ/tag/NSRect //test_ref/occ/econst/NSRect //test_ref/occ/struct/NSRect //test_ref/occ/clconst/NSRect //test_ref/occ/intf/NSRect" --><span class="type">NSRect</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_titleRect //test_ref/occ/data/_titleRect" --><span class="var">_titleRect</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: _unused (HeaderDoc::Var)
+	<!-- a logicalPath="//test_ref/occ/cl/id //test_ref/occ/tdef/id //test_ref/occ/tag/id //test_ref/occ/econst/id //test_ref/occ/struct/id //test_ref/occ/clconst/id //test_ref/occ/intf/id" --><span class="type">id</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_unused //test_ref/occ/data/_unused" --><span class="var">_unused</span><!-- /a -->; 
+END OF OBJECT
+
+
+
+$1|C$6|parser

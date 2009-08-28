@@ -57,7 +57,8 @@ static const CSSM_DB_ATTRIBUTE_INFO* gKeyAttributeLookupTable[] =
 KCCursorImpl::KCCursorImpl(const StorageManager::KeychainList &searchList, SecItemClass itemClass, const SecKeychainAttributeList *attrList, CSSM_DB_CONJUNCTIVE dbConjunctive, CSSM_DB_OPERATOR dbOperator) :
 	mSearchList(searchList),
 	mCurrent(mSearchList.begin()),
-	mAllFailed(true)
+	mAllFailed(true),
+	mMutex(Mutex::recursive)
 {
     recordType(Schema::recordTypeFor(itemClass));
 
@@ -111,7 +112,8 @@ KCCursorImpl::KCCursorImpl(const StorageManager::KeychainList &searchList, SecIt
 KCCursorImpl::KCCursorImpl(const StorageManager::KeychainList &searchList, const SecKeychainAttributeList *attrList) :
 	mSearchList(searchList),
 	mCurrent(mSearchList.begin()),
-	mAllFailed(true)
+	mAllFailed(true),
+	mMutex(Mutex::recursive)
 {
 	if (!attrList) // No additional selectionPredicates: we are done
 		return;
@@ -167,16 +169,19 @@ KCCursorImpl::~KCCursorImpl() throw()
 {
 }
 
+ModuleNexus<Mutex> gOpenMutex;
+
 bool
 KCCursorImpl::next(Item &item)
 {
+	StLock<Mutex>_(mMutex);
 	DbAttributes dbAttributes;
 	DbUniqueRecord uniqueId;
 	OSStatus status = 0;
 
 	for (;;)
 	{
-		if (!mDbCursor)
+		while (!mDbCursor)
 		{
 			if (mCurrent == mSearchList.end())
 			{
@@ -184,17 +189,33 @@ KCCursorImpl::next(Item &item)
 				// the last call to mDbCursor->next now
 				if (mAllFailed && status)
 					CssmError::throwMe(status);
-
+				
 				// No more keychains to search so we are done.
 				return false;
 			}
-
-			mDbCursor = DbCursor((*mCurrent)->database(), *this);
+			
+			try
+			{
+				// we need to serialize activation of the data objects.  Otherwise, parallel threads
+				// will stomp on the object, rendering it useless
+				StLock<Mutex> _(gOpenMutex());
+				
+				(*mCurrent)->database()->activate();
+				mDbCursor = DbCursor((*mCurrent)->database(), *this);
+			}
+			catch(const CommonError &err)
+			{
+				++mCurrent;
+			}
 		}
 
 		bool gotRecord;
 		try
 		{
+			// Clear out existing attributes first!
+			// (the previous iteration may have left attributes from a different schema)
+			dbAttributes.clear();
+
 			gotRecord = mDbCursor->next(&dbAttributes, NULL, uniqueId);
 			mAllFailed = false;
 		}
@@ -204,6 +225,12 @@ KCCursorImpl::next(Item &item)
 			// This error will be returned when we reach the end of our keychain list
 			// iff all calls to KCCursorImpl::next failed
 			status = err.osStatus();
+			gotRecord = false;
+		}
+		catch(...)
+		{
+			// Catch all other errors
+			status = errSecItemNotFound;
 			gotRecord = false;
 		}
 
@@ -217,23 +244,34 @@ KCCursorImpl::next(Item &item)
 		}
 
         // If doing a search for all records, skip the db blob added by the CSPDL
-        if (dbAttributes.recordType() == 0x80008000 &&
+        if (dbAttributes.recordType() == CSSM_DL_DB_RECORD_METADATA &&
             mDbCursor->recordType() == CSSM_DL_DB_RECORD_ANY)
                 continue;
         
         // Filter out group keys at this layer
         if (dbAttributes.recordType() == CSSM_DL_DB_RECORD_SYMMETRIC_KEY)
         {
-            // fetch the key label attribute
-            dbAttributes.add(KeySchema::Label);
-            Db db((*mCurrent)->database());
-            CSSM_DL_DataGetFromUniqueRecordId(db->handle(), uniqueId, &dbAttributes, NULL);
-            CssmDbAttributeData *label = dbAttributes.find(KeySchema::Label);
-            CssmData attrData;
-            if (label)
-                attrData = *label;
-            if (attrData.length() > 4 && !memcmp(attrData.data(), "ssgp", 4))
-                continue;
+			bool groupKey = false;
+			try
+			{
+				// fetch the key label attribute, if it exists
+				dbAttributes.add(KeySchema::Label);
+				Db db((*mCurrent)->database());
+				CSSM_RETURN getattr_result = CSSM_DL_DataGetFromUniqueRecordId(db->handle(), uniqueId, &dbAttributes, NULL);
+				if (getattr_result == CSSM_OK)
+				{
+					CssmDbAttributeData *label = dbAttributes.find(KeySchema::Label);
+					CssmData attrData;
+					if (label)
+						attrData = *label;
+					if (attrData.length() > 4 && !memcmp(attrData.data(), "ssgp", 4))
+						groupKey = true;
+				}
+			}
+			catch (...) {}
+
+			if (groupKey)
+				continue;
         }
 
 		break;

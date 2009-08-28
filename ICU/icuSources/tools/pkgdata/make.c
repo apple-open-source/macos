@@ -1,6 +1,6 @@
 /**************************************************************************
 *
-*   Copyright (C) 2000-2006, International Business Machines
+*   Copyright (C) 2000-2008, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ***************************************************************************
@@ -276,22 +276,11 @@ pkg_mak_writeObjRules(UPKGOptions *o,  FileStream *makefile, CharList **objects,
     CharList *oTail = NULL;
     CharList *infiles;
     CharList *parents = NULL, *commands = NULL;
-    int32_t genFileOffset = 0;  /* offset from beginning of .c and .o file name, use to chop off package name for AS/400 */
     char *parentPath;
     const char *tchar;
     char tree[1024];
 
     infiles = o->files; /* raw files - no paths other than tree paths */
-    
-#if defined (OS400)
-    if(infiles != NULL) {
-        baseName = findBasename(infiles->str);
-        p = uprv_strchr(baseName, '_');
-        if(p != NULL) { 
-            genFileOffset = (p-baseName)+1; /* "package_"  - name + underscore */
-        }
-    }
-#endif
     
     for(;infiles;infiles = infiles->next) {
       baseName = infiles->str; /* skip the icudt28b/ part */
@@ -317,7 +306,7 @@ pkg_mak_writeObjRules(UPKGOptions *o,  FileStream *makefile, CharList **objects,
         }
       }
       
-      *objects = pkg_appendToList(*objects, &oTail, uprv_strdup(tmp + genFileOffset)); /* Offset for AS/400 */
+      *objects = pkg_appendToList(*objects, &oTail, uprv_strdup(tmp));
       
       /* write source list */
       uprv_strcpy(cfile,tmp);
@@ -363,18 +352,13 @@ pkg_mak_writeObjRules(UPKGOptions *o,  FileStream *makefile, CharList **objects,
       pkg_writeCharList(makefile, commands, "\n\t",0);
       T_FileStream_write(makefile, "\n\n", 2);
 #else
-      if(genFileOffset > 0) {    /* for AS/400 */
-        sprintf(stanza, "@mv $(TEMP_PATH)%s $(TEMP_PATH)%s", cfile, cfile+genFileOffset);
-        commands = pkg_appendToList(commands, NULL, uprv_strdup(stanza));
-      }
-      
-      sprintf(stanza, "@$(COMPILE.c) $(DYNAMICCPPFLAGS) $(DYNAMICCXXFLAGS) -o $@ $(TEMP_DIR)/%s", cfile+genFileOffset); /* for AS/400 */
+      sprintf(stanza, "@$(COMPILE.c) $(DYNAMICCPPFLAGS) $(DYNAMICCXXFLAGS) -o $@ $(TEMP_DIR)/%s", cfile);
       commands = pkg_appendToList(commands, NULL, uprv_strdup(stanza));
       
-      sprintf(stanza, "@$(RMV) $(TEMP_DIR)/%s", cfile+genFileOffset);
+      sprintf(stanza, "@$(RMV) $(TEMP_DIR)/%s", cfile);
       commands = pkg_appendToList(commands, NULL, uprv_strdup(stanza));
       
-      sprintf(stanza, "$(TEMP_PATH)%s", tmp+genFileOffset); /* for AS/400 */
+      sprintf(stanza, "$(TEMP_PATH)%s", tmp);
       pkg_mak_writeStanza(makefile, o, stanza, parents, commands);
 #endif
       
@@ -396,7 +380,7 @@ pkg_mak_writeAssemblyHeader(FileStream *f, const UPKGOptions *o)
     T_FileStream_writeLine(f, "BASE_OBJECTS=$(NAME)_dat.o\n");
     T_FileStream_writeLine(f, "\n");
     T_FileStream_writeLine(f, "$(TEMP_DIR)/$(NAME).dat: $(CMNLIST) $(DATAFILEPATHS)\n");
-    T_FileStream_writeLine(f, "\t$(INVOKE) $(GENCMN) -c -e $(ENTRYPOINT) -n $(NAME) -s $(SRCDIR) -t dat -d $(TEMP_DIR) 0 $(CMNLIST)\n");
+    T_FileStream_writeLine(f, "\t$(INVOKE) $(ICUPKG) -t$(ICUDATA_CHAR) -c -s $(SRCDIR) -a $(CMNLIST) new $(TEMP_DIR)/$(CNAME).dat\n");
     T_FileStream_writeLine(f, "\n");
     T_FileStream_writeLine(f, "$(TEMP_DIR)/$(NAME)_dat.o : $(TEMP_DIR)/$(NAME).dat\n");
     T_FileStream_writeLine(f, "\t$(INVOKE) $(GENCCODE) $(GENCCODE_ASSEMBLY) -n $(NAME) -e $(ENTRYPOINT) -d $(TEMP_DIR) $<\n");

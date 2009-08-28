@@ -100,7 +100,6 @@ volatile sig_atomic_t info;
 enum op { FILE_TO_FILE, FILE_TO_DIR, DIR_TO_DNE };
 
 static int copy(char *[], enum op, int);
-static int mastercmp(const FTSENT * const *, const FTSENT * const *);
 static void siginfo(int __unused);
 
 int
@@ -112,7 +111,7 @@ main(int argc, char *argv[])
 	char *target;
 
 	Hflag = Lflag = Pflag = 0;
-	while ((ch = getopt(argc, argv, "HLPRXfinprv")) != -1)
+	while ((ch = getopt(argc, argv, "HLPRXafinprv")) != -1)
 		switch (ch) {
 		case 'H':
 			Hflag = 1;
@@ -159,6 +158,11 @@ main(int argc, char *argv[])
 			break;
 		case 'v':
 			vflag = 1;
+			break;
+		case 'a':
+			pflag = 1;
+			Pflag = 1;
+			Rflag = 1;
 			break;
 		default:
 			usage();
@@ -308,7 +312,27 @@ copy(char *argv[], enum op type, int fts_options)
 		default:
 			;
 		}
-
+#ifdef __APPLE__
+		/* Skip ._<file> when using copyfile and <file> exists */
+		if ((pflag || !Xflag) && (curr->fts_level != FTS_ROOTLEVEL) &&
+		    (curr->fts_namelen > 2) && /* ._\0 is not AppleDouble */
+		    (curr->fts_name[0] == '.') && (curr->fts_name[1] == '_')) {
+			struct stat statbuf;
+			char path[PATH_MAX];
+			char *p = strrchr(curr->fts_path, '/');
+			if (p) {
+				size_t s = p + 2 - curr->fts_path;
+				if (s > sizeof(path)) s = sizeof(path);
+				strlcpy(path, curr->fts_path, s);
+				strlcat(path, curr->fts_name+2, sizeof(path));
+			} else {
+				strlcpy(path, curr->fts_name+2, sizeof(path));
+			}
+			if (!lstat(path, &statbuf)) {
+				continue;
+			}
+		}
+#endif /* __APPLE__ */
 		/*
 		 * If we are in case (2) or (3) above, we need to append the
                  * source name to the target name.
@@ -460,12 +484,13 @@ copy(char *argv[], enum op type, int fts_options)
 			 */
 			if (dne) {
 				if (mkdir(to.p_path,
-				    curr->fts_statp->st_mode | S_IRWXU) < 0)
+					  curr->fts_statp->st_mode | S_IRWXU) < 0) {
 					if (COMPAT_MODE("bin/cp", "unix2003")) {
 						warn("%s", to.p_path);
 					} else {
 						err(1, "%s", to.p_path);
 					}
+				}
 			} else if (!S_ISDIR(to_stat.st_mode)) {
 				errno = ENOTDIR;
 				if (COMPAT_MODE("bin/cp", "unix2003")) {
@@ -519,32 +544,6 @@ copy(char *argv[], enum op type, int fts_options)
 		err(1, "fts_read");
 	fts_close(ftsp);
 	return (rval);
-}
-
-/*
- * mastercmp --
- *	The comparison function for the copy order.  The order is to copy
- *	non-directory files before directory files.  The reason for this
- *	is because files tend to be in the same cylinder group as their
- *	parent directory, whereas directories tend not to be.  Copying the
- *	files first reduces seeking.
- */
-static int
-mastercmp(const FTSENT * const *a, const FTSENT * const *b)
-{
-	int a_info, b_info;
-
-	a_info = (*a)->fts_info;
-	if (a_info == FTS_ERR || a_info == FTS_NS || a_info == FTS_DNR)
-		return (0);
-	b_info = (*b)->fts_info;
-	if (b_info == FTS_ERR || b_info == FTS_NS || b_info == FTS_DNR)
-		return (0);
-	if (a_info == FTS_D)
-		return (-1);
-	if (b_info == FTS_D)
-		return (1);
-	return (0);
 }
 
 static void

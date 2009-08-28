@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 42;
+	objectVersion = 46;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -36,6 +36,10 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		45EE25240ED6420800C2BC69 /* IOFilterScheme.h in Headers */ = {isa = PBXBuildFile; fileRef = 60D01BE006E3CBC7005DAC06 /* IOFilterScheme.h */; };
+		45EE25250ED6421200C2BC69 /* IOFilterScheme.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 60D01BE106E3CBC7005DAC06 /* IOFilterScheme.cpp */; };
+		45EE25260ED6422900C2BC69 /* IOFilterScheme.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 60D01BE006E3CBC7005DAC06 /* IOFilterScheme.h */; };
+		45EE25270ED6423200C2BC69 /* IOFilterScheme.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 60D01BE006E3CBC7005DAC06 /* IOFilterScheme.h */; };
 		605A7C0A0D662B9B0077529E /* IOGUIDPartitionScheme.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 6008184505C5671B00B652A2 /* IOGUIDPartitionScheme.h */; };
 		605A7C0B0D662BBB0077529E /* IOGUIDPartitionScheme.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 6008184505C5671B00B652A2 /* IOGUIDPartitionScheme.h */; };
 		6061F1D60D4E643C00C2F3F6 /* IOGUIDPartitionScheme.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6008184605C5671B00B652A2 /* IOGUIDPartitionScheme.cpp */; };
@@ -157,6 +161,7 @@
 				606B78B60D4A564A00A2EB99 /* IOBlockStorageDevice.h in CopyFiles */,
 				606B78B70D4A564B00A2EB99 /* IOBlockStorageDriver.h in CopyFiles */,
 				606B78B80D4A564B00A2EB99 /* IOFDiskPartitionScheme.h in CopyFiles */,
+				45EE25260ED6422900C2BC69 /* IOFilterScheme.h in CopyFiles */,
 				605A7C0A0D662B9B0077529E /* IOGUIDPartitionScheme.h in CopyFiles */,
 				606B78B90D4A564B00A2EB99 /* IOMedia.h in CopyFiles */,
 				606B78BA0D4A564B00A2EB99 /* IOMediaBSDClient.h in CopyFiles */,
@@ -176,6 +181,7 @@
 				606B78BD0D4A566400A2EB99 /* IOBlockStorageDevice.h in CopyFiles */,
 				606B78BE0D4A566400A2EB99 /* IOBlockStorageDriver.h in CopyFiles */,
 				606B78BF0D4A566400A2EB99 /* IOFDiskPartitionScheme.h in CopyFiles */,
+				45EE25270ED6423200C2BC69 /* IOFilterScheme.h in CopyFiles */,
 				605A7C0B0D662BBB0077529E /* IOGUIDPartitionScheme.h in CopyFiles */,
 				606B78C00D4A566400A2EB99 /* IOMedia.h in CopyFiles */,
 				606B78C10D4A566400A2EB99 /* IOMediaBSDClient.h in CopyFiles */,
@@ -264,7 +270,7 @@
 		60DDA51B07382C6A00FAB8B3 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		60DDA51C07382C6A00FAB8B3 /* IOStorageFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOStorageFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		60DDA54307382D0000FAB8B3 /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = /System/Library/Frameworks/Kernel.framework; sourceTree = "<absolute>"; };
-		C1165C510E1D9D8600155EBF /* AspenSDK.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = AspenSDK.xcconfig; path = AppleInternal/XcodeConfig/AspenSDK.xcconfig; sourceTree = SYSTEM_DEVELOPER_DIR; };
+		C1165C510E1D9D8600155EBF /* AspenSDK.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = AspenSDK.xcconfig; path = AppleInternal/XcodeConfig/AspenSDK.xcconfig; sourceTree = DEVELOPER_DIR; };
 		C1E55B250D32D158002875AA /* IOStorageFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOStorageFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -272,7 +278,6 @@
 		089C166AFE841209C02AAC07 /* IOStorageFamily */ = {
 			isa = PBXGroup;
 			children = (
-				C1165C510E1D9D8600155EBF /* AspenSDK.xcconfig */,
 				60DDA54607382D0300FAB8B3 /* Frameworks */,
 				19C28FB6FE9D52B211CA2CBB /* Products */,
 				089C167CFE841241C02AAC07 /* Resources */,
@@ -336,6 +341,7 @@
 		60DDA54607382D0300FAB8B3 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				C1165C510E1D9D8600155EBF /* AspenSDK.xcconfig */,
 				60DDA54307382D0000FAB8B3 /* Kernel.framework */,
 			);
 			name = Frameworks;
@@ -371,6 +377,7 @@
 				C1E55B070D32D158002875AA /* IOBlockStorageDevice.h in Headers */,
 				C1E55B080D32D158002875AA /* IOBlockStorageDriver.h in Headers */,
 				C1E55B090D32D158002875AA /* IOFDiskPartitionScheme.h in Headers */,
+				45EE25240ED6420800C2BC69 /* IOFilterScheme.h in Headers */,
 				6061F1D70D4E644700C2F3F6 /* IOGUIDPartitionScheme.h in Headers */,
 				C1E55B0C0D32D158002875AA /* IOMedia.h in Headers */,
 				C1E55B0D0D32D158002875AA /* IOMediaBSDClient.h in Headers */,
@@ -510,6 +517,7 @@
 				C1E55B180D32D158002875AA /* IOBlockStorageDevice.cpp in Sources */,
 				C1E55B190D32D158002875AA /* IOBlockStorageDriver.cpp in Sources */,
 				C1E55B1A0D32D158002875AA /* IOFDiskPartitionScheme.cpp in Sources */,
+				45EE25250ED6421200C2BC69 /* IOFilterScheme.cpp in Sources */,
 				6061F1D60D4E643C00C2F3F6 /* IOGUIDPartitionScheme.cpp in Sources */,
 				C1E55B1D0D32D158002875AA /* IOMedia.cpp in Sources */,
 				C1E55B1E0D32D158002875AA /* IOMediaBSDClient.cpp in Sources */,
@@ -570,7 +578,7 @@
 				INFOPLIST_PREPROCESS = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MODULE_NAME = com.apple.iokit.IOStorageFamily;
-				MODULE_VERSION = 1.5.6;
+				MODULE_VERSION = 1.6;
 				PRODUCT_NAME = IOStorageFamily;
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;
@@ -584,7 +592,7 @@
 				INFOPLIST_PREPROCESS = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MODULE_NAME = com.apple.iokit.IOStorageFamily;
-				MODULE_VERSION = 1.5.6;
+				MODULE_VERSION = 1.6;
 				PRODUCT_NAME = IOStorageFamily;
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;
@@ -625,14 +633,13 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_THUMB_SUPPORT = YES;
+				"GCC_THUMB_SUPPORT[arch=armv6]" = YES;
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_PREFIX_HEADER = /usr/include/TargetConditionals.h;
 				INFOPLIST_PREPROCESS = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				MACOSX_DEPLOYMENT_TARGET = 10.5;
 				MODULE_NAME = com.apple.iokit.IOStorageFamily;
-				MODULE_VERSION = 1.5.6;
+				MODULE_VERSION = 1.6;
 				PRODUCT_NAME = IOStorageFamily;
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;
@@ -643,14 +650,13 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = C1165C510E1D9D8600155EBF /* AspenSDK.xcconfig */;
 			buildSettings = {
-				GCC_THUMB_SUPPORT = YES;
+				"GCC_THUMB_SUPPORT[arch=armv6]" = YES;
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_PREFIX_HEADER = /usr/include/TargetConditionals.h;
 				INFOPLIST_PREPROCESS = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				MACOSX_DEPLOYMENT_TARGET = 10.5;
 				MODULE_NAME = com.apple.iokit.IOStorageFamily;
-				MODULE_VERSION = 1.5.6;
+				MODULE_VERSION = 1.6;
 				PRODUCT_NAME = IOStorageFamily;
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;

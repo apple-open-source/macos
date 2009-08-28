@@ -1,0 +1,11 @@
+--- mu-conference_0.8/src/conference_room.c	2009-01-10 14:23:20.000000000 -0800
++++ mu-conference_0.8_apple/src/conference_room.c	2009-03-27 13:31:37.000000000 -0700
+@@ -1477,7 +1477,7 @@
+   /* Room Defaults */
+   room->public = master->public;
+   room->subjectlock = 0;
+-  room->maxusers = 30;
++  room->maxusers = 100;
+   room->persistent = persist;
+   room->moderated = 0;
+   room->defaulttype = 0;

@@ -3,23 +3,24 @@
 <plist version="1.0">
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2006-01-15</string>
+	<string>2008-09-09</string>
 	<key>OpenSourceLicense</key>
 	<string>GNU General Public License</string>
 	<key>OpenSourceLicenseFile</key>
 	<string>mailman.txt</string>
 	<key>OpenSourceModifications</key>
 	<array>
-		<string>none</string>
+		<string>Changed location of default logs to /var/log/mailman</string>
+		<string>Added startf to launch args in mailmanctl to allow for launchd compatibility</string>
 	</array>
 	<key>OpenSourceProject</key>
 	<string>mailman</string>
 	<key>OpenSourceSHA1</key>
 	<string></string>
 	<key>OpenSourceURL</key>
-	<string>http://downloads.sourceforge.net/mailman/mailman-2.1.9.tgz</string>
+	<string>http://downloads.sourceforge.net/mailman/mailman-2.1.12rc1.tgz</string>
 	<key>OpenSourceVersion</key>
-	<string>mailman 2.1.9</string>
+	<string>mailman 2.1.12rc1</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.list.org</string>
 </dict>

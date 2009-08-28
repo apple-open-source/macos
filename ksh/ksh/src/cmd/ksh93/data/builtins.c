@@ -1,10 +1,10 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*          Copyright (c) 1982-2007 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
-*                      by AT&T Knowledge Ventures                      *
+*                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
 *            http://www.opensource.org/licenses/cpl1.0.txt             *
@@ -37,9 +37,6 @@
 #   define bltin(x)	0
 #endif
 
-#ifndef SH_CMDLIB_DIR
-#	define SH_CMDLIB_DIR	"/opt/ast/bin"
-#endif
 #if defined(SHOPT_CMDLIB_DIR) && !defined(SHOPT_CMDLIB_HDR)
 #	define SHOPT_CMDLIB_HDR	<cmdlist.h>
 #endif
@@ -1835,6 +1832,5 @@ const char e_baddisc[]		= "%s: invalid discipline function";
 const char e_nospace[]		= "out of memory";
 const char e_nofork[]		= "cannot fork";
 const char e_nosignal[]		= "%s: unknown signal name";
-const char e_numeric[]		= "*([0-9])?(.)*([0-9])";
 const char e_condition[]	= "condition(s) required";
 const char e_cneedsarg[]	= "-c requires argument";

@@ -3,15 +3,15 @@
 	<key>OpenSourceProject</key>
 	<string>pyOpenSSL</string>
 	<key>OpenSourceVersion</key>
-	<string>0.6</string>
+	<string>0.7</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://pyopenssl.sourceforge.net/</string>
 	<key>OpenSourceURL</key>
-	<string>http://easynews.dl.sourceforge.net/sourceforge/pyopenssl/pyOpenSSL-0.6.tar.gz</string>
+	<string>http://voxel.dl.sourceforge.net/sourceforge/pyopenssl/pyOpenSSL-0.7.tar.gz</string>
 	<key>OpenSourceMD5</key>
-	<string>6200b71d3eb294a312d52c4825fc71c5</string>
+	<string>1924edc58c1e99f27763971d9959ea15</string>
 	<key>OpenSourceImportDate</key>
-	<string>2006-06-06</string>
+	<string>2008-07-14</string>
 	<key>OpenSourceModifications</key>
 	<array/>
 	<key>OpenSourceLicense</key>

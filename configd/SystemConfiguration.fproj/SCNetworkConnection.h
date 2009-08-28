@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2006, 2008, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,16 +22,22 @@
  */
 
 #ifndef _SCNETWORKCONNECTION_H
+#ifdef	USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS
+#include <SystemConfiguration/_SCNetworkConnection.h>
+#else	/* USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS */
 #define _SCNETWORKCONNECTION_H
 
-#include <AvailabilityMacros.h>
+#include <Availability.h>
+#include <TargetConditionals.h>
 #include <sys/cdefs.h>
+#if	!TARGET_OS_IPHONE
+#include <dispatch/dispatch.h>
+#endif	// !TARGET_OS_IPHONE
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
 
 /*!
 	@header SCNetworkConnection
@@ -202,6 +208,29 @@ typedef void (*SCNetworkConnectionCallBack)	(
 #define kSCNetworkConnectionErrorsOut		CFSTR("ErrorsOut")		/* CFNumber */
 
 
+/*
+ Keys for the SCNetworkConnectionCopyUserPreferences() "selectionOptions"
+ dictionary
+ */
+
+/*!
+	@define kSCNetworkConnectionSelectionOptionOnDemandHostName
+	@discussion A host name that will be used to select the
+		"best" SCNetworkConnection.
+ */
+#if	(__MAC_OS_X_VERSION_MIN_REQUIRED >= 1060) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 30000) || TARGET_IPHONE_SIMULATOR
+#define kSCNetworkConnectionSelectionOptionOnDemandHostName	CFSTR("OnDemandHostName")	/* CFString */
+#endif
+
+/*!
+	@define kSCNetworkConnectionSelectionOptionOnDemandRetry
+	@discussion A boolean value used to indicate whether a DNS query has
+		already been issued for the specified OnDemand host name.
+ */
+#if	(__MAC_OS_X_VERSION_MIN_REQUIRED >= 1060) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 30000) || TARGET_IPHONE_SIMULATOR
+#define kSCNetworkConnectionSelectionOptionOnDemandRetry	CFSTR("OnDemandRetry")		/* CFBoolean */
+#endif
+
 __BEGIN_DECLS
 
 /*!
@@ -210,7 +239,8 @@ __BEGIN_DECLS
 		instances.
  */
 CF_EXPORT
-CFTypeID SCNetworkConnectionGetTypeID		(void)			AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER;
+CFTypeID
+SCNetworkConnectionGetTypeID			(void)			__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
 
 
 /*!
@@ -228,11 +258,12 @@ CFTypeID SCNetworkConnectionGetTypeID		(void)			AVAILABLE_MAC_OS_X_VERSION_10_3_
 	@result Returns TRUE if there is a valid service to dial;
 		FALSE if the function was unable to retrieve a service to dial.
  */
-Boolean SCNetworkConnectionCopyUserPreferences	(
+Boolean
+SCNetworkConnectionCopyUserPreferences		(
 						CFDictionaryRef			selectionOptions,
 						CFStringRef			*serviceID,
 						CFDictionaryRef			*userOptions
-						)			AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER;
+						)			__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
 
 
 /*!
@@ -262,7 +293,7 @@ SCNetworkConnectionCreateWithServiceID		(
 						CFStringRef			serviceID,
 						SCNetworkConnectionCallBack	callout,
 						SCNetworkConnectionContext	*context
-						)			AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER;
+						)			__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
 
 
 /*!
@@ -274,7 +305,7 @@ SCNetworkConnectionCreateWithServiceID		(
 CFStringRef
 SCNetworkConnectionCopyServiceID		(
 						SCNetworkConnectionRef		connection
-						)			AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER;
+						)			__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
 
 
 /*!
@@ -297,7 +328,7 @@ SCNetworkConnectionCopyServiceID		(
 SCNetworkConnectionStatus
 SCNetworkConnectionGetStatus			(
 						SCNetworkConnectionRef		connection
-						)			AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER;
+						)			__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
 
 
 /*!
@@ -325,6 +356,13 @@ SCNetworkConnectionGetStatus			(
 &#32
 	Modem : ConnectSpeed   : the speed of the modem connection
 				 in bits/second.
+&#32
+	IPSec : Status         : the IPSec-specific status of type
+				 SCNetworkConnectionIPSecStatus
+&#32
+		ConnectTime    : the time when the connection was
+				 established.
+
 @/textblock
 </pre>
 		Other dictionaries could be present for PPPoE, PPTP, and L2TP.
@@ -338,7 +376,7 @@ SCNetworkConnectionGetStatus			(
 CFDictionaryRef
 SCNetworkConnectionCopyExtendedStatus		(
 						SCNetworkConnectionRef		connection
-						)			AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER;
+						)			__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
 
 
 /*!
@@ -380,7 +418,7 @@ SCNetworkConnectionCopyExtendedStatus		(
 CFDictionaryRef
 SCNetworkConnectionCopyStatistics		(
 						SCNetworkConnectionRef		connection
-						)			AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER;
+						)			__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
 
 
 /*!
@@ -432,7 +470,7 @@ SCNetworkConnectionStart			(
 						SCNetworkConnectionRef		connection,
 						CFDictionaryRef			userOptions,
 						Boolean				linger
-						)			AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER;
+						)			__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
 
 
 /*!
@@ -458,7 +496,7 @@ Boolean
 SCNetworkConnectionStop				(
 						SCNetworkConnectionRef		connection,
 						Boolean				forceDisconnect
-						)			AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER;
+						)			__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
 
 
 /*!
@@ -474,7 +512,7 @@ SCNetworkConnectionStop				(
 CFDictionaryRef
 SCNetworkConnectionCopyUserOptions		(
 						SCNetworkConnectionRef		connection
-						)			AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER;
+						)			__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
 
 
 /*!
@@ -492,7 +530,7 @@ SCNetworkConnectionScheduleWithRunLoop		(
 						SCNetworkConnectionRef		connection,
 						CFRunLoopRef			runLoop,
 						CFStringRef			runLoopMode
-						)			AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER;
+						)			__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
 
 
 /*!
@@ -510,10 +548,28 @@ SCNetworkConnectionUnscheduleFromRunLoop	(
 						SCNetworkConnectionRef		connection,
 						CFRunLoopRef			runLoop,
 						CFStringRef			runLoopMode
-						)			AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER;
+						)			__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
+
+
+#if	!TARGET_OS_IPHONE
+/*!
+	 @function SCNetworkConnectionSetDispatchQueue
+	 @discussion Caller provides a dispatch queue on which the callback contained in connection will run.
+	 @param connection The SCNetworkConnection to notify.
+	 @param queue The libdispatch queue to run the callback on.
+		Pass NULL to disable notifications, and release queue.
+	 @result Returns TRUE if the notifications have been enabled/disabled as desired;
+		 FALSE if not.
+		 The error can be retrieved using the SCError function.
+ */
+Boolean
+SCNetworkConnectionSetDispatchQueue		(
+						 SCNetworkConnectionRef		connection,
+						 dispatch_queue_t		queue
+						 )			__OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_NA);
+#endif	// !TARGET_OS_IPHONE
 
 __END_DECLS
 
-#endif	/* MAC_OS_X_VERSION_MAX_ALLOWED >= 1030 */
-
+#endif	/* USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS */
 #endif /* _SCNETWORKCONNECTION_H */

@@ -39,6 +39,7 @@ $|=1;
 
 require SVN::Core;
 require SVN::Ra;
+require SVN::Client;
 
 # The URL of the Subversion repository we wish to graph
 # (e.g. "http://svn.collab.net/repos/svn").
@@ -56,7 +57,8 @@ parse_commandline();
 
 # Point at the root of a repository so we get can look at
 # every revision.
-my $ra = SVN::Ra->new($repos_url);
+my $auth = (new SVN::Client())->auth;
+my $ra = SVN::Ra->new(url => $repos_url, auth => $auth);
 
 # Handle identifier for the aboslutely youngest revision.
 if ($youngest eq 'HEAD')
@@ -221,7 +223,7 @@ sub write_graph_descriptor
       next;
     }
 
-    # If this node is the first in it's chain, or the source of
+    # If this node is the first in its chain, or the source of
     # a copy, then we'll print it, and then find the next in
     # the chain that needs to be printed too
     if (!exists($codeline_changes_back{$codeline_change}) or

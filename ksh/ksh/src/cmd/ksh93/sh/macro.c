@@ -1,10 +1,10 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*          Copyright (c) 1982-2007 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
-*                      by AT&T Knowledge Ventures                      *
+*                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
 *            http://www.opensource.org/licenses/cpl1.0.txt             *
@@ -1693,7 +1693,7 @@ static void comsubst(Mac_t *mp,int type)
 			stakset(savptr,savtop);
 			*mp = savemac;
 			if((Sflong_t)num==num)
-				sfprintf(sh.strbuf,"%lld",(Sflong_t)num);
+				sfprintf(sh.strbuf,"%Lg",num);
 			else
 				sfprintf(sh.strbuf,"%.*Lg",LDBL_DIG,num);
 			str = sfstruse(sh.strbuf);
@@ -1829,8 +1829,10 @@ static void comsubst(Mac_t *mp,int type)
 			mac_copy(mp,&lastc,1);
 			lastc = 0;
 		}
+		if(c <= 0)
+			continue;
 		/* delay appending trailing new-lines */
-		while(str[--c]=='\n')
+		while(c-->=0 && str[c]=='\n')
 			newlines++;
 		if(++c < bufsize)
 			str[c] = 0;

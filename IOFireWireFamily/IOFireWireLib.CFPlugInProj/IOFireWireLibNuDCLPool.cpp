@@ -154,7 +154,7 @@ namespace IOFireWireLib {
 			exportBytes += dcl->Export( NULL, NULL, 0 ) ;		// find export data size needed
 		}
 		
-		vm_allocate( mach_task_self(), outExportData, exportBytes, true /*anywhere*/ ) ;
+		vm_allocate( mach_task_self(), (vm_address_t*)outExportData, exportBytes, true /*anywhere*/ ) ;
 		
 		{
 			IOVirtualAddress exportCursor = *outExportData ;

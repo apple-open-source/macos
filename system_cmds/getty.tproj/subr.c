@@ -64,8 +64,9 @@ static const char rcsid[] =
  * Get a table entry.
  */
 void
-gettable(const char *name, char *buf)
+gettable(const char *name)
 {
+	char *buf = NULL;
 	struct gettystrs *sp;
 	struct gettynums *np;
 	struct gettyflags *fp;
@@ -175,6 +176,8 @@ gettable(const char *name, char *buf)
 		printf("cgetflags: %s='%c' set='%c'\r\n", fp->field, 
 		       fp->value + '0', fp->set + '0');
 #endif /* DEBUG */
+
+	free(buf);
 }
 
 void

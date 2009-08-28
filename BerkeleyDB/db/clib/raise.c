@@ -1,20 +1,14 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1997-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1997,2007 Oracle.  All rights reserved.
+ *
+ * $Id: raise.c,v 12.7 2007/05/17 15:14:54 bostic Exp $
  */
 
 #include "db_config.h"
 
-#ifndef lint
-static const char revid[] = "$Id: raise.c,v 1.2 2004/03/30 01:21:22 jtownsen Exp $";
-#endif /* not lint */
-
-#ifndef NO_SYSTEM_INCLUDES
-#include <signal.h>
-#include <unistd.h>
-#endif
+#include "db_int.h"
 
 /*
  * raise --
@@ -28,9 +22,5 @@ int
 raise(s)
 	int s;
 {
-	/*
-	 * Do not use __os_id(), as it may not return the process ID -- any
-	 * system with kill(3) probably has getpid(3).
-	 */
 	return (kill(getpid(), s));
 }

@@ -141,7 +141,7 @@ IOReturn IOFireWireSBP2ManagementORB::getUnitInformation( void )
 		fManagementOffset = ((OSNumber*)prop)->unsigned32BitValue();
 	}
 	
-    FWKLOG( ("IOFireWireSBP2ManagementORB<0x%08lx> : status = %d, fManagementOffset = %d\n", (UInt32)this, status, fManagementOffset) );
+    FWKLOG( ("IOFireWireSBP2ManagementORB<%p> : status = %d, fManagementOffset = %d\n", this, status, fManagementOffset) );
 
     //
     // find unit characteristics
@@ -497,7 +497,7 @@ IOReturn IOFireWireSBP2ManagementORB::setResponseBuffer
 
 IOReturn IOFireWireSBP2ManagementORB::execute( void )
 {
-    FWKLOG( ( "IOFireWireSBP2ManagementORB<0x%08lx> : execute\n", (UInt32)this ) );
+    FWKLOG( ( "IOFireWireSBP2ManagementORB<%p> : execute\n", this ) );
 	IOReturn status = kIOReturnSuccess;
     
     IOFireWireSBP2Login * 	login 	= NULL;
@@ -596,7 +596,7 @@ void IOFireWireSBP2ManagementORB::writeCompleteStatic( void *refcon, IOReturn st
 
 void IOFireWireSBP2ManagementORB::writeComplete( IOReturn status, IOFireWireNub *device, IOFWCommand *fwCmd )
 {
-    FWKLOG( ( "IOFireWireSBP2ManagementORB<0x%08lx> : write complete\n", (UInt32)this ) );
+    FWKLOG( ( "IOFireWireSBP2ManagementORB<%p> : write complete\n", this ) );
 
     if( status == kIOReturnSuccess )
     {
@@ -625,7 +625,7 @@ void IOFireWireSBP2ManagementORB::handleTimeout( IOReturn status, IOFireWireBus 
 
     if( status == kIOReturnTimeout )
     {
-        FWKLOG( ( "IOFireWireSBP2ManagementORB<0x%08lx> : handle timeout\n", (UInt32)this ) );
+        FWKLOG( ( "IOFireWireSBP2ManagementORB<%p> : handle timeout\n", this ) );
         complete( kIOReturnTimeout );
     }
 }
@@ -673,7 +673,7 @@ UInt32 IOFireWireSBP2ManagementORB::statusBlockWrite( UInt16 nodeID, FWAddress a
 
 void IOFireWireSBP2ManagementORB::suspendedNotify( void )
 {
-    FWKLOG( ( "IOFireWireSBP2ManagementORB<0x%08lx> : suspendedNotify\n", (UInt32)this ) );
+    FWKLOG( ( "IOFireWireSBP2ManagementORB<%p> : suspendedNotify\n", this ) );
 
 	if( fStatus == kIOReturnBusy && !fCompleting )
 	{
@@ -695,7 +695,7 @@ void IOFireWireSBP2ManagementORB::suspendedNotify( void )
 IOReturn IOFireWireSBP2ManagementORB::complete( IOReturn state )
 {
     state = IOFWCommand::complete( state );
-    FWKLOG( ( "IOFireWireSBP2ManagementORB<0x%08lx> : complete\n", (UInt32)this ) );
+    FWKLOG( ( "IOFireWireSBP2ManagementORB<%p> : complete\n", this ) );
  
 	if( fExpansionData->fInCriticalSection )
 	{

@@ -1,3 +1,0 @@
-inet_aton.lo .libs/inet_aton.o: inet_aton.c ../config.h
-
-../config.h:

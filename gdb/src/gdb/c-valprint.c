@@ -80,6 +80,8 @@ c_val_print (struct type *type, const gdb_byte *valaddr, int embedded_offset,
   unsigned eltlen;
   LONGEST val;
   CORE_ADDR addr;
+  int vector_int8s = 0;
+  int vector_floats = 0;
 
   CHECK_TYPEDEF (type);
   switch (TYPE_CODE (type))
@@ -94,12 +96,36 @@ c_val_print (struct type *type, const gdb_byte *valaddr, int embedded_offset,
 	    {
 	      print_spaces_filtered (2 + 2 * recurse, stream);
 	    }
-	  /* For an array of chars, print with string syntax.  */
-	  if (eltlen == 1 &&
+
+          /* APPLE LOCAL: gdb will print the int8_t elements of a vector
+             register as a string or as characters -- neither of which is
+             what the user expects 99% of the time.  Instead, detect that
+             we're looking at a vector's int8_t array and treat it
+             specially.  */
+          if (eltlen == 1 
+              && TYPE_VECTOR (type) 
+              && TYPE_CODE (elttype) == TYPE_CODE_INT
+              && format == 0)
+            {
+              vector_int8s = 1;
+            }
+
+          /* APPLE LOCAL: Detect if we're about to print an array of
+             v4_float or v2_doubles in a vector register  */
+          if ((eltlen == 4 || eltlen == 8)
+              && TYPE_VECTOR (type) 
+              && TYPE_CODE (elttype) == TYPE_CODE_FLT)
+            {
+              vector_floats = 1;
+            }
+
+          /* For an array of chars, print with string syntax.  */
+          if (eltlen == 1 &&
 	      ((TYPE_CODE (elttype) == TYPE_CODE_INT)
 	       || ((current_language->la_language == language_m2)
 		   && (TYPE_CODE (elttype) == TYPE_CODE_CHAR)))
-	      && (format == 0 || format == 's'))
+	      && (format == 0 || format == 's')
+              && vector_int8s == 0)
 	    {
 	      /* If requested, look for the first null char and only print
 	         elements up to it.  */
@@ -132,8 +158,23 @@ c_val_print (struct type *type, const gdb_byte *valaddr, int embedded_offset,
 		{
 		  i = 0;
 		}
-	      val_print_array_elements (type, valaddr + embedded_offset, address, stream,
-				     format, deref_ref, recurse, pretty, i);
+              
+              /* If this is an array of int8_t's in a vector register,
+                 force it to print as decimal by default, not as
+                 decimal value + octal escaped char.  */
+              if (format == 0 && vector_int8s)
+                format = 'd';
+
+              /* If this is an array of v4_float or v2_doubles in a vector
+                 register, force it to print with the '%a' floating point hex
+                 formatter when "p/x" is used.  Default formatter remains the
+                 '%g' style.  */
+              if (format == 'x' && vector_floats)
+                format = 'A';
+
+	      val_print_array_elements (type, valaddr + embedded_offset, 
+                                        address, stream, format, deref_ref, 
+                                        recurse, pretty, i);
 	      fprintf_filtered (stream, "}");
 	    }
 	  break;
@@ -598,6 +639,10 @@ c_value_print (struct value *val, struct ui_file *stream, int format,
 	}
       /* Otherwise, we end up at the return outside this "if" */
     }
+
+  real_type = get_closure_dynamic_type (val);
+  if (real_type)
+    type = real_type;
 
   return val_print (type, value_contents_all (val),
 		    value_embedded_offset (val),

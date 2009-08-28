@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2007, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -80,12 +80,12 @@ _ctx_done (ucontext_t *ucp)
 		/* Set context to next one in link */
 		/* XXX - what to do for error, abort? */
 		setcontext((const ucontext_t *)ucp->uc_link);
-		abort();	/* should never get here */
+		LIBC_ABORT("setcontext failed");	/* should never get here */
 	}
 }
 
 void
-makecontext(ucontext_t *ucp, void (*start)(void), int argc, ...)
+makecontext(ucontext_t *ucp, void (*start)(), int argc, ...)
 {
 	va_list		ap;
 	char		*stack_top;

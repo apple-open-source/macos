@@ -1,0 +1,401 @@
+#!../../src/xotclsh
+# -*- Tcl -*- $Id: persistence.test,v 1.1 2004/05/23 22:50:39 neumann Exp $ 
+package require XOTcl; namespace import -force xotcl::*
+
+@ @File {
+  description {
+    Several tests for persistent stores and performance comparison.
+    The "-bigdb" command line option additionally starts a (longer)
+    big database test. The test automatically detects which storages
+    are avaiable.
+  }
+}
+array set opt {-bigdb 0 -bench 0}
+array set opt $argv
+
+lappend auto_path [file dir [info script]]/..
+
+#set auto_path ".. ../../src $auto_path"
+#package require xotcl::package;package verbose 1
+
+set storageCandidates {Sdbm Jufgdbm Mem Gdbm TextFile} 
+set storageCandidates {Sdbm Mem Gdbm TextFile}
+#set storageCandidates {Gdbm}
+set stores ""
+
+foreach store $storageCandidates {
+  if {![catch {package require xotcl::store::[string tolower $store]}]} {
+    lappend stores $store
+  } else {
+    puts "FAILED: package require xotcl::store::[string tolower $store]"
+  }
+}
+
+puts "\nPersistence Test\n\nUsing the following Storages: \n  $stores\n"
+
+set ::tests {
+  testStorageFeatures
+  Stores
+  Traverse
+  Store_Fetch_List
+  Store_Fetch_List_Same_Key
+  SimplePersistentObjects
+  LotsOfObjects
+}
+
+if {$opt(-bigdb)} {
+  lappend ::tests bigdb
+  puts " ... bigdb test enabled.\n"
+} else {
+  puts " ... bigdb test disabled.\n"
+}
+if {$opt(-bench)} {
+  set ::runs 10
+  # don't use number >= 1000 because of SDBMs's char key length with the
+  # test SimplePersistentObjects
+  # don't use number > 272 because of SDBMs's key pairs max length of 1024
+  # FIX THIS in FUTURE RELEASES!!
+  set ::iterations 272 
+} else {
+  set ::runs 1
+  set ::iterations 10
+}
+
+#package require xotcl::store::trace
+#Storage=Gdbm instmixin TraceStorage
+
+
+package require xotcl::store::persistence
+
+proc ::errorCheck {got expected msg} {
+  if {$got != $expected} {
+    puts stderr "FAILED: $msg\nGot: $got\nExpected: $expected"
+    exit -1
+  }
+}
+proc ::errorCheckList {got expected msg} {
+  if {[lsort $got] != [lsort $expected]} {
+    puts stderr "FAILED: $msg\nGot: $got\nExpected: $expected"
+    exit -1
+  }
+}
+
+Class PersistenceTest
+
+@ Class PersistenceTest
+
+PersistenceTest instproc init args {
+  next
+}
+
+PersistenceTest instproc testStorageFeatures {store} {
+  Storage=$store s
+  s open testDB
+  s set "{::a::s x} {x}" {a b c d}
+  s set "::a::s x" {{r t} a b c r}
+  s set ::a::t 7
+  set result [s set ::a::t]
+  errorCheck $result 7 "Failed fetch ::a::t"
+  set result [s set "{::a::s x} {x}"]
+  errorCheck $result "a b c d" "Failed fetch {::a::s x} {x}"
+  set result [s set "::a::s x"]
+  errorCheck $result "{r t} a b c r" "Failed fetch ::a::s x"
+
+  errorCheckList [s names] "{::a::s x} {{::a::s x} {x}} ::a::t" "Failed list -- all"
+
+  set keys [list [s firstkey]]
+  while {[set nk [s nextkey]] != ""} {lappend keys $nk}
+  set keys [lappend keys [s firstkey]]
+  while {[set nk [s nextkey]] != ""} {lappend keys $nk}
+
+  errorCheckList $keys "{{::a::s x} {x}} {::a::s x} ::a::t {{::a::s x} {x}} {::a::s x} ::a::t" "First/next key traversal failed."
+
+  s unset "{::a::s x} {x}"
+  errorCheckList [s names] "{::a::s x} ::a::t" "Failed delete {::a::s x} {x}"
+  s unset "::a::s x"
+  errorCheckList [s names] "::a::t" "Failed delete ::a::s x"
+
+  s close
+  s destroy
+  return "  PASSED with $store"
+}
+
+PersistenceTest instproc Traverse { store} {
+  Storage=$store s
+  s open testDB
+  for {set i 0} {$i < $::iterations} {incr i} {
+    set key "::a${i}"
+    set value "An value for the test $i $i $i\0"
+    s set $key $value
+    lappend resultKeys $key
+    lappend resultValues $value
+  }
+
+  set keys [list [s firstkey]]
+  set values [list [s set $keys]]
+  while {[set nk [s nextkey]] != ""} {
+    lappend keys $nk
+    lappend values [s set $nk]
+  }
+  errorCheckList $keys $resultKeys "Failed Traverse keys"
+  errorCheckList $values $resultValues "Failed Traverse values"
+  s close
+  s destroy
+  return "  PASSED with $store"
+}
+
+PersistenceTest instproc Stores {store} {
+  Storage=$store s
+  s open testDB
+  for {set i 0} {$i < $::iterations} {incr i} {
+    s set "::a${i}" "An value for the test $i $i $i"
+  }
+  set list [s names]
+  errorCheck [llength $list] $::iterations "Failed Stores $::iterations -- Wrong \# of stored elements" 
+  s close
+  s destroy
+  return "  PASSED with $store"
+}
+
+PersistenceTest instproc Store_Fetch_List {store} {
+  Storage=$store s
+  s open testDB
+  for {set i 0} {$i < $::iterations} {incr i} {
+    set key "::a${i}"
+    set value "An value for the test $i $i $i"
+    s set $key $value
+    set list [s names]
+    errorCheck [llength $list] [expr $i +1] "Failed Store_Fetch_List $::iterations -- Wrong \# of stored elements"
+    set result [s set $key]
+    errorCheck $result $value "Failed fetch Store_Fetch_List current key"
+    set result [s set "::a0"]
+    errorCheck $result "An value for the test 0 0 0" "Failed fetch Store_Fetch_List first key"
+  }
+  s close
+  s destroy
+  return "  PASSED with $store"
+}
+
+PersistenceTest instproc Store_Fetch_List_Same_Key {store} {
+  Storage=$store s
+  s open testDB
+  set key "Always the same key"
+  for {set i 0} {$i < $::iterations} {incr i} {
+    set value "An value for the test $i $i $i"
+    s set $key $value
+    set list [s names]
+    errorCheck [llength $list] 1 "Failed Store_Fetch_List_Same_Key $::iterations -- Wrong \# of stored elements"
+    set result [s set $key]
+    errorCheck $result $value "Failed fetch Store_Fetch_List_Same_Key current key"
+  }
+  
+  s close
+  s destroy
+  return "  PASSED with $store"
+}
+
+#
+# tests dependent on the Persistence package
+#
+
+PersistenceTest instproc SimplePersistentObjects {store} {
+  set ox 1; set oy 1; set py 1; set px 1;
+  set oza 1; set ozb 1; set onames [list a b]
+  set pza 1; set pzb 1; set pnames [list a b]
+
+
+
+  #puts stderr mixin=[pmgr info mixin]
+  #pmgr mixin [concat TraceStorage [pmgr info mixin]]
+
+  for {set i 0} {$i < $::iterations} {incr i} {
+  PersistenceMgr pmgr -dirName . \
+      -fileName testDB -dbPackage $store
+    # Two example objects with variables set to default values
+    Object o
+    o set x 1
+    o set y 1
+    o set threeLines "a
+b
+c"
+
+    o array set z {a 1 b 1}
+    Object p
+    p set x 1
+    p set y 1
+    p array set z {a 1 b 1}
+
+    o mixin Persistent=Eager
+    p mixin Persistent=Lazy
+    # for the mem storage Lazy Persistence makes not much sense
+    if {$store == "Mem"} {p mixin Persistent=Eager}
+ 
+    o persistenceMgr pmgr
+    p persistenceMgr pmgr
+    o persistent {x y z threeLines}
+    p persistent {x y z}
+
+    o incr x 2
+    incr ox 2
+    o append y 1
+    append oy 1
+    p incr x 3
+    incr px 3
+    p append y 2
+    append py 2
+
+    o incr z(a) 2
+    incr oza 2
+    o append z(b) 1
+    append ozb 1
+    o set z($i) 5
+    lappend onames $i
+
+    p incr z(a) 2
+    incr pza 2
+    p append z(b) 1
+    append pzb 1
+    p set z($i) 5
+    lappend pnames $i
+
+    errorCheck [o set x] $ox "Persistence: o->x Failed"
+    errorCheck [o set y] $oy "Persistence: o->y Failed"
+    errorCheck [o set z(a)] $oza "Persistence: o->z(a) Failed"
+    errorCheck [o set z(b)] $ozb "Persistence: o->z(b) Failed"
+    errorCheckList [o array names z] $onames "Array indizes got lost - o -"
+    errorCheck [p set x] $px "Persistence: p->x Failed"
+    errorCheck [p set y] $py "Persistence: p->y Failed"
+    errorCheckList [o array names z] $onames "Array indizes got lost"
+    errorCheck [p set z(a)] $pza "Persistence: p->z(a) Failed"
+    errorCheck [p set z(b)] $pzb "Persistence: p->z(b) Failed"
+    errorCheckList [p array names z] $pnames "Array indizes got lost - p -"
+
+    errorCheck [o set threeLines] {a
+b
+c} "Three Lines Failed"
+
+    o destroy
+    p destroy
+    pmgr destroy
+  }
+
+  #errorCheck $ox 21 "Persistence: o->x End Result Failed"
+  #errorCheck $oy 11111111111 "Persistence: o->y End Result Failed"
+  #errorCheck $px 31 "Persistence: p->x End Result Failed"
+  #errorCheck $py 12222222222 "Persistence: p->y End Result Failed"
+
+  return "  PASSED with $store"
+}
+
+PersistenceTest instproc LotsOfObjects {store} {
+  set secondLoopMax 1
+  PersistenceMgr pmgr -dirName . \
+      -fileName testDB -dbPackage $store
+  for {set i 0} {$i < $::iterations} {incr i} {
+    # we create 10 objects per iteration 
+    for {set j 0} {$j < $secondLoopMax} {incr j} {
+      Object iHaveaVeryLongName${i}${j}
+      Object iHaveaVeryLongName${i}${j}::meToo${i}${j}
+      iHaveaVeryLongName${i}${j} mixin Persistent=Eager
+      iHaveaVeryLongName${i}${j} persistenceMgr pmgr
+      iHaveaVeryLongName${i}${j}::meToo${i}${j} mixin Persistent=Eager
+      iHaveaVeryLongName${i}${j}::meToo${i}${j} persistenceMgr pmgr
+      foreach var {a b c d e f g h i j k l m n o p} {
+	iHaveaVeryLongName${i}${j} set $var " some useless test ......
+          with spaces and lines breaks iHaveaVeryLongName$i $var $i
+        "
+	iHaveaVeryLongName${i}${j} persistent $var
+        iHaveaVeryLongName${i}${j}::meToo${i}${j} set $var " some useless test ......
+          with spaces and lines breaks iHaveaVeryLongName$i $var $i
+        "
+	iHaveaVeryLongName${i}${j}::meToo${i}${j} persistent $var
+      }
+    }
+  }
+  pmgr destroy
+  return "  PASSED with $store"
+}
+
+PersistenceTest instproc random modulo {     ;### random number generator
+  [self] instvar seed
+  set seed [expr {($seed*12731+34197) % 21473}]
+  return [expr {$seed % $modulo}]
+}
+
+PersistenceTest instproc bigdb {store} {
+  Storage=$store s
+  s open testDB
+  set max 100000
+  [self] set seed 4711
+  for {set i 0} {$i < $max} {incr i} {
+    s set $i $i
+  }
+  [self] set seed 4711
+  for {set i 0} {$i < $max} {incr i} {
+    set key [[self] random $max]
+    set r [s set $key]
+    errorCheck $r $key "Failed bigdb $::iterations -- Wrong result $r instead of $key"
+  }
+  s close
+  s destroy
+  return "  PASSED with $store"
+}
+
+
+
+PersistenceTest instproc runOnce {} {
+  eval file delete -force testDB [glob -nocomplain testDB*]
+  catch {xotcl::memStoragePool remove testDB}
+  foreach test $::tests {
+    puts "[[self] set run]: $test $::iterations" 
+    foreach s $::stores {
+      set t [time {set result [[self] $test $s]}]
+      [self] report $test $s $t $result
+      eval file delete -force testDB [glob -nocomplain testDB*]
+      catch {xotcl::memStoragePool remove testDB}
+    }
+  }
+}
+PersistenceTest instproc run {runs} {
+  [self] instvar run
+  for {set run 1} {$run<=$runs} {incr run} {
+    pt runOnce
+  }
+}
+
+PersistenceTest instproc report {test store time result} {
+  if {![regexp {^(-?[0-9]+) +(.*)$} $time _ ms string]} {
+    puts stderr "time <$time> could not be parsed"
+    return
+  }
+  set key bench($test,$store)
+  set better " "
+  if {[[self] exists $key]} {
+    if {[[self] set $key] > $ms} {
+      [self] set $key $ms
+      set better "+"
+    }
+  } else {
+    [self] set $key $ms
+  }
+  puts "[[self] set run]: [format %-22s $result]\
+	$better[format %10d $ms] $string"
+}
+
+PersistenceTest instproc table {} {
+  set f [open "persistent.cvs" w]
+  foreach test $::tests {
+    set values ""
+    foreach store $::stores {
+      lappend values [[self] set bench($test,$store)]
+    }
+    puts "[format %-30s $test];[join $values {;}]"
+    puts $f "[format %-30s $test];[join $values {;}]"
+  }
+  close $f
+}
+
+PersistenceTest pt -run $::runs
+if {$opt(-bench)} {
+  pt table
+}

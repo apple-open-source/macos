@@ -345,7 +345,7 @@ rc_getstring(struct rcfile *rcp, const char *section, const char *key,
 		warnx("line too long for key '%s' in section '%s', max = %d\n", key, section, maxlen);
 		return EINVAL;
 	}
-	strcpy(dest, value);
+	strlcpy(dest, value, maxlen);
 	return 0;
 }
 
@@ -362,7 +362,7 @@ rc_getint(struct rcfile *rcp, const char *section, const char *key, int *value)
 	if (!rkp)
 		return ENOENT;
 	errno = 0;
-	*value = strtol(rkp->rk_value, NULL, 0);
+	*value = (int)strtol(rkp->rk_value, NULL, 0);
 	if (errno) {
 		warnx("invalid int value '%s' for key '%s' in section '%s'\n", rkp->rk_value, key, section);
 		return errno;

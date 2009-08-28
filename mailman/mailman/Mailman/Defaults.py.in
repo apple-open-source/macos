@@ -1,6 +1,6 @@
 # -*- python -*-
 
-# Copyright (C) 1998-2006 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2008 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -108,6 +108,11 @@ ALLOW_SITE_ADMIN_COOKIES = No
 # should output results to standard output.  %(filename)s will contain the
 # name of the temporary file that the program should operate on.
 HTML_TO_PLAIN_TEXT_COMMAND = '/usr/bin/lynx -dump %(filename)s'
+
+# A Python regular expression character class which defines the characters
+# allowed in list names.  Lists cannot be created with names containing any
+# character that doesn't match this class.
+ACCEPTABLE_LISTNAME_CHARACTERS = '[-+_.=a-z0-9]'
 
 
 
@@ -217,11 +222,13 @@ DEFAULT_ARCHIVE_PRIVATE = 0
 # ARCHIVE_TO_MBOX
 #-1 - do not do any archiving
 # 0 - do not archive to mbox, use builtin mailman html archiving only
-# 1 - archive to mbox to use an external archiving mechanism only
-# 2 - archive to both mbox and builtin mailman html archiving -
-#     use this to make both external archiving mechanism work and
-#     mailman's builtin html archiving.  the flat mail file can be
-#     useful for searching, external archivers, etc.
+# 1 - do not use builtin mailman html archiving, archive to mbox only
+# 2 - archive to both mbox and builtin mailman html archiving.
+#     See the settings below for PUBLIC_EXTERNAL_ARCHIVER and
+#     PRIVATE_EXTERNAL_ARCHIVER which can be used to replace mailman's
+#     builtin html archiving with an external archiver.  The flat mail
+#     mbox file can be useful for searching, and is another way to
+#     interface external archivers, etc.
 ARCHIVE_TO_MBOX = 2
 
 # 0 - yearly
@@ -328,7 +335,7 @@ ARCHIVER_ALLOWABLE_SANE_DATE_SKEW = days(15)
 # in the archives too.
 ARCHIVER_OBSCURES_EMAILADDRS = Yes
 
-# Pipermail assumes that messages bodies contain US-ASCII text.
+# Pipermail assumes that message bodies contain US-ASCII text.
 # Change this option to define a different character set to be used as
 # the default character set for the archive.  The term "character set"
 # is used in MIME to refer to a method of converting a sequence of
@@ -377,15 +384,16 @@ MTA = 'Manual'
 
 # If you set MTA='Postfix', then you also want to set the following variable,
 # depending on whether you're using virtual domains in Postfix, and which
-# style of virtual domain you're using.  Set this flag to false if you're not
-# using virtual domains in Postfix, or if you're using Sendmail-style virtual
-# domains (where all addresses are visible in all domains).  If you're using
-# Postfix-style virtual domains, where aliases should only show up in the
-# virtual domain, set this variable to the list of host_name values to write
-# separate virtual entries for.  I.e. if you run dom1.ain, dom2.ain, and
+# style of virtual domain you're using.  Set this to the empty list if you're
+# not using virtual domains in Postfix, or if you're using Sendmail-style
+# virtual domains (where all addresses are visible in all domains).  If you're
+# using Postfix-style virtual domains, where aliases should only show up in
+# the virtual domain, set this variable to the list of host_name values to
+# write separate virtual entries for.  I.e. if you run dom1.ain, dom2.ain, and
 # dom3.ain, but only dom2 and dom3 are virtual, set this variable to the list
 # ['dom2.ain', 'dom3.ain'].  Matches are done against the host_name attribute
-# of the mailing lists.  See README.POSTFIX for details.
+# of the mailing lists.  See the Postfix section of the installation manual
+# for details.
 POSTFIX_STYLE_VIRTUAL_DOMAINS = []
 
 # These variables describe the program to use for regenerating the aliases.db
@@ -458,6 +466,15 @@ NNTP_REWRITE_DUPLICATE_HEADERS = [
     ('content-transfer-encoding', 'X-Original-Content-Transfer-Encoding'),
     ('mime-version', 'X-MIME-Version'),
     ]
+
+# Some list posts and mail to the -owner address may contain DomainKey or
+# DomainKeys Identified Mail (DKIM) signature headers <http://www.dkim.org/>.
+# Various list transformations to the message such as adding a list header or
+# footer or scrubbing attachments or even reply-to munging can break these
+# signatures.  It is generally felt that these signatures have value, even if
+# broken and even if the outgoing message is resigned.  However, some sites
+# may wish to remove these headers by setting this to Yes.
+REMOVE_DKIM_HEADERS = No
 
 # All `normal' messages which are delivered to the entire list membership go
 # through this pipeline of handler modules.  Lists themselves can override the
@@ -713,6 +730,26 @@ QRUNNER_SLEEP_TIME = seconds(1)
 # them in qfiles/bad subdirectory.
 QRUNNER_SAVE_BAD_MESSAGES = Yes
 
+# Depending on the above setting, the queue entries with messages which can't
+# be parsed may be saved in qfiles/bad.  Certain other exceptions which occur
+# during unpickling of a queue entry also cause the entry to be saved in
+# qfiles/bad.  Various exceptions which occur during message processing cause
+# the message to be shunted (saved in qfiles/shunt) where they can be
+# reprocessed with bin/unshunt after the underlying problem is fixed.  The
+# cull_bad_shunt cron job normally runs daily to remove and possibly archive
+# stale entries in qfiles/bad and qfiles/shunt.  The following settings
+# control this.
+
+# The length of time after which a qfiles/bad or qfiles/shunt file is
+# considered to be stale.  Set to zero to disable culling of qfiles/bad and
+# qfiles/shunt entries.
+BAD_SHUNT_STALE_AFTER = days(7)
+
+# The pathname of a directory (searchable and writable by the Mailman cron
+# user) to which the culled qfiles/bad and qfiles/shunt entries will be
+# moved.  Set to None to simply delete the culled entries.
+BAD_SHUNT_ARCHIVE_DIRECTORY = None
+
 # This flag causes Mailman to fsync() its data files after writing and
 # flushing its contents.  While this ensures the data is written to disk,
 # avoiding data loss, it may be a performance killer.  Note that this flag
@@ -772,6 +809,12 @@ OWNERS_CAN_DELETE_THEIR_OWN_LISTS = No
 # delivery to the MTA.  This gives each member a more personalized message,
 # but can have a heavy impact on the performance of your system.
 OWNERS_CAN_ENABLE_PERSONALIZATION = No
+
+# Set this variable to Yes to allow list owners to change a member's password
+# from the member's options page.  Do not do this if list owners aren't all
+# trustworthy as it allows a list owner to change a member's password and then
+# log in as the member and make global changes.
+OWNERS_CAN_CHANGE_MEMBER_PASSWORDS = No
 
 # Should held messages be saved on disk as Python pickles or as plain text?
 # The former is more efficient since we don't need to go through the
@@ -892,6 +935,11 @@ DEFAULT_UMBRELLA_LIST = No
 # For umbrella lists, the suffix for the account part of address for
 # administrative notices (subscription confirmations, password reminders):
 DEFAULT_UMBRELLA_MEMBER_ADMIN_SUFFIX = "-owner"
+
+# Exclude/include (sibling) lists for non-digest delivery.
+DEFAULT_REGULAR_EXCLUDE_LISTS = []
+DEFAULT_REGULAR_INCLUDE_LISTS = []
+ALLOW_CROSS_DOMAIN_SIBLING = False
 
 # This variable controls whether monthly password reminders are sent.
 DEFAULT_SEND_REMINDERS = Yes
@@ -1042,10 +1090,14 @@ MIME_DIGEST_KEEP_HEADERS = [
     'Message',
     ]
 
+# The order in this list controls the order of the RFC 1153 digest headers.
+# Also, any headers in this list will be kept in the MIME digest even if they
+# don't appear in the MIME list above.  Finally, headers appearing in both
+# lists must be casewise the same or duplication can result in the digest.
 PLAIN_DIGEST_KEEP_HEADERS = [
-    'Message', 'Date', 'From',
-    'Subject', 'To', 'Cc',
-    'Message-ID', 'Keywords',
+    'Message',
+    # RFC 1153 headers in order
+    'Date', 'From', 'To', 'Cc', 'Subject', 'Message-ID', 'Keywords',
     'Content-Type',
     ]
 
@@ -1318,41 +1370,44 @@ def _(s):
 
 LC_DESCRIPTIONS = {}
 
-def add_language(code, description, charset):
-    LC_DESCRIPTIONS[code] = (description, charset)
+def add_language(code, description, charset, direction='ltr'):
+    LC_DESCRIPTIONS[code] = (description, charset, direction)
 
-add_language('ar',    _('Arabic'),              'utf-8')
-add_language('ca',    _('Catalan'),             'iso-8859-1')
-add_language('cs',    _('Czech'),               'iso-8859-2')
-add_language('da',    _('Danish'),              'iso-8859-1')
-add_language('de',    _('German'),              'iso-8859-1')
-add_language('en',    _('English (USA)'),       'us-ascii')
-add_language('es',    _('Spanish (Spain)'),     'iso-8859-1')
-add_language('et',    _('Estonian'),            'iso-8859-15')
-add_language('eu',    _('Euskara'),             'iso-8859-15') # Basque
-add_language('fi',    _('Finnish'),             'iso-8859-1')
-add_language('fr',    _('French'),              'iso-8859-1')
-add_language('hr',    _('Croatian'),            'iso-8859-2')
-add_language('hu',    _('Hungarian'),           'iso-8859-2')
-add_language('ia',    _('Interlingua'),         'iso-8859-15')
-add_language('it',    _('Italian'),             'iso-8859-1')
-add_language('ja',    _('Japanese'),            'euc-jp')
-add_language('ko',    _('Korean'),              'euc-kr')
-add_language('lt',    _('Lithuanian'),          'iso-8859-13')
-add_language('nl',    _('Dutch'),               'iso-8859-1')
-add_language('no',    _('Norwegian'),           'iso-8859-1')
-add_language('pl',    _('Polish'),              'iso-8859-2')
-add_language('pt',    _('Portuguese'),          'iso-8859-1')
-add_language('pt_BR', _('Portuguese (Brazil)'), 'iso-8859-1')
-add_language('ro',    _('Romanian'),            'iso-8859-2')
-add_language('ru',    _('Russian'),             'koi8-r')
-add_language('sr',    _('Serbian'),             'utf-8')
-add_language('sl',    _('Slovenian'),           'iso-8859-2')
-add_language('sv',    _('Swedish'),             'iso-8859-1')
-add_language('tr',    _('Turkish'),             'iso-8859-9')
-add_language('uk',    _('Ukrainian'),           'utf-8')
-add_language('vi',    _('Vietnamese'),          'utf-8')
-add_language('zh_CN', _('Chinese (China)'),     'utf-8')
-add_language('zh_TW', _('Chinese (Taiwan)'),    'utf-8')
+add_language('ar',    _('Arabic'),              'utf-8',       'rtl')
+add_language('ca',    _('Catalan'),             'utf-8',       'ltr')
+add_language('cs',    _('Czech'),               'iso-8859-2',  'ltr')
+add_language('da',    _('Danish'),              'iso-8859-1',  'ltr')
+add_language('de',    _('German'),              'iso-8859-1',  'ltr')
+add_language('en',    _('English (USA)'),       'us-ascii',    'ltr')
+add_language('es',    _('Spanish (Spain)'),     'iso-8859-1',  'ltr')
+add_language('et',    _('Estonian'),            'iso-8859-15', 'ltr')
+add_language('eu',    _('Euskara'),             'iso-8859-15', 'ltr') # Basque
+add_language('fi',    _('Finnish'),             'iso-8859-1',  'ltr')
+add_language('fr',    _('French'),              'iso-8859-1',  'ltr')
+add_language('gl',    _('Galician'),            'utf-8',       'ltr')
+add_language('he',    _('Hebrew'),              'utf-8',       'rtl')
+add_language('hr',    _('Croatian'),            'iso-8859-2',  'ltr')
+add_language('hu',    _('Hungarian'),           'iso-8859-2',  'ltr')
+add_language('ia',    _('Interlingua'),         'iso-8859-15', 'ltr')
+add_language('it',    _('Italian'),             'iso-8859-1',  'ltr')
+add_language('ja',    _('Japanese'),            'euc-jp',      'ltr')
+add_language('ko',    _('Korean'),              'euc-kr',      'ltr')
+add_language('lt',    _('Lithuanian'),          'iso-8859-13', 'ltr')
+add_language('nl',    _('Dutch'),               'iso-8859-1',  'ltr')
+add_language('no',    _('Norwegian'),           'iso-8859-1',  'ltr')
+add_language('pl',    _('Polish'),              'iso-8859-2',  'ltr')
+add_language('pt',    _('Portuguese'),          'iso-8859-1',  'ltr')
+add_language('pt_BR', _('Portuguese (Brazil)'), 'iso-8859-1',  'ltr')
+add_language('ro',    _('Romanian'),            'iso-8859-2',  'ltr')
+add_language('ru',    _('Russian'),             'koi8-r',      'ltr')
+add_language('sk',    _('Slovak'),              'utf-8',       'ltr')
+add_language('sl',    _('Slovenian'),           'iso-8859-2',  'ltr')
+add_language('sr',    _('Serbian'),             'utf-8',       'ltr')
+add_language('sv',    _('Swedish'),             'iso-8859-1',  'ltr')
+add_language('tr',    _('Turkish'),             'iso-8859-9',  'ltr')
+add_language('uk',    _('Ukrainian'),           'utf-8',       'ltr')
+add_language('vi',    _('Vietnamese'),          'utf-8',       'ltr')
+add_language('zh_CN', _('Chinese (China)'),     'utf-8',       'ltr')
+add_language('zh_TW', _('Chinese (Taiwan)'),    'utf-8',       'ltr')
 
 del _

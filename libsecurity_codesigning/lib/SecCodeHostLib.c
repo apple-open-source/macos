@@ -20,7 +20,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-//#include <Security/SecCodeHostLib.h>
+#include "SecCodeHost.h"
 #include "SecCodeHostLib.h"
 #include <Security/Security.h>
 #include <Security/AuthSession.h>
@@ -64,8 +64,7 @@ OSStatus SecHostLibInit(SecCSFlags flags)
 	if (KERN_SUCCESS != task_get_bootstrap_port(mach_task_self(), &bootstrapPort))
 		return errSecCSInternalError;
 	static char serverName[BOOTSTRAP_MAX_NAME_LEN] = SECURITYSERVER_BOOTSTRAP_NAME;
-	if (KERN_SUCCESS != bootstrap_look_up(bootstrapPort,
-		serverName, &gServerPort))
+	if (KERN_SUCCESS != bootstrap_look_up(bootstrapPort, serverName, &gServerPort))
 		return errSecCSInternalError;
 
 	ClientSetupInfo info = { 0x1234, SSPROTOVERSION };
@@ -81,11 +80,18 @@ OSStatus SecHostLibCreateGuest(SecGuestRef host,
 	uint32_t status, const char *path, const char *attributeXML,
 	SecCSFlags flags, SecGuestRef *newGuest)
 {
+	return SecHostLibCreateGuest2(host, status, path, "", 0, attributeXML, flags, newGuest);
+}
+
+OSStatus SecHostLibCreateGuest2(SecGuestRef host,
+	uint32_t status, const char *path, const void *cdhash, size_t cdhashLength, const char *attributeXML,
+	SecCSFlags flags, SecGuestRef *newGuest)
+{
 	if (flags != kSecCSDedicatedHost)
 		return errSecCSInvalidFlags;
 	
 	CALL(ucsp_client_createGuest(UCSP_ARGS, host, status, path,
-		ATTRDATA(attributeXML), flags, newGuest));
+		(void *)cdhash, cdhashLength, ATTRDATA(attributeXML), flags, newGuest));
 }
 
 
@@ -106,4 +112,13 @@ OSStatus SecHostLibSetGuestStatus(SecGuestRef guestRef,
 OSStatus SecHostSetHostingPort(mach_port_t hostingPort, SecCSFlags flags)
 {
 	CALL(ucsp_client_registerHosting(UCSP_ARGS, hostingPort, flags));
+}
+
+
+//
+// Helper for checked incorporation of code.
+//
+OSStatus SecHostLibCheckLoad(const char *path, SecRequirementType type)
+{
+	CALL(ucsp_client_helpCheckLoad(UCSP_ARGS, path, type));
 }

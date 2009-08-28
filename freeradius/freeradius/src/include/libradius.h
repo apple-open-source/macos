@@ -5,47 +5,41 @@
  * libradius.h	Structures and prototypes
  *		for the radius library.
  *
- * Version:	$Id: libradius.h,v 1.76.2.2.2.11 2007/02/09 15:33:11 aland Exp $
+ * Version:	$Id$
  *
+ *   This program is free software; you can redistribute it and/or modify
+ *   it under the terms of the GNU General Public License as published by
+ *   the Free Software Foundation; either version 2 of the License, or
+ *   (at your option) any later version.
+ *
+ *   This program is distributed in the hope that it will be useful,
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *   GNU General Public License for more details.
+ *
+ *   You should have received a copy of the GNU General Public License
+ *   along with this program; if not, write to the Free Software
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ *
+ * Copyright 1999,2000,2001,2002,2003,2004,2005,2006,2007,2008  The FreeRADIUS server project
  */
 
-#include "autoconf.h"
+#include <freeradius-devel/ident.h>
+RCSIDH(libradius_h, "$Id$")
 
-#ifdef HAVE_SYS_TYPES_H
-#include <sys/types.h>
-#endif
-
-#ifdef HAVE_STDINT_H
-#include <stdint.h>
-#endif
-
-#ifdef HAVE_INTTYPES_H
-#include <inttypes.h>
-#endif
+#include <freeradius-devel/missing.h>
 
 #ifdef HAVE_ERRNO_H
 #include <errno.h>
 #endif
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <stdarg.h>
 
-/*
- *  Check for inclusion of <time.h>, versus <sys/time.h>
- *  Taken verbatim from the autoconf manual.
- */
-#if TIME_WITH_SYS_TIME
-# include <sys/time.h>
-# include <time.h>
-#else
-# ifdef HAVE_SYS_TIME_H
-#  include <sys/time.h>
-# else
-#  include <time.h>
-# endif
-#endif
-
-#include "radius.h"
-#include "token.h"
+#include <freeradius-devel/radius.h>
+#include <freeradius-devel/token.h>
+#include <freeradius-devel/hash.h>
 
 #ifdef SIZEOF_UNSIGNED_INT
 #if SIZEOF_UNSIGNED_INT != 4
@@ -56,8 +50,8 @@
 /*
  *  Include for modules.
  */
-#include <sha1.h>
-#include <md4.h>
+#include <freeradius-devel/sha1.h>
+#include <freeradius-devel/md4.h>
 
 #define EAP_START               2
 
@@ -65,22 +59,22 @@
 #define CHAP_VALUE_LENGTH       16
 #define MAX_STRING_LEN		254	/* RFC2138: string 0-253 octets */
 
-#  define VENDOR(x)		((x >> 16) & 0xffff)
+#  define VENDOR(x)		((x >> 16) & 0x7fff)
 
 #ifdef _LIBRADIUS
 #  define AUTH_HDR_LEN		20
 #  define VENDORPEC_USR		429
 #define VENDORPEC_LUCENT	4846
 #define VENDORPEC_STARENT	8164
-#  define DEBUG			if (librad_debug) printf
-#  define debug_pair(vp)	do { if (librad_debug) { \
-					putchar('\t'); \
-					vp_print(stdout, vp); \
-					putchar('\n'); \
+#  define DEBUG			if (fr_debug_flag && fr_log_fp) fr_printf_log
+#  define debug_pair(vp)	do { if (fr_debug_flag && fr_log_fp) { \
+					fputc('\t', fr_log_fp); \
+					vp_print(fr_log_fp, vp); \
+					fputc('\n', fr_log_fp); \
 				     } \
 				} while(0)
 #  define TAG_VALID(x)          ((x) > 0 && (x) < 0x20)
-#  define TAG_VALID_ZERO(x)     ((x) >= 0 && (x) < 0x20)
+#  define TAG_VALID_ZERO(x)     ((x) < 0x20)
 #  define TAG_ANY               -128   /* minimum signed char */
 #endif
 
@@ -97,12 +91,19 @@
 #endif
 
 typedef struct attr_flags {
-	char			addport;	/* Add port to IP address */
-	char			has_tag;	/* attribute allows tags */
-	signed char		len_disp;	/* length displacement */
-	char			do_xlat;
-	signed char		tag;
-	uint8_t		        encrypt;	/* encryption method */
+	unsigned int		addport : 1;  /* add NAS-Port to IP address */
+	unsigned int		has_tag : 1;  /* tagged attribute */
+	unsigned int		do_xlat : 1;  /* strvalue is dynamic */
+	unsigned int		unknown_attr : 1; /* not in dictionary */
+	unsigned int		array : 1; /* pack multiples into 1 attr */
+	unsigned int		has_value : 1; /* has a value */
+	unsigned int		has_value_alias : 1; /* has a value alias */
+	unsigned int		has_tlv : 1; /* has sub attributes */
+	unsigned int		is_tlv : 1; /* is a sub attribute */
+	unsigned int		encoded : 1; /* has been put into packet */
+
+	int8_t			tag;	      /* tag for tunneled attributes */
+	uint8_t		        encrypt;      /* encryption method */
 } ATTR_FLAGS;
 
 /*
@@ -114,11 +115,11 @@ typedef struct attr_flags {
 #define FLAG_ENCRYPT_ASCEND_SECRET   (3)
 
 typedef struct dict_attr {
-	char			name[40];
 	int			attr;
 	int			type;
 	int			vendor;
         ATTR_FLAGS              flags;
+	char			name[1];
 } DICT_ATTR;
 
 typedef struct dict_value {
@@ -131,20 +132,69 @@ typedef struct dict_vendor {
 	int			vendorpec;
 	int			type; /* length of type data */
 	int			length;	/* length of length data */
+	int			flags;
 	char			name[1];
 } DICT_VENDOR;
 
+typedef union value_pair_data {
+	char			strvalue[MAX_STRING_LEN];
+	uint8_t			octets[MAX_STRING_LEN];
+	struct in_addr		ipaddr;
+	struct in6_addr		ipv6addr;
+	uint32_t		date;
+	uint32_t		integer;
+	int32_t			sinteger;
+	uint8_t			filter[32];
+	uint8_t			ifid[8]; /* struct? */
+	uint8_t			ipv6prefix[18]; /* struct? */
+     	uint8_t			ether[6];
+	uint8_t			*tlv;
+} VALUE_PAIR_DATA;
+
 typedef struct value_pair {
-	char			name[40];
+	const char	        *name;
 	int			attribute;
+	int			vendor;
 	int			type;
-	int			length; /* of strvalue */
-	uint32_t		lvalue;
-	LRAD_TOKEN		operator;
-	uint8_t			strvalue[MAX_STRING_LEN];
+	size_t			length; /* of data */
+	FR_TOKEN		operator;
         ATTR_FLAGS              flags;
 	struct value_pair	*next;
+	uint32_t		lvalue;
+	VALUE_PAIR_DATA		data;
 } VALUE_PAIR;
+#define vp_strvalue   data.strvalue
+#define vp_octets     data.octets
+#define vp_ipv6addr   data.ipv6addr
+#define vp_ifid       data.ifid
+#define vp_ipv6prefix data.ipv6prefix
+#define vp_filter     data.filter
+#define vp_ether      data.ether
+#define vp_signed     data.sinteger
+#define vp_tlv	      data.tlv
+
+#if 0
+#define vp_ipaddr     data.ipaddr.s_addr
+#define vp_date       data.date
+#define vp_integer    data.integer
+#else
+/*
+ *	These are left as lvalue until we audit the source for code
+ *	that prints to vp_strvalue for integer/ipaddr/date types.
+ */
+#define vp_ipaddr     lvalue
+#define vp_date       lvalue
+#define vp_integer    lvalue
+#endif
+
+
+typedef struct fr_ipaddr_t {
+	int		af;	/* address family */
+	union {
+		struct in_addr	ip4addr;
+		struct in6_addr ip6addr; /* maybe defined in missing.h */
+	} ipaddr;
+} fr_ipaddr_t;
 
 /*
  *	vector:		Request authenticator from access-request packet
@@ -157,26 +207,30 @@ typedef struct value_pair {
  */
 typedef struct radius_packet {
 	int			sockfd;
-	uint32_t		src_ipaddr;
-	uint32_t		dst_ipaddr;
-	u_short			src_port;
-	u_short			dst_port;
+	fr_ipaddr_t		src_ipaddr;
+        fr_ipaddr_t		dst_ipaddr;
+	uint16_t		src_port;
+	uint16_t		dst_port;
 	int			id;
 	unsigned int		code;
+	uint32_t		hash;
 	uint8_t			vector[AUTH_VECTOR_LEN];
 	time_t			timestamp;
-	int			verified;
 	uint8_t			*data;
 	int			data_len;
 	VALUE_PAIR		*vps;
+	ssize_t			offset;
 } RADIUS_PACKET;
 
 /*
  *	Printing functions.
  */
-void		librad_safeprint(char *in, int inlen, char *out, int outlen);
-int     vp_prints_value(char *out, int outlen, VALUE_PAIR *vp,int delimitst);
-int     vp_prints(char *out, int outlen, VALUE_PAIR *vp);
+void		fr_print_string(const char *in, size_t inlen,
+				 char *out, size_t outlen);
+int     	vp_prints_value(char *out, size_t outlen,
+				VALUE_PAIR *vp, int delimitst);
+const char	*vp_print_name(char *buffer, size_t bufsize, int attr);
+int     	vp_prints(char *out, size_t outlen, VALUE_PAIR *vp);
 void		vp_print(FILE *, VALUE_PAIR *);
 void		vp_printlist(FILE *, VALUE_PAIR *);
 #define		fprint_attr_val vp_print
@@ -195,13 +249,6 @@ DICT_VALUE	*dict_valbyattr(int attr, int val);
 DICT_VALUE	*dict_valbyname(int attr, const char *val);
 int		dict_vendorbyname(const char *name);
 DICT_VENDOR	*dict_vendorbyvalue(int vendor);
-
-/*
- *  Compatibility
- */
-#define dict_vendorcode
-#define dict_vendorpec
-
 
 #if 1 /* FIXME: compat */
 #define dict_attrget	dict_attrbyvalue
@@ -223,41 +270,56 @@ DICT_VENDOR	*dict_vendorbyvalue(int vendor);
 
 /* md5.c */
 
-void		librad_md5_calc(u_char *, u_char *, u_int);
+void		fr_md5_calc(uint8_t *, const uint8_t *, unsigned int);
 
 /* hmac.c */
 
-void lrad_hmac_md5(const unsigned char *text, int text_len,
-		   const unsigned char *key, int key_len,
+void fr_hmac_md5(const uint8_t *text, int text_len,
+		   const uint8_t *key, int key_len,
 		   unsigned char *digest);
 
 /* hmacsha1.c */
 
-void lrad_hmac_sha1(const unsigned char *text, int text_len,
-		    const unsigned char *key, int key_len,
-		    unsigned char *digest);
+void fr_hmac_sha1(const uint8_t *text, int text_len,
+		    const uint8_t *key, int key_len,
+		    uint8_t *digest);
 
 /* radius.c */
 int		rad_send(RADIUS_PACKET *, const RADIUS_PACKET *, const char *secret);
-RADIUS_PACKET	*rad_recv(int fd);
-int		rad_verify(RADIUS_PACKET *packet, RADIUS_PACKET *original, const char *secret);
+int		rad_packet_ok(RADIUS_PACKET *packet, int flags);
+RADIUS_PACKET	*rad_recv(int fd, int flags);
+ssize_t rad_recv_header(int sockfd, fr_ipaddr_t *src_ipaddr, int *src_port,
+			int *code);
+void		rad_recv_discard(int sockfd);
+int		rad_verify(RADIUS_PACKET *packet, RADIUS_PACKET *original,
+			   const char *secret);
 int		rad_decode(RADIUS_PACKET *packet, RADIUS_PACKET *original, const char *secret);
-RADIUS_PACKET	*rad_alloc(int newvector);
-void		rad_free(RADIUS_PACKET **);
-int		rad_pwencode(char *encpw, int *len, const char *secret, const char *vector);
-int		rad_pwdecode(char *encpw, int len, const char *secret, const char *vector);
-int		rad_tunnel_pwencode(char *encpw, int *len, const char *secret, const char *vector);
-int		rad_tunnel_pwdecode(uint8_t *encpw, int *len, const char *secret, const char *vector);
-int		rad_chap_encode(RADIUS_PACKET *packet, char *output, int id, VALUE_PAIR *password);
-int		rad_vp2attr(const RADIUS_PACKET *packet,
-			    const RADIUS_PACKET *original, const char *secret,
-			    const VALUE_PAIR *vp, uint8_t *ptr);
 int		rad_encode(RADIUS_PACKET *packet, const RADIUS_PACKET *original,
 			   const char *secret);
 int		rad_sign(RADIUS_PACKET *packet, const RADIUS_PACKET *original,
 			 const char *secret);
 
+RADIUS_PACKET	*rad_alloc(int newvector);
+void		rad_free(RADIUS_PACKET **);
+int		rad_pwencode(char *encpw, size_t *len, const char *secret,
+			     const uint8_t *vector);
+int		rad_pwdecode(char *encpw, size_t len, const char *secret,
+			     const uint8_t *vector);
+int		rad_tunnel_pwencode(char *encpw, size_t *len, const char *secret,
+				    const uint8_t *vector);
+int		rad_tunnel_pwdecode(uint8_t *encpw, size_t *len,
+				    const char *secret, const uint8_t *vector);
+int		rad_chap_encode(RADIUS_PACKET *packet, uint8_t *output,
+				int id, VALUE_PAIR *password);
+VALUE_PAIR	*rad_attr2vp(const RADIUS_PACKET *packet, const RADIUS_PACKET *original,
+			     const char *secret, int attribute, int length,
+			     const uint8_t *data);
+int		rad_vp2attr(const RADIUS_PACKET *packet,
+			    const RADIUS_PACKET *original, const char *secret,
+			    const VALUE_PAIR *vp, uint8_t *ptr);
+
 /* valuepair.c */
+VALUE_PAIR	*pairalloc(DICT_ATTR *da);
 VALUE_PAIR	*paircreate(int attr, int type);
 void		pairfree(VALUE_PAIR **);
 void            pairbasicfree(VALUE_PAIR *pair);
@@ -265,92 +327,99 @@ VALUE_PAIR	*pairfind(VALUE_PAIR *, int);
 void		pairdelete(VALUE_PAIR **, int);
 void		pairadd(VALUE_PAIR **, VALUE_PAIR *);
 void            pairreplace(VALUE_PAIR **first, VALUE_PAIR *add);
+int		paircmp(VALUE_PAIR *check, VALUE_PAIR *data);
+VALUE_PAIR	*paircopyvp(const VALUE_PAIR *vp);
 VALUE_PAIR	*paircopy(VALUE_PAIR *vp);
 VALUE_PAIR	*paircopy2(VALUE_PAIR *vp, int attr);
 void		pairmove(VALUE_PAIR **to, VALUE_PAIR **from);
 void		pairmove2(VALUE_PAIR **to, VALUE_PAIR **from, int attr);
 VALUE_PAIR	*pairparsevalue(VALUE_PAIR *vp, const char *value);
 VALUE_PAIR	*pairmake(const char *attribute, const char *value, int operator);
-VALUE_PAIR	*pairread(char **ptr, LRAD_TOKEN *eol);
-LRAD_TOKEN	userparse(char *buffer, VALUE_PAIR **first_pair);
+VALUE_PAIR	*pairread(const char **ptr, FR_TOKEN *eol);
+FR_TOKEN	userparse(const char *buffer, VALUE_PAIR **first_pair);
 VALUE_PAIR     *readvp2(FILE *fp, int *pfiledone, const char *errprefix);
 
 /*
  *	Error functions.
  */
 #ifdef _LIBRADIUS
-void		librad_log(const char *, ...)
+void		fr_strerror_printf(const char *, ...)
 #ifdef __GNUC__
 		__attribute__ ((format (printf, 1, 2)))
 #endif
 ;
 #endif
-void		librad_perror(const char *, ...)
+void		fr_perror(const char *, ...)
 #ifdef __GNUC__
 		__attribute__ ((format (printf, 1, 2)))
 #endif
 ;
-extern char	librad_errstr[];
-extern int	librad_dodns;	/* 0 = no dns lookups */
-extern int	librad_debug;	/* 0 = no debugging information */
-extern int	librad_max_attributes; /* per incoming packet */
+extern const char *fr_strerror(void);
+extern int	fr_dns_lookups;	/* 0 = no dns lookups */
+extern int	fr_debug_flag;	/* 0 = no debugging information */
+extern int	fr_max_attributes; /* per incoming packet */
+extern FILE	*fr_log_fp;
+void		fr_printf_log(const char *, ...)
+#ifdef __GNUC__
+		__attribute__ ((format (printf, 1, 2)))
+#endif
+;
 
 /*
  *	Several handy miscellaneous functions.
  */
-char *		ip_hostname (char *buf, size_t buflen, uint32_t ipaddr);
-uint32_t	ip_getaddr (const char *);
-char *		ip_ntoa(char *, uint32_t);
-uint32_t	ip_addr(const char *);
+const char *	ip_ntoa(char *, uint32_t);
 char		*ifid_ntoa(char *buffer, size_t size, uint8_t *ifid);
 uint8_t		*ifid_aton(const char *ifid_str, uint8_t *ifid);
-const char	*ipv6_ntoa(char *buffer, size_t size, void *ip6addr);
-int		ipv6_addr(const char *ip6_str, void *ip6addr);
-char		*strNcpy(char *dest, const char *src, int n);
-void		rad_lowercase(char *str);
-void		rad_rmspace(char *str);
 int		rad_lockfd(int fd, int lock_len);
 int		rad_lockfd_nonblock(int fd, int lock_len);
 int		rad_unlockfd(int fd, int lock_len);
-void		lrad_bin2hex(const uint8_t *bin, char *hex, int len);
-int		lrad_hex2bin(const char *hex, uint8_t *bin, int len);
+void		fr_bin2hex(const uint8_t *bin, char *hex, size_t len);
+size_t		fr_hex2bin(const char *hex, uint8_t *bin, size_t len);
+#ifndef HAVE_INET_PTON
+int		inet_pton(int af, const char *src, void *dst);
+#endif
+#ifndef HAVE_INET_NTOP
+const char	*inet_ntop(int af, const void *src, char *dst, size_t cnt);
+#endif
 #ifndef HAVE_CLOSEFROM
 int		closefrom(int fd);
 #endif
+int fr_ipaddr_cmp(const fr_ipaddr_t *a, const fr_ipaddr_t *b);
+
+int		ip_hton(const char *src, int af, fr_ipaddr_t *dst);
+const char	*ip_ntoh(const fr_ipaddr_t *src, char *dst, size_t cnt);
+int fr_ipaddr2sockaddr(const fr_ipaddr_t *ipaddr, int port,
+		       struct sockaddr_storage *sa, socklen_t *salen);
+int fr_sockaddr2ipaddr(const struct sockaddr_storage *sa, socklen_t salen,
+		       fr_ipaddr_t *ipaddr, int * port);
+
 
 #ifdef ASCEND_BINARY
 /* filters.c */
 int		ascend_parse_filter(VALUE_PAIR *pair);
-void		print_abinary(VALUE_PAIR *vp, u_char *buffer, int len);
+void		print_abinary(VALUE_PAIR *vp, char *buffer, size_t len);
 #endif /*ASCEND_BINARY*/
-
-/* snprintf.c */
-#ifndef HAVE_VSNPRINTF
-#include <stdarg.h>
-int vsnprintf(char *str, size_t count, const char *fmt, va_list arg);
-#endif
-#ifndef HAVE_SNPRINTF
-int snprintf(char *str, size_t count, const char *fmt, ...);
-#endif
 
 /* random numbers in isaac.c */
 /* context of random number generator */
-typedef struct lrad_randctx {
+typedef struct fr_randctx {
   uint32_t randcnt;
   uint32_t randrsl[256];
   uint32_t randmem[256];
   uint32_t randa;
   uint32_t randb;
   uint32_t randc;
-} lrad_randctx;
+} fr_randctx;
 
-void lrad_isaac(lrad_randctx *ctx);
-void lrad_randinit(lrad_randctx *ctx, int flag);
-uint32_t lrad_rand(void);	/* like rand(), but better. */
-void lrad_rand_seed(const void *, size_t ); /* seed the random pool */
+void fr_isaac(fr_randctx *ctx);
+void fr_randinit(fr_randctx *ctx, int flag);
+uint32_t fr_rand(void);	/* like rand(), but better. */
+void fr_rand_seed(const void *, size_t ); /* seed the random pool */
+
 
 /* crypt wrapper from crypt.c */
-int lrad_crypt_check(const char *key, const char *salt);
+int fr_crypt_check(const char *key, const char *salt);
 
 /* rbtree.c */
 typedef struct rbtree_t rbtree_t;
@@ -361,49 +430,43 @@ rbtree_t       *rbtree_create(int (*Compare)(const void *, const void *),
 			       int replace_flag);
 void		rbtree_free(rbtree_t *tree);
 int		rbtree_insert(rbtree_t *tree, void *Data);
+rbnode_t	*rbtree_insertnode(rbtree_t *tree, void *Data);
 void		rbtree_delete(rbtree_t *tree, rbnode_t *Z);
+int		rbtree_deletebydata(rbtree_t *tree, const void *data);
 rbnode_t       *rbtree_find(rbtree_t *tree, const void *Data);
 void	       *rbtree_finddata(rbtree_t *tree, const void *Data);
 int		rbtree_num_elements(rbtree_t *tree);
+void	       *rbtree_min(rbtree_t *tree);
 void	       *rbtree_node2data(rbtree_t *tree, rbnode_t *node);
-int		rbtree_deletebydata(rbtree_t *tree, const void *data);
 
 /* callback order for walking  */
 typedef enum { PreOrder, InOrder, PostOrder } RBTREE_ORDER;
+
+/*
+ *	The callback should be declared as:
+ *	int callback(void *context, void *data)
+ *
+ *	The "context" is some user-defined context.
+ *	The "data" is the pointer to the user data in the node,
+ *	  NOT the node itself.
+ *
+ *	It should return 0 if all is OK, and !0 for any error.
+ *	The walking will stop on any error.
+ */
 int rbtree_walk(rbtree_t *tree, RBTREE_ORDER order, int (*callback)(void *, void *), void *context);
 
 /*
- *	Fast hash, which isn't too bad.  Don't use for cryptography,
- *	just for hashing internal data.
+ *	FIFOs
  */
-uint32_t lrad_hash(const void *, size_t);
-uint32_t lrad_hash_update(const void *data, size_t size, uint32_t hash);
-uint32_t lrad_hash_string(const char *p);
+typedef struct fr_fifo_t fr_fifo_t;
+typedef void (*fr_fifo_free_t)(void *);
+fr_fifo_t *fr_fifo_create(int max_entries, fr_fifo_free_t freeNode);
+void fr_fifo_free(fr_fifo_t *fi);
+int fr_fifo_push(fr_fifo_t *fi, void *data);
+void *fr_fifo_pop(fr_fifo_t *fi);
+void *fr_fifo_peek(fr_fifo_t *fi);
+int fr_fifo_num_elements(fr_fifo_t *fi);
 
-/*
- *	If you need fewer than 32-bits of hash, use this macro to get
- *	the number of bits in the hash you need.  The upper bits of the
- *	hash will be set to zero.
- */
-uint32_t lrad_hash_fold(uint32_t hash, int bits);
+#include <freeradius-devel/packet.h>
 
-typedef struct lrad_hash_table_t lrad_hash_table_t;
-typedef void (*lrad_hash_table_free_t)(void *);
-typedef uint32_t (*lrad_hash_table_hash_t)(const void *);
-typedef int (*lrad_hash_table_cmp_t)(const void *, const void *);
-typedef int (*lrad_hash_table_walk_t)(void * /* ctx */, void * /* data */);
-
-lrad_hash_table_t *lrad_hash_table_create(lrad_hash_table_hash_t hashNode,
-					  lrad_hash_table_cmp_t cmpNode,
-					  lrad_hash_table_free_t freeNode);
-void		lrad_hash_table_free(lrad_hash_table_t *ht);
-int		lrad_hash_table_insert(lrad_hash_table_t *ht, void *data);
-int		lrad_hash_table_delete(lrad_hash_table_t *ht, const void *data);
-void		*lrad_hash_table_yank(lrad_hash_table_t *ht, const void *data);
-int		lrad_hash_table_replace(lrad_hash_table_t *ht, void *data);
-void		*lrad_hash_table_finddata(lrad_hash_table_t *ht, const void *data);
-int		lrad_hash_table_num_elements(lrad_hash_table_t *ht);
-int		lrad_hash_table_walk(lrad_hash_table_t *ht,
-				     lrad_hash_table_walk_t callback,
-				     void *ctx);
 #endif /*LIBRADIUS_H*/

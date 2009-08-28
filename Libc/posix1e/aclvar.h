@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2008 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,9 +24,6 @@
 #define _ACLVAR_H
 
 #include <sys/kauth.h>
-
-#define _ACL_HEADER_SIZE	sizeof(struct kauth_filesec)
-#define _ACL_ENTRY_SIZE		sizeof(struct kauth_ace)
 
 /*
  * Internal access control list entry representation.

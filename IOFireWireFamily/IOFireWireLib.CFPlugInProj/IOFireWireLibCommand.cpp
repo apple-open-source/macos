@@ -137,13 +137,13 @@ namespace IOFireWireLib {
 		IOFIREWIRELIBCOMMANDIMP_INTERFACE_v3,
 	
 		// --- v1
-		& CompareSwapCmd::SSetValues,
+		(void (*)(IOFireWireLibCompareSwapCommandV3Ref, UInt32, UInt32)) &CompareSwapCmd::SSetValues,
 	
 		// --- v2
-		& CompareSwapCmd::SSetValues64,
-		& CompareSwapCmd::SDidLock,
-		& CompareSwapCmd::SLocked,
-		& CompareSwapCmd::SLocked64		
+		(void (*)(IOFireWireLibCompareSwapCommandV3Ref, UInt64, UInt64)) &CompareSwapCmd::SSetValues64,
+		(Boolean (*)(IOFireWireLibCompareSwapCommandV3Ref)) &CompareSwapCmd::SDidLock,
+		(IOReturn (*)(IOFireWireLibCompareSwapCommandV3Ref, UInt32 *)) &CompareSwapCmd::SLocked,
+		(IOReturn (*)(IOFireWireLibCompareSwapCommandV3Ref, UInt64 *)) &CompareSwapCmd::SLocked64		
 	} ;
 
 	PHYCmd::Interface PHYCmd::sInterface =
@@ -165,6 +165,9 @@ namespace IOFireWireLib {
 		IOFIREWIRELIBCOMMANDIMP_INTERFACE,
 		IOFIREWIRELIBCOMMANDIMP_INTERFACE_v2,
 		IOFIREWIRELIBCOMMANDIMP_INTERFACE_v3,
+		&AsyncStreamCmd::S_SetChannel,
+		&AsyncStreamCmd::S_SetSyncBits,
+		&AsyncStreamCmd::S_SetTagBits
 	};
 		
 	// ==================================
@@ -1559,13 +1562,13 @@ namespace IOFireWireLib {
 			return kIOReturnError ;
 		if (mParams->newBufferSize != sizeof(UInt32))
 			return kIOReturnBadArgument ;
-
-		*oldValue = mSubmitResult.lockInfo.value;
+		
+		*oldValue = mSubmitResult.lockInfo.value[0];
 		return kIOReturnSuccess ;
 	}
 	
 	IOReturn
-	CompareSwapCmd::Locked(
+	CompareSwapCmd::Locked64(
 		UInt64* 			oldValue)
 	{
 		if (mIsExecuting)
@@ -1575,7 +1578,7 @@ namespace IOFireWireLib {
 		if (mParams->newBufferSize != sizeof(UInt64))
 			return kIOReturnBadArgument ;
 
-		*oldValue = mSubmitResult.lockInfo.value;
+		*oldValue = *(UInt64*)mSubmitResult.lockInfo.value;
 		return kIOReturnSuccess ;
 	}
 
@@ -1617,7 +1620,7 @@ namespace IOFireWireLib {
 		CmdRef				self, 
 		UInt64* 			oldValue)
 	{
-		return GetThis(self)->Locked(oldValue) ;
+		return GetThis(self)->Locked64(oldValue) ;
 	}
 
 	void
@@ -1634,7 +1637,19 @@ namespace IOFireWireLib {
 		UInt32					numQuads)
 	{
 		CompareSwapCmd * me = reinterpret_cast<CompareSwapCmd*>(refcon) ;
-				
+	
+	#if 0	
+		int i = 0;
+		for( i = 0; i < 7; i++ )
+		{
+		#ifdef __LP64__			
+			printf( "CompareSwapCmd::CommandCompletionHandler - quads[%d] - %llx\n", i, quads[i] );
+		#else
+			printf( "CompareSwapCmd::CommandCompletionHandler - quads[%d] - %x\n", i, quads[i] );
+		#endif
+		}
+	#endif
+		
 		IF_ROSETTA()
 		{
 			#ifndef __LP64__
@@ -1643,7 +1658,8 @@ namespace IOFireWireLib {
 				me->mSubmitResult.ackCode = (UInt32)OSSwapInt32((UInt32)quads[2]);
 				me->mSubmitResult.responseCode = (UserObjectHandle)OSSwapInt32((UInt32)quads[3]);
 				me->mSubmitResult.lockInfo.didLock = (UserObjectHandle)OSSwapInt32((UInt32)quads[4]);
-				me->mSubmitResult.lockInfo.value = OSSwapInt32((UInt32)quads[5]);
+				me->mSubmitResult.lockInfo.value[0] = OSSwapInt32((UInt32)quads[5]);
+				me->mSubmitResult.lockInfo.value[1] = OSSwapInt32((UInt32)quads[6]);
 			#endif
 		}
 		else
@@ -1653,7 +1669,8 @@ namespace IOFireWireLib {
 			me->mSubmitResult.ackCode = (UInt32)quads[2];
 			me->mSubmitResult.responseCode = (UserObjectHandle)quads[3];
 			me->mSubmitResult.lockInfo.didLock = (UserObjectHandle)quads[4];
-			me->mSubmitResult.lockInfo.value = quads[5];
+			me->mSubmitResult.lockInfo.value[0] = (UInt32)quads[5];
+			me->mSubmitResult.lockInfo.value[1] = (UInt32)quads[6];
 		}
 		
 #if 0				
@@ -1705,6 +1722,7 @@ namespace IOFireWireLib {
 		mParams->data1			= channel;
 		mParams->tag			= tag;
 		mParams->sync			= sync;
+		mParams->newFailOnReset	= failOnReset;
 	}
 
 	IUnknownVTbl**
@@ -1759,6 +1777,30 @@ namespace IOFireWireLib {
 			paramsSize = sizeof(*mParams) ;
 	
 		return Cmd::Submit(mParams, paramsSize, & submitResult, & submitResultSize) ;
+	}
+	
+	void
+	AsyncStreamCmd::S_SetChannel( IOFireWireLibAsyncStreamCommandRef self, UInt32 channel )
+	{
+		AsyncStreamCmd * asyncStream_cmd = IOFireWireIUnknown::InterfaceMap<AsyncStreamCmd>::GetThis(self);
+		
+		asyncStream_cmd->mParams->data1 = channel;
+	}
+
+	void
+	AsyncStreamCmd::S_SetSyncBits( IOFireWireLibAsyncStreamCommandRef self, UInt16 sync )
+	{
+		AsyncStreamCmd * asyncStream_cmd = IOFireWireIUnknown::InterfaceMap<AsyncStreamCmd>::GetThis(self);
+		
+		asyncStream_cmd->mParams->sync = sync;
+	}
+
+	void
+	AsyncStreamCmd::S_SetTagBits( IOFireWireLibAsyncStreamCommandRef self, UInt16 tag )
+	{
+		AsyncStreamCmd * asyncStream_cmd = IOFireWireIUnknown::InterfaceMap<AsyncStreamCmd>::GetThis(self);
+		
+		asyncStream_cmd->mParams->tag = tag;
 	}
 	
 }	// namespace IOFireWireLib

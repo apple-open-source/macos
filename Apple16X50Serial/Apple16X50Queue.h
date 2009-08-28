@@ -67,7 +67,7 @@ private:
     UInt32	EnqueueThreshold;	// enqueue threshold
     UInt32	DequeueThreshold;	// dequeue threshold
     UInt16	*Queue;			// actual array of events;
-    char	*Name;
+    char	Name[14];
     bool	OverRun;		// if true then enqueues have failed
     
     inline void pushWord(UInt16 data);	

@@ -1,4 +1,90 @@
 Revision history for Perl extension XML::LibXML
+1.65
+   - fix bug in t/40reader.t revealed by a bugfix in Test::More 0.71 (Jonathan Rockway)
+   - fix possible SIGSEGV when PI's or attrs created with
+     createDocument can get garbage-collected after their owning
+     document (old-standing bug suddenly caught by XML::Compile regression tests)
+   - skip tests for unsupported features on unsupported versions of Perl/libxml2
+   - make Reader interface require Perl 5.8 (patches to extend to 5.6 are welcome)
+
+1.64
+   - fix reconcilation of the "xml" namespace [rt.cpan.org #26450] 
+   - make tests pass with libxml2 2.9.29 - PI regression tests now
+     accept "" as data of an empty PI [rt.cpan.org #27659]
+   - strip-off UTF8 flag with $node->toString($format,1) for consistent
+     behavior independent on the actual document encoding
+   - fix in XML::LibXML::Reader::nextSiblingElment
+   - fix synopsis for XML::LibXML::Reader
+   - skip tests that require Encode module if not available (perl 5.6)
+   - finally removed the iterator() method deprecated since 1.54
+   - set_document_locator support in XML::LibXML::SAX::Parser
+   - SYNOPSIS sections of the docs now mention which module to use
+     and which other manpage to look into for inherited methods
+   - XML::LibXML::Namespace API fixed in order to achieve
+     an agreement between the docs and the implementation
+
+1.63
+   - added no_network parser flag
+   - added support for exclusive canonicalization (http://www.w3.org/TR/xml-exc-c14n/)
+   - make XInclude reflect parser flags
+   - documentation fixes
+   - better namespace reconciliation implemented by Tim Brody
+   - $doc->toString always returns octets
+   - $doc->actualEncoding returns UTF8 if no document encoding is declared
+     (unlike $doc->getEncoding, which returns undef)
+ 
+1.62
+   - interface to libxml2's pull-parser XML::LibXML::Reader
+     (initiated by Heiko Klein)
+   - make error messages intended to the user report the line of the
+     application call rather than that of the internal XS call
+   - XML::LibXML::Attr->serializeContent added (convenience function)
+   - fix getAttributeNode etc. w.r.t. #FIXED attributes (as well as some
+     cases with old buggy libxml2 versions)
+   - warn if runtime libxml2 is older than the one used at the compile time
+   - if compiled against libxml2 >= 2.6.27, new parse_html_* implementation is used
+     allowing encoding and other options to be passed to the parser
+   - DOM-compliant nodeNames: #comment, #text, #cdata, #document, #document-fragment
+   - toString on empty text node returns empty string, not undef
+   - cloneNode copies attributes on an element as required by the DOM spec
+
+1.61
+   - get{Elements,Children}By{TagName,TagNameNS,LocalName} now
+     obey wildcards '*', getChildrenByLocalName was added.
+   - XML::LibXML::XPathContext merged in
+   - many new tests added
+   - the module should now be fully compatibile with libxml2 >= 2.6.16
+     (some older versions compile but have problems with namespaced attributes)
+   - threads test skipped by default
+   - documentation updates (namely DOM namespace conformance in XML::LibXML::DOM)
+   - added setNamespaceDecl{URI,Prefix}
+   - get/setAttribute(NS)? implementation made xmlns aware
+   - all sub-modules have the same version as XML::LibXML
+
+1.60
+   - getElementsById corrected to getElementById and the old name kept
+     as an alias. Also re-implemented without XPath for improved
+     performance
+   - DOM Level 3 method $attr->isId() added
+   - make {get,set,has}Attribute(Node)? methods work with full
+     attribute names rather than just localnames.
+     (Although DOM Level 3 is not very clear about the behavior of
+     these methods for an attributes with namespaces, it certainly
+     does not imply that getAttribute('foo') should return value of a
+     bar:foo, which was the old behavior.)
+   - added publicId and systemId methods to XML::LibXML::Dtd
+
+1.59
+   - new parser and callback code (Christian Glahn)
+   - new XML::LibXML::InputCallback class
+   - many bug fixes (including several memory leaks)
+   - documentation and regression fixes and enhancements
+   - Perl wrappers for parse_html_*
+   - make sure parse_* methods are not called on class (bug 11126)
+   - DOM Layer 3 conformance fixes:
+     * lookupNamespaceURI(empty_or_undef) now returns the default NS
+   - faster getChildrenByTagNameNS implementation
+   - remove the SGML parser code no longer supported by libxml (Michael Kröll)
 
 1.58
    - fixed a pointer initialization in parse_xml_chunk(), fixes 

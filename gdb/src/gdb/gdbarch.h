@@ -37,6 +37,7 @@
 #ifndef GDBARCH_H
 #define GDBARCH_H
 
+struct address_context;
 struct floatformat;
 struct ui_file;
 struct frame_info;
@@ -901,6 +902,31 @@ extern void set_gdbarch_skip_prologue (struct gdbarch *gdbarch, gdbarch_skip_pro
 #define SKIP_PROLOGUE(ip) (gdbarch_skip_prologue (current_gdbarch, ip))
 #endif
 
+#if defined (SKIP_PROLOGUE_ADDR_CTX)
+/* Legacy for systems yet to multi-arch SKIP_PROLOGUE_ADDR_CTX */
+#if !defined (SKIP_PROLOGUE_ADDR_CTX_P)
+#define SKIP_PROLOGUE_ADDR_CTX_P() (1)
+#endif
+#endif
+
+extern int gdbarch_skip_prologue_addr_ctx_p (struct gdbarch *gdbarch);
+#if !defined (GDB_TM_FILE) && defined (SKIP_PROLOGUE_ADDR_CTX_P)
+#error "Non multi-arch definition of SKIP_PROLOGUE_ADDR_CTX"
+#endif
+#if !defined (SKIP_PROLOGUE_ADDR_CTX_P)
+#define SKIP_PROLOGUE_ADDR_CTX_P() (gdbarch_skip_prologue_addr_ctx_p (current_gdbarch))
+#endif
+
+typedef CORE_ADDR (gdbarch_skip_prologue_addr_ctx_ftype) (struct address_context *addr_ctx);
+extern CORE_ADDR gdbarch_skip_prologue_addr_ctx (struct gdbarch *gdbarch, struct address_context *addr_ctx);
+extern void set_gdbarch_skip_prologue_addr_ctx (struct gdbarch *gdbarch, gdbarch_skip_prologue_addr_ctx_ftype *skip_prologue_addr_ctx);
+#if !defined (GDB_TM_FILE) && defined (SKIP_PROLOGUE_ADDR_CTX)
+#error "Non multi-arch definition of SKIP_PROLOGUE_ADDR_CTX"
+#endif
+#if !defined (SKIP_PROLOGUE_ADDR_CTX)
+#define SKIP_PROLOGUE_ADDR_CTX(addr_ctx) (gdbarch_skip_prologue_addr_ctx (current_gdbarch, addr_ctx))
+#endif
+
 typedef int (gdbarch_inner_than_ftype) (CORE_ADDR lhs, CORE_ADDR rhs);
 extern int gdbarch_inner_than (struct gdbarch *gdbarch, CORE_ADDR lhs, CORE_ADDR rhs);
 extern void set_gdbarch_inner_than (struct gdbarch *gdbarch, gdbarch_inner_than_ftype *inner_than);
@@ -1325,6 +1351,18 @@ extern void set_gdbarch_coff_make_msymbol_special (struct gdbarch *gdbarch, gdba
 #define COFF_MAKE_MSYMBOL_SPECIAL(val, msym) (gdbarch_coff_make_msymbol_special (current_gdbarch, val, msym))
 #endif
 
+/* APPLE LOCAL: The symbols are marked as thumb in the nlist entries, so we need this. */
+
+typedef void (gdbarch_dbx_make_msymbol_special_ftype) (int16_t desc, struct minimal_symbol *msym);
+extern void gdbarch_dbx_make_msymbol_special (struct gdbarch *gdbarch, int16_t desc, struct minimal_symbol *msym);
+extern void set_gdbarch_dbx_make_msymbol_special (struct gdbarch *gdbarch, gdbarch_dbx_make_msymbol_special_ftype *dbx_make_msymbol_special);
+#if !defined (GDB_TM_FILE) && defined (DBX_MAKE_MSYMBOL_SPECIAL)
+#error "Non multi-arch definition of DBX_MAKE_MSYMBOL_SPECIAL"
+#endif
+#if !defined (DBX_MAKE_MSYMBOL_SPECIAL)
+#define DBX_MAKE_MSYMBOL_SPECIAL(desc, msym) (gdbarch_dbx_make_msymbol_special (current_gdbarch, desc, msym))
+#endif
+
 extern const char * gdbarch_name_of_malloc (struct gdbarch *gdbarch);
 extern void set_gdbarch_name_of_malloc (struct gdbarch *gdbarch, const char * name_of_malloc);
 #if !defined (GDB_TM_FILE) && defined (NAME_OF_MALLOC)
@@ -1430,6 +1468,12 @@ extern int gdbarch_regset_from_core_section_p (struct gdbarch *gdbarch);
 typedef const struct regset * (gdbarch_regset_from_core_section_ftype) (struct gdbarch *gdbarch, const char *sect_name, size_t sect_size);
 extern const struct regset * gdbarch_regset_from_core_section (struct gdbarch *gdbarch, const char *sect_name, size_t sect_size);
 extern void set_gdbarch_regset_from_core_section (struct gdbarch *gdbarch, gdbarch_regset_from_core_section_ftype *regset_from_core_section);
+
+/* APPLE LOCAL: Translate eh frame regnums into dwarf regnums */
+
+typedef int (gdbarch_adjust_ehframe_regnum_ftype) (struct gdbarch *gdbarch, int regnum, int eh_frame_p);
+extern int gdbarch_adjust_ehframe_regnum (struct gdbarch *gdbarch, int regnum, int eh_frame_p);
+extern void set_gdbarch_adjust_ehframe_regnum (struct gdbarch *gdbarch, gdbarch_adjust_ehframe_regnum_ftype *adjust_ehframe_regnum);
 
 extern struct gdbarch_tdep *gdbarch_tdep (struct gdbarch *gdbarch);
 

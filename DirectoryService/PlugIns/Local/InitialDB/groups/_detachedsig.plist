@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>generateduid</key>
+	<array>
+		<string>ABCDEFAB-CDEF-ABCD-EFAB-CDEF000000CF</string>
+	</array>
+	<key>gid</key>
+	<array>
+		<string>207</string>
+	</array>
+	<key>groupmembers</key>
+	<array>
+		<string>FFFFEEEE-DDDD-CCCC-BBBB-CDEF000000CD</string>
+	</array>
+	<key>name</key>
+	<array>
+		<string>_detachedsig</string>
+	</array>
+	<key>passwd</key>
+	<array>
+		<string>*</string>
+	</array>
+	<key>realname</key>
+	<array>
+		<string>Detached Signature Writers</string>
+	</array>
+	<key>users</key>
+	<array>
+		<string>_locationd</string>
+	</array>
+</dict>
+</plist>

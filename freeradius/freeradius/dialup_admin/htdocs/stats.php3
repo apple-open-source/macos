@@ -1,5 +1,7 @@
 <?php
 require('../conf/config.php3');
+require('../lib/sql/nas_list.php3');
+require_once('../lib/xlat.php3');
 ?>
 <html>
 <head>
@@ -7,11 +9,11 @@ require('../conf/config.php3');
 <meta http-equiv="Content-Type" content="text/html; charset=<?php echo $config[general_charset]?>">
 <link rel="stylesheet" href="style.css">
 </head>
-<body bgcolor="#80a040" background="images/greenlines1.gif" link="black" alink="black">
+<body>
 <center>
 
 <?php
-require('../lib/functions.php3');
+require_once('../lib/functions.php3');
 
 if (is_file("../lib/sql/drivers/$config[sql_type]/functions.php3"))
 	include_once("../lib/sql/drivers/$config[sql_type]/functions.php3");
@@ -24,6 +26,7 @@ EOM;
 	exit();
 }
 
+$stats_num = array();
 
 $date = strftime('%A, %e %B %Y, %T %Z');
 $now = time();
@@ -37,7 +40,7 @@ $days[0] = $after;
 $counter = $after_time + 86400;
 $i = 1;
 while($counter < $before_time){
-	$days[$i++] = date($config[sql_date_format],$counter);	
+	$days[$i++] = date($config[sql_date_format],$counter);
 	$counter += 86400;
 }
 $days[$i] = $before;
@@ -81,6 +84,8 @@ $i = 1;
 $servers[all] = 'all';
 foreach ($nas_list as $nas){
 	$name = $nas[name];
+	if ($nas[ip] == '')
+		continue;
 	$servers[$name] = $nas[ip];
 	$i++;
 }
@@ -91,7 +96,7 @@ if ($server != 'all' && $server != ''){
 }
 $sql_extra_query = '';
 if ($config[sql_accounting_extra_query] != '')
-	$sql_extra_query = sql_xlat($config[sql_accounting_extra_query],$login,$config);
+	$sql_extra_query = xlat($config[sql_accounting_extra_query],$login,$config);
 
 $link = @da_sql_pconnect($config);
 if ($link){
@@ -104,19 +109,19 @@ if ($link){
 		else
 			$search = @da_sql_query($link,$config,
 			"SELECT $res[1],$res[2],$res[3] FROM $config[sql_accounting_table]
-			$sql_val[user] AND acctstoptime >= '$day 00:00:00' 
+			$sql_val[user] AND acctstoptime >= '$day 00:00:00'
 			AND acctstoptime <= '$day 23:59:59' $s $sql_extra_query;");
 		if ($search){
 			$row = @da_sql_fetch_array($search,$config);
 			$data[$day][1] = $row[res_1];
 			$data[sum][1] += $row[res_1];
-			$num[1] = ($data[$day][1]) ? $num[1] + 1 : $num[1];
+			$stats_num[1] = ($data[$day][1]) ? $stats_num[1] + 1 : $stats_num[1];
 			$data[$day][2] = $row[res_2];
 			$data[sum][2] += $row[res_2];
-			$num[2] = ($data[$day][2]) ? $num[2] + 1 : $num[2];
+			$stats_num[2] = ($data[$day][2]) ? $stats_num[2] + 1 : $stats_num[2];
 			$data[$day][3] = $row[res_3];
 			$data[sum][3] += $row[res_3];
-			$num[3] = ($data[$day][3]) ? $num[3] + 1 : $num[3];
+			$stats_num[3] = ($data[$day][3]) ? $stats_num[3] + 1 : $stats_num[3];
 		}
 		else
 			echo "<b>Database query failed: " . da_sql_error($link,$config) . "</b><br>\n";
@@ -125,13 +130,13 @@ if ($link){
 else
 	echo "<b>Could not connect to SQL database</b><br>\n";
 
-$num[1] = ($num[1]) ? $num[1] : 1;
-$num[2] = ($num[2]) ? $num[2] : 1;
-$num[3] = ($num[3]) ? $num[3] : 1;
+$stats_num[1] = ($stats_num[1]) ? $stats_num[1] : 1;
+$stats_num[2] = ($stats_num[2]) ? $stats_num[2] : 1;
+$stats_num[3] = ($stats_num[3]) ? $stats_num[3] : 1;
 
-$data['avg'][1] = ceil($data['sum'][1] / $num[1]);
-$data['avg'][2] = ceil($data['sum'][2] / $num[2]);
-$data['avg'][3] = ceil($data['sum'][3] / $num[3]);
+$data['avg'][1] = ceil($data['sum'][1] / $stats_num[1]);
+$data['avg'][2] = ceil($data['sum'][2] / $stats_num[2]);
+$data['avg'][3] = ceil($data['sum'][3] / $stats_num[3]);
 
 $data['avg'][1] = $fun[$column[1]]($data['avg'][1]);
 $data['avg'][2] = $fun[$column[2]]($data['avg'][2]);

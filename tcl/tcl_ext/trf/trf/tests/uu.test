@@ -1,0 +1,45 @@
+# -*- tcl -*-
+# Commands covered:  uuencode
+#
+# This file contains a collection of tests for one or more of the trf
+# commands of the TRF extension. Sourcing this file into Tcl runs the
+# tests and generates output for errors.  No output means no errors were
+# found.
+#
+# Copyright (c) 1995 Andreas Kupries (a.kupries@westend.com)
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# $Id: uu.test,v 1.1 1997/07/22 20:32:52 aku Exp $
+
+if {[string compare test [info procs test]] == 1} then {source defs}
+
+
+test uuencode-2.0 {uuencode, conversion errors} {
+    catch {uuencode -mode decode aGV!bG8=} msg
+    set msg
+} {illegal character found in input}
+
+
+foreach {index string fullencode encode} {
+    1 raoul <F%O=6P~ <F%O=6P~
+    2 raou  <F%O=0~~ <F%O=6
+} {
+    test uuencode-3.$index {uuencode, encode string} {
+	uuencode -mode encode $string
+    } $fullencode	;#{}
+
+    test uuencode-4.$index {uuencode, decode string} {
+	uuencode -mode decode $encode
+    } $string	;#{}
+
+    # redundant tests following
+    test uuencode-5.$index {uuencode, encode/decode identity} {
+	uuencode -mode decode [uuencode -mode encode $string]
+    } $string	;#{}
+
+    test uuencode-6.$index {uuencode, decode/encode identity} {
+	uuencode -mode encode [uuencode -mode decode $fullencode]
+    } $fullencode	;#{}
+}

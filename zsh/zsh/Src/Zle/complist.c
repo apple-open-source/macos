@@ -31,6 +31,122 @@
 #include "complist.pro"
 
 
+/* Information about the list shown. */
+
+/*
+ * noselect: 1 if complistmatches indicated we shouldn't do selection.
+ *           Tested in domenuselect.
+ * mselect:  Local copy of the index of the currently selected match.
+ *           Initialised to the gnum entry of the current match for
+ *           each completion.
+ * inselect: 1 if we already selecting matches; tested in complistmatches()
+ * mcol:     The column for the selected completion.  As we never scroll
+ *           horizontally this applies both the screen and the logical array.
+ * mline:    The line for the selected completion in the logical array of
+ *           all matches, not all of which may be on screen at once.
+ * mcols:    Local copy of columns used in sizing arrays. 
+ * mlines:   The number of lines in the logical array of all matches,
+ *           initialised from listdat.nlines.
+ */
+static int noselect, mselect, inselect, mcol, mline, mcols, mlines;
+/*
+ * selected: Used to signal between domenucomplete() and menuselect()
+ *           that a selected entry has been found.  Or something.
+ * mlbeg:    The first line of the logical array of all matches that
+ *           fits on screen.  Setting this to -1 forces a redraw.
+ * mlend:    The line after the last that fits on screen.
+ * mscroll:  1 if the scrolling prompt is shown on screen.
+ * mrestlines: The number of screen lines remaining to be processed.
+ */
+static int selected, mlbeg = -1, mlend = 9999999, mscroll, mrestlines;
+/*
+ * mnew: 1 if a new selection menu is being displayed.
+ * mlastcols: stored value of mcols for use in calculating mnew.
+ * mlastlines: stored value of mlines for use in calculating mnew.
+ * mhasstat: Indicates if the status line is present (but maybe not
+ *           yet printed).
+ * mfirstl: The first line of the logical array of all matches to
+ *          be shown on screen, -1 if this has not yet been determined.
+ * mlastm: The index of the selected match in some circumstances; used
+ *         if an explicit number for a match is passed to compprintfmt();
+ *         initialised from the total number of matches.  I realise this
+ *         isn't very illuminating.
+ */
+static int mnew, mlastcols, mlastlines, mhasstat, mfirstl, mlastm;
+/*
+ * mlprinted: Used to signal the number of additional lines printed
+ *            when outputting matches (as argument passing is a bit
+ *            screwy within the completion system).
+ * molbeg:    The last value of mlbeg; -1 if invalid, -42 if, er, very
+ *            invalid.  Used in calculations of how much to draw.
+ * mocol:     The last value of mcol.
+ * moline:    The last value of mline.
+ * mstatprinted: Indicates that the status line has now been printed,
+ *               c.f. mhasstat.
+ */
+static int mlprinted, molbeg = -2, mocol = 0, moline = 0, mstatprinted;
+/*
+ * mstatus: The message printed when scrolling.
+ * mlistp: The message printed when merely listing.
+ */
+static char *mstatus, *mlistp;
+/*
+ * mtab is the logical array of all matches referred to above.  It
+ * contains mcols*mlines entries.  These entries contain a pointer to
+ * the match structure which is in use at a particular point.  Note
+ * that for multiple line entries lines after the first contain NULL.
+ *
+ * mmtabp is a pointer to the selected entry in mtab.
+ */
+static Cmatch **mtab, **mmtabp;
+/*
+ * Used to indicate that the list has changed and needs redisplaying.
+ */
+static int mtab_been_reallocated;
+/*
+ * Array and pointer for the match group in exactly the same layout
+ * as mtab and mmtabp.
+ */
+static Cmgroup *mgtab, *mgtabp;
+#ifdef DEBUG
+/*
+ * Allow us to keep track of pointer arithmetic for mgtab; could
+ * just as well have been for mtab but wasn't.
+ */
+int mgtabsize;
+#endif
+
+/*
+ * Used in mtab/mgtab, for explanations.
+ *
+ * UUUUUUUUUUUUUUURRRRGHHHHHHHHHH!!!!!!!!! --- pws
+ */
+
+#define MMARK       ((unsigned long) 1)
+#define mmarked(v)  (((unsigned long) (v)) & MMARK)
+#define mtmark(v)   ((Cmatch *) (((unsigned long) (v)) | MMARK))
+#define mtunmark(v) ((Cmatch *) (((unsigned long) (v)) & ~MMARK))
+#define mgmark(v)   ((Cmgroup)  (((unsigned long) (v)) | MMARK))
+#define mgunmark(v) ((Cmgroup)  (((unsigned long) (v)) & ~MMARK))
+
+/* Information for in-string colours. */
+
+/* Maximum number of in-string colours supported. */
+
+#define MAX_POS 11
+
+static int nrefs;
+static int begpos[MAX_POS], curisbeg;
+static int endpos[MAX_POS];
+static int sendpos[MAX_POS], curissend; /* sorted end positions */
+static char **patcols, *curiscols[MAX_POS];
+static int curiscol;
+
+/* The last color used. */
+
+static char *last_cap;
+
+
 /* We use the parameters ZLS_COLORS and ZLS_COLOURS in the same way as
  * the color ls does. It's just that we don't support the `or' file
  * type. */
@@ -55,34 +171,38 @@ static Keymap mskeymap, lskeymap;
 #define COL_SO  5
 #define COL_BD  6
 #define COL_CD  7
-#define COL_EX  8
+#define COL_OR  8
 #define COL_MI  9
-#define COL_LC 10
-#define COL_RC 11
-#define COL_EC 12
-#define COL_TC 13
-#define COL_SP 14
-#define COL_MA 15
-#define COL_HI 16
-#define COL_DU 17
+#define COL_SU 10
+#define COL_SG 11
+#define COL_TW 12
+#define COL_OW 13
+#define COL_ST 14
+#define COL_EX 15
+#define COL_LC 16
+#define COL_RC 17
+#define COL_EC 18
+#define COL_TC 19
+#define COL_SP 20
+#define COL_MA 21
+#define COL_HI 22
+#define COL_DU 23
 
-#define NUM_COLS 18
-
-/* Maximum number of in-string colours supported. */
-
-#define MAX_POS 11
+#define NUM_COLS 24
 
 /* Names of the terminal strings. */
 
 static char *colnames[] = {
-    "no", "fi", "di", "ln", "pi", "so", "bd", "cd", "ex", "mi",
+    "no", "fi", "di", "ln", "pi", "so", "bd", "cd", "or", "mi",
+    "su", "sg", "tw", "ow", "st", "ex",
     "lc", "rc", "ec", "tc", "sp", "ma", "hi", "du", NULL
 };
 
 /* Default values. */
 
 static char *defcols[] = {
-    "0", "0", "1;31", "1;36", "33", "1;35", "1;33", "1;33", "1;32", NULL,
+    "0", "0", "1;31", "1;36", "33", "1;35", "1;33", "1;33", NULL, NULL,
+    "37;41", "30;43", "30;42", "34;42", "37;44", "1;32", 
     "\033[", "m", NULL, "0", "0", "7", NULL, NULL
 };
 
@@ -122,11 +242,25 @@ struct extcol {
 
 typedef struct listcols *Listcols;
 
+/* values for listcol flags */
+enum {
+    /* ln=target:  follow symlinks to determine highlighting */
+    LC_FOLLOW_SYMLINKS = 0x0001
+};
+
 struct listcols {
     Filecol files[NUM_COLS];	/* strings for file types */
     Patcol pats;		/* strings for patterns */
     Extcol exts;		/* strings for extensions */
+    int flags;			/* special settings, see above */
 };
+
+/*
+ * Contains information about the colours to be used for entries.
+ * Sometimes mcolors is passed as an argument even though it's
+ * available to all the functions.
+ */
+static struct listcols mcolors;
 
 /* Combined length of LC and RC, maximum length of capability strings. */
 
@@ -191,7 +325,7 @@ getcolval(char *s, int multi)
  * character after it. */
 
 static char *
-getcoldef(Listcols c, char *s)
+getcoldef(char *s)
 {
     Patprog gprog = NULL;
 
@@ -236,12 +370,12 @@ getcoldef(Listcols c, char *s)
 	ec->ext = n;
 	ec->col = s;
 	ec->next = NULL;
-	if ((eo = c->exts)) {
+	if ((eo = mcolors.exts)) {
 	    while (eo->next)
 		eo = eo->next;
 	    eo->next = ec;
 	} else
-	    c->exts = ec;
+	    mcolors.exts = ec;
 	if (*p)
 	    *p++ = '\0';
 	return p;
@@ -278,12 +412,12 @@ getcoldef(Listcols c, char *s)
 		pc->cols[i] = cols[i];
 	    pc->cols[i] = NULL;
 	    pc->next = NULL;
-	    if ((po = c->pats)) {
+	    if ((po = mcolors.pats)) {
 		while (po->next)
 		    po = po->next;
 		po->next = pc;
 	    } else
-		c->pats = pc;
+		mcolors.pats = pc;
 	}
 	if (*t)
 	    *t++ = '\0';
@@ -302,24 +436,33 @@ getcoldef(Listcols c, char *s)
 	for (i = 0, nn = colnames; *nn; i++, nn++)
 	    if (!strcmp(n, *nn))
 		break;
-	p = getcolval(s, 0);
-	if (*nn) {
-	    Filecol fc, fo;
+	/*
+	 * special case:  highlighting link targets
+	 */
+	if (i == COL_LN && strpfx("target", s) &&
+	    (s[6] == ':' || !s[6])) {
+	    mcolors.flags |= LC_FOLLOW_SYMLINKS;
+	    p = s + 6;
+	} else {
+	    p = getcolval(s, 0);
+	    if (*nn) {
+		Filecol fc, fo;
 
-	    fc = (Filecol) zhalloc(sizeof(*fc));
-	    fc->prog = (i == COL_EC || i == COL_LC || i == COL_RC ?
-			NULL : gprog);
-	    fc->col = s;
-	    fc->next = NULL;
-	    if ((fo = c->files[i])) {
-		while (fo->next)
-		    fo = fo->next;
-		fo->next = fc;
-	    } else
-		c->files[i] = fc;
+		fc = (Filecol) zhalloc(sizeof(*fc));
+		fc->prog = (i == COL_EC || i == COL_LC || i == COL_RC ?
+			    NULL : gprog);
+		fc->col = s;
+		fc->next = NULL;
+		if ((fo = mcolors.files[i])) {
+		    while (fo->next)
+			fo = fo->next;
+		    fo->next = fc;
+		} else
+		    mcolors.files[i] = fc;
+	    }
+	    if (*p)
+		*p++ = '\0';
 	}
-	if (*p)
-	    *p++ = '\0';
 	return p;
     }
 }
@@ -337,184 +480,78 @@ filecol(char *col)
     return fc;
 }
 
-/* This initializes the given terminal color structure. */
+/*
+ * This initializes the given terminal color structure.
+ */
 
 static void
-getcols(Listcols c)
+getcols()
 {
     char *s;
     int i, l;
 
     max_caplen = lr_caplen = 0;
+    mcolors.flags = 0;
     queue_signals();
     if (!(s = getsparam("ZLS_COLORS")) &&
 	!(s = getsparam("ZLS_COLOURS"))) {
 	for (i = 0; i < NUM_COLS; i++)
-	    c->files[i] = filecol("");
-	c->pats = NULL;
-	c->exts = NULL;
+	    mcolors.files[i] = filecol("");
+	mcolors.pats = NULL;
+	mcolors.exts = NULL;
 	
 	if ((s = tcstr[TCSTANDOUTBEG]) && s[0]) {
-	    c->files[COL_MA] = filecol(s);
-	    c->files[COL_EC] = filecol(tcstr[TCSTANDOUTEND]);
+	    mcolors.files[COL_MA] = filecol(s);
+	    mcolors.files[COL_EC] = filecol(tcstr[TCSTANDOUTEND]);
 	} else
-	    c->files[COL_MA] = filecol(defcols[COL_MA]);
+	    mcolors.files[COL_MA] = filecol(defcols[COL_MA]);
 	lr_caplen = 0;
-	if ((max_caplen = strlen(c->files[COL_MA]->col)) <
-	    (l = strlen(c->files[COL_EC]->col)))
+	if ((max_caplen = strlen(mcolors.files[COL_MA]->col)) <
+	    (l = strlen(mcolors.files[COL_EC]->col)))
 	    max_caplen = l;
 	unqueue_signals();
 	return;
     }
-    /* We have one of the parameters, use it. */
-    memset(c, 0, sizeof(*c));
+    /* Reset the global color structure. */
+    memset(&mcolors, 0, sizeof(mcolors));
     s = dupstring(s);
     while (*s)
 	if (*s == ':')
 	    s++;
 	else
-	    s = getcoldef(c, s);
+	    s = getcoldef(s);
     unqueue_signals();
 
     /* Use default values for those that aren't set explicitly. */
     for (i = 0; i < NUM_COLS; i++) {
-	if (!c->files[i] || !c->files[i]->col)
-	    c->files[i] = filecol(defcols[i]);
-	if (c->files[i] && c->files[i]->col &&
-	    (l = strlen(c->files[i]->col)) > max_caplen)
+	if (!mcolors.files[i] || !mcolors.files[i]->col)
+	    mcolors.files[i] = filecol(defcols[i]);
+	if (mcolors.files[i] && mcolors.files[i]->col &&
+	    (l = strlen(mcolors.files[i]->col)) > max_caplen)
 	    max_caplen = l;
     }
-    lr_caplen = strlen(c->files[COL_LC]->col) + strlen(c->files[COL_RC]->col);
+    lr_caplen = strlen(mcolors.files[COL_LC]->col) +
+	strlen(mcolors.files[COL_RC]->col);
 
-    /* Default for missing files. */
-    if (!c->files[COL_MI] || !c->files[COL_MI]->col)
-	c->files[COL_MI] = c->files[COL_FI];
+    /* Default for orphan is same as link. */
+    if (!mcolors.files[COL_OR] || !mcolors.files[COL_OR]->col)
+	mcolors.files[COL_OR] = mcolors.files[COL_LN];
+    /* Default for missing files:  currently not used */
+    if (!mcolors.files[COL_MI] || !mcolors.files[COL_MI]->col)
+	mcolors.files[COL_MI] = mcolors.files[COL_FI];
 
     return;
 }
 
-/* Information about the list shown. */
-
-/*
- * noselect: 1 if complistmatches indicated we shouldn't do selection.
- *           Tested in domenuselect.
- * mselect:  Local copy of the index of the currently selected match.
- *           Initialised to the gnum entry of the current match for
- *           each completion.
- * inselect: 1 if we already selecting matches; tested in complistmatches()
- * mcol:     The column for the selected completion.  As we never scroll
- *           horizontally this applies both the screen and the logical array.
- * mline:    The line for the selected completion in the logical array of
- *           all matches, not all of which may be on screen at once.
- * mcols:    Local copy of columns used in sizing arrays. 
- * mlines:   The number of lines in the logical array of all matches,
- *           initialised from listdat.nlines.
- */
-static int noselect, mselect, inselect, mcol, mline, mcols, mlines;
-/*
- * selected: Used to signal between domenucomplete() and menuselect()
- *           that a selected entry has been found.  Or something.
- * mlbeg:    The first line of the logical array of all matches that
- *           fits on screen.
- * mlend:    The line after the last that fits on screen.
- * mscroll:  1 if the scrolling prompt is shown on screen.
- * mrestlines: The number of screen lines remaining to be processed.
- */
-static int selected, mlbeg = -1, mlend = 9999999, mscroll, mrestlines;
-/*
- * mnew: 1 if a new selection menu is being displayed.
- * mlastcols: stored value of mcols for use in calculating mnew.
- * mlastlines: stored value of mlines for use in calculating mnew.
- * mhasstat: Indicates if the status line is present (but maybe not
- *           yet printed).
- * mfirstl: The first line of the logical array of all matches to
- *          be shown on screen, -1 if this has not yet been determined.
- * mlastm: The index of the selected match in some circumstances; used
- *         if an explicit number for a match is passed to compprintfmt();
- *         initialised from the total number of matches.  I realise this
- *         isn't very illuminating.
- */
-static int mnew, mlastcols, mlastlines, mhasstat, mfirstl, mlastm;
-/*
- * mlprinted: Used to signal the number of additional lines printed
- *            when outputting matches (as argument passing is a bit
- *            screwy within the completion system).
- * molbeg:    The last value of mlbeg; -1 if invalid, -42 if, er, very
- *            invalid.  Used in calculations of how much to draw.
- * mocol:     The last value of mcol.
- * moline:    The last value of mline.
- * mstatprinted: Indicates that the status line has now been printed,
- *               c.f. mhasstat.
- */
-static int mlprinted, molbeg = -2, mocol = 0, moline = 0, mstatprinted;
-/*
- * mstatus: The message printed when scrolling.
- * mlistp: The message printed when merely listing.
- */
-static char *mstatus, *mlistp;
-/*
- * mtab is the logical array of all matches referred to above.  It
- * contains mcols*mlines entries.  These entries contain a pointer to
- * the match structure which is in use at a particular point.  Note
- * that for multiple line entries lines after the first contain NULL.
- *
- * mmtabp is a pointer to the selected entry in mtab.
- */
-static Cmatch **mtab, **mmtabp;
-/*
- * Used to indicate that the list has changed and needs redisplaying.
- */
-static int mtab_been_reallocated;
-/*
- * Array and pointer for the match group in exactly the same layout
- * as mtab and mmtabp.
- */
-static Cmgroup *mgtab, *mgtabp;
-/*
- * Contains information about the colours to be used for entries.
- * Sometimes mcolors is passed as an argument even though it's
- * availabel to all the functions.
- */
-static struct listcols mcolors;
-#ifdef DEBUG
-/*
- * Allow us to keep track of pointer arithmetic for mgtab; could
- * just as well have been for mtab but wasn't.
- */
-int mgtabsize;
-#endif
-
-/* Used in mtab/mgtab, for explanations. */
-
-#define MMARK       ((unsigned long) 1)
-#define mmarked(v)  (((unsigned long) (v)) & MMARK)
-#define mtmark(v)   ((Cmatch *) (((unsigned long) (v)) | MMARK))
-#define mtunmark(v) ((Cmatch *) (((unsigned long) (v)) & ~MMARK))
-#define mgmark(v)   ((Cmgroup)  (((unsigned long) (v)) | MMARK))
-#define mgunmark(v) ((Cmgroup)  (((unsigned long) (v)) & ~MMARK))
-
-/* Information for in-string colours. */
-
-static int nrefs;
-static int begpos[MAX_POS], curisbeg;
-static int endpos[MAX_POS];
-static int sendpos[MAX_POS], curissend; /* sorted end positions */
-static char **patcols, *curiscols[MAX_POS];
-static int curiscol;
-
-/* The last color used. */
-
-static char *last_cap;
-
 static void
-zlrputs(Listcols c, char *cap)
+zlrputs(char *cap)
 {
     if (!*last_cap || strcmp(last_cap, cap)) {
 	VARARR(char, buf, lr_caplen + max_caplen + 1);
 
-	strcpy(buf, c->files[COL_LC]->col);
+	strcpy(buf, mcolors.files[COL_LC]->col);
 	strcat(buf, cap);
-	strcat(buf, c->files[COL_RC]->col);
+	strcat(buf, mcolors.files[COL_RC]->col);
 
 	tputs(buf, 1, putshout);
 
@@ -523,18 +560,18 @@ zlrputs(Listcols c, char *cap)
 }
 
 static void
-zcputs(Listcols c, char *group, int colour)
+zcputs(char *group, int colour)
 {
     Filecol fc;
 
-    for (fc = c->files[colour]; fc; fc = fc->next)
+    for (fc = mcolors.files[colour]; fc; fc = fc->next)
 	if (fc->col &&
 	    (!fc->prog || !group || pattry(fc->prog, group))) {
-	    zlrputs(c, fc->col);
+	    zlrputs(fc->col);
 
 	    return;
 	}
-    zlrputs(c, "0");
+    zlrputs("0");
 }
 
 /* Turn off colouring. */
@@ -546,16 +583,16 @@ zcoff(void)
 	tputs(mcolors.files[COL_EC]->col, 1, putshout);
 	*last_cap = '\0';
     } else
-	zcputs(&mcolors, NULL, COL_NO);
+	zcputs(NULL, COL_NO);
 }
 
 
 static void
-initiscol(Listcols c)
+initiscol()
 {
     int i;
 
-    zlrputs(c, patcols[0]);
+    zlrputs(patcols[0]);
 
     curiscols[curiscol = 0] = *patcols++;
 
@@ -568,15 +605,15 @@ initiscol(Listcols c)
 }
 
 static void
-doiscol(Listcols c, int pos)
+doiscol(int pos)
 {
     int fi;
 
     while (pos > sendpos[curissend]) {
 	curissend++;
 	if (curiscol) {
-	    zcputs(c, NULL, COL_NO);
-	    zlrputs(c, curiscols[--curiscol]);
+	    zcputs(NULL, COL_NO);
+	    zlrputs(curiscols[--curiscol]);
 	}
     }
     while (((fi = (endpos[curisbeg] < begpos[curisbeg] || 
@@ -592,8 +629,8 @@ doiscol(Listcols c, int pos)
 		sendpos[j] = sendpos[j-1];
 	    sendpos[i] = e;
 	    
-	    zcputs(c, NULL, COL_NO);
-	    zlrputs(c, *patcols);
+	    zcputs(NULL, COL_NO);
+	    zlrputs(*patcols);
 	    curiscols[++curiscol] = *patcols;
 	}
 	++patcols;
@@ -604,14 +641,14 @@ doiscol(Listcols c, int pos)
 /* Stripped-down version of printfmt(). But can do in-string colouring. */
 
 static int
-clprintfmt(Listcols c, char *p, int ml)
+clprintfmt(char *p, int ml)
 {
     int cc = 0, i = 0, ask, beg;
 
-    initiscol(c);
+    initiscol();
 
     for (; *p; p++) {
-	doiscol(c, i++);
+	doiscol(i++);
 	cc++;
 	if (*p == '\n') {
 	    if (mlbeg >= 0 && tccan(TCCLEAREOL))
@@ -643,7 +680,7 @@ clprintfmt(Listcols c, char *p, int ml)
  */
 
 static int
-clnicezputs(Listcols colors, char *s, int ml)
+clnicezputs(int do_colors, char *s, int ml)
 {
     int i = 0, col = 0, ask, oml = ml;
     char *t;
@@ -674,8 +711,8 @@ clnicezputs(Listcols colors, char *s, int ml)
     uptr = unmetafy(ums, &umlen);
     umleft = umlen;
 
-    if (colors)
-	initiscol(colors);
+    if (do_colors)
+	initiscol();
 
     mb_metacharinit();
     while (umleft > 0) {
@@ -708,14 +745,14 @@ clnicezputs(Listcols colors, char *s, int ml)
 
 	umleft -= cnt;
 	uptr += cnt;
-	if (colors) {
+	if (do_colors) {
 	    /*
 	     * The code for the colo[u]ri[s/z]ation is obscure (surprised?)
 	     * but if we do it for every input character, as we do in
 	     * the simple case, we shouldn't go too far wrong.
 	     */
 	    while (cnt--)
-		doiscol(colors, i++);
+		doiscol(i++);
 	}
 
 	/*
@@ -756,7 +793,7 @@ clnicezputs(Listcols colors, char *s, int ml)
 		    return ask;
 		}
 		col -= columns;
-		if (colors)
+		if (do_colors)
 		    fputs(" \010", shout);
 	    }
 	}
@@ -765,12 +802,12 @@ clnicezputs(Listcols colors, char *s, int ml)
     free(ums);
 #else
 
-    if (colors)
-	initiscol(colors);
+    if (do_colors)
+	initiscol();
 
     while ((cc = *s++)) {
-	if (colors)
-	    doiscol(colors, i++);
+	if (do_colors)
+	    doiscol(i++);
 	if (itok(cc)) {
 	    if (cc <= Comma)
 		cc = ztokens[cc - Pound];
@@ -794,7 +831,7 @@ clnicezputs(Listcols colors, char *s, int ml)
 		    return ask;
 		}
 		col = 0;
-		if (colors)
+		if (do_colors)
 		    fputs(" \010", shout);
 	    }
 	}
@@ -807,13 +844,13 @@ clnicezputs(Listcols colors, char *s, int ml)
 /* Get the terminal color string for the given match. */
 
 static int
-putmatchcol(Listcols c, char *group, char *n)
+putmatchcol(char *group, char *n)
 {
     Patcol pc;
 
     nrefs = MAX_POS - 1;
 
-    for (pc = c->pats; pc; pc = pc->next)
+    for (pc = mcolors.pats; pc; pc = pc->next)
 	if ((!pc->prog || !group || pattry(pc->prog, group)) &&
 	    pattryrefs(pc->pat, n, -1, -1, 0, &nrefs, begpos, endpos)) {
 	    if (pc->cols[1]) {
@@ -821,12 +858,12 @@ putmatchcol(Listcols c, char *group, char *n)
 
 		return 1;
 	    }
-	    zlrputs(c, pc->cols[0]);
+	    zlrputs(pc->cols[0]);
 
 	    return 0;
 	}
 
-    zcputs(c, group, COL_NO);
+    zcputs(group, COL_NO);
 
     return 0;
 }
@@ -835,23 +872,15 @@ putmatchcol(Listcols c, char *group, char *n)
  * file modes. */
 
 static int
-putfilecol(Listcols c, char *group, char *n, mode_t m)
+putfilecol(char *group, char *n, mode_t m, int special)
 {
-    int colour;
+    int colour = -1;
     Extcol ec;
     Patcol pc;
 
-    for (ec = c->exts; ec; ec = ec->next)
-	if (strsfx(ec->ext, n) &&
-	    (!ec->prog || !group || pattry(ec->prog, group))) {
-	    zlrputs(c, ec->col);
-
-	    return 0;
-	}
-
     nrefs = MAX_POS - 1;
 
-    for (pc = c->pats; pc; pc = pc->next)
+    for (pc = mcolors.pats; pc; pc = pc->next)
 	if ((!pc->prog || !group || pattry(pc->prog, group)) &&
 	    pattryrefs(pc->pat, n, -1, -1, 0, &nrefs, begpos, endpos)) {
 	    if (pc->cols[1]) {
@@ -859,14 +888,24 @@ putfilecol(Listcols c, char *group, char *n, mode_t m)
 
 		return 1;
 	    }
-	    zlrputs(c, pc->cols[0]);
+	    zlrputs(pc->cols[0]);
 
 	    return 0;
 	}
 
-    if (S_ISDIR(m))
-	colour = COL_DI;
-    else if (S_ISLNK(m))
+    if (special != -1) {
+	colour = special;
+    } else if (S_ISDIR(m)) {
+	if (m & S_IWOTH)
+	    if (m & S_ISVTX)
+		colour = COL_TW;
+	    else
+		colour = COL_OW;
+	else if (m & S_ISVTX)
+	    colour = COL_ST;
+	else
+	    colour = COL_DI;
+    } else if (S_ISLNK(m))
 	colour = COL_LN;
     else if (S_ISFIFO(m))
 	colour = COL_PI;
@@ -876,12 +915,27 @@ putfilecol(Listcols c, char *group, char *n, mode_t m)
 	colour = COL_BD;
     else if (S_ISCHR(m))
 	colour = COL_CD;
+    else if (m & S_ISUID)
+	colour = COL_SU;
+    else if (m & S_ISGID)
+	colour = COL_SG;
     else if (S_ISREG(m) && (m & S_IXUGO))
 	colour = COL_EX;
-    else
-	colour = COL_FI;
 
-    zcputs(c, group, colour);
+    if (colour != -1) {
+	zcputs(group, colour);
+	return 0;
+    }
+
+    for (ec = mcolors.exts; ec; ec = ec->next)
+	if (strsfx(ec->ext, n) &&
+	    (!ec->prog || !group || pattry(ec->prog, group))) {
+	    zlrputs(ec->col);
+
+	    return 0;
+	}
+
+    zcputs(group, COL_FI);
 
     return 0;
 }
@@ -987,17 +1041,22 @@ compprintfmt(char *fmt, int n, int dopr, int doesc, int ml, int *stop)
 	}
 	else
 #endif
-	    width = WCWIDTH(cchar);
+	    width = WCWIDTH_WINT(cchar);
 
 	if (doesc && cchar == ZWC('%')) {
 	    p += len;
 	    if (*p) {
+		int arg = 0, is_fg;
+
 		len = MB_METACHARLENCONV(p, &cchar);
 #ifdef MULTIBYTE_SUPPORT
 		if (cchar == WEOF)
 		    cchar = (wchar_t)(*p == Meta ? p[1] ^ 32 : *p);
 #endif
 		p += len;
+
+		if (idigit(*p))
+		    arg = zstrtol(p, &p, 10);
 
 		m = 0;
 		switch (cchar) {
@@ -1045,7 +1104,32 @@ compprintfmt(char *fmt, int n, int dopr, int doesc, int ml, int *stop)
 		    if (dopr)
 			tcout(TCUNDERLINEEND);
 		    break;
+		case ZWC('F'):
+		case ZWC('K'):
+		    is_fg = (cchar == ZWC('F'));
+		    /* colours must be ASCII */
+		    if (*p == '{') {
+			p++;
+			arg = match_colour((const char **)&p, is_fg, 0);
+			if (*p == '}')
+			    p++;
+		    } else
+			arg = match_colour(NULL, is_fg, arg);
+		    if (arg >= 0 && dopr)
+			set_colour_attribute(arg, is_fg ? COL_SEQ_FG :
+					     COL_SEQ_BG, 0);
+		    break;
+		case ZWC('f'):
+		    if (dopr)
+			set_colour_attribute(TXTNOFGCOLOUR, COL_SEQ_FG, 0);
+		    break;
+		case ZWC('k'):
+		    if (dopr)
+			set_colour_attribute(TXTNOBGCOLOUR, COL_SEQ_BG, 0);
+		    break;
 		case ZWC('{'):
+		    if (arg)
+			cc += arg;
 		    for (; *p && (*p != '%' || p[1] != '}'); p++)
 			if (dopr)
 			    putc(*p == Meta ? *++p ^ 32 : *p, shout);
@@ -1593,7 +1677,7 @@ clprintm(Cmgroup g, Cmatch *mp, int mc, int ml, int lastc, int width)
 
     if (!mp) {
 	if (dolist(ml)) {
-	    zcputs(&mcolors, g->name, COL_SP);
+	    zcputs(g->name, COL_SP);
 	    len = width - 2;
 	    while (len-- > 0)
 		putc(' ', shout);
@@ -1637,17 +1721,17 @@ clprintm(Cmgroup g, Cmatch *mp, int mc, int ml, int lastc, int width)
 	    mcol = 0;
 	    mmtabp = mtab + mm;
 	    mgtabp = mgtab + mm;
-	    zcputs(&mcolors, g->name, COL_MA);
+	    zcputs(g->name, COL_MA);
 	} else if ((m->flags & CMF_NOLIST) &&
                    mcolors.files[COL_HI] && mcolors.files[COL_HI]->col)
-	    zcputs(&mcolors, g->name, COL_HI);
+	    zcputs(g->name, COL_HI);
 	else if (mselect >= 0 && (m->flags & (CMF_MULT | CMF_FMULT)) &&
                  mcolors.files[COL_DU] && mcolors.files[COL_DU]->col)
-	    zcputs(&mcolors, g->name, COL_DU);
+	    zcputs(g->name, COL_DU);
 	else
-	    subcols = putmatchcol(&mcolors, g->name, m->disp);
+	    subcols = putmatchcol(g->name, m->disp);
 	if (subcols)
-	    ret = clprintfmt(&mcolors, m->disp, ml);
+	    ret = clprintfmt(m->disp, ml);
 	else {
 	    compprintfmt(m->disp, 0, 1, 0, ml, &stop);
 	    if (stop)
@@ -1655,7 +1739,7 @@ clprintm(Cmgroup g, Cmatch *mp, int mc, int ml, int lastc, int width)
 	}
 	zcoff();
     } else {
-	int mx;
+	int mx, modec;
 
 	if (g->widths) {
 	    int i;
@@ -1698,17 +1782,29 @@ clprintm(Cmgroup g, Cmatch *mp, int mc, int ml, int lastc, int width)
 	    mline = ml;
 	    mmtabp = mtab + mx + mm;
 	    mgtabp = mgtab + mx + mm;
-	    zcputs(&mcolors, g->name, COL_MA);
+	    zcputs(g->name, COL_MA);
 	} else if (m->flags & CMF_NOLIST)
-	    zcputs(&mcolors, g->name, COL_HI);
+	    zcputs(g->name, COL_HI);
 	else if (mselect >= 0 && (m->flags & (CMF_MULT | CMF_FMULT)))
-	    zcputs(&mcolors, g->name, COL_DU);
-	else if (m->mode)
-	    subcols = putfilecol(&mcolors, g->name, m->str, m->mode);
+	    zcputs(g->name, COL_DU);
+	else if (m->mode) {
+	    /*
+	     * Symlink is orphaned if we read the mode with lstat
+	     * but couldn't read one with stat.  That's the
+	     * only way they can be different so the following
+	     * test should be enough.
+	     */
+	    int orphan_colour = (m->mode && !m->fmode) ? COL_OR : -1;
+	    if (mcolors.flags & LC_FOLLOW_SYMLINKS) {
+		subcols = putfilecol(g->name, m->str, m->fmode, orphan_colour);
+	    } else {
+		subcols = putfilecol(g->name, m->str, m->mode, orphan_colour);
+	    }
+	}
 	else
-	    subcols = putmatchcol(&mcolors, g->name, (m->disp ? m->disp : m->str));
+	    subcols = putmatchcol(g->name, (m->disp ? m->disp : m->str));
 
-	ret = clnicezputs(subcols ? &mcolors : NULL,
+	ret = clnicezputs(subcols,
 			  (m->disp ? m->disp : m->str), ml);
 	if (ret) {
 	    zcoff();
@@ -1717,25 +1813,26 @@ clprintm(Cmgroup g, Cmatch *mp, int mc, int ml, int lastc, int width)
 	len = ZMB_nicewidth(m->disp ? m->disp : m->str);
 	mlprinted = len ? (len-1) / columns : 0;
 
-	if ((g->flags & CGF_FILES) && m->modec) {
+	modec = (mcolors.flags & LC_FOLLOW_SYMLINKS) ? m->fmodec : m->modec;
+	if ((g->flags & CGF_FILES) && modec) {
 	    if (m->gnum != mselect) {
 		zcoff();
-		zcputs(&mcolors, g->name, COL_TC);
+		zcputs(g->name, COL_TC);
 	    }
-	    putc(m->modec, shout);
+	    putc(modec, shout);
 	    len++;
         }
 	if ((len = width - len - 2) > 0) {
 	    if (m->gnum != mselect) {
 		zcoff();
-		zcputs(&mcolors, g->name, COL_SP);
+		zcputs(g->name, COL_SP);
 	    }
 	    while (len-- > 0)
 		putc(' ', shout);
 	}
 	zcoff();
 	if (!lastc) {
-	    zcputs(&mcolors, g->name, COL_SP);
+	    zcputs(g->name, COL_SP);
 	    fputs("  ", shout);
 	    zcoff();
 	}
@@ -1826,6 +1923,7 @@ static int
 complistmatches(UNUSED(Hookdef dummy), Chdata dat)
 {
     static int onlnct = -1;
+    static int extendedglob;
 
     Cmgroup oamatches = amatches;
 
@@ -1838,7 +1936,20 @@ complistmatches(UNUSED(Hookdef dummy), Chdata dat)
 	amatches = oamatches;
 	return (noselect = 1);
     }
-    getcols(&mcolors);
+
+    /*
+     * There's a lot of memory allocation from this function
+     * for setting up the color display which isn't needed
+     * after the function exits, so it's worthwhile pushing
+     * another heap.  As this is called from a hook in the main
+     * completion handler nothing temporarily allocated from here can be
+     * useful outside.
+     */
+    pushheap();
+    extendedglob = opts[EXTENDEDGLOB];
+    opts[EXTENDEDGLOB] = 1;
+
+    getcols();
 
     mnew = ((calclist(mselect >= 0) || mlastcols != columns ||
 	     mlastlines != listdat.nlines) && mselect >= 0);
@@ -1849,6 +1960,8 @@ complistmatches(UNUSED(Hookdef dummy), Chdata dat)
 	showinglist = listshown = 0;
 	noselect = 1;
 	amatches = oamatches;
+	popheap();
+	opts[EXTENDEDGLOB] = extendedglob;
 	return 1;
     }
     if (inselect || mlbeg >= 0)
@@ -1880,6 +1993,8 @@ complistmatches(UNUSED(Hookdef dummy), Chdata dat)
 	mlistp = NULL;
 	if (asklist()) {
 	    amatches = oamatches;
+	    popheap();
+	    opts[EXTENDEDGLOB] = extendedglob;
 	    return (noselect = 1);
 	}
     }
@@ -1922,6 +2037,9 @@ complistmatches(UNUSED(Hookdef dummy), Chdata dat)
     moline = mline;
 
     amatches = oamatches;
+
+    popheap();
+    opts[EXTENDEDGLOB] = extendedglob;
 
     return noselect;
 }
@@ -2029,7 +2147,7 @@ setmstatus(char *status, char *sline, int sll, int scs,
             s[lastend - zlemetacs] = '\0';
         }
         zlemetacs = 0;
-        foredel(zlemetall);
+        foredel(zlemetall, CUT_RAW);
         spaceinline(sll);
         memcpy(zlemetaline, sline, sll);
         zlemetacs = scs;
@@ -2239,7 +2357,7 @@ domenuselect(Hookdef dummy, Chdata dat)
     }
     /*
      * Lots of the logic here doesn't really make sense if the
-     * line isn't metafied, but the evidence was that only used
+     * line isn't metafied, but the evidence was that it only used
      * to be metafied locally in a couple of places.
      * It's horrifically difficult to work out where the line
      * is metafied, so I've resorted to the following.
@@ -2275,7 +2393,7 @@ domenuselect(Hookdef dummy, Chdata dat)
 	     */
             mode = MM_INTER;
             zlemetacs = 0;
-            foredel(zlemetall);
+            foredel(zlemetall, CUT_RAW);
             spaceinline(l);
             strncpy(zlemetaline, origline, l);
             zlemetacs = origcs;
@@ -2306,8 +2424,7 @@ domenuselect(Hookdef dummy, Chdata dat)
     for (;;) {
 	METACHECK();
 
-    	mtab_been_reallocated = 0;
-	if (mline < 0) {
+	if (mline < 0 || mtab_been_reallocated) {
 	    int x, y;
 	    Cmatch **p = mtab;
 
@@ -2323,6 +2440,7 @@ domenuselect(Hookdef dummy, Chdata dat)
 	    if (y < mlines)
 		mline = y;
 	}
+    	mtab_been_reallocated = 0;
 	DPUTS(mline < 0,
 	      "BUG: mline < 0 after re-scanning mtab in domenuselect()");
 	while (mline < mlbeg)
@@ -2387,7 +2505,7 @@ domenuselect(Hookdef dummy, Chdata dat)
         }
         first = 0;
         if (mode == MM_INTER)
-	    statusline = stringaszleline(status, 0, &statusll, NULL, NULL);
+	    statusline = status;
         else if (mode) {
             int l = sprintf(status, "%s%sisearch%s: ",
                             ((msearchstate & MS_FAILED) ? "failed " : ""),
@@ -2396,17 +2514,12 @@ domenuselect(Hookdef dummy, Chdata dat)
 
             strncat(status, msearchstr, MAX_STATUS - l - 1);
 
-            statusline = stringaszleline(status, 0, &statusll, NULL, NULL);
+            statusline = status;
         } else {
             statusline = NULL;
-            statusll = 0;
         }
         zrefresh();
-	if (statusline) {
-	    free(statusline);
-	    statusline = NULL;
-	    statusll = 0;
-	}
+	statusline = NULL;
         inselect = 1;
         if (noselect) {
             broken = 1;
@@ -2478,7 +2591,7 @@ domenuselect(Hookdef dummy, Chdata dat)
 		 */
                 mode = MM_INTER;
                 zlemetacs = 0;
-                foredel(zlemetall);
+                foredel(zlemetall, CUT_RAW);
                 spaceinline(l);
                 strncpy(zlemetaline, origline, l);
                 zlemetacs = origcs;
@@ -2516,6 +2629,15 @@ domenuselect(Hookdef dummy, Chdata dat)
 	    s->origcs = origcs;
 	    s->origll = origll;
             s->status = dupstring(status);
+	    /*
+	     * with just the slightest hint of a note of infuriation:
+	     * mode here is the menu mode, not the file mode, despite
+	     * the fact we're in a file dealing with file highlighting;
+	     * but that's OK, because s is a menu stack entry, despite
+	     * the fact we're in a function declaring s as char *.
+	     * anyway, in functions we really mean *mode* it's
+	     * called m, to be clear.
+	     */
             s->mode = mode;
 	    menucmp = menuacc = hasoldlist = 0;
 	    minfo.cur = NULL;
@@ -2537,15 +2659,25 @@ domenuselect(Hookdef dummy, Chdata dat)
 		 * characters typed by the user.
 		 */
                 zlemetacs = 0;
-                foredel(zlemetall);
+                foredel(zlemetall, CUT_RAW);
                 spaceinline(l);
                 strncpy(zlemetaline, origline, l);
                 zlemetacs = origcs;
 
+		/*
+		 * Horrible quick fix:
+		 * we shouldn't need to metafy and unmetafy
+		 * quite as much.  If we kept unmetafied through
+		 * here we could fix up setmstatus to use unmetafied
+		 * as well.  This is the only use of setmstatus which
+		 * restores the line so that should be doable.
+		 */
+		unmetafy_line();
                 if (cmd == Th(z_selfinsert))
                     selfinsert(zlenoargs);
                 else
                     selfinsertunmeta(zlenoargs);
+		metafy_line();
 
                 saveline = (char *) zhalloc(zlemetall);
                 memcpy(saveline, zlemetaline, zlemetall);
@@ -2567,12 +2699,10 @@ domenuselect(Hookdef dummy, Chdata dat)
 	    if (nmatches < 1 || !minfo.cur || !*(minfo.cur)) {
 		nolist = 1;
                 if (mode == MM_INTER) {
-                    statusline = stringaszleline(status, 0,
-						 &statusll, NULL, NULL);
+                    statusline = status;
                 } else {
 		    /* paranoia */
 		    statusline = NULL;
-		    statusll = 0;
 		}
 		if (nmessages) {
 		    showinglist = -2;
@@ -2590,11 +2720,7 @@ domenuselect(Hookdef dummy, Chdata dat)
 		    zrefresh();
 		    showinglist = clearlist = 0;
 		}
-		if (statusline) {
-		    free(statusline);
-		    statusline = NULL;
-		    statusll = 0;
-		}
+		statusline = NULL;
 
 		goto getk;
 	    }
@@ -2630,6 +2756,7 @@ domenuselect(Hookdef dummy, Chdata dat)
 	    s->origcs = origcs;
 	    s->origll = origll;
             s->status = dupstring(status);
+	    /* see above */
             s->mode = mode;
 	    accept_last();
 	    handleundo();
@@ -2668,7 +2795,7 @@ domenuselect(Hookdef dummy, Chdata dat)
 
 	    handleundo();
 	    zlemetacs = 0;
-	    foredel(zlemetall);
+	    foredel(zlemetall, CUT_RAW);
 	    spaceinline(l = strlen(u->line));
 	    strncpy(zlemetaline, u->line, l);
 	    zlemetacs = u->cs;
@@ -2708,19 +2835,13 @@ domenuselect(Hookdef dummy, Chdata dat)
 
             if (nolist) {
                 if (mode == MM_INTER) {
-                    statusline = stringaszleline(status, 0,
-						 &statusll, NULL, NULL);
+                    statusline = status;
                 } else {
 		    /* paranoia */
 		    statusline = NULL;
-		    statusll = 0;
 		}
                 zrefresh();
-		if (statusline) {
-		    free(statusline);
-		    statusline = NULL;
-		    statusll = 0;
-		}
+		statusline = NULL;
                 goto getk;
             }
             if (mode)
@@ -3057,7 +3178,7 @@ domenuselect(Hookdef dummy, Chdata dat)
                 origcs = modecs;
                 origll = modell;
                 zlemetacs = 0;
-                foredel(zlemetall);
+                foredel(zlemetall, CUT_RAW);
                 spaceinline(origll);
                 strncpy(zlemetaline, origline, origll);
                 zlemetacs = origcs;
@@ -3183,6 +3304,15 @@ domenuselect(Hookdef dummy, Chdata dat)
 	}
     }
     if (!noselect && (!dat || acc)) {
+	/*
+	 * I added the following because in certain cases the zrefresh()
+	 * here was screwing up the list.  Forcing it to redraw the
+	 * screen worked.  The case in question (courtesy of
+	 * "Matt Wozniski" <godlygeek@gmail.com>) is in zsh-workers/24756.
+	 *
+	 * *** PLEASE DON'T ASK ME WHY THIS IS NECESSARY ***
+	 */
+	mlbeg = -1;
 	showinglist = ((validlist && !nolist) ? -2 : 0);
 	onlyexpl = oe;
 	if (!smatches)
@@ -3219,11 +3349,34 @@ menuselect(char **args)
     return 0;
 }
 
+static struct features module_features = {
+    NULL, 0,
+    NULL, 0,
+    NULL, 0,
+    NULL, 0,
+    0
+};
+
 /**/
 int
 setup_(UNUSED(Module m))
 {
     return 0;
+}
+
+/**/
+int
+features_(Module m, char ***features)
+{
+    *features = featuresarray(m, &module_features);
+    return 0;
+}
+
+/**/
+int
+enables_(Module m, int **enables)
+{
+    return handlefeatures(m, &module_features, enables);
 }
 
 /**/
@@ -3238,7 +3391,8 @@ boot_(Module m)
     w_menuselect = addzlefunction("menu-select", menuselect,
                                     ZLE_MENUCMP|ZLE_KEEPSUFFIX|ZLE_ISCOMP);
     if (!w_menuselect) {
-	zwarnnam(m->nam, "name clash when adding ZLE function `menu-select'");
+	zwarnnam(m->node.nam,
+		 "name clash when adding ZLE function `menu-select'");
 	return -1;
     }
     addhookfunc("comp_list_matches", (Hookfn) complistmatches);
@@ -3269,7 +3423,7 @@ boot_(Module m)
 
 /**/
 int
-cleanup_(UNUSED(Module m))
+cleanup_(Module m)
 {
     free(mtab);
     free(mgtab);
@@ -3279,7 +3433,7 @@ cleanup_(UNUSED(Module m))
     deletehookfunc("menu_start", (Hookfn) domenuselect);
     unlinkkeymap("menuselect", 1);
     unlinkkeymap("listscroll", 1);
-    return 0;
+    return setfeatureenables(m, &module_features, NULL);
 }
 
 /**/

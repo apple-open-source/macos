@@ -3,19 +3,20 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -38,8 +39,8 @@ enum {
 
 /* Finder types (mostly opaque in our usage) */
 struct FInfo {
-	UInt32		fileType;	/* The type of the file */
-	UInt32 		fileCreator;	/* The file's creator */
+	uint32_t	fileType;	/* The type of the file */
+	uint32_t 	fileCreator;	/* The file's creator */
 	UInt16 		finderFlags;	/* ex: kHasBundle, kIsInvisible... */
 	UInt8 		opaque[6];															/* If set to {0, 0}, the Finder will place the item automatically */
 };
@@ -116,6 +117,7 @@ enum {
  */
 #define HFSOPTIMALBLKSIZE	4096
 #define HFSMINBSIZE		512
+#define HFSMAXBSIZE		2147483648U
 #define	DFL_BLKSIZE		HFSOPTIMALBLKSIZE
 
 
@@ -176,16 +178,16 @@ enum {
 */
 struct DriveInfo {
 	int	fd;
-	UInt32	sectorSize;
-	UInt32	sectorOffset;
-	UInt64	totalSectors;
+	uint32_t sectorSize;
+	uint32_t sectorOffset;
+	uint64_t totalSectors;
 
 	/* actual device info. physSectorSize is necessary to de-block
 	 * while using the raw device.
 	 */
-	UInt32	physSectorSize;
-	UInt64	physSectorsPerIO;
-	UInt64  physTotalSectors;
+	uint32_t physSectorSize;
+	uint64_t physSectorsPerIO;
+	uint64_t physTotalSectors;
 };
 typedef struct DriveInfo DriveInfo;
 
@@ -200,24 +202,24 @@ enum {
 
 
 struct hfsparams {
-	UInt32 		flags;			/* kMakeHFSWrapper, ... */
-	UInt32 		blockSize;
-	UInt32 		rsrcClumpSize;
-	UInt32 		dataClumpSize;
-	UInt32 		nextFreeFileID;
-	UInt32 		catalogClumpSize;
-	UInt32 		catalogNodeSize;
-	UInt32 		extentsClumpSize;
-	UInt32 		extentsNodeSize;
-	UInt32 		attributesClumpSize;
-	UInt32 		attributesNodeSize;
-	UInt32 		allocationClumpSize;
-	UInt32          createDate;             /* in UTC */
-	UInt32		hfsAlignment;
+	uint32_t 	flags;			/* kMakeHFSWrapper, ... */
+	uint32_t 	blockSize;
+	uint32_t 	rsrcClumpSize;
+	uint32_t 	dataClumpSize;
+	uint32_t 	nextFreeFileID;
+	uint32_t 	catalogClumpSize;
+	uint32_t 	catalogNodeSize;
+	uint32_t 	extentsClumpSize;
+	uint32_t 	extentsNodeSize;
+	uint32_t 	attributesClumpSize;
+	uint32_t 	attributesNodeSize;
+	uint32_t 	allocationClumpSize;
+	uint32_t        createDate;             /* in UTC */
+	uint32_t	hfsAlignment;
 	unsigned char volumeName[kHFSPlusMaxFileNameChars + 1];  /* in UTF-8 */
-	UInt32		encodingHint;
-	UInt32 		journaledHFS;
-	UInt32 		journalSize;
+	uint32_t	encodingHint;
+	uint32_t 	journaledHFS;
+	uint32_t 	journalSize;
 	char 		*journalDevice;
 	uid_t		owner;
 	gid_t		group;
@@ -227,7 +229,7 @@ typedef struct hfsparams hfsparams_t;
 
 
 extern int make_hfs(const DriveInfo *driveInfo, hfsparams_t *defaults,
-				UInt32 *totalSectors, UInt32 *sectorOffset);
+				uint32_t *totalSectors, uint32_t *sectorOffset);
 
 extern int make_hfsplus(const DriveInfo *driveInfo, hfsparams_t *defaults);
 

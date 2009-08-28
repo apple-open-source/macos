@@ -936,7 +936,10 @@ retry:
     else
     {
 	if (eap != NULL && eap->force_ff != 0)
+	{
 	    fileformat = get_fileformat_force(curbuf, eap);
+	    try_unix = try_dos = try_mac = FALSE;
+	}
 	else if (curbuf->b_p_bin)
 	    fileformat = EOL_UNIX;		/* binary: use Unix format */
 	else if (*p_ffs == NUL)
@@ -2226,7 +2229,7 @@ failed:
     {
 	/* Use stderr for stdin, makes shell commands work. */
 	close(0);
-	dup(2);
+	ignored = dup(2);
     }
 #endif
 
@@ -2354,11 +2357,6 @@ failed:
 	    if (ff_error == EOL_DOS)
 	    {
 		STRCAT(IObuff, _("[CR missing]"));
-		c = TRUE;
-	    }
-	    if (ff_error == EOL_MAC)
-	    {
-		STRCAT(IObuff, _("[NL found]"));
 		c = TRUE;
 	    }
 	    if (split)
@@ -2726,7 +2724,7 @@ check_marks_read()
 {
     if (!curbuf->b_marks_read && get_viminfo_parameter('\'') > 0
 						  && curbuf->b_ffname != NULL)
-	read_viminfo(NULL, FALSE, TRUE, FALSE);
+	read_viminfo(NULL, VIF_WANT_MARKS);
 
     /* Always set b_marks_read; needed when 'viminfo' is changed to include
      * the ' parameter after opening a buffer. */
@@ -3476,7 +3474,7 @@ buf_write(buf, fname, sfname, start, end, eap, append, forceit,
 		{
 # ifdef UNIX
 #  ifdef HAVE_FCHOWN
-		    fchown(fd, st_old.st_uid, st_old.st_gid);
+		    ignored = fchown(fd, st_old.st_uid, st_old.st_gid);
 #  endif
 		    if (mch_stat((char *)IObuff, &st) < 0
 			    || st.st_uid != st_old.st_uid
@@ -4396,7 +4394,7 @@ restore_backup:
 		|| st.st_uid != st_old.st_uid
 		|| st.st_gid != st_old.st_gid)
 	{
-	    fchown(fd, st_old.st_uid, st_old.st_gid);
+	    ignored = fchown(fd, st_old.st_uid, st_old.st_gid);
 	    if (perm >= 0)	/* set permission again, may have changed */
 		(void)mch_setperm(wfname, perm);
 	}
@@ -5587,9 +5585,10 @@ check_for_bom(p, size, lenp, flags)
 	    name = "ucs-4le";	/* FF FE 00 00 */
 	    len = 4;
 	}
-	else if (flags == FIO_ALL || flags == (FIO_UCS2 | FIO_ENDIAN_L))
+	else if (flags == (FIO_UCS2 | FIO_ENDIAN_L))
 	    name = "ucs-2le";	/* FF FE */
-	else if (flags == (FIO_UTF16 | FIO_ENDIAN_L))
+	else if (flags == FIO_ALL || flags == (FIO_UTF16 | FIO_ENDIAN_L))
+	    /* utf-16le is preferred, it also works for ucs-2le text */
 	    name = "utf-16le";	/* FF FE */
     }
     else if (p[0] == 0xfe && p[1] == 0xff
@@ -6068,9 +6067,9 @@ vim_fgets(buf, size, fp)
 	{
 	    tbuf[FGETS_SIZE - 2] = NUL;
 #ifdef USE_CR
-	    fgets_cr((char *)tbuf, FGETS_SIZE, fp);
+	    ignoredp = fgets_cr((char *)tbuf, FGETS_SIZE, fp);
 #else
-	    fgets((char *)tbuf, FGETS_SIZE, fp);
+	    ignoredp = fgets((char *)tbuf, FGETS_SIZE, fp);
 #endif
 	} while (tbuf[FGETS_SIZE - 2] != NUL && tbuf[FGETS_SIZE - 2] != '\n');
     }
@@ -6144,18 +6143,79 @@ vim_rename(from, to)
 #ifdef HAVE_ACL
     vim_acl_T	acl;		/* ACL from original file */
 #endif
+#if defined(UNIX) || defined(CASE_INSENSITIVE_FILENAME)
+    int		use_tmp_file = FALSE;
+#endif
 
     /*
-     * When the names are identical, there is nothing to do.
+     * When the names are identical, there is nothing to do.  When they refer
+     * to the same file (ignoring case and slash/backslash differences) but
+     * the file name differs we need to go through a temp file.
      */
     if (fnamecmp(from, to) == 0)
-	return 0;
+    {
+#ifdef CASE_INSENSITIVE_FILENAME
+	if (STRCMP(gettail(from), gettail(to)) != 0)
+	    use_tmp_file = TRUE;
+	else
+#endif
+	    return 0;
+    }
 
     /*
      * Fail if the "from" file doesn't exist.  Avoids that "to" is deleted.
      */
     if (mch_stat((char *)from, &st) < 0)
 	return -1;
+
+#ifdef UNIX
+    {
+	struct stat	st_to;
+
+	/* It's possible for the source and destination to be the same file.
+	 * This happens when "from" and "to" differ in case and are on a FAT32
+	 * filesystem.  In that case go through a temp file name. */
+	if (mch_stat((char *)to, &st_to) >= 0
+		&& st.st_dev == st_to.st_dev
+		&& st.st_ino == st_to.st_ino)
+	    use_tmp_file = TRUE;
+    }
+#endif
+
+#if defined(UNIX) || defined(CASE_INSENSITIVE_FILENAME)
+    if (use_tmp_file)
+    {
+	char	tempname[MAXPATHL + 1];
+
+	/*
+	 * Find a name that doesn't exist and is in the same directory.
+	 * Rename "from" to "tempname" and then rename "tempname" to "to".
+	 */
+	if (STRLEN(from) >= MAXPATHL - 5)
+	    return -1;
+	STRCPY(tempname, from);
+	for (n = 123; n < 99999; ++n)
+	{
+	    sprintf((char *)gettail((char_u *)tempname), "%d", n);
+	    if (mch_stat(tempname, &st) < 0)
+	    {
+		if (mch_rename((char *)from, tempname) == 0)
+		{
+		    if (mch_rename(tempname, (char *)to) == 0)
+			return 0;
+		    /* Strange, the second step failed.  Try moving the
+		     * file back and return failure. */
+		    mch_rename(tempname, (char *)from);
+		    return -1;
+		}
+		/* If it fails for one temp name it will most likely fail
+		 * for any temp name, give up. */
+		return -1;
+	    }
+	}
+	return -1;
+    }
+#endif
 
     /*
      * Delete the "to" file, this is required on some systems to make the
@@ -9145,7 +9205,7 @@ static int include_groups = FALSE;
 set_context_in_autocmd(xp, arg, doautocmd)
     expand_T	*xp;
     char_u	*arg;
-    int		doautocmd;	/* TRUE for :doautocmd, FALSE for :autocmd */
+    int		doautocmd;	/* TRUE for :doauto*, FALSE for :autocmd */
 {
     char_u	*p;
     int		group;

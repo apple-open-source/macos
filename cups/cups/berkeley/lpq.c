@@ -1,9 +1,9 @@
 /*
- * "$Id: lpq.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: lpq.c 7460 2008-04-16 02:19:54Z mike $"
  *
  *   "lpq" command for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -355,8 +355,8 @@ show_jobs(const char *command,		/* I - Command name */
 		};
 
 
-  DEBUG_printf(("show_jobs(%08x, %08x, %08x, %d, %d)\n", http, dest, user, id,
-                longstatus));
+  DEBUG_printf(("show_jobs(http=%p, dest=%p, user=%p, id=%d, longstatus%d)\n",
+                http, dest, user, id, longstatus));
 
   if (http == NULL)
     return (0);
@@ -372,17 +372,13 @@ show_jobs(const char *command,		/* I - Command name */
 
   request = ippNewRequest(id ? IPP_GET_JOB_ATTRIBUTES : IPP_GET_JOBS);
 
-  if (dest == NULL)
+  if (id)
   {
-    if (id)
-      sprintf(resource, "ipp://localhost/jobs/%d", id);
-    else
-      strcpy(resource, "ipp://localhost/jobs");
-
+    snprintf(resource, sizeof(resource), "ipp://localhost/jobs/%d", id);
     ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "job-uri",
                  NULL, resource);
   }
-  else
+  else if (dest)
   {
     httpAssembleURIf(HTTP_URI_CODING_ALL, resource, sizeof(resource), "ipp",
                      NULL, "localhost", 0, "/printers/%s", dest);
@@ -390,6 +386,9 @@ show_jobs(const char *command,		/* I - Command name */
     ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri",
                  NULL, resource);
   }
+  else
+    ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri",
+                 NULL, "ipp://localhost/");
 
   if (user)
   {
@@ -667,5 +666,5 @@ usage(void)
 
 
 /*
- * End of "$Id: lpq.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: lpq.c 7460 2008-04-16 02:19:54Z mike $".
  */

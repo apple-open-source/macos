@@ -1,10 +1,10 @@
 /*
- * "$Id: statbuf.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: statbuf.c 7674 2008-06-18 23:18:32Z mike $"
  *
  *   Status buffer routines for the Common UNIX Printing System (CUPS)
  *   scheduler.
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -15,8 +15,8 @@
  *
  * Contents:
  *
- *   cupsdStatBufNew()    - Create a new status buffer.
  *   cupsdStatBufDelete() - Destroy a status buffer.
+ *   cupsdStatBufNew()    - Create a new status buffer.
  *   cupsdStatBufUpdate() - Update the status buffer.
  */
 
@@ -29,11 +29,35 @@
 
 
 /*
+ * 'cupsdStatBufDelete()' - Destroy a status buffer.
+ */
+
+void
+cupsdStatBufDelete(cupsd_statbuf_t *sb)	/* I - Status buffer */
+{
+ /*
+  * Range check input...
+  */
+
+  if (!sb)
+    return;
+
+ /*
+  * Close the status pipe and free memory used...
+  */
+
+  close(sb->fd);
+
+  free(sb);
+}
+
+
+/*
  * 'cupsdStatBufNew()' - Create a new status buffer.
  */
 
 cupsd_statbuf_t	*			/* O - New status buffer */
-cupsdStatBufNew(int fd,			/* I - File descriptor of pipe */
+cupsdStatBufNew(int        fd,		/* I - File descriptor of pipe */
                 const char *prefix,	/* I - Printf-style prefix string */
 		...)			/* I - Additional args as needed */
 {
@@ -90,41 +114,15 @@ cupsdStatBufNew(int fd,			/* I - File descriptor of pipe */
 
 
 /*
- * 'cupsdStatBufDelete()' - Destroy a status buffer.
- */
-
-void
-cupsdStatBufDelete(cupsd_statbuf_t *sb)	/* I - Status buffer */
-{
- /*
-  * Range check input...
-  */
-
-  if (!sb)
-    return;
-
- /*
-  * Close the status pipe and free memory used...
-  */
-
-  close(sb->fd);
-
-  free(sb);
-}
-
-
-/*
  * 'cupsdStatBufUpdate()' - Update the status buffer.
  */
 
 char *					/* O - Line from buffer, "", or NULL */
-cupsdStatBufUpdate(cupsd_statbuf_t *sb,	/* I - Status buffer */
-                   int             *loglevel,
-					/* O - Log level */ 
-                   char            *line,
-					/* I - Line buffer */
-                   int             linelen)
-					/* I - Size of line buffer */
+cupsdStatBufUpdate(
+    cupsd_statbuf_t *sb,		/* I - Status buffer */
+    int             *loglevel,		/* O - Log level */ 
+    char            *line,		/* I - Line buffer */
+    int             linelen)		/* I - Size of line buffer */
 {
   int		bytes;			/* Number of bytes read */
   char		*lineptr,		/* Pointer to end of line in buffer */
@@ -266,6 +264,11 @@ cupsdStatBufUpdate(cupsd_statbuf_t *sb,	/* I - Status buffer */
     *loglevel = CUPSD_LOG_ATTR;
     message   = sb->buffer + 5;
   }
+  else if (!strncmp(sb->buffer, "PPD:", 4))
+  {
+    *loglevel = CUPSD_LOG_PPD;
+    message   = sb->buffer + 4;
+  }
   else
   {
     *loglevel = CUPSD_LOG_DEBUG;
@@ -283,20 +286,23 @@ cupsdStatBufUpdate(cupsd_statbuf_t *sb,	/* I - Status buffer */
   * Send it to the log file as needed...
   */
 
-  if (*loglevel > CUPSD_LOG_NONE &&
-      (*loglevel != CUPSD_LOG_INFO || LogLevel == CUPSD_LOG_DEBUG2))
+  if (sb->prefix[0])
   {
-   /*
-    * General status message; send it to the error_log file...
-    */
+    if (*loglevel > CUPSD_LOG_NONE &&
+	(*loglevel != CUPSD_LOG_INFO || LogLevel >= CUPSD_LOG_DEBUG))
+    {
+     /*
+      * General status message; send it to the error_log file...
+      */
 
-    if (message[0] == '[')
-      cupsdLogMessage(*loglevel, "%s", message);
-    else
-      cupsdLogMessage(*loglevel, "%s %s", sb->prefix, message);
+      if (message[0] == '[')
+	cupsdLogMessage(*loglevel, "%s", message);
+      else
+	cupsdLogMessage(*loglevel, "%s %s", sb->prefix, message);
+    }
+    else if (*loglevel < CUPSD_LOG_NONE && LogLevel >= CUPSD_LOG_DEBUG)
+      cupsdLogMessage(CUPSD_LOG_DEBUG2, "%s %s", sb->prefix, sb->buffer);
   }
-  else if (*loglevel < CUPSD_LOG_NONE && LogLevel == CUPSD_LOG_DEBUG2)
-    cupsdLogMessage(CUPSD_LOG_DEBUG2, "%s %s", sb->prefix, sb->buffer);
 
  /*
   * Copy the message to the line buffer...
@@ -321,5 +327,5 @@ cupsdStatBufUpdate(cupsd_statbuf_t *sb,	/* I - Status buffer */
 
 
 /*
- * End of "$Id: statbuf.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: statbuf.c 7674 2008-06-18 23:18:32Z mike $".
  */

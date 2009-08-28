@@ -67,9 +67,9 @@ public:
 	bool		WaitTry				( void );
 	void		Signal				( void );
 
-	void		WaitDebug			( char *file, int line );
-	bool		WaitTryDebug		( char *file, int line );
-	void		SignalDebug			( char *file, int line );
+	void		WaitDebug			( const char *file, int line );
+	bool		WaitTryDebug		( const char *file, int line );
+	void		SignalDebug			( const char *file, int line );
 	
 	static void	DumpLockDebug		( DSMutexSemaphore *inMutex );
 	static bool BeingDebugged		( void );
@@ -77,9 +77,9 @@ public:
 	static void	LockCleanup			( void *value );
 
 #if defined(DEBUG_LOCKS_HISTORY)
-	void		WaitDebugHistory	( char *file, int line );
-	bool		WaitTryDebugHistory	( char *file, int line );
-	void		SignalDebugHistory	( char *file, int line );
+	void		WaitDebugHistory	( const char *file, int line );
+	bool		WaitTryDebugHistory	( const char *file, int line );
+	void		SignalDebugHistory	( const char *file, int line );
 	
 	static void	DumpLockHistory		( DSMutexSemaphore *inMutex );
 #endif

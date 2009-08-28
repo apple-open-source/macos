@@ -4,15 +4,27 @@ ToolType = Commands
 
 #COPY_SOURCES=YES
 
-Extra_CC_Flags        = -no-cpp-precomp -mdynamic-no-pic -DM_UNIX
-Extra_Configure_Flags = --bindir=/bin --mandir=/usr/share --enable-debugger
+Extra_CC_Flags        = -no-cpp-precomp -mdynamic-no-pic -DM_UNIX -DSSH_SOURCE_BASHRC
+# SIZEOF_LONG and SIZEOF_CHAR_P are unused
+# WORDS_BIGENDIAN is also unused in this configuration
+Extra_Configure_Flags = --bindir=/bin \
+	--mandir=/usr/share \
+	--enable-debugger \
+	ac_cv_sizeof_long=0 \
+	ac_cv_sizeof_char_p=0 \
+	ac_cv_c_bigendian=no
 Extra_Install_Flags   = bindir=$(DSTROOT)/bin
-Extra_LD_Flags        = -Wl,-search_paths_first
+Extra_LD_Flags        = -Wl,-search_paths_first -dead_strip
 GnuAfterInstall       = after-install
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 # Install in /usr
 USRDIR	       = /usr
+
+ifneq ($(SDKROOT),)
+Extra_CC_Flags += -isysroot "$(SDKROOT)"
+Extra_LD_Flags += -Wl,-syslibroot,"$(SDKROOT)"
+endif
 
 # Bash makefiles are a bit screwy...
 # Setting CCFLAGS upsets bash, so we override Environment
@@ -35,19 +47,18 @@ AEP_Version    = 3.2
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = bash32-001 bash32-002 bash32-003 bash32-004 bash32-005 \
-	bash32-006 bash32-007 bash32-008 bash32-009 bash32-010 bash32-011 \
-	bash32-012 bash32-013 bash32-014 bash32-015 bash32-016 bash32-017 \
+AEP_Patches    = $(shell jot -w bash32-%03d 48) \
 	doc_Makefile.in.diff shell.c.diff execute_cmd.c.diff \
-	jobs.c.diff text.c.diff setid.diff shell-_BASH_IMPLICIT_DASH_PEE.c.diff \
-	display.c.diff
+	text.c.diff setid.diff shell-_BASH_IMPLICIT_DASH_PEE.c.diff \
+	display.c.diff conftypes.h.diff strtrans.c.diff
 
 # Extract the source.
 install_source::
 	$(TAR) -C "$(SRCROOT)" -zxf "$(SRCROOT)/$(AEP_Filename)"
 	$(RMDIR) "$(SRCROOT)/$(AEP_Project)"
 	$(MV) "$(SRCROOT)/$(AEP_ExtractDir)" "$(SRCROOT)/$(AEP_Project)"
-	for patchfile in $(AEP_Patches); do \
+	@for patchfile in $(AEP_Patches); do \
+		echo Applying $$patchfile; \
 		cd "$(SRCROOT)/$(Project)" && patch -lp0 < "$(SRCROOT)/patches/$$patchfile" || exit 1; \
 	done
 

@@ -15,12 +15,12 @@ class TC_to_ns < Test::Unit::TestCase
 
   def test_array
     obj = ['ichi', 2, 3, 'quatre', 5]
-    verify(obj, OSX::NSArray)
+    verify(obj, OSX::NSMutableArray)
   end
 
   def test_dict
     obj = {'un' => 1, 'deux' => 'ni', 'trois' => 3}
-    verify(obj, OSX::NSDictionary)
+    verify(obj, OSX::NSMutableDictionary)
   end
 
   def test_fixnum
@@ -58,6 +58,7 @@ class TC_to_ns < Test::Unit::TestCase
     a, b = 'abc', 'def'
     
     n = a.to_ns
+    assert_kind_of(OSX::NSMutableString, n)
     assert_nothing_raised { n << b }
     assert_equal(a + b, n)
   end

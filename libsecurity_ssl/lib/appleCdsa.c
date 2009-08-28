@@ -358,6 +358,7 @@ OSStatus stSetUpCssmData(
 	return noErr;
 }
 
+/* All signature ops are "raw", with digest step done by us */
 static OSStatus sslKeyToSigAlg(
 	const CSSM_KEY *cssmKey,
 	CSSM_ALGORITHMS *sigAlg)	/* RETURNED */
@@ -370,6 +371,9 @@ static OSStatus sslKeyToSigAlg(
 			break;
 		case CSSM_ALGID_DSA:
 			*sigAlg = CSSM_ALGID_DSA;
+			break;
+		case CSSM_ALGID_ECDSA:
+			*sigAlg = CSSM_ALGID_ECDSA;
 			break;
 		default:
 			ortn = errSSLBadConfiguration;
@@ -385,11 +389,11 @@ static OSStatus sslKeyToSigAlg(
  * Raw RSA/DSA sign/verify.
  */
 OSStatus sslRawSign(
-	SSLContext			*ctx,
-	SecKeyRef			privKeyRef,		
-	const UInt8			*plainText,
+	SSLContext		*ctx,
+	SecKeyRef		privKeyRef,		
+	const UInt8		*plainText,
 	size_t			plainTextLen,
-	UInt8				*sig,			// mallocd by caller; RETURNED
+	UInt8			*sig,			// mallocd by caller; RETURNED
 	size_t			sigLen,			// available
 	size_t			*actualBytes)	// RETURNED
 {
@@ -435,7 +439,7 @@ OSStatus sslRawSign(
 		kSecCredentialTypeDefault,
 		&creds);
 	if(serr) {
-		sslErrorLog("sslRawSign: SecKeyGetCredentials err %lu\n", serr);
+		sslErrorLog("sslRawSign: SecKeyGetCredentials err %lu\n", (unsigned long)serr);
 		return serr;
 	}
 	
@@ -491,9 +495,9 @@ OSStatus sslRawVerify(
 	const CSSM_KEY		*pubKey,
 	CSSM_CSP_HANDLE		cspHand,
 	const UInt8			*plainText,
-	size_t			plainTextLen,
+	size_t				plainTextLen,
 	const UInt8			*sig,
-	size_t			sigLen)	
+	size_t				sigLen)	
 {
 	CSSM_CC_HANDLE			sigHand = 0;
 	CSSM_RETURN				crtn;
@@ -709,7 +713,7 @@ OSStatus sslRsaDecrypt(
 		kSecCredentialTypeDefault,
 		&creds);
 	if(serr) {
-		sslErrorLog("sslRsaDecrypt: SecKeyGetCredentials err %lu\n", serr);
+		sslErrorLog("sslRsaDecrypt: SecKeyGetCredentials err %lu\n", (unsigned long)serr);
 		return serr;
 	}
 	crtn = CSSM_CSP_CreateAsymmetricContext(cspHand,
@@ -1030,6 +1034,117 @@ abort:
 	/* note this frees the blob */
 	sslFreeKey(ctx->cspHand, &key, NULL);
 	return serr;
+}
+
+/*
+ * NULL-unwrap a raw key to a ref key. Caller must free the returned key. 
+ */
+static OSStatus sslNullUnwrapKey(
+	CSSM_CSP_HANDLE cspHand,
+	CSSM_KEY_PTR rawKey,
+	CSSM_KEY_PTR refKey)
+{
+	CSSM_DATA descData = {0, 0};
+	CSSM_RETURN crtn;
+	CSSM_CC_HANDLE ccHand;
+	CSSM_ACCESS_CREDENTIALS	creds;
+	CSSM_DATA labelData = {4, (uint8 *)"none"};
+	uint32 keyAttr;
+	OSStatus ortn = noErr;
+	
+	memset(&creds, 0, sizeof(CSSM_ACCESS_CREDENTIALS));	
+	memset(refKey, 0, sizeof(CSSM_KEY));
+	
+	crtn = CSSM_CSP_CreateSymmetricContext(cspHand,
+			CSSM_ALGID_NONE,
+			CSSM_ALGMODE_NONE,
+			&creds,
+			NULL,			// unwrappingKey
+			NULL,			// initVector
+			CSSM_PADDING_NONE,
+			0,				// Params
+			&ccHand);
+	if(crtn) {
+    	stPrintCdsaError("sslNullUnwrapKey: CSSM_CSP_CreateSymmetricContext\n", crtn);
+		return errSSLCrypto;
+	}
+
+	keyAttr = rawKey->KeyHeader.KeyAttr;
+	keyAttr &= ~(CSSM_KEYATTR_ALWAYS_SENSITIVE | CSSM_KEYATTR_NEVER_EXTRACTABLE |
+				 CSSM_KEYATTR_MODIFIABLE);
+	keyAttr |= CSSM_KEYATTR_RETURN_REF;
+	if(rawKey->KeyHeader.KeyClass == CSSM_KEYCLASS_PUBLIC_KEY) {
+		/* CSP policy */
+		keyAttr |= CSSM_KEYATTR_EXTRACTABLE;
+	}
+	crtn = CSSM_UnwrapKey(ccHand,
+		NULL,				// PublicKey
+		rawKey,
+		rawKey->KeyHeader.KeyUsage,
+		keyAttr,
+		&labelData,
+		NULL,				// CredAndAclEntry
+		refKey,
+		&descData);			// required
+	if(crtn != CSSM_OK) {
+    	stPrintCdsaError("sslNullUnwrapKey: CSSM_UnwrapKey\n", crtn);
+		ortn = errSSLCrypto;
+	}
+	if(CSSM_DeleteContext(ccHand)) {
+		printf("CSSM_DeleteContext failure\n");
+	}
+	return crtn;
+}
+
+/*
+ * NULL-wrap a ref key to a raw key. Caller must free the returned key. 
+ */
+static OSStatus sslNullWrapKey(
+	CSSM_CSP_HANDLE cspHand,
+	CSSM_KEY_PTR refKey,
+	CSSM_KEY_PTR rawKey)
+{
+	CSSM_DATA descData = {0, 0};
+	CSSM_RETURN crtn;
+	CSSM_CC_HANDLE ccHand;
+	CSSM_ACCESS_CREDENTIALS	creds;
+	uint32 keyAttr;
+	OSStatus ortn = noErr;
+	
+	memset(&creds, 0, sizeof(CSSM_ACCESS_CREDENTIALS));	
+	memset(rawKey, 0, sizeof(CSSM_KEY));
+	
+	crtn = CSSM_CSP_CreateSymmetricContext(cspHand,
+			CSSM_ALGID_NONE,
+			CSSM_ALGMODE_NONE,
+			&creds,
+			NULL,			// unwrappingKey
+			NULL,			// initVector
+			CSSM_PADDING_NONE,
+			0,				// Params
+			&ccHand);
+	if(crtn) {
+    	stPrintCdsaError("sslNullWrapKey: CSSM_CSP_CreateSymmetricContext\n", crtn);
+		return errSSLCrypto;
+	}
+
+	keyAttr = rawKey->KeyHeader.KeyAttr;
+	keyAttr &= ~(CSSM_KEYATTR_ALWAYS_SENSITIVE | CSSM_KEYATTR_NEVER_EXTRACTABLE |
+				 CSSM_KEYATTR_MODIFIABLE);
+	keyAttr |= CSSM_KEYATTR_RETURN_DATA | CSSM_KEYATTR_EXTRACTABLE;
+	crtn = CSSM_WrapKey(ccHand,
+		&creds,
+		refKey,
+		&descData,
+		rawKey);
+	if(crtn != CSSM_OK) {
+    	stPrintCdsaError("sslNullWrapKey: CSSM_WrapKey\n", crtn);
+		ortn = errSSLCrypto;
+	}
+	if(CSSM_DeleteContext(ccHand)) {
+		printf("CSSM_DeleteContext failure\n");
+	}
+	return crtn;
 }
 
 #pragma mark -
@@ -1587,6 +1702,339 @@ OSStatus sslDhKeyExchange(
 	return ortn;
 }
 
+#pragma mark -
+#pragma mark *** ECDSA support ***
+
+/* specify either 32-bit integer or a pointer as an added attribute value */
+typedef enum {
+	CAT_Uint32,
+	CAT_Ptr
+} ContextAttrType;
+
+/*
+ * Given a context specified via a CSSM_CC_HANDLE, add a new
+ * CSSM_CONTEXT_ATTRIBUTE to the context as specified by AttributeType,
+ * AttributeLength, and an untyped pointer.
+ */
+static CSSM_RETURN sslAddContextAttribute(CSSM_CC_HANDLE CCHandle,
+	uint32 AttributeType,
+	uint32 AttributeLength,
+	ContextAttrType attrType,
+	/* specify exactly one of these */
+	const void *AttributePtr,
+	uint32 attributeInt)
+{
+	CSSM_CONTEXT_ATTRIBUTE		newAttr;	
+	CSSM_RETURN					crtn;
+	
+	newAttr.AttributeType     = AttributeType;
+	newAttr.AttributeLength   = AttributeLength;
+	if(attrType == CAT_Uint32) {
+		newAttr.Attribute.Uint32  = attributeInt;
+	}
+	else {
+		newAttr.Attribute.Data    = (CSSM_DATA_PTR)AttributePtr;
+	}
+	crtn = CSSM_UpdateContextAttributes(CCHandle, 1, &newAttr);
+	if(crtn) {
+		stPrintCdsaError("CSSM_UpdateContextAttributes", crtn);
+	}
+	return crtn;
+}
+
+/*
+ * Generate ECDH key pair with the given SSL_ECDSA_NamedCurve. 
+ * Private key, in ref form, is placed in ctx->ecdhPrivate.
+ * Public key, in ECPoint form - which can NOT be used as 
+ * a key in any CSP ops - is placed in ecdhExchangePublic.
+ */
+OSStatus sslEcdhGenerateKeyPair(
+	SSLContext *ctx,
+	SSL_ECDSA_NamedCurve namedCurve)
+{
+	CSSM_RETURN		crtn;
+	CSSM_CC_HANDLE 	ccHandle = 0;
+	CSSM_DATA		labelData = {8, (uint8 *)"ecdsaKey"};
+	OSStatus		ortn = noErr;
+	CSSM_KEY		pubKey;
+	uint32			keySizeInBits;
+	
+	assert(ctx != NULL);
+	assert(ctx->cspHand != 0);
+	sslFreeKey(ctx->ecdhPrivCspHand, &ctx->ecdhPrivate, NULL);
+    SSLFreeBuffer(&ctx->ecdhExchangePublic, ctx);
+
+	switch(namedCurve) {
+		case SSL_Curve_secp256r1:
+			keySizeInBits = 256;
+			break;
+		case SSL_Curve_secp384r1:
+			keySizeInBits = 384;
+			break;
+		case SSL_Curve_secp521r1:
+			keySizeInBits = 521;
+			break;
+		default:
+			/* should not have gotten this far */
+			sslErrorLog("sslEcdhGenerateKeyPair: bad namedCurve (%u)\n", 
+				(unsigned)namedCurve);
+			return errSSLInternal;
+	}
+	
+	ctx->ecdhPrivate = (CSSM_KEY *)sslMalloc(sizeof(CSSM_KEY));
+	
+	memset(ctx->ecdhPrivate, 0, sizeof(CSSM_KEY));
+	memset(&pubKey, 0, sizeof(CSSM_KEY));
+	
+	crtn = CSSM_CSP_CreateKeyGenContext(ctx->cspHand,
+		CSSM_ALGID_ECDSA,
+		keySizeInBits,
+		NULL,					// Seed
+		NULL,					// Salt
+		NULL,					// StartDate
+		NULL,					// EndDate
+		NULL,					// Params
+		&ccHandle);
+	if(crtn) {
+		stPrintCdsaError("ECDH CSSM_CSP_CreateKeyGenContext", crtn);
+		return errSSLCrypto;
+	}
+	/* subsequent errors to errOut: */
+	
+	/* 
+	 * Here's how we get the raw ECPoint form of a public key
+	 */
+	crtn = sslAddContextAttribute(ccHandle,
+		CSSM_ATTRIBUTE_PUBLIC_KEY_FORMAT,
+		sizeof(uint32),	
+		CAT_Uint32,
+		NULL,
+		CSSM_KEYBLOB_RAW_FORMAT_OCTET_STRING);
+	if(crtn) {
+		ortn = errSSLCrypto;
+		goto errOut;
+	}
+
+	crtn = CSSM_GenerateKeyPair(ccHandle,
+		/* public key specification */
+		CSSM_KEYUSE_DERIVE,		// only legal use - right? 
+		CSSM_KEYATTR_RETURN_DATA | CSSM_KEYATTR_EXTRACTABLE,
+		&labelData,
+		&pubKey,
+		/* private key specification */
+		CSSM_KEYUSE_DERIVE,
+		CSSM_KEYATTR_RETURN_REF,
+		&labelData,				// same labels
+		NULL,					// CredAndAclEntry
+		ctx->ecdhPrivate);
+	if(crtn) {
+		stPrintCdsaError("ECDH CSSM_GenerateKeyPair", crtn);
+		ortn = errSSLCrypto;
+		goto errOut;
+	}
+	ctx->ecdhPrivCspHand = ctx->cspHand;
+	
+	/* 
+	 * Take that public key data, drop it into ecdhExchangePublic,
+	 * and free the key. 
+	 */
+    ortn = SSLCopyBufferFromData(pubKey.KeyData.Data, pubKey.KeyData.Length,
+				&ctx->ecdhExchangePublic);
+	CSSM_FreeKey(ctx->cspHand, NULL, &pubKey, CSSM_FALSE);
+	
+errOut:
+	if(ccHandle != 0) {
+		CSSM_DeleteContext(ccHandle);
+	}
+	return ortn;
+
+}
+
+/* 
+ * Perform ECDH key exchange. Obtained key material is the same 
+ * size as our private key.
+ * 
+ * On entry, ecdhPrivate is our private key. The peer's public key
+ * is either ctx->ecdhPeerPublic for ECDHE exchange, or 
+ * ctx->peerPubKey for ECDH exchange. 
+ */   
+OSStatus sslEcdhKeyExchange(
+	SSLContext		*ctx,
+	SSLBuffer		*exchanged)
+{
+	CSSM_RETURN 			crtn;
+	CSSM_ACCESS_CREDENTIALS	creds;
+	const CSSM_ACCESS_CREDENTIALS *secCreds;
+	const CSSM_ACCESS_CREDENTIALS *useCreds = &creds;
+	CSSM_CC_HANDLE			ccHandle;
+	CSSM_DATA				labelData = {8, (uint8 *)"tempKey"};
+	CSSM_KEY				derivedKey;
+	OSStatus				ortn = noErr;
+	CSSM_KEY				rawKey;
+	bool					useRefKeys = false;
+	uint32					keyAttr;
+	SSLBuffer				pubKeyBits = {0, NULL};
+	
+	assert(ctx != NULL);
+	assert(ctx->ecdhPrivCspHand != 0);
+	assert(ctx->ecdhPrivate != NULL);
+	
+	memset(&creds, 0, sizeof(CSSM_ACCESS_CREDENTIALS));
+	memset(&derivedKey, 0, sizeof(CSSM_KEY));
+	memset(&rawKey, 0, sizeof(CSSM_KEY));
+
+	/* 
+	 * If we're using an actual CSSM_KEY for the peer public key, and its
+	 * cspHand differs from our private key, we do things a bit different - 
+	 * our key is in the CSPDL space, and it has a Sec-style ACL for which 
+	 * we need creds. Also, the peer public key and the derived key have
+	 * to be in reference form.
+	 */
+	switch(ctx->selectedCipherSpec->keyExchangeMethod) {
+		case SSL_ECDH_ECDSA:
+		case SSL_ECDH_RSA:
+			if(ctx->cspHand != ctx->ecdhPrivCspHand) {
+				useRefKeys = true;
+			}
+			break;
+		default:
+			break;
+	}
+	if(useRefKeys) {
+		assert(ctx->signingPrivKeyRef != NULL);
+		ortn = SecKeyGetCredentials(ctx->signingPrivKeyRef,
+			CSSM_ACL_AUTHORIZATION_DERIVE,
+			kSecCredentialTypeDefault,
+			&secCreds);
+		if(ortn) {
+			stPrintCdsaError("ECDH SecKeyGetCredentials", ortn);
+			return ortn;
+		}
+		useCreds = secCreds; 
+	}
+	crtn = CSSM_CSP_CreateDeriveKeyContext(ctx->ecdhPrivCspHand,
+		CSSM_ALGID_ECDH,
+		DERIVE_KEY_ALG,
+		ctx->ecdhPrivate->KeyHeader.LogicalKeySizeInBits,
+		useCreds,
+		ctx->ecdhPrivate,	// BaseKey
+		0,					// IterationCount
+		0,					// Salt
+		0,					// Seed
+		&ccHandle);
+	if(crtn) {
+		stPrintCdsaError("ECDH CSSM_CSP_CreateDeriveKeyContext", crtn);
+		return errSSLCrypto;
+	}
+	/* subsequent errors to errOut: */
+	
+	CSSM_DATA theirPubKeyData = {0, NULL};
+	
+	switch(ctx->selectedCipherSpec->keyExchangeMethod) {
+		case SSL_ECDHE_ECDSA:
+		case SSL_ECDHE_RSA:
+			/* public key passed in as CSSM_DATA *Param */
+			if(ctx->ecdhPeerPublic.length == 0) {
+				/* comes from peer, don't panic */
+				sslErrorLog("sslEcdhKeyExchange: null peer public key\n");
+				ortn = errSSLProtocol;
+				goto errOut;
+			}
+			SSLBUF_TO_CSSM(&ctx->ecdhPeerPublic, &theirPubKeyData);
+			break;
+		case SSL_ECDH_ECDSA:
+		case SSL_ECDH_RSA:
+			/* add pub key as a context attr */
+			if(ctx->peerPubKey == NULL) {
+			   sslErrorLog("sslEcdhKeyExchange: no peer key\n");
+			   ortn = errSSLInternal;
+			   goto errOut;
+			}
+			
+			/* 
+			 * If we're using CSPDL, extract the raw public key bits in ECPoint
+			 * form and transmit as CSSM_DATA *Param.
+			 * The securityd can't transmit a public key in a DeriveKey context 
+			 * in any form.
+			 */
+			if(useRefKeys) {
+				ortn = sslEcdsaPubKeyBits(ctx->peerPubKey, &pubKeyBits);
+				if(ortn) {
+					goto errOut;
+				}
+				SSLBUF_TO_CSSM(&pubKeyBits, &theirPubKeyData);
+			}
+			else {
+				crtn = sslAddContextAttribute(ccHandle,
+					CSSM_ATTRIBUTE_PUBLIC_KEY,
+					sizeof(CSSM_KEY),	
+					CAT_Ptr,
+					(void *)ctx->peerPubKey,
+					0);
+				if(crtn) {
+					stPrintCdsaError("AddContextAttribute(CSSM_ATTRIBUTE_PUBLIC_KEY)",
+						crtn);
+					ortn = errSSLInternal;
+					goto errOut;
+				}
+			}
+			break;
+		default:
+			/* shouldn't be here */
+			assert(0);
+			ortn = errSSLInternal;
+			goto errOut;
+	}
+	
+	if(useRefKeys) {
+		keyAttr = CSSM_KEYATTR_RETURN_REF | CSSM_KEYATTR_EXTRACTABLE;
+	}
+	else {
+		keyAttr = CSSM_KEYATTR_RETURN_DATA | CSSM_KEYATTR_EXTRACTABLE;
+	}
+	crtn = CSSM_DeriveKey(ccHandle,
+		&theirPubKeyData,
+		CSSM_KEYUSE_ANY, 
+		keyAttr,
+		&labelData,
+		NULL,				// cred/acl
+		&derivedKey);
+	if(crtn) {
+		stPrintCdsaError("ECDH CSSM_DeriveKey", crtn);
+		ortn = errSSLCrypto;
+		goto errOut;
+	}
+	
+	if(useRefKeys) {
+		/* 
+		 * one more step: NULL-wrap the generated ref key to something we
+		 * can use
+		 */
+		ortn = sslNullWrapKey(ctx->ecdhPrivCspHand, &derivedKey, &rawKey);
+		if(ortn) {
+			goto errOut;
+		}
+		ortn = SSLCopyBufferFromData(rawKey.KeyData.Data, rawKey.KeyData.Length,
+			exchanged);
+	}
+	else {
+		ortn = SSLCopyBufferFromData(derivedKey.KeyData.Data, 
+				derivedKey.KeyData.Length, exchanged);
+	}
+errOut:
+	CSSM_DeleteContext(ccHandle);
+	if(useRefKeys) {
+		if(pubKeyBits.length) {
+			SSLFreeBuffer(&pubKeyBits, ctx);
+		}
+		if(rawKey.KeyData.Length) {
+			CSSM_FreeKey(ctx->ecdhPrivCspHand, NULL, &rawKey, CSSM_FALSE);
+		}
+	}
+	return ortn;
+}
+
+
 /*
  * After ciphersuite negotiation is complete, verify that we have
  * the capability of actually performing the negotiated cipher.
@@ -1631,6 +2079,14 @@ OSStatus sslVerifyNegotiatedCipher(
 		case SSL_DH_anon_EXPORT:
 			/* CSSM_ALGID_NONE, no signing key */
 			break;
+		/*
+		 * When SSL_ECDSA_SERVER is true and we support ECDSA on the server side,
+		 * we'll need to add some logic here...
+		 */
+		#if SSL_ECDSA_SERVER
+		#error Work needed in sslVerifyNegotiatedCipher
+		#endif
+		
 		default:
 			/* needs update per cipherSpecs.c */
 			assert(0);

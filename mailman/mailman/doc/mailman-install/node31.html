@@ -1,0 +1,129 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+<head>
+<link rel="STYLESHEET" href="mailman-install.css" type='text/css' />
+<link rel="first" href="mailman-install.html" title='GNU mailman - installation Manual' />
+<link rel='last' href='about.html' title='About this document...' />
+<link rel='help' href='about.html' title='About this document...' />
+<link rel="next" href="qmail-issues.html" />
+<link rel="prev" href="node16.html" />
+<link rel="parent" href="mail-server.html" />
+<link rel="next" href="node32.html" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name='aesop' content='information' />
+<title>6.3 Using the Sendmail mail server</title>
+</head>
+<body>
+<div class="navigation">
+<div id='top-navigation-panel' xml:id='top-navigation-panel'>
+<table align="center" width="100%" cellpadding="0" cellspacing="2">
+<tr>
+<td class='online-navigation'><a rel="prev" title="6.2.14 document History"
+  href="node30.html"><img src='previous.png'
+  border='0' height='32'  alt='Previous Page' width='32' /></a></td>
+<td class='online-navigation'><a rel="parent" title="6 set up your"
+  href="mail-server.html"><img src='up.png'
+  border='0' height='32'  alt='Up one Level' width='32' /></a></td>
+<td class='online-navigation'><a rel="next" title="6.3.1 sendmail ``smrsh'' compatibility"
+  href="node32.html"><img src='next.png'
+  border='0' height='32'  alt='Next Page' width='32' /></a></td>
+<td align="center" width="100%">GNU Mailman - Installation Manual</td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+</tr></table>
+<div class='online-navigation'>
+<b class="navlabel">Previous:</b>
+<a class="sectref" rel="prev" href="node30.html">6.2.14 Document History</a>
+<b class="navlabel">Up:</b>
+<a class="sectref" rel="parent" href="mail-server.html">6 Set up your</a>
+<b class="navlabel">Next:</b>
+<a class="sectref" rel="next" href="node32.html">6.3.1 Sendmail ``smrsh'' compatibility</a>
+</div>
+<hr /></div>
+</div>
+<!--End of Navigation Panel-->
+
+<h2><a name="SECTION001630000000000000000">
+6.3 Using the Sendmail mail server</a>
+</h2>
+
+<p>
+<div class="warning"><b class="label">Warning:</b>
+
+You may be tempted to set the <var>DELIVERY_MODULE</var> configuration variable in
+<span class="file">mm_cfg.py</span> to <code>'Sendmail'</code> when using the Sendmail mail server.
+<strong>Don't</strong>.  The <span class="file">Sendmail.py</span> module is misnamed - it's really a
+command line based message handoff scheme as opposed to the SMTP scheme used
+in <span class="file">SMTPDirect.py</span> (the default).  <span class="file">Sendmail.py</span> has known security
+holes and is provided as a proof-of-concept only<a name="tex2html4"
+  href="#foot402"><sup>4</sup></a>.  If you are having problems
+using <span class="file">SMTPDirect.py</span> fix those instead of using <span class="file">Sendmail.py</span>, or
+you may open your system up to security exploits.
+</div>
+
+<p>
+<br><hr><h4>Footnotes</h4>
+<dl>
+<dt><a name="foot402">... only</a><A
+ HREF="node31.html#tex2html4"><sup>4</sup></a></dt>
+<dd>In fact, in later
+versions of Mailman, this module is explicitly sabotaged.  You have to know
+what you're doing in order to re-enable it.
+
+</dd>
+</dl>
+<p><br /></p><hr class='online-navigation' />
+<div class='online-navigation'>
+<!--Table of Child-Links-->
+<a name="CHILD_LINKS"><strong>Subsections</strong></a>
+
+<ul class="ChildLinks">
+<li><a href="node32.html">6.3.1 Sendmail ``smrsh'' compatibility</a>
+<li><a href="node33.html">6.3.2 Integrating Sendmail and Mailman</a>
+<li><a href="node34.html">6.3.3 Performance notes</a>
+</ul>
+<!--End of Table of Child-Links-->
+</div>
+
+<div class="navigation">
+<div class='online-navigation'>
+<p></p><hr />
+<table align="center" width="100%" cellpadding="0" cellspacing="2">
+<tr>
+<td class='online-navigation'><a rel="prev" title="6.2.14 document History"
+  href="node30.html"><img src='previous.png'
+  border='0' height='32'  alt='Previous Page' width='32' /></a></td>
+<td class='online-navigation'><a rel="parent" title="6 set up your"
+  href="mail-server.html"><img src='up.png'
+  border='0' height='32'  alt='Up one Level' width='32' /></a></td>
+<td class='online-navigation'><a rel="next" title="6.3.1 sendmail ``smrsh'' compatibility"
+  href="node32.html"><img src='next.png'
+  border='0' height='32'  alt='Next Page' width='32' /></a></td>
+<td align="center" width="100%">GNU Mailman - Installation Manual</td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+</tr></table>
+<div class='online-navigation'>
+<b class="navlabel">Previous:</b>
+<a class="sectref" rel="prev" href="node30.html">6.2.14 Document History</a>
+<b class="navlabel">Up:</b>
+<a class="sectref" rel="parent" href="mail-server.html">6 Set up your</a>
+<b class="navlabel">Next:</b>
+<a class="sectref" rel="next" href="node32.html">6.3.1 Sendmail ``smrsh'' compatibility</a>
+</div>
+</div>
+<hr />
+<span class="release-info">Release 2.1, documentation updated on January 11, 2009.</span>
+</div>
+<!--End of Navigation Panel-->
+
+</body>
+</html>

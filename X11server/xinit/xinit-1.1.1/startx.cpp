@@ -162,13 +162,13 @@ while [ x"$1" != x ]; do
     XCOMM '' required to prevent cpp from treating "/*" as a C comment.
     /''*|\./''*)
 	if [ "$whoseargs" = "client" ]; then
-	    if [ x"$clientargs" = x ]; then
+	    if [ x"$client" = x ] && [ x"$clientargs" = x ]; then
 		client="$1"
 	    else
 		clientargs="$clientargs $1"
 	    fi
 	else
-	    if [ x"$serverargs" = x ]; then
+	    if [ x"$server" = x ] && [ x"$serverargs" = x ]; then
 		server="$1"
 	    else
 		serverargs="$serverargs $1"
@@ -279,7 +279,7 @@ if [ x"$enable_xauth" = x1 ] ; then
     xauth -q -f "$xserverauthfile" << EOF
 add :$dummy . $mcookie
 EOF
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(__CYGWIN__)
     serverargs=${serverargs}" -auth '"${xserverauthfile}"'"
 #else
     serverargs=${serverargs}" -auth "${xserverauthfile}
@@ -313,7 +313,7 @@ else
 fi
 #else
 
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(__CYGWIN__)
 eval XINIT \"$client\" $clientargs -- \"$server\" $display $serverargs
 #else
 XINIT "$client" $clientargs -- "$server" $display $serverargs

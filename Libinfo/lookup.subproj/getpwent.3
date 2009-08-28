@@ -9,10 +9,6 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
 .\" 4. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
@@ -30,75 +26,60 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     From: @(#)getpwent.3	8.2 (Berkeley) 12/11/93
-.\" $FreeBSD: src/lib/libc/gen/getpwent.3,v 1.18 2001/10/01 16:08:51 ru Exp $
+.\" $FreeBSD: src/lib/libc/gen/getpwent.3,v 1.30 2007/01/09 00:27:54 imp Exp $
 .\"
-.Dd September 20, 1994
+.Dd April 16, 2003
 .Dt GETPWENT 3
 .Os
 .Sh NAME
-.Nm endpwent ,
 .Nm getpwent ,
+.\".Nm getpwent_r ,
 .Nm getpwnam ,
 .Nm getpwnam_r ,
 .Nm getpwuid ,
 .Nm getpwuid_r ,
 .Nm setpassent ,
-.Nm setpwent
+.Nm setpwent ,
+.Nm endpwent
 .Nd password database operations
 .Sh LIBRARY
 .Lb libc
 .Sh SYNOPSIS
+.In sys/types.h
 .In pwd.h
+.Ft struct passwd *
+.Fn getpwent void
+.\".Ft int
+.\".Fn getpwent_r "struct passwd *pwd" "char *buffer" "size_t bufsize" "struct passwd **result"
+.Ft struct passwd *
+.Fn getpwnam "const char *login"
+.Ft int
+.Fn getpwnam_r "const char *name" "struct passwd *pwd" "char *buffer" "size_t bufsize" "struct passwd **result"
+.Ft struct passwd *
+.Fn getpwuid "uid_t uid"
+.Ft int
+.Fn getpwuid_r "uid_t uid" "struct passwd *pwd" "char *buffer" "size_t bufsize" "struct passwd **result"
+.Ft int
+.Fn setpassent "int stayopen"
 .Ft void
-.Fo endpwent
-.Fa void
-.Fc
-.Ft struct passwd *
-.Fo getpwent
-.Fa void
-.Fc
-.Ft struct passwd *
-.Fo getpwnam
-.Fa "const char *login"
-.Fc
-.Ft int
-.Fo getpwnam_r
-.Fa "const char *login"
-.Fa "struct passwd *pwd"
-.Fa "char *buffer"
-.Fa "size_t bufsize"
-.Fa "struct passwd **result"
-.Fc
-.Ft struct passwd *
-.Fo getpwuid
-.Fa "uid_t uid"
-.Fc
-.Ft int
-.Fo getuid_r
-.Fa "uid_t uid"
-.Fa "struct passwd *pwd"
-.Fa "char *buffer"
-.Fa "size_t bufsize"
-.Fa "struct passwd **result"
-.Fc
-.Ft int
-.Fo setpassent
-.Fa "int stayopen"
-.Fc
+.Fn setpwent void
 .Ft void
-.Fo setpwent
-.Fa void
-.Fc
+.Fn endpwent void
 .Sh DESCRIPTION
 These functions
-operate on the password database file,
+.\"operate on the password database file
+obtain information from
+.Xr DirectoryService 8 ,
+including records in
+.Pa /etc/passwd
 which is described
 in
 .Xr passwd 5 .
 Each entry in the database is defined by the structure
-.Ar passwd ,
-found in the include file
-.Aq Pa pwd.h :
+.Vt passwd
+found in the include
+file
+.In pwd.h :
 .Bd -literal -offset indent
 struct passwd {
 	char	*pw_name;	/* user name */
@@ -122,44 +103,47 @@ and
 search the password database for the given login name or user uid,
 respectively, always returning the first one encountered.
 .Pp
-All of these routines are thread-safe.
-The
-.Fn getpwent ,
-.Fn getpwnam ,
-and
-.Fn getpwuid
-routines return a pointer to a result managed by the system library in a
-thread-specific data structure.
-Every thread has space for a pointer to a struct passwd and allocates its own storage for the result.
-Neither previously returned values in memory nor a previously returned pointer value should be used
-by a thread after calling any one of these three routines.
-Memory allocated by a thread is automatically released on subsequent calls by the same thread to any of these
-three routines, and when the thread exits.
-.Pp
-The functions
-.Fn getpwnam_r
-and
-.Fn getpwuid_r
-take additional arguments which supply storage space for the returned result.
-The
-.Fa pwd
-parameter is a pointer to a struct passwd, which must be allocated by the caller.
-The 
-.Fa buffer
-parameter is a pointer to a block of memory with a size specified by
-.Pa bufsize .
-This buffer is used to hold the values which are pointed to by values filled in
-the
-.Fa pwd
-structure.
-Zero is returned on success.
-If insufficient memory is supplied, these routines return ERANGE.
+On Mac OS X, these routines are thread-safe and return a pointer to a
+thread-specific data structure.  The contents of this data
+structure are automatically released by subsequent calls to
+any of these routines on the same thread, or when the thread exits.
 .Pp
 The
 .Fn getpwent
 function
 sequentially reads the password database and is intended for programs
 that wish to process the complete list of users.
+.Pp
+The functions
+.\".Fn getpwent_r ,
+.\".Fn getpwnam_r ,
+.Fn getpwnam_r
+and
+.Fn getpwuid_r
+are thread-safe versions of
+.\".Fn getpwent ,
+.\".Fn getpwnam ,
+.Fn getpwnam
+and
+.Fn getpwuid ,
+respectively.
+The caller must provide storage for the results of the search in
+the
+.Fa pwd ,
+.Fa buffer ,
+.Fa bufsize ,
+and
+.Fa result
+arguments.
+When these functions are successful, the
+.Fa pwd
+argument will be filled-in, and a pointer to that argument will be
+stored in
+.Fa result .
+If an entry is not found or an error occurs,
+.Fa result
+will be set to
+.Dv NULL .
 .Pp
 The
 .Fn setpassent
@@ -173,11 +157,11 @@ Additionally, if
 is non-zero, file descriptors are left open, significantly speeding
 up subsequent accesses for all of the routines.
 (This latter functionality is unnecessary for
-.Fn getpwent ,
-as it doesn't close its file descriptors by default.)
+.Fn getpwent
+as it does not close its file descriptors by default.)
 .Pp
 It is dangerous for long-running programs to keep the file descriptors
-open, as the database will become out of date if it is updated while the
+open as the database will become out of date if it is updated while the
 program is running.
 .Pp
 The
@@ -185,49 +169,29 @@ The
 function
 is identical to
 .Fn setpassent
-with an argument of zero,
-save that it does not return a status value.
+with an argument of zero.
 .Pp
 The
 .Fn endpwent
 function
 closes any open files.
 .Pp
-As of Mac OS X 10.3, there are now different per-user behaviours of 
-this function, based on the AuthenticationAuthority value 
-stored for the queried user in DirectoryServices.
-.Pp
-If the queried user is still a legacy crypt password user or now 
-has an AuthenticationAuthority value containing ``;basic;'',
-these routines will behave in their standard BSD fashion.
-These functions will ``shadow'' the password file, e.g.\&
-allow only certain programs to have access to the encrypted password.
-If the process which calls them has an effective uid of 0, the encrypted
-password will be returned, otherwise, the password field of the returned
-structure will point to the string
-.Ql * .
-.Pp
-By default in Mac OS X 10.3 and later all users will have an 
-AuthenticationAuthority with the value ``;ShadowHash;''.
-These users will have a visible password value of ``********''.
-These functions
-will have no access to the encrypted password whatsoever.
-Setting or changing 
-an user password must be done entirely through the DirectoryService APIs 
-for this default user.
-.Pp
-There also exists an ``Apple Password Server'' user whose password 
-value is also ``********'' and with an AuthenticationAuthority that 
-contains the value ";ApplePasswordServer;" among other data.
-There is no getpwnam access to the password for this user either 
-and again set/change password can be done through the DirectoryService API.
-.Pp
-Finally in support of local user caching there is a local cached user 
-whose password is also ``********'' and has an AuthenticationAuthority 
-value containing ``;LocalCachedUser;'' among other data.
-These functions also provide no access to the password for this user 
-and set/change password functionality is through the DirectoryService API.
-.Pp
+.\"These routines have been written to ``shadow'' the password file, e.g.\&
+.\"allow only certain programs to have access to the encrypted password.
+.\"If the process which calls them has an effective uid of 0, the encrypted
+.\"password will be returned, otherwise, the password field of the returned
+.\"structure will point to the string
+These routines have been written to 
+.Ql shadow
+the password of user records created on Mac OS X 10.3 or later,
+by returning a structure whose password field points to the string
+.Ql ******** .
+Legacy crypt passwords are still returned for user records created on
+earlier versions of Mac OS X whose
+.Xr DirectoryService 8
+.Dt AuthenticationAuthority
+attribute contains the value
+.Ql ;basic; .
 .Sh RETURN VALUES
 The functions
 .Fn getpwent ,
@@ -235,7 +199,30 @@ The functions
 and
 .Fn getpwuid
 return a valid pointer to a passwd structure on success
-and a null pointer if end-of-file is reached or an error occurs.
+or
+.Dv NULL
+if the entry is not found or if an error occurs.
+If an error does occur,
+.Va errno
+will be set.
+Note that programs must explicitly set
+.Va errno
+to zero before calling any of these functions if they need to
+distinguish between a non-existent entry and an error.
+The functions
+.\".Fn getpwent_r ,
+.\".Fn getpwnam_r ,
+.Fn getpwnam_r
+and
+.Fn getpwuid_r
+return 0 if no error occurred, or an error number to indicate failure.
+It is not an error if a matching entry is not found.
+(Thus, if
+.Fa result
+is
+.Dv NULL
+and the return value is 0, no matching entry exists.)
+.Pp
 The
 .Fn setpassent
 function returns 0 on failure and 1 on success.
@@ -243,47 +230,62 @@ The
 .Fn endpwent
 and
 .Fn setpwent
-functions have no return value.
+functions
+have no return value.
 .Sh FILES
 .Bl -tag -width /etc/master.passwd -compact
-.It Pa /etc/pwd.db
-The insecure password database file
-.It Pa /etc/spwd.db
+.\".It Pa /etc/pwd.db
+.\"The insecure password database file
+.\".It Pa /etc/spwd.db
 The secure password database file
 .It Pa /etc/master.passwd
 The current password file
 .It Pa /etc/passwd
 A Version 7 format password file
 .El
-.Sh LEGACY SYNOPSIS
-.Fd #include <sys/types.h>
-.Fd #include <pwd.h>
-.Pp
-The include file
-.In sys/types.h
-is necessary for the
-.Fa getpwent ,
-.Fa getpwnam ,
+.\".Sh COMPATIBILITY
+.\"The historic function
+.\".Xr setpwfile 3 ,
+.\"which allowed the specification of alternate password databases,
+.\"has been deprecated and is no longer available.
+.Sh ERRORS
+These routines may fail for any of the errors specified in
+.Xr open 2 ,
+.Xr dbopen 3 ,
+.Xr socket 2 ,
 and
-.Fa getpwuid
-functions.
-.Pp
-.Ft int
-.br
-.Fo setpwent
-.Fa void
-.Fc ;
-.Pp
-The
-.Fn setpwent
-function returns 0 on failure and 1 on success.
+.Xr connect 2 ,
+in addition to the following:
+.Bl -tag -width Er
+.It Bq Er ERANGE
+The buffer specified by the
+.Fa buffer
+and
+.Fa bufsize
+arguments was insufficiently sized to store the result.
+The caller should retry with a larger buffer.
+.El
 .Sh SEE ALSO
 .Xr getlogin 2 ,
 .Xr getgrent 3 ,
-.Xr yp 8 ,
+.\".Xr nsswitch.conf 5 ,
 .Xr passwd 5 ,
-.Xr pwd_mkdb 8 ,
-.Xr vipw 8
+.\".Xr pwd_mkdb 8 ,
+.\".Xr vipw 8 ,
+.Xr DirectoryService 8 ,
+.Xr yp 8
+.Sh STANDARDS
+The
+.Fn getpwent ,
+.Fn getpwnam ,
+.Fn getpwnam_r ,
+.Fn getpwuid ,
+.Fn getpwuid_r ,
+.Fn setpwent ,
+and
+.Fn endpwent
+functions conform to
+.St -p1003.1-96 .
 .Sh HISTORY
 The
 .Fn getpwent ,
@@ -298,18 +300,41 @@ The
 .Fn setpassent
 function appeared in
 .Bx 4.3 Reno .
-.Sh COMPATIBILITY
-The historic function
-.Xr setpwfile 3 ,
-which allowed the specification of alternate password databases,
-has been deprecated and is no longer available.
+The
+.\".Fn getpwent_r ,
+.\".Fn getpwnam_r ,
+.Fn getpwnam_r
+and
+.Fn getpwuid_r
+functions appeared in
+.Fx 5.1 .
 .Sh BUGS
 The functions
 .Fn getpwent ,
 .Fn getpwnam ,
 and
-.Fn getpwuid
-leave their results in internal thread-specific memory and return
+.Fn getpwuid ,
+.\"leave their results in an internal static object and return
+leave their results in an internal thread-specific memory and return
 a pointer to that object.
-Subsequent calls to any of these three routines by the same thread will
-release the object and return a new pointer value.
+Subsequent calls to
+the same function
+will modify the same object.
+.\".Pp
+.\"The functions
+.\".Fn getpwent ,
+.\".Fn getpwent_r ,
+.\".Fn endpwent ,
+.\".Fn setpassent ,
+.\"and
+.\".Fn setpwent
+.\"are fairly useless in a networked environment and should be
+.\"avoided, if possible.
+.\"The
+.\".Fn getpwent
+.\"and
+.\".Fn getpwent_r
+.\"functions
+.\"make no attempt to suppress duplicate information if multiple
+.\"sources are specified in
+.\".Xr nsswitch.conf 5 .

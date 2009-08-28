@@ -1,4 +1,26 @@
-Notificació de baixa de la llista de correu per a la llista %(listname)sHem rebut una petició %(remote)s per retirar la vostra adreça de correu
-electrònic,"%(email)s" de la llista de correu %(listaddr)s.
+NotificaciÃ³ de confirmaciÃ³ de la baixa de la llista de correu
+%(listname)s
 
-Per confirmar que voleu ser retirat de la llista de correu, senzillament respongueu aquest missatge mantenint el mateix títol. Tambépodeu visitar aquesta pàgina web:    %(confirmurl)sO bé podeu enviar un missatge a  %(requestaddr)s només amb aquest contingut:    confirm %(cookie)sEl simple fet d'enviar una resposta hauria de funcionar amb la majoria de programes de correu, ja que normalment mantenen el títol (afegint-li "Re:", però ja està bé així).Si no voleu ser retirat de la llista de correu, senzillament ignoreuaquest missatge. Si creieu que esteuj sent retirat de forma incorrectao teniu qualsevol altra pregunta, envieu-la a %(listadmin)s.
+S'ha rebut una solÂ·licitud request%(remote)s per a suprimir la vostra
+adreÃ§a de correu Â«%(email)sÂ» de la llista de correu %(listaddr)s.  Per a
+confirmar que voleu donar-vos de baixa d'aquesta llista de correu,
+simplement responeu a aquest missatge sense modificar la capÃ§alera de
+l'Assumpte:, o bÃ© aneu a aquesta pÃ gina web:
+
+    %(confirmurl)s
+
+De manera alternativa, tambÃ© podeu d'incloure la lÃ­nia segÃ¼ent -i nomÃ©s
+aquesta lÃ­nia- en un missatge a %(requestaddr)s:
+
+    confirm %(cookie)s
+
+Tingueu en compte que simplement amb l'enviament d'una resposta (Â«replyÂ»)
+ja n'hi hauria d'haver prou en la majoria de lectors de correu.  AixÃ² Ã©s
+degut al fet que aquesta acciÃ³ generalment ja deixa la lÃ­nia Assumpte:
+de la forma adequada (el text addicional Â«Re:Â» a l'Assumpte: tambÃ©
+s'accepta).
+
+Si no voleu donar-vos de baixa d'aquesta llista, simplement heu de
+descartar aquest missatge.  Si creieu que algÃº us estÃ  intentant donar
+de baixa de manera maliciosa, o bÃ© si teniu altres preguntes, contacteu
+%(listadmin)s.

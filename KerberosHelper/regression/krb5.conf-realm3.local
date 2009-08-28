@@ -1,0 +1,32 @@
+[libdefaults]
+	default_realm = REALM3.LOCAL
+
+[kdcdefaults]
+        kdc_ports = 8890
+        kdc_tcp_ports = 8890
+
+[realms]
+        REALM1.LOCAL = {
+		kdc = 127.0.0.1:8888
+	}
+        REALM2.ROOT = {
+		kdc = 127.0.0.1:8889
+	}
+        REALM3.LOCAL = {
+		kdc = 127.0.0.1:8890
+		admin_server = 127.0.0.1
+                acl_file = /var/db/krb5kdc/test/kadm5.acl-realm3.local
+                admin_keytab = /var/db/krb5kdc/test/kadm5.keytab-realm3.local
+                database_name = /var/db/krb5kdc/test/principal-realm3.local
+                key_stash_file = /var/db/krb5kdc/test/k5:key-realm3.local
+        }
+
+
+[logging]
+	kdc = FILE:/var/db/krb5kdc/test/kdc.log-realm3.local
+	admin_server = FILE:/var/db/krb5kdc/test/kadmind.log-realm3.local
+
+[capaths]
+	REALM1.LOCAL = {
+		REALM3.LOCAL = REALM2.ROOT
+	}

@@ -1,12 +1,12 @@
 #
 # repos.py: public Python interface for repos components
 #
-# Subversion is a tool for revision control. 
+# Subversion is a tool for revision control.
 # See http://subversion.tigris.org for more information.
-#    
+#
 ######################################################################
 #
-# Copyright (c) 2000-2004 CollabNet.  All rights reserved.
+# Copyright (c) 2000-2004, 2008-2009 CollabNet.  All rights reserved.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution.  The terms
@@ -24,22 +24,32 @@ del _unprefix_names
 
 
 # Names that are not to be exported
-import svn.core as _core, svn.fs as _fs, svn.delta as _delta
+import svn.core as _svncore, svn.fs as _svnfs, svn.delta as _svndelta
+
+# Available change actions
+CHANGE_ACTION_MODIFY  = 0
+CHANGE_ACTION_ADD     = 1
+CHANGE_ACTION_DELETE  = 2
+CHANGE_ACTION_REPLACE = 3
 
 
 class ChangedPath:
   __slots__ = [ 'item_kind', 'prop_changes', 'text_changed',
-                'base_path', 'base_rev', 'path', 'added',
+                'base_path', 'base_rev', 'path', 'added', 'action',
                 ]
   def __init__(self,
                item_kind, prop_changes, text_changed, base_path, base_rev,
-               path, added):
+               path, added, action=None):
     self.item_kind = item_kind
     self.prop_changes = prop_changes
     self.text_changed = text_changed
     self.base_path = base_path
     self.base_rev = base_rev
     self.path = path
+    if action not in [None, CHANGE_ACTION_MODIFY, CHANGE_ACTION_ADD,
+                      CHANGE_ACTION_DELETE, CHANGE_ACTION_REPLACE]:
+      raise Exception("unsupported change type")
+    self.action = action
 
     ### it would be nice to avoid this flag. however, without it, it would
     ### be quite difficult to distinguish between a change to the previous
@@ -49,46 +59,48 @@ class ChangedPath:
     ### of an older version. when it is "change to previous", I'm not sure
     ### if the rev is always repos.rev - 1, or whether it represents the
     ### created or time-of-checkout rev. so... we use a flag (for now)
+    ### Note: This flag is also set for replaced paths unlike self.action
+    ### which is either set to CHANGE_ACTION_ADD or CHANGE_ACTION_REPLACE
     self.added = added
 
 
-class ChangeCollector(_delta.Editor):
+class ChangeCollector(_svndelta.Editor):
   """Available Since: 1.2.0
   """
-  
+
   # BATON FORMAT: [path, base_path, base_rev]
-  
+
   def __init__(self, fs_ptr, root, pool=None, notify_cb=None):
     self.fs_ptr = fs_ptr
     self.changes = { } # path -> ChangedPathEntry()
-    self.roots = { } # revision -> svn_fs_root_t
+    self.roots = { } # revision -> svn_svnfs_root_t
     self.notify_cb = notify_cb
     self.props = { }
     self.fs_root = root
 
     # Figger out the base revision and root properties.
-    if _fs.is_revision_root(self.fs_root):
-      rev = _fs.revision_root_revision(self.fs_root)
+    if _svnfs.is_revision_root(self.fs_root):
+      rev = _svnfs.revision_root_revision(self.fs_root)
       self.base_rev = rev - 1
-      self.props = _fs.revision_proplist(self.fs_ptr, rev)
+      self.props = _svnfs.revision_proplist(self.fs_ptr, rev)
     else:
-      txn_name = _fs.txn_root_name(self.fs_root)
-      txn_t = _fs.open_txn(self.fs_ptr, txn_name)
-      self.base_rev = _fs.txn_base_revision(txn_t)
-      self.props = _fs.txn_proplist(txn_t)
+      txn_name = _svnfs.txn_root_name(self.fs_root)
+      txn_t = _svnfs.open_txn(self.fs_ptr, txn_name)
+      self.base_rev = _svnfs.txn_base_revision(txn_t)
+      self.props = _svnfs.txn_proplist(txn_t)
 
   def get_root_props(self):
     return self.props
 
   def get_changes(self):
     return self.changes
-  
+
   def _send_change(self, path):
     if self.notify_cb:
       change = self.changes.get(path)
       if change:
         self.notify_cb(change)
-    
+
   def _make_base_path(self, parent_path, path):
     idx = path.rfind('/')
     if parent_path:
@@ -102,18 +114,18 @@ class ChangeCollector(_delta.Editor):
       return self.roots[rev]
     except KeyError:
       pass
-    root = self.roots[rev] = _fs.revision_root(self.fs_ptr, rev)
+    root = self.roots[rev] = _svnfs.revision_root(self.fs_ptr, rev)
     return root
-    
+
   def open_root(self, base_revision, dir_pool=None):
     return ('', '', self.base_rev)  # dir_baton
 
   def delete_entry(self, path, revision, parent_baton, pool=None):
     base_path = self._make_base_path(parent_baton[1], path)
-    if _fs.is_dir(self._get_root(parent_baton[2]), base_path):
-      item_type = _core.svn_node_dir
+    if _svnfs.is_dir(self._get_root(parent_baton[2]), base_path):
+      item_type = _svncore.svn_node_dir
     else:
-      item_type = _core.svn_node_file
+      item_type = _svncore.svn_node_file
     self.changes[path] = ChangedPath(item_type,
                                      False,
                                      False,
@@ -121,18 +133,22 @@ class ChangeCollector(_delta.Editor):
                                      parent_baton[2], # base_rev
                                      None,            # (new) path
                                      False,           # added
+                                     CHANGE_ACTION_DELETE,
                                      )
     self._send_change(path)
 
   def add_directory(self, path, parent_baton,
                     copyfrom_path, copyfrom_revision, dir_pool=None):
-    self.changes[path] = ChangedPath(_core.svn_node_dir,
+    action = path in self.changes and CHANGE_ACTION_REPLACE \
+             or CHANGE_ACTION_ADD
+    self.changes[path] = ChangedPath(_svncore.svn_node_dir,
                                      False,
                                      False,
                                      copyfrom_path,     # base_path
                                      copyfrom_revision, # base_rev
                                      path,              # path
                                      True,              # added
+                                     action,
                                      )
     if copyfrom_path and (copyfrom_revision != -1):
       base_path = copyfrom_path
@@ -147,28 +163,32 @@ class ChangeCollector(_delta.Editor):
 
   def change_dir_prop(self, dir_baton, name, value, pool=None):
     dir_path = dir_baton[0]
-    if self.changes.has_key(dir_path):
+    if dir_path in self.changes:
       self.changes[dir_path].prop_changes = True
     else:
       # can't be added or deleted, so this must be CHANGED
-      self.changes[dir_path] = ChangedPath(_core.svn_node_dir,
+      self.changes[dir_path] = ChangedPath(_svncore.svn_node_dir,
                                            True,
                                            False,
                                            dir_baton[1], # base_path
                                            dir_baton[2], # base_rev
                                            dir_path,     # path
                                            False,        # added
+                                           CHANGE_ACTION_MODIFY,
                                            )
 
   def add_file(self, path, parent_baton,
                copyfrom_path, copyfrom_revision, file_pool=None):
-    self.changes[path] = ChangedPath(_core.svn_node_file,
+    action = path in self.changes and CHANGE_ACTION_REPLACE \
+             or CHANGE_ACTION_ADD
+    self.changes[path] = ChangedPath(_svncore.svn_node_file,
                                      False,
                                      False,
                                      copyfrom_path,     # base_path
                                      copyfrom_revision, # base_rev
                                      path,              # path
                                      True,              # added
+                                     action,
                                      )
     if copyfrom_path and (copyfrom_revision != -1):
       base_path = copyfrom_path
@@ -183,18 +203,19 @@ class ChangeCollector(_delta.Editor):
 
   def apply_textdelta(self, file_baton, base_checksum):
     file_path = file_baton[0]
-    if self.changes.has_key(file_path):
+    if file_path in self.changes:
       self.changes[file_path].text_changed = True
     else:
       # an add would have inserted a change record already, and it can't
       # be a delete with a text delta, so this must be a normal change.
-      self.changes[file_path] = ChangedPath(_core.svn_node_file,
+      self.changes[file_path] = ChangedPath(_svncore.svn_node_file,
                                             False,
                                             True,
                                             file_baton[1], # base_path
                                             file_baton[2], # base_rev
                                             file_path,     # path
                                             False,         # added
+                                            CHANGE_ACTION_MODIFY,
                                             )
 
     # no handler
@@ -202,36 +223,37 @@ class ChangeCollector(_delta.Editor):
 
   def change_file_prop(self, file_baton, name, value, pool=None):
     file_path = file_baton[0]
-    if self.changes.has_key(file_path):
+    if file_path in self.changes:
       self.changes[file_path].prop_changes = True
     else:
       # an add would have inserted a change record already, and it can't
       # be a delete with a prop change, so this must be a normal change.
-      self.changes[file_path] = ChangedPath(_core.svn_node_file,
+      self.changes[file_path] = ChangedPath(_svncore.svn_node_file,
                                             True,
                                             False,
                                             file_baton[1], # base_path
                                             file_baton[2], # base_rev
                                             file_path,     # path
                                             False,         # added
+                                            CHANGE_ACTION_MODIFY,
                                             )
   def close_directory(self, dir_baton):
     self._send_change(dir_baton[0])
-    
+
   def close_file(self, file_baton, text_checksum):
     self._send_change(file_baton[0])
-    
+
 
 class RevisionChangeCollector(ChangeCollector):
   """Deprecated: Use ChangeCollector.
   This is a compatibility wrapper providing the interface of the
   Subversion 1.1.x and earlier bindings.
-  
+
   Important difference: base_path members have a leading '/' character in
   this interface."""
 
   def __init__(self, fs_ptr, root, pool=None, notify_cb=None):
-    root = _fs.revision_root(fs_ptr, root)
+    root = _svnfs.revision_root(fs_ptr, root)
     ChangeCollector.__init__(self, fs_ptr, root, pool, notify_cb)
 
   def _make_base_path(self, parent_path, path):
@@ -239,11 +261,3 @@ class RevisionChangeCollector(ChangeCollector):
     if idx == -1:
       return parent_path + '/' + path
     return parent_path + path[idx:]
-
-
-# enable True/False in older vsns of Python
-try:
-  True
-except NameError:
-  True = 1
-  False = 0

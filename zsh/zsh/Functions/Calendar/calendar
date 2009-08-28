@@ -1,18 +1,19 @@
 emulate -L zsh
 setopt extendedglob
 
-local line restline REPLY REPLY2 userange pruned nobackup datefmt
+local line showline restline REPLY REPLY2 userange nobackup datefmt
 local calendar donefile sched newfile warnstr mywarnstr newdate
 integer time start stop today ndays y m d next=-1 shown done nodone
 integer verbose warntime mywarntime t tcalc tsched i rstat remaining
-integer showcount icount repeating repeattime resched showall
+integer showcount icount repeating repeattime resched showall brief
 local -a calendar_entries calendar_addlines
 local -a times calopts showprog lockfiles match mbegin mend
+local -A reply
 
 zmodload -i zsh/datetime || return 1
 zmodload -i zsh/zutil || return 1
 
-autoload -U calendar_{add,read,scandate,show,lockfiles}
+autoload -U calendar_{add,parse,read,scandate,show,lockfiles}
 
 # Read the calendar file from the calendar-file style
 zstyle -s ':datetime:calendar:' calendar-file calendar || calendar=~/calendar
@@ -99,6 +100,11 @@ while [[ ${argv[opti+1]} = -* ]]; do
       (a)
       # Show all entries
       (( showall = 1 ))
+      ;;
+
+      (b)
+      # Brief: don't show continuation lines
+      (( brief = 1 ))
       ;;
 
       (d)
@@ -249,31 +255,29 @@ fi
 
   calendar_read $calendar
   for line in $calendar_entries; do
-    # This call sets REPLY to the date and time in seconds since the epoch,
-    # REPLY2 to the line with the date and time removed.
-    calendar_scandate -as $line || continue
-    (( t = REPLY ))
-    restline=$REPLY2
+    calendar_parse $line  ||  continue
 
+    # Extract returned parameters from $reply
+    # Time of event
+    (( t = ${reply[time]} ))
+    # Remainder of line including RPT and WARN stuff:  we need
+    # to keep these for rescheduling.
+    restline=$reply[text1]
     # Look for specific warn time.
-    pruned=${restline#(|*[[:space:],])WARN[[:space:]]}
-    (( mywarntime = warntime ))
-    mywarnstr=$warnstr
-    if [[ $pruned != $restline ]]; then
-      if calendar_scandate -asm -R $t $pruned; then
-	(( mywarntime = t - REPLY ))
-	mywarnstr=${pruned%%"$REPLY2"}
-      fi
+    if [[ -n ${reply[warntime]} ]]; then
+      (( mywarntime = t - ${reply[warntime]} ))
+      mywarnstr=${reply[warnstr]}
+    else
+      (( mywarntime = warntime ))
+      mywarnstr=$warnstr
     fi
-
     # Look for a repeat time.
-    (( repeating = 0 ))
-    pruned=${restline#(|*[[:space:],])RPT[[:space:]]}
-    if [[ $pruned != $restline ]]; then
-      if calendar_scandate -a -R $t $pruned; then
-	(( repeattime = REPLY, repeating = 1 ))
-      fi
+    if [[ -n ${reply[rpttime]} ]]; then
+      (( repeattime = ${reply[rpttime]}, repeating = 1 ))
+    else
+      (( repeating = 0 ))
     fi
+    # Finished extracting parameters from $reply
 
     if (( verbose )); then
       print "Examining: $line"
@@ -284,22 +288,37 @@ fi
       fi
     fi
     (( shown = 0 ))
+    if (( brief )); then
+      showline=${line%%$'\n'*}
+    else
+      showline=$line
+      match=()
+      # Strip continuation lines starting " #".
+      while [[ $showline = (#b)(*$'\n')[[:space:]]##\#[^$'\n']##(|$'\n'(*)) ]]; do
+	showline="$match[1]$match[3]"
+      done
+      # Strip trailing empty lines
+      showline=${showline%%[[:space:]]#}
+    fi
     if (( showall || (t >= start && (remaining || t <= stop || icount < showcount)) ))
     then
-      $showprog $start $stop "$line"
+      $showprog $start $stop "$showline"
       (( icount++ ))
       # Doesn't count as "shown" unless the event has now passed.
       (( t <= EPOCHSECONDS )) && (( shown = 1 ))
     elif [[ -n $sched ]]; then
       (( tsched = t - mywarntime ))
       if (( tsched >= start && tsched <= stop)); then
-	$showprog $start $stop "due in ${mywarnstr}: $line"
+	$showprog $start $stop "due in ${mywarnstr}: $showline"
       fi
     fi
     if [[ -n $sched ]]; then
       if (( shown && repeating )); then
 	# Done and dusted, but a repeated event is due.
 	strftime -s newdate $datefmt $repeattime
+	if [[ $newdate != *[[:space:]] && $restline != [[:space:]]* ]]; then
+	  newdate+=" "
+	fi
 	calendar_addlines+=("$newdate$restline")
 
 	# We'll add this back in below, but we check in case the
@@ -352,13 +371,8 @@ fi
   if [[ -n $sched ]]; then
     if [[ $next -ge 0 ]]; then
       # Remove any existing calendar scheduling.
-      # Luckily sched doesn't delete its schedule in a subshell.
-      sched | while read line; do
-	if [[ $line = (#b)[[:space:]]#(<->)[[:space:]]##*[[:space:]]'calendar -s'* ]]; then
-	  # End of pipeline run in current shell, so delete directly.
-	  sched -1 $match[1]
-	fi
-      done
+      i=${"${(@)zsh_scheduled_events#*:*:}"[(I)calendar -s*]}
+      (( i )) && sched -$i
       $sched $next calendar "${calopts[@]}" $next $next
     else
       $showprog $start $stop \

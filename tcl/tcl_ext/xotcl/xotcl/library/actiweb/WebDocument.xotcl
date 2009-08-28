@@ -1,0 +1,226 @@
+# $Id: WebDocument.xotcl,v 1.9 2007/08/14 16:38:26 neumann Exp $
+
+package provide xotcl::actiweb::webDocument 0.8
+
+package require xotcl::actiweb::webObject
+package require xotcl::comm::httpAccess
+package require xotcl::mixinStrategy
+package require xotcl::actiweb::sendStrategy
+
+package require XOTcl
+
+namespace eval ::xotcl::actiweb::webDocument {
+    namespace import ::xotcl::*
+
+    Class WebDocument -superclass WebObject \
+	-parameter {
+	    {content ""}
+	    filename
+	}
+
+
+    WebDocument instproc init args {
+	my exportProcs content contentType
+	next
+	my mixinStrategy ::Send=TypedString
+    }
+
+    WebDocument instproc attachFile filename {
+	my filename $filename
+	my set oldSendStrategy [my mixinStrategy ::Send=File]
+	my contentType [Mime guessContentType $filename]
+    }
+
+    WebDocument instproc detachFile {} {
+	my mixinStrategy [my set oldSendStrategy]
+	my unset contentType
+	my unset filename
+    }
+
+    WebDocument instproc default args {
+	if {[my exists content]} {
+	    return [my content]
+	}
+	return ""
+    }
+    #WebDocument instproc contentLength {} {
+    #  my showCall
+    #  return [expr {[string length [my content]] + 1}]
+    #}
+
+
+    Class TextDocument -superclass WebDocument
+    TextDocument instproc init args {
+	next
+	my contentType text/plain
+    }
+
+
+    Class HtmlDocument -superclass TextDocument
+    HtmlDocument instproc init args {
+	next
+	my contentType text/html
+    }
+
+    Class FileDocument -superclass WebDocument
+
+    #
+    # class factory creates classes on the fly if they do not exist
+    # already, otherwise return exisiting class
+    #
+    # auch flyweigth
+    Class DocumentClassFactory
+    DocumentClassFactory abstract instproc getClass contentType
+
+    Class FileDocumentClassFactory -superclass DocumentClassFactory
+    FileDocumentClassFactory instproc getClass contentType {
+	if {[FileDocument info classchildren $contentType] eq ""} {
+	    Class ::FileDocument::${contentType} -superclass FileDocument
+	}
+	return ::FileDocument::${contentType}
+    }
+
+    Class DocumentFactory
+    DocumentFactory abstract instproc create {name args}  
+
+    Class FileDocumentFactory -superclass DocumentFactory
+    FileDocumentFactory instproc create {name class filename} {
+	$class $name
+	#$name contentType [$class set contentType]
+	$name attachFile $filename
+	return $name
+    }
+
+    Class FileObjectifier 
+
+    FileObjectifier instproc init args {
+	next
+	FileDocumentClassFactory [self]::clFactory
+	FileDocumentFactory [self]::objFactory
+    }
+
+    #
+    # filename must be given with full path ->
+    # create objects with filename's tail (prefix can be used to
+    # give object name a preceding dir)
+    #
+    FileObjectifier instproc objectifyFile {place filename {prefix ""}} {
+	set obj ""
+	if {[file isfile $filename]} {
+	    set type [Mime guessContentType $filename]
+	    #if {$type ne "unknown/unknown"} {
+	    set fn [string trimleft $prefix/[file tail $filename] /]
+	    set class [[self]::clFactory getClass $type]
+	    set obj [[self]::objFactory create $fn $class $filename]
+	    $place exportObjs $obj
+	    #puts stderr "...objectified:  $obj of class $class"
+	    #}
+	}
+	return $obj
+    }
+
+    #
+    # objectify a whole directory tree
+    #
+    FileObjectifier instproc objectifyTree {place dir {prefix ""}} {
+	if {[file isdirectory $dir]} {
+	    foreach f [glob  -nocomplain $dir/*] {
+		if {[file isfile $f]} {
+		    my objectifyFile $place $f $prefix
+		} elseif {[file isdirectory $f]} {
+		    my objectifyTree $place $f $prefix/[file tail $f]
+		}
+	    }
+	}
+    }
+
+
+    Class GraphicDirectoryObjectifier -superclass FileObjectifier \
+	-parameter {{thumbnaildir [::xotcl::tmpdir]}}
+    GraphicDirectoryObjectifier instproc objectifyTree {place dir {prefix ""}} {
+	if {[file isdirectory $dir]} {
+	    set indexpage ""
+	    set title ""
+	    set date ""
+	    foreach f [lsort [glob -nocomplain $dir/* $dir/{.date,.title}]] {
+		set exportedfn [string trimleft $prefix/[file tail $f] /]
+		if {[file isfile $f]} {
+		    set type [Mime guessContentType $f]
+		    if {[string match "image/*" $type]} {
+			set class [[self]::clFactory getClass $type]
+			$class $exportedfn -init -attachFile $f
+			$place exportObjs $exportedfn
+			#puts stderr "...objectified:  FN=$exportedfn cl=$class d=$dir o=$exportedfn"
+			######
+			set expThumbnaildir [file dirname $exportedfn]/.thumbnail
+			set thumbnaildir    [file dirname $f]/.thumbnail
+			if {![file isdirectory $thumbnaildir]} {
+			    file mkdir $thumbnaildir
+			}
+			set thumbnail $thumbnaildir/[file tail $f]
+			set expThumbnail $expThumbnaildir/[file tail $f]
+			if {![file exists $thumbnail]} {
+			    catch {exec djpeg -pnm $f | \
+				       pnmscale -xscale .2 -yscale .2 | ppmquant 256 | \
+				       ppmtogif > $thumbnail}
+			}
+			$class $expThumbnail -init -attachFile $thumbnail
+			$place exportObjs $expThumbnail
+			####
+			append indexpage "<A href='/$exportedfn'>" \
+			    "<IMG SRC='/$expThumbnail'>$exportedfn</A><br>\n"
+		    } elseif {[string match *.title $exportedfn]} {
+			set title [my fileContent $f]
+		    } elseif {[string match *.date $exportedfn]} {
+			set date <H4>[my fileContent $f]</H4>
+		    }
+		} elseif {[file isdirectory $f]} {
+		    if {[file exists $f/.title]} {
+			set desc ": [my fileContent $f/.title]"
+		    } else {
+			set desc ""
+		    }
+		    append indexpage "<A href='/$exportedfn/gindex.html'>" \
+			"$exportedfn</A>$desc<br>\n"
+		    my objectifyTree $place $f $exportedfn
+		}
+		set gindex [string trimleft $prefix/gindex.html /]
+		HtmlDocument $gindex -content \
+		    "<HTML><TITLE>$title</TITLE><H1>$title</H1>\
+		<BODY>$date$indexpage</BODY></HTML>"
+		#puts stderr "mixins of HtmlDocument=<[$gindex info mixins]>"
+		$gindex mixinStrategy ::Send=TypedString
+		#$gindex showVars
+		receiver exportObjs $gindex
+	    }
+	}
+    }
+    GraphicDirectoryObjectifier instproc fileContent {f} {
+	set FILE [open $f r]
+	set content [read $FILE]
+	close $FILE
+	return $content
+    }
+
+
+
+    Class HtmlProxy -superclass HtmlDocument  -parameter realSubject
+    HtmlProxy instproc init args {
+	next
+	[Place getInstance] exportObjs [self]
+    }
+    HtmlProxy instproc unknown {m args} {
+	my instvar realSubject
+	::eval $realSubject $m $args
+	return [my default]
+    }
+
+    namespace export \
+	WebDocument TextDocument HtmlDocument FileDocument \
+	DocumentClassFactory FileDocumentClassFactory \
+	DocumentFactory FileDocumentFactory \
+	FileObjectifier GraphicDirectoryObjectifier \
+	HtmlProxy
+}
+
+namespace import ::xotcl::actiweb::webDocument::*

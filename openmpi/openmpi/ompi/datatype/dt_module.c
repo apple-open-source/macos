@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2006 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2006 The University of Tennessee and The University
+ * Copyright (c) 2004-2007 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2006 High Performance Computing Center Stuttgart,
@@ -127,7 +127,7 @@ OMPI_DECLSPEC ompi_datatype_t ompi_mpi_packed = INIT_BASIC_DATA( char, OMPI_ALIG
 OMPI_DECLSPEC ompi_datatype_t ompi_mpi_wchar = INIT_BASIC_DATA( wchar_t, OMPI_ALIGNMENT_WCHAR, WCHAR, DT_FLAG_DATA_C );
 #else
 OMPI_DECLSPEC ompi_datatype_t ompi_mpi_wchar = INIT_UNAVAILABLE_DATA( WCHAR );
-#endif  /* FTMPI_HAVE_WCHAR_T */
+#endif  /* OMPI_ALIGNMENT_WCHAR */
 
 OMPI_DECLSPEC ompi_datatype_t ompi_mpi_cxx_bool = INIT_BASIC_DATA( bool, OMPI_ALIGNMENT_CXX_BOOL, CXX_BOOL, DT_FLAG_DATA_CPP );
 OMPI_DECLSPEC ompi_datatype_t ompi_mpi_logic = INIT_BASIC_FORTRAN_TYPE( DT_LOGIC, LOGIC, OMPI_SIZEOF_FORTRAN_LOGICAL, OMPI_ALIGNMENT_FORTRAN_LOGICAL, 0 );
@@ -411,7 +411,7 @@ int32_t ompi_ddt_init( void )
 
         datatype->desc.length       = 1;
         datatype->desc.used         = 1;
-        /* By default the optimized descritption is the same as the default
+        /* By default the optimized description is the same as the default
          * description for predefined datatypes.
          */
         datatype->opt_desc          = datatype->desc;
@@ -489,29 +489,137 @@ int32_t ompi_ddt_init( void )
     ompi_mpi_cxx_ldblcplex.flags |= DT_FLAG_DATA_CPP | DT_FLAG_DATA_COMPLEX;
 #endif  /* HAVE_LONG_DOUBLE */
 
-    /* FORTRAN types */
+    /* Optional Fortran REAL types */
+
+#if OMPI_HAVE_FORTRAN_REAL4
+#if (OMPI_SIZEOF_FORTRAN_REAL4 == SIZEOF_FLOAT)
     DECLARE_MPI_SYNONYM_DDT( &ompi_mpi_real4, "MPI_REAL4", &ompi_mpi_float );
+#else
+#   warning "No proper C type found for REAL4"
+    DECLARE_MPI_SYNONYM_DDT( &ompi_mpi_real4, "MPI_REAL4", &ompi_mpi_unavailable );
+#endif
     ompi_mpi_real4.flags |= DT_FLAG_DATA_FORTRAN | DT_FLAG_DATA_FLOAT;
+#endif /* OMPI_HAVE_FORTRAN_REAL4 */
+
+#if OMPI_HAVE_FORTRAN_REAL8
+#if (OMPI_SIZEOF_FORTRAN_REAL8 == SIZEOF_FLOAT)
+    DECLARE_MPI_SYNONYM_DDT( &ompi_mpi_real8, "MPI_REAL8", &ompi_mpi_float );
+#elif (OMPI_SIZEOF_FORTRAN_REAL8 == SIZEOF_DOUBLE)
     DECLARE_MPI_SYNONYM_DDT( &ompi_mpi_real8, "MPI_REAL8", &ompi_mpi_double );
+#elif (OMPI_SIZEOF_FORTRAN_REAL8 == SIZEOF_LONG_DOUBLE)
+    DECLARE_MPI_SYNONYM_DDT( &ompi_mpi_real8, "MPI_REAL8", &ompi_mpi_long_double );
+#else
+#   warning "No proper C type found for REAL8"
+    DECLARE_MPI_SYNONYM_DDT( &ompi_mpi_real8, "MPI_REAL8", &ompi_mpi_unavailable );
+#endif
     ompi_mpi_real8.flags |= DT_FLAG_DATA_FORTRAN | DT_FLAG_DATA_FLOAT;
+#endif /* OMPI_HAVE_FORTRAN_REAL8 */
+
+#if OMPI_HAVE_FORTRAN_REAL16
+#if (OMPI_SIZEOF_FORTRAN_REAL16 == SIZEOF_LONG_DOUBLE)
     DECLARE_MPI_SYNONYM_DDT( &ompi_mpi_real16, "MPI_REAL16", &ompi_mpi_long_double );
+#else
+#   warning "No proper C type found for REAL16"
+    DECLARE_MPI_SYNONYM_DDT( &ompi_mpi_real16, "MPI_REAL16", &ompi_mpi_unavailable );
+#endif
     ompi_mpi_real16.flags |= DT_FLAG_DATA_FORTRAN | DT_FLAG_DATA_FLOAT;
+#endif /* OMPI_HAVE_FORTRAN_REAL16 */
+
+    /* Optional Fortran INTEGER types */
+
+#if OMPI_HAVE_FORTRAN_INTEGER1
+#if (OMPI_SIZEOF_FORTRAN_INTEGER1 == SIZEOF_CHAR)
     DECLARE_MPI_SYNONYM_DDT( &ompi_mpi_integer1, "MPI_INTEGER1", &ompi_mpi_char );
+#elif (OMPI_SIZEOF_FORTRAN_INTEGER1 == SIZEOF_SHORT)
+    DECLARE_MPI_SYNONYM_DDT( &ompi_mpi_integer1, "MPI_INTEGER1", &ompi_mpi_short );
+#elif (OMPI_SIZEOF_FORTRAN_INTEGER1 == SIZEOF_INT)
+    DECLARE_MPI_SYNONYM_DDT( &ompi_mpi_integer1, "MPI_INTEGER1", &ompi_mpi_int );
+#else
+#   warning "No proper C type found for INTEGER1"
+    DECLARE_MPI_SYNONYM_DDT( &ompi_mpi_integer1, "MPI_INTEGER1", &ompi_mpi_unavailable );
+#endif
     ompi_mpi_integer1.flags |= DT_FLAG_DATA_FORTRAN | DT_FLAG_DATA_INT;
+#endif /* OMPI_HAVE_FORTRAN_INTEGER1 */
+
+#if OMPI_HAVE_FORTRAN_INTEGER2
+#if (OMPI_SIZEOF_FORTRAN_INTEGER2 == SIZEOF_SHORT)
     DECLARE_MPI_SYNONYM_DDT( &ompi_mpi_integer2, "MPI_INTEGER2", &ompi_mpi_short );
+#elif (OMPI_SIZEOF_FORTRAN_INTEGER2 == SIZEOF_INT)
+    DECLARE_MPI_SYNONYM_DDT( &ompi_mpi_integer2, "MPI_INTEGER2", &ompi_mpi_int );
+#else
+#   warning "No proper C type found for INTEGER2"
+    DECLARE_MPI_SYNONYM_DDT( &ompi_mpi_integer2, "MPI_INTEGER2", &ompi_mpi_unavailable );
+#endif
     ompi_mpi_integer2.flags |= DT_FLAG_DATA_FORTRAN | DT_FLAG_DATA_INT;
+#endif /* OMPI_HAVE_FORTRAN_INTEGER2 */
+
+#if OMPI_HAVE_FORTRAN_INTEGER4
+#if (OMPI_SIZEOF_FORTRAN_INTEGER4 == SIZEOF_INT)
     DECLARE_MPI_SYNONYM_DDT( &ompi_mpi_integer4, "MPI_INTEGER4", &ompi_mpi_int );
+#elif (OMPI_SIZEOF_FORTRAN_INTEGER4 == SIZEOF_LONG)
+    DECLARE_MPI_SYNONYM_DDT( &ompi_mpi_integer4, "MPI_INTEGER4", &ompi_mpi_long );
+#else
+#   warning "No proper C type found for INTEGER4"
+    DECLARE_MPI_SYNONYM_DDT( &ompi_mpi_integer4, "MPI_INTEGER4", &ompi_mpi_unavailable );
+#endif
     ompi_mpi_integer4.flags |= DT_FLAG_DATA_FORTRAN | DT_FLAG_DATA_INT;
+#endif /* OMPI_HAVE_FORTRAN_INTEGER4 */
+
+#if OMPI_HAVE_FORTRAN_INTEGER8
+#if (OMPI_SIZEOF_FORTRAN_INTEGER8 == SIZEOF_LONG)
+    DECLARE_MPI_SYNONYM_DDT( &ompi_mpi_integer8, "MPI_INTEGER8", &ompi_mpi_long );
+#elif (OMPI_SIZEOF_FORTRAN_INTEGER8 == SIZEOF_LONG_LONG)
     DECLARE_MPI_SYNONYM_DDT( &ompi_mpi_integer8, "MPI_INTEGER8", &ompi_mpi_long_long_int );
+#else
+#   warning "No proper C type found for INTEGER8"
+    DECLARE_MPI_SYNONYM_DDT( &ompi_mpi_integer8, "MPI_INTEGER8", &ompi_mpi_unavailable );
+#endif
     ompi_mpi_integer8.flags |= DT_FLAG_DATA_FORTRAN | DT_FLAG_DATA_INT;
+#endif /* OMPI_HAVE_FORTRAN_INTEGER8 */
+
+#if OMPI_HAVE_FORTRAN_INTEGER16
+#if (OMPI_SIZEOF_FORTRAN_INTEGER16 == SIZEOF_LONG_LONG)
+    DECLARE_MPI_SYNONYM_DDT( &ompi_mpi_integer16, "MPI_INTEGER16", &ompi_mpi_long_long_int );
+#else
+#   warning "No proper C type found for INTEGER16"
     DECLARE_MPI_SYNONYM_DDT( &ompi_mpi_integer16, "MPI_INTEGER16", &ompi_mpi_unavailable );
+#endif
     ompi_mpi_integer16.flags |= DT_FLAG_DATA_FORTRAN | DT_FLAG_DATA_INT;
+#endif /* OMPI_HAVE_FORTRAN_INTEGER16 */
+
+    /* Optional Fortran COMPLEX types */
+
+#if OMPI_HAVE_FORTRAN_COMPLEX8
+#if (OMPI_SIZEOF_FORTRAN_COMPLEX8 == 2*SIZEOF_FLOAT)
     DECLARE_MPI_SYNONYM_DDT( &ompi_mpi_complex8, "MPI_COMPLEX8", &ompi_mpi_cplex );
+#else
+#   warning "No proper C type found for COMPLEX8"
+    DECLARE_MPI_SYNONYM_DDT( &ompi_mpi_complex8, "MPI_COMPLEX8", &ompi_mpi_unavailable );
+#endif
     ompi_mpi_complex8.flags |= DT_FLAG_DATA_FORTRAN | DT_FLAG_DATA_COMPLEX;
+#endif /* OMPI_HAVE_FORTRAN_COMPLEX8 */
+
+#if OMPI_HAVE_FORTRAN_COMPLEX16
+#if (OMPI_SIZEOF_FORTRAN_COMPLEX16 == 2*SIZEOF_FLOAT)
+    DECLARE_MPI_SYNONYM_DDT( &ompi_mpi_complex16, "MPI_COMPLEX16", &ompi_mpi_cplex );
+#elif (OMPI_SIZEOF_FORTRAN_COMPLEX16 == 2*SIZEOF_DOUBLE)
     DECLARE_MPI_SYNONYM_DDT( &ompi_mpi_complex16, "MPI_COMPLEX16", &ompi_mpi_dblcplex );
+#else
+#   warning "No proper C type found for COMPLEX16"
+    DECLARE_MPI_SYNONYM_DDT( &ompi_mpi_complex16, "MPI_COMPLEX16", &ompi_mpi_unavailable );
+#endif
     ompi_mpi_complex16.flags |= DT_FLAG_DATA_FORTRAN | DT_FLAG_DATA_COMPLEX;
+#endif /* OMPI_HAVE_FORTRAN_COMPLEX16 */
+
+#if OMPI_HAVE_FORTRAN_COMPLEX32
+#if (OMPI_SIZEOF_FORTRAN_COMPLEX32 == 2*SIZEOF_LONG_DOUBLE)
     DECLARE_MPI_SYNONYM_DDT( &ompi_mpi_complex32, "MPI_COMPLEX32", &ompi_mpi_ldblcplex );
+#else
+#   warning "No proper C type found for COMPLEX32"
+    DECLARE_MPI_SYNONYM_DDT( &ompi_mpi_complex32, "MPI_COMPLEX32", &ompi_mpi_unavailable );
+#endif
     ompi_mpi_complex32.flags |= DT_FLAG_DATA_FORTRAN | DT_FLAG_DATA_COMPLEX;
+#endif /* OMPI_HAVE_FORTRAN_COMPLEX32 */
 
     /* Start to populate the f2c index translation table */
 
@@ -531,6 +639,10 @@ int32_t ompi_ddt_init( void )
             ompi_ddt_number_of_predefined_data = (ompi_mpi_##name).d_f_to_c_index; \
     }
 
+    /*
+     * This MUST match the order of ompi/include/mpif-common.h
+     * Any change will break binary compatability of Fortran programs.
+     */
     MOOG(datatype_null);
     MOOG(byte);
     MOOG(packed);
@@ -661,7 +773,7 @@ int ompi_ddt_safeguard_pointer_debug_breakpoint( const void* actual_ptr, int len
 static int _dump_data_flags( unsigned short usflags, char* ptr, size_t length )
 {
     if( length < 21 ) return 0;
-    sprintf( ptr, "-----------[---][---]" );  /* set everything to - */
+    snprintf( ptr, 21, "-----------[---][---]" );  /* set everything to - */
     if( usflags & DT_FLAG_DESTROYED )                ptr[0]  = 'd';
     if( usflags & DT_FLAG_COMMITED )                 ptr[1]  = 'c';
     if( usflags & DT_FLAG_CONTIGUOUS )               ptr[2]  = 'C';
@@ -703,13 +815,13 @@ static int _dump_data_flags( unsigned short usflags, char* ptr, size_t length )
 static int __dump_data_desc( dt_elem_desc_t* pDesc, int nbElems, char* ptr, size_t length )
 {
     int i;
-    size_t index = 0;
+    int32_t index = 0;
 
     for( i = 0; i < nbElems; i++ ) {
         index += _dump_data_flags( pDesc->elem.common.flags, ptr + index, length );
-        if( length <= index ) break;
+        if( length <= (size_t)index ) break;
         index += snprintf( ptr + index, length - index, "%15s ", ompi_ddt_basicDatatypes[pDesc->elem.common.type]->name );
-        if( length <= index ) break;
+        if( length <= (size_t)index ) break;
         if( DT_LOOP == pDesc->elem.common.type )
             index += snprintf( ptr + index, length - index, "%d times the next %d elements extent %d\n",
                                (int)pDesc->loop.loops, (int)pDesc->loop.items,
@@ -724,7 +836,7 @@ static int __dump_data_desc( dt_elem_desc_t* pDesc, int nbElems, char* ptr, size
                                (int)pDesc->elem.extent, (long)(pDesc->elem.count * ompi_ddt_basicDatatypes[pDesc->elem.common.type]->size) );
         pDesc++;
 
-        if( length <= index ) break;
+        if( length <= (size_t)index ) break;
     }
     return index;
 }
@@ -732,7 +844,7 @@ static int __dump_data_desc( dt_elem_desc_t* pDesc, int nbElems, char* ptr, size
 static inline int __dt_contain_basic_datatypes( const ompi_datatype_t* pData, char* ptr, size_t length )
 {
     int i;
-    size_t index = 0;
+    int32_t index = 0;
     uint64_t mask = 1;
 
     if( pData->flags & DT_FLAG_USER_LB ) index += snprintf( ptr, length - index, "lb " );
@@ -741,7 +853,7 @@ static inline int __dt_contain_basic_datatypes( const ompi_datatype_t* pData, ch
         if( pData->bdt_used & mask )
             index += snprintf( ptr + index, length - index, "%s ", ompi_ddt_basicDatatypes[i]->name );
         mask <<= 1;
-        if( length <= index ) break;
+        if( length <= (size_t)index ) break;
     }
     return index;
 }

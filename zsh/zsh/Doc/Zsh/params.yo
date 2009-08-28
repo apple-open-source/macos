@@ -96,6 +96,14 @@ Subscripts may be used inside braces used to delimit a parameter name, thus
 option is set, the braced form is the only one that works, as bracketed
 expressions otherwise are not treated as subscripts.
 
+If the tt(KSH_ARRAYS) option is not set, then by default accesses to
+an array element with a subscript that evaluates to zero return an
+empty string, while an attempt to write such an element is treated as
+an error.  For backward compatibility the tt(KSH_ZERO_SUBSCRIPT)
+option can be set to cause subscript values 0 and 1 to be equivalent; see
+the description of the option in ifzman(zmanref(zshoptions))\
+ifnzman(noderef(Description of Options)).
+
 The same subscripting syntax is used for associative arrays, except that
 no arithmetic expansion is applied to var(exp).  However, the parsing
 rules for arithmetic expressions still apply, which affects the way that
@@ -182,7 +190,8 @@ startitem()
 item(tt(w))(
 If the parameter subscripted is a scalar then this flag makes
 subscripting work on words instead of characters.  The default word
-separator is whitespace.
+separator is whitespace.  This flag may not be used with the tt(i) or
+tt(I) flag.
 )
 item(tt(s:)var(string)tt(:))(
 This gives the var(string) that separates words (for use with the
@@ -217,54 +226,47 @@ example (assuming the option tt(KSH_ARRAYS) is not in effect):
 example([[ ${array[(i)pattern]} -le ${#array} ]])
 
 If tt(KSH_ARRAYS) is in effect, the tt(-le) should be replaced by tt(-lt).
-
-Note that in subscripts with both `tt(r)' and `tt(R)' pattern characters
-are active even if they were substituted for a parameter (regardless
-of the setting of tt(GLOB_SUBST) which controls this feature in normal
-pattern matching).  It is therefore necessary to quote pattern characters
-for an exact string match.  Given a string in tt($key), and assuming
-the tt(EXTENDED_GLOB) option is set, the following is sufficient to
-match an element of an array tt($array) containing exactly the value of
-tt($key):
-
-example(key2=${key//(#m)[\][+LPAR()+RPAR()\\*?#<>~^]/\\$MATCH}
-print ${array[(R)$key2]})
-)
 item(tt(R))(
 Like `tt(r)', but gives the last match.  For associative arrays, gives
 all possible matches. May be used for assigning to ordinary array
-elements, but not for assigning to associative arrays.
+elements, but not for assigning to associative arrays.  On failure, for
+normal arrays this has the effect of returning the element corresponding to
+subscript 0; this is empty unless one of the options tt(KSH_ARRAYS) or
+tt(KSH_ZERO_SUBSCRIPT) is in effect.
 
-Note that this flag can give odd results on failure.  For an ordinary array
-the item substituted is that corresponding to subscript 0.  If the option
-tt(KSH_ARRAYS) is not in effect, this is the same as the element
-corresponding to subscript 1, although the form tt(${array[(I)pattern]})
-will evaluate to 0 for a failed match.  If the option tt(KSH_ARRAYS) is in
-effect, the subscript is still 0 for a failed match; this cannot be
-distinguished from a successful match without testing tt(${array[0]})
-against the pattern.
+Note that in subscripts with both `tt(r)' and `tt(R)' pattern characters
+are active even if they were substituted for a parameter (regardless of the
+setting of tt(GLOB_SUBST) which controls this feature in normal pattern
+matching).  The flag `tt(e)' can be added to inhibit pattern matching.  As
+this flag does not inhibit other forms of substitution, care is still
+required; using a parameter to hold the key has the desired effect:
+
+example(key2='original key'
+print ${array[(Re)$key2]})
+)
 )
 item(tt(i))(
 Like `tt(r)', but gives the index of the match instead; this may not be
 combined with a second argument.  On the left side of an assignment,
 behaves like `tt(r)'.  For associative arrays, the key part of each pair
 is compared to the pattern, and the first matching key found is the
-result.
-
-See `tt(r)' for discussion of subscripts of failed matches.
+result.  On failure substitutes the length of the array plus one, as
+discussed under the description of `tt(r)', or the empty string for an
+associative array.
 )
 item(tt(I))(
 Like `tt(i)', but gives the index of the last match, or all possible
-matching keys in an associative array.
-
-See `tt(R)' for discussion of subscripts of failed matches.
+matching keys in an associative array.  On failure substitutes 0, or
+the empty string for an associative array.  This flag is best when
+testing for values or keys that do not exist.
 )
 item(tt(k))(
 If used in a subscript on an associative array, this flag causes the keys
 to be interpreted as patterns, and returns the value for the first key
-found where var(exp) is matched by the key.  This flag does not work on
-the left side of an assignment to an associative array element.  If used
-on another type of parameter, this behaves like `tt(r)'.
+found where var(exp) is matched by the key.  Note this could be any
+such key as no ordering of associative arrays is defined.
+This flag does not work on the left side of an assignment to an associative
+array element.  If used on another type of parameter, this behaves like `tt(r)'.
 )
 item(tt(K))(
 On an associative array this is like `tt(k)' but returns all values where
@@ -284,11 +286,15 @@ evaluates to var(n)).  This flag is ignored when the array is associative.
 The delimiter character tt(:) is arbitrary; see above.
 )
 item(tt(e))(
-This flag has no effect and for ordinary arrays is retained for backward
-compatibility only.  For associative arrays, this flag can be used to
-force tt(*) or tt(@) to be interpreted as a single key rather than as a
-reference to all values.  This flag may be used on the left side of an
-assignment.
+This flag causes any pattern matching that would be performed on the
+subscript to use plain string matching instead.  Hence
+`tt(${array[(re)*]})' matches only the array element whose value is tt(*).
+Note that other forms of substitution such as parameter substitution are
+not inhibited.
+
+This flag can also be used to force tt(*) or tt(@) to be interpreted as
+a single key rather than as a reference to all values.  It may be used
+for either purpose on the left side of an assignment.
 )
 enditem()
 
@@ -339,8 +345,8 @@ The same rule applies to parentheses (`tt(LPAR())' and `tt(RPAR())') and
 braces (`tt({)' and `tt(})'): they must appear either in balanced pairs or
 preceded by a backslash, and backslashes that protect parentheses or
 braces are removed during parsing.  This is because parameter expansions
-may be surrounded balanced braces, and subscript flags are introduced by
-balanced parenthesis.
+may be surrounded by balanced braces, and subscript flags are introduced by
+balanced parentheses.
 
 The second difference is that a double-quote (`tt(")') may appear as part
 of a subscript expression without being preceded by a backslash, and
@@ -663,8 +669,12 @@ since the assignment.
 Unlike other special parameters, the type of the tt(SECONDS) parameter can
 be changed using the tt(typeset) command.  Only integer and one of the
 floating point types are allowed.  For example, `tt(typeset -F SECONDS)'
-causes the value to be reported as a floating point number.  The precision
-is six decimal places, although not all places may be useful.
+causes the value to be reported as a floating point number.  The
+value is available to microsecond accuracy, although the shell may
+show more or fewer digits depending on the use of tt(typeset).  See
+the documentation for the builtin tt(typeset) in
+ifzman(zmanref(zshbuiltins))\
+ifnzman(noderef(Shell Builtin Commands)) for more details.
 )
 vindex(SHLVL)
 item(tt(SHLVL) <S>)(
@@ -716,6 +726,17 @@ vindex(ZSH_NAME)
 item(tt(ZSH_NAME))(
 Expands to the basename of the command used to invoke this instance
 of zsh.
+)
+item(tt(zsh_scheduled_events))(
+See ifzman(the section `The zsh/sched Module' in zmanref(zshmodules))\
+ifnzman(noderef(The zsh/sched Module)).
+)
+vindex(ZSH_SUBSHELL <S>)
+item(tt(ZSH_SUBSHELL))(
+Readonly integer.  Initially zero, incremented each time the shell forks
+to create a subshell for executing code.  Hence `tt((print $ZSH_SUBSHELL))'
+and `tt(print $(print $ZSH_SUBSHELL))' output 1, while
+`tt(( (print $ZSH_SUBSHELL) ))' outputs 2.
 )
 vindex(ZSH_VERSION)
 item(tt(ZSH_VERSION))(

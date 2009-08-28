@@ -1,3 +1,7 @@
+  As of version 2.0.0, the load balance documentation is in the
+available in the "unlang" man page.  The text below may not be up to
+date, and is here only for historical purposes.
+
   As of version 1.1.0, FreeRADIUS supports load balancing in module
 sections.  Please see the "configurable_failover" file in this
 directory for a more complete description of module sections.
@@ -81,7 +85,7 @@ then log to the detail file"
 	==========================
 
   If you want to do redundancy and load-balancing among three
-modules, the configuration is complex:
+modules, the configuration is quite complex:
 
 ...
   load-balance {
@@ -147,5 +151,25 @@ one picked for load-balancing is down, load-balance among the
 remaining two.  If that one is down, pick the one remaining 'live'
 server".
 
+  The "redundant-load-balance" section can contain any number of
+modules.
+
+
+  Interaction with "if" and "else"
+  --------------------------------
+
+  It's best to have "if" and "else" blocks contain "load-balance" or
+"redundant-load-balance" sections, rather than the other way around.
+The "else" and "elsif" sections cannot appear inside of a
+"load-balance" or "redundant-load-balance" section, because the "else"
+condition would be chose as one of the modules for load-balancing,
+which is not what you want.
+
+  It's OK to have a plain "if" block inside of a "load-balance" or
+"redundant-load-balance" section.  In that case, the "if" condition
+checks the return code of the module or group that executed just
+before the "load-balance" section.  It does *not* check the return
+code of the previous module in the section.
+
 ----------------------------------------------------------------------
-$Id: load-balance.txt,v 1.4.2.1 2005/12/15 00:47:02 aland Exp $
+$Id$

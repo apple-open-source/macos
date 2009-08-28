@@ -1,3 +1,0 @@
-dirent.lo .libs/dirent.o: dirent.c ../config.h
-
-../config.h:

@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 1999-2006, International Business Machines
+*   Copyright (C) 1999-2008, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
  *  ucnv.h:
@@ -40,7 +40,7 @@
  * many other callback actions that can be used instead of a character substitution.</p>
  *
  * <p>More information about this API can be found in our 
- * <a href="http://icu.sourceforge.net/userguide/conversion.html">User's
+ * <a href="http://icu-project.org/userguide/conversion.html">User's
  * Guide</a>.</p>
  */
 
@@ -296,7 +296,7 @@ ucnv_compareNames(const char *name1, const char *name2);
  *
  * <p>The conversion behavior and names can vary between platforms. ICU may
  * convert some characters differently from other platforms. Details on this topic
- * are in the <a href="http://icu.sourceforge.net/userguide/conversion.html">User's
+ * are in the <a href="http://icu-project.org/userguide/conversion.html">User's
  * Guide</a>. Aliases starting with a "cp" prefix have no specific meaning
  * other than its an alias starting with the letters "cp". Please do not
  * associate any meaning to these aliases.</p>
@@ -316,7 +316,7 @@ ucnv_compareNames(const char *name1, const char *name2);
  * @see ucnv_getAlias
  * @see ucnv_getDefaultName
  * @see ucnv_close
- * @ee ucnv_compareNames
+ * @see ucnv_compareNames
  * @stable ICU 2.0
  */
 U_STABLE UConverter* U_EXPORT2 
@@ -346,7 +346,7 @@ ucnv_open(const char *converterName, UErrorCode *err);
  * @see ucnv_open
  * @see ucnv_openCCSID
  * @see ucnv_close
- * @ee ucnv_compareNames
+ * @see ucnv_compareNames
  * @stable ICU 2.0
  */
 U_STABLE UConverter* U_EXPORT2 
@@ -593,9 +593,9 @@ ucnv_setSubstChars(UConverter *converter,
  *
  * @see ucnv_setSubstChars
  * @see ucnv_getSubstChars
- * @draft ICU 3.6
+ * @stable ICU 3.6
  */
-U_DRAFT void U_EXPORT2
+U_STABLE void U_EXPORT2
 ucnv_setSubstString(UConverter *cnv,
                     const UChar *s,
                     int32_t length,
@@ -870,6 +870,8 @@ ucnv_getStarters(const UConverter* converter,
 typedef enum UConverterUnicodeSet {
     /** Select the set of roundtrippable Unicode code points. @stable ICU 2.6 */
     UCNV_ROUNDTRIP_SET,
+    /** Select the set of Unicode code points with roundtrip or fallback mappings. @draft ICU 4.0 */
+    UCNV_ROUNDTRIP_AND_FALLBACK_SET,
     /** Number of UConverterUnicodeSet selectors. @stable ICU 2.6 */
     UCNV_SET_COUNT
 } UConverterUnicodeSet;
@@ -878,11 +880,16 @@ typedef enum UConverterUnicodeSet {
 /**
  * Returns the set of Unicode code points that can be converted by an ICU converter.
  *
- * The current implementation returns only one kind of set (UCNV_ROUNDTRIP_SET):
+ * Returns one of several kinds of set:
+ *
+ * 1. UCNV_ROUNDTRIP_SET
+ *
  * The set of all Unicode code points that can be roundtrip-converted
- * (converted without any data loss) with the converter.
+ * (converted without any data loss) with the converter (ucnv_fromUnicode()).
  * This set will not include code points that have fallback mappings
  * or are only the result of reverse fallback mappings.
+ * This set will also not include PUA code points with fallbacks, although
+ * ucnv_fromUnicode() will always uses those mappings despite ucnv_setFallback().
  * See UTR #22 "Character Mapping Markup Language"
  * at http://www.unicode.org/reports/tr22/
  *
@@ -892,6 +899,12 @@ typedef enum UConverterUnicodeSet {
  * - testing if a converter can be used for text for typical text for a certain locale,
  *   by comparing its roundtrip set with the set of ExemplarCharacters from
  *   ICU's locale data or other sources
+ *
+ * 2. UCNV_ROUNDTRIP_AND_FALLBACK_SET
+ *
+ * The set of all Unicode code points that can be converted with the converter (ucnv_fromUnicode())
+ * when fallbacks are turned on (see ucnv_setFallback()).
+ * This set includes all code points with roundtrips and fallbacks (but not reverse fallbacks).
  *
  * In the future, there may be more UConverterUnicodeSet choices to select
  * sets with different properties.
@@ -1346,10 +1359,13 @@ ucnv_getNextUChar(UConverter * converter,
  *         return 0;
  *     }
  *
+ *     if(length<0) {
+ *         length=strlen(s);
+ *     }
  *     target=u8;
  *     ucnv_convertEx(cnv, utf8Cnv,
  *                    &target, u8+capacity,
- *                    &s, length>=0 ? s+length : NULL,
+ *                    &s, s+length,
  *                    NULL, NULL, NULL, NULL,
  *                    TRUE, TRUE,
  *                    pErrorCode);
@@ -1766,11 +1782,12 @@ U_STABLE const char * U_EXPORT2
 ucnv_getCanonicalName(const char *alias, const char *standard, UErrorCode *pErrorCode);
 
 /**
- * returns the current default converter name.
+ * Returns the current default converter name. If you want to open
+ * a default converter, you do not need to use this function.
+ * It is faster if you pass a NULL argument to ucnv_open the
+ * default converter.
  *
- * @return returns the current default converter name;
- *         if a default converter name cannot be determined,
- *         then <code>NULL</code> is returned.
+ * @return returns the current default converter name.
  *         Storage owned by the library
  * @see ucnv_setDefaultName
  * @stable ICU 2.0
@@ -1779,12 +1796,13 @@ U_STABLE const char * U_EXPORT2
 ucnv_getDefaultName(void);
 
 /**
- * This function sets the current default converter name.
- * DO NOT call this function from multiple threads! This function is not
- * thread safe. If this function needs to be called, it should be called
- * during application initialization. Most of the time, the results from
- * ucnv_getDefaultName() is sufficient for your application.
- * @param name the converter name to be the default (must exist).
+ * This function is not thread safe. DO NOT call this function when ANY ICU
+ * function is being used from more than one thread! This function sets the
+ * current default converter name. If this function needs to be called, it
+ * should be called during application initialization. Most of the time, the
+ * results from ucnv_getDefaultName() or ucnv_open with a NULL string argument
+ * is sufficient for your application.
+ * @param name the converter name to be the default (must be known by ICU).
  * @see ucnv_getDefaultName
  * @system
  * @stable ICU 2.0
@@ -1824,20 +1842,31 @@ U_STABLE UBool U_EXPORT2
 ucnv_isAmbiguous(const UConverter *cnv);
 
 /**
- * Sets the converter to use fallback mapping or not.
+ * Sets the converter to use fallback mappings or not.
+ * Regardless of this flag, the converter will always use
+ * fallbacks from Unicode Private Use code points, as well as
+ * reverse fallbacks (to Unicode).
+ * For details see ".ucm File Format"
+ * in the Conversion Data chapter of the ICU User Guide:
+ * http://www.icu-project.org/userguide/conversion-data.html#ucmformat
+ *
  * @param cnv The converter to set the fallback mapping usage on.
  * @param usesFallback TRUE if the user wants the converter to take advantage of the fallback 
  * mapping, FALSE otherwise.
  * @stable ICU 2.0
+ * @see ucnv_usesFallback
  */
 U_STABLE void U_EXPORT2 
 ucnv_setFallback(UConverter *cnv, UBool usesFallback);
 
 /**
  * Determines if the converter uses fallback mappings or not.
+ * This flag has restrictions, see ucnv_setFallback().
+ *
  * @param cnv The converter to be tested
  * @return TRUE if the converter uses fallback, FALSE otherwise.
  * @stable ICU 2.0
+ * @see ucnv_setFallback
  */
 U_STABLE UBool U_EXPORT2 
 ucnv_usesFallback(const UConverter *cnv);
@@ -1913,9 +1942,9 @@ ucnv_detectUnicodeSignature(const char* source,
  * @param status    ICU error code in/out parameter.
  *                  Must fulfill U_SUCCESS before the function call.
  * @return The number of UChars in the state. -1 if an error is encountered.
- * @draft ICU 3.4
+ * @stable ICU 3.4
  */
-U_DRAFT int32_t U_EXPORT2
+U_STABLE int32_t U_EXPORT2
 ucnv_fromUCountPending(const UConverter* cnv, UErrorCode* status);
 
 /**
@@ -1927,9 +1956,9 @@ ucnv_fromUCountPending(const UConverter* cnv, UErrorCode* status);
  * @param status    ICU error code in/out parameter.
  *                  Must fulfill U_SUCCESS before the function call.
  * @return The number of chars in the state. -1 if an error is encountered.
- * @draft ICU 3.4
+ * @stable ICU 3.4
  */
-U_DRAFT int32_t U_EXPORT2
+U_STABLE int32_t U_EXPORT2
 ucnv_toUCountPending(const UConverter* cnv, UErrorCode* status);
 
 #endif

@@ -1,0 +1,30 @@
+# $Id: adapter.xotcl,v 1.1 2004/05/23 22:50:39 neumann Exp $
+Class Adapter -superclass Class  
+
+@ @File {
+  description {
+    Simple adapter pattern meta-class taken from the paper 
+    'Filters as a Language Support for Design Patterns in
+    Object-Oriented Scripting Languages'. 
+  }
+}
+
+Adapter instproc adapterFilter args { 
+  set r [self calledproc]
+  my instvar adaptee specificRequest 
+  if {[info exists specificRequest($r)]} {
+    return [eval $adaptee $specificRequest($r) $args]
+  }
+  next
+}
+
+Adapter instproc init args {
+  my instfilterappend adapterFilter
+  next
+  my instproc setRequest {r sr} {
+    my set specificRequest($r) $sr
+  }
+  my instproc setAdaptee {a} {
+    my set adaptee $a
+  }
+}

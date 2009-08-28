@@ -30,10 +30,10 @@ include ${TESTROOT}/include/common.makefile
 all:
 	${CC} ${CCFLAGS} main.c -static -c
 	${CC} ${CCFLAGS} abs.s -static -c
-	${LD} -arch ${ARCH} -static main.o abs.o -e _main -o main
-	${LD} -arch ${ARCH} -static -r main.o abs.o -o all.o
+	${LD} -arch ${ARCH} -static main.o abs.o -e _main -o main -new_linker
+	${LD} -arch ${ARCH} -static -r main.o abs.o -o all.o -new_linker
 	nm -m all.o | grep _myAbs | grep absolute | ${FAIL_IF_EMPTY}
-	${LD} -arch ${ARCH} -static all.o -e _main -o main2
+	${LD} -arch ${ARCH} -static all.o -e _main -o main2 -new_linker
 	${PASS_IFF_GOOD_MACHO} main2
 	
 clean:

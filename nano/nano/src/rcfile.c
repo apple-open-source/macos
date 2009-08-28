@@ -1,9 +1,9 @@
-/* $Id: rcfile.c,v 1.121 2006/11/10 02:47:11 dolorous Exp $ */
+/* $Id: rcfile.c,v 1.122.2.1 2007/04/18 18:22:13 dolorous Exp $ */
 /**************************************************************************
  *   rcfile.c                                                             *
  *                                                                        *
  *   Copyright (C) 2001, 2002, 2003, 2004 Chris Allegretta                *
- *   Copyright (C) 2005, 2006 David Lawrence Ramsey                       *
+ *   Copyright (C) 2005, 2006, 2007 David Lawrence Ramsey                 *
  *   This program is free software; you can redistribute it and/or modify *
  *   it under the terms of the GNU General Public License as published by *
  *   the Free Software Foundation; either version 2, or (at your option)  *
@@ -97,8 +97,7 @@ static const rcoption rcopts[] = {
 static bool errors = FALSE;
 	/* Whether we got any errors while parsing an rcfile. */
 static size_t lineno = 0;
-	/* If we did, the line number where the current error
-	 * occurred. */
+	/* If we did, the line number where the last error occurred. */
 static char *nanorc = NULL;
 	/* The path to the rcfile we're parsing. */
 #ifdef ENABLE_COLOR
@@ -364,25 +363,23 @@ void parse_include(char *ptr)
     /* Get the specified file's full path. */
     full_option = get_full_path(option);
 
-    if (full_option == NULL) {
-	rcfile_error(_("Error reading %s: %s"), option, strerror(errno));
-	goto cleanup_include;
-    }
+    if (full_option == NULL)
+	full_option = mallocstrcpy(NULL, option);
 
     /* Don't open directories, character files, or block files. */
-    if (stat(nanorc, &rcinfo) != -1) {
+    if (stat(full_option, &rcinfo) != -1) {
 	if (S_ISDIR(rcinfo.st_mode) || S_ISCHR(rcinfo.st_mode) ||
 		S_ISBLK(rcinfo.st_mode)) {
 	    rcfile_error(S_ISDIR(rcinfo.st_mode) ?
 		_("\"%s\" is a directory") :
-		_("\"%s\" is a device file"), nanorc);
+		_("\"%s\" is a device file"), option);
 	    goto cleanup_include;
 	}
     }
 
     /* Open the new syntax file. */
     if ((rcstream = fopen(full_option, "rb")) == NULL) {
-	rcfile_error(_("Error reading %s: %s"), full_option,
+	rcfile_error(_("Error reading %s: %s"), option,
 		strerror(errno));
 	goto cleanup_include;
     }

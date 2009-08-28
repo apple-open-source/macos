@@ -1,21 +1,22 @@
 /*
- * Copyright (c) 2002, 2004, 2005, 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2002, 2004, 2005, 2007-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -31,7 +32,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#include <architecture/byte_order.h>
+#include <libkern/OSByteOrder.h>
 #include <hfs/hfs_format.h>
 
 #include "Scavenger.h"
@@ -433,7 +434,7 @@ hfs_swap_HFSPlusBTInternalNode (
     BTNodeDescriptor *srcDesc = src->buffer;
     UInt16 *srcOffs = (UInt16 *)((char *)src->buffer + (src->blockSize - (srcDesc->numRecords * sizeof (UInt16))));
 	char *nextRecord;	/*  Points to start of record following current one */
-    UInt32 i;
+    int32_t i;
     UInt32 j;
 
     if (fileID == kHFSExtentsFileID) {
@@ -612,7 +613,9 @@ hfs_swap_HFSPlusBTInternalNode (
     
                 srcRec->textEncoding		= SWAP_BE32 (srcRec->textEncoding);
     
-                /* Don't swap srcRec->userInfo */
+                /* The only field we use in srcRec->userInfo is frFlags (used in VLockedChk). */
+                srcRec->userInfo.frFlags	= SWAP_BE16 (srcRec->userInfo.frFlags);
+                
                 /* Don't swap srcRec->finderInfo */
 		srcRec->folderCount		= SWAP_BE32 (srcRec->folderCount);
     
@@ -842,7 +845,7 @@ hfs_swap_HFSPlusBTInternalNode (
             	srcRec->recordType = SWAP_BE32(srcRec->recordType);
     	}
     } else {
-	plog("hfs_swap_HFSPlusBTInternalNode: fileID %u is not a system B-tree\n", fileID);
+		plog("hfs_swap_HFSPlusBTInternalNode: fileID %u is not a system B-tree\n", fileID);
         exit(99);
     }
 
@@ -861,7 +864,7 @@ hfs_swap_HFSBTInternalNode (
     UInt16 *srcOffs = (UInt16 *)((char *)src->buffer + (src->blockSize - (srcDesc->numRecords * sizeof (UInt16))));
 	char *nextRecord;	/*  Points to start of record following current one */
 
-    UInt32 i;
+    int32_t i;
     UInt32 j;
 
     if (fileID == kHFSExtentsFileID) {
@@ -925,7 +928,7 @@ hfs_swap_HFSBTInternalNode (
     } else if (fileID == kHFSCatalogFileID || fileID == kHFSRepairCatalogFileID) {
         HFSCatalogKey *srcKey;
         SInt16 *srcPtr;
-        unsigned expectedKeyLength;
+        size_t expectedKeyLength;
 
         for (i = 0; i < srcDesc->numRecords; i++) {
         	/* Point to the start of the record we're currently checking. */
@@ -1015,7 +1018,9 @@ hfs_swap_HFSBTInternalNode (
                 srcRec->modifyDate			= SWAP_BE32 (srcRec->modifyDate);
                 srcRec->backupDate			= SWAP_BE32 (srcRec->backupDate);
     
-                /* Don't swap srcRec->userInfo */
+                /* The only field we use in srcRec->userInfo is frFlags (used in VLockedChk). */
+                srcRec->userInfo.frFlags	= SWAP_BE16 (srcRec->userInfo.frFlags);
+
                 /* Don't swap srcRec->finderInfo */
                 /* Don't swap resserved array */
     
@@ -1092,7 +1097,7 @@ hfs_swap_HFSBTInternalNode (
         
     } else {
        plog("hfs_swap_HFSBTInternalNode: fileID %u is not a system B-tree\n", fileID);
-        exit(99);
+       exit(99);
     }
 
     return (0);

@@ -1,8 +1,8 @@
 /* modrdn.c - ldap backend modrdn function */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/modrdn.c,v 1.38.2.9 2006/05/09 20:00:37 ando Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/modrdn.c,v 1.47.2.7 2008/04/14 18:57:13 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2006 The OpenLDAP Foundation.
+ * Copyright 1999-2008 The OpenLDAP Foundation.
  * Portions Copyright 1999-2003 Howard Chu.
  * Portions Copyright 2000-2003 Pierangelo Masarati.
  * All rights reserved.
@@ -36,17 +36,17 @@ ldap_back_modrdn(
 		Operation	*op,
  		SlapReply	*rs )
 {
-	ldapinfo_t	*li = (ldapinfo_t *)op->o_bd->be_private;
+	ldapinfo_t		*li = (ldapinfo_t *)op->o_bd->be_private;
 
-	ldapconn_t	*lc;
-	ber_int_t	msgid;
-	LDAPControl	**ctrls = NULL;
-	int		do_retry = 1;
-	int		rc = LDAP_SUCCESS;
-	char		*newSup = NULL;
+	ldapconn_t		*lc = NULL;
+	ber_int_t		msgid;
+	LDAPControl		**ctrls = NULL;
+	ldap_back_send_t	retrying = LDAP_BACK_RETRYING;
+	int			rc = LDAP_SUCCESS;
+	char			*newSup = NULL;
+	struct berval		newrdn = BER_BVNULL;
 
-	lc = ldap_back_getconn( op, rs, LDAP_BACK_SENDERR );
-	if ( !lc || !ldap_back_dobind( lc, op, rs, LDAP_BACK_SENDERR ) ) {
+	if ( !ldap_back_dobind( &lc, op, rs, LDAP_BACK_SENDERR ) ) {
 		return rs->sr_err;
 	}
 
@@ -73,32 +73,46 @@ ldap_back_modrdn(
 		newSup = op->orr_newSup->bv_val;
 	}
 
+	/* NOTE: we need to copy the newRDN in case it was formed
+	 * from a DN by simply changing the length (ITS#5397) */
+	newrdn = op->orr_newrdn;
+	if ( newrdn.bv_val[ newrdn.bv_len ] != '\0' ) {
+		ber_dupbv_x( &newrdn, &op->orr_newrdn, op->o_tmpmemctx );
+	}
+
+retry:
 	ctrls = op->o_ctrls;
-	rc = ldap_back_proxy_authz_ctrl( lc, op, rs, &ctrls );
+	rc = ldap_back_controls_add( op, rs, lc, &ctrls );
 	if ( rc != LDAP_SUCCESS ) {
 		send_ldap_result( op, rs );
 		rc = -1;
 		goto cleanup;
 	}
 
-retry:
 	rs->sr_err = ldap_rename( lc->lc_ld, op->o_req_dn.bv_val,
-			op->orr_newrdn.bv_val, newSup,
+			newrdn.bv_val, newSup,
 			op->orr_deleteoldrdn, ctrls, NULL, &msgid );
 	rc = ldap_back_op_result( lc, op, rs, msgid,
-		li->li_timeout[ LDAP_BACK_OP_MODRDN ], LDAP_BACK_SENDRESULT );
-	if ( rs->sr_err == LDAP_SERVER_DOWN && do_retry ) {
-		do_retry = 0;
+		li->li_timeout[ SLAP_OP_MODRDN ],
+		( LDAP_BACK_SENDRESULT | retrying ) );
+	if ( rs->sr_err == LDAP_UNAVAILABLE && retrying ) {
+		retrying &= ~LDAP_BACK_RETRYING;
 		if ( ldap_back_retry( &lc, op, rs, LDAP_BACK_SENDERR ) ) {
+			/* if the identity changed, there might be need to re-authz */
+			(void)ldap_back_controls_free( op, rs, &ctrls );
 			goto retry;
 		}
 	}
 
 cleanup:
-	(void)ldap_back_proxy_authz_ctrl_free( op, &ctrls );
+	(void)ldap_back_controls_free( op, rs, &ctrls );
+
+	if ( newrdn.bv_val != op->orr_newrdn.bv_val ) {
+		op->o_tmpfree( newrdn.bv_val, op->o_tmpmemctx );
+	}
 
 	if ( lc != NULL ) {
-		ldap_back_release_conn( op, rs, lc );
+		ldap_back_release_conn( li, lc );
 	}
 
 	return rc;

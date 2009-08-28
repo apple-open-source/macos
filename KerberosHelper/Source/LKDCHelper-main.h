@@ -24,9 +24,9 @@
 #ifndef H_LKDCHELPER_MAIN_H
 #define H_LKDCHELPER_MAIN_H
 
-extern void helplog (int, const char *, ...);
+extern void helplog (int, const char *, ...)
+     __attribute__ ((format (printf, 2, 3)));
 extern void update_idle_timer (void);
-extern void debug_(const char *func, const char *fmt, ...);
 extern int  authorized(audit_token_t *token);
 
 #endif /* H_LKDCHELPER_MAIN_H */

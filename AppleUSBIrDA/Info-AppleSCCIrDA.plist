@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>AppleSCCIrDA</string>
+	<key>CFBundleGetInfoString</key>
+	<string>IrDA version 1.4.0b1, Copyright 2001-2006, Apple Computer, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.AppleSCCIrDA</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>AppleSCCIrDA</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.4.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.4.0b1</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>AppleSCCIrDA</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleSCCIrDA</string>
+			<key>IOClass</key>
+			<string>AppleSCCIrDA</string>
+			<key>IONameMatch</key>
+			<array>
+				<string>chrp,es3</string>
+			</array>
+			<key>IOProbeScore</key>
+			<integer>2000</integer>
+			<key>IOProviderClass</key>
+			<string>IORS232SerialStreamSync</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.driver.AppleKeyLargo</key>
+		<string>1.1d5</string>
+		<key>com.apple.iokit.IOSerialFamily</key>
+		<string>1.0.7d10</string>
+	</dict>
+</dict>
+</plist>

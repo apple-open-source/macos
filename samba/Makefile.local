@@ -10,6 +10,8 @@ SRCROOT := $(shell pwd)
 BUILDIT_DIR ?= /tmp/$(BASENAME)
 SOURCE := samba/source
 
+Extra_CC_Flags += -g $(Extra_Samba_Flags)
+
 # Set the install location that buildit will use. This assumes you use the
 # -notilde option to buildit like I do -- jpeach.
 SYMROOT ?= $(BUILDIT_DIR)/$(BASENAME).roots/$(BASENAME).sym
@@ -30,7 +32,7 @@ CONFIGURE = cd $(SOURCE) && \
 		./configure \
 			$(Extra_Configure_Flags) \
 			$(Buildit_Configure_Flags) \
-		CFLAGS="-g $(Extra_CC_Flags)"
+		CFLAGS="$(Extra_CC_Flags)"
 
 # Convenience target to re-run configure
 reconfigure:

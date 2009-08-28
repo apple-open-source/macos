@@ -9,9 +9,20 @@ AC_DEFINE(CONFIG_H_IS_FROM_SAMBA,1,[Marker for samba's config.h])
 SMB_VERSION_STRING=`cat $srcdir/include/version.h | grep 'SAMBA_VERSION_OFFICIAL_STRING' | cut -d '"' -f2`
 echo "SAMBA VERSION: ${SMB_VERSION_STRING}"
 
-SAMBA_VERSION_SVN_REVISION=`cat $srcdir/include/version.h | grep 'SAMBA_VERSION_SVN_REVISION' | cut -d ' ' -f3-`
-if test -n "${SAMBA_VERSION_SVN_REVISION}";then
-	echo "BUILD REVISION: ${SAMBA_VERSION_SVN_REVISION}"
+SAMBA_VERSION_GIT_COMMIT_FULLREV=`cat $srcdir/include/version.h | grep 'SAMBA_VERSION_GIT_COMMIT_FULLREV' | cut -d ' ' -f3- | cut -d '"' -f2`
+if test -n "${SAMBA_VERSION_GIT_COMMIT_FULLREV}";then
+	echo "BUILD COMMIT REVISION: ${SAMBA_VERSION_GIT_COMMIT_FULLREV}"
+fi
+SAMBA_VERSION_GIT_COMMIT_DATE=`cat $srcdir/include/version.h | grep 'SAMBA_VERSION_GIT_COMMIT_DATE' | cut -d ' ' -f3-`
+if test -n "${SAMBA_VERSION_GIT_COMMIT_DATE}";then
+	echo "BUILD COMMIT DATE: ${SAMBA_VERSION_GIT_COMMIT_DATE}"
+fi
+SAMBA_VERSION_GIT_COMMIT_TIME=`cat $srcdir/include/version.h | grep 'SAMBA_VERSION_GIT_COMMIT_TIME' | cut -d ' ' -f3-`
+if test -n "${SAMBA_VERSION_GIT_COMMIT_TIME}";then
+	echo "BUILD COMMIT TIME: ${SAMBA_VERSION_GIT_COMMIT_TIME}"
+
+	# just to keep the build-farm gui happy for now...
+	echo "BUILD REVISION: ${SAMBA_VERSION_GIT_COMMIT_TIME}"
 fi
 
 AC_LIBREPLACE_LOCATION_CHECKS
@@ -882,18 +893,29 @@ main() {
 	# in struct stat.
 	CPPFLAGS="$CPPFLAGS -D_DARWIN_USE_64_BIT_INODE=1"
 
+	MACOSX_LIBS="-framework DirectoryService"
+	MACOSX_LIBS="$MACOSX_LIBS -framework CoreFoundation"
+	AC_SUBST(MACOSX_LIBS)
+
 	# Link smbd against Directory Services. This is a layering violation
 	# that needs to be removed. -- jpeach
-	SMBD_LIBS="$SMBD_LIBS -framework DirectoryService"
+	SMBD_LIBS="$SMBD_LIBS $(MACOSX_LIBS)"
 
 	# This is needed to build against the BRLM framework. It should
 	# go away. -- jpeach
 	CPPFLAGS="$CPPFLAGS -F/System/Library/PrivateFrameworks"
 
+	# Check for libvproc support
+	AC_CHECK_HEADERS(vproc.h)
+
 # Add a system specific charset module.
 	default_shared_modules="$default_shared_modules charset_macosxfs"
 	default_shared_modules="$default_shared_modules vfs_darwin_streams"
 	default_shared_modules="$default_shared_modules vfs_darwinacl"
+
+ 	AC_CHECK_FUNCS(pthread_setugid_np)
+	AC_CHECK_FUNCS(accessx_np)
+	AC_CHECK_FUNCS(getgrouplist_2)
 
 	;;
     *hurd*)
@@ -1713,6 +1735,14 @@ case "$host_os" in
 esac
 
 ########################################################
+# Check if attropen() is present if this is Solaris
+case "$host_os" in
+  *solaris*)
+	AC_CHECK_FUNCS(attropen)
+  ;;
+esac
+
+########################################################
 # Do xattr functions take additional options like on Darwin?
 if test x"$ac_cv_func_getxattr" = x"yes" ; then
 	AC_CACHE_CHECK([whether xattr interface takes additional options], smb_attr_cv_xattr_add_opt, [
@@ -1772,8 +1802,16 @@ EOF
 	])
 	if test x"${samba_cv_fpie}" = x"yes"
 	then
-		PIE_CFLAGS="-fPIE"
-		PIE_LDFLAGS="-pie"
+		case "$host_os" in
+		    *darwin*)
+			PIE_CFLAGS=""
+			PIE_LDFLAGS="-Wl,-pie"
+			;;
+		    *)
+			PIE_CFLAGS="-fPIE"
+			PIE_LDFLAGS="-pie"
+			;;
+		esac
 	fi
 fi
 
@@ -2684,7 +2722,7 @@ fi
 
 AC_CACHE_CHECK([for inotify support],samba_cv_HAVE_INOTIFY,[
 AC_CHECK_HEADERS(linux/inotify.h asm/unistd.h)
-AC_CHECK_FUNC(inotify_init)
+AC_CHECK_FUNCS(inotify_init)
 AC_HAVE_DECL(__NR_inotify_init, [#include <asm/unistd.h>])
 ],
 samba_cv_HAVE_INOTIFY=yes,
@@ -3455,6 +3493,21 @@ if test x"$with_ldap_support" != x"no"; then
   # this test must be before the libldap test
   AC_CHECK_LIB_EXT(lber, LDAP_LIBS, ber_scanf)
 
+  #######################################################
+  # if we have LBER_OPT_LOG_PRINT_FN, we can intercept
+  # ldap logging and print it out in the samba logs
+  AC_CACHE_CHECK([for LBER_OPT_LOG_PRINT_FN],
+		 samba_cv_HAVE_LBER_OPT_LOG_PRINT_FN,
+		 [AC_TRY_COMPILE([#include <lber.h>],
+				 [int val = LBER_OPT_LOG_PRINT_FN;],
+				 samba_cv_HAVE_LBER_OPT_LOG_PRINT_FN=yes,
+				 samba_cv_HAVE_LBER_OPT_LOG_PRINT_FN=no)])
+
+  if test x"$samba_cv_HAVE_LBER_OPT_LOG_PRINT_FN" = x"yes"; then
+	AC_DEFINE(HAVE_LBER_LOG_PRINT_FN, 1,
+		  [Support for LDAP/LBER logging interception])
+  fi
+
   ########################################################
   # now see if we can find the ldap libs in standard paths
   AC_CHECK_LIB_EXT(ldap, LDAP_LIBS, ldap_init)
@@ -3510,7 +3563,6 @@ AC_CHECK_HEADERS(DirectoryService/DirectoryService.h)
 AC_CHECK_HEADERS(DirectoryService/DirServices.h)
 AC_CHECK_HEADERS(DirectoryService/DirServicesConst.h)
 AC_CHECK_HEADERS(DirectoryService/DirServicesUtils.h)
-AC_CHECK_HEADERS(Security/Security.h)
 AC_CHECK_HEADERS(CoreFoundation/CoreFoundation.h)
 
 #################################################
@@ -4165,6 +4217,30 @@ if test x"$with_ads_support" != x"no"; then
               [whether krb5_mk_error takes 3 arguments MIT or 9 Heimdal])
   fi
 
+
+  AC_CACHE_CHECK([for krb5_principal_get_realm],
+                samba_cv_HAVE_KRB5_PRINCIPAL_GET_REALM,[
+    AC_TRY_LINK([#include <krb5.h>],
+      [krb5_context ctx = NULL; krb5_principal princ = NULL; const char *str = krb5_principal_get_realm(ctx, princ);],
+      samba_cv_HAVE_KRB5_PRINCIPAL_GET_REALM=yes,
+      samba_cv_HAVE_KRB5_PRINCIPAL_GET_REALM=no)])
+
+  if test x"$samba_cv_HAVE_KRB5_PRINCIPAL_GET_REALM" = x"yes"; then
+    AC_DEFINE(HAVE_KRB5_PRINCIPAL_GET_REALM,1,
+               [Whether the function krb5_principal_get_realm is defined])
+  fi
+
+  AC_CACHE_CHECK([for krb5_princ_realm],
+                samba_cv_HAVE_KRB5_PRINC_REALM,[
+    AC_TRY_LINK([#include <krb5.h>],
+      [krb5_context ctx = NULL; krb5_principal princ = NULL; const char *str = krb5_princ_realm(ctx, princ)->data;],
+      samba_cv_HAVE_KRB5_PRINC_REALM=yes,
+      samba_cv_HAVE_KRB5_PRINC_REALM=no)])
+
+  if test x"$samba_cv_HAVE_KRB5_PRINC_REALM" = x"yes"; then
+    AC_DEFINE(HAVE_KRB5_PRINC_REALM,1,
+               [Whether the macro krb5_princ_realm is defined])
+  fi
 
   #
   #
@@ -6368,7 +6444,9 @@ SMB_MODULE(vfs_prealloc, \$(VFS_PREALLOC_OBJ), "bin/prealloc.$SHLIBEXT", VFS)
 SMB_MODULE(vfs_commit, \$(VFS_COMMIT_OBJ), "bin/commit.$SHLIBEXT", VFS)
 SMB_MODULE(vfs_gpfs, \$(VFS_GPFS_OBJ), "bin/gpfs.$SHLIBEXT", VFS)
 SMB_MODULE(vfs_readahead, \$(VFS_READAHEAD_OBJ), "bin/readahead.$SHLIBEXT", VFS)
+SMB_MODULE(vfs_notify_fam, \$(VFS_NOTIFY_FAM_OBJ), "bin/notify_fam.$SHLIBEXT", VFS)
 SMB_MODULE(vfs_darwin_streams, \$(VFS_DARWIN_STREAMS_OBJ), "bin/darwin_streams.$SHLIBEXT", VFS)
+SMB_MODULE(vfs_notify_kqueue, \$(VFS_NOTIFY_KQUEUE_OBJ), "bin/notify_kqueue.$SHLIBEXT", VFS)
 
 SMB_SUBSYSTEM(VFS,smbd/vfs.o)
 

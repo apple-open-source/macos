@@ -45,6 +45,12 @@
 #define DWARF2_REG_TO_REGNUM(REG) (REG)
 #endif
 
+/* APPLE LOCAL begin print location lists  */
+static void
+print_single_dwarf_location (struct ui_file *, gdb_byte **, gdb_byte *,
+			     struct dwarf_expr_context *);
+/* APPLE LOCAL end print location lists  */
+
 /* A helper function for dealing with location lists.  Given a
    symbol baton (BATON) and a pc value (PC), find the appropriate
    location expression, set *LOCEXPR_LENGTH, and return a pointer
@@ -292,7 +298,6 @@ dwarf2_evaluate_loc_desc (struct symbol *var, struct frame_info *frame,
 			  gdb_byte *data, unsigned short size,
 			  struct objfile *objfile)
 {
-  struct gdbarch *arch = get_frame_arch (frame);
   struct value *retval;
   struct dwarf_expr_baton baton;
   struct dwarf_expr_context *ctx;
@@ -315,7 +320,7 @@ dwarf2_evaluate_loc_desc (struct symbol *var, struct frame_info *frame,
   ctx->get_frame_base = dwarf_expr_frame_base;
   ctx->get_tls_address = dwarf_expr_tls_address;
 
-  dwarf_expr_eval (ctx, data, size);
+  dwarf_expr_eval (ctx, data, size, 0);
   /* APPLE LOCAL begin DW_op_pieces for PPC registers */
   if (ctx->num_pieces == 2
       && ctx->pieces[0].in_reg
@@ -449,7 +454,7 @@ dwarf2_loc_desc_needs_frame (gdb_byte *data, unsigned short size)
   ctx->get_frame_base = needs_frame_frame_base;
   ctx->get_tls_address = needs_frame_tls_address;
 
-  dwarf_expr_eval (ctx, data, size);
+  dwarf_expr_eval (ctx, data, size, 0);
 
   in_reg = ctx->in_reg;
 
@@ -546,6 +551,11 @@ locexpr_describe_location (struct symbol *symbol, struct ui_file *stream)
 {
   /* FIXME: be more extensive.  */
   struct dwarf2_locexpr_baton *dlbaton = SYMBOL_LOCATION_BATON (symbol);
+  /* APPLE LOCAL begin print better location information.  */
+  struct dwarf_expr_context *ctx;
+  gdb_byte *loc_ptr;
+  gdb_byte *loc_end;
+  /* APPLE LOCAL end print better location information.  */
 
   if (dlbaton->size == 1
       && dlbaton->data[0] >= DW_OP_reg0
@@ -584,9 +594,27 @@ locexpr_describe_location (struct symbol *symbol, struct ui_file *stream)
 	return 1;
       }
   
+  /* APPLE LOCAL print better location information.  */
 
-  fprintf_filtered (stream,
-		    "a variable with complex or multiple locations (DWARF2)");
+  /* Create a context, to pass to print_single_dwarf_location.  */
+
+  ctx = new_dwarf_expr_context ();
+  ctx->baton = dlbaton;
+  ctx->read_reg = dwarf_expr_read_reg;
+  ctx->read_mem = dwarf_expr_read_mem;
+  ctx->get_frame_base = dwarf_expr_frame_base;
+  ctx->get_tls_address = dwarf_expr_tls_address;
+
+  /* Set up starting & ending pointers, to pass to 
+     print_single_dwarf_location.  */
+
+  loc_ptr = &dlbaton->data[0];
+  loc_end = &dlbaton->data[dlbaton->size];
+
+  print_single_dwarf_location (stream, &loc_ptr, loc_end, ctx);
+
+  /* APPLE LOCAL end print better location information.  */
+
   return 1;
 }
 
@@ -677,8 +705,6 @@ print_single_dwarf_location (struct ui_file *stream, gdb_byte **loc_ptr,
   int bytes_read;
   ULONGEST uoffset, reg;
   LONGEST offset;
-  char *output_str;
-  int len;
   gdb_byte *op_ptr = *loc_ptr;
 
   while (op_ptr < op_end)
@@ -804,7 +830,9 @@ print_single_dwarf_location (struct ui_file *stream, gdb_byte **loc_ptr,
 		     "used either alone or in conjuction with DW_OP_piece."));
 	      
 	  result = op - DW_OP_reg0;
-	  fprintf_filtered (stream, "in register %d", (unsigned int) result);
+	  /* APPLE LOCAL print register name instead of number.  */
+	  fprintf_filtered (stream, "in register %s", 
+			    REGISTER_NAME (DWARF2_REG_TO_REGNUM (result)));
 	      
 	  break;
 	      
@@ -815,8 +843,9 @@ print_single_dwarf_location (struct ui_file *stream, gdb_byte **loc_ptr,
 	      && *op_ptr != DW_OP_APPLE_uninit)
 	    error (_("DWARF-2 expression error: DW_OP_reg operations must be "
 		     "used either alone or in conjuction with DW_OP_piece."));
-	      
-	  fprintf_filtered (stream, "in register %d", (unsigned int) reg);
+	  /* APPLE LOCAL print register name instead of number.  */
+	  fprintf_filtered (stream, "in register %s", 
+			    REGISTER_NAME (DWARF2_REG_TO_REGNUM (reg)));
 	  break;
 	      
 	case DW_OP_breg0:
@@ -877,8 +906,6 @@ print_single_dwarf_location (struct ui_file *stream, gdb_byte **loc_ptr,
 	  break;
 	case DW_OP_fbreg:
 	  {
-	    gdb_byte *datastart;
-	    size_t datalen;
 	    unsigned int before_stack_len;
 	    
 	    op_ptr = read_sleb128 (op_ptr, op_end, &offset);
@@ -895,7 +922,7 @@ print_single_dwarf_location (struct ui_file *stream, gdb_byte **loc_ptr,
 	       specific this_base method.  */
 	    /*
 	      (ctx->get_frame_base) (ctx->baton, &datastart, &datalen);
-	      dwarf_expr_eval (ctx, datastart, datalen);
+	      dwarf_expr_eval (ctx, datastart, datalen, 0);
 	      result = dwarf_expr_fetch (ctx, 0);
 	      if (ctx->in_reg)
 	      result = (ctx->read_reg) (ctx->baton, result);
@@ -965,7 +992,6 @@ print_single_dwarf_location (struct ui_file *stream, gdb_byte **loc_ptr,
 	    case DW_OP_deref_size:
 	      {
 		gdb_byte *buf = alloca (TARGET_ADDR_BIT / TARGET_CHAR_BIT);
-		int bytes_read;
 		
 		(ctx->read_mem) (ctx->baton, buf, result, *op_ptr++); 
 		fprintf_filtered (stream, "at address 0x%s", paddr_nz (result));
@@ -1138,6 +1164,7 @@ print_single_dwarf_location (struct ui_file *stream, gdb_byte **loc_ptr,
 	  break;
 	  
 	case DW_OP_APPLE_uninit:
+	  fprintf_filtered (stream, " [ uninitialized ]");
 	  break;
 	  
 	default:
@@ -1216,12 +1243,14 @@ loclist_describe_location (struct symbol *symbol, struct ui_file *stream)
       ctx->get_frame_base = dwarf_expr_frame_base;
       ctx->get_tls_address = dwarf_expr_tls_address;
 
-      fprintf_filtered (stream, "   0x%s - 0x%s: ", paddr_nz (low), 
+      /* APPLE LOCAL begin Don't print extra newline at end of list.  */
+      fprintf_filtered (stream, "\n   0x%s - 0x%s: ", paddr_nz (low), 
                         paddr_nz (high));
       
       print_single_dwarf_location (stream, &loc_ptr, loc_end, ctx);
+      /* APPLE LOCAL end Don't print extra newline at end of list.  */
 
-      fprintf_filtered (stream, "\n");
+      free_dwarf_expr_context (ctx);
     }
 
   return 1;

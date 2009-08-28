@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-#	$Id: radzap,v 1.2.2.2 2005/05/12 22:24:07 aland Exp $
+#	$Id$
 #
 
 usage() {

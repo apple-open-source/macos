@@ -1,0 +1,209 @@
+<html>
+<head>
+  <title>Commands for Interactive Sorting by One or More Columns</title>
+
+  <meta name="Author" content="Csaba Nemethi">
+  <meta name="Keywords" content="tablelist, sort, column, widget">
+</head>
+
+<body bgcolor="#FFFFFF">
+  <div align="center">
+    <h1>Commands for Interactive Sorting by One or More Columns</h1>
+
+    <h3>by</h3>
+
+    <h2>Csaba Nemethi</h2>
+
+    <address>
+      <a href="mailto:csaba.nemethi@t-online.de">csaba.nemethi@t-online.de</a>
+    </address>
+  </div>
+
+  <hr>
+
+  <h2><a name="contents"></a>Contents</h2>
+
+  <ul>
+    <li><a href="#overview">Overview</a></li>
+
+    <li><a href="#sortByColumn">The <code><b>tablelist::sortByColumn</b></code>
+    Command</a></li>
+
+    <li><a href="#addToSortColumns">The
+    <code><b>tablelist::addToSortColumns</b></code> Command</a></li>
+  </ul>
+
+  <div align="center">
+    <p><a href="index.html">Start page</a></p>
+  </div>
+
+  <hr>
+
+  <h2><a name="overview"></a>Overview</h2>
+
+  <p>The commands described in this reference page enable the user to sort the
+  items of a tablelist widget based on one or more of its columns, with the aid
+  of the left mouse button.</p>
+
+  <p>If the <code><b><a href=
+  "#sortByColumn">tablelist::sortByColumn</a></b></code> command was specified
+  as the value of the <code><b><a href=
+  "tablelistWidget.html#labelcommand">-labelcommand</a></b></code>
+  configuration option, then by pressing mouse button 1 over one of the header
+  labels and later releasing it over the same label, the items will be sorted
+  based on the elements of the corresponding column.</p>
+
+  <p>If the <code><b><a href=
+  "#addToSortColumns">tablelist::addToSortColumns</a></b></code> command was
+  specified as the value of the <code><b><a href=
+  "tablelistWidget.html#labelcommand2">-labelcommand2</a></b></code>
+  configuration option, then by pressing mouse button 1 together with the
+  <code>Shift</code> key over one of the header labels and later releasing it
+  over the same label, the corresponding column will be appended to the list of
+  sort columns, or (if it was already contained in that list) the corresponding
+  sort order will be toggled; in both cases, the items will be sorted based on
+  the updated lists of sort columns and sort orders.</p>
+
+  <div align="center">
+    <p><a href="#contents">Contents</a>&nbsp;&nbsp;&nbsp;&nbsp; <a href=
+    "index.html">Start page</a></p>
+  </div>
+
+  <hr>
+
+  <h2><a name="sortByColumn"></a>The
+  <code><b>tablelist::sortByColumn</b></code> Command</h2>
+
+  <dl>
+    <dt><b>NAME</b></dt>
+
+    <dd><code>tablelist::sortByColumn</code> - Sort the items of a tablelist
+    widget based on one of its columns</dd>
+
+    <dt><br>
+    <b>SYNOPSIS</b></dt>
+
+    <dd>
+      <pre>
+<b>tablelist::sortByColumn</b> <i>pathName</i> <i>columnIndex</i>
+</pre>
+    </dd>
+
+    <dt><b>DESCRIPTION</b></dt>
+
+    <dd>
+      This command sorts the items of the <a href=
+      "tablelistWidget.html">tablelist</a> widget <code><i>pathName</i></code>
+      based on the elements of the column specified by
+      <code><i>columnIndex</i></code>.&nbsp; This is done by invoking the
+      <code><b><a href=
+      "tablelistWidget.html#sortbycolumn">sortbycolumn</a></b></code>
+      subcommand of the Tcl command associated with the given tablelist
+      widget.&nbsp; If the items were last sorted in increasing order, based on
+      the same column given by <code><i>columnIndex</i></code>, and no
+      subsequent invocation of the <code><b><a href=
+      "tablelistWidget.html#resetsortinfo">resetsortinfo</a></b></code>
+      subcommand was made, then the last argument passed to
+      <code><b>sortbycolumn</b></code> will be <code><b>-decreasing</b></code>,
+      otherwise <code><b>-increasing</b></code>.
+
+      <p>After sorting the items, the virtual event
+      <code><b>&lt;&lt;TablelistColumnSorted&gt;&gt;</b></code> is
+      generated.&nbsp; The command returns the corresponding sort order, as
+      <code><b>decreasing</b></code> or <code><b>increasing</b></code>.</p>
+
+      <p>If the specified column's <code><b><a href=
+      "tablelistWidget.html#col_showlinenumbers">-showlinenumbers</a></b></code>
+      option has been set to true, then the actions described above are not
+      performed and the return value is an empty string.</p>
+
+      <p><code><b>tablelist::sortByColumn</b></code> is usually specified as
+      the value of the <code><b><a href=
+      "tablelistWidget.html#labelcommand">-labelcommand</a></b></code>
+      configuration option for a tablelist widget.</p>
+    </dd>
+
+    <dt><b>KEYWORDS</b></dt>
+
+    <dd>tablelist, sort, column, widget</dd>
+  </dl>
+
+  <div align="center">
+    <p><a href="#contents">Contents</a>&nbsp;&nbsp;&nbsp;&nbsp; <a href=
+    "index.html">Start page</a></p>
+  </div>
+
+  <hr>
+
+  <h2><a name="addToSortColumns"></a>The
+  <code><b>tablelist::addToSortColumns</b></code> Command</h2>
+
+  <dl>
+    <dt><b>NAME</b></dt>
+
+    <dd><code>tablelist::addToSortColumns</code> - Add a column index to the
+    list of sort columns and perform the multi-column sorting</dd>
+
+    <dt><br>
+    <b>SYNOPSIS</b></dt>
+
+    <dd>
+      <pre>
+<b>tablelist::addToSortColumns</b> <i>pathName</i> <i>columnIndex</i>
+</pre>
+    </dd>
+
+    <dt><b>DESCRIPTION</b></dt>
+
+    <dd>
+      This command adds the column index specified by
+      <code><i>columnIndex</i></code> to the list of sort columns of the
+      <a href="tablelistWidget.html">tablelist</a> widget
+      <code><i>pathName</i></code> and sorts the items based on the elements of
+      the columns indicated by the modified list.&nbsp; This is done by
+      invoking the <code><b><a href=
+      "tablelistWidget.html#sortbycolumnlist">sortbycolumnlist</a></b></code>
+      subcommand of the Tcl command associated with the given tablelist
+      widget.&nbsp; The two arguments passed to
+      <code><b>sortbycolumnlist</b></code> are built as follows: (a) if the
+      given column index is already contained in the widget's list of sort
+      columns (returned by the <code><b><a href=
+      "tablelistWidget.html#sortcolumnlist">sortcolumnlist</a></b></code>
+      subcommand) then this list is left unchanged and the sort order list
+      (returned by the <code><b><a href=
+      "tablelistWidget.html#sortorderlist">sortorderlist</a></b></code>
+      subcommand) is updated by toggling its corresponding element from
+      <code><b>increasing</b></code> to <code><b>decreasing</b></code> and
+      vice-versa; (b) otherwise the column index is appended to the list of
+      sort columns and the value <code><b>increasing</b></code> is appended to
+      the list of sort orders.
+
+      <p>After sorting the items by passing the two updated lists to the
+      <code><b>sortbycolumnlist</b></code> subcommand, the virtual event
+      <code><b>&lt;&lt;TablelistColumnsSorted&gt;&gt;</b></code> (note the
+      plural form!) is generated.&nbsp; The command returns the new sort order
+      corresponding to the given column, as <code><b>decreasing</b></code> or
+      <code><b>increasing</b></code>.</p>
+
+      <p>If the specified column's <code><b><a href=
+      "tablelistWidget.html#col_showlinenumbers">-showlinenumbers</a></b></code>
+      option has been set to true, then the actions described above are not
+      performed and the return value is an empty string.</p>
+
+      <p><code><b>tablelist::addToSortColumns</b></code> is usually specified
+      as the value of the <code><b><a href=
+      "tablelistWidget.html#labelcommand2">-labelcommand2</a></b></code>
+      configuration option for a tablelist widget.</p>
+    </dd>
+
+    <dt><b>KEYWORDS</b></dt>
+
+    <dd>tablelist, sort, column list, widget</dd>
+  </dl>
+
+  <div align="center">
+    <p><a href="#contents">Contents</a>&nbsp;&nbsp;&nbsp;&nbsp; <a href=
+    "index.html">Start page</a></p>
+  </div>
+</body>
+</html>

@@ -3,9 +3,10 @@
    usable on MacOS X 10.3 and later. */
 /* Contributed by Ziemowit Laski <zlaski@apple.com>.  */
 /* { dg-options "-freplace-objc-classes" } */
-/* { dg-do compile { target *-*-darwin* } } */
+/* APPLE LOCAL ARM objc2 */
+/* { dg-do compile { target powerpc*-*-darwin* i?86*-*-darwin* } } */
 /* APPLE LOCAL radar 4894756 */
-/* { dg-skip-if "" { *-*-darwin* } { "-m64" } { "" } } */
+/* { dg-require-effective-target ilp32 } */
 
 #ifndef __NEXT_RUNTIME__
 #error Feature not currently supported by the GNU runtime
@@ -38,4 +39,4 @@ extern void abort(void);
 }
 @end
 
-/* { dg-final { scan-assembler "\t.section __OBJC, __image_info.*\n\t.align.*\nL_OBJC_IMAGE_INFO.*:\n\t.long\t0\n\t.long\t1\n\t.objc_module_info\n" } } */
+/* { dg-final { scan-assembler "\t.section __OBJC, __image_info.*\n\t.align.*\nL_OBJC_IMAGE_INFO.*:\n\t.long\t0\n\t.long\t1" } } */

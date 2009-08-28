@@ -1,17 +1,16 @@
-El seu mail a '%(listname)s' amb el títol
+El missatge que heu enviat a Â«%(listname)sÂ» amb l'assumpte
 
     %(subject)s
 
+Es retindrÃ  fins que el moderador de la llista l'examini per a
+aprovar-lo.
 
-Està sent retingut fins que el moderador de la llista el pugui revisar per tal d'aprobar-lo.
-
-La raó per la qual està sent retingut:
+El motiu pel qual s'ha retingut Ã©s el segÃ¼ent:
 
     %(reason)s
 
-Tant si el missatge és finalment enviat a la llista com si no,  rebrà una 
-notificació de la decisió del moderador. Si vostè volgués cancel.lar
-aquest missatge, si us plau visiti la següent URL:
-
+Aquest missatge o bÃ© s'enviarÃ  a la llista, o bÃ© rebreu una notificaciÃ³
+de la decisiÃ³ del moderador.  En cas que vulgueu cancelÂ·lar l'enviament
+d'aquest missatge, aneu a l'URL segÃ¼ent:
 
     %(confirmurl)s

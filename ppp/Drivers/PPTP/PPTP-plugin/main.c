@@ -44,7 +44,6 @@
 #include <fcntl.h>
 #include <syslog.h>
 #include <netdb.h>
-#include <utmp.h>
 #include <pwd.h>
 #include <setjmp.h>
 #include <sys/param.h>
@@ -61,12 +60,14 @@
 #include <syslog.h>
 #include <sys/ioctl.h>
 #include <net/if.h>
+#include <net/if_media.h>
 #include <net/route.h>
 #include <pthread.h>
 #include <sys/kern_event.h>
 #include <netinet/in_var.h>
 #include <netinet/tcp.h>
 #include <net/if_dl.h>
+#include <ifaddrs.h>
 
 #include <CoreFoundation/CFNumber.h>
 #include <CoreFoundation/CFBundle.h>
@@ -84,6 +85,10 @@
 #include "../../../Helpers/pppd/lcp.h"
 #include "pptp.h"
 
+#ifdef TARGET_EMBEDDED_OS
+#include <CoreTelephony/CTServerConnectionPriv.h>
+#endif
+
 /* -----------------------------------------------------------------------------
  Definitions
 ----------------------------------------------------------------------------- */
@@ -96,7 +101,9 @@
 
 #define	PPTP_RETRY_CONNECT_CODE			1
 
-#define PPTP_DEFAULT_WAIT_IF_TIMEOUT      10 /* seconds */
+#define PPTP_DEFAULT_WAIT_IF_TIMEOUT      20 /* seconds */
+
+#define MAX_CONNECT_RETRIES 10
 
 /* -----------------------------------------------------------------------------
  Forward declarations
@@ -104,6 +111,7 @@
 
 void pptp_process_extra_options();
 void pptp_check_options();
+int  pptp_pre_start_link_check();
 int pptp_connect(int *errorcode);
 void pptp_disconnect();
 void pptp_close();
@@ -111,7 +119,7 @@ void pptp_cleanup();
 int pptp_establish_ppp(int);
 void pptp_wait_input();
 void pptp_disestablish_ppp(int);
-void pptp_link_down(void *arg, int p);
+void pptp_link_down(void *arg, uintptr_t p);
 
 static void pptp_echo_check();
 static void pptp_stop_echo_check();
@@ -119,12 +127,13 @@ static void pptp_echo_timeout(void *arg);
 static void pptp_send_echo_request();
 static void pptp_link_failure();
 static void closeall();
-static u_long load_kext(char *kext);
+static u_long load_kext(char *kext, int byBundleID);
 static boolean_t host_gateway(int cmd, struct in_addr host, struct in_addr gateway, char *ifname, int isnet);
 static int pptp_set_peer_route();
 static int pptp_clean_peer_route();
-static void pptp_ip_up(void *arg, int p);
+static void pptp_ip_up(void *arg, uintptr_t p);
 u_int32_t pptp_get_if_baudrate(char *if_name);
+u_int32_t pptp_get_if_media(char *if_name);
 u_int32_t pptp_get_if_mtu(char *if_name);
 static void pptp_start_wait_interface ();
 static void pptp_stop_wait_interface ();
@@ -136,6 +145,9 @@ static void enable_keepalive (int fd);
  PPP globals
 ----------------------------------------------------------------------------- */
 
+#ifndef TARGET_EMBEDDED_OS
+int     interface_media = 0;
+#endif /* !iPhone */
 
 static int 	ctrlsockfd = -1;		/* control socket (TCP) file descriptor */
 static int 	datasockfd = -1;		/* data socket (GRE) file descriptor */
@@ -154,11 +166,18 @@ static u_int16_t our_ppd = 0;			/* our packet processing delay */
 static u_int16_t peer_window = 0;		/* peer's receive window size */
 static u_int16_t maxtimeout = 64;		/* Maximum adaptative timeout (in seconds) */
 static struct in_addr peeraddress;		/* the other side IP address */
+static int            num_alt_peer_address = 0;
+static struct in_addr alt_peer_address[MAX_CONNECT_RETRIES];		/* the other side IP address */
+static struct sockaddr_in ouraddress;		/* our side IP address */
 static struct in_addr ip_zeros = { 0 };
 static u_int8_t routeraddress[16];
 static u_int8_t interface[17];
 static pthread_t resolverthread = 0;
 static int 	resolverfds[2];
+#ifdef TARGET_EMBEDDED_OS
+static pthread_t edgethread = 0;
+static int 	edgefds[2];
+#endif
 static bool	linkdown = 0; 			/* flag set when we receive link down event */
 static int 	peer_route_set = 0;		/* has a route to the peer been set ? */
 static int	transport_up = 1;
@@ -178,6 +197,7 @@ static int	echo_identifier = 0;
 static int	echo_active = 0;
 static int	tcp_keepalive = 0;
 static int	wait_if_timeout = PPTP_DEFAULT_WAIT_IF_TIMEOUT;
+static int	scaled_wait_if_timeout = PPTP_DEFAULT_WAIT_IF_TIMEOUT;
 
 extern int 		kill_link;
 extern CFStringRef	serviceidRef;		/* from pppd/sys_MacOSX.c */
@@ -218,6 +238,7 @@ int start(CFBundleRef ref)
     the_channel->process_extra_options = pptp_process_extra_options;
     the_channel->wait_input = pptp_wait_input;
     the_channel->check_options = pptp_check_options;
+    the_channel->pre_start_link_check = pptp_pre_start_link_check;
     the_channel->connect = pptp_connect;
     the_channel->disconnect = pptp_disconnect;
     the_channel->cleanup = pptp_cleanup;
@@ -272,7 +293,7 @@ void pptp_check_options()
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-void pptp_link_down(void *arg, int p)
+void pptp_link_down(void *arg, uintptr_t p)
 {
     linkdown = 1;
 }
@@ -281,10 +302,20 @@ void pptp_link_down(void *arg, int p)
 ----------------------------------------------------------------------------- */
 static void pptp_start_wait_interface ()
 {
+    int timeout_scale_factor = 0;
+    
     if (wait_interface_timer_running != 0)
         return;
 
-    TIMEOUT (pptp_wait_interface_timeout, 0, wait_if_timeout);
+#ifndef TARGET_EMBEDDED_OS
+    // increase the timeout if we're waiting for a wireless interface
+    if (IFM_TYPE(interface_media) == IFM_IEEE80211) {
+        timeout_scale_factor = 2;
+    }
+#endif /* !iPhone */
+    scaled_wait_if_timeout = (wait_if_timeout << timeout_scale_factor);
+    notice("starting wait-interface timer for pptp: %d secs", scaled_wait_if_timeout);
+    TIMEOUT (pptp_wait_interface_timeout, 0, scaled_wait_if_timeout);
     wait_interface_timer_running = 1;
 }
 
@@ -304,6 +335,7 @@ static void pptp_wait_interface_timeout (void *arg)
 {
     if (wait_interface_timer_running != 0) {
         wait_interface_timer_running = 0;
+		log_vpn_interface_address_event(__FUNCTION__, NULL, scaled_wait_if_timeout, interface, &ouraddress.sin_addr);
 		// our transport interface didn't come back, take down the connection
 		pptp_link_failure();
     }
@@ -317,7 +349,8 @@ or get awaken when connection is closed
 ----------------------------------------------------------------------------- */
 void pptp_wait_input()
 {
-    int err;
+    int err, found;
+    struct ifaddrs *ifap = NULL;
     
     if (eventsockfd != -1 && is_ready_fd(eventsockfd)) {
     
@@ -328,11 +361,12 @@ void pptp_wait_input()
         if (recv(eventsockfd, &buf, sizeof(buf), 0) != -1) {
             ev_msg = (struct kern_event_msg *) &buf;
             inetdata = (struct kev_in_data *) &ev_msg->event_data[0];
+			log_vpn_interface_address_event(__FUNCTION__, ev_msg, wait_if_timeout, interface, &ouraddress.sin_addr);
             switch (ev_msg->event_code) {
                 case KEV_INET_NEW_ADDR:
                 case KEV_INET_CHANGED_ADDR:
                 case KEV_INET_ADDR_DELETED:
-                    sprintf(ev_if, "%s%ld", inetdata->link_data.if_name, inetdata->link_data.if_unit);
+                    snprintf(ev_if, sizeof(ev_if), "%s%d", inetdata->link_data.if_name, inetdata->link_data.if_unit);
                     // check if changes occured on the interface we are using
                     if (!strncmp(ev_if, interface, sizeof(interface))) {
                         if (inetdata->link_data.if_family == APPLE_IF_FAM_PPP
@@ -342,46 +376,89 @@ void pptp_wait_input()
                             pptp_link_failure();
                         }
                         else {
-                            // don't disconnect if an address has been removed
-                            if (ev_msg->event_code == KEV_INET_ADDR_DELETED) {
-								/* stop any running echo */
-								pptp_stop_echo_check();
-								transport_up = 0;
-                                break;
-							}
-                                
-							/* 
-								Our transport interface comes back with the same address.
-								Stop waiting for interface. 
-								A smarter algorithm should be implemented here.
-							*/
-							transport_up = 1;
-							pptp_stop_wait_interface();
-
 							
-                            // give time to check for connectivity
-                            /* Clear the parameters for generating echo frames */
-                            echos_pending      = 0;
-                            echo_active = 1;
-                            
-                            /* If a timeout interval is specified then start the timer */
-                            if (echo_interval != 0)
-                                pptp_echo_check();
-                        }
-                    }
-					else {
-						if (ev_msg->event_code == KEV_INET_NEW_ADDR || ev_msg->event_code == KEV_INET_CHANGED_ADDR) {
-							if (transport_up == 0) {
-								
-								/* 
-									Another interface got an address while our underlying transport interface was still down.
-									Take is as a clue to disconnect our link, but give some time for our interface to come back. 
-									A smarter algorithm should be implemented here.
-								*/
-                                pptp_start_wait_interface();
+                            /* check if address still exist */
+                            found = 0;
+                            if (getifaddrs(&ifap) == 0) {
+                                struct ifaddrs *ifa;
+                                for (ifa = ifap; ifa && !found ; ifa = ifa->ifa_next) {
+                                    found = (ifa->ifa_name  
+                                            && ifa->ifa_addr
+                                            && !strncmp(ifa->ifa_name, interface, sizeof(interface))
+                                            && ifa->ifa_addr->sa_family == AF_INET
+                                            && ((struct sockaddr_in *)ifa->ifa_addr)->sin_addr.s_addr == ouraddress.sin_addr.s_addr);
+                                }
+                                freeifaddrs(ifap);
+                            }
+
+							if (found) {
+
+								// no meaningful change, or address came back. Cancel timer if it was on.
+								if (transport_up == 0) {
+
+									/* 
+										Our transport interface comes back with the same address.
+										Stop waiting for interface. 
+										A smarter algorithm should be implemented here.
+									*/
+									transport_up = 1;
+									if (phase == PHASE_WAITING)
+										new_phase(PHASE_RUNNING);
+									pptp_stop_wait_interface();
+
+									// give time to check for connectivity
+									/* Clear the parameters for generating echo frames */
+									echos_pending      = 0;
+									echo_active = 1;
+									
+									/* If a timeout interval is specified then start the timer */
+									if (echo_interval != 0)
+										pptp_echo_check();
+								}
 							}
-						}
-					}
+							else {
+								// quick exit if there has been an unrecoverable change in interface/service
+								if (check_vpn_interface_or_service_unrecoverable(cfgCache,
+														 __FUNCTION__,
+														 ev_msg,
+														 interface)) {
+									error("PPTP: the underlying interface/service has changed unrecoverably\n");
+									transport_up = 0;
+									pptp_link_failure();
+									break;
+								}
+
+								if (transport_up == 1) {
+									transport_up = 0;
+									if (phase == PHASE_RUNNING)
+										new_phase(PHASE_WAITING);
+									pptp_start_wait_interface();	
+								} else {
+								        // transport is still down: check if there was a valid address change
+								        if (check_vpn_interface_address_change(wait_interface_timer_running /* && !transport_up */,
+													       ev_msg,
+													       interface,
+													       &ouraddress.sin_addr)) {
+									        error("PPTP: the underlying interface %s address changed\n",
+										      interface);
+										// disconnect immediately
+										pptp_link_failure();
+									}
+								}
+                            }
+						
+                        }
+                    } else {
+		            /* if transport is still down: ignore deletes, and check if this alternative interface has a valid address */
+		            if (check_vpn_interface_alternate((!transport_up && wait_interface_timer_running),
+							      ev_msg,
+							      interface)) {
+			            error("PPTP: an alternative interface %s was detected while the underlying interface %s was down\n",
+					  ev_if, interface);
+				    // disconnect immediately
+				    pptp_link_failure();
+			    }
+                    }
                     break;
             }
         }
@@ -414,7 +491,7 @@ void *pptp_resolver_thread(void *arg)
     char		result = -1;
 	int			count, fd;
 	u_int8_t	rd8; 
-	
+    
     if (pthread_detach(pthread_self()) == 0) {
         
         // try to resolve the name
@@ -430,12 +507,88 @@ void *pptp_resolver_thread(void *arg)
 			}
 			
             peeraddress = *(struct in_addr*)host->h_addr_list[rd8 % count];
+            bzero(alt_peer_address, sizeof(alt_peer_address));
+            num_alt_peer_address = 0;
+            if (count > 1) {
+                while (num_alt_peer_address < (count - 1) &&
+                       num_alt_peer_address < MAX_CONNECT_RETRIES) {
+                    alt_peer_address[num_alt_peer_address] = *(struct in_addr*)host->h_addr_list[(rd8 + num_alt_peer_address + 1)% count];
+                    num_alt_peer_address++;
+                }
+            }
             result = 0;
         }
     }
 
     write(resolverfds[1], &result, 1);
     return 0;
+}
+
+#ifdef TARGET_EMBEDDED_OS
+static 
+void callbackEDGE(CTServerConnectionRef connection, CFStringRef notification, CFDictionaryRef notificationInfo, void* info) {
+	
+	/* not used */
+}
+
+/* -----------------------------------------------------------------------------
+ ----------------------------------------------------------------------------- */
+void *pptp_edge_thread(void *arg)
+{
+    char		result = -1;
+	int			count;
+	CTServerConnectionRef	edgeConnection;
+	_CTServerConnectionContext ctxt = { 0, NULL, NULL, NULL, NULL };
+	Boolean active = FALSE;
+	CTError cterror = { kCTErrorDomainNoError, 0 };
+	
+    if (pthread_detach(pthread_self()) == 0) {
+		
+		edgeConnection = _CTServerConnectionCreate(kCFAllocatorDefault, callbackEDGE, &ctxt);
+		if (edgeConnection) {
+			_CTServerConnectionSetPacketContextActive(edgeConnection, 0, TRUE);		// Zero is the main PDP context.
+			
+			count = 8; // give 8 seconds for edge to come up
+			cterror = _CTServerConnectionGetPacketContextActive(edgeConnection, 0, &active);
+			while (!cterror.error && !active && count--) {
+				sleep(1);
+				cterror = _CTServerConnectionGetPacketContextActive(edgeConnection, 0, &active);
+			}
+			CFRelease(edgeConnection);
+			
+			if (active) {
+				sleep(2); // additionnal 2 seconds for DNS information to be installed
+				result = 0;
+			}
+		}
+	}
+	
+	
+    write(edgefds[1], &result, 1);
+    return 0;
+}
+#endif
+
+int pptp_pre_start_link_check()
+{
+    int                      reachable = FALSE;
+    SCNetworkReachabilityRef ref;
+    SCNetworkConnectionFlags flags;
+
+    ref = SCNetworkReachabilityCreateWithName(NULL, remoteaddress);
+    if (ref) {        
+        if (SCNetworkReachabilityGetFlags(ref, &flags)) {
+            if (REACHABLE_NOW || REACHABLE_AUTOMATICALLY_WITHOUT_USER) {
+                reachable = TRUE;
+            }
+        }
+        CFRelease(ref);
+    }
+
+    if (reachable) {
+        return 0;
+    }
+    return -1;
 }
 
 /* ----------------------------------------------------------------------------- 
@@ -452,6 +605,8 @@ int pptp_connect(int *errorcode)
     struct sockaddr_in 	addr;	
     struct kev_request	kev_req;
     u_int32_t		baudrate;
+    int             num_connect_retries = 0;
+    int             connect_timeout = 15;
 	
 	*errorcode = 0;
 
@@ -459,7 +614,7 @@ int pptp_connect(int *errorcode)
         goto fail;
     }
 
-    sprintf(dev, "socket[%d:%d]", PF_PPP, PPPPROTO_PPTP);
+    snprintf(dev, sizeof(dev), "socket[%d:%d]", PF_PPP, PPPPROTO_PPTP);
     strlcpy(ppp_devnam, dev, sizeof(ppp_devnam));
 
     hungup = 0;
@@ -496,7 +651,11 @@ int pptp_connect(int *errorcode)
 			lcp_wantoptions[0].neg_mru = min_mtu;
 #endif
 	}
-	
+
+#ifndef TARGET_EMBEDDED_OS
+    interface_media = pptp_get_if_media(interface);
+#endif /* !iPhone */
+
 	/* let's say our underlying transport is up */
 	transport_up = 1;
 	wait_interface_timer_running = 0;
@@ -520,6 +679,65 @@ int pptp_connect(int *errorcode)
         }
 
 		set_network_signature("VPN.RemoteAddress", remoteaddress, 0, 0);
+
+#ifdef TARGET_EMBEDDED_OS
+		{
+			/* first, bring up EDGE */
+			int need_edge = FALSE;
+			SCNetworkReachabilityRef ref = NULL;
+			SCNetworkConnectionFlags	flags;
+			
+			ref = SCNetworkReachabilityCreateWithName(NULL, remoteaddress);
+			if (ref) {
+				
+				if (SCNetworkReachabilityGetFlags(ref, &flags)) {
+					if ((flags & kSCNetworkReachabilityFlagsReachable) &&
+						(flags & kSCNetworkReachabilityFlagsConnectionRequired) &&
+						(flags & kSCNetworkReachabilityFlagsIsWWAN)) {
+						need_edge = TRUE;
+					}
+				}
+				CFRelease(ref);
+			}
+			
+			if (need_edge) {
+				
+				if (pipe(edgefds) < 0) {
+					error("PPTP: failed to create pipe for starting edge...\n");
+					goto fail;
+				}
+				
+				if (pthread_create(&edgethread, NULL, pptp_edge_thread, NULL)) {
+					error("PPTP: failed to create thread for starting edge...\n");
+					close(edgefds[0]);
+					close(edgefds[1]);
+					goto fail;
+				}
+				
+				while (read(edgefds[0], &c, 1) != 1) {
+					if (kill_link) {
+						pthread_cancel(edgethread);
+						break;
+					}
+				}
+				
+				close(edgefds[0]);
+				close(edgefds[1]);
+				
+				if (kill_link)
+					goto fail1;
+				
+				if (c) {
+					error("PPTP: Cannot start EDGE connection...\n");
+					*errorcode = PPTP_RETRY_CONNECT_CODE; /* wait and retry if necessary */
+					devstatus = EXIT_PPTP_NOEDGE;
+					goto fail;
+				}
+				
+			}
+			
+		}
+#endif
 
         if (inet_aton(remoteaddress, &peeraddress) == 0) {
         
@@ -558,10 +776,18 @@ int pptp_connect(int *errorcode)
 
         notice("PPTP connecting to server '%s' (%s)...\n", remoteaddress, inet_ntoa(peeraddress));
 
+        set_server_peer(peeraddress);
+
         if ((ctrlsockfd = socket(PF_INET, SOCK_STREAM, 0)) == -1) {
             error("PPTP can't create control socket...\n");
             goto fail;
-        }    
+        }
+        // TODO: make connection_timeout configurable
+        if (setsockopt(ctrlsockfd, IPPROTO_TCP, TCP_CONNECTIONTIMEOUT, &connect_timeout, sizeof(connect_timeout))) {
+            error("PPTP can't set control socket's maximum timeout ...\n");
+            // prevent retries since the default 90 sec is *too* long
+            num_alt_peer_address = 0;
+        }
 
         /* connect to the pptp server */
         bzero(&addr, sizeof(addr));
@@ -573,14 +799,23 @@ int pptp_connect(int *errorcode)
         while (connect(ctrlsockfd, (struct sockaddr *)&addr, sizeof(addr))) {
             if (errno != EINTR) {
                 error("PPTP connect errno = %d %m\n", errno);
-				*errorcode = PPTP_RETRY_CONNECT_CODE; /* wait and retry if necessary */
+                if ((errno == ETIMEDOUT || errno == ECONNREFUSED) &&
+                    num_connect_retries < num_alt_peer_address) {
+                    peeraddress = alt_peer_address[num_connect_retries];
+                    notice("PPTP connecting to alternate server '%s' (%s)...\n", remoteaddress, inet_ntoa(peeraddress));                        
+                    set_server_peer(peeraddress);
+                    addr.sin_addr = peeraddress;
+                    num_connect_retries++;
+                    continue;
+                }
+                *errorcode = PPTP_RETRY_CONNECT_CODE; /* wait and retry if necessary */
                 devstatus = EXIT_PPTP_NOANSWER;
                 goto fail;
             }
             if (kill_link)
                 goto fail1;
         }
-
+		
 		/* enable keepalive on control connection. need to be done before sending data */
 		enable_keepalive(ctrlsockfd);
 
@@ -669,6 +904,10 @@ int pptp_connect(int *errorcode)
     
     notice("PPTP connection established.");
 
+	bzero(&ouraddress, sizeof(ouraddress));
+	len = sizeof(ouraddress);
+	getsockname(ctrlsockfd, (struct sockaddr *)&ouraddress, &len);
+
     /* get reachability flags of peer */
     bzero(&addr, sizeof(addr));
     addr.sin_len = sizeof(addr);
@@ -682,16 +921,20 @@ int pptp_connect(int *errorcode)
         if (!noload) {
             if (url = CFBundleCopyBundleURL(bundle)) {
                 name[0] = 0;
-                CFURLGetFileSystemRepresentation(url, 0, name, MAXPATHLEN - 1);
+                CFURLGetFileSystemRepresentation(url, 0, (UInt8 *)name, MAXPATHLEN - 1);
                 CFRelease(url);
-                strcat(name, "/");
+                strlcat(name, "/", sizeof(name));
                 if (url = CFBundleCopyBuiltInPlugInsURL(bundle)) {
-                    CFURLGetFileSystemRepresentation(url, 0, name + strlen(name), 
+                    CFURLGetFileSystemRepresentation(url, 0, (UInt8 *)(name + strlen(name)), 
                         MAXPATHLEN - strlen(name) - strlen(PPTP_NKE) - 1);
                     CFRelease(url);
                     strcat(name, "/");
                     strcat(name, PPTP_NKE);
-                    if (!load_kext(name))
+#ifndef TARGET_EMBEDDED_OS
+                    if (!load_kext(name, 0))
+#else
+                    if (!load_kext(PPTP_NKE_ID, 1))
+#endif
                         datasockfd = socket(PF_PPP, SOCK_DGRAM, PPPPROTO_PPTP);
                 }	
             }
@@ -877,7 +1120,7 @@ void closeall()
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-u_long load_kext(char *kext)
+u_long load_kext(char *kext, int byBundleID)
 {
     int pid;
 
@@ -887,7 +1130,10 @@ u_long load_kext(char *kext)
     if (pid == 0) {
         closeall();
         // PPP kernel extension not loaded, try load it...
-        execle("/sbin/kextload", "kextload", kext, (char *)0, (char *)0);
+		if (byBundleID)
+			execle("/sbin/kextload", "kextload", "-b", kext, (char *)0, (char *)0);
+		else
+			execle("/sbin/kextload", "kextload", kext, (char *)0, (char *)0);
         exit(1);
     }
 
@@ -913,11 +1159,43 @@ pptp_get_if_mtu(char *if_name)
     s = socket(AF_INET, SOCK_DGRAM, 0);
     if (s >= 0) {
 		strlcpy(ifr.ifr_name, if_name, sizeof (ifr.ifr_name));
-		if (err = ioctl(s, SIOCGIFMTU, (caddr_t) &ifr) < 0)
+		if ((err = ioctl(s, SIOCGIFMTU, (caddr_t) &ifr)) < 0)
 			error("PPTP: can't get interface '%s' mtu, err %d (%m)", if_name, err);
 		close(s);
 	}
 	return ifr.ifr_mtu;
+}
+
+/* -----------------------------------------------------------------------------
+ Get the media of an interface.
+ 
+ Parameters:
+ if_name: interface we want information about.
+ 
+ Return code:
+ media for the interface.
+ ----------------------------------------------------------------------------- */
+u_int32_t 
+pptp_get_if_media(char *if_name)
+{
+	struct ifmediareq ifr;
+	int s, err;
+
+    if (!if_name || !if_name[0]) {
+        return 0;
+    }
+
+    bzero(&ifr, sizeof(ifr));
+
+    s = socket(AF_INET, SOCK_DGRAM, 0);
+    if (s >= 0) {
+		strlcpy(ifr.ifm_name, if_name, sizeof (ifr.ifm_name));
+		if ((err = ioctl(s, SIOCGIFMEDIA, (caddr_t) &ifr)) < 0) {
+			error("PPTP: can't get interface '%s' media, err %d (%m)", if_name, err);
+        }
+		close(s);
+	}
+	return ifr.ifm_current;
 }
 
 /* -----------------------------------------------------------------------------
@@ -1037,7 +1315,7 @@ int pptp_clean_peer_route()
 
 /* ----------------------------------------------------------------------------- 
 ----------------------------------------------------------------------------- */
-void pptp_ip_up(void *arg, int p)
+void pptp_ip_up(void *arg, uintptr_t p)
 {
 
     if (peer_route_set == 2) {
@@ -1097,7 +1375,7 @@ host_gateway(int cmd, struct in_addr host, struct in_addr gateway, char *ifname,
     if (ifname) {
 	rtmsg.link.sdl_len = sizeof(rtmsg.link);
 	rtmsg.link.sdl_family = AF_LINK;
-	rtmsg.link.sdl_nlen = strlen(ifname);
+	rtmsg.link.sdl_nlen = MIN(strlen(ifname), sizeof(rtmsg.link.sdl_data));
 	rtmsg.hdr.rtm_addrs |= RTA_IFP;
 	bcopy(ifname, rtmsg.link.sdl_data, rtmsg.link.sdl_nlen);
     }

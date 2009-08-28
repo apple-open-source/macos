@@ -69,16 +69,10 @@ void ResourceResponse::platformLazyInit()
     }
     
     m_url = [m_nsResponse.get() URL];
-    m_mimeType = [m_nsResponse.get() _webcore_MIMEType];
+    m_mimeType = [m_nsResponse.get() MIMEType];
     m_expectedContentLength = [m_nsResponse.get() expectedContentLength];
     m_textEncodingName = [m_nsResponse.get() textEncodingName];
     m_suggestedFilename = [m_nsResponse.get() suggestedFilename];
-    
-    const time_t maxTime = std::numeric_limits<time_t>::max();
-    
-    NSTimeInterval expiration = [m_nsResponse.get() _calculatedExpiration];
-    expiration += kCFAbsoluteTimeIntervalSince1970;
-    m_expirationDate = expiration > maxTime ? maxTime : static_cast<time_t>(expiration);
     
     if ([m_nsResponse.get() isKindOfClass:[NSHTTPURLResponse class]]) {
         NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)m_nsResponse.get();
@@ -92,20 +86,8 @@ void ResourceResponse::platformLazyInit()
         NSEnumerator *e = [headers keyEnumerator];
         while (NSString *name = [e nextObject])
             m_httpHeaderFields.set(name, [headers objectForKey:name]);
-    } else {
+    } else
         m_httpStatusCode = 0;
-
-#ifndef BUILDING_ON_TIGER
-        // FIXME: This is a work around for <rdar://problem/5230154> (-[NSURLConnection initWithRequest:delegate:] 
-        // is returning incorrect MIME type for local .xhtml files) which is only required in Leopard.
-        if (m_url.isLocalFile() && m_mimeType == "text/html") {
-            const String& path = m_url.path();
-            DEFINE_STATIC_LOCAL(const String, xhtmlExt, (".xhtml"));
-            if (path.endsWith(xhtmlExt, false))
-                m_mimeType = "application/xhtml+xml";
-        }
-#endif
-    }
 }
 
 bool ResourceResponse::platformCompare(const ResourceResponse& a, const ResourceResponse& b)

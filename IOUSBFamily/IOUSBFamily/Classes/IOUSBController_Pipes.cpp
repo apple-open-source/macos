@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright © 1998-2009 Apple Inc.  All rights reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -29,6 +29,7 @@
 
 #include <IOKit/usb/IOUSBController.h>
 #include <IOKit/usb/IOUSBLog.h>
+#include "USBTracepoints.h"
 
 #define super IOUSBBus
 #define self this
@@ -43,7 +44,7 @@
 #undef USBError
 void kprintf(const char *format, ...)
 __attribute__((format(printf, 1, 2)));
-#define USBLog( LEVEL, FORMAT, ARGS... )  if ((LEVEL) <= 3) { kprintf( FORMAT "\n", ## ARGS ) ; }
+#define USBLog( LEVEL, FORMAT, ARGS... )  if ((LEVEL) <= CONTROLLER_PIPES_USE_KPRINTF) { kprintf( FORMAT "\n", ## ARGS ) ; }
 #define USBError( LEVEL, FORMAT, ARGS... )  { kprintf( FORMAT "\n", ## ARGS ) ; }
 #endif
 
@@ -90,6 +91,8 @@ DisjointCompletion(IOUSBController *me, IOUSBCommand *command, IOReturn status, 
     IOBufferMemoryDescriptor	*buf = NULL;
 	IODMACommand				*dmaCommand = NULL;
 
+	USBTrace_Start( kUSBTController, kTPControllerDisjointCompletion, (uintptr_t)me, (uintptr_t)command, status, bufferSizeRemaining );
+
     if (!me || !command)
     {
 		USBError(1, "DisjointCompletion sanity check failed - me(%p) command (%p)", me, command);
@@ -102,6 +105,7 @@ DisjointCompletion(IOUSBController *me, IOUSBCommand *command, IOReturn status, 
 	if (!dmaCommand || !buf)
 	{
 		USBLog(1, "%s[%p]::DisjointCompletion - no dmaCommand", me->getName(), me);
+		USBTrace( kUSBTController, kTPControllerDisjointCompletion, (uintptr_t)me, 0, 0, 1 );
 		return;
 	}
 	
@@ -110,6 +114,7 @@ DisjointCompletion(IOUSBController *me, IOUSBCommand *command, IOReturn status, 
 		if (dmaCommand->getMemoryDescriptor() != buf)
 		{
 			USBLog(1, "%s[%p]::DisjointCompletion - buf(%p) doesn't match getMemoryDescriptor(%p)", me->getName(), me, buf, dmaCommand->getMemoryDescriptor());
+			USBTrace( kUSBTController, kTPControllerDisjointCompletion, (uintptr_t)me, (uintptr_t)buf, (uintptr_t)dmaCommand->getMemoryDescriptor(), 2 );
 		}
 		
 		// need to complete the dma command
@@ -132,6 +137,8 @@ DisjointCompletion(IOUSBController *me, IOUSBCommand *command, IOReturn status, 
     USBLog(5, "%s[%p]::DisjointCompletion calling through to %p - status (%p)!", me->getName(), me, completion.action, (void*)status);
     if (completion.action)  
 		(*completion.action)(completion.target, completion.parameter, status, bufferSizeRemaining);
+	
+	USBTrace_End( kUSBTController, kTPControllerDisjointCompletion, (uintptr_t)completion.target, (uintptr_t)completion.parameter, status, bufferSizeRemaining);
 }
 
 
@@ -153,6 +160,8 @@ IOUSBController::CheckForDisjointDescriptor(IOUSBCommand *command, UInt16 maxPac
 	IODMACommand::Segment64		segment64;
 	UInt32						numSegments;
 	
+	// USBTrace_Start( kUSBTController, kTPControllerCheckForDisjointDescriptor, (uintptr_t)this );
+	
     // Zero length buffers are valid, but they are surely not disjoint, so just return success.  
     //
     if ( length == 0 )
@@ -161,12 +170,14 @@ IOUSBController::CheckForDisjointDescriptor(IOUSBCommand *command, UInt16 maxPac
 	if (!dmaCommand)
 	{
 		USBLog(1, "%s[%p]::CheckForDisjointDescriptor - no dmaCommand", getName(), this);
+		USBTrace( kUSBTController, kTPControllerCheckForDisjointDescriptor, (uintptr_t)this, kIOReturnBadArgument, 0, 1 );
 		return kIOReturnBadArgument;
 	}
 	
 	if (dmaCommand->getMemoryDescriptor() != buf)
 	{
 		USBLog(1, "%s[%p]::CheckForDisjointDescriptor - mismatched memory descriptor (%p) and dmaCommand memory descriptor (%p)", getName(), this, buf, dmaCommand->getMemoryDescriptor());
+		USBTrace( kUSBTController, kTPControllerCheckForDisjointDescriptor, kIOReturnBadArgument, (uintptr_t)buf, (uintptr_t)dmaCommand->getMemoryDescriptor(), 2 );
 		return kIOReturnBadArgument;
 	}
 	
@@ -179,6 +190,8 @@ IOUSBController::CheckForDisjointDescriptor(IOUSBCommand *command, UInt16 maxPac
         if (err || (numSegments != 1))
         {
             USBLog(1, "%s[%p]::CheckForDisjointDescriptor - err (%p) trying to generate segments at offset (%Ld), length (%d), segLength (%d), total length (%d), buf (%p), numSegments (%d)", getName(), this, (void*)err, offset64, (int)length, (int)segLength, (int)command->GetReqCount(), buf, (int)numSegments);
+			USBTrace( kUSBTController, kTPControllerCheckForDisjointDescriptor, offset64, length, segLength, 3 );
+			USBTrace( kUSBTController, kTPControllerCheckForDisjointDescriptor, segLength, command->GetReqCount(), numSegments, 4 );
             return kIOReturnBadArgument;
         }
 
@@ -202,6 +215,7 @@ IOUSBController::CheckForDisjointDescriptor(IOUSBCommand *command, UInt16 maxPac
 			if (!newBuf)
 			{
 				USBLog(1, "%s[%p]::CheckForDisjointDescriptor - could not allocate new buffer", getName(), this);
+				USBTrace( kUSBTController, kTPControllerCheckForDisjointDescriptor, (uintptr_t)this, kIOReturnNoMemory, 0, 5 );
 				return kIOReturnNoMemory;
 			}
 			USBLog(5, "%s[%p]::CheckForDisjointDescriptor, obtained buffer %p of length %d", getName(), this, newBuf, (int)length);
@@ -217,6 +231,7 @@ IOUSBController::CheckForDisjointDescriptor(IOUSBCommand *command, UInt16 maxPac
 				if (buf->readBytes(0, newBuf->getBytesNoCopy(), length) != length)
 				{
 					USBLog(1, "%s[%p]::CheckForDisjointDescriptor - bad copy on a write", getName(), this);
+					USBTrace( kUSBTController, kTPControllerCheckForDisjointDescriptor, (uintptr_t)this, 0, 0, 6 );
 					newBuf->release();
 					return kIOReturnNoMemory;
 				}
@@ -225,6 +240,7 @@ IOUSBController::CheckForDisjointDescriptor(IOUSBCommand *command, UInt16 maxPac
 			if (err)
 			{
 				USBLog(1, "%s[%p]::CheckForDisjointDescriptor - err 0x%x in prepare", getName(), this, err);
+				USBTrace( kUSBTController, kTPControllerCheckForDisjointDescriptor, (uintptr_t)this, err, 0, 7 );
 				newBuf->release();
 				return err;
 			}
@@ -246,7 +262,10 @@ IOUSBController::CheckForDisjointDescriptor(IOUSBCommand *command, UInt16 maxPac
         length -= segLength;		// adjust our master length pointer
 		offset += segLength;
 	}
-    USBLog(5, "%s[%p]::CheckForDisjointDescriptor - returning kIOReturnBadArgument(0x%x)", getName(), this, kIOReturnBadArgument);
+	
+	USBLog(5, "%s[%p]::CheckForDisjointDescriptor - returning kIOReturnBadArgument(0x%x)", getName(), this, kIOReturnBadArgument);
+	// USBTrace_End( kUSBTController, kTPControllerCheckForDisjointDescriptor, (uintptr_t)this, kIOReturnBadArgument);
+	
     return kIOReturnBadArgument;
 }
 
@@ -289,6 +308,7 @@ IOUSBController::Read(IOMemoryDescriptor *buffer, USBDeviceAddress address, Endp
     int					i;
 
     USBLog(7, "%s[%p]::Read - reqCount = %qd", getName(), this, (uint64_t)reqCount);
+
     // Validate its a inny pipe and that there is a buffer
     if ((endpoint->direction != kUSBIn) || !buffer || (buffer->getLength() < reqCount))
     {
@@ -313,6 +333,7 @@ IOUSBController::Read(IOMemoryDescriptor *buffer, USBDeviceAddress address, Endp
     if (!_commandGate)
     {
         USBLog(1, "%s[%p]::Read - Could not get _commandGate.  Returning kIOReturnInternalError(0x%x)", getName(), this, kIOReturnInternalError);
+		USBTrace( kUSBTController, kTPControllerRead, (uintptr_t)this, kIOReturnInternalError, 0, 1 );
 		return kIOReturnInternalError;
     }
     
@@ -342,12 +363,14 @@ IOUSBController::Read(IOMemoryDescriptor *buffer, USBDeviceAddress address, Endp
 		if (!dmaCommand)
 		{
 			USBLog(1, "%s[%p]::Read - no DMA COMMAND", getName(), this);
+			USBTrace( kUSBTController, kTPControllerRead, (uintptr_t)this, kIOReturnNoResources, 0, 2 );
             return kIOReturnNoResources;
 		}
 		memDesc = (IOMemoryDescriptor*)dmaCommand->getMemoryDescriptor();
 		if (memDesc)
 		{
 			USBLog(1, "%s[%p]::Read - dmaCommand (%p) already contains memory descriptor (%p) - clearing", getName(), this, dmaCommand, memDesc);
+			USBTrace( kUSBTController, kTPControllerRead, (uintptr_t)this, (uintptr_t)dmaCommand, (uintptr_t)memDesc, 3 );
 			dmaCommand->clearMemoryDescriptor();
 			// memDesc->complete();		// should i do this?
 		}
@@ -356,6 +379,7 @@ IOUSBController::Read(IOMemoryDescriptor *buffer, USBDeviceAddress address, Endp
 		if (0) // if (err)
 		{
 			USBLog(1, "%s[%p]::Read - err (%p) preparing memory descriptor (%p)", getName(), this, (void*)err, buffer);
+			USBTrace( kUSBTController, kTPControllerRead, (uintptr_t)this, err, (uintptr_t)buffer, 4 );
             return err;
 		}
 		USBLog(7, "%s[%p]::Read - setting memory descriptor (%p) into dmaCommand (%p)", getName(), this, buffer, dmaCommand);
@@ -363,6 +387,7 @@ IOUSBController::Read(IOMemoryDescriptor *buffer, USBDeviceAddress address, Endp
 		if (err)
 		{
 			USBLog(1, "%s[%p]::Read - err(%p) attempting to set the memory descriptor to the dmaCommand", getName(), this, (void*)err);
+			USBTrace( kUSBTController, kTPControllerRead, (uintptr_t)this, err, 0, 5 );
 			// buffer->complete();		// should i do this?
 			return err;
 		}
@@ -532,12 +557,14 @@ IOUSBController::Write(IOMemoryDescriptor *buffer, USBDeviceAddress address, End
 		if (!dmaCommand)
 		{
 			USBLog(1, "%s[%p]::Write - no DMA COMMAND", getName(), this);
+			USBTrace( kUSBTController, kTPControllerWrite, (uintptr_t)this, kIOReturnNoResources, 0, 1 );
             return kIOReturnNoResources;
 		}
 		memDesc = (IOMemoryDescriptor *)dmaCommand->getMemoryDescriptor();
 		if (memDesc)
 		{
 			USBLog(1, "%s[%p]::Write - dmaCommand (%p) already contains memory descriptor (%p) - clearing", getName(), this, dmaCommand, memDesc);
+			USBTrace( kUSBTController, kTPControllerWrite, (uintptr_t)this, (uintptr_t)dmaCommand, (uintptr_t)memDesc, 2 );
 			dmaCommand->clearMemoryDescriptor();
 			// memDesc->complete();					should i do this?
 			// memDesc->release();					should i do this?
@@ -547,12 +574,14 @@ IOUSBController::Write(IOMemoryDescriptor *buffer, USBDeviceAddress address, End
 		if (0) // if (err)
 		{
 			USBLog(1, "%s[%p]::Write - err (%p) preparing buffer (%p)", getName(), this, (void*)err, buffer);
+			USBTrace( kUSBTController, kTPControllerWrite, (uintptr_t)this, err, (uintptr_t)buffer, 3 );			
             return err;
 		}
 		USBLog(7, "%s[%p]::Write - setting memory descriptor (%p) into dmaCommand (%p)", getName(), this, buffer, dmaCommand);
 		err = dmaCommand->setMemoryDescriptor(buffer);
 		if (err)
 		{
+			USBTrace( kUSBTController, kTPControllerWrite, (uintptr_t)this, err, 0, 4 );
 			USBLog(1, "%s[%p]::Write - err(%p) attempting to set the memory descriptor to the dmaCommand", getName(), this, (void*)err);
 			// buffer->complete();		// should i do this?
 			return err;
@@ -704,6 +733,7 @@ IOUSBController::IsocIO(IOMemoryDescriptor *				buffer,
 	if (!dmaCommand)
 	{
 		USBLog(1, "%s[%p]::IsocIO no IODMACommand in the IOUSBCommand", getName(), this);
+		USBTrace( kUSBTController, kTPIsocIO, (uintptr_t)this, kIOReturnNoResources, 0, 1 );
 		return kIOReturnNoResources;
 	}
 
@@ -712,6 +742,7 @@ IOUSBController::IsocIO(IOMemoryDescriptor *				buffer,
 	if (err)
 	{
 		USBLog(1, "%s[%p]::IsocIO - dmaCommand[%p]->setMemoryDescriptor(%p) failed with status (%p)", getName(), this, command->GetDMACommand(), buffer, (void*)err);
+		USBTrace( kUSBTController, kTPIsocIO, (uintptr_t)this, err, 0, 2 );
 		_freeUSBIsocCommandPool->returnCommand(command);
 		return err;
 	}
@@ -795,6 +826,7 @@ IOUSBController::IsocIO(IOMemoryDescriptor *			buffer,
 	if (completion == 0)
 	{
 		USBLog(1, "%s[%p]::IsocIO(LL) - No completion.  Returning kIOReturnNoCompletion(0x%x)", getName(), this, kIOReturnNoCompletion);
+		USBTrace( kUSBTController, kTPIsocIOLL, (uintptr_t)this, kIOReturnNoCompletion, 0, 3 );		
 		return kIOReturnNoCompletion;
 	}
 	
@@ -803,6 +835,7 @@ IOUSBController::IsocIO(IOMemoryDescriptor *			buffer,
 	if (_commandGate == 0)
 	{
 		USBLog(1, "%s[%p]::IsocIO(LL) - Could not get _commandGate.  Returning kIOReturnInternalError(0x%x)", getName(), this, kIOReturnInternalError);
+		USBTrace( kUSBTController, kTPIsocIOLL, (uintptr_t)this, kIOReturnInternalError, 0, 4 );
 		return kIOReturnInternalError;
 	}
 	
@@ -817,6 +850,7 @@ IOUSBController::IsocIO(IOMemoryDescriptor *			buffer,
 	if ( (endpoint->direction != kUSBOut) && ( endpoint->direction != kUSBIn) )
 	{		
 		USBLog(1, "%s[%p]::IsocIO(LL) - Direction is not kUSBOut or kUSBIn (%d).  Returning kIOReturnBadArgument(0x%x)", getName(), this, endpoint->direction, kIOReturnBadArgument);
+		USBTrace( kUSBTController, kTPIsocIOLL, (uintptr_t)this, endpoint->direction, kIOReturnBadArgument, 6 );
 		return kIOReturnBadArgument;
 	}
 	
@@ -831,6 +865,7 @@ IOUSBController::IsocIO(IOMemoryDescriptor *			buffer,
         if ( command == NULL )
         {
             USBLog(1, "%s[%p]::IsocIO(LL) Could not get a IOUSBIsocCommand", getName(), this);
+			USBTrace( kUSBTController, kTPIsocIOLL, (uintptr_t)this, kIOReturnNoResources, 0, 5 );
             return kIOReturnNoResources;
         }
     }
@@ -839,6 +874,7 @@ IOUSBController::IsocIO(IOMemoryDescriptor *			buffer,
 	if (!dmaCommand)
 	{
 		USBLog(1, "%s[%p]::IsocIO(LL) no IODMACommand in the IOUSBCommand", getName(), this);
+		USBTrace( kUSBTController, kTPIsocIOLL, (uintptr_t)this, kIOReturnNoResources, 0, 1 );		
 		return kIOReturnNoResources;
 	}
 	
@@ -847,6 +883,7 @@ IOUSBController::IsocIO(IOMemoryDescriptor *			buffer,
 	if (err)
 	{
 		USBLog(1, "%s[%p]::IsocIO(LL) - dmaCommand[%p]->setMemoryDescriptor(%p) failed with status (%p)", getName(), this, command->GetDMACommand(), buffer, (void*)err);
+		USBTrace( kUSBTController, kTPIsocIOLL, (uintptr_t)this, err, 0, 2 );		
 		_freeUSBIsocCommandPool->returnCommand(command);
 		return err;
 	}

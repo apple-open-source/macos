@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: lib533.c,v 1.14 2007-03-10 00:19:05 yangtse Exp $
+ * $Id: lib533.c,v 1.16 2008-09-20 04:26:57 yangtse Exp $
  */
 
 /* used for test case 533, 534 and 535 */
@@ -17,6 +17,7 @@
 #include <fcntl.h>
 
 #include "testutil.h"
+#include "memdebug.h"
 
 #define MAIN_LOOP_HANG_TIMEOUT     90 * 1000
 #define MULTI_PERFORM_HANG_TIMEOUT 60 * 1000
@@ -102,7 +103,7 @@ int test(char *URL)
           /* make us re-use the same handle all the time, and try resetting
              the handle first too */
           curl_easy_reset(curl);
-          curl_easy_setopt(curl, CURLOPT_URL, arg2);
+          curl_easy_setopt(curl, CURLOPT_URL, libtest_arg2);
           curl_easy_setopt(curl, CURLOPT_VERBOSE, 1);
           curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1);
 

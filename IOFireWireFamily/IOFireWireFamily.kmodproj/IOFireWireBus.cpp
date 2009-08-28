@@ -35,9 +35,9 @@
 OSDefineMetaClassAndAbstractStructors(IOFireWireBusAux, OSObject);
 
 OSMetaClassDefineReservedUsed(IOFireWireBusAux, 0);			// createDCLPool
-OSMetaClassDefineReservedUsed(IOFireWireBusAux, 1);			// createBufferFillIsochPort
+OSMetaClassDefineReservedUsed(IOFireWireBusAux, 1);			// removed 101007
 OSMetaClassDefineReservedUsed(IOFireWireBusAux, 2);			// getMaxRec
-OSMetaClassDefineReservedUnused(IOFireWireBusAux, 3);
+OSMetaClassDefineReservedUsed(IOFireWireBusAux, 3);			// getSessionRefExporter
 OSMetaClassDefineReservedUnused(IOFireWireBusAux, 4);
 OSMetaClassDefineReservedUnused(IOFireWireBusAux, 5);
 OSMetaClassDefineReservedUnused(IOFireWireBusAux, 6);
@@ -66,6 +66,7 @@ OSMetaClassDefineReservedUnused(IOFireWireBusAux, 28);
 OSMetaClassDefineReservedUnused(IOFireWireBusAux, 29);
 OSMetaClassDefineReservedUnused(IOFireWireBusAux, 30);
 OSMetaClassDefineReservedUnused(IOFireWireBusAux, 31);
+OSMetaClassDefineReservedUnused(IOFireWireBusAux, 32);
 
 #pragma mark -
 
@@ -81,9 +82,3 @@ OSDefineAbstractStructors(IOFireWireBus, IOService)
 //OSMetaClassDefineReservedUnused(IOFireWireBus, 5);
 //OSMetaClassDefineReservedUnused(IOFireWireBus, 6);
 //OSMetaClassDefineReservedUnused(IOFireWireBus, 7);
-
-IOFWBufferFillIsochPort *
-IOFireWireBus::createBufferFillIsochPort()
-{
-	return fAuxiliary->createBufferFillIsochPort() ;
-}

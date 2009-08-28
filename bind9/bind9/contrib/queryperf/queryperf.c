@@ -18,7 +18,7 @@
 /***
  ***	DNS Query Performance Testing Tool  (queryperf.c)
  ***
- ***	Version $Id: queryperf.c,v 1.8.192.4 2007/09/05 07:44:57 marka Exp $
+ ***	Version $Id: queryperf.c,v 1.12 2007/09/05 07:36:04 marka Exp $
  ***
  ***	Stephen Jacob <sj@nominum.com>
  ***/
@@ -220,7 +220,7 @@ void
 show_startup_info(void) {
 	printf("\n"
 "DNS Query Performance Testing Tool\n"
-"Version: $Id: queryperf.c,v 1.8.192.4 2007/09/05 07:44:57 marka Exp $\n"
+"Version: $Id: queryperf.c,v 1.12 2007/09/05 07:36:04 marka Exp $\n"
 "\n");
 }
 

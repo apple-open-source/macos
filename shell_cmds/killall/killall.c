@@ -49,6 +49,9 @@ __FBSDID("$FreeBSD: src/usr.bin/killall/killall.c,v 1.31 2004/07/29 18:36:35 max
 #include <unistd.h>
 #include <locale.h>
 
+#include <getopt.h>
+#define OPTIONS ("c:dej:lmst:u:vz")
+
 static void __dead2
 usage(void)
 {
@@ -104,6 +107,61 @@ nosig(char *name)
 	exit(1);
 }
 
+/*
+ * kludge_signal_args - remove any signal option (-SIGXXX, -##) from the argv array.
+ */
+void
+kludge_signal_args(int *argc, char **argv, int *sig)
+{
+	int i;
+	int shift = 0;
+	int kludge = 1;
+	char *ptr;
+	const char *const *p;
+	char		*ep;
+
+	/* i = 1, skip program name */
+	for (i = 1; i < *argc; i++) {
+		/* Stop if we encounter either a non-option or -- */
+		if (*argv[i] != '-' || strcmp(argv[i], "--") == 0)
+			kludge = 0;
+		ptr = argv[i] + 1;
+		if (kludge && strchr(OPTIONS, *ptr) == NULL) {
+			if (isalpha(*ptr)) {
+				if (strcmp(ptr, "help") == 0)
+					usage();
+				if (strncasecmp(ptr, "sig", 3) == 0)
+					ptr += 3;
+				for (*sig = NSIG, p = sys_signame + 1; --*sig; ++p)
+					if (strcasecmp(*p, ptr) == 0) {
+						*sig = p - sys_signame;
+						break;
+					}
+				if (!*sig)
+					nosig(ptr);
+			} else if (isdigit(*ptr)) {
+				*sig = strtol(ptr, &ep, 10);
+				if (*ep)
+					errx(1, "illegal signal number: %s", ptr);
+				if (*sig < 0 || *sig >= NSIG)
+					nosig(ptr);
+			} else
+				nosig(ptr);
+
+			shift++;
+			continue;
+		}
+
+		argv[i - shift] = argv[i];
+	}
+
+	for (i = *argc - shift; i < *argc; i++) {
+		argv[i] = NULL;
+	}
+
+	*argc -= shift;
+}
+
 int
 main(int ac, char **av)
 {
@@ -140,7 +198,6 @@ main(int ac, char **av)
 #endif /* !__APPLE__ */
 	dev_t		thistdev;
 	int		sig = SIGTERM;
-	const char *const *p;
 	char		*ep;
 	int		errors = 0;
 #ifndef __APPLE__
@@ -152,104 +209,61 @@ main(int ac, char **av)
 	size_t		size;
 	int		matched;
 	int		killed = 0;
+	int		ch;
 
 	setlocale(LC_ALL, "");
 
-	av++;
-	ac--;
+	kludge_signal_args(&ac, av, &sig);
 
-	while (ac > 0) {
-		if (strcmp(*av, "-l") == 0) {
+	while ((ch = getopt(ac, av, OPTIONS)) != -1) {
+		switch (ch) {
+		case 'c':
+			cmd = optarg;
+			break;
+		case 'd':
+			dflag++;
+			break;
+		case 'e':
+			eflag++;
+			break;
+#ifndef __APPLE__
+		case 'j':
+			jflag++;
+			jid = strtol(optarg, &ep, 10);
+			if (*ep)
+				errx(1, "illegal jid: %s", optarg);
+			if (jail_attach(jid) == -1)
+				err(1, "jail_attach(): %d", jid);
+			break;
+#endif /* __APPLE__ */
+		case 'l':
 			printsig(stdout);
 			exit(0);
-		}
-		if (strcmp(*av, "-help") == 0)
-			usage();
-		if (**av == '-') {
-			++*av;
-			switch (**av) {
-#ifndef __APPLE__
-			case 'j':
-				++*av;
-				if (**av == '\0')
-					++av;
-				--ac;
-				jflag++;
-				if (!*av)
-				    	errx(1, "must specify jid");
-				jid = strtol(*av, &ep, 10);
-				if (!*av || *ep)
-					errx(1, "illegal jid: %s", *av);
-				if (jail_attach(jid) == -1)
-					err(1, "jail_attach(): %d", jid);
-				break;
-#endif /* !__APPLE__ */
-			case 'u':
-				++*av;
-				if (**av == '\0')
-					++av;
-				--ac;
-				user = *av;
-				break;
-			case 't':
-				++*av;
-				if (**av == '\0')
-					++av;
-				--ac;
-				tty = *av;
-				break;
-			case 'c':
-				++*av;
-				if (**av == '\0')
-					++av;
-				--ac;
-				cmd = *av;
-				break;
-			case 'v':
-				vflag++;
-				break;
-			case 's':
-				sflag++;
-				break;
-			case 'd':
-				dflag++;
-				break;
-			case 'e':
-				eflag++;
-				break;
-			case 'm':
-				mflag++;
-				break;
-			case 'z':
-				zflag++;
-				break;
-			default:
-				if (isalpha((unsigned char)**av)) {
-					if (strncasecmp(*av, "sig", 3) == 0)
-						*av += 3;
-					for (sig = NSIG, p = sys_signame + 1;
-					     --sig; ++p)
-						if (strcasecmp(*p, *av) == 0) {
-							sig = p - sys_signame;
-							break;
-						}
-					if (!sig)
-						nosig(*av);
-				} else if (isdigit((unsigned char)**av)) {
-					sig = strtol(*av, &ep, 10);
-					if (!*av || *ep)
-						errx(1, "illegal signal number: %s", *av);
-					if (sig < 0 || sig >= NSIG)
-						nosig(*av);
-				} else
-					nosig(*av);
-			}
-			++av;
-			--ac;
-		} else {
+		case 'm':
+			mflag++;
 			break;
+		case 's':
+			sflag++;
+			break;
+		case 't':
+			tty = optarg;
+			break;
+		case 'u':
+			user = optarg;
+			break;
+		case 'v':
+			vflag++;
+			break;
+		case 'z':
+			zflag++;
+			break;
+		default:
+			usage();
 		}
 	}
+
+	ac -= optind;
+	av += optind;
 
 #ifdef __APPLE__
 	if (user == NULL && tty == NULL && cmd == NULL && ac == 0)

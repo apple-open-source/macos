@@ -1,0 +1,373 @@
+# Features covered:  Declarations
+#
+# This file tests the parser's performance on markup declarations.
+# Sourcing this file into Tcl runs the tests and generates output
+# for errors.  No output means no errors were found.
+#
+# Copyright (c) 2000 Zveno Pty Ltd.
+#
+# $Id: decls.test,v 1.6 2002/08/06 02:26:06 rolf Exp $
+
+source [file join [file dir [info script]] loadtdom.tcl]
+
+set baseURI file://[file join [pwd] [file dir [info script]] decls.test]
+catch {unset elements}
+proc elementDecl {name cmodel} {
+    set ::elements($name) $cmodel
+}
+catch {unset attrs}
+proc attlistDecl {name attName type dfltValue isrequired} {
+    lappend ::attrs($name/$attName) $type $isrequired $dfltValue
+}
+catch {unset entities}
+proc entityDecl {name is_param value base systemId publicId notationName} {
+    set ::entities($name) [list $is_param $value $base $systemId $publicId $notationName]
+}
+catch {unset cdata}
+proc CData data {
+    append ::cdata [string trim $data]
+}
+
+proc extRefH {base systemId publicId} {
+    if {![regexp {^[a-zA-Z]+://} $systemId]}  {
+        regsub {^[a-zA-Z]+://} $base {} base
+        set basedir [file dirname $base]
+        set systemId "[set basedir]/[set systemId]"
+    } else {
+        regsub {^[a-zA-Z]+://} $systemId systemId
+    }
+    if {[catch {set fd [open $systemId]}]} {
+        return -code error \
+                -errorinfo "Failed to open external entity $systemId"
+    }
+    return [list channel $systemId $fd]
+}
+
+proc extRefHstr {base systemId publicId} {
+    if {![regexp {^[a-zA-Z]+://} $systemId]}  {
+        regsub {^[a-zA-Z]+://} $base {} base
+        set basedir [file dirname $base]
+        set systemId "[set basedir]/[set systemId]"
+    } else {
+        regsub {^[a-zA-Z]+://} $systemId systemId
+    }
+    if {[catch {set fd [open $systemId]}]} {
+        return -code error \
+                -errorinfo "Failed to open external entity $systemId"
+    }
+    return [list string  $systemId [read $fd [file size $systemId]]]
+}
+
+
+# Internal DTD subset
+
+test decls-1.1 {element declaration} {
+    catch {unset ::elements}
+    array set ::elements {}
+
+    catch {rename xml::decls-1.1 {}}
+    set parser [xml::parser decls-1.1 \
+	-elementdeclcommand elementDecl]
+    $parser parse {<?xml version="1.0"?>
+<!DOCTYPE Test [
+<!ELEMENT Test (#PCDATA)>
+]>
+<Test></Test>
+}
+    array get ::elements
+} {Test {MIXED {} {} {}}}
+
+test decls-2.1 {attribute list declaration, implied} {
+    catch {unset ::attrs}
+    array set ::attrs {}
+
+    catch {rename xml::decls-2.1 {}}
+    set parser [xml::parser decls-2.1 \
+	-attlistdeclcommand attlistDecl]
+    $parser parse {<?xml version='1.0'?>
+<!DOCTYPE Test [
+<!ELEMENT Test (#PCDATA)>
+<!ATTLIST Test
+	test CDATA #IMPLIED>
+]>
+<Test test="value"/>}
+
+    array get ::attrs
+} {Test/test {CDATA 0 {}}}
+
+test decls-2.2 {attribute list declaration, enum} {
+    catch {unset ::attrs}
+    array set ::attrs {}
+
+    catch {rename xml::decls-2.2 {}}
+    set parser [xml::parser decls-2.2 \
+	-attlistdeclcommand attlistDecl]
+    $parser parse {<?xml version='1.0'?>
+<!DOCTYPE Test [
+<!ELEMENT Test (#PCDATA)>
+<!ATTLIST Test
+	test (LGL|OTH) "LGL">
+]>
+<Test test="value"/>}
+
+    array get ::attrs
+} {Test/test {(LGL|OTH) 0 LGL}}
+
+test decls-3.1 {entity declarations} {
+    catch {unset ::entities}
+    array set ::entities {}
+
+    catch {rename xml::decls-3.1 {}}
+    set parser [xml::parser decls-3.1 \
+	-entitydeclcommand entityDecl]
+    $parser parse {<?xml version='1.0'?>
+<!DOCTYPE Test [
+<!ENTITY testEnt "replacement text">
+<!ELEMENT Test (#PCDATA)>
+]>
+<Test/>}
+
+    array get ::entities
+} {testEnt {0 {replacement text} {} {} {} {}}}
+
+test decls-4.1 {parameter entity declarations} {
+    catch {unset ::entities}
+    array set ::entities {}
+    catch {unset ::elements}
+    array set ::elements {}
+
+    catch {rename xml::decls-4.1 {}}
+    set parser [xml::parser decls-4.1 \
+            -paramentityparsing notstandalone \
+            -elementdeclcommand elementDecl]
+    $parser parse {<?xml version='1.0'?>
+<!DOCTYPE Test [
+<!ENTITY % PEnt "&#60;!ELEMENT Test (#PCDATA)&#62;">
+%PEnt;
+]>
+<Test/>}
+
+    array get ::elements
+} {Test {MIXED {} {} {}}}
+
+# NB. entity.test tests entity replacement as well
+
+# External entities
+
+test decls-5.1 {external entity} {
+    catch {unset ::elements}
+    array set ::elements {}
+
+    catch {rename xml::decls-5.1 {}}
+    set parser [xml::parser decls-5.1 \
+            -paramentityparsing notstandalone \
+            -externalentitycommand extRefH \
+            -elementdeclcommand elementDecl \
+            -baseurl $baseURI]
+    $parser parse {<?xml version='1.0'?>
+<!DOCTYPE Test SYSTEM "data/dtd-5.1.dtd">
+<Test/>}
+
+    array get ::elements
+} {Test {MIXED {} {} {}}}
+
+test decls-5.2 {external DTD subset} {
+    catch {unset ::elements}
+    array set ::elements {}
+    catch {unset ::entities}
+    array set ::entities {}
+
+    catch {rename xml::decls-5.2 {}}
+    set parser [xml::parser decls-5.2 \
+            -paramentityparsing notstandalone \
+            -externalentitycommand extRefH \
+            -elementdeclcommand elementDecl \
+            -baseurl $baseURI]
+    $parser parse {<?xml version='1.0'?>
+<!DOCTYPE Test SYSTEM "data/dtd-5.2.dtd">
+<Test/>}
+
+    array get ::elements
+} {Test {MIXED {} {} {}}}
+
+test decls-5.3 {external entity} {
+    catch {unset ::elements}
+    array set ::elements {}
+    catch {unset ::entities}
+    array set ::entities {}
+    catch {unset ::externals}
+    array set ::externals {}
+
+    catch {rename xml::decls-5.3 {}}
+    set parser [xml::parser decls-5.3 \
+            -paramentityparsing notstandalone \
+            -externalentitycommand extRefH \
+            -elementdeclcommand elementDecl \
+            -baseurl $baseURI]
+    $parser parse {<?xml version='1.0'?>
+<!DOCTYPE Test [
+<!ENTITY % module SYSTEM "data/dtd-5.2.dtd">
+%module;
+]>
+<Test/>}
+
+    array get ::elements
+} {Test {MIXED {} {} {}}}
+
+
+test decls-5.4 {external entity} {
+    catch {unset ::elements}
+    array set ::elements {}
+
+    catch {rename xml::decls-5.4 {}}
+    set parser [xml::parser decls-5.4 \
+            -paramentityparsing notstandalone \
+            -externalentitycommand extRefHstr \
+            -elementdeclcommand elementDecl \
+            -baseurl $baseURI]
+    $parser parse {<?xml version='1.0'?>
+<!DOCTYPE Test SYSTEM "data/dtd-5.1.dtd">
+<Test/>}
+
+    array get ::elements
+} {Test {MIXED {} {} {}}}
+
+test decls-5.5 {external DTD subset} {
+    catch {unset ::elements}
+    array set ::elements {}
+    catch {unset ::entities}
+    array set ::entities {}
+
+    catch {rename xml::decls-5.5 {}}
+    set parser [xml::parser decls-5.5 \
+            -paramentityparsing notstandalone \
+            -externalentitycommand extRefHstr \
+            -elementdeclcommand elementDecl \
+            -baseurl $baseURI]
+    $parser parse {<?xml version='1.0'?>
+<!DOCTYPE Test SYSTEM "data/dtd-5.2.dtd">
+<Test/>}
+
+    array get ::elements
+} {Test {MIXED {} {} {}}}
+
+
+test decls-5.6 {external entity} {
+    catch {unset ::elements}
+    array set ::elements {}
+    catch {unset ::entities}
+    array set ::entities {}
+    catch {unset ::externals}
+    array set ::externals {}
+
+    catch {rename xml::decls-5.6 {}}
+    set parser [xml::parser decls-5.6 \
+            -paramentityparsing notstandalone \
+            -externalentitycommand extRefHstr \
+            -elementdeclcommand elementDecl \
+            -baseurl $baseURI]
+    $parser parse {<?xml version='1.0'?>
+<!DOCTYPE Test [
+<!ENTITY % module SYSTEM "data/dtd-5.2.dtd">
+%module;
+]>
+<Test/>}
+
+    array get ::elements
+} {Test {MIXED {} {} {}}}
+
+
+# Conditional Sections
+
+test decls-6.1 {conditional section: include} {
+    catch {unset ::elements}
+    array set ::elements {}
+
+    catch {rename xml::decls-6.1 {}}
+    set parser [xml::parser decls-6.1 \
+            -paramentityparsing notstandalone \
+            -externalentitycommand extRefH \
+            -elementdeclcommand elementDecl \
+            -baseurl $baseURI]
+    $parser parse {<?xml version='1.0'?>
+<!DOCTYPE Test SYSTEM "data/dtd-6.1.dtd">
+<Test/>}
+
+    array get ::elements
+} {Test {MIXED {} {} {}}}
+
+test decls-6.2 {conditional section: include, empty} {
+    catch {unset ::elements}
+    array set ::elements {}
+
+    catch {rename xml::decls-6.2 {}}
+    set parser [xml::parser decls-6.2 \
+            -paramentityparsing notstandalone \
+            -externalentitycommand extRefH \
+            -elementdeclcommand elementDecl \
+            -baseurl $baseURI]
+    $parser parse {<?xml version='1.0'?>
+<!DOCTYPE Test SYSTEM "data/dtd-6.2.dtd">
+<Test/>}
+
+    array get ::elements
+} {}
+
+test decls-6.3 {conditional section: include, empty} {
+    catch {unset ::elements}
+    array set ::elements {}
+
+    catch {rename xml::decls-6.3 {}}
+    set parser [xml::parser decls-6.3 \
+            -paramentityparsing notstandalone \
+            -externalentitycommand extRefH \
+            -elementdeclcommand elementDecl \
+            -baseurl $baseURI]
+    $parser parse {<?xml version='1.0'?>
+<!DOCTYPE Test SYSTEM "data/dtd-6.3.dtd">
+<Test/>}
+
+    array get ::elements
+} {}
+
+test decls-6.4 {conditional section: include, nested} {
+    catch {unset ::elements}
+    array set ::elements {}
+
+    catch {rename xml::decls-6.4 {}}
+    set parser [xml::parser decls-6.4 \
+            -paramentityparsing notstandalone \
+            -externalentitycommand extRefH \
+            -elementdeclcommand elementDecl \
+            -baseurl $baseURI]
+    $parser parse {<?xml version='1.0'?>
+<!DOCTYPE Test SYSTEM "data/dtd-6.4.dtd">
+<Test/>}
+
+    array size ::elements
+} 3
+
+test decls-6.6 {conditional section/PE combo} {
+    catch {unset ::elements}
+    array set ::elements {}
+
+    catch {rename xml::decls-6.6 {}}
+    set parser [xml::parser decls-6.6 \
+            -paramentityparsing notstandalone \
+            -externalentitycommand extRefH \
+            -elementdeclcommand elementDecl \
+            -baseurl $baseURI]
+    $parser parse {<?xml version='1.0'?>
+<!DOCTYPE Test SYSTEM "data/dtd-6.6.dtd">
+<Test/>}
+
+    array size ::elements
+} 2
+
+foreach parser [info commands decls-*] {
+    $parser free
+}
+
+# cleanup
+::tcltest::cleanupTests
+return

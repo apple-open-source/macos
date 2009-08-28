@@ -64,7 +64,11 @@ __FBSDID("$FreeBSD: src/usr.bin/find/find.c,v 1.18 2006/05/14 20:23:00 krion Exp
 
 #include "find.h"
 
+#ifdef __APPLE__
+static int find_compare(const FTSENT **s1, const FTSENT **s2);
+#else /* !__APPLE__ */
 static int find_compare(const FTSENT * const *s1, const FTSENT * const *s2);
+#endif /* __APPLE__ */
 
 /*
  * find_compare --
@@ -73,7 +77,11 @@ static int find_compare(const FTSENT * const *s1, const FTSENT * const *s2);
  *	order within each directory.
  */
 static int
+#ifdef __APPLE__
+find_compare(const FTSENT **s1, const FTSENT **s2)
+#else /* !__APPLE__ */
 find_compare(const FTSENT * const *s1, const FTSENT * const *s2)
+#endif /* __APPLE__ */
 {
 
 	return (strcoll((*s1)->fts_name, (*s2)->fts_name));
@@ -239,7 +247,7 @@ find_execute(PLAN *plan, char *paths[])
 		if (COMPAT_MODE("bin/find", "unix2003") && getuid() 
 		  && stat_ret == 0 
 		  && ((statInfo.st_mode & S_IFMT) == S_IFDIR)) {
-			if ((statInfo.st_mode & (S_IXUSR + S_IXGRP + S_IXOTH)) != 0) {
+			if (access(paths[pathIndex], X_OK) == 0) {
 				myPaths = addPath(myPaths, paths[pathIndex]);
 			} else {
 				if (stat_errno != ENAMETOOLONG) {	/* if name is too long, just let existing logic handle it */

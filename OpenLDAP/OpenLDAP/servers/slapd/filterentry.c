@@ -1,8 +1,8 @@
 /* filterentry.c - apply a filter to an entry */
-/* $OpenLDAP: pkg/ldap/servers/slapd/filterentry.c,v 1.91.2.9 2006/01/03 22:16:14 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/filterentry.c,v 1.104.2.4 2008/02/11 23:26:44 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -65,6 +65,12 @@ test_filter(
 {
 	int	rc;
 	Debug( LDAP_DEBUG_FILTER, "=> test_filter\n", 0, 0, 0 );
+
+	if ( f->f_choice & SLAPD_FILTER_UNDEFINED ) {
+		Debug( LDAP_DEBUG_FILTER, "    UNDEFINED\n", 0, 0, 0 );
+		rc = SLAPD_COMPARE_UNDEFINED;
+		goto out;
+	}
 
 	switch ( f->f_choice ) {
 	case SLAPD_FILTER_COMPUTED:
@@ -144,7 +150,7 @@ test_filter(
 		    f->f_choice, 0, 0 );
 		rc = LDAP_PROTOCOL_ERROR;
 	}
-
+out:
 	Debug( LDAP_DEBUG_FILTER, "<= test_filter %d\n", rc, 0, 0 );
 	return( rc );
 }
@@ -206,12 +212,7 @@ static int test_mra_filter(
 			if ( mra->ma_cf && mra->ma_rule->smr_usage & SLAP_MR_COMPONENT ) {
 				num_attr_vals = 0;
 				if ( !a->a_comp_data ) {
-					for ( ;
-						!BER_BVISNULL( &a->a_vals[num_attr_vals] );
-						num_attr_vals++ )
-					{
-						/* empty */;
-					}
+					num_attr_vals = a->a_numvals;
 					if ( num_attr_vals <= 0 ) {
 						/* no attribute value */
 						return LDAP_INAPPROPRIATE_MATCHING;
@@ -276,14 +277,14 @@ static int test_mra_filter(
 					if ( normalize_attribute && mra->ma_rule->smr_normalize ) {
 						/*
 				
-				Document: draft-ietf-ldapbis-protocol
+				Document: RFC 4511
 
 				    4.5.1. Search Request 
 				        ...
 				    If the type field is present and the matchingRule is present, 
 			            the matchValue is compared against entry attributes of the 
 			            specified type. In this case, the matchingRule MUST be one 
-				    suitable for use with the specified type (see [Syntaxes]), 
+				    suitable for use with the specified type (see [RFC4517]), 
 				    otherwise the filter item is Undefined.  
 
 
@@ -577,7 +578,7 @@ test_ava_filter(
 
 	if ( ava->aa_desc == slap_schema.si_ad_entryDN ) {
 		MatchingRule *mr;
-		int rc, match;
+		int match;
 		const char *text;
 
 		if( type != LDAP_FILTER_EQUALITY &&
@@ -656,6 +657,56 @@ test_ava_filter(
 			continue;
 		}
 
+		/* We have no Sort optimization for Approx matches */
+		if (( a->a_flags & SLAP_ATTR_SORTED_VALS ) && type != LDAP_FILTER_APPROX ) {
+			unsigned slot;
+			int ret;
+
+			/* For Ordering matches, we just need to do one comparison with
+			 * either the first (least) or last (greatest) value.
+			 */
+			if ( use == SLAP_MR_ORDERING ) {
+				const char *text;
+				int match, which;
+				which = (type == LDAP_FILTER_LE) ? 0 : a->a_numvals-1;
+				ret = value_match( &match, a->a_desc, mr, use,
+					&a->a_nvals[which], &ava->aa_value, &text );
+				if ( ret != LDAP_SUCCESS ) return ret;
+				if (( type == LDAP_FILTER_LE && match <= 0 ) ||
+					( type == LDAP_FILTER_GE && match >= 0 ))
+					return LDAP_COMPARE_TRUE;
+				continue;
+			}
+			/* Only Equality will get here */
+			ret = attr_valfind( a, use | SLAP_MR_ASSERTED_VALUE_NORMALIZED_MATCH |
+				SLAP_MR_ATTRIBUTE_VALUE_NORMALIZED_MATCH, 
+				&ava->aa_value, &slot, NULL );
+			if ( ret == LDAP_SUCCESS )
+				return LDAP_COMPARE_TRUE;
+			else if ( ret != LDAP_NO_SUCH_ATTRIBUTE )
+				return ret;
+#if 0
+			/* The following is useful if we want to know which values
+			 * matched an ordering test. But here we don't care, we just
+			 * want to know if any value did, and that is checked above.
+			 */
+			if ( ret == LDAP_NO_SUCH_ATTRIBUTE ) {
+				/* If insertion point is not the end of the list, there was
+				 * at least one value greater than the assertion.
+				 */
+				if ( type == LDAP_FILTER_GE && slot < a->a_numvals )
+					return LDAP_COMPARE_TRUE;
+				/* Likewise, if insertion point is not the head of the list,
+				 * there was at least one value less than the assertion.
+				 */
+				if ( type == LDAP_FILTER_LE && slot > 0 )
+					return LDAP_COMPARE_TRUE;
+				return LDAP_COMPARE_FALSE;
+			}
+#endif
+			continue;
+		}
+
 #ifdef LDAP_COMP_MATCH
 		if ( nibble_mem_allocator && ava->aa_cf && !a->a_comp_data ) {
 			/* Component Matching */
@@ -723,7 +774,7 @@ test_ava_filter(
 			} else 
 #endif
 			{
-				ret = value_match( &match, a->a_desc, mr, use,
+				ret = ordered_value_match( &match, a->a_desc, mr, use,
 					bv, &ava->aa_value, &text );
 			}
 

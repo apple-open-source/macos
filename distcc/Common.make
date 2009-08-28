@@ -46,19 +46,33 @@ include $(CoreOSMakefiles)/Standard/Standard.make
 ##
 
 #RC_ARCHS   = $(shell for i in `file /usr/lib/libSystem.B.dylib | grep 'shared library ' | sed 's|.*shared library ||'`; do $(CC) -arch $$i -E -x c /dev/null > /dev/null 2>&1 && echo $$i; done)
-RC_ARCHS = ppc i386
+ifndef RC_ARCHS
+RC_ARCHS = ppc i386 x86_64
+endif
+ifndef RC_RELEASE
 RC_RELEASE = unknown
+endif
+ifndef RC_VERSION
 RC_VERSION = unknown
+endif
 
+ifndef SRCROOT
 ifeq ($(COPY_SOURCES),YES)
 SRCROOT = /tmp/$(ProjectName)/Sources
 else
 SRCROOT = $(shell pwd)
 endif
+endif
 
+ifndef OBJROOT
 OBJROOT = /tmp/$(ProjectName)/Build
+endif
+ifndef SYMROOT
 SYMROOT = /tmp/$(ProjectName)/Debug
+endif
+#ifndef DSTROOT
 #DSTROOT = /tmp/$(ProjectName)/Release
+#endif
 
 ##
 # My variables

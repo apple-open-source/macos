@@ -1,0 +1,204 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A181F2B205E5540C006CE0A8 /* kswitch.c in Sources */ = {isa = PBXBuildFile; fileRef = F5033F68025DE8B801F62B58 /* kswitch.c */; };
+		A181F2B405E5540C006CE0A8 /* Kerberos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5E27E9502371EE201650119 /* Kerberos.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A108E7200A41E951008545E5 /* Release.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = ../../../Common/Resources/Release.xcconfig; sourceTree = SOURCE_ROOT; };
+		A108E7210A41E951008545E5 /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Debug.xcconfig; path = ../../../Common/Resources/Debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		A181F2B705E5540C006CE0A8 /* kswitch */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = kswitch; sourceTree = BUILT_PRODUCTS_DIR; };
+		F5033F68025DE8B801F62B58 /* kswitch.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = kswitch.c; sourceTree = "<group>"; };
+		F5649C8B025DFA770191F512 /* kswitch.M */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 30; path = kswitch.M; sourceTree = "<group>"; };
+		F5E27E9502371EE201650119 /* Kerberos.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = Kerberos.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A181F2B305E5540C006CE0A8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A181F2B405E5540C006CE0A8 /* Kerberos.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		F5649C8A025DFA770191F512 /* Documentation */ = {
+			isa = PBXGroup;
+			children = (
+				F5649C8B025DFA770191F512 /* kswitch.M */,
+			);
+			name = Documentation;
+			path = ../Documentation;
+			sourceTree = "<group>";
+		};
+		F5E27E140237086D01650119 = {
+			isa = PBXGroup;
+			children = (
+				A108E7200A41E951008545E5 /* Release.xcconfig */,
+				A108E7210A41E951008545E5 /* Debug.xcconfig */,
+				F5E27E7D02371AEC01650119 /* Sources */,
+				F5649C8A025DFA770191F512 /* Documentation */,
+				F5E27E9502371EE201650119 /* Kerberos.framework */,
+				F5E27E8502371B3A01650119 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		F5E27E7D02371AEC01650119 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				F5033F68025DE8B801F62B58 /* kswitch.c */,
+			);
+			name = Sources;
+			path = ../Sources;
+			sourceTree = SOURCE_ROOT;
+		};
+		F5E27E8502371B3A01650119 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A181F2B705E5540C006CE0A8 /* kswitch */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A181F2AE05E5540C006CE0A8 /* kswitch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1519189086C8E0A0042CBBC /* Build configuration list for PBXNativeTarget "kswitch" */;
+			buildPhases = (
+				A181F2B105E5540C006CE0A8 /* Sources */,
+				A181F2B305E5540C006CE0A8 /* Frameworks */,
+				A1C7E197069DED4300DF6AFE /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = kswitch;
+			productInstallPath = /usr/bin;
+			productName = ksu;
+			productReference = A181F2B705E5540C006CE0A8 /* kswitch */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		F5E27E130237086D01650119 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = A151918D086C8E0A0042CBBC /* Build configuration list for PBXProject "kswitch" */;
+			compatibilityVersion = "Xcode 2.4";
+			hasScannedForEncodings = 1;
+			mainGroup = F5E27E140237086D01650119;
+			productRefGroup = F5E27E8502371B3A01650119 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A181F2AE05E5540C006CE0A8 /* kswitch */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		A1C7E197069DED4300DF6AFE /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../Documentation/kswitch.M",
+			);
+			outputPaths = (
+				"$(DSTROOT)/usr/share/man/man1/kswitch.1",
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "mkdir -p \"${DSTROOT}/usr/share/man/man1\"\ninstall -c -m 644 \"${SRCROOT}/../Documentation/kswitch.M\" \"${DSTROOT}/usr/share/man/man1/kswitch.1\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A181F2B105E5540C006CE0A8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A181F2B205E5540C006CE0A8 /* kswitch.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A151918A086C8E0A0042CBBC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E7210A41E951008545E5 /* Debug.xcconfig */;
+			buildSettings = {
+				INSTALL_PATH = /usr/bin;
+				OTHER_CFLAGS = "-D_FORTIFY_SOURCE=2";
+				OTHER_LDFLAGS = "-Wl,-pie";
+				PRODUCT_NAME = kswitch;
+				VALID_ARCHS = "i386 ppc x86_64";
+			};
+			name = Debug;
+		};
+		A151918B086C8E0A0042CBBC /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E7200A41E951008545E5 /* Release.xcconfig */;
+			buildSettings = {
+				INSTALL_PATH = /usr/bin;
+				OTHER_CFLAGS = "-D_FORTIFY_SOURCE=2";
+				OTHER_LDFLAGS = "-Wl,-pie";
+				PRODUCT_NAME = kswitch;
+				VALID_ARCHS = "i386 ppc x86_64";
+			};
+			name = Release;
+		};
+		A151918E086C8E0A0042CBBC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E7210A41E951008545E5 /* Debug.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		A151918F086C8E0A0042CBBC /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E7200A41E951008545E5 /* Release.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A1519189086C8E0A0042CBBC /* Build configuration list for PBXNativeTarget "kswitch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A151918A086C8E0A0042CBBC /* Debug */,
+				A151918B086C8E0A0042CBBC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		A151918D086C8E0A0042CBBC /* Build configuration list for PBXProject "kswitch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A151918E086C8E0A0042CBBC /* Debug */,
+				A151918F086C8E0A0042CBBC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = F5E27E130237086D01650119 /* Project object */;
+}

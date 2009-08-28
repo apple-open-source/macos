@@ -1,5 +1,5 @@
 /* DWARF2 EH unwinding support for S/390 Linux.
-   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -23,8 +23,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* Do code reading to identify a signal frame, and set the frame
    state data appropriately.  See unwind-dw2.c for the structs.  */
@@ -51,17 +51,33 @@ s390_fallback_frame_state (struct _Unwind_Context *context,
   } __attribute__ ((__aligned__ (8))) sigregs_;
 
   sigregs_ *regs;
-  int *signo = NULL;
+  int *signo;
 
   /* svc $__NR_sigreturn or svc $__NR_rt_sigreturn  */
   if (pc[0] != 0x0a || (pc[1] != 119 && pc[1] != 173))
     return _URC_END_OF_STACK;
 
+  /* Legacy frames:
+       old signal mask (8 bytes)
+       pointer to sigregs (8 bytes) - points always to next location
+       sigregs
+       retcode
+     This frame layout was used on kernels < 2.6.9 for non-RT frames,
+     and on kernels < 2.4.13 for RT frames as well.  Note that we need
+     to look at RA to detect this layout -- this means that if you use
+     sa_restorer to install a different signal restorer on a legacy
+     kernel, unwinding from signal frames will not work.  */
+  if (context->ra == context->cfa + 16 + sizeof (sigregs_))
+    {
+      regs = (sigregs_ *)(context->cfa + 16);
+      signo = NULL;
+    }
+
   /* New-style RT frame:
      retcode + alignment (8 bytes)
      siginfo (128 bytes)
      ucontext (contains sigregs)  */
-  if (context->ra == context->cfa)
+  else if (pc[1] == 173 /* __NR_rt_sigreturn */)
     {
       struct ucontext_
       {
@@ -75,18 +91,13 @@ s390_fallback_frame_state (struct _Unwind_Context *context,
       signo = context->cfa + sizeof(long);
     }
 
-  /* Old-style RT frame and all non-RT frames:
+  /* New-style non-RT frame:
      old signal mask (8 bytes)
-     pointer to sigregs  */
+     pointer to sigregs (followed by signal number)  */
   else
     {
       regs = *(sigregs_ **)(context->cfa + 8);
-
-      /* Recent kernels store the signal number immediately after
-	 the sigregs; old kernels have the return trampoline at
-	 this location.  */
-      if ((void *)(regs + 1) != context->ra)
-	signo = (int *)(regs + 1);
+      signo = (int *)(regs + 1);
     }
 
   new_cfa = regs->gprs[15] + 16*sizeof(long) + 32;
@@ -113,27 +124,11 @@ s390_fallback_frame_state (struct _Unwind_Context *context,
   fs->regs.reg[32].how = REG_SAVED_OFFSET;
   fs->regs.reg[32].loc.offset = (long)&regs->psw_addr - new_cfa;
   fs->retaddr_column = 32;
-
-  /* If we got a SIGSEGV or a SIGBUS, the PSW address points *to*
-     the faulting instruction, not after it.  This causes the logic
-     in unwind-dw2.c that decrements the RA to determine the correct
-     CFI region to get confused.  To fix that, we *increment* the RA
-     here in that case.  Note that we cannot modify the RA in place,
-     and the frame state wants a *pointer*, not a value; thus we put
-     the modified RA value into the unused register 33 slot of FS and
-     have the register 32 save address point to that slot.
-
-     Unfortunately, for regular signals on old kernels, we don't know
-     the signal number.  We default to not fiddling with the RA;
-     that can fail in rare cases.  Upgrade your kernel.  */
-
-  if (signo && (*signo == 11 || *signo == 7))
-    {
-      fs->regs.reg[33].loc.exp =
-	(unsigned char *)regs->psw_addr + 1;
-      fs->regs.reg[32].loc.offset =
-	(long)&fs->regs.reg[33].loc.exp - new_cfa;
-    }
+  /* SIGILL, SIGFPE and SIGTRAP are delivered with psw_addr
+     after the faulting instruction rather than before it.
+     Don't set FS->signal_frame in that case.  */
+  if (!signo || (*signo != 4 && *signo != 5 && *signo != 8))
+    fs->signal_frame = 1;
 
   return _URC_NO_REASON;
 }

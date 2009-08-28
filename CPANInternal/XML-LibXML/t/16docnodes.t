@@ -5,7 +5,7 @@ use Test;
 # second parsing.  it was fixed by putting in code in getChildNodes
 # to handle the special case where the node was the document node
 
-BEGIN { plan tests => 9 }
+BEGIN { plan tests => 11 }
 
   my $input = <<EOD;
 <doc>
@@ -40,3 +40,20 @@ for (0 .. 2) {
   ok(ref($a),'XML::LibXML::Element');
 }
 
+##
+# Test Ticket 7645
+if ( $] > 5.006 ) {
+        my $in = pack('U', 0x00e4);
+        my $doc = XML::LibXML::Document->new();
+
+        my $node = XML::LibXML::Element->new('test');
+        $node->setAttribute(contents => $in); 
+        $doc->setDocumentElement($node);
+
+        ok( $node->serialize(), '<test contents="&#xE4;"/>' );
+
+        $doc->setEncoding('utf-8');
+        # Second output
+        ok( $node->serialize(), encodeToUTF8( 'iso-8859-1',
+                                              '<test contents="ä"/>' ) );
+}

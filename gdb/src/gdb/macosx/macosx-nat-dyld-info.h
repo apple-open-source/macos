@@ -58,9 +58,8 @@ struct dyld_objfile_entry
      What use can they possibly have? */
 
   /* USER_NAME is a name coming from the user.  This can happen with
-     a DYLD_INSERT_LIBRARY name, or it can happen with a 
-     sharedlibrary specify-symbol-file command, or it can happen if we've
-     got an objfile w/o a corresponding dyld_objfile_entry - we'll use the
+     a DYLD_INSERT_LIBRARY name, or it can happen if we've got an
+     objfile w/o a corresponding dyld_objfile_entry - we'll use the
      objfile->name and put it in the d_o_e's user_name field.  */
 
   char *user_name;

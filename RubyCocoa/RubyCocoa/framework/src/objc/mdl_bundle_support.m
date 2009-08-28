@@ -1,5 +1,5 @@
 /* 
- * Copyright (c) 2006-2007, The RubyCocoa Project.
+ * Copyright (c) 2006-2008, The RubyCocoa Project.
  * Copyright (c) 2001-2006, FUJIMOTO Hisakuni.
  * All Rights Reserved.
  *
@@ -9,6 +9,7 @@
 
 #import <Foundation/NSBundle.h>
 #import <Foundation/NSAutoreleasePool.h>
+#import <Foundation/NSDictionary.h>
 #import "osx_ruby.h"
 #import "mdl_osxobjc.h"
 #import "ocdata_conv.h"
@@ -17,9 +18,9 @@
 
 /** module OSX::BundleSupport  **/
 static VALUE _mBundleSupport = Qnil;
-static const char* BUNDLE_MAP_NAME   = "BUNDLE_MAP";
+static NSMutableDictionary* gBundleMap;
+static const char* BUNDLE_MAP_NAME = "BUNDLE_MAP";
 static const char* BUNDLE_STACK_NAME = "BUNDLE_STACK";
-#define BUNDLE_MAP    rb_const_get(_mBundleSupport, rb_intern(BUNDLE_MAP_NAME))
 #define BUNDLE_STACK  rb_const_get(_mBundleSupport, rb_intern(BUNDLE_STACK_NAME))
 
 
@@ -97,15 +98,13 @@ static id _ruby2ocid(VALUE obj)
 static id
 bundle_for_class(Class klass)
 {
-  VALUE bundle = rb_hash_aref(BUNDLE_MAP, OCID2NUM(klass));
-  return _ruby2ocid(bundle);
+  return [gBundleMap objectForKey:klass];
 }
 
 static VALUE
 rb_bundle_for_class(VALUE mdl, VALUE objc_class)
 {
-  VALUE ocid = OCID2NUM(_ruby2ocid(objc_class));
-  return rb_hash_aref(BUNDLE_MAP, ocid);
+  return ocid_get_rbobj([gBundleMap objectForKey:_ruby2ocid(objc_class)]);
 }
 
 static VALUE
@@ -114,10 +113,9 @@ rb_bind_class_with_current_bundle(VALUE mdl, VALUE objc_class)
   VALUE stack_item;
   stack_item = _current_bundle();
   if (! NIL_P(stack_item)) {
-    VALUE ocid, bundle;
-    ocid = OCID2NUM(_ruby2ocid(objc_class));
-    bundle = rb_ary_entry(stack_item, 0);
-    rb_hash_aset(BUNDLE_MAP, ocid, bundle);
+    VALUE bundle = rb_ary_entry(stack_item, 0);
+    if (!gBundleMap) gBundleMap = [NSMutableDictionary new];
+	[gBundleMap setObject:[NSNumber numberWithUnsignedLongLong:bundle] forKey:_ruby2ocid(objc_class)];
     return bundle;
   }
   return Qnil;
@@ -125,13 +123,13 @@ rb_bind_class_with_current_bundle(VALUE mdl, VALUE objc_class)
 
 static VALUE my_load_clause(VALUE prog_name)
 {
-  rb_require(STR2CSTR(prog_name));
+  rb_require(StringValuePtr(prog_name));
   return Qnil;
 }
 
 static VALUE my_eval_clause(VALUE prog_source)
 {
-  rb_eval_string(STR2CSTR(prog_source));
+  rb_eval_string(StringValuePtr(prog_source));
   return Qnil;
 }
 
@@ -211,7 +209,7 @@ initialize_mdl_bundle_support()
   if (NIL_P(_mBundleSupport)) {
     _mBundleSupport = rb_define_module_under(osx_s_module(), "BundleSupport");
 
-    rb_define_const(_mBundleSupport, BUNDLE_MAP_NAME,   rb_hash_new());
+    rb_define_const(_mBundleSupport, BUNDLE_MAP_NAME,   ocid_get_rbobj(gBundleMap));
     rb_define_const(_mBundleSupport, BUNDLE_STACK_NAME, rb_ary_new());
 
     rb_define_module_function(_mBundleSupport, 

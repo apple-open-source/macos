@@ -542,6 +542,7 @@ ccp_extcode(f, code, id, p, len)
 	    break;
 	/* send a reset-ack, which the transmitter will see and
 	   reset its compression state. */
+	notice("received CCP RESETREQ");
 	fsm_sdata(f, CCP_RESETACK, id, NULL, 0);
 	break;
 
@@ -550,6 +551,7 @@ ccp_extcode(f, code, id, p, len)
 	    ccp_localstate[f->unit] &= ~(RACK_PENDING | RREQ_REPEAT);
 	    UNTIMEOUT(ccp_rack_timeout, f);
 	}
+	notice("received CCP RESETACK");
 	break;
 
     default:

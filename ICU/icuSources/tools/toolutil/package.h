@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2005-2006, International Business Machines
+*   Copyright (C) 2005-2007, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -28,6 +28,8 @@
 #define STRING_STORE_SIZE 100000
 #define MAX_FILE_COUNT 2000
 #define MAX_PKG_NAME_LENGTH 32
+
+typedef void CheckDependency(void *context, const char *itemName, const char *targetName);
 
 U_NAMESPACE_BEGIN
 
@@ -71,7 +73,7 @@ public:
     char getInType();
 
     // find the item in items[], return the non-negative index if found, else the binary-not of the insertion point
-    int32_t findItem(const char *name, int32_t length=-1);
+    int32_t findItem(const char *name, int32_t length=-1) const;
 
     /*
      * Set internal state for following calls to findNextItem() which will return
@@ -107,15 +109,21 @@ public:
     /* This variant extracts an item to a specific filename. */
     void extractItem(const char *filesPath, const char *outName, int32_t index, char outType);
 
-    void listItems(FILE *file);
+    int32_t getItemCount() const;
+    const Item *getItem(int32_t idx) const;
 
     /*
      * Check dependencies and return TRUE if all dependencies are fulfilled.
      */
     UBool checkDependencies();
 
+    /*
+     * Enumerate all the dependencies and give the results to context and check
+     */
+    void enumDependencies(void *context, CheckDependency check);
+
 private:
-    void enumDependencies(Item *pItem);
+    void enumDependencies(Item *pItem, void *context, CheckDependency check);
 
     static void checkDependency(void *context, const char *itemName, const char *targetName);
 

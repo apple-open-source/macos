@@ -28,16 +28,15 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#if 0
 #ifndef lint
 static const char copyright[] =
 "@(#) Copyright (c) 1994 Christopher G. Demetriou\n\
  All rights reserved.\n";
 #endif
-
-#ifndef lint
-static const char rcsid[] =
-  "$FreeBSD: src/usr.sbin/sa/main.c,v 1.12 2002/07/15 16:05:15 des Exp $";
-#endif /* not lint */
+#endif
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.sbin/sa/main.c,v 1.18 2007/05/22 06:51:38 dds Exp $");
 
 /*
  * sa:	system accounting
@@ -47,6 +46,7 @@ static const char rcsid[] =
 #include <sys/acct.h>
 #include <ctype.h>
 #include <err.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
 #include <stdint.h>
@@ -57,21 +57,25 @@ static const char rcsid[] =
 #include "extern.h"
 #include "pathnames.h"
 
-static int	acct_load(char *, int);
+static FILE	*acct_load(const char *, int);
+#ifdef __APPLE__
 static u_quad_t	decode_comp_t(comp_t);
-static int	cmp_comm(const char *, const char *);
-static int	cmp_usrsys(const DBT *, const DBT *);
-static int	cmp_avgusrsys(const DBT *, const DBT *);
-static int	cmp_dkio(const DBT *, const DBT *);
-static int	cmp_avgdkio(const DBT *, const DBT *);
-static int	cmp_cpumem(const DBT *, const DBT *);
-static int	cmp_avgcpumem(const DBT *, const DBT *);
-static int	cmp_calls(const DBT *, const DBT *);
-static void	usage(void);
+#endif
+static int	 cmp_comm(const char *, const char *);
+static int	 cmp_usrsys(const DBT *, const DBT *);
+static int	 cmp_avgusrsys(const DBT *, const DBT *);
+static int	 cmp_dkio(const DBT *, const DBT *);
+static int	 cmp_avgdkio(const DBT *, const DBT *);
+static int	 cmp_cpumem(const DBT *, const DBT *);
+static int	 cmp_avgcpumem(const DBT *, const DBT *);
+static int	 cmp_calls(const DBT *, const DBT *);
+static void	 usage(void);
 
 int aflag, bflag, cflag, dflag, Dflag, fflag, iflag, jflag, kflag;
 int Kflag, lflag, mflag, qflag, rflag, sflag, tflag, uflag, vflag;
 u_quad_t cutoff = 1;
+const char *pdb_file = _PATH_SAVACCT;
+const char *usrdb_file = _PATH_USRACCT;
 
 static char	*dfltargv[] = { NULL };
 static int	dfltargc = (sizeof dfltargv/sizeof(char *));
@@ -82,13 +86,13 @@ cmpf_t   sa_cmp = cmp_usrsys;
 int
 main(int argc, char **argv)
 {
-	char ch;
+	FILE *f;
 	char pathacct[] = _PATH_ACCT;
-	int error = 0;
+	int ch, error = 0;
 
 	dfltargv[0] = pathacct;
 
-	while ((ch = getopt(argc, argv, "abcdDfijkKlmnqrstuv:")) != -1)
+	while ((ch = getopt(argc, argv, "abcdDfijkKlmnP:qrstuU:v:")) != -1)
 		switch (ch) {
 			case 'a':
 				/* print all commands */
@@ -147,6 +151,10 @@ main(int argc, char **argv)
 				/* sort by number of calls */
 				sa_cmp = cmp_calls;
 				break;
+			case 'P':
+				/* specify program database summary file */
+				pdb_file = optarg;
+				break;
 			case 'q':
 				/* quiet; error messages only */
 				qflag = 1;
@@ -166,6 +174,10 @@ main(int argc, char **argv)
 			case 'u':
 				/* first, print uid and command name */
 				uflag = 1;
+				break;
+			case 'U':
+				/* specify user database summary file */
+				usrdb_file = optarg;
 				break;
 			case 'v':
 				/* cull junk */
@@ -202,14 +214,12 @@ main(int argc, char **argv)
 
 	/* for each file specified */
 	for (; argc > 0; argc--, argv++) {
-		int	fd;
-
 		/*
 		 * load the accounting data from the file.
 		 * if it fails, go on to the next file.
 		 */
-		fd = acct_load(argv[0], sflag);
-		if (fd < 0)
+		f = acct_load(argv[0], sflag);
+		if (f == NULL)
 			continue;
 
 		if (!uflag && sflag) {
@@ -240,7 +250,7 @@ main(int argc, char **argv)
 			 * the saved stats; better to underbill than overbill,
 			 * but we want every accounting record intact.
 			 */
-			if (ftruncate(fd, 0) == -1) {
+			if (ftruncate(fileno(f), 0) == -1) {
 				warn("couldn't truncate %s", *argv);
 				error = 1;
 			}
@@ -267,8 +277,8 @@ main(int argc, char **argv)
 		/*
 		 * close the opened accounting file
 		 */
-		if (close(fd) == -1) {
-			warn("close %s", *argv);
+		if (fclose(f) == EOF) {
+			warn("fclose %s", *argv);
 			error = 1;
 		}
 	}
@@ -296,27 +306,30 @@ static void
 usage()
 {
 	(void)fprintf(stderr,
-		"usage: sa [-abcdDfijkKlmnqrstu] [-v cutoff] [file ...]\n");
+		"usage: sa [-abcdDfijkKlmnqrstu] [-P file] [-U file] [-v cutoff] [file ...]\n");
 	exit(1);
 }
 
-static int
-acct_load(pn, wr)
-	char *pn;
-	int wr;
+static FILE *
+acct_load(const char *pn, int wr)
 {
+#ifdef __APPLE__
 	struct acct ac;
+#else
+	struct acctv2 ac;
+#endif
 	struct cmdinfo ci;
 	ssize_t rv;
-	int fd, i;
+	FILE *f;
+	int i;
 
 	/*
 	 * open the file
 	 */
-	fd = open(pn, wr ? O_RDWR : O_RDONLY, 0);
-	if (fd == -1) {
+	f = fopen(pn, wr ? "r+" : "r");
+	if (f == NULL) {
 		warn("open %s %s", pn, wr ? "for read/write" : "read-only");
-		return (-1);
+		return (NULL);
 	}
 
 	/*
@@ -325,13 +338,22 @@ acct_load(pn, wr)
 	 */
 	while (1) {
 		/* get one accounting entry and punt if there's an error */
-		rv = read(fd, &ac, sizeof(struct acct));
+#ifdef __APPLE__
+		rv = read(fileno(f), &ac, sizeof(struct acct));
 		if (rv == -1)
 			warn("error reading %s", pn);
 		else if (rv > 0 && rv < (int)sizeof(struct acct))
 			warnx("short read of accounting data in %s", pn);
 		if (rv != sizeof(struct acct))
 			break;
+#else
+		rv = readrec_forward(f, &ac);
+		if (rv != 1) {
+			if (rv == EOF)
+				warn("error reading %s", pn);
+			break;
+		}
+#endif
 
 		/* decode it */
 		ci.ci_calls = 1;
@@ -345,6 +367,7 @@ acct_load(pn, wr)
 			} else
 				ci.ci_comm[i] = c;
 		}
+#ifdef __APPLE__
 		if (ac.ac_flag & AFORK)
 			ci.ci_comm[i++] = '*';
 		ci.ci_comm[i++] = '\0';
@@ -354,6 +377,17 @@ acct_load(pn, wr)
 		ci.ci_uid = ac.ac_uid;
 		ci.ci_mem = ac.ac_mem;
 		ci.ci_io = decode_comp_t(ac.ac_io) / AHZ;
+#else
+		if (ac.ac_flagx & AFORK)
+			ci.ci_comm[i++] = '*';
+		ci.ci_comm[i++] = '\0';
+		ci.ci_etime = ac.ac_etime;
+		ci.ci_utime = ac.ac_utime;
+		ci.ci_stime = ac.ac_stime;
+		ci.ci_uid = ac.ac_uid;
+		ci.ci_mem = ac.ac_mem;
+		ci.ci_io = ac.ac_io;
+#endif
 
 		if (!uflag) {
 			/* and enter it into the usracct and pacct databases */
@@ -362,20 +396,27 @@ acct_load(pn, wr)
 			if (sflag || (mflag && !qflag))
 				usracct_add(&ci);
 		} else if (!qflag)
-			printf("%6lu %12.2f cpu %12juk mem %12ju io %s\n",
+#ifdef __APPLE__
+			printf("%6u %12.2f cpu %12juk mem %12ju io %s\n",
 			    ci.ci_uid,
 			    (ci.ci_utime + ci.ci_stime) / (double) AHZ,
 			    (uintmax_t)ci.ci_mem, (uintmax_t)ci.ci_io,
 			    ci.ci_comm);
+#else
+			printf("%6u %12.3lf cpu %12.0lfk mem %12.0lf io %s\n",
+			    ci.ci_uid,
+			    (ci.ci_utime + ci.ci_stime) / 1000000,
+			    ci.ci_mem, ci.ci_io,
+			    ci.ci_comm);
+#endif
 	}
 
-	/* finally, return the file descriptor for possible truncation */
-	return (fd);
+	/* Finally, return the file stream for possible truncation. */
+	return (f);
 }
 
-static u_quad_t
-decode_comp_t(comp)
-	comp_t comp;
+#ifdef __APPLE__
+static u_quad_t decode_comp_t(comp_t comp)
 {
 	u_quad_t rv;
 
@@ -392,11 +433,11 @@ decode_comp_t(comp)
 
 	return (rv);
 }
+#endif
 
 /* sort commands, doing the right thing in terms of reversals */
 static int
-cmp_comm(s1, s2)
-	const char *s1, *s2;
+cmp_comm(const char *s1, const char *s2)
 {
 	int rv;
 
@@ -408,11 +449,14 @@ cmp_comm(s1, s2)
 
 /* sort by total user and system time */
 static int
-cmp_usrsys(d1, d2)
-	const DBT *d1, *d2;
+cmp_usrsys(const DBT *d1, const DBT *d2)
 {
 	struct cmdinfo c1, c2;
+#ifdef __APPLE__
 	u_quad_t t1, t2;
+#else
+	double t1, t2;
+#endif
 
 	memcpy(&c1, d1->data, sizeof(c1));
 	memcpy(&c2, d2->data, sizeof(c2));
@@ -430,8 +474,7 @@ cmp_usrsys(d1, d2)
 
 /* sort by average user and system time */
 static int
-cmp_avgusrsys(d1, d2)
-	const DBT *d1, *d2;
+cmp_avgusrsys(const DBT *d1, const DBT *d2)
 {
 	struct cmdinfo c1, c2;
 	double t1, t2;
@@ -455,8 +498,7 @@ cmp_avgusrsys(d1, d2)
 
 /* sort by total number of disk I/O operations */
 static int
-cmp_dkio(d1, d2)
-	const DBT *d1, *d2;
+cmp_dkio(const DBT *d1, const DBT *d2)
 {
 	struct cmdinfo c1, c2;
 
@@ -473,8 +515,7 @@ cmp_dkio(d1, d2)
 
 /* sort by average number of disk I/O operations */
 static int
-cmp_avgdkio(d1, d2)
-	const DBT *d1, *d2;
+cmp_avgdkio(const DBT *d1, const DBT *d2)
 {
 	struct cmdinfo c1, c2;
 	double n1, n2;
@@ -482,8 +523,13 @@ cmp_avgdkio(d1, d2)
 	memcpy(&c1, d1->data, sizeof(c1));
 	memcpy(&c2, d2->data, sizeof(c2));
 
+#ifdef __APPLE__
 	n1 = (double) c1.ci_io / (double) (c1.ci_calls ? c1.ci_calls : 1);
 	n2 = (double) c2.ci_io / (double) (c2.ci_calls ? c2.ci_calls : 1);
+#else
+	n1 = c1.ci_io / (double) (c1.ci_calls ? c1.ci_calls : 1);
+	n2 = c2.ci_io / (double) (c2.ci_calls ? c2.ci_calls : 1);
+#endif
 
 	if (n1 < n2)
 		return -1;
@@ -495,8 +541,7 @@ cmp_avgdkio(d1, d2)
 
 /* sort by the cpu-storage integral */
 static int
-cmp_cpumem(d1, d2)
-	const DBT *d1, *d2;
+cmp_cpumem(const DBT *d1, const DBT *d2)
 {
 	struct cmdinfo c1, c2;
 
@@ -513,11 +558,14 @@ cmp_cpumem(d1, d2)
 
 /* sort by the cpu-time average memory usage */
 static int
-cmp_avgcpumem(d1, d2)
-	const DBT *d1, *d2;
+cmp_avgcpumem(const DBT *d1, const DBT *d2)
 {
 	struct cmdinfo c1, c2;
+#ifdef __APPLE__
 	u_quad_t t1, t2;
+#else
+	double t1, t2;
+#endif
 	double n1, n2;
 
 	memcpy(&c1, d1->data, sizeof(c1));
@@ -526,8 +574,13 @@ cmp_avgcpumem(d1, d2)
 	t1 = c1.ci_utime + c1.ci_stime;
 	t2 = c2.ci_utime + c2.ci_stime;
 
+#ifdef __APPLE__
 	n1 = (double) c1.ci_mem / (double) (t1 ? t1 : 1);
 	n2 = (double) c2.ci_mem / (double) (t2 ? t2 : 1);
+#else
+	n1 = c1.ci_mem / (t1 ? t1 : 1);
+	n2 = c2.ci_mem / (t2 ? t2 : 1);
+#endif
 
 	if (n1 < n2)
 		return -1;
@@ -539,8 +592,7 @@ cmp_avgcpumem(d1, d2)
 
 /* sort by the number of invocations */
 static int
-cmp_calls(d1, d2)
-	const DBT *d1, *d2;
+cmp_calls(const DBT *d1, const DBT *d2)
 {
 	struct cmdinfo c1, c2;
 

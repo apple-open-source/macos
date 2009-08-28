@@ -24,7 +24,7 @@
 
 #include <wtf/Platform.h>
 
-#if PLATFORM(WIN_OS) && !defined(BUILDING_WX__)
+#if PLATFORM(WIN_OS) && !defined(BUILDING_WX__) && !COMPILER(GCC)
 #if defined(BUILDING_JavaScriptCore) || defined(BUILDING_WTF)
 #define JS_EXPORTDATA __declspec(dllexport)
 #else
@@ -127,11 +127,6 @@
 
 // New theme
 #define WTF_USE_NEW_THEME 1
-
-// Accelerated compositing
-#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
-#define WTF_USE_ACCELERATED_COMPOSITING 0
-#endif
 #endif // PLATFORM(MAC)
 
 #if PLATFORM(SYMBIAN)

@@ -1,0 +1,83 @@
+[manpage_begin nmea n 0.1]
+[copyright {2006-2007, Aaron Faupell <afaupell@users.sourceforge.net>}]
+[moddesc   {NMEA protocol implementation}]
+[titledesc {Process NMEA data}]
+[require Tcl 8.2]
+[require nmea [opt 0.1.1]]
+[description]
+[para]
+
+This package provides a standard interface for writing software which recieves
+NMEA standard input data. It allows for reading data from COM ports, files,
+or programmatic input. It also supports the checksumming and logging of incoming data.
+After parsing, input is dispatched to user defined handler commands for processing.
+To define a handler, create a proc with the NMEA sentence name in the
+::nmea namespace. For example, to process GPS fix data use "proc ::nmea::GPGSA". The
+proc must take one argument, which is a list of the data values.
+
+[section COMMANDS]
+[list_begin definitions]
+
+[call [cmd ::nmea::open_port] [arg port] [opt speed]]
+Open the specified COM port and read NMEA sentences when available. Port speed is set to
+4800bps by default or to [arg speed].
+
+[call [cmd ::nmea::open_file] [arg file] [arg rate]]
+Open file [arg file] and read NMEA sentences, one per line, at the rate by [arg rate] in milliseconds.
+The file format may omit the leading [const \$] and/or the checksum. If rate is <= 0 then lines
+will only be processed when a call to [cmd do_line] is made. The rate may be adjusted by setting
+::nmea::nmea(rate).
+
+[call [cmd ::nmea::input] [arg sentence]]
+Processes and dispatches the supplied sentence. If [arg sentence] contains no commas it is treated as a Tcl list, otherwise it must be standard comma delimited NMEA data, with an optional checksum and leading [const \$].
+
+[call [cmd ::nmea::configure_port] [arg settings]]
+Changes the current port settings. [arg settings] has the same format as fconfigure -mode.
+
+[call [cmd ::nmea::close_port]]
+Close the open port
+
+[call [cmd ::nmea::close_file]]
+Close the open file
+
+[call [cmd ::nmea::do_line]]
+If there is a currently open file, this command will read and process a single line from it. Returns the number of lines read.
+
+[call [cmd ::nmea::log] [arg file]]
+Starts or stops file logging. If a file name is specified then all NMEA output will be logged
+to the file in append mode. If file is an empty string then any logging will be stopped.
+
+[call [cmd ::nmea::checksum] [arg data]]
+Returns the checksum of the supplied data
+
+[call [cmd ::nmea::write] [arg sentence] [arg data]]
+If there is a currently open port, this command will write the specified sentence and data in
+proper NMEA checksummed format.
+
+[list_end]
+
+[section VARIABLES]
+[list_begin definitions]
+
+[def ::nmea::checksum]
+A boolean value which determines whether incoming sentences are validated or not.
+
+[def ::nmea::rate]
+When reading from a file this sets the rate that lines are processed in milliseconds.
+
+[list_end]
+
+[section {BUGS, IDEAS, FEEDBACK}]
+
+This document, and the package it describes, will undoubtedly contain
+bugs and other problems.
+
+Please report such in the category [emph nmea] of the
+[uri {http://sourceforge.net/tracker/?group_id=12883} {Tcllib SF Trackers}].
+
+Please also report any ideas for enhancements you may have for either
+package and/or documentation.
+
+
+[keywords nmea gps]
+[manpage_end]

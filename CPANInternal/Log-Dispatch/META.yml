@@ -1,0 +1,63 @@
+---
+name: Log-Dispatch
+version: 2.21
+author:
+  - 'Dave Rolsky, <autarch@urth.org>'
+abstract: Dispatches messages to one or more outputs
+license: perl
+resources:
+  license: http://dev.perl.org/licenses/
+requires:
+  Params::Validate: 0.15
+build_requires:
+  File::Temp: 0
+  Module::Build: 0
+  Test::More: 0
+provides:
+  Log::Dispatch:
+    file: lib/Log/Dispatch.pm
+    version: 2.21
+  Log::Dispatch::ApacheLog:
+    file: lib/Log/Dispatch/ApacheLog.pm
+    version: 1.09
+  Log::Dispatch::Base:
+    file: lib/Log/Dispatch/Base.pm
+    version: 1.09
+  Log::Dispatch::Email:
+    file: lib/Log/Dispatch/Email.pm
+    version: 1.19
+  Log::Dispatch::Email::MIMELite:
+    file: lib/Log/Dispatch/Email/MIMELite.pm
+    version: 1.19
+  Log::Dispatch::Email::MailSend:
+    file: lib/Log/Dispatch/Email/MailSend.pm
+    version: 1.19
+  Log::Dispatch::Email::MailSender:
+    file: lib/Log/Dispatch/Email/MailSender.pm
+    version: 1.04
+  Log::Dispatch::Email::MailSendmail:
+    file: lib/Log/Dispatch/Email/MailSendmail.pm
+    version: 1.20
+  Log::Dispatch::File:
+    file: lib/Log/Dispatch/File.pm
+    version: 1.22
+  Log::Dispatch::File::Locked:
+    file: lib/Log/Dispatch/File/Locked.pm
+  Log::Dispatch::Handle:
+    file: lib/Log/Dispatch/Handle.pm
+    version: 1.16
+  Log::Dispatch::Null:
+    file: lib/Log/Dispatch/Null.pm
+  Log::Dispatch::Output:
+    file: lib/Log/Dispatch/Output.pm
+    version: 1.26
+  Log::Dispatch::Screen:
+    file: lib/Log/Dispatch/Screen.pm
+    version: 1.17
+  Log::Dispatch::Syslog:
+    file: lib/Log/Dispatch/Syslog.pm
+    version: 1.18
+generated_by: Module::Build version 0.2808
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.2.html
+  version: 1.2

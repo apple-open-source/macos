@@ -1,11 +1,11 @@
 ﻿# ***************************************************************************
 # *
-# *  Copyright (C) 2004-2006, International Business Machines
+# *  Copyright (C) 2004-2008, International Business Machines
 # *  Corporation; Unicode, Inc.; and others.  All Rights Reserved.
 # *
 # ***************************************************************************
 # File: Latin_Katakana.txt
-# Generated from CLDR: Thu Jul 20 16:27:17 PDT 2006
+# Generated from CLDR 
 #
 :: [[ᄀ-ᄒᄚᄡ\u1160-ᅵᆪᆬ-ᆭᆰ-ᆵ<-↓│■○\u3000-。「-」\u3099-\u309Aァ-ロワヲ-ヴヷヺ-ー！-～￠-￦][',.A-Za-z~À-ÖØ-öø-ďĒ-ĥĨ-İĴ-ķĹ-ľŃ-ňŌ-őŔ-ťŨ-žƠ-ơƯ-ưǍ-ǜǞ-ǣǦ-ǭǰǴ-ǵǸ-țȞ-ȟȦ-ȳ\u0304Ӣ-ӣӮ-ӯḀ-ẙẠ-ỹᾱᾹῑῙῡῩK-Å]] ;
 :: [:Latin:] fullwidth-halfwidth ();
@@ -32,6 +32,7 @@ $v_start = [ワヰヱヲ]\u3099 ;
 $n_quoter  =  [ア イ ウ エ オ ナ ニ ヌ ネ ノ ヤ ユ ヨ ン] ;
 $small_y = [ャィュェョ] ;
 $iteration = ゝ ;
+$voweled_basekana = [ァ-オカキクケコサシスセソタチッツテトナ-ノハヒフヘホマ-ヲヵヶ] ;
 '.' <> 。;
 ',' <> 、;
 va <> ワ\u3099 ;
@@ -229,7 +230,7 @@ dz $1 < dz (y* $vowel) {ヽ$voice ;
 $1 < ($consonant y* $vowel) {ヽ$voice? ;
 $1 < (.) {ヽ $voice? ; # otherwise repeat last character
 < ヽ $voice? ; # delete if no characters found
-[aeiou] } h > ー ;
+$voweled_basekana [\u3099 \u309A]? { h > ー ;
 cy > セィ ;
 dy > テ\u3099ィ ;
 hy > ヒ ;
@@ -270,5 +271,5 @@ x > | ks ;
 '~' > ; # delete stray tildes between letters
 [:Katakana:] { '' } [:Latin:] > ; # delete stray quotes between letters
 :: NFC (NFD) ;
-:: ([:Katakana:] halfwidth-fullwidth);
-:: ( [[\ -~¢-£¥-¦¬\u0304₩｡-ﾾￂ-ￇￊ-ￏￒ-ￗￚ-ￜ￨-￮][~、-。がぎぐげござじずぜぞだぢづでどば-ぱび-ぴぶ-ぷべ-ぺぼ-ぽゔ\u3099-゛ゞァ-ヺー-ヾ]] ) ;
+:: ([[:Katakana:][\u309B\u309C\u30A0\u30FC\uFF70\uFF9E\uFF9F]] halfwidth-fullwidth);
+:: ( [[\ -~¢-£¥-¦¬\u0304₩｡-ﾾￂ-ￇￊ-ￏￒ-ￗￚ-ￜ￨-￮][~、-。がぎぐげござじずぜぞだぢづでどば-ぱび-ぴぶ-ぷべ-ぺぼ-ぽゔ\u3099-゛ゞァ-ヺー-ヾ][\u309B\u309C\u30A0\u30FC\uFF70\uFF9E\uFF9F]] ) ;

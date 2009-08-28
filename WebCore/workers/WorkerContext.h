@@ -80,18 +80,18 @@ namespace WebCore {
 
         virtual void postTask(PassRefPtr<Task>); // Executes the task on context's thread asynchronously.
 
-
         // WorkerGlobalScope
         WorkerContext* self() { return this; }
         WorkerLocation* location() const;
+        void close();
 
         // WorkerUtils
         void importScripts(const Vector<String>& urls, const String& callerURL, int callerLine, ExceptionCode&);
         WorkerNavigator* navigator() const;
 
-
         // DedicatedWorkerGlobalScope
-        void postMessage(const String& message);
+        void postMessage(const String&, ExceptionCode&);
+        void postMessage(const String&, MessagePort*, ExceptionCode&);
         void setOnmessage(PassRefPtr<EventListener> eventListener) { m_onmessageListener = eventListener; }
         EventListener* onmessage() const { return m_onmessageListener.get(); }
 
@@ -110,7 +110,7 @@ namespace WebCore {
         typedef HashMap<AtomicString, ListenerVector> EventListenersMap;
         EventListenersMap& eventListeners() { return m_eventListeners; }
 
-        void dispatchMessage(const String&);
+        void dispatchMessage(const String&, PassRefPtr<MessagePort>);
 
         // These methods are used for GC marking. See JSWorkerContext::mark() in
         // JSWorkerContextCustom.cpp.
@@ -142,6 +142,8 @@ namespace WebCore {
 
         RefPtr<EventListener> m_onmessageListener;
         EventListenersMap m_eventListeners;
+
+        bool m_closing;
     };
 
 } // namespace WebCore

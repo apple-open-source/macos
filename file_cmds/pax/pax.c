@@ -1,4 +1,4 @@
-/*	$OpenBSD: pax.c,v 1.27 2004/04/16 22:50:23 deraadt Exp $	*/
+/*	$OpenBSD: pax.c,v 1.28 2005/08/04 10:02:44 mpf Exp $	*/
 /*	$NetBSD: pax.c,v 1.5 1996/03/26 23:54:20 mrg Exp $	*/
 
 /*-
@@ -35,7 +35,7 @@
  */
 
 #ifndef lint
-static const char copyright[] __attribute__((__unused__)) =
+static const char copyright[] =
 "@(#) Copyright (c) 1992, 1993\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
@@ -44,7 +44,7 @@ static const char copyright[] __attribute__((__unused__)) =
 #if 0
 static const char sccsid[] = "@(#)pax.c	8.2 (Berkeley) 4/18/94";
 #else
-static const char rcsid[] __attribute__((__unused__)) = "$OpenBSD: pax.c,v 1.27 2004/04/16 22:50:23 deraadt Exp $";
+static const char rcsid[] = "$OpenBSD: pax.c,v 1.28 2005/08/04 10:02:44 mpf Exp $";
 #endif
 #endif /* not lint */
 
@@ -99,13 +99,14 @@ int	nodirs;			/* do not create directories as needed */
 int	pmode;			/* preserve file mode bits */
 int	pids;			/* preserve file uid/gid */
 int	rmleadslash = 0;	/* remove leading '/' from pathnames */
+int	secure = 1; 		/* don't extract names that contain .. */
 int	exit_val;		/* exit value */
 int	docrc;			/* check/create file crc */
 char	*dirptr;		/* destination dir in a copy */
 char	*ltmfrmt;		/* -v locale time format (if any) */
 char	*argv0;			/* root of argv[0] */
 sigset_t s_mask;		/* signal mask for cleanup critical sect */
-FILE	*listf;		        /* file pointer to print file list to */
+FILE	*listf;			/* file pointer to print file list to */
 char	*tempfile;		/* tempfile to use for mkstemp(3) */
 char	*tempbase;		/* basename of tempfile to use for mkstemp(3) */
 
@@ -229,25 +230,24 @@ char	*tempbase;		/* basename of tempfile to use for mkstemp(3) */
  * Return: 0 if ok, 1 otherwise
  */
 
-extern void pax_usage();
-
 int
 main(int argc, char **argv)
 {
 	char *tmpdir;
 	size_t tdlen;
 
-	if (argc < 1)
-		pax_usage();
+	listf = stderr;
 	/*
 	 * Keep a reference to cwd, so we can always come back home.
 	 */
 	cwdfd = open(".", O_RDONLY);
 	if (cwdfd < 0) {
-		syswarn(0, errno, "Can't open current working directory.");
+		syswarn(1, errno, "Can't open current working directory.");
 		return(exit_val);
 	}
 
+	if (updatepath() == -1)
+		return exit_val;
 	/*
 	 * Where should we put temporary files?
 	 */

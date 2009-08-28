@@ -31,6 +31,7 @@ AT_class (a)
 {
   return a->dw_attr_val.val_class;
 }
+
 extern __inline__ dw_loc_list_ref
 AT_loc_list (a)
      dw_attr_ref a;
@@ -38,7 +39,7 @@ AT_loc_list (a)
   if (AT_class (a) == dw_val_class_loc_list)
     return a->dw_attr_val.v.val_loc_list;
 }
-/* APPLE LOCAL mainline 4840357 */
+
 void
 output_location_lists (die)
      dw_die_ref die;
@@ -51,3 +52,4 @@ output_location_lists (die)
 
 /* There should be exactly one IF conditional, in output_location_lists.  */
 /* { dg-final { scan-tree-dump-times "if " 1 "dom3"} } */
+/* { dg-final { cleanup-tree-dump "dom3" } } */

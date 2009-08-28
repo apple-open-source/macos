@@ -1,5 +1,5 @@
 .\"
-.\" Copyright (c) 1999-2007 Apple Inc.  All rights reserved.
+.\" Copyright (c) 1999-2009 Apple Inc.  All rights reserved.
 .\"
 .\" @APPLE_LICENSE_HEADER_START@
 .\" 
@@ -53,7 +53,7 @@
 .\"
 .\"	@(#)mount_nfs.8	8.3 (Berkeley) 3/29/95
 .\"
-.Dd October 25, 2006
+.Dd February 28, 2009
 .Dt MOUNT_NFS 8
 .Os 
 .Sh NAME
@@ -243,24 +243,35 @@ Set both the read data size and write data size to the specified value.
 .It Cm dsize Ns = Ns Aq Ar readdirsize
 Set the directory read size to the specified value. The value should
 normally be a multiple of DIRBLKSIZ that is <= the read size for the
-mount.
+mount.  The default is 8192 for UDP mounts and 32768 for TCP mounts.
 .Pp
 .It Cm readahead Ns = Ns Aq Ar maxreadahead
-Set the maximum read-ahead count to the specified value.  The default is 4.  This
-may be in the range of 0 - 16, and determines how many blocks will be
+Set the maximum read-ahead count to the specified value.  The default is 16.  This
+may be in the range of 0 - 128, and determines how many blocks will be
 read ahead when a large file is being read sequentially.  Trying larger
 values for this is suggested for mounts with a large bandwidth * delay
 product.
 .Pp
 .It Cm rdirplus
 Used with NFS v3/v4 to specify that directory read operations should
-retrieve additional info about each entry (e.g. use the NFSv3
-\fBReaddirPlus\fR RPC).  This option reduces RPC traffic for cases such as
-.Dq "ls -l" ,
-but tends to flood the attribute and name caches with prefetched entries.
-Try this option and see whether performance improves or degrades. Probably
-most useful for client to server network interconnects with a large
-bandwidth times delay product.
+retrieve additional information about each entry (e.g. use the NFSv3
+\fBReaddirPlus\fR RPC).  This option typically reduces RPC traffic for
+cases such as directory listings that use or display basic attributes
+(e.g.
+.Dq "ls -F"
+and
+.Dq "find . -type f"
+).
+Note that the long directory listing format case (i.e.
+.Dq "ls -l"
+) may not be helped much when the file system does not natively support
+extended attributes.
+Older implementations tended to flood the vnode and name caches with
+prefetched entries which may not be referenced.  The current implementation
+avoids creating those entries until they are referenced.  Try this
+option and see whether performance improves or degrades. Probably most
+useful for client to server network interconnects with a large bandwidth
+times delay product.
 .Pp
 .It Cm acregmin Ns = Ns Aq Ar seconds
 .It Cm acregmax Ns = Ns Aq Ar seconds
@@ -288,13 +299,12 @@ to 0.
 Disable negative name caching.
 .Pp
 .It Cm locallocks
-Perform all file locking operations locally on the NFS client instead
-of on the NFS server.  This option can provide file locking support
-on an NFS file system for which the server does not support file locking.
+Perform all file locking operations locally on the NFS client (in the VFS
+layer) instead of on the NFS server.  This option can provide file locking
+support on an NFS file system for which the server does not support file locking.
 However, because the file locking is only performed on the client, the
 NFS server and other NFS clients will have no knowledge of the locks.
-Note: mounts which are both soft and
-read-only will also have the
+Note: mounts which are both soft and read-only will also have the
 .Cm locallocks
 mount option enabled by default - unless explicitly overridden with a
 lock option (for example,
@@ -339,6 +349,26 @@ tune the timeout interval.)
 .It Cm retrans Ns = Ns Aq Ar count
 Set the retransmit timeout count for soft mounts to the specified value.
 .Pp
+.It Cm deadtimeout Ns = Ns Aq Ar timeout
+If the mount is still unresponsive
+.Ar timeout
+seconds after it is initially reported unresponsive, then mark the
+mount as dead so that it will be forcibly unmounted.
+Note: mounts which are both soft and read-only will also have the
+.Cm deadtimeout
+mount option set to 60 seconds.  This can be explicitly overridden by setting 
+.Cm deadtimeout Ns = Ns 0 .
+.Pp
+.It Cm mutejukebox
+When NFS requests repeatedly get jukebox errors (NFS3ERR_JUKEBOX,
+NFS4ERR_DELAY) from the server the NFS file system is reported as being
+unresponsive.  Use of this option will prevent the file system from
+being included in the list of unresponsive file systems that would be
+included in a dialog presented to the user.  This option may be useful
+when a file system is expected to get such errors during normal
+operation.  For example, when it's backed by a hierarchical storage
+management system.
+.Pp
 .It Cm async
 Assume that unstable write requests have actually been committed
 to stable storage on the server, and thus will not require resending
@@ -376,7 +406,8 @@ The following
 .Nm
 command line flags have equivalent
 .Fl o Ar option
-forms (shown in parentheses) and their use is highly discouraged.  The
+forms (shown in parentheses) and their use is strongly discouraged.
+These command line flags are deprecated and the
 .Fl o Ar option
 forms should be used instead.
 .Pp
@@ -471,7 +502,7 @@ and 32K when using
 .Tn TCP .
 Values over 16K are only supported for
 .Tn TCP ,
-where 60K is the maximum.
+where 64K is the maximum.
 .Pp
 Any value over 32K is unlikely to get you more performance, unless
 you have a very fast network.
@@ -587,8 +618,8 @@ cannot resolve the name of the remote host.
 An NFS server shouldn't loopback-mount its own exported file systems because
 it's fundamentally prone to deadlock.
 .Pp
-The current NFSv4 functionality is "alpha quality" software.  A lot
-of basic functionality is not yet implemented.  Use at your own risk.
+The current NFSv4 functionality is "alpha quality" software.  Some
+basic functionality is not yet implemented.  Use at your own risk.
 Currently, the only way to enable NFSv4 is to specify the mount option:
 .Pp
 .D1 Fl o Cm vers Ns = Ns 4.0alpha

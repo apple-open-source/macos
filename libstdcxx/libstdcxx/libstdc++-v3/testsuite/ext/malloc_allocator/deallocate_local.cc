@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -14,7 +14,7 @@
 //
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // 20.4.1.1 allocator members
@@ -44,7 +44,8 @@ void operator delete(void* p) throw()
   if (alloc_cnt == 0)
     printf("All memory released \n");
   else
-    printf("%u allocations to be released \n", alloc_cnt);
+    printf("%lu allocations to be released \n",
+	   static_cast<unsigned long>(alloc_cnt));
   free(p);
 }
 

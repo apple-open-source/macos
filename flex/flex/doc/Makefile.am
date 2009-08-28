@@ -1,19 +1,16 @@
 help2man = @HELP2MAN@
 
 info_TEXINFOS =	flex.texi
-man_MANS = flex.1
-
-MAINTAINERCLEANFILES = \
-	flex.1
+dist_man_MANS = flex.1
+EXTRA_DIST = flex.pdf
 
 CLEANFILES = \
 	flex.hks \
 	flex.ops
 
-EXTRA_DIST = \
-	$(man_MANS)
-
-$(man_MANS): $(top_srcdir)/main.c
-	for i in $(man_MANS) ; do \
-	$(help2man) --name='fast lexical analyzer generator' --section=`echo $$i|rev|cut -f 1 -d .|rev` ../flex > $$i ; \
+$(dist_man_MANS): $(top_srcdir)/main.c
+	for i in $(dist_man_MANS) ; do \
+	$(help2man) --name='$(PACKAGE_NAME)' \
+	--section=`echo $$i | sed -e 's/.*\.\([^.]*\)$$/\1/'` \
+	 ../flex$(EXEEXT) > $$i || rm -f $$i ; \
 	done

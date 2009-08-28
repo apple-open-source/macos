@@ -20,11 +20,11 @@
  */
 
 /*
- * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)dt_program.c	1.11	06/09/19 SMI"
+#pragma ident	"@(#)dt_program.c	1.12	08/05/05 SMI"
 
 #include <unistd.h>
 #include <strings.h>
@@ -38,10 +38,7 @@
 #include <dt_program.h>
 #include <dt_printf.h>
 #include <dt_provider.h>
-
-#if defined(__APPLE__)	
 #include <dt_ld.h>
-#endif
 
 dtrace_prog_t *
 dt_program_create(dtrace_hdl_t *dtp)
@@ -454,8 +451,13 @@ dt_header_decl(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 		return (dt_set_errno(dtp, errno));
 
 #if !defined(__APPLE__)
-	if (fprintf(infop->dthi_out, "extern int "
-	    "__dtraceenabled_%s___%s(void);\n", infop->dthi_pfname, fname) < 0)
+	if (fprintf(infop->dthi_out,
+	    "#ifndef\t__sparc\n"
+	    "extern int __dtraceenabled_%s___%s(void);\n"
+	    "#else\n"
+	    "extern int __dtraceenabled_%s___%s(long);\n"
+	    "#endif\n",
+	    infop->dthi_pfname, fname, infop->dthi_pfname, fname) < 0)
 		return (dt_set_errno(dtp, errno));
 #else
 	char* isenabled;
@@ -520,7 +522,7 @@ dt_header_probe(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 		if (fprintf(infop->dthi_out, ") \\\n") < 0)
 			return (dt_set_errno(dtp, errno));
 
-		if (fprintf(infop->dthi_out, "{ \\\n\t") < 0)
+		if (fprintf(infop->dthi_out, "do { \\\n\t") < 0)
 			return (dt_set_errno(dtp, errno));
 		
 		if (fprintf(infop->dthi_out, "__asm__ volatile(\".reference \" %s_TYPEDEFS); \\\n\t", infop->dthi_pmname) < 0)
@@ -558,22 +560,32 @@ dt_header_probe(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 	if (fprintf(infop->dthi_out, "__asm__ volatile(\".reference \" %s_STABILITY); \\\n", infop->dthi_pmname) < 0)
 		return (dt_set_errno(dtp, errno));
 
-	if (fprintf(infop->dthi_out, "} \n") < 0)
+	if (fprintf(infop->dthi_out, "} while (0)\n") < 0)
 		return (dt_set_errno(dtp, errno));
 #endif
 	
 	if (!infop->dthi_empty) {
-		if (fprintf(infop->dthi_out, "#define\t%s_%s_ENABLED() \\\n",
-		    infop->dthi_pmname, mname) < 0)
-			return (dt_set_errno(dtp, errno));
-
 #if !defined(__APPLE__)
-		if (fprintf(infop->dthi_out, "\t__dtraceenabled_%s___%s()\n",
+		if (fprintf(infop->dthi_out,
+		    "#ifndef\t__sparc\n"
+		    "#define\t%s_%s_ENABLED() \\\n"
+		    "\t__dtraceenabled_%s___%s()\n"
+		    "#else\n"
+		    "#define\t%s_%s_ENABLED() \\\n"
+		    "\t__dtraceenabled_%s___%s(0)\n"
+		    "#endif\n",
+		    infop->dthi_pmname, mname,
+		    infop->dthi_pfname, fname,
+		    infop->dthi_pmname, mname,
 		    infop->dthi_pfname, fname) < 0)
 			return (dt_set_errno(dtp, errno));
 #else
 		char* isenabled;
-		
+
+		if (fprintf(infop->dthi_out, "#define\t%s_%s_ENABLED() \\\n",
+		    infop->dthi_pmname, mname) < 0)
+			return (dt_set_errno(dtp, errno));
+
 		if ((isenabled = dt_ld_encode_isenabled(infop->dthi_pfname, fname)) == NULL)
 			return (dt_set_errno(dtp, errno));
 		

@@ -8,6 +8,7 @@
   <dict> <key>Text</key><string>&lt;Piece&gt; &lt;Square&gt; to/takes &lt;Square&gt;  (e.g. Knight g1 to f3)</string> </dict>
   <dict> <key>Text</key><string>Castle kingside</string> </dict>
   <dict> <key>Text</key><string>Castle queenside</string> </dict>
+  <dict> <key>Text</key><string>Drop &lt;Piece&gt; at &lt;Square&gt; (e.g. Drop knight at c7) [Crazyhouse only]</string> </dict>
   <dict> <key>Text</key><string>Take back move</string> </dict>
  </array>
 </dict>

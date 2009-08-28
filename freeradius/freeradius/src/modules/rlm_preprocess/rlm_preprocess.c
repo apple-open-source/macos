@@ -3,7 +3,7 @@
  *		Contains the functions for the "huntgroups" and "hints"
  *		files.
  *
- * Version:     $Id: rlm_preprocess.c,v 1.52.2.1.2.4 2007/04/07 22:42:51 aland Exp $
+ * Version:     $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -17,26 +17,20 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2000  The FreeRADIUS server project
+ * Copyright 2000,2006  The FreeRADIUS server project
  * Copyright 2000  Alan DeKok <aland@ox.org>
  */
 
-static const char rcsid[] = "$Id: rlm_preprocess.c,v 1.52.2.1.2.4 2007/04/07 22:42:51 aland Exp $";
+#include	<freeradius-devel/ident.h>
+RCSID("$Id$")
 
-#include	"autoconf.h"
-#include	"libradius.h"
+#include	<freeradius-devel/radiusd.h>
+#include	<freeradius-devel/modules.h>
+#include	<freeradius-devel/rad_assert.h>
 
-#include	<sys/stat.h>
-
-#include	<stdio.h>
-#include	<stdlib.h>
-#include	<string.h>
 #include	<ctype.h>
-
-#include	"radiusd.h"
-#include	"modules.h"
 
 typedef struct rlm_preprocess_t {
 	char		*huntgroup_file;
@@ -51,11 +45,11 @@ typedef struct rlm_preprocess_t {
 	int		with_alvarion_vsa_hack;
 } rlm_preprocess_t;
 
-static CONF_PARSER module_config[] = {
-	{ "huntgroups",			PW_TYPE_STRING_PTR,
+static const CONF_PARSER module_config[] = {
+	{ "huntgroups",			PW_TYPE_FILENAME,
 	  offsetof(rlm_preprocess_t,huntgroup_file), NULL,
 	  "${raddbdir}/huntgroups" },
-	{ "hints",			PW_TYPE_STRING_PTR,
+	{ "hints",			PW_TYPE_FILENAME,
 	  offsetof(rlm_preprocess_t,hints_file), NULL,
 	  "${raddbdir}/hints" },
 	{ "with_ascend_hack",		PW_TYPE_BOOLEAN,
@@ -76,6 +70,16 @@ static CONF_PARSER module_config[] = {
 	{ NULL, -1, 0, NULL, NULL }
 };
 
+/*
+ *     See if a VALUE_PAIR list contains Fall-Through = Yes
+ */
+static int fallthrough(VALUE_PAIR *vp)
+{
+	VALUE_PAIR *tmp;
+	tmp = pairfind(vp, PW_FALL_THROUGH);
+
+	return tmp ? tmp->lvalue : 0;
+}
 
 /*
  *	dgreer --
@@ -93,11 +97,11 @@ static void ascend_nasport_hack(VALUE_PAIR *nas_port, int channels_per_line)
 		return;
 	}
 
-	if (nas_port->lvalue > 9999) {
-		service = nas_port->lvalue/10000; /* 1=digital 2=analog */
-		line = (nas_port->lvalue - (10000 * service)) / 100;
-		channel = nas_port->lvalue-((10000 * service)+(100 * line));
-		nas_port->lvalue =
+	if (nas_port->vp_integer > 9999) {
+		service = nas_port->vp_integer/10000; /* 1=digital 2=analog */
+		line = (nas_port->vp_integer - (10000 * service)) / 100;
+		channel = nas_port->vp_integer-((10000 * service)+(100 * line));
+		nas_port->vp_integer =
 			(channel - 1) + (line - 1) * channels_per_line;
 	}
 }
@@ -126,7 +130,7 @@ static void cisco_vsa_hack(VALUE_PAIR *vp)
 		/*
 		 *  No weird packing.  Ignore it.
 		 */
-		ptr = strchr((char *)vp->strvalue, '='); /* find an '=' */
+		ptr = strchr(vp->vp_strvalue, '='); /* find an '=' */
 		if (!ptr) continue;
 
 		/*
@@ -141,10 +145,10 @@ static void cisco_vsa_hack(VALUE_PAIR *vp)
 		 *	attribute.
 		 */
 		if ((vp->attribute & 0xffff) == 1) {
-			char *p;
+			const char *p;
 			DICT_ATTR	*dattr;
 
-			p = (char *)vp->strvalue;
+			p = vp->vp_strvalue;
 			gettoken(&p, newattr, sizeof(newattr));
 
 			if (((dattr = dict_attrbyname(newattr)) != NULL) &&
@@ -165,10 +169,10 @@ static void cisco_vsa_hack(VALUE_PAIR *vp)
 			 *	value field, we use only the value on
 			 *	the right side of the '=' character.
 			 */
-			strNcpy(newattr, ptr + 1, sizeof(newattr));
-			strNcpy((char *)vp->strvalue, newattr,
-				sizeof(vp->strvalue));
-			vp->length = strlen((char *)vp->strvalue);
+			strlcpy(newattr, ptr + 1, sizeof(newattr));
+			strlcpy((char *)vp->vp_strvalue, newattr,
+				sizeof(vp->vp_strvalue));
+			vp->length = strlen((char *)vp->vp_strvalue);
 		}
 	}
 }
@@ -183,13 +187,19 @@ static void alvarion_vsa_hack(VALUE_PAIR *vp)
 	int		number = 1;
 
 	for ( ; vp != NULL; vp = vp->next) {
+		DICT_ATTR *da;
+
 		vendorcode = VENDOR(vp->attribute);
 		if (vendorcode != 12394) continue;
 		if (vp->type != PW_TYPE_STRING) continue;
 
-		vp->attribute = number | (12394 << 16);
-		snprintf(vp->name, sizeof(vp->name),
-			 "Breezecom-Attr%d", number++);
+		da = dict_attrbyvalue(number | (12394 << 16));
+		if (!da) continue;
+
+		vp->attribute = da->attr;
+		vp->name = da->name;
+
+		number++;
 	}
 }
 
@@ -223,10 +233,10 @@ static void rad_mangle(rlm_preprocess_t *data, REQUEST *request)
 		 *
 		 *	FIXME: should we handle this as a REALM ?
 		 */
-		if ((ptr = strchr((char *)namepair->strvalue, '\\')) != NULL) {
-			strNcpy(newname, ptr + 1, sizeof(newname));
+		if ((ptr = strchr(namepair->vp_strvalue, '\\')) != NULL) {
+			strlcpy(newname, ptr + 1, sizeof(newname));
 			/* Same size */
-			strcpy((char *)namepair->strvalue, newname);
+			strcpy(namepair->vp_strvalue, newname);
 			namepair->length = strlen(newname);
 		}
 	}
@@ -242,12 +252,12 @@ static void rad_mangle(rlm_preprocess_t *data, REQUEST *request)
 		 *
 		 *	Reported by Lucas Heise <root@laonet.net>
 		 */
-		if ((strlen((char *)namepair->strvalue) > 10) &&
-		    (namepair->strvalue[10] == '/')) {
-			for (ptr = (char *)namepair->strvalue + 11; *ptr; ptr++)
+		if ((strlen((char *)namepair->vp_strvalue) > 10) &&
+		    (namepair->vp_strvalue[10] == '/')) {
+			for (ptr = (char *)namepair->vp_strvalue + 11; *ptr; ptr++)
 				*(ptr - 1) = *ptr;
 			*(ptr - 1) = 0;
-			namepair->length = strlen((char *)namepair->strvalue);
+			namepair->length = strlen((char *)namepair->vp_strvalue);
 		}
 	}
 
@@ -257,11 +267,9 @@ static void rad_mangle(rlm_preprocess_t *data, REQUEST *request)
 	 */
 	if (pairfind(request_pairs, PW_FRAMED_PROTOCOL) != NULL &&
 	    pairfind(request_pairs, PW_SERVICE_TYPE) == NULL) {
-		tmp = paircreate(PW_SERVICE_TYPE, PW_TYPE_INTEGER);
-		if (tmp) {
-			tmp->lvalue = PW_FRAMED_USER;
-			pairmove(&request_pairs, &tmp);
-		}
+		tmp = radius_paircreate(request, &request->packet->vps,
+					PW_SERVICE_TYPE, PW_TYPE_INTEGER);
+		tmp->vp_integer = PW_FRAMED_USER;
 	}
 }
 
@@ -283,7 +291,7 @@ static int hunt_paircmp(REQUEST *req, VALUE_PAIR *request, VALUE_PAIR *check)
 		tmp = check_item->next;
 		check_item->next = NULL;
 
-		result = paircmp(req, request, check_item, NULL);
+		result = paircompare(req, request, check_item, NULL);
 
 		check_item->next = tmp;
 		check_item = check_item->next;
@@ -304,6 +312,8 @@ static int hints_setup(PAIR_LIST *hints, REQUEST *request)
 	VALUE_PAIR	*tmp;
 	PAIR_LIST	*i;
 	VALUE_PAIR *request_pairs;
+	int		updated = 0, ft;
+
 
 	request_pairs = request->packet->vps;
 
@@ -316,7 +326,7 @@ static int hints_setup(PAIR_LIST *hints, REQUEST *request)
 	if ((tmp = pairfind(request_pairs, PW_USER_NAME)) == NULL)
 		name = NULL;
 	else
-		name = (char *)tmp->strvalue;
+		name = (char *)tmp->vp_strvalue;
 
 	if (name == NULL || name[0] == 0)
 		/*
@@ -326,27 +336,30 @@ static int hints_setup(PAIR_LIST *hints, REQUEST *request)
 
 	for (i = hints; i; i = i->next) {
 		/*
-		 *	Use "paircmp", which is a little more general...
+		 *	Use "paircompare", which is a little more general...
 		 */
-		if (paircmp(request, request_pairs, i->check, NULL) == 0) {
-			DEBUG2("  hints: Matched %s at %d",
+		if (((strcmp(i->name, "DEFAULT") == 0) ||
+		     (strcmp(i->name, name) == 0)) &&
+		    (paircompare(request, request_pairs, i->check, NULL) == 0)) {
+			RDEBUG2("  hints: Matched %s at %d",
 			       i->name, i->lineno);
-			break;
+			/*
+			 *	Now add all attributes to the request list,
+			 *	except PW_STRIP_USER_NAME and PW_FALL_THROUGH
+			 *	and xlat them.
+			 */
+			add = paircopy(i->reply);
+			ft = fallthrough(add);
+			pairdelete(&add, PW_STRIP_USER_NAME);
+			pairdelete(&add, PW_FALL_THROUGH);
+			pairxlatmove(request, &request->packet->vps, &add);
+			pairfree(&add);
+			updated = 1;
+			if (!ft) break;
 		}
 	}
 
-	if (i == NULL) return RLM_MODULE_NOOP;
-
-	add = paircopy(i->reply);
-
-	/*
-	 *	Now add all attributes to the request list,
-	 *	except the PW_STRIP_USER_NAME one, and
-	 *	xlat them.
-	 */
-	pairdelete(&add, PW_STRIP_USER_NAME);
-	pairxlatmove(request, &request->packet->vps, &add);
-	pairfree(&add);
+	if (updated == 0) return RLM_MODULE_NOOP;
 
 	return RLM_MODULE_UPDATED;
 }
@@ -354,11 +367,11 @@ static int hints_setup(PAIR_LIST *hints, REQUEST *request)
 /*
  *	See if we have access to the huntgroup.
  */
-static int huntgroup_access(REQUEST *request,
-			    PAIR_LIST *huntgroups, VALUE_PAIR *request_pairs)
+static int huntgroup_access(REQUEST *request, PAIR_LIST *huntgroups)
 {
 	PAIR_LIST	*i;
 	int		r = RLM_MODULE_OK;
+	VALUE_PAIR	*request_pairs = request->packet->vps;
 
 	/*
 	 *	We're not controlling access by huntgroups:
@@ -371,7 +384,7 @@ static int huntgroup_access(REQUEST *request,
 		/*
 		 *	See if this entry matches.
 		 */
-		if (paircmp(request, request_pairs, i->check, NULL) != 0)
+		if (paircompare(request, request_pairs, i->check, NULL) != 0)
 			continue;
 
 		/*
@@ -387,19 +400,13 @@ static int huntgroup_access(REQUEST *request,
 			 */
 			vp = pairfind(request_pairs, PW_HUNTGROUP_NAME);
 			if (!vp) {
-				vp = paircreate(PW_HUNTGROUP_NAME,
-						PW_TYPE_STRING);
-				if (!vp) {
-					radlog(L_ERR, "No memory");
-					r = RLM_MODULE_FAIL;
-					break;
-				}
-
-				strNcpy((char *)vp->strvalue, i->name,
-					sizeof(vp->strvalue));
-				vp->length = strlen((char *)vp->strvalue);
-
-				pairadd(&request_pairs, vp);
+				vp = radius_paircreate(request,
+						       &request->packet->vps,
+						       PW_HUNTGROUP_NAME,
+						       PW_TYPE_STRING);
+				strlcpy(vp->vp_strvalue, i->name,
+					sizeof(vp->vp_strvalue));
+				vp->length = strlen(vp->vp_strvalue);
 			}
 			r = RLM_MODULE_OK;
 		}
@@ -417,37 +424,34 @@ static int add_nas_attr(REQUEST *request)
 {
 	VALUE_PAIR *nas;
 
-	nas = pairfind(request->packet->vps, PW_NAS_IP_ADDRESS);
-	if (!nas) {
-		nas = paircreate(PW_NAS_IP_ADDRESS, PW_TYPE_IPADDR);
+	switch (request->packet->src_ipaddr.af) {
+	case AF_INET:
+		nas = pairfind(request->packet->vps, PW_NAS_IP_ADDRESS);
 		if (!nas) {
-			radlog(L_ERR, "No memory");
-			return -1;
+			nas = radius_paircreate(request, &request->packet->vps,
+						PW_NAS_IP_ADDRESS,
+						PW_TYPE_IPADDR);
+			nas->vp_ipaddr = request->packet->src_ipaddr.ipaddr.ip4addr.s_addr;
 		}
-		nas->lvalue = request->packet->src_ipaddr;
-		ip_hostname((char *)nas->strvalue, sizeof(nas->strvalue), nas->lvalue);
-		pairadd(&request->packet->vps, nas);
+		break;
+
+	case AF_INET6:
+		nas = pairfind(request->packet->vps, PW_NAS_IPV6_ADDRESS);
+		if (!nas) {
+			nas = radius_paircreate(request, &request->packet->vps,
+						PW_NAS_IPV6_ADDRESS,
+						PW_TYPE_IPV6ADDR);
+			memcpy(nas->vp_strvalue,
+			       &request->packet->src_ipaddr.ipaddr,
+			       sizeof(request->packet->src_ipaddr.ipaddr));
+		}
+		break;
+
+	default:
+		radlog(L_ERR, "Unknown address family for packet");
+		return -1;
 	}
 
-	/*
-	 *	Add in a Client-IP-Address, to tell the user
-	 *	the source IP of the request.  That is, the client,
-	 *
-	 *	Note that this MAY BE different from the NAS-IP-Address,
-	 *	especially if the request is being proxied.
-	 *
-	 *	Note also that this is a server configuration item,
-	 *	and will NOT make it to any packets being sent from
-	 *	the server.
-	 */
-	nas = paircreate(PW_CLIENT_IP_ADDRESS, PW_TYPE_IPADDR);
-	if (!nas) {
-	  radlog(L_ERR, "No memory");
-	  return -1;
-	}
-	nas->lvalue = request->packet->src_ipaddr;
-	ip_hostname((char *)nas->strvalue, sizeof(nas->strvalue), nas->lvalue);
-	pairadd(&request->packet->vps, nas);
 	return 0;
 }
 
@@ -510,7 +514,6 @@ static int preprocess_instantiate(CONF_SECTION *conf, void **instance)
  */
 static int preprocess_authorize(void *instance, REQUEST *request)
 {
-	char buf[1024];
 	int r;
 	rlm_preprocess_t *data = (rlm_preprocess_t *) instance;
 
@@ -567,20 +570,18 @@ static int preprocess_authorize(void *instance, REQUEST *request)
 	if (pairfind(request->packet->vps, PW_CHAP_PASSWORD) &&
 	    pairfind(request->packet->vps, PW_CHAP_CHALLENGE) == NULL) {
 		VALUE_PAIR *vp;
-		vp = paircreate(PW_CHAP_CHALLENGE, PW_TYPE_OCTETS);
-		if (!vp) {
-			radlog(L_ERR|L_CONS, "no memory");
-			return RLM_MODULE_FAIL;
-		}
+
+		vp = radius_paircreate(request, &request->packet->vps,
+				       PW_CHAP_CHALLENGE, PW_TYPE_OCTETS);
 		vp->length = AUTH_VECTOR_LEN;
-		memcpy(vp->strvalue, request->packet->vector, AUTH_VECTOR_LEN);
-		pairadd(&request->packet->vps, vp);
+		memcpy(vp->vp_strvalue, request->packet->vector, AUTH_VECTOR_LEN);
 	}
 
-	if ((r = huntgroup_access(request, data->huntgroups,
-			     request->packet->vps)) != RLM_MODULE_OK) {
-		radlog(L_AUTH, "No huntgroup access: [%s] (%s)",
-		       request->username ? (char *)request->username->strvalue : "<No User-Name>",
+	if ((r = huntgroup_access(request,
+				  data->huntgroups)) != RLM_MODULE_OK) {
+		char buf[1024];
+		radlog_request(L_AUTH, 0, request, "No huntgroup access: [%s] (%s)",
+		       request->username ? request->username->vp_strvalue : "<NO User-Name>",
 		       auth_name(buf, sizeof(buf), request, 1));
 		return r;
 	}
@@ -627,6 +628,15 @@ static int preprocess_preaccounting(void *instance, REQUEST *request)
 
 	r = hints_setup(data->hints, request);
 
+	if ((r = huntgroup_access(request,
+				  data->huntgroups)) != RLM_MODULE_OK) {
+		char buf[1024];
+		radlog_request(L_INFO, 0, request, "No huntgroup access: [%s] (%s)",
+		       request->username ? request->username->vp_strvalue : "<NO User-Name>",
+		       auth_name(buf, sizeof(buf), request, 1));
+		return r;
+	}
+
 	return r;
 }
 
@@ -640,8 +650,6 @@ static int preprocess_detach(void *instance)
 	pairlist_free(&(data->huntgroups));
 	pairlist_free(&(data->hints));
 
-	free(data->huntgroup_file);
-	free(data->hints_file);
 	free(data);
 
 	return 0;
@@ -649,10 +657,11 @@ static int preprocess_detach(void *instance)
 
 /* globally exported name */
 module_t rlm_preprocess = {
+	RLM_MODULE_INIT,
 	"preprocess",
-	0,			/* type: reserved */
-	NULL,			/* initialization */
+	RLM_TYPE_CHECK_CONFIG_SAFE,   	/* type */
 	preprocess_instantiate,	/* instantiation */
+	preprocess_detach,	/* detach */
 	{
 		NULL,			/* authentication */
 		preprocess_authorize,	/* authorization */
@@ -663,7 +672,5 @@ module_t rlm_preprocess = {
 		NULL,			/* post-proxy */
 		NULL			/* post-auth */
 	},
-	preprocess_detach,	/* detach */
-	NULL,			/* destroy */
 };
 

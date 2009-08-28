@@ -25,7 +25,7 @@ to build the project and
 
     make install 
 
-(possibly after having gained root access) to instal the library
+(possibly after having gained root access) to install the library
 and associated include and scripts.
 
 When installing from a checkout of the GNOME CVS base:

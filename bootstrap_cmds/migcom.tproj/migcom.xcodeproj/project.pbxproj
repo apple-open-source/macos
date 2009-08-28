@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		27B2CCC90EC50B590028A012 /* handler.c in Sources */ = {isa = PBXBuildFile; fileRef = 27B2CCC80EC50B590028A012 /* handler.c */; };
+		27B2CCCB0EC50B730028A012 /* mig_errors.h in Headers */ = {isa = PBXBuildFile; fileRef = 27B2CCCA0EC50B730028A012 /* mig_errors.h */; };
 		579F96740AF6B3AE008E535C /* error.c in Sources */ = {isa = PBXBuildFile; fileRef = 572500D70AD4567700A6E6C4 /* error.c */; };
 		579F96750AF6B3AE008E535C /* global.c in Sources */ = {isa = PBXBuildFile; fileRef = 572500D90AD4567700A6E6C4 /* global.c */; };
 		579F96760AF6B3AE008E535C /* header.c in Sources */ = {isa = PBXBuildFile; fileRef = 572500DB0AD4567700A6E6C4 /* header.c */; };
@@ -24,6 +26,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		27B2CCC80EC50B590028A012 /* handler.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = handler.c; sourceTree = "<group>"; };
+		27B2CCCA0EC50B730028A012 /* mig_errors.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = mig_errors.h; sourceTree = "<group>"; };
 		572500D60AD4567700A6E6C4 /* alloc.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = alloc.h; sourceTree = "<group>"; };
 		572500D70AD4567700A6E6C4 /* error.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = error.c; sourceTree = "<group>"; };
 		572500D80AD4567700A6E6C4 /* error.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = error.h; sourceTree = "<group>"; };
@@ -34,8 +38,6 @@
 		572500DE0AD4567700A6E6C4 /* lexxer.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = lexxer.h; sourceTree = "<group>"; };
 		572500DF0AD4567700A6E6C4 /* lexxer.l */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.lex; path = lexxer.l; sourceTree = "<group>"; };
 		572500E00AD4567700A6E6C4 /* Makefile */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
-		572500E10AD4567700A6E6C4 /* Makefile.postamble */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = Makefile.postamble; sourceTree = "<group>"; };
-		572500E20AD4567700A6E6C4 /* Makefile.preamble */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = Makefile.preamble; sourceTree = "<group>"; };
 		572500E30AD4567700A6E6C4 /* mig_machine.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = mig_machine.h; sourceTree = "<group>"; };
 		572500E40AD4567700A6E6C4 /* mig.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = mig.c; sourceTree = "<group>"; };
 		572500E50AD4567700A6E6C4 /* mig.sh */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.sh; path = mig.sh; sourceTree = "<group>"; };
@@ -76,8 +78,6 @@
 			isa = PBXGroup;
 			children = (
 				572500E00AD4567700A6E6C4 /* Makefile */,
-				572500E10AD4567700A6E6C4 /* Makefile.postamble */,
-				572500E20AD4567700A6E6C4 /* Makefile.preamble */,
 				572500FB0AD4569F00A6E6C4 /* Sources */,
 				579F97140AF6BE2A008E535C /* Derived files */,
 				579F965E0AF6B348008E535C /* Products */,
@@ -108,10 +108,12 @@
 				572500D80AD4567700A6E6C4 /* error.h */,
 				572500D90AD4567700A6E6C4 /* global.c */,
 				572500DA0AD4567700A6E6C4 /* global.h */,
+				27B2CCC80EC50B590028A012 /* handler.c */,
 				572500DB0AD4567700A6E6C4 /* header.c */,
 				572500DC0AD4567700A6E6C4 /* i386 */,
 				572500DE0AD4567700A6E6C4 /* lexxer.h */,
 				572500DF0AD4567700A6E6C4 /* lexxer.l */,
+				27B2CCCA0EC50B730028A012 /* mig_errors.h */,
 				572500E30AD4567700A6E6C4 /* mig_machine.h */,
 				572500E40AD4567700A6E6C4 /* mig.c */,
 				572500E50AD4567700A6E6C4 /* mig.sh */,
@@ -159,6 +161,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				27B2CCCB0EC50B730028A012 /* mig_errors.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -298,6 +301,7 @@
 				579F96800AF6B3AE008E535C /* utils.c in Sources */,
 				579F96ED0AF6BBD2008E535C /* lexxer.c in Sources */,
 				579F96EE0AF6BBD2008E535C /* parser.c in Sources */,
+				27B2CCC90EC50B590028A012 /* handler.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

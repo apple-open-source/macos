@@ -1,6 +1,6 @@
 .TH LDAPPASSWD 1 "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man1/ldappasswd.1,v 1.36.2.3 2006/01/03 22:16:04 kurt Exp $
-.\" Copyright 1998-2006 The OpenLDAP Foundation All Rights Reserved.
+.\" $OpenLDAP: pkg/ldap/doc/man/man1/ldappasswd.1,v 1.39.2.5 2008/02/11 23:26:39 kurt Exp $
+.\" Copyright 1998-2008 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 ldappasswd \- change the password of an LDAP entry
@@ -47,13 +47,11 @@ ldappasswd \- change the password of an LDAP entry
 [\c
 .BI \-U \ authcid\fR]
 [\c
-.BI \-R \ authcid\fR]
+.BI \-R \ realm\fR]
 [\c
 .BR \-x ]
 [\c
 .BI \-X \ authzid\fR]
-[\c
-.BI \-R \ realm\fR]
 [\c
 .BI \-Y \ mech\fR]
 [\c
@@ -185,7 +183,4 @@ the command will require the operation to be successful
 .SH AUTHOR
 The OpenLDAP Project <http://www.openldap.org/>
 .SH ACKNOWLEDGEMENTS
-.B OpenLDAP
-is developed and maintained by The OpenLDAP Project (http://www.openldap.org/).
-.B OpenLDAP
-is derived from University of Michigan LDAP 3.3 Release.  
+.so ../Project

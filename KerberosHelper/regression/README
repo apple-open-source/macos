@@ -1,0 +1,5 @@
+Simple regression suite, to run use:
+
+       sudo make check
+
+The tests run in /var/krb5/db/test to get around sandbox limitations.

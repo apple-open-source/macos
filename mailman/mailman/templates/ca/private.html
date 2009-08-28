@@ -1,41 +1,43 @@
 <html>
 <head>
-    <title>%(realname)s Private Archives Authentication</title>
+    <title>Autenticaci&oacute; per als arxius privats de %(realname)s</title>
 </head>
 <body bgcolor="#ffffff">
 <FORM METHOD=POST ACTION="%(action)s">
 %(message)s
   <TABLE WIDTH="100%%" BORDER="0" CELLSPACING="4" CELLPADDING="5">
     <TR>
-      <TD COLSPAN="2" WIDTH="100%%" BGCOLOR="#99CCFF" ALIGN="CENTER"> <B><FONT COLOR="#000000" SIZE="+1"> 
-        Autentificaci&oacute; d'Arxius Privats de %(realname)s</FONT></B></TD>
+      <TD COLSPAN="2" WIDTH="100%%" BGCOLOR="#99CCFF" ALIGN="CENTER">
+	<B><FONT COLOR="#000000" SIZE="+1">Autenticaci&oacute; per als arxius
+	    privats de %(realname)s</FONT></B>
+      </TD>
     </TR>
     <tr>
-        <TD><div ALIGN="Right">Adre&ccedil;a d'emai:l</div></TD>
+        <TD><div ALIGN="Right">Adre&ccedil;a electr&ograve;nica:</div>
         <TD><INPUT TYPE="text" NAME="username" SIZE="30"></TD>
     </tr>
     <tr>
-      <TD><div ALIGN="Right">clau de pas:</div></TD>
+      <TD><div ALIGN="Right">Contrasenya:</div></TD>
       <TD><INPUT TYPE="password" NAME="password" SIZE="30"></TD>
     </tr>
     <tr>
       <td colspan=2 align="middle"><INPUT type="SUBMIT"
                                           name="submit"
-					  value="entrar...">
-      </td>
-    </tr>
+					  value="Entra...">
+        </td>
+      </tr>
   </TABLE>
-      
-  <p><strong><em>Important:</em></strong> A partir d'ara, cal que tingui les cookies 
-    habilitades en el seu navegador, si no cap canvi administratiu pendr&agrave; 
-    efecte. 
-  <p>Les cookies de la sessi&oacute; s&oacute;n usades per la interf&iacute;cie 
-    administrativa de Mailman, de manera que no necessita re-autentificar cada 
-    cop que realitzi una operaci&oacute; administrativa Aquesta cookie expirar&agrave; 
-    autom&agrave;ticament quan abandoni el navegador, o pot eliminar la cookie 
-    expl&iacute;citament prement el bot&oacute; <em>Logout</em> sota <em>Altres 
-    Activitats Administratives</em> (que podr&agrave; veure un cop h&agrave;giu 
-    iniciat la sessi&oacute;). 
+      <p><strong><em>Important:</em></strong>
+      a partir d'aqu&iacute;, caldr&agrave; que tingueu les galetes habilitades en el
+      vostre navegador. En cas contrari, us haureu de tornar a autenticar per a cada operaci&oacute;. </p>
+
+      <p>La interf&iacute;cie administrativa del Mailman utilitza galetes de
+      sessi&oacute;, de manera que us no h&agrave;giu de tornar a autenticar per a cada
+      operaci&oacute;. Aquesta galeta expirar&agrave; autom&agrave;ticament quan
+      sortiu del navegador. De manera alternativa, podeu eliminar-la
+      expl&iacute;citament si feu clic al bot&oacute; <em>Surt</em> a sota d'<em>Altres
+      tasques administratives</em> (el qual es mostrar&agrave; un cop h&agrave;giu
+      entrat).
 </FORM>
 </body>
 </html>

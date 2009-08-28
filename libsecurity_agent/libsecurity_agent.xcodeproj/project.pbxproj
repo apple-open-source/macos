@@ -101,51 +101,9 @@
 		4C19B48C05448BF800B31040 /* security_agent_server.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = security_agent_server.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C24BF380557273B00C95CD3 /* mig.mk */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = mig.mk; sourceTree = "<group>"; };
 		4C5634D80540A47B00DCF0C8 /* security_agent_client.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = security_agent_client.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		4CA1FEBE052A3C8100F22E42 /* security_agent_client */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; path = security_agent_client; sourceTree = BUILT_PRODUCTS_DIR; };
-		4CA1FED4052A450F00F22E42 /* security_agent_server */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; path = security_agent_server; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CA1FEBE052A3C8100F22E42 /* security_agent_client */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = security_agent_client; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CA1FED4052A450F00F22E42 /* security_agent_server */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = security_agent_server; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
-
-/* Begin PBXFrameworkTarget section */
-		4C19B48B05448BF800B31040 /* security_agent_server */ = {
-			isa = PBXFrameworkTarget;
-			buildConfigurationList = C27AD2310987FCDC001272E0 /* Build configuration list for PBXFrameworkTarget "security_agent_server" */;
-			buildPhases = (
-				4C19B48605448BF800B31040 /* Headers */,
-			);
-			dependencies = (
-			);
-			name = security_agent_server;
-			productInstallPath = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-			productName = security_agent_server;
-			productReference = 4C19B48C05448BF800B31040 /* security_agent_server.framework */;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict/>
-</plist>
-";
-		};
-		4C5634D70540A47B00DCF0C8 /* security_agent_client */ = {
-			isa = PBXFrameworkTarget;
-			buildConfigurationList = C27AD22D0987FCDC001272E0 /* Build configuration list for PBXFrameworkTarget "security_agent_client" */;
-			buildPhases = (
-				4C5634D20540A47B00DCF0C8 /* Headers */,
-			);
-			dependencies = (
-				4C7503300540CD3D00056564 /* PBXTargetDependency */,
-			);
-			name = security_agent_client;
-			productInstallPath = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-			productName = security_agent;
-			productReference = 4C5634D80540A47B00DCF0C8 /* security_agent_client.framework */;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict/>
-</plist>
-";
-		};
-/* End PBXFrameworkTarget section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		4CA1FEBB052A3C8100F22E42 /* Frameworks */ = {
@@ -273,16 +231,51 @@
 		};
 /* End PBXLegacyTarget section */
 
-/* Begin PBXLibraryTarget section */
+/* Begin PBXNativeTarget section */
+		4C19B48B05448BF800B31040 /* security_agent_server */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD2310987FCDC001272E0 /* Build configuration list for PBXNativeTarget "security_agent_server" */;
+			buildPhases = (
+				4C19B48605448BF800B31040 /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = security_agent_server;
+			productInstallPath = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+			productName = security_agent_server;
+			productReference = 4C19B48C05448BF800B31040 /* security_agent_server.framework */;
+			productType = "com.apple.product-type.framework";
+		};
+		4C5634D70540A47B00DCF0C8 /* security_agent_client */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD22D0987FCDC001272E0 /* Build configuration list for PBXNativeTarget "security_agent_client" */;
+			buildPhases = (
+				4C5634D20540A47B00DCF0C8 /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				4C7503300540CD3D00056564 /* PBXTargetDependency */,
+			);
+			name = security_agent_client;
+			productInstallPath = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+			productName = security_agent;
+			productReference = 4C5634D80540A47B00DCF0C8 /* security_agent_client.framework */;
+			productType = "com.apple.product-type.framework";
+		};
 		4CA1FEBD052A3C8100F22E42 /* libsecurity_agent_client */ = {
-			isa = PBXLibraryTarget;
-			buildConfigurationList = C27AD2390987FCDC001272E0 /* Build configuration list for PBXLibraryTarget "libsecurity_agent_client" */;
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD2390987FCDC001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_agent_client" */;
 			buildPhases = (
 				4CA1FEB9052A3C8100F22E42 /* Headers */,
 				4CA1FEBA052A3C8100F22E42 /* Sources */,
 				4CA1FEBB052A3C8100F22E42 /* Frameworks */,
 				4C789CA2055AF94800B6FC95 /* ShellScript */,
 				4CD0D4CD055B0FD5001715CB /* ShellScript */,
+			);
+			buildRules = (
 			);
 			dependencies = (
 				4C75032E0540CD3400056564 /* PBXTargetDependency */,
@@ -291,16 +284,19 @@
 			productInstallPath = /usr/local/lib;
 			productName = libsecurity_agent;
 			productReference = 4CA1FEBE052A3C8100F22E42 /* security_agent_client */;
+			productType = "com.apple.product-type.library.static";
 		};
 		4CA1FECF052A450F00F22E42 /* libsecurity_agent_server */ = {
-			isa = PBXLibraryTarget;
-			buildConfigurationList = C27AD2350987FCDC001272E0 /* Build configuration list for PBXLibraryTarget "libsecurity_agent_server" */;
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD2350987FCDC001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_agent_server" */;
 			buildPhases = (
 				4CA1FED0052A450F00F22E42 /* Headers */,
 				4CA1FED1052A450F00F22E42 /* Sources */,
 				4CA1FED2052A450F00F22E42 /* Frameworks */,
 				4C789CA5055AF95C00B6FC95 /* ShellScript */,
 				4CD0D4D0055B0FF0001715CB /* ShellScript */,
+			);
+			buildRules = (
 			);
 			dependencies = (
 				4CC35E1E0544A93C00A9CF4B /* PBXTargetDependency */,
@@ -310,8 +306,9 @@
 			name = libsecurity_agent_server;
 			productName = libsecurity_agent;
 			productReference = 4CA1FED4052A450F00F22E42 /* security_agent_server */;
+			productType = "com.apple.product-type.library.static";
 		};
-/* End PBXLibraryTarget section */
+/* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
 		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
@@ -323,7 +320,6 @@
 			productRefGroup = 4CA1FEBF052A3C8100F22E42 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
-			shouldCheckCompatibility = 1;
 			targets = (
 				40635B69052E4CBD0009891B /* world */,
 				4CA1FEBD052A3C8100F22E42 /* libsecurity_agent_client */,
@@ -347,7 +343,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tln -fs \"../../../${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework/Versions/A\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework\n\tnmedit -p \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\n\tranlib \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\ndone";
+			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tditto -V \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}${postfix}\" \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\n\tln -fs \"../../../${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework/Versions/A\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework\n\tnmedit -p \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\n\tranlib \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\ndone";
 		};
 		4C789CA5055AF95C00B6FC95 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -360,7 +356,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tln -fs \"../../../${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework/Versions/A\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework\n\tnmedit -p \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\n\tranlib \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\ndone";
+			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tditto -V \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}${postfix}\" \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\n\tln -fs \"../../../${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework/Versions/A\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework\n\tnmedit -p \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\n\tranlib \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\ndone";
 		};
 		4CD0D4CD055B0FD5001715CB /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -464,7 +460,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				PRODUCT_NAME = "generate mig";
 				ZERO_LINK = NO;
@@ -482,8 +477,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				INFOPLIST_FILE = "Info-security_agent_client.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Frameworks;
 				PRODUCT_NAME = security_agent_client;
 				WRAPPER_EXTENSION = framework;
@@ -493,10 +491,12 @@
 		C27AD22F0987FCDC001272E0 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				INFOPLIST_FILE = "Info-security_agent_client.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Frameworks;
 				PRODUCT_NAME = security_agent_client;
 				WRAPPER_EXTENSION = framework;
@@ -507,7 +507,10 @@
 		C27AD2300987FCDC001272E0 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
+				INFOPLIST_FILE = "Info-security_agent_client.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Frameworks;
 				PRODUCT_NAME = security_agent_client;
 				WRAPPER_EXTENSION = framework;
@@ -518,8 +521,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				INFOPLIST_FILE = "Info-security_agent_server.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Components/SecurityAgent;
 				PRODUCT_NAME = security_agent_server;
 				WRAPPER_EXTENSION = framework;
@@ -529,10 +535,12 @@
 		C27AD2330987FCDC001272E0 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				INFOPLIST_FILE = "Info-security_agent_server.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Components/SecurityAgent;
 				PRODUCT_NAME = security_agent_server;
 				WRAPPER_EXTENSION = framework;
@@ -543,7 +551,10 @@
 		C27AD2340987FCDC001272E0 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
+				INFOPLIST_FILE = "Info-security_agent_server.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Components/SecurityAgent;
 				PRODUCT_NAME = security_agent_server;
 				WRAPPER_EXTENSION = framework;
@@ -554,7 +565,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 32091;
+				CURRENT_PROJECT_VERSION = 36399;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				LIBRARY_STYLE = STATIC;
@@ -573,7 +586,7 @@
 				OTHER_CPLUSPLUSFLAGS_nopic = "-mdynamic-no-pic $(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_nopic = "-dead_strip $(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
@@ -595,10 +608,11 @@
 					debug,
 					nopic,
 				);
-				CURRENT_PROJECT_VERSION = 32091;
+				CURRENT_PROJECT_VERSION = 36399;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
@@ -616,7 +630,7 @@
 				OTHER_CPLUSPLUSFLAGS_nopic = "-mdynamic-no-pic $(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_nopic = "-dead_strip $(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
@@ -639,7 +653,9 @@
 					debug,
 					nopic,
 				);
-				CURRENT_PROJECT_VERSION = 32091;
+				CURRENT_PROJECT_VERSION = 36399;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
@@ -657,7 +673,7 @@
 				OTHER_CPLUSPLUSFLAGS_nopic = "-mdynamic-no-pic $(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_nopic = "-dead_strip $(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
@@ -675,7 +691,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 32091;
+				CURRENT_PROJECT_VERSION = 36399;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				LIBRARY_STYLE = STATIC;
@@ -695,7 +713,7 @@
 				OTHER_CPLUSPLUSFLAGS_nopic = "-mdynamic-no-pic $(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_nopic = "-dead_strip $(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
@@ -717,10 +735,11 @@
 					debug,
 					nopic,
 				);
-				CURRENT_PROJECT_VERSION = 32091;
+				CURRENT_PROJECT_VERSION = 36399;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
@@ -739,7 +758,7 @@
 				OTHER_CPLUSPLUSFLAGS_nopic = "-mdynamic-no-pic $(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_nopic = "-dead_strip $(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
@@ -762,7 +781,9 @@
 					debug,
 					nopic,
 				);
-				CURRENT_PROJECT_VERSION = 32091;
+				CURRENT_PROJECT_VERSION = 36399;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
@@ -781,7 +802,7 @@
 				OTHER_CPLUSPLUSFLAGS_nopic = "-mdynamic-no-pic $(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_nopic = "-dead_strip $(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
@@ -817,7 +838,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -887,7 +907,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
 		};
-		C27AD22D0987FCDC001272E0 /* Build configuration list for PBXFrameworkTarget "security_agent_client" */ = {
+		C27AD22D0987FCDC001272E0 /* Build configuration list for PBXNativeTarget "security_agent_client" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C27AD22E0987FCDC001272E0 /* Development */,
@@ -897,7 +917,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
 		};
-		C27AD2310987FCDC001272E0 /* Build configuration list for PBXFrameworkTarget "security_agent_server" */ = {
+		C27AD2310987FCDC001272E0 /* Build configuration list for PBXNativeTarget "security_agent_server" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C27AD2320987FCDC001272E0 /* Development */,
@@ -907,7 +927,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
 		};
-		C27AD2350987FCDC001272E0 /* Build configuration list for PBXLibraryTarget "libsecurity_agent_server" */ = {
+		C27AD2350987FCDC001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_agent_server" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C27AD2360987FCDC001272E0 /* Development */,
@@ -917,7 +937,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
 		};
-		C27AD2390987FCDC001272E0 /* Build configuration list for PBXLibraryTarget "libsecurity_agent_client" */ = {
+		C27AD2390987FCDC001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_agent_client" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C27AD23A0987FCDC001272E0 /* Development */,

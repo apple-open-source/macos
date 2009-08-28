@@ -1,0 +1,19 @@
+--- lib-src/vcdiff	2008/01/07 08:39:41	1.14.2.2
++++ lib-src/vcdiff	2008/04/18 18:27:25	1.14.2.3
+@@ -84,14 +84,14 @@
+ 	case $f in
+ 	s.* | */s.*)
+ 		if
+-			rev1=/tmp/geta$$
++			rev1=`mktemp /tmp/geta.XXXXXXXX`
+ 			get -s -p -k $sid1 "$f" > $rev1 &&
+ 			case $sid2 in
+ 			'')
+ 				workfile=`expr " /$f" : '.*/s.\(.*\)'`
+ 				;;
+ 			*)
+-				rev2=/tmp/getb$$
++				rev2=`mktemp /tmp/getb.XXXXXXXX`
+ 				get -s -p -k $sid2 "$f" > $rev2
+ 				workfile=$rev2
+ 			esac

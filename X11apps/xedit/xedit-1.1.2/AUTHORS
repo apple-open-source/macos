@@ -1,0 +1,143 @@
+(Original author based on manpage)
+Chris D. Peterson, MIT X Consortium
+commands.c
+util.c
+xedit.c
+xedit.h
+
+
+------------------------------------------------------------------------
+Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+xedit:
+hook.c
+hash.c
+ispell.c
+lisp.c
+options.c
+tags.c
+util.h
+
+xedit lisp interface:
+lisp/bytecode.c
+lisp/bytecode.h
+lisp/compile.c
+lisp/core.c
+lisp/core.h
+lisp/debugger.c
+lisp/debugger.h
+lisp/format.c
+lisp/format.h
+lisp/internal.h
+lisp/io.c
+lisp/io.h
+lisp/hash.c
+lisp/hash.h
+lisp/helper.c
+lisp/helper.h
+lisp/lisp.c
+lisp/lisp.h
+lisp/math.c
+lisp/math.h
+lisp/mathimp.c
+lisp/package.c
+lisp/package.h
+lisp/pathname.c
+lisp/pathname.h
+lisp/private.h
+lisp/read.c
+lisp/read.h
+lisp/regex.c
+lisp/regex.h
+lisp/require.c
+lisp/require.h
+lisp/stream.c
+lisp/stream.h
+lisp/string.c
+lisp/string.h
+lisp/struct.c
+lisp/struct.h
+lisp/time.c
+lisp/time.h
+lisp/write.c
+lisp/write.h
+lisp/xedit.c
+lisp/xedit.h
+
+bignum math library:
+lisp/mp/mp.h
+lisp/mp/mpr.c
+lisp/mp/mpi.c
+lisp/mp/mp.c
+
+command line lisp interpreter:
+lisp/lsp.c
+
+regex library:
+lisp/re/re.c
+lisp/re/re.h
+lisp/re/reo.c
+lisp/re/rep.h
+lisp/re/rec.c
+lisp/re/tests.c
+lisp/re/tests.txt
+
+source files to test the lisp interpreter:
+lisp/test/widgets.lsp
+lisp/test/list.lsp
+lisp/test/hello.lsp
+lisp/test/regex.lsp
+lisp/test/stream.lsp
+lisp/test/math.lsp
+
+lisp binary modules:
+lisp/modules/psql.c
+lisp/modules/x11.c
+lisp/modules/xaw.c
+lisp/modules/xt.c
+
+lisp source modules:
+lisp/modules/indent.lsp
+lisp/modules/lisp.lsp
+lisp/modules/syntax.lsp
+lisp/modules/xedit.lsp
+
+lisp syntax highlight and indentation rules definitions:
+lisp/modules/progmodes/c.lsp
+lisp/modules/progmodes/html.lsp
+lisp/modules/progmodes/imake.lsp
+lisp/modules/progmodes/lisp.lsp
+lisp/modules/progmodes/make.lsp
+lisp/modules/progmodes/man.lsp
+lisp/modules/progmodes/patch.lsp
+lisp/modules/progmodes/rpm.lsp
+lisp/modules/progmodes/sgml.lsp
+lisp/modules/progmodes/sh.lsp
+lisp/modules/progmodes/xconf.lsp
+lisp/modules/progmodes/xlog.lsp
+lisp/modules/progmodes/xrdb.lsp
+
+
+------------------------------------------------------------------------
+Files required when compiling with xprint support:
+
+(Based on Copyright notice)
+Roland Mainz <roland.mainz@nrubsig.org>
+xedit:
+print.c
+print.h
+printdialog.c
+printdialog.h
+printdialogprivates.h
+
+
+------------------------------------------------------------------------
+Files required for systems that don't have the required calls in the
+standard libraries:
+
+(Based on Copyright notice)
+Jan-Simon Pendry
+realpath.c
+
+(No author information, using CVS tag)
+David Dawes <dawes@XFree86.Org>
+strcasecmp.c

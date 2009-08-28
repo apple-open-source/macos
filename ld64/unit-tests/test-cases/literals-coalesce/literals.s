@@ -21,8 +21,29 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+	.literal16
+L01:.long 12345678
+	.long 87654321
+	.long 12345678
+	.long 87654321
+		
+L02:.long 12345678
+	.long 87654321
+	.long 12345678
+	.long 87654322
+
+L03:.long 22345678
+	.long 87654321
+	.long 12345678
+	.long 87654321
+
+L04:.long 12345678
+	.long 87654321
+	.long 12345678
+	.long 87654321
+
+
 	.literal8
-	
 L1:	.long 12345678
 	.long 87654321
 	

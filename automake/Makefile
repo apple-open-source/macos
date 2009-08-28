@@ -4,7 +4,7 @@
 
 Project        = automake
 ProjectVersion = 1.10
-Patches        = 
+Patches        = patch-6165353-Xcode.in
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
@@ -14,10 +14,12 @@ OSL = $(DSTROOT)/usr/local/OpenSourceLicenses
 # Extract the source.
 install_source::
 	$(RMDIR) $(SRCROOT)/$(Project) $(SRCROOT)/$(Project)-$(ProjectVersion)
-	$(TAR) -C $(SRCROOT) -jxf $(SRCROOT)/$(Project)-$(ProjectVersion).tar.bz2
+	$(TAR) -C $(SRCROOT) -jxof $(SRCROOT)/$(Project)-$(ProjectVersion).tar.bz2
 	$(MV) $(SRCROOT)/$(Project)-$(ProjectVersion) $(SRCROOT)/$(Project)
-	@for file in $(Patches); do \
-		(cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/files/$$file) || exit 1; \
+	@set -x && \
+	cd $(SRCROOT)/$(Project) && \
+	for file in $(Patches); do \
+		patch -p0 -i $(SRCROOT)/patches/$$file || exit 1; \
 	done
 
 install::

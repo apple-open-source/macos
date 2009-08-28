@@ -214,6 +214,13 @@ RenderObject::~RenderObject()
 #endif
 }
 
+RenderTheme* RenderObject::theme() const
+{
+    ASSERT(document()->page());
+
+    return document()->page()->theme();
+}
+
 bool RenderObject::isDescendantOf(const RenderObject* obj) const
 {
     for (const RenderObject* r = this; r; r = r->m_parent) {
@@ -636,13 +643,16 @@ static bool mustRepaintFillLayers(const RenderObject* renderer, const FillLayer*
 
     // Make sure we have a valid image.
     StyleImage* img = layer->image();
-    bool shouldPaintBackgroundImage = img && img->canRender(renderer->style()->effectiveZoom());
+    if (!img || !img->canRender(renderer->style()->effectiveZoom()))
+        return false;
 
-    // These are always percents or auto.
-    if (shouldPaintBackgroundImage &&
-        (!layer->xPosition().isZero() || !layer->yPosition().isZero() ||
-         layer->size().width().isPercent() || layer->size().height().isPercent()))
-        // The image will shift unpredictably if the size changes.
+    if (!layer->xPosition().isZero() || !layer->yPosition().isZero())
+        return true;
+
+    if (layer->isSizeSet()) {
+        if (layer->size().width().isPercent() || layer->size().height().isPercent())
+            return true;
+    } else if (img->usesImageContainerSize())
         return true;
 
     return false;
@@ -764,7 +774,7 @@ void RenderObject::drawLineForBoxSide(GraphicsContext* graphicsContext, int x1, 
                         break;
                     case BSRight:
                         drawLineForBoxSide(graphicsContext, x1, y1 + max((adjbw1 * 2 + 1) / 3, 0),
-                                   x1 + third, y2 - max(( adjbw2 * 2 + 1) / 3, 0),
+                                   x1 + third, y2 - max((adjbw2 * 2 + 1) / 3, 0),
                                    s, c, textcolor, SOLID, adjbw1bigthird, adjbw2bigthird);
                         drawLineForBoxSide(graphicsContext, x2 - third, y1 + max((-adjbw1 * 2 + 1) / 3, 0),
                                    x2, y2 - max((-adjbw2 * 2 + 1) / 3, 0),
@@ -1020,34 +1030,6 @@ void RenderObject::paintOutline(GraphicsContext* graphicsContext, int tx, int ty
 
     drawLineForBoxSide(graphicsContext, tx - ow, ty + h, tx + w + ow, ty + h + ow,
                BSBottom, Color(oc), style->color(), os, ow, ow);
-}
-
-
-void RenderObject::absoluteRectsForRange(Vector<IntRect>& rects, unsigned start, unsigned end, bool)
-{
-    if (!firstChild()) {
-        FloatPoint absPos = localToAbsolute(FloatPoint());
-        absoluteRects(rects, absPos.x(), absPos.y());
-        return;
-    }
-
-    unsigned offset = start;
-    for (RenderObject* child = childAt(start); child && offset < end; child = child->nextSibling(), ++offset) {
-        FloatPoint absPos = child->localToAbsolute(FloatPoint());
-        child->absoluteRects(rects, absPos.x(), absPos.y());
-    }
-}
-
-void RenderObject::absoluteQuadsForRange(Vector<FloatQuad>& quads, unsigned start, unsigned end, bool)
-{
-    if (!firstChild()) {
-        absoluteQuads(quads);
-        return;
-    }
-
-    unsigned offset = start;
-    for (RenderObject* child = childAt(start); child && offset < end; child = child->nextSibling(), ++offset)
-        child->absoluteQuads(quads);
 }
 
 IntRect RenderObject::absoluteBoundingBoxRect(bool useTransforms)
@@ -1717,7 +1699,7 @@ void RenderObject::getTransformFromContainer(const RenderObject* containerObject
         transform.multLeft(layer->currentTransform());
     
 #if ENABLE(3D_RENDERING)
-    if (containerObject && containerObject->style()->hasPerspective()) {
+    if (containerObject && containerObject->hasLayer() && containerObject->style()->hasPerspective()) {
         // Perpsective on the container affects us, so we have to factor it in here.
         ASSERT(containerObject->hasLayer());
         FloatPoint perspectiveOrigin = toRenderBox(containerObject)->layer()->perspectiveOrigin();
@@ -1756,8 +1738,8 @@ IntSize RenderObject::offsetFromContainer(RenderObject* o) const
 
 IntRect RenderObject::localCaretRect(InlineBox*, int, int* extraWidthToEndOfLine)
 {
-   if (extraWidthToEndOfLine)
-       *extraWidthToEndOfLine = 0;
+    if (extraWidthToEndOfLine)
+        *extraWidthToEndOfLine = 0;
 
     return IntRect();
 }
@@ -1998,6 +1980,27 @@ void RenderObject::layout()
     setNeedsLayout(false);
 }
 
+PassRefPtr<RenderStyle> RenderObject::uncachedFirstLineStyle(RenderStyle* style) const
+{
+    if (!document()->usesFirstLineRules())
+        return 0;
+
+    ASSERT(!isText());
+
+    RefPtr<RenderStyle> result;
+
+    if (isBlockFlow()) {
+        if (RenderBlock* firstLineBlock = this->firstLineBlock())
+            result = firstLineBlock->getUncachedPseudoStyle(FIRST_LINE, style, firstLineBlock == this ? style : 0);
+    } else if (!isAnonymous() && isRenderInline()) {
+        RenderStyle* parentStyle = parent()->firstLineStyle();
+        if (parentStyle != parent()->style())
+            result = getUncachedPseudoStyle(FIRST_LINE_INHERITED, parentStyle, style);
+    }
+
+    return result.release();
+}
+
 RenderStyle* RenderObject::firstLineStyleSlowCase() const
 {
     ASSERT(document()->usesFirstLineRules());
@@ -2034,13 +2037,15 @@ RenderStyle* RenderObject::getCachedPseudoStyle(PseudoId pseudo, RenderStyle* pa
     return 0;
 }
 
-PassRefPtr<RenderStyle> RenderObject::getUncachedPseudoStyle(PseudoId pseudo, RenderStyle* parentStyle) const
+PassRefPtr<RenderStyle> RenderObject::getUncachedPseudoStyle(PseudoId pseudo, RenderStyle* parentStyle, RenderStyle* ownStyle) const
 {
-    if (pseudo < FIRST_INTERNAL_PSEUDOID && !style()->hasPseudoStyle(pseudo))
+    if (pseudo < FIRST_INTERNAL_PSEUDOID && !ownStyle && !style()->hasPseudoStyle(pseudo))
         return 0;
     
-    if (!parentStyle)
+    if (!parentStyle) {
+        ASSERT(!ownStyle);
         parentStyle = style();
+    }
 
     Node* n = node();
     while (n && !n->isElementNode())

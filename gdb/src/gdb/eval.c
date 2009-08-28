@@ -65,6 +65,23 @@ static LONGEST init_array_element (struct value *, struct value *,
 				   struct expression *, int *, enum noside,
 				   LONGEST, LONGEST);
 
+/* APPLE LOCAL: Closures.  */
+int print_closure = 1;
+
+static void
+do_restore_print_closure (void *in_oldval)
+{
+  print_closure = (int) in_oldval;
+}
+
+struct cleanup *
+make_cleanup_set_restore_print_closure (int newval)
+{
+  int oldval = print_closure;
+  print_closure = newval;
+  return make_cleanup (do_restore_print_closure, (void *) oldval);
+}
+
 static struct value *
 evaluate_subexp (struct type *expect_type, struct expression *exp,
 		 int *pos, enum noside noside)
@@ -456,9 +473,26 @@ evaluate_subexp_standard (struct type *expect_type,
         to call evaluate_type () and then pass the full value to
         value_rtti_target_type () if we are dealing with a pointer
         or reference to a base class and print object is on. */
+      {
+	struct value *retval;
+	struct type *dynamic_type;
 
-        return value_of_variable (exp->elts[pc + 2].symbol,
+        retval = value_of_variable (exp->elts[pc + 2].symbol,
                                   exp->elts[pc + 1].block);
+	/* APPLE LOCAL - We don't want to print the closure type always.
+	   This made things look better in command-line gdb but it
+	   obscures the distinction between dynamic & static type
+	   changes.  So we add this variable and toggle it off in 
+	   the varobj code where this is important.  */
+	if (print_closure)
+	  {
+	    dynamic_type = get_closure_dynamic_type (retval);
+	    if (dynamic_type)
+	      retval = value_cast (dynamic_type, retval);
+	  }
+	/* END APPLE LOCAL */
+	return retval;
+      }
 
     case OP_LAST:
       (*pos) += 2;
@@ -726,11 +760,6 @@ evaluate_subexp_standard (struct type *expect_type,
 
     case OP_OBJC_MSGCALL:
       {				/* Objective C message (method) call.  */
-
-	static CORE_ADDR responds_selector = 0;
-	static CORE_ADDR method_selector = 0;
-	static unsigned int selector_generation = 0;
-
 	CORE_ADDR selector = 0;
 
 	int using_gcc = 0;
@@ -749,7 +778,6 @@ evaluate_subexp_standard (struct type *expect_type,
 	struct type *selector_type = NULL;
 
 	struct value *ret = NULL;
-	struct symbol *sym = NULL;
 	CORE_ADDR addr = 0;
 
         /* APPLE LOCAL: SELECTOR can be sign-extended because .longconst
@@ -1371,7 +1399,7 @@ evaluate_subexp_standard (struct type *expect_type,
 	 lookup of member / method only available in the rtti type. */
       {
         struct type *type = value_type (arg1);
-        struct type *real_type;
+        struct type *real_type = NULL;
         int full, top, using_enc;
         
         if (objectprint && TYPE_TARGET_TYPE(type) &&
@@ -1388,6 +1416,12 @@ evaluate_subexp_standard (struct type *expect_type,
                 arg1 = value_cast (real_type, arg1);
               }
           }
+	if (!real_type && print_closure)
+	  {
+	    real_type = get_closure_dynamic_type (arg1);
+	    if (real_type)
+	      arg1 = value_cast (real_type, arg1);
+	  }
       }
 
       if (noside == EVAL_AVOID_SIDE_EFFECTS)

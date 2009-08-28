@@ -45,6 +45,8 @@ int	 revstatcmp(const FTSENT *, const FTSENT *);
 int	 sizecmp (const FTSENT *, const FTSENT *);
 int	 revsizecmp (const FTSENT *, const FTSENT *);
 int      humanize_number(char *, size_t, int64_t, const char *, int, int);
+int	 birthcmp(const FTSENT *, const FTSENT *);
+int	 revbirthcmp(const FTSENT *, const FTSENT *);
 
 void	 printcol(DISPLAY *);
 void	 printlong(DISPLAY *);

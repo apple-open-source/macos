@@ -25167,6 +25167,46 @@ configure-gdb:
 
 
 
+.PHONY: configure-gdb maybe-configure-gdb
+maybe-configure-gdbserver:
+configure-gdbserver:
+	@test ! -f gdb/gdbserver/Makefile || exit 0; \
+	[ -d gdb ] || exit 0; \
+	[ -d gdb/gdbserver ] || mkdir gdb/gdbserver; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	CC="$(CC)"; export CC; \
+	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
+	CXX="$(CXX)"; export CXX; \
+	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
+	AR="$(AR)"; export AR; \
+	AS="$(AS)"; export AS; \
+	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
+	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
+	LD="$(LD)"; export LD; \
+	NM="$(NM)"; export NM; \
+	RANLIB="$(RANLIB)"; export RANLIB; \
+	WINDRES="$(WINDRES)"; export WINDRES; \
+	OBJCOPY="$(OBJCOPY)"; export OBJCOPY; \
+	OBJDUMP="$(OBJDUMP)"; export OBJDUMP; \
+	echo Configuring in gdb/gdbserver; \
+	cd gdb/gdbserver || exit 1; \
+	case $(srcdir) in \
+	  \.) \
+	    srcdiroption="--srcdir=."; \
+	    libsrcdir=".";; \
+	  /* | [A-Za-z]:[\\/]*) \
+	    srcdiroption="--srcdir=$(srcdir)/gdb/gdbserver"; \
+	    libsrcdir="$$s/gdb/gdbserver";; \
+	  *) \
+	    srcdiroption="--srcdir=../$(srcdir)/gdb/gdbserver"; \
+	    libsrcdir="$$s/gdb/gdbserver";; \
+	esac; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(HOST_CONFIGARGS) $${srcdiroption} \
+	  || exit 1
+
 .PHONY: all-gdb maybe-all-gdb
 maybe-all-gdb:
 @if gdb

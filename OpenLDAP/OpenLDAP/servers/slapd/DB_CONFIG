@@ -1,8 +1,8 @@
-# $OpenLDAP: pkg/ldap/servers/slapd/DB_CONFIG,v 1.1.2.3 2006/08/17 17:36:19 kurt Exp $
+# $OpenLDAP: pkg/ldap/servers/slapd/DB_CONFIG,v 1.3.2.4 2007/12/18 11:53:27 ghenry Exp $
 # Example DB_CONFIG file for use with slapd(8) BDB/HDB databases.
 #
-# See Sleepycat Berkeley DB documentation
-#   <http://www.sleepycat.com/docs/ref/env/db_config.html>
+# See the Oracle Berkeley DB documentation
+#   <http://www.oracle.com/technology/documentation/berkeley-db/db/ref/env/db_config.html>
 # for detail description of DB_CONFIG syntax and semantics.
 #
 # Hints can also be found in the OpenLDAP Software FAQ

@@ -1,0 +1,59 @@
+*** configure.in.orig   Mon Mar 17 15:51:16 1997
+--- configure.in        Mon Mar 17 15:57:57 1997
+***************
+*** 253,259 ****
+      eval "TRF_LIB_FILE=libtrf${TCL_SHARED_LIB_SUFFIX}"
+      eval "ZLIB_LIB_FILE=libz${SHLIB_SUFFIX}"
+      eval "LIBDES_LIB_FILE=libdes${SHLIB_SUFFIX}"
+!     MAKE_LIB="\${SHLIB_LD} -o ${TRF_LIB_FILE} \${OBJECTS} ${SHLIB_LD_LIBS}"
+      RANLIB=":"
+  
+        # force usage of special link code for external libraries
+--- 253,259 ----
+      eval "TRF_LIB_FILE=libtrf${TCL_SHARED_LIB_SUFFIX}"
+      eval "ZLIB_LIB_FILE=libz${SHLIB_SUFFIX}"
+      eval "LIBDES_LIB_FILE=libdes${SHLIB_SUFFIX}"
+!     MAKE_LIB="\${SHLIB_LD} -o \${TRF_LIB_FILE} \${OBJECTS} ${SHLIB_LD_LIBS}"
+      RANLIB=":"
+  
+        # force usage of special link code for external libraries
+***************
+*** 269,276 ****
+        ;;
+      esac
+  
+!     MAKE_ZLIB="${SHLIB_LD_ALL} -o ${ZLIB_LIB_FILE} \${ZLIB_OBJ} ${SHLIB_LD_LIBS}"
+!     MAKE_LIBDES="${SHLIB_LD_ALL} -o ${LIBDES_LIB_FILE} \${LIBDES_OBJ} ${SHLIB_LD_LIBS}"
+  
+      install_other=''
+  else
+--- 269,276 ----
+        ;;
+      esac
+  
+!     MAKE_ZLIB="${SHLIB_LD_ALL} -o \${ZLIB_LIB_FILE} \${ZLIB_OBJ} ${SHLIB_LD_LIBS}"
+!     MAKE_LIBDES="${SHLIB_LD_ALL} -o \${LIBDES_LIB_FILE} \${LIBDES_OBJ} ${SHLIB_LD_LIBS}"
+  
+      install_other=''
+  else
+***************
+*** 278,286 ****
+      eval "TRF_LIB_FILE=libtrf${TCL_UNSHARED_LIB_SUFFIX}"
+      eval "ZLIB_LIB_FILE=libz.a"
+      eval "LIBDES_LIB_FILE=libdes.a"
+!     MAKE_LIB="ar cr ${TRF_LIB_FILE} \${OBJECTS}"
+!     MAKE_ZLIB="ar cr ${ZLIB_LIB_FILE} \${ZLIB_OBJ}"
+!     MAKE_LIBDES="ar cr ${LIBDES_LIB_FILE} \${LIBDES_OBJ}"
+  
+      install_other='install-bin'
+  fi
+--- 278,286 ----
+      eval "TRF_LIB_FILE=libtrf${TCL_UNSHARED_LIB_SUFFIX}"
+      eval "ZLIB_LIB_FILE=libz.a"
+      eval "LIBDES_LIB_FILE=libdes.a"
+!     MAKE_LIB="ar cr \${TRF_LIB_FILE} \${OBJECTS}"
+!     MAKE_ZLIB="ar cr \${ZLIB_LIB_FILE} \${ZLIB_OBJ}"
+!     MAKE_LIBDES="ar cr \${LIBDES_LIB_FILE} \${LIBDES_OBJ}"
+  
+      install_other='install-bin'
+  fi

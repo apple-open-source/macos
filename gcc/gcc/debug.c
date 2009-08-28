@@ -1,5 +1,5 @@
 /* Do-nothing debug hooks for GCC.
-   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -13,7 +13,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -44,14 +44,13 @@ const struct gcc_debug_hooks do_nothing_debug_hooks =
   debug_nothing_tree_int,		 /* type_decl */
   debug_nothing_tree_tree,               /* imported_module_or_decl */
   debug_nothing_tree,		         /* deferred_inline_function */
-  /* APPLE LOCAL begin mainline 2006-05-15 rewrite 4548482  */
-  debug_nothing_tree_loc,	         /* outlining_inline_function */
-  /* APPLE LOCAL end mainline 2006-05-15 rewrite 4548482  */
+  debug_nothing_tree,		         /* outlining_inline_function */
   debug_nothing_rtx,		         /* label */
   debug_nothing_int,		         /* handle_pch */
   debug_nothing_rtx,		         /* var_location */
   /* APPLE LOCAL opt diary */
   debug_nothing_od_msg_loc,		 /* od message */
+  debug_nothing_void,                    /* switch_text_section */
   0                                      /* start_end_main_source_file */
 };
 
@@ -67,14 +66,6 @@ void
 debug_nothing_tree (tree decl ATTRIBUTE_UNUSED)
 {
 }
-
-/* APPLE LOCAL begin mainline 2006-05-15 rewrite 4548482  */
-void
-debug_nothing_tree_loc (tree decl ATTRIBUTE_UNUSED,
-			source_locus loc ATTRIBUTE_UNUSED)
-{
-}
-/* APPLE LOCAL end mainline 2006-05-15 rewrite 4548482  */
 
 void
 debug_nothing_tree_tree (tree t1 ATTRIBUTE_UNUSED,
@@ -120,7 +111,7 @@ debug_nothing_tree_int (tree decl ATTRIBUTE_UNUSED,
 			int local ATTRIBUTE_UNUSED)
 {
 }
- /* APPLE LOCAL begin opt diary */
+/* APPLE LOCAL begin opt diary */
 void
 debug_nothing_od_msg_loc (enum debug_od_msg m ATTRIBUTE_UNUSED,
 			  expanded_location l ATTRIBUTE_UNUSED)

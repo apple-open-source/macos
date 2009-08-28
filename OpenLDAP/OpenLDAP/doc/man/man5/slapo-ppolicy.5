@@ -1,9 +1,9 @@
-.\" $OpenLDAP: pkg/ldap/doc/man/man5/slapo-ppolicy.5,v 1.4.2.6 2006/02/16 01:59:53 kurt Exp $
-.\" Copyright 2004-2006 The OpenLDAP Foundation All Rights Reserved.
+.\" $OpenLDAP: pkg/ldap/doc/man/man5/slapo-ppolicy.5,v 1.12.2.7 2008/04/24 08:15:34 hyc Exp $
+.\" Copyright 2004-2008 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .TH SLAPO_PPOLICY 5 "RELEASEDATE" "OpenLDAP LDVERSION"
 .SH NAME
-slapo-ppolicy \- Password Policy overlay
+slapo-ppolicy \- Password Policy overlay to slapd
 .SH SYNOPSIS
 ETCDIR/slapd.conf
 .SH DESCRIPTION
@@ -29,6 +29,12 @@ is performed with the
 .B rootdn
 identity; all the operations, when performed with any other identity,
 may be subjected to constraints, like access control.
+.P
+Note that the IETF Password Policy proposal for LDAP makes sense
+when considering a single-valued password attribute, while 
+the userPassword attribute allows multiple values.  This implementation
+enforces a single value for the userPassword attribute, despite
+its specification.
 
 .SH CONFIGURATION
 These 
@@ -485,7 +491,7 @@ policy proposal.
 .SH OPERATIONAL ATTRIBUTES
 .P
 The operational attributes used by the
-.B passwd_policy
+.B ppolicy
 module are stored in the user's entry.  Most of these attributes
 are not intended to be changed directly by users; they are there
 to track user activity.  They have been detailed here so that
@@ -494,10 +500,23 @@ the
 .B ppolicy
 module.
 
+.P
+Note that the current IETF Password Policy proposal does not define
+how these operational attributes are expected to behave in a
+replication environment. In general, authentication attempts on
+a slave server only affect the copy of the operational attributes
+on that slave and will not affect any attributes for
+a user's entry on the master server. Operational attribute changes
+resulting from authentication attempts on a master server
+will usually replicate to the slaves (and also overwrite
+any changes that originated on the slave). 
+These behaviors are not guaranteed and are subject to change
+when a formal specification emerges.
+
 .B userPassword
 .P
 The
-.b userPassword
+.B userPassword
 attribute is not strictly part of the
 .B ppolicy
 module.  It is, however, the attribute that is tracked and controlled
@@ -559,7 +578,7 @@ This attribute contains the time that the user's account was locked.
 If the account has been locked, the password may no longer be used to
 authenticate the user to the directory.  If
 .B pwdAccountLockedTime   
-is set to zero (0), the user's account has been permanently locked
+is set to 000001010000Z, the user's account has been permanently locked
 and may only be unlocked by an administrator.
 .LP
 .RS 4
@@ -623,7 +642,7 @@ time "#" syntaxOID "#" length "#" data
 
 time=
 .RS 4
-generalizedTimeString as specified in section 6.14 of [RFC2252]
+GeneralizedTime as specified in section 3.3.13 of [RFC4517]
 .RE
 
 .P
@@ -631,13 +650,13 @@ syntaxOID = numericoid
 .RS 4
 This is the string representation of the dotted-decimal OID that
 defines the syntax used to store the password.  numericoid is
-described in section 4.1 of [RFC2252].
+described in section 1.4 of [RFC4512].
 .RE
 
-length = numericstring
+length = NumericString
 .RS 4
-The number of octets in the data.  numericstring is described in
-section 4.1 of [RFC2252].
+The number of octets in the data.  NumericString is described in
+section 3.3.23 of [RFC4517].
 .RE
 
 data =
@@ -750,7 +769,4 @@ the
 IETF document named draft-behera-ldap-password-policy-09.txt,
 written in July of 2005.
 .P
-.B OpenLDAP
-is developed and maintained by The OpenLDAP Project (http://www.openldap.org/).
-.B OpenLDAP
-is derived from University of Michigan LDAP 3.3 Release.  
+.so ../Project

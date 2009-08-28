@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: ntpaths.c,v 1.9.18.3 2007/08/28 07:20:06 tbox Exp $ */
+/* $Id: ntpaths.c,v 1.11 2007/06/18 23:47:49 tbox Exp $ */
 
 /*
  * This module fetches the required path information that is specific

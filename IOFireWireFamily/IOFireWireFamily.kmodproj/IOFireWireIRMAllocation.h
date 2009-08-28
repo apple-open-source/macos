@@ -30,6 +30,9 @@ class IOFireWireController;
 //#include <IOKit/firewire/IOFireWireController.h>
 //#include <IOKit/firewire/IOFireWireFamilyCommon.h>
 
+/*! @class IOFireWireIRMAllocation
+*/
+
 class IOFireWireIRMAllocation : public OSObject
 {
 	friend class IOFireWireController;

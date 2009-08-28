@@ -1,4 +1,4 @@
-.TH LESS 1 "Version 394: 03 Dec 2005"
+.TH LESS 1 "Version 418: 02 Jan 2008"
 .SH NAME
 less \- opposite of more
 .SH SYNOPSIS
@@ -119,7 +119,9 @@ or if N is not specified and
 standard input, rather than a file, is being read.)
 .IP "p or %"
 Go to a position N percent into the file.
-N should be between 0 and 100.
+N should be between 0 and 100, and may contain a decimal point.
+.IP "P"
+Go to the line containing byte offset N in the file.
 .IP "{"
 If a left curly bracket appears in the top line displayed
 on the screen,
@@ -460,7 +462,7 @@ By default 64K of buffer space is used for each file
 The \-b option specifies instead that \fIn\fP kilobytes of 
 buffer space should be used for each file.
 If \fIn\fP is \-1, buffer space is unlimited; that is,
-the entire file is read into memory.
+the entire file can be read into memory.
 .IP "\-B or \-\-auto-buffers"
 By default, when data is read from a pipe,
 buffers are allocated automatically as needed.
@@ -471,14 +473,15 @@ so that only 64K
 (or the amount of space specified by the \-b option)
 is used for the pipe.
 Warning: use of \-B can result in erroneous display, since only the
-most recently viewed part of the file is kept in memory; 
+most recently viewed part of the piped data is kept in memory; 
 any earlier data is lost.
 .IP "\-c or \-\-clear-screen"
 Causes full screen repaints to be painted from the top line down.
 By default,
 full screen repaints are done by scrolling from the bottom of the screen.
 .IP "\-C or \-\-CLEAR-SCREEN"
-The \-C option is like \-c, but the screen is cleared before it is repainted.
+Same as \-c, for compatibility with older versions of 
+.I less.
 .IP "\-d or \-\-dumb"
 The \-d option suppresses the error message
 normally displayed if the terminal is dumb;
@@ -515,6 +518,8 @@ Also suppresses the warning message when a binary file is opened.
 By default,
 .I less
 will refuse to open non-regular files.
+Note that some operating systems will not allow directories
+to be read, even if \-f is set.
 .IP "\-F or \-\-quit-if-one-screen"
 Causes
 .I less
@@ -550,18 +555,25 @@ the pattern contains uppercase letters.
 .IP "\-j\fIn\fP or \-\-jump-target=\fIn\fP"
 Specifies a line on the screen where the "target" line
 is to be positioned.
-A target line is the object of a text search, 
-tag search, jump to a line number,
-jump to a file percentage, or jump to a marked position.
-The screen line is specified by a number: the top line on the screen
+The target line is the line specified by any command to
+search for a pattern, jump to a line number,
+jump to a file percentage or jump to a tag.
+The screen line may be specified by a number: the top line on the screen
 is 1, the next is 2, and so on.
 The number may be negative to specify a line relative to the bottom
 of the screen: the bottom line on the screen is \-1, the second
 to the bottom is \-2, and so on.
-If the \-j option is used, searches begin at the line immediately
-after the target line.
+Alternately, the screen line may be specified as a fraction of the height
+of the screen, starting with a decimal point: .5 is in the middle of the
+screen, .3 is three tenths down from the first line, and so on.
+If the line is specified as a fraction, the actual line number
+is recalculated if the terminal window is resized, so that the
+target line remains at the specified fraction of the screen height.
+If any form of the \-j option is used, 
+forward searches begin at the line immediately after the target line,
+and backward searches begin at the target line.
 For example, if "\-j4" is used, the target line is the
-fourth line on the screen, so searches begin at the fifth line
+fourth line on the screen, so forward searches begin at the fifth line
 on the screen.
 .IP "\-J or \-\-status-column"
 Displays a status column at the left edge of the screen.
@@ -586,6 +598,8 @@ to exit immediately when an interrupt character (usually ^C) is typed.
 Normally, an interrupt character causes
 .I less
 to stop whatever it is doing and return to its command prompt.
+Note that use of this option makes it impossible to return to the 
+command prompt from the "F" command.
 .IP "\-L or \-\-no-lessopen"
 Ignore the LESSOPEN environment variable
 (see the INPUT PREPROCESSOR section below).
@@ -788,11 +802,6 @@ Disables sending the termcap initialization and deinitialization strings
 to the terminal.
 This is sometimes desirable if the deinitialization string does
 something unnecessary, like clearing the screen.
-.IP "\-\-no-keypad"
-Disables sending the keypad initialization and deinitialization strings
-to the terminal.
-This is sometimes useful if the keypad strings make the numeric
-keypad behave in an undesirable manner.
 .IP "\-y\fIn\fP or \-\-max-forw-scroll=\fIn\fP"
 Specifies a maximum number of lines to scroll forward.
 If it is necessary to scroll forward more than \fIn\fP lines,
@@ -804,7 +813,7 @@ By default, any forward movement causes scrolling.
 Changes the default scrolling window size to \fIn\fP lines.
 The default is one screenful.
 The z and w commands can also be used to change the window size.
-The "z" may be omitted for compatibility with
+The "z" may be omitted for compatibility with some versions of 
 .I more.
 If the number
 .I n
@@ -836,6 +845,24 @@ Specifies the default number of positions to scroll horizontally
 in the RIGHTARROW and LEFTARROW commands.
 If the number specified is zero, it sets the default number of
 positions to one half of the screen width.
+.IP "\-\-no-keypad"
+Disables sending the keypad initialization and deinitialization strings
+to the terminal.
+This is sometimes useful if the keypad strings make the numeric
+keypad behave in an undesirable manner.
+.IP "\-\-follow-name"
+Normally, if the input file is renamed while an F command is executing, 
+.I less
+will continue to display the contents of the original file despite
+its name change.
+If \-\-follow-name is specified, during an F command
+.I less
+will periodically attempt to reopen the file by name.
+If the reopen succeeds and the file is a different file from the original
+(which means that a new file has been created 
+with the same name as the original (now renamed) file),
+.I less
+will display the contents of that new file.
 .IP \-\-
 A command line argument of "\-\-" marks the end of option arguments.
 Any arguments following this are interpreted as filenames.
@@ -863,7 +890,8 @@ or the pattern for a search command),
 certain keys can be used to manipulate the command line.
 Most commands have an alternate form in [ brackets ] which can be used if
 a key does not exist on a particular keyboard. 
-(The bracketed forms do not work in the MS-DOS version.)
+(Note that the forms beginning with ESC do not work 
+in some MS-DOS and Windows systems because ESC is the line erase character.)
 Any of these special keys may be entered literally by preceding
 it with the "literal" character, either ^V or ^A.
 A backslash itself may also be entered literally by entering two backslashes.
@@ -1142,10 +1170,12 @@ Selects a Russian character set.
 Selects a character set appropriate for NeXT computers.
 .IP utf-8
 Selects the UTF-8 encoding of the ISO 10646 character set.
+UTF-8 is special in that it supports multi-byte characters in the input file.
+It is the only character set that supports multi-byte characters.
 .IP windows
 Selects a character set appropriate for Microsoft Windows (cp 1251).
 .PP
-In special cases, it may be desired to tailor
+In rare cases, it may be desired to tailor
 .I less
 to use a character set other than the ones definable by LESSCHARSET.
 In this case, the environment variable LESSCHARDEF can be used
@@ -1444,6 +1474,36 @@ filename completion (TAB, ^L)
 .PP
 Less can also be compiled to be permanently in "secure" mode.
 
+.SH "COMPATIBILITY WITH MORE"
+If the environment variable LESS_IS_MORE is set to 1,
+or if the program is invoked via a file link named "more",
+.I less
+behaves (mostly) in conformance with the POSIX "more" command specification.
+In this mode, less behaves differently in these ways:
+.PP
+The \-e option works differently.
+If the \-e option is not set, 
+.I less
+behaves as if the \-E option were set.
+If the \-e option is set, 
+.I less
+behaves as if the \-e and \-F options were set.
+.PP
+The \-m option works differently.
+If the \-m option is not set, the medium prompt is used,
+and it is prefixed with the string "--More--".
+If the \-m option is set, the short prompt is used.
+.PP
+The \-n option acts like the \-z option.
+The normal behavior of the \-n option is unavailable in this mode.
+.PP
+The parameter to the \-p option is taken to be a 
+.I less
+command rather than a search pattern.
+.PP
+The LESS environment variable is ignored,
+and the MORE environment variable is used in its place.
+
 .SH "ENVIRONMENT VARIABLES"
 Environment variables may be specified either in the system environment
 as usual, or in a 
@@ -1509,7 +1569,7 @@ Normally should be set to "global" if your system has the
 Name of the history file used to remember search commands and
 shell commands between invocations of 
 .I less.
-If set to "\-", a history file is not used.
+If set to "\-" or "/dev/null", a history file is not used.
 The default is "$HOME/.lesshst" on Unix systems, "$HOME/_lesshst" on
 DOS and Windows systems, or "$HOME/lesshst.ini" or "$INIT/lesshst.ini" 
 on OS/2 systems.
@@ -1536,6 +1596,10 @@ See discussion under SECURITY.
 String to be appended to a directory name in filename completion.
 .IP LESSUTFBINFMT
 Format for displaying non-printable Unicode code points.
+.IP LESS_IS_MORE
+Emulate the 
+.I more
+(1) command.
 .IP LINES
 Sets the number of lines on the screen.
 Takes precedence over the number of lines specified by the TERM variable.
@@ -1557,47 +1621,8 @@ The name of the editor (used for the v command).
 .SH "SEE ALSO"
 lesskey(1)
 
-.SH WARNINGS
-The = command and prompts (unless changed by \-P)
-report the line numbers of the lines at the top and bottom of the screen,
-but the byte and percent of the line after the one at the bottom of the screen.
-.PP
-If the :e command is used to name more than one file,
-and one of the named files has been viewed previously,
-the new files may be entered into the list in an unexpected order.
-.PP
-On certain older terminals (the so-called "magic cookie" terminals),
-search highlighting will cause an erroneous display.
-On such terminals, search highlighting is disabled by default 
-to avoid possible problems.
-.PP
-In certain cases, when search highlighting is enabled and 
-a search pattern begins with a ^,
-more text than the matching string may be highlighted.
-(This problem does not occur when less is compiled to use the POSIX
-regular expression package.)
-.PP
-When viewing text containing ANSI color escape sequences using the \-R option,
-searching will not find text containing an embedded escape sequence.
-Also, search highlighting may change the color of some of the text
-which follows the highlighted text.
-.PP
-On some systems,
-.I setlocale
-claims that ASCII characters 0 thru 31 are control characters 
-rather than binary characters.
-This causes 
-.I less 
-to treat some binary files as ordinary, non-binary files.
-To workaround this problem, set the environment variable
-LESSCHARSET to "ascii" (or whatever character set is appropriate).
-.PP
-This manual is too long.
-.PP
-See http://www.greenwoodsoftware.com/less for the list of known bugs in all versions of less.
-
 .SH COPYRIGHT
-Copyright (C) 1984-2005  Mark Nudelman
+Copyright (C) 1984-2007  Mark Nudelman
 .PP
 less is part of the GNU project and is free software.
 You can redistribute it and/or modify it
@@ -1622,6 +1647,12 @@ See the GNU General Public License for more details.
 .PP
 Mark Nudelman <markn@greenwoodsoftware.com>
 .br
-Send bug reports or comments to the above address or to bug-less@gnu.org.
+See http://www.greenwoodsoftware.com/less/bugs.html for the latest list of known bugs in less.
 .br
-For more information, see the less homepage at http://www.greenwoodsoftware.com/less.
+Send bug reports or comments to the above address or to 
+.br
+bug-less@gnu.org.
+.br
+For more information, see the less homepage at 
+.br
+http://www.greenwoodsoftware.com/less.

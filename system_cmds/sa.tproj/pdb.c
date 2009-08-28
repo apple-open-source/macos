@@ -28,95 +28,86 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef lint
-static const char rcsid[] =
-  "$FreeBSD: src/usr.sbin/sa/pdb.c,v 1.9 2002/07/15 16:05:15 des Exp $";
-#endif /* not lint */
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.sbin/sa/pdb.c,v 1.14 2007/05/22 06:51:38 dds Exp $");
 
 #include <sys/types.h>
 #include <sys/acct.h>
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include "extern.h"
 #include "pathnames.h"
 
-static int check_junk __P((struct cmdinfo *));
-static void add_ci __P((const struct cmdinfo *, struct cmdinfo *));
-static void print_ci __P((const struct cmdinfo *, const struct cmdinfo *));
+static int check_junk(const struct cmdinfo *);
+static void add_ci(const struct cmdinfo *, struct cmdinfo *);
+static void print_ci(const struct cmdinfo *, const struct cmdinfo *);
 
 static DB	*pacct_db;
 
+/* Legacy format in AHZV1 units. */
+struct cmdinfov1 {
+	char		ci_comm[MAXCOMLEN+2];	/* command name (+ '*') */
+	uid_t		ci_uid;			/* user id */
+	u_quad_t	ci_calls;		/* number of calls */
+	u_quad_t	ci_etime;		/* elapsed time */
+	u_quad_t	ci_utime;		/* user time */
+	u_quad_t	ci_stime;		/* system time */
+	u_quad_t	ci_mem;			/* memory use */
+	u_quad_t	ci_io;			/* number of disk i/o ops */
+	u_int		ci_flags;		/* flags; see below */
+};
+
+/*
+ * Convert a v1 data record into the current version.
+ * Return 0 if OK, -1 on error, setting errno.
+ */
+static int
+v1_to_v2(DBT *key __unused, DBT *data)
+{
+	struct cmdinfov1 civ1;
+	static struct cmdinfo civ2;
+
+	if (data->size != sizeof(civ1)) {
+		errno = EFTYPE;
+		return (-1);
+	}
+	memcpy(&civ1, data->data, data->size);
+	memset(&civ2, 0, sizeof(civ2));
+	memcpy(civ2.ci_comm, civ1.ci_comm, sizeof(civ2.ci_comm));
+	civ2.ci_uid = civ1.ci_uid;
+	civ2.ci_calls = civ1.ci_calls;
+	civ2.ci_etime = ((double)civ1.ci_etime / AHZV1) * 1000000;
+	civ2.ci_utime = ((double)civ1.ci_utime / AHZV1) * 1000000;
+	civ2.ci_stime = ((double)civ1.ci_stime / AHZV1) * 1000000;
+	civ2.ci_mem = civ1.ci_mem;
+	civ2.ci_io = civ1.ci_io;
+	civ2.ci_flags = civ1.ci_flags;
+	data->size = sizeof(civ2);
+	data->data = &civ2;
+	return (0);
+}
+
+/* Copy pdb_file to in-memory pacct_db. */
 int
 pacct_init()
 {
-	DB *saved_pacct_db;
-	int error;
-
-	pacct_db = dbopen(NULL, O_RDWR, 0, DB_BTREE, NULL);
-	if (pacct_db == NULL)
-		return (-1);
-
-	error = 0;
-	if (!iflag) {
-		DBT key, data;
-		int serr, nerr;
-
-		saved_pacct_db = dbopen(_PATH_SAVACCT, O_RDONLY, 0, DB_BTREE,
-		    NULL);
-		if (saved_pacct_db == NULL) {
-			error = errno == ENOENT ? 0 : -1;
-			if (error)
-				warn("retrieving process accounting summary");
-			goto out;
-		}
-
-		serr = DB_SEQ(saved_pacct_db, &key, &data, R_FIRST);
-		if (serr < 0) {
-			warn("retrieving process accounting summary");
-			error = -1;
-			goto closeout;
-		}
-		while (serr == 0) {
-			nerr = DB_PUT(pacct_db, &key, &data, 0);
-			if (nerr < 0) {
-				warn("initializing process accounting stats");
-				error = -1;
-				break;
-			}
-
-			serr = DB_SEQ(saved_pacct_db, &key, &data, R_NEXT);
-			if (serr < 0) {
-				warn("retrieving process accounting summary");
-				error = -1;
-				break;
-			}
-		}
-
-closeout:	if (DB_CLOSE(saved_pacct_db) < 0) {
-			warn("closing process accounting summary");
-			error = -1;
-		}
-	}
-
-out:	if (error != 0)
-		pacct_destroy();
-	return (error);
+	return (db_copy_in(&pacct_db, pdb_file, "process accounting",
+	    NULL, v1_to_v2));
 }
 
 void
 pacct_destroy()
 {
-	if (DB_CLOSE(pacct_db) < 0)
-		warn("destroying process accounting stats");
+	db_destroy(pacct_db, "process accounting");
 }
 
 int
-pacct_add(ci)
-	const struct cmdinfo *ci;
+pacct_add(const struct cmdinfo *ci)
 {
 	DBT key, data;
 	struct cmdinfo newci;
@@ -157,52 +148,12 @@ pacct_add(ci)
 	return (0);
 }
 
+/* Copy in-memory pacct_db to pdb_file. */
 int
 pacct_update()
 {
-	DB *saved_pacct_db;
-	DBT key, data;
-	int error, serr, nerr;
-
-	saved_pacct_db = dbopen(_PATH_SAVACCT, O_RDWR|O_CREAT|O_TRUNC, 0644,
-	    DB_BTREE, NULL);
-	if (saved_pacct_db == NULL) {
-		warn("creating process accounting summary");
-		return (-1);
-	}
-
-	error = 0;
-
-	serr = DB_SEQ(pacct_db, &key, &data, R_FIRST);
-	if (serr < 0) {
-		warn("retrieving process accounting stats");
-		error = -1;
-	}
-	while (serr == 0) {
-		nerr = DB_PUT(saved_pacct_db, &key, &data, 0);
-		if (nerr < 0) {
-			warn("saving process accounting summary");
-			error = -1;
-			break;
-		}
-
-		serr = DB_SEQ(pacct_db, &key, &data, R_NEXT);
-		if (serr < 0) {
-			warn("retrieving process accounting stats");
-			error = -1;
-			break;
-		}
-	}
-
-	if (DB_SYNC(saved_pacct_db, 0) < 0) {
-		warn("syncing process accounting summary");
-		error = -1;
-	}
-	if (DB_CLOSE(saved_pacct_db) < 0) {
-		warn("closing process accounting summary");
-		error = -1;
-	}
-	return error;
+	return (db_copy_out(pacct_db, pdb_file, "process accounting",
+	    NULL));
 }
 
 void
@@ -304,8 +255,7 @@ next:		rv = DB_SEQ(pacct_db, &key, &data, R_NEXT);
 }
 
 static int
-check_junk(cip)
-	struct cmdinfo *cip;
+check_junk(const struct cmdinfo *cip)
 {
 	char *cp;
 	size_t len;
@@ -317,9 +267,7 @@ check_junk(cip)
 }
 
 static void
-add_ci(fromcip, tocip)
-	const struct cmdinfo *fromcip;
-	struct cmdinfo *tocip;
+add_ci(const struct cmdinfo *fromcip, struct cmdinfo *tocip)
 {
 	tocip->ci_calls += fromcip->ci_calls;
 	tocip->ci_etime += fromcip->ci_etime;
@@ -329,9 +277,9 @@ add_ci(fromcip, tocip)
 	tocip->ci_io += fromcip->ci_io;
 }
 
+#ifdef __APPLE__
 static void
-print_ci(cip, totalcip)
-	const struct cmdinfo *cip, *totalcip;
+print_ci(const struct cmdinfo *cip, const struct cmdinfo *totalcip)
 {
 	double t, c;
 	int uflow;
@@ -422,3 +370,100 @@ print_ci(cip, totalcip)
 
 	printf("  %s\n", cip->ci_comm);
 }
+#else
+static void
+print_ci(const struct cmdinfo *cip, const struct cmdinfo *totalcip)
+{
+	double t, c;
+	int uflow;
+
+	c = cip->ci_calls ? cip->ci_calls : 1;
+	t = (cip->ci_utime + cip->ci_stime) / 1000000;
+	if (t < 0.01) {
+		t = 0.01;
+		uflow = 1;
+	} else
+		uflow = 0;
+
+	printf("%8ju ", (uintmax_t)cip->ci_calls);
+	if (cflag) {
+		if (cip != totalcip)
+			printf(" %4.1f%%  ", cip->ci_calls /
+			    (double)totalcip->ci_calls * 100);
+		else
+			printf(" %4s   ", "");
+	}
+
+	if (jflag)
+		printf("%11.3fre ", cip->ci_etime / (1000000 * c));
+	else
+		printf("%11.3fre ", cip->ci_etime / (60.0 * 1000000));
+	if (cflag) {
+		if (cip != totalcip)
+			printf(" %4.1f%%  ", cip->ci_etime /
+			    totalcip->ci_etime * 100);
+		else
+			printf(" %4s   ", "");
+	}
+
+	if (!lflag) {
+		if (jflag)
+			printf("%11.3fcp ", t / (double) cip->ci_calls);
+		else
+			printf("%11.2fcp ", t / 60.0);
+		if (cflag) {
+			if (cip != totalcip)
+				printf(" %4.1f%%  ",
+				    (cip->ci_utime + cip->ci_stime) /
+				    (totalcip->ci_utime + totalcip->ci_stime) *
+				    100);
+			else
+				printf(" %4s   ", "");
+		}
+	} else {
+		if (jflag)
+			printf("%11.3fu ", cip->ci_utime / (1000000 * c));
+		else
+			printf("%11.2fu ", cip->ci_utime / (60.0 * 1000000));
+		if (cflag) {
+			if (cip != totalcip)
+				printf(" %4.1f%%  ", cip->ci_utime /
+				    (double)totalcip->ci_utime * 100);
+			else
+				printf(" %4s   ", "");
+		}
+		if (jflag)
+			printf("%11.3fs ", cip->ci_stime / (1000000 * c));
+		else
+			printf("%11.2fs ", cip->ci_stime / (60.0 * 1000000));
+		if (cflag) {
+			if (cip != totalcip)
+				printf(" %4.1f%%  ", cip->ci_stime /
+				    (double)totalcip->ci_stime * 100);
+			else
+				printf(" %4s   ", "");
+		}
+	}
+
+	if (tflag) {
+		if (!uflow)
+			printf("%8.2fre/cp ",
+			    cip->ci_etime /
+			    (cip->ci_utime + cip->ci_stime));
+		else
+			printf("*ignore*      ");
+	}
+
+	if (Dflag)
+		printf("%10.0fio ", cip->ci_io);
+	else
+		printf("%8.0favio ", cip->ci_io / c);
+
+	if (Kflag)
+		printf("%10.0fk*sec ", cip->ci_mem);
+	else
+		printf("%8.0fk ", cip->ci_mem / t);
+
+	printf("  %s\n", cip->ci_comm);
+}
+#endif

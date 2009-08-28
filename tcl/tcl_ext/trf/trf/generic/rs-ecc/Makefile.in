@@ -1,0 +1,119 @@
+# Makefile for ECC.	-*- Indented-Text -*-
+# Copyright (C) 1992 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+
+#### Start of system configuration section. ####
+
+srcdir = @srcdir@
+VPATH = @srcdir@
+
+CC = @CC@
+
+INSTALL = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_DATA = @INSTALL_DATA@
+
+DEFS = @DEFS@
+LIBS = @LIBS@
+
+CFLAGS = -O
+LDFLAGS = -O
+
+CHARSET = @CHARSET@
+
+prefix = /usr/local
+exec_prefix = $(prefix)
+
+bindir = $(exec_prefix)/bin
+datadir = $(prefix)/lib
+libdir = $(prefix)/lib
+infodir = $(prefix)/info
+
+# Where to install the manual pages.
+mandir = $(prefix)/man/man1
+# Extension (not including `.') for the installed manual page filenames.
+manext = 1
+
+#### End of system configuration section. ####
+
+SHELL = /bin/sh
+
+LOADLIBES = $(LIBS)
+
+DISTFILES = COPYING Makefile.in configure configure.in ecc.1 ecc.c ecc.h \
+            gf.h gflib.c rslib.c version.c
+
+.c.o:
+	$(CC) -c -I. -I$(srcdir) $(DEFS) $(CPPFLAGS) $(CFLAGS) $<
+
+all: ecc
+
+### targets required by GNU Coding standards ###
+
+#Makefile: Makefile.in config.status
+#	./config.status
+
+config.status: configure
+	$(srcdir)/configure --srcdir=$(srcdir) --no-create
+
+configure: configure.in
+	cd $(srcdir); autoconf
+
+TAGS:
+	cd $(srcdir); etags
+
+clean:
+	rm -f *.o core a.out ecc
+
+mostlyclean: clean
+
+distclean: clean
+	rm -f Makefile config.status
+
+realclean: distclean
+	rm -f TAGS
+
+dist: $(DISTFILES)
+	echo ecc-`sed -e '/version/!d' -e 's/[^0-9.]*\([0-9.]*\).*/\1/' -e q version.c` > .fname
+	rm -rf `cat .fname`
+	mkdir `cat .fname`
+	ln $(DISTFILES) `cat .fname`
+	tar chZf `cat .fname`.tar.Z `cat .fname`
+	rm -rf `cat .fname` .fname
+
+install: all
+	-umask 002; mkdir $(bindir) $(mandir)
+	$(INSTALL_PROGRAM) ecc $(bindir)/ecc
+	-$(INSTALL_DATA) $(srcdir)/ecc.1 $(mandir)/ecc.$(manext)
+
+uninstall: force
+	-cd $(bindir); rm -f ecc
+	-cd $(mandir); rm -f ecc.$(manext)
+
+### ecc-specific building targets ###
+
+ecc.info: ecc.texi
+	cd $(srcdir); makeinfo ecc.texi
+
+ecc.dvi: ecc.texi
+	cd $(srcdir); texi2dvi ecc.texi
+
+ecc: ecc.o version.o rslib.o gflib.o
+
+force:
+
+# Prevent GNU make v3 from overflowing arg limit on SysV.
+.NOEXPORT:

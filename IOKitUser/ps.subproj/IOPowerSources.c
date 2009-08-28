@@ -3,19 +3,20 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -42,6 +43,11 @@
 #define kIOPSDynamicStoreLowBattPathKey "/IOKit/LowBatteryWarning"
 #endif
 
+#ifndef kIOPSDynamicStorePowerAdapterKey
+#define kIOPSDynamicStorePowerAdapterKey "/IOKit/PowerAdapter"
+#endif
+
+
 IOPSLowBatteryWarningLevel IOPSGetBatteryWarningLevel(void)
 {
     SCDynamicStoreRef   store = NULL;
@@ -62,8 +68,7 @@ IOPSLowBatteryWarningLevel IOPSGetBatteryWarningLevel(void)
     if (!key)
         goto SAD_EXIT;
         
-    scWarnValue = isA_CFNumber(
-                    SCDynamicStoreCopyValue(store, key));
+    scWarnValue = isA_CFNumber(SCDynamicStoreCopyValue(store, key));
     if (scWarnValue) {
 
         CFNumberGetValue(scWarnValue, kCFNumberIntType, &return_level);    
@@ -78,6 +83,33 @@ SAD_EXIT:
     return return_level;
 }
 
+
+CFDictionaryRef IOPSCopyExternalPowerAdapterDetails(void)
+{
+    SCDynamicStoreRef   store = NULL;
+    CFStringRef         key = NULL;
+    CFDictionaryRef     ret_dict = NULL;
+
+    store = SCDynamicStoreCreate(kCFAllocatorDefault, 
+                            CFSTR("IOKit Power Source Copy"), NULL, NULL);
+    if (!store) 
+        goto SAD_EXIT;
+
+    key = SCDynamicStoreKeyCreate(
+                            kCFAllocatorDefault, 
+                            CFSTR("%@%@"),
+                            kSCDynamicStoreDomainState, 
+                            CFSTR(kIOPSDynamicStorePowerAdapterKey));
+    if (!key)
+        goto SAD_EXIT;
+        
+    ret_dict = isA_CFDictionary(SCDynamicStoreCopyValue(store, key));
+
+SAD_EXIT:
+    if (store) CFRelease(store);
+    if (key) CFRelease(key);
+    return ret_dict;
+}
 /***
  Returns a blob of Power Source information in an opaque CFTypeRef. Clients should
  not actually look directly at data in the CFTypeRef - they should use the accessor
@@ -108,16 +140,19 @@ CFTypeRef IOPSCopyPowerSourcesInfo(void) {
         goto exit;
     }
     CFArrayAppendValue(ps_arr, ps_match);
-    CFRelease(ps_match);
     
     // Copy multiple Power Sources into dictionary
     power_sources = SCDynamicStoreCopyMultiple(store, NULL, ps_arr);
     
-    // Release SCDynamicStore
-    CFRelease(ps_arr);
-    CFRelease(store);
-    
 exit:
+
+    if (ps_match)
+        CFRelease(ps_match);
+    if (ps_arr)
+        CFRelease(ps_arr);
+    if (store)
+        CFRelease(store);
+
     if(!power_sources) {
         // On failure, we return an empty dictionary instead of NULL
         power_sources = CFDictionaryCreate( kCFAllocatorDefault, 

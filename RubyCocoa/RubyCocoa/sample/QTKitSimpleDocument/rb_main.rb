@@ -1,6 +1,3 @@
-ENV['BRIDGE_SUPPORT_PATH'] = '/Volumes/Data/src/svn-rubycocoa-apple/framework/bridge-support'
-#$DEBUG = true
-
 require 'osx/cocoa'
 include OSX
 

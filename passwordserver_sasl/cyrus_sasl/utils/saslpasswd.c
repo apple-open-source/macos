@@ -219,7 +219,7 @@ void read_password(const char *prompt,
 
   memcpy(*password, buf, n_read);
   (*password)[n_read] = '\0';	/* be nice... */
-  *passlen = n_read;
+  *passlen = (unsigned int)n_read;
 }
 
 void exit_sasl(int result, const char *errstr) __attribute__((noreturn));
@@ -243,7 +243,7 @@ int good_getopt(void *context __attribute__((unused)),
     if (sasldb_path && !strcmp(option, "sasldb_path")) {
 	*result = sasldb_path;
 	if (len)
-	    *len = strlen(sasldb_path);
+	    *len = (unsigned int)strlen(sasldb_path);
 	return SASL_OK;
     }
 

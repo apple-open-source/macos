@@ -1,6 +1,6 @@
 /*
  **********************************************************************
- *   Copyright (C) 2003, International Business Machines
+ *   Copyright (C) 2003-2008, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  **********************************************************************
  */
@@ -10,6 +10,8 @@
 #define __FONTTABLECACHE_H
 
 #include "layout/LETypes.h"
+
+U_NAMESPACE_USE
 
 struct FontTableCacheEntry;
 
@@ -24,6 +26,7 @@ public:
 
 protected:
     virtual const void *readFontTable(LETag tableTag) const = 0;
+    virtual void freeFontTable(const void *table) const;
 
 private:
 

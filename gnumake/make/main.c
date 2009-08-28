@@ -1286,7 +1286,7 @@ main (int argc, char **argv, char **envp)
 	  } else if (strcmp(*p, "all") == 0) {
 	      next_flag = NEXT_ALL_FLAGS;
 	  } else {
-	      error ("Unrecognized flag `%s'.", *p);
+	      error (NILF, "Unrecognized flag `%s'.", *p);
 	  }
       }
   }
@@ -2141,8 +2141,10 @@ main (int argc, char **argv, char **envp)
 	  fflush (stderr);
 
           /* Close the dup'd jobserver pipe if we opened one.  */
-          if (job_rfd >= 0)
+          if (job_rfd >= 0) {
             close (job_rfd);
+	    job_rfd = -1;
+	  }
 
 #ifdef _AMIGA
 	  exec_command (nargv);
@@ -2775,7 +2777,7 @@ define_makeflags (int all, int makefile)
   } while (0)
 
 #define ADD_SWITCH(CH, ARG,LEN) { \
-    struct command_switch *cs;  \
+    const struct command_switch *cs;  \
     for(cs = switches; cs->c != '\0'; ++cs) {  \
 	if (cs->c == CH) {  \
 	    ADD_FLAG(ARG, LEN); \
@@ -3108,7 +3110,7 @@ clean_jobserver (int status)
 
       /* Close the write side, so the read() won't hang.  */
       close (job_fds[1]);
-
+      job_fds[1] = -1;
       while (read (job_fds[0], &token, 1) == 1)
         ++tcnt;
 
@@ -3118,6 +3120,7 @@ clean_jobserver (int status)
                tcnt, master_job_slots);
 
       close (job_fds[0]);
+      job_fds[0] = -1;
     }
 }
 

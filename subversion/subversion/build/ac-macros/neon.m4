@@ -1,11 +1,11 @@
-dnl   SVN_LIB_NEON(wanted_regex, latest_working_ver, url)
+dnl   SVN_LIB_NEON(wanted_regex, recommended_ver, url)
 dnl
 dnl   Search for a suitable version of neon.  wanted_regex is a
 dnl   regular expression used in a Bourne shell switch/case statement
-dnl   to match versions of Neon that can be used.  latest_working_ver
-dnl   is the latest version of neon that can be used, which is not
-dnl   necessarily the latest released version of neon that exists.
-dnl   url is the URL of the latest version of Neon.
+dnl   to match versions of Neon that can be used.  recommended_ver is the
+dnl   recommended version of Neon, which is not necessarily the latest
+dnl   released version of neon that exists.  url is the URL of the
+dnl   recommended version of Neon.
 dnl
 dnl   If a --with-neon=PREFIX option is passed search for a suitable
 dnl   neon installed on the system whose configuration can be found in
@@ -23,20 +23,24 @@ dnl   it to yes.
 AC_DEFUN(SVN_LIB_NEON,
 [
   NEON_ALLOWED_LIST="$1"
-  NEON_LATEST_WORKING_VER="$2"
+  NEON_RECOMMENDED_VER="$2"
   NEON_URL="$3"
 
   AC_MSG_NOTICE([checking neon library])
 
   AC_ARG_WITH(neon,
-              AC_HELP_STRING([--with-neon=PREFIX], 
-	      [Determine neon library configuration based on 
-	      'PREFIX/bin/neon-config'. Default is to search for neon 
-	      in a subdirectory of the top source directory and then to
-	      look for neon-config in $PATH.]),
+              AS_HELP_STRING([--with-neon=PREFIX], 
+              [Determine neon library configuration based on 
+              'PREFIX/bin/neon-config'. Default is to search for neon 
+              in a subdirectory of the top source directory and then to
+              look for neon-config in $PATH.]),
   [
     if test "$withval" = "yes" ; then
-      AC_MSG_ERROR([--with-neon requires an argument.])
+      if test -n "$PKG_CONFIG" && $PKG_CONFIG neon --exists ; then
+        NEON_PKG_CONFIG="yes"
+      else
+        AC_MSG_ERROR([--with-neon requires an argument.])
+      fi
     else
       neon_config="$withval/bin/neon-config"
     fi
@@ -50,17 +54,23 @@ AC_DEFUN(SVN_LIB_NEON,
       NEON_VERSION=`cat $abs_srcdir/neon/.version`
       AC_MSG_RESULT([$NEON_VERSION])
 
-      if test -n "`echo \"$NEON_VERSION\" | grep '^0\.2[[56]]\.'`" ; then
-        AC_DEFINE_UNQUOTED([SVN_NEON_0_25], [1],
-                           [Define to 1 if you have Neon 0.25 or later.])
-      fi
-      if test -n "`echo \"$NEON_VERSION\" | grep '^0\.26\.'`" ; then
+      if test -n ["`echo "$NEON_VERSION" | grep '^0\.2[6-9]\.'`"] ; then
         AC_DEFINE_UNQUOTED([SVN_NEON_0_26], [1],
                            [Define to 1 if you have Neon 0.26 or later.])
       fi
 
+      if test -n ["`echo "$NEON_VERSION" | grep '^0\.2[7-9]\.'`"] ; then
+        AC_DEFINE_UNQUOTED([SVN_NEON_0_27], [1],
+                           [Define to 1 if you have Neon 0.27 or later.])
+      fi
+
+      if test -n ["`echo "$NEON_VERSION" | grep '^0\.2[8-9]\.'`"] ; then
+        AC_DEFINE_UNQUOTED([SVN_NEON_0_28], [1],
+                           [Define to 1 if you have Neon 0.28 or later.])
+      fi
+
       for svn_allowed_neon in $NEON_ALLOWED_LIST; do
-        if test "$NEON_VERSION" = "$svn_allowed_neon" ||
+        if test -n "`echo "$NEON_VERSION" | grep "^$svn_allowed_neon"`" ||
            test "$svn_allowed_neon" = "any"; then
           echo "Using neon found in source directory."
           svn_allowed_neon_in_srcdir="yes"
@@ -80,7 +90,7 @@ dnl Configure neon --------------------------
             args="--disable-shared"
           fi
 
-          # If we have apr-util and it's bundled expat, we can point neon
+          # If we have apr-util and its bundled expat, we can point neon
           # there, otherwise, neon is on its own to find expat. 
           if test -f "$abs_builddir/apr-util/xml/expat/lib/expat.h" ; then
             args="$args --with-expat='$abs_builddir/apr-util/xml/expat/lib/libexpat.la'"
@@ -101,13 +111,17 @@ dnl Configure neon --------------------------
 
       if test -z $svn_allowed_neon_in_srcdir; then
         echo "You have a neon/ subdir containing version $NEON_VERSION,"
-        echo "but Subversion needs neon ${NEON_LATEST_WORKING_VER}."
+        echo "but Subversion needs neon ${NEON_RECOMMENDED_VER}."
         SVN_DOWNLOAD_NEON()
       fi
 
     else
       # no --with-neon switch, and no neon subdir, look in PATH
-      AC_PATH_PROG(neon_config,neon-config)
+      if test -n "$PKG_CONFIG" && $PKG_CONFIG neon --exists ; then
+        NEON_PKG_CONFIG="yes"
+      else
+        AC_PATH_PROG(neon_config,neon-config)
+      fi
       SVN_NEON_CONFIG()
     fi
 
@@ -121,28 +135,61 @@ dnl SVN_NEON_CONFIG()
 dnl neon-config found, gather relevant information from it
 AC_DEFUN(SVN_NEON_CONFIG,
 [
-  if test -f "$neon_config"; then
-    if test "$neon_config" != ""; then
+  if test "$NEON_PKG_CONFIG" = "yes" || test -f "$neon_config"; then
+    if test "$NEON_PKG_CONFIG" = "yes" || test "$neon_config" != ""; then
       AC_MSG_CHECKING([neon library version])
-      NEON_VERSION=`$neon_config --version | sed -e 's/^neon //'`
+      if test "$NEON_PKG_CONFIG" = "yes" ; then
+        NEON_VERSION=`$PKG_CONFIG neon --modversion`
+      else
+        NEON_VERSION=`$neon_config --version | sed -e 's/^neon //'`
+      fi
       AC_MSG_RESULT([$NEON_VERSION])
 
-      if test -n "`echo \"$NEON_VERSION\" | grep '^0\.2[[56]]\.'`" ; then
-        AC_DEFINE_UNQUOTED([SVN_NEON_0_25], [1],
-                           [Define to 1 if you have Neon 0.25 or later.])
-      fi
-      if test -n "`echo \"$NEON_VERSION\" | grep '^0\.26\.'`" ; then
+      if test -n ["`echo "$NEON_VERSION" | grep '^0\.2[6-9]\.'`"] ; then
         AC_DEFINE_UNQUOTED([SVN_NEON_0_26], [1],
                            [Define to 1 if you have Neon 0.26 or later.])
       fi
 
+      if test -n ["`echo "$NEON_VERSION" | grep '^0\.2[7-9]\.'`"] ; then
+        AC_DEFINE_UNQUOTED([SVN_NEON_0_27], [1],
+                           [Define to 1 if you have Neon 0.27 or later.])
+      fi
+
+      if test -n ["`echo "$NEON_VERSION" | grep '^0\.2[8-9]\.'`"] ; then
+        AC_DEFINE_UNQUOTED([SVN_NEON_0_28], [1],
+                           [Define to 1 if you have Neon 0.28 or later.])
+      fi
+
       for svn_allowed_neon in $NEON_ALLOWED_LIST; do
-        if test "$NEON_VERSION" = "$svn_allowed_neon" ||
+        if test -n "`echo "$NEON_VERSION" | grep "^$svn_allowed_neon"`" ||
            test "$svn_allowed_neon" = "any"; then
             svn_allowed_neon_on_system="yes"
-            SVN_NEON_INCLUDES=[`$neon_config --cflags | sed -e 's/-D[^ ]*//g'`]
-            NEON_LIBS=`$neon_config --la-file`
-            CFLAGS=["$CFLAGS `$neon_config --cflags | sed -e 's/-I[^ ]*//g'`"]
+            if test "$NEON_PKG_CONFIG" = "yes"; then
+              SVN_NEON_INCLUDES=[`$PKG_CONFIG neon --cflags | sed -e 's/-D[^ ]*//g'`]
+              CFLAGS=["$CFLAGS `$PKG_CONFIG neon --cflags | sed -e 's/-I[^ ]*//g'`"]
+              old_CFLAGS="$CFLAGS"
+              old_LIBS="$LIBS"
+              NEON_LIBS=`$PKG_CONFIG neon --libs`
+              CFLAGS="$CFLAGS $SVN_NEON_INCLUDES"
+              LIBS="$LIBS $NEON_LIBS"
+              neon_test_code="
+#include <ne_compress.h>
+#include <ne_xml.h>
+int main()
+{ne_xml_create(); ne_decompress_destroy(NULL);}"
+              AC_LINK_IFELSE([$neon_test_code], shared_linking="yes", shared_linking="no")
+              if test "$shared_linking" = "no"; then
+                NEON_LIBS=`$PKG_CONFIG neon --libs --static`
+                LIBS="$LIBS $NEON_LIBS"
+                AC_LINK_IFELSE([$neon_test_code], , AC_MSG_ERROR([cannot find Neon]))
+              fi
+              CFLAGS="$old_CFLAGS"
+              LIBS="$old_LIBS"
+            else
+              SVN_NEON_INCLUDES=[`$neon_config --cflags | sed -e 's/-D[^ ]*//g'`]
+              CFLAGS=["$CFLAGS `$neon_config --cflags | sed -e 's/-I[^ ]*//g'`"]
+              NEON_LIBS=`$neon_config --libs`
+            fi
             svn_lib_neon="yes"
             break
         fi
@@ -150,7 +197,7 @@ AC_DEFUN(SVN_NEON_CONFIG,
 
       if test -z $svn_allowed_neon_on_system; then
         echo "You have neon version $NEON_VERSION,"
-        echo "but Subversion needs neon $NEON_LATEST_WORKING_VER."
+        echo "but Subversion needs neon $NEON_RECOMMENDED_VER."
         SVN_DOWNLOAD_NEON()
       fi
 
@@ -172,16 +219,16 @@ dnl no neon found, print out a message telling the user what to do
 AC_DEFUN(SVN_DOWNLOAD_NEON,
 [
   echo ""
-  echo "An appropriate version of neon could not be found, so libsvn_ra_dav"
-  echo "will not be built.  If you want to build libsvn_ra_dav, please either"
-  echo "install neon ${NEON_LATEST_WORKING_VER} on this system"
+  echo "An appropriate version of neon could not be found, so libsvn_ra_neon"
+  echo "will not be built.  If you want to build libsvn_ra_neon, please either"
+  echo "install neon ${NEON_RECOMMENDED_VER} on this system"
   echo ""
   echo "or"
   echo ""
-  echo "get neon ${NEON_LATEST_WORKING_VER} from:"
+  echo "get neon ${NEON_RECOMMENDED_VER} from:"
   echo "    ${NEON_URL}"
   echo "unpack the archive using tar/gunzip and rename the resulting"
-  echo "directory from ./neon-${NEON_LATEST_WORKING_VER}/ to ./neon/"
+  echo "directory from ./neon-${NEON_RECOMMENDED_VER}/ to ./neon/"
   echo ""
   AC_MSG_RESULT([no suitable neon found])
   svn_lib_neon="no"

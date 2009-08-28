@@ -32,7 +32,6 @@
 #import "GraphicsContext.h"
 #import "GraphicsLayer.h"
 #import <QuartzCore/QuartzCore.h>
-#import "WebCoreTextRenderer.h"
 #import <wtf/UnusedParam.h>
 
 using namespace WebCore;
@@ -41,10 +40,18 @@ using namespace WebCore;
 
 + (void)drawContents:(WebCore::GraphicsLayer*)layerContents ofLayer:(CALayer*)layer intoContext:(CGContextRef)context
 {
-    UNUSED_PARAM(layer);
+    if (!layerContents)
+        return;
+
     CGContextSaveGState(context);
-    
-    if (layerContents && layerContents->client()) {
+
+    CGRect layerBounds = [layer bounds];
+    if (layerContents->contentsOrientation() == WebCore::GraphicsLayer::CompositingCoordinatesBottomUp) {
+        CGContextScaleCTM(context, 1, -1);
+        CGContextTranslateCTM(context, 0, -layerBounds.size.height);
+    }
+
+    if (layerContents->client()) {
         [NSGraphicsContext saveGraphicsState];
 
         // Set up an NSGraphicsContext for the context, so that parts of AppKit that rely on
@@ -69,29 +76,24 @@ using namespace WebCore;
         // FIXME: ideally we'd avoid calling -setNeedsDisplay on a layer that is a plain color,
         // so CA never makes backing store for it (which is what -setNeedsDisplay will do above).
         CGContextSetRGBFillColor(context, 0.0f, 1.0f, 0.0f, 1.0f);
-        CGRect aBounds = [layer bounds];
-        CGContextFillRect(context, aBounds);
+        CGContextFillRect(context, layerBounds);
     }
 #endif
 
-    CGContextRestoreGState(context);
-
 #ifndef NDEBUG
-    if (layerContents && layerContents->showRepaintCounter()) {
+    if (layerContents->showRepaintCounter()) {
         bool isTiledLayer = [layer isKindOfClass:[CATiledLayer class]];
 
         char text[16]; // that's a lot of repaints
         snprintf(text, sizeof(text), "%d", layerContents->incrementRepaintCount());
 
-        CGAffineTransform a = CGContextGetCTM(context);
-        
         CGContextSaveGState(context);
         if (isTiledLayer)
             CGContextSetRGBFillColor(context, 0.0f, 1.0f, 0.0f, 0.8f);
         else
             CGContextSetRGBFillColor(context, 1.0f, 0.0f, 0.0f, 0.8f);
         
-        CGRect aBounds = [layer bounds];
+        CGRect aBounds = layerBounds;
 
         aBounds.size.width = 10 + 12 * strlen(text);
         aBounds.size.height = 25;
@@ -106,6 +108,8 @@ using namespace WebCore;
         CGContextRestoreGState(context);        
     }
 #endif
+
+    CGContextRestoreGState(context);
 }
 
 // Disable default animations
@@ -133,12 +137,19 @@ using namespace WebCore;
 - (void)setNeedsDisplayInRect:(CGRect)dirtyRect
 {
     if (m_layerOwner && m_layerOwner->client() && m_layerOwner->drawsContent()) {
+#if defined(BUILDING_ON_LEOPARD)
+        dirtyRect = CGRectApplyAffineTransform(dirtyRect, [self contentsTransform]);
+#endif
         [super setNeedsDisplayInRect:dirtyRect];
 
 #ifndef NDEBUG
         if (m_layerOwner->showRepaintCounter()) {
             CGRect bounds = [self bounds];
-            [super setNeedsDisplayInRect:CGRectMake(bounds.origin.x, bounds.origin.y, 46, 25)];
+            CGRect indicatorRect = CGRectMake(bounds.origin.x, bounds.origin.y, 46, 25);
+#if defined(BUILDING_ON_LEOPARD)
+            indicatorRect = CGRectApplyAffineTransform(indicatorRect, [self contentsTransform]);
+#endif
+            [super setNeedsDisplayInRect:indicatorRect];
         }
 #endif
     }

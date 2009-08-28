@@ -24,6 +24,7 @@
 
 #ifdef HAVE_COPYFILE
 #include <libgen.h>
+#include <copyfile.h>
 #endif
 
 extern int verbose;
@@ -50,7 +51,9 @@ extern int sparse_files;
 extern int keep_partial;
 extern int checksum_seed;
 extern int inplace;
+extern int no_cache;
 extern int delay_updates;
+extern int preserve_links;
 extern struct stats stats;
 extern char *stdout_format;
 extern char *tmpdir;
@@ -398,11 +401,11 @@ int recv_files(int f_in, struct file_list *flist, char *local_name)
 			}
 			continue;
 		}
-
 		iflags = read_item_attrs(f_in, -1, i, &fnamecmp_type,
 					 xname, &xlen);
-		if (iflags == ITEM_IS_NEW) /* no-op packet */
+		if (iflags == ITEM_IS_NEW) /* no-op packet */ {
 			continue;
+		}
 
 		file = flist->files[i];
 #ifdef HAVE_COPYFILE
@@ -428,6 +431,16 @@ int recv_files(int f_in, struct file_list *flist, char *local_name)
 
 		if (!(iflags & ITEM_TRANSFER)) {
 			maybe_log_item(file, iflags, itemizing, xname);
+#ifdef HAVE_COPYFILE
+			if (do_xfers && (extended_attributes && (file->flags & FLAG_CLEAR_METADATA))) {
+				if (0 == copyfile("/dev/null", fname, 0,
+						  COPYFILE_XATTR | COPYFILE_ACL | (preserve_links ? COPYFILE_NOFOLLOW : 0))) {
+					file->flags &= ~FLAG_CLEAR_METADATA;
+				} else {
+					rprintf(FERROR, "copyfile(/dev/null, %s, COPYFILE_METADATA) failed:%d\n", fname, errno);
+				}
+			}
+#endif
 			continue;
 		}
 		if (phase == 2) {
@@ -627,6 +640,20 @@ int recv_files(int f_in, struct file_list *flist, char *local_name)
 			cleanup_set(fnametmp, partialptr, file, fd1, fd2);
 		}
 
+#ifdef F_NOCACHE
+		if (no_cache) {
+			fcntl(fd2, F_NOCACHE, 1);
+		}
+#endif		/* F_NOCACHE */
+#ifdef F_PREALLOCATE
+		{
+			fstore_t fstore;
+			bzero(&fstore, sizeof(fstore));
+			fstore.fst_posmode = F_PEOFPOSMODE;
+			fstore.fst_length = file->length;
+			fcntl(fd2, F_PREALLOCATE, &fstore);
+		}
+#endif
 		/* log the transfer */
 		if (log_before_transfer)
 			log_item(FCLIENT, file, &initial_stats, iflags, NULL);
@@ -673,6 +700,16 @@ int recv_files(int f_in, struct file_list *flist, char *local_name)
 			partialptr = NULL;
 			do_unlink(fnametmp);
 		}
+#ifdef HAVE_COPYFILE
+		if (extended_attributes && (file->flags & FLAG_CLEAR_METADATA)) {
+			if (0 == copyfile("/dev/null", fname, 0,
+					  COPYFILE_XATTR | COPYFILE_ACL | (preserve_links ? COPYFILE_NOFOLLOW : 0))) {
+				file->flags &= ~FLAG_CLEAR_METADATA;
+			} else {
+				rprintf(FERROR, "copyfile(/dev/null, %s, COPYFILE_METADATA) failed:%d\n", fname, errno);
+			}
+		}
+#endif	/* HAVE_COPYFILE */
 
 		cleanup_disable();
 

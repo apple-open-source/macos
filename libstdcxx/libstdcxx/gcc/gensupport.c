@@ -1,5 +1,5 @@
 /* Support routines for the various generation passes.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
 
    This file is part of GCC.
@@ -16,8 +16,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-   02111-1307, USA.  */
+   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301, USA.  */
 
 #include "bconfig.h"
 #include "system.h"
@@ -118,6 +118,7 @@ static void process_define_cond_exec (void);
 static void process_include (rtx, int);
 static char *save_string (const char *, int);
 static void init_predicate_table (void);
+static void record_insn_name (int, const char *);
 
 void
 message_with_line (int lineno, const char *msg, ...)
@@ -286,6 +287,10 @@ process_rtx (rtx desc, int lineno)
 
     case DEFINE_PREDICATE:
     case DEFINE_SPECIAL_PREDICATE:
+    case DEFINE_CONSTRAINT:
+    case DEFINE_REGISTER_CONSTRAINT:
+    case DEFINE_MEMORY_CONSTRAINT:
+    case DEFINE_ADDRESS_CONSTRAINT:
       queue_pattern (desc, &define_pred_tail, read_rtx_filename, lineno);
       break;
 
@@ -317,7 +322,10 @@ process_rtx (rtx desc, int lineno)
 	   insn condition to create the new split condition.  */
 	split_cond = XSTR (desc, 4);
 	if (split_cond[0] == '&' && split_cond[1] == '&')
-	  split_cond = concat (XSTR (desc, 2), split_cond, NULL);
+	  {
+	    copy_rtx_ptr_loc (split_cond + 2, split_cond);
+	    split_cond = join_c_conditions (XSTR (desc, 2), split_cond + 2);
+	  }
 	XSTR (split, 1) = split_cond;
 	XVEC (split, 2) = XVEC (desc, 5);
 	XSTR (split, 3) = XSTR (desc, 6);
@@ -460,6 +468,8 @@ identify_predicable_attribute (void)
       message_with_line (elem->lineno,
 			 "attribute `predicable' is not a boolean");
       errors = 1;
+      if (p_false)
+        free (p_false);
       return;
     }
   p_true[-1] = '\0';
@@ -477,12 +487,16 @@ identify_predicable_attribute (void)
       message_with_line (elem->lineno,
 			 "attribute `predicable' cannot be const");
       errors = 1;
+      if (p_false)
+	free (p_false);
       return;
 
     default:
       message_with_line (elem->lineno,
 			 "attribute `predicable' must have a constant default");
       errors = 1;
+      if (p_false)
+	free (p_false);
       return;
     }
 
@@ -496,6 +510,8 @@ identify_predicable_attribute (void)
 			 "unknown value `%s' for `predicable' attribute",
 			 value);
       errors = 1;
+      if (p_false)
+	free (p_false);
     }
 }
 
@@ -663,16 +679,8 @@ static const char *
 alter_test_for_insn (struct queue_elem *ce_elem,
 		     struct queue_elem *insn_elem)
 {
-  const char *ce_test, *insn_test;
-
-  ce_test = XSTR (ce_elem->data, 1);
-  insn_test = XSTR (insn_elem->data, 2);
-  if (!ce_test || *ce_test == '\0')
-    return insn_test;
-  if (!insn_test || *insn_test == '\0')
-    return ce_test;
-
-  return concat ("(", ce_test, ") && (", insn_test, ")", NULL);
+  return join_c_conditions (XSTR (ce_elem->data, 1),
+			    XSTR (insn_elem->data, 2));
 }
 
 /* Adjust all of the operand numbers in SRC to match the shift they'll
@@ -906,90 +914,148 @@ int
 init_md_reader_args_cb (int argc, char **argv, bool (*parse_opt)(const char *))
 {
   FILE *input_file;
-  int i, lineno;
-  size_t ix;
+  int c, i, lineno;
   char *lastsl;
   rtx desc;
+  bool no_more_options;
+  bool already_read_stdin;
 
+  /* Unlock the stdio streams.  */
+  unlock_std_streams ();
+
+  /* First we loop over all the options.  */
   for (i = 1; i < argc; i++)
     {
       if (argv[i][0] != '-')
+	continue;
+      
+      c = argv[i][1];
+      switch (c)
 	{
-	  if (in_fname)
-	    fatal ("too many input files");
+	case 'I':		/* Add directory to path for includes.  */
+	  {
+	    struct file_name_list *dirtmp;
 
-	  in_fname = argv[i];
-	}
-      else
-	{
-	  int c = argv[i][1];
-	  switch (c)
-	    {
-	    case 'I':		/* Add directory to path for includes.  */
-	      {
-		struct file_name_list *dirtmp;
+	    dirtmp = XNEW (struct file_name_list);
+	    dirtmp->next = 0;	/* New one goes on the end */
+	    if (first_dir_md_include == 0)
+	      first_dir_md_include = dirtmp;
+	    else
+	      last_dir_md_include->next = dirtmp;
+	    last_dir_md_include = dirtmp;	/* Tail follows the last one */
+	    if (argv[i][1] == 'I' && argv[i][2] != 0)
+	      dirtmp->fname = argv[i] + 2;
+	    else if (i + 1 == argc)
+	      fatal ("directory name missing after -I option");
+	    else
+	      dirtmp->fname = argv[++i];
+	    if (strlen (dirtmp->fname) > max_include_len)
+	      max_include_len = strlen (dirtmp->fname);
+	  }
+	  break;
 
-		dirtmp = XNEW (struct file_name_list);
-		dirtmp->next = 0;	/* New one goes on the end */
-		if (first_dir_md_include == 0)
-		  first_dir_md_include = dirtmp;
-		else
-		  last_dir_md_include->next = dirtmp;
-		last_dir_md_include = dirtmp;	/* Tail follows the last one */
-		if (argv[i][1] == 'I' && argv[i][2] != 0)
-		  dirtmp->fname = argv[i] + 2;
-		else if (i + 1 == argc)
-		  fatal ("directory name missing after -I option");
-		else
-		  dirtmp->fname = argv[++i];
-		if (strlen (dirtmp->fname) > max_include_len)
-		  max_include_len = strlen (dirtmp->fname);
-	      }
-	      break;
-	    default:
-	      /* The program may have provided a callback so it can
-		 accept its own options.  */
-	      if (parse_opt && parse_opt (argv[i]))
-		break;
+	case '\0':
+	  /* An argument consisting of exactly one dash is a request to
+	     read stdin.  This will be handled in the second loop.  */
+	  continue;
 
-	      fatal ("invalid option `%s'", argv[i]);
-	    }
+	case '-':
+	  /* An argument consisting of just two dashes causes option
+	     parsing to cease.  */
+	  if (argv[i][2] == '\0')
+	    goto stop_parsing_options;
+
+	default:
+	  /* The program may have provided a callback so it can
+	     accept its own options.  */
+	  if (parse_opt && parse_opt (argv[i]))
+	    break;
+
+	  fatal ("invalid option `%s'", argv[i]);
 	}
     }
 
-  if (!in_fname)
-    fatal ("no input file name");
+ stop_parsing_options:
 
-  lastsl = strrchr (in_fname, '/');
-  if (lastsl != NULL)
-    base_dir = save_string (in_fname, lastsl - in_fname + 1 );
-
-  read_rtx_filename = in_fname;
-  input_file = fopen (in_fname, "r");
-  if (input_file == 0)
-    {
-      perror (in_fname);
-      return FATAL_EXIT_CODE;
-    }
-
-  /* Initialize the table of insn conditions.  */
-  condition_table = htab_create (n_insn_conditions,
-				 hash_c_test, cmp_c_test, NULL);
-
-  for (ix = 0; ix < n_insn_conditions; ix++)
-    *(htab_find_slot (condition_table, &insn_conditions[ix], INSERT))
-      = (void *) &insn_conditions[ix];
-
+  /* Prepare to read input.  */
+  condition_table = htab_create (500, hash_c_test, cmp_c_test, NULL);
   init_predicate_table ();
-
   obstack_init (rtl_obstack);
   errors = 0;
   sequence_num = 0;
+  no_more_options = false;
+  already_read_stdin = false;
 
-  /* Read the entire file.  */
-  while (read_rtx (input_file, &desc, &lineno))
-    process_rtx (desc, lineno);
-  fclose (input_file);
+
+  /* Now loop over all input files.  */
+  for (i = 1; i < argc; i++)
+    {
+      if (argv[i][0] == '-')
+	{
+	  if (argv[i][1] == '\0')
+	    {
+	      /* Read stdin.  */
+	      if (already_read_stdin)
+		fatal ("cannot read standard input twice");
+	      
+	      base_dir = NULL;
+	      read_rtx_filename = in_fname = "<stdin>";
+	      read_rtx_lineno = 1;
+	      input_file = stdin;
+	      already_read_stdin = true;
+
+	      while (read_rtx (input_file, &desc, &lineno))
+		process_rtx (desc, lineno);
+	      fclose (input_file);
+	      continue;
+	    }
+	  else if (argv[i][1] == '-' && argv[i][2] == '\0')
+	    {
+	      /* No further arguments are to be treated as options.  */
+	      no_more_options = true;
+	      continue;
+	    }
+	  else if (!no_more_options)
+	    continue;
+	}
+
+      /* If we get here we are looking at a non-option argument, i.e.
+	 a file to be processed.  */
+
+      in_fname = argv[i];
+      lastsl = strrchr (in_fname, '/');
+      if (lastsl != NULL)
+	base_dir = save_string (in_fname, lastsl - in_fname + 1 );
+      else
+	base_dir = NULL;
+
+      read_rtx_filename = in_fname;
+      read_rtx_lineno = 1;
+      input_file = fopen (in_fname, "r");
+      if (input_file == 0)
+	{
+	  perror (in_fname);
+	  return FATAL_EXIT_CODE;
+	}
+
+      while (read_rtx (input_file, &desc, &lineno))
+	process_rtx (desc, lineno);
+      fclose (input_file);
+    }
+
+  /* If we get to this point without having seen any files to process,
+     read standard input now.  */
+  if (!in_fname)
+    {
+      base_dir = NULL;
+      read_rtx_filename = in_fname = "<stdin>";
+      read_rtx_lineno = 1;
+      input_file = stdin;
+
+      while (read_rtx (input_file, &desc, &lineno))
+	process_rtx (desc, lineno);
+      fclose (input_file);
+    }
 
   /* Process define_cond_exec patterns.  */
   if (define_cond_exec_queue != NULL)
@@ -1051,6 +1117,10 @@ read_md_rtx (int *lineno, int *seqnr)
 	sequence_num++;
       else if (insn_elision)
 	goto discard;
+
+      /* *seqnr is used here so the name table will match caller's
+	 idea of insn numbering, whether or not elision is active.  */
+      record_insn_name (*seqnr, XSTR (desc, 0));
       break;
 
     case DEFINE_SPLIT:
@@ -1121,15 +1191,40 @@ maybe_eval_c_test (const char *expr)
   if (expr[0] == 0)
     return 1;
 
-  if (insn_elision_unavailable)
-    return -1;
-
   dummy.expr = expr;
   test = (const struct c_test *)htab_find (condition_table, &dummy);
-  gcc_assert (test);
-
+  if (!test)
+    return -1;
   return test->value;
 }
+
+/* Record the C test expression EXPR in the condition_table, with
+   value VAL.  Duplicates clobber previous entries.  */
+
+void
+add_c_test (const char *expr, int value)
+{
+  struct c_test *test;
+
+  if (expr[0] == 0)
+    return;
+
+  test = XNEW (struct c_test);
+  test->expr = expr;
+  test->value = value;
+
+  *(htab_find_slot (condition_table, test, INSERT)) = test;
+}
+
+/* For every C test, call CALLBACK with two arguments: a pointer to
+   the condition structure and INFO.  Stops when CALLBACK returns zero.  */
+void
+traverse_c_tests (htab_trav callback, void *info)
+{
+  if (condition_table)
+    htab_traverse (condition_table, callback, info);
+}
+
 
 /* Given a string, return the number of comma-separated elements in it.
    Return 0 for the null string.  */
@@ -1202,7 +1297,7 @@ lookup_predicate (const char *name)
 {
   struct pred_data key;
   key.name = name;
-  return htab_find (predicate_table, &key);
+  return (struct pred_data *) htab_find (predicate_table, &key);
 }
 
 void
@@ -1220,64 +1315,43 @@ add_predicate (struct pred_data *pred)
 }
 
 /* This array gives the initial content of the predicate table.  It
-   has entries for all predicates defined in recog.c.  The back end
-   can define PREDICATE_CODES to give additional entries for the
-   table; this is considered an obsolete mechanism (use
-   define_predicate instead).  */
+   has entries for all predicates defined in recog.c.  */
 
-struct old_pred_table
+struct std_pred_table
 {
   const char *name;
+  bool special;
   RTX_CODE codes[NUM_RTX_CODE];
 };
 
-static const struct old_pred_table old_preds[] = {
-  {"general_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,
-		       LABEL_REF, SUBREG, REG, MEM }},
-  {"address_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,
-		       LABEL_REF, SUBREG, REG, MEM,
-		       PLUS, MINUS, MULT}},
-  {"register_operand", {SUBREG, REG}},
-  {"pmode_register_operand", {SUBREG, REG}},
-  {"scratch_operand", {SCRATCH, REG}},
-  {"immediate_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,
-			 LABEL_REF}},
-  {"const_int_operand", {CONST_INT}},
-  {"const_double_operand", {CONST_INT, CONST_DOUBLE}},
-  {"nonimmediate_operand", {SUBREG, REG, MEM}},
-  {"nonmemory_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,
-			 LABEL_REF, SUBREG, REG}},
-  {"push_operand", {MEM}},
-  {"pop_operand", {MEM}},
-  {"memory_operand", {SUBREG, MEM}},
-  {"indirect_operand", {SUBREG, MEM}},
-  {"comparison_operator", {EQ, NE, LE, LT, GE, GT, LEU, LTU, GEU, GTU,
-			   UNORDERED, ORDERED, UNEQ, UNGE, UNGT, UNLE,
-			   UNLT, LTGT}},
-#ifdef PREDICATE_CODES
-  PREDICATE_CODES
-#endif
+static const struct std_pred_table std_preds[] = {
+  {"general_operand", false, {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,
+			      LABEL_REF, SUBREG, REG, MEM }},
+  {"address_operand", true, {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,
+			     LABEL_REF, SUBREG, REG, MEM,
+			     PLUS, MINUS, MULT}},
+  {"register_operand", false, {SUBREG, REG}},
+  {"pmode_register_operand", true, {SUBREG, REG}},
+  {"scratch_operand", false, {SCRATCH, REG}},
+  {"immediate_operand", false, {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,
+				LABEL_REF}},
+  {"const_int_operand", false, {CONST_INT}},
+  {"const_double_operand", false, {CONST_INT, CONST_DOUBLE}},
+  {"nonimmediate_operand", false, {SUBREG, REG, MEM}},
+  {"nonmemory_operand", false, {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,
+			        LABEL_REF, SUBREG, REG}},
+  {"push_operand", false, {MEM}},
+  {"pop_operand", false, {MEM}},
+  {"memory_operand", false, {SUBREG, MEM}},
+  {"indirect_operand", false, {SUBREG, MEM}},
+  {"comparison_operator", false, {EQ, NE, LE, LT, GE, GT, LEU, LTU, GEU, GTU,
+				  UNORDERED, ORDERED, UNEQ, UNGE, UNGT, UNLE,
+				  UNLT, LTGT}}
 };
-#define NUM_KNOWN_OLD_PREDS ARRAY_SIZE (old_preds)
-
-/* This table gives the initial set of special predicates.  It has
-   entries for all special predicates defined in recog.c.  The back
-   end can define SPECIAL_MODE_PREDICATES to give additional entries
-   for the table; this is considered an obsolete mechanism (use
-   define_special_predicate instead).  */
-static const char *const old_special_pred_table[] = {
-  "address_operand",
-  "pmode_register_operand",
-#ifdef SPECIAL_MODE_PREDICATES
-  SPECIAL_MODE_PREDICATES
-#endif
-};
-
-#define NUM_OLD_SPECIAL_MODE_PREDS ARRAY_SIZE (old_special_pred_table)
+#define NUM_KNOWN_STD_PREDS ARRAY_SIZE (std_preds)
 
 /* Initialize the table of predicate definitions, starting with
-   the information we have on generic predicates, and the old-style
-   PREDICATE_CODES definitions.  */
+   the information we have on generic predicates.  */
 
 static void
 init_predicate_table (void)
@@ -1289,14 +1363,15 @@ init_predicate_table (void)
 				       eq_struct_pred_data, 0,
 				       xcalloc, free);
 
-  for (i = 0; i < NUM_KNOWN_OLD_PREDS; i++)
+  for (i = 0; i < NUM_KNOWN_STD_PREDS; i++)
     {
-      pred = xcalloc (sizeof (struct pred_data), 1);
-      pred->name = old_preds[i].name;
+      pred = XCNEW (struct pred_data);
+      pred->name = std_preds[i].name;
+      pred->special = std_preds[i].special;
 
-      for (j = 0; old_preds[i].codes[j] != 0; j++)
+      for (j = 0; std_preds[i].codes[j] != 0; j++)
 	{
-	  enum rtx_code code = old_preds[i].codes[j];
+	  enum rtx_code code = std_preds[i].codes[j];
 
 	  pred->codes[code] = true;
 	  if (GET_RTX_CLASS (code) != RTX_CONST_OBJ)
@@ -1310,20 +1385,55 @@ init_predicate_table (void)
 	    pred->allows_non_lvalue = true;
 	}
       if (j == 1)
-	pred->singleton = old_preds[i].codes[0];
+	pred->singleton = std_preds[i].codes[0];
       
       add_predicate (pred);
     }
+}
+
+/* These functions allow linkage with print-rtl.c.  Also, some generators
+   like to annotate their output with insn names.  */
 
-  for (i = 0; i < NUM_OLD_SPECIAL_MODE_PREDS; i++)
+/* Holds an array of names indexed by insn_code_number.  */
+static char **insn_name_ptr = 0;
+static int insn_name_ptr_size = 0;
+
+const char *
+get_insn_name (int code)
+{
+  if (code < insn_name_ptr_size)
+    return insn_name_ptr[code];
+  else
+    return NULL;
+}
+
+static void
+record_insn_name (int code, const char *name)
+{
+  static const char *last_real_name = "insn";
+  static int last_real_code = 0;
+  char *new;
+
+  if (insn_name_ptr_size <= code)
     {
-      pred = lookup_predicate (old_special_pred_table[i]);
-      if (!pred)
-	{
-	  error ("old-style special predicate list refers "
-		 "to unknown predicate '%s'", old_special_pred_table[i]);
-	  continue;
-	}
-      pred->special = true;
+      int new_size;
+      new_size = (insn_name_ptr_size ? insn_name_ptr_size * 2 : 512);
+      insn_name_ptr = xrealloc (insn_name_ptr, sizeof(char *) * new_size);
+      memset (insn_name_ptr + insn_name_ptr_size, 0,
+	      sizeof(char *) * (new_size - insn_name_ptr_size));
+      insn_name_ptr_size = new_size;
     }
+
+  if (!name || name[0] == '\0')
+    {
+      new = xmalloc (strlen (last_real_name) + 10);
+      sprintf (new, "%s+%d", last_real_name, code - last_real_code);
+    }
+  else
+    {
+      last_real_name = new = xstrdup (name);
+      last_real_code = code;
+    }
+
+  insn_name_ptr[code] = new;
 }

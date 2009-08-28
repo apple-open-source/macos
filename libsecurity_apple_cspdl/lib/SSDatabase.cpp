@@ -299,7 +299,7 @@ SSDatabaseImpl::open(const DLDbIdentifier &dlDbIdentifier)
 }
 
 void
-SSDatabaseImpl::recode(const CssmData &dbBlob, const CssmData &extraData)
+SSDatabaseImpl::recode(const CssmData &data, const CssmData &extraData)
 {
 	// Start a transaction (Implies activate()).
 	passThrough(CSSM_APPLEFILEDL_TOGGLE_AUTOCOMMIT, 0);
@@ -316,10 +316,12 @@ SSDatabaseImpl::recode(const CssmData &dbBlob, const CssmData &extraData)
 		}
 		dbb.clear();
 
+		DbHandle successfulHdl = mClientSession.authenticateDbsForSync(data, extraData);
+
 		// Create a newDbHandle using the master secrets from the dbBlob we are
 		// recoding to.
 		SecurityServer::DbHandle clonedDbHandle =
-			mClientSession.cloneDbForSync(dbBlob, mSSDbHandle, extraData);
+			mClientSession.recodeDbForSync(successfulHdl, mSSDbHandle);
 
 		// @@@ If the dbb changed since we fetched it we should abort or
 		// retry the operation here.

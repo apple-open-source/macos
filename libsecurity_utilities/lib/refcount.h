@@ -36,13 +36,13 @@ namespace Security {
 //
 // RefCount/RefPointer - a simple reference counting facility.
 //
-// To make an object reference-counted, derive it from RefCount. To track refcounted
-// objects, use RefPointer<TheType>, where TheType must be derived from RefCount.
+// To make an object reference-counted, inherit from RefCount. To track refcounted
+// objects, use RefPointer<TheType>, where TheType must inherit from RefCount.
 //
 // RefCount is thread safe - any number of threads can hold and manipulate references
 // in parallel. It does however NOT protect the contents of your object - just the
-// reference count itself. If you need to share your object contents, you must engage
-// in appropriate locking yourself.
+// reference count itself. If you need to share your object contents, you must provide
+// appropriate locking yourself.
 //
 // There is no (thread safe) way to determine whether you are the only thread holding
 // a pointer to a particular RefCount object. Thus there is no (thread safe)
@@ -50,7 +50,13 @@ namespace Security {
 //
 
 #if !defined(DEBUG_REFCOUNTS)
-# define DEBUG_REFCOUNTS 0
+# define DEBUG_REFCOUNTS 1
+#endif
+
+#if DEBUG_REFCOUNTS
+# define RCDEBUG(_kind, _args...)	SECURITY_DEBUG_REFCOUNT_##_kind((void *)this, ##_args)
+#else
+# define RCDEBUG(kind)	/* nothing */
 #endif
 
 
@@ -59,16 +65,15 @@ namespace Security {
 //
 class RefCount {	
 public:
-	RefCount() : mRefCount(0) { }
+	RefCount() : mRefCount(0) { RCDEBUG(CREATE); }
 
 protected:
 	template <class T> friend class RefPointer;
 
-	void ref() const			{ ++mRefCount; }
-	unsigned int unref() const	{ return --mRefCount; }
+	void ref() const			{ ++mRefCount; RCDEBUG(UP, mRefCount); }
+	unsigned int unref() const	{ RCDEBUG(DOWN, mRefCount - 1); return --mRefCount; }
 	
-	// if you call this for anything but debug output, you will go to hell
-	// (free handbasket included)
+	// if you call this for anything but debug output, you will go to hell (free handbasket included)
 	unsigned int refCountForDebuggingOnly() const { return mRefCount; }
 
 private:

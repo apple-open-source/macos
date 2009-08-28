@@ -102,7 +102,7 @@ $(srcdir)/$(PACKAGE).pot: $(SRC-POTFILES) $(BLD-POTFILES)
 	  --add-comments --keyword=_ --keyword=N_ \
 	  --join-existing \
 	  --files-from=$(srcdir)/BLD-POTFILES.in
-	if -f $(PACKAGE).po; then \
+	if test -f $(PACKAGE).po; then \
 		rm -f $(srcdir)/$(PACKAGE).pot; \
 		mv $(PACKAGE).po $(srcdir)/$(PACKAGE).pot; \
 	fi

@@ -37,7 +37,7 @@
 
 UInt32 IOPCIDevice::ioRead32( UInt16 offset, IOMemoryMap * map )
 {
-    UInt32	value;
+    UInt32      value;
 
     if (0 == map)
     {
@@ -54,7 +54,7 @@ UInt32 IOPCIDevice::ioRead32( UInt16 offset, IOMemoryMap * map )
 
 UInt16 IOPCIDevice::ioRead16( UInt16 offset, IOMemoryMap * map )
 {
-    UInt16	value;
+    UInt16      value;
 
     if (0 == map)
     {
@@ -71,7 +71,7 @@ UInt16 IOPCIDevice::ioRead16( UInt16 offset, IOMemoryMap * map )
 
 UInt8 IOPCIDevice::ioRead8( UInt16 offset, IOMemoryMap * map )
 {
-    UInt32	value;
+    UInt32      value;
 
     if (0 == map)
     {

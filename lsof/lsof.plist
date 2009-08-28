@@ -1,28 +1,26 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-05-24</string>
+		<string>2009-02-07</string>
 		<key>OpenSourceLicense</key>
 		<string>Other</string>
 		<key>OpenSourceLicenseFile</key>
 		<string>lsof.txt</string>
 		<key>OpenSourceModifications</key>
 		<array>
-			<string>All non-"darwin" OS dialects were removed from the lsof sources before being imported</string>
-			<string>A slew of changes associated with the introduction of the libproc.h APIs were made. These changes will eventually roll into a subsequent release of lsof (Vic Abell originally tagged the pre-release code as lsof 4.77D).</string>
-			<string>A few minor bug fixes.</string>
+			<string>All non-&quot;darwin&quot; OS dialects were removed from the lsof sources before being imported</string>
 		</array>
 		<key>OpenSourceProject</key>
 		<string>lsof</string>
 		<key>OpenSourceSHA1</key>
-		<string>07bdbe8ef658b2c3d2d27b9e0178cf79bd88b00b</string>
+		<string>b628b40ce5e70b44dc931052a0be1735fa2f9390</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://lsof.itap.purdue.edu/pub/tools/unix/lsof/lsof_4.78.tar.gz</string>
+		<string>ftp://lsof.itap.purdue.edu/pub/tools/unix/lsof/NEW/lsof_4.82B.darwin.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>4.78</string>
+		<string>4.82</string>
 	</dict>
 </array>
 </plist>

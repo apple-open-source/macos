@@ -11,10 +11,10 @@
 # to appropriate places in the file system, and makes symlinks where necessary.
 
 PROJECT_NAME=squirrelmail
-PROJECT_VERSION=1.4.17
+PROJECT_VERSION=1.4.17ja
 PROJECT_DIR=$(PROJECT_NAME)-$(PROJECT_VERSION)
 PROJECT_ARCHIVE=$(PROJECT_DIR).tar.gz
-PROJECT_LOCALE_ARCHIVE=all_locales-1.4.8-20060903.tar.gz
+PROJECT_LOCALE_ARCHIVE=all_locales-1.4.13-20071220.tar.gz
 VERSIONS_DIR=/usr/local/OpenSourceVersions
 LICENSE_DIR=/usr/local/OpenSourceLicenses
 
@@ -22,6 +22,7 @@ LICENSE_DIR=/usr/local/OpenSourceLicenses
 # Configuration values we customize
 #
 IMAP_SERVER_TYPE=cyrus
+IMAP_AUTH_MECH=cram-md5
 DRAFT_FOLDER=Drafts
 SENT_FOLDER=Sent Messages
 TRASH_FOLDER=Deleted Messages
@@ -98,6 +99,7 @@ do_configure:
 	$(SILENT) if [ ! -e $(PROJECT_DIR)/config/$(CONFIG_FILE) ]; then\
 		$(SED) < $(PROJECT_DIR)/config/config_default.php > $(PROJECT_DIR)/config/$(CONFIG_FILE)\
 		-e 's%^\$$imap_server_type[ \t].*%$$imap_server_type = "$(IMAP_SERVER_TYPE)";%' \
+		-e 's%^\$$imap_auth_mech[ \t].*%$$imap_auth_mech = "$(IMAP_AUTH_MECH)";%' \
 		-e 's%^\$$org_name[ \t].*%$$org_name = "$(ORG_NAME)";%' \
 		-e 's%^\$$org_logo_width[ \t].*%$$org_logo_width = 0;%' \
 		-e 's%^\$$org_logo_height[ \t].*%$$org_logo_height = 0;%' \
@@ -137,7 +139,6 @@ do_install: $(DSTROOT) $(HTTPD_CONF_DST) $(DATA_DIR_FULL) $(CONFIG_DIR_FULL) $(S
 	$(SILENT) $(ECHO) "Installing $(PROJECT_NAME)..."
 	$(SILENT) $(CHMOD) -R ugo-s $(PROJECT_DIR)/*
 	$(SILENT) $(CP) -r $(PROJECT_DIR)/* $(SHARE_DIR_FULL)
-	$(PATCH) -d "$(SHARE_DIR_FULL)" -p1 <$(SRCROOT)/$(JA_PATCH_FILE)
 	$(SILENT) $(CP) index.php $(SRC_DIR_FULL)
 	$(SILENT) $(MV) $(SHARE_DIR_FULL)/config $(CONFIG_DIR_FULL)
 	$(SILENT) $(CD) $(CONFIG_DIR_FULL); ln -s $(SHARE_DIR)/plugins .

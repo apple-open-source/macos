@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/search.c,v 1.168.2.8 2006/01/17 19:37:20 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/search.c,v 1.181.2.5 2008/04/14 22:16:16 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,8 +41,8 @@ do_search(
 	struct berval base = BER_BVNULL;
 	ber_len_t	siz, off, i;
 
-	Debug( LDAP_DEBUG_TRACE, "do_search\n", 0, 0, 0 );
-
+	Debug( LDAP_DEBUG_TRACE, "%s do_search\n",
+		op->o_log_prefix, 0, 0 );
 	/*
 	 * Parse the search request.  It looks like this:
 	 *
@@ -112,8 +112,8 @@ do_search(
 
 	rs->sr_err = dnPrettyNormal( NULL, &base, &op->o_req_dn, &op->o_req_ndn, op->o_tmpmemctx );
 	if( rs->sr_err != LDAP_SUCCESS ) {
-		Debug( LDAP_DEBUG_ANY,
-			"do_search: invalid dn (%s)\n", base.bv_val, 0, 0 );
+		Debug( LDAP_DEBUG_ANY, "%s do_search: invalid dn (%s)\n",
+			op->o_log_prefix, base.bv_val, 0 );
 		send_ldap_error( op, rs, LDAP_INVALID_DN_SYNTAX, "invalid DN" );
 		goto return_results;
 	}
@@ -163,8 +163,8 @@ do_search(
 	}
 
 	if( get_ctrls( op, rs, 1 ) != LDAP_SUCCESS ) {
-		Debug( LDAP_DEBUG_ANY, "do_search: get_ctrls failed\n", 0, 0, 0 );
-
+		Debug( LDAP_DEBUG_ANY, "%s do_search: get_ctrls failed\n",
+			op->o_log_prefix, 0, 0 );
 		goto return_results;
 	}
 
@@ -239,14 +239,9 @@ return_results:;
 int
 fe_op_search( Operation *op, SlapReply *rs )
 {
-	int			manageDSAit;
-	int			be_manageDSAit;
-	BackendDB                *bd = op->o_bd;
+	BackendDB		*bd = op->o_bd;
 
-	manageDSAit = get_manageDSAit( op );
-
-	/* fake while loop to allow breaking out */
-	while ( op->ors_scope == LDAP_SCOPE_BASE ) {
+	if ( op->ors_scope == LDAP_SCOPE_BASE ) {
 		Entry *entry = NULL;
 
 		if ( BER_BVISEMPTY( &op->o_req_ndn ) ) {
@@ -303,7 +298,6 @@ fe_op_search( Operation *op, SlapReply *rs )
 			send_ldap_result( op, rs );
 			goto return_results;
 		}
-		break;
 	}
 
 	if( BER_BVISEMPTY( &op->o_req_ndn ) && !BER_BVISEMPTY( &default_search_nbase ) ) {
@@ -320,9 +314,7 @@ fe_op_search( Operation *op, SlapReply *rs )
 	 * if we don't hold it.
 	 */
 
-	be_manageDSAit = manageDSAit;
-
-	op->o_bd = select_backend( &op->o_req_ndn, be_manageDSAit, 1 );
+	op->o_bd = select_backend( &op->o_req_ndn, 1 );
 	if ( op->o_bd == NULL ) {
 		rs->sr_ref = referral_rewrite( default_referral,
 			NULL, &op->o_req_dn, op->ors_scope );
@@ -349,9 +341,28 @@ fe_op_search( Operation *op, SlapReply *rs )
 		goto return_results;
 	}
 
-	/* actually do the search and send the result(s) */
-	if ( op->o_bd->be_search ) {
+	if ( SLAP_SHADOW(op->o_bd) && get_dontUseCopy(op) ) {
+		/* don't use shadow copy */
+		BerVarray defref = op->o_bd->be_update_refs
+			? op->o_bd->be_update_refs : default_referral;
+
+		if( defref != NULL ) {
+			rs->sr_ref = referral_rewrite( defref,
+				NULL, &op->o_req_dn, op->ors_scope );
+			if( !rs->sr_ref) rs->sr_ref = defref;
+			rs->sr_err = LDAP_REFERRAL;
+			send_ldap_result( op, rs );
+
+			if (rs->sr_ref != defref) ber_bvarray_free( rs->sr_ref );
+
+		} else {
+			send_ldap_error( op, rs, LDAP_UNWILLING_TO_PERFORM,
+				"copy not used; no referral information available" );
+		}
+
+	} else if ( op->o_bd->be_search ) {
 		if ( limits_check( op, rs ) == 0 ) {
+			/* actually do the search and send the result(s) */
 			(op->o_bd->be_search)( op, rs );
 		}
 		/* else limits_check() sends error */

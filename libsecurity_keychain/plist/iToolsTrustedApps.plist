@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
-<plist version="0.9">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
 <array>
 	<string>/Applications/Mail.app</string>
 	<string>/Applications/System Preferences.app</string>
@@ -15,9 +15,9 @@
 	<string>/System/Library/CoreServices/MirrorAgent.app</string>
 	<string>/System/Library/CoreServices/dotmacsyncclient</string>
 	<string>/System/Library/Frameworks/InstantMessage.framework/iChatAgent.app</string>
-	<string>/System/Library/Frameworks/SecurityFoundation.framework/Resources/dotmacfx.app</string>
-	<string>/System/Library/Frameworks/SecurityFoundation.framework/Resources/kcSync.app</string>
-        <string>/System/Library/PreferencePanes/Mac.prefPane/Contents/Resources/dotMacPrefTool</string>
+	<string>/System/Library/Frameworks/SecurityFoundation.framework/Versions/A/dotmacfx.app</string>
+	<string>/System/Library/Frameworks/SecurityFoundation.framework/Versions/A/kcSync.app</string>
+	<string>/System/Library/PreferencePanes/Mac.prefPane/Contents/Resources/dotMacPrefTool</string>
 	<string>/System/Library/PrivateFrameworks/DotmacLegacy.framework/Resources/dotMacTranslator</string>
 	<string>/System/Library/PrivateFrameworks/DMNotification.framework/Resources/dmnotifyd</string>
 	<string>/System/Library/PrivateFrameworks/Syndication.framework/Resources/SyndicationAgent.app/Contents/MacOS/SyndicationAgent</string>

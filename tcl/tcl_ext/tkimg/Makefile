@@ -8,13 +8,17 @@
 Project               = tkimg
 ProjectName           = TkImg
 
-Extra_Configure_Flags = $(TEA_Configure_Flags)
-Extra_CC_Flags        = -fno-common
-Extra_LD_Flags        = -L$(TclFramework) -L$(TkFramework)
-Extra_Environment     = $(TEA_Environment)
-Extra_Install_Flags   = GENERIC_HDRS= INSTALL_ROOT=$(DSTROOT)
+# Fetch info
+Release               = 1.4
+TEApotVersion         = 0.0.0.2008.12.02.10.57.38
+TEApotProject         = Img
 
-GnuAfterInstall       = fix-config strip install-doc fix-owner
+Extra_Configure_Flags = $(TEA_Configure_Flags)
+Extra_Environment     = $(TEA_Environment) CONFIG_SITE=
+Extra_Install_Flags   = PKG_HEADERS= INSTALL_ROOT=$(DSTROOT)
+
+GnuAfterInstall       = fix-config strip install-doc fix-perms
+GnuNoBuild            = YES
 
 # include TEA Tcl extension build support
 include ../TEA.make
@@ -22,22 +26,21 @@ include ../TEA.make
 TclExtStubConfig      = *Config.sh 
 TclExtDir             = Img
 
-# patch port.h
-ConfigStamp2 = $(ConfigStamp)2
-
-configure:: $(ConfigStamp2)
-
-$(ConfigStamp2): $(ConfigStamp)
-	$(_v) ed - $(BuildDirectory)/libtiff/tcl/port.h < $(SRCROOT)/port.h.ed
-	$(_v) $(TOUCH) $(ConfigStamp2)
+build::
+	@echo "Building $(Project)..."
+	$(_v) $(Environment) $(MAKE) -C $(BuildDirectory)
 
 install-doc:
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/$(TclExtHtmlDir)" "$(DSTROOT)/$(TclExtManDir)"
 	$(_v) $(INSTALL_FILE) "$(Sources)"/doc/*.{htm,css} "$(DSTROOT)/$(TclExtHtmlDir)"
-ifdef MPEXPAND
 	$(_v) umask $(Install_Mask); for f in "$(Sources)"/doc/*.man; do \
-	    echo "Generating $$(basename $$f .man) docs" && \
-	    $(MPEXPAND) html $$f "$(DSTROOT)/$(TclExtHtmlDir)"/$$(basename $$f .man).html && \
-	    $(MPEXPAND) nroff $$f "$(DSTROOT)/$(TclExtManDir)"/$$(basename $$f .man).n ; \
-	    done
-endif
+	    n=$$(basename "$$f" .man) && echo "Generating $$n docs" && \
+	    $(MPEXPAND) html $$f "$(DSTROOT)/$(TclExtHtmlDir)/$$n.html" && \
+	    $(MPEXPAND) nroff $$f "$(DSTROOT)/$(TclExtManDir)/$$n.n"; \
+	done
+
+extract::
+	$(_v) $(RM) $(SRCROOT)/$(Project)/libtiff/libtiff/{tif_config.h,tiffconf.h}
+	$(_v) $(MV) $(SRCROOT)/$(Project)/libz/tcl $(SRCROOT)/$(Project)/libz-tcl
+	$(_v) $(RMDIR) $(SRCROOT)/$(Project)/libz/*
+	$(_v) $(MV) $(SRCROOT)/$(Project)/libz-tcl $(SRCROOT)/$(Project)/libz/tcl

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,6 +21,7 @@
 #import "RenderThemeMac.h"
 
 #import "BitmapImage.h"
+#import "ColorMac.h"
 #import "CSSStyleSelector.h"
 #import "CSSValueKeywords.h"
 #import "Document.h"
@@ -33,6 +34,7 @@
 #import "Image.h"
 #import "LocalCurrentGraphicsContext.h"
 #import "MediaControlElements.h"
+#import "RenderMedia.h"
 #import "RenderSlider.h"
 #import "RenderView.h"
 #import "SharedBuffer.h"
@@ -101,10 +103,15 @@ enum {
     leftPadding
 };
 
-RenderTheme* theme()
+PassRefPtr<RenderTheme> RenderTheme::themeForPage(Page*)
 {
-    static RenderThemeMac* macTheme = new RenderThemeMac;
-    return macTheme;
+    static RenderTheme* rt = RenderThemeMac::create().releaseRef();
+    return rt;
+}
+
+PassRefPtr<RenderTheme> RenderThemeMac::create()
+{
+    return adoptRef(new RenderThemeMac);
 }
 
 RenderThemeMac::RenderThemeMac()
@@ -149,6 +156,14 @@ Color RenderThemeMac::platformActiveListBoxSelectionForegroundColor() const
 Color RenderThemeMac::platformInactiveListBoxSelectionForegroundColor() const
 {
     return Color::black;
+}
+
+Color RenderThemeMac::platformFocusRingColor() const
+{
+    if (usesTestModeFocusRingColor())
+        return oldAquaFocusRingColor();
+
+    return systemColor(CSSValueWebkitFocusRingColor);
 }
 
 Color RenderThemeMac::platformInactiveListBoxSelectionBackgroundColor() const
@@ -407,6 +422,9 @@ Color RenderThemeMac::systemColor(int cssValueId) const
             break;
         case CSSValueThreedlightshadow:
             color = convertNSColorToColor([NSColor controlLightHighlightColor]);
+            break;
+        case CSSValueWebkitFocusRingColor:
+            color = convertNSColorToColor([NSColor keyboardFocusIndicatorColor]);
             break;
         case CSSValueWindow:
             color = convertNSColorToColor([NSColor windowBackgroundColor]);
@@ -1403,25 +1421,37 @@ typedef enum {
 
 static int mediaControllerTheme()
 {
-    static const long minimumQuickTimeVersion = 0x07600000; // 7.6
+    static const long minimumQuickTimeVersion = 0x07630000; // 7.6.3
     static SInt32 quickTimeVersion = 0;
+    static int controllerTheme = -1;
+    
+    if (controllerTheme != -1)
+        return controllerTheme;
+
+    controllerTheme = MediaControllerThemeClassic;
 
     if (!quickTimeVersion) {
         OSErr err;
         err = Gestalt(gestaltQuickTime, &quickTimeVersion);
         if (err != noErr)
-            return MediaControllerThemeClassic;
+            return controllerTheme;
     }
     if (quickTimeVersion < minimumQuickTimeVersion)
-        return MediaControllerThemeClassic;
+        return controllerTheme;
 
-    // keep the feature off for now without an explicit opt-in
     Boolean validKey;
     Boolean useQTMediaUI = CFPreferencesGetAppBooleanValue(CFSTR("UseQuickTimeMediaUI"), CFSTR("com.apple.WebCore"), &validKey);
-    if (!validKey || !useQTMediaUI)
-        return MediaControllerThemeClassic;
 
-    return MediaControllerThemeQT;
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+    if (validKey && !useQTMediaUI)
+        return controllerTheme;
+#else
+    if (!validKey || !useQTMediaUI)
+        return controllerTheme;
+#endif
+
+    controllerTheme = MediaControllerThemeQT;
+    return controllerTheme;
 }
 #endif
 
@@ -1460,6 +1490,37 @@ void RenderThemeMac::adjustSliderThumbSize(RenderObject* o) const
 
 #if ENABLE(VIDEO)
 
+enum WKMediaControllerThemeState { 
+    MediaUIPartDisabledFlag = 1 << 0,
+    MediaUIPartPressedFlag = 1 << 1,
+    MediaUIPartDrawEndCapsFlag = 1 << 3,
+};
+
+static unsigned getMediaUIPartStateFlags(Node* node)
+{
+    unsigned flags = 0;
+
+    if (node->active())
+        flags |= MediaUIPartPressedFlag;
+    return flags;
+}
+
+// Utility to scale when the UI part are not scaled by wkDrawMediaUIPart
+static FloatRect getUnzoomedRectAndAdjustCurrentContext(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect &originalRect)
+{
+    float zoomLevel = o->style()->effectiveZoom();
+    FloatRect unzoomedRect(originalRect);
+    if (zoomLevel != 1.0f && mediaControllerTheme() == MediaControllerThemeQT) {
+        unzoomedRect.setWidth(unzoomedRect.width() / zoomLevel);
+        unzoomedRect.setHeight(unzoomedRect.height() / zoomLevel);
+        paintInfo.context->translate(unzoomedRect.x(), unzoomedRect.y());
+        paintInfo.context->scale(FloatSize(zoomLevel, zoomLevel));
+        paintInfo.context->translate(-unzoomedRect.x(), -unzoomedRect.y());
+    }
+    return unzoomedRect;
+}
+
+
 bool RenderThemeMac::paintMediaFullscreenButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
     Node* node = o->node();
@@ -1467,7 +1528,7 @@ bool RenderThemeMac::paintMediaFullscreenButton(RenderObject* o, const RenderObj
         return false;
 
     LocalCurrentGraphicsContext localContext(paintInfo.context);
-    wkDrawMediaUIPart(MediaFullscreenButton, mediaControllerTheme(), paintInfo.context->platformContext(), r, node->active());
+    wkDrawMediaUIPart(MediaFullscreenButton, mediaControllerTheme(), paintInfo.context->platformContext(), r, getMediaUIPartStateFlags(node));
     return false;
 }
 
@@ -1478,12 +1539,11 @@ bool RenderThemeMac::paintMediaMuteButton(RenderObject* o, const RenderObject::P
     if (!mediaNode || (!mediaNode->hasTagName(videoTag) && !mediaNode->hasTagName(audioTag)))
         return false;
 
-    HTMLMediaElement* mediaElement = static_cast<HTMLMediaElement*>(mediaNode);
-    if (!mediaElement)
-        return false;
-    
-    LocalCurrentGraphicsContext localContext(paintInfo.context);
-    wkDrawMediaUIPart(mediaElement->muted() ? MediaUnMuteButton : MediaMuteButton, mediaControllerTheme(), paintInfo.context->platformContext(), r, node->active());
+    if (MediaControlPlayButtonElement* btn = static_cast<MediaControlPlayButtonElement*>(node)) {
+        LocalCurrentGraphicsContext localContext(paintInfo.context);
+        wkDrawMediaUIPart(btn->displayType(), mediaControllerTheme(), paintInfo.context->platformContext(), r, getMediaUIPartStateFlags(node));
+
+    }
     return false;
 }
 
@@ -1494,12 +1554,10 @@ bool RenderThemeMac::paintMediaPlayButton(RenderObject* o, const RenderObject::P
     if (!mediaNode || (!mediaNode->hasTagName(videoTag) && !mediaNode->hasTagName(audioTag)))
         return false;
 
-    HTMLMediaElement* mediaElement = static_cast<HTMLMediaElement*>(mediaNode);
-    if (!mediaElement)
-        return false;
-
-    LocalCurrentGraphicsContext localContext(paintInfo.context);
-    wkDrawMediaUIPart(mediaElement->canPlay() ? MediaPlayButton : MediaPauseButton, mediaControllerTheme(), paintInfo.context->platformContext(), r, node->active());
+    if (MediaControlPlayButtonElement* btn = static_cast<MediaControlPlayButtonElement*>(node)) {
+        LocalCurrentGraphicsContext localContext(paintInfo.context);
+        wkDrawMediaUIPart(btn->displayType(), mediaControllerTheme(), paintInfo.context->platformContext(), r, getMediaUIPartStateFlags(node));
+    }
     return false;
 }
 
@@ -1510,7 +1568,7 @@ bool RenderThemeMac::paintMediaSeekBackButton(RenderObject* o, const RenderObjec
         return false;
 
     LocalCurrentGraphicsContext localContext(paintInfo.context);
-    wkDrawMediaUIPart(MediaSeekBackButton, mediaControllerTheme(), paintInfo.context->platformContext(), r, node->active());
+    wkDrawMediaUIPart(MediaSeekBackButton, mediaControllerTheme(), paintInfo.context->platformContext(), r, getMediaUIPartStateFlags(node));
     return false;
 }
 
@@ -1521,7 +1579,7 @@ bool RenderThemeMac::paintMediaSeekForwardButton(RenderObject* o, const RenderOb
         return false;
 
     LocalCurrentGraphicsContext localContext(paintInfo.context);
-    wkDrawMediaUIPart(MediaSeekForwardButton, mediaControllerTheme(), paintInfo.context->platformContext(), r, node->active());
+    wkDrawMediaUIPart(MediaSeekForwardButton, mediaControllerTheme(), paintInfo.context->platformContext(), r, getMediaUIPartStateFlags(node));
     return false;
 }
 
@@ -1545,7 +1603,12 @@ bool RenderThemeMac::paintMediaSliderTrack(RenderObject* o, const RenderObject::
         currentTime = player->currentTime();
     }
  
-    wkDrawMediaSliderTrack(mediaControllerTheme(), paintInfo.context->platformContext(), r, timeLoaded, currentTime, duration);
+    paintInfo.context->save();
+    FloatRect unzoomedRect = getUnzoomedRectAndAdjustCurrentContext(o, paintInfo, r);
+    wkDrawMediaSliderTrack(mediaControllerTheme(), paintInfo.context->platformContext(), unzoomedRect, 
+        timeLoaded, currentTime, duration, getMediaUIPartStateFlags(node));
+    
+    paintInfo.context->restore();
     return false;
 }
 
@@ -1556,18 +1619,41 @@ bool RenderThemeMac::paintMediaSliderThumb(RenderObject* o, const RenderObject::
         return false;
 
     LocalCurrentGraphicsContext localContext(paintInfo.context);
-    wkDrawMediaUIPart(MediaSliderThumb, mediaControllerTheme(), paintInfo.context->platformContext(), r, node->active());
+    wkDrawMediaUIPart(MediaSliderThumb, mediaControllerTheme(), paintInfo.context->platformContext(), r, getMediaUIPartStateFlags(node));
+    return false;
+}
+    
+bool RenderThemeMac::paintMediaRewindButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+{
+    Node* node = o->node();
+    if (!node)
+        return false;
+    
+    LocalCurrentGraphicsContext localContext(paintInfo.context);
+    wkDrawMediaUIPart(MediaRewindButton, mediaControllerTheme(), paintInfo.context->platformContext(), r, getMediaUIPartStateFlags(node));
     return false;
 }
 
-bool RenderThemeMac::paintMediaTimelineContainer(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+bool RenderThemeMac::paintMediaReturnToRealtimeButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+{
+    Node* node = o->node();
+    if (!node)
+        return false;
+    
+    LocalCurrentGraphicsContext localContext(paintInfo.context);
+    wkDrawMediaUIPart(MediaReturnToRealtimeButton, mediaControllerTheme(), paintInfo.context->platformContext(), r, getMediaUIPartStateFlags(node));
+    return false;
+}
+
+
+bool RenderThemeMac::paintMediaControlsBackground(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
     Node* node = o->node();
     if (!node)
         return false;
 
     LocalCurrentGraphicsContext localContext(paintInfo.context);
-    wkDrawMediaUIPart(MediaTimelineContainer, mediaControllerTheme(), paintInfo.context->platformContext(), r, node->active());
+    wkDrawMediaUIPart(MediaTimelineContainer, mediaControllerTheme(), paintInfo.context->platformContext(), r, getMediaUIPartStateFlags(node));
     return false;
 }
 
@@ -1577,8 +1663,10 @@ bool RenderThemeMac::paintMediaCurrentTime(RenderObject* o, const RenderObject::
     if (!node)
         return false;
 
-    LocalCurrentGraphicsContext localContext(paintInfo.context);
-    wkDrawMediaUIPart(MediaCurrentTimeDisplay, mediaControllerTheme(), paintInfo.context->platformContext(), r, node->active());
+    paintInfo.context->save();
+    FloatRect unzoomedRect = getUnzoomedRectAndAdjustCurrentContext(o, paintInfo, r);
+    wkDrawMediaUIPart(MediaCurrentTimeDisplay, mediaControllerTheme(), paintInfo.context->platformContext(), unzoomedRect, getMediaUIPartStateFlags(node));
+    paintInfo.context->restore();
     return false;
 }
 
@@ -1588,8 +1676,10 @@ bool RenderThemeMac::paintMediaTimeRemaining(RenderObject* o, const RenderObject
     if (!node)
         return false;
 
-    LocalCurrentGraphicsContext localContext(paintInfo.context);
-    wkDrawMediaUIPart(MediaTimeRemainingDisplay, mediaControllerTheme(), paintInfo.context->platformContext(), r, node->active());
+    paintInfo.context->save();
+    FloatRect unzoomedRect = getUnzoomedRectAndAdjustCurrentContext(o, paintInfo, r);
+    wkDrawMediaUIPart(MediaTimeRemainingDisplay, mediaControllerTheme(), paintInfo.context->platformContext(), unzoomedRect, getMediaUIPartStateFlags(node));
+    paintInfo.context->restore();
     return false;
 }
 
@@ -1599,20 +1689,6 @@ String RenderThemeMac::extraMediaControlsStyleSheet()
         return String(mediaControlsQTUserAgentStyleSheet, sizeof(mediaControlsQTUserAgentStyleSheet));
     else
         return String();
-}
-
-bool RenderThemeMac::hitTestMediaControlPart(RenderObject* o, const IntPoint& absPoint)
-{
-    if (!o->isBox())
-        return false;
-        
-    if (mediaControllerTheme() == MediaControllerThemeQT) {
-        ControlPart part = o->style()->appearance();
-        FloatPoint localPoint = o->absoluteToLocal(absPoint, false, true);  // respect transforms
-        return wkHitTestMediaUIPart(part - MediaFullscreenButtonPart, MediaControllerThemeQT, CGRect(toRenderBox(o)->borderBoxRect()), CGPoint(localPoint));
-    }
-    else
-        return RenderTheme::hitTestMediaControlPart(o, absPoint);
 }
 #endif
 

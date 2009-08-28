@@ -1,0 +1,88 @@
+2008-05-29  Kevin B. Kenny  <kennykb@acm.org>
+
+	* es.msg: Proofreading by Miguel Sofer <msofer@users.sf.net>
+	
+2008-05-16   Kevin B. Kenny  <kennykb@acm.org>
+
+	* es.msg: Editorial changes from Miguel Sofer.
+	
+2008-05-15   Kevin B. Kenny   <kennykb@acm.org>
+
+	* es.msg: Added Spanish message catalog.  Thanks to Emiliano
+	Gavilan (egavilan at eie.fceia.unr.edu.ar) for contributing
+	the translation.
+	
+2007-06-08   Kevin B. Kenny   <kennyb@acm.org>
+
+	* en.msg: Added l10n for the "KHIM Help" dialog title.
+	* pl.msg: Added Polish, Russian, and Ukrainian message catalogs.
+	* uk.msg:
+	* khim.man: Documented l10n of the "KHIM Help" dialog title.
+	* khim.tcl: Made modifications to display of the character map
+	so that the colour scheme follows the application defaults more
+	closely.  Advanced version to 1.0.1.
+	* pkgIndex.tcl: Advanced version to 1.0.1.
+	Thanks to Konstantin Khomoutov <flatworm@users.sourceforge.net>
+	for providing these fixes.  [Patch 1733094]
+	
+2006-12-06:  Kevin Kenny  <kennykb@acm.org>
+
+	* cs.msg: Added message catalog for the Czech locale.
+	Many thanks to Michal Mestan <mestan@dix.cz> for the translation.
+	[Patch 1608793]
+	
+2006-11-02  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* khim.tcl (khim::Insert): correct missing space
+
+2006-09-28  Kevin B. Kenny  <kennykb@acm.org>
+	
+	* khim.tcl: Fixed a typo in the X11 mouse-wheel bindings.
+	Added a scrollregion to the canvas to prevent inadvertent
+	scrolling with the mouse wheel.  Extended the drawing timeout on
+	the character map.
+	
+2006-09-28  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* khim.tcl (khim::CMapWheel): handle Shift-MouseWheel variant, and
+	switch so that MouseWheel moves always by 1 up or down, and
+	Shifted variants move always 1 left or right.
+	Add break to prevent later mousewheel event triggers (eg, style::as)
+
+2006-09-07  Kevin B. Kenny  <kennykb@acm.org>
+
+	* de.msg: UTF-8-ized the file.
+	
+2006-09-06  Andreas Kupries  <andreask@activestate.com>
+
+	* de.msg: Added message catalog for the German locale.
+	Thanks go to Richard Suchenwirth-Bauersachs
+	<richard.suchenwirth-bauersachs@siemens.com> for proofreading.
+	
+2006-09-05  Kevin B. Kenny  <kennykb@acm.org>
+
+	* ROOT.msg: Added the missing root catalog, so that at least
+	English help text appears when KHIM is not localized.
+	* khim.tcl: Corrected a problem where the spinbox did not get
+	initialized correctly and so would not spin until the user typed
+	in it.  Added fallback in 8.4 for the lack of a root locale.
+	Changed the character map to display incrementally at 1-second
+	intervals if it's taking too long to look up characters in the
+	font substitution (because of performance bugs in that logic on
+	Unix).  Added support for the Tile entry widget.
+	
+2006-09-05  Torsten Berg  <berg@marilim.de>
+
+	* da.msg: Added message catalog for the Danish locale.
+	
+2006-08-29  Andreas Kupries <andreask@activestate.com>
+
+	* khim.man: Put titledesc on a single line. sak's tap file
+	  generation bails out otherwise.
+
+2006-08-27   Kevin B. Kenny   <kennykb@acm.org>
+
+	* ChangeLog:     Initial import of the 'khim' (Kevin's Hacky
+	* en.msg:        Input Method) package, which provides key
+	* khim.tcl:      bindings for inputting international characters
+	* pkgIndex.tcl:  on a keyboard that does not support them.

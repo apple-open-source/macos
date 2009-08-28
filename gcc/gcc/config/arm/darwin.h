@@ -1,17 +1,12 @@
 /* APPLE LOCAL file ARM darwin target */
 
+/* Size of the Obj-C jump buffer.  */
+#define OBJC_JBLEN 28
+
 #define SUBTARGET_CPU_DEFAULT arm920
 
 #undef SUBTARGET_EXTRA_ASM_SPEC
 #define SUBTARGET_EXTRA_ASM_SPEC ""
-
-#define rs6000_alignment_flags target_flags
-#define MASK_ALIGN_MAC68K       (1 << 30)
-#define TARGET_ALIGN_MAC68K     (target_flags & MASK_ALIGN_MAC68K)
-#define MASK_ALIGN_NATURAL	(1 << 29)
-#define TARGET_ALIGN_NATURAL	(target_flags & MASK_ALIGN_NATURAL)
-#define MASK_MACHO_DYNAMIC_NO_PIC (1 << 28)
-#define TARGET_DYNAMIC_NO_PIC	(target_flags & MASK_MACHO_DYNAMIC_NO_PIC)
 
 #define DEFAULT_TARGET_ARCH "arm"
 
@@ -33,14 +28,15 @@
 
 #undef CC1_SPEC
 #define CC1_SPEC "%<faltivec %<mcpu=G4 %<mcpu=G5 \
-%{!mmacosx-version-min=*:-mmacosx-version-min=%(darwin_minversion)} \
+%{!mmacosx-version-min=*: %{!miphoneos-version-min=*: %(darwin_cc1_minversion)}} \
 %{static: %{Zdynamic: %e conflicting code gen style switches are used}} \
 %{static: %{mdynamic-no-pic: %e conflicting code gen style switches are used}} \
 %{!static:%{!mdynamic-no-pic:-fPIC}} \
 %{!fbuiltin-strcat:-fno-builtin-strcat} \
 %{!fbuiltin-strcpy:-fno-builtin-strcpy} \
 %<fbuiltin-strcat \
-%<fbuiltin-strcpy"
+%<fbuiltin-strcpy \
+%<pg"
 
 #undef LIB_SPEC
 #define LIB_SPEC "%{!static:-lSystem}"
@@ -218,7 +214,18 @@
    mcpu=arm1176jzf-s:armv6;			\
    :arm -force_cpusubtype_ALL}"
 
-#define DARWIN_MINVERSION_SPEC "10.4"
+#define DARWIN_MINVERSION_SPEC "2.0"
+
+/* Default cc1 option for specifying minimum version number.  */
+#define DARWIN_CC1_MINVERSION_SPEC "-miphoneos-version-min=%(darwin_minversion)"
+
+/* Default ld option for specifying minimum version number.  */
+#define DARWIN_LD_MINVERSION_SPEC "-iphoneos_version_min %(darwin_minversion)"
+
+/* Use iPhone OS version numbers by default.  */
+#define DARWIN_DEFAULT_VERSION_TYPE  DARWIN_VERSION_IPHONEOS
+
+#define DARWIN_IPHONEOS_LIBGCC_SPEC "-lgcc_s.1 -lgcc"
 
 #undef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS			\
@@ -229,28 +236,31 @@
 /* This can go away once we can feature test the assembler correctly.  */
 #define ASM_DEBUG_SPEC ""
 
-#undef	SUBTARGET_SWITCHES
-#define SUBTARGET_SWITCHES						\
-  {"dynamic-no-pic",	MASK_MACHO_DYNAMIC_NO_PIC,			\
-      N_("Generate code suitable for executables (NOT shared libs)")},	\
-  {"no-dynamic-no-pic",	-MASK_MACHO_DYNAMIC_NO_PIC, ""},
-
 #define SUBTARGET_OVERRIDE_OPTIONS					\
 do {									\
   if (1)								\
   {									\
+    if (!darwin_macosx_version_min && !darwin_iphoneos_version_min)	\
+      darwin_iphoneos_version_min = "2.0";				\
     if (MACHO_DYNAMIC_NO_PIC_P)						\
       {									\
         if (flag_pic)							\
-            warning ("-mdynamic-no-pic overrides -fpic or -fPIC");	\
+            warning (0, "-mdynamic-no-pic overrides -fpic or -fPIC");	\
         flag_pic = 0;							\
       }									\
     else if (flag_pic == 1)						\
       {									\
         /* Darwin doesn't support -fpic.  */				\
-        warning ("-fpic is not supported; -fPIC assumed");		\
+        warning (0, "-fpic is not supported; -fPIC assumed");		\
         flag_pic = 2;							\
       }									\
+    /* Remove when ld64 generates stubs for us. */			\
+    darwin_stubs = true;						\
+    if (profile_flag)							\
+      error ("function profiling not supported on this target");	\
+    /* Use -mlongcalls for kexts */					\
+    if (flag_mkernel || flag_apple_kext)				\
+      target_flags |= MASK_LONG_CALLS;					\
   }									\
 } while(0)
 
@@ -300,10 +310,6 @@ do {									\
 #undef TARGET_DEFAULT_FLOAT_ABI
 #define TARGET_DEFAULT_FLOAT_ABI (arm_arch6 ? ARM_FLOAT_ABI_SOFTFP : ARM_FLOAT_ABI_SOFT)
 
-/* Define this to change the optimizations performed by default.  */
-#define OPTIMIZATION_OPTIONS(LEVEL, SIZE) \
-  optimization_options ((LEVEL), (SIZE))
-
 #undef REGISTER_TARGET_PRAGMAS
 #define REGISTER_TARGET_PRAGMAS DARWIN_REGISTER_TARGET_PRAGMAS
 
@@ -325,9 +331,6 @@ do {									\
     && (flag_pic || MACHO_DYNAMIC_NO_PIC_P)		\
     && (MODE == SFmode || MODE == DFmode)) ? 1 : 0)
 
-/* Until dyld supports aligned commons... */
-#undef ASM_OUTPUT_ALIGNED_COMMON
-
 /* Adjust inlining parameters.  */
 #undef SUBTARGET_OPTIMIZATION_OPTIONS
 #define SUBTARGET_OPTIMIZATION_OPTIONS			\
@@ -347,7 +350,15 @@ do {									\
 #undef MAX_CONDITIONAL_EXECUTE
 #define MAX_CONDITIONAL_EXECUTE	(optimize_size ? INT_MAX : (BRANCH_COST + 1))
 
-/* Use stabs for now */
-#undef PREFERRED_DEBUGGING_TYPE
-#define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
+#undef TARGET_IASM_OP_CONSTRAINT
+#define TARGET_IASM_OP_CONSTRAINT	\
+  { "ldr", 2, "m" },
+
+#define OBJC_TARGET_FLAG_OBJC_ABI		\
+  do {						\
+    if (flag_objc_abi == -1)			\
+      flag_objc_abi = 2;			\
+    if (flag_objc_legacy_dispatch == -1)	\
+      flag_objc_legacy_dispatch = 1;		\
+  } while (0)
 

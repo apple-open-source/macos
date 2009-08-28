@@ -1,0 +1,115 @@
+#!../../src/xotclsh
+#
+# small Example for usage of xoXML
+package require xotcl::package
+package require xotcl::trace
+package require xotcl::xml::parser
+package require xotcl::xml::recreatorVisitor
+package require xotcl::xml::printVisitor
+
+#
+# instantiate parser and parser an example text into a node tree
+#
+XMLParser x
+#x parse {
+#  <twoAttr attr1="0" attr2="1"/> 
+
+x parse {
+<ALL>
+  <TEST> 
+    a
+    <X a="http://www.foo.com/cool.html">b</X> 
+    c
+  </TEST>
+  <TEST2> 
+    <X a="http://www.foo.com/cool.html">b</X> 
+    c
+  </TEST2>
+  <TEST3> 
+    a
+    <X a="http://www.foo.com/cool.html">b</X> 
+    c
+    <X a="http://www.foo.com/cool.html">b</X> 
+    d
+  </TEST3>
+  <rdf:RDF
+    xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+    xmlns:dc="http://purl.org/metadata/dublin_core#"> 
+    <rdf:Description about="http://www.foo.com/cool.html"> 
+      <dc:Creator>
+        <rdf:Seq ID="CreatorsAlphabeticalBySurname">
+          <rdf:li>Mary Andrew</rdf:li>
+          <rdf:li>Jacky Crystal</rdf:li>
+        </rdf:Seq>
+      </dc:Creator>
+
+      <dc:Identifier>
+        <rdf:Bag ID="MirroredSites"> 
+          <rdf:li rdf:resource="http://www.foo.com.au/cool.html"/>
+          <rdf:li rdf:resource="http://www.foo.com.it/cool.html"/>
+        </rdf:Bag>
+      </dc:Identifier>
+
+      <dc:Title>
+        <rdf:Alt>
+          <rdf:li xml:lang="en">The Coolest Web Page</rdf:li>
+          <rdf:li xml:lang="it">Il Pagio di Web Fuba</rdf:li>
+        </rdf:Alt>
+      </dc:Title>
+     
+      <dc:xxx>
+        some text
+      </dc:xxx>
+
+    </rdf:Description> 
+  </rdf:RDF>
+</ALL>}
+
+proc run {} {
+  #
+  # print the node treee to the std output
+  #
+  puts ************************************************************************
+  puts "Node Tree:"
+  puts ************************************************************************
+  PrintVisitor pv
+  pv interpretAll x
+  
+  #
+  # recreate xml text and print it to the std output
+  #
+  puts \n
+  puts ************************************************************************
+  puts "Recreated XML Text:"
+  puts ************************************************************************
+  XMLRecreatorVisitor rv
+  puts [rv interpretAll x]
+ 
+}
+run
+
+XMLParser y
+y parse {
+<mwfg>
+  <page name="mwfgDefault.html" autohelp="yes" language="en">
+    <spattern name="header"/>
+    <subst property="gen:title" type="label"/>
+    <res property="gen:title"></res>
+    <subst property="gen:language" type="label"/>
+    <res property="gen:language"></res>
+    <subst property="gen:aggregationLevel" type="label"/>
+    <res property="gen:aggregationLevel"></res>
+    <subst property="tech:size" type="label"/>
+    <res property="tech:size"></res>
+    <subst property="univ:ectsCredits" type="label"/>
+    olla
+    <res property="univ:ectsCredits"></res>
+    <subst property="univ:integrationInProgram" type="label"/>
+    <res property="univ:integrationInProgram"></res>
+    <spattern name="footer"/>
+    hallo
+  </page>
+</mwfg>
+}
+XMLRecreatorVisitor rv
+puts [rv interpretAll y]

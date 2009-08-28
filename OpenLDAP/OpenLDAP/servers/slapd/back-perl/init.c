@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-perl/init.c,v 1.40.2.3 2006/01/03 22:16:22 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-perl/init.c,v 1.44.2.4 2008/02/11 23:26:47 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2006 The OpenLDAP Foundation.
+ * Copyright 1999-2008 The OpenLDAP Foundation.
  * Portions Copyright 1999 John C. Quillan.
  * Portions Copyright 2002 myinternet Limited.
  * All rights reserved.
@@ -16,6 +16,7 @@
  */
 
 #include "perl_back.h"
+#include "../config.h"
 
 static void perl_back_xs_init LDAP_P((PERL_BACK_XS_INIT_PARAMS));
 EXT void boot_DynaLoader LDAP_P((PERL_BACK_BOOT_DYNALOADER_PARAMS));
@@ -35,7 +36,9 @@ perl_back_initialize(
 	BackendInfo	*bi
 )
 {
-	bi->bi_open = perl_back_open;
+	char *embedding[] = { "", "-e", "0" };
+
+	bi->bi_open = NULL;
 	bi->bi_config = 0;
 	bi->bi_close = perl_back_close;
 	bi->bi_destroy = 0;
@@ -63,16 +66,7 @@ perl_back_initialize(
 	bi->bi_connection_init = 0;
 	bi->bi_connection_destroy = 0;
 
-	return 0;
-}
-		
-int
-perl_back_open(
-	BackendInfo	*bi
-)
-{
-	char *embedding[] = { "", "-e", "0" };
-
+	/* injecting code from perl_back_open, because using fonction reference  (bi->bi_open) is not functional */
 	Debug( LDAP_DEBUG_TRACE, "perl backend open\n", 0, 0, 0 );
 
 	if( PERL_INTERPRETER != NULL ) {
@@ -92,7 +86,8 @@ perl_back_open(
 
 int
 perl_back_db_init(
-	BackendDB	*be
+	BackendDB	*be,
+	ConfigReply	*cr
 )
 {
 	be->be_private = (PerlBackend *) ch_malloc( sizeof(PerlBackend) );
@@ -107,7 +102,8 @@ perl_back_db_init(
 
 int
 perl_back_db_open(
-	BackendDB	*be
+	BackendDB	*be,
+	ConfigReply	*cr
 )
 {
 	int count;

@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 1999-2006, International Business Machines
+*   Copyright (C) 1999-2008, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -87,7 +87,7 @@ RuleBasedTransliterator::RuleBasedTransliterator(
  * @exception IllegalArgumentException if rules are malformed
  * or direction is invalid.
  */
-RuleBasedTransliterator::RuleBasedTransliterator(
+/*RuleBasedTransliterator::RuleBasedTransliterator(
                             const UnicodeString& id,
                             const UnicodeString& rules,
                             UTransDirection direction,
@@ -96,12 +96,12 @@ RuleBasedTransliterator::RuleBasedTransliterator(
     Transliterator(id, adoptedFilter) {
     UParseError parseError;
     _construct(rules, direction,parseError, status);
-}
+}*/
 
 /**
  * Covenience constructor with no filter.
  */
-RuleBasedTransliterator::RuleBasedTransliterator(
+/*RuleBasedTransliterator::RuleBasedTransliterator(
                             const UnicodeString& id,
                             const UnicodeString& rules,
                             UTransDirection direction,
@@ -109,24 +109,24 @@ RuleBasedTransliterator::RuleBasedTransliterator(
     Transliterator(id, 0) {
     UParseError parseError;
     _construct(rules, direction,parseError, status);
-}
+}*/
 
 /**
  * Covenience constructor with no filter and FORWARD direction.
  */
-RuleBasedTransliterator::RuleBasedTransliterator(
+/*RuleBasedTransliterator::RuleBasedTransliterator(
                             const UnicodeString& id,
                             const UnicodeString& rules,
                             UErrorCode& status) :
     Transliterator(id, 0) {
     UParseError parseError;
     _construct(rules, UTRANS_FORWARD, parseError, status);
-}
+}*/
 
 /**
  * Covenience constructor with FORWARD direction.
  */
-RuleBasedTransliterator::RuleBasedTransliterator(
+/*RuleBasedTransliterator::RuleBasedTransliterator(
                             const UnicodeString& id,
                             const UnicodeString& rules,
                             UnicodeFilter* adoptedFilter,
@@ -134,7 +134,7 @@ RuleBasedTransliterator::RuleBasedTransliterator(
     Transliterator(id, adoptedFilter) {
     UParseError parseError;
     _construct(rules, UTRANS_FORWARD,parseError, status);
-}
+}*/
 
 RuleBasedTransliterator::RuleBasedTransliterator(const UnicodeString& id,
                                  const TransliterationRuleData* theData,
@@ -244,13 +244,12 @@ RuleBasedTransliterator::handleTransliterate(Replaceable& text, UTransPosition& 
     //   so no concurrent access from multiple threads is possible.
     UBool    lockedMutexAtThisLevel = FALSE;
     if (isDataOwned == FALSE) {
-        umtx_lock(NULL);
-            // Test whether this request is operating on the same text string as some
-            //   some other transliteration that is still in progress and holding the 
-            //   transliteration mutex.  If so, do not lock the transliteration
-            //    mutex again.
-            UBool needToLock = (&text != gLockedText);
-        umtx_unlock(NULL);
+        // Test whether this request is operating on the same text string as some
+        //   some other transliteration that is still in progress and holding the 
+        //   transliteration mutex.  If so, do not lock the transliteration
+        //    mutex again.
+        UBool needToLock;
+        UMTX_CHECK(NULL, (&text != gLockedText), needToLock);
         if (needToLock) {
             umtx_lock(&transliteratorDataMutex);
             gLockedText = &text;
@@ -258,11 +257,13 @@ RuleBasedTransliterator::handleTransliterate(Replaceable& text, UTransPosition& 
         }
     }
     
-
-    while (index.start < index.limit &&
-           loopCount <= loopLimit &&
-           fData->ruleSet.transliterate(text, index, isIncremental)) {
-        ++loopCount;
+    // Check to make sure we don't dereference a null pointer.
+    if (fData != NULL) {
+	    while (index.start < index.limit &&
+	           loopCount <= loopLimit &&
+	           fData->ruleSet.transliterate(text, index, isIncremental)) {
+	        ++loopCount;
+	    }
     }
     if (lockedMutexAtThisLevel) {
         gLockedText = NULL;

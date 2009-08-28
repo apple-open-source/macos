@@ -1,3 +1,5 @@
+@subheading stringprep_locale_charset
+@anchor{stringprep_locale_charset}
 @deftypefun {const char *} {stringprep_locale_charset} ( @var{void})
 
 Find out current locale charset.  The function respect the CHARSET
@@ -18,6 +20,8 @@ data in the locale encoding.
 It will never return NULL, but use "ASCII" as a fallback.
 @end deftypefun
 
+@subheading stringprep_convert
+@anchor{stringprep_convert}
 @deftypefun {char *} {stringprep_convert} (const char * @var{str}, const char * @var{to_codeset}, const char * @var{from_codeset})
 @var{str}: input zero-terminated string.
 
@@ -32,6 +36,8 @@ system's @code{iconv()} function.
 is @code{str} transcoded into to_codeset.
 @end deftypefun
 
+@subheading stringprep_locale_to_utf8
+@anchor{stringprep_locale_to_utf8}
 @deftypefun {char *} {stringprep_locale_to_utf8} (const char * @var{str})
 @var{str}: input zero terminated string.
 
@@ -42,6 +48,8 @@ using @code{stringprep_convert()}.
 is @code{str} transcoded into UTF-8.
 @end deftypefun
 
+@subheading stringprep_utf8_to_locale
+@anchor{stringprep_utf8_to_locale}
 @deftypefun {char *} {stringprep_utf8_to_locale} (const char * @var{str})
 @var{str}: input zero terminated string.
 

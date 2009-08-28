@@ -1,7 +1,7 @@
 #
 # tempfile - manipulates temporary files
 #
-# $Id: tempfile.rb 11708 2007-02-12 23:01:19Z shyouhei $
+# $Id: tempfile.rb 16127 2008-04-21 09:43:44Z knu $
 #
 
 require 'delegate'
@@ -13,9 +13,15 @@ class Tempfile < DelegateClass(File)
   MAX_TRY = 10
   @@cleanlist = []
 
-  # Creates a temporary file of mode 0600 in the temporary directory
-  # whose name is basename.pid.n and opens with mode "w+".  A Tempfile
-  # object works just like a File object.
+  # Creates a temporary file of mode 0600 in the temporary directory,
+  # opens it with mode "w+", and returns a Tempfile object which
+  # represents the created temporary file.  A Tempfile object can be
+  # treated just like a normal File object.
+  #
+  # The basename parameter is used to determine the name of a
+  # temporary file.  If an Array is given, the first element is used
+  # as prefix string and the second as suffix string, respectively.
+  # Otherwise it is treated as prefix string.
   #
   # If tmpdir is omitted, the temporary directory is determined by
   # Dir::tmpdir provided by 'tmpdir.rb'.
@@ -67,7 +73,15 @@ class Tempfile < DelegateClass(File)
   end
 
   def make_tmpname(basename, n)
-    sprintf('%s.%d.%d', basename, $$, n)
+    case basename
+    when Array
+      prefix, suffix = *basename
+    else
+      prefix, suffix = basename, ''
+    end
+ 
+    t = Time.now.strftime("%Y%m%d")
+    path = "#{prefix}#{t}-#{$$}-#{rand(0x100000000).to_s(36)}-#{n}#{suffix}"
   end
   private :make_tmpname
 
@@ -81,7 +95,8 @@ class Tempfile < DelegateClass(File)
 
   def _close	# :nodoc:
     @tmpfile.close if @tmpfile
-    @data[1] = @tmpfile = nil
+    @tmpfile = nil
+    @data[1] = nil if @data
   end    
   protected :_close
 
@@ -103,6 +118,7 @@ class Tempfile < DelegateClass(File)
     _close
     @clean_proc.call
     ObjectSpace.undefine_finalizer(self)
+    @data = @tmpname = nil
   end
 
   # Unlinks the file.  On UNIX-like systems, it is often a good idea

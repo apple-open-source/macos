@@ -1,8 +1,8 @@
 #! /bin/sh
-# $OpenLDAP: pkg/ldap/tests/scripts/test039-glue-ldap-concurrency,v 1.1.2.7 2006/01/03 22:16:29 kurt Exp $
+# $OpenLDAP: pkg/ldap/tests/scripts/test039-glue-ldap-concurrency,v 1.10.2.4 2008/02/11 23:26:51 kurt Exp $
 ## This work is part of OpenLDAP Software <http://www.openldap.org/>.
 ##
-## Copyright 1998-2006 The OpenLDAP Foundation.
+## Copyright 1998-2008 The OpenLDAP Foundation.
 ## All rights reserved.
 ##
 ## Redistribution and use in source and binary forms, with or without
@@ -28,12 +28,20 @@ if test $RWM = rwmno ; then
 	exit 0
 fi 
 
+if test x$TESTLOOPS = x ; then
+	TESTLOOPS=50
+fi
+
+if test x$TESTOLOOPS = x ; then
+	TESTOLOOPS=1
+fi
+
 rm -rf $TESTDIR
 
 mkdir -p $TESTDIR $DBDIR1 $DBDIR2
 
 echo "Starting slapd on TCP/IP port $PORT1..."
-. $CONFFILTER $BACKEND $MONITORDB < $CONF > $CONF1
+. $CONFFILTER $BACKEND $MONITORDB < $METACONF1 > $CONF1
 $SLAPD -f $CONF1 -h $URI1 -d $LVL $TIMING > $LOG1 2>&1 &
 PID=$!
 if test $WAIT != 0 ; then
@@ -161,9 +169,19 @@ for f in $TESTDIR/$DATADIR/do_read.* ; do
 	echo "cn=Somewhere,ou=Meta,$METABASEDN" >> $f
 done
 
+# add a bind that resolves to a referral
+for f in $TESTDIR/$DATADIR/do_bind.* ; do
+	echo "cn=Foo,ou=Meta,$METABASEDN" >> $f
+	echo "bar" >> $f
+	echo "" >> $f
+	echo "" >> $f
+done
+
 echo "Using tester for concurrent server access..."
 $SLAPDTESTER -P "$PROGDIR" -d "$TESTDIR/$DATADIR" -h $LOCALHOST -p $PORT3 \
-	-D "cn=Manager,$METABASEDN" -w $PASSWD -l 50 -r 20 -F
+	-D "cn=Manager,$METABASEDN" -w $PASSWD \
+	-l $TESTLOOPS -L $TESTOLOOPS -r 20 -FF \
+	-i '!REFERRAL'
 RC=$?
 
 if test $RC != 0 ; then
@@ -197,5 +215,7 @@ if test $? != 0 ; then
 fi
 
 echo ">>>>> Test succeeded"
-exit 0
 
+test $KILLSERVERS != no && wait
+
+exit 0

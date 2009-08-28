@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -350,10 +350,6 @@ APU_DECLARE(void) apr_sha1_base64(const char *clear, int len, char *out)
     int l;
     apr_sha1_ctx_t context;
     apr_byte_t digest[APR_SHA1_DIGESTSIZE];
-
-    if (strncmp(clear, APR_SHA1PW_ID, APR_SHA1PW_IDLEN) == 0) {
-	clear += APR_SHA1PW_IDLEN;
-    }
 
     apr_sha1_init(&context);
     apr_sha1_update(&context, clear, len);

@@ -1,45 +1,23 @@
---- ncurses/base/lib_bkgd.c	2005-04-16 11:03:48.000000000 -0700
-+++ ncurses/base/lib_bkgd.c	2006-08-14 18:21:14.000000000 -0700
-@@ -39,6 +39,20 @@
- MODULE_ID("$Id: lib_bkgd.c,v 1.32 2005/04/16 18:03:48 tom Exp $")
+--- configure	2009-01-05 13:51:27.000000000 -0800
++++ configure	2009-01-05 14:50:56.000000000 -0800
+@@ -9859,6 +9859,11 @@
+ echo "$as_me:9860: checking if you want experimental reentrant code" >&5
+ echo $ECHO_N "checking if you want experimental reentrant code... $ECHO_C" >&6
  
- /*
-+ * Get the window's background information.
-+ */
-+#if USE_WIDEC_SUPPORT
-+NCURSES_EXPORT(int)
-+#else
-+static inline int
-+#endif
-+wgetbkgrnd(WINDOW *win, cchar_t *wch)
-+{
-+  wch->attr = win->_bkgd;
-+  return OK;
-+}
++# Opaque structures make binaries less likely to be incompatable with
++# future versions of ncurses.
++cf_cv_enable_opaque="NCURSES_INTERNALS"
++NCURSES_OPAQUE=1
 +
-+/*
-  * Set the window's background information.
-  */
- #if USE_WIDEC_SUPPORT
---- ncurses/curses.priv.h	2006-08-14 18:24:11.000000000 -0700
-+++ ncurses/curses.priv.h	2006-08-14 18:24:31.000000000 -0700
-@@ -244,7 +244,6 @@
- #else
- #undef _XOPEN_SOURCE_EXTENDED
- #define _nc_bkgd    _bkgd
--#define wgetbkgrnd(win, wch)	*wch = win->_bkgd
- #define wbkgrnd	    wbkgd
- #endif
+ # Check whether --enable-reentrant or --disable-reentrant was given.
+ if test "${enable_reentrant+set}" = set; then
+   enableval="$enable_reentrant"
+@@ -9904,7 +9904,7 @@
+ else
+ 	cf_cv_enable_reentrant=0
+ 	cf_cv_enable_opaque="NCURSES_OPAQUE"
+-	NCURSES_OPAQUE=0
++	NCURSES_OPAQUE=1
+ 	NCURSES_SIZE_T=short
+ fi
  
---- include/curses.wide	Mon Aug 21 17:02:10 2006
-+++ include/curses.wide	Mon Aug 21 17:02:24 2006
-@@ -192,7 +192,6 @@
- #define wadd_wchstr(win,str)		wadd_wchnstr(win,str,-1)
- #define waddwstr(win,wstr)		waddnwstr(win,wstr,-1)
- #define wget_wstr(w,t)			wgetn_wstr(w,t,-1)
--#define wgetbkgrnd(win,wch)		(*wch = win->_bkgrnd, OK)
- #define win_wchstr(w,c)			win_wchnstr(w,c,-1)
- #define wins_wstr(w,t)			wins_nwstr(w,t,-1)
- 
-
-Diff finished.  Mon Aug 21 17:02:31 2006

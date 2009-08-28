@@ -129,6 +129,7 @@ private:
 	typedef map<CSSM_ACL_HANDLE, SecPointer<ACL> > Map;
 
 	Map mAcls;			// set of ACL entries
+	Mutex mMutex;
 };
 
 

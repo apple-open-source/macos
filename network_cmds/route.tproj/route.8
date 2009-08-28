@@ -135,6 +135,9 @@ The other commands have the following syntax:
 .Op Fl n
 .Ar command
 .Op Fl net No \&| Fl host
+.Oo Fl ifscope
+.Ar boundif
+.Oc
 .Ar destination gateway
 .Op Ar netmask
 .Ed
@@ -208,18 +211,20 @@ Alternately, if the interface is point to point the name of the interface
 itself may be given, in which case the route remains valid even
 if the local or remote addresses change.
 .Pp
-The optional modifiers
-.Fl xns ,
-.Fl osi ,
-and
+For AF_INET, the
+.Fl ifscope
+modifier specifies the additional property of the route related to
+the interface scope derived from interface
+.Ar boundif .
+Such property allows for the presence of multiple route entries with
+the same destination, where each route is associated with a unique
+interface.  This modifier is required in order to manipulate route
+entries marked with the RTF_IFSCOPE flag.
+.Pp
+The optional modifier
 .Fl link
-specify that all subsequent addresses are in the
-.Tn XNS ,
-.Tn OSI ,
-or
-.Tn AppleTalk
-address families,
-or are specified as link-level addresses,
+specify that all subsequent addresses 
+are specified as link-level addresses,
 and the names must be numeric specifications rather than
 symbolic names.
 .Pp

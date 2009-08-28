@@ -37,6 +37,7 @@
 
 #include "rldefs.h"
 
+#include <sys/ioctl.h>  /* required for ioctl() prototype */
 #if defined (GWINSZ_IN_SYS_IOCTL)
 #  include <sys/ioctl.h>
 #endif /* GWINSZ_IN_SYS_IOCTL */

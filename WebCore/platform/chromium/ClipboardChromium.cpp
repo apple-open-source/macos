@@ -33,6 +33,7 @@
 #include "ClipboardUtilitiesChromium.h"
 #include "Document.h"
 #include "Element.h"
+#include "FileList.h"
 #include "Frame.h"
 #include "HTMLNames.h"
 #include "NamedAttrMap.h"
@@ -173,6 +174,12 @@ HashSet<String> ClipboardChromium::types() const
     }
 
     return results;
+}
+
+PassRefPtr<FileList> ClipboardChromium::files() const
+{
+    notImplemented();
+    return 0;
 }
 
 void ClipboardChromium::setDragImage(CachedImage* image, Node* node, const IntPoint& loc)

@@ -28,6 +28,7 @@
 #include <security_utilities/mach++.h>
 #include <mach/mach_error.h>
 #include <security_utilities/debugging.h>
+#include <Security/cssmapple.h>		// error codes
 #include <servers/bootstrap_defs.h>	// debug
 
 namespace Security {
@@ -39,7 +40,7 @@ namespace MachPlusPlus {
 //
 Error::Error(kern_return_t err) : error(err)
 {
-	IFDEBUG(debugDiagnose(this));
+	SECURITY_EXCEPTION_THROW_MACH(this, err);
 }
 
 Error::~Error() throw()
@@ -48,12 +49,26 @@ Error::~Error() throw()
 
 OSStatus Error::osStatus() const
 {
-	return -1;	//@@@CONV
+	switch (error) {
+	case MIG_BAD_ARGUMENTS:
+	case MIG_TYPE_ERROR:
+	case MIG_REMOTE_ERROR:
+		return CSSMERR_CSSM_SERVICE_NOT_AVAILABLE;		// IPC mismatch of some sort
+	default:
+		return -1;		//@@@ some "internal error" code, perhaps?
+	}
 }
 
 int Error::unixError() const
 {
-	return -1;			//@@@CONV
+	switch (error) {
+	case MIG_BAD_ARGUMENTS:
+	case MIG_TYPE_ERROR:
+	case MIG_REMOTE_ERROR:
+		return ERPCMISMATCH;		// IPC mismatch of some sort
+	default:
+		return -1;		//@@@ some "internal error" code, perhaps?
+	}
 }
 
 void Error::check(kern_return_t status)
@@ -66,28 +81,6 @@ void Error::throwMe(kern_return_t err)
 {
 	throw Error(err);
 }
-
-
-#if !defined(NDEBUG)
-void Error::debugDiagnose(const void *id) const
-{
-	const char *name;
-	switch (error) {
-	default:
-		name = mach_error_string(error); break;
-	case BOOTSTRAP_UNKNOWN_SERVICE:
-		name = "BOOTSTRAP_UNKNOWN_SERVICE"; break;
-	case BOOTSTRAP_NAME_IN_USE:	
-		name = "BOOTSTRAP_NAME_IN_USE"; break;
-	case BOOTSTRAP_NOT_PRIVILEGED:
-		name = "BOOTSTRAP_NOT_PRIVILEGED"; break;
-	case BOOTSTRAP_SERVICE_ACTIVE:
-		name = "BOOTSTRAP_SERVICE_ACTIVE"; break;
-	}
-    secdebug("exception", "%p Mach Error %s (%d) osStatus %ld",
-		id, name, error, osStatus());
-}
-#endif //NDEBUG
 
 
 //

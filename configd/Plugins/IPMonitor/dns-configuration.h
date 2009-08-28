@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2006, 2008, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,6 +24,7 @@
 #ifndef _DNS_CONFIGURATION_H
 #define _DNS_CONFIGURATION_H
 
+#include <TargetConditionals.h>
 #include <sys/cdefs.h>
 #include <CoreFoundation/CoreFoundation.h>
 
@@ -31,9 +32,16 @@ __BEGIN_DECLS
 
 void	dns_configuration_init		(CFBundleRef		bundle);
 
+
+#if	!TARGET_OS_IPHONE
+void	dns_configuration_monitor	(SCDynamicStoreRef	store,
+					 SCDynamicStoreCallBack	callout);
+#endif	// !TARGET_OS_IPHONE
+
 void	dns_configuration_set		(CFDictionaryRef	defaultResolver,
 					 CFDictionaryRef	services,
 					 CFArrayRef		serviceOrder,
+					 CFArrayRef		multicastResolvers,
 					 CFArrayRef		privateResolvers);
 
 __END_DECLS

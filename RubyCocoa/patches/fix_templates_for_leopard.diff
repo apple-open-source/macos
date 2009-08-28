@@ -32,7 +32,7 @@ Index: template/ProjectBuilder/Application/Cocoa-Ruby Document-based Application
  				GCC_WARN_ABOUT_RETURN_TYPE = YES;
  				GCC_WARN_UNUSED_VARIABLE = YES;
  				PREBINDING = NO;
-+				SDKROOT = /Developer/SDKs/MacOSX10.5.sdk;
++				SDKROOT = /Developer/SDKs/MacOSX10.6.sdk;
  			};
  			name = Debug;
  		};
@@ -41,7 +41,7 @@ Index: template/ProjectBuilder/Application/Cocoa-Ruby Document-based Application
  				GCC_WARN_UNUSED_VARIABLE = YES;
  				PREBINDING = NO;
 +				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-+				SDKROOT = /Developer/SDKs/MacOSX10.5.sdk;
++				SDKROOT = /Developer/SDKs/MacOSX10.6.sdk;
 +				ARCHS = (
 +					ppc,
 +					i386,
@@ -66,7 +66,7 @@ Index: template/ProjectBuilder/Application/Cocoa-Ruby Core Data Document-based A
  				GCC_WARN_ABOUT_RETURN_TYPE = YES;
  				GCC_WARN_UNUSED_VARIABLE = YES;
  				PREBINDING = NO;
-+				SDKROOT = /Developer/SDKs/MacOSX10.5.sdk;
++				SDKROOT = /Developer/SDKs/MacOSX10.6.sdk;
  			};
  			name = Debug;
  		};
@@ -75,7 +75,7 @@ Index: template/ProjectBuilder/Application/Cocoa-Ruby Core Data Document-based A
  				GCC_WARN_UNUSED_VARIABLE = YES;
  				PREBINDING = NO;
 +				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-+				SDKROOT = /Developer/SDKs/MacOSX10.5.sdk;
++				SDKROOT = /Developer/SDKs/MacOSX10.6.sdk;
 +				ARCHS = (
 +					ppc,
 +					i386,
@@ -117,7 +117,7 @@ Index: template/ProjectBuilder/Application/Cocoa-Ruby Application/CocoaApp.xcode
  				GCC_WARN_ABOUT_RETURN_TYPE = YES;
  				GCC_WARN_UNUSED_VARIABLE = YES;
  				PREBINDING = NO;
-+				SDKROOT = /Developer/SDKs/MacOSX10.5.sdk;
++				SDKROOT = /Developer/SDKs/MacOSX10.6.sdk;
  			};
  			name = Debug;
  		};
@@ -126,7 +126,7 @@ Index: template/ProjectBuilder/Application/Cocoa-Ruby Application/CocoaApp.xcode
  				GCC_WARN_UNUSED_VARIABLE = YES;
  				PREBINDING = NO;
 +				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-+				SDKROOT = /Developer/SDKs/MacOSX10.5.sdk;
++				SDKROOT = /Developer/SDKs/MacOSX10.6.sdk;
 +				ARCHS = (
 +					ppc,
 +					i386,
@@ -168,7 +168,7 @@ Index: template/ProjectBuilder/Application/Cocoa-Ruby Core Data Application/Coco
  				GCC_WARN_ABOUT_RETURN_TYPE = YES;
  				GCC_WARN_UNUSED_VARIABLE = YES;
  				PREBINDING = NO;
-+				SDKROOT = /Developer/SDKs/MacOSX10.5.sdk;
++				SDKROOT = /Developer/SDKs/MacOSX10.6.sdk;
  			};
  			name = Debug;
  		};
@@ -177,7 +177,7 @@ Index: template/ProjectBuilder/Application/Cocoa-Ruby Core Data Application/Coco
  				GCC_WARN_UNUSED_VARIABLE = YES;
  				PREBINDING = NO;
 +				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-+				SDKROOT = /Developer/SDKs/MacOSX10.5.sdk;
++				SDKROOT = /Developer/SDKs/MacOSX10.6.sdk;
 +				ARCHS = (
 +					ppc,
 +					i386,

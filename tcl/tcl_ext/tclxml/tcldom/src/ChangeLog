@@ -1,0 +1,124 @@
+2002-06-19  Joe English  <jenglish@users.sourceforge.net>
+	* tcldomPro.c: [dom::DOMImplementation destroy $node] no longer
+	destroys the containing document (unless $node is the DOCUMENT node);
+	now it simply removes $node from the tree.  This is compatible
+	with dom::tcl (modulo memory not being freed until later).
+	See SF Bugs #453741 "can't serialize after destroying a child"
+	and #571174 "dom::c -- destroyNode".
+
+2002-06-19  Joe English  <jenglish@users.sourceforge.net>
+	* tdpExpat.c: fixed DOMImplementation serialize to not
+	emit duplicate <!DOCTYPE ...> declarations (see test serialize-3.3)
+
+2002-05-09  Joe English  <jenglish@users.sourceforge.net>
+	* configure.in, Makefile.in: BUGFIX: Set CFLAGS properly 
+	  to include ${SHLIB_CFLAGS}.  CFLAGS_WARNING is now included
+	  in the Makefile, but is *not* included in $(CFLAGS) by default.
+
+2002-03-14  Joe English  <jenglish@users.sourceforge.net>
+	* src/tdpExpat.c: changed [dom::element removeAttribute $node $att] 
+	to match documentation -- no longer raises an error if $att is
+	not currently present.
+
+2002-02-22  Andreas Kupries  <andreask@pliers.activestate.com>
+
+	* A number of changes to the new toplevel Makefile and
+	  configure.in to get it to compile. This fixes Bug SF #521570.
+
+2002-02-21  Joe English  <jenglish@flightlab.com>
+	* tclDomProInt.h, tcldompro.c, tdpExpat.c:
+	  TIP 27 (CONST correctness) updates.
+
+2001-09-20  Joe English  <jenglish@flightlab.com>
+	* tdpExpat.c: Integrated (part of) patch from Pat Hoyts
+	  (SF tracker ID #454214):
+	  + Store CDATA sections as CDATA nodes, not text nodes. 
+	  + Fix SerializeText() to escape XML special characters
+	* tdpExpat.c: related bug fix in SerializeAttribute()
+	* ../tests/serialization.test: updated to test the above.
+
+2001-09-19  Joe English  <jenglish@flightlab.com>
+	* tdpExpat.c, ../tests/parse.test:
+	  Implemented expat ProcessingInstruction handler.
+
+2001-05-08  Joe English  <jenglish@flightlab.com>
+	* tcldompro.c, tdpExpat.c:
+	  [dom::document createXXX] methods are now compatible
+	  with dom::tcl and the TclDOM documentation.
+	* NOTE: compile with -DW3C_CONSTRUCTOR_BEHAVIOR=1 to get 
+	  the old (W3C DOM compliant) behavior back.
+	* tdpExpat.c: 
+	  Implemented SerializeProcessingInstruction(), SerializeCDATA().
+
+2000-12-14  Joe English  <jenglish@flightlab.com>
+	* Makefile.in, aclocal.m4, configure.in:
+	  Miscellaneous TEA-related changes; now configures and builds 
+	  on at least two different platforms.
+	* configure: Added to repository.
+	* tclDomProInt.h, tdp.h:
+	  Removed bare carriage returns, C++ "//"-style comments.
+	* tclDomProInt.h, tdpExpat.c:
+	  remove unused fields infoPtr->currentByte{Index,Count} 
+
+2000-10-07  Joe English  <jenglish@flightlab.com>
+	* livelist.c: new file.
+	* tdpExpat.c, tcldompro.c:
+	Pursuant to discussion on tclxml mailing list, changed
+	getElementsByTagName back to returning a list variable.
+	In the current implementation the result variable is "live"
+	in that reading the variable will regenerate the list;
+	however, write traces are still not triggered when the tree changes.
+
+	* tclDomProInt.h, tdpExpat.c, tcldompro.c: 
+	Replaced TclDomCreateNodeObj with TclDomGetNodeObj.
+
+	* ../tests/*.test: merged in tests from Ajuba TclDomPro package.
+	
+
+2000-10-06  Joe English  <jenglish@flightlab.com>
+	* tdpExpat.c: Changed getElementsByTagName to return a list
+	instead of a list variable (to match the documentation and dom::tcl).
+	* tdpExpat.c, tclDomProInt.h: removed 'tagnameHashTable'
+	field from TclDomNode structure.
+	* ../tests/*.test:
+	Updated test suite so that dom::c (almost) passes.
+	Principal change: in dom::c, the 'dom::document createXXX $token'
+	routines don't insert the new node as a child of $token
+	as they do in dom::tcl.  Tests were updated to account for this.
+
+2000-07-31  Joe English  <jenglish@flightlab.com>
+
+	* tcldompro.dsp:  
+	* tcldompro.def:  
+	* winMemDebug.c:  Removed Windows-specific memory debug routines
+	    and MSVC project file.
+	* tcldompro.c:
+	* tdpExpat.c:  Removed thread-related stuff, as it only affected
+	the Windows-specific memory debug routines.  Package should now
+	be thread-oblivious as well as thread-safe.
+
+
+2000-07-30  Joe English  <jenglish@flightlab.com>
+
+	* tclDomPro.h (PACKAGE_NAME): 
+	* tcldompro.c (Tcldom_Init): Changed package name to tcldom
+
+	* configure.in:
+	* Makefile.in:
+	* pkgIndex.tcl.in: Added. This might be TEA-compliant.  I can't tell.
+
+	* tcldom.test (r1.1): Stub test suite.
+
+
+2000-07-22  Joe English <jenglish@flightlab.com>
+
+	* tclDomProInt.h:
+	* tdpExpat.c:
+	* tcldompro.c:
+	Implemented 'dom::node children' method.
+	Bugs fixed:
+	    dom::node cget -firstChild and cget -lastChild
+	    did not work on COMMENT nodes (and a few others)
+	dom::node cget -previousSibling didn't work on TEXT_NODEs.
+
+---

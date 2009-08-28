@@ -406,16 +406,15 @@ bin_zle_list(UNUSED(char *name), char **args, Options ops, UNUSED(char func))
 static int
 bin_zle_refresh(UNUSED(char *name), char **args, Options ops, UNUSED(char func))
 {
-    ZLE_STRING_T s = statusline;
-    int sl = statusll, ocl = clearlist;
+    char *s = statusline;
+    int ocl = clearlist;
 
     if (!zleactive)
 	return 1;
     statusline = NULL;
-    statusll = 0;
     if (*args) {
 	if (**args)
-	    statusline = stringaszleline(*args, 0, &statusll, NULL, NULL);
+	    statusline = *args;
 	if (*++args) {
 	    LinkList l = newlinklist();
 	    int zmultsav = zmult;
@@ -439,12 +438,8 @@ bin_zle_refresh(UNUSED(char *name), char **args, Options ops, UNUSED(char func))
     }
     zrefresh();
 
-    if (statusline)
-	free(statusline);
-
     clearlist = ocl;
     statusline = s;
-    statusll = sl;
     return 0;
 }
 
@@ -590,7 +585,7 @@ bin_zle_complete(char *name, char **args, UNUSED(Options ops), UNUSED(char func)
     Thingy t;
     Widget w, cw;
 
-    if (!require_module(name, "zsh/complete", 0, 0)) {
+    if (require_module("zsh/complete", NULL) == 1) {
 	zwarnnam(name, "can't load complete module");
 	return 1;
     }
@@ -711,6 +706,17 @@ bin_zle_call(char *name, char **args, UNUSED(Options ops), UNUSED(char func))
     return ret;
 }
 
+
+/*
+ * Flag that the user has requested the terminal be trashed
+ * for whatever use.  We attempt to keep the tty settings in
+ * this mode synced with the normal (non-zle) settings unless
+ * they are frozen.
+ */
+
+/**/
+int fetchttyinfo;
+
 /**/
 static int
 bin_zle_invalidate(UNUSED(char *name), UNUSED(char **args), UNUSED(Options ops), UNUSED(char func))
@@ -721,7 +727,18 @@ bin_zle_invalidate(UNUSED(char *name), UNUSED(char **args), UNUSED(Options ops),
      * true if a completion widget is active.
      */
     if (zleactive) {
+	int wastrashed = trashedzle;
 	trashzle();
+	if (!wastrashed && (zlereadflags & ZLRF_NOSETTY)) {
+	    /*
+	     * We normally wouldn't have restored the terminal
+	     * in this case, but as it's at user request we do
+	     * so (hence the apparently illogical sense of the
+	     * second part of the test).
+	     */
+	    settyinfo(&shttyinfo);
+	}
+	fetchttyinfo = 1;
 	return 0;
     } else
 	return 1;

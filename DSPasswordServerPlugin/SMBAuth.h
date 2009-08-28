@@ -34,6 +34,7 @@ extern "C" {
 	void pwsf_CalculateSMBNTHash(const char *utf8Password, unsigned char outHash[16]);
 	void pwsf_CalculateSMBLANManagerHash(const char *password, unsigned char outHash[16]);
 	void pwsf_CalculateWorkstationCredentialSessKey( const unsigned char inNTHash[16], const char serverChallenge[8], const char clientChallenge[8], unsigned char outWCSK[8] );
+	void pwsf_CalculateWorkstationCredentialStrongSessKey( const unsigned char inNTHash[16], const char serverChallenge[8], const char clientChallenge[8], unsigned char outWCSK[16] );
 	void pwsf_CalculatePPTPSessionKeys( const unsigned char inNTHash[16], const unsigned char inNTResponse[24], int inSessionKeyLen, unsigned char *outSendKey, unsigned char *outReceiveKey );
 	void pwsf_GetMasterKey( const unsigned char inNTHashHash[16], const unsigned char inNTResponse[24], unsigned char outMasterKey[16] );
 	void pwsf_GetAsymetricStartKey( unsigned char inMasterKey[16], unsigned char *outSessionKey, int inSessionKeyLen, bool inIsSendKey, bool inIsServer );

@@ -8,11 +8,9 @@ The cURL Test Suite
 
 Requires:
   perl (and a unix-style shell)
-  diff (when a test fail, a diff is shown)
+  diff (when a test fails, a diff is shown)
   stunnel (for HTTPS and FTPS tests)
-  sshd (for SCP and SFTP tests; OpenSSH ver. 3.8 is known to work)
-  ssh (for SOCKS4 and SOCK5 tests; OpenSSH ver. 4.5 is known to work.
-       OpenSSH version 3.7 or greater is needed for SOCKS5)
+  OpenSSH or SunSSH (for SCP, SFTP and SOCKS4/5 tests)
 
 TCP ports used by default:
 
@@ -38,8 +36,10 @@ TCP ports used by default:
   on one machine.
 
 Run:
-  'make test'. This invokes the 'runtests.pl' perl script. Edit the top
-  variables of that script in case you have some specific needs.
+  'make test'. This builds the test suite support code and invokes the
+  'runtests.pl' perl script to run all the tests. Edit the top variables
+  of that script in case you have some specific needs, or run the script
+  manually (after the support code has been built).
 
   The script breaks on the first test that doesn't do OK. Use -a to prevent
   the script from abort on the first error. Run the script with -v for more
@@ -52,11 +52,29 @@ Run:
   3 to 9. Any test numbers starting with ! are disabled, as are any test
   numbers found in the file data/DISABLED (one per line).
 
+Shell startup scripts:
+  Tests which use the ssh test server, SCP/SFTP/SOCKS tests, might be badly
+  influenced by the output of system wide or user specific shell startup scripts,
+  .bashrc, .profile, /etc/csh.cshrc, .login, /etc/bashrc, etc. which output text
+  messages or escape sequences on user login.  When these shell startup messages
+  or escape sequences are output they might corrupt the expected stream of data
+  which flows to the sftp-server or from the ssh client which can result in bad
+  test behaviour or even prevent the test server from running.
+
+  If the test suite ssh or sftp server fails to start up and logs the message
+  'Received message too long' then you are certainly suffering the unwanted
+  output of a shell startup script.  Locate, cleanup or adjust the shell script.
+
 Memory:
   The test script will check that all allocated memory is freed properly IF
   curl has been built with the CURLDEBUG define set. The script will
   automatically detect if that is the case, and it will use the ../memanalyze
   script to analyze the memory debugging output.
+
+  The -t option will enable torture testing mode, which runs each test
+  many times but causes a different memory allocation to fail on each
+  successive run.  This tests the out of memory error handling code to
+  ensure that memory leaks do not occur even in those situations.
 
 Debug:
   If a test case fails, you can conveniently get the script to invoke the
@@ -84,6 +102,29 @@ Data:
 
   See FILEFORMAT for the description of the test case files.
 
+Code coverage:
+  gcc provides a tool that can determine the code coverage figures for
+  the test suite.  To use it, configure curl with
+  CFLAGS='-fprofile-arcs -ftest-coverage -g -O0'.  Make sure you run the normal
+  and torture tests to get more full coverage, i.e. do:
+
+    make test
+    make test-torture
+
+  The graphical tool ggcov can be used to browse the source and create
+  coverage reports on *NIX hosts:
+
+    ggcov -r lib src
+
+  The text mode tool gcov may also be used, but it doesn't handle object files
+  in more than one directory very well.
+
+Remote testing:
+  The runtests.pl script provides some hooks to allow curl to be tested on a
+  machine where perl can not be run.  The test framework in this case runs on
+  a workstation where perl is available, while curl itself is run on a remote
+  system using ssh or some other remote execution method.  See the comments at
+  the beginning of runtests.pl for details.
 
 TEST CASE NUMBERS
 
@@ -97,7 +138,8 @@ TEST CASE NUMBERS
  500 - 599   libcurl source code tests, not using the curl command tool
  600 - 699   SCP/SFTP
  700 - 799   SOCKS4 (even numbers) and SOCK5 (odd numbers)
- 1000 - x    miscellanous*
+ 1000 - 1999 miscellaneous*
+ 2000 - x    multiple sequential protocols per test case*
 
  Since 30-apr-2003, there's nothing in the system that requires us to keep
  within these number series, and those sections marked with * actually

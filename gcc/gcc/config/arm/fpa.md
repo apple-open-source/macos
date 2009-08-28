@@ -19,8 +19,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;; FPA automaton.
 (define_automaton "armfp")
@@ -547,11 +547,6 @@
    (set_attr "neg_pool_range" "*,*,1012,*,*,*,*,4084,*")]
 )
 
-;; APPLE LOCAL begin ARM 20060306 merge these from mainline 
-;; http://gcc.gnu.org/ml/gcc-patches/2005-04/msg00850.html
-;; http://gcc.gnu.org/ml/gcc-patches/2005-09/msg01342.html
-;; http://gcc.gnu.org/ml/gcc-patches/2005-04/msg00769.html
-
 (define_insn "*movdf_fpa"
   [(set (match_operand:DF 0 "nonimmediate_operand"
 						"=r,Q,r,m,r, f, f,f, m,!f,!r")
@@ -586,7 +581,6 @@
    (set_attr "pool_range" "*,*,*,*,1020,*,*,1024,*,*,*")
    (set_attr "neg_pool_range" "*,*,*,*,1008,*,*,1008,*,*,*")]
 )
-;; APPLE LOCAL end ARM 20060306 merge these from mainline 
 
 ;; We treat XFmode as meaning 'internal format'.  It's the right size and we
 ;; don't use it for anything else.  We only support moving between FPA

@@ -68,13 +68,14 @@ static int readonly = 0;
 static struct utmpx ut;
 static char utfile[MAXPATHLEN] = _PATH_UTMPX;
 __private_extern__ int utfile_system = 1; /* are we using _PATH_UTMPX? */
+__private_extern__ pthread_mutex_t utmpx_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static struct utmpx *_getutxid(const struct utmpx *);
 
 __private_extern__ const char _utmpx_vers[] = "utmpx-1.00";
 
-void
-setutxent()
+__private_extern__ void
+_setutxent()
 {
 
 	(void)memset(&ut, 0, sizeof(ut));
@@ -89,7 +90,16 @@ setutxent()
 
 
 void
-endutxent()
+setutxent()
+{
+	UTMPX_LOCK;
+	_setutxent();
+	UTMPX_UNLOCK;
+}
+
+
+__private_extern__ void
+_endutxent()
 {
 
 	(void)memset(&ut, 0, sizeof(ut));
@@ -101,8 +111,17 @@ endutxent()
 }
 
 
-struct utmpx *
-getutxent()
+void
+endutxent()
+{
+	UTMPX_LOCK;
+	_endutxent();
+	UTMPX_UNLOCK;
+}
+
+
+static struct utmpx *
+_getutxent()
 {
 #ifdef __LP64__
 	struct utmpx32 ut32;
@@ -118,7 +137,8 @@ getutxent()
 				else
 					readonly = 1;
 			}
-					
+
+		fcntl(fileno(fp), F_SETFD, 1); /* set close-on-exec flag */
 
 		/* get file size in order to check if new file */
 		if (fstat(fileno(fp), &st) == -1)
@@ -176,23 +196,40 @@ fail:
 	return NULL;
 }
 
+
+struct utmpx *
+getutxent()
+{
+	struct utmpx *ret;
+	UTMPX_LOCK;
+	ret = _getutxent();
+	UTMPX_UNLOCK;
+	return ret;
+}
+
 struct utmpx *
 getutxid(const struct utmpx *utx)
 {
 	struct utmpx temp;
 	const struct utmpx *ux;
+	struct utmpx *ret;
 
 	_DIAGASSERT(utx != NULL);
 
 	if (utx->ut_type == EMPTY)
 		return NULL;
 
+	UTMPX_LOCK;
 	/* make a copy as needed, and auto-fill if requested */
 	ux = _utmpx_working_copy(utx, &temp, 1);
-	if (!ux)
+	if (!ux) {
+		UTMPX_UNLOCK;
 		return NULL;
+	}
 
-	return _getutxid(ux);
+	ret = _getutxid(ux);
+	UTMPX_UNLOCK;
+	return ret;
 }
 
 
@@ -233,7 +270,7 @@ _getutxid(const struct utmpx *utx)
 		default:
 			return NULL;
 		}
-	} while (getutxent() != NULL);
+	} while (_getutxent() != NULL);
 	return NULL;
 }
 
@@ -244,6 +281,7 @@ getutxline(const struct utmpx *utx)
 
 	_DIAGASSERT(utx != NULL);
 
+	UTMPX_LOCK;
 	do {
 		switch (ut.ut_type) {
 		case EMPTY:
@@ -251,13 +289,16 @@ getutxline(const struct utmpx *utx)
 		case LOGIN_PROCESS:
 		case USER_PROCESS:
 			if (strncmp(ut.ut_line, utx->ut_line,
-			    sizeof(ut.ut_line)) == 0)
+			    sizeof(ut.ut_line)) == 0) {
+				UTMPX_UNLOCK;
 				return &ut;
+			}
 			break;
 		default:
 			break;
 		}
-	} while (getutxent() != NULL);
+	} while (_getutxent() != NULL);
+	UTMPX_UNLOCK;
 	return NULL;
 }
 
@@ -274,12 +315,14 @@ pututxline(const struct utmpx *utx)
 		return NULL;
 	}
 
+	UTMPX_LOCK;
 	if ((ux = _pututxline(utx)) != NULL && utfile_system) {
 		_utmpx_asl(ux);	/* the equivalent of wtmpx and lastlogx */
 #ifdef UTMP_COMPAT
 		_write_utmp_compat(ux);
 #endif /* UTMP_COMPAT */
 	}
+	UTMPX_UNLOCK;
 	return ux;
 }
 
@@ -291,8 +334,10 @@ _pututxline(const struct utmpx *utx)
 #ifdef __LP64__
 	struct utmpx32 ut32;
 #endif /* __LP64__ */
-	int gotlock = 0;
+	struct flock fl;
+#define gotlock		(fl.l_start >= 0)
 
+	fl.l_start = -1; /* also means we haven't locked */
 	if (utfile_system)
 		if ((fp != NULL && readonly) || (fp == NULL && geteuid() != 0)) {
 			errno = EPERM;
@@ -300,7 +345,7 @@ _pututxline(const struct utmpx *utx)
 		}
 
 	if (fp == NULL) {
-		(void)getutxent();
+		(void)_getutxent();
 		if (fp == NULL || readonly) {
 			errno = EPERM;
 			return NULL;
@@ -313,7 +358,7 @@ _pututxline(const struct utmpx *utx)
 		return NULL;
 
 	if ((x = _getutxid(ux)) == NULL) {
-		setutxent();
+		_setutxent();
 		if ((x = _getutxid(ux)) == NULL) {
 			/*
 			 * utx->ut_type has any original mask bits, while
@@ -327,9 +372,17 @@ _pututxline(const struct utmpx *utx)
 				errno = EINVAL;
 				return NULL;
 			}
-			if (lockf(fileno(fp), F_LOCK, (off_t)0) == -1)
+			/*
+			 * Replace lockf() with fcntl() and a fixed start
+			 * value.  We should already be at EOF.
+			 */
+			if ((fl.l_start = lseek(fileno(fp), 0, SEEK_CUR)) < 0)
 				return NULL;
-			gotlock++;
+			fl.l_len = 0;
+			fl.l_whence = SEEK_SET;
+			fl.l_type = F_WRLCK;
+			if (fcntl(fileno(fp), F_SETLKW, &fl) == -1)
+				return NULL;
 			if (fseeko(fp, (off_t)0, SEEK_END) == -1)
 				goto fail;
 		}
@@ -374,7 +427,8 @@ _pututxline(const struct utmpx *utx)
 fail:
 	if (gotlock) {
 		int save = errno;
-		if (lockf(fileno(fp), F_ULOCK, (off_t)0) == -1)
+		fl.l_type = F_UNLCK;
+		if (fcntl(fileno(fp), F_SETLK, &fl) == -1)
 			return NULL;
 		errno = save;
 	}
@@ -390,25 +444,32 @@ utmpxname(const char *fname)
 {
 	size_t len;
 
+	UTMPX_LOCK;
 	if (fname == NULL) {
 		strcpy(utfile, _PATH_UTMPX);
 		utfile_system = 1;
-		endutxent();
+		_endutxent();
+		UTMPX_UNLOCK;
 		return 1;
 	}
 
 	len = strlen(fname);
 
-	if (len >= sizeof(utfile))
+	if (len >= sizeof(utfile)) {
+		UTMPX_UNLOCK;
 		return 0;
+	}
 
 	/* must end in x! */
-	if (fname[len - 1] != 'x')
+	if (fname[len - 1] != 'x') {
+		UTMPX_UNLOCK;
 		return 0;
+	}
 
 	(void)strlcpy(utfile, fname, sizeof(utfile));
-	endutxent();
+	_endutxent();
 	utfile_system = 0;
+	UTMPX_UNLOCK;
 	return 1;
 }
 

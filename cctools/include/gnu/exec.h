@@ -52,6 +52,8 @@
 #ifndef	_EXEC_
 #define	_EXEC_	1
 
+#include <stdint.h>
+
 #ifndef NeXT_MOD
 #define NeXT_MOD 1
 #endif
@@ -64,15 +66,15 @@ struct exec {
 unsigned short  a_machtype;     /* machine type */
 unsigned short  a_magic;        /* magic number */
 #else	/* sun || NeXT_MOD */
-	long	a_magic;	/* magic number */
+	int32_t	a_magic;	/* magic number */
 #endif	/* sun || NeXT_MOD */
-unsigned long	a_text;		/* size of text segment */
-unsigned long	a_data;		/* size of initialized data */
-unsigned long	a_bss;		/* size of uninitialized data */
-unsigned long	a_syms;		/* size of symbol table */
-unsigned long	a_entry;	/* entry point */
-unsigned long	a_trsize;	/* size of text relocation */
-unsigned long	a_drsize;	/* size of data relocation */
+uint32_t	a_text;		/* size of text segment */
+uint32_t	a_data;		/* size of initialized data */
+uint32_t	a_bss;		/* size of uninitialized data */
+uint32_t	a_syms;		/* size of symbol table */
+uint32_t	a_entry;	/* entry point */
+uint32_t	a_trsize;	/* size of text relocation */
+uint32_t	a_drsize;	/* size of data relocation */
 };
 
 #define	OMAGIC	0407		/* old impure format */

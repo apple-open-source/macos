@@ -1,6 +1,6 @@
 /* These are the declarations needed to build Libcpp_kext.a. */
 
-typedef unsigned size_t;
+typedef unsigned long size_t;
 
 extern "C" {
 extern void *kern_os_malloc(size_t);

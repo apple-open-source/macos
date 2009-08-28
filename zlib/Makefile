@@ -7,7 +7,8 @@ Project           = zlib
 UserType          = Developer
 ToolType          = Libraries
 GnuAfterInstall   = install-strip install-plist install-old-symlink
-Extra_CC_Flags    = -fPIC -DUSE_MMAP
+SDKROOT          ?= /
+Extra_CC_Flags    = -fPIC -DUSE_MMAP -isysroot $(SDKROOT) -dead_strip
 Extra_LD_Flags    = -L. -lz
 
 # It's a GNU Source project

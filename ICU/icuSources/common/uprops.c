@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2002-2006, International Business Machines
+*   Copyright (C) 2002-2008, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -59,6 +59,7 @@ getBiDiProps() {
     UErrorCode errorCode=U_ZERO_ERROR;
 
     bdp=ubidi_getSingleton(&errorCode);
+#if !UBIDI_HARDCODE_DATA
     if(U_FAILURE(errorCode)) {
         errorCode=U_ZERO_ERROR;
         bdp=ubidi_getDummy(&errorCode);
@@ -66,11 +67,11 @@ getBiDiProps() {
             return NULL;
         }
     }
+#endif
 
     umtx_lock(NULL);
     if(gBdp==NULL) {
         gBdp=bdp;
-        bdp=NULL;
         ucln_common_registerCleanup(UCLN_COMMON_UPROPS, uprops_cleanup);
     }
     umtx_unlock(NULL);
@@ -130,15 +131,15 @@ static const struct {
     {  1,               U_MASK(UPROPS_XID_CONTINUE) },
     {  1,               U_MASK(UPROPS_XID_START) },
     { UPROPS_SRC_CASE,  0 },                                    /* UCHAR_CASE_SENSITIVE */
-    {  2,               U_MASK(UPROPS_V2_S_TERM) },
-    {  2,               U_MASK(UPROPS_V2_VARIATION_SELECTOR) },
+    {  1,               U_MASK(UPROPS_S_TERM) },
+    {  1,               U_MASK(UPROPS_VARIATION_SELECTOR) },
     { UPROPS_SRC_NORM,  0 },                                    /* UCHAR_NFD_INERT */
     { UPROPS_SRC_NORM,  0 },                                    /* UCHAR_NFKD_INERT */
     { UPROPS_SRC_NORM,  0 },                                    /* UCHAR_NFC_INERT */
     { UPROPS_SRC_NORM,  0 },                                    /* UCHAR_NFKC_INERT */
     { UPROPS_SRC_NORM,  0 },                                    /* UCHAR_SEGMENT_STARTER */
-    {  2,               U_MASK(UPROPS_V2_PATTERN_SYNTAX) },
-    {  2,               U_MASK(UPROPS_V2_PATTERN_WHITE_SPACE) },
+    {  1,               U_MASK(UPROPS_PATTERN_SYNTAX) },
+    {  1,               U_MASK(UPROPS_PATTERN_WHITE_SPACE) },
     { UPROPS_SRC_CHAR_AND_PROPSVEC,  0 },                       /* UCHAR_POSIX_ALNUM */
     { UPROPS_SRC_CHAR,  0 },                                    /* UCHAR_POSIX_BLANK */
     { UPROPS_SRC_CHAR,  0 },                                    /* UCHAR_POSIX_GRAPH */
@@ -253,7 +254,7 @@ u_getIntPropertyValue(UChar32 c, UProperty which) {
         case UCHAR_JOINING_TYPE:
             return ubidi_getJoiningType(GET_BIDI_PROPS(), c);
         case UCHAR_LINE_BREAK:
-            return (int32_t)(u_getUnicodeProperties(c, 0)&UPROPS_LB_MASK)>>UPROPS_LB_SHIFT;
+            return (int32_t)(u_getUnicodeProperties(c, UPROPS_LB_VWORD)&UPROPS_LB_MASK)>>UPROPS_LB_SHIFT;
         case UCHAR_NUMERIC_TYPE:
             type=(int32_t)GET_NUMERIC_TYPE(u_getUnicodeProperties(c, -1));
             if(type>U_NT_NUMERIC) {
@@ -325,7 +326,7 @@ u_getIntPropertyMaxValue(UProperty which) {
         case UCHAR_GENERAL_CATEGORY:
             return (int32_t)U_CHAR_CATEGORY_COUNT-1;
         case UCHAR_LINE_BREAK:
-            return (uprv_getMaxValues(0)&UPROPS_LB_MASK)>>UPROPS_LB_SHIFT;
+            return (uprv_getMaxValues(UPROPS_LB_VWORD)&UPROPS_LB_MASK)>>UPROPS_LB_SHIFT;
         case UCHAR_NUMERIC_TYPE:
             return (int32_t)U_NT_COUNT-1;
         case UCHAR_SCRIPT:
@@ -354,7 +355,7 @@ u_getIntPropertyMaxValue(UProperty which) {
     }
 }
 
-U_CAPI UPropertySource U_EXPORT2
+U_CFUNC UPropertySource U_EXPORT2
 uprops_getSource(UProperty which) {
     if(which<UCHAR_BINARY_START) {
         return UPROPS_SRC_NONE; /* undefined */

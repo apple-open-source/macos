@@ -53,13 +53,10 @@ install::
 	$(INSTALL_FILE) -c $(Sources)/$(Project)/tcpd.8          $(DSTROOT)$(MANDIR)/man8
 	$(INSTALL_FILE) -c $(Sources)/$(Project)/tcpdchk.8       $(DSTROOT)$(MANDIR)/man8
 	$(INSTALL_FILE) -c $(Sources)/$(Project)/tcpdmatch.8     $(DSTROOT)$(MANDIR)/man8
-	@for binary in libexec/tcpd sbin/tcpdchk sbin/tcpdmatch; do \
-		for arch in ppc64 x86_64; do \
-			file=$(DSTROOT)/usr/$$binary; \
-			echo lipo -remove $$arch -output $$file $$file; \
-			lipo -remove $$arch -output $$file $$file || true; \
-		done \
-	done
+	$(INSTALL_DIRECTORY) $(DSTROOT)/usr/local/OpenSourceVersions
+	$(INSTALL_FILE) -c $(Sources)/tcp_wrappers.plist $(DSTROOT)/usr/local/OpenSourceVersions
+	$(INSTALL_DIRECTORY) $(DSTROOT)/usr/local/OpenSourceLicenses
+	$(INSTALL_FILE) -c $(Sources)/$(Project)/DISCLAIMER $(DSTROOT)/usr/local/OpenSourceLicenses/$(Project).txt
 
 build:: shadow_source
 	$(_v) $(MAKE) -C $(BuildDirectory)/$(Project) $(Environment) macos

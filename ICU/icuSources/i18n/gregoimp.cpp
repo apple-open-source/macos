@@ -1,13 +1,14 @@
 /*
-**********************************************************************
-* Copyright (c) 2003-2005, International Business Machines
-* Corporation and others.  All Rights Reserved.
-**********************************************************************
-* Author: Alan Liu
-* Created: September 2 2003
-* Since: ICU 2.8
-**********************************************************************
-*/
+ **********************************************************************
+ * Copyright (c) 2003-2007, International Business Machines
+ * Corporation and others.  All Rights Reserved.
+ **********************************************************************
+ * Author: Alan Liu
+ * Created: September 2 2003
+ * Since: ICU 2.8
+ **********************************************************************
+ */
+
 #include "gregoimp.h"
 
 #if !UCONFIG_NO_FORMATTING
@@ -16,6 +17,12 @@
 #include "uresimp.h"
 #include "cstring.h"
 #include "uassert.h"
+
+#if defined(U_DEBUG_CALDATA)
+#include <stdio.h>
+#endif
+
+U_NAMESPACE_BEGIN
 
 int32_t Math::floorDivide(int32_t numerator, int32_t denominator) {
     return (numerator >= 0) ?
@@ -124,6 +131,32 @@ void Grego::dayToFields(double day, int32_t& year, int32_t& month,
     doy++; // one-based doy
 }
 
+void Grego::timeToFields(UDate time, int32_t& year, int32_t& month,
+                        int32_t& dom, int32_t& dow, int32_t& doy, int32_t& mid) {
+    double millisInDay;
+    double day = Math::floorDivide((double)time, (double)U_MILLIS_PER_DAY, millisInDay);
+    mid = (int32_t)millisInDay;
+    dayToFields(day, year, month, dom, dow, doy);
+}
+
+int32_t Grego::dayOfWeek(double day) {
+    int32_t dow;
+    Math::floorDivide(day + UCAL_THURSDAY, 7, dow);
+    return (dow == 0) ? UCAL_SATURDAY : dow;
+}
+
+int32_t Grego::dayOfWeekInMonth(int32_t year, int32_t month, int32_t dom) {
+    int32_t weekInMonth = (dom + 6)/7;
+    if (weekInMonth == 4) {
+        if (dom + 7 > monthLength(year, month)) {
+            weekInMonth = -1;
+        }
+    } else if (weekInMonth == 5) {
+        weekInMonth = -1;
+    }
+    return weekInMonth;
+}
+
 /* ---- CalendarData ------ */
 
 #define U_CALENDAR_KEY "calendar"
@@ -132,10 +165,6 @@ void Grego::dayToFields(double day, int32_t& year, int32_t& month,
 #define U_DEFAULT_KEY "default"
 #define U_CALENDAR_DATA ((char*)0)
 
-
-#if defined( U_DEBUG_CALDATA)
-#include <stdio.h>
-#endif
 
 // CalendarData::CalendarData(const Locale& loc, UErrorCode& status) 
 //   : fFillin(NULL), fBundle(NULL), fFallback(NULL) {
@@ -292,6 +321,8 @@ UResourceBundle* CalendarData::getByKey3(const char *key, const char *contextKey
 
     return fFillin;
 }
+
+U_NAMESPACE_END
 
 #endif
 //eof

@@ -1,9 +1,9 @@
 /*
- * "$Id: socket.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: socket.c 7881 2008-08-28 20:21:56Z mike $"
  *
  *   AppSocket backend for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -17,7 +17,6 @@
  * Contents:
  *
  *   main()    - Send a file to the printer or server.
- *   side_cb() - Handle side-channel requests...
  *   wait_bc() - Wait for back-channel data...
  */
 
@@ -47,7 +46,6 @@
  * Local functions...
  */
 
-static void	side_cb(int print_fd, int device_fd, int use_bc);
 static int	wait_bc(int device_fd, int secs);
 
 
@@ -63,7 +61,8 @@ int					/* O - Exit status */
 main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
      char *argv[])			/* I - Command-line arguments */
 {
-  char		method[255],		/* Method in URI */
+  const char	*device_uri;		/* Device URI */
+  char		scheme[255],		/* Scheme in URI */
 		hostname[1024],		/* Hostname */
 		username[255],		/* Username info (not used) */
 		resource[1024],		/* Resource info (not used) */
@@ -87,6 +86,10 @@ main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
   http_addrlist_t *addrlist,		/* Address list */
 		*addr;			/* Connected address */
   char		addrname[256];		/* Address name */
+  int		snmp_fd,		/* SNMP socket */
+		start_count,		/* Page count via SNMP at start */
+		page_count,		/* Page count via SNMP */
+		have_supplies;		/* Printer supports supply levels? */
   ssize_t	tbytes;			/* Total number of bytes written */
 #if defined(HAVE_SIGACTION) && !defined(HAVE_SIGSET)
   struct sigaction action;		/* Actions for POSIX signals */
@@ -119,7 +122,8 @@ main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
 
   if (argc == 1)
   {
-    puts("network socket \"Unknown\" \"AppSocket/HP JetDirect\"");
+    printf("network socket \"Unknown\" \"%s\"\n",
+           _cupsLangString(cupsLangDefault(), _("AppSocket/HP JetDirect")));
     return (CUPS_BACKEND_OK);
   }
   else if (argc < 6 || argc > 7)
@@ -148,7 +152,9 @@ main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
 
     if ((print_fd = open(argv[6], O_RDONLY)) < 0)
     {
-      perror("ERROR: unable to open print file");
+      _cupsLangPrintf(stderr,
+                      _("ERROR: Unable to open print file \"%s\": %s\n"),
+                      argv[6], strerror(errno));
       return (CUPS_BACKEND_FAILED);
     }
 
@@ -159,9 +165,11 @@ main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
   * Extract the hostname and port number from the URI...
   */
 
-  httpSeparateURI(HTTP_URI_CODING_ALL, cupsBackendDeviceURI(argv),
-                  method, sizeof(method), username, sizeof(username),
-		  hostname, sizeof(hostname), &port,
+  if ((device_uri = cupsBackendDeviceURI(argv)) == NULL)
+    return (CUPS_BACKEND_FAILED);
+
+  httpSeparateURI(HTTP_URI_CODING_ALL, device_uri, scheme, sizeof(scheme),
+                  username, sizeof(username), hostname, sizeof(hostname), &port,
 		  resource, sizeof(resource));
 
   if (port == 0)
@@ -252,6 +260,9 @@ main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
 
   sprintf(portname, "%d", port);
 
+  fputs("STATE: +connecting-to-device\n", stderr);
+  fprintf(stderr, "DEBUG: Looking up \"%s\"...\n", hostname);
+
   if ((addrlist = httpAddrGetList(hostname, AF_UNSPEC, portname)) == NULL)
   {
     _cupsLangPrintf(stderr, _("ERROR: Unable to locate printer \'%s\'!\n"),
@@ -259,11 +270,8 @@ main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
     return (CUPS_BACKEND_STOP);
   }
 
-  _cupsLangPrintf(stderr,
-                  _("INFO: Attempting to connect to host %s on port %d\n"),
-                  hostname, port);
-
-  fputs("STATE: +connecting-to-device\n", stderr);
+  fprintf(stderr, "DEBUG: Connecting to %s:%d\n", hostname, port);
+  _cupsLangPuts(stderr, _("INFO: Connecting to printer...\n"));
 
   for (delay = 5;;)
   {
@@ -334,9 +342,8 @@ main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
   if (recoverable)
   {
    /*
-    * If we've shown a recoverable error make sure the printer proxies
-    * have a chance to see the recovered message. Not pretty but
-    * necessary for now...
+    * If we've shown a recoverable error make sure the printer proxies have a
+    * chance to see the recovered message. Not pretty but necessary for now...
     */
 
     fputs("INFO: recovered: \n", stderr);
@@ -344,7 +351,7 @@ main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
   }
 
   fputs("STATE: -connecting-to-device\n", stderr);
-  _cupsLangPrintf(stderr, _("INFO: Connected to %s...\n"), hostname);
+  _cupsLangPuts(stderr, _("INFO: Connected to printer...\n"));
 
 #ifdef AF_INET6
   if (addr->addr.addr.sa_family == AF_INET6)
@@ -357,6 +364,18 @@ main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
       fprintf(stderr, "DEBUG: Connected to %s:%d (IPv4)...\n",
 	      httpAddrString(&addr->addr, addrname, sizeof(addrname)),
 	      ntohs(addr->addr.ipv4.sin_port));
+
+ /*
+  * See if the printer supports SNMP...
+  */
+
+  if ((snmp_fd = _cupsSNMPOpen(addr->addr.addr.sa_family)) >= 0)
+  {
+    have_supplies = !backendSNMPSupplies(snmp_fd, &(addr->addr), &start_count,
+                                         NULL);
+  }
+  else
+    have_supplies = start_count = 0;
 
  /*
   * Print everything...
@@ -374,7 +393,8 @@ main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
       lseek(print_fd, 0, SEEK_SET);
     }
 
-    tbytes = backendRunLoop(print_fd, device_fd, 1, side_cb);
+    tbytes = backendRunLoop(print_fd, device_fd, snmp_fd, &(addr->addr), 1,
+                            backendNetworkSideCB);
 
     if (print_fd != 0 && tbytes >= 0)
       _cupsLangPrintf(stderr,
@@ -410,6 +430,15 @@ main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
   }
 
  /*
+  * Collect the final page count as needed...
+  */
+
+  if (have_supplies && 
+      !backendSNMPSupplies(snmp_fd, &(addr->addr), &page_count, NULL) &&
+      page_count > start_count)
+    fprintf(stderr, "PAGE: total %d\n", page_count - start_count);
+
+ /*
   * Close the socket connection...
   */
 
@@ -428,69 +457,6 @@ main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
     _cupsLangPuts(stderr, _("INFO: Ready to print.\n"));
 
   return (tbytes < 0 ? CUPS_BACKEND_FAILED : CUPS_BACKEND_OK);
-}
-
-
-/*
- * 'side_cb()' - Handle side-channel requests...
- */
-
-static void
-side_cb(int print_fd,			/* I - Print file */
-        int device_fd,			/* I - Device file */
-	int use_bc)			/* I - Using back-channel? */
-{
-  cups_sc_command_t	command;	/* Request command */
-  cups_sc_status_t	status;		/* Request/response status */
-  char			data[2048];	/* Request/response data */
-  int			datalen;	/* Request/response data size */
-  const char		*device_id;	/* 1284DEVICEID env var */
-
-
-  datalen = sizeof(data);
-
-  if (cupsSideChannelRead(&command, &status, data, &datalen, 1.0))
-  {
-    _cupsLangPuts(stderr, _("WARNING: Failed to read side-channel request!\n"));
-    return;
-  }
-
-  switch (command)
-  {
-    case CUPS_SC_CMD_DRAIN_OUTPUT :
-       /*
-        * Our sockets disable the Nagle algorithm and data is sent immediately.
-	*/
-
-        if (backendDrainOutput(print_fd, device_fd))
-	  status = CUPS_SC_STATUS_IO_ERROR;
-	else 
-          status = CUPS_SC_STATUS_OK;
-
-	datalen = 0;
-        break;
-
-    case CUPS_SC_CMD_GET_BIDI :
-	status  = CUPS_SC_STATUS_OK;
-        data[0] = use_bc;
-        datalen = 1;
-        break;
-
-    case CUPS_SC_CMD_GET_DEVICE_ID :
-        if ((device_id = getenv("1284DEVICEID")) != NULL)
-	{
-	  strlcpy(data, device_id, sizeof(data));
-	  datalen = (int)strlen(data);
-	  break;
-	}
-
-    default :
-        status  = CUPS_SC_STATUS_NOT_IMPLEMENTED;
-	datalen = 0;
-	break;
-  }
-
-  cupsSideChannelWrite(command, status, data, datalen, 1.0);
 }
 
 
@@ -539,5 +505,5 @@ wait_bc(int device_fd,			/* I - Socket */
 
 
 /*
- * End of "$Id: socket.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: socket.c 7881 2008-08-28 20:21:56Z mike $".
  */

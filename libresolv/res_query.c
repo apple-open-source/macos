@@ -94,9 +94,15 @@ static const char rcsid[] = "$Id: res_query.c,v 1.1 2006/03/01 19:01:38 majka Ex
 #include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
+#include <notify.h>
+#include <pthread.h>
 #ifndef __APPLE__
 #include "port_after.h"
 #endif
+
+/* interrupt mechanism is implemented in res_send.c */
+__private_extern__ int interrupt_pipe_enabled;
+__private_extern__ pthread_key_t interrupt_pipe_key;
 
 /* Options.  Leave them on. */
 #define DEBUG
@@ -135,7 +141,9 @@ struct res_query_context
 	u_char *answer;
 	size_t anslen;
 	size_t ansmaxlen;
+	uint16_t lastanstype;
 	uint32_t ifnum;
+	uint32_t res_flags;
 	DNSServiceFlags flags;
 	DNSServiceErrorType error;
 };
@@ -155,10 +163,18 @@ res_query_callback(DNSServiceRef sdRef, DNSServiceFlags flags, uint32_t ifIndex,
 	context->flags = flags;
 	context->error = errorCode;
 
-	if (errorCode != kDNSServiceErr_NoError) return;
+	if (errorCode != kDNSServiceErr_NoError)
+	{
+		if (context->res_flags & RES_DEBUG) printf(";; res_query_mDNSResponder callback [%s %hu %hu]: error %u\n", fullname, rrtype, rrclass, errorCode);
+		return;
+	}
 
 	buflen = context->ansmaxlen - context->anslen;
-	if (buflen < NS_HFIXEDSZ) return;
+	if (buflen < NS_HFIXEDSZ)
+	{
+		if (context->res_flags & RES_DEBUG) printf(";; res_query_mDNSResponder callback [%s %hu %hu]: malformed reply\n", fullname, rrtype, rrclass);
+		return;
+	}
 
 	dnlist[0] = context->answer + NS_HFIXEDSZ;
 	dnlist[1] = NULL;
@@ -166,13 +182,23 @@ res_query_callback(DNSServiceRef sdRef, DNSServiceFlags flags, uint32_t ifIndex,
 	cp = context->answer + context->anslen;
 
 	n = dn_comp((char *)fullname, cp, buflen, dnlist, &dnlist[1]);
-	if (n < 0) return;
+	if (n < 0)
+	{
+		if (context->res_flags & RES_DEBUG) printf(";; res_query_mDNSResponder callback [%s %hu %hu]: name mismatch\n", fullname, rrtype, rrclass);
+		return;
+	}
 
 	/*
 	 * Check that there is enough space in the buffer for the resource name (n),
 	 * the resource record data (rdlen) and the resource record header (10).
 	 */
-	if (buflen < n + rdlen + 10) return;
+	if (buflen < n + rdlen + 10)
+	{
+		if (context->res_flags & RES_DEBUG) printf(";; res_query_mDNSResponder callback [%s %hu %hu]: insufficient buffer space for reply\n", fullname, rrtype, rrclass);
+		return;
+	}
+	
+	if (context->res_flags & RES_DEBUG) printf(";; res_query_mDNSResponder callback for %s %hu %hu\n", fullname, rrtype, rrclass);
 
 	cp += n;
 	buflen -= n;
@@ -196,6 +222,8 @@ res_query_callback(DNSServiceRef sdRef, DNSServiceFlags flags, uint32_t ifIndex,
 	ans->ancount = htons(ntohs(ans->ancount) + 1);
 
 	context->anslen = (size_t)(cp - context->answer);
+
+	context->lastanstype = rrtype;
 
 	/* 
 	 * Save the interface number for the first AAAA record for link-local addresses.
@@ -266,29 +294,34 @@ _is_rev_link_local(const char *name)
 	return 1;
 }
 
-__private_extern__ int
+int
 res_query_mDNSResponder(res_state statp, const char *name, int class, int type, u_char *answer, int anslen, struct sockaddr *from, uint32_t *fromlen)
 {
 	DNSServiceRef sdRef;
 	DNSServiceErrorType result;
 	struct res_query_context context;
-	int i, kq, n, wait;
-	struct kevent kv;
+	int i, kq, n, wait, cancelled, notify_token, status;
+	struct kevent mevent, ievent, event;
 	struct timeval ctv;
 	struct timespec now, finish, timeout;
 	HEADER *ans;
 	uint32_t iface;
 	uint16_t nibble;
-	char *qname;
+	char *qname, *notify_name;
+	int *interrupt_pipe;
+	uint64_t exit_requested;
+
+	interrupt_pipe = NULL;
 	result = 0;
 	kq = -1;
 	ans = (HEADER *)answer;
-
+	cancelled = 0;
 	ans->rcode = 0;
 
 	memset(&context, 0, sizeof(struct res_query_context));
 
 	/* Build a dummy DNS header with question for the answer */
+	context.res_flags = statp->options;
 	context.answer = answer;
 	context.ansmaxlen = anslen;
 	context.anslen = res_nmkquery(statp, ns_o_query, name, class, type, NULL, 0, NULL, answer, anslen);
@@ -338,6 +371,8 @@ res_query_mDNSResponder(res_state statp, const char *name, int class, int type, 
 		}
 	}
 
+	if (statp->options & RES_DEBUG) printf(";; res_query_mDNSResponder\n");
+
 	result = DNSServiceQueryRecord(&sdRef, kDNSServiceFlagsReturnIntermediates, iface, qname, type, class, res_query_callback, &context);
 	if (iface != 0) free(qname);
 
@@ -356,12 +391,59 @@ res_query_mDNSResponder(res_state statp, const char *name, int class, int type, 
 	finish.tv_sec = ctv.tv_sec + statp->retrans;
 	finish.tv_nsec = ctv.tv_usec * 1000;
 
-	EV_SET(&kv, DNSServiceRefSockFD(sdRef), EVFILT_READ, EV_ADD | EV_ONESHOT, 0, 0, 0);
+	/* add mdns reply FD to kqueue */
+	EV_SET(&mevent, DNSServiceRefSockFD(sdRef), EVFILT_READ, EV_ADD, 0, 0, 0);
+	n = kevent(kq, &mevent, 1, NULL, 0, NULL);
+	if (n != 0) return 0;
+
+	/* add interrupt pipe to kqueue if interrupt is enabled */
+	if (interrupt_pipe_enabled != 0)
+	{
+		interrupt_pipe = pthread_getspecific(interrupt_pipe_key);
+		if (interrupt_pipe != NULL)
+		{
+			if (interrupt_pipe[0] >= 0)
+			{
+				EV_SET(&ievent, interrupt_pipe[0], EVFILT_READ, EV_ADD, 0, 0, (void *)name);
+				/* allow this to fail silently (should never happen, but it would only break interrupts */
+				n = kevent(kq, &ievent, 1, NULL, 0, NULL);
+			}
+		}
+	}
+
+	/*
+	 * Get notification token
+	 * we use a self-notification token to allow a caller
+	 * to signal the thread doing this DNS query to quit.
+	 */
+	notify_name = NULL;
+	notify_token = -1;
+
+	asprintf(&notify_name, "self.thread.%lu", (unsigned long)pthread_self());
+	if (notify_name != NULL) 
+	{
+		status = notify_register_plain(notify_name, &notify_token);
+		free(notify_name);
+	}
 
 	wait = 1;
 	while (wait == 1)
 	{
-		n = kevent(kq, &kv, 1, &kv, 1, &timeout);
+		memset(&event, 0, sizeof(struct kevent));
+		n = kevent(kq, NULL, 0, &event, 1, &timeout);
+
+		if (notify_token != -1)
+		{
+			exit_requested = 0;
+			status = notify_get_state(notify_token, &exit_requested);
+			if (exit_requested == ThreadStateExitRequested)
+			{
+				/* interrupted */
+				if (statp->options & RES_DEBUG) printf(";; cancelled\n");
+				cancelled = 1;
+				break;
+			}
+		}
 
 		if (n < 0)
 		{
@@ -374,6 +456,13 @@ res_query_mDNSResponder(res_state statp, const char *name, int class, int type, 
 			h_errno = TRY_AGAIN;
 			wait = 0;
 		}
+		else if (event.udata == (void *)name)
+		{
+			/* interrupted */
+			if (statp->options & RES_DEBUG) printf(";; cancelled\n");
+			cancelled = 1;
+			break;
+		}
 		else
 		{
 			result = DNSServiceProcessResult(sdRef);
@@ -384,7 +473,7 @@ res_query_mDNSResponder(res_state statp, const char *name, int class, int type, 
 				wait = 0;
 			}
 
-			if ((ans->ancount > 0) && ((context.flags & kDNSServiceFlagsMoreComing) == 0)) wait = 0;
+			if ((ans->ancount > 0) && ((context.flags & kDNSServiceFlagsMoreComing) == 0) && ((context.lastanstype != ns_t_cname) || (type == ns_t_cname))) wait = 0;
 		}
 
 	keep_waiting:
@@ -410,10 +499,11 @@ res_query_mDNSResponder(res_state statp, const char *name, int class, int type, 
 		}
 	}
 
+	if (notify_token != -1) notify_cancel(notify_token);
 	DNSServiceRefDeallocate(sdRef);
 	close(kq);
 
-	if (ans->ancount == 0) context.anslen = -1;
+	if ((ans->ancount == 0) || (cancelled == 1)) context.anslen = -1;
 
 	if ((from != NULL) && (fromlen != NULL) && (context.ifnum != 0))
 	{

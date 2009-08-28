@@ -1,5 +1,6 @@
 #!perl -w
 # vim:ts=8:sw=4
+$|=1;
 
 use strict;
 
@@ -12,7 +13,7 @@ $Data::Dumper::Indent = 1;
 $Data::Dumper::Sortkeys = 1;
 $Data::Dumper::Quotekeys = 0;
 
-plan tests => 16;
+plan tests => 24;
 
 my $dbh = DBI->connect("dbi:Sponge:foo","","", {
         PrintError => 0,
@@ -88,7 +89,7 @@ while (my $keyfield = shift @fetchall_hashref_results) {
     my $expected = shift @fetchall_hashref_results;
     my $k = (ref $keyfield) ? "[@$keyfield]" : $keyfield;
     print "# fetchall_hashref($k)\n";
-    ok($sth = go);
+    ok($sth = go());
     my $result = $sth->fetchall_hashref($keyfield);
     ok($result);
     is_deeply($result, $expected);
@@ -96,6 +97,22 @@ while (my $keyfield = shift @fetchall_hashref_results) {
 }
 
 warn Dumper \%dump if %dump;
+
+# test assignment to NUM_OF_FIELDS automatically alters the row buffer
+$sth = go();
+my $row = $sth->fetchrow_arrayref;
+is scalar @$row, 3;
+is $sth->{NUM_OF_FIELDS}, 3;
+is scalar @{ $sth->_get_fbav }, 3;
+$sth->{NUM_OF_FIELDS} = 4;
+is $sth->{NUM_OF_FIELDS}, 4;
+is scalar @{ $sth->_get_fbav }, 4;
+$sth->{NUM_OF_FIELDS} = 2;
+is $sth->{NUM_OF_FIELDS}, 2;
+is scalar @{ $sth->_get_fbav }, 2;
+
+$sth->finish;
+
 
 if (0) {
     my @perf = map { [ int($_/100), $_, $_ ] } 0..10000;

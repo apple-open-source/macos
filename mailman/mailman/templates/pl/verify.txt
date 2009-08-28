@@ -1,9 +1,9 @@
-Pro¶ba o potwierdzenie zapisania siê na listê dyskusyjn± %(listname)s.
+Pro¶ba o potwierdzenie zapisania siê na listê %(listname)s.
 
-Otrzymano pro¶be%(remote)s o zapisanie Twojego adresu na listê dyskusyjn±,
-"%(email)s" na listê %(listaddr)s. ¯eby potwierdziæ chêæ zapisania siê
-proszê odpowiedzieæ na t± wiadomo¶æ nie zmieniaj±c jej Tematu. To
-samo mo¿esz zrobiæ wchodz±c na stronê:
+Otrzymano pro¶bê%(remote)s o zapisanie %(email)s na listê %(listaddr)s. 
+¯eby potwierdziæ prenumeratê, odpowiedz na tê wiadomo¶æ nie zmieniaj±c 
+jej Tematu. Prenumeratê mo¿esz równie¿ potwierdziæ klikaj±c poni¿szy 
+odno¶nik:
 
     %(confirmurl)s
 
@@ -13,10 +13,11 @@ zawiera³a tylko jedn± liniê:
     confirm %(cookie)s
 
 Wys³anie zwyk³ej odpowiedzi powinno zadzia³aæ w wiêkszo¶ci programów
-pocztowych, pod warunkiem, ¿e nie zmieniaj± one za bardzo pola 
+pocztowych, pod warunkiem, ¿e nie zmieniaj± one pola 
 Subject: (dodanie "Re:" jest akceptowalne). 
  
 Je¶li nie chcia³e¶ zapisaæ siê, po prostu zignoruj t± wiadomo¶æ.
-W przypadku jakichkolwiek w±tpliwo¶ci lub pytañ proszê skontaktowaæ siê z
+
+W przypadku jakichkolwiek pytañ lub w±tpliwo¶ci, skontaktuj siê z
 administratorem listy %(listadmin)s.
 

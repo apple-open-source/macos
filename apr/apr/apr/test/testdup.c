@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -76,7 +76,7 @@ static void test_file_readwrite(abts_case *tc, void *data)
 
     rv = apr_file_write(file3, TEST, &txtlen);
     ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
-    ABTS_INT_EQUAL(tc, sizeof(TEST), txtlen);
+    ABTS_SIZE_EQUAL(tc, sizeof(TEST), txtlen);
 
     fpos = 0;
     rv = apr_file_seek(file1, APR_SET, &fpos);
@@ -128,6 +128,8 @@ static void test_dup2(abts_case *tc, void *data)
     rv = apr_file_dup2(errfile, saveerr, p);
     ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
     ABTS_PTR_NOTNULL(tc, errfile);
+
+    apr_file_close(saveerr);
 }
 
 static void test_dup2_readwrite(abts_case *tc, void *data)
@@ -161,7 +163,7 @@ static void test_dup2_readwrite(abts_case *tc, void *data)
     txtlen = sizeof(TEST2);
     rv = apr_file_write(errfile, TEST2, &txtlen);
     ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
-    ABTS_INT_EQUAL(tc, sizeof(TEST2), txtlen);
+    ABTS_SIZE_EQUAL(tc, sizeof(TEST2), txtlen);
 
     fpos = 0;
     rv = apr_file_seek(testfile, APR_SET, &fpos);
@@ -178,6 +180,8 @@ static void test_dup2_readwrite(abts_case *tc, void *data)
     rv = apr_file_dup2(errfile, saveerr, p);
     ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
     ABTS_PTR_NOTNULL(tc, errfile);
+
+    apr_file_close(saveerr);
 }
 
 abts_suite *testdup(abts_suite *suite)

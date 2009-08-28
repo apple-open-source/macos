@@ -23,6 +23,9 @@ $homephone = '-';
 $mobile = '-';
 $mail = '-';
 $mailalt = '-';
+$dn = '';
+$user_exists = 'no';
+unset($item_vals);
 
 if ($config[general_decode_normal_attributes] == 'yes')
 	$decode_normal = 1;
@@ -32,12 +35,12 @@ if ($ds) {
 	$r=@da_ldap_bind($ds,$config);
 	if ($config[ldap_userdn] == ''){
 		if ($config[ldap_filter] != '')
-			$filter = ldap_xlat($config[ldap_filter],$login,$config);
+			$filter = xlat($config[ldap_filter],$login,$config);
 		else
 			$filter = 'uid=' . $login;
 	}
 	else
-		$filter = ldap_xlat($config[ldap_userdn],$login,$config);
+		$filter = xlat($config[ldap_userdn],$login,$config);
 	if ($config[ldap_debug] == 'true'){
 		if ($config[ldap_userdn] == '')
 			print "<b>DEBUG(LDAP): Search Query: BASE='$config[ldap_base]',FILTER='$filter'</b><br>\n";
@@ -55,7 +58,6 @@ if ($ds) {
 	else{
 		$user_exists = 'yes';
 		$user_info = 1;
-		unset($item_vals);
 		$k = init_decoder();
 		$cn = ($info[0]['cn'][0]) ? $info[0]['cn'][0] : '-';
 		if ($decode_normal)

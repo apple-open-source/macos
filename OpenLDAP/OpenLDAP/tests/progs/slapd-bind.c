@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/tests/progs/slapd-bind.c,v 1.2.2.4 2006/01/03 22:16:28 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/tests/progs/slapd-bind.c,v 1.18.2.7 2008/02/11 23:26:50 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2006 The OpenLDAP Foundation.
+ * Copyright 1999-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -21,30 +21,35 @@
 
 #include <stdio.h>
 
-#include <ac/stdlib.h>
-#include <ac/time.h>
+#include "ac/stdlib.h"
+#include "ac/time.h"
 
-#include <ac/ctype.h>
-#include <ac/param.h>
-#include <ac/socket.h>
-#include <ac/string.h>
-#include <ac/unistd.h>
-#include <ac/wait.h>
-#include <ac/time.h>
+#include "ac/ctype.h"
+#include "ac/param.h"
+#include "ac/socket.h"
+#include "ac/string.h"
+#include "ac/unistd.h"
+#include "ac/wait.h"
+#include "ac/time.h"
 
-#define LDAP_DEPRECATED 1
-#include <ldap.h>
-#include <lutil.h>
+#include "ldap.h"
+#include "lutil.h"
+#include "lber_pvt.h"
+#include "ldap_pvt.h"
+
+#include "slapd-common.h"
 
 #define LOOPS	100
 
 static int
-do_bind( char *uri, char *host, int port, char *dn, char *pass, int maxloop,
-	int force );
+do_bind( char *uri, char *dn, struct berval *pass, int maxloop,
+	int force, int chaserefs, int noinit, LDAP **ldp,
+	int action_type, void *action );
 
 static int
-do_base( char *uri, char *host, int port, char *base, char *pass, int maxloop,
-	int force );
+do_base( char *uri, char *dn, struct berval *pass, char *base, char *filter, char *pwattr,
+	int maxloop, int force, int chaserefs, int noinit, int delay,
+	int action_type, void *action );
 
 /* This program can be invoked two ways: if -D is used to specify a Bind DN,
  * that DN will be used repeatedly for all of the Binds. If instead -b is used
@@ -54,14 +59,28 @@ do_base( char *uri, char *host, int port, char *base, char *pass, int maxloop,
  * assumed that the users are all onelevel children of the base.
  */
 static void
-usage( char *name )
+usage( char *name, char opt )
 {
-	fprintf( stderr, "usage: %s [-h <host>] -p port (-D <dn>|-b <baseDN> [-f <searchfilter>]) -w <passwd> [-l <loops>] [-F]\n",
-			name );
+	if ( opt ) {
+		fprintf( stderr, "%s: unable to handle option \'%c\'\n\n",
+			name, opt );
+	}
+
+	fprintf( stderr, "usage: %s "
+		"[-H uri | -h <host> [-p port]] "
+		"[-D <dn> [-w <passwd>]] "
+		"[-b <baseDN> [-f <searchfilter>] [-a pwattr]] "
+		"[-l <loops>] "
+		"[-L <outerloops>] "
+		"[-B <extra>[,...]] "
+		"[-F] "
+		"[-C] "
+		"[-I] "
+		"[-i <ignore>] "
+		"[-t delay]\n",
+		name );
 	exit( EXIT_FAILURE );
 }
-
-static char *filter = "(objectClass=person)";
 
 int
 main( int argc, char **argv )
@@ -71,187 +90,426 @@ main( int argc, char **argv )
 	char		*host = "localhost";
 	char		*dn = NULL;
 	char		*base = NULL;
-	char		*pass = NULL;
+	char		*filter = "(objectClass=person)";
+	struct berval	pass = { 0, NULL };
+	char		*pwattr = NULL;
 	int		port = -1;
 	int		loops = LOOPS;
+	int		outerloops = 1;
 	int		force = 0;
+	int		chaserefs = 0;
+	int		noinit = 1;
+	int		delay = 0;
 
-	while ( (i = getopt( argc, argv, "b:H:h:p:D:w:l:f:F" )) != EOF ) {
-		switch( i ) {
-			case 'b':		/* base DN of a tree of user DNs */
-				base = strdup( optarg );
-				break;
+	/* extra action to do after bind... */
+	struct berval	type[] = {
+		BER_BVC( "tester=" ),
+		BER_BVC( "add=" ),
+		BER_BVC( "bind=" ),
+		BER_BVC( "modify=" ),
+		BER_BVC( "modrdn=" ),
+		BER_BVC( "read=" ),
+		BER_BVC( "search=" ),
+		BER_BVNULL
+	};
 
-			case 'H':		/* the server uri */
-				uri = strdup( optarg );
+	LDAPURLDesc	*extra_ludp = NULL;
+
+	tester_init( "slapd-bind", TESTER_BIND );
+
+	/* by default, tolerate invalid credentials */
+	tester_ignore_str2errlist( "INVALID_CREDENTIALS" );
+
+	while ( ( i = getopt( argc, argv, "a:B:b:D:Ff:H:h:Ii:L:l:p:t:w:" ) ) != EOF )
+	{
+		switch ( i ) {
+		case 'a':
+			pwattr = optarg;
 			break;
-			case 'h':		/* the servers host */
-				host = strdup( optarg );
+
+		case 'b':		/* base DN of a tree of user DNs */
+			base = optarg;
 			break;
 
-			case 'p':		/* the servers port */
-				if ( lutil_atoi( &port, optarg ) != 0 ) {
-					usage( argv[0] );
+		case 'B':
+			{
+			int	c;
+
+			for ( c = 0; type[c].bv_val; c++ ) {
+				if ( strncasecmp( optarg, type[c].bv_val, type[c].bv_len ) == 0 )
+				{
+					break;
 				}
-				break;
+			}
 
-			case 'D':
-				dn = strdup( optarg );
-				break;
+			if ( type[c].bv_val == NULL ) {
+				usage( argv[0], 'B' );
+			}
 
-			case 'w':
-				pass = strdup( optarg );
-				break;
+			switch ( c ) {
+			case TESTER_TESTER:
+			case TESTER_BIND:
+				/* invalid */
+				usage( argv[0], 'B' );
 
-			case 'l':		/* the number of loops */
-				if ( lutil_atoi( &loops, optarg ) != 0 ) {
-					usage( argv[0] );
+			case TESTER_SEARCH:
+				{
+				if ( ldap_url_parse( &optarg[type[c].bv_len], &extra_ludp ) != LDAP_URL_SUCCESS )
+				{
+					usage( argv[0], 'B' );
 				}
-				break;
+				} break;
 
-			case 'f':
-				filter = optarg;
-				break;
-
-			case 'F':
-				force = 1;
+			case TESTER_ADDEL:
+			case TESTER_MODIFY:
+			case TESTER_MODRDN:
+			case TESTER_READ:
+				/* nothing to do */
 				break;
 
 			default:
-				usage( argv[0] );
-				break;
+				assert( 0 );
+			}
+
+			} break;
+
+		case 'C':
+			chaserefs++;
+			break;
+
+		case 'H':		/* the server uri */
+			uri = optarg;
+			break;
+
+		case 'h':		/* the servers host */
+			host = optarg;
+			break;
+
+		case 'i':
+			tester_ignore_str2errlist( optarg );
+			break;
+
+		case 'p':		/* the servers port */
+			if ( lutil_atoi( &port, optarg ) != 0 ) {
+				usage( argv[0], 'p' );
+			}
+			break;
+
+		case 'D':
+			dn = optarg;
+			break;
+
+		case 'w':
+			ber_str2bv( optarg, 0, 1, &pass );
+			memset( optarg, '*', pass.bv_len );
+			break;
+
+		case 'l':		/* the number of loops */
+			if ( lutil_atoi( &loops, optarg ) != 0 ) {
+				usage( argv[0], 'l' );
+			}
+			break;
+
+		case 'L':		/* the number of outerloops */
+			if ( lutil_atoi( &outerloops, optarg ) != 0 ) {
+				usage( argv[0], 'L' );
+			}
+			break;
+
+		case 'f':
+			filter = optarg;
+			break;
+
+		case 'F':
+			force++;
+			break;
+
+		case 'I':
+			/* reuse connection */
+			noinit = 0;
+			break;
+
+		case 't':
+			/* sleep between binds */
+			if ( lutil_atoi( &delay, optarg ) != 0 ) {
+				usage( argv[0], 't' );
+			}
+			break;
+
+		default:
+			usage( argv[0], i );
+			break;
 		}
 	}
 
-	if ( port == -1 && uri == NULL )
-		usage( argv[0] );
+	if ( port == -1 && uri == NULL ) {
+		usage( argv[0], '\0' );
+	}
 
-	if ( base )
-		do_base( uri, host, port, base, pass, ( 20 * loops ), force );
-	else
-		do_bind( uri, host, port, dn, pass, ( 20 * loops ), force );
+	uri = tester_uri( uri, host, port );
+
+	for ( i = 0; i < outerloops; i++ ) {
+		if ( base != NULL ) {
+			do_base( uri, dn, &pass, base, filter, pwattr, loops,
+				force, chaserefs, noinit, delay, -1, NULL );
+		} else {
+			do_bind( uri, dn, &pass, loops,
+				force, chaserefs, noinit, NULL, -1, NULL );
+		}
+	}
+
 	exit( EXIT_SUCCESS );
 }
 
 
 static int
-do_bind( char *uri, char *host, int port, char *dn, char *pass, int maxloop,
-	int force )
+do_bind( char *uri, char *dn, struct berval *pass, int maxloop,
+	int force, int chaserefs, int noinit, LDAP **ldp,
+	int action_type, void *action )
 {
-	LDAP	*ld = NULL;
+	LDAP	*ld = ldp ? *ldp : NULL;
 	int  	i, rc = -1;
-	pid_t	pid = getpid();
 
-	if ( maxloop > 1 )
+	/* for internal search */
+	int	timelimit = 0;
+	int	sizelimit = 0;
+
+	switch ( action_type ) {
+	case -1:
+		break;
+
+	case TESTER_SEARCH:
+		{
+		LDAPURLDesc	*ludp = (LDAPURLDesc *)action;
+
+		assert( action != NULL );
+
+		if ( ludp->lud_exts != NULL ) {
+			for ( i = 0; ludp->lud_exts[ i ] != NULL; i++ ) {
+				char	*ext = ludp->lud_exts[ i ];
+				int	crit = 0;
+
+				if (ext[0] == '!') {
+					crit++;
+					ext++;
+				}
+
+				if ( strncasecmp( ext, "x-timelimit=", STRLENOF( "x-timelimit=" ) ) == 0 ) {
+					if ( lutil_atoi( &timelimit, &ext[ STRLENOF( "x-timelimit=" ) ] ) && crit ) {
+						tester_error( "unable to parse critical extension x-timelimit" );
+					}
+
+				} else if ( strncasecmp( ext, "x-sizelimit=", STRLENOF( "x-sizelimit=" ) ) == 0 ) {
+					if ( lutil_atoi( &sizelimit, &ext[ STRLENOF( "x-sizelimit=" ) ] ) && crit ) {
+						tester_error( "unable to parse critical extension x-sizelimit" );
+					}
+
+				} else if ( crit ) {
+					tester_error( "unknown critical extension" );
+				}
+			}
+		}
+		} break;
+
+	default:
+		/* nothing to do yet */
+		break;
+	}
+			
+	if ( maxloop > 1 ) {
 		fprintf( stderr, "PID=%ld - Bind(%d): dn=\"%s\".\n",
 			 (long) pid, maxloop, dn );
+	}
 
 	for ( i = 0; i < maxloop; i++ ) {
-		if ( uri ) {
-			ldap_initialize( &ld, uri );
-		} else {
-			ld = ldap_init( host, port );
-		}
-		if ( ld == NULL ) {
-			perror( "ldap_init" );
-			rc = -1;
-			break;
-		}
-
-		{
+		if ( !noinit || ld == NULL ) {
 			int version = LDAP_VERSION3;
+			ldap_initialize( &ld, uri );
+			if ( ld == NULL ) {
+				tester_perror( "ldap_initialize", NULL );
+				rc = -1;
+				break;
+			}
+
 			(void) ldap_set_option( ld, LDAP_OPT_PROTOCOL_VERSION,
 				&version ); 
+			(void) ldap_set_option( ld, LDAP_OPT_REFERRALS,
+				chaserefs ? LDAP_OPT_ON: LDAP_OPT_OFF );
 		}
 
-		rc = ldap_bind_s( ld, dn, pass, LDAP_AUTH_SIMPLE );
-		if ( rc != LDAP_SUCCESS ) {
-			ldap_perror( ld, "ldap_bind" );
+		rc = ldap_sasl_bind_s( ld, dn, LDAP_SASL_SIMPLE, pass, NULL, NULL, NULL );
+		if ( rc ) {
+			unsigned first = tester_ignore_err( rc );
+
+			/* if ignore.. */
+			if ( first ) {
+				/* only log if first occurrence */
+				if ( force < 2 || first == 1 ) {
+					tester_ldap_error( ld, "ldap_sasl_bind_s", NULL );
+				}
+				rc = LDAP_SUCCESS;
+
+			} else {
+				tester_ldap_error( ld, "ldap_sasl_bind_s", NULL );
+			}
 		}
-		ldap_unbind( ld );
-		if ( rc != LDAP_SUCCESS && !force ) {
+
+		switch ( action_type ) {
+		case -1:
+			break;
+
+		case TESTER_SEARCH:
+			{
+			LDAPURLDesc	*ludp = (LDAPURLDesc *)action;
+			LDAPMessage	*res = NULL;
+			struct timeval	tv = { 0 }, *tvp = NULL;
+
+			if ( timelimit ) {
+				tv.tv_sec = timelimit;
+				tvp = &tv;
+			}
+
+			assert( action != NULL );
+
+			rc = ldap_search_ext_s( ld,
+				ludp->lud_dn, ludp->lud_scope,
+				ludp->lud_filter, ludp->lud_attrs, 0,
+				NULL, NULL, tvp, sizelimit, &res );
+			ldap_msgfree( res );
+			} break;
+
+		default:
+			/* nothing to do yet */
+			break;
+		}
+			
+		if ( !noinit ) {
+			ldap_unbind_ext( ld, NULL, NULL );
+			ld = NULL;
+		}
+
+		if ( rc != LDAP_SUCCESS ) {
 			break;
 		}
 	}
 
-	if ( maxloop > 1 )
-		fprintf( stderr, " PID=%ld - Bind done.\n", (long) pid );
+	if ( maxloop > 1 ) {
+		fprintf( stderr, " PID=%ld - Bind done (%d).\n", (long) pid, rc );
+	}
+
+	if ( ldp && noinit ) {
+		*ldp = ld;
+
+	} else if ( ld != NULL ) {
+		ldap_unbind_ext( ld, NULL, NULL );
+	}
 
 	return rc;
 }
 
 
 static int
-do_base( char *uri, char *host, int port, char *base, char *pass, int maxloop,
-	int force )
+do_base( char *uri, char *dn, struct berval *pass, char *base, char *filter, char *pwattr,
+	int maxloop, int force, int chaserefs, int noinit, int delay,
+	int action_type, void *action )
 {
 	LDAP	*ld = NULL;
 	int  	i = 0;
-	pid_t	pid = getpid();
 	int     rc = LDAP_SUCCESS;
 	ber_int_t msgid;
 	LDAPMessage *res, *msg;
-	char **rdns = NULL;
-	char *attrs[] = { "dn", NULL };
-	int nrdns = 0;
+	char **dns = NULL;
+	struct berval *creds = NULL;
+	char *attrs[] = { LDAP_NO_ATTRS, NULL };
+	int ndns = 0;
 #ifdef _WIN32
 	DWORD beg, end;
 #else
 	struct timeval beg, end;
 #endif
+	int version = LDAP_VERSION3;
+	char *nullstr = "";
 
-	srand(pid);
-
-	if ( uri ) {
-		ldap_initialize( &ld, uri );
-	} else {
-		ld = ldap_init( host, port );
-	}
+	ldap_initialize( &ld, uri );
 	if ( ld == NULL ) {
-		perror( "ldap_init" );
+		tester_perror( "ldap_initialize", NULL );
 		exit( EXIT_FAILURE );
 	}
 
-	{
-		int version = LDAP_VERSION3;
-		(void) ldap_set_option( ld, LDAP_OPT_PROTOCOL_VERSION,
-			&version ); 
-	}
-	(void) ldap_set_option( ld, LDAP_OPT_REFERRALS, LDAP_OPT_OFF );
+	(void) ldap_set_option( ld, LDAP_OPT_PROTOCOL_VERSION, &version );
+	(void) ldap_set_option( ld, LDAP_OPT_REFERRALS,
+		chaserefs ? LDAP_OPT_ON: LDAP_OPT_OFF );
 
-	rc = ldap_bind_s( ld, NULL, NULL, LDAP_AUTH_SIMPLE );
+	rc = ldap_sasl_bind_s( ld, dn, LDAP_SASL_SIMPLE, pass, NULL, NULL, NULL );
 	if ( rc != LDAP_SUCCESS ) {
-		ldap_perror( ld, "ldap_bind" );
+		tester_ldap_error( ld, "ldap_sasl_bind_s", NULL );
 		exit( EXIT_FAILURE );
 	}
 
-	rc = ldap_search_ext( ld, base, LDAP_SCOPE_ONE,
+	fprintf( stderr, "PID=%ld - Bind(%d): base=\"%s\", filter=\"%s\" attr=\"%s\".\n",
+			(long) pid, maxloop, base, filter, pwattr );
+
+	if ( pwattr != NULL ) {
+		attrs[ 0 ] = pwattr;
+	}
+	rc = ldap_search_ext( ld, base, LDAP_SCOPE_SUBTREE,
 			filter, attrs, 0, NULL, NULL, 0, 0, &msgid );
 	if ( rc != LDAP_SUCCESS ) {
-		ldap_perror( ld, "ldap_search_ex" );
+		tester_ldap_error( ld, "ldap_search_ext", NULL );
 		exit( EXIT_FAILURE );
 	}
 
-	while (( rc=ldap_result( ld, LDAP_RES_ANY, LDAP_MSG_ONE, NULL, &res )) >0){
+	while ( ( rc = ldap_result( ld, LDAP_RES_ANY, LDAP_MSG_ONE, NULL, &res ) ) > 0 )
+	{
 		BerElement *ber;
 		struct berval bv;
-		char *ptr;
 		int done = 0;
 
-		for (msg = ldap_first_message( ld, res ); msg;
-			msg = ldap_next_message( ld, msg )) {
-			switch ( ldap_msgtype( msg )) {
+		for ( msg = ldap_first_message( ld, res ); msg;
+			msg = ldap_next_message( ld, msg ) )
+		{
+			switch ( ldap_msgtype( msg ) ) {
 			case LDAP_RES_SEARCH_ENTRY:
 				rc = ldap_get_dn_ber( ld, msg, &ber, &bv );
-				ptr = strchr( bv.bv_val, ',');
-				i = ptr-bv.bv_val;
-				rdns = realloc( rdns, (nrdns+1)*sizeof(char *));
-				rdns[nrdns] = malloc( i+1 );
-				strncpy(rdns[nrdns], bv.bv_val, i );
-				rdns[nrdns][i] = '\0';
-				nrdns++;
+				dns = realloc( dns, (ndns + 1)*sizeof(char *) );
+				dns[ndns] = ber_strdup( bv.bv_val );
+				if ( pwattr != NULL ) {
+					struct berval	**values = ldap_get_values_len( ld, msg, pwattr );
+
+					creds = realloc( creds, (ndns + 1)*sizeof(struct berval) );
+					if ( values == NULL ) {
+novals:;
+						creds[ndns].bv_len = 0;
+						creds[ndns].bv_val = nullstr;
+
+					} else {
+						static struct berval	cleartext = BER_BVC( "{CLEARTEXT} " );
+						struct berval		value = *values[ 0 ];
+
+						if ( value.bv_val[ 0 ] == '{' ) {
+							char *end = ber_bvchr( &value, '}' );
+
+							if ( end ) {
+								if ( ber_bvcmp( &value, &cleartext ) == 0 ) {
+									value.bv_val += cleartext.bv_len;
+									value.bv_len -= cleartext.bv_len;
+
+								} else {
+									ldap_value_free_len( values );
+									goto novals;
+								}
+							}
+
+						}
+
+						ber_dupbv( &creds[ndns], &value );
+						ldap_value_free_len( values );
+					}
+				}
+				ndns++;
 				ber_free( ber, 0 );
 				break;
+
 			case LDAP_RES_SEARCH_RESULT:
 				done = 1;
 				break;
@@ -262,7 +520,6 @@ do_base( char *uri, char *host, int port, char *base, char *pass, int maxloop,
 		ldap_msgfree( res );
 		if ( done ) break;
 	}
-	ldap_unbind( ld );
 
 #ifdef _WIN32
 	beg = GetTickCount();
@@ -270,27 +527,51 @@ do_base( char *uri, char *host, int port, char *base, char *pass, int maxloop,
 	gettimeofday( &beg, NULL );
 #endif
 
-	if ( nrdns == 0 ) {
-		fprintf( stderr, "No RDNs.\n" );
+	if ( ndns == 0 ) {
+		tester_error( "No DNs" );
 		return 1;
 	}
 
-	/* Ok, got list of RDNs, now start binding to each */
-	for (i=0; i<maxloop; i++) {
-		char dn[BUFSIZ], *ptr;
-		int j = rand() % nrdns;
-		ptr = lutil_strcopy(dn, rdns[j]);
-		*ptr++ = ',';
-		strcpy(ptr, base);
-		if ( do_bind( uri, host, port, dn, pass, 1, force ) && !force )
+	fprintf( stderr, "  PID=%ld - Bind base=\"%s\" filter=\"%s\" got %d values.\n",
+		(long) pid, base, filter, ndns );
+
+	/* Ok, got list of DNs, now start binding to each */
+	for ( i = 0; i < maxloop; i++ ) {
+		int		j;
+		struct berval	cred = { 0, NULL };
+
+
+#if 0	/* use high-order bits for better randomness (Numerical Recipes in "C") */
+		j = rand() % ndns;
+#endif
+		j = ((double)ndns)*rand()/(RAND_MAX + 1.0);
+
+		if ( creds && !BER_BVISEMPTY( &creds[j] ) ) {
+			cred = creds[j];
+		}
+
+		if ( do_bind( uri, dns[j], &cred, 1, force, chaserefs, noinit, &ld,
+			action_type, action ) && !force )
+		{
 			break;
+		}
+
+		if ( delay ) {
+			sleep( delay );
+		}
 	}
+
+	if ( ld != NULL ) {
+		ldap_unbind_ext( ld, NULL, NULL );
+		ld = NULL;
+	}
+
 #ifdef _WIN32
 	end = GetTickCount();
 	end -= beg;
 
-	fprintf( stderr, "Done %d Binds in %d.%03d seconds.\n", i,
-		end / 1000, end % 1000 );
+	fprintf( stderr, " PID=%ld - Bind done %d in %d.%03d seconds.\n",
+		(long) pid, i, end / 1000, end % 1000 );
 #else
 	gettimeofday( &end, NULL );
 	end.tv_usec -= beg.tv_usec;
@@ -300,8 +581,25 @@ do_base( char *uri, char *host, int port, char *base, char *pass, int maxloop,
 	}
 	end.tv_sec -= beg.tv_sec;
 
-	fprintf( stderr, "Done %d Binds in %ld.%06ld seconds.\n", i,
-		(long) end.tv_sec, (long) end.tv_usec );
+	fprintf( stderr, " PID=%ld - Bind done %d in %ld.%06ld seconds.\n",
+		(long) pid, i, (long) end.tv_sec, (long) end.tv_usec );
 #endif
+
+	if ( dns ) {
+		for ( i = 0; i < ndns; i++ ) {
+			free( dns[i] );
+		}
+		free( dns );
+	}
+
+	if ( creds ) {
+		for ( i = 0; i < ndns; i++ ) {
+			if ( creds[i].bv_val != nullstr ) {
+				free( creds[i].bv_val );
+			}
+		}
+		free( creds );
+	}
+
 	return 0;
 }

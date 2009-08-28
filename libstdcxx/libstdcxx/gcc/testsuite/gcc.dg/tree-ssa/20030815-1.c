@@ -21,7 +21,8 @@ typedef struct reg_info_def
 extern varray_type reg_n_info;
 static rtx *reg_base_value;
 static rtx *new_reg_base_value;
-static rtx
+
+rtx
 blah (unsigned int regno)
 {
   if (new_reg_base_value[regno] && ((*(
@@ -39,5 +40,4 @@ blah (unsigned int regno)
    eliminate some useless typecasting.  The first type cast is needed
    to convert the unsigned int regno parameter into a struct rtx_def **.  */
 /* { dg-final { scan-tree-dump-times "\\(struct rtx_def \\* \\*\\)" 1 "dom3"} } */
-                                                                                
-
+/* { dg-final { cleanup-tree-dump "dom3" } } */

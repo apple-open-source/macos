@@ -65,6 +65,7 @@ int GetEncodedSourceID(char encodedIdBuffer[32]) {
     BIO *mbio,*b64bio,*bio;
     int b64Len = 0, writeLen = 0, status = FAILURE;
     BUF_MEM *bptr = NULL;
+    int result;
     
     if (encodedIdBuffer == NULL) return FAILURE;
     encodedIdBuffer[0] = '\0';
@@ -82,7 +83,7 @@ int GetEncodedSourceID(char encodedIdBuffer[32]) {
         
         if (writeLen > 0) {
         
-            BIO_flush(bio);
+            result = BIO_flush(bio);
             BIO_get_mem_ptr(mbio, &bptr);
             if ( (bptr != NULL) && ((b64Len = bptr->length) > 0) ) {
                 memcpy(encodedIdBuffer, bptr->data, b64Len);

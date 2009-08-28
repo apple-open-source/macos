@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2001,2008 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,8 +30,9 @@
 
 #include <security_utilities/refcount.h>
 #include <security_utilities/mach++.h>
-#include <security_cdsa_utilities/handleobject.h>
+#include <security_cdsa_utilities/u32handleobject.h>
 #include <map>
+#include "dtrace.h"
 
 using MachPlusPlus::Port;
 
@@ -194,7 +195,7 @@ public:
 //
 // Process (client process) layer nodes
 //
-class PerProcess : public HandleObject, public Node<PerProcess, PerSession> {
+class PerProcess : public U32HandleObject, public Node<PerProcess, PerSession> {
 public:	
 };
 

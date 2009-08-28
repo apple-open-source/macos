@@ -2,7 +2,7 @@
  * blame-cmd.c -- Display blame information
  *
  * ====================================================================
- * Copyright (c) 2000-2006 CollabNet.  All rights reserved.
+ * Copyright (c) 2000-2008 CollabNet.  All rights reserved.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution.  The terms
@@ -40,7 +40,7 @@ typedef struct
 
 /*** Code. ***/
 
-/* This implements the svn_client_blame_receiver_t interface, printing
+/* This implements the svn_client_blame_receiver2_t interface, printing
    XML to stdout. */
 static svn_error_t *
 blame_receiver_xml(void *baton,
@@ -48,9 +48,15 @@ blame_receiver_xml(void *baton,
                    svn_revnum_t revision,
                    const char *author,
                    const char *date,
+                   svn_revnum_t merged_revision,
+                   const char *merged_author,
+                   const char *merged_date,
+                   const char *merged_path,
                    const char *line,
                    apr_pool_t *pool)
 {
+  svn_cl__opt_state_t *opt_state =
+    ((blame_baton_t *) baton)->opt_state;
   svn_stringbuf_t *sb = ((blame_baton_t *) baton)->sbuf;
 
   /* "<entry ...>" */
@@ -63,20 +69,20 @@ blame_receiver_xml(void *baton,
                         NULL);
 
   if (SVN_IS_VALID_REVNUM(revision))
+    svn_cl__print_xml_commit(&sb, revision, author, date, pool);
+
+  if (opt_state->use_merge_history && SVN_IS_VALID_REVNUM(merged_revision))
     {
-      /* "<commit ...>" */
-      svn_xml_make_open_tag(&sb, pool, svn_xml_normal, "commit",
-                            "revision",
-                            apr_psprintf(pool, "%ld", revision), NULL);
+      /* "<merged>" */
+      svn_xml_make_open_tag(&sb, pool, svn_xml_normal, "merged",
+                            "path", merged_path, NULL);
 
-      /* "<author>xx</author>" */
-      svn_cl__xml_tagged_cdata(&sb, pool, "author", author);
+      svn_cl__print_xml_commit(&sb, merged_revision, merged_author,
+                               merged_date, pool);
 
-      /* "<date>xx</date>" */
-      svn_cl__xml_tagged_cdata(&sb, pool, "date", date);
+      /* "</merged>" */
+      svn_xml_make_close_tag(&sb, pool, "merged");
 
-      /* "</commit>" */
-      svn_xml_make_close_tag(&sb, pool, "commit");
     }
 
   /* "</entry>" */
@@ -89,78 +95,98 @@ blame_receiver_xml(void *baton,
 }
 
 
-/* This implements the svn_client_blame_receiver_t interface. */
+static svn_error_t *
+print_line_info(svn_stream_t *out,
+                svn_revnum_t revision,
+                const char *author,
+                const char *date,
+                const char *path,
+                svn_boolean_t verbose,
+                apr_pool_t *pool)
+{
+  const char *time_utf8;
+  const char *time_stdout;
+  const char *rev_str = SVN_IS_VALID_REVNUM(revision)
+    ? apr_psprintf(pool, "%6ld", revision)
+                        : "     -";
+
+  if (verbose)
+    {
+      if (date)
+        {
+          SVN_ERR(svn_cl__time_cstring_to_human_cstring(&time_utf8,
+                                                        date, pool));
+          SVN_ERR(svn_cmdline_cstring_from_utf8(&time_stdout, time_utf8,
+                                                pool));
+        }
+      else
+        {
+          /* ### This is a 44 characters long string. It assumes the current
+             format of svn_time_to_human_cstring and also 3 letter
+             abbreviations for the month and weekday names.  Else, the
+             line contents will be misaligned. */
+          time_stdout = "                                           -";
+        }
+
+      SVN_ERR(svn_stream_printf(out, pool, "%s %10s %s ", rev_str,
+                                author ? author : "         -",
+                                time_stdout));
+
+      if (path)
+        SVN_ERR(svn_stream_printf(out, pool, "%-14s ", path));
+    }
+  else
+    {
+      return svn_stream_printf(out, pool, "%s %10s ", rev_str,
+                               author ? author : "         -");
+    }
+
+  return SVN_NO_ERROR;
+}
+
+/* This implements the svn_client_blame_receiver2_t interface. */
 static svn_error_t *
 blame_receiver(void *baton,
                apr_int64_t line_no,
                svn_revnum_t revision,
                const char *author,
                const char *date,
+               svn_revnum_t merged_revision,
+               const char *merged_author,
+               const char *merged_date,
+               const char *merged_path,
                const char *line,
                apr_pool_t *pool)
 {
   svn_cl__opt_state_t *opt_state =
     ((blame_baton_t *) baton)->opt_state;
   svn_stream_t *out = ((blame_baton_t *)baton)->out;
-  apr_time_t atime;
-  const char *time_utf8;
-  const char *time_stdout;
-  const char *rev_str = SVN_IS_VALID_REVNUM(revision) 
-    ? apr_psprintf(pool, "%6ld", revision)
-                        : "     -";
-  
-  if (opt_state->verbose)
+  svn_boolean_t use_merged = FALSE;
+
+  if (opt_state->use_merge_history)
     {
-      if (date)
+      /* Choose which revision to use.  If they aren't equal, prefer the
+         earliest revision.  Since we do a forward blame, we want to the first
+         revision which put the line in its current state, so we use the
+         earliest revision.  If we ever switch to a backward blame algorithm,
+         we may need to adjust this. */
+      if (merged_revision < revision)
         {
-          SVN_ERR(svn_time_from_cstring(&atime, date, pool));
-          time_utf8 = svn_time_to_human_cstring(atime, pool);
-          SVN_ERR(svn_cmdline_cstring_from_utf8(&time_stdout, time_utf8,
-                                                pool));
-        } else
-          /* ### This is a 44 characters long string. It assumes the current
-             format of svn_time_to_human_cstring and also 3 letter
-             abbreviations for the month and weekday names.  Else, the
-             line contents will be misaligned. */
-          time_stdout = "                                           -";
-      return svn_stream_printf(out, pool, "%s %10s %s %s%s", rev_str, 
-                               author ? author : "         -", 
-                               time_stdout , line, APR_EOL_STR);
+          svn_stream_printf(out, pool, "G ");
+          use_merged = TRUE;
+        }
+      else
+        svn_stream_printf(out, pool, "  ");
     }
+
+  if (use_merged)
+    SVN_ERR(print_line_info(out, merged_revision, merged_author, merged_date,
+                            merged_path, opt_state->verbose, pool));
   else
-    {
-      return svn_stream_printf(out, pool, "%s %10s %s%s", rev_str, 
-                               author ? author : "         -",
-                               line, APR_EOL_STR);
-    }
-}
- 
+    SVN_ERR(print_line_info(out, revision, author, date, NULL,
+                            opt_state->verbose, pool));
 
-/* Prints XML header to standard out. */
-static svn_error_t *
-print_header_xml(apr_pool_t *pool)
-{
-  svn_stringbuf_t *sb = svn_stringbuf_create("", pool);
-
-  /* <?xml version="1.0" encoding="utf-8"?> */
-  svn_xml_make_header(&sb, pool);
-
-  /* "<blame>" */
-  svn_xml_make_open_tag(&sb, pool, svn_xml_normal, "blame", NULL);
-
-  return svn_cl__error_checked_fputs(sb->data, stdout);
-}
-
-
-/* Prints XML footer to standard out. */
-static svn_error_t *
-print_footer_xml(apr_pool_t *pool)
-{
-  svn_stringbuf_t *sb = svn_stringbuf_create("", pool);
-
-  /* "</blame>" */
-  svn_xml_make_close_tag(&sb, pool, "blame");
-  return svn_cl__error_checked_fputs(sb->data, stdout);
+  return svn_stream_printf(out, pool, "%s%s", line, APR_EOL_STR);
 }
 
 
@@ -179,8 +205,9 @@ svn_cl__blame(apr_getopt_t *os,
   svn_boolean_t end_revision_unspecified = FALSE;
   svn_diff_file_options_t *diff_options = svn_diff_file_options_create(pool);
 
-  SVN_ERR(svn_opt_args_to_target_array2(&targets, os,
-                                        opt_state->targets, pool));
+  SVN_ERR(svn_cl__args_to_target_array_print_reserved(&targets, os,
+                                                      opt_state->targets,
+                                                      ctx, pool));
 
   /* Blame needs a file on which to operate. */
   if (! targets->nelts)
@@ -237,7 +264,7 @@ svn_cl__blame(apr_getopt_t *os,
          everything in a top-level element.  This makes the output in
          its entirety a well-formed XML document. */
       if (! opt_state->incremental)
-        SVN_ERR(print_header_xml(pool));
+        SVN_ERR(svn_cl__xml_print_header("blame", pool));
     }
   else
     {
@@ -250,9 +277,10 @@ svn_cl__blame(apr_getopt_t *os,
   for (i = 0; i < targets->nelts; i++)
     {
       svn_error_t *err;
-      const char *target = ((const char **) (targets->elts))[i];
+      const char *target = APR_ARRAY_IDX(targets, i, const char *);
       const char *truepath;
       svn_opt_revision_t peg_revision;
+      svn_client_blame_receiver2_t receiver;
 
       svn_pool_clear(subpool);
       SVN_ERR(svn_cl__check_cancel(ctx->cancel_baton));
@@ -282,28 +310,23 @@ svn_cl__blame(apr_getopt_t *os,
           svn_xml_make_open_tag(&bl.sbuf, pool, svn_xml_normal, "target",
                                 "path", outpath, NULL);
 
-          err = svn_client_blame3(truepath,
-                                  &peg_revision,
-                                  &opt_state->start_revision,
-                                  &opt_state->end_revision,
-                                  diff_options,
-                                  opt_state->force,
-                                  blame_receiver_xml,
-                                  &bl,
-                                  ctx,
-                                  subpool);
+          receiver = blame_receiver_xml;
         }
       else
-        err = svn_client_blame3(truepath,
-                                &peg_revision,
-                                &opt_state->start_revision,
-                                &opt_state->end_revision,
-                                diff_options,
-                                opt_state->force,
-                                blame_receiver,
-                                &bl,
-                                ctx,
-                                subpool);
+        receiver = blame_receiver;
+
+      err = svn_client_blame4(truepath,
+                              &peg_revision,
+                              &opt_state->start_revision,
+                              &opt_state->end_revision,
+                              diff_options,
+                              opt_state->force,
+                              opt_state->use_merge_history,
+                              receiver,
+                              &bl,
+                              ctx,
+                              subpool);
+
       if (err)
         {
           if (err->apr_err == SVN_ERR_CLIENT_IS_BINARY_FILE)
@@ -330,7 +353,7 @@ svn_cl__blame(apr_getopt_t *os,
     }
   svn_pool_destroy(subpool);
   if (opt_state->xml && ! opt_state->incremental)
-    SVN_ERR(print_footer_xml(pool));
+    SVN_ERR(svn_cl__xml_print_footer("blame", pool));
 
   return SVN_NO_ERROR;
 }

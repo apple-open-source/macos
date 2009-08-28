@@ -68,7 +68,7 @@ EventTraceCauseDesc TraceEvents[] = {
     {kDequeueEventEnd,              "iasclient: Event End"}
 };
 
-#define XTRACE(x, y, z) IrDALogAdd ( x, y, ((int)z & 0xffff), TraceEvents, true)
+#define XTRACE(x, y, z) IrDALogAdd ( x, y, ((uintptr_t)z & 0xffff), TraceEvents, true)
 #else
 #define XTRACE(x, y, z) ((void)0)
 #endif
@@ -87,7 +87,7 @@ TIASClient::tIASClient(TIrGlue* irda, TIrStream* client)
 {
     TIASClient *obj = new TIASClient;
     
-    XTRACE(kLogNew, (int)obj >> 16, obj);
+    XTRACE(kLogNew, 0, obj);
     if (obj && !obj->Init(irda, client)) {
 	obj->release();
 	obj = nil;
@@ -101,7 +101,7 @@ TIASClient::tIASClient(TIrGlue* irda, TIrStream* client)
 //--------------------------------------------------------------------------------
 void TIASClient::free()
 {
-    XTRACE(kLogFree, (int)this >> 16, this);
+    XTRACE(kLogFree, 0, this);
 
 #define FREE(x) { if (x) { (x)->release(); x = nil; } }
 
@@ -132,7 +132,7 @@ Boolean TIASClient::Init(TIrGlue* irda, TIrStream* client)
     ULong myLSAPId;
     IrDAErr result;
 
-    XTRACE(kLogInit, (int)this >> 16, this);
+    XTRACE(kLogInit, 0, this);
 
     fState = kIrIASClientDisconnected;
     fReceiveState = kIASClientReceiveReply;

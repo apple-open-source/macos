@@ -1,4 +1,4 @@
-/* APPLE LOCAL file radar 5245946 */
+/* APPLE LOCAL file radar 5245946 - radar 4301047*/
 /* Check that protocol qualifiers are compiled and encoded properly.  */
 /* Author: Ziemowit Laski <zlaski@apple.com>  */
 /* { dg-do run } */
@@ -55,7 +55,6 @@ int main(void) {
 #else
   meth = [proto descriptionForInstanceMethod: @selector(address:with:)];
 #endif
-  /* APPLE LOCAL radar 4301047 */
   scan_initial("O@%u@%u:%uNR@%uo^^S%u");
   CHECK_IF(offs3 == offs2 + aligned_sizeof(id) && totsize == offs3 + aligned_sizeof(unsigned));
 #   if (MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_5)
@@ -65,7 +64,6 @@ int main(void) {
 #else
   meth = [proto descriptionForClassMethod: @selector(retainArgument:with:)];
 #endif
-  /* APPLE LOCAL radar 4301047 */
   scan_initial("Vv%u@%u:%uOo@%un^*%u");
   CHECK_IF(offs3 == offs2 + aligned_sizeof(id) && totsize == offs3 + aligned_sizeof(char **));
   return 0;

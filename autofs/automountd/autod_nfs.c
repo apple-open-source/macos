@@ -95,7 +95,9 @@ static struct cache_entry *cache_head = NULL;
 pthread_rwlock_t cache_lock;	/* protect the cache chain */
 
 static int nfsmount(struct mapfs *, char *, char *, boolean_t, mach_port_t);
+#ifdef HAVE_LOFS
 static int is_nfs_port(char *);
+#endif
 
 static struct mapfs *enum_servers(struct mapent *, char *);
 static struct mapfs *get_mysubnet_servers(struct mapfs *);
@@ -108,7 +110,6 @@ static char *dump_distance(struct mapfs *);
 static void cache_free(struct cache_entry *);
 static int cache_check(char *, rpcvers_t *, char *);
 static void cache_enter(char *, rpcvers_t, rpcvers_t, char *, int);
-static void destroy_auth_client_handle(CLIENT *cl);
 
 #ifdef CACHE_DEBUG
 static void trace_host_cache();
@@ -138,19 +139,22 @@ static int goodhost_cache_hits = 0;
 static rpcvers_t vers_max_default = NFS_VER3;
 static rpcvers_t vers_min_default = NFS_VER2;
 
-static int is_v4_mount(char *);
-
 int
 mount_nfs(struct mapent *me, char *mntpnt, char *prevhost, boolean_t isdirect,
     mach_port_t gssd_port)
 {
+#ifdef HAVE_LOFS
 	struct mapfs *mfs, *mp;
+#else
+	struct mapfs *mfs;
+#endif
 	int err = -1;
 
 	mfs = enum_servers(me, prevhost);
 	if (mfs == NULL)
 		return (ENOENT);
 
+#ifdef HAVE_LOFS
 	/*
 	 * Try loopback if we have something on localhost; if nothing
 	 * works, we will fall back to NFS
@@ -158,15 +162,8 @@ mount_nfs(struct mapent *me, char *mntpnt, char *prevhost, boolean_t isdirect,
 	if (is_nfs_port(me->map_mntopts)) {
 		for (mp = mfs; mp; mp = mp->mfs_next) {
 			if (self_check(mp->mfs_host)) {
-#if 0
 				err = loopbackmount(mp->mfs_dir,
 					mntpnt, me->map_mntopts);
-#else
-				/*
-				 * XXX - no lofs yet.
-				 */
-				err = ENOENT;
-#endif
 				if (err) {
 					mp->mfs_ignore = 1;
 				} else {
@@ -175,6 +172,7 @@ mount_nfs(struct mapent *me, char *mntpnt, char *prevhost, boolean_t isdirect,
 			}
 		}
 	}
+#endif
 	if (err) {
 		err = nfsmount(mfs, mntpnt, me->map_mntopts, isdirect,
 		    gssd_port);
@@ -227,6 +225,7 @@ get_mysubnet_servers(struct mapfs *mfs_in)
 			 * local subnet.
 			 */
 
+			res = 0;
 			for (nb = &hp->h_addr_list[0]; *nb != NULL; nb++) {
 				if ((res = subnet_test(af, hp->h_length, *nb)) != 0) {
 					p = add_mfs(mfs, DIST_MYNET,
@@ -276,6 +275,7 @@ static int
 subnet_test(int af, int len, char *addr)
 {
 	struct ifaddrs *ifalist, *ifa;
+	char *if_inaddr, *if_inmask, *if_indstaddr;
 
 	if (getifaddrs(&ifalist))
 		return (0);
@@ -283,22 +283,33 @@ subnet_test(int af, int len, char *addr)
 	for (ifa = ifalist; ifa != NULL; ifa = ifa->ifa_next) {
 		if (ifa->ifa_addr->sa_family != af)
 			continue;
-		if (ifa->ifa_addr->sa_len != len)
-			continue;
-		if (ifa->ifa_netmask == 0) {
-			if (memcmp(ifa->ifa_addr->sa_data, addr, len) == 0 ||
-			    (ifa->ifa_dstaddr && memcmp(ifa->ifa_dstaddr->sa_data, addr, len) == 0)) {
+		if_inaddr = (af == AF_INET) ?
+		    (char *) &(((struct sockaddr_in *)(ifa->ifa_addr))->sin_addr) :
+		    (char *) &(((struct sockaddr_in6 *)(ifa->ifa_addr))->sin6_addr);
+		if (ifa->ifa_dstaddr) {
+			if_indstaddr = (af == AF_INET) ?
+			     (char *) &(((struct sockaddr_in *)(ifa->ifa_dstaddr))->sin_addr) :
+			     (char *) &(((struct sockaddr_in6 *)(ifa->ifa_dstaddr))->sin6_addr);
+		} else
+			if_indstaddr = NULL;
+
+		if (ifa->ifa_netmask == NULL) {
+			if (memcmp(if_inaddr, addr, len) == 0 ||
+			    (if_indstaddr && memcmp(if_indstaddr, addr, len) == 0)) {
 				freeifaddrs(ifalist);
 				return (1);
 			}
 		} else {
+			if_inmask = (af == AF_INET) ?
+			    (char *) &(((struct sockaddr_in *)(ifa->ifa_netmask))->sin_addr) :
+			    (char *) &(((struct sockaddr_in6 *)(ifa->ifa_netmask))->sin6_addr);
 			if (ifa->ifa_flags & IFF_POINTOPOINT) {
-				if (ifa->ifa_dstaddr && memcmp(ifa->ifa_dstaddr->sa_data, addr, len) == 0) {
+				if (if_indstaddr && memcmp(if_indstaddr, addr, len) == 0) {
 					freeifaddrs(ifalist);
 					return (1);
 				}
 			} else {
-				if (masked_eq(ifa->ifa_addr->sa_data, addr, ifa->ifa_netmask->sa_data, len)) {
+				if (masked_eq(if_inaddr, addr, if_inmask, len)) {
 					freeifaddrs(ifalist);
 					return (1);
 				}
@@ -561,7 +572,8 @@ nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
 	struct stat stbuf;
 	rpcvers_t vers, versmin; /* used to negotiate nfs version in pingnfs */
 				/* and mount version with mountd */
-	long nfsvers;		/* version in map options, 0 if not there */
+	rpcvers_t nfsvers;	/* version in map options, 0 if not there */
+	long optval;
 
 	/* used to negotiate nfs version using webnfs */
 	rpcvers_t pubversmin, pubversmax;
@@ -579,6 +591,7 @@ nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
 	ushort_t thisport;
 
 	dump_mfs(mfs_in, "  nfsmount: input: ", 2);
+	replicated = (mfs_in->mfs_next != NULL);
 
 	if (trace > 1) {
 		trace_prt(1, "	nfsmount: mount on %s %s:\n",
@@ -653,22 +666,23 @@ nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
 		nfs_port = 0;	/* "unspecified" */
 
 	if (altflags & NFS_MNT_VERS) {
-		nfsvers = getmntoptnum(mp, "vers");
-		if (nfsvers < 1) {
+		optval = getmntoptnum(mp, "vers");
+		if (optval < 1 || optval > (long)UINT_MAX) {
 			syslog(LOG_ERR, "%s: invalid NFS version number", mntpnt);
 			freemntopts(mp);
 			last_error = ENOENT;
 			goto ret;
 		}
-		if (set_versrange(nfsvers, &vers, &versmin) != 0) {
-			syslog(LOG_ERR, "Incorrect NFS version specified for %s",
-				mntpnt);
-			freemntopts(mp);
-			last_error = ENOENT;
-			goto ret;
-		}
+		nfsvers = (rpcvers_t)optval;
 	} else
 		nfsvers = 0;	/* "unspecified" */
+	if (set_versrange(nfsvers, &vers, &versmin) != 0) {
+		syslog(LOG_ERR, "Incorrect NFS version specified for %s",
+			mntpnt);
+		freemntopts(mp);
+		last_error = ENOENT;
+		goto ret;
+	}
 	freemntopts(mp);
 
 	if (nfsvers != 0) {
@@ -837,7 +851,7 @@ nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
 				nfsvers = NFS_VER2;
 			if (trace > 2)
 				trace_prt(1,
-				"  nfsmount: v4=%d[%d],v3=%d[%d],v2=%d[%d] => v%d.\n",
+				"  nfsmount: v4=%d[%d],v3=%d[%d],v2=%d[%d] => v%u.\n",
 				v4cnt, v4near,
 				v3cnt, v3near,
 				v2cnt, v2near, nfsvers);
@@ -944,8 +958,10 @@ pingnfs(
 
 		hostname = strdup(path+2);
 
-		if (hostname == NULL)
+		if (hostname == NULL) {
+			syslog(LOG_ERR, "pingnfs: memory allocation failed");
 			return (RPC_SYSTEMERROR);
+		}
 
 		path = strchr(hostname, '/');
 
@@ -1015,6 +1031,7 @@ pingnfs(
 				hostname, versmax, versmin);
 
 	do {
+		outvers = vers_to_try;
 #ifdef HAVE_V4
 		/*
 		 * If NFSv4, we give the port number explicitly so that we
@@ -1043,10 +1060,8 @@ pingnfs(
 				sock = RPC_ANYSOCK;
 				cl = clnttcp_create(&sin, NFS_PROG, vers_to_try,
 				    &sock, 0, 0);
-				if (cl != NULL) {
-					outvers = vers_to_try;
+				if (cl != NULL)
 					break;
-				}
 			}
 			if (trace > 4) {
 				trace_prt(1, "  pingnfs: Can't ping via TCP"
@@ -1167,7 +1182,7 @@ pingnfs(
 	return (clnt_stat);
 }
 
-#if 0
+#ifdef HAVE_LOFS
 #define	MNTTYPE_LOFS	"lofs"
 
 int
@@ -1228,160 +1243,6 @@ loopbackmount(fsname, dir, mntopts)
 	return (0);
 }
 #endif
-
-#if 0
-/*
- * Look for the value of a numeric option of the form foo=x.  If found, set
- * *valp to the value and return non-zero.  If not found or the option is
- * malformed, return zero.
- */
-
-int
-nopt(mnt, opt, valp)
-	struct mnttab *mnt;
-	char *opt;
-	int *valp;			/* OUT */
-{
-	char *equal;
-	char *str;
-
-	/*
-	 * We should never get a null pointer, but if we do, it's better to
-	 * ignore the option than to dump core.
-	 */
-
-	if (valp == NULL) {
-		syslog(LOG_DEBUG, "null pointer for %s option", opt);
-		return (0);
-	}
-
-	if (str = hasmntopt(mnt, opt)) {
-		if (equal = strchr(str, '=')) {
-			*valp = atoi(&equal[1]);
-			return (1);
-		} else {
-			syslog(LOG_ERR, "Bad numeric option '%s'", str);
-		}
-	}
-	return (0);
-}
-#endif
-
-int
-nfsunmount(fsid_t *fsid, struct mnttab *mnt)
-{
-	struct timeval timeout;
-	CLIENT *cl;
-	enum clnt_stat rpc_stat;
-	char *host, *path;
-	struct replica *list;
-	int i, count = 0;
-	int isv4mount = is_v4_mount(mnt->mnt_mountp);
-
-	if (trace > 1)
-		trace_prt(1, "	nfsunmount: umount %s\n", mnt->mnt_mountp);
-
-	if (umount_by_fsid(fsid, 0) < 0) {
-		if (trace > 1)
-			trace_prt(1, "	nfsunmount: umount %s FAILED\n",
-				mnt->mnt_mountp);
-		if (errno)
-			return (errno);
-	}
-
-	/*
-	 * If this is a NFSv4 mount, the mount protocol was not used
-	 * so we just return.
-	 */
-	if (isv4mount) {
-		if (trace > 1)
-			trace_prt(1, "	nfsunmount: umount %s OK\n",
-				mnt->mnt_mountp);
-		return (0);
-	}
-
-	/*
-	 * XXX - we don't do WebNFS.
-	 */
-#if 0
-	/*
-	 * If mounted with -o public, then no need to contact server
-	 * because mount protocol was not used.
-	 */
-	if (hasmntopt(mnt, MNTOPT_PUBLIC) != NULL) {
-		return (0);
-	}
-#endif
-
-	/*
-	 * The rest of this code is advisory to the server.
-	 * If it fails return success anyway.
-	 */
-
-	list = parse_replica(mnt->mnt_special, &count);
-	if (!list) {
-		if (count >= 0)
-			syslog(LOG_ERR,
-			    "Memory allocation failed: %m");
-		return (ENOMEM);
-	}
-
-	for (i = 0; i < count; i++) {
-
-		host = list[i].host;
-		path = list[i].path;
-
-		/*
-		 * Skip file systems mounted using WebNFS, because mount
-		 * protocol was not used.
-		 */
-		if (strcmp(host, "nfs") == 0 && strncmp(path, "//", 2) == 0)
-			continue;
-
-		/*
-		 * We assume this binds to a reserved port, if possible.
-		 */
-		cl = clnt_create(host, MOUNTPROG, MOUNTVERS, "udp");
-		if (cl == NULL)
-			break;
-#ifdef MALLOC_DEBUG
-		add_alloc("CLNT_HANDLE", cl, 0, __FILE__, __LINE__);
-		add_alloc("AUTH_HANDLE", cl->cl_auth, 0,
-			__FILE__, __LINE__);
-#endif
-#ifdef MALLOC_DEBUG
-		drop_alloc("AUTH_HANDLE", cl->cl_auth, __FILE__, __LINE__);
-#endif
-		AUTH_DESTROY(cl->cl_auth);
-		if ((cl->cl_auth = authunix_create_default()) == NULL) {
-			if (verbose)
-				syslog(LOG_ERR, "umount %s:%s: %s",
-					host, path,
-					"Failed creating default auth handle");
-			destroy_auth_client_handle(cl);
-			continue;
-		}
-#ifdef MALLOC_DEBUG
-		add_alloc("AUTH_HANDLE", cl->cl_auth, 0, __FILE__, __LINE__);
-#endif
-		timeout.tv_usec = 0;
-		timeout.tv_sec = 5;
-		rpc_stat = clnt_call(cl, MOUNTPROC_UMNT, (xdrproc_t)xdr_dirpath,
-			    (caddr_t)&path, (xdrproc_t)xdr_void, (char *)NULL,
-			    timeout);
-		if (verbose && rpc_stat != RPC_SUCCESS)
-			syslog(LOG_ERR, "%s: %s",
-				host, clnt_sperror(cl, "unmount"));
-		destroy_auth_client_handle(cl);
-	}
-
-	free_replica(list, count);
-
-	if (trace > 1)
-		trace_prt(1, "	nfsunmount: umount %s OK\n", mnt->mnt_mountp);
-
-	return (0);
-}
 
 /*
  * Put a new entry in the cache chain by prepending it to the front.
@@ -1540,8 +1401,10 @@ flush_caches(void)
 	(void) pthread_cond_wait(&cleanup_done_cv, &cleanup_lock);
 	pthread_mutex_unlock(&cleanup_lock);
 	cache_flush();
+	flush_host_name_cache();
 }
 
+#ifdef HAVE_LOFS
 /*
  * Returns 1, if port option is NFS_PORT or
  *	nfsd is running on the port given
@@ -1617,31 +1480,7 @@ is_nfs_port(char *opts)
 	 */
 	return (0);
 }
-
-
-/*
- * destroy_auth_client_handle(cl)
- * destroys the created client handle
- */
-static void
-destroy_auth_client_handle(CLIENT *cl)
-{
-	if (cl) {
-		if (cl->cl_auth) {
-#ifdef MALLOC_DEBUG
-			drop_alloc("AUTH_HANDLE", cl->cl_auth,
-				__FILE__, __LINE__);
 #endif
-			AUTH_DESTROY(cl->cl_auth);
-			cl->cl_auth = NULL;
-		}
-#ifdef MALLOC_DEBUG
-		drop_alloc("CLNT_HANDLE", cl,
-			__FILE__, __LINE__);
-#endif
-		clnt_destroy(cl);
-	}
-}
 
 
 /*
@@ -1692,12 +1531,3 @@ trace_host_cache()
 		goodhost_cache_hits);
 }
 #endif /* CACHE_DEBUG */
-
-/*
- * We don't support NFSv4.
- */
-static int
-is_v4_mount(__unused char *mntpath)
-{
-	return (FALSE);
-}

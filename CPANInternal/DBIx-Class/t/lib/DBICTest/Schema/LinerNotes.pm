@@ -3,8 +3,8 @@ package # hide from PAUSE
 
 use base qw/DBIx::Class::Core/;
 
-DBICTest::Schema::LinerNotes->table('liner_notes');
-DBICTest::Schema::LinerNotes->add_columns(
+__PACKAGE__->table('liner_notes');
+__PACKAGE__->add_columns(
   'liner_id' => {
     data_type => 'integer',
   },
@@ -13,8 +13,8 @@ DBICTest::Schema::LinerNotes->add_columns(
     size      => 100,
   },
 );
-DBICTest::Schema::LinerNotes->set_primary_key('liner_id');
-DBICTest::Schema::LinerNotes->belongs_to(
+__PACKAGE__->set_primary_key('liner_id');
+__PACKAGE__->belongs_to(
   'cd', 'DBICTest::Schema::CD', 'liner_id'
 );
 

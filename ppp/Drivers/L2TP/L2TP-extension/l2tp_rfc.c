@@ -113,7 +113,7 @@ struct l2tp_rfc {
 
 #define LOGIT(rfc, str, args...)	\
     if (rfc->flags & L2TP_FLAG_DEBUG)	\
-        log(LOGVAL, str, args)
+        IOLog(str, args)
 
 
 
@@ -194,7 +194,7 @@ u_int16_t l2tp_rfc_new_client(void *host, void **data,
     if (rfc == 0)
         return 1;
 
-    //log(LOGVAL, "L2TP new_client rfc = 0x%x\n", rfc);
+    //IOLog("L2TP new_client rfc = %p\n", rfc);
 
     bzero(rfc, sizeof(struct l2tp_rfc));
 
@@ -231,7 +231,7 @@ void l2tp_rfc_free_client(void *data)
 	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
     
         
-	LOGIT(rfc, "L2TP prepare for freeing (0x%x)\n", rfc);
+	LOGIT(rfc, "L2TP prepare for freeing (%p)\n", rfc);
 	
 	rfc->host = 0;
 	rfc->inputcb = 0;
@@ -261,7 +261,7 @@ void l2tp_rfc_free_now(struct l2tp_rfc *rfc)
 	
 	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
     
-    LOGIT(rfc, "L2TP free (0x%x)\n", rfc);
+    LOGIT(rfc, "L2TP free (%p)\n", rfc);
     
     if (rfc->socket) {
         /* the control connection own socket */
@@ -316,22 +316,22 @@ u_int16_t l2tp_rfc_command(void *data, u_int32_t cmd, void *cmddata)
     switch (cmd) {
 
         case L2TP_CMD_SETFLAGS:
-            LOGIT(rfc, "L2TP command (0x%x): set flags = 0x%x\n", rfc, *(u_int32_t *)cmddata);
+            LOGIT(rfc, "L2TP command (%p): set flags = 0x%x\n", rfc, *(u_int32_t *)cmddata);
             rfc->flags = *(u_int32_t *)cmddata;
            break;
 
         case L2TP_CMD_GETFLAGS:
-            LOGIT(rfc, "L2TP command (0x%x): get flags = 0x%x\n", rfc, rfc->flags);
+            LOGIT(rfc, "L2TP command (%p): get flags = 0x%x\n", rfc, rfc->flags);
             *(u_int32_t *)cmddata = rfc->flags;
             break;
 
         case L2TP_CMD_SETWINDOW:
-            LOGIT(rfc, "L2TP command (0x%x): set window = %d\n", rfc, *(u_int16_t *)cmddata);
+            LOGIT(rfc, "L2TP command (%p): set window = %d\n", rfc, *(u_int16_t *)cmddata);
             rfc->our_window = *(u_int16_t *)cmddata;
             break;
 
         case L2TP_CMD_SETPEERWINDOW:
-            LOGIT(rfc, "L2TP command (0x%x): set peer window = %d\n", rfc, *(u_int16_t *)cmddata);
+            LOGIT(rfc, "L2TP command (%p): set peer window = %d\n", rfc, *(u_int16_t *)cmddata);
             rfc->peer_window = *(u_int16_t *)cmddata;
             break;
 
@@ -348,11 +348,11 @@ u_int16_t l2tp_rfc_command(void *data, u_int32_t cmd, void *cmddata)
             TAILQ_REMOVE(&l2tp_rfc_hash[rfc->our_tunnel_id % L2TP_RFC_MAX_HASH], rfc, next);	/* remove the rfc struct from the hash table */
             *(u_int16_t *)cmddata = rfc->our_tunnel_id = unique_tunnel_id;
 			TAILQ_INSERT_TAIL(&l2tp_rfc_hash[rfc->our_tunnel_id % L2TP_RFC_MAX_HASH], rfc, next); /* and reinsert it at the right place */
-            LOGIT(rfc, "L2TP command (0x%x): get new tunnel id = 0x%x\n", rfc, *(u_int16_t *)cmddata);
+            LOGIT(rfc, "L2TP command (%p): get new tunnel id = 0x%x\n", rfc, *(u_int16_t *)cmddata);
             break;
             
         case L2TP_CMD_SETTUNNELID:
-            LOGIT(rfc, "L2TP command (0x%x): set tunnel id = 0x%x\n", rfc, *(u_int16_t *)cmddata);
+            LOGIT(rfc, "L2TP command (%p): set tunnel id = 0x%x\n", rfc, *(u_int16_t *)cmddata);
             TAILQ_REMOVE(&l2tp_rfc_hash[rfc->our_tunnel_id % L2TP_RFC_MAX_HASH], rfc, next);	/* remove the rfc struct from the hash table */
             rfc->our_tunnel_id = *(u_int16_t *)cmddata;
 			TAILQ_INSERT_TAIL(&l2tp_rfc_hash[rfc->our_tunnel_id % L2TP_RFC_MAX_HASH], rfc, next); /* and reinsert it at the right place */
@@ -371,60 +371,60 @@ u_int16_t l2tp_rfc_command(void *data, u_int32_t cmd, void *cmddata)
             break;
 
         case L2TP_CMD_GETTUNNELID:
-            LOGIT(rfc, "L2TP command (0x%x): get tunnel id = 0x%x\n", rfc, rfc->our_tunnel_id);
+            LOGIT(rfc, "L2TP command (%p): get tunnel id = 0x%x\n", rfc, rfc->our_tunnel_id);
             *(u_int16_t *)cmddata =  rfc->our_tunnel_id;
             break;
 
         case L2TP_CMD_SETPEERTUNNELID:
-            LOGIT(rfc, "L2TP command (0x%x): set peer tunnel id = 0x%x\n", rfc, *(u_int16_t *)cmddata);
+            LOGIT(rfc, "L2TP command (%p): set peer tunnel id = 0x%x\n", rfc, *(u_int16_t *)cmddata);
             rfc->peer_tunnel_id = *(u_int16_t *)cmddata;
             break;
 
         case L2TP_CMD_SETSESSIONID:
-            LOGIT(rfc, "L2TP command (0x%x): set session id = 0x%x\n", rfc, *(u_int16_t *)cmddata);
+            LOGIT(rfc, "L2TP command (%p): set session id = 0x%x\n", rfc, *(u_int16_t *)cmddata);
             if (!(rfc->flags & L2TP_FLAG_CONTROL))
                 rfc->our_session_id = *(u_int16_t *)cmddata;
             break;
 
         case L2TP_CMD_GETSESSIONID:
-            LOGIT(rfc, "L2TP command (0x%x): get session id = 0x%x\n", rfc, rfc->our_session_id);
+            LOGIT(rfc, "L2TP command (%p): get session id = 0x%x\n", rfc, rfc->our_session_id);
             *(u_int16_t *)cmddata =  rfc->our_session_id;
             break;
 
         case L2TP_CMD_SETPEERSESSIONID:
-            LOGIT(rfc, "L2TP command (0x%x): set peer session id = 0x%x\n", rfc, *(u_int16_t *)cmddata);
+            LOGIT(rfc, "L2TP command (%p): set peer session id = 0x%x\n", rfc, *(u_int16_t *)cmddata);
             /* session id only used for data */
             if (!(rfc->flags & L2TP_FLAG_CONTROL))
                 rfc->peer_session_id = *(u_int16_t *)cmddata;
             break;
 		
         case L2TP_CMD_SETBAUDRATE:
-            LOGIT(rfc, "L2TP command (0x%x): set baudrate of the tunnel = %d\n", rfc, *(u_int32_t *)cmddata);
+            LOGIT(rfc, "L2TP command (%p): set baudrate of the tunnel = %d\n", rfc, *(u_int32_t *)cmddata);
 			rfc->baudrate = *(u_int32_t *)cmddata;	
             break;
 
         case L2TP_CMD_GETBAUDRATE:
-            LOGIT(rfc, "L2TP command (0x%x): get baudrate of the tunnel = %d\n", rfc, rfc->baudrate);
+            LOGIT(rfc, "L2TP command (%p): get baudrate of the tunnel = %d\n", rfc, rfc->baudrate);
             *(u_int32_t *)cmddata = rfc->baudrate;
             break;
 
         case L2TP_CMD_SETTIMEOUT:
-            LOGIT(rfc, "L2TP command (0x%x): set initial timeout = %d (seconds)\n", rfc, *(u_int16_t *)cmddata);
+            LOGIT(rfc, "L2TP command (%p): set initial timeout = %d (seconds)\n", rfc, *(u_int16_t *)cmddata);
             rfc->initial_timeout = *(u_int16_t *)cmddata * 2;	
             break;
 
         case L2TP_CMD_SETTIMEOUTCAP:
-            LOGIT(rfc, "L2TP command (0x%x): set timeout cap = %d (seconds)\n", rfc, *(u_int16_t *)cmddata);
+            LOGIT(rfc, "L2TP command (%p): set timeout cap = %d (seconds)\n", rfc, *(u_int16_t *)cmddata);
             rfc->timeout_cap = *(u_int16_t *)cmddata * 2;	
             break;
 
         case L2TP_CMD_SETMAXRETRIES:
-            LOGIT(rfc, "L2TP command (0x%x): set max retries = %d\n", rfc, *(u_int16_t *)cmddata);
+            LOGIT(rfc, "L2TP command (%p): set max retries = %d\n", rfc, *(u_int16_t *)cmddata);
             rfc->max_retries = *(u_int16_t *)cmddata;
             break;
 
         case L2TP_CMD_ACCEPT:
-            LOGIT(rfc, "L2TP command (0x%x): accept\n", rfc);
+            LOGIT(rfc, "L2TP command (%p): accept\n", rfc);
             l2tp_rfc_accept(rfc);	
             break;
 
@@ -437,10 +437,10 @@ u_int16_t l2tp_rfc_command(void *data, u_int32_t cmd, void *cmddata)
             p = (u_int8_t*)cmddata;
             len = *((u_int8_t*)cmddata);
             if (len == 0) {
-                LOGIT(rfc, "L2TP command (0x%x): set peer IP address = no address\n", rfc);
+                LOGIT(rfc, "L2TP command (%p): set peer IP address = no address\n", rfc);
                 break;
             }
-            LOGIT(rfc, "L2TP command (0x%x): set peer IP address = %d.%d.%d.%d, port %d\n", rfc, p[4], p[5], p[6], p[7], *((u_int16_t *)(p+2)));
+            LOGIT(rfc, "L2TP command (%p): set peer IP address = %d.%d.%d.%d, port %d\n", rfc, p[4], p[5], p[6], p[7], *((u_int16_t *)(p+2)));
             /* copy the address - this can handle IPv6 addresses */
             if (len > INET6_ADDRSTRLEN) {
                 error = EINVAL; 
@@ -492,7 +492,7 @@ u_int16_t l2tp_rfc_command(void *data, u_int32_t cmd, void *cmddata)
             bzero(p, len);
             if (rfc->peer_address)
                 bcopy((u_int8_t*)rfc->peer_address, p, MIN(len, rfc->peer_address->sa_len));
-            LOGIT(rfc, "L2TP command (0x%x): get peer IP address = %d.%d.%d.%d, port %d\n", rfc, p[4], p[5], p[6], p[7], *((u_int16_t *)(p+2)));
+            LOGIT(rfc, "L2TP command (%p): get peer IP address = %d.%d.%d.%d, port %d\n", rfc, p[4], p[5], p[6], p[7], *((u_int16_t *)(p+2)));
             break;
             
         case L2TP_CMD_SETOURADDR:	
@@ -521,10 +521,10 @@ u_int16_t l2tp_rfc_command(void *data, u_int32_t cmd, void *cmddata)
             p = (u_int8_t*)cmddata;
             len = *((u_int8_t*)cmddata);
             if (len == 0) {
-                LOGIT(rfc, "L2TP command (0x%x): set our IP address = no address\n", rfc);
+                LOGIT(rfc, "L2TP command (%p): set our IP address = no address\n", rfc);
                 break;
             }
-            LOGIT(rfc, "L2TP command (0x%x): set our IP address = %d.%d.%d.%d, port %d\n", rfc, p[4], p[5], p[6], p[7], *((u_int16_t *)(p+2)));
+            LOGIT(rfc, "L2TP command (%p): set our IP address = %d.%d.%d.%d, port %d\n", rfc, p[4], p[5], p[6], p[7], *((u_int16_t *)(p+2)));
             /* copy the address - this can handle IPv6 addresses */
             if (len > INET6_ADDRSTRLEN) {
                 error = EINVAL; 
@@ -547,11 +547,11 @@ u_int16_t l2tp_rfc_command(void *data, u_int32_t cmd, void *cmddata)
             bzero(p, len);
             if (rfc->our_address)
                 bcopy((u_int8_t*)rfc->our_address, p, MIN(len, rfc->our_address->sa_len));
-            LOGIT(rfc, "L2TP command (0x%x): get our IP address = %d.%d.%d.%d, port %d\n", rfc, p[4], p[5], p[6], p[7], *((u_int16_t *)(p+2)));
+            LOGIT(rfc, "L2TP command (%p): get our IP address = %d.%d.%d.%d, port %d\n", rfc, p[4], p[5], p[6], p[7], *((u_int16_t *)(p+2)));
             break;
 
         case L2TP_CMD_SETRELIABILITY:
-            LOGIT(rfc, "L2TP command (0x%x): set reliability layer %s\n", rfc, *(u_int16_t *)cmddata ? "on" : "off");
+            LOGIT(rfc, "L2TP command (%p): set reliability layer %s\n", rfc, *(u_int16_t *)cmddata ? "on" : "off");
             if (*(u_int16_t *)cmddata) {
 				rfc->state &= ~L2TP_STATE_RELIABILITY_OFF;
 				rfc->retry_count = 0;
@@ -562,7 +562,7 @@ u_int16_t l2tp_rfc_command(void *data, u_int32_t cmd, void *cmddata)
             break;
 
         default:
-            LOGIT(rfc, "L2TP command (0x%x): unknown command = %d\n", rfc, cmd);
+            LOGIT(rfc, "L2TP command (%p): unknown command = %d\n", rfc, cmd);
     }
 
     return error;
@@ -748,7 +748,7 @@ u_int16_t l2tp_rfc_output_control(struct l2tp_rfc *rfc, mbuf_t m, struct sockadd
     }
 
 	if (rfc->state & L2TP_STATE_RELIABILITY_OFF) {
-		//log(LOGVAL, "l2tp_rfc_output_control send once rfc = 0x%x\n", rfc);   
+		//IOLog("l2tp_rfc_output_control send once rfc = %p\n", rfc);   
 		return l2tp_udp_output(rfc->socket, rfc->thread , m, to->sa_family ? to : rfc->peer_address);
 	} 
 
@@ -798,7 +798,7 @@ u_int16_t l2tp_rfc_output_data(struct l2tp_rfc *rfc, mbuf_t m)
 			struct socket 	*so = (struct socket *)rfc->host;
 			struct ppp_link *link = (struct ppp_link *)so->so_tpcb;
 
-			log(LOGVAL, "L2TP output packet contains too many mbufs, circular route suspected for %s%d\n", ifnet_name(link->lk_ifnet), ifnet_unit(link->lk_ifnet));
+			IOLog("L2TP output packet contains too many mbufs, circular route suspected for %s%d\n", ifnet_name(link->lk_ifnet), ifnet_unit(link->lk_ifnet));
 			
 			mbuf_freem(m);
 			return ENETUNREACH;
@@ -853,7 +853,7 @@ u_int16_t l2tp_handle_data(struct l2tp_rfc *rfc, mbuf_t m, struct sockaddr *from
     struct l2tp_header 		*hdr = mbuf_data(m);
     u_int16_t 			*p, ns, hdr_length;
 
-    //log(LOGVAL, "handle_data, rfc = 0x%x, from 0x%x, peer address = 0x%x, our tunnel id = %d, tunnel id = %d, our session id = %d, session id = %d\n", rfc, from, rfc->peer_address, rfc->our_tunnel_id, tunnel_id, rfc->our_session_id, session_id);    
+    //IOLog("handle_data, rfc = %p, from 0x%x, peer address = 0x%x, our tunnel id = %d, tunnel id = %d, our session id = %d, session id = %d\n", rfc, from, rfc->peer_address, rfc->our_tunnel_id, tunnel_id, rfc->our_session_id, session_id);    
     
     // check the tunnel ID and session ID as well as the peer address
     // to determine which client the packet belongs to
@@ -916,7 +916,7 @@ u_int16_t l2tp_handle_control(struct l2tp_rfc *rfc, mbuf_t m, struct sockaddr *f
     struct l2tp_elem 	*elem, *new_elem;
     u_int16_t			buf_full;
 
-    //log(LOGVAL, "handle_control, rfc = 0x%x, from 0x%x, peer address = 0x%x, our tunnel id = %d, tunnel id = %d, our session id = %d, session id = %d\n", rfc, from, rfc->peer_address, rfc->our_tunnel_id, tunnel_id, rfc->our_session_id, session_id);    
+    //IOLog("handle_control, rfc = %p, from 0x%x, peer address = 0x%x, our tunnel id = %d, tunnel id = %d, our session id = %d, session id = %d\n", rfc, from, rfc->peer_address, rfc->our_tunnel_id, tunnel_id, rfc->our_session_id, session_id);    
     
     // check tunnel ID as well as the peer address
     // to determine which client the packet belongs to
@@ -987,14 +987,14 @@ u_int16_t l2tp_handle_control(struct l2tp_rfc *rfc, mbuf_t m, struct sockaddr *f
                 goto dropit;
 
             if (SEQ_GT(ntohs(hdr->ns), rfc->our_nr)) {			/* out of order - need to queue it */	
-                //log(LOGVAL, "L2TP out of order message reveived seq#=%d\n", ntohs(hdr->ns));
+                //IOLog("L2TP out of order message reveived seq#=%d\n", ntohs(hdr->ns));
                TAILQ_FOREACH(elem, &rfc->recv_queue, next) {
                     if (ntohs(hdr->ns) == elem->seqno)	
                         goto dropit;					/* already queued - drop it */
                     if (SEQ_GT(ntohs(hdr->ns), elem->seqno))
                         break;
                 }
-                //log(LOGVAL, "L2TP queing out of order message\n");
+                //IOLog("L2TP queing out of order message\n");
                 new_elem = (struct l2tp_elem *)_MALLOC(sizeof (struct l2tp_elem), M_TEMP, M_DONTWAIT);
                 if (new_elem == 0)
                     goto dropit;
@@ -1006,7 +1006,7 @@ u_int16_t l2tp_handle_control(struct l2tp_rfc *rfc, mbuf_t m, struct sockaddr *f
                 else
                     TAILQ_INSERT_HEAD(&rfc->recv_queue, new_elem, next);   
             } else if (SEQ_LT(ntohs(hdr->ns), rfc->our_nr)) {
-                //log(LOGVAL, "L2TP dropping message already received seq#=%d\n", ntohs(hdr->ns));
+                //IOLog("L2TP dropping message already received seq#=%d\n", ntohs(hdr->ns));
                 rfc->state |= L2TP_STATE_NEW_SEQUENCE;		/* its a dup thats already been ack'd - drop it and ack */
                 goto dropit;					
             } else {						/* packet we are waiting for */
@@ -1128,7 +1128,7 @@ int l2tp_rfc_lower_input(socket_t so, mbuf_t m, struct sockaddr *from)
 	
 	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
     
-    //log(LOGVAL, "L2TP inputdata\n");
+    //IOLog("L2TP inputdata\n");
 
     flags = ntohs(hdr->flags_vers);
 
@@ -1138,7 +1138,7 @@ int l2tp_rfc_lower_input(socket_t so, mbuf_t m, struct sockaddr *from)
 	pulllen = (flags & L2TP_FLAGS_T) ? L2TP_CNTL_HDR_SIZE : L2TP_DATA_HDR_SIZE;
 	if (mbuf_len(m) < pulllen && 
 		mbuf_pullup(&m, pulllen)) {
-			log(LOGVAL, "l2tp_rfc_lower_input: cannot pullup l2tp header (len %d)\n", pulllen);
+			IOLog("l2tp_rfc_lower_input: cannot pullup l2tp header (len %d)\n", pulllen);
 			return 0;
 	}
 			
@@ -1171,7 +1171,7 @@ int l2tp_rfc_lower_input(socket_t so, mbuf_t m, struct sockaddr *from)
 					return 1;
     }
 
-    //log(LOGVAL, ">>>>>>> L2TP - no matching client found for packet\n");
+    //IOLog(">>>>>>> L2TP - no matching client found for packet\n");
     // need to drop the packet
     
 dropit:

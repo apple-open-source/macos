@@ -40,9 +40,14 @@ namespace CodeSigning {
 // Create an (empty) builder
 //
 CodeDirectory::Builder::Builder()
-	: mFlags(0), mSpecialSlots(0), mCodeSlots(0), mDir(NULL)
+	: mFlags(0), mSpecialSlots(0), mCodeSlots(0), mScatter(NULL), mScatterSize(0), mDir(NULL)
 {
 	memset(mSpecial, 0, sizeof(mSpecial));
+}
+
+CodeDirectory::Builder::~Builder()
+{
+	::free(mScatter);
 }
 
 
@@ -83,6 +88,22 @@ void CodeDirectory::Builder::special(size_t slot, CFDataRef data)
 }
 
 
+//
+// Allocate a Scatter vector
+//
+CodeDirectory::Scatter *CodeDirectory::Builder::scatter(unsigned count)
+{
+	mScatterSize = (count + 1) * sizeof(Scatter);
+	if (!(mScatter = (Scatter *)::realloc(mScatter, mScatterSize)))
+		UnixError::throwMe(ENOMEM);
+	::memset(mScatter, 0, mScatterSize);
+	return mScatter;
+}
+
+
+//
+// Calculate the size we'll need for the CodeDirectory as described so far
+//
 size_t CodeDirectory::Builder::size()
 {
 	assert(mExec);			// must have called executable()
@@ -97,6 +118,7 @@ size_t CodeDirectory::Builder::size()
 	}
 		
 	size_t offset = sizeof(CodeDirectory);
+	offset += mScatterSize;				// scatter vector
 	offset += mIdentifier.size() + 1;	// size of identifier (with null byte)
 	offset += (mCodeSlots + mSpecialSlots) * Hash::digestLength; // hash vector
 	return offset;
@@ -106,9 +128,15 @@ size_t CodeDirectory::Builder::size()
 //
 // Take everything added to date and wrap it up in a shiny new CodeDirectory.
 //
-// Note that this doesn't include or generate the signature. You're free to
-// modify the result. But this function determines the memory layout, so the
-// sizes and counts should be correct on entry.
+// Note that this only constructs a CodeDirectory; it does not touch any subsidiary
+// structures (resource tables, etc.), nor does it create any signature to secure
+// the CodeDirectory.
+// The returned CodeDirectory object is yours, and you may modify it as desired.
+// But the memory layout is set here, so the various sizes and counts should be good
+// when you call build().
+// It's up to us to order the dynamic fields as we wish; but note that we currently
+// don't pad them, and so they should be allocated in non-increasing order of required
+// alignment. Make sure to keep the code here in sync with the size-calculating code above.
 //
 CodeDirectory *CodeDirectory::Builder::build()
 {
@@ -140,6 +168,13 @@ CodeDirectory *CodeDirectory::Builder::build()
 
 	// locate and fill flex fields
 	size_t offset = sizeof(CodeDirectory);
+
+	if (mScatter) {
+		mDir->scatterOffset = offset;
+		memcpy(mDir->scatterVector(), mScatter, mScatterSize);
+		offset += mScatterSize;
+	}
+
 	mDir->identOffset = offset;
 	memcpy(mDir->identifier(), mIdentifier.c_str(), identLength);
 	offset += identLength;

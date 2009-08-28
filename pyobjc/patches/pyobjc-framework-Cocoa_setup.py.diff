@@ -1,0 +1,11 @@
+--- pyobjc-framework-Cocoa/setup.py.orig	2009-06-23 15:35:35.000000000 -0700
++++ pyobjc-framework-Cocoa/setup.py	2009-06-24 13:20:47.000000000 -0700
+@@ -156,7 +156,7 @@
+ 
+         # Foundation
+         Extension('Foundation._nsinvocation', 
+-                [ 'Modules/_Foundation_NSInvocation.m' ],
++                [ 'Modules/_Foundation_nsinvocation.m' ],
+                 extra_compile_args=CFLAGS,
+                 extra_link_args=CFLAGS + ['-framework', 'Foundation']),
+         Extension('Foundation._NSDecimal', 

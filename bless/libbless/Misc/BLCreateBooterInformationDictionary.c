@@ -39,16 +39,20 @@
 
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOBSD.h>
-#include <IOKit/storage/IOMedia.h>
-#include <IOKit/storage/IOPartitionScheme.h>
-#include <IOKit/storage/IOApplePartitionScheme.h>
-#include <IOKit/storage/IOGUIDPartitionScheme.h>
-#include <IOKit/storage/IOStorageProtocolCharacteristics.h>
 
 #include <CoreFoundation/CoreFoundation.h>
 
 #include "bless.h"
 #include "bless_private.h"
+
+
+#include <IOKit/storage/IOMedia.h>
+#include <IOKit/storage/IOPartitionScheme.h>
+#if SUPPORT_APPLE_PARTITION_MAP
+#include <IOKit/storage/IOApplePartitionScheme.h>
+#endif
+#include <IOKit/storage/IOGUIDPartitionScheme.h>
+#include <IOKit/storage/IOStorageProtocolCharacteristics.h>
 
 static int addRAIDInfo(BLContextPtr context, CFDictionaryRef dict,
             CFMutableArrayRef dataPartitions,
@@ -382,7 +386,7 @@ static int addDataPartitionInfo(BLContextPtr context, io_service_t dataPartition
 		return 1;
     }
     
-        
+#if SUPPORT_APPLE_PARTITION_MAP        
     if(IOObjectConformsTo(parent, kIOApplePartitionSchemeClass)) {
         contextprintf(context, kBLLogLevelVerbose,  "APM detected\n" );
         // from the OS point of view, only it's an HFS or boot partition, it needs a booter
@@ -398,7 +402,9 @@ static int addDataPartitionInfo(BLContextPtr context, io_service_t dataPartition
             neededBooterPartitionNum = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &searchID);
         }
         
-    } else if(IOObjectConformsTo(parent, kIOGUIDPartitionSchemeClass)) {
+    } else
+#endif // SUPPORT_APPLE_PARTITION_MAP
+	if(IOObjectConformsTo(parent, kIOGUIDPartitionSchemeClass)) {
         contextprintf(context, kBLLogLevelVerbose,  "GPT detected\n" );
         
         // from the OS point of view, only it's an HFS or boot partition, it needs a booter

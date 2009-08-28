@@ -1,7 +1,8 @@
-/* APPLE LOCAL file mainline */
 /* Test errors for accessing @private and @protected variables.  */
 /* Based on work by: Nicola Pero <nicola@brainstorm.co.uk>.  */
+
 /* { dg-do compile } */
+
 #include <objc/objc.h>
 
 @interface MySuperClass
@@ -35,6 +36,7 @@
 - (void) test
 {
   /* Private variables simply don't exist in the subclass.  */
+  /* APPLE LOCAL ObjC 4133425? */
   _private = 12; /* { dg-error "instance variable \\'_private\\' is declared private" } */
 
   _protected = 12; /* Ok  */

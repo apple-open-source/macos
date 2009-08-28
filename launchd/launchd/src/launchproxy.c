@@ -81,7 +81,7 @@ int main(int argc __attribute__((unused)), char *argv[])
 {
 	struct timespec timeout = { 10, 0 };
 	struct sockaddr_storage ss;
-	socklen_t slen = sizeof(ss);
+	socklen_t slen = (socklen_t)sizeof ss;
 	struct kevent kev;
 	int r, ec = EXIT_FAILURE;
 	launch_data_t tmp, resp, msg = launch_data_alloc(LAUNCH_DATA_STRING);
@@ -143,40 +143,47 @@ int main(int argc __attribute__((unused)), char *argv[])
 		}
 
 		if (w) {
-			dup2(kev.ident, STDIN_FILENO);
+			dup2((int)kev.ident, STDIN_FILENO);
 			if (dupstdout)
-				dup2(kev.ident, STDOUT_FILENO);
+				dup2((int)kev.ident, STDOUT_FILENO);
 			if (dupstderr)
-				dup2(kev.ident, STDERR_FILENO);
+				dup2((int)kev.ident, STDERR_FILENO);
 			execv(prog, argv + 1);
 			syslog(LOG_ERR, "execv(): %m");
 			exit(EXIT_FAILURE);
 		}
 
-		if ((r = accept(kev.ident, (struct sockaddr *)&ss, &slen)) == -1) {
+		if ((r = accept((int)kev.ident, (struct sockaddr *)&ss, &slen)) == -1) {
 			if (errno == EWOULDBLOCK)
 				continue;
-			syslog(LOG_DEBUG, "accept(): %m");
+			syslog(LOG_WARNING, "accept(): %m");
 			goto out;
 		} else {
-			char fromhost[NI_MAXHOST];
-			char fromport[NI_MAXSERV];
-			int gni_r;
+			if (ss.ss_family == AF_INET || ss.ss_family == AF_INET6) {
+				char fromhost[NI_MAXHOST];
+				char fromport[NI_MAXSERV];
+				int gni_r;
 
-			gni_r = getnameinfo((struct sockaddr *)&ss, slen,
-					fromhost, sizeof(fromhost),
-					fromport, sizeof(fromport),
-					NI_NUMERICHOST | NI_NUMERICSERV);
+				gni_r = getnameinfo((struct sockaddr *)&ss, slen,
+						fromhost, (socklen_t) sizeof fromhost,
+						fromport, (socklen_t) sizeof fromport,
+						NI_NUMERICHOST | NI_NUMERICSERV);
 
-			if (gni_r) {
-				syslog(LOG_WARNING, "%s: getnameinfo(): %s", prog, gai_strerror(gni_r));
+				if (gni_r) {
+					syslog(LOG_WARNING, "%s: getnameinfo(): %s", prog, gai_strerror(gni_r));
+				} else {
+					syslog(LOG_INFO, "%s: Connection from: %s on port: %s", prog, fromhost, fromport);
+				}
 			} else {
-				syslog(LOG_INFO, "%s: Connection from: %s on port: %s", prog, fromhost, fromport);
+				syslog(LOG_WARNING, "%s: getnameinfo() only supports IPv4/IPv6. Connection from address family: %u", prog, ss.ss_family);
 			}
 
 			switch (fork()) {
 			case -1:
 				syslog(LOG_WARNING, "fork(): %m");
+				if( errno != ENOMEM ) {
+					continue;
+				}
 				goto out;
 			case 0:
 				break;

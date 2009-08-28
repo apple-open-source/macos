@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in
-# Copyright (C) 2002, 2003, 2004, 2005 Simon Josefsson.
+# Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007 Simon Josefsson.
 # Copyright (C) 2004 Free Software Foundation, Inc.
 #
 # This file is part of GNU Libidn.
@@ -20,7 +20,7 @@
 
 EXTRA_DIST = gen-stringprep-tables.pl gen-unicode-tables.pl gen-tld-tables.pl
 
-AM_CPPFLAGS = -I$(top_srcdir)/gl -I../gl
+AM_CPPFLAGS = -I$(srcdir)/gl -Igl
 DEFS = -DLOCALEDIR=\"$(localedir)\" @DEFS@
 
 lib_LTLIBRARIES = libidn.la
@@ -35,6 +35,13 @@ include_HEADERS += tld.h
 endif
 nodist_include_HEADERS = $(idn_int)
 
+idn-int.h:
+	if test -n "$(STDINT_H)"; then \
+		cp gl/stdint.h idn-int.h; \
+	else \
+		echo '#include <stdint.h>' > idn-int.h; \
+	fi
+
 libidn_la_SOURCES = gunibreak.h gunicomp.h gunidecomp.h \
 	nfkc.c toutf8.c version.c \
 	stringprep.h.in stringprep.c rfc3454.c profiles.c \
@@ -43,12 +50,12 @@ libidn_la_SOURCES = gunibreak.h gunicomp.h gunidecomp.h \
 	pr29.h pr29.c \
 	idn-free.h idn-free.c \
 	strerror-idna.c strerror-pr29.c strerror-punycode.c \
-	strerror-stringprep.c strerror-tld.c \
-	iconvme.h iconvme.c
+	strerror-stringprep.c strerror-tld.c
+
 if TLD
 libidn_la_SOURCES += tld.h tld.c tlds.c
 endif
-libidn_la_LIBADD = $(LTLIBICONV)
+libidn_la_LIBADD = $(LTLIBICONV) $(LTLIBINTL) gl/libgnu.la
 libidn_la_LDFLAGS = \
 	-export-symbols-regex '^(idn|pr29_|punycode_|stringprep|tld_).*' \
 	-version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE) -no-undefined
@@ -65,8 +72,3 @@ rfc3454.c: gen-stringprep-tables.pl
 
 tlds.c: gen-tld-tables.pl
 	$(PERL) $(srcdir)/gen-tld-tables.pl $(top_srcdir)/doc/tld/*.tld > tlds.c
-
-# Maintainer targets
-
-indent:
-	indent $(SOURCES)

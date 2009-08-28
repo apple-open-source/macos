@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -85,7 +85,7 @@ static void test_read(abts_case *tc, void *data)
     APR_ASSERT_SUCCESS(tc, "Opening test file " FILENAME, rv);
     rv = apr_file_read(filetest, str, &nbytes);
     ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
-    ABTS_INT_EQUAL(tc, strlen(TESTSTR), nbytes);
+    ABTS_SIZE_EQUAL(tc, strlen(TESTSTR), nbytes);
     ABTS_STR_EQUAL(tc, TESTSTR, str);
 
     apr_file_close(filetest);
@@ -103,7 +103,7 @@ static void test_readzero(abts_case *tc, void *data)
 
     rv = apr_file_read(filetest, str, &nbytes);
     ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
-    ABTS_INT_EQUAL(tc, 0, nbytes);
+    ABTS_SIZE_EQUAL(tc, 0, nbytes);
 
     apr_file_close(filetest);
 }
@@ -232,7 +232,7 @@ static void test_seek(abts_case *tc, void *data)
 
     rv = apr_file_read(filetest, str, &nbytes);
     ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
-    ABTS_INT_EQUAL(tc, strlen(TESTSTR), nbytes);
+    ABTS_SIZE_EQUAL(tc, strlen(TESTSTR), nbytes);
     ABTS_STR_EQUAL(tc, TESTSTR, str);
 
     memset(str, 0, nbytes + 1);
@@ -242,7 +242,7 @@ static void test_seek(abts_case *tc, void *data)
     
     rv = apr_file_read(filetest, str, &nbytes);
     ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
-    ABTS_INT_EQUAL(tc, strlen(TESTSTR) - 5, nbytes);
+    ABTS_SIZE_EQUAL(tc, strlen(TESTSTR) - 5, nbytes);
     ABTS_STR_EQUAL(tc, TESTSTR + 5, str);
 
     apr_file_close(filetest);
@@ -257,13 +257,13 @@ static void test_seek(abts_case *tc, void *data)
     offset = -5;
     rv = apr_file_seek(filetest, SEEK_END, &offset);
     ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
-    ABTS_INT_EQUAL(tc, strlen(TESTSTR) - 5, nbytes);
+    ABTS_SIZE_EQUAL(tc, strlen(TESTSTR) - 5, nbytes);
 
     memset(str, 0, nbytes + 1);
     nbytes = 256;
     rv = apr_file_read(filetest, str, &nbytes);
     ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
-    ABTS_INT_EQUAL(tc, 5, nbytes);
+    ABTS_SIZE_EQUAL(tc, 5, nbytes);
     ABTS_STR_EQUAL(tc, TESTSTR + strlen(TESTSTR) - 5, str);
 
     apr_file_close(filetest);
@@ -326,6 +326,36 @@ static void test_userdata_getnokey(abts_case *tc, void *data)
     apr_file_close(filetest);
 }
 
+static void test_buffer_set_get(abts_case *tc, void *data)
+{
+    apr_status_t rv;
+    apr_size_t bufsize;
+    apr_file_t *filetest = NULL;
+    char   * buffer;
+
+    rv = apr_file_open(&filetest, FILENAME, 
+                       APR_WRITE | APR_BUFFERED, 
+                       APR_UREAD | APR_UWRITE | APR_GREAD, p);
+    ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
+
+    bufsize = apr_file_buffer_size_get(filetest);
+    ABTS_SIZE_EQUAL(tc, APR_BUFFERSIZE, bufsize);
+ 
+    buffer = apr_pcalloc(p, 10240);
+    rv = apr_file_buffer_set(filetest, buffer, 10240);
+    ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
+    
+    bufsize = apr_file_buffer_size_get(filetest);
+    ABTS_SIZE_EQUAL(tc, 10240, bufsize);
+    
+    rv = apr_file_buffer_set(filetest, buffer, 12);
+    ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
+    
+    bufsize = apr_file_buffer_size_get(filetest);
+    ABTS_SIZE_EQUAL(tc, 12, bufsize);
+    
+    apr_file_close(filetest);
+}
 static void test_getc(abts_case *tc, void *data)
 {
     apr_file_t *f = NULL;
@@ -386,6 +416,29 @@ static void test_gets(abts_case *tc, void *data)
     apr_file_close(f);
 }
 
+static void test_gets_buffered(abts_case *tc, void *data)
+{
+    apr_file_t *f = NULL;
+    apr_status_t rv;
+    char *str = apr_palloc(p, 256);
+
+    /* This will deadlock gets before the r524355 fix. */
+    rv = apr_file_open(&f, FILENAME, APR_READ|APR_BUFFERED|APR_XTHREAD, 0, p);
+    ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
+
+    rv = apr_file_gets(str, 256, f);
+    /* Only one line in the test file, so APR will encounter EOF on the first
+     * call to gets, but we should get APR_SUCCESS on this call and
+     * APR_EOF on the next.
+     */
+    ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
+    ABTS_STR_EQUAL(tc, TESTSTR, str);
+    rv = apr_file_gets(str, 256, f);
+    ABTS_INT_EQUAL(tc, APR_EOF, rv);
+    ABTS_STR_EQUAL(tc, "", str);
+    apr_file_close(f);
+}
+
 static void test_bigread(abts_case *tc, void *data)
 {
     apr_file_t *f = NULL;
@@ -405,7 +458,7 @@ static void test_bigread(abts_case *tc, void *data)
 
     rv = apr_file_write(f, buf, &nbytes);
     ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
-    ABTS_INT_EQUAL(tc, APR_BUFFERSIZE, nbytes);
+    ABTS_SIZE_EQUAL(tc, APR_BUFFERSIZE, nbytes);
 
     rv = apr_file_close(f);
     ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
@@ -417,7 +470,7 @@ static void test_bigread(abts_case *tc, void *data)
     nbytes = sizeof buf;
     rv = apr_file_read(f, buf, &nbytes);
     ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
-    ABTS_INT_EQUAL(tc, APR_BUFFERSIZE, nbytes);
+    ABTS_SIZE_EQUAL(tc, APR_BUFFERSIZE, nbytes);
 
     rv = apr_file_close(f);
     ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
@@ -448,28 +501,28 @@ static void test_mod_neg(abts_case *tc, void *data)
     nbytes = strlen(s);
     rv = apr_file_write(f, s, &nbytes);
     ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
-    ABTS_INT_EQUAL(tc, strlen(s), nbytes);
+    ABTS_SIZE_EQUAL(tc, strlen(s), nbytes);
     
     for (i = 0; i < 7980; i++) {
         s = "0";
         nbytes = strlen(s);
         rv = apr_file_write(f, s, &nbytes);
         ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
-        ABTS_INT_EQUAL(tc, strlen(s), nbytes);
+        ABTS_SIZE_EQUAL(tc, strlen(s), nbytes);
     }
     
     s = "end456789\n";
     nbytes = strlen(s);
     rv = apr_file_write(f, s, &nbytes);
     ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
-    ABTS_INT_EQUAL(tc, strlen(s), nbytes);
+    ABTS_SIZE_EQUAL(tc, strlen(s), nbytes);
 
     for (i = 0; i < 10000; i++) {
         s = "1";
         nbytes = strlen(s);
         rv = apr_file_write(f, s, &nbytes);
         ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
-        ABTS_INT_EQUAL(tc, strlen(s), nbytes);
+        ABTS_SIZE_EQUAL(tc, strlen(s), nbytes);
     }
     
     rv = apr_file_close(f);
@@ -490,7 +543,7 @@ static void test_mod_neg(abts_case *tc, void *data)
     nbytes = sizeof(buf);
     rv = apr_file_read(f, buf, &nbytes);
     ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
-    ABTS_INT_EQUAL(tc, nbytes, sizeof(buf));
+    ABTS_SIZE_EQUAL(tc, nbytes, sizeof(buf));
 
     cur = -((apr_off_t)nbytes - 7980);
     rv = apr_file_seek(f, APR_CUR, &cur);
@@ -622,7 +675,7 @@ static void test_writev_full(abts_case *tc, void *data)
     APR_ASSERT_SUCCESS(tc, "writev_full of size 5 to file",
                        apr_file_writev_full(f, vec, 5, &nbytes));
 
-    ABTS_INT_EQUAL(tc, strlen(LINE1)*3 + strlen(LINE2)*2, nbytes);
+    ABTS_SIZE_EQUAL(tc, strlen(LINE1)*3 + strlen(LINE2)*2, nbytes);
 
     APR_ASSERT_SUCCESS(tc, "close for writing",
                        apr_file_close(f));
@@ -630,6 +683,75 @@ static void test_writev_full(abts_case *tc, void *data)
     file_contents_equal(tc, fname, LINE1 LINE2 LINE1 LINE1 LINE2, 
                         strlen(LINE1)*3 + strlen(LINE2)*2);
 
+}
+
+static void test_writev_buffered(abts_case *tc, void *data)
+{
+    apr_file_t *f;
+    apr_size_t nbytes;
+    struct iovec vec[2];
+    const char *fname = "data/testwritev_buffered.dat";
+
+    APR_ASSERT_SUCCESS(tc, "open file for writing",
+                       apr_file_open(&f, fname,
+                                     APR_WRITE | APR_CREATE | APR_TRUNCATE |
+                                     APR_BUFFERED, APR_OS_DEFAULT, p));
+
+    nbytes = strlen(TESTSTR);
+    APR_ASSERT_SUCCESS(tc, "buffered write",
+                       apr_file_write(f, TESTSTR, &nbytes));
+
+    vec[0].iov_base = LINE1;
+    vec[0].iov_len = strlen(LINE1);
+    vec[1].iov_base = LINE2;
+    vec[1].iov_len = strlen(LINE2);
+
+    APR_ASSERT_SUCCESS(tc, "writev of size 2 to file",
+                       apr_file_writev(f, vec, 2, &nbytes));
+
+    APR_ASSERT_SUCCESS(tc, "close for writing",
+                       apr_file_close(f));
+
+    file_contents_equal(tc, fname, TESTSTR LINE1 LINE2,
+                        strlen(TESTSTR) + strlen(LINE1) + strlen(LINE2));
+}
+
+static void test_writev_buffered_seek(abts_case *tc, void *data)
+{
+    apr_file_t *f;
+    apr_status_t rv;
+    apr_off_t off = 0;
+    struct iovec vec[3];
+    apr_size_t nbytes = strlen(TESTSTR);
+    char *str = apr_pcalloc(p, nbytes+1);
+    const char *fname = "data/testwritev_buffered.dat";
+
+    APR_ASSERT_SUCCESS(tc, "open file for writing",
+                       apr_file_open(&f, fname,
+                                     APR_WRITE | APR_READ | APR_BUFFERED,
+                                     APR_OS_DEFAULT, p));
+
+    rv = apr_file_read(f, str, &nbytes);
+    ABTS_STR_EQUAL(tc, TESTSTR, str);
+    APR_ASSERT_SUCCESS(tc, "buffered seek", apr_file_seek(f, APR_SET, &off));
+
+    vec[0].iov_base = LINE1;
+    vec[0].iov_len = strlen(LINE1);
+    vec[1].iov_base = LINE2;
+    vec[1].iov_len = strlen(LINE2);
+    vec[2].iov_base = TESTSTR;
+    vec[2].iov_len = strlen(TESTSTR);
+
+    APR_ASSERT_SUCCESS(tc, "writev of size 2 to file",
+                       apr_file_writev(f, vec, 3, &nbytes));
+
+    APR_ASSERT_SUCCESS(tc, "close for writing",
+                       apr_file_close(f));
+
+    file_contents_equal(tc, fname, LINE1 LINE2 TESTSTR,
+                        strlen(LINE1) + strlen(LINE2) + strlen(TESTSTR));
+
+    APR_ASSERT_SUCCESS(tc, "remove file", apr_file_remove(fname, p));
 }
 
 static void test_truncate(abts_case *tc, void *data)
@@ -651,7 +773,7 @@ static void test_truncate(abts_case *tc, void *data)
     nbytes = strlen(s);
     rv = apr_file_write(f, s, &nbytes);
     ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
-    ABTS_INT_EQUAL(tc, strlen(s), nbytes);
+    ABTS_SIZE_EQUAL(tc, strlen(s), nbytes);
 
     rv = apr_file_close(f);
     ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
@@ -853,15 +975,19 @@ abts_suite *testfile(abts_suite *suite)
     abts_run_test(suite, test_getc, NULL);
     abts_run_test(suite, test_ungetc, NULL);
     abts_run_test(suite, test_gets, NULL);
+    abts_run_test(suite, test_gets_buffered, NULL);
     abts_run_test(suite, test_puts, NULL);
     abts_run_test(suite, test_writev, NULL);
     abts_run_test(suite, test_writev_full, NULL);
+    abts_run_test(suite, test_writev_buffered, NULL);
+    abts_run_test(suite, test_writev_buffered_seek, NULL);
     abts_run_test(suite, test_bigread, NULL);
     abts_run_test(suite, test_mod_neg, NULL);
     abts_run_test(suite, test_truncate, NULL);
     abts_run_test(suite, test_bigfprintf, NULL);
     abts_run_test(suite, test_fail_write_flush, NULL);
     abts_run_test(suite, test_fail_read_flush, NULL);
+    abts_run_test(suite, test_buffer_set_get, NULL);
     abts_run_test(suite, test_xthread, NULL);
 
     return suite;

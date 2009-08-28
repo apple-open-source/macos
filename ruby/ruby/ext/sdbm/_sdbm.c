@@ -8,7 +8,7 @@
  */
 
 #ifndef lint
-/*char sdbm_rcsid[] = "$Id: _sdbm.c 13176 2007-08-22 01:16:17Z shyouhei $";*/
+/*char sdbm_rcsid[] = "$Id: _sdbm.c 12800 2007-07-15 13:24:51Z nobu $";*/
 #endif
 
 #include "sdbm.h"
@@ -626,7 +626,7 @@ register DBM *db;
  */
 
 #ifndef lint
-/*char pair_rcsid[] = "$Id: _sdbm.c 13176 2007-08-22 01:16:17Z shyouhei $";*/
+/*char pair_rcsid[] = "$Id: _sdbm.c 12800 2007-07-15 13:24:51Z nobu $";*/
 #endif
 
 #ifndef BSD42

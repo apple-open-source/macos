@@ -4,17 +4,18 @@
 	<key>OpenSourceProject</key>
 	<string>tar</string>
 	<key>OpenSourceVersion</key>
-	<string>1.15.1</string>
+	<string>1.17</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.gnu.org/software/tar/</string>
 	<key>OpenSourceURL</key>
-	<string>http://ftp.gnu.org/gnu/tar/tar-1.15.1.tar.bz2</string>
+	<string>http://ftp.gnu.org/gnu/tar/tar-1.17.tar.bz2</string>
 	<key>OpenSourceSHA1</key>
-	<string>f861b7524a0867833056dc382e68085234cae6ff</string>
+	<string>97f4b67bf88dba1d451a1ec375f18cfaa3c9f36f</string>
+	<key>OpenSourceImportDate</key>
+	<string>2008-08-18</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>EA support.</string>
-		<string>Permission extraction issue (3885704).</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>GPL</string>

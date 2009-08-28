@@ -197,7 +197,7 @@ static OSStatus opensslPbeParams(
 }
 
 /* 
- * COmmon code to derive an openssl-wrap style wrap/unwrap key.
+ * Common code to derive an openssl-wrap style wrap/unwrap key.
  */
 static OSStatus deriveKeyOpensslWrap(
 	const SecKeyImportExportParameters	*keyParams,		// required 
@@ -449,6 +449,9 @@ OSStatus impExpWrappedKeyOpenSslExport(
 			break; 
 		case CSSM_ALGID_DSA:
 			*pemHeader = PEM_STRING_DSA;
+			break;  
+		case CSSM_ALGID_ECDSA:
+			*pemHeader = PEM_STRING_ECDSA_PRIVATE;
 			break;  
 		default:
 			SecImpExpDbg("impExpWrappedKeyOpenSslExport unknown private key alg "

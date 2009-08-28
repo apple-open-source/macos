@@ -103,7 +103,7 @@ write_table(def)
 			expected = 0;
 		} else {
 			expected = 1;
-			f_print(fout, null_entry);
+			f_print(fout, "%s", null_entry);
 		}
 		for (proc = vp->procs; proc != NULL; proc = proc->next) {
 			if (expected != 0)
@@ -146,7 +146,7 @@ write_table(def)
 		}
 
 		/* print the table trailer */
-		f_print(fout, tbl_end);
+		f_print(fout, "%s", tbl_end);
 		f_print(fout, tbl_nproc, progvers, progvers, progvers);
 	}
 }

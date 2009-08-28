@@ -1,0 +1,37 @@
+Announcing XOTcl 1.5.2
+*************************
+
+Hi everybody. We are pleased to announce the availability of XOTcl 1.5.2.
+Major changes relative to 1.5.2 are:
+
+    * Improved Functionality
+
+        + allowing to trace objects as well as classes via the
+           package xotcl::trace (many thanks to jima for suggesting this)
+
+    * Improved code quality: 
+       + terminating all vararg lists in C by ..., (char *) NULL
+           There was a problem with this on 64bit AMD on FreeBSD,
+           as some lists were terminated previously by an integer typed
+           zero-value.
+        + better handling of Tcl result objects. Make sure that
+           no changes happen on shared objects. Removed all
+           occurrences of Tcl_AppendResult() from xotcl.c
+        + Fixed memory corruption (accessing feed memory) in
+           the invalidation of transitive mixins (many thanks to 
+           Don Porter for reporting)
+
+ For more details about the changes, please consult the ChangeLog and
+ documentation.
+
+MORE INFO
+  General and more detailed information about XOTcl and its components
+  can be found at http://www.xotcl.org
+
+
+Best regards,
+
+Gustaf Neumann
+Uwe Zdun
+
+

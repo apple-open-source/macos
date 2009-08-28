@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2008 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -25,7 +25,7 @@ scre = re.compile(r'transcript of session follows', re.IGNORECASE)
 
 
 def process(msg):
-    if msg.get_type() <> 'multipart/mixed':
+    if msg.get_content_type() <> 'multipart/mixed':
         return None
     # Find the first subpart, which has no MIME type
     try:

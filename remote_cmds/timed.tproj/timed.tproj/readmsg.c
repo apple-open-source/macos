@@ -1,26 +1,3 @@
-/*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
 /*-
  * Copyright (c) 1985, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -54,14 +31,14 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__unused static char sccsid[] = "@(#)readmsg.c	8.1 (Berkeley) 6/6/93";
-#endif /* not lint */
-
-#ifdef sgi
-#ident "$Revision: 1.3 $"
+#if 0
+static char sccsid[] = "@(#)readmsg.c	8.1 (Berkeley) 6/6/93";
 #endif
+static const char rcsid[] =
+  "$FreeBSD: src/usr.sbin/timed/timed/readmsg.c,v 1.9 2001/11/20 07:13:40 jhb Exp $";
+#endif /* not lint */
+#include <sys/cdefs.h>
 
 #include "globals.h"
 
@@ -236,10 +213,15 @@ again:
 			syslog(LOG_ERR, "recvfrom: %m");
 			exit(1);
 		}
-		if (n < (ssize_t)sizeof(struct tsp)) {
+		/*
+		 * The 4.3BSD protocol spec had a 32-byte tsp_name field, and
+		 * this is still OS-dependent.  Demand that the packet is at
+		 * least long enough to hold a 4.3BSD packet.
+		 */
+		if (n < (ssize_t)(sizeof(struct tsp) - MAXHOSTNAMELEN + 32)) {
 			syslog(LOG_NOTICE,
 			    "short packet (%u/%u bytes) from %s",
-			      n, sizeof(struct tsp),
+			      n, sizeof(struct tsp) - MAXHOSTNAMELEN + 32,
 			      inet_ntoa(from.sin_addr));
 			continue;
 		}
@@ -474,12 +456,13 @@ print(msg, addr)
 	struct sockaddr_in *addr;
 {
 	char tm[26];
-	
-       if (msg->tsp_type >= TSPTYPENUMBER) {
-               fprintf(fd, "bad type (%u) on packet from %s\n",
-                 msg->tsp_type, inet_ntoa(addr->sin_addr));
-               return;
-       }
+	time_t tsp_time_sec;
+
+	if (msg->tsp_type >= TSPTYPENUMBER) {
+		fprintf(fd, "bad type (%u) on packet from %s\n",
+		  msg->tsp_type, inet_ntoa(addr->sin_addr));
+		return;
+	}
 
 	switch (msg->tsp_type) {
 
@@ -496,12 +479,9 @@ print(msg, addr)
 	case TSP_SETTIME:
 	case TSP_SETDATE:
 	case TSP_SETDATEREQ:
-#ifdef sgi
-		(void)cftime(tm, "%D %T", &msg->tsp_time.tv_sec);
-#else
-		strncpy(tm, ctime(&msg->tsp_time.tv_sec)+3+1, sizeof(tm));
+		tsp_time_sec = msg->tsp_time.tv_sec;
+		strncpy(tm, ctime(&tsp_time_sec)+3+1, sizeof(tm));
 		tm[15] = '\0';		/* ugh */
-#endif /* sgi */
 		fprintf(fd, "%s %d %-6u %s %-15s %s\n",
 			tsptype[msg->tsp_type],
 			msg->tsp_vers,
@@ -512,12 +492,12 @@ print(msg, addr)
 		break;
 
 	case TSP_ADJTIME:
-		fprintf(fd, "%s %d %-6u (%ld,%d) %-15s %s\n",
+		fprintf(fd, "%s %d %-6u (%ld,%ld) %-15s %s\n",
 			tsptype[msg->tsp_type],
 			msg->tsp_vers,
 			msg->tsp_seq,
-			msg->tsp_time.tv_sec,
-			msg->tsp_time.tv_usec,
+			(long)msg->tsp_time.tv_sec,
+			(long)msg->tsp_time.tv_usec,
 			inet_ntoa(addr->sin_addr),
 			msg->tsp_name);
 		break;

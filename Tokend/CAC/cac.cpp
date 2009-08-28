@@ -30,7 +30,7 @@
 int main(int argc, const char *argv[])
 {
 	secdebug("CAC.tokend", "main starting with %d arguments", argc);
-	secdelay("/tmp/delay/CAC");
+	secdelay((char *)"/tmp/delay/CAC");
 
 #if 0
 	setenv("DEBUGSCOPE", "-mutex,walkers", 0);

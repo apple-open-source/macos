@@ -2,7 +2,7 @@
  * unlcok-cmd.c -- Unlock a working copy path.
  *
  * ====================================================================
- * Copyright (c) 2000-2004 CollabNet.  All rights reserved.
+ * Copyright (c) 2004-2007 CollabNet.  All rights reserved.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution.  The terms
@@ -24,6 +24,7 @@
 
 #include "svn_pools.h"
 #include "svn_client.h"
+#include "svn_error_codes.h"
 #include "svn_error.h"
 #include "svn_cmdline.h"
 #include "cl.h"
@@ -43,8 +44,9 @@ svn_cl__unlock(apr_getopt_t *os,
   svn_client_ctx_t *ctx = ((svn_cl__cmd_baton_t *) baton)->ctx;
   apr_array_header_t *targets;
 
-  SVN_ERR(svn_opt_args_to_target_array2(&targets, os,
-                                        opt_state->targets, pool));
+  SVN_ERR(svn_cl__args_to_target_array_print_reserved(&targets, os,
+                                                      opt_state->targets,
+                                                      ctx, pool));
 
   /* We don't support unlock on directories, so "." is not relevant. */
   if (! targets->nelts)
@@ -53,7 +55,5 @@ svn_cl__unlock(apr_getopt_t *os,
   svn_cl__get_notifier(&ctx->notify_func2, &ctx->notify_baton2, FALSE,
                        FALSE, FALSE, pool);
 
-  SVN_ERR(svn_client_unlock(targets, opt_state->force, ctx, pool));
-
-  return SVN_NO_ERROR;
+  return svn_client_unlock(targets, opt_state->force, ctx, pool);
 }

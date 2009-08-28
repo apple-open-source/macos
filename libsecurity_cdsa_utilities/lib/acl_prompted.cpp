@@ -49,8 +49,7 @@ PromptedAclSubject::PromptedAclSubject(Allocator &alloc,
 
 
 //
-// PromptedAclSubject always pre-loads its secret, and thus never has to
-// "get" its secret. If we ever try, it's a bug.
+// PromptedAclSubject will prompt for the secret
 //
 bool PromptedAclSubject::getSecret(const AclValidationContext &context,
 	const TypedList &subject, CssmOwnedData &secret) const

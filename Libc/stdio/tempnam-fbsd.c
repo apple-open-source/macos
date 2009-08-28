@@ -38,7 +38,6 @@ static char sccsid[] = "@(#)tempnam.c	8.1 (Berkeley) 6/4/93";
 __FBSDID("$FreeBSD: src/lib/libc/stdio/tempnam.c,v 1.10 2002/03/22 21:53:04 obrien Exp $");
 
 #include <sys/param.h>
-#include <sys/stat.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -58,9 +57,6 @@ tempnam(dir, pfx)
 	int sverrno;
 	char *f, *name;
 
-#if __DARWIN_UNIX03
-	struct stat sb;
-#endif /* __DARWIN_UNIX03 */
 	if (!(name = malloc(MAXPATHLEN))) {
 		return(NULL);
 	}
@@ -79,7 +75,7 @@ tempnam(dir, pfx)
 #endif /* !__DARWIN_UNIX03 */
 	if ((f = (char *)dir)) {
 #if __DARWIN_UNIX03
-		if (!access(dir, W_OK)) {
+	    if (access(dir, W_OK) == 0) {
 #endif /* __DARWIN_UNIX03 */
 		(void)snprintf(name, MAXPATHLEN, "%s%s%sXXXXXX", f,
 		    *(f + strlen(f) - 1) == '/'? "": "/", pfx);
@@ -87,13 +83,13 @@ tempnam(dir, pfx)
 			return(f);
 		}
 #if __DARWIN_UNIX03
-	}
+	    }
 #endif /* __DARWIN_UNIX03 */
 	}
 
 	f = P_tmpdir;
 #if __DARWIN_UNIX03
-	if (stat(f, &sb) == 0) {	/* directory accessible? */
+	if (access(f, W_OK) == 0) {	/* directory accessible? */
 #endif /* __DARWIN_UNIX03 */
 	(void)snprintf(name, MAXPATHLEN, "%s%sXXXXXX", f, pfx);
 	if ((f = _mktemp(name))) {
@@ -102,11 +98,21 @@ tempnam(dir, pfx)
 
 #if __DARWIN_UNIX03
 	}
+	if (issetugid() == 0 && (f = getenv("TMPDIR")) && access(f, W_OK) == 0) {
+		(void)snprintf(name, MAXPATHLEN, "%s%s%sXXXXXX", f,
+		    *(f + strlen(f) - 1) == '/'? "": "/", pfx);
+		if ((f = _mktemp(name))) {
+			return(f);
+		}
+	}
 #endif /* __DARWIN_UNIX03 */
 	f = _PATH_TMP;
 #if __DARWIN_UNIX03
-	if (stat(f, &sb) < 0) {	
+	if (access(f, W_OK) < 0) {	
 		f = "./";	/* directory inaccessible */
+		if (access(f, W_OK) < 0) {
+			return(NULL);
+		}
 	}
 #endif /* __DARWIN_UNIX03 */
 	(void)snprintf(name, MAXPATHLEN, "%s%sXXXXXX", f, pfx);

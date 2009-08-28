@@ -6,13 +6,16 @@
 %nodefault svn_xml_parser_t;
 #endif
 
-/* Includes */
+/* Callback typemaps */
+
+/* Baton typemaps */
 #ifdef SWIGPYTHON
-%import proxy.swg
-%import apr.swg
-%include svn_error_h.swg
-%include svn_string_h.swg
+%apply void *PY_AS_VOID {
+  void *baton
+};
 #endif
+
+/* Includes */
 %{
 #include "svn_xml.h"
 %}
@@ -27,3 +30,7 @@
 
 %inline %{
 %}
+
+#ifdef SWIGPYTHON
+
+#endif

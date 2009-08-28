@@ -1,5 +1,5 @@
 /*
- * $Id: otp_pw_valid.c,v 1.1.2.14 2007/07/15 19:21:04 aland Exp $
+ * $Id$
  *
  * Passcode verification function (otpd client) for rlm_otp.
  *
@@ -21,25 +21,20 @@
  * Copyright 2006,2007 TRI-D Systems, Inc.
  */
 
-#include "ident.h"
-RCSID("$Id: otp_pw_valid.c,v 1.1.2.14 2007/07/15 19:21:04 aland Exp $")
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
-#include "autoconf.h"
-#include "radiusd.h"
-#include "modules.h"
+#include <freeradius-devel/radiusd.h>
+#include <freeradius-devel/modules.h>
 
 #include "extern.h"
 #include "otp.h"
 #include "otp_pw_valid.h"
 
-#include <errno.h>
+#ifdef HAVE_PTHREAD_H
 #include <pthread.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/types.h>
-#include <sys/socket.h>
+#endif
 #include <sys/un.h>
-#include <unistd.h>
 
 
 /* transform otpd return codes into rlm return codes */
@@ -52,7 +47,7 @@ otprc2rlmrc(int rc)
     case OTP_RC_AUTHINFO_UNAVAIL:	return RLM_MODULE_REJECT;
     case OTP_RC_AUTH_ERR:		return RLM_MODULE_REJECT;
     case OTP_RC_MAXTRIES:		return RLM_MODULE_USERLOCK;
-    case OTP_RC_NEXT_PASSCODE:		return RLM_MODULE_USERLOCK;
+    case OTP_RC_NEXTPASSCODE:		return RLM_MODULE_USERLOCK;
     case OTP_RC_IPIN:			return RLM_MODULE_REJECT;
     case OTP_RC_SERVICE_ERR:		return RLM_MODULE_FAIL;
     default:				return RLM_MODULE_FAIL;
@@ -82,7 +77,7 @@ otp_pw_valid(REQUEST *request, int pwe, const char *challenge,
   otp_request_t	otp_request;
   otp_reply_t	otp_reply;
   VALUE_PAIR	*cvp, *rvp;
-  char		*username = request->username->strvalue;
+  char		*username = request->username->vp_strvalue;
   int		rc;
 
   if (request->username->length > OTP_MAX_USERNAME_LEN) {
@@ -113,7 +108,7 @@ otp_pw_valid(REQUEST *request, int pwe, const char *challenge,
       (void) radlog(L_AUTH, "rlm_otp: passcode for [%s] too long", username);
       return RLM_MODULE_REJECT;
     }
-    (void) strcpy(otp_request.pwe.u.pap.passcode, rvp->strvalue);
+    (void) strcpy(otp_request.pwe.u.pap.passcode, rvp->vp_strvalue);
     break;
 
   case PWE_CHAP:
@@ -127,10 +122,10 @@ otp_pw_valid(REQUEST *request, int pwe, const char *challenge,
                     username);
       return RLM_MODULE_INVALID;
     }
-    (void) memcpy(otp_request.pwe.u.chap.challenge, cvp->strvalue,
+    (void) memcpy(otp_request.pwe.u.chap.challenge, cvp->vp_strvalue,
                   cvp->length);
     otp_request.pwe.u.chap.clen = cvp->length;
-    (void) memcpy(otp_request.pwe.u.chap.response, rvp->strvalue,
+    (void) memcpy(otp_request.pwe.u.chap.response, rvp->vp_strvalue,
                   rvp->length);
     otp_request.pwe.u.chap.rlen = rvp->length;
     break;
@@ -146,10 +141,10 @@ otp_pw_valid(REQUEST *request, int pwe, const char *challenge,
                     username);
       return RLM_MODULE_INVALID;
     }
-    (void) memcpy(otp_request.pwe.u.chap.challenge, cvp->strvalue,
+    (void) memcpy(otp_request.pwe.u.chap.challenge, cvp->vp_strvalue,
                   cvp->length);
     otp_request.pwe.u.chap.clen = cvp->length;
-    (void) memcpy(otp_request.pwe.u.chap.response, rvp->strvalue,
+    (void) memcpy(otp_request.pwe.u.chap.response, rvp->vp_strvalue,
                   rvp->length);
     otp_request.pwe.u.chap.rlen = rvp->length;
     break;
@@ -165,10 +160,10 @@ otp_pw_valid(REQUEST *request, int pwe, const char *challenge,
                     username);
       return RLM_MODULE_INVALID;
     }
-    (void) memcpy(otp_request.pwe.u.chap.challenge, cvp->strvalue,
+    (void) memcpy(otp_request.pwe.u.chap.challenge, cvp->vp_strvalue,
                   cvp->length);
     otp_request.pwe.u.chap.clen = cvp->length;
-    (void) memcpy(otp_request.pwe.u.chap.response, rvp->strvalue,
+    (void) memcpy(otp_request.pwe.u.chap.response, rvp->vp_strvalue,
                   rvp->length);
     otp_request.pwe.u.chap.rlen = rvp->length;
     break;
@@ -212,9 +207,6 @@ retry:
     return -1;
 
   if ((rc = otp_write(fdp, (const char *) request, sizeof(*request))) != 0) {
-    if (rc == EPIPE)
-      goto retry;	/* otpd disconnect */	/*TODO: pause */
-    else
       return -1;
   }
 
@@ -289,7 +281,7 @@ otp_write(otp_fd_t *fdp, const char *buf, size_t len)
 
   while (nleft) {
     if ((nwrote = write(fdp->fd, &buf[len - nleft], nleft)) == -1) {
-      if (errno == EINTR || errno == EPIPE) {
+      if (errno == EINTR) {
         continue;
       } else {
         (void) radlog(L_ERR, "rlm_otp: %s: write to otpd: %s",

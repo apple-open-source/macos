@@ -30,10 +30,10 @@ find what you are looking for.  This script was written to create a
 smaller non-working working copy that can be crawled with find or
 find's locate utility to make it easier to find files.
 
-$HeadURL: http://svn.collab.net/repos/svn/branches/1.4.x/contrib/client-side/svn_export_empty_files.py $
-$LastChangedRevision: 18946 $
-$LastChangedDate: 2006-03-18 20:23:14 +0000 (Sat, 18 Mar 2006) $
-$LastChangedBy: julianfoad $
+$HeadURL: http://svn.collab.net/repos/svn/branches/1.6.x/contrib/client-side/svn_export_empty_files.py $
+$LastChangedRevision: 28522 $
+$LastChangedDate: 2007-12-17 22:48:44 +0000 (Mon, 17 Dec 2007) $
+$LastChangedBy: epg $
 """
 
 import getopt
@@ -44,7 +44,6 @@ except AttributeError:
 import os
 import sys
 
-import libsvn._core
 import svn.client
 import svn.core
 
@@ -73,9 +72,9 @@ def check_url_for_export(ctx, url, revision, client_ctx):
     try:
         if ctx.verbose:
             print "Trying to list '%s'" % url
-        svn.client.svn_client_ls(url, revision, 0, client_ctx)
+        svn.client.ls(url, revision, 0, client_ctx)
 
-        # Given a URL, the svn_client_ls command does not tell you if
+        # Given a URL, the ls command does not tell you if
         # you have a directory or a non-directory, so try doing a
         # listing on the parent URL.  If the listing on the parent URL
         # fails, then assume that the given URL was the top of the
@@ -92,11 +91,11 @@ def check_url_for_export(ctx, url, revision, client_ctx):
         try:
             if ctx.verbose:
                 print "Trying to list '%s'" % parent_url
-            remote_ls = svn.client.svn_client_ls(parent_url,
-                                                 revision,
-                                                 0,
-                                                 client_ctx)
-        except libsvn._core.SubversionException:
+            remote_ls = svn.client.ls(parent_url,
+                                      revision,
+                                      0,
+                                      client_ctx)
+        except svn.core.SubversionException:
             if ctx.verbose:
                 print "Listing of '%s' failed, assuming URL is top of repos" \
                       % parent_url
@@ -167,10 +166,10 @@ def synchronize_dir(ctx, url, dir_name, revision, client_ctx):
         print "Creating directory '%s'" % dir_name
         os.mkdir(dir_name)
 
-    remote_ls = svn.client.svn_client_ls(url,
-                                         revision,
-                                         0,
-                                         client_ctx)
+    remote_ls = svn.client.ls(url,
+                              revision,
+                              0,
+                              client_ctx)
 
     if ctx.verbose:
         print "Syncing '%s' to '%s'" % (url, dir_name)
@@ -259,16 +258,16 @@ def synchronize_dir(ctx, url, dir_name, revision, client_ctx):
 def main(ctx, url, export_pathname):
     # Create a client context to run all Subversion client commands
     # with.
-    client_ctx = svn.client.svn_client_create_context()
+    client_ctx = svn.client.create_context()
 
     # Give the client context baton a suite of authentication
     # providers.
     providers = [
-        svn.client.svn_client_get_simple_provider(),
-        svn.client.svn_client_get_ssl_client_cert_file_provider(),
-        svn.client.svn_client_get_ssl_client_cert_pw_file_provider(),
-        svn.client.svn_client_get_ssl_server_trust_file_provider(),
-        svn.client.svn_client_get_username_provider(),
+        svn.client.get_simple_provider(),
+        svn.client.get_ssl_client_cert_file_provider(),
+        svn.client.get_ssl_client_cert_pw_file_provider(),
+        svn.client.get_ssl_server_trust_file_provider(),
+        svn.client.get_username_provider(),
         ]
     client_ctx.auth_baton = svn.core.svn_auth_open(providers)
 

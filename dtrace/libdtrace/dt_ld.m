@@ -1,3 +1,26 @@
+/*
+ * Copyright (c) 2006-2008 Apple Computer, Inc.  All Rights Reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPLE_LICENSE_HEADER_END@
+ */
+
 #import <Foundation/Foundation.h>
 // This must be done *after* any references to Foundation.h!
 #define uint_t  __Solaris_uint_t
@@ -25,7 +48,7 @@
 
 #define dtrace_typedefs_encoding_prefix		"___dtrace_typedefs"
 #define dtrace_typedefs_decoding_prefix		"___dtrace_typedefs"
-#define dtrace_typedefs_version			"v1"
+#define dtrace_typedefs_version			"v2"
 
 #define dtrace_probe_encoding_prefix		"__dtrace_probe"
 #define dtrace_probe_decoding_prefix		"___dtrace_probe"
@@ -207,6 +230,38 @@ NSString* dt_ld_decode_stability(NSString* encoding)
 #pragma mark -
 #pragma mark typedef encoding / decoding
 
+// DTrace typedefs a small number of default types by default.
+// Unfortunately, these are not base types, and so they are
+// encoded as specialized types. This works fine until link
+// time, when DTrace sees the encoding as an attempt to redefine
+// an existing type, and fails the link. This method creates
+// a dictionary of types to ignore when encoding.
+
+static NSDictionary* encodingExclusionTypes = nil;
+
+static NSDictionary* dt_ld_create_encoding_exclusion_types() {
+	NSMutableDictionary* excludedTypes = [NSMutableDictionary dictionary];
+	
+	// First walk all 32 bit typedefs
+	extern const dt_typedef_t _dtrace_typedefs_32[];
+	const dt_typedef_t *iter = _dtrace_typedefs_32;
+	for (; iter->dty_src != NULL; iter++) {
+		NSString* type = [NSString stringWithUTF8String:iter->dty_dst];
+		[excludedTypes setObject:type forKey:type];
+	}
+
+	// These are almost certainly the same, but just in case...
+	// Walk all 64 bit typedefs
+	extern const dt_typedef_t _dtrace_typedefs_64[];
+	iter = _dtrace_typedefs_64;
+	for (; iter->dty_src != NULL; iter++) {
+		NSString* type = [NSString stringWithUTF8String:iter->dty_dst];
+		[excludedTypes setObject:type forKey:type];
+	}
+	
+	return excludedTypes;
+}
+
 //
 // If the input type is a pointer, return the type pointed to.
 // This method is recursive, it will walk back a chain of pointers
@@ -246,8 +301,16 @@ static int dt_ld_probe_encode_typedef_iter(dt_idhash_t *dhp, dt_ident_t *idp, vo
 			char* buf = alloca(size);
 			ctf_type_lname(node->dn_ctfp, stripped_of_pointers, buf, size);
 			NSString* typeKey = [NSString stringWithUTF8String:buf];
-			if ([types objectForKey:typeKey] == nil) {
-				[types setObject:dt_ld_encode_nsstring(typeKey) forKey:typeKey];
+
+			// Gah. DTrace always typedefs a certain set of types, which are not base types.
+			// See <rdar://problem/5194316>. I haven't been able to discover a way to differentiate
+			// the predefined types from those created in provider.d files, so we do this the hard
+			// way.
+			
+			if ([encodingExclusionTypes objectForKey:typeKey] == nil) {
+				if ([types objectForKey:typeKey] == nil) {
+					[types setObject:dt_ld_encode_nsstring(typeKey) forKey:typeKey];
+				}
 			}
 		}
 	}
@@ -260,6 +323,9 @@ char* dt_ld_encode_typedefs(char* provider_name, dt_provider_t *provider)
 	NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
 	NSMutableDictionary* types = [NSMutableDictionary dictionary];
 	
+	if (encodingExclusionTypes == nil)
+		encodingExclusionTypes = [dt_ld_create_encoding_exclusion_types() retain];
+
 	dt_idhash_iter(provider->pv_probes, dt_ld_probe_encode_typedef_iter, types);
 	
 	NSArray* values = [types allValues];
@@ -279,6 +345,14 @@ char* dt_ld_encode_typedefs(char* provider_name, dt_provider_t *provider)
 	
 	char* value = strdup([string UTF8String]);
 	
+	if (_dtrace_debug) {
+		NSEnumerator *enumerator = [types keyEnumerator];
+		id key;
+		while ((key = [enumerator nextObject])) {
+			dt_dprintf("dt_ld encoding type %s as %s\n", [key UTF8String], [[types objectForKey:key] UTF8String]);
+		}
+	}
+	
 	[pool drain];
 	
 	return value;
@@ -296,15 +370,17 @@ NSString* dt_ld_decode_typedefs_v1(NSArray* typedefs)
 	return decoded;
 }
 
-NSString* dt_ld_decode_typedefs(NSString* encoding)
+NSString* dt_ld_decode_typedefs(NSString* encoding, NSString **version_out)
 {
 	NSArray* elements = [encoding componentsSeparatedByString:@dtrace_separator];
 	
+    NSString* version = [elements objectAtIndex:2];
+    if (version_out) *version_out = version;
+    
 	// Is anything actually encoded?
 	if ([elements count] > 3) {
-		NSString* version = [elements objectAtIndex:2];
-		
-		if ([version isEqualToString:@"v1"])
+		// Both v1 & v2 use the same format, v2 is a subset of v1 (with the fix for <rdar://problem/5194316>)
+		if ([version isEqualToString:@"v1"] || [version isEqualToString:@"v2"])
 			return dt_ld_decode_typedefs_v1(elements);
 		else {
 			// Wow, no good way to handle error conditions here.
@@ -422,7 +498,7 @@ NSString* dt_ld_decode_script(NSString* stability, NSString* typedefs, NSArray* 
 {
 	NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
 	
-	NSString* decodedTypedefs = dt_ld_decode_typedefs(typedefs);
+	NSString* decodedTypedefs = dt_ld_decode_typedefs(typedefs, nil);
 	
 	NSMutableString* script = [[NSMutableString alloc] initWithFormat:@"%@\n", decodedTypedefs];
 	
@@ -477,6 +553,7 @@ static void set_options(dtrace_hdl_t* dtp)
 {
 	(void) dtrace_setopt(dtp, "linkmode", "dynamic");
 	(void) dtrace_setopt(dtp, "unodefs", NULL);
+	(void) dtrace_setopt(dtp, "nolibs", NULL); /* In case /usr/lib/dtrace/* is broken, we can succeed. */
 }
 
 static int register_probes(dtrace_hdl_t* dtp, int count, const char* labels[], const char* functions[])
@@ -555,7 +632,7 @@ static int register_probes(dtrace_hdl_t* dtp, int count, const char* labels[], c
 			function_name++;
 		
 		if(dt_probe_define(provider, probe, function_name, NULL, i, is_enabled)) {
-			fprintf(stderr, "error: couldn't define probe %s:::%s\n", provider, probe);
+			fprintf(stderr, "error: couldn't define probe %s:::%s\n", provider_name, probe_name);
 			return -1;
 		}
 		
@@ -610,6 +687,8 @@ void* dtrace_ld_create_dof(cpu_type_t cpu,             // [provided by linker] t
 {
 	NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
 	
+	BOOL printReconstructedScript = getenv("DTRACE_PRINT_RECONSTRUCTED_SCRIPT") != NULL;
+
 	int i, err;
 	const char* stability = NULL;
 	const char* typedefs = NULL;
@@ -627,7 +706,22 @@ void* dtrace_ld_create_dof(cpu_type_t cpu,             // [provided by linker] t
 			if (typedefs == NULL) {
 				typedefs = typeNames[i];
 			} else if (strcmp(typedefs, typeNames[i]) != 0) {
-				fprintf(stderr, "error: Found conflicting dtrace typedefs info:\n%s\n%s\n", typedefs, typeNames[i]);
+                // let's see if it's from a version conflict.
+                NSString *existing_info = nil, *new_info = nil;
+                dt_ld_decode_typedefs([NSString stringWithUTF8String:typedefs], &existing_info);
+                dt_ld_decode_typedefs([NSString stringWithUTF8String:typeNames[i]], &new_info);
+                if ([existing_info isEqualToString:new_info] == NO) {
+                    fprintf(stderr, 
+                            "error: Found dtrace typedefs generated by "
+                            "different versions of dtrace:\n%s (%s)\n%s (%s)\n", 
+                            typedefs, [existing_info UTF8String], 
+                            typeNames[i], [new_info UTF8String]);
+                    fprintf(stderr, "Please try regenerating all dtrace created "
+                            "header files with the same version of "
+                            "dtrace before rebuilding your project.\n");
+                } else {
+                    fprintf(stderr, "error: Found conflicting dtrace typedefs info:\n%s\n%s\n", typedefs, typeNames[i]);
+                }
 				return NULL;
 			}			
 		} else {
@@ -692,6 +786,10 @@ void* dtrace_ld_create_dof(cpu_type_t cpu,             // [provided by linker] t
 	if(!program) {
 		fprintf(stderr, "error: Could not compile reconstructed dtrace script:\n\n%s\n", [dscript UTF8String]);
 		return NULL;
+	}
+	
+	if (_dtrace_debug || printReconstructedScript) {
+		fprintf(stderr, "\n%s\n", [dscript UTF8String]);
 	}
 	
 	if(register_probes(dtp, probeCount, probeNames, probeWithin)) {

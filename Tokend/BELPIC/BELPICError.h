@@ -43,7 +43,9 @@ public:
     static void check(uint16_t sw)	{ if (sw != SCARD_SUCCESS) throwMe(sw); }
     static void throwMe(uint16_t sw) __attribute__((noreturn));
 protected:
+#if MAX_OS_X_VERSION_MIN_REQUIRED <= MAX_OS_X_VERSION_10_5
     IFDEBUG(void debugDiagnose(const void *id) const;)
+#endif
 };
 
 #endif /* !_BELPICERROR_H_ */

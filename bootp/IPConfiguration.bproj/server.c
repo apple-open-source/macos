@@ -97,7 +97,7 @@ _ipconfig_if_name(mach_port_t p, int intface, if_name_t name)
 {
 
     dprintf(("Getting interface name\n"));
-    if (get_if_name(intface, name) == TRUE)
+    if (get_if_name(intface, name, sizeof(if_name_t)) == TRUE)
 	return (KERN_SUCCESS);
     return (KERN_FAILURE);
 }

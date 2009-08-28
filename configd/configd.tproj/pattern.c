@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2004, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2003, 2004, 2006-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -442,9 +442,11 @@ __private_extern__
 void
 patternAddKey(CFStringRef key)
 {
+	void	*context	= (void *)key;
+
 	my_CFDictionaryApplyFunction(patternData,
 				     (CFDictionaryApplierFunction)addKeyForPattern,
-				     (void *)key);
+				     context);
 
 	return;
 }
@@ -497,9 +499,11 @@ __private_extern__
 void
 patternRemoveKey(CFStringRef key)
 {
+	void	*context	= (void *)key;
+
 	my_CFDictionaryApplyFunction(patternData,
 				     (CFDictionaryApplierFunction)removeKeyFromPattern,
-				     (void *)key);
+				     context);
 
 	return;
 }

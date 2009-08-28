@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2001-2004, International Business Machines
+*   Copyright (C) 2001-2007, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -236,7 +236,7 @@ unorm_internalNormalize(UChar *dest, int32_t destCapacity,
 U_CFUNC int32_t
 unorm_internalNormalizeWithNX(UChar *dest, int32_t destCapacity,
                               const UChar *src, int32_t srcLength,
-                              UNormalizationMode mode, int32_t options, const UnicodeSet *nx,
+                              UNormalizationMode mode, int32_t options, const U_NAMESPACE_QUALIFIER UnicodeSet *nx,
                               UErrorCode *pErrorCode);
 
 #endif
@@ -272,7 +272,7 @@ unorm_internalQuickCheck(const UChar *src,
                          int32_t srcLength,
                          UNormalizationMode mode,
                          UBool allowMaybe,
-                         const UnicodeSet *nx,
+                         const U_NAMESPACE_QUALIFIER UnicodeSet *nx,
                          UErrorCode *pErrorCode);
 
 #endif
@@ -310,7 +310,7 @@ unorm_internalQuickCheck(const UChar *src,
  * for u_getIntPropertyValue().
  * @internal
  */
-U_CAPI uint16_t U_EXPORT2
+U_CFUNC uint16_t U_EXPORT2
 unorm_getFCD16FromCodePoint(UChar32 c);
 
 /**
@@ -326,7 +326,6 @@ unorm_getFCDTrie(UErrorCode *pErrorCode);
 
 #ifdef XP_CPLUSPLUS
 
-U_NAMESPACE_BEGIN
 /**
  * Internal API, used by collation code.
  * Get the FCD value for a code unit, with
@@ -340,7 +339,7 @@ U_NAMESPACE_BEGIN
  *
  * @internal
  */
-inline uint16_t
+static inline uint16_t
 unorm_getFCD16(const uint16_t *fcdTrieIndex, UChar c) {
     return
         fcdTrieIndex[
@@ -362,7 +361,7 @@ unorm_getFCD16(const uint16_t *fcdTrieIndex, UChar c) {
  *
  * @internal
  */
-inline uint16_t
+static inline uint16_t
 unorm_getFCD16FromSurrogatePair(const uint16_t *fcdTrieIndex, uint16_t fcd16, UChar c2) {
     return
         fcdTrieIndex[
@@ -373,7 +372,6 @@ unorm_getFCD16FromSurrogatePair(const uint16_t *fcdTrieIndex, uint16_t fcd16, UC
         ];
 }
 
-U_NAMESPACE_END
 
 #endif
 
@@ -410,14 +408,14 @@ unorm_getDecomposition(UChar32 c, UBool compat,
  * internal API, used by uprops.cpp
  * @internal
  */
-U_CAPI UBool U_EXPORT2
+U_CFUNC UBool U_EXPORT2
 unorm_internalIsFullCompositionExclusion(UChar32 c);
 
 /**
  * Internal API, used by enumeration of canonically equivalent strings
  * @internal
  */
-U_CAPI UBool U_EXPORT2
+U_CFUNC UBool U_EXPORT2
 unorm_isCanonSafeStart(UChar32 c);
 
 /**
@@ -441,7 +439,7 @@ unorm_isNFSkippable(UChar32 c, UNormalizationMode mode);
  * Requires unorm_haveData().
  * @internal
  */
-U_CFUNC const UnicodeSet *
+U_CFUNC const U_NAMESPACE_QUALIFIER UnicodeSet *
 unorm_getNX(int32_t options, UErrorCode *pErrorCode);
 
 #endif
@@ -467,7 +465,7 @@ unorm_swap(const UDataSwapper *ds,
  * Get the NF*_QC property for a code point, for u_getIntPropertyValue().
  * @internal
  */
-U_CAPI UNormalizationCheckResult U_EXPORT2
+U_CFUNC UNormalizationCheckResult U_EXPORT2
 unorm_getQuickCheck(UChar32 c, UNormalizationMode mode);
 
 /**

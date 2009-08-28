@@ -51,9 +51,6 @@
 #define streq(A,B) (strcmp(A,B) == 0)
 #define forever for(;;)
 
-#warning VERIFY the version string before each major OS build submission
-#define DSCL_VERSION "10.5.3"
-
 static char			myname[256];
 PathManager		   *engine			= nil;
 BOOL				gHACK			= NO;
@@ -142,7 +139,7 @@ static int minargs[] =
 
 void usage()
 {
-    fprintf(stderr, "dscl (v%s)\n", DSCL_VERSION);
+    fprintf(stderr, "dscl (v%s)\n", TOOLS_VERSION);
 	fprintf(stderr, "usage: %s [options] [<datasource> [<command>]]\n", myname);
     fprintf(stderr, "datasource:\n");
     fprintf(stderr, "    localhost    (default)                                    or\n");
@@ -1297,6 +1294,14 @@ main(int argc, char *argv[])
         dsToolAppleVersionExit( myname );
     
     interactive = 0;
+		
+	if ( isSingleUserMode() ) {
+		NSArray *args = [NSArray arrayWithObjects:	@"load", 
+													@"/System/Library/LaunchDaemons/com.apple.DirectoryServicesLocal.plist",
+													nil];
+		NSTask *task = [NSTask launchedTaskWithLaunchPath: @"/bin/launchctl" arguments: args];
+		[task waitUntilExit];
+	}
 
     // Parse program options
     for (i = 1; i < argc; i++)
@@ -1329,7 +1334,12 @@ main(int argc, char *argv[])
     if (i == argc)
     {
         printf("Entering interactive mode... (type \"help\" for commands)\n");
-        dataSource = "localhost";
+		if ( isSingleUserMode() ) {
+			dataSource = "localonly";
+		}
+		else {
+			dataSource = "localhost";
+		}
     }
     else
     {
@@ -1444,7 +1454,8 @@ main(int argc, char *argv[])
 				case eServerNotRunning:
 					if ( isSingleUserMode() ) {
 						fprintf( stderr, "For Single User Mode you must run the following command to enable use of dscl.\n" );
-						fprintf( stderr, "launchctl load /System/Library/LaunchDaemons/com.apple.DirectoryServicesLocal.plist\n" );
+						fprintf( stderr, "  launchctl load /System/Library/LaunchDaemons/com.apple.DirectoryServicesLocal.plist\n" );
+						fprintf( stderr, "  dscl localonly\n\n" );
 						status = EX_CONFIG;
 						break;
 					}

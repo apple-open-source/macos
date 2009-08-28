@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2001,2008 Apple Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -335,7 +335,7 @@ SSKey::didChangeAcl()
 	if (mUniqueId == true)
 	{
 	    secdebug("keyacl", "SSKey::didChangeAcl() keyHandle: %lu updating DL entry", mKeyHandle);
-		// The key is persistant, make the change on disk.
+		// The key is persistent, make the change on disk.
 		CssmDataContainer keyBlob(mAllocator);
 		clientSession().encodeKey(keyHandle(), keyBlob);
 		mUniqueId->modify(mRecordType, NULL, &keyBlob, CSSM_DB_MODIFY_ATTRIBUTE_NONE);

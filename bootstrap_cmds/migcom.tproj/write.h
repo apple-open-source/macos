@@ -1,16 +1,16 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+ *
+ * "Portions Copyright (c) 1999, 2008 Apple Inc.  All Rights
  * Reserved.  This file contains Original Code and/or Modifications of
  * Original Code as defined in and that are subject to the Apple Public
  * Source License Version 1.0 (the 'License').  You may not use this file
  * except in compliance with the License.  Please obtain a copy of the
  * License at http://www.apple.com/publicsource and read it before using
  * this file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -18,7 +18,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
  * License for the specific language governing rights and limitations
  * under the License."
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
@@ -49,15 +49,15 @@
 /*
  * HISTORY
  * 07-Apr-89  Richard Draves (rpd) at Carnegie-Mellon University
- *	Extensive revamping.  Added polymorphic arguments.
- *	Allow multiple variable-sized inline arguments in messages.
+ * Extensive revamping.  Added polymorphic arguments.
+ * Allow multiple variable-sized inline arguments in messages.
  *
  * 27-May-87  Richard Draves (rpd) at Carnegie-Mellon University
- *	Created.
+ * Created.
  */
 
-#ifndef	_WRITE_H
-#define	_WRITE_H
+#ifndef _WRITE_H
+#define _WRITE_H
 
 #include <stdio.h>
 #include "statement.h"
@@ -70,12 +70,9 @@ extern void WriteDefinesHeader( FILE *file, statement_t *stats );
 extern void WriteUser( FILE *file, statement_t *stats );
 extern void WriteUserIndividual( statement_t *stats );
 extern void WriteServer( FILE *file, statement_t *stats );
-extern void WriteIncludes( FILE *file, boolean_t isuser, 
-			     boolean_t is_def );
-extern void WriteImplImports( FILE *file, statement_t *stats, 
-				boolean_t isuser );
+extern void WriteIncludes( FILE *file, boolean_t isuser, boolean_t is_def );
+extern void WriteImplImports( FILE *file, statement_t *stats, boolean_t isuser );
 extern void WriteApplDefaults( FILE *file, char *dir );
-extern void WriteApplMacro( FILE *file, char *dir, char *when, 
-			      routine_t *rt );
+extern void WriteApplMacro( FILE *file, char *dir, char *when, routine_t *rt );
 
-#endif	/* _WRITE_H */
+#endif /* _WRITE_H */

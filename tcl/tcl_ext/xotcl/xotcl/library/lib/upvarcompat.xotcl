@@ -1,0 +1,49 @@
+#$Id: upvarcompat.xotcl,v 1.3 2005/09/09 21:09:01 neumann Exp $
+
+package provide xotcl::upvar-compat 1.0
+package require XOTcl
+
+namespace eval ::xotcl::upvar-compat {
+    namespace import ::xotcl::*
+
+    @ @File {description {
+	Provide a version of upvar and uplevel that provide 
+	backward compatibility such that these commands 
+	ignore inactive filter and mixin frames (upvar behaves
+	 the same whether or not a filter is installed). Newer
+	scripts should use <@TT>upvar/uplevel [self callinglevel] var/command</@TT>
+	instead.
+    } }
+}
+
+# Define upvar and uplevel; use the level, if given explizitely:
+# otherwise point to the callinglevel from XOTcl
+rename ::uplevel ::xotcl::tcl_uplevel
+proc ::uplevel {lvl args} {
+  set cl [::xotcl::tcl_uplevel 1 ::xotcl::self callinglevel]
+  if {[string match #* $cl]} {
+    # we were called from XOTcl, use the XOTcl method
+    set cmd [concat [list my uplevel $lvl] $args]
+  } else {
+    # no XOTcl in sight, use tcl variant
+    set cmd [concat [list ::xotcl::tcl_uplevel $lvl] $args]
+  }
+  #puts stderr cmd=$cmd
+  set code [catch [list ::xotcl::tcl_uplevel 1 $cmd] msg]
+  return -code $code $msg
+}
+
+rename ::upvar ::xotcl::tcl_upvar
+proc ::upvar {lvl args} {
+  set cl [::xotcl::tcl_uplevel 1 ::xotcl::self callinglevel]
+  if {[string match #* $cl]} {
+    # we were called from XOTcl, use the XOTcl method
+    set cmd [concat [list my upvar $lvl] $args]
+    #set code [catch {my uplevel $lvl $args} msg]
+  } else {
+    # no XOTcl in sight, use tcl variant
+    set cmd [concat [list ::xotcl::tcl_upvar $lvl] $args]
+  }
+  set code [catch [list ::xotcl::tcl_uplevel 1 $cmd] msg]
+  return -code $code $msg
+}

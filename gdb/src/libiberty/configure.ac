@@ -166,6 +166,8 @@ case "${host}" in
   *-*-freebsd2.2.[[012]])	frag=mh-fbsd21 ;;
   i370-*-opened*)       frag=mh-openedition ;;
   i[[34567]]86-*-windows*)	frag=mh-windows ;;
+  # APPLE LOCAL - Allow more than 256 streams to be open at a time.
+  *-apple-darwin* | *-macos*) frag=mh-macosx;;
 esac
 
 if [[ -n "${frag}" ]]; then

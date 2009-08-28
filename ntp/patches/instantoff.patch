@@ -1,0 +1,228 @@
+diff -up -r ntp/include/ntpd.h ../../ntp+instantoff/ntp/ntp/include/ntpd.h
+--- include/ntpd.h	2008-08-21 22:12:00.000000000 -0700
++++ include/ntpd.h	2008-08-21 13:27:33.000000000 -0700
+@@ -245,6 +245,8 @@ extern	void	record_timing_stats P((const
+ extern  int	sock_hash P((struct sockaddr_storage *));
+ extern	double	old_drift;
+ 
++extern int save_drift_file P((void));
++
+ /*
+  * Variable declarations for ntpd.
+  */
+diff -up -r ntp/ntpd/ntp_util.c ../../ntp+instantoff/ntp/ntp/ntpd/ntp_util.c
+--- ntpd/ntp_util.c	2006-12-28 04:03:34.000000000 -0800
++++ ntpd/ntp_util.c	2008-08-21 22:21:09.000000000 -0700
+@@ -37,6 +37,10 @@
+ # include <descrip.h>
+ #endif /* VMS */
+ 
++#include <vproc.h>
++#include <sys/mman.h>		/* mmap */
++#include <signal.h>
++
+ /*
+  * This contains odds and ends.  Right now the only thing you'll find
+  * in here is the hourly stats printer and some code to support
+@@ -52,6 +55,7 @@ static	char *key_file_name;
+  * The name of the drift_comp file and the temporary.
+  */
+ static	char *stats_drift_file;
++static  int drift_exists;
+ static	char *stats_temp_file;
+ int stats_write_period = 3600;	/* # of seconds between writes. */
+ double stats_write_tolerance = 0;
+@@ -86,6 +90,43 @@ static FILEGEN timingstats;
+ static FILEGEN cryptostats;
+ #endif /* OPENSSL */
+ 
++/* derived from PM tool getsleep.c */
++#include <mach/mach_port.h>
++#include <mach/mach_interface.h>
++#include <mach/mach_init.h>
++
++#include <IOKit/pwr_mgt/IOPMLib.h>
++#include <IOKit/pwr_mgt/IOPM.h>
++
++static io_connect_t getFB(void) {
++	static io_connect_t fb;
++	
++	if (!fb) {
++		fb = IOPMFindPowerManagement(kIOMasterPortDefault);
++	}
++	return fb;
++}
++
++static unsigned long energy_saving(void) {
++	IOReturn err;
++	unsigned long min = 99;
++	io_connect_t fb = getFB();
++
++	if (fb) {
++		err = IOPMGetAggressiveness( fb, kPMMinutesToSleep, &min);
++		if (err == kIOReturnSuccess) {
++			if (min > 0) {
++				return min;
++			} else {
++				err = IOPMGetAggressiveness( fb, kPMMinutesToSpinDown, &min);
++				if (err == kIOReturnSuccess) {
++					return min;
++				}
++			}
++		}
++	}
++	return 0;
++}
+ /*
+  * This controls whether stats are written to the fileset. Provided
+  * so that ntpdc can turn off stats when the file system fills up. 
+@@ -126,6 +167,86 @@ init_util(void)
+ #endif
+ }
+ 
++int
++save_drift_file(
++	)
++{
++	FILE *fp;
++	int rc = true;
++	vproc_transaction_t vt;
++	static off_t stats_size = 0;
++	sigset_t sigterm, oset;
++
++	sigemptyset(&sigterm);
++	sigaddset(&sigterm, SIGTERM);
++	sigprocmask(SIG_BLOCK, &sigterm, &oset);
++	vt = vproc_transaction_begin(NULL);
++	if (stats_drift_file != 0 && (!drift_exists || !energy_saving())) {
++		if ((fp = fopen(stats_temp_file, "w")) == NULL) {
++			msyslog(LOG_ERR, "can't open %s: %m",
++			    stats_temp_file);
++			rc = false;
++			goto done;
++		}
++		stats_size = fprintf(fp, "%.3f\n", drift_comp * 1e6);
++		(void)fclose(fp);
++		/* atomic */
++#ifdef SYS_WINNT
++		(void) _unlink(stats_drift_file); /* rename semantics differ under NT */
++#endif /* SYS_WINNT */
++
++#ifndef NO_RENAME
++		(void) rename(stats_temp_file, stats_drift_file);
++#else
++		/* we have no rename NFS of ftp in use*/
++		if ((fp = fopen(stats_drift_file, "w")) == NULL) {
++			msyslog(LOG_ERR, "can't open %s: %m",
++			    stats_drift_file);
++			rc = false;
++		}
++
++#endif
++	        drift_exists++;
++#if defined(VMS)
++		/* PURGE */
++		{
++			$DESCRIPTOR(oldvers,";-1");
++			struct dsc$descriptor driftdsc = {
++				strlen(stats_drift_file),0,0,stats_drift_file };
++
++			while(lib$delete_file(&oldvers,&driftdsc) & 1) ;
++		}
++#endif
++	} else {
++		/* use mmap */
++		static void *mmap_addr;
++		if (mmap_addr == 0) {
++			int fd = open(stats_drift_file, O_RDWR);
++			if (fd >= 0) {
++				mmap_addr = mmap(0, getpagesize(), PROT_READ|PROT_WRITE, MAP_FILE|MAP_SHARED, fd, 0);
++				if (mmap_addr == MAP_FAILED) {
++					msyslog(LOG_ERR, "can't mmap %s: %m", stats_drift_file);
++					mmap_addr = 0;
++					rc = false;
++				}
++				close(fd);
++			} else {
++				msyslog(LOG_ERR, "can't open %s: %m", stats_drift_file);
++				rc = false;
++			}
++		} else {
++			off_t n = snprintf(mmap_addr, getpagesize(), "%.3f\n", drift_comp * 1e6);
++			if (n != stats_size) {
++				truncate(stats_drift_file, n);
++				stats_size = n;
++			}
++		}
++	}
++done:
++	vproc_transaction_end(NULL, vt);
++	sigprocmask(SIG_SETMASK, &oset, NULL);
++	return rc;
++}
+ 
+ /*
+  * hourly_stats - print some interesting stats
+@@ -133,8 +254,6 @@ init_util(void)
+ void
+ write_stats(void)
+ {
+-	FILE *fp;
+-
+ #ifdef DOSYNCTODR
+ 	struct timeval tv;
+ #if !defined(VMS)
+@@ -219,43 +338,8 @@ write_stats(void)
+ 	    (u_long)(fabs(stats_write_tolerance * drift_comp) * 1e9)) {
+ 	     return;
+ 	}
+-	prev_drift_comp = drift_comp;
+-	if (stats_drift_file != 0) {
+-		if ((fp = fopen(stats_temp_file, "w")) == NULL) {
+-			msyslog(LOG_ERR, "can't open %s: %m",
+-			    stats_temp_file);
+-			return;
+-		}
+-		fprintf(fp, "%.3f\n", drift_comp * 1e6);
+-		(void)fclose(fp);
+-		/* atomic */
+-#ifdef SYS_WINNT
+-		(void) _unlink(stats_drift_file); /* rename semantics differ under NT */
+-#endif /* SYS_WINNT */
+-
+-#ifndef NO_RENAME
+-		(void) rename(stats_temp_file, stats_drift_file);
+-#else
+-		/* we have no rename NFS of ftp in use */
+-		if ((fp = fopen(stats_drift_file, "w")) == NULL) {
+-			msyslog(LOG_ERR, "can't open %s: %m",
+-			    stats_drift_file);
+-			return;
+-		}
+-
+-#endif
+-
+-#if defined(VMS)
+-		/* PURGE */
+-		{
+-			$DESCRIPTOR(oldvers,";-1");
+-			struct dsc$descriptor driftdsc = {
+-				strlen(stats_drift_file),0,0,stats_drift_file };
+-
+-			while(lib$delete_file(&oldvers,&driftdsc) & 1) ;
+-		}
+-#endif
+-	}
++	if (save_drift_file())
++		prev_drift_comp = drift_comp;
+ }
+ 
+ 
+@@ -351,6 +435,7 @@ stats_config(
+ 			break;
+ 		}
+ 		fclose(fp);
++		drift_exists++;
+ 		prev_drift_comp = old_drift / 1e6;
+ 		msyslog(LOG_INFO,
+ 		    "frequency initialized %.3f PPM from %s",

@@ -1,0 +1,138 @@
+diff -r -u -N tcpdump-4.0.0.orig/interface.h tcpdump-4.0.0/interface.h
+--- interface.h	2008-08-31 19:44:14.000000000 -0700
++++ interface.h	2009-01-09 14:29:40.000000000 -0800
+@@ -381,6 +381,7 @@
+ #define xflag gndo->ndo_xflag 
+ #define Xflag gndo->ndo_Xflag 
+ #define Cflag gndo->ndo_Cflag 
++#define gflag gndo->ndo_gflag
+ #define Gflag gndo->ndo_Gflag 
+ #define Aflag gndo->ndo_Aflag 
+ #define Bflag gndo->ndo_Bflag 
+diff -r -u -N tcpdump-4.0.0.orig/netdissect.h tcpdump-4.0.0/netdissect.h
+--- netdissect.h	2008-08-31 19:44:15.000000000 -0700
++++ netdissect.h	2009-01-09 14:29:15.000000000 -0800
+@@ -110,6 +110,7 @@
+ 
+   int ndo_Cflag;                /* rotate dump files after this many bytes */ 
+   int ndo_Cflag_count;      /* Keep track of which file number we're writing */
++  int ndo_gflag;            /* no line break in verbose mode for easier grepping */
+   int ndo_Gflag;            /* rotate dump files after this many seconds */
+   int ndo_Gflag_count;      /* number of files created with Gflag rotation */
+   time_t ndo_Gflag_time;    /* The last time_t the dump file was rotated. */
+diff -r -u -N tcpdump-4.0.0.orig/print-ip.c tcpdump-4.0.0/print-ip.c
+--- print-ip.c	2008-08-31 19:44:24.000000000 -0700
++++ print-ip.c	2009-01-09 14:51:11.000000000 -0800
+@@ -657,7 +657,7 @@
+                 printf(")");
+             }
+ 
+-	    if ((u_char *)ipds->ip + hlen <= snapend) {
++	    if (!Kflag && (u_char *)ipds->ip + hlen <= snapend) {
+ 	        sum = in_cksum((const u_short *)ipds->ip, hlen, 0);
+ 		if (sum != 0) {
+ 		    ip_sum = EXTRACT_16BITS(&ipds->ip->ip_sum);
+@@ -666,7 +666,10 @@
+ 		}
+ 	    }
+ 
+-            printf(")\n    ");
++            if (!gflag)
++                printf(")\n    ");
++            else
++                printf(") ");
+ 	}
+ 
+ 	/*
+diff -r -u -N tcpdump-4.0.0.orig/print-tcp.c tcpdump-4.0.0/print-tcp.c
+--- print-tcp.c	2008-08-31 19:44:38.000000000 -0700
++++ print-tcp.c	2009-01-09 10:21:07.000000000 -0800
+@@ -455,7 +455,7 @@
+ #endif
+ 
+         length -= hlen;
+-        if (vflag > 1 || flags & (TH_SYN | TH_FIN | TH_RST)) {
++        if (vflag > 1 || length > 0 || flags & (TH_SYN | TH_FIN | TH_RST)) {
+                 (void)printf(", seq %u", seq);
+ 
+                 if (length > 0) {
+diff -r -u -N tcpdump-4.0.0.orig/print-udp.c tcpdump-4.0.0/print-udp.c
+--- print-udp.c	2008-08-31 19:44:39.000000000 -0700
++++ print-udp.c	2009-01-09 11:09:49.000000000 -0800
+@@ -568,7 +568,7 @@
+ 	}
+ 	udpipaddr_print(ip, sport, dport);
+ 
+-	if (IP_V(ip) == 4 && (vflag > 1) && !fragmented) {
++	if (!Kflag && IP_V(ip) == 4 && (vflag > 1) && !fragmented) {
+ 		int sum = up->uh_sum;
+ 		if (sum == 0) {
+ 			(void)printf("[no cksum] ");
+@@ -581,7 +581,7 @@
+ 		}
+ 	}
+ #ifdef INET6
+-	if (IP_V(ip) == 6 && ip6->ip6_plen && vflag && !fragmented) {
++	if (!Kflag && IP_V(ip) == 6 && ip6->ip6_plen && vflag && !fragmented) {
+ 		int sum = up->uh_sum;
+ 		/* for IPv6, UDP checksum is mandatory */
+ 		if (TTEST2(cp[0], length)) {
+diff -r -u -N tcpdump-4.0.0.orig/tcpdump.1 tcpdump-4.0.0/tcpdump.1
+--- tcpdump.1	2008-08-31 19:44:41.000000000 -0700
++++ tcpdump.1	2009-01-09 14:48:38.000000000 -0800
+@@ -29,7 +29,7 @@
+ .na
+ .B tcpdump
+ [
+-.B \-AdDefIKlLnNOpqRStuUvxX
++.B \-AdDefgIKlLnNOpqRStuUvxX
+ ] [
+ .B \-B
+ .I buffer_size
+@@ -301,6 +301,10 @@
+ Use \fIfile\fP as input for the filter expression.
+ An additional expression given on the command line is ignored.
+ .TP
++.B \-g
++Do not insert line break after IP header in verbose mode for 
++easier parsing.
++.TP
+ .B \-G
+ If specified, rotates the dump file specified with the
+ .B \-w
+@@ -346,9 +350,9 @@
+ network with another adapter.
+ .TP
+ .B \-K
+-Don't attempt to verify TCP checksums.  This is useful for interfaces
+-that perform the TCP checksum calculation in hardware; otherwise,
+-all outgoing TCP checksums will be flagged as bad.
++Don't attempt to verify TCP, UDP and IP checksums.  This is useful for interfaces
++that perform the checksum calculation in hardware; otherwise,
++all outgoing checksums will be flagged as bad.
+ .TP
+ .B \-l
+ Make stdout line buffered.
+diff -r -u -N tcpdump-4.0.0.orig/tcpdump.c tcpdump-4.0.0/tcpdump.c
+--- tcpdump.c	2008-10-10 19:39:58.000000000 -0700
++++ tcpdump.c	2009-01-09 14:29:54.000000000 -0800
+@@ -535,7 +535,7 @@
+ 
+ 	opterr = 0;
+ 	while (
+-	    (op = getopt(argc, argv, "aA" B_FLAG "c:C:d" D_FLAG "eE:fF:G:i:" I_FLAG "KlLm:M:nNOpqr:Rs:StT:u" U_FLAG "vw:W:xXy:Yz:Z:")) != -1)
++	    (op = getopt(argc, argv, "aA" B_FLAG "c:C:d" D_FLAG "eE:fF:gG:i:" I_FLAG "KlLm:M:nNOpqr:Rs:StT:u" U_FLAG "vw:W:xXy:Yz:Z:")) != -1)
+ 		switch (op) {
+ 
+ 		case 'a':
+@@ -609,6 +609,10 @@
+ 			infile = optarg;
+ 			break;
+ 
++		case 'g':
++			gflag++;
++			break;
++
+ 		case 'G':
+ 			Gflag = atoi(optarg);
+ 			if (Gflag < 0)

@@ -11,7 +11,12 @@
 		<string>sa-update</string>
 		<string>--nogpg</string>
 	</array>
-        <key>StartInterval</key>
-        <integer>86400</integer>
+        <key>StartCalendarInterval</key>
+	<dict>
+		<key>Hour</key>
+		<integer>2</integer>
+		<key>Minute</key>
+		<integer>30</integer>
+	</dict>
 </dict>
 </plist>

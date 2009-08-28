@@ -68,7 +68,6 @@
 #include <syslog.h>
 #include <netdb.h>
 #include <time.h>
-#include <utmp.h>
 #include <pwd.h>
 #include <sys/param.h>
 #include <sys/types.h>
@@ -81,6 +80,13 @@
 #ifdef SVR4
 #include <sys/mkdev.h>
 #endif
+#include <arpa/inet.h>
+#include <net/if.h>
+#include <netinet/in_var.h>
+#include <sys/kern_event.h>
+#include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCValidation.h>
+#include <CoreFoundation/CFBundle.h>
 
 #include "pppd.h"
 #include "fsm.h"
@@ -1141,3 +1147,377 @@ unlock()
     }
 }
 
+static char unknown_if_family_str[16];
+static char *
+if_family2ascii (u_int32_t if_family)
+{
+	switch (if_family) {
+		case APPLE_IF_FAM_LOOPBACK:
+			return("Loopback");
+		case APPLE_IF_FAM_ETHERNET:
+			return("Ether");
+		case APPLE_IF_FAM_SLIP:
+			return("SLIP");
+		case APPLE_IF_FAM_TUN:
+			return("TUN");
+		case APPLE_IF_FAM_VLAN:
+			return("VLAN");
+		case APPLE_IF_FAM_PPP:
+			return("PPP");
+		case APPLE_IF_FAM_PVC:
+			return("PVC");
+		case APPLE_IF_FAM_DISC:
+			return("DISC");
+		case APPLE_IF_FAM_MDECAP:
+			return("MDECAP");
+		case APPLE_IF_FAM_GIF:
+			return("GIF");
+		case APPLE_IF_FAM_FAITH:
+			return("FAITH");
+		case APPLE_IF_FAM_STF:
+			return("STF");
+		case APPLE_IF_FAM_FIREWIRE:
+			return("FireWire");
+		case APPLE_IF_FAM_BOND:
+			return("Bond");
+		default:
+			snprintf(unknown_if_family_str, sizeof(unknown_if_family_str), "%d", if_family);
+			return(unknown_if_family_str);
+	}
+}
+
+void
+log_vpn_interface_address_event (char                  *location,
+								 struct kern_event_msg *ev_msg,
+								 int                    wait_interface_timeout,
+								 char                  *interface,
+								 struct in_addr        *our_address)
+{
+	struct in_addr mask;
+	char   our_addr_str[INET_ADDRSTRLEN];
+
+	if (!ev_msg) {
+		notice("%s: %d secs TIMEOUT waiting for interface to be reconfigured. previous setting (name: %s, address: %s).",
+			   location,
+			   wait_interface_timeout,
+			   interface,
+			   addr2ascii(AF_INET, our_address, sizeof(*our_address), our_addr_str));
+		return;
+	} else {
+		struct kev_in_data      *inetdata = (struct kev_in_data *) &ev_msg->event_data[0];
+		struct kev_in_collision *inetdata_coll = (struct kev_in_collision *) &ev_msg->event_data[0];
+		char                     new_addr_str[INET_ADDRSTRLEN];
+		char                     new_mask_str[INET_ADDRSTRLEN];
+		char                     dst_addr_str[INET_ADDRSTRLEN];		
+
+		mask.s_addr = ntohl(inetdata->ia_netmask);
+
+		switch (ev_msg->event_code) {
+			case KEV_INET_NEW_ADDR:
+				notice("%s: Address added. previous interface setting (name: %s, address: %s), current interface setting (name: %s%d, family: %s, address: %s, subnet: %s, destination: %s).",
+					   location,
+					   interface,
+					   addr2ascii(AF_INET, our_address, sizeof(*our_address), our_addr_str),
+					   inetdata->link_data.if_name, inetdata->link_data.if_unit,
+					   if_family2ascii(inetdata->link_data.if_family),
+					   addr2ascii(AF_INET, &inetdata->ia_addr, sizeof(inetdata->ia_addr), new_addr_str),
+					   addr2ascii(AF_INET, &mask, sizeof(mask), new_mask_str),
+					   addr2ascii(AF_INET, &inetdata->ia_dstaddr, sizeof(inetdata->ia_dstaddr), dst_addr_str));
+				break;
+			case KEV_INET_CHANGED_ADDR:
+				notice("%s: Address changed. previous interface setting (name: %s, address: %s), current interface setting (name: %s%d, family: %s, address: %s, subnet: %s, destination: %s).",
+					   location,
+					   interface,
+					   addr2ascii(AF_INET, our_address, sizeof(*our_address), our_addr_str),
+					   inetdata->link_data.if_name, inetdata->link_data.if_unit,
+					   if_family2ascii(inetdata->link_data.if_family),
+					   addr2ascii(AF_INET, &inetdata->ia_addr, sizeof(inetdata->ia_addr), new_addr_str),
+					   addr2ascii(AF_INET, &mask, sizeof(mask), new_mask_str),
+					   addr2ascii(AF_INET, &inetdata->ia_dstaddr, sizeof(inetdata->ia_dstaddr), dst_addr_str));
+				break;
+			case KEV_INET_ADDR_DELETED:
+				notice("%s: Address deleted. previous interface setting (name: %s, address: %s), deleted interface setting (name: %s%d, family: %s, address: %s, subnet: %s, destination: %s).",
+					   location,
+					   interface,
+					   addr2ascii(AF_INET, our_address, sizeof(*our_address), our_addr_str),
+					   inetdata->link_data.if_name, inetdata->link_data.if_unit,
+					   if_family2ascii(inetdata->link_data.if_family),
+					   addr2ascii(AF_INET, &inetdata->ia_addr, sizeof(inetdata->ia_addr), new_addr_str),
+					   addr2ascii(AF_INET, &mask, sizeof(mask), new_mask_str),
+					   addr2ascii(AF_INET, &inetdata->ia_dstaddr, sizeof(inetdata->ia_dstaddr), dst_addr_str));
+				break;
+			case KEV_INET_ARPCOLLISION:
+				notice("%s: ARP collided. previous interface setting (name: %s, address: %s), conflicting interface setting (name: %s%d, family: %s, address: %s, mac: %x:%x:%x:%x:%x:%x).",
+					   location,
+					   interface,
+					   addr2ascii(AF_INET, our_address, sizeof(*our_address), our_addr_str),
+					   inetdata_coll->link_data.if_name,
+					   inetdata_coll->link_data.if_unit,
+					   if_family2ascii(inetdata_coll->link_data.if_family),
+					   addr2ascii(AF_INET, &inetdata_coll->ia_ipaddr, sizeof(inetdata_coll->ia_ipaddr), new_addr_str),
+					   inetdata_coll->hw_addr[5],inetdata_coll->hw_addr[4],inetdata_coll->hw_addr[3],inetdata_coll->hw_addr[2],inetdata_coll->hw_addr[1],inetdata_coll->hw_addr[0]);
+				break;
+			default:
+				notice("%s: Other Address event (%d). previous interface setting (name: %s, address: %s), other interface setting (name: %s%d, family: %s, address: %s, subnet: %s, destination: %s).",
+					   location,
+					   ev_msg->event_code,
+					   interface,
+					   addr2ascii(AF_INET, our_address, sizeof(*our_address), our_addr_str),
+					   inetdata->link_data.if_name, inetdata->link_data.if_unit,
+					   if_family2ascii(inetdata->link_data.if_family),
+					   addr2ascii(AF_INET, &inetdata->ia_addr, sizeof(inetdata->ia_addr), new_addr_str),
+					   addr2ascii(AF_INET, &mask, sizeof(mask), new_mask_str),
+					   addr2ascii(AF_INET, &inetdata->ia_dstaddr, sizeof(inetdata->ia_dstaddr), dst_addr_str));
+				break;
+		}
+	}
+}
+
+int
+check_vpn_interface_or_service_unrecoverable (void                  *dynamicStore,
+					      char                  *location,
+					      struct kern_event_msg *ev_msg,
+					      char                  *interface_buf)
+{
+	SCDynamicStoreRef dynamicStoreRef = (SCDynamicStoreRef)dynamicStore;
+
+	// return 1, if this is a delete event, and;
+	// TODO: add support for IPv6 <rdar://problem/5920237>
+	// walk Setup:/Network/Service/* and check if there are service entries referencing this interface. e.g. Setup:/Network/Service/44DB8790-0177-4F17-8D4E-37F9413D1D87/Interface:DeviceName == interface, other_serv_found = 1
+	// Setup:/Network/Interface/"interface"/AirPort:'PowerEnable' == 0 || Setup:/Network/Interface/"interface"/IPv4 is missing, interf_down = 1
+	if (!dynamicStoreRef)
+		dbglog("%s: invalid SCDynamicStore reference", location);
+
+	if (dynamicStoreRef &&
+	    (ev_msg->event_code == KEV_INET_ADDR_DELETED || ev_msg->event_code == KEV_INET_CHANGED_ADDR)) {
+		CFStringRef       interf_key;
+		CFMutableArrayRef interf_keys;
+		CFStringRef       pattern;
+		CFMutableArrayRef patterns;
+		CFDictionaryRef   dict = NULL;
+		CFIndex           i;
+		const void *      keys_q[128];
+		const void **     keys = keys_q;
+		const void *      values_q[128];
+		const void **     values = values_q;
+		CFIndex           n;
+		CFStringRef       vpn_if;
+		int               other_serv_found = 0, interf_down = 0;
+
+		vpn_if = CFStringCreateWithCStringNoCopy(NULL,
+							 interface_buf,
+							 kCFStringEncodingASCII,
+							 kCFAllocatorNull);
+		if (!vpn_if) {
+			// if we could not initialize interface CFString
+			notice("%s: failed to initialize interface CFString", location);
+			goto done;
+		}
+
+		interf_keys = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+		patterns = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+		// get Setup:/Network/Interface/<vpn_if>/Airport
+		interf_key = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
+									   kSCDynamicStoreDomainSetup,
+									   vpn_if,
+									   kSCEntNetAirPort);
+		CFArrayAppendValue(interf_keys, interf_key);
+		CFRelease(interf_key);
+		// get State:/Network/Interface/<vpn_if>/Airport
+		interf_key = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
+									   kSCDynamicStoreDomainState,
+									   vpn_if,
+									   kSCEntNetAirPort);
+		CFArrayAppendValue(interf_keys, interf_key);
+		CFRelease(interf_key);
+		// get Setup:/Network/Service/*/Interface
+		pattern = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
+								      kSCDynamicStoreDomainSetup,
+								      kSCCompAnyRegex,
+								      kSCEntNetInterface);
+		CFArrayAppendValue(patterns, pattern);
+		CFRelease(pattern);
+		// get Setup:/Network/Service/*/IPv4
+		pattern = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
+								      kSCDynamicStoreDomainSetup,
+								      kSCCompAnyRegex,
+								      kSCEntNetIPv4);
+		CFArrayAppendValue(patterns, pattern);
+		CFRelease(pattern);
+		dict = SCDynamicStoreCopyMultiple(dynamicStoreRef, interf_keys, patterns);
+		CFRelease(interf_keys);
+		CFRelease(patterns);
+
+		if (!dict) {
+			// if we could not access the SCDynamicStore
+			notice("%s: failed to initialize SCDynamicStore dictionary", location);
+			goto done;
+		}
+		// look for the service which matches the provided prefixes
+		n = CFDictionaryGetCount(dict);
+		if (n <= 0) {
+			notice("%s: empty SCDynamicStore dictionary", location);
+			goto done;
+		}
+		if (n > (CFIndex)(sizeof(keys_q) / sizeof(CFTypeRef))) {
+			keys   = CFAllocatorAllocate(NULL, n * sizeof(CFTypeRef), 0);
+			values = CFAllocatorAllocate(NULL, n * sizeof(CFTypeRef), 0);
+		}
+		CFDictionaryGetKeysAndValues(dict, keys, values);
+		for (i=0; i < n; i++) {
+			CFStringRef     s_key  = (CFStringRef)keys[i];
+			CFDictionaryRef s_dict = (CFDictionaryRef)values[i];
+			CFStringRef     s_if;
+
+			if (!isA_CFString(s_key) || !isA_CFDictionary(s_dict)) {
+				continue;
+			}
+
+			//notice("processing key: %s \n", CFStringGetCStringPtr(s_key, kCFStringEncodingMacRoman));
+
+			if (CFStringHasSuffix(s_key, kSCEntNetInterface)) {
+				// is a Service Interface entity
+				s_if = CFDictionaryGetValue(s_dict, kSCPropNetInterfaceDeviceName);
+				if (isA_CFString(s_if) && CFEqual(vpn_if, s_if)) {
+					CFArrayRef        components;
+					CFStringRef       serviceIDRef = NULL, serviceKey = NULL;
+					CFPropertyListRef serviceRef = NULL;
+
+					notice("linked service found: %s \n", CFStringGetCStringPtr(s_key, kCFStringEncodingMacRoman));
+					other_serv_found = 1;
+					// extract service ID
+					components = CFStringCreateArrayBySeparatingStrings(NULL, s_key, CFSTR("/"));
+					if (CFArrayGetCount(components) > 3) {
+						serviceIDRef = CFArrayGetValueAtIndex(components, 3);
+						//if (new key) Setup:/Network/Service/service_id/IPv4 is missing, then interf_down = 1
+						serviceKey = SCDynamicStoreKeyCreateNetworkServiceEntity(0, kSCDynamicStoreDomainSetup, serviceIDRef, kSCEntNetIPv4);
+						if (!serviceKey ||
+						    !(serviceRef = CFDictionaryGetValue(dict, serviceKey))) {
+							notice("%s: detected disabled IPv4 Config", location);
+							interf_down = 1;
+						}
+						if (serviceKey) CFRelease(serviceKey);
+					}
+					if (components) CFRelease(components);
+					if (interf_down) break;
+				}
+				continue;
+			} else if (CFStringHasSuffix(s_key, kSCEntNetAirPort)) {
+				// Interface/<vpn_if>/Airport entity
+				if (CFStringHasPrefix(s_key, kSCDynamicStoreDomainSetup)) {
+					CFBooleanRef powerEnable = CFDictionaryGetValue(s_dict, kSCPropNetAirPortPowerEnabled);
+					if (isA_CFBoolean(powerEnable) &&
+					    CFEqual(powerEnable, kCFBooleanFalse)) {
+						notice("%s: detected AirPort, PowerEnable == FALSE", location);
+						interf_down = 1;
+						break;
+					}
+				} else if (CFStringHasPrefix(s_key, kSCDynamicStoreDomainState)) {
+					UInt16      temp;
+					CFNumberRef airStatus = CFDictionaryGetValue(s_dict, CFSTR("Power Status"));
+					if (isA_CFNumber(airStatus) &&
+					    CFNumberGetValue(airStatus, kCFNumberShortType, &temp)) {
+						if (temp ==0) {
+							notice("%s: detected AirPort, PowerStatus == 0", location);
+						}
+					}
+				}
+				continue;
+			}
+		}
+		if (vpn_if) CFRelease(vpn_if);
+		if (keys != keys_q) {
+			CFAllocatorDeallocate(NULL, keys);
+			CFAllocatorDeallocate(NULL, values);
+		}
+done :
+		if (dict) CFRelease(dict);
+
+		return (other_serv_found == 0 || interf_down == 1);             
+	}
+	return 0;
+}
+
+int
+check_vpn_interface_address_change (int                    transport_down,
+                                    struct kern_event_msg *ev_msg,
+                                    char                  *interface_buf,
+                                    struct in_addr        *our_address)
+{
+    struct kev_in_data *inetdata;
+    
+    /* if transport is still down: ignore deletes, and check if the underlying interface's address has changed (ignore link-local addresses) */
+    if (transport_down &&
+        (ev_msg->event_code == KEV_INET_NEW_ADDR || ev_msg->event_code == KEV_INET_CHANGED_ADDR)) {
+ 		inetdata = (struct kev_in_data *) &ev_msg->event_data[0];
+#if 0
+        notice("%s: checking for interface address change. underlying %s, old-addr %x, new-addr %x\n",
+               __FUNCTION__, interface_buf, our_address->s_addr, inetdata->ia_addr.s_addr);
+#endif
+        /* check if address changed */
+        if (our_address->s_addr != inetdata->ia_addr.s_addr &&
+            !IN_LINKLOCAL(ntohl(inetdata->ia_addr.s_addr))) {
+            return 1;
+        }
+    }
+    
+    return 0;
+}
+
+int
+check_vpn_interface_alternate (int                    transport_down,
+                               struct kern_event_msg *ev_msg,
+                               char                  *interface_buf)
+{
+    struct kev_in_data *inetdata;
+
+    /* if transport is still down: ignore deletes, and check if an alternative interface has a valid address (ignore link-local) */
+    if (transport_down &&
+        (ev_msg->event_code == KEV_INET_NEW_ADDR || ev_msg->event_code == KEV_INET_CHANGED_ADDR)) {
+ 		inetdata = (struct kev_in_data *) &ev_msg->event_data[0];
+#if 0        
+        notice("%s: checking for alternate interface. underlying %s, new-addr %x\n",
+               __FUNCTION__, interface_buf, inetdata->ia_addr.s_addr);
+#endif
+        if (!IN_LINKLOCAL(ntohl(inetdata->ia_addr.s_addr))) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+#if 0
+/* 
+ * print_hex - hexdump (in out buffer) of binary data (in buffer), for count bytes
+ */
+static void
+print_hex (unsigned char *out, unsigned char *in, int count)
+{
+	register unsigned char next_ch;
+	static char hex[] = "0123456789abcdef";
+	
+	while (count-- > 0) {
+		next_ch = *in++;
+		*out++ = hex[(next_ch >> 4) & 0x0F];
+		*out++ = hex[next_ch & 0x0F];
+	}
+	
+	*out = '\0';
+}
+
+/*
+ * dump_mppe_keys - print out mppe send/recv keys 
+ */
+void
+dump_buffer(char *caller, unsigned char* binbuf, int size)
+{	
+	if(binbuf)
+	{
+		static unsigned char buf[65];
+		
+		print_hex(buf, binbuf, size);
+		error("%s: data (%d bits) = %s",caller, size<<3, buf);
+	}
+}
+#endif

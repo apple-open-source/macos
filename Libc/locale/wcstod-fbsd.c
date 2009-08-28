@@ -35,14 +35,35 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/wcstod.c,v 1.4 2004/04/07 09:47:56 tjr E
 #include <_simple.h>
 
 /*
+ * __wcs_end_offset calculates the offset to the end within the wide character
+ * string, assuming numbers and letters are single bytes in multibyte
+ * representation, get the actual decimal string for localeconv_l.  If the
+ * decimal point was within the string, compensate for the fact that the
+ * (possible more than one byte) decimal point one takes one wide character.
+ */
+__private_extern__ size_t
+__wcs_end_offset(const char * __restrict buf, const char * __restrict end, locale_t loc)
+{
+	const char *decimalpoint = localeconv_l(loc)->decimal_point;
+	size_t n = end - buf;
+	char *p;
+
+	if ((p = strnstr(buf, decimalpoint, n)) != NULL)
+		n -= strlen(decimalpoint) - 1;
+	return n;
+}
+
+/*
  * Convert a string to a double-precision number.
  *
  * This is the wide-character counterpart of strtod(). So that we do not
  * have to duplicate the code of strtod() here, we convert the supplied
  * wide character string to multibyte and call strtod() on the result.
  * This assumes that the multibyte encoding is compatible with ASCII
- * for at least the digits, radix character and letters.
+ * for at least the digits and letters.  The radix character can be more
+ * than one byte.
  */
+
 double
 wcstod_l(const wchar_t * __restrict nptr, wchar_t ** __restrict endptr,
     locale_t loc)
@@ -90,7 +111,7 @@ wcstod_l(const wchar_t * __restrict nptr, wchar_t ** __restrict endptr,
 	 */
 	if (endptr != NULL)
 		/* XXX Assume each wide char is one byte. */
-		*endptr = (end == buf) ? (wchar_t *)nptr0 : ((wchar_t *)first + (end - buf));
+		*endptr = (end == buf) ? (wchar_t *)nptr0 : ((wchar_t *)first + __wcs_end_offset(buf, end, loc));
 
 	_simple_sfree(b);
 

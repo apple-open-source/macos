@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: sepheaders.c,v 1.7 2006-11-08 08:49:27 bagder Exp $
+ * $Id: sepheaders.c,v 1.10 2008-05-22 21:20:09 danf Exp $
  */
 
 #include <stdio.h>
@@ -16,7 +16,7 @@
 #include <curl/types.h>
 #include <curl/easy.h>
 
-size_t write_data(void *ptr, size_t size, size_t nmemb, void *stream)
+static size_t write_data(void *ptr, size_t size, size_t nmemb, void *stream)
 {
   int written = fwrite(ptr, size, nmemb, (FILE *)stream);
   return written;
@@ -25,9 +25,9 @@ size_t write_data(void *ptr, size_t size, size_t nmemb, void *stream)
 int main(int argc, char **argv)
 {
   CURL *curl_handle;
-  char *headerfilename = "head.out";
+  static const char *headerfilename = "head.out";
   FILE *headerfile;
-  char *bodyfilename = "body.out";
+  static const char *bodyfilename = "body.out";
   FILE *bodyfile;
 
   curl_global_init(CURL_GLOBAL_ALL);
@@ -39,7 +39,7 @@ int main(int argc, char **argv)
   curl_easy_setopt(curl_handle, CURLOPT_URL, "http://curl.haxx.se");
 
   /* no progress meter please */
-  curl_easy_setopt(curl_handle, CURLOPT_NOPROGRESS, 1);
+  curl_easy_setopt(curl_handle, CURLOPT_NOPROGRESS, 1L);
 
   /* send all data to this function  */
   curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, write_data);
@@ -57,7 +57,7 @@ int main(int argc, char **argv)
   }
 
   /* we want the headers to this file handle */
-  curl_easy_setopt(curl_handle,   CURLOPT_WRITEHEADER ,headerfile);
+  curl_easy_setopt(curl_handle,   CURLOPT_WRITEHEADER, headerfile);
 
   /*
    * Notice here that if you want the actual data sent anywhere else but

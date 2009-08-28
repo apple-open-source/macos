@@ -1,4 +1,3 @@
-/* APPLE LOCAL file mainline */
 /* Allow extra semicolons in between method declarations,
    for old times' sake.  */
 

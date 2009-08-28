@@ -1,8 +1,8 @@
 /*
  * ntfs_debug.h - Defines for NTFS kernel debug support.
  *
- * Copyright (c) 2006, 2007 Anton Altaparmakov.  All Rights Reserved.
- * Portions Copyright (c) 2006, 2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2008 Anton Altaparmakov.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2008 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -74,12 +74,15 @@ __private_extern__ void __ntfs_debug(const char *file, int line,
 #define ntfs_debug(fmt, a...)		\
 		__ntfs_debug(__FILE__, __LINE__, __FUNCTION__, fmt, ##a)
 
-__private_extern__ void ntfs_debug_rl_dump(const ntfs_runlist *rl);
+__private_extern__ void ntfs_debug_runlist_dump(const ntfs_runlist *rl);
+__private_extern__ void ntfs_debug_attr_list_dump(const u8 *al,
+		const unsigned size);
 
 #else /* !DEBUG */
 
-#define ntfs_debug(fmt, a...)	do {} while (0)
-#define ntfs_debug_rl_dump(rl)	do {} while (0)
+#define ntfs_debug(fmt, a...)			do {} while (0)
+#define ntfs_debug_runlist_dump(rl)		do {} while (0)
+#define ntfs_debug_attr_list_dump(al, size)	do {} while (0)
 
 #endif /* !DEBUG */
 

@@ -139,13 +139,13 @@ bool ObjectAcl::validates(AclValidationContext &ctx)
 			ctx.init(this, slot.subject);
 			ctx.entryTag(slot.tag);
 			if (slot.validate(ctx)) {
-				IFDUMPING("acleval", Debug::dump(">PASS>>"));
+				IFDUMPING("acleval", Debug::dump(">PASS>>\n"));
 				return true;		// passed
 			}
 			IFDUMPING("acleval", Debug::dump(" NO"));
 		}
     }
-	IFDUMPING("acleval", Debug::dump(">FAIL>>"));
+	IFDUMPING("acleval", Debug::dump(">FAIL>>\n"));
 	return false;	// no joy
 }
 
@@ -409,7 +409,7 @@ void ObjectAcl::add(const std::string &tag, const AclEntry &newEntry)
 	add(tag, newEntry, mNextHandle++);
 }
 
-void ObjectAcl::add(const std::string &tag, AclEntry newEntry, uint32 handle)
+void ObjectAcl::add(const std::string &tag, AclEntry newEntry, CSSM_ACL_HANDLE handle)
 {
 	//@@@ This should use a hook-registry mechanism. But for now, we are explicit:
 	if (!newEntry.authorizesAnything) {

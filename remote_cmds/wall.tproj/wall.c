@@ -33,7 +33,7 @@
 
 #include <sys/cdefs.h>
 
-__FBSDID("$FreeBSD: src/usr.bin/wall/wall.c,v 1.23 2003/02/21 08:46:44 tjr Exp $");
+__FBSDID("$FreeBSD: src/usr.bin/wall/wall.c,v 1.25 2008/01/15 07:40:30 das Exp $");
 
 #ifndef lint
 static const char copyright[] =
@@ -65,7 +65,11 @@ static const char sccsid[] = "@(#)wall.c	8.2 (Berkeley) 11/16/93";
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#ifdef __APPLE__
 #include <utmpx.h>
+#else
+#include <utmp.h>
+#endif
 
 #include "ttymsg.h"
 
@@ -81,20 +85,48 @@ int nobanner;
 int mbufsize;
 char *mbuf;
 
+#ifndef __APPLE__
+static int
+ttystat(char *line, int sz)
+{
+	struct stat sb;
+	char ttybuf[MAXPATHLEN];
+
+	(void)snprintf(ttybuf, sizeof(ttybuf), "%s%.*s", _PATH_DEV, sz, line);
+	if (stat(ttybuf, &sb) == 0) {
+		return (0);
+	} else
+		return (-1);
+}
+#endif
+
 int
 main(int argc, char *argv[])
 {
 	struct iovec iov;
+#ifdef __APPLE__
+	// rdar://problem/4433603
 	struct utmpx *u;
+#else
+	struct utmp utmp;
+#endif
 	int ch;
 	int ingroup;
+#ifndef __APPLE__
+	FILE *fp;
+#endif
 	struct wallgroup *g;
 	struct group *grp;
 	char **np;
 	const char *p;
 	struct passwd *pw;
+#ifdef __APPLE__
 	char line[sizeof(u->ut_line) + 1];
 	char username[sizeof(u->ut_user) + 1];
+#else
+	char line[sizeof(utmp.ut_line) + 1];
+	char username[sizeof(utmp.ut_name) + 1];
+#endif
 
 	(void)setlocale(LC_CTYPE, "");
 
@@ -131,16 +163,33 @@ main(int argc, char *argv[])
 
 	makemsg(*argv);
 
+#ifdef __APPLE__
 	setutxent();
+#else
+	if (!(fp = fopen(_PATH_UTMP, "r")))
+		err(1, "cannot read %s", _PATH_UTMP);
+#endif
 	iov.iov_base = mbuf;
 	iov.iov_len = mbufsize;
 	/* NOSTRICT */
+#ifdef __APPLE__
 	while ((u = getutxent()) != NULL) {
 		if (!u->ut_user[0] || u->ut_type != USER_PROCESS)
 			continue;
+#else
+	while (fread((char *)&utmp, sizeof(utmp), 1, fp) == 1) {
+		if (!utmp.ut_name[0])
+			continue;
+		if (ttystat(utmp.ut_line, UT_LINESIZE) != 0)
+			continue;
+#endif
 		if (grouplist) {
 			ingroup = 0;
+#ifdef __APPLE__
 			strlcpy(username, u->ut_user, sizeof(username));
+#else
+			strlcpy(username, utmp.ut_name, sizeof(utmp.ut_name));
+#endif
 			pw = getpwnam(username);
 			if (!pw)
 				continue;
@@ -161,7 +210,12 @@ main(int argc, char *argv[])
 			if (ingroup == 0)
 				continue;
 		}
+#ifdef __APPLE__
 		strlcpy(line, u->ut_line, sizeof(line));
+#else
+		strncpy(line, utmp.ut_line, sizeof(utmp.ut_line));
+		line[sizeof(utmp.ut_line)] = '\0';
+#endif
 		if ((p = ttymsg(&iov, 1, line, 60*5)) != NULL)
 			warnx("%s", p);
 	}
@@ -233,17 +287,28 @@ makemsg(char *fname)
 			err(1, "can't read %s", fname);
 		setegid(egid);
 	}
-	while (fgets(lbuf, sizeof(lbuf), stdin))
+	while (fgets(lbuf, sizeof(lbuf), stdin)) {
 		for (cnt = 0, p = lbuf; (ch = *p) != '\0'; ++p, ++cnt) {
 			if (ch == '\r') {
+				putc('\r', fp);
 				cnt = 0;
-			} else if (cnt == 79 || ch == '\n') {
+				continue;
+			} else if (ch == '\n') {
 				for (; cnt < 79; ++cnt)
 					putc(' ', fp);
 				putc('\r', fp);
 				putc('\n', fp);
+				break;
+			}
+			if (cnt == 79) {
+				putc('\r', fp);
+				putc('\n', fp);
 				cnt = 0;
-			} else if (((ch & 0x80) && ch < 0xA0) ||
+			}
+#ifdef __APPLE__
+			else // rdar://problem/3066405
+#endif
+			if (((ch & 0x80) && ch < 0xA0) ||
 				   /* disable upper controls */
 				   (!isprint(ch) && !isspace(ch) &&
 				    ch != '\a' && ch != '\b')
@@ -273,8 +338,13 @@ makemsg(char *fname)
 					}
 				}
 			}
-			if (ch != '\n') putc(ch, fp);
+#ifdef __APPLE__
+			// rdar://problem/4557295
+			if (ch != '\n')
+#endif
+			putc(ch, fp);
 		}
+	}
 	(void)fprintf(fp, "%79s\r\n", " ");
 	rewind(fp);
 

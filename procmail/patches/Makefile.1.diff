@@ -1,0 +1,13 @@
+diff -r -u -I : procmail-3.22/Makefile.1 procmail/Makefile.1
+--- procmail-3.22/Makefile.1	2001-09-10 21:53:09.000000000 -0700
++++ procmail/Makefile.1	2008-07-06 23:12:48.000000000 -0700
+@@ -110,8 +110,7 @@
+ 	@-dirname / >$(DEVNULL) || $(INSTALL) examples/dirname $(BINDIR)
+ 	echo Housekeeping file >install.bin
+ 
+-install:
+-	@$(MAKE) install.man install.bin
++install: install.man install.bin
+ 	@echo
+ 	@cd $(BINDIR); echo Installed in $(BINDIR); ls -l $(BINSS)
+ 	@cd $(MAN1DIR); echo Installed in $(MAN1DIR); ls -l $(MANS1)

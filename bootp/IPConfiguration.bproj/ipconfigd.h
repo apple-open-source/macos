@@ -23,7 +23,7 @@
 #ifndef _S_IPCONFIGD_H
 #define _S_IPCONFIGD_H
 extern int 		 get_if_count();
-extern boolean_t 	 get_if_name(int intface, char * name);
+extern boolean_t 	 get_if_name(int intface, char * name, size_t namelen);
 extern boolean_t 	 get_if_addr(const char * name, u_int32_t * addr);
 extern boolean_t 	 get_if_option(const char * name, int option_code, 
 				       void * option_data, 

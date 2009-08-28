@@ -103,6 +103,8 @@ static char	*currentlocale(void);
 static char	*loadlocale(int);
 __private_extern__ const char *__get_locale_env(int);
 
+#define	UNLOCK_AND_RETURN(x)	{XL_UNLOCK(&__global_locale); return (x);}
+
 char *
 setlocale(category, locale)
 	int category;
@@ -121,6 +123,7 @@ setlocale(category, locale)
 		return (category != LC_ALL ?
 		    current_categories[category] : currentlocale());
 
+	XL_LOCK(&__global_locale);
 	/*
 	 * Default to the current locale for everything.
 	 */
@@ -136,7 +139,7 @@ setlocale(category, locale)
 				env = __get_locale_env(i);
 				if (strlen(env) > ENCODING_LEN) {
 					errno = EINVAL;
-					return (NULL);
+					UNLOCK_AND_RETURN (NULL);
 				}
 				(void)strcpy(new_categories[i], env);
 			}
@@ -144,21 +147,21 @@ setlocale(category, locale)
 			env = __get_locale_env(category);
 			if (strlen(env) > ENCODING_LEN) {
 				errno = EINVAL;
-				return (NULL);
+				UNLOCK_AND_RETURN (NULL);
 			}
 			(void)strcpy(new_categories[category], env);
 		}
 	} else if (category != LC_ALL) {
 		if (strlen(locale) > ENCODING_LEN) {
 			errno = EINVAL;
-			return (NULL);
+			UNLOCK_AND_RETURN (NULL);
 		}
 		(void)strcpy(new_categories[category], locale);
 	} else {
 		if ((r = strchr(locale, '/')) == NULL) {
 			if (strlen(locale) > ENCODING_LEN) {
 				errno = EINVAL;
-				return (NULL);
+				UNLOCK_AND_RETURN (NULL);
 			}
 			for (i = 1; i < _LC_LAST; ++i)
 				(void)strcpy(new_categories[i], locale);
@@ -167,14 +170,14 @@ setlocale(category, locale)
 				;
 			if (!r[1]) {
 				errno = EINVAL;
-				return (NULL);	/* Hmm, just slashes... */
+				UNLOCK_AND_RETURN (NULL);	/* Hmm, just slashes... */
 			}
 			do {
 				if (i == _LC_LAST)
 					break;  /* Too many slashes... */
 				if ((len = r - locale) > ENCODING_LEN) {
 					errno = EINVAL;
-					return (NULL);
+					UNLOCK_AND_RETURN (NULL);
 				}
 				(void)strlcpy(new_categories[i], locale,
 					      len + 1);
@@ -194,7 +197,7 @@ setlocale(category, locale)
 	}
 
 	if (category != LC_ALL)
-		return (loadlocale(category));
+		UNLOCK_AND_RETURN (loadlocale(category));
 
 	save__numeric_fp_cvt = __global_locale.__numeric_fp_cvt;
 	save__lc_numeric_loc = __global_locale.__lc_numeric_loc;
@@ -215,11 +218,11 @@ setlocale(category, locale)
 			__global_locale.__lc_numeric_loc = save__lc_numeric_loc;
 			XL_RELEASE(save__lc_numeric_loc);
 			errno = saverr;
-			return (NULL);
+			UNLOCK_AND_RETURN (NULL);
 		}
 	}
 	XL_RELEASE(save__lc_numeric_loc);
-	return (currentlocale());
+	UNLOCK_AND_RETURN (currentlocale());
 }
 
 static char *

@@ -30,8 +30,8 @@ set testfile "nested-inlines"
 set srcfile ${testfile}.c
 set binfile ${objdir}/${subdir}/${testfile}
 
-if [istarget "i\[3-6\]86-apple-darwin*"] {
-    verbose "Skipping ppc inlining tests."
+if ![istarget "powerpc-apple-darwin*"] {
+    verbose "Skipping PPC-specific inline test."
     return
 }
 
@@ -78,7 +78,14 @@ mi_gdb_test "146-break-insert -l -1 -f  -s $binfile \"$srcfile:12\"" "146\\^done
 mi_gdb_test "147-data-list-register-names" "147\\^done,register-names=\\\[\"r0\",\"r1\",\"r2\",\"r3\",\"r4\",\"r5\",\"r6\",\"r7\",\"r8\",\"r9\",\"r10\",\"r11\",\"r12\",\"r13\",\"r14\",\"r15\",\"r16\",\"r17\",\"r18\",\"r19\",\"r20\",\"r21\",\"r22\",\"r23\",\"r24\",\"r25\",\"r26\",\"r27\",\"r28\",\"r29\",\"r30\",\"r31\",\"f0\",\"f1\",\"f2\",\"f3\",\"f4\",\"f5\",\"f6\",\"f7\",\"f8\",\"f9\",\"f10\",\"f11\",\"f12\",\"f13\",\"f14\",\"f15\",\"f16\",\"f17\",\"f18\",\"f19\",\"f20\",\"f21\",\"f22\",\"f23\",\"f24\",\"f25\",\"f26\",\"f27\",\"f28\",\"f29\",\"f30\",\"f31\",\"v0\",\"v1\",\"v2\",\"v3\",\"v4\",\"v5\",\"v6\",\"v7\",\"v8\",\"v9\",\"v10\",\"v11\",\"v12\",\"v13\",\"v14\",\"v15\",\"v16\",\"v17\",\"v18\",\"v19\",\"v20\",\"v21\",\"v22\",\"v23\",\"v24\",\"v25\",\"v26\",\"v27\",\"v28\",\"v29\",\"v30\",\"v31\",\"pc\",\"ps\",\"cr\",\"lr\",\"ctr\",\"xer\",\"mq\",\"fpscr\",\"vscr\",\"vrsave\"\\\]" "data-list-register-names"
 
 
-mi_gdb_test "123-exec-run" ".*running.*"  "Exec run"
+send_gdb "123-exec-run\n"
+gdb_expect {
+    -re  ".*running\[\r\n]$gdb_prompt (\r\n=shlibs-added.*)*" {
+    pass "Exec run"
+    }
+}
+
+# mi_gdb_test "123-exec-run" ".*running.*"  "Exec run"
 
 gdb_expect { -re ".*stopped.*$gdb_prompt" { pass "Stopped at first breakpoint" }
   -re "$gdb_prompt $" {
@@ -106,11 +113,11 @@ mi_gdb_test "154-stack-list-frames 0 0" "154\\^done,stack=\\\[frame=\{level=\"0\
 
 mi_gdb_test "0-stack-select-frame 0" "0\\^done" "stack-select-frame 0"
 
-mi_gdb_test "156-stack-list-arguments 2 0 0" "156\\^done,stack-args=\\\[frame=\{level=\"0\",args=\\\[varobj=\{exp=\"argc\",value=\"1\",name=\"var1\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"argv\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var2\",numchild=\"1\",type=\"char \\\*\\\*\",typecode=\"PTR\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\}\\\]\}\\\]" "stack-list-arguments 2 0 0"
+mi_gdb_test "156-stack-list-arguments 2 0 0" "156\\^done,stack-args=\\\[frame=\{level=\"0\",args=\\\[varobj=\{exp=\"argc\",value=\"1\",name=\"var1\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"int\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"argv\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var2\",numchild=\"1\",type=\"char \\\*\\\*\",typecode=\"PTR\",dynamic_type=\"\",resolved_type=\"char \\\*\\\*\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\}\\\]\}\\\]" "stack-list-arguments 2 0 0"
 
 mi_gdb_test "0-stack-select-frame 0" "0\\^done" "stack-select-frame 0"
 
-mi_gdb_test "157-stack-list-locals 2 1" "157\\^done,locals=\\\[varobj=\{exp=\"x\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var3\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"result\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var4\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",in_scope=\"false\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"n\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var5\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",in_scope=\"false\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"i\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var6\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",in_scope=\"false\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"buffer\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var7\",numchild=\"1\",type=\"char \\\*\",typecode=\"PTR\",dynamic_type=\"\",in_scope=\"false\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\}\\\]" "stack-list-locals 2 1"
+mi_gdb_test "157-stack-list-locals 2 1" "157\\^done,locals=\\\[varobj=\{exp=\"x\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var3\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"int\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"result\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var4\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"int\",in_scope=\"false\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"n\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var5\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"int\",in_scope=\"false\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"i\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var6\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"int\",in_scope=\"false\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"buffer\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var7\",numchild=\"1\",type=\"char \\\*\",typecode=\"PTR\",dynamic_type=\"\",resolved_type=\"char \\\*\",in_scope=\"false\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\}\\\]" "stack-list-locals 2 1"
 
 mi_gdb_test "158-mi-verify-command file-list-statics" "158\\^done,name=\"file-list-statics\",defined=\"true\",implemented=\"true\"" "verify-command file-list-statics"
 
@@ -131,7 +138,7 @@ mi_gdb_test "164-stack-list-frames 0 0" "164\\^done,stack=\\\[frame=\{level=\"0\
  
 mi_gdb_test "0-stack-select-frame 0" "0\\^done" "stack-select-frame 0"
 
-mi_gdb_test "167-var-update  \"var1\" \"var2\" \"var3\" \"var4\" \"var5\" \"var6\" \"var7\"" "167\\^done,changelist=\\\[varobj=\{name=\"var1\",in_scope=\"true\",type_changed=\"false\"\},varobj=\{name=\"var4\",in_scope=\"true\",type_changed=\"false\"\},varobj=\{name=\"var5\",in_scope=\"true\",type_changed=\"false\"\},varobj=\{name=\"var6\",in_scope=\"true\",type_changed=\"false\"\},varobj=\{name=\"var7\",in_scope=\"true\",type_changed=\"false\"\}\\\]" "var-update vars 1-7"
+mi_gdb_test "167-var-update  \"var1\" \"var2\" \"var3\" \"var4\" \"var5\" \"var6\" \"var7\"" "167\\^done,changelist=\\\[varobj=\{name=\"var1\",in_scope=\"true\",type_changed=\"false\"\},varobj=\{name=\"var4\",in_scope=\"true\",type_changed=\"false\"\},varobj=\{name=\"var5\",in_scope=\"true\",type_changed=\"false\"\},varobj=\{name=\"var6\",in_scope=\"true\",type_changed=\"false\"\}.*\\\]" "var-update vars 1-7"
 
 mi_gdb_test "0-stack-select-frame 0" "0\\^done" "stack-select-frame 0"
 
@@ -153,7 +160,7 @@ mi_gdb_test "0-stack-select-frame 0" "0\\^done" "stack-select-frame 0"
 
 mi_gdb_test "172-var-evaluate-expression \"var7\"" "172\\^done,value=\"<value temporarily unavailable, due to optimizations>\"" "var-evaluate-expression var7"
 
-mi_gdb_test "173-data-read-memory -- 0x00000000 x 1 1 100"  "173\\^done,addr=\"$hex\",nr-bytes=\"0\",total-bytes=\"100\",next-row=\"$hex\",prev-row=\"$hex\",next-page=\"$hex\",prev-page=\"$hex\",memory=\\\[\{addr=\"$hex\",data=\\\[\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\"\\\]\}\\\]" "data-read-memory"
+# mi_gdb_test "173-data-read-memory -- 0x00000000 x 1 1 100"  "173\\^done,addr=\"$hex\",nr-bytes=\"0\",total-bytes=\"100\",next-row=\"$hex\",prev-row=\"$hex\",next-page=\"$hex\",prev-page=\"$hex\",memory=\\\[\{addr=\"$hex\",data=\\\[\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\",\"N/A\"\\\]\}\\\]" "data-read-memory"
 
 mi_gdb_test "0-stack-select-frame 0" "0\\^done" "stack-select-frame 0"
 
@@ -165,17 +172,17 @@ mi_gdb_test "176-stack-list-frames 0 0" "176\\^done,stack=\\\[frame=\{level=\"0\
 
 mi_gdb_test "0-stack-select-frame 1" "0\\^done" "stack-select-frame 1"
 
-mi_gdb_test "178-var-update  \"var1\" \"var2\" \"var3\" \"var4\" \"var5\" \"var6\" \"var7\"" "178\\^done,changelist=\\\[\\\]" "var-update vars 1-7"
+mi_gdb_test "178-var-update  \"var1\" \"var2\" \"var3\" \"var4\" \"var5\" \"var6\" \"var7\"" "178\\^done,changelist=\\\[.*\\\]" "var-update vars 1-7"
 
 mi_gdb_test "179-thread-list-ids" "179\\^done,thread-ids=\{thread-id=\"1\"\},number-of-threads=\"1\"" "thread-list-ids"
 
 mi_gdb_test "0-stack-select-frame 0" "0\\^done" "stack-select-frame 0"
 
-mi_gdb_test "182-stack-list-arguments 2 0 0" "182\\^done,stack-args=\\\[frame=\{level=\"0\",args=\\\[varobj=\{exp=\"argc\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var8\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"argv\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var9\",numchild=\"1\",type=\"char \\\*\\\*\",typecode=\"PTR\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\}\\\]\}\\\]" "stack-list-arguments 2 0"
+mi_gdb_test "182-stack-list-arguments 2 0 0" "182\\^done,stack-args=\\\[frame=\{level=\"0\",args=\\\[varobj=\{exp=\"argc\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var8\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"int\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"argv\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var9\",numchild=\"1\",type=\"char \\\*\\\*\",typecode=\"PTR\",dynamic_type=\"\",resolved_type=\"char \\\*\\\*\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\}\\\]\}\\\]" "stack-list-arguments 2 0"
 
 mi_gdb_test "0-stack-select-frame 0" "0\\^done" "stack-select-frame 0"
 
-mi_gdb_test "183-stack-list-locals 2 1" "183\\^done,locals=\\\[varobj=\{exp=\"x\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var10\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"result\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var11\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"n\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var12\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"i\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var13\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"buffer\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var14\",numchild=\"1\",type=\"char \\\*\",typecode=\"PTR\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\}\\\]" "stack-list-locals 2 1"
+mi_gdb_test "183-stack-list-locals 2 1" "183\\^done,locals=\\\[varobj=\{exp=\"x\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var10\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"int\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"result\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var11\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"int\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"n\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var12\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"int\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"i\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var13\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"int\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"buffer\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var14\",numchild=\"1\",type=\"char \\\*\",typecode=\"PTR\",dynamic_type=\"\",resolved_type=\"char \\\*\",in_scope=\".*\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\}\\\]" "stack-list-locals 2 1"
 
 mi_gdb_test "184-file-list-statics -file \"\\\*CURRENT FRAME\\\*\" -shlib \"\" --no-values -filter \"\\^_OBJC\" -constants 0" "184\\^done,statics=\\\[\\\]" "file-list-statics"
 
@@ -198,17 +205,17 @@ mi_gdb_test "193-stack-list-frames 0 0" "193\\^done,stack=\\\[frame=\{level=\"0\
 
 mi_gdb_test "0-stack-select-frame 1" "0\\^done" "stack-select-frame 1"
 
-mi_gdb_test "195-var-update  \"var8\" \"var9\" \"var10\" \"var11\" \"var12\" \"var13\" \"var14\"" "195\\^done,changelist=\\\[\\\]" "var-update vars 8-14"
+mi_gdb_test "195-var-update  \"var8\" \"var9\" \"var10\" \"var11\" \"var12\" \"var13\" \"var14\"" "195\\^done,changelist=\\\[.*\\\]" "var-update vars 8-14"
 
 mi_gdb_test "196-thread-list-ids" "196\\^done,thread-ids=\{thread-id=\"1\"\},number-of-threads=\"1\"" "thread-list-ids"
 
 mi_gdb_test "0-stack-select-frame 0" "0\\^done" "stack-select-frame 0"
 
-mi_gdb_test "199-stack-list-arguments 2 0 0" ".*199\\^done,stack-args=\\\[frame=\{level=\"0\",args=\\\[varobj=\{exp=\"argc\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var15\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"argv\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var16\",numchild=\"1\",type=\"char \\\*\\\*\",typecode=\"PTR\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\}\\\]\}\\\]" "stack-list-arguments 2 0 0"
+mi_gdb_test "199-stack-list-arguments 2 0 0" ".*199\\^done,stack-args=\\\[frame=\{level=\"0\",args=\\\[varobj=\{exp=\"argc\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var15\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"int\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"argv\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var16\",numchild=\"1\",type=\"char \\\*\\\*\",typecode=\"PTR\",dynamic_type=\"\",resolved_type=\"char \\\*\\\*\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\}\\\]\}\\\]" "stack-list-arguments 2 0 0"
 
 mi_gdb_test "0-stack-select-frame 0" "0\\^done" "stack-select-frame 0"
 
-mi_gdb_test "200-stack-list-locals 2 1" "200\\^done,locals=\\\[varobj=\{exp=\"x\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var17\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"result\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var18\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"n\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var19\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"i\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var20\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"buffer\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var21\",numchild=\"1\",type=\"char \\\*\",typecode=\"PTR\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\}\\\]" "stack-list-locals 2 1"
+mi_gdb_test "200-stack-list-locals 2 1" "200\\^done,locals=\\\[varobj=\{exp=\"x\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var17\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"int\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"result\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var18\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"int\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"n\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var19\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"int\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"i\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var20\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"int\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"buffer\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var21\",numchild=\"1\",type=\"char \\\*\",typecode=\"PTR\",dynamic_type=\"\",resolved_type=\"char \\\*\",in_scope=\".*\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\}\\\]" "stack-list-locals 2 1"
 
 mi_gdb_test "201-file-list-statics -file \"\\\*CURRENT FRAME\\\*\" -shlib \"\" --no-values -filter \"\\^_OBJC\" -constants 0" "201\\^done,statics=\\\[\\\]" "file-list-statics"
 
@@ -222,7 +229,7 @@ mi_gdb_test "205-var-update  \"var15\" \"var16\" \"var17\" \"var18\" \"var19\" \
 
 mi_gdb_test "0-stack-select-frame 0" "0\\^done" "stack-select-frame 0"
 
-mi_gdb_test "208-interpreter-exec console-quoted \"step\"" ".*63.*fprintf.*208\\^running.*208\\^done,reason=\"end-stepping-range\"" "console-quoted step 3"
+mi_gdb_test "208-interpreter-exec console-quoted \"step\"" ".*62.*buffer = .*208\\^running.*208\\^done,reason=\"end-stepping-range\"" "console-quoted step 3"
 
 mi_gdb_test "209-stack-list-frames-lite -limit 500" "209\\^done,frames=\\\[0=\{pc=\"$hex\",fp=\"$hex\"\},1=\{pc=\"$hex\",fp=\"$hex\"\},2=\{pc=\"$hex\",fp=\"$hex\"\},3=\{pc=\"$hex\",fp=\"$hex\"\}\\\],valid=\"1\",count=\"4\"" "stack-list-frames-lite"
 
@@ -230,17 +237,17 @@ mi_gdb_test "210-stack-list-frames 0 0" "210\\^done,stack=\\\[frame=\{level=\"0\
 
 mi_gdb_test "0-stack-select-frame 1" "0\\^done" "stack-select-frame 1"
 
-mi_gdb_test "212-var-update  \"var15\" \"var16\" \"var17\" \"var18\" \"var19\" \"var20\" \"var21\"" "212\\^done,changelist=\\\[\\\]" "var-update vars 15-21"
+mi_gdb_test "212-var-update  \"var15\" \"var16\" \"var17\" \"var18\" \"var19\" \"var20\" \"var21\"" "212\\^done,changelist=\\\[.*\\\]" "var-update vars 15-21"
 
 mi_gdb_test "213-thread-list-ids" "213\\^done,thread-ids=\{thread-id=\"1\"\},number-of-threads=\"1\"" "thread-list-ids"
 
 mi_gdb_test "0-stack-select-frame 0" "0\\^done" "stack-select-frame 0"
 
-mi_gdb_test "216-stack-list-arguments 2 0 0" "216\\^done,stack-args=\\\[frame=\{level=\"0\",args=\\\[varobj=\{exp=\"argc\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var22\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"argv\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var23\",numchild=\"1\",type=\"char \\\*\\\*\",typecode=\"PTR\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\}\\\]\}\\\]" "stack-list-arguments 2 0 0"
+mi_gdb_test "216-stack-list-arguments 2 0 0" "216\\^done,stack-args=\\\[frame=\{level=\"0\",args=\\\[varobj=\{exp=\"argc\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var22\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"int\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"argv\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var23\",numchild=\"1\",type=\"char \\\*\\\*\",typecode=\"PTR\",dynamic_type=\"\",resolved_type=\"char \\\*\\\*\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\}\\\]\}\\\]" "stack-list-arguments 2 0 0"
 
 mi_gdb_test "0-stack-select-frame 0" "0\\^done" "stack-select-frame 0"
 
-mi_gdb_test "217-stack-list-locals 2 1" "217\\^done,locals=\\\[varobj=\{exp=\"x\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var24\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"result\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var25\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"n\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var26\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"i\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var27\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"buffer\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var28\",numchild=\"1\",type=\"char \\\*\",typecode=\"PTR\",dynamic_type=\"\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\}\\\]" "stack-list-locals 2 1"
+mi_gdb_test "217-stack-list-locals 2 1" "217\\^done,locals=\\\[varobj=\{exp=\"x\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var24\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"int\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"result\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var25\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"int\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"n\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var26\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"int\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"i\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var27\",numchild=\"0\",type=\"int\",typecode=\"INT\",dynamic_type=\"\",resolved_type=\"int\",in_scope=\"true\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\},varobj=\{exp=\"buffer\",value=\"<value temporarily unavailable, due to optimizations>\",name=\"var28\",numchild=\"1\",type=\"char \\\*\",typecode=\"PTR\",dynamic_type=\"\",resolved_type=\"char \\\*\",in_scope=\".*\",block_start_addr=\"$hex\",block_end_addr=\"$hex\"\}\\\]" "stack-list-locals 2 1"
 
 mi_gdb_test "218-file-list-statics -file \"\\\*CURRENT FRAME\\\*\" -shlib \"\" --no-values -filter \"\\^_OBJC\" -constants 0" "218\\^done,statics=\\\[\\\]"
 
@@ -262,7 +269,7 @@ mi_gdb_test "227-stack-list-frames 0 3" "227\\^done,stack=\\\[frame=\{level=\"0\
 
 mi_gdb_test "0-stack-select-frame 0" "0\\^done" "stack-select-frame 0"
 
-mi_gdb_test "229-var-update  \"var22\" \"var23\" \"var24\" \"var25\" \"var26\" \"var27\" \"var28\"" "229\\^done,changelist=\\\[\\\]" "var-update vars 22-28"
+mi_gdb_test "229-var-update  \"var22\" \"var23\" \"var24\" \"var25\" \"var26\" \"var27\" \"var28\"" "229\\^done,changelist=\\\[.*\\\]" "var-update vars 22-28"
 
 mi_gdb_test "230-thread-list-ids" "230\\^done,thread-ids=\{thread-id=\"1\"\},number-of-threads=\"1\"" "thread-list-ids"
 
@@ -350,7 +357,7 @@ mi_gdb_test "276-var-delete \"var21\"" "276\\^done,ndeleted=\"1\"" "var-delete v
 
 mi_gdb_test "0-stack-select-frame 0" "0\\^done" "stack-select-frame 0"
 
-mi_gdb_test "278-var-update  \"var8\" \"var9\" \"var10\" \"var11\" \"var12\" \"var13\" \"var14\"" "278\\^done,changelist=\\\[varobj=\{name=\"var10\",in_scope=\"true\",type_changed=\"false\"\},varobj=\{name=\"var11\",in_scope=\"false\"\},varobj=\{name=\"var12\",in_scope=\"false\"\},varobj=\{name=\"var13\",in_scope=\"false\"\},varobj=\{name=\"var14\",in_scope=\"false\"\}\\\]" "var-update vars8-14"
+mi_gdb_test "278-var-update  \"var8\" \"var9\" \"var10\" \"var11\" \"var12\" \"var13\" \"var14\"" "278\\^done,changelist=\\\[.*\\\]" "var-update vars8-14"
 
 mi_gdb_test "0-stack-select-frame 0" "0\\^done" "stack-select-frame 0"
 
@@ -388,7 +395,7 @@ mi_gdb_test "293-var-delete \"var14\"" "293\\^done,ndeleted=\"1\"" "var-delete v
 
 mi_gdb_test "0-stack-select-frame 0" "0\\^done" "stack-select-frame 0"
 
-mi_gdb_test "295-var-update  \"var1\" \"var2\" \"var3\" \"var4\" \"var5\" \"var6\" \"var7\"" "295\\^done,changelist=\\\[varobj=\{name=\"var3\",in_scope=\"true\",type_changed=\"false\"\},varobj=\{name=\"var4\",in_scope=\"false\"\},varobj=\{name=\"var5\",in_scope=\"false\"\},varobj=\{name=\"var6\",in_scope=\"false\"\},varobj=\{name=\"var7\",in_scope=\"false\"\}\\\]" "var-update vars 1-7"
+mi_gdb_test "295-var-update  \"var1\" \"var2\" \"var3\" \"var4\" \"var5\" \"var6\" \"var7\"" "295\\^done,changelist=\\\[varobj=\{name=\"var3\",in_scope=\"true\",type_changed=\"false\"\}.*\\\]" "var-update vars 1-7"
 
 mi_gdb_test "0-stack-select-frame 0" "0\\^done" "stack-select-frame 0"
 

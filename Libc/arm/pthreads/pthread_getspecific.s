@@ -21,6 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 #include "pthread_machdep.h"
+#include <arm/arch.h>
 
 #define	__APPLE_API_PRIVATE
 #include <machine/cpu_capabilities.h>
@@ -30,6 +31,11 @@
         .align 4
         .globl _pthread_getspecific
 _pthread_getspecific:
+#ifdef _ARM_ARCH_6
+	mrc	p15, 0, r1, c13, c0, 3
+	add	r0, r1, r0, lsl #2
+#else
 	add	r0, r9, r0, lsl #2
+#endif
 	ldr	r0, [r0, #_PTHREAD_TSD_OFFSET]
 	bx	lr

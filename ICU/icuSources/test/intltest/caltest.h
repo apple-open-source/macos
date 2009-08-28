@@ -1,6 +1,5 @@
 /***********************************************************************
- * COPYRIGHT: 
- * Copyright (c) 1997-2005, International Business Machines Corporation
+ * Copyright (c) 1997-2007, International Business Machines Corporation
  * and others. All Rights Reserved.
  ***********************************************************************/
 
@@ -52,6 +51,8 @@ public:
     virtual void TestGenericAPI(void); // New to C++ -- needs to be back ported to Java
 
     virtual void TestWOY(void);
+    
+    virtual void TestDebug(void);
  
 public: // package
     /**

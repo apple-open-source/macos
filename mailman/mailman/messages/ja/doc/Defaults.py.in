@@ -1,7 +1,7 @@
 # -*- python -*-
 # -*- coding: euc-jp -*-
 
-# Copyright (C) 1998-2006 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2007 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -1406,41 +1406,42 @@ def _(s):
 
 LC_DESCRIPTIONS = {}
 
-def add_language(code, description, charset):
-    LC_DESCRIPTIONS[code] = (description, charset)
+def add_language(code, description, charset, direction='ltr'):
+    LC_DESCRIPTIONS[code] = (description, charset, direction)
 
-add_language('ar',    _('Arabic'),              'utf-8')
-add_language('ca',    _('Catalan'),             'iso-8859-1')
-add_language('cs',    _('Czech'),               'iso-8859-2')
-add_language('da',    _('Danish'),              'iso-8859-1')
-add_language('de',    _('German'),              'iso-8859-1')
-add_language('en',    _('English (USA)'),       'us-ascii')
-add_language('es',    _('Spanish (Spain)'),     'iso-8859-1')
-add_language('et',    _('Estonian'),            'iso-8859-15')
-add_language('eu',    _('Euskara'),             'iso-8859-15') # バスク語
-add_language('fi',    _('Finnish'),             'iso-8859-1')
-add_language('fr',    _('French'),              'iso-8859-1')
-add_language('hr',    _('Croatian'),            'iso-8859-2')
-add_language('hu',    _('Hungarian'),           'iso-8859-2')
-add_language('ia',    _('Interlingua'),         'iso-8859-15')
-add_language('it',    _('Italian'),             'iso-8859-1')
-add_language('ja',    _('Japanese'),            'euc-jp')
-add_language('ko',    _('Korean'),              'euc-kr')
-add_language('lt',    _('Lithuanian'),          'iso-8859-13')
-add_language('nl',    _('Dutch'),               'iso-8859-1')
-add_language('no',    _('Norwegian'),           'iso-8859-1')
-add_language('pl',    _('Polish'),              'iso-8859-2')
-add_language('pt',    _('Portuguese'),          'iso-8859-1')
-add_language('pt_BR', _('Portuguese (Brazil)'), 'iso-8859-1')
-add_language('ro',    _('Romanian'),            'iso-8859-2')
-add_language('ru',    _('Russian'),             'koi8-r')
-add_language('sr',    _('Serbian'),             'utf-8')
-add_language('sl',    _('Slovenian'),           'iso-8859-2')
-add_language('sv',    _('Swedish'),             'iso-8859-1')
-add_language('tr',    _('Turkish'),             'iso-8859-9')
-add_language('uk',    _('Ukrainian'),           'utf-8')
-add_language('vi',    _('Vietnamese'),          'utf-8')
-add_language('zh_CN', _('Chinese (China)'),     'utf-8')
-add_language('zh_TW', _('Chinese (Taiwan)'),    'utf-8')
+add_language('ar',    _('Arabic'),              'utf-8',       'rtl')
+add_language('ca',    _('Catalan'),             'iso-8859-1',  'ltr')
+add_language('cs',    _('Czech'),               'iso-8859-2',  'ltr')
+add_language('da',    _('Danish'),              'iso-8859-1',  'ltr')
+add_language('de',    _('German'),              'iso-8859-1',  'ltr')
+add_language('en',    _('English (USA)'),       'us-ascii',    'ltr')
+add_language('es',    _('Spanish (Spain)'),     'iso-8859-1',  'ltr')
+add_language('et',    _('Estonian'),            'iso-8859-15', 'ltr')
+add_language('eu',    _('Euskara'),             'iso-8859-15', 'ltr') # バスク語
+add_language('fi',    _('Finnish'),             'iso-8859-1',  'ltr')
+add_language('fr',    _('French'),              'iso-8859-1',  'ltr')
+add_language('he',    _('Hebrew'),              'utf-8',       'rtl')
+add_language('hr',    _('Croatian'),            'iso-8859-2',  'ltr')
+add_language('hu',    _('Hungarian'),           'iso-8859-2',  'ltr')
+add_language('ia',    _('Interlingua'),         'iso-8859-15', 'ltr')
+add_language('it',    _('Italian'),             'iso-8859-1',  'ltr')
+add_language('ja',    _('Japanese'),            'euc-jp',      'ltr')
+add_language('ko',    _('Korean'),              'euc-kr',      'ltr')
+add_language('lt',    _('Lithuanian'),          'iso-8859-13', 'ltr')
+add_language('nl',    _('Dutch'),               'iso-8859-1',  'ltr')
+add_language('no',    _('Norwegian'),           'iso-8859-1',  'ltr')
+add_language('pl',    _('Polish'),              'iso-8859-2',  'ltr')
+add_language('pt',    _('Portuguese'),          'iso-8859-1',  'ltr')
+add_language('pt_BR', _('Portuguese (Brazil)'), 'iso-8859-1',  'ltr')
+add_language('ro',    _('Romanian'),            'iso-8859-2',  'ltr')
+add_language('ru',    _('Russian'),             'koi8-r',      'ltr')
+add_language('sr',    _('Serbian'),             'utf-8',       'ltr')
+add_language('sl',    _('Slovenian'),           'iso-8859-2',  'ltr')
+add_language('sv',    _('Swedish'),             'iso-8859-1',  'ltr')
+add_language('tr',    _('Turkish'),             'iso-8859-9',  'ltr')
+add_language('uk',    _('Ukrainian'),           'utf-8',       'ltr')
+add_language('vi',    _('Vietnamese'),          'utf-8',       'ltr')
+add_language('zh_CN', _('Chinese (China)'),     'utf-8',       'ltr')
+add_language('zh_TW', _('Chinese (Taiwan)'),    'utf-8',       'ltr')
 
 del _

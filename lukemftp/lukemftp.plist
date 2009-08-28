@@ -4,15 +4,15 @@
         <key>OpenSourceProject</key>
         <string>lukemftp</string>
         <key>OpenSourceVersion</key>
-        <string>20050625</string>
+        <string>20070806</string>
         <key>OpenSourceWebsiteURL</key>
         <string>http://www.NetBSD.org/</string>
         <key>OpenSourceURL</key>
-        <string>ftp://ftp.netbsd.org/pub/NetBSD/misc/lukemftp/tnftp-20050625.tar.gz</string>
+        <string>ftp://ftp.netbsd.org/pub/NetBSD/misc/lukemftp/tnftp-20070806.tar.gz</string>
         <key>OpenSourceSHA1</key>
-        <string>1dd0996775755000686b59f5c2fbdb0ecaadfff7</string>
+        <string>b6dad820e71412bd52f2c4a4ccaa7a2b62c3a22f</string>
         <key>OpenSourceImportDate</key>
-        <string>2006-11-15</string>
+        <string>2008-06-18</string>
         <key>OpenSourceLicense</key>
         <string>BSD</string>
         <key>OpenSourceLicenseFile</key>
@@ -20,9 +20,8 @@
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>Makefile.in.patch</string>
-		<string>PR-4305547.fetch.c.patch</string>
 		<string>PR-4074918.ftp.c.patch</string>
-		<string>PR-4856624.CID.patch</string>
+		<string>configure.patch</string>
 	</array>
 </dict>
 </array>

@@ -30,27 +30,29 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	@(#)pagesize.1	8.1 (Berkeley) 6/6/93
+.\" $FreeBSD: src/usr.bin/pagesize/pagesize.1,v 1.7 2002/04/20 12:16:17 charnier Exp $
 .\"
 .Dd June 6, 1993
 .Dt PAGESIZE 1
-.Os BSD 4.2
+.Os
 .Sh NAME
 .Nm pagesize
 .Nd print system page size
 .Sh SYNOPSIS
-.Nm pagesize
+.Nm
 .Sh DESCRIPTION
-.Nm Pagesize
-prints the size of a page of memory in bytes, as
+The
+.Nm
+utility prints the size of a page of memory in bytes, as
 returned by
-.Xr getpagesize 2 .
+.Xr getpagesize 3 .
 This program is useful in constructing portable
 shell scripts.
 .Sh SEE ALSO
-.Xr getpagesize 2
+.Xr getpagesize 3
 .Sh HISTORY
 The
-.Nm pagesize
+.Nm
 command
 appeared in
 .Bx 4.2 .

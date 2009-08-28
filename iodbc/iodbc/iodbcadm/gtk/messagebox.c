@@ -1,7 +1,7 @@
 /*
  *  messagebox.c
  *
- *  $Id: messagebox.c,v 1.6 2006/01/20 15:58:35 source Exp $
+ *  $Id: messagebox.c,v 1.7 2007/02/02 11:58:14 source Exp $
  *
  *  The iODBC driver manager.
  *
@@ -116,7 +116,15 @@ create_message (HWND hwnd, LPCSTR dsn, LPCSTR text)
   gtk_window_set_title (GTK_WINDOW (message), msg);
   gtk_window_set_position (GTK_WINDOW (message), GTK_WIN_POS_CENTER);
   gtk_window_set_modal (GTK_WINDOW (message), TRUE);
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_window_set_policy (GTK_WINDOW (message), FALSE, FALSE, FALSE);
+#else
   gtk_window_set_policy (GTK_WINDOW (message), TRUE, TRUE, FALSE);
+#endif
+
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_widget_show (message);
+#endif
 
   dialog_vbox1 = GTK_DIALOG (message)->vbox;
   gtk_object_set_data (GTK_OBJECT (message), "dialog_vbox1", dialog_vbox1);

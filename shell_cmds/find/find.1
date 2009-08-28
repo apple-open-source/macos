@@ -33,9 +33,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	@(#)find.1	8.7 (Berkeley) 5/9/95
-.\" $FreeBSD: src/usr.bin/find/find.1,v 1.81 2006/12/13 17:02:50 ru Exp $
+.\" $FreeBSD: src/usr.bin/find/find.1,v 1.86 2008/03/03 08:32:58 ru Exp $
 .\"
-.Dd December 13, 2006
+.Dd February 24, 2008
 .Dt FIND 1
 .Os
 .Sh NAME
@@ -45,20 +45,20 @@
 .Nm
 .Op Fl H | Fl L | Fl P
 .Op Fl EXdsx
-.Op Fl f Ar pathname
-.Ar pathname ...
-.Ar expression
+.Op Fl f Ar path
+.Ar path ...
+.Op Ar expression
 .Nm
 .Op Fl H | Fl L | Fl P
 .Op Fl EXdsx
-.Fl f Ar pathname
-.Op Ar pathname ...
-.Ar expression
+.Fl f Ar path
+.Op Ar path ...
+.Op Ar expression
 .Sh DESCRIPTION
 The
 .Nm
 utility recursively descends the directory tree for each
-.Ar pathname
+.Ar path
 listed, evaluating an
 .Ar expression
 (composed of the
@@ -75,7 +75,7 @@ Interpret regular expressions followed by
 .Ic -regex
 and
 .Ic -iregex
-options as extended (modern) regular expressions rather than basic
+primaries as extended (modern) regular expressions rather than basic
 regular expressions (BRE's).
 The
 .Xr re_format 7
@@ -144,7 +144,9 @@ This option is equivalent to the
 .Ic -depth
 primary of
 .St -p1003.1-2001 .
+The
 .Fl d
+option
 can be useful when
 .Nm
 is used with
@@ -210,7 +212,7 @@ Please refer to the
 .Ic -atime
 primary description for information on supported time units.
 .\" .It Ic -acl
-.\" May be used in conjunction with other options to locate
+.\" May be used in conjunction with other primaries to locate
 .\" files with extended ACLs.
 .\" See
 .\" .Xr acl 3
@@ -291,6 +293,12 @@ units.
 Please refer to the
 .Ic -atime
 primary description for information on supported time units.
+.It Ic -d
+Same as 
+.Ic depth .
+GNU find implements this as a primary in mistaken emulation of
+.Fx
+.Xr find 1 .
 .It Ic -delete
 Delete found files and/or directories.
 Always returns true.
@@ -363,6 +371,15 @@ The filename substituted for
 the string
 .Dq Li {}
 is not qualified.
+.It Ic -execdir Ar utility Oo Ar argument ... Oc Li {} +
+Same as
+.Ic -execdir ,
+except that
+.Dq Li {}
+is replaced with as many pathnames as possible for each invocation of
+.Ar utility .
+This behaviour is similar to that of
+.Xr xargs 1 .
 .It Ic -flags Oo Cm - Ns | Ns Cm + Oc Ns Ar flags , Ns Ar notflags
 The flags are specified using symbolic names (see
 .Xr chflags 1 ) .
@@ -426,6 +443,15 @@ the
 .Nm
 is being executed and the latter matches any file system which is
 mounted read-only.
+.It Ic -gid Ar gname
+The same thing as
+.Ar -group Ar gname 
+for compatibility with GNU find.
+GNU find imposes a restriction that
+.Ar gname 
+is numeric, while
+.Xr find 1 
+does not.
 .It Ic -group Ar gname
 True if the file belongs to the group
 .Ar gname .
@@ -434,6 +460,13 @@ If
 is numeric and there is no such group name, then
 .Ar gname
 is treated as a group ID.
+.It Ic -ignore_readdir_race
+This option is for GNU find compatibility and is ignored.
+.It Ic -ilname Ar pattern
+Like
+.Ic -lname ,
+but the match is case insensitive.
+This is a GNU find extension.
 .It Ic -iname Ar pattern
 Like
 .Ic -name ,
@@ -449,10 +482,20 @@ but the match is case insensitive.
 Like
 .Ic -regex ,
 but the match is case insensitive.
+.It Ic -iwholename Ar pattern
+The same thing as 
+.Ic -ipath ,
+for GNU find compatibility.
 .It Ic -links Ar n
 True if the file has
 .Ar n
 links.
+.It Ic -lname Ar pattern
+Like
+.Ic -name ,
+but the contents of the symbolic link are matched instead of the file
+name.
+This is a GNU find extension.
 .It Ic -ls
 This primary always evaluates to true.
 The following information for the current file is written to standard output:
@@ -465,7 +508,7 @@ displayed preceded by
 .Dq Li -> .
 The format is identical to that produced by
 .Bk -words
-.Nm ls Fl dgils .
+.Dq Nm ls Fl dgils .
 .Ek
 .It Ic -maxdepth Ar n
 Always true; descend at most
@@ -475,7 +518,7 @@ If any
 .Ic -maxdepth
 primary is specified, it applies to the entire expression even if it would
 not normally be evaluated.
-.Ic -maxdepth Li 0
+.Dq Ic -maxdepth Li 0
 limits the whole search to the command line arguments.
 .It Ic -mindepth Ar n
 Always true; do not apply any tests or actions at levels less than
@@ -484,7 +527,7 @@ If any
 .Ic -mindepth
 primary is specified, it applies to the entire expression even if it would
 not normally be evaluated.
-.Ic -mindepth Li 1
+.Dq Ic -mindepth Li 1
 processes all but the command line arguments.
 .It Ic -mmin Ar n
 True if the difference between the file last modification time and the time
@@ -495,6 +538,10 @@ minutes.
 .It Ic -mnewer Ar file
 Same as
 .Ic -newer .
+.It Ic -mount
+The same thing as 
+.Ic -xdev ,
+for GNU find compatibility.
 .It Ic -mtime Ar n Ns Op Cm smhdw
 If no units are specified, this primary evaluates to
 true if the difference between the file last modification time and the time
@@ -531,21 +578,21 @@ True if the current file has a more recent last modification time than
 .Ar file .
 .It Ic -newer Ns Ar X Ns Ar Y Ar file
 True if the current file has a more recent last access time
-.Ar ( X Ns = Ns Cm a ) ,
+.Pq Ar X Ns = Ns Cm a ,
 inode creation time
-.Ar ( X Ns = Ns Cm B ) ,
+.Pq Ar X Ns = Ns Cm B ,
 change time
-.Ar ( X Ns = Ns Cm c ) ,
+.Pq Ar X Ns = Ns Cm c ,
 or modification time
-.Ar ( X Ns = Ns Cm m )
+.Pq Ar X Ns = Ns Cm m
 than the last access time
-.Ar ( Y Ns = Ns Cm a ) ,
+.Pq Ar Y Ns = Ns Cm a ,
 inode creation time
-.Ar ( Y Ns = Ns Cm B ) ,
+.Pq Ar Y Ns = Ns Cm B ,
 change time
-.Ar ( Y Ns = Ns Cm c ) ,
+.Pq Ar Y Ns = Ns Cm c ,
 or modification time
-.Ar ( Y Ns = Ns Cm m )
+.Pq Ar Y Ns = Ns Cm m
 of
 .Ar file .
 In addition, if
@@ -561,6 +608,13 @@ is equivalent to
 .Ic -newer .
 .It Ic -nogroup
 True if the file belongs to an unknown group.
+.It Ic -noignore_readdir_race
+This option is for GNU find compatibility and is ignored.
+.It Ic -noleaf
+This option is for GNU find compatibility.
+In GNU find it disables an optimization not relevant to 
+.Xr find 1 ,
+so it is ignored.
 .It Ic -nouser
 True if the file belongs to an unknown user.
 .It Ic -ok Ar utility Oo Ar argument ... Oc Li \&;
@@ -689,6 +743,14 @@ but not
 .Dq Li xyzzy
 or
 .Dq Li /foo/ .
+.It Ic -samefile Ar name
+True if the file is a hard link to
+.Ar name .
+If the command option
+.Ic -L
+is specified, it is also true if the file is a symbolic link and
+points to 
+.Ar name .
 .It Ic -size Ar n Ns Op Cm ckMGTP
 True if the file's size, rounded up, in 512-byte blocks is
 .Ar n .
@@ -718,7 +780,6 @@ terabytes (1024 gigabytes)
 .It Cm P
 petabytes (1024 terabytes)
 .El
-.Pp
 .It Ic -type Ar t
 True if the file is of the specified type.
 Possible file types are as follows:
@@ -739,6 +800,15 @@ FIFO
 .It Cm s
 socket
 .El
+.It Ic -uid Ar uname
+The same thing as
+.Ar -user Ar uname 
+for compatibility with GNU find.
+GNU find imposes a restriction that
+.Ar uname 
+is numeric, while
+.Xr find 1 
+does not.
 .It Ic -user Ar uname
 True if the file belongs to the user
 .Ar uname .
@@ -747,6 +817,10 @@ If
 is numeric and there is no such user name, then
 .Ar uname
 is treated as a user ID.
+.It Ic -wholename Ar pattern
+The same thing as 
+.Ic -path ,
+for GNU find compatibility.
 .El
 .Pp
 All primaries which take a numeric argument allow the number to be
@@ -764,18 +838,22 @@ and neither means
 The primaries may be combined using the following operators.
 The operators are listed in order of decreasing precedence.
 .Pp
-.Bl -tag -width "( expression )" -compact
+.Bl -tag -width indent -compact
 .It Cm \&( Ar expression Cm \&)
 This evaluates to true if the parenthesized expression evaluates to
 true.
 .Pp
 .It Cm \&! Ar expression
-.It Cm -false Ar expression
 .It Cm -not Ar expression
 This is the unary
 .Tn NOT
 operator.
 It evaluates to true if the expression is false.
+.Pp
+.It Cm -false
+Always false.
+.It Cm -true
+Always true.
 .Pp
 .It Ar expression Cm -and Ar expression
 .It Ar expression expression
@@ -888,15 +966,15 @@ utility syntax is a superset of the syntax specified by the
 standard.
 .Pp
 All the single character options except
-.Ic -H
+.Fl H
 and
-.Ic -L
+.Fl L
 as well as
 .Ic -amin , -anewer , -cmin , -cnewer , -delete , -empty , -fstype ,
 .Ic -iname , -inum , -iregex , -ls , -maxdepth , -mindepth , -mmin ,
 .Ic -path , -print0 , -regex
 and all of the
-.Ic -B
+.Ic -B*
 birthtime related primaries are extensions to
 .St -p1003.1-2001 .
 .Pp

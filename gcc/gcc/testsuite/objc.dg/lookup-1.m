@@ -1,5 +1,4 @@
-/* APPLE LOCAL file mainline */
-/* { dg-do run } */
+/* { dg-do run { target *-*-darwin* } } */
 
 /* APPLE LOCAL radar 4894756 */
 #include "../objc/execute/Object2.h"

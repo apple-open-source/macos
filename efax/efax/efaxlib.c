@@ -644,16 +644,16 @@ int getformat ( uchar *p, int n )
 
   /* figure out file type if not already set */
 
-  if ( ! format && n < 2 ) {
+  if ( ! format && n && n < 2 ) {
     format = I_TEXT ;
     msg ( "W only read %d byte(s) from input file, assuming text",  n ) ;
   } 
 
-  if ( ! format && ! p[0] && ! ( p[1] & 0xe0 ) ) {
+  if ( ! format && n >= 2 && ! p[0] && ! ( p[1] & 0xe0 ) ) {
     format = I_FAX ;
   } 
 
-  if ( ! format && ! strncmp ( (char*)p, "P4", 2 ) ) {
+  if ( ! format && n >= 2 && ! strncmp ( (char*)p, "P4", 2 ) ) {
     format = I_PBM ;
   }
 
@@ -666,15 +666,15 @@ int getformat ( uchar *p, int n )
     }
   }
 
-  if ( ! format && ! strncmp ( (char*)p, "%!", 2 ) ) {
+  if ( ! format && n >= 2 && ! strncmp ( (char*)p, "%!", 2 ) ) {
     msg ( "W Postscript input file will be treated as text" ) ;
   }
 
-  if ( ! format && ( p[0] == 'M' || p[1] == 'I' ) && ( p[1] == p[0] ) ) {
+  if ( ! format && n >= 2 && ( p[0] == 'M' || p[1] == 'I' ) && ( p[1] == p[0] ) ) {
     format = I_TIFF ;
   }
   
-  if ( ! format &&
+  if ( ! format && n >= 4 && 
        ( p[0] == 0x3a && p[1] == 0xde && 
 	 p[2] == 0x68 && p[3] == 0xb1) ) {
     format = I_DCX ;
@@ -1257,7 +1257,7 @@ int newIFILE ( IFILE *f, char **fnames )
   } ;
 
   f->fileformat = 0;
-  
+  f->totalpages = 0;
   f->page = f->pages ;
 
   /* get info for all pages in all files */
@@ -1296,7 +1296,8 @@ int newIFILE ( IFILE *f, char **fnames )
 	page_report ( f->page, f->fileformat, f->page - f->pages + 1 ) ;
 
 	f->page++ ;
-	
+	f->totalpages++;	
+
 	if ( f->page >= f->pages + MAXPAGE )
 	  err = msg ( "E2 too many pages (max is %d)", MAXPAGE ) ;
       }
@@ -1847,7 +1848,7 @@ int nextopage ( OFILE *f, int page )
 
   if ( ! err && page >= 0 ) {	/* open new file */
     if ( f->fname ) {
-      sprintf ( f->cfname, f->fname, page+1, page+1, page+1 ) ;
+      snprintf ( f->cfname, sizeof(f->cfname), f->fname, page+1, page+1, page+1 ) ;
 
       if ( ! f->f )
 	f->f = fopen ( f->cfname, ( f->format == O_PS ) ? "w" : "wb+" ) ;

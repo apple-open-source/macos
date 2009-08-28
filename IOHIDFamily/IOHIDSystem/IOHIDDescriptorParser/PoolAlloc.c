@@ -24,7 +24,7 @@
 #include <IOKit/IOLib.h>
 #include <IOKit/hidsystem/IOHIDDescriptorParser.h>
 
-void *PoolAllocateResident (vm_size_t size, unsigned char clear)
+__private_extern__ void *PoolAllocateResident (vm_size_t size, unsigned char clear)
 {
 	void *mem = IOMalloc(size);
 
@@ -35,7 +35,7 @@ void *PoolAllocateResident (vm_size_t size, unsigned char clear)
 	return mem;
 }
 
-OSStatus PoolDeallocate (void *ptr, vm_size_t size)
+__private_extern__ OSStatus PoolDeallocate (void *ptr, vm_size_t size)
 {
 	IOFree(ptr, size);
 	return noErr;

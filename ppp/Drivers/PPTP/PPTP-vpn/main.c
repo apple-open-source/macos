@@ -43,7 +43,6 @@
 #include <fcntl.h>
 #include <syslog.h>
 #include <netdb.h>
-#include <utmp.h>
 #include <pwd.h>
 #include <setjmp.h>
 #include <sys/param.h>
@@ -86,7 +85,7 @@ int pptpvpn_accept(void);
 int pptpvpn_refuse(void);
 void pptpvpn_close(void);
 
-static u_long load_kext(char *kext);
+static u_long load_kext(char *kext, int byBundleID);
 
 
 /* -----------------------------------------------------------------------------
@@ -113,16 +112,20 @@ int start(struct vpn_channel* the_vpn_channel, CFBundleRef ref, CFBundleRef pppr
         if (s < 0) {
             if (url = CFBundleCopyBundleURL(pppref)) {
                 name[0] = 0;
-                CFURLGetFileSystemRepresentation(url, 0, name, MAXPATHLEN - 1);
+                CFURLGetFileSystemRepresentation(url, 0, (UInt8 *)name, MAXPATHLEN - 1);
                 CFRelease(url);
-                strcat(name, "/");
+                strlcat(name, "/", sizeof(name));
                 if (url = CFBundleCopyBuiltInPlugInsURL(pppref)) {
-                    CFURLGetFileSystemRepresentation(url, 0, name + strlen(name), 
+                    CFURLGetFileSystemRepresentation(url, 0, (UInt8 *)(name + strlen(name)), 
                                 MAXPATHLEN - strlen(name) - strlen(PPTP_NKE) - 1);
                     CFRelease(url);
-                    strcat(name, "/");
-                    strcat(name, PPTP_NKE);
-                    if (!load_kext(name))
+                    strlcat(name, "/", sizeof(name));
+                    strlcat(name, PPTP_NKE, sizeof(name));
+#ifndef TARGET_EMBEDDED_OS
+                    if (!load_kext(name, 0))
+#else
+                    if (!load_kext(PPTP_NKE_ID, 1))
+#endif
                         s = socket(PF_PPP, SOCK_DGRAM, PPPPROTO_PPTP);
                 }	
             }
@@ -206,7 +209,7 @@ static void closeall()
 /* -----------------------------------------------------------------------------
     load_kext
 ----------------------------------------------------------------------------- */
-static u_long load_kext(char *kext)
+u_long load_kext(char *kext, int byBundleID)
 {
     int pid;
 
@@ -216,7 +219,10 @@ static u_long load_kext(char *kext)
     if (pid == 0) {
         closeall();
         // PPP kernel extension not loaded, try load it...
-        execle("/sbin/kextload", "kextload", kext, (char *)0, (char *)0);
+		if (byBundleID)
+			execle("/sbin/kextload", "kextload", "-b", kext, (char *)0, (char *)0);
+		else
+			execle("/sbin/kextload", "kextload", kext, (char *)0, (char *)0);
         exit(1);
     }
 
@@ -227,7 +233,6 @@ static u_long load_kext(char *kext)
     }
     return 0;
 }
-
 
 /* -----------------------------------------------------------------------------
     pptpvpn_listen()  called by vpnd to setup listening socket

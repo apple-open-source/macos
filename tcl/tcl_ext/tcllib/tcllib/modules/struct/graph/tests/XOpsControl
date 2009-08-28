@@ -1,0 +1,38 @@
+# -*- tcl -*-
+# graph.testsuite:  tests for the graph operations.
+#
+# Copyright (c) 2008 Andreas Kupries <andreas_kupries@users.sourceforge.net>
+# All rights reserved.
+#
+# RCS: @(#) $Id: XOpsControl,v 1.10 2008/11/20 07:26:43 andreas_kupries Exp $
+
+# -------------------------------------------------------------------------
+
+set SELF [file dirname [info script]]
+
+# -------------------------------------------------------------------------
+
+source ${SELF}/Xsetup
+source ${SELF}/XOpsSetup
+
+source ${SELF}/ops/adjmatrix.test    ; # Adjacency matrix
+source ${SELF}/ops/kruskal.test      ; # Minimum spanning tree/forest by Kruskal
+source ${SELF}/ops/prim.test         ; # Minimum spanning tree/forest by Prim
+source ${SELF}/ops/bipartite.test    ; # Compute bi-partitions.
+## source ${SELF}/ops/maxmatching.test  ; # Compute maximal matching from bipartitions.
+source ${SELF}/ops/tarjan.test       ; # Compute SCCs via Tarjan.
+source ${SELF}/ops/components.test   ; # Compute connected components.
+source ${SELF}/ops/componentof.test  ; # Compute connected components II.
+source ${SELF}/ops/connected.test    ; # Graph connected ?
+source ${SELF}/ops/cutvertex.test    ; # Node a cut vertex?
+source ${SELF}/ops/bridge.test       ; # Arc a bridge?
+source ${SELF}/ops/eulertour.test    ; # Eulerian graphs
+source ${SELF}/ops/eulerpath.test    ; # Semi-eulerian graphs
+source ${SELF}/ops/dijkstra.test     ; # Node distances by Dijkstra
+
+source ${SELF}/ops/distance.test     ; # Node distances
+source ${SELF}/ops/eccentricity.test ; # Node eccentricity
+source ${SELF}/ops/radius.test       ; # Graph radius
+source ${SELF}/ops/diameter.test     ; # Graph diameter
+
+# -------------------------------------------------------------------------

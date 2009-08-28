@@ -22,7 +22,7 @@
  */
 #include "filediskrep.h"
 #include "StaticCode.h"
-#include "macho++.h"	// may perhaps move into security_utilities...
+#include <security_utilities/macho++.h>
 #include <cstring>
 
 
@@ -38,6 +38,7 @@ using namespace UnixPlusPlus;
 FileDiskRep::FileDiskRep(const char *path)
 	: SingleDiskRep(path)
 {
+	CODESIGN_DISKREP_CREATE_FILE(this, (char*)path);
 }
 
 
@@ -57,12 +58,23 @@ string FileDiskRep::attrName(const char *name)
 CFDataRef FileDiskRep::getAttribute(const char *name)
 {
 	string aname = attrName(name);
-	ssize_t length = fd().getAttrLength(aname);
-	if (length < 0)
-		return NULL;		// no such attribute
-	CFMallocData buffer(length);
-	fd().getAttr(aname, buffer, length);
-	return buffer;
+	try {
+		ssize_t length = fd().getAttrLength(aname);
+		if (length < 0)
+			return NULL;		// no such attribute
+		CFMallocData buffer(length);
+		fd().getAttr(aname, buffer, length);
+		return buffer;
+	} catch (const UnixError &err) {
+		// recover some errors that happen in (relatively) benign circumstances
+		switch (err.error) {
+		case ENOTSUP:	// no extended attributes on this filesystem
+		case EPERM:		// filesystem objects to name(?)
+			return NULL;
+		default:
+			throw;
+		}
+	}
 }
 
 
@@ -108,7 +120,6 @@ const Requirements *FileDiskRep::defaultRequirements(const Architecture *)
 							// package up as host requirement and return that
 							Requirements::Maker maker;
 							maker.add(kSecHostRequirementType, req->clone());
-							secdebug("filediskrep", "made a scripting host requirement");
 							return maker.make();
 						}
 			} catch (...) {
@@ -142,13 +153,25 @@ DiskRep::Writer *FileDiskRep::writer()
 void FileDiskRep::Writer::component(CodeDirectory::SpecialSlot slot, CFDataRef data)
 {
 	try {
-	fd().setAttr(attrName(CodeDirectory::canonicalSlotName(slot)),
-		CFDataGetBytePtr(data), CFDataGetLength(data));
+		fd().setAttr(attrName(CodeDirectory::canonicalSlotName(slot)),
+			CFDataGetBytePtr(data), CFDataGetLength(data));
 	} catch (const UnixError &error) {
 		if (error.error == ERANGE)
 			MacOSError::throwMe(errSecCSCMSTooLarge);
 		throw;
 	}
+}
+
+
+//
+// Clear all signing data
+//
+void FileDiskRep::Writer::remove()
+{
+	for (CodeDirectory::SpecialSlot slot = 0; slot < cdSlotCount; slot++)
+		if (const char *name = CodeDirectory::canonicalSlotName(slot))
+			fd().removeAttr(attrName(name));
+	fd().removeAttr(attrName(kSecCS_SIGNATUREFILE));
 }
 
 

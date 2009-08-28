@@ -1,0 +1,136 @@
+#
+# ffidl callback testing
+#
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import -force ::tcltest::*
+}
+
+package require Ffidl
+package require Ffidlrt
+set lib [::ffidl::find-lib ffidl_test]
+
+testConstraint callback [llength [info commands ::ffidl::callback]]
+
+test ffidl-callbacks {ffidl callback tests} {callback} {
+    
+    ::ffidl::callout fchar {pointer-proc char char} char [::ffidl::symbol $lib ffidl_fchar]
+    ::ffidl::callout fshort {pointer-proc short short} short [::ffidl::symbol $lib ffidl_fshort]
+    ::ffidl::callout fint {pointer-proc int int} int [::ffidl::symbol $lib ffidl_fint]
+    ::ffidl::callout flong {pointer-proc long long} long [::ffidl::symbol $lib ffidl_flong]
+    ::ffidl::callout flonglong {pointer-proc {long long} {long long}} {long long} [::ffidl::symbol $lib ffidl_flonglong]
+    ::ffidl::callout ffloat {pointer-proc float float} float [::ffidl::symbol $lib ffidl_ffloat]
+    ::ffidl::callout fdouble {pointer-proc double double} double [::ffidl::symbol $lib ffidl_fdouble]
+    
+    set nsuccesses 0
+    set ntests 0
+    
+    foreach {func type} {
+        fchar char
+        fshort short
+        fint int
+        flong long
+        flonglong {long long}
+        ffloat float
+        fdouble double
+    } {
+        ::ffidl::callback $func.$type [list $type $type] $type
+        proc $func.$type {a b} { expr {$a+$b} }
+        switch $type {
+            char {
+                set a [expr {int(64*rand())}]
+                set b [expr {int(64*rand())}]
+            }
+            short {
+                set a [expr {int(16384*rand())}]
+                set b [expr {int(16384*rand())}]
+            }
+            int -
+            long  {
+                set a [expr {int(1000000*rand())}]
+                set b [expr {int(1000000*rand())}]
+            }
+            {long long} {
+                set a [expr {int(1000000*rand())}]
+                set b [expr {int(1000000*rand())}]
+            }
+            float {
+                set a [expr {int(1000000*rand())}]
+                set b [expr {int(1000000*rand())}]
+            }
+            double {
+                set a [expr {rand()}]
+                set b [expr {rand()}]
+            }
+        }
+        if {[$func $func.$type $a $b] != [expr {$a+$b}]} {
+            append msg "$func $a $b -> [$func $func.$type $a $b] ?= [expr {$a+$b}]" "\n"
+        } else {
+            incr nsuccesses
+        }
+        incr ntests
+    }
+    
+    ::ffidl::callout isort {pointer-var int pointer-proc} void [::ffidl::symbol $lib ffidl_isort]
+    
+    proc icompar {p1 p2} {
+        binary scan [::ffidl::peek $p1 [::ffidl::info sizeof int]] [::ffidl::info format int] v1
+        binary scan [::ffidl::peek $p2 [::ffidl::info sizeof int]] [::ffidl::info format int] v2
+        #append msg "icompar $p1 $p2 -> $v1 $v2 -> [expr {$v1-$v2}]" "\n"
+        expr {$v1-$v2}
+    }
+    ::ffidl::callback icompar {pointer pointer} int
+    
+    #
+    # display a list of ints
+    #
+    proc print {ints} {
+        foreach {i1 i2 i3 i4 i5 i6 i7 i8} $ints {
+            append msg "$i1 $i2 $i3 $i4 $i5 $i6 $i7 $i8" "\n"
+        }
+    }
+    
+    #
+    # construct a binary array of random ints
+    #
+    set n 8
+    for {set i 0} {$i < $n} {incr i} {
+        lappend ints [expr {int(1000*rand())}]
+    }
+    #append msg before "\n"
+    #print $ints
+    set lsorted [lsort -integer $ints]
+    set ints [binary format [::ffidl::info format int]* $ints]
+    
+    #
+    # isort them
+    #
+    isort ints $n icompar
+    
+    #
+    # convert back to Tcl
+    #
+    binary scan $ints [::ffidl::info format int]* ints
+    
+    #append msg after "\n"
+    #print $ints
+    
+    if {[string compare $ints $lsorted] != 0} {
+        append msg "lsorted list:" "\n"
+        print $lsorted
+        append msg "isorted list:" "\n"
+        print $ints
+    } else {
+        incr nsuccesses
+    }
+    incr ntests
+    
+    append msg "[expr {$ntests-$nsuccesses}] failures in $ntests tests"
+    set msg
+    
+} {0 failures in 8 tests}
+
+# cleanup
+::tcltest::cleanupTests
+return

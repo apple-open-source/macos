@@ -1,0 +1,37 @@
+Although the Net::LDAP module was originally written by Graham Barr it
+has grown far beyond initial expectations and scope. In fact it has gone
+far beyond a lot of things.
+
+As Net::LDAP has grown into the perl-ldap distribution credit can no
+longer be given to any single individual, but instead belongs to a
+group of people who have contributed. Some more than others, but whos
+counting :)
+
+
+			   ---------------
+			    CAST AND CREW
+			   ---------------
+
+To give due honor to those who have made perl-ldap what is is today, here
+are some of the people who have contributed, either in code, documentaion
+or just ideas/feedback. If I have missed anyone, please let me know.
+
+Graham Barr		<gbarr@pobox.com>
+Russell Fulton		<r.fulton@auckland.ac.nz>
+Rusty Biggs		<rgb@ticnet.com>
+Clif Harden		<c-harden@ti.com>
+Chris Ridd		<chris.ridd@isode.com>
+Mark Wilcox		<mewilcox@unt.edu>
+Robbie Allen		<rallen@cisco.com>
+Bryan Thale		<thale@rsch.comm.mot.com>
+Jim Harle		<harle@usna.edu>
+Kurt D. Zeilenga	<Kurt@OpenLDAP.org>
+Simon Wilcox		<Simon_Wilcox@williamslea.com>
+Kartik Subbarao		<subbarao@computer.org>
+Norbert Klasen		<norbert.klasen@daasi.de>
+David Faltermier	<david_faltermier@hp.com>
+Ziya Suzen		<ziya@ripe.net>
+Damon Brodie		<damon@brodiefamily.org>
+Peter Marschall		<peter@adpm.de>
+Paul David Fardy	<pdf@mun.ca>
+Derik Pates		<dpates@dsdk12.net>

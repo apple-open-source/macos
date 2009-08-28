@@ -281,7 +281,7 @@ __ultoa(u_long val, char *endp, int base, int octzero, const char *xdigs,
 		break;
 
 	default:			/* oops */
-		abort();
+		LIBC_ABORT("base = %d", base);
 	}
 	return (cp);
 }
@@ -353,7 +353,7 @@ __ujtoa(uintmax_t val, char *endp, int base, int octzero, const char *xdigs,
 		break;
 
 	default:
-		abort();
+		LIBC_ABORT("base = %d", base);
 	}
 	return (cp);
 }
@@ -658,7 +658,7 @@ __vfprintf(FILE *fp, locale_t loc, const char *fmt0, va_list ap)
 #define	UJARG() \
 	(flags&INTMAXT ? GETARG(uintmax_t) : \
 	    flags&SIZET ? (uintmax_t)GETARG(size_t) : \
-	    flags&PTRDIFFT ? (uintmax_t)GETARG(ptrdiff_t) : \
+	    flags&PTRDIFFT ? (uintmax_t)(unsigned)GETARG(ptrdiff_t) : \
 	    (uintmax_t)GETARG(unsigned long long))
 
 	/*
@@ -1241,7 +1241,7 @@ number:			if ((dprec = prec) >= 0)
 			}
 			size = buf + BUF - cp;
 			if (size > BUF)	/* should never happen */
-				abort();
+				LIBC_ABORT("size %d > BUF %d", size, BUF);
 			break;
 #ifdef VECTORS
 		case 'v':
@@ -2046,12 +2046,12 @@ __grow_type_table (int nextarg, enum typeid **typetable, int *tablesize)
 		newsize = nextarg + 1;
 	if (oldsize == STATIC_ARG_TBL_SIZE) {
 		if ((newtable = malloc(newsize * sizeof(enum typeid))) == NULL)
-			abort();			/* XXX handle better */
+			LIBC_ABORT("malloc: %s", strerror(errno));			/* XXX handle better */
 		bcopy(oldtable, newtable, oldsize * sizeof(enum typeid));
 	} else {
 		newtable = reallocf(oldtable, newsize * sizeof(enum typeid));
 		if (newtable == NULL)
-			abort();			/* XXX handle better */
+			LIBC_ABORT("reallocf: %s", strerror(errno));			/* XXX handle better */
 	}
 	for (n = oldsize; n < newsize; n++)
 		newtable[n] = T_UNUSED;

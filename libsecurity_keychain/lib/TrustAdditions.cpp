@@ -528,6 +528,11 @@ static CSSM_DATA_PTR _copyFieldDataForOid(CSSM_OID_PTR oid, CSSM_DATA_PTR cert, 
     CSSM_HANDLE results = 0;
     CSSM_DATA_PTR value = 0;
     CSSM_RETURN crtn = CSSM_CL_CertGetFirstFieldValue(clHandle, cert, oid, &results, &numFields, &value);
+	
+	// we aren't going to look for any further fields, so free the results handle immediately
+	if (results) {
+		CSSM_CL_CertAbortQuery(clHandle, results);
+	}
 
     return (crtn || !numFields) ? NULL : value;
 }
@@ -848,8 +853,12 @@ static void _freeFieldData(CSSM_DATA_PTR value, CSSM_OID_PTR oid, CSSM_CL_HANDLE
     return;
 }
 
+static ModuleNexus<Mutex> gOidStringForCertificatePoliciesMutex;
+
 static CFStringRef _oidStringForCertificatePolicies(const CE_CertPolicies *certPolicies)
 {
+	StLock<Mutex> _(gOidStringForCertificatePoliciesMutex());
+
     // returns the first EV OID (as a string) found in the given Certificate Policies extension,
     // or NULL if the extension does not contain any known EV OIDs. (Note that the "any policy" OID
     // is a special case and will be returned if present, although its presence is only meaningful

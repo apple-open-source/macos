@@ -161,7 +161,7 @@
    } while (0)
  
 +#define ADD_SWITCH(CH, ARG,LEN) { \
-+    struct command_switch *cs;  \
++    const struct command_switch *cs;  \
 +    for(cs = switches; cs->c != '\0'; ++cs) {  \
 +	if (cs->c == CH) {  \
 +	    ADD_FLAG(ARG, LEN); \

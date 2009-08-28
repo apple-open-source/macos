@@ -51,15 +51,18 @@ public:
 	GenericCode(SecCode *host, SecGuestRef guestRef = kSecNoGuest);
 	
 	SecCode *locateGuest(CFDictionaryRef attributes);
-	SecStaticCode *mapGuestToStatic(SecCode *guest);
-	uint32_t getGuestStatus(SecCode *guest);
+	SecStaticCode *identifyGuest(SecCode *guest, CFDataRef *cdhash);
+	SecCodeStatus getGuestStatus(SecCode *guest);
+	void changeGuestStatus(SecCode *guest, SecCodeStatusOperation operation, CFDictionaryRef arguments);
 	
 	SecGuestRef guestRef() const { return mGuestRef; }
 
 protected:
 	MachPlusPlus::Port hostingPort();
-	
 	virtual mach_port_t getHostingPort();
+
+private:
+	void identifyGuest(SecGuestRef guest, char *path, CFDataRef &cdhash, CFDictionaryRef &attributes);
 	
 private:
 	MachPlusPlus::Port mHostingPort;	// cached hosting port for this Code

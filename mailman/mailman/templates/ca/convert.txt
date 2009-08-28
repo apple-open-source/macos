@@ -1,31 +1,36 @@
-La %(listname)s llista de correus ha sofert un gran canvi. Ara funciona
-amb un nou paquet de llista de correus anomenat "Mailman". Això solucionarà
-molts problemes que l'administració d'aquesta llista ha presentat.
+S'ha produÃ¯t un canvi important a la llista de correu %(listname)s, la
+qual ara funciona amb un paquet de llistes de correu nou anomenat
+Â«MailmanÂ».  Aquest fet solucionarÃ  molts dels problemes que
+l'administraciÃ³ d'aquesta llista havia presentat fins ara. 
 
-Com li afecta això a vostè?
+Com us afecta aixÃ²?
 
-1) El mail destinat a tota la llista haurà de ser enviat a : %(listaddr)s.
+1) Els missatges destinats a tots els membres de la llista s'han
+d'enviar a: %(listaddr)s.
 
-2) Se li ha donat una clau de pas per evitar que altres el donin de baixa 
-sense el seu coneixement.  Li serà enviat en un mail a part del que ja haurà 
-rebut probablement.  No es preocupi en el cas de que oblidi aquesta clau de
-pas; se li enviarà un mail de recordatori un cop al mes.
+2) Se us ha assignat una contrasenya arbitrÃ ria per a evitar que algÃº
+altre pugui cancelÂ·lar la vostra subscripciÃ³ sense que us n'adoneu.
+La rebreu en un missatge de correu separat, el qual potser ja heu rebut.
+No us preocupeu si us n'oblideu; se us n'enviarÃ  un recordatori per
+correu un cop cada mes.
 
-3)Si vostè té accés a World Wide Web, pot usar-lo quan vulgui per donar-se 
-de baixa d'aquesta llista, per canviar a mode resum, per comprobar
-passades edicions de la llista (les quals estaran disponibles després de que
-la llista hagi estat rebent missatges durant un dia), etc. La direcció de la
-web per aquests recursos és:
+3) Si teniu accÃ©s a Internet, podreu cancelÂ·lar la subscripciÃ³ a aquesta
+llista, commutar el mode de compilaciÃ³ de missatges, consultar els
+arxius de la llista (disponibles aproximadament un dia desprÃ©s que la
+llista hagi comenÃ§at a rebre missatges), etc.  L'adreÃ§a web d'aquests
+recursos Ã©s:
 
     %(listinfo_url)s
 
-4) Si no té accés a  WWW, pot fer tot això via email. Envii l'email a %(requestaddr)s 
-amb la paraula "ajuda" (sense les cometes) en el títol o el cos del missatge.  Rebrà aleshores una
-resposta automàtica amb les directrius a seguir.
+4) En cas que no tingueu accÃ©s a Internet, podeu fer tot aixÃ² per
+correu.  Envieu un missatge a %(requestaddr)s amb la paraula Â«helpÂ» en
+l'assumpte o en el cos del missatge (sense cometes), i seguidament
+rebreu una resposta automÃ tica amb mÃ©s instruccions.
 
-Si us plau, envii qualsevol pregunta o problema que li plantegi aquesta nova cofiguració a :
+Podeu adreÃ§ar qualsevol pregunta o problema referents a aquesta
+configuraciÃ³ nova a:
 %(adminaddr)s.
 
-Aquest missatge ha estat auto-generat per Mailman %(version)s. Per més informació sobre el software
-de  Mailman, visiti la pàgina de Mailman a 
-http://www.list.org/
+Aquest missatge l'ha generat automÃ ticament el Mailman %(version)s.
+Aneu al seu lloc web a http://www.list.org per a mÃ©s informaciÃ³ sobre
+aquest programari.

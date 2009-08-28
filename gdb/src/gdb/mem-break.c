@@ -32,6 +32,16 @@
 #include "inferior.h"
 #include "target.h"
 
+/* APPLE LOCAL - Keep a circular array of recently removed
+   breakpoints, so that when debugging multi-threaded programs and one
+   thread hits a temporary breakpoint whose trap was just removed by
+   another thread, we can tell whether or not to back up the PC
+   (sometimes the kernel will hand us the same exception twice in a
+   row).  */
+
+#define BKPT_ARRAY_SIZE 100
+CORE_ADDR recent_breakpoints[BKPT_ARRAY_SIZE];
+int last_bkpt_index = -1;
 
 /* Insert a breakpoint on targets that don't have any better breakpoint
    support.  We read the contents of the target location and stash it,
@@ -47,12 +57,20 @@ default_memory_insert_breakpoint (CORE_ADDR addr, bfd_byte *contents_cache)
   int val;
   const unsigned char *bp;
   int bplen;
+  /* APPLE LOCAL: Override trust-readonly-sections.  */
+  int old_readonly;
+  struct cleanup *reset_trust_readonly;
+  /* END APPLE LOCAL */
 
   /* Determine appropriate breakpoint contents and size for this address.  */
   bp = BREAKPOINT_FROM_PC (&addr, &bplen);
   if (bp == NULL)
     error (_("Software breakpoints not implemented for this target."));
 
+  /* APPLE LOCAL: For breakpoints we should override the trust_readonly setting.  */
+  old_readonly = set_trust_readonly (0);
+  reset_trust_readonly = make_cleanup (set_trust_readonly_cleanup, (void *) old_readonly);
+  /* END APPLE LOCAL */
   /* Save the memory contents.  */
   val = target_read_memory (addr, contents_cache, bplen);
 
@@ -60,6 +78,7 @@ default_memory_insert_breakpoint (CORE_ADDR addr, bfd_byte *contents_cache)
   if (val == 0)
     val = target_write_memory (addr, bp, bplen);
 
+  do_cleanups (reset_trust_readonly);
   return val;
 }
 
@@ -71,7 +90,10 @@ default_memory_remove_breakpoint (CORE_ADDR addr, bfd_byte *contents_cache)
   int bplen;
   int val;
   unsigned char cur_contents[BREAKPOINT_MAX];
-
+  /* APPLE LOCAL: Override trust-readonly-sections.  */
+  int old_readonly;
+  struct cleanup *reset_trust_readonly;
+  /* END APPLE LOCAL */
 
   /* Determine appropriate breakpoint contents and size for this address.  */
   bp = BREAKPOINT_FROM_PC (&addr, &bplen);
@@ -82,26 +104,57 @@ default_memory_remove_breakpoint (CORE_ADDR addr, bfd_byte *contents_cache)
      overwritten our trap between the time we last inserted it and
      now.  So if the current contents is not our trap, let's use what
      got written there as the contents_cache..  */
-  
+  /* ALSO, we have to unset trust_readonly if it's set, because for 
+     this we're counting on getting the value we wrote there.  */
+
+  old_readonly = set_trust_readonly (0);
+  reset_trust_readonly = make_cleanup (set_trust_readonly_cleanup, (void *) old_readonly);
   val = target_read_memory (addr, cur_contents, bplen);
   
   /* I don't know why we wouldn't be able to read the memory where we
      plan to re-insert to old code, but if we can't we aren't going
      to write it either, most likely...  */
-  
-  if (val != 0)
-    return val;
 
+  if (val != 0)
+    goto cleanup;
+  
   if (memcmp (cur_contents, bp, bplen) != 0)
     {
       memcpy (contents_cache, cur_contents, bplen);
-      return 0;
+      val = 0;
     }
   else
-    return target_write_memory (addr, contents_cache, bplen);
+    /* APPLE LOCAL - When setting a breakpoint trap, record the address in our
+       circular array of recent breakpoint locations.  */
+    {
+      val = target_write_memory (addr, contents_cache, bplen);
+      last_bkpt_index = (last_bkpt_index + 1) % BKPT_ARRAY_SIZE;
+      recent_breakpoints[last_bkpt_index] = addr;
+    }
+  
+ cleanup:
+  do_cleanups(reset_trust_readonly);
+  return val;
   /* END APPLE LOCAL */
 }
 
+
+/* APPLE LOCAL - Given an address, ADDR, this function check the array
+   of recently removed breakpoint addresses for a match.  It returns
+   an integer indicating whether or not it found the address in the
+   array of recent breakpoints or not.  */
+
+int
+address_contained_breakpoint_trap (CORE_ADDR addr)
+{
+  int i;
+
+  for (i = 0; i < BKPT_ARRAY_SIZE; i++)
+    if (recent_breakpoints[i] == addr)
+      return 1;
+
+  return 0;
+}
 
 int
 memory_insert_breakpoint (CORE_ADDR addr, bfd_byte *contents_cache)

@@ -1,15 +1,15 @@
-To jest przypomnienie, wysy³ane raz na miesi±c, o tym, ¿e jeste¶ 
-cz³onkiem list dyskusyjnych na serwerze %(hostname)s.  Znajdziesz 
-tutaj informacje o tym w jaki sposób zmieniæ parametry swojej 
-subskrybcji lub jak siê wypisaæ z listy.
+To przypomnienie jest wysy³ane raz na miesi±c i zawiera informacje 
+o Twojej prenumeracie list dostêpnych na serwerze %(hostname)s.  
+Znajdziesz tutaj informacje o tym w jaki sposób zmieniæ parametry 
+swojej subskrybcji lub jak siê wypisaæ z listy.
 
-Przez stronê WWW mo¿esz zmieniaæ to w jaki sposób i czy w ogóle 
+Porzez interfejs WWW mo¿esz zmieniaæ to w jaki sposób i czy w ogóle 
 maj± byæ do Ciebie wysy³ane wiadomo¶ci. Mo¿esz zmieniæ swój adres, 
-prze³±czyæ dostarczanie na tryb paczek, albo chwilowo wstrzymaæ 
-wysy³anie do listów na Twój adres (np. z powodu wyjazdu na wakacje) 
-i wiele innych opcji.
+prze³±czyæ dostarczanie na tryb paczek (o ile taka opcja jest dostêpna), 
+albo chwilowo wstrzymaæ wysy³anie do listów na Twój adres 
+(np. z powodu wyjazdu na wakacje).
 
-Oprócz interfesju przez WWW, wiêkszo¶æ zmian w subskrybcji mo¿e byæ 
+Je¶li nie masz dostêpu do Internetu, wiêkszo¶æ zmian w subskrybcji mo¿e byæ 
 dokonywana za po¶rednictwem emaila. Wy¶lij wiadomo¶æ na adres
 '-request' swojej listy (np. %(exreq)s) ze s³owem 'help' w tre¶ci, 
 w odpowiedzi otrzymasz emaila z dalszymi wskazówkami.

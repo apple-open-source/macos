@@ -1,4 +1,4 @@
-/*	$OpenBSD: tar.c,v 1.34 2004/10/23 19:34:14 otto Exp $	*/
+/*	$OpenBSD: tar.c,v 1.41 2006/03/04 20:24:55 otto Exp $	*/
 /*	$NetBSD: tar.c,v 1.5 1995/03/21 09:07:49 cgd Exp $	*/
 
 /*-
@@ -38,7 +38,7 @@
 #if 0
 static const char sccsid[] = "@(#)tar.c	8.2 (Berkeley) 4/18/94";
 #else
-static const char rcsid[] __attribute__((__unused__)) = "$OpenBSD: tar.c,v 1.34 2004/10/23 19:34:14 otto Exp $";
+static const char rcsid[] = "$OpenBSD: tar.c,v 1.41 2006/03/04 20:24:55 otto Exp $";
 #endif
 #endif /* not lint */
 
@@ -60,7 +60,7 @@ static const char rcsid[] __attribute__((__unused__)) = "$OpenBSD: tar.c,v 1.34 
 
 static size_t expandname(char *, size_t, char **, const char *, size_t);
 static u_long tar_chksm(char *, int);
-char *name_split(char *, int);
+static char *name_split(char *, int);
 static int ul_oct(u_long, char *, int, int);
 #ifndef LONG_OFF_T
 static int uqd_oct(u_quad_t, char *, int, int);
@@ -433,6 +433,7 @@ tar_rd(ARCHD *arcn, char *buf)
 		 */
 		arcn->type = PAX_SLK;
 		arcn->sb.st_mode |= S_IFLNK;
+		arcn->ln_nlen = strlcpy(arcn->ln_name, hd->linkname, sizeof(arcn->ln_name));
 		break;
 	case LNKTYPE:
 		/*
@@ -441,6 +442,7 @@ tar_rd(ARCHD *arcn, char *buf)
 		 */
 		arcn->type = PAX_HLK;
 		arcn->sb.st_nlink = 2;
+		arcn->ln_nlen = strlcpy(arcn->ln_name, hd->linkname, sizeof(arcn->ln_name));
 
 		/*
 		 * no idea of what type this thing really points at, but
@@ -523,7 +525,7 @@ tar_wr(ARCHD *arcn)
 {
 	HD_TAR *hd;
 	int len;
-	char hdblk[sizeof(HD_TAR)];
+	HD_TAR hdblk;
 
 	/*
 	 * check for those file system types which tar cannot store
@@ -552,8 +554,9 @@ tar_wr(ARCHD *arcn)
 	case PAX_SLK:
 	case PAX_HLK:
 	case PAX_HRG:
-		if (arcn->ln_nlen > sizeof(hd->linkname)) {
-			paxwarn(1,"Link name too long for tar %s", arcn->ln_name);
+		if (arcn->ln_nlen >= sizeof(hd->linkname)) {
+			paxwarn(1, "Link name too long for tar %s",
+			    arcn->ln_name);
 			return(1);
 		}
 		break;
@@ -582,9 +585,9 @@ tar_wr(ARCHD *arcn)
 	 * (if any) to be added after the file data (0 for all other types,
 	 * as they only have a header).
 	 */
-	memset(hdblk, 0, sizeof(hdblk));
-	hd = (HD_TAR *)hdblk;
-	strlcpy(hd->name, arcn->name, sizeof(hd->name));
+	memset(&hdblk, 0, sizeof(hdblk));
+	hd = (HD_TAR *)&hdblk;
+	strlcpy(hd->name,  arcn->name, sizeof(hd->name));
 	arcn->pad = 0;
 
 	if (arcn->type == PAX_DIR) {
@@ -645,10 +648,10 @@ tar_wr(ARCHD *arcn)
 	 * 0 tells the caller to now write the file data, 1 says no data needs
 	 * to be written
 	 */
-	if (ul_oct(tar_chksm(hdblk, sizeof(HD_TAR)), hd->chksum,
+	if (ul_oct(tar_chksm((char *)&hdblk, sizeof(HD_TAR)), hd->chksum,
 	    sizeof(hd->chksum), 3))
 		goto out;
-	if (wr_rdbuf(hdblk, sizeof(HD_TAR)) < 0)
+	if (wr_rdbuf((char *)&hdblk, sizeof(HD_TAR)) < 0)
 		return(-1);
 	if (wr_skip((off_t)(BLKMULT - sizeof(HD_TAR))) < 0)
 		return(-1);
@@ -772,7 +775,7 @@ ustar_rd(ARCHD *arcn, char *buf)
 	}
 
 	if (hd->typeflag != LONGLINKTYPE && hd->typeflag != LONGNAMETYPE) {
-		arcn->nlen = expandname(dest, sizeof(arcn->name) - cnt,
+		arcn->nlen = cnt + expandname(dest, sizeof(arcn->name) - cnt,
 		    &gnu_name_string, hd->name, sizeof(hd->name));
 		arcn->ln_nlen = expandname(arcn->ln_name, sizeof(arcn->ln_name),
 		    &gnu_link_string, hd->linkname, sizeof(hd->linkname));
@@ -796,7 +799,7 @@ ustar_rd(ARCHD *arcn, char *buf)
 	 * If we can find the ascii names for gname and uname in the password
 	 * and group files we will use the uid's and gid they bind. Otherwise
 	 * we use the uid and gid values stored in the header. (This is what
-	 * the posix spec wants).
+	 * the POSIX spec wants).
 	 */
 	hd->gname[sizeof(hd->gname) - 1] = '\0';
 	if (gid_name(hd->gname, &(arcn->sb.st_gid)) < 0)
@@ -949,6 +952,7 @@ ustar_wr(ARCHD *arcn)
 	memset(hdblk, 0, sizeof(hdblk));
 	hd = (HD_USTAR *)hdblk;
 	arcn->pad = 0L;
+
 	/* To pass conformance tests 274/301, always set these fields to "zero" */
 	ul_oct(0, hd->devmajor, sizeof(hd->devmajor), term_char);
 	ul_oct(0, hd->devminor, sizeof(hd->devminor), term_char);
@@ -968,7 +972,7 @@ ustar_wr(ARCHD *arcn)
 
 	/*
 	 * copy the name part. this may be the whole path or the part after
-	 * the prefix
+	 * the prefix.  both the name and prefix may fill the entire field.
 	 */
 	if (strlen(pt) == sizeof(hd->name)) {	/* must account for name just fits in buffer */
 		strncpy(hd->name, pt, sizeof(hd->name));
@@ -1094,7 +1098,7 @@ ustar_wr(ARCHD *arcn)
 	if (ul_oct(tar_chksm(hdblk, sizeof(HD_USTAR)), hd->chksum,
 	   sizeof(hd->chksum), term_char))
 		goto out;
-	if (wr_rdbuf(hdblk, sizeof(HD_USTAR)) < 0)
+	if (wr_rdbuf((char *)&hdblk, sizeof(HD_USTAR)) < 0)
 		return(-1);
 	if (wr_skip((off_t)(BLKMULT - sizeof(HD_USTAR))) < 0)
 		return(-1);
@@ -1122,7 +1126,7 @@ ustar_wr(ARCHD *arcn)
  *	the file name is too long
  */
 
-char *
+static char *
 name_split(char *name, int len)
 {
 	char *start;
@@ -1130,19 +1134,22 @@ name_split(char *name, int len)
 	/*
 	 * check to see if the file name is small enough to fit in the name
 	 * field. if so just return a pointer to the name.
+	 * The strings can fill the complete name and prefix fields
+	 * without a NUL terminator.
 	 */
 	if (len <= TNMSZ)
 		return(name);
-	if (len > (TPFSZ + TNMSZ))
+	if (len > (TPFSZ + TNMSZ + 1))
 		return(NULL);
 
 	/*
 	 * we start looking at the biggest sized piece that fits in the name
 	 * field. We walk forward looking for a slash to split at. The idea is
 	 * to find the biggest piece to fit in the name field (or the smallest
-	 * prefix we can find)
+	 * prefix we can find) (the -1 is correct the biggest piece would
+	 * include the slash between the two parts that gets thrown away)
 	 */
-	start = name + len - TNMSZ -1;
+	start = name + len - TNMSZ - 1;
 	if ((*start == '/') && (start == name))
 		++start;	/* 101 byte paths with leading '/' are dinged otherwise */
 	while ((*start != '\0') && (*start != '/'))
@@ -1162,7 +1169,7 @@ name_split(char *name, int len)
 	 * the file would then expand on extract to //str. The len == 0 below
 	 * makes this special case follow the spec to the letter.
 	 */
-	if ((len >= TPFSZ) || (len == 0))
+	if ((len > TPFSZ) || (len == 0))
 		return(NULL);
 
 	/*
@@ -1172,11 +1179,13 @@ name_split(char *name, int len)
 }
 
 static size_t
-expandname(char *buf, size_t len, char **gnu_name, const char *name, size_t name_len)
+expandname(char *buf, size_t len, char **gnu_name, const char *name,
+    size_t name_len)
 {
 	size_t nlen;
 
 	if (*gnu_name) {
+		/* *gnu_name is NUL terminated */
 		if ((nlen = strlcpy(buf, *gnu_name, len)) >= len)
 			nlen = len - 1;
 		free(*gnu_name);

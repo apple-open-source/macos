@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright (c) 2004-2007 Apple Inc.
+# Copyright (c) 2004-2009 Apple Inc.
 #
 # get-mobility-info
 #
@@ -17,6 +17,9 @@ OUT="mobility-info-`date +'%m.%d.%Y.%H%M%S'`"
 OUTDIR="/var/tmp"
 if [ -d ~/Desktop ]; then
 	OUTDIR=~/Desktop
+elif [ "`readlink /tmp`" = "private/var/tmp" ]; then
+	OUTDIR=/Library/Logs/CrashReporter/SystemConfiguration
+	mkdir -p ${OUTDIR}
 fi
 
 umask 077
@@ -27,7 +30,14 @@ if [ $? -ne 0 ]; then
 	exit 1
 fi
 
-ARCHIVE=`mktemp -q "${OUTDIR}/${OUT}.tar.gz"`
+GZ_EXT=""
+GZ_OPT=""
+if [ -x /usr/bin/gzip ]; then
+	GZ_EXT=".gz"
+	GZ_OPT="-z"
+fi
+
+ARCHIVE=`mktemp -q "${OUTDIR}/${OUT}.tar${GZ_EXT}"`
 if [ $? -ne 0 ]; then
 	echo "Could not create snapshot archive"
 	rm -rf "${WORKDIR}"
@@ -86,7 +96,8 @@ fi
 #
 # IOKit info
 #
-ioreg -i -l -w 0					> ioreg			2>&1
+ioreg -i -l -w 0					>  ioreg		2>&1
+ioreg -i -l -p IODeviceTree -w 0			>> ioreg		2>&1
 
 #
 # Host name
@@ -127,7 +138,9 @@ for f in										\
 	/Library/Preferences/SystemConfiguration/com.apple.nat.plist			\
 	/Library/Preferences/SystemConfiguration/com.apple.network.identification.plist	\
 	/Library/Preferences/SystemConfiguration/com.apple.smb.server.plist		\
+	/Library/Preferences/SystemConfiguration/com.apple.wifi.plist			\
 	/Library/Preferences/SystemConfiguration/preferences.plist			\
+	/Library/Preferences/com.apple.alf.plist					\
 	/Library/Preferences/com.apple.sharing.firewall.plist				\
 
 do
@@ -162,8 +175,8 @@ fi
 # network reachability
 #
 scutil -d -v -r www.apple.com				> reachability-info	2>&1
-if [ -x /usr/bin/dig ]; then
-	dig -t any -c any www.apple.com			> dig-results		2>&1
+if [ -x /usr/bin/dig -a -f /etc/resolv.conf ]; then
+	/usr/bin/dig -t any -c any www.apple.com	> dig-results		2>/dev/null
 fi
 
 #
@@ -179,10 +192,33 @@ if [ -f /var/run/mDNSResponder.pid ]; then
 fi
 
 #
-# system log, early boot log messages
+# system log, kernel.log, early boot log messages
 #
-${PRIV} tail -n 2000 /var/log/system.log		> system.log
-${PRIV} dmesg						> dmesg
+if [ -x /usr/bin/syslog ]; then
+	${PRIV} syslog | tail -n 25000					> syslog
+	if [ -d /var/log/DiagnosticMessages ]; then
+		${PRIV} syslog	-d /var/log/DiagnosticMessages	\
+				-F raw				\
+				-T local			\
+			| tail -n 25000					> DiagnosticMessages
+	fi
+else
+	if [ -f /var/log/system.log ]; then
+		${PRIV} tail -n 25000 /var/log/system.log		> system.log
+	fi
+	if [ -f /var/log/kernel.log ]; then
+		${PRIV} tail -n 25000 /var/log/kernel.log		> kernel.log
+	fi
+fi
+${PRIV} dmesg								> dmesg
+
+#
+# IPConfiguration log
+#
+if [ -f /var/log/com.apple.IPConfiguration.bootp ]; then
+	${PRIV} tail -n 2000 /var/log/com.apple.IPConfiguration.bootp	\
+							> com.apple.IPConfiguration.bootp
+fi
 
 #
 # ppp log file(s)
@@ -208,7 +244,7 @@ do
 	if [ -f "${logFile}" ]; then
 		b="`basename ${logFile}`"
 		cat "${logFile}"			> "${b}"		2>&1
-	fi					
+	fi
 done
 
 #
@@ -231,14 +267,21 @@ fi
 # network statistics
 #
 echo "#"						>  network-statistics
-echo "# netstat -n -a -A -f inet"			>> network-statistics
+echo "# arp -n -a"					>> network-statistics
 echo "#"						>> network-statistics
-netstat -n -a -A -f inet				>> network-statistics	2>&1
+arp -n -a						>> network-statistics	2>&1
 
 echo "#"						>> network-statistics
-echo "# lsof -i -n -P"					>> network-statistics
+echo "# netstat -n -a -A"				>> network-statistics
 echo "#"						>> network-statistics
-${PRIV} lsof -i -n -P					>> network-statistics	2>&1
+netstat -n -a -A					>> network-statistics	2>&1
+
+if [ -x /usr/sbin/lsof ]; then
+	echo "#"					>> network-statistics
+	echo "# lsof -i -n -P"				>> network-statistics
+	echo "#"					>> network-statistics
+	${PRIV} lsof -i -n -P				>> network-statistics	2>&1
+fi
 
 echo "#"						>> network-statistics
 echo "# netstat -s"					>> network-statistics
@@ -255,15 +298,19 @@ echo "# netstat -i -n -d"				>> network-statistics
 echo "#"						>> network-statistics
 netstat -i -n -d					>> network-statistics	2>&1
 
-echo "#"						>> network-statistics
-echo "# ipfw -at show"					>> network-statistics
-echo "#"						>> network-statistics
-ipfw -at show						>> network-statistics	2>&1
+if [ -x /sbin/ipfw ]; then
+	echo "#"					>> network-statistics
+	echo "# ipfw -at show"				>> network-statistics
+	echo "#"					>> network-statistics
+	ipfw -at show					>> network-statistics	2>&1
+fi
 
-echo "#"						>> network-statistics
-echo "# appletalk -s"					>> network-statistics
-echo "#"						>> network-statistics
-appletalk -s						>> network-statistics	2>&1
+if [ -x /usr/sbin/appletalk ]; then
+	echo "#"					>> network-statistics
+	echo "# appletalk -s"				>> network-statistics
+	echo "#"					>> network-statistics
+	appletalk -s					>> network-statistics	2>&1
+fi
 
 #
 # system usage statistics
@@ -333,8 +380,12 @@ echo "# setkey -Pp -D"					>> ipsec
 echo "#"						>> ipsec
 ${PRIV} setkey -Pp -D					>> ipsec
 
-for CF in /etc/racoon/remote/*.conf
+for CF in /var/run/racoon/*.conf
 do
+	if [ ! -r "${CF}" ]; then
+		continue
+	fi
+
 	echo ""						>> ipsec
 	echo "#"					>> ipsec
 	echo "# ${CF}"					>> ipsec
@@ -353,22 +404,24 @@ done
 #
 # Kerberos configuration
 #
-echo "#"						>  kerberos
-echo "# klist -e -c -A -f -a -n"			>> kerberos
-echo "#"						>> kerberos
-${PRIV} klist -e -c -A -f -a -n				>> kerberos
+if [ -x /usr/bin/klist ]; then
+	echo "#"					>  kerberos
+	echo "# klist -e -c -A -f -a -n"		>> kerberos
+	echo "#"					>> kerberos
+	${PRIV} klist -e -c -A -f -a -n			>> kerberos	2>&1
 
-echo "#"						>> kerberos
-echo "# klist -e -k -t -K"				>> kerberos
-echo "#"						>> kerberos
-${PRIV} klist -e -k -t -K				>> kerberos
+	echo "#"					>> kerberos
+	echo "# klist -e -k -t -K"			>> kerberos
+	echo "#"					>> kerberos
+	${PRIV} klist -e -k -t -K			>> kerberos	2>&1
+fi
 
 #
 # BTMM configuration
 #
 DIG()
 {
-	/usr/bin/dig @pm-members.mac.com -y "${DOMAIN}:${TSIG}" +short "${1}" "${2}"
+	/usr/bin/dig @pm-members.mac.com -y "${DOMAIN}:${TSIG}" +short "${1}" "${2}" 2>/dev/null
 }
 
 scutil <<_END_OF_INPUT					\
@@ -386,7 +439,7 @@ do
 	# lookup TSIG in base64 format
 	TSIG=`								\
 		${PRIV} security find-generic-password			\
-			-a ${DOMAIN}					\
+			-s dns:${DOMAIN}				\
 			-g /Library/Keychains/System.keychain 2>&1	\
 		| grep "^password: "					\
 		| cut -d '"' -f 2					\
@@ -401,10 +454,15 @@ do
 		continue
 	fi
 
+	KEYHASH="[SHA-1:`echo ${TSIG} | openssl sha1`]"
+	echo ""							>> btmm
+	echo "  KEY: ${KEYHASH}"				>> btmm
+
 	for TYPE in			\
 		_afpovertcp._tcp	\
 		_airport._tcp		\
 		_adisk._tcp		\
+		_http._tcp		\
 		_rfb._tcp		\
 		_smb._tcp		\
 		_ssh._tcp
@@ -440,29 +498,37 @@ do
 			fi
 
 			HOST=`/bin/echo "${SRV}" | cut -d ' ' -f 4-`
+			if [ -n "${HOST}" ]; then
 			V4=`DIG ${HOST} a`
+				V6=`DIG ${HOST} aaaa`
+				KRB=`DIG _kerberos.${HOST} txt`
+				TUN=`DIG _autotunnel._udp.${HOST} srv`
+			else
+				V4=""
+				V6=""
+				KRB=""
+				TUN=""
+			fi
 			if [ -n "${V4}" ]; then
 				echo "     v4: ${V4}"		>> btmm
 			fi
-			V6=`DIG ${HOST} aaaa`
 			if [ -n "${V6}" ]; then
 				echo "     v6: ${V6}"		>> btmm
 			fi
-
-			KRB=`DIG _kerberos.${HOST} txt`
 			echo "    KRB: ${KRB}"			>> btmm
-
-			TUN=`DIG _autotunnel._udp.${HOST} srv`
 			echo "    TUN: ${TUN}"			>> btmm
-
+			if [ -n "${TUN}" ]; then
 			HOST=`/bin/echo "${TUN}" | cut -d ' ' -f 4-`
+				if [ -n "${HOST}" ]; then
 			V4=`DIG ${HOST} a`
+					V6=`DIG ${HOST} aaaa`
+				fi
 			if [ -n "${V4}" ]; then
 				echo "     v4: ${V4}"		>> btmm
 			fi
-			V6=`DIG ${HOST} aaaa`
 			if [ -n "${V6}" ]; then
 				echo "     v6: ${V6}"		>> btmm
+			fi
 			fi
 		done
 	done
@@ -471,10 +537,22 @@ done
 #
 # collect crash reports
 #
-CRASH_DIR=/Library/Logs/CrashReporter
-for daemon in bootpd configd pppd
+for daemon in				\
+		bootpd			\
+		configd			\
+		eapolclient		\
+		mDNSResponder		\
+		mDNSResponderHelper	\
+		pppd			\
+		racoon			\
+		socketfilterfw		\
+		SCHelper		\
+		SCMonitor		\
+
 do
-	/bin/ls -1 ${CRASH_DIR}/${daemon}_*.crash 2>/dev/null	\
+	/bin/ls -1	/Library/Logs/CrashReporter/${daemon}_*.crash		\
+			/Library/Logs/DiagnosticReports/${daemon}/*.crash	\
+			2>/dev/null						\
 	| while read log
 	do
 		b="`basename ${log}`"
@@ -486,7 +564,7 @@ done
 # collect everything into a single archive
 #
 cd "${WORKDIR}/.."
-tar cfz "${ARCHIVE}" "${OUT}"
+pax -w ${GZ_OPT} -f "${ARCHIVE}" "${OUT}"
 rm -rf "${WORKDIR}"
 
 if [ ${UID} -eq 0 ]; then
@@ -498,3 +576,11 @@ if [ ${UID} -eq 0 ]; then
 fi
 
 echo "Network data collected to \"${ARCHIVE}\""
+
+#
+# if requested, generate a crash report
+#
+if [ "${OUTDIR}" = "/Library/Logs/CrashReporter/SystemConfiguration" -a "${1}" = "CRASH" ]; then
+	kill -ABRT $$
+fi
+

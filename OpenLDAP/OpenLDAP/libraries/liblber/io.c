@@ -1,8 +1,8 @@
 /* io.c - ber general i/o routines */
-/* $OpenLDAP: pkg/ldap/libraries/liblber/io.c,v 1.107.2.4 2006/01/03 22:16:07 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/liblber/io.c,v 1.111.2.8 2008/07/09 23:16:48 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -46,6 +46,25 @@
 
 #include "lber-int.h"
 #include "ldap_log.h"
+
+ber_slen_t
+ber_skip_data(
+	BerElement *ber,
+	ber_len_t len )
+{
+	ber_len_t	actuallen, nleft;
+
+	assert( ber != NULL );
+
+	assert( LBER_VALID( ber ) );
+
+	nleft = ber_pvt_ber_remaining( ber );
+	actuallen = nleft < len ? nleft : len;
+	ber->ber_ptr += actuallen;
+	ber->ber_tag = *(unsigned char *)ber->ber_ptr;
+
+	return( (ber_slen_t) actuallen );
+}
 
 ber_slen_t
 ber_read(
@@ -185,11 +204,8 @@ ber_free_buf( BerElement *ber )
 void
 ber_free( BerElement *ber, int freebuf )
 {
-#ifdef LDAP_MEMORY_DEBUG
-	assert( ber != NULL );
-#endif
-
 	if( ber == NULL ) {
+		LDAP_MEMORY_DEBUG_ASSERT( ber != NULL );
 		return;
 	}
 
@@ -201,8 +217,16 @@ ber_free( BerElement *ber, int freebuf )
 int
 ber_flush( Sockbuf *sb, BerElement *ber, int freeit )
 {
+	return ber_flush2( sb, ber,
+		freeit ? LBER_FLUSH_FREE_ON_SUCCESS
+			: LBER_FLUSH_FREE_NEVER );
+}
+
+int
+ber_flush2( Sockbuf *sb, BerElement *ber, int freeit )
+{
 	ber_len_t	towrite;
-	ber_slen_t	rc;	
+	ber_slen_t	rc;
 
 	assert( sb != NULL );
 	assert( ber != NULL );
@@ -217,7 +241,7 @@ ber_flush( Sockbuf *sb, BerElement *ber, int freeit )
 
 	if ( sb->sb_debug ) {
 		ber_log_printf( LDAP_DEBUG_TRACE, sb->sb_debug,
-			"ber_flush: %ld bytes to sd %ld%s\n",
+			"ber_flush2: %ld bytes to sd %ld%s\n",
 			towrite, (long) sb->sb_fd,
 			ber->ber_rwptr != ber->ber_buf ?  " (re-flush)" : "" );
 		ber_log_bprint( LDAP_DEBUG_PACKETS, sb->sb_debug,
@@ -231,16 +255,17 @@ ber_flush( Sockbuf *sb, BerElement *ber, int freeit )
 #else
 		rc = ber_int_sb_write( sb, ber->ber_rwptr, towrite );
 #endif
-		if (rc<=0) {
+		if ( rc <= 0 ) {
+			if ( freeit & LBER_FLUSH_FREE_ON_ERROR ) ber_free( ber, 1 );
 			return -1;
 		}
 		towrite -= rc;
 		ber->ber_rwptr += rc;
 	} 
 
-	if ( freeit ) ber_free( ber, 1 );
+	if ( freeit & LBER_FLUSH_FREE_ON_SUCCESS ) ber_free( ber, 1 );
 
-	return( 0 );
+	return 0;
 }
 
 BerElement *
@@ -463,8 +488,10 @@ ber_get_next(
 	assert( SOCKBUF_VALID( sb ) );
 	assert( LBER_VALID( ber ) );
 
-	ber_log_printf( LDAP_DEBUG_TRACE, ber->ber_debug,
-		"ber_get_next\n" );
+	if ( ber->ber_debug & LDAP_DEBUG_TRACE ) {
+		ber_log_printf( LDAP_DEBUG_TRACE, ber->ber_debug,
+			"ber_get_next\n" );
+	}
 
 	/*
 	 * Any ber element looks like this: tag length contents.
@@ -501,7 +528,7 @@ ber_get_next(
 		ber_len_t tlen = 0;
 
 		/* The tag & len can be at most 9 bytes; we try to read up to 8 here */
-		errno = 0;
+		sock_errset(0);
 		sblen=((char *)&ber->ber_len + LENSIZE*2 - 1)-ber->ber_rwptr;
 		/* Trying to read the last len byte of a 9 byte tag+len */
 		if (sblen<1)
@@ -524,16 +551,16 @@ ber_get_next(
 						break;
 					/* Is the tag too big? */
 					if (i == sizeof(ber_tag_t)-1) {
-						errno = ERANGE;
+						sock_errset(ERANGE);
 						return LBER_DEFAULT;
 					}
 				}
 				/* Did we run out of bytes? */
 				if ((char *)p == ber->ber_rwptr) {
 #if defined( EWOULDBLOCK )
-					errno = EWOULDBLOCK;
+					sock_errset(EWOULDBLOCK);
 #elif defined( EAGAIN )
-					errno = EAGAIN;
+					sock_errset(EAGAIN);
 #endif			
 					return LBER_DEFAULT;
 				}
@@ -544,9 +571,9 @@ ber_get_next(
 
 		if ( ber->ber_ptr == ber->ber_rwptr ) {
 #if defined( EWOULDBLOCK )
-			errno = EWOULDBLOCK;
+			sock_errset(EWOULDBLOCK);
 #elif defined( EAGAIN )
-			errno = EAGAIN;
+			sock_errset(EAGAIN);
 #endif			
 			return LBER_DEFAULT;
 		}
@@ -557,15 +584,15 @@ ber_get_next(
 			unsigned char *p = (unsigned char *)ber->ber_ptr;
 			int llen = *p++ & 0x7f;
 			if (llen > LENSIZE) {
-				errno = ERANGE;
+				sock_errset(ERANGE);
 				return LBER_DEFAULT;
 			}
 			/* Not enough bytes? */
 			if (ber->ber_rwptr - (char *)p < llen) {
 #if defined( EWOULDBLOCK )
-				errno = EWOULDBLOCK;
+				sock_errset(EWOULDBLOCK);
 #elif defined( EAGAIN )
-				errno = EAGAIN;
+				sock_errset(EAGAIN);
 #endif			
 				return LBER_DEFAULT;
 			}
@@ -596,7 +623,7 @@ ber_get_next(
 
 		/* make sure length is reasonable */
 		if ( ber->ber_len == 0 ) {
-			errno = ERANGE;
+			sock_errset(ERANGE);
 			return LBER_DEFAULT;
 		}
 
@@ -604,7 +631,7 @@ ber_get_next(
 			ber_log_printf( LDAP_DEBUG_CONNS, ber->ber_debug,
 				"ber_get_next: sockbuf_max_incoming exceeded "
 				"(%ld > %ld)\n", ber->ber_len, sb->sb_max_incoming );
-			errno = ERANGE;
+			sock_errset(ERANGE);
 			return LBER_DEFAULT;
 		}
 
@@ -615,7 +642,7 @@ ber_get_next(
 			 * already read.
 			 */
 			if ( ber->ber_len < sblen + l ) {
-				errno = ERANGE;
+				sock_errset(ERANGE);
 				return LBER_DEFAULT;
 			}
 			ber->ber_buf = (char *) ber_memalloc_x( ber->ber_len + 1, ber->ber_memctx );
@@ -647,16 +674,16 @@ ber_get_next(
 		to_go = ber->ber_end - ber->ber_rwptr;
 		assert( to_go > 0 );
 		
-		errno = 0;
+		sock_errset(0);
 		res = ber_int_sb_read( sb, ber->ber_rwptr, to_go );
 		if (res<=0) return LBER_DEFAULT;
 		ber->ber_rwptr+=res;
 		
 		if (res<to_go) {
 #if defined( EWOULDBLOCK )
-			errno = EWOULDBLOCK;
+			sock_errset(EWOULDBLOCK);
 #elif defined( EAGAIN )
-			errno = EAGAIN;
+			sock_errset(EAGAIN);
 #endif			
 			return LBER_DEFAULT;
 		}

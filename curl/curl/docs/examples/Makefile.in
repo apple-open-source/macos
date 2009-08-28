@@ -15,7 +15,7 @@
 @SET_MAKE@
 
 #
-# $Id: Makefile.am,v 1.42 2006-10-10 19:46:57 bagder Exp $
+# $Id: Makefile.am,v 1.52 2008-08-07 00:29:08 yangtse Exp $
 #
 srcdir = @srcdir@
 top_srcdir = @top_srcdir@
@@ -39,21 +39,180 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
+DIST_COMMON = README $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
+	$(srcdir)/Makefile.inc
+check_PROGRAMS = 10-at-a-time$(EXEEXT) anyauthput$(EXEEXT) \
+	cookie_interface$(EXEEXT) debug$(EXEEXT) fileupload$(EXEEXT) \
+	fopen$(EXEEXT) ftpget$(EXEEXT) ftpgetresp$(EXEEXT) \
+	ftpupload$(EXEEXT) getinfo$(EXEEXT) getinmemory$(EXEEXT) \
+	http-post$(EXEEXT) httpput$(EXEEXT) https$(EXEEXT) \
+	multi-app$(EXEEXT) multi-debugcallback$(EXEEXT) \
+	multi-double$(EXEEXT) multi-post$(EXEEXT) \
+	multi-single$(EXEEXT) persistant$(EXEEXT) \
+	post-callback$(EXEEXT) postit2$(EXEEXT) sepheaders$(EXEEXT) \
+	simple$(EXEEXT) simplepost$(EXEEXT) simplessl$(EXEEXT) \
+	sendrecv$(EXEEXT) httpcustomheader$(EXEEXT) certinfo$(EXEEXT)
 subdir = docs/examples
-DIST_COMMON = README $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/acinclude.m4 \
-	$(top_srcdir)/configure.ac
+am__aclocal_m4_deps = $(top_srcdir)/m4/curl-compilers.m4 \
+	$(top_srcdir)/m4/curl-confopts.m4 \
+	$(top_srcdir)/m4/curl-functions.m4 \
+	$(top_srcdir)/m4/curl-override.m4 \
+	$(top_srcdir)/m4/curl-reentrant.m4 \
+	$(top_srcdir)/m4/curl-system.m4 $(top_srcdir)/m4/libtool.m4 \
+	$(top_srcdir)/m4/ltoptions.m4 $(top_srcdir)/m4/ltsugar.m4 \
+	$(top_srcdir)/m4/ltversion.m4 $(top_srcdir)/m4/lt~obsolete.m4 \
+	$(top_srcdir)/acinclude.m4 $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
 CONFIG_HEADER = $(top_builddir)/lib/config.h \
-	$(top_builddir)/src/config.h
+	$(top_builddir)/src/config.h \
+	$(top_builddir)/include/curl/curlbuild.h
 CONFIG_CLEAN_FILES =
-depcomp =
-am__depfiles_maybe =
-SOURCES =
-DIST_SOURCES =
+10_at_a_time_SOURCES = 10-at-a-time.c
+10_at_a_time_OBJECTS = 10-at-a-time.$(OBJEXT)
+10_at_a_time_LDADD = $(LDADD)
+10_at_a_time_DEPENDENCIES = $(LIBDIR)/libcurl.la
+anyauthput_SOURCES = anyauthput.c
+anyauthput_OBJECTS = anyauthput.$(OBJEXT)
+anyauthput_LDADD = $(LDADD)
+anyauthput_DEPENDENCIES = $(LIBDIR)/libcurl.la
+certinfo_SOURCES = certinfo.c
+certinfo_OBJECTS = certinfo.$(OBJEXT)
+certinfo_LDADD = $(LDADD)
+certinfo_DEPENDENCIES = $(LIBDIR)/libcurl.la
+cookie_interface_SOURCES = cookie_interface.c
+cookie_interface_OBJECTS = cookie_interface.$(OBJEXT)
+cookie_interface_LDADD = $(LDADD)
+cookie_interface_DEPENDENCIES = $(LIBDIR)/libcurl.la
+debug_SOURCES = debug.c
+debug_OBJECTS = debug.$(OBJEXT)
+debug_LDADD = $(LDADD)
+debug_DEPENDENCIES = $(LIBDIR)/libcurl.la
+fileupload_SOURCES = fileupload.c
+fileupload_OBJECTS = fileupload.$(OBJEXT)
+fileupload_LDADD = $(LDADD)
+fileupload_DEPENDENCIES = $(LIBDIR)/libcurl.la
+fopen_SOURCES = fopen.c
+fopen_OBJECTS = fopen.$(OBJEXT)
+fopen_LDADD = $(LDADD)
+fopen_DEPENDENCIES = $(LIBDIR)/libcurl.la
+ftpget_SOURCES = ftpget.c
+ftpget_OBJECTS = ftpget.$(OBJEXT)
+ftpget_LDADD = $(LDADD)
+ftpget_DEPENDENCIES = $(LIBDIR)/libcurl.la
+ftpgetresp_SOURCES = ftpgetresp.c
+ftpgetresp_OBJECTS = ftpgetresp.$(OBJEXT)
+ftpgetresp_LDADD = $(LDADD)
+ftpgetresp_DEPENDENCIES = $(LIBDIR)/libcurl.la
+ftpupload_SOURCES = ftpupload.c
+ftpupload_OBJECTS = ftpupload.$(OBJEXT)
+ftpupload_LDADD = $(LDADD)
+ftpupload_DEPENDENCIES = $(LIBDIR)/libcurl.la
+getinfo_SOURCES = getinfo.c
+getinfo_OBJECTS = getinfo.$(OBJEXT)
+getinfo_LDADD = $(LDADD)
+getinfo_DEPENDENCIES = $(LIBDIR)/libcurl.la
+getinmemory_SOURCES = getinmemory.c
+getinmemory_OBJECTS = getinmemory.$(OBJEXT)
+getinmemory_LDADD = $(LDADD)
+getinmemory_DEPENDENCIES = $(LIBDIR)/libcurl.la
+http_post_SOURCES = http-post.c
+http_post_OBJECTS = http-post.$(OBJEXT)
+http_post_LDADD = $(LDADD)
+http_post_DEPENDENCIES = $(LIBDIR)/libcurl.la
+httpcustomheader_SOURCES = httpcustomheader.c
+httpcustomheader_OBJECTS = httpcustomheader.$(OBJEXT)
+httpcustomheader_LDADD = $(LDADD)
+httpcustomheader_DEPENDENCIES = $(LIBDIR)/libcurl.la
+httpput_SOURCES = httpput.c
+httpput_OBJECTS = httpput.$(OBJEXT)
+httpput_LDADD = $(LDADD)
+httpput_DEPENDENCIES = $(LIBDIR)/libcurl.la
+https_SOURCES = https.c
+https_OBJECTS = https.$(OBJEXT)
+https_LDADD = $(LDADD)
+https_DEPENDENCIES = $(LIBDIR)/libcurl.la
+multi_app_SOURCES = multi-app.c
+multi_app_OBJECTS = multi-app.$(OBJEXT)
+multi_app_LDADD = $(LDADD)
+multi_app_DEPENDENCIES = $(LIBDIR)/libcurl.la
+multi_debugcallback_SOURCES = multi-debugcallback.c
+multi_debugcallback_OBJECTS = multi-debugcallback.$(OBJEXT)
+multi_debugcallback_LDADD = $(LDADD)
+multi_debugcallback_DEPENDENCIES = $(LIBDIR)/libcurl.la
+multi_double_SOURCES = multi-double.c
+multi_double_OBJECTS = multi-double.$(OBJEXT)
+multi_double_LDADD = $(LDADD)
+multi_double_DEPENDENCIES = $(LIBDIR)/libcurl.la
+multi_post_SOURCES = multi-post.c
+multi_post_OBJECTS = multi-post.$(OBJEXT)
+multi_post_LDADD = $(LDADD)
+multi_post_DEPENDENCIES = $(LIBDIR)/libcurl.la
+multi_single_SOURCES = multi-single.c
+multi_single_OBJECTS = multi-single.$(OBJEXT)
+multi_single_LDADD = $(LDADD)
+multi_single_DEPENDENCIES = $(LIBDIR)/libcurl.la
+persistant_SOURCES = persistant.c
+persistant_OBJECTS = persistant.$(OBJEXT)
+persistant_LDADD = $(LDADD)
+persistant_DEPENDENCIES = $(LIBDIR)/libcurl.la
+post_callback_SOURCES = post-callback.c
+post_callback_OBJECTS = post-callback.$(OBJEXT)
+post_callback_LDADD = $(LDADD)
+post_callback_DEPENDENCIES = $(LIBDIR)/libcurl.la
+postit2_SOURCES = postit2.c
+postit2_OBJECTS = postit2.$(OBJEXT)
+postit2_LDADD = $(LDADD)
+postit2_DEPENDENCIES = $(LIBDIR)/libcurl.la
+sendrecv_SOURCES = sendrecv.c
+sendrecv_OBJECTS = sendrecv.$(OBJEXT)
+sendrecv_LDADD = $(LDADD)
+sendrecv_DEPENDENCIES = $(LIBDIR)/libcurl.la
+sepheaders_SOURCES = sepheaders.c
+sepheaders_OBJECTS = sepheaders.$(OBJEXT)
+sepheaders_LDADD = $(LDADD)
+sepheaders_DEPENDENCIES = $(LIBDIR)/libcurl.la
+simple_SOURCES = simple.c
+simple_OBJECTS = simple.$(OBJEXT)
+simple_LDADD = $(LDADD)
+simple_DEPENDENCIES = $(LIBDIR)/libcurl.la
+simplepost_SOURCES = simplepost.c
+simplepost_OBJECTS = simplepost.$(OBJEXT)
+simplepost_LDADD = $(LDADD)
+simplepost_DEPENDENCIES = $(LIBDIR)/libcurl.la
+simplessl_SOURCES = simplessl.c
+simplessl_OBJECTS = simplessl.$(OBJEXT)
+simplessl_LDADD = $(LDADD)
+simplessl_DEPENDENCIES = $(LIBDIR)/libcurl.la
+DEFAULT_INCLUDES = 
+depcomp = $(SHELL) $(top_srcdir)/depcomp
+am__depfiles_maybe = depfiles
+COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
+	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+LTCOMPILE = $(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) \
+	$(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) \
+	$(AM_CFLAGS) $(CFLAGS)
+CCLD = $(CC)
+LINK = $(LIBTOOL) --tag=CC --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
+	$(AM_LDFLAGS) $(LDFLAGS) -o $@
+SOURCES = 10-at-a-time.c anyauthput.c certinfo.c cookie_interface.c \
+	debug.c fileupload.c fopen.c ftpget.c ftpgetresp.c ftpupload.c \
+	getinfo.c getinmemory.c http-post.c httpcustomheader.c \
+	httpput.c https.c multi-app.c multi-debugcallback.c \
+	multi-double.c multi-post.c multi-single.c persistant.c \
+	post-callback.c postit2.c sendrecv.c sepheaders.c simple.c \
+	simplepost.c simplessl.c
+DIST_SOURCES = 10-at-a-time.c anyauthput.c certinfo.c \
+	cookie_interface.c debug.c fileupload.c fopen.c ftpget.c \
+	ftpgetresp.c ftpupload.c getinfo.c getinmemory.c http-post.c \
+	httpcustomheader.c httpput.c https.c multi-app.c \
+	multi-debugcallback.c multi-double.c multi-post.c \
+	multi-single.c persistant.c post-callback.c postit2.c \
+	sendrecv.c sepheaders.c simple.c simplepost.c simplessl.c
+ETAGS = etags
+CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 ACLOCAL = @ACLOCAL@
 AMDEP_FALSE = @AMDEP_FALSE@
@@ -65,44 +224,42 @@ AUTOCONF = @AUTOCONF@
 AUTOHEADER = @AUTOHEADER@
 AUTOMAKE = @AUTOMAKE@
 AWK = @AWK@
-CABUNDLE_FALSE = @CABUNDLE_FALSE@
-CABUNDLE_TRUE = @CABUNDLE_TRUE@
 CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
 CPP = @CPP@
-CPPFLAGS = @CPPFLAGS@
+CPPFLAGS = -DCURL_NO_OLDIES $(STATICCPPFLAGS)
 CROSSCOMPILING_FALSE = @CROSSCOMPILING_FALSE@
 CROSSCOMPILING_TRUE = @CROSSCOMPILING_TRUE@
 CURL_CA_BUNDLE = @CURL_CA_BUNDLE@
-CURL_DISABLE_COOKIES = @CURL_DISABLE_COOKIES@
-CURL_DISABLE_CRYPTO_AUTH = @CURL_DISABLE_CRYPTO_AUTH@
 CURL_DISABLE_DICT = @CURL_DISABLE_DICT@
 CURL_DISABLE_FILE = @CURL_DISABLE_FILE@
 CURL_DISABLE_FTP = @CURL_DISABLE_FTP@
 CURL_DISABLE_HTTP = @CURL_DISABLE_HTTP@
 CURL_DISABLE_LDAP = @CURL_DISABLE_LDAP@
+CURL_DISABLE_LDAPS = @CURL_DISABLE_LDAPS@
+CURL_DISABLE_PROXY = @CURL_DISABLE_PROXY@
 CURL_DISABLE_TELNET = @CURL_DISABLE_TELNET@
 CURL_DISABLE_TFTP = @CURL_DISABLE_TFTP@
-CURL_DISABLE_VERBOSE_STRINGS = @CURL_DISABLE_VERBOSE_STRINGS@
-CURL_EXTERN_SYMBOL = @CURL_EXTERN_SYMBOL@
-CURL_HIDDEN_SYMBOLS = @CURL_HIDDEN_SYMBOLS@
 CURL_LIBS = @CURL_LIBS@
 CYGPATH_W = @CYGPATH_W@
 DEFS = @DEFS@
 DEPDIR = @DEPDIR@
 DLLTOOL = @DLLTOOL@
-ECHO = @ECHO@
+DSYMUTIL = @DSYMUTIL@
+DUMPBIN = @DUMPBIN@
 ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
 EXEEXT = @EXEEXT@
+FGREP = @FGREP@
 GREP = @GREP@
 HAVE_ARES = @HAVE_ARES@
 HAVE_LIBZ = @HAVE_LIBZ@
 HAVE_LIBZ_FALSE = @HAVE_LIBZ_FALSE@
 HAVE_LIBZ_TRUE = @HAVE_LIBZ_TRUE@
+HAVE_PK11_CREATEGENERICOBJECT = @HAVE_PK11_CREATEGENERICOBJECT@
 IDN_ENABLED = @IDN_ENABLED@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
@@ -110,11 +267,13 @@ INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 IPV6_ENABLED = @IPV6_ENABLED@
 KRB4_ENABLED = @KRB4_ENABLED@
+LD = @LD@
 LDFLAGS = @LDFLAGS@
 LIBCURL_LIBS = @LIBCURL_LIBS@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
+LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
 MAINT = @MAINT@
@@ -124,17 +283,22 @@ MAKEINFO = @MAKEINFO@
 MANOPT = @MANOPT@
 MIMPURE_FALSE = @MIMPURE_FALSE@
 MIMPURE_TRUE = @MIMPURE_TRUE@
+NM = @NM@
+NMEDIT = @NMEDIT@
 NO_UNDEFINED_FALSE = @NO_UNDEFINED_FALSE@
 NO_UNDEFINED_TRUE = @NO_UNDEFINED_TRUE@
 NROFF = @NROFF@
 OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
+OTOOL = @OTOOL@
+OTOOL64 = @OTOOL64@
 PACKAGE = @PACKAGE@
 PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
 PACKAGE_NAME = @PACKAGE_NAME@
 PACKAGE_STRING = @PACKAGE_STRING@
 PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_VERSION = @PACKAGE_VERSION@
+PATH = @PATH@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PERL = @PERL@
 PKGADD_NAME = @PKGADD_NAME@
@@ -147,9 +311,17 @@ REQUIRE_LIB_DEPS = @REQUIRE_LIB_DEPS@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
+SONAME_BUMP_FALSE = @SONAME_BUMP_FALSE@
+SONAME_BUMP_TRUE = @SONAME_BUMP_TRUE@
+SSL_ENABLED = @SSL_ENABLED@
+STATICLIB_FALSE = @STATICLIB_FALSE@
+STATICLIB_TRUE = @STATICLIB_TRUE@
 STRIP = @STRIP@
+SUPPORT_FEATURES = @SUPPORT_FEATURES@
+SUPPORT_PROTOCOLS = @SUPPORT_PROTOCOLS@
 TEST_SERVER_LIBS = @TEST_SERVER_LIBS@
 USE_GNUTLS = @USE_GNUTLS@
+USE_LIBSSH2 = @USE_LIBSSH2@
 USE_MANUAL_FALSE = @USE_MANUAL_FALSE@
 USE_MANUAL_TRUE = @USE_MANUAL_TRUE@
 USE_NSS = @USE_NSS@
@@ -158,6 +330,7 @@ USE_WINDOWS_SSPI = @USE_WINDOWS_SSPI@
 VERSION = @VERSION@
 VERSIONNUM = @VERSIONNUM@
 ac_ct_CC = @ac_ct_CC@
+ac_ct_DUMPBIN = @ac_ct_DUMPBIN@
 am__fastdepCC_FALSE = @am__fastdepCC_FALSE@
 am__fastdepCC_TRUE = @am__fastdepCC_TRUE@
 am__include = @am__include@
@@ -187,8 +360,10 @@ infodir = @infodir@
 install_sh = @install_sh@
 libdir = @libdir@
 libexecdir = @libexecdir@
+libext = @libext@
 localedir = @localedir@
 localstatedir = @localstatedir@
+lt_ECHO = @lt_ECHO@
 mandir = @mandir@
 mkdir_p = @mkdir_p@
 oldincludedir = @oldincludedir@
@@ -201,21 +376,41 @@ sharedstatedir = @sharedstatedir@
 subdirs = @subdirs@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
-AUTOMAKE_OPTIONS = foreign no-dependencies
-EXTRA_DIST = README curlgtk.c sepheaders.c simple.c postit2.c		\
- persistant.c ftpget.c Makefile.example multithread.c getinmemory.c	\
- ftpupload.c httpput.c simplessl.c ftpgetresp.c http-post.c		\
- post-callback.c multi-app.c multi-double.c multi-single.c		\
- multi-post.c fopen.c simplepost.c makefile.dj curlx.c https.c		\
- multi-debugcallback.c fileupload.c getinfo.c ftp3rdparty.c debug.c	\
- anyauthput.c htmltitle.cc htmltidy.c opensslthreadlock.c		\
- cookie_interface.c cacertinmem.c synctime.c sampleconv.c ftpuploadresume.c \
- 10-at-a-time.c hiperfifo.c ghiper.c
+AUTOMAKE_OPTIONS = foreign nostdinc
+EXTRA_DIST = README Makefile.example Makefile.inc Makefile.m32 \
+	makefile.dj $(COMPLICATED_EXAMPLES)
+
+
+# Specify our include paths here, and do it relative to $(top_srcdir) and
+# $(top_builddir), to ensure that these paths which belong to the library
+# being currently built and tested are searched before the library which
+# might possibly already be installed in the system.
+#
+# $(top_builddir)/include is for libcurl's generated curl/curlbuild.h file
+# $(top_srcdir)/include is for libcurl's external include files
+INCLUDES = -I$(top_builddir)/include \
+           -I$(top_srcdir)/include
+
+LIBDIR = $(top_builddir)/lib
+
+# we need this define when building with a static lib on Windows
+@STATICLIB_TRUE@STATICCPPFLAGS = -DCURL_STATICLIB
+
+# Dependencies
+LDADD = $(LIBDIR)/libcurl.la
+
+# These examples require external dependencies that may not be commonly
+# available on POSIX systems, so don't bother attempting to compile them here.
+COMPLICATED_EXAMPLES = \
+ curlgtk.c curlx.c htmltitle.cc cacertinmem.c ftpuploadresume.c \
+ ghiper.c hiperfifo.c htmltidy.c multithread.c \
+ opensslthreadlock.c sampleconv.c synctime.c threaded-ssl.c evhiperfifo.c
 
 all: all-am
 
 .SUFFIXES:
-$(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am  $(am__configure_deps)
+.SUFFIXES: .c .lo .o .obj
+$(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am $(srcdir)/Makefile.inc $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
 	    *$$dep*) \
@@ -245,6 +440,157 @@ $(top_srcdir)/configure: @MAINTAINER_MODE_TRUE@ $(am__configure_deps)
 $(ACLOCAL_M4): @MAINTAINER_MODE_TRUE@ $(am__aclocal_m4_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 
+clean-checkPROGRAMS:
+	@list='$(check_PROGRAMS)'; for p in $$list; do \
+	  f=`echo $$p|sed 's/$(EXEEXT)$$//'`; \
+	  echo " rm -f $$p $$f"; \
+	  rm -f $$p $$f ; \
+	done
+10-at-a-time$(EXEEXT): $(10_at_a_time_OBJECTS) $(10_at_a_time_DEPENDENCIES) 
+	@rm -f 10-at-a-time$(EXEEXT)
+	$(LINK) $(10_at_a_time_LDFLAGS) $(10_at_a_time_OBJECTS) $(10_at_a_time_LDADD) $(LIBS)
+anyauthput$(EXEEXT): $(anyauthput_OBJECTS) $(anyauthput_DEPENDENCIES) 
+	@rm -f anyauthput$(EXEEXT)
+	$(LINK) $(anyauthput_LDFLAGS) $(anyauthput_OBJECTS) $(anyauthput_LDADD) $(LIBS)
+certinfo$(EXEEXT): $(certinfo_OBJECTS) $(certinfo_DEPENDENCIES) 
+	@rm -f certinfo$(EXEEXT)
+	$(LINK) $(certinfo_LDFLAGS) $(certinfo_OBJECTS) $(certinfo_LDADD) $(LIBS)
+cookie_interface$(EXEEXT): $(cookie_interface_OBJECTS) $(cookie_interface_DEPENDENCIES) 
+	@rm -f cookie_interface$(EXEEXT)
+	$(LINK) $(cookie_interface_LDFLAGS) $(cookie_interface_OBJECTS) $(cookie_interface_LDADD) $(LIBS)
+debug$(EXEEXT): $(debug_OBJECTS) $(debug_DEPENDENCIES) 
+	@rm -f debug$(EXEEXT)
+	$(LINK) $(debug_LDFLAGS) $(debug_OBJECTS) $(debug_LDADD) $(LIBS)
+fileupload$(EXEEXT): $(fileupload_OBJECTS) $(fileupload_DEPENDENCIES) 
+	@rm -f fileupload$(EXEEXT)
+	$(LINK) $(fileupload_LDFLAGS) $(fileupload_OBJECTS) $(fileupload_LDADD) $(LIBS)
+fopen$(EXEEXT): $(fopen_OBJECTS) $(fopen_DEPENDENCIES) 
+	@rm -f fopen$(EXEEXT)
+	$(LINK) $(fopen_LDFLAGS) $(fopen_OBJECTS) $(fopen_LDADD) $(LIBS)
+ftpget$(EXEEXT): $(ftpget_OBJECTS) $(ftpget_DEPENDENCIES) 
+	@rm -f ftpget$(EXEEXT)
+	$(LINK) $(ftpget_LDFLAGS) $(ftpget_OBJECTS) $(ftpget_LDADD) $(LIBS)
+ftpgetresp$(EXEEXT): $(ftpgetresp_OBJECTS) $(ftpgetresp_DEPENDENCIES) 
+	@rm -f ftpgetresp$(EXEEXT)
+	$(LINK) $(ftpgetresp_LDFLAGS) $(ftpgetresp_OBJECTS) $(ftpgetresp_LDADD) $(LIBS)
+ftpupload$(EXEEXT): $(ftpupload_OBJECTS) $(ftpupload_DEPENDENCIES) 
+	@rm -f ftpupload$(EXEEXT)
+	$(LINK) $(ftpupload_LDFLAGS) $(ftpupload_OBJECTS) $(ftpupload_LDADD) $(LIBS)
+getinfo$(EXEEXT): $(getinfo_OBJECTS) $(getinfo_DEPENDENCIES) 
+	@rm -f getinfo$(EXEEXT)
+	$(LINK) $(getinfo_LDFLAGS) $(getinfo_OBJECTS) $(getinfo_LDADD) $(LIBS)
+getinmemory$(EXEEXT): $(getinmemory_OBJECTS) $(getinmemory_DEPENDENCIES) 
+	@rm -f getinmemory$(EXEEXT)
+	$(LINK) $(getinmemory_LDFLAGS) $(getinmemory_OBJECTS) $(getinmemory_LDADD) $(LIBS)
+http-post$(EXEEXT): $(http_post_OBJECTS) $(http_post_DEPENDENCIES) 
+	@rm -f http-post$(EXEEXT)
+	$(LINK) $(http_post_LDFLAGS) $(http_post_OBJECTS) $(http_post_LDADD) $(LIBS)
+httpcustomheader$(EXEEXT): $(httpcustomheader_OBJECTS) $(httpcustomheader_DEPENDENCIES) 
+	@rm -f httpcustomheader$(EXEEXT)
+	$(LINK) $(httpcustomheader_LDFLAGS) $(httpcustomheader_OBJECTS) $(httpcustomheader_LDADD) $(LIBS)
+httpput$(EXEEXT): $(httpput_OBJECTS) $(httpput_DEPENDENCIES) 
+	@rm -f httpput$(EXEEXT)
+	$(LINK) $(httpput_LDFLAGS) $(httpput_OBJECTS) $(httpput_LDADD) $(LIBS)
+https$(EXEEXT): $(https_OBJECTS) $(https_DEPENDENCIES) 
+	@rm -f https$(EXEEXT)
+	$(LINK) $(https_LDFLAGS) $(https_OBJECTS) $(https_LDADD) $(LIBS)
+multi-app$(EXEEXT): $(multi_app_OBJECTS) $(multi_app_DEPENDENCIES) 
+	@rm -f multi-app$(EXEEXT)
+	$(LINK) $(multi_app_LDFLAGS) $(multi_app_OBJECTS) $(multi_app_LDADD) $(LIBS)
+multi-debugcallback$(EXEEXT): $(multi_debugcallback_OBJECTS) $(multi_debugcallback_DEPENDENCIES) 
+	@rm -f multi-debugcallback$(EXEEXT)
+	$(LINK) $(multi_debugcallback_LDFLAGS) $(multi_debugcallback_OBJECTS) $(multi_debugcallback_LDADD) $(LIBS)
+multi-double$(EXEEXT): $(multi_double_OBJECTS) $(multi_double_DEPENDENCIES) 
+	@rm -f multi-double$(EXEEXT)
+	$(LINK) $(multi_double_LDFLAGS) $(multi_double_OBJECTS) $(multi_double_LDADD) $(LIBS)
+multi-post$(EXEEXT): $(multi_post_OBJECTS) $(multi_post_DEPENDENCIES) 
+	@rm -f multi-post$(EXEEXT)
+	$(LINK) $(multi_post_LDFLAGS) $(multi_post_OBJECTS) $(multi_post_LDADD) $(LIBS)
+multi-single$(EXEEXT): $(multi_single_OBJECTS) $(multi_single_DEPENDENCIES) 
+	@rm -f multi-single$(EXEEXT)
+	$(LINK) $(multi_single_LDFLAGS) $(multi_single_OBJECTS) $(multi_single_LDADD) $(LIBS)
+persistant$(EXEEXT): $(persistant_OBJECTS) $(persistant_DEPENDENCIES) 
+	@rm -f persistant$(EXEEXT)
+	$(LINK) $(persistant_LDFLAGS) $(persistant_OBJECTS) $(persistant_LDADD) $(LIBS)
+post-callback$(EXEEXT): $(post_callback_OBJECTS) $(post_callback_DEPENDENCIES) 
+	@rm -f post-callback$(EXEEXT)
+	$(LINK) $(post_callback_LDFLAGS) $(post_callback_OBJECTS) $(post_callback_LDADD) $(LIBS)
+postit2$(EXEEXT): $(postit2_OBJECTS) $(postit2_DEPENDENCIES) 
+	@rm -f postit2$(EXEEXT)
+	$(LINK) $(postit2_LDFLAGS) $(postit2_OBJECTS) $(postit2_LDADD) $(LIBS)
+sendrecv$(EXEEXT): $(sendrecv_OBJECTS) $(sendrecv_DEPENDENCIES) 
+	@rm -f sendrecv$(EXEEXT)
+	$(LINK) $(sendrecv_LDFLAGS) $(sendrecv_OBJECTS) $(sendrecv_LDADD) $(LIBS)
+sepheaders$(EXEEXT): $(sepheaders_OBJECTS) $(sepheaders_DEPENDENCIES) 
+	@rm -f sepheaders$(EXEEXT)
+	$(LINK) $(sepheaders_LDFLAGS) $(sepheaders_OBJECTS) $(sepheaders_LDADD) $(LIBS)
+simple$(EXEEXT): $(simple_OBJECTS) $(simple_DEPENDENCIES) 
+	@rm -f simple$(EXEEXT)
+	$(LINK) $(simple_LDFLAGS) $(simple_OBJECTS) $(simple_LDADD) $(LIBS)
+simplepost$(EXEEXT): $(simplepost_OBJECTS) $(simplepost_DEPENDENCIES) 
+	@rm -f simplepost$(EXEEXT)
+	$(LINK) $(simplepost_LDFLAGS) $(simplepost_OBJECTS) $(simplepost_LDADD) $(LIBS)
+simplessl$(EXEEXT): $(simplessl_OBJECTS) $(simplessl_DEPENDENCIES) 
+	@rm -f simplessl$(EXEEXT)
+	$(LINK) $(simplessl_LDFLAGS) $(simplessl_OBJECTS) $(simplessl_LDADD) $(LIBS)
+
+mostlyclean-compile:
+	-rm -f *.$(OBJEXT)
+
+distclean-compile:
+	-rm -f *.tab.c
+
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/10-at-a-time.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/anyauthput.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/certinfo.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cookie_interface.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/debug.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fileupload.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fopen.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ftpget.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ftpgetresp.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ftpupload.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/getinfo.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/getinmemory.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/http-post.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/httpcustomheader.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/httpput.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/https.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/multi-app.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/multi-debugcallback.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/multi-double.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/multi-post.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/multi-single.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/persistant.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/post-callback.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/postit2.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sendrecv.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sepheaders.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/simple.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/simplepost.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/simplessl.Po@am__quote@
+
+.c.o:
+@am__fastdepCC_TRUE@	if $(COMPILE) -MT $@ -MD -MP -MF "$(DEPDIR)/$*.Tpo" -c -o $@ $<; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/$*.Tpo" "$(DEPDIR)/$*.Po"; else rm -f "$(DEPDIR)/$*.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(COMPILE) -c $<
+
+.c.obj:
+@am__fastdepCC_TRUE@	if $(COMPILE) -MT $@ -MD -MP -MF "$(DEPDIR)/$*.Tpo" -c -o $@ `$(CYGPATH_W) '$<'`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/$*.Tpo" "$(DEPDIR)/$*.Po"; else rm -f "$(DEPDIR)/$*.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(COMPILE) -c `$(CYGPATH_W) '$<'`
+
+.c.lo:
+@am__fastdepCC_TRUE@	if $(LTCOMPILE) -MT $@ -MD -MP -MF "$(DEPDIR)/$*.Tpo" -c -o $@ $<; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/$*.Tpo" "$(DEPDIR)/$*.Plo"; else rm -f "$(DEPDIR)/$*.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LTCOMPILE) -c -o $@ $<
+
 mostlyclean-libtool:
 	-rm -f *.lo
 
@@ -254,12 +600,54 @@ clean-libtool:
 distclean-libtool:
 	-rm -f libtool
 uninstall-info-am:
+
+ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
+	list='$(SOURCES) $(HEADERS) $(LISP) $(TAGS_FILES)'; \
+	unique=`for i in $$list; do \
+	    if test -f "$$i"; then echo $$i; else echo $(srcdir)/$$i; fi; \
+	  done | \
+	  $(AWK) '    { files[$$0] = 1; } \
+	       END { for (i in files) print i; }'`; \
+	mkid -fID $$unique
 tags: TAGS
-TAGS:
 
+TAGS:  $(HEADERS) $(SOURCES)  $(TAGS_DEPENDENCIES) \
+		$(TAGS_FILES) $(LISP)
+	tags=; \
+	here=`pwd`; \
+	list='$(SOURCES) $(HEADERS)  $(LISP) $(TAGS_FILES)'; \
+	unique=`for i in $$list; do \
+	    if test -f "$$i"; then echo $$i; else echo $(srcdir)/$$i; fi; \
+	  done | \
+	  $(AWK) '    { files[$$0] = 1; } \
+	       END { for (i in files) print i; }'`; \
+	if test -z "$(ETAGS_ARGS)$$tags$$unique"; then :; else \
+	  test -n "$$unique" || unique=$$empty_fix; \
+	  $(ETAGS) $(ETAGSFLAGS) $(AM_ETAGSFLAGS) $(ETAGS_ARGS) \
+	    $$tags $$unique; \
+	fi
 ctags: CTAGS
-CTAGS:
+CTAGS:  $(HEADERS) $(SOURCES)  $(TAGS_DEPENDENCIES) \
+		$(TAGS_FILES) $(LISP)
+	tags=; \
+	here=`pwd`; \
+	list='$(SOURCES) $(HEADERS)  $(LISP) $(TAGS_FILES)'; \
+	unique=`for i in $$list; do \
+	    if test -f "$$i"; then echo $$i; else echo $(srcdir)/$$i; fi; \
+	  done | \
+	  $(AWK) '    { files[$$0] = 1; } \
+	       END { for (i in files) print i; }'`; \
+	test -z "$(CTAGS_ARGS)$$tags$$unique" \
+	  || $(CTAGS) $(CTAGSFLAGS) $(AM_CTAGSFLAGS) $(CTAGS_ARGS) \
+	     $$tags $$unique
 
+GTAGS:
+	here=`$(am__cd) $(top_builddir) && pwd` \
+	  && cd $(top_srcdir) \
+	  && gtags -i $(GTAGS_ARGS) $$here
+
+distclean-tags:
+	-rm -f TAGS ID GTAGS GRTAGS GSYMS GPATH tags
 
 distdir: $(DISTFILES)
 	@srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`; \
@@ -289,6 +677,7 @@ distdir: $(DISTFILES)
 	  fi; \
 	done
 check-am: all-am
+	$(MAKE) $(AM_MAKEFLAGS) $(check_PROGRAMS)
 check: check-am
 all-am: Makefile
 installdirs:
@@ -318,11 +707,14 @@ maintainer-clean-generic:
 	@echo "it deletes files that may require special tools to rebuild."
 clean: clean-am
 
-clean-am: clean-generic clean-libtool mostlyclean-am
+clean-am: clean-checkPROGRAMS clean-generic clean-libtool \
+	mostlyclean-am
 
 distclean: distclean-am
+	-rm -rf ./$(DEPDIR)
 	-rm -f Makefile
-distclean-am: clean-am distclean-generic distclean-libtool
+distclean-am: clean-am distclean-compile distclean-generic \
+	distclean-libtool distclean-tags
 
 dvi: dvi-am
 
@@ -345,12 +737,14 @@ install-man:
 installcheck-am:
 
 maintainer-clean: maintainer-clean-am
+	-rm -rf ./$(DEPDIR)
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 
 mostlyclean: mostlyclean-am
 
-mostlyclean-am: mostlyclean-generic mostlyclean-libtool
+mostlyclean-am: mostlyclean-compile mostlyclean-generic \
+	mostlyclean-libtool
 
 pdf: pdf-am
 
@@ -362,19 +756,20 @@ ps-am:
 
 uninstall-am: uninstall-info-am
 
-.PHONY: all all-am check check-am clean clean-generic clean-libtool \
-	distclean distclean-generic distclean-libtool distdir dvi \
-	dvi-am html html-am info info-am install install-am \
-	install-data install-data-am install-exec install-exec-am \
-	install-info install-info-am install-man install-strip \
-	installcheck installcheck-am installdirs maintainer-clean \
-	maintainer-clean-generic mostlyclean mostlyclean-generic \
-	mostlyclean-libtool pdf pdf-am ps ps-am uninstall uninstall-am \
-	uninstall-info-am
+.PHONY: CTAGS GTAGS all all-am check check-am clean \
+	clean-checkPROGRAMS clean-generic clean-libtool ctags \
+	distclean distclean-compile distclean-generic \
+	distclean-libtool distclean-tags distdir dvi dvi-am html \
+	html-am info info-am install install-am install-data \
+	install-data-am install-exec install-exec-am install-info \
+	install-info-am install-man install-strip installcheck \
+	installcheck-am installdirs maintainer-clean \
+	maintainer-clean-generic mostlyclean mostlyclean-compile \
+	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
+	tags uninstall uninstall-am uninstall-info-am
 
 
-all:
-	@echo "done"
+# Makefile.inc provides the check_PROGRAMS and COMPLICATED_EXAMPLES defines
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

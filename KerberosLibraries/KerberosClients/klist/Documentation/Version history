@@ -1,0 +1,119 @@
+========================================================================
+klist Version History
+========================================================================
+Current version: 1.4a1
+Date:            October 2, 2008
+Author:          lxs@mit.edu
+========================================================================
+
+klist 1.4
+To be released with KfM 6.5
+
+========================================================================
+
+	klist 1.4a1
+	October 2, 2008
+	
+	[RT 6126] KIM-based klist
+	
+	========================================================================
+
+klist 1.3
+Released as part of KfM 6.0
+
+========================================================================
+
+	klist 1.3fc1
+	February 16, 2007
+
+	Moved to final candidate
+
+	========================================================================
+
+	klist 1.3a3
+	October 27, 2006
+
+	[RT 4531] kinit -A lists default ccache twice
+
+	========================================================================
+
+	klist 1.3a2
+	August 23, 2006
+
+	[RTÊ4169]ÊRemove Kerberos v4
+
+	========================================================================
+
+	klist 1.3a1
+	May 25, 2006
+
+	[RTÊ3504]Êklist -s doesn't set the right exit status if tickets are expired
+
+	========================================================================
+
+klist 1.2
+Released as part of KfM 5.5
+
+========================================================================
+
+	klist 1.2fc2
+	December 17, 2004
+
+	[RT 2823] cleaned up klist error handling
+	[RT 2824] klist -A option should print dashes between ccaches
+	[RT 2825] klist should not error out if there are no v4 ccaches
+	[RT 2826] klist should not crash if there are no v4 ccaches
+
+	========================================================================
+
+	klist 1.2fc1
+	December 6, 2004
+
+	Moved to final candidate.
+
+	========================================================================
+
+	klist 1.2b1
+	August 30, 2004
+
+	[RT 2681] klist man page does not list all the -f flags
+
+	========================================================================
+
+klist 1.1
+Released as part of KfM 5.0
+
+========================================================================
+
+	klist 1.1fc2
+	September 12, 2003
+
+	[RT 1841] klist doesn't display IPv6 addresses
+
+	========================================================================
+	klist 1.1fc1
+	July 23, 2003
+
+	[RT 1689] klist can't display file based caches
+
+	========================================================================
+
+klist 1.0
+First Public Release
+
+========================================================================
+
+	klist 1.0fc1
+	June 19, 2002
+
+	Moved to final candidate.
+
+	========================================================================
+
+	klist 1.0a1
+	June 10, 2002
+
+	[BZ 727]	Use CCAPI to list credentials
+	[BZ 728]	Add -A option to list all caches
+
+	========================================================================

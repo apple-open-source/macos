@@ -1,7 +1,6 @@
 
 Ihre Mitgliedschaft in der Mailingliste %(listname)s wurde 
-vorübergehend deaktiviert, da Ihre e-Mailadresse wiederholt unzustellbar 
-oder Ihr Postfach überfüllt war. 
+wegen %(reason)s vorübergehend deaktiviert.
 
 Sie werden so lange keine Nachrichten dieser Liste mehr erhalten, bis 
 Sie Ihre Mitgliedschaft wieder aktivieren. 
@@ -20,7 +19,7 @@ Sie können auch Ihre Mitgliedschafts-Seite besuchen:
 %(optionsurl)s
 
 Dort können Sie verschiedenste Einstellungen, wie den Empfang von
-Nachrichtensammlungen oder Ihre e-Mailadresse, konfigurieren.
+Nachrichtensammlungen oder Ihre E-Mailadresse, konfigurieren.
 
 Zur Erinnerung: Ihr Passwort für diese Liste lautet
 

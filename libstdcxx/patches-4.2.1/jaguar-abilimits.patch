@@ -1,0 +1,67 @@
+--- gcc-4.2/gcc/libstdc++-v3/config/abi/pre/gnu.ver	2006-11-14 20:23:39.000000000 -0500
++++ libstdc++-v3/config/abi/pre/gnu.ver	2006-12-06 15:54:39.000000000 -0500
+@@ -476,37 +476,7 @@ GLIBCXX_3.4 {
+     _ZTv0_n24_NS*;
+ 
+     # stub functions from libmath
+-    sinf;
+-    sinl;
+-    sinhf;
+-    sinhl;
+-    cosf;
+-    cosl;
+-    coshf;
+-    coshl;
+-    tanf;
+-    tanl;
+-    tanhf;
+-    tanhl;
+-    atan2f;
+-    atan2l;
+-    expf;
+-    expl;
+-    hypotf;
+-    hypotl;
+-    hypot;
+-    logf;
+-    logl;
+-    log10f;
+-    log10l;
+-    powf;
+-    powl;
+-    sqrtf;
+-    sqrtl;
+-    copysignf;
+-    __signbit;
+-    __signbitf;
+-    __signbitl;
++    # Not part of the ABI on Darwin.
+ 
+    # GLIBCXX_ABI compatibility only.
+     # std::string
+@@ -567,24 +537,7 @@ GLIBCXX_3.4.2 {
+ GLIBCXX_3.4.3 {
+  
+     # stub functions from libmath
+-    acosf;
+-    acosl;
+-    asinf;
+-    asinl;
+-    atanf;
+-    atanl;
+-    ceilf;
+-    ceill;
+-    floorf;
+-    floorl;
+-    fmodf;
+-    fmodl;
+-    frexpf;
+-    frexpl;
+-    ldexpf;
+-    ldexpl;
+-    modff;
+-    modfl;
++    # Don't exist on Darwin
+ 
+ } GLIBCXX_3.4.2;
+ 

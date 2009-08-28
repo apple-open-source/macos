@@ -1,7 +1,7 @@
 /*
  *******************************************************************************
  *
- *   Copyright (C) 2003-2006, International Business Machines
+ *   Copyright (C) 2003-2008, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  *
  *******************************************************************************
@@ -192,10 +192,8 @@ usprep_init() {
 /** Initializes the cache for resources */
 static void 
 initCache(UErrorCode *status) {
-    UBool makeCache = FALSE;
-    umtx_lock(&usprepMutex);
-    makeCache = (SHARED_DATA_HASHTABLE ==  NULL);
-    umtx_unlock(&usprepMutex);
+    UBool makeCache;
+    UMTX_CHECK(&usprepMutex, (SHARED_DATA_HASHTABLE ==  NULL), makeCache);
     if(makeCache) {
         UHashtable *newCache = uhash_open(hashEntry, compareEntries, NULL, status);
         if (U_SUCCESS(*status)) {
@@ -206,9 +204,9 @@ initCache(UErrorCode *status) {
                 newCache = NULL;
             }
             umtx_unlock(&usprepMutex);
-            if(newCache != NULL) {
-                uhash_close(newCache);
-            }
+        }
+        if(newCache != NULL) {
+            uhash_close(newCache);
         }
     }
 }
@@ -447,7 +445,7 @@ uprv_syntaxError(const UChar* rules,
     parseError->line = 0 ; // we are not using line numbers 
     
     // for pre-context
-    int32_t start = (pos <=U_PARSE_CONTEXT_LEN)? 0 : (pos - (U_PARSE_CONTEXT_LEN-1));
+    int32_t start = (pos < U_PARSE_CONTEXT_LEN)? 0 : (pos - (U_PARSE_CONTEXT_LEN-1));
     int32_t limit = pos;
     
     u_memcpy(parseError->preContext,rules+start,limit-start);

@@ -1,6 +1,6 @@
 /* Charset handling for GNU tar.
 
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2006 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -14,7 +14,7 @@
 
    You should have received a copy of the GNU General Public License along
    with this program; if not, write to the Free Software Foundation, Inc.,
-   59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 #include <system.h>
 #include <quotearg.h>
@@ -28,7 +28,7 @@
 # define ICONV_CONST
 #endif
 
-#ifndef HAVE_ICONV 
+#ifndef HAVE_ICONV
 
 # undef iconv_open
 # define iconv_open(tocode, fromcode) ((iconv_t) -1)
@@ -39,7 +39,7 @@
 # undef iconv_close
 # define iconv_close(cd) 0
 
-#endif 
+#endif
 
 
 
@@ -88,11 +88,10 @@ utf8_convert (bool to_utf, char const *input, char **output)
 
 
 bool
-string_ascii_p (const char *str)
+string_ascii_p (char const *p)
 {
-  const unsigned char *p = (const unsigned char *)str;
   for (; *p; p++)
-    if (*p > 127)
+    if (! (0 <= *p && *p <= 127))
       return false;
   return true;
 }

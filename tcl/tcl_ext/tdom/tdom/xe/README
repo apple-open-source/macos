@@ -1,0 +1,15 @@
+
+XE needs saves the upper input window in the file ~/.xe-input, if
+it is called without arguments. Otherwise the first argument
+gives the file name for the saved input windos.
+
+To start playing with XE copy you could do either:
+
+ 1)  cp xe-input ~/.xe-input
+     xe
+
+ 2)  xe xe-input
+
+
+Latter should be more appropiate for Wn32 users.
+

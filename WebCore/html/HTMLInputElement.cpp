@@ -67,7 +67,6 @@ const int maxSavedResults = 256;
 
 HTMLInputElement::HTMLInputElement(const QualifiedName& tagName, Document* doc, HTMLFormElement* f)
     : HTMLFormControlElementWithState(tagName, doc, f)
-    , m_data(this, this)
     , m_xPos(0)
     , m_yPos(0)
     , m_maxResults(-1)
@@ -162,14 +161,14 @@ bool HTMLInputElement::isMouseFocusable() const
 void HTMLInputElement::updateFocusAppearance(bool restorePreviousSelection)
 {        
     if (isTextField())
-        InputElement::updateFocusAppearance(m_data, document(), restorePreviousSelection);
+        InputElement::updateFocusAppearance(m_data, this, this, restorePreviousSelection);
     else
         HTMLFormControlElementWithState::updateFocusAppearance(restorePreviousSelection);
 }
 
 void HTMLInputElement::aboutToUnload()
 {
-    InputElement::aboutToUnload(m_data, document());
+    InputElement::aboutToUnload(this, this);
 }
 
 bool HTMLInputElement::shouldUseInputMethod() const
@@ -179,7 +178,7 @@ bool HTMLInputElement::shouldUseInputMethod() const
 
 void HTMLInputElement::dispatchFocusEvent()
 {
-    InputElement::dispatchFocusEvent(m_data, document());
+    InputElement::dispatchFocusEvent(m_data, this, this);
 
     if (isTextField())
         m_autofilled = false;
@@ -189,7 +188,7 @@ void HTMLInputElement::dispatchFocusEvent()
 
 void HTMLInputElement::dispatchBlurEvent()
 {
-    InputElement::dispatchBlurEvent(m_data, document());
+    InputElement::dispatchBlurEvent(m_data, this, this);
     HTMLFormControlElementWithState::dispatchBlurEvent();
 }
 
@@ -274,7 +273,7 @@ void HTMLInputElement::setInputType(const String& t)
             if (!didStoreValue && willStoreValue)
                 m_data.setValue(constrainValue(getAttribute(valueAttr)));
             else
-                InputElement::updateValueIfNeeded(m_data);
+                InputElement::updateValueIfNeeded(m_data, this);
 
             if (wasPasswordField && !isPasswordField)
                 unregisterForActivationCallbackIfNeeded();
@@ -301,7 +300,7 @@ void HTMLInputElement::setInputType(const String& t)
             checkedRadioButtons(this).addButton(this);
         }
 
-        InputElement::notifyFormStateChanged(m_data, document());
+        InputElement::notifyFormStateChanged(this);
     }
     m_haveType = true;
 
@@ -508,7 +507,7 @@ void HTMLInputElement::select()
 
 void HTMLInputElement::setSelectionRange(int start, int end)
 {
-    InputElement::updateSelectionRange(m_data, start, end);
+    InputElement::updateSelectionRange(this, this, start, end);
 }
 
 void HTMLInputElement::accessKeyAction(bool sendToAnyElement)
@@ -595,9 +594,9 @@ void HTMLInputElement::parseMappedAttribute(MappedAttribute *attr)
             m_useDefaultChecked = true;
         }
     } else if (attr->name() == maxlengthAttr)
-        InputElement::parseMaxLengthAttribute(m_data, attr);
+        InputElement::parseMaxLengthAttribute(m_data, this, this, attr);
     else if (attr->name() == sizeAttr)
-        InputElement::parseSizeAttribute(m_data, attr);
+        InputElement::parseSizeAttribute(m_data, this, attr);
     else if (attr->name() == altAttr) {
         if (renderer() && inputType() == IMAGE)
             toRenderImage(renderer())->updateAltText();
@@ -633,8 +632,6 @@ void HTMLInputElement::parseMappedAttribute(MappedAttribute *attr)
         setAttributeEventListener(eventNames().selectEvent, createAttributeEventListener(this, attr));
     } else if (attr->name() == onchangeAttr) {
         setAttributeEventListener(eventNames().changeEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == oninputAttr) {
-        setAttributeEventListener(eventNames().inputEvent, createAttributeEventListener(this, attr));
     }
     // Search field and slider attributes all just cause updateFromElement to be called through style
     // recalcing.
@@ -882,9 +879,9 @@ void HTMLInputElement::setChecked(bool nowChecked, bool sendChangeEvent)
     setNeedsStyleRecalc();
 
     checkedRadioButtons(this).addButton(this);
-    
+
     if (renderer() && renderer()->style()->hasAppearance())
-        theme()->stateChanged(renderer(), CheckedState);
+        renderer()->theme()->stateChanged(renderer(), CheckedState);
 
     // Only send a change event for items in the document (avoid firing during
     // parsing) and don't send a change event for a radio button that's getting
@@ -892,7 +889,7 @@ void HTMLInputElement::setChecked(bool nowChecked, bool sendChangeEvent)
     // because it says only to fire change events at "lose focus" time, which is
     // definitely wrong in practice for these types of elements.
     if (sendChangeEvent && inDocument() && (inputType() != RADIO || nowChecked))
-        onChange();
+        dispatchFormControlChangeEvent();
 }
 
 void HTMLInputElement::setIndeterminate(bool _indeterminate)
@@ -906,7 +903,7 @@ void HTMLInputElement::setIndeterminate(bool _indeterminate)
     setNeedsStyleRecalc();
 
     if (renderer() && renderer()->style()->hasAppearance())
-        theme()->stateChanged(renderer(), CheckedState);
+        renderer()->theme()->stateChanged(renderer(), CheckedState);
 }
 
 int HTMLInputElement::size() const
@@ -994,7 +991,7 @@ void HTMLInputElement::setValue(const String& value)
         else {
             m_data.setValue(constrainValue(value));
             if (isTextField()) {
-                InputElement::updatePlaceholderVisibility(m_data, document());
+                InputElement::updatePlaceholderVisibility(m_data, this, this);
                 if (inDocument())
                     document()->updateStyleIfNeeded();
             }
@@ -1008,11 +1005,11 @@ void HTMLInputElement::setValue(const String& value)
     if (isTextField()) {
         unsigned max = m_data.value().length();
         if (document()->focusedNode() == this)
-            InputElement::updateSelectionRange(m_data, max, max);
+            InputElement::updateSelectionRange(this, this, max, max);
         else
             cacheSelection(max, max);
     }
-    InputElement::notifyFormStateChanged(m_data, document());
+    InputElement::notifyFormStateChanged(this);
 }
 
 String HTMLInputElement::placeholder() const
@@ -1034,7 +1031,7 @@ void HTMLInputElement::setValueFromRenderer(const String& value)
 {
     // File upload controls will always use setFileListFromRenderer.
     ASSERT(inputType() != FILE);
-    InputElement::setValueFromRenderer(m_data, document(), value);
+    InputElement::setValueFromRenderer(m_data, this, this, value);
 }
 
 void HTMLInputElement::setFileListFromRenderer(const Vector<String>& paths)
@@ -1045,7 +1042,7 @@ void HTMLInputElement::setFileListFromRenderer(const Vector<String>& paths)
         m_fileList->append(File::create(paths[i]));
 
     setFormControlValueMatchesRenderer(true);
-    InputElement::notifyFormStateChanged(m_data, document());
+    InputElement::notifyFormStateChanged(this);
 }
 
 bool HTMLInputElement::storesValueSeparateFromAttribute() const
@@ -1391,7 +1388,7 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
         // Fire onChange for text fields.
         RenderObject* r = renderer();
         if (r && r->isTextField() && toRenderTextControl(r)->isEdited()) {
-            onChange();
+            dispatchFormControlChangeEvent();
             // Refetch the renderer since arbitrary JS code run during onchange can do anything, including destroying it.
             r = renderer();
             if (r && r->isTextField())
@@ -1405,7 +1402,7 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
     }
 
     if (evt->isBeforeTextInsertedEvent())
-        InputElement::handleBeforeTextInsertedEvent(m_data, document(), evt);
+        InputElement::handleBeforeTextInsertedEvent(m_data, this, document(), evt);
 
     if (isTextField() && renderer() && (evt->isMouseEvent() || evt->isDragEvent() || evt->isWheelEvent() || evt->type() == eventNames().blurEvent || evt->type() == eventNames().focusEvent))
         static_cast<RenderTextControlSingleLine*>(renderer())->forwardEvent(evt);
@@ -1550,7 +1547,7 @@ FileList* HTMLInputElement::files()
 
 String HTMLInputElement::constrainValue(const String& proposedValue) const
 {
-    return InputElement::constrainValue(m_data, proposedValue, m_data.maxLength());
+    return InputElement::constrainValue(this, proposedValue, m_data.maxLength());
 }
 
 bool HTMLInputElement::needsActivationCallback()

@@ -521,7 +521,7 @@
 >one one[2]
 >one two three
 >one two three two
->one one two three
+>one two three
 
   fpath=(.)
   echo >foo 'echo foo loaded; foo() { echo foo run; }'
@@ -654,6 +654,28 @@
 >foo2: Test message
 >This is in1
 >This is in2
+
+# This is trickier than it looks.  There's a hack at the end of
+# execcmd() to catch the multio processes attached to the
+# subshell, which otherwise sort of get lost in the general turmoil.
+# Without that, the multios aren't synchronous with the subshell
+# or the main shell starting the "cat", so the output files appear
+# empty.
+  setopt multios
+  ( echo hello ) >multio_out1 >multio_out2 && cat multio_out*
+0:Multios attached to a subshell
+>hello
+>hello
+
+# This tests for another race in multios.
+  print -u $ZTST_fd 'This test hangs the shell when it fails...'
+  setopt multios
+  echo These are the contents of the file >multio_race.out
+  multio_race_fn() { cat; }
+  multio_race_fn <$(echo multio_race.out multio_race.out)
+0:Fix for race with input multios
+>These are the contents of the file
+>These are the contents of the file
 
 # tried this with other things, but not on its own, so much.
   unsetopt nomatch
@@ -1012,6 +1034,7 @@
 # This really just tests if XTRACE is egregiously broken.
 # To test it properly would need a full set of its own.
   fn() { print message; }
+  PS4='+%N:%i> '
   setopt xtrace
   fn
   unsetopt xtrace
@@ -1019,6 +1042,6 @@
 0:XTRACE option
 >message
 >message
-?+(eval):3> fn
+?+(eval):4> fn
 ?+fn:0> print message
-?+(eval):4> unsetopt xtrace
+?+(eval):5> unsetopt xtrace

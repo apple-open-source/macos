@@ -22,6 +22,7 @@
 #include "config.h"
 #include "XMLHttpRequest.h"
 
+#include "Cache.h"
 #include "CString.h"
 #include "CrossOriginAccessControl.h"
 #include "CrossOriginPreflightResultCache.h"
@@ -145,6 +146,7 @@ XMLHttpRequest::XMLHttpRequest(ScriptExecutionContext* context)
     , m_uploadComplete(false)
     , m_sameOriginRequest(true)
     , m_inPreflight(false)
+    , m_didTellLoaderAboutRequest(false)
     , m_receivedLength(0)
     , m_lastSendLineNumber(0)
     , m_exceptionCode(0)
@@ -154,6 +156,10 @@ XMLHttpRequest::XMLHttpRequest(ScriptExecutionContext* context)
 
 XMLHttpRequest::~XMLHttpRequest()
 {
+    if (m_didTellLoaderAboutRequest) {
+        cache()->loader()->nonCacheRequestComplete(m_url);
+        m_didTellLoaderAboutRequest = false;
+    }
     if (m_upload)
         m_upload->disconnectXMLHttpRequest();
 }
@@ -390,7 +396,7 @@ void XMLHttpRequest::send(Document* document, ExceptionCode& ec)
     if (!initSend(ec))
         return;
 
-    if (m_method != "GET" && m_method != "HEAD" && (m_url.protocolIs("http") || m_url.protocolIs("https"))) {
+    if (m_method != "GET" && m_method != "HEAD" && m_url.protocolInHTTPFamily()) {
         String contentType = getRequestHeader("Content-Type");
         if (contentType.isEmpty()) {
 #if ENABLE(DASHBOARD_SUPPORT)
@@ -421,7 +427,7 @@ void XMLHttpRequest::send(const String& body, ExceptionCode& ec)
     if (!initSend(ec))
         return;
 
-    if (!body.isNull() && m_method != "GET" && m_method != "HEAD" && (m_url.protocolIs("http") || m_url.protocolIs("https"))) {
+    if (!body.isNull() && m_method != "GET" && m_method != "HEAD" && m_url.protocolInHTTPFamily()) {
         String contentType = getRequestHeader("Content-Type");
         if (contentType.isEmpty()) {
 #if ENABLE(DASHBOARD_SUPPORT)
@@ -445,7 +451,7 @@ void XMLHttpRequest::send(File* body, ExceptionCode& ec)
     if (!initSend(ec))
         return;
 
-    if (m_method != "GET" && m_method != "HEAD" && (m_url.protocolIs("http") || m_url.protocolIs("https"))) {
+    if (m_method != "GET" && m_method != "HEAD" && m_url.protocolInHTTPFamily()) {
         // FIXME: Should we set a Content-Type if one is not set.
         // FIXME: add support for uploading bundles.
         m_requestEntityBody = FormData::create();
@@ -674,13 +680,23 @@ void XMLHttpRequest::loadRequestAsynchronously(ResourceRequest& request)
     if (m_upload)
         request.setReportUploadProgress(true);
 
-    m_loader = ThreadableLoader::create(scriptExecutionContext(), this, request, callbacks, DoNotSniffContent, storedCredentials);
+    m_loader = ThreadableLoader::create(scriptExecutionContext(), this, request, callbacks, DoNotSniffContent, storedCredentials, DenyCrossOriginRedirect);
 
     if (m_loader) {
         // Neither this object nor the JavaScript wrapper should be deleted while
         // a request is in progress because we need to keep the listeners alive,
         // and they are referenced by the JavaScript wrapper.
         setPendingActivity(this);
+        
+        // For now we should only balance the nonCached request count for main-thread XHRs and not
+        // Worker XHRs, as the Cache is not thread-safe.
+        // This will become irrelevant after https://bugs.webkit.org/show_bug.cgi?id=27165 is resolved.
+        if (!scriptExecutionContext()->isWorkerContext()) {
+            ASSERT(isMainThread());
+            ASSERT(!m_didTellLoaderAboutRequest);
+            cache()->loader()->nonCacheRequestInFlight(m_url);
+            m_didTellLoaderAboutRequest = true;
+        }
     }
 }
 
@@ -961,6 +977,11 @@ String XMLHttpRequest::statusText(ExceptionCode& ec) const
 
 void XMLHttpRequest::didFail(const ResourceError& error)
 {
+    if (m_didTellLoaderAboutRequest) {
+        cache()->loader()->nonCacheRequestComplete(m_url);
+        m_didTellLoaderAboutRequest = false;
+    }
+    
     // If we are already in an error state, for instance we called abort(), bail out early.
     if (m_error)
         return;
@@ -982,6 +1003,11 @@ void XMLHttpRequest::didFailRedirectCheck()
 
 void XMLHttpRequest::didFinishLoading(unsigned long identifier)
 {
+    if (m_didTellLoaderAboutRequest) {
+        cache()->loader()->nonCacheRequestComplete(m_url);
+        m_didTellLoaderAboutRequest = false;
+    }
+
     if (m_error)
         return;
 

@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 
-# Copyright (c) 2007 Apple Inc. All rights reserved.
+# Copyright (c) 2007, 2008, 2009 Apple Inc. All rights reserved.
 #
 # @APPLE_LICENSE_HEADER_START@
 #
@@ -25,8 +25,9 @@
 # The script is non-destructive - it can be run multiple times.
 
 use strict;
-use Errno qw(:POSIX);
 use File::Basename;
+
+my $configured = "/var/db/.configureLocalKDC";
 
 my $progname = basename ($0);
 
@@ -34,10 +35,17 @@ chdir '/' or die "chdir: $!\n";
 
 if ($< != 0) {
 	print 'Error: '. $progname ." needs to be run by root\n";
-	exit EPERM();
+	exit 1;
 }
 
 umask 022;
+
+close STDOUT;
+open STDOUT, ">>/Library/Logs/LKDC-setup.log" || die "Failed to open STDOUT";
+open STDERR, ">&STDOUT" || die "Failed to open STDERR";
+
+# print when we are running
+system("date");
 
 my $system_keychain = '/Library/Keychains/System.keychain';
 
@@ -55,7 +63,12 @@ my $make_keytab_flag = 0;
 my $update_plists_flag = 0;
 
 my @kdcsetup_args;
-my $kdcmond_plist = '/System/Library/LaunchDaemons/com.apple.kdcmond.plist';
+my $krb5kdc_plist = '/System/Library/LaunchDaemons/edu.mit.Kerberos.krb5kdc.plist';
+my $source_version = '10.5'; # if not given, assume Leopard
+my $restore_directory;
+
+my $fixup_disallow_service = 0;
+my $create_keychain = 1;
 
 my $argc = scalar @ARGV;
 my $i;
@@ -66,25 +79,71 @@ for ($i = 0; $i < $argc; ++$i) {
 		$update_plists_flag = 1;
 	} elsif ($ARGV[$i] eq '--target') {
 		die "Error: --target requires an argument\n" unless ++$i < $argc;
-		push @kdcsetup_args, '-F', $ARGV[$i];
+		push @kdcsetup_args, '-T', $ARGV[$i];
+	} elsif ($ARGV[$i] eq '--source') {
+		die "Error: --source requires an argument\n" unless ++$i < $argc;
+		$restore_directory = $ARGV[$i]
+	} elsif ($ARGV[$i] eq '--source-version') {
+		die "Error: --source-version requires an argument\n" unless ++$i < $argc;
+		$source_version = $ARGV[$i]
+	} elsif ($ARGV[$i] eq '--mode') {
+		die "Error: --mode requires an argument\n" unless ++$i < $argc;
+		# XXX handle migration assistant here
 	} else {
 		die "Error: unknown argument $ARGV[$i]\n";
 	}
 }
 
+if (defined $restore_directory) {
+    printf("Doing a migration\n");
+    if ($source_version lt '10.5') {
+	push @kdcsetup_args, '-L';
+    } else {
+	push @kdcsetup_args, '-R', $restore_directory;
+	$fixup_disallow_service = 1;
+	$create_keychain = 0;
+	printf "Creating log directory\n";
+	mkdir '/var/log/krb5kdc', 0700;
+    }
+} else {
+    push @kdcsetup_args, '-L';
+}
+
 if (! -d $kdc_dir or ! -f $kdc_local) {
-	system '/usr/bin/certtool', 'C', 'com.apple.systemdefault', 'u', 'P', 'v';
-	system '/usr/bin/certtool', 'C', 'com.apple.kerberos.kdc', 'u', 'P', 'v';
+	my $res;
 
-	system '/usr/sbin/kdcsetup', '-L', '-n', @kdcsetup_args;
+	if ($create_keychain) {
+	    printf("creating system keychain entries\n");
 
-	system '/bin/launchctl', 'load', $kdcmond_plist;
+	    $res = system '/usr/bin/certtool', 'C', 'com.apple.systemdefault', 'u', 'P', 'v';
+	    if ($res != 0) {
+		unlink $configured;
+		die "cert tool failed for com.apple.systemdefault";
+	    }
+	    $res = system '/usr/bin/certtool', 'C', 'com.apple.kerberos.kdc', 'u', 'P', 'v';
+	    if ($res != 0) {
+		unlink $configured;
+		die "cert tool failed for com.apple.kerberos.kdc";
+	    }
+	} else {
+	    printf("system chain already migrated\n");
+	}
+
+	$res = system '/usr/sbin/kdcsetup', '-n', @kdcsetup_args;
+	if ($res != 0) {
+	    unlink $configured;
+	    die "kdcsetup failed";
+	}
+
+	system '/bin/launchctl', 'load', $krb5kdc_plist;
 
 	unless ($plist_set) {
 		$make_keytab_flag = 1;
 		$update_plists_flag = 1;
 	}
 }
+system '/System/Library/PrivateFrameworks/KerberosHelper.framework/Resources/lkdc_acl',
+     '-s', 'com.apple.kerberos.kdc', '-a', '/usr/sbin/krb5kdc';
 
 if (not open (KDC_LOCAL, '/usr/libexec/PlistBuddy -c "Print :realname:" '. $kdc_local. '|')) {
 	print 'Error: '. $progname ." failed to find $kdc_local\n";
@@ -141,13 +200,26 @@ if ($make_keytab_flag or $update_plists_flag) {
 
 print $LKDC_realm . "\n";
 
-my $rerun_plist = '/System/Library/LaunchDaemons/com.apple.configureLocalKDC.plist';
+if ($fixup_disallow_service) {
+    my $IN;
+    my @users;
 
-chomp (my $status = qx{/usr/libexec/PlistBuddy -c "Print :Disabled" $rerun_plist});
+    open IN, "/usr/sbin/kadmin.local -r ${LKDC_realm} -q 'listprincs *' -r ${LKDC_realm}|";
+    while (<IN>) {
+	next if (not m%^([^/ ]+)\@${LKDC_realm}%);
+	push @users, $1;
+    }
+    close IN;
 
-if ($status ne 'true') {
-        system '/usr/libexec/PlistBuddy', '-c', 'Add :Disabled bool True', $rerun_plist;
+    foreach my $user (@users) {
+	printf "fixing disable server for user: $user\n";
+	system("/usr/sbin/kadmin.local ".
+	       "-r ${LKDC_realm} ".
+	       "-q \"modprinc -allow_svr +requires_preauth $user\@${LKDC_realm}\"");
+    }
 }
+
+system "touch", $configured;
 
 sub configure_service {
 	my $config = shift;
@@ -164,12 +236,14 @@ sub configure_service {
 
 		# kadmin.local is odd - the -q argument must be a single string argument
 		print  $kadmin_local . join (' ', '-q', @args). "\n";
-		system $kadmin_local, '-q', join (' ', @args);
+		system $kadmin_local, '-r', $LKDC_realm,
+		       '-q', join (' ', @args);
 
 		@args = ('ktadd', $principal);
 
 		print  $kadmin_local . join (' ', '-q', @args). "\n";
-		system $kadmin_local, '-q', join (' ', @args);
+		system $kadmin_local, '-r', $LKDC_realm,
+		       '-q', join (' ', @args);
 	} 
 
 	if ($do_plist and defined ($config->{prefs})) {

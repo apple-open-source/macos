@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1998-2006, International Business Machines Corporation and
+ * Copyright (c) 1998-2008, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /*
@@ -10,7 +10,7 @@
 *
 *   Date          Name        Description
 *   02/22/2000    Madhu       Creation
-*******************************************************************************
+******************************************************************************
 */
 
 #include "unicode/utypes.h"
@@ -131,6 +131,10 @@ static void TestUDataOpen(){
     struct stat stat_buf;
     
     const char* testPath=loadTestData(&status);
+    if(U_FAILURE(status)) {
+        log_data_err("Could not load testdata.dat, status = %s\n", u_errorName(status));
+        return;
+    }
 
     /* lots_of_mallocs(); */
 
@@ -139,7 +143,7 @@ static void TestUDataOpen(){
     log_verbose("Testing udata_open()\n");
     result=udata_open(testPath, type, name, &status);
     if(U_FAILURE(status)){
-        log_err("FAIL: udata_open() failed for path = %s, name=%s, type=%s, \n errorcode=%s\n", testPath, name, type, myErrorName(status));
+        log_data_err("FAIL: udata_open() failed for path = %s, name=%s, type=%s, \n errorcode=%s\n", testPath, name, type, myErrorName(status));
     } else {
         log_verbose("PASS: udata_open worked\n");
         udata_close(result);
@@ -195,10 +199,10 @@ static void TestUDataOpen(){
     strcat(icuDataFilePath, dirSepString);
     strcat(icuDataFilePath, U_ICUDATA_NAME);
     strcat(icuDataFilePath, "_");
-    strcat(icuDataFilePath, "unorm.icu");
+    strcat(icuDataFilePath, "cnvalias.icu");
 
     /* lots_of_mallocs(); */
-/*    if (stat(icuDataFilePath, &stat_buf) == 0)*/
+    if (stat(icuDataFilePath, &stat_buf) == 0)
     {
         int i;
         log_verbose("%s exists, so..\n", icuDataFilePath);
@@ -218,11 +222,11 @@ static void TestUDataOpen(){
             }
         }
     }
-/*    else
+    else
     {
          log_verbose("Skipping tests of udata_open() on %s.  File not present in this configuration.\n",
              icuDataFilePath);
-    }*/
+    }
 
     free(icuDataFilePath);
     icuDataFilePath = NULL;
@@ -243,7 +247,7 @@ static void TestUDataOpen(){
     status = U_ZERO_ERROR;
     result = udata_open( testPath, "typ", "nam", &status);
     if (status != U_ZERO_ERROR) {
-        log_err("FAIL: udata_open( \"%s\", \"typ\", \"nam\") returned status %s\n", testPath, u_errorName(status));
+        log_data_err("FAIL: udata_open( \"%s\", \"typ\", \"nam\") returned status %s\n", testPath, u_errorName(status));
     }
     udata_close(result);
     free(icuDataFilePath);
@@ -309,7 +313,7 @@ static void TestUDataOpen(){
         strcat(longTestPath, testPath);
         result=udata_open(longTestPath, type, name, &status);
         if(U_FAILURE(status)){
-            log_err("FAIL: udata_open() failed for path = %s\n name=%s, type=%s, \n errorcode=%s\n",
+            log_data_err("FAIL: udata_open() failed for path = %s\n name=%s, type=%s, \n errorcode=%s\n",
                 longTestPath, name, type, myErrorName(status));
         } else {
             log_verbose("PASS: udata_open worked\n");
@@ -328,7 +332,7 @@ static void TestUDataOpen(){
 
         result=udata_open(longTestPath, type, longName, &status);
         if (status != U_FILE_ACCESS_ERROR) {
-            log_err("FAIL: udata_open() failed for path = %s\n name=%s, type=%s, \n errorcode=%s\n",
+            log_data_err("FAIL: udata_open() failed for path = %s\n name=%s, type=%s, \n errorcode=%s\n",
                 longTestPath, longName, type, myErrorName(status));
         }
         udata_close(result);
@@ -337,60 +341,59 @@ static void TestUDataOpen(){
     free(path);
 }
 
+typedef struct {
+    uint16_t headerSize;
+    uint8_t magic1, magic2;
+    UDataInfo info;
+    char padding[8];
+    uint32_t count, reserved;
+    /*
+    const struct {
+    const char *const name; 
+    const void *const data;
+    } toc[1];
+    */
+   int32_t   fakeNameAndData[4];
+} ICU_COMMON_Data_Header;
+
+static const ICU_COMMON_Data_Header gEmptyHeader = {
+    32,          /* headerSize */
+    0xda,        /* magic1,  (see struct MappedData in udata.c)  */
+    0x27,        /* magic2     */
+    {            /*UDataInfo   */
+        sizeof(UDataInfo),      /* size        */
+        0,                      /* reserved    */
+
+#if U_IS_BIG_ENDIAN
+        1,
+#else
+        0,
+#endif
+
+        U_CHARSET_FAMILY,
+        sizeof(UChar),   
+        0,               /* reserved      */
+        {                /* data format identifier */
+           0x43, 0x6d, 0x6e, 0x44}, /* "CmnD" */
+           {1, 0, 0, 0},   /* format version major, minor, milli, micro */
+           {0, 0, 0, 0}    /* dataVersion   */
+    },
+    {0,0,0,0,0,0,0,0},  /* Padding[8]   */ 
+    0,                  /* count        */
+    0,                  /* Reserved     */
+    {                   /*  TOC structure */
+/*        {    */
+          0 , 0 , 0, 0  /* name and data entries.  Count says there are none,  */
+                        /*  but put one in just in case.                       */
+/*        }  */
+    }
+};
 
 
 static void TestUDataSetAppData(){
 /*    UDataMemory      *dataItem;*/
 
     UErrorCode        status=U_ZERO_ERROR;
-    int               fileHandle = 0;              /* We are going to read the testdata.dat file */
-    struct stat       statBuf;
-    size_t            fileSize = 0;
-    char             *fileBuf = 0;
-
-    size_t            i;
-       
-    /* Open the testdata.dat file, using normal   */
-    const char* tdrelativepath = loadTestData(&status);
-    char* filePath=(char*)malloc(sizeof(char) * (strlen(tdrelativepath) + strlen(".dat") +1 +strlen(tdrelativepath)) );
-
-    strcpy(filePath, tdrelativepath);
-    strcat(filePath, ".dat");
-
-    log_verbose("Testing udata_setAppData() with %s\n", filePath);
-
-#if defined(U_WINDOWS) || defined(U_CYGWIN)
-    fileHandle = open( filePath, O_RDONLY | O_BINARY );
-#else
-    fileHandle = open( filePath, O_RDONLY);
-#endif
-    if( fileHandle == -1 ) {
-        log_err("FAIL: TestUDataSetAppData() can not open(\"%s\", O_RDONLY)\n", filePath);
-        goto cleanupAndReturn;
-    }
-
-    /* 
-     *Find the size of testdata.dat, and read the whole thing into memory
-     */
-    if (fstat(fileHandle, &statBuf) == 0) {
-        fileSize = statBuf.st_size;
-    }
-    if (fileSize == 0) {
-        log_err("FAIL: TestUDataSetAppData() can not find size of file \"%s\".\n", filePath);
-        goto cleanupAndReturn;
-    }
-
-    fileBuf = (char *)ctst_malloc(fileSize);
-    if (fileBuf == 0) {
-        log_err("FAIL: TestUDataSetAppData() can not malloc(%d) for file \"%s\".\n", fileSize, filePath);
-        goto cleanupAndReturn;
-    }
-
-    i = read(fileHandle, fileBuf, fileSize);
-    if (i != fileSize) {
-        log_err("FAIL: TestUDataSetAppData() error reading file \"%s\" size=%d read=%d.\n", filePath, fileSize, i);
-        goto cleanupAndReturn;
-    }
 
     /*
      * First we try some monkey business and try to do bad things.
@@ -401,35 +404,35 @@ static void TestUDataSetAppData(){
     if (status != U_ILLEGAL_ARGUMENT_ERROR) {
         log_err("FAIL: TestUDataSetAppData(): udata_setAppData(\"appData1\", NULL, status) should have failed."
                 " It returned status of %s\n", u_errorName(status));
-        goto cleanupAndReturn;
+        return;
     }
     /* The following call should fail.
        If the following works with a bad UErrorCode, then later calls to appData1 should fail. */
-    udata_setAppData("appData1", fileBuf, &status);
+    udata_setAppData("appData1", &gEmptyHeader, &status);
 
     /*
      * Got testdata.dat into memory, now we try setAppData using the memory image.
      */
 
     status=U_ZERO_ERROR;
-    udata_setAppData("appData1", fileBuf, &status); 
+    udata_setAppData("appData1", &gEmptyHeader, &status); 
     if (status != U_ZERO_ERROR) {
         log_err("FAIL: TestUDataSetAppData(): udata_setAppData(\"appData1\", fileBuf, status) "
                 " returned status of %s\n", u_errorName(status));
-        goto cleanupAndReturn;
+        return;
     }
 
-    udata_setAppData("appData2", fileBuf, &status); 
+    udata_setAppData("appData2", &gEmptyHeader, &status); 
     if (status != U_ZERO_ERROR) {
         log_err("FAIL: TestUDataSetAppData(): udata_setAppData(\"appData2\", fileBuf, status) "
                 " returned status of %s\n", u_errorName(status));
-        goto cleanupAndReturn;
+        return;
     }
 
     /*  If we try to setAppData with the same name a second time, we should get a 
      *    a using default warning.
      */
-    udata_setAppData("appData2", fileBuf, &status); 
+    udata_setAppData("appData2", &gEmptyHeader, &status); 
     if (status != U_USING_DEFAULT_WARNING) {
         log_err("FAIL: TestUDataSetAppData(): udata_setAppData(\"appData2\", fileBuf, status) "
                 " returned status of %s, expected U_USING_DEFAULT_WARNING.\n", u_errorName(status));
@@ -440,16 +443,6 @@ static void TestUDataSetAppData(){
         package of a contained item.
         
         dataItem = udata_open("appData1", "res", "te_IN", &status); **/
-
-cleanupAndReturn:
-    /*  Note:  fileBuf is not deleted because ICU retains a pointer to it
-     *         forever (until ICU is shut down).
-     */
-    if (fileHandle > 0) {
-        close(fileHandle);
-    }
-    free(filePath);
-    return;
 }
 
 static char *safeGetICUDataDirectory() {
@@ -506,6 +499,7 @@ static void TestUDataFileAccess(){
         log_err("%s\n", u_errorName(status));
     }
     free(icuDataDir);
+    ctest_resetICU();
 }
 
 
@@ -607,10 +601,14 @@ static void TestUDataOpenChoiceDemo1() {
     const char* type="icu";
     const char* testPath="testdata";
     const char* fullTestDataPath = loadTestData(&status);
+    if(U_FAILURE(status)) {
+        log_data_err("Could not load testdata.dat, status = %s\n", u_errorName(status));
+        return;
+    }
 
     result=udata_openChoice(NULL, "icu", name[0], isAcceptable1, NULL, &status);
     if(U_FAILURE(status)){
-        log_err("FAIL: udata_openChoice() failed name=%s, type=%s, \n errorcode=%s\n", name[0], type, myErrorName(status));
+        log_data_err("FAIL: udata_openChoice() failed name=%s, type=%s, \n errorcode=%s\n", name[0], type, myErrorName(status));
     } else {
         log_verbose("PASS: udata_openChoice worked\n");
         udata_close(result);
@@ -622,7 +620,7 @@ static void TestUDataOpenChoiceDemo1() {
         status=U_ZERO_ERROR;
         result=udata_openChoice(NULL, type, name[1], isAcceptable2, NULL, &status);
         if(U_FAILURE(status)){
-            log_err("FAIL: udata_openChoice() failed name=%s, type=%s, \n errorcode=%s\n", name[1], type, myErrorName(status));
+            log_data_err("FAIL: udata_openChoice() failed name=%s, type=%s, \n errorcode=%s\n", name[1], type, myErrorName(status));
         }
     }
     else {
@@ -639,7 +637,7 @@ static void TestUDataOpenChoiceDemo1() {
         status=U_ZERO_ERROR;
         result=udata_openChoice(testPath, type, name[2], isAcceptable3, NULL, &status);
         if(U_FAILURE(status)){
-            log_err("FAIL: udata_openChoice() failed path=%s name=%s, type=%s, \n errorcode=%s\n", testPath, name[2], type, myErrorName(status));
+            log_data_err("FAIL: udata_openChoice() failed path=%s name=%s, type=%s, \n errorcode=%s\n", testPath, name[2], type, myErrorName(status));
         }
     }
     else {
@@ -699,10 +697,14 @@ static void TestUDataOpenChoiceDemo2() {
     const char* name="test";
     const char* type="icu";
     const char* path = loadTestData(&status);
+    if(U_FAILURE(status)) {
+        log_data_err("Could not load testdata.dat, status = %s\n", u_errorName(status));
+        return;
+    }
 
     result=udata_openChoice(path, type, name, isAcceptable, &p, &status);
     if(U_FAILURE(status)){
-        log_err("failed to load data at p=%s t=%s n=%s, isAcceptable", path, type, name);
+        log_data_err("failed to load data at p=%s t=%s n=%s, isAcceptable", path, type, name);
     }
     if(U_SUCCESS(status) ) {
         udata_close(result);
@@ -718,12 +720,12 @@ static void TestUDataOpenChoiceDemo2() {
                 p++;
             }
             else {
-                log_err("FAIL: failed to either load the data or to reject the loaded data. ERROR=%s\n", myErrorName(status) );
+                log_data_err("FAIL: failed to either load the data or to reject the loaded data. ERROR=%s\n", myErrorName(status) );
             }
         }
         else if(p == 2) {
             if(U_FAILURE(status)) {
-                log_err("FAIL: failed to load the data and accept it.  ERROR=%s\n", myErrorName(status) );
+                log_data_err("FAIL: failed to load the data and accept it.  ERROR=%s\n", myErrorName(status) );
             }
             else {
                 log_verbose("Loads the data and accepts it for p==2 as expected\n");
@@ -757,11 +759,15 @@ static void TestUDataGetInfo() {
     const char* type="icu";
 
     const char* testPath=loadTestData(&status);
+    if(U_FAILURE(status)) {
+        log_data_err("Could not load testdata.dat, status = %s\n", u_errorName(status));
+        return;
+    }
 
     log_verbose("Testing udata_getInfo() for cnvalias.icu\n");
     result=udata_open(NULL, "icu", name, &status);
     if(U_FAILURE(status)){
-        log_err("FAIL: udata_open() failed for path = NULL, name=%s, type=%s, \n errorcode=%s\n",  name, type, myErrorName(status));
+        log_data_err("FAIL: udata_open() failed for path = NULL, name=%s, type=%s, \n errorcode=%s\n",  name, type, myErrorName(status));
         return;
     }
     udata_getInfo(result, &dataInfo);
@@ -785,7 +791,7 @@ static void TestUDataGetInfo() {
     log_verbose("Testing udata_getInfo() for test.icu\n");
     result=udata_open(testPath, type, name2, &status);
     if(U_FAILURE(status)) {
-       log_err("FAIL: udata_open() failed for path=%s name2=%s, type=%s, \n errorcode=%s\n", testPath, name2, type, myErrorName(status));
+       log_data_err("FAIL: udata_open() failed for path=%s name2=%s, type=%s, \n errorcode=%s\n", testPath, name2, type, myErrorName(status));
        return;
     }
     udata_getInfo(result, &dataInfo);
@@ -819,12 +825,16 @@ static void TestUDataGetMemory() {
     const char* name2="test";
 
     const char* testPath = loadTestData(&status);
+    if(U_FAILURE(status)) {
+        log_data_err("Could not load testdata.dat, status = %s\n", u_errorName(status));
+        return;
+    }
 
     type="icu";
     log_verbose("Testing udata_getMemory() for \"cnvalias.icu\"\n");
     result=udata_openChoice(NULL, type, name, isAcceptable1, NULL, &status);
     if(U_FAILURE(status)){
-        log_err("FAIL: udata_openChoice() failed for name=%s, type=%s, \n errorcode=%s\n", name, type, myErrorName(status));
+        log_data_err("FAIL: udata_openChoice() failed for name=%s, type=%s, \n errorcode=%s\n", name, type, myErrorName(status));
         return;
     }
     table=(const int32_t *)udata_getMemory(result);
@@ -839,7 +849,7 @@ static void TestUDataGetMemory() {
     log_verbose("Testing udata_getMemory for \"test.icu\"()\n");
     result=udata_openChoice(testPath, type, name2, isAcceptable3, NULL, &status);
     if(U_FAILURE(status)){
-        log_err("FAIL: udata_openChoice() failed for path=%s name=%s, type=%s, \n errorcode=%s\n", testPath, name2, type, myErrorName(status));
+        log_data_err("FAIL: udata_openChoice() failed for path=%s name=%s, type=%s, \n errorcode=%s\n", testPath, name2, type, myErrorName(status));
         return;
     }
     intValue=(uint16_t *)udata_getMemory(result);
@@ -874,13 +884,17 @@ static void TestErrorConditions(){
     const char* type="icu";
 
     const char *testPath = loadTestData(&status);
+    if(U_FAILURE(status)) {
+        log_data_err("Could not load testdata.dat, status = %s\n", u_errorName(status));
+        return;
+    }
 
     status = U_ILLEGAL_ARGUMENT_ERROR;
     /*Try udata_open with status != U_ZERO_ERROR*/
     log_verbose("Testing udata_open() with status != U_ZERO_ERROR\n");
     result=udata_open(testPath, type, name, &status);
     if(result != NULL){
-        log_err("FAIL: udata_open() is supposed to fail for path = %s, name=%s, type=%s, \n errorcode !=U_ZERO_ERROR\n", testPath, name, type);
+        log_data_err("FAIL: udata_open() is supposed to fail for path = %s, name=%s, type=%s, \n errorcode !=U_ZERO_ERROR\n", testPath, name, type);
         udata_close(result);
 
     } else {
@@ -966,85 +980,89 @@ static void TestErrorConditions(){
 /* Test whether apps and ICU can each have their own root.res */
 static void TestAppData()
 {
-  UResourceBundle *icu, *app;
-  UResourceBundle *tmp = NULL;
-  UResourceBundle *tmp2 = NULL;
-  
-  const UChar *appString;
-  const UChar *icuString;
+    UResourceBundle *icu, *app;
+    UResourceBundle *tmp = NULL;
+    UResourceBundle *tmp2 = NULL;
 
-  int32_t len;
+    const UChar *appString;
+    const UChar *icuString;
 
-  UErrorCode status = U_ZERO_ERROR;
-  char testMsgBuf[256];
+    int32_t len;
 
-  const char* testPath=loadTestData(&status);
+    UErrorCode status = U_ZERO_ERROR;
+    char testMsgBuf[256];
 
-  icu = ures_open(NULL, "root", &status);
-  if(U_FAILURE(status))
-  { 
-     log_err("%s:%d: Couldn't open root ICU bundle- %s", __FILE__, __LINE__, u_errorName(status));
-     return;
-  }
-  /*  log_info("Open icu root: %s size_%d\n", u_errorName(status), ures_getSize(icu)); */
-  status = U_ZERO_ERROR;
-  
-  app = ures_open(testPath, "root", &status);
-  if(U_FAILURE(status))
-  { 
-     log_err("%s:%d: Couldn't open app ICU bundle [%s]- %s", __FILE__, __LINE__, testPath, u_errorName(status));
-     return;
-  }
-  /* log_info("Open  app: %s, size %d\n", u_errorName(status), ures_getSize(app)); */
+    const char* testPath=loadTestData(&status);
+    if(U_FAILURE(status)) {
+        log_data_err("Could not load testdata.dat, status = %s\n", u_errorName(status));
+        return;
+    }
 
-  tmp = ures_getByKey(icu, "Version", tmp, &status);
-  if(U_FAILURE(status))
-  { 
-     log_err("%s:%d: Couldn't get Version string from ICU root bundle- %s", __FILE__, __LINE__, u_errorName(status));
-     return;
-  }
+    icu = ures_open(NULL, "root", &status);
+    if(U_FAILURE(status))
+    { 
+        log_data_err("%s:%d: Couldn't open root ICU bundle- %s", __FILE__, __LINE__, u_errorName(status));
+        return;
+    }
+    /*  log_info("Open icu root: %s size_%d\n", u_errorName(status), ures_getSize(icu)); */
+    status = U_ZERO_ERROR;
 
-  icuString =  ures_getString(tmp,  &len, &status);
-  if(U_FAILURE(status))
-  { 
-     log_err("%s:%d: Couldn't get string from Version string from ICU root bundle- %s", __FILE__, __LINE__, u_errorName(status));
-     return;
-  }
-  /* log_info("icuString=%p - %s\n", icuString, austrdup(icuString)); */
+    app = ures_open(testPath, "root", &status);
+    if(U_FAILURE(status))
+    { 
+        log_data_err("%s:%d: Couldn't open app ICU bundle [%s]- %s", __FILE__, __LINE__, testPath, u_errorName(status));
+        return;
+    }
+    /* log_info("Open  app: %s, size %d\n", u_errorName(status), ures_getSize(app)); */
 
+    tmp = ures_getByKey(icu, "Version", tmp, &status);
+    if(U_FAILURE(status))
+    { 
+        log_err("%s:%d: Couldn't get Version string from ICU root bundle- %s", __FILE__, __LINE__, u_errorName(status));
+        return;
+    }
 
-  tmp2 = ures_getByKey(app, "Version", tmp2, &status);
-  if(U_FAILURE(status))
-  { 
-    log_err("%s:%d: Couldn't get Version string from App root bundle- %s", __FILE__, __LINE__, u_errorName(status));
-     return;
-  }
-
-  appString =  ures_getString(tmp2,  &len, &status);
-  if(U_FAILURE(status))
-  { 
-     log_err("%s:%d: Couldn't get string from Version string from App root bundle- %s", __FILE__, __LINE__, u_errorName(status));
-     return;
-  }
-
-  /* log_info("appString=%p - %s\n", appString, austrdup(appString)); */
+    icuString =  ures_getString(tmp,  &len, &status);
+    if(U_FAILURE(status))
+    { 
+        log_err("%s:%d: Couldn't get string from Version string from ICU root bundle- %s", __FILE__, __LINE__, u_errorName(status));
+        return;
+    }
+    /* log_info("icuString=%p - %s\n", icuString, austrdup(icuString)); */
 
 
-  if(!u_strcmp(icuString, appString))
-  {
-    log_err("%s:%d: Error! Expected ICU and App root version strings to be DIFFERENT but they are both %s and %s\n", __FILE__, __LINE__, austrdup(icuString),
-    austrdup(appString));
-  }
-  else
-  {
-    log_verbose("%s:%d:  appstr=%s, icustr=%s\n", __FILE__,
-      __LINE__, u_austrcpy(testMsgBuf, appString), u_austrcpy(testMsgBuf, icuString));
-  }
+    tmp2 = ures_getByKey(app, "Version", tmp2, &status);
+    if(U_FAILURE(status))
+    { 
+        log_err("%s:%d: Couldn't get Version string from App root bundle- %s", __FILE__, __LINE__, u_errorName(status));
+        return;
+    }
 
-  ures_close(tmp);
-  ures_close(tmp2);
-  ures_close(icu);
-  ures_close(app);
+    appString =  ures_getString(tmp2,  &len, &status);
+    if(U_FAILURE(status))
+    { 
+        log_err("%s:%d: Couldn't get string from Version string from App root bundle- %s", __FILE__, __LINE__, u_errorName(status));
+        return;
+    }
+
+    /* log_info("appString=%p - %s\n", appString, austrdup(appString)); */
+
+
+    if(!u_strcmp(icuString, appString))
+    {
+        log_err("%s:%d: Error! Expected ICU and App root version strings to be DIFFERENT but they are both %s and %s\n", __FILE__, __LINE__, austrdup(icuString),
+            austrdup(appString));
+    }
+    else
+    {
+        log_verbose("%s:%d:  appstr=%s, icustr=%s\n", __FILE__,
+            __LINE__, u_austrcpy(testMsgBuf, appString), u_austrcpy(testMsgBuf, icuString));
+    }
+
+    ures_close(tmp);
+    ures_close(tmp2);
+    ures_close(icu);
+    ures_close(app);
 }
 
 static void TestICUDataName()
@@ -1249,7 +1267,7 @@ static const struct {
     /* conversion table files */
 
     /* SBCS conversion table file without extension */
-    {"ibm-913_P100-2000",        "cnv", ucnv_swap},
+    {"ibm-913_P100-2000",   "cnv", ucnv_swap},
     /* EBCDIC_STATEFUL conversion table file with extension */
     {"ibm-1390_P110-2003",       "cnv", ucnv_swap},
     /* DBCS extension-only conversion table file */
@@ -1260,6 +1278,11 @@ static const struct {
     {"gb18030",                  "cnv", ucnv_swap},
     /* MBCS conversion table file with extension */
     {"*test4x",                  "cnv", ucnv_swap},
+    /*
+     * MBCS conversion table file without extension,
+     * to test swapping and preflighting of UTF-8-friendly mbcsIndex[].
+     */
+    {"jisx-212",                 "cnv", ucnv_swap},
 #endif
 
 #if !UCONFIG_NO_CONVERSION
@@ -1540,14 +1563,19 @@ TestSwapData() {
     UDataSwapper *ds;
     UDataMemory *pData;
     uint8_t *buffer;
-    const char *pkg, *nm;
-    UErrorCode errorCode;
+    const char *pkg, *nm, *testPath;
+    UErrorCode errorCode = U_ZERO_ERROR;
     int32_t i;
 
-    buffer=(uint8_t *)uprv_malloc(2*SWAP_BUFFER_SIZE);
+    buffer=(uint8_t *)malloc(2*SWAP_BUFFER_SIZE);
     if(buffer==NULL) {
         log_err("unable to allocate %d bytes\n", 2*SWAP_BUFFER_SIZE);
         return;
+    }
+
+    testPath=loadTestData(&errorCode);
+    if(U_FAILURE(errorCode)) {
+        log_data_err("Could not load testdata.dat, status = %s\n", u_errorName(errorCode));
     }
 
     /* Test that printError works as expected. */
@@ -1607,7 +1635,7 @@ TestSwapData() {
         /* build the name for logging */
         errorCode=U_ZERO_ERROR;
         if(swapCases[i].name[0]=='*') {
-            pkg=loadTestData(&errorCode);
+            pkg=testPath;
             nm=swapCases[i].name+1;
             uprv_strcpy(name, "testdata");
         } else if (uprv_strcmp(swapCases[i].type, "brk")==0
@@ -1635,7 +1663,7 @@ TestSwapData() {
         }
     }
 
-    uprv_free(buffer);
+    free(buffer);
 }
 
 

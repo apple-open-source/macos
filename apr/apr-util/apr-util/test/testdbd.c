@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -31,7 +31,7 @@ static void test_dbd_init(abts_case *tc, void *data)
 }
 
 #if APU_HAVE_SQLITE2 || APU_HAVE_SQLITE3
-static void test_statement(abts_case *tc, apr_dbd_t* handle, 
+static void test_statement(abts_case *tc, apr_dbd_t* handle,
                            const apr_dbd_driver_t* driver, const char* sql)
 {
     int nrows;
@@ -42,7 +42,7 @@ static void test_statement(abts_case *tc, apr_dbd_t* handle,
     ABTS_ASSERT(tc, sql, rv == APR_SUCCESS);
 }
 
-static void create_table(abts_case *tc, apr_dbd_t* handle, 
+static void create_table(abts_case *tc, apr_dbd_t* handle,
                          const apr_dbd_driver_t* driver)
 {
     const char *sql = "CREATE TABLE apr_dbd_test ("
@@ -53,14 +53,14 @@ static void create_table(abts_case *tc, apr_dbd_t* handle,
     test_statement(tc, handle, driver, sql);
 }
 
-static void drop_table(abts_case *tc, apr_dbd_t* handle, 
+static void drop_table(abts_case *tc, apr_dbd_t* handle,
                        const apr_dbd_driver_t* driver)
 {
     const char *sql = "DROP TABLE apr_dbd_test";
     test_statement(tc, handle, driver, sql);
 }
 
-static void delete_rows(abts_case *tc, apr_dbd_t* handle, 
+static void delete_rows(abts_case *tc, apr_dbd_t* handle,
                         const apr_dbd_driver_t* driver)
 {
     const char *sql = "DELETE FROM apr_dbd_test";
@@ -68,7 +68,7 @@ static void delete_rows(abts_case *tc, apr_dbd_t* handle,
 }
 
 
-static void insert_data(abts_case *tc, apr_dbd_t* handle, 
+static void insert_data(abts_case *tc, apr_dbd_t* handle,
                         const apr_dbd_driver_t* driver, int count)
 {
     apr_pool_t* pool = p;
@@ -86,7 +86,7 @@ static void insert_data(abts_case *tc, apr_dbd_t* handle,
     }
 }
 
-static void select_rows(abts_case *tc, apr_dbd_t* handle, 
+static void select_rows(abts_case *tc, apr_dbd_t* handle,
                         const apr_dbd_driver_t* driver, int count)
 {
     apr_status_t rv;
@@ -144,7 +144,7 @@ static void test_escape(abts_case *tc, apr_dbd_t *handle,
   ABTS_STR_EQUAL(tc, "foo''bar", escaped);
 }
 
-static void test_dbd_generic(abts_case *tc, apr_dbd_t* handle, 
+static void test_dbd_generic(abts_case *tc, apr_dbd_t* handle,
                              const apr_dbd_driver_t* driver)
 {
     void* native;
@@ -182,12 +182,18 @@ static void test_dbd_sqlite2(abts_case *tc, void *data)
     rv = apr_dbd_get_driver(pool, "sqlite2", &driver);
     ABTS_ASSERT(tc, "failed to fetch driver", rv == APR_SUCCESS);
     ABTS_PTR_NOTNULL(tc, driver);
+    if (!driver) {
+    	return;
+    }
 
-    ABTS_STR_EQUAL(tc, apr_dbd_name(driver), "sqlite2");
+    ABTS_STR_EQUAL(tc, "sqlite2", apr_dbd_name(driver));
 
     rv = apr_dbd_open(driver, pool, "data/sqlite2.db:600", &handle);
     ABTS_ASSERT(tc, "failed to open database", rv == APR_SUCCESS);
     ABTS_PTR_NOTNULL(tc, handle);
+    if (!handle) {
+    	return;
+    }
 
     test_dbd_generic(tc, handle, driver);
 }
@@ -204,12 +210,18 @@ static void test_dbd_sqlite3(abts_case *tc, void *data)
     rv = apr_dbd_get_driver(pool, "sqlite3", &driver);
     ABTS_ASSERT(tc, "failed to fetch driver", rv == APR_SUCCESS);
     ABTS_PTR_NOTNULL(tc, driver);
+    if (!driver) {
+    	return;
+    }
 
-    ABTS_STR_EQUAL(tc, apr_dbd_name(driver), "sqlite3");
+    ABTS_STR_EQUAL(tc, "sqlite3", apr_dbd_name(driver));
 
     rv = apr_dbd_open(driver, pool, "data/sqlite3.db", &handle);
     ABTS_ASSERT(tc, "failed to open database", rv == APR_SUCCESS);
     ABTS_PTR_NOTNULL(tc, handle);
+    if (!handle) {
+    	return;
+    }
 
     test_dbd_generic(tc, handle, driver);
 }

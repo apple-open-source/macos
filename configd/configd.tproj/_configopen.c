@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -163,19 +163,10 @@ _configopen(mach_port_t			server,
 	 */
 	mySession = addSession(MACH_PORT_NULL, openMPCopyDescription);
 	*newServer = mySession->key;
+	__MACH_PORT_DEBUG(TRUE, "*** _configopen (after addSession)", *newServer);
 
-	/*
-	 * get the credentials associated with the caller.
-	 */
-	audit_token_to_au32(audit_token,
-			    NULL,			// auidp
-			    &mySession->callerEUID,	// euid
-			    NULL,			// egid
-			    NULL,			// ruid
-			    NULL,			// rgid
-			    NULL,			// pid
-			    NULL,			// asid
-			    NULL);			// tid
+	/* save the audit_token in case we need to check the callers credentials */
+	mySession->auditToken = audit_token;
 
 	/* Create and add a run loop source for the port */
 	mySession->serverRunLoopSource = CFMachPortCreateRunLoopSource(NULL, mySession->serverPort, 0);
@@ -195,6 +186,7 @@ _configopen(mach_port_t			server,
 
 	/*
 	 * Make the server port accessible to the framework routines.
+	 * ... and be sure to clear before calling CFRelease(store)
 	 */
 	storePrivate->server = *newServer;
 
@@ -214,18 +206,17 @@ _configopen(mach_port_t			server,
 						MACH_MSG_TYPE_MAKE_SEND_ONCE,
 						&oldNotify);
 	if (status != KERN_SUCCESS) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("_configopen() mach_port_request_notification() failed: %s"), mach_error_string(status));
+		SCLog(TRUE, LOG_ERR, CFSTR("_configopen() mach_port_request_notification() failed: %s"), mach_error_string(status));
 		cleanupSession(*newServer);
 		*newServer = MACH_PORT_NULL;
 		*sc_status = kSCStatusFailed;
 		goto done;
 	}
+	__MACH_PORT_DEBUG(TRUE, "*** _configopen (after mach_port_request_notification)", *newServer);
 
-#ifdef	DEBUG
 	if (oldNotify != MACH_PORT_NULL) {
-		SCLog(TRUE, LOG_ERR, CFSTR("_configopen(): why is oldNotify != MACH_PORT_NULL?"));
+		SCLog(TRUE, LOG_ERR, CFSTR("_configopen(): oldNotify != MACH_PORT_NULL"));
 	}
-#endif	/* DEBUG */
 
 	/*
 	 * Save the name of the calling application / plug-in with the session data.
@@ -244,6 +235,12 @@ _configopen(mach_port_t			server,
 	CFDictionarySetValue(sessionData, sessionKey, newInfo);
 	CFRelease(newInfo);
 	CFRelease(sessionKey);
+
+	/*
+	 * Note: at this time we should be holding ONE send right and
+	 *       ONE receive right to the server.  The send right is
+	 *       moved to the caller.
+	 */
 
     done :
 

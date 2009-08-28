@@ -1,3 +1,5 @@
+@subheading stringprep_utf8_to_unichar
+@anchor{stringprep_utf8_to_unichar}
 @deftypefun {uint32_t} {stringprep_utf8_to_unichar} (const char * @var{p})
 @var{p}: a pointer to Unicode character encoded as UTF-8
 
@@ -8,6 +10,8 @@ undefined.
 @strong{Return value:} the resulting character.
 @end deftypefun
 
+@subheading stringprep_unichar_to_utf8
+@anchor{stringprep_unichar_to_utf8}
 @deftypefun {int} {stringprep_unichar_to_utf8} (uint32_t @var{c}, char * @var{outbuf})
 @var{c}: a ISO10646 character code
 
@@ -20,6 +24,8 @@ Converts a single character to UTF-8.
 @strong{Return value:} number of bytes written.
 @end deftypefun
 
+@subheading stringprep_utf8_to_ucs4
+@anchor{stringprep_utf8_to_ucs4}
 @deftypefun {uint32_t *} {stringprep_utf8_to_ucs4} (const char * @var{str}, ssize_t @var{len}, size_t * @var{items_written})
 @var{str}: a UTF-8 encoded string
 
@@ -37,6 +43,8 @@ This function does no error checking on the input.
 This value must be freed with @code{free()}.
 @end deftypefun
 
+@subheading stringprep_ucs4_to_utf8
+@anchor{stringprep_ucs4_to_utf8}
 @deftypefun {char *} {stringprep_ucs4_to_utf8} (const uint32_t * @var{str}, ssize_t @var{len}, size_t * @var{items_read}, size_t * @var{items_written})
 @var{str}: a UCS-4 encoded string
 
@@ -58,6 +66,8 @@ error occurs, @code{NULL} will be returned and
 @code{error} set.
 @end deftypefun
 
+@subheading stringprep_utf8_nfkc_normalize
+@anchor{stringprep_utf8_nfkc_normalize}
 @deftypefun {char *} {stringprep_utf8_nfkc_normalize} (const char * @var{str}, ssize_t @var{len})
 @var{str}: a UTF-8 encoded string.
 
@@ -81,6 +91,8 @@ composed forms rather than a maximally decomposed form.
 NFKC normalized form of @code{str}.
 @end deftypefun
 
+@subheading stringprep_ucs4_nfkc_normalize
+@anchor{stringprep_ucs4_nfkc_normalize}
 @deftypefun {uint32_t *} {stringprep_ucs4_nfkc_normalize} (uint32_t * @var{str}, ssize_t @var{len})
 @var{str}: a Unicode string.
 

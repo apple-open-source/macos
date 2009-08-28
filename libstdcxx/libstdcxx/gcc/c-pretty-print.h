@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_C_PRETTY_PRINTER
 #define GCC_C_PRETTY_PRINTER
@@ -30,7 +30,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 typedef enum
   {
      pp_c_flag_abstract = 1 << 1,
-     pp_c_flag_last_bit = 2    
+     pp_c_flag_last_bit = 2
   } pp_c_pretty_print_flags;
 
 
@@ -60,7 +60,7 @@ struct c_pretty_print_info
   int *offset_list;
 
   pp_flags flags;
-   
+
   /* These must be overridden by each of the C and C++ front-end to
      reflect their understanding of syntactic productions when they differ.  */
   c_pretty_print_fn declaration;
@@ -80,6 +80,7 @@ struct c_pretty_print_info
 
   c_pretty_print_fn statement;
 
+  c_pretty_print_fn constant;
   c_pretty_print_fn id_expression;
   c_pretty_print_fn primary_expression;
   c_pretty_print_fn postfix_expression;
@@ -129,6 +130,8 @@ struct c_pretty_print_info
 #define pp_statement(PPI, S)                      \
   pp_c_base (PPI)->statement (pp_c_base (PPI), S)
 
+#define pp_constant(PP, E) \
+  pp_c_base (PP)->constant (pp_c_base (PP), E)
 #define pp_id_expression(PP, E)  \
   pp_c_base (PP)->id_expression (pp_c_base (PP), E)
 #define pp_primary_expression(PPI, E)             \
@@ -192,6 +195,7 @@ void pp_c_statement (c_pretty_printer *, tree);
 void pp_c_expression (c_pretty_printer *, tree);
 void pp_c_logical_or_expression (c_pretty_printer *, tree);
 void pp_c_expression_list (c_pretty_printer *, tree);
+void pp_c_constructor_elts (c_pretty_printer *, VEC(constructor_elt,gc) *);
 void pp_c_call_argument_list (c_pretty_printer *, tree);
 void pp_c_unary_expression (c_pretty_printer *, tree);
 void pp_c_cast_expression (c_pretty_printer *, tree);

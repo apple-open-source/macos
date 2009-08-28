@@ -1,0 +1,5 @@
+DONE: Make Pymol work better with the new libGL!
+
+Test shared contexts!
+
+Go over every glxcmd in glxcmds.c and make sure we have them working.

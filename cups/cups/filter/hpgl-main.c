@@ -1,9 +1,9 @@
 /*
- * "$Id: hpgl-main.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: hpgl-main.c 6649 2007-07-11 21:46:42Z mike $"
  *
  *   HP-GL/2 filter main entry for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 1993-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -191,8 +191,10 @@ main(int  argc,		/* I - Number of command-line arguments */
     shading = 0;
 
   if ((val = cupsGetOption("fitplot", num_options, options)) != NULL &&
-      strcasecmp(val, "no") && strcasecmp(val, "off") &&
-      strcasecmp(val, "false"))
+      !strcasecmp(val, "true"))
+    FitPlot = 1;
+  else if ((val = cupsGetOption("fit-to-page", num_options, options)) != NULL &&
+      !strcasecmp(val, "true"))
     FitPlot = 1;
 
   if ((val = cupsGetOption("penwidth", num_options, options)) != NULL)
@@ -263,5 +265,5 @@ compare_names(const void *p1,	/* I - First name */
 
 
 /*
- * End of "$Id: hpgl-main.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: hpgl-main.c 6649 2007-07-11 21:46:42Z mike $".
  */

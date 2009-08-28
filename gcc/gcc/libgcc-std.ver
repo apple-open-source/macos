@@ -252,3 +252,33 @@ GCC_4.0.0 {
   __mulxc3
   __multc3
 }
+
+%inherit GCC_4.1.0 GCC_4.0.0
+GCC_4.1.0 {
+}
+
+%inherit GCC_4.2.0 GCC_4.1.0
+GCC_4.2.0 {
+  # unsigned-to-floating conversions
+  __floatunsisf
+  __floatunsidf
+  __floatunsixf
+  __floatunsitf
+  __floatundidf
+  __floatundisf
+  __floatundixf
+  __floatunditf
+  __floatuntidf
+  __floatuntisf
+  __floatuntixf
+  __floatuntitf
+  _Unwind_GetIPInfo
+}
+# APPLE LOCAL begin mainline bswap
+%inherit GCC_4.3 GCC_4.2.0
+GCC_4.3.0 {
+  # byte swapping routines
+  __bswapsi2
+  __bswapdi2
+}
+# APPLE LOCAL end mainline bswap

@@ -52,7 +52,7 @@ typedef struct _state {
 static inline void
 debug_(const char *func, const char *fmt, ...)
 {
-	static char ellipsis[] = "[...]";
+	static const char ellipsis[] = "[...]";
 	char buf[2048];
 	char *p = buf;
 	char *endp = &buf[sizeof(buf)];

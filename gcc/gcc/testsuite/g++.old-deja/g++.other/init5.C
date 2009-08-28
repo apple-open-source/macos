@@ -1,5 +1,4 @@
-// APPLE LOCAL mainline 2006-03-15 3992198
-// { dg-do run }
+// { dg-do run { xfail { ! cxa_atexit } } }
 // Objects must be destructed in decreasing cnt order
 // Original test attributed to James Kanze <jkanze@otelo.ibmmail.com>
 

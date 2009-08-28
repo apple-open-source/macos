@@ -1,0 +1,99 @@
+[comment {-*- tcl -*- doctools manpage}]
+[manpage_begin transfer::transmitter n 0.1]
+[copyright {2006 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
+[moddesc   {Data transfer facilities}]
+[titledesc {Data source}]
+[require Tcl                    8.4]
+[require snit                   [opt 1.0]]
+[require transfer::copy         [opt 0.1]]
+[require transfer::data::source [opt 0.1]]
+[require transfer::connect      [opt 0.1]]
+[require transfer::transmitter  [opt 0.1]]
+[description]
+[keywords transfer copy channel {data source} transmitter]
+[para]
+
+This package pulls data sources and connection setup together into a
+combined object for the transmission of information over a
+socket. These objects understand all the options from objects created
+by the packages [package transfer::data::source]
+and [package transfer::connect].
+
+
+[section API]
+
+[list_begin definitions]
+
+[call [cmd transfer::transmitter] \
+	[arg object] \
+	[opt [arg options]...]]
+
+This command creates and configures a new transmitter
+[arg object]. The fully qualified name of the object command is
+returned as the result of the command.
+
+[para]
+
+See the packages [package transfer::data::source]
+and [package transfer::connect] for the main options recognized. Here
+we describe only the options which go beyond the referenced set.
+
+[list_begin options]
+[opt_def -command   [arg cmdprefix]]
+
+This option specifies the command to invoke when the transmission of
+the information in the data source has been completed. The arguments
+given to this command are the same as given to the completion callback
+of command [cmd transfer::copy::do],
+see package [package transfer::copy].
+
+
+[opt_def -blocksize     [arg int]]
+
+This option specifies the size of the chunk to be transmitted in one
+block. It is optional and defaults to 1024.
+
+[list_end]
+
+
+[call [arg object] [method destroy]]
+
+This method destroys the object. Doing so while a transmission is on
+progress will cause errors later on, when the transmission completes
+and tries to access the now missing data structures of the destroyed
+object.
+
+
+[call [arg object] [method start]]
+
+This method initiates the data transmission, setting up the connection
+first and then copying the information.  The method will throw an
+error if a transmission is already/still in progress. I.e. it is not
+possible to run two transmissions in parallel, only in
+sequence. Errors will also be thrown if the configuration of the data
+source is invalid, or if no completion callback was specified.
+
+The result returned by the method the same as the result of method
+[method connect], see package [package transfer::connect].
+
+
+[call [arg object] [method busy]]
+
+This method returns a boolean value telling us whether a transmission
+is in progress ([const True]), or not ([const False]).
+
+[list_end]
+
+[section {BUGS, IDEAS, FEEDBACK}]
+
+This document, and the package it describes, will undoubtedly contain
+bugs and other problems.
+
+Please report such in the category [emph transfer] of the
+[uri {http://sourceforge.net/tracker/?group_id=12883} {Tcllib SF Trackers}].
+
+Please also report any ideas for enhancements you may have for either
+package and/or documentation.
+
+
+[manpage_end]

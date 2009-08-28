@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -170,6 +170,7 @@ static CFMutableDictionaryRef	S_state			= NULL;
  */
 static CFRunLoopTimerRef	S_timer			= NULL;
 
+#if	!TARGET_OS_IPHONE
 /*
  * Virtual network interface configuration
  *   S_prefs : SCPreferences to configuration
@@ -179,6 +180,7 @@ static CFRunLoopTimerRef	S_timer			= NULL;
 static SCPreferencesRef		S_prefs			= NULL;
 static CFArrayRef		S_bonds			= NULL;
 static CFArrayRef		S_vlans			= NULL;
+#endif	/* !TARGET_OS_IPHONE */
 
 static void
 addTimestamp(CFMutableDictionaryRef dict, CFStringRef key)
@@ -446,6 +448,7 @@ updateStore(void)
     return;
 }
 
+#if	!TARGET_OS_IPHONE
 static void
 updateVirtualNetworkInterfaceConfiguration(SCPreferencesRef		prefs,
 					   SCPreferencesNotification   notificationType,
@@ -521,6 +524,7 @@ updateVirtualNetworkInterfaceConfiguration(SCPreferencesRef		prefs,
     SCPreferencesSynchronize(prefs);
     return;
 }
+#endif	/* !TARGET_OS_IPHONE */
 
 static CFDictionaryRef
 createInterfaceDict(SCNetworkInterfaceRef interface)
@@ -664,11 +668,23 @@ lookupAirPortInterface(CFArrayRef db_list, CFIndex * where)
 
 	dict = CFArrayGetValueAtIndex(db_list, i);
 	if_type = CFDictionaryGetValue(dict, CFSTR(kSCNetworkInterfaceType));
-	if ((if_type != NULL) &&
-	    CFEqual(if_type, kSCNetworkInterfaceTypeIEEE80211)) {
-	    if (where)
-		*where = i;
-	    return (dict);
+	if (if_type != NULL) {
+	    if (CFEqual(if_type, kSCNetworkInterfaceTypeIEEE80211)) {
+		if (where)
+		    *where = i;
+		return (dict);
+	    }
+	} else {
+	    CFStringRef	path;
+
+	    path = CFDictionaryGetValue(dict, CFSTR(kIOPathMatchKey));
+	    if ((CFStringFind(path, CFSTR("IO80211Interface")  , 0).location != kCFNotFound) ||
+		(CFStringFind(path, CFSTR("AirPort")           , 0).location != kCFNotFound) ||
+		(CFStringFind(path, CFSTR("AppleWireless80211"), 0).location != kCFNotFound)) {
+		if (where)
+		    *where = i;
+		return (dict);
+	    }
 	}
     }
     return (NULL);
@@ -1077,7 +1093,9 @@ updateInterfaces()
 	 *   in the HW config (or have yet to show up).
 	 */
 	writeInterfaceList(S_dblist);
+#if	!TARGET_OS_IPHONE
 	updateVirtualNetworkInterfaceConfiguration(NULL, kSCPreferencesNotificationApply, NULL);
+#endif	/* !TARGET_OS_IPHONE */
 	updateStore();
 
 	if (S_iflist != NULL) {
@@ -1156,6 +1174,9 @@ compareMacAddress(const void *val1, const void *val2, void *context)
      return res;
 }
 
+#ifndef kIOPlatformUUIDKey
+#define kIOPlatformUUIDKey "IOPlatformUUID"
+#endif
 static void
 updatePlatformUUID()
 {
@@ -1424,8 +1445,8 @@ iterateRegistryBusy(io_iterator_t iterator, CFArrayRef nodes, int *count)
 		SCLog(TRUE, LOG_ERR,
 		      CFSTR(MY_PLUGIN_NAME ": reportBusy IORegistryEntryGetLocationInPlane returned 0x%x"),
 		      kr);
+		CFRelease(str);
 		goto next;
-		break;
 	}
 
 	CFArrayAppendValue(newNodes, str);
@@ -1667,7 +1688,7 @@ setup_IOKit(CFBundleRef bundle)
     quietCallback((void *)S_notify,
 		  MACH_PORT_NULL,
 		  kIOMessageServiceBusyStateChange,
-		  (void *)busy);
+		  (void *)(uintptr_t)busy);
 
     CFRunLoopAddSource(CFRunLoopGetCurrent(),
 		       IONotificationPortGetRunLoopSource(S_notify),
@@ -1704,6 +1725,7 @@ setup_IOKit(CFBundleRef bundle)
     return ok;
 }
 
+#if	!TARGET_OS_IPHONE
 static Boolean
 setup_Virtual(CFBundleRef bundle)
 {
@@ -1727,15 +1749,18 @@ setup_Virtual(CFBundleRef bundle)
 
     // schedule
     if (!SCPreferencesScheduleWithRunLoop(S_prefs, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode)) {
-	SCLog(TRUE, LOG_ERR,
-	      CFSTR(MY_PLUGIN_NAME ": SCPreferencesScheduleWithRunLoop() failed: %s"),
-	      SCErrorString(SCError()));
-	CFRelease(S_prefs);
-	return FALSE;
+	if (SCError() != kSCStatusNoStoreServer) {
+	    SCLog(TRUE, LOG_ERR,
+		  CFSTR(MY_PLUGIN_NAME ": SCPreferencesScheduleWithRunLoop() failed: %s"),
+			SCErrorString(SCError()));
+	    CFRelease(S_prefs);
+	    return FALSE;
+	}
     }
 
     return TRUE;
 }
+#endif	/* !TARGET_OS_IPHONE */
 
 __private_extern__
 void
@@ -1745,10 +1770,12 @@ load_InterfaceNamer(CFBundleRef bundle, Boolean bundleVerbose)
 	S_debug = TRUE;
     }
 
+#if	!TARGET_OS_IPHONE
     // setup virtual network interface monitoring
     if (!setup_Virtual(bundle)) {
 	goto error;
     }
+#endif	/* !TARGET_OS_IPHONE */
 
     // setup [IOKit] network interface monitoring
     if (!setup_IOKit(bundle)) {

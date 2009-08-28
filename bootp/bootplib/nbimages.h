@@ -51,6 +51,7 @@ typedef union {
     struct {
 	boolean_t	indirect;
 	const char *	root_path;
+	const char *	root_path_esc;
     } http;
     struct {
 	const char *	shared;
@@ -64,6 +65,7 @@ typedef struct {
     const char * *	archlist;
     int			archlist_count;
     char *		dir_name;	/* relative to sharepoint */
+    char *		dir_name_esc; 	/* spaces/etc. escaped e.g. %20 */
     char *		name;
     int			name_length;
     bsdp_image_id_t	image_id;

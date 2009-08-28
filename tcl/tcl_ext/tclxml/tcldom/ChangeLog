@@ -1,0 +1,543 @@
+==============  Released version 2.6  03/03/2003  ==============
+
+2003-03-03  Steve Ball  <Steve.Ball@zveno.com>
+	* library/domimpl.tcl: Added package require dom::(tcl)generic, see #654539.
+	* tcldom.c (Tcldom_Init): Added variable definitions so dom::tclgeneric need not be loaded.
+	* tcldom.c (TclDOMDOMImplementationCmd): Fixed argument passing, patch #661626 (bug #679081).
+
+2003-02-26  Steve Ball  <Steve.Ball@zveno.com>
+	* docs/README.xml, docs/txt.xsl: Added new files for generating
+	README text file.
+	
+2003-02-24  Steve Ball  <Steve.Ball@zveno.com>
+	* src-libxml2/tcldom-libxml2 (TclDOM_DocDup): srcDoc replaced by srcTcldomDoc pointer.  Bug #691267
+	
+2003-02-02  Steve Ball	<Steve.Ball@zveno.com>
+	* src-libxml2/tcldom-libxml2 (TclDOMValidityError): Fixed bug in message handling.
+
+2003-01-24  Steve Ball	<Steve.Ball@zveno.com>
+	* src-libxml2/tcldom-libxml2 (TclDOMNodeCommand): fixed insertBefore bug.
+	tests/node.test, tests/parse.test, tests/serialization.test: updated for libxml2
+
+2003-01-24  Steve Ball	<Steve.Ball@zveno.com>
+	* src-libxml2/tcldom-libxml2 (TclDOMNodeCommand), library/domimpl.tcl:
+	Added isSameNode method to node command (DOM Level 3).
+
+2003-01-23  Steve Ball	<Steve.Ball@zveno.com>
+	* library/domimpl.tcl: Applied patches for doctype handling,
+	contributed by rc@hnc.com (Richard Calmbach) on c.l.t.
+
+2003-01-22  Steve Ball	<Steve.Ball@zveno.com>
+	* src-libxml2/tcldom-libxml2.c: added Tcl_PkgRequire(..., "xml", ...)
+	  since initialization needs variables from ::xml namespace.
+	  Added missing option and method implementations to TclDOMDocumentCommand.
+	  Fixed event propagation bugs.
+	  Added missing method implementations to TclDOMElementCommand.
+
+2003-01-17  Steve Ball	<Steve.Ball@zveno.com>
+	* src-libxml2/tcldom-libxml2.c (various): added event generation
+	  to node command methods.  Moved event management code into
+	  separate routines.
+
+2003-01-10  Steve Ball	<Steve.Ball@zveno.com>
+	* examples/domtext.tcl: Fixed bug when resetting -rootnode option.
+	* examples/browser.tcl: Added tree-only view mode.
+
+2003-01-09  Steve Ball	<Steve.Ball@zveno.com>
+	* examples/domtree.tcl, examples/domtext.tcl, examples/browser.tcl:
+	  Added new example application, updated support scripts for Tk 8.4.
+
+2003-01-06  Steve Ball	<Steve.Ball@zveno.com>
+	* src-libxml2/tcldom-libxml2.c (TclDOMNodeCommand): implemented
+	  node methods insertBefore, removeChild, replaceChild, appendChild, 
+	  hasChildNodes, cloneNode.
+
+2003-01-03  Steve Ball	<Steve.Ball@zveno.com>
+	* src-libxml2/tcldom-libxml2.c (TclDOMNodeCommand): implemented
+	  configure options -lastChild, -nextSibling, -previousSibling,
+	  -namespaceuri, -prefix.
+
+2002-12-11  Steve Ball  <Steve.Ball@zveno.com>
+	* src-libxml2/configure.in: added test for .dylib
+	  so building on Mac OS X without frameworks works.
+
+==============  Released version 2.5  10/12/2002  ==============
+
+2002-12-09  Steve Ball  <Steve.Ball@zveno.com>
+	* configure.in: Added --enable-framework switch and
+	  modified check for library to search for Mac OS X framework.
+
+2002-12-08  Steve Ball  <Steve.Ball@zveno.com>
+	* library/*: Updated for version 2.5.
+
+2002-11-27  Steve Ball  <Steve.Ball@zveno.com>
+	* library/domimpl.tcl: Fixed typos.
+	* src-libxml2/tcldom-libxml2.c (TclDOMValidityError): Added final
+	  NULL parameter to Tcl_AppendResult function call.  This fixes
+	  a crash when validating a document.
+
+2002-11-25  Steve Ball  <Steve.Ball@zveno.com>
+	* library/domimpl.tcl: Added DOM L3 attributes for Document interface.
+
+2002-11-19  Steve Ball  <Steve.Ball@zveno.com>
+	* src-libxml2/tcldom-libxml2.c (TclDOM_DeleteEvent): Store event
+	  command name for eventual deletion.  Don't rely on event object,
+	  since it may be freed.
+
+2002-11-18  Steve Ball  <Steve.Ball@zveno.com>
+	* src-libxml2/tcldom-libxml2.c (TclDOMDOMImplementationCommand):
+	  Fixed passing of arguments to parse, serialize and destroy
+	  commands.
+	* examples/domtext.tcl, examples/domtree.tcl: Added megawidget
+	  example packages.
+
+2002-11-13  Steve Ball  <Steve.Ball@zveno.com>
+	* src-libxml2/tcldom-libxml2.c (TclDOMSelectNodeCommand):
+	  Added -namespaces option to allow registration of
+	  additional XML Namespaces.  RFE #616388.
+
+2002-11-11  Steve Ball  <Steve.Ball@zveno.com>
+	* src-libxml2/tcldom-libxml2.c (TclDOMSelectNodeCommand):
+	  Fixed double free of errorInfo block, bug #628165.
+	  Fixed setting node value, destroy event properly, bug #630724.
+	
+==============  Released version 2.4  09/11/2002  ==============
+
+2002-11-08  Steve Ball  <Steve.Ball@zveno.com>
+	* src-libxml2/tcldom-libxml2.c (TclDOMNodeCommand): Fixed 
+	  in management of event listener reference count.
+
+2002-11-07  Steve Ball  <Steve.Ball@zveno.com>
+	* src-libxml2/tcldom-libxml2.c (TclDOMNodeCommand): Completed 
+	  implementation of event listener performance optimization.
+
+2002-11-04  Andreas Kupries  <andreask@activestate.com>
+
+	* src-libxml2/tcldom-libxml2.c (TclDOMNewEvent): When compiling
+	  against Tcl before 8.4.0 timestamping of dom events is
+	  effectively disabled as the function to determine the time
+	  (Tcl_GetTime) is not part of the public API before then. In that
+	  case all dom events are stamped with time '0'.
+
+2002-11-01  Steve Ball  <Steve.Ball@zveno.com>
+	* src-libxml2/tcldom-libxml2.c (TclDOMNodeCommand): Performance
+	  optimization: keep track of whether a listener is registered
+	  for an event type.  If no listener is registered then there
+	  is no point in propagating an event of that type.
+
+2002-10-31  Andreas Kupries  <andreask@activestate.com>
+
+	* tcldomStubLib.c: Fixed definition, prevent usage of stubs. Fixed
+	  typos. Fixed incorrect package name.
+
+	* src-libxml2/tcldom-xml2.c: Fixed definition of
+	  TclDOM_NewDOc. Was missing in code, actually provided was a
+	  static TclDOMNewDoc.
+
+	* src-libxml2/tcldom-xml2.h:
+	* src-libxml2/tcldom-xml2.c:
+	* src-libxml2/configure.in:
+	* src-libxml2/Makefile.in: Added code to export a stub table for
+	  tcldomxml, aka TclDOM/libxml2.
+
+	* Makefile.in: Getting 'make test' to work.
+	  (TCLSH_ENV): Removed TCLLIBPATH. Interferes with testing.
+	  (test): Changed 'load tcldom.so' to 'package require dom'. This
+	  means that TclDOM has to be installed for testing. But also
+	  avoids the error "can't find dom::generic" thrown if just the
+	  shared library is loaded.
+
+	* Makefile.in (test): Fixed typo: all -> all.tcl
+
+	* tcldomStubLib.c: Fixed typo
+
+	* src-libxml2/tcldom-libxml2.c (CONST84): Added this to the switch
+	  tables used in calls to 'Tcl_GetIndexFromObj'. This gets rid of
+	  a lot of warnings in 8.4.
+
+	* tcldom.h: Provide a prototype for 'Tcldom_InitStubs' so that
+	  extensions of tcldom know its signature. This gets rid of a
+	  warning in 'tcldom/src-libxml2/tcldom-libxml2.c'.
+
+	* src-libxml2/tcldom-libxml2.c (TclDOMDOMImplementationCommand):
+	  Fixed crashing bug. TCLDOM_IMPL_CREATE branch of the switch, 2
+	  arguments to the command (command name + 'create'). Code passed
+	  0, NULL to 'TclDOMCreateCommand'. That one expects at least one
+	  argument, the command name. Crashed finally in Tcl_WrongNumArgs,
+	  because objv was NULL too. Fix: Passing '1, objv'. This fakes
+	  'TclDOMCreateCommand' into believing that it got the command
+	  name as it only argument.
+
+2002-10-30  Andreas Kupries  <andreask@activestate.com>
+
+	* README: Updated to take the changes to the build system into
+	  account. [Bug 624382].
+
+2002-10-30  Andreas Kupries  <andreask@activestate.com>
+
+	* src-libxml2/tcldom-libxml2.c: Added CPP definitions so that
+	  'vsnprintf' is handled correctly for Windows VC++.
+
+	* src-libxml2/tcldom-libxml2.h: Added handling of BUILD_Tcldomxml define.
+	
+	* tcldom.h:
+	* src-libxml2/tcldom-libxml2.h: Fixed incomplete usage of 'extern
+	  "C"'. The blocks were not closed.
+
+	* src-libxml2/configure.in: Updated to take Windows, HPUX
+	  differences into account (.sl, .dll).
+
+	* src-libxml2/configure: Regenerated.
+
+2002-10-29  Andreas Kupries  <andreask@activestate.com>
+
+	* src-libxml2/aclocal.m4:
+	* src-libxml2/Makefile.in: 
+	* src-libxml2/configure.in: New files. TEA 2 based build system.
+	* src-libxml2/configure: Generated.
+
+	* src-libxml2/tcldom-libxml2.c:
+	* src-libxml2/tcldom-libxml2.h: Changed for stubs (tcldom) and a
+	  TEA 2 based build system.
+
+2002-10-29  Andreas Kupries  <andreask@activestate.com>
+
+	* configure.in:
+	* Makefile.in:
+	* tcldom.c:
+	* tcldom.h: Changed for export of TclDOM stub table.
+
+	* tcldomDecls.h:
+	* tcldom.decls:
+	* TcldomConfig.sh: New files for export of TclDOM stub table.
+
+	* configure: Regenerated.
+
+2002-10-29  Andreas Kupries  <andreask@activestate.com>
+
+	* tcldom.c: Changed definition of string arrays
+	  'RegisterCommandMethods' and
+	  'DOMImplementationCommandMethods'. Added CONST84 to get rid of
+	  warnings generated when compiling under 8.4.
+
+2002-10-29  Steve Ball  <Steve.Ball@zveno.com>
+
+	* library/domimpl.tcl (dom::DOMImplementation): when parsing
+	  set -final 1 instead of 'true'.
+
+2002-10-25  Andreas Kupries  <andreask@activestate.com>
+
+	* tcldom.c (TclDOMRegisterCmd): Removed unused variable 'i'.
+	  (TclDOMDOMImplementationCmd): s.a., also unused 'result'.
+
+2002-10-21  Steve Ball  <Steve.Ball@zveno.com>
+
+	* src-libxml2/tcldom-libxml2.c (TclDOMNodeCommand): Return string
+	  value of document element if passed a document.
+
+2002-10-18  Steve Ball  <Steve.Ball@zveno.com>
+
+	* src-libxml2/tcldom-libxml2.c (TclDOM_NodeSetFromAny): Added
+	  guards to for loops to prevent overrunning buffers.
+
+2002-10-15  Steve Ball  <Steve.Ball@zveno.com>
+
+	* config, tclconfig: moved config to tclconfig for TEA compatibility.
+
+2002-10-15  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* tclconfig/tcl.m4:
+	* configure:
+	* configure.in: move the CFLAGS definition into TEA_ENABLE_SHARED
+	and make it pick up the env CFLAGS at configure time.
+
+2002-10-15  Andreas Kupries  <andreask@activestate.com>
+
+	* configure.in: Changed to propagate an initial CFLAGS value to
+	  the final definition. A TEA condition (SHARED_BUILD == 1)
+	  squashed it, causing it the build system to loose the
+	  +DAportable we specify for the AS PA-RISC2.2 build host. This is
+	  a problem for _all_ TEA and TEA 2 based configure files.
+
+2002-10-14  Steve Ball <Steve.Ball@zveno.com>
+
+	* README, *.c, *.in, install.data: Updated for v2.4.
+
+2002-09-26  Andreas Kupries  <andreask@activestate.com>
+
+	* src-libxml2/Makefile.in:
+	* src-libxml2/configure.in: Linkage to base Tcldom
+	  library. Incomplete (Needs LD_LIBRARY_PATH to find it. No
+	  backlinking. Should be stubified).
+
+	* tcldom.c (TclDOMDOMImplementationCmd): Corrected out-of-range
+	  index for TCLDOM_IMPL_CREATE (Accessed element in list object
+	  with NULL Tcl_Obj).
+
+2002-09-25  Andreas Kupries  <andreask@activestate.com>
+
+	* src-libxml2/Makefile.in: 
+	* src-libxml2/configure.in: 
+	* Makefile.in:
+	* configure.in
+	* library/pkgIndex.tcl.in:
+	* tools:
+	* tclconfig: Rewritten to be based upon TEA 2.
+
+2002-09-14  Andreas Kupries  <andreask@activestate.com>
+
+	* library/pkgIndex.tcl.in: More updates to version 2.3.
+
+2002-09-13  Andreas Kupries  <andreask@activestate.com>
+
+	* Makefile.in (install-libraries): The change to this target (bug
+	  #608012) did not make it.
+
+2002-09-12  Andreas Kupries  <andreask@activestate.com>
+
+	* configure.in (MINOR_VERSION): Bumped to 3., thus setting the
+	  full version to 2.3.
+
+	* Makefile.in (install-lib-binaries): Changed INSTALL_DATA to
+	  INSTALL_PROGRAM. Required for installation on HPUX. See TclXML
+	  for the correct code which is now intriduced here.
+
+==============  Released version 2.3  13/09/2002  ==============
+
+2002-09-12  Steve Ball  <Steve.Ball@zveno.com>
+	* Makefile.in, configure.in, src-libxml2/Makefile.in: Applied patch from bug #608012, Andreas Kupries
+
+==============  Released version 2.3rc2  09/09/2002  ==============
+
+2002-08-31  Steve Ball  <Steve.Ball@zveno.com>
+
+	* src-libxml2/tcldom-libxml2.c (TclDOMDestroyDocument): Fixed memory leak (bug #602619).
+
+==============  Released version 2.3rc1  29/08/2002  ==============
+
+2002-08-28  Steve Ball  <steve@localhost>
+
+	* library/domimpl.tcl (dom::tcl::GetNamespacePrefix): Fixed serialization of documents containing XML Namespaces
+
+2002-08-16  Steve Ball  <steve@localhost>
+
+	* install.data: Removed 'Require tcllib'
+
+	* install.tcl (Slave_Component): Minor typo in formal args.
+
+2002-08-15  Steve Ball  <steve@localhost>
+
+	* library/domimpl.tcl (dom::tcl::DOMImplementation): Fixed bug in createDocument: include document token in call to createElementNS.
+	(dom::tcl::CreateDocType): Don't add doc type node to the document node's child list.
+	(dom::tcl::Serialize:document): Bug fix #525505: serialize all children.  Bug fix #590914.
+
+==============  Released version 2.2  11/08/2002  ==============
+
+2002-08-09  Steve Ball  <steve@localhost>
+
+	* library/domimpl.tcl (dom::tcl::DOMImplementation): Fixed memory leak in object destruction code
+	* tests/doctype.test: Upgraded to tcltest 2.1, added dom::c constraint.
+	* library/domimpl.tcl (dom::tcl::node): Fixed bug calling configure with one argument
+
+2002-08-05  Steve Ball  <steve@zveno.com>
+	* src-libxml2/tcldom-libxml2.c (TclDOMParseCommand): Fixed bug #590473, was freeing provate field after freeing context pointer.
+	
+2002-08-02  Steve Ball  <steve@zveno.com>
+	* src-libxml2/tcldom-libxml2.c: Modified to store nodes tokens on a per-document basis.  Added support for destroying documents and nodes.
+	* macosx: Added Project Builder files for building under Mac OS X
+
+2002-06-19  Steve Ball  <steve@localhost>
+
+	* docs/tcldom.xml: Updated incorrect description of 'dom::tcl::DOMImplementation destroy'.
+
+2002-06-17  Steve Ball  <steve@localhost>
+
+	* library/domimpl.tcl (dom::tcl::Serialize:attributeList): Fixed bug #512704, escaping of special characters.
+
+2002-06-12  Steve Ball  <steve@localhost.webone.com.au>
+
+	* src-libxml2/tcldom-libxml2.c (TclDOMValidateCommand): Allocate generic error handler for each use, instead of using global structure.
+
+2002-06-11  Steve Ball  <steve@localhost.webone.com.au>
+
+	* library/domimpl.tcl (dom::tcl::CreateDocType): Fixed bug #526468 by checking if parsed internal DTD is truly empty.
+
+2002-06-03  Steve Ball  <steve@localhost>
+
+	* src-libxml2/tcldom-libxml2.c (TclDOMXIncludeCommand): Added dom::libxml2::xinclude command.
+
+2002-06-02  Steve Ball  <steve@localhost>
+
+	* src-libxml2/tcldom-libxml2.c (TclDOMElementCommand): Implemented getAttributeNS and setAttributeNS.
+	(TclDOMPrefix2NSCommand): Implemented as per Tcl API.
+
+2002-05-30  Steve Ball  <steve@zveno.com>
+
+	* domimpl.tcl (dom::tcl::Serialize:ExceedsThreshold): fixed bug in serialization.
+
+--- Converted to ChangeLog format 2002-05-30 ---
+
+November 1998
+
+==============  Released version 1.4  ??/??/1998  ==============
+
+6/12/1998	Implemented cloneNode method of node command
+		Encode standard character entities when serializing
+		textNodes ("<", ">", "&", """, "'").
+
+15/1/1999	Added DocType and XML Declaration support
+
+24/1/1999	Fixed serialization to emit XML declaration attributes
+		in correct order.
+
+25/1/1999	Fixed attribute list serialization to handle
+		special characters.
+
+27/1/1999	Made error handling more robust in parse method
+
+31/1/1999	Parse function detects empty elements.  Element method has
+		(non-standard) -empty attribute.  Serialisation emits shorthand
+		empty elements.
+
+24/2/1999	Included patch to fix 'dom::DOMImplemenation destroy'.
+		Courtesy Gerald Lester, CPU.
+
+==============  Released version 1.5  ??/??/1999  ==============
+
+==============  Released version 1.6  14/03/1999  ==============
+
+14/05/1999	Converted test suite to use new Tcl 8.1 framework.
+
+		Bug reports by Jim Hollister <jhollister@objectspace.com>:
+		dom::element get $node -tagName failed.
+		GetByTagName didn't accept the special value '*'.
+		Trim didn't handle some nodes having no child list.
+
+27/05/1999	Made Element:GetByTagName search recursively, as specified
+		in DOM spec.  Added -deep option to allow old behaviour.
+
+08/06/1999	Fixed various bugs in test suite.
+
+		dom::element command now checks that the node is an 
+		element type node.
+
+==============  Released version 1.7  ??/??/1999  ==============
+
+27/08/1999	Fixed PI serialisation, added query method
+
+		query method provides query/search functions
+
+05/09/1999	Added entity reference support
+
+31/08/1999	Added automatic CDATA Section support when serializing
+		a document.
+
+10/12/1999	Check for invalid element name fixed, added check for
+		invalid attribute name
+
+08/01/2000	Fixed serialization of null external identifiers in the
+		document type declaration
+
+20/04/2000	Added DOM Level 2 event subsystem
+
+16/05/2000	Fixed node names as per DOM spec (bug report from Robert Karen)
+
+11/10/2000	Fixed bug in posting DOMCharacterModified event when textNode's
+		value is configured.
+
+18/11/2000	Added (non-standard) 'isNode' feature in DOMImplementation
+
+01/12/2000	Added (non-standard) createNode method to DOMImplementation
+		and node commands
+
+15/12/2000	Added -showxmldecl and -showdoctypedecl options to serialize method.
+		Bug fix: Serializing '&' characters in attribute values.
+
+18/12/2000	Added (get|set|remove)Attribute methods to element command.
+		Namespace qualified attributes are stored in a dubious manner
+		in the attribute list array element.  Must re-visit this later.
+
+		Modified getAttribute(NS) to return an empty string if the
+		specified attribute is not present.  This is for conformance with
+		REC-DOM-L2-2000-11.
+
+18/01/2001	Steve.Ball@zveno.com
+		Added selectNode method to dom::DOMImplementation and
+		dom::node.  Improved XPath:SelectNode to handle selecting
+		elements with an attribute given in a predicate.
+
+23/01/2001	Steve.Ball@zveno.com
+		Fixed bug in dom::document createDocTypeDecl method
+		(incorrect arguments).
+		Bug reported by <Gordon.Davis@kla-tencor.com>
+
+11/07/2001	Steve.Ball@zveno.com
+		Fixed bug in CreateGeneric: attribute nodes are not
+		added to the parent's child list.
+		Fixed bug in stringValue: element string value.
+		Fixed bug in XPath:SelectNode.
+
+15/11/2001	Steve.Ball@zveno.com
+		Added XML Namespace support to serialisation code.
+
+14/01/2002	Steve.Ball@zveno.com
+		INCOMPATIBILITY: Changed getElementsByTagName
+		to return the name of the variable that contains
+		a list of the matched nodes.  List is maintained
+		via read trace, so that the list is live.
+
+==============  Released version 2.0theta 14/01/2002  ==============
+
+27/01/2002      Steve.Ball@zveno.com
+		Fixed bug #453741.  'DOMImplementation destroy'
+		when called for an element node no longer
+		dispatches a DOMSubtreeModified event, since
+		'node removeNode' has already dispatched the event.
+
+07/02/2002	Steve.Ball@zveno.com
+		Fixed bug when serializing elements where
+		':' would be added with no prefix.
+		Patch supplied by Dan Kuchler, dan@kuchler.net
+
+28/02/2002	Steve.Ball@zveno.com
+		Completed initial work on libxml2 wrapper, 
+		see src-libxml2 directory.
+		This includes exported functions for TclXSLT.
+
+==============  Released version 2.1alpha1 01/03/2002  ==============
+
+04/03/2002	Steve.Ball@zveno.com
+		library/domimpl.tcl: Added -ownerDocument option
+		to node command.  Modified XPath:CreateNode to
+		be independent of implementation.
+		src-libxml2/tcldom-libxml2.c: Added -ownerDocument
+		option to node command.  Added children method.
+
+26/04/2002	Steve.Ball@zveno.com
+		tcldom.h, tcldom.c, src-libxml2/tcldom-libxml2.c:
+		Added select field to TclDOM_Implementation,
+		added 'dom::DOMImplementation selectNode' support.
+		Added 'dom::libxml2::node stringValue'.
+		Enabled dom::libxml2::element command.
+
+08/05/2002	Steve.Ball@zveno.com
+		src-libxml2/tcldom-libxml2.c:
+		Added -method and -indent options to serialize command.
+
+14/05/2002	Steve.Ball@zveno.com
+		tcldom.c:
+		Fallback to default implementation in generic layer.
+
+21/05/2002	Steve.Ball@zveno.com
+		src-libxml2/tcldom-libxml2.c:
+		Added definitions for compiling on Windows.
+
+27/05/2002:     andreas_kupries@users.sourceforge.net
+		install.tcl (line 306): args needs no default
+		value of empty. Is empty as per definition of 'args'
+		when used as last argument.
+
+		library/domimpl.tcl (line 654, dom::tcl::document,
+		createElementNS branch): Added break to the [foreach],
+		fixing a syntax error always causing the catch to,
+		well catch and abort.

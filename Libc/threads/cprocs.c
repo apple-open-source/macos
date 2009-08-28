@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -137,6 +137,7 @@ _cproc_fork_child()
 #undef errno
 extern int errno;
 extern int *__error(void);
+extern int __pthread_canceled(int);
 
 void
 cthread_set_errno_self(error)

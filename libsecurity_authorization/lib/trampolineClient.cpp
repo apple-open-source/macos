@@ -124,7 +124,7 @@ OSStatus AuthorizationExecuteWithPrivileges(AuthorizationRef authorization,
 			close(notify[READ]); close(notify[WRITE]);
 			return errAuthorizationToolExecuteFailure;
 
-		default:	// parent
+		default: {	// parent
 			// close foreign side of pipes
 			close(notify[WRITE]);
 			if (communicationsPipe)
@@ -155,6 +155,7 @@ OSStatus AuthorizationExecuteWithPrivileges(AuthorizationRef authorization,
 				secdebug("authexec", "parent resumes (no error)");
 				return noErr;
 			}
+        }
 
 		case 0:		// child
 			// close foreign side of pipes

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2009 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,7 +24,12 @@
 #ifndef _SCDYNAMICSTOREINTERNAL_H
 #define _SCDYNAMICSTOREINTERNAL_H
 
+#include <Availability.h>
+#include <TargetConditionals.h>
 #include <sys/cdefs.h>
+#if	!TARGET_OS_IPHONE
+#include <dispatch/dispatch.h>
+#endif	// !TARGET_OS_IPHONE
 #include <sys/types.h>
 #include <mach/mach.h>
 #include <pthread.h>
@@ -42,7 +47,8 @@ typedef enum {
 	Using_NotifierInformViaMachPort,
 	Using_NotifierInformViaFD,
 	Using_NotifierInformViaSignal,
-	Using_NotifierInformViaRunLoop
+	Using_NotifierInformViaRunLoop,
+	Using_NotifierInformViaDispatch
 } __SCDynamicStoreNotificationStatus;
 
 
@@ -73,6 +79,13 @@ typedef struct {
 	CFMachPortRef			callbackPort;
 	CFRunLoopSourceRef		callbackRLS;
 
+#if	!TARGET_OS_IPHONE
+	/* "client" information associated with SCDynamicStoreSetDispatchQueue() */
+	dispatch_queue_t		dispatchQueue;
+	dispatch_source_t		callbackSource;
+	dispatch_queue_t		callbackQueue;
+#endif	// !TARGET_OS_IPHONE
+
 	/* "server" SCDynamicStoreKeys being watched */
 	CFMutableSetRef			keys;
 	CFMutableSetRef			patterns;
@@ -99,12 +112,6 @@ __SCDynamicStoreCreatePrivate		(CFAllocatorRef			allocator,
 					 const CFStringRef		name,
 					 SCDynamicStoreCallBack		callout,
 					 SCDynamicStoreContext		*context);
-
-void
-__showMachPortStatus			(void);
-
-void
-__showMachPortReferences		(mach_port_t			port);
 
 __END_DECLS
 

@@ -2,9 +2,8 @@
  * CDDL HEADER START
  *
  * The contents of this file are subject to the terms of the
- * Common Development and Distribution License, Version 1.0 only
- * (the "License").  You may not use this file except in compliance
- * with the License.
+ * Common Development and Distribution License (the "License").
+ * You may not use this file except in compliance with the License.
  *
  * You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
  * or http://www.opensolaris.org/os/licensing.
@@ -20,14 +19,14 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2005 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
 #ifndef	_RTLD_DB_H
 #define	_RTLD_DB_H
 
-#pragma ident	"@(#)rtld_db.h	1.17	05/08/18 SMI"
+#pragma ident	"@(#)rtld_db.h	1.19	08/05/27 SMI"
 
 
 #ifdef	__cplusplus
@@ -37,6 +36,7 @@ extern "C" {
 #if !defined(__APPLE__)
 #include <sys/types.h>
 #include <sys/lwp.h>
+#include <sys/elf.h>
 #include <link.h>
 #include <proc_service.h>
 #else /* is Apple Mac OS X */
@@ -45,6 +45,7 @@ extern "C" {
 #include <link.h>
 #include <proc_service.h>
 #endif /* __APPLE__ */
+
 
 /*
  * librtld_db interface versions
@@ -135,6 +136,10 @@ typedef struct rd_loadobj {
 					/* module which was dynamically */
 					/* loaded */
 
+/*
+ * Commands for rd_ctl()
+ */
+#define	RD_CTL_SET_HELPPATH	0x01	/* Set the path used to find helpers */
 
 typedef struct rd_agent rd_agent_t;
 #ifdef __STDC__
@@ -163,6 +168,7 @@ typedef struct rd_plt_info {
 	unsigned int	pi_flags;
 } rd_plt_info_t;
 
+
 /*
  * Values for pi_flags
  */
@@ -183,6 +189,7 @@ extern rd_err_e		rd_event_addr(rd_agent_t *, rd_event_e, rd_notify_t *);
 extern rd_err_e		rd_event_enable(rd_agent_t *, int);
 extern rd_err_e		rd_event_getmsg(rd_agent_t *, rd_event_msg_t *);
 extern rd_err_e		rd_init(int);
+extern rd_err_e		rd_ctl(int, void *);
 extern rd_err_e		rd_loadobj_iter(rd_agent_t *, rl_iter_f *,
 				void *);
 extern void		rd_log(const int);
@@ -190,21 +197,24 @@ extern rd_agent_t	*rd_new(struct ps_prochandle *);
 extern rd_err_e		rd_objpad_enable(struct rd_agent *, size_t);
 extern rd_err_e		rd_plt_resolution(rd_agent_t *, psaddr_t, lwpid_t,
 				psaddr_t, rd_plt_info_t *);
+extern rd_err_e		rd_get_dyns(rd_agent_t *, psaddr_t, void **, size_t *);
 extern rd_err_e		rd_reset(struct rd_agent *);
-#else
+#else /* !__STDC__ */
 extern void		rd_delete();
 extern char		*rd_errstr();
 extern rd_err_e		rd_event_addr();
 extern rd_err_e		rd_event_enable();
 extern rd_err_e		rd_event_getmsg();
 extern rd_err_e		rd_init();
+extern rd_err_e		rd_ctl();
 extern rd_err_e		rd_loadobj_iter();
 extern void		rd_log();
 extern rd_agent_t	*rd_new();
 extern rd_err_e		rd_objpad_enable();
 extern rd_err_e		rd_plt_resolution();
+extern rd_err_e		rd_get_dyns();
 extern rd_err_e		rd_reset();
-#endif
+#endif /* !__STDC__ */
 
 #ifdef	__cplusplus
 }

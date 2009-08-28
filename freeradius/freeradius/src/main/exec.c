@@ -1,7 +1,7 @@
 /*
  * exec.c	Execute external programs.
  *
- * Version:	$Id: exec.c,v 1.42.2.1.2.3 2007/02/09 10:27:57 aland Exp $
+ * Version:	$Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,22 +15,21 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2000  The FreeRADIUS server project
- * Copyright 2000  Michael J. Hartwick <hartwick@hartwick.com>
+ * Copyright 2000-2004,2006  The FreeRADIUS server project
  */
-static const char rcsid[] = "$Id: exec.c,v 1.42.2.1.2.3 2007/02/09 10:27:57 aland Exp $";
 
-#include "autoconf.h"
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
+
+#include <freeradius-devel/radiusd.h>
+#include <freeradius-devel/rad_assert.h>
 
 #include <sys/file.h>
 
-#include <stdlib.h>
-#include <string.h>
 #include <fcntl.h>
 #include <ctype.h>
-#include <unistd.h>
 #include <signal.h>
 
 #ifdef HAVE_SYS_WAIT_H
@@ -43,99 +42,8 @@ static const char rcsid[] = "$Id: exec.c,v 1.42.2.1.2.3 2007/02/09 10:27:57 alan
 #	define WIFEXITED(stat_val) (((stat_val) & 255) == 0)
 #endif
 
-#include "radiusd.h"
-#include "rad_assert.h"
-
-/*
- *	Copy a quoted string.
- */
-static int rad_copy_string(char *to, const char *from)
-{
-	int length = 0;
-	char quote = *from;
-
-	do {
-		if (*from == '\\') {
-			*(to++) = *(from++);
-			length++;
-		}
-		*(to++) = *(from++);
-		length++;
-	} while (*from && (*from != quote));
-
-	if (*from != quote) return -1; /* not properly quoted */
-
-	*(to++) = quote;
-	length++;
-	*to = '\0';
-
-	return length;
-}
-
-
-/*
- *	Copy a %{} string.
- */
-static int rad_copy_variable(char *to, const char *from)
-{
-	int length = 0;
-	int sublen;
-
-	*(to++) = *(from++);
-	length++;
-
-	while (*from) {
-		switch (*from) {
-		case '"':
-		case '\'':
-			sublen = rad_copy_string(to, from);
-			if (sublen < 0) return sublen;
-			from += sublen;
-			to += sublen;
-			break;
-
-		case '}':	/* end of variable expansion */
-			*(to++) = *(from++);
-			*to = '\0';
-			length++;
-			return length; /* proper end of variable */
-
-		case '\\':
-			*(to++) = *(from++);
-			*(to++) = *(from++);
-			length += 2;
-			break;
-
-		case '%':	/* start of variable expansion */
-			if (from[1] == '{') {
-				*(to++) = *(from++);
-				length++;
-				
-				sublen = rad_copy_variable(to, from);
-				if (sublen < 0) return sublen;
-				from += sublen;
-				to += sublen;
-				length += sublen;
-			} /* else FIXME: catch %%{ ?*/
-
-			/* FALL-THROUGH */
-			break;
-
-		default:
-			*(to++) = *(from++);
-			length++;
-			break;
-		}
-	} /* loop over the input string */
-
-	/*
-	 *	We ended the string before a trailing '}'
-	 */
-
-	return -1;
-}
-
 #define MAX_ARGV (256)
+
 /*
  *	Execute a program on successful authentication.
  *	Return 0 if exec_wait == 0.
@@ -146,13 +54,11 @@ int radius_exec_program(const char *cmd, REQUEST *request,
 			int exec_wait,
 			char *user_msg, int msg_len,
 			VALUE_PAIR *input_pairs,
-			VALUE_PAIR **output_pairs)
+			VALUE_PAIR **output_pairs,
+			int shell_escape)
 {
 	VALUE_PAIR *vp;
 	char mycmd[1024];
-	char answer[4096];
-	char argv_buf[4096];
-	char *argv[MAX_ARGV];
 	const char *from;
 	char *p, *to;
 	int pd[2];
@@ -162,6 +68,9 @@ int radius_exec_program(const char *cmd, REQUEST *request,
 	int status;
 	int i;
 	int n, left, done;
+	char *argv[MAX_ARGV];
+	char answer[4096];
+	char argv_buf[4096];
 
 	if (user_msg) *user_msg = '\0';
 	if (output_pairs) *output_pairs = NULL;
@@ -179,7 +88,7 @@ int radius_exec_program(const char *cmd, REQUEST *request,
 		return -1;
 	}
 
-	strNcpy(mycmd, cmd, sizeof(mycmd));
+	strlcpy(mycmd, cmd, sizeof(mycmd));
 
 	/*
 	 *	Split the string into argv's BEFORE doing radius_xlat...
@@ -268,6 +177,8 @@ int radius_exec_program(const char *cmd, REQUEST *request,
 		 */
 		if (strchr(argv[i], '%') == NULL) continue;
 
+		if (!request) continue;
+
 		sublen = radius_xlat(to, left - 1, argv[i], request, NULL);
 		if (sublen <= 0) {
 			/*
@@ -292,9 +203,9 @@ int radius_exec_program(const char *cmd, REQUEST *request,
 	}
 	argv[argc] = NULL;
 
+#ifndef __MINGW32__
 	/*
-	 *	Open a pipe for child/parent communication, if
-	 *	necessary.
+	 *	Open a pipe for child/parent communication, if necessary.
 	 */
 	if (exec_wait) {
 		if (pipe(pd) != 0) {
@@ -327,7 +238,7 @@ int radius_exec_program(const char *cmd, REQUEST *request,
 		/*
 		 *	Child process.
 		 *
-		 *	We try to be fail-safe here.  So if ANYTHING
+		 *	We try to be fail-safe here. So if ANYTHING
 		 *	goes wrong, we exit with status 1.
 		 */
 
@@ -405,16 +316,18 @@ int radius_exec_program(const char *cmd, REQUEST *request,
 			 *	variable...
 			 */
 			snprintf(buffer, sizeof(buffer), "%s=", vp->name);
-			for (p = buffer; *p != '='; p++) {
-				if (*p == '-') {
-					*p = '_';
-				} else if (isalpha((int) *p)) {
-					*p = toupper(*p);
+			if (shell_escape) {
+				for (p = buffer; *p != '='; p++) {
+					if (*p == '-') {
+						*p = '_';
+					} else if (isalpha((int) *p)) {
+						*p = toupper(*p);
+					}
 				}
 			}
 
 			n = strlen(buffer);
-			vp_prints_value(buffer+n, sizeof(buffer) - n, vp, 1);
+			vp_prints_value(buffer+n, sizeof(buffer) - n, vp, shell_escape);
 
 			envp[envlen++] = strdup(buffer);
 
@@ -424,6 +337,7 @@ int radius_exec_program(const char *cmd, REQUEST *request,
 			if (envlen == (MAX_ENVP - 1)) break;
 		}
 		envp[envlen] = NULL;
+
 		execve(argv[0], argv, envp);
 		radlog(L_ERR, "Exec-Program: FAILED to execute %s: %s",
 		       argv[0], strerror(errno));
@@ -436,12 +350,15 @@ int radius_exec_program(const char *cmd, REQUEST *request,
 	if (pid < 0) {
 		radlog(L_ERR|L_CONS, "Couldn't fork %s: %s",
 		       argv[0], strerror(errno));
+		if (exec_wait) {
+			close(pd[0]);
+			close(pd[1]);
+		}
 		return -1;
 	}
 
 	/*
-	 *	We're not waiting, exit, and ignore any child's
-	 *	status.
+	 *	We're not waiting, exit, and ignore any child's status.
 	 */
 	if (!exec_wait) {
 		return 0;
@@ -511,7 +428,7 @@ int radius_exec_program(const char *cmd, REQUEST *request,
 	 *	Parse the output, if any.
 	 */
 	if (done) {
-		n = T_INVALID;
+		n = T_OP_INVALID;
 		if (output_pairs) {
 			/*
 			 *	For backwards compatibility, first check
@@ -524,10 +441,10 @@ int radius_exec_program(const char *cmd, REQUEST *request,
 			}
 		}
 
-		if (n == T_INVALID) {
-			radlog(L_DBG, "Exec-Program-Wait: plaintext: %s", answer);
+		if (n == T_OP_INVALID) {
+			DEBUG("Exec-Program-Wait: plaintext: %s", answer);
 			if (user_msg) {
-				strNcpy(user_msg, answer, msg_len);
+				strlcpy(user_msg, answer, msg_len);
 			}
 		} else {
 			/*
@@ -546,14 +463,14 @@ int radius_exec_program(const char *cmd, REQUEST *request,
 			}
 
 			/*
-			 *  Replace any trailing comma by a NUL.
+			 *	Replace any trailing comma by a NUL.
 			 */
 			if (answer[strlen(answer) - 1] == ',') {
 				answer[strlen(answer) - 1] = '\0';
 			}
 
 			radlog(L_DBG,"Exec-Program-Wait: value-pairs: %s", answer);
-			if (userparse(answer, &vp) == T_INVALID) {
+			if (userparse(answer, &vp) == T_OP_INVALID) {
 				radlog(L_ERR, "Exec-Program-Wait: %s: unparsable reply", cmd);
 
 			} else {
@@ -564,7 +481,7 @@ int radius_exec_program(const char *cmd, REQUEST *request,
 				*output_pairs = vp;
 			}
 		} /* else the answer was a set of VP's, not a text message */
-	} /* else we didn't read anything from the child. */
+	} /* else we didn't read anything from the child */
 
 	/*
 	 *	Call rad_waitpid (should map to waitpid on non-threaded
@@ -587,4 +504,97 @@ int radius_exec_program(const char *cmd, REQUEST *request,
 	radlog(L_ERR|L_CONS, "Exec-Program: Abnormal child exit: %s",
 	       strerror(errno));
 	return 1;
+#else
+	msg_len = msg_len;	/* -Wunused */
+
+	if (exec_wait) {
+		radlog(L_ERR, "Exec-Program-Wait is not supported");
+		return -1;
+	}
+	
+	/*
+	 *	We're not waiting, so we don't look for a
+	 *	message, or VP's.
+	 */
+	user_msg = NULL;
+	output_pairs = NULL;
+
+	/*
+	 *	FIXME: Move to a common routine.
+	 */
+	{
+#define MAX_ENVP 1024
+		char *envp[MAX_ENVP];
+		int envlen;
+		char buffer[1024];
+
+		/*
+		 *	Set up the environment variables.
+		 */
+		envlen = 0;
+
+		for (vp = input_pairs; vp != NULL; vp = vp->next) {
+			/*
+			 *	Hmm... maybe we shouldn't pass the
+			 *	user's password in an environment
+			 *	variable...
+			 */
+			snprintf(buffer, sizeof(buffer), "%s=", vp->name);
+			if (shell_escape) {
+				for (p = buffer; *p != '='; p++) {
+					if (*p == '-') {
+						*p = '_';
+					} else if (isalpha((int) *p)) {
+						*p = toupper(*p);
+					}
+				}
+			}
+
+			n = strlen(buffer);
+			vp_prints_value(buffer+n, sizeof(buffer) - n, vp, shell_escape);
+
+			envp[envlen++] = strdup(buffer);
+
+			/*
+			 *	Don't add too many attributes.
+			 */
+			if (envlen == (MAX_ENVP - 1)) break;
+		}
+		envp[envlen] = NULL;
+
+		/*
+		 *	The _spawn and _exec families of functions are
+		 *	found in Windows compiler libraries for
+		 *	portability from UNIX. There is a variety of
+		 *	functions, including the ability to pass
+		 *	either a list or array of parameters, to
+		 *	search in the PATH or otherwise, and whether
+		 *	or not to pass an environment (a set of
+		 *	environment variables). Using _spawn, you can
+		 *	also specify whether you want the new process
+		 *	to close your program (_P_OVERLAY), to wait
+		 *	until the new process is finished (_P_WAIT) or
+		 *	for the two to run concurrently (_P_NOWAIT).
+		 
+		 *	_spawn and _exec are useful for instances in
+		 *	which you have simple requirements for running
+		 *	the program, don't want the overhead of the
+		 *	Windows header file, or are interested
+		 *	primarily in portability.
+		 */
+
+		/*
+		 *	FIXME: check return code... what is it?
+		 */
+		_spawnve(_P_NOWAIT, argv[0], argv, envp);
+
+		for (i = 0; i < MAX_ENVP; i++) {
+			if (!envp[i]) break;
+			free(envp[i]);
+		}
+
+	}
+
+	return 0;
+#endif
 }

@@ -57,7 +57,7 @@ EventTraceCauseDesc TraceEvents[] = {
     {kLogGrimReaper,            "CTimer: grim reaper"}
     
 };
-    #define XTRACE(x, y, z) IrDALogAdd ( x, y, (int)z & 0xffff, TraceEvents, true )
+    #define XTRACE(x, y, z) IrDALogAdd ( x, y, (uintptr_t)z & 0xffff, TraceEvents, true )
 #else
     #define XTRACE(x, y, z) ((void)0)
 #endif
@@ -71,7 +71,7 @@ CTimer::cTimer(IOWorkLoop *work, OSObject *owner, Action callback)
 {
     CTimer * obj = new CTimer;
     
-    XTRACE(kLogNew, (int)obj >> 16, obj);
+    XTRACE(kLogNew, 0, obj);
 
     if (obj && !obj->init(work, owner, callback)) {
 	obj->release();
@@ -107,7 +107,7 @@ Boolean CTimer::init(IOWorkLoop *work, OSObject *owner, Action callback)
     rc = work->addEventSource(fTimerSrc);
     require(rc == kIOReturnSuccess, Failed);
     
-    XTRACE(kLogInit, (int)fTimerSrc >> 16, fTimerSrc);
+    XTRACE(kLogInit, 0, fTimerSrc);
     return true;
 	    
 Failed:
@@ -120,7 +120,7 @@ Failed:
 
 void CTimer::free()
 {
-    XTRACE(kLogFree1, (int)this >> 16, this);
+    XTRACE(kLogFree1, 0, this);
     Boolean ok;
     
     check(fBusy == false);
@@ -133,7 +133,7 @@ void CTimer::free()
     }
     
     if (fTimerSrc) {
-	XTRACE(kLogFree2, (int)fTimerSrc >> 16, fTimerSrc);
+	XTRACE(kLogFree2, 0, fTimerSrc);
 	ok = fTimerSrc->SafeCancelTimeout();
 	check(ok == false);         // should *not* have worked (no timer pending)
 	
@@ -183,7 +183,7 @@ Fail:
 void CTimer::StopTimer()
 {
     Boolean ok;
-    XTRACE(kLogStopTimer1, (int)this >> 16, this);
+    XTRACE(kLogStopTimer1, 0, this);
     
     if (fBusy == false) {                       // stopped, but we're already stopped (nop)
 	XTRACE(kLogStopTimer2, 0, this->getRetainCount());
@@ -209,7 +209,7 @@ CTimer::timeout(OSObject *owner, IrDATimerEventSource *sender)
 {
     CTimer  *obj;
     
-    XTRACE(kLogTimeout1, (int)owner >> 16, owner);
+    XTRACE(kLogTimeout1, 0, owner);
     obj = OSDynamicCast(CTimer, owner);
     require(obj, Fail);
     require(obj->fOwner, Fail);
@@ -225,8 +225,8 @@ CTimer::timeout(OSObject *owner, IrDATimerEventSource *sender)
     obj->fBusy = false;
     obj->release(); 
     // temp debugging
-    XTRACE(kLogTimeout3, (int)obj->fOwner >> 16, obj->fOwner);
-    XTRACE(kLogTimeout4, (int)sender >> 16, sender);
+    XTRACE(kLogTimeout3, 0, obj->fOwner);
+    XTRACE(kLogTimeout4, 0, sender);
     (*obj->fCallback)(obj->fOwner, sender);
     XTRACE(kLogTimeout5, 0xffff, 0xffff);
     

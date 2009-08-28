@@ -1,0 +1,194 @@
+# Visual C++ 2.x and 4.0 makefile for zlib 1.0.4 (generates 32bit-dll)
+# adapted from suns example makefile (related to the TCL script language)
+#
+# CVS:	$Id: makefile.vc,v 1.2 1997/02/28 22:58:54 aku Exp $
+# 
+# If you wish to reduce the memory requirements (default 256K for big
+# objects plus a few K), you can add to CFLAGS below: 
+#   -DMAX_MEM_LEVEL=7 -DMAX_WBITS=14
+# See zconf.h for details about the memory requirements.
+
+
+# Does not depend on the presence of any environment variables in
+# order to compile zlib; all needed information is derived from 
+# location of the compiler directories.
+
+#
+# Project directories
+#
+# ROOT    = top of source tree
+#
+# TMPDIR  = location where .obj files should be stored during build
+#
+# TOOLS32 = location of VC++ 32-bit development tools. Note that the
+#	    VC++ 2.0 header files are broken, so you need to use the
+#	    ones that come with the developer network CD's, or later
+#	    versions of VC++.
+#
+# INSTALLDIR = directory to install the generated DLL into.
+#
+
+ROOT		= .
+TMPDIR		= .
+TOOLS32		= c:\msdev
+INSTALLDIR	= c:\winnt35\system32
+
+
+# Set this to the appropriate value of /MACHINE: for your platform
+MACHINE	= IX86
+
+# Comment the following line to compile with symbols
+NODEBUG=1
+
+
+######################################################################
+# Do not modify below this line
+######################################################################
+
+ZLIB		=	zlib
+ZLIBLIB		=	$(ZLIB).lib
+ZLIBDLL		=	$(ZLIB).dll
+
+ZLIBOBJS	=	\
+	$(TMPDIR)\adler32.obj	\
+	$(TMPDIR)\compress.obj	\
+	$(TMPDIR)\crc32.obj	\
+	$(TMPDIR)\deflate.obj	\
+	$(TMPDIR)\gzio.obj	\
+	$(TMPDIR)\infblock.obj	\
+	$(TMPDIR)\infcodes.obj	\
+	$(TMPDIR)\inffast.obj	\
+	$(TMPDIR)\inflate.obj	\
+	$(TMPDIR)\inftrees.obj	\
+	$(TMPDIR)\infutil.obj	\
+	$(TMPDIR)\trees.obj	\
+	$(TMPDIR)\uncompr.obj	\
+	$(TMPDIR)\zutil.obj
+
+
+
+PATH=$(TOOLS32)\bin;$(PATH)
+
+cc32		= $(TOOLS32)\bin\cl.exe
+link32		= $(TOOLS32)\bin\link.exe
+rc32		= $(TOOLS32)\bin\rc.exe
+include32	= -I$(TOOLS32)\include
+CP      	= copy
+RM      	= del
+
+ZLIB_INCLUDES	= -I$(ROOT)
+ZLIB_DEFINES	= -nologo -D__WIN32__ -D_WINDOWS -DZLIB_DLL
+
+ZLIB_CFLAGS	=	$(cdebug) $(cflags) $(cvarsdll) $(include32) \
+			$(ZLIB_INCLUDES) $(ZLIB_DEFINES)
+CON_CFLAGS	=	$(cdebug) $(cflags) $(cvars) $(include32) -DCONSOLE
+DOS_CFLAGS	=	$(cdebug) $(cflags) $(include16) -AL 
+
+######################################################################
+# Link flags
+######################################################################
+
+!IFDEF NODEBUG
+ldebug = /RELEASE
+!ELSE
+ldebug = -debug:full -debugtype:cv
+!ENDIF
+
+# declarations common to all linker options
+lcommon = /NODEFAULTLIB /RELEASE /NOLOGO
+
+# declarations for use on Intel i386, i486, and Pentium systems
+!IF "$(MACHINE)" == "IX86"
+DLLENTRY = @12
+lflags   = $(lcommon) -align:0x1000 /MACHINE:$(MACHINE)
+!ELSE
+lflags   = $(lcommon) /MACHINE:$(MACHINE)
+!ENDIF
+
+conlflags = $(lflags) -subsystem:console -entry:mainCRTStartup
+guilflags = $(lflags) -subsystem:windows -entry:WinMainCRTStartup
+dlllflags = $(lflags) -entry:_DllMainCRTStartup$(DLLENTRY) -dll
+
+!IF "$(MACHINE)" == "PPC"
+libc = libc.lib
+libcdll = crtdll.lib
+!ELSE
+libc = libc.lib oldnames.lib
+libcdll = msvcrt.lib oldnames.lib
+!ENDIF
+
+baselibs   = kernel32.lib $(optlibs) advapi32.lib
+winlibs    = $(baselibs) user32.lib gdi32.lib comdlg32.lib winspool.lib
+
+guilibs	   = $(libc) $(winlibs)
+conlibs	   = $(libc) $(baselibs)
+guilibsdll = $(libcdll) $(winlibs)
+conlibsdll = $(libcdll) $(baselibs)
+
+######################################################################
+# Compile flags
+######################################################################
+
+!IFDEF NODEBUG
+cdebug = -Ox
+!ELSE
+cdebug = -Z7 -Od -WX
+!ENDIF
+
+# declarations common to all compiler options
+ccommon = -c -W3 -nologo -YX -Dtry=__try -Dexcept=__except
+
+# NEED BYTEORDER INFORMATION HERE !!
+!IF "$(MACHINE)" == "IX86"
+cflags = $(ccommon) -D_X86_=1
+!ELSE
+!IF "$(MACHINE)" == "MIPS"
+cflags = $(ccommon) -D_MIPS_=1
+!ELSE
+!IF "$(MACHINE)" == "PPC"
+cflags = $(ccommon) -D_PPC_=1
+!ELSE
+!IF "$(MACHINE)" == "ALPHA"
+cflags = $(ccommon) -D_ALPHA_=1
+!ENDIF
+!ENDIF
+!ENDIF
+!ENDIF
+
+cvars      = -DWIN32 -D_WIN32
+cvarsmt    = $(cvars) -D_MT
+cvarsdll   = $(cvarsmt) -D_DLL
+
+######################################################################
+# Project specific targets
+######################################################################
+
+release:    $(ZLIBDLL)
+all:	    $(ZLIBDLL)
+
+install:	$(ZLIBDLL)
+	-@md	$(INSTALLDIR)
+	-@$(CP) $(ZLIBDLL)		$(INSTALLDIR)
+
+
+
+$(ZLIBDLL): $(ZLIBOBJS)
+	$(link32) $(ldebug) $(dlllflags) \
+		$(guilibsdll) -out:$(ZLIBDLL) $(ZLIBOBJS)
+
+
+#
+# Implicit rules
+#
+
+{$(ROOT)}.c{$(TMPDIR)}.obj:
+    $(cc32) $(ZLIB_CFLAGS) -Fo$(TMPDIR)\ $<
+
+
+clean:
+        -@del *.exp 
+	-@del *.lib 
+	-@del *.dll 
+        -@del $(TMPDIR)\*.obj
+	-@del *.pch
+	-@del *.pdb

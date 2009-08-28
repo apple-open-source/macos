@@ -1,8 +1,8 @@
 /* slapcommon.c - common routine for the slap tools */
-/* $OpenLDAP: pkg/ldap/servers/slapd/slapcommon.c,v 1.23.2.23 2006/02/17 07:38:41 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/slapcommon.c,v 1.73.2.7 2008/02/11 23:26:44 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * Portions Copyright 1998-2003 Kurt D. Zeilenga.
  * Portions Copyright 2003 IBM Corporation.
  * All rights reserved.
@@ -47,23 +47,31 @@ static FILE *leakfile;
 
 static LDIFFP dummy;
 
+#if defined(LDAP_SYSLOG) && defined(LDAP_DEBUG)
+int start_syslog;
+static char **syslog_unknowns;
+#ifdef LOG_LOCAL4
+static int syslogUser = SLAP_DEFAULT_SYSLOG_USER;
+#endif /* LOG_LOCAL4 */
+#endif /* LDAP_DEBUG && LDAP_SYSLOG */
+
 static void
 usage( int tool, const char *progname )
 {
 	char *options = NULL;
 	fprintf( stderr,
-		"usage: %s [-v] [-d debuglevel] [-f configfile] [-F configdir]",
+		"usage: %s [-v] [-d debuglevel] [-f configfile] [-F configdir] [-o <name>[=<value>]]",
 		progname );
 
 	switch( tool ) {
 	case SLAPACL:
 		options = "\n\t[-U authcID | -D authcDN] [-X authzID | -o authzDN=<DN>]"
-			"\n\t-b DN -o <var>[=<val>] [-u] [attr[/access][:value]] [...]\n";
+			"\n\t-b DN [-u] [attr[/access][:value]] [...]\n";
 		break;
 
 	case SLAPADD:
 		options = " [-c]\n\t[-g] [-n databasenumber | -b suffix]\n"
-			"\t[-l ldiffile] [-q] [-u] [-s] [-w]\n";
+			"\t[-l ldiffile] [-j linenumber] [-q] [-u] [-s] [-w]\n";
 		break;
 
 	case SLAPAUTH:
@@ -80,7 +88,7 @@ usage( int tool, const char *progname )
 		break;
 
 	case SLAPINDEX:
-		options = " [-c]\n\t[-g] [-n databasenumber | -b suffix] [-q]\n";
+		options = " [-c]\n\t[-g] [-n databasenumber | -b suffix] [attr ...] [-q] [-t]\n";
 		break;
 
 	case SLAPTEST:
@@ -95,18 +103,16 @@ usage( int tool, const char *progname )
 }
 
 static int
-parse_slapacl( void )
+parse_slapopt( void )
 {
-	size_t	len;
+	size_t	len = 0;
 	char	*p;
 
 	p = strchr( optarg, '=' );
-	if ( p == NULL ) {
-		return -1;
+	if ( p != NULL ) {
+		len = p - optarg;
+		p++;
 	}
-
-	len = p - optarg;
-	p++;
 
 	if ( strncasecmp( optarg, "sockurl", len ) == 0 ) {
 		if ( !BER_BVISNULL( &listener_url ) ) {
@@ -159,6 +165,28 @@ parse_slapacl( void )
 	} else if ( strncasecmp( optarg, "authzDN", len ) == 0 ) {
 		ber_str2bv( p, 0, 1, &authzDN );
 
+#if defined(LDAP_SYSLOG) && defined(LDAP_DEBUG)
+	} else if ( strncasecmp( optarg, "syslog", len ) == 0 ) {
+		if ( parse_debug_level( p, &ldap_syslog, &syslog_unknowns ) ) {
+			return -1;
+		}
+		start_syslog = 1;
+
+	} else if ( strncasecmp( optarg, "syslog-level", len ) == 0 ) {
+		if ( parse_syslog_level( p, &ldap_syslog_level ) ) {
+			return -1;
+		}
+		start_syslog = 1;
+
+#ifdef LOG_LOCAL4
+	} else if ( strncasecmp( optarg, "syslog-user", len ) == 0 ) {
+		if ( parse_syslog_user( p, &syslogUser ) ) {
+			return -1;
+		}
+		start_syslog = 1;
+#endif /* LOG_LOCAL4 */
+#endif /* LDAP_DEBUG && LDAP_SYSLOG */
+
 	} else {
 		return -1;
 	}
@@ -200,6 +228,7 @@ slap_tool_init(
 	 * messages show up; use -d 0 to reset */
 	slap_debug = LDAP_DEBUG_NONE;
 #endif
+	ldap_syslog = 0;
 
 #ifdef CSRIMALLOC
 	leakfilename = malloc( strlen( progname ) + STRLENOF( ".leak" ) + 1 );
@@ -212,31 +241,31 @@ slap_tool_init(
 
 	switch( tool ) {
 	case SLAPADD:
-		options = "b:cd:f:F:gl:n:qstuvw";
+		options = "b:cd:f:F:gj:l:n:o:qsS:uvw";
 		break;
 
 	case SLAPCAT:
-		options = "a:b:cd:f:F:gl:n:s:v";
+		options = "a:b:cd:f:F:gl:n:o:s:v";
 		mode |= SLAP_TOOL_READMAIN | SLAP_TOOL_READONLY;
 		break;
 
 	case SLAPDN:
-		options = "d:f:F:NPv";
+		options = "d:f:F:No:Pv";
 		mode |= SLAP_TOOL_READMAIN | SLAP_TOOL_READONLY;
 		break;
 
 	case SLAPTEST:
-		options = "d:f:F:uv";
+		options = "d:f:F:o:Quv";
 		mode |= SLAP_TOOL_READMAIN | SLAP_TOOL_READONLY;
 		break;
 
 	case SLAPAUTH:
-		options = "d:f:F:M:R:U:vX:";
+		options = "d:f:F:M:o:R:U:vX:";
 		mode |= SLAP_TOOL_READMAIN | SLAP_TOOL_READONLY;
 		break;
 
 	case SLAPINDEX:
-		options = "b:cd:f:F:gn:qv";
+		options = "b:cd:f:F:gn:o:qtv";
 		mode |= SLAP_TOOL_READMAIN;
 		break;
 
@@ -254,7 +283,7 @@ slap_tool_init(
 	while ( (i = getopt( argc, argv, options )) != EOF ) {
 		switch ( i ) {
 		case 'a':
-			filterstr = strdup( optarg );
+			filterstr = ch_strdup( optarg );
 			break;
 
 		case 'b':
@@ -291,19 +320,25 @@ slap_tool_init(
 			break;
 
 		case 'f':	/* specify a conf file */
-			conffile = strdup( optarg );
+			conffile = ch_strdup( optarg );
 			break;
 
 		case 'F':	/* specify a conf dir */
-			confdir = strdup( optarg );
+			confdir = ch_strdup( optarg );
 			break;
 
 		case 'g':	/* disable subordinate glue */
 			use_glue = 0;
 			break;
 
+		case 'j':	/* jump to linenumber */
+			if ( lutil_atoi( &jumpline, optarg ) ) {
+				usage( tool, progname );
+			}
+			break;
+
 		case 'l':	/* LDIF file */
-			ldiffile = strdup( optarg );
+			ldiffile = ch_strdup( optarg );
 			break;
 
 		case 'M':
@@ -324,7 +359,7 @@ slap_tool_init(
 			break;
 
 		case 'o':
-			if ( parse_slapacl() ) {
+			if ( parse_slapopt() ) {
 				usage( tool, progname );
 			}
 			break;
@@ -336,6 +371,11 @@ slap_tool_init(
 			dn_mode = SLAP_TOOL_LDAPDN_PRETTY;
 			break;
 
+		case 'Q':
+			quiet++;
+			slap_debug = 0;
+			break;
+
 		case 'q':	/* turn on quick */
 			mode |= SLAP_TOOL_QUICK;
 			break;
@@ -344,11 +384,19 @@ slap_tool_init(
 			realm = optarg;
 			break;
 
+		case 'S':
+			if ( lutil_atou( &csnsid, optarg )
+				|| csnsid > SLAP_SYNC_SID_MAX )
+			{
+				usage( tool, progname );
+			}
+			break;
+
 		case 's':	/* dump subtree */
 			if ( tool == SLAPADD )
 				mode |= SLAP_TOOL_NO_SCHEMA_CHECK;
 			else if ( tool == SLAPCAT )
-				subtree = strdup( optarg );
+				subtree = ch_strdup( optarg );
 			break;
 
 		case 't':	/* turn on truncate */
@@ -382,11 +430,38 @@ slap_tool_init(
 		}
 	}
 
+#if defined(LDAP_SYSLOG) && defined(LDAP_DEBUG)
+	if ( start_syslog ) {
+		char *logName;
+#ifdef HAVE_EBCDIC
+		logName = ch_strdup( progname );
+		__atoe( logName );
+#else
+		logName = (char *)progname;
+#endif
+
+#ifdef LOG_LOCAL4
+		openlog( logName, OPENLOG_OPTIONS, syslogUser );
+#elif defined LOG_DEBUG
+		openlog( logName, OPENLOG_OPTIONS );
+#endif
+#ifdef HAVE_EBCDIC
+		free( logName );
+#endif
+	}
+#endif /* LDAP_DEBUG && LDAP_SYSLOG */
+
 	switch ( tool ) {
 	case SLAPADD:
 	case SLAPCAT:
-	case SLAPINDEX:
 		if ( ( argc != optind ) || (dbnum >= 0 && base.bv_val != NULL ) ) {
+			usage( tool, progname );
+		}
+
+		break;
+
+	case SLAPINDEX:
+		if ( dbnum >= 0 && base.bv_val != NULL ) {
 			usage( tool, progname );
 		}
 
@@ -424,8 +499,6 @@ slap_tool_init(
 		break;
 	}
 
-	ldap_syslog = 0;
-
 	if ( ldiffile == NULL ) {
 		dummy.fp = tool == SLAPCAT ? stdout : stdin;
 		ldiffp = &dummy;
@@ -462,6 +535,16 @@ slap_tool_init(
 		if ( rc )
 			exit( EXIT_FAILURE );
 	}
+
+#if defined(LDAP_SYSLOG) && defined(LDAP_DEBUG)
+	if ( syslog_unknowns ) {
+		rc = parse_debug_unknowns( syslog_unknowns, &ldap_syslog );
+		ldap_charray_free( syslog_unknowns );
+		syslog_unknowns = NULL;
+		if ( rc )
+			exit( EXIT_FAILURE );
+	}
+#endif
 
 	at_oc_cache = 1;
 
@@ -543,7 +626,7 @@ slap_tool_init(
 			exit( EXIT_FAILURE );
 		}
 
-		be = select_backend( &nbase, 0, 0 );
+		be = select_backend( &nbase, 0 );
 		ber_memfree( nbase.bv_val );
 
 		switch ( tool ) {
@@ -684,5 +767,9 @@ void slap_tool_destroy( void )
 
 	if ( !BER_BVISNULL( &authcDN ) ) {
 		ch_free( authcDN.bv_val );
+	}
+
+	if ( ldiffp && ldiffp != &dummy ) {
+		ldif_close( ldiffp );
 	}
 }

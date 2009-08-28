@@ -1,0 +1,11 @@
+--- src/lib/libast/features/common+orig	2008-03-14 21:45:47.000000000 -0700
++++ src/lib/libast/features/common	2008-03-14 21:46:24.000000000 -0700
+@@ -386,7 +386,7 @@ typ uintmax_t stdint.h inttypes.h no{
+ 	typedef unsigned _ast_intmax_t uintmax_t;
+ }end
+ 
+-tst	- -DTRY=1 - -DTRY=1 -Dvoid=char - -DTRY=2 - -DTRY=3 - -DTRY=4 output{
++tst	- -DTRY=4 - -DTRY=1 - -DTRY=1 -Dvoid=char - -DTRY=2 - -DTRY=3 output{
+ 	#if _STD_ && _hdr_stdarg
+ 	#include <stdarg.h>
+ 	static void

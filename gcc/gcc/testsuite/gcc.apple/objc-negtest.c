@@ -1,6 +1,6 @@
 /* APPLE LOCAL begin radar 4122328 */
 /* { dg-options "-fasm-blocks" } */
-@class NSString; /* { dg-error "(parse|syntax) error before '@' token" } */
+@class NSString; /* { dg-error "expected identifier or '\\(' before '@' token" } */
 
 int main()
 {

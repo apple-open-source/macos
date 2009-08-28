@@ -27,6 +27,7 @@
 #include "CDSPluginUtils.h"
 #include "CCachePlugin.h"
 #include "CLDAPv3Configs.h"
+#include "CLDAPConnection.h"
 #include "DNSLookups.h"
 
 #include <DirectoryServiceCore/CLog.h>
@@ -39,7 +40,7 @@
 #include <ifaddrs.h>
 #include <fcntl.h>
 #include <ldap_private.h>
-#include <sasl.h>
+#include <sasl/sasl.h>
 #include <syslog.h>
 
 extern	CCachePlugin		*gCacheNode;
@@ -123,6 +124,8 @@ CLDAPNodeConfig::CLDAPNodeConfig( CLDAPv3Configs *inConfig, const char *inLDAPUR
 
 CLDAPNodeConfig::~CLDAPNodeConfig( void )
 {
+	fMutex.WaitLock();
+
 	char		*cStr		= NULL;
 	const char	*uuidStr	= BaseDirectoryPlugin::GetCStringFromCFString( fConfigUUID, &cStr );
 	
@@ -145,11 +148,8 @@ CLDAPNodeConfig::~CLDAPNodeConfig( void )
 	DSFree( fServerName );
 	DSFree( fConfigUIName );
 
-	if ( fDynamicRefreshTimer != NULL )
-	{
-		CFRunLoopTimerInvalidate( fDynamicRefreshTimer );
-		DSCFRelease( fDynamicRefreshTimer );
-	}
+	dispatch_cancel( fDynamicRefreshTimer );
+	dispatch_release( fDynamicRefreshTimer );
 	
 	DSCFRelease( fNormalizedMappings );
 	DSCFRelease( fRecordTypeMapArray );
@@ -157,6 +157,7 @@ CLDAPNodeConfig::~CLDAPNodeConfig( void )
 	
 	DSCFRelease( fReadReplicas );
 	DSCFRelease( fWriteReplicas );
+	DSCFRelease( fDeniedSASLMethods );
 	
 	if ( fObjectClassSchema != NULL )
 	{
@@ -185,6 +186,8 @@ CLDAPNodeConfig::~CLDAPNodeConfig( void )
 		SCNetworkReachabilityUnscheduleFromRunLoop( fReachabilityRef, CFRunLoopGetMain(), kCFRunLoopDefaultMode );
 		DSCFRelease( fReachabilityRef );
 	}
+
+	fMutex.SignalLock();
 }
 
 #pragma mark -
@@ -294,8 +297,6 @@ LDAP *CLDAPNodeConfig::EstablishConnection( CLDAPReplicaInfo **inOutReplicaInfo,
 				{
 					(*outStatus) = eDSNoErr;
 					(*inOutReplicaInfo) = replica->Retain();
-					
-					RetrieveServerSchema( pTempLD );
 				}
 
 				if ( (*outStatus) != eDSNoErr )
@@ -881,8 +882,20 @@ CFDictionaryRef	CLDAPNodeConfig::CopyNormalizedMappings( void )
 	return cfReturnValue;
 }
 
-void CLDAPNodeConfig::GetReqAttrListForObjectList( listOfStrings &inObjectClassList, listOfStrings &outReqAttrsList )
+void CLDAPNodeConfig::GetReqAttrListForObjectList( CLDAPConnection *inLDAPConnection, listOfStrings &inObjectClassList, 
+                                                   listOfStrings &outReqAttrsList )
 {
+	// if we still haven't gotten the schema, let's look again since we are trying to add something and need to know the hierarchy
+	if ( fObjectClassSchema == NULL ) {
+		
+		// lock LDAP session calls fMutex lock, so we can't grab lock before hand let RetrieveServerSchema handle the lock
+		LDAP *aHost = inLDAPConnection->LockLDAPSession();
+		if ( aHost != NULL ) {
+			RetrieveServerSchema( aHost );
+			inLDAPConnection->UnlockLDAPSession( aHost, false );
+		}
+	}
+	
 	fMutex.WaitLock();
 	
 	if ( fObjectClassSchema != NULL )
@@ -1296,6 +1309,7 @@ CFStringRef CLDAPNodeConfig::ParseCompoundExpression( const char *inConstAttrNam
 		
 	const int	kMatchOr			= 1;
 	const int	kMatchAnd			= 2;
+	const int	kMatchNot			= 3;
 	char		*workingString		= strdup( inConstAttrName );
 	int			iIndex				= 0;
 	int			iDepth				= 0;
@@ -1338,6 +1352,9 @@ CFStringRef CLDAPNodeConfig::ParseCompoundExpression( const char *inConstAttrNam
 				break;
 			case '|':
 				iMatchType[iDepth] = kMatchOr;
+				break;
+			case '!':
+				iMatchType[iDepth] = kMatchNot;
 				break;
 			case '\\': // escaped, need to keep the escape and the next char
 				if ( pWorkingBuffer == NULL ) goto done;
@@ -1572,11 +1589,6 @@ bool CLDAPNodeConfig::CheckIfFailed( void )
 #pragma mark -
 #pragma mark Callbacks
 
-void CLDAPNodeConfig::RefreshDataCallback( CFRunLoopTimerRef inTimer, void *inInfo )
-{
-	((CLDAPNodeConfig *) inInfo)->RefreshDynamicData();
-}
-
 void CLDAPNodeConfig::ReachabilityCallback( SCNetworkReachabilityRef inTarget, SCNetworkConnectionFlags inFlags, void *inInfo )
 {
 	((CLDAPNodeConfig *) inInfo)->ReachabilityNotification( inFlags );
@@ -1584,17 +1596,6 @@ void CLDAPNodeConfig::ReachabilityCallback( SCNetworkReachabilityRef inTarget, S
 
 #pragma mark -
 #pragma mark Private Routines
-
-void CLDAPNodeConfig::RefreshDynamicData( void )
-{
-	OSAtomicCompareAndSwap32Barrier( false, true, &fGetReplicas );
-	OSAtomicCompareAndSwap32Barrier( false, true, &fGetSecuritySettings );
-	
-	if ( fServerMappings == true )
-		OSAtomicCompareAndSwap32Barrier( false, true, &fGetServerMappings );
-	
-	DbgLog( kLogPlugin, "CLDAPNodeConfig::RefreshDynamicData - Node: %s - all dynamically discovered data will be refreshed", fNodeName );
-}
 
 void CLDAPNodeConfig::ReachabilityNotification( SCNetworkConnectionFlags inFlags )
 {
@@ -1609,17 +1610,13 @@ void CLDAPNodeConfig::ReachabilityNotification( SCNetworkConnectionFlags inFlags
 
 void CLDAPNodeConfig::SetLDAPOptions( LDAP *inLDAP )
 {
-	// if not LDAPv2, set the LDAPv3 option
-	if ( fLDAPv2ReadOnly == false )
-	{
-		int version = LDAP_VERSION3;
-		ldap_set_option( inLDAP, LDAP_OPT_PROTOCOL_VERSION, &version );
+	int version = LDAP_VERSION3;
+	ldap_set_option( inLDAP, LDAP_OPT_PROTOCOL_VERSION, &version );
 
-		if ( fIsSSL )
-		{
-			int ldapOptVal = LDAP_OPT_X_TLS_HARD;
-			ldap_set_option( inLDAP, LDAP_OPT_X_TLS, &ldapOptVal );
-		}
+	if ( fIsSSL )
+	{
+		int ldapOptVal = LDAP_OPT_X_TLS_HARD;
+		ldap_set_option( inLDAP, LDAP_OPT_X_TLS, &ldapOptVal );
 	}
 	
 	ldap_set_option( inLDAP, LDAP_OPT_REFERRALS, (fReferrals ? LDAP_OPT_ON : LDAP_OPT_OFF) );
@@ -1642,7 +1639,6 @@ void CLDAPNodeConfig::InitializeVariables( void )
 	fSearchTimeout = kLDAPDefaultSearchTimeoutInSeconds;
 	fOpenCloseTimeout = kLDAPDefaultOpenCloseTimeoutInSeconds;
 	fDelayRebindTry = kLDAPDefaultRebindTryTimeoutInSeconds;
-	fLDAPv2ReadOnly = false;
 	fAvailable = false;
 	fSecureUse = false;
 	fSecurityLevel = kSecNoSecurity;
@@ -1662,13 +1658,23 @@ void CLDAPNodeConfig::InitializeVariables( void )
 	fGetServerMappings = true;
 	fGetReplicas = true;
 	fGetSecuritySettings = true;
-	fGetObjectClasses = true;
 	
-	CFRunLoopTimerContext	context = { 0, this, NULL, NULL, NULL };
-	fDynamicRefreshTimer = CFRunLoopTimerCreate( kCFAllocatorDefault, CFAbsoluteTimeGetCurrent() + (24 * 3600), (24*3600), 0, 0, 
-												 RefreshDataCallback, &context);
-	if ( fDynamicRefreshTimer != NULL )
-		CFRunLoopAddTimer( CFRunLoopGetMain(), fDynamicRefreshTimer, kCFRunLoopDefaultMode );
+	fDynamicRefreshTimer = dispatch_source_timer_create( DISPATCH_TIMER_INTERVAL, 
+														 (24ull * 3600ull * NSEC_PER_SEC), 
+														 60ull * NSEC_PER_SEC,
+														 NULL,
+														 dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT), 
+														 ^(dispatch_source_t ds) {
+															 if ( dispatch_source_get_error(ds, NULL) == 0 ) {
+																 fGetReplicas = true;
+																 fGetSecuritySettings = true;
+																 
+																 if ( fServerMappings == true )
+																	 fGetServerMappings = true;
+																 
+																 DbgLog( kLogPlugin, "CLDAPNodeConfig::RefreshDynamicData - Node: %s - all dynamically discovered data will be refreshed", fNodeName );
+															 }
+														 } );
 	
 	fNormalizedMappings = NULL;
 	fRecordTypeMapArray = NULL;
@@ -1676,7 +1682,8 @@ void CLDAPNodeConfig::InitializeVariables( void )
 
 	fReadReplicas = NULL;
 	fWriteReplicas = NULL;
-	
+	fDeniedSASLMethods = NULL;
+
 	fObjectClassSchema = NULL;
 	
 	fReachabilityRef = NULL;
@@ -2111,17 +2118,13 @@ searchAgain:	// we jump up here and re-do it all if we were getting replicas, ma
 	if ( pReturnLD == NULL )
 		pReturnLD = FindSuitableReplica( inOutReplicaInfo, false, inWriteable, inCallback, inParam );
 	
-	if ( pReturnLD != NULL && (fGetObjectClasses == true || fGetServerMappings == true || fGetSecuritySettings == true || fGetReplicas == true) )
+	if ( pReturnLD != NULL && (fGetServerMappings == true || fGetSecuritySettings == true || fGetReplicas == true) )
 	{
 		bool	bDoAgain	= false;
 		
 		// first set all of our options
 		SetLDAPOptions( pReturnLD );
 
-		// need to read the schema before we do anything more
-		if ( fGetObjectClasses == true )
-			RetrieveServerSchema( pReturnLD );
-		
 		char *pServerAccount = NULL;
 		char *pServerKerberosID = NULL;
 		char *pServerPassword = NULL;
@@ -2200,22 +2203,32 @@ tDirStatus CLDAPNodeConfig::AuthenticateUsingCredentials( LDAP *inLDAP, CLDAPRep
 	
 	defaults.password = usePassword;
 	
-	// we will always try GSSAPI if it is available
-	if ( inReplica->SupportsSASLMethod(CFSTR("GSSAPI")) )
-		CFArrayAppendValue( cfSupportedMethods, CFSTR("GSSAPI") );
-
-	if ( (IsOnlyBitSet(fSecurityLevel, kSecDisallowCleartext) || (fSecurityLevel & kSecSecurityMask) == 0) &&
-		 inReplica->SupportsSASLMethod(CFSTR("CRAM-MD5")) )
+	fMutex.WaitLock();
+	
+	CFRange range = CFRangeMake( 0, CFArrayGetCount(fDeniedSASLMethods) );
+	if ( CFArrayContainsValue(fDeniedSASLMethods, range, CFSTR("GSSAPI")) == false && 
+		 inReplica->SupportsSASLMethod(CFSTR("GSSAPI")) )
 	{
-		CFArrayAppendValue( cfSupportedMethods, CFSTR("CRAM-MD5") );
+		CFArrayAppendValue( cfSupportedMethods, CFSTR("GSSAPI") );
 	}
 
-	// we disable DIGEST-MD5 cause improper configured servers seem to have a problem
-//	if ( (IsOnlyBitSet(fSecurityLevel, kSecDisallowCleartext) || (iReqSecurity & kSecSecurityMask) == 0) &&
-//		 inReplica->SupportsSASLMethod(CFSTR("DIGEST-MD5")) )
-//	{
-//		CFArrayAppendValue( cfSupportedMethods, CFSTR("DIGEST-MD5") );
-//	}
+	// we can only do these methods if higher security is not requested
+	if ( (IsOnlyBitSet(fSecurityLevel, kSecDisallowCleartext) || (fSecurityLevel & kSecSecurityMask) == 0) )
+	{
+		if ( CFArrayContainsValue(fDeniedSASLMethods, range, CFSTR("DIGEST-MD5")) == false &&
+			 inReplica->SupportsSASLMethod(CFSTR("DIGEST-MD5")) )
+		{
+			CFArrayAppendValue( cfSupportedMethods, CFSTR("DIGEST-MD5") );
+		}
+		
+		if ( CFArrayContainsValue(fDeniedSASLMethods, range, CFSTR("CRAM-MD5")) == false &&
+			 inReplica->SupportsSASLMethod(CFSTR("CRAM-MD5")) )
+		{
+			CFArrayAppendValue( cfSupportedMethods, CFSTR("CRAM-MD5") );
+		}
+	}
+
+	fMutex.SignalLock();
 		
 	// cfSupportedMethods contains only methods that are supported by the node
 	CFIndex iCount = CFArrayGetCount( cfSupportedMethods );
@@ -2287,7 +2300,7 @@ tDirStatus CLDAPNodeConfig::AuthenticateUsingCredentials( LDAP *inLDAP, CLDAPRep
 		 (fSecurityLevel & (kSecPacketSigning | kSecManInMiddle)) == 0 &&
 		 ( fIsSSL == true || (fSecurityLevel & kSecDisallowCleartext) == 0 ) )
 	{
-		struct berval	cred		= { 0, "" };
+		struct berval	cred		= { 0, (char *)"" };
 		int				bindMsgId	= 0;
 		
 		DbgLog( kLogPlugin, "CLDAPNodeConfig::AuthenticateUsingCredentials - Attempting an LDAP bind auth check" );
@@ -2521,7 +2534,6 @@ bool CLDAPNodeConfig::UpdateConfiguraton( CFDictionaryRef inServerConfig, bool i
 		// don't let the server override anything that drives SSL.
 		GetSInt32FromDictionary( inServerConfig, CFSTR(kXMLPortNumberKey), &fServerPort, LDAP_PORT );
 		GetSInt32FromDictionary( inServerConfig, CFSTR(kXMLIsSSLFlagKey), &fIsSSL, false );
-		GetSInt32FromDictionary( inServerConfig, CFSTR(kXMLLDAPv2ReadOnlyKey), &fLDAPv2ReadOnly, false );
 
 		if ( fReachabilityRef != NULL )
 		{
@@ -2545,11 +2557,17 @@ bool CLDAPNodeConfig::UpdateConfiguraton( CFDictionaryRef inServerConfig, bool i
 				fReachabilityRef = SCNetworkReachabilityCreateWithName( kCFAllocatorDefault, fServerName );
 				if ( fReachabilityRef != NULL )
 				{
-					SCNetworkConnectionFlags		flags	= 0;
 					SCNetworkReachabilityContext	context	= { 0, this, NULL, NULL, NULL };
 					
-					if ( SCNetworkReachabilityGetFlags(fReachabilityRef, &flags) )
-						ReachabilityNotification( flags );
+					// check reachability now because callback is not called if no changes have happened
+					// we do this async to ensure we don't block initialization
+					dispatch_async( dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT),
+								    ^(void) {
+										SCNetworkConnectionFlags	::flags	= 0;
+										
+										if ( SCNetworkReachabilityGetFlags(fReachabilityRef, &flags) )
+											ReachabilityNotification( flags );
+									} );
 					
 					SCNetworkReachabilitySetCallback( fReachabilityRef, ReachabilityCallback, &context );
 					SCNetworkReachabilityScheduleWithRunLoop( fReachabilityRef, CFRunLoopGetMain(), kCFRunLoopDefaultMode );
@@ -2582,9 +2600,11 @@ bool CLDAPNodeConfig::UpdateConfiguraton( CFDictionaryRef inServerConfig, bool i
 		
 		DSCFRelease( fReadReplicas );
 		DSCFRelease( fWriteReplicas );
-
+		DSCFRelease( fDeniedSASLMethods );
+		
 		fReadReplicas = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
 		fWriteReplicas = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
+		fDeniedSASLMethods = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
 
 		CFStringRef cfServerName = CFStringCreateWithCString( kCFAllocatorDefault, fServerName, kCFStringEncodingUTF8 );
 		CFArrayAppendValue( fReadReplicas, cfServerName ); // this is our preferred so it's always listed first
@@ -2599,11 +2619,15 @@ bool CLDAPNodeConfig::UpdateConfiguraton( CFDictionaryRef inServerConfig, bool i
 			CFArrayAppendArray( fWriteReplicas, replicas, CFRangeMake(0, CFArrayGetCount(replicas)) );
 		else
 			CFArrayAppendArray( fWriteReplicas, fReadReplicas, CFRangeMake(0, CFArrayGetCount(fReadReplicas)) );
+		
+		CFArrayRef denied = (CFArrayRef) CFDictionaryGetValue( inServerConfig, CFSTR(kXMLDeniedSASLMethods) );
+		if ( denied != NULL && CFArrayGetTypeID() == CFGetTypeID(denied) )
+			CFArrayAppendArray( fDeniedSASLMethods, denied, CFRangeMake(0, CFArrayGetCount(denied)) );
 	}
 	
 	fMutex.SignalLock();
 	
-	if ( prevEnableUse != fEnableUse )
+	if ( gCacheNode != NULL && prevEnableUse != fEnableUse )
 		gCacheNode->EmptyCacheEntryType( CACHE_ENTRY_TYPE_ALL );
 	
 	return true;
@@ -2666,11 +2690,13 @@ CFDictionaryRef	CLDAPNodeConfig::GetConfiguration( void )
 		CFDictionaryAddValue( curConfigDict, CFSTR(kXMLWriteableHostnameListArrayKey), fWriteReplicas );
 	
 	CFDictionaryAddValue( curConfigDict, CFSTR(kXMLIsSSLFlagKey), fIsSSL ? kCFBooleanTrue : kCFBooleanFalse );
-	CFDictionaryAddValue( curConfigDict, CFSTR(kXMLLDAPv2ReadOnlyKey), fLDAPv2ReadOnly ? kCFBooleanTrue : kCFBooleanFalse );
 	CFDictionaryAddValue( curConfigDict, CFSTR(kXMLMakeDefLDAPFlagKey), fDHCPLDAPServer ? kCFBooleanTrue : kCFBooleanFalse );
 	CFDictionaryAddValue( curConfigDict, CFSTR(kXMLEnableUseFlagKey), fEnableUse ? kCFBooleanTrue : kCFBooleanFalse );
 	CFDictionaryAddValue( curConfigDict, CFSTR(kXMLServerMappingsFlagKey), fServerMappings ? kCFBooleanTrue : kCFBooleanFalse );
 	CFDictionaryAddValue( curConfigDict, CFSTR(kXMLReferralFlagKey), fReferrals ? kCFBooleanTrue : kCFBooleanFalse );
+
+	if ( fDeniedSASLMethods != NULL )
+		CFDictionaryAddValue( curConfigDict, CFSTR(kXMLDeniedSASLMethods), fDeniedSASLMethods );
 	
 	fMutex.SignalLock();
 	
@@ -2725,11 +2751,11 @@ bool CLDAPNodeConfig::RetrieveServerMappings( LDAP *inLDAP, CLDAPReplicaInfo *in
 		CFStringRef		cfSearchBase	= (CFStringRef) CFArrayGetValueAtIndex( cfSearchBases, ii );
 		const char		*searchBase		= BaseDirectoryPlugin::GetCStringFromCFString( cfSearchBase, &cStr );
 		struct timeval	timeout			= { kLDAPDefaultOpenCloseTimeoutInSeconds, 0 };	// use open/close since we are opening a session
-		char			*attrs[]		= { "description", NULL };
+		const char		*attrs[]		= { "description", NULL };
 		LDAPMessage		*result			= NULL;
 
 		int returnCode = ldap_search_ext_s( inLDAP, searchBase, LDAP_SCOPE_SUBTREE, "(&(objectclass=organizationalUnit)(ou=macosxodconfig))", 
-										    attrs, FALSE, NULL, NULL, &timeout, 0, &result );
+										    (char **)attrs, FALSE, NULL, NULL, &timeout, 0, &result );
 		if ( returnCode == LDAP_SUCCESS )
 		{
 			struct berval **bValues = ldap_get_values_len( inLDAP, result, "description" );
@@ -2817,7 +2843,7 @@ bool CLDAPNodeConfig::RetrieveServerReplicaList( LDAP *inLDAP, CFMutableArrayRef
 		return false;
 	}
 	
-	queryFilter = BuildLDAPQueryFilter(	kDSNAttrRecordName, "ldapreplicas", eDSExact, false, kDSStdRecordTypeConfig, nativeRecType, 
+	queryFilter = BuildLDAPQueryFilter(	(char *)kDSNAttrRecordName, (char *)"ldapreplicas", eDSExact, false, (char *)kDSStdRecordTypeConfig, nativeRecType, 
 									    bOCANDGroup, OCSearchList );
 	
 	if ( queryFilter != NULL )
@@ -3036,16 +3062,22 @@ void CLDAPNodeConfig::RetrieveServerSchema( LDAP *inLDAP )
 	char				*strtokContext	= NULL;
 	LDAPMessage			*result			= NULL;
 	int					ldapReturnCode	= 0;
-	char				*sattrs[]		= { "subschemasubentry", NULL };
-	char				*attrs[]		= { "objectclasses", NULL };
+	const char			*sattrs[]		= { "subschemasubentry", NULL };
+	const char			*attrs[]		= { "objectclasses", NULL };
 	char				*subschemaDN	= NULL;
 	struct berval		**bValues		= NULL;
 	struct timeval		timeout			= { fSearchTimeout, 0 };
 	
+	fMutex.WaitLock();
+	
+	if ( fObjectClassSchema != NULL ) {
+		fMutex.SignalLock();
+		return;
+	}
+
 	//at this point we can make the call to the LDAP server to determine the object class schema
 	//then after building the ObjectClassMap we can assign it to the fObjectClassSchema
-	//in either case we set the bOCBuilt since we made the attempt
-	ldapReturnCode = ldap_search_ext_s( inLDAP, "", LDAP_SCOPE_BASE, "(objectclass=*)", sattrs, 0, NULL, NULL, &timeout, 0, &result );
+	ldapReturnCode = ldap_search_ext_s( inLDAP, "", LDAP_SCOPE_BASE, "(objectclass=*)", (char**)sattrs, 0, NULL, NULL, &timeout, 0, &result );
 	if ( ldapReturnCode == LDAP_SUCCESS )
 	{
 		bValues = ldap_get_values_len( inLDAP, result, "subschemasubentry" );
@@ -3067,7 +3099,7 @@ void CLDAPNodeConfig::RetrieveServerSchema( LDAP *inLDAP )
 	
 	if ( subschemaDN != NULL )
 	{
-		ldapReturnCode = ldap_search_ext_s( inLDAP, subschemaDN, LDAP_SCOPE_BASE, "(objectclass=subSchema)", attrs, 0, NULL, NULL, 
+		ldapReturnCode = ldap_search_ext_s( inLDAP, subschemaDN, LDAP_SCOPE_BASE, "(objectclass=subSchema)", (char**)attrs, 0, NULL, NULL, 
 											&timeout, 0, &result );
 		if ( ldapReturnCode == LDAP_SUCCESS )
 		{
@@ -3253,15 +3285,17 @@ void CLDAPNodeConfig::RetrieveServerSchema( LDAP *inLDAP )
 					}
 				} // for each bValues[i]
 
-				fMutex.WaitLock();
 				fObjectClassSchema = aOCClassMap;
-				fMutex.SignalLock();
 
 				ldap_value_free_len( bValues );
 				bValues = NULL;
 
 				DSFree( lineEntry );
 			}
+		}
+		else
+		{
+			DbgLog( kLogError, "Failed to retrieve LDAP server schema - LDAP error %d", ldapReturnCode );
 		}
 		
 		if ( result != NULL )
@@ -3271,9 +3305,9 @@ void CLDAPNodeConfig::RetrieveServerSchema( LDAP *inLDAP )
 		}
 	}
 	
-	DSFree( subschemaDN );
+	fMutex.SignalLock();
 
-	OSAtomicCompareAndSwap32Barrier( true, false, &fGetObjectClasses );
+	DSFree( subschemaDN );
 }
 
 #pragma mark -
@@ -3797,7 +3831,6 @@ bool CLDAPNodeConfig::GetUserTGTIfNecessaryAndStore( const char *inName, const c
 			if ( retval != 0 ) break;
 		}
 		
-//		krb5_address			**addresses = NULL;
 		krb5_int32				startTime   = 0;
 		krb5_get_init_creds_opt	options;
 		
@@ -3806,11 +3839,7 @@ bool CLDAPNodeConfig::GetUserTGTIfNecessaryAndStore( const char *inName, const c
 		krb5_get_init_creds_opt_init( &options );
 		krb5_get_init_creds_opt_set_forwardable( &options, 1 );
 		krb5_get_init_creds_opt_set_proxiable( &options, 1 );
-		
-//		krb5_os_localaddr( krbContext, &addresses );
-		krb5_get_init_creds_opt_set_address_list( &options, NULL );
-//		krb5_free_addresses( krbContext, addresses );
-		
+				
 		// if we don't need new credentials, lets set the ticket life really short
 		if ( bNeedNewCred == false )
 		{
@@ -3972,7 +4001,7 @@ void CLDAPNodeConfig::BuildReplicaList( void )
 
 					if ( replicaInfo == NULL )
 					{
-						replicaInfo = new CLDAPReplicaInfo( ipAddress, fServerPort, fIsSSL, fLDAPv2ReadOnly, bIPWriteable );
+						replicaInfo = new CLDAPReplicaInfo( ipAddress, fServerPort, fIsSSL, bIPWriteable );
 						if ( replicaInfo != NULL )
 						{
 							fReplicaList.push_back( replicaInfo );
@@ -4154,13 +4183,13 @@ SInt32 CLDAPNodeConfig::GetReplicaListFromAltServer( LDAP *inHost, CFMutableArra
 {
 	SInt32				siResult		= eDSRecordNotFound;
 	LDAPMessage		   *result			= NULL;
-	char			   *attrs[2]		= { "altserver", NULL };
+	const char		   *attrs[2]		= { "altserver", NULL };
     CFMutableArrayRef   aRepList        = NULL;
 	struct timeval		timeout			= { fOpenCloseTimeout, 0 };
 
 	//search for the specific LDAP record altserver at the rootDSE which may contain
 	//the list of LDAP replica urls
-	int ldapReturnCode = ldap_search_ext_s( inHost, "", LDAP_SCOPE_BASE, "(objectclass=*)", attrs, 0, NULL, NULL, &timeout, 0, &result );
+	int ldapReturnCode = ldap_search_ext_s( inHost, "", LDAP_SCOPE_BASE, "(objectclass=*)", (char **) attrs, 0, NULL, NULL, &timeout, 0, &result );
 	if ( ldapReturnCode == LDAP_SUCCESS )
 	{
         aRepList = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );

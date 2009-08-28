@@ -1,7 +1,7 @@
 /* error.c:  common exception handling for Subversion
  *
  * ====================================================================
- * Copyright (c) 2000-2004 CollabNet.  All rights reserved.
+ * Copyright (c) 2000-2007 CollabNet.  All rights reserved.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution.  The terms
@@ -18,7 +18,6 @@
 
 
 #include <stdarg.h>
-#include <assert.h>
 
 #include <apr_general.h>
 #include <apr_pools.h>
@@ -26,6 +25,8 @@
 
 #include "svn_cmdline.h"
 #include "svn_error.h"
+#include "svn_pools.h"
+#include "svn_utf.h"
 
 #ifdef SVN_DEBUG
 /* file_line for the non-debug case. */
@@ -61,12 +62,12 @@ svn_error__locate(const char *file, long line)
 
 /* Cleanup function for errors.  svn_error_clear () removes this so
    errors that are properly handled *don't* hit this code. */
-#if defined(SVN_DEBUG_ERROR)
+#if defined(SVN_DEBUG)
 static apr_status_t err_abort(void *data)
 {
   svn_error_t *err = data;  /* For easy viewing in a debugger */
+  err = err; /* Fake a use for the variable to avoid compiler warnings */
   abort();
-  err = err; /* Fake a use for the variable */
 }
 #endif
 
@@ -98,9 +99,11 @@ make_error_internal(apr_status_t apr_err,
   new_error->line    = error_line;
   /* XXX TODO: Unlock mutex here */
 
-#if defined(SVN_DEBUG_ERROR)
+#if defined(SVN_DEBUG)
   if (! child)
-      apr_pool_cleanup_register(pool, new_error, err_abort, NULL);
+      apr_pool_cleanup_register(pool, new_error,
+                                err_abort,
+                                apr_pool_cleanup_null);
 #endif
 
   return new_error;
@@ -188,6 +191,19 @@ svn_error_quick_wrap(svn_error_t *child, const char *new_msg)
 }
 
 
+svn_error_t *
+svn_error_compose_create(svn_error_t *err1,
+                         svn_error_t *err2)
+{
+  if (err1 && err2)
+    {
+      svn_error_compose(err1, err2);
+      return err1;
+    }
+  return err1 ? err1 : err2;
+}
+
+
 void
 svn_error_compose(svn_error_t *chain, svn_error_t *new_err)
 {
@@ -197,7 +213,7 @@ svn_error_compose(svn_error_t *chain, svn_error_t *new_err)
   while (chain->child)
     chain = chain->child;
 
-#if defined(SVN_DEBUG_ERROR)
+#if defined(SVN_DEBUG)
   /* Kill existing handler since the end of the chain is going to change */
   apr_pool_cleanup_kill(pool, chain, err_abort);
 #endif
@@ -211,19 +227,35 @@ svn_error_compose(svn_error_t *chain, svn_error_t *new_err)
       if (chain->message)
         chain->message = apr_pstrdup(pool, new_err->message);
       chain->pool = pool;
-#if defined(SVN_DEBUG_ERROR)
+#if defined(SVN_DEBUG)
       if (! new_err->child)
         apr_pool_cleanup_kill(oldpool, new_err, err_abort);
 #endif
       new_err = new_err->child;
     }
 
-#if defined(SVN_DEBUG_ERROR)
-  apr_pool_cleanup_register(pool, chain, err_abort, NULL);
+#if defined(SVN_DEBUG)
+  apr_pool_cleanup_register(pool, chain,
+                            err_abort,
+                            apr_pool_cleanup_null);
 #endif
 
   /* Destroy the new error chain. */
-  apr_pool_destroy(oldpool);
+  svn_pool_destroy(oldpool);
+}
+
+svn_error_t *
+svn_error_root_cause(svn_error_t *err)
+{
+  while (err)
+    {
+      if (err->child)
+        err = err->child;
+      else
+        break;
+    }
+
+  return err;
 }
 
 svn_error_t *
@@ -253,8 +285,10 @@ svn_error_dup(svn_error_t *err)
         tmp_err->message = apr_pstrdup(pool, tmp_err->message);
     }
 
-#if defined(SVN_DEBUG_ERROR)
-  apr_pool_cleanup_register(pool, tmp_err, err_abort, NULL);
+#if defined(SVN_DEBUG)
+  apr_pool_cleanup_register(pool, tmp_err,
+                            err_abort,
+                            apr_pool_cleanup_null);
 #endif
 
   return new_err;
@@ -265,12 +299,12 @@ svn_error_clear(svn_error_t *err)
 {
   if (err)
     {
-#if defined(SVN_DEBUG_ERROR)
+#if defined(SVN_DEBUG)
       while (err->child)
         err = err->child;
       apr_pool_cleanup_kill(err->pool, err, err_abort);
 #endif
-      apr_pool_destroy(err->pool);
+      svn_pool_destroy(err->pool);
     }
 }
 
@@ -304,7 +338,7 @@ print_error(svn_error_t *err, FILE *stream, const char *prefix)
   svn_error_clear(svn_cmdline_fprintf(stream, err->pool,
                                       ": (apr_err=%d)\n", err->apr_err));
 #endif /* SVN_DEBUG */
-  
+
   /* Only print the same APR error string once. */
   if (err->message)
     {
@@ -325,7 +359,7 @@ print_error(svn_error_t *err, FILE *stream, const char *prefix)
           svn_error_clear(temp_err);
           err_string = _("Can't recode error string from APR");
         }
-      
+
       svn_error_clear(svn_cmdline_fprintf(stream, err->pool,
                                           "%s%s\n", prefix, err_string));
     }
@@ -354,6 +388,7 @@ svn_handle_error2(svn_error_t *err,
      use a subpool. */
   apr_pool_t *subpool;
   apr_array_header_t *empties;
+  svn_error_t *tmp_err;
 
   /* ### The rest of this file carefully avoids using svn_pool_*(),
      preferring apr_pool_*() instead.  I can't remember why -- it may
@@ -362,42 +397,48 @@ svn_handle_error2(svn_error_t *err,
   apr_pool_create(&subpool, err->pool);
   empties = apr_array_make(subpool, 0, sizeof(apr_status_t));
 
-  while (err)
+  tmp_err = err;
+  while (tmp_err)
     {
       int i;
       svn_boolean_t printed_already = FALSE;
 
-      if (! err->message)
+      if (! tmp_err->message)
         {
           for (i = 0; i < empties->nelts; i++)
             {
-              if (err->apr_err == ((apr_status_t *)empties->elts)[i])
+              if (tmp_err->apr_err == APR_ARRAY_IDX(empties, i, apr_status_t) )
                 {
                   printed_already = TRUE;
                   break;
                 }
             }
         }
-      
+
       if (! printed_already)
         {
-          print_error(err, stream, prefix);
-          if (! err->message)
+          print_error(tmp_err, stream, prefix);
+          if (! tmp_err->message)
             {
-              (*((apr_status_t *) apr_array_push(empties))) = err->apr_err;
+              APR_ARRAY_PUSH(empties, apr_status_t) = tmp_err->apr_err;
             }
         }
 
-      err = err->child;
+      tmp_err = tmp_err->child;
     }
 
-  apr_pool_destroy(subpool);
+  svn_pool_destroy(subpool);
 
   fflush(stream);
   if (fatal)
-    /* XXX Shouldn't we exit(1) here instead, so that atexit handlers
-       get called?  --xbc */
-    abort();
+    {
+      /* Avoid abort()s in maintainer mode. */
+      svn_error_clear(err);
+
+      /* We exit(1) here instead of abort()ing so that atexit handlers
+         get called. */
+      exit(EXIT_FAILURE);
+    }
 }
 
 
@@ -453,4 +494,56 @@ svn_strerror(apr_status_t statcode, char *buf, apr_size_t bufsize)
       }
 
   return apr_strerror(statcode, buf, bufsize);
+}
+
+svn_error_t *
+svn_error_raise_on_malfunction(svn_boolean_t can_return,
+                               const char *file, int line,
+                               const char *expr)
+{
+  if (!can_return)
+    abort(); /* Nothing else we can do as a library */
+
+  if (expr)
+    return svn_error_createf(SVN_ERR_ASSERTION_FAIL, NULL,
+                             _("In file '%s' line %d: assertion failed (%s)"),
+                             file, line, expr);
+  else
+    return svn_error_createf(SVN_ERR_ASSERTION_FAIL, NULL,
+                             _("In file '%s' line %d: internal malfunction"),
+                             file, line);
+}
+
+svn_error_t *
+svn_error_abort_on_malfunction(svn_boolean_t can_return,
+                               const char *file, int line,
+                               const char *expr)
+{
+  svn_error_t *err = svn_error_raise_on_malfunction(TRUE, file, line, expr);
+
+  svn_handle_error2(err, stderr, FALSE, "svn: ");
+  abort();
+  return err;  /* Not reached. */
+}
+
+/* The current handler for reporting malfunctions, and its default setting. */
+static svn_error_malfunction_handler_t malfunction_handler
+  = svn_error_abort_on_malfunction;
+
+svn_error_malfunction_handler_t
+svn_error_set_malfunction_handler(svn_error_malfunction_handler_t func)
+{
+  svn_error_malfunction_handler_t old_malfunction_handler
+    = malfunction_handler;
+
+  malfunction_handler = func;
+  return old_malfunction_handler;
+}
+
+svn_error_t *
+svn_error__malfunction(svn_boolean_t can_return,
+                       const char *file, int line,
+                       const char *expr)
+{
+  return malfunction_handler(can_return, file, line, expr);
 }

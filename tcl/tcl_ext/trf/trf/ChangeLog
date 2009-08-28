@@ -1,0 +1,2681 @@
+2008-12-11  Andreas Kupries  <andreask@activestate.com>
+
+	* Makefile.in: Applied Daniel Steffen's OSX patch, plus an
+	* configure: ActiveState fix for building on HPUX-IA64. The
+	* configure.in: patch updates handling of bz2 compression, md5,
+	* test.setup.in: updates to TEA 3.7, adds some darwin specific
+	* trf.m4: ifdef's in the digests to properly handle 64bit.
+	* compat/tclLoadShl.c:
+	* generic/bz2lib.c:
+	* generic/loadman.c:
+	* generic/loadman.h:
+	* generic/md5dig.c:
+	* generic/transformInt.h:
+	* generic/haval.1996/haval.h:
+	* generic/ripemd/rmd128.h:
+	* generic/ripemd/rmd160.h:
+	* generic/rs-ecc/Makefile.in:
+	* generic/sha/sha.h:
+	* tclconfig/tcl.m4:
+
+2008-12-05  Andreas Kupries  <andreask@activestate.com>
+
+	* Updated everything to 2.1.3 for release.
+
+2007-11-13  Andreas Kupries  <andreask@activestate.com>
+
+	* teapot.txt: New file, basic meta data of the package for TEApot
+	  compatible repositories.
+
+2007-10-12  Andreas Kupries  <andreask@activestate.com>
+
+	* generic/zip.c: Fixed problem in the zip (de)compressor. Had a
+	* configure.in: possible case where it thought output space was
+	* configure: exhausted and requiring more operations, with no
+	  input to process. Now aborting the loop if there is no
+	  input. Version bumped to 2.1.2.
+
+2007-10-04  Andreas Kupries  <andreask@activestate.com>
+
+	* configure.in: Version bumped to 2.1.1. Source directory belongs
+	  into the list of include paths. Accept MINGW32_NT as indication
+	  of a Win32 system.
+	* configure: Regenerated.
+	* tclconfig/tcl.m4: Added definition which allows us to recognize
+	  building for OS X.
+	* compat/tclLoadWin.c: Added cast to silence compiler warning.
+	* generic/init.c: Ditto.
+	* generic/loadman.c: Recognize building on OS X and choose
+	  appropriate library names.
+	* generic/loadman.h: Use __P (of trf_features.h) over _ANSI_ARGS_
+	  to silence warnings.
+	* generic/registry.c: Changed name of macro DELAY to avoid clash
+	  with system macro, and constification.
+	* generic/sha.c: Reordered things a bit for proper set up of
+	  endianess definitions.
+	* generic/transformInt.h: Added more checks for proper set up of
+	  endianess on OS X for universal builds.
+	* generic/trfStubLib.c: Constification and cast to silence
+	  warnings.
+	* generic/util.c: Changed name of macro MASK to avoid clash with
+	  system macro.
+	* generic/haval/haval.c: Added inclusion of transformInt.h to get
+	* generic/haval/havalapp.h: proper set up of endianess.
+	* generic/haval.1996/havalapp.h:
+	* md5-crypt/md5.c: Ditto.
+
+2006-01-24  Andreas Kupries <andreask@activestate.com>
+
+	* tclconfig/tcl.m4: Updated to TEA 3.5
+	* configure.in:     Ditto.
+	* configure:        Regenerated.
+
+2005-10-06  Andreas Kupries <andreask@activestate.com>
+
+	* generic/rmd128.c (MDrmd128_UpdateBuf): Fixed length-dependent
+	* generic/rmd160.c (MDrmd160_UpdateBuf): miscalculation of the
+	  hash value. A bad condition for the loop processing the chunks
+	  in the incoming buffer caused it to ignore the last one if we
+	  got full multiples of 64 bytes. Fixes [SF Trf Bug 1119773].
+
+2004-02-18  Andreas Kupries  <andreask@activestate.com>
+
+	* tests/base64.test: Extended the tests to use not only memchan,
+	  but also files as data source. For comparison.
+
+2003-04-04  Andreas Kupries  <andreask@activestate.com>
+
+	* configure.in:
+	* tclconfig/tcl.m4: Updated to newest tcl.m4, regenerated
+	  configure's.
+
+2003-03-27  Andreas Kupries  <andreask@activestate.com>
+
+	* tea.tests/base64_bb.test:
+	* tests/base64.test:
+	* generic/b64code.c (Decode): Added code to ignore any illegal
+	  character found in the input. This makes the [base64] command
+	  conform to RFC 2045. Changed the test-case base64-2.0 to reflect
+	  this. This fixes bug #696325 reported by Keith Vetter
+	  <keithv@users.sourceforge.net>.
+
+	* md5-crypt/md5.c (md5_process_bytes): Accepted patch #667168 by
+	  Olly Stephens <ollystephens@users.sourceforge.net>. Without the
+	  the patch new md5 test-case (see yesterday) causes a crash on
+	  the solaris machine, and with it the new test passes cleanly
+	  (also generates the expected result).
+
+2003-03-26  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tools/svfiles: Added 'doc/common/trf_version.inc' to list of
+	  files which have to be patched when updating the version of the
+	  package.
+
+	* doc/common/trf_version.inc: Set true version, 2.1.3.
+
+	* tea.tests/md5_crash.test: 
+	* tests/md5_crash.test: Added tests to check against/for bug
+	  #667168. Preparation of tests on machine reproducing the bug and
+	  that the patch actually fixes the problem. ... Note: The test
+	  suite should be converted to use the tcltest package instead of
+	  its own set of commands, which are near to tcltest, but not
+	  quite the same, as they are older.
+
+	* tests/defs: Made it a bit nearer to the same command in tcltest
+	  (returning the path of the file).
+
+2003-03-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* doc/adler.man:              Added doctools based documentation to Trf.
+	* doc/ascii85.man:
+	* doc/base64.man:
+	* doc/bin.man:
+	* doc/bz2.man:
+	* doc/common/options.inc:
+	* doc/common/sections.inc:
+	* doc/common/trf_header.inc:
+	* doc/common/trf_version.inc:
+	* doc/compress/footer.inc:
+	* doc/compress/header.inc:
+	* doc/compress/middle.inc:
+	* doc/compress/options.inc:
+	* doc/crc-zlib.man:
+	* doc/crc.man:
+	* doc/crypt.man:
+	* doc/digest/footer.inc:
+	* doc/digest/header.inc:
+	* doc/digest/main.inc:
+	* doc/digest/options.inc:
+	* doc/digest/ripemd.inc:
+	* doc/encoding/footer.inc:
+	* doc/encoding/header.inc:
+	* doc/encoding/middle.inc:
+	* doc/encoding/options.inc:
+	* doc/haval.man:
+	* doc/hex.man:
+	* doc/md2.man:
+	* doc/md5.man:
+	* doc/md5_otp.man:
+	* doc/md5crypt.man:
+	* doc/oct.man:
+	* doc/otp_words.man:
+	* doc/quoted-printable.man:
+	* doc/ripemd128.man:
+	* doc/ripemd160.man:
+	* doc/rs_ecc.man:
+	* doc/sha.man:
+	* doc/sha1.man:
+	* doc/sha1_otp.man:
+	* doc/transform.man:
+	* doc/trf.man:
+	* doc/unstack.man:
+	* doc/uuencode.man:
+	* doc/zip.man:
+
+2003-01-20  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tools/rules/manpage.html.site: Redone in the likeness of memchan.
+	* tools/mpexpand:                Now ready for documentation of trf
+	* tools/manpage_regen:           in doctools format.
+	* tools/nroff_regen:
+	* tools/watch_cvs:
+
+2003-01-09  Andreas Kupries  <andreask@activestate.com>
+
+	* ./tclconfig/tcl.m4:       Added code to look for and load
+	* ./Makefile.in:            the package zlibtcl if possible.
+	* ./configure.in:           This makes loading zip functionality
+	* ./generic/adler.c:        considerably easier (if present).
+	* ./generic/zlib.c:         We will fall back to libz.so if
+	* ./generic/transformInt.h: zlibtcl was not present at runtime.
+	* ./generic/crc_zlib.c:     Some declarations were changed to
+	* ./generic/zip.c:          avoid a clashing of names (and
+	* ./generic/bz2.c:          subsequent compiler errors due to
+	* ./configure:              expansion of macros in the wrong
+				    place.
+
+2002-11-22  Andreas Kupries  <andreask@activestate.com>
+
+	* Makefile.in: Deactivated target for MD5 library. HPUX balked
+	  with a syntax error because the variable to the left of the
+	  colon is now empty.
+
+2002-11-04  Andreas Kupries  <andreask@activestate.com>
+
+	* The changes below fix the following bug reports:
+	  ActiveState Bugzilla 21643.
+	  ActiveState Bugzilla 21628.
+	  SourceForge 619404.
+
+	* md5-crypt/md5.c: (HAVE_MEMCPY): Enforce usage on Windows.
+
+	* md5-crypt/md5.c: 
+	* compat/stpncpy.c: Added tcl header on Win32 to get definitions
+	  like size_t.
+
+	* md5-crypt/md5-crypt.c: Excluded header not known on Win32.
+
+	* generic/loadman.c:
+	* generic/md5dig.c:
+	* generic/otpmd5.c:
+	* configure.in: Changed code to compile md5 functionality directly
+	  into the trf library if 'md5crypt' is not accessible via
+	  '-lcrypt'. This eliminates any trouble with a missing md5crypt
+	  library and is easier to do than creating and installing a
+	  second (helper) library.
+
+	* configure: Regenerated.
+
+2002-10-15  Andreas Kupries  <andreask@activestate.com>
+
+	* Makefile.in (Trf_INCLUDES): Continuation to empty line followed
+	  by comment tripped the HP make. It extended the continuation
+	  over the emppty line to include the comment, thus disabling the
+	  code generation. Fixed by removing the continuation.
+
+	* configure.in: Changed to propagate an initial CFLAGS value to
+	  the final definition. A TEA condition (SHARED_BUILD == 1)
+	  squashed it, causing it the build system to loose the
+	  +DAportable we specify for the AS PA-RISC2.2 build host. This is
+	  a problem for _all_ TEA and TEA 2 based configure files.
+
+2002-10-02  Andreas Kupries  <andreask@activestate.com>
+
+	* configure.in (crypt): Check for crypt forced to false on
+	  Windows.
+
+2002-10-01  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* configure.in: Readded check for 'eprintf'.
+
+	* compat/tclLoadShl.c (dlopen): mode is 'unsigned int'.
+
+	* trf.m4: Moved the calls to CYGPATH behind the corresponding
+	  'test -z' conditions as the result of that call generates a
+	  non-empty string from an empty string on some platforms. Missing
+	  paths are set to '.' so that they do not disturb the
+	  interpretation of -I / -L options by the compiler.
+
+	* configure.in: Readded check for endianess. Moved ltoa,
+	  etc. block just after tea_setup_compiler. Determination of flags
+	  for shared build messes up these tests.
+
+2002-09-27  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* compat/tclLoadWin.c: Removed inclusion of windows header
+	  to prevent clashes between winsock and winsock2/
+
+	* configure.in: 
+	* Makefile.in:
+	* aclocal.m4:
+	* trf.m4:
+	* tclconfig: Rewritten build system, now based on TEA 2.
+
+2002-09-14  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tools/htdocs_setup:
+	* ./tools/rules/site:
+	* ./tools/rules/trf:
+	* ./tools/htdocs_refresh: Made code more robust for case of
+	  non yet existing manpages. Also added markers to distinguish
+	  output from memchan.
+
+2002-08-26  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/registry.c (ChannelHandlerTimer): Fix of bug found by
+	  Michael A. Cleverly <michael@cleverly.com>.
+
+	* Big cleanup and restructuring in prepration of moving this CVS
+	  to SourceForge.
+
+2001-08-18  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/transformInt.h: Added definitions for
+	  "Tcl_GetTopChannel" for use by cores older than 8.3.2. See bug
+	  below.
+
+	* generic/registry.c (AttachTransform, Lines 2665f): Forgot to
+	  compensate for stacking when remembering the parent channel for
+	  a 8.3.2+ core. Tcl_StackChannel does, but the Tcl_*Raw
+	  don't. Thanks to Adrian Koren <adrian@synchronicity.com> for
+	  reporting the problem and providing a script exercising the
+	  bug.
+
+	* generic/digest.c (WriteDigest): See Tue Jun 20 20:49:05 2000
+	  (reflect.c) for a similar fix. This one is thanks to Adrian
+	  Koren <adrian@synchronicity.com>.
+
+2001-03-27  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* PREPARE: Moves contents of subdirectory 'tea' into main
+	  directory, they are the main build chain now.
+
+	* tea/mkIndex.tcl.in: Updated to current state from sample
+	  extension. Also added fix for changed Cygwin environment.
+
+	* tea/configure.in:
+	* tea/Makefile.in: Prepared for execution in toplevel
+	  directory. Also updated for usage of new mkIndex.tcl.
+
+	* BUILDINFO:
+	* DEPENDENCIES: New file, integration into the TclPro build system.
+
+	* generic/loadman.h:
+	* generic/reflect.h:
+	* generic/transform.h:
+	* generic/transformInt.h: Changed BUILD_trf to BUILD_Trf
+
+Sun Nov 26 16:53:24 2000  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* --- Release of 2.1p1 ---
+
+	* Removed binary distributions from CVS.
+
+Sat Nov 18 17:55:01 2000  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tea.tests/common_all.test: 
+	* tea.tests/common_conv.test: 
+	* tea.tests/common_md.test: Adapted tests to the patch below.
+
+	* tests/common.all.test: 
+	* tests/common.conv.test: 
+	* tests/common.md.test: Adapted tests to the patch below.
+
+	* generic/ref_opt.c:
+	* ./generic/ref_opt.c:
+	* ./generic/zip_opt.c:
+	* ./generic/dig_opt.c:
+	* ./generic/convert.c:
+	* ./generic/registry.c:
+	* ./generic/bz2_opt.c: Patch by Dave Bodenstab <imdave@mcs.net>
+	  for better error messages.
+
+	* generic/crypt.c (TrfCryptObjCmd): Added #ifdef to deactivate
+	  crypt when compiled on or for Windows.
+
+Sat Nov 11 13:14:05 2000  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/zip.c: Added 'MaxRead' vector to restrict the number of
+ 	  read characters to at most one (decompressor only). This will
+ 	  cause most probably a loss of performance, but also makes the
+ 	  transformation robust against garbage following after the
+ 	  compressed stream. Without this change the transformation ran
+ 	  into an error (Z_BUF_ERROR = no progress) or an infinite loop
+ 	  after reaching Z_STREAM_END.
+
+	  Future: Extend the Tcl API to allow transformations to push back
+ 	  any unconsumed bytes. This will allow us to read large chunks
+ 	  again (= higher performance), while also getting the problem
+ 	  solved. Will have to write a TIP for this.
+
+Wed Oct  4 20:44:40 2000  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tools/fixhbline:
+	* tools/findinpath: Fixed problem with tool combo when an
+ 	  interp-app (wish and/or tclsh) is not found by 'findinpath'. We
+ 	  must not stop the installation, only 'fixhbline' is able to
+ 	  decide which of the two interp-apps will be required.
+
+Wed Aug  9 20:52:41 2000  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* -- Released 2.1 --
+
+	* Consolidation complete to the point that Trf passes its
+	  testsuite for the following combinations of core compiled
+	  against and core run against:
+
+	  X = Version of core the extension was running  against.
+	  Y = Version of core the extension was compiled against.
+
+	            +-+----+
+	  (a) 8.0.5 |a|*   |   '-' = not passed.
+	  (b) 8.1.1 |b| ***|   '*' = passed.
+	  (c) 8.2.3 |c| ***|   ' ' = untested combination.
+	  (d) 8.3.2 |d| ***|
+		    +-+----+
+	            Y |abcd|
+	            +X-----+
+
+Tue Aug  8 00:19:26 2000  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/registry.c: Consolidation complete to the point that Trf
+	  compiles against 8.0.5, 8.1.1, 8.2.3 and 8.3.2 without warnings
+	  (-Wall active).
+
+Tue Aug  1 20:08:08 2000  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/registry.c: Consolidation. Started to merge patch for
+ 	  8.3.2 and higher into the codebase, should work from 8.0.x to
+ 	  8.3.2+.
+
+Sat Jul 29 00:53:24 2000  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/adler.c:
+	* generic/crc.c:
+	* generic/crc_zlib.c:
+	* generic/haval.c:
+	* generic/md2.c:
+	* generic/md5dig.c:
+	* generic/rmd128.c:
+	* generic/rmd160.c:
+	* generic/sha.c:
+	* generic/sha1.c: Cosmetic changes, renamed all functions with
+ 	  prefix MD_ to MD<name-of-digest>_. No benefit of these unique
+ 	  names from a compilation POV as they are all static anyway, but
+ 	  it makes the work of a tool like SourceNavigator simpler (and
+ 	  its views less ambiguous).
+
+	* generic/md5dig.c:
+	* generic/crypt.c: Removed unneeded header references.
+
+Tue Jun 20 20:49:05 2000  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* md5-crypt/trf_crypt.h: Changed __const to CONST. Thanks to
+	  Robert Karen <robert@namsb.namsi.com>.
+
+	* generic/reflect.c (RefExecuteCallback): Line 715f
+	  (transmit_down). <Oliver.Stephens@arm.com> spotted that I didn't
+	  make use of Tcl_ByteArrays in case of 8.1 or higher.
+
+Sun May 28 19:25:52 2000  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* win/makefile.vc5 (TRF_DEFINES): Added missing -DTRF_VERSION.
+
+	* generic/otpcode.c (insert): Added casts to prevent some warnings
+	  about unsigned long to unsigned char assignement. The operations
+	  causing them are ok.
+
+Sat Apr 29 00:14:23 2000  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* -- Release 2.0p7 --
+
+	* generic/qpcode.c
+	* generic/registry.c: Applied patch from Darren New
+	  <dnew@san.rr.com> fixing a buffer overun in
+	  quoted_printable. Fixed nagging from purify too.
+
+Tue Apr 18 19:01:27 2000  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tea/tcl.m4:
+	* tea/configure.in: Accepted patch from Jan Nijtmans to enable
+ 	  usage of tea build with mingw32 environment on Win.
+
+Wed Mar 22 19:48:30 2000  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/init.c (Trf_Init, line 90): Removed '&&
+	  defined(USE_TRF_STUBS)', see Feb 25, as it messes up package
+	  initialization for normal compilation (Trfcrypt thinks 'This
+	  implementation of trf does not support stubs', uh).
+
+Tue Mar 21 21:22:06 2000  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* unix/Makefile.in (genstubs): Fixed usage of wrong variable
+	  (tools -> tool), with thanks to Oisin Grehan <oisin@online.ie>.
+
+Wed Mar 15 22:57:48 2000  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/reflect.c (Clear(En/De)coder): Darren New
+	  <dnew@san.rr.com> pointed out that ClearEncoder and -Decoder use
+	  strings which do not match the docs (clear_read instead of
+	  clear/write). Fixed that.
+
+Sat Mar 11 13:24:33 2000  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* doc/nodes/md.node: Added reference to 'TclAH', another extension
+	  providing message digests (a.k.a. authentication hashes). Author
+	  is Greg Retkowski <greg@rage.net>.
+
+Fri Feb 25 17:27:47 2000  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* -- Release 2.0p6 --
+
+	* generic/registry.c (TransformImmediate): Thomas Schwarze
+	  <schwarze@gfai.de> catched a little nasty memory leak. The block
+	  from lines 2512-2526 had a call to 'ResultClear' in one branch,
+	  but not the other, leaking memory the size of the result for
+	  each successful! call to a trf command. Ouch. Fixed.
+
+	* generic/init.c (Trf_Init): Little bugfix for compilation of Trf
+	  as static library (line 90, +'&& defined(USE_TRF_STUBS)').
+
+	* generic/loadman.c, md5dig.c: See below. Base changes came from
+	  Jean-Claude Wippler <jcw@equi4.com>.
+
+	* tea/trf.m4:
+ 	* unix/configure.in: Added changes to allow static compilation of
+ 	  MD5 too.
+
+Mon Jan 24 12:46:11 2000  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* -- Release 2.0p5 --
+
+	* Integrated a fix into the TEA configure(.in) solving a problem
+	  reported by Patrick D'Cruze <pdcruze@orac.iinet.net.au>. It was
+	  the equivalent problem as described on 'Wed Dec 15', but for TEA
+	  this time.
+
+Sat Jan 15 00:30:22 2000  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/crypt.c (Trf[Md5]CryptObjCmd): Fixed argument
+	  checks. Reported by Patrick D'Cruze <pdcruze@orac.iinet.net.au>.
+
+	* tea/Makefile.in (install-lib-binaries): Fixed error in this
+	  target. Mailed problem and fix to TEA mailing list.
+
+	* Released 2.0p4 without announcement so that JCW can use it for
+	  his static builds of TclKit.
+
+Wed Dec 15 19:27:01 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* -- Release 2.0p3 --
+
+	* unix/configure.in: Changed to use SHARED_LIBS instead of LIBS to
+	  add -lcrypt to the link options of libtrf.so This finally solved
+	  the RH problem. My thanks to Mick Lester <mick@kbkids.com> who
+	  provided the configure and Make logs which allowed me to track
+	  this in detail.
+
+Mon Dec 13 20:08:07 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* -- Release 2.0p2 --
+
+Fri Dec 10 18:32:48 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+	
+	* tea/configure.in:
+	* unix/configure.in: Fixed problem with definition of
+ 	  CRYPT_LIB_NAME, reported by Tyler Riddle <triddle@iz-inc.com>.
+
+	* Backed out all of the changes below, they cause miscompilation
+	  here. Now the radical approach: Go and remove all gcc/libc
+	  dependencies from the code.
+
+	* md5-crypt/crypt.h: Now switchable between inclusion of
+	  features.h and trf_features.h. Switch based on information
+	  coming from the configure. See below. 
+
+	* md5-crypt/trf_features.h: The hacked 'features.h' under a new
+	  name, to avoid name clashes with an existing features.h
+	  (glibc-based Linux).
+
+	* tea/configure.in:
+	* unix/configure.in: Added check for features.h. New code to add
+ 	  -lcrypt to LIBS if we have to compile md5 crypt with crypt
+ 	  present. Required to get both the real 'crypt' and the 'md5
+ 	  crypt'.
+
+Wed Dec  1 21:07:57 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tea/configure.in (MD5_LIB_FILE):
+	* unix/configure.in (MD5_LIB_FILE): Added check to differentiate
+ 	  between the mere existence of libcrypt and a libcrypt having md5
+ 	  functionality. Solaris f.e. has a libcrypt without md5 and we
+ 	  have to make sure that our version does not clash with it.
+
+Mon Nov 29 22:12:34 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/digest.c (WriteDigest): Mikhail Teterin noticed that I
+	  had bungled access to array elements. Added TCL_PARSE_PART1 to
+	  the flags of Tcl_ObjSetVar2 to rectify this.
+
+Thu Nov 25 22:14:28 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/registry.c (TrfClose): Added patch suggested by Mikhail
+ 	  Teterin <mi@aldan.algebra.com> to avoid a crash of the
+ 	  interpreter upon exit. Restricted to usage without stubs / 8.0
+ 	  series. Some platforms seem to call TrfClose with bogus
+ 	  instanceData and interpreter references (NULL) during exit with
+ 	  transformation channels left open.
+
+	* unix/Makefile.in (install-lib): Added '-' to avoid stop on error
+	  if compiled against 8.0, i.e. without stubs.
+
+Fri Nov 12 18:02:17 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tea/configure.in: Added forgotten check for endianess to the TEA
+	  configure. 
+
+Tue Nov  9 22:19:55 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* PREPARE: Added generation of 'news' page from ChangeLog.short.
+
+	* doc/nodes/home.node: Added reference to 'news' page.
+
+	* md5-crypt/crypt.h: Moved structure out of the conditional
+	  (__USE_GNU). 
+
+Mon Nov  8 20:43:24 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* ------ 2.0 re-release ------
+	
+	* win/makefile.vc: Jan Nijtmans expanded the original makefile.vc
+	  and makefile.vc to allow the usage of MS VC++ 2.0 up to 6.0.
+
+	  Got a new binary distribution of 2.0 as well, usable for
+	  tcl 8.0. and 8.1.x.
+
+Wed Oct 27 21:05:07 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tests/common_seek.test/transform.test: Slight differences for
+	  8.0. 
+
+	* generic/registry.c: Some parts of the new code contained 8.1
+	  specific code. Added code for 8.0 too. GT81 used to
+	  differentiate.
+
+Mon Oct 25 22:10:01 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* ------ 2.0 released ------
+
+	* Got new bindist too, and a self extracting
+	  executable/installer. The latter is now a new bindist.
+
+	* Applied patch from Jan to make zip compatible to the official
+	  distribution fo zlib. This additionally fixes the problem with
+	  the -nowrap option where I had to resort to some hackery to stop
+	  a Z_BUF_ERROR from bothering me. The new code is the official
+	  sanctioned way of making it work (Additional dummy input byte).
+
+Sat Oct 23 00:54:38 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tea.tests/transform_bb.test: Adapted traces to changed behaviour
+	  (query/maxRead, query/ratio).
+
+	* generic/reflect.c (ExecuteCallback): Setting command to NULL now
+	  after DecrRefCount after the eval. Not doing and then going
+	  through the cleanup causes a second free for the object,
+	  trashing the free obj management. gIOt has the same
+	  problem. Corrected there too now.
+
+Fri Oct 22 23:20:34 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/*.c: Added NULL initializer for MaxRead to all
+	  Trf_Typedefinitions flying around.
+
+	* generic/reflect.c: Changed many things to allow the querying of
+	  'maxRead' and the natural seek ratio.
+
+	* generic/ref_opt.c (SeekQueryOptions): New procedure, queries the
+	  tcl-level transform about its natural seek ratio.
+
+	* generic/reflect.h: New file, contains definitions shared between
+	  reflect.c and ref_opt.c (The latter needs access to
+	  'ExecuteCallback' to query a transform about its natural seek ratio.
+
+	* generic/transform.h: Added 'interp' argument to
+	  'Trf_SeekQueryOptions'.
+	  (Trf_QueryMaxRead): Added this vector to 'Trf_Vectors'. Nullable.
+
+Thu Oct 21 00:25:23 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* doc/nodes/zip.node: Added documentation -nowrap.
+
+	* generic/zip.c: Traced the problem uncovered by the new tests and
+	  added a workaround to 'FlushDecoder'. Search for 'hackish
+	  flavor'.
+
+	* doc/nodes/home.node: Added Tcl MIME to the list of extensions
+ 	  using Trf or its core feature.
+
+	* doc/nodes/urls.def: Added entry for Tcl MIME.
+
+	* doc/nodes/people.def: Added entries for Matt Newman and Marshall
+	  Rose.
+
+	* Made minor modifications to the patch (formatting, removed 7.6
+	  support, added analogous tests to the TEA part of the distrib.).
+
+	* tea.tests/zip.test:
+	* tests/zip.test:
+	* generic/zip.c:
+ 	* generic/zip_opt.c:
+ 	* generic/zlib.c:
+	* generic/transformInt.h: Finally applied the nowrap patch sent in
+	  by Jan Nijtmans quite some time ago (June 26, 1999).
+
+Tue Oct 19 21:41:26 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/init.c: Added registration of the two new commands.
+
+	* Adapted makefiles to compile the new file.
+
+	* generic/crypt.c: New file, implements 'crypt' and 'md5crypt'.
+
+Sat Oct 16 00:55:39 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* Worked on the MD5 binding in the last days, using md5-crypt now,
+ 	  coming from glibc (is under LGPL). MD5 shared liib now loaded on
+ 	  demand. Changed all makefiles and configures to check for a
+ 	  libcrypt containing MD5. If none, the code we carry around (see
+	  md5-crypt) is compiled.
+
+Mon Oct 11 18:48:49 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tea.tests/common_seek.test: Did the same for the tea test suite.
+
+	* tests/common_seek.test: Applied patch by Jan Nijtmans. file6 is
+	  different on Windows, using some sort of hexcode. He inserted
+	  regsubs to normalize this part of the error messages.
+
+	* generic/bincode.c (DecodeBuffer):
+	* generic/octcode.c (DecodeBuffer): New, analogous to hexcode.c
+
+	* generic/hexcode.c (DecodeBuffer): New, decode whole buffers
+	  instead of single characters. Actually did that yesterday.
+
+	* tests/common.all.test: See below.
+
+	* tea.tests/common_all.test: Added test for -in, -out.
+
+Sun Oct 10 21:14:39 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/registry.c (PutDestinationImm): New, variant of
+	  'PutDestination', specialized for writing into a channel during
+	  an immediate transform. Now necessary, after changing the call
+	  to 'PutDestination' in 'AttachTransform' (clientData).
+
+Sat Oct  9 13:20:58 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* Added more tests yesterday. Decided to pack the current state
+	  into a pre-release.
+
+Thu Oct  7 22:56:36 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/registry.c (TrfGetOption): Fixed some minor problems in
+ 	  this procedure revealed by the first bunch of tests.
+
+	  (SeekCalculatePolicies): Fixed incorrect condition in this code
+	  leading sometimes to improper initialization of the chosen
+	  transform. Detected by test suite (1.0 / 1.5).
+
+	  (TrfExecuteObjCmd): Added processing of '-seekpolicy'.
+	  (AttachTransform):  Added application of initial '-seekpolicy'.
+
+	* generic/registry.c (TrfSeek): Changed code to check new location
+ 	  for 'modulo numBytesTransform == 0' instead of the offset.
+
+Wed Oct  6 23:22:19 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* Next steps no 1 (see below) now done.
+
+	* generic/registry.c (TrfSetOption): Implemented -seekpolicy.
+	  (TrfGetOption): Added -seekpolicy to set of readable options.
+
+	* doc/nodes/seek.node: Worked on the documentation of the new
+	  behaviour. Actually started on that yesterday.
+
+Sun Oct  3 01:39:02 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/bincode.c,
+ 	* generic/octcode.c:
+	* generic/hexcode.c (EncodeBuffer): New procedure to encode whole
+	  blocks. Written out of a desire to shorten the log produced by
+	  the debug facility (-DTRF_DEBUG) while playing with seek.
+
+	* generic/registry.c (TrfGetOption): Added proceudre to allow
+	  retrieval of new options (-seekstate, -seekcfg). Deactivated
+	  'trfinfo' for now.
+
+	* generic/convert.c (SeekQueryOptions): First procedure to change
+	  the natural seek policy based upon options. Used by all
+	  conversions, swaps the in/out-ratio for -mode decode. Everything
+	  else does not use this interface.
+
+	* Added interface to the option vectors to allow them to change
+	  the natural seek policy.
+
+	* ------------------------------------------------------------
+	
+	* Next steps:
+	  1) Add options to set/change/query seek related configuration
+ 	     information (subset of trfinfo).
+
+	  2) Think up test cases for the various possibilities.
+
+	* Such an interface to allow runtime configuration of natural
+ 	  ratio is required by the encryptions in TrfCrypt too. Their seek
+ 	  behaviour is dependent on their actual options.
+
+	* The generic 'transform' stays unseekable for now, until its
+ 	  interface is extended to allow the tcl level to specify the
+ 	  ratio.
+
+	* Ascii85 is conversion, mainly 4->5, but contains irregularities
+ 	  making it nonlinear. So it stays unseekable. Digests and both
+ 	  compressors stays unseekable. Same for quoted-printable and otp
+ 	  coder.
+
+	* Modified conversions (hex, oct, bin, uu, base64) to allow
+	  seeking. Error correcting codec too (ratio 248 -> 255!).
+
+	* Tests ok, no errors. Debug output (seek dumps) look ok too, so
+	  far (all transforms defined as unseekable).
+
+	* generic/registry.c: Seek state and configuration placed into
+	  separate structures. Result buffer now has a reference to the seek
+	  state, possibly NULL. Buffer positions are now updated by the
+	  Result... procedures, if possible (state reference !=
+	  NULL). Some other code simplified.
+
+Sat Oct  2 01:10:21 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/registry.c (TrfInput): Added new seek handling code.
+	  (SeekDump): New procedure for debugging the seek handling.
+
+	* generic/init.c (Trf_Init): Added initialization of 'trfinfo'.
+
+	* generic/registry.c (TrfInfoObjCmd): New command, 'trfinfo', to
+	  query a transformation about its internals. F.e. the current
+	  configuration and state of the seek handling (-> tests).
+
+	* generic/unstack.c (TrfUnstackCmd): Objectified 'unstack'.
+
+	* generic/registry.c (TrfSeek): Completely rewritten for new way
+	  of doing this. Handling of SEEK_END not yet.
+	  (SeekClearBuffer): New procedure encapsulating some common code.
+	  (TrfOutput): Added code to handle the new seek state.
+	  (SeekSynchronize): New procedure, used in code above.
+
+	* generic/registry.c (SeekInitialize, SeekCalculatePolicies):
+	  New procedures to compute runtime configuration and initial
+	  state.
+	  (AttachTransform): Initialization of seek added.
+
+Fri Oct  1 22:12:24 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/registry.c: Added runtime configuration and state to the
+	  state structure of a transformation channel.
+
+	* generic/transform.h: Changed the seek specification from a
+	  vector to two integer numbers specifying the ratio of input to
+	  output. Seekable is thus restricted to linear relations between
+	  pre- and post-transformation data. Haven't ever seen higher
+	  polynomials or other functions. Changed all places already using
+	  the vector (initializations).
+
+Thu Sep 30 22:10:39 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/registry.c: Copied the procedures operating on the
+	  result buffer from giot. They made the procedures having to deal
+	  with it before much simpler. And easier to read. Especially
+	  'TrfInput'.
+
+Tue Sep 28 22:39:48 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/registry.c: Added information about chosen/used seek
+	  policy, seek transformations, etc. to transformation instances
+	  (TrfTransformationInstance).
+
+	* Added initialization of new item in typedefinition to all
+	  relevant transformations (or transformation frameworks (=
+	  message digest handling)). See zip.c, uucode.c, rs_ecc.c,
+	  reflect.c, qpcode.c, otpcode.c, octcode.c, hexcode.c, digest.c,
+	  bz2.c, bincode.c, b64code.c, asc85code.c
+	  Initialized with NULL == 'unseekable', for now.
+
+Mon Sep 27 21:15:50 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/transform.h: Added 'Trf_SeekTransformation'
+	  interface. Added vector to 'Trf_TypeDefinition' using it.
+
+	* unix/Makefile.in
+ 	* unix/configure.in: The introduction of an exported stub table
+ 	  broke the 'unix' build for 8.0.x. Added more configure variables
+ 	  etc. to switch of compilation of trfStub*.o and linkage of
+ 	  libtrfstub.a
+
+	  Reported by Stefan Studer <studer@glue.ch> while trying the
+	  unofficial distribution.
+
+Sat Sep 25 20:24:12 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* doc/nodes/: Upgraded the documentation a bit.
+
+	* Well, not so ready anymore. Got some bug reports and patches
+ 	  from Matt Newman. Bugfixes added in so far, application to 1.8
+	  will be done too. Seek handling will be reworked, so state is
+	  not RSN anymore, but ASAP, or 'without date'.
+
+Wed Sep 22 22:35:38 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* --- Version 2.0 ready for release ---
+
+	* generic/transform.h: Removed old definitions of exported
+	  procedures.
+
+	* generic/sha/sha.h: Protected BYTE typedef, BYTE is defined as
+	  macro on Windows platforms. Sent in by Jan Nijtmans.
+
+Tue Sep 21 20:10:37 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/trf.decls: Extended the stub table to cover all public
+	  procedures. 
+
+Mon Sep 20 21:53:56 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* Added checks into 'configure' to search for the bz2 library. The
+	  corresponding tests are skipped if it is not available.
+
+	* Used his changes to win/Makefile.gnu as template for the changes
+	  to unix/Makefile.in, tea/Makefile.in and win/makefile.vc*. Had
+	  to change the configure.in's as well.
+
+	* Jan Nijtmans provided the basic changes to stubify Trf, to let
+	  it export its own stub table, for usage by extensions like
+	  TrfCrypt.
+
+Sun Sep 19 01:29:23 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/zip_opt.c,
+ 	* generic/registry.c,
+ 	* generic/reflect.c,
+ 	* generic/ref_opt.c,
+ 	* generic/digest.c,
+	* generic/dig_opt.c,
+ 	* generic/convert.c,
+ 	* generic/bz2_opt.c: Removed support for Tcl 7.6 and below.
+
+	* generic/bz2.c (FlushEncoder): Killed the bug that plagued the
+	  'bzip' transformation. It was an error in the compressor,
+	  although the test of the decompressor failed. BZ_FLUSH ->
+	  BZ_FINISH solved that problem (incomplete output from the
+	  compressor!).
+	  (FlushDecoder, Decode(Buffer)): Remembered result from last call
+	  too 'bzDecompress' to skip flushing if the stream is already in
+	  the state BZ_END_STREAM. Else we will get a sequence error. This
+	  problem was shadowed by the first so far.
+
+	* Worked on a TEA compliant build chain (since yesterday
+	  evening). Now complete.
+
+Tue Sep 14 23:07:50 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* Applied patch sent in by Jan Nijtmans.
+
+Fri Sep 10 21:10:55 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* doc/nodes/intro.node:
+	* doc/nodes/install.node:
+	* doc/nodes/patch.node:
+	* doc/nodes/future.node: Updated to include information about Tcl
+ 	  8.2 and its integration of the Trf patch.
+
+Thu Sep  2 21:23:21 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* doc/nodes/md.node: Added reference to Bruce Adams
+ 	  <brucea@cybernetics.demon.co.uk> Md5 extension at
+ 	  http:///www.cybernetics.demon.co.uk/projects/md5/md5.html
+
+Sat Jul 17 18:10:28 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/reflect.c: Changed to use a byte-array for the buffer
+	  argument in case of compilation against 8.1 or higher.
+
+	* generic/registry.c: Finalized adaption to 8.2, and the runtime
+	  switching too.
+
+Tue Jul 13 18:40:44 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/registry.c: Changed the registry from a hashtable to a
+	  real structure (containing the old hashtable and some more),
+	  changed all places acessing. Added 'patchIntegrated' flag and
+	  changed all places using 'trans->parent' to check
+	  'patchIntegrated' to determine the correct method of finding the
+	  downstream channel.
+
+	  Reason: Trf is now able to work with 8.1 and 8.2 without
+	  recompilation for the specific interpreter. Compilation may
+	  happen with 8.1 or 8.2, it makes no difference, the extension
+	  adapts itself to the changed semantics.
+
+	* unix/configure.in: Fixed a bug in the parameter generation for
+	  shared libraries, sent in by Jan, modeled after fix in Tk.
+
+	* generic/transformInt.h: See below.
+
+	* generic/registry.c (TrfExecuteObjCmd): See below.
+
+	* generic/unstack.c (TrfUnstackCmd): See below.
+
+	* patches/v8.1/standard.patch: Modified to use the new and
+	  official names for the functions in the patch (Tcl_StackChannel,
+	  Tcl_UnstackChannel).
+
+	* generic/loadman.h: See below.
+
+	* unix/configure.in: Newer versions of OpenSSL place their
+ 	  includes in .../openssl/include/openssl/ instead of
+ 	  .../openssl/include/. Changed to allow both, with the new
+ 	  placement considered first.
+
+	* generic/qpcode.c: More corrections from Marshall Rose,
+	  quoted-printable this time.
+
+Fri Jul  9 16:51:14 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tests/base64.test: Adapted to changes in 'base64'.
+
+	* unix/Makefile.in: Added all necessary code for bz2 from Jan.
+
+	* win/makefile.vc:
+	* win/makefile.vc5 (TRFOBJS): Added bz2*.obj to the definition.
+
+	* win/Makefile.gnu: Corrections sent by Jan Nijtmans. Additionally
+ 	  adds 'bz2' compression. Incomplete.
+
+	* Marshall sent some corrections to his new transform
+	  ('quoted-printable') and to his changes to 'base64'.
+
+Tue Jul  6 20:01:49 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/b64code.c: Accepted change from Marshall Rose inserting
+	  a newline after every 76 characters. This makes the encoder MIME
+	  compliant. Newlines in the input are ignored.
+
+Mon Jul  5 23:21:34 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* doc/nodes/conv.node: See below.
+
+	* doc/nodes/cmds.node: See below.
+
+	* win/Makefile.gnu, win/makefile.vc*: See below.
+
+	* unix/Makefile.in: See below.
+
+	* generic/qpcode.c: New transform, donated by "Marshall Rose"
+ 	  <mrose@dbc.mtview.ca.us>. The transform is 'quoted-printable',
+ 	  one of the encodings for mail and news, as defined by MIME (RFC
+ 	  2045).
+
+Tue Jun 29 21:20:23 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* unix/configure.in: Extended the code to deal with the upcoming
+	  Tcl 8.2.
+
+	* compat/md2.h (MD2_INT): Weird bug discovered by Jan on Windows
+	  (Cygwin compiler) solved, again by Jan. The header in OpenSSL
+	  changed the definition from unsigned char to unsigned int. Now
+	  using the compat header could do nasty things. Got a new DLL
+	  too, making the Windows binary distribution usable.
+
+Mon Jun 28 23:17:35 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* unix/configure.in:
+ 	* unix/Makefile.in: Matt Newman <matt@novadigm.com> sent in some
+ 	  changes to built the extension on HPUX (Basically check for .sl
+ 	  extension too).
+
+Tue Jun 15 00:00:36 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tests/*.test: The tests for all commands dependent on external
+ 	  shared libraries now have constraints set on them.
+
+	* unix/Makefile.in (test): Added code to define more constraints,
+	  the variable used is set by the 'configure' script to define,
+	  which external libraries are available and therefore testable.
+
+	* tests/defs: Updated to code from Tcl 8.0.5, copied my
+ 	  definitions from the old 'defs' to it, added code to define more
+ 	  constraints.
+
+	* unix/configure.in (ZLIB_INCLUDE_DIR): Changed error into
+	  warning, allows falling back to compatibility headers.
+	  (SSL_INCLUDE_DIR): See above. (Variable: TRF_DEFS).
+	  (TRF_TESTS): New variable, contains constraint information about
+	  tests to skip.
+
+Mon Jun 14 20:39:21 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/zlib.c,
+ 	* generic/zip.c,
+ 	* generic/crc_zip.c: Renamed 'z' to 'zf', as the Gnu Tools on
+ 	  Windows have a bug with regard to the handling of
+ 	  single-character variable names. Note by Jan Nijtmans.
+
+	* generic/transformInt.h: 'DllEntryPoint' removed. See below.
+
+	* generic/init.c: 'DllEntryPoint' removed. See below.
+
+	* win/: Added 'dllEntry.c', contains 'DllEntryPoint'. Added
+	  'Makefile.gnu'. Both from Jan Nijtmans.
+
+	* win/makefile.vc:
+	* win/makefile.vc5 (TRFOBJS): Added 'dllEntry.obj'.
+
+Sun May 30 10:49:42 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* patches/v8.1*/standard.patch: Fixed bug in the handling of
+ 	  encodings. Caused the system to lose references to the system
+ 	  encoding, which crashed the interpreter after some time
+	  (testsuite, ________.test (digests, tools/md) seg.faulted).
+
+	* tests/otp_words.test, otpsha1.test, otpmd5.test: Added testsuite
+	  for new OTP commands (See May 27).
+
+	* generic/otpcode.c, init.c, b64code.c, rs_ecc.c: Nits (comment in
+	  comment, unused variable, implicit function declarations).
+
+	* Threading: Done.
+
+Sat May 29 22:56:31 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* The patchkit for Tcl 8.1 is usable for Tcl 8.1.1 too. No new
+	  patchkit was made.
+
+	* generic/*.[ch]: Went through the code and looked for possible
+ 	  problems with regard to multi-threading (written global
+ 	  variables). Marked all found places with /* THREADING */ and
+ 	  some additional explanation.
+
+Thu May 27 00:16:17 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* doc/nodes/md.node:
+ 	* doc/nodes/conv.node:
+ 	* doc/nodes/cmd.node: Integrated OTP documentation from Marshall
+ 	  Rose.
+
+	* generic/transformInt.h:
+ 	* generic/registry.c:
+ 	* generic/init.c:
+ 	* generic/otpcode.c:
+ 	* generic/otpmd5.c:
+ 	* generic/otpsha1.c:
+ 	* generic/md5.c:
+	* generic/sha1.c: Integrated OTP code from Marshall Rose
+ 	  <mrose@dbc.mtview.ca.us>.
+
+Tue May 25 23:22:21 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/*.h: Added preprocessor definitions allowing the usage
+	  of the headers with a C++ compiler.
+
+Fri May  7 20:47:56 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* --------------- 1.6 re-release ------------------
+
+	* patches/v8.1: Added patch kit for 8.1 final.
+
+Thu Apr 22 21:46:12 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* --------------- 1.6 released --------------------
+	
+	* Tested compilation against unpatched core. The resulting library
+	  was usable for a patched core (-attach, unstack), and rejected
+	  these features if loaded by an unpatched interpreter. Wonderful.
+	  No compilation trouble anymore, and only nearly normal usage in
+	  conjunction with an unpatched interpreter.
+
+	* generic/unstack.c (TrfUnstackCmd): Fixed minor spelling errors.
+
+	* generic/transformInt.h (Tcl_UndoReplaceChannel): Fixed spelling
+	  error in the macro.
+
+Wed Apr 21 21:06:02 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/unstack.c (TrfUnstackCmd): See item below, the same
+	  check is added here too.
+
+	* generic/registry.c (TrfExecuteObjCmd): Added a runtime check
+	  verifying that the interpreter using the extension is
+	  patched. Done only for a stub-aware interpreter (see item below
+	  too), and while accessing features depending on the patch.
+
+	* generic/transformInt.h (Trf_ReplaceChannelStub): New macro, to
+	  get at the location of 'Tcl_ReplaceChannel' in the stubs-table.
+
+Mon Apr 19 20:25:41 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* --------------- 1.5 released --------------------
+
+Sun Apr 18 14:59:05 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* doc/nodes/danger.node: Added comments about usage of trf with
+	  respect to 'filevent's.
+
+	* patches/*: With the exception of the patchess for 8.0a* and
+	  8.0b* all kits were modified to fix a bug with my changes to the
+	  refcounting code which tripped attaching a transform inside of a
+	  socket acceptor script. Detected by Matt Newman. Modified files
+	  are 'standard.patch' and 'tclIO.c'. Fix was delayed to wait for
+	  possible problems with it, but got none.
+
+Tue Apr 13 08:28:10 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/registry.c: Added code to flush out information waiting
+ 	  in various channels buffers. Timers are used to create
+ 	  artificial 'readable'-events. The socket/file/pipe might not
+ 	  generate them as all data could have been sucked already
+ 	  completely into the stack of transforms. Completes the fileevent
+	  support begun with the patch from Matt, see below.
+	
+	* generic/registry.c: Accepted patch from Matt Newman
+	  <matt@novadigm.com> (<matt@sensus.org>) fixing problems with
+	  blocking mode and handling of fileevents.
+
+	* win/makefile.vc:
+	* win/makefile.vc5: Added definition of SSL_LIB_NAME to
+ 	  configuration section.
+
+	* generic/loadman.c: Changed to allow the makefile to define the
+	  value of SSL_LIB_NAME.
+
+Sat Apr 10 16:05:04 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* --------------- 1.4 released, again --------------------
+	
+	* Added patchkit for 8.1b3. 
+
+Thu Mar 25 12:40:20 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* --------------- 1.4 released --------------------
+	
+	* --------------- Ready to release 1.4 --------------------
+
+	* generic/init.c: Added initialization of stubs, for 8.1.
+
+	* generic/digest.c: Restored usage of 'Tcl_SetObjVar2'. Change
+	  between 8.1b1 and 8.1b2. No change between 8.0.x and 8.1b2.
+
+	* generic/reflect.c: Restored usage of 'Tcl_GlobalEvalObj'. Change
+	  between 8.1b1 and 8.1b2. No change between 8.0.x and 8.1b2.
+
+	* generic/binio.c,
+ 	* generic/util.c,
+ 	* generic/dig_opt.c,
+ 	* generic/transformInt.h: Conditionalized usage of 'panic'. Now
+ 	  using 'Tcl_Panic' in case of compilation against tcl 8.1.
+
+	* unix/Makefile.in: Changed to allow usage of stubs.
+
+	* generic/sha/fip180-1.pdf: Added description of SHA-1.
+
+	* doc/ToDo: Added: Create stub-table for Trf too, to be
+ 	  used by TrfCrypt and other extensions to this one.
+
+	* doc/nodes/where.node: Added note that the Windows binary
+	  distribution is not usable for Win95/98.
+
+	* PREPARE: Exclusion of 'generic/pkgIndex.tcl.in'.
+
+	* unix/pkgIndex.tcl.in: Moved from 'generic' to this place.
+	  Changed to check the tcl version, allowed version depends
+	  on usage of stubs, analogous to package index of Memchan. 
+
+	* unix/configure.in: Added code to handle stubs, as in
+	  'memchan'. Added code to disallow 'binio' for tcl 8.x and
+	  beyond. The user is refered to 'binary' instead. 'binio' is
+	  deprecated from now on, and the associated byteorder patch will
+	  be phased out, no new versions will be made.
+
+Sun Mar 21 16:01:44 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* Generated patches for 8.1b2, fixed a bug in the byteorder
+	  patch. 
+
+Sun Mar 14 19:29:33 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* Generated patches for 8.0.4 and 8.0.5.
+
+Mon Feb 22 18:19:58 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* win/makefile.vc (TRF_DEFINES): Added -DBUILD_trf to the
+	  definition of this variable. Already in makefile.vc5, forgot to
+	  include it here before. Sync problem :-(. Thanks to Stefan
+	  Speidel <speidel@tp-cad.com> for finding this.
+
+Tue Jan 12 20:53:36 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/binio.c:
+ 	* generic/digest.c:
+ 	* generic/reflect.c:
+ 	* generic/registry.c:
+ 	* generic/load.c:
+	* generic/init.c:
+ 	* generic/loadman.h:
+ 	* generic/transformInt.h:
+ 	* generic/transform.h: See below.
+
+	* Fought against the MS environment today and won. Integrated
+	  the changes made there now into the master.
+
+Mon Jan 11 22:40:19 1999  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* doc/nodes/techintro.node: New node, contains a technical
+	  explanation of the inner working of Trf, with images.
+
+	* doc/nodes/intro.node: Added reference to technical information.
+
+Mon Dec 14 22:04:35 1998  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* patches/v8.1b1: Started yesterday with the trf patches for the
+	  newly announced 8.1b1 version. Completed it today.
+
+Fri Nov 13 18:25:26 1998  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/util.c:
+ 	* bincode.c:
+ 	* hexcode.c:
+ 	* octcode.c:
+ 	* asc85code.c:
+	* reflect.c:
+ 	* rs_ecc.c:
+ 	* zip.c:
+	* generic/registry.c: Fixed several char/uchar
+	  mismatches. Reported by Larry.
+
+Thu Oct  1 17:46:49 1998  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/reflect.c:
+ 	* generic/asc85code.c: Fixed several char / unsigned char
+ 	  mismatches, detected by Larry Virden on his UltraSparc.
+
+Wed Sep 30 15:49:24 1998  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* unix/Makefile.in: Added [ZLIB|SSL]_[LIB|INCLUDE]_DIR, analogous
+	  to TCL_[LIB|INCLUDE]_DIR. Extended runtime library search path
+	  and compiler include options.
+
+	* unix/configure.in (TCL_LIB/INCLUDE_DIR): Added some additional
+	  intelligence: Setting one of the variables, but not the other
+	  causes automatic definition of the missing part with a value
+	  derived from the defined directory. Suggested by Larry Virden.
+	  Added 8.0.3 to the paths to search. Added $exec_prefix/lib to
+	  the paths to search for the tcl-library.
+	  Added searches for zlib.h / sha1.h / md2.h, and appropriate
+	  configure options (--with-zlib, --with-ssl, handling analogous
+	  to --with-tcl).
+
+Tue Sep 29 23:20:11 1998  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/digest.c: Added fixes for nits discovered by Larry
+	  Virden on his Sun: added explicit comparison to NULL, added
+	  casts for 'char*' to 'unsigned char*'.
+
+Mon Jul 27 22:11:59 1998  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* win/: Got a windows dll from Jan Nijtmans (Jan.Nijtmans@wxs.nl)
+	  and assorted goodies (makefile for vc 5.0, rc file, icon file,
+	  better pkgIndex.tcl).
+
+Sun Jul 19 22:24:43 1998  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tools/mmencode:
+ 	* tools/mmdecode: Minimal replacements for the named applications
+ 	  (metamail). Conversion of a bytestream from and to base64.
+
+	* tools/demo: Visual demonstration application, sent to Jan for
+	  inclusion into his win installation (Consosrtium CD ROM
+	  Project). The logo too.
+
+	* doc/nodes/img/logo-120x181.gif:
+	* doc/nodes/img/logo-16x16.gif:
+	* doc/nodes/img/logo-32x32.gif:
+	* doc/nodes/img/logo-60x90.gif:
+	* doc/nodes/img/logo-64x64.gif: Designed a logo for trf, built in
+ 	  various sizes.
+
+Sat Jul  4 21:29:26 1998  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* unix/configure.in: Fixed a bug noted by David Herron
+	  <davidh@crl.com> in memchan. This package had it too. From its
+	  mail:
+
+	> In the section that checks for the TCL library there
+	> is a loop looking for different library extensions.
+	> In my case it needs to match the ".so.*" case of
+	> the loop, but it doesn't.
+	> 
+	> Changing the test to read as follows fixes the problem.
+	> 
+	>    if test -f $dir/libtcl$version$libsuff; then
+	>        memchan_cv_lib_TCL_LIB="-L$dir -ltcl$version"
+	>        TCL_LIB_DIR="$dir"
+	>    fi
+	> 
+	> The difference is removal of the quote marks around
+	> the file name.  This allows the "*" to be evaluated
+	> by the shell & find the file name.
+	> 
+	> Another change that would be convenient is, in
+	> the 'for version in ...' part, to add "80" to
+	> the list of choices.  With (at least) tcl8.0pl2
+	> on FreeBSD the library is "libtcl80.so.1.0" and 
+	> since the configure script only looks for "libtcl8.0"
+	> it is not found again because of that.
+
+Thu Jul  2 00:24:59 1998  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* doc/nodes/*: Removed the descriptions of the various encryption
+	  algorithms.
+
+Wed Jul  1 20:28:20 1998  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/pkgIndex.tcl.in: Changed to load trf immediately upon
+	  request, and not while trying to execute the first
+	  command. Without that the separate crypto package will have
+	  problems attaching itself to the trf core.
+
+Tue Jun 30 22:41:18 1998  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* PREPARE: Using the 'webTemplate' system (*) to generate
+	  documentation for linkage into my westend site and for
+	  standalone distribution.
+
+	  (Ad *) webTemplate is a system for the generation of a whole web
+ 	  site using node descriptions and a selectable layout/style
+ 	  definition. Current state: *INTERNAL*.
+
+	* doc/: Replaced latex documentation by native HTML. Added 'nodes'
+	  directory.
+
+Mon Jun 29 20:13:55 1998  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* Done. System compiles without problems. The only thing
+	  containing references to encryption is the documentation.
+
+	* Started the removal of encryption related code.
+
+	* ----------------------------------------------------
+	
+Wed Jun 17 21:38:32 1998  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* doc/def.tex:
+	* doc/man.tex:
+	* doc/install.tex: Checked the urls, removed some broken
+ 	  ones. Added some notes about binio, see below, and 'bzip'
+ 	  (future section).
+
+	* patches/v8.1a2/byteorder.patch: Reworked to expose a minimal set
+	  of declarations in the patched tcl.h. First step towards
+	  complete removal of 'binio' and its support in favor of the
+	  official 'binary' command.
+
+Sat Jun 13 13:38:19 1998  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* The patch required an adaption to I18N/UTF: A channel X
+	  replacing another channel C via Tcl_ReplaceChannel takes over
+	  the encoding information from C. Acess to the filter channel via
+	  'puts' will now encode/decode the given strings prior to the
+	  transformation of X. Below X no encoding will take place. 
+
+	* The extension itself did not require adaptions to I18N and
+	  UTF. This is because an attached channel uses 'Tcl_Read' and
+	  'Tcl_Write' to access the underlying channel, thus bypassing its
+	  encoding stage.
+
+	* Passed all tests.
+
+	* Fixed problem in new 'standard.patch', forgot to initialize
+	  'chanPtr->outputStage'. transform.test 2.1 and base64.test 7.1
+	  solved.
+	
+	* generic/reflect.c (Execute): Fixed refcount problem. Tcl_Eval
+	  now increments and decrements the refcount of the given script
+	  object. As 'Tcl_DuplicateObj' returns an object having refcount
+	  0 I caused a problem by not incrementing the refcount, but
+	  decrementing it, thus trying to free the object a second time.
+	  => transform.test 1.x solved.
+
+Fri Jun 12 16:13:26 1998  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* 2 tests failing: transform.test (1.x, 2.1), base64.test (7.1)
+
+	* --------------------------------------------------------
+	  Ok, this completes the basic adaption to the new version of
+	  tcl. Still missing: Insinuation of the channel hooks into
+	  'tclIO.c', and adaptions to the new I18N features (UTF
+	  et. al.).
+
+	* generic/digest.c (WriteDigest): Added code to adapt to an API
+	  change between 8.0 and 8.1 (Tcl_ObjSetVar2 renamed to
+	  Tcl_SetObjVar2, and type changes for the part1/2 parameters,
+	  'Tcl_Obj*' to 'char*').
+
+	* generic/reflect.c (Execute): Added code to adapt to an API
+	  change between 8.0 and 8.1 (Tcl_GlobalEvalObj was removed,
+	  Tcl_EvalObj got an additional flag instead).
+
+	* generic/registry.c (Trf_Register): Added code special to 8.1:
+	  Initialization of the 'close2Proc' driver procedure (NULL).
+
+Mon Aug 18 21:18:31 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* -------------- 1.0 relased -----------------------------
+
+	* win/makefile.vc, PREPARE: finishing touches, removed last
+	  remnants of '8.0b2'.
+
+	* patches/v8.0: Added patches for tcl 8.0 final.
+
+Tue Jul 29 00:18:21 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* Ready for relase of Tcl 8.0 final now.
+
+	* Distribution running again under 7.6 and 8.x.
+
+Mon Jul 28 20:34:05 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* doc/man.tex (section {Message digests}): Added explanation of
+	  transparent mode.
+
+	* generic/dig_opt.c:
+ 	* generic/digest.c:
+ 	* generic/transformInt.h: Added transparent mode to general
+ 	  message digest code. A mixture of absorb and write, see
+ 	  'doc/man.tex' for more.
+
+	* doc/defs.tex: Some more homepages found, updated references to
+	  Jan Nijtmans.
+
+	* doc/man.tex (chapter {Copyrights}\label {copyright}): Added
+	  section about SAFER.
+
+Sat Jul 26 18:32:35 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tests/safer.test: New file, testing safer implementation.
+
+Fri Jul 25 18:13:12 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* unix/Makefile.in (CRYPT_ALG_SRC): Added SAFER.
+
+	* win/makefile.vc (TRFOBJS): Added SAFER.
+
+	* generic/safer.c: New cipher. First one with cipher specific
+	  options (choice between 2 keyschedules, standard and strong,
+	  allows specification of number of rounds).
+
+	* generic/rc4.c:
+ 	* generic/rot.c (C_Schedule): Adapted to changes in type
+ 	  'Trf_CSchedule'.
+
+	* generic/rc2.c,
+ 	* generic/idea.c,
+ 	* generic/blowfish.c,
+ 	* generic/des.c (BC_Schedule): Adapted to changes in type
+ 	  'Trf_BCSchedule'.
+
+	* generic/blockcipher.c (InitializeState): Cipher specific option
+	  information is given to the scheduler for incorporation into the
+	  internal key of this cipher.
+
+	* generic/transform.h (Trf_BCSchedule): Added parameter for
+	  inclusion of cipher specific option information.
+
+	* generic/bc_opt.c: Added calls to cipher specific option
+	  processing to all procedures.
+
+	* And now the analogouos changes to the blockcipher code.
+
+Thu Jul 24 00:41:05 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/cipher.c (InitializeState): Cipher specific option
+	  information is given to the scheduler for incorporation into the
+	  internal key of this cipher.
+
+	* generic/transform.h (Trf_CSchedule): Added parameter for
+	  inclusion of cipher specific option information.
+
+	* generic/c_opt.c: Added calls to cipher specific option
+	  processing to all procedures.
+
+	* generic/transformInt.h: Added items to hold references to cipher
+	  specific option information to structures
+	  'TrfBlockcipherOptionBlock' and 'TrfCipherOptionBlock'.
+
+	* generic/blowfish.c,
+ 	* generic/des.c,
+ 	* generic/idea.c,
+ 	* generic/rc4.c,
+ 	* generic/rc2.c,
+ 	* generic/rot.c: Updated to new structure definition (NULL == no
+ 	  additional options).
+
+	* generic/transform.h: Added references to Trf_OptionVrctors to
+	  'Trf_CipherDescription' and 'Trf_BlockcipherDescription', to
+	  allow specification and usage of additional, cipher specific
+	  options.
+
+	* -- evening again --
+
+	* doc/install.tex, man.tex: Brought up to date now.
+
+Wed Jul 23 00:02:03 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* Both distributions running now (7.6, 8.x). Go ahead and update
+	  documentation now.
+
+	* generic/reflect.c (Execute): Added missing separators in 7.6 code.
+
+	* unix/Makefile.in (test): Added SSL_INSTALL_DIR/lib to library
+	  search path, just to be prepared.
+
+	* tests/transform.test: New file, check behaviour of
+	  transformation using scripts to do the work.
+
+	* generic/registry.c (TransformImmediate): checking for empty
+	  results now.
+
+	* generic/c_util.c (TrfGetChannelData): Missing assignment to
+	  *length in bound case caused blockcipher blowup. Were used by
+	  7.6 tests only, had therefore no problems in 8.x.
+
+	* -- evening again --
+	
+	* tools/md: See below.
+
+	* tests/defs: Force usage of Memchan 1.2 for tcl 7.6.
+
+Tue Jul 22 00:07:21 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/registry.c (TransformImmediate): Added \0 behind internal
+	  result buffer to prevent using a longer buffer than really given
+	  (7.6 only).
+
+	* Checked distributions. 8.0(b2) working, 7.6 not. Things done to
+	  get that state:
+
+	  > tests/*.test: The md's had 'text' as command. Corrected.
+	  > README: Changed reference to 8.0b1 to 8.0. Removed package
+	    references.
+	  > PREPARE: Crunching .html files below doc/html/ now.
+
+	* tools/md: Small adaptions to new syntax. All operations were
+	  attach'ed, no change there. Had to define '-read-type channel'
+	  nevertheless, because of default geared towards 8.x.
+
+	* ChangeLog.short: New file, used in generation of ANNOUNCE.
+
+	* ANNOUNCE, LSM: Removed, see below.
+
+	* PREPARE: Modified to take advantage of progress in
+	  'makedist'. ANNOUNCE / LSM generated now.
+
+	* -- evening again --
+
+	* All tests ok again.
+
+	* generic/registry.c (TransformImmediate): Restructured this
+	  procedure, and 'PutInterpResult', to avoid smashing any
+	  intermediate result generated by a transformation. We must write
+	  a result only after all transformation vectors were
+	  executed. Each of these may need the result area by
+	  themselves. Example: 'transform'-command.
+
+Mon Jul 21 21:26:17 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tests/crc.test,
+ 	* tests/haval.test,
+ 	* tests/md5.test,
+ 	* tests/rmd128.test,
+ 	* tests/rmd160.test,
+	* tests/sha.test,
+ 	* tests/md2.test,
+ 	* tests/adler.test,
+ 	* tests/crc_zlib.test: Rewritten. Message digests done now.
+
+	* tests/common.md.test: New tests, checking common behaviour of
+	  all message digests, as implemented in 'dig_opt.c' and
+	  'digest.c', see below.
+
+	* generic/digest.c, dig_opt.c: Rewritten.
+
+Fri Jul 18 00:19:45 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tests/idea.test:
+ 	* tests/des.test:
+ 	* tests/blowfish.test: Rewritten. Block ciphers are done now.
+
+Thu Jul 17 22:29:49 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/registry.c (TrfExecuteObjCmd, TrfExecuteCmd): Changed to
+	  check for transformation in case of option not matching one of
+	  the standard ones. New standard option -in blocked check for
+	  blockcipher option '-iv'. This is an old error, in since the
+	  beginning, but due to no conflicts in options names it never
+	  showed up before.
+
+	* tests/common.bc.test: New file, checks common behaviour of all
+	  block ciphers.
+
+	* generic/bc_opt.c:
+ 	* generic/c_opt.c:
+ 	* generic/c_util.c: Moved interpretation of
+	  argument to '-xx-type' into a separate procedure, then
+	  simplified the option processors.
+
+Wed Jul 16 23:23:11 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/bc_opt.c:  Rewritten according to
+	  'doc/changes.final'. Blockciphers done. Used generic code in
+	  'c_util.c' to simplify changes.
+
+	* generic/c_opt.c: Simplified, calling code in 'c_util.c' now.
+
+	* generic/c_util.c: New file. Contains generic code of rewritten
+	  'c_opt.c', see below.
+
+Tue Jul 15 23:29:16 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tests/rot.test: New test.
+
+	* tests/rc4.test: Rewritten.
+
+	* generic/c_opt.c: Rewritten according to
+	  'doc/changes.final'. Ciphers done.
+
+Mon Jul 14 00:04:52 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tests/zip.test:
+ 	* tests/rs_ecc.test: Rewritten now.
+
+	* tests/ascii85.test, uu.test: New tests, all conversions are
+	  checked now.
+
+	* tests/hex.test:
+ 	* tests/oct.test:
+ 	* tests/base64.test: Rewritten, as with bin.test
+
+	* generic/octcode.c,
+ 	* generic/bincode.c,
+ 	* generic/hexcode.c,
+ 	* generic/uucode.c,
+ 	* generic/b64code.c,
+	* generic/asc85code.c: Added 'Tcl_ResetResult' to all error
+ 	  generating returns, to clear out any partial result written via
+ 	  'PutInterpResult' (registry.c).
+
+	* -- evening again --
+
+	* tests/bin.test: Started rewrite of tests, to handle and take
+	  advantage of new syntax.
+
+Sun Jul 13 22:16:39 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tests/common.all.test: New. Checks common behaviour of all
+	  commands, as implemented in 'generic/registry.c'.
+
+	* generic/registry.c: Rewritten according to
+	  'doc/changes.final'. Manual mini tests (hex, base64) ok.
+
+	* generic/*.c: Removed all occurences of ADD_RES. Using
+	  'Tcl_AppendResult' again. See May 29 too.
+
+Wed Jul  9 20:40:20 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/rot13.c: New cipher: rot. Just fore fun, not for strength.
+
+	* doc/man.tex (chapter {Copyrights}): Updated due to changes in
+	  the copyright of HAVAL. Added info about sabbatical leave in
+	  japan, and associated email address.
+
+	* generic/haval.c: updated.
+
+	* tests/haval.test: updated.
+
+	* generic/haval.1996/havalapp.h,
+ 	* generic/haval.1996/haval.h,
+ 	* generic/haval.1996/haval.c: Changes made to old haval added in
+ 	  here too. See January 5 and 13. Retained original files, with
+ 	  suffix '.orig'.
+
+	* generic/haval.1996/*: Added 1996 revision of HAVAL.
+
+	* tests/md2.test: New file, tests from RFC 1319 test suite.
+
+	* tests/md5.test: Added tests from RFC 1321 test suite.
+
+Mon Jul  7 18:14:43 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* doc/man.tex (chapter {Acknowledgements}): Update.
+
+	* generic/digest.c (CreateDecoder): Fixed wrong assignment
+	  to c->writeClientData.
+	  (FlushDecoder): removed superfluous '&'-operators (c->digest_buffer).
+	  Both problems found by Hyoung-Gook Kimn <kiss@sunbee.co.kr>.
+
+Tue Jun 17 19:07:42 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* win/makefile.vc (TRFOBJS): Added reflect.o, ref_opt.o.
+
+Sun Jun 15 12:53:57 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* doc/man.tex (section {Misc.}): Added documentation of general
+	  transformation command.
+
+	* generic/registry.c (TrfInput): Tests showed multiple
+	  'flush/read'. Corrected, added missing check for
+	  'readIsFlushed'.
+	  Remembering mask of parent channel now, for attached
+	  channels. This is used to optimize away the calls to unused
+	  parts of a transformation.
+
+	* generic/ref_opt.c (SetOption): Added forgotten 'break'.
+	  (CheckOptions): corrected wrong condition for mode-check
+	  (attached channels). Added default mode for attached channels
+
+	* General transformation: First tests using 'identity'.
+
+Sat Jun 14 21:43:06 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/ref_opt.c: Option processing for channel defined below.
+
+	* generic/reflect.c: New transformation channel. Reflects the
+	  requested operations up into the script level. In other words:
+	  The real transformation is done by a script. DANGER: Will have
+	  problems with embedded \0's if used by tcl 7.6.
+
+Sun Jun  8 09:14:24 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+	
+	* patches/v7.6p2: Added directory and files in it.
+
+Sat Jun  7 18:31:55 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* doc/install.tex (chapter  {Patching the core}): Corrected
+	  information about working directories of the various patch
+	  files.
+
+	* patches/v7.6p2/: New directory. The patches are the same, the
+	  prepatched versions of various files not.
+
+Sun Jun  1 12:03:58 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* ---------------- Release 1.0b3 ----------------
+
+	* Compiled under windows, ok. Added reference to binary
+	  distribution to manual.
+
+Sat May 31 00:04:27 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* doc/install.tex: brought uptodate, some enhancements.
+
+	* unix/configure.in: Removed references to a2 relase of tcl 8.0.
+
+	* doc/man.tex: brought uptodate, some enhancements.
+
+	* win/makefile.vc (BINIO): see '--enable-binio' below.
+
+	* --------- morning ---------
+
+	* tests went through without problems.
+
+	* trf now compiles again, without warnings.
+
+	* tcl 8.0b1 with patches compiles, links and tests sucessfully
+	  (iocmd 8.8, 8.9 fail due to the new option '-byteorder').
+
+	* patches/v8.0b1: Added directory and files in it. These are the
+	  patches to the tcl 8.0b1 core.
+
+	* generic/binio.c: See --enable-binio below. Added the appropriate
+	  ifdefs.
+
+	* unix/configure.in (--enable-shared): changed to
+	  --disable-shared, making build of shared libraries the default
+	  behaviour.
+	  (--enable-binio): new option to enable compilation of 'binio'
+	  command. Default: NO compilation. See commands 'binary' and
+	  'fcopy' of 8.0b1 for equivalent functionality.
+
+Fri May 30 23:49:38 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/registry.c: compiles, only warnings due to unpatched
+	  core remain.
+
+	* generic/registry.c (TrfExecuteObjCmd): Added CONST to 'objv', as
+	  required by new API.
+	  (TrfReady): Excluded for 8.0b1, due to new notifier mechanism.
+	  (TrfGetFile): Updated to new interface.
+	  (TrfRegister): Updated command creation to changed interface of
+	  'Tcl_CreateObjCommand'. Updated initialisation of
+	  'entry->transtype', due to changed notifier.
+	  (TrfWatch): Updated to changed notifier ('watchChannelProc' now
+	  named 'watchProc').
+
+Thu May 29 21:16:05 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* All files, with exception of 'unstack.c', 'binio.c' and
+	  'registry.c' compile without flaws now. The named files depend
+	  (partially) on the patches to the core, and the C-API to
+	  channels. Near midnight, tackle them tomorrow.
+
+	* generic/bc_opt.c (SetOption): see 'CheckOptions' below.
+
+	* generic/zip_opt.c (CheckOptions): Removed special code to
+	  transfer string to object result. See below.
+	  (SetOption): changed 'long' to 'int' for 3rd arg. to 'Tcl_GetIntFromObj'.
+
+	* generic/util.c (TrfGetChannel): Disabled this code, not required
+	  anymore, see below. See Feb 11 too.
+
+	* generic/transformInt.h (ADD_RES, RESET_RES): 8.0b1 has smoothed
+	  out the problems arising from having two results (string,
+	  obj). No dependency on version anymore. Definitions left in to
+	  avoid immediate conversion of all affected files.
+
+Wed May 24 22:11:25 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* doc/man.tex:
+ 	* doc/install.tex: Made urls into hyperlinks, at least in the HTML
+ 	  version of the manuals. Done in the last days.
+
+Wed May 21 18:16:42 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* PREPARE: use newly installed 'latex2html' to generate and
+	  distribute html versions of the manuals. The urls inside are
+	  currently not hyperized yet.
+
+	  -- switched from custom code to procedure now provided by
+	  'makedist'.
+
+Mon May 19 22:35:19 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* doc/man.tex:
+ 	* doc/install.tex: checked with 'ispell', added new message
+ 	  digests.
+
+	* generic/ripemd/rmd128.c: see below.
+
+	* generic/ripemd/rmd128.h: Made usable for AXP (64bit long's),
+	  added unique prefix to function names. Added tcl.h, _ANSI_ARGS_
+	  to let it compile for K&R too.
+
+	* tests/rmd128.test: see below.
+
+	* win/makefile.vc (TRFOBJS): see below.
+
+	* unix/Makefile.in (rmd128.o): see below.
+
+	* generic/init.c: see below.
+
+	* generic/rmd128.c: Added message digest RIPEMD-128.
+
+Thu May 15 20:32:49 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/ripemd/rmd160.c: see below.
+
+	* generic/ripemd/rmd160.h: Made usable for AXP (64bit long's),
+	  added unique prefix to function names. Added tcl.h, _ANSI_ARGS_
+	  to let it compile for K&R too.
+
+	* win/makefile.vc (TRFOBJS): see below.
+
+	* tests/rmd160.test: see below.
+
+	* unix/Makefile.in (rmd160.o): see below.
+
+	* generic/init.c: see below.
+
+	* generic/rmd160.c: Added message digest RIPEMD-160.
+
+Sun May 11 21:36:46 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* doc/install.tex, man.tex: Adapted to made changes.
+
+	* generic/transformInt.h: Definitions concerning DES moved to
+	'loadman.h'. 
+
+	* win/makefile.vc (TRFOBJS): Added the new files, named below.
+
+	* unix/Makefile.in: Added rules for new files named below.
+
+	* generic/init.c (Trf_Init): Added initializators for algorithms
+	  below. 
+
+	* generic/md2.c, rc2.c, sha1.c: New files. Glue to incorporate
+	  MD2, SHA1 message digests and RC2 block cipher. All are searched
+	  for in SSLeay only. WARNING: RC2 keylength is artificially
+	  limited to a maximum of 1024 bytes.
+
+	* win/makefile.vc (LIBDES): Removed this configuration
+	  variable. See Feb 26 too. Superfluous now, see below.
+
+	* generic/loadman.c:
+	* generic/loadman.h: new files, supercede 'libdes.c', which is
+ 	  removed from the distribution now. This manager allows for
+ 	  individual loading of functionality from a variety of
+ 	  libraries. Currently uses 'libcrypto.so' (SSLeay) and
+ 	  'libdes.so' only.
+
+Sat May 10 21:56:46 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* first step to change from 'libdes' over to 'SSLeay' ('libcrypto').
+
+	* generic/zlib.c:
+ 	* generic/libdes.c: Changed to use the new functionality described
+ 	  below.
+
+	* generic/load.c: New file. Used last the 2 functions of
+	  'imgInit.c' (Img library, Jan Nijtmans) to factor out the common
+	  components of loading a shared library.
+
+Mon Mar 17 18:18:05 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* unix/Makefile.in (distclean): removed 'patchlevel.h' from
+	  command, is part of distribution now.
+
+	* patches/v8.0a2/tclIO.c (Tcl_GetHostByteorder): Had superfluous
+	  'chan'-argument, despite correction in the patch.
+
+Thu Mar  6 20:13:55 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* Integrated patch send by Jan. Description:
+
+	  "Further on, I improved the test for the need of _eprintf.o,
+	  because I noted that sometimes _eprintf.o is included when it is
+	  not needed at all. Finally I implemented the LD_LIBRARY_PATH
+	  environment variable in tclLoadAout.c, such that it works the
+	  same as on other machines. See patches below. Both of these
+	  improvements are already in the current Img1.0b1, but they are
+	  useful in Trf as well."
+
+Sun Mar  2 11:27:49 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* PORTING: new file. database of porting notes, hints, tricks,
+	  etc.
+
+	* generic/idea/idea.c (MulInv): Fred Meyer (fred@sga.co.za) had a
+	  problem with IDEA on its DEC Alpha. Tracked down to this
+	  procedure. Must not be compiled with -O, -O2 or higher. The
+	  overoptimized code will return 0 for many arguments, resulting
+	  in a bad decryption key. The option -O1 is possible though.
+
+Sat Mar  1 15:50:50 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/binio.c (READ_CHUNK_SIZE): allow redefinition of value
+	  via makefile!. Default bumped up to 16k (4k before).
+
+	* PREPARE: see below, generate uncompressed digest files.
+
+	* tests/________: removed '-z', expect uncompressed digest files
+	  (More space required, but less dependencies (zlib)).
+
+	* generic/registry.c: Bugfix in 'TrfInput' (-> Feb 14) caused
+	  the system to call read-flush twice. Noted due to doublesized
+	  results for message digests. New flag 'readIsFlushed' to prevent
+	  this.
+
+	* doc/install.tex: Complete.
+
+	* generic/registry.c (TrfInput): fixed bug regarding calculation
+	  of bytes to move down via 'memmove' (operands were in wrong order).
+
+Wed Feb 26 18:31:50 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* win/makefile.vc (LIBDES): new configuration variable. allows
+	  usage of win32 binary distribution of SSLeay.
+
+	* tools/ldAout.tcl: integrated patch containing small
+	  bugfixes. Sent by Jan.
+
+	* doc/install.tex: new installation manual, nearly complete now.
+
+	* added directory 'zlib.vc'. Contains everything to compile zlib
+	  as shared library under windows (MSVC++ 4.2).
+
+	* reorganized 'patches' directory. Every version of tcl got its
+	  own subdir.
+
+Tue Feb 25 22:38:18 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/sha/sha.c:
+	* generic/sha/sha.h: renamed typedef'd LONG to UINT32. Avoids
+ 	  collision with definition made by Windows. SHA finally ok under
+ 	  windows (see Feb 15 too).
+
+Sun Feb 23 18:46:33 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/idea/idea.h: see below.
+
+	* generic/sha/sha.h: Added check for compilation on DEC Alphas,
+	  define LONG accordingly.
+
+Thu Feb 20 21:27:32 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* generic/zlib.c (Z_LIB_NAME): Default is 'zlib.dll' now.
+
+	* win/makefile.vc (install): protect 'md' with -@ against errors
+	  (directory maybe in existence already).
+
+	* tests/binio.test: added 'fconfigure -translation binary' to 1.8
+
+Sat Feb 15 22:58:32 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tests/sha.test: don't execute 'sha-2.2' under windows. Uses
+	  'cat' to beef up a 1000 character file to 1e6 characters. A more
+	  portable method is required to do this. 
+
+	* tests/binio.test: spots using '/dev/null' rewritten, removed
+	  dependency on un*x.
+
+	* generic/b64code.c: see below, same thing.
+
+	* generic/uucode.c: added explicit casts to all array
+	  initializers, MSVC was not unable to comprehend that they are
+	  'char's or to convert them into such, at least silently.
+
+	* generic/blowfish.c (BC_Schedule): added explicit casts from 'int'
+	  to 'short'.
+
+	* generic/sha/sha.h: avoid 2nd definition of 'typedef unsigned
+	  long LONG' under windows.
+
+	* generic/init.c: moved TRF_EXPORT definition and usage to
+	  'transform.h'.
+
+	* generic/unstack.c: same as below.
+
+	* generic/binio.c: 'BinioCmd' static now, with proper
+	  declaration.
+
+	* win/makefile.vc: integrated todays experiences with 'nmake'.
+
+	* compat/tclLoadWin.c: added declaration to supress warning about
+	  unknown 'TclWinConvertError'. This procedure is internal to tcl.
+
+Fri Feb 14 19:15:46 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* win/makefile.vc: first stab at Makefile for windows. Constructed
+	  from 'ftp://ftp.sunlabs.com/pub/tcl/example.zip(makefile.vc)'
+	  and the makefile used by tcl itself.
+
+	* generic/init.c: added prolog required for DLL generation under
+	  windows. 
+
+	* generic/registry.c (TrfInput, TrfOutput): Inserted usage of
+	  procedures for handling complete buffers, they are prefered over
+	  the single-character vectors.
+	  (TrfInput): corrected logical error causing the system to loose
+	  partial data at Eof on underlying channel.
+
+Thu Feb 13 21:40:03 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* -: The bunch of messages below resulted from my first try to
+	  compile trf under windoof. Some other messages, not recorded
+	  here, were due to the usage of an unpatched version of tcl.
+
+	  Note: The current stage of development in using the object
+	  interfaces compiles ok against 8.0a2, but NOT a1. The 'interp'
+	  arguments to the used functions were removed between these
+	  revisions. First thought at work: How the hell could gcc compile
+	  my code, containing such a grave error as supplying to few
+	  arguments to a function. Have to install 8.0a2 at work pronto.
+
+	* compat/tclLoadWin.c: fixed some small problems in here.
+	  (dlopen): corrected declaration of 'intialized', added an 'i'.
+	  (UnloadLibraries): terminated 2nd declaration with ';'.
+	  (dlclose, UnloadLibraries): calls to 'ckfree' required casts.
+
+	  Had some more warnings, investigation defered to next try.
+
+	* generic/digest.c (EncodeBuffer): signed/unsigned mismatch.
+
+	* generic/util.c (TrfMerge4To3): The cpp's used so far don't
+	  understand an empty argument to a macro. Noop '>> 0' supplied now.
+
+	* generic/binio.c (PackCmd, 'D', 'U'): Had wrong casts here.
+
+	* generic/registry.c (TransformImmediate): signed/unsigned mismatch.
+
+	* generic/rc4/rc4.c (rc4_prepare_key): see below.
+
+	* generic/asc85code.c (Encode, FlushEncoder, Decode,
+	  FlushDecoder): see below.
+
+	* generic/adler.c:
+ 	* generic/crc.c:
+ 	* generic/crc_zlib.c (MD_Final): added casts to stop MS VC++ 4.2
+ 	  from complaining about conversion problems and loss of data.
+
+Tue Feb 11 18:46:01 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* 'binio', 'unstack' need conversion too.
+
+	* -------------- tests ok.
+
+	* generic/util.c (TrfGetChannel): Wrapper to 'Tcl_GetChannel'.
+	  Required by objectbased commands, copies the standard result
+	  into the 'objResult' of the interpreter. Automatically activated
+	  in 'transformInt.h', for tcl major >= 8.
+
+	* generic/blockcipher.c:
+ 	* generic/digest.c:
+ 	* generic/rs_ecc.c:
+ 	* generic/zip.c:
+	* generic/b64code.c:
+ 	* generic/octcode.c:
+ 	* generic/hexcode.c:
+ 	* generic/bincode.c:
+ 	* generic/uucode.c:
+	* generic/asc85code.c: changed result generation from
+ 	  'Tcl_AppendResult' to 'ADD_RES'.
+
+	* 2nd iteration through files named below, changed result
+	  generation from 'Tcl_AppendResult' to 'ADD_RES'.
+
+	* generic/transformInt.h (ADD_RES): New macro. Used to build
+	  command results in a version independent manner. Its definition
+	  depends upon the tcl version!
+
+	* generic/registry.c (Trf_Register): adapted validity checks to
+	  changed 'Trf_OptionVectors' structure.
+
+	* generic/templates/opt_template.c: ok.
+
+	* generic/bc_opt.c (SetOption): ok.
+	  (TrfBlockcipherOptions): ok.
+
+	* generic/zip_opt.c (SetOption): ok.
+	  (TrfZIPOptions): ok.
+
+	* generic/c_opt.c (SetOption): ok.
+	  (TrfCipherOptions): ok.
+
+	* generic/dig_opt.c (SetOption): ok.
+	  (TrfMDOptions): ok.
+
+	* generic/convert.c (SetOption): ok.
+	  (Trf_ConverterOptions): ok.
+
+	* zipt_opt.c:
+ 	* dig_opt.c:
+ 	* bc_opt.c:
+ 	* c_opt.c:
+ 	* convert.c: adaption to object interfaces required here!
+
+	* generic/transform.h (Trf_OptionVectors): added 'setObjProc' to
+	  structure. 
+	  /* ********* POTENTIAL INCOMPATIBILITY at C-level ********* */
+
+	* generic/transform.h: New prototype 'Trf_SetObjOption'. Object
+	  equivalent to 'Trf_SetOption'. Use VOID for Tcl_Obj if compiled
+	  against tcl major version below 8.
+
+	* generic/registry.c (Trf_Register): Uses 'TrfExecuteObjCmd' if possible.
+
+	* generic/registry.c (TrfExecuteObjCmd): New function, equivalent
+	  to 'TrfExecuteCmd', uses the object interfaces of tcl 8.
+	  Conditional compilation removes functionality for Tcl below
+	  version 8.x
+
+Thu Feb  6 19:27:41 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* Reorg. complete, distribution running again (unix).
+
+	* unix/Makefile: corrected MANIFEST check, removed target
+	  'depend'. Removed tests for 'makedepend' from 'configure.in'.
+
+Wed Feb  5 23:35:17 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* : Reorganization for multiplatform development and use
+	  (unix, mac, win). Shuffled all files around. Adapted unix
+	  makefile to changes. Nothing for Mac and Windows yet.
+
+	  Rewrote generation of distribution (PREPARE, make-tape).
+	  'DESCRIPTION' now central point for version information. The
+	  data obtained there is placed into all relevant files at
+	  distribution time (README, LSM, ...), especially
+	  'generic/transform.h' and 'generic/patchlevel.h' (former names
+	  had '.in' suffixes). 'Configur'ing these files made it
+	  impossible to use them for Windows/Mac development.
+
+	  Note: 'PREPARE' is an file internal to the package. It contains
+	  tcl-code preparing the package for distribution (removing
+	  inofficial and/or internal files, manpage generation, ...). It
+	  is not part of the distribution however.
+
+Wed Feb  4 21:18:15 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+        * ======================= released 1.0b2 =======================
+
+Fri Jan 31 18:43:29 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* libdes.c:
+	* zlib.c: use library names without path, use OS facilities for
+ 	  searching (LD_LIBRARY_PATH, et.al).
+
+	* tools/ldAout.tcl: search for symbols did not account for
+	  capitals. Found after building libz.a without zsymbols.c
+
+	* digest.c: had unsigned <-> signed comparison.
+
+Thu Jan 30 22:32:45 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* compat/tclLoadShl.c (dlopen): improved error messaging for HP-UX
+	  upon failed loads.
+
+	* Makefile.in: removed superfl. targets for 'zsymbols.o' and
+	  'ld_sysmbols.o'.
+
+	* configure.in: use default (/usr/local) for prefix instead of NONE.
+
+	* got patch from Jan fixing some minor things. see above ^.
+
+Sun Jan 26 21:18:56 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* binio.c (FLIP (in ReorderBytes)): corrected wrong indexing in
+	  first assignment.
+	  (UnpackCmd): added format-length and 0-padding to hex
+	  conversions (%x -> %08x, %08lx, %04x).
+
+	* tests/binio.test: added tests for 'binio'.
+
+Mon Jan 20 23:07:01 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* binio.c (PackCmd, UnpackCmd): use Tcl_GetChannelByteorder to
+	  determine wether swapping is required or not. See entry at
+	  Jan 13, -> binio.c too.
+
+	* added *.byteorder patches. These introduce a new channel
+	  attribute, the associated byteorder. It can be retrieved
+	  directly and via 'fconfigure'. Setting is possible by 'fconfigure'
+	  only. This is used by 'binio' to swap word information if required.
+
+Wed Jan 15 19:07:12 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* -- all changes below by Jan Nijtmans. All of Monday, Jan 13 was
+	  covered by his patch too.
+
+	* cipher.c: See Jan 5, (XX). Some remains of same thing.
+
+	* digest.c (DecodeBuffer, l.674): See below, this time the first
+	  argument of 'memcpy'. Cause of (##) ?
+
+	* registry.c (TrfInput, l. 683): Added () around 'trans->result +
+	  toRead', some compiler (which?) choked without.
+
+	* configure.in (line 261): SHLIB_LD_ALL must be set in all
+	  cases. Without it "make libz" and "make libdes" will work on
+	  Ultrix, but not on other machines. 
+
+	* zip.c: See Jan 5, (XX). Some remains of same thing, forward
+	  declarations forgotten.
+
+Tue Jan 14 21:57:19 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* configure.in (line 259): don't bother with -ltclX.Y if not
+	  running under AIX.
+
+	* INSTALL: updated to reflect new search order.
+
+	* configure.in: changed search order: sibling directories before
+	  <prefix> paths. But commandline options (-with-tcl...) overide all.
+
+	* all digests fail on HP A.09.04 (Bus error). Seems to be
+	  something in general code (dig_opt / digest). Had no time to
+	  study it further, but must be done. (##)
+
+	* zip.c: See Jan 5, (XX). Some remains of same thing.
+
+Mon Jan 13 21:41:33 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* haval/haval.c: Most of conversion was already done (See Jan 5),
+	  with the exception of a single place (haval_tailor).
+
+	* blowfish/blowfish.c:
+	* blowfish/blowfish.h:
+	* idea/idea.c:
+	* idea/idea.h:
+	* md5/md5.c:
+	* md5/md5.h:
+	* rc4/rc4.c:
+	* rc4/rc4.h: See below. Most files integrated from external
+ 	  sources have this problem.
+
+	* sha/sha.c:
+ 	* sha/sha.h: added <tcl.h>, _ANSI_ARGS_ () generally to conform to
+ 	  JO's conventions for extension programming. Removed usage of
+ 	  ##-operator too (concatenates token processed by preprocessor).
+
+	  REASON: HP (uname -> 'A.09.04 B') choked on prototypes and the
+	  like.
+
+	* configure.in (AC_PATH_PROG(MAKEDEPEND)): see below (-> depend).
+	  (sizeof int, long int): determine type sizes, required by 'binio'.
+
+	* Makefile.in (BASE_SRC, BASE_OBJ): added 'binio'.
+	  (depend): changed 'makedepend' to '@MAKEDEPEND@', let configure
+	  determine its location. Use ':' if not found (as for the HP used
+	  by my employer).
+
+	* binio.c: new file and command 'binio'. Based on Jacobs
+	  (Jacob.Levvy@eng.sun.com) proposal. Exception: reordering of
+	  bytes (see ### BYTEORDER ###). Need a flag to tell me the
+	  byteorder associated to the used channels.
+
+        * ======================= released 1.0b1 =======================
+
+Fri Jan 10 12:48:13 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* registry.c (TrfInput): fixed error preventing read/gets from
+	  stacked channels to work properly (set trans->used to 0, then!
+	  used it, argh).
+
+	* configure.in: Added 8.0, 8.0a1 to search sequences.
+
+	* doc/INSTALL:
+ 	* doc/INSTALL.optional:
+ 	* doc/man.tex: updated dependency information.
+
+Mon Jan  6 19:14:20 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* patches/core7.6.patch, patches/core8.0a1.patch: Added patch files
+	  for tcl-core to remove dependency on plus-patches.
+
+Sun Jan  5 22:26:46 1997  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* --> Jan's patch integrated now.
+
+	* Makefile.in: adapted to changes in 'configure.in'.
+
+	* configure.in: streamlined handling of Ultrix 4.4 and other Aout
+	  systems. External libraries now must have extension '.a'.
+
+	* compat/tclLoadNone.c: changed to include all global symbols
+	  exported by libz and libdes resp. This forces static linkage on
+	  systems not supporting dynamic loading.
+
+	* haval/haval.h:
+ 	* haval/haval.c: changed header prototypes to _ANSI_ARGS_-notation
+ 	  of Tcl. Changed prototypes to K&R style.
+
+	* registry.c:
+ 	* unstack.c: Removed superfluous '&'s.
+
+	* transform.h.in: const -> CONST
+
+	* asc85code.c:
+ 	* b64code.c:
+ 	* bincode.c:
+ 	* hexcode.c:
+ 	* octcode.c:	(XX)
+	* uucode.c:
+ 	* rs_ecc.c:
+ 	* blockcipher.c:
+ 	* digest.c: I consistently used 'Trf_WriteProc fun' instead of
+ 	  'Trf_WriteProc* fun' in declarations and definitions of
+ 	  'Create(En/De)coder'. Severe case of cut/copy/paste
+ 	  disease. Found by an older compiler under Ultrix 4.1. Fixed now.
+
+	* Back from christmas holiday. --> Integrate patch send by Jan at
+	  Dec 20, 1996. 
+
+Wed Dec 18 18:46:58 1996  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+        * ======================= released 1.0a3 =======================
+	
+	* PREPARE: change title of MANIFEST.
+
+	* Makefile.in (distclean): removed MANIFEST from list.
+
+Tue Dec 17 17:35:13 1996  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* transform.h.in:
+ 	* c_opt.c:
+ 	* rc4.c:
+ 	* templates/c_template.c: extended interface analogously to
+ 	  message digests, blockcipher to allow dynamic loading. RC4 does
+ 	  not require this, but later functionality might do.
+
+	* Makefile.in (depend): added -D___MAKEDEPEND___, see below.
+
+	* transformInt.h: use ___MAKEDEPEND__ to hide 'zlib.h', 'des.h'
+	  during makedepend runs.
+
+	* tests/sha.test: see below, added expansion of file 'sha.test.vec'.
+
+	* tests/sha.test.vec: reduced from 1e6 bytes to 1000 bytes. Will
+	  be blown up at test time! Should reduce distribution size
+	  about 100 K.
+
+	* doc/INSTALL.optional: new file, instructions and comments
+	  related to building shared libraries for ZLIB and
+	  LIBDES. --==** Important **==--.
+
+	* compat/ld_symbols.c: see below, copied and modified. valid for
+	  libdes 3.23.
+
+	* compat/zsymbols.c: new file, contains functionality to enable
+	  dyn. loading for a.out (Ultrix). Got from Jan. Valid for zlib 1.0.4.
+
+	* transformInt.h: HAVE_LIBDES_H -> HAVE_DES_H.
+
+	* compat/tclLoadNone.c:
+ 	* compat/_eprintf.c: new files, for systems without dyn. loading,
+ 	  and to avoid problems with gcc and assert. Send in by Jan.
+
+	* compat/tclLoadAout.c: new version from Jan, had problems on
+	  Ultrix due to some unknown symbols.
+
+	* sha/sha.c (sha_final): removed superfluous '&' (sha_info->data,
+	  lines 170, 175, 177).
+
+	* registry.c (TrfWatch): removed 'return' in void-procedure. Why
+	  did 'gcc -Wall' did not complain?
+
+Mon Dec 16 18:29:27 1996  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* des.c:
+ 	* bc_opt.c:
+ 	* transformInt.h:
+	* libdes.c: LIBDES will be loaded on demand now. Removed from
+ 	  distribution.
+
+	* ZLIB removed from distribution, will be loaded if required
+	  (commands: adler, crc-zlib, zip).
+
+	* adler.c:
+ 	* crc_zlib.c (MD_Check): checkProc searches and loads 'libz'.
+
+	* sha.c:
+ 	* md5.c:
+ 	* crc.c:
+ 	* haval.c: no checkProc required.
+
+	* dig_opt.c (checkOptions): Calls 'checkProc' now.
+
+	* transform.h.in: Extended interface to digests (Trf_MDCheck, checkProc).
+
+	* zip_opt.c (checkOptions): load libz here.
+
+	* Makefile.in (zlib): new target to make libz.
+
+	* configure.in: added code to enable generation of libz as shared
+	  library.
+
+Sat Dec 14 19:17:56 1996  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* configure.in:
+	* Makefile.in: Integrated information from patch (*2).  New
+ 	  directory 'compat' with dll-loading code for various OS (taken
+ 	  from tcl).
+
+	* blowfish/blowfish.c (Blowfish_decipher): changed assignments
+	  'Xl = *xl', 'Xr = *xr' to 'Xl.word = *xl', 'Xr.word = *xr'. The
+	  assigment to the union was accepted by gcc, but not Ultrix 4.4, cc3.0.
+
+	* blowfish/bf_tab.h: The '\'s introduced by Jans patch (see *1)
+	  got through the Ultrix 4.4, cc3.0 preprocessor and let the
+	  compiler bark. Removed now.
+
+	* blockcipher.c:
+ 	* bc_util.c:
+ 	* cipher.c:
+ 	* blowfish.c
+ 	* zip.c: see below.
+
+	* md5.c:
+	* haval.c:
+ 	* sha.c (MD_Update(Buf), MD_Final): see below.
+
+	* digest.c: all allocs now cast to the correct type (there were
+	  some casts missing, causing ULTRIX 4.4, cc3.0 to barf).
+
+	* hexcode.c:
+	* octcode.c:
+ 	* bincode.c: encode uses table-lookup now, no more bitfiddling.
+
+Wed Dec 11 20:54:10 1996  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* zip.c:
+	* rs_ecc.c: Done too.
+
+	* Got patch from Jan Nijtmans (*2) to load arbitrary dynamic
+	  libraries, enabling me to remove 'zlib' and 'libdes' from
+	  distribution. Integration defered until all and everything is
+	  updated to handle character buffers.
+
+	* blockcipher.c: Updated to handle character buffers as well.
+
+Tue Dec 10 21:22:02 1996  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* md5.c:
+	* crc.c:
+	* crc_zlib.c:
+	* haval.c: All updated to handle buffers containing more than one
+ 	  character. For speedups see doc/speed/*
+
+	* sha.c (MD_UpdateBuf): New procedure to handle a buffer of
+	  characters. Depending on input-size 'sha' is now ~2-3 times as
+	  fast.
+
+	* digest.c (Encode-, Decodebuffer): New procedures to convert
+	  complete buffers. Use a procedure to convert a buffer of
+	  characters, if defined by the digest.
+
+	* registry.c (TransformImmediate): read 4K chunks of characters
+	  now, instead one by one. Use a procedure to convert a buffer of
+	  characters, if defined by the transformation.
+	  
+Thu Dec  5 20:19:31 1996  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+        * ======================= released 1.0a2 =======================
+	
+	* The last changes reworked the package installation to conform to
+	  the new standard set by the core: library and package index go
+	  into a subdirectory of the library directory (making it a
+	  sibling to tclX.Y).
+
+	* Makefile.in (EXTENSION): set to Trf, the official name of this extension.
+	  (LIB_RUNTIME_DIR): use EXTENSION, VERSION to determine complete path.
+	  (install): target 'install-package' removed.
+	  (install-lib): install package index too.
+
+	* got a patch from Jan Nijtmans <nijtmans@nici.kun.nl> (*1):
+
+	- Addition of LIB_RUNTIME_DIR (needed for Solaris, otherwise
+	  the custom tclsh cannot find libtrf1.0.so at run-time.)
+	- Changed pkgIndex.tcl such that the library is only loaded
+	  when one of the commands are used for the first time
+	  (like memchan).
+	- Add a Tcl_StaticPackage() call in tclAppInit.c
+	- blowfish/bf_tab.h needs to be devided into 4 blocks with
+	  {}'s around it, otherwise a warning is given (gcc -Wall (aku)).
+
+Wed Dec  4 20:18:20 1996  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* registry.c (TrfWatch): now forwards request to parent too.
+
+Tue Dec  3 22:38:05 1996  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* digest.c: fixed problem regarding to 'XX->dest'. NULL's were not
+	  handled. Tripped by new 'TrfClose' in registry.c
+
+	* tests:  These were changed too, to use 'unstack $XX' instead of
+	  'transform remove $XX head'.
+
+	* registry.c: Twiddled with it the last 2 days to use the simpler
+	  Tcl_ReplaceChannel API, as propossed by J.Nijtmans. Now the package
+	  again compiles, links and passes all tests. // This is a branch //
+
+Wed Oct 16 21:59:39 1996  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tools/md: new example for generation and check of message
+	  digests. supersedes example 'md5sum'. independent of external
+	  script libraries.
+
+Tue Oct 15 00:06:20 1996  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* init.c (Trf_Init): register new digests.
+
+	* adler32.c:
+	* crc32.c: added message digests algorithm contained in zlib as
+ 	  separate commands.
+
+	* templates/cvt_template.c: see below.
+
+	* templates/opt_template.c: fixed errors in template
+	  (clientData).
+
+	* init.c (Trf_Init): register compressor.
+
+	* doc/man.tex: added description of "zip"-command, extended
+	  chapter containing the references to external copyrights.
+
+	* zip_opt.c: option processor for compressor.
+
+	* zip.c: added compressor based on zlib library (authors:
+	  Jean-Loup Gailly (gzip@prep.ai.mit.edu)
+          Mark Adler (madler@alumni.caltech.edu)).
+
+Mon Oct  7 22:55:44 1996  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* Module ready for delivery. Starting official log now.

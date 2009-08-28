@@ -1,8 +1,8 @@
 /*
  * ntfs_vnops.h - Defines for vnode operations for the NTFS kernel driver.
  *
- * Copyright (c) 2006, 2007 Anton Altaparmakov.  All Rights Reserved.
- * Portions Copyright (c) 2006, 2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2008 Anton Altaparmakov.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2008 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -39,6 +39,7 @@
 #define _OSX_NTFS_VNOPS_H
 
 #include <sys/buf.h>
+#include <sys/ucred.h>
 #include <sys/vnode.h>
 
 typedef int vnop_t(void *);

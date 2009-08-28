@@ -81,7 +81,9 @@ inline Derived safe_cast(Base *base)
 // memory, but it will make anything derived from it, and anything containing
 // it, fixed-once-created. A proper object, I suppose.
 //
-#define NOCOPY(Type)	private: Type(const Type &); void operator = (const Type &);
+#define NOCOPY(Type)	\
+	private: Type(const Type &) DEPRECATED_IN_MAC_OS_X_VERSION_10_0_AND_LATER; \
+	void operator = (const Type &) DEPRECATED_IN_MAC_OS_X_VERSION_10_0_AND_LATER;
 
 
 //

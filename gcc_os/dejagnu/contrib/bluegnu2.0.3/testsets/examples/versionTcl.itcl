@@ -1,8 +1,0 @@
-if [doCmd {set tcl_version} errorCode=NONE \
-	return=[list [list 1 8.0]] V] {
-    # code when failure:
-    #     variable tcl_version does not exists or
-    #     does not return 8.0
-} else {
-    # variable V will contain 8.0
-}

@@ -32,7 +32,7 @@
 
 #define NONCE_SIZE_PPS			(30)
 #define NONCE64_SIZE			((NONCE_SIZE_PPS + 3) * 4 / 3)
-#define NONCE_LONG_COUNT		((NONCE_SIZE_PPS / sizeof(long)) + 1)
+#define NONCE_LONG_COUNT		((NONCE_SIZE_PPS / sizeof(u_int32_t)) + 1)
 #define kSaltSize				(4)
 #define kSaltedHashLen			(kSaltSize + CC_SHA1_DIGEST_LENGTH)
 
@@ -88,9 +88,8 @@ create_nonce(char *nonce, size_t maxnonce)
 	
 	char nonce64[NONCE64_SIZE];
 	
-	srandomdev();
 	for (idx = 0; idx < NONCE_LONG_COUNT; idx++)
-		u.randomLongs[idx] = random();
+		u.randomLongs[idx] = arc4random();
 	
 	result = sasl_encode64(u.randomData, NONCE_SIZE_PPS, nonce64, sizeof(nonce64), &len);
 	if ( result == SASL_OK )
@@ -180,7 +179,7 @@ server_step_1_parse_input(const char *inClientData, char **outUserName)
 	const char *endPtr;
 	char bufStr[512];
 	size_t uname_len;
-	unsigned long binlen;
+	unsigned long	binlen;
 	
 	if (inClientData == NULL || outUserName == NULL)
 		return SASL_FAIL;
@@ -270,7 +269,7 @@ server_step_2(const char *inClientData, ServerAuthDataBlockPtr inOutAuthData)
 	if (memcmp(calculated_response, inOutAuthData->c.response, CC_SHA256_DIGEST_LENGTH) != 0)
 		return SASL_BADAUTH;
 	
-	sprintf(nonceStr, "%lu", inOutAuthData->c.nonce + 1);
+	sprintf(nonceStr, "%u", inOutAuthData->c.nonce + 1);
 	inOutAuthData->c.encryptedNonceLen = sizeof(inOutAuthData->encryptedNonce);
 	result = AES_set_encrypt_key(inOutAuthData->c.sessionKey, 128, &inOutAuthData->c.sessionEncryptKey);
 	AES_cbc_encrypt(
@@ -293,12 +292,12 @@ server_step_2_parse_input(const char *inClientData, ServerAuthDataBlockPtr inOut
 	char response64Str[256] = {0};
 	char peerchal64Str[512] = {0};
 	unsigned char encPeerChal[256] = {0};
-	unsigned long encPeerChalLen = 0;
+	unsigned long	encPeerChalLen = 0;
 	char nonce64Str[256] = {0};
 	unsigned long len;
 	unsigned char encNonce[256];
 	unsigned char decNonce[256];
-	unsigned long encNonceLen = 0;
+	unsigned long	encNonceLen = 0;
 	unsigned char ivec[kCCBlockSizeAES128] = {0};
 	int result;
 	AES_KEY aesEncryptKey;
@@ -374,7 +373,7 @@ server_step_2_parse_input(const char *inClientData, ServerAuthDataBlockPtr inOut
 				ivec,
 				AES_DECRYPT);
 	
-	sscanf((char *)decNonce, "%lu", &inOutAuthData->c.nonce);
+	sscanf((char *)decNonce, "%u", &inOutAuthData->c.nonce);
 	
 	return SASL_OK;
 }

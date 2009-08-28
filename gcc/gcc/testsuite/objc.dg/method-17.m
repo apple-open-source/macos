@@ -1,4 +1,3 @@
-/* APPLE LOCAL file mainline */
 /* Test for spurious "may or may not return a value" warnings.  */
 
 /* { dg-do compile } */

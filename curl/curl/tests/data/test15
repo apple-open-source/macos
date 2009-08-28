@@ -8,7 +8,7 @@ HTTP GET
 </info>
 # Server-side
 <reply>
-<data nocheck="true">
+<data nocheck="yes">
 HTTP/1.4 200 OK
 Fake: yes
 Fake: yes
@@ -28,7 +28,7 @@ http
 --write-out test
  </name>
  <command>
-http://%HOSTIP:%HTTPPORT/want/15 --write-out '%{url_effective} %{http_code} %{size_download}\n'
+http://%HOSTIP:%HTTPPORT/want/15 --write-out "%{url_effective} %{http_code} %{size_download}\n"
 </command>
 </client>
 
@@ -42,14 +42,14 @@ Fake: yes
 Content-Length: 26
 
 Repeated nonsense-headers
-http://127.0.0.1:%HTTPPORT/want/15 200 26
+http://%HOSTIP:%HTTPPORT/want/15 200 26
 </stdout>
 <strip>
 ^User-Agent:.*
 </strip>
 <protocol>
 GET /want/15 HTTP/1.1
-Host: 127.0.0.1:%HTTPPORT
+Host: %HOSTIP:%HTTPPORT
 Accept: */*
 
 </protocol>

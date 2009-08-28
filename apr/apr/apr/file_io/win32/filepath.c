@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -677,16 +677,22 @@ APR_DECLARE(apr_status_t) apr_filepath_merge(char **newpath,
                 /* Otherwise this is simply a noop, above root is root.
                  */
             }
-            else if (pathlen == 0 ||
-                     (pathlen >= 3 && (pathlen == 3
-                                    || path[pathlen - 4] == ':')
-                                   &&  path[pathlen - 3] == '.' 
-                                   &&  path[pathlen - 2] == '.' 
-                                   && (path[pathlen - 1] == '/' 
-                                    || path[pathlen - 1] == '\\')))
+            else if (pathlen == 0 
+                      || (pathlen >= 3 
+                           && (pathlen == 3
+                                || path[pathlen - 4] == ':'
+                                || path[pathlen - 4] == '/' 
+                                || path[pathlen - 4] == '\\')
+                           &&  path[pathlen - 3] == '.' 
+                           &&  path[pathlen - 2] == '.' 
+                           && (path[pathlen - 1] == '/' 
+                                || path[pathlen - 1] == '\\')))
             {
-                /* Path is already backpathed or empty, if the
-                 * APR_FILEPATH_SECUREROOTTEST.was given die now.
+                /* Verified path is empty, exactly "..[/\]", or ends
+                 * in "[:/\]..[/\]" - these patterns we will not back
+                 * over since they aren't 'prior segements'.
+                 * 
+                 * If APR_FILEPATH_SECUREROOTTEST.was given, die now.
                  */
                 if (flags & APR_FILEPATH_SECUREROOTTEST)
                     return APR_EABOVEROOT;
@@ -695,9 +701,13 @@ APR_DECLARE(apr_status_t) apr_filepath_merge(char **newpath,
                  */
                 if (pathlen + 3 >= sizeof(path))
                     return APR_ENAMETOOLONG;
-                memcpy(path + pathlen, ((flags & APR_FILEPATH_NATIVE) 
-                                          ? "..\\" : "../"), 3);
-                pathlen += 3;
+                path[pathlen++] = '.';
+                path[pathlen++] = '.';
+                if (addpath[segend]) {
+                    path[pathlen++] = ((flags & APR_FILEPATH_NATIVE) 
+                                    ? '\\' : ((flags & APR_FILEPATH_TRUENAME)
+                                           ? '/' : addpath[segend]));
+                }
                 /* The 'root' part of this path now includes the ../ path,
                  * because that backpath will not be parsed by the truename
                  * code below.

@@ -1,6 +1,6 @@
 #
 # Expect driver script for GCC Regression Tests
-#   Copyright (C) 1993, 1996, 2001 Free Software Foundation
+#   Copyright (C) 1993, 1996, 2001, 2005 Free Software Foundation
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -14,15 +14,16 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. 
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA. 
 #
 # Written by Jeffrey Wheat (cassidy@cygnus.com)
 #
 
-#
+# Load support procs.
+load_lib gcc-dg.exp
+
 # These tests come from Torbjorn Granlund's (tege@cygnus.com)
 # C torture test suite, and other contributors.
-#
 
 # Disable tests on machines with no hardware support for IEEE arithmetic.
 if { [istarget "vax-*-*"] || [ istarget "powerpc-*-*spe"] } { return }
@@ -31,11 +32,14 @@ if $tracelevel then {
     strace $tracelevel
 }
 
-set additional_flags "";
+set additional_flags ""
 
 # We must use -ffloat-store/-mieee to ensure that excess precision on some
 # machines does not cause problems
 if [istarget "i\[34567\]86-*-*"] then {
+  lappend additional_flags "-ffloat-store"
+}
+if { [istarget "x86_64-*-*"] && [check_effective_target_ilp32] } then {
   lappend additional_flags "-ffloat-store"
 }
 if [istarget "m68k-*-*"] then {

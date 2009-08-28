@@ -1,0 +1,100 @@
+# $Id: UserMgt.xotcl,v 1.6 2006/09/27 08:12:40 neumann Exp $
+
+package provide xotcl::actiweb::userMgt 0.8
+
+package require XOTcl
+
+namespace eval ::xotcl::actiweb::userMgt {
+    namespace import ::xotcl::*
+
+    Class UserMgt 
+    Class UserMgt::User -parameter {name password}
+
+    UserMgt instproc addUser {name password} {
+	[self class]::User [self]::$name -name $name -password $password
+    }
+
+    UserMgt set exportedInstprocs [list \
+				       addUser \
+				       listUsers \
+				       deleteUser \
+				       userMgtOptions\
+				      ]
+
+    UserMgt instproc init args {
+	next
+	my exportedProcs [concat [my exportedProcs] [[self class] set exportedInstprocs]]
+    }
+
+    UserMgt instproc listUsers {} {
+	#showCall
+	set users ""
+	foreach u [my info children] {
+	    lappend users [namespace tail $u]
+	}
+	return $users
+    }
+
+    UserMgt instproc deleteUser {name} {
+	if {[[self class]::User info instances [self]::$name] != ""} {
+	    [self]::$name destroy
+	}
+    }
+    UserMgt instproc userMgtOptions {} {
+	return [[self class] set exportedInstprocs]
+    }
+
+    Class UserMgtHtml -superclass HtmlRep
+
+    UserMgtHtml instproc addUser args {
+	set place [HtmlPlace getInstance]
+	if {$args eq ""} {
+	    set action [url encodeItem "[my htmlCall] [my repObj] [self proc]"]
+	    set c {
+		<form method=get action=$action>
+		<p> Name: 
+		<input name="name" type=text size=30>
+		<p> Password:
+		<input name="password" type=password typesize=30>
+		<p><p>
+		<input type=submit value="Submit">
+		<input type=reset value="Reset">
+	    }
+	    set c [subst -nobackslashes -nocommands $c]
+	    
+	    return [my simplePage $place "New User" $c]
+	} else {
+	    if {[llength $args] > 1} {
+		set name [lindex $args 0]
+		set password [lindex $args 1]
+		set user [[my repObj] [self proc] $name $password]		
+		set c "\n$name entered $place successfully\n"
+		return [my simplePage "New User" "New User" $c]
+	    } else {
+		#
+		# error !!!
+	    }
+	    return [my [self proc]]
+	}
+    }
+
+    UserMgtHtml instproc listUsers {} {
+	set c ""
+	foreach u [[my repObj] [self proc]] {
+	    append c "<p> $u \n"
+	}
+	return [my simplePage "User List" "User List" $c]  
+    }
+
+    UserMgtHtml instproc userMgtOptions {} {
+	set c ""
+	foreach u [[my repObj] [self proc]] {
+	    append c "<p> <a href=[my selfAction $u]> $u </a>\n"
+	}
+	return [my simplePage "User Management Options" "User Management Options" $c]  
+    }
+
+    namespace export UserMgt UserMgtHtml
+}
+
+namespace import ::xotcl::actiweb::userMgt::*

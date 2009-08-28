@@ -107,7 +107,6 @@
 #include <fcntl.h>
 #include <syslog.h>
 #include <netdb.h>
-#include <utmp.h>
 #include <pwd.h>
 #include <setjmp.h>
 #include <sys/param.h>
@@ -141,7 +140,7 @@ void cleanup_tty __P((void));
 void tty_do_send_config __P((int, u_int32_t, int, int));
 
 #ifdef __APPLE__
-static void sighup_tty(void *, int);
+static void sighup_tty(void *, uintptr_t);
 #endif
 static int setdevname __P((char *, char **, int));
 static int setspeed __P((char *, char **, int));
@@ -150,13 +149,13 @@ static int setescape __P((char **));
 static void printescape __P((option_t *, void (*)(void *, char *,...),void *));
 static void finish_tty __P((void));
 static int start_charshunt __P((int, int));
-static void stop_charshunt __P((void *, int));
+static void stop_charshunt __P((void *, uintptr_t));
 static void charshunt_done __P((void *));
 static void charshunt __P((int, int, char *));
 static int record_write __P((FILE *, int code, u_char *buf, int nb,
 			     struct timeval *));
 static int open_socket __P((char *));
-static void maybe_relock __P((void *, int));
+static void maybe_relock __P((void *, uintptr_t));
 
 static int pty_master;		/* fd for master side of pty */
 static int pty_slave;		/* fd for slave side of pty */
@@ -1101,7 +1100,7 @@ finish_tty()
 static void
 maybe_relock(arg, pid)
     void *arg;
-    int pid;
+    uintptr_t pid;
 {
     if (locked)
 	relock(pid);
@@ -1210,7 +1209,7 @@ charshunt_done(arg)
 static void
 stop_charshunt(arg, sig)
     void *arg;
-    int sig;
+    uintptr_t sig;
 {
 	if (charshunt_pid)
 		kill(charshunt_pid, (sig == SIGINT? sig: SIGTERM));
@@ -1539,7 +1538,7 @@ signal notifier
 static void
 sighup_tty(arg, sig)
     void *arg;
-    int sig;
+    uintptr_t sig;
 {
     int state = 0;
 

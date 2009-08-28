@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 2001-2006, International Business Machines
+*   Copyright (C) 2001-2007, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -24,7 +24,7 @@ U_NAMESPACE_BEGIN
  * It recognizes the Perl syntax \N{name}.
  * @author Alan Liu
  */
-class U_I18N_API NameUnicodeTransliterator : public Transliterator {
+class NameUnicodeTransliterator : public Transliterator {
 public:
 
     /**
@@ -44,11 +44,6 @@ public:
     NameUnicodeTransliterator(const NameUnicodeTransliterator&);
 
     /**
-     * Assignment operator.
-     */
-    NameUnicodeTransliterator& operator=(const NameUnicodeTransliterator&);
-
-    /**
      * Transliterator API.
      * @return    A copy of the object.
      */
@@ -62,7 +57,7 @@ public:
     /**
      * ICU "poor man's RTTI", returns a UClassID for this class.
      */
-    static UClassID U_EXPORT2 getStaticClassID();
+    U_I18N_API static UClassID U_EXPORT2 getStaticClassID();
 
  protected:
 
@@ -82,6 +77,11 @@ public:
      * Set of characters which occur in Unicode character names.
      */
     UnicodeSet legal;
+private:
+    /**
+     * Assignment operator.
+     */
+    NameUnicodeTransliterator& operator=(const NameUnicodeTransliterator&);
 };
 
 U_NAMESPACE_END

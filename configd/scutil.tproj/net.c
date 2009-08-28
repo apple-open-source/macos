@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2007, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -401,11 +401,20 @@ _show_entity(CFDictionaryRef entity, CFStringRef prefix)
 		key   = CFArrayGetValueAtIndex(sorted, i);
 		value = CFDictionaryGetValue(entity, key);
 		if (isA_CFArray(value)) {
-			CFStringRef	str;
+			CFIndex		i;
+			CFIndex		n	= CFArrayGetCount(value);
 
-			str = CFStringCreateByCombiningStrings(NULL, value, CFSTR(", "));
-			SCPrint(TRUE, stdout, CFSTR("%@    %@ = (%@)\n"), prefix, key, str);
-			CFRelease(str);
+			SCPrint(TRUE, stdout, CFSTR("%@    %@ = ("), prefix, key);
+			for (i = 0; i < n; i++) {
+				CFTypeRef	val;
+
+				val = CFArrayGetValueAtIndex(value, i);
+				SCPrint(TRUE, stdout,
+					CFSTR("%s%@"),
+					(i > 0) ? ", " : "",
+					val);
+			}
+			SCPrint(TRUE, stdout, CFSTR(")\n"));
 		} else {
 			SCPrint(TRUE, stdout, CFSTR("%@    %@ = %@\n"), prefix, key, value);
 		}
@@ -913,7 +922,6 @@ do_net_update(int argc, char **argv)
 			net_set = set;
 
 			setCreated = TRUE;
-			setUpdated = TRUE;
 
 			CFRelease(setName);
 			CFRetain(set);

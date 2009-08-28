@@ -3,8 +3,8 @@
   missing.h - prototype for *.c in ./missing, and
   	      for missing timeval struct
 
-  $Author: shyouhei $
-  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+  $Author: knu $
+  $Date: 2008-06-06 19:39:57 +0900 (Fri, 06 Jun 2008) $
   created at: Sat May 11 23:46:03 JST 2002
 
 ************************************************/
@@ -32,7 +32,7 @@ extern double atanh _((double));
 #endif
 
 #ifndef HAVE_CRYPT
-extern char *crypt _((char *, char *));
+extern char *crypt _((const char *, const char *));
 #endif
 
 #ifndef HAVE_DUP2

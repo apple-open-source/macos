@@ -140,9 +140,17 @@ extern int __mb_cur_max;
     && defined(_USE_EXTENDED_LOCALES_) && !defined(MB_CUR_MAX_L)
 #define	MB_CUR_MAX_L(x)	(___mb_cur_max_l(x))
 #endif
+//Begin-Libc
+/* f must be a literal string */
+#define LIBC_ABORT(f,...)	abort_report_np("%s:%s:%u: " f, __FILE__, __func__, __LINE__, ## __VA_ARGS__)
+//End-Libc
 
 __BEGIN_DECLS
 void	 abort(void) __dead2;
+//Begin-Libc
+__private_extern__
+void	 abort_report_np(const char *, ...) __dead2 __printflike(1, 2);
+//End-Libc
 int	 abs(int) __pure2;
 int	 atexit(void (*)(void));
 double	 atof(const char *);
@@ -170,6 +178,7 @@ void	*malloc(size_t);
 int	 mblen(const char *, size_t);
 size_t	 mbstowcs(wchar_t * __restrict , const char * __restrict, size_t);
 int	 mbtowc(wchar_t * __restrict, const char * __restrict, size_t);
+int 	 posix_memalign(void **, size_t, size_t);
 void	 qsort(void *, size_t, size_t,
 	    int (*)(const void *, const void *));
 int	 rand(void);
@@ -323,6 +332,11 @@ u_int32_t
 	 arc4random(void);
 void	 arc4random_addrandom(unsigned char *dat, int datlen);
 void	 arc4random_stir(void);
+#ifdef __BLOCKS__
+int	 atexit_b(void (^)(void));
+void	*bsearch_b(const void *, const void *, size_t,
+	    size_t, int (^)(const void *, const void *));
+#endif /* __BLOCKS__ */
 
 	 /* getcap(3) functions */
 char	*cgetcap(char *, const char *, int);
@@ -346,8 +360,28 @@ const char
 
 int	 heapsort(void *, size_t, size_t,
 	    int (*)(const void *, const void *));
+#ifdef __BLOCKS__
+int	 heapsort_b(void *, size_t, size_t,
+	    int (^)(const void *, const void *));
+#endif /* __BLOCKS__ */
 int	 mergesort(void *, size_t, size_t,
 	    int (*)(const void *, const void *));
+#ifdef __BLOCKS__
+int	 mergesort_b(void *, size_t, size_t,
+	    int (^)(const void *, const void *));
+#endif /* __BLOCKS__ */
+void	 psort(void *, size_t, size_t,
+	    int (*)(const void *, const void *));
+#ifdef __BLOCKS__
+void	 psort_b(void *, size_t, size_t,
+	    int (^)(const void *, const void *));
+#endif /* __BLOCKS__ */
+void	 psort_r(void *, size_t, size_t, void *,
+	    int (*)(void *, const void *, const void *));
+#ifdef __BLOCKS__
+void	 qsort_b(void *, size_t, size_t,
+	    int (^)(const void *, const void *));
+#endif /* __BLOCKS__ */
 void	 qsort_r(void *, size_t, size_t, void *,
 	    int (*)(void *, const void *, const void *));
 int	 radixsort(const unsigned char **, int, const unsigned char *,

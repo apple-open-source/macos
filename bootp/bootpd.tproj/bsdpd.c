@@ -197,7 +197,7 @@ S_gid_taken(ODNodeRef node, CFStringRef gid)
 				  0,					// inMaxResults
 				  &error);
     if (query == NULL) {
-	my_log(LOG_INFO, "bsdpd : S_gid_taken : ODQueryCreateWithNode() failed");
+	my_log(LOG_INFO, "bsdpd: S_gid_taken: ODQueryCreateWithNode() failed");
 	my_CFRelease(&error);
 	goto failed;
     }
@@ -205,7 +205,7 @@ S_gid_taken(ODNodeRef node, CFStringRef gid)
     results = ODQueryCopyResults(query, FALSE, &error);
     CFRelease(query);
     if (results == NULL) {
-	my_log(LOG_INFO, "bsdpd : S_gid_taken : ODQueryCopyResults() failed");
+	my_log(LOG_INFO, "bsdpd: S_gid_taken: ODQueryCopyResults() failed");
 	my_CFRelease(&error);
 	goto failed;
     }
@@ -219,6 +219,20 @@ S_gid_taken(ODNodeRef node, CFStringRef gid)
     return (taken);
 }
 
+static void
+_myCFDictionarySetStringValueAsArray(CFMutableDictionaryRef dict,
+				     CFStringRef key,  CFStringRef str)
+{
+    CFArrayRef			array;
+
+    array = CFArrayCreate(NULL, (const void **)&str,
+			  1, &kCFTypeArrayCallBacks);
+    CFDictionarySetValue(dict, key, array);
+    CFRelease(array);
+    return;
+}
+
+
 static boolean_t
 S_create_netboot_group(gid_t preferred_gid, gid_t * actual_gid)
 {
@@ -227,9 +241,11 @@ S_create_netboot_group(gid_t preferred_gid, gid_t * actual_gid)
     boolean_t	ret	= FALSE;
     gid_t	scan;
 
-    node = ODNodeCreateWithNodeType(NULL, kODSessionDefault, kODTypeLocalNode, &error);
+    node = ODNodeCreateWithNodeType(NULL, kODSessionDefault,
+				    kODNodeTypeLocalNodes, &error);
     if (node == NULL) {
-	my_log(LOG_INFO, "bsdpd : S_create_netboot_group : ODNodeCreateWithNodeType() failed");
+	my_log(LOG_INFO, "bsdpd: S_create_netboot_group:"
+	       " ODNodeCreateWithNodeType() failed");
 	return (FALSE);
     }
 
@@ -244,35 +260,33 @@ S_create_netboot_group(gid_t preferred_gid, gid_t * actual_gid)
 	if (S_gid_taken(node, gidStr)) {
 	    goto nextGid;
 	}
-
-	attributes = CFDictionaryCreateMutable(NULL, 0,
-					       &kCFTypeDictionaryKeyCallBacks,
-					       &kCFTypeDictionaryValueCallBacks);
-	CFDictionarySetValue(attributes, CFSTR(kDS1AttrPassword), CFSTR("*"));
-      { // rdar://4759893
-	CFMutableArrayRef	array;
-	array = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-	CFArrayAppendValue(array, CFSTR("*"));
-	CFDictionarySetValue(attributes, CFSTR(kDS1AttrPassword), array);
-	CFRelease(array);
-      }
-	CFDictionarySetValue(attributes, CFSTR(kDS1AttrPrimaryGroupID), gidStr);
-
-	record = ODNodeCreateRecord(node,				// inNode
-				    CFSTR(kDSStdRecordTypeGroups),	// inRecordType
-				    CFSTR(NETBOOT_GROUP),		// inRecordName
-				    attributes,				// inAttributes
+	attributes 
+	    = CFDictionaryCreateMutable(NULL, 0,
+					&kCFTypeDictionaryKeyCallBacks,
+					&kCFTypeDictionaryValueCallBacks);
+	_myCFDictionarySetStringValueAsArray(attributes,
+					     CFSTR(kDS1AttrPrimaryGroupID),
+					     gidStr);
+	_myCFDictionarySetStringValueAsArray(attributes,
+					     CFSTR(kDS1AttrPassword),
+					     CFSTR("*"));
+	record = ODNodeCreateRecord(node,
+				    CFSTR(kDSStdRecordTypeGroups),
+				    CFSTR(NETBOOT_GROUP),
+				    attributes,
 				    &error);
 	CFRelease(attributes);
 	if (record == NULL) {
 	    my_log(LOG_INFO,
-		   "bsdpd : S_create_netboot_group : ODNodeCreateRecord() failed");
+		   "bsdpd: S_create_netboot_group:"
+		   " ODNodeCreateRecord() failed");
 	    goto done;
 	}
 
 	if (!ODRecordSynchronize(record, &error)) {
 	    my_log(LOG_INFO,
-		   "bsdpd : S_create_netboot_group : ODRecordSynchronize() failed");
+		   "bsdpd: S_create_netboot_group:"
+		   " ODRecordSynchronize() failed");
 	    goto done;
 	}
 
@@ -317,7 +331,7 @@ S_read_config(CFDictionaryRef plist)
     S_afp_users_max = AFP_USERS_MAX;
     S_afp_uid_start = AFP_UID_START;
     S_age_time_seconds = AGE_TIME_SECONDS;
-    if (S_machine_name_format != DEFAULT_MACHINE_NAME_FORMAT) {
+    if (S_machine_name_format != (char *)DEFAULT_MACHINE_NAME_FORMAT) {
 	free(S_machine_name_format);
     }
     S_machine_name_format = DEFAULT_MACHINE_NAME_FORMAT;
@@ -627,7 +641,6 @@ bsdp_init(CFDictionaryRef plist)
     G_disk_space_warned = FALSE;
     if (first == TRUE) {
 	struct group *	group_ent_p;
-	struct timeval 	tv;
 
 	/* get the netboot group id, or create the group if necessary */
 	group_ent_p = getgrnam(NETBOOT_GROUP);
@@ -647,9 +660,6 @@ bsdp_init(CFDictionaryRef plist)
 	    goto failed;
 	}
 	G_admin_gid = group_ent_p->gr_gid;
-	/* use microseconds for the random seed: password is a random number */
-	gettimeofday(&tv, 0);
-	srandom(tv.tv_usec);
 	first = FALSE;
     }
     if (plist != NULL) {
@@ -748,7 +758,7 @@ S_reclaim_afp_user(struct timeval * time_in_p, boolean_t * modified)
 	name = ni_valforprop(&scan->pl, NIPROP_NAME);
 	last_boot = ni_valforprop(&scan->pl, NIPROP_NETBOOT_LAST_BOOT_TIME);
 	if (last_boot) {
-	    u_int32_t	t;
+	    long	t;
 
 	    t = strtol(last_boot, NULL, 0);
 	    if (t == LONG_MAX && errno == ERANGE) {
@@ -851,8 +861,8 @@ X_netboot(NBImageEntryRef image_entry, struct in_addr server_ip,
 	    snprintf(tmp, sizeof(tmp), "http://%s/NetBoot/%s/%s/%s",
 		     inet_ntoa(image_server_ip(image_entry, server_ip)),
 		     image_entry->sharepoint->name,
-		     image_entry->dir_name,
-		     image_entry->type_info.http.root_path);
+		     image_entry->dir_name_esc,
+		     image_entry->type_info.http.root_path_esc);
 	    root_path = tmp;
 	}
     }
@@ -1257,13 +1267,15 @@ static boolean_t
 S_prop_u_int32(ni_proplist * pl_p, const char * prop, u_int32_t * retval)
 {
     ni_name str = ni_valforprop(pl_p, (char *)prop);
+    unsigned long val;
 
     if (str == NULL)
 	return (FALSE);
-    *retval = strtoul(str, 0, 0);
-    if (*retval == ULONG_MAX && errno == ERANGE) {
+    val = strtoul(str, 0, 0);
+    if (val == ULONG_MAX && errno == ERANGE) {
 	return (FALSE);
     }
+    *retval = val;
     return (TRUE);
 }
 
@@ -1274,7 +1286,7 @@ is_bsdp_packet(dhcpol_t * rq_options, char * arch, char * sysid,
 {
     void *		classid;
     int			classid_len;
-    char		err[256];
+    dhcpo_err_str_t	err;
     bsdp_version_t *	vers;
 
     *is_old_netboot = FALSE;
@@ -1288,7 +1300,7 @@ is_bsdp_packet(dhcpol_t * rq_options, char * arch, char * sysid,
     }
 
     /* parse the vendor-specific option area */
-    if (dhcpol_parse_vendor(rq_vsopt, rq_options, err) == FALSE) {
+    if (dhcpol_parse_vendor(rq_vsopt, rq_options, &err) == FALSE) {
 	if (verbose) {
 	    my_log(LOG_INFO, 
 		   "NetBoot: parse vendor specific options failed, %s", err);

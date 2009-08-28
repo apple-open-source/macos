@@ -1,0 +1,61 @@
+Announcing XOTcl 1.3.6
+**********************
+
+WHAT IS XOTCL?
+
+  XOTcl is an object-oriented extension of Tcl that was derived from
+  OTcl. In short, XOTcl tries to provide a highly flexible,
+  reflective, component-based, and object-oriented environment. It
+  integrates language support for high level concepts which are not
+  found in other languages, with reasonable performance. It prevails
+  the Tcl programming style and the dynamic/introspective nature of
+  the language, rather than introducing other language's styles and
+  rigidness (such as C++) into Tcl.
+
+
+Major changes relative to 1.3.5 are:
+
+     * Improved Functionality
+       + new info subcommand: <object> info precedence
+
+       + simplified meta class definitions: every class can be
+         changed into a metaclass by adding an instmixin of Class (or
+         one of its subclasses) to it. In order to define that every
+         class should be a metaclass, one can use now 
+            Object instmixin Class 
+         instead of the rather complicated solution i posted on
+         the xotcl mailing list not long ago.
+
+     * Improved code quality: 
+       + fixed possible crashes when 
+          - objects are called with class methods (e.g. due to instmixins)
+          - when instmixins are defined recursively 
+            (e.g. Class instmixin Class)
+          - objects are turned into classes by changing the 
+            class relationship
+       + improved namespace resolution when mixin classes are defined
+         in namespaces (::xotcl:: namespace is skipped, since a 
+         helper method that calles the primitive setting command 
+         is defined there)
+       + fixed passing of error code from init methods
+         (thanks to Fabrice Pardo for noting it)
+       + returning PACKAGE_VERSION after a package require
+         (e.g. 'package req XOTcl' returns now 1.3.6)
+       + some code refactoring, fixed erroneous documentation of c code
+       + improved documentation
+
+
+ For more details about the changes, please consult the ChangeLog and
+ documentation.
+
+MORE INFO
+  General and more detailed information about XOTcl and its components
+  can be found at http://www.xotcl.org
+
+
+Best regards,
+
+Gustaf Neumann
+Uwe Zdun
+
+

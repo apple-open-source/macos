@@ -1,0 +1,81 @@
+;
+;; kadmind - sandbox profile
+;; Copyright (c) 2007, 2008, 2009 Apple Inc.  All Rights reserved.
+;
+;; WARNING: The sandbox rules in this file currently constitute 
+;; Apple System Private Interface and are subject to change at any time and
+;; without notice. The contents of this file are also auto-generated and not
+;; user editable; it may be overwritten at any time.
+;
+
+(version 1)
+
+(deny default)
+(debug deny)
+
+(allow mach-lookup
+       (global-name "com.apple.system.notification_center")
+       (global-name "com.apple.CoreServices.coreservicesd")
+       (global-name "com.apple.system.logger")
+       (global-name "com.apple.system.DirectoryService.membership_v1")
+       (global-name "com.apple.system.DirectoryService.libinfo_v1"))
+
+(allow file-read*
+       (literal "/private/etc/master.passwd")
+       (literal "/private/var/root/Library/Preferences/.GlobalPreferences.plist")
+       (literal "/dev/autofs_nowait")
+       (literal "/Library/Preferences/edu.mit.Kerberos")
+       (literal "/Library/Preferences/.GlobalPreferences.plist")
+       (regex #"^/private/var/root/Library/Preferences/ByHost/\.GlobalPreferences\.[^/]+\.plist$")
+       (regex #"^/private/var/db/dyld/dyld_shared_")
+       (regex #"^/usr/share/zoneinfo(/|$)")
+       (regex #"^/usr/share/icu(/|$)")
+       (regex #"^/System/Library/CFMSupport(/|$)")
+       (regex #"^/System/Library/Frameworks(/|$)")
+       (regex #"^/System/Library/KerberosPlugins(/|$)")
+       (regex #"^/System/Library/PrivateFrameworks/KAdminServer\.framework(/|$)")
+       (regex #"^/System/Library/PrivateFrameworks/PasswordServer\.framework(/|$)")
+       (regex #"^/System/Library/PrivateFrameworks/KDB5\.framework(/|$)")
+       (regex #"^/System/Library/PrivateFrameworks/GSSRPC\.framework(/|$)")
+       (regex #"^/usr/lib/")
+       (regex #"^/usr/sbin(/kadmind)?$")
+       (regex #"^/dev/u?random$")
+	   (literal "/dev/null")
+       )
+
+(allow file-read-metadata)
+
+(allow file-write*
+       (literal "/private/var/log/krb5kdc/kadmin.log")
+       (literal "/Library/Preferences/edu.mit.Kerberos"))
+
+(allow file-read* file-write*
+       (literal "/private/var/db/authserver/authservermain")  ; mkpassdb
+       (literal "/private/var/run/passwordserver")  ; mkpassdb
+       (literal "/Library/Preferences/com.apple.passwordserver.plist")
+       (regex "^/private/var/db/krb5kdc(/|$)")
+       (regex "^/private/var/tmp/kadmin_")
+       (regex "^/private/var/tmp/krb5_RC")
+       (regex "^(/private)?/var/run/kadmind.pid$"))
+
+(allow file-read* file-write* file-ioctl
+       (literal "/dev/dtracehelper"))
+
+(allow process-fork)
+
+(allow process-exec
+       (literal "/usr/sbin/kadmind")
+       (literal "/usr/sbin/mkpassdb"))
+
+(allow sysctl-read)
+
+(allow ipc-posix-shm)
+
+(allow network*
+       (local ip "*:749")       ; kerberos-adm
+       (local ip "*:464")      ; kpasswd
+       (remote unix "^/private/var/run/passwordserver$")
+       )
+
+
+(allow sysctl-read)             ; serialnumberd

@@ -1,4 +1,15 @@
-Jan 05 2006, V3.53.5:
+Oct 08 2007, V3.52.6:
+    * Added support for GTK+ 2.x
+    * Fixed long mutex lock on connect
+    * Fixed problems with SQLBrowseConnect
+    * Fixed missing functions in export list
+    * Fixed core dump when checking for driver odbc version
+    * Fixed allocation error in SQLDescribeCol
+    * Fixed rpm specification for RedHat
+    * Fixed porting problems on FreeBSD, OpenBSD and OSF
+    * Use SQLFetchScroll in iodbctest
+
+Jan 05 2007, V3.52.5:
     * Added support for FileDSN
     * Added support for Connection Pooling
     * Added check for tracefile size

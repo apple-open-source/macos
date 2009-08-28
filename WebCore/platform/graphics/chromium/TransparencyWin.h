@@ -135,13 +135,16 @@ public:
               const IntRect& region);
 
     // Combines the source and destination bitmaps using the given mode.
+    // Calling this function before the destructor runs is mandatory in most
+    // cases, and harmless otherwise.  The mandatory cases are:
+    //       (m_layerMode != NoLayer) || (m_transformMode == ScaleTransform)
     void composite();
 
     // Returns the context for drawing into, which may be the destination
     // context, or a temporary one.
     GraphicsContext* context() const { return m_drawContext; }
 
-    PlatformGraphicsContext* platformContext() const { return m_drawContext->platformContext(); }
+    PlatformGraphicsContext* platformContext() const { return m_drawContext ? m_drawContext->platformContext() : 0; }
 
     // When the mode is TextComposite, this sets the color that the text will
     // get. See the enum above for more.
@@ -245,6 +248,12 @@ private:
     // m_layerBuffer, which will either point to this object, or the statically
     // cached one. Don't access directly.
     OwnPtr<OwnedBuffers> m_ownedBuffers;
+
+    // Sometimes we're asked to create layers that have negative dimensions.
+    // This API is not designed to fail to initialize, so we hide the fact 
+    // that they are illegal and can't be rendered (failing silently, drawing
+    // nothing).
+    bool m_validLayer;
 };
 
 } // namespace WebCore

@@ -4,9 +4,14 @@ XML::LibXML::Document - XML::LibXML DOM Document Class
 
 =head1 SYNOPSIS
 
+  use XML::LibXML;
+  # Only methods specific to Document nodes listed here,
+  # see XML::LibXML::Node manpage for other methods
+
   $dom = XML::LibXML::Document->new( $version, $encoding );
   $dom = XML::LibXML::Document->createDocument( $version, $encoding );
   $strEncoding = $doc->encoding();
+  $strEncoding = $doc->actualEncoding();
   $doc->setEncoding($new_encoding);
   $strVersion = $doc->version();
   $doc->standalone
@@ -15,8 +20,10 @@ XML::LibXML::Document - XML::LibXML DOM Document Class
   $doc->setCompression($ziplevel);
   $docstring = $dom->toString($format);
   $c14nstr = $doc->toStringC14N($comment_flag,$xpath); 
-  $str = $doc->serialze($format); 
+  $ec14nstr = $doc->toStringEC14N($inclusive_prefix_list, $comment_flag,$xpath); 
+  $str = $doc->serialize($format); 
   $c14nstr = $doc->serialize_c14n($comment_flag,$xpath); 
+  $ec14nstr = $doc->serialize_exc_c14n($comment_flag,$xpath,$inclusive_prefix_list); 
   $state = $doc->toFile($filename, $format);
   $state = $doc->toFH($fh, $format);
   $str = $document->toStringHTML();
@@ -31,7 +38,7 @@ XML::LibXML::Document - XML::LibXML DOM Document Class
   $comment = $dom->createComment( $comment_text );
   $attrnode = $doc->createAttribute($name [,$value]);
   $attrnode = $doc->createAttributeNS( namespaceURI, $name [,$value] );
-  $fragment = $doc->createDocumentFragment()
+  $fragment = $doc->createDocumentFragment();
   $cdata = $dom->create( $cdata_content );
   my $pi = $doc->createProcessingInstruction( $target, $data );
   my $entref = $doc->createEntityReference($refname);
@@ -46,9 +53,9 @@ XML::LibXML::Document - XML::LibXML DOM Document Class
   my $dtd = $doc->removeExternalSubset();
   my $dtd = $doc->removeInternalSubset();
   my @nodelist = $doc->getElementsByTagName($tagname);
-  my @nodelist = $doc->getElementsByTagName($nsURI,$tagname);
+  my @nodelist = $doc->getElementsByTagNameNS($nsURI,$tagname);
   my @nodelist = $doc->getElementsByLocalName($localname);
-  my $node = $doc->getElementsById($id);
+  my $node = $doc->getElementById($id);
   $dom->indexElements();
 
 
@@ -63,14 +70,14 @@ specification. This enables access to the nodes besides the root element on
 document level - a DTD for example. The support for these nodes is limited at
 the moment.
 
-While generaly nodes are bound to a document in the DOM concept it is suggested
-that one should always create a node not bound to any document. There is no
-need of really including the node to the document, but once the node is bound
-to a document, it is quite safe that all strings have the correct encoding. If
-an unbound textnode with an iso encoded string is created (e.g. with
-$CLASS->new()), the toString function may not return the expected result.
+While generally nodes are bound to a document in the DOM concept it is
+suggested that one should always create a node not bound to any document. There
+is no need of really including the node to the document, but once the node is
+bound to a document, it is quite safe that all strings have the correct
+encoding. If an unbound text node with an ISO encoded string is created (e.g.
+with $CLASS->new()), the toString function may not return the expected result.
 
-All this seems like a limitation as long as UTF8 encoding is assured. If iso
+All this seems like a limitation as long as UTF-8 encoding is assured. If ISO
 encoded strings come into play it is much safer to use the node creation
 functions of XML::LibXML::Document.
 
@@ -95,7 +102,7 @@ will create the document:
 
 Both parameter are optional. The default value for $version is 1.0, of course.
 If the $encoding parameter is not set, the encoding will be left unset, which
-means UTF8 is implied.
+means UTF-8 is implied.
 
 The call of createDocument() without any parameter will result the following
 code:
@@ -106,11 +113,11 @@ Alternatively one can call this constructor directly from the XML::LibXML class
 level, to avoid some typing. This will not have any effect on the class
 instance, which is always XML::LibXML::Document.
 
-   my $document = XML::LibXML->createDocument( "1.0", "UTF8" );
+   my $document = XML::LibXML->createDocument( "1.0", "UTF-8" );
 
 is therefore a shortcut for
 
-  my $document = XML::LibXML::Document->createDocument( "1.0", "UTF8" );
+  my $document = XML::LibXML::Document->createDocument( "1.0", "UTF-8" );
 
 
 =item B<encoding>
@@ -122,21 +129,28 @@ returns the encoding string of the document.
   my $doc = XML::LibXML->createDocument( "1.0", "ISO-8859-15" );
   print $doc->encoding; # prints ISO-8859-15
 
-Optionally this function can be accessed by actualEncoding or getEncoding.
+
+=item B<actualEncoding>
+
+  $strEncoding = $doc->actualEncoding();
+
+returns the encoding in which the XML will be returned by $doc->toString().
+This is usually the original encoding of the document as declared in the XML
+declaration and returned by $doc->encoding. If the original encoding is not
+known (e.g. if created in memory or parsed from a XML without a declared
+encoding), 'UTF-8' is returned.
+
+  my $doc = XML::LibXML->createDocument( "1.0", "ISO-8859-15" );
+  print $doc->encoding; # prints ISO-8859-15
 
 
 =item B<setEncoding>
 
   $doc->setEncoding($new_encoding);
 
-From time to time it is useful to change the effective encoding of a document.
-This method provides the interface to manipulate the encoding of a document.
-
-Note that this function has to be used very carefully, since you can't simply
-convert one encoding in any other, since some (or even all) characters may not
-exist in the new encoding. XML::LibXML will not test if the operation is
-allowed or possible for the given document. The only switching assured to work
-is to UTF8.
+This method allows to change the declaration of encoding in the XML declaration
+of the document. The value also affects the encoding in which the document is
+serialized to XML by $doc->toString().
 
 
 =item B<version>
@@ -171,7 +185,7 @@ set it to -1 to remove the standalone attribute from the XML declaration.
 
   my $compression = $doc->compression;
 
-libxml2 allows reading of documents directly from gziped files. In this case
+libxml2 allows reading of documents directly from gzipped files. In this case
 the compression variable is set to the compression level of that file (0-8). If
 XML::LibXML parsed a different source or the file wasn't compressed, the
 returned value will be -1.
@@ -193,8 +207,12 @@ and toFile() is used for output.
 
   $docstring = $dom->toString($format);
 
-toString is a deparsing function, so the DOM Tree can be translated into a
-string, ready for output.
+toString is a DOM serializing function, so the DOM Tree can be serialized into
+a XML string, ready for output.
+
+IMPORTANT: unlike toString for other nodes, on document nodes this function
+returns the XML as a byte string in the original encoding of the document (see
+the actualEncoding() method)!
 
 The optional $format parameter sets the indenting of the output. This parameter
 is expected to be an integer value, that specifies that indentation should be
@@ -202,39 +220,48 @@ used. The format parameter can have three different values if it is used:
 
 If $format is 0, than the document is dumped as it was originally parsed
 
-If $format is 1, libxml2 will add ignorable whitespaces, so the nodes content
+If $format is 1, libxml2 will add ignorable white spaces, so the nodes content
 is easier to read. Existing text nodes will not be altered
 
 If $format is 2 (or higher), libxml2 will act as $format == 1 but it add a
-leading and a trailing linebreak to each text node.
+leading and a trailing line break to each text node.
 
-libxml2 uses a hardcoded indentation of 2 space characters per indentation
-level. This value can not be altered on runtime.
-
-NOTE: XML::LibXML::Document::toString returns the data in the document encoding
-rather than UTF8! If you want UTF8 ecoded XML, you have to change the conding
-by using setEncoding()
+libxml2 uses a hard-coded indentation of 2 space characters per indentation
+level. This value can not be altered on run-time.
 
 
 =item B<toStringC14N>
 
-$c14nstr = $doc->toStringC14N($comment_flag,$xpath); A variation to toString,
-that returns the canonized form of the given document.
+$c14nstr = $doc->toStringC14N($comment_flag,$xpath); See the documentation in
+XML::LibXML::Node.
+
+
+=item B<toStringEC14N>
+
+$ec14nstr = $doc->toStringEC14N($inclusive_prefix_list, $comment_flag,$xpath);
+See the documentation in XML::LibXML::Node.
 
 
 =item B<serialize>
 
-  $str = $doc->serialze($format); 
+  $str = $doc->serialize($format); 
 
-Alternative form of toString(). This function name added to be more conformant
-with libxml2's examples.
+An alias for toString(). This function was name added to be more consistent
+with libxml2.
 
 
 =item B<serialize_c14n>
 
   $c14nstr = $doc->serialize_c14n($comment_flag,$xpath); 
 
-Alternative form of toStringC14N().
+An alias for toStringC14N().
+
+
+=item B<serialize_exc_c14n>
+
+  $ec14nstr = $doc->serialize_exc_c14n($comment_flag,$xpath,$inclusive_prefix_list); 
+
+An alias for toStringEC14N().
 
 
 =item B<toFile>
@@ -253,7 +280,7 @@ The format parameter has the same behaviour as in toString().
   $state = $doc->toFH($fh, $format);
 
 This function is similar to toString(), but it writes the document directly to
-a filehandler or a stream.
+a filehandle or a stream.
 
 The format parameter has the same behaviour as in toString().
 
@@ -262,7 +289,7 @@ The format parameter has the same behaviour as in toString().
 
   $str = $document->toStringHTML();
 
-toStringHTML deparses the tree to a string as HTML. With this method indenting
+toStringHTML serialize the tree to a string as HTML. With this method indenting
 is automatic and managed by libxml2 internally.
 
 
@@ -270,7 +297,7 @@ is automatic and managed by libxml2 internally.
 
   $str = $document->serialize_html();
 
-Alternative form of toStringHTML().
+An alias for toStringHTML().
 
 
 =item B<is_valid>
@@ -306,7 +333,7 @@ Again, you may pass in a DTD object
 Returns the root element of the Document. A document can have just one root
 element to contain the documents data.
 
-Optionaly one can use getDocumentElement.
+Optionally one can use getDocumentElement.
 
 
 =item B<setDocumentElement>
@@ -364,7 +391,7 @@ Creates an Attribute bound to a namespace.
 
 =item B<createDocumentFragment>
 
-  $fragment = $doc->createDocumentFragment()
+  $fragment = $doc->createDocumentFragment();
 
 This function creates a DocumentFragment.
 
@@ -411,8 +438,8 @@ entity
   $dtd = $document->createInternalSubset( $rootnode, $public, $system);
 
 This function creates and adds an internal subset to the given document.
-Because the function automaticly adds the DTD to the document there is no need
-to add the created node explicitly to the document.
+Because the function automatically adds the DTD to the document there is no
+need to add the created node explicitly to the document.
 
    my $document = XML::LibXML::Document->new();
    my $dtd      = $document->createInternalSubset( "foo", undef, "foo.dtd" );
@@ -422,7 +449,7 @@ will result in the following XML document:
   <?xml version="1.0"?>
    <!DOCTYPE foo SYSTEM "foo.dtd">                    
 
-By setting the public parameter it is possible to set PUBLIC dtds to a given
+By setting the public parameter it is possible to set PUBLIC DTDs to a given
 document. So
 
   my $document = XML::LibXML::Document->new();
@@ -452,8 +479,8 @@ If a node is not part of a document, it can be imported to another document. As
 specified in DOM Level 2 Specification the Node will not be altered or removed
 from its original document ($node->cloneNode(1) will get called implicitly).
 
-NOTE: Don't try to use importNode() to import subtrees that contain an entity
-reference - even if the entity reference is the root node of the subtree. This
+NOTE: Don't try to use importNode() to import sub-trees that contain an entity
+reference - even if the entity reference is the root node of the sub-tree. This
 will cause serious problems to your program. This is a limitation of libxml2
 and not of XML::LibXML itself.
 
@@ -470,10 +497,10 @@ After a document adopted a node, the node, its attributes and all its
 descendants belong to the new document. Because the node does not belong to the
 old document, it will be unlinked from its old location first.
 
-NOTE: Don't try to adoptNode() to import subtrees that contain entity
-references - even if the entity reference is the root node of the subtree. This
-will cause serious problems to your program. This is a limitation of libxml2
-and not of XML::LibXML itself.
+NOTE: Don't try to adoptNode() to import sub-trees that contain entity
+references - even if the entity reference is the root node of the sub-tree.
+This will cause serious problems to your program. This is a limitation of
+libxml2 and not of XML::LibXML itself.
 
 
 =item B<externalSubset>
@@ -549,7 +576,7 @@ In SCALAR context this function returns a XML::LibXML::NodeList object.
 
 =item B<getElementsByTagNameNS>
 
-  my @nodelist = $doc->getElementsByTagName($nsURI,$tagname);
+  my @nodelist = $doc->getElementsByTagNameNS($nsURI,$tagname);
 
 Implements the DOM Level 2 function
 
@@ -566,13 +593,23 @@ Localname.
 In SCALAR context this function returns a XML::LibXML::NodeList object.
 
 
-=item B<getElementsById>
+=item B<getElementById>
 
-  my $node = $doc->getElementsById($id);
+  my $node = $doc->getElementById($id);
 
-This allows the fetching of the node at a given position in the DOM.
+Returns the element that has an ID attribute with the given value. If no such
+element exists, this returns undef.
 
-Note: The Id of a node might change while manipulating the document.
+Note: the ID of an element may change while manipulating the document. For
+documents with a DTD, the information about ID attributes is only available if
+DTD loading/validation has been requested. For HTML documents parsed with the
+HTML parser ID detection is done automatically. In XML documents, all "xml:id"
+attributes are considered to be of type ID. You can test ID-ness of an
+attribute node with $attr->isId().
+
+In versions 1.59 and earlier this method was called getElementsById() (plural)
+by mistake. Starting from 1.60 this name is maintained as an alias only for
+backward compatibility.
 
 
 =item B<indexElements>
@@ -600,12 +637,14 @@ if this feature is not available in the running libxml2.
 
 Matt Sergeant, 
 Christian Glahn, 
+Petr Pajas, 
+
 =head1 VERSION
 
-1.58
+1.64
 
 =head1 COPYRIGHT
 
-2001-2004, AxKit.com Ltd; 2002-2004 Christian Glahn, All rights reserved.
+2001-2007, AxKit.com Ltd; 2002-2006 Christian Glahn; 2006-2007 Petr Pajas, All rights reserved.
 
 =cut

@@ -9,17 +9,71 @@ begin
   rescue LoadError
   end
   require 'osx/active_record'
+  #require File.expand_path('../../framework/src/ruby/osx/objc/active_record', __FILE__)
   require 'sqlite3'
   
-  dbfile = '/tmp/maildemo.sqlite'
-  File.delete(dbfile) if File.exist?(dbfile)
-  system("sqlite3 #{dbfile} < #{ File.join(File.dirname( File.expand_path(__FILE__) ), 'maildemo.sql') }")
-
+  class Object
+    def __stub(mname, *return_values)
+      @return_values = return_values
+      instance_eval %{
+        def self.#{mname}
+          return *@return_values
+        end
+      }
+    end
+  end
+  
+  class FakePointer
+    attr_reader :value
+    def initialize; @value = nil; end
+    def assign(value); @value = value; end
+  end
+  
   ActiveRecord::Base.establish_connection({
     :adapter => 'sqlite3',
-    :dbfile => dbfile
+    :dbfile => ':memory:'
   })
+  ActiveRecord::Migration.verbose = false
+  
+  module ARTestHelper
+    def setup_db
+      ActiveRecord::Schema.define do
+        create_table :mailboxes do |t|
+          t.column :title, :string, :default => 'title'
+        end
 
+        create_table :emails do |t|
+          t.column :mailbox_id, :integer
+          t.column :address, :string, :default => "test@test.com"
+          t.column :subject, :string, :default => "test subject"
+          t.column :body, :text
+          t.column :updated_at, :datetime
+        end
+      end
+    end
+    
+    def teardown_db
+      ActiveRecord::Base.connection.tables.each do |table|
+        ActiveRecord::Base.connection.drop_table(table)
+      end
+    end
+    
+    def setup; setup_db; end
+    def teardown; teardown_db; end
+    
+    def assert_difference(eval_string, difference)
+      initial_value = eval(eval_string)
+      yield
+      assert_equal (initial_value + difference), eval(eval_string)
+    end
+    
+    def assert_no_difference(eval_string)
+      initial_value = eval(eval_string)
+      yield
+      assert_equal initial_value, eval(eval_string)
+    end
+  end
+  
   class Mailbox < ActiveRecord::Base
     has_many :emails
   
@@ -54,87 +108,146 @@ begin
     end
   end
 
-  class FakePointer
-    attr_reader :value
-    def initialize; @value = nil; end
-    def assign(value); @value = value; end
-  end
-
-  class TC_ActiveRecord < Test::Unit::TestCase
-  
-    def setup
-      # when we need more complex tests here should probably go some code that flushes the db
-    end
+  class TC_ActiveRecordClassExtensions < Test::Unit::TestCase
+    include ARTestHelper
     
-    # ---------------------------------------------------------
-    # Class additions
-    # ---------------------------------------------------------
+    def setup
+      setup_db
+      @mailbox = Mailbox.create({'title' => 'foo'})
+    end
     
     # Array
+    
     def test_array_of_activerecords_to_proxies
-      assert Mailbox.find(:all).to_activerecord_proxies.first.is_a?(MailboxProxy)
+      assert_kind_of MailboxProxy, Mailbox.find(:all).to_activerecord_proxies.first
     end
+    
     def test_array_of_proxies_to_original_activerecords
-      mailboxes = Mailbox.find(:all).to_activerecord_proxies
-      assert mailboxes.original_records.first.is_a?(Mailbox)
+      assert_kind_of Mailbox, Mailbox.find(:all).to_activerecord_proxies.original_records.first
     end
+    
     # ActiveRecord::Base
+    
     def test_automatically_creates_a_proxy
       assert Object.const_defined?('MailboxProxy')
     end
+    
     def test_activerecord_to_proxy
-      mailbox = Mailbox.new({'title' => 'foo'})
-      mailbox.save
+      proxy = Mailbox.find(:first).to_activerecord_proxy
+      assert_kind_of MailboxProxy, proxy
+      assert_equal @mailbox, proxy.to_activerecord
+    end
+  end
+  
+  class TC_ActiveRecordSetController < Test::Unit::TestCase
+    include ARTestHelper
     
-      proxy = mailbox.to_activerecord_proxy
-      assert proxy.is_a?(MailboxProxy)
-      assert_equal mailbox, proxy.to_activerecord
+    def setup
+      setup_db
+      3.times { Mailbox.create }
+      @controller = OSX::ActiveRecordSetController.alloc.init
+      @controller.objectClass = MailboxProxy
+      @controller.content = MailboxProxy.find(:all)
     end
     
-    # ---------------------------------------------------------
-    # Subclasses of cocoa classes that add ActiveRecord support
-    # ---------------------------------------------------------
-    
-    # ActiveRecordTableView
-    def test_column_scaffolding
-      tableview = OSX::ActiveRecordTableView.alloc.init
-      recordset_controller = OSX::ActiveRecordSetController.alloc.init
-      
-      # make sure that the required args are passed
-      assert_raises ArgumentError do
-        tableview.scaffold_columns_for(:model => nil, :bind_to => recordset_controller)
-      end
-      assert_raises ArgumentError do
-        tableview.scaffold_columns_for(:model => Email, :bind_to => nil)
-      end
-      
-      # make sure the scaffolding will only contains the columns for: address, subject, body
-      tableview.scaffold_columns_for :model => Email, :bind_to => recordset_controller, :except => ['id', 'updated_at', 'mailbox_id']
-      assert tableview.tableColumns.map { |column| column.identifier.to_s } == ['address', 'subject', 'body']
-      
-      # test block
-      # FIXME: I want to be able to test if some bindings options have been set,
-      # unfortunately I can't find a way to get the bindings options back from the table column.
-      tableview.scaffold_columns_for :model => Email, :bind_to => recordset_controller, :except => 'mailbox_id' do |column, column_options|
-        if column.identifier.to_s == 'address'
-          column.headerCell.setStringValue 'foo'
-        end
-      end
-      tableview.tableColumns.each do |column|
-        if column.identifier.to_s == 'address'
-          assert column.headerCell.stringValue.to_s == 'foo'
-        else
-          assert column.headerCell.stringValue.to_s.downcase.gsub(/\s/, '_') == column.identifier.to_s
-        end
+    def test_should_instantiate_and_save_a_record_on_newObject
+      assert_difference('Mailbox.count', +1) do
+        @controller.newObject
       end
     end
     
+    def test_should_destroy_a_record_on_remove
+      @controller.__stub(:selectedObjects, [MailboxProxy.find(:first)].to_ns)
+      assert_difference('Mailbox.count', -1) do
+        @controller.remove(nil)
+      end
+    end
     
-    # ActiveRecordProxy
-    def test_proxy_init
-      before = Mailbox.count
-      proxy  = MailboxProxy.alloc.init
-      assert Mailbox.count == (before + 1)
+    def test_should_destroy_multiple_records_on_remove
+      @controller.__stub(:selectedObjects, MailboxProxy.find(:all, :limit => 2).to_ns)
+      assert_difference('Mailbox.count', -2) do
+        @controller.remove(nil)
+      end
+    end
+  end
+
+  class TC_BelongsToActiveRecordSetController < Test::Unit::TestCase
+    include ARTestHelper
+    
+    def setup
+      setup_db
+      @controller = OSX::BelongsToActiveRecordSetController.alloc.init
+      @controller.objectClass = MailboxProxy
+      @controller.content = MailboxProxy.find(:all)
+    end
+    
+    def test_should_instantiate_but_not_save_a_record_on_newObject
+      assert_no_difference('Mailbox.count') do
+        @controller.newObject
+      end
+    end
+  end
+  
+  class TC_ActiveRecordTableView < Test::Unit::TestCase
+    include ARTestHelper
+    
+    def setup
+      setup_db
+      @tableview = OSX::ActiveRecordTableView.alloc.init
+      @recordset_controller = OSX::ActiveRecordSetController.alloc.init
+    end
+    
+    def test_should_raise_argument_errors_for_missing_arguments_when_trying_to_scaffold
+      assert_raises ArgumentError do
+        @tableview.scaffold_columns_for :model => nil, :bind_to => @recordset_controller
+      end
+      assert_raises ArgumentError do
+        @tableview.scaffold_columns_for :model => Email, :bind_to => nil
+      end
+    end
+    
+    # FIXME: I don't want to be the one to cause a segfault in the tests,
+    # so for now these are commented, but they should work under normal circumstances.
+    #
+    # def test_should_scaffold_columns_without_block_and_without_specific_fields
+    #   # make sure the scaffolding will only contain the columns for: address, subject, body
+    #   @tableview.scaffold_columns_for :model => Email, :bind_to => @recordset_controller, :except => ['id', 'updated_at', 'mailbox_id']
+    #   assert_equal ['address', 'subject', 'body'], @tableview.tableColumns.map { |column| column.identifier.to_s }
+    # end
+    # 
+    # def test_should_scaffold_columns_with_block_and_do_custom_stuff
+    #   @tableview.scaffold_columns_for(:model => Email, :bind_to => @recordset_controller, :except => 'mailbox_id') do |column, column_options|
+    #     column.headerCell.stringValue = 'foo' if column.identifier.to_s == 'address'
+    #   end
+    #   
+    #   @tableview.tableColumns.each do |column|
+    #     if column.identifier.to_s == 'address'
+    #       assert_equal 'foo', column.headerCell.stringValue
+    #     else
+    #       assert_equal column.identifier.to_s, column.headerCell.stringValue.to_s.downcase.gsub(/\s/, '_')
+    #     end
+    #   end
+    # end
+  end
+  
+  class TC_ActiveRecordProxy < Test::Unit::TestCase
+    include ARTestHelper
+    
+    def setup
+      setup_db
+      mailbox = Mailbox.create('title' => 'foo')
+      mailbox.emails << Email.new
+      @email_proxy = EmailProxy.find(:first)
+    end
+    
+    def teardown
+      teardown_db
+    end
+    
+    def test_proxy_init_should_not_create_a_new_record
+      assert_no_difference("Mailbox.count") do
+        MailboxProxy.alloc.init
+      end
     end
     
     def test_proxy_initWithRecord
@@ -149,20 +262,48 @@ begin
     end
     
     def test_proxy_initWithAttributes
-      before = Mailbox.count
-      proxy = MailboxProxy.alloc.initWithAttributes({ 'title' => 'initWithAttributes' })
-      assert Mailbox.count == (before + 1)
-      assert proxy.to_activerecord.title == 'initWithAttributes'
+      assert_difference('Mailbox.count', +1) do
+        proxy = MailboxProxy.alloc.initWithAttributes({ 'title' => 'initWithAttributes' })
+        assert_equal 'initWithAttributes', proxy.to_activerecord.title
+      end
+    end
+    
+    def test_should_always_return_the_same_cached_proxy_for_a_record_object
+      proxy1 = @email_proxy.mailbox.to_activerecord_proxy
+      proxy2 = @email_proxy.mailbox.to_activerecord_proxy
+      assert_equal proxy1.object_id, proxy2.object_id
+    end
+    
+    def test_should_only_define_all_the_proxy_methods_once
+      temp_class_eval_email_proxy_class do
+        assert_difference("EmailProxy.instance_variable_get(:@test_counter)", +1) do
+          2.times { EmailProxy.find(:first) }
+        end
+      end
+    end
+    
+    def test_should_return_a_proxy_when_requesting_a_belongs_to_associated_record
+      assert_kind_of OSX::ActiveRecordProxy, @email_proxy.mailbox
+    end
+    
+    def test_should_be_able_to_compare_proxies
+      id = Mailbox.create(:title => 'compare').id
+      m1 = MailboxProxy.find(id)
+      m2 = MailboxProxy.find(id)
+      assert_equal m1, m2
+      assert_not_equal m1, 'foo'
     end
     
     def test_generated_instance_methods_on_proxy
-      mailbox = Mailbox.find(:first).to_activerecord_proxy
+      mailbox = MailboxProxy.find(:first)
+      
       # assign through generated setter
-      mailbox.title = 'foo'
-      assert mailbox['title'] == 'foo'
+      mailbox.title = 'baz'
+      assert_equal 'baz', mailbox['title']
+      
       # check through generated getter
       mailbox['title'] = 'bar'
-      assert mailbox.title == 'bar'
+      assert_equal 'bar', mailbox.title
       
       # make sure that others don't work
       assert_raises OSX::OCMessageSendException do
@@ -173,7 +314,7 @@ begin
     def test_methods_from_record
       mailbox = Mailbox.find(:first)
       proxy = mailbox.to_activerecord_proxy
-      assert proxy.record_methods == mailbox.methods
+      assert_equal mailbox.methods, proxy.record_methods
     end
   
     def test_proxy_is_association?
@@ -183,26 +324,30 @@ begin
     end
   
     def test_proxy_method_forwarding
-      mailbox = Mailbox.find(:first).to_activerecord_proxy
-      assert Mailbox.find(:first).title == mailbox.title
+      mailbox = MailboxProxy.find(:first)
+      assert_equal mailbox.title, Mailbox.find(:first).title
     end
   
     def test_proxy_set_and_get_value_for_key
       mailbox = MailboxProxy.alloc.initWithAttributes({'title' => 'bla'})
       mailbox.setValue_forKey( [EmailProxy.alloc.initWithAttributes({'address' => 'bla@example.com', 'subject' => nil, 'body' => 'foobar'})], 'emails' )
   
-      assert mailbox.valueForKey('title').to_s == 'bla'
-      assert mailbox.valueForKey('emails')[0].valueForKey('body').string.to_s == 'foobar'
+      assert_equal 'bla', mailbox.valueForKey('title')
+      assert_equal 'foobar', mailbox.valueForKey('emails')[0].valueForKey('body').string
     
       # check the ability to override the valueForKey method in a subclass
       #
       # block
-      assert mailbox.valueForKey('emails')[0].valueForKey('body').is_a?(OSX::NSAttributedString)
+      assert_kind_of OSX::NSAttributedString, mailbox.valueForKey('emails')[0].valueForKey('body')
+      
       # return
-      assert mailbox.valueForKey('emails')[0].valueForKey('subject').is_a?(OSX::NSAttributedString)
-      assert mailbox.valueForKey('emails')[0].valueForKey('subject').string.to_s == '' # check that we get a new instace, because the value was set to nil
+      assert_kind_of OSX::NSAttributedString, mailbox.valueForKey('emails')[0].valueForKey('subject')
+      
+      # check that we get a new instace, because the value was set to nil
+      assert_equal '', mailbox.valueForKey('emails')[0].valueForKey('subject').string
+      
       # call
-      assert mailbox.valueForKey('emails')[0].valueForKey('address').is_a?(OSX::NSAttributedString)
+      assert_kind_of OSX::NSAttributedString, mailbox.valueForKey('emails')[0].valueForKey('address')
     end
   
     def test_proxy_validate_value_for_key_with_error
@@ -212,32 +357,52 @@ begin
       result = mailbox.validateValue_forKeyPath_error([''], 'title', pointer)
     
       assert result == false
-      assert mailbox.title == before
-      assert pointer.value.is_a?(OSX::NSError)
-      assert pointer.value.userInfo[OSX::NSLocalizedDescriptionKey].to_s == "Mailbox title can't be blank\n"
+      assert_equal before, mailbox.title
+      assert_kind_of OSX::NSError, pointer.value
+      assert_equal "Mailbox title can't be blank\n", pointer.value.userInfo[OSX::NSLocalizedDescriptionKey]
     end
   
     # ActiveRecordProxy class methods
     def test_proxy_to_model_class
-      assert MailboxProxy.model_class == Mailbox
+      assert_equal Mailbox, MailboxProxy.model_class
     end
     
     def test_find_first
       mailbox = Mailbox.find(:first)
       proxy = MailboxProxy.find(:first)
-      assert mailbox == proxy.original_record
+      assert_equal mailbox, proxy.original_record
     end
     
     def test_find_all
       mailboxes = Mailbox.find(:all)
       proxies = MailboxProxy.find(:all)
-      assert mailboxes.last == proxies.last.original_record
+      assert_equal mailboxes, proxies.original_records
     end
     
     def test_find_by
       mailbox = Mailbox.find_by_title('foo')
       proxy = MailboxProxy.find_by_title('foo')
-      assert mailbox == proxy.original_record
+      assert_equal mailbox, proxy.original_record
+    end
+    
+    private
+    
+    # belongs to test_should_only_define_all_the_proxy_methods_once
+    def temp_class_eval_email_proxy_class
+      EmailProxy.class_eval do
+        @record_methods_defined = nil
+        @test_counter = 0
+        
+        alias_method :original_define_record_methods!, :define_record_methods!
+        def define_record_methods!
+          original_define_record_methods!
+          self.class.instance_variable_set(:@test_counter, self.class.instance_variable_get(:@test_counter) + 1)
+        end
+        
+        yield
+        
+        alias_method :define_record_methods!, :original_define_record_methods!
+      end
     end
   end
 

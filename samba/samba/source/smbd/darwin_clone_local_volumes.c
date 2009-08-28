@@ -1,7 +1,7 @@
 /*
  * Darwin Show all volumes for admin users
  *
- * Copyright (c) 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2008 Apple Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,6 +22,7 @@
  * headers.
  */
 #include "includes.h"
+#include "smb_macros.h"
 #include <sys/attr.h>
 
 #define APPLE_SLASH_VOLUMES "/Volumes"
@@ -53,7 +54,8 @@ static void get_volume_name(const char *path, char *volname)
 	nmlen = (u_int32_t *)(attrbuf+sizeof(struct attrreference));
 	/* Should never happen, but just to be safe */
 	if (*nmlen > maxlen) {
-		DEBUG(5, ("name length to large for buffer nmlen = %d  maxlen = %d\n", nmlen, maxlen));
+		DEBUG(5, ("name length to large for buffer nmlen=%u maxlen=%u\n",
+			    (unsigned)nmlen, (unsigned)maxlen));
 		return;
 	}
 	len = *nmlen++;
@@ -62,12 +64,32 @@ static void get_volume_name(const char *path, char *volname)
 	return;
 }
 
+static int add_admin_volume(const char * name, const char * path)
+{
+	int snum;
+
+	snum = lp_servicenumber(name);
+	if (VALID_SNUM(snum)) {
+	    return snum;
+	}
+
+	snum = lp_add_default_service(name);
+	if (!VALID_SNUM(snum)) {
+		return -1;
+	}
+
+	lp_do_parameter(snum, "path", path);
+	lp_do_parameter(snum, "valid users", "+BUILTIN\\Administrators");
+	lp_do_parameter(snum, "read only", "no");
+	return snum;
+}
+
 /*
  * Get all the mounted volumes and search for local volumes that are either the root mount
  * point or have been mounted under /Volumes. Call getattrlist to get the real volume name
  * to display in the share list.
  */
-void apple_clone_local_volumes(int iHomeService, const char *username)
+int apple_clone_local_volumes(const char * svcname)
 {
 	struct statfs *sb, *stat_p = NULL;
 	int n = getfsstat(NULL, 0, MNT_NOWAIT);
@@ -86,22 +108,52 @@ void apple_clone_local_volumes(int iHomeService, const char *username)
 		goto out;
 
 	sb = stat_p;
-	for (ii=0; ii < n; ii++) {
+	for (ii = 0; ii < n; ii++, sb++) {
 		/* Must be local mount and either the root volume or mount under /Volumes */
-		if ((sb->f_flags & MNT_LOCAL) && ((sb->f_flags & MNT_DONTBROWSE) != MNT_DONTBROWSE) &&
-			((strncmp(sb->f_mntonname, "/", 2) == 0) ||
-			 (strncmp(sb->f_mntonname, APPLE_SLASH_VOLUMES, strlen(APPLE_SLASH_VOLUMES)) == 0))) {
+		if (!(sb->f_flags & MNT_LOCAL)) {
+			continue;
+		}
+
+		if (sb->f_flags & MNT_DONTBROWSE)  {
+		    continue;
+		}
+
+		if (strncmp(sb->f_mntonname, "/", 2) == 0) {
+		    continue;
+		}
+
+		if (strncmp(sb->f_mntonname, APPLE_SLASH_VOLUMES,
+			    strlen(APPLE_SLASH_VOLUMES)) == 0) {
+
+			int snum;
 
 			get_volume_name(sb->f_mntonname, volname);
-			if (lp_add_home(volname, iHomeService, username, sb->f_mntonname))
-				DEBUG(5,("Sharing %s with path = %s\n", volname, sb->f_mntonname));
-			else
-				DEBUG(5,("Failed to sharing %s with path = %s\n", volname, sb->f_mntonname));
+
+			/* If we were asked to add a service for a specific
+			 * admin volume, check whether we have the right one.
+			 */
+			if (svcname && !strequal(svcname, volname)) {
+			    continue;
+			}
+
+			snum = add_admin_volume(volname, sb->f_mntonname);
+			if (VALID_SNUM(snum)) {
+				DEBUG(5,("Sharing %s with path = %s\n",
+					    volname, sb->f_mntonname));
+			} else {
+				DEBUG(5,("Failed to share %s with path = %s\n",
+					    volname, sb->f_mntonname));
+			}
+
+			if (svcname) {
+				return snum;
+			}
 		}
-		sb++;
 	}
 
 out:
 	/* Clean up */
 	SAFE_FREE(stat_p);
+
+	return GLOBAL_SECTION_SNUM;
 }

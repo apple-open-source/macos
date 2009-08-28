@@ -13,7 +13,7 @@
 # On Ultrix, /bin/sh is too buggy, change the first line to: #!/bin/sh5
 
 
-# Copyright (C) 1998, 2002, 2004, 2006 Free Software Foundation
+# Copyright (C) 1998, 2002, 2004, 2006, 2007 Free Software Foundation
 # Copyright (C) 1993 Jean-loup Gailly
 
 # This program is free software; you can redistribute it and/or modify
@@ -36,21 +36,21 @@ nl='
 IFS=" $tab$nl"
 
 version='gzexe (gzip) @VERSION@
-Copyright (C) 2006 Free Software Foundation, Inc.
+Copyright (C) 2007 Free Software Foundation, Inc.
 This is free software.  You may redistribute copies of it under the terms of
 the GNU General Public License <http://www.gnu.org/licenses/gpl.html>.
 There is NO WARRANTY, to the extent permitted by law.
 
 Written by Jean-loup Gailly.'
 
-usage='Usage: gzexe [OPTION] FILE...
+usage="Usage: $0 [OPTION] FILE...
 Rename each FILE with a compressed version of itself, renaming FILE to FILE~.
 
   -d             Decompress each FILE instead of compressing it.
       --help     display this help and exit
       --version  output version information and exit
 
-Report bugs to <bug-gzip@gnu.org>.'
+Report bugs to <bug-gzip@gnu.org>."
 
 
 PATH="BINDIR:$PATH"
@@ -106,11 +106,11 @@ for i do
     continue
   fi
   case /$file in
-  */basename | */cat | */chmod | */cp | \
+  */basename | */bash | */cat | */chmod | */cp | \
   */dirname | */echo | */expr | */gzip | \
-  */ln | */mkdir | */mktemp | */mv | */rm | */rmdir | \
+  */ln | */mkdir | */mktemp | */mv | */rm | \
   */sed | */sh | */sleep | */test | */tail)
-    echo >&2 "$0: $i would depend on itself"; continue;;
+    echo >&2 "$0: $i might depend on itself"; continue;;
   esac
 
   dir=`dirname "$file"` || dir=$TMPDIR
@@ -167,7 +167,7 @@ fi || { (exit 127); exit 127; }
 gztmp=$gztmpdir/$0
 case $0 in
 -* | */*'
-') mkdir -p "$gztmp" && rmdir "$gztmp";;
+') mkdir -p "$gztmp" && rm -r "$gztmp";;
 */*) gztmp=$gztmpdir/`basename "$0"`;;
 esac || { (exit 127); exit 127; }
 

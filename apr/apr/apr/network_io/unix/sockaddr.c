@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -98,25 +98,35 @@ static apr_status_t get_remote_addr(apr_socket_t *sock)
     }
 }
 
-APR_DECLARE(apr_status_t) apr_sockaddr_ip_get(char **addr,
-                                         apr_sockaddr_t *sockaddr)
+APR_DECLARE(apr_status_t) apr_sockaddr_ip_getbuf(char *buf, apr_size_t buflen,
+                                                 apr_sockaddr_t *sockaddr)
 {
-    *addr = apr_palloc(sockaddr->pool, sockaddr->addr_str_len);
-    apr_inet_ntop(sockaddr->family,
-                  sockaddr->ipaddr_ptr,
-                  *addr,
-                  sockaddr->addr_str_len);
+    if (!apr_inet_ntop(sockaddr->family, sockaddr->ipaddr_ptr, buf, buflen)) {
+        return APR_ENOSPC;
+    }
+
 #if APR_HAVE_IPV6
-    if (sockaddr->family == AF_INET6 &&
-        IN6_IS_ADDR_V4MAPPED((struct in6_addr *)sockaddr->ipaddr_ptr)) {
+    if (sockaddr->family == AF_INET6 
+        && IN6_IS_ADDR_V4MAPPED((struct in6_addr *)sockaddr->ipaddr_ptr)
+        && buflen > strlen("::ffff:")) {
         /* This is an IPv4-mapped IPv6 address; drop the leading
          * part of the address string so we're left with the familiar
          * IPv4 format.
          */
-        *addr += strlen("::ffff:");
+        memmove(buf, buf + strlen("::ffff:"),
+                strlen(buf + strlen("::ffff:"))+1);
     }
 #endif
+    /* ensure NUL termination if the buffer is too short */
+    buf[buflen-1] = '\0';
     return APR_SUCCESS;
+}
+
+APR_DECLARE(apr_status_t) apr_sockaddr_ip_get(char **addr,
+                                              apr_sockaddr_t *sockaddr)
+{
+    *addr = apr_palloc(sockaddr->pool, sockaddr->addr_str_len);
+    return apr_sockaddr_ip_getbuf(*addr, sockaddr->addr_str_len, sockaddr);
 }
 
 void apr_sockaddr_vars_set(apr_sockaddr_t *addr, int family, apr_port_t port)
@@ -370,7 +380,11 @@ static apr_status_t call_resolver(apr_sockaddr_t **sa,
         /* Ignore anything bogus: getaddrinfo in some old versions of
          * glibc will return AF_UNIX entries for APR_UNSPEC+AI_PASSIVE
          * lookups. */
+#if APR_HAVE_IPV6
         if (ai->ai_family != AF_INET && ai->ai_family != AF_INET6) {
+#else
+        if (ai->ai_family != AF_INET) {
+#endif
             ai = ai->ai_next;
             continue;
         }
@@ -695,18 +709,64 @@ APR_DECLARE(apr_status_t) apr_getnameinfo(char **hostname,
 APR_DECLARE(apr_status_t) apr_getservbyname(apr_sockaddr_t *sockaddr,
                                             const char *servname)
 {
+#if APR_HAS_THREADS && !defined(GETSERVBYNAME_IS_THREAD_SAFE) && \
+    defined(HAVE_GETSERVBYNAME_R) && \
+    (defined(GETSERVBYNAME_R_GLIBC2) || defined(GETSERVBYNAME_R_SOLARIS) || \
+     defined(GETSERVBYNAME_R_OSF1))
+    struct servent se;
+#if defined(GETSERVBYNAME_R_OSF1)
+    struct servent_data sed;
+
+    memset(&sed, 0, sizeof(sed)); /* must zero fill before use */
+#else
+#if defined(GETSERVBYNAME_R_GLIBC2)
+    struct servent *res;
+#endif
+    char buf[1024];
+#endif
+#else
     struct servent *se;
+#endif
 
     if (servname == NULL)
         return APR_EINVAL;
 
+#if APR_HAS_THREADS && !defined(GETSERVBYNAME_IS_THREAD_SAFE) && \
+    defined(HAVE_GETSERVBYNAME_R) && \
+    (defined(GETSERVBYNAME_R_GLIBC2) || defined(GETSERVBYNAME_R_SOLARIS) || \
+     defined(GETSERVBYNAME_R_OSF1))
+#if defined(GETSERVBYNAME_R_GLIBC2)
+    if (getservbyname_r(servname, NULL,
+                        &se, buf, sizeof(buf), &res) == 0 && res != NULL) {
+        sockaddr->port = ntohs(res->s_port);
+        sockaddr->servname = apr_pstrdup(sockaddr->pool, servname);
+        sockaddr->sa.sin.sin_port = res->s_port;
+        return APR_SUCCESS;
+    }
+#elif defined(GETSERVBYNAME_R_SOLARIS)
+    if (getservbyname_r(servname, NULL, &se, buf, sizeof(buf)) != NULL) {
+        sockaddr->port = ntohs(se.s_port);
+        sockaddr->servname = apr_pstrdup(sockaddr->pool, servname);
+        sockaddr->sa.sin.sin_port = se.s_port;
+        return APR_SUCCESS;
+    }
+#elif defined(GETSERVBYNAME_R_OSF1)
+    if (getservbyname_r(servname, NULL, &se, &sed) == 0) {
+        sockaddr->port = ntohs(se.s_port);
+        sockaddr->servname = apr_pstrdup(sockaddr->pool, servname);
+        sockaddr->sa.sin.sin_port = se.s_port;
+        return APR_SUCCESS;
+    }
+#endif
+#else
     if ((se = getservbyname(servname, NULL)) != NULL){
-        sockaddr->port = htons(se->s_port);
+        sockaddr->port = ntohs(se->s_port);
         sockaddr->servname = apr_pstrdup(sockaddr->pool, servname);
         sockaddr->sa.sin.sin_port = se->s_port;
         return APR_SUCCESS;
     }
-    return errno;
+#endif
+    return APR_ENOENT;
 }
 
 #define V4MAPPED_EQUAL(a,b)                                   \

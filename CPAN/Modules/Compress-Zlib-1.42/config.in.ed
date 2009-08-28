@@ -1,0 +1,8 @@
+/BUILD_ZLIB/a
+.
+.,+2c
+BUILD_ZLIB = False
+INCLUDE    = /usr/include
+LIB        = /usr/lib
+.
+w

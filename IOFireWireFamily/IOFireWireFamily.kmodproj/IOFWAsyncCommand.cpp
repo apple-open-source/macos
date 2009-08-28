@@ -35,6 +35,7 @@
 
 // private
 #import "FWDebugging.h"
+#include <IOKit/firewire/IOFWUtils.h>
 
 #define kIOFWAsyncCommandMaxExecutionTime		30000	// try to get the command out for up to 30 seconds
 
@@ -356,7 +357,7 @@ IOReturn IOFWAsyncCommand::checkProgress( void )
 	UInt32 milliDelta;
 	UInt64 nanoDelta;
 		
-	clock_get_uptime( &now );
+	IOFWGetAbsoluteTime( &now );
 	SUB_ABSOLUTETIME( &now, &IOFWCommand::fMembers->fSubmitTime );
 	absolutetime_to_nanoseconds( now, &nanoDelta );
 	milliDelta = nanoDelta / 1000000;

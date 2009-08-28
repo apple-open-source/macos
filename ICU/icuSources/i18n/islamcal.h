@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2003-2004, International Business Machines Corporation
+ ********************************************************************************
+ * Copyright (C) 2003-2008, International Business Machines Corporation
  * and others. All Rights Reserved.
  ******************************************************************************
  *
@@ -80,7 +81,7 @@ U_NAMESPACE_BEGIN
  * @author Steven R. Loomis
  * @internal
  */
-class U_I18N_API IslamicCalendar : public Calendar {
+class IslamicCalendar : public Calendar {
  public:
   //-------------------------------------------------------------------------
   // Constants...
@@ -268,7 +269,7 @@ class U_I18N_API IslamicCalendar : public Calendar {
    * @param time  The time at which the moon's age is desired,
    *              in millis since 1/1/1970.
    */
-  static double moonAge(UDate time);
+  static double moonAge(UDate time, UErrorCode &status);
 
   //-------------------------------------------------------------------------
   // Internal data....
@@ -362,7 +363,7 @@ class U_I18N_API IslamicCalendar : public Calendar {
    * @return   The class ID for all objects of this class.
    * @internal
    */
-  static UClassID U_EXPORT2 getStaticClassID(void);
+  U_I18N_API static UClassID U_EXPORT2 getStaticClassID(void);
 
   /**
    * return the calendar type, "buddhist".

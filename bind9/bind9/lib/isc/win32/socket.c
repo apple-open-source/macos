@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: socket.c,v 1.30.18.40 2008/09/16 17:14:35 explorer Exp $ */
+/* $Id: socket.c,v 1.70 2008/09/16 17:19:01 explorer Exp $ */
 
 /* This code uses functions which are only available on Server 2003 and
  * higher, and Windows XP and higher.
@@ -235,6 +235,8 @@ struct isc_socket {
 	unsigned int		references; /* EXTERNAL references */
 	SOCKET			fd;	/* file handle */
 	int			pf;	/* protocol family */
+	char			name[16];
+	void *			tag;
 
 	/*
 	 * Each recv() call uses this buffer.  It is a per-socket receive
@@ -1426,6 +1428,7 @@ allocate_socket(isc_socketmgr_t *manager, isc_sockettype_t type,
 	sock->connected = 0;
 	sock->pending_connect = 0;
 	sock->bound = 0;
+	memset(sock->name, 0, sizeof(sock->name));	// zero the name field
 	_set_state(sock, SOCK_INITIALIZED);
 
 	sock->recvbuf.len = 65536;
@@ -1604,6 +1607,7 @@ isc_socket_create(isc_socketmgr_t *manager, int pf, isc_sockettype_t type,
 
 	REQUIRE(VALID_MANAGER(manager));
 	REQUIRE(socketp != NULL && *socketp == NULL);
+	REQUIRE(type != isc_sockettype_fdwatch);
 
 	result = allocate_socket(manager, type, &sock);
 	if (result != ISC_R_SUCCESS)
@@ -1758,6 +1762,7 @@ isc_socket_create(isc_socketmgr_t *manager, int pf, isc_sockettype_t type,
 isc_result_t
 isc_socket_open(isc_socket_t *sock) {
 	REQUIRE(VALID_SOCKET(sock));
+	REQUIRE(sock->type != isc_sockettype_fdwatch);
 
 	return (ISC_R_NOTIMPLEMENTED);
 }
@@ -1790,6 +1795,7 @@ isc_socket_detach(isc_socket_t **socketp) {
 	REQUIRE(socketp != NULL);
 	sock = *socketp;
 	REQUIRE(VALID_SOCKET(sock));
+	REQUIRE(sock->type != isc_sockettype_fdwatch);
 
 	LOCK(&sock->lock);
 	CONSISTENT(sock);
@@ -1815,6 +1821,7 @@ isc_socket_detach(isc_socket_t **socketp) {
 isc_result_t
 isc_socket_close(isc_socket_t *sock) {
 	REQUIRE(VALID_SOCKET(sock));
+	REQUIRE(sock->type != isc_sockettype_fdwatch);
 
 	return (ISC_R_NOTIMPLEMENTED);
 }
@@ -2849,6 +2856,7 @@ isc_socket_sendto(isc_socket_t *sock, isc_region_t *region,
 	isc_result_t ret;
 
 	REQUIRE(VALID_SOCKET(sock));
+	REQUIRE(sock->type != isc_sockettype_fdwatch);
 
 	LOCK(&sock->lock);
 	CONSISTENT(sock);
@@ -3618,8 +3626,33 @@ isc_socket_permunix(isc_sockaddr_t *addr, isc_uint32_t perm,
 }
 
 void
+isc_socket_setname(isc_socket_t *socket, const char *name, void *tag) {
+
+	/*
+	 * Name 'socket'.
+	 */
+
+	REQUIRE(VALID_SOCKET(socket));
+
+	LOCK(&socket->lock);
+	memset(socket->name, 0, sizeof(socket->name));
+	strncpy(socket->name, name, sizeof(socket->name) - 1);
+	socket->tag = tag;
+	UNLOCK(&socket->lock);
+}
+
+const char *
+isc_socket_getname(isc_socket_t *socket) {
+	return (socket->name);
+}
+
+void *
+isc_socket_gettag(isc_socket_t *socket) {
+	return (socket->tag);
+}
+
+void
 isc__socketmgr_setreserved(isc_socketmgr_t *manager, isc_uint32_t reserved) {
 	UNUSED(manager);
 	UNUSED(reserved);
 }
-

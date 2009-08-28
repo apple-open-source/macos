@@ -104,28 +104,28 @@ udp_in_init(void)
 	if (nsock > 0) return 0;
 	if (global.launch_dict == NULL)
 	{
-		asldebug("%s: laucnchd dict is NULL\n", MY_ID);
+		asldebug("%s: launchd dict is NULL\n", MY_ID);
 		return -1;
 	}
 
 	sockets_dict = launch_data_dict_lookup(global.launch_dict, LAUNCH_JOBKEY_SOCKETS);
 	if (sockets_dict == NULL)
 	{
-		asldebug("%s: laucnchd lookup of LAUNCH_JOBKEY_SOCKETS failed\n", MY_ID);
+		asldebug("%s: launchd lookup of LAUNCH_JOBKEY_SOCKETS failed\n", MY_ID);
 		return -1;
 	}
 
 	fd_array = launch_data_dict_lookup(sockets_dict, UDP_SOCKET_NAME);
 	if (fd_array == NULL)
 	{
-		asldebug("%s: laucnchd lookup of UDP_SOCKET_NAME failed\n", MY_ID);
+		asldebug("%s: launchd lookup of UDP_SOCKET_NAME failed\n", MY_ID);
 		return -1;
 	}
 
 	nsock = launch_data_array_get_count(fd_array);
 	if (nsock <= 0)
 	{
-		asldebug("%s: laucnchd fd array is empty\n", MY_ID);
+		asldebug("%s: launchd fd array is empty\n", MY_ID);
 		return -1;
 	}
 
@@ -134,7 +134,7 @@ udp_in_init(void)
 		fd_dict = launch_data_array_get_index(fd_array, i);
 		if (fd_dict == NULL)
 		{
-			asldebug("%s: laucnchd file discriptor array element 0 is NULL\n", MY_ID);
+			asldebug("%s: launchd file discriptor array element 0 is NULL\n", MY_ID);
 			return -1;
 		}
 
@@ -160,7 +160,8 @@ udp_in_init(void)
 		}
 	}
 
-	for (i = 0; i < nsock; i++) if (ufd[i] != -1) aslevent_addfd(ufd[i], 0, udp_in_acceptmsg, NULL, NULL);
+	for (i = 0; i < nsock; i++) if (ufd[i] != -1) aslevent_addfd(SOURCE_UDP_SOCKET, ufd[i], 0, udp_in_acceptmsg, NULL, NULL);
+
 	return 0;
 }
 

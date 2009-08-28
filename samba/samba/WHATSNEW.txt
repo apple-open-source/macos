@@ -1,11 +1,595 @@
                    ===============================
+                   Release Notes for Samba 3.0.28a
+                            Mar 8, 2008
+                   ===============================
+
+This is the second production release of the Samba 3.0.28 code 
+base and is the version that servers should be run for for all 
+current bug fixes.  
+
+Major bug fixes included in Samba 3.0.28a are:
+
+  o Failure to join Windows 2008 domains
+  o Windows Vista (including SP1 RC) interop issues
+
+
+
+######################################################################
+Changes
+#######
+
+smb.conf changes
+----------------
+
+    Parameter Name                      Description     Default
+    --------------                      -----------     -------
+    administrative share                New             No
+    ldap debug level                    New             0
+    ldap debug threshold                New             10
+
+
+Changes since 3.0.28
+--------------------
+
+o   Michael Adam <obnox@samba.org>
+    * Fix bug in version string's vendor tag.
+    * Prevent net getdomainsid from crashing when called as non-root.
+    * BUG 4801: Correctly implement LSA lookup levels for LookupNames.
+    * Fixes for internal LookupNames() calls for unqualified users and 
+      groups.
+    * Remove unnecessary functions when managing domain trust 
+      passwords.
+    * Fix winbindd on a Samba DC talking to a trusted domain DC
+      (again).
+    * Consolidate the detection of the machine_account_name when
+      obtaining trust credentials from the local database.
+    * Refactor trust account database routines and session key
+      management.
+    * Fix retrieval of trusted domain password policies when
+      authenticating a user (only when WBFLAG_PAM_GET_PWD is config
+      flags is set).
+    * Refactor Winbind's cm_connect_sam().
+    * Enable building the notify_fam module.
+    * Add "ldap debug level" and "ldap debug threshold" smb.conf options.
+
+
+o   Jeremy Allison <jra@samba.org>
+    * Fix cut-n-paste bug when filling in form values for Printer
+      info.
+    * Fix SMB signing bug found by Volker.
+    * Create locking.tdb when running smbstatus before smbd to avoid
+      confusing error messages.
+    * Add a portable version of strlcpy and strlcat.
+    * BUG 4780: Cause user mounts to inherit uid= and gid= from the
+      calling user when called as non-root, except when overridden on
+      the command line.  Original patch by Steve Langasek.
+    * BUG 5802: Recent versions of Linux-PAM support localization of
+      user prompts, so Samba must use the C locale when invoking PAM
+    * Merge Vista principal detection changes by Andreas Schneider
+      from 3.2 branch.
+    * BUG 5121: Fix problems running unix passwd sync on streams based 
+      systems.
+    * BUG 4612: Fix smbd crash when connecting from an OS/2 client.
+    * Back port Volker's ACL fixes on newly create files form 3.2.
+    * Ensure that send_getdc_request() matches the 3.2 code base.
+    * BUG 3617: Fix crash in nmbd caused by referencing freed memory.
+    * Fixes for issues reported by IBM checker.
+    * Fixes for issues reported by Coverity.
+    * Back port Volker's fix for nlink count.
+    * Back port SAMR flag fixes from Matt Geddes
+      <musicalcarrion@gmail.com>.
+    * BUG 4929: Cope with protected ACL set correctly (based on work
+      from Jim McDonough).
+    * Fix ACL set bug when group being set is the primary group.
+    * Ensure NDR wire-reads of string types are always null
+      terminated.
+    * BUG 5247: Fix mget wildcard expansion in smbclient.
+    * Fix bug in SPNEGO negotiation.
+    * BUG 3617: Fix "Invalid read of size 4" errors.
+    * BUG 5267: Prevent nmbd from shutting down when no network
+      interfaces can be located.
+
+
+o   Kai Blin <kai@samba.org>
+    * libsmb: Do not upper-case target name on NTLMv2 hash generation.
+    * Fix an incompatible pointer type warning.
+
+
+o   Gerald Carter <jerry@samba.org>
+    * Restrict the enctypes in the generated krb5.conf files to
+      Win2003 types.
+
+
+o   Steven Danneman <steven.danneman@isilon.com>
+    * Error path memory leak fixes.
+
+
+o   Guenther Deschner <gd@samba.org>
+    * Fix PAC decoding from Vista SP1 client.
+    * Fix get_trust_creds() to return always an upper-cased krb5
+      principal.
+    * Back port additional fixes necessary for support Windows 2008
+      domain joins from the 3.2 branch.
+
+
+o   Mathias Gug <mathiaz@ubuntu.com>
+    * BUG 5802: Recent versions of Linux-PAM support localization of
+      user prompts, so Samba must use the C locale when invoking PAM
+
+
+o   Steve Langasek <vorlon@debian.org>
+    * BUG 3727: Fix smbpasswd abort when called by non-root user.
+    * BUG 4784: Prevent umount.cifs from allowing all users to unmount shares.
+    * BUG 5802: Recent versions of Linux-PAM support localization of
+      user prompts, so Samba must use the C locale when invoking PAM
+
+
+o   Volker Lendecke <vl@samba.org>
+    * When allocating a new vuid, also avoid partial ones.  Also
+      fully invalidate intermediate ones.
+    * Fix error path exit in create_local_nt_token() to correctly roll 
+      back security contexts.
+    * Fix valgrind warnings in nmbd.
+    * Pointer initialization fixes in notify_marshall_changes().
+    * BUG 5208: Fix uninitialized variables in vfs_hpuxacl.c (reported 
+      by David Leonard <David.Leonard@quest.com>).
+    * Copy the 3.2 version of string_replace to 3.0.
+    * Port SMB_FS_OBJECTID_INFORMATION from 3.2 (Patch by Corinna
+      Vinschen).
+    * Memory leak fixes.
+    * Fix error code propagation from cli_session_setup_kerberos().
+    * BUG 5217: Fix inotify detection.
+    * BUG 5279: Correctly check return of rename().
+    * BUG 5252: Fix confusing error messages in mount.cifs.
+    * BUG 5307: Respect FAMChanged (Thanks to Ricardo Santos).
+    * Work around a handle leak in XP 64 bit.
+
+
+o   Guenter Kukkukk <linux@kukkukk.com>
+    * OS/2 returns eclass == ERRDOS && ecode == ERRnofiles for a zero 
+      entry directory listing.
+
+
+o   Tom Maher <tmaher@watson.org>
+    * BUG 5175: Support krb5 auth in smbcacls.
+
+
+o   Hans Mayer <hans.mayer@ages.at>
+    * BUG 5141: Solaris 9 compile fix.
+
+
+o   Stefan Metzmacher <metze@samba.org>
+    * Fix default printing system detection in libreplace. 
+
+
+o   Laurent Pinchart <pinchart@skynet.be>
+    * BUG 5163: Return better error codes when a password cannot be
+      set in and LDAP directory.
+
+
+o   Jiri Sasek <Jiri.Sasek@Sun.COM>
+    * BUG 4866: Correct password routine detection on Solaris.
+
+
+o   Andreas Schneider <anschneider@suse.de>
+    * Remove trailing slashes on server names when parsing input from
+      smbclient.
+    * Support Windows 2008 domain joins (variant of Todd Stecher's
+      original patch).
+    * Add "administrative share" service parameter for defining hidden
+      administrative shares that cannot be managed from Windows.
+
+
+o   Karolin Seeger <kseeger@samba.org>
+    * Use the "ldap user suffix" when enumerating a users group
+      memberships.
+
+
+o   Simo Sorce <idra@samba.org>
+    * Don't assume NULL termination when copying the principal name
+      in kerberos_get_default_realm_from_ccache().
+    * Fix winbindd running on a Samba DC (again).
+
+
+o   Bo Yang <boyang@novell.com>
+    * Fix bad private_data pointer in winbindd_lookupname_async().
+
+
+
+Release notes for older releases follow:
+
+      --------------------------------------------------
+
+                   ==============================
+                   Release Notes for Samba 3.0.28
+                            Dec 10, 2007
+                   ==============================
+
+Samba 3.0.28 is a security release in order to address the following
+defect:
+
+  o CVE-2007-6015
+    Boundary failure in GETDC mailslot processing can result in 
+    a buffer overrun
+
+The original security announcement for this and past advisories can 
+be found http://www.samba.org/samba/security/
+
+######################################################################
+Changes
+#######
+
+Changes since 3.0.27a
+---------------------
+
+o   Jeremy Allison <jra@samba.org>
+    * Fix for CVE-2007-6015.
+
+o   Volker Lendecke <vl@samba.org>
+    * Fix for CVE-2007-6015.
+    * Add missing unbecome_root() calls in error path processing
+      when failing to add local groups in create_local_nt_token().
+
+
+      --------------------------------------------------
+
+                   ===============================
+                   Release Notes for Samba 3.0.27a
+                             Nov 20, 2007
+                   ===============================
+
+Samba 3.0.27a is a bug fix release and is the current release
+for production servers running the Samba 3.0 series.
+
+Important fixes in 3.0.27a include:
+
+  o A crash bug regression experienced by smbfs clients caused
+    by the fix for CVE-2007-4572.
+
+
+
+######################################################################
+Changes
+#######
+
+Changes since 3.0.27
+--------------------
+
+o   Michael Adam <obnox@samba.org>
+    * BUG 4308: Add missing become_root/unbecome_root around calls of 
+      add_aliases.  Add same changes in create_token_from_username()
+      surrounding the call to getsampwsid().
+    * BUG 5083: Make solarisacl_sys_acl_get_fd() return a result when 
+      there is one (thereby fixing a memleak).
+    * BUG 5023: Fix smbd's interaction with NFSv4 ACL compatible VFS 
+      plugins such as GPFS and ZFS.
+
+
+o   Jeremy Allison <jra@samba.org>
+    * BUG 4978: Ensure that DOS attributes are copied with folders.
+    * Fix bug where tdb lock call interrupted with an alarm sig would 
+      not terminate and could lead to runaway smbd processes.
+    * Fix smbd crash bug which resulted from a regression in the patch
+      for CVE-2007-4572 patch.
+    * Prevent nmbd from adding non-initialized name to IP address
+      mappings to it's WINS database.
+
+
+o   Dmitry Butskoy <buc@odusz.so-cdu.ru>
+    * Properly catch errors in the query_user() callback to avoid
+      generated struct passwd replies with zero length usernames.
+
+
+o   Gerald (Jerry) Carter <jerry@samba.org>
+    * Prevent segv in winbindd running on a DC using the "idmap
+      backend" syntax.
+
+
+o   Steve Langasek <vorlon@debian.org>
+    * BUG 4781: Allow cleaning of /etc/mtab by canonicalizing mountpoint.
+
+
+o   Volker Lendecke <vl@samba.org>
+    * BUG 4028: Fix message popup sent via "smbclient -M".
+    * BUG 4984: Filename unix_convert() fixes for WinNT 4.0 clients.
+
+
+o   Stefan Metzmacher <metze@samba.org>
+    * Fix crash bug in pidl generated client code caused by
+      [in,out,unique] pointers.
+    * Fix crash bug in the group mapping code.
+
+
+o   Heinrich Mislik <Heinrich.Mislik@univie.ac.at>
+    * Fixes for AIX quota support.
+
+
+o   Tomasz Ostrowski <tometzky@batory.org.pl>
+    * BUG 4393: Prevent smbclient from dropping 0 bytes files from tar 
+      archives.
+
+
+o   Simo Sorce <idra@samba.org>
+    * Fixes for internal idmap domain list when "winbind trusted
+      domains only" is enabled.
+    * Fix 32/64-bit compatibility issues in the winbind request/response
+      structures.
+
+
+o   Martin Zielinski <mz@seh.de>
+    * Error code path fix for get_mydnsdomname().
+
+
+
+      --------------------------------------------------
+
+                   ==============================
+                   Release Notes for Samba 3.0.27
+                            Nov 15, 2007
+                   ==============================
+
+Samba 3.0.27 is a security release in order to address the following
+defects:
+
+  o CVE-2007-4572
+    Stack buffer overflow in nmbd's logon request processing.
+
+  o CVE-2007-5398
+    Remote code execution in Samba's WINS server daemon (nmbd) 
+    when processing name registration followed name query requests.
+
+The original security announcement for this and past advisories can 
+be found http://www.samba.org/samba/security/
+
+######################################################################
+Changes
+#######
+
+Changes since 3.0.26a
+---------------------
+
+o   Jeremy Allison <jra@samba.org>
+    * Fix for CVE-2007-4572.
+    * Fix for CVE-2007-5398.
+
+
+o   Simo Sorce <idra@samba.org>
+    * Additional fixes for CVE-2007-4572.
+
+
+      --------------------------------------------------
+                   ===============================
+                   Release Notes for Samba 3.0.26a
+                             Sep 11, 2007
+                   ===============================
+
+Major bug fixes included in Samba 3.0.26a are:
+
+  o Memory leaks in Winbind's IDMap manager.
+
+
+######################################################################
+Changes
+#######
+
+Changes since 3.0.26
+--------------------
+
+o   Michael Adam <obnox@samba.org>
+    * Fix read_sock() semantics in wb_common.c to address "invalid
+      request size" errors in winbindd logs.
+    * Fix use of pwrite() in tdb IO code paths.
+
+     
+o   Jeremy Allison <jra@samba.org>
+    * Fix logic error in timeout of blocking lock processing.
+
+
+o   Guenther Deschner <gd@samba.org>
+    * Fix error code in the msrpc EnumerateDomainGroups() Winbind
+      method when a memory allocation fails.
+    * Fix Winbind initialization storms when contacting an older Samba DC.
+
+    
+o   Volker Lendecke <vl@samba.org>
+    * Fix compile failure in NFSv4 VFS module.
+    * Fix compile failures on True64.
+    * Fix compile failure in unmaintained python bindings.
+    * BUG 4917: Fix memory leaks in Winbind's idmap_ldap and
+      idmap_cache backends.
+    * Coverity fixes in the group mapping code.
+
+
+o   Derrell Lipman <derrell@samba.org>
+    * Remove NetBIOS keepalives from libsmbclient and consolidate on
+      the use of getpeername() when checking connection health.
+    * Use formal syntax for invoking function pointers in
+      libsmbclient.
+
+
+o   Lars Mueller <lars@samba.org>
+    * Fixes for Winbind's AD site support when the host is not
+      configured in any site or nor DC's are present within the host's
+      configured site.
+
+
+o   Simo Sorce <idra@samba.org>
+    * Debian packaging updates for 3.0.25c.
+    * Add sanity checks for "smb ports" values.
+    * Fix compile issues related to the VFS "open" method and newer
+      glibc implementations.
+    * Fix a segv in smbldap_set_creds() when using an anonymous
+      connection.
+    * BUG 4772: Fix us of ldap_base_dn for the idmap_ldap plugin.
+
+
+Release notes for older releases follow:
+
+      --------------------------------------------------
+                   ==============================
+                   Release Notes for Samba 3.0.26
+                             Sep 11, 2007
+                   ==============================
+
+This is a security release of Samba 3.0 to address
+
+  o CVE-2007-4138
+	Versions: All Samba 3.0.25 releases
+	Incorrect primary group assignment for
+	domain users using the rfc2307 or sfu
+	winbind nss info plugin.
+
+The original security announcement for this and past advisories
+can be found http://www.samba.org/samba/security/
+
+######################################################################
+Changes
+#######
+
+Changes since 3.0.25c
+---------------------
+
+o   Gerald (Jerry) Carter <jerry@samba.org>
+    * Fix CVE-2007-4138 in the "winbind nss info = {sfu | rfc2307}"
+      plugin (idmap_ad.c)
+
+
+      --------------------------------------------------
+                   ===============================
+                   Release Notes for Samba 3.0.25c
+                             Aug 20, 2007
+                   ===============================
+
+Major bug fixes included in Samba 3.0.25c are:
+
+  o File sharing with Widows 9x clients.
+  o Winbind running out of file descriptors due to stalled 
+    child processes.
+  o MS-DFS inter-operability issues.
+
+
+######################################################################
+Changes
+#######
+
+Changes since 3.0.25b
+---------------------
+
+o   Michael Adam <obnox@samba.org>
+    * Fix incorrect log messages in tdbbackup.
+    * Fix a bug in pwrite error detection in tdb_expand_file().
+
+
+o   Jeremy Allison <jra@samba.org>
+    * BUG 4711: Make cli_connect() return NT_STATUS codes.
+    * Ensure we obey Unicode consortium restrictions.  Based on 
+      patch from MORIYAMA Masayuki.
+    * BUG 3204: Cope with stalled winbindd child processes and 
+      prevent the parent winbindd process from running out of file  
+      descriptors.
+    * Fix realloc leak on failure case from Jim Meyering.
+    * BUG 4759: Fix crash in ber_printf() caused invalid tag.
+    * BUG 4763: Limit notify responses to client max buf size.      
+    * BUG 4777: Doing a DFS traverse through a deep link could fail
+      (not using explorer).
+    * BUG 4779: Setting the allocation size updates the modified 
+      time as a write does.
+    * BUG 4308: Fix interaction with MS Excel and POSIX ACLs.
+    * Fix POSIX unlink bug found by the Linux CIFS fs client.
+    * Stop counting locks if we get a POSIX lock request.
+    * Fix interaction between Linux CIFS fs client and Windows
+      clients when the former tries to remove a file opened by the 
+      latter.
+    * Fix incorrect mapping of invalid resume names in FindNext 
+      commands.
+    * Cope with dead entries in the locking database tied to 
+      non-existent processes (merge from 3.2-ctdb).
+    * Fix MS-DFS related renaming bug in smbclient.
+    * Fix for write cache corruption bug.
+    * Fix invalid vuid from being returned by a failed call to
+      cli_session_setup_spnego.().
+    * Fixes for error mappings from NT_STATUS to the appropriate DOS
+      error codes in reply_opeNXXX() calls.
+
+
+o   Ofir Azoulay <Ofir.Azoulay@expand.com>
+    * Only look at errno set by SMB_VFS_CLOSE() if the call actually 
+      failed.
+
+
+o   Alexander Bokovoy <ab@samba.org>
+    * Fix vfs_readahead: transparent modules should always pass 
+      through.
+
+
+o   David S. Collier-Brown <davecb@spamcop.net>
+    * BUG 4897: Fix Solaris xattr misdeclarations.
+
+
+o   Guenther Deschner <gd@samba.org>
+    * Remove redundant pointer checks when freeing memory in winbindd.
+    * BUG 4408: Remove last traces of Heimdal KCM support.
+    * Fix bug in user Krb5 ticket refresh feature in winbindd.
+    * Fix Heimdal path in the krb5 renew routine.
+    * Unused code cleanup in winbindd.
+
+
+o   SATOH Fumiyasu <fumiyas@osstech.co.jp>
+    * BUG 4750: smbc_telldir_ctx() was not returning a value useful 
+      to smbc_lseekdir_ctx().
+
+
+o   Bjoern Jacke <bj@sernet.de>
+    * Add support for Extended Attributes on Solaris.
+
+
+o   Matthijs Kooijman <matthijs@stdin.nl>
+    * BUG 4836: Fix incorrect log message in the nss_info 
+      plugin init call.
+    * BUG 4849: Fix "net ads dns register" usage text.
+
+
+o   Volker Lendecke <vl@samba.org>
+    * Port cli_connect() NT_STATUS fixes to smbmount.
+    * Add notes about smbfs/cifs to usage() in smb[u]mount.
+    * BUG 4792: Fix pidfile name bug.
+    * Fix missing END_PROFILE() call in the SMBunlink reply.
+    * Coverity fixes.
+    * Correct logic error in change notify code that would result in 
+      an endless loop.
+    * Fix uninitialized reads in the spoolss GetPrinterData() replies.
+    * Fix file overwrites from Windows 9x clients.
+
+
+o   Herb Lewis <herb@samba.org>
+    * Unused code cleanup.
+    * Avoid a crash in "net rpc info" when no username has 
+      been specified.
+    * Remove biconv detection on *BSD.
+
+
+o   Derrell Lipman <derrell@samba.org>
+    * Get/Set ACL fixes in libsmbclient.
+
+
+o   Jan Martin <Jan.Martin@rwedea.com>
+    * BUG 4860: Patches for fixing MS-DFS links with trailing 
+      back slashes.
+
+
+o   Jim McDonough <jmcd@us.ibm.com>
+    * BUG 4719: "Must change password" is not set from usrmgr.exe.
+
+
+o   Atsushi Nakabayashi <nakabayashi@miraclelinux.com>
+    * Ensure proper exit when nmbd is unable to reopen the wins.tdb.
+    * Fix error path memleaks in the messaging subsystem.
+
+      --------------------------------------------------
+                   ===============================
                    Release Notes for Samba 3.0.25b
                              June 26, 2007
                    ===============================
-
-This is the third production release of the Samba 3.0.25 code 
-base and is the version that servers should be run for for all 
-current bug fixes.  
 
 Major bug fixes included in Samba 3.0.25b are:
 
@@ -16,7 +600,7 @@ Major bug fixes included in Samba 3.0.25b are:
 
 
 Changes to 'net idmap dump'
----------------------------
+===========================
 
 A change in command line syntax and behavior was introduced in the
 3.0.25 release series where the command 
@@ -24,7 +608,7 @@ A change in command line syntax and behavior was introduced in the
   $ net idmap dump /.../path/to/idmap.tdb
 
 would overwrite the tdb instead of dumping its contents to standard 
-output as was the case in releases priro to Samba 3.0.25.  The 
+output as was the case in releases prior to Samba 3.0.25.  The 
 changed has been reverted in 3.0.25b and the semantics from 3.0.24
 and earlier releases have been restored.  
 

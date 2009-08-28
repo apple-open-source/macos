@@ -1,8 +1,8 @@
 /* thr_stub.c - stubs for the threads */
-/* $OpenLDAP: pkg/ldap/libraries/libldap_r/thr_stub.c,v 1.22.2.4 2006/01/03 22:16:09 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap_r/thr_stub.c,v 1.27.2.8 2008/05/27 20:07:31 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -173,6 +173,14 @@ ldap_pvt_thread_pool_maxthreads ( ldap_pvt_thread_pool_t *tpool, int max_threads
 }
 
 int
+ldap_pvt_thread_pool_query( ldap_pvt_thread_pool_t *tpool,
+	ldap_pvt_thread_pool_param_t param, void *value )
+{
+	*(int *)value = -1;
+	return(-1);
+}
+
+int
 ldap_pvt_thread_pool_backload (
 	ldap_pvt_thread_pool_t *pool )
 {
@@ -193,8 +201,12 @@ int ldap_pvt_thread_pool_getkey (
 }
 
 int ldap_pvt_thread_pool_setkey (
-	void *ctx, void *key, void *data, ldap_pvt_thread_pool_keyfree_t *kfree )
+	void *ctx, void *key,
+	void *data, ldap_pvt_thread_pool_keyfree_t *kfree,
+	void **olddatap, ldap_pvt_thread_pool_keyfree_t **oldkfreep )
 {
+	if ( olddatap ) *olddatap = NULL;
+	if ( oldkfreep ) *oldkfreep = 0;
 	return(0);
 }
 
@@ -214,6 +226,16 @@ int ldap_pvt_thread_pool_resume (
 	return(0);
 }
 
+int ldap_pvt_thread_pool_pausing( ldap_pvt_thread_pool_t *tpool )
+{
+	return(0);
+}
+
+ldap_pvt_thread_pool_pausecheck( ldap_pvt_thread_pool_t *tpool )
+{
+	return(0);
+}
+	
 void *ldap_pvt_thread_pool_context( )
 {
 	return(NULL);
@@ -226,6 +248,37 @@ void ldap_pvt_thread_pool_context_reset( void *vctx )
 ldap_pvt_thread_t
 ldap_pvt_thread_self( void )
 {
+	return(0);
+}
+
+int
+ldap_pvt_thread_key_create( ldap_pvt_thread_key_t *key )
+{
+	return(0);
+}
+
+int
+ldap_pvt_thread_key_destroy( ldap_pvt_thread_key_t key )
+{
+	return(0);
+}
+
+int
+ldap_pvt_thread_key_setdata( ldap_pvt_thread_key_t key, void *data )
+{
+	return(0);
+}
+
+int
+ldap_pvt_thread_key_getdata( ldap_pvt_thread_key_t key, void **data )
+{
+	return(0);
+}
+
+ldap_pvt_thread_t
+ldap_pvt_thread_pool_tid( void *vctx )
+{
+
 	return(0);
 }
 

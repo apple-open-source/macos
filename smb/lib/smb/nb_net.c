@@ -2,7 +2,7 @@
  * Copyright (c) 2000, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -92,7 +92,7 @@ int isLocalNetworkAddress(u_int32_t addr)
 		smb_log_info("%s: socket failed!", -1, ASL_LEVEL_ERR, __FUNCTION__);
 		return foundit;
 	}
-	ifc.ifc_len = sizeof (buffer);
+	ifc.ifc_len = (int)sizeof (buffer);
     ifc.ifc_buf = (char*) buffer;
 	if (ioctl(so, SIOCGIFCONF, (char *)&ifc) < 0) {
 		smb_log_info("%s: ioctl (get interface configuration)!", -1, ASL_LEVEL_ERR, __FUNCTION__);
@@ -187,7 +187,7 @@ int nb_resolvehost_in(const char *name, struct sockaddr **dest, u_int16_t port, 
 		}		
 	}
 
-	len = sizeof(struct sockaddr_in);
+	len = (int)sizeof(struct sockaddr_in);
 	sinp = malloc(len);
 	*dest = (struct sockaddr*)sinp;
 	if (sinp == NULL)
@@ -216,7 +216,7 @@ nb_enum_if(struct nb_ifdesc **iflist, int maxif)
 	if (s == -1)
 		return errno;
 
-	rdlen = maxif * sizeof(struct ifreq);
+	rdlen = (int)(maxif * sizeof(struct ifreq));
 	ifrdata = malloc(rdlen);
 	if (ifrdata == NULL) {
 		error = ENOMEM;
@@ -229,12 +229,12 @@ nb_enum_if(struct nb_ifdesc **iflist, int maxif)
 		goto bad;
 	} 
 	ifrqp = ifc.ifc_req;
-	ifcnt = ifc.ifc_len / sizeof(struct ifreq);
+	ifcnt = ifc.ifc_len / (int)sizeof(struct ifreq);
 	error = 0;
 	/* freebsd bug: ifreq size is variable - must use _SIZEOF_ADDR_IFREQ */
 	for (i = 0; i < ifc.ifc_len;
 	     i += len, ifrqp = (struct ifreq *)((caddr_t)ifrqp + len)) {
-		len = _SIZEOF_ADDR_IFREQ(*ifrqp);
+		len = (int)_SIZEOF_ADDR_IFREQ(*ifrqp);
 		/* XXX for now, avoid IP6 broadcast performance costs */
 		if (ifrqp->ifr_addr.sa_family != AF_INET)
 			continue;
@@ -260,7 +260,7 @@ nb_enum_if(struct nb_ifdesc **iflist, int maxif)
 		if (ifd == NULL)
 			return ENOMEM;
 		bzero(ifd, sizeof(struct nb_ifdesc));
-		strcpy(ifd->id_name, iname);
+		strlcpy(ifd->id_name, iname, sizeof(ifd->id_name));
 		ifd->id_flags = iflags;
 		ifd->id_addr = iaddr;
 		ifd->id_mask = imask;

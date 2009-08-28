@@ -40,6 +40,11 @@ extern "C"
 
 #include <CommonCrypto/aesopt.h>
 
+/*	Produce object code iff UseGladmanAES is defined.  Otherwise, suppress
+	use of this module, because some other AES implementation is being used.
+*/
+#if defined UseGladmanAES
+
 #if defined(FIXED_TABLES)
 
 #define sb_data(w) {\
@@ -378,7 +383,8 @@ void gen_tabs(void)
 
 #endif
 
+#endif	// defined UseGladmanAES
+
 #if defined(__cplusplus)
 }
 #endif
-

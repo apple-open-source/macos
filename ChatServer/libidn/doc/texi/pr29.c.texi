@@ -1,3 +1,5 @@
+@subheading pr29_4
+@anchor{pr29_4}
 @deftypefun {int} {pr29_4} (const uint32_t * @var{in}, size_t @var{len})
 @var{in}: input array with unicode code points.
 
@@ -13,6 +15,8 @@ and @code{PR29_PROBLEM} if the input sequence is a "problem sequence"
 implementations).
 @end deftypefun
 
+@subheading pr29_4z
+@anchor{pr29_4z}
 @deftypefun {int} {pr29_4z} (const uint32_t * @var{in})
 @var{in}: zero terminated array of Unicode code points.
 
@@ -26,6 +30,8 @@ and @code{PR29_PROBLEM} if the input sequence is a "problem sequence"
 implementations).
 @end deftypefun
 
+@subheading pr29_8z
+@anchor{pr29_8z}
 @deftypefun {int} {pr29_8z} (const char * @var{in})
 @var{in}: zero terminated input UTF-8 string.
 

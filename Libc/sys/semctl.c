@@ -24,7 +24,6 @@
 #include <stdarg.h>
 #include <sys/sem.h>
 
-#if !__DARWIN_UNIX03
 #include <errno.h>
 /*
  * Because KERNEL is defined, including errno.h doesn't define errno, so
@@ -32,10 +31,9 @@
  */
 extern int * __error(void);
 #define errno (*__error())
-#endif /* !__DARWIN_UNIX03 */
 
 /*
- * Stub function to account for the differences in the ipc_perm structure,
+ * Legacy stub to account for the differences in the ipc_perm structure,
  * while maintaining binary backward compatibility.
  */
 extern int __semctl(int semid, int semnum, int cmd, void *);
@@ -46,21 +44,6 @@ semctl(int semid, int semnum, int cmd, ...)
 	va_list			ap;
 	int			rv;
 	int			val = 0;
-#if __DARWIN_UNIX03
-	struct __semid_ds_new	*ds;
-
-	va_start(ap, cmd);
-	if (cmd == SETVAL) {
-		val = va_arg(ap, int);
-		rv = __semctl(semid, semnum, cmd, (void *)val);
-	} else {
-		ds = va_arg(ap, struct __semid_ds_new *);
-		rv = __semctl(semid, semnum, cmd, (void *)ds);
-	}
-	va_end(ap);
-
-	return rv;
-#else	/* !__DARWIN_UNIX03 */
 	struct __semid_ds_new	ds;
 	struct __semid_ds_new	*ds_new = &ds;
 	struct __semid_ds_old   *ds_old = NULL;
@@ -136,5 +119,4 @@ semctl(int semid, int semnum, int cmd, ...)
 	}
 
 	return (rv);
-#endif	/* !__DARWIN_UNIX03 */
 }

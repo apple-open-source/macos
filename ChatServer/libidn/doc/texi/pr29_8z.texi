@@ -1,3 +1,5 @@
+@subheading pr29_8z
+@anchor{pr29_8z}
 @deftypefun {int} {pr29_8z} (const char * @var{in})
 @var{in}: zero terminated input UTF-8 string.
 

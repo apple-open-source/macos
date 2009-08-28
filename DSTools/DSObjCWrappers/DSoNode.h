@@ -66,7 +66,7 @@
  *       Invokes getAttribute: and grabs the first value of the array it returns.
  * @param inAttributeType The DS attribute type constant to get values for.
  */
-- (NSString*)			getAttributeFirstValue:(const char*)inAttributeType;
+- (NSString*)			getAttributeFirstValue:(const char*)inAttributeType DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method      getAttributeFirstValue:allowBinary:
@@ -77,7 +77,7 @@
                 return nil.
  */
 
-- (id) getAttributeFirstValue:(const char *)inAttributeType allowBinary:(BOOL)inAllowBinary;
+- (id) getAttributeFirstValue:(const char *)inAttributeType allowBinary:(BOOL)inAllowBinary DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method getAttribute:
@@ -85,7 +85,7 @@
  * @param inAttributeType The DS attribute type constant to get values for.
  * @result An array of NSStrings with the values of the requested attribute type.
  */
-- (NSArray*)			getAttribute:(const char*)inAttributeType;
+- (NSArray*)			getAttribute:(const char*)inAttributeType DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method      getAttribute:allowBinary:
@@ -94,7 +94,7 @@
                 inAllowBinary Whether or not to return binary NSData or just NSStrings
  * @result      An array of NSStrings or NSData with the values of the requested attribute type.
  */
-- (NSArray*)            getAttribute:(const char*)inAttributeType allowBinary:(BOOL)inAllowBinary;
+- (NSArray*)            getAttribute:(const char*)inAttributeType allowBinary:(BOOL)inAllowBinary DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*! 
  * @method getAllAttributes
@@ -103,7 +103,7 @@
         DS attribute type constants and the values of the dictionary
         are NSStrings of the corresponding values of that attribute type.
  */
-- (NSDictionary*)		getAllAttributes;
+- (NSDictionary*)		getAllAttributes DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method      getAllAttributesAllowingBinary:
@@ -115,20 +115,20 @@
                 values of that attribute type.
  */
 
-- (NSDictionary*)		getAllAttributesAllowingBinary:(BOOL)allowBinary;
+- (NSDictionary*)		getAllAttributesAllowingBinary:(BOOL)allowBinary DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method getName
  * @abstract The Directory Services name of this node.
  */
-- (NSString*)		getName;
+- (NSString*)		getName DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method findRecordTypes
  * @abstract Retrieve a list of the record types this node contains.
  * @result An array of NSStrings whose values are equal to the C string, DS Record type constants.
  */
-- (NSArray*)		findRecordTypes;
+- (NSArray*)		findRecordTypes DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method hasRecordsOfType:
@@ -136,7 +136,7 @@
  * @param inType The type of record to check for.
  * @result YES if there exists at least 1 record of the specified type.
  */
-- (BOOL)	hasRecordsOfType:(const char*)inType;
+- (BOOL)	hasRecordsOfType:(const char*)inType DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method findRecordNames:andAttributes:ofType:matchType:
@@ -153,7 +153,7 @@
  * @result An NSArray of NSDictionarys whose keys are the attribute type name and whose values
  *		are a an NSArray of attribute values.  It will always include the attribute kDSNAttrRecordName.
  */
-- (NSArray*)		findRecordNames:(NSString*)inName andAttributes:(NSArray*)inAttributes ofType:(const char*)inType matchType:(tDirPatternMatch)inMatchType;
+- (NSArray*)		findRecordNames:(NSString*)inName andAttributes:(NSArray*)inAttributes ofType:(const char*)inType matchType:(tDirPatternMatch)inMatchType DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method findRecordNames:ofType:matchType:
@@ -169,7 +169,7 @@
  * @param inMatchType The type of patterm matching to use (tDirPatternMatch).
  * @result An NSArray of NSStrings whose values are the names of the matching records.
  */
-- (NSArray*)		findRecordNames:(NSString*)inName ofType:(const char*)inType matchType:(tDirPatternMatch)inMatchType;
+- (NSArray*)		findRecordNames:(NSString*)inName ofType:(const char*)inType matchType:(tDirPatternMatch)inMatchType DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method findRecordNamesOfTypes:withAttribute:value:matchType:
@@ -182,7 +182,7 @@
  * @param inMatchType The type of pattern matching to use for the search.
  * @result An NSArray of NSStrings whose values are the names of the matching records.
  */
-- (NSArray*)		findRecordNamesOfTypes:(NSArray*)inTypes withAttribute:(const char*)inAttrib value:(id)inValue matchType:(tDirPatternMatch)inMatchType;
+- (NSArray*)		findRecordNamesOfTypes:(NSArray*)inTypes withAttribute:(const char*)inAttrib value:(id)inValue matchType:(tDirPatternMatch)inMatchType DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method findRecordsOfTypes:withAttribute:value:matchType:
@@ -196,7 +196,7 @@
  * @result An Array of NSDictionarys whose keys are the attribute types of the records
  *			and the values are NSArrays of the attribute values.
  */
-- (NSArray*)		findRecordsOfTypes:(NSArray*)inTypes withAttribute:(const char*)inAttrib value:(id)inValue matchType:(tDirPatternMatch)inMatchType;
+- (NSArray*)		findRecordsOfTypes:(NSArray*)inTypes withAttribute:(const char*)inAttrib value:(id)inValue matchType:(tDirPatternMatch)inMatchType DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method findRecordsOfTypes:withAttribute:value:matchType:allowBinary:
@@ -211,7 +211,7 @@
  * @result An Array of NSDictionarys whose keys are the attribute types of the records
  *			and the values are NSArrays of the attribute values.
  */
-- (NSArray*)		findRecordsOfTypes:(NSArray*)inTypes withAttribute:(const char*)inAttrib value:(id)inValue matchType:(tDirPatternMatch)inMatchType allowBinary:(BOOL)inAllowBinary;
+- (NSArray*)		findRecordsOfTypes:(NSArray*)inTypes withAttribute:(const char*)inAttrib value:(id)inValue matchType:(tDirPatternMatch)inMatchType allowBinary:(BOOL)inAllowBinary DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method findRecordsOfTypes:withAttribute:value:matchType:retrieveAttributes:
@@ -227,7 +227,7 @@
  * @result An Array of NSDictionarys whose keys are the requested attribute types
  *			of the records and the values are NSArrays of the attribute values.
  */
-- (NSArray*)		findRecordsOfTypes:(NSArray*)inTypes withAttribute:(const char*)inAttrib value:(id)inValue matchType:(tDirPatternMatch)inMatchType retrieveAttributes:(NSArray*)inAttribsToRetrieve;
+- (NSArray*)		findRecordsOfTypes:(NSArray*)inTypes withAttribute:(const char*)inAttrib value:(id)inValue matchType:(tDirPatternMatch)inMatchType retrieveAttributes:(NSArray*)inAttribsToRetrieve DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method findRecordsOfTypes:withAttribute:value:matchType:retrieveAttributes:allowBinary:
@@ -244,7 +244,7 @@
  * @result An Array of NSDictionarys whose keys are the requested attribute types
  *			of the records and the values are NSArrays of the attribute values.
  */
-- (NSArray*)		findRecordsOfTypes:(NSArray*)inTypes withAttribute:(const char*)inAttrib value:(id)inValue matchType:(tDirPatternMatch)inMatchType retrieveAttributes:(NSArray*)inAttribsToRetrieve allowBinary:(BOOL)inAllowBinary;
+- (NSArray*)		findRecordsOfTypes:(NSArray*)inTypes withAttribute:(const char*)inAttrib value:(id)inValue matchType:(tDirPatternMatch)inMatchType retrieveAttributes:(NSArray*)inAttribsToRetrieve allowBinary:(BOOL)inAllowBinary DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method findRecord:ofType:
@@ -254,7 +254,7 @@
  * @param inName The name of the record.
  * @param inType The type of the record.
  */
-- (DSoRecord*)		findRecord:(NSString*)inName ofType:(const char*)inType;
+- (DSoRecord*)		findRecord:(NSString*)inName ofType:(const char*)inType DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method findUser:
@@ -262,14 +262,14 @@
  * @discussion Invokes findRecord:ofType: with ofType set to kDSStdRecordTypeUsers.
  * @param inName The record name of the user.
  */
-- (DSoUser*)		findUser:(NSString*)inName;
+- (DSoUser*)		findUser:(NSString*)inName DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 /*!
  * @method findGroup:
  * @abstract Find a group in the node.
  * @discussion Invokes findRecord:ofType: with ofType set to kDSStdRecordTypeGroups.
  * @param inName The record name of the group.
  */
-- (DSoGroup*)		findGroup:(NSString*)inName;
+- (DSoGroup*)		findGroup:(NSString*)inName DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method newRecord:ofType:
@@ -277,7 +277,7 @@
  * @param inName The name of the new record.
  * @param inType The type of the record.
  */
-- (DSoRecord*)		newRecord:(NSString*)inName ofType:(const char*)inType;
+- (DSoRecord*)		newRecord:(NSString*)inName ofType:(const char*)inType DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method authenticateName:withPassword:
@@ -286,7 +286,7 @@
  *		with authOnly set to YES.
  */
 - (tDirStatus)		authenticateName:(NSString*)inName
-                      withPassword: (NSString*)inPasswd;
+                      withPassword: (NSString*)inPasswd DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method authenticateName:withPassword:authOnly:
@@ -304,7 +304,7 @@
  */
 - (tDirStatus)		authenticateName:(NSString*)inName
                       withPassword: (NSString*)inPasswd
-                      authOnly: (BOOL)inAuthOnly;
+                      authOnly: (BOOL)inAuthOnly DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method authenticateWithBufferItems:authType:authOnly:
@@ -319,7 +319,7 @@
  */
 - (tDirStatus) authenticateWithBufferItems: (NSArray*)inBufferItems
 								  authType: (const char*)inAuthType
-								  authOnly: (BOOL)inAuthOnly;
+								  authOnly: (BOOL)inAuthOnly DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method authenticateWithBufferItems:authType:authOnly:responseBufferItems:
@@ -336,7 +336,7 @@
 - (tDirStatus) authenticateWithBufferItems: (NSArray*)inBufferItems
                                   authType: (const char*)inAuthType
                                   authOnly: (BOOL)inAuthOnly
-					   responseBufferItems: (NSArray**)outBufferItems;
+					   responseBufferItems: (NSArray**)outBufferItems DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method customCall:inputData:outputData:
@@ -349,15 +349,15 @@
  * @param outputData Data returned from the custom call.
  */
 - (tDirStatus)customCall:(int)number inputData:(NSData*)inputData
-                                    outputData:(NSMutableData*)outputData;
+                                    outputData:(NSMutableData*)outputData DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 									
 - (tDirStatus)customCall:(int)number
 	sendPropertyList:(id)propList 
-	withAuthorization:(void*)authExternalForm;
+	withAuthorization:(void*)authExternalForm DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 - (tDirStatus)customCall:(int)number
 	sendData:(NSData*)data 
-	withAuthorization:(void*)authExternalForm;
+	withAuthorization:(void*)authExternalForm DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 	
 /*!
  * @method customCall:sendItems:outputData:
@@ -370,34 +370,34 @@
  * @param outputData Data returned from the custom call.
  */
 - (tDirStatus)customCall:(int)number sendItems:(NSArray*)items 
-									outputData:(NSMutableData*)outputData;
+									outputData:(NSMutableData*)outputData DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 - (tDirStatus)customCall:(int)number
-	withAuthorization:(void*)authExternalForm;
+	withAuthorization:(void*)authExternalForm DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 - (tDirStatus)customCall:(int)number
 	receiveData:(NSMutableData*)outputData 
 	withAuthorization:(void*)authExternalForm
-	sizeCall:(int)sizeNumber;
+	sizeCall:(int)sizeNumber DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method adminGroup
  * @abstract Convenience method to get the admin group from this node.
  */
-- (DSoGroup*)		adminGroup;
+- (DSoGroup*)		adminGroup DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method directory
  * @abstract Gets the Directory object that contains this node.
  */
-- (DSoDirectory*)	directory;
+- (DSoDirectory*)	directory DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method dsNodeReference
  * @abstract Method for accessing the low-level data type.
  * @result The Directory Services node reference value for this node.
  */
-- (tDirNodeReference)dsNodeReference;
+- (tDirNodeReference)dsNodeReference DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 // "protected" methods
 
@@ -420,15 +420,15 @@ typedef struct {
  *		be created with DSoDirectory's findNode: methods.
  */
 - (id)initWithDir:(DSoDirectory*)inDir nodeRef:(tDirNodeReference)inNodeRef 
-                  nodeName:(NSString*)inNodeName;
+                  nodeName:(NSString*)inNodeName DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 - (RecID) _findRecord: (NSString*)inName
-            ofType: (const char*)inType;
+            ofType: (const char*)inType DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
-- (BOOL)usesMultiThreaded;
-- (void)setUsesMultiThreaded:(BOOL)inValue;
-- (BOOL)supportsSetAttributeValues;
-- (void)setSupportsSetAttributeValues:(BOOL)inValue;
+- (BOOL)usesMultiThreaded DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
+- (void)setUsesMultiThreaded:(BOOL)inValue DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
+- (BOOL)supportsSetAttributeValues DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
+- (void)setSupportsSetAttributeValues:(BOOL)inValue DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 @end
 

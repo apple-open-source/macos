@@ -32,7 +32,7 @@
 .\"     from: @(#)fmod.3	5.1 (Berkeley) 5/2/91
 .\"	$Id: remainder.3,v 1.4 2004/12/20 21:35:46 scp Exp $
 .\"
-.Dd July 22, 2003
+.Dd July 02, 2008
 .Dt REMAINDER 3
 .Os
 .Sh NAME
@@ -55,6 +55,12 @@ If there are two integers closest to x/y, n shall be the even one. If r is zero,
 .Sh SPECIAL VALUES
 .Fn remainder "x, y"
 returns a NaN and raises the "invalid" floating-point exception if x is infinite or y is 0.
+.Sh NOTE
+The
+.Fn drem
+function is deprecated.  Please use the C99 function
+.Fn remainder
+instead.
 .Sh SEE ALSO
 .Xr math 3
 .Sh STANDARDS

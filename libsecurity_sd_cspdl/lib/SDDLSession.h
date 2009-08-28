@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2004,2008 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -29,6 +29,7 @@
 #define _H_SDDLSESSION
 
 #include <security_cdsa_plugin/DLsession.h>
+#include <security_cdsa_utilities/u32handleobject.h>
 #include <securityd_client/ssclient.h>
 
 class SDCSPDLPlugin;
@@ -137,14 +138,14 @@ public:
 	Allocator &allocator() { return *static_cast<DatabaseSession *>(this); }
 
 protected:
-	void postGetRecord(SecurityServer::RecordHandle record, CSSM_HANDLE resultsHandle,
+	void postGetRecord(SecurityServer::RecordHandle record, U32HandleObject::Handle resultsHandle,
 					   CSSM_DB_HANDLE db,
 					   CssmDbRecordAttributeData *pAttributes,
 					   CSSM_DB_RECORD_ATTRIBUTE_DATA_PTR inoutAttributes,
 					   CssmData *inoutData, SecurityServer::KeyHandle hKey);
 
 	CSSM_DB_UNIQUE_RECORD_PTR makeDbUniqueRecord(SecurityServer::RecordHandle recordHandle);
-	SecurityServer::RecordHandle findDbUniqueRecord(const CSSM_DB_UNIQUE_RECORD &inUniqueRecord);
+	CSSM_HANDLE findDbUniqueRecord(const CSSM_DB_UNIQUE_RECORD &inUniqueRecord);
 	void freeDbUniqueRecord(CSSM_DB_UNIQUE_RECORD &inUniqueRecord);
 
 	SecurityServer::ClientSession mClientSession;

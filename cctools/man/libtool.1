@@ -1,4 +1,4 @@
-.TH LIBTOOL 1 "February 28, 2006" "Apple Computer, Inc."
+.TH LIBTOOL 1 "September 24, 2008" "Apple Inc."
 .SH NAME
 libtool \- create libraries
 .br
@@ -119,7 +119,7 @@ runs the link editor,
 .IR ld (1),
 with
 .B \-dylib
-once for each architecutre present in the input objects and then
+once for each architecture present in the input objects and then
 .IR lipo (1)
 to create a universal file if needed.
 .SH "ARCHIVE (or statically linked) LIBRARIES"
@@ -181,7 +181,7 @@ This is the default.
 Produce a dynamically linked shared library from the input files.
 .TP
 .BI \-install_name " name"
-ror a dynamic shared library this specifies the file
+For a dynamic shared library, this specifies the file
 .I name
 the library will be installed in for programs that use it.  If this is not
 specified the name specified by the
@@ -189,7 +189,7 @@ specified the name specified by the
 option will be used.
 .TP
 .BI \-compatibility_version " number"
-For a dynamic shared library this specifies the compatibility version number
+For a dynamic shared library, this specifies the compatibility version number
 of the library.  When a library is used the compatibility version is checked
 and if the user's version is greater that the library's version, an error message is printed and the using program exits.
 The format of
@@ -430,8 +430,11 @@ was modified with
 .IR ar (1)
 and the table of contents was not updated by rerunning
 .IR ranlib (1).
-Thus the link editor,
-.IR ld ,
-warns when the modification date of a library is more recent than the
-creation date of its table of contents.  Unfortunately, this means that 
-you get the warning even if you only copy the library.
+So previously the link editor,
+.IR ld (1),
+generated an error when the modification date of a library was more recent than 
+the creation date of its table of contents.  Unfortunately, this meant that 
+you got the error even if you only copy the library.  Since this error was
+found to be too much of a nuisance it was removed.  So now it is possible
+again to get link errors if the library is modified and the table of contents is
+not updated.

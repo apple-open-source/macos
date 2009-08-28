@@ -30,6 +30,7 @@ struct gdbarch;
 struct regcache;
 
 #include "frame.h"		/* For enum frame_type.  */
+#include "value.h"              /* enum opt_state */
 
 /* The following unwind functions assume a chain of frames forming the
    sequence: (outer) prev <-> this <-> next (inner).  All the
@@ -113,7 +114,7 @@ typedef void (frame_this_id_ftype) (struct frame_info *next_frame,
 typedef void (frame_prev_register_ftype) (struct frame_info *next_frame,
 					  void **this_prologue_cache,
 					  int prev_regnum,
-					  int *optimized,
+					  enum opt_state *optimized,
 					  enum lval_type * lvalp,
 					  CORE_ADDR *addrp,
 					  int *realnump, gdb_byte *valuep);

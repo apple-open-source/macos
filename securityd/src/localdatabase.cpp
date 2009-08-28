@@ -249,7 +249,7 @@ void LocalDatabase::deriveKey(const Context &context, Key *key,
 	CssmData *param, uint32 usage, uint32 attrs, RefPointer<Key> &derivedKey)
 {
     if (key) {
-		key->validate(CSSM_ACL_AUTHORIZATION_DERIVE, cred);
+		key->validate(CSSM_ACL_AUTHORIZATION_DERIVE, context);
         context.replace(CSSM_ATTRIBUTE_KEY, myKey(*key).cssmKey());
 	}
 	CssmClient::DeriveKey derive(Server::csp(), context.algorithm(), CSSM_ALGID_NONE);

@@ -41,7 +41,9 @@ AEP_Patches    = Makefile.in.diff \
                  PR4076593.diff \
                  PR4121764.diff \
                  PR4302566.diff \
-                 PR4670363.diff
+                 PR4670363.diff \
+                 PR5291011.diff \
+                 PR5024303.diff
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j
@@ -56,7 +58,7 @@ ifeq ($(AEP),YES)
 	$(RMDIR) $(SRCROOT)/$(Project)
 	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(Project)
 	for patchfile in $(AEP_Patches); do \
-		(cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile) || exit 1; \
+		(cd $(SRCROOT)/$(Project) && patch -p0 -F0 < $(SRCROOT)/patches/$$patchfile) || exit 1; \
 	done
 endif
 

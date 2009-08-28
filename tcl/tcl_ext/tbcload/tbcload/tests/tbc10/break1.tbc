@@ -1,0 +1,79 @@
+# break1.tcl --
+#
+#  Test file for compilation.
+#  Contains nested for/foreach loops interrupted by break statements, used
+#  to check generation of the exception ranges arrays.
+#
+# Copyright (c) 1998-2000 Ajuba Solutions
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+# 
+# RCS: @(#) $Id: break1.tbc,v 1.2 2000/05/30 22:19:07 wart Exp $
+# TclPro::Compiler::Include
+
+if {[catch {package require tbcload 1.0} err] == 1} {
+    error "The TclPro ByteCode Loader is not available"
+}
+tbcload::bceval {
+TclPro ByteCode 1 0 1.0 8.0
+15 0 105 14 2 0 72 1 4 15 15 -1 -1
+105
+w0E<!:B`W!;btt!(<E<!=|yTv9ytt!0#>6#>fvpv<Gwjw4_6>!/E`<!Lb#pv)9E<!1d1U!.#
+YQ#-ivpvIcSs!.|/=!JW2X*.`8s!6G:3w3)T=!9fAs!/K*!!82Ts!1;giwz
+15
+38Ppv:Jk:v?&#:v=&s!
+15
+98PpvV;>:v?>G:v9N<!
+14
+x
+6
+7,V`FW+%
+x
+0
+
+x
+3
+uju,
+i
+8
+x
+5
+5'WTA>v
+x
+5
+vCuSA>v
+x
+3
+gwi-
+i
+0
+x
+7
+%6|,EYt|+
+x
+7
+w^DTANk,,
+x
+12
+5'WTAfW0`F1?0bE
+x
+345
+6dV<+1=,D+PO/`FxaQZ6>5cDFWl4s4I6dfDU`xQH^=faE|'X>wLdV<+>#V<+3k'+EtsY8A7A
+K(FBFVE+ILMEFVPSaD4gVTArH8:+JS)!F/MqcB+-0bED7R@wLdV<+4CDE+?NfCF2MtxGdpPF
++9<*8AkcU?+ILMEFVPSaD4gVTAW`xQHDn<@whP*+EtsY8A2/jJDtrI9>w!saE2MtxGsvV<+>
+wO@wLdV<+%6|,EwAoC+vCuSA#^2jB0tCE+omKw?6dV<+*Q*+EtsY8A2/jJDtrI9>w!saE2Mt
+xG|H8:+=3rfAtIa:@!)qcB+-0bEbkTKD8%DE+6/jJD??xQHYP_nAJwAdB+-0bEbkTKD8%DE+
+hG6^D8?0bEbkTKD@n&<I%#um#LdV<+gIa:@0brm#h9m0@+dmID(oATA@)QDFD_9:+TX93I+!
+
+x
+6
+sT2TAIPw
+x
+4
+HW?87
+2
+L 1 39 10 55 50 -1
+L 1 50 2 55 -1 -1
+0
+}

@@ -1,0 +1,16 @@
+// pam_authenticate	pam_acct_mgmt	
+xlate(PAM_SILENT, 0x8000U, PAM_SILENT, 0x7fffffff - 1) 
+xlate(PAM_DISALLOW_NULL_AUTHTOK, 0x0001U, PAM_DISALLOW_NULL_AUTHTOK, 0x1)
+
+// pam_setcred
+xlate(PAM_ESTABLISH_CRED, 0x0002U, PAM_ESTABLISH_CRED, 0x1)
+xlate(PAM_DELETE_CRED, 0x0004U, PAM_DELETE_CRED, 0x2)
+xlate(PAM_REINITIALIZE_CRED, 0x0008U, PAM_REINITIALIZE_CRED, 0x4)
+xlate(PAM_REFRESH_CRED, 0x0010U, PAM_REFRESH_CRED, 0x8)
+
+// pam_chauthtok
+//xlate(PAM_SILENT, 0x8000U, PAM_SILENT, 0x7fffffff - 1) 
+xlate(PAM_CHANGE_EXPIRED_AUTHTOK, 0x0020U, PAM_CHANGE_EXPIRED_AUTHTOK, 0x4)
+
+// pam_open_session	pam_close_session
+//xlate(PAM_SILENT, 0x8000U, PAM_SILENT, 0x7fffffff - 1) 

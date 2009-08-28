@@ -28,9 +28,8 @@
 #include "StaticCode.h"
 #include <Security/SecCodeHost.h>
 #include "cskernel.h"
-#include "cfmunge.h"
+#include <security_utilities/cfmunge.h>
 #include <security_utilities/debugging.h>
-#include <sys/codesign.h>
 
 namespace Security {
 namespace CodeSigning {
@@ -40,8 +39,9 @@ namespace CodeSigning {
 // Construction
 //
 SecCode::SecCode(SecCode *host)
-	: mHost(host)
+	: mHost(host), mIdentified(false)
 {
+	CODESIGN_DYNAMIC_CREATE(this, host);
 }
 
 
@@ -50,6 +50,30 @@ SecCode::SecCode(SecCode *host)
 //
 SecCode::~SecCode() throw()
 {
+}
+
+
+//
+// CF-level comparison of SecStaticCode objects compares CodeDirectory hashes if signed,
+// and falls back on comparing canonical paths if (both are) not.
+//
+bool SecCode::equal(SecCFObject &secOther)
+{
+	SecCode *other = static_cast<SecCode *>(&secOther);
+	CFDataRef mine = this->cdHash();
+	CFDataRef his = other->cdHash();
+	if (mine || his)
+		return mine && his && CFEqual(mine, his);
+	else
+		return this->staticCode()->equal(*other->staticCode());
+}
+
+CFHashCode SecCode::hash()
+{
+	if (CFDataRef h = this->cdHash())
+		return CFHash(h);
+	else
+		return this->staticCode()->hash();
 }
 
 
@@ -69,12 +93,47 @@ SecCode *SecCode::host() const
 //
 SecStaticCode *SecCode::staticCode()
 {
-	if (!mStaticCode) {
-		mStaticCode.take(this->getStaticCode());
-		secdebug("seccode", "%p got static=%p", this, mStaticCode.get());
+	if (!mIdentified) {
+		this->identify();
+		mIdentified = true;
 	}
 	assert(mStaticCode);
 	return mStaticCode;
+}
+
+
+//
+// Yield the CodeDirectory hash as presented by our host.
+// This usually is the same as the hash of staticCode().codeDirectory(), but might not
+// if files are changing on disk while code is running.
+//
+CFDataRef SecCode::cdHash()
+{
+	if (!mIdentified) {
+		this->identify();
+		mIdentified = true;
+	}
+	return mCDHash;		// can be NULL (host has no dynamic identity for guest)
+}
+
+
+//
+// Retrieve current dynamic status.
+//
+SecCodeStatus SecCode::status()
+{
+	if (this->isRoot())
+		return kSecCodeStatusValid;			// root of trust, presumed valid
+	else
+		return this->host()->getGuestStatus(this);
+}
+
+void SecCode::status(SecCodeStatusOperation operation, CFDictionaryRef arguments)
+{
+	if (this->isRoot())
+		MacOSError::throwMe(errSecCSHostProtocolStateError);
+	else
+		this->host()->changeGuestStatus(this, operation, arguments);
 }
 
 
@@ -88,20 +147,19 @@ SecCode *SecCode::locateGuest(CFDictionaryRef)
 
 
 //
-// By default, we map ourselves to disk using our host's mapping facility.
+// By default, we self-identify by asking our host to identify us.
 // (This is currently only overridden in the root-of-trust (kernel) implementation.)
-// The caller owns the object returned.
 //
-SecStaticCode *SecCode::getStaticCode()
+void SecCode::identify()
 {
-	return host()->mapGuestToStatic(this);
+	mStaticCode.take(host()->identifyGuest(this, &mCDHash.aref()));
 }
 
 
 //
 // The default implementation cannot map guests to disk
 //
-SecStaticCode *SecCode::mapGuestToStatic(SecCode *guest)
+SecStaticCode *SecCode::identifyGuest(SecCode *, CFDataRef *)
 {
 	MacOSError::throwMe(errSecCSNoSuchCode);
 }
@@ -118,31 +176,21 @@ SecStaticCode *SecCode::mapGuestToStatic(SecCode *guest)
 // This function validates internal requirements in the hosting chain. It does
 // not validate external requirements - the caller needs to do that with a separate call.
 //
-static const uint8_t interim_hosting_default_requirement[] = {
-	// anchor apple and (identifier com.apple.translate or identifier com.apple.LaunchCFMApp)
-	0xfa, 0xde, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x54, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x06,
-	0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x07, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x13,
-	0x63, 0x6f, 0x6d, 0x2e, 0x61, 0x70, 0x70, 0x6c, 0x65, 0x2e, 0x74, 0x72, 0x61, 0x6e, 0x73, 0x6c,
-	0x61, 0x74, 0x65, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x16, 0x63, 0x6f, 0x6d, 0x2e,
-	0x61, 0x70, 0x70, 0x6c, 0x65, 0x2e, 0x4c, 0x61, 0x75, 0x6e, 0x63, 0x68, 0x43, 0x46, 0x4d, 0x41,
-	0x70, 0x70, 0x00, 0x00,
-};
-
 void SecCode::checkValidity(SecCSFlags flags)
 {
 	if (this->isRoot()) {
 		// the root-of-trust is valid by definition
-		secdebug("validator", "%p root of trust is presumed valid", this);
+		CODESIGN_EVAL_DYNAMIC_ROOT();
 		return;
 	}
-	secdebug("validator", "%p begin validating %s",
-		this, this->staticCode()->mainExecutablePath().c_str());
+	DTRACK(CODESIGN_EVAL_DYNAMIC, this, (char*)this->staticCode()->mainExecutablePath().c_str());
 	
 	//
 	// Do not reorder the operations below without thorough cogitation. There are
-	// interesting dependencies and significant performance issues.
+	// interesting dependencies and significant performance issues. There is also
+	// client code that relies on errors being noticed in a particular order.
 	//
-	// For the most part, failure of (secure) identity will cause exceptions to be
+	// For the most part, failure of (reliable) identity will cause exceptions to be
 	// thrown, and success is indicated by survival. If you make it to the end,
 	// you have won the validity race. (Good rat.)
 	//
@@ -157,16 +205,18 @@ void SecCode::checkValidity(SecCSFlags flags)
 	myDisk->validateDirectory();
 
 	// check my own dynamic state
-	if (!(this->host()->getGuestStatus(this) & CS_VALID))
+	if (!(this->host()->getGuestStatus(this) & kSecCodeStatusValid))
 		MacOSError::throwMe(errSecCSGuestInvalid);
+	
+	// check that static and dynamic views are consistent
+	if (this->cdHash() && !CFEqual(this->cdHash(), myDisk->cdHash()))
+		MacOSError::throwMe(errSecCSStaticCodeChanged);
 
 	// check host/guest constraints
 	if (!this->host()->isRoot()) {	// not hosted by root of trust
 		myDisk->validateRequirements(kSecHostRequirementType, hostDisk, errSecCSHostReject);
 		hostDisk->validateRequirements(kSecGuestRequirementType, myDisk);
 	}
-	
-	secdebug("validator", "%p validation successful", this);
 }
 
 
@@ -174,6 +224,11 @@ void SecCode::checkValidity(SecCSFlags flags)
 // By default, we track no validity for guests (we don't have any)
 //
 uint32_t SecCode::getGuestStatus(SecCode *guest)
+{
+	MacOSError::throwMe(errSecCSNoSuchCode);
+}
+
+void SecCode::changeGuestStatus(SecCode *guest, SecCodeStatusOperation operation, CFDictionaryRef arguments)
 {
 	MacOSError::throwMe(errSecCSNoSuchCode);
 }
@@ -195,6 +250,10 @@ uint32_t SecCode::getGuestStatus(SecCode *guest)
 //
 SecCode *SecCode::autoLocateGuest(CFDictionaryRef attributes, SecCSFlags flags)
 {
+	// special case: with no attributes at all, return the root of trust
+	if (CFDictionaryGetCount(attributes) == 0)
+		return KernelCode::active()->retain();
+	
 	// main logic: we need a pid, and we'll take a canonical guest id as an option
 	int pid = 0;
 	if (!cfscan(attributes, "{%O=%d}", kSecGuestAttributePid, &pid))
@@ -205,7 +264,7 @@ SecCode *SecCode::autoLocateGuest(CFDictionaryRef attributes, SecCSFlags flags)
 		code.take(process);		// locateGuest gave us a retained object
 		if (code->staticCode()->flag(kSecCodeSignatureHost)) {
 			// might be a code host. Let's find out
-			CFRef<CFMutableDictionaryRef> rest = CFDictionaryCreateMutableCopy(NULL, 0, attributes);
+			CFRef<CFMutableDictionaryRef> rest = makeCFMutableDictionary(attributes);
 			CFDictionaryRemoveValue(rest, kSecGuestAttributePid);
 			if (SecCode *guest = code->locateGuest(rest))
 				return guest;

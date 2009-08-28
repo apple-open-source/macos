@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: libidn 0.5.16\n"
 "Report-Msgid-Bugs-To: bug-libidn@gnu.org\n"
-"POT-Creation-Date: 2005-12-03 11:36+0100\n"
+"POT-Creation-Date: 2007-05-31 12:54+0200\n"
 "PO-Revision-Date: 2005-06-05 21:55+0200\n"
 "Last-Translator: Benno Schulenberg <benno@nietvergeten.nl>\n"
 "Language-Team: Dutch <vertaling@vrijschrift.org>\n"
@@ -132,16 +132,16 @@ msgstr "Conversie van %s naar UTF-8 is mislukt."
 msgid "Could not convert from UTF-8 to UCS-4."
 msgstr "Conversie van UTF-8 naar UCS-4 is mislukt."
 
-#, c-format
-msgid "input[%d] = U+%04x\n"
+#, fuzzy, c-format
+msgid "input[%lu] = U+%04x\n"
 msgstr "invoer[%d] = U+%04x\n"
 
 #, c-format
 msgid "stringprep_profile: %s"
 msgstr "stringprep_profile: %s"
 
-#, c-format
-msgid "output[%d] = U+%04x\n"
+#, fuzzy, c-format
+msgid "output[%lu] = U+%04x\n"
 msgstr "uitvoer[%d] = U+%04x\n"
 
 #, c-format
@@ -170,12 +170,12 @@ msgstr "idna_to_ascii_4z: %s"
 msgid "idna_to_unicode_8z4z (TLD): %s"
 msgstr "idna_to_unicode_8z4z (TLD): %s"
 
-#, c-format
-msgid "tld[%d] = U+%04x\n"
+#, fuzzy, c-format
+msgid "tld[%lu] = U+%04x\n"
 msgstr "topdomein[%d] = U+%04x\n"
 
-#, c-format
-msgid "tld_check_4z (position %d): %s"
+#, fuzzy, c-format
+msgid "tld_check_4z (position %lu): %s"
 msgstr "tld_check_4z (positie %d): %s"
 
 #, c-format

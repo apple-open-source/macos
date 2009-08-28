@@ -41,9 +41,9 @@ ds_user_exists()
 # /Search doesn't always find attributes and we need to look in /Local.
 ds_user_primary_group()
 {
-    gid=$($DSSEARCH -read /Users/$1 PrimaryGroupID | awk '{print $2}')
+    gid=$($DSSEARCH -read /Users/$1 PrimaryGroupID | awk '{print $2; exit}')
     if [ "$gid" = "" ]; then
-	gid=$($DSCL -read /Users/$1 PrimaryGroupID | awk '{print $2}')
+	gid=$($DSCL -read /Users/$1 PrimaryGroupID | awk '{print $2; exit}')
     fi
 
     if [ "$gid" = "" ]; then
@@ -205,3 +205,9 @@ ds_delete_group()
     $ASROOT $DSEDITGROUP -q -o delete "$group"
 }
 
+ds_user_homedir()
+{
+    local username="$1"
+    $DSCL -read "/Users/$username" NFSHomeDirectory | \
+	awk '{print $2}'
+}

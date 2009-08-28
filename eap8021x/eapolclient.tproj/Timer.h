@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,20 +37,20 @@
 #define _S_TIMER_H
 #include <sys/time.h>
 
-typedef struct Timer_s Timer;
+typedef struct Timer_s Timer, *TimerRef;
 
 typedef void (Timer_func_t)(void * arg1, void * arg2, void * arg3);
 
-struct timeval		Timer_current_time();
-long			Timer_current_secs();
-Timer *			Timer_create();
-void			Timer_free(Timer * * callout_p);
-int			Timer_set_relative(Timer * entry,
+struct timeval		Timer_current_time(void);
+long			Timer_current_secs(void);
+TimerRef		Timer_create(void);
+void			Timer_free(TimerRef * callout_p);
+int			Timer_set_relative(TimerRef entry,
 					   struct timeval rel_time,
 					   Timer_func_t * func,
 					   void * arg1, void * arg2,
 					   void * arg3);
-void			Timer_cancel(Timer * entry);
+void			Timer_cancel(TimerRef entry);
 
 #endif _S_TIMER_H
 

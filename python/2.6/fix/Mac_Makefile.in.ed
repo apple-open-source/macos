@@ -1,0 +1,2 @@
+g/python-config$(VERSION)/s//python$(VERSION)-config/g
+w

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: libidn 0.4.1\n"
 "Report-Msgid-Bugs-To: bug-libidn@gnu.org\n"
-"POT-Creation-Date: 2005-12-03 11:36+0100\n"
+"POT-Creation-Date: 2007-05-31 12:54+0200\n"
 "PO-Revision-Date: 2005-01-02 12:44+0100\n"
 "Last-Translator: Simon Josefsson <jas@extundo.com>\n"
 "Language-Team: Swedish <sv@li.org>\n"
@@ -127,16 +127,16 @@ msgstr "Kunde inte konvertera från %s till UTF-8."
 msgid "Could not convert from UTF-8 to UCS-4."
 msgstr "Kunde inte konvertera från UTF-8 till UCS-4."
 
-#, c-format
-msgid "input[%d] = U+%04x\n"
+#, fuzzy, c-format
+msgid "input[%lu] = U+%04x\n"
 msgstr "in[%d] = U+%04x\n"
 
 #, c-format
 msgid "stringprep_profile: %s"
 msgstr ""
 
-#, c-format
-msgid "output[%d] = U+%04x\n"
+#, fuzzy, c-format
+msgid "output[%lu] = U+%04x\n"
 msgstr "ut[%d] = U+%04x\n"
 
 #, c-format
@@ -165,12 +165,12 @@ msgstr ""
 msgid "idna_to_unicode_8z4z (TLD): %s"
 msgstr ""
 
-#, c-format
-msgid "tld[%d] = U+%04x\n"
+#, fuzzy, c-format
+msgid "tld[%lu] = U+%04x\n"
 msgstr "tld[%d] = U+%04x\n"
 
 #, c-format
-msgid "tld_check_4z (position %d): %s"
+msgid "tld_check_4z (position %lu): %s"
 msgstr ""
 
 #, c-format

@@ -1,17 +1,14 @@
---- lib/md5.c.orig      2006-04-11 18:24:25.000000000 -0700
-+++ lib/md5.c   2006-04-11 18:26:18.000000000 -0700
-@@ -333,8 +333,13 @@
- }
+--- lib/md5.c.orig	2008-09-02 16:50:01.000000000 -0700
++++ lib/md5.c	2008-09-02 16:52:33.000000000 -0700
+@@ -45,7 +45,10 @@
  
  #else
+ 
+-#ifdef USE_SSLEAY
 +#ifdef __APPLE__
 +#define COMMON_DIGEST_FOR_OPENSSL
 +#include <CommonCrypto/CommonDigest.h>
-+#else
- /* If OpenSSL is present */
- #include <openssl/md5.h>
-+#endif
- #include <string.h>
- #endif
++#elif defined(USE_SSLEAY)
+ /* When OpenSSL is available we use the MD5-function from OpenSSL */
  
-
+ #  ifdef USE_OPENSSL

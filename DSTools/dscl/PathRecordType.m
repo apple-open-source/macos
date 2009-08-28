@@ -41,7 +41,7 @@ extern BOOL gHACK;
 - (void)printSearch:(NSString*)inKey Results:(NSArray*)inResults;
 @end
 
-int compareRecordDicts(id leftDict, id rightDict, void * context)
+NSInteger compareRecordDicts(id leftDict, id rightDict, void * context)
 {
     return [[[(NSDictionary*)leftDict objectForKey:@kDSNAttrRecordName] 
         objectAtIndex:0]
@@ -122,6 +122,11 @@ int compareRecordDicts(id leftDict, id rightDict, void * context)
 	NS_ENDHANDLER
 
 	return list;
+}
+
+- (NSArray*) getList
+{
+	return [self getList:nil];
 }
 
 - (NSArray*) getListWithKeys:(NSArray*)inKeys

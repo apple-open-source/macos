@@ -1,9 +1,9 @@
 /*
- * "$Id: mailto.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: mailto.c 7460 2008-04-16 02:19:54Z mike $"
  *
  *   "mailto" notifier for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 1997-2005 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -786,5 +786,5 @@ print_attributes(ipp_t *ipp,		/* I - IPP request */
 
 
 /*
- * End of "$Id: mailto.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: mailto.c 7460 2008-04-16 02:19:54Z mike $".
  */

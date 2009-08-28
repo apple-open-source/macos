@@ -43,7 +43,7 @@ class CLDAPReplicaInfo : public CObject<CLDAPReplicaInfo>
 		int32_t			fReachable;			// means the IP address is in theory reachable according to reachability
 
 	public:
-					CLDAPReplicaInfo			( const char *inReplicaIP, int inPort, bool inSSL, bool inLDAPv2, bool inSupportsWrites );
+					CLDAPReplicaInfo			( const char *inReplicaIP, int inPort, bool inSSL, bool inSupportsWrites );
 					CLDAPReplicaInfo			( const char *inLDAPI );
 
 		LDAP		*CreateLDAP					( void );
@@ -64,7 +64,6 @@ class CLDAPReplicaInfo : public CObject<CLDAPReplicaInfo>
 		int32_t						fVerified;
 		int32_t						fUnchecked;
 		int32_t						fIsSSL;
-		int32_t						fLDAPv2Only;
 		SCNetworkReachabilityRef	fReachabilityRef;	// the reachability ref for this
 		DSSemaphore					fMutex;
 		CFMutableArrayRef			fSASLMethods;		// this is protected by mutex

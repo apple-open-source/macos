@@ -50,7 +50,7 @@
 static void
 add_certs_to_keychain(CFArrayRef cert_list)
 {
-	int count;
+	CFIndex count;
 	int i;
 
 	count = CFArrayGetCount(cert_list);
@@ -132,7 +132,7 @@ static CFArrayRef
 CFDataArrayCreateSecCertificateArray(CFArrayRef certs)
 {
     CFMutableArrayRef array;
-    int count;
+    CFIndex count;
     int i;
     
 	count = CFArrayGetCount(certs);
@@ -241,7 +241,7 @@ show_cert_trust_panel(CFArrayRef cert_list, SInt32 trust_status, CFStringRef hos
 	
 	[[NSApplication sharedApplication] activateIgnoringOtherApps:YES];
 	
-	ret_val = [panel runModalForTrust:trust message:text];
+	ret_val = (int)[panel runModalForTrust:trust message:text];
 	
 	switch (ret_val)
 	{

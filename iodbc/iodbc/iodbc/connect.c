@@ -1,7 +1,7 @@
 /*
  *  connect.c
  *
- *  $Id: connect.c,v 1.51 2007/01/03 14:27:42 source Exp $
+ *  $Id: connect.c,v 1.53 2007/09/10 07:27:13 source Exp $
  *
  *  Connect (load) driver
  *
@@ -395,7 +395,9 @@ _iodbcdm_finish_disconnect (HDBC hdbc, BOOL driver_disconnect)
           return SQL_ERROR;
         }
 
+      ODBC_UNLOCK ();
       CALL_DRIVER (hdbc, pdbc, retcode, hproc, (pdbc->dhdbc));
+      ODBC_LOCK ();
 
       if (!SQL_SUCCEEDED (retcode))
         {
@@ -2097,6 +2099,7 @@ SQLConnect_Internal (SQLHDBC hdbc,
       szAuthStr = _szAuthStr;
     }
 
+  ODBC_UNLOCK ();
   CALL_UDRIVER(hdbc, pdbc, retcode, hproc, penv->unicode_driver,
     en_Connect, (
        pdbc->dhdbc,
@@ -2106,6 +2109,7 @@ SQLConnect_Internal (SQLHDBC hdbc,
        cbUID,
        szAuthStr,
        cbAuthStr));
+  ODBC_LOCK ();
 
   if (hproc == SQL_NULL_HPROC)
     {
@@ -3087,7 +3091,12 @@ SQLBrowseConnect_Internal (SQLHDBC hdbc,
         PCONFIG pconfig;
         void *drv = NULL, *dsn = NULL;
 
-        _iodbcdm_cfg_init_str (&pconfig, szConnStrIn, cbConnStrIn, 0);
+        if (_iodbcdm_cfg_init_str (&pconfig, szConnStrIn, cbConnStrIn,
+			     waMode == 'W') == -1)
+          {
+            PUSHSQLERR (pdbc->herr, en_HY001);
+            return SQL_ERROR;
+          }
         if (_iodbcdm_cfg_find (pconfig, "ODBC", "DRIVER") == 0)
           drv = pconfig->value;
         if (_iodbcdm_cfg_find (pconfig, "ODBC", "DSN") == 0)
@@ -3187,7 +3196,7 @@ SQLBrowseConnect_Internal (SQLHDBC hdbc,
       if (waMode != 'W')
         {
         /* ansi=>unicode*/
-          if ((_ConnStrOut = malloc(cbConnStrOutMax * sizeof(SQLWCHAR) + 1)) == NULL)
+          if ((_ConnStrOut = malloc((cbConnStrOutMax + 1) * sizeof(SQLWCHAR))) == NULL)
 	    {
               PUSHSQLERR (pdbc->herr, en_HY001);
 	      return SQL_ERROR;
@@ -3209,6 +3218,7 @@ SQLBrowseConnect_Internal (SQLHDBC hdbc,
       connStrOut = _ConnStrOut;
     }
 
+  ODBC_UNLOCK ();
   CALL_UDRIVER(hdbc, pdbc, retcode, hproc, penv->unicode_driver,
     en_BrowseConnect, (
        pdbc->dhdbc,
@@ -3217,6 +3227,7 @@ SQLBrowseConnect_Internal (SQLHDBC hdbc,
        connStrOut,
        cbConnStrOutMax,
        pcbConnStrOut));
+  ODBC_LOCK ();
 
   MEM_FREE(_ConnStrIn);
 

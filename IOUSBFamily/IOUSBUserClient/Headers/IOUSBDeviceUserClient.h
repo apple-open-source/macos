@@ -192,13 +192,16 @@ public:
     static void 			ReqComplete(void *obj, void *param, IOReturn status, UInt32 remaining);
     static IOReturn			ChangeOutstandingIO(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
     static IOReturn			GetGatedOutstandingIO(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
+    static IOReturn			ClientCloseGated(OSObject *target, void *arg0 = 0, void *arg1 = 0, void *arg2 = 0, void *arg3 = 0);
 
     // padding methods
     //
     OSMetaClassDeclareReservedUsed(IOUSBDeviceUserClientV2,	 0);
 	virtual IOReturn					CreateInterfaceIterator(IOUSBFindInterfaceRequest *reqIn, uint64_t *returnIter);
 
-    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClientV2,  1);
+    OSMetaClassDeclareReservedUsed(IOUSBDeviceUserClientV2,  1);
+	virtual IOReturn					ClientClose( void );
+
     OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClientV2,  2);
     OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClientV2,  3);
     OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClientV2,  4);

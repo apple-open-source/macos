@@ -1,14 +1,5 @@
 --- icuSources/common/unicode/uconfig.h	2006-08-31 16:10:35.000000000 -0700
 +++ uconfig.h	2006-10-10 17:08:55.000000000 -0700
-@@ -169,7 +169,7 @@
-  * @stable ICU 2.4
-  */
- #ifndef UCONFIG_NO_COLLATION
--#   define UCONFIG_NO_COLLATION 0
-+#   define UCONFIG_NO_COLLATION 1
- #endif
- 
- /**
 @@ -209,7 +209,7 @@
   * @stable ICU 3.2
   */

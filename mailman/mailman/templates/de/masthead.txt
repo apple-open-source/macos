@@ -1,4 +1,4 @@
-Um e-Mails an die Liste %(real_name)s zu schicken, nutzen Sie 
+Um E-Mails an die Liste %(real_name)s zu schicken, nutzen Sie 
 bitte die Adresse
 
 	%(got_list_email)s
@@ -7,7 +7,7 @@ Um sich via Web von der Liste zu entfernen oder draufzusetzen:
 
 	%(got_listinfo_url)s
 
-oder, via Email, schicken Sie eine Email mit dem Wort 'help' in
+oder, via E-Mail, schicken Sie eine E-Mail mit dem Wort 'help' in
 Subject/Betreff oder im Text an
 
 	%(got_request_email)s

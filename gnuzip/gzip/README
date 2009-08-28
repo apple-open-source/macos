@@ -32,10 +32,8 @@ INSTALL for installation instructions. Some answers to frequently
 asked questions are given in the file INSTALL, please read it. (In
 particular, please don't ask me once more for an /etc/magic entry.)
 
-WARNING: on several systems, compiler bugs cause gzip to fail, in
-particular when optimization options are on.  See the section "Special
-targets" at the end of the INSTALL file for a list of known problems.
-For all machines, use "make check" to check that gzip was compiled
+WARNING: gzip is sensitive to compiler bugs, particularly when
+optimizing.  Use "make check" to check that gzip was compiled
 correctly.  Try compiling gzip without any optimization if you have a
 problem.
 
@@ -134,7 +132,7 @@ See http://www.cdrom.com/pub/infozip/ for more about zip and unzip.
 
 ========================================================================
 
-Copyright (C) 1999, 2001, 2002, 2006 Free Software Foundation, Inc.
+Copyright (C) 1999, 2001, 2002, 2006, 2007 Free Software Foundation, Inc.
 Copyright (C) 1992, 1993 Jean-loup Gailly
 
 Permission is granted to copy, distribute and/or modify this document

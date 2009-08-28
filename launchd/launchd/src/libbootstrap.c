@@ -19,9 +19,10 @@
  */
 
 #include "config.h"
+#include "launch.h"
+#include "launch_priv.h"
 #include "bootstrap.h"
 #include "bootstrap_priv.h"
-
 #include "vproc.h"
 #include "vproc_priv.h"
 
@@ -37,7 +38,20 @@
 kern_return_t
 bootstrap_create_server(mach_port_t bp, cmd_t server_cmd, uid_t server_uid, boolean_t on_demand, mach_port_t *server_port)
 {
-	return vproc_mig_create_server(bp, server_cmd, server_uid, on_demand, server_port);
+	kern_return_t kr;
+
+	kr = vproc_mig_create_server(bp, server_cmd, server_uid, on_demand, server_port);
+
+	if (kr == VPROC_ERR_TRY_PER_USER) {
+		mach_port_t puc;
+
+		if (vproc_mig_lookup_per_user_context(bp, 0, &puc) == 0) {
+			kr = vproc_mig_create_server(puc, server_cmd, server_uid, on_demand, server_port);
+			mach_port_deallocate(mach_task_self(), puc);
+		}
+	}
+
+	return kr;
 }
 
 kern_return_t
@@ -69,12 +83,6 @@ bootstrap_parent(mach_port_t bp, mach_port_t *parent_port)
 }
 
 kern_return_t
-bootstrap_set_policy(mach_port_t bp, pid_t target_pid, uint64_t flags, const char *target_service)
-{
-	return vproc_mig_set_service_policy(bp, target_pid, flags, target_service ? (char *)target_service : "");
-}
-
-kern_return_t
 bootstrap_register(mach_port_t bp, name_t service_name, mach_port_t sp)
 {
 	return bootstrap_register2(bp, service_name, sp, 0);
@@ -100,88 +108,171 @@ bootstrap_register2(mach_port_t bp, name_t service_name, mach_port_t sp, uint64_
 kern_return_t
 bootstrap_create_service(mach_port_t bp, name_t service_name, mach_port_t *sp)
 {
-	return vproc_mig_create_service(bp, service_name, sp);
+	kern_return_t kr;
+
+	if ((kr = bootstrap_check_in(bp, service_name, sp))) {
+		return kr;
+	}
+
+	if ((kr = mach_port_mod_refs(mach_task_self(), *sp, MACH_PORT_RIGHT_RECEIVE, -1))) {
+		return kr;
+	}
+
+	return bootstrap_look_up(bp, service_name, sp);
 }
 
 kern_return_t
-bootstrap_check_in(mach_port_t bp, name_t service_name, mach_port_t *sp)
+bootstrap_check_in(mach_port_t bp, const name_t service_name, mach_port_t *sp)
 {
-	return vproc_mig_check_in(bp, service_name, sp);
+	return vproc_mig_check_in2(bp, (char *)service_name, sp, 0);
 }
 
 kern_return_t
-bootstrap_look_up_per_user(mach_port_t bp, name_t service_name, uid_t target_user, mach_port_t *sp)
+bootstrap_check_in2(mach_port_t bp, const name_t service_name, mach_port_t *sp, uint64_t flags)
 {
-	struct stat sb;
+	return vproc_mig_check_in2(bp, (char *)service_name, sp, flags);
+}
+
+kern_return_t
+bootstrap_look_up_per_user(mach_port_t bp, const name_t service_name, uid_t target_user, mach_port_t *sp)
+{
+	audit_token_t au_tok;
 	kern_return_t kr;
 	mach_port_t puc;
 
-	if (pthread_main_np() && (stat("/AppleInternal", &sb) != -1)) {
-		_vproc_log(LOG_WARNING, "Please review the comments in 4890134.");
-	}
+	/* See rdar://problem/4890134. */
 
 	if ((kr = vproc_mig_lookup_per_user_context(bp, target_user, &puc)) != 0) {
 		return kr;
 	}
 
-	kr = vproc_mig_look_up2(puc, service_name, sp, 0, 0);
-	mach_port_deallocate(mach_task_self(), puc);
+	if( !service_name ) {
+		*sp = puc;
+	} else {
+		kr = vproc_mig_look_up2(puc, (char *)service_name, sp, &au_tok, 0, 0);
+		mach_port_deallocate(mach_task_self(), puc);
+	}
 
 	return kr;
 }
 
+kern_return_t
+bootstrap_lookup_children(mach_port_t bp, mach_port_array_t *children, name_array_t *names, bootstrap_property_array_t *properties, mach_msg_type_number_t *n_children)
+{
+	mach_msg_type_number_t junk = 0;
+	return vproc_mig_lookup_children(bp, children, &junk, names, n_children, properties, &junk);
+}
 
 kern_return_t
-bootstrap_look_up(mach_port_t bp, name_t service_name, mach_port_t *sp)
+bootstrap_look_up(mach_port_t bp, const name_t service_name, mach_port_t *sp)
 {
 	return bootstrap_look_up2(bp, service_name, sp, 0, 0);
 }
 
 kern_return_t
-bootstrap_look_up2(mach_port_t bp, name_t service_name, mach_port_t *sp, pid_t target_pid, uint64_t flags)
+bootstrap_look_up2(mach_port_t bp, const name_t service_name, mach_port_t *sp, pid_t target_pid, uint64_t flags)
 {
-	kern_return_t kr;
+	static pthread_mutex_t bslu2_lock = PTHREAD_MUTEX_INITIALIZER;
+	static mach_port_t prev_bp;
+	static mach_port_t prev_sp;
+	static name_t prev_name;
+	audit_token_t au_tok;
+	bool per_pid_lookup = flags & BOOTSTRAP_PER_PID_SERVICE;
+	bool privileged_server_lookup = flags & BOOTSTRAP_PRIVILEGED_SERVER;
+	kern_return_t kr = 0;
 	mach_port_t puc;
-
-	if ((kr = vproc_mig_look_up2(bp, service_name, sp, target_pid, flags)) != VPROC_ERR_TRY_PER_USER) {
-		return kr;
+	
+	pthread_mutex_lock(&bslu2_lock);
+	
+	if (per_pid_lookup || privileged_server_lookup) {
+		goto skip_cache;
 	}
-
+	
+	if (prev_sp) {
+       	if ((bp == prev_bp) && (strncmp(prev_name, service_name, sizeof(name_t)) == 0)
+			&& (mach_port_mod_refs(mach_task_self(), prev_sp, MACH_PORT_RIGHT_SEND, 1) == 0)) {
+			*sp = prev_sp;
+			goto out;
+		} else {
+			mach_port_deallocate(mach_task_self(), prev_sp);
+			prev_sp = 0;
+		}
+	}
+	
+skip_cache:
+	if ((kr = vproc_mig_look_up2(bp, (char *)service_name, sp, &au_tok, target_pid, flags)) != VPROC_ERR_TRY_PER_USER) {
+		goto out;
+	}
+	
 	if ((kr = vproc_mig_lookup_per_user_context(bp, 0, &puc)) != 0) {
-		return kr;
+		goto out;
 	}
-
-	kr = vproc_mig_look_up2(puc, service_name, sp, target_pid, flags);
+	
+	kr = vproc_mig_look_up2(puc, (char *)service_name, sp, &au_tok, target_pid, flags);
 	mach_port_deallocate(mach_task_self(), puc);
-
+	
+out:
+	if (!(per_pid_lookup || privileged_server_lookup) && kr == 0 && prev_sp == 0 && mach_port_mod_refs(mach_task_self(), *sp, MACH_PORT_RIGHT_SEND, 1) == 0) {
+		/* We're going to hold on to a send right as a MRU cache */
+		prev_bp = bp;
+		prev_sp = *sp;
+		strlcpy(prev_name, service_name, sizeof(name_t));
+	}
+	
+	if ((kr == 0) && privileged_server_lookup) {
+		uid_t server_euid;
+		
+		/*
+		 * The audit token magic is dependent on the per-user launchd
+		 * forwarding MIG requests to the root launchd when it cannot
+		 * find the answer locally.
+		 */
+		
+		/* This API should be in Libsystem, but is not */
+		//audit_token_to_au32(au_tok, NULL, &server_euid, NULL, NULL, NULL, NULL, NULL, NULL);
+		
+		server_euid = au_tok.val[1];
+		
+		if (server_euid) {
+			mach_port_deallocate(mach_task_self(), *sp);
+			kr = BOOTSTRAP_NOT_PRIVILEGED;
+		}
+	}
+	/* If performance becomes a problem, we should restructure this. */
+	pthread_mutex_unlock(&bslu2_lock);
+	
 	return kr;
 }
 
 kern_return_t
 bootstrap_status(mach_port_t bp, name_t service_name, bootstrap_status_t *service_active)
 {
+	kern_return_t kr;
 	mach_port_t p;
+
+	if ((kr = bootstrap_look_up(bp, service_name, &p))) {
+		return kr;
+	}
+
+	mach_port_deallocate(mach_task_self(), p);
+	*service_active = BOOTSTRAP_STATUS_ACTIVE;
 
 	if (bootstrap_check_in(bp, service_name, &p) == BOOTSTRAP_SUCCESS) {
 		mach_port_mod_refs(mach_task_self(), p, MACH_PORT_RIGHT_RECEIVE, -1);
 		*service_active = BOOTSTRAP_STATUS_ON_DEMAND;
-		return BOOTSTRAP_SUCCESS;
-	} else if (bootstrap_look_up(bp, service_name, &p) == BOOTSTRAP_SUCCESS) {
-		mach_port_deallocate(mach_task_self(), p);
-		*service_active = BOOTSTRAP_STATUS_ACTIVE;
-		return BOOTSTRAP_SUCCESS;
 	}
 
-	return BOOTSTRAP_UNKNOWN_SERVICE;
+	return BOOTSTRAP_SUCCESS;
 }
 
 kern_return_t
 bootstrap_info(mach_port_t bp,
-		name_array_t *service_names, mach_msg_type_number_t *service_namesCnt,
-		bootstrap_status_array_t *service_active, mach_msg_type_number_t *service_activeCnt)
+			   name_array_t *service_names, mach_msg_type_number_t *service_namesCnt,
+			   name_array_t *service_jobs, mach_msg_type_number_t *service_jobsCnt,
+			   bootstrap_status_array_t *service_active, mach_msg_type_number_t *service_activeCnt,
+			   uint64_t flags)
 {
-	return vproc_mig_info(bp, service_names, service_namesCnt,
-			service_active, service_activeCnt);
+	return vproc_mig_info(bp, service_names, service_namesCnt, service_jobs, service_jobsCnt, service_active, service_activeCnt, flags);
 }
 
 const char *

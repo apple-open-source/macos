@@ -113,7 +113,7 @@ public:
 									    CSSM_DATA_PTR data,
 									    CSSM_DB_UNIQUE_RECORD_PTR *uniqueID);
 	
-	virtual void DbDataGetNext (CSSM_HANDLE resultsHandle,
+	virtual bool DbDataGetNext (CSSM_HANDLE resultsHandle,
 							    CSSM_DB_RECORD_ATTRIBUTE_DATA_PTR attributes,
 							    CSSM_DATA_PTR data,
 							    CSSM_DB_UNIQUE_RECORD_PTR *uniqueID);

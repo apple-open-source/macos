@@ -54,6 +54,8 @@
 #ifndef _VPN_CONTROL_VAR_H
 #define _VPN_CONTROL_VAR_H
 
+#include "vpn_control.h"
+
 extern int vpncontrol_handler __P((void));
 extern int vpncontrol_comm_handler __P((struct vpnctl_socket_elem *));
 extern int vpncontrol_notify_ike_failed __P((u_int16_t, u_int16_t, u_int32_t, u_int16_t, u_int8_t*));
@@ -61,5 +63,9 @@ extern int vpncontrol_notify_phase_change __P((int, u_int16_t, struct ph1handle*
 extern int vpncontrol_init __P((void));
 extern void vpncontrol_close __P((void));
 extern int vpn_control_connected __P((void));
+extern int vpn_connect __P((struct bound_addr *));
+extern int vpn_disconnect __P((struct bound_addr *));
+extern int vpn_start_ph2 __P((struct bound_addr *, struct vpnctl_cmd_start_ph2 *));
+extern int vpncontrol_notify_need_authinfo __P((struct ph1handle *, void*, size_t));
 
 #endif /* _VPN_CONTROL_VAR_H */

@@ -101,6 +101,11 @@ void DbCommon::lockProcessing()
 	// nothing
 }
 
+bool DbCommon::belongsToSystem() const
+{
+	return false;
+}
+
 
 void Database::releaseKey(Key &key)
 {
@@ -206,11 +211,6 @@ Database *Database::relatedDatabase()
 AclKind Database::aclKind() const
 {
 	return dbAcl;
-}
-
-GenericHandle Database::aclHandle() const
-{
-	return HandleObject::handle();
 }
 
 

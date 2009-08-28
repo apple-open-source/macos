@@ -28,7 +28,7 @@
 
 #include <Security/oidsbase.h>
 #include <Security/cssmtype.h>
-#include <Security/cssmapple.h>
+#include "cssmapple.h"
 #include <string.h>
 
 static const uint8
@@ -438,6 +438,24 @@ CSSMOID_PKCS12_pbeWithSHAAnd128BitRC2CBC = {OID_PKCS12_PbeIds_Length + 1,
 CSSMOID_PKCS12_pbewithSHAAnd40BitRC2CBC = {OID_PKCS12_PbeIds_Length + 1,
 					(uint8 *)OID_PKCS12_pbewithSHAAnd40BitRC2CBC };
 	
+/* ANSI X9.62 and Certicom elliptic curve algorithms */
+static const uint8 
+	OID_ecPublicKey[]			= { OID_ANSI_X9_62_PUBKEY_TYPE, 1 },
+	OID_ECDSA_WithSHA1[]		= { OID_ANSI_X9_62_SIG_TYPE, 1 },
+	OID_ECDSA_WithSHA224[]		= { OID_ANSI_X9_62_SIG_TYPE, 3, 1 },
+	OID_ECDSA_WithSHA256[]		= { OID_ANSI_X9_62_SIG_TYPE, 3, 2 },
+	OID_ECDSA_WithSHA384[]		= { OID_ANSI_X9_62_SIG_TYPE, 3, 3 },
+	OID_ECDSA_WithSHA512[]		= { OID_ANSI_X9_62_SIG_TYPE, 3, 4 },
+	OID_ECDSA_WithSpecified[]	= { OID_ANSI_X9_62_SIG_TYPE, 3 };
+	
+const CSSM_OID 
+CSSMOID_ecPublicKey		= {OID_ANSI_X9_62_LEN+2, (uint8 *)OID_ecPublicKey},
+CSSMOID_ECDSA_WithSHA1	= {OID_ANSI_X9_62_SIG_TYPE_LEN+1, (uint8 *)OID_ECDSA_WithSHA1 },
+CSSMOID_ECDSA_WithSHA224 = {OID_ANSI_X9_62_SIG_TYPE_LEN+2, (uint8 *)OID_ECDSA_WithSHA224 },
+CSSMOID_ECDSA_WithSHA256 = {OID_ANSI_X9_62_SIG_TYPE_LEN+2, (uint8 *)OID_ECDSA_WithSHA256 },
+CSSMOID_ECDSA_WithSHA384 = {OID_ANSI_X9_62_SIG_TYPE_LEN+2, (uint8 *)OID_ECDSA_WithSHA384 },
+CSSMOID_ECDSA_WithSHA512	= {OID_ANSI_X9_62_SIG_TYPE_LEN+2, (uint8 *)OID_ECDSA_WithSHA512 },
+CSSMOID_ECDSA_WithSpecified = {OID_ANSI_X9_62_SIG_TYPE_LEN+1, (uint8 *)OID_ECDSA_WithSpecified };
 
 #pragma mark ----- CSSM_OID <--> CSSM_ALGORITHMS -----
 
@@ -485,6 +503,9 @@ static const OidToAlgEnt oidToAlgMap[] =
 	{&CSSMOID_APPLE_FEE_SHA1, CSSM_ALGID_FEE_SHA1 },
 	{&CSSMOID_APPLE_FEED, CSSM_ALGID_FEED },
 	{&CSSMOID_APPLE_FEEDEXP, CSSM_ALGID_FEEDEXP },
+	/* the current valid alg --> OID mapping */
+	{&CSSMOID_ECDSA_WithSHA1, CSSM_ALGID_SHA1WithECDSA},
+	/* for backwards compatibility */
 	{&CSSMOID_APPLE_ECDSA, CSSM_ALGID_SHA1WithECDSA },
 	{&CSSMOID_SHA224, CSSM_ALGID_SHA224},
 	{&CSSMOID_SHA256, CSSM_ALGID_SHA256},
@@ -495,6 +516,14 @@ static const OidToAlgEnt oidToAlgMap[] =
 	{&CSSMOID_SHA384WithRSA, CSSM_ALGID_SHA384WithRSA },
 	{&CSSMOID_SHA512WithRSA, CSSM_ALGID_SHA512WithRSA },
 	{&CSSMOID_RSAWithOAEP, CSSM_ALGMODE_PKCS1_EME_OAEP },
+	{&CSSMOID_ECDSA_WithSHA224, CSSM_ALGID_SHA224WithECDSA },
+	{&CSSMOID_ECDSA_WithSHA256, CSSM_ALGID_SHA256WithECDSA },
+	{&CSSMOID_ECDSA_WithSHA384, CSSM_ALGID_SHA384WithECDSA },
+	{&CSSMOID_ECDSA_WithSHA512, CSSM_ALGID_SHA512WithECDSA },
+	/* AlgId.algorithm for ECDSA public key */
+	{&CSSMOID_ecPublicKey, CSSM_ALGID_ECDSA },
+	/* This OID is accompanied by an additional digest OID in AlgId.parameters */
+	{&CSSMOID_ECDSA_WithSpecified, CSSM_ALGID_ECDSA_SPECIFIED },
 	{NULL, 0}
 };
 

@@ -1,9 +1,9 @@
-/* $Id: prompt.c,v 1.71 2006/11/10 02:47:11 dolorous Exp $ */
+/* $Id: prompt.c,v 1.75.2.1 2007/04/21 18:53:38 dolorous Exp $ */
 /**************************************************************************
  *   prompt.c                                                             *
  *                                                                        *
  *   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004 Chris Allegretta    *
- *   Copyright (C) 2005, 2006 David Lawrence Ramsey                       *
+ *   Copyright (C) 2005, 2006, 2007 David Lawrence Ramsey                 *
  *   This program is free software; you can redistribute it and/or modify *
  *   it under the terms of the GNU General Public License as published by *
  *   the Free Software Foundation; either version 2, or (at your option)  *
@@ -28,7 +28,7 @@
 #include <string.h>
 
 static char *prompt = NULL;
-	/* The prompt string for statusbar questions. */
+	/* The prompt string used for statusbar questions. */
 static size_t statusbar_x = (size_t)-1;
 	/* The cursor position in answer. */
 static size_t statusbar_pww = (size_t)-1;
@@ -328,8 +328,8 @@ void do_statusbar_output(char *output, size_t output_len, bool
     *got_enter = FALSE;
 
     while (i < output_len) {
-	/* If allow_cntrls is FALSE, filter out nulls and newlines,
-	 * since they're ASCII control characters. */
+	/* If allow_cntrls is TRUE, convert nulls and newlines
+	 * properly. */
 	if (allow_cntrls) {
 	    /* Null to newline, if needed. */
 	    if (output[i] == '\0')
@@ -999,10 +999,10 @@ int get_prompt_string(bool allow_tabs,
     wnoutrefresh(bottomwin);
 
     /* If we're using restricted mode, we aren't allowed to change the
-     * name of a file once it has one, because that would allow writing
-     * to files not specified on the command line.  In this case,
-     * disable all keys that would change the text if the filename isn't
-     * blank and we're at the "Write File" prompt. */
+     * name of the current file once it has one, because that would
+     * allow writing to files not specified on the command line.  In
+     * this case, disable all keys that would change the text if the
+     * filename isn't blank and we're at the "Write File" prompt. */
     while ((kbinput = do_statusbar_input(&meta_key, &func_key, &s_or_t,
 	&ran_func, &finished, TRUE, refresh_func)) != NANO_CANCEL_KEY &&
 	kbinput != NANO_ENTER_KEY) {

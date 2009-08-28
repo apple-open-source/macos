@@ -18,9 +18,13 @@
 	<array>
 		<string>netusers</string>
 	</array>
+	<key>passwd</key>
+	<array>
+		<string>*</string>
+	</array>
 	<key>realname</key>
 	<array>
-		<string>Network</string>
+		<string>Network Users</string>
 	</array>
 	<key>smb_sid</key>
 	<array>

@@ -22,20 +22,20 @@
  */
 
 
-#import <objc/Object.h>
-#import <CoreFoundation/CoreFoundation.h>
+#import <Foundation/Foundation.h>
 #import <PasswordServer/AuthFile.h>
 #import <PasswordServer/AuthDBFileDefs.h>
 
 #define kOverflowFilePrefix				"authserveroverflow"
 
-@interface AuthOverflowFile : Object {
+@interface AuthOverflowFile : NSObject {
 	BOOL mReadOnlyFileSystem;
 	char *mOverflowPath;
 }
 
 -(id)initWithUTF8Path:(const char *)inOverflowPath;
--free;
+-(void)dealloc;
+-free DEPRECATED_ATTRIBUTE ;
 
 // traps for overrides
 -(void)pwWait;

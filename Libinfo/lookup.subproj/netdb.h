@@ -35,12 +35,12 @@
  *    documentation and/or other materials provided with the distribution.
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
- * 	This product includes software developed by the University of
- * 	California, Berkeley and its contributors.
+ *	This product includes software developed by the University of
+ *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -52,16 +52,17 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ *
  * -
  * Portions Copyright (c) 1993 by Digital Equipment Corporation.
- * 
+ *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies, and that
  * the name of Digital Equipment Corporation not be used in advertising or
  * publicity pertaining to distribution of the document or software without
  * specific, written prior permission.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS" AND DIGITAL EQUIPMENT CORP. DISCLAIMS ALL
  * WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES
  * OF MERCHANTABILITY AND FITNESS.   IN NO EVENT SHALL DIGITAL EQUIPMENT
@@ -95,7 +96,9 @@ typedef	__darwin_size_t		size_t;
 typedef __darwin_socklen_t	socklen_t;
 #endif
 
-#define	_PATH_HEQUIV	"/etc/hosts.equiv"
+#ifndef _PATH_HEQUIV
+# define	_PATH_HEQUIV	"/etc/hosts.equiv"
+#endif
 #define	_PATH_HOSTS	"/etc/hosts"
 #define	_PATH_NETWORKS	"/etc/networks"
 #define	_PATH_PROTOCOLS	"/etc/protocols"
@@ -112,14 +115,14 @@ extern int h_errno;
  * supplied in host order, and returned in network order (suitable for
  * use in system calls).
  */
-struct	hostent {
+struct hostent {
 	char	*h_name;	/* official name of host */
 	char	**h_aliases;	/* alias list */
 	int	h_addrtype;	/* host address type */
 	int	h_length;	/* length of address */
 	char	**h_addr_list;	/* list of addresses from name server */
 #if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
-#define	h_addr	h_addr_list[0]	/* address, for backward compatiblity */
+#define	h_addr	h_addr_list[0]	/* address, for backward compatibility */
 #endif /* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
 };
 
@@ -127,21 +130,21 @@ struct	hostent {
  * Assumption here is that a network number
  * fits in an unsigned long -- probably a poor one.
  */
-struct	netent {
+struct netent {
 	char		*n_name;	/* official name of net */
 	char		**n_aliases;	/* alias list */
 	int		n_addrtype;	/* net address type */
 	uint32_t	n_net;		/* network # */
 };
 
-struct	servent {
+struct servent {
 	char	*s_name;	/* official service name */
 	char	**s_aliases;	/* alias list */
 	int	s_port;		/* port # */
 	char	*s_proto;	/* protocol to use */
 };
 
-struct	protoent {
+struct protoent {
 	char	*p_name;	/* official protocol name */
 	char	**p_aliases;	/* alias list */
 	int	p_proto;	/* protocol # */
@@ -152,10 +155,10 @@ struct addrinfo {
 	int	ai_family;	/* PF_xxx */
 	int	ai_socktype;	/* SOCK_xxx */
 	int	ai_protocol;	/* 0 or IPPROTO_xxx for IPv4 and IPv6 */
-	socklen_t	ai_addrlen;	/* length of ai_addr */
+	socklen_t ai_addrlen;	/* length of ai_addr */
 	char	*ai_canonname;	/* canonical name for hostname */
-	struct sockaddr *ai_addr;	/* binary address */
-	struct addrinfo *ai_next;	/* next structure in linked list */
+	struct	sockaddr *ai_addr;	/* binary address */
+	struct	addrinfo *ai_next;	/* next structure in linked list */
 };
 
 #if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
@@ -168,7 +171,7 @@ struct rpcent {
 
 /*
  * Error return codes from gethostbyname() and gethostbyaddr()
- * (left in extern int h_errno).
+ * (left in h_errno).
  */
 #if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 #define	NETDB_INTERNAL	-1	/* see errno */
@@ -200,11 +203,12 @@ struct rpcent {
 #define	EAI_SOCKTYPE	10	/* ai_socktype not supported */
 #define	EAI_SYSTEM	11	/* system error returned in errno */
 #if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
-#define EAI_BADHINTS	12
-#define EAI_PROTOCOL	13
-#define EAI_MAX		14
-#else  /* (_POSIX_C_SOURCE && !_DARWIN_C_SOURCE) */
-#define EAI_OVERFLOW    14	/* An argument buffer overflowed */
+#define	EAI_BADHINTS	12	/* invalid value for hints */
+#define	EAI_PROTOCOL	13	/* resolved protocol is unknown */
+#endif /* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
+#define	EAI_OVERFLOW	14	/* argument buffer overflow */
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
+#define	EAI_MAX		15
 #endif /* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
 
 /*
@@ -212,10 +216,14 @@ struct rpcent {
  */
 #define	AI_PASSIVE	0x00000001 /* get address to use bind() */
 #define	AI_CANONNAME	0x00000002 /* fill ai_canonname */
-#define	AI_NUMERICHOST	0x00000004 /* prevent name resolution */
-/* valid flags for addrinfo */
+#define	AI_NUMERICHOST	0x00000004 /* prevent host name resolution */
+#define	AI_NUMERICSERV	0x00001000 /* prevent service name resolution */
+/* valid flags for addrinfo (not a standard def, apps should not use it) */
 #if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
-#define	AI_MASK		(AI_PASSIVE | AI_CANONNAME | AI_NUMERICHOST)
+#define AI_MASK \
+    (AI_PASSIVE | AI_CANONNAME | AI_NUMERICHOST | AI_NUMERICSERV | \
+    AI_ADDRCONFIG)
+
 #endif /* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
 #define	AI_ALL		0x00000100 /* IPv6 and IPv4-mapped (with AI_V4MAPPED) */
 #if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
@@ -249,7 +257,7 @@ struct rpcent {
 /*
  * Scope delimit character
  */
-#define SCOPE_DELIMITER	'%'
+#define	SCOPE_DELIMITER	'%'
 #endif /* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
 
 __BEGIN_DECLS

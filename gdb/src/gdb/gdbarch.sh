@@ -548,6 +548,7 @@ F:=:CORE_ADDR:deprecated_extract_struct_value_address:struct regcache *regcache:
 
 #
 f:=:CORE_ADDR:skip_prologue:CORE_ADDR ip:ip:0:0
+F:=:CORE_ADDR:skip_prologue_addr_ctx:struct address_context *addr_ctx:addr_ctx:0:
 f:=:int:inner_than:CORE_ADDR lhs, CORE_ADDR rhs:lhs, rhs:0:0
 f:=:const gdb_byte *:breakpoint_from_pc:CORE_ADDR *pcptr, int *lenptr:pcptr, lenptr::0:
 M::CORE_ADDR:adjust_breakpoint_address:CORE_ADDR bpaddr:bpaddr
@@ -650,6 +651,9 @@ m::int:in_function_epilogue_p:CORE_ADDR addr:addr:0:generic_in_function_epilogue
 m::char *:construct_inferior_arguments:int argc, char **argv:argc, argv::construct_inferior_arguments::0
 f:=:void:elf_make_msymbol_special:asymbol *sym, struct minimal_symbol *msym:sym, msym::default_elf_make_msymbol_special::0
 f:=:void:coff_make_msymbol_special:int val, struct minimal_symbol *msym:val, msym::default_coff_make_msymbol_special::0
+# APPLE LOCAL: The symbols are marked as thumb in the nlist entries, so we need this.
+f:=:void:dbx_make_msymbol_special:int16_t desc, struct minimal_symbol *msym:desc, msym::default_dbx_make_msymbol_special::0
+
 v:=:const char *:name_of_malloc:::"malloc":"malloc"::0:NAME_OF_MALLOC
 v:=:int:cannot_step_breakpoint:::0:0::0
 v:=:int:have_nonsteppable_watchpoint:::0:0::0
@@ -664,6 +668,9 @@ F:=:CORE_ADDR:fetch_pointer_argument:struct frame_info *frame, int argi, struct 
 # Return the appropriate register set for a core file section with
 # name SECT_NAME and size SECT_SIZE.
 M::const struct regset *:regset_from_core_section:const char *sect_name, size_t sect_size:sect_name, sect_size
+
+# APPLE LOCAL: Translate eh frame regnums into dwarf regnums
+m::int:adjust_ehframe_regnum:int regnum, int eh_frame_p:regnum, eh_frame_p::default_adjust_ehframe_regnum::0
 EOF
 }
 
@@ -761,6 +768,7 @@ cat <<EOF
 #ifndef GDBARCH_H
 #define GDBARCH_H
 
+struct address_context;
 struct floatformat;
 struct ui_file;
 struct frame_info;

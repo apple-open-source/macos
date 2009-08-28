@@ -1,3 +1,4 @@
+// $OpenLDAP: pkg/ldap/contrib/ldapc++/src/LDAPResult.h,v 1.5.10.2 2008/04/14 23:09:26 quanah Exp $
 /*
  * Copyright 2000, OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
@@ -103,6 +104,7 @@ class LDAPResult : public LDAPMsg{
          *              Message.
          */
         LDAPResult(const LDAPRequest *req, LDAPMessage *msg);
+        LDAPResult(int type, int resultCode, const std::string &msg); 
         
         /**
          * The destructor.

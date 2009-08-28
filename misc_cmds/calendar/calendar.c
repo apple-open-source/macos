@@ -44,7 +44,7 @@ static char sccsid[] = "@(#)calendar.c  8.3 (Berkeley) 3/25/94";
 #endif
 
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/usr.bin/calendar/calendar.c,v 1.18 2002/08/14 11:28:07 ru Exp $");
+__FBSDID("$FreeBSD: src/usr.bin/calendar/calendar.c,v 1.19 2007/05/07 11:18:30 dwmalone Exp $");
 
 #include <err.h>
 #include <errno.h>
@@ -55,10 +55,6 @@ __RCSID("$FreeBSD: src/usr.bin/calendar/calendar.c,v 1.18 2002/08/14 11:28:07 ru
 #include <time.h>
 #include <unistd.h>
 
-#include <sys/types.h>
-#include <sys/uio.h>
-#include <unistd.h>
-
 #include "pathnames.h"
 #include "calendar.h"
 
@@ -66,44 +62,18 @@ struct passwd *pw;
 int doall = 0;
 time_t f_time = 0;
 
-int f_dayAfter = 0; /* days after current date */
+int f_dayAfter = 1; /* days after current date */
 int f_dayBefore = 0; /* days before current date */
 int Friday = 5;	     /* day before weekend */
 
-#ifdef __APPLE__
-extern char *__progname;
-
-void atodays(char ch, char *optarg, unsigned short *days)
-{
-	int u;
-
-	u = atoi(optarg);
-	if ((u < 0) || (u > 366)) {
-		fprintf(stderr,
-			"%s: warning: -%c %d out of range 0-366, ignored.\n",
-			__progname, ch, u);
-	} else {
-		*days = u;
-	}
-}
-#endif /* __APPLE__ */
-
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
 	int ch;
-#ifdef __APPLE__
-	short lookahead = 1, weekend = 2;
-#endif
+
 	(void) setlocale(LC_ALL, "");
 
-#ifndef __APPLE__
 	while ((ch = getopt(argc, argv, "-af:t:A:B:F:W:")) != -1)
-#else
-	while ((ch = getopt(argc, argv, "-ad:f:l:t:w:A:B:F:W:")) != -1)
-#endif
 		switch (ch) {
 		case '-':		/* backward contemptible */
 		case 'a':
@@ -119,21 +89,9 @@ main(argc, argv)
 		        calendarFile = optarg;
 			break;
 
-#ifdef __APPLE__
-		case 'd':
-#endif
 		case 't': /* other date, undocumented, for tests */
 			f_time = Mktime (optarg);
 			break;
-#ifdef __APPLE__
-		case 'l':
-			atodays(ch, optarg, &lookahead);
-			break;
-
-		case 'w':
-			atodays(ch, optarg, &weekend);
-			break;
-#endif
 
 		case 'W': /* we don't need no steenking Fridays */
 			Friday = -1;
@@ -165,12 +123,8 @@ main(argc, argv)
 	if (f_time <= 0) 
 	    (void)time(&f_time);
 
-#ifndef __APPLE__
 	settime(f_time);
-#else
-	settime(f_time, lookahead, weekend);	
-#endif
-
+	
 	if (doall)
 		while ((pw = getpwent()) != NULL) {
 			(void)setegid(pw->pw_gid);
@@ -187,7 +141,7 @@ main(argc, argv)
 
 
 void
-usage()
+usage(void)
 {
 	(void)fprintf(stderr, "%s\n%s\n",
 	    "usage: calendar [-a] [-A days] [-B days] [-F friday] "

@@ -147,8 +147,8 @@ xmlStrcmp(const xmlChar *str1, const xmlChar *str2) {
  * @str1:  the first xmlChar *
  * @str2:  the second xmlChar *
  *
- * Check if both string are equal of have same content
- * Should be a bit more readable and faster than xmlStrEqual()
+ * Check if both strings are equal of have same content.
+ * Should be a bit more readable and faster than xmlStrcmp()
  *
  * Returns 1 if they are equal, 0 if they are different
  */
@@ -437,7 +437,8 @@ xmlStrlen(const xmlChar *str) {
  * @len:  the length of @add
  *
  * a strncat for array of xmlChar's, it will extend @cur with the len
- * first bytes of @add.
+ * first bytes of @add. Note that if @len < 0 then this is an API error
+ * and NULL will be returned.
  *
  * Returns a new xmlChar *, the original @cur is reallocated if needed
  * and should not be freed
@@ -450,6 +451,8 @@ xmlStrncat(xmlChar *cur, const xmlChar *add, int len) {
 
     if ((add == NULL) || (len == 0))
         return(cur);
+    if (len < 0)
+	return(NULL);
     if (cur == NULL)
         return(xmlStrndup(add, len));
 
@@ -468,10 +471,11 @@ xmlStrncat(xmlChar *cur, const xmlChar *add, int len) {
  * xmlStrncatNew:
  * @str1:  first xmlChar string
  * @str2:  second xmlChar string
- * @len:  the len of @str2
+ * @len:  the len of @str2 or < 0
  *
  * same as xmlStrncat, but creates a new string.  The original
- * two strings are not freed.
+ * two strings are not freed. If @len is < 0 then the length
+ * will be calculated automatically.
  *
  * Returns a new xmlChar * or NULL
  */
@@ -533,7 +537,7 @@ xmlStrcat(xmlChar *cur, const xmlChar *add) {
  *
  * Returns the number of characters written to @buf or -1 if an error occurs.
  */
-int 
+int XMLCDECL 
 xmlStrPrintf(xmlChar *buf, int len, const xmlChar *msg, ...) {
     va_list args;
     int ret;
@@ -884,7 +888,7 @@ xmlUTF8Strpos(const xmlChar *utf, int pos) {
     xmlChar ch;
 
     if (utf == NULL) return(NULL);
-    if ( (pos < 0) || (pos >= xmlUTF8Strlen(utf)) )
+    if (pos < 0)
         return(NULL);
     while (pos--) {
         if ((ch=*utf++) == 0) return(NULL);
@@ -975,3 +979,6 @@ xmlUTF8Strsub(const xmlChar *utf, int start, int len) {
 
     return(xmlUTF8Strndup(utf, len));
 }
+
+#define bottom_xmlstring
+#include "elfgcchack.h"

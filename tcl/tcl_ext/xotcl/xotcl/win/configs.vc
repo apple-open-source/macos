@@ -1,0 +1,135 @@
+#
+# Config file for MS Visual CC compile with nmake; only edit in this file
+#
+
+# are we using MSVC++ version 5 or 6 ?
+MSDEV_VER	= 6
+
+# Where is MSVC++ located?
+MSDEVROOT	= c:\progra~1\Micros~3\
+
+# Where is Tcl and Tk? Which Version?
+#TCLMAJOR	= 8
+#TCLMINOR	= 3
+#TCLPATCHLEVEL   = .5
+TCLMAJOR	= 8
+TCLMINOR	= 4
+TCLPATCHLEVEL   = .13
+
+TCLROOT		= c:\work\tcl\tcl$(TCLMAJOR).$(TCLMINOR)$(TCLPATCHLEVEL)
+TKROOT		= c:\tk$(TCLMAJOR).$(TCLMINOR)$(TCLPATCHLEVEL)
+
+TCL_VERSION	= $(TCLMAJOR)$(TCLMINOR)
+TCL_DOTVERSION	= $(TCLMAJOR).$(TCLMINOR)
+
+# Where will we install XOTcl? Usually use the installWin.tcl script 
+INSTALLDIR	= c:/progra~1/tcl
+
+# machine setting, pick from:
+# ALPHA|ARM|IX86|MIPS|MIPS16|MIPSR41XX|PPC|SH3|SH4
+# Or set to IA64 to rearrange everything to use the Intel IA64 SDK.
+# 
+MACHINE   = IX86
+
+!if "$(MACHINE)" == "IA64"
+vcvars		= "c:\ia64sdk17\vcvars32.bat"
+!elseif $(MSDEV_VER) == 5
+vcvars		= "$(MSDEVROOT)\vc\bin\vcvars32.bat"
+!elseif $(MSDEV_VER) == 6
+vcvars		= "$(MSDEVROOT)\vc98\bin\vcvars32.bat"
+!endif
+
+# the VCC tools names
+rc32		= rc
+cc32		= cl
+link32		= link
+lib32		= lib
+cvtres32	= cvtres
+
+#
+# XOTCL VERSION SETTINGS (do not edit)
+#
+XOTCL_MAJOR_VERSION=1
+XOTCL_MINOR_VERSION=5
+XOTCL_RELEASE_LEVEL=.0
+
+MAJOR_VERSION=$(XOTCL_MAJOR_VERSION)
+MINOR_VERSION=$(XOTCL_MINOR_VERSION)
+PATCHLEVEL=$(XOTCL_RELEASE_LEVEL)
+
+XOTCL_VERSION=		$(MAJOR_VERSION).$(MINOR_VERSION)
+FULLVERSION=		$(MAJOR_VERSION).$(MINOR_VERSION)$(PATCHLEVEL)
+NODOT_VERSION=		$(MAJOR_VERSION)$(MINOR_VERSION)
+INST_XOLIBPKG = 	\"$(INSTALLDIR)/lib/xotcl$(MAJOR_VERSION).$(MINOR_VERSION)\"
+XOTCLVERSION = 		\"$(XOTCL_VERSION)\"
+PACKAGE_VERSION =       \"$(FULLVERSION)\"
+XOTCLPATCHLEVEL= 	\"$(PATCHLEVEL)\"
+
+## command line rules
+
+!ifndef HAVE_RULES
+HAVE_RULES	= 1
+
+# Set DEBUG to 1 to compile with symbols.
+!ifndef DEBUG
+DEBUG		= 0
+!endif
+
+# Set STATIC_BUILD to 1 to make a static library rather
+# than a dll.
+!ifndef STATIC_BUILD
+STATIC_BUILD	= 0
+!endif
+
+# Set USE_TCL_STUBS to 0 to disable Stubs support.  Stubs
+# will work fine even with static libraries, but you may
+# disable it if you want to.
+#
+!ifndef USE_TCL_STUBS
+!if $(STATIC_BUILD) == 0
+USE_TCL_STUBS	= 1
+!else
+USE_TCL_STUBS	= 0
+!endif
+!endif
+
+# no stubs support in Tcl 8.0
+!if $(TCLMAJOR)	== 8
+!if $(TCLMINOR)	== 0
+USE_TCL_STUBS	= 0
+!endif
+!endif
+
+# Set NOMSVCRT to 1 to use libcmt(d).lib instead of the
+# dynamic run-time.
+#
+!ifndef NOMSVCRT
+!if $(STATIC_BUILD)
+NOMSVCRT	= 1
+!else
+NOMSVCRT	= 0
+!endif
+!endif
+
+!if $(STATIC_BUILD) == 0 && $(NOMSVCRT) == 1
+!error "The static runtime in a loadable (dll) extension is a useless configuration that will cause abnormal and unnecessary code bloat."
+!endif
+
+!endif   #!ifndef HAVE_RULES
+
+_NMAKE_VER  = $(_NMAKE_VER:6.00.8168.0=600)
+
+!IF "$(MACHINE)" == "IA64"
+TOOLS32		= c:\ia64sdk17
+TOOLS32_rc	= c:\ia64sdk17
+!ELSE
+TOOLS32		= $(MSDEVROOT)\Vc98
+TOOLS32_rc	= $(MSDEVROOT)\Common\MsDev98
+!ENDIF
+
+cc32		= "$(TOOLS32)\bin\cl.exe"
+link32		= "$(TOOLS32)\bin\link.exe"
+rc32		= "$(TOOLS32_rc)\bin\rc.exe"
+include32	= -I"$(TOOLS32)\include"
+libpath32	= /LIBPATH:"$(TOOLS32)\lib"
+lib32		= "$(TOOLS32)\bin\lib.exe"

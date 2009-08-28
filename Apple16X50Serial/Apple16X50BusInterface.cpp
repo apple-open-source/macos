@@ -1,5 +1,5 @@
 /*
-Copyright (c) 1997-2006 Apple Computer, Inc. All rights reserved.
+Copyright (c) 1997-2008 Apple Inc. All rights reserved.
 Copyright (c) 1994-1996 NeXT Software, Inc.  All rights reserved.
  
 IMPORTANT:  This Apple software is supplied to you by Apple Computer, Inc. (ÒAppleÓ) in consideration of your agreement to the following terms, and your use, installation, modification or redistribution of this Apple software constitutes acceptance of these terms.  If you do not agree with these terms, please do not use, install, modify or redistribute this Apple software.
@@ -95,13 +95,13 @@ void Apple16X50BusInterface::startUARTs(bool noSuffix)
         }
         
         char pre[8], buf[80];
-        sprintf(pre, "%d%c", (int)InterfaceInstance, (UARTInstance>1)?('a'+uart):('\0') );
+        snprintf(pre, sizeof (pre), "%d%c", (int)InterfaceInstance, (UARTInstance>1)?('a'+uart):('\0') );
 
         if ( (!noSuffix)  || (uart > 0) )
             UART[uart]->setProperty(kIOTTYSuffixKey, pre);
 
         UART[uart]->setProperty(kIOTTYBaseNameKey, getProperty(kIOTTYBaseNameKey));
-        sprintf(buf, "%s (%s)", InterfaceBaseName, pre);
+        snprintf(buf, sizeof (buf), "%s (%s)", InterfaceBaseName, pre);
         UART[uart]->setProperty(kNPProductNameKey, buf);
 
         if (!(UART[uart]->start(this))) {

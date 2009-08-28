@@ -331,7 +331,7 @@ void GraphicsContext::clearRect(const FloatRect& rect)
 
     SkPaint paint;
     platformContext()->setupPaintForFilling(&paint);
-    paint.setPorterDuffXfermode(SkPorterDuff::kClear_Mode);
+    paint.setXfermodeMode(SkXfermode::kClear_Mode);
     platformContext()->canvas()->drawRect(r, paint);
 }
 
@@ -449,10 +449,8 @@ void GraphicsContext::drawConvexPolygon(size_t numPoints,
         return;
 
     SkPaint paint;
-    if (fillColor().alpha() > 0) {
-        platformContext()->setupPaintForFilling(&paint);
-        platformContext()->canvas()->drawPath(path, paint);
-    }
+    platformContext()->setupPaintForFilling(&paint);
+    platformContext()->canvas()->drawPath(path, paint);
 
     if (strokeStyle() != NoStroke) {
         paint.reset();
@@ -472,10 +470,8 @@ void GraphicsContext::drawEllipse(const IntRect& elipseRect)
         return;
 
     SkPaint paint;
-    if (fillColor().alpha() > 0) {
-        platformContext()->setupPaintForFilling(&paint);
-        platformContext()->canvas()->drawOval(rect, paint);
-    }
+    platformContext()->setupPaintForFilling(&paint);
+    platformContext()->canvas()->drawOval(rect, paint);
 
     if (strokeStyle() != NoStroke) {
         paint.reset();
@@ -507,7 +503,7 @@ void GraphicsContext::drawFocusRing(const Color& color)
     paint.setAntiAlias(true);
     paint.setStyle(SkPaint::kStroke_Style);
 
-    paint.setColor(focusRingColor().rgb());
+    paint.setColor(color.rgb());
     paint.setStrokeWidth(focusRingOutset * 2);
     paint.setPathEffect(new SkCornerPathEffect(focusRingOutset * 2))->unref();
     focusRingRegion.getBoundaryPath(&path);
@@ -685,9 +681,6 @@ void GraphicsContext::fillPath()
     const GraphicsContextState& state = m_common->state;
     ColorSpace colorSpace = state.fillColorSpace;
 
-    if (colorSpace == SolidColorSpace && !fillColor().alpha())
-        return;
-
     path.setFillType(state.fillRule == RULE_EVENODD ?
         SkPath::kEvenOdd_FillType : SkPath::kWinding_FillType);
 
@@ -718,9 +711,6 @@ void GraphicsContext::fillRect(const FloatRect& rect)
     const GraphicsContextState& state = m_common->state;
     ColorSpace colorSpace = state.fillColorSpace;
 
-    if (colorSpace == SolidColorSpace && !fillColor().alpha())
-        return;
-
     SkPaint paint;
     platformContext()->setupPaintForFilling(&paint);
 
@@ -737,9 +727,6 @@ void GraphicsContext::fillRect(const FloatRect& rect)
 void GraphicsContext::fillRect(const FloatRect& rect, const Color& color)
 {
     if (paintingDisabled())
-        return;
-
-    if (!color.alpha())
         return;
 
     SkRect r = rect;
@@ -871,7 +858,7 @@ void GraphicsContext::setCompositeOperation(CompositeOperator op)
 {
     if (paintingDisabled())
         return;
-    platformContext()->setPorterDuffMode(WebCoreCompositeToSkiaComposite(op));
+    platformContext()->setXfermodeMode(WebCoreCompositeToSkiaComposite(op));
 }
 
 void GraphicsContext::setImageInterpolationQuality(InterpolationQuality)
@@ -1087,9 +1074,6 @@ void GraphicsContext::strokePath()
     const GraphicsContextState& state = m_common->state;
     ColorSpace colorSpace = state.strokeColorSpace;
 
-    if (colorSpace == SolidColorSpace && !strokeColor().alpha())
-        return;
-
     SkPaint paint;
     platformContext()->setupPaintForStroking(&paint, 0, 0);
 
@@ -1113,9 +1097,6 @@ void GraphicsContext::strokeRect(const FloatRect& rect, float lineWidth)
 
     const GraphicsContextState& state = m_common->state;
     ColorSpace colorSpace = state.strokeColorSpace;
-
-    if (colorSpace == SolidColorSpace && !strokeColor().alpha())
-        return;
 
     SkPaint paint;
     platformContext()->setupPaintForStroking(&paint, 0, 0);

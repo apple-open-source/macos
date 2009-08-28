@@ -1,0 +1,58 @@
+2008-12-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.11.1 ========================
+	* 
+
+2008-10-16  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.11 ========================
+	* 
+
+2008-06-14  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* json.pcx: New file. Syntax definitions for the public commands
+	  of the json package.
+
+2007-12-05  Andreas Kupries  <andreask@activestate.com>
+
+	* json.test: Brought the test results into sync with the ordered
+	  dicts of Tcl 8.5. NOTE: This will cause the combination of Tcl
+	  8.4 with a backported dict to fail, at least until either the
+	  backported dict does the same ordering, or the tests are split
+	  into variants, one for both of the two cases. This fixes [Tcllib
+	  SF Bug 1844104], reported by Larry Virden
+	  <lvirden@users.sourceforge.net>. Thanks.
+
+2007-09-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.10 ========================
+	* 
+
+2007-03-21  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* json.man: Fixed all warnings due to use of now deprecated
+	  commands. Added a section about how to give feedback.
+
+2006-10-03  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.9 ========================
+	* 
+
+2006-08-25  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* json.test: empty list test cases
+	* json.tcl (json::_json2dict): handle empty list case
+
+2006-08-18  Andreas Kupries  <andreask@activestate.com>
+
+	* json.man: Added some more keywords to the docs.
+
+2006-08-17  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* json.tcl, json.man, json.test, pkgIndex.tcl: json package v1.0
+	Parses JSON formatted text into Tcl dicts.
+	See http://www.json.org/ for format details.

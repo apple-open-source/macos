@@ -15,22 +15,22 @@
 .\" * Paul Vixie          <paul@vix.com>          uunet!decwrl!vixie!paul
 .\" */
 .\"
-.\" $FreeBSD: src/usr.sbin/cron/cron/cron.8,v 1.24 2005/02/13 23:45:51 ru Exp $
+.\" $FreeBSD: src/usr.sbin/cron/cron/cron.8,v 1.25 2007/06/17 17:25:53 yar Exp $
 .\"
-.Dd December 20, 1993
+.Dd June 17, 2007
 .Dt CRON 8
 .Os
 .Sh NAME
 .Nm cron
 .Nd daemon to execute scheduled commands (Vixie Cron)
 .Sh SYNOPSIS
-.Nm cron
+.Nm
 .Op Fl s
 .Op Fl o
 .Op Fl x Ar debugflag Ns Op , Ns Ar ...
 .Sh DESCRIPTION
 The
-.Nm cron
+.Nm
 utility is launched by 
 .Xr launchd 8 
 when it sees the existence of
@@ -42,130 +42,122 @@ There should be no need to start it manually.  See
 for details.
 .Pp
 The
-.Nm cron
+.Nm
 utility searches
 .Pa /usr/lib/cron/tabs
 for crontab files which are named after accounts in
 .Pa /etc/passwd ;
 crontabs found are loaded into memory.
 The
-.Nm cron
+.Nm
 utility also searches for
 .Pa /etc/crontab
 which is in a different format (see
 .Xr crontab 5 ) .
+.Pp
 The
-.Nm cron
+.Nm
 utility
-then wakes up every minute, examining all stored crontabs,
-checking each command to see if it should be run in the current minute.
-When executing commands,
-any output is mailed to the owner of the crontab
-(or to the user named in the
+then wakes up every minute, examining all stored crontabs, checking each
+command to see if it should be run in the current minute.
+When executing
+commands, any output is mailed to the owner of the crontab (or to the user
+named in the
 .Ev MAILTO
 environment variable in the crontab, if such exists).
 .Pp
 Additionally,
-.Nm cron
-checks each minute to see if its spool directory's modification time
-(or the modification time on
+.Nm
+checks each minute to see if its spool directory's modification time (or
+the modification time on
 .Pa /etc/crontab )
 has changed, and if it has,
-.Nm cron
-will then examine the modification time on all crontabs
-and reload those which have changed.
+.Nm
+will then examine the modification time on all crontabs and reload those
+which have changed.
 Thus
-.Nm cron
+.Nm
 need not be restarted whenever a crontab file is modified.
 Note that the
 .Xr crontab 1
-command updates the modification time of the spool directory
-whenever it changes a crontab.
+command updates the modification time of the spool directory whenever it
+changes a crontab.
 .Pp
 Available options:
 .Bl -tag -width indent
-.\" ==========
+.It Fl s
+Enable special handling of situations when the GMT offset of the local
+timezone changes, such as the switches between the standard time and
+daylight saving time.
+.Pp
+The jobs run during the GMT offset changes time as
+intuitively expected.
+If a job falls into a time interval that disappears
+(for example, during the switch from
+standard time) to daylight saving time or is
+duplicated (for example, during the reverse switch), then it is handled
+in one of two ways:
+.Pp
+The first case is for the jobs that run every at hour of a time interval
+overlapping with the disappearing or duplicated interval.
+In other words, if the job had run within one hour before the GMT offset change
+(and cron was not restarted nor the
+.Xr crontab 5
+changed after that)
+or would run after the change at the next hour.
+They work as always, skip the skipped time or run in the added
+time as usual.
+.Pp
+The second case is for the jobs that run less frequently.
+They are executed exactly once, they are not skipped nor
+executed twice (unless cron is restarted or the user's
+.Xr crontab 5
+is changed during such a time interval).
+If an interval disappears
+due to the GMT offset change, such jobs are
+executed at the same absolute point of time as they would be in the
+old time zone.
+For example, if exactly one hour disappears, this
+point would be during the next hour at the first minute that is
+specified for them in
+.Xr crontab 5 .
 .It Fl o
-Disable the special handling of situations
-when the GMT offset of the local timezone changes,
-to be compatible with the old (default) behavior.
+Disable the special handling of situations when the GMT offset of the local
+timezone changes, to be compatible with the old (default) behavior.
 If both options
 .Fl o
 and
 .Fl s
 are specified, the option specified last wins.
-.\" ==========
-.It Fl s
-Enable special handling of situations
-when the GMT offset of the local timezone changes,
-such as the switches between the standard time and daylight saving time.
-.Pp
-The jobs run during the GMT offset changes time as
-intuitively expected.
-If a job falls into a time interval that disappears
-(for example, during the switch
-from standard time to daylight saving time)
-or is duplicated (for example, during the reverse switch),
-then it is handled in one of two ways:
-.Pp
-The first case is for the jobs that run at every hour of a time interval,
-overlapping with the disappearing or duplicated interval.
-In other words, if the job had run within one hour
-before the GMT offset change
-(and cron was not restarted, nor the
-.Xr crontab 5
-changed after that)
-or would run after the change at the next hour.
-They work as always,
-skipping the skipped time or running in the added time, as usual.
-.Pp
-The second case is for the jobs that run less frequently.
-These are executed exactly once;
-they are neither skipped, nor executed twice
-(unless cron is restarted or the user's
-.Xr crontab 5
-is changed during such a time interval).
-If an interval disappears due to the GMT offset change,
-such jobs are executed at the same absolute point of time
-as they would be in the old time zone.
-For example, if exactly one hour disappears,
-this point would be during the next hour at the first minute
-that is specified for them in
-.Xr crontab 5 .
-.\" ==========
 .It Fl x Ar debugflag Ns Op , Ns Ar ...
 Enable writing of debugging information to standard output.
-One or more of the following comma-separated
+One or more of the following comma separated
 .Ar debugflag
 identifiers must be specified:
 .Pp
 .Bl -tag -width ".Cm proc" -compact
-.\" ==========
 .It Cm bit
 currently not used
-.\" ==========
 .It Cm ext
 make the other debug flags more verbose
-.\" ==========
 .It Cm load
 be verbose when loading crontab files
-.\" ==========
 .It Cm misc
 be verbose about miscellaneous one-off events
-.\" ==========
 .It Cm pars
 be verbose about parsing individual crontab lines
-.\" ==========
 .It Cm proc
-be verbose about the state of the process,
-including all of its offspring
-.\" ==========
+be verbose about the state of the process, including all of its offspring
 .It Cm sch
 be verbose when iterating through the scheduling algorithms
-.\" ==========
 .It Cm test
 trace through the execution, but do not perform any actions
 .El
+.El
+.Sh FILES
+.Bl -tag -width /usr/lib/cron/tabs -compact
+.It Pa /usr/lib/cron/tabs
+Directory for personal crontab files
 .El
 .Sh SEE ALSO
 .Xr crontab 1 ,

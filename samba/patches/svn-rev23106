@@ -5,7 +5,7 @@ Index: samba/source/smbd/trans2.c
 ===================================================================
 --- samba/source/smbd/trans2.c.orig
 +++ samba/source/smbd/trans2.c
-@@ -5123,9 +5123,18 @@ size = %.0f, uid = %u, gid = %u, raw per
+@@ -5191,9 +5191,18 @@ size = %.0f, uid = %u, gid = %u, raw per
  	 */
  
  	if ((set_owner != (uid_t)SMB_UID_NO_CHANGE) && (psbuf->st_uid != set_owner)) {

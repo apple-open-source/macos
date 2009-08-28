@@ -1,0 +1,93 @@
+'\"
+'\" XOTcl - Extended OTcl
+'\" Copyright (C) 1999-2008 Gustaf Neumann, Uwe Zdun
+'\"
+'\" 
+.so man.macros
+.TH xotclsh 1 "" XOTcl "XOTcl Applications"
+.BS
+.SH NAME
+xotclsh \- Tcl Shell containing object-oriented scripting language XOTcl
+.SH SYNOPSIS
+\fBxotclsh\fR \fI?filename arg arg ...?\fR
+.BE
+.SH DESCRIPTION
+.PP
+\fBxotclsh\fR is a shell-like application that reads XOTcl commands
+from its standard input or from a file and evaluates them.
+Similarly as the relation between \fBtclsh\fR and \fBwish\fR, 
+\fBxowish\fR 
+provides all functionality of xotclsh and provides as well predefined
+support for TK widgets.
+.PP
+XOTcl (XOTcl, pronounced exotickle) is an object-oriented scripting
+language based on MIT's OTcl. It is intended as a value added
+replacement of OTcl.
+.PP
+Scripting languages, such as Tcl, are designed for glueing components
+together, provide features such as dynamic extensibility and dynamic
+typing with automatic conversion, that make them well suited for rapid
+application development.
+.PP
+The object system of XOTcl enables a user to to define objects, 
+classes, and meta-classes. Classes are special objects with the
+purpose of managing
+other objects. ``Managing'' means that a class controls the creation
+and destruction of its instances and that it contains a repository of
+methods accessible for the instances. Every object may be enhanced
+with object-specific methods. XOTcl supports single and multiple
+inheritance. All object-class and class-class relationships in XOTcl
+are introspectable and can be dynamically changed at arbitrary times.
+Ambiguities in name resolution of methods are avoided
+through method chaining through "next", which does not require
+explicit method naming. 
+.PP
+XOTcl combines the ideas of scripting and object-orientation in a way
+that preserves the benefits of both of them. It is equipped with
+several new language constructs that help building and managing
+complex systems. We added the following support:
+
+.PP
+\fIDynamic Object Aggregations\fR, 
+to provide dynamic aggregations through nested namespaces (objects). 
+.PP
+\fINested Classes\fR, to reduce the interference
+of independently developed program structures. 
+.PP
+\fIAssertions\fR, to reduce
+the interface and the reliability problems caused by dynamic typing
+and, therefore, to ease the combination of many components.
+.PP
+\fIMeta-data\fR, to enhance self-documentation of objects and 
+classes.
+.PP
+\fIPer-object mixins\fR, as a means to give an object 
+dynamically access to the methods of one or several supplemental classes.
+.PP
+\fIPer-class mixins\fR, as a means to give all instances of 
+an class dynamically access to the methods of one or several 
+supplemental classes.
+.PP
+\fIFilters\fR as a means of
+abstractions over method invocations to implement large program
+structures, like design patterns.
+
+XOTcl provides a value-added replacement of Tcl
+package loading providing integration with object-oriented constructs and
+tracking/tracing of component loading.
+.SH VARIABLES
+.PP
+\fBxotclsh\fR sets all variables that \fBtclsh\fR sets,
+and additionally the following variables:
+
+.TP 15
+\fB::xotcl::version\fR XOTcl version number.
+.TP 15
+\fB::xotcl::confdir\fR Directory for XOTcl configuration.
+.TP 15
+\fB::xotcl::logdir\fR Directory where logfiles are placed.
+
+.PP
+.SH KEYWORDS
+argument, interpreter, prompt, script file, shell
+

@@ -11,14 +11,14 @@
     <TR><TD WIDTH="100%" BGCOLOR="#99CCFF"><B>
         <FONT COLOR="#000000" SIZE=+1>
         Konfiguracja subskrybcji <MM-Presentable-User> na li¶cie
-        dyskusyjnej <MM-List-Name>
+        <MM-List-Name>
         </FONT></B></TD></TR>
     </TABLE>
 <p>
 <table width="100%" border="0" cellspacing="5" cellpadding="5">
     <tr><td>
-        <b><MM-Presentable-User></b> -- aktualny stan zapisania,
-        has³o i zmiana opcji na li¶cie dyskusyjnej <MM-List-Name>.
+        <b><MM-Presentable-User></b> -- aktualny stan subskrypcji,
+        has³o i zmiana opcji na li¶cie <MM-List-Name>.
         </td><td><MM-Form-Start><mm-logout-button><MM-Form-End></td>
     </tr><tr>
         <td colspan="2">
@@ -36,21 +36,20 @@
 <TABLE WIDTH="100%" BORDER="0" CELLSPACING="0" CELLPADDING="5">
     <TR><TD WIDTH="100%" BGCOLOR="#FFF0D0" colspan="2">
         <FONT COLOR="#000000">
-        <B>Zmiana informacji o Tobie jako o cz³onku listy <MM-List-Name> </B>
+        <B>Zmiana ustawieñ <MM-List-Name> </B>
         </FONT></TD></TR>
     <tr><td colspan="2">
-        Mo¿esz zmieniæ adres spod jakiego jeste¶ zapisany na listê
-        wype³niaj±c po prostu poni¿sze pola. Na nowy adres zostanie wys³any 
-        list, który bêdzie jeszcze wymaga³ Twojego potwierdzenia.
+        Mo¿esz zmieniæ adres u¿ywany do prenumeraty listy
+        wype³niaj±c po prostu poni¿sze pola. Na nowy adres zostanie wys³ana 
+        wiadomo¶æ, która bêdzie jeszcze wymaga³a Twojego potwierdzenia.
 
-        <p>Musisz odes³aæ potwierdzenie w ci±gu <mm-pending-days>.
+        <p>Potwierdzenie nale¿y odes³aæ w ci±gu <mm-pending-days>.
 
         <p>Mo¿esz równie¿ dodaæ lub zmieniæ swoje Imiê i Nazwisko
         (np.. <em>Jan Kowalski</em>).
 
         <p>Zaznaczenie opcji <em>Zmiana globalna</em> spowoduje, ¿e zmiany
-        te bêd± dotyczyæ wszystkich list, na które jeste¶ zapisany na
-        serwerze <mm-host>.
+        te bêd± dotyczyæ wszystkich list na serwerze <mm-host>, na które jeste¶ zapisany.
 
         </td></tr>
     <tr><td><center>
@@ -83,19 +82,19 @@
         <B>Wypisanie siê z listy <MM-List-Name></B></td>
 
         <TD WIDTH="50%" BGCOLOR="#FFF0D0"><FONT COLOR="#000000">
-        <B>Twoje inne subskrybcje na <MM-Host></B>
+        <B>Pozosta³e listy, które subskrybujesz na serwerze <MM-Host></B>
         </FONT></TD></TR>
 
     <tr><td>
         Zaznacz opcje potwierdzenia i naci¶nij przycisk, aby wypisaæ siê
-        z listy dyskusyjnej. <strong>Uwaga:</strong> wypisanie jest
+        z listy. <strong>Uwaga:</strong> wypisanie jest
         realizowane natychmiast.
         <p>
         <center><MM-Unsubscribe-Button></center></td>
     <td>
-        Mo¿esz zobaczyæ listê wszystkich list dyskusyjnych na serwerze
-        <mm-host>, których jeste¶ cz³onkiem. 
-        Wejd¼ tutaj, je¶li chcesz zmieniæ co¶ w opcjach dotycz±cych innej
+        Mo¿esz zobaczyæ listê wszystkich list na serwerze
+        <mm-host>, na które jeste¶ zapisany. 
+        Zaloguj siê, je¶li chcesz zmieniæ co¶ w opcjach dotycz±cych innej
         listy.
 
         <p>
@@ -113,7 +112,7 @@
         <center>
         <h3>Zapomnia³e¶ has³a?</h3>
         </center>
-        Kliknij w ten przycisk, a zostanie wys³ane ono na Twój adres
+        Kliknij poni¿szy przycisk, a has³o zostanie wys³ane na Twój adres
         email.
         <p><MM-Umbrella-Notice>
         <center>
@@ -145,17 +144,17 @@
 <p>
 <TABLE WIDTH="100%" BORDER="0" CELLSPACING="0" CELLPADDING="5">
     <TR><TD WIDTH="100%" BGCOLOR="#FFF0D0"><FONT COLOR="#000000">
-        <B>Opcje Twojej subskrybcji listy <MM-List-Name></B>
+        <B>Opcje subskrypcji listy <MM-List-Name></B>
         </FONT></TD></TR>
 </table>
 
 <p>
-<i><strong>Warto¶ci zaznaczone s± bie¿±cymi ustawieniami.</strong></i>
+<i><strong>Warto¶ci zaznaczone to aktualne ustawienia prenumeraty.</strong></i>
 
 <p>Zauwa¿, ¿e niektóre opcje maj± znacznik <em>Zmiana globalna</em>.
 Jego zaznaczenie spowoduje, ¿e zmiana danej opcji odnosiæ siê bêdzie do 
-wszystkich list na serwerze <mm-host>, których jeste¶ cz³onkiem.
-Kliknij na przycisk <em>Poka¿ pozosta³e moje subskrybcje</em>, je¶li 
+wszystkich list na serwerze <mm-host>, które prenumerujesz.
+Kliknij przycisk <em>Poka¿ moje pozosta³e subskrypcje</em>, je¶li 
 nie jeste¶ pewien na jakie listy jeste¶ zapisany.
 <p>
 <TABLE BORDER="0" CELLSPACING="3" CELLPADDING="4" WIDTH="100%">
@@ -164,8 +163,7 @@ nie jeste¶ pewien na jakie listy jeste¶ zapisany.
         <strong>Dostarczanie wiadomo¶ci</strong></a><p>
         Ustaw tê opcjê na <em>W³±czone</em>, ¿eby dostawaæ wszystkie 
         wiadomo¶ci z listy. Ustawienie <em>Wy³±czone</em>, spowoduje, 
-        ¿e nadal bêdziesz zapisany na listê, ale przez jaki¶ czas mo¿esz nie
-        chcieæ dostawaæ wiadomo¶ci (np. wyje¿dzasz na wakacje). Je¶li
+        ¿e nadal bêdziesz zapisany na listê, ale nie bêdziesz dostawa³ wiadomo¶ci (przydatne je¶li np. wyje¿d¿asz na wakacje). Je¶li
         wy³±czy³e¶ dostarczanie, nie zapomnij w³±czyæ je po powrocie; nie
         w³±czy siê ono automatycznie. 
         </td><td bgcolor="#cccccc">
@@ -178,10 +176,10 @@ nie jeste¶ pewien na jakie listy jeste¶ zapisany.
         <strong>Tryb Paczek</strong><p>
 
         Je¶li tryb paczek jest wy³±czony, wiadomo¶ci dostarczane s± 
-        natychmiast. Po jego w³±czeniu, wiadomo¶ci z listy bedziesz dostawa³
-        tylko raz dziennie w formie paczki (czasami czê¶ciej, je¶li ruch
+        natychmiast. Po jego w³±czeniu, wiadomo¶ci z listy bêdziesz dostawa³
+        tylko raz dziennie w formie paczki (b±d¼ czê¶ciej, je¶li ruch
         na li¶cie jest bardzo du¿y). Zmiana tej opcji mo¿e spowodowaæ, ¿e 
-        nie dostaniesz ostatniej z paczek.
+        nie dostaniesz ostatniej wys³anej paczki (tylko kolejne).
         </td><td bgcolor="#cccccc">
         <MM-Undigest-Radio-Button>Wy³±czony<br>
         <MM-Digest-Radio-Button>W³±czony
@@ -192,7 +190,7 @@ nie jeste¶ pewien na jakie listy jeste¶ zapisany.
         Okre¶l, w jakiej formie maj± byæ dostarczane wiadomo¶ci w trybie 
         paczek. Najczêstszym wyborem jest MIME. 
         Stare programy pocztowe mog± nie obs³ugiwaæ za³±czników MIME, wtedy 
-        ustaw tê opcjê na Czysty Tekst.
+        wybierz opcjê na Czysty Tekst.
         </td><td bgcolor="#cccccc">
         <MM-Mime-Digests-Button>MIME<br>
         <MM-Plain-Digests-Button>Czysty Tekst<p>
@@ -225,7 +223,7 @@ nie jeste¶ pewien na jakie listy jeste¶ zapisany.
         Mo¿esz wy³±czyæ
         przypomnienie has³a dla ka¿dej z list osobno, zaznaczaj±c opcje
         <em>Nie</em>. Zrezygnowanie z przypomnienia dla wszystkich list
-        spowoduje, ¿e w ogóle nie dostaniesz wiadomo¶ci przypominiaj±cej.
+        spowoduje, ¿e w ogóle nie dostaniesz wiadomo¶ci z przypomnieniem.
         </td><td bgcolor="#cccccc">
         <mm-dont-get-password-reminder-button>Nie<br>
         <mm-get-password-reminder-button>Tak<p>
@@ -235,7 +233,7 @@ nie jeste¶ pewien na jakie listy jeste¶ zapisany.
     <tr><TD BGCOLOR="#cccccc">
         <strong>Czy chcesz byæ niewidocznym cz³onkiem listy?</strong><p>
         Normalnie Twój adres jest widoczny dla ogl±daj±cych listê
-        sybskrybentów (adres jest dodatkowo zniekszta³cony, ¿eby trudniæ 
+        sybskrybentów (adres jest dodatkowo zniekszta³cony, ¿eby utrudniæ 
         ¿ycie spamerom). Je¶li nie chcesz, ¿eby Twój adres pojawia³ siê na
         li¶cie osób zapisanych, zaznacz <em>Tak</em>.
         </td><td bgcolor="#cccccc">
@@ -252,7 +250,7 @@ nie jeste¶ pewien na jakie listy jeste¶ zapisany.
     <tr><td bgcolor="#cccccc">
         <strong>Jakie kategorie tematyczne Ciê interesuj±?
                 </strong><p>
-                Znaczaj±c jeden lub wiêcej tematów, mo¿esz filtrowaæ
+                Zaznaczaj±c jeden lub wiêcej tematów, mo¿esz filtrowaæ
                 wiadomo¶ci z listy, a wiêc otrzymywaæ tylko czê¶æ 
                 ruchu. Bêdziesz dostawaæ tylko wiadomo¶ci, które pasuj±
                 do którego¶ z tematów.
@@ -274,7 +272,7 @@ nie jeste¶ pewien na jakie listy jeste¶ zapisany.
                 jedn± kategoriê tematyczn± z poprzedniej opcji. Opisuje
                 na zachowanie w przypadku, gdy wiadomo¶æ nie pasuje
                 do ¿adnego ze zdefiniowanych tematów. Wybranie 
-                <em>Nie</em> oznacza, ¿e nie bedziesz dostawaæ wiadomo¶ci 
+                <em>Nie</em> oznacza, ¿e nie bêdziesz dostawaæ wiadomo¶ci 
                 nie pasuj±cych do ¿adnego tematu, a <em>Tak</em>, ¿e
                 bêdziesz dostawaæ te pozosta³e wiadomo¶ci.
 
@@ -296,7 +294,7 @@ nie jeste¶ pewien na jakie listy jeste¶ zapisany.
                 dostawania tego samego listu w dwóch kopiach. 
                 Przy <em>Nie</em> mo¿esz dostawaæ wielokrotne kopie.
 
-                <p>Je¿eli lista dyskusyjna ma w³±czon± personalizacjê
+                <p>Je¿eli lista ma w³±czon± personalizacjê
                 wiadomo¶ci, a ty wybierzesz dostawanie kopii, Mailman 
                 doda pole <tt>X-Mailman-Copy: yes</tt> do nag³ówka ka¿dej
                 kopii.

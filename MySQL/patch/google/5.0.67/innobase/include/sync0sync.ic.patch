@@ -1,0 +1,107 @@
+--- base5067/innobase/include/sync0sync.ic	2008-08-04 05:19:15.000000000 -0700
++++ m5067/innobase/include/sync0sync.ic	2008-09-08 06:54:12.000000000 -0700
+@@ -58,7 +58,7 @@
+ Performs an atomic test-and-set instruction to the lock_word field of a
+ mutex. */
+ UNIV_INLINE
+-ulint
++byte
+ mutex_test_and_set(
+ /*===============*/
+ 				/* out: the previous value of lock_word: 0 or
+@@ -66,18 +66,18 @@
+ 	mutex_t*	mutex)	/* in: mutex */
+ {
+ #if defined(_WIN32) && defined(UNIV_CAN_USE_X86_ASSEMBLER)
+-	ulint	res;
+-	ulint*	lw;		/* assembler code is used to ensure that
++	byte	res;
++	byte*	lw;		/* assembler code is used to ensure that
+ 				lock_word is loaded from memory */
+ 	ut_ad(mutex);
+-	ut_ad(sizeof(ulint) == 4);
++	ut_ad(sizeof(byte) == 1);
+ 
+ 	lw = &(mutex->lock_word);
+ 
+         __asm   MOV     ECX, lw
+ 	__asm   MOV     EDX, 1
+-        __asm   XCHG    EDX, DWORD PTR [ECX]                    
+-       	__asm   MOV     res, EDX
++        __asm   XCHG    DL,  BYTE PTR [ECX]                    
++       	__asm   MOV     res, DL
+ 
+ 	/* The fence below would prevent this thread from reading the data
+ 	structure protected by the mutex before the test-and-set operation is
+@@ -100,6 +100,13 @@
+ 	TAS(&mutex->lock_word, 1, res);
+ 
+ 	return(res);
++#elif defined(HAVE_ATOMIC_BUILTINS)
++	/* GNUC 4.1.0 and later versions provide built-in functions 
++	for atomic memory access. see online doc for details at
++	http://gcc.gnu.org/onlinedocs/gcc-4.1.0/gcc/Atomic-Builtins.html
++	TODO: add wrapper for __sync_lock_test_and_set in os0sync.ic
++	*/
++	return __sync_lock_test_and_set(&(mutex->lock_word), 1);
+ #else
+ 	ibool	ret;
+ 
+@@ -113,7 +120,7 @@
+ 		mutex->lock_word = 1;
+ 	}
+ 
+-	return(ret);
++	return((byte)ret);
+ #endif
+ }
+ 
+@@ -127,7 +134,7 @@
+ 	mutex_t*	mutex)	/* in: mutex */
+ {
+ #if defined(_WIN32) && defined(UNIV_CAN_USE_X86_ASSEMBLER)
+-	ulint*	lw;		/* assembler code is used to ensure that
++	byte*	lw;		/* assembler code is used to ensure that
+ 				lock_word is loaded from memory */
+ 	ut_ad(mutex);
+ 
+@@ -135,11 +142,23 @@
+ 
+ 	__asm   MOV     EDX, 0
+         __asm   MOV     ECX, lw
+-        __asm   XCHG    EDX, DWORD PTR [ECX]                    
++        __asm   XCHG    DL,  BYTE PTR [ECX]                    
+ #elif defined(not_defined) && defined(__GNUC__) && defined(UNIV_INTEL_X86)
+ 	ulint	res;
+ 
+ 	TAS(&mutex->lock_word, 0, res);
++
++#elif defined(HAVE_ATOMIC_BUILTINS)
++	/* GNUC 4.1.0 and later versions provide built-in functions 
++	for atomic memory access. see online doc for details at
++	http://gcc.gnu.org/onlinedocs/gcc-4.1.0/gcc/Atomic-Builtins.html
++	*/
++	/* __sync_lock_release(&(mutex->lock_word)); */
++    /* TODO: we should try to get __sync_lock_release work properly */
++	/* In theory __sync_lock_release should be used to release the lock.
++	Unfortunately, it does not work properly alone. The workaround is
++	that more conservative __sync_lock_test_and_set is used instead. */
++	__sync_lock_test_and_set(&(mutex->lock_word), 0);
+ #else
+ 	mutex->lock_word = 0;
+ 
+@@ -150,12 +169,12 @@
+ /**********************************************************************
+ Gets the value of the lock word. */
+ UNIV_INLINE
+-ulint
++byte
+ mutex_get_lock_word(
+ /*================*/
+ 	mutex_t*	mutex)	/* in: mutex */
+ {
+-volatile ulint*	ptr;		/* declared volatile to ensure that
++volatile byte*	ptr;		/* declared volatile to ensure that
+ 				lock_word is loaded from memory */
+ 	ut_ad(mutex);
+ 

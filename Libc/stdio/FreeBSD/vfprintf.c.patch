@@ -1,6 +1,6 @@
---- vfprintf.c.orig	2006-10-01 00:03:16.000000000 -0700
-+++ vfprintf.c	2006-10-01 00:21:05.000000000 -0700
-@@ -40,6 +40,8 @@
+--- vfprintf.c.orig	2008-09-07 11:37:54.000000000 -0700
++++ vfprintf.c	2008-09-07 17:33:16.000000000 -0700
+@@ -40,6 +40,8 @@ static char sccsid[] = "@(#)vfprintf.c	8
  #include <sys/cdefs.h>
  __FBSDID("$FreeBSD: src/lib/libc/stdio/vfprintf.c,v 1.68 2004/08/26 06:25:28 des Exp $");
  
@@ -9,7 +9,7 @@
  /*
   * Actual printf innards.
   *
-@@ -58,6 +60,7 @@
+@@ -58,6 +60,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/v
  #include <stdlib.h>
  #include <string.h>
  #include <wchar.h>
@@ -17,7 +17,7 @@
  
  #include <stdarg.h>
  #include "un-namespace.h"
-@@ -66,6 +69,13 @@
+@@ -66,6 +69,13 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/v
  #include "local.h"
  #include "fvwrite.h"
  
@@ -31,7 +31,7 @@
  union arg {
  	int	intarg;
  	u_int	uintarg;
-@@ -93,6 +103,21 @@
+@@ -93,6 +103,21 @@ union arg {
  #endif
  	wint_t	wintarg;
  	wchar_t	*pwchararg;
@@ -53,7 +53,7 @@
  };
  
  /*
-@@ -103,16 +128,20 @@
+@@ -103,16 +128,20 @@ enum typeid {
  	T_LONG, T_U_LONG, TP_LONG, T_LLONG, T_U_LLONG, TP_LLONG,
  	T_PTRDIFFT, TP_PTRDIFFT, T_SIZET, TP_SIZET,
  	T_INTMAXT, T_UINTMAXT, TP_INTMAXT, TP_VOID, TP_CHAR, TP_SCHAR,
@@ -76,7 +76,7 @@
  static void	__find_arguments(const char *, va_list, union arg **);
  static void	__grow_type_table(int, enum typeid **, int *);
  
-@@ -141,7 +170,7 @@
+@@ -141,7 +170,7 @@ __sprint(FILE *fp, struct __suio *uio)
   * worries about ungetc buffers and so forth.
   */
  static int
@@ -85,7 +85,7 @@
  {
  	int ret;
  	FILE fake;
-@@ -160,7 +189,7 @@
+@@ -160,7 +189,7 @@ __sbprintf(FILE *fp, const char *fmt, va
  	fake._lbfsize = 0;	/* not actually used, but Just In Case */
  
  	/* do the work, then copy any error status */
@@ -94,7 +94,25 @@
  	if (ret >= 0 && __fflush(&fake))
  		ret = EOF;
  	if (fake._flags & __SERR)
-@@ -336,14 +365,14 @@
+@@ -252,7 +281,7 @@ __ultoa(u_long val, char *endp, int base
+ 		break;
+ 
+ 	default:			/* oops */
+-		abort();
++		LIBC_ABORT("base = %d", base);
+ 	}
+ 	return (cp);
+ }
+@@ -324,7 +353,7 @@ __ujtoa(uintmax_t val, char *endp, int b
+ 		break;
+ 
+ 	default:
+-		abort();
++		LIBC_ABORT("base = %d", base);
+ 	}
+ 	return (cp);
+ }
+@@ -336,14 +365,14 @@ __ujtoa(uintmax_t val, char *endp, int b
   * that the wide char. string ends in a null character.
   */
  static char *
@@ -111,7 +129,7 @@
  
  	/*
  	 * Determine the number of bytes to output and allocate space for
-@@ -354,7 +383,7 @@
+@@ -354,7 +383,7 @@ __wcsconv(wchar_t *wcsarg, int prec)
  		p = wcsarg;
  		mbs = initial;
  		for (;;) {
@@ -120,7 +138,7 @@
  			if (clen == 0 || clen == (size_t)-1 ||
  			    nbytes + clen > prec)
  				break;
-@@ -363,7 +392,7 @@
+@@ -363,7 +392,7 @@ __wcsconv(wchar_t *wcsarg, int prec)
  	} else {
  		p = wcsarg;
  		mbs = initial;
@@ -129,7 +147,7 @@
  		if (nbytes == (size_t)-1)
  			return (NULL);
  	}
-@@ -378,7 +407,7 @@
+@@ -378,7 +407,7 @@ __wcsconv(wchar_t *wcsarg, int prec)
  	p = wcsarg;
  	mbs = initial;
  	while (mbp - convbuf < nbytes) {
@@ -138,7 +156,7 @@
  		if (clen == 0 || clen == (size_t)-1)
  			break;
  		mbp += clen;
-@@ -395,6 +424,8 @@
+@@ -395,6 +424,8 @@ __wcsconv(wchar_t *wcsarg, int prec)
  /*
   * MT-safe version
   */
@@ -147,7 +165,7 @@
  int
  vfprintf(FILE * __restrict fp, const char * __restrict fmt0, va_list ap)
  
-@@ -402,7 +433,21 @@
+@@ -402,7 +433,21 @@ vfprintf(FILE * __restrict fp, const cha
  	int ret;
  
  	FLOCKFILE(fp);
@@ -170,7 +188,7 @@
  	FUNLOCKFILE(fp);
  	return (ret);
  }
-@@ -451,12 +496,15 @@
+@@ -451,12 +496,15 @@ static int exponent(char *, int, int);
  #define	PTRDIFFT	0x800		/* ptrdiff_t */
  #define	INTMAXT		0x1000		/* intmax_t */
  #define	CHARINT		0x2000		/* print char using int format */
@@ -188,7 +206,7 @@
  {
  	char *fmt;		/* format string */
  	int ch;			/* character from fmt */
-@@ -502,6 +550,11 @@
+@@ -502,6 +550,11 @@ __vfprintf(FILE *fp, const char *fmt0, v
  	int nseps;		/* number of group separators with ' */
  	int nrepeats;		/* number of repeats of the last group */
  #endif
@@ -200,7 +218,7 @@
  	u_long	ulval;		/* integer arguments %[diouxX] */
  	uintmax_t ujval;	/* %j, %ll, %q, %t, %z integers */
  	int base;		/* base for [diouxX] conversion */
-@@ -599,7 +652,7 @@
+@@ -599,13 +652,13 @@ __vfprintf(FILE *fp, const char *fmt0, v
  #define	INTMAX_SIZE	(INTMAXT|SIZET|PTRDIFFT|LLONGINT)
  #define SJARG() \
  	(flags&INTMAXT ? GETARG(intmax_t) : \
@@ -209,7 +227,14 @@
  	    flags&PTRDIFFT ? (intmax_t)GETARG(ptrdiff_t) : \
  	    (intmax_t)GETARG(long long))
  #define	UJARG() \
-@@ -633,22 +686,24 @@
+ 	(flags&INTMAXT ? GETARG(uintmax_t) : \
+ 	    flags&SIZET ? (uintmax_t)GETARG(size_t) : \
+-	    flags&PTRDIFFT ? (uintmax_t)GETARG(ptrdiff_t) : \
++	    flags&PTRDIFFT ? (uintmax_t)(unsigned)GETARG(ptrdiff_t) : \
+ 	    (uintmax_t)GETARG(unsigned long long))
+ 
+ 	/*
+@@ -633,22 +686,24 @@ __vfprintf(FILE *fp, const char *fmt0, v
  		val = GETARG (int); \
  	}
  
@@ -238,7 +263,7 @@
  
  	fmt = (char *)fmt0;
  	argtable = NULL;
-@@ -675,6 +730,9 @@
+@@ -675,6 +730,9 @@ __vfprintf(FILE *fp, const char *fmt0, v
  		}
  		if (ch == '\0')
  			goto done;
@@ -248,7 +273,7 @@
  		fmt++;		/* skip over '%' */
  
  		flags = 0;
-@@ -683,6 +741,9 @@
+@@ -683,6 +741,9 @@ __vfprintf(FILE *fp, const char *fmt0, v
  		prec = -1;
  		sign = '\0';
  		ox[1] = '\0';
@@ -258,7 +283,7 @@
  
  rflag:		ch = *fmt++;
  reswitch:	switch (ch) {
-@@ -698,6 +759,11 @@
+@@ -698,6 +759,11 @@ reswitch:	switch (ch) {
  		case '#':
  			flags |= ALT;
  			goto rflag;
@@ -270,7 +295,7 @@
  		case '*':
  			/*-
  			 * ``A negative field width argument is taken as a
-@@ -718,8 +784,8 @@
+@@ -718,8 +784,8 @@ reswitch:	switch (ch) {
  			goto rflag;
  		case '\'':
  			flags |= GROUPING;
@@ -281,7 +306,7 @@
  			goto rflag;
  		case '.':
  			if ((ch = *fmt++) == '*') {
-@@ -793,14 +859,18 @@
+@@ -793,14 +859,18 @@ reswitch:	switch (ch) {
  			flags |= LONGINT;
  			/*FALLTHROUGH*/
  		case 'c':
@@ -302,7 +327,7 @@
  				if (mbseqlen == (size_t)-1) {
  					fp->_flags |= __SERR;
  					goto error;
-@@ -817,6 +887,10 @@
+@@ -817,6 +887,10 @@ reswitch:	switch (ch) {
  			/*FALLTHROUGH*/
  		case 'd':
  		case 'i':
@@ -313,7 +338,7 @@
  			if (flags & INTMAX_SIZE) {
  				ujval = SJARG();
  				if ((intmax_t)ujval < 0) {
-@@ -835,6 +909,12 @@
+@@ -835,6 +909,12 @@ reswitch:	switch (ch) {
  #ifndef NO_FLOATING_POINT
  		case 'a':
  		case 'A':
@@ -326,7 +351,7 @@
  			if (ch == 'a') {
  				ox[1] = 'x';
  				xdigs = xdigs_lower;
-@@ -848,6 +928,12 @@
+@@ -848,6 +928,12 @@ reswitch:	switch (ch) {
  				prec++;
  			if (dtoaresult != NULL)
  				freedtoa(dtoaresult);
@@ -339,7 +364,7 @@
  			if (flags & LONGDBL) {
  				fparg.ldbl = GETARG(long double);
  				dtoaresult = cp =
-@@ -859,6 +945,7 @@
+@@ -859,6 +945,7 @@ reswitch:	switch (ch) {
  				    __hdtoa(fparg.dbl, xdigs, prec,
  				    &expt, &signflag, &dtoaend);
  			}
@@ -347,7 +372,7 @@
  			if (prec < 0)
  				prec = dtoaend - cp;
  			if (expt == INT_MAX)
-@@ -866,6 +953,12 @@
+@@ -866,6 +953,12 @@ reswitch:	switch (ch) {
  			goto fp_common;
  		case 'e':
  		case 'E':
@@ -360,7 +385,7 @@
  			expchar = ch;
  			if (prec < 0)	/* account for digit before decpt */
  				prec = DEFPREC + 1;
-@@ -874,10 +967,22 @@
+@@ -874,10 +967,22 @@ reswitch:	switch (ch) {
  			goto fp_begin;
  		case 'f':
  		case 'F':
@@ -383,7 +408,7 @@
  			expchar = ch - ('g' - 'e');
  			if (prec == 0)
  				prec = 1;
-@@ -886,6 +991,14 @@
+@@ -886,6 +991,14 @@ fp_begin:
  				prec = DEFPREC;
  			if (dtoaresult != NULL)
  				freedtoa(dtoaresult);
@@ -398,7 +423,7 @@
  			if (flags & LONGDBL) {
  				fparg.ldbl = GETARG(long double);
  				dtoaresult = cp =
-@@ -899,6 +1012,7 @@
+@@ -899,6 +1012,7 @@ fp_begin:
  				if (expt == 9999)
  					expt = INT_MAX;
  			}
@@ -406,7 +431,7 @@
  fp_common:
  			if (signflag)
  				sign = '-';
-@@ -993,6 +1107,10 @@
+@@ -993,6 +1107,10 @@ fp_common:
  			flags |= LONGINT;
  			/*FALLTHROUGH*/
  		case 'o':
@@ -417,7 +442,7 @@
  			if (flags & INTMAX_SIZE)
  				ujval = UJARG();
  			else
-@@ -1007,6 +1125,10 @@
+@@ -1007,6 +1125,10 @@ fp_common:
  			 * defined manner.''
  			 *	-- ANSI X3J11
  			 */
@@ -428,7 +453,7 @@
  			ujval = (uintmax_t)(uintptr_t)GETARG(void *);
  			base = 16;
  			xdigs = xdigs_lower;
-@@ -1025,7 +1147,7 @@
+@@ -1025,7 +1147,7 @@ fp_common:
  				if ((wcp = GETARG(wchar_t *)) == NULL)
  					cp = "(null)";
  				else {
@@ -437,7 +462,7 @@
  					if (convbuf == NULL) {
  						fp->_flags |= __SERR;
  						goto error;
-@@ -1056,6 +1178,10 @@
+@@ -1056,6 +1178,10 @@ fp_common:
  			flags |= LONGINT;
  			/*FALLTHROUGH*/
  		case 'u':
@@ -448,7 +473,7 @@
  			if (flags & INTMAX_SIZE)
  				ujval = UJARG();
  			else
-@@ -1068,6 +1194,10 @@
+@@ -1068,6 +1194,10 @@ fp_common:
  		case 'x':
  			xdigs = xdigs_lower;
  hex:
@@ -459,7 +484,7 @@
  			if (flags & INTMAX_SIZE)
  				ujval = UJARG();
  			else
-@@ -1093,6 +1223,7 @@
+@@ -1093,6 +1223,7 @@ number:			if ((dprec = prec) >= 0)
  			 * ``The result of converting a zero value with an
  			 * explicit precision of zero is no characters.''
  			 *	-- ANSI X3J11
@@ -467,7 +492,7 @@
  			 */
  			cp = buf + BUF;
  			if (flags & INTMAX_SIZE) {
-@@ -1102,7 +1233,7 @@
+@@ -1102,7 +1233,7 @@ number:			if ((dprec = prec) >= 0)
  					    flags & GROUPING, thousands_sep,
  					    grouping);
  			} else {
@@ -476,9 +501,12 @@
  					cp = __ultoa(ulval, cp, base,
  					    flags & ALT, xdigs,
  					    flags & GROUPING, thousands_sep,
-@@ -1112,6 +1243,11 @@
+@@ -1110,8 +1241,13 @@ number:			if ((dprec = prec) >= 0)
+ 			}
+ 			size = buf + BUF - cp;
  			if (size > BUF)	/* should never happen */
- 				abort();
+-				abort();
++				LIBC_ABORT("size %d > BUF %d", size, BUF);
  			break;
 +#ifdef VECTORS
 +		case 'v':
@@ -488,7 +516,7 @@
  		default:	/* "%?" prints ?, unless ? is NUL */
  			if (ch == '\0')
  				goto done;
-@@ -1123,6 +1259,290 @@
+@@ -1123,6 +1259,290 @@ number:			if ((dprec = prec) >= 0)
  			break;
  		}
  
@@ -779,7 +807,7 @@
  		/*
  		 * All reasonable formats wind up here.  At this point, `cp'
  		 * points to a string which (if not flags&LADJUST) should be
-@@ -1178,7 +1598,7 @@
+@@ -1178,7 +1598,7 @@ number:			if ((dprec = prec) >= 0)
  				if (expt <= 0) {
  					PRINT(zeroes, 1);
  					if (prec || flags & ALT)
@@ -788,7 +816,7 @@
  					PAD(-expt, zeroes);
  					/* already handled initial 0's */
  					prec += expt;
-@@ -1203,14 +1623,14 @@
+@@ -1203,14 +1623,14 @@ number:			if ((dprec = prec) >= 0)
  							cp = dtoaend;
  					}
  					if (prec || flags & ALT)
@@ -806,7 +834,7 @@
  					PRINT(cp, ndig-1);
  					PAD(prec - ndig, zeroes);
  				} else	/* XeYYY */
-@@ -1406,6 +1826,11 @@
+@@ -1406,6 +1826,11 @@ reswitch:	switch (ch) {
  			if (flags & LONGINT)
  				ADDTYPE(T_WINT);
  			else
@@ -818,7 +846,7 @@
  				ADDTYPE(T_INT);
  			break;
  		case 'D':
-@@ -1413,6 +1838,11 @@
+@@ -1413,6 +1838,11 @@ reswitch:	switch (ch) {
  			/*FALLTHROUGH*/
  		case 'd':
  		case 'i':
@@ -830,7 +858,7 @@
  			ADDSARG();
  			break;
  #ifndef NO_FLOATING_POINT
-@@ -1421,8 +1851,14 @@
+@@ -1421,8 +1851,14 @@ reswitch:	switch (ch) {
  		case 'e':
  		case 'E':
  		case 'f':
@@ -845,7 +873,7 @@
  			if (flags & LONGDBL)
  				ADDTYPE(T_LONG_DOUBLE);
  			else
-@@ -1451,9 +1887,19 @@
+@@ -1451,9 +1887,19 @@ reswitch:	switch (ch) {
  			flags |= LONGINT;
  			/*FALLTHROUGH*/
  		case 'o':
@@ -865,7 +893,7 @@
  			ADDTYPE(TP_VOID);
  			break;
  		case 'S':
-@@ -1471,6 +1917,11 @@
+@@ -1471,6 +1917,11 @@ reswitch:	switch (ch) {
  		case 'u':
  		case 'X':
  		case 'x':
@@ -877,7 +905,7 @@
  			ADDUARG();
  			break;
  		default:	/* "%?" prints ?, unless ? is NUL */
-@@ -1537,7 +1988,7 @@
+@@ -1537,7 +1988,7 @@ done:
  			(*argtable) [n].sizearg = va_arg (ap, size_t);
  			break;
  		    case TP_SIZET:
@@ -886,7 +914,7 @@
  			break;
  		    case T_INTMAXT:
  			(*argtable) [n].intmaxarg = va_arg (ap, intmax_t);
-@@ -1556,6 +2007,11 @@
+@@ -1556,6 +2007,11 @@ done:
  			(*argtable) [n].longdoublearg = va_arg (ap, long double);
  			break;
  #endif
@@ -898,3 +926,18 @@
  		    case TP_CHAR:
  			(*argtable) [n].pchararg = va_arg (ap, char *);
  			break;
+@@ -1590,12 +2046,12 @@ __grow_type_table (int nextarg, enum typ
+ 		newsize = nextarg + 1;
+ 	if (oldsize == STATIC_ARG_TBL_SIZE) {
+ 		if ((newtable = malloc(newsize * sizeof(enum typeid))) == NULL)
+-			abort();			/* XXX handle better */
++			LIBC_ABORT("malloc: %s", strerror(errno));			/* XXX handle better */
+ 		bcopy(oldtable, newtable, oldsize * sizeof(enum typeid));
+ 	} else {
+ 		newtable = reallocf(oldtable, newsize * sizeof(enum typeid));
+ 		if (newtable == NULL)
+-			abort();			/* XXX handle better */
++			LIBC_ABORT("reallocf: %s", strerror(errno));			/* XXX handle better */
+ 	}
+ 	for (n = oldsize; n < newsize; n++)
+ 		newtable[n] = T_UNUSED;

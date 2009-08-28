@@ -18,15 +18,16 @@
  *
  * CDDL HEADER END
  */
+
 /*
- * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
 #ifndef	_DT_IMPL_H
 #define	_DT_IMPL_H
 
-#pragma ident	"@(#)dt_impl.h	1.20	06/03/24 SMI"
+#pragma ident	"@(#)dt_impl.h	1.23	08/04/09 SMI"
 
 #if !defined(__APPLE__)
 #include <sys/param.h>
@@ -67,6 +68,20 @@ typedef struct objfs_info {
 #include <libctf.h>
 #include <dtrace.h>
 #include <gelf.h>
+
+/*
+ * In lieu of gelf.h.
+ * A number of files make glancing reference to some GElf types.
+ * Rather than haul in all the undelying Elf typing machinery, we'll
+ * #define the GElf stuff that's referenced here onto suitable simple types that
+ * are declared in head/dtrace.h.
+ */
+#define GElf_Addr	__GElf_Addr
+#define GElf_Xword	__GElf_Xword
+#define GElf_Sxword	__GElf_Sxword
+#define GElf_Half	__GElf_Half
+#define GElf_Word	__GElf_Word
+#define GElf_Sym	__GElf_Sym
 
 #include <fcntl.h> /* For O_RDWR */
 #include <mach/machine.h>
@@ -215,6 +230,17 @@ typedef struct dt_dirpath {
 	char *dir_path;			/* directory pathname */
 } dt_dirpath_t;
 
+typedef struct dt_lib_depend {
+	dt_list_t dtld_deplist;		/* linked-list forward/back pointers */
+	char *dtld_library;		/* library name */
+	char *dtld_libpath;		/* library pathname */
+	uint_t dtld_finish;		/* completion time in tsort for lib */
+	uint_t dtld_start;		/* starting time in tsort for lib */
+	uint_t dtld_loaded;		/* boolean: is this library loaded */
+	dt_list_t dtld_dependencies;	/* linked-list of lib dependencies */
+	dt_list_t dtld_dependents;	/* linked-list of lib dependents */
+} dt_lib_depend_t;
+
 typedef uint32_t dt_version_t;		/* encoded version (see below) */
 
 struct dtrace_hdl {
@@ -323,8 +349,11 @@ struct dtrace_hdl {
 	void *dt_bufarg;	/* buffered handler argument */
 	dt_dof_t dt_dof;	/* DOF generation buffers (see dt_dof.c) */
 	struct utsname dt_uts;	/* uname(2) information for system */
+	dt_list_t dt_lib_dep;	/* scratch linked-list of lib dependencies */
+	dt_list_t dt_lib_dep_sorted;	/* dependency sorted library list */
 #if defined(__APPLE__)
 	cpu_type_t dt_arch;	/* CPU architecture to generate objects for */
+    dt_strtab_t *dt_apple_ids; /* IDs generated during apple_define actions */
 #endif /* __APPLE__ */
 };
 
@@ -441,7 +470,14 @@ struct dtrace_hdl {
 #define	DT_ACT_UMOD		DT_ACT(26)	/* umod() action */
 #define	DT_ACT_UADDR		DT_ACT(27)	/* uaddr() action */
 #define	DT_ACT_SETOPT		DT_ACT(28)	/* setopt() action */
-
+#if defined(__APPLE__)
+#define DT_ACT_APPLEDEFINE  DT_ACT(101)  /* apple_define() action */
+#define DT_ACT_APPLELOG     DT_ACT(102)  /* apple_log() action */
+#define DT_ACT_APPLESTACK   DT_ACT(103)  /* apple_stack() action */
+#define DT_ACT_APPLEUSTACK  DT_ACT(104)  /* apple_ustack() action */
+#define DT_ACT_APPLEFLAG    DT_ACT(105)  /* apple_flag() action */
+#define DT_ACT_APPLEGEN     DT_ACT(106)  /* apple_general() action */
+#endif
 /*
  * Sentinel to tell freopen() to restore the saved stdout.  This must not
  * be ever valid for opening for write access via freopen(3C), which of
@@ -602,6 +638,8 @@ extern int dt_rw_read_held(pthread_rwlock_t *);
 extern int dt_rw_write_held(pthread_rwlock_t *);
 extern int dt_mutex_held(pthread_mutex_t *);
 
+extern uint64_t dt_stddev(uint64_t *, uint64_t);
+
 #define	DT_RW_READ_HELD(x)	dt_rw_read_held(x)
 #define	DT_RW_WRITE_HELD(x)	dt_rw_write_held(x)
 #define	DT_RW_LOCK_HELD(x)	(DT_RW_READ_HELD(x) || DT_RW_WRITE_HELD(x))
@@ -648,6 +686,9 @@ extern int dt_handle_status(dtrace_hdl_t *,
     dtrace_status_t *, dtrace_status_t *);
 extern int dt_handle_setopt(dtrace_hdl_t *, dtrace_setoptdata_t *);
 
+extern int dt_lib_depend_add(dtrace_hdl_t *, dt_list_t *, const char *);
+extern dt_lib_depend_t *dt_lib_depend_lookup(dt_list_t *, const char *);
+
 extern dt_pcb_t *yypcb;		/* pointer to current parser control block */
 extern char yyintprefix;	/* int token prefix for macros (+/-) */
 extern char yyintsuffix[4];	/* int token suffix ([uUlL]*) */
@@ -674,7 +715,6 @@ extern uint_t _dtrace_pidbuckets;	/* number of hash buckets for pids */
 extern uint_t _dtrace_pidlrulim;	/* number of proc handles to cache */
 extern int _dtrace_debug;		/* debugging messages enabled */
 #if defined(__APPLE__)
-extern int _dtrace_scanalyzer;		/* scanalyzer debug messages enabled */
 extern int _dtrace_mangled;		/* enabled mangled names for C++ fns */
 #endif
 extern size_t _dtrace_bufsize;		/* default dt_buf_create() size */

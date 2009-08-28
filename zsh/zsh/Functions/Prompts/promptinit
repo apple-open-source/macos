@@ -2,7 +2,7 @@
 ## zsh prompt themes extension
 ## by Adam Spiers <adam@spiers.net>
 ##
-## Load with `autoload -U promptinit; promptinit'.
+## Load with `autoload -Uz promptinit; promptinit'.
 ## Type `prompt -h' for help.
 ##
 
@@ -30,16 +30,16 @@ promptinit () {
     fi
   done
 
-  # Color definitions come in handy
-  autoload -U colors
-  colors
+  # To manipulate precmd and preexec hooks...
+  autoload -U add-zsh-hook
 
   # Variables common to all prompt styles
   prompt_newline=$'\n%{\r%}'
 }
 
 prompt_preview_safely() {
-  print $reset_color
+  emulate -L zsh
+  print -P "%b%f%k"
   if [[ -z "$prompt_themes[(r)$1]" ]]; then
     print "Unknown theme: $1"
     return
@@ -47,7 +47,7 @@ prompt_preview_safely() {
 
   local -a psv; psv=($psvar); local -a +h psvar; psvar=($psv) # Ick
   local +h PS1=$PS1 PS2=$PS2 PS3=$PS3 PS4=$PS4 RPS1=$RPS1
-  trap "${$(functions precmd):-:} ; ${$(functions preexec):-:}" 0
+  local -a precmd_functions preexec_functions
 
   # The next line is a bit ugly.  It (perhaps unnecessarily)
   # runs the prompt theme setup function to ensure that if
@@ -84,7 +84,7 @@ Use prompt -h <theme> for help on specific themes.'
         # Not using a prompt theme; save settings
         local -a psv; psv=($psvar); local -a +h psvar; psvar=($psv) # Ick
 	local +h PS1=$PS1 PS2=$PS2 PS3=$PS3 PS4=$PS4 RPS1=$RPS1
-	trap "${$(functions precmd):-:} ; ${$(functions preexec):-:}" 0
+	local precmd_functions preexec_functions
       else
         trap 'prompt_${prompt_theme[1]}_setup "${(@)prompt_theme[2,-1]}"' 0
       fi
@@ -129,7 +129,7 @@ Use prompt -h <theme> for help on specific themes.'
          [[ "$theme" == "$prompt_theme[*]" ]] && continue
          prompt_preview_safely "$=theme"
        done
-       print $reset_color
+       print -P "%b%f%k"
        ;;
     s) print "Set and save not yet implemented.  Please ensure your ~/.zshrc"
        print "contains something similar to the following:\n"
@@ -152,42 +152,45 @@ Use prompt -h <theme> for help on specific themes.'
          print "$usage"
          return
        fi
-       prompt_$1_setup "$@[2,-1]" && prompt_theme=( "$@" )
 
-       # Avoid screwing up the environment listing
-       PSZZZZ=$reset_color
-       RPSZZZZ=$reset_color
-       PROMPTZZZZ=$reset_color
-       RPROMPTZZZZ=$reset_color
-       promptzzzz=$reset_color
+       # Reset some commonly altered bits to the default
+       add-zsh-hook -D precmd "prompt_*_precmd"
+       add-zsh-hook -D preexec "prompt_*_preexec"
+       set -A zle_highlight ${zle_highlight:#default:*}
+       (( ${#zle_highlight} )) || unset zle_highlight
+
+       prompt_$1_setup "$@[2,-1]" && prompt_theme=( "$@" )
        ;;
   esac
 }
 
 prompt () {
   local prompt_opts
-  
+
   set_prompt "$@"
  
   (( $#prompt_opts )) &&
-      setopt noprompt{bang,cr,percent,subst} prompt${^prompt_opts[@]}
+      setopt noprompt{bang,cr,percent,subst} "prompt${^prompt_opts[@]}"
 
   true
 }
 
 prompt_preview_theme () {
+  emulate -L zsh
   local -a psv; psv=($psvar); local -a +h psvar; psvar=($psv) # Ick
   local +h PS1=$PS1 PS2=$PS2 PS3=$PS3 PS4=$PS4 RPS1=$RPS1
-  trap "${$(functions precmd):-:} ; ${$(functions preexec):-:}" 0
+  local precmd_functions preexec_functions
 
   print -n "$1 theme"
   (( $#* > 1 )) && print -n " with parameters \`$*[2,-1]'"
   print ":"
   prompt_${1}_setup "$@[2,-1]"
-  precmd
+  [[ -n ${precmd_functions[(r)prompt_${1}_precmd]} ]] &&
+    prompt_${1}_precmd
   [[ -o promptcr ]] && print -n $'\r'; :
   print -P "${PS1}command arg1 arg2 ... argn"
-  preexec
+  [[ -n ${preexec_functions[(r)prompt_${1}_preexec]} ]] &&
+    prompt_${1}_preexec
 }
 
 [[ -o kshautoload ]] || promptinit "$@"

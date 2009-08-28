@@ -22,14 +22,14 @@
 .\"
 .\" ********************************************************************
 .\" *
-.\" *  mount_webdav [-s] [-S] [-a<fd>] [-o options] [-v volume_name] [scheme://]host[:port][/path] node
+.\" *  mount_webdav [-s] [-S] [-i] [-o options] [-v volume_name] [scheme://]host[:port][/path] node
 .\" *
 .\" ********************************************************************
 .\"
 .\" ********************************************************************
 .\" *  Required macros
 .\" ********************************************************************
-.Dd August 22, 2005
+.Dd October 27, 2008
 .Os Mac\ OS\ X
 .Dt MOUNT_WEBDAV 8
 .\"
@@ -47,7 +47,7 @@
 .Nm
 .Op Fl s
 .Op Fl S
-.Op Fl a Ns Ar fd
+.Op Fl i
 .Op Fl v Ar volume_name
 .Op Fl o Ar options
 .Ar [scheme://]host[:port][/path]
@@ -79,11 +79,8 @@ Suppresses all user interface including the authentication dialogs and the
 non-responsive ("disconnect") server dialogs. If the server connection becomes
 non-responsive, the file system is immediately unmounted when this option has
 been used.
-.It Fl a Ns Ar fd
-A file descriptor which identifies a file containing the username and the password.
-This option is deprecated in Mac OS X 10.4 and may not be supported in future
-releases. Use the FSMountServerVolumeSync() and FSMountServerVolumeAsync() APIs
-in CarbonCore/Files.h instead.
+.It Fl i
+Interactive mode, you are prompted for the username and password.
 .It Fl o
 Options passed to
 .Xr mount 2

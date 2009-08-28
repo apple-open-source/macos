@@ -124,11 +124,19 @@ vindex(jobdirs)
 item(tt(jobdirs))(
 This associative array maps job numbers to the directories from which the
 job was started (which may not be the current directory of the job).
+
+The keys of the associative arrays are usually valid job numbers,
+and these are the values output with, for example, tt(${(k)jobdirs}).
+Non-numeric job references may be used when looking up a value;
+for example, tt(${jobdirs[%+]}) refers to the current job.
 )
 vindex(jobtexts)
 item(tt(jobtexts))(
 This associative array maps job numbers to the texts of the command lines
 that were used to start the jobs.
+
+Handling of the keys of the associative array is as described for
+tt(jobdirs) above.
 )
 vindex(jobstates)
 item(tt(jobstates))(
@@ -142,6 +150,9 @@ var(job-state) gives the state the whole job is currently in, one of
 otherwise. This is followed by one `var(pid)tt(=)var(state)' for every
 process in the job. The var(pid)s are, of course, the process IDs and
 the var(state) describes the state of that process.
+
+Handling of the keys of the associative array is as described for
+tt(jobdirs) above.
 )
 vindex(nameddirs)
 item(tt(nameddirs))(
@@ -153,9 +164,38 @@ item(tt(userdirs))(
 This associative array maps user names to the pathnames of their home
 directories.
 )
+vindex(funcfiletrace)
+item(tt(funcfiletrace))(
+This array contains the absolute line numbers and corresponding file
+names for the point where the current function, sourced file, or (if
+tt(EVAL_LINENO) is set) tt(eval) command was
+called.  The array is of the same length as tt(funcsourcetrace) and
+tt(functrace), but differs from tt(funcsourcetrace) in that the line and
+file are the point of call, not the point of definition, and differs
+from tt(functrace) in that all values are absolute line numbers in
+files, rather than relative to the start of a function, if any.
+)
+vindex(funcsourcetrace)
+item(tt(funcsourcetrace))(
+This array contains the file names and line numbers of the
+points where the functions, sourced files, and (if tt(EVAL_LINENO) is set)
+tt(eval) commands currently being executed were
+defined.  The line number is the line where the `tt(function) var(name)'
+or `var(name) tt(LPAR()RPAR())' started.  In the case of an autoloaded
+function  the line number is reported as zero.
+The format of each element is var(filename)tt(:)var(lineno).
+For functions autoloaded from a file in native zsh format, where only the
+body of the function occurs in the file, or for files that have been
+executed by the tt(source) or tt(.) builtins, the trace information is
+shown as var(filename)tt(:)var(0), since the entire file is the definition.
+
+Most users will be interested in the information in the
+tt(funcfiletrace) array instead.
+)
 vindex(funcstack)
 item(tt(funcstack))(
-This array contains the names of the functions currently being
+This array contains the names of the functions, sourced files,
+and (if tt(EVAL_LINENO) is set) tt(eval) commands. currently being
 executed. The first element is the name of the function using the
 parameter.
 )
@@ -163,6 +203,8 @@ vindex(functrace)
 item(tt(functrace))(
 This array contains the names and line numbers of the callers
 corresponding to the functions currently being executed.
-The format of each element is name:lineno.
+The format of each element is var(name)tt(:)var(lineno).
+Callers are also shown for sourced files; the caller is the point
+where the tt(source) or tt(.) command was executed.
 )
 enditem()

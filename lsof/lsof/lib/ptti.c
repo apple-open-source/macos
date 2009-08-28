@@ -37,11 +37,29 @@
 # if	!defined(lint)
 static char copyright[] =
 "@(#) Copyright 1997 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: ptti.c,v 1.5 2005/08/08 19:41:06 abe Exp $";
+static char *rcsid = "$Id: ptti.c,v 1.6 2008/10/21 16:13:23 abe Exp $";
 # endif	/* !defined(lint) */
 
 #define	TCPSTATES			/* activate tcpstates[] */
 #include "../lsof.h"
+
+
+/*
+ * build_IPstates() -- build the TCP and UDP state tables
+ *
+ * Note: this module does not support a UDP state table.
+ */
+
+void
+build_IPstates()
+{
+
+/*
+ * Set the TcpNstates global variable.
+ */
+	TcpNstates = TCP_NSTATES;
+	TcpSt = (char **)&tcpstates;
+}
 
 
 /*
@@ -60,10 +78,12 @@ print_tcptpi(nl)
 		(void) printf("%cST=", LSOF_FID_TCPTPI);
 	    else
 		putchar('(');
-	    if ((s = Lf->lts.state.i) < 0 || s >= TCP_NSTATES)
+	    if (!TcpNstates)
+		(void) build_IPstates();
+	    if ((s = Lf->lts.state.i) < 0 || s >= TcpNstates)
 		(void) printf("UNKNOWN_TCP_STATE_%d", s);
 	    else
-		(void) fputs(tcpstates[s], stdout);
+		(void) fputs(TcpSt[s], stdout);
 	    ps++;
 	    if (Ffield)
 		putchar(Terminator);
@@ -1346,5 +1366,5 @@ print_tcptpi(nl)
 	    putchar('\n');
 }
 #else	/* !defined(USE_LIB_PRINT_TCPTPI) */
-static char d1[] = "d"; static char *d2 = d1;
+char ptti_d1[] = "d"; char *ptti_d2 = ptti_d1;
 #endif	/* defined(USE_LIB_PRINT_TCPTPI) */

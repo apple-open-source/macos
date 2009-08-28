@@ -220,11 +220,17 @@ static void drawResampledBitmap(SkCanvas& canvas, SkPaint& paint, const NativeIm
     }
 }
 
-static void paintSkBitmap(PlatformContextSkia* platformContext, const NativeImageSkia& bitmap, const SkIRect& srcRect, const SkRect& destRect, const SkPorterDuff::Mode& compOp)
+static void paintSkBitmap(PlatformContextSkia* platformContext, const NativeImageSkia& bitmap, const SkIRect& srcRect, const SkRect& destRect, const SkXfermode::Mode& compOp)
 {
     SkPaint paint;
-    paint.setPorterDuffXfermode(compOp);
+    paint.setXfermodeMode(compOp);
     paint.setFilterBitmap(true);
+    int alpha = roundf(platformContext->getAlpha() * 256);
+    if (alpha > 255)
+        alpha = 255;
+    else if (alpha < 0)
+        alpha = 0;
+    paint.setAlpha(alpha);
 
     skia::PlatformCanvas* canvas = platformContext->canvas();
 
@@ -304,7 +310,8 @@ void Image::drawPattern(GraphicsContext* context,
                         CompositeOperator compositeOp,
                         const FloatRect& destRect)
 {
-    if (destRect.isEmpty() || floatSrcRect.isEmpty())
+    FloatRect normSrcRect = normalizeRect(floatSrcRect);
+    if (destRect.isEmpty() || normSrcRect.isEmpty())
         return;  // nothing to draw
 
     NativeImageSkia* bitmap = nativeImageForCurrentFrame();
@@ -315,7 +322,7 @@ void Image::drawPattern(GraphicsContext* context,
     // it will internally reference the old bitmap's pixels, adjusting the row
     // stride so the extra pixels appear as padding to the subsetted bitmap.
     SkBitmap srcSubset;
-    SkIRect srcRect = enclosingIntRect(floatSrcRect);
+    SkIRect srcRect = enclosingIntRect(normSrcRect);
     bitmap->extractSubset(&srcSubset, srcRect);
 
     SkBitmap resampled;
@@ -362,9 +369,9 @@ void Image::drawPattern(GraphicsContext* context,
     // origin of the destination rect, which is what WebKit expects. Skia uses
     // the coordinate system origin as the base for the patter. If WebKit wants
     // a shifted image, it will shift it from there using the patternTransform.
-    float adjustedX = phase.x() + floatSrcRect.x() *
+    float adjustedX = phase.x() + normSrcRect.x() *
                       narrowPrecisionToFloat(patternTransform.a());
-    float adjustedY = phase.y() + floatSrcRect.y() *
+    float adjustedY = phase.y() + normSrcRect.y() *
                       narrowPrecisionToFloat(patternTransform.d());
     matrix.postTranslate(SkFloatToScalar(adjustedX),
                          SkFloatToScalar(adjustedY));
@@ -372,7 +379,7 @@ void Image::drawPattern(GraphicsContext* context,
 
     SkPaint paint;
     paint.setShader(shader)->unref();
-    paint.setPorterDuffXfermode(WebCoreCompositeToSkiaComposite(compositeOp));
+    paint.setXfermodeMode(WebCoreCompositeToSkiaComposite(compositeOp));
     paint.setFilterBitmap(resampling == RESAMPLE_LINEAR);
 
     context->platformContext()->paintSkPaint(destRect, paint);

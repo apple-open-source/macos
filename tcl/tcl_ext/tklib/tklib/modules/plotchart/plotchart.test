@@ -1,0 +1,621 @@
+# -*- tcl -*-
+# Test cases of the Plotchart package
+#
+# Note:
+# Most tests concentrate on the coordinate transformations,
+# as these do not require graphics
+#
+# TODO:
+# - Error handling tests
+# - checks for setZoomPan (changes of coordinates)
+#
+
+if {![package vsatisfies [package provide Tcl] 8.3]} {
+    puts "    Aborting tests for plotchart."
+    puts "    Requiring Tcl 8.3, have [package present Tcl]"
+    return
+}
+
+# -------------------------------------------------------------------------
+#
+# Note:
+#    The tests assume tcltest 2.1, in order to compare
+#    floating-point results
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest 2.1
+    #package require tcltest 2.2
+    namespace import ::tcltest::*
+} else {
+    # Ensure that 2.1 or higher present.
+
+    if {![package vsatisfies [package present tcltest] 2.1]} {
+	puts "Aborting tests for Plotchart"
+	puts "Requiring tcltest 2.1, have [package present tcltest]"
+	return
+    }
+}
+
+catch { console show }
+
+source [file join [file dirname [info script]] plotchart.tcl]
+
+puts "Plotchart [package present Plotchart]"
+
+# -------------------------------------------------------------------------
+
+#
+# Note:
+# The tests are formulated such that the resulting numbers
+# are exact. There is no need for a tolerance in the comparison
+#
+proc matchNumbers {expected actual} {
+    set match 1
+    foreach a $actual e $expected {
+	if {$a != $e} {
+	    set match 0
+	    break
+	}
+    }
+    return $match
+}
+
+proc checkCanvasItems {w tags} {
+    set okay 1
+    foreach tag $tags {
+	if {[llength [$w find withtag $tag]] == 0} {
+	    set okay 0
+	    break
+	}
+    }
+    return $okay
+}
+
+customMatch numbers matchNumbers
+
+# -------------------------------------------------------------------------
+
+#
+# Test cases: coordinate transformations
+# To avoid round-off errors, all transforms use "round" values
+#
+
+test Plotchart-1.1 {World coordinates to pixel - basic 1} -match numbers -body {
+    ::Plotchart::worldCoordinates "window"    0.0     0.0 100.0 1000.0
+    ::Plotchart::viewPort         "window"    0       0   100    100
+    ::Plotchart::coordsToPixel    "window"    0 0
+} -result {0 100}
+
+test Plotchart-1.2 {World coordinates to pixel - basic 2} -match numbers -body {
+    ::Plotchart::worldCoordinates "window"    0.0     0.0 100.0 1000.0
+    ::Plotchart::viewPort         "window"    0       0   100    100
+    ::Plotchart::coordsToPixel    "window" 10 10
+} -result {10 99}
+
+test Plotchart-1.3 {World coordinates to pixel - basic 3} -match numbers -body {
+    ::Plotchart::worldCoordinates "window"    0.0     0.0 100.0 1000.0
+    ::Plotchart::viewPort         "window"   10      20   110    120
+    ::Plotchart::coordsToPixel    "window" 100 100
+} -result {110 110}
+
+test Plotchart-1.4 {World coordinates to pixel - ordering} -match numbers -body {
+    ::Plotchart::viewPort         "window"   10      20   110    120
+    ::Plotchart::worldCoordinates "window"    0.0     0.0 100.0 1000.0
+    ::Plotchart::coordsToPixel    "window" 100 100
+} -result {110 110}
+
+
+
+
+test Plotchart-2.1 {Pixel to world coordinates - basic 1} -match numbers -body {
+    ::Plotchart::viewPort         "window"   10      20   110    120
+    ::Plotchart::worldCoordinates "window"    0.0     0.0 100.0 1000.0
+    ::Plotchart::pixelToCoords    "window"  10  20
+} -result {0 1000}
+
+test Plotchart-2.2 {Pixel to world coordinates - basic 2} -match numbers -body {
+    ::Plotchart::viewPort         "window"   10      20   110    120
+    ::Plotchart::worldCoordinates "window"    0.0     0.0 100.0 1000.0
+    ::Plotchart::pixelToCoords    "window"  110  120
+} -result {100 0}
+
+test Plotchart-2.3 {Pixel to world coordinates - ordering} -match numbers -body {
+    ::Plotchart::worldCoordinates "window"    0.0     0.0 100.0 1000.0
+    ::Plotchart::viewPort         "window"   10      20   110    120
+    ::Plotchart::pixelToCoords    "window"  110  120
+} -result {100 0}
+
+test Plotchart-2.4 {Nice scale 1} -match numbers -body {
+    ::Plotchart::determineScale 0.1 1.0
+} -result {0.0 1.0 0.2}
+
+test Plotchart-2.5 {Nice scale 2} -match numbers -body {
+    ::Plotchart::determineScale 0.001 0.01
+} -result {0.0 0.01 0.002}
+
+test Plotchart-2.6 {Nice scale 3} -match numbers -body {
+    ::Plotchart::determineScale -0.2 0.9
+} -result {-0.2 1.0 0.2}
+
+test Plotchart-2.7 {Nice scale 4} -match numbers -body {
+    ::Plotchart::determineScale -0.25 0.85
+} -result {-0.4 1.0 0.2}
+
+test Plotchart-2.8 {Nice scale 5} -match numbers -body {
+    ::Plotchart::determineScale -0.25 0.7999
+} -result {-0.4 0.8 0.2}
+
+test Plotchart-2.9 {Nice scale 6} -match numbers -body {
+    ::Plotchart::determineScale 10001 10010
+} -result {10000 10010 2}
+
+test Plotchart-2.10 {Nice scale 7} -match numbers -body {
+    ::Plotchart::determineScale 10001 10015
+} -result {10000 10015 5}
+
+test Plotchart-2.11 {Nice scale 8} -match numbers -body {
+    ::Plotchart::determineScale -1.7 26.8
+} -result {-10.0 30.0 10.0}
+
+
+
+
+test Plotchart-3.1 {XY-plot} -constraints tk -body {
+    canvas .c -width 300 -height 200 -bg white
+    pack   .c -fill both
+    .c delete all
+
+    set s [::Plotchart::createXYPlot .c {0.0 100.0 10.0} {0.0 100.0 20.0}]
+
+    set xd    5.0
+    set yd   20.0
+    set xold  0.0
+    set yold 50.0
+
+    for { set i 0 } { $i < 20 } { incr i } {
+	set xnew [expr {$xold+$xd}]
+	set ynew [expr {$yold+(rand()-0.5)*$yd}]
+	set ynew2 [expr {$yold+(rand()-0.5)*2.0*$yd}]
+	$s plot series1 $xnew $ynew
+	$s plot series2 $xnew $ynew2
+	set xold $xnew
+	set yold $ynew
+    }
+
+    $s title "Aha!"
+
+    $s xticklines green
+    $s yticklines red
+
+    $s legendconfig -position "top-left"
+    $s legendconfig -background grey
+    $s legend series1 "Series 1"
+    $s legend series2 "Series 2"
+
+    after 1000 {set waited 1}
+    vwait waited
+    set waited 0
+
+    set res [checkCanvasItems .c {data xaxis yaxis}]
+    destroy .c
+    set res
+} -result 1 ;# {}
+
+
+test Plotchart-3.2 {Piechart} -constraints tk -body {
+    canvas .c -width 300 -height 200 -bg white
+    pack   .c -fill both
+    .c delete all
+    set s [::Plotchart::createPiechart .c]
+
+    $s plot {"Long names" 10 "Short names" 30 "Average" 40 "Ultra-short names" 5}
+    $s title "Okay - this works"
+
+    after 1000 {set waited 1}
+    vwait waited
+    set waited 0
+
+    #checkCanvasItems .c {data}
+    destroy .c
+    set result 1
+
+} -result 1
+
+test Plotchart-3.3 {Polar plot} -constraints tk -body {
+    canvas .c -width 300 -height 200 -bg white
+    pack   .c -fill both
+    .c delete all
+
+    set s [::Plotchart::createPolarplot .c {3.0 1.0}]
+
+    for { set angle 0 } { $angle < 360.0 } { set angle [expr {$angle+10.0}] } {
+	set rad [expr {1.0+cos($angle*$::Plotchart::torad)}]
+	$s plot "cardioid" $rad $angle
+    }
+
+    $s title "Cardioid"
+
+    after 1000 {set waited 1}
+    vwait waited
+    set waited 0
+
+    set res [checkCanvasItems .c {data}]
+    destroy .c
+    set res
+} -result 1
+
+test Plotchart-3.4 {Barchart} -constraints tk -body {
+    canvas .c -width 300 -height 200 -bg white
+    pack   .c -fill both
+    .c delete all
+
+    set s [::Plotchart::createBarchart .c {A B C D E} {0.0 10.0 2.0} 2]
+
+    $s plot series1 {1.0 4.0 6.0 1.0 7.0} red
+    $s plot series2 {0.0 3.0 7.0 9.3 2.0} green
+    $s title "Arbitrary data"
+
+    after 1000 {set waited 1}
+    vwait waited
+    set waited 0
+
+    set res [checkCanvasItems .c {data yaxis}]
+    destroy .c
+    set res
+} -result 1
+
+test Plotchart-3.5 {Barchart (stacked)} -constraints tk -body {
+    canvas .c -width 300 -height 200 -bg white
+    pack   .c -fill both
+    .c delete all
+
+    set s [::Plotchart::createBarchart .c {A B C D E} {0.0 20.0 5.0} stacked]
+
+    $s plot series1 {1.0 4.0 6.0 1.0 7.0} red
+    $s plot series2 {0.0 3.0 7.0 9.3 2.0} green
+    $s title "Stacked diagram"
+
+    after 1000 {set waited 1}
+    vwait waited
+    set waited 0
+
+    set res [checkCanvasItems .c {data yaxis}]
+    destroy .c
+    set res
+} -result 1
+
+test Plotchart-3.6 {Horizontal barchart} -constraints tk -body {
+    canvas .c -width 300 -height 200 -bg white
+    pack   .c -fill both
+    .c delete all
+
+    set s [::Plotchart::createHorizontalBarchart .c {0.0 10.0 2.0} {A B C D E} 2]
+
+    $s plot series1 {1.0 4.0 6.0 1.0 7.0} red
+    $s plot series2 {0.0 3.0 7.0 9.3 2.0} green
+    $s title "Arbitrary data"
+
+    after 1000 {set waited 1}
+    vwait waited
+    set waited 0
+
+    set res [checkCanvasItems .c {data xaxis}]
+    destroy .c
+    set res
+} -result 1
+
+test Plotchart-3.7 {Horizontal barchart (stacked)} -constraints tk -body {
+    canvas .c -width 300 -height 200 -bg white
+    pack   .c -fill both
+    .c delete all
+
+    set s [::Plotchart::createHorizontalBarchart .c {0.0 20.0 5.0} {A B C D E} stacked]
+
+    $s plot series1 {1.0 4.0 6.0 1.0 7.0} red
+    $s plot series2 {0.0 3.0 7.0 9.3 2.0} green
+    $s title "Stacked diagram"
+
+    after 1000 {set waited 1}
+    vwait waited
+    set waited 0
+
+    set res [checkCanvasItems .c {data xaxis}]
+    destroy .c
+    set res
+} -result 1
+
+test Plotchart-3.8 {Timechart} -constraints tk -body {
+    canvas .c -width 300 -height 200 -bg white
+    pack   .c -fill both
+    .c delete all
+
+    set s [::Plotchart::createTimechart .c "1 january 2004" \
+	    "31 december 2004" 4]
+
+    $s period "Spring" "1 march 2004" "1 june 2004" green
+    $s period "Summer" "1 june 2004" "1 september 2004" yellow
+    $s vertline "1 jan" "1 january 2004"
+    $s vertline "1 apr" "1 april 2004"
+    $s vertline "1 jul" "1 july 2004"
+    $s vertline "1 oct" "1 october 2004"
+    $s milestone "Longest day" "21 july 2004"
+    $s title "Seasons (northern hemisphere)"
+
+    after 1000 {set waited 1}
+    vwait waited
+    set waited 0
+
+    #checkCanvasItems .c {data}
+    destroy .c
+    set result 1
+
+} -result 1
+
+test Plotchart-3.9 {Stripchart} -constraints tk -body {
+    canvas .c -width 300 -height 200 -bg white
+    pack   .c -fill both
+    .c delete all
+
+    set s [::Plotchart::createStripchart .c {0.0 100.0 10.0} {0.0 100.0 20.0}]
+
+    proc gendata {s xold xd yold yd} {
+	set xnew [expr {$xold+$xd}]
+	set ynew [expr {$yold+(rand()-0.5)*$yd}]
+	set ynew2 [expr {$yold+(rand()-0.5)*2.0*$yd}]
+	$s plot series1 $xnew $ynew
+	$s plot series2 $xnew $ynew2
+
+	if { $xnew < 200 } {
+	    after 200 [list gendata $s $xnew $xd $ynew $yd]
+	}
+    }
+
+    after 100 [list gendata $s 0.0 15.0 50.0 30.0]
+
+    $s title "Aha!"
+    $s background plot grey
+
+    after 4000 {set waited 1}
+    vwait waited
+    set waited 0
+
+    set res [checkCanvasItems .c {data xaxis yaxis}]
+    destroy .c
+    set res
+} -result 1
+
+test Plotchart-3.10 {Isometric plot} -constraints tk -body {
+    canvas .c -width 300 -height 200 -bg white
+    pack   .c -fill both
+    .c delete all
+
+    set s [::Plotchart::createIsometricPlot .c {0.0 100.0} {0.0 200.0} noaxes]
+    ::Plotchart::setZoomPan .c
+    $s plot rectangle        10.0 10.0 50.0 50.0 green
+    $s plot filled-rectangle 20.0 20.0 40.0 40.0 red
+    $s plot filled-circle    70.0 70.0 40.0 yellow
+    $s plot circle           70.0 70.0 42.0
+
+    after 100 {
+	::Plotchart::MoveItems .c 0 40
+    }
+    after 200 {
+	::Plotchart::MoveItems .c 0 -40
+    }
+    after 300 {
+	::Plotchart::ScaleItems .c 0 0 2
+    }
+    after 400 {
+	::Plotchart::ScaleItems .c 0 0 0.5
+    }
+
+    after 1000 {set waited 1}
+    vwait waited
+    set waited 0
+
+    #checkCanvasItems .c {data}
+    destroy .c
+    set result 1
+} -result 1
+
+test Plotchart-3.11 {Histogram} -constraints tk -body {
+    canvas .c -width 300 -height 200 -bg white
+    pack   .c -fill both
+    .c delete all
+
+    set s [::Plotchart::createHistogram .c {0.0 100.0 10.0} {0.0 100.0 20.0}]
+
+    $s dataconfig series1 -colour green
+
+    set xd    5.0
+    set yd   20.0
+    set xold  0.0
+    set yold 50.0
+
+    for { set i 0 } { $i < 20 } { incr i } {
+	set xnew [expr {$xold+$xd}]
+	set ynew [expr {$yold+(rand()-0.5)*$yd}]
+	$s plot series1 $xnew $ynew
+	set xold $xnew
+	set yold $ynew
+    }
+
+    $s title "Aha!"
+    $s background axes grey
+
+    after 1000 {set waited 1}
+    vwait waited
+    set waited 0
+
+    set res [checkCanvasItems .c {data xaxis yaxis}]
+    destroy .c
+    set res
+} -result 1 ;# {}
+
+test Plotchart-4.1 {XY-plot - balloon} -constraints tk -body {
+    canvas .c -width 300 -height 200 -bg white
+    pack   .c -fill both
+    .c delete all
+
+    set s [::Plotchart::createXYPlot .c {0.0 100.0 10.0} {0.0 100.0 20.0}]
+
+    set xd    5.0
+    set yd   20.0
+    set xold  0.0
+    set yold 50.0
+
+    for { set i 0 } { $i < 20 } { incr i } {
+	set xnew [expr {$xold+$xd}]
+	set ynew [expr {$yold+(rand()-0.5)*$yd}]
+	set ynew2 [expr {$yold+(rand()-0.5)*2.0*$yd}]
+	$s plot series1 $xnew $ynew
+	$s plot series2 $xnew $ynew2
+	set xold $xnew
+	set yold $ynew
+    }
+
+    $s title "Aha!"
+
+    $s xticklines green
+    $s yticklines red
+
+    $s balloonconfig -background green
+    $s balloon 50 50 "Here it is!"  south-east
+
+    $s balloonconfig -background red -font "Times 14"
+    $s balloonconfig -margin 10
+    $s balloon 50 100 "No, here!"  north-east
+
+    after 1000 {set waited 1}
+    vwait waited
+    set waited 0
+
+    set res [checkCanvasItems .c {data xaxis yaxis}]
+    destroy .c
+    set res
+} -result 1 ;# {}
+
+test Plotchart-5.1 {Gantt chart} -constraints tk -body {
+    canvas .c -width 600 -height 200 -bg white
+    pack   .c -fill both
+    .c delete all
+
+    set s [::Plotchart::createGanttchart .c "1 january 2004" \
+	    "31 december 2004" 4]
+
+    #
+    # Two tasks, add a summary for them
+    #
+    set begin [$s task "Spring" "1 march 2004" "1 june 2004" 30]
+    set end   [$s task "Summer" "1 june 2004" "1 september 2004" 0]
+    $s summary "Half year" $begin $end
+
+    $s milestone "Holiday" "21 july 2004" blue
+    $s vertline "1 apr" "1 april 2004"
+    $s vertline "1 jul" "1 july 2004"
+    $s vertline "1 oct" "1 october 2004"
+    $s title "Seasons (northern hemisphere)"
+
+    after 1000 {set waited 1}
+    vwait waited
+    set waited 0
+
+    #set res [checkCanvasItems .c {data xaxis yaxis}]
+    destroy .c
+    set res
+} -result 1 ;# {}
+
+test Plotchart-6.1 {3D Bars} -constraints tk -body {
+    canvas .c -width 600 -height 200 -bg white
+    pack   .c -fill both
+    .c delete all
+
+    set s [::Plotchart::create3DBarchart .c {-200.0 900.0 100.0} 7]
+
+    foreach {bar value} {red 765 green 234 blue 345 yellow 321
+                         magenta 567 cyan -123 white 400} {
+
+        $s plot $bar $value $bar
+    }
+
+    $s title "3D Bars"
+
+    $s balloon 1.2 100 "Arrow pointing\nat second bar" south-east
+
+    after 1000 {set waited 1}
+    vwait waited
+    set waited 0
+
+    #set res [checkCanvasItems .c {data xaxis yaxis}]
+    destroy .c
+    set res
+} -result 1 ;# {}
+
+
+test Plotchart-7.1 {Radial chart} -constraints tk -body {
+    canvas .c -width 600 -height 400 -bg white
+    pack   .c -fill both
+    .c delete all
+
+    set s [::Plotchart::createRadialchart .c {A B LongerName C} 10]
+
+    $s plot {1 2 3 4} green 2
+    $s plot {4 5 0 1} red   3
+
+    $s title "Sample of a radial chart"
+
+    after 1000 {set waited 1}
+    vwait waited
+    set waited 0
+
+    #set res [checkCanvasItems .c {data xaxis yaxis}]
+    destroy .c
+    set res
+} -result 1 ;# {}
+
+
+test Plotchart-7.2 {Filled radial chart} -constraints tk -body {
+    canvas .c -width 600 -height 400 -bg white
+    pack   .c -fill both
+    .c delete all
+
+    set s [::Plotchart::createRadialchart .c {A B LongerName C} 10 filled]
+
+    $s plot {1 2 3 4} green 2
+    $s plot {4 5 0 1} red   3
+
+    $s title "Sample of a filled radial chart"
+
+    after 1000 {set waited 1}
+    vwait waited
+    set waited 0
+
+    #set res [checkCanvasItems .c {data xaxis yaxis}]
+    destroy .c
+    set res
+} -result 1 ;# {}
+
+
+test Plotchart-7.3 {Filled radial chart} -constraints tk -body {
+    canvas .c -width 600 -height 400 -bg white
+    pack   .c -fill both
+    .c delete all
+
+    set s [::Plotchart::createRadialchart .c {A B LongerName C} 10 cumulative]
+
+    $s plot {1 2 3 4} green 2
+    $s plot {4 5 0 1} red   3
+
+    $s title "Sample of a cumulative radial chart"
+
+    after 1000 {set waited 1}
+    vwait waited
+    set waited 0
+
+    #set res [checkCanvasItems .c {data xaxis yaxis}]
+    destroy .c
+    set res
+} -result 1 ;# {}
+
+# -------------------------------------------------------------------------
+::tcltest::cleanupTests

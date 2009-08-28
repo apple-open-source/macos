@@ -4,22 +4,21 @@
         <key>OpenSourceProject</key>
         <string>tnftpd</string>
         <key>OpenSourceVersion</key>
-        <string>20061217</string>
+        <string>20080929</string>
         <key>OpenSourceWebsiteURL</key>
         <string>http://www.NetBSD.org/</string>
         <key>OpenSourceURL</key>
-        <string>ftp://ftp.NetBSD.org/pub/NetBSD/misc/tnftp/tnftpd-20061217.tar.gz</string>
+        <string>ftp://ftp.NetBSD.org/pub/NetBSD/misc/tnftp/tnftpd-20080929.tar.gz</string>
         <key>OpenSourceSHA1</key>
-	<string>a81e69c648397c15541683910495037683d87d2f</string>
+	<string>5243f1bfa5c25a6805486703b3ca71f2ed8f25b0</string>
         <key>OpenSourceImportDate</key>
-        <string>2007-01-06</string>
+        <string>2008-10-02</string>
         <key>OpenSourceLicense</key>
         <string>BSD</string>
         <key>OpenSourceLicenseFile</key>
         <string>lukemftpd.txt</string>
 	<key>OpenSourceModifications</key>
 	<array>
-                <string>PR-2571387-pw.db.patch</string>
                 <string>PR-3285536.pamify.patch</string>
                 <string>PR-3795936.long-username.patch</string>
                 <string>PR-3886477.Makefile.in.patch</string>
@@ -30,6 +29,7 @@
 		<string>PR-4608716.ls.c.patch</string>
 		<string>PR-4581099.ftpd.c.patch</string>
 		<string>PR-4616924.ftpd.c.patch</string>
+		<string>print.c.patch - return after realloc failure</string>
 	</array>
 </dict>
 </array>

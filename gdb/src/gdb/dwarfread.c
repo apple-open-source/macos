@@ -988,7 +988,7 @@ struct_type (struct dieinfo *dip, char *thisdie, char *enddie,
      given explicitly, but DWARF doesn't specify that explicit sizes of
      zero have to present, so complaining about missing sizes should 
      probably not be the default. */
-  TYPE_LENGTH (type) = dip->at_byte_size;
+  TYPE_LENGTH_ASSIGN (type) = dip->at_byte_size;
   thisdie += dip->die_length;
   while (thisdie < enddie)
     {
@@ -1446,7 +1446,7 @@ read_tag_pointer_type (struct dieinfo *dip)
 
       /* We assume the machine has only one representation for pointers!  */
       /* FIXME:  Possably a poor assumption  */
-      TYPE_LENGTH (utype) = TARGET_PTR_BIT / TARGET_CHAR_BIT;
+      TYPE_LENGTH_ASSIGN (utype) = TARGET_PTR_BIT / TARGET_CHAR_BIT;
       TYPE_CODE (utype) = TYPE_CODE_PTR;
     }
 }
@@ -1566,7 +1566,7 @@ read_subroutine_type (struct dieinfo *dip, char *thisdie, char *enddie)
       /* We have an existing partially constructed type, so bash it
          into the correct type. */
       TYPE_TARGET_TYPE (ftype) = type;
-      TYPE_LENGTH (ftype) = 1;
+      TYPE_LENGTH_ASSIGN (ftype) = 1;
       TYPE_CODE (ftype) = TYPE_CODE_FUNC;
     }
   else
@@ -1687,7 +1687,7 @@ enum_type (struct dieinfo *dip, struct objfile *objfile)
     }
   if (dip->at_byte_size != 0)
     {
-      TYPE_LENGTH (type) = dip->at_byte_size;
+      TYPE_LENGTH_ASSIGN (type) = dip->at_byte_size;
     }
   scan = dip->at_element_list;
   if (scan != NULL)

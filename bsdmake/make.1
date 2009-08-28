@@ -69,17 +69,6 @@ from the system makefile,
 unless inhibited with the
 .Fl r
 option.
-The standard
-.Pa sys.mk
-as shipped with
-.Fx
-also handles
-.Xr make.conf 5 ,
-the default path to which
-can be altered via the
-.Nm
-variable
-.Va __MAKE_CONF .
 .Pp
 Then the first of
 .Pa BSDmakefile ,
@@ -1493,9 +1482,6 @@ default system makefile directory
 default
 .Ev MAKEOBJDIRPREFIX
 directory.
-.It Pa /etc/make.conf
-default path to
-.Xr make.conf 5
 .El
 .Sh EXAMPLES
 List all included makefiles in order visited:
@@ -1520,7 +1506,6 @@ Most of the more esoteric features of
 should probably be avoided for greater compatibility.
 .Sh SEE ALSO
 .Xr mkdep 1 ,
-.Xr make.conf 5
 .Sh HISTORY
 A
 .Nm

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,17 +24,24 @@
 #define _IONETWORKCONTROLLERPRIVATE_H
 
 #ifndef sub_iokit_networking
-#define sub_iokit_networking  err_sub(6)  // update IOReturn.h
+#define sub_iokit_networking    err_sub(6)
 #endif
 
 #define kMessageControllerWasEnabled  \
         iokit_family_msg(sub_iokit_networking, 0x110)
+
 #define kMessageControllerWasDisabled \
         iokit_family_msg(sub_iokit_networking, 0x111)
+
 #define kMessageControllerWasEnabledForBSD  \
         iokit_family_msg(sub_iokit_networking, 0x112)
+
 #define kMessageControllerWasDisabledForBSD \
         iokit_family_msg(sub_iokit_networking, 0x113)
+
+#define kMessageControllerWillShutdown \
+        iokit_family_msg(sub_iokit_networking, 0x114)
+
 #define kMessageDebuggerActivationChange \
         iokit_family_msg(sub_iokit_networking, 0x1F0)
 

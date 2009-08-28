@@ -873,7 +873,7 @@ lalloc(size, message)
 	    /* 3. check for available memory: call mch_avail_mem() */
 	    if (mch_avail_mem(TRUE) < KEEP_ROOM && !releasing)
 	    {
-		vim_free((char *)p);	/* System is low... no go! */
+		free((char *)p);	/* System is low... no go! */
 		p = NULL;
 	    }
 	    else
@@ -2561,7 +2561,7 @@ trans_special(srcp, dst, keycode)
     int		key;
     int		dlen = 0;
 
-    key = find_special_key(srcp, &modifiers, keycode);
+    key = find_special_key(srcp, &modifiers, keycode, FALSE);
     if (key == 0)
 	return 0;
 
@@ -2597,10 +2597,11 @@ trans_special(srcp, dst, keycode)
  * returns 0 if there is no match.
  */
     int
-find_special_key(srcp, modp, keycode)
+find_special_key(srcp, modp, keycode, keep_x_key)
     char_u	**srcp;
     int		*modp;
-    int		keycode; /* prefer key code, e.g. K_DEL instead of DEL */
+    int		keycode;     /* prefer key code, e.g. K_DEL instead of DEL */
+    int		keep_x_key;  /* don't translate xHome to Home key */
 {
     char_u	*last_dash;
     char_u	*end_of_name;
@@ -2668,7 +2669,8 @@ find_special_key(srcp, modp, keycode)
 	    else
 	    {
 		key = get_special_key_code(last_dash + 1);
-		key = handle_x_keys(key);
+		if (!keep_x_key)
+		    key = handle_x_keys(key);
 	    }
 
 	    /*
@@ -4694,7 +4696,8 @@ vim_findfile(search_ctx_arg)
 				stackp->ffs_filearray_cur = i + 1;
 				ff_push(search_ctx, stackp);
 
-				simplify_filename(file_path);
+				if (!path_with_url(file_path))
+				    simplify_filename(file_path);
 				if (mch_dirname(ff_expand_buffer, MAXPATHL)
 									== OK)
 				{

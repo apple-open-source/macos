@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,6 +24,7 @@
 #ifndef __DISKARBITRATION_DISKARBITRATIONPRIVATE__
 #define __DISKARBITRATION_DISKARBITRATIONPRIVATE__
 
+#include <dispatch/dispatch.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <DiskArbitration/DiskArbitration.h>
 
@@ -284,15 +285,21 @@ extern const CFStringRef kDADiskDescriptionAppearanceTimeKey;
 
 #ifndef __DISKARBITRATIOND__
 
+extern DASessionRef _DADiskGetSession( DADiskRef disk );
+
 extern DAReturn _DADiskSetAdoption( DADiskRef disk, Boolean adoption );
 
 extern DAReturn _DADiskSetEncoding( DADiskRef disk, UInt32 encoding );
 
 extern DADiskRef DADiskCreateFromVolumePath( CFAllocatorRef allocator, DASessionRef session, CFURLRef path );
 
+extern pid_t DADissenterGetProcessID( DADissenterRef dissenter );
+
 typedef void ( *DAIdleCallback )( void * context );
 
 extern void DARegisterIdleCallback( DASessionRef session, DAIdleCallback callback, void * context );
+
+extern void DASessionSetDispatchQueue( DASessionRef session, dispatch_queue_t queue );
 
 #endif /* !__DISKARBITRATIOND__ */
 

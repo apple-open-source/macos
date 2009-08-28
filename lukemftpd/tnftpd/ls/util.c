@@ -1,4 +1,4 @@
-/*	$NetBSD: util.c,v 1.3 2003/12/15 12:18:43 lukem Exp $	*/
+/*	$NetBSD: util.c,v 1.4 2007/07/22 11:05:35 lukem Exp $	*/
 
 /*
  * Copyright (c) 1989, 1993, 1994
@@ -32,16 +32,16 @@
  * SUCH DAMAGE.
  */
 
-#if	HAVE_TNFTPD_H
+#if defined(HAVE_TNFTPD_H)
 #include "tnftpd.h"
-#else	/* ! HAVE_TNFTPD_H */
+#else /* !defined(HAVE_TNFTPD_H) */
 
 #include <sys/cdefs.h>
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)util.c	8.5 (Berkeley) 4/28/95";
 #else
-__RCSID("$NetBSD: util.c,v 1.3 2003/12/15 12:18:43 lukem Exp $");
+__RCSID("$NetBSD: util.c,v 1.4 2007/07/22 11:05:35 lukem Exp $");
 #endif
 #endif /* not lint */
 
@@ -54,7 +54,7 @@ __RCSID("$NetBSD: util.c,v 1.3 2003/12/15 12:18:43 lukem Exp $");
 #include <stdlib.h>
 #include <string.h>
 
-#endif	/* ! HAVE_TNFTPD_H */
+#endif /* !defined(HAVE_TNFTPD_H) */
 
 #include "ls.h"
 #include "extern.h"

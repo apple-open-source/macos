@@ -1,100 +1,21 @@
-Binary files ./misc/.terminfo.src.swp and ../ncurses-5.4+hex/misc/.terminfo.src.swp differ
 diff -Nru ./misc/terminfo.src ../ncurses-5.4+hex/misc/terminfo.src
 --- ./misc/terminfo.src	2004-01-17 17:37:18.000000000 -0800
 +++ ../ncurses-5.4+hex/misc/terminfo.src	2004-11-27 15:10:30.000000000 -0800
-@@ -4948,7 +4948,7 @@
+@@ -5754,7 +5754,7 @@
  # hp2621 with function labels. Most of the time they are off,
  # but inside vi, the function key labels appear. You have to
  # hold down shift to get them to xmit.
--hp2621|hp2621a|hp2621A|2621|2621a|2621A|hp2621-wl|2621-wl|hp 2621 w/labels, 
-+hp2621|hp2621a|2621|2621a|hp2621-wl|2621-wl|hp 2621 w/labels, 
- 	is2=\E&jA\r, rmkx=\E&jA, use=hp2621-fl, 
- hp2621-fl|hp 2621, 
- 	xhp@, xon, 
-@@ -5441,7 +5441,7 @@
- 	ri=\Ej, rmir=\Er, rmso=\EG0$<10/>, rmul=\EG0$<10/>, 
- 	sgr0=\EG0$<10/>, smir=\Eq, smso=\EG4$<10/>, 
- 	smul=\EG8$<10/>, tbc=\E0, vpa=\E[%p1%{32}%+%c, 
--hp70092|hp70092a|hp70092A|HP 700/92, 
-+hp70092|hp70092a|HP 700/92, 
- 	am, da, db, xhp, 
- 	cols#80, lh#2, lines#24, lm#0, lw#8, nlab#8, 
- 	acsc=0cjgktlrmfn/q\,t5u6v8w7x., bel=^G, blink=\E&dA, 
-diff -Nru ./ncurses/tinfo/read_entry.c ../ncurses-5.4+hex/ncurses/tinfo/read_entry.c
---- ./ncurses/tinfo/read_entry.c	2004-01-10 17:57:05.000000000 -0800
-+++ ../ncurses-5.4+hex/ncurses/tinfo/read_entry.c	2004-11-27 14:15:50.000000000 -0800
-@@ -474,7 +474,7 @@
-     }
- 
-     /* truncate the terminal name to prevent buffer overflow */
--    (void) sprintf(ttn, "%c/%.*s", *tn, (int) sizeof(ttn) - 3, tn);
-+    (void) sprintf(ttn, "%02x/%.*s", *tn, (int) sizeof(ttn) - 4, tn);
- 
-     /* This is System V behavior, in conjunction with our requirements for
-      * writing terminfo entries.
-diff -Nru ./ncurses/tinfo/write_entry.c ../ncurses-5.4+hex/ncurses/tinfo/write_entry.c
---- ./ncurses/tinfo/write_entry.c	2002-04-21 13:35:08.000000000 -0700
-+++ ../ncurses-5.4+hex/ncurses/tinfo/write_entry.c	2004-11-27 14:30:37.000000000 -0800
-@@ -160,25 +160,23 @@
- static void
- check_writeable(int code)
- {
--    static const char dirnames[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
--    static bool verified[sizeof(dirnames)];
-+    static bool verified[256];
- 
--    char dir[2];
-+    char dir[3];
-     char *s = 0;
- 
--    if (code == 0 || (s = strchr(dirnames, code)) == 0)
--	_nc_err_abort("Illegal terminfo subdirectory \"%c\"", code);
-+    if (code == 0 || code > 255)
-+	_nc_err_abort("Illegal terminfo subdirectory \"%02x\"", code);
- 
--    if (verified[s - dirnames])
-+    if (verified[code])
- 	return;
- 
--    dir[0] = code;
--    dir[1] = '\0';
-+    snprintf(dir, 3, "%02x", code);
-     if (make_directory(dir) < 0) {
- 	_nc_err_abort("%s/%s: permission denied", _nc_tic_dir(0), dir);
-     }
- 
--    verified[s - dirnames] = TRUE;
-+    verified[code] = TRUE;
- }
- 
- /*
-@@ -259,7 +257,7 @@
-     if (strlen(first_name) > sizeof(filename) - 3)
- 	_nc_warning("terminal name too long.");
- 
--    sprintf(filename, "%c/%s", first_name[0], first_name);
-+    sprintf(filename, "%02x/%s", first_name[0], first_name);
- 
-     /*
-      * Has this primary name been written since the first call to
-@@ -300,7 +298,7 @@
- 	}
- 
- 	check_writeable(ptr[0]);
--	sprintf(linkname, "%c/%s", ptr[0], ptr);
-+	sprintf(linkname, "%02x/%s", ptr[0], ptr);
- 
- 	if (strcmp(filename, linkname) == 0) {
- 	    _nc_warning("self-synonym ignored");
-diff -Nru ./progs/infocmp.c ../ncurses-5.4+hex/progs/infocmp.c
---- ./progs/infocmp.c	2003-10-18 11:01:54.000000000 -0700
-+++ ../ncurses-5.4+hex/progs/infocmp.c	2004-11-27 14:23:28.000000000 -0800
-@@ -1374,7 +1374,7 @@
- 		tname[termcount] = argv[optind];
- 
- 		if (directory) {
--		    (void) sprintf(tfile[termcount], "%s/%c/%s",
-+		    (void) sprintf(tfile[termcount], "%s/%02x/%s",
- 				   directory,
- 				   *argv[optind], argv[optind]);
- 		    if (itrace)
+-hp2621|hp2621a|hp2621A|2621|2621a|2621A|hp2621-wl|2621-wl|hp 2621 w/labels,
++hp2621|hp2621a|2621|2621a|hp2621-wl|2621-wl|hp 2621 w/labels,
+ 	is2=\E&jA\r, rmkx=\E&jA, use=hp2621-fl,
+ hp2621-fl|hp 2621,
+ 	xhp@, xon,
+@@ -6247,7 +6247,7 @@
+ 	ri=\Ej, rmir=\Er, rmso=\EG0$<10/>, rmul=\EG0$<10/>,
+ 	sgr0=\EG0$<10/>, smir=\Eq, smso=\EG4$<10/>,
+ 	smul=\EG8$<10/>, tbc=\E0, vpa=\E[%p1%{32}%+%c,
+-hp70092|hp70092a|hp70092A|HP 700/92,
++hp70092|hp70092a|HP 700/92,
+ 	am, da, db, xhp,
+ 	cols#80, lh#2, lines#24, lm#0, lw#8, nlab#8,
+ 	acsc=0cjgktlrmfn/q\,t5u6v8w7x., bel=^G, blink=\E&dA,

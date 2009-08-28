@@ -2,7 +2,7 @@
 #ifndef _S_IPCONFIGD_THREADS_H
 #define _S_IPCONFIGD_THREADS_H
 /*
- * Copyright (c) 2000 - 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -36,12 +36,14 @@
  */
 
 #include <mach/boolean.h>
+#include "dhcp.h"
 #include "ipconfig_types.h"
 #include "globals.h"
 #include "bootp_session.h"
 #include "arp_session.h"
 #include "timer.h"
 #include "interfaces.h"
+#include <TargetConditionals.h>
 
 typedef enum {
     IFEventID_start_e = 0,		/* start the configuration method */
@@ -117,8 +119,10 @@ struct ServiceState {
     void *			serviceID;
     void *			parent_serviceID;
     void *			child_serviceID;
+#if ! TARGET_OS_EMBEDDED
     void *			user_notification;
     void *			user_rls;
+#endif /* ! TARGET_OS_EMBEDDED */
     struct completion_results	published;
     inet_addrinfo_t		info;
     router_info_t		router;
@@ -263,13 +267,29 @@ void
 service_publish_failure_sync(Service_t * service_p, ipconfig_status_t status,
 			     char * msg, boolean_t sync);
 
+#if TARGET_OS_EMBEDDED
+static __inline__ void
+service_report_conflict(Service_t * service_p, struct in_addr * ip,
+			const void * hwaddr, struct in_addr * server)
+{
+    /* nothing to do */
+}
 
+static __inline__ void
+service_remove_conflict(Service_t * service_p)
+{
+    /* nothing to do */
+}
+
+#else /* TARGET_OS_EMBEDDED */
 void
 service_report_conflict(Service_t * service_p, struct in_addr * ip,
 			const void * hwaddr, struct in_addr * server);
 
 void
-service_tell_user(Service_t * service_p, char * msg);
+service_remove_conflict(Service_t * service_p);
+
+#endif /* TARGET_OS_EMBDEDDED */
 
 static __inline__ interface_t *
 service_interface(Service_t * service_p)
@@ -431,10 +451,6 @@ service_update_router_address(Service_t * service_p,
 struct in_addr *
 get_router_from_options(dhcpol_t * options_p, struct in_addr our_ip);
 
-void
-get_lease_from_options(dhcpol_t * options, time_interval_t * lease, 
-		       time_interval_t * t1, time_interval_t * t2);
-
 /* 
  * interface configuration "threads" 
  */
@@ -470,7 +486,7 @@ typedef struct {
     bool			nak;
     struct in_addr		our_ip;
     absolute_time_t		lease_start;
-    time_interval_t		lease_length;
+    dhcp_lease_time_t		lease_length;
     struct in_addr		router_ip;
     uint8_t			router_hwaddr[MAX_LINK_ADDR_LEN];
     int				router_hwaddr_length;
@@ -506,7 +522,7 @@ DHCPLeaseListUpdateLease(DHCPLeaseListRef list_p, struct in_addr our_ip,
 			 const uint8_t * router_hwaddr,
 			 int router_hwaddr_length,
 			 absolute_time_t lease_start,
-			 time_interval_t lease_length,
+			 dhcp_lease_time_t lease_length,
 			 const uint8_t * pkt, int pkt_length);
 arp_address_info_t *
 DHCPLeaseListCopyARPAddressInfo(DHCPLeaseListRef list_p, bool tentative_ok,
@@ -552,8 +568,8 @@ void
 dhcp_set_additional_parameters(uint8_t * params, int n_params);
 
 void
-dhcp_get_lease_from_options(dhcpol_t * options, time_interval_t * lease, 
-			    time_interval_t * t1, time_interval_t * t2);
+dhcp_get_lease_from_options(dhcpol_t * options, dhcp_lease_time_t * lease, 
+			    dhcp_lease_time_t * t1, dhcp_lease_time_t * t2);
 
 bool
 dhcp_parameter_is_ok(uint8_t param);

@@ -44,15 +44,15 @@
 
 #pragma mark *** Memory ***
 
-NSPR_API(void *) PR_Malloc(PRUint32 size)
+NSPR_API(void *) PR_Malloc(PRSize size)
 {
 	return malloc(size ? size : 1);
 }
-NSPR_API(void *) PR_Calloc(PRUint32 nelem, PRUint32 elsize)
+NSPR_API(void *) PR_Calloc(PRSize nelem, PRSize elsize)
 {
 	return calloc(nelem, elsize);
 }
-NSPR_API(void *) PR_Realloc(void *ptr, PRUint32 size)
+NSPR_API(void *) PR_Realloc(void *ptr, PRSize size)
 {
 	return realloc(ptr, size);
 }

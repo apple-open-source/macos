@@ -37,67 +37,14 @@
 #include <sys/errno.h>
 #include <sys/param.h>
 
-#include <netat/appletalk.h>
-#include <netat/pap.h>
-#include <netat/atp.h>
+#include "at_proto.h"
 
 #define	SET_ERRNO(e) errno = e
 
 char	*pap_status(tuple)
 at_nbptuple_t	*tuple;
 {
-	int		fd;
-	u_char		rdata[512];
-	int		tmpErrno;
-	char		*pap_status_get();
-	int userdata;
-	u_char	*puserdata = (u_char *)&userdata;
-	at_resp_t resp;
-	at_retry_t retry;
-
-	if (tuple == NULL) {
-		SET_ERRNO(EINVAL);
-		return (NULL);
-	}
-	
-	if (_nbp_validate_entity_(&tuple->enu_entity,0,1)==0){/*nometa,zone ok*/
-		SET_ERRNO(EINVAL);
-		return (NULL);
-	}
-
-	pap_status_update("=", P_NOEXIST, strlen(P_NOEXIST));
-
-	fd = atp_open(NULL);
-	if (fd < 0)
-		return(NULL);
-
-	puserdata[0] = 0;
-	puserdata[1] = AT_PAP_TYPE_SEND_STATUS;
-	puserdata[2] = 0;
-	puserdata[3] = 0;
-	retry.interval = 2;
-	retry.retries = 5;
-	resp.bitmap = 0x01;
-	resp.resp[0].iov_base = rdata;
-	resp.resp[0].iov_len = sizeof(rdata);
-
-	for (;;) {
-		if (atp_sendreq(fd, &tuple->enu_addr, 0, 0, userdata, 0, 0, 0,
-				&resp, &retry, 0) < 0) {
-			tmpErrno = errno;
-			atp_close(fd);
-			SET_ERRNO(tmpErrno);
-			return(NULL);
-		}
-		puserdata = (u_char *)&resp.userdata[0];
-		if (puserdata[1] != AT_PAP_TYPE_SEND_STS_REPLY) {
-			puserdata = (u_char *)&userdata;
-			continue;
-		}
-		atp_close(fd);
-		pap_status_update(tuple->enu_entity.type.str, 
-			&rdata[5], rdata[4]);
-		return(pap_status_get());
-	}
+	SET_ERRNO(ENXIO);
+	return (-1);
 }
 

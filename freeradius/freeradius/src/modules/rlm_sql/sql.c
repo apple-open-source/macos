@@ -2,7 +2,7 @@
  *  sql.c		rlm_sql - FreeRADIUS SQL Module
  *		Main code directly taken from ICRADIUS
  *
- * Version:	$Id: sql.c,v 1.79.2.3 2005/08/26 00:37:47 aland Exp $
+ * Version:	$Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -16,40 +16,27 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2001  The FreeRADIUS server project
+ * Copyright 2001,2006  The FreeRADIUS server project
  * Copyright 2000  Mike Machado <mike@innercite.com>
  * Copyright 2000  Alan DeKok <aland@ox.org>
  * Copyright 2001  Chad Miller <cmiller@surfsouth.com>
  */
 
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
-#include	<sys/types.h>
-#include	<sys/socket.h>
-#include	<sys/time.h>
+#include	<freeradius-devel/radiusd.h>
+
 #include	<sys/file.h>
-#include	<string.h>
 #include	<sys/stat.h>
-#include	<netinet/in.h>
 
-#include	<stdio.h>
-#include	<stdlib.h>
-#include	<netdb.h>
-#include	<pwd.h>
-#include	<time.h>
 #include	<ctype.h>
-#include	<unistd.h>
-#include	<signal.h>
-#include	<errno.h>
-#include	<sys/wait.h>
 
-#include	"radiusd.h"
-#include	"conffile.h"
 #include	"rlm_sql.h"
 
 #ifdef HAVE_PTHREAD_H
-#include	<pthread.h>
 #endif
 
 
@@ -117,6 +104,7 @@ int sql_init_socketpool(SQL_INST * inst)
 #ifdef HAVE_PTHREAD_H
 		rcode = pthread_mutex_init(&sqlsocket->mutex,NULL);
 		if (rcode != 0) {
+			free(sqlsocket);
 			radlog(L_ERR, "rlm_sql: Failed to init lock: %s",
 			       strerror(errno));
 			return 0;
@@ -192,6 +180,8 @@ int sql_close_socket(SQL_INST *inst, SQLSOCK * sqlsocket)
 	return 1;
 }
 
+static time_t last_logged_failure = 0;
+
 
 /*************************************************************************
  *
@@ -205,6 +195,7 @@ SQLSOCK * sql_get_socket(SQL_INST * inst)
 	SQLSOCK *cur, *start;
 	int tried_to_connect = 0;
 	int unconnected = 0;
+	time_t now;
 
 	/*
 	 *	Start at the last place we left off.
@@ -293,6 +284,18 @@ SQLSOCK * sql_get_socket(SQL_INST * inst)
 		}
 	}
 
+	/*
+	 *	Suppress most of the log messages.  We don't want to
+	 *	flood the log with this message for EVERY packet.
+	 *	Instead, write to the log only once a second or so.
+	 *
+	 *	This code has race conditions when threaded, but the
+	 *	only result is that a few more messages are logged.
+	 */
+	now = time(NULL);
+	if (now <= last_logged_failure) return NULL;
+	last_logged_failure = now;
+
 	/* We get here if every DB handle is unconnected and unconnectABLE */
 	radlog(L_INFO, "rlm_sql (%s): There are no DB handles to use! skipped %d, tried to connect %d", inst->config->xlat_name, unconnected, tried_to_connect);
 	return NULL;
@@ -325,13 +328,13 @@ int sql_release_socket(SQL_INST * inst, SQLSOCK * sqlsocket)
  *	Purpose: Read entries from the database and fill VALUE_PAIR structures
  *
  *************************************************************************/
-int sql_userparse(VALUE_PAIR ** first_pair, SQL_ROW row, int querymode)
+int sql_userparse(VALUE_PAIR ** first_pair, SQL_ROW row)
 {
-	VALUE_PAIR *pair, *check;
-	char *ptr, *value;
+	VALUE_PAIR *pair;
+	const char *ptr, *value;
 	char buf[MAX_STRING_LEN];
 	char do_xlat = 0;
-	LRAD_TOKEN token, operator = T_EOL;
+	FR_TOKEN token, operator = T_EOL;
 
 	/*
 	 *	Verify the 'Attribute' field
@@ -401,27 +404,13 @@ int sql_userparse(VALUE_PAIR ** first_pair, SQL_ROW row, int querymode)
 	 */
 	pair = pairmake(row[2], value, operator);
 	if (pair == NULL) {
-		radlog(L_ERR, "rlm_sql: Failed to create the pair: %s", librad_errstr);
+		radlog(L_ERR, "rlm_sql: Failed to create the pair: %s", fr_strerror());
 		return -1;
 	}
 	if (do_xlat) {
 		pair->flags.do_xlat = 1;
-		strNcpy((char *)pair->strvalue, buf, sizeof(pair->strvalue));
+		strlcpy(pair->vp_strvalue, buf, sizeof(pair->vp_strvalue));
 		pair->length = 0;
-	}
-
-	/*
-	 *	If attribute is already there, skip it because we
-	 *	checked usercheck first and we want user settings to
-	 *	override group settings
-	 */
-	if (operator != T_OP_ADD && (check = pairfind(*first_pair, pair->attribute)) != NULL &&
-#ifdef ASCEND_BINARY
-	    pair->type != PW_TYPE_ABINARY &&
-#endif
-	    querymode == PW_VP_GROUPDATA) {
-		pairbasicfree(pair);
-		return 0;
 	}
 
 	/*
@@ -572,7 +561,7 @@ int rlm_sql_select_query(SQLSOCK *sqlsocket, SQL_INST *inst, char *query)
  *	Purpose: Get any group check or reply pairs
  *
  *************************************************************************/
-int sql_getvpdata(SQL_INST * inst, SQLSOCK * sqlsocket, VALUE_PAIR **pair, char *query, int mode)
+int sql_getvpdata(SQL_INST * inst, SQLSOCK * sqlsocket, VALUE_PAIR **pair, char *query)
 {
 	SQL_ROW row;
 	int     rows = 0;
@@ -592,7 +581,7 @@ int sql_getvpdata(SQL_INST * inst, SQLSOCK * sqlsocket, VALUE_PAIR **pair, char 
 		row = sqlsocket->row;
 		if (!row)
 			break;
-		if (sql_userparse(pair, row, mode) != 0) {
+		if (sql_userparse(pair, row) != 0) {
 			radlog(L_ERR | L_CONS, "rlm_sql (%s): Error getting data from database", inst->config->xlat_name);
 			(inst->module->sql_finish_select_query)(sqlsocket, inst->config);
 			return -1;

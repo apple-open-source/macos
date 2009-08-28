@@ -2,7 +2,7 @@
  * Darwin ACL VFS module
  *
  * Copyright (C) Jeremy Allison 1994-2000.
- * Copyright (c) 2004 - 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2004 - 2008 Apple Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,6 +23,7 @@
 #define DBGC_CLASS DBGC_ACLS
 
 #include "includes.h"
+#include "opendirectory.h"
 #include <membership.h>
 
 #define MODULE_NAME "darwinacl"
@@ -41,43 +42,41 @@
 #define MASK_MATCH_ALL(mask1, mask2) ( ( (mask1) & (mask2) ) == (mask2) )
 #define MASK_MATCH_ANY(mask1, mask2) ( (mask1) & (mask2) )
 
-#define FILE_SPECIFIC_READ_BITS \
-    (FILE_READ_DATA|FILE_READ_EA|FILE_READ_ATTRIBUTES|READ_CONTROL_ACCESS)
-
-#define FILE_SPECIFIC_WRITE_BITS \
-    (FILE_WRITE_DATA|FILE_APPEND_DATA|FILE_WRITE_EA|FILE_WRITE_ATTRIBUTES)
-
-#define FILE_SPECIFIC_EXECUTE_BITS \
-    (FILE_EXECUTE)
-
-/* Bitmask of all possible ACL permissions. We use this in an ugly workaround
- * for the lack of an API that tests whether a permset is empty or not.
- */
-#define ACL_ALL_PERMISSIONS \
-    ( ACL_READ_DATA | \
-        ACL_LIST_DIRECTORY | \
-        ACL_WRITE_DATA | \
-        ACL_ADD_FILE | \
-        ACL_EXECUTE | \
-        ACL_SEARCH | \
-        ACL_DELETE | \
-        ACL_APPEND_DATA | \
-        ACL_ADD_SUBDIRECTORY | \
-        ACL_DELETE_CHILD | \
-        ACL_READ_ATTRIBUTES | \
-        ACL_WRITE_ATTRIBUTES | \
-        ACL_WRITE_EXTATTRIBUTES | \
-        ACL_READ_SECURITY | \
-        ACL_WRITE_SECURITY | \
-        ACL_CHANGE_OWNER)
-
-
 static SEC_ACL empty_acl = {
 	NT4_ACL_REVISION, /* revision */
 	SEC_ACL_HEADER_SIZE, /* size */
 	0, /* number of ACEs */
 	NULL /* ACEs*/
-    };
+};
+
+/* XXX There is no ACL API to test whether the permset is
+ * clear, so we test whether any of the perm bits are set.
+ * This is an abuse of the acl_get_perm_np API, since you are
+ * not supposed to pass a bitmask to it.
+ */
+static BOOL acl_permset_is_clear(acl_permset_t p)
+{
+#define ACL_ALL_PERMISSIONS (\
+	ACL_READ_DATA		| \
+	ACL_LIST_DIRECTORY	| \
+	ACL_WRITE_DATA		| \
+	ACL_ADD_FILE		| \
+	ACL_EXECUTE		| \
+	ACL_SEARCH		| \
+	ACL_DELETE		| \
+	ACL_APPEND_DATA		| \
+	ACL_ADD_SUBDIRECTORY	| \
+	ACL_DELETE_CHILD	| \
+	ACL_READ_ATTRIBUTES	| \
+	ACL_WRITE_ATTRIBUTES	| \
+	ACL_READ_EXTATTRIBUTES	| \
+	ACL_WRITE_EXTATTRIBUTES	| \
+	ACL_READ_SECURITY	| \
+	ACL_WRITE_SECURITY	| \
+	ACL_CHANGE_OWNER)
+
+	return acl_get_perm_np(p, ACL_ALL_PERMISSIONS) == 0;
+}
 
 static BOOL acl_support_enabled(connection_struct *conn)
 {
@@ -201,46 +200,31 @@ static BOOL ace_list_append_ace(struct sec_ace_list * acelist,
 }
 
 /****************************************************************************
- Fixed Darwin <-> NT mapping tables.
+ Static Darwin <-> NT ACL type mapping tables.
 ****************************************************************************/
 
-/* XXX Should these mapping include the directory-specific rights, like serach
- * and list?
+/* This table maps Darwin ACE permissions to Windows ACE permissions. We map
+ * the specific or standard permissions, NOT the generic permissions.
  */
-#define ACL_GENERIC_READ \
-		(ACL_READ_DATA | ACL_READ_ATTRIBUTES | \
-		    ACL_READ_EXTATTRIBUTES | ACL_READ_SECURITY)
-
-#define ACL_GENERIC_WRITE \
-		(ACL_WRITE_DATA | ACL_WRITE_ATTRIBUTES | \
-		    ACL_WRITE_EXTATTRIBUTES | ACL_WRITE_SECURITY )
-
-#define ACL_GENERIC_EXECUTE \
-		(ACL_GENERIC_READ | ACL_EXECUTE)
-
-#define ACL_GENERIC_ALL \
-		(ACL_GENERIC_READ | ACL_GENERIC_WRITE | ACL_GENERIC_EXECUTE | \
-		    ACL_DELETE )
-
 static const struct
 {
 	acl_perm_t aclperm;
 	int ntperm;
 } ntacl_perm_table[] =
 {
-	{ ACL_READ_DATA, FILE_READ_DATA },
-	{ ACL_WRITE_DATA, FILE_WRITE_DATA },
-	{ ACL_EXECUTE, FILE_EXECUTE },
-	{ ACL_DELETE, DELETE_ACCESS },
-	{ ACL_APPEND_DATA, FILE_APPEND_DATA },
-	{ ACL_DELETE_CHILD, FILE_DELETE_CHILD },
+	{ ACL_READ_DATA,	FILE_READ_DATA },
+	{ ACL_WRITE_DATA,	FILE_WRITE_DATA },
+	{ ACL_EXECUTE,		FILE_EXECUTE },
+	{ ACL_DELETE,		STD_RIGHT_DELETE_ACCESS },
+	{ ACL_APPEND_DATA,	FILE_APPEND_DATA },
+	{ ACL_DELETE_CHILD,	FILE_DELETE_CHILD },
 	{ ACL_READ_ATTRIBUTES, FILE_READ_ATTRIBUTES },
 	{ ACL_READ_EXTATTRIBUTES, FILE_READ_EA },
 	{ ACL_WRITE_ATTRIBUTES, FILE_WRITE_ATTRIBUTES },
 	{ ACL_WRITE_EXTATTRIBUTES, FILE_WRITE_EA },
-	{ ACL_READ_SECURITY, READ_CONTROL_ACCESS },
-	{ ACL_WRITE_SECURITY, WRITE_DAC_ACCESS },
-	{ ACL_CHANGE_OWNER, WRITE_OWNER_ACCESS },
+	{ ACL_READ_SECURITY,	STD_RIGHT_READ_CONTROL_ACCESS },
+	{ ACL_WRITE_SECURITY,	STD_RIGHT_WRITE_DAC_ACCESS },
+	{ ACL_CHANGE_OWNER,	STD_RIGHT_WRITE_OWNER_ACCESS },
 
 };
 
@@ -308,11 +292,11 @@ static void map_flags_nt_to_darwin(SEC_ACE *ace, acl_flagset_t flagset)
 		MODULE_NAME, ace->flags, darwin_flags));
 }
 
-static uint32 map_perms_darwin_to_nt(acl_permset_t perms)
+static uint32_t map_perms_darwin_to_nt(acl_permset_t perms)
 {
-	uint32 ntperms = 0;
+	uint32_t ntperms = 0;
 	int i;
-	uint32 darwin_perms = 0;
+	uint32_t darwin_perms = STD_RIGHT_SYNCHRONIZE_ACCESS;
 
 	for (i = 0; i < ARRAY_SIZE(ntacl_perm_table); ++i) {
 		acl_perm_t p = ntacl_perm_table[i].aclperm;
@@ -331,50 +315,74 @@ static uint32 map_perms_darwin_to_nt(acl_permset_t perms)
 	return ntperms;
 }
 
-static void map_perms_nt_to_darwin(SEC_ACCESS ntperms, acl_permset_t permset)
+/* This is just like map_perms_darwin_to_nt, except that we deal directly
+ * with the kauth permissions bitmask instead of an acl_permset_t.
+ */
+static uint32_t map_perms_kauth_to_nt(uint32_t perms)
 {
+	uint32_t ntperms = 0;
 	int i;
-	int acl_add_perm_return;
-	uint32 darwin_perms = 0;
+	uint32_t darwin_perms = STD_RIGHT_SYNCHRONIZE_ACCESS;
 
 	for (i = 0; i < ARRAY_SIZE(ntacl_perm_table); ++i) {
-		if (ntperms & ntacl_perm_table[i].ntperm) {
-			acl_perm_t p = ntacl_perm_table[i].aclperm;
+		acl_perm_t p = ntacl_perm_table[i].aclperm;
 
-			/* This can only fail if we messed up the
-			 * mapping table. Hence the assert instead of
-			 * an error return.
-			 */
-			acl_add_perm_return = acl_add_perm(permset, p);
-			SMB_ASSERT(acl_add_perm_return == 0);
+		if (MASK_MATCH_ALL(perms, p)) {
+			ntperms |= ntacl_perm_table[i].ntperm;
 			darwin_perms |= p;
 		}
 	}
 
+	/* Log this harder if we didn't come up with a mapping. */
+	DEBUG(darwin_perms == 0 ? 0 : 4,
+		("%s: mapped Darwin permset %#x to NT permissions %#x\n",
+		MODULE_NAME, darwin_perms, ntperms));
+
+	return ntperms;
+}
+
+static uint32_t map_perms_nt_to_kauth(SEC_ACCESS ntperms)
+{
+	int i;
+	uint32_t darwin_perms = 0;
+
 	if (ntperms & GENERIC_ALL_ACCESS) {
-		acl_add_perm(permset, ACL_GENERIC_ALL);
-		darwin_perms |= ACL_GENERIC_ALL;
+		darwin_perms |= KAUTH_VNODE_GENERIC_ALL_BITS;
 	}
 
 	if (ntperms & GENERIC_EXECUTE_ACCESS) {
-		acl_add_perm(permset, ACL_GENERIC_EXECUTE);
-		darwin_perms |= ACL_GENERIC_EXECUTE;
+		darwin_perms |= KAUTH_VNODE_GENERIC_EXECUTE_BITS;
 	}
 
 	if (ntperms & GENERIC_WRITE_ACCESS) {
-		acl_add_perm(permset, ACL_GENERIC_WRITE);
-		darwin_perms |= ACL_GENERIC_WRITE;
+		darwin_perms |= KAUTH_VNODE_GENERIC_WRITE_BITS;
 	}
 
 	if (ntperms & GENERIC_READ_ACCESS) {
-		acl_add_perm(permset, ACL_GENERIC_READ);
-		darwin_perms |= ACL_GENERIC_READ;
+		darwin_perms |= KAUTH_VNODE_GENERIC_READ_BITS;
+	}
+
+
+	/* Map the standard or specific rights to Darwin permissions. */
+	for (i = 0; i < ARRAY_SIZE(ntacl_perm_table); ++i) {
+		if (ntperms & ntacl_perm_table[i].ntperm) {
+			acl_perm_t p = ntacl_perm_table[i].aclperm;
+			darwin_perms |= p;
+		}
 	}
 
 	/* Log this harder if we didn't come up with a mapping. */
 	DEBUG(darwin_perms == 0 ? 0 : 4,
 		("%s: mapped NT permissions %#x to Darwin permset %#x\n",
 		MODULE_NAME, ntperms, darwin_perms));
+
+	return darwin_perms;
+}
+
+static void map_perms_nt_to_darwin(SEC_ACCESS ntperms, acl_permset_t permset)
+{
+	uint32_t darwin_perms = map_perms_nt_to_kauth(ntperms);
+	acl_add_perm(permset, darwin_perms);
 }
 
 static int map_ace_darwin_to_nt(acl_tag_t tag_type)
@@ -391,7 +399,7 @@ static int map_ace_darwin_to_nt(acl_tag_t tag_type)
 	}
 }
 
-static acl_tag_t map_ace_nt_to_darwin(uint32 ace)
+static acl_tag_t map_ace_nt_to_darwin(uint32_t ace)
 {
 	switch(ace)
 	{
@@ -448,8 +456,8 @@ static int darwin_try_chown(files_struct * fsp, uid_t uid, gid_t gid)
 	SMB_STRUCT_STAT st;
 	NTSTATUS status;
 
-	DEBUG(3, ("%s: trying to chown %s to uid=%ld gid=%ld\n",
-		MODULE_NAME, fsp->fsp_name, (long)uid, (long)gid ));
+	DEBUG(3, ("%s: trying to chown %s to uid=%d gid=%d\n",
+		MODULE_NAME, fsp->fsp_name, (int)uid, (int)gid ));
 
 	/* try the direct way first */
 	if (fsp->fh->fd != -1) {
@@ -513,18 +521,18 @@ static BOOL validate_memberd_uuid(const uuid_t uuid)
 	}
 
 	switch (id_type) {
-	case ID_TYPE_UID:
+	case MBR_ID_TYPE_UID:
 		if (getpwuid(id) == NULL) {
-			DEBUG(10, ("%s: failing mapping for faked uid=%ld\n",
-				MODULE_NAME, (long)id));
+			DEBUG(10, ("%s: failing mapping for faked uid=%d\n",
+				MODULE_NAME, (int)id));
 			return False;
 		}
 
 		break;
-	case ID_TYPE_GID:
+	case MBR_ID_TYPE_GID:
 		if (getgrgid(id) == NULL) {
-			DEBUG(10, ("%s: failing mapping for faked gid=%ld\n",
-				MODULE_NAME, (long)id));
+			DEBUG(10, ("%s: failing mapping for faked gid=%d\n",
+				MODULE_NAME, (int)id));
 			return False;
 		}
 
@@ -558,25 +566,25 @@ static BOOL map_uuid_to_sid(uuid_t *uuid, DOM_SID *sid)
 	}
 
 	switch (id_type) {
-	case ID_TYPE_UID:
-		DEBUG(10, ("%s: UUID %s -> uid=%ld\n",
-			MODULE_NAME, uustr, (long)id));
+	case MBR_ID_TYPE_UID:
+		DEBUG(10, ("%s: UUID %s -> uid=%d\n",
+			MODULE_NAME, uustr, (int)id));
 
 		if (getpwuid(id) == NULL) {
-			DEBUG(10, ("%s: failing mapping for faked uid=%ld\n",
-				MODULE_NAME, (long)id));
+			DEBUG(10, ("%s: failing mapping for faked uid=%d\n",
+				MODULE_NAME, (int)id));
 			return False;
 		}
 
 		uid_to_sid(sid, id);
 		break;
-	case ID_TYPE_GID:
-		DEBUG(10, ("%s: UUID %s -> gid=%ld\n",
-			MODULE_NAME, uustr, (long)id));
+	case MBR_ID_TYPE_GID:
+		DEBUG(10, ("%s: UUID %s -> gid=%d\n",
+			MODULE_NAME, uustr, (int)id));
 
 		if (getgrgid(id) == NULL) {
-			DEBUG(10, ("%s: failing mapping for faked gid=%ld\n",
-				MODULE_NAME, (long)id));
+			DEBUG(10, ("%s: failing mapping for faked gid=%d\n",
+				MODULE_NAME, (int)id));
 			return False;
 		}
 
@@ -595,23 +603,12 @@ static BOOL map_uuid_to_sid(uuid_t *uuid, DOM_SID *sid)
 static BOOL map_sid_to_uuid(const DOM_SID *sid, uuid_t *uuid)
 {
 	uid_t id = -1;
-	nt_sid_t mbr_sid = {0};
 
 	DEBUG(10, ("%s: mapping SID %s\n",
 		    MODULE_NAME, sid_string_static(sid)));
 
-	/* DOM_SID and nt_sid_t are not the same binary layout, so we have to
-	 * manually convert.
-	 */
-	mbr_sid.sid_kind = sid->sid_rev_num;
-	mbr_sid.sid_authcount = sid->num_auths;
-	memcpy(mbr_sid.sid_authority, sid->id_auth,
-		sizeof(mbr_sid.sid_authority));
-	memcpy(mbr_sid.sid_authorities, sid->sub_auths,
-		sizeof(uint32) * sid->num_auths);
-
 	/* SID -> UID/GID -> UUID */
-	if (mbr_sid_to_uuid(&mbr_sid, *uuid) == 0) {
+	if (memberd_sid_to_uuid(sid, *uuid)) {
 		/* The memberd mapping will practically always fail. Most of
 		 * our SIDs are algorithmically generated and the memberd SID
 		 * conversion only succeeds for static SIDs.
@@ -633,16 +630,16 @@ static BOOL map_sid_to_uuid(const DOM_SID *sid, uuid_t *uuid)
 			goto success;
 		}
 
-		DEBUG(4, ("%s: UID -> UUID mapping failed for uid=%ld: %s\n",
-			MODULE_NAME, (long)id, strerror(errno)));
+		DEBUG(4, ("%s: UID -> UUID mapping failed for uid=%d: %s\n",
+			MODULE_NAME, (int)id, strerror(errno)));
 
 	} else if (sid_to_gid(sid, &id)) {
 		if (mbr_gid_to_uuid(id, *uuid) == 0) {
 			goto success;
 		}
 
-		DEBUG(4, ("%s: GID -> UUID mapping failed for gid=%ld: %s\n",
-			MODULE_NAME, (long)id, strerror(errno)));
+		DEBUG(4, ("%s: GID -> UUID mapping failed for gid=%d: %s\n",
+			MODULE_NAME, (int)id, strerror(errno)));
 	}
 
 	DEBUG(0, ("%s: failed to map SID %s to a UUID\n",
@@ -660,189 +657,65 @@ success:
 	return True;
 }
 
-#define UNIX_PERM_TO_ACL_ACCESS(bit) \
-	unix_perms_to_acl_perms(mode, 0xffffffff, 0xffffffff, 0xffffffff)
-
-static uint32 unix_perms_to_acl_perms(mode_t mode, int r_mask, int w_mask, int x_mask)
-{
-	int ret = 0;
-
-	if (mode & r_mask)
-		ret |= FILE_SPECIFIC_READ_BITS;
-	if (mode & w_mask)
-		ret |= FILE_SPECIFIC_WRITE_BITS;
-	if (mode & x_mask)
-		ret |= FILE_SPECIFIC_EXECUTE_BITS;
-
-	return ret;
-}
-
-/* Try to figure out whether any of the ACEs can be represented in POSIX
- * mode bits. Really, this is a fool's errand and we should just give up
- * on it :(((  --jpeach
+/* The Unix write bits do not imply delete as suggested by the generic
+ * KAUTH write bits.
  */
-static mode_t map_ntacl_to_mode(files_struct *fsp,
-		    SEC_ACL *dacl,
-		    DOM_SID *owner_sid,
-		    DOM_SID *group_sid,
-		    mode_t mode)
+#define KAUTH_UNIX_GENERIC_WRITE_BITS ( \
+	KAUTH_VNODE_GENERIC_WRITE_BITS &  \
+	~(KAUTH_VNODE_WRITE_SECURITY | KAUTH_VNODE_TAKE_OWNERSHIP) & \
+	~(KAUTH_VNODE_DELETE | KAUTH_VNODE_DELETE_CHILD) \
+)
+
+static uint32_t unix_perms_to_acl_perms(const mode_t mode, const int r_mask,
+	const int w_mask, const int x_mask)
 {
+	uint32_t darwin_access = 0;
 
-	int i;
-	SEC_ACE *sec_ace = NULL;
-	mode_t r_mode = 0;
-
-	uint32 user_allowed = 0;
-	uint32 group_allowed = 0;
-	uint32 other_allowed = 0;
-
-	uint32 user_denied = 0;
-	uint32 group_denied = 0;
-	uint32 other_denied = 0;
-
-	uint32 unix_access;
-
-	if (dacl == NULL) {
-		return mode; /* just return the passed mode */
+	if (mode & r_mask) {
+		darwin_access |= KAUTH_VNODE_GENERIC_READ_BITS;
 	}
 
-	for (i = 0; i < dacl->num_aces; i++) {
-		sec_ace = &dacl->aces[i];
-
-		if (sec_ace->type != SEC_ACE_TYPE_ACCESS_ALLOWED &&
-		    sec_ace->type != SEC_ACE_TYPE_ACCESS_DENIED) {
-			DEBUG(4, ("%s: ignoring unsupported ACL type %d\n",
-				    MODULE_NAME, sec_ace->type));
-			continue;
-		}
-
-		if (sec_ace->type == SEC_ACE_TYPE_ACCESS_ALLOWED) {
-
-			if (sid_equal(&sec_ace->trustee, owner_sid)) {
-				user_allowed |= sec_ace->access_mask;
-			} else if (sid_equal(&sec_ace->trustee, group_sid)) {
-				group_allowed |= sec_ace->access_mask;
-			} else if (sid_equal(&sec_ace->trustee,
-						&global_sid_World)) {
-				other_allowed |= sec_ace->access_mask;
-			}
-
-		} else if (sec_ace->type == SEC_ACE_TYPE_ACCESS_DENIED) {
-
-			if (sid_equal(&sec_ace->trustee, owner_sid)) {
-				user_denied |= sec_ace->access_mask;
-			} else if (sid_equal(&sec_ace->trustee, group_sid)) {
-				group_denied |= sec_ace->access_mask;
-			} else if (sid_equal(&sec_ace->trustee,
-						&global_sid_World)) {
-				other_denied |= sec_ace->access_mask;
-			}
-		}
+	if (mode & w_mask) {
+		darwin_access |= KAUTH_UNIX_GENERIC_WRITE_BITS;
 	}
 
-	if (user_allowed == 0 && group_allowed == 0 && other_allowed == 0) {
-		DEBUG(4, ("%s: no owner access granted, setting mode to 0\n",
-			    MODULE_NAME));
-		return 0;
+	if (mode & x_mask) {
+		darwin_access |= KAUTH_VNODE_GENERIC_EXECUTE_BITS;
 	}
 
-	/* Check each UNIX mode bit. If we have a cumulative ACL access mode
-	 * that exactly matched the mode bit mapping, then set the bit in the
-	 * final mode. We will also remove these access bits from the
-	 * corresponding ACL.
+	/* In the Unix security model, only the owner gets to set the
+	 * permissions, so remove these access bits unless we are doing the
+	 * calculation for the owner bits.
 	 */
-	unix_access = UNIX_PERM_TO_ACL_ACCESS(S_IRUSR);
-	if (MASK_MATCH_ALL(user_allowed, unix_access) &&
-	    !MASK_MATCH_ANY(user_denied, unix_access)) {
-		r_mode |= (S_IRUSR);
+	if ((r_mask | w_mask | x_mask) == S_IRWXU) {
+		darwin_access |= KAUTH_VNODE_WRITE_SECURITY;
 	}
 
-	unix_access = UNIX_PERM_TO_ACL_ACCESS(S_IWUSR);
-	if (MASK_MATCH_ALL(user_allowed, unix_access) &&
-	    !MASK_MATCH_ANY(user_denied, unix_access)) {
-		r_mode |= (S_IWUSR);
-	}
-
-	unix_access = UNIX_PERM_TO_ACL_ACCESS(S_IXUSR);
-	if (MASK_MATCH_ALL(user_allowed, unix_access) &&
-	    !MASK_MATCH_ANY(user_denied, unix_access)) {
-		r_mode |= (S_IXUSR);
-	}
-
-	unix_access = UNIX_PERM_TO_ACL_ACCESS(S_IRGRP);
-	if (MASK_MATCH_ALL(group_allowed, unix_access) &&
-	    !MASK_MATCH_ANY(group_denied, unix_access)) {
-		r_mode |= (S_IRGRP);
-	}
-
-	unix_access = UNIX_PERM_TO_ACL_ACCESS(S_IWGRP);
-	if (MASK_MATCH_ALL(group_allowed, unix_access) &&
-	    !MASK_MATCH_ANY(group_denied, unix_access)) {
-		r_mode |= (S_IWGRP);
-	}
-
-	unix_access = UNIX_PERM_TO_ACL_ACCESS(S_IXGRP);
-	if (MASK_MATCH_ALL(group_allowed, unix_access) &&
-	    !MASK_MATCH_ANY(group_denied, unix_access)) {
-		r_mode |= (S_IXGRP);
-	}
-
-	unix_access = UNIX_PERM_TO_ACL_ACCESS(S_IROTH);
-	if (MASK_MATCH_ALL(other_allowed, unix_access) &&
-	    !MASK_MATCH_ANY(other_denied, unix_access)) {
-		r_mode |= (S_IROTH);
-	}
-
-	unix_access = UNIX_PERM_TO_ACL_ACCESS(S_IWOTH);
-	if (MASK_MATCH_ALL(other_allowed, unix_access) &&
-	    !MASK_MATCH_ANY(other_denied, unix_access)) {
-		r_mode |= (S_IWOTH);
-	}
-
-	unix_access = UNIX_PERM_TO_ACL_ACCESS(S_IXOTH);
-	if (MASK_MATCH_ALL(other_allowed, unix_access) &&
-	    !MASK_MATCH_ANY(other_denied, unix_access)) {
-		r_mode |= (S_IXOTH);
-	}
-
-	DEBUG(4, ("%s: mapped owner ACEs to mode 0%o\n",
-	    MODULE_NAME, r_mode));
-
-	if (r_mode == 0) {
-		return 0;
-	}
-
-	/* If we found a set of ACL permissions that can be represented in a
-	 * set of mode bits, go back through the ACL and turn off all the bits
-	 * that will be represented in the mode. Later on, if some of the
-	 * access masks go to zero, we can simply ignore that ACE.
-	 */
-	for (i = 0; i < dacl->num_aces; i++) {
-		sec_ace = &dacl->aces[i];
-
-		if (sec_ace->type != SEC_ACE_TYPE_ACCESS_ALLOWED) {
-			continue;
-		}
-
-		if (sid_equal(&sec_ace->trustee, owner_sid)) {
-			unix_access = unix_perms_to_acl_perms(r_mode,
-				S_IRUSR, S_IWUSR, S_IXUSR);
-			sec_ace->access_mask &= ~unix_access;
-		} else if ( sid_equal(&sec_ace->trustee, group_sid)) {
-			unix_access = unix_perms_to_acl_perms(r_mode,
-				S_IRGRP, S_IWGRP, S_IXGRP);
-			sec_ace->access_mask &= ~unix_access;
-		} else if (sid_equal(&sec_ace->trustee, &global_sid_World)) {
-			unix_access = unix_perms_to_acl_perms(r_mode,
-				S_IROTH, S_IWOTH, S_IXOTH);
-			sec_ace->access_mask &= ~unix_access;
-		}
-	}
-
-	return r_mode;
+	return map_perms_kauth_to_nt(darwin_access);
 }
 
-static int map_mode_to_ntacl(filesec_t fsect, struct sec_ace_list *acelist)
+static mode_t acl_perms_to_unix_perms(const uint32_t ntperms,
+	const int r_mask, const int w_mask, const int x_mask)
+{
+	mode_t mode = 0;
+	uint32_t darwin_access = map_perms_nt_to_kauth(ntperms);
+
+	if (MASK_MATCH_ALL(darwin_access, KAUTH_VNODE_GENERIC_READ_BITS)) {
+		mode |= r_mask;
+	}
+
+	if (MASK_MATCH_ALL(darwin_access, KAUTH_UNIX_GENERIC_WRITE_BITS)) {
+		mode |= w_mask;
+	}
+
+	if (MASK_MATCH_ALL(darwin_access, KAUTH_VNODE_GENERIC_EXECUTE_BITS)) {
+		mode |= x_mask;
+	}
+
+	return mode;
+}
+
+static unsigned map_mode_to_ntacl(filesec_t fsect, struct sec_ace_list *acelist)
 {
 	DOM_SID owner_sid;
 	DOM_SID group_sid;
@@ -850,8 +723,10 @@ static int map_mode_to_ntacl(filesec_t fsect, struct sec_ace_list *acelist)
 	gid_t gid;
 	mode_t mode;
 	int acl_perms = 0;
-	int num_aces = 0;
+	unsigned num_aces = 0;
 	SEC_ACCESS acc = 0;
+
+	int ace_flags = 0;
 
 	if (filesec_get_property(fsect, FILESEC_OWNER, &uid) == -1) {
 		DEBUG(0,("%s: filesec_get_property(FILESEC_OWNER): %s (%d)\n",
@@ -894,31 +769,50 @@ static int map_mode_to_ntacl(filesec_t fsect, struct sec_ace_list *acelist)
 		}
 	}
 
+	/* Unix permissions are only evaluated after the access check works
+	 * though all the ACEs. This means they sort *after* the explicit allow
+	 * and deny ACEs *and* the inherited deny ACEs.
+	 *
+	 * To accurately reflect the ordering, we should mark these as
+	 * inherited, but they don't behave like inherited ACEs. That is, when
+	 * you copy the inheriting ACEs from the container's ACL, you don't get
+	 * these back, so you lose them.
+	 *
+	 * Therefore, we have to make these direct ACEs. This is pretty much
+	 * how people expect to manipulate the permissions however, so it's not
+	 * as bad as it sounds.
+	 */
+
 	/* user */
 	acl_perms = unix_perms_to_acl_perms(mode, S_IRUSR, S_IWUSR, S_IXUSR);
 	if (acl_perms) {
 		++num_aces;
-		init_sec_access(&acc, acl_perms);
+		init_sec_access(&acc, acl_perms | STD_RIGHT_SYNCHRONIZE_ACCESS);
 		ace_list_append_ace(acelist, &owner_sid,
-				SEC_ACE_TYPE_ACCESS_ALLOWED, acc, 0);
+				SEC_ACE_TYPE_ACCESS_ALLOWED, acc,
+				ace_flags);
 	}
 
 	/* group */
 	acl_perms = unix_perms_to_acl_perms(mode, S_IRGRP, S_IWGRP, S_IXGRP);
 	if (acl_perms) {
 		++num_aces;
-		init_sec_access(&acc, acl_perms);
+		acl_perms &= ~STD_RIGHT_WRITE_DAC_ACCESS;
+		init_sec_access(&acc, acl_perms | STD_RIGHT_SYNCHRONIZE_ACCESS);
 		ace_list_append_ace(acelist, &group_sid,
-				SEC_ACE_TYPE_ACCESS_ALLOWED, acc, 0);
+				SEC_ACE_TYPE_ACCESS_ALLOWED, acc,
+				ace_flags);
 	}
 
 	/* everyone */
 	acl_perms = unix_perms_to_acl_perms(mode, S_IROTH, S_IWOTH, S_IXOTH);
 	if (acl_perms) {
 		++num_aces;
-		init_sec_access(&acc, acl_perms);
+		acl_perms &= ~STD_RIGHT_WRITE_DAC_ACCESS;
+		init_sec_access(&acc, acl_perms | STD_RIGHT_SYNCHRONIZE_ACCESS);
 		ace_list_append_ace(acelist, &global_sid_World,
-				SEC_ACE_TYPE_ACCESS_ALLOWED, acc, 0);
+				SEC_ACE_TYPE_ACCESS_ALLOWED, acc,
+				ace_flags);
 	}
 
 	DEBUG(4,("%s: %d ACEs created from mode 0%o\n",
@@ -954,11 +848,11 @@ static int map_darwinacl_to_ntacl(filesec_t fsect,
 		char * aclstr = acl_to_text(darwin_acl, NULL);
 
 		if (aclstr) {
-		    DEBUG(8, ("%s: source Darwin ACL is:\n"));
+		    DEBUG(8, ("%s: source Darwin ACL is:\n", __func__));
 		    DEBUGADD(8, ("%s\n", aclstr));
 		    acl_free(aclstr);
 		} else {
-		    DEBUG(8, ("%s: no source ACL\n"));
+		    DEBUG(8, ("%s: no source ACL\n", __func__));
 		}
 	}
 
@@ -989,12 +883,7 @@ static int map_darwinacl_to_ntacl(filesec_t fsect,
 			continue;
 		}
 
-		mask |= SYNCHRONIZE_ACCESS;
-		init_sec_access(&acc, mask);
-
-		DEBUG(4,("%s: acc(%X) tag_type(%x), flags(%X)\n",
-			    func, acc, tag_type, flags ));
-
+		init_sec_access(&acc, mask | STD_RIGHT_SYNCHRONIZE_ACCESS);
 		ret = ace_list_append_ace(acelist, &sid,
 				map_ace_darwin_to_nt(tag_type), acc,
 				map_flags_darwin_to_nt(flags));
@@ -1037,6 +926,8 @@ static size_t darwin_get_nt_acl_internals(vfs_handle_struct *handle,
 	uid_to_sid(&owner_sid, owner_uid);
 	gid_to_sid(&group_sid, owner_gid);
 
+	security_info |= DACL_SECURITY_INFORMATION;
+
 	if (security_info & DACL_SECURITY_INFORMATION) {
 		struct sec_ace_list acelist;
 
@@ -1076,7 +967,8 @@ build_sec_desc:
 							     : NULL,
 		(security_info & GROUP_SECURITY_INFORMATION) ? &group_sid
 							     : NULL,
-		sec_acl ? sec_acl : &empty_acl,
+		(!(security_info & DACL_SECURITY_INFORMATION)) ? NULL
+					: sec_acl ? sec_acl : &empty_acl,
 		&sd_size);
 
 	if (!psd) {
@@ -1117,10 +1009,8 @@ cleanup:
  * partially succeed. If we allow it to partially succeed, then the
  * resulting ACL is undefined, which might lead to unexpected access.
  */
-static BOOL map_ntacl_to_darwinacl(SEC_ACL *dacl,
-		acl_t original_acl,
-		acl_t *darwin_acl,
-		uint16 desc_flags)
+static BOOL map_ntacl_to_darwinacl(const SEC_ACL * dacl,
+		acl_t * darwin_acl)
 {
 	static const char const func[] = "map_ntacl_to_darwinacl";
 
@@ -1162,6 +1052,9 @@ static BOOL map_ntacl_to_darwinacl(SEC_ACL *dacl,
 		/* XXX This breaks the Samba4 RAW-ACLS tests. This test expects
 		 * to be able to set an ACL containing an ACE with a zero
 		 * access mask and then retrieve it.
+		 *
+		 * However, we *rely* on this behaviour to remove empty ACEs
+		 * when we transfer permissions from the ACL to the Unix mode.
 		 */
 		if (psa->access_mask == 0) {
 			DEBUG(4, ("%s: ignoring ACE with empty access mask\n",
@@ -1205,12 +1098,7 @@ static BOOL map_ntacl_to_darwinacl(SEC_ACL *dacl,
 		acl_clear_perms(permset);
 		map_perms_nt_to_darwin(psa->access_mask, permset);
 
-		/* XXX There is no ACL API to test whether the permset is
-		 * clear, so we test whether any of the perm bits are set.
-		 * This is an abuse of the acl_get_perm_np API, since you are
-		 * not supposed to pass a bitmask to it.
-		 */
-		if (acl_get_perm_np(permset, ACL_ALL_PERMISSIONS) != 1) {
+		if (acl_permset_is_clear(permset)) {
 			DEBUG(4, ("%s: ignoring ACE mapped to empty permission set\n",
 				func));
 
@@ -1238,49 +1126,6 @@ static BOOL map_ntacl_to_darwinacl(SEC_ACL *dacl,
 		}
 	}
 
-	/* We have a previous ACL and the new ACL is inheriting ACEs. */
-	if (original_acl && !(desc_flags & SE_DESC_DACL_PROTECTED)) {
-		int entry_id = ACL_FIRST_ENTRY;
-		acl_entry_t current_entry = NULL;
-		acl_entry_t  new_entry = NULL;
-		acl_flagset_t flagset;
-
-		/* Iterate over the entries in the original ACL. If any
-		 * of them should be inherited, copy them to the new ACL.
-		 */
-		FOREACH_ACE(original_acl, current_entry) {
-
-			if (acl_get_flagset_np(current_entry, &flagset) != 0) {
-				DEBUG(0,("%s: [acl_get_flagset_np] "
-						"errno(%d) - (%s)\n",
-					func, errno, strerror(errno)));
-				goto failed;
-			}
-
-			if (!acl_get_flag_np(flagset, ACL_ENTRY_INHERITED)) {
-				continue;
-			}
-
-			if (acl_create_entry(darwin_acl, &new_entry) == -1) {
-				DEBUG(0,("%s: [acl_create_entry] "
-						"errno(%d) - (%s)\n",
-					func, errno, strerror(errno)));
-				goto failed;
-			}
-
-			if (acl_copy_entry(new_entry, current_entry) == 0) {
-				DEBUG(3,("%s: [acl_copy_entry] "
-						"COPIED INHERITED ACE (%d)\n",
-					func, entry_id));
-			} else {
-				DEBUG(0,("%s: [acl_copy_entry] "
-						"errno(%d) - (%s)\n",
-					func, errno, strerror(errno)));
-				goto failed;
-			}
-		}
-	}
-
 	DEBUG(4,("%s succeeded\n", func));
 	return True;
 
@@ -1291,6 +1136,166 @@ failed:
 
 	DEBUG(4,("%s failed\n", func));
 	return False;
+}
+
+/* Figure out whether we can move any access permissions into the Unix mode
+ * bits. We do this to be nice to network filesystems that don't understand
+ * ACLs (NFS3 and SMB Unix extensions). We can only move access permissions
+ * when the ACL consists entirely of ALLOW entries. If there are DENY entries,
+ * then moving the access permissions perturbs the order and may produce
+ * incorrect results. In this case, we clear the Unix permissions.
+ */
+static mode_t map_ntacl_to_mode(const SEC_ACL *dacl,
+                   const DOM_SID *owner_sid,
+                   const DOM_SID *group_sid,
+                   mode_t mode)
+{
+
+       int i;
+       SEC_ACE *sec_ace = NULL;
+
+       uint32 user_allowed = 0;
+       uint32 group_allowed = 0;
+       uint32 other_allowed = 0;
+
+       mode_t user_mode = 0;
+       mode_t group_mode = 0;
+       mode_t other_mode = 0;
+
+       unsigned direct_ace_count = 0;
+       unsigned deny_ace_count = 0;
+
+       if (dacl == NULL || dacl->num_aces == 0) {
+		/* If there's no DACL, then we are not resetting the
+		 * permissions. If there's an empty DACLm then we are being
+		 * asked to reset the permissions to 0 (no access), but XP has
+		 * a bug where it doesn't copy direct ACEs correctly, so we
+		 * don't want to clear the permissions in this case.
+		 */
+               return mode;
+       }
+
+       for (i = 0; i < dacl->num_aces; i++) {
+               sec_ace = &dacl->aces[i];
+
+		if (!(sec_ace->flags & SEC_ACE_FLAG_INHERITED_ACE)) {
+			++direct_ace_count;
+		}
+
+	       if (sec_ace->type == SEC_ACE_TYPE_ACCESS_DENIED) {
+			++deny_ace_count;
+	       }
+
+              if (sec_ace->type == SEC_ACE_TYPE_ACCESS_ALLOWED) {
+                      if (sid_equal(&sec_ace->trustee, owner_sid)) {
+                              user_allowed |= sec_ace->access_mask;
+                      } else if (sid_equal(&sec_ace->trustee, group_sid)) {
+                              group_allowed |= sec_ace->access_mask;
+                      } else if (sid_equal(&sec_ace->trustee,
+                                              &global_sid_World)) {
+                              other_allowed |= sec_ace->access_mask;
+                      }
+	      } else {
+                       DEBUG(0, ("%s: ignoring unsupported ACL type %d\n",
+                                   MODULE_NAME, sec_ace->type));
+                       continue;
+	      }
+       }
+
+       DEBUG(6, ("effective user=%#x, group=%#x, other =%#x\n",
+		   user_allowed, group_allowed, other_allowed));
+
+	/* Client didn't send any direct ACEs. Probably the XP inheritance
+	 * bug. Add the current UNIX permissions as if they were direct
+	 * ACE permissions.
+	 */
+	if (direct_ace_count == 0) {
+
+		user_mode |= mode & (S_IRUSR|S_IWUSR|S_IXUSR);
+		group_mode |= mode & (S_IRGRP|S_IWGRP|S_IXGRP);
+		other_mode |= mode & (S_IROTH|S_IWOTH|S_IXOTH);
+	}
+
+	/* We can't move granted permisssions from the ACL into the
+	 * Unix mode if the ACL has any deny ACEs, because doing this
+	 * perturbs the ordering. The principal can unexpectedly be
+	 * denied if there is a deny ACL present. We have to clear
+	 * the mode and rely solely on the ACL.
+	 */
+	if (deny_ace_count) {
+		goto done;
+	}
+
+	/* OK, now we have the effective access that was granted by the ACL.
+	 * We need to turn this into the effective access that is granted by
+	 * the corresponding Unix mode bits.
+	 */
+
+       user_mode |= acl_perms_to_unix_perms(user_allowed,
+				S_IRUSR, S_IWUSR, S_IXUSR);
+       user_allowed = user_mode ? unix_perms_to_acl_perms(user_mode,
+					S_IRUSR, S_IWUSR, S_IXUSR)
+				: 0;
+
+       DEBUG(6, ("user unix mode=%o effective=%x\n",
+		   user_allowed, user_allowed));
+
+       group_mode |= acl_perms_to_unix_perms(group_allowed,
+				S_IRGRP, S_IWGRP, S_IXGRP);
+       group_allowed = group_mode ? unix_perms_to_acl_perms(group_mode,
+					S_IRGRP, S_IWGRP, S_IXGRP)
+				  : 0;
+
+       DEBUG(6, ("group unix mode=%o effective=%x\n",
+		   group_allowed, group_allowed));
+
+       other_mode |= acl_perms_to_unix_perms(other_allowed,
+				S_IROTH, S_IWOTH, S_IXOTH);
+       other_allowed = other_mode ? unix_perms_to_acl_perms(other_mode,
+					S_IROTH, S_IWOTH, S_IXOTH)
+				  : 0;
+
+       DEBUG(6, ("other unix mode=%o effective=%x\n",
+		   other_allowed, other_allowed));
+
+       /* Now we have both the Unix permissions that correspond to user, group
+	* and other. We also have the effective ACL permissions that these Unix
+	* permissions represent. We traverse the ACL and turn off any effective
+	* permissions that are in the Unix set.
+	*/
+	for (i = 0; i < dacl->num_aces; i++) {
+		sec_ace = &dacl->aces[i];
+
+		/* We should only get here if the DACL consisted entirely
+		 * of allow entries.
+		 */
+		SMB_ASSERT(sec_ace->type == SEC_ACE_TYPE_ACCESS_ALLOWED);
+
+		/* We map Unix permissions as direct ACEs, so don't remove
+		 * the access permissions from anything that's inherited. We
+		 * want to keep inherited ACEs in the ACL.
+		 */
+		if (sec_ace->flags != 0) {
+		    continue;
+		}
+
+		if (sid_equal(&sec_ace->trustee, owner_sid)) {
+			sec_ace->access_mask &= ~user_allowed;
+		} else if ( sid_equal(&sec_ace->trustee, group_sid)) {
+			sec_ace->access_mask &= ~group_allowed;
+		} else if (sid_equal(&sec_ace->trustee, &global_sid_World)) {
+			sec_ace->access_mask &= ~other_allowed;
+		}
+	}
+
+done:
+	DEBUG(6, ("old permissions=%o, new permissions=%o\n",
+		    mode & ACCESSPERMS, user_mode | group_mode | other_mode));
+
+	/* Replace the access bits in the mode with the ones we calculated. */
+	mode = (mode & ~ACCESSPERMS) | user_mode | group_mode | other_mode;
+
+	return mode;
 }
 
 static BOOL darwin_set_nt_acl_internals(vfs_handle_struct *handle,
@@ -1310,7 +1315,6 @@ static BOOL darwin_set_nt_acl_internals(vfs_handle_struct *handle,
 	gid_t orig_gid;
 	BOOL need_chown = False;
 	acl_t darwin_acl = NULL;
-	acl_t original_acl = NULL;
 	filesec_t fsec;
 
 	DEBUG(4,("darwin_set_nt_acl_internals: called for file %s\n",
@@ -1366,9 +1370,9 @@ static BOOL darwin_set_nt_acl_internals(vfs_handle_struct *handle,
 		filesec_free(fsec);
 
 		if (darwin_try_chown(fsp, uid, gid) == -1) {
-			DEBUG(3, ("%s: chown %s to uid=%u, gid=%u failed: %s\n",
+			DEBUG(3, ("%s: chown %s to uid=%d, gid=%d failed: %s\n",
 				MODULE_NAME, fsp->fsp_name,
-				(long)uid, (long)gid,
+				(int)uid, (int)gid,
 				strerror(errno) ));
 			return False;
 		}
@@ -1410,18 +1414,12 @@ static BOOL darwin_set_nt_acl_internals(vfs_handle_struct *handle,
 		return True;
 	}
 
-	/* Figure out whether we can map any of the DACL into mode bits. */
-	new_mode = map_ntacl_to_mode(fsp, psd->dacl,
-		 		&owner_sid, &group_sid, orig_mode);
-
-	if (filesec_get_property(fsec, FILESEC_ACL, &original_acl) == -1) {
-		/* Most likely no ACL on this file (ENOENT). */
-		original_acl = NULL;
-	}
+	new_mode = map_ntacl_to_mode(psd->dacl,
+                   &owner_sid, &group_sid, orig_mode);
+	DEBUG(6, ("orig_mode=%o, new_mode=%o\n", orig_mode, new_mode));
 
 	/* Figure out the corresponding Darwin ACL. */
-	if (!map_ntacl_to_darwinacl(psd->dacl, original_acl,
-				    &darwin_acl, psd->type)) {
+	if (!map_ntacl_to_darwinacl(psd->dacl, &darwin_acl)) {
 		filesec_free(fsec);
 		return False;
 	}
@@ -1434,23 +1432,22 @@ static BOOL darwin_set_nt_acl_internals(vfs_handle_struct *handle,
 		return False;
 	}
 
-	if (orig_mode != new_mode) {
-		if (SMB_VFS_CHMOD(fsp->conn, fsp->fsp_name,
-					    new_mode) == -1) {
-			DEBUG(3,("%s: failed to chmod %s, "
-				"from 0%o to 0%o: %s\n",
-				fsp->fsp_name,
-				(unsigned int)orig_mode,
-				(unsigned int)new_mode,
-				strerror(errno) ));
-			return False;
-		}
+	if (SMB_VFS_CHMOD(fsp->conn, fsp->fsp_name, new_mode) == -1) {
+		DEBUG(3,("%s: failed to chmod %s, "
+			"from 0%o to 0%o: %s\n",
+			MODULE_NAME,
+			fsp->fsp_name,
+			(unsigned)orig_mode,
+			(unsigned)new_mode,
+			strerror(errno) ));
+		return False;
 	}
 
 	/* Any chown pending? */
 	if (need_chown && darwin_try_chown(fsp, uid, gid) == -1) {
-		DEBUG(3, ("%s: chown %s to uid=%u, gid=%u failed: %s\n",
-			MODULE_NAME, fsp->fsp_name, (long)uid, (long)gid,
+		DEBUG(3, ("%s: chown %s to uid=%d, gid=%d failed: %s\n",
+			MODULE_NAME, fsp->fsp_name,
+			(int)uid, (int)gid,
 			strerror(errno) ));
 		return False;
 	}

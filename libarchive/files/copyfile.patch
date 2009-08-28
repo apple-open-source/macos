@@ -1,0 +1,273 @@
+--- tar/bsdtar.c.orig	2008-08-22 20:01:50.000000000 -0700
++++ tar/bsdtar.c	2008-08-22 20:08:44.000000000 -0700
+@@ -64,6 +64,8 @@
+ #include <zlib.h>
+ #endif
+ 
++#include <copyfile.h>
++
+ #include "bsdtar.h"
+ 
+ /*
+@@ -153,6 +155,9 @@
+ 		bsdtar->extract_flags |= ARCHIVE_EXTRACT_FFLAGS;
+ 	}
+ 
++	if (getenv(COPYFILE_DISABLE_VAR))
++		bsdtar->disable_copyfile = 1;
++
+ 	bsdtar->argv = argv;
+ 	bsdtar->argc = argc;
+ 
+@@ -186,6 +191,9 @@
+ 		case OPTION_CHROOT: /* NetBSD */
+ 			bsdtar->option_chroot = 1;
+ 			break;
++		case OPTION_DISABLE_COPYFILE:
++			bsdtar->disable_copyfile = 1;
++			break;
+ 		case OPTION_EXCLUDE: /* GNU tar */
+ 			if (exclude(bsdtar, bsdtar->optarg))
+ 				bsdtar_errc(bsdtar, 1, 0,
+--- tar/bsdtar.h.orig	2008-08-22 20:10:37.000000000 -0700
++++ tar/bsdtar.h	2008-08-22 20:10:39.000000000 -0700
+@@ -71,6 +71,7 @@
+ 	char		  option_unlink_first; /* -U */
+ 	char		  option_warn_links; /* --check-links */
+ 	char		  day_first; /* show day before month in -tv output */
++	int		  disable_copyfile;
+ 
+ 	/* If >= 0, then close this when done. */
+ 	int		  fd;
+@@ -107,6 +108,7 @@
+ enum {
+ 	OPTION_CHECK_LINKS = 1,
+ 	OPTION_CHROOT,
++	OPTION_DISABLE_COPYFILE,
+ 	OPTION_EXCLUDE,
+ 	OPTION_FORMAT,
+ 	OPTION_HELP,
+--- tar/cmdline.c.orig	2008-11-11 14:37:06.000000000 -0800
++++ tar/cmdline.c	2008-11-11 14:37:54.000000000 -0800
+@@ -76,6 +76,7 @@
+ 	{ "create",               0, 'c' },
+ 	{ "dereference",	  0, 'L' },
+ 	{ "directory",            1, 'C' },
++	{ "disable-copyfile",     1, OPTION_DISABLE_COPYFILE },
+ 	{ "exclude",              1, OPTION_EXCLUDE },
+ 	{ "exclude-from",         1, 'X' },
+ 	{ "extract",              0, 'x' },
+--- tar/read.c.orig	2008-06-18 19:33:06.000000000 -0700
++++ tar/read.c	2008-09-10 18:01:48.000000000 -0700
+@@ -66,9 +66,29 @@
+ #ifdef HAVE_UNISTD_H
+ #include <unistd.h>
+ #endif
++#include <sys/queue.h>
++#include <copyfile.h>
++#include <fcntl.h>
++#include <libgen.h>
++
++#include <TargetConditionals.h>
++#if TARGET_OS_MAC
++#define HAVE_QUARANTINE 1
++#endif /* TARGET_OS_MAC */
++
++#ifdef HAVE_QUARANTINE
++#include <quarantine.h>
++#endif /* HAVE_QUARANTINE */
+ 
+ #include "bsdtar.h"
+ 
++struct copyfile_list_entry_t {
++	char *src;
++	char *dst;
++	char *tmp;
++	LIST_ENTRY(copyfile_list_entry_t) link;
++};
++
+ static void	list_item_verbose(struct bsdtar *, FILE *,
+ 		    struct archive_entry *);
+ static void	read_archive(struct bsdtar *bsdtar, char mode);
+@@ -101,6 +121,28 @@
+ 	siginfo_printinfo(bsdtar, 0);
+ }
+ 
++#ifdef HAVE_QUARANTINE
++void
++_qtnapply(struct bsdtar *bsdtar, qtn_file_t qf, char *path)
++{
++	int stat_ok;
++	struct stat sb;
++	int qstatus;
++
++	if (qf == NULL)
++		return;
++
++	stat_ok = (stat(path, &sb) == 0);
++
++	if (stat_ok) chmod(path, sb.st_mode | S_IWUSR);
++	qstatus = qtn_file_apply_to_path(qf, path);
++	if (stat_ok) chmod(path, sb.st_mode);
++
++	if (qstatus)
++		bsdtar_warnc(bsdtar, 0, "qtn_file_apply_to_path(%s): %s", path, qtn_error(qstatus));
++}
++#endif /* HAVE_QUARANTINE */
++
+ /*
+  * Handle 'x' and 't' modes.
+  */
+@@ -112,6 +154,13 @@
+ 	struct archive_entry	 *entry;
+ 	const struct stat	 *st;
+ 	int			  r;
++#ifdef HAVE_QUARANTINE
++	qtn_file_t		  qf = NULL;
++#endif /* HAVE_QUARANTINE */
++	LIST_HEAD(copyfile_list_t, copyfile_list_entry_t) copyfile_list;
++	struct copyfile_list_entry_t *cle;
++
++	LIST_INIT(&copyfile_list);
+ 
+ 	while (*bsdtar->argv) {
+ 		include(bsdtar, *bsdtar->argv);
+@@ -151,6 +200,18 @@
+ #endif
+ 	}
+ 
++#ifdef HAVE_QUARANTINE
++	if (mode == 'x' && !bsdtar->option_stdout) {
++		if ((qf = qtn_file_alloc()) != NULL) {
++			int qstatus = qtn_file_init_with_path(qf, bsdtar->filename);
++			if (qstatus != 0) {
++				qtn_file_free(qf);
++				qf = NULL;
++			}
++		}
++	}
++#endif /* HAVE_QUARANTINE */
++
+ 	for (;;) {
+ 		/* Support --fast-read option */
+ 		if (bsdtar->option_fast_read &&
+@@ -272,9 +333,25 @@
+ 
+ 			if (bsdtar->option_stdout)
+ 				r = archive_read_data_into_fd(a, 1);
+-			else
++			else {
++				/* do this even if disable_copyfile is set, because it can get blown away by its associated real file */
++				if (strncmp(basename((char *)archive_entry_pathname(entry)), "._", 2) == 0) {
++					cle = calloc(1, sizeof(struct copyfile_list_entry_t));
++					cle->src = strdup(archive_entry_pathname(entry));
++					asprintf(&cle->tmp, "%s.XXXXXX", cle->src);
++					mktemp(cle->tmp);
++					asprintf(&cle->dst, "%s/%s", dirname(cle->src), basename(cle->src) + 2);
++					LIST_INSERT_HEAD(&copyfile_list, cle, link);
++					archive_entry_set_pathname(entry, cle->tmp);
++				}
+ 				r = archive_read_extract(a, entry,
+ 				    bsdtar->extract_flags);
++#ifdef HAVE_QUARANTINE
++				if (r == ARCHIVE_OK) {
++					_qtnapply(bsdtar, qf, archive_entry_pathname(entry));
++				}
++#endif /* HAVE_QUARANTINE */
++			}
+ 			if (r != ARCHIVE_OK) {
+ 				if (!bsdtar->verbose)
+ 					safe_fprintf(stderr, "%s",
+@@ -292,11 +369,34 @@
+ 		}
+ 	}
+ 
++	LIST_FOREACH(cle, &copyfile_list, link) {
++		if (!bsdtar->disable_copyfile && copyfile(cle->tmp, cle->dst, 0, COPYFILE_UNPACK | COPYFILE_NOFOLLOW | COPYFILE_ACL | COPYFILE_XATTR) == 0) {
++			unlink(cle->tmp);
++#ifdef HAVE_QUARANTINE
++			_qtnapply(bsdtar, qf, cle->dst);
++#endif /* HAVE_QUARANTINE */
++		} else {
++			if (!bsdtar->disable_copyfile)
++				bsdtar_warnc(bsdtar, errno, "copyfile unpack (%s) failed", cle->dst);
++			rename(cle->tmp, cle->src);
++#ifdef HAVE_QUARANTINE
++			_qtnapply(bsdtar, qf, cle->src);
++#endif /* HAVE_QUARANTINE */
++		}
++	}
++
+ 	if (bsdtar->verbose > 2)
+ 		fprintf(stdout, "Archive Format: %s,  Compression: %s\n",
+ 		    archive_format_name(a), archive_compression_name(a));
+ 
+ 	archive_read_finish(a);
++
++#ifdef HAVE_QUARANTINE
++	if (qf != NULL) {
++		qtn_file_free(qf);
++		qf = NULL;
++	}
++#endif /* HAVE_QUARANTINE */
+ }
+ 
+ 
+--- tar/write.c.orig	2008-06-24 22:13:31.000000000 -0700
++++ tar/write.c	2008-08-22 20:31:03.000000000 -0700
+@@ -76,6 +76,11 @@
+ #ifdef HAVE_UNISTD_H
+ #include <unistd.h>
+ #endif
++#ifdef __APPLE__
++#include <copyfile.h>
++#include <libgen.h>
++#include <paths.h>
++#endif
+ 
+ #include "bsdtar.h"
+ #include "tree.h"
+@@ -782,6 +787,43 @@
+ 		if (descend)
+ 			tree_descend(tree);
+ 
++#ifdef __APPLE__
++		const char *bname = basename((char *)name);
++		const char *apath = tree_current_access_path(tree);
++
++		if (!bsdtar->disable_copyfile && strncmp(bname, "._", 2) == 0) {
++			continue;
++		}
++
++		// XXX: Should probably only do this for tar formats.
++		if (!bsdtar->disable_copyfile && strncmp(bname, "._", 2) != 0) {
++			if (copyfile(apath, NULL, 0, COPYFILE_CHECK | COPYFILE_NOFOLLOW | COPYFILE_ACL | COPYFILE_XATTR) != 0) {
++				const char *tempdir = NULL;
++				char *md_p = NULL;
++
++				if (issetugid() == 0)
++					tempdir = getenv("TMPDIR");
++				if (tempdir == NULL)
++					tempdir = _PATH_TMP;
++				md_p = tempnam(tempdir, "tar.md.");
++
++				if (md_p != NULL) {
++					char *copyfile_fname;
++					struct stat copyfile_stat;
++
++					asprintf(&copyfile_fname, "%s/._%s", dirname((char *)name), bname);
++					copyfile(apath, md_p, 0, COPYFILE_PACK | COPYFILE_NOFOLLOW | COPYFILE_ACL | COPYFILE_XATTR);
++					stat(md_p, &copyfile_stat);
++					write_entry(bsdtar, a, &copyfile_stat, copyfile_fname, md_p);
++					unlink(md_p);
++					free(copyfile_fname);
++				}
++
++				free(md_p);
++			}
++		}
++#endif
++
+ 		/*
+ 		 * Write the entry.  Note that write_entry() handles
+ 		 * pathname editing and newness testing.

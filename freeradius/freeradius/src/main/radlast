@@ -1,7 +1,0 @@
-#! /bin/sh
-
-prefix=/usr
-localstatedir=/private/var
-logdir=${localstatedir}/log/radius
-
-exec last -f $logdir/radwtmp "$@"

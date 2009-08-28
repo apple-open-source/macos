@@ -111,10 +111,7 @@ if $first_stage; then
     sed -e '/^#/d' -e 's/ .*/ /' -e 's/^name=/ /'`"
     module_list="${bin_mods}${dyn_mods}"
 
-    # check 2.13, 2.50, and 2.60 syntaxes
-    if grep '%@D@%D%' config.status >/dev/null ||
-       grep ',@D@,D,' config.status >/dev/null ||
-       grep ',@D@,|#_!!_#|D,' config.status >/dev/null; then
+    if grep '^#define DYNAMIC ' config.h >/dev/null; then
 	is_dynamic=true
     else
 	is_dynamic=false
@@ -364,6 +361,8 @@ if $first_stage; then
 	echo "	    fi; \\"
 	echo "	    echo '#   define boot_ boot_${q_name}'; \\"
 	echo "	    echo '#   define cleanup_ cleanup_${q_name}'; \\"
+	echo "	    echo '#   define features_ features_${q_name}'; \\"
+	echo "	    echo '#   define enables_ enables_${q_name}'; \\"
 	echo "	    echo '#   define setup_ setup_${q_name}'; \\"
 	echo "	    echo '#   define finish_ finish_${q_name}'; \\"
 	echo "	    if test @SHORTBOOTNAMES@ = yes; then \\"

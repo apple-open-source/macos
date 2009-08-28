@@ -1,0 +1,26 @@
+2005-11-10  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tklib 0.4.1 ========================
+	* 
+
+2005-11-02  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tklib 0.4 ========================
+	* 
+
+2005-03-31 Aaron Faupell <afaupell@users.sourceforge.net>
+
+	* Fixed argument handling again, added -geometry option
+
+2005-03-22 Aaron Faupell <afaupell@users.sourceforge.net>
+
+	* tk_getString.tcl: tweaked padding, made focus -force for windows,
+	fixed namespace, moved variable from ::tk to own namepsace,
+	fixed argument handling
+
+
+2005-03-17 Aaron Faupell <afaupell@users.sourceforge.net>
+
+	* initial import

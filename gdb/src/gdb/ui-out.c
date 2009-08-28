@@ -474,7 +474,6 @@ ui_out_field_int (struct ui_out *uiout,
   int fldno;
   int width;
   int align;
-  struct ui_out_level *current = current_level (uiout);
 
   verify_field (uiout, &fldno, &width, &align);
 
@@ -491,7 +490,6 @@ ui_out_field_fmt_int (struct ui_out *uiout,
   int fldno;
   int width;
   int align;
-  struct ui_out_level *current = current_level (uiout);
 
   verify_field (uiout, &fldno, &width, &align);
 
@@ -738,9 +736,9 @@ ui_out_notify_begin (struct ui_out *uiout, char *class)
 }
 
 static void
-ui_out_notify_end (struct ui_out *uiout)
+ui_out_notify_end (void *uiout)
 {
-  uo_notify_end (uiout);
+  uo_notify_end ((struct ui_out *) uiout);
 }
 
 struct cleanup *
@@ -803,6 +801,67 @@ ui_out_is_mi_like_p (struct ui_out *uiout)
     return 0;
   else
     return uiout->impl->is_mi_like_p;
+}
+
+/* APPLE LOCAL: The problem this is trying to solve is
+   that when we run "-interpreter-exec console" mi commands
+   that run the target, it's really very useful to see the
+   reason why we stopped when we stop.  When the target is
+   asynchronous, that's easy, since we switch back to the MI
+   after the target starts, but before it stops.  But for a
+   synchronous target, the stop happens while we are still
+   using the console interpreter.  This function allows us
+   to route the various bits of the stop information back out
+   to the mi result.  */
+
+static void (*ui_out_annotation_printer) (const char *, const char *);
+void
+ui_out_set_annotation_printer (void (*printer) (const char *, const char *))
+{
+  ui_out_annotation_printer = printer;
+}
+
+/* This is used to print "annotations" - which are pieces of information that
+   are likely useful to the MI or other such interpreter, but are not necessarily
+   useful to the console output.  The behavior of the printing is controlled by
+   the TEE input.
+   
+   If TEE is 0, the annotations are printed if the current
+   ui_out is MI.  If it isn't, we check if the ui_out_annotation_printer is set, 
+   and if so we allow that to get a look at the annotation.
+
+   If TEE is 1, we print it to the current uiout unconditionally, and also pass it to the
+   annotation printer if that is set.
+*/
+
+void
+ui_out_print_annotation_string (struct ui_out *uiout, int tee, const char *name, const char *reason)
+{
+  if (tee == 0)
+    {
+      if (ui_out_is_mi_like_p (uiout))
+	ui_out_field_string (uiout, name, reason);
+      else if (ui_out_annotation_printer != NULL)
+	ui_out_annotation_printer (name, reason);
+    }
+  else if (tee == 1)
+    {
+      ui_out_field_string (uiout, name, reason);
+      if (ui_out_annotation_printer != NULL)
+	ui_out_annotation_printer (name, reason);
+    }
+}
+
+void
+ui_out_print_annotation_int (struct ui_out *uiout, int tee, const char *name, const int value)
+{
+  char buffer[32];
+
+  /* This is a little lame, I should make a string and an int
+     printer to be totally correct.  But that's more work than
+     this fix warrants...  */
+  sprintf (buffer, "%d", value);
+  ui_out_print_annotation_string (uiout, tee, name, buffer);
 }
 
 /* default gdb-out hook functions */

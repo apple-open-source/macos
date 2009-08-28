@@ -1,3 +1,5 @@
+@subheading stringprep_4zi
+@anchor{stringprep_4zi}
 @deftypefun {int} {stringprep_4zi} (uint32_t * @var{ucs4}, size_t @var{maxucs4len}, Stringprep_profile_flags @var{flags}, const Stringprep_profile * @var{profile})
 @var{ucs4}: input/output array with zero terminated string to prepare.
 

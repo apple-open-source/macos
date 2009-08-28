@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2003, International Business Machines Corporation and
+ * Copyright (c) 1997-2009, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -64,6 +64,8 @@ public:
     void Test4197699(void);
     void TestJ81(void);
     void TestJ438(void);
+    void TestT5555(void);
+    void TestT6745(void);
     void TestLeapFieldDifference(void);
     void TestMalaysianInstance(void);
     void TestWeekShift(void);

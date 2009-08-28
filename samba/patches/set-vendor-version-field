@@ -2,13 +2,13 @@ Index: samba/source/VERSION
 ===================================================================
 --- samba/source/VERSION.orig
 +++ samba/source/VERSION
-@@ -95,5 +95,5 @@ SAMBA_VERSION_IS_SVN_SNAPSHOT=
+@@ -95,5 +95,5 @@ SAMBA_VERSION_IS_GIT_SNAPSHOT=
  # e.g. SAMBA_VERSION_VENDOR_SUFFIX=vendor_version()    #
  #  ->  "CVS 3.0.0rc2-VendorVersion"                    #
  ########################################################
 -SAMBA_VERSION_VENDOR_SUFFIX=
 +SAMBA_VERSION_VENDOR_SUFFIX="apple"
- SAMBA_VENDOR_PATCH=
+ SAMBA_VERSION_VENDOR_PATCH=
 Index: samba/source/script/mkversion.sh
 ===================================================================
 --- samba/source/script/mkversion.sh.orig

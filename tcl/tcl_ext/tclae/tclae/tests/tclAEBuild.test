@@ -1,0 +1,167 @@
+## -*- mode: Tcl; coding: utf-8; -*-
+ # ###################################################################
+ #  TclAE - AppleEvent extension for Tcl
+ # 
+ #  FILE: "tclAEBuild.test"
+ #                                    created: 8/30/2000 {7:41:54 AM} 
+ #                                last update: 11/22/2006 {8:17:52 PM} 
+ #  Author: Jonathan Guyer
+ #  E-mail: jguyer@his.com
+ #    mail: POMODORO no seisan
+ #     www: http://www.his.com/jguyer/
+ #  
+ # ========================================================================
+ #               Copyright © 2000 Jonathan Guyer
+ #                      All rights reserved
+ # ========================================================================
+ # Permission to use, copy, modify, and distribute this software and its
+ # documentation for any purpose and without fee is hereby granted,
+ # provided that the above copyright notice appear in all copies and that
+ # both that the copyright notice and warranty disclaimer appear in
+ # supporting documentation.
+ # 
+ # Jonathan Guyer disclaims all warranties with regard to this software,
+ # including all implied warranties of merchantability and fitness.  In
+ # no event shall Jonathan Guyer be liable for any special, indirect or
+ # consequential damages or any damages whatsoever resulting from loss of
+ # use, data or profits, whether in an action of contract, negligence or
+ # other tortuous action, arising out of or in connection with the use or
+ # performance of this software.
+ # ========================================================================
+ #  Description: 
+ # 
+ #   This file contains a collection of tests for one or more of
+ #   the TclAE commands.  Sourcing this file into Tcl runs the
+ #   tests and generates output for errors.  No output means no
+ #   errors were found.
+ #   
+ #  History
+ # 
+ #  modified   by  rev reason
+ #  ---------- --- --- -----------
+ #  2000-08-30 JEG 1.0 original
+ # ###################################################################
+ ##
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+if {[catch {package require tclAE}]} {
+    catch {puts "Cannot load TclAE"}
+}
+
+catch {tclAE::send -r -s ascr gdut}
+
+# Only run the test if we can load the TclAE package
+set ::tcltest::testConstraints(tclAE) [expr {[info commands tclAE::send] != ""}]
+set ::tcltest::testConstraints(tclAEshlb) [set ::tcltest::testConstraints(tclAE)]
+
+if {$tcl_platform(platform) == "macintosh"} {    
+set testPath $env(SYS_FOLDER)
+}
+if {$tcl_platform(platform) == "unix" && $tcl_platform(os) == "Darwin"} {
+    set ::tcltest::testConstraints(macOnly) 1
+}
+
+# We used to address by creator code, but that doesn't reliably identify which version to
+# call if there's more than one and doesn't work with tclsh at all.
+# if {$tcl_platform(byteOrder) eq "bigEndian"} {
+# 	set binPID [binary format I [pid]]
+# } else {
+#  	set binPID [binary format i [pid]]
+# }
+# binary scan $binPID H* hexPID
+# set creatorCode kpid(«$hexPID»)
+set creatorCode [tclAE::build::kpid]
+
+test tclAEBuild-1.1 {tclAE::build noargs} {macOnly tclAEshlb} {
+    set err [catch {tclAE::build} msg]
+    list $err $msg
+} {1 {wrong # args: should be "tclAE::build theAEGizmo"}}
+
+test tclAEBuild-1.2 {tclAE::build badgizmo} {macOnly tclAEshlb} {
+    catch {tclAE::build "obj \{"} msg
+    regsub {(OSErr )(12345|-1740)} $msg {\1(12345|-1740)} msg
+    list $msg
+} {{Couldn't build descriptor: OSErr (12345|-1740)}}
+
+test tclAEBuild-1.3 {tclAE::build tag} {macOnly tclAEshlb} {
+    catch {tclAE::build TEXT} enumAEDesc
+    list $enumAEDesc
+} {TEXT}
+
+test tclAEBuild-1.4 {tclAE::build enum} {macOnly tclAE} {
+    catch {tclAE::build TEXT} enumAEDesc
+    list $enumAEDesc
+} {TEXT}
+
+test tclAEBuild-1.5 {tclAE::build list} {macOnly tclAE} {
+    catch {tclAE::build "\[4, “some text”, bool(«01»)\]"} listAEDesc
+    regsub {bool\(«0(.)»\)} $listAEDesc  {\1} gizmo
+    list $gizmo
+} {{[4, “some text”, 1]}}
+
+test tclAEBuild-1.6 {tclAE::build parameters} {macOnly tclAEshlb} {
+    catch {tclAE::build "long(4)"} anAEDesc
+    set long 256
+    catch {tclAE::build "\[${anAEDesc}, long(${long}), TEXT([tclAE::encode "a «Mac™ish» ¡string!"])\]"} paramAEDesc
+    list [tclAE::getData $paramAEDesc]
+} {{4 256 {a «Mac™ish» ¡string!}}}
+
+
+test tclAEBuild-2.1 {tclAE::send noargs} {macOnly tclAEshlb} {
+    set err [catch {tclAE::send} msg]
+    list $err $msg
+} {1 {wrong # args: should be "tclAE::send ?options? <application> <AEClass> <AEEventID> [<event parameters>]*"}}
+
+test tclAEBuild-2.2 {tclAE::send -r} {macOnly tclAEshlb} {
+    catch {tclAE::send -r -s syso "GMT "} replyAEDesc
+    regsub {(aevt\\ansr\{'----':)-?[0-9]+(.*\})} $replyAEDesc "\\1nnn\}" gizmo
+    set gizmo
+} {aevt\ansr{'----':nnn}}
+
+test tclAEBuild-2.4 {tclAE::send -t} {macOnly tclAE emptyTest} {
+} {1}
+
+test tclAEBuild-2.5 {tclAE::send -q} {macOnly tclAE emptyTest} {
+    currentReplyHandler testHandler 1
+    proc testHandler {gizmo} {
+        test tclAEBuild-2.6a {-q} {macOnly tclAE} {
+            regsub {(aevt\\ansr\{'----':“)[^”]+(”\})} $gizmo {\1owner\2} gizmo
+            list $gizmo
+        } {{aevt\ansr{'----':“owner”}}}    
+    }
+    catch {tclAE::send -q 'ALFA' ownn getd} msg
+    list $msg
+} {{}}
+
+proc testHandler {theAppleEvent theReplyAE} {
+    test tclAEBuild-2.6a {-Q testHandler} {macOnly tclAE} {
+	regsub {(aevt\\ansr\{'----':)-?[0-9]+(.*\})} $theAppleEvent "\\1nnnn\}" gizmo
+	list $gizmo
+    } {{aevt\ansr{'----':nnnn}}}    
+}
+test tclAEBuild-2.6 {tclAE::send -Q testHandler} {macOnly tclAE} {
+    catch {tclAE::send -Q testHandler $creatorCode syso "GMT "} msg
+    list $msg
+} {{}}
+
+test tclAEBuild-2.7 {tclAE::send bad event} {macOnly tclAE} {
+    catch {tclAE::send -r 'MACS' BADD EVNT} gizmo
+    regsub {(aevt\\ansr\{errn:-1708)(.*\})} $gizmo "\\1\}" gizmo
+    list $gizmo
+} {{aevt\ansr{errn:-1708}}}
+
+
+
+::tcltest::cleanupTests
+rename testHandler ""
+unset creatorCode
+return
+
+
+
+
+

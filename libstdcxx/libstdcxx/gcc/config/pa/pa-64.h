@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* The default sizes for basic datatypes provided by GCC are not
    correct for the PA64 runtime architecture.
@@ -69,10 +69,6 @@ Boston, MA 02111-1307, USA.  */
 /* Temporary until we figure out what to do with those *(&@$ 32bit
    relocs which appear in stabs.  */
 #undef DBX_DEBUGGING_INFO
-
-/* We want the compiler to select a suitable secondary memory location.
-   ?!? This may not work reliably.  Keep an eye out for problems.  */
-#undef SECONDARY_MEMORY_NEEDED_RTX
 
 /* ?!? This needs to be made compile-time selectable.
 

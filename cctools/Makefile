@@ -24,46 +24,66 @@ DSTROOT = /
 RC_OS = macos
 RC_CFLAGS =
 
-INSTALLSRC_SUBDIRS = $(COMMON_SUBDIRS) ar file include dyld
-COMMON_SUBDIRS = libstuff as gprof misc libmacho ld libdyld \
-		 mkshlib otool profileServer RelNotes man cbtlibs
+INSTALLSRC_SUBDIRS = $(COMMON_SUBDIRS) $(SUBDIRS_32) ar include efitools
+COMMON_SUBDIRS = libstuff as gprof misc libmacho RelNotes man cbtlibs otool
+APPLE_SUBDIRS = ar
+SUBDIRS_32 = ld
+
 ifeq "macos" "$(RC_OS)"
-  APPLE_SUBDIRS := $(shell if [ "$(RC_RELEASE)" = "Beaker"  ] || \
-			      [ "$(RC_RELEASE)" = "Bunsen"  ] || \
-			      [ "$(RC_RELEASE)" = "Gonzo"   ] || \
-			      [ "$(RC_RELEASE)" = "Kodiak"  ] || \
-			      [ "$(RC_RELEASE)" = "Cheetah" ] || \
-			      [ "$(RC_RELEASE)" = "Puma"    ]; then \
-				echo "ar file" ; \
+  OLD_LIBKLD := $(shell if [ "$(RC_RELEASE)" = "Puma"      ]  || \
+			   [ "$(RC_RELEASE)" = "Jaguar"    ]  || \
+			   [ "$(RC_RELEASE)" = "Panther"   ]  || \
+			   [ "$(RC_RELEASE)" = "MuonPrime" ]  || \
+			   [ "$(RC_RELEASE)" = "MuonSeed"  ]  || \
+			   [ "$(RC_RELEASE)" = "SUPanWheat" ] || \
+			   [ "$(RC_RELEASE)" = "Tiger" ]      || \
+			   [ "$(RC_RELEASE)" = "SUTiSoho" ]   || \
+			   [ "$(RC_RELEASE)" = "Leopard" ]    || \
+			   [ "$(RC_RELEASE)" = "Vail" ]       || \
+			   [ "$(RC_RELEASE)" = "SugarBowl" ]  || \
+			   [ "$(RC_RELEASE)" = "BigBear" ]    || \
+			   [ "$(RC_RELEASE)" = "Homewood" ]; then \
+				echo "YES" ; \
 			    else \
-				echo "ar" ; fi; )
+				echo "NO" ; fi; )
 else
-  APPLE_SUBDIRS = ar file
+  OLD_LIBKLD = NO
 endif
 
 ifeq "macos" "$(RC_OS)"
-  OLD_DYLD_STUFF := $(shell if [ "$(RC_RELEASE)" = "Beaker"    ] || \
-			       [ "$(RC_RELEASE)" = "Bunsen"    ] || \
-			       [ "$(RC_RELEASE)" = "Gonzo"     ] || \
-			       [ "$(RC_RELEASE)" = "Kodiak"    ] || \
-			       [ "$(RC_RELEASE)" = "Cheetah"   ] || \
-			       [ "$(RC_RELEASE)" = "Puma"      ] || \
-			       [ "$(RC_RELEASE)" = "Jaguar"    ] || \
-			       [ "$(RC_RELEASE)" = "Panther"   ] || \
-			       [ "$(RC_RELEASE)" = "MuonPrime" ] || \
-			       [ "$(RC_RELEASE)" = "MuonSeed"  ] || \
-			       [ "$(RC_RELEASE)" = "SUPanWheat" ]; then \
-				echo "dyld" ; \
-			    else \
-				echo "" ; fi; )
+  TRIE := $(shell if [ "$(RC_RELEASE)" = "Puma"      ]  || \
+		     [ "$(RC_RELEASE)" = "Jaguar"    ]  || \
+		     [ "$(RC_RELEASE)" = "Panther"   ]  || \
+		     [ "$(RC_RELEASE)" = "MuonPrime" ]  || \
+		     [ "$(RC_RELEASE)" = "MuonSeed"  ]  || \
+		     [ "$(RC_RELEASE)" = "SUPanWheat" ] || \
+		     [ "$(RC_RELEASE)" = "Tiger" ]      || \
+		     [ "$(RC_RELEASE)" = "SUTiSoho" ]   || \
+		     [ "$(RC_RELEASE)" = "Leopard" ]    || \
+		     [ "$(RC_RELEASE)" = "Vail" ]       || \
+		     [ "$(RC_RELEASE)" = "SugarBowl" ]  || \
+		     [ "$(RC_RELEASE)" = "BigBear" ]    || \
+		     [ "$(RC_RELEASE)" = "Homewood" ]   || \
+		     [ "$(RC_RELEASE)" = "Kirkwood" ]; then \
+			    echo "" ; \
+			else \
+			    echo "-DTRIE_SUPPORT" ; fi; )
 else
-  OLD_DYLD_STUFF = dyld
+  TRIE =
+endif
+
+
+# work around to avoid 5820763
+ifeq "$(IPHONEOS_DEPLOYMENT_TARGET)" "2.0"
+   EFITOOLS =
+else
+   EFITOOLS = efitools
 endif
 
 ifeq "nextstep" "$(RC_OS)"
-  SUBDIRS = $(COMMON_SUBDIRS) $(OLD_DYLD_STUFF)
+  SUBDIRS = $(COMMON_SUBDIRS)
 else
-  SUBDIRS = $(COMMON_SUBDIRS) $(OLD_DYLD_STUFF) $(APPLE_SUBDIRS)
+  SUBDIRS = $(COMMON_SUBDIRS) $(APPLE_SUBDIRS) $(EFITOOLS)
 endif
 
 ifneq "" "$(wildcard /bin/mkdirs)"
@@ -72,7 +92,7 @@ else
   MKDIRS = /bin/mkdir -p
 endif
 
-all clean:
+all clean: $(DSTROOT)
 	@if [ "$(SRCROOT)" != "" ] && \
 	    [ "$(OBJROOT)" != "" ] && \
 	    [ "$(SYMROOT)" != "" ];			\
@@ -84,8 +104,22 @@ all clean:
 		    (cd $$i; $(MAKE) RC_CFLAGS="$(RC_CFLAGS)"		\
 			RC_ARCHS="$(RC_ARCHS)" RC_OS="$(RC_OS)"		\
 			VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)"	\
-			OLD_DYLD_STUFF="$(OLD_DYLD_STUFF)"		\
-			DSTROOT=$$DSTROOT				\
+			EFITOOLS="$(EFITOOLS)" OPEN="$(OPEN)"		\
+			TRIE="$(TRIE)" DSTROOT=$$DSTROOT		\
+			SRCROOT=$(SRCROOT)/$$i				\
+			OBJROOT=$(OBJROOT)/$$i				\
+			SYMROOT=$(SYMROOT)/$$i $@) || exit 1 ;		\
+	      done;							\
+	    SED_RC_CFLAGS=`echo "$(RC_CFLAGS)" | sed 's/-arch ppc64//'  \
+ 		| sed 's/-arch x86_64//'`;				\
+	    for i in `echo $(SUBDIRS_32)`;				\
+	      do							\
+		    echo =========== $(MAKE) $@ for $$i =============;	\
+		    (cd $$i; $(MAKE) "RC_CFLAGS=$$SED_RC_CFLAGS" 	\
+			RC_ARCHS="$(RC_ARCHS)" RC_OS="$(RC_OS)"		\
+			VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)"	\
+			EFITOOLS="$(EFITOOLS)" OPEN="$(OPEN)"		\
+			TRIE="$(TRIE)" DSTROOT=$$DSTROOT		\
 			SRCROOT=$(SRCROOT)/$$i				\
 			OBJROOT=$(OBJROOT)/$$i				\
 			SYMROOT=$(SYMROOT)/$$i $@) || exit 1 ;		\
@@ -97,8 +131,18 @@ all clean:
 		    echo =========== $(MAKE) $@ for $$i =============;	\
 		    (cd $$i; $(MAKE) RC_CFLAGS="$(RC_CFLAGS)"		\
 			RC_ARCHS="$(RC_ARCHS)" RC_OS="$(RC_OS)"		\
-			OLD_DYLD_STUFF="$(OLD_DYLD_STUFF)"		\
-			DSTROOT=$$DSTROOT $@) || exit 1 ;		\
+			EFITOOLS="$(EFITOOLS)" OPEN="$(OPEN)"		\
+			TRIE="$(TRIE)" DSTROOT=$$DSTROOT $@) || exit 1 ; \
+	      done;							\
+	    SED_RC_CFLAGS=`echo "$(RC_CFLAGS)" | sed 's/-arch ppc64//'  \
+ 		| sed 's/-arch x86_64//'`;				\
+	    for i in `echo $(SUBDIRS_32)`;				\
+	      do							\
+		    echo =========== $(MAKE) $@ for $$i =============;	\
+		    (cd $$i; $(MAKE) RC_CFLAGS="$$SED_RC_CFLAGS"	\
+			RC_ARCHS="$(RC_ARCHS)" RC_OS="$(RC_OS)"		\
+			EFITOOLS="$(EFITOOLS)" OPEN="$(OPEN)"		\
+			TRIE="$(TRIE)" DSTROOT=$$DSTROOT $@) || exit 1 ; \
 	      done							\
 	fi
 
@@ -108,6 +152,9 @@ install:
 	    projName=`basename $(SRCROOT) | 				\
 		sed 's/-[-0-9.]*//' | sed 's/\.cvs//'`;			\
 	    if [ "$$projName" = cctools ];				\
+	    then							\
+		target=install_tools;					\
+	    elif [ "$$projName" = cctools_sdk ];			\
 	    then							\
 		target=install_tools;					\
 	    elif [ "$$projName" = cctoolslib ];				\
@@ -122,8 +169,8 @@ install:
 	    $(MAKE) RC_CFLAGS="$(RC_CFLAGS)"				\
 		RC_ARCHS="$(RC_ARCHS)" RC_OS="$(RC_OS)"			\
 		VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)"		\
-		OLD_DYLD_STUFF="$(OLD_DYLD_STUFF)"			\
-		DSTROOT=$$DSTROOT					\
+		EFITOOLS="$(EFITOOLS)" OPEN="$(OPEN)" TRIE="$(TRIE)"	\
+		DSTROOT=$$DSTROOT/$(INSTALL_LOCATION)			\
 		SRCROOT=$(SRCROOT)					\
 		OBJROOT=$(OBJROOT)					\
 		SYMROOT=$(SYMROOT) $$target;				\
@@ -131,9 +178,10 @@ install:
 	    CWD=`pwd`; cd "$(DSTROOT)"; DSTROOT=`pwd`; cd "$$CWD";	\
 	    echo =========== $(MAKE) install_tools =============;	\
 	    $(MAKE) RC_CFLAGS="$(RC_CFLAGS)" RC_ARCHS="$(RC_ARCHS)" 	\
-		RC_OS="$(RC_OS)" SUBDIRS="$(SUBDIRS)"			\
+		RC_OS="$(RC_OS)" SUBDIRS="$(SUBDIRS)" 			\
+		SUBDIRS_32="$(SUBDIRS_32)"				\
 		VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)"		\
-		OLD_DYLD_STUFF="$(OLD_DYLD_STUFF)"			\
+		EFITOOLS="$(EFITOOLS)" OPEN="$(OPEN)" TRIE="$(TRIE)"	\
 		DSTROOT=$$DSTROOT install_tools lib_ofiles_install;	\
 	fi
 
@@ -147,8 +195,22 @@ install_tools: installhdrs
 		    (cd $$i; $(MAKE) RC_CFLAGS="$(RC_CFLAGS)"		\
 			RC_ARCHS="$(RC_ARCHS)" RC_OS="$(RC_OS)"		\
 			VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)"	\
-			OLD_DYLD_STUFF="$(OLD_DYLD_STUFF)"		\
-			DSTROOT=$$DSTROOT				\
+			EFITOOLS="$(EFITOOLS)" OPEN="$(OPEN)"		\
+			TRIE="$(TRIE)" DSTROOT=$$DSTROOT		\
+			SRCROOT=$(SRCROOT)/$$i				\
+			OBJROOT=$(OBJROOT)/$$i				\
+			SYMROOT=$(SYMROOT)/$$i install) || exit 1;	\
+	      done;							\
+	    SED_RC_CFLAGS=`echo "$(RC_CFLAGS)" | sed 's/-arch ppc64//'  \
+ 		| sed 's/-arch x86_64//'`;				\
+	    for i in `echo $(SUBDIRS_32)`;				\
+	      do							\
+		    echo ======== $(MAKE) install for $$i ============;	\
+		    (cd $$i; $(MAKE) RC_CFLAGS="$$SED_RC_CFLAGS"	\
+			RC_ARCHS="$(RC_ARCHS)" RC_OS="$(RC_OS)"		\
+			VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)"	\
+			EFITOOLS="$(EFITOOLS)" OPEN="$(OPEN)"		\
+			TRIE="$(TRIE)" DSTROOT=$$DSTROOT		\
 			SRCROOT=$(SRCROOT)/$$i				\
 			OBJROOT=$(OBJROOT)/$$i				\
 			SYMROOT=$(SYMROOT)/$$i install) || exit 1;	\
@@ -162,8 +224,8 @@ install_tools: installhdrs
 		    (cd $$i; $(MAKE) RC_CFLAGS="$(RC_CFLAGS)"		\
 			RC_ARCHS="$(RC_ARCHS)" RC_OS="$(RC_OS)"		\
 			VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)"	\
-			OLD_DYLD_STUFF="$(OLD_DYLD_STUFF)"		\
-			DSTROOT=$$DSTROOT				\
+			EFITOOLS="$(EFITOOLS)" OPEN="$(OPEN)"		\
+			TRIE="$(TRIE)" DSTROOT=$$DSTROOT		\
 			SRCROOT=$(SRCROOT)/$$i				\
 			OBJROOT=$(OBJROOT)/$$i				\
 			SYMROOT=$(SYMROOT)/$$i shlib_clean) || exit 1;	\
@@ -177,7 +239,18 @@ install_tools: installhdrs
 		    (cd $$i; $(MAKE) RC_CFLAGS="$(RC_CFLAGS)"		\
 			RC_ARCHS="$(RC_ARCHS)" RC_OS="$(RC_OS)"		\
 			VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)"	\
-			OLD_DYLD_STUFF="$(OLD_DYLD_STUFF)"		\
+			EFITOOLS="$(EFITOOLS)" OPEN="$(OPEN)" TRIE="$(TRIE)" \
+			DSTROOT=$$DSTROOT install) || exit 1;		\
+	      done;							\
+	    SED_RC_CFLAGS=`echo "$(RC_CFLAGS)" | sed 's/-arch ppc64//'  \
+ 		| sed 's/-arch x86_64//'`;				\
+	    for i in `echo $(SUBDIRS_32)`;				\
+	      do							\
+		    echo ========= $(MAKE) install for $$i ===========;	\
+		    (cd $$i; $(MAKE) RC_CFLAGS="$$SED_RC_CFLAGS"	\
+			RC_ARCHS="$(RC_ARCHS)" RC_OS="$(RC_OS)"		\
+			VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)"	\
+			EFITOOLS="$(EFITOOLS)" OPEN="$(OPEN)" TRIE="$(TRIE)" \
 			DSTROOT=$$DSTROOT install) || exit 1;		\
 	      done							\
 	fi
@@ -191,7 +264,7 @@ ofiles_install:
 		SRCROOT=$(SRCROOT)					\
 		OBJROOT=$(OBJROOT)					\
 		SYMROOT=$(SYMROOT)					\
-		OLD_DYLD_STUFF="$(OLD_DYLD_STUFF)"			\
+		EFITOOLS="$(EFITOOLS)" OPEN="$(OPEN)" TRIE="$(TRIE)"	\
 		lib_ofiles_install
 
 lib_ofiles lib_ofiles_install: installhdrs
@@ -210,6 +283,7 @@ lib_ofiles lib_ofiles_install: installhdrs
 	    echo =========== $(MAKE) all for libstuff =============;	\
 	    (cd libstuff; $(MAKE) "RC_CFLAGS=$$SED_RC_CFLAGS"		\
 		RC_ARCHS="$(RC_ARCHS)" RC_OS="$(RC_OS)"			\
+		OLD_LIBKLD="$(OLD_LIBKLD)"				\
 		DSTROOT=$$DSTROOT					\
 		SRCROOT=$(SRCROOT)/libstuff				\
 		OBJROOT=$(OBJROOT)/libstuff				\
@@ -217,6 +291,7 @@ lib_ofiles lib_ofiles_install: installhdrs
 	    echo =========== $(MAKE) $@ for libmacho =============;	\
 	    (cd libmacho; $(MAKE) RC_CFLAGS="$(RC_CFLAGS)"		\
 		RC_ARCHS="$(RC_ARCHS)" RC_OS="$(RC_OS)"			\
+		OLD_LIBKLD="$(OLD_LIBKLD)"				\
 		DSTROOT=$$DSTROOT					\
 		SRCROOT=$(SRCROOT)/libmacho				\
 		OBJROOT=$(OBJROOT)/libmacho				\
@@ -224,20 +299,15 @@ lib_ofiles lib_ofiles_install: installhdrs
 	    echo =========== $(MAKE) $@ for ld =============;		\
 	    (cd ld; $(MAKE) "RC_CFLAGS=$$SED_RC_CFLAGS"			\
 		RC_ARCHS="$(RC_ARCHS)" RC_OS="$(RC_OS)"			\
+		OLD_LIBKLD="$(OLD_LIBKLD)"				\
 		DSTROOT=$$DSTROOT					\
 		SRCROOT=$(SRCROOT)/ld					\
 		OBJROOT=$(OBJROOT)/ld					\
 		SYMROOT=$(SYMROOT)/ld $@) || exit 1;			\
-	    echo =========== $(MAKE) $@ for libdyld =============;	\
-	    (cd libdyld; $(MAKE) "RC_CFLAGS=$$SED_RC_CFLAGS"		\
-		RC_ARCHS="$(RC_ARCHS)" RC_OS="$(RC_OS)"			\
-		DSTROOT=$$DSTROOT					\
-		SRCROOT=$(SRCROOT)/libdyld				\
-		OBJROOT=$(OBJROOT)/libdyld				\
-		SYMROOT=$(SYMROOT)/libdyld $@) || exit 1;		\
 	    echo =========== $(MAKE) $@ for misc =============;	\
 	    (cd misc; $(MAKE) "RC_CFLAGS=$(RC_CFLAGS)"			\
 		RC_ARCHS="$(RC_ARCHS)" RC_OS="$(RC_OS)"			\
+		TRIE="$(TRIE)"						\
 		DSTROOT=$$DSTROOT					\
 		SRCROOT=$(SRCROOT)/misc					\
 		OBJROOT=$(OBJROOT)/misc					\
@@ -268,14 +338,12 @@ lib_ofiles lib_ofiles_install: installhdrs
 	    echo =========== $(MAKE) $@ for ld =============;		\
 	    (cd ld; $(MAKE) "RC_CFLAGS=$$SED_RC_CFLAGS"			\
 		RC_ARCHS="$(RC_ARCHS)" RC_OS="$(RC_OS)"			\
-		DSTROOT=$$DSTROOT $@) || exit 1;			\
-	    echo =========== $(MAKE) $@ for libdyld =============;	\
-	    (cd libdyld; $(MAKE) "RC_CFLAGS=$$SED_RC_CFLAGS"		\
-		RC_ARCHS="$(RC_ARCHS)" RC_OS="$(RC_OS)"			\
+		OLD_LIBKLD="$(OLD_LIBKLD)"				\
 		DSTROOT=$$DSTROOT $@) || exit 1;			\
 	    echo =========== $(MAKE) $@ for misc =============;		\
 	    (cd misc; $(MAKE) "RC_CFLAGS=$(RC_CFLAGS)"			\
 		RC_ARCHS="$(RC_ARCHS)" RC_OS="$(RC_OS)"			\
+		TRIE="$(TRIE)"						\
 		DSTROOT=$$DSTROOT $@) || exit 1;			\
 	    (cd cbtlibs; $(MAKE) "RC_CFLAGS=$(RC_CFLAGS)"		\
 		RC_ARCHS="$(RC_ARCHS)" RC_OS="$(RC_OS)"			\
@@ -288,7 +356,8 @@ installsrc: SRCROOT
 	for i in `echo $(INSTALLSRC_SUBDIRS)`; \
 	  do \
 		echo =========== $(MAKE) $@ for $$i =============;	\
-		(cd $$i; $(MAKE) SRCROOT=$$SRCROOT/$$i $@) || exit 1;	\
+		(cd $$i; $(MAKE) SRCROOT=$$SRCROOT/$$i 			\
+		 EFITOOLS="$(EFITOOLS)" OPEN="$(OPEN)" $@) || exit 1;	\
 	  done
 
 installGASsrc: SRCROOT
@@ -322,20 +391,10 @@ installhdrs: $(DSTROOT)
 	    else							\
 		(cd include; $(MAKE) DSTROOT=$(DSTROOT)			\
 			RC_OS="$(RC_OS)" install) || exit 1;		\
-		if [ $(OLD_DYLD_STUFF) ];				\
-		then							\
-		    (cd dyld; $(MAKE) DSTROOT=$(DSTROOT)		\
-			 RC_OS=$(RC_OS)	installhdrs) || exit 1;		\
-		fi;							\
 	    fi;								\
 	else								\
 	    (cd include; $(MAKE) DSTROOT=$(DSTROOT) RC_OS=$(RC_OS) 	\
 		install) || exit 1;					\
-	    if [ $(OLD_DYLD_STUFF) ];					\
-	    then							\
-		(cd dyld; $(MAKE) DSTROOT=$(DSTROOT) RC_OS=$(RC_OS) 	\
-		    installhdrs) || exit 1;				\
-	    fi;								\
 	fi
 
 $(DSTROOT):

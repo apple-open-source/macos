@@ -501,6 +501,16 @@ static void dump_service_stats(void)
 	if ( show_locks ) {
 		int ret;
 
+		tdb = tdb_open_log(lock_path("locking.tdb"), 0, TDB_DEFAULT, O_RDONLY, 0);
+
+		if (!tdb) {
+			d_printf("%s not initialised\n", lock_path("locking.tdb"));
+			d_printf("This is normal if an SMB client has never connected to your server.\n");
+			exit(0);
+		} else {
+			tdb_close(tdb);
+		}
+
 		if (!locking_init(1)) {
 			d_printf("Can't initialise locking module - exiting\n");
 			exit(1);

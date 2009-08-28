@@ -3,11 +3,13 @@ Wysy³anie wiadomo¶ci na listê %(real_name)s:
 
 Zapisanie lub wypisanie siê przez stronê WWW:
 	%(got_listinfo_url)s
-lub przez email, wyslij wiadomo¶æ ze s³owem 'help' na adres
+
+Zapisywanie lub wypisanie siê przez email 
+(wyslij wiadomo¶æ ze s³owem 'help' na adres):
 	%(got_request_email)s
 
-Osoba opiekuj±ca siê t± list± dyskusyjn±:
+Opiekun listy:
 	%(got_owner_email)s
 
-Odpowiadaj±c na t± wiadomo¶æ, zmieñ jej tytu³ na co¶ znacz±cego wiêcej 
+Odpowiadaj±c na tê wiadomo¶æ, zmieñ jej tytu³ na inny 
 ni¿ "Re: Paczka %(real_name)s...".

@@ -48,11 +48,18 @@
  */
 struct ns_info {
 	char	*ns_name;		/* service name */
-	void	(*ns_init)();		/* initialization routine */
-	int	(*ns_getmapent)();	/* get map entry given key */
-	int	(*ns_loadmaster)();	/* load master map */
-	int	(*ns_loaddirect)();	/* load direct map */
-	int	(*ns_getmapkeys)();	/* readdir */
+	void	(*ns_init)(char **, char ***);
+					/* initialization routine */
+	int	(*ns_getmapent)(char *, char *, struct mapline *,
+		char **, char ***, bool_t *, bool_t);
+					/* get map entry given key */
+	int	(*ns_loadmaster)(char *, char *, char **, char ***);
+					/* load master map */
+	int	(*ns_loaddirect)(char *, char *, char *,
+		char **, char ***);	/* load direct map */
+	int	(*ns_getmapkeys)(char *, struct dir_entry **,
+		int *, int *, char **, char ***);
+					/* readdir */
 };
 
 static struct ns_info ns_info[] = {
@@ -86,21 +93,24 @@ getmapent(key, mapname, ml, stack, stkptr, iswildcard, isrestricted)
 	bool_t *iswildcard;
 	bool_t isrestricted;
 {
-	int ns_err = __NSW_SUCCESS;
+	int ns_err, err;
 	struct ns_info *nsp;
 
 	if (*mapname == '/') 		/* must be a file */
 		return (getmapent_files(key, mapname, ml, stack, stkptr,
 					iswildcard, isrestricted));
 
+	ns_err = __NSW_NOTFOUND;
 	for (nsp = ns_info; nsp->ns_name; nsp++) {
-		ns_err = nsp->ns_getmapent(key, mapname, ml, stack, stkptr,
+		err = nsp->ns_getmapent(key, mapname, ml, stack, stkptr,
 						iswildcard, isrestricted);
-		if (ns_err == __NSW_SUCCESS)
+		if (err == __NSW_SUCCESS)
 			return (__NSW_SUCCESS);
+		if (err != __NSW_NOTFOUND)
+			ns_err = err;
 	}
 
-	return (__NSW_UNAVAIL);
+	return (ns_err);
 }
 
 int
@@ -108,7 +118,7 @@ loadmaster_map(mapname, defopts, stack, stkptr)
 	char *mapname, *defopts;
 	char **stack, ***stkptr;
 {
-	int ns_err = __NSW_SUCCESS;
+	int ns_err;
 	struct ns_info *nsp;
 
 	if (*mapname == '/')		/* must be a file */

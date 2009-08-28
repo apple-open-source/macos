@@ -22,9 +22,9 @@
 static const char *kextBundleID = "com.apple.driver.BatteryFaker";
 static BatteryFakerWindowController *gBFWindowController = NULL;
 
+static int is_kext_loaded(const char * bundle_id);
 static kmod_info_t * kmod_get_loaded(unsigned int * kmod_count);
 static int kmod_ref_compare(const void * a, const void * b);
-static void usage(int level);
 
 void powerSourceChangeCallBack(void *in);
 
@@ -96,7 +96,7 @@ void powerSourceChangeCallBack(void *in);
  * App awakefromNib
  *
  ******************************************************************************/
-- awakeFromNib
+- (void)awakeFromNib
 {
     // Send battery the defaults
     [batt setPropertiesAndUpdate:
@@ -124,7 +124,7 @@ void powerSourceChangeCallBack(void *in);
 
     [self setHealthConditionString:nil];
 
-    return nil;
+    return;
 }
 
 /******************************************************************************
@@ -294,6 +294,7 @@ void powerSourceChangeCallBack(void *in);
     // Tell battery kext object
     [batt setPropertiesAndUpdate:uiProperties];
     
+    return uiProperties;
 }
 
 /******************************************************************************
@@ -310,10 +311,7 @@ void powerSourceChangeCallBack(void *in);
     int full_charge_capacity = 0;
     int design_capacity = 0;
     int32_t intValue = 0;
-    
-    NSNumber    *numtrue = [NSNumber numberWithBool:true];
-    NSNumber    *numfalse = [NSNumber numberWithBool:false];
-    
+        
     // Update "Active Snapshot" title:
     [activeSnapshotTextID setStringValue:
         [@"Active Snapshot: " stringByAppendingString:[newUI objectForKey:@"SnapshotTitle"]]];
@@ -567,23 +565,29 @@ void powerSourceChangeCallBack(void *in __unused)
     int         result = -1;
     union       wait status;
 
-    char        suidToolPath[255];
-    char        kextPath[255];
+    char        suidToolPathCSTR[255];
+    char        kextPathCSTR[255];
     
+    NSString    *bundleResourcesPath = NULL;
+    NSString    *suidLauncherPath = NULL;
+    NSString    *batteryKextPath = NULL;
+    
+    bundleResourcesPath = [[NSBundle mainBundle] resourcePath];
+
     /* suidToolPath is in:
      * BatteryFaker.app/Contents/Resources/suidToolPath
      */
-    [[[NSBundle mainBundle] resourcePath] 
-                getCString:suidToolPath maxLength:255 
-                encoding:NSUTF8StringEncoding];
-    strcat(suidToolPath, "/suidLauncherTool");
+    suidLauncherPath = [bundleResourcesPath
+                            stringByAppendingPathComponent:@"suidLauncherTool"];
+    [suidLauncherPath getCString:suidToolPathCSTR maxLength:255 
+                            encoding:NSUTF8StringEncoding];
 
     /* BatterFaker.kext
      */
-    [[[NSBundle mainBundle] resourcePath] 
-                getCString:kextPath maxLength:255 
-                encoding:NSUTF8StringEncoding];
-    strcat(kextPath, "/BatteryFaker.kext");
+    batteryKextPath = [bundleResourcesPath
+                            stringByAppendingPathComponent:@"BatteryFaker.kext"];
+    [batteryKextPath getCString:kextPathCSTR maxLength:255
+                            encoding:NSUTF8StringEncoding];
             
     pid = fork();
   
@@ -595,21 +599,21 @@ void powerSourceChangeCallBack(void *in __unused)
          
         if(0 == strcmp( kKickBattMonArg, loadArg ))
         {
-            result = execl( suidToolPath, suidToolPath, 
+            result = execl( suidToolPathCSTR, suidToolPathCSTR, 
                             kKickBattMonArg, NULL);
             
             /* 
              * debug
              */
-            printf("%s %s\n", suidToolPath, kKickBattMonArg);
+            printf("%s %s\n", suidToolPathCSTR, kKickBattMonArg);
         } else {
             /* loadArg == ('load' or 'unload') */
-            result = execl( suidToolPath, suidToolPath, 
-                            loadArg, kextPath, NULL);
+            result = execl( suidToolPathCSTR, suidToolPathCSTR, 
+                            loadArg, kextPathCSTR, NULL);
             /* 
              * debug
              */
-            printf("%s %s %s\n", suidToolPath, loadArg, kextPath);
+            printf("%s %s %s\n", suidToolPathCSTR, loadArg, kextPathCSTR);
         }
         
         if (-1 == result) 

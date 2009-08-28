@@ -15,6 +15,7 @@ get
 host
 hopcount
 iface
+ifscope
 interface
 ifa
 ifp

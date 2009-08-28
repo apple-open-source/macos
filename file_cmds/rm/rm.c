@@ -61,6 +61,7 @@ static const char rcsid[] =
 #include <unistd.h>
 
 #ifdef __APPLE__
+#include <removefile.h>
 #include <pwd.h>
 #include <grp.h>
 #include "get_compat.h"
@@ -107,6 +108,7 @@ main(argc, argv)
 		p = argv[0];
 	else
 		++p;
+	uid = geteuid();
 	if (strcmp(p, "unlink") == 0) {
 		if (argc == 2) {
 			rm_file(&argv[1]);
@@ -155,7 +157,6 @@ main(argc, argv)
 	}
 
 	checkdot(argv);
-	uid = geteuid();
 
 	if (*argv) {
 		stdin_ok = isatty(STDIN_FILENO);
@@ -298,9 +299,17 @@ rm_tree(argv)
 				break;
 
 			default:
+#ifdef __APPLE__
+				if (Pflag) {
+					if (removefile(p->fts_accpath, NULL, REMOVEFILE_SECURE_7_PASS)) /* overwrites and unlinks */
+						eval = rval = 1;
+				} else
+					rval = unlink(p->fts_accpath);
+#else  /* !__APPLE_ */
 				if (Pflag)
 					rm_overwrite(p->fts_accpath, NULL);
 				rval = unlink(p->fts_accpath);
+#endif	/* __APPLE__ */
 				if (rval == 0 || (fflag && errno == ENOENT)) {
 					if (rval == 0 && vflag)
 						(void)printf("%s\n",
@@ -366,9 +375,17 @@ rm_file(argv)
 			else if (S_ISDIR(sb.st_mode))
 				rval = rmdir(f);
 			else {
+#ifdef __APPLE__
+				if (Pflag) {
+					if (removefile(f, NULL, REMOVEFILE_SECURE_7_PASS)) /* overwrites and unlinks */
+						eval = rval = 1;
+				} else
+					rval = unlink(f);
+#else  /* !__APPLE__ */
 				if (Pflag)
 					rm_overwrite(f, &sb);
 				rval = unlink(f);
+#endif	/* __APPLE__ */
 			}
 		}
 		if (rval && (!fflag || errno != ENOENT)) {

@@ -5,8 +5,6 @@
 
 #define N 16
 
-typedef int aint __attribute__ ((__aligned__(16)));
-
 int main1 (int n, int *a)
 {
   int i, j, k;
@@ -36,7 +34,7 @@ int main1 (int n, int *a)
 
 int main (void)
 { 
-  aint a[N];
+  int a[N] __attribute__ ((__aligned__(16)));
 
   check_vect ();
 
@@ -50,6 +48,7 @@ int main (void)
 }
 
 /* Fails for targets that don't vectorize PLUS (e.g alpha).  */
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { xfail alpha*-*-* } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
 /* { dg-final { scan-tree-dump-times "Vectorizing an unaligned access" 0 "vect" } } */
-/* { dg-final { scan-tree-dump-times "Alignment of access forced using peeling" 1 "vect" { xfail alpha*-*-* } } } */
+/* { dg-final { scan-tree-dump-times "Alignment of access forced using peeling" 1 "vect" } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

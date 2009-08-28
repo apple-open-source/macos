@@ -1,0 +1,32 @@
+# Common shell definitions
+
+FEATURE_SCRIPTS=`dirname $0`
+FEATURE_BIN=${FEATURE_SCRIPTS}/../bin
+
+trap '[ -n "${tcTempFile}" ] && rm -f "${tcTempFile}"' EXIT 1 2 3 15
+
+function tcArchiveIn_usr_local_lib_system {
+    [ -r "${SDKROOT}/usr/local/lib/system/$1.a" ]
+}
+
+function tcComponentInLibsystem {
+    what ${SDKROOT}/usr/lib/libSystem.dylib | \
+    tail -n +2 | \
+    sed -e 's/^[ 	]*//' -e 's/PROGRAM://' -e 's/LIBRARY://' | \
+    grep -q "^$1[^_[:alnum:]]"
+}
+
+function tcFrameworkExists {
+    tcTempFile=`mktemp -t tconf`
+    ${FEATURE_BIN}/gcc -bundle ${RC_CFLAGS} -o ${tcTempFile} -x c /dev/null -Wl,-arch_errors_fatal -framework $1 2>/dev/null
+}
+
+function tcHeaderExists {
+    tcTempFile=`mktemp -t tconf`
+    ${FEATURE_BIN}/gcc -c ${RC_CFLAGS} -o ${tcTempFile} -include $1 -x c /dev/null 2>/dev/null
+}
+
+function tcLibraryExists {
+    tcTempFile=`mktemp -t tconf`
+    ${FEATURE_BIN}/gcc -bundle ${RC_CFLAGS} -o ${tcTempFile} -x c /dev/null -Wl,-arch_errors_fatal -l$1 2>/dev/null
+}

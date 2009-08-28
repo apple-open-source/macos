@@ -6,15 +6,15 @@ BEGIN {
   eval "use DBIx::Class::CDBICompat;";
   plan skip_all => 'Class::Trigger and DBIx::ContextualFetch required' if $@;
   eval "use DBD::SQLite";
-  plan $@ ? (skip_all => 'needs DBD::SQLite for testing') : (tests => 30);
+  plan $@ ? (skip_all => 'needs DBD::SQLite for testing') : (tests => 31);
 }
 
 
 use lib 't/testlib';
 use Film;
 use Actor;
-Film->has_many(actors => Actor => 'Film', { order_by => 'name' });
 Actor->has_a(Film => 'Film');
+Film->has_many(actors => 'Actor', { order_by => 'name' });
 is(Actor->primary_column, 'id', "Actor primary OK");
 
 ok(Actor->can('Salary'), "Actor table set-up OK");
@@ -110,3 +110,18 @@ ok $@, $@;
 
 is($as->Name, 'Arnold Schwarzenegger', "Arnie's still Arnie");
 
+
+# Test infering of the foreign key of a has_many from an existing has_a
+{
+    use Thing;
+    use OtherThing;
+
+    Thing->has_a(that_thing => "OtherThing");
+    OtherThing->has_many(things => "Thing");
+
+    my $other_thing = OtherThing->create({ id => 1 });
+    Thing->create({ id => 1, that_thing => $other_thing });
+    Thing->create({ id => 2, that_thing => $other_thing });
+
+    is_deeply [sort map { $_->id } $other_thing->things], [1,2];
+}

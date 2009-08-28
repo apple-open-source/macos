@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2006-2007 Apple Inc. All rights reserved.
 #
 # @APPLE_LICENSE_HEADER_START@
 # 
@@ -31,11 +31,8 @@ include ${TESTROOT}/include/common.makefile
 run: all
 
 all:
-	BOOST=1; \
-	[ X"${ARCH}" = Xppc64 -o X"${ARCH}" = Xx86_64 ] && BOOST=100L; \
-	${CC} ${CCFLAGS} -DBOOST=$$BOOST test.c -mmacosx-version-min=10.4 -o test-${ARCH} -L/Developer/SDKs/MacOSX10.4u.sdk/usr/lib -L/Developer/SDKs/MacOSX10.4u.sdk/usr/lib/system
-
-	${PASS_IFF_GOOD_MACHO} test-${ARCH}
+	${CC} ${CCFLAGS} test.c -o test 
+	${PASS_IFF_GOOD_MACHO} test
 
 clean:
-	rm -rf test-*
+	rm -rf test

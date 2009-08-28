@@ -507,7 +507,7 @@ typedef PRUint16 PRUnichar;
 ** http://java.sun.com/docs/books/vmspec/index.html.)
 */
 typedef long PRWord;
-typedef unsigned long PRUword;
+typedef size_t PRUword;
 
 #if defined(NO_NSPR_10_SUPPORT)
 #else

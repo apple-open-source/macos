@@ -1,6 +1,6 @@
 /*
 ********************************************************************************
-*   Copyright (C) 1997-2006, International Business Machines
+*   Copyright (C) 1997-2007, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 ********************************************************************************
 *
@@ -26,7 +26,7 @@
  * \file
  * \brief C++ API: Break Iterator.
  */
- 
+
 #if UCONFIG_NO_BREAK_ITERATION
 
 U_NAMESPACE_BEGIN
@@ -92,8 +92,8 @@ U_NAMESPACE_BEGIN
  * file ubrk.h
  * <p>
  * Code snippits illustrating the use of the Break Iterator APIs
- * are available in the ICU User Guide, 
- * http://icu.sourceforge.net/userguide/boundaryAnalysis.html
+ * are available in the ICU User Guide,
+ * http://icu-project.org/userguide/boundaryAnalysis.html
  * and in the sample program icu/source/samples/break/break.cpp"
  *
  */
@@ -161,7 +161,7 @@ public:
       * @param status receives any error codes.
       * @return   The current UText for this break iterator.  If an input
       *           UText was provided, it will always be returned.
-      * @draft ICU 3.4
+      * @stable ICU 3.4
       */
      virtual UText *getUText(UText *fillIn, UErrorCode &status) const = 0;
 
@@ -174,7 +174,7 @@ public:
     virtual void  setText(const UnicodeString &text) = 0;
 
     /**
-     * Reset the break iterator to operate over the text represented by 
+     * Reset the break iterator to operate over the text represented by
      * the UText.  The iterator position is reset to the start.
      *
      * This function makes a shallow clone of the supplied UText.  This means
@@ -184,7 +184,7 @@ public:
      *
      * @param text The UText used to change the text.
      * @param status receives any error codes.
-     * @draft ICU 3.4
+     * @stable ICU 3.4
      */
     virtual void  setText(UText *text, UErrorCode &status) = 0;
 

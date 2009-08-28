@@ -26,16 +26,6 @@
  *  TokendPIV
  */
 
-/* ---------------------------------------------------------------------------
- *
- *		MODIFY
- *		- It may be that this file does not have to be modified. The heavy
- *		  lifting here is done by computeCrypt, so this might be the only
- *		  place to insert token-specific code. See PIVRecord.cpp for that.
- *
- * ---------------------------------------------------------------------------
-*/
-
 #include "PIVKeyHandle.h"
 
 #include "PIVRecord.h"
@@ -78,7 +68,7 @@ uint32 PIVKeyHandle::getOutputSize(const Context &context, uint32 inputSize,
 {
 	secdebug("crypto", "getOutputSize");
 	if (encrypting)
-	CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
+		CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
 	return inputSize;       //accurate for crypto used on PIV cards
 }
 
@@ -105,17 +95,19 @@ void PIVKeyHandle::generateSignature(const Context &context,
 	uint32 padding = CSSM_PADDING_PKCS1;
 	context.getInt(CSSM_ATTRIBUTE_PADDING, padding);
 
-	Padding::apply(inputData, mKey.sizeInBits() / 8, alg, padding);
+	Padding::apply(inputData, mKey.sizeInBits() / 8, padding, alg);
 
 	// @@@ Switch to using tokend allocators
 	/* Use ref to a new buffer item to keep the data around after the function ends */
-	byte_string& outputData = bufferAllocator.getBuffer();
+	size_t keyLength = mKey.sizeInBits() / 8;
+	byte_string outputData;
+	outputData.reserve(keyLength);
 
 	const AccessCredentials *cred = context.get<const AccessCredentials>(CSSM_ATTRIBUTE_ACCESS_CREDENTIALS);
-		// Sign the inputData using the token
+	// Sign the inputData using the token
 	mKey.computeCrypt(mToken, true, cred, inputData, outputData);
 
-	signature.Data = &outputData[0];
+	signature.Data = malloc_copy(outputData);
 	signature.Length = outputData.size();
 }
 
@@ -172,16 +164,16 @@ void PIVKeyHandle::decrypt(const Context &context,
 
 	// @@@ Use a secure allocator for this.
 	/* Use ref to a new buffer item to keep the data around after the function ends */
-	byte_string& outputData = bufferAllocator.getBuffer();
+	byte_string outputData;
 	outputData.reserve(cipher.Length);
 	// --- support for multiples of keyLength by doing multiple blocks
 	for(size_t i = 0; i < cipher.Length; i += keyLength) {
 		byte_string inputData(cipher.Data + i, cipher.Data + i + keyLength);
 		byte_string tmpOutput;
 		tmpOutput.reserve(keyLength);
-	secdebug("crypto", "decrypt: card supports RSA_NOPAD");
+		secdebug("crypto", "decrypt: card supports RSA_NOPAD");
 		const AccessCredentials *cred = context.get<const AccessCredentials>(CSSM_ATTRIBUTE_ACCESS_CREDENTIALS);
-	// Decrypt the inputData using the token
+		// Decrypt the inputData using the token
 		mKey.computeCrypt(mToken, false, cred, inputData, tmpOutput);
 		Padding::remove(tmpOutput, padding);
 		outputData += tmpOutput;
@@ -189,7 +181,7 @@ void PIVKeyHandle::decrypt(const Context &context,
 		secure_zero(tmpOutput);
 	}
 
-	clear.Data = &outputData[0];
+	clear.Data = malloc_copy(outputData);
 	clear.Length = outputData.size();
 }
 

@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "-O1 -fdump-tree-optimized" } */
+/* { dg-options "-O1 -foptimize-sibling-calls -fdump-tree-optimized" } */
 
 extern void abort (void);
 extern void exit (int);
@@ -73,3 +73,5 @@ int main(void)
 
 /* There is one recursive call to fib.  */
 /* { dg-final { scan-tree-dump-times "\\mfib\\M" 5 "optimized"} } */
+
+/* { dg-final { cleanup-tree-dump "optimized" } } */

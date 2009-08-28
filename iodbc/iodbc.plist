@@ -3,27 +3,19 @@
 <plist version="1.0">
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2004-011-9</string>
+	<string>2009-01-12</string>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>
 	<key>OpenSourceLicenseFile</key>
 	<string>iodbc.txt</string>
 	<key>OpenSourceMD5</key>
-	<string>e6c3cb680a198922589d06b3161aff30</string>
-	<key>OpenSourceModifications</key>
-	<array>
-		<string>rdar://problem/3779905</string>
-		<string>rdar://problem/3872514</string>
-		<string>rdar://problem/3767389</string>
-	</array>
+	<string>761ad547467bd63ac0b2b4f3ee4b5afb</string>
 	<key>OpenSourceProject</key>
 	<string>iodbc</string>
-	<key>OpenSourceSHA1</key>
-	<string>161c5a3809a1dd687a13c3e095695c890ff8d5a7</string>
 	<key>OpenSourceURL</key>
-	<string>http://www.iodbc.org/downloads/iODBC/libiodbc-3.52.1.tar.gz</string>
+	<string>http://www.iodbc.org/downloads/iODBC/libiodbc-3.52.6.tar.gz</string>
 	<key>OpenSourceVersion</key>
-	<string>3.52.1</string>
+	<string>3.52.6</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.iodbc.org/</string>
 </dict>

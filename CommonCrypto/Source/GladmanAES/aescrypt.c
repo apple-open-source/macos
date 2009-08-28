@@ -39,6 +39,11 @@
 #include "aestab.h"
 #include <strings.h>
 
+/*	Produce object code iff UseGladmanAES is defined.  Otherwise, suppress
+	use of this module, because some other AES implementation is being used.
+*/
+#if defined UseGladmanAES
+
 #if defined(__cplusplus)
 extern "C"
 {
@@ -487,3 +492,5 @@ aes_rval aes_decrypt_cbc(const unsigned char *in, const unsigned char *in_iv, un
 #if defined(__cplusplus)
 }
 #endif
+
+#endif	// defined UseGladmanAES

@@ -1,23 +1,22 @@
 /*
- * Copyright (c) 1999-2003, 2005-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2003, 2005-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -59,7 +58,7 @@ int utf_encodestr(ucsp, ucslen, utf8p, utf8len, utf8plen)
 {
 	unsigned char * bufstart;
 	u_int16_t ucs_ch;
-	int charcnt;
+	size_t charcnt;
 	
 	bufstart = utf8p;
 	charcnt = ucslen / 2;
@@ -430,7 +429,7 @@ Input:		GPtr	- scavenger globals
 Output:		Ptr to node, or NULL if out of memory or other error.
 ------------------------------------------------------------------------------*/
 
-RepairOrderPtr AllocMinorRepairOrder( SGlobPtr GPtr, int n )						/* #extra bytes needed */
+RepairOrderPtr AllocMinorRepairOrder( SGlobPtr GPtr, size_t n )						/* #extra bytes needed */
 {
 	RepairOrderPtr	p;							//	the node we allocate
 	
@@ -443,8 +442,8 @@ RepairOrderPtr AllocMinorRepairOrder( SGlobPtr GPtr, int n )						/* #extra byte
 		p->link = GPtr->MinorRepairsP;			//	then link into list of repairs
 		GPtr->MinorRepairsP = p;
 	}
-    else if ( GPtr->logLevel >= kDebugLog )
-       plog( "\t%s - AllocateClearMemory failed to allocate %d bytes \n", __FUNCTION__, n);
+    else if ( fsckGetVerbosity(GPtr->context) >= kDebugLog )
+       	plog( "\t%s - AllocateClearMemory failed to allocate %d bytes \n", __FUNCTION__, n);
 	
 	if ( GPtr->RepLevel == repairLevelNoProblemsFound )
 		GPtr->RepLevel = repairLevelVolumeRecoverable;
@@ -639,7 +638,7 @@ void ClearMemory( void* start, UInt32 length )
 void
 CopyCatalogName(const CatalogName *srcName, CatalogName *dstName, Boolean isHFSPLus)
 {
-	UInt32	length;
+	size_t	length;
 	
 	if ( srcName == NULL )
 	{
@@ -1191,8 +1190,8 @@ void	InitializeVolumeObject( SGlobPtr GPtr )
 							&myVOPtr->totalDeviceSectors, 
 							&myVOPtr->sectorSize );
 	if ( (myVOPtr->totalDeviceSectors < 3) || (err != noErr) ) {
-		if ( GPtr->logLevel >= kDebugLog ) {
-		plog("\tinvalid device information for volume - total sectors = %qd sector size = %d \n",
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) {
+			plog("\tinvalid device information for volume - total sectors = %qd sector size = %d \n",
 				myVOPtr->totalDeviceSectors, myVOPtr->sectorSize);
 		}
 		goto ExitRoutine;
@@ -1214,8 +1213,8 @@ void	InitializeVolumeObject( SGlobPtr GPtr )
 				bcopy( myVHPtr, &myPriVolHeader, sizeof( *myVHPtr ) );
 			}
 			else {
-				if ( GPtr->logLevel >= kDebugLog ) {
-				plog( "\tInvalid primary volume header - error %d \n", err );
+				if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) {
+					plog( "\tInvalid primary volume header - error %d \n", err );
 				}
 			}
 		}
@@ -1226,15 +1225,15 @@ void	InitializeVolumeObject( SGlobPtr GPtr )
 			myVOPtr->flags |= kVO_PriMDBOK;
 		}
 		else {
-			if ( GPtr->logLevel >= kDebugLog ) {
-			plog( "\tBlock %d is not an MDB or Volume Header \n", MDB_BlkN );
+			if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) {
+				plog( "\tBlock %d is not an MDB or Volume Header \n", MDB_BlkN );
 			}
 		}
 		(void) ReleaseVolumeBlock( GPtr->calculatedVCB, &myBlockDescriptor, kReleaseBlock );
 	} 
 	else {
-		if ( GPtr->logLevel >= kDebugLog ) {
-		plog( "\tcould not get volume block %d, err %d \n", MDB_BlkN, err );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) {
+			plog( "\tcould not get volume block %d, err %d \n", MDB_BlkN, err );
 		}
 	}
 	
@@ -1255,8 +1254,8 @@ void	InitializeVolumeObject( SGlobPtr GPtr )
 				CompareVolHeaderBTreeSizes( GPtr, myVOPtr, &myPriVolHeader, myVHPtr );
 			}
 			else {
-				if ( GPtr->logLevel >= kDebugLog ) {
-				plog( "\tInvalid alternate volume header - error %d \n", err );
+				if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) {
+					plog( "\tInvalid alternate volume header - error %d \n", err );
 				}
 			}
 		}
@@ -1266,16 +1265,16 @@ void	InitializeVolumeObject( SGlobPtr GPtr )
 			myVOPtr->flags |= kVO_AltMDBOK;
 		}
 		else {
-			if ( GPtr->logLevel >= kDebugLog ) {
-			plog( "\tBlock %qd is not an MDB or Volume Header \n", myVOPtr->totalDeviceSectors - 2 );
+			if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) {
+				plog( "\tBlock %qd is not an MDB or Volume Header \n", myVOPtr->totalDeviceSectors - 2 );
 			}
 		}
 
 		(void) ReleaseVolumeBlock( GPtr->calculatedVCB, &myBlockDescriptor, kReleaseBlock );
 	}
 	else {
-		if ( GPtr->logLevel >= kDebugLog ) {
-		plog( "\tcould not get alternate volume header at %qd, err %d \n", 
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) {
+			plog( "\tcould not get alternate volume header at %qd, err %d \n", 
 					myVOPtr->totalDeviceSectors - 2, err );
 		}
 	}
@@ -1301,8 +1300,8 @@ void	InitializeVolumeObject( SGlobPtr GPtr )
 			(void) ReleaseVolumeBlock( GPtr->calculatedVCB, &myBlockDescriptor, kReleaseBlock );
 		}
 		else {
-			if ( GPtr->logLevel >= kDebugLog ) {
-			plog( "\tcould not get primary MDB at block %qd, err %d \n", myVOPtr->primaryMDB, err );
+			if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) {
+				plog( "\tcould not get primary MDB at block %qd, err %d \n", myVOPtr->primaryMDB, err );
 			}
 		}
 	}
@@ -1344,23 +1343,23 @@ void PrintVolumeObject( void )
 	myVOPtr = GetVolumeObjectPtr( );
 
 	if ( myVOPtr->volumeType == kHFSVolumeType )
-	plog( "\tvolume type is HFS \n" );
+		plog( "\tvolume type is HFS \n" );
 	else if ( myVOPtr->volumeType == kEmbededHFSPlusVolumeType )
-	plog( "\tvolume type is embedded HFS+ \n" );
+		plog( "\tvolume type is embedded HFS+ \n" );
 	else if ( myVOPtr->volumeType == kPureHFSPlusVolumeType )
-	plog( "\tvolume type is pure HFS+ \n" );
+		plog( "\tvolume type is pure HFS+ \n" );
 	else
-	plog( "\tunknown volume type \n" );
+		plog( "\tunknown volume type \n" );
 	
-plog( "\tprimary MDB is at block %qd 0x%02qx \n", myVOPtr->primaryMDB, myVOPtr->primaryMDB );
-plog( "\talternate MDB is at block %qd 0x%02qx \n", myVOPtr->alternateMDB, myVOPtr->alternateMDB );
-plog( "\tprimary VHB is at block %qd 0x%02qx \n", myVOPtr->primaryVHB, myVOPtr->primaryVHB );
-plog( "\talternate VHB is at block %qd 0x%02qx \n", myVOPtr->alternateVHB, myVOPtr->alternateVHB );
-plog( "\tsector size = %d 0x%02x \n", myVOPtr->sectorSize, myVOPtr->sectorSize );
-plog( "\tVolumeObject flags = 0x%02X \n", myVOPtr->flags );
-plog( "\ttotal sectors for volume = %qd 0x%02qx \n", 
+	plog( "\tprimary MDB is at block %qd 0x%02qx \n", myVOPtr->primaryMDB, myVOPtr->primaryMDB );
+	plog( "\talternate MDB is at block %qd 0x%02qx \n", myVOPtr->alternateMDB, myVOPtr->alternateMDB );
+	plog( "\tprimary VHB is at block %qd 0x%02qx \n", myVOPtr->primaryVHB, myVOPtr->primaryVHB );
+	plog( "\talternate VHB is at block %qd 0x%02qx \n", myVOPtr->alternateVHB, myVOPtr->alternateVHB );
+	plog( "\tsector size = %d 0x%02x \n", myVOPtr->sectorSize, myVOPtr->sectorSize );
+	plog( "\tVolumeObject flags = 0x%02X \n", myVOPtr->flags );
+	plog( "\ttotal sectors for volume = %qd 0x%02qx \n", 
 			myVOPtr->totalDeviceSectors, myVOPtr->totalDeviceSectors );
-plog( "\ttotal sectors for embedded volume = %qd 0x%02qx \n", 
+	plog( "\ttotal sectors for embedded volume = %qd 0x%02qx \n", 
 			myVOPtr->totalEmbeddedSectors, myVOPtr->totalEmbeddedSectors );
 	
 	return;
@@ -1440,21 +1439,21 @@ static void GetEmbeddedVolumeHeaders( 	SGlobPtr GPtr,
 				bcopy( myVHPtr, &myAltVolHeader, sizeof( *myVHPtr ) );
 			}
 			else {
-				if ( GPtr->logLevel >= kDebugLog ) {
-				plog( "\tInvalid embedded alternate volume header at block %qd - error %d \n", myAlternateBlockNum, err );
+				if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) {
+					plog( "\tInvalid embedded alternate volume header at block %qd - error %d \n", myAlternateBlockNum, err );
 				}
 			}
 		}
 		else {
-			if ( GPtr->logLevel >= kDebugLog ) {
-			plog( "\tBlock number %qd is not embedded alternate volume header \n", myAlternateBlockNum );
+			if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) {
+				plog( "\tBlock number %qd is not embedded alternate volume header \n", myAlternateBlockNum );
 			}
 		}
 		(void) ReleaseVolumeBlock( GPtr->calculatedVCB, &myBlockDescriptor, kReleaseBlock );
 	}
 	else {
-		if ( GPtr->logLevel >= kDebugLog ) {
-		plog( "\tcould not get embedded alternate volume header at %qd, err %d \n", 
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) {
+			plog( "\tcould not get embedded alternate volume header at %qd, err %d \n", 
 					myAlternateBlockNum, err );
 		}
 	}
@@ -1476,21 +1475,21 @@ static void GetEmbeddedVolumeHeaders( 	SGlobPtr GPtr,
 				CompareVolHeaderBTreeSizes( GPtr, myVOPtr, myVHPtr, &myAltVolHeader );
 			}
 			else {
-				if ( GPtr->logLevel >= kDebugLog ) {
-				plog( "\tInvalid embedded primary volume header at block %qd - error %d \n", myPrimaryBlockNum, err );
+				if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) {
+					plog( "\tInvalid embedded primary volume header at block %qd - error %d \n", myPrimaryBlockNum, err );
 				}
 			}
 		}
 		else {
-			if ( GPtr->logLevel >= kDebugLog ) {
-			plog( "\tBlock number %qd is not embedded primary volume header \n", myPrimaryBlockNum );
+			if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) {
+				plog( "\tBlock number %qd is not embedded primary volume header \n", myPrimaryBlockNum );
 			}
 		}
 		(void) ReleaseVolumeBlock( GPtr->calculatedVCB, &myBlockDescriptor, kReleaseBlock );
 	}
 	else {
-		if ( GPtr->logLevel >= kDebugLog ) {
-		plog( "\tcould not get embedded primary volume header at %qd, err %d \n", 
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) {
+			plog( "\tcould not get embedded primary volume header at %qd, err %d \n", 
 					myPrimaryBlockNum, err );
 		}
 	}
@@ -1535,8 +1534,8 @@ static void CompareVolHeaderBTreeSizes(	SGlobPtr GPtr,
 				usePrimary = 1;
 			else
 				useAlternate = 1;
-			if ( GPtr->logLevel >= kDebugLog ) {
-			plog( "\tvolume headers disagree on catalog file total blocks - primary %d alternate %d \n", 
+			if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) {
+				plog( "\tvolume headers disagree on catalog file total blocks - primary %d alternate %d \n", 
 						thePriVHPtr->catalogFile.totalBlocks, theAltVHPtr->catalogFile.totalBlocks );
 			}
 		}
@@ -1550,8 +1549,8 @@ static void CompareVolHeaderBTreeSizes(	SGlobPtr GPtr,
 				usePrimary = 1;
 			else
 				useAlternate = 1;
-			if ( GPtr->logLevel >= kDebugLog ) {
-			plog( "\tvolume headers disagree on extents file total blocks - primary %d alternate %d \n", 
+			if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) {
+				plog( "\tvolume headers disagree on extents file total blocks - primary %d alternate %d \n", 
 						thePriVHPtr->extentsFile.totalBlocks, theAltVHPtr->extentsFile.totalBlocks );
 			}
 		}
@@ -1563,8 +1562,8 @@ static void CompareVolHeaderBTreeSizes(	SGlobPtr GPtr,
 	// we have a disagreement.  we resolve the issue by using the larger of the two.
 	if ( usePrimary == 1 && useAlternate == 1 ) {
 		// this should never happen, but if it does, bail without choosing a preference
-		if ( GPtr->logLevel >= kDebugLog ) {
-		plog( "\tvolume headers disagree but there is confusion on which to use \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) {
+			plog( "\tvolume headers disagree but there is confusion on which to use \n" );
 		}
 		return; 
 	}
@@ -1794,16 +1793,16 @@ void CheckEmbeddedVolInfoInMDBs( SGlobPtr GPtr )
 
 	err = GetVolumeObjectPrimaryMDB( &myPrimary );
 	if ( err != noErr ) {
-		if ( GPtr->logLevel >= kDebugLog ) {
-		plog( "\tcould not get primary MDB \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) {
+			plog( "\tcould not get primary MDB \n" );
 		}
 		goto ExitThisRoutine;
 	}
 	myPriMDBPtr = (HFSMasterDirectoryBlock	*) myPrimary.buffer;
 	err = GetVolumeObjectAlternateMDB( &myAlternate );
 	if ( err != noErr ) {
-		if ( GPtr->logLevel >= kDebugLog ) {
-		plog( "\tcould not get alternate MDB \n" );
+		if ( fsckGetVerbosity(GPtr->context) >= kDebugLog ) {
+			plog( "\tcould not get alternate MDB \n" );
 		}
 		goto ExitThisRoutine;
 	}
@@ -1848,13 +1847,13 @@ void CheckEmbeddedVolInfoInMDBs( SGlobPtr GPtr )
 		WriteError( GPtr, E_MDBDamaged, 7, 0 );
 		if ( primaryIsDamaged ) {
 			myVOPtr->flags &= ~kVO_PriMDBOK; // mark the primary MDB as damaged
-			if ( GPtr->logLevel >= kDebugLog )
-			plog("\tinvalid primary wrapper MDB \n");
+			if ( fsckGetVerbosity(GPtr->context) >= kDebugLog )
+				plog("\tinvalid primary wrapper MDB \n");
 		}
 		else {
 			myVOPtr->flags &= ~kVO_AltMDBOK; // mark the alternate MDB as damaged
-			if ( GPtr->logLevel >= kDebugLog )
-			plog("\tinvalid alternate wrapper MDB \n");
+			if ( fsckGetVerbosity(GPtr->context) >= kDebugLog )
+				plog("\tinvalid alternate wrapper MDB \n");
 		}
 	}
 		
@@ -2372,8 +2371,8 @@ void PrintName( int theCount, const UInt8 *theNamePtr, Boolean isUnicodeString )
     
     myCount = (isUnicodeString) ? (theCount * 2) : theCount;
     for ( i = 0; i < myCount; i++ ) 
-       plog( "%02X ", *(theNamePtr + i) );
-   plog( "\n" );
+       	plog( "%02X ", *(theNamePtr + i) );
+   	plog( "\n" );
 
 } /* PrintName */
 
@@ -2446,7 +2445,7 @@ void add_prime_bucket_uint32(PrimeBuckets *cur, uint32_t num)
  */
 void add_prime_bucket_uint64(PrimeBuckets *cur, uint64_t num)
 {
-	int r32, r27, r25, r7, r11, r13, r17, r19, r23, r29, r31;
+	size_t r32, r27, r25, r7, r11, r13, r17, r19, r23, r29, r31;
 
 	if (!cur) {
 		return;
@@ -2568,69 +2567,69 @@ void print_prime_buckets(PrimeBuckets *cur)
 {
 	int i;
 	
-plog ("n32 = { ");
+	plog ("n32 = { ");
 	for (i=0; i<32; i++) {
-	plog ("%d,", cur->n32[i]);
+		plog ("%d,", cur->n32[i]);
 	}
-plog ("}\n");
+	plog ("}\n");
 
-plog ("n27 = { ");
+	plog ("n27 = { ");
 	for (i=0; i<27; i++) {
-	plog ("%d,", cur->n27[i]);
+		plog ("%d,", cur->n27[i]);
 	}
-plog ("}\n");
+	plog ("}\n");
 
-plog ("n25 = { ");
+	plog ("n25 = { ");
 	for (i=0; i<25; i++) {
-	plog ("%d,", cur->n25[i]);
+		plog ("%d,", cur->n25[i]);
 	}
-plog ("}\n");
+	plog ("}\n");
 
-plog ("n7 = { ");
+	plog ("n7 = { ");
 	for (i=0; i<7; i++) {
-	plog ("%d,", cur->n7[i]);
+		plog ("%d,", cur->n7[i]);
 	}
-plog ("}\n");
+	plog ("}\n");
 	
-plog ("n11 = { ");
+	plog ("n11 = { ");
 	for (i=0; i<11; i++) {
-	plog ("%d,", cur->n11[i]);
+		plog ("%d,", cur->n11[i]);
 	}
-plog ("}\n");
+	plog ("}\n");
 
-plog ("n13 = { ");
+	plog ("n13 = { ");
 	for (i=0; i<13; i++) {
-	plog ("%d,", cur->n13[i]);
+		plog ("%d,", cur->n13[i]);
 	}
-plog ("}\n");
+	plog ("}\n");
 
-plog ("n17 = { ");
+	plog ("n17 = { ");
 	for (i=0; i<17; i++) {
-	plog ("%d,", cur->n17[i]);
+		plog ("%d,", cur->n17[i]);
 	}
-plog ("}\n");
+	plog ("}\n");
 
-plog ("n19 = { ");
+	plog ("n19 = { ");
 	for (i=0; i<19; i++) {
-	plog ("%d,", cur->n19[i]);
+		plog ("%d,", cur->n19[i]);
 	}
-plog ("}\n");
+	plog ("}\n");
 
-plog ("n23 = { ");
+	plog ("n23 = { ");
 	for (i=0; i<23; i++) {
-	plog ("%d,", cur->n23[i]);
+		plog ("%d,", cur->n23[i]);
 	}
-plog ("}\n");
+	plog ("}\n");
 
-plog ("n29 = { ");
+	plog ("n29 = { ");
 	for (i=0; i<29; i++) {
-	plog ("%d,", cur->n29[i]);
+		plog ("%d,", cur->n29[i]);
 	}
-plog ("}\n");
+	plog ("}\n");
 
-plog ("n31 = { ");
+	plog ("n31 = { ");
 	for (i=0; i<31; i++) {
-	plog ("%d,", cur->n31[i]);
+		plog ("%d,", cur->n31[i]);
 	}
-plog ("}\n");
+	plog ("}\n");
 }

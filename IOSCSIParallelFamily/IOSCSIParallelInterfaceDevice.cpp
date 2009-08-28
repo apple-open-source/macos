@@ -22,9 +22,9 @@
  */
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	Includes
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 // Libkern includes
 #include <libkern/c++/OSData.h>
@@ -47,9 +47,9 @@
 #include "IOSCSIParallelInterfaceDevice.h"
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	Macros
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 #define DEBUG 												0
 #define DEBUG_ASSERT_COMPONENT_NAME_STRING					"SPI Device"
@@ -61,7 +61,7 @@
 #include "IOSCSIParallelFamilyDebugging.h"
 
 #if ( SCSI_PARALLEL_DEVICE_DEBUGGING_LEVEL >= 1 )
-#define PANIC_NOW(x)           IOPanic x
+#define PANIC_NOW(x)           panic x
 #else
 #define PANIC_NOW(x)
 #endif
@@ -83,9 +83,9 @@
 OSDefineMetaClassAndStructors ( IOSCSIParallelInterfaceDevice, IOSCSIProtocolServices );
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	Constants
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 #define kIOPropertyIOUnitKey		"IOUnit"
 #define kIODeviceLocationKey		"io-device-location"
@@ -101,14 +101,14 @@ enum
 
 #if 0
 #pragma mark -
-#pragma mark ¥ IOKit Member Routines
+#pragma mark IOKit Member Routines
 #pragma mark -
 #endif
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ SetInitialTargetProperties									   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	SetInitialTargetProperties										   [PUBLIC]
+//-----------------------------------------------------------------------------
 
 bool
 IOSCSIParallelInterfaceDevice::SetInitialTargetProperties (
@@ -156,9 +156,9 @@ INIT_FAILURE:
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ start															   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	start															   [PUBLIC]
+//-----------------------------------------------------------------------------
 
 bool
 IOSCSIParallelInterfaceDevice::start ( IOService * provider )
@@ -227,7 +227,7 @@ IOSCSIParallelInterfaceDevice::start ( IOService * provider )
 	}
 	
 	// Set the location to allow booting 
-    sprintf ( unit, "%x", ( int ) fTargetIdentifier );
+    snprintf ( unit, 10, "%x", ( int ) fTargetIdentifier );
     setLocation ( unit );
 	
 	// The device and this driver have been succesfully configured
@@ -248,9 +248,9 @@ PROVIDER_CAST_FAILURE:
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ stop															   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	stop															   [PUBLIC]
+//-----------------------------------------------------------------------------
 
 void
 IOSCSIParallelInterfaceDevice::stop ( IOService * provider )
@@ -259,9 +259,9 @@ IOSCSIParallelInterfaceDevice::stop ( IOService * provider )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ finalize													       [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	finalize													       [PUBLIC]
+//-----------------------------------------------------------------------------
 
 bool
 IOSCSIParallelInterfaceDevice::finalize ( IOOptionBits options )
@@ -279,9 +279,9 @@ IOSCSIParallelInterfaceDevice::finalize ( IOOptionBits options )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ free															   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	free															   [PUBLIC]
+//-----------------------------------------------------------------------------
 
 void
 IOSCSIParallelInterfaceDevice::free ( void )
@@ -307,16 +307,6 @@ IOSCSIParallelInterfaceDevice::free ( void )
 		
 	}
 	
-	// Release the lock for the Task Queue.
-	if ( fResendQueueLock != NULL )
-	{
-		
-		// Free the SCSI Task queue access lock.
-		IOSimpleLockFree ( fResendQueueLock );
-		fResendQueueLock = NULL;
-		
-	}
-	
 	if ( fController != NULL )
 	{
 		
@@ -330,9 +320,9 @@ IOSCSIParallelInterfaceDevice::free ( void )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ message														   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	message															   [PUBLIC]
+//-----------------------------------------------------------------------------
 
 IOReturn
 IOSCSIParallelInterfaceDevice::message ( 
@@ -387,9 +377,9 @@ IOSCSIParallelInterfaceDevice::message (
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ requestProbe													   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	requestProbe													   [PUBLIC]
+//-----------------------------------------------------------------------------
 
 IOReturn
 IOSCSIParallelInterfaceDevice::requestProbe ( IOOptionBits options )
@@ -417,15 +407,15 @@ IOSCSIParallelInterfaceDevice::requestProbe ( IOOptionBits options )
 
 #if 0
 #pragma mark -
-#pragma mark ¥ Device Object Management Member routines
+#pragma mark Device Object Management Member routines
 #pragma mark -
 #endif
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ CreateTarget	- 	Creates an IOSCSIParallelInterfaceDevice for the
+//-----------------------------------------------------------------------------
+//	CreateTarget	- 	Creates an IOSCSIParallelInterfaceDevice for the
 //						specified target ID.				   [STATIC][PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 IOSCSIParallelInterfaceDevice *
 IOSCSIParallelInterfaceDevice::CreateTarget (
@@ -435,102 +425,17 @@ IOSCSIParallelInterfaceDevice::CreateTarget (
 {
 	
 	IOSCSIParallelInterfaceDevice * newDevice	= NULL;
-	OSObject *						value		= NULL;
 	bool							result		= false;
 	
 	newDevice = OSTypeAlloc ( IOSCSIParallelInterfaceDevice );
 	require_nonzero ( newDevice, DEVICE_CREATION_FAILURE );
 	
-	if ( entry != NULL )
-	{
-		
-		result = newDevice->init ( 0 );
-		require ( result, RELEASE_DEVICE );
-		
-		newDevice->lockForArbitration ( );
-		result = newDevice->attachToParent ( entry, gIODTPlane );
-		newDevice->unlockForArbitration ( );
-		
-		value = entry->copyProperty ( kIODeviceLocationKey );
-		if ( value != NULL )
-		{
-			newDevice->setProperty ( kIODeviceLocationKey, value );
-		}
-		
-	}
-	
-	else
-	{
-		result = newDevice->init ( 0 );
-	}
-	
+	result = newDevice->InitTarget ( targetID, sizeOfHBAData, entry );
 	require ( result, RELEASE_DEVICE );
-	
-	// Set all of the fields to their defaults
-	newDevice->fHBAData					= NULL;
-	newDevice->fHBADataSize				= sizeOfHBAData;
-	newDevice->fTargetIdentifier		= targetID;
-	newDevice->fPreviousParallelDevice	= NULL;
-	newDevice->fNextParallelDevice 		= NULL;
-	newDevice->fOutstandingTaskList		= NULL;
-	newDevice->fQueueLock				= NULL;
-	newDevice->fResendTaskList			= NULL;
-	newDevice->fResendQueueLock			= NULL;
-	
-	bzero ( newDevice->fFeatureIsNegotiated,
-			kSCSIParallelFeature_TotalFeatureCount * sizeof ( bool ) );
-	
-	bzero ( newDevice->fITNexusSupportsFeature,
-			kSCSIParallelFeature_TotalFeatureCount * sizeof ( bool ) );
-	
-	// Allocate the lock for the Task Queue
-	newDevice->fQueueLock = IOSimpleLockAlloc ( );
-	require_nonzero ( newDevice->fQueueLock, LOCK_ALLOC_FAILURE );
-	
-	newDevice->fResendQueueLock = IOSimpleLockAlloc ( );
-	require_nonzero ( newDevice->fResendQueueLock, LOCK_ALLOC_FAILURE );
-	
-	newDevice->fAllowResends = true;
-	
-	if ( sizeOfHBAData != 0 )
-	{
-		
-		// Allocate the HBA specific data for the device object
-		newDevice->fHBAData = IOMalloc ( sizeOfHBAData );
-		require_nonzero ( newDevice->fHBAData, HBA_DATA_ALLOC_FAILURE );		
-		bzero ( newDevice->fHBAData, sizeOfHBAData );
-		
-	}
-	
 	
 	return newDevice;
 	
 	
-HBA_DATA_ALLOC_FAILURE:
-	
-	
-	// Release the lock for the Task Queue.
-	if ( newDevice->fQueueLock != NULL )
-	{
-		
-		// Free the SCSI Task queue access lock.
-		IOSimpleLockFree ( newDevice->fQueueLock );
-		newDevice->fQueueLock = NULL;
-		
-	}
-	
-	// Release the lock for the Task Queue.
-	if ( newDevice->fResendQueueLock != NULL )
-	{
-		
-		// Free the SCSI Task queue access lock.
-		IOSimpleLockFree ( newDevice->fResendQueueLock );
-		newDevice->fResendQueueLock = NULL;
-		
-	}
-	
-	
-LOCK_ALLOC_FAILURE:
 RELEASE_DEVICE:
 	
 	
@@ -545,11 +450,87 @@ DEVICE_CREATION_FAILURE:
 	return NULL;
 	
 }
+	
+
+//-----------------------------------------------------------------------------
+//	InitTarget -Initializes a target device.						[PROTECTED]
+//-----------------------------------------------------------------------------
+
+bool
+IOSCSIParallelInterfaceDevice::InitTarget ( 
+							SCSITargetIdentifier 		targetID, 
+							UInt32 						sizeOfHBAData,
+							IORegistryEntry *			entry )
+{
+	
+	OSObject *	value 	= NULL;
+	bool		result	= false;
+	
+	result = super::init ( 0 );
+	require ( result, ERROR_EXIT );
+	
+	if ( entry != NULL )
+	{
+		
+		lockForArbitration ( );
+		result = attachToParent ( entry, gIODTPlane );
+		unlockForArbitration ( );
+		
+		require ( result, ERROR_EXIT );
+		
+		value = entry->copyProperty ( kIODeviceLocationKey );
+		if ( value != NULL )
+		{
+			setProperty ( kIODeviceLocationKey, value );
+		}
+		
+	}
+	
+	// Set all of the fields to their defaults
+	fHBADataSize		= sizeOfHBAData;
+	fTargetIdentifier	= targetID;
+	
+	queue_init ( &fOutstandingTaskList );
+	queue_init ( &fResendTaskList );
+	
+	// Allocate the lock for the Task Queue
+	fQueueLock = IOSimpleLockAlloc ( );
+	require_nonzero ( fQueueLock, ERROR_EXIT );
+	
+	fAllowResends = true;
+	
+	if ( sizeOfHBAData != 0 )
+	{
+		
+		// Allocate the HBA specific data for the device object
+		fHBAData = IOMalloc ( sizeOfHBAData );
+		require_nonzero ( fHBAData, HBA_DATA_ALLOC_FAILURE );		
+		bzero ( fHBAData, sizeOfHBAData );
+		
+	}
+	
+	return true;
+	
+	
+HBA_DATA_ALLOC_FAILURE:
+	
+	
+	require_nonzero_quiet ( fQueueLock, ERROR_EXIT );
+	IOSimpleLockFree ( fQueueLock );
+	fQueueLock = NULL;
+	
+	
+ERROR_EXIT:
+	
+	
+	return false;
+	
+}
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ DestroyTarget	- 	Destroys an IOSCSIParallelInterfaceDevice.	   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	DestroyTarget	- 	Destroys an IOSCSIParallelInterfaceDevice.	   [PUBLIC]
+//-----------------------------------------------------------------------------
 
 void 
 IOSCSIParallelInterfaceDevice::DestroyTarget ( void )
@@ -575,20 +556,19 @@ IOSCSIParallelInterfaceDevice::DestroyTarget ( void )
 	unlockForArbitration ( );	
 	
 	// Remove anything from the "resend queue".
-	IOSimpleLockLock ( fResendQueueLock );
+	IOSimpleLockLock ( fQueueLock );
 	
-	fResendTaskList = NULL;
 	fAllowResends = false;
 	
-	IOSimpleLockUnlock ( fResendQueueLock );
+	IOSimpleLockUnlock ( fQueueLock );
 	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ GetPreviousDeviceInList - Retrieves previous device in linked list.
+//-----------------------------------------------------------------------------
+//	GetPreviousDeviceInList - Retrieves previous device in linked list.
 //																	   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 IOSCSIParallelInterfaceDevice *
 IOSCSIParallelInterfaceDevice::GetPreviousDeviceInList ( void )
@@ -597,9 +577,9 @@ IOSCSIParallelInterfaceDevice::GetPreviousDeviceInList ( void )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ SetPreviousDeviceInList - Sets previous device in linked list.   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	SetPreviousDeviceInList - Sets previous device in linked list.	   [PUBLIC]
+//-----------------------------------------------------------------------------
 
 void
 IOSCSIParallelInterfaceDevice::SetPreviousDeviceInList (
@@ -609,9 +589,9 @@ IOSCSIParallelInterfaceDevice::SetPreviousDeviceInList (
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ GetNextDeviceInList - Retrieves next device in linked list.	   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	GetNextDeviceInList - Retrieves next device in linked list.		   [PUBLIC]
+//-----------------------------------------------------------------------------
 
 IOSCSIParallelInterfaceDevice *
 IOSCSIParallelInterfaceDevice::GetNextDeviceInList ( void )
@@ -620,9 +600,9 @@ IOSCSIParallelInterfaceDevice::GetNextDeviceInList ( void )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ SetNextDeviceInList - Sets next device in linked list.		   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	SetNextDeviceInList - Sets next device in linked list.			   [PUBLIC]
+//-----------------------------------------------------------------------------
 
 void
 IOSCSIParallelInterfaceDevice::SetNextDeviceInList ( 
@@ -632,10 +612,10 @@ IOSCSIParallelInterfaceDevice::SetNextDeviceInList (
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ DetermineParallelFeatures - 	Determines parallel protocol features based
+//-----------------------------------------------------------------------------
+//	DetermineParallelFeatures - 	Determines parallel protocol features based
 //									on INQUIRY data.				  [PRIVATE]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 void
 IOSCSIParallelInterfaceDevice::DetermineParallelFeatures ( UInt8 * inqData )
@@ -786,10 +766,10 @@ IOSCSIParallelInterfaceDevice::DetermineParallelFeatures ( UInt8 * inqData )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ GetTargetIdentifier - Retrieves the SCSITargetIdentifier for this device.
+//-----------------------------------------------------------------------------
+//	GetTargetIdentifier - Retrieves the SCSITargetIdentifier for this device.
 //																	   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 SCSITargetIdentifier
 IOSCSIParallelInterfaceDevice::GetTargetIdentifier ( void )
@@ -798,10 +778,10 @@ IOSCSIParallelInterfaceDevice::GetTargetIdentifier ( void )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ GetHBADataPointer - Retrieves the pointer to the HBA Data for this device.
+//-----------------------------------------------------------------------------
+//	GetHBADataPointer - Retrieves the pointer to the HBA Data for this device.
 //																	   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 void *
 IOSCSIParallelInterfaceDevice::GetHBADataPointer ( void )
@@ -810,9 +790,9 @@ IOSCSIParallelInterfaceDevice::GetHBADataPointer ( void )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ GetHBADataSize - Retrieves the HBA Data size for this device.    [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	GetHBADataSize - Retrieves the HBA Data size for this device.	   [PUBLIC]
+//-----------------------------------------------------------------------------
 
 UInt32
 IOSCSIParallelInterfaceDevice::GetHBADataSize ( void )
@@ -821,10 +801,10 @@ IOSCSIParallelInterfaceDevice::GetHBADataSize ( void )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ IsFeatureNegotiationNecessary - 	Checks if a feature negotiation is
+//-----------------------------------------------------------------------------
+//	IsFeatureNegotiationNecessary - 	Checks if a feature negotiation is
 //										necessary.					   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 bool
 IOSCSIParallelInterfaceDevice::IsFeatureNegotiationNecessary (
@@ -843,11 +823,11 @@ IOSCSIParallelInterfaceDevice::IsFeatureNegotiationNecessary (
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ FindTaskForAddress - 	Find the outstanding task for the Task Address of
+//-----------------------------------------------------------------------------
+//	FindTaskForAddress - 	Find the outstanding task for the Task Address of
 //							this Target and the specified Lun and Tag.
 //																	   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 SCSIParallelTaskIdentifier
 IOSCSIParallelInterfaceDevice::FindTaskForAddress (
@@ -855,84 +835,99 @@ IOSCSIParallelInterfaceDevice::FindTaskForAddress (
 							SCSITaggedTaskIdentifier	theQ )
 {
 	
-	SCSIParallelTask *	tempTask;
+	SCSIParallelTask *	task 	= NULL;
+	bool				found	= false;
 	
+	// Grab the queue lock.
 	IOSimpleLockLock ( fQueueLock );
 	
-	// Make sure that the queue lock is being held before setting
-	// tempTask to the head element.
-	tempTask = fOutstandingTaskList;
-	
-	while ( tempTask != NULL )
+	// Iterate over all the commands in the list, looking for one that matches.
+	queue_iterate ( &fOutstandingTaskList, task, SCSIParallelTask *, fCommandChain )
 	{
 		
-		if ( ( GetLogicalUnitNumber ( tempTask ) == theL ) &&
-			 ( GetTaggedTaskIdentifier ( tempTask ) == theQ ) )
+		// Does this one match?
+		if ( ( GetLogicalUnitNumber ( task ) == theL ) && ( GetTaggedTaskIdentifier ( task ) == theQ ) )
 		{
+			
+			// Yes, stop searching.
+			found = true;
 			break;
+			
 		}
-		
-		tempTask = tempTask->GetNextTaskInList ( );
 		
 	}
 	
 	IOSimpleLockUnlock ( fQueueLock );
 	
-	return tempTask;
+	if ( found == false )
+	{
+		task = NULL;
+	}
+	
+	return task;
 	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ FindTaskForControllerIdentifier - Find the outstanding task for the
+//-----------------------------------------------------------------------------
+//	FindTaskForControllerIdentifier - Find the outstanding task for the
 //										identifier. 				   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 SCSIParallelTaskIdentifier	
 IOSCSIParallelInterfaceDevice::FindTaskForControllerIdentifier (
 							UInt64						theIdentifier )
 {
+
 	
-	SCSIParallelTask *	tempTask;
+	SCSIParallelTask *	task 	= NULL;
+	bool				found	= false;
 	
+	// Grab the queue lock.
 	IOSimpleLockLock ( fQueueLock );
 	
-	// Make sure that the queue lock is being held before setting
-	// tempTask to the head element.
-	tempTask = fOutstandingTaskList;
-	
-	while ( tempTask != NULL )
+	// Iterate over all the commands in the list, looking for one that matches.
+	queue_iterate ( &fOutstandingTaskList, task, SCSIParallelTask *, fCommandChain )
 	{
 		
-		// Check if the request is to return the first element on the queue
+		// Check if the request is to return the first element on the queue.
 		if ( theIdentifier == kSCSIParallelTaskControllerIDQueueHead )
 		{
 			
 			// The request is for the first element on the queue, this will
 			// break the first time through the while loop.
+			found = true;
 			break;
 			
 		}
 		
-		if ( GetControllerTaskIdentifier ( tempTask ) == theIdentifier )
+		// Does this one match?
+		if ( GetControllerTaskIdentifier ( task ) == theIdentifier )
 		{
+			
+			// Yes, stop searching.
+			found = true;
 			break;
+			
 		}
-		
-		tempTask = tempTask->GetNextTaskInList ( );
 		
 	}
 	
 	IOSimpleLockUnlock ( fQueueLock );
 	
-	return tempTask;
+	if ( found == false )
+	{
+		task = NULL;
+	}
+	
+	return task;
 	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ SetTargetProperty - Sets a target property. 					   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	SetTargetProperty - Sets a target property. 					   [PUBLIC]
+//-----------------------------------------------------------------------------
 
 bool	
 IOSCSIParallelInterfaceDevice::SetTargetProperty ( 
@@ -1041,9 +1036,9 @@ ErrorExit:
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ RemoveTargetProperty - Removes a property for this object. 	   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	RemoveTargetProperty - Removes a property for this object. 		   [PUBLIC]
+//-----------------------------------------------------------------------------
 
 void	
 IOSCSIParallelInterfaceDevice::RemoveTargetProperty ( const char * key )
@@ -1084,14 +1079,14 @@ ErrorExit:
 
 #if 0
 #pragma mark -
-#pragma mark ¥ SCSI Protocol Services Member Routines
+#pragma mark SCSI Protocol Services Member Routines
 #pragma mark -
 #endif
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ SendSCSICommand - Sends a command to the controller.			   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	SendSCSICommand - Sends a command to the controller.			   [PUBLIC]
+//-----------------------------------------------------------------------------
 
 bool
 IOSCSIParallelInterfaceDevice::SendSCSICommand (
@@ -1212,9 +1207,9 @@ IOSCSIParallelInterfaceDevice::SendSCSICommand (
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ CompleteSCSITask - Completes a command from the controller.	   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	CompleteSCSITask - Completes a command from the controller.		   [PUBLIC]
+//-----------------------------------------------------------------------------
 
 void
 IOSCSIParallelInterfaceDevice::CompleteSCSITask ( 	
@@ -1234,7 +1229,7 @@ IOSCSIParallelInterfaceDevice::CompleteSCSITask (
 		
 	}
 	
-	// Check if the device rejected the task because its queue is full
+	// Check if the device rejected the task because its queue is full.
 	if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
 		 ( completionStatus == kSCSITaskStatus_TASK_SET_FULL ) &&
 		 ( fAllowResends == true ) )
@@ -1254,14 +1249,14 @@ IOSCSIParallelInterfaceDevice::CompleteSCSITask (
 	// so that the driver no longer sees this task as outstanding.
 	RemoveFromOutstandingTaskList ( completedTask );
 			
-	// Retrieve the original SCSI Task
+	// Retrieve the original SCSI Task.
 	clientRequest = GetSCSITaskIdentifier ( completedTask );
 	if ( clientRequest == NULL )
 	{
-		IOPanic ( "clientRequest is NULL in CompleteSCSITask\n" );
+		panic ( "IOSCSIParallelInterfaceDevice::CompleteSCSITask: clientRequest is NULL, completedTask = %p\n", completedTask );
 	}
 	
-	// Set the appropriate fields in the SCSI Task
+	// Set the appropriate fields in the SCSI Task.
 	IOSCSIProtocolServices::SetRealizedDataTransferCount ( clientRequest, GetRealizedDataTransferCount ( completedTask ) );
 	
 	// Store any negotiations that were done.
@@ -1282,19 +1277,19 @@ IOSCSIParallelInterfaceDevice::CompleteSCSITask (
 		
 	}
 	
-	// Release the SCSI Parallel Task object
+	// Release the SCSI Parallel Task object.
 	FreeSCSIParallelTask ( completedTask );
 	
-	// If there are requests on the resend queue, send them first
-	// Currently only the element at the head of the queue will be sent
+	// If there are requests on the resend queue, send them first.
+	// Currently only the element at the head of the queue will be sent.
 	// If the desire is to allow all elements to be sent, the break
-	// statement can be removed
-	while ( fResendTaskList != NULL )
+	// statement can be removed.
+	while ( !queue_empty ( &fResendTaskList ) )
 	{
 		
 		SCSIParallelTaskIdentifier 	parallelTask;
 		
-		parallelTask = fResendTaskList;
+		parallelTask = ( SCSIParallelTaskIdentifier ) queue_first ( &fResendTaskList );
 		
 		RemoveFromResendTaskList ( parallelTask);
 		
@@ -1313,7 +1308,7 @@ IOSCSIParallelInterfaceDevice::CompleteSCSITask (
 			
 			CommandCompleted ( nextRequest, kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE, kSCSITaskStatus_No_Status );
 			
-			// Send this command has already completed, start the next
+			// Since this command has already completed, start the next
 			// one on the queue.
 			continue;
 			
@@ -1333,16 +1328,16 @@ IOSCSIParallelInterfaceDevice::CompleteSCSITask (
 
 #if 0
 #pragma mark -
-#pragma mark ¥ SCSI Protocol Service Feature routines
+#pragma mark SCSI Protocol Service Feature routines
 #pragma mark -
 #endif
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ IsProtocolServiceSupported - 	Called by SCSI Application Layer to determine
+//-----------------------------------------------------------------------------
+//	IsProtocolServiceSupported - 	Called by SCSI Application Layer to determine
 //									if the protocol layer driver supports a
 //									SCSIProtocolFeature.	   		   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 bool
 IOSCSIParallelInterfaceDevice::IsProtocolServiceSupported (
@@ -1362,7 +1357,7 @@ IOSCSIParallelInterfaceDevice::IsProtocolServiceSupported (
 		{
 			
 			isSupported = true;
-			*( UInt32 * ) value = ReportHBAHighestLogicalUnitNumber ( );
+			*( UInt32 * ) value = fController->ReportHBAHighestLogicalUnitNumber ( );
 			
 		}
 		break;
@@ -1397,10 +1392,10 @@ ErrorExit:
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ HandleProtocolServiceFeature - Called by SCSI Application Layer to handle
+//-----------------------------------------------------------------------------
+//	HandleProtocolServiceFeature - Called by SCSI Application Layer to handle
 //									 a SCSIProtocolFeature.	   		   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 bool
 IOSCSIParallelInterfaceDevice::HandleProtocolServiceFeature (
 							SCSIProtocolFeature 		feature, 
@@ -1439,14 +1434,14 @@ IOSCSIParallelInterfaceDevice::HandleProtocolServiceFeature (
 
 #if 0
 #pragma mark -
-#pragma mark ¥ SCSI Task Management Functions
+#pragma mark SCSI Task Management Functions
 #pragma mark -
 #endif
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ AbortSCSICommand - Not used.	   		   			   [¥OBSOLETE¥][PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	AbortSCSICommand - Not used.	   		   			     [OBSOLETE][PUBLIC]
+//-----------------------------------------------------------------------------
 
 SCSIServiceResponse
 IOSCSIParallelInterfaceDevice::AbortSCSICommand ( 
@@ -1456,9 +1451,9 @@ IOSCSIParallelInterfaceDevice::AbortSCSICommand (
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ HandleAbortTask - Calls controller to perform abort task.		[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	HandleAbortTask - Calls controller to perform abort task.		[PROTECTED]
+//-----------------------------------------------------------------------------
 
 SCSIServiceResponse
 IOSCSIParallelInterfaceDevice::HandleAbortTask ( 
@@ -1469,10 +1464,10 @@ IOSCSIParallelInterfaceDevice::HandleAbortTask (
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ HandleAbortTaskSet - Calls controller to perform abort task set.
+//-----------------------------------------------------------------------------
+//	HandleAbortTaskSet - Calls controller to perform abort task set.
 //																	[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 SCSIServiceResponse
 IOSCSIParallelInterfaceDevice::HandleAbortTaskSet ( 
@@ -1482,9 +1477,9 @@ IOSCSIParallelInterfaceDevice::HandleAbortTaskSet (
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ HandleClearACA - Calls controller to perform Clear ACA.		[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	HandleClearACA - Calls controller to perform Clear ACA.			[PROTECTED]
+//-----------------------------------------------------------------------------
 
 SCSIServiceResponse
 IOSCSIParallelInterfaceDevice::HandleClearACA ( 
@@ -1494,10 +1489,10 @@ IOSCSIParallelInterfaceDevice::HandleClearACA (
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ HandleClearTaskSet - Calls controller to perform clear task set.
+//-----------------------------------------------------------------------------
+//	HandleClearTaskSet - Calls controller to perform clear task set.
 //																	[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 SCSIServiceResponse
 IOSCSIParallelInterfaceDevice::HandleClearTaskSet ( 
@@ -1507,10 +1502,9 @@ IOSCSIParallelInterfaceDevice::HandleClearTaskSet (
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ HandleLogicalUnitReset - Calls controller to perform LUN reset.
-//																	[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	HandleLogicalUnitReset - Calls controller to perform LUN reset.	[PROTECTED]
+//-----------------------------------------------------------------------------
 
 SCSIServiceResponse
 IOSCSIParallelInterfaceDevice::HandleLogicalUnitReset (
@@ -1520,10 +1514,9 @@ IOSCSIParallelInterfaceDevice::HandleLogicalUnitReset (
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ HandleTargetReset - Calls controller to perform Target reset.
-//																	[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	HandleTargetReset - Calls controller to perform Target reset.	[PROTECTED]
+//-----------------------------------------------------------------------------
 
 SCSIServiceResponse
 IOSCSIParallelInterfaceDevice::HandleTargetReset ( void )
@@ -1534,15 +1527,14 @@ IOSCSIParallelInterfaceDevice::HandleTargetReset ( void )
 
 #if 0
 #pragma mark -
-#pragma mark ¥ Controller Object Accessors
+#pragma mark Controller Object Accessors
 #pragma mark -
 #endif
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ ExecuteParallelTask - Called to issue a task to the controller.
-//																	[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	ExecuteParallelTask - Called to issue a task to the controller.	[PROTECTED]
+//-----------------------------------------------------------------------------
 
 SCSIServiceResponse
 IOSCSIParallelInterfaceDevice::ExecuteParallelTask (
@@ -1552,10 +1544,10 @@ IOSCSIParallelInterfaceDevice::ExecuteParallelTask (
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ GetSCSIParallelTask - Gets a SCSIParallelTaskIdentifier from the
+//-----------------------------------------------------------------------------
+//	GetSCSIParallelTask - Gets a SCSIParallelTaskIdentifier from the
 //							controller's command pool.				[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 SCSIParallelTaskIdentifier
 IOSCSIParallelInterfaceDevice::GetSCSIParallelTask ( bool blockForCommand )
@@ -1564,10 +1556,10 @@ IOSCSIParallelInterfaceDevice::GetSCSIParallelTask ( bool blockForCommand )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ FreeSCSIParallelTask - Returns a SCSIParallelTaskIdentifier to the
+//-----------------------------------------------------------------------------
+//	FreeSCSIParallelTask - Returns a SCSIParallelTaskIdentifier to the
 //							 controller's command pool.				[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 void
 IOSCSIParallelInterfaceDevice::FreeSCSIParallelTask (
@@ -1577,23 +1569,11 @@ IOSCSIParallelInterfaceDevice::FreeSCSIParallelTask (
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ ReportHBAHighestLogicalUnitNumber - 	Retrieves the highest supported
-//											Logical Unit.			[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-
-SCSILogicalUnitNumber
-IOSCSIParallelInterfaceDevice::ReportHBAHighestLogicalUnitNumber ( void )
-{
-	return fController->ReportHBAHighestLogicalUnitNumber ( );
-}
-
-
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ DoesHBASupportSCSIParallelFeature - 	Queries the controller if a
+//-----------------------------------------------------------------------------
+//	DoesHBASupportSCSIParallelFeature - 	Queries the controller if a
 //											specific SCSIParallelFeature is
 //											supported.				[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 bool
 IOSCSIParallelInterfaceDevice::DoesHBASupportSCSIParallelFeature ( 
@@ -1605,58 +1585,31 @@ IOSCSIParallelInterfaceDevice::DoesHBASupportSCSIParallelFeature (
 
 #if 0
 #pragma mark -
-#pragma mark ¥ SCSI Parallel Task Object Accessors
+#pragma mark SCSI Parallel Task Object Accessors
 #pragma mark -
 #endif
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ AddToOutstandingTaskList - Adds a task to the outstanding task list.
+//-----------------------------------------------------------------------------
+//	AddToOutstandingTaskList - Adds a task to the outstanding task list.
 //																	[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 bool
 IOSCSIParallelInterfaceDevice::AddToOutstandingTaskList ( 
 							SCSIParallelTaskIdentifier	parallelTask )
 {
 	
-	SCSIParallelTask *	tempTask = ( SCSIParallelTask * ) parallelTask;
+	SCSIParallelTask *	task = ( SCSIParallelTask * ) parallelTask;
 	
-	if ( tempTask == NULL )
+	if ( task == NULL )
 	{
 		return false;
 	}
 	
 	IOSimpleLockLock ( fQueueLock );
 	
-	if ( fOutstandingTaskList == NULL )
-	{
-		
-		// There are no tasks currently in the list, add this one to the
-		// front.
-		fOutstandingTaskList = tempTask;
-		tempTask->SetPreviousTaskInList ( NULL );
-		tempTask->SetNextTaskInList ( NULL );
-		
-	}
-	
-	else
-	{
-		
-		// Add this task to the end of the list
-		SCSIParallelTask *	listTask;
-		
-		listTask = fOutstandingTaskList;
-		while ( listTask->GetNextTaskInList ( ) != NULL )
-		{
-			listTask = listTask->GetNextTaskInList ( );
-		}
-		
-		listTask->SetNextTaskInList ( tempTask );
-		tempTask->SetPreviousTaskInList ( listTask );
-		tempTask->SetNextTaskInList ( NULL );
-		
-	}
+	queue_enter ( &fOutstandingTaskList, task, SCSIParallelTask *, fCommandChain );
 	
 	IOSimpleLockUnlock ( fQueueLock );
 	
@@ -1665,188 +1618,110 @@ IOSCSIParallelInterfaceDevice::AddToOutstandingTaskList (
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ RemoveFromOutstandingTaskList - 	Removes a task from the outstanding
+//-----------------------------------------------------------------------------
+//	RemoveFromOutstandingTaskList - 	Removes a task from the outstanding
 //										task list.					[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 void
 IOSCSIParallelInterfaceDevice::RemoveFromOutstandingTaskList ( 
 							SCSIParallelTaskIdentifier 	parallelTask )
 {
 	
-	SCSIParallelTask *	tempTask	= ( SCSIParallelTask * ) parallelTask;
-	SCSIParallelTask *	nextTask	= NULL;
-	SCSIParallelTask *	prevTask	= NULL;
-	bool				inList		= false;
+	SCSIParallelTask *	task = ( SCSIParallelTask * ) parallelTask;
+	
+	require_nonzero ( ( task->fCommandChain.next ), Exit );
+	require_nonzero ( ( task->fCommandChain.prev ), Exit );
 	
 	IOSimpleLockLock ( fQueueLock );
 	
-	// Validate that this command is in the outstanding list first (avoid
-	// errant drivers doing double completions).
-	nextTask = fOutstandingTaskList;
-	while ( nextTask != NULL )
-	{
-		
-		if ( nextTask == tempTask )
-		{
-			
-			inList = true;
-			break;
-			
-		}
-		
-		nextTask = nextTask->GetNextTaskInList ( );
-		
-	}
+	require ( ( queue_empty ( &fOutstandingTaskList ) == false ), ExitLocked );
 	
-	require ( inList, ErrorExit );
-	
-	nextTask = tempTask->GetNextTaskInList ( );
-	prevTask = tempTask->GetPreviousTaskInList ( );
-	
-	if ( prevTask != NULL )
-	{
-		
-		// There is a previous task, set it to the victim's next task
-		prevTask->SetNextTaskInList ( nextTask );
-		
-	}
-	
-	else
-	{
-		fOutstandingTaskList = nextTask;
-	}
-	
-	if ( nextTask != NULL )
-	{
-		
-		// The next task is not NULL, set it to the victim's previous
-		nextTask->SetPreviousTaskInList ( prevTask );
-		
-	}
-	
-	// Clear out the victim's previous and next pointers
-	tempTask->SetNextTaskInList ( NULL );
-	tempTask->SetPreviousTaskInList ( NULL );
+	queue_remove ( &fOutstandingTaskList, task, SCSIParallelTask *, fCommandChain );
 	
 	
-ErrorExit:
+ExitLocked:
 	
 	
 	IOSimpleLockUnlock ( fQueueLock );
 	
+	
+Exit:
+	
+	
+	return;
+	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ AddToResendTaskList - Adds a task to the resend (TASK_SET_FULL) task list.
+//-----------------------------------------------------------------------------
+//	AddToResendTaskList - Adds a task to the resend (TASK_SET_FULL) task list.
 //																	[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 bool
 IOSCSIParallelInterfaceDevice::AddToResendTaskList ( 
 							SCSIParallelTaskIdentifier	parallelTask )
 {
 	
-	SCSIParallelTask *	tempTask = ( SCSIParallelTask * ) parallelTask;
+	SCSIParallelTask *	task = ( SCSIParallelTask * ) parallelTask;
 	
-	if ( tempTask == NULL )
+	if ( task == NULL )
 	{
 		return false;
 	}
 	
-	IOSimpleLockLock ( fResendQueueLock );
+	IOSimpleLockLock ( fQueueLock );
+
+	queue_enter ( &fResendTaskList, task, SCSIParallelTask *, fResendTaskChain );
 	
-	if ( fResendTaskList == NULL )
-	{
-		
-		// There are no tasks currently in the list, add this one to the
-		// front.
-		fResendTaskList = tempTask;
-		tempTask->SetPreviousResendTaskInList ( NULL );
-		tempTask->SetNextResendTaskInList ( NULL );
-		
-	}
-	
-	else
-	{
-		
-		// Add this task to the end of the list
-		SCSIParallelTask *	listTask;
-		
-		listTask = fResendTaskList;
-		while ( listTask->GetNextResendTaskInList ( ) != NULL )
-		{
-			listTask = listTask->GetNextResendTaskInList ( );
-		}
-		
-		listTask->SetNextResendTaskInList ( tempTask );
-		tempTask->SetPreviousResendTaskInList ( listTask );
-		tempTask->SetNextResendTaskInList ( NULL );
-		
-	}
-	
-	IOSimpleLockUnlock ( fResendQueueLock );
+	IOSimpleLockUnlock ( fQueueLock );
 	
 	return true;
 	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ RemoveFromOutstandingTaskList - 	Removes a task from the resend task
+//-----------------------------------------------------------------------------
+//	RemoveFromOutstandingTaskList - 	Removes a task from the resend task
 //										(TASK_SET_FULL) list.		[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 void
 IOSCSIParallelInterfaceDevice::RemoveFromResendTaskList ( 
 							SCSIParallelTaskIdentifier 	parallelTask )
 {
 	
-	SCSIParallelTask *	tempTask = ( SCSIParallelTask * ) parallelTask;
-	SCSIParallelTask *	nextTask = NULL;
-	SCSIParallelTask *	prevTask = NULL;
+	SCSIParallelTask *	task = ( SCSIParallelTask * ) parallelTask;
 	
-	IOSimpleLockLock ( fResendQueueLock );
+	require_nonzero ( ( task->fResendTaskChain.next ), Exit );
+	require_nonzero ( ( task->fResendTaskChain.prev ), Exit );
 	
-	nextTask = tempTask->GetNextResendTaskInList ( );
-	prevTask = tempTask->GetPreviousResendTaskInList ( );
+	IOSimpleLockLock ( fQueueLock );
 	
-	if ( prevTask != NULL )
-	{
-		
-		// There is a previous task, set it to the victim's next task
-		prevTask->SetNextResendTaskInList ( nextTask );
-		
-	}
+	require ( ( queue_empty ( &fResendTaskList ) == false ), ExitLocked );
 	
-	else
-	{
-		fResendTaskList = nextTask;
-	}
+	queue_remove ( &fResendTaskList, task, SCSIParallelTask *, fResendTaskChain );
 	
-	if ( nextTask != NULL )
-	{
-		
-		// The next task is not NULL, set it to the victim's previous
-		nextTask->SetPreviousResendTaskInList ( prevTask );
-		
-	}
 	
-	// Clear out the victim's previous and next pointers
-	tempTask->SetNextResendTaskInList ( NULL );
-	tempTask->SetPreviousResendTaskInList ( NULL );
+ExitLocked:
 	
-	IOSimpleLockUnlock ( fResendQueueLock );
+	
+	IOSimpleLockUnlock ( fQueueLock );
+	
+	
+Exit:
+	
+	
+	return;
 	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ SetSCSITaskIdentifier - 	Sets the SCSITaskIdentifier in the
+//-----------------------------------------------------------------------------
+//	SetSCSITaskIdentifier - 	Sets the SCSITaskIdentifier in the
 //								parallelTask.						[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 bool					
 IOSCSIParallelInterfaceDevice::SetSCSITaskIdentifier ( 
@@ -1854,43 +1729,43 @@ IOSCSIParallelInterfaceDevice::SetSCSITaskIdentifier (
 							SCSITaskIdentifier 			scsiRequest )
 {
 	
-	SCSIParallelTask *	tempTask = ( SCSIParallelTask * ) parallelTask;
+	SCSIParallelTask *	task = ( SCSIParallelTask * ) parallelTask;
 	
-	if ( tempTask == NULL )
+	if ( task == NULL )
 	{
 		return false;
 	}
 	
-	return tempTask->SetSCSITaskIdentifier ( scsiRequest );
+	return task->SetSCSITaskIdentifier ( scsiRequest );
 	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ GetSCSITaskIdentifier - 	Retrieves the SCSITaskIdentifier from the
+//-----------------------------------------------------------------------------
+//	GetSCSITaskIdentifier - 	Retrieves the SCSITaskIdentifier from the
 //								parallelTask.						[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 SCSITaskIdentifier
 IOSCSIParallelInterfaceDevice::GetSCSITaskIdentifier ( 
 							SCSIParallelTaskIdentifier 	parallelTask )
 {
 	
-	SCSIParallelTask *	tempTask = ( SCSIParallelTask * ) parallelTask;
+	SCSIParallelTask *	task = ( SCSIParallelTask * ) parallelTask;
 	
-	if ( tempTask == NULL )
+	if ( task == NULL )
 	{
 		return NULL;
 	}
 	
-	return tempTask->GetSCSITaskIdentifier ( );
+	return task->GetSCSITaskIdentifier ( );
 	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ SetDevice - Sets the device in the parallelTask.				[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	SetDevice - Sets the device in the parallelTask.				[PROTECTED]
+//-----------------------------------------------------------------------------
 
 bool
 IOSCSIParallelInterfaceDevice::SetDevice ( 
@@ -1898,22 +1773,22 @@ IOSCSIParallelInterfaceDevice::SetDevice (
 							IOSCSIParallelInterfaceDevice * 	device )
 {
 	
-	SCSIParallelTask *	tempTask = ( SCSIParallelTask * ) parallelTask;
+	SCSIParallelTask *	task = ( SCSIParallelTask * ) parallelTask;
 	
-	if ( tempTask == NULL )
+	if ( task == NULL )
 	{
 		return false;
 	}
 	
-	return tempTask->SetDevice ( device );
+	return task->SetDevice ( device );
 	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ SetTargetIdentifier - 	Sets the SCSITargetIdentifier in the
+//-----------------------------------------------------------------------------
+//	SetTargetIdentifier - 	Sets the SCSITargetIdentifier in the
 //								parallelTask.						[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 bool
 IOSCSIParallelInterfaceDevice::SetTargetIdentifier ( 
@@ -1921,43 +1796,43 @@ IOSCSIParallelInterfaceDevice::SetTargetIdentifier (
 							SCSITargetIdentifier 		theTargetID )
 {
 	
-	SCSIParallelTask *	tempTask = ( SCSIParallelTask * ) parallelTask;
+	SCSIParallelTask *	task = ( SCSIParallelTask * ) parallelTask;
 	
-	if ( tempTask == NULL )
+	if ( task == NULL )
 	{
 		return false;
 	}
 	
-	return tempTask->SetTargetIdentifier ( theTargetID );
+	return task->SetTargetIdentifier ( theTargetID );
 	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ GetTargetIdentifier - 	Retrieves the SCSITargetIdentifier from the
+//-----------------------------------------------------------------------------
+//	GetTargetIdentifier - 	Retrieves the SCSITargetIdentifier from the
 //								parallelTask.						[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 SCSITargetIdentifier
 IOSCSIParallelInterfaceDevice::GetTargetIdentifier ( 
 							SCSIParallelTaskIdentifier 	parallelTask )
 {
 	
-	SCSIParallelTask *	tempTask = ( SCSIParallelTask * ) parallelTask;
+	SCSIParallelTask *	task = ( SCSIParallelTask * ) parallelTask;
 	
-	if ( tempTask == NULL )
+	if ( task == NULL )
 	{
 		return NULL;
 	}
 	
-	return tempTask->GetTargetIdentifier ( );
+	return task->GetTargetIdentifier ( );
 	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ SetDMABuffer - Sets the DMA buffer in the task.				[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	SetDMABuffer - Sets the DMA buffer in the task.					[PROTECTED]
+//-----------------------------------------------------------------------------
 
 IOReturn
 IOSCSIParallelInterfaceDevice::SetDMABuffer ( 
@@ -1965,14 +1840,14 @@ IOSCSIParallelInterfaceDevice::SetDMABuffer (
 							IOMemoryDescriptor *		buffer )
 {
 	
-	SCSIParallelTask *	tempTask = ( SCSIParallelTask * ) parallelTask;
+	SCSIParallelTask *	task = ( SCSIParallelTask * ) parallelTask;
 	
-	if ( tempTask == NULL )
+	if ( task == NULL )
 	{
 		return NULL;
 	}
 	
-	return tempTask->SetBuffer ( buffer );
+	return task->SetBuffer ( buffer );
 	
 }
 
@@ -1986,98 +1861,98 @@ IOSCSIParallelInterfaceDevice::SetDMABuffer (
 // Since that will be completed before this is released, this method will be
 // changed at that time.
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ GetLogicalUnitNumber - 	Retrieves the SCSILogicalUnitNumber from the
-//								parallelTask.						[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	GetLogicalUnitNumber - 	Retrieves the SCSILogicalUnitNumber from the
+//							parallelTask.							[PROTECTED]
+//-----------------------------------------------------------------------------
 
 SCSILogicalUnitNumber
 IOSCSIParallelInterfaceDevice::GetLogicalUnitNumber ( 
 							SCSIParallelTaskIdentifier 	parallelTask )
 {
 	
-	SCSIParallelTask *	tempTask = ( SCSIParallelTask * ) parallelTask;
+	SCSIParallelTask *	task = ( SCSIParallelTask * ) parallelTask;
 	
-	if ( tempTask == NULL )
+	if ( task == NULL )
 	{
 		return 0;
 	}
 	
-	return tempTask->GetLogicalUnitNumber ( );
+	return task->GetLogicalUnitNumber ( );
 	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ GetTaggedTaskIdentifier - Retrieves the SCSITaggedTaskIdentifier from the
+//-----------------------------------------------------------------------------
+//	GetTaggedTaskIdentifier - 	Retrieves the SCSITaggedTaskIdentifier from the
 //								parallelTask.						[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 SCSITaggedTaskIdentifier 
 IOSCSIParallelInterfaceDevice::GetTaggedTaskIdentifier (
 							SCSIParallelTaskIdentifier		parallelTask )
 {
 	
-	SCSIParallelTask *	tempTask = ( SCSIParallelTask * ) parallelTask;
+	SCSIParallelTask *	task = ( SCSIParallelTask * ) parallelTask;
 	
-	if ( tempTask == NULL )
+	if ( task == NULL )
 	{
 		return kSCSIUntaggedTaskIdentifier;
 	}
 	
-	return tempTask->GetTaggedTaskIdentifier ( );
+	return task->GetTaggedTaskIdentifier ( );
 	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ GetTaskAttribute - 		Retrieves the SCSITaskAttribute from the
-//								parallelTask.						[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	GetTaskAttribute - 	Retrieves the SCSITaskAttribute from the parallelTask.
+//																	[PROTECTED]
+//-----------------------------------------------------------------------------
 
 SCSITaskAttribute
 IOSCSIParallelInterfaceDevice::GetTaskAttribute (
 							SCSIParallelTaskIdentifier 		parallelTask )
 {
 	
-	SCSIParallelTask *	tempTask = ( SCSIParallelTask * ) parallelTask;
+	SCSIParallelTask *	task = ( SCSIParallelTask * ) parallelTask;
 	
-	if ( tempTask == NULL )
+	if ( task == NULL )
 	{
 		return kSCSITask_SIMPLE;
 	}
 	
-	return tempTask->GetTaskAttribute ( );
+	return task->GetTaskAttribute ( );
 	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ GetCommandDescriptorBlockSize - 	Retrieves the CDB size from the
+//-----------------------------------------------------------------------------
+//	GetCommandDescriptorBlockSize - 	Retrieves the CDB size from the
 //										parallelTask.				[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 UInt8
 IOSCSIParallelInterfaceDevice::GetCommandDescriptorBlockSize ( 
 							SCSIParallelTaskIdentifier 	parallelTask )
 {
 	
-	SCSIParallelTask *	tempTask = ( SCSIParallelTask * ) parallelTask;
+	SCSIParallelTask *	task = ( SCSIParallelTask * ) parallelTask;
 	
-	if ( tempTask == NULL )
+	if ( task == NULL )
 	{
 		return 0;
 	}
 	
-	return tempTask->GetCommandDescriptorBlockSize ( );
+	return task->GetCommandDescriptorBlockSize ( );
 	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ GetCommandDescriptorBlockSize - 	Retrieves the CDB from the parallelTask.
+//-----------------------------------------------------------------------------
+//	GetCommandDescriptorBlockSize - 	Retrieves the CDB from the parallelTask.
 //																	[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 bool
 IOSCSIParallelInterfaceDevice::GetCommandDescriptorBlock ( 
@@ -2085,89 +1960,88 @@ IOSCSIParallelInterfaceDevice::GetCommandDescriptorBlock (
 							SCSICommandDescriptorBlock *	cdbData )
 {
 	
-	SCSIParallelTask *	tempTask = ( SCSIParallelTask * ) parallelTask;
+	SCSIParallelTask *	task = ( SCSIParallelTask * ) parallelTask;
 	
-	if ( tempTask == NULL )
+	if ( task == NULL )
 	{
 		return false;
 	}
 	
-	return tempTask->GetCommandDescriptorBlock ( cdbData );
+	return task->GetCommandDescriptorBlock ( cdbData );
 	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ GetDataTransferDirection - Retrieves the data transfer direction from
-//								 the parallelTask.					[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	GetDataTransferDirection - 	Retrieves the data transfer direction from
+//								the parallelTask.					[PROTECTED]
+//-----------------------------------------------------------------------------
 
 UInt8
 IOSCSIParallelInterfaceDevice::GetDataTransferDirection ( 
 							SCSIParallelTaskIdentifier 	parallelTask )
 {
 	
-	SCSIParallelTask *	tempTask = ( SCSIParallelTask * ) parallelTask;
+	SCSIParallelTask *	task = ( SCSIParallelTask * ) parallelTask;
 	
-	if ( tempTask == NULL )
+	if ( task == NULL )
 	{
 		return kSCSIDataTransfer_NoDataTransfer;
 	}
 	
-	return tempTask->GetDataTransferDirection ( );
+	return task->GetDataTransferDirection ( );
 	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ GetRequestedDataTransferCount - Retrieves the requested data transfer
-//									  count from the parallelTask.
-//																	[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	GetRequestedDataTransferCount -	Retrieves the requested data transfer
+//									count from the parallelTask.	[PROTECTED]
+//-----------------------------------------------------------------------------
 
 UInt64
 IOSCSIParallelInterfaceDevice::GetRequestedDataTransferCount ( 
 							SCSIParallelTaskIdentifier 	parallelTask )
 {
 	
-	SCSIParallelTask *	tempTask = ( SCSIParallelTask * ) parallelTask;
+	SCSIParallelTask *	task = ( SCSIParallelTask * ) parallelTask;
 	
-	if ( tempTask == NULL )
+	if ( task == NULL )
 	{
 		return 0;
 	}
 	
-	return tempTask->GetRequestedDataTransferCount ( );
+	return task->GetRequestedDataTransferCount ( );
 	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ GetRequestedDataTransferCount - Retrieves the realized data transfer
-//									  count from the parallelTask.	[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	GetRequestedDataTransferCount - Retrieves the realized data transfer
+//									count from the parallelTask.	[PROTECTED]
+//-----------------------------------------------------------------------------
 
 UInt64
 IOSCSIParallelInterfaceDevice::GetRealizedDataTransferCount (
 							SCSIParallelTaskIdentifier 		parallelTask )
 {
 	
-	SCSIParallelTask *	tempTask = ( SCSIParallelTask * ) parallelTask;
+	SCSIParallelTask *	task = ( SCSIParallelTask * ) parallelTask;
 	
-	if ( tempTask == NULL )
+	if ( task == NULL )
 	{
 		return 0;
 	}
 	
-	return tempTask->GetRealizedDataTransferCount ( );
+	return task->GetRealizedDataTransferCount ( );
 	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ GetRequestedDataTransferCount - Sets the realized data transfer
-//									  count in the parallelTask.	[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	GetRequestedDataTransferCount - Sets the realized data transfer
+//									count in the parallelTask.		[PROTECTED]
+//-----------------------------------------------------------------------------
 
 bool
 IOSCSIParallelInterfaceDevice::SetRealizedDataTransferCount ( 
@@ -2175,22 +2049,22 @@ IOSCSIParallelInterfaceDevice::SetRealizedDataTransferCount (
 							UInt64 						realizedTransferCountInBytes )
 {
 	
-	SCSIParallelTask *	tempTask = ( SCSIParallelTask * ) parallelTask;
+	SCSIParallelTask *	task = ( SCSIParallelTask * ) parallelTask;
 	
-	if ( tempTask == NULL )
+	if ( task == NULL )
 	{
 		return false;
 	}
 	
-	return tempTask->SetRealizedDataTransferCount ( realizedTransferCountInBytes );
+	return task->SetRealizedDataTransferCount ( realizedTransferCountInBytes );
 	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ GetRequestedDataTransferCount - Increments the realized data transfer
+//-----------------------------------------------------------------------------
+//	GetRequestedDataTransferCount - Increments the realized data transfer
 //									  count in the parallelTask.	[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 void
 IOSCSIParallelInterfaceDevice::IncrementRealizedDataTransferCount (
@@ -2198,88 +2072,88 @@ IOSCSIParallelInterfaceDevice::IncrementRealizedDataTransferCount (
 							UInt64 						realizedTransferCountInBytes )
 {
 	
-	SCSIParallelTask *	tempTask = ( SCSIParallelTask * ) parallelTask;
+	SCSIParallelTask *	task = ( SCSIParallelTask * ) parallelTask;
 	
-	if ( tempTask == NULL )
+	if ( task == NULL )
 	{
 		return;
 	}
 	
-	return tempTask->IncrementRealizedDataTransferCount ( realizedTransferCountInBytes );
+	return task->IncrementRealizedDataTransferCount ( realizedTransferCountInBytes );
 	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ GetRequestedDataTransferCount - Retrieves the data buffer in the
+//-----------------------------------------------------------------------------
+//	GetRequestedDataTransferCount - Retrieves the data buffer in the
 //									  parallelTask.					[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 IOMemoryDescriptor *
 IOSCSIParallelInterfaceDevice::GetDataBuffer (
 							SCSIParallelTaskIdentifier 	parallelTask )
 {
 	
-	SCSIParallelTask *	tempTask = ( SCSIParallelTask * ) parallelTask;
+	SCSIParallelTask *	task = ( SCSIParallelTask * ) parallelTask;
 	
-	if ( tempTask == NULL )
+	if ( task == NULL )
 	{
 		return NULL;
 	}
 	
-	return tempTask->GetDataBuffer ( );
+	return task->GetDataBuffer ( );
 	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ GetDataBufferOffset - Retrieves the data buffer offset in the parallelTask.
+//-----------------------------------------------------------------------------
+//	GetDataBufferOffset - Retrieves the data buffer offset in the parallelTask.
 //																	[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 UInt64
 IOSCSIParallelInterfaceDevice::GetDataBufferOffset (
 							SCSIParallelTaskIdentifier 	parallelTask )
 {
 	
-	SCSIParallelTask *	tempTask = ( SCSIParallelTask * ) parallelTask;
+	SCSIParallelTask *	task = ( SCSIParallelTask * ) parallelTask;
 	
-	if ( tempTask == NULL )
+	if ( task == NULL )
 	{
 		return 0;
 	}
 	
-	return tempTask->GetDataBufferOffset ( );
+	return task->GetDataBufferOffset ( );
 	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ GetTimeoutDuration - Retrieves the timeout duration in the parallelTask.
+//-----------------------------------------------------------------------------
+//	GetTimeoutDuration - Retrieves the timeout duration in the parallelTask.
 //																	[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 UInt32
 IOSCSIParallelInterfaceDevice::GetTimeoutDuration (
 							SCSIParallelTaskIdentifier 	parallelTask )
 {
 	
-	SCSIParallelTask *	tempTask = ( SCSIParallelTask * ) parallelTask;
+	SCSIParallelTask *	task = ( SCSIParallelTask * ) parallelTask;
 	
-	if ( tempTask == NULL )
+	if ( task == NULL )
 	{
 		return 0;
 	}
 	
-	return tempTask->GetTimeoutDuration ( );
+	return task->GetTimeoutDuration ( );
 	
 }
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ SetSCSIParallelFeatureNegotiation - 	Sets a feature negotiation request
+//-----------------------------------------------------------------------------
+//	SetSCSIParallelFeatureNegotiation - 	Sets a feature negotiation request
 //											in the specified task.
 //																	[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 void
 IOSCSIParallelInterfaceDevice::SetSCSIParallelFeatureNegotiation ( 
@@ -2288,23 +2162,23 @@ IOSCSIParallelInterfaceDevice::SetSCSIParallelFeatureNegotiation (
 							SCSIParallelFeatureRequest 		newRequest )
 {
 	
-	SCSIParallelTask *	tempTask = ( SCSIParallelTask * ) parallelTask;
+	SCSIParallelTask *	task = ( SCSIParallelTask * ) parallelTask;
 	
-	if ( tempTask == NULL )
+	if ( task == NULL )
 	{
 		return;
 	}
 	
-	return tempTask->SetSCSIParallelFeatureNegotiation ( requestedFeature, newRequest );
+	return task->SetSCSIParallelFeatureNegotiation ( requestedFeature, newRequest );
 	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ GetSCSIParallelFeatureNegotiation - 	Gets a feature negotiation request
+//-----------------------------------------------------------------------------
+//	GetSCSIParallelFeatureNegotiation - 	Gets a feature negotiation request
 //											in the specified task.
 //																	[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 SCSIParallelFeatureRequest
 IOSCSIParallelInterfaceDevice::GetSCSIParallelFeatureNegotiation (
@@ -2312,23 +2186,23 @@ IOSCSIParallelInterfaceDevice::GetSCSIParallelFeatureNegotiation (
 							SCSIParallelFeature 			requestedFeature )
 {
 	
-	SCSIParallelTask *	tempTask = ( SCSIParallelTask * ) parallelTask;
+	SCSIParallelTask *	task = ( SCSIParallelTask * ) parallelTask;
 	
-	if ( tempTask == NULL )
+	if ( task == NULL )
 	{
 		return kSCSIParallelFeature_NoNegotiation;
 	}
 	
-	return tempTask->GetSCSIParallelFeatureNegotiation ( requestedFeature );
+	return task->GetSCSIParallelFeatureNegotiation ( requestedFeature );
 	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ GetSCSIParallelFeatureNegotiationResult - Gets a feature negotiation
+//-----------------------------------------------------------------------------
+//	GetSCSIParallelFeatureNegotiationResult - 	Gets a feature negotiation
 //												result in the specified task.
 //																	[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 SCSIParallelFeatureResult
 IOSCSIParallelInterfaceDevice::GetSCSIParallelFeatureNegotiationResult (
@@ -2336,101 +2210,101 @@ IOSCSIParallelInterfaceDevice::GetSCSIParallelFeatureNegotiationResult (
 							SCSIParallelFeature 			requestedFeature )
 {
 	
-	SCSIParallelTask *	tempTask = ( SCSIParallelTask * ) parallelTask;
+	SCSIParallelTask *	task = ( SCSIParallelTask * ) parallelTask;
 	
-	if ( tempTask == NULL )
+	if ( task == NULL )
 	{
 		return kSCSIParallelFeature_NegotitiationUnchanged;
 	}
 	
-	return tempTask->GetSCSIParallelFeatureNegotiationResult ( requestedFeature );
+	return task->GetSCSIParallelFeatureNegotiationResult ( requestedFeature );
 	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ GetControllerTaskIdentifier - Gets the identifier associated with the
-//									task.							[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	GetControllerTaskIdentifier - Gets the identifier associated with the
+//								  task.							[PROTECTED]
+//-----------------------------------------------------------------------------
 
 UInt64
 IOSCSIParallelInterfaceDevice::GetControllerTaskIdentifier (
 							SCSIParallelTaskIdentifier 		parallelTask )
 {
 	
-	SCSIParallelTask *	tempTask = ( SCSIParallelTask * ) parallelTask;
+	SCSIParallelTask *	task = ( SCSIParallelTask * ) parallelTask;
 	
-	if ( tempTask == NULL )
+	if ( task == NULL )
 	{
 		return 0;
 	}
 	
-	return tempTask->GetControllerTaskIdentifier ( );
+	return task->GetControllerTaskIdentifier ( );
 	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ GetHBADataSize - Gets the size of HBA Data associated with a command.
+//-----------------------------------------------------------------------------
+//	GetHBADataSize - Gets the size of HBA Data associated with a command.
 //																	[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 UInt32
 IOSCSIParallelInterfaceDevice::GetHBADataSize (
 							SCSIParallelTaskIdentifier 	parallelTask )
 {
 	
-	SCSIParallelTask *	tempTask = ( SCSIParallelTask * ) parallelTask;
+	SCSIParallelTask *	task = ( SCSIParallelTask * ) parallelTask;
 	
-	if ( tempTask == NULL )
+	if ( task == NULL )
 	{
 		return 0;
 	}
 	
-	return tempTask->GetHBADataSize ( );
+	return task->GetHBADataSize ( );
 	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ GetHBADataPointer - Gets the HBA Data pointer associated with a command.
+//-----------------------------------------------------------------------------
+//	GetHBADataPointer - Gets the HBA Data pointer associated with a command.
 //																	[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 void *
 IOSCSIParallelInterfaceDevice::GetHBADataPointer (
 							SCSIParallelTaskIdentifier 	parallelTask )
 {
 	
-	SCSIParallelTask *	tempTask = ( SCSIParallelTask * ) parallelTask;
+	SCSIParallelTask *	task = ( SCSIParallelTask * ) parallelTask;
 	
-	if ( tempTask == NULL )
+	if ( task == NULL )
 	{
 		return NULL;
 	}
 	
-	return tempTask->GetHBADataPointer ( );
+	return task->GetHBADataPointer ( );
 	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ GetHBADataDescriptor - Gets the HBA memory descriptor associated with
+//-----------------------------------------------------------------------------
+//	GetHBADataDescriptor - Gets the HBA memory descriptor associated with
 //							 a command.								[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 IOMemoryDescriptor *
 IOSCSIParallelInterfaceDevice::GetHBADataDescriptor (
 							SCSIParallelTaskIdentifier 	parallelTask )
 {
 	
-	SCSIParallelTask *	tempTask = ( SCSIParallelTask * ) parallelTask;
+	SCSIParallelTask *	task = ( SCSIParallelTask * ) parallelTask;
 	
-	if ( tempTask == NULL )
+	if ( task == NULL )
 	{
 		return NULL;
 	}
 	
-	return tempTask->GetHBADataDescriptor ( );
+	return task->GetHBADataDescriptor ( );
 	
 }

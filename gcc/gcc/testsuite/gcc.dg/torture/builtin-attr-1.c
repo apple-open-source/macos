@@ -1,4 +1,4 @@
-/* Copyright (C) 2003  Free Software Foundation.
+/* Copyright (C) 2003, 2005  Free Software Foundation.
 
    Verify that the `const' function attribute is applied to various
    builtins and that these functions are optimized away by the
@@ -336,16 +336,16 @@ FPTEST3            (fma)
 FPTEST2            (fmax)
 FPTEST2            (fmin)
 FPTEST2            (fmod)
-FPTEST1            (gamma)
 BUILTIN_FPTEST0    (huge_val)
 FPTEST2            (hypot)
 FPTEST1T           (ilogb, int)
-BUILTIN_FPTEST0    (inf)
+BUILTIN_FPTEST0    (inf) /* { dg-warning "does not support infinity" "INF unsupported" { target vax-*-* c4x-*-* pdp11-*-* } } */
 FPTEST1            (j0)
 FPTEST1            (j1)
 FPTEST2ARG1        (jn, int)
 FPTEST2ARG2        (ldexp, int)
-FPTEST1            (lgamma)
+BUILTIN_FPTEST1    (llceil)
+BUILTIN_FPTEST1    (llfloor)
 FPTEST1T           (llrint, long long)
 FPTEST1T           (llround, long long)
 FPTEST1            (log)
@@ -353,6 +353,8 @@ FPTEST1            (log10)
 FPTEST1            (log1p)
 FPTEST1            (log2)
 FPTEST1            (logb)
+BUILTIN_FPTEST1    (lceil)
+BUILTIN_FPTEST1    (lfloor)
 FPTEST1T           (lrint, long)
 FPTEST1T           (lround, long)
 BUILTIN_FPTEST1ARG (nan, char *)
@@ -393,7 +395,7 @@ CPTEST1 (ccos)
 CPTEST1 (ccosh)
 CPTEST1 (cexp)
 CPTEST1R (cimag)
-/*CPTEST1 (clog)*/
+CPTEST1 (clog)
 CPTEST1 (conj)
 CPTEST2 (cpow)
 CPTEST1 (cproj)

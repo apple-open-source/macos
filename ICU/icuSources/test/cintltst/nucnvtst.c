@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT:
- * Copyright (c) 1997-2006,2008 International Business Machines Corporation and
+ * Copyright (c) 1997-2008, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /*******************************************************************************
@@ -17,6 +17,7 @@
 #include "unicode/uloc.h"
 #include "unicode/ucnv.h"
 #include "unicode/ucnv_err.h"
+#include "unicode/ucnv_cb.h"
 #include "cintltst.h"
 #include "unicode/utypes.h"
 #include "unicode/ustring.h"
@@ -79,6 +80,8 @@ static void TestISCII(void);
 static void TestCoverageMBCS(void);
 static void TestJitterbug2346(void);
 static void TestJitterbug2411(void);
+static void TestJB5275(void);
+static void TestJB5275_1(void);
 static void TestJitterbug6175(void);
 #endif
 
@@ -277,7 +280,8 @@ void addTestNewConvert(TestNode** root)
    addTest(root, &TestJitterbug255, "tsconv/nucnvtst/TestJitterbug255");
    addTest(root, &TestEBCDICUS4XML, "tsconv/nucnvtst/TestEBCDICUS4XML");
    addTest(root, &TestISCII, "tsconv/nucnvtst/TestISCII");
-
+   addTest(root, &TestJB5275, "tsconv/nucnvtst/TestJB5275");
+   addTest(root, &TestJB5275_1, "tsconv/nucnvtst/TestJB5275_1");
 #if !UCONFIG_NO_COLLATION
    addTest(root, &TestJitterbug981, "tsconv/nucnvtst/TestJitterbug981");
 #endif
@@ -297,6 +301,7 @@ void addTestNewConvert(TestNode** root)
    addTest(root, &TestJitterbug2411, "tsconv/nucnvtst/TestJitterbug2411");
    addTest(root, &TestJitterbug6175, "tsconv/nucnvtst/TestJitterbug6175");
 #endif
+
 }
 
 
@@ -1416,7 +1421,7 @@ static void TestConverterTypesAndStarters()
 
 static void
 TestAmbiguousConverter(UConverter *cnv) {
-    static const char inBytes[2]={ 0x61, 0x5c };
+    static const char inBytes[3]={ 0x61, 0x5B, 0x5c };
     UChar outUnicode[20]={ 0, 0, 0, 0 };
 
     const char *s;
@@ -1424,34 +1429,36 @@ TestAmbiguousConverter(UConverter *cnv) {
     UErrorCode errorCode;
     UBool isAmbiguous;
 
-    /* try to convert an 'a' and a US-ASCII backslash */
+    /* try to convert an 'a', a square bracket and a US-ASCII backslash */
     errorCode=U_ZERO_ERROR;
     s=inBytes;
     u=outUnicode;
-    ucnv_toUnicode(cnv, &u, u+20, &s, s+2, NULL, TRUE, &errorCode);
+    ucnv_toUnicode(cnv, &u, u+20, &s, s+3, NULL, TRUE, &errorCode);
     if(U_FAILURE(errorCode)) {
         /* we do not care about general failures in this test; the input may just not be mappable */
         return;
     }
 
-    if(outUnicode[0]!=0x61 || outUnicode[1]==0xfffd) {
-        /* not an ASCII-family encoding, or 0x5c is unassigned/illegal: this test is not applicable */
+    if(outUnicode[0]!=0x61 || outUnicode[1]!=0x5B || outUnicode[2]==0xfffd) {
+        /* not a close ASCII-family encoding, or 0x5c is unassigned/illegal: this test is not applicable */
+        /* There are some encodings that are partially ASCII based,
+        like the ISO-7 and GSM series of codepages, which we ignore. */
         return;
     }
 
     isAmbiguous=ucnv_isAmbiguous(cnv);
 
     /* check that outUnicode[1]!=0x5c is exactly the same as ucnv_isAmbiguous() */
-    if((outUnicode[1]!=0x5c)!=isAmbiguous) {
+    if((outUnicode[2]!=0x5c)!=isAmbiguous) {
         log_err("error: converter \"%s\" needs a backslash fix: %d but ucnv_isAmbiguous()==%d\n",
-            ucnv_getName(cnv, &errorCode), outUnicode[1]!=0x5c, isAmbiguous);
+            ucnv_getName(cnv, &errorCode), outUnicode[2]!=0x5c, isAmbiguous);
         return;
     }
 
-    if(outUnicode[1]!=0x5c) {
+    if(outUnicode[2]!=0x5c) {
         /* needs fixup, fix it */
         ucnv_fixFileSeparator(cnv, outUnicode, (int32_t)(u-outUnicode));
-        if(outUnicode[1]!=0x5c) {
+        if(outUnicode[2]!=0x5c) {
             /* the fix failed */
             log_err("error: ucnv_fixFileSeparator(%s) failed\n", ucnv_getName(cnv, &errorCode));
             return;
@@ -1517,7 +1524,6 @@ static void TestAmbiguous()
     if (U_FAILURE(status))
     {
         log_err("Failed to convert the Latin-1 string.\n");
-        free(sjisResult);
         ucnv_close(sjis_cnv);
         ucnv_close(ascii_cnv);
         return;
@@ -1525,8 +1531,6 @@ static void TestAmbiguous()
     if (!ucnv_isAmbiguous(sjis_cnv))
     {
         log_err("SJIS converter should contain ambiguous character mappings.\n");
-        free(sjisResult);
-        free(asciiResult);
         ucnv_close(sjis_cnv);
         ucnv_close(ascii_cnv);
         return;
@@ -3201,7 +3205,7 @@ TestISO_2022_JP() {
         0x0043, 0x0044, 0x0045, 0x0046, 0x0047, 0x0048, 0x0049, 0x004A, 0x000D, 0x000A,
         0x004B, 0x004C, 0x004D, 0x004E, 0x004F, 0x0050, 0x0051, 0x0052, 0x000D, 0x000A,
         0x3005, 0x3006, 0x3007, 0x30FC, 0x2015, 0x2010, 0xFF0F, 0x005C, 0x000D, 0x000A,
-        0x301C, 0x2016, 0x2026, 0x2025, 0x2018, 0x2019, 0x201C, 0x000D, 0x000A,
+        0x3013, 0x2018, 0x2026, 0x2025, 0x2018, 0x2019, 0x201C, 0x000D, 0x000A,
         0x201D, 0x3014, 0x000D, 0x000A,
         0x0053, 0x0054, 0x0055, 0x0056, 0x0057, 0x0058, 0x0059, 0x005A, 0x000D, 0x000A,
         0x0053, 0x0054, 0x0055, 0x0056, 0x0057, 0x0058, 0x0059, 0x005A, 0x000D, 0x000A,
@@ -3729,7 +3733,7 @@ TestISO_2022_JP_1() {
         0x52C8, 0x52CC, 0x52CF, 0x52D1, 0x52D4, 0x52D6, 0x52DB, 0x52DC, 0x000D, 0x000A,
         0x004B, 0x004C, 0x004D, 0x004E, 0x004F, 0x0050, 0x0051, 0x0052, 0x000D, 0x000A,
         0x3005, 0x3006, 0x3007, 0x30FC, 0x2015, 0x2010, 0xFF0F, 0x005C, 0x000D, 0x000A,
-        0x301C, 0x2016, 0x2026, 0x2025, 0x2018, 0x2019, 0x201C, 0x000D, 0x000A,
+        0x3013, 0x2018, 0x2026, 0x2025, 0x2018, 0x2019, 0x201C, 0x000D, 0x000A,
         0x201D, 0x000D, 0x000A,
         0x0053, 0x0054, 0x0055, 0x0056, 0x0057, 0x0058, 0x0059, 0x005A, 0x000D, 0x000A,
         0x4F94, 0x4F97, 0x52BA, 0x52BB, 0x52BD, 0x52C0, 0x52C4, 0x52C6, 0x000D, 0x000A,
@@ -4465,10 +4469,12 @@ typedef struct {
 /* Callback for TestJitterbug6175, should only get called for empty segment errors */
 static void UCNV_TO_U_CALLBACK_EMPTYSEGMENT( const void *context, UConverterToUnicodeArgs *toArgs, const char* codeUnits,
                                              int32_t length, UConverterCallbackReason reason, UErrorCode * err ) {
-    if (reason > UCNV_IRREGULAR)
+    if (reason > UCNV_IRREGULAR) {
         return;
-    if (reason != UCNV_IRREGULAR)
+    }
+    if (reason != UCNV_IRREGULAR) {
         log_err("toUnicode callback invoked for empty segment but reason is not UCNV_IRREGULAR\n");
+    }
     /* Standard stuff below from UCNV_TO_U_CALLBACK_SUBSTITUTE */
     *err = U_ZERO_ERROR;
     ucnv_cbToUWriteSub(toArgs,0,err);
@@ -5275,12 +5281,13 @@ static void TestJitterbug981(){
     int numNeeded=0;
     utf8cnv = ucnv_open ("utf8", &status);
     if(U_FAILURE(status)){
-        log_err("Could not open UTF-8 converter. Error: %s", u_errorName(status));
+        log_err("Could not open UTF-8 converter. Error: %s\n", u_errorName(status));
         return;
     }
     myCollator = ucol_open("zh", &status);
     if(U_FAILURE(status)){
-        log_err("Could not open collator for zh locale. Error: %s", u_errorName(status));
+        log_err("Could not open collator for zh locale. Error: %s\n", u_errorName(status));
+        ucnv_close(utf8cnv);
         return;
     }
 
@@ -5294,13 +5301,14 @@ static void TestJitterbug981(){
         status = U_ZERO_ERROR;
         if(target_cap >= buff_size) {
             log_err("wanted %d bytes, only %d available\n", target_cap, buff_size);
-            return;
+            break;
         }
         bytes_needed = ucnv_fromUChars(utf8cnv, buff, target_cap,
             rules, rules_length, &status);
         target_cap = (bytes_needed > target_cap) ? bytes_needed : target_cap +1;
         if(numNeeded!=0 && numNeeded!= bytes_needed){
             log_err("ucnv_fromUChars returns different values for required capacity in pre-flight and conversion modes");
+            break;
         }
         numNeeded = bytes_needed;
     } while (status == U_BUFFER_OVERFLOW_ERROR);
@@ -5338,4 +5346,92 @@ static void TestJitterbug1293(){
     }
     ucnv_close(conv);
 }
+static void TestJB5275_1(){
 
+    static const char* data = "\x3B\xB3\x0A" /* Easy characters */
+                                "\xC0\xE9\xBF\xE9\xE8\xD8\x0A" /* Gurmukhi test */
+                                /* Switch script: */
+                                "\xEF\x43\xC0\xE9\xBF\xE9\xE8\xD8\x0A" /* Bengali test */
+                                "\x3B\xB3\x0A" /* Easy characters - new line, so should default!*/
+                                "\xEF\x40\x3B\xB3\x0A";
+    static const UChar expected[] ={ 
+            0x003b, 0x0a15, 0x000a, /* Easy characters */
+            0x0a22, 0x0a3c, 0x0a5c, 0x0a4d, 0x0a39, 0x000a, /* Gurmukhi test */
+            0x09dd, 0x09dc, 0x09cd, 0x09b9, 0x000a, /* Switch script: to Bengali*/ 
+            0x003b, 0x0a15, 0x000a, /* Easy characters - new line, so should default!*/
+            0x003b, 0x0a15, 0x000a /* Back to Gurmukhi*/
+    };
+        
+    UErrorCode status = U_ZERO_ERROR;
+    UConverter* conv = ucnv_open("iscii-gur", &status);
+    UChar dest[100] = {'\0'};
+    UChar* target = dest;
+    UChar* targetLimit = dest+100;
+    const char* source = data;
+    const char* sourceLimit = data+strlen(data);
+    const UChar* exp = expected;
+    log_verbose("Testing switching back to default script when new line is encountered.\n");
+    ucnv_toUnicode(conv, &target, targetLimit, &source, sourceLimit, NULL, TRUE, &status);
+    if(U_FAILURE(status)){
+        log_err("conversion failed: %s \n", u_errorName(status));
+    }
+    targetLimit = target;
+    target = dest;
+    printUSeq(target, targetLimit-target);
+    while(target<targetLimit){
+        if(*exp!=*target){
+            log_err("did not get the expected output. \\u%04X != \\u%04X (got)\n", *exp, *target);
+        }
+        target++;
+        exp++;
+    }
+    ucnv_close(conv);
+}
+
+static void TestJB5275(){
+    static const char* data = 
+    /* "\xEF\x42\xEF\x41\xA4\xD5\xE5\xB3\xEA\x0A"  unsupported sequence \xEF\x41 */
+    /* "\xEF\x42\xEF\x41\xD4\xDA\xB3\xE8\xEA\x0A"  unsupported sequence \xEF\x41  */
+    /* "\xEF\x44\xEF\x41\xC8\xE1\x8B\xDB\xB3\xE8 \xB3\xE4\xC1\xE8\x0A"  unsupported sequence \xEF\x41 */
+        "\xEF\x4B\xC0\xE9\xBF\xE9\xE8\xD8\x0A"  /* Gurmukhi test */
+        "\xEF\x4A\xC0\xD4\xBF\xD4\xE8\xD8\x0A"  /* Gujarati test */
+        "\xEF\x48\x38\xB3\x0A"  /* Kannada test */
+        "\xEF\x49\x39\xB3\x0A"  /* Malayalam test */
+        "\xEF\x4A\x3A\xB3\x0A"  /* Gujarati test */
+        "\xEF\x4B\x3B\xB3\x0A"  /* Punjabi test */
+        /* "\xEF\x4C\x3C\xB3\x0A"  unsupported sequence \xEF\x41 */;
+    static const UChar expected[] ={ 
+        0x0A22, 0x0A3C, 0x0A5C, 0x0A4D, 0x0A39, 0x000A, /* Gurmukhi test */
+        0x0AA2, 0x0AB5, 0x0AA1, 0x0AB5, 0x0ACD, 0x0AB9, 0x000A,     /* Gujarati test */
+        0x0038, 0x0C95, 0x000A, /* Kannada test */
+        0x0039, 0x0D15, 0x000A, /* Malayalam test */
+        0x003A, 0x0A95, 0x000A, /* Gujarati test */
+        0x003B, 0x0A15, 0x000A, /* Punjabi test */
+    };
+        
+    UErrorCode status = U_ZERO_ERROR;
+    UConverter* conv = ucnv_open("iscii", &status);
+    UChar dest[100] = {'\0'};
+    UChar* target = dest;
+    UChar* targetLimit = dest+100;
+    const char* source = data;
+    const char* sourceLimit = data+strlen(data);
+    const UChar* exp = expected;
+    ucnv_toUnicode(conv, &target, targetLimit, &source, sourceLimit, NULL, TRUE, &status);
+    if(U_FAILURE(status)){
+        log_err("conversion failed: %s \n", u_errorName(status));
+    }
+    targetLimit = target;
+    target = dest;
+
+    printUSeq(target, targetLimit-target);
+    
+    while(target<targetLimit){
+        if(*exp!=*target){
+            log_err("did not get the expected output. \\u%04X != \\u%04X (got)\n", *exp, *target);
+        }
+        target++;
+        exp++;
+    }
+    ucnv_close(conv);
+}

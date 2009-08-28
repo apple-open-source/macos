@@ -1,5 +1,4 @@
 // { dg-do assemble  }
-// APPLE LOCAL mainline
 // { dg-options "-Wconversion" }
 
 // Copyright (C) 2000 Free Software Foundation, Inc.
@@ -33,15 +32,15 @@ void fn ()
   int j2 (3.5f);    // { dg-warning "" } float to int
 
   int k2 = 3.5f;    // { dg-warning "" } float to int
-  
+
   j2 = 3.5f;        // { dg-warning "" } float to int
-  
+
   foo (3.5f);       // { dg-warning "" } float to int
-  
+
   wibble (3.5f);    // { dg-warning "" } float to int
   wibble (1, 3.5f); // { dg-warning "" } float to int
   wibble (3.5f, 1); // { dg-warning "" } float to int
-  
+
   punk ();          // { dg-warning "" } float to int
   rock (1);         // { dg-warning "" } float to int
 }
@@ -58,13 +57,13 @@ void foo ()
   int j2 (-1);
 
   int k2 = -1;
-  
+
   j2 = -1;
-  
+
   foo (-1);
-  
-  wibble (-1);   
+
+  wibble (-1);
   wibble (1, -1);
   wibble (-1, 1);
-  
+
 }

@@ -1,0 +1,80 @@
+# $Id: SortedComposite.xotcl,v 1.4 2005/09/09 21:09:01 neumann Exp $
+
+package provide xotcl::pattern::sortedCompositeWithAfter 0.9
+package require XOTcl
+
+namespace eval ::xotcl::pattern::sortedCompositeWithAfter {
+    namespace import ::xotcl::*
+
+    Class SortedComposite -superclass Class
+
+    @ @File {
+	description {
+	    Composite pattern enhanced with sorting 
+	}
+    }
+
+    SortedComposite instproc remove {array element} {
+	if {[my exists ${array}($element)]} {
+	    my unset ${array}($element)
+	}
+    }
+
+    SortedComposite instproc addOperations args {
+	foreach pair $args {
+	    foreach {proc op} $pair {my set operations($proc) $op}
+	}
+    } 
+
+    SortedComposite instproc removeOperations args {
+	foreach op $args {my remove operations $op}
+    }
+
+    SortedComposite instproc addAfterOperations args {
+	foreach pair $args {
+	    foreach {proc op} $pair {my set afterOperations($proc) $op}
+	}
+    } 
+    SortedComposite instproc removeAfterOperations args {
+	foreach op $args {my remove afterOperations $op}
+    }
+
+    SortedComposite instproc compositeFilter args {
+	set registrationclass [lindex [self filterreg] 0]
+	set r [self calledproc]
+	set result [next]
+	if {[$registrationclass exists operations($r)] && [my exists children]} {
+	    set method [$registrationclass set operations($r)]
+	    foreach object [my set children] {
+		eval [self]::$object $method $args
+	    }
+	}
+	if {[$registrationclass exists afterOperations($r)]} {
+	    eval my [$registrationclass set afterOperations($r)] $args
+	}
+	set result
+    }
+
+    SortedComposite instproc init args {
+	my array set operations {}
+	my array set afterOperations {}
+
+	my instproc setChildren args {
+	    switch [llength $args] {
+		0 { return [my set children] }
+		1 { return [my set children [lindex $args 0]] }
+		default {error "wrong # args: [self] setChildren ?children?"}
+	    }
+	}
+	my instproc appendChildren args {
+	    eval my lappend children $args
+	}
+
+	next
+	my instfilter add compositeFilter 
+    }
+
+    namespace export SortedComposite
+}
+
+namespace import ::xotcl::pattern::sortedCompositeWithAfter::*

@@ -1,11 +1,9 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1996-2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 1996,2007 Oracle.  All rights reserved.
 #
-# $Id: txn003.tcl,v 1.2 2004/03/30 01:24:09 jtownsen Exp $
+# $Id: txn003.tcl,v 12.9 2007/05/17 18:17:21 bostic Exp $
 #
-
 # TEST	txn003
 # TEST	Test abort/commit/prepare of txns with outstanding child txns.
 proc txn003 { {tnum "003"} } {
@@ -41,7 +39,7 @@ proc txn003 { {tnum "003"} } {
 	set newdata this_is_new_data
 	set newdata2 some_other_new_data
 
-	error_check_good db_put [$db put -auto_commit $key $origdata] 0
+	error_check_good db_put [$db put $key $origdata] 0
 	error_check_good dbclose [$db close] 0
 
 	set db [eval {berkdb_open} $oflags]
@@ -124,13 +122,6 @@ proc txn003 { {tnum "003"} } {
 		error_check_good env_close [$env close] 0
 	}
 
-	# We can't do the attempted child discard on Windows
-	# because it will leave open files that can't be removed.
-	# Skip the remainder of the test for Windows.
-	if { $is_windows_test == 1 } {
-		puts "Skipping remainder of test for Windows"
-		return
-	}
 	puts "\tTxn$tnum.g: Attempt child prepare"
 	set env [eval $env_cmd]
 	error_check_good dbenv [is_valid_env $env] TRUE
@@ -220,11 +211,12 @@ proc txn003_body { env_cmd testfile dir key newdata2 msg op } {
 		    [is_substr $ret "transaction already prepared"] 1
 		error_check_good txn:prep_abort [$txn abort] 0
 	} elseif { $op == "begin" } {
-		set stat [catch {$env txn} ret]
-		error_check_good begin_error $stat 1
-		error_check_good begin_err \
-		    [is_substr $ret "not yet committed transactions is incomplete"] 1
-		error_check_good txn:prep_abort [$txn abort] 0
+		# As of the 4.6 release, we allow new txns to be created
+		# while prepared but not committed txns exist, so this
+		# should succeed.
+		set txn2 [$env txn]
+		error_check_good txn:begin_abort [$txn abort] 0
+		error_check_good txn2:begin_abort [$txn2 abort] 0
 	} else {
 		error_check_good txn:$op [$txn $op] 0
 	}

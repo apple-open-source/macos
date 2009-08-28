@@ -1,0 +1,30 @@
+2007-08-23  Daniel Steffen  <das@users.sourceforge.net>
+
+	* osxMacTcl.c:		fix warnings.
+	* tclMacOSA_OSX.c:
+
+2007-08-18  Daniel Steffen  <das@users.sourceforge.net>
+
+	* Makefile.in:			update to TEA 3.6; check if Carbon is
+	* configure.in:			present; strip 64bit arch flags;
+	* pkgIndex.tcl (removed):	remove unused/commented out bits.
+	* pkgIndex.tcl.in (new file):
+	* tclconfig/ChangeLog:
+	* tclconfig/tcl.m4:
+
+	* TclAS_CarbonMachO.pch:	      	 move #defines of USE_TCL_STUBS
+	* TclAppleScript.pbproj/project.pbxproj: & TclAS_USE_FRAMEWORK_INCLUDES
+	to project as they are incorrect for TEA.
+
+	* configure: autoconf-2.59
+
+2005-06-24  Andreas Kupries <andreask@activestate.com>
+
+	* aclocal.m4: Added buildsystem based on TEA 3.2.
+	* configure:
+	* configure.in:
+	* Makefile.in:
+	* tclconfig/ChangeLog:
+	* tclconfig/README.txt:
+	* tclconfig/install-sh:
+	* tclconfig/tcl.m4:

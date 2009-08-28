@@ -1,13 +1,17 @@
 # This file contains a list of the compilers that distcc will allow to be remotely invoked.
 # One compiler per line, newline separated, no whitespace allowed.
 
-# All paths not beginning with a '/' are relative to the exectuable directory. Those
-# beginning with a '/' are considered absolute paths.
+# Entries beginning with '/' are treated as the absolute path to a compiler.
+# Other entires are relative. Normally, they will be relative to the parent directory of the tool (e.g. /usr/bin/distcc will map 'bin/cc' to /usr/bin/cc), unless the tool environment has USE_XCODE_SELECT_PATH=1, in which case they will be relative to the xcode-select(1) usr dir (e.g. 'bin/cc' becomes `xcode-select --print-path`/usr/bin/cc). USE_XCODE_SELECT_PATH is intended to allow distccd to use the developer toolchain out of the current developer directory.
 
 bin/gcc
 bin/cc
-bin/gcc-3.3
+/usr/bin/gcc-3.3
 bin/gcc-4.0
 bin/g++
-bin/g++-3.3
+/usr/bin/g++-3.3
 bin/g++-4.0
+bin/gcc-4.2
+bin/g++-4.2
+bin/llvm-gcc-4.2
+bin/llvm-g++-4.2

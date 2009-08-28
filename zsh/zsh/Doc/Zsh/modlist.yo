@@ -18,6 +18,9 @@ item(tt(zsh/computil))(
 A module with utility builtins needed for the shell function based
 completion system.
 )
+item(tt(zsh/curses))(
+curses windowing commands
+)
 item(tt(zsh/datetime))(
 Some date/time commands and parameters.
 )
@@ -44,6 +47,9 @@ Access to internal hash tables via special associative arrays.
 )
 item(tt(zsh/pcre))(
 Interface to the PCRE library.
+)
+item(tt(zsh/regex))(
+Interface to the POSIX regex library.
 )
 item(tt(zsh/sched))(
 A builtin that provides a timed execution facility within the shell.
@@ -105,10 +111,13 @@ includefile(Zsh/mod_complete.yo)
 texinode(The zsh/complist Module)(The zsh/computil Module)(The zsh/complete Module)(Zsh Modules)
 sect(The zsh/complist Module)
 includefile(Zsh/mod_complist.yo)
-texinode(The zsh/computil Module)(The zsh/datetime Module)(The zsh/complist Module)(Zsh Modules)
+texinode(The zsh/computil Module)(The zsh/curses Module)(The zsh/complist Module)(Zsh Modules)
 sect(The zsh/computil Module)
 includefile(Zsh/mod_computil.yo)
-texinode(The zsh/datetime Module)(The zsh/deltochar Module)(The zsh/computil Module)(Zsh Modules)
+texinode(The zsh/curses Module)(The zsh/datetime Module)(The zsh/computil Module)(Zsh Modules)
+sect(The zsh/curses Module)
+includefile(Zsh/mod_curses.yo)
+texinode(The zsh/datetime Module)(The zsh/deltochar Module)(The zsh/curses Module)(Zsh Modules)
 sect(The zsh/datetime Module)
 includefile(Zsh/mod_datetime.yo)
 texinode(The zsh/deltochar Module)(The zsh/example Module)(The zsh/datetime Module)(Zsh Modules)
@@ -132,10 +141,13 @@ includefile(Zsh/mod_newuser.yo)
 texinode(The zsh/parameter Module)(The zsh/pcre Module)(The zsh/newuser Module)(Zsh Modules)
 sect(The zsh/parameter Module)
 includefile(Zsh/mod_parameter.yo)
-texinode(The zsh/pcre Module)(The zsh/sched Module)(The zsh/parameter Module)(Zsh Modules)
+texinode(The zsh/pcre Module)(The zsh/regex Module)(The zsh/parameter Module)(Zsh Modules)
 sect(The zsh/pcre Module)
 includefile(Zsh/mod_pcre.yo)
-texinode(The zsh/sched Module)(The zsh/net/socket Module)(The zsh/pcre Module)(Zsh Modules)
+texinode(The zsh/regex Module)(The zsh/sched Module)(The zsh/pcre Module)(Zsh Modules)
+sect(The zsh/regex Module)
+includefile(Zsh/mod_regex.yo)
+texinode(The zsh/sched Module)(The zsh/net/socket Module)(The zsh/regex Module)(Zsh Modules)
 sect(The zsh/sched Module)
 includefile(Zsh/mod_sched.yo)
 texinode(The zsh/net/socket Module)(The zsh/stat Module)(The zsh/sched Module)(Zsh Modules)

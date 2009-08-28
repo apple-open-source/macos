@@ -110,8 +110,8 @@ class CLDAPv3Plugin : public BaseDirectoryPlugin
 		tDirStatus			SetAttributeValueForDN		( sLDAPContextData *pContext,
 															char *inDN,
 															const char *inRecordType,
-															char *inAttrType,
-															char **inValues );
+															const char *inAttrType,
+															const char **inValues );
 
 		SInt32				TryPWSPasswordSet			( tDirNodeReference inNodeRef,
 															UInt32 inAuthMethodCode,
@@ -446,7 +446,7 @@ class CLDAPv3Plugin : public BaseDirectoryPlugin
 		
 		CFMutableArrayRef   GetLDAPAttributeFromResult  ( LDAP *pLD, 
 															LDAPMessage *pMessage, 
-															char *pAttribute );
+															const char *pAttribute );
 
 		CFStringRef			GetServerInfoFromConfig		( CFDictionaryRef inDict,
 															char **outServer,
@@ -525,7 +525,7 @@ class CLDAPv3Plugin : public BaseDirectoryPlugin
 		char*				GetPWSIDforRecord			(	sLDAPContextData	*pContext,
 															const char			*inRecName,
 															const char			*inRecType );
-		tDirStatus			CheckAutomountNames			( char				*inRecType,
+		tDirStatus			CheckAutomountNames			( const char		   *inRecType,
 															char			  **inAttrValues,
 															char			 ***outValues,
 															char			 ***outMaps,

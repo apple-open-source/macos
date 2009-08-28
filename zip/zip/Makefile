@@ -1,9 +1,10 @@
 PROJECT		= zip
-VERSION		= 2.32
-DISTFILE	= $(PROJECT)$(shell echo $(VERSION)  | tr -d '.').tar.gz
+VERSION		= 3.0
+DIST		= $(PROJECT)$(shell echo $(VERSION)  | tr -d '.')
+DISTFILE	= $(DIST).zip
 
 OSLICENSES	= /usr/local/OpenSourceLicenses
-PATCHFILES	= 
+PATCHFILES	= patch-Apple
 
 SRCROOT		?= $(shell pwd)
 OBJROOT		?= $(SRCROOT)/obj
@@ -23,35 +24,34 @@ installhdrs:
 clean:
 	rm -rf $(SYMROOT) $(OBJROOT)
 
-install: destroot manpages ossinfo
+install: destroot symbols manpages ossinfo
 
 installsrc:
 	pax -rw . $(SRCROOT)
 
-destroot: unpacksrc
-	$(MAKE) -C $(OBJROOT)/$(PROJECT)-$(VERSION) \
+destroot: patchsrc unpacksrc
+	$(MAKE) -C $(OBJROOT)/$(DIST) \
 		-f unix/Makefile generic install \
 		prefix=$(DSTROOT)/usr \
-		MANDIR=$(DSTROOT)/usr/share/man/'man$$(manext)' \
-		LOCAL_ZIP="-Os -mdynamic-no-pic $(RC_CFLAGS)" BIND="$(CC) $(RC_CFLAGS)" \
-		CC="$(CC) -fno-builtin -x c"  INSTALL="$(INSTALL)" DESTDIR=$(DSTROOT)
+		MANDIR=$(DSTROOT)/usr/share/man/man1 \
+		LOCAL_ZIP="-DLARGE_FILE_SUPPORT -Wall -Os -g -mdynamic-no-pic $(RC_CFLAGS)" BIND="$(CC) $(RC_CFLAGS)" \
+		CC="$(CC)"  INSTALL_PROGRAM="$(INSTALL) -s" DESTDIR=$(DSTROOT) LFLAGS2=
 
 manpages: destroot
-	mkdir -p $(DSTROOT)/usr/share/man
-	$(LN) $(DSTROOT)/usr/share/man/man1/zip.1 $(DSTROOT)/usr/share/man/man1/zipcloak.1
-	$(LN) $(DSTROOT)/usr/share/man/man1/zip.1 $(DSTROOT)/usr/share/man/man1/zipnote.1
-	$(LN) $(DSTROOT)/usr/share/man/man1/zip.1 $(DSTROOT)/usr/share/man/man1/zipsplit.1
 	$(COMPRESSMANPAGES) /usr/share/man
+
+symbols:
+	$(CP) $(OBJROOT)/$(DIST)/zip $(SYMROOT)
 
 ossinfo: unpacksrc
 	$(MKDIR) $(DSTROOT)/$(OSLICENSES)
-	$(INSTALL_FILE) $(OBJROOT)/$(PROJECT)-$(VERSION)/LICENSE $(DSTROOT)/$(OSLICENSES)/$(PROJECT).txt
+	$(INSTALL_FILE) $(OBJROOT)/$(DIST)/LICENSE $(DSTROOT)/$(OSLICENSES)/$(PROJECT).txt
 
 unpacksrc:
-	mkdir -p $(OBJROOT)
-	tar zxvf $(SRCROOT)/$(DISTFILE) -C $(OBJROOT)
+	cd $(OBJROOT); unzip $(SRCROOT)/$(DISTFILE)
+	> $(OBJROOT)/$(DIST)/flags
 
-patch_source_local: install_source_local
+patchsrc: unpacksrc
 	for p in $(PATCHFILES); do						\
-		cd $(BuildDirectory) && patch -f -p1 --posix < $(SRCROOT)/$${p};	\
+		cd $(OBJROOT)/$(DIST) && patch -f -p1 --posix < $(SRCROOT)/$${p} || exit 1;	\
 	done

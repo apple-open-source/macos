@@ -363,7 +363,7 @@ bool CSSParser::parseMediaQuery(MediaList* queries, const String& string)
 
 void CSSParser::addProperty(int propId, PassRefPtr<CSSValue> value, bool important)
 {
-    CSSProperty* prop = new CSSProperty(propId, value, important, m_currentShorthand, m_implicitShorthand);
+    auto_ptr<CSSProperty> prop(new CSSProperty(propId, value, important, m_currentShorthand, m_implicitShorthand));
     if (m_numParsedProperties >= m_maxParsedProperties) {
         m_maxParsedProperties += 32;
         if (m_maxParsedProperties > UINT_MAX / sizeof(CSSProperty*))
@@ -371,7 +371,7 @@ void CSSParser::addProperty(int propId, PassRefPtr<CSSValue> value, bool importa
         m_parsedProperties = static_cast<CSSProperty**>(fastRealloc(m_parsedProperties,
                                                        m_maxParsedProperties * sizeof(CSSProperty*)));
     }
-    m_parsedProperties[m_numParsedProperties++] = prop;
+    m_parsedProperties[m_numParsedProperties++] = prop.release();
 }
 
 void CSSParser::rollbackLastProperties(int num)
@@ -1317,7 +1317,8 @@ bool CSSParser::parseValue(int propId, bool important)
         if (id == CSSValueNone)
             valid_primitive = true;
         else {
-            if (validUnit(value, FNumber|FNonNeg, m_strict)) {
+            // Accepting valueless numbers is a quirk of the -webkit prefixed version of the property.
+            if (validUnit(value, FNumber|FLength|FNonNeg, m_strict)) {
                 RefPtr<CSSValue> val = CSSPrimitiveValue::create(value->fValue, (CSSPrimitiveValue::UnitTypes)value->unit);
                 if (val) {
                     addProperty(propId, val.release(), important);
@@ -2007,20 +2008,9 @@ bool CSSParser::parseContent(int propId, bool important)
             if (!args)
                 return false;
             if (equalIgnoringCase(val->function->name, "attr(")) {
-                if (args->size() != 1)
+                parsedValue = parseAttr(args);
+                if (!parsedValue)
                     return false;
-                CSSParserValue* a = args->current();
-                if (a->unit != CSSPrimitiveValue::CSS_IDENT)
-                    return false;
-                String attrName = a->string;
-                // CSS allows identifiers with "-" at the start, like "-webkit-mask-image".
-                // But HTML attribute names can't have those characters, and we should not
-                // even parse them inside attr().
-                if (attrName[0] == '-')
-                    return false;
-                if (document()->isHTMLDocument())
-                    attrName = attrName.lower();
-                parsedValue = CSSPrimitiveValue::create(attrName, CSSPrimitiveValue::CSS_ATTR);
             } else if (equalIgnoringCase(val->function->name, "counter(")) {
                 parsedValue = parseCounterContent(args, false);
                 if (!parsedValue)
@@ -2059,6 +2049,29 @@ bool CSSParser::parseContent(int propId, bool important)
     }
 
     return false;
+}
+
+PassRefPtr<CSSValue> CSSParser::parseAttr(CSSParserValueList* args)
+{
+    if (args->size() != 1)
+        return 0;
+
+    CSSParserValue* a = args->current();
+
+    if (a->unit != CSSPrimitiveValue::CSS_IDENT)
+        return 0;
+
+    String attrName = a->string;
+    // CSS allows identifiers with "-" at the start, like "-webkit-mask-image".
+    // But HTML attribute names can't have those characters, and we should not
+    // even parse them inside attr().
+    if (attrName[0] == '-')
+        return 0;
+
+    if (document()->isHTMLDocument())
+        attrName = attrName.lower();
+    
+    return CSSPrimitiveValue::create(attrName, CSSPrimitiveValue::CSS_ATTR);
 }
 
 PassRefPtr<CSSValue> CSSParser::parseBackgroundColor()

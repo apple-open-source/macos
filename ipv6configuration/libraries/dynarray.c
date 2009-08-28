@@ -1,22 +1,23 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -53,9 +54,9 @@ dynarray_free(dynarray_t * list)
     void *	element;
 
     while (ptrlist_remove(&list->list, 0, &element)) {
-        if (element && list->free_func) {
-            (list->free_func)(element);
-        }
+	if (element && list->free_func) {
+	    (list->free_func)(element);
+	}
     }
     ptrlist_free(&list->list);
     return;
@@ -97,12 +98,12 @@ dynarray_dup(dynarray_t * dest, dynarray_t * source)
     ptrlist_init(&dest->list);
 
     for (i = 0; i < ptrlist_count(&source->list); i++) {
-        void * element = ptrlist_element(&source->list, i);
-    
-        if (element && dest->copy_func) {
-            element = (*dest->copy_func)(element);
-        }
-        ptrlist_add(&dest->list, element);
+	void * element = ptrlist_element(&source->list, i);
+
+	if (element && dest->copy_func) {
+	    element = (*dest->copy_func)(element);
+	}
+	ptrlist_add(&dest->list, element);
     }
     return (TRUE);
 }

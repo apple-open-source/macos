@@ -1,10 +1,5 @@
-Index: hash.c
-===================================================================
-RCS file: /cvs/root/Libc/db/hash/FreeBSD/hash.c,v
-retrieving revision 1.3
-diff -u -d -b -w -p -u -r1.3 hash.c
---- hash.c	2004/11/25 19:37:57	1.3
-+++ hash.c	2004/12/10 20:34:43
+--- hash.c.orig	2008-09-07 11:37:54.000000000 -0700
++++ hash.c	2008-09-07 12:42:15.000000000 -0700
 @@ -58,7 +58,7 @@ __FBSDID("$FreeBSD: src/lib/libc/db/hash
  #include <db.h>
  #include "hash.h"
@@ -24,3 +19,12 @@ diff -u -d -b -w -p -u -r1.3 hash.c
  	}
  
  	if (!(hashp = (HTAB *)calloc(1, sizeof(HTAB))))
+@@ -722,7 +721,7 @@ found:
+ 			return (ERROR);
+ 		break;
+ 	default:
+-		abort();
++		LIBC_ABORT("illegal action (%d)", action);
+ 	}
+ 	save_bufp->flags &= ~BUF_PIN;
+ 	return (SUCCESS);

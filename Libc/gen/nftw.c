@@ -33,6 +33,7 @@ static const char rcsid[] = "$OpenBSD: nftw.c,v 1.2 2003/07/21 21:15:32 millert 
 #include <ftw.h>
 #include <limits.h>
 #include <fcntl.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 

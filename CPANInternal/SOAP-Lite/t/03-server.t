@@ -171,22 +171,16 @@ my $package = '
 
   foreach (keys %tests) {
     my $result = SOAP::Deserializer->deserialize($server->handle($tests{$_}));
-    if ($_ =~ /XML/ || $is_mimetools_installed) {
-      ok( ($result->faultstring || '') =~ /Failed to access class \(Calculator\)/ );
-    } else {
-      skip($reason => undef);
-    }
+    skip(($_ =~ /XML/ || !$is_mimetools_installed),
+	 ($result->faultstring || '') =~ /Failed to access class \(Calculator\)/);
   }
 
   eval $package or die;
 
   foreach (keys %tests) {
     my $result = SOAP::Deserializer->deserialize($server->handle($tests{$_}));
-    if ($_ =~ /XML/ || $is_mimetools_installed) {
-      ok(($result->result || 0) == 7);
-    } else {
-      skip($reason => undef);
-    }
+    skip(($_ =~ /XML/ || !$is_mimetools_installed),
+	 ($result->result || 0) == 7);
   }
 }
 

@@ -41,8 +41,8 @@ FBSDHDRS= collate.h ldpart.h lmessages.h lmonetary.h lnumeric.h \
 .for _cwd in ${CWD}
 AUTOPATCHSRCS+= ${_cwd}/utf2-fbsd.c
 ${_cwd}/utf2-fbsd.c: ${_cwd}/FreeBSD/utf8.c
-	cp ${.ALLSRC} ${.TARGET}
-	patch ${.TARGET} ${.ALLSRC:S/utf8/utf2/}.patch
+	${CP} ${.ALLSRC} ${.TARGET}
+	${PATCH} ${.TARGET} ${.ALLSRC:S/utf8/utf2/}.patch
 .endfor # _cwd
 
 .else # !autopatch
@@ -58,26 +58,31 @@ MISRCS += lconv.c
 
 LEGACYSRCS += wcsftime.c
 
+CFLAGS-collate-fbsd.c += -D_DARWIN_UNLIMITED_STREAMS
+CFLAGS-setrunelocale-fbsd.c += -D_DARWIN_UNLIMITED_STREAMS
+
 # set the LIBC_ALIAS_* macros so we can decorate the symbol independent
 # of other macro settings
 CFLAGS-wcsftime-fbsd.c += -DLIBC_ALIAS_WCSFTIME -DLIBC_ALIAS_WCSFTIME_L
 
+# For LP64, we need to create rune32.h
+# This happens at installsrc time, not build time, so the compiler we need
+# is HOSTCC.
 .ifmake autopatch
-# for LP64, we need to create rune32.h
-# the following is good enough for ppc, ppc64, i386 and x86_64
 
 # This .for statement forces evaluation of ${CWD}
 .for _cwd in ${CWD}
-_ARCH != arch
+# The following is good enough for ppc, ppc64, i386 and x86_64
+_ARCH != ${ARCH}
 .if $(_ARCH) == x86_64
 ARCH32 = i386
 .else
 ARCH32 = $(_ARCH:C/64$//)
 .endif
 ${_cwd}/rune32.h: ${_cwd}/rune-fbsd.c
-	${CC} -arch ${ARCH32} -D_LIBC_NO_FEATURE_VERIFICATION -I${.CURDIR}/include -DRUNEOFF32 -o ${_cwd}/rune32 ${.ALLSRC}
+	${HOSTCC} -arch ${ARCH32} -D_LIBC_NO_FEATURE_VERIFICATION -I${.CURDIR}/include -DRUNEOFF32 -o ${_cwd}/rune32 ${.ALLSRC}
 	${_cwd}/rune32 > ${.TARGET}
-	rm -f ${_cwd}/rune32
+	${RM} ${_cwd}/rune32
 AUTOPATCHHDRS+= ${_cwd}/rune32.h
 .endfor # _cwd
 

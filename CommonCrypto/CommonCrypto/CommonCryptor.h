@@ -141,7 +141,8 @@ enum {
 	kCCAlgorithmDES,		
 	kCCAlgorithm3DES,		
 	kCCAlgorithmCAST,		
-	kCCAlgorithmRC4		
+	kCCAlgorithmRC4,
+	kCCAlgorithmRC2		
 };
 typedef uint32_t CCAlgorithm;
 
@@ -189,7 +190,9 @@ enum {
 	kCCKeySizeMinCAST	= 5,
 	kCCKeySizeMaxCAST	= 16,
 	kCCKeySizeMinRC4	= 1,
-	kCCKeySizeMaxRC4	= 512
+	kCCKeySizeMaxRC4	= 512,
+	kCCKeySizeMinRC2	= 1,
+	kCCKeySizeMaxRC2	= 128
 };
 
 /*!
@@ -212,6 +215,7 @@ enum {
 	kCCBlockSize3DES	= 8,
 	/* CAST */
 	kCCBlockSizeCAST	= 8,
+	kCCBlockSizeRC2		= 8,
 };
 
 /*!
@@ -238,7 +242,7 @@ enum {
 	@constant kCCContextSizeRC4			Minimum context size for kCCAlgorithmRC4.
 */
 enum {
-	kCCContextSizeAES128	= 368,
+	kCCContextSizeAES128	= 404,
 	kCCContextSizeDES		= 240,
 	kCCContextSize3DES		= 496,
 	kCCContextSizeCAST		= 240,

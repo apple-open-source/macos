@@ -32,8 +32,16 @@
 #include "PutPropertySlot.h"
 #include "ScopeChain.h"
 #include "Structure.h"
+#include "JSGlobalData.h"
 
 namespace JSC {
+
+    inline JSCell* getJSFunction(JSGlobalData& globalData, JSValue value)
+    {
+        if (value.isCell() && (value.asCell()->vptr() == globalData.jsFunctionVPtr))
+            return value.asCell();
+        return 0;
+    }
 
     class InternalFunction;
     class PropertyNameArray;
@@ -49,6 +57,8 @@ namespace JSC {
         DontEnum     = 1 << 2,  // property doesn't appear in (for .. in ..)
         DontDelete   = 1 << 3,  // property can't be deleted
         Function     = 1 << 4,  // property is a function - only used by static hashtables
+        Getter       = 1 << 5,  // property is a getter
+        Setter       = 1 << 6   // property is a setter
     };
 
     typedef EncodedJSValue* PropertyStorage;
@@ -76,9 +86,6 @@ namespace JSC {
         void setStructure(PassRefPtr<Structure>);
         Structure* inheritorID();
 
-        ConstPropertyStorage propertyStorage() const { return (isUsingInlineStorage() ? m_inlineStorage : m_externalStorage); }
-        PropertyStorage propertyStorage() { return (isUsingInlineStorage() ? m_inlineStorage : m_externalStorage); }
-
         virtual UString className() const;
 
         JSValue get(ExecState*, const Identifier& propertyName) const;
@@ -93,6 +100,7 @@ namespace JSC {
         virtual void put(ExecState*, const Identifier& propertyName, JSValue value, PutPropertySlot&);
         virtual void put(ExecState*, unsigned propertyName, JSValue value);
 
+        virtual void putWithAttributes(ExecState*, const Identifier& propertyName, JSValue value, unsigned attributes, bool checkReadOnly, PutPropertySlot& slot);
         virtual void putWithAttributes(ExecState*, const Identifier& propertyName, JSValue value, unsigned attributes);
         virtual void putWithAttributes(ExecState*, unsigned propertyName, JSValue value, unsigned attributes);
 
@@ -122,17 +130,13 @@ namespace JSC {
         virtual JSObject* unwrappedObject();
 
         virtual bool getPropertyAttributes(ExecState*, const Identifier& propertyName, unsigned& attributes) const;
+        bool getPropertySpecificValue(ExecState* exec, const Identifier& propertyName, JSCell*& specificFunction) const;
 
         // This get function only looks at the property map.
         JSValue getDirect(const Identifier& propertyName) const
         {
             size_t offset = m_structure->get(propertyName);
             return offset != WTF::notFound ? getDirectOffset(offset) : JSValue();
-        }
-
-        size_t getOffset(const Identifier& propertyName)
-        {
-            return m_structure->get(propertyName);
         }
 
         JSValue* getDirectLocation(const Identifier& propertyName)
@@ -143,7 +147,8 @@ namespace JSC {
 
         JSValue* getDirectLocation(const Identifier& propertyName, unsigned& attributes)
         {
-            size_t offset = m_structure->get(propertyName, attributes);
+            JSCell* specificFunction;
+            size_t offset = m_structure->get(propertyName, attributes, specificFunction);
             return offset != WTF::notFound ? locationForOffset(offset) : 0;
         }
 
@@ -152,26 +157,21 @@ namespace JSC {
             return location - reinterpret_cast<const JSValue*>(propertyStorage());
         }
 
-        const JSValue* locationForOffset(size_t offset) const
-        {
-            return reinterpret_cast<const JSValue*>(&propertyStorage()[offset]);
-        }
-
-        JSValue* locationForOffset(size_t offset)
-        {
-            return reinterpret_cast<JSValue*>(&propertyStorage()[offset]);
-        }
-
         void transitionTo(Structure*);
 
         void removeDirect(const Identifier& propertyName);
         bool hasCustomProperties() { return !m_structure->isEmpty(); }
         bool hasGetterSetterProperties() { return m_structure->hasGetterSetterProperties(); }
 
-        void putDirect(const Identifier& propertyName, JSValue value, unsigned attr = 0);
         void putDirect(const Identifier& propertyName, JSValue value, unsigned attr, bool checkReadOnly, PutPropertySlot& slot);
+        void putDirect(const Identifier& propertyName, JSValue value, unsigned attr = 0);
+
+        void putDirectFunction(const Identifier& propertyName, JSCell* value, unsigned attr = 0);
+        void putDirectFunction(const Identifier& propertyName, JSCell* value, unsigned attr, bool checkReadOnly, PutPropertySlot& slot);
         void putDirectFunction(ExecState* exec, InternalFunction* function, unsigned attr = 0);
+
         void putDirectWithoutTransition(const Identifier& propertyName, JSValue value, unsigned attr = 0);
+        void putDirectFunctionWithoutTransition(const Identifier& propertyName, JSCell* value, unsigned attr = 0);
         void putDirectFunctionWithoutTransition(ExecState* exec, InternalFunction* function, unsigned attr = 0);
 
         // Fast access to known property offsets.
@@ -203,10 +203,24 @@ namespace JSC {
             return Structure::create(prototype, TypeInfo(ObjectType, HasStandardGetOwnPropertySlot));
         }
 
-    protected:
-        bool getOwnPropertySlotForWrite(ExecState*, const Identifier&, PropertySlot&, bool& slotIsWriteable);
-
     private:
+        ConstPropertyStorage propertyStorage() const { return (isUsingInlineStorage() ? m_inlineStorage : m_externalStorage); }
+        PropertyStorage propertyStorage() { return (isUsingInlineStorage() ? m_inlineStorage : m_externalStorage); }
+
+        const JSValue* locationForOffset(size_t offset) const
+        {
+            return reinterpret_cast<const JSValue*>(&propertyStorage()[offset]);
+        }
+
+        JSValue* locationForOffset(size_t offset)
+        {
+            return reinterpret_cast<JSValue*>(&propertyStorage()[offset]);
+        }
+
+        void putDirectInternal(const Identifier& propertyName, JSValue value, unsigned attr, bool checkReadOnly, PutPropertySlot& slot, JSCell*);
+        void putDirectInternal(JSGlobalData&, const Identifier& propertyName, JSValue value, unsigned attr, bool checkReadOnly, PutPropertySlot& slot);
+        void putDirectInternal(JSGlobalData&, const Identifier& propertyName, JSValue value, unsigned attr = 0);
+
         bool inlineGetOwnPropertySlot(ExecState*, const Identifier& propertyName, PropertySlot&);
 
         const HashEntry* findPropertyHashEntry(ExecState*, const Identifier& propertyName) const;
@@ -311,30 +325,6 @@ ALWAYS_INLINE bool JSObject::inlineGetOwnPropertySlot(ExecState* exec, const Ide
     return false;
 }
 
-ALWAYS_INLINE bool JSObject::getOwnPropertySlotForWrite(ExecState* exec, const Identifier& propertyName, PropertySlot& slot, bool& slotIsWriteable)
-{
-    unsigned attributes;
-    if (JSValue* location = getDirectLocation(propertyName, attributes)) {
-        if (m_structure->hasGetterSetterProperties() && location[0].isGetterSetter()) {
-            slotIsWriteable = false;
-            fillGetterPropertySlot(slot, location);
-        } else {
-            slotIsWriteable = !(attributes & ReadOnly);
-            slot.setValueSlot(this, location, offsetForLocation(location));
-        }
-        return true;
-    }
-
-    // non-standard Netscape extension
-    if (propertyName == exec->propertyNames().underscoreProto) {
-        slot.setValue(prototype());
-        slotIsWriteable = false;
-        return true;
-    }
-
-    return false;
-}
-
 // It may seem crazy to inline a function this large, especially a virtual function,
 // but it makes a big difference to property lookup that derived classes can inline their
 // base class call to this.
@@ -396,10 +386,96 @@ inline JSValue JSObject::get(ExecState* exec, unsigned propertyName) const
     return jsUndefined();
 }
 
-inline void JSObject::putDirect(const Identifier& propertyName, JSValue value, unsigned attr)
+inline void JSObject::putDirectInternal(const Identifier& propertyName, JSValue value, unsigned attributes, bool checkReadOnly, PutPropertySlot& slot, JSCell* specificFunction)
+{
+    ASSERT(value);
+    ASSERT(!Heap::heap(value) || Heap::heap(value) == Heap::heap(this));
+
+    if (m_structure->isDictionary()) {
+        unsigned currentAttributes;
+        JSCell* currentSpecificFunction;
+        size_t offset = m_structure->get(propertyName, currentAttributes, currentSpecificFunction);
+        if (offset != WTF::notFound) {
+            if (currentSpecificFunction && (specificFunction != currentSpecificFunction))
+                m_structure->despecifyDictionaryFunction(propertyName);
+            if (checkReadOnly && currentAttributes & ReadOnly)
+                return;
+            putDirectOffset(offset, value);
+            if (!specificFunction && !currentSpecificFunction)
+                slot.setExistingProperty(this, offset);
+            return;
+        }
+
+        size_t currentCapacity = m_structure->propertyStorageCapacity();
+        offset = m_structure->addPropertyWithoutTransition(propertyName, attributes, specificFunction);
+        if (currentCapacity != m_structure->propertyStorageCapacity())
+            allocatePropertyStorage(currentCapacity, m_structure->propertyStorageCapacity());
+
+        ASSERT(offset < m_structure->propertyStorageCapacity());
+        putDirectOffset(offset, value);
+        // See comment on setNewProperty call below.
+        if (!specificFunction)
+            slot.setNewProperty(this, offset);
+        return;
+    }
+
+    size_t offset;
+    size_t currentCapacity = m_structure->propertyStorageCapacity();
+    if (RefPtr<Structure> structure = Structure::addPropertyTransitionToExistingStructure(m_structure, propertyName, attributes, specificFunction, offset)) {    
+        if (currentCapacity != structure->propertyStorageCapacity())
+            allocatePropertyStorage(currentCapacity, structure->propertyStorageCapacity());
+
+        ASSERT(offset < structure->propertyStorageCapacity());
+        setStructure(structure.release());
+        putDirectOffset(offset, value);
+        // See comment on setNewProperty call below.
+        if (!specificFunction)
+            slot.setNewProperty(this, offset);
+        return;
+    }
+
+    unsigned currentAttributes;
+    JSCell* currentSpecificFunction;
+    offset = m_structure->get(propertyName, currentAttributes, currentSpecificFunction);
+    if (offset != WTF::notFound) {
+        if (checkReadOnly && currentAttributes & ReadOnly)
+            return;
+
+        if (currentSpecificFunction && (specificFunction != currentSpecificFunction)) {
+            setStructure(Structure::despecifyFunctionTransition(m_structure, propertyName));
+            putDirectOffset(offset, value);
+            // Function transitions are not currently cachable, so leave the slot in an uncachable state.
+            return;
+        }
+        putDirectOffset(offset, value);
+        slot.setExistingProperty(this, offset);
+        return;
+    }
+
+    RefPtr<Structure> structure = Structure::addPropertyTransition(m_structure, propertyName, attributes, specificFunction, offset);
+    if (currentCapacity != structure->propertyStorageCapacity())
+        allocatePropertyStorage(currentCapacity, structure->propertyStorageCapacity());
+
+    ASSERT(offset < structure->propertyStorageCapacity());
+    setStructure(structure.release());
+    putDirectOffset(offset, value);
+    // Function transitions are not currently cachable, so leave the slot in an uncachable state.
+    if (!specificFunction)
+        slot.setNewProperty(this, offset);
+}
+
+inline void JSObject::putDirectInternal(JSGlobalData& globalData, const Identifier& propertyName, JSValue value, unsigned attributes, bool checkReadOnly, PutPropertySlot& slot)
+{
+    ASSERT(value);
+    ASSERT(!Heap::heap(value) || Heap::heap(value) == Heap::heap(this));
+
+    putDirectInternal(propertyName, value, attributes, checkReadOnly, slot, getJSFunction(globalData, value));
+}
+
+inline void JSObject::putDirectInternal(JSGlobalData& globalData, const Identifier& propertyName, JSValue value, unsigned attributes)
 {
     PutPropertySlot slot;
-    putDirect(propertyName, value, attr, false, slot);
+    putDirectInternal(propertyName, value, attributes, false, slot, getJSFunction(globalData, value));
 }
 
 inline void JSObject::putDirect(const Identifier& propertyName, JSValue value, unsigned attributes, bool checkReadOnly, PutPropertySlot& slot)
@@ -407,67 +483,39 @@ inline void JSObject::putDirect(const Identifier& propertyName, JSValue value, u
     ASSERT(value);
     ASSERT(!Heap::heap(value) || Heap::heap(value) == Heap::heap(this));
 
-    if (m_structure->isDictionary()) {
-        unsigned currentAttributes;
-        size_t offset = m_structure->get(propertyName, currentAttributes);
-        if (offset != WTF::notFound) {
-            if (checkReadOnly && currentAttributes & ReadOnly)
-                return;
-            putDirectOffset(offset, value);
-            slot.setExistingProperty(this, offset);
-            return;
-        }
+    putDirectInternal(propertyName, value, attributes, checkReadOnly, slot, 0);
+}
 
-        size_t currentCapacity = m_structure->propertyStorageCapacity();
-        offset = m_structure->addPropertyWithoutTransition(propertyName, attributes);
-        if (currentCapacity != m_structure->propertyStorageCapacity())
-            allocatePropertyStorage(currentCapacity, m_structure->propertyStorageCapacity());
+inline void JSObject::putDirect(const Identifier& propertyName, JSValue value, unsigned attributes)
+{
+    PutPropertySlot slot;
+    putDirectInternal(propertyName, value, attributes, false, slot, 0);
+}
 
-        ASSERT(offset < m_structure->propertyStorageCapacity());
-        putDirectOffset(offset, value);
-        slot.setNewProperty(this, offset);
-        return;
-    }
+inline void JSObject::putDirectFunction(const Identifier& propertyName, JSCell* value, unsigned attributes, bool checkReadOnly, PutPropertySlot& slot)
+{
+    putDirectInternal(propertyName, value, attributes, checkReadOnly, slot, value);
+}
 
-    size_t offset;
-    size_t currentCapacity = m_structure->propertyStorageCapacity();
-    if (RefPtr<Structure> structure = Structure::addPropertyTransitionToExistingStructure(m_structure, propertyName, attributes, offset)) {
-        if (currentCapacity != structure->propertyStorageCapacity())
-            allocatePropertyStorage(currentCapacity, structure->propertyStorageCapacity());
-
-        ASSERT(offset < structure->propertyStorageCapacity());
-        setStructure(structure.release());
-        putDirectOffset(offset, value);
-        slot.setNewProperty(this, offset);
-        slot.setWasTransition(true);
-        return;
-    }
-
-    unsigned currentAttributes;
-    offset = m_structure->get(propertyName, currentAttributes);
-    if (offset != WTF::notFound) {
-        if (checkReadOnly && currentAttributes & ReadOnly)
-            return;
-        putDirectOffset(offset, value);
-        slot.setExistingProperty(this, offset);
-        return;
-    }
-
-    RefPtr<Structure> structure = Structure::addPropertyTransition(m_structure, propertyName, attributes, offset);
-    if (currentCapacity != structure->propertyStorageCapacity())
-        allocatePropertyStorage(currentCapacity, structure->propertyStorageCapacity());
-
-    ASSERT(offset < structure->propertyStorageCapacity());
-    setStructure(structure.release());
-    putDirectOffset(offset, value);
-    slot.setNewProperty(this, offset);
-    slot.setWasTransition(true);
+inline void JSObject::putDirectFunction(const Identifier& propertyName, JSCell* value, unsigned attr)
+{
+    PutPropertySlot slot;
+    putDirectInternal(propertyName, value, attr, false, slot, value);
 }
 
 inline void JSObject::putDirectWithoutTransition(const Identifier& propertyName, JSValue value, unsigned attributes)
 {
     size_t currentCapacity = m_structure->propertyStorageCapacity();
-    size_t offset = m_structure->addPropertyWithoutTransition(propertyName, attributes);
+    size_t offset = m_structure->addPropertyWithoutTransition(propertyName, attributes, 0);
+    if (currentCapacity != m_structure->propertyStorageCapacity())
+        allocatePropertyStorage(currentCapacity, m_structure->propertyStorageCapacity());
+    putDirectOffset(offset, value);
+}
+
+inline void JSObject::putDirectFunctionWithoutTransition(const Identifier& propertyName, JSCell* value, unsigned attributes)
+{
+    size_t currentCapacity = m_structure->propertyStorageCapacity();
+    size_t offset = m_structure->addPropertyWithoutTransition(propertyName, attributes, value);
     if (currentCapacity != m_structure->propertyStorageCapacity())
         allocatePropertyStorage(currentCapacity, m_structure->propertyStorageCapacity());
     putDirectOffset(offset, value);

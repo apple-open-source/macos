@@ -24,6 +24,7 @@
 #include "punycode.h"
 #include "ustr_imp.h"
 #include "cmemory.h"
+#include "uassert.h"
 #include "sprpimpl.h"
 
 /* it is official IDNA ACE Prefix is "xn--" */
@@ -31,15 +32,19 @@ static const UChar ACE_PREFIX[] ={ 0x0078,0x006E,0x002d,0x002d } ;
 #define ACE_PREFIX_LENGTH 4
 
 #define MAX_LABEL_LENGTH 63
-#define HYPHEN      0x002D
-/* The Max length of the labels should not be more than 64 */
-#define MAX_LABEL_BUFFER_SIZE 100 
-#define MAX_IDN_BUFFER_SIZE   300
+/* The Max length of the labels should not be more than MAX_LABEL_LENGTH */
+#define MAX_LABEL_BUFFER_SIZE 100
 
+#define MAX_DOMAIN_NAME_LENGTH 255
+/* The Max length of the domain names should not be more than MAX_DOMAIN_NAME_LENGTH */
+#define MAX_IDN_BUFFER_SIZE   MAX_DOMAIN_NAME_LENGTH+1
+
+#define LOWER_CASE_DELTA 0x0020
+#define HYPHEN           0x002D
+#define FULL_STOP        0x002E
 #define CAPITAL_A        0x0041
 #define CAPITAL_Z        0x005A
-#define LOWER_CASE_DELTA 0x0020
-#define FULL_STOP        0x002E
+
 #define DATA_FILE_NAME   "uidna"
 
 inline static UChar 
@@ -139,9 +144,8 @@ static inline UBool isLabelSeparator(UChar ch){
 // if *limit == separator then the length returned does not include 
 // the separtor.
 static inline int32_t
-getNextSeparator(UChar *src,int32_t srcLength,
-                 UChar **limit,
-                 UBool *done){
+getNextSeparator(UChar *src, int32_t srcLength,
+                 UChar **limit, UBool *done){
     if(srcLength == -1){
         int32_t i;
         for(i=0 ; ;i++){
@@ -194,8 +198,10 @@ _internal_toASCII(const UChar* src, int32_t srcLength,
                   int32_t options,
                   UStringPrepProfile* nameprep,
                   UParseError* parseError,
-                  UErrorCode* status){
+                  UErrorCode* status)
+{
 
+    // TODO Revisit buffer handling. The label should not be over 63 ASCII characters. ICU4J may need to be updated too.
     UChar b1Stack[MAX_LABEL_BUFFER_SIZE], b2Stack[MAX_LABEL_BUFFER_SIZE];
     //initialize pointers to stack buffers
     UChar  *b1 = b1Stack, *b2 = b2Stack;
@@ -369,7 +375,7 @@ _internal_toASCII(const UChar* src, int32_t srcLength,
             goto CLEANUP;
         }
     }
-    // step 8: verify the length of lable
+    // step 8: verify the length of label
     if(reqLength > MAX_LABEL_LENGTH){
         *status = U_IDNA_LABEL_TOO_LONG_ERROR;
     }
@@ -392,12 +398,14 @@ _internal_toUnicode(const UChar* src, int32_t srcLength,
                     int32_t options,
                     UStringPrepProfile* nameprep,
                     UParseError* parseError,
-                    UErrorCode* status){
+                    UErrorCode* status)
+{
 
     //get the options
-    UBool useSTD3ASCIIRules = (UBool)((options & UIDNA_USE_STD3_RULES) != 0);
+    //UBool useSTD3ASCIIRules = (UBool)((options & UIDNA_USE_STD3_RULES) != 0);
     int32_t namePrepOptions = ((options & UIDNA_ALLOW_UNASSIGNED) != 0) ? USPREP_ALLOW_UNASSIGNED: 0; 
-    
+
+    // TODO Revisit buffer handling. The label should not be over 63 ASCII characters. ICU4J may need to be updated too.
     UChar b1Stack[MAX_LABEL_BUFFER_SIZE], b2Stack[MAX_LABEL_BUFFER_SIZE], b3Stack[MAX_LABEL_BUFFER_SIZE];
 
     //initialize pointers to stack buffers
@@ -412,8 +420,8 @@ _internal_toUnicode(const UChar* src, int32_t srcLength,
     UBool* caseFlags = NULL;
 
     UBool srcIsASCII = TRUE;
-    UBool srcIsLDH = TRUE;
-    int32_t failPos =0;
+    /*UBool srcIsLDH = TRUE;
+    int32_t failPos =0;*/
 
     // step 1: find out if all the codepoints in src are ASCII  
     if(srcLength==-1){
@@ -421,31 +429,31 @@ _internal_toUnicode(const UChar* src, int32_t srcLength,
         for(;src[srcLength]!=0;){
             if(src[srcLength]> 0x7f){
                 srcIsASCII = FALSE;
-            }else if(isLDHChar(src[srcLength])==FALSE){
+            }/*else if(isLDHChar(src[srcLength])==FALSE){
                 // here we do not assemble surrogates
                 // since we know that LDH code points
                 // are in the ASCII range only
                 srcIsLDH = FALSE;
                 failPos = srcLength;
-            }
+            }*/
             srcLength++;
         }
     }else if(srcLength > 0){
         for(int32_t j=0; j<srcLength; j++){
             if(src[j]> 0x7f){
                 srcIsASCII = FALSE;
-            }else if(isLDHChar(src[j])==FALSE){
+            }/*else if(isLDHChar(src[j])==FALSE){
                 // here we do not assemble surrogates
                 // since we know that LDH code points
                 // are in the ASCII range only
                 srcIsLDH = FALSE;
                 failPos = j;
-            }
+            }*/
         }
     }else{
         return 0;
     }
-
+    
     if(srcIsASCII == FALSE){
         // step 2: process the string
         b1Len = usprep_prepare(nameprep, src, srcLength, b1, b1Capacity, namePrepOptions, parseError, status);
@@ -473,16 +481,22 @@ _internal_toUnicode(const UChar* src, int32_t srcLength,
         b1Len = srcLength;
     }
 
+    // The RFC states that 
+    // <quote>
+    // ToUnicode never fails. If any step fails, then the original input
+    // is returned immediately in that step.
+    // </quote>
+
     //step 3: verify ACE Prefix
-    if(startsWithPrefix(src,srcLength)){
-       
+    if(startsWithPrefix(b1,b1Len)){
+
         //step 4: Remove the ACE Prefix
         b1Prime = b1 + ACE_PREFIX_LENGTH;
         b1PrimeLen  = b1Len - ACE_PREFIX_LENGTH;
 
         //step 5: Decode using punycode
         b2Len = u_strFromPunycode(b1Prime, b1PrimeLen, b2, b2Capacity, caseFlags,status);
-        
+
         if(*status == U_BUFFER_OVERFLOW_ERROR){
             // redo processing of string
             /* we do not have enough room so grow the buffer*/
@@ -493,14 +507,14 @@ _internal_toUnicode(const UChar* src, int32_t srcLength,
             }
 
             *status = U_ZERO_ERROR; // reset error
-            
+
             b2Len =  u_strFromPunycode(b1Prime, b1PrimeLen, b2, b2Len, caseFlags, status);
-            
         }
-        
+
+
         //step 6:Apply toASCII
-        b3Len = uidna_toASCII(b2, b2Len, b3, b3Capacity,options,parseError, status);
-        
+        b3Len = uidna_toASCII(b2, b2Len, b3, b3Capacity, options, parseError, status);
+
         if(*status == U_BUFFER_OVERFLOW_ERROR){
             // redo processing of string
             /* we do not have enough room so grow the buffer*/
@@ -511,11 +525,10 @@ _internal_toUnicode(const UChar* src, int32_t srcLength,
             }
 
             *status = U_ZERO_ERROR; // reset error
-            
+
             b3Len =  uidna_toASCII(b2,b2Len,b3,b3Len,options,parseError, status);
-        
+
         }
-        
         //bail out on error
         if(U_FAILURE(*status)){
             goto CLEANUP;
@@ -523,7 +536,8 @@ _internal_toUnicode(const UChar* src, int32_t srcLength,
 
         //step 7: verify
         if(compareCaseInsensitiveASCII(b1, b1Len, b3, b3Len) !=0){
-            *status = U_IDNA_VERIFICATION_ERROR; 
+            // Cause the original to be returned.
+            *status = U_IDNA_VERIFICATION_ERROR;
             goto CLEANUP;
         }
 
@@ -532,14 +546,16 @@ _internal_toUnicode(const UChar* src, int32_t srcLength,
         if(b2Len <= destCapacity) {
             uprv_memmove(dest, b2, b2Len * U_SIZEOF_UCHAR);
         }
-    }else{
+    }
+    else{
+        // See the start of this if statement for why this is commented out.
         // verify that STD3 ASCII rules are satisfied
-        if(useSTD3ASCIIRules == TRUE){
-            if( srcIsLDH == FALSE /* source contains some non-LDH characters */
+        /*if(useSTD3ASCIIRules == TRUE){
+            if( srcIsLDH == FALSE // source contains some non-LDH characters
                 || src[0] ==  HYPHEN || src[srcLength-1] == HYPHEN){
                 *status = U_IDNA_STD3_ASCII_RULES_ERROR;
 
-                /* populate the parseError struct */
+                // populate the parseError struct
                 if(srcIsLDH==FALSE){
                     // failPos is always set the index of failure
                     uprv_syntaxError(src,failPos, srcLength,parseError);
@@ -553,13 +569,15 @@ _internal_toUnicode(const UChar* src, int32_t srcLength,
 
                 goto CLEANUP;
             }
-        }
+        }*/
+        // just return the source
         //copy the source to destination
         if(srcLength <= destCapacity){
             uprv_memmove(dest,src,srcLength * U_SIZEOF_UCHAR);
         }
         reqLength = srcLength;
     }
+
 
 CLEANUP:
 
@@ -570,8 +588,7 @@ CLEANUP:
         uprv_free(b2);
     }
     uprv_free(caseFlags);
-    
-   
+
     // The RFC states that 
     // <quote>
     // ToUnicode never fails. If any step fails, then the original input
@@ -581,13 +598,12 @@ CLEANUP:
     if(U_FAILURE(*status)){
         //copy the source to destination
         if(dest && srcLength <= destCapacity){
-          if(srcLength == -1) {
-            uprv_memmove(dest,src,u_strlen(src)* U_SIZEOF_UCHAR);
-          } else {
+            // srcLength should have already been set earlier.
+            U_ASSERT(srcLength >= 0);
             uprv_memmove(dest,src,srcLength * U_SIZEOF_UCHAR);
-          }
         }
         reqLength = srcLength;
+        *status = U_ZERO_ERROR;
     }
 
     return u_terminateUChars(dest, destCapacity, reqLength, status);
@@ -636,7 +652,7 @@ uidna_toUnicode(const UChar* src, int32_t srcLength,
         *status = U_ILLEGAL_ARGUMENT_ERROR;
         return 0;
     }  
-    
+
     UStringPrepProfile* nameprep = usprep_open(NULL, DATA_FILE_NAME, status);
     
     if(U_FAILURE(*status)){
@@ -716,6 +732,7 @@ uidna_IDNToASCII(  const UChar *src, int32_t srcLength,
             // should never occur
             remainingDestCapacity = 0;
         }
+
         if(done == TRUE){
             break;
         }
@@ -725,7 +742,7 @@ uidna_IDNToASCII(  const UChar *src, int32_t srcLength,
             *currentDest++ = FULL_STOP;
             remainingDestCapacity--;
         }
-        reqLength++;           
+        reqLength++;
 
         labelStart = delimiter;
         if(remainingLen >0 ){
@@ -733,7 +750,11 @@ uidna_IDNToASCII(  const UChar *src, int32_t srcLength,
         }
 
     }
-   
+
+    if(reqLength > MAX_DOMAIN_NAME_LENGTH){
+        *status = U_IDNA_DOMAIN_NAME_TOO_LONG_ERROR;
+    }
+
     usprep_close(nameprep);
     
     return u_terminateUChars(dest, destCapacity, reqLength, status);
@@ -771,26 +792,31 @@ uidna_IDNToUnicode(  const UChar* src, int32_t srcLength,
     int32_t labelLen = 0, labelReqLength = 0;
     UBool done = FALSE;
 
-
     for(;;){
 
         labelLen = getNextSeparator(labelStart,remainingLen, &delimiter,&done);
         
-        if(labelLen==0 && done==FALSE){ 
+        // The RFC states that 
+        // <quote>
+        // ToUnicode never fails. If any step fails, then the original input
+        // is returned immediately in that step.
+        // </quote>
+        // _internal_toUnicode will copy the label.
+        /*if(labelLen==0 && done==FALSE){ 
             *status = U_IDNA_ZERO_LENGTH_LABEL_ERROR;
-        }
+            break;
+        }*/
+        
         labelReqLength = _internal_toUnicode(labelStart, labelLen, 
                                              currentDest, remainingDestCapacity, 
                                              options, nameprep, 
                                              parseError, status);
 
         if(*status == U_BUFFER_OVERFLOW_ERROR){
-            
             *status = U_ZERO_ERROR; // reset error
             remainingDestCapacity = 0;
         }
 
-    
         if(U_FAILURE(*status)){
             break;
         }
@@ -810,11 +836,12 @@ uidna_IDNToUnicode(  const UChar* src, int32_t srcLength,
         }
 
         // add the label separator
+        // Unlike the ToASCII operation we don't normalize the label separators
         if(remainingDestCapacity > 0){
-            *currentDest++ = FULL_STOP;
+            *currentDest++ = *(labelStart + labelLen);
             remainingDestCapacity--;
         }
-        reqLength++;           
+        reqLength++;
 
         labelStart = delimiter;
         if(remainingLen >0 ){
@@ -822,7 +849,11 @@ uidna_IDNToUnicode(  const UChar* src, int32_t srcLength,
         }
 
     }
-   
+
+    if(reqLength > MAX_DOMAIN_NAME_LENGTH){
+        *status = U_IDNA_DOMAIN_NAME_TOO_LONG_ERROR;
+    }
+
     usprep_close(nameprep);
     
     return u_terminateUChars(dest, destCapacity, reqLength, status);

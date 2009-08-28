@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -69,7 +69,23 @@
 
 /* End System headers */
 
-#define APR_FILE_BUFSIZE 4096
+#define APR_FILE_DEFAULT_BUFSIZE 4096
+/* For backwards compat */
+#define APR_FILE_BUFSIZE APR_FILE_DEFAULT_BUFSIZE
+
+#if APR_HAS_THREADS
+#define file_lock(f)   do { \
+                           if ((f)->thlock) \
+                               apr_thread_mutex_lock((f)->thlock); \
+                       } while (0)
+#define file_unlock(f) do { \
+                           if ((f)->thlock) \
+                               apr_thread_mutex_unlock((f)->thlock); \
+                       } while (0)
+#else
+#define file_lock(f)   do {} while (0)
+#define file_unlock(f) do {} while (0)
+#endif
 
 #if APR_HAS_LARGE_FILES
 #define lseek(f,o,w) lseek64(f,o,w)
@@ -95,7 +111,8 @@ struct apr_file_t {
 
     /* Stuff for buffered mode */
     char *buffer;
-    int bufpos;               /* Read/Write position in buffer */
+    apr_size_t bufpos;    /* Read/Write position in buffer */
+    apr_size_t bufsize;   /* The buffer size */
     apr_off_t dataRead;   /* amount of valid data read into buffer */
     int direction;            /* buffer being used for 0 = read, 1 = write */
     apr_off_t filePtr;    /* position in file of handle */
@@ -146,6 +163,11 @@ apr_status_t filepath_has_drive(const char *rootpath, int only, apr_pool_t *p);
 apr_status_t filepath_compare_drive(const char *path1, const char *path2, apr_pool_t *p);
 
 apr_status_t apr_unix_file_cleanup(void *);
+apr_status_t apr_unix_child_file_cleanup(void *);
+
+apr_status_t apr_file_flush_locked(apr_file_t *thefile);
+apr_status_t apr_file_info_get_locked(apr_finfo_t *finfo, apr_int32_t wanted,
+                                      apr_file_t *thefile);
 
 #endif  /* ! FILE_IO_H */
 

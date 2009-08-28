@@ -91,7 +91,7 @@ static int acsp_plugin_init_type(acsp_ext *ext, int type_index);
 // acsp_init_plugins
 //------------------------------------------------------------
 void
-acsp_init_plugins(void *arg, int phase)
+acsp_init_plugins(void *arg, uintptr_t phase)
 {
     acsp_ext	*ext;
     int		i, option_count;
@@ -502,8 +502,8 @@ extern int route_gateway(int cmd, struct in_addr dest, struct in_addr mask, stru
 //
 // funtion prototypes
 //
-static void acsp_plugin_ip_up(void *arg, int phase);
-static void acsp_plugin_ip_down(void *arg, int phase);
+static void acsp_plugin_ip_up(void *arg, uintptr_t phase);
+static void acsp_plugin_ip_down(void *arg, uintptr_t phase);
 static void acsp_plugin_install_config(acsp_plugin_context *context);
 static void acsp_plugin_remove_config(acsp_plugin_context *context);
 static void acsp_plugin_read_routes(CFPropertyListRef serverRef);
@@ -539,9 +539,9 @@ static void acsp_plugin_check_options(void)
     SCPreferencesRef 	prefs;
     CFPropertyListRef	ref; 
     CFStringRef		idRef;
-    u_char 		sopt[32];
+    char			sopt[32];
     CFTypeRef		dictRef;
-    CFStringRef		string, key;
+    CFStringRef		key;
     CFDataRef		strRef;
     CFPropertyListRef	servers_list;
 
@@ -1228,7 +1228,7 @@ static void acsp_plugin_clear_list(acsp_plugin_context* context)
 // acsp_ip_up
 //	called when ipcp comes up
 //------------------------------------------------------------
-static void acsp_plugin_ip_up(void *arg, int phase)
+static void acsp_plugin_ip_up(void *arg, uintptr_t phase)
 {
     acsp_plugin_context* context = (acsp_plugin_context*)arg;
     
@@ -1243,7 +1243,7 @@ static void acsp_plugin_ip_up(void *arg, int phase)
 // acsp_ip_down
 //	called when ipcp goes down
 //------------------------------------------------------------
-static void acsp_plugin_ip_down(void *arg, int phase)
+static void acsp_plugin_ip_down(void *arg, uintptr_t phase)
 {
     acsp_plugin_context* context = (acsp_plugin_context*)arg;
     
@@ -1287,6 +1287,9 @@ static void acsp_plugin_remove_config(acsp_plugin_context *context)
 //------------------------------------------------------------
 static void acsp_plugin_add_routes(acsp_route *route)
 {
+	char   route_str[INET_ADDRSTRLEN];
+	char   mask_str[INET_ADDRSTRLEN];
+	char   gateway_str[INET_ADDRSTRLEN];
     struct in_addr	addr;
 	int err;
 
@@ -1318,7 +1321,9 @@ static void acsp_plugin_add_routes(acsp_route *route)
 					//else 
 						err = route_interface(RTM_ADD, route->address, route->mask, IFT_PPP, ifname, 0);
 					if (err == 0) {
-						error("ACSP plugin: error installing private net route\n");
+						error("ACSP plugin: error installing private net route. (%s/%s).",
+							  addr2ascii(AF_INET, &route->address, sizeof(route->address), route_str),
+							  addr2ascii(AF_INET, &route->mask, sizeof(route->mask), mask_str));
 						route->installed = 0;
 					}
 				}
@@ -1327,7 +1332,10 @@ static void acsp_plugin_add_routes(acsp_route *route)
 					cifdefaultroute(0, 0, 0);
 				else {
 					if (route_gateway(RTM_ADD, route->address, route->mask, primary_router, 1) == 0) {
-						error("ACSP plugin: error installing public net route\n");
+						error("ACSP plugin: error installing public net route. (%s/%s -> %s).",
+							  addr2ascii(AF_INET, &route->address, sizeof(route->address), route_str),
+							  addr2ascii(AF_INET, &route->mask, sizeof(route->mask), mask_str),
+							  addr2ascii(AF_INET, &primary_router, sizeof(primary_router), gateway_str));
 						route->installed = 0;
 					}       
 				}
@@ -1343,7 +1351,10 @@ static void acsp_plugin_add_routes(acsp_route *route)
 //------------------------------------------------------------
 static void acsp_plugin_remove_routes(acsp_route *route)
 {
-
+	char   route_str[INET_ADDRSTRLEN];
+	char   mask_str[INET_ADDRSTRLEN];
+	char   gateway_str[INET_ADDRSTRLEN];
+	
     while (route) {
         if (route->installed) {
 			route->installed = 0;
@@ -1352,7 +1363,9 @@ static void acsp_plugin_remove_routes(acsp_route *route)
 					cifdefaultroute(0, 0, 0);
 				else {	
 					if (route_interface(RTM_DELETE, route->address, route->mask, IFT_PPP, ifname, 0) == 0) {
-						error("ACSP plugin: error removing private net route\n");
+						error("ACSP plugin: error removing private net route. (%s/%s).",
+							  addr2ascii(AF_INET, &route->address, sizeof(route->address), route_str),
+							  addr2ascii(AF_INET, &route->mask, sizeof(route->mask), mask_str));
 						route->installed = 1;
 					} 
 				}
@@ -1362,7 +1375,10 @@ static void acsp_plugin_remove_routes(acsp_route *route)
 				}
 				else {	
 					if (route_gateway(RTM_DELETE, route->address, route->mask, primary_router, 0) == 0) {
-						error("ACSP plugin: error removing public net route\n");
+						error("ACSP plugin: error removing public net route. (%s/%s -> %s).",
+							  addr2ascii(AF_INET, &route->address, sizeof(route->address), route_str),
+							  addr2ascii(AF_INET, &route->mask, sizeof(route->mask), mask_str),
+							  addr2ascii(AF_INET, &primary_router, sizeof(primary_router), gateway_str));
 						route->installed = 1;
 					}
 				}
@@ -1508,6 +1524,7 @@ log_dhcp(u_char *pkt, int len, char *text)
 	struct dhcp_packet *packet;
 	u_int32_t masklen, addrlen, addr, mask;
 	char str[2048];
+	char str2[16];
 	
 	/* log only if debug level is super verbose */ 
 	if (debug <= 1)
@@ -1580,13 +1597,17 @@ log_dhcp(u_char *pkt, int len, char *text)
 				dbglog(" dhcp option vendor class id = %s\n", str);
 				break;
 			case DHCP_OPTION_CLIENT_ID:
-				for (i = 0; i < optlen; i++)
-					sprintf(str+strlen(str), "0x%x ", p[i]);
+				for (i = 0; i < optlen; i++) {
+					snprintf(str2, sizeof(str2), "0x%x ", p[i]);
+					strlcat(str, str2, sizeof(str));
+				}
 				dbglog(" dhcp option client id = %s\n", str);
 				break;
 			case DHCP_OPTION_SERVER_ID:
-				for (i = 0; i < optlen; i++)
-					sprintf(str+strlen(str), "0x%x ", p[i]);
+				for (i = 0; i < optlen; i++) {
+					snprintf(str2, sizeof(str2), "0x%x ", p[i]);
+					strlcat(str, str2, sizeof(str));
+				}
 				dbglog(" dhcp option server id = %s\n", str);
 				break;
 			case DHCP_OPTION_LEASE_TIME:
@@ -1619,6 +1640,7 @@ log_dhcp(u_char *pkt, int len, char *text)
 				}
 /*
 				for (i = 0; i < optlen; i++) {
+					// UNSAFE! Don't use sprintf.
 					sprintf(str+strlen(str), "0x%x ", p[i]);
 				}
 				dbglog(" dhcp option parameter static routes = %s \n", str);
@@ -1626,7 +1648,8 @@ log_dhcp(u_char *pkt, int len, char *text)
 				break;
 			case DHCP_OPTION_PARAM_REQUEST_LIST:
 				for (i = 0; i < optlen; i++) {
-					sprintf(str+strlen(str), "0x%x ", p[i]);
+					snprintf(str2, sizeof(str2), "0x%x ", p[i]);
+					strlcat(str, str2, sizeof(str));
 				}
 				dbglog(" dhcp option parameter request list = %s \n", str);
 				break;
@@ -1858,8 +1881,8 @@ acsp_ipdata_input_server(int unit, u_char *pkt, int len, u_int32_t ouraddr, u_in
 						PUTCHAR(0, outp);	// dhcp static route total len
 						opdone = 1;
 					}
-					mask = list->mask.s_addr;					
-					addr = list->address.s_addr & mask;					
+					mask = ntohl(list->mask.s_addr);					
+					addr = ntohl(list->address.s_addr) & mask;					
 				
 					for ( masklen = 32; masklen && (mask& 1) == 0; mask = mask >> 1, masklen--);
 					addrlen = (masklen / 8);
@@ -2214,6 +2237,7 @@ acsp_ipdata_print(pkt, plen, printer, arg)
 	u_int32_t masklen, addrlen, addr, router, mask;
 	char str[2048];
 	u_int32_t cookie;
+	char str2[16];
 
 	packet = (struct dhcp_packet *)pkt;
 
@@ -2250,9 +2274,11 @@ acsp_ipdata_print(pkt, plen, printer, arg)
 		printer(arg, " <gateway address %s>", inet_ntoa(dp->dp_giaddr));
 
 		p = &dp->dp_chaddr[0];
-		sprintf(str, "%02x", p[0]);
-		for (i = 1; i < 16; i++)
-			sprintf(str+strlen(str), ":%02x", p[i]);
+		snprintf(str, sizeof(str), "%02x", p[0]);
+		for (i = 1; i < 16; i++) {
+			snprintf(str2, sizeof(str2), ":%02x", p[i]);
+			strlcat(str, str2, sizeof(str));
+		}
 		printer(arg, " <hardware address %s>",  str);
 		printer(arg, " <server host name \"%s\">", dp->dp_sname);
 		printer(arg, " <boot file name \"%s\">", dp->dp_file);
@@ -2307,15 +2333,19 @@ acsp_ipdata_print(pkt, plen, printer, arg)
 				printer(arg, " <vendor class id \"%s\">",  str);
 				break;
 			case DHCP_OPTION_CLIENT_ID:
-				sprintf(str, "0x");
-				for (i = 0; i < optlen; i++)
-					sprintf(str+strlen(str), "%02x", p[i]);
+				snprintf(str, sizeof(str), "0x");
+				for (i = 0; i < optlen; i++) {
+					snprintf(str2, sizeof(str2), "%02x", p[i]);
+					strlcat(str, str2, sizeof(str));
+				}
 				printer(arg, " <client id %s>",  str);
 				break;
 			case DHCP_OPTION_SERVER_ID:
-				sprintf(str, "0x");
-				for (i = 0; i < optlen; i++)
-					sprintf(str+strlen(str), "%02x", p[i]);
+				snprintf(str, sizeof(str), "0x");
+				for (i = 0; i < optlen; i++) {
+					snprintf(str2, sizeof(str2), "%02x", p[i]);
+					strlcat(str, str2, sizeof(str));
+				}
 				printer(arg, " <server id %s>",  str);
 				break;
 			case DHCP_OPTION_LEASE_TIME:
@@ -2350,7 +2380,8 @@ acsp_ipdata_print(pkt, plen, printer, arg)
 				break;
 			case DHCP_OPTION_PARAM_REQUEST_LIST:
 				for (i = 0; i < optlen; i++) {
-					sprintf(str+strlen(str), " 0x%x", p[i]);
+					snprintf(str2, sizeof(str2), " 0x%x", p[i]);
+					strlcat(str, str2, sizeof(str));
 				}
 				printer(arg, " <parameters =%s>", str);
 				break;
@@ -2369,5 +2400,79 @@ acsp_ipdata_print(pkt, plen, printer, arg)
 		return 0;
 		
 	return plen;
+}
+
+int
+acsp_printpkt(p, plen, printer, arg)
+u_char *p;
+int plen;
+void (*printer) __P((void *, char *, ...));
+void *arg;
+{
+	int               len;
+	u_int16_t         flags;
+	int               slen;
+    u_char           *pstart = p;
+	acsp_packet      *pkt = (acsp_packet *)p;
+    acsp_route_data	 *route_data;
+	uint16_t          route_flags;
+    acsp_domain_data *domain_data;
+	int               domain_name_len;
+	char              addr_str[INET_ADDRSTRLEN];
+	char              mask_str[INET_ADDRSTRLEN];
+	char              domain_name[255 + 1]; // plus null-termination
+
+	if(pkt && plen >= ACSP_HDR_SIZE) {
+		len = ntohs(pkt->len);
+		if (len < ACSP_HDR_SIZE)
+			len = 0;
+		else
+			len -= ACSP_HDR_SIZE;
+
+		flags = ntohs(pkt->flags);
+
+	    if (pkt->type == CI_ROUTES) {
+            route_data = (__typeof__(route_data))pkt->data;
+			ACSP_PRINTPKT_PAYLOAD("CI_ROUTES");
+            while (len >= sizeof(*route_data)) {
+				route_flags = ntohs(route_data->flags);
+                printer(arg, "\n    <route: address %s, mask %s, flags:%s%s>",
+						addr2ascii(AF_INET, &route_data->address, sizeof(route_data->address), addr_str),
+						addr2ascii(AF_INET, &route_data->mask, sizeof(route_data->mask), mask_str),
+						((route_flags & ACSP_ROUTEFLAGS_PRIVATE) != 0)? " PRIVATE" : "",
+						((route_flags & ACSP_ROUTEFLAGS_PUBLIC) != 0)? " PUBLIC" : "");
+                len -= sizeof(*route_data);
+                route_data++;
+            }
+			p = (__typeof__(p))route_data;
+		} else if (pkt->type == CI_DOMAINS) {
+            domain_data = (__typeof__(domain_data))pkt->data;
+			ACSP_PRINTPKT_PAYLOAD("CI_DOMAINS");
+            while (len >= sizeof(*domain_data)) {
+                slen = ntohs(domain_data->len);
+				domain_name_len = MIN(slen, sizeof(domain_name));
+				if (slen) {
+					memcpy(domain_name, domain_data->name, domain_name_len);
+				}
+				domain_name[domain_name_len] = 0;
+				if (domain_data->server) {
+					printer(arg, "\n    <domain: name %s, server %s>",
+							domain_name,
+							addr2ascii(AF_INET, &domain_data->server, sizeof(domain_data->server), addr_str));
+				} else {
+					printer(arg, "\n    <domain: name %s>",
+							domain_name);
+				}
+                len -= (slen + offsetof(__typeof__(*domain_data), name));
+                domain_data = (__typeof__(domain_data))(domain_data->name + slen);
+            }
+			p = (__typeof__(p))domain_data;
+		} else {
+			ACSP_PRINTPKT_PAYLOAD(NULL);
+			p = pkt->data;
+		}
+		return (p - pstart);
+	}
+	return 0;
 }
 

@@ -1,0 +1,10 @@
+set __store_dir__ $dir
+foreach index [glob -nocomplain [file join $dir * pkgIndex.tcl]] {
+  set dir [file dirname $index]
+  #puts subdir=$dir,index=$index
+  source $index
+}
+set dir $__store_dir__
+unset __store_dir__
+
+

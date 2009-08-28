@@ -34,7 +34,7 @@ int tracingcond;
 
 static char *condstr[COND_MOD] = {
     "!", "&&", "||", "==", "!=", "<", ">", "-nt", "-ot", "-ef", "-eq",
-    "-ne", "-lt", "-gt", "-le", "-ge"
+    "-ne", "-lt", "-gt", "-le", "-ge", "=~"
 };
 
 /*
@@ -53,14 +53,14 @@ int
 evalcond(Estate state, char *fromtest)
 {
     struct stat *st;
-    char *left, *right;
+    char *left, *right, *overridename, overridebuf[13];
     Wordcode pcode;
     wordcode code;
     int ctype, htok = 0, ret;
 
  rec:
 
-    left = right = NULL;
+    left = right = overridename = NULL;
     pcode = state->pc++;
     code = *pcode;
     ctype = WC_COND_TYPE(code);
@@ -92,13 +92,24 @@ evalcond(Estate state, char *fromtest)
 	    state->pc = pcode + (WC_COND_SKIP(code) + 1);
 	    return ret;
 	}
+    case COND_REGEX:
+	{
+	    char *modname = isset(REMATCHPCRE) ? "zsh/pcre" : "zsh/regex";
+	    sprintf(overridename = overridebuf, "-%s-match", modname+4);
+	    (void)ensurefeature(modname, "C:", overridename+1);
+	    ctype = COND_MODI;
+	}
+	/*FALLTHROUGH*/
     case COND_MOD:
     case COND_MODI:
 	{
 	    Conddef cd;
-	    char *name = ecgetstr(state, EC_NODUP, NULL), **strs;
+	    char *name = overridename;
+	    char **strs;
 	    int l = WC_COND_SKIP(code);
 
+	    if (name == NULL)
+		name = ecgetstr(state, EC_NODUP, NULL);
 	    if (ctype == COND_MOD)
 		strs = ecgetarr(state, l, EC_DUP, NULL);
 	    else {
@@ -114,7 +125,7 @@ evalcond(Estate state, char *fromtest)
 	    if ((cd = getconddef((ctype == COND_MODI), name + 1, 1))) {
 		if (ctype == COND_MOD &&
 		    (l < cd->min || (cd->max >= 0 && l > cd->max))) {
-		    zwarnnam(fromtest, "unrecognized condition: `%s'", name);
+		    zwarnnam(fromtest, "unknown condition: -%s", name);
 		    return 2;
 		}
 		if (tracingcond)
@@ -124,13 +135,23 @@ evalcond(Estate state, char *fromtest)
 	    else {
 		char *s = strs[0];
 
+		if (overridename) {
+		    /*
+		     * Standard regex function not available: this
+		     * is a hard error.
+		     */
+		    zerrnam(fromtest, "%s not available for regex",
+			     overridename);
+		    return 2;
+		}
+
 		strs[0] = dupstring(name);
 		name = s;
 
 		if (name && name[0] == '-' &&
 		    (cd = getconddef(0, name + 1, 1))) {
 		    if (l < cd->min || (cd->max >= 0 && l > cd->max)) {
-			zwarnnam(fromtest, "unrecognized condition: `%s'",
+			zwarnnam(fromtest, "unknown condition: -%s",
 				 name);
 			return 2;
 		    }
@@ -139,7 +160,8 @@ evalcond(Estate state, char *fromtest)
 		    return !cd->handler(strs, cd->condid);
 		} else {
 		    zwarnnam(fromtest,
-			     "unrecognized condition: `%s'", name);
+			     "unknown condition: -%s",
+			     name ? name : "<null>");
 		}
 	    }
 	    /* module not found, error */
@@ -160,16 +182,16 @@ evalcond(Estate state, char *fromtest)
     }
     if (tracingcond) {
 	if (ctype < COND_MOD) {
-	    char *rt = (char *) right;
-	    if (ctype == COND_STREQ || ctype == COND_STRNEQ) {
-		rt = dupstring(ecrawstr(state->prog, state->pc, NULL));
-		singsub(&rt);
-		untokenize(rt);
-	    }
 	    fputc(' ',xtrerr);
 	    quotedzputs(left, xtrerr);
 	    fprintf(xtrerr, " %s ", condstr[ctype]);
-	    quotedzputs(rt, xtrerr);
+	    if (ctype == COND_STREQ || ctype == COND_STRNEQ) {
+		char *rt = dupstring(ecrawstr(state->prog, state->pc, NULL));
+		singsub(&rt);
+		quote_tokenized_output(rt, xtrerr);
+	    }
+	    else
+		quotedzputs((char *)right, xtrerr);
 	} else {
 	    fprintf(xtrerr, " -%c ", ctype);
 	    quotedzputs(left, xtrerr);
@@ -322,19 +344,39 @@ evalcond(Estate state, char *fromtest)
     case 'G':
 	return !((st = getstat(left)) && st->st_gid == getegid());
     case 'N':
+#if defined(GET_ST_MTIME_NSEC) && defined(GET_ST_ATIME_NSEC)
+	if (!(st = getstat(left)))
+	    return 1;
+        return (st->st_atime == st->st_mtime) ?
+        	GET_ST_ATIME_NSEC(*st) > GET_ST_MTIME_NSEC(*st) :
+        	st->st_atime > st->st_mtime;
+#else
 	return !((st = getstat(left)) && st->st_atime <= st->st_mtime);
+#endif
     case 't':
 	return !isatty(mathevali(left));
     case COND_NT:
     case COND_OT:
 	{
 	    time_t a;
+#ifdef GET_ST_MTIME_NSEC
+	    long nsecs;
+#endif
 
 	    if (!(st = getstat(left)))
 		return 1;
 	    a = st->st_mtime;
+#ifdef GET_ST_MTIME_NSEC
+	    nsecs = GET_ST_MTIME_NSEC(*st);
+#endif
 	    if (!(st = getstat(right)))
 		return 1;
+#ifdef GET_ST_MTIME_NSEC
+	    if (a == st->st_mtime) {
+                return !((ctype == COND_NT) ? nsecs > GET_ST_MTIME_NSEC(*st) :
+                        nsecs < GET_ST_MTIME_NSEC(*st));
+	    }
+#endif
 	    return !((ctype == COND_NT) ? a > st->st_mtime : a < st->st_mtime);
 	}
     case COND_EF:

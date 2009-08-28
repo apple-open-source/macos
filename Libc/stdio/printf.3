@@ -219,6 +219,10 @@ functions
 effectively assume an infinite
 .Fa n .
 .Pp
+For those routines that write to a user-provided character string,
+that string and the format strings should not overlap, as the
+behavior is undefined.
+.Pp
 The format string is composed of zero or more directives:
 ordinary
 .\" multibyte

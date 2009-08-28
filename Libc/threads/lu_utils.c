@@ -40,11 +40,13 @@
 
 mach_port_t _lu_port = MACH_PORT_NULL;
 mach_port_t _ds_port = MACH_PORT_NULL;
+mach_port_t _mbr_port = MACH_PORT_NULL;
 
 static name_t LOOKUP_NAME = "lookup daemon v2";
 
 #ifndef kDSStdMachDSLookupPortName
 #define kDSStdMachDSLookupPortName "com.apple.system.DirectoryService.libinfo_v1"
+#define kDSStdMachDSMembershipPortName "com.apple.system.DirectoryService.membership_v1"
 #endif
 
 mach_port_t
@@ -74,6 +76,7 @@ _lu_fork_child()
 {
 	_lu_port = MACH_PORT_NULL;
 	_ds_port = MACH_PORT_NULL;
+	_mbr_port = MACH_PORT_NULL;
 }
 
 void
@@ -95,9 +98,12 @@ _ds_running(void)
 	kern_return_t status;
 
 	if (_ds_port != MACH_PORT_NULL) return 1;
-	
+
 	status = bootstrap_look_up(bootstrap_port, kDSStdMachDSLookupPortName, &_ds_port);
 	if ((status != BOOTSTRAP_SUCCESS) && (status != BOOTSTRAP_UNKNOWN_SERVICE)) _ds_port = MACH_PORT_NULL;
+
+	status = bootstrap_look_up(bootstrap_port, kDSStdMachDSMembershipPortName, &_mbr_port);
+	if ((status != BOOTSTRAP_SUCCESS) && (status != BOOTSTRAP_UNKNOWN_SERVICE)) _mbr_port = MACH_PORT_NULL;
 
 	return (_ds_port != MACH_PORT_NULL);
 }

@@ -1,0 +1,13 @@
+diff -r -u -N --exclude='*.orig' Python-2.6.1.orig/Lib/urllib.py Python-2.6.1/Lib/urllib.py
+--- Python-2.6.1.orig/Lib/urllib.py	2008-09-21 14:27:51.000000000 -0700
++++ Python-2.6.1/Lib/urllib.py	2009-07-05 14:53:38.000000000 -0700
+@@ -1341,6 +1341,9 @@
+         sc.CFNumberGetValue.restype = c_int32
+         sc.CFRelease.argtypes = [ c_void_p ]
+         sc.CFRelease.restype = None
++        sc.CFArrayGetCount.argtypes = [ c_void_p ]
++        sc.CFArrayGetValueAtIndex.argtypes = [ c_void_p, c_int ]
++        sc.CFArrayGetValueAtIndex.restype = c_void_p
+ 
+     def _CStringFromCFString(sc, value):
+         from ctypes import create_string_buffer

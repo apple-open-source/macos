@@ -179,6 +179,7 @@ BOOL get_domain_group_from_sid(DOM_SID sid, GROUP_MAP *map)
 			fstrcpy( map->comment, "Ordinary Users" );
 			sid_copy( &map->sid, &sid );
 			map->sid_name_use = SID_NAME_DOM_GRP;
+			map->gid = (gid_t)-1;
 			
 			return True;
 		}
@@ -451,7 +452,7 @@ NTSTATUS pdb_default_create_alias(struct pdb_methods *methods,
 		return NT_STATUS_NO_MEMORY;
 	}
 
-	exists = lookup_name(mem_ctx, name, LOOKUP_NAME_ISOLATED,
+	exists = lookup_name(mem_ctx, name, LOOKUP_NAME_LOCAL,
 			     NULL, NULL, &sid, &type);
 	TALLOC_FREE(mem_ctx);
 
@@ -723,12 +724,12 @@ NTSTATUS pdb_create_builtin_alias(uint32 rid)
 		return NT_STATUS_ACCESS_DENIED;
 	}
 
-	DEBUG(10,("Creating alias %s with gid %d\n", name, gid));
+	DEBUG(10,("Creating alias %s with gid %d\n", groupname, gid));
 
 	map.gid = gid;
 	sid_copy(&map.sid, &sid);
 	map.sid_name_use = SID_NAME_ALIAS;
-	fstrcpy(map.nt_name, name);
+	fstrcpy(map.nt_name, groupname);
 	fstrcpy(map.comment, "");
 
 	status = pdb_add_group_mapping_entry(&map);

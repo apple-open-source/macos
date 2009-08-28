@@ -1,0 +1,2 @@
+>>> Find absent record
+<<< done.

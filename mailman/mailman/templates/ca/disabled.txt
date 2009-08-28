@@ -1,23 +1,26 @@
-La seva subscripció a la llista de correus %(listname)s està deshabilitada
-%(reason)s.  No rebrà més missatges d'aquesta llista fins que vostè la re-habiliti.
-Rebrà m%(noticesleft)s més recordatoris com aquest abans de que la seva subscripció
-a la llista sigui esborrada.
+S'ha inhabilitat la vostra subscripciÃ³ a la llista de correu
+%(listname)s 
+%(reason)s.  No rebreu cap missatge d'aquesta llista fins que no torneu
+a habilitar-ne la subscripciÃ³.  Rebreu %(noticesleft)s recordatoris com
+aquest abans que se us cancelÂ·li la subscripciÃ³ a la llista.
 
-Per re-habilitar la seva subscripció, pot senzillament respondre aquest missatge
-(deixant el títol intacte), o visitar la pàgina de confirmació a 
+Si voleu tornar a habilitar la vostra subscripciÃ³, haureu de respondre a
+aquest missatge (sense canviar el camp Assumpte:), o bÃ© anar a la pÃ gina
+de confirmaciÃ³ a
 
     %(confirmurl)s
 
-Pot també visitar la seva pàgina de subscripció a 
+TambÃ© podeu anar a la vostra pÃ gina de subscripciÃ³ a
 
     %(optionsurl)s
 
-En aquesta pàgina, pot canviar vàries opcions d'enviament com la seva adreça d'email
-i si vol compilacions o no.  
-Com a recordatori, la seva clau de pas de subscripció és
+AllÃ­ podreu canviar diverses opcions d'entrega, com ara la vostra adreÃ§a
+electrÃ²nica i el fet de si voleu rebre compilacions de missatges o no. A
+continuaciÃ³ se us mostra la vostra contrasenya com a recordatori
 
     %(password)s
 
-Si té alguna pregunta o algún problema, pot contactar amb el propietari de la llista a
+Per qualsevol dubte o problema, podeu contactar el propietari de la
+llista a
 
     %(owneraddr)s

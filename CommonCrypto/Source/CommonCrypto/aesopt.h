@@ -1,4 +1,13 @@
 /*
+The bulk of this file is from Dr. Brian Gladman's AES implementation, described
+in the comments below.  But some code has been added to select the
+implementation.  See comments below, where UseGladmanAES is defined.  The new
+code does not alter Gladman's AES implementation except to completely include
+or exclude it from compilation.
+
+		-- Eric Postpischil, January 8, 2008.
+
+
  ---------------------------------------------------------------------------
  Copyright (c) 2003, Dr Brian Gladman, Worcester, UK.   All rights reserved.
 
@@ -134,8 +143,35 @@
 #if !defined( _CC_AESOPT_H )
 #define _CC_AESOPT_H
 
+/*	Select which AES implementation to use.  Preprocessor directives decide
+	whether to define UseGladmanAES or UseAESedp or, in the future, other
+	symbols.  Source files for the implementations contain preprocessor
+	directives to compile their code iff the matching symbol is defined.
+
+	The names GladmanAES and AESedp come from the directories containing the
+	source code.  (I prefer putting "AES" first and am tempted to renamed
+	"GladmanAES" to "AESGladman", since this groups directories by algorithm in
+	listings, but I am resisting for the moment.)
+*/
+#if defined __i386__ || defined __x86_64__
+	// On Intel architectures, use AESedp.
+	#define	UseAESedp
+#else
+	// Otherwise, use Gladman AES.
+	#define	UseGladmanAES
+#endif
+
+/*	Suppressing all source in a module would yield an empty module after
+	preprocessing.  GCC allows this, but standard C requires a module to
+	contain at least one external declaration.  So here we make an otherwise
+	unused declaration that generates no object code.
+*/
+#if !defined __ASSEMBLER__
+	typedef char DummyDeclarationToMakeValidC;
+#endif
+
 #include <CommonCrypto/CommonCryptoPriv.h>
-#include "aes.h"
+#include <CommonCrypto/aes.h>
 
 /*  CONFIGURATION - USE OF DEFINES
 

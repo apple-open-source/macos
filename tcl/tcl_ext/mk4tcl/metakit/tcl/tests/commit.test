@@ -1,0 +1,256 @@
+#!/usr/bin/env tclsh
+# %renumber<^\s*test >%
+
+source [file join [file dir [info script]] initests.tcl]
+
+test 0 {} {
+  package require Mk4tcl
+} $version
+
+set f f1.dat
+set g $f.aside
+test 1 {simple commit aside} -body {
+  file delete $f $g
+
+  mk::file open db $f
+  mk::view layout db.a i:I
+  mk::row append db.a i 111
+  mk::row append db.a i 222
+  mk::row append db.a i 333
+  mk::file close db
+
+  mk::file open db $f -readonly
+  mk::file open dba $g
+
+  equal [mk::view size db.a] 3
+  mk::file aside db dba
+  equal [mk::view size db.a] 3
+
+  mk::row append db.a i 444
+  mk::row append db.a i 555
+
+  equal [mk::view size db.a] 5
+  mk::file commit db
+  mk::file commit dba
+  equal [mk::view size db.a] 5
+
+  mk::row append db.a i 666
+  equal [mk::view size db.a] 6
+
+  mk::file rollback db
+  equal [mk::view size db.a] 5
+  mk::file rollback db -full
+  equal [mk::view size db.a] 3
+
+  mk::file close db
+  mk::file close dba
+
+  mk::file open db $f -readonly
+  equal [mk::view size db.a] 3
+
+  equal [mk::get db.a!0 i] 111
+  equal [mk::get db.a!1 i] 222
+  equal [mk::get db.a!2 i] 333
+
+  mk::file open dba $g -readonly
+  mk::file aside db dba
+  equal [mk::view size db.a] 5
+
+  equal [mk::get db.a!0 i] 111
+  equal [mk::get db.a!1 i] 222
+  equal [mk::get db.a!2 i] 333
+  equal [mk::get db.a!3 i] 444
+  equal [mk::get db.a!4 i] 555
+} -cleanup {mk::file close db; mk::file close dba}
+file delete $f $g
+
+set f f2.dat
+set g $f.aside
+test 2 {add view commit aside} -body {
+  file delete $f $g
+
+  mk::file open db $f
+  mk::view layout db.a i:I
+  equal [mk::view layout db.a] i:I
+
+  mk::row append db.a i 111
+  mk::file close db
+
+  mk::file open db $f -readonly
+  mk::file open dba $g
+
+  equal [mk::view size db.a] 1
+  mk::file aside db dba
+  equal [mk::view size db.a] 1
+
+  mk::view layout db.a {i:I j:I}
+  equal [mk::view layout db.a] {i:I j:I}
+
+  equal [mk::get db.a!0] {i 111 j 0}
+
+  mk::set db.a!0 j 222
+
+  mk::file commit db
+  mk::file commit dba
+
+  mk::row append db.a i 333 j 444
+  equal [mk::view size db.a] 2
+
+  mk::file rollback db
+  equal [mk::view layout db.a] {i:I j:I}
+  equal [mk::view size db.a] 1
+  equal [mk::get db.a!0] {i 111 j 222}
+
+  mk::file rollback db -full
+  equal [mk::view layout db.a] i:I
+  equal [mk::view size db.a] 1
+  equal [mk::get db.a!0] {i 111}
+
+  mk::file close db
+  mk::file close dba
+
+  mk::file open db $f -readonly
+  equal [mk::view layout db.a] i:I
+  equal [mk::view size db.a] 1
+  equal [mk::get db.a!0] {i 111}
+
+  mk::file open dba $g -readonly
+  mk::file aside db dba
+  equal [mk::view layout db.a] {i:I j:I}
+  equal [mk::view size db.a] 1
+  equal [mk::get db.a!0] {i 111 j 222}
+} -cleanup {mk::file close db; mk::file close dba}
+file delete $f $g
+
+set f f3.dat
+set g $f.aside
+test 3 {removed view commit aside} -body {
+  file delete $f $g
+
+  mk::file open db $f
+  mk::view layout db.a {i:I j:I}
+  equal [mk::view layout db.a] {i:I j:I}
+
+  mk::row append db.a i 111 j 222
+  mk::file close db
+
+  mk::file open db $f -readonly
+  mk::file open dba $g
+
+  equal [mk::view size db.a] 1
+  mk::file aside db dba
+  equal [mk::view size db.a] 1
+
+  mk::view layout db.a i:I
+  equal [mk::view layout db.a] i:I
+
+    # this may be surprisini, but it is correct behavior:
+    # the j prop is still present as *temporary* property
+  equal [mk::get db.a!0] {i 111 j 222}
+
+  mk::file commit db
+  mk::file commit dba
+
+    # even a commit won't make it go away. because the
+    # commit on db is not a real one, and the commit on
+    # dba is not affecting db (in a non-commit-aside
+    # situation, the j prop would be gone by now)
+  equal [mk::get db.a!0] {i 111 j 222}
+
+  mk::file close db
+  mk::file close dba
+
+  mk::file open db $f -readonly
+  equal [mk::view layout db.a] {i:I j:I}
+  equal [mk::view size db.a] 1
+  equal [mk::get db.a!0] {i 111 j 222}
+
+  mk::file open dba $g -readonly
+  mk::file aside db dba
+  equal [mk::view layout db.a] i:I
+  equal [mk::view size db.a] 1
+
+    # this hows that j was indeed a temporary property
+  equal [mk::get db.a!0] {i 111}
+} -cleanup {mk::file close db; mk::file close dba}
+file delete $f $g
+
+set f f4.dat
+set g $f.a1
+set h $f.a2
+test 4 {stacked commit aside} -body {
+  file delete $f $g $h
+
+  mk::file open db0 $f
+  mk::view layout db0.a i:I
+  mk::row append db0.a i 111
+  mk::file close db0 ;# will autocommit
+
+  mk::file open db0 $f -readonly
+  mk::file open db1 $g
+  mk::file aside db0 db1
+  mk::row append db0.a i 222
+  mk::file commit db0
+  mk::file close db0
+  mk::file close db1 ;# will autocommit
+
+  mk::file open db0 $f -readonly
+  mk::file open db1 $g -readonly
+  mk::file open db2 $h
+  mk::file aside db1 db2
+  mk::file aside db0 db1
+  mk::row append db0.a i 333
+  mk::file commit db0
+  mk::file commit db1
+  mk::file close db0
+  mk::file close db1
+  mk::file close db2 ;# will autocommit
+
+  mk::file open db0 $f -readonly
+  equal [mk::view size db0.a] 1
+  equal [mk::get db0.a!0 i] 111
+  mk::file close db0
+
+  mk::file open db0 $f -readonly
+  mk::file open db1 $g -readonly
+  mk::file aside db0 db1
+  equal [mk::view size db0.a] 2
+  equal [mk::get db0.a!1 i] 222
+  mk::file close db0
+  mk::file close db1
+
+  mk::file open db0 $f -readonly
+  mk::file open db1 $g -readonly
+  mk::file open db2 $h -readonly
+  mk::file aside db1 db2
+  mk::file aside db0 db1
+  equal [mk::view size db0.a] 3
+  equal [mk::get db0.a!2 i] 333
+} -cleanup {mk::file close db0; mk::file close db1; mk::file close db2}
+file delete $f $g $h
+
+set f f5.dat
+test 5 {missing/empty file} -body {
+  file delete $f
+  
+  catch {mk::file end $f} err
+  equal $err {no such file}
+  
+  close [open $f w]
+  equal [file size $f] 0
+
+  catch {mk::file end $f} err
+  equal $err {not a Metakit datafile}
+  
+  mk::file open db $f
+  mk::file close db
+  equal [file size $f] 0
+  
+  mk::file open db $f
+  mk::view layout db.a i:I
+  mk::file close db
+  equal [mk::file end $f] 37
+}
+file delete $f
+
+::tcltest::cleanupTests

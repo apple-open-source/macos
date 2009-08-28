@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -29,6 +29,8 @@
 
 int _cpu_capabilities = 0;
 int _cpu_has_altivec = 0;		// DEPRECATED: use _cpu_capabilities instead
+
+extern int _get_cpu_capabilities(void);
 
 __private_extern__ void
 _init_cpu_capabilities( void )

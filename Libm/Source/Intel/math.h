@@ -80,21 +80,12 @@ extern "C" {
 *      Taxonomy of floating point data types                                  *
 ******************************************************************************/
 
-enum {
-	_FP_NAN          = 1,                   /*      NaN                    */
-	_FP_INFINITE     = 2,                   /*      + or - infinity        */
-	_FP_ZERO         = 3,                   /*      + or - zero            */
-	_FP_NORMAL       = 4,                   /*      all normal numbers     */
-	_FP_SUBNORMAL    = 5,					/*      denormal numbers       */
-	_FP_SUPERNORMAL  = 6                    /*      long double delivering > LDBL_DIG, e.g. 1. + 2^-1000 */
-};
-
-#define FP_NAN          _FP_NAN
-#define FP_INFINITE     _FP_INFINITE
-#define FP_ZERO         _FP_ZERO
-#define FP_NORMAL       _FP_NORMAL
-#define FP_SUBNORMAL    _FP_SUBNORMAL
-#define FP_SUPERNORMAL  _FP_SUPERNORMAL
+#define FP_NAN          1
+#define FP_INFINITE     2
+#define FP_ZERO         3
+#define FP_NORMAL       4
+#define FP_SUBNORMAL    5
+#define FP_SUPERNORMAL  6 /* meaningful only on PowerPC */
 
 /* fma() *function call* is more costly than equivalent (in-line) multiply and add operations    */
 /* For single and double precision, the cost isn't too bad, because we can fall back on higher   */
@@ -361,6 +352,11 @@ extern float  erff( float );
 extern double  erfc( double );
 extern float  erfcf( float );
 
+/*	lgamma and lgammaf are not thread-safe.  The thread-safe variants
+ *	lgamma_r and lgammaf_r are available on OS X 10.6 and later.
+ *
+ *	To use the thread-safe variants, you must define the _REENTRANT symbol.
+ */
 extern double  lgamma( double );
 extern float  lgammaf( float );
 
@@ -466,7 +462,14 @@ extern long double powl(long double, long double);
 extern long double sqrtl(long double);
 extern long double erfl(long double);
 extern long double erfcl(long double);
+	
+/*	lgammal is not thread-safe.
+ *	The thread-safe variant lgammal_r is available on OS X 10.6 and later.
+ *
+ *	To use the thread-safe variant, you must define the _REENTRANT symbol.
+ */
 extern long double lgammal(long double);
+	
 extern long double tgammal(long double);
 extern long double ceill(long double);
 extern long double floorl(long double);
@@ -506,7 +509,7 @@ extern long double fmal(long double, long double, long double);
 
 extern double  		__inf( void );
 extern float  		__inff( void );
-extern long double  	__infl( void );
+extern long double  __infl( void );
 extern float  		__nan( void ); /* 10.3 (and later) must retain in ABI for backward compatability */
 
 #if !defined(_ANSI_SOURCE)
@@ -613,7 +616,20 @@ extern double significand ( double );
  * BSD math library entry points
  */
 extern double drem ( double, double );	/* Legacy API: please use C99 remainder() instead. */
-
+	
+/*
+ * Reentrant version of lgamma; passes signgam back by reference
+ * as the second argument; user must allocate space for signgam.
+ */
+	
+#ifdef _REENTRANT
+	#include <AvailabilityMacros.h>
+	// Available on OS X 10.6 and later.
+	extern float  lgammaf_r ( float, int * ) AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+	extern double lgamma_r ( double, int * ) AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+	extern long double lgammal_r ( long double, int * ) AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+#endif /* _REENTRANT */
+	
 #endif /* (!_XOPEN_SOURCE || _DARWIN_C_SOURCE) */
 #endif /* !_ANSI_SOURCE && (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
 

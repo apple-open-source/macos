@@ -83,8 +83,8 @@ struct section_map *section_map)
     enum reloc_type_hppa r_type, pair_r_type;
     unsigned long other_half;
     unsigned long offset;
-    unsigned long hi21, lo14;
-    unsigned long w, w1, w2;
+    uint32_t hi21, lo14;
+    uint32_t w, w1, w2;
 
 #if defined(DEBUG) || defined(RLD)
 	/*

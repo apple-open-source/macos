@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2007 Apple Inc. All rights reserved.
+# Copyright (c) 2007-2008 Apple Inc. All rights reserved.
 #
 # @APPLE_LICENSE_HEADER_START@
 # 
@@ -33,7 +33,7 @@ run: all
 
 all:
 	${CC} ${CCFLAGS} test.c -dynamiclib -exported_symbols_list test.exp -o libtest.dylib
-	nm -jg libtest.dylib | grep _ > test.nm
+	nm -jg libtest.dylib | grep '^_' > test.nm
 	diff test.nm expected.nm
 	${PASS_IFF_GOOD_MACHO} libtest.dylib
 

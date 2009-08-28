@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 #
 # Log failed logins in the sql database
-# Works with mysql and postgresql
+# Works with mysql, postgresql and Oracle
 # It will read the sql parameters from the admin.conf file
 #
 # Usage:
@@ -9,11 +9,12 @@
 #
 # Defaults:
 # radius.log: none
-# admin.conf: /usr/local/dialup_admin/conf/admin.conf 
+# admin.conf: /usr/local/dialup_admin/conf/admin.conf
 # all:        no. Go to the end of the file. Don't read it all.
 
 use Date::Manip qw(ParseDate UnixDate);
 use Digest::MD5;
+use File::Temp;
 $|=1;
 
 $file=shift||'none';
@@ -29,8 +30,10 @@ $all_file=shift||'no';
 # CHANGE THESE TO MATCH YOUR SETUP
 #
 #$regexp = 'from client localhost port 135|from client blabla ';
-$tmpfile='/var/tmp/sql.input';
+$tmpdir=tempdir( CLEANUP => 1 );
+$tmpfile="$tmpdir/sql.input";
 #
+$verbose = 0;
 #
 
 open CONF, "<$conf"
@@ -93,11 +96,17 @@ close CLIENTS;
 
 $realm_del = '@' if ($realm_del eq '');
 $realm_for = 'suffix' if ($realm_for eq '');
-$pass = (!$sql_password) ? '' : "-p$sql_password";
+if ($sql_type eq 'mysql'){
+	$pass = (!$sql_password) ? '' : "-p$sql_password";
+}
+else{
+	$pass = $sql_password;
+}
+$pass =~ s/(\W)/\\$1/g;
 die "SQL server not defined\n" if ($sql_server eq '');
 
 die "sql_command directive is not set in admin.conf\n" if ($sqlcmd eq '');
-die "Could not find sql binary. Please make sure that the \$sqlcmd variable points to the right location\n" if (! -x $sqlcmd);
+die "sql command '$sqlcmd' not found or does not seem to be executable\n" if (! -x $sqlcmd);
 
 $opt = "";
 $opt = "-O connect_timeout=$sql_timeout" if ($sql_timeout);
@@ -107,11 +116,13 @@ unshift @servers, $sql_server;
 
 open LOG, "<$file"
 	or die "Could not open file $file\n";
+if ($verbose > 1) { print STDOUT "DEBUG: Opened $file\n" }
 
 seek LOG, 0, 2 if ($all_file eq 'no');
 for(;;){
 	while(<LOG>){
-		$do=0;	
+		if ($verbose > 1) { print STDOUT "DEBUG: Reading $file\n" }
+		$do=0;
 		chomp;
 		next if ($regexp ne '' && !/$regexp/);
 		if ($_ ne ''){
@@ -119,8 +130,10 @@ for(;;){
 			if (/Login incorrect/){
 				if (/Login incorrect \((.+?)\):/){
 					$cause = "Login-Incorrect ($1)";
+					if ($verbose > 1) { print STDOUT "DEBUG: Login-Incorrect ($1)\n" }
 				}else{
 					$cause='Login-Incorrect';
+					if ($verbose > 1) { print STDOUT "DEBUG: Login-Incorrect\n" }
 				}
 				$do=1;
 			}
@@ -187,16 +200,21 @@ for(;;){
 					$ctx->add($time);
 					$ctx->add('badlogin');
 					$uniqueid = $ctx->hexdigest;
+					print TMP "ALTER SESSION SET NLS_TIMESTAMP_TZ_FORMAT='YYYY-MM-DD HH24:MI:SS.FF TZH:TZM';\n" if ($sql_type eq 'oracle');
 #DEBUG#					print "INSERT INTO $sql_accounting_table (UserName,AcctUniqueId,NASIPAddress,NASPortId,AcctStartTime,AcctStopTime,AcctSessionTime,AcctInputOctets,AcctOutputOctets,CallingStationId,AcctTerminateCause) VALUES ('$user','$uniqueid','$addr','$port','$time','$time','0','0','0','$caller','$cause');\n";
-					print TMP "INSERT INTO $sql_accounting_table (UserName,AcctUniqueId,NASIPAddress,NASPortId,AcctStartTime,AcctStopTime,AcctSessionTime,AcctInputOctets,AcctOutputOctets,CallingStationId,AcctTerminateCause) VALUES ('$user','$uniqueid','$addr','$port','$time','$time','0','0','0','$caller','$cause');\n";
+					print TMP "INSERT INTO $sql_accounting_table (UserName,AcctSessionId,AcctUniqueId,NASIPAddress,NASPortId,AcctStartTime,AcctStopTime,AcctSessionTime,AcctInputOctets,AcctOutputOctets,CallingStationId,AcctTerminateCause) VALUES ('$user','$uniqueid','$uniqueid','$addr','$port','$time','$time','0','0','0','$caller','$cause');\n";
 					close TMP;
 					$command = "$sqlcmd -h$server $opt -u$sql_username $pass $sql_database <$tmpfile.$server" if ($sql_type eq 'mysql');
 					$command = "$sqlcmd  -U $sql_username -f $tmpfile.$server $sql_database" if ($sql_type eq 'pg');
+					$command = "$sqlcmd  $sql_username/$pass" . "@" . "$sql_database <$tmpfile.$server" if ($sql_type eq 'oracle');
+					$command = "$sqlcmd '$server' '$sql_port' '' '$sql_username' '$sql_pass' <$tmpfile.$server" if ($sql_type eq 'sqlrelay');
+					if ($verbose > 1) { print STDOUT "DEBUG: Sending datafile $tmpfile.$server to \"$sql_type\" database\n" }
 					`$command`;
+					if ($verbose > 1) { print STDOUT "DEBUG: Sent data to \"$sql_type\" database\n" }
 
 					$exit = $? >> 8;
 					$delete{$server} = ($exit == 0) ? 1 : 0;
-					print "ERROR: SQL query failed for host $server\n" if ($exit != 0);
+					print STDERR "ERROR: SQL query failed for host $server\n" if ($exit != 0);
 				}
 			}
 		}

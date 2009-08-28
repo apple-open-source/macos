@@ -102,6 +102,20 @@
 
 typedef int webdav_filetype_t;
 
+// XXX Dependency on __DARWIN_64_BIT_INO_T
+// We cannot pass ino_t back and forth between the kext and
+// webdavfs_agent, because ino_t is in flux right now.
+// In user space ino_t is 64-bits, but 32 bits in kernel space.
+// So we have to define our own type for now (webdav_ino_t).
+//
+// This was the root cause of:
+// <rdar://problem/6491194> 10A245+10A246: WebDAV FS complains about file names being too long.
+//
+// Once ino_t is identical in length for kernel and user space, then
+// we can get rid of webdav_ino_t and just use ino_t exclusively.
+//
+typedef uint32_t webdav_ino_t;
+
 /* Shared (kernel & process) WebDAV defninitions */
 
 /*
@@ -112,7 +126,7 @@ typedef int webdav_filetype_t;
  * The opaque_id 0 (kInvalidOpaqueID) is never valid.
  */
 #define kInvalidOpaqueID   0
-typedef struct opaque_id_ref *opaque_id;
+typedef uint32_t opaque_id;
 
 /*
  * IMPORTANT: struct user_webdav_args, struct webdav_args, and webdav_mount()
@@ -124,7 +138,20 @@ typedef struct opaque_id_ref *opaque_id;
  * either the WebDAV file system's kernel or user-land code which require both
  * executables to be released as a set.
  */
-#define kCurrentWebdavArgsVersion 2
+#define kCurrentWebdavArgsVersion 4
+
+#pragma options align=packed
+
+struct webdav_vfsstatfs
+{
+	uint32_t	f_bsize;	/* fundamental file system block size */
+	uint32_t	f_iosize;	/* optimal transfer block size */
+	uint64_t	f_blocks;	/* total data blocks in file system */
+	uint64_t	f_bfree;	/* free blocks in fs */
+	uint64_t	f_bavail;	/* free blocks avail to non-superuser */
+	uint64_t	f_files;	/* total file nodes in file system */
+	uint64_t	f_ffree;	/* free file nodes in fs */
+};
 
 struct user_webdav_args
 {
@@ -134,8 +161,9 @@ struct user_webdav_args
 	user_addr_t pa_socket_name;					/* Socket to server name */
 	user_addr_t pa_vol_name;					/* volume name */
 	u_int32_t pa_flags;							/* flag bits for mount */
+	u_int32_t pa_server_ident;					/* identifies some (not all) types of servers we are connected to */
 	opaque_id pa_root_id;						/* root opaque_id */
-	ino_t pa_root_fileid;						/* root fileid */
+	webdav_ino_t pa_root_fileid;				/* root fileid */
 	off_t pa_dir_size;							/* size of directories */
 	/* pathconf values: >=0 to return value; -1 if not supported */
 	int pa_link_max;							/* maximum value of a file's link count */
@@ -145,7 +173,7 @@ struct user_webdav_args
 	int pa_chown_restricted;					/* Return _POSIX_CHOWN_RESTRICTED if appropriate privileges are required for the chown(2) */
 	int pa_no_trunc;							/* Return _POSIX_NO_TRUNC if file names longer than KERN_NAME_MAX are truncated */
 	/* end of webdav_args version 1 */
-	struct vfsstatfs pa_vfsstatfs;				/* need this to fill out the statfs struct during the mount */
+	struct webdav_vfsstatfs pa_vfsstatfs;				/* need this to fill out the statfs struct during the mount */
 };
 
 struct webdav_args
@@ -156,8 +184,9 @@ struct webdav_args
 	struct sockaddr *pa_socket_name;			/* Socket to server name */
 	char *pa_vol_name;							/* volume name */
 	u_int32_t pa_flags;							/* flag bits for mount */
+	u_int32_t pa_server_ident;					/* identifies some (not all) types of servers we are connected to */
 	opaque_id pa_root_id;						/* root opaque_id */
-	ino_t pa_root_fileid;						/* root fileid */
+	webdav_ino_t pa_root_fileid;				/* root fileid */
 	off_t pa_dir_size;							/* size of directories */
 	/* pathconf values: >=0 to return value; -1 if not supported */
 	int pa_link_max;							/* maximum value of a file's link count */
@@ -167,12 +196,17 @@ struct webdav_args
 	int pa_chown_restricted;					/* Return _POSIX_CHOWN_RESTRICTED if appropriate privileges are required for the chown(2) */
 	int pa_no_trunc;							/* Return _POSIX_NO_TRUNC if file names longer than KERN_NAME_MAX are truncated */
 	/* end of webdav_args version 1 */
-	struct vfsstatfs pa_vfsstatfs;				/* need this to fill out the statfs struct during the mount */
+	struct webdav_vfsstatfs pa_vfsstatfs;				/* need this to fill out the statfs struct during the mount */
 };
+
 
 /* Defines for webdav_args pa_flags field */
 #define WEBDAV_SUPPRESSALLUI	0x00000001		/* SuppressAllUI flag */
 #define WEBDAV_SECURECONNECTION	0x00000002		/* Secure connection flag (the connection to the server is secure) */
+
+/* Defines for webdav_args pa_server_ident field */
+#define WEBDAV_IDISK_SERVER			0x00000001
+#define WEBDAV_MICROSOFT_IIS_SERVER	0x00000002
 
 struct webdav_cred
 {
@@ -187,18 +221,24 @@ struct webdav_request_lookup
 	struct webdav_cred pcr;				/* user and groups */
 	opaque_id		dir_id;				/* directory to search */
 	int				force_lookup;		/* if TRUE, don't use a cached lookup */
-	size_t			name_length;		/* length of name */
+	uint32_t		name_length;		/* length of name */
 	char			name[];				/* filename to find */
+};
+
+struct webdav_timespec64
+{
+	uint64_t	tv_sec;
+	uint64_t	tv_nsec;
 };
 
 struct webdav_reply_lookup
 {
 	opaque_id		obj_id;				/* opaque_id of object corresponding to name */
-	ino_t			obj_fileid;			/* object's file ID number */
+	webdav_ino_t	obj_fileid;			/* object's file ID number */
 	webdav_filetype_t obj_type;			/* WEBDAV_FILE_TYPE or WEBDAV_DIR_TYPE */
-	struct timespec obj_atime;			/* time of last access */
-	struct timespec obj_mtime;			/* time of last data modification */
-	struct timespec obj_ctime;			/* time of last file status change */
+	struct webdav_timespec64 obj_atime;		/* time of last access */
+	struct webdav_timespec64 obj_mtime;		/* time of last data modification */
+	struct webdav_timespec64 obj_ctime;		/* time of last file status change */
 	off_t			obj_filesize;		/* filesize of object */
 };	
 
@@ -208,14 +248,14 @@ struct webdav_request_create
 	struct webdav_cred pcr;				/* user and groups */
 	opaque_id		dir_id;				/* The opaque_id for the directory in which the file is to be created */
 	mode_t			mode;				/* file type and initial file access permissions for the file */
-	size_t			name_length;		/* length of name */
+	uint32_t		name_length;		/* length of name */
 	char			name[];				/* The name that is to be associated with the created file */
 };
 
 struct webdav_reply_create
 {
 	opaque_id		obj_id;				/* opaque_id of file corresponding to name */
-	ino_t			obj_fileid;			/* file's file ID number */
+	webdav_ino_t	obj_fileid;			/* file's file ID number */
 };
 
 /* WEBDAV_MKDIR */
@@ -224,14 +264,14 @@ struct webdav_request_mkdir
 	struct webdav_cred pcr;				/* user and groups */
 	opaque_id		dir_id;				/* The opaque_id for the directory in which the file is to be created */
 	mode_t			mode;				/* file type and initial file access permissions for the file */
-	size_t			name_length;		/* length of name */
+	uint32_t		name_length;		/* length of name */
 	char			name[];				/* The name that is to be associated with the created directory */
 };
 
 struct webdav_reply_mkdir
 {
 	opaque_id		obj_id;				/* opaque_id of directory corresponding to name */
-	ino_t			obj_fileid;			/* directory's file ID number */
+	webdav_ino_t	obj_fileid;			/* directory's file ID number */
 };
 
 /* WEBDAV_OPEN */
@@ -259,6 +299,24 @@ struct webdav_reply_close
 {
 };
 
+struct webdav_stat {
+	dev_t	 	st_dev;		/* [XSI] ID of device containing file */
+	webdav_ino_t st_ino;	/* [XSI] File serial number */
+	mode_t	 	st_mode;	/* [XSI] Mode of file (see below) */
+	nlink_t		st_nlink;	/* [XSI] Number of hard links */
+	uid_t		st_uid;		/* [XSI] User ID of the file */
+	gid_t		st_gid;		/* [XSI] Group ID of the file */
+	dev_t		st_rdev;	/* [XSI] Device ID */
+	struct	webdav_timespec64 st_atimespec;	/* time of last access */
+	struct	webdav_timespec64 st_mtimespec;	/* time of last data modification */
+	struct	webdav_timespec64 st_ctimespec;	/* time of last status change */
+	off_t		st_size;	/* [XSI] file size, in bytes */
+	blkcnt_t	st_blocks;	/* [XSI] blocks allocated for file */
+	blksize_t	st_blksize;	/* [XSI] optimal blocksize for I/O */
+	uint32_t	st_flags;	/* user defined flags for file */
+	uint32_t	st_gen;		/* file generation number */
+};
+
 /* WEBDAV_GETATTR */
 struct webdav_request_getattr
 {
@@ -268,7 +326,7 @@ struct webdav_request_getattr
 
 struct webdav_reply_getattr
 {
-	struct stat		obj_attr;			/* attributes for the object */
+	struct webdav_stat	obj_attr;			/* attributes for the object */
 };
 
 /* WEBDAV_SETATTR XXX not needed at this time */
@@ -289,7 +347,7 @@ struct webdav_request_read
 	struct webdav_cred pcr;				/* user and groups */
 	opaque_id		obj_id;				/* opaque_id of file object */
 	off_t			offset;				/* position within the file object at which the read is to begin */
-	size_t			count;				/* number of bytes of data to be read (limited to WEBDAV_MAX_IO_BUFFER_SIZE (8000-bytes)) */
+	uint64_t		count;				/* number of bytes of data to be read (limited to WEBDAV_MAX_IO_BUFFER_SIZE (8000-bytes)) */
 };
 
 struct webdav_reply_read
@@ -302,13 +360,13 @@ struct webdav_request_write
 	struct webdav_cred pcr;				/* user and groups */
 	opaque_id		obj_id;				/* opaque_id of file object */
 	off_t			offset;				/* position within the file object at which the write is to begin */
-	size_t			count;				/* number of bytes of data to be written (limited to WEBDAV_MAX_IO_BUFFER_SIZE (8000-bytes)) */
+	uint64_t		count;				/* number of bytes of data to be written (limited to WEBDAV_MAX_IO_BUFFER_SIZE (8000-bytes)) */
 	char			data[];				/* data to be written to the file object */
 };
 
 struct webdav_reply_write
 {
-	size_t			count;				/* number of bytes of data written to the file */
+	uint64_t		count;				/* number of bytes of data written to the file */
 };
 
 /* WEBDAV_FSYNC */
@@ -352,7 +410,7 @@ struct webdav_request_rename
 	opaque_id		from_obj_id;		/* opaque_id for the object to be renamed */
 	opaque_id		to_dir_id;			/* opaque_id for the directory to which the object is to be renamed */
 	opaque_id		to_obj_id;			/* opaque_id for the object's new location if it exists (may be NULL) */
-	size_t			to_name_length;		/* length of to_name */
+	uint32_t		to_name_length;		/* length of to_name */
 	char			to_name[];			/* new name for the object */
 };
 
@@ -373,6 +431,17 @@ struct webdav_reply_readdir
 };
 
 /* WEBDAV_STATFS */
+
+struct webdav_statfs {
+	uint64_t	f_bsize;		/* fundamental file system block size */
+	uint64_t	f_iosize;		/* optimal transfer block size */
+	uint64_t	f_blocks;		/* total data blocks in file system */
+	uint64_t	f_bfree;		/* free blocks in fs */
+	uint64_t	f_bavail;		/* free blocks avail to non-superuser */
+	uint64_t	f_files;		/* total file nodes in file system */
+	uint64_t	f_ffree;		/* free file nodes in fs */
+};
+
 struct webdav_request_statfs
 {
 	struct webdav_cred pcr;				/* user and groups */
@@ -381,7 +450,7 @@ struct webdav_request_statfs
 
 struct webdav_reply_statfs
 {
-	struct statfs   fs_attr;			/* file system information */
+	struct webdav_statfs   fs_attr;		/* file system information */
 										/*
 										 * (required: f_bsize, f_iosize, f_blocks, f_bfree,
 										 * f_bavail, f_files, f_ffree. The kext will either copy
@@ -415,14 +484,14 @@ struct webdav_request_writeseq
 	struct webdav_cred pcr;				/* user and groups */
 	opaque_id		obj_id;				/* opaque_id of file object */
 	off_t			offset;				/* position within the file object at which the write is to begin */
-	size_t			count;				/* number of bytes of data to be written (limited to WEBDAV_MAX_IO_BUFFER_SIZE (8000-bytes)) */
-	size_t			file_len;			/* length of the file after all sequential writes are done */
+	off_t			count;				/* number of bytes of data to be written (limited to WEBDAV_MAX_IO_BUFFER_SIZE (8000-bytes)) */
+	uint64_t		file_len;			/* length of the file after all sequential writes are done */
 	uint32_t		is_retry;			/* non-zero indicates this request is a retry due to an EPIPE */
 };
 
 struct webdav_reply_writeseq
 {
-	size_t			count;				/* number of bytes of data written to the file */
+	uint64_t		count;				/* number of bytes of data written to the file */
 };
 
 union webdav_request
@@ -466,7 +535,7 @@ union webdav_reply
 };
 
 #define UNKNOWNUID ((uid_t)99)
- 
+
 /*
  * The WEBDAV_CONNECTION_DOWN_MASK bit is set by the code in send_reply() in
  * activate.c in the int result when the mount_webdav daemon determines it cannot
@@ -513,6 +582,8 @@ struct WebdavWriteSequential {
 		uint64_t file_len;
 };
 
+#pragma options align=reset
+
 #define WEBDAVIOC_WRITE_SEQUENTIAL	_IOW('z', 19, struct WebdavWriteSequential)
 #define WEBDAV_WRITE_SEQUENTIAL		IOCBASECMD(WEBDAVIOC_WRITE_SEQUENTIAL)
 
@@ -539,6 +610,7 @@ struct webdavmount
 	char *pm_vol_name;							/* volume name */
 	struct sockaddr *pm_socket_name;			/* Socket to server name */
 	u_int32_t pm_open_connections;				/* number of connections opened to user-land server */
+	u_int32_t pm_server_ident;					/* identifies some (not all) types of servers we are connected to */
 	off_t pm_dir_size;							/* size of directories */
 	/* pathconf values: >=0 to return value; -1 if not supported */
 	int pm_link_max;							/* maximum value of a file's link count (1 for file systems that do not support link counts) */
@@ -560,14 +632,14 @@ struct webdavnode
 	vnode_t pt_vnode;							/* Pointer to vnode */
 	vnode_t pt_cache_vnode;						/* Pointer to cached file vnode */
 	opaque_id pt_obj_id;						/* opaque_id from lookup */
-	ino_t pt_fileid;							/* file id */
+	webdav_ino_t pt_fileid;						/* file id */
 	
 	/* timestamp cache */
-	struct timespec pt_atime;					/* time of last access */
-	struct timespec pt_mtime;					/* time of last data modification */
-	struct timespec pt_ctime;					/* time of last file status change */
-	struct timespec pt_mtime_old;				/* previous pt_mtime value (directory nodes only, used for negative name cache) */
-	struct timespec pt_timestamp_refresh;		/* time of last timestamp refresh */
+	struct webdav_timespec64 pt_atime;					/* time of last access */
+	struct webdav_timespec64 pt_mtime;					/* time of last data modification */
+	struct webdav_timespec64 pt_ctime;					/* time of last file status change */
+	struct webdav_timespec64 pt_mtime_old;				/* previous pt_mtime value (directory nodes only, used for negative name cache) */
+	struct webdav_timespec64 pt_timestamp_refresh;		/* time of last timestamp refresh */
 	
 	off_t pt_filesize;							/* what we think the filesize is */
 	u_int32_t pt_status;						/* WEBDAV_DIRTY, etc */
@@ -575,10 +647,10 @@ struct webdavnode
 	
 	/* for Write Sequential mode */
 	u_int32_t pt_opencount_write;				/* count of opens for writing */
-	u_int32_t pt_writeseq_enabled;					/* TRUE if node Write Sequential mode is enabled */
-	off_t pt_writeseq_offset;					/* offset we're expecting for the next write */
-	u_int64_t pt_writeseq_len;					/* total length in bytes that will be written in Write Sequential mode */
-	
+	u_int32_t pt_writeseq_enabled;				/* TRUE if node Write Sequential mode is enabled */
+	off_t pt_writeseq_offset;				/* offset we're expecting for the next write */
+	uint64_t pt_writeseq_len;				/* total length in bytes that will be written in Write Sequential mode */
+		
 	/* SMP debug variables */
 	void *pt_lastvop;							/* tracks last operation that locked this webdavnode */
 	void *pt_activation;						/* tracks last thread that locked this webdavnode */
@@ -632,6 +704,7 @@ struct open_associatecachefile
 /* Other defines */
 
 
+
 /*
  * In webdav_read and webdav_pagein, webdav_read_bytes is called if the part of
  * file we need hasn't been downloaded from the server yet. However, since we're
@@ -658,6 +731,12 @@ struct open_associatecachefile
  * before rechecking the server process state
  */
 #define WEBDAV_SO_RCVTIMEO_SECONDS 10
+
+/* How many times webdav_sendmsg() will block in soreceive()
+ * before timing out the request.  The total
+ * amount of seconds is WEBDAV_SO_RCVTIMEO_SECONDS * WEBDAV_MAX_SOCK_RCV_TIMEOUTS
+ */
+#define WEBDAV_MAX_SOCK_RCV_TIMEOUTS 9
 
 /*
  * Used only for negative name caching, TIMESTAMP_NEGNCACHE_TIMEOUT is used by the webdav_vnop_lookup routine
@@ -691,7 +770,7 @@ extern void webdav_hashinit(void);
 extern void webdav_hashdestroy(void);
 extern void webdav_hashrem(struct webdavnode *);
 extern void webdav_hashins(struct webdavnode *);
-extern struct webdavnode *webdav_hashget(struct mount *mp, ino_t fileid, struct webdavnode *pt_new, uint32_t *inserted);
+extern struct webdavnode *webdav_hashget(struct mount *mp, webdav_ino_t fileid, struct webdavnode *pt_new, uint32_t *inserted);
 
 extern void webdav_copy_creds(vfs_context_t context, struct webdav_cred *dest);
 extern int webdav_sendmsg(int vnop, struct webdavmount *fmp,
@@ -704,11 +783,11 @@ extern int webdav_get(
 	int markroot,				/* if 1, mark as root vnode */
 	struct componentname *cnp,  /* componentname */
 	opaque_id obj_id,			/* object's opaque_id */
-	ino_t obj_fileid,			/* object's file ID number */
+	webdav_ino_t obj_fileid,	/* object's file ID number */
 	enum vtype obj_vtype,		/* VREG or VDIR */
-	struct timespec obj_atime,  /* time of last access */
-	struct timespec obj_mtime,  /* time of last data modification */
-	struct timespec obj_ctime,  /* time of last file status change */
+	struct webdav_timespec64 obj_atime,  /* time of last access */
+	struct webdav_timespec64 obj_mtime,  /* time of last data modification */
+	struct webdav_timespec64 obj_ctime,  /* time of last file status change */
 	off_t obj_filesize,			/* object's filesize */
 	vnode_t *vpp);				/* vnode returned here */
 

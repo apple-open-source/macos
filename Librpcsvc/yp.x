@@ -1,24 +1,5 @@
-/*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
+/* @(#)yp.x	2.1 88/08/01 4.0 RPCSRC */
+
 /*
  * Sun RPC is a product of Sun Microsystems, Inc. and is provided for
  * unrestricted use provided that this legend is included on all tape
@@ -53,10 +34,8 @@
  */
 
 #ifndef RPC_HDR
-%#ifndef lint
-%/*static char sccsid[] = "from: @(#)yp.x	2.1 88/08/01 4.0 RPCSRC";*/
-%static char rcsid[] = "$Id: yp.x,v 1.2 2000/03/05 02:04:45 wsanchez Exp $";
-%#endif /* not lint */
+%#include <sys/cdefs.h>
+%__RCSID("$FreeBSD: src/include/rpcsvc/yp.x,v 1.13 2003/05/04 02:51:42 obrien Exp $");
 #endif
 
 const YPMAXRECORD = 1024;
@@ -140,8 +119,13 @@ struct ypresp_val {
 
 struct ypresp_key_val {
 	ypstat stat;
+#if 1 /* These are backwards */
 	keydat key;
 	valdat val;
+#else
+	valdat val;
+	keydat key;
+#endif
 };
 
 
@@ -241,9 +225,78 @@ struct ypbind_setdom {
 
 
 /*
+ * NIS v1 support for backwards compatibility
+ */
+enum ypreqtype {
+	YPREQ_KEY = 1,
+	YPREQ_NOKEY = 2,
+	YPREQ_MAP_PARMS = 3
+};
+
+enum ypresptype {
+	YPRESP_VAL = 1,
+	YPRESP_KEY_VAL = 2,
+	YPRESP_MAP_PARMS = 3
+};
+
+union yprequest switch (ypreqtype yp_reqtype) {
+case YPREQ_KEY:
+	ypreq_key yp_req_keytype;
+case YPREQ_NOKEY:
+	ypreq_nokey yp_req_nokeytype;
+case YPREQ_MAP_PARMS:
+	ypmap_parms yp_req_map_parmstype;
+};
+
+union ypresponse switch (ypresptype yp_resptype) {
+case YPRESP_VAL:
+	ypresp_val yp_resp_valtype;
+case YPRESP_KEY_VAL:
+	ypresp_key_val yp_resp_key_valtype;
+case YPRESP_MAP_PARMS:
+	ypmap_parms yp_resp_map_parmstype;
+};
+
+#if !defined(YPBIND_ONLY) && !defined(YPPUSH_ONLY)
+/*
  * YP access protocol
  */
 program YPPROG {
+/*
+ * NIS v1 support for backwards compatibility
+ */
+	version YPOLDVERS {
+		void
+		YPOLDPROC_NULL(void) = 0;
+
+		bool
+		YPOLDPROC_DOMAIN(domainname) = 1;
+
+		bool
+		YPOLDPROC_DOMAIN_NONACK(domainname) = 2;
+
+		ypresponse
+		YPOLDPROC_MATCH(yprequest) = 3;
+
+		ypresponse
+		YPOLDPROC_FIRST(yprequest) = 4;
+
+		ypresponse
+		YPOLDPROC_NEXT(yprequest) = 5;
+
+		ypresponse
+		YPOLDPROC_POLL(yprequest) = 6;
+
+		ypresponse
+		YPOLDPROC_PUSH(yprequest) = 7;
+
+		ypresponse
+		YPOLDPROC_PULL(yprequest) = 8;
+
+		ypresponse
+		YPOLDPROC_GET(yprequest) = 9;
+	} = 1;
+
 	version YPVERS {
 		void 
 		YPPROC_NULL(void) = 0;
@@ -258,8 +311,11 @@ program YPPROG {
 		YPPROC_MATCH(ypreq_key) = 3;
 
 		ypresp_key_val 
+#if 1 /* should be ypreq_nokey */
 		YPPROC_FIRST(ypreq_key) = 4;
-
+#else
+		YPPROC_FIRST(ypreq_nokey) = 4;
+#endif
 		ypresp_key_val 
 		YPPROC_NEXT(ypreq_key) = 5;
 
@@ -282,8 +338,8 @@ program YPPROG {
 		YPPROC_MAPLIST(domainname) = 11;
 	} = 2;
 } = 100004;
-
-
+#endif
+#if !defined(YPSERV_ONLY) && !defined(YPBIND_ONLY)
 /*
  * YPPUSHPROC_XFRRESP is the callback routine for result of YPPROC_XFR
  */
@@ -291,13 +347,17 @@ program YPPUSH_XFRRESPPROG {
 	version YPPUSH_XFRRESPVERS {
 		void
 		YPPUSHPROC_NULL(void) = 0;
-
+#if 1 /* argument and return value are backwards */
 		yppushresp_xfr	
 		YPPUSHPROC_XFRRESP(void) = 1;
+#else
+		void
+		YPPUSHPROC_XFRRESP(yppushresp_xfr) = 1;
+#endif
 	} = 1;
 } = 0x40000000;	/* transient: could be anything up to 0x5fffffff */
-
-
+#endif
+#if !defined(YPSERV_ONLY) && !defined(YPPUSH_ONLY)
 /*
  * YP binding protocol
  */
@@ -314,4 +374,4 @@ program YPBINDPROG {
 	} = 2;
 } = 100007;
 
-
+#endif

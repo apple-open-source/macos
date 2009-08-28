@@ -46,6 +46,17 @@ mod_export int tok;
 /**/
 mod_export int tokfd;
 
+/*
+ * Line number at which the first character of a token was found.
+ * We always set this in gettok(), which is always called from
+ * yylex() unless we have reached an error.  So it is always
+ * valid when parsing.  It is not useful during execution
+ * of the parsed structure.
+ */
+
+/**/
+zlong toklineno;
+
 /* lexical analyzer error flag */
  
 /**/
@@ -66,7 +77,12 @@ int isfirstch;
 /**/
 int inalmore;
 
-/* don't do spelling correction */
+/*
+ * Don't do spelling correction.
+ * Bit 1 is only valid for the current word.  It's
+ * set when we detect a lookahead that stops the word from
+ * needing correction.
+ */
  
 /**/
 int nocorrect;
@@ -206,6 +222,7 @@ struct lexstack {
 
     unsigned char *cstack;
     int csp;
+    zlong toklineno;
 };
 
 static struct lexstack *lstack = NULL;
@@ -264,6 +281,7 @@ lexsave(void)
     ls->ecsoffs = ecsoffs;
     ls->ecssub = ecssub;
     ls->ecnfunc = ecnfunc;
+    ls->toklineno = toklineno;
     cmdsp = 0;
     inredir = 0;
     hdocs = NULL;
@@ -328,6 +346,7 @@ lexrestore(void)
     ecssub = lstack->ecssub;
     ecnfunc = lstack->ecnfunc;
     hlinesz = lstack->hlinesz;
+    toklineno = lstack->toklineno;
     errflag = 0;
 
     ln = lstack->next;
@@ -344,6 +363,7 @@ yylex(void)
     do
 	tok = gettok();
     while (tok != ENDINPUT && exalias());
+    nocorrect &= 1;
     if (tok == NEWLIN || tok == ENDINPUT) {
 	while (hdocs) {
 	    struct heredocs *next = hdocs->next;
@@ -356,6 +376,16 @@ yylex(void)
 	    ALLOWHIST
 	    cmdpop();
 	    hwend();
+	    if (!name) {
+		zerr("here document too large");
+		while (hdocs) {
+		    next = hdocs->next;
+		    zfree(hdocs, sizeof(struct heredocs));
+		    hdocs = next;
+		}
+		tok = LEXERR;
+		break;
+	    }
 	    setheredoc(hdocs->pc, REDIR_HERESTR, name);
 	    zfree(hdocs, sizeof(struct heredocs));
 	    hdocs = next;
@@ -532,6 +562,11 @@ add(int c)
 		else\
 		    parend = inbufct;} }
 
+/*
+ * Return 1 for math, 0 for a command, 2 for an error.  If it couldn't be
+ * parsed as math, but there was no gross error, it's a command.
+ */
+
 static int
 cmd_or_math(int cs_type)
 {
@@ -542,14 +577,19 @@ cmd_or_math(int cs_type)
     c = dquote_parse(')', 0);
     cmdpop();
     *bptr = '\0';
-    if (c)
-	return 1;
-    c = hgetc();
-    if (c == ')')
-	return 1;
-    hungetc(c);
-    lexstop = 0;
-    c = ')';
+    if (!c) {
+	/* Successfully parsed, see if it was math */
+	c = hgetc();
+	if (c == ')')
+	    return 1; /* yes */
+	hungetc(c);
+	lexstop = 0;
+	c = ')';
+    } else if (lexstop) {
+	/* we haven't got anything to unget */
+	return 2;
+    }
+    /* else unsuccessful: unget the whole thing */
     hungetc(c);
     lexstop = 0;
     while (len > oldlen) {
@@ -560,18 +600,25 @@ cmd_or_math(int cs_type)
     return 0;
 }
 
+
+/*
+ * Parse either a $(( ... )) or a $(...)
+ * Return 0 on success, 1 on failure.
+ */
 static int
 cmd_or_math_sub(void)
 {
-    int c = hgetc();
+    int c = hgetc(), ret;
 
     if (c == '(') {
 	add(Inpar);
 	add('(');
-	if (cmd_or_math(CS_MATHSUBST)) {
+	if ((ret = cmd_or_math(CS_MATHSUBST)) == 1) {
 	    add(')');
 	    return 0;
 	}
+	if (ret == 2)
+	    return 1;
 	bptr -= 2;
 	len -= 2;
     } else {
@@ -619,7 +666,7 @@ isnumglob(void)
 }
 
 /**/
-int
+static int
 gettok(void)
 {
     int c, d;
@@ -628,6 +675,7 @@ gettok(void)
   beginning:
     tokstr = NULL;
     while (iblank(c = hgetc()) && !lexstop);
+    toklineno = lineno;
     if (lexstop)
 	return (errflag) ? LEXERR : ENDINPUT;
     isfirstln = 0;
@@ -765,7 +813,16 @@ gettok(void)
 	    if (incmdpos) {
 		len = 0;
 		bptr = tokstr = (char *) hcalloc(bsiz = 32);
-		return cmd_or_math(CS_MATH) ? DINPAR : INPAR;
+		switch (cmd_or_math(CS_MATH)) {
+		case 1:
+		    return DINPAR;
+
+		case 0:
+		    return INPAR;
+
+		default:
+		    return LEXERR;
+		}
 	    }
 	} else if (d == ')')
 	    return INOUTPAR;
@@ -871,6 +928,19 @@ gettok(void)
      * rest of it, performing tokenization */
     return gettokstr(c, 0);
 }
+
+/*
+ * Get the remains of a token string.  This has two uses.
+ * When called from gettok(), with sub = 0, we have already identified
+ * any interesting initial character and want to get the rest of
+ * what we now know is a string.  However, the string may still include
+ * metacharacters and potentially substitutions.
+ *
+ * When called from parse_subst_string() with sub = 1, we are not
+ * fully parsing a command line, merely tokenizing a string.
+ * In this case we always add characters to the parsed string
+ * unless there is a parse error.
+ */
 
 /**/
 static int
@@ -1026,8 +1096,16 @@ gettokstr(int c, int sub)
 		     *   pws 1999/6/14
 		     */
 		    if (e == ')' || (isset(SHGLOB) && inblank(e) && !bct &&
-				     !brct && !intpos && incmdpos))
+				     !brct && !intpos && incmdpos)) {
+			/*
+			 * Either a () token, or a command word with
+			 * something suspiciously like a ksh function
+			 * definition.
+			 * The current word isn't spellcheckable.
+			 */
+			nocorrect |= 2;
 			goto brk;
+		    }
 		}
 		/*
 		 * This also handles the [k]sh `foo( )' function definition.
@@ -1084,7 +1162,10 @@ gettokstr(int c, int sub)
 	    if (e != '(') {
 		hungetc(e);
 		lexstop = 0;
-		goto brk;
+		if (in_brace_param || sub)
+		    break;
+		else
+		    goto brk;
 	    }
 	    add(Outang);
 	    if (skipcomm()) {
@@ -1304,6 +1385,9 @@ gettokstr(int c, int sub)
     return peek;
 }
 
+
+/* Return non-zero for error (character to unget), else zero */
+
 /**/
 static int
 dquote_parse(char endchar, int sub)
@@ -1442,6 +1526,10 @@ dquote_parse(char endchar, int sub)
 	 * to hungetc() a character on an error.  However, I don't
 	 * understand what that actually gets us, and we can't guarantee
 	 * it's a character anyway, because of the previous test.
+	 *
+	 * We use the same feature in cmd_or_math where we actually do
+	 * need to unget if we decide it's really a command substitution.
+	 * We try to handle the other case by testing for lexstop.
 	 */
 	err = c;
     }
@@ -1532,6 +1620,7 @@ mod_export int
 parse_subst_string(char *s)
 {
     int c, l = strlen(s), err, olen, lexstop_ret;
+    char *ptr;
 
     if (!*s || !strcmp(s, nulstring))
 	return 0;
@@ -1561,7 +1650,7 @@ parse_subst_string(char *s)
      * Historical note: we used to check here for olen == l, but
      * that's not necessarily the case if we stripped an RCQUOTE.
      */
-    if (c != STRING || errflag) {
+    if (c != STRING || (errflag && !noerrs)) {
 	fprintf(stderr, "Oops. Bug in parse_subst_string: %s\n",
 		errflag ? "errflag" : "c != STRING");
 	fflush(stderr);
@@ -1569,6 +1658,43 @@ parse_subst_string(char *s)
 	return 1;
     }
 #endif
+    /* Check for $'...' quoting.  This needs special handling. */
+    for (ptr = s; *ptr; )
+    {
+	if (*ptr == String && ptr[1] == Snull)
+	{
+	    char *t;
+	    int len, tlen, diff;
+	    t = getkeystring(ptr + 2, &len, GETKEYS_DOLLARS_QUOTE, NULL);
+	    len += 2;
+	    tlen = strlen(t);
+	    diff = len - tlen;
+	    /*
+	     * Yuk.
+	     * parse_subst_string() currently handles strings in-place.
+	     * That's not so easy to fix without knowing whether
+	     * additional memory should come off the heap or
+	     * otherwise.  So we cheat by copying the unquoted string
+	     * into place, unless it's too long.  That's not the
+	     * normal case, but I'm worried there are are pathological
+	     * cases with converting metafied multibyte strings.
+	     * If someone can prove there aren't I will be very happy.
+	     */
+	    if (diff < 0) {
+		DPUTS(1, "$'...' subst too long: fix get_parse_string()");
+		return 1;
+	    }
+	    memcpy(ptr, t, tlen);
+	    ptr += tlen;
+	    if (diff > 0) {
+		char *dptr = ptr;
+		char *sptr = ptr + diff;
+		while ((*dptr++ = *sptr++))
+		    ;
+	    }
+	} else
+	    ptr++;
+    }
     return 0;
 }
 

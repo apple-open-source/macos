@@ -11,7 +11,7 @@
   (See the file 'LICENCE'.)
 
 = Version
-  $Id: buffering.rb 11708 2007-02-12 23:01:19Z shyouhei $
+  $Id: buffering.rb 13706 2007-10-15 08:29:08Z usa $
 =end
 
 module Buffering

@@ -1,20 +1,21 @@
 #include "apr_version.h"
 
-#define APR_COPYRIGHT "Copyright 2000-2005 The Apache Software " \
+#define APR_COPYRIGHT "Copyright (c) 2008 The Apache Software " \
                       "Foundation or its licensors, as applicable."
 
-#define APR_LICENSE "Licensed under the Apache License, Version 2.0 " \
-                    "(the ""License""); you may not use this file except " \
-                    "in compliance with the License.  You may obtain a " \
-                    "copy of the License at\r\n\r\n" \
-                    "http://www.apache.org/licenses/LICENSE-2.0\r\n\r\n" \
-                    "Unless required by applicable law or agreed to in " \
-                    "writing, software distributed under the License is " \
-                    "distributed on an ""AS IS"" BASIS, WITHOUT " \
-                    "WARRANTIES OR CONDITIONS OF ANY KIND, either " \
-                    "express or implied.  See the License for the " \
-                    "specific language governing permissions and " \
-                    "limitations under the License."
+#define APR_LICENSE \
+  "Licensed to the Apache Software Foundation (ASF) under one or more " \
+  "contributor license agreements.  See the NOTICE file distributed with " \
+  "this work for additional information regarding copyright ownership.  " \
+  "The ASF licenses this file to You under the Apache License, Version 2.0 " \
+  "(the ""License""); you may not use this file except in compliance with " \
+  "the License.  You may obtain a copy of the License at\r\n\r\n" \
+  "http://www.apache.org/licenses/LICENSE-2.0\r\n\r\n" \
+  "Unless required by applicable law or agreed to in writing, software " \
+  "distributed under the License is distributed on an ""AS IS"" BASIS, " \
+  "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  " \
+  "See the License for the specific language governing permissions and " \
+  "limitations under the License."
 
 #define APR_DLL_BASENAME "libapr-" APR_STRINGIFY(APR_MAJOR_VERSION)
 
@@ -23,13 +24,25 @@
  FILEVERSION APR_VERSION_STRING_CSV,0
  PRODUCTVERSION APR_VERSION_STRING_CSV,0
  FILEFLAGSMASK 0x3fL
+#if defined(APR_IS_DEV_VERSION)
+#if defined(_DEBUG)
+ FILEFLAGS 0x03L
+#else
+ FILEFLAGS 0x02L
+#endif
+#else
 #if defined(_DEBUG)
  FILEFLAGS 0x01L
 #else
  FILEFLAGS 0x00L
 #endif
+#endif
+#if defined(WINNT) || defined(WIN64)
  FILEOS 0x40004L
- FILETYPE 0x1L
+#else
+ FILEOS 0x4L
+#endif
+ FILETYPE 0x2L
  FILESUBTYPE 0x0L
 BEGIN
   BLOCK "StringFileInfo"

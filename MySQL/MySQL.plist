@@ -1,22 +1,12 @@
-<plist version="1.0">
-<array>
-<dict>
-        <key>OpenSourceProject</key>
-        <string>MySQL</string>
-        <key>OpenSourceVersion</key>
-        <string>5.0.67</string>
-        <key>OpenSourceURL</key>
-        <string>http://mysql.he.net/Downloads/MySQL-5.0/mysql-5.0.67.tar.gz</string>
-        <key>OpenSourceSHA1</key>
-        <string>168090a4698a3a5efa2f2c9380a4352d4433d377</string>
-        <key>OpenSourceImportDate</key>
-        <string>2008-08-20</string>
-        <key>OpenSourceModifications</key>
-        <array/>
-        <key>OpenSourceLicense</key>
-        <string>GPL</string>
-        <key>OpenSourceLicenseFile</key>
-        <string>MySQL.txt</string>
-</dict>
-</array>
-</plist>
+(
+	{
+		OpenSourceProject = MySQL;
+		OpenSourceVersion = "5.0.82";
+		OpenSourceURL = "http://downloads.mysql.com/archives/mysql-5.0/mysql-5.0.82.tar.gz";
+		OpenSourceSHA1 = "571eb69a23afd180edd4152346d89c8c86ae7636";
+		OpenSourceImportDate = "2009-07-10";
+		"OpenSourceModifications" = ();
+		OpenSourceLicense = GPL;
+		"OpenSourceLicenseFile" = "MySQL.txt";
+	},
+)

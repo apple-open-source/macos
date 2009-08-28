@@ -1,9 +1,0 @@
---- ext/mbstring/libmbfl/buildconf.orig	2004-08-17 20:27:54.000000000 -0700
-+++ ext/mbstring/libmbfl/buildconf	2004-08-17 20:28:09.000000000 -0700
-@@ -1,5 +1,5 @@
- #!/bin/sh
--libtoolize -c -f --automake
-+glibtoolize -c -f --automake
- aclocal
- autoheader
- automake -a -c --foreign

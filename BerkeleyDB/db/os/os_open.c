@@ -1,101 +1,46 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1997-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1997,2007 Oracle.  All rights reserved.
+ *
+ * $Id: os_open.c,v 12.22 2007/05/17 15:15:46 bostic Exp $
  */
 
 #include "db_config.h"
 
-#ifndef lint
-static const char revid[] = "$Id: os_open.c,v 1.2 2004/03/30 01:23:46 jtownsen Exp $";
-#endif /* not lint */
-
-#ifndef NO_SYSTEM_INCLUDES
-#include <sys/types.h>
-
-#ifdef HAVE_SYS_FCNTL_H
-#include <sys/fcntl.h>
-#endif
-
-#include <fcntl.h>
-#include <string.h>
-#endif
-
 #include "db_int.h"
-
-#ifdef HAVE_QNX
-static int __os_region_open __P((DB_ENV *, const char *, int, int, DB_FH **));
-#endif
-
-/*
- * __os_have_direct --
- *	Check to see if we support direct I/O.
- *
- * PUBLIC: int __os_have_direct __P((void));
- */
-int
-__os_have_direct()
-{
-	int ret;
-
-	ret = 0;
-
-#ifdef HAVE_O_DIRECT
-	ret = 1;
-#endif
-#if defined(HAVE_DIRECTIO) && defined(DIRECTIO_ON)
-	ret = 1;
-#endif
-	return (ret);
-}
 
 /*
  * __os_open --
- *	Open a file.
- *
- * PUBLIC: int __os_open
- * PUBLIC:     __P((DB_ENV *, const char *, u_int32_t, int, DB_FH **));
- */
-int
-__os_open(dbenv, name, flags, mode, fhpp)
-	DB_ENV *dbenv;
-	const char *name;
-	u_int32_t flags;
-	int mode;
-	DB_FH **fhpp;
-{
-	return (__os_open_extend(dbenv, name, 0, 0, flags, mode, fhpp));
-}
-
-/*
- * __os_open_extend --
  *	Open a file descriptor (including page size and log size information).
  *
- * PUBLIC: int __os_open_extend __P((DB_ENV *,
- * PUBLIC:     const char *, u_int32_t, u_int32_t, u_int32_t, int, DB_FH **));
+ * PUBLIC: int __os_open __P((DB_ENV *,
+ * PUBLIC:     const char *, u_int32_t, u_int32_t, int, DB_FH **));
  */
 int
-__os_open_extend(dbenv, name, log_size, page_size, flags, mode, fhpp)
+__os_open(dbenv, name, page_size, flags, mode, fhpp)
 	DB_ENV *dbenv;
 	const char *name;
-	u_int32_t log_size, page_size, flags;
+	u_int32_t page_size, flags;
 	int mode;
 	DB_FH **fhpp;
 {
 	DB_FH *fhp;
 	int oflags, ret;
 
-	COMPQUIET(log_size, 0);
 	COMPQUIET(page_size, 0);
 
 	*fhpp = NULL;
 	oflags = 0;
 
+	if (dbenv != NULL &&
+	    FLD_ISSET(dbenv->verbose, DB_VERB_FILEOPS | DB_VERB_FILEOPS_ALL))
+		__db_msg(dbenv, "fileops: open %s", name);
+
 #define	OKFLAGS								\
-	(DB_OSO_CREATE | DB_OSO_DIRECT | DB_OSO_EXCL | DB_OSO_LOG |	\
-	 DB_OSO_RDONLY | DB_OSO_REGION | DB_OSO_SEQ | DB_OSO_TEMP |	\
-	 DB_OSO_TRUNC)
+	(DB_OSO_ABSMODE | DB_OSO_CREATE | DB_OSO_DIRECT | DB_OSO_DSYNC |\
+	DB_OSO_EXCL | DB_OSO_RDONLY | DB_OSO_REGION | DB_OSO_SEQ |	\
+	DB_OSO_TEMP | DB_OSO_TRUNC)
 	if ((ret = __db_fchk(dbenv, "__os_open", flags, OKFLAGS)) != 0)
 		return (ret);
 
@@ -120,16 +65,12 @@ __os_open_extend(dbenv, name, log_size, page_size, flags, mode, fhpp)
 	if (LF_ISSET(DB_OSO_EXCL))
 		oflags |= O_EXCL;
 
-#if defined(O_DSYNC) && defined(XXX_NEVER_SET)
-	/*
-	 * !!!
-	 * We should get better performance if we push the log files to disk
-	 * immediately instead of waiting for the sync.  However, Solaris
-	 * (and likely any other system based on the 4BSD filesystem releases),
-	 * doesn't implement O_DSYNC correctly, only flushing data blocks and
-	 * not inode or indirect blocks.
-	 */
-	if (LF_ISSET(DB_OSO_LOG))
+#ifdef HAVE_O_DIRECT
+	if (LF_ISSET(DB_OSO_DIRECT))
+		oflags |= O_DIRECT;
+#endif
+#ifdef O_DSYNC
+	if (LF_ISSET(DB_OSO_DSYNC))
 		oflags |= O_DSYNC;
 #endif
 
@@ -141,18 +82,40 @@ __os_open_extend(dbenv, name, log_size, page_size, flags, mode, fhpp)
 	if (LF_ISSET(DB_OSO_TRUNC))
 		oflags |= O_TRUNC;
 
-#ifdef HAVE_O_DIRECT
-	if (LF_ISSET(DB_OSO_DIRECT))
-		oflags |= O_DIRECT;
-#endif
+	/*
+	 * Undocumented feature: allow applications to create intermediate
+	 * directories whenever a file is opened.
+	 */
+	if (dbenv != NULL &&
+	    dbenv->dir_mode != 0 && LF_ISSET(DB_OSO_CREATE) &&
+	    (ret = __db_mkpath(dbenv, name)) != 0)
+		return (ret);
 
-#ifdef HAVE_QNX
-	if (LF_ISSET(DB_OSO_REGION))
-		return (__os_qnx_region_open(dbenv, name, oflags, mode, fhpp));
-#endif
 	/* Open the file. */
 	if ((ret = __os_openhandle(dbenv, name, oflags, mode, &fhp)) != 0)
 		return (ret);
+
+#ifdef HAVE_FCHMOD
+	/*
+	 * If the code using Berkeley DB is a library, that code may not be able
+	 * to control the application's umask value.  Allow applications to set
+	 * absolute file modes.  We can't fix the race between file creation and
+	 * the fchmod call -- we can't modify the process' umask here since the
+	 * process may be multi-threaded and the umask value is per-process, not
+	 * per-thread.
+	 */
+	if (LF_ISSET(DB_OSO_CREATE) && LF_ISSET(DB_OSO_ABSMODE))
+		(void)fchmod(fhp->fd, mode);
+#endif
+
+#ifdef O_DSYNC
+	/*
+	 * If we can configure the file descriptor to flush on write, the
+	 * file descriptor does not need to be explicitly sync'd.
+	 */
+	if (LF_ISSET(DB_OSO_DSYNC))
+		F_SET(fhp, DB_FH_NOSYNC);
+#endif
 
 #if defined(HAVE_DIRECTIO) && defined(DIRECTIO_ON)
 	/*
@@ -176,11 +139,6 @@ __os_open_extend(dbenv, name, log_size, page_size, flags, mode, fhpp)
 	 */
 	if (LF_ISSET(DB_OSO_TEMP)) {
 #if defined(HAVE_UNLINK_WITH_OPEN_FAILURE) || defined(CONFIG_TEST)
-		if ((ret = __os_strdup(dbenv, name, &fhp->name)) != 0) {
-			(void)__os_closehandle(dbenv, fhp);
-			(void)__os_unlink(dbenv, name);
-			return (ret);
-		}
 		F_SET(fhp, DB_FH_UNLINK);
 #else
 		(void)__os_unlink(dbenv, name);
@@ -190,134 +148,3 @@ __os_open_extend(dbenv, name, log_size, page_size, flags, mode, fhpp)
 	*fhpp = fhp;
 	return (0);
 }
-
-#ifdef HAVE_QNX
-/*
- * __os_qnx_region_open --
- *	Open a shared memory region file using POSIX shm_open.
- */
-static int
-__os_qnx_region_open(dbenv, name, oflags, mode, fhpp)
-	DB_ENV *dbenv;
-	const char *name;
-	int oflags;
-	int mode;
-	DB_FH **fhpp;
-{
-	DB_FH *fhp;
-	int ret;
-	char *newname;
-
-	if ((ret = __os_calloc(dbenv, 1, sizeof(DB_FH), fhpp)) != 0)
-		return (ret);
-	fhp = *fhpp;
-
-	if ((ret = __os_shmname(dbenv, name, &newname)) != 0)
-		goto err;
-
-	/*
-	 * Once we have created the object, we don't need the name
-	 * anymore.  Other callers of this will convert themselves.
-	 */
-	fhp->fd = shm_open(newname, oflags, mode);
-	__os_free(dbenv, newname);
-
-	if (fhp->fd == -1) {
-		ret = __os_get_errno();
-		goto err;
-	}
-
-	F_SET(fhp, DB_FH_OPENED);
-
-#ifdef HAVE_FCNTL_F_SETFD
-	/* Deny file descriptor acces to any child process. */
-	if (fcntl(fhp->fd, F_SETFD, 1) == -1) {
-		ret = __os_get_errno();
-		__db_err(dbenv, "fcntl(F_SETFD): %s", strerror(ret));
-		goto err;
-	}
-#endif
-
-err:	if (ret != 0) {
-		(void)__os_closehandle(dbenv, fhp);
-		*fhpp = NULL;
-	}
-
-	return (ret);
-}
-
-/*
- * __os_shmname --
- *	Translate a pathname into a shm_open memory object name.
- *
- * PUBLIC: #ifdef HAVE_QNX
- * PUBLIC: int __os_shmname __P((DB_ENV *, const char *, char **));
- * PUBLIC: #endif
- */
-int
-__os_shmname(dbenv, name, newnamep)
-	DB_ENV *dbenv;
-	const char *name;
-	char **newnamep;
-{
-	int ret;
-	size_t size;
-	char *p, *q, *tmpname;
-
-	*newnamep = NULL;
-
-	/*
-	 * POSIX states that the name for a shared memory object
-	 * may begin with a slash '/' and support for subsequent
-	 * slashes is implementation-dependent.  The one implementation
-	 * we know of right now, QNX, forbids subsequent slashes.
-	 * We don't want to be parsing pathnames for '.' and '..' in
-	 * the middle.  In order to allow easy conversion, just take
-	 * the last component as the shared memory name.  This limits
-	 * the namespace a bit, but makes our job a lot easier.
-	 *
-	 * We should not be modifying user memory, so we use our own.
-	 * Caller is responsible for freeing the memory we give them.
-	 */
-	if ((ret = __os_strdup(dbenv, name, &tmpname)) != 0)
-		return (ret);
-	/*
-	 * Skip over filename component.
-	 * We set that separator to '\0' so that we can do another
-	 * __db_rpath.  However, we immediately set it then to ':'
-	 * so that we end up with the tailing directory:filename.
-	 * We require a home directory component.  Return an error
-	 * if there isn't one.
-	 */
-	p = __db_rpath(tmpname);
-	if (p == NULL)
-		return (EINVAL);
-	if (p != tmpname) {
-		*p = '\0';
-		q = p;
-		p = __db_rpath(tmpname);
-		*q = ':';
-	}
-	if (p != NULL) {
-		/*
-		 * If we have a path component, copy and return it.
-		 */
-		ret = __os_strdup(dbenv, p, newnamep);
-		__os_free(dbenv, tmpname);
-		return (ret);
-	}
-
-	/*
-	 * We were given just a directory name with no path components.
-	 * Add a leading slash, and copy the remainder.
-	 */
-	size = strlen(tmpname) + 2;
-	if ((ret = __os_malloc(dbenv, size, &p)) != 0)
-		return (ret);
-	p[0] = '/';
-	memcpy(&p[1], tmpname, size-1);
-	__os_free(dbenv, tmpname);
-	*newnamep = p;
-	return (0);
-}
-#endif

@@ -1,4 +1,8 @@
-// Copyright (C) 2001, 2002, 2003, 2005 Free Software Foundation, Inc.
+// { dg-require-fork "" }
+// { dg-require-mkfifo "" }
+ 
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -13,7 +17,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // 27.8.1.3 filebuf member functions
@@ -30,11 +34,15 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+
+// No asserts, avoid leaking the semaphores if a VERIFY fails.
+#undef _GLIBCXX_ASSERT
+
 #include <testsuite_hooks.h>
 
 // libstdc++/2913, libstdc++/4879
 // John Fardo  <jfardo@laurelnetworks.com>, Brad Garcia <garsh@attbi.com>
-void
+bool
 test_04()
 {
   using namespace __gnu_test;
@@ -46,7 +54,7 @@ test_04()
   signal(SIGPIPE, SIG_IGN);
   
   unlink(name);
-  if (0 != try_mkfifo(name, S_IRWXU))
+  if (0 != mkfifo(name, S_IRWXU))
     {
       std::cerr << "failed to create fifo" << std::endl;
       exit(-1);
@@ -57,20 +65,20 @@ test_04()
     {
       std::cerr << "failed to fork" << std::endl;
       unlink(name);
-      exit(-1);
+      return false;
     }
   else if (fval == 0)
     {
       std::ifstream ifs(name);
-      s1.wait ();
+      s1.wait();
       ifs.close();
-      s2.signal ();
+      s2.signal();
       exit(0);
     }
 
   std::ofstream ofs(name);
-  s1.signal ();
-  s2.wait ();
+  s1.signal();
+  s2.wait();
   ofs.put('t');
 
   /*
@@ -86,18 +94,15 @@ test_04()
     {
       test = false;
       VERIFY( test );
-      unlink(name);
-      exit(-1);
     }
 
   unlink(name);
+
+  return test;
 }
 
 int
 main()
 {
-  test_04();
-  return 0;
+  return !test_04();
 }
-
-

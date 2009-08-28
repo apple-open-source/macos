@@ -1,0 +1,106 @@
+#$Id: makeDoc.xotcl,v 1.6 2006/09/27 08:12:40 neumann Exp $
+package require XOTcl
+namespace import ::xotcl::*
+@ @File {
+  description {
+    Documentation tool for the XOTcl distribution.<br>
+    Usage: 'makeDoc docdir filename ?filename ...?'<br>
+    Called by Makefile.
+  }
+}
+lappend auto_path [file dirname [info script]]
+
+package require xotcl::package
+package verbose 1
+package require xotcl::xodoc
+set fileList ""
+
+puts "XOTcl Documentation Tool"
+puts "------------------------"
+if {$argc > 1} {
+  set DOCDIR [lindex $argv 0]
+  puts "Documenting to directory $DOCDIR:"
+  if {![file isdirectory $DOCDIR]} {
+    file mkdir $DOCDIR
+  }
+  set files [lrange $argv 1 end]
+  foreach file $files {
+      puts "...$file"
+      if {[catch {XODoc documentFileAsHTML $file $DOCDIR} fb]} {
+	  puts stderr "\terror processing $file:\n[string replace $::errorInfo 400 end ...]"
+      } else {
+	  lappend fileList $file $fb
+      }
+  }
+} else {
+  error "usage: xodoc docdir filename ?filename ...?"
+}
+
+set filesHtml ""
+set filesDir ""
+## write index page
+foreach {f fb} $fileList {
+  set dir .
+  regexp {^(.*)/[^/]*$} $f _ dir
+  if {$fb ne "langRef-xotcl"} {
+    set tail ", "
+    if {$dir != $filesDir} {
+      append filesHtml "<li> <b>Directory '[regsub {^/.*/xotcl/} $dir {xotcl/}]': </b><br>"
+      set filesDir $dir
+      set tail ""
+    }
+    append filesHtml "$tail<a HREF=\"./${fb}.html\">[file tail $f]</a>"
+  }
+}
+
+#  <html>
+#  <head>
+#  <title>XOTcl - Documentation</title>
+#  </head>
+#  <body bgcolor=FFFFFF>
+#  <h1><IMG ALIGN=MIDDLE SRC = "./logo-100.jpg">Lanuage Reference - Index</h1>
+
+set content {
+
+The <EM>Extended Object Tcl (XOTcl)</EM> Documentation contains the
+following parts: 
+
+<h2> XOTcl Language Documentation </h2>
+  <UL>
+  <LI>XOTcl Tutorial (<a href="tutorial.html">HTML</a>, 
+		      <a href="tutorial.pdf">PDF</a>)
+  <LI>Language Reference (<a href="langRef-xotcl.html">HTML</a>,
+		      <a href="langRef-xotcl.pdf">PDF</a>)
+  <LI>If you have question, problems etc. you might check the
+      <a href="http://alice.wu-wien.ac.at/mailman/listinfo/xotcl">XOTcl 
+         mailing list</a> (<a href="http://alice.wu-wien.ac.at:8000/xotcl-mailing-list/">archive 1</a>,
+      <a href="http://alice.wu-wien.ac.at/pipermail/xotcl/">archive 2</a>)
+      or you might check the XOTcl section of the  
+         <a href="http://wiki.tcl.tk/XOTcl">Tcl wiki</a>.
+   </UL>
+
+<h2>Package and Script Documentation</h2>
+<center>
+  This section of the documentation is under work...
+</center>
+
+  <ul>
+    $filesHtml
+  </ul>
+  <p>
+
+<h2>Tcl Online Information </h2>
+  <ul>
+   <li>Online information for <a href="http://www.tcl.tk/man/">
+      Tcl manual pages</a>
+  </ul>
+ 
+}
+
+
+set content [subst -nobackslashes -nocommands $content]
+set f [open $DOCDIR/index.html w]
+puts $f $content
+close $f
+
+puts "Documentation finished"

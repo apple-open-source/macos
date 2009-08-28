@@ -1,39 +1,41 @@
-La llista de correu `%(listname)s' acaba de ser creada per a vostè. La
-següent és una mica d'informació bàsica sobre la seva llista de correu.
+S'acaba de crear la llista Â«%(listname)sÂ».  A continuaciÃ³ s'inclou una
+mica d'informaciÃ³ bÃ sica sobre aquesta llista.
 
-La clau de pas de la seva llista de correu és:
+La contrasenya per a la llista de correu Ã©s:
 
     %(password)s
 
-Necessita aquesta clau per tal de poder configurar la seva llista de correu.
-També la necessita per manejar peticions administratives, com ara aprovar correu
-en el cas de que decideixi dirigir una llista moderada.
+Haureu d'utilitzar aquesta contrasenya per a configurar la vostra llista
+de correu.  TambÃ© la necessitareu per a actuar sobre les solÂ·licituds
+administratives, com ara l'aprovaciÃ³ de correus en llistes amb moderaciÃ³
+activada.
 
-Pot configurar la seva llista de correu en la següent pàgina web:
+Podeu configurar la vostra llista de correu a la pÃ gina web segÃ¼ent:
 
     %(admin_url)s
 
-La pàgina web per als usuaris de la seva llista de correu és:
+La pÃ gina web per als usuaris de la vostra llista de correu Ã©s:
 
     %(listinfo_url)s
 
-Fins i tot pot modificar al seu gust aquestes pàgines web desde la
-pàgina de configuració de llista, tot i que necessita saber HTML
-per poder fer-ho.
+TambÃ© podeu personalitzar aquestes pÃ gines de correu des de la pÃ gina de
+configuraciÃ³ de la llista, per la qual cosa caldrÃ  que tingueu
+coneixements d'HTML.
 
-També hi ha una interfície basada en email pels usuaris (no administradors)
-de la seva llista; pot aconsseguir informació sobre com usar-la enviant 
-un missatge només amb la paraula 'ajuda' en el títol, o en el cos del missatge, a:
+Els usuaris de la vostra llista (perÃ² no pas els administradors) tambÃ©
+poden utilitzar la interfÃ­cie basada en correu electrÃ²nic.  Per a
+obtenir mÃ©s informaciÃ³ sobre com utilitzar-la, podeu enviar un missatge
+nomÃ©s amb la paraula Â«helpÂ» a l'assumpte o al cos, a l'adreÃ§a:
 
     %(requestaddr)s
 
-Per donar de baixa a un usuari: desde la pàgina web 'listinfo' de la llista de correu,
-faci click o entri l'adreça de correu electrònic de l'usuari tal com si vostè
-fós aquest usuari. En el lloc on el suposat usuari entraria la seva clau de pas per 
-donar-se de baixa, entri la seva clau de pas d'administrador. També pot usar la seva clau
-per a canviar opcions dels membres, incloent la opció de compilació, deshabilitar 
-enviaments , etc.
+Com cancelÂ·lar la subscripciÃ³ d'un usuari: aneu a la pÃ gina web
+Â«listinfoÂ» de la llista de correu i introduÃ¯u o feu clic a l'adreÃ§a de
+l'usuari, de la mateixa manera com ell o ella ho faria.  AllÃ­ on
+l'usuari hauria d'introduir la seva contrasenya per a cancelÂ·lar la
+subscripciÃ³, vÃ³s hi haureu d'introduir la contrasenya d'administraciÃ³.
+TambÃ© podeu utilitzar la vostra contrasenya per a canviar les opcions de
+l'usuari, com ara la recepciÃ³ de compilacions de missatges,
+inhabilitaciÃ³ dels enviaments, etc.
 
-Si us plau, adreci totes les preguntes a 
-
- %(siteowner)s.
+Si teniu qualsevol pregunta, l'haurÃ­eu d'adreÃ§ar a %(siteowner)s.

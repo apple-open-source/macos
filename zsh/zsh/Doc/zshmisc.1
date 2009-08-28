@@ -1,4 +1,4 @@
-.TH "ZSHMISC" "1" "April 19, 2006" "zsh 4\&.3\&.4"
+.TH "ZSHMISC" "1" "October 30, 2008" "zsh 4\&.3\&.9"
 .SH "NAME"
 zshmisc \- everything and then some
 .\" Yodl file: Zsh/grammar.yo
@@ -102,25 +102,48 @@ a reserved word\&.
 The command is executed with a `\fB\-\fP\&' prepended to its
 \fBargv[0]\fP string\&.
 .TP
-\fBnoglob\fP
-Filename generation (globbing) is not performed on any of
-the words\&.
+\fBbuiltin\fP
+The command word is taken to be the name of a builtin command,
+rather than a shell function or external command\&.
+.TP
+\fBcommand\fP [ \fB\-pvV\fP ]
+The command word is taken to be the name of an external command,
+rather than a shell function or builtin\&.   If the \fBPOSIX_BUILTINS\fP option
+is set, builtins will also be executed but certain special properties
+of them are suppressed\&. The \fB\-p\fP flag causes a default path to be
+searched instead of that in \fB$path\fP\&. With the \fB\-v\fP flag, \fBcommand\fP
+is similar to \fBwhence\fP and with \fB\-V\fP, it is equivalent to \fBwhence
+\-v\fP\&.
+.TP
+\fBexec\fP [ \fB\-cl\fP ] [ \fB\-a\fP \fIargv0\fP ]
+The following command together with any arguments is run in place
+of the current process, rather than as a sub\-process\&.  The shell does not
+fork and is replaced\&.  The shell does not invoke \fBTRAPEXIT\fP, nor does it
+source \fBzlogout\fP files\&.
+The options are provided for compatibility with other shells\&.
+.RS
+.PP
+The \fB\-c\fP option clears the environment\&.
+.PP
+The \fB\-l\fP option is equivalent to the \fB\-\fP precommand modifier, to
+treat the replacement command as a login shell; the command is executed
+with a \fB\-\fP prepended to its \fBargv[0]\fP string\&.  This flag has no effect
+if used together with the \fB\-a\fP option\&.
+.PP
+The \fB\-a\fP option is used to specify explicitly the \fBargv[0]\fP string
+(the name of the command as seen by the process itself) to be used by the
+replacement command and is directly equivalent to setting a value
+for the \fBARGV0\fP environment variable\&.
+.RE
 .TP
 \fBnocorrect\fP
 Spelling correction is not done on any of the words\&.  This must appear
 before any other precommand modifier, as it is interpreted immediately,
 before any parsing is done\&.  It has no effect in non\-interactive shells\&.
 .TP
-\fBexec\fP
-The command is executed in the parent shell without forking\&.
-.TP
-\fBcommand\fP
-The command word is taken to be the name of an external command,
-rather than a shell function or builtin\&.
-.TP
-\fBbuiltin\fP
-The command word is taken to be the name of a builtin command,
-rather than a shell function or external command\&.
+\fBnoglob\fP
+Filename generation (globbing) is not performed on any of
+the words\&.
 .SH "COMPLEX COMMANDS"
 A \fIcomplex command\fP in zsh is one of the following:
 .PP
@@ -227,7 +250,7 @@ chunks of code are referred to as the `try block\&' and the `always block'\&.
 .RS
 .PP
 Optional newlines or semicolons may appear after the \fBalways\fP;
-note, however, that they may \fInot\fP appear between the preceeding
+note, however, that they may \fInot\fP appear between the preceding
 closing brace and the \fBalways\fP\&.
 .PP
 An `error\&' in this context is a condition such as a syntax error which
@@ -399,7 +422,7 @@ select coproc nocorrect foreach end ! [[ { }\fP
 Additionally, `\fB}\fP\&' is recognized in any position if the \fBIGNORE_BRACES\fP option
 is not set\&.
 .SH "COMMENTS"
-In noninteractive shells, or in interactive shells with the
+In non\-interactive shells, or in interactive shells with the
 \fBINTERACTIVE_COMMENTS\fP option set, a word beginning
 with the third character of the \fBhistchars\fP parameter
 (`\fB#\fP\&' by default) causes that word and all the following
@@ -422,6 +445,23 @@ if an alias is defined for the word \fBfoo\fP, alias expansion
 may be avoided by quoting part of the word, e\&.g\&. \fB\efoo\fP\&.
 But there is nothing to prevent an alias being defined
 for \fB\efoo\fP as well\&.
+.PP
+There is a commonly encountered problem with aliases
+illustrated by the following code:
+.PP
+.RS
+.nf
+\fBalias echobar=\&'echo bar'; echobar\fP
+.fi
+.RE
+.PP
+This prints a message that the command \fBechobar\fP could not be found\&.
+This happens because aliases are expanded when the code is read in;
+the entire line is read in one go, so that when \fBechobar\fP is executed it
+is too late to expand the newly defined alias\&.  This is often
+a problem in shell scripts, functions, and code executed with `\fBsource\fP\&'
+or `\fB\&.\fP\&'\&.  Consequently, use of functions rather than aliases is
+recommended in non\-interactive code\&.
 .SH "QUOTING"
 A character may be \fIquoted\fP (that is, made
 to stand for itself) by preceding it with a `\fB\e\fP\&'\&.
@@ -870,6 +910,16 @@ is a file beginning with `\fB#!\fP\&', the remainder of the first line
 specifies an interpreter for the program\&.  The shell will
 execute the specified interpreter on operating systems that do
 not handle this executable format in the kernel\&.
+.PP
+If no external command is found but a function \fBcommand_not_found_handler\fP
+exists the shell executes this function with all
+command line arguments\&.  The function should return status zero if it
+successfully handled the command, or non\-zero status if it failed\&.
+In the latter case the standard handling is applied: `command not
+found\&' is printed to standard error and the shell exits with status 127\&.
+Note that the handler is executed in a subshell forked to execute
+an external command, hence changes to directories, shell parameters,
+etc\&. have no effect on the main shell\&.
 .\" Yodl file: Zsh/func.yo
 .SH "FUNCTIONS"
 Shell functions are defined with the \fBfunction\fP reserved word or the
@@ -1034,6 +1084,48 @@ executing \fBmyfunc\fP, use:
 .fi
 .RE
 .PP
+.SH "ANONYMOUS FUNCTIONS"
+.PP
+If no name is given for a function, it is `anonymous\&' and is handled
+specially\&.  Either form of function definition may be used: a `\fB()\fP\&' with
+no preceding name, or a `\fBfunction\fP\&' with an immediately following open
+brace\&.  The function is executed immediately at the point of definition and
+is not stored for future use\&.  The function name is set to `\fB(anon)\fP\&' and
+the parameter list passed to the function is empty\&.  Note that this means
+the argument list of any enclosing script or function is hidden\&.
+Redirections may be applied to the anonymous function in the same manner as
+to a current\-shell structure enclosed in braces\&.  The main use of anonymous
+functions is to provide a scope for local variables\&.  This is particularly
+convenient in start\-up files as these do not provide their own local
+variable scope\&.
+.PP
+For example,
+.PP
+.RS
+.nf
+\fBvariable=outside
+function {
+  local variable=inside
+  print "I am $variable"
+}
+print "I am $variable"\fP
+.fi
+.RE
+.PP
+outputs the following:
+.PP
+.RS
+.nf
+\fBI am inside
+I am outside\fP
+.fi
+.RE
+.PP
+Note that function definitions with arguments that expand to nothing,
+for example `\fBname=; function $name { \fP\fI\&.\&.\&.\fP\fB }\fP\&', are not
+treated as anonymous functions\&.  Instead, they are treated as normal
+function definitions where the definition is silently discarded\&.
+.PP
 .SH "SPECIAL FUNCTIONS"
 Certain functions, if defined, have special meaning to the shell\&.
 .PP
@@ -1067,7 +1159,9 @@ scheduled time is not reset if the list of functions is altered\&.
 Hence the set of functions is always called together\&.
 .TP
 \fBprecmd\fP
-Executed before each prompt\&.
+Executed before each prompt\&.  Note that precommand functions are not
+re\-executed simply because the command line is redrawn, as happens, for
+example, when a notification about an exiting job is displayed\&.
 .TP
 \fBpreexec\fP
 Executed just after a command has been read and is about to be
@@ -1079,6 +1173,37 @@ passed in two different forms: the second argument is a single\-line,
 size\-limited version of the command (with things like function bodies
 elided); the third argument contains the full text that is being
 executed\&.
+.TP
+\fBzshaddhistory\fP
+Executed when a history line has been read interactively, but
+before it is executed\&.  The sole argument is the complete history
+line (so that any terminating newline will still be present)\&.
+.RS
+.PP
+If any of the hook functions return a non\-zero value the history
+line will not be saved, although it lingers in the history until the
+next line is executed allow you to reuse or edit it immediately\&.
+.PP
+A hook function may call `\fBfc \-p\fP \fI\&.\&.\&.\fP\&' to switch the history
+context so that the history is saved in a different file from the
+that in the global \fBHISTFILE\fP parameter\&.  This is handled specially:
+the history context is automatically restored after the processing
+of the history line is finished\&.
+.PP
+The following example function first adds the history line to the normal
+history with the newline stripped,  which is usually the correct behaviour\&.
+Then it switches the history context so that the line will
+be written to a history file in the current directory\&.
+.PP
+.RS
+.nf
+\fBzshaddhistory() {
+  print \-sr \-\- ${1%%$\&'\en'}
+  fc \-p \&.zsh_local_history
+}\fP
+.fi
+.RE
+.RE
 .TP
 \fBzshexit\fP
 Executed at the point where the main shell is about to exit normally\&.
@@ -1120,7 +1245,11 @@ executed inside other traps\&.
 .RE
 .TP
 \fBTRAPDEBUG\fP
-Executed after each command\&.
+If the option \fBDEBUG_BEFORE_CMD\fP is set (as it is by default), executed
+before each command; otherwise executed after each command\&.  See
+the description of the \fBtrap\fP builtin in
+\fIzshbuiltins\fP(1) for details of additional features provided
+in debug traps\&.
 .TP
 \fBTRAPEXIT\fP
 Executed when the shell exits,
@@ -1270,7 +1399,8 @@ integers, the shell is usually compiled to use 8\-byte precision where this
 is available, otherwise precision is 4 bytes\&.  This can be tested, for
 example, by giving the command `\fBprint \- $(( 12345678901 ))\fP\&'; if the
 number appears unchanged, the precision is at least 8 bytes\&.  Floating
-point arithmetic is always double precision\&.
+point arithmetic always uses the `double\&' type with whatever corresponding
+precision is provided by the compiler and the library\&.
 .PP
 The \fBlet\fP builtin command takes arithmetic expressions as arguments; each
 is evaluated separately\&.  Since many of the arithmetic operators, as well
@@ -1280,7 +1410,7 @@ matching `\fB))\fP\&' are treated as a quoted expression and
 arithmetic expansion performed as for an argument of \fBlet\fP\&.  More
 precisely, `\fB((\fP\fI\&.\&.\&.\fP\fB))\fP\&' is equivalent to
 `\fBlet "\fP\fI\&.\&.\&.\fP\fB"\fP\&'\&.  The return status is 0 if the arithmetic value
-of the expression is non\-zero, and 1 otherwise\&.
+of the expression is non\-zero, 1 if it is zero, and 2 if an error occurred\&.
 .PP
 For example, the following statement
 .PP
@@ -1354,10 +1484,11 @@ or an exponent\&.  The decimal point may be the first character of the
 constant, but the exponent character \fBe\fP or \fBE\fP may not, as it will be
 taken for a parameter name\&.
 .PP
-An arithmetic expression uses nearly the same syntax, precedence, and
-associativity of expressions in C\&.
-The following operators are supported (listed in decreasing order
-of precedence):
+An arithmetic expression uses nearly the same syntax and
+associativity of expressions as in C\&.
+.PP
+In the native mode of operation, the following operators are supported
+(listed in decreasing order of precedence):
 .PP
 .PD 0
 .TP
@@ -1411,6 +1542,66 @@ The operators `\fB&&\fP\&', `\fB||\fP', `\fB&&=\fP', and `\fB||=\fP' are
 short\-circuiting, and only one of the latter two expressions in a ternary
 operator is evaluated\&.  Note the precedence of the bitwise AND, OR,
 and XOR operators\&.
+.PP
+With the option \fBC_PRECEDENCES\fP the precedences (but no other
+properties) of the operators are altered to be the same as those in
+most other languages that support the relevant operators:
+.PP
+.PD 0
+.TP
+\fB+ \- ! ~ ++ \-\-\fP
+unary plus/minus, logical NOT, complement, {pre,post}{in,de}crement
+.TP
+\fB**\fP
+exponentiation
+.TP
+\fB* / %\fP
+multiplication, division, modulus (remainder)
+.TP
+\fB+ \-\fP
+addition, subtraction
+.TP
+\fB<< >>\fP
+bitwise shift left, right
+.TP
+\fB< > <= >=\fP
+comparison
+.TP
+\fB== !=\fP
+equality and inequality
+.TP
+\fB&\fP
+bitwise AND
+.TP
+\fB^\fP
+bitwise XOR
+.TP
+\fB|\fP
+bitwise OR
+.TP
+\fB&&\fP
+logical AND
+.TP
+\fB^^\fP
+logical XOR
+.TP
+\fB||\fP
+logical OR
+.TP
+\fB? :\fP
+ternary operator
+.TP
+\fB= += \-= *= /= %= &= ^= |= <<= >>= &&= ||= ^^= **=\fP
+assignment
+.TP
+\fB,\fP
+comma operator
+.PD
+.PP
+Note the precedence of exponentiation in both cases is below
+that of unary operators, hence `\fB\-3**2\fP\&' evaluates as `\fB9\fP', not
+\fB\-9\fP\&.  Use parentheses where necessary: `\fB\-(3**2)\fP\&'\&.  This is
+for compatibility with other shells\&.
 .PP
 Mathematical functions can be called with the syntax
 `\fIfunc\fP\fB(\fP\fIargs\fP\fB)\fP\&', where the function decides
@@ -1596,6 +1787,20 @@ backward compatibility and should be considered obsolete\&.
 \fIstring\fP \fB!=\fP \fIpattern\fP
 true if \fIstring\fP does not match \fIpattern\fP\&.
 .TP
+\fIstring\fP \fB=~\fP \fIregexp\fP
+true if \fIstring\fP matches the regular expression
+\fIregexp\fP\&.  If the option \fBRE_MATCH_PCRE\fP is set
+\fIregexp\fP is tested as a PCRE regular expression using
+the \fBzsh/pcre\fP module, else it is tested as a POSIX
+extended regular expression using the \fBzsh/regex\fP module\&.
+If the option \fBBASH_REMATCH\fP is set the array
+\fBBASH_REMATCH\fP is set to the substring that matched the pattern
+followed by the substrings that matched parenthesised
+subexpressions within the pattern; otherwise, the scalar parameter
+\fBMATCH\fP is set to the substring that matched the pattern and
+and the array \fBmatch\fP to the substrings that matched parenthesised
+subexpressions\&.
+.TP
 \fIstring1\fP \fB<\fP \fIstring2\fP
 true if \fIstring1\fP comes before \fIstring2\fP
 based on ASCII value of their characters\&.
@@ -1665,7 +1870,7 @@ tests if either file \fBfoo\fP or file \fBbar\fP exists, and if so, if the
 value of the parameter \fBreport\fP begins with `\fBy\fP\&'; if the complete
 condition is true, the message `\fBFile exists\&.\fP\&' is printed\&.
 .\" Yodl file: Zsh/prompt.yo
-.SH "PROMPT EXPANSION"
+.SH "EXPANSION OF PROMPT SEQUENCES"
 Prompt sequences undergo a special form of expansion\&.  This type of expansion
 is also available using the \fB\-P\fP option to the \fBprint\fP builtin\&.
 .PP
@@ -1684,9 +1889,13 @@ represented as `\fB!!\fP\&'\&.
 .PP
 If the \fBPROMPT_PERCENT\fP option is set, certain escape sequences that
 start with `\fB%\fP\&' are expanded\&.
-Some escapes take an optional integer argument, which
+Many escapes are followed by a single character, although some of these
+take an optional integer argument that
 should appear between the `\fB%\fP\&' and the next character of the
-sequence\&.  The following escape sequences are recognized:
+sequence\&.  More complicated escape sequences are available to provide
+conditional expansion\&.
+.PP
+.SH "SIMPLE PROMPT ESCAPES"
 .PP
 .SS "Special characters"
 .PD 0
@@ -1772,6 +1981,11 @@ The line number currently being executed in the script, sourced file, or
 shell function given by \fB%N\fP\&.  This is most useful for debugging as part
 of \fB$PS4\fP\&.
 .TP
+\fB%I\fP
+The line number currently being executed in the file \fB%x\fP\&.  This is
+similar to \fB%i\fP, but the line number is always a line number in the
+file where the code was defined, even if the code is a shell function\&.
+.TP
 \fB%j\fP
 The number of jobs\&.
 .TP
@@ -1784,6 +1998,11 @@ currently executing, whichever was started most recently\&.  If there is
 none, this is equivalent to the parameter \fB$0\fP\&.  An integer may follow
 the `\fB%\fP\&' to specify a number of trailing path components to show; zero
 means the full path\&.  A negative integer specifies leading components\&.
+.TP
+\fB%x\fP
+The name of the file containing the source code currently being
+executed\&.  This behaves as \fB%N\fP except that function and eval command
+names are not shown, instead the file where they were defined\&.
 .TP
 .PD 0
 \fB%c\fP
@@ -1850,12 +2069,53 @@ Start (stop) underline mode\&.
 \fB%S\fP (\fB%s\fP)
 Start (stop) standout mode\&.
 .TP
+\fB%F\fP (\fB%f\fP)
+Start (stop) using a different foreground colour, if supported
+by the terminal\&.  The colour may be specified two ways: either
+as a numeric argument, as normal, or by a sequence in braces
+following the \fB%F\fP, for example \fB%F{red}\fP\&.  In the latter case
+the values allowed are as described for the \fBfg\fP \fBzle_highlight\fP
+attribute;
+see \fICharacter Highlighting\fP in \fIzshzle\fP(1)\&.  This means that numeric
+colours are allowed in the second format also\&.
+.TP
+\fB%K\fP (\fB%k\fP)
+Start (stop) using a different bacKground colour\&.  The syntax is
+identical to that for \fB%F\fP and \fB%f\fP\&.
+.TP
 \fB%{\fP\&.\&.\&.\fB%}\fP
 Include a string as a literal escape sequence\&.
 The string within the braces should not change the cursor
 position\&.  Brace pairs can nest\&.
+.RS
 .PP
-.SS "Conditional substrings"
+A positive numeric argument between the \fB%\fP and the \fB{\fP is treated as
+described for \fB%G\fP below\&.
+.RE
+.TP
+\fB%G\fP
+Within a \fB%{\fP\&.\&.\&.\fB%}\fP sequence, include a `glitch\&': that is, assume
+that a single character width will be output\&.  This is useful when
+outputting characters that otherwise cannot be correctly handled by the
+shell, such as the alternate character set on some terminals\&.
+The characters in question can be included within a \fB%{\fP\&.\&.\&.\fB%}\fP
+sequence together with the appropriate number of \fB%G\fP sequences to
+indicate the correct width\&.  An integer between the `\fB%\fP\&' and `\fBG\fP'
+indicates a character width other than one\&.  Hence \fB%{\fP\fIseq\fP\fB%2G%}\fP
+outputs \fIseq\fP and assumes it takes up the width of two standard
+characters\&.
+.RS
+.PP
+Multiple uses of \fB%G\fP accumulate in the obvious fashion; the position
+of the \fB%G\fP is unimportant\&.  Negative integers are not handled\&.
+.PP
+Note that when prompt truncation is in use it is advisable to divide up
+output into single characters within each \fB%{\fP\&.\&.\&.\fB%}\fP group so that
+the correct truncation point can be found\&.
+.RE
+.RE
+.PP
+.SH "CONDITIONAL SUBSTRINGS IN PROMPTS"
 .PD 0
 .TP
 .PD
@@ -1939,6 +2199,10 @@ True if the time in minutes is equal to \fIn\fP\&.
 .TP
 \fBv\fP
 True if the array \fBpsvar\fP has at least \fIn\fP elements\&.
+.TP
+\fBV\fP
+True if element \fIn\fP of the array \fBpsvar\fP is set and
+non\-empty\&.
 .TP
 \fBw\fP
 True if the day of the week is equal to \fIn\fP (Sunday = 0)\&.

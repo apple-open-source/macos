@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: ghiper.c,v 1.3 2006-10-12 21:26:50 bagder Exp $
+ * $Id: ghiper.c,v 1.5 2008-05-22 21:20:09 danf Exp $
  *
  * Example application source code using the multi socket interface to
  * download many files at once.
@@ -91,9 +91,9 @@ typedef struct _SockInfo {
 
 
 /* Die if we get a bad CURLMcode somewhere */
-static void mcode_or_die(char *where, CURLMcode code) {
+static void mcode_or_die(const char *where, CURLMcode code) {
   if ( CURLM_OK != code ) {
-    char *s;
+    const char *s;
     switch (code) {
       case     CURLM_CALL_MULTI_PERFORM: s="CURLM_CALL_MULTI_PERFORM"; break;
       case     CURLM_OK:                 s="CURLM_OK";                 break;
@@ -259,7 +259,7 @@ static int sock_cb(CURL *e, curl_socket_t s, int what, void *cbp, void *sockp)
 {
   GlobalInfo *g = (GlobalInfo*) cbp;
   SockInfo *fdp = (SockInfo*) sockp;
-  char *whatstr[]={ "none", "IN", "OUT", "INOUT", "REMOVE" };
+  static const char *whatstr[]={ "none", "IN", "OUT", "INOUT", "REMOVE" };
 
   MSG_OUT("socket callback: s=%d e=%p what=%s ", s, e, whatstr[what]);
   if (what == CURL_POLL_REMOVE) {
@@ -325,16 +325,16 @@ static void new_conn(char *url, GlobalInfo *g )
   curl_easy_setopt(conn->easy, CURLOPT_URL, conn->url);
   curl_easy_setopt(conn->easy, CURLOPT_WRITEFUNCTION, write_cb);
   curl_easy_setopt(conn->easy, CURLOPT_WRITEDATA, &conn);
-  curl_easy_setopt(conn->easy, CURLOPT_VERBOSE, SHOW_VERBOSE);
+  curl_easy_setopt(conn->easy, CURLOPT_VERBOSE, (long)SHOW_VERBOSE);
   curl_easy_setopt(conn->easy, CURLOPT_ERRORBUFFER, conn->error);
   curl_easy_setopt(conn->easy, CURLOPT_PRIVATE, conn);
-  curl_easy_setopt(conn->easy, CURLOPT_NOPROGRESS, SHOW_PROGRESS?0:1);
+  curl_easy_setopt(conn->easy, CURLOPT_NOPROGRESS, SHOW_PROGRESS?0L:1L);
   curl_easy_setopt(conn->easy, CURLOPT_PROGRESSFUNCTION, prog_cb);
   curl_easy_setopt(conn->easy, CURLOPT_PROGRESSDATA, conn);
-  curl_easy_setopt(conn->easy, CURLOPT_FOLLOWLOCATION, 1);
-  curl_easy_setopt(conn->easy, CURLOPT_CONNECTTIMEOUT, 30);
-  curl_easy_setopt(conn->easy, CURLOPT_LOW_SPEED_LIMIT, 1);
-  curl_easy_setopt(conn->easy, CURLOPT_LOW_SPEED_TIME, 30);
+  curl_easy_setopt(conn->easy, CURLOPT_FOLLOWLOCATION, 1L);
+  curl_easy_setopt(conn->easy, CURLOPT_CONNECTTIMEOUT, 30L);
+  curl_easy_setopt(conn->easy, CURLOPT_LOW_SPEED_LIMIT, 1L);
+  curl_easy_setopt(conn->easy, CURLOPT_LOW_SPEED_TIME, 30L);
 
   MSG_OUT("Adding easy %p to multi %p (%s)\n", conn->easy, g->multi, url);
   rc =curl_multi_add_handle(g->multi, conn->easy);
@@ -402,7 +402,7 @@ static gboolean fifo_cb (GIOChannel *ch, GIOCondition condition, gpointer data)
 int init_fifo(void)
 {
  struct stat st;
- char *fifo = "hiper.fifo";
+ const char *fifo = "hiper.fifo";
  int socket;
 
  if (lstat (fifo, &st) == 0) {

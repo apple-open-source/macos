@@ -3,9 +3,9 @@
 #
 #  utf8_tests.py:  testing the svn client's utf8 (i18n) handling
 #
-#  Subversion is a tool for revision control. 
+#  Subversion is a tool for revision control.
 #  See http://subversion.tigris.org for more information.
-#    
+#
 # ====================================================================
 # Copyright (c) 2000-2004 CollabNet.  All rights reserved.
 #
@@ -18,7 +18,7 @@
 ######################################################################
 
 # General modules
-import shutil, stat, string, sys, re, os.path, os, locale
+import sys, re, os, locale
 
 # Our testing module
 import svntest
@@ -77,7 +77,7 @@ def basic_utf8_conversion(sbox):
 #    *different* UTF-8.
 
 
-  
+
 #----------------------------------------------------------------------
 
 ########################################################################
@@ -118,7 +118,7 @@ else:
     localeregex = re.compile('^ISO-?8859-1$', re.I)
     localematch = localeregex.search(localeenc)
     try:
-      svntest.actions.run_and_verify_svn("",svntest.SVNAnyOutput, [],"help")
+      svntest.actions.run_and_verify_svn(None, svntest.SVNAnyOutput, [],"help")
     except:
       # We won't be able to run the client; this might be because the
       # system does not support the iso-8859-1 locale. Anyhow, it makes
@@ -146,7 +146,7 @@ if localematch:
 
 # list all tests here, starting with None:
 test_list = [ None,
-              Skip(basic_utf8_conversion, 1)
+              Skip(basic_utf8_conversion)
              ]
 
 if __name__ == '__main__':

@@ -1,0 +1,10 @@
+[vset    digest adler]
+[include digest/header.inc]
+
+[section NOTES]
+
+This command implements the ADLER digest used by the zlib compression
+library ([uri http://www.gzip.org/zlib/]).
+
+[keywords zlib zip]
+[include digest/footer.inc]

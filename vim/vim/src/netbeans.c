@@ -769,11 +769,14 @@ messageFromNetbeans(gpointer clientData, gint unused1,
 	return; /* don't try to parse it */
     }
 
-#ifdef FEAT_GUI_GTK
+#if defined(FEAT_GUI_GTK) || defined(FEAT_GUI_W32)
+    /* Let the main loop handle messages. */
+# ifdef FEAT_GUI_GTK
     if (gtk_main_level() > 0)
 	gtk_main_quit();
+# endif
 #else
-    /* Parse the messages, but avoid recursion. */
+    /* Parse the messages now, but avoid recursion. */
     if (level == 1)
 	netbeans_parse_messages();
 
@@ -1043,7 +1046,7 @@ netbeans_end(void)
 	nbdebug(("EVT: %s", buf));
 /*	nb_send(buf, "netbeans_end");    avoid "write failed" messages */
 	if (sd >= 0)
-	    sock_write(sd, buf, (int)STRLEN(buf));  /* ignore errors */
+	    ignored = sock_write(sd, buf, (int)STRLEN(buf));
     }
 }
 
@@ -1795,7 +1798,7 @@ nb_do_cmd(
 	    buf->displayname = NULL;
 
 	    netbeansReadFile = 0; /* don't try to open disk file */
-	    do_ecmd(0, NULL, 0, 0, ECMD_ONE, ECMD_HIDE + ECMD_OLDBUF);
+	    do_ecmd(0, NULL, 0, 0, ECMD_ONE, ECMD_HIDE + ECMD_OLDBUF, curwin);
 	    netbeansReadFile = 1;
 	    buf->bufp = curbuf;
 	    maketitle();
@@ -1960,7 +1963,7 @@ nb_do_cmd(
 
 	    netbeansReadFile = 0; /* don't try to open disk file */
 	    do_ecmd(0, (char_u *)buf->displayname, 0, 0, ECMD_ONE,
-						     ECMD_HIDE + ECMD_OLDBUF);
+					     ECMD_HIDE + ECMD_OLDBUF, curwin);
 	    netbeansReadFile = 1;
 	    buf->bufp = curbuf;
 	    maketitle();
@@ -1979,7 +1982,7 @@ nb_do_cmd(
 	    vim_free(buf->displayname);
 	    buf->displayname = nb_unquote(args, NULL);
 	    do_ecmd(0, (char_u *)buf->displayname, NULL, NULL, ECMD_ONE,
-						     ECMD_HIDE + ECMD_OLDBUF);
+					     ECMD_HIDE + ECMD_OLDBUF, curwin);
 	    buf->bufp = curbuf;
 	    buf->initDone = TRUE;
 	    doupdate = 1;
@@ -2277,9 +2280,6 @@ nb_do_cmd(
 	    int serNum;
 	    int localTypeNum;
 	    int typeNum;
-# ifdef NBDEBUG
-	    int len;
-# endif
 	    pos_T *pos;
 
 	    if (buf == NULL || buf->bufp == NULL)
@@ -2303,13 +2303,10 @@ nb_do_cmd(
 	    pos = get_off_or_lnum(buf->bufp, &args);
 
 	    cp = (char *)args;
-# ifdef NBDEBUG
-	    len =
-# endif
-		strtol(cp, &cp, 10);
+	    ignored = (int)strtol(cp, &cp, 10);
 	    args = (char_u *)cp;
 # ifdef NBDEBUG
-	    if (len != -1)
+	    if (ignored != -1)
 	    {
 		nbdebug(("    partial line annotation -- Not Yet Implemented!\n"));
 	    }
@@ -2924,44 +2921,26 @@ netbeans_file_opened(buf_T *bufp)
 }
 
 /*
- * Tell netbeans a file was closed.
+ * Tell netbeans that a file was deleted or wiped out.
  */
     void
-netbeans_file_closed(buf_T *bufp)
+netbeans_file_killed(buf_T *bufp)
 {
     int		bufno = nb_getbufno(bufp);
     nbbuf_T	*nbbuf = nb_get_buf(bufno);
     char	buffer[2*MAXPATHL];
 
-    if (!haveConnection || bufno < 0)
+    if (!haveConnection || bufno == -1)
 	return;
 
-    if (!netbeansCloseFile)
-    {
-	nbdebug(("Ignoring file_closed for %s. File was closed from IDE\n",
-		    bufp->b_ffname));
-	return;
-    }
-
-    nbdebug(("netbeans_file_closed:\n"));
-    nbdebug(("    Closing bufno: %d", bufno));
-    if (curbuf != NULL && curbuf != bufp)
-    {
-	nbdebug(("    Curbuf bufno:  %d\n", nb_getbufno(curbuf)));
-    }
-    else if (curbuf == bufp)
-    {
-	nbdebug(("    curbuf == bufp\n"));
-    }
-
-    if (bufno <= 0)
-	return;
+    nbdebug(("netbeans_file_killed:\n"));
+    nbdebug(("    Killing bufno: %d", bufno));
 
     sprintf(buffer, "%d:killed=%d\n", bufno, r_cmdno);
 
     nbdebug(("EVT: %s", buffer));
 
-    nb_send(buffer, "netbeans_file_closed");
+    nb_send(buffer, "netbeans_file_killed");
 
     if (nbbuf != NULL)
 	nbbuf->bufp = NULL;

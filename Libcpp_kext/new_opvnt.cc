@@ -32,8 +32,10 @@
 
 #include "kern_fns.h"
 
+#if defined(__i386__) || defined(__ppc__)
 void *
 operator new[] (unsigned long sz, const std::nothrow_t& /* nothrow */) 
 {
   return kern_os_malloc(sz);
 }
+#endif /* defined(__i386__) || defined(__ppc__) */

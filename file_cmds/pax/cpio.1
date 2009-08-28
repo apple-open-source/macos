@@ -1,5 +1,4 @@
-.\"	$OpenBSD: cpio.1,v 1.20 2003/11/21 20:54:02 jmc Exp $
-.\"
+.\"-
 .\" Copyright (c) 1997 SigmaSoft, Th. Lockert
 .\" All rights reserved.
 .\"
@@ -23,7 +22,8 @@
 .\" (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 .\" THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 .\"
-.\"	$OpenBSD: cpio.1,v 1.20 2003/11/21 20:54:02 jmc Exp $
+.\"	$OpenBSD: cpio.1,v 1.16 2001/05/01 17:58:01 aaron Exp $
+.\" $FreeBSD: src/bin/pax/cpio.1,v 1.6 2005/02/09 18:02:29 ru Exp $
 .\"
 .Dd February 16, 1997
 .Dt CPIO 1
@@ -55,7 +55,7 @@
 .Fl p
 .Op Fl adlLmuv
 .Ar destination-directory
-.Ar "< name-list"
+.No < Ar name-list
 .Sh DESCRIPTION
 The
 .Nm cpio
@@ -106,8 +106,9 @@ SVR4 hex
 format.
 .It Ar tar
 Old tar format.
-.It Ar ustar
-POSIX ustar format.
+.It Cm ustar
+.Tn POSIX
+ustar format.
 .El
 .It Fl L
 Follow symbolic links.
@@ -178,8 +179,9 @@ SVR4 hex
 format.
 .It Ar tar
 Old tar format.
-.It Ar ustar
-POSIX ustar format.
+.It Cm ustar
+.Tn POSIX
+ustar format.
 .El
 .It Fl I Ar archive
 Use the specified file as the input for the archive.
@@ -208,6 +210,14 @@ format.
 Uncompress archive using
 .Xr gzip 1
 format.
+.It Fl Z
+Uncompress archive using
+.Xr compress 1
+format.
+.It Fl 6
+Process old-style
+.Nm
+format archives.
 .El
 .It Fl p
 Copy files from one location to another in a single pass.
@@ -284,7 +294,8 @@ specific archive format specification.
 .Xr pax 1 ,
 .Xr tar 1
 .Sh AUTHORS
-Keith Muller at the University of California, San Diego.
+.An Keith Muller
+at the University of California, San Diego.
 .Sh BUGS
 The
 .Fl s

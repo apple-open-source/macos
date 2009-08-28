@@ -64,7 +64,6 @@ pef_symfile_init (struct objfile *objfile)
   memset (objfile->deprecated_sym_private, 0, sizeof (struct pef_symfile_info));
 
   objfile->flags |= OBJF_REORDERED;
-  init_entry_point_info (objfile);
 }
 
 static void

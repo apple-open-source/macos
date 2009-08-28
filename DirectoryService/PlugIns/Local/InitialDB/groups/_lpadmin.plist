@@ -15,6 +15,10 @@
 		<string>_lpadmin</string>
 		<string>lpadmin</string>
 	</array>
+	<key>nestedgroups</key>
+	<array>
+		<string>ABCDEFAB-CDEF-ABCD-EFAB-CDEF00000050</string>
+	</array>
 	<key>passwd</key>
 	<array>
 		<string>*</string>
@@ -22,6 +26,10 @@
 	<key>realname</key>
 	<array>
 		<string>Print Administrators</string>
+	</array>
+	<key>smb_sid</key>
+	<array>
+		<string>S-1-5-32-550</string>
 	</array>
 </dict>
 </plist>

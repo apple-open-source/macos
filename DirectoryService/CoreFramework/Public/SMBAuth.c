@@ -61,8 +61,8 @@ unsigned char apsasl_odd_parity[256] = {
         241, 241, 242, 242, 244, 244, 247, 247, 248, 248, 251, 251, 253, 253, 254, 254};
 typedef struct EncryptBlk
 {
-	unsigned long 	keyHi;
-	unsigned long 	keyLo;
+	UInt32 	keyHi;
+	UInt32 	keyLo;
 
 } EncryptBlk;
 /*
@@ -165,7 +165,7 @@ void CalculateSMBNTHash(const char *utf8Password, unsigned char outHash[16])
 {
 	size_t unicodeLen = 0;
 	u_int16_t unicodepwd[258] = {0};
-	int passLen = 0;
+	size_t passLen = 0;
 	
 	if (utf8Password == NULL || outHash == NULL)
 		return;
@@ -174,8 +174,8 @@ void CalculateSMBNTHash(const char *utf8Password, unsigned char outHash[16])
 	if (passLen > 128)
 		passLen = 128;
 	
-	CStringToUnicode(utf8Password, passLen, unicodepwd, sizeof(unicodepwd), &unicodeLen);
-	MD4Encode(outHash, (unsigned char *)unicodepwd, unicodeLen);
+	CStringToUnicode(utf8Password, (int) passLen, unicodepwd, sizeof(unicodepwd), &unicodeLen);
+	MD4Encode(outHash, (unsigned char *)unicodepwd, (int) unicodeLen);
 	bzero(unicodepwd, unicodeLen);
 }
 
@@ -187,12 +187,12 @@ void CalculateSMBLANManagerHash(const char *password, unsigned char outHash[16])
 	unsigned char P14[14] = {0};
 	unsigned char *P16 = P21;
 
-	passLen = strlen(password);
+	passLen = (int) strlen(password);
 	if ( passLen > 14 )
 		passLen = 14;
 
 	// setup P14
-	memmove(P14, password, passLen);
+	memmove(P14, password, (int) passLen);
 	strnupper((char *)P14, 14);
 
 	// setup P16
@@ -216,6 +216,27 @@ int32_t LittleEndianCharsToInt32( const char *inCharPtr )
 	return anInt;
 }
 
+void CalculateWorkstationCredentialStrongSessKey( const unsigned char inNTHash[16], const char serverChallenge[8], const char clientChallenge[8], unsigned char outWCSK[16] )
+{
+	uint32_t zero = 0;
+	CCHmacContext ctx;
+	CC_MD5_CTX md5;
+	unsigned char tmp[16];
+
+	CCHmacInit(&ctx, kCCHmacAlgMD5, inNTHash, CC_MD5_DIGEST_LENGTH);
+
+	CC_MD5_Init(&md5);
+	CC_MD5_Update(&md5, &zero, 4);
+	CC_MD5_Update(&md5, clientChallenge, 8);
+	CC_MD5_Update(&md5, serverChallenge, 8);
+	CC_MD5_Final(tmp, &md5);
+	
+	CCHmacUpdate(&ctx, tmp, 16);
+	CCHmacFinal(&ctx, outWCSK);
+	memset(tmp, 0, sizeof(tmp));
+	memset(&ctx, 0, sizeof(ctx));
+	return;
+}
 
 void CalculateWorkstationCredentialSessKey( const unsigned char inNTHash[16], const char serverChallenge[8], const char clientChallenge[8], unsigned char outWCSK[8] )
 {
@@ -326,14 +347,14 @@ int NTLMv2(unsigned char *V2, unsigned char *inNTHash,
     char *upper;
     size_t len = 0;
 	char *buf;
-	unsigned buflen;
+	unsigned int buflen;
 	unsigned char hmac1[CC_MD4_DIGEST_LENGTH];
 	
     /* Allocate enough space for the unicode target */
     len = strlen(authid);
 	if (target)
 		len += strlen(target);
-	buflen = 2 * len + 1;
+	buflen = (unsigned int) (2 * len + 1);
 	buf = (char *) malloc( buflen );
 	if ( buf == NULL )
 		return -1;
@@ -345,8 +366,8 @@ int NTLMv2(unsigned char *V2, unsigned char *inNTHash,
 	strcpy(upper, authid);
 	if (target)
 		strcat(upper, target);
-	strnupper(upper, len);
-	CStringToUnicode(upper, len, (u_int16_t *)buf, buflen, &len);
+	strnupper(upper, (int) len);
+	CStringToUnicode(upper, (int) len, (u_int16_t *)buf, buflen, &len);
 	
 	CCHmac(
 		kCCHmacAlgMD5,
@@ -425,7 +446,7 @@ void CStringToUnicode(const char *cstr, int cstrLen, u_int16_t *unicode, size_t 
 {
 	CFStringRef convertString = CFStringCreateWithBytes( NULL, (const UInt8 *)cstr, (CFIndex)cstrLen, kCFStringEncodingUTF8, 0 );
 	if ( convertString != NULL ) {
-		 CFStringGetCString( convertString, (char *)unicode, unicodeLen, kCFStringEncodingUTF16LE );
+		 CFStringGetCString( convertString, (char *)unicode, (CFIndex) unicodeLen, kCFStringEncodingUTF16LE );
 		*outUnicodeByteCount = CFStringGetLength( convertString ) * 2;		
 		CFRelease( convertString );
 	}

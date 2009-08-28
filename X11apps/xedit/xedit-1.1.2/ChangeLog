@@ -1,0 +1,796 @@
+commit 0d133999449ce7c5db19d46680430ab16e81e4fd
+Author: Peter Breitenlohner <peb@mppmu.mpg.de>
+Date:   Thu Nov 6 21:19:56 2008 +0100
+
+    enabled VPATH build
+
+commit f5edc6424b6553d58e271f64471cef32e063dd19
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Wed Oct 8 19:21:28 2008 -0300
+
+    Rewrite double click confirmation code.
+    
+      Remove the double_click global boolean, and change dc_state to a bit
+    field, instead of a single state variable.
+      The old code was the xedit original code with minimal changes, but was
+    a bit confusing when two confirmations would be required.
+      Also, this patch moves the check for file overwriting before
+    MaybeCreateFile() as it can actually call creat(), what means that it
+    can no longer ask for confirmations, as the file has been just backed up,
+    and a zero sized one created.
+
+commit d96491aad5542f052b722b94d86f0ce7661ae98b
+Merge: cc7cb04... f1efec7...
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Fri Sep 26 17:47:32 2008 -0300
+
+    Merge branch 'master' of ssh://pcpa@git.freedesktop.org/git/xorg/app/xedit
+
+commit cc7cb041c4144f1401fd520f05018028c0e0c87e
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Fri Sep 26 17:34:50 2008 -0300
+
+    Proper implementation of AddDoubleClickCallback
+    
+      I tracked it down to
+    http://cvsweb.xfree86.org/cvsweb/xc/programs/xedit/commands.c?rev=1.5&content-type=text/vnd.viewcvs-markup
+    After my patches to libXaw. Instead of checking for
+    "if (XtIsSubclass(w, asciiSrcObjectClass)) {" it should really
+    do something like "if (isXaw7orNewer) {". But I believe only XFree86
+    and Xorg versions of Xaw have the XawVersion macro in XawInit.h...
+    
+      This corrects the problem described in
+    http://bugs.freedesktop.org/show_bug.cgi?id=17726
+    
+      And the main reason is that xedit always default'ed to use a 8 bits
+    iso8859-x locale, while in Xorg it was modified to use multibyte by
+    default.
+
+commit f1efec76814500a14acf7c64184ebef1a28e264d
+Author: Jeremy Huddleston <jeremyhu@freedesktop.org>
+Date:   Mon Aug 4 13:22:52 2008 -0700
+
+    Fixed filename conflict during compilation on case-insensitive file systems.
+
+commit dc857b78c00432de6d57124ca2e060ef0a76684f
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Thu Jul 31 14:17:17 2008 -0300
+
+    Correct make dist and update to xedit-1.1.1.
+
+commit bc470a831ee3c8d5aa254661122187048f245c92
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Wed Jul 30 18:52:32 2008 -0300
+
+    Update to xedit 1.1.0.
+
+commit fb6c60031936bdaaeb808fb61b3073bdb058607a
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Thu Jul 10 16:38:09 2008 -0300
+
+      Update file type pattern matching.
+    
+      Consider a file ending in .l a lisp source file.
+      Allow an arbitrary number of bytes following the filename for xconf
+    and xlog modes.
+      Don't use make mode for "Imakefile". Require a slash before [Mm]akefile.*.
+
+commit ed21e75c45e92c4c52f80bdb5fba0e17f5afaca1
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Tue Jul 8 18:53:50 2008 -0300
+
+      CancelFindFile is almost the same as XeditFocus, and could be merged in a
+    same Xt action. For the moment, automatically leave line_edit in XeditFocus.
+    
+      There is one other bug that should be fixed, that I am trying to repeat
+    (having the same file loaded twice when using tags) before a new release.
+    
+      Thre is also a problem in Xaw when deleting large amounts of selections
+    that crashes xedit, aparently due to Xaw Text widget doing some wrong math
+    and attempting to allocate a huge chunk of memory.
+
+commit c23ce2ff2439f09d00dc2c226562d44f02ca591a
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Sat May 10 21:38:23 2008 -0300
+
+    Fix an off by one error check that can lead to an infinite loop.
+    
+      This can happen when using the line edit mode to search&replace regexes.
+
+commit 2b4ebe868b660a69800dc5fe801bbcc05ccaefac
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Sat May 10 21:36:36 2008 -0300
+
+    Warn if a newer version of a file exists before overwritting it.
+
+commit 0b8304c49ab2958bc2b4ef7286467a71faa38f41
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Sat Apr 12 17:43:04 2008 -0300
+
+    Add python mode.
+    
+      This mode adds syntax highlight and automatic indentation.
+      Unlike most other modes with automatic indentation, this mode most
+    only reads one line back to figure the proper indentation.
+      Some features include:
+    o When the first character in a line is typped, it automatically
+      moves it to the proper tab stop.
+    o Increments one indentation level if line ends in ':'.
+    o Properly handle vector/hash table declarations.
+
+commit 614563884d2b19e514af233089e392127c4f4027
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Sun Mar 16 20:51:25 2008 -0300
+
+    Compile warning fixes.
+    
+      Add parenthesis around a test where after macro expansion it looked like
+    boolexpr==boolres==boolres.
+      "Ansifiy" a function without arguments.
+
+commit 60643e8f0dcd86e65400160c0a6e264e7a2a081c
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Tue Mar 11 22:28:04 2008 -0300
+
+    Support multiple make jobs.
+    
+      Minor patch to avoid requiring xedit to have some special rule in a
+    buildsystem that defaults to something like "make -j 16".
+
+commit ee636f8565931f8d897b6c8c07eb08d41695778c
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Tue Mar 11 21:52:58 2008 -0300
+
+    Fix an incorrect buffer size calculation and allocation.
+
+commit 5bd8082a9788a1b5343eb03400944a03e4250577
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Wed Mar 12 21:59:34 2008 -0300
+
+    Add perl and "auto tools" modes.
+    
+      Auto mode has only syntax highlight mode; needs some tweaking to
+    ignore "'" characters where they are allowed, i.e. usually descriptions.
+      Perl mode has syntax highlight and indentation support. May need
+    some tweaking for some files where it may parse back too much lines before
+    assuming the indentation is correct.
+
+commit a17bf690a8f80f252c3a831c79d6e8d11ce8d66c
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Tue Mar 11 21:51:57 2008 -0300
+
+    Add support for scrolling textwindow with mouse wheel.
+
+commit b1dd01f67a48785678209b90c1b0e4f44621c146
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Wed Mar 12 21:53:48 2008 -0300
+
+    Add a tags interface to xedit.
+    
+      To use the tags, first create a tags file with a command like "ctags -R".
+      The interface can be disabled with resources, see the updated man page.
+      Tag files are searched descending to the root directory.
+      Multiple tags files are properly handled, and multiple symbol definitions
+    can be searched.
+
+commit 3468f9f2cb65294771e1095a14b7263ae0a6a043
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Tue Mar 11 21:50:13 2008 -0300
+
+    Update syntax highlight table and some minor tweaks including:
+    
+    o Don't cause an warning due to an unused variable after macro expansion
+      in some indentation tables.
+    o Properly handle c++ style comments in preprocessor lines. Also highlight
+      strings and character constants.
+    o Change color of "quote" property in lisp mode. This is mainly due to
+      an undesirable side effect of using the same XrmQuark in different
+      syntax highlight definitions, causing the first one to be used, and
+      later defined ones to be ignored.
+
+commit 371c42ab955357d586cf4501762f6e9cf1be53b8
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Tue Mar 11 21:49:14 2008 -0300
+
+    Add support to enter line number in command line.
+    
+    This works the same way as for vi, i.e. "xedit file +num" will load
+    file and move cursor to line "num".
+
+commit cb30367f10f2e38065d336d331afdc50900de76d
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Tue Mar 11 21:48:58 2008 -0300
+
+    Generic lisp interface bug fixes including:
+    
+    o Allow calling disassemble in all function types
+    o Don't limit amount of bytes to generate a hash table
+    o Allow "unreadable" symbol names to be keywords
+
+commit 953664369cc66ba17c7b9c1939fd9d7f6c6137ad
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Tue Mar 11 21:48:39 2008 -0300
+
+    Fix several problems in the line edit mode.
+    
+    Also allow replacing control characters in the replace pattern as well
+    as nul characters.
+
+commit a2c47d3487aaf4667926195ba3f5b05b94626daf
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Tue Mar 11 21:46:58 2008 -0300
+
+    Fix several generic bugs including:
+    
+    o Several memory read/write errors.
+    o Implement smarter XeditPrintf that will show how many times a text
+      has been printed.
+    o Check all arguments to XeditPrintf to ensure the '%' character cannot
+      be sent to it.
+    o Some minor reindentation to code that still had the original 2 spaces
+      indentation.
+
+commit a1949714b99a502a57b3dd7a99e619c10211d9fc
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Tue Mar 11 21:46:38 2008 -0300
+
+    Make ispell interface work correctly again.
+    
+    This new interface should work properly with asciiSrc and multiSrc widgets,
+    i.e. single byte and multibyte.
+    Also added an empty dictionary entry that is understood by aspell as the
+    "default" dictionary.
+    Code is also more robust to detect aspell exiting too early.
+
+commit f1d58be104f4020ef718a542d7f5ca72cd1f531b
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Tue Mar 11 21:44:25 2008 -0300
+
+    Readd support for *international resource and default to false.
+    
+    This allows several features, like syntax highlight and indentation,
+    turned off to be enabled again.
+
+commit 7d5dbf4a19ec6bbd36784f5d7307629b69dda873
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Wed Mar 12 21:52:30 2008 -0300
+
+    Add a generic hash table interface to replace the other implementations.
+
+commit 2f7992eaefb19f23c127e15624ba38208c03439b
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Tue Mar 11 21:43:04 2008 -0300
+
+    Update build for sane defaults.
+    
+    Check for existing system functions.
+    Don't add test program sources with main functions to libraries.
+    Build test programs.
+
+commit 19e3f51f9758e2708fb4abfa364b346591089bcd
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Tue Mar 11 21:41:45 2008 -0300
+
+    Add updated/meaningful README, COPYING and AUTHORS files.
+
+commit 618a07e8131f49bbda77d2cfe5832218a561a5c8
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Tue Jul 1 18:17:44 2008 -0300
+
+    Fix a bug in the regex library
+    
+    The bug causes the regex parser to enter an infinite loop with certain
+    special patterns with alternatives. Test cases also added to ensure
+    the bug will be triggered by the tests if it is somehow reinstantiated.
+    
+    Also testing commit to xedit git repository.
+
+commit 946b5b745d9d326799a23f7210b799e1b690643d
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Dec 6 16:37:12 2007 -0500
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit dd27b05c49b6e747203c83a96ca812993b2a2def
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Mon Sep 3 05:51:19 2007 -0400
+
+    Add *~ to .gitignore to skip patch/emacs droppings
+
+commit e582ba82e04632157c8a7ead56b62da7ba0eddfe
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Aug 23 19:24:44 2007 -0400
+
+    Rename .cvsignore to .gitignore
+
+commit baafaa1dee42640d15f4e74ff43b0ee3343de940
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Wed Apr 26 23:39:19 2006 +0000
+
+    Bump to 1.0.2
+
+commit 86e42e7030394b58d9b16eddd9ccc90efa3a11b2
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Mon Apr 3 19:42:16 2006 +0000
+
+    Bug #6480: Cygwin build fix. (Yaakov Selkowitz)
+
+commit beae4e7a8875dfe3bdae54bd3f48b922a8f8a3c1
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Dec 21 02:29:49 2005 +0000
+
+    Update package version for X11R7 release.
+
+commit ac432c05b782f4d97943de23b97d4b3878e8fe02
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Mon Dec 19 16:22:43 2005 +0000
+
+    Stub COPYING files
+
+commit 814ad517c4de7dfecbc51636e00a62289af45a8f
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:06 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit e70ce0696695b7e6d627d046c19c3b6c9a8ce3da
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Dec 7 16:17:59 2005 +0000
+
+    Change to use the app-defaults default dir configured in libXt.
+
+commit 6090b669a399c4663517b845d76945c6c2f97ef9
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Dec 6 22:48:21 2005 +0000
+
+    Change *man_SOURCES ==> *man_PRE to fix autotools warnings.
+
+commit 2abc4c46f8d89aa95262db207f7796ee4ee2e2ea
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:19 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit 83a772ee412acc4cea221e1eb416dfb641f074ed
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Nov 28 22:01:41 2005 +0000
+
+    Change *mandir targets to use new *_MAN_DIR variables set by xorg-macros.m4
+        update to fix bug #5167 (Linux prefers *.1x man pages in man1 subdir)
+
+commit 08e9327b251c7bebf85befe0c927ed82183ac874
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Mon Nov 21 10:35:00 2005 +0000
+
+    Another pass at .cvsignores for apps.
+
+commit e63cf486fac692f01a5717da970eaee2b711acec
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Sun Nov 20 22:08:52 2005 +0000
+
+    Add/improve .cvsignore files for apps.
+
+commit 312e176e35cb16b7ea2ab4ea706132786a4aa511
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sun Nov 20 04:13:45 2005 +0000
+
+    Add dependency on xp module when building with Xprint support.
+
+commit cd2d0c1372d85eba2c097c652004f97eb0821cd1
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Nov 9 21:09:20 2005 +0000
+
+    Update package version number for X11R7 RC2 release.
+
+commit 0d4e6039465c3ecadaf76c0558ecc77931c0aa54
+Author: Alan Hourihane <alanh@fairlite.demon.co.uk>
+Date:   Fri Oct 28 15:45:02 2005 +0000
+
+    build fix
+
+commit 4f20443995b7e8b90058be829bbbbad8f5f8c935
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Sun Oct 23 20:03:47 2005 +0000
+
+    Bug #1860: Prevent walking off the end of the scan_types array.
+
+commit 83ba7062d74bb228ba9daddd1f4524dee905d4f2
+Author: Alan Hourihane <alanh@fairlite.demon.co.uk>
+Date:   Fri Oct 21 08:18:25 2005 +0000
+
+    remove redundant include
+
+commit d9db7305c78e1b93c9b15f73356b8afd5cb26709
+Author: Alan Hourihane <alanh@fairlite.demon.co.uk>
+Date:   Thu Oct 20 18:24:27 2005 +0000
+
+    programs/xedit/xedit.h
+    //bugs.freedesktop.org/show_bug.cgi?id=790)
+
+commit 54c3139890ae810b4c18eed15c82303917bcb2b9
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:47:53 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit 3dbe6f823ce929fee91555933312c2ad81c6f371
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Tue Oct 18 00:32:55 2005 +0000
+
+    Change default install dir for app-default files from
+        $(sysconfdir)/X11/app-defaults to $(libdir)/X11/app-defaults to match
+        the monolith & allow localization
+
+commit cd4bfca48225f3eb78095f4437be8667c9dde5a6
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Oct 17 23:56:22 2005 +0000
+
+    Use @APP_MAN_SUFFIX@ instead of $(APP_MAN_SUFFIX) in macro substitutions to
+        work better with BSD make
+
+commit 636d350681f43816c658e09704242e0cad31de56
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sun Oct 16 06:06:57 2005 +0000
+
+    Change man sources from xedit.1 to xedit.man to allow the man page to be
+        processed. Move man page to top level dir to pass check-tarball test.
+
+commit 47709c7118e6280221931189019a3fab1bfdc691
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Oct 14 00:25:44 2005 +0000
+
+    Use sed to fill in variables in man page
+
+commit 1c94f8dbcfcf16a01e792942632d0a89df6d0768
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 5 03:27:56 2005 +0000
+
+    Add missing files to EXTRA_DIST
+
+commit ebd7eea10cf5add145b0428e953fce3691b8423a
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Wed Sep 28 03:04:23 2005 +0000
+
+    Don't override , automake predefines it.
+
+commit dad8235ff737556e2eaa645a5d7b48641eba270a
+Author: Kristian Høgsberg <krh@redhat.com>
+Date:   Tue Sep 27 20:20:36 2005 +0000
+
+    Only add -DINCLUDE_XPRINT_SUPPORT if the Xaw version supports it.
+
+commit bc2182af2f8d9455f9caeb686b71cae4ff1bc0bc
+Author: Matthieu Herrb <matthieu.herrb@laas.fr>
+Date:   Sun Aug 28 17:58:39 2005 +0000
+
+    Install the lisp files.
+
+commit d0691d15ae7cf68c8a617322a2a4a77d36c704d1
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:32 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit aebfa8db8c0069d4474841414012b7f19ec14d53
+Author: Matthieu Herrb <matthieu.herrb@laas.fr>
+Date:   Sat Jul 23 16:12:58 2005 +0000
+
+    Fix DEP_* reference
+
+commit d9d6a51c74d055e93b2fb8450ef9de162e35945f
+Author: Matthieu Herrb <matthieu.herrb@laas.fr>
+Date:   Sat Jul 23 16:12:33 2005 +0000
+
+    - fix DEP_* references
+    - fix GNU-make only rule for app-defaults
+
+commit 0842c698bd90b2f47d808d47b37912a7a0e3ba78
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Wed Jul 20 19:31:52 2005 +0000
+
+    Use a unique token for PKG_CHECK_MODULES. Otherwise, if you use a global
+        configure cache, you cache it, and the cached value is probably wrong.
+
+commit c46761f286f8c9a41ee0e510211b5ed667a78479
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Tue Jul 12 18:45:46 2005 +0000
+
+    - lib/lbxutil/lbxutil.pc.in: link to lbxutil, not Xfixes
+    - symlink.sh: add xedit.h, add xedit/lis/mp directory, add xfs
+    - xc/programs/xedit: include "lisp/../xedit.h" instead of xedit/xedit.h
+    - Change include of "foo.h" to <X11/.../foo.h> in various places in
+        xc/programs/lbxproxy and xc/programs/xfs
+    - add build system for xfs
+    - add forgotten lbxproxytrans.c file
+
+commit fc1f512d7cd7876f79190511315fe219667b2e81
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Tue Jul 12 17:41:52 2005 +0000
+
+    Build system for xprint
+
+commit 6bc36c6c67fed984af4f60224a7ea693d1b7d217
+Author: Alexander Gottwald <alexander.gottwald@s1999.tu-chemnitz.de>
+Date:   Wed Apr 20 16:18:03 2005 +0000
+
+    Move variable declaration to top. Makes gcc2 happy.
+
+commit 33c2d047571cd4ebce2eb630515fc33aa3f05b98
+Author: Roland Mainz <roland.mainz@nrubsig.org>
+Date:   Mon Apr 11 01:06:15 2005 +0000
+
+    xc/programs/Xserver/Xprint/attributes.c
+    xc/programs/glxgears/glxgears.c
+    xc/programs/xdbedizzy/xdbedizzy.c
+    xc/programs/xedit/Imakefile
+    xc/programs/xedit/Xedit-xprint.ad
+    xc/programs/xedit/util.c
+    xc/programs/xedit/xedit.h
+    xc/programs/xlogo/print.c
+    xc/programs/xlogo/xlogo.c
+    xc/programs/xlogo/xlogo.h
+    xc/programs/xman/Imakefile
+    xc/programs/xman/print.h
+    xc/programs/xmore/Imakefile
+    xc/programs/xmore/print.c
+    xc/programs/xmore/print.h
+    xc/programs/xmore/printdialog.c
+    xc/programs/xphelloworld/xpawhelloworld/xpawhelloworld.c
+    xc/programs/xphelloworld/xphelloworld/xphelloworld.c
+    xc/programs/xphelloworld/xpsimplehelloworld/xpsimplehelloworld.c
+    xc/programs/xphelloworld/xpxmhelloworld/xpxmhelloworld.c
+    //bugs.freedesktop.org/show_bug.cgi?id=790) attachment #2379
+        (https://bugs.freedesktop.org/attachment.cgi?id=2379) Implement support
+        client+Xserver support for passing output (stdout+stderr) of the
+        spooler command started by the Xprint server back to the application
+        using the "xp-spooler-command-results" XPJobAttr attribute
+        (applications can fetch the attribute value after the XPEndJobNotify
+        event was received; more details can be found in
+        http://xprint.mozdev.org/docs/dtprint_fspec.ps).
+
+commit bd31ddba0725738848be8298a7b1dd691c103fa3
+Author: Egbert Eich <eich@suse.de>
+Date:   Mon Apr 4 10:17:07 2005 +0000
+
+    Fixed sentinels in Xt, editres and xedit to reduce number of warnings with
+        gcc4 (Andreas Schwab).
+
+commit dfb0b2dac20f575a7be260895f2847daeeacb819
+Author: Roland Mainz <roland.mainz@nrubsig.org>
+Date:   Mon Jan 3 01:06:36 2005 +0000
+
+    xc/lib/XprintAppUtil/xpapputil.c
+    xc/lib/XprintAppUtil/xpapputil.h
+    xc/lib/XprintUtil/xprintutil.c
+    xc/lib/XprintUtil/xprintutil.h
+    xc/programs/glxgears/glxgears.c
+    xc/programs/xdbedizzy/xdbedizzy.c
+    xc/programs/xedit/Xedit-xprint.ad
+    xc/programs/xedit/commands.c
+    xc/programs/xlogo/print.c
+    xc/programs/xlsfonts/xlsfonts.c
+    xc/programs/xlsfonts/xlsfonts.man
+    xc/programs/xlsfonts/xlsfonts.sgml
+    xc/programs/xman/Xman-xprint.ad
+    xc/programs/xman/handler.c
+    xc/programs/xman/print.c
+    xc/programs/xman/print.h
+    xc/programs/xmore/XMore.ad
+    xc/programs/xmore/print.c
+    xc/programs/xmore/print.h
+    xc/programs/xmore/printdialog.c
+    xc/programs/xmore/printdialog.h
+    xc/programs/xmore/printdialogprivates.h
+    xc/programs/xmore/xmore.c
+    xc/programs/xphelloworld/xpawhelloworld/xpawhelloworld.c
+    xc/programs/xphelloworld/xphelloworld/xphelloworld.c
+    xc/programs/xphelloworld/xpsimplehelloworld/xpsimplehelloworld.c
+    xc/programs/xphelloworld/xpxmhelloworld/xpxmhelloworld.c
+    xc/programs/xphelloworld/xpxthelloworld/xpxthelloworld.c
+    xc/programs/xplsprinters/xplsprinters.c
+    //bugs.freedesktop.org/show_bug.cgi?id=1706) attachment #1615
+        (https://bugs.freedesktop.org/attachment.cgi?id=1615): XprintUtils
+        2004/Q3 update. This adds various new features to the XprintUtils
+        library including support for page resolutions where
+        X_resolution!=Y_resolution, listfonts-mode control and initial
+        framework for the COLORSPACE extension. Patch by Roland Mainz
+        <roland.mainz@nrubsig.org> and Julien Lafon <julien.lafon@gmail.com>.
+
+commit 5581ed55c6918f69786d63e9a401f9d8b33a66d2
+Author: Markus Kuhn <Markus.Kuhn@cl.cam.ac.uk>
+Date:   Sat Dec 4 00:43:16 2004 +0000
+
+    Encoding of numerous files changed to UTF-8
+
+commit 4d6b4556b8517ac36d6f87837dfb936872581b12
+Author: Roland Mainz <roland.mainz@nrubsig.org>
+Date:   Tue Oct 12 22:46:40 2004 +0000
+
+    Fix for https://freedesktop.org/bugzilla/show_bug.cgi?id=1601 - Fix
+        problems with wrong page counts in xedit&co. when a global "*geometry"
+        resource was overriding the internal geometry management used by
+        XawPrintShell(=usually adjust to current page size, the resource was
+        turning this into a static value). (Original patch by Felix Schulte
+        <felix.schulte@gmail.com>)
+
+commit 98e553431586c07fe0534c01c0a6e1b15ddc8958
+Author: Egbert Eich <eich@suse.de>
+Date:   Tue Sep 21 17:57:40 2004 +0000
+
+    Merged over libXpm security fix provided by Chris Evans, Matthieu Herrb and
+        Alan Coopersmith from release 6.8.1.
+    Fail during initialization with error if font/fontset is not set for
+        widget. This prevents a sig11 later when the non-existent font/fontset
+        structs are referenced.
+    Check if xf86Info.kbdProc pointer is really set before calling it on abort
+        as this pointer won't be set if the new modular keyboard driver is used
+        (Matthias Hopf).
+    Added new libs to the bindist control files.
+    Removed inclusion of unnecessary kernel header on Linux. This may fail in
+        an -ansi environment.
+
+commit 3981cffbb6f4f4fe4227481c51083063a9ea995e
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Sep 2 08:40:32 2004 +0000
+
+    Restore xman and xedit changes that were previously reverted, and make
+        Xprint support optional (Bug #1273, Roland Mainz).
+
+commit 6b12ddbb33c8722e50e7f69f456ba0ba72b76ddd
+Author: Kristian Høgsberg <krh@redhat.com>
+Date:   Mon Aug 16 16:36:16 2004 +0000
+
+    As discussed and agreed on on the release-wranglers meeting of August 16,
+        I'm committing the patch from bug #1060 to back out unconditional
+        Xprint functionality.
+    Back out Xprint changes.
+    Revert xman to CVS of June 5, revert xlogo to CVS of May 8, revert xedit to
+        CVS of April 25, to back out unconditional Xprint support.
+    Fix up Xprint config logic to be like the rest of the extensions:
+        BuildXprint is a one-stop option for disabling everything Xprint
+        related. XprtServer controls building Xprt, BuildXprintLib controls
+        building Xprint libs and BuildXprintClients controls building clients
+        related to Xprint. BuiltXprint defaults to YES and the other options
+        respects relevant settings, i.e. BuildServer and BuildServersOnly.
+    Build Xaw regardless of BuildXprintLib setting.
+    Only build xphelloworld, xplsprinters and xprehashprinterlist when
+        BuildXprintClients it YES. Disable building xmore, it has always
+        supported XawPrintShell.
+    Make Xprint support depend on BuildXprintLib.
+
+commit d980ac394b3f828ce3c03d5894218d712d7b2846
+Author: Roland Mainz <roland.mainz@nrubsig.org>
+Date:   Thu Jul 29 00:40:35 2004 +0000
+
+    Fix for https://freedesktop.org/bugzilla/show_bug.cgi?id=938 - Update
+        XawPrintShell per feedback and review comments.
+
+commit d88d25361d5c03e126f040d08c4e005494ca9bfe
+Author: Roland Mainz <roland.mainz@nrubsig.org>
+Date:   Tue Jun 8 02:44:35 2004 +0000
+
+    Fix for http://freedesktop.org/bugzilla/show_bug.cgi?id=668 - Add print
+        support to xman
+
+commit cf44083fa20c4f39a89a63ced16974c832039325
+Author: Roland Mainz <roland.mainz@nrubsig.org>
+Date:   Sun May 30 22:44:01 2004 +0000
+
+    Fix for http://freedesktop.org/bugzilla/show_bug.cgi?id=695 - Add print
+        support to Xedit
+
+commit 3b70888a54396c1b5ab67be863b189c7b8775695
+Author: Roland Mainz <roland.mainz@nrubsig.org>
+Date:   Sun May 30 00:52:30 2004 +0000
+
+    Fix for http://freedesktop.org/bugzilla/show_bug.cgi?id=693 - XMore and
+        XawPrintDialog work-in-progress, fixing various problems and adding
+        framework for i18n.
+
+commit aa3ab858ee6f5e51e0816dac708142bbcc38da5b
+Author: Roland Mainz <roland.mainz@nrubsig.org>
+Date:   Mon May 24 03:17:44 2004 +0000
+
+    Fix for http://pdx.freedesktop.org/cgi-bin/bugzilla/show_bug.cgi?id=611 -
+        Adding simple text viewer (xmore)
+
+commit 5d7513ad1d0c061f97373b684d669ebf98d7867e
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu May 6 17:31:17 2004 +0000
+
+    BugZilla #601: Fixing makedepend choking on floating point exception
+        because CHAR_BIT is defined to __CHAR_BIT__ which is a compiler
+        intrinsic define. BugZilla #605: Fixing build on IA64 which is broken
+        due to the inclusion of the kernel header asm/page.h. Kernel headers
+        however don't work with
+    -ansi. The inclusion of asm/page.h can however savely be removed as it
+        there are plenty of other ways to determine the page size.
+
+commit 9f5d0de96f079e84c648a0173bffac8ec2c3bef5
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 19:54:46 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit 91547cc15f41faa1a55f2d764f67abd24777e9be
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:35:19 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit 8293776acb1b916f1f7199e975bae4d370668243
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:13:05 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit b7c2da33938e1091850181d827a9ef6f51575883
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:36:24 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit e502fd1629139ee9e5df1f0bdeb454710ab6adfa
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:24:06 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit dc1aded02ad02936526d5528b6504121cf86e1b1
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Mon Feb 23 20:35:39 2004 +0000
+
+    Import most of XFree86 4.4RC3. This import excludes files which have the
+        new license. If we want to, later we can import 4.4RC3 again and pick
+        up the files that have the new license, but for now the vendor branch
+        is "pure."
+
+commit 71331fcaaca36aadf8f4857526a4ca2162b71df4
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Jan 29 08:09:08 2004 +0000
+
+    Importing vendor version xf86-012804-2330 on Thu Jan 29 00:06:33 PST 2004
+
+commit 39a948f028c2e3cb3083d7d2f847acbd27facc23
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Dec 19 20:55:55 2003 +0000
+
+    XFree86 4.3.99.902 (RC 2)
+
+commit 54593d8ebb341f7c2a0321fbf4207d7848b44a7f
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Dec 19 20:55:55 2003 +0000
+
+    Initial revision
+
+commit 0912e16e368c939d60f7b1400a247c6e5f080ff6
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Thu Dec 4 22:03:48 2003 +0000
+
+    XFree86 4.3.99.901 (RC 1)
+
+commit 10dc4a2c37597e02c12a9df3e9dba02a73bfc11b
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:29:12 2003 +0000
+
+    XFree86 4.3.99.16 Bring the tree up to date for the Cygwin folks
+
+commit 8ae60bfe8a4b233100f5128859c76239e5789f70
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:49:22 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit 0a193e032ba1ecf3f003e027e833dc9d274cb740
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:49:22 2003 +0000
+
+    Initial revision

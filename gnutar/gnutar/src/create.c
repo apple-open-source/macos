@@ -1,7 +1,7 @@
 /* Create a tar archive.
 
    Copyright (C) 1985, 1992, 1993, 1994, 1996, 1997, 1999, 2000, 2001,
-   2003, 2004 Free Software Foundation, Inc.
+   2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
    Written by John Gilmore, on 1985-08-25.
 
@@ -17,28 +17,19 @@
 
    You should have received a copy of the GNU General Public License along
    with this program; if not, write to the Free Software Foundation, Inc.,
-   59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 #include <system.h>
-
-#if HAVE_UTIME_H
-# include <utime.h>
-#else
-struct utimbuf
-  {
-    long actime;
-    long modtime;
-  };
-#endif
 
 #include <quotearg.h>
 
 #include "common.h"
 #include <hash.h>
 
-#ifdef HAVE_COPYFILE_H
+#ifdef __APPLE__
 #include <copyfile.h>
 #include <libgen.h>
+#include <paths.h>
 
 int copyfile_on = 0;
 char *copyfile_fname = NULL;
@@ -51,6 +42,109 @@ struct link
     size_t nlink;
     char name[1];
   };
+
+struct exclusion_tag
+{
+  const char *name;
+  size_t length;
+  enum exclusion_tag_type type;
+  bool (*predicate) (const char *name);
+  struct exclusion_tag *next;
+};
+
+static struct exclusion_tag *exclusion_tags;
+
+void
+add_exclusion_tag (const char *name, enum exclusion_tag_type type,
+		   bool (*predicate) (const char *name))
+{
+  struct exclusion_tag *tag = xmalloc (sizeof tag[0]);
+  tag->next = exclusion_tags;
+  tag->name = name;
+  tag->type = type;
+  tag->predicate = predicate;
+  tag->length = strlen (name);
+  exclusion_tags = tag;
+}
+
+static void
+exclusion_tag_warning (const char *dirname, const char *tagname,
+		       const char *message)
+{
+  if (verbose_option)
+    WARN ((0, 0,
+	   _("%s: contains a cache directory tag %s; %s"),
+	   quotearg_colon (dirname),
+	   quotearg_n (1, tagname),
+	   message));
+}
+
+static enum exclusion_tag_type 
+check_exclusion_tags (char *dirname, const char **tag_file_name)
+{
+  static char *tagname;
+  static size_t tagsize;
+  struct exclusion_tag *tag;
+  size_t dlen = strlen (dirname);
+  char *nptr = NULL;
+  char *ret = NULL;
+  
+  for (tag = exclusion_tags; tag; tag = tag->next)
+    {
+      size_t size = dlen + tag->length + 1;
+      if (size > tagsize)
+	{
+	  tagsize = size;
+	  tagname = xrealloc (tagname, tagsize);
+	}
+
+      if (!nptr)
+	{
+	  strcpy (tagname, dirname);
+	  nptr = tagname + dlen;
+	}
+      strcpy (nptr, tag->name);
+      if (access (tagname, F_OK) == 0
+	  && (!tag->predicate || tag->predicate (tagname)))
+	{
+	  if (tag_file_name)
+	    *tag_file_name = tag->name;
+	  return tag->type;
+	}
+    }
+
+  return exclusion_tag_none;
+}
+
+/* Exclusion predicate to test if the named file (usually "CACHEDIR.TAG")
+   contains a valid header, as described at:
+	http://www.brynosaurus.com/cachedir
+   Applications can write this file into directories they create
+   for use as caches containing purely regenerable, non-precious data,
+   allowing us to avoid archiving them if --exclude-caches is specified. */
+
+#define CACHEDIR_SIGNATURE "Signature: 8a477f597d28d172789f06886806bc55"
+#define CACHEDIR_SIGNATURE_SIZE (sizeof CACHEDIR_SIGNATURE - 1)
+
+bool
+cachedir_file_p (const char *name)
+{
+  bool tag_present = false;
+  int fd = open (name, O_RDONLY);
+  if (fd >= 0)
+    {
+      static char tagbuf[CACHEDIR_SIGNATURE_SIZE];
+
+      if (read (fd, tagbuf, CACHEDIR_SIGNATURE_SIZE)
+	  == CACHEDIR_SIGNATURE_SIZE
+	  && memcmp (tagbuf, CACHEDIR_SIGNATURE, CACHEDIR_SIGNATURE_SIZE) == 0)
+	tag_present = true;
+
+      close (fd);
+    }
+  return tag_present;
+}
+
 
 /* The maximum uintmax_t value that can be represented with DIGITS digits,
    assuming that each digit is BITS_PER_DIGIT wide.  */
@@ -58,6 +152,10 @@ struct link
    ((digits) * (bits_per_digit) < sizeof (uintmax_t) * CHAR_BIT \
     ? ((uintmax_t) 1 << ((digits) * (bits_per_digit))) - 1 \
     : (uintmax_t) -1)
+
+/* The maximum uintmax_t value that can be represented with octal
+   digits and a trailing NUL in BUFFER.  */
+#define MAX_OCTAL_VAL(buffer) MAX_VAL_WITH_DIGITS (sizeof (buffer) - 1, LG_8)
 
 /* Convert VALUE to an octal representation suitable for tar headers.
    Output to buffer WHERE with size SIZE.
@@ -75,6 +173,29 @@ to_octal (uintmax_t value, char *where, size_t size)
       v >>= LG_8;
     }
   while (i);
+}
+
+/* Copy at most LEN bytes from the string SRC to DST.  Terminate with
+   NUL unless SRC is LEN or more bytes long.  */
+
+static void
+tar_copy_str (char *dst, const char *src, size_t len)
+{
+  size_t i;
+  for (i = 0; i < len; i++)
+    if (! (dst[i] = src[i]))
+      break;
+}
+
+/* Same as tar_copy_str, but always terminate with NUL if using
+   is OLDGNU format */
+
+static void
+tar_name_copy_str (char *dst, const char *src, size_t len)
+{
+  tar_copy_str (dst, src, len);
+  if (archive_format == OLDGNU_FORMAT)
+    dst[len-1] = 0;
 }
 
 /* Convert NEGATIVE VALUE to a base-256 representation suitable for
@@ -99,6 +220,73 @@ to_base256 (int negative, uintmax_t value, char *where, size_t size)
   while (i);
 }
 
+
+static bool
+to_chars (int negative, uintmax_t value, size_t valsize,
+	  uintmax_t (*substitute) (int *),
+	  char *where, size_t size, const char *type);
+
+static bool
+to_chars_subst (int negative, int gnu_format, uintmax_t value, size_t valsize,
+		uintmax_t (*substitute) (int *),
+		char *where, size_t size, const char *type)
+{
+  uintmax_t maxval = (gnu_format
+		      ? MAX_VAL_WITH_DIGITS (size - 1, LG_256)
+		      : MAX_VAL_WITH_DIGITS (size - 1, LG_8));
+  char valbuf[UINTMAX_STRSIZE_BOUND + 1];
+  char maxbuf[UINTMAX_STRSIZE_BOUND];
+  char minbuf[UINTMAX_STRSIZE_BOUND + 1];
+  char const *minval_string;
+  char const *maxval_string = STRINGIFY_BIGINT (maxval, maxbuf);
+  char const *value_string;
+
+  if (gnu_format)
+    {
+      uintmax_t m = maxval + 1 ? maxval + 1 : maxval / 2 + 1;
+      char *p = STRINGIFY_BIGINT (m, minbuf + 1);
+      *--p = '-';
+      minval_string = p;
+    }
+  else
+    minval_string = "0";
+
+  if (negative)
+    {
+      char *p = STRINGIFY_BIGINT (- value, valbuf + 1);
+      *--p = '-';
+      value_string = p;
+    }
+  else
+    value_string = STRINGIFY_BIGINT (value, valbuf);
+
+  if (substitute)
+    {
+      int negsub;
+      uintmax_t sub = substitute (&negsub) & maxval;
+      /* NOTE: This is one of the few places where GNU_FORMAT differs from
+	 OLDGNU_FORMAT.  The actual differences are:
+
+	 1. In OLDGNU_FORMAT all strings in a tar header end in \0
+	 2. Incremental archives use oldgnu_header.
+	 
+	 Apart from this they are completely identical. */
+      uintmax_t s = (negsub &= archive_format == GNU_FORMAT) ? - sub : sub;
+      char subbuf[UINTMAX_STRSIZE_BOUND + 1];
+      char *sub_string = STRINGIFY_BIGINT (s, subbuf + 1);
+      if (negsub)
+	*--sub_string = '-';
+      WARN ((0, 0, _("value %s out of %s range %s..%s; substituting %s"),
+	     value_string, type, minval_string, maxval_string,
+	     sub_string));
+      return to_chars (negsub, s, valsize, 0, where, size, type);
+    }
+  else
+    ERROR ((0, 0, _("value %s out of %s range %s..%s"),
+	    value_string, type, minval_string, maxval_string));
+  return false;
+}
+
 /* Convert NEGATIVE VALUE (which was originally of size VALSIZE) to
    external form, using SUBSTITUTE (...) if VALUE won't fit.  Output
    to buffer WHERE with size SIZE.  NEGATIVE is 1 iff VALUE was
@@ -113,103 +301,61 @@ to_base256 (int negative, uintmax_t value, char *where, size_t size)
    SUBSTITUTE the address of an 0-or-1 flag recording whether the
    substitute value is negative.  */
 
-static void
+static bool
 to_chars (int negative, uintmax_t value, size_t valsize,
 	  uintmax_t (*substitute) (int *),
 	  char *where, size_t size, const char *type)
 {
-  int base256_allowed = (archive_format == GNU_FORMAT
-			 || archive_format == OLDGNU_FORMAT);
+  int gnu_format = (archive_format == GNU_FORMAT
+		    || archive_format == OLDGNU_FORMAT);
 
   /* Generate the POSIX octal representation if the number fits.  */
   if (! negative && value <= MAX_VAL_WITH_DIGITS (size - 1, LG_8))
     {
       where[size - 1] = '\0';
       to_octal (value, where, size - 1);
+      return true;
     }
-
-  /* Otherwise, generate the base-256 representation if we are
-     generating an old or new GNU format and if the number fits.  */
-  else if (((negative ? -1 - value : value)
-	    <= MAX_VAL_WITH_DIGITS (size - 1, LG_256))
-	   && base256_allowed)
+  else if (gnu_format)
     {
-      where[0] = negative ? -1 : 1 << (LG_256 - 1);
-      to_base256 (negative, value, where + 1, size - 1);
-    }
+      /* Try to cope with the number by using traditional GNU format
+	 methods */
 
-  /* Otherwise, if the number is negative, and if it would not cause
-     ambiguity on this host by confusing positive with negative
-     values, then generate the POSIX octal representation of the value
-     modulo 2**(field bits).  The resulting tar file is
-     machine-dependent, since it depends on the host word size.  Yuck!
-     But this is the traditional behavior.  */
-  else if (negative && valsize * CHAR_BIT <= (size - 1) * LG_8)
-    {
-      static int warned_once;
-      if (! warned_once)
+      /* Generate the base-256 representation if the number fits.  */
+      if (((negative ? -1 - value : value)
+	   <= MAX_VAL_WITH_DIGITS (size - 1, LG_256)))
 	{
-	  warned_once = 1;
-	  WARN ((0, 0, _("Generating negative octal headers")));
+	  where[0] = negative ? -1 : 1 << (LG_256 - 1);
+	  to_base256 (negative, value, where + 1, size - 1);
+	  return true;
 	}
-      where[size - 1] = '\0';
-      to_octal (value & MAX_VAL_WITH_DIGITS (valsize * CHAR_BIT, 1),
-		where, size - 1);
-    }
 
-  /* Otherwise, output a substitute value if possible (with a
-     warning), and an error message if not.  */
+      /* Otherwise, if the number is negative, and if it would not cause
+	 ambiguity on this host by confusing positive with negative
+	 values, then generate the POSIX octal representation of the value
+	 modulo 2**(field bits).  The resulting tar file is
+	 machine-dependent, since it depends on the host word size.  Yuck!
+	 But this is the traditional behavior.  */
+      else if (negative && valsize * CHAR_BIT <= (size - 1) * LG_8)
+	{
+	  static int warned_once;
+	  if (! warned_once)
+	    {
+	      warned_once = 1;
+	      WARN ((0, 0, _("Generating negative octal headers")));
+	    }
+	  where[size - 1] = '\0';
+	  to_octal (value & MAX_VAL_WITH_DIGITS (valsize * CHAR_BIT, 1),
+		    where, size - 1);
+	  return true;
+	}
+      /* Otherwise fall back to substitution, if possible: */
+    }
   else
-    {
-      uintmax_t maxval = (base256_allowed
-			  ? MAX_VAL_WITH_DIGITS (size - 1, LG_256)
-			  : MAX_VAL_WITH_DIGITS (size - 1, LG_8));
-      char valbuf[UINTMAX_STRSIZE_BOUND + 1];
-      char maxbuf[UINTMAX_STRSIZE_BOUND];
-      char minbuf[UINTMAX_STRSIZE_BOUND + 1];
-      char const *minval_string;
-      char const *maxval_string = STRINGIFY_BIGINT (maxval, maxbuf);
-      char const *value_string;
+    substitute = NULL; /* No substitution for formats, other than GNU */
 
-      if (base256_allowed)
-	{
-	  uintmax_t m = maxval + 1 ? maxval + 1 : maxval / 2 + 1;
-	  char *p = STRINGIFY_BIGINT (m, minbuf + 1);
-	  *--p = '-';
-	  minval_string = p;
-	}
-      else
-	minval_string = "0";
-
-      if (negative)
-	{
-	  char *p = STRINGIFY_BIGINT (- value, valbuf + 1);
-	  *--p = '-';
-	  value_string = p;
-	}
-      else
-	value_string = STRINGIFY_BIGINT (value, valbuf);
-
-      if (substitute)
-	{
-	  int negsub;
-	  uintmax_t sub = substitute (&negsub) & maxval;
-	  /* FIXME: This is the only place where GNU_FORMAT differs from
-             OLDGNU_FORMAT. Apart from this they are completely identical. */
-	  uintmax_t s = (negsub &= archive_format == GNU_FORMAT) ? - sub : sub;
-	  char subbuf[UINTMAX_STRSIZE_BOUND + 1];
-	  char *sub_string = STRINGIFY_BIGINT (s, subbuf + 1);
-	  if (negsub)
-	    *--sub_string = '-';
-	  WARN ((0, 0, _("value %s out of %s range %s..%s; substituting %s"),
-		 value_string, type, minval_string, maxval_string,
-		 sub_string));
-	  to_chars (negsub, s, valsize, 0, where, size, type);
-	}
-      else
-	ERROR ((0, 0, _("value %s out of %s range %s..%s"),
-		value_string, type, minval_string, maxval_string));
-    }
+  return to_chars_subst (negative, gnu_format, value, valsize, substitute,
+			 where, size, type);
 }
 
 static uintmax_t
@@ -228,25 +374,25 @@ gid_substitute (int *negative)
   return r;
 }
 
-void
+bool
 gid_to_chars (gid_t v, char *p, size_t s)
 {
-  to_chars (v < 0, (uintmax_t) v, sizeof v, gid_substitute, p, s, "gid_t");
+  return to_chars (v < 0, (uintmax_t) v, sizeof v, gid_substitute, p, s, "gid_t");
 }
 
-void
+bool
 major_to_chars (major_t v, char *p, size_t s)
 {
-  to_chars (v < 0, (uintmax_t) v, sizeof v, 0, p, s, "major_t");
+  return to_chars (v < 0, (uintmax_t) v, sizeof v, 0, p, s, "major_t");
 }
 
-void
+bool
 minor_to_chars (minor_t v, char *p, size_t s)
 {
-  to_chars (v < 0, (uintmax_t) v, sizeof v, 0, p, s, "minor_t");
+  return to_chars (v < 0, (uintmax_t) v, sizeof v, 0, p, s, "minor_t");
 }
 
-void
+bool
 mode_to_chars (mode_t v, char *p, size_t s)
 {
   /* In the common case where the internal and external mode bits are the same,
@@ -262,7 +408,8 @@ mode_to_chars (mode_t v, char *p, size_t s)
       && S_IROTH == TOREAD && S_IWOTH == TOWRITE && S_IXOTH == TOEXEC
       && archive_format != POSIX_FORMAT
       && archive_format != USTAR_FORMAT
-      && archive_format != GNU_FORMAT)
+      && archive_format != GNU_FORMAT
+      && archive_format != OLDGNU_FORMAT)
     {
       negative = v < 0;
       u = v;
@@ -283,25 +430,25 @@ mode_to_chars (mode_t v, char *p, size_t s)
 	   | (v & S_IWOTH ? TOWRITE : 0)
 	   | (v & S_IXOTH ? TOEXEC : 0));
     }
-  to_chars (negative, u, sizeof v, 0, p, s, "mode_t");
+  return to_chars (negative, u, sizeof v, 0, p, s, "mode_t");
 }
 
-void
+bool
 off_to_chars (off_t v, char *p, size_t s)
 {
-  to_chars (v < 0, (uintmax_t) v, sizeof v, 0, p, s, "off_t");
+  return to_chars (v < 0, (uintmax_t) v, sizeof v, 0, p, s, "off_t");
 }
 
-void
+bool
 size_to_chars (size_t v, char *p, size_t s)
 {
-  to_chars (0, (uintmax_t) v, sizeof v, 0, p, s, "size_t");
+  return to_chars (0, (uintmax_t) v, sizeof v, 0, p, s, "size_t");
 }
 
-void
+bool
 time_to_chars (time_t v, char *p, size_t s)
 {
-  to_chars (v < 0, (uintmax_t) v, sizeof v, 0, p, s, "time_t");
+  return to_chars (v < 0, (uintmax_t) v, sizeof v, 0, p, s, "time_t");
 }
 
 static uintmax_t
@@ -320,36 +467,40 @@ uid_substitute (int *negative)
   return r;
 }
 
-void
+bool
 uid_to_chars (uid_t v, char *p, size_t s)
 {
-  to_chars (v < 0, (uintmax_t) v, sizeof v, uid_substitute, p, s, "uid_t");
+  return to_chars (v < 0, (uintmax_t) v, sizeof v, uid_substitute, p, s, "uid_t");
 }
 
-void
+bool
 uintmax_to_chars (uintmax_t v, char *p, size_t s)
 {
-  to_chars (0, v, sizeof v, 0, p, s, "uintmax_t");
+  return to_chars (0, v, sizeof v, 0, p, s, "uintmax_t");
 }
 
 void
-string_to_chars (char *str, char *p, size_t s)
+string_to_chars (char const *str, char *p, size_t s)
 {
-  strncpy (p, str, s);
-  p[s-1] = 0;
+  tar_copy_str (p, str, s);
+  p[s - 1] = '\0';
 }
 
 
-/* A file is not dumpable if
+/* A file is considered dumpable if it is sparse and both --sparse and --totals
+   are specified.
+   Otherwise, it is dumpable unless any of the following conditions occur:
+
    a) it is empty *and* world-readable, or
    b) current archive is /dev/null */
 
 bool
 file_dumpable_p (struct tar_stat_info *st)
 {
-  return !(dev_null_output
-	   || (st->archive_file_size == 0
-	       && (st->stat.st_mode & MODE_R) == MODE_R));
+  if (dev_null_output)
+    return totals_option && sparse_option && ST_IS_SPARSE (st->stat);
+  return !(st->archive_file_size == 0
+	   && (st->stat.st_mode & MODE_R) == MODE_R);
 }
 
 
@@ -369,15 +520,6 @@ write_eot (void)
   set_next_block_after (pointer);
 }
 
-/* Copy at most LEN bytes from SRC to DST. Terminate with NUL unless
-   SRC is LEN characters long */
-static void
-tar_copy_str (char *dst, const char *src, size_t len)
-{
-  dst[len-1] = 0;
-  strncpy (dst, src, len);
-}
-
 /* Write a "private" header */
 union block *
 start_private_header (const char *name, size_t size)
@@ -387,7 +529,7 @@ start_private_header (const char *name, size_t size)
 
   memset (header->buffer, 0, sizeof (union block));
 
-  tar_copy_str (header->header.name, name, NAME_FIELD_SIZE);
+  tar_name_copy_str (header->header.name, name, NAME_FIELD_SIZE);
   OFF_TO_CHARS (size, header->header.size);
 
   time (&t);
@@ -396,7 +538,7 @@ start_private_header (const char *name, size_t size)
   UID_TO_CHARS (getuid (), header->header.uid);
   GID_TO_CHARS (getgid (), header->header.gid);
   MAJOR_TO_CHARS (0, header->header.devmajor);
-  MAJOR_TO_CHARS (0, header->header.devminor);
+  MINOR_TO_CHARS (0, header->header.devminor);
   strncpy (header->header.magic, TMAGIC, TMAGLEN);
   strncpy (header->header.version, TVERSION, TVERSLEN);
   return header;
@@ -410,7 +552,7 @@ write_short_name (struct tar_stat_info *st)
 {
   union block *header = find_next_block ();
   memset (header->buffer, 0, sizeof (union block));
-  tar_copy_str (header->header.name, st->file_name, NAME_FIELD_SIZE);
+  tar_name_copy_str (header->header.name, st->file_name, NAME_FIELD_SIZE);
   return header;
 }
 
@@ -418,7 +560,7 @@ write_short_name (struct tar_stat_info *st)
   memset(field, byte, sizeof(field)-1);  \
   (field)[sizeof(field)-1] = 0;          \
 } while (0)
-  
+
 /* Write a GNUTYPE_LONGLINK or GNUTYPE_LONGNAME block.  */
 static void
 write_gnu_long_link (struct tar_stat_info *st, const char *p, char type)
@@ -427,7 +569,7 @@ write_gnu_long_link (struct tar_stat_info *st, const char *p, char type)
   size_t bufsize;
   union block *header;
   char *tmpname;
-  
+
   header = start_private_header ("././@LongLink", size);
   FILL(header->header.mtime, '0');
   FILL(header->header.mode, '0');
@@ -441,7 +583,7 @@ write_gnu_long_link (struct tar_stat_info *st, const char *p, char type)
   gid_to_gname (0, &tmpname);
   GNAME_TO_CHARS (tmpname, header->header.gname);
   free (tmpname);
-  
+
   strcpy (header->header.magic, OLDGNU_MAGIC);
   header->header.typeflag = type;
   finish_header (st, header, -1);
@@ -470,7 +612,7 @@ split_long_name (const char *name, size_t length)
   size_t i;
 
   if (length > PREFIX_FIELD_SIZE)
-    length = PREFIX_FIELD_SIZE+2;
+    length = PREFIX_FIELD_SIZE + 1;
   for (i = length - 1; i > 0; i--)
     if (ISSLASH (name[i]))
       break;
@@ -571,19 +713,29 @@ write_long_name (struct tar_stat_info *st)
   return write_short_name (st);
 }
 
-static union block *
-write_extended (struct tar_stat_info *st, union block *old_header)
+union block *
+write_extended (bool global, struct tar_stat_info *st, union block *old_header)
 {
   union block *header, hp;
   char *p;
+  int type;
 
-  if (extended_header.buffer || extended_header.stk == NULL)
+  if (st->xhdr.buffer || st->xhdr.stk == NULL)
     return old_header;
 
-  xheader_finish (&extended_header);
+  xheader_finish (&st->xhdr);
   memcpy (hp.buffer, old_header, sizeof (hp));
-  p = xheader_xhdr_name (st);
-  xheader_write (XHDTYPE, p, &extended_header);
+  if (global)
+    {
+      type = XGLTYPE;
+      p = xheader_ghdr_name ();
+    }
+  else
+    {
+      type = XHDTYPE;
+      p = xheader_xhdr_name (st);
+    }
+  xheader_write (type, p, &st->xhdr);
   free (p);
   header = find_next_block ();
   memcpy (header, &hp.buffer, sizeof (hp.buffer));
@@ -598,7 +750,8 @@ write_header_name (struct tar_stat_info *st)
       xheader_store ("path", st, NULL);
       return write_short_name (st);
     }
-  else if (NAME_FIELD_SIZE < strlen (st->file_name))
+  else if (NAME_FIELD_SIZE - (archive_format == OLDGNU_FORMAT)
+	   < strlen (st->file_name))
     return write_long_name (st);
   else
     return write_short_name (st);
@@ -626,8 +779,10 @@ start_header (struct tar_stat_info *st)
   if (group_option != (gid_t) -1)
     st->stat.st_gid = group_option;
   if (mode_option)
-    st->stat.st_mode = ((st->stat.st_mode & ~MODE_ALL)
-		   | mode_adjust (st->stat.st_mode, mode_option));
+    st->stat.st_mode =
+      ((st->stat.st_mode & ~MODE_ALL)
+       | mode_adjust (st->stat.st_mode, S_ISDIR (st->stat.st_mode) != 0,
+		      initial_umask, mode_option, NULL));
 
   /* Paul Eggert tried the trivial test ($WRITER cf a b; $READER tvf a)
      for a few tars and came up with the following interoperability
@@ -657,44 +812,86 @@ start_header (struct tar_stat_info *st)
   else
     MODE_TO_CHARS (st->stat.st_mode, header->header.mode);
 
-  if (st->stat.st_uid > MAXOCTAL7 && archive_format == POSIX_FORMAT)
-    xheader_store ("uid", st, NULL);
-  else
-    UID_TO_CHARS (st->stat.st_uid, header->header.uid);
+  {
+    uid_t uid = st->stat.st_uid;
+    if (archive_format == POSIX_FORMAT
+	&& MAX_OCTAL_VAL (header->header.uid) < uid)
+      {
+	xheader_store ("uid", st, NULL);
+	uid = 0;
+      }
+    if (!UID_TO_CHARS (uid, header->header.uid))
+      return NULL;
+  }
 
-  if (st->stat.st_gid > MAXOCTAL7 && archive_format == POSIX_FORMAT)
-    xheader_store ("gid", st, NULL);
-  else
-    GID_TO_CHARS (st->stat.st_gid, header->header.gid);
+  {
+    gid_t gid = st->stat.st_gid;
+    if (archive_format == POSIX_FORMAT
+	&& MAX_OCTAL_VAL (header->header.gid) < gid)
+      {
+	xheader_store ("gid", st, NULL);
+	gid = 0;
+      }
+    if (!GID_TO_CHARS (gid, header->header.gid))
+      return NULL;
+  }
 
-  if (st->stat.st_size > MAXOCTAL11 && archive_format == POSIX_FORMAT)
-    xheader_store ("size", st, NULL);
-  else
-    OFF_TO_CHARS (st->stat.st_size, header->header.size);
+  {
+    off_t size = st->stat.st_size;
+    if (archive_format == POSIX_FORMAT
+	&& MAX_OCTAL_VAL (header->header.size) < size)
+      {
+	xheader_store ("size", st, NULL);
+	size = 0;
+      }
+    if (!OFF_TO_CHARS (size, header->header.size))
+      return NULL;
+  }
 
-  TIME_TO_CHARS (st->stat.st_mtime, header->header.mtime);
+  {
+    struct timespec mtime = set_mtime_option ? mtime_option : st->mtime;
+    if (archive_format == POSIX_FORMAT)
+      {
+	if (MAX_OCTAL_VAL (header->header.mtime) < mtime.tv_sec
+	    || mtime.tv_nsec != 0)
+	  xheader_store ("mtime", st, &mtime);
+	if (MAX_OCTAL_VAL (header->header.mtime) < mtime.tv_sec)
+	  mtime.tv_sec = 0;
+      }
+    if (!TIME_TO_CHARS (mtime.tv_sec, header->header.mtime))
+      return NULL;
+  }
 
   /* FIXME */
   if (S_ISCHR (st->stat.st_mode)
       || S_ISBLK (st->stat.st_mode))
     {
-      st->devmajor = major (st->stat.st_rdev);
-      st->devminor = minor (st->stat.st_rdev);
+      major_t devmajor = major (st->stat.st_rdev);
+      minor_t devminor = minor (st->stat.st_rdev);
 
-      if (st->devmajor > MAXOCTAL7 && archive_format == POSIX_FORMAT)
-	xheader_store ("devmajor", st, NULL);
-      else
-	MAJOR_TO_CHARS (st->devmajor, header->header.devmajor);
+      if (archive_format == POSIX_FORMAT
+	  && MAX_OCTAL_VAL (header->header.devmajor) < devmajor)
+	{
+	  xheader_store ("devmajor", st, NULL);
+	  devmajor = 0;
+	}
+      if (!MAJOR_TO_CHARS (devmajor, header->header.devmajor))
+	return NULL;
 
-      if (st->devminor > MAXOCTAL7 && archive_format == POSIX_FORMAT)
-	xheader_store ("devminor", st, NULL);
-      else
-	MAJOR_TO_CHARS (st->devminor, header->header.devminor);
+      if (archive_format == POSIX_FORMAT
+	  && MAX_OCTAL_VAL (header->header.devminor) < devminor)
+	{
+	  xheader_store ("devminor", st, NULL);
+	  devminor = 0;
+	}
+      if (!MINOR_TO_CHARS (devminor, header->header.devminor))
+	return NULL;
     }
   else if (archive_format != GNU_FORMAT && archive_format != OLDGNU_FORMAT)
     {
-      MAJOR_TO_CHARS (0, header->header.devmajor);
-      MINOR_TO_CHARS (0, header->header.devminor);
+      if (!(MAJOR_TO_CHARS (0, header->header.devmajor)
+	    && MINOR_TO_CHARS (0, header->header.devminor)))
+	return NULL;
     }
 
   if (archive_format == POSIX_FORMAT)
@@ -705,8 +902,8 @@ start_header (struct tar_stat_info *st)
   else if (incremental_option)
     if (archive_format == OLDGNU_FORMAT || archive_format == GNU_FORMAT)
       {
-	TIME_TO_CHARS (st->stat.st_atime, header->oldgnu_header.atime);
-	TIME_TO_CHARS (st->stat.st_ctime, header->oldgnu_header.ctime);
+	TIME_TO_CHARS (st->atime.tv_sec, header->oldgnu_header.atime);
+	TIME_TO_CHARS (st->ctime.tv_sec, header->oldgnu_header.ctime);
       }
 
   header->header.typeflag = archive_format == V7_FORMAT ? AREGTYPE : REGTYPE;
@@ -745,15 +942,13 @@ start_header (struct tar_stat_info *st)
 	  && (strlen (st->uname) > UNAME_FIELD_SIZE
 	      || !string_ascii_p (st->uname)))
 	xheader_store ("uname", st, NULL);
-      else
-	UNAME_TO_CHARS (st->uname, header->header.uname);
+      UNAME_TO_CHARS (st->uname, header->header.uname);
 
       if (archive_format == POSIX_FORMAT
 	  && (strlen (st->gname) > GNAME_FIELD_SIZE
 	      || !string_ascii_p (st->gname)))
 	xheader_store ("gname", st, NULL);
-      else
-	GNAME_TO_CHARS (st->gname, header->header.gname);
+      GNAME_TO_CHARS (st->gname, header->header.gname);
     }
 
   return header;
@@ -812,7 +1007,7 @@ finish_header (struct tar_stat_info *st,
       print_header (st, block_ordinal);
     }
 
-  header = write_extended (st, header);
+  header = write_extended (false, st, header);
   simple_finish_header (header);
 }
 
@@ -823,7 +1018,7 @@ pad_archive (off_t size_left)
   union block *blk;
   while (size_left > 0)
     {
-      save_sizeleft = size_left;
+      mv_size_left (size_left);
       blk = find_next_block ();
       memset (blk->buffer, 0, BLOCKSIZE);
       set_next_block_after (blk);
@@ -849,16 +1044,13 @@ dump_regular_file (int fd, struct tar_stat_info *st)
 
   finish_header (st, blk, block_ordinal);
 
+  mv_begin (st);
   while (size_left > 0)
     {
       size_t bufsize, count;
 
-      if (multi_volume_option)
-	{
-	  assign_string (&save_name, st->file_name);
-	  save_sizeleft = size_left;
-	  save_totsize = st->stat.st_size;
-	}
+      mv_size_left (size_left);
+
       blk = find_next_block ();
 
       bufsize = available_space_after (blk);
@@ -881,8 +1073,8 @@ dump_regular_file (int fd, struct tar_stat_info *st)
 	  return dump_status_short;
 	}
       size_left -= count;
-
-      set_next_block_after (blk + (bufsize - 1) / BLOCKSIZE);
+      if (count)
+	set_next_block_after (blk + (bufsize - 1) / BLOCKSIZE);
 
       if (count != bufsize)
 	{
@@ -894,89 +1086,23 @@ dump_regular_file (int fd, struct tar_stat_info *st)
 			   size_left),
 		 quotearg_colon (st->orig_file_name),
 		 STRINGIFY_BIGINT (size_left, buf)));
-	  if (! ignore_failed_read_option)
-	    exit_status = TAREXIT_FAILURE;
-	  pad_archive (size_left);
+	  if (! ignore_failed_read_option) 
+	    exit_status = TAREXIT_DIFFERS;
+	  pad_archive (size_left - (bufsize-count));
 	  return dump_status_short;
 	}
     }
   return dump_status_ok;
 }
 
-static void
-dump_regular_finish (int fd, struct tar_stat_info *st, time_t original_ctime)
-{
-  if (fd >= 0)
-    {
-      struct stat final_stat;
-      if (fstat (fd, &final_stat) != 0)
-	{
-	  stat_diag (st->orig_file_name);
-	}
-      else if (final_stat.st_ctime != original_ctime)
-	{
-	  WARN ((0, 0, _("%s: file changed as we read it"),
-		 quotearg_colon (st->orig_file_name)));
-	}
-      if (close (fd) != 0)
-	{
-	  close_diag (st->orig_file_name);
-	}
-    }
-  if (remove_files_option)
-    {
-      if (unlink (st->orig_file_name) == -1)
-	unlink_error (st->orig_file_name);
-    }
-}
-
-/* Look in directory DIRNAME for a cache directory tag file
-   with the magic name "CACHEDIR.TAG" and a standard header,
-   as described at:
-	http://www.brynosaurus.com/cachedir
-   Applications can write this file into directories they create
-   for use as caches containing purely regenerable, non-precious data,
-   allowing us to avoid archiving them if --exclude-caches is specified. */
-
-#define CACHEDIR_SIGNATURE "Signature: 8a477f597d28d172789f06886806bc55"
-#define CACHEDIR_SIGNATURE_SIZE (sizeof CACHEDIR_SIGNATURE - 1)
-
-static bool
-check_cache_directory (char *dirname)
-{
-  static char tagname[] = "CACHEDIR.TAG";
-  char *tagpath;
-  int fd;
-  int tag_present = false;
-
-  tagpath = xmalloc (strlen (dirname) + strlen (tagname) + 1);
-  strcpy (tagpath, dirname);
-  strcat (tagpath, tagname);
-
-  fd = open (tagpath, O_RDONLY);
-  if (fd >= 0)
-    {
-      static char tagbuf[CACHEDIR_SIGNATURE_SIZE];
-      
-      if (read (fd, tagbuf, CACHEDIR_SIGNATURE_SIZE)
-	  == CACHEDIR_SIGNATURE_SIZE
-	  && memcmp (tagbuf, CACHEDIR_SIGNATURE, CACHEDIR_SIGNATURE_SIZE) == 0)
-	tag_present = true;
-
-      close (fd);
-    }
-
-  free (tagpath);
-
-  return tag_present;
-}
-
+
 static void
 dump_dir0 (char *directory,
 	   struct tar_stat_info *st, int top_level, dev_t parent_device)
 {
   dev_t our_device = st->stat.st_dev;
-
+  const char *tag_file_name;
+  
   if (!is_avoided_name (st->orig_file_name))
     {
       union block *blk = NULL;
@@ -987,7 +1113,7 @@ dump_dir0 (char *directory,
       if (!blk)
 	return;
 
-      if (incremental_option)
+      if (incremental_option && archive_format != POSIX_FORMAT)
 	blk->header.typeflag = GNUTYPE_DUMPDIR;
       else /* if (standard_option) */
 	blk->header.typeflag = DIRTYPE;
@@ -998,51 +1124,51 @@ dump_dir0 (char *directory,
 	finish_header (st, blk, block_ordinal);
       else if (gnu_list_name->dir_contents)
 	{
-	  off_t size_left;
-	  off_t totsize;
-	  size_t bufsize;
-	  ssize_t count;
-	  const char *buffer, *p_buffer;
-
-	  block_ordinal = current_block_ordinal ();
-	  buffer = gnu_list_name->dir_contents; /* FOO */
-	  totsize = 0;
-	  if (buffer)
-	    for (p_buffer = buffer; *p_buffer; )
-	      {
-		size_t size = strlen (p_buffer) + 1;
-		totsize += size;
-		p_buffer += size;
-	      }
-	  totsize++;
-	  OFF_TO_CHARS (totsize, blk->header.size);
-	  finish_header (st, blk, block_ordinal);
-	  p_buffer = buffer;
-	  size_left = totsize;
-	  while (size_left > 0)
+	  if (archive_format == POSIX_FORMAT)
 	    {
-	      if (multi_volume_option)
-		{
-		  assign_string (&save_name, st->orig_file_name);
-		  save_sizeleft = size_left;
-		  save_totsize = totsize;
-		}
-	      blk = find_next_block ();
-	      bufsize = available_space_after (blk);
-	      if (size_left < bufsize)
-		{
-		  bufsize = size_left;
-		  count = bufsize % BLOCKSIZE;
-		  if (count)
-		    memset (blk->buffer + size_left, 0, BLOCKSIZE - count);
-		}
-	      memcpy (blk->buffer, p_buffer, bufsize);
-	      size_left -= bufsize;
-	      p_buffer += bufsize;
-	      set_next_block_after (blk + (bufsize - 1) / BLOCKSIZE);
+	      xheader_store ("GNU.dumpdir", st, gnu_list_name->dir_contents);
+	      finish_header (st, blk, block_ordinal);
 	    }
-	  if (multi_volume_option)
-	    assign_string (&save_name, 0);
+	  else
+	    {
+	      off_t size_left;
+	      off_t totsize;
+	      size_t bufsize;
+	      ssize_t count;
+	      const char *buffer, *p_buffer;
+
+	      block_ordinal = current_block_ordinal ();
+	      buffer = gnu_list_name->dir_contents;
+	      if (buffer)
+		totsize = dumpdir_size (buffer);
+	      else
+		totsize = 0;
+	      OFF_TO_CHARS (totsize, blk->header.size);
+	      finish_header (st, blk, block_ordinal);
+	      p_buffer = buffer;
+	      size_left = totsize;
+
+	      mv_begin (st);
+	      mv_total_size (totsize);
+	      while (size_left > 0)
+		{
+		  mv_size_left (size_left);
+		  blk = find_next_block ();
+		  bufsize = available_space_after (blk);
+		  if (size_left < bufsize)
+		    {
+		      bufsize = size_left;
+		      count = bufsize % BLOCKSIZE;
+		      if (count)
+			memset (blk->buffer + size_left, 0, BLOCKSIZE - count);
+		    }
+		  memcpy (blk->buffer, p_buffer, bufsize);
+		  size_left -= bufsize;
+		  p_buffer += bufsize;
+		  set_next_block_after (blk + (bufsize - 1) / BLOCKSIZE);
+		}
+	      mv_end ();
+	    }
 	  return;
 	}
     }
@@ -1058,44 +1184,60 @@ dump_dir0 (char *directory,
 	WARN ((0, 0,
 	       _("%s: file is on a different filesystem; not dumped"),
 	       quotearg_colon (st->orig_file_name)));
-      return;
     }
-
-  if (exclude_caches_option
-      && check_cache_directory(st->orig_file_name))
+  else
     {
-      if (verbose_option)
-	WARN ((0, 0,
-	       _("%s: contains a cache directory tag; not dumped"),
-	       quotearg_colon (st->orig_file_name)));
-      return;
-    }
-
-  {
-    char const *entry;
-    size_t entry_len;
-    char *name_buf = strdup (st->orig_file_name);
-    size_t name_size = strlen (name_buf);
-    size_t name_len = name_size;
-
-    /* Now output all the files in the directory.  */
-    /* FIXME: Should speed this up by cd-ing into the dir.  */
-
-    for (entry = directory; (entry_len = strlen (entry)) != 0;
-	 entry += entry_len + 1)
-      {
-	if (name_size < name_len + entry_len)
+      char *name_buf;
+      size_t name_size;
+      
+      switch (check_exclusion_tags (st->orig_file_name, &tag_file_name))
+	{
+	case exclusion_tag_none:
+	case exclusion_tag_all:
 	  {
-	    name_size = name_len + entry_len;
-	    name_buf = xrealloc (name_buf, name_size + 1);
-	  }
-	strcpy (name_buf + name_len, entry);
-	if (!excluded_name (name_buf))
-	  dump_file (name_buf, 0, our_device);
-      }
+	    char const *entry;
+	    size_t entry_len;
+	    size_t name_len;
 
-    free (name_buf);
-  }
+	    name_buf = xstrdup (st->orig_file_name);
+	    name_size = name_len = strlen (name_buf);
+
+	    /* Now output all the files in the directory.  */
+	    /* FIXME: Should speed this up by cd-ing into the dir.  */
+	    for (entry = directory; (entry_len = strlen (entry)) != 0;
+		 entry += entry_len + 1)
+	      {
+		if (name_size < name_len + entry_len)
+		  {
+		    name_size = name_len + entry_len;
+		    name_buf = xrealloc (name_buf, name_size + 1);
+		  }
+		strcpy (name_buf + name_len, entry);
+		if (!excluded_name (name_buf))
+		  dump_file (name_buf, 0, our_device);
+	      }
+	    
+	    free (name_buf);
+	  }
+	  break;
+
+	case exclusion_tag_contents:
+	  exclusion_tag_warning (st->orig_file_name, tag_file_name,
+				 _("contents not dumped"));
+	  name_size = strlen (st->orig_file_name) + strlen (tag_file_name) + 1;
+	  name_buf = xmalloc (name_size);
+	  strcpy (name_buf, st->orig_file_name);
+	  strcat (name_buf, tag_file_name);
+	  dump_file (name_buf, 0, our_device);
+	  free (name_buf);
+	  break;
+      
+	case exclusion_tag_under:
+	  exclusion_tag_warning (st->orig_file_name, tag_file_name,
+				 _("contents not dumped"));
+	  break;
+	}
+    }
 }
 
 /* Ensure exactly one trailing slash.  */
@@ -1112,19 +1254,14 @@ ensure_slash (char **pstr)
 }
 
 static bool
-dump_dir (struct tar_stat_info *st, int top_level, dev_t parent_device)
+dump_dir (int fd, struct tar_stat_info *st, int top_level, dev_t parent_device)
 {
-  char *directory;
-
-  directory = savedir (st->orig_file_name);
+  char *directory = fdsavedir (fd);
   if (!directory)
     {
       savedir_diag (st->orig_file_name);
       return false;
     }
-
-  ensure_slash (&st->orig_file_name);
-  ensure_slash (&st->file_name);
 
   dump_dir0 (directory, st, top_level, parent_device);
 
@@ -1138,10 +1275,10 @@ dump_dir (struct tar_stat_info *st, int top_level, dev_t parent_device)
 void
 create_archive (void)
 {
-  char *p;
+  const char *p;
 
   open_archive (ACCESS_WRITE);
-  xheader_write_global ();
+  buffer_write_global_xheader ();
 
   if (incremental_option)
     {
@@ -1206,8 +1343,8 @@ create_archive (void)
 
 
 /* Calculate the hash of a link.  */
-static unsigned
-hash_link (void const *entry, unsigned n_buckets)
+static size_t
+hash_link (void const *entry, size_t n_buckets)
 {
   struct link const *l = entry;
   uintmax_t num = l->dev ^ l->ino;
@@ -1224,7 +1361,7 @@ compare_links (void const *entry1, void const *entry2)
 }
 
 static void
-unknown_file_error (char *p)
+unknown_file_error (char const *p)
 {
   WARN ((0, 0, _("%s: Unknown file type; file ignored"),
 	 quotearg_colon (p)));
@@ -1240,8 +1377,8 @@ unknown_file_error (char *p)
    again if we've done it once already.  */
 static Hash_table *link_table;
 
-/* Try to dump stat as a hard link to another file in the archive. If
-   succeeded returns true */
+/* Try to dump stat as a hard link to another file in the archive.
+   Return true if successful.  */
 static bool
 dump_hard_link (struct tar_stat_info *st)
 {
@@ -1258,19 +1395,21 @@ dump_hard_link (struct tar_stat_info *st)
       if ((duplicate = hash_lookup (link_table, &lp)))
 	{
 	  /* We found a link.  */
-	  char const *link_name = safer_name_suffix (duplicate->name, true);
+	  char const *link_name = safer_name_suffix (duplicate->name, true,
+	                                             absolute_names_option);
 
 	  duplicate->nlink--;
 
 	  block_ordinal = current_block_ordinal ();
 	  assign_string (&st->link_name, link_name);
-	  if (NAME_FIELD_SIZE < strlen (link_name))
+	  if (NAME_FIELD_SIZE - (archive_format == OLDGNU_FORMAT)
+	      < strlen (link_name))
 	    write_long_link (st);
 
 	  st->stat.st_size = 0;
 	  blk = start_header (st);
 	  if (!blk)
-	    return true;
+	    return false;
 	  tar_copy_str (blk->header.linkname, link_name, NAME_FIELD_SIZE);
 
 	  blk->header.typeflag = LNKTYPE;
@@ -1325,7 +1464,7 @@ check_links (void)
     {
       if (lp->nlink)
 	{
-	  WARN ((0, 0, _("Missing links to '%s'.\n"), lp->name));
+	  WARN ((0, 0, _("Missing links to %s.\n"), quote (lp->name)));
 	}
     }
 }
@@ -1341,14 +1480,16 @@ check_links (void)
    exit_status to failure, a clear diagnostic has been issued.  */
 
 static void
-dump_file0 (struct tar_stat_info *st, char *p,
+dump_file0 (struct tar_stat_info *st, const char *p,
 	    int top_level, dev_t parent_device)
 {
   union block *header;
   char type;
-  time_t original_ctime;
-  struct utimbuf restore_times;
+  off_t original_size;
+  struct timespec original_ctime;
+  struct timespec restore_times[2];
   off_t block_ordinal = -1;
+  bool is_dir;
 
   if (interactive_option && !confirm ("add", p))
     return;
@@ -1356,24 +1497,27 @@ dump_file0 (struct tar_stat_info *st, char *p,
   if (copyfile_on)
   {
     assign_string (&st->orig_file_name, copyfile_fname);
-    assign_string (&st->file_name, safer_name_suffix (copyfile_fname, false));
+    assign_string (&st->file_name,
+                   safer_name_suffix (copyfile_fname, false, absolute_names_option));
   }
   else
   {
   assign_string (&st->orig_file_name, p);
-  assign_string (&st->file_name, safer_name_suffix (p, false));
+  assign_string (&st->file_name,
+                 safer_name_suffix (p, false, absolute_names_option));
   }
+
+  transform_name (&st->file_name);
 
   if (deref_stat (dereference_option, p, &st->stat) != 0)
     {
       stat_diag (p);
       return;
     }
-  st->archive_file_size = st->stat.st_size;
-  sys_stat_nanoseconds (st);
-  original_ctime = st->stat.st_ctime;
-  restore_times.actime = st->stat.st_atime;
-  restore_times.modtime = st->stat.st_mtime;
+  st->archive_file_size = original_size = st->stat.st_size;
+  st->atime = restore_times[0] = get_stat_atime (&st->stat);
+  st->mtime = restore_times[1] = get_stat_mtime (&st->stat);
+  st->ctime = original_ctime = get_stat_ctime (&st->stat);
 
 #ifdef S_ISHIDDEN
   if (S_ISHIDDEN (st->stat.st_mode))
@@ -1396,10 +1540,10 @@ dump_file0 (struct tar_stat_info *st, char *p,
 
   if (!(incremental_option && !is_individual_file (p))
       && !S_ISDIR (st->stat.st_mode)
-      && OLDER_STAT_TIME (st->stat, m)
-      && (!after_date_option || OLDER_STAT_TIME (st->stat, c)))
+      && OLDER_TAR_STAT_TIME (*st, m)
+      && (!after_date_option || OLDER_TAR_STAT_TIME (*st, c)))
     {
-      if (!incremental_option)
+      if (!incremental_option && verbose_option)
 	WARN ((0, 0, _("%s: file is unchanged; not dumped"),
 	       quotearg_colon (p)));
       return;
@@ -1413,51 +1557,64 @@ dump_file0 (struct tar_stat_info *st, char *p,
       return;
     }
 
-  if (S_ISDIR (st->stat.st_mode))
-    {
-      dump_dir (st, top_level, parent_device);
-      if (atime_preserve_option)
-	utime (p, &restore_times);
-      return;
-    }
-  else if (is_avoided_name (p))
+  if (is_avoided_name (p))
     return;
-  else
+
+  is_dir = S_ISDIR (st->stat.st_mode) != 0;
+
+  if (!is_dir && dump_hard_link (st))
+    return;
+
+  if (is_dir || S_ISREG (st->stat.st_mode) || S_ISCTG (st->stat.st_mode))
     {
-      /* Check for multiple links.  */
-      if (dump_hard_link (st))
-	return;
+      bool ok;
+      int fd = -1;
+      struct stat final_stat;
 
-      /* This is not a link to a previously dumped file, so dump it.  */
-
-      if (S_ISREG (st->stat.st_mode)
-	  || S_ISCTG (st->stat.st_mode))
+      if (is_dir || file_dumpable_p (st))
 	{
-	  int fd;
+	  fd = open (p,
+		     (O_RDONLY | O_BINARY
+		      | (is_dir ? O_DIRECTORY | O_NONBLOCK : 0)
+		      | (atime_preserve_option == system_atime_preserve
+			 ? O_NOATIME
+			 : 0)));
+	  if (fd < 0)
+	    {
+	      if (!top_level && errno == ENOENT)
+		WARN ((0, 0, _("%s: File removed before we read it"),
+		       quotearg_colon (p)));
+	      else
+		open_diag (p);
+	      return;
+	    }
+	}
+
+      if (is_dir)
+	{
+	  const char *tag_file_name;
+	  ensure_slash (&st->orig_file_name);
+	  ensure_slash (&st->file_name);
+
+	  if (check_exclusion_tags (st->orig_file_name, &tag_file_name)
+	      == exclusion_tag_all)
+	    {
+	      exclusion_tag_warning (st->orig_file_name, tag_file_name,
+				     _("directory not dumped"));
+	      return;
+	    }
+	  
+	  ok = dump_dir (fd, st, top_level, parent_device);
+
+	  /* dump_dir consumes FD if successful.  */
+	  if (ok)
+	    fd = -1;
+	}
+      else
+	{
 	  enum dump_status status;
 
-	  if (file_dumpable_p (st))
-	    {
-#if HAVE_COPYFILE
-		fd = open ( copyfile_on ? p : st->orig_file_name,
-#else
-	      fd = open (st->orig_file_name,
-#endif
-			 O_RDONLY | O_BINARY);
-	      if (fd < 0)
-		{
-		  if (!top_level && errno == ENOENT)
-		    WARN ((0, 0, _("%s: File removed before we read it"),
-			   quotearg_colon (st->orig_file_name)));
-		  else
-		    open_diag (st->orig_file_name);
-		  return;
-		}
-	    }
-	  else
-	    fd = -1;
-
-	  if (sparse_option && sparse_file_p (st))
+	  if (fd != -1 && sparse_option && ST_IS_SPARSE (st->stat))
 	    {
 	      status = sparse_dump_file (fd, st);
 	      if (status == dump_status_not_implemented)
@@ -1469,90 +1626,140 @@ dump_file0 (struct tar_stat_info *st, char *p,
 	  switch (status)
 	    {
 	    case dump_status_ok:
-	      if (multi_volume_option)
-		assign_string (&save_name, 0);
-	      dump_regular_finish (fd, st, original_ctime);
-	      break;
-
 	    case dump_status_short:
-	      if (multi_volume_option)
-		assign_string (&save_name, 0);
-	      close (fd);
+	      mv_end ();
 	      break;
 
 	    case dump_status_fail:
-	      close (fd);
-	      return;
+	      break;
 
 	    case dump_status_not_implemented:
 	      abort ();
 	    }
 
-	  if (atime_preserve_option)
-	    utime (st->orig_file_name, &restore_times);
 	  file_count_links (st);
-	  return;
+
+	  ok = status == dump_status_ok;
 	}
-#ifdef HAVE_READLINK
-      else if (S_ISLNK (st->stat.st_mode))
+
+      if (ok)
 	{
-	  char *buffer;
-	  int size;
-	  size_t linklen = st->stat.st_size;
-	  if (linklen != st->stat.st_size || linklen + 1 == 0)
-	    xalloc_die ();
-	  buffer = (char *) alloca (linklen + 1);
-	  size = readlink (p, buffer, linklen + 1);
-	  if (size < 0)
+	  /* If possible, reopen a directory if we are preserving
+	     atimes, so that we can set just the atime on systems with
+	     _FIOSATIME.  */
+	  if (fd < 0 && is_dir
+	      && atime_preserve_option == replace_atime_preserve)
+	    fd = open (p, O_RDONLY | O_BINARY | O_DIRECTORY | O_NONBLOCK);
+
+	  if ((fd < 0
+	       ? deref_stat (dereference_option, p, &final_stat)
+	       : fstat (fd, &final_stat))
+	      != 0)
 	    {
-	      readlink_diag (p);
-	      return;
+	      stat_diag (p);
+	      ok = false;
 	    }
-	  buffer[size] = '\0';
-	  assign_string (&st->link_name, buffer);
-	  if (size > NAME_FIELD_SIZE)
-	    write_long_link (st);
+	}
 
-	  block_ordinal = current_block_ordinal ();
-	  st->stat.st_size = 0;	/* force 0 size on symlink */
-	  header = start_header (st);
-	  if (!header)
-	    return;
-	  tar_copy_str (header->header.linkname, buffer, NAME_FIELD_SIZE);
-	  header->header.typeflag = SYMTYPE;
-	  finish_header (st, header, block_ordinal);
-	  /* nothing more to do to it */
-
-	  if (remove_files_option)
+      if (ok)
+	{
+	  if ((timespec_cmp (get_stat_ctime (&final_stat), original_ctime) != 0
+	       /* Original ctime will change if the file is a directory and
+		  --remove-files is given */
+	       && !(remove_files_option && is_dir))
+	      || original_size < final_stat.st_size)
 	    {
-	      if (unlink (p) == -1)
+	      WARN ((0, 0, _("%s: file changed as we read it"),
+		     quotearg_colon (p)));
+	      if (exit_status == TAREXIT_SUCCESS)
+		exit_status = TAREXIT_DIFFERS;
+	    }
+	  else if (atime_preserve_option == replace_atime_preserve
+		   && set_file_atime (fd, p, restore_times) != 0)
+	    utime_error (p);
+	}
+
+      if (0 <= fd && close (fd) != 0)
+	{
+	  close_diag (p);
+	  ok = false;
+	}
+
+      if (ok && remove_files_option)
+	{
+	  if (is_dir)
+	    {
+	      if (rmdir (p) != 0 && errno != ENOTEMPTY)
+		rmdir_error (p);
+	    }
+	  else
+	    {
+	      if (unlink (p) != 0)
 		unlink_error (p);
 	    }
-	  file_count_links (st);
+	}
+
+      return;
+    }
+#ifdef HAVE_READLINK
+  else if (S_ISLNK (st->stat.st_mode))
+    {
+      char *buffer;
+      int size;
+      size_t linklen = st->stat.st_size;
+      if (linklen != st->stat.st_size || linklen + 1 == 0)
+	xalloc_die ();
+      buffer = (char *) alloca (linklen + 1);
+      size = readlink (p, buffer, linklen + 1);
+      if (size < 0)
+	{
+	  readlink_diag (p);
 	  return;
 	}
+      buffer[size] = '\0';
+      assign_string (&st->link_name, buffer);
+      if (NAME_FIELD_SIZE - (archive_format == OLDGNU_FORMAT) < size)
+	write_long_link (st);
+
+      block_ordinal = current_block_ordinal ();
+      st->stat.st_size = 0;	/* force 0 size on symlink */
+      header = start_header (st);
+      if (!header)
+	return;
+      tar_copy_str (header->header.linkname, buffer, NAME_FIELD_SIZE);
+      header->header.typeflag = SYMTYPE;
+      finish_header (st, header, block_ordinal);
+      /* nothing more to do to it */
+
+      if (remove_files_option)
+	{
+	  if (unlink (p) == -1)
+	    unlink_error (p);
+	}
+      file_count_links (st);
+      return;
+    }
 #endif
-      else if (S_ISCHR (st->stat.st_mode))
-	type = CHRTYPE;
-      else if (S_ISBLK (st->stat.st_mode))
-	type = BLKTYPE;
-      else if (S_ISFIFO (st->stat.st_mode))
-	type = FIFOTYPE;
-      else if (S_ISSOCK (st->stat.st_mode))
-	{
-	  WARN ((0, 0, _("%s: socket ignored"), quotearg_colon (p)));
-	  return;
-	}
-      else if (S_ISDOOR (st->stat.st_mode))
-	{
-	  WARN ((0, 0, _("%s: door ignored"), quotearg_colon (p)));
-	  return;
-	}
-      else
-	{
-	  unknown_file_error (p);
-	  return;
-	}
+  else if (S_ISCHR (st->stat.st_mode))
+    type = CHRTYPE;
+  else if (S_ISBLK (st->stat.st_mode))
+    type = BLKTYPE;
+  else if (S_ISFIFO (st->stat.st_mode))
+    type = FIFOTYPE;
+  else if (S_ISSOCK (st->stat.st_mode))
+    {
+      WARN ((0, 0, _("%s: socket ignored"), quotearg_colon (p)));
+      return;
+    }
+  else if (S_ISDOOR (st->stat.st_mode))
+    {
+      WARN ((0, 0, _("%s: door ignored"), quotearg_colon (p)));
+      return;
+    }
+  else
+    {
+      unknown_file_error (p);
+      return;
     }
 
   if (archive_format == V7_FORMAT)
@@ -1585,14 +1792,19 @@ dump_file0 (struct tar_stat_info *st, char *p,
 }
 
 void
-dump_file (char *p, int top_level, dev_t parent_device)
+dump_file (const char *p, int top_level, dev_t parent_device)
 {
   struct tar_stat_info st;
 
-#ifdef HAVE_COPYFILE
+#ifdef __APPLE__
+	if (!getenv(COPYFILE_DISABLE_VAR) && !strncmp(basename(p), "._", 2)) {
+		return;
+	}
+
   if (!getenv(COPYFILE_DISABLE_VAR) && strncmp(basename(p), "._", 2))
   {
-	char *md_p = strdup("/tmp/tar.md.XXXXXX");
+	char *tmpdir = getenv("TMPDIR"), *md_p;
+	asprintf(&md_p, "%s/tar.md.XXXXXXXX", tmpdir ? tmpdir : _PATH_TMP);
 	asprintf(&copyfile_fname, "%s/._%s", dirname(p), basename(p));
 
 	if (copyfile(p, NULL, 0, COPYFILE_CHECK | COPYFILE_NOFOLLOW | COPYFILE_ACL | COPYFILE_XATTR))
@@ -1602,8 +1814,10 @@ dump_file (char *p, int top_level, dev_t parent_device)
 
 	    if(mktemp(md_p))
 	    {
-		copyfile(p, md_p, 0, COPYFILE_PACK | COPYFILE_NOFOLLOW | COPYFILE_ACL | COPYFILE_XATTR);
-		dump_file0 (&st, md_p, top_level, parent_device);
+		if (copyfile(p, md_p, 0, COPYFILE_PACK | COPYFILE_NOFOLLOW | COPYFILE_ACL | COPYFILE_XATTR) == 0)
+			dump_file0 (&st, md_p, top_level, parent_device);
+		else
+			WARN((0, 0, "copyfile pack (%s) failed: %s", p, strerror(errno)));
 	    }
 
 	    tar_stat_destroy (&st);
@@ -1617,5 +1831,7 @@ dump_file (char *p, int top_level, dev_t parent_device)
 
   tar_stat_init (&st);
   dump_file0 (&st, p, top_level, parent_device);
+  if (listed_incremental_option)
+    update_parent_directory (p);
   tar_stat_destroy (&st);
 }

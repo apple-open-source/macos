@@ -1,0 +1,142 @@
+#!/bin/sh
+
+r1=REALM1.LOCAL
+r2=REALM2.ROOT
+r3=REALM3.LOCAL
+
+realms="$r1 $r2 $r3"
+
+user=user@REALM1.LOCAL
+targetname=server
+target=host/${targetname}@${r3}
+answer=host/${targetname}@${r1}
+targetname2=server.realm3.local
+target2=host/${targetname2}@${r3}
+answer2=host/${targetname2}@${r1}
+
+DNSWR="$HOME/src/cos/dnswrapper/dnswr.dylib"
+
+ROOT=/var/db/krb5kdc/test
+
+KRB5_CONFIG1=${ROOT}/krb5.conf-realm1.local
+KRB5_CONFIG2=${ROOT}/krb5.conf-realm2.root
+KRB5_CONFIG3=${ROOT}/krb5.conf-realm3.local
+
+KRB5_CONFIG=/dev/null
+export KRB5_CONFIG
+
+KRB5_KDC_PROFILE=${KRB5_CONFIG}
+export KRB5_KDC_PROFILE
+KRB5CCNAME=FILE:${ROOT}/krb5ccname
+export KRB5CCNAME
+
+rm -rf ${ROOT}
+
+if [ ! -d ${ROOT} ] ; then
+    mkdir ${ROOT} || exit 1
+fi
+
+rm remove-foo.keytab*
+
+cp krb5.conf-realm1.local ${ROOT} || exit 1
+cp krb5.conf-realm2.root ${ROOT} || exit 1
+cp krb5.conf-realm3.local ${ROOT} || exit 1
+
+for a in $realms ; do
+    r=$(echo $a | tr '[:upper:]' '[:lower:]')
+    env KRB5_KDC_PROFILE=${ROOT}/krb5.conf-$r \
+    kdb5_util -P stashpw -r $a create -s || exit 1
+done
+
+urealm=$(echo $user | sed 's/.*@//')
+trealm=$(echo $target | sed 's/.*@//')
+
+env KRB5_KDC_PROFILE=${KRB5_CONFIG1} \
+kadmin.local -r $urealm -p foo -q "ank -pw foo $user" > /dev/null 2>&1 || \
+    { echo "create user failed" ; exit 1; }
+
+env KRB5_KDC_PROFILE=${KRB5_CONFIG1} \
+kadmin.local -r $r1 -p foo -q "ank -pw r12 krbtgt/$r2@$r1" > /dev/null 2>&1 || \
+    { echo "create cross failed" ; exit 1; }
+
+env KRB5_KDC_PROFILE=${KRB5_CONFIG2} \
+kadmin.local -r $r2 -p foo -q "ank -pw r12 krbtgt/$r2@$r1" > /dev/null 2>&1 || \
+    { echo "create cross failed" ; exit 1; }
+
+env KRB5_KDC_PROFILE=${KRB5_CONFIG2} \
+kadmin.local -r $r2 -p foo -q "ank -pw r23 krbtgt/$r3@$r2" > /dev/null 2>&1 || \
+    { echo "create cross failed" ; exit 1; }
+
+env KRB5_KDC_PROFILE=${KRB5_CONFIG3} \
+kadmin.local -r $r3 -p foo -q "ank -pw r23 krbtgt/$r3@$r2" > /dev/null 2>&1 || \
+    { echo "create cross failed" ; exit 1; }
+
+
+env KRB5_KDC_PROFILE=${KRB5_CONFIG3} \
+kadmin.local -r $trealm -p foo -q "ank -randkey $target" > /dev/null 2>&1 || \
+    { echo "create user failed" ; exit 1; }
+env KRB5_KDC_PROFILE=${KRB5_CONFIG3} \
+kadmin.local -r $trealm -p foo -q "ank -randkey $target2" > /dev/null 2>&1 || \
+    { echo "create user failed" ; exit 1; }
+
+
+env KRB5_KDC_PROFILE=${KRB5_CONFIG3} \
+kadmin.local -r $trealm -p foo \
+    -q "ktadd -k remove-foo.keytab $target"  > /dev/null 2>&1 || \
+    { echo "ktadd failed" ; exit 1; }
+env KRB5_KDC_PROFILE=${KRB5_CONFIG3} \
+kadmin.local -r $trealm -p foo \
+    -q "ktadd -k remove-foo.keytab $target2"  > /dev/null 2>&1 || \
+    { echo "ktadd failed" ; exit 1; }
+
+echo "Starting KDC"
+env KRB5_KDC_PROFILE=${KRB5_CONFIG1} /usr/sbin/krb5kdc -n &
+kdcpid1=$!
+
+env KRB5_KDC_PROFILE=${KRB5_CONFIG2} /usr/sbin/krb5kdc -n &
+kdcpid2=$!
+
+env KRB5_KDC_PROFILE=${KRB5_CONFIG3} /usr/sbin/krb5kdc -n &
+kdcpid3=$!
+
+echo "waiting to them to catch up, XXXX check logs instead"
+sleep 3
+
+trap "kill -9 ${kdcpid1} ${kdcpid2} ${kdcpid3}; echo killing kdc kadmind; exit 1;" EXIT
+
+KRB5_CONFIG=${KRB5_CONFIG1}
+export KRB5_CONFIG
+
+DYLD_INSERT_LIBRARIES=$DNSWR
+export DYLD_INSERT_LIBRARIES
+DNSWRAPPER_FILE=`pwd`/dns-case1.txt
+export DNSWRAPPER_FILE
+
+echo "Getting user (pw)"
+expect ./kinit.tcl $user foo || \
+    { echo "kinit failed" ; exit 1; }
+
+echo "Setting windows flag on credential"
+../build/Debug/kcc-setup
+
+echo "Trying to find $targetname"
+../build/Debug/KRBCreateSession $targetname > log
+
+echo "Checking result: $answer"
+egrep "^SERVER=$answer" log >/dev/null || { echo "$answer failed" ; exit 1; }
+
+echo "Trying to find $targetname2"
+../build/Debug/KRBCreateSession $targetname2 > log
+
+echo "Checking result: $answer2"
+egrep "^SERVER=$answer2" log >/dev/null || { echo "$answer2 failed" ; exit 1; }
+
+trap "" EXIT
+kill ${kdcpid1} ${kdcpid2} ${kdcpid3}
+sleep 1
+kill -9 ${kdcpid1} ${kdcpid2} ${kdcpid3} 2>/dev/null
+
+echo "done"
+
+exit 0
+

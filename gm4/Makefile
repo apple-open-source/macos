@@ -42,7 +42,7 @@ AEP_Version    = 1.4.6
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = patch-doc__Makefile.in
+AEP_Patches    = patch-doc__Makefile.in patch-lib__Makefile.in
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j

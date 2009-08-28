@@ -21,7 +21,6 @@ freq.rb		count word occurrence
 from.rb		scan mail spool
 fullpath.rb	convert ls -lR to fullpath format
 getopts.test	test fot getopt.rb
-goodfriday.rb	print various christian calendar event.
 io.rb		io test
 irb.rb		interactive ruby
 less.rb		front end for less
@@ -29,7 +28,7 @@ list.rb		stupid object sample
 list2.rb	stupid object sample
 list3.rb	stupid object sample
 mine.rb		simple mine sweeper	
-mkproto.rb     extract prototype from C
+mkproto.rb	extract prototype from C
 mpart.rb	split file int multi part
 mrshtest.rb	test marshal
 observ.rb	observer design pattern sample

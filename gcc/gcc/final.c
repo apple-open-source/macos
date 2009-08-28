@@ -1,7 +1,7 @@
 /* Convert RTL to assembler code and output it, for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
-     Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This is the final pass of the compiler.
    It looks at the rtl code for a function and outputs assembler code.
@@ -72,6 +72,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "debug.h"
 #include "expr.h"
 #include "cfglayout.h"
+#include "tree-pass.h"
+#include "timevar.h"
+#include "cgraph.h"
+#include "coverage.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data
@@ -84,6 +88,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #ifdef DBX_DEBUGGING_INFO
 #include "dbxout.h"
+#endif
+
+#ifdef SDB_DEBUGGING_INFO
+#include "sdbout.h"
 #endif
 
 /* If we aren't using cc0, CC_STATUS_INIT shouldn't exist.  So define a
@@ -104,12 +112,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #ifndef JUMP_TABLES_IN_TEXT_SECTION
 #define JUMP_TABLES_IN_TEXT_SECTION 0
-#endif
-
-#if defined(READONLY_DATA_SECTION) || defined(READONLY_DATA_SECTION_ASM_OP)
-#define HAVE_READONLY_DATA_SECTION 1
-#else
-#define HAVE_READONLY_DATA_SECTION 0
 #endif
 
 /* Bitflags used by final_scan_insn.  */
@@ -133,10 +135,13 @@ static int high_function_linenum;
 /* Filename of last NOTE.  */
 static const char *last_filename;
 
-extern int length_unit_log; /* This is defined in insn-attrtab.c.  */
+/* Whether to force emission of a line note before the next insn.  */
+static bool force_source_line = false;
+
+extern const int length_unit_log; /* This is defined in insn-attrtab.c.  */
 
 /* Nonzero while outputting an `asm' with operands.
-   This means that inconsistencies are the user's fault, so don't abort.
+   This means that inconsistencies are the user's fault, so don't die.
    The precise value is the insn being output, to pass to error_for_asm.  */
 rtx this_is_asm_operands;
 
@@ -224,6 +229,8 @@ static void output_alternate_entry_point (FILE *, rtx);
 static tree get_mem_expr_from_op (rtx, int *);
 static void output_asm_operand_names (rtx *, int *, int);
 static void output_operand (rtx, int);
+/* APPLE LOCAL ARM compact switch tables */
+static void calculate_alignments (void);
 #ifdef LEAF_REGISTERS
 static void leaf_renumber_regs (rtx);
 #endif
@@ -338,16 +345,13 @@ int insn_current_align;
    for each insn we'll call the alignment chain of this insn in the following
    comments.  */
 
-struct label_alignment
-{
-  short alignment;
-  short max_skip;
-};
-
+/* APPLE LOCAL begin for-fsf-4_4 3274130 5295549 */ \
+/* APPLE LOCAL end for-fsf-4_4 3274130 5295549 */ \
 static rtx *uid_align;
 static int *uid_shuid;
-static struct label_alignment *label_align;
+/* APPLE LOCAL begin for-fsf-4_4 3274130 5295549 */ \
 
+/* APPLE LOCAL end for-fsf-4_4 3274130 5295549 */ \
 /* Indicate that branch shortening hasn't yet been done.  */
 
 void
@@ -375,10 +379,11 @@ init_insn_lengths (void)
 }
 
 /* Obtain the current length of an insn.  If branch shortening has been done,
-   get its actual length.  Otherwise, get its maximum length.  */
-
-int
-get_attr_length (rtx insn ATTRIBUTE_UNUSED)
+   get its actual length.  Otherwise, use FALLBACK_FN to calculate the
+   length.  */
+static inline int
+get_attr_length_1 (rtx insn ATTRIBUTE_UNUSED,
+		   int (*fallback_fn) (rtx) ATTRIBUTE_UNUSED)
 {
 #ifdef HAVE_ATTR_length
   rtx body;
@@ -396,7 +401,7 @@ get_attr_length (rtx insn ATTRIBUTE_UNUSED)
 	return 0;
 
       case CALL_INSN:
-	length = insn_default_length (insn);
+	length = fallback_fn (insn);
 	break;
 
       case JUMP_INSN:
@@ -407,7 +412,7 @@ get_attr_length (rtx insn ATTRIBUTE_UNUSED)
 	       ADDR_VEC_ALIGN.  */
 	  }
 	else
-	  length = insn_default_length (insn);
+	  length = fallback_fn (insn);
 	break;
 
       case INSN:
@@ -416,12 +421,12 @@ get_attr_length (rtx insn ATTRIBUTE_UNUSED)
 	  return 0;
 
 	else if (GET_CODE (body) == ASM_INPUT || asm_noperands (body) >= 0)
-	  length = asm_insn_count (body) * insn_default_length (insn);
+	  length = asm_insn_count (body) * fallback_fn (insn);
 	else if (GET_CODE (body) == SEQUENCE)
 	  for (i = 0; i < XVECLEN (body, 0); i++)
 	    length += get_attr_length (XVECEXP (body, 0, i));
 	else
-	  length = insn_default_length (insn);
+	  length = fallback_fn (insn);
 	break;
 
       default:
@@ -434,7 +439,25 @@ get_attr_length (rtx insn ATTRIBUTE_UNUSED)
   return length;
 #else /* not HAVE_ATTR_length */
   return 0;
+#define insn_default_length 0
+#define insn_min_length 0
 #endif /* not HAVE_ATTR_length */
+}
+
+/* Obtain the current length of an insn.  If branch shortening has been done,
+   get its actual length.  Otherwise, get its maximum length.  */
+int
+get_attr_length (rtx insn)
+{
+  return get_attr_length_1 (insn, insn_default_length);
+}
+
+/* Obtain the current length of an insn.  If branch shortening has been done,
+   get its actual length.  Otherwise, get its minimum length.  */
+int
+get_attr_min_length (rtx insn)
+{
+  return get_attr_length_1 (insn, insn_min_length);
 }
 
 /* Code to handle alignment inside shorten_branches.  */
@@ -531,20 +554,16 @@ final_addr_vec_align (rtx addr_vec)
 
 #define INSN_SHUID(INSN) (uid_shuid[INSN_UID (INSN)])
 
-static int min_labelno, max_labelno;
-
-#define LABEL_TO_ALIGNMENT(LABEL) \
-  (label_align[CODE_LABEL_NUMBER (LABEL) - min_labelno].alignment)
-
-#define LABEL_TO_MAX_SKIP(LABEL) \
-  (label_align[CODE_LABEL_NUMBER (LABEL) - min_labelno].max_skip)
-
+/* APPLE LOCAL begin for-fsf-4_4 3274130 5295549 */ \
+/* APPLE LOCAL end for-fsf-4_4 3274130 5295549 */ \
 /* For the benefit of port specific code do this also as a function.  */
 
 int
 label_to_alignment (rtx label)
 {
-  return LABEL_TO_ALIGNMENT (label);
+/* APPLE LOCAL begin for-fsf-4_4 3274130 5295549 */ \
+  return LABEL_ALIGN_LOG (label);
+/* APPLE LOCAL end for-fsf-4_4 3274130 5295549 */ \
 }
 
 #ifdef HAVE_ATTR_length
@@ -593,7 +612,9 @@ align_fuzz (rtx start, rtx end, int known_align_log, unsigned int growth)
       align_addr = INSN_ADDRESSES (uid) - insn_lengths[uid];
       if (uid_shuid[uid] > end_shuid)
 	break;
-      known_align_log = LABEL_TO_ALIGNMENT (align_label);
+/* APPLE LOCAL begin for-fsf-4_4 3274130 5295549 */ \
+      known_align_log = LABEL_ALIGN_LOG (align_label);
+/* APPLE LOCAL end for-fsf-4_4 3274130 5295549 */ \
       new_align = 1 << known_align_log;
       if (new_align < known_align)
 	continue;
@@ -652,32 +673,25 @@ insn_current_reference_address (rtx branch)
 }
 #endif /* HAVE_ATTR_length */
 
-void
+/* Compute branch alignments based on frequency information in the
+   CFG.  */
+
+static unsigned int
 compute_alignments (void)
 {
-  int log, max_skip, max_log;
+/* APPLE LOCAL begin for-fsf-4_4 3274130 5295549 */ \
+/* APPLE LOCAL end for-fsf-4_4 3274130 5295549 */ \
   basic_block bb;
 
-  if (label_align)
-    {
-      free (label_align);
-      label_align = 0;
-    }
-
-  max_labelno = max_label_num ();
-  min_labelno = get_first_label_num ();
-  label_align = xcalloc (max_labelno - min_labelno + 1,
-			 sizeof (struct label_alignment));
-
-/* APPLE LOCAL begin ARM 4790140 compact switch tables */
-#if !defined (TARGET_ARM)
-  /* If not optimizing or optimizing for size, don't assign any alignments.
-     On ARM, align_4 and align_8 are handled here, and getting those alignments 
-     right is necessary for correctness of switch tables.  */
+/* APPLE LOCAL begin for-fsf-4_4 3274130 5295549 */ \
+/* APPLE LOCAL end for-fsf-4_4 3274130 5295549 */ \
+/* APPLE LOCAL begin ARM compact switch tables */
+#if !defined (TARGET_EXACT_SIZE_CALCULATIONS)
+  /* If not optimizing or optimizing for size, don't assign any alignments.  */
   if (! optimize || optimize_size)
-    return;
+    return 0;
 #endif
-/* APPLE LOCAL end ARM 4790140 compact switch tables */
+/* APPLE LOCAL end ARM compact switch tables */
 
   FOR_EACH_BB (bb)
     {
@@ -685,15 +699,24 @@ compute_alignments (void)
       int fallthru_frequency = 0, branch_frequency = 0, has_fallthru = 0;
       edge e;
       edge_iterator ei;
+/* APPLE LOCAL begin for-fsf-4_4 3274130 5295549 */ \
+      int log, max_skip, max_log;
 
-/* APPLE LOCAL begin ARM 4790140 compact switch tables */
+/* APPLE LOCAL end for-fsf-4_4 3274130 5295549 */ \
+/* APPLE LOCAL begin ARM compact switch tables */
       if (!LABEL_P (label)
-#if !defined (TARGET_ARM)
+#if !defined (TARGET_EXACT_SIZE_CALCULATIONS)
 	  || probably_never_executed_bb_p (bb)
 #endif
-	)
-/* APPLE LOCAL end ARM 4790140 compact switch tables */
+	 )
 	continue;
+/* APPLE LOCAL end ARM compact switch tables */
+/* APPLE LOCAL begin for-fsf-4_4 3274130 5295549 */ \
+      /* If user has specified an alignment, honour it.  */
+      if (LABEL_ALIGN_LOG (label) > 0)
+	continue;
+
+/* APPLE LOCAL end for-fsf-4_4 3274130 5295549 */ \
       max_log = LABEL_ALIGN (label);
       max_skip = LABEL_ALIGN_MAX_SKIP;
 
@@ -742,10 +765,30 @@ compute_alignments (void)
 	      max_skip = LOOP_ALIGN_MAX_SKIP;
 	    }
 	}
-      LABEL_TO_ALIGNMENT (label) = max_log;
-      LABEL_TO_MAX_SKIP (label) = max_skip;
+/* APPLE LOCAL begin for-fsf-4_4 3274130 5295549 */ \
+      SET_LABEL_ALIGN (label, max_log, max_skip);
+/* APPLE LOCAL end for-fsf-4_4 3274130 5295549 */ \
     }
+  return 0;
 }
+
+struct tree_opt_pass pass_compute_alignments =
+{
+  NULL,                                 /* name */
+  NULL,                                 /* gate */
+  compute_alignments,                   /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_finish */
+  0                                     /* letter */
+};
+
 
 /* Make a pass over all insns and compute their actual lengths by shortening
    any branches of variable length if possible.  */
@@ -766,50 +809,32 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
   int i;
   int max_log;
   int max_skip;
+  /* APPLE LOCAL begin ARM compact switch tables */
+  /* Removed seq.  */
 #ifdef HAVE_ATTR_length
 #define MAX_CODE_ALIGN 16
-  rtx seq;
   int something_changed = 1;
   char *varying_length;
   rtx body;
   int uid;
-  rtx align_tab[MAX_CODE_ALIGN];
-/* APPLE LOCAL ARM 4790140 compact switch tables */
+  /* Removed align_tab.  */
   bool asms_present = false;
+  /* APPLE LOCAL end ARM compact switch tables */
 
 #endif
 
-  /* Compute maximum UID and allocate label_align / uid_shuid.  */
+/* APPLE LOCAL begin for-fsf-4_4 3274130 5295549 */ \
+  /* Compute maximum UID and allocate uid_shuid.  */
+/* APPLE LOCAL end for-fsf-4_4 3274130 5295549 */ \
   max_uid = get_max_uid ();
 
   /* Free uid_shuid before reallocating it.  */
   free (uid_shuid);
-  
-  uid_shuid = xmalloc (max_uid * sizeof *uid_shuid);
 
-  if (max_labelno != max_label_num ())
-    {
-      int old = max_labelno;
-      int n_labels;
-      int n_old_labels;
+  uid_shuid = XNEWVEC (int, max_uid);
 
-      max_labelno = max_label_num ();
-
-      n_labels = max_labelno - min_labelno + 1;
-      n_old_labels = old - min_labelno + 1;
-
-      label_align = xrealloc (label_align,
-			      n_labels * sizeof (struct label_alignment));
-
-      /* Range of labels grows monotonically in the function.  Abort here
-         means that the initialization of array got lost.  */
-      gcc_assert (n_old_labels <= n_labels);
-
-      memset (label_align + n_old_labels, 0,
-	      (n_labels - n_old_labels) * sizeof (struct label_alignment));
-    }
-
-  /* Initialize label_align and set up uid_shuid to be strictly
+  /* APPLE LOCAL for-fsf-4_4 3274130 5295549 */ \
+  /* Initialize set up uid_shuid to be strictly
      monotonically rising with insn order.  */
   /* We use max_log here to keep track of the maximum alignment we want to
      impose on the next CODE_LABEL (or the current one if we are processing
@@ -824,23 +849,22 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 
       INSN_SHUID (insn) = i++;
       if (INSN_P (insn))
-	{
-	  /* reorg might make the first insn of a loop being run once only,
-             and delete the label in front of it.  Then we want to apply
-             the loop alignment to the new label created by reorg, which
-             is separated by the former loop start insn from the
-	     NOTE_INSN_LOOP_BEG.  */
-	}
-      else if (LABEL_P (insn))
+	continue;
+
+      if (LABEL_P (insn))
 	{
 	  rtx next;
 
 	  /* Merge in alignments computed by compute_alignments.  */
-	  log = LABEL_TO_ALIGNMENT (insn);
+/* APPLE LOCAL begin for-fsf-4_4 3274130 5295549 */ \
+	  log = LABEL_ALIGN_LOG (insn);
+/* APPLE LOCAL end for-fsf-4_4 3274130 5295549 */ \
 	  if (max_log < log)
 	    {
 	      max_log = log;
-	      max_skip = LABEL_TO_MAX_SKIP (insn);
+/* APPLE LOCAL begin for-fsf-4_4 3274130 5295549 */ \
+	      max_skip = LABEL_MAX_SKIP (insn);
+/* APPLE LOCAL end for-fsf-4_4 3274130 5295549 */ \
 	    }
 
 	  log = LABEL_ALIGN (insn);
@@ -852,7 +876,8 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 	  next = next_nonnote_insn (insn);
 	  /* ADDR_VECs only take room if read-only data goes into the text
 	     section.  */
-	  if (JUMP_TABLES_IN_TEXT_SECTION || !HAVE_READONLY_DATA_SECTION)
+	  if (JUMP_TABLES_IN_TEXT_SECTION
+	      || readonly_data_section == text_section)
 	    if (next && JUMP_P (next))
 	      {
 		rtx nextbody = PATTERN (next);
@@ -867,8 +892,9 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 		      }
 		  }
 	      }
-	  LABEL_TO_ALIGNMENT (insn) = max_log;
-	  LABEL_TO_MAX_SKIP (insn) = max_skip;
+/* APPLE LOCAL begin for-fsf-4_4 3274130 5295549 */ \
+	  SET_LABEL_ALIGN (insn, max_log, max_skip);
+/* APPLE LOCAL end for-fsf-4_4 3274130 5295549 */ \
 	  max_log = 0;
 	  max_skip = 0;
 	}
@@ -893,38 +919,19 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 #ifdef HAVE_ATTR_length
 
   /* Allocate the rest of the arrays.  */
-  insn_lengths = xmalloc (max_uid * sizeof (*insn_lengths));
+  insn_lengths = XNEWVEC (int, max_uid);
   insn_lengths_max_uid = max_uid;
   /* Syntax errors can lead to labels being outside of the main insn stream.
      Initialize insn_addresses, so that we get reproducible results.  */
   INSN_ADDRESSES_ALLOC (max_uid);
 
-  varying_length = xcalloc (max_uid, sizeof (char));
+  varying_length = XCNEWVEC (char, max_uid);
 
-  /* Initialize uid_align.  We scan instructions
-     from end to start, and keep in align_tab[n] the last seen insn
-     that does an alignment of at least n+1, i.e. the successor
-     in the alignment chain for an insn that does / has a known
-     alignment of n.  */
-  uid_align = xcalloc (max_uid, sizeof *uid_align);
+  /* APPLE LOCAL begin ARM compact switch tables */
+  uid_align = XCNEWVEC (rtx, max_uid);
+  calculate_alignments ();
 
-  for (i = MAX_CODE_ALIGN; --i >= 0;)
-    align_tab[i] = NULL_RTX;
-  seq = get_last_insn ();
-  for (; seq; seq = PREV_INSN (seq))
-    {
-      int uid = INSN_UID (seq);
-      int log;
-      log = (LABEL_P (seq) ? LABEL_TO_ALIGNMENT (seq) : 0);
-      uid_align[uid] = align_tab[0];
-      if (log)
-	{
-	  /* Found an alignment label.  */
-	  uid_align[uid] = align_tab[log];
-	  for (i = log - 1; i >= 0; i--)
-	    align_tab[i] = seq;
-	}
-    }
+  /* APPLE LOCAL end ARM compact switch tables */
 #ifdef CASE_VECTOR_SHORTEN_MODE
   if (optimize)
     {
@@ -963,11 +970,13 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 		  max = shuid;
 		  max_lab = lab;
 		}
-	      if (min_align > LABEL_TO_ALIGNMENT (lab))
-		min_align = LABEL_TO_ALIGNMENT (lab);
+/* APPLE LOCAL begin for-fsf-4_4 3274130 5295549 */ \
+	      if (min_align > (int) LABEL_ALIGN_LOG (lab))
+		min_align = LABEL_ALIGN_LOG (lab);
+/* APPLE LOCAL end for-fsf-4_4 3274130 5295549 */ \
 	    }
-	  XEXP (pat, 2) = gen_rtx_LABEL_REF (VOIDmode, min_lab);
-	  XEXP (pat, 3) = gen_rtx_LABEL_REF (VOIDmode, max_lab);
+	  XEXP (pat, 2) = gen_rtx_LABEL_REF (Pmode, min_lab);
+	  XEXP (pat, 3) = gen_rtx_LABEL_REF (Pmode, max_lab);
 	  insn_shuid = INSN_SHUID (insn);
 	  rel = INSN_SHUID (XEXP (XEXP (pat, 0), 0));
 	  memset (&flags, 0, sizeof (flags));
@@ -983,14 +992,14 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 #endif /* CASE_VECTOR_SHORTEN_MODE */
 
   /* Compute initial lengths, addresses, and varying flags for each insn.  */
-/* APPLE LOCAL begin ARM 4790140 compact switch tables */
+/* APPLE LOCAL begin ARM compact switch tables */
+#ifdef TARGET_UNEXPANDED_PROLOGUE_SIZE
+  insn_current_address = TARGET_UNEXPANDED_PROLOGUE_SIZE;
+#else
   insn_current_address = 0;
-#ifdef TARGET_ARM
-  if (TARGET_THUMB)
-    insn_current_address = count_thumb_unexpanded_prologue ();
-#endif  
+#endif
   for (insn = first;
-/* APPLE LOCAL end ARM 4790140 compact switch tables */
+/* APPLE LOCAL end ARM compact switch tables */
        insn != 0;
        insn_current_address += insn_lengths[uid], insn = NEXT_INSN (insn))
     {
@@ -1000,7 +1009,9 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 
       if (LABEL_P (insn))
 	{
-	  int log = LABEL_TO_ALIGNMENT (insn);
+/* APPLE LOCAL begin for-fsf-4_4 3274130 5295549 */ \
+	  int log = LABEL_ALIGN_LOG (insn);
+/* APPLE LOCAL end for-fsf-4_4 3274130 5295549 */ \
 	  if (log)
 	    {
 	      int align = 1 << log;
@@ -1022,19 +1033,20 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 	{
 	  /* This only takes room if read-only data goes into the text
 	     section.  */
-	  if (JUMP_TABLES_IN_TEXT_SECTION || !HAVE_READONLY_DATA_SECTION)
+	  if (JUMP_TABLES_IN_TEXT_SECTION
+	      || readonly_data_section == text_section)
 	    insn_lengths[uid] = (XVECLEN (body,
 					  GET_CODE (body) == ADDR_DIFF_VEC)
 				 * GET_MODE_SIZE (GET_MODE (body)));
 	  /* Alignment is handled by ADDR_VEC_ALIGN.  */
 	}
       else if (GET_CODE (body) == ASM_INPUT || asm_noperands (body) >= 0)
-/* APPLE LOCAL begin ARM 4790140 compact switch tables */
-        {
+	/* APPLE LOCAL begin ARM compact switch tables */
+	{
 	  insn_lengths[uid] = asm_insn_count (body) * insn_default_length (insn);
 	  asms_present = true;
 	}
-/* APPLE LOCAL end ARM 4790140 compact switch tables */
+	/* APPLE LOCAL end ARM compact switch tables */
       else if (GET_CODE (body) == SEQUENCE)
 	{
 	  int i;
@@ -1096,14 +1108,14 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
     {
       something_changed = 0;
       insn_current_align = MAX_CODE_ALIGN - 1;
-/* APPLE LOCAL begin ARM 4790140 compact switch tables */
+/* APPLE LOCAL begin ARM compact switch tables */
+#ifdef TARGET_UNEXPANDED_PROLOGUE_SIZE
+      insn_current_address = TARGET_UNEXPANDED_PROLOGUE_SIZE;
+#else
       insn_current_address = 0;
-#ifdef TARGET_ARM
-      if (TARGET_THUMB)
-	insn_current_address = count_thumb_unexpanded_prologue ();
-#endif  
+#endif
       for (insn = first;
-/* APPLE LOCAL end ARM 4790140 compact switch tables */
+/* APPLE LOCAL end ARM compact switch tables */
 	   insn != 0;
 	   insn = NEXT_INSN (insn))
 	{
@@ -1117,7 +1129,9 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 
 	  if (LABEL_P (insn))
 	    {
-	      int log = LABEL_TO_ALIGNMENT (insn);
+/* APPLE LOCAL begin for-fsf-4_4 3274130 5295549 */ \
+	      int log = LABEL_ALIGN_LOG (insn);
+/* APPLE LOCAL end for-fsf-4_4 3274130 5295549 */ \
 	      if (log > insn_current_align)
 		{
 		  int align = 1 << log;
@@ -1141,11 +1155,11 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 
 #ifdef CASE_VECTOR_SHORTEN_MODE
 	  if (optimize && JUMP_P (insn)
-/* APPLE LOCAL begin ARM 4790140 compact switch tables */
-#ifdef TARGET_ARM
+/* APPLE LOCAL begin ARM compact switch tables */
+#ifdef TARGET_EXACT_SIZE_CALCULATIONS
 	      && !asms_present
 #endif
-/* APPLE LOCAL end ARM 4790140 compact switch tables */
+/* APPLE LOCAL end ARM compact switch tables */
 	      && GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC)
 	    {
 	      rtx body = PATTERN (insn);
@@ -1171,7 +1185,9 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 		   prev = PREV_INSN (prev))
 		if (varying_length[INSN_UID (prev)] & 2)
 		  {
-		    rel_align = LABEL_TO_ALIGNMENT (prev);
+/* APPLE LOCAL begin for-fsf-4_4 3274130 5295549 */ \
+		    rel_align = LABEL_ALIGN_LOG (prev);
+/* APPLE LOCAL end for-fsf-4_4 3274130 5295549 */ \
 		    break;
 		  }
 
@@ -1240,22 +1256,23 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 	      PUT_MODE (body, CASE_VECTOR_SHORTEN_MODE (min_addr - rel_addr,
 							max_addr - rel_addr,
 							body));
-	      if (JUMP_TABLES_IN_TEXT_SECTION || !HAVE_READONLY_DATA_SECTION)
+	      if (JUMP_TABLES_IN_TEXT_SECTION
+		  || readonly_data_section == text_section)
 		{
 		  insn_lengths[uid]
 		    = (XVECLEN (body, 1) * GET_MODE_SIZE (GET_MODE (body)));
-/* APPLE LOCAL begin ARM 4790140 compact switch tables */
-#ifdef TARGET_ARM
+/* APPLE LOCAL begin ARM compact switch tables */
 #ifdef ADJUST_INSN_LENGTH
 		  ADJUST_INSN_LENGTH (insn, insn_lengths[uid]);
 #endif
-#endif
 		  insn_current_address += insn_lengths[uid];
-#ifdef TARGET_ARM
+#ifdef TARGET_ALIGN_ADDR_DIFF_VEC_LABEL
 		  /* Label gets same alignment as table. */
-		  LABEL_TO_ALIGNMENT (rel_lab) = ADDR_VEC_ALIGN (insn);
+		  SET_LABEL_ALIGN (rel_lab, ADDR_VEC_ALIGN (insn),
+				   LABEL_MAX_SKIP (rel_lab));
+		  calculate_alignments ();
 #endif
-/* APPLE LOCAL end ARM 4790140 compact switch tables */
+/* APPLE LOCAL end ARM compact switch tables */
 		  if (insn_lengths[uid] != old_length)
 		    something_changed = 1;
 		}
@@ -1347,6 +1364,41 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 #endif /* HAVE_ATTR_length */
 }
 
+/* APPLE LOCAL begin ARM compact switch tables */
+/* Initialize uid_align.  We scan instructions
+   from end to start, and keep in align_tab[n] the last seen insn
+   that does an alignment of at least n+1, i.e. the successor
+   in the alignment chain for an insn that does / has a known
+   alignment of n.  */
+static void
+calculate_alignments (void)
+{
+  int i;
+  rtx seq;
+  rtx align_tab[MAX_CODE_ALIGN];
+
+  for (i = MAX_CODE_ALIGN; --i >= 0;)
+    align_tab[i] = NULL_RTX;
+  seq = get_last_insn ();
+  for (; seq; seq = PREV_INSN (seq))
+    {
+      int uid = INSN_UID (seq);
+      int log;
+/* APPLE LOCAL begin for-fsf-4_4 3274130 5295549 */ \
+      log = (LABEL_P (seq) ? LABEL_ALIGN_LOG (seq) : 0);
+/* APPLE LOCAL end for-fsf-4_4 3274130 5295549 */ \
+      uid_align[uid] = align_tab[0];
+      if (log)
+        {
+          /* Found an alignment label.  */
+          uid_align[uid] = align_tab[log];
+          for (i = log - 1; i >= 0; i--)
+            align_tab[i] = seq;
+        }
+    }
+}
+/* APPLE LOCAL end ARM compact switch tables */
+
 #ifdef HAVE_ATTR_length
 /* Given the body of an INSN known to be generated by an ASM statement, return
    the number of machine instructions likely to be generated for this insn.
@@ -1426,7 +1478,6 @@ final_start_function (rtx first ATTRIBUTE_UNUSED, FILE *file,
      function.  */
   if (write_symbols)
     {
-      remove_unnecessary_notes ();
       reemit_insn_block_notes ();
       number_blocks (current_function_decl);
       /* We never actually put out begin/end notes for the top-level
@@ -1472,13 +1523,13 @@ profile_function (FILE *file ATTRIBUTE_UNUSED)
   if (! NO_PROFILE_COUNTERS)
     {
       int align = MIN (BIGGEST_ALIGNMENT, LONG_TYPE_SIZE);
-      data_section ();
+      switch_to_section (data_section);
       ASM_OUTPUT_ALIGN (file, floor_log2 (align / BITS_PER_UNIT));
       targetm.asm_out.internal_label (file, "LP", current_function_funcdef_no);
       assemble_integer (const0_rtx, LONG_TYPE_SIZE / BITS_PER_UNIT, align, 1);
     }
 
-  function_section (current_function_decl);
+  switch_to_section (current_function_section ());
 
 #if defined(ASM_OUTPUT_REG_PUSH)
   if (sval && svrtx != NULL_RTX && REG_P (svrtx))
@@ -1543,19 +1594,11 @@ final_end_function (void)
 }
 
 /* Output assembler code for some insns: all or part of a function.
-   For description of args, see `final_start_function', above.
-
-   PRESCAN is 1 if we are not really outputting,
-     just scanning as if we were outputting.
-   Prescanning deletes and rearranges insns just like ordinary output.
-   PRESCAN is -2 if we are outputting after having prescanned.
-   In this case, don't try to delete or rearrange insns
-   because that has already been done.
-   Prescanning is done only on certain machines.  */
+   For description of args, see `final_start_function', above.  */
 
 void
 /* APPLE LOCAL optimization pragmas 3124235/3420242 */
-final (rtx first, FILE *file, int optimizing, int prescan)
+final (rtx first, FILE *file, int optimizing)
 {
   rtx insn;
   int max_uid = 0;
@@ -1629,7 +1672,7 @@ final (rtx first, FILE *file, int optimizing, int prescan)
 #endif /* HAVE_ATTR_length */
 
       /* APPLE LOCAL optimization pragmas 3124235/3420242 */
-      insn = final_scan_insn (insn, file, optimizing, prescan, 0, &seen);
+      insn = final_scan_insn (insn, file, optimizing, 0, &seen);
     }
 }
 
@@ -1682,35 +1725,6 @@ output_alternate_entry_point (FILE *file, rtx insn)
     }
 }
 
-/* Return boolean indicating if there is a NOTE_INSN_UNLIKELY_EXECUTED_CODE
-   note in the instruction chain (going forward) between the current
-   instruction, and the next 'executable' instruction.  */
-
-bool
-scan_ahead_for_unlikely_executed_note (rtx insn)
-{
-  rtx temp;
-  int bb_note_count = 0;
-
-  for (temp = insn; temp; temp = NEXT_INSN (temp))
-    {
-      if (NOTE_P (temp)
-	  && NOTE_LINE_NUMBER (temp) == NOTE_INSN_UNLIKELY_EXECUTED_CODE)
-	return true;
-      if (NOTE_P (temp)
-	  && NOTE_LINE_NUMBER (temp) == NOTE_INSN_BASIC_BLOCK)
-	{
-	  bb_note_count++;
-	  if (bb_note_count > 1)
-	    return false;
-	}
-      if (INSN_P (temp))
-	return false;
-    }
-  
-  return false;
-}
-
 /* The final scan for one insn, INSN.
    Args are same as in `final', except that INSN
    is the insn being scanned.
@@ -1728,8 +1742,7 @@ scan_ahead_for_unlikely_executed_note (rtx insn)
 rtx
 /* APPLE LOCAL optimization pragmas 3124235/3420242 */
 final_scan_insn (rtx insn, FILE *file, int optimizing ATTRIBUTE_UNUSED,
-		 int prescan, int nopeepholes ATTRIBUTE_UNUSED,
-		 int *seen)
+		 int nopeepholes ATTRIBUTE_UNUSED, int *seen)
 {
 #ifdef HAVE_cc0
   rtx set;
@@ -1746,14 +1759,9 @@ final_scan_insn (rtx insn, FILE *file, int optimizing ATTRIBUTE_UNUSED,
   switch (GET_CODE (insn))
     {
     case NOTE:
-      if (prescan > 0)
-	break;
-
       switch (NOTE_LINE_NUMBER (insn))
 	{
 	case NOTE_INSN_DELETED:
-	case NOTE_INSN_LOOP_BEG:
-	case NOTE_INSN_LOOP_END:
 	case NOTE_INSN_FUNCTION_END:
 	case NOTE_INSN_REPEATED_LINE_NUMBER:
 	case NOTE_INSN_EXPECTED_VALUE:
@@ -1761,30 +1769,13 @@ final_scan_insn (rtx insn, FILE *file, int optimizing ATTRIBUTE_UNUSED,
 	case NOTE_INSN_ALLOCA:
 	  break;
 
-	case NOTE_INSN_UNLIKELY_EXECUTED_CODE:
-	  
-	  /* The presence of this note indicates that this basic block
-	     belongs in the "cold" section of the .o file.  If we are
-	     not already writing to the cold section we need to change
-	     to it.  */
-	  
-	  unlikely_text_section ();
+	case NOTE_INSN_SWITCH_TEXT_SECTIONS:
+	  in_cold_section_p = !in_cold_section_p;
+	  (*debug_hooks->switch_text_section) ();
+	  switch_to_section (current_function_section ());
 	  break;
-	  
-	case NOTE_INSN_BASIC_BLOCK:
-	  
-	  /* If we are performing the optimization that partitions
-	     basic blocks into hot & cold sections of the .o file,
-	     then at the start of each new basic block, before
-	     beginning to write code for the basic block, we need to
-	     check to see whether the basic block belongs in the hot
-	     or cold section of the .o file, and change the section we
-	     are writing to appropriately.  */
-	  
-	  if (flag_reorder_blocks_and_partition
-	      && !scan_ahead_for_unlikely_executed_note (insn))
-	    function_section (current_function_decl);
 
+	case NOTE_INSN_BASIC_BLOCK:
 #ifdef TARGET_UNWIND_INFO
 	  targetm.asm_out.unwind_emit (asm_out_file, insn);
 #endif
@@ -1796,7 +1787,7 @@ final_scan_insn (rtx insn, FILE *file, int optimizing ATTRIBUTE_UNUSED,
 	  if ((*seen & (SEEN_EMITTED | SEEN_BB)) == SEEN_BB)
 	    {
 	      *seen |= SEEN_EMITTED;
-	      last_filename = NULL;
+	      force_source_line = true;
 	    }
 	  else
 	    *seen |= SEEN_BB;
@@ -1820,7 +1811,7 @@ final_scan_insn (rtx insn, FILE *file, int optimizing ATTRIBUTE_UNUSED,
 	  if ((*seen & (SEEN_EMITTED | SEEN_NOTE)) == SEEN_NOTE)
 	    {
 	      *seen |= SEEN_EMITTED;
-	      last_filename = NULL;
+	      force_source_line = true;
 	    }
 	  else
 	    *seen |= SEEN_NOTE;
@@ -1838,7 +1829,7 @@ final_scan_insn (rtx insn, FILE *file, int optimizing ATTRIBUTE_UNUSED,
 	  if ((*seen & (SEEN_EMITTED | SEEN_NOTE)) == SEEN_NOTE)
 	    {
 	      *seen |= SEEN_EMITTED;
-	      last_filename = NULL;
+	      force_source_line = true;
 	    }
 	  else
 	    *seen |= SEEN_NOTE;
@@ -1921,26 +1912,27 @@ final_scan_insn (rtx insn, FILE *file, int optimizing ATTRIBUTE_UNUSED,
     case CODE_LABEL:
       /* The target port might emit labels in the output function for
 	 some insn, e.g. sh.c output_branchy_insn.  */
-      if (CODE_LABEL_NUMBER (insn) <= max_labelno)
-	{
-	  int align = LABEL_TO_ALIGNMENT (insn);
+/* APPLE LOCAL begin for-fsf-4_4 3274130 5295549 */ \
+      {
+	int align = LABEL_ALIGN_LOG (insn);
 #ifdef ASM_OUTPUT_MAX_SKIP_ALIGN
-	  int max_skip = LABEL_TO_MAX_SKIP (insn);
+	int max_skip = LABEL_MAX_SKIP (insn);
 #endif
-
-	  if (align && NEXT_INSN (insn))
-	    {
+	
+	if (align && NEXT_INSN (insn))
+	  {
 #ifdef ASM_OUTPUT_MAX_SKIP_ALIGN
-	      ASM_OUTPUT_MAX_SKIP_ALIGN (file, align, max_skip);
+	    ASM_OUTPUT_MAX_SKIP_ALIGN (file, align, max_skip);
 #else
 #ifdef ASM_OUTPUT_ALIGN_WITH_NOP
-              ASM_OUTPUT_ALIGN_WITH_NOP (file, align);
+	    ASM_OUTPUT_ALIGN_WITH_NOP (file, align);
 #else
-	      ASM_OUTPUT_ALIGN (file, align);
+	    ASM_OUTPUT_ALIGN (file, align);
 #endif
 #endif
-	    }
-	}
+	  }
+      }
+/* APPLE LOCAL end for-fsf-4_4 3274130 5295549 */ \
 #ifdef HAVE_cc0
       CC_STATUS_INIT;
       /* If this label is reached from only one place, set the condition
@@ -1969,30 +1961,9 @@ final_scan_insn (rtx insn, FILE *file, int optimizing ATTRIBUTE_UNUSED,
 	    }
 	}
 #endif
-      if (prescan > 0)
-	break;
 
       if (LABEL_NAME (insn))
 	(*debug_hooks->label) (insn);
-
-      /* If we are doing the optimization that partitions hot & cold
-	 basic blocks into separate sections of the .o file, we need
-	 to ensure the jump table ends up in the correct section...  */
-      
-      if (flag_reorder_blocks_and_partition
-	  && targetm.have_named_sections)
-	{
-	  rtx tmp_table, tmp_label;
-	  if (LABEL_P (insn)
-	      && tablejump_p (NEXT_INSN (insn), &tmp_label, &tmp_table))
-	    {
-	      /* Do nothing; Do NOT change the current section.  */
-	    }
-	  else if (scan_ahead_for_unlikely_executed_note (insn)) 
-	    unlikely_text_section ();
-	  else if (in_unlikely_text_section ())
-	    function_section (current_function_decl);
-	}
 
       if (app_on)
 	{
@@ -2021,7 +1992,8 @@ final_scan_insn (rtx insn, FILE *file, int optimizing ATTRIBUTE_UNUSED,
 		{
 		  int log_align;
 
-		  targetm.asm_out.function_rodata_section (current_function_decl);
+		  switch_to_section (targetm.asm_out.function_rodata_section
+				     (current_function_decl));
 
 #ifdef ADDR_VEC_ALIGN
 		  log_align = ADDR_VEC_ALIGN (next);
@@ -2031,7 +2003,7 @@ final_scan_insn (rtx insn, FILE *file, int optimizing ATTRIBUTE_UNUSED,
 		  ASM_OUTPUT_ALIGN (file, log_align);
 		}
 	      else
-		function_section (current_function_decl);
+		switch_to_section (current_function_section ());
 
 #ifdef ASM_OUTPUT_CASE_LABEL
 	      ASM_OUTPUT_CASE_LABEL (file, "L", CODE_LABEL_NUMBER (insn),
@@ -2055,6 +2027,10 @@ final_scan_insn (rtx insn, FILE *file, int optimizing ATTRIBUTE_UNUSED,
 	int insn_code_number;
 	const char *template;
 
+#ifdef HAVE_conditional_execution
+	/* Reset this early so it is correct for ASM statements.  */
+	current_insn_predicate = NULL_RTX;
+#endif
 	/* An INSN, JUMP_INSN or CALL_INSN.
 	   First check for special kinds that recog doesn't recognize.  */
 
@@ -2087,13 +2063,11 @@ final_scan_insn (rtx insn, FILE *file, int optimizing ATTRIBUTE_UNUSED,
 	    int vlen, idx;
 #endif
 
-	    if (prescan > 0)
-	      break;
-
 	    if (! JUMP_TABLES_IN_TEXT_SECTION)
-	      targetm.asm_out.function_rodata_section (current_function_decl);
+	      switch_to_section (targetm.asm_out.function_rodata_section
+				 (current_function_decl));
 	    else
-	      function_section (current_function_decl);
+	      switch_to_section (current_function_section ());
 
 	    if (app_on)
 	      {
@@ -2151,7 +2125,7 @@ final_scan_insn (rtx insn, FILE *file, int optimizing ATTRIBUTE_UNUSED,
 #endif
 #endif
 
-	    function_section (current_function_decl);
+	    switch_to_section (current_function_section ());
 
 	    break;
 	  }
@@ -2171,8 +2145,6 @@ final_scan_insn (rtx insn, FILE *file, int optimizing ATTRIBUTE_UNUSED,
 
 	    /* There's no telling what that did to the condition codes.  */
 	    CC_STATUS_INIT;
-	    if (prescan > 0)
-	      break;
 
 	    if (string[0])
 	      {
@@ -2195,12 +2167,10 @@ final_scan_insn (rtx insn, FILE *file, int optimizing ATTRIBUTE_UNUSED,
 
 	    /* There's no telling what that did to the condition codes.  */
 	    CC_STATUS_INIT;
-	    if (prescan > 0)
-	      break;
 
 	    /* Get out the operand values.  */
 	    string = decode_asm_operands (body, ops, NULL, NULL, NULL);
-	    /* Inhibit aborts on what would otherwise be compiler bugs.  */
+	    /* Inhibit dieing on what would otherwise be compiler bugs.  */
 	    insn_noperands = noperands;
 	    this_is_asm_operands = insn;
 
@@ -2223,7 +2193,7 @@ final_scan_insn (rtx insn, FILE *file, int optimizing ATTRIBUTE_UNUSED,
 	    break;
 	  }
 
-	if (prescan <= 0 && app_on)
+	if (app_on)
 	  {
 	    fputs (ASM_APP_OFF, file);
 	    app_on = 0;
@@ -2234,8 +2204,6 @@ final_scan_insn (rtx insn, FILE *file, int optimizing ATTRIBUTE_UNUSED,
 	    /* A delayed-branch sequence */
 	    int i;
 
-	    if (prescan > 0)
-	      break;
 	    final_sequence = body;
 
 	    /* Record the delay slots' frame information before the branch.
@@ -2251,7 +2219,7 @@ final_scan_insn (rtx insn, FILE *file, int optimizing ATTRIBUTE_UNUSED,
 	       thought unnecessary.  If that happens, cancel this sequence
 	       and cause that insn to be restored.  */
 
-	    next = final_scan_insn (XVECEXP (body, 0, 0), file, 0, prescan, 1, seen);
+	    next = final_scan_insn (XVECEXP (body, 0, 0), file, 0, 1, seen);
 	    if (next != XVECEXP (body, 0, 1))
 	      {
 		final_sequence = 0;
@@ -2265,7 +2233,7 @@ final_scan_insn (rtx insn, FILE *file, int optimizing ATTRIBUTE_UNUSED,
 		/* We loop in case any instruction in a delay slot gets
 		   split.  */
 		do
-		  insn = final_scan_insn (insn, file, 0, prescan, 1, seen);
+		  insn = final_scan_insn (insn, file, 0, 1, seen);
 		while (insn != next);
 	      }
 #ifdef DBR_OUTPUT_SEQEND
@@ -2337,20 +2305,6 @@ final_scan_insn (rtx insn, FILE *file, int optimizing ATTRIBUTE_UNUSED,
 	  }
 #endif
 
-#ifndef STACK_REGS
-	/* Don't bother outputting obvious no-ops, even without -O.
-	   This optimization is fast and doesn't interfere with debugging.
-	   Don't do this if the insn is in a delay slot, since this
-	   will cause an improper number of delay insns to be written.  */
-	if (final_sequence == 0
-	    && prescan >= 0
-	    && NONJUMP_INSN_P (insn) && GET_CODE (body) == SET
-	    && REG_P (SET_SRC (body))
-	    && REG_P (SET_DEST (body))
-	    && REGNO (SET_SRC (body)) == REGNO (SET_DEST (body)))
-	  break;
-#endif
-
 #ifdef HAVE_cc0
 	/* If this is a conditional branch, maybe modify it
 	   if the cc's are in a nonstandard state
@@ -2363,10 +2317,7 @@ final_scan_insn (rtx insn, FILE *file, int optimizing ATTRIBUTE_UNUSED,
 	    && SET_DEST (body) == pc_rtx
 	    && GET_CODE (SET_SRC (body)) == IF_THEN_ELSE
 	    && COMPARISON_P (XEXP (SET_SRC (body), 0))
-	    && XEXP (XEXP (SET_SRC (body), 0), 0) == cc0_rtx
-	    /* This is done during prescan; it is not done again
-	       in final scan when prescan has been done.  */
-	    && prescan >= 0)
+	    && XEXP (XEXP (SET_SRC (body), 0), 0) == cc0_rtx)
 	  {
 	    /* This function may alter the contents of its argument
 	       and clear some of the cc_status.flags bits.
@@ -2472,10 +2423,12 @@ final_scan_insn (rtx insn, FILE *file, int optimizing ATTRIBUTE_UNUSED,
 		for (note = NEXT_INSN (insn); note != next;
 		     note = NEXT_INSN (note))
 		  /* APPLE LOCAL optimization pragmas 3124235/3420242 */
-		  final_scan_insn (note, file, optimizing, prescan, nopeepholes, seen);
+		  final_scan_insn (note, file, optimizing, nopeepholes, seen);
 
-		/* In case this is prescan, put the notes
-		   in proper position for later rescan.  */
+		/* Put the notes in the proper position for a later
+		   rescan.  For example, the SH target can do this
+		   when generating a far jump in a delayed branch
+		   sequence.  */
 		note = NEXT_INSN (insn);
 		PREV_INSN (note) = prev;
 		NEXT_INSN (prev) = note;
@@ -2519,8 +2472,6 @@ final_scan_insn (rtx insn, FILE *file, int optimizing ATTRIBUTE_UNUSED,
 #ifdef HAVE_conditional_execution
 	if (GET_CODE (PATTERN (insn)) == COND_EXEC)
 	  current_insn_predicate = COND_EXEC_TEST (PATTERN (insn));
-	else
-	  current_insn_predicate = NULL_RTX;
 #endif
 
 #ifdef HAVE_cc0
@@ -2588,9 +2539,6 @@ final_scan_insn (rtx insn, FILE *file, int optimizing ATTRIBUTE_UNUSED,
 	    return new;
 	  }
 
-	if (prescan > 0)
-	  break;
-
 #ifdef TARGET_UNWIND_INFO
 	/* ??? This will put the directives in the wrong place if
 	   get_insn_template outputs assembly directly.  However calling it
@@ -2619,8 +2567,7 @@ final_scan_insn (rtx insn, FILE *file, int optimizing ATTRIBUTE_UNUSED,
   return NEXT_INSN (insn);
 }
 
-/* Output debugging info to the assembler file FILE
-   based on the NOTE-insn INSN, assumed to be a line number.  */
+/* Return whether a source line note needs to be emitted before INSN.  */
 
 static bool
 notice_source_line (rtx insn)
@@ -2628,8 +2575,12 @@ notice_source_line (rtx insn)
   const char *filename = insn_file (insn);
   int linenum = insn_line (insn);
 
-  if (filename && (filename != last_filename || last_linenum != linenum))
+  if (filename
+      && (force_source_line
+	  || filename != last_filename
+	  || last_linenum != linenum))
     {
+      force_source_line = false;
       last_filename = filename;
       last_linenum = linenum;
       high_block_linenum = MAX (last_linenum, high_block_linenum);
@@ -3180,7 +3131,7 @@ output_asm_insn (const char *template, rtx *operands)
 	    int letter = *p++;
 	    unsigned long opnum;
 	    char *endptr;
-	    
+
 	    opnum = strtoul (p, &endptr, 10);
 
 	    if (endptr == p)
@@ -3225,7 +3176,7 @@ output_asm_insn (const char *template, rtx *operands)
 	  {
 	    unsigned long opnum;
 	    char *endptr;
-	    
+
 	    opnum = strtoul (p, &endptr, 10);
 	    if (this_is_asm_operands && opnum >= insn_noperands)
 	      output_operand_lossage ("operand number out of range");
@@ -3298,8 +3249,7 @@ output_operand (rtx x, int code ATTRIBUTE_UNUSED)
   if (x && GET_CODE (x) == SUBREG)
     x = alter_subreg (&x);
 
-  /* If X is a pseudo-register, abort now rather than writing trash to the
-     assembler file.  */
+  /* X must not be a pseudo reg.  */
   gcc_assert (!x || !REG_P (x) || REGNO (x) < FIRST_PSEUDO_REGISTER);
 
   PRINT_OPERAND (asm_out_file, x, code);
@@ -3800,7 +3750,7 @@ int
 final_forward_branch_p (rtx insn)
 {
   int insn_id, label_id;
-  
+
   gcc_assert (uid_shuid);
   insn_id = INSN_SHUID (insn);
   label_id = INSN_SHUID (JUMP_LABEL (insn));
@@ -3976,7 +3926,7 @@ debug_flush_symbol_queue (void)
 
   for (i = 0; i < symbol_queue_index; ++i)
     {
-      /* If we pushed queued symbols then such symbols are must be
+      /* If we pushed queued symbols then such symbols must be
          output no matter what anyone else says.  Specifically,
          we need to make sure dbxout_symbol() thinks the symbol was
          used and also we need to override TYPE_DECL_SUPPRESS_DEBUG
@@ -4031,3 +3981,205 @@ debug_free_queue (void)
       symbol_queue_size = 0;
     }
 }
+
+/* Turn the RTL into assembly.  */
+static unsigned int
+rest_of_handle_final (void)
+{
+  rtx x;
+  const char *fnname;
+
+  /* Get the function's name, as described by its RTL.  This may be
+     different from the DECL_NAME name used in the source file.  */
+
+  x = DECL_RTL (current_function_decl);
+  gcc_assert (MEM_P (x));
+  x = XEXP (x, 0);
+  gcc_assert (GET_CODE (x) == SYMBOL_REF);
+  fnname = XSTR (x, 0);
+
+  assemble_start_function (current_function_decl, fnname);
+  final_start_function (get_insns (), asm_out_file, optimize);
+  final (get_insns (), asm_out_file, optimize);
+  final_end_function ();
+
+#ifdef TARGET_UNWIND_INFO
+  /* ??? The IA-64 ".handlerdata" directive must be issued before
+     the ".endp" directive that closes the procedure descriptor.  */
+  output_function_exception_table ();
+#endif
+
+  assemble_end_function (current_function_decl, fnname);
+
+#ifndef TARGET_UNWIND_INFO
+  /* Otherwise, it feels unclean to switch sections in the middle.  */
+  output_function_exception_table ();
+#endif
+
+  user_defined_section_attribute = false;
+
+  if (! quiet_flag)
+    fflush (asm_out_file);
+
+  /* Release all memory allocated by flow.  */
+  free_basic_block_vars ();
+
+  /* Write DBX symbols if requested.  */
+
+  /* Note that for those inline functions where we don't initially
+     know for certain that we will be generating an out-of-line copy,
+     the first invocation of this routine (rest_of_compilation) will
+     skip over this code by doing a `goto exit_rest_of_compilation;'.
+     Later on, wrapup_global_declarations will (indirectly) call
+     rest_of_compilation again for those inline functions that need
+     to have out-of-line copies generated.  During that call, we
+     *will* be routed past here.  */
+
+  timevar_push (TV_SYMOUT);
+  /* APPLE LOCAL begin aaa */
+  if (!flag_save_repository || !flag_pch_file)
+    (*debug_hooks->function_decl) (current_function_decl);
+  /* APPLE LOCAL end aaa */
+  timevar_pop (TV_SYMOUT);
+  return 0;
+}
+
+struct tree_opt_pass pass_final =
+{
+  NULL,                                 /* name */
+  NULL,                                 /* gate */
+  rest_of_handle_final,                 /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_FINAL,                             /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_ggc_collect,                     /* todo_flags_finish */
+  0                                     /* letter */
+};
+
+
+static unsigned int
+rest_of_handle_shorten_branches (void)
+{
+  /* Shorten branches.  */
+  shorten_branches (get_insns ());
+  return 0;
+}
+
+struct tree_opt_pass pass_shorten_branches =
+{
+  "shorten",                            /* name */
+  NULL,                                 /* gate */
+  rest_of_handle_shorten_branches,      /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_FINAL,                             /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_finish */
+  0                                     /* letter */
+};
+
+
+static unsigned int
+rest_of_clean_state (void)
+{
+  rtx insn, next;
+
+  /* It is very important to decompose the RTL instruction chain here:
+     debug information keeps pointing into CODE_LABEL insns inside the function
+     body.  If these remain pointing to the other insns, we end up preserving
+     whole RTL chain and attached detailed debug info in memory.  */
+  for (insn = get_insns (); insn; insn = next)
+    {
+      next = NEXT_INSN (insn);
+      NEXT_INSN (insn) = NULL;
+      PREV_INSN (insn) = NULL;
+    }
+
+  /* In case the function was not output,
+     don't leave any temporary anonymous types
+     queued up for sdb output.  */
+#ifdef SDB_DEBUGGING_INFO
+  if (write_symbols == SDB_DEBUG)
+    sdbout_types (NULL_TREE);
+#endif
+
+  reload_completed = 0;
+  epilogue_completed = 0;
+  flow2_completed = 0;
+  no_new_pseudos = 0;
+#ifdef STACK_REGS
+  regstack_completed = 0;
+#endif
+
+  /* Clear out the insn_length contents now that they are no
+     longer valid.  */
+  init_insn_lengths ();
+
+  /* Show no temporary slots allocated.  */
+  init_temp_slots ();
+
+  free_basic_block_vars ();
+  free_bb_for_insn ();
+
+/* APPLE LOCAL begin radar 4216496, 4229407, 4120689, 4095567 */
+#ifdef TARGET_386
+  if (SAVE_PREFERRED_STACK_BOUNDARY > 0)
+    {
+      PREFERRED_STACK_BOUNDARY = SAVE_PREFERRED_STACK_BOUNDARY;
+      cfun->stack_alignment_needed = STACK_BOUNDARY;
+      cfun->preferred_stack_boundary = STACK_BOUNDARY;
+    }
+#endif
+/* APPLE LOCAL end radar 4216496, 4229407, 4120689, 4095567 */
+
+  if (targetm.binds_local_p (current_function_decl))
+    {
+      int pref = cfun->preferred_stack_boundary;
+      if (cfun->stack_alignment_needed > cfun->preferred_stack_boundary)
+        pref = cfun->stack_alignment_needed;
+      cgraph_rtl_info (current_function_decl)->preferred_incoming_stack_boundary
+        = pref;
+    }
+
+  /* Make sure volatile mem refs aren't considered valid operands for
+     arithmetic insns.  We must call this here if this is a nested inline
+     function, since the above code leaves us in the init_recog state,
+     and the function context push/pop code does not save/restore volatile_ok.
+
+     ??? Maybe it isn't necessary for expand_start_function to call this
+     anymore if we do it here?  */
+
+  init_recog_no_volatile ();
+
+  /* We're done with this function.  Free up memory if we can.  */
+  free_after_parsing (cfun);
+  free_after_compilation (cfun);
+  return 0;
+}
+
+struct tree_opt_pass pass_clean_state =
+{
+  NULL,                                 /* name */
+  NULL,                                 /* gate */
+  rest_of_clean_state,                  /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_FINAL,                             /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  PROP_rtl,                             /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_finish */
+  0                                     /* letter */
+};
+

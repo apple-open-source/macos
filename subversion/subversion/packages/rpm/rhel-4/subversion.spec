@@ -1,6 +1,8 @@
 %define apache_version 2.0.52
 %define apr_version 0.9.7
-%define neon_version 0.24.7
+%define neon_version 0.26.1
+%define python_version 2.4
+%define sqlite_version 3.4
 %define swig_version 1.3.25
 %define apache_dir /usr
 %define pyver 2.3
@@ -21,12 +23,15 @@ URL: http://subversion.tigris.org
 SOURCE0: subversion-%{version}-%{release}.tar.gz
 SOURCE3: filter-requires.sh
 Patch1: subversion-0.31.0-rpath.patch
+Patch2: python-2.4.patch
+Patch3: apache.patch
 Vendor: Summersoft
 Packager: David Summers <david@summersoft.fay.ar.us>
 Requires: apr >= %{apr_version}
 Requires: apr-util >= %{apr_version}
 Requires: db4 >= 4.2.52
 Requires: neon >= %{neon_version}
+Requires: sqlite >= %{sqlite_version}
 BuildPreReq: autoconf >= 2.53
 BuildPreReq: db4-devel >= 4.2.52
 BuildPreReq: docbook-style-xsl >= 1.58.1
@@ -41,9 +46,10 @@ BuildPreReq: libxslt >= 1.0.27
 BuildPreReq: neon-devel >= %{neon_version}
 BuildPreReq: openssl-devel
 BuildPreReq: perl
-BuildPreReq: python
-BuildPreReq: python-devel
+BuildPreReq: python%{python_version} >= %{python_version}
+BuildPreReq: python%{python_version}-devel >= %{python_version}
 BuildPreReq: swig >= %{swig_version}
+BuildPreReq: sqlite >= %{sqlite_version}
 BuildPreReq: zlib-devel
 Obsoletes: subversion-server
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}
@@ -94,7 +100,7 @@ Provides Perl (SWIG) support for Subversion.
 %package python
 Group: Utilities/System
 Summary: Allows Python scripts to directly use Subversion repositories.
-Requires: python >= 2
+Requires: python%{python_version} >= %{python_version}
 %description python
 Provides Python (SWIG) support for Subversion.
 
@@ -105,6 +111,23 @@ Summary: Tools for Subversion
 Tools for Subversion.
 
 %changelog
+* Sat Mar 28 2009 David Summers <david@summersoft.fay.ar.us> r36833
+- [RHEL4] Changes to build 1.7 trunk, backported to 1.6.
+- Added patch to build with with new required non-RHEL4 python-2.4.6.
+- Added patch to fix Subversion APACHE APR version checking.
+
+* Sun Mar 01 2009 David Summers <david@summersoft.fay.ar.us> r36231
+- [RHEL5] Changes to build 1.7 trunk, backported to 1.6.
+
+* Tue Dec 23 2008 David Summers <david@summersoft.fay.ar.us> r34901
+- [RHEL3] SPEC file change to build RPM 1.5.x on RHEL3.
+
+* Sat Jun 30 2007 David Summers <david@summersoft.fay.ar.us> r27438
+- [RHEL5] Added neon-0.26.1 requirement.
+
+* Sat Jun 30 2007 David Summers <david@summersoft.fay.ar.us> r25592
+- [RHEL5] Added RHEL5 SPEC file.
+
 * Fri Jul 07 2006 David Summers <david@summersoft.fay.ar.us> r20468
 - [RH8,RH9,RHEL3,RHEL4] Updated to APR/APR-UTIL 0.9.12.
   RHEL3 requires httpd-2.0.46-56.ent.centos.2.1 or higher which includes
@@ -480,7 +503,11 @@ Tools for Subversion.
 %setup -q
 
 # Patch for RPATH
-%patch1 -p1
+%patch1 -p1 -b .rpath
+# Patch for python-2.4.6
+%patch2 -p0 -b .python
+# Patch for apache APR version checking.
+%patch3 -p0 -b .apache
 
 if [ -f /usr/bin/autoconf-2.53 ]; then
    AUTOCONF="autoconf-2.53"
@@ -489,27 +516,13 @@ if [ -f /usr/bin/autoconf-2.53 ]; then
 fi
 sh autogen.sh
 
-# Figure out version and release number for command and documentation display.
-case "%{release}" in
-   1)
-      # Build an official release
-      RELEASE_NAME="%{version}"
-      ;;
-   alpha*|beta*|gamma*)
-      # Build an alpha, beta, gamma release.
-      RELEASE_NAME="%{version} (%{release})"
-      ;;
-   *)
-      # Build a working copy release
-      RELEASE_NAME="%{version} (dev build, r%{release})"
-      ;;
-esac
-
 # Delete apr, apr-util, and neon from the tree as those packages should already
 # be installed.
 rm -rf apr apr-util neon
 
 
+SED=/bin/sed
+export SED
 %configure \
 	--disable-mod-activation \
 	--with-swig \
@@ -517,7 +530,8 @@ rm -rf apr apr-util neon
 	--with-python=%{_bindir}/python%{pyver} \
 	--with-apxs=%{apache_dir}/sbin/apxs \
 	--with-apr=%{apache_dir}/bin/apr-config \
-	--with-apr-util=%{apache_dir}/bin/apu-config
+	--with-apr-util=%{apache_dir}/bin/apu-config \
+	--with-neon
 
 %build
 make clean
@@ -538,11 +552,7 @@ echo "*** Finished regression tests on RA_LOCAL (FILE SYSTEM) layer ***"
 
 %if %{make_ra_svn_bdb_check}
 echo "*** Running regression tests on RA_SVN (SVN method) layer ***"
-killall lt-svnserve || true
-sleep 1
-./subversion/svnserve/svnserve -d -r `pwd`/subversion/tests/cmdline
-make svncheck CLEANUP=true FS_TYPE=bdb
-killall lt-svnserve
+make svnserveautocheck CLEANUP=true FS_TYPE=bdb
 echo "*** Finished regression tests on RA_SVN (SVN method) layer ***"
 %endif
 
@@ -560,18 +570,12 @@ echo "*** Finished regression tests on RA_LOCAL (FILE SYSTEM) layer ***"
 
 %if %{make_ra_svn_fsfs_check}
 echo "*** Running regression tests on RA_SVN (SVN method) layer ***"
-killall lt-svnserve || true
-sleep 1
-./subversion/svnserve/svnserve -d -r `pwd`/subversion/tests/cmdline
-make svncheck CLEANUP=true FS_TYPE=fsfs
-killall lt-svnserve
+make svnserveautocheck CLEANUP=true FS_TYPE=fsfs
 echo "*** Finished regression tests on RA_SVN (SVN method) layer ***"
 %endif
 
 %if %{make_ra_dav_fsfs_check}
 echo "*** Running regression tests on RA_DAV (HTTP method) layer ***"
-killall httpd || true
-sleep 1
 make davautocheck CLEANUP=true FS_TYPE=fsfs
 echo "*** Finished regression tests on RA_DAV (HTTP method) layer ***"
 %endif
@@ -597,9 +601,10 @@ make install-swig-pl DESTDIR=$RPM_BUILD_ROOT
 # Clean up unneeded files for package installation
 rm -rf $RPM_BUILD_ROOT/%{_libdir}/perl5/%{perl_version}
 
-# Set up tools package files.
+# Set up contrib and tools package files.
 mkdir -p $RPM_BUILD_ROOT/%{_libdir}/subversion
 cp -r tools $RPM_BUILD_ROOT/%{_libdir}/subversion
+cp -r contrib $RPM_BUILD_ROOT/%{_libdir}/subversion
 
 # Create doxygen documentation.
 doxygen doc/doxygen.conf
@@ -674,3 +679,4 @@ rm -rf $RPM_BUILD_ROOT
 %files tools
 %defattr(-,root,root)
 %{_libdir}/subversion/tools
+%{_libdir}/subversion/contrib

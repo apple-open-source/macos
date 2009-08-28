@@ -1,9 +1,8 @@
  / See the file LICENSE for redistribution information.
  /
- / Copyright (c) 1997-2003
- /	Sleepycat Software.  All rights reserved.
+ / Copyright (c) 1997,2007 Oracle.  All rights reserved.
  /
- / $Id: uts4_cc.s,v 1.2 2004/03/30 01:23:45 jtownsen Exp $
+ / $Id: uts4_cc.s,v 12.5 2007/05/17 15:15:45 bostic Exp $
  /
  / int uts_lock ( int *p, int i );
  /             Update the lock word pointed to by p with the

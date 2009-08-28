@@ -58,12 +58,14 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "regcache.h"
 #include "source.h"
 #include "completer.h"
+#include "exceptions.h"
 
 #include <dirent.h>
 #include <libgen.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/param.h>
+#include <mach/machine.h>
 
 #include <CoreFoundation/CoreFoundation.h>
 
@@ -74,7 +76,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 static char *find_info_plist_filename_from_bundle_name (const char *bundle,
                                                      const char *bundle_suffix);
 
-#if HAVE_DEBUG_SYMBOLS_FRAMEWORK
+#if USE_DEBUG_SYMBOLS_FRAMEWORK
 extern CFArrayRef DBGCopyMatchingUUIDsForURL (CFURLRef path,
                                               int /* cpu_type_t */ cpuType,
                                            int /* cpu_subtype_t */ cpuSubtype);
@@ -435,6 +437,192 @@ info_trampoline_command (char *exp, int from_tty)
      paddr_nz (address), paddr_nz (trampoline), paddr_nz (objc));
 }
 
+struct sal_chain
+{
+  struct sal_chain *next;
+  struct symtab_and_line sal;
+};
+
+
+/* On some platforms, you need to turn on the exception callback
+   to hit the catchpoints for exceptions.  Not on Mac OS X. */
+
+int
+macosx_enable_exception_callback (enum exception_event_kind kind, int enable)
+{
+  return 1;
+}
+
+/* The MacOS X implemenatation of the find_exception_catchpoints
+   target vector entry.  Relies on the __cxa_throw and
+   __cxa_begin_catch functions from libsupc++.  */
+
+struct symtabs_and_lines *
+macosx_find_exception_catchpoints (enum exception_event_kind kind,
+                                   struct objfile *restrict_objfile)
+{
+  struct symtabs_and_lines *return_sals;
+  char *symbol_name;
+  struct objfile *objfile;
+  struct minimal_symbol *msymbol;
+  unsigned int hash;
+  struct sal_chain *sal_chain = 0;
+
+  switch (kind)
+    {
+    case EX_EVENT_THROW:
+      symbol_name = "__cxa_throw";
+      break;
+    case EX_EVENT_CATCH:
+      symbol_name = "__cxa_begin_catch";
+      break;
+    default:
+      error ("We currently only handle \"throw\" and \"catch\"");
+    }
+
+  hash = msymbol_hash (symbol_name) % MINIMAL_SYMBOL_HASH_SIZE;
+
+  ALL_OBJFILES (objfile)
+  {
+    for (msymbol = objfile->msymbol_hash[hash];
+         msymbol != NULL; msymbol = msymbol->hash_next)
+      if (MSYMBOL_TYPE (msymbol) == mst_text
+          && (strcmp_iw (SYMBOL_LINKAGE_NAME (msymbol), symbol_name) == 0))
+        {
+          /* We found one, add it here... */
+          CORE_ADDR catchpoint_address;
+          CORE_ADDR past_prologue;
+
+          struct sal_chain *next
+            = (struct sal_chain *) alloca (sizeof (struct sal_chain));
+
+          next->next = sal_chain;
+          init_sal (&next->sal);
+          next->sal.symtab = NULL;
+
+          catchpoint_address = SYMBOL_VALUE_ADDRESS (msymbol);
+          past_prologue = SKIP_PROLOGUE (catchpoint_address);
+
+          next->sal.pc = past_prologue;
+          next->sal.line = 0;
+          next->sal.end = past_prologue;
+
+          sal_chain = next;
+
+        }
+  }
+
+  if (sal_chain)
+    {
+      int index = 0;
+      struct sal_chain *temp;
+
+      for (temp = sal_chain; temp != NULL; temp = temp->next)
+        index++;
+
+      return_sals = (struct symtabs_and_lines *)
+        xmalloc (sizeof (struct symtabs_and_lines));
+      return_sals->nelts = index;
+      return_sals->sals =
+        (struct symtab_and_line *) xmalloc (index *
+                                            sizeof (struct symtab_and_line));
+
+      for (index = 0; sal_chain; sal_chain = sal_chain->next, index++)
+        return_sals->sals[index] = sal_chain->sal;
+      return return_sals;
+    }
+  else
+    return NULL;
+
+}
+
+/* Returns data about the current exception event */
+
+struct exception_event_record *
+macosx_get_current_exception_event ()
+{
+  static struct exception_event_record *exception_event = NULL;
+  struct frame_info *curr_frame;
+  struct frame_info *fi;
+  CORE_ADDR pc;
+  int stop_func_found;
+  char *stop_name;
+  char *typeinfo_str;
+
+  if (exception_event == NULL)
+    {
+      exception_event = (struct exception_event_record *)
+        xmalloc (sizeof (struct exception_event_record));
+      exception_event->exception_type = NULL;
+    }
+
+  curr_frame = get_current_frame ();
+  if (!curr_frame)
+    return (struct exception_event_record *) NULL;
+
+  pc = get_frame_pc (curr_frame);
+  stop_func_found = find_pc_partial_function (pc, &stop_name, NULL, NULL);
+  if (!stop_func_found)
+    return (struct exception_event_record *) NULL;
+
+  if (strcmp (stop_name, "__cxa_throw") == 0)
+    {
+
+      fi = get_prev_frame (curr_frame);
+      if (!fi)
+        return (struct exception_event_record *) NULL;
+
+      exception_event->throw_sal = find_pc_line (get_frame_pc (fi), 1);
+
+      /* FIXME: We don't know the catch location when we
+         have just intercepted the throw.  Can we walk the
+         stack and redo the runtimes exception matching
+         to figure this out? */
+      exception_event->catch_sal.pc = 0x0;
+      exception_event->catch_sal.line = 0;
+
+      exception_event->kind = EX_EVENT_THROW;
+
+    }
+  else if (strcmp (stop_name, "__cxa_begin_catch") == 0)
+    {
+      fi = get_prev_frame (curr_frame);
+      if (!fi)
+        return (struct exception_event_record *) NULL;
+
+      exception_event->catch_sal = find_pc_line (get_frame_pc (fi), 1);
+
+      /* By the time we get here, we have totally forgotten
+         where we were thrown from... */
+      exception_event->throw_sal.pc = 0x0;
+      exception_event->throw_sal.line = 0;
+
+      exception_event->kind = EX_EVENT_CATCH;
+
+
+    }
+
+#ifdef THROW_CATCH_FIND_TYPEINFO
+  typeinfo_str =
+    THROW_CATCH_FIND_TYPEINFO (curr_frame, exception_event->kind);
+#else
+  typeinfo_str = NULL;
+#endif
+
+  if (exception_event->exception_type != NULL)
+    xfree (exception_event->exception_type);
+
+  if (typeinfo_str == NULL)
+    {
+      exception_event->exception_type = NULL;
+    }
+  else
+    {
+      exception_event->exception_type = xstrdup (typeinfo_str);
+    }
+
+  return exception_event;
+}
 
 void
 update_command (char *args, int from_tty)
@@ -451,147 +639,6 @@ stack_flush_command (char *args, int from_tty)
     printf_filtered ("Stack cache flushed.\n");
 }
 
-#include <Carbon/Carbon.h>
-#include <dlfcn.h>
-
-#pragma options align=mac68k
-// We attach this to an 'odoc' event to specify a particular selection
-typedef struct {
-  SInt16      reserved0;      // must be zero
-  SInt16      fLineNumber;
-  SInt32      fSelStart;
-  SInt32      fSelEnd;
-  UInt32      reserved1;      // must be zero
-  UInt32      reserved2;      // must be zero
-} BabelAESelInfo;
-#pragma options align=reset
-
-static int 
-open_file_with_LS (const char *file_path, int lineno)
-{
-  AEKeyDesc selection_desc;
-  LSApplicationParameters app_params;
-  FSRef item_refs[1], out_app;
-  OSStatus err;	
-  BabelAESelInfo selection_info;
-  char app_path[PATH_MAX];
-  int is_xcode;
-
-  err = FSPathMakeRef ((unsigned char *) file_path, &item_refs[0], NULL);
-  if (err != noErr)
-    {
-      error ("Couldn't make FSRef from path: %s\n", file_path);
-      return 0;
-    }
-    
-  err = LSGetApplicationForItem (&item_refs[0], kLSRolesAll, &out_app, NULL);
-  if (err != noErr)
-    {
-      error ("Couldn't get the application for item: %s", file_path);
-      return 0;
-    }
-  
-  bzero (&selection_info, sizeof (selection_info));
-  selection_info.fLineNumber = lineno - 1;
-  selection_info.fSelStart = 1;
-  selection_info.fSelEnd = 1;
-	
-  err = AECreateDesc (typeChar, &selection_info, sizeof (selection_info), 
-		      &(selection_desc.descContent));
-  if (err != noErr)
-    {
-      error ("Could not make selection info AEDesc.");
-      return 0;
-    }
-
-  selection_desc.descKey = keyAEPosition;
-	
-  bzero (&app_params, sizeof (app_params));
-	
-  app_params.application = &out_app;
-  
-  FSRefMakePath (&out_app, (unsigned char *) app_path, PATH_MAX);
-  is_xcode = (strstr (app_path, "Xcode") != NULL);
-
-  /* Since we're going to have to send Xcode an AppleScript, we need to 
-     make sure it gets opened first.  kLSLaunchDefaults includes the
-     Async flag, which we don't want in this case.  */
-  
-  if (is_xcode)
-    app_params.flags = kLSLaunchDontSwitch;
-  else
-    app_params.flags = kLSLaunchDefaults | kLSLaunchDontSwitch;
-
-  err = LSOpenItemsWithRole (item_refs, 1, kLSRolesAll, &selection_desc, 
-			     &app_params, NULL, 0);
-  AEDisposeDesc (&(selection_desc.descContent));
-
-  if (err != noErr)  
-    return 0;
-
-  /* Xcode and TextEdit don't obey the keyAELocation event.  So we
-     have to also send an AppleScript to do this.  
-     FIXME: Might be good to snoop the AppleEvent this script 
-     sends, and then cons that up & send it directly.  The problem
-     with this is the version of the script the eliminates the "doc"
-     AppleScript variable fails (Xcode returns some error).  I 
-     think somebody's mishandling the "whose" clause.  So right
-     now this is not a simple AppleEvent.  Thanks to Rick Altherr
-     for the AppleScript snippet.  */
-  
-  if (is_xcode)
-    {
-      static ComponentInstance osa_component = NULL;
-      static char *format_str = "tell application \"Xcode\"\r"
-        "set doc to the first document whose path is \"%s\"\r"
-        "set selection to paragraph %d of doc\r"
-        "end tell\r";
-
-      int format_len = strlen (format_str);
-      char *script_str;
-      AEDesc script_desc;
-      OSAID ret_OSAID;
-      if (osa_component == NULL)
-        {
-          osa_component = OpenDefaultComponent (kOSAComponentType, 
-						kAppleScriptSubtype);
-        }
-      if (osa_component == NULL)
-        error ("Can't initialize the AppleScript OSA component");
-
-      /* 64 chars should be big enough to store the linenumber even if 
-         int is a long long and a bit left over for safety.  */
-      script_str = malloc (format_len + strlen (file_path) + 64);
-      sprintf (script_str, format_str, file_path, lineno);
-     
-      err = AECreateDesc (typeChar, script_str, 
-			  strlen (script_str), &script_desc);
-
-      free (script_str);
-
-      if (err != noErr)
-	error ("Can't make an AEDesc for the selection setting script.");
-
-      err = OSACompileExecute (osa_component, &script_desc, kOSANullScript, 
-			       kOSAModeNeverInteract, &ret_OSAID);
-
-      /* NOTE, maybe we should call OSAScriptError to
-	 get the error message.  But in my experience, the error message is not
-	 very helpful.  So I'll just print a warning so somebody knows I tried.  */
-      if (err != noErr)
-	warning ("Could not select current line, error %ld\n", err);
-
-      OSADispose (osa_component, ret_OSAID);
-
-      AEDisposeDesc (&script_desc);
-
-      if (err != noErr)
-        return 0;  
-    }
-    
-  return 1;
-}
-
 /* Opens the file pointed to in ARGS with the default editor
    given by LaunchServices.  If ARGS is NULL, opens the current
    source file & line.  You can also supply file:line and it will
@@ -604,6 +651,9 @@ open_command (char *args, int from_tty)
   const char *fullname = NULL;  /* Fully qualified on-disk filename */
   struct stat sb;
   int line_no = 0;
+
+  warning ("open command no longer supported - may be back in a future build.");
+  return;
 
   if (args == NULL || args[0] == '\0')
     {
@@ -659,12 +709,101 @@ open_command (char *args, int from_tty)
   else
     if (stat (filename, &sb) != 0)
       error ("File '%s' not found.", filename);
-
-  open_file_with_LS (filename, line_no);
 }
 
 
-#if HAVE_DEBUG_SYMBOLS_FRAMEWORK
+/* Helper function for gdb_DBGCopyMatchingUUIDsForURL.
+   Given a bfd of a MachO file, look for an LC_UUID load command
+   and return that uuid in an allocated CFUUIDRef.
+   If the file being examined is fat, we assume that the bfd we're getting
+   passed in has already been iterated over to get one of the thin forks of
+   the file.
+   It is the caller's responsibility to release the memory.
+   NULL is returned if we do not find a LC_UUID for any reason.  */
+
+static CFUUIDRef
+get_uuidref_for_bfd (struct bfd *abfd)
+{
+ uint8_t uuid[16];
+ if (abfd == NULL)
+   return NULL;
+
+ if (bfd_mach_o_get_uuid (abfd, uuid, sizeof (uuid)))
+   return CFUUIDCreateWithBytes (kCFAllocatorDefault,
+             uuid[0], uuid[1], uuid[2], uuid[3], uuid[4], uuid[5],
+             uuid[6], uuid[7], uuid[8], uuid[9], uuid[10], uuid[11],
+             uuid[12], uuid[13], uuid[14], uuid[15]);
+
+ return NULL;
+}
+
+/* This is an implementation of the DebugSymbols framework's
+   DBGCopyMatchingUUIDsForURL function.  Given the path to a
+   dSYM file (not the bundle directory but the actual dSYM dwarf
+   file), it will return a CF array of UUIDs that this file has.  
+   Normally depending on DebugSymbols.framework isn't a problem but
+   we don't have this framework on all platforms and we want the
+   "add-dsym" command to continue to work without it. */
+
+static CFMutableArrayRef
+gdb_DBGCopyMatchingUUIDsForURL (const char *path)
+{
+  if (path == NULL || path[0] == '\0')
+    return NULL;
+
+  CFAllocatorRef alloc = kCFAllocatorDefault;
+  CFMutableArrayRef uuid_array = NULL;
+  struct gdb_exception e;
+  bfd *abfd;
+
+  TRY_CATCH (e, RETURN_MASK_ERROR)
+  {
+    abfd = symfile_bfd_open (path, 0);
+  }
+  
+  if (abfd == NULL || e.reason == RETURN_ERROR)
+    return NULL;
+  if (bfd_check_format (abfd, bfd_archive)
+      && strcmp (bfd_get_target (abfd), "mach-o-fat") == 0)
+    {
+      bfd *nbfd = NULL;
+      for (;;)
+        {
+          nbfd = bfd_openr_next_archived_file (abfd, nbfd);
+          if (nbfd == NULL)
+            break;
+          if (!bfd_check_format (nbfd, bfd_object) 
+              && !bfd_check_format (nbfd, bfd_archive))
+            continue;
+          CFUUIDRef nbfd_uuid = get_uuidref_for_bfd (nbfd);
+          if (nbfd_uuid != NULL)
+            {
+              if (uuid_array == NULL)
+                uuid_array = CFArrayCreateMutable(alloc, 0, &kCFTypeArrayCallBacks);
+              if (uuid_array)
+                CFArrayAppendValue (uuid_array, nbfd_uuid);
+              CFRelease (nbfd_uuid);
+            }
+        }
+      bfd_free_cached_info (abfd);
+    }
+  else
+   {
+      CFUUIDRef abfd_uuid = get_uuidref_for_bfd (abfd);
+      if (abfd_uuid != NULL)
+        {
+          if (uuid_array == NULL)
+            uuid_array = CFArrayCreateMutable(alloc, 0, &kCFTypeArrayCallBacks);
+          if (uuid_array)
+            CFArrayAppendValue (uuid_array, abfd_uuid);
+          CFRelease (abfd_uuid);
+        }
+    }
+
+  bfd_close (abfd);
+  return uuid_array;
+}
+
 
 CFMutableDictionaryRef
 create_dsym_uuids_for_path (char *dsym_bundle_path)
@@ -720,7 +859,9 @@ create_dsym_uuids_for_path (char *dsym_bundle_path)
   
   while (dsym_path == NULL && (dp = readdir (dirp)) != NULL)
     {
-      /* Don't search directories.  */
+      /* Don't search directories.  Note, some servers return DT_UNKNOWN
+         for everything, so you can't assume this test will keep you from
+	 trying to read directories...  */
       if (dp->d_type == DT_DIR)
 	continue;
       
@@ -731,19 +872,21 @@ create_dsym_uuids_for_path (char *dsym_bundle_path)
 	{
 	  CFURLRef path_url = NULL;
 	  CFArrayRef uuid_array = NULL;
+	  CFStringRef path_cfstr = NULL;
 	  /* Re-use the path each time and only copy the 
 	     directory entry name just past the 
 	     ".../Contents/Resources/DWARF/" part of PATH.  */
 	  strcpy(&path[path_len], dp->d_name);
-	  path_url = CFURLCreateWithBytes (NULL, (UInt8 *) path, full_path_len, 
-					   kCFStringEncodingUTF8, NULL);
+	  path_cfstr = CFStringCreateWithCString (NULL, path,  
+						  kCFStringEncodingUTF8);
+	  path_url = CFURLCreateWithFileSystemPath (NULL, path_cfstr,
+                                                    kCFURLPOSIXPathStyle, 0);
 	  
+	  CFRelease (path_cfstr), path_cfstr = NULL;
 	  if (path_url == NULL)
 	    continue;
 	  
-	  uuid_array = DBGCopyMatchingUUIDsForURL (path_url, 
-						   CPU_TYPE_ANY, 
-						   CPU_SUBTYPE_MULTIPLE);
+	  uuid_array = gdb_DBGCopyMatchingUUIDsForURL (path);
 	  if (uuid_array != NULL)
 	    CFDictionarySetValue (paths_and_uuids, path_url, uuid_array);
 	  
@@ -844,6 +987,7 @@ locate_dsym_mach_in_bundle (CFUUIDRef uuid_ref, char *dsym_bundle_path)
 
 }
 
+#if USE_DEBUG_SYMBOLS_FRAMEWORK
 /* Locate a full path to the dSYM mach file within the dSYM bundle using
    OJBFILE's uuid and the DebugSymbols.framework. The DebugSymbols.framework 
    will used using the current set of global DebugSymbols.framework defaults 
@@ -981,6 +1125,10 @@ macosx_locate_dsym (struct objfile *objfile)
 	 "/some/path/MyApp.app.dSYM/Contents/Resources/DWARF/MyApp" or
 	 "/some/path/MyApp.dSYM/Contents/Resources/DWARF/MyApp".  */
       strcpy (dsymfile, dirname (executable_name));
+      /* Append a directory delimiter so we don't miss shallow bundles that
+         have the dSYM appended on like "/some/path/MacApp.app.dSYM" when
+	 we start with "/some/path/MyApp.app/MyApp".  */
+      strcat (dsymfile, "/");
       while ((dot_ptr = strrchr (dsymfile, '.')))
 	{
 	  /* Find the directory delimiter that follows the '.' character since
@@ -1020,7 +1168,7 @@ macosx_locate_dsym (struct objfile *objfile)
              and search again.  */
 	  *slash_ptr = '\0';
 	}
-#if HAVE_DEBUG_SYMBOLS_FRAMEWORK
+#if USE_DEBUG_SYMBOLS_FRAMEWORK
       /* Check to see if configure detected the DebugSymbols framework, and
 	 try to use it to locate the dSYM files if it was detected.  */
       if (dsym_locate_enabled)
@@ -1034,7 +1182,6 @@ macosx_locate_dsym (struct objfile *objfile)
 struct objfile *
 macosx_find_objfile_matching_dsym_in_bundle (char *dsym_bundle_path, char **out_full_path)
 {
-#if HAVE_DEBUG_SYMBOLS_FRAMEWORK
   CFMutableDictionaryRef paths_and_uuids;
   struct search_baton results;
   struct objfile *objfile;
@@ -1095,9 +1242,6 @@ macosx_find_objfile_matching_dsym_in_bundle (char *dsym_bundle_path, char **out_
  cleanup_and_return:
   CFRelease (paths_and_uuids);
   return out_objfile;
-#else
-  return NULL;
-#endif
 }
 
 /* Given a path to a kext bundle look in the Info.plist and retrieve
@@ -1425,6 +1569,8 @@ fast_show_stack_trace_prologue (unsigned int count_limit,
 						  CORE_ADDR pc, CORE_ADDR fp))
 {
   ULONGEST pc = 0;
+  struct frame_id selected_frame_id;
+  struct frame_info *selected_frame;
 
   if (*sigtramp_start_ptr == 0)
     {
@@ -1439,8 +1585,9 @@ fast_show_stack_trace_prologue (unsigned int count_limit,
       else
         {
           pc = SYMBOL_VALUE_ADDRESS (msymbol);
-          if (find_pc_partial_function (pc, &name,
-                                        sigtramp_start_ptr, sigtramp_end_ptr) == 0)
+          if (find_pc_partial_function_no_inlined (pc, &name,
+						   sigtramp_start_ptr, 
+						   sigtramp_end_ptr) == 0)
             {
               warning
 		("Couldn't find minimal bounds for \"_sigtramp\" - "
@@ -1463,7 +1610,17 @@ fast_show_stack_trace_prologue (unsigned int count_limit,
      between the real function and _start...  This will set
      us back straight, and then we can do the backtrace accurately
      from here.  */
+  /* Watch out, though.  flush_cached_frames unsets the currently
+     selected frame.  So we need to restore that.  */
+  selected_frame_id = get_frame_id (get_selected_frame (NULL));
+
   flush_cached_frames ();
+
+  selected_frame = frame_find_by_id (selected_frame_id);
+  if (selected_frame == NULL)
+    select_frame (get_current_frame ());
+  else
+    select_frame (selected_frame);
 
   /* I have to do this twice because I want to make sure that if
      any of the early backtraces causes the load level of a library

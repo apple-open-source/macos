@@ -1,6 +1,7 @@
 // Bits and pieces used in algorithms -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -15,7 +16,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -69,14 +70,14 @@
 #include <iosfwd>
 #include <bits/stl_pair.h>
 #include <bits/cpp_type_traits.h>
+#include <ext/type_traits.h>
 #include <bits/stl_iterator_base_types.h>
 #include <bits/stl_iterator_base_funcs.h>
 #include <bits/stl_iterator.h>
 #include <bits/concept_check.h>
 #include <debug/debug.h>
 
-namespace std
-{
+_GLIBCXX_BEGIN_NAMESPACE(std)
 
   /**
    *  @brief Swaps two values.
@@ -94,7 +95,7 @@ namespace std
       // concept requirements
       __glibcxx_function_requires(_SGIAssignableConcept<_Tp>)
 
-      const _Tp __tmp = __a;
+      _Tp __tmp = __a;
       __a = __b;
       __b = __tmp;
     }
@@ -111,7 +112,7 @@ namespace std
         {
           typedef typename iterator_traits<_ForwardIterator1>::value_type
             _ValueType1;
-          const _ValueType1 __tmp = *__a;
+          _ValueType1 __tmp = *__a;
           *__a = *__b;
           *__b = __tmp; 
 	}
@@ -165,9 +166,6 @@ namespace std
 	__are_same<_ValueType2 &, _ReferenceType2>::__value>::
 	iter_swap(__a, __b);
     }
-
-  #undef min
-  #undef max
 
   /**
    *  @brief This does what you think it does.
@@ -317,12 +315,28 @@ namespace std
       return std::__copy<__simple, _Category>::copy(__first, __last, __result);
     }
 
+  // Helpers for streambuf iterators (either istream or ostream).
+  template<typename _CharT>
+  typename __gnu_cxx::__enable_if<__is_char<_CharT>::__value, 
+				  ostreambuf_iterator<_CharT> >::__type
+    __copy_aux(_CharT*, _CharT*, ostreambuf_iterator<_CharT>);
+
+  template<typename _CharT>
+    typename __gnu_cxx::__enable_if<__is_char<_CharT>::__value, 
+				    ostreambuf_iterator<_CharT> >::__type
+    __copy_aux(const _CharT*, const _CharT*, ostreambuf_iterator<_CharT>);
+
+  template<typename _CharT>
+  typename __gnu_cxx::__enable_if<__is_char<_CharT>::__value, _CharT*>::__type
+    __copy_aux(istreambuf_iterator<_CharT>, istreambuf_iterator<_CharT>,
+	       _CharT*);
+
   template<bool, bool>
     struct __copy_normal
     {
       template<typename _II, typename _OI>
         static _OI
-        copy_n(_II __first, _II __last, _OI __result)
+        __copy_n(_II __first, _II __last, _OI __result)
         { return std::__copy_aux(__first, __last, __result); }
     };
 
@@ -331,7 +345,7 @@ namespace std
     {
       template<typename _II, typename _OI>
         static _OI
-        copy_n(_II __first, _II __last, _OI __result)
+        __copy_n(_II __first, _II __last, _OI __result)
         { return std::__copy_aux(__first.base(), __last.base(), __result); }
     };
 
@@ -340,7 +354,7 @@ namespace std
     {
       template<typename _II, typename _OI>
         static _OI
-        copy_n(_II __first, _II __last, _OI __result)
+        __copy_n(_II __first, _II __last, _OI __result)
         { return _OI(std::__copy_aux(__first, __last, __result.base())); }
     };
 
@@ -349,7 +363,7 @@ namespace std
     {
       template<typename _II, typename _OI>
         static _OI
-        copy_n(_II __first, _II __last, _OI __result)
+        __copy_n(_II __first, _II __last, _OI __result)
         { return _OI(std::__copy_aux(__first.base(), __last.base(),
 				     __result.base())); }
     };
@@ -359,7 +373,7 @@ namespace std
    *  @param  first  An input iterator.
    *  @param  last   An input iterator.
    *  @param  result An output iterator.
-   *  @return   result + (first - last)
+   *  @return   result + (last - first)
    *
    *  This inline function will boil down to a call to @c memmove whenever
    *  possible.  Failing that, if random access iterators are passed, then the
@@ -383,16 +397,23 @@ namespace std
 
        const bool __in = __is_normal_iterator<_InputIterator>::__value;
        const bool __out = __is_normal_iterator<_OutputIterator>::__value;
-       return std::__copy_normal<__in, __out>::copy_n(__first, __last,
-						      __result);
+       return std::__copy_normal<__in, __out>::__copy_n(__first, __last,
+							__result);
     }
-  
+
+  // Overload for streambuf iterators.
+  template<typename _CharT>
+    typename __gnu_cxx::__enable_if<__is_char<_CharT>::__value, 
+  	       			    ostreambuf_iterator<_CharT> >::__type
+    copy(istreambuf_iterator<_CharT>, istreambuf_iterator<_CharT>,
+	 ostreambuf_iterator<_CharT>);
+
   template<bool, typename>
     struct __copy_backward
     {
       template<typename _BI1, typename _BI2>
         static _BI2
-        copy_b(_BI1 __first, _BI1 __last, _BI2 __result)
+        __copy_b(_BI1 __first, _BI1 __last, _BI2 __result)
         { 
 	  while (__first != __last)
 	    *--__result = *--__last;
@@ -405,7 +426,7 @@ namespace std
     {
       template<typename _BI1, typename _BI2>
         static _BI2
-        copy_b(_BI1 __first, _BI1 __last, _BI2 __result)
+        __copy_b(_BI1 __first, _BI1 __last, _BI2 __result)
         { 
 	  typename iterator_traits<_BI1>::difference_type __n;
 	  for (__n = __last - __first; __n > 0; --__n)
@@ -419,7 +440,7 @@ namespace std
     {
       template<typename _Tp>
         static _Tp*
-        copy_b(const _Tp* __first, const _Tp* __last, _Tp* __result)
+        __copy_b(const _Tp* __first, const _Tp* __last, _Tp* __result)
         { 
 	  const ptrdiff_t _Num = __last - __first;
 	  std::memmove(__result - _Num, __first, sizeof(_Tp) * _Num);
@@ -439,8 +460,9 @@ namespace std
 	                     && __is_pointer<_BI2>::__value
 			     && __are_same<_ValueType1, _ValueType2>::__value);
 
-      return std::__copy_backward<__simple, _Category>::copy_b(__first, __last,
-							       __result);
+      return std::__copy_backward<__simple, _Category>::__copy_b(__first,
+								 __last,
+								 __result);
     }
 
   template<bool, bool>
@@ -448,7 +470,7 @@ namespace std
     {
       template<typename _BI1, typename _BI2>
         static _BI2
-        copy_b_n(_BI1 __first, _BI1 __last, _BI2 __result)
+        __copy_b_n(_BI1 __first, _BI1 __last, _BI2 __result)
         { return std::__copy_backward_aux(__first, __last, __result); }
     };
 
@@ -457,7 +479,7 @@ namespace std
     {
       template<typename _BI1, typename _BI2>
         static _BI2
-        copy_b_n(_BI1 __first, _BI1 __last, _BI2 __result)
+        __copy_b_n(_BI1 __first, _BI1 __last, _BI2 __result)
         { return std::__copy_backward_aux(__first.base(), __last.base(),
 					  __result); }
     };
@@ -467,7 +489,7 @@ namespace std
     {
       template<typename _BI1, typename _BI2>
         static _BI2
-        copy_b_n(_BI1 __first, _BI1 __last, _BI2 __result)
+        __copy_b_n(_BI1 __first, _BI1 __last, _BI2 __result)
         { return _BI2(std::__copy_backward_aux(__first, __last,
 					       __result.base())); }
     };
@@ -477,7 +499,7 @@ namespace std
     {
       template<typename _BI1, typename _BI2>
         static _BI2
-        copy_b_n(_BI1 __first, _BI1 __last, _BI2 __result)
+        __copy_b_n(_BI1 __first, _BI1 __last, _BI2 __result)
         { return _BI2(std::__copy_backward_aux(__first.base(), __last.base(),
 					       __result.base())); }
     };
@@ -513,8 +535,9 @@ namespace std
 
       const bool __bi1 = __is_normal_iterator<_BI1>::__value;
       const bool __bi2 = __is_normal_iterator<_BI2>::__value;
-      return std::__copy_backward_normal<__bi1, __bi2>::copy_b_n(__first, __last,
-								 __result);
+      return std::__copy_backward_normal<__bi1, __bi2>::__copy_b_n(__first,
+								   __last,
+								   __result);
     }
 
   template<bool>
@@ -652,7 +675,7 @@ namespace std
 
   template<typename _Size>
     inline signed char*
-    fill_n(char* __first, _Size __n, const signed char& __c)
+    fill_n(signed char* __first, _Size __n, const signed char& __c)
     {
       std::fill(__first, __first + __n, __c);
       return __first + __n;
@@ -907,6 +930,6 @@ namespace std
 #endif /* CHAR_MAX == SCHAR_MAX */
   }
 
-} // namespace std
+_GLIBCXX_END_NAMESPACE
 
 #endif

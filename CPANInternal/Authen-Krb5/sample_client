@@ -1,0 +1,39 @@
+#!/usr/local/bin/perl
+
+# sample_client
+# sends authentication info to a server via sendauth
+
+use blib; # remove if not in module build directory
+use IO::Socket;
+use Authen::Krb5 (KRB5_NT_SRV_HST);
+
+# replace with your own stuff
+$SERVICE = "sample";
+$SERVER = "server.domain.edu";
+
+Authen::Krb5::init_context();
+
+$ac = new Authen::Krb5::AuthContext;
+
+$s = new IO::Socket::INET(
+	PeerAddr => $SERVER,
+	PeerPort => 12345,
+	Proto => 'tcp'
+);
+defined $s or die $!;
+
+$cc = Authen::Krb5::cc_default();
+
+$clientp = Authen::Krb5::parse_name($ENV{'USER'});
+$serverp = Authen::Krb5::sname_to_principal($SERVER,$SERVICE,KRB5_NT_SRV_HST);
+if (Authen::Krb5::sendauth($ac,$s,"V1",$clientp,$serverp,
+	AP_OPTS_MUTUAL_REQUIRED,"test",undef,$cc)) {
+	print "Sent authentication info.\n";
+}
+else {
+	print "sendauth error: ",Authen::Krb5::error(),"\n";
+}
+
+close($s);
+
+Authen::Krb5::free_context();

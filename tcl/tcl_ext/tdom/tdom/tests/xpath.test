@@ -1,0 +1,809 @@
+# Features covered: XPath capabilities
+#
+# This file contains a collection of tests for the XPath engine of
+# tDOM.
+# Tested commands and object commands:
+#    xpath-1.*: Function tests
+#    xpath-2.*: i18n
+#    xpath-3.*: NaN/Inf
+#    xpath-4.*: Tcl coded XPath functions and additional Tcl coded
+#               XPath functions
+#    xpath-5.*: XPath lexer/parser tests
+#    xpath-6.*: Doc order after modifying tree
+#    xpath-7.*: Asorted XPath expressions, which are not occur in the xslt 
+#               tests outside this tcltest based test suite
+#
+# Copyright (c) 2002 - 2007 Rolf Ade.
+#
+# RCS: @(#) $Id: xpath.test,v 1.24 2007/08/23 16:34:19 rolf Exp $
+
+source [file join [file dir [info script]] loadtdom.tcl]
+
+test xpath-1.1 {function normalize-space} {
+    set doc [dom createDocument foo]
+    set root [$doc documentElement]
+    set r [$root selectNodes {normalize-space('f  ')}]
+    $doc delete
+    string length $r
+} {1}
+
+set doc [dom createDocument foo]
+set root [$doc documentElement]
+
+test xpath-1.2 {starts-with, according errata to section 4.2} {
+    $root selectNodes {starts-with('someString','')}
+} {1}
+
+test xpath-1.3 {starts-with, according errata to section 4.2} {
+    $root selectNodes {starts-with('','')}
+} {1}
+
+test xpath-1.4 {contains, according errata to section 4.2} {
+    $root selectNodes {contains('someString','')}
+} {1}
+
+test xpath-1.5 {contains, according errata to section 4.2} {
+    $root selectNodes {contains('','')}
+} {1}
+
+test xpath-1.6 {substring-before, according errata to section 4.2} {
+    $root selectNodes {substring-before('someString','')}
+} {}
+
+test xpath-1.7 {substring-before, according errata to section 4.2} {
+    $root selectNodes {substring-before('','')}
+} {}
+
+test xpath-1.8 {substring-after, according errata to section 4.2} {
+    $root selectNodes {substring-after('someString','')}
+} {someString}
+
+test xpath-1.9 {substring-after, according errata to section 4.2} {
+    $root selectNodes {substring-after('','')}
+} {}
+
+test xpath-1.10 {floor, according errata to section 4.4} {
+    $root selectNodes {floor('notANumber')}
+} {NaN}
+
+test xpath-1.11 {floor, according errata to section 4.4} {
+    $root selectNodes {floor('+3.2')}
+} {NaN}
+
+test xpath-1.12 {floor, according errata to section 4.4} {
+    $root selectNodes {floor('3.2e2')}
+} {NaN}
+
+test xpath-1.13 {ceiling, according errata to section 4.4} {
+    $root selectNodes {ceiling('notANumber')}
+} {NaN}
+
+test xpath-1.14 {ceiling, according errata to section 4.4} {
+    $root selectNodes {ceiling('+3.2')}
+} {NaN}
+
+test xpath-1.15 {ceiling, according errata to section 4.4} {
+    $root selectNodes {ceiling('3.2e2')}
+} {NaN}
+
+$doc delete
+
+test xpath-2.1 {non ASCII chars in element names} {
+     set doc [dom parse "<\u00e4\u00f6\u00fc\u00df/>"]
+     set root [$doc documentElement]
+     set nodes [$root selectNodes /\u00e4\u00f6\u00fc\u00df]
+     $doc delete
+     llength $nodes
+} {1}
+
+set doc [dom createDocument foo]
+set root [$doc documentElement]
+
+test xpath-2.2 {non ASCII chars in string-length() call} {
+    $root selectNodes "string-length('\u20AC')"
+} 1
+
+test xpath-2.3 {non ASCII chars in substring() call} {
+    $root selectNodes "substring('ab\u20ACde',3,3)"
+} \u20ACde
+
+test xpath-2.4 {non ASCII chars in substring() call} {
+    $root selectNodes "substring('ab\u20ACde',4,3)"
+} de
+
+test xpath-2.5 {non ASCII chars in substring() call} {
+    $root selectNodes "substring('ab\u20ACde',2,3)"
+} b\u20ACd
+
+test xpath-2.6 {non ASCII chars in substring-after() call} {
+    $root selectNodes "substring-after('ab\u20ACde', '\u20AC')"
+} de
+
+test xpath-2.7 {non ASCII chars in substring-before() call} {
+    $root selectNodes "substring-before('ab\u20ACde', '\u20AC')"
+} ab
+
+test xpath-3.1 {positive number mod by 0} {
+    $root selectNodes {4 mod 0}
+} {NaN}
+
+test xpath-3.2 {0 mod 0} {
+    $root selectNodes {0 mod 0}
+} {NaN}
+
+test xpath-3.3 {negative number mod 0} {
+    $root selectNodes {-1 mod 0}
+} {NaN}
+
+test xpath-3.4 {positive number div by 0} {
+    $root selectNodes {4 div 0}
+} {Infinity}
+
+test xpath-3.5 {0 div 0} {
+    $root selectNodes {0 div 0}
+} {NaN}
+
+test xpath-3.6 {negative div 0} {
+    $root selectNodes {-4 div 0}
+} {-Infinity}
+
+test xpath-3.7 {number value of a literal} {
+    $root selectNodes {number('foobar')}
+} {NaN}
+
+test xpath-3.8 {number value of an empty node set} {
+    $root selectNodes {number(noChilds)}
+} {NaN}
+
+test xpath-3.9 {propagation of NaN throu multiplication} {
+    $root selectNodes {2 * (4 mod 0)}
+} {NaN}
+
+test xpath-3.10 {propagation of Infinity throu multiplication} {
+    $root selectNodes {2 * (4 div 0)}
+} {Infinity}
+
+test xpath-3.11 {propagation of Infinity throu multiplication} {
+    $root selectNodes {-2 * (3 div 0)}
+} {-Infinity}
+
+test xpath-3.12 {propagation of Infinity throu multiplication} {
+    $root selectNodes {2 * (-7 div 0)}
+} {-Infinity}
+
+test xpath-3.13 {propagation of Infinity throu multiplication} {
+    $root selectNodes {-2 * (-23 div 0)}
+} {Infinity}
+
+test xpath-3.14 {multiplication of Infinity with Infinity} {
+    $root selectNodes {(2 div 0) * (3 div 0)}
+} {Infinity}
+
+test xpath-3.15 {multiplication of Infinity with -Infinity} {
+    $root selectNodes {(2 div 0) * (-3 div 0)}
+} {-Infinity}
+
+test xpath-3.16 {positive number divided by Infinity} {
+    $root selectNodes {2 div (23 div 0)}
+} {0}
+
+test xpath-3.17 {negative number divided by Infinity} {
+    $root selectNodes {-2 div (23 div 0)}
+} {0}
+
+test xpath-3.18 {positive number divided by -Infinity} {
+    $root selectNodes {2 div (-23 div 0)}
+} {0}
+
+test xpath-3.19 {negative number divided by -Infinity} {
+    $root selectNodes {-2.2 div (-23.7 div 0)}
+} {0}
+
+test xpath-3.20 {Infinity divided by Infinity} {
+    $root selectNodes {(2 div 0) div (3 div 0)}
+} {NaN}
+
+test xpath-3.21 {Infinity divided by postive number} {
+    $root selectNodes {(2.7 div 0) div 23}
+} {Infinity}
+
+test xpath-3.22 {Infinity divided by negative number} {
+    $root selectNodes {(2.7 div 0) div -23}
+} {-Infinity}
+
+test xpath-3.23 {-Infinity divided by postive number} {
+    $root selectNodes {(-2.7 div 0) div 23}
+} {-Infinity}
+
+test xpath-3.24 {-Infinity divided by negative number} {
+    $root selectNodes {(-2.7 div 0) div -23}
+} {Infinity}
+
+test xpath-3.25 {Infinity divided by NaN} {
+    $root selectNodes {(2 div 0) div (2 mod 0)}
+} {NaN}
+
+test xpath-3.26 {NaN divided by Infinity} {
+    $root selectNodes {(2 mod 0) div (2 div 0)}
+} {NaN}
+
+test xpath-3.27 {Infinity divided by zero} {
+    $root selectNodes {(2 div 0) div 0}
+} {Infinity}
+
+test xpath-3.28 {-Infinity divided by zero} {
+    $root selectNodes {(-2 div 0) div 0}
+} {-Infinity}
+
+test xpath-3.29 {Infinity plus positive number} {
+    $root selectNodes {(1 div 0) + 345}
+} {Infinity}
+
+test xpath-3.30 {Infinity minus positive number} {
+    $root selectNodes {(1 div 0) - 5}
+} {Infinity}
+
+test xpath-3.31 {number minus Infinity} {
+    $root selectNodes {27 - (1 div 0)} 
+} {-Infinity}
+
+test xpath-3.32 {number minus -Infinity} {
+    $root selectNodes {5 - (-1 div 0)}
+} {Infinity}
+
+test xpath-3.33 {Infinity plus Infinity} {
+    $root selectNodes {(1 div 0) + (1 div 0)}
+} {Infinity}
+
+test xpath-3.34 {Infinity plus -Infinity} {
+    $root selectNodes {(1 div 0) + (-1 div 0)}
+} {NaN}
+
+test xpath-3.35 {Infinity minus -Infinity} {
+    $root selectNodes {(1 div 0) - (-1 div 0)}
+} {Infinity}
+
+$doc delete
+
+set doc [dom parse {<root xmlns:myNS="myNS">Foo</root>}]
+set root [$doc documentElement]
+
+test xpath-4.1 {function-available} {
+    $root selectNodes function-available('count')
+} {1}
+
+test xpath-4.2 {function-available} {
+    $root selectNodes function-available('foobar')
+} {0}
+
+test xpath-4.3 {system-property} {
+    $root selectNodes system-property('xsl:version')
+} {1.0}
+
+proc ::dom::xpathFunc::mycontains {ctxNode pos nodeListNode nodeList args} {
+    if {[llength $args] != 4} {
+        error "mycontains(): wrong # of args!"
+    }
+    foreach {arg1Typ arg1Value arg2Typ arg2Value} $args break
+    set text [::dom::xpathFuncHelper::coerce2string $arg1Typ $arg1Value]
+    set str  [::dom::xpathFuncHelper::coerce2string $arg2Typ $arg2Value]
+
+    if {[string first [string tolower $str] [string tolower $text]] != -1} {
+        return [list bool true]
+    } else {
+        return [list bool false]
+    }
+}
+
+test xpath-4.4 {tcl coded additional XPath function} {
+    $root selectNodes {mycontains(., 'fo')}
+} {1}
+
+test xpath-4.5 {tcl coded additional XPath function} {
+    $root selectNodes {mycontains(., 'bo')}
+} {0}
+
+test xpath-4.6 {tcl coded additional XPath function - error reported} {
+    catch {$root selectNodes {mycontains(., 'bo', 'ba')}} errMsg
+    set errMsg
+} {Tcl error while executing XPATH extension function 'mycontains':
+mycontains(): wrong # of args!}
+
+proc ::dom::xpathFunc::wrongreturn {ctxNode pos nodeListNode nodeList args} {
+    return [list footype "foo"]
+}
+
+test xpath-4.7 {tcl coded additional XPath function - unknown return type} {
+    catch {$root selectNodes {wrongreturn('foo')}} errMsg
+    set errMsg
+} {Unknown type of return value "footype" from tcl coded XPath function "wrongreturn"!}
+
+proc ::dom::xpathFunc::returnnumber {ctxNode pos nodeListNode nodeList args} {
+    return [list number "42"]
+}
+
+test xpath-4.8 {tcl coded additional XPath function - return number} {
+    $root selectNodes {returnnumber()}
+} {42}
+
+test xpath-4.9 {tcl coded XPath function - erroneous function name} {
+    catch {$root selectNodes {thisFunctiondoesNotExists('foo',.)}} errMsg
+    set errMsg
+} {Unknown XPath function: "thisFunctiondoesNotExists"!}
+
+test xpath-4.10 {full qualified tcl coded XPath function - erroneous prefix} {
+    catch {$root selectNodes notdefinedprefix:mycontains()} errMsg
+    set errMsg
+} {Prefix doesn't resolve}
+
+namespace eval ::dom::xpathFunc::myNS {
+    proc mycontains {ctxNode pos nodeListNode nodeList args} {
+        if {[llength $args] != 4} {
+            error "myNS::mycontains(): wrong # of args!"
+        }
+        foreach {arg1Typ arg1Value arg2Typ arg2Value} $args break
+        set text [::dom::xpathFuncHelper::coerce2string $arg1Typ $arg1Value]
+        set str  [::dom::xpathFuncHelper::coerce2string $arg2Typ $arg2Value]
+
+        if {[string first [string tolower $str] [string tolower $text]] != -1} {
+            return [list bool true]
+        } else {
+            return [list bool false]
+        }
+    }
+}
+
+test xpath-4.11 {full qualified tcl coded XPath function} {
+    $root selectNodes {myNS:mycontains(., 'fo')}
+} {1}
+
+test xpath-4.12 {full qualified tcl coded XPath function} {
+    $root selectNodes {myNS:mycontains(., 'bo')}
+} {0}
+
+test xpath-4.13 {error in arg expr of tcl coded XPath function} {
+    catch {$root selectNodes {mycontains(foo::bar, 'bo')}} errMsg
+} {1}
+
+test xpath-4.14 {error in arg expr of full qual. tcl coded XPath function} {
+    catch {$root selectNodes {myNS:mycontains(foo::bar, 'bo')}}
+} {1}
+
+proc ::dom::xpathFunc::buggyproc {ctxNode pos nodeListNode nodeList args} {
+    if {[llength $args] != 2} {
+        error "returnstring(): wrong # of args!"
+    }
+    foreach {arg1Typ arg1Value} $args break
+    set str [::dom::xpathFuncHelper::coerce2string $arg1Typ $arg1Value]
+    
+    # There isn't a [string split ..] - this will trigger the tcl error
+    set charList [string split $str ""]
+    set result ""
+    foreach char $charList {
+        set result $char$result
+    }
+    return [list string $result]
+}
+
+test xpath-4.15 {tcl coded XPath function - tcl error in XPath func} {
+    catch {$root selectNodes {buggyproc('bambo')}}
+} {1}
+
+proc ::dom::xpathFunc::returnstring {ctxNode pos nodeListNode nodeList args} {
+    if {[llength $args] != 2} {
+        error "returnstring(): wrong # of args!"
+    }
+    foreach {arg1Typ arg1Value} $args break
+    set str [::dom::xpathFuncHelper::coerce2string $arg1Typ $arg1Value]
+    
+    set charList [split $str ""]
+    set result ""
+    foreach char $charList {
+        set result $char$result
+    }
+    return [list string $result]
+}
+
+test xpath-4.16 {tcl coded additional XPath function - tcl error in XPath func} {
+    $root selectNodes {returnstring('bambo')}
+} {obmab}
+
+proc ::dom::xpathFunc::returnnodes {ctxNode pos nodeListNode nodeList args} {
+    if {[llength $args] != 2} {
+        error "returnnodes(): wrong # of args!"
+    }
+    foreach {arg1Typ arg1Value} $args break
+    if {$arg1Typ != "nodes"} {
+        error "returnnodes(): argument must be a nodeset"
+    }
+    set node [[lindex $arg1Value 0] selectNodes {/*[1]}]
+
+    # This returns a node list with 2 nodes. Since both nodes are
+    # the same, this node only shows up one time in the result set
+    # of the query
+    return [list nodes [list $node $node]]
+}
+
+test xpath-4.17 {tcl coded additional XPath function - return nodes} {
+    set queryresult [$root selectNodes {returnnodes(.)}]
+    if {$queryresult == $root} {
+        set result 1
+    } else {
+        set result 0
+    }
+    set result
+} {1}
+
+# Called from ::dom::xpathFunc::errorStack 
+proc ::dom::xpathFunc::errorStack1 {} {
+    error "Some error"
+}
+
+proc ::dom::xpathFunc::errorStack {ctxNode pos nodeListNode nodeList args} {
+
+    errorStack1
+    return [list string "Not reached"]
+}
+
+test xpath-4.18 {error stack in tcl coded additional XPath function} {
+    set result [catch {$root selectNodes errorStack()} errMsg]
+    lappend result $errMsg
+} {1 {Tcl error while executing XPATH extension function 'errorStack':
+Some error}}
+
+test xpath-5.1 {erroneous XPath expr: missing right brace in predicate} {
+    set result [catch {$root selectNodes {*[1}} errMsg]
+    list $result $errMsg
+} {1 {Predicate: Expected "RBRACKET" for '*[1' 
+
+Parsed symbols:
+     0 WCARDNAME        0    0.000     0  *
+     1 LBRACKET         0    0.000     1  
+     2 INTNUMBER        1    1.000     2  }}
+
+test xpath-5.2 {erroneous XPath expr: missing right brace in predicate} {
+    set result [catch {$root selectNodes {*[1][@attr}} errMsg]
+    list $result $errMsg
+} {1 {Predicate: Expected "RBRACKET" for '*[1][@attr' 
+
+Parsed symbols:
+     0 WCARDNAME        0    0.000     0  *
+     1 LBRACKET         0    0.000     1  
+     2 INTNUMBER        1    1.000     2  
+     3 RBRACKET         0    0.000     3  
+     4 LBRACKET         0    0.000     4  
+     5 ATTRIBUTE        0    0.000     9  attr}}
+
+test xpath-5.3 {erroneous XPath expr: missing left brace in predicate} {
+    catch {$root selectNodes {*1]}}
+} {1}
+
+test xpath-5.4 {erroneous XPath expr} {
+    catch {$root selectNodes {myNS: bar}} errMsg
+    set errMsg
+} {Illegal character in localname}
+
+test xpath-5.5 {erroneous XPath expr} {
+    catch {$root selectNodes {foo :bar}} errMsg
+    set errMsg
+} {Unexpected token ':'}
+
+test xpath-5.6 {erroneous XPath expr} {
+    catch {$root selectNodes {:foo}} errMsg
+    set errMsg
+} {Unexpected token ':'}
+
+$doc delete
+
+dom parse {<Sample attr="attrvalue"/>} doc
+$doc documentElement root
+
+test xpath-5.7 {White space after @ is allowed} {
+    $root selectNodes {string(@ attr)}
+} {attrvalue}
+
+$doc delete
+
+test xpath-5.8 {xpath namespace axis} {
+     set doc [dom parse {<doc xmlns="foo"/>}]
+     $doc selectNodesNamespaces {bar foo}
+     set result [$doc selectNodes //namespace::*]
+     $doc delete
+     set result
+} {{xmlns:xml http://www.w3.org/XML/1998/namespace} {xmlns foo}}
+
+test xpath-5.9 {Illegal axis name with //} {
+    set xml {
+        <doc>
+        <foo>
+        <bar>boo</bar>
+        <bar>boo</bar>
+        <bar>boo</bar>
+        </foo>
+        </doc>}
+    set doc [dom parse $xml]
+    set result [catch {$doc selectNodes //bar::text()}]
+    $doc delete
+    set result
+} {1}
+
+test xpath-5.10 {White space between steps is allowed} {
+    set xml {<doc><e1><e2/></e1></doc>}
+    set doc [dom parse $xml]
+    set node [$doc selectNodes "doc / e1 \n\r\t / e2"]
+    set result [$node nodeName]
+    $doc delete
+    set result
+} {e2}
+
+test xpath-5.11 {Parsing of floats} {
+    set doc [dom createDocumentNode]
+    set result [$doc selectNodes "1 + .2"]
+    set result [expr {$result + [$doc selectNodes "1.0 + 0.2"]}]
+    $doc delete
+    set result
+} {2.4}
+
+test xpath-5.12 {Parsing of floats} {
+    set doc [dom createDocumentNode]
+    set result [catch {$doc selectNodes "1 + .2.2"}]
+    $doc delete
+    set result
+} {1}
+
+test xpath-5.13 {tcl var resolution in expr} {
+    set doc [dom parse {<root><elem id="foo">footext</elem></root>}]
+    set root [$doc documentElement]
+    set var "foo"
+    set resultNode [$root selectNodes {elem[@id=$var]}]
+    set result [$resultNode text]
+    $doc delete
+    set result
+} {footext}
+
+test xpath-5.14 {tcl var resolution in expr} {
+    set doc [dom parse {<root><elem id="foo">footext</elem></root>}]
+    set root [$doc documentElement]
+    set resultNode [$root selectNodes {elem[@id='foo']}]
+    set result [$resultNode text]
+    $doc delete
+    set result
+} {footext}
+
+
+test xpath-5.15 {tcl var resolution in expr} {
+    set doc [dom parse {<root><elem id="foo">footext</elem></root>}]
+    set root [$doc documentElement]
+    catch {unset dontExists} 
+    set result [catch {[$root selectNodes {elem[@id=$dontExists]}]} errMsg]
+    $doc delete
+    lappend result $errMsg
+} {1 {can't read "dontExists": no such variable}}
+
+proc xpath-5.16 {doc} {
+    set root [$doc documentElement]
+    set var "foo"
+    set resultNode [$root selectNodes {elem[@id=$var]}]
+    return [$resultNode text]
+}
+
+test xpath-5.16 {tcl var resolution in expr} {
+    set doc [dom parse {<root><elem id="foo">footext</elem></root>}]
+    catch {unset var}
+    set result [xpath-5.16 $doc]
+    $doc delete
+    set result
+} {footext}
+
+proc xpath-5.17 {doc} {
+    set root [$doc documentElement]
+    set resultNode [$root selectNodes {elem[@id=$::var]}]
+    return [$resultNode text]
+}
+
+test xpath-5.17 {tcl var resolution in expr} {
+    set doc [dom parse {<root><elem id="foo">footext</elem></root>}]
+    set var "foo"
+    set result [xpath-5.17 $doc]
+    $doc delete
+    set result
+} {footext}
+
+proc xpath-5.18 {doc} {
+    set root [$doc documentElement]
+    set resultNode [$root selectNodes {elem[@id=${::uncommon varname}]}]
+    return [$resultNode text]
+}
+
+test xpath-5.18 {tcl var resolution in expr} {
+    set doc [dom parse {<root><elem id="foo">footext</elem></root>}]
+    set {uncommon varname} "foo"
+    set result [xpath-5.18 $doc]
+    $doc delete
+    set result
+} {footext}
+
+test xpath-5.19 {tcl var resolution in expr} {
+    set doc [dom parse {<root><elem id="foo">footext</elem></root>}]
+    set root [$doc documentElement]
+    set array(key) "foo"
+    set resultNode [$root selectNodes {elem[@id=$array(key)]}]
+    set result [$resultNode text]
+    $doc delete
+    set result
+} {footext}
+
+test xpath-5.20 {tcl var resolution in expr} {
+    set doc [dom parse {<root><elem id="foo">footext</elem></root>}]
+    set root [$doc documentElement]
+    set array(key) "foo"
+    set var "key"
+    set resultNode [$root selectNodes {elem[@id=$array($var)]}]
+    set result [$resultNode text]
+    $doc delete
+    set result
+} {footext}
+
+proc xpath-5.21 {doc} {
+    set root [$doc documentElement]
+    set var "foo"
+    set resultNode [$root selectNodes {elem[@id=$var]}]
+    return [$resultNode text]
+}
+
+test xpath-5.21 {tcl var resolution in expr} {
+    set doc [dom parse {<root><elem id="foo">footext</elem></root>}]
+    set root [$doc documentElement]
+    set var "bar"
+    set result [xpath-5.21 $doc]
+    $doc delete
+    set result
+} {footext}
+
+proc xpath-5.22 {doc} {
+    set root [$doc documentElement]
+    set var "bar"
+    return [$root selectNodes {elem[@id=$var]}]
+}
+
+test xpath-5.22 {tcl var resolution in expr} {
+    set doc [dom parse {<root><elem id="foo">footext</elem></root>}]
+    set root [$doc documentElement]
+    set var "foo"
+    set result [xpath-5.22 $doc]
+    $doc delete
+    set result
+} {}
+
+proc xpath-5.23 {doc} {
+    set root [$doc documentElement]
+    set result [catch {$root selectNodes {elem[@id=$var]}} errMsg]
+    return [list $result $errMsg]
+}
+
+test xpath-5.23 {tcl var resolution in expr} {
+    set doc [dom parse {<root><elem id="foo">footext</elem></root>}]
+    set root [$doc documentElement]
+    set var "foo"
+    set result [xpath-5.23 $doc]
+    $doc delete
+    set result
+} {1 {can't read "var": no such variable}}
+
+test xpath-5.24 {tcl var resolution in expr} {
+    set doc [dom parse {<root><elem id="foo">footext</elem></root>}]
+    set root [$doc documentElement]
+    set result [catch {$root selectNodes {elem[@id=$ or @id='bar']}} errMsg]
+    $doc delete
+    list $result $errMsg
+} {1 {Missing var name after '$'.}}
+
+test xpath-5.25 {tcl var resolution in expr} {
+    set doc [dom createDocument doc]
+    set a 2
+    set result [$doc selectNodes {2 + $a}]
+    $doc delete
+    set result
+} {4.0}
+
+test xpath-5.26 {erroneous XPath expr} {
+    set doc [dom createDocument doc]
+    set result [catch {$doc selectNodes {/[position()=1]}}]
+    $doc delete
+    set result
+} {1}
+
+test xpath-5.27 {erroneous XPath expr} {
+    set doc [dom parse {<!--yes-->  <doc><e1/></doc><?foo bar?>}]
+    set result [catch {$doc selectNodes {/[position()=1]}} errMsg]
+    $doc delete
+    set result
+} {1}
+
+set doc [dom parse {
+<root>
+  <asub>asub2</asub>
+  <asub>asub3</asub>
+  <asub>asub4</asub>
+  <bsub>bsub1</bsub>
+  <bsub>bsub2</bsub>
+</root>}]
+set root [$doc documentElement]
+
+test xpath-6.1 {document order in modified DOM tree} {
+    set newAsub [$doc createElement asub]
+    $newAsub appendChild [$doc createTextNode "asub1"]
+    $root insertBefore $newAsub [$root firstChild]
+    set result ""
+    foreach node [$root selectNodes {bsub|asub}] {
+        append result "[$node text] "
+    }
+    set result
+} {asub1 asub2 asub3 asub4 bsub1 bsub2 }
+
+$doc delete
+
+
+set doc [dom parse {
+<!-- comment 1 -->
+<!-- comment 2 -->
+<?api pi data?>
+<!-- still not the document element -->
+<root/>
+<!-- comment 1 -->
+<!-- comment 2 -->
+<?api pi data?>
+<!-- still not the end of the document -->}]
+set root [$doc documentElement]
+
+test xpath-7.1 {preceding-sibling axis with documentElement als current node} {
+    $root selectNodes {count(preceding-sibling::node())}
+} {4}
+
+test xpath-7.2 {following-sibling axis with documentElement als current node} {
+    $root selectNodes {count(following-sibling::node())}
+} {4}
+
+$doc delete
+
+test xpath-7.3 {NCName equal to an operator in a union expr} {
+    dom parse {<root><div/></root>} doc
+    $doc documentElement root
+    set node [$root selectNodes {p|div}]
+    set result [$node nodeName]
+    $doc delete
+    set result
+} {div}
+
+test xpath-7.4 {Name test * in a union expr} {
+    dom parse {<root><div/></root>} doc
+    $doc documentElement root
+    set node [$root selectNodes {processing-instruction()|*}]
+    set result [$node nodeName]
+    $doc delete
+    set result
+} {div}
+
+test xpath-7.5 {ancestor-or-self axis on /} {
+    dom parse {<root/>} doc
+    set result [$doc selectNodes {count(./ancestor-or-self::*)}]
+    lappend result [$doc selectNodes {count(ancestor-or-self::*)}]
+    lappend result [$doc selectNodes {count(./ancestor-or-self::node())}]
+    lappend result [$doc selectNodes {count(ancestor-or-self::node())}]
+    $doc delete
+    set result
+} {0 0 1 1}
+
+test xpath-7.6 {parent axis on /} {
+    dom parse {<root/>} doc
+    set result [$doc selectNodes {count(parent::*)}]
+    lappend result [$doc selectNodes {count(parent::node())}]
+    lappend result [$doc selectNodes {count(..)}]
+    $doc delete
+    set result
+} {0 0 0}
+
+# cleanup
+::tcltest::cleanupTests
+return
+

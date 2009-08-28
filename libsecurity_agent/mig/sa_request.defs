@@ -25,7 +25,6 @@ type AuthorizationValueVectorPtr = unsigned32;
 type SessionId = unsigned32;
 type Choice = struct[2] of unsigned32;
 
-
 #define BLOB(name,type)	name: type##Blob; name##Base: type##Ptr
 
 //
@@ -50,3 +49,12 @@ simpleroutine destroy(requestport instanceRequestPort: mach_port_t);
 // Tell the SecurityAgent to go away we no longer need you.
 //
 simpleroutine terminate(requestport agentPort: mach_port_t);
+
+//
+// Support transaction semantics outside the usual client protocol
+// (those semantics not defined here)
+//
+routine txStart(agentPort: mach_port_t;
+    sreplyport clientReplyPort: mach_port_make_send_once_t);
+    
+simpleroutine txEnd(agentPort: mach_port_t);

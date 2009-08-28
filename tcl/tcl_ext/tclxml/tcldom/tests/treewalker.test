@@ -1,0 +1,772 @@
+# Commands covered:  ::dom::treeWalker
+#
+# This file contains a collection of tests for one or more of the 
+# TclDOM commands.  Sourcing this file into Tcl runs the tests and
+# generates output for errors.  No output means no errors were found.
+#
+# Copyright (c) 2000 Ajuba Solutions
+# Copyright (c) 2002 Zveno Pty Ltd
+#
+# $Id: treewalker.test,v 1.3 2002/08/11 11:22:48 balls Exp $
+
+package require tcltest; namespace import -force ::tcltest::*
+source testutils.tcl
+testPackage dom
+
+set xml1 {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test>This <b>is</b> text.<A>aaa<B>bbb</B>aaa2<C>ccc<D>ddd</D>ccc2</C>aaa3</A></Test>}
+
+test treewalker-2.1 {argument parsing} -constraints {dom_c} -body {
+    list [catch {dom::treeWalker} msg] $msg
+} -result {1 {wrong # args: should be "dom::treeWalker method handle ?arg ...?"}}
+test treewalker-2.2 {argument parsing} -constraints {dom_c} -body {
+    list [catch {dom::treeWalker foo} msg] $msg
+} -result {1 {bad method "foo": must be cget, configure, parentNode, firstChild, lastChild, previousSibling, nextSibling, previousNode, or nextNode}}
+test treewalker-2.3 {argument parsing} -constraints {dom_c} -body {
+    list [catch {dom::treeWalker cget blah} msg] $msg
+} -result {1 {token not found}}
+
+
+test treewalker-1.1 {treewalker creation} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test></Test>}]
+	set result [catch {dom::DocumentTraversal createTreeWalker $document} \
+	    treewalker]
+	set handle [string range $treewalker 0 9]
+	list $result $handle
+} -result {0 treewalker}
+
+test treewalker-1.2 {treewalker creation} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test></Test>}]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document]
+	set result [catch {dom::treeWalker nextNode $treewalker} first]
+	set handle [string range $first 0 3]
+	list $result $handle
+} -result {0 node}
+
+test treewalker-2.1 {treewalker cget -show} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?><A></A>}]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document -show \
+		[list element textNode]]
+	set result [catch {::dom::treeWalker cget $treewalker -show} value]
+	list $result $value
+} -result {0 {element textNode}}
+
+test treewalker-2.2 {treewalker configure -show} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?><A></A>}]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document -show \
+		[list element textNode]]
+	set result [catch {::dom::treeWalker configure $treewalker -show} value]
+	list $result $value
+} -result {0 {element textNode}}
+
+test treewalker-2.3 {treewalker configure -show readonly} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?><A></A>}]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document -show \
+		[list element textNode]]
+	set result [catch {::dom::treeWalker configure $treewalker \
+		-show [list element]} value]
+	list $result $value
+} -result {1 {no modification allowed error: an attempt was made to modify an object where modifications are not allowed}}
+
+test treewalker-2.4 {treewalker cget -filter} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?><A></A>}]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document \
+		-filter nodeFilter]
+	set result [catch {::dom::treeWalker cget $treewalker -filter} value]
+	list $result $value
+} -result {0 nodeFilter}
+
+test treewalker-2.5 {treewalker configure -filter} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?><A></A>}]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document \
+		-filter nodeFilter]
+	set result [catch {::dom::treeWalker configure $treewalker -filter} value]
+	list $result $value
+} -result {0 nodeFilter}
+
+test treewalker-2.6 {treewalker configure -filter readonly} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?><A></A>}]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document \
+		-filter nodeFilter]
+	set result [catch {::dom::treeWalker configure $treewalker \
+		-filter someFilter} value]
+	list $result $value
+} -result {1 {no modification allowed error: an attempt was made to modify an object where modifications are not allowed}}
+
+test treewalker-2.7 {treewalker cget -expandEntities} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?><A></A>}]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document]
+	set result [catch {::dom::treeWalker cget $treewalker \
+		-expandEntities} value]
+	list $result $value
+} -result {0 0}
+
+test treewalker-2.8 {treewalker configure -expandEntities} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?><A></A>}]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document]
+	set result [catch {::dom::treeWalker configure $treewalker \
+		-expandEntities} value]
+	list $result $value
+} -result {0 0}
+
+test treewalker-2.9 {treewalker configure -expandEntities readonly} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?><A></A>}]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document]
+	set result [catch {::dom::treeWalker configure $treewalker \
+		-expandEntities 1} value]
+	list $result $value
+} -result {1 {no modification allowed error: an attempt was made to modify an object where modifications are not allowed}}
+
+test treewalker-2.10 {treewalker cget -currentNode} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?><A></A>}]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document]
+	set result [catch {::dom::treeWalker cget $treewalker \
+		-currentNode} value]
+	list $result [string compare $document $value]
+} {0 0}
+
+test treewalker-2.10 {treewalker configure -currentNode} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?><A></A>}]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document]
+	set result [catch {::dom::treeWalker configure $treewalker \
+		-currentNode} value]
+	list $result [string compare $document $value]
+} -result {0 0}
+
+test treewalker-2.10 {treewalker configure -currentNode writable} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?><A></A>}]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document]
+	set topNode [dom::document cget $document -documentElement]
+	set result [catch {::dom::treeWalker configure $treewalker \
+		-currentNode $topNode} value]
+	set result [catch {::dom::treeWalker configure $treewalker \
+		-currentNode} value]
+	list $result [string compare $topNode $value]
+} -result {0 0}
+
+
+test treewalker-3.1 {basic iteration} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test>This <b>is</b>text.</Test>}]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document]
+	set result {}
+	for {set i 0} {$i < 9} {incr i} {
+		set node [dom::treeWalker nextNode $treewalker]
+		if {$node == ""} break;
+		lappend result [dom::node cget $node -nodeType]
+		lappend result [dom::node cget $node -nodeName]
+		lappend result [dom::node cget $node -nodeValue]
+	}
+	set result	
+} -result {documentType Test {} element Test {} textNode #text {This } element b {} textNode #text is textNode #text text.}
+
+test treewalker-3.2 {basic iteration with -show} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test>This <b>is</b>text.</Test>}]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document \
+		-show [list element textNode]]
+	set result {}
+	for {set i 0} {$i < 9} {incr i} {
+		set node [dom::treeWalker nextNode $treewalker]
+		if {$node == ""} break;
+		lappend result [dom::node cget $node -nodeType]
+		lappend result [dom::node cget $node -nodeName]
+		lappend result [dom::node cget $node -nodeValue]
+	}
+	set result	
+} -result {element Test {} textNode #text {This } element b {} textNode #text is textNode #text text.}
+
+test treewalker-3.3 {basic reverse iteration} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test>This <b>is</b>text.</Test>}]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document]
+	set result {}
+	for {set i 0} {$i < 9} {incr i} {
+		set node [dom::treeWalker nextNode $treewalker]
+		if {$node == ""} break;
+	}
+	for {set i 0} {$i < 9} {incr i} {
+		set node [dom::treeWalker previousNode $treewalker]
+		if {$node == ""} break;
+		lappend result [dom::node cget $node -nodeType]
+		lappend result [dom::node cget $node -nodeName]
+		lappend result [dom::node cget $node -nodeValue]
+	}
+	set result	
+} -result {textNode #text is element b {} textNode #text {This } element Test {} documentType Test {} document #document {}}
+
+test treewalker-3.4 {basic reverse iteration with -show} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test>This <b>is</b>text.</Test>}]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document \
+		-show [list element textNode]]
+	set result {}
+	for {set i 0} {$i < 9} {incr i} {
+		set node [dom::treeWalker nextNode $treewalker]
+		if {$node == ""} break;
+	}
+	for {set i 0} {$i < 9} {incr i} {
+		set node [dom::treeWalker previousNode $treewalker]
+		if {$node == ""} break;
+		lappend result [dom::node cget $node -nodeType]
+		lappend result [dom::node cget $node -nodeName]
+		lappend result [dom::node cget $node -nodeValue]
+	}
+	set result	
+} -result {textNode #text is element b {} textNode #text {This } element Test {}}
+
+test treewalker-3.5 {complex iteration} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse $xml1]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document]
+	set result {}
+	for {set i 0} {$i < 40} {incr i} {
+		set node [dom::treeWalker nextNode $treewalker]
+		if {$node == ""} break;
+		set name [dom::node cget $node -nodeName]
+		if {$name != "#text"} {
+			lappend result $name
+		} else {
+			lappend result [dom::node cget $node -nodeValue]
+		}
+	}
+	set result	
+} -result {Test Test {This } b is { text.} A aaa B bbb aaa2 C ccc D ddd ccc2 aaa3}
+
+test treewalker-3.6 {complex iteration} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse $xml1]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document]
+	set result {}
+	for {set i 0} {$i < 40} {incr i} {
+		set node [dom::treeWalker nextNode $treewalker]
+		if {$node == ""} break;
+	}
+	for {set i 0} {$i < 40} {incr i} {
+		set node [dom::treeWalker previousNode $treewalker]
+		if {$node == ""} break;
+		set name [dom::node cget $node -nodeName]
+		if {$name != "#text"} {
+			lappend result $name
+		} else {
+			lappend result [dom::node cget $node -nodeValue]
+		}
+	}
+	set result	
+} -result {ccc2 ddd D ccc C aaa2 bbb B aaa A { text.} is b {This } Test Test #document}
+
+test treewalker-3.7 {basic iteration both directions} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test>This <b>is</b>text.</Test>}]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document]
+	set result {}
+	set node [dom::treeWalker nextNode $treewalker]
+	lappend result [dom::node cget $node -nodeName]
+	set node [dom::treeWalker previousNode $treewalker]
+	lappend result [dom::node cget $node -nodeName]
+	set result	
+} -result {Test #document}
+
+test treewalker-3.8 {backup before start of list} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test>This <b>is</b>text.</Test>}]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document]
+	set result {}
+	set node [dom::treeWalker previousNode $treewalker]
+	set	node
+} -result {}
+
+test treewalker-3.9 {backup before start of list then forward} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test>This <b>is</b>text.</Test>}]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document]
+	set result {}
+	set node [dom::treeWalker previousNode $treewalker]
+	set node [dom::treeWalker previousNode $treewalker]
+	set node [dom::treeWalker previousNode $treewalker]
+	set node [dom::treeWalker previousNode $treewalker]
+	set node [dom::treeWalker nextNode $treewalker]
+	lappend result [dom::node cget $node -nodeName]
+	set	result
+} -result {Test}
+
+test treewalker-3.10 {inserts while iterating} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse $xml1]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document]
+	set result {}
+	for {set i 0} {$i < 40} {incr i} {
+		set node [dom::treeWalker nextNode $treewalker]
+		if {$node == ""} break
+		set name [dom::node cget $node -nodeName]
+		if {$name != "#text"} {
+			lappend result $name
+			if {$name == "A"} {
+				set new [dom::document createTextNode $document "New Text"]
+				dom::node insertBefore $node $new \
+					[dom::node cget $node -firstChild]
+			}
+		} else {
+			lappend result [dom::node cget $node -nodeValue]
+		}
+	}
+	set result	
+} -result {Test Test {This } b is { text.} A {New Text} aaa B bbb aaa2 C ccc D ddd ccc2 aaa3}
+
+test treewalker-3.11 {deletions while iterating} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse $xml1]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document]
+	set result {}
+	for {set i 0} {$i < 40} {incr i} {
+		set node [dom::treeWalker nextNode $treewalker]
+		if {$node == ""} break
+		set name [dom::node cget $node -nodeName]
+		if {$name != "#text"} {
+			lappend result $name
+			if {$name == "A"} {
+				dom::node removeChild $node [dom::node cget $node -firstChild]
+			}
+		} else {
+			lappend result [dom::node cget $node -nodeValue]
+		}
+	}
+	set result	
+} -result {Test Test {This } b is { text.} A B bbb aaa2 C ccc D ddd ccc2 aaa3}
+
+test treewalker-3.12 {reference node deletion while iterating} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse $xml1]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document]
+	set result {}
+	for {set i 0} {$i < 40} {incr i} {
+		set node [dom::treeWalker nextNode $treewalker]
+		if {$node == ""} break
+		set name [dom::node cget $node -nodeName]
+		if {$name != "#text"} {
+			lappend result $name
+			if {$name == "B"} {
+				dom::node removeChild [dom::node cget $node -parent] $node
+			}
+		} else {
+			lappend result [dom::node cget $node -nodeValue]
+		}
+	}
+	set result	
+} -result {Test Test {This } b is { text.} A aaa B aaa2 C ccc D ddd ccc2 aaa3}
+
+test treewalker-3.13 {reference node deletion while iterating II} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse $xml1]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document]
+	set result {}
+	for {set i 0} {$i < 40} {incr i} {
+		set node [dom::treeWalker nextNode $treewalker]
+		if {$node == ""} break
+		set name [dom::node cget $node -nodeName]
+		if {$name != "#text"} {
+			lappend result $name
+			if {$name == "C"} {
+				set nodeToDelete $node
+			} elseif {$name == "D"} {
+				dom::node removeChild [dom::node cget $nodeToDelete -parent] \
+					$nodeToDelete
+			}
+		} else {
+			lappend result [dom::node cget $node -nodeValue]
+		}
+	}
+	set result	
+} -result {Test Test {This } b is { text.} A aaa B bbb aaa2 C ccc D aaa3}
+
+test treewalker-3.14 {deletion of trailing reference node} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse {<?xml version="1.0"?>
+<!DOCTYPE Test><Test>xxx<A/></Test>}]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document]
+	set result {}
+	set node {}
+	for {set i 0} {$i < 9} {incr i} {
+		set refNode $node
+		set node [dom::treeWalker nextNode $treewalker]
+		if {$node == ""} break;
+	}
+	set node [dom::treeWalker previousNode $treewalker]
+	dom::node removeChild [dom::node cget $refNode -parent] $refNode
+	set node [dom::treeWalker previousNode $treewalker]
+	lappend result [dom::node cget $node -nodeName]
+	set result
+} -result {Test}
+
+test treewalker-3.15 {complex iteration with filter} -constraints {dom_c} -body {
+	proc nodeFilter {node} {
+		set value [dom::node cget $node -nodeValue]
+		if {$value == "aaa"} {
+			return $::dom::skip
+		} else {
+			return $::dom::accept
+		}
+	}
+		
+    set document [::dom::DOMImplementation parse $xml1]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document \
+		-filter nodeFilter]
+	set result {}
+	for {set i 0} {$i < 40} {incr i} {
+		set node [dom::treeWalker nextNode $treewalker]
+		if {$node == ""} break;
+		set name [dom::node cget $node -nodeName]
+		if {$name != "#text"} {
+			lappend result $name
+		} else {
+			lappend result [dom::node cget $node -nodeValue]
+		}
+	}
+	rename nodeFilter {}
+	set result	
+} -result {Test Test {This } b is { text.} A B bbb aaa2 C ccc D ddd ccc2 aaa3}
+
+test treewalker-3.16 {firstChild} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse $xml1]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document]
+	set result {}
+	set node [dom::treeWalker firstChild $treewalker]
+	lappend result [dom::node cget $node -nodeName]
+	lappend result [dom::node cget $node -nodeValue]
+	set result	
+} -result {Test {}}
+
+test treewalker-3.17 {firstChild with -show} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse $xml1]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document \
+		-show textNode]
+	set result {}
+	set node [dom::treeWalker firstChild $treewalker]
+	lappend result [dom::node cget $node -nodeName]
+	lappend result [dom::node cget $node -nodeValue]
+	set result	
+} -result {#text {This }}
+
+test treewalker-3.18 {parentNode} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse $xml1]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document]
+	set result {}
+	set node [dom::treeWalker firstChild $treewalker]
+	set node [dom::treeWalker nextSibling $treewalker]
+	set node [dom::treeWalker firstChild $treewalker]
+	set node [dom::treeWalker parentNode $treewalker]
+	lappend result [dom::node cget $node -nodeName]
+	lappend result [dom::node cget $node -nodeValue]
+	set result	
+} -result {Test {}}
+
+test treewalker-3.19 {parentNode with -show} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse $xml1]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document \
+		-show [list document textNode]]
+	set result {}
+	set node [dom::treeWalker firstChild $treewalker]
+	lappend result [dom::node cget $node -nodeName]
+	lappend result [dom::node cget $node -nodeValue]
+	set node [dom::treeWalker parentNode $treewalker]
+	lappend result [dom::node cget $node -nodeName]
+	lappend result [dom::node cget $node -nodeValue]
+	set result	
+} -result {#text {This } #document {}}
+
+test treewalker-3.20 {nextSibling with -show} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse $xml1]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document \
+		-show [list document textNode]]
+	set result {}
+	set node [dom::treeWalker firstChild $treewalker]
+	lappend result [dom::node cget $node -nodeValue]
+	while {1} {
+		set node [dom::treeWalker nextSibling $treewalker]
+		if {$node == ""} break
+		lappend result [dom::node cget $node -nodeValue]
+	}
+	set result	
+} -result {{This } is { text.} aaa bbb aaa2 ccc ddd ccc2 aaa3}
+
+test treewalker-3.21 {lastChild} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse $xml1]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document]
+	set result {}
+	set node [dom::treeWalker lastChild $treewalker]
+	lappend result [dom::node cget $node -nodeName]
+	lappend result [dom::node cget $node -nodeValue]
+	set result	
+} -result {Test {}}
+
+test treewalker-3.22 {lastChild with -show} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse $xml1]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document \
+		-show textNode]
+	set result {}
+	set node [dom::treeWalker lastChild $treewalker]
+	lappend result [dom::node cget $node -nodeName]
+	lappend result [dom::node cget $node -nodeValue]
+	set result	
+} -result {#text aaa3}
+
+test treewalker-3.23 {previousSibling with -show} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse $xml1]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document \
+		-show [list document textNode]]
+	set result {}
+	set node [dom::treeWalker lastChild $treewalker]
+	lappend result [dom::node cget $node -nodeValue]
+	while {1} {
+		set node [dom::treeWalker previousSibling $treewalker]
+		if {$node == ""} break
+		lappend result [dom::node cget $node -nodeValue]
+	}
+	set result	
+} -result {aaa3 ccc2 ddd ccc aaa2 bbb aaa { text.} is {This }}
+
+test treewalker-3.24 {iteration with skip filter} -constraints {dom_c} -body {
+	proc nodeFilter {node} {
+		set value [dom::node cget $node -nodeName]
+		if {$value == "A"} {
+			return $::dom::skip
+		} else {
+			return $::dom::accept
+		}
+	}
+		
+    set document [::dom::DOMImplementation parse $xml1]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document \
+		-filter nodeFilter]
+	set result {}
+	for {set i 0} {$i < 40} {incr i} {
+		set node [dom::treeWalker nextNode $treewalker]
+		if {$node == ""} break;
+		set name [dom::node cget $node -nodeName]
+		if {$name != "#text"} {
+			lappend result $name
+		} else {
+			lappend result [dom::node cget $node -nodeValue]
+		}
+	}
+	rename nodeFilter {}
+	set result	
+} -result {Test Test {This } b is { text.} aaa B bbb aaa2 C ccc D ddd ccc2 aaa3}
+
+test treewalker-3.25 {iteration with reject filter} -constraints {dom_c} -body {
+	proc nodeFilter {node} {
+		set value [dom::node cget $node -nodeName]
+		if {$value == "A"} {
+			return $::dom::reject
+		} else {
+			return $::dom::accept
+		}
+	}
+		
+    set document [::dom::DOMImplementation parse $xml1]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document \
+		-filter nodeFilter]
+	set result {}
+	for {set i 0} {$i < 40} {incr i} {
+		set node [dom::treeWalker nextNode $treewalker]
+		if {$node == ""} break;
+		set name [dom::node cget $node -nodeName]
+		if {$name != "#text"} {
+			lappend result $name
+		} else {
+			lappend result [dom::node cget $node -nodeValue]
+		}
+	}
+	rename nodeFilter {}
+	set result	
+} -result {Test Test {This } b is { text.}}
+
+test treewalker-3.26 {reverse iteration with skip filter} -constraints {dom_c} -body {
+	proc nodeFilter {node} {
+		set value [dom::node cget $node -nodeName]
+		if {$value == "A"} {
+			return $::dom::skip
+		} else {
+			return $::dom::accept
+		}
+	}
+		
+    set document [::dom::DOMImplementation parse $xml1]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document \
+		-filter nodeFilter]
+	set result {}
+	for {set i 0} {$i < 40} {incr i} {
+		set node [dom::treeWalker nextNode $treewalker]
+		if {$node == ""} break;
+	}
+	for {set i 0} {$i < 40} {incr i} {
+		set node [dom::treeWalker previousNode $treewalker]
+		if {$node == ""} break;
+		set name [dom::node cget $node -nodeName]
+		if {$name != "#text"} {
+			lappend result $name
+		} else {
+			lappend result [dom::node cget $node -nodeValue]
+		}
+	}
+	rename nodeFilter {}
+	set result	
+} -result {ccc2 ddd D ccc C aaa2 bbb B aaa { text.} is b {This } Test Test #document}
+
+test treewalker-3.27 {reverse iteration with reject filter} -constraints {dom_c} -body {
+	# filter is noop while we go to last node
+	proc nodeFilter {node} {
+		return $::dom::accept
+	}
+		
+    set document [::dom::DOMImplementation parse $xml1]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document \
+		-filter nodeFilter]
+	set result {}
+	# advance to last node
+	for {set i 0} {$i < 40} {incr i} {
+		set node [dom::treeWalker nextNode $treewalker]
+		if {$node == ""} break;
+	}
+	proc nodeFilter {node} {
+		set value [dom::node cget $node -nodeName]
+		if {$value == "A"} {
+			return $::dom::reject
+		} else {
+			return $::dom::accept
+		}
+	}
+	for {set i 0} {$i < 40} {incr i} {
+		set node [dom::treeWalker previousNode $treewalker]
+		if {$node == ""} break;
+		set name [dom::node cget $node -nodeName]
+		if {$name != "#text"} {
+			lappend result $name
+		} else {
+			lappend result [dom::node cget $node -nodeValue]
+		}
+	}
+	rename nodeFilter {}
+	set result	
+	# child nodes of filtered element appear because we're going
+	# backwards
+} -result {ccc2 ddd D ccc C aaa2 bbb B aaa { text.} is b {This } Test Test #document}
+
+test treewalker-3.28 {iteration with deletion in filter} -constraints {dom_c} -body {
+	# this example isn't good coding practice, but we need to test that the
+	# code at least holds up
+	proc nodeFilter {node} {
+		set value [dom::node cget $node -nodeName]
+		if {$value == "A"} {
+			set parent [dom::node cget $node -parentNode]
+			if {$parent != {}} {
+				dom::node removeChild $parent $node
+			}
+			return $::dom::accept
+		} else {
+			return $::dom::accept
+		}
+	}
+		
+    set document [::dom::DOMImplementation parse $xml1]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document \
+		-filter nodeFilter]
+	set result {}
+	for {set i 0} {$i < 40} {incr i} {
+		set node [dom::treeWalker nextNode $treewalker]
+		if {$node == ""} break;
+		set name [dom::node cget $node -nodeName]
+		if {$name != "#text"} {
+			lappend result $name
+		} else {
+			lappend result [dom::node cget $node -nodeValue]
+		}
+	}
+	rename nodeFilter {}
+	set result	
+} -result {Test Test {This } b is { text.} A aaa B bbb aaa2 C ccc D ddd ccc2 aaa3}
+
+
+test treewalker-4.1 {treewalker deletion} -constraints {dom_c} -body {
+    set document [::dom::DOMImplementation parse $xml1]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document \
+		-show [list document textNode]]
+	set result [catch {::dom::DocumentTraversal destroy $treewalker} errmsg]
+
+	list $result $errmsg
+} -result {0 {}}
+
+test treewalker-5.1 {delete document in filter proc} -constraints {dom_c} -body {
+	proc nodeFilter {node} {
+		global document
+		dom::DOMImplementation destroy $document
+		return $::dom::accept
+	}
+		
+    set document [::dom::DOMImplementation parse $xml1]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document \
+		-filter nodeFilter]
+	set node [dom::treeWalker nextNode $treewalker]
+ 	set result [catch {dom::node cget $node -nodeName} errmsg]
+	rename nodeFilter {}
+	list $result $errmsg
+} -result {1 {token not found}}
+
+test treewalker-5.2 {delete document in filter proc} -constraints {dom_c} -body {
+	proc nodeFilter {node} {
+		global document
+		dom::DOMImplementation destroy $document
+		return $::dom::accept
+	}
+		
+    set document [::dom::DOMImplementation parse $xml1]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document \
+		-filter nodeFilter]
+	set node [dom::treeWalker nextNode $treewalker]
+ 	set result [catch {dom::treeWalker nextNode $treewalker} errmsg]
+	rename nodeFilter {}
+	list $result $errmsg
+} -result {0 {}}
+
+
+test treewalker-5.3 {delete treewalker in filter proc} -constraints {dom_c} -body {
+	proc nodeFilter {node} {
+		global treewalker
+		::dom::DocumentTraversal destroy $treewalker
+		return $::dom::accept
+	}
+		
+    set document [::dom::DOMImplementation parse $xml1]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document \
+		-filter nodeFilter]
+	# first invocation succeeds
+	set node [dom::treeWalker nextNode $treewalker]
+	set result [catch {dom::treeWalker nextNode $treewalker} errmsg]
+	rename nodeFilter {}
+	list $result $errmsg
+} -result {1 {token not found}}
+
+test treewalker-5.4 {recursively invoke filter proc} -constraints {dom_c} -body {
+	proc nodeFilter {node} {
+		global treewalker
+		set node [dom::treeWalker nextNode $treewalker]
+		return $::dom::accept
+	}
+		
+    set document [::dom::DOMImplementation parse $xml1]
+	set treewalker [dom::DocumentTraversal createTreeWalker $document \
+		-filter nodeFilter]
+	expectError {
+	    dom::treeWalker nextNode $treewalker
+	} {too many nested calls * (infinite loop?)}
+	rename nodeFilter {}
+	ok
+} -result {}
+
+::tcltest::cleanupTests
+return

@@ -24,47 +24,61 @@
 #include <sys/types.h>
 #include <launch.h>
 #include <unistd.h>
+#include <paths.h>
+#include <uuid/uuid.h>
 
 #pragma GCC visibility push(default)
 
 __BEGIN_DECLS
 
-#define LAUNCH_KEY_SETUSERENVIRONMENT	"SetUserEnvironment"
-#define LAUNCH_KEY_UNSETUSERENVIRONMENT	"UnsetUserEnvironment"
-#define LAUNCH_KEY_SHUTDOWN		"Shutdown"
-#define LAUNCH_KEY_SINGLEUSER		"SingleUser"
-#define LAUNCH_KEY_GETRESOURCELIMITS	"GetResourceLimits"
-#define LAUNCH_KEY_SETRESOURCELIMITS	"SetResourceLimits"
-#define LAUNCH_KEY_GETRUSAGESELF	"GetResourceUsageSelf"
-#define LAUNCH_KEY_GETRUSAGECHILDREN	"GetResourceUsageChildren"
+#define LAUNCH_KEY_SETUSERENVIRONMENT					"SetUserEnvironment"
+#define LAUNCH_KEY_UNSETUSERENVIRONMENT					"UnsetUserEnvironment"
+#define LAUNCH_KEY_SHUTDOWN								"Shutdown"
+#define LAUNCH_KEY_SINGLEUSER							"SingleUser"
+#define LAUNCH_KEY_GETRESOURCELIMITS					"GetResourceLimits"
+#define LAUNCH_KEY_SETRESOURCELIMITS					"SetResourceLimits"
+#define LAUNCH_KEY_GETRUSAGESELF						"GetResourceUsageSelf"
+#define LAUNCH_KEY_GETRUSAGECHILDREN					"GetResourceUsageChildren"
+#define LAUNCH_KEY_SETPRIORITYLIST						"SetPriorityList"
 
-#define LAUNCHD_SOCKET_ENV		"LAUNCHD_SOCKET"
-#define LAUNCHD_SOCK_PREFIX		"/var/tmp/launchd"
-#define LAUNCHD_TRUSTED_FD_ENV		"__LAUNCHD_FD"
-#define LAUNCHD_ASYNC_MSG_KEY		"_AsyncMessage"
-#define LAUNCH_KEY_BATCHCONTROL		"BatchControl"
-#define LAUNCH_KEY_BATCHQUERY		"BatchQuery"
+#define LAUNCHD_SOCKET_ENV								"LAUNCHD_SOCKET"
+#define LAUNCHD_SOCK_PREFIX								_PATH_VARTMP "launchd"
+#define LAUNCHD_TRUSTED_FD_ENV							"__LAUNCHD_FD"
+#define LAUNCHD_ASYNC_MSG_KEY							"_AsyncMessage"
+#define LAUNCH_KEY_BATCHCONTROL							"BatchControl"
+#define LAUNCH_KEY_BATCHQUERY							"BatchQuery"
+#define LAUNCHD_DO_APPLE_INTERNAL_LOGGING				"__DoAppleInternalLogging__"
 
-#define LAUNCH_JOBKEY_QUARANTINEDATA	"QuarantineData"
-#define LAUNCH_JOBKEY_SANDBOXPROFILE	"SandboxProfile"
-#define LAUNCH_JOBKEY_SANDBOXFLAGS	"SandboxFlags"
-#define LAUNCH_JOBKEY_SANDBOX_NAMED	"Named"
+#define LAUNCH_KEY_JETSAMLABEL							"JetsamLabel"
+#define LAUNCH_KEY_JETSAMFRONTMOST						"JetsamFrontmost"
+#define LAUNCH_KEY_JETSAMPRIORITY						"JetsamPriority"
 
-#define LAUNCH_JOBKEY_ENTERKERNELDEBUGGERBEFOREKILL	"EnterKernelDebuggerBeforeKill"
-#define LAUNCH_JOBKEY_PERJOBMACHSERVICES	"PerJobMachServices"
-#define LAUNCH_JOBKEY_SERVICEIPC		"ServiceIPC"
-#define LAUNCH_JOBKEY_BINARYORDERPREFERENCE	"BinaryOrderPreference"
-#define LAUNCH_JOBKEY_MACHEXCEPTIONHANDLER	"MachExceptionHandler"
+#define LAUNCH_JOBKEY_TRANSACTIONCOUNT					"TransactionCount"
+#define LAUNCH_JOBKEY_QUARANTINEDATA					"QuarantineData"
+#define LAUNCH_JOBKEY_SANDBOXPROFILE					"SandboxProfile"
+#define LAUNCH_JOBKEY_SANDBOXFLAGS						"SandboxFlags"
+#define LAUNCH_JOBKEY_SANDBOX_NAMED						"Named"
+#define LAUNCH_JOBKEY_JETSAMPRIORITY					"JetsamPriority"
+#define LAUNCH_JOBKEY_SECURITYSESSIONUUID				"SecuritySessionUUID"
 
-#define LAUNCH_JOBKEY_MACH_KUNCSERVER	"kUNCServer"
-#define LAUNCH_JOBKEY_MACH_EXCEPTIONSERVER	"ExceptionServer"
-#define LAUNCH_JOBKEY_MACH_TASKSPECIALPORT	"TaskSpecialPort"
-#define LAUNCH_JOBKEY_MACH_HOSTSPECIALPORT	"HostSpecialPort"
+#define LAUNCH_JOBKEY_EMBEDDEDPRIVILEGEDISPENSATION		"EmbeddedPrivilegeDispensation"
+#define LAUNCH_JOBKEY_EMBEDDEDMAINTHREADPRIORITY		"EmbeddedMainThreadPriority"
+
+#define LAUNCH_JOBKEY_ENTERKERNELDEBUGGERBEFOREKILL		"EnterKernelDebuggerBeforeKill"
+#define LAUNCH_JOBKEY_PERJOBMACHSERVICES				"PerJobMachServices"
+#define LAUNCH_JOBKEY_SERVICEIPC						"ServiceIPC"
+#define LAUNCH_JOBKEY_BINARYORDERPREFERENCE				"BinaryOrderPreference"
+#define LAUNCH_JOBKEY_MACHEXCEPTIONHANDLER				"MachExceptionHandler"
+
+#define LAUNCH_JOBKEY_MACH_KUNCSERVER					"kUNCServer"
+#define LAUNCH_JOBKEY_MACH_EXCEPTIONSERVER				"ExceptionServer"
+#define LAUNCH_JOBKEY_MACH_TASKSPECIALPORT				"TaskSpecialPort"
+#define LAUNCH_JOBKEY_MACH_HOSTSPECIALPORT				"HostSpecialPort"
 #define LAUNCH_JOBKEY_MACH_ENTERKERNELDEBUGGERONCLOSE	"EnterKernelDebuggerOnClose"
 
 typedef struct _launch *launch_t;
 
-launch_t launchd_fdopen(int);
+launch_t launchd_fdopen(int, int);
 int launchd_getfd(launch_t);
 void launchd_close(launch_t, __typeof__(close) closefunc);
 
@@ -80,7 +94,8 @@ int launchd_msg_recv(launch_t, void (*)(launch_data_t, void *), void *);
  *
  * This returns 1 on success (it used to return otherwise), and -1 on failure.
  */
-#define	LOAD_ONLY_SAFEMODE_LAUNCHAGENTS	1
+#define	LOAD_ONLY_SAFEMODE_LAUNCHAGENTS	1 << 0
+#define LAUNCH_GLOBAL_ON_DEMAND			1 << 1
 pid_t create_and_switch_to_per_session_launchd(const char * /* loginname */, int flags, ...);
 
 /* Also for LoginWindow.

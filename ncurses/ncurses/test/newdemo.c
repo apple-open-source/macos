@@ -2,19 +2,17 @@
  *  newdemo.c	-	A demo program using PDCurses. The program illustrate
  *  	 		the use of colours for text output.
  *
- * $Id: newdemo.c,v 1.27 2005/05/28 21:40:00 tom Exp $
+ * $Id: newdemo.c,v 1.31 2008/08/03 20:19:38 tom Exp $
  */
 
 #include <test.priv.h>
 
 #include <time.h>
 
-#define delay_output(x) napms(x)
-
 /*
  *  The Australian map
  */
-static const char *AusMap[16] =
+static CONST_MENUS char *AusMap[16] =
 {
     "           A           A ",
     "    N.T. AAAAA       AAAA ",
@@ -225,12 +223,13 @@ main(int argc GCC_UNUSED, char *argv[]GCC_UNUSED)
 
     setlocale(LC_ALL, "");
 
+    CATCHALL(trap);
+
     initscr();
     if (has_colors())
 	start_color();
     cbreak();
     curs_set(0);
-    signal(SIGINT, trap);
     width = 48;
     height = 14;		/* Create a drawing window */
     win = newwin(height, width, (LINES - height) / 2, (COLS - width) / 2);
@@ -320,6 +319,7 @@ main(int argc GCC_UNUSED, char *argv[]GCC_UNUSED)
 	j = 0;
 	/*  Draw running As across in RED */
 	set_colors(win, 7, COLOR_RED, COLOR_GREEN);
+	memset(save, ' ', sizeof(save));
 	for (i = 2; i < width - 4; ++i) {
 	    k = mvwinch(win, 4, i);
 	    if (k == ERR)

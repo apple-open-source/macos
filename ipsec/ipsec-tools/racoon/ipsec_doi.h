@@ -200,6 +200,12 @@ struct ipsecdoi_pl_id {
 #define VERIFICATION_OPTION_OPEN_DIR			2
 #endif
 
+/* qualifiers for KEYID (and maybe others) */
+#define IDQUAL_UNSPEC		0
+#define IDQUAL_FILE		1
+#define IDQUAL_TAG		2
+
+
 /* The use for checking proposal payload. This is not exchange type. */
 #define IPSECDOI_TYPE_PH1	0
 #define IPSECDOI_TYPE_PH2	1
@@ -219,20 +225,25 @@ extern struct prop_pair **get_proppair __P((vchar_t *, int));
 extern vchar_t *get_sabyproppair __P((struct prop_pair *, struct ph1handle *));
 extern int ipsecdoi_updatespi __P((struct ph2handle *iph2));
 extern vchar_t *get_sabysaprop __P((struct saprop *, vchar_t *));
+extern int ipsecdoi_chkcmpids( const vchar_t *, const vchar_t *, int );
 extern int ipsecdoi_checkid1 __P((struct ph1handle *));
 extern int ipsecdoi_setid1 __P((struct ph1handle *));
 extern int set_identifier __P((vchar_t **, int, vchar_t *));
+extern int set_identifier_qual __P((vchar_t **, int, vchar_t *, int));
 extern int ipsecdoi_setid2 __P((struct ph2handle *));
 extern vchar_t *ipsecdoi_sockaddr2id __P((struct sockaddr *, u_int, u_int));
 extern int ipsecdoi_id2sockaddr __P((vchar_t *, struct sockaddr *,
 	u_int8_t *, u_int16_t *));
-extern const char *ipsecdoi_id2str __P((const vchar_t *));
+extern char *ipsecdoi_id2str __P((const vchar_t *));
+extern vchar_t *ipsecdoi_sockrange2id __P((	struct sockaddr *,
+	struct sockaddr *, u_int));
 
 extern vchar_t *ipsecdoi_setph1proposal __P((struct isakmpsa *));
 extern int ipsecdoi_setph2proposal __P((struct ph2handle *));
 extern int ipsecdoi_transportmode __P((struct saprop *));
 #ifdef __APPLE__
 extern int ipsecdoi_tunnelmode __P((struct ph2handle *));
+extern int ipsecdoi_any_transportmode __P((struct saprop *));
 #endif
 extern int ipsecdoi_get_defaultlifetime __P((void));
 extern int ipsecdoi_checkalgtypes __P((int, int, int, int));

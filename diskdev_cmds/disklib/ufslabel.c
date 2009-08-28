@@ -50,21 +50,21 @@ typedef union {
 
 typedef union {
     u_short 	s[2];
-    long	l;
+    int32_t 	l;
 } long_union_t;
 
 typedef struct {
-    unsigned long state[5];
-    unsigned long count[2];
+    uint32_t state[5];
+    uint32_t count[2];
     unsigned char buffer[64];
 } SHA1_CTX;
 
 #define VOLUMEUUIDVALUESIZE 2
 typedef union VolumeUUID {
-	unsigned long value[VOLUMEUUIDVALUESIZE];
+	uint32_t value[VOLUMEUUIDVALUESIZE];
 	struct {
-		unsigned long high;
-		unsigned long low;
+		uint32_t high;
+		uint32_t low;
 	} v;
 } VolumeUUID;
 
@@ -344,12 +344,12 @@ ufslabel_write(int fd, struct ufslabel * label_p)
 
 /* Hash a single 512-bit block. This is the core of the algorithm. */
 
-static void SHA1Transform(unsigned long state[5], unsigned char buffer[64])
+static void SHA1Transform(uint32_t state[5], unsigned char buffer[64])
 {
-unsigned long a, b, c, d, e;
+uint32_t a, b, c, d, e;
 typedef union {
     unsigned char c[64];
-    unsigned long l[16];
+    uint32_t l[16];
 } CHAR64LONG16;
 CHAR64LONG16* block;
 #ifdef SHA1HANDSOFF
@@ -421,11 +421,11 @@ static void SHA1Init(SHA1_CTX* context)
 static void SHA1Update(SHA1_CTX* context, void* data, size_t len)
 {
 	unsigned char *dataptr = data;
-	unsigned int i, j;
+	uint32_t i, j;
 
     j = (context->count[0] >> 3) & 63;
-    if ((context->count[0] += len << 3) < (len << 3)) context->count[1]++;
-    context->count[1] += (len >> 29);
+    if ((context->count[0] += (int32_t)len << 3) < ((int32_t)len << 3)) context->count[1]++;
+    context->count[1] += ((int32_t)len >> 29);
     if ((j + len) > 63) {
         memcpy(&context->buffer[j], dataptr, (i = 64-j));
         SHA1Transform(context->state, context->buffer);
@@ -443,8 +443,8 @@ static void SHA1Update(SHA1_CTX* context, void* data, size_t len)
 
 static void SHA1Final(unsigned char digest[20], SHA1_CTX* context)
 {
-unsigned long i, j;
-unsigned char finalcount[8];
+	uint32_t i, j;
+	unsigned char finalcount[8];
 
     for (i = 0; i < 8; i++) {
         finalcount[i] = (unsigned char)((context->count[(i >= 4 ? 0 : 1)]
@@ -471,8 +471,8 @@ unsigned char finalcount[8];
 }
 
 
-static void FormatULong(unsigned long u, char *s) {
-	unsigned long d;
+static void FormatUInt32(uint32_t u, char *s) {
+	uint32_t d;
 	int i;
 	char *digitptr = s;
 
@@ -572,8 +572,8 @@ void GenerateVolumeUUID(VolumeUUID *newVolumeID) {
 
 
 static void FormatUUID(VolumeUUID *volumeID, char *UUIDField) {
-	FormatULong(volumeID->v.high, UUIDField);
-	FormatULong(volumeID->v.low, UUIDField+8);
+	FormatUInt32(volumeID->v.high, UUIDField);
+	FormatUInt32(volumeID->v.low, UUIDField+8);
 
 };
 
@@ -581,10 +581,10 @@ static void FormatUUID(VolumeUUID *volumeID, char *UUIDField) {
 void ConvertVolumeUUIDStringToUUID(const char *UUIDString, VolumeUUID *volumeID) {
 	int i;
 	char c;
-	unsigned long nextdigit;
-	unsigned long high = 0;
-	unsigned long low = 0;
-	unsigned long carry;
+	uint32_t nextdigit;
+	uint32_t high = 0;
+	uint32_t low = 0;
+	uint32_t carry;
 	
 	for (i = 0; (i < VOLUMEUUIDLENGTH) && ((c = UUIDString[i]) != (char)0) ; ++i) {
 		if ((c >= '0') && (c <= '9')) {
@@ -676,7 +676,7 @@ ufslabel_init(struct ufslabel * ul_p)
     ul_p->ul_version = htonl(UFS_LABEL_VERSION);
     bcopy(ufs_label_magic, &ul_p->ul_magic, sizeof(ul_p->ul_magic));
     gettimeofday(&tv, 0);
-    ul_p->ul_time = htonl(tv.tv_sec);
+    ul_p->ul_time = htonl((uint32_t)tv.tv_sec);
 }
 
 

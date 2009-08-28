@@ -1,18 +1,15 @@
 .TH LDAP_URL 3 "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man3/ldap_url.3,v 1.16.2.3 2006/01/03 22:16:04 kurt Exp $
-.\" Copyright 1998-2006 The OpenLDAP Foundation All Rights Reserved.
+.\" $OpenLDAP: pkg/ldap/doc/man/man3/ldap_url.3,v 1.18.2.5 2008/02/11 23:26:39 kurt Exp $
+.\" Copyright 1998-2008 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
-ldap_is_ldap_url,
-ldap_url_parse,
-ldap_free_urldesc \- LDAP Uniform Resource Locator routines
+ldap_is_ldap_url, ldap_url_parse, ldap_free_urldesc \- LDAP Uniform Resource Locator routines
 .SH LIBRARY
 OpenLDAP LDAP (libldap, -lldap)
 .SH SYNOPSIS
 .nf
 .ft B
 #include <ldap.h>
-.ft
 .LP
 .ft B
 int ldap_is_ldap_url( const char *url )
@@ -34,10 +31,10 @@ typedef struct ldap_url_desc {
 } LDAPURLDesc;
 .LP
 .ft B
-ldap_free_urldesc( LDAPURLDesc *ludp )
+void ldap_free_urldesc( LDAPURLDesc *ludp );
 .SH DESCRIPTION
 These routines support the use of LDAP URLs (Uniform Resource Locators)
-as detailed in RFC 2255.  LDAP URLs look like this:
+as detailed in RFC 4516.  LDAP URLs look like this:
 .nf
 
   \fBldap://\fP\fIhostport\fP\fB/\fP\fIdn\fP[\fB?\fP\fIattrs\fP[\fB?\fP\fIscope\fP[\fB?\fP\fIfilter\fP[\fB?\fP\fIexts\fP]]]]
@@ -57,7 +54,7 @@ Example:
 .fi
 .LP
 URLs that are wrapped in angle-brackets and/or preceded by "URL:" are also
-tolerated.  Alternative schemes such as ldaps:// and ldapi:// may be
+tolerated.  Alternative LDAP schemes such as ldaps:// and ldapi:// may be
 parsed using the below routines as well.
 .LP
 .B ldap_is_ldap_url()
@@ -78,12 +75,9 @@ should be called to free an LDAP URL description that was obtained from
 a call to
 .B ldap_url_parse().
 .SH SEE ALSO
+.nf
 .BR ldap (3)
-.LP
-.B The LDAP URL Format, RFC 2255,
-Tim Howes and Mark Smith, December 1997.
+.BR "RFC 4516" " <http://www.rfc-editor.org/rfc/rfc4516.txt>"
 .SH ACKNOWLEDGEMENTS
-.B OpenLDAP
-is developed and maintained by The OpenLDAP Project (http://www.openldap.org/).
-.B OpenLDAP
-is derived from University of Michigan LDAP 3.3 Release.  
+.fi
+.so ../Project

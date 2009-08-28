@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -21,12 +21,13 @@
 #include "sdbm_private.h"
 #include "sdbm_tune.h"
 
-/* NOTE: this function blocks until it acquires the lock */
+/* NOTE: this function may block until it acquires the lock */
 APU_DECLARE(apr_status_t) apr_sdbm_lock(apr_sdbm_t *db, int type)
 {
     apr_status_t status;
+    int lock_type = type & APR_FLOCK_TYPEMASK;
 
-    if (!(type == APR_FLOCK_SHARED || type == APR_FLOCK_EXCLUSIVE))
+    if (!(lock_type == APR_FLOCK_SHARED || lock_type == APR_FLOCK_EXCLUSIVE))
         return APR_EINVAL;
 
     if (db->flags & SDBM_EXCLUSIVE_LOCK) {

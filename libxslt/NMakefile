@@ -1,0 +1,22 @@
+
+install:
+# ========== libxslt ==========
+	cd "$(SRCROOT)\libxslt\win32"
+	cscript //nologo configure.js cruntime=/MD prefix="$(OBJROOT)\libxslt" include="$(SRCROOT)\AppleInternal\include;$(SRCROOT)\AppleInternal\include\CoreFoundation\OSXCompatibilityHeaders\GNUCompatibility" lib="$(SRCROOT)\AppleInternal\lib"
+	nmake /f Makefile.msvc
+	nmake /f Makefile.msvc install	
+	xcopy "$(OBJROOT)\libxslt\bin\lib*" "$(DSTROOT)\AppleInternal\bin" /e/v/i/h/y
+	xcopy "$(OBJROOT)\libxslt\lib\*.dll" "$(DSTROOT)\AppleInternal\bin" /e/v/i/h/y
+	xcopy "$(OBJROOT)\libxslt\lib\*.lib" "$(DSTROOT)\AppleInternal\lib" /e/v/i/h/y
+	xcopy "$(OBJROOT)\libxslt\include\libexslt" "$(DSTROOT)\AppleInternal\include\libexslt" /e/v/i/h/y
+	xcopy "$(OBJROOT)\libxslt\include\libxslt" "$(DSTROOT)\AppleInternal\include\libxslt" /e/v/i/h/y	
+
+install_DEBUG:
+# ========== libxslt ==========
+	cd "$(SRCROOT)\libxslt\win32"
+	cscript //nologo configure.js debug=1 cruntime=/MDd prefix="$(OBJROOT)\libxslt" include="$(SRCROOT)\AppleInternal\include;$(SRCROOT)\AppleInternal\include\CoreFoundation\OSXCompatibilityHeaders\GNUCompatibility" lib="$(SRCROOT)\AppleInternal\lib"
+	nmake /f Makefile.msvc
+	nmake /f Makefile.msvc install	
+	xcopy "$(OBJROOT)\libxslt\bin\lib*" "$(DSTROOT)\AppleInternal\bin" /e/v/i/h/y
+	xcopy "$(OBJROOT)\libxslt\lib\*.dll" "$(DSTROOT)\AppleInternal\bin" /e/v/i/h/y
+	xcopy "$(OBJROOT)\libxslt\lib\*.lib" "$(DSTROOT)\AppleInternal\lib" /e/v/i/h/y

@@ -24,7 +24,7 @@ my $ovl = Overloaded->new;
         validate( @p, { object => { isa => 'Overloaded' } } );
     };
 
-    ok( ! $@, 'overloaded object->isa' );
+    is( $@, q{}, 'overloaded object->isa' );
 }
 
 {
@@ -34,5 +34,5 @@ my $ovl = Overloaded->new;
         validate( @p, { object => { can => 'foo' } } );
     };
 
-    ok( ! $@, 'overloaded object->foo' );
+    is( $@, q{}, 'overloaded object->foo' );
 }

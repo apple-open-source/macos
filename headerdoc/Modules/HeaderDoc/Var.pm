@@ -3,8 +3,7 @@
 # Class name: Var
 # Synopsis: Holds class and instance data members parsed by headerDoc
 #
-# Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2007/07/19 18:45:00 $
+# Last Updated: $Date: 2009/03/30 19:38:52 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -38,7 +37,7 @@ use HeaderDoc::Struct;
 @ISA = qw( HeaderDoc::Struct );
 use strict;
 use vars qw($VERSION @ISA);
-$VERSION = '$Revision: 1.8.2.8.2.29 $';
+$HeaderDoc::Var::VERSION = '$Revision: 1.12 $';
 
 sub new {
     my($param) = shift;
@@ -72,25 +71,25 @@ sub clone {
     return $clone;
 }
 
-sub processComment {
+sub processComment_old {
     my($self) = shift;
     my $fieldArrayRef = shift;
     my @fields = @$fieldArrayRef;
-    my $filename = $self->filename();
+    my $fullpath = $self->fullpath();
     my $linenum = $self->linenum();
     my $isProperty = $self->isProperty();
 
-    # print "ISPROPERTY: $isProperty\n";
+    # print STDERR "ISPROPERTY: $isProperty\n";
 
     foreach my $field (@fields) {
 	my $fieldname = "";
 	my $top_level_field = 0;
 	if ($field =~ /^(\w+)(\s|$)/) {
 		$fieldname = $1;
-		# print "FIELDNAME: $fieldname\n";
+		# print STDERR "FIELDNAME: $fieldname\n";
 		$top_level_field = validTag($fieldname, 1);
 	}
-	# print "TLF: $top_level_field, FN: \"$fieldname\"\n";
+	# print STDERR "TLF: $top_level_field, FN: \"$fieldname\"\n";
 	SWITCH: {
             ($field =~ /^\/\*\!/o)&& do {
                                 my $copy = $field;
@@ -103,7 +102,7 @@ sub processComment {
 	    ($field =~ s/^serial\s+//io) && do {$self->attribute("Serial Field Info", $field, 1); last SWITCH;};
 	    ($field =~ s/^serialfield\s+//io) && do {
 		    if (!($field =~ s/(\S+)\s+(\S+)\s+//so)) {
-			warn "$filename:$linenum: warning: serialfield format wrong.\n";
+			warn "$fullpath:$linenum: warning: serialfield format wrong.\n";
 		    } else {
 			my $name = $1;
 			my $type = $2;
@@ -122,6 +121,8 @@ sub processComment {
             ($field =~ s/^availability\s+//io) && do {$self->availability($field); last SWITCH;};
             ($field =~ s/^since\s+//io) && do {$self->availability($field); last SWITCH;};
             ($field =~ s/^author\s+//io) && do {$self->attribute("Author", $field, 0); last SWITCH;};
+            ($field =~ s/^group\s+//io) && do {$self->group($field); last SWITCH;};
+            ($field =~ s/^indexgroup\s+//io) && do {$self->indexgroup($field); last SWITCH;};
 	    ($field =~ s/^version\s+//io) && do {$self->attribute("Version", $field, 0); last SWITCH;};
             ($field =~ s/^deprecated\s+//io) && do {$self->attribute("Deprecated", $field, 0); last SWITCH;};
             ($field =~ s/^updated\s+//io) && do {$self->updated($field); last SWITCH;};
@@ -130,7 +131,7 @@ sub processComment {
 		    if (length($attname) && length($attdisc)) {
 			$self->attribute($attname, $attdisc, 0);
 		    } else {
-			warn "$filename:$linenum: warning: Missing name/discussion for attribute\n";
+			warn "$fullpath:$linenum: warning: Missing name/discussion for attribute\n";
 		    }
 		    last SWITCH;
 		};
@@ -148,7 +149,7 @@ sub processComment {
 			    $self->attributelist($name, $line);
 			}
 		    } else {
-			warn "$filename:$linenum: warning: Missing name/discussion for attributelist\n";
+			warn "$fullpath:$linenum: warning: Missing name/discussion for attributelist\n";
 		    }
 		    last SWITCH;
 		};
@@ -157,7 +158,7 @@ sub processComment {
 		    if (length($attname) && length($attdisc)) {
 			$self->attribute($attname, $attdisc, 1);
 		    } else {
-			warn "$filename:$linenum: warning: Missing name/discussion for attributeblock\n";
+			warn "$fullpath:$linenum: warning: Missing name/discussion for attributeblock\n";
 		    }
 		    last SWITCH;
 		};
@@ -166,6 +167,7 @@ sub processComment {
 		    $self->see($field);
 		    last SWITCH;
 		};
+            ($field =~ s/^details(\s+|$)//io) && do {$self->discussion($field); last SWITCH;};
             ($field =~ s/^discussion(\s+|$)//io) && do {$self->discussion($field); last SWITCH;};
 
 		# Added bits for properties.
@@ -181,9 +183,9 @@ sub processComment {
 	            $param->discussion($pDesc);
 	            $self->addTaggedParameter($param);
 # my $name = $self->name();
-# print "Adding $pName : $pDesc in $name\n";
+# print STDERR "Adding $pName : $pDesc in $name\n";
 # my $class = ref($self) || $self;
-# print "class is $class\n";
+# print STDERR "class is $class\n";
 				last SWITCH;
 			};
  		($isProperty && $field =~ s/^throws\s+//io) && do {$self->throws($field); last SWITCH;};
@@ -211,25 +213,25 @@ sub processComment {
                 	last SWITCH;
             	};
 
-	    # my $filename = $HeaderDoc::headerObject->name();
-	    my $filename = $self->filename();
+	    # my $fullpath = $HeaderDoc::headerObject->name();
+	    my $fullpath = $self->fullpath();
 	    my $linenum = $self->linenum();
-            # print "$filename:$linenum:Unknown field in Var comment: $field\n";
-	    if (length($field)) { warn "$filename:$linenum: warning: Unknown field (\@$field) in var comment (".$self->name().")\n"; }
+            # print STDERR "$fullpath:$linenum:Unknown field in Var comment: $field\n";
+	    if (length($field)) { warn "$fullpath:$linenum: warning: Unknown field (\@$field) in var comment (".$self->name().")\n"; }
 		}
 	}
 }
 
 
-sub setVarDeclaration {
+sub setDeclaration {
     my($self) = shift;
     my ($dec) = @_;
     my $localDebug = 0;
 
     $self->declaration($dec);
     
-    print "============================================================================\n" if ($localDebug);
-    print "Raw var declaration is: $dec\n" if ($localDebug);
+    print STDERR "============================================================================\n" if ($localDebug);
+    print STDERR "Raw var declaration is: $dec\n" if ($localDebug);
     $self->declarationInHTML($dec);
     return $dec;
 }
@@ -246,9 +248,9 @@ sub isProperty {
 sub printObject {
     my $self = shift;
  
-    print "Var\n";
+    print STDERR "Var\n";
     $self->SUPER::printObject();
-    print "\n";
+    print STDERR "\n";
 }
 
 # Extra stuff for Objective-C Properties

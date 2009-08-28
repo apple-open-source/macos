@@ -537,6 +537,12 @@ parse_list(void)
     return bld_eprog();
 }
 
+/*
+ * This entry point is only used for bin_test, our attempt to
+ * provide compatibility with /bin/[ and /bin/test.  Hence
+ * at this point condlex should always be set to testlex.
+ */
+
 /**/
 mod_export Eprog
 parse_cond(void)
@@ -714,7 +720,8 @@ par_sublist2(int *complex)
 static int
 par_pline(int *complex)
 {
-    int p, line = lineno;
+    int p;
+    zlong line = toklineno;
 
     p = ecadd(0);
 
@@ -1408,8 +1415,9 @@ par_subsh(int *complex)
 static void
 par_funcdef(void)
 {
-    int oecused = ecused, oldlineno = lineno, num = 0, onp, p, c = 0;
+    int oecused = ecused, num = 0, onp, p, c = 0;
     int so, oecssub = ecssub;
+    zlong oldlineno = lineno;
 
     lineno = 0;
     nocorrect = 1;
@@ -1559,6 +1567,18 @@ par_simple(int *complex, int nr)
 		str = p + 1;
 	    } else
 		equalsplit(tokstr, &str);
+	    for (p = str; *p; p++) {
+		/*
+		 * We can't treat this as "simple" if it contains
+		 * expansions that require process subsitution, since then
+		 * we need process handling.
+		 */
+		if (p[1] == Inpar &&
+		    (*p == Equals || *p == Inang || *p == Outang)) {
+		    *complex = 1;
+		    break;
+		}
+	    }
 	    ecstr(name);
 	    ecstr(str);
 	    isnull = 0;
@@ -1640,7 +1660,11 @@ par_simple(int *complex, int nr)
 	    p += nrediradd;
 	    sr += nrediradd;
 	} else if (tok == INOUTPAR) {
-	    int oldlineno = lineno, onp, so, oecssub = ecssub;
+	    zlong oldlineno = lineno;
+	    int onp, so, oecssub = ecssub;
+
+	    if (!isset(MULTIFUNCDEF) && argc > 1)
+		YYERROR(oecused);
 
 	    *complex = c;
 	    lineno = 0;
@@ -1681,8 +1705,7 @@ par_simple(int *complex, int nr)
 		sl = ecadd(0);
 		pl = ecadd(WCB_PIPE(WC_PIPE_END, 0));
 
-		par_cmd(&c);
-		if (!c) {
+		if (!par_cmd(&c)) {
 		    cmdpop();
 		    YYERROR(oecused);
 		}
@@ -1855,7 +1878,7 @@ par_redir(int *rp, char *idstring)
 void
 setheredoc(int pc, int type, char *str)
 {
-    ecbuf[pc] = WCB_REDIR(type);
+    ecbuf[pc] = WCB_REDIR(type | REDIR_FROM_HEREDOC_MASK);
     ecbuf[pc + 2] = ecstrcode(str);
 }
 
@@ -2124,6 +2147,12 @@ par_cond_triple(char *a, char *b, char *c)
 	ecstr(a);
 	ecstr(c);
 	ecadd(ecnpats++);
+    } else if ((b[0] == Equals || b[0] == '=') &&
+               (b[1] == '~' || b[1] == Tilde) && !b[2]) {
+	ecadd(WCB_COND(COND_REGEX, 0));
+	ecstr(a);
+	ecstr(c);
+	ecadd(ecnpats++);
     } else if (b[0] == '-') {
 	if ((t0 = get_cond_num(b + 1)) > -1) {
 	    ecadd(WCB_COND(t0 + COND_NT, 0));
@@ -2176,12 +2205,14 @@ yyerror(int noerr)
     for (t0 = 0; t0 != 20; t0++)
 	if (!t || !t[t0] || t[t0] == '\n')
 	    break;
-    if (t0 == 20)
-	zwarn("parse error near `%l...'", t, 20);
-    else if (t0)
-	zwarn("parse error near `%l'", t, t0);
-    else
-	zwarn("parse error");
+    if (!(histdone & HISTFLAG_NOEXEC)) {
+	if (t0 == 20)
+	    zwarn("parse error near `%l...'", t, 20);
+	else if (t0)
+	    zwarn("parse error near `%l'", t, t0);
+	else
+	    zwarn("parse error");
+    }
     if (!noerr && noerrs != 2)
 	errflag = 1;
 }
@@ -2397,6 +2428,10 @@ ecgetredirs(Estate s)
 	r->type = WC_REDIR_TYPE(code);
 	r->fd1 = *s->pc++;
 	r->name = ecgetstr(s, EC_DUP, NULL);
+	if (WC_REDIR_FROM_HEREDOC(code))
+	    r->flags = REDIRF_FROM_HEREDOC;
+	else
+	    r->flags = 0;
 	if (WC_REDIR_VARID(code))
 	    r->varid = ecgetstr(s, EC_DUP, NULL);
 	else
@@ -2607,7 +2642,7 @@ bin_zcompile(char *nam, char **args, Options ops, UNUSED(int func))
 static Wordcode
 load_dump_header(char *nam, char *name, int err)
 {
-    int fd, v = 0;
+    int fd, v = 1;
     wordcode buf[FD_PRELEN + 1];
 
     if ((fd = open(name, O_RDONLY)) < 0) {
@@ -2617,9 +2652,10 @@ load_dump_header(char *nam, char *name, int err)
     }
     if (read(fd, buf, (FD_PRELEN + 1) * sizeof(wordcode)) !=
 	((FD_PRELEN + 1) * sizeof(wordcode)) ||
-	(v = (fdmagic(buf) != FD_MAGIC && fdmagic(buf) != FD_OMAGIC))) {
+	(v = (fdmagic(buf) != FD_MAGIC && fdmagic(buf) != FD_OMAGIC)) ||
+	strcmp(fdversion(buf), ZSH_VERSION)) {
 	if (err) {
-	    if (v) {
+	    if (!v) {
 		zwarnnam(nam, "zwc file has wrong version (zsh-%s): %s",
 			 fdversion(buf), name);
 	    } else
@@ -2692,6 +2728,8 @@ write_dump(int dfd, LinkList progs, int map, int hlen, int tlen)
 
     if (map == 1)
 	map = (tlen >= FD_MINMAP);
+
+    memset(pre, 0, sizeof(wordcode) * FD_PRELEN);
 
     for (ohlen = hlen; ; hlen = ohlen) {
 	fdmagic(pre) = (other ? FD_OMAGIC : FD_MAGIC);
@@ -2793,7 +2831,7 @@ build_dump(char *nam, char *dump, char **files, int ali, int map, int flags)
 	close(fd);
 	file = metafy(file, flen, META_REALLOC);
 
-	if (!(prog = parse_string(file)) || errflag) {
+	if (!(prog = parse_string(file, 1)) || errflag) {
 	    errflag = 0;
 	    close(dfd);
 	    zfree(file, flen);
@@ -2842,7 +2880,8 @@ cur_add_func(char *nam, Shfunc shf, LinkList names, LinkList progs,
 	    return 1;
 	}
 	noaliases = (shf->node.flags & PM_UNALIASED);
-	if (!(prog = getfpfunc(shf->node.nam, NULL)) || prog == &dummy_eprog) {
+	if (!(prog = getfpfunc(shf->node.nam, NULL, NULL)) ||
+	    prog == &dummy_eprog) {
 	    noaliases = ona;
 	    zwarnnam(nam, "can't load function: %s", shf->node.nam);
 	    return 1;
@@ -2924,7 +2963,7 @@ build_cur_dump(char *nam, char *dump, char **names, int match, int map,
 	    }
 	    for (i = 0; i < shfunctab->hsize; i++)
 		for (hn = shfunctab->nodes[i]; hn; hn = hn->next)
-		    if (!listcontains(lnames, hn->nam) &&
+		    if (!linknodebydatum(lnames, hn->nam) &&
 			pattry(pprog, hn->nam) &&
 			cur_add_func(nam, (Shfunc) hn, lnames, progs,
 				     &hlen, &tlen, what)) {

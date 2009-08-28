@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001 - 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2001 - 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,7 +38,6 @@
 
 void setcharset(const char *cp);
 char* str_upper(char *, const char *);
-char* str_lower(char *, const char *);
 
 extern char *convert_wincs_to_utf8(const char *windows_string);
 extern char *convert_utf8_to_wincs(const char *utf8_string);
@@ -46,5 +45,5 @@ extern char *convert_leunicode_to_utf8(unsigned short *windows_string);
 extern char *convert_unicode_to_utf8(unsigned short *windows_string);
 extern unsigned short *convert_utf8_to_leunicode(const char *utf8_string);
 extern char *unpercent(char * component);
-extern CFStringEncoding windows_encoding();
+extern CFStringEncoding windows_encoding(void);
 #endif /* !__CHARSETS_H__ */

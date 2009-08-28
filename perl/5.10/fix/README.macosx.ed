@@ -1,0 +1,178 @@
+/5\.8\.8/s//@VERSION@/
+/^=head2 Installation Prefix/i
+=head1 Customizations in Apple's Perl
+
+Several custom features have been added to the version of perl in Mac OS X.
+
+=head2 Module Search Path (@INC)
+
+Since 10.4 "Tiger", system administrators can easily add paths to perl's
+module search path.
+The file '/Library/Perl/${version}/PrependToPath' contains paths (one per
+line) that will be added to the beginning of the search path, while the file
+'/Library/Perl/${version}/AppendToPath' contains paths that will be added
+to the end of the search path.
+
+By default, Mac OS X does not come with a PrependToPath file, but does come
+with an AppendToPath file.
+This file contains the path '/System/Library/Perl/Extras/${version}', where
+third-party perl modules that Apple ships on Mac OS X, are installed.
+In addition, it contains the paths to previous versions of
+'/Library/Perl/${version}' (where ${version} are the previous versions of perl
+that shipped in Mac OS X), to maintain backwards compatibility.
+
+In 10.5 "Leopard" and beyond, the environment variable NO_PERL_PREPENDTOPATH
+(set to anything) will cause perl to not load any PrependToPath file.
+Likewise, the NO_PERL_APPENDTOPATH environment variable will case perl to not
+load any AppendToPath file.
+
+In 10.5.7 and beyond, there is a new path,
+'/Library/Perl/Updates/${version}' that comes before the system perl directory.
+Now, when 'INSTALLDIRS=perl' is specified to Makefile.PL, modules that
+previous overwrite those in '/System/Library/Perl/${version}', will now be
+install in '/Library/Perl/Updates/${version}'.
+This allows Apple to update modules in the system perl, but users will
+get the versions they installed in '/Library/Perl/Updates/${version}'.
+
+In addition, the Config parameters "installprivlib" and "installarchlib" now
+corresponds to this new directory.
+There are also the new parameters "installupdateslib", "installupdatesarch",
+"updateslib" and "updatesarch", which also correspond to this new directory,
+and are provided for completeness.
+
+=head2 Dtrace Support
+
+Dtrace support has been added to perl to allow tracing of perl subroutine
+calls, both entry and return.
+Here is a quick example:
+
+    % cat test.pl
+    #!/usr/bin/perl
+
+    sub a {
+	print "Ah! death. Welcome to thee brother\n";
+    }
+
+    sub b {
+	print "Where art thou a()?\n";
+	a();
+    }
+
+    sub c {
+	print "The band of alphabets\n";
+	b();
+    }
+
+    sub main {
+	c();
+    }
+
+    main();
+    % cat pltest.d
+    perl$target:::
+    {
+	printf("%s\n", copyinstr(arg0));
+    }
+    % sudo dtrace -s pltest.d -c 'perl test.pl'
+    dtrace: description 'perl$target::: ' matched 8 probes
+    The band of alphabets
+    Where art thou a()?
+    Ah! death. Welcome to thee brother
+    dtrace: pid 50272 has exited
+    CPU     ID                    FUNCTION:NAME
+      0  14231       Perl_pp_entersub:sub-entry main
+
+      0  14231       Perl_pp_entersub:sub-entry c
+
+      0  14231       Perl_pp_entersub:sub-entry b
+
+      0  14231       Perl_pp_entersub:sub-entry a
+
+      0  15806      Perl_pp_leavesub:sub-return a
+
+      0  15806      Perl_pp_leavesub:sub-return b
+
+      0  15806      Perl_pp_leavesub:sub-return c
+
+      0  15806      Perl_pp_leavesub:sub-return main
+
+=head2 64-bit Support
+
+In 10.5 "Leopard", Mac OS X provided both 32 and 64-bit support for libraries
+and frameworks, allowing both 32 and 64-bit applications to be written.
+While running perl (and all other command-line programs) remained 32-bit, the
+'libperl.dylib' library is 32/64 bits.
+This allows programs with embedded
+perl support to run in both 32 and 64-bit mode as needed.
+
+To support this, changes to the Config module were made to return the correct
+values for the internal sizes of perl types.
+For example, "longsize" return 4 in 32-bits, while it returns 8 in 64-bits.
+
+Related to this support is the new environment variable ARCHFLAGS, which
+provides a way to build extensions for different machine and 32/64-bit
+architectures.
+The default architecture to build extensions before 10.5 was the (single)
+architecture of the building machine.
+In 10.5, this became building both 32-bit PowerPC and Intel.
+In 10.6 and beyond, the default architectures were changed to building 32-bit
+for both PowerPC and Intel, and 64-bit only for Intel.
+With ARCHFLAGS, this can be changed to whatever architectures the user
+wants to build.
+For example:
+
+    % env ARCHFLAGS='-arch i386 -arch x86_64' perl Makefile.PL
+    % make
+    % make install
+
+will build only 2-way universal.
+
+=head2 Multiple Version Support
+
+In 10.6 "SnowLeopard", multiple versions of perl are supported.
+This means that out of the box, the default version of perl is @VERSION5_10@.
+However, to provide backwards compatibility with previous versions of perl,
+especially for systems that have installed (version-specific) perl modules,
+'/usr/bin/perl' can be switched to use an older version, on a per-user or
+system-wide basis.
+The previous version of perl that is provided is @VERSION5_8@.
+
+Users can select the older version
+by simply running the following command:
+
+    % defaults write com.apple.versioner.perl Version @VERSION5_8@
+
+Subsequent invocations of '/usr/bin/perl' will then use the @VERSION5_8@ version.
+
+In addition, perl @VERSION5_10@ will ship as a universal binary containing
+64-bit support, which will be on by default.
+For those cases where 32-bit perl is desired, the following command can
+be used:
+
+    % defaults write com.apple.versioner.perl Prefer-32-Bit -bool yes
+
+(Since perl @VERSION5_8@ will only ship as a 32-bit universal binary, the
+"Prefer-32-Bit" setting makes no difference when Version is set to @VERSION5_8@.)
+
+To set defaults systemwide, use the above commands, but replace the third
+argument with '/Library/Preferences/com.apple.versioner.perl' (admin privileges
+will be required).
+
+The environment variables VERSIONER_PERL_VERSION and
+VERSIONER_PERL_PREFER_32_BIT (set to 'true', 'false', 'yes', 'no', '1' or '0')
+can also be set, and they have priority over the preference files.
+
+Note: this may changes in future versions of Mac OS X, which may use
+an improved scheme for making such settings.
+
+=head1 Building Perl
+
+.
+/64-bit PPC support/s//64-bit Support/
+/PPC64/s//64-bit/
+/^=head2 MacPerl/i
+=head1 Other Mac OS X Specific Modules
+
+.
+/^Last modified /s/ [^ ]*$/ 2009-02-24./
+w

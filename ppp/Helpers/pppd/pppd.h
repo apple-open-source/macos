@@ -76,6 +76,7 @@
 #include <sys/param.h>		/* for MAXPATHLEN and BSD4_4, if defined */
 #include <sys/types.h>		/* for u_int32_t, if defined */
 #include <sys/time.h>		/* for struct timeval */
+#include <netinet/in.h>		/* for struct in_addr */
 #ifdef __APPLE__
 #include <ppp_defs.h>
 #else
@@ -95,6 +96,8 @@
 #define const
 #define volatile
 #endif
+
+#include <sys/kern_event.h>
 
 #ifdef INET6
 #include "eui64.h"
@@ -238,7 +241,7 @@ struct epdisc {
 #define EPD_MAGIC	4
 #define EPD_PHONENUM	5
 
-typedef void (*notify_func) __P((void *, int));
+typedef void (*notify_func) __P((void *, uintptr_t));
 
 struct notifier {
     struct notifier *next;
@@ -531,6 +534,7 @@ extern int  option_priority;	/* priority of current options */
 #ifdef __APPLE__
 #define PHASE_ONHOLD		12
 #define PHASE_WAITONBUSY	13
+#define PHASE_WAITING		14
 #endif
 
 /*
@@ -621,6 +625,8 @@ struct channel {
 	void (*close) __P((void));
 #ifdef __APPLE__
 	void (*wait_input) __P((void));
+	/* before start_link_hook, check reachability of server amongst other things */
+	int (*pre_start_link_check) __P((void));
 #endif
 };
 
@@ -660,6 +666,7 @@ void new_phase __P((int));	/* signal start of new phase */
 void add_notifier __P((struct notifier **, notify_func, void *));
 void remove_notifier __P((struct notifier **, notify_func, void *));
 void notify __P((struct notifier *, int));
+void notify_with_ptr __P((struct notifier *, uintptr_t));
 int  ppp_send_config __P((int, int, u_int32_t, int, int));
 int  ppp_recv_config __P((int, int, u_int32_t, int, int));
 
@@ -690,6 +697,22 @@ void dump_packet __P((const char *, u_char *, int));
 				/* dump packet to debug log if interesting */
 ssize_t complete_read __P((int, void *, size_t));
 				/* read a complete buffer */
+void log_vpn_interface_address_event (char                  *location,
+									  struct kern_event_msg *ev_msg,
+									  int                    wait_interface_timeout,
+									  char                  *interface,
+									  struct in_addr        *our_address);
+int check_vpn_interface_or_service_unrecoverable (void                  *dynamicStore,
+						  char                  *location,
+						  struct kern_event_msg *ev_msg,
+						  char                  *interface_buf);
+int check_vpn_interface_address_change (int                    transport_down,
+                                        struct kern_event_msg *ev_msg,
+                                        char                  *interface_buf,
+                                        struct in_addr        *our_address);
+int check_vpn_interface_alternate (int                    transport_down,
+                                   struct kern_event_msg *ev_msg,
+                                   char                  *interface_buf);
 
 /* Procedures exported from auth.c */
 void link_required __P((int));	  /* we are starting to use the link */
@@ -778,8 +801,6 @@ void sys_reinit();			/* reinit after pid has changed */
 void sys_install_options(void);		/* install system specific options, before sys_init */
 int sys_check_controller(void);
 int sys_loadplugin(char *arg);
-int sys_getconsoleuser(uid_t *uid);	/* get the current console user */
-void sys_new_event(u_long m);
 void sys_publish_remoteaddress(char *addr);
 int getabsolutetime(struct timeval *timenow);
 bool is_ready_fd(int fd);	/* check if fd is ready (out of select) */
@@ -789,6 +810,7 @@ void ppp_cont __P((int unit));	/* resume ppp traffic on this link */
 void auth_hold(int unit);
 void auth_cont(int unit);
 void option_change_idle();
+void set_server_peer(struct in_addr ppp_server); /* set the remote server peer address */
 void set_network_signature(char *, char *, char *, char *); /* set the network signature */
 int wait_input_fd(int fd, int delay);
 void closeallfrom(int from);
@@ -1036,6 +1058,7 @@ extern int (*acl_hook) __P((char *user, int len));
 #ifdef __APPLE__
 #define EXIT_PEER_NOT_AUTHORIZED	23
 #define EXIT_CNID_AUTH_FAILED	24
+#define EXIT_PEER_UNREACHABLE 25
 #endif
 
 /*
@@ -1155,5 +1178,46 @@ extern int (*acl_hook) __P((char *user, int len));
 #ifndef offsetof
 #define offsetof(type, member) ((size_t) &((type *)0)->member)
 #endif
+
+#ifdef __APPLE__
+/* Reachability macros... should ideally be in a SystemConfiguration header file. */
+
+/* if the connection is reachable as-is (e.g. via ppp, airport, or ethernet). */
+#define REACHABLE_NOW ((flags & kSCNetworkReachabilityFlagsReachable) && \
+                        ! ((flags & kSCNetworkReachabilityFlagsTransientConnection) && \
+                            (flags & kSCNetworkReachabilityFlagsConnectionRequired)))
+
+/*
+ * if the connection is not currently reachable but will be when needed. i.e. It becomes reachable 
+ * automatically via a dialup-modem (using PPP).
+ */
+#define REACHABLE_AUTOMATICALLY_VIA_SCNC ((flags & kSCNetworkReachabilityFlagsReachable) && \
+                                                (flags & kSCNetworkReachabilityFlagsTransientConnection) && \
+                                                    (flags & kSCNetworkReachabilityFlagsConnectionRequired) && \
+                                                        (flags & kSCNetworkReachabilityFlagsConnectionAutomatic))
+
+/*
+ * if the connection is not currently reachable but will be when needed. i.e. It becomes reachable 
+ * automatically via the iphone EDGE (using PPP).
+ */
+#ifdef	TARGET_EMBEDDED_OS
+/* currently works for iphone build only (because kSCNetworkReachabilityFlagsIsWWAN is defined). */
+#define REACHABLE_AUTOMATICALLY_VIA_WWAN ((flags & kSCNetworkReachabilityFlagsReachable) && \
+                                            (flags & kSCNetworkReachabilityFlagsTransientConnection) && \
+                                                (flags & kSCNetworkReachabilityFlagsConnectionRequired) && \
+                                                    (flags & kSCNetworkReachabilityFlagsIsWWAN))
+#else
+/* currently doesn't work for non-iphone builds (because kSCNetworkReachabilityFlagsIsWWAN is undefined). */
+#define REACHABLE_AUTOMATICALLY_VIA_WWAN 0
+#endif /* TARGET_EMBEDDED_OS */
+
+/*
+ * if connection is automatic without user intervention. currently two cases (see the macros above); 
+ * the dialup modem types, and the iphone EDGE.
+ */
+#define REACHABLE_AUTOMATICALLY_WITHOUT_USER (!(flags & kSCNetworkReachabilityFlagsInterventionRequired) && \
+					      (REACHABLE_AUTOMATICALLY_VIA_SCNC || REACHABLE_AUTOMATICALLY_VIA_WWAN))
+
+#endif /* __APPLE__ */
 
 #endif /* __PPP_H__ */

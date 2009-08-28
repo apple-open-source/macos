@@ -1,4 +1,4 @@
-/*$Header: /src/pub/tcsh/win32/support.c,v 1.6 2004/02/13 13:40:50 christos Exp $*/
+/*$Header: /p/tcsh/cvsroot/tcsh/win32/support.c,v 1.12 2006/04/07 00:57:59 amold Exp $*/
 /*-
  * Copyright (c) 1980, 1991 The Regents of the University of California.
  * All rights reserved.
@@ -58,17 +58,26 @@ void path_slashify(char *pstr) {
 			pstr ++;
 		else
 #endif /* DSPMBYTE */
-		if (*pstr == '\\') 
-			*pstr = '/';
+			if (*pstr == '\\') 
+				*pstr = '/';
 		pstr++;
 	}
+}
+
+void do_nothing(const wchar_t *p1, const wchar_t *p2, const wchar_t*p3,
+		unsigned int p4, uintptr_t p5) {
+        UNREFERENCED_PARAMETER(p1);
+        UNREFERENCED_PARAMETER(p2);
+        UNREFERENCED_PARAMETER(p3);
+        UNREFERENCED_PARAMETER(p4);
+        UNREFERENCED_PARAMETER(p5);
 }
 void nt_init(void) {
 
 
 #ifdef SECURE_CD
 	{
-		char temp[512];
+		char temp[512];/*FIXBUF*/
 		extern char gcurr_drive;
 		if(!GetCurrentDirectory(512,temp))
 			ExitProcess((DWORD)-1);
@@ -76,6 +85,7 @@ void nt_init(void) {
 	}
 #endif SECURE_CD
 
+	_set_invalid_parameter_handler(do_nothing);
 	init_stdio();
 	nt_init_signals();
 	nt_term_init();
@@ -99,7 +109,7 @@ void caseify_pwd(char *curwd) {
 
 	if (gdwPlatform !=VER_PLATFORM_WIN32_NT) 
 		return;
-	
+
 	if (*curwd == '\\' && (!curwd[1] || curwd[1] == '\\'))
 		return;
 	sp = curwd +3;
@@ -132,19 +142,19 @@ void caseify_pwd(char *curwd) {
 	}while(p != 0);
 
 }
-static unsigned char defcwd[MAX_PATH];
-char * forward_slash_get_cwd(char * path, int maxlen) {
+static char defcwd[MAX_PATH];
+char * forward_slash_get_cwd(char * path, size_t maxlen) {
 
 	char *ptemp;
 	Char *vp;
 	int rc ;
-	
+
 	if ((path == NULL) || (maxlen == 0)) {
 		path = &defcwd[0];
 		maxlen = MAX_PATH;
 	}
 
-	rc = GetCurrentDirectory(maxlen,path);
+	rc = GetCurrentDirectory((DWORD)maxlen,path);
 	if (rc > maxlen) {
 		errno = ERANGE;
 		return NULL;
@@ -177,75 +187,58 @@ void getmachine (void) {
 
 	if (!GetVersionEx(&osver)) {
 		MessageBox(NULL,"GetVersionEx failed in getmachine",
-			"tcsh",MB_ICONHAND);
+				"tcsh",MB_ICONHAND);
 		ExitProcess(0xFF);
 	}
 	GetSystemInfo(&sysinfo);
 
 	if(osver.dwPlatformId == VER_PLATFORM_WIN32_NT) {
 		char *ostr;
-		switch(osver.dwMajorVersion)
-		{
-			case 5:
-				switch (osver.dwMinorVersion)
-				{
-					case 0:
-						ostype = "Windows2000";
-						ostr = "Windows 2000";
-						break;
-					case 1:
-						ostype = "WindowsXP";
-						ostr = "Windows XP";
-						break;
-					case 2:
-						ostype = "WindowsServer2003";
-						ostr = "Windows Server 2003";
-						break;
-					default:
-						ostype = "Windows-Post-2000";
-						ostr = "Windows Post Windows-2000";
-				}
-				break;
-			default:
-				ostype = "WindowsNT";
-				ostr = "Windows NT";
-		}
+		ostype = "WindowsNT";
+		ostr = "Windows NT";
 
-		wsprintf(temp,"%s %d.%d Build %d (%s)",
-			ostr,
-			osver.dwMajorVersion,osver.dwMinorVersion,
-			osver.dwBuildNumber,
-			osver.szCSDVersion[0]?osver.szCSDVersion:"");
+		(void)StringCbPrintf(temp,sizeof(temp),"%s %d.%d Build %d (%s)",
+							 ostr,
+							 osver.dwMajorVersion,osver.dwMinorVersion,
+							 osver.dwBuildNumber,
+							 osver.szCSDVersion[0]?osver.szCSDVersion:"");
 		tsetenv(STRHOSTTYPE,str2short(temp));
 	}
 	else if (osver.dwPlatformId == VER_PLATFORM_WIN32_WINDOWS) {
-	  ostype = "Windows9x";
-	  wsprintf(temp,"Win9x %d.%d:%d",osver.dwMajorVersion,osver.dwMinorVersion,
-			LOWORD(osver.dwBuildNumber));
-	  tsetenv(STRHOSTTYPE,str2short(temp));
+		ostype = "Windows9x";
+		(void)StringCbPrintf(temp,sizeof(temp),
+							 "Win9x %d.%d:%d",osver.dwMajorVersion,osver.dwMinorVersion,
+							 LOWORD(osver.dwBuildNumber));
+		tsetenv(STRHOSTTYPE,str2short(temp));
 	}
 	else {
+		ostype = "WindowsWhoKnows";
 		MessageBox(NULL,"Unknown platform","tcsh",MB_ICONHAND);
 	}
 	tsetenv(STROSTYPE,str2short(ostype));
 	switch (sysinfo.wProcessorArchitecture) {
 		case PROCESSOR_ARCHITECTURE_INTEL:
 			if ( ( sysinfo.wProcessorLevel < 3) || 
-				 ( sysinfo.wProcessorLevel > 9)  )
-				 sysinfo.wProcessorLevel = 3;
-			wsprintf(temp,"i%d86",sysinfo.wProcessorLevel);
+					( sysinfo.wProcessorLevel > 9)  )
+				sysinfo.wProcessorLevel = 3;
+
+			(void)StringCbPrintf(temp,sizeof(temp),
+								 "i%d86",sysinfo.wProcessorLevel);
 			break;
 		case PROCESSOR_ARCHITECTURE_ALPHA:
-			wsprintf(temp,"Alpha");
+			(void)StringCbPrintf(temp,sizeof(temp),"Alpha");
 			break;
 		case PROCESSOR_ARCHITECTURE_MIPS:
-			wsprintf(temp,"Mips");
+			(void)StringCbPrintf(temp,sizeof(temp),"Mips");
 			break;
 		case PROCESSOR_ARCHITECTURE_PPC:
-			wsprintf(temp,"PPC");
+			(void)StringCbPrintf(temp,sizeof(temp),"PPC");
+			break;
+		case PROCESSOR_ARCHITECTURE_AMD64:
+			(void)StringCbPrintf(temp,sizeof(temp),"AMD64");
 			break;
 		default:
-			wsprintf(temp,"Unknown");
+			(void)StringCbPrintf(temp,sizeof(temp),"Unknown");
 			break;
 	}
 	tsetenv(STRMACHTYPE,str2short(temp));
@@ -260,18 +253,20 @@ void nt_execve(char *prog, char**args, char**envir ) {
 	PROCESS_INFORMATION pi;
 	HANDLE htemp;
 	BOOL bRet;
-    DWORD type=0;
+	DWORD type=0;
 	DWORD dwCreationflags;
 	unsigned int priority;
-	char *argv0;
+	char *argv0= NULL;
 	char *cmdstr, *cmdend ;
 	char *originalPtr;
 	unsigned int cmdsize,cmdlen;
-    char *p2;
+	char *p2;
 	char **savedargs;
 	int retries=0;
 	int hasdot =0;
 	int is_winnt ;
+
+	UNREFERENCED_PARAMETER(envir);
 
 	memset(&si,0,sizeof(si));
 	savedargs = args;
@@ -295,7 +290,7 @@ void nt_execve(char *prog, char**args, char**envir ) {
 	p2 += cmdlen;
 
 	/* If the command was not quoted ,
-	  skip initial character we left for quote */
+	   skip initial character we left for quote */
 	if (*cmdstr != '"') {
 		*cmdstr = 'A';
 		cmdstr++; 
@@ -311,7 +306,7 @@ void nt_execve(char *prog, char**args, char**envir ) {
 	}
 	else {
 		argv0 = heap_alloc(MAX_PATH); /* not freed */
-		wsprintf(argv0,"%s",prog);
+		(void)StringCbPrintf(argv0,MAX_PATH,"%s",prog);
 	}
 
 retry:
@@ -322,7 +317,7 @@ retry:
 	// For NT, append .EXE and retry
 	//
 	if (is_winnt && !bRet ) {
-        /* Don't append .EXE if it could be a script file */
+		/* Don't append .EXE if it could be a script file */
 		if (GetLastError() == ERROR_BAD_EXE_FORMAT){
 			errno = ENOEXEC;
 			if (!__nt_only_start_exes)
@@ -331,9 +326,9 @@ retry:
 		}
 		else if ( retries ){
 			if (
-				( (argv0[0] == '\\') ||(argv0[0] == '/') ) &&
-				( (argv0[1] == '\\') ||(argv0[1] == '/') ) &&
-				(!args[1])
+					( (argv0[0] == '\\') ||(argv0[0] == '/') ) &&
+					( (argv0[1] == '\\') ||(argv0[1] == '/') ) &&
+					(!args[1])
 			   )
 				if (!__nt_only_start_exes)
 					try_shell_ex(args,1,FALSE);
@@ -344,10 +339,13 @@ retry:
 		}
 		// Try uppercase once and then lower case
 		//
-		if (!retries)
-			wsprintf(argv0,"%s.exe",prog);
-		else 
-			wsprintf(argv0,"%s.EXE",prog); /* fix for clearcase */
+		if (!retries) {
+			(void)StringCbPrintf(argv0,MAX_PATH,"%s.exe",prog);
+		}
+		else  {
+			(void)StringCbPrintf(argv0,MAX_PATH,"%s.EXE",prog); 
+			/* fix for clearcase */
+		}
 		retries++;
 		goto retry;
 	}
@@ -358,24 +356,24 @@ win95_directly_here:
 	si.dwFlags = STARTF_USESTDHANDLES;
 	htemp= (HANDLE)_get_osfhandle(0);
 	DuplicateHandle(GetCurrentProcess(),htemp,GetCurrentProcess(),
-						&si.hStdInput,0,TRUE,DUPLICATE_SAME_ACCESS);
+			&si.hStdInput,0,TRUE,DUPLICATE_SAME_ACCESS);
 	htemp= (HANDLE)_get_osfhandle(1);
 	DuplicateHandle(GetCurrentProcess(),htemp,GetCurrentProcess(),
-						&si.hStdOutput,0,TRUE,DUPLICATE_SAME_ACCESS);
+			&si.hStdOutput,0,TRUE,DUPLICATE_SAME_ACCESS);
 	htemp= (HANDLE)_get_osfhandle(2);
 	DuplicateHandle(GetCurrentProcess(),htemp,GetCurrentProcess(),
-						&si.hStdError,0,TRUE,DUPLICATE_SAME_ACCESS);
+			&si.hStdError,0,TRUE,DUPLICATE_SAME_ACCESS);
 
 
 
-	*args++; // the first arg is the command
+	args++; // the first arg is the command
 
 
 	dprintf("nt_execve calling c_a_a_q");
 	if(!concat_args_and_quote(args,&originalPtr,&cmdstr,&cmdlen,&cmdend,
 				&cmdsize))
 	{
-        dprintf("concat_args_and_quote failed\n");
+		dprintf("concat_args_and_quote failed\n");
 		heap_free(originalPtr);
 		errno = ENOMEM;
 		goto fail_return;
@@ -420,7 +418,7 @@ re_cp:
 			errno  = ENOENT;
 		}
 		if (!is_winnt && !hasdot) { //append '.' to the end if needed
-			lstrcat(cmdstr,".");
+			(void)StringCbCat(cmdstr,cmdsize,".");
 			hasdot=1;
 			goto re_cp;
 		}
@@ -444,7 +442,7 @@ re_cp:
 		if (is_winnt)
 			ResumeThread(pi.hThread);
 		errno= 0;
-		
+
 		if (__nt_really_exec||__nt_child_nohupped || gui_app){
 			ExitProcess(0);
 		}
@@ -471,10 +469,10 @@ re_cp:
 		}
 	}
 fail_return:
-    CloseHandle(si.hStdInput);
-    CloseHandle(si.hStdOutput);
-    CloseHandle(si.hStdError);
-    return;
+	CloseHandle(si.hStdInput);
+	CloseHandle(si.hStdOutput);
+	CloseHandle(si.hStdError);
+	return;
 }
 /* This function from  Mark Tucker (mtucker@fiji.sidefx.com) */
 int quoteProtect(char *dest, char *src,unsigned long destsize) {
@@ -509,7 +507,7 @@ int quoteProtect(char *dest, char *src,unsigned long destsize) {
 
 
 int gethostname(char *buf, int len) {
-	GetComputerName(buf,&len);
+	GetComputerName(buf,(DWORD*)&len);
 	return 0;
 }
 int nt_chdir (char *path) {
@@ -522,16 +520,16 @@ int nt_chdir (char *path) {
 	}
 	return _chdir(path);
 }
-LONG WINAPI uhef( EXCEPTION_POINTERS *lpep) {
+void WINAPI uhef( EXCEPTION_POINTERS *lpep) {
 	ExitProcess(lpep->ExceptionRecord->ExceptionCode);
-	return 0; // not reached
 }
 extern BOOL CreateWow64Events(DWORD,HANDLE*,HANDLE*,BOOL);
 // load kernel32 and look for iswow64. if not found, assume FALSE
 BOOL bIsWow64Process = FALSE;
 void init_wow64(void) {
 	HMODULE hlib;
-	BOOL (WINAPI *pfnIsWow64)(HANDLE,BOOL*);
+	//BOOL (WINAPI *pfnIsWow64)(HANDLE,BOOL*);
+	FARPROC pfnIsWow64;
 
 	bIsWow64Process = FALSE;
 
@@ -539,14 +537,14 @@ void init_wow64(void) {
 	if (!hlib) {
 		return;
 	}
-	(FARPROC)pfnIsWow64 = GetProcAddress(hlib,"IsWow64Process");
+	pfnIsWow64 = GetProcAddress(hlib,"IsWow64Process");
 	if (!pfnIsWow64) {
 		FreeLibrary(hlib);
 		return;
 	}
 	if (!pfnIsWow64(GetCurrentProcess(),&bIsWow64Process) )
 		bIsWow64Process = FALSE;
-	
+
 	FreeLibrary(hlib);
 	return;
 
@@ -577,6 +575,7 @@ void silly_entry(void *peb) {
 
 	init_wow64();
 
+#ifdef _M_IX86
 	// look at the explanation in fork.c for why we do these steps.
 	if (bIsWow64Process) {
 		HANDLE h64Parent,h64Child;
@@ -585,7 +584,7 @@ void silly_entry(void *peb) {
 
 		// if we found the events, then we're the product of a fork()
 		if (CreateWow64Events(GetCurrentProcessId(),
-								&h64Parent,&h64Child,TRUE)) {
+					&h64Parent,&h64Child,TRUE)) {
 
 			if (!h64Parent || !h64Child)
 				return;
@@ -645,8 +644,8 @@ void silly_entry(void *peb) {
 			CloseHandle(h64Parent);
 			CloseHandle(h64Child);
 		}
-
 	}
+#endif _M_IX86
 
 
 	SetFileApisToOEM();
@@ -671,24 +670,26 @@ void silly_entry(void *peb) {
 		(void)SetEnvironmentVariable("HOME",buf);
 		goto skippy;
 	}
-	
+
 	memset(ptr1,0,MAX_PATH);
 	memset(ptr2,0,MAX_PATH);
 	memset(ptr3,0,MAX_PATH);
 
 	if(osver.dwPlatformId == VER_PLATFORM_WIN32_NT) {
-	    GetEnvironmentVariable("USERPROFILE",ptr1,MAX_PATH);
-	    GetEnvironmentVariable("HOMEDRIVE",ptr2,MAX_PATH);
-	    GetEnvironmentVariable("HOMEPATH",ptr3,MAX_PATH);
+		GetEnvironmentVariable("USERPROFILE",ptr1,MAX_PATH);
+		GetEnvironmentVariable("HOMEDRIVE",ptr2,MAX_PATH);
+		GetEnvironmentVariable("HOMEPATH",ptr3,MAX_PATH);
 
 		ptr1[MAX_PATH -1] = ptr2[MAX_PATH-1] = ptr3[MAX_PATH-1]= 0;
 
+#pragma warning(disable:4995)
 		if (!ptr1[0] || osver.dwMajorVersion <4) {
-			wsprintf(temp,"%s%s",ptr2[0]?ptr2:"C:",ptr3[0]?ptr3:"\\");
+			wsprintfA(temp, "%s%s",ptr2[0]?ptr2:"C:",ptr3[0]?ptr3:"\\");
 		}
 		else if (osver.dwMajorVersion >= 4) {
-			wsprintf(temp,"%s",ptr1);
+			wsprintfA(temp, "%s",ptr1);
 		}
+#pragma warning(default:4995)
 	}
 	else if (osver.dwPlatformId == VER_PLATFORM_WIN32_WINDOWS) {
 
@@ -697,7 +698,7 @@ void silly_entry(void *peb) {
 			MessageBox(NULL,"This should never happen","tcsh",MB_ICONHAND);
 			ExitProcess(0xFF);
 		}
-		wsprintf(temp,"%s",ptr1);
+		(void)StringCbPrintf(temp,sizeof(temp),"%s",ptr1);
 	}
 	else {
 		MessageBox(NULL,"Unknown platform","tcsh",MB_ICONHAND);
@@ -775,7 +776,7 @@ int copy_quote_and_fix_slashes(char *source,char *target, int *hasdot ) {
  * -amol 2/4/99
  */
 char *concat_args_and_quote(char **args, char **poriginalPtr,char **cstr, 
-  unsigned int *clen, char **cend, unsigned int *cmdsize) {
+		unsigned int *clen, char **cend, unsigned int *cmdsize) {
 
 	unsigned int argcount, arglen, cmdlen;
 	char *tempptr, *cmdend ,*cmdstr;
@@ -789,12 +790,12 @@ char *concat_args_and_quote(char **args, char **poriginalPtr,char **cstr,
 	dprintf("entering concat_args_and_quote\n");
 	tempquotedbuf = heap_alloc(tqlen);
 
-	noquoteprotect = (varval(STRNTnoquoteprotect) != STRNULL);
+	noquoteprotect = (short)(varval(STRNTnoquoteprotect) != STRNULL);
 	/* 
-		quotespace hack needed since execv() would have separated args, but
-		createproces doesnt
-		-amol 9/14/96
-	*/
+	   quotespace hack needed since execv() would have separated args, but
+	   createproces doesnt
+	   -amol 9/14/96
+	 */
 	cmdend= *cend;
 	cmdstr = *cstr;
 	cmdlen = *clen;
@@ -823,66 +824,67 @@ char *concat_args_and_quote(char **args, char **poriginalPtr,char **cstr,
 			tempptr++;
 			arglen++;
 		}
-        if (arglen + cmdlen +4 > *cmdsize) { // +4 is if we have to quote
+		if (arglen + cmdlen +4 > *cmdsize) { // +4 is if we have to quote
 
-			dprintf("before realloc: original %p, cmdstr %p\n",
-				*poriginalPtr,cmdstr);
 
-            tempptr = heap_realloc(*poriginalPtr,*cmdsize<<1);
+			tempptr = heap_realloc(*poriginalPtr,*cmdsize<<1);
 
 			if(!tempptr)
 				return NULL;
 
 			// If it's not the same heap block, re-adjust the pointers.
-            if (tempptr != *poriginalPtr) {
+			if (tempptr != *poriginalPtr) {
 				cmdstr = tempptr + (cmdstr - *poriginalPtr);
-                cmdend = tempptr + (cmdend- *poriginalPtr);
+				cmdend = tempptr + (cmdend- *poriginalPtr);
 				*poriginalPtr = tempptr;
-            }
-			dprintf("after realloc: original %p, cmdstr %p\n",
-				*poriginalPtr,cmdstr);
+			}
 
-            *cmdsize <<=1;
-        }
+			*cmdsize <<=1;
+		}
 		if (quotespace)
 			*cmdend++ = '"';
 
-        if ((noquoteprotect == 0) && quotequote){
-            tempquotedbuf[0]=0;
+		if ((noquoteprotect == 0) && quotequote){
+			tempquotedbuf[0]=0;
 
-            tempptr = &tempquotedbuf[0];
+			tempptr = &tempquotedbuf[0];
 
-            rc = quoteProtect(tempquotedbuf,*args,tqlen);
+			rc = quoteProtect(tempquotedbuf,*args,tqlen);
 
 			while(rc == ERROR_BUFFER_OVERFLOW) {
+				char *tmp = tempquotedbuf;
 				tempquotedbuf = heap_realloc(tempquotedbuf,tqlen <<1);
+				if(!tempquotedbuf) {
+					heap_free(tmp);
+					return NULL;
+				}
 				tqlen <<= 1;
 				tempptr = &tempquotedbuf[0];
 				rc = quoteProtect(tempquotedbuf,*args,tqlen);
 			}
-            while (*tempptr) {
-                *cmdend = *tempptr;
-                cmdend++;
-                tempptr++;
-            }
-            cmdlen +=2;
-        }
-        else {
-            tempptr = *args;
-            while(*tempptr) {
-                *cmdend = *tempptr;
-                cmdend++;
-                tempptr++;
-            }
-        }
+			while (*tempptr) {
+				*cmdend = *tempptr;
+				cmdend++;
+				tempptr++;
+			}
+			cmdlen +=2;
+		}
+		else {
+			tempptr = *args;
+			while(*tempptr) {
+				*cmdend = *tempptr;
+				cmdend++;
+				tempptr++;
+			}
+		}
 
-        if (quotespace) {
-            *cmdend++ = '"';
-            cmdlen +=2;
-        }
-        cmdlen += arglen;
+		if (quotespace) {
+			*cmdend++ = '"';
+			cmdlen +=2;
+		}
+		cmdlen += arglen;
 
-        args++;
+		args++;
 	}
 	*clen = cmdlen;
 	*cend = cmdend;

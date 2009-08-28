@@ -1,0 +1,228 @@
+# $Id: ScriptCreator.xotcl,v 1.4 2006/02/18 22:17:33 neumann Exp $
+
+package provide xotcl::scriptCreation::scriptCreator 0.8
+package require XOTcl
+
+namespace eval ::xotcl::scriptCreation::scriptCreator {
+    namespace import ::xotcl::*
+
+    Class ScriptCreator \
+	-parameter {
+	    {excludedObjs {Object Class Class::Parameter}}
+	    {excludeNames ""}
+	    {dependencyChecking 1}
+	}
+
+
+    #
+    # queries the excludedObjs variable whether a given object
+    # is already defined/predefined or not  
+    # -> a way to exclude classes/objs from saving
+    #
+    ScriptCreator instproc isExcluded {n} {
+	my instvar excludedObjs
+	#puts stderr "Checking Excluded: $n in $excludedObjs"
+	if {[lsearch $excludedObjs [string trimleft $n :]] == -1} {
+	    return 0
+	} else {
+	    return 1
+	}
+    }
+
+    ScriptCreator instproc appendExcluded {n} {
+	my instvar excludedObjs
+	lappend excludedObjs [string trimleft $n :]
+    }
+
+    #
+    # compare command for lsort  
+    #
+    ScriptCreator instproc namespaceDepth {a b} {
+	set aCount 0
+	set bCount 0
+	for {set i 0} {$i < [string length $a]} {incr i} {
+	    if {[string index $a $i] eq ":"} {
+		incr aCount
+	    }
+	}
+	for {set i 0} {$i < [string length $b]} {incr i} {
+	    if {[string index $b $i] eq ":"} {
+		incr bCount
+	    }
+	}
+	if {$aCount == $bCount} {
+	    return 0
+	} elseif {$aCount > $bCount} {
+	    return 1
+	}
+	
+	return -1
+    } 
+
+    #
+    # produces a script containing the current state of 
+    # the given obj
+    #
+    ScriptCreator instproc stateScript {obj} {
+	set script ""
+	foreach v [$obj info vars] {
+	    if {[lsearch [my set excludeNames] $v] == -1} {
+		if {[$obj array exists $v]} {
+		    foreach name [$obj array names $v] {
+			set arr ${v}($name)
+			set value [$obj set $arr]
+			append script "$obj set $arr \"$value\"\n"
+		    }
+		} else {
+		    set value [$obj set $v]
+		    append script "$obj set $v \"$value\"\n"
+		}
+	    }
+	}
+	return $script
+    }
+
+    #
+    # produces a script containing the procs of the given obj
+    #
+    ScriptCreator instproc procScript {obj} {
+	set script ""
+	foreach p [$obj info procs] {
+	    if {[lsearch [my set excludeNames] $p] == -1} {
+		append script \
+		    "$obj proc $p \{[$obj info args $p]\} \{[$obj info body $p]\}\n"
+	    }
+	}
+	return $script
+    }
+
+    #
+    # produces a script containing the instprocs of the given class
+    #
+    ScriptCreator instproc instprocScript {cl} {
+	set script ""
+	foreach p [$cl info instprocs] {
+	    if {[lsearch [my set excludeNames] $p] == -1} {
+		append script \
+		    "$cl instproc $p \{[$cl info instargs $p]\} \{[$cl info instbody $p]\}\n"
+	    }
+	}
+	return $script
+    }
+
+
+
+    #
+    # saves a script to a file
+    #
+    ScriptCreator instproc saveScript {filename script} {
+	set f [open $filename w]
+	puts $f $script
+	close $f
+    }
+
+    #
+    # load a script from a file
+    #
+    ScriptCreator instproc loadScript {filename} {
+	set f [open $filename r]
+	set r [read $f]
+	close $f
+	return $r
+    }
+
+    #
+    # check parent obj/classes/namespaces of an object completly
+    #
+    ScriptCreator instproc checkParents {name} {
+	set p ""
+
+	set n $name
+	while {[set np [namespace parent ::$n]] != "::"} {
+	    lappend p $np
+	    set n $np
+	}    
+	set p [lsort -command {my namespaceDepth} $p]
+
+	foreach n $p {
+	    if {![my isExcluded $n] &&
+		![my isAppended $n]} {
+		error "ScriptCreator: $name needs parent $n, neither appended nor excluded yet."
+	    }
+	}
+    }
+
+    ScriptCreator instproc checkClass {obj class} {
+	if {![my isExcluded $class] &&
+	    ![my isAppended $class]} {
+	    error "ScriptCreator: $obj depends on $class, neither appended nor excluded yet."
+	}
+    }
+
+    ScriptCreator instproc isAppended name {
+	set n [string trimleft $name :]
+	if {[lsearch [my set appendedNames] $n]!=-1} {
+	    return 1
+	} else {
+	    return 0
+	}
+    }
+
+    ScriptCreator instproc appendName name {
+	set n [string trimleft $name :]
+	my lappend appendedNames $n
+    }
+
+    ScriptCreator instproc makeScript args {
+	my instvar dependencyChecking
+	my set appendedNames ""
+	set script ""
+	foreach name $args {
+	    #puts stderr "Script Creator -- $name"
+	    if {![my isExcluded $name] && 
+		![my isAppended $name]} {
+		
+		if {$dependencyChecking} {
+		    my checkParents $name
+		}
+		if {[Object isobject $name]} {
+		    set class [$name info class]
+		    if {$dependencyChecking} {
+			my checkClass $name $class
+		    }
+		    if {[Object isclass $name]} {
+			# append the class
+			#puts stderr "Appending Class: $name"
+			append script "[$name info class] $name"
+			set sl [$name info superclass]
+			if {$dependencyChecking} {
+			    foreach c $sl {
+				my checkClass $name $c
+			    }
+			}
+			if {$sl ne ""} {
+			    append script " -superclass \{$sl\}\n"
+			} else {
+			    append script "\n"
+			}
+			append script [my instprocScript $name]
+		    } else {
+			# append the obj
+			#puts stderr "Appending Object: $name"
+			append script "[$name info class] $name\n"
+		    }
+		    append script [my procScript $name]
+		} else {
+		    append script "namespace eval $name \{\}\n"
+		    #puts stderr "Appending Namespace: $name"
+		}
+		my appendName $name
+	    }
+	}
+	return $script
+    }
+
+    namespace export ScriptCreator
+}
+
+namespace import ::xotcl::scriptCreation::scriptCreator::*

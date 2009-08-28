@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2005-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,7 +24,12 @@
 #ifndef __OPENDIRECTORYPRIV_H
 #define __OPENDIRECTORYPRIV_H
 
-#include <CFOpenDirectory/CFOpenDirectoryConsts.h>
+enum
+{
+	kODMatchCompoundExpression		= 0x200b
+};
+
+#include <CFOpenDirectory/CFOpenDirectoryConstants.h>
 #include <CFOpenDirectory/CFOpenDirectoryPriv.h>
 
 #endif

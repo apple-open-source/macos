@@ -946,8 +946,6 @@ extern initialize_file_ftype _initialize_solib; /* -Wmissing-prototypes */
 void
 _initialize_solib (void)
 {
-  struct cmd_list_element *c;
-
   solib_data = gdbarch_data_register_pre_init (solib_init);
 
   add_com ("sharedlibrary", class_files, sharedlibrary_command,

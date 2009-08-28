@@ -17,8 +17,8 @@
 			isa = PBXBuildStyle;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 3.52.5;
-				DYLIB_CURRENT_VERSION = 3.52.5;
+				CURRENT_PROJECT_VERSION = 3.52.6;
+				DYLIB_CURRENT_VERSION = 3.52.6;
 				FRAMEWORK_SEARCH_PATHS = (
 					../../mac/iODBC/build/Development,
 					../../mac/iODBC/build,
@@ -44,8 +44,8 @@
 			isa = PBXBuildStyle;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 3.52.5;
-				DYLIB_CURRENT_VERSION = 3.52.5;
+				CURRENT_PROJECT_VERSION = 3.52.6;
+				DYLIB_CURRENT_VERSION = 3.52.6;
 				FRAMEWORK_SEARCH_PATHS = (
 					../../mac/iODBC/build/Deployment,
 					../../mac/iODBC/build,
@@ -224,8 +224,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 3.52.5;
-				DYLIB_CURRENT_VERSION = 3.52.5;
+				CURRENT_PROJECT_VERSION = 3.52.6;
+				DYLIB_CURRENT_VERSION = 3.52.6;
 				FRAMEWORK_SEARCH_PATHS = (
 					../../mac/iODBC/build/Development,
 					../../mac/iODBC/build,
@@ -261,8 +261,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 3.52.5;
-				DYLIB_CURRENT_VERSION = 3.52.5;
+				CURRENT_PROJECT_VERSION = 3.52.6;
+				DYLIB_CURRENT_VERSION = 3.52.6;
 				FRAMEWORK_SEARCH_PATHS = (
 					../../mac/iODBC/build/Deployment,
 					../../mac/iODBC/build,

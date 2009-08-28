@@ -1,7 +1,7 @@
 
 /*
  *
- * (C) Copyright IBM Corp. 1998-2006 - All Rights Reserved
+ * (C) Copyright IBM Corp. 1998-2008 - All Rights Reserved
  *
  */
 
@@ -26,6 +26,7 @@
 
 #include "OpenTypeUtilities.h"
 #include "GlyphSubstitutionTables.h"
+#include "GlyphDefinitionTables.h"
 #include "MorphTables.h"
 
 #include "DefaultCharMapper.h"
@@ -33,6 +34,9 @@
 #include "KernTable.h"
 
 U_NAMESPACE_BEGIN
+
+/* Leave this copyright notice here! It needs to go somewhere in this library. */
+static const char copyright[] = U_COPYRIGHT_STRING;
 
 const LEUnicode32 DefaultCharMapper::controlChars[] = {
     0x0009, 0x000A, 0x000D,
@@ -83,6 +87,37 @@ CharSubstitutionFilter::~CharSubstitutionFilter()
     // nothing to do
 }
 
+class CanonMarkFilter : public UMemory, public LEGlyphFilter
+{
+private:
+    const GlyphClassDefinitionTable *classDefTable;
+
+    CanonMarkFilter(const CanonMarkFilter &other); // forbid copying of this class
+    CanonMarkFilter &operator=(const CanonMarkFilter &other); // forbid copying of this class
+
+public:
+    CanonMarkFilter(const GlyphDefinitionTableHeader *gdefTable);
+    virtual ~CanonMarkFilter();
+
+    virtual le_bool accept(LEGlyphID glyph) const;
+};
+
+CanonMarkFilter::CanonMarkFilter(const GlyphDefinitionTableHeader *gdefTable)
+{
+    classDefTable = gdefTable->getMarkAttachClassDefinitionTable();
+}
+
+CanonMarkFilter::~CanonMarkFilter()
+{
+    // nothing to do?
+}
+
+le_bool CanonMarkFilter::accept(LEGlyphID glyph) const
+{
+    le_int32 glyphClass = classDefTable->getGlyphClass(glyph);
+
+    return glyphClass != 0;
+}
 
 UOBJECT_DEFINE_RTTI_IMPLEMENTATION(LayoutEngine)
 
@@ -101,7 +136,7 @@ static const le_int32 canonFeatureMapCount = LE_ARRAY_SIZE(canonFeatureMap);
 
 LayoutEngine::LayoutEngine(const LEFontInstance *fontInstance, le_int32 scriptCode, le_int32 languageCode, le_int32 typoFlags)
   : fGlyphStorage(NULL), fFontInstance(fontInstance), fScriptCode(scriptCode), fLanguageCode(languageCode),
-    fTypoFlags(typoFlags)
+    fTypoFlags(typoFlags), fFilterZeroWidth(TRUE)
 {
     fGlyphStorage = new LEGlyphStorage();
 }
@@ -144,7 +179,7 @@ void LayoutEngine::getGlyphPosition(le_int32 glyphIndex, float &x, float &y, LEE
 }
 
 le_int32 LayoutEngine::characterProcessing(const LEUnicode chars[], le_int32 offset, le_int32 count, le_int32 max, le_bool rightToLeft,
-                LEUnicode *&outChars, LEGlyphStorage &/*glyphStorage*/, LEErrorCode &success)
+                LEUnicode *&outChars, LEGlyphStorage &glyphStorage, LEErrorCode &success)
 {
     if (LE_FAILURE(success)) {
         return 0;
@@ -211,6 +246,14 @@ le_int32 LayoutEngine::characterProcessing(const LEUnicode chars[], le_int32 off
 
         out = (rightToLeft? outCharCount - 1 : 0);
 
+        /*
+         * The char indices array in fakeGlyphStorage has the correct mapping
+         * back to the original input characters. Save it in glyphStorage. The
+         * subsequent call to glyphStoratge.allocateGlyphArray will keep this
+         * array rather than allocating and initializing a new one.
+         */
+        glyphStorage.adoptCharIndicesArray(fakeGlyphStorage);
+
         outChars = LE_NEW_ARRAY(LEUnicode, outCharCount);
         for (i = 0; i < outCharCount; i += 1, out += dir) {
             outChars[out] = (LEUnicode) LE_GET_GLYPH(fakeGlyphStorage[i]);
@@ -238,10 +281,10 @@ le_int32 LayoutEngine::computeGlyphs(const LEUnicode chars[], le_int32 offset, l
     le_int32 outCharCount = characterProcessing(chars, offset, count, max, rightToLeft, outChars, glyphStorage, success);
 
     if (outChars != NULL) {
-        mapCharsToGlyphs(outChars, 0, outCharCount, rightToLeft, rightToLeft, TRUE, glyphStorage, success);
+        mapCharsToGlyphs(outChars, 0, outCharCount, rightToLeft, rightToLeft, glyphStorage, success);
         LE_DELETE_ARRAY(outChars); // FIXME: a subclass may have allocated this, in which case this delete might not work...
     } else {
-        mapCharsToGlyphs(chars, offset, count, rightToLeft, rightToLeft, TRUE, glyphStorage, success);
+        mapCharsToGlyphs(chars, offset, count, rightToLeft, rightToLeft, glyphStorage, success);
     }
 
     return glyphStorage.getGlyphCount();
@@ -276,7 +319,7 @@ void LayoutEngine::positionGlyphs(LEGlyphStorage &glyphStorage, float x, float y
     glyphStorage.setPosition(glyphCount, x, y, success);
 }
 
-void LayoutEngine::adjustGlyphPositions(const LEUnicode chars[], le_int32 offset, le_int32 count, le_bool /*reverse*/,
+void LayoutEngine::adjustGlyphPositions(const LEUnicode chars[], le_int32 offset, le_int32 count, le_bool  reverse,
                                         LEGlyphStorage &glyphStorage, LEErrorCode &success)
 {
     if (LE_FAILURE(success)) {
@@ -287,6 +330,11 @@ void LayoutEngine::adjustGlyphPositions(const LEUnicode chars[], le_int32 offset
         success = LE_ILLEGAL_ARGUMENT_ERROR;
         return;
     }
+
+    GlyphDefinitionTableHeader *gdefTable = (GlyphDefinitionTableHeader *) CanonShaping::glyphDefinitionTable;
+    CanonMarkFilter filter(gdefTable);
+
+    adjustMarkGlyphs(&chars[offset], count, reverse, glyphStorage, &filter, success);
 
     if (fTypoFlags & 0x1) { /* kerning enabled */
       static const le_uint32 kernTableTag = LE_KERN_TABLE_TAG;
@@ -382,7 +430,7 @@ const void *LayoutEngine::getFontTable(LETag tableTag) const
     return fFontInstance->getFontTable(tableTag);
 }
 
-void LayoutEngine::mapCharsToGlyphs(const LEUnicode chars[], le_int32 offset, le_int32 count, le_bool reverse, le_bool mirror, le_bool filterZeroWidth,
+void LayoutEngine::mapCharsToGlyphs(const LEUnicode chars[], le_int32 offset, le_int32 count, le_bool reverse, le_bool mirror,
                                     LEGlyphStorage &glyphStorage, LEErrorCode &success)
 {
     if (LE_FAILURE(success)) {
@@ -393,7 +441,7 @@ void LayoutEngine::mapCharsToGlyphs(const LEUnicode chars[], le_int32 offset, le
 
     DefaultCharMapper charMapper(TRUE, mirror);
 
-    fFontInstance->mapCharsToGlyphs(chars, offset, count, reverse, &charMapper, filterZeroWidth, glyphStorage);
+    fFontInstance->mapCharsToGlyphs(chars, offset, count, reverse, &charMapper, fFilterZeroWidth, glyphStorage);
 }
 
 // Input: characters, font?
@@ -537,6 +585,10 @@ LayoutEngine *LayoutEngine::layoutEngineFactory(const LEFontInstance *fontInstan
 
             case thaiScriptCode:
                 result = new ThaiLayoutEngine(fontInstance, scriptCode, languageCode, typoFlags);
+                break;
+
+            case hangScriptCode:
+                result = new HangulOpenTypeLayoutEngine(fontInstance, scriptCode, languageCode, typoFlags);
                 break;
 
             default:

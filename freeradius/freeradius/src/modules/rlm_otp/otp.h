@@ -1,5 +1,5 @@
 /*
- * $Id: otp.h,v 1.28.2.13 2007/05/25 00:45:23 fcusack Exp $
+ * $Id$
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -23,8 +23,8 @@
 #ifndef OTP_H
 #define OTP_H
 
-#include "ident.h"
-RCSIDH(otp_h, "$Id: otp.h,v 1.28.2.13 2007/05/25 00:45:23 fcusack Exp $")
+#include <freeradius-devel/ident.h>
+RCSIDH(otp_h, "$Id$")
 
 #include <sys/types.h>
 
@@ -44,7 +44,7 @@ RCSIDH(otp_h, "$Id: otp.h,v 1.28.2.13 2007/05/25 00:45:23 fcusack Exp $")
 #define OTP_RC_AUTH_ERR		3
 #define OTP_RC_MAXTRIES		4
 #define OTP_RC_SERVICE_ERR	5
-#define OTP_RC_NEXT_PASSCODE	6
+#define OTP_RC_NEXTPASSCODE	6
 #define OTP_RC_IPIN		7
 
 #define OTP_MAX_USERNAME_LEN		31

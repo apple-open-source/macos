@@ -1,10 +1,13 @@
+// $OpenLDAP: pkg/ldap/contrib/ldapc++/src/StringList.cpp,v 1.6.6.2 2008/04/14 23:09:26 quanah Exp $
 /*
- * Copyright 2000, OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 2000-2007, OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
 #include "StringList.h"
 #include "debug.h"
+
+#include <cstdlib>
 
 using namespace std;
 

@@ -243,7 +243,7 @@ u_int16_t pppoe_rfc_new_client(void *host, void **data,
     if (rfc == 0)
         return 1;
 
-    //log(LOGVAL, "PPPoE new_client rfc = 0x%x\n", rfc);
+    //IOLog("PPPoE new_client rfc = %p\n", rfc);
 
     bzero(rfc, sizeof(struct pppoe_rfc));
 
@@ -284,7 +284,7 @@ void pppoe_rfc_free_client(void *data)
 	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
     
     if (rfc->flags & PPPOE_FLAG_DEBUG)
-        log(LOGVAL, "PPPoE free (0x%x)\n", rfc);
+        IOLog("PPPoE free (%p)\n", rfc);
 
     if (rfc) {
     
@@ -311,7 +311,7 @@ u_int16_t pppoe_rfc_connect(void *data, u_int8_t *ac_name, u_int8_t *service)
         return 1;
 
     if (rfc->flags & PPPOE_FLAG_DEBUG)
-        log(LOGVAL, "PPPoE connect (0x%x): ac-name = '%s', service = '%s', \n", rfc, ac_name, service);
+        IOLog("PPPoE connect (%p): ac-name = '%s', service = '%s', \n", rfc, ac_name, service);
 
     if (rfc->unit == 0xFFFF) {
         // not attached to an interface yet. Use unit 0, for conveniency.
@@ -325,8 +325,8 @@ u_int16_t pppoe_rfc_connect(void *data, u_int8_t *ac_name, u_int8_t *service)
     PPPOE_TAG_STRCPY(rfc->service, service);
     // use our rfc address for the uniq id, we now it won't change since we allocate ourserlves
     // FIXME sizeof(u_int32_t) might be != sizeof(pointer)
-    *(u_int32_t *)&rfc->host_uniq.data[0] = (u_int32_t)rfc;
-    rfc->host_uniq.len = sizeof(u_int32_t);
+    *(uintptr_t *)&rfc->host_uniq.data[0] = (uintptr_t)rfc;
+    rfc->host_uniq.len = sizeof(uintptr_t);
     rfc->ac_cookie.len = 0;
     rfc->relay_id.len = 0;
     
@@ -354,7 +354,7 @@ u_int16_t pppoe_rfc_bind(void *data, u_int8_t *ac_name, u_int8_t *service)
 	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
     if (rfc->flags & PPPOE_FLAG_DEBUG)
-        log(LOGVAL, "PPPoE bind (0x%x): ac-name = '%s', service = '%s'\n", rfc,
+        IOLog("PPPoE bind (%p): ac-name = '%s', service = '%s'\n", rfc,
         ac_name ? (char*)ac_name : "nul", service ? (char*)service : "nul");
 
     if (ac_name)
@@ -377,7 +377,7 @@ u_int16_t pppoe_rfc_accept(void *data)
         return 1;
 
     if (rfc->flags & PPPOE_FLAG_DEBUG)
-        log(LOGVAL, "PPPoE accept (0x%x)\n", rfc);
+        IOLog("PPPoE accept (%p)\n", rfc);
 
     // should check wih other numbers currently sets with  active sessions
     rfc->session_id = pppoe_unique_session_id++; // generate a session id
@@ -405,7 +405,7 @@ u_int16_t pppoe_rfc_listen(void *data)
         return 1;
 
     if (rfc->flags & PPPOE_FLAG_DEBUG)
-        log(LOGVAL, "PPPoE listen (0x%x)\n", rfc);
+        IOLog("PPPoE listen (%p)\n", rfc);
 
     if (rfc->unit == 0xFFFF) {
         // not attached to an interface yet. Use unit 0, for conveniency.
@@ -430,7 +430,7 @@ u_int16_t pppoe_rfc_abort(void *data, int evt_enable)
 	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
     if (rfc->flags & PPPOE_FLAG_DEBUG)
-        log(LOGVAL, "PPPoE abort (0x%x)\n", rfc);
+        IOLog("PPPoE abort (%p)\n", rfc);
 
     switch (rfc->state) {
         case PPPOE_STATE_LOOKING:
@@ -467,7 +467,7 @@ u_int16_t pppoe_rfc_disconnect(void *data)
     }
 
     if (rfc->flags & PPPOE_FLAG_DEBUG)
-        log(LOGVAL, "PPPoE disconnect (0x%x)\n", rfc);
+        IOLog("PPPoE disconnect (%p)\n", rfc);
 
     send_PAD(rfc, rfc->peer_address, PPPOE_PADT, rfc->session_id, 0, 0, 0, 0, 0);
 
@@ -529,7 +529,7 @@ void pppoe_rfc_timer()
             case PPPOE_STATE_CONNECTING:
                 if (rfc->timer_connect == 0) {
                     if (rfc->flags & PPPOE_FLAG_DEBUG)
-                        log(LOGVAL, "PPPoE timer (0x%x): CONNECT_TIMER expires\n", rfc);
+                        IOLog("PPPoE timer (%p): CONNECT_TIMER expires\n", rfc);
                     rfc->state = PPPOE_STATE_DISCONNECTED;
                     bzero(rfc->peer_address, sizeof(rfc->peer_address));
                     // double-check for the error number ?
@@ -551,7 +551,7 @@ void pppoe_rfc_timer()
             case PPPOE_STATE_RINGING:
                 if (rfc->timer_ring == 0) {
                     if (rfc->flags & PPPOE_FLAG_DEBUG)
-                        log(LOGVAL, "PPPoE timer (0x%x): RING_TIMER expires\n", rfc);
+                        IOLog("PPPoE timer (%p): RING_TIMER expires\n", rfc);
                     rfc->state = PPPOE_STATE_DISCONNECTED;
                     bzero(rfc->peer_address, sizeof(rfc->peer_address));
                     send_event(rfc, PPPOE_EVT_DISCONNECTED, 0);
@@ -582,9 +582,9 @@ u_int16_t pppoe_rfc_output(void *data, mbuf_t m)
     if (rfc->state != PPPOE_STATE_CONNECTED)
         return ENXIO;
 
-   // log(LOGVAL, "PPPoE write, len = %d\n", len);
+   // IOLog("PPPoE write, len = %d\n", len);
     //d = mtod(m, u_int8_t *);
-    //log(LOGVAL, "PPPoE write, data = %x %x %x %x %x %x \n", d[0], d[1], d[2], d[3], d[4], d[5]);
+    //IOLog("PPPoE write, data = %x %x %x %x %x %x \n", d[0], d[1], d[2], d[3], d[4], d[5]);
 
     skip = 0;
 #if 0        // FF03 is not sent and ACFC option MUST not be negociated
@@ -623,20 +623,20 @@ u_int16_t pppoe_rfc_command(void *data, u_int32_t cmd, void *cmddata)
 
         case PPPOE_CMD_SETFLAGS:
             if (rfc->flags & PPPOE_FLAG_DEBUG)
-                log(LOGVAL, "PPPoE command (0x%x): set flags = 0x%x\n", rfc, *(u_int32_t *)cmddata);
+                IOLog("PPPoE command (%p): set flags = 0x%x\n", rfc, *(u_int32_t *)cmddata);
             rfc->flags = *(u_int32_t *)cmddata;
             break;
 
         case PPPOE_CMD_GETFLAGS:
             if (rfc->flags & PPPOE_FLAG_DEBUG)
-                log(LOGVAL, "PPPoE command (0x%x): get flags = 0x%x\n", rfc, rfc->flags);
+                IOLog("PPPoE command (%p): get flags = 0x%x\n", rfc, rfc->flags);
             *(u_int32_t *)cmddata = rfc->flags;
             break;
 
         case PPPOE_CMD_SETUNIT:
             unit = *(u_int16_t *)cmddata;
             if (rfc->flags & PPPOE_FLAG_DEBUG)
-                log(LOGVAL, "PPPoE command (0x%x): set interface unit = %d\n", rfc, unit);
+                IOLog("PPPoE command (%p): set interface unit = %d\n", rfc, unit);
             if (rfc->unit != unit) {
                if (rfc->ifp) {
                     pppoe_dlil_detach(rfc->ifp);
@@ -653,43 +653,43 @@ u_int16_t pppoe_rfc_command(void *data, u_int32_t cmd, void *cmddata)
 
         case PPPOE_CMD_GETUNIT:
             if (rfc->flags & PPPOE_FLAG_DEBUG)
-                log(LOGVAL, "PPPoE command (0x%x): get interface unit = %d\n", rfc, rfc->unit);
+                IOLog("PPPoE command (%p): get interface unit = %d\n", rfc, rfc->unit);
             *(u_int16_t *)cmddata = rfc->unit;
             break;
 
         case PPPOE_CMD_GETCONNECTTIMER:
             if (rfc->flags & PPPOE_FLAG_DEBUG)
-                log(LOGVAL, "PPPoE command (0x%x): get connect timer = %d\n", rfc, rfc->timer_connect_setup);
+                IOLog("PPPoE command (%p): get connect timer = %d\n", rfc, rfc->timer_connect_setup);
             *(u_int16_t *)cmddata = rfc->timer_connect_setup;
             break;
 
         case PPPOE_CMD_SETCONNECTTIMER:
             if (rfc->flags & PPPOE_FLAG_DEBUG)
-                log(LOGVAL, "PPPoE command (0x%x): set connect timer = %d\n", rfc, *(u_int16_t *)cmddata);
+                IOLog("PPPoE command (%p): set connect timer = %d\n", rfc, *(u_int16_t *)cmddata);
             rfc->timer_connect_setup = *(u_int16_t *)cmddata;
             break;
 
         case PPPOE_CMD_GETRINGTIMER:
             if (rfc->flags & PPPOE_FLAG_DEBUG)
-                log(LOGVAL, "PPPoE command (0x%x): get ring timer = %d\n", rfc, rfc->timer_ring_setup);
+                IOLog("PPPoE command (%p): get ring timer = %d\n", rfc, rfc->timer_ring_setup);
             *(u_int16_t *)cmddata = rfc->timer_ring_setup;
             break;
 
         case PPPOE_CMD_SETRINGTIMER:
             if (rfc->flags & PPPOE_FLAG_DEBUG)
-                log(LOGVAL, "PPPoE command (0x%x): set ring timer = %d\n", rfc, *(u_int16_t *)cmddata);
+                IOLog("PPPoE command (%p): set ring timer = %d\n", rfc, *(u_int16_t *)cmddata);
             rfc->timer_ring_setup = *(u_int16_t *)cmddata;
             break;
 
         case PPPOE_CMD_GETRETRYTIMER:
             if (rfc->flags & PPPOE_FLAG_DEBUG)
-                log(LOGVAL, "PPPoE command (0x%x): get retry timer = %d\n", rfc, rfc->timer_retry_setup);
+                IOLog("PPPoE command (%p): get retry timer = %d\n", rfc, rfc->timer_retry_setup);
             *(u_int16_t *)cmddata = rfc->timer_retry_setup;
             break;
 
         case PPPOE_CMD_SETRETRYTIMER:
             if (rfc->flags & PPPOE_FLAG_DEBUG)
-                log(LOGVAL, "PPPoE command (0x%x): set retry timer = %d\n", rfc, *(u_int16_t *)cmddata);
+                IOLog("PPPoE command (%p): set retry timer = %d\n", rfc, *(u_int16_t *)cmddata);
             rfc->timer_retry_setup = *(u_int16_t *)cmddata;
             break;
 
@@ -698,7 +698,7 @@ u_int16_t pppoe_rfc_command(void *data, u_int32_t cmd, void *cmddata)
         case PPPOE_CMD_SETPEERADDR:	
             if (rfc->flags & PPPOE_FLAG_DEBUG) {
                 u_char *p = cmddata;
-                log(LOGVAL, "PPPoE command (0x%x): set peer ethernet address = %x:%x:%x:%x:%x:%x\n", rfc, p[0], p[1], p[2], p[3], p[4], p[5]);
+                IOLog("PPPoE command (%p): set peer ethernet address = %x:%x:%x:%x:%x:%x\n", rfc, p[0], p[1], p[2], p[3], p[4], p[5]);
             }
             if (rfc->state != PPPOE_STATE_DISCONNECTED) {
                 error = 1;
@@ -712,14 +712,14 @@ u_int16_t pppoe_rfc_command(void *data, u_int32_t cmd, void *cmddata)
         case PPPOE_CMD_GETPEERADDR:
             if (rfc->flags & PPPOE_FLAG_DEBUG) {
                 u_char *p = rfc->peer_address;
-                log(LOGVAL, "PPPoE command (0x%x): get peer ethernet address = %x:%x:%x:%x:%x:%x\n", rfc, p[0], p[1], p[2], p[3], p[4], p[5]);
+                IOLog("PPPoE command (%p): get peer ethernet address = %x:%x:%x:%x:%x:%x\n", rfc, p[0], p[1], p[2], p[3], p[4], p[5]);
             }
             bcopy(rfc->peer_address, cmddata, ETHER_ADDR_LEN);
             break;
 
         default:
             if (rfc->flags & PPPOE_FLAG_DEBUG)
-                log(LOGVAL, "PPPoE command (0x%x): unknown command = %d\n", rfc, cmd);
+                IOLog("PPPoE command (%p): unknown command = %d\n", rfc, cmd);
     }
 
     return error;
@@ -731,7 +731,7 @@ u_int16_t pppoe_rfc_command(void *data, u_int32_t cmd, void *cmddata)
 u_int16_t pppoe_rfc_input(struct pppoe_rfc *rfc, mbuf_t m, u_int8_t *from, u_int16_t typ)
 {
 
-    //log(LOGVAL, "PPPoE input, rfc = 0x%x\n", rfc);
+    //IOLog("PPPoE input, rfc = %p\n", rfc);
 	
 	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
@@ -770,7 +770,7 @@ void send_event(struct pppoe_rfc *rfc, u_int32_t event, u_int32_t msg)
             case PPPOE_EVT_CONNECTED: text = "CONNECTED"; break;
             case PPPOE_EVT_DISCONNECTED: text = "DISCONNECTED"; break;
         }
-        log(LOGVAL, "PPPoE event %s (0x%x)\n", text, rfc);
+        IOLog("PPPoE event %s (%p)\n", text, rfc);
     }
     if (rfc->eventcb)
         (*rfc->eventcb)(rfc->host, event, msg);
@@ -822,7 +822,7 @@ u_int16_t get_tag(mbuf_t m, u_int16_t tag, struct pppoe_tag *val)
         if ((len + 4) > totallen)
             break;	// bogus packet
             
-        //log(LOGVAL, "tag 0x%x 0x%x 0x%x 0x%x \n", data[0], data[1], data[2], data[3]);
+        //IOLog("tag 0x%x 0x%x 0x%x 0x%x \n", data[0], data[1], data[2], data[3]);
         if (ntohs(*(u_int16_t *)data) == tag) {
             data += 2;
             if (len <= val->max_len) {
@@ -832,7 +832,7 @@ u_int16_t get_tag(mbuf_t m, u_int16_t tag, struct pppoe_tag *val)
                     val->data[val->len] = 0;
                 return 1;
             }
-            //log(LOGVAL, "got PADO : %s\n", name);
+            //IOLog("got PADO : %s\n", name);
             break;
         }
         else {
@@ -952,7 +952,7 @@ u_int16_t handle_PADI(struct pppoe_rfc *rfc, mbuf_t m, u_int8_t *from)
     get_tag(m, PPPOE_TAG_SERVICE_NAME, &service);
 
     if (rfc->flags & PPPOE_FLAG_DEBUG)
-        log(LOGVAL, "PPPoE receive PADI (0x%x): requested service\\name = '%.64s\\%.64s', our service\\name = '%.64s\\%.64s'\n",
+        IOLog("PPPoE receive PADI (%p): requested service\\name = '%.64s\\%.64s', our service\\name = '%.64s\\%.64s'\n",
         rfc, service.data, name.data, rfc->serv_service.data, rfc->serv_ac_name.data);
 
     // if the client does not specify any name, we must offer ther service
@@ -994,7 +994,7 @@ u_int16_t handle_PADO(struct pppoe_rfc *rfc, mbuf_t m, u_int8_t *from)
     get_tag(m, PPPOE_TAG_SERVICE_NAME, &service);
 
     if (rfc->flags & PPPOE_FLAG_DEBUG)
-        log(LOGVAL, "PPPoE receive PADO (0x%x): offered service\\name = '%.64s\\%.64s', expected service\\name = '%.64s\\%.64s'\n",
+        IOLog("PPPoE receive PADO (%p): offered service\\name = '%.64s\\%.64s', expected service\\name = '%.64s\\%.64s'\n",
         rfc, service.data, name.data, rfc->service.data, rfc->ac_name.data);
 
     // since we sent PPPOE_TAG_HOST_UNIQ in our PADI, the tag MUST be present in this PADO
@@ -1054,7 +1054,7 @@ u_int16_t handle_PADR(struct pppoe_rfc *rfc, mbuf_t m, u_int8_t *from)
     get_tag(m, PPPOE_TAG_SERVICE_NAME, &service);
     
     if (rfc->flags & PPPOE_FLAG_DEBUG)
-        log(LOGVAL, "PPPoE receive PADR (0x%x): requested service\\name = '%.64s\\%.64s', our service\\name = '%.64s\\%.64s'\n", rfc, service.data, name.data, rfc->serv_service.data, rfc->serv_ac_name.data);
+        IOLog("PPPoE receive PADR (%p): requested service\\name = '%.64s\\%.64s', our service\\name = '%.64s\\%.64s'\n", rfc, service.data, name.data, rfc->serv_service.data, rfc->serv_ac_name.data);
 
     // if the client does not specify any name, we must offer ther service
     // if the client does not specify the service, still accept it ?
@@ -1094,7 +1094,7 @@ u_int16_t handle_PADS(struct pppoe_rfc *rfc, mbuf_t m, u_int8_t *from)
     PPPOE_TAG_SETUP(hostuniq);
 
     if (rfc->flags & PPPOE_FLAG_DEBUG)
-        log(LOGVAL, "PPPoE receive PADS (0x%x): session id = 0x%x\n", rfc, sessid);
+        IOLog("PPPoE receive PADS (%p): session id = 0x%x\n", rfc, sessid);
 
     // since we sent PPPOE_TAG_HOST_UNIQ in our PADR, the tag MUST be present in this PADS
     get_tag(m, PPPOE_TAG_HOST_UNIQ, &hostuniq);
@@ -1131,7 +1131,7 @@ u_int16_t handle_PADT(struct pppoe_rfc *rfc, mbuf_t m, u_int8_t *from)
         return 0;
 
     if (rfc->flags & PPPOE_FLAG_DEBUG)
-        log(LOGVAL, "PPPoE receive PADT (0x%x): requested session id = 0x%x, our session id = 0x%x\n", rfc, sessid, rfc->session_id);
+        IOLog("PPPoE receive PADT (%p): requested session id = 0x%x, our session id = 0x%x\n", rfc, sessid, rfc->session_id);
 
     if ((sessid == rfc->session_id) && !bcmp(rfc->peer_address, from, ETHER_ADDR_LEN)) {
 
@@ -1152,7 +1152,7 @@ u_int16_t handle_ctrl(struct pppoe_rfc *rfc, mbuf_t m, u_int8_t *from)
     struct pppoe 	*p = mbuf_data(m);
     u_int16_t 		done = 0;
 
-    //log(LOGVAL, "handle_ctrl, rfc = 0x%x\n", rfc);
+    //IOLog("handle_ctrl, rfc = %p\n", rfc);
 
     switch (p->code) {
        case PPPOE_PADI:
@@ -1186,9 +1186,9 @@ u_int16_t handle_data(struct pppoe_rfc *rfc, mbuf_t m, u_int8_t *from)
     struct pppoe 	*p = mbuf_data(m);
     u_int16_t 		sessid = ntohs(p->sessid);
 
-    //log(LOGVAL, "handle_data, rfc = 0x%x, from %x:%x:%x:%x:%x:%x\n", rfc, from[0],from[1],from[2],from[3],from[4],from[5] );
-    //log(LOGVAL, "handle_data, rfc = 0x%x, rfc->peer_address %x:%x:%x:%x:%x:%x\n", rfc, rfc->peer_address[0],rfc->peer_address[1],rfc->peer_address[2],rfc->peer_address[3],rfc->peer_address[4],rfc->peer_address[5] );
-    //log(LOGVAL, "handle_data, rfc = 0x%x, rfc->state = %d, rfc->session_id = 0x%x, rfc->session_id = 0x%x\n", rfc, rfc->state, rfc->session_id, sessid);
+    //IOLog("handle_data, rfc = %p, from %x:%x:%x:%x:%x:%x\n", rfc, from[0],from[1],from[2],from[3],from[4],from[5] );
+    //IOLog("handle_data, rfc = %p, rfc->peer_address %x:%x:%x:%x:%x:%x\n", rfc, rfc->peer_address[0],rfc->peer_address[1],rfc->peer_address[2],rfc->peer_address[3],rfc->peer_address[4],rfc->peer_address[5] );
+    //IOLog("handle_data, rfc = %p, rfc->state = %d, rfc->session_id = 0x%x, rfc->session_id = 0x%x\n", rfc, rfc->state, rfc->session_id, sessid);
 
     // check identify the session, we must check the session id AND the address of the peer
     // we could be connected to 2 different AC with the same session id
@@ -1229,7 +1229,7 @@ called from pppoe_rfc when data need to be sent
 void pppoe_rfc_lower_output(struct pppoe_rfc *rfc, mbuf_t m, u_int8_t *to, u_int16_t typ)
 {
 
-    //log(LOGVAL, "PPPoE_output\n");
+    //IOLog("PPPoE_output\n");
     if (rfc->flags & PPPOE_FLAG_LOOPBACK) {
         mbuf_t		m1 = 0;
         u_int8_t 	from[ETHER_ADDR_LEN] = { 0, 0, 0, 0, 0, 0 };
@@ -1263,7 +1263,7 @@ void pppoe_rfc_lower_input(ifnet_t ifp, mbuf_t m, u_int8_t *from, u_int16_t typ)
 {
     struct pppoe_rfc  	*rfc, *lastrfc = 0;
     
-    //log(LOGVAL, "PPPoE inputdata, tag = %d\n", dl_tag);
+    //IOLog("PPPoE inputdata, tag = %d\n", dl_tag);
 	
 	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
@@ -1280,7 +1280,7 @@ void pppoe_rfc_lower_input(ifnet_t ifp, mbuf_t m, u_int8_t *from, u_int16_t typ)
 
     // the last matching rfc itself is irrelevant, just need unit number and tag information
     
-    log(LOGVAL, "PPPoE inputdata: unexpected %s packet on unit = %d\n", 
+    IOLog("PPPoE inputdata: unexpected %s packet on unit = %d\n", 
         (typ == PPPOE_ETHERTYPE_CTRL ? "control" : "data"), lastrfc ? lastrfc->unit : -1);
         
     if (typ == PPPOE_ETHERTYPE_DATA) {
@@ -1308,7 +1308,7 @@ void pppoe_rfc_lower_detaching(ifnet_t ifp)
         if (rfc->ifp == ifp) {
 
             if (rfc->flags & PPPOE_FLAG_DEBUG)
-                log(LOGVAL, "PPPoE lower layer detaching (0x%x): ethernet unit = %d\n", rfc, rfc->unit);
+                IOLog("PPPoE lower layer detaching (%p): ethernet unit = %d\n", rfc, rfc->unit);
         
             pppoe_dlil_detach(rfc->ifp);
             rfc->ifp = 0;

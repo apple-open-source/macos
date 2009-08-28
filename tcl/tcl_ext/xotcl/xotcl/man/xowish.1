@@ -1,0 +1,84 @@
+'\"
+'\" XOTcl - Extended OTcl
+'\" Copyright (C) 1999-2008 Gustaf Neumann, Uwe Zdun
+'\"
+'\" 
+.so man.macros
+.TH xowish 1 "" XOWish "XOTcl Applications"
+.BS
+'\" Note:  do not modify the .SH NAME line immediately below!
+.SH NAME
+xowish \- Graphical shell containing object-oriented scripting language XOTcl
+.SH SYNOPSIS
+\fBxowish\fR ?\fIfileName arg arg ...\fR?
+.BE
+
+.SH DESCRIPTION
+.PP
+\fBxowish\fR is a shell-like application that reads XOTcl commands
+from its standard input or from a file and evaluates them. In addition
+to \fBxotclsh\fR it provides graphical user interface support for TK
+widgets.
+.PP
+XOTcl (XOTcl, pronounced exotickle) is an object-oriented scripting
+language based on MIT's OTcl. It is intended as a value added
+replacement for OTcl.
+.PP
+Scripting languages, like Tcl, are designed for glueing components
+together, provide features like dynamic extensibility and dynamic
+typing with automatic conversion, that make them well suited for rapid
+application development.
+.PP
+The basic object system of XOTcl is adopted from OTcl. The object
+system enables us to define objects, classes, and
+meta-classes. Classes are special objects with the purpose of managing
+other objects. ``Managing'' means that a class controls the creation
+and destruction of its instances and that it contains a repository of
+methods accessible for the instances. Every object may be enhanced
+with object-specific methods. XOTcl supports single and multiple
+inheritance. All relationships in XOTcl, including class and
+superclass relationships, are completely dynamic and can be
+introspected. Through method chaining without explicit naming of the
+intended method, ambiguities in name resolution of methods are
+avoided. This way a shadowed method can be ``mixed into'' the
+execution of the current method.
+.PP
+XOTcl combines the ideas of scripting and object-orientation in a way
+that preserves the benefits of both of them. It is equipped with
+several new language functionalities that help building and managing
+complex systems. We added the following support:
+.PP
+Dynamic Object Aggregations, to provide dynamic aggregations through
+nested namespaces (objects). 
+.PP
+Nested Classes, to reduce the interference
+of independently developed program structures. 
+.PP
+Assertions, to reduce
+the interface and the reliability problems caused by dynamic typing
+and, therefore, to ease the combination of many components.
+.PP
+Meta-data,
+to enhance self-documentation of objects and classes.
+.PP
+Per-object
+mixins, as a means to improve flexibility of mixin methods by giving
+an object access to several different supplemental classes, which may
+be changed dynamically.
+.PP
+Per-class mixins, as a means to improve
+flexibility of mixin methods to a class, all instances of the class
+have access to the mixed in methods like for multiple inheritance, but
+without the need of intersection classes.
+.PP
+Filters as a means of
+abstractions over method invocations to implement large program
+structures, like design patterns.
+.PP
+Dynamic Component Loading XOTcl
+integrates the Tcl package loading with architectrual support for
+integration with object-oriented constructs. Moreover, it provides
+tracking/tracing of component loading.
+.PP
+.SH KEYWORDS
+argument, interpreter, prompt, script file, shell

@@ -105,13 +105,13 @@ mi_gdb_test "116-stack-list-frames-lite -limit 2" \
   "116\\^done,frames=\\\[0=\{pc=\"$hex\",fp=\"$hex\"\},1=\{pc=\"$hex\",fp=\"$hex\"\}\\\],valid=\"1\",count=\"9\"" "-stack-list-frames-lite -limit 2 works"
 
 mi_gdb_test "116-stack-list-frames-lite -limit 2 -names 1" \
-  "116\\^done,frames=\\\[0=\{pc=\"$hex\",fp=\"$hex\",func=\"foo8\"\},1=\{pc=\"$hex\",fp=\"$hex\",func=\"foo7\"\}\\\],valid=\"1\",count=\"9\"" "-stack-list-frames-lite -limit 2 -names works"
+  "116\\^done,frames=\\\[0=\{pc=\"$hex\",fp=\"$hex\",func=\"foo8\",has_debug=\"1\"\},1=\{pc=\"$hex\",fp=\"$hex\",func=\"foo7\",has_debug=\"1\"\}\\\],valid=\"1\",count=\"9\"" "-stack-list-frames-lite -limit 2 -names works"
 
 mi_gdb_test "117-stack-list-frames-lite -limit 7" \
   "117\\^done,frames=\\\[0=\{pc=\"$hex\",fp=\"$hex\"\},1=\{pc=\"$hex\",fp=\"$hex\"\},2=\{pc=\"$hex\",fp=\"$hex\"\},3=\{pc=\"$hex\",fp=\"$hex\"\},4=\{pc=\"$hex\",fp=\"$hex\"\},5=\{pc=\"$hex\",fp=\"$hex\"\},6=\{pc=\"$hex\",fp=\"$hex\"\}\\\],valid=\"1\",count=\"9\"" "-stack-list-frames-lite -limit 7 works"
 
 mi_gdb_test "117-stack-list-frames-lite -names 1 -limit 7" \
-  "117\\^done,frames=\\\[0=\{pc=\"$hex\",fp=\"$hex\",func=\"foo8\"\},1=\{pc=\"$hex\",fp=\"$hex\",func=\"foo7\"\},2=\{pc=\"$hex\",fp=\"$hex\",func=\"foo6\"\},3=\{pc=\"$hex\",fp=\"$hex\",func=\"foo5\"\},4=\{pc=\"$hex\",fp=\"$hex\",func=\"foo4\"\},5=\{pc=\"$hex\",fp=\"$hex\",func=\"foo3\"\},6=\{pc=\"$hex\",fp=\"$hex\",func=\"foo2\"\}\\\],valid=\"1\",count=\"9\"" "-stack-list-frames-lite -names -limit 7 works"
+  "117\\^done,frames=\\\[0=\{pc=\"$hex\",fp=\"$hex\",func=\"foo8\"\,has_debug=\"1\"},1=\{pc=\"$hex\",fp=\"$hex\",func=\"foo7\",has_debug=\"1\"\},2=\{pc=\"$hex\",fp=\"$hex\",func=\"foo6\",has_debug=\"1\"\},3=\{pc=\"$hex\",fp=\"$hex\",func=\"foo5\",has_debug=\"1\"\},4=\{pc=\"$hex\",fp=\"$hex\",func=\"foo4\",has_debug=\"1\"\},5=\{pc=\"$hex\",fp=\"$hex\",func=\"foo3\",has_debug=\"1\"\},6=\{pc=\"$hex\",fp=\"$hex\",func=\"foo2\",has_debug=\"1\"\}\\\],valid=\"1\",count=\"9\"" "-stack-list-frames-lite -names -limit 7 works"
 
 set slow_worked 0
 set fast_worked 0

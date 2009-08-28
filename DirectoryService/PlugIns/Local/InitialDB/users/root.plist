@@ -34,5 +34,9 @@
 	<array>
 		<string>FFFFEEEE-DDDD-CCCC-BBBB-AAAA00000000</string>
 	</array>
+	<key>smb_sid</key>
+	<array>
+		<string>S-1-5-18</string>
+	</array>
 </dict>
 </plist>

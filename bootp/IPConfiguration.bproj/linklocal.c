@@ -77,13 +77,13 @@
 #include "dprintf.h"
 
 /* ad-hoc networking definitions */
-#define LINKLOCAL_RANGE_START	((u_long)0xa9fe0000) /* 169.254.0.0 */
-#define LINKLOCAL_RANGE_END	((u_long)0xa9feffff) /* 169.254.255.255 */
+#define LINKLOCAL_RANGE_START	((u_int32_t)0xa9fe0000) /* 169.254.0.0 */
+#define LINKLOCAL_RANGE_END	((u_int32_t)0xa9feffff) /* 169.254.255.255 */
 #define LINKLOCAL_FIRST_USEABLE	(LINKLOCAL_RANGE_START + 256) /* 169.254.1.0 */
 #define LINKLOCAL_LAST_USEABLE	(LINKLOCAL_RANGE_END - 256) /* 169.254.254.255 */
-#define LINKLOCAL_MASK		((u_long)0xffff0000) /* 255.255.0.0 */
-#define LINKLOCAL_RANGE		((u_long)(LINKLOCAL_LAST_USEABLE + 1) \
-					  - LINKLOCAL_FIRST_USEABLE)
+#define LINKLOCAL_MASK		((u_int32_t)0xffff0000) /* 255.255.0.0 */
+#define LINKLOCAL_RANGE		((u_int32_t)(LINKLOCAL_LAST_USEABLE + 1) \
+				 - LINKLOCAL_FIRST_USEABLE)
 #define	MAX_LINKLOCAL_INITIAL_TRIES	10
 
 /*

@@ -45,16 +45,23 @@
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFNumber.h>
 #include <CoreFoundation/CFPropertyList.h>
-
+#include <OpenDirectory/OpenDirectory.h>
 #include <DirectoryService/DirServices.h>
 #include <DirectoryService/DirServicesUtils.h>
 #include <DirectoryService/DirServicesConst.h>
+#include <DirectoryService/DirServicesConstPriv.h>
 
 #include <membership.h>
 #include <membershipPriv.h>
 
+#include "dserr.h"
+
 enum { kLogErrors_disabled = 0, kLogErrors_enabled = 1 };
 enum { kValidate_AuthMethod = 0, kValidate_User = 1 };
+	
+static tDirReference		dirRef		= 0;
+static tDirNodeReference	searchNodeRef   = 0;
+static char			userExists[1024] = "";
 
 /* forward declarations for internal functions */
 #if 0
@@ -69,13 +76,14 @@ tDirStatus _od_auth_lookup_user(tDirReference inDirRef,
 int _od_auth_validate_response(const char *inUserID, const char *inChallenge, 
                                const char *inResponse, const char *inAuthType, 
 							   int validateType);
-int _od_auth_bytes_to_hex_chars(const void* inValue,  unsigned long inValueLen, 
-                               void *destPtr, unsigned long destLen, 
-							   unsigned long *destCharCount);
+int _od_auth_bytes_to_hex_chars(const void* inValue,  UInt32 inValueLen, 
+                               void *destPtr, UInt32 destLen, 
+							   UInt32 *destCharCount);
 
 #endif
 
 int _od_auth_check_user_exists(const char *inUserID);
+static int od_auth_configure_directory_references(void);
 
 /* -----------------------------------------------------------------
    PUBLIC FUNCTIONS
@@ -154,7 +162,7 @@ int od_auth_create_crammd5_challenge(char *outChallenge, int destsize)
 {
     int numchars = 0;
     char randombytes[ 32 ];
-    unsigned long destChars = 0;
+    UInt32 destChars = 0;
 		
     if (NULL != outChallenge)
         outChallenge[0] = 0;
@@ -168,7 +176,7 @@ int od_auth_create_crammd5_challenge(char *outChallenge, int destsize)
     // test routine for ConvertBytesToHexChars
     // numchars = testChallenge(m, &destChars);
 
-    numchars = _od_auth_bytes_to_hex_chars( randombytes,  sizeof(randombytes), outChallenge, (unsigned long) destsize - 1, &destChars);
+    numchars = _od_auth_bytes_to_hex_chars( randombytes,  sizeof(randombytes), outChallenge, (UInt32) destsize - 1, &destChars);
     if (numchars != sizeof(randombytes) || destChars >= destsize) // failed to convert all the bytes or converted too many bytes
         numchars = destChars = 0; 
         
@@ -195,51 +203,6 @@ int od_auth_check_crammd5_response(const char *inUserID, const char *inChallenge
 } 
 
 /* -----------------------------------------------------------------
-    int od_auth_check_service_membership()
-    
-	ARGS:
-		username (IN) user name (UTF8 string)
-		service  (IN) service name (UTF8 string)
-
-	RETURNS: int
-		0 = Failed: user is not a service member OR unable to access service ACL
-		1 = OK: user is a member OR no restrictions for the selected service
-
-   ----------------------------------------------------------------- */
-int od_auth_check_service_membership(const char* userName, const char* service)
-{
-	syslog(LOG_USER | LOG_NOTICE, "%s: checking user \"%s\" access for service \"%s\"", 
-	       __PRETTY_FUNCTION__, userName, service);
-
-	// get the uuid for the user
-	int mbrErr = 0;
-	uuid_t user_uuid;
-	if (mbrErr = mbr_user_name_to_uuid(userName, user_uuid)){
-		syslog(LOG_ERR, "%s: mbr_user_name_to_uuid returns %s", __PRETTY_FUNCTION__, strerror(mbrErr));
-		return 0;
-	}	
-	
-	// First check whether there is a access list defined for the service. If 
-	// none exists, then all users are permitted to access the service.
-	int isMember = 0;
-	mbrErr = mbr_check_service_membership(user_uuid, service, &isMember);
-	syslog(LOG_USER | LOG_NOTICE, "%s: mbr_check_service_membership returned %d", __PRETTY_FUNCTION__, mbrErr);
-	if (0 != mbrErr) {
-		if (mbrErr == ENOENT)	// no ACL exists
-			syslog(LOG_USER | LOG_NOTICE, "%s: no access restrictions found", __PRETTY_FUNCTION__);
-		else
-			syslog(LOG_ERR, "%s: mbr_check_service_membership returns %s", __PRETTY_FUNCTION__, strerror(mbrErr));
-		return (mbrErr == ENOENT) ? 1 : 0;
-	}
-
-	// Now check whether the requesting user is a memeber of the service access list
-	syslog(LOG_ERR, "%s: user \"%s\" %s authorized to access service \"%s\"", 
-		   __PRETTY_FUNCTION__, userName, (1 == isMember ? "is" : "is not"), service);
-
-	return (1 == isMember) ? 1 : 0;
-}
-
-/* -----------------------------------------------------------------
 	int _od_auth_bytes_to_hex_chars()
 	
 	Converts the input byte array to an ASCII string using  
@@ -249,16 +212,16 @@ int od_auth_check_service_membership(const char* userName, const char* service)
 		0 = conversion failed
 		n = (success) number of bytes copied from source array
    ----------------------------------------------------------------- */
-int _od_auth_bytes_to_hex_chars( const void* inValue, unsigned long inValueLen, 
-                                void *destPtr, unsigned long destLen, 
-								unsigned long *destCharCount)
+int _od_auth_bytes_to_hex_chars( const void* inValue, UInt32 inValueLen, 
+                                void *destPtr, UInt32 destLen, 
+								UInt32 *destCharCount)
 {
     static const char* kHEXChars={ "0123456789abcdef" };
     unsigned char* theDataPtr = (unsigned char*) inValue;
-    unsigned long copylen = inValueLen;    
+    UInt32 copylen = inValueLen;    
     char *theString = (char *) destPtr;
     unsigned char temp;
-    unsigned long count = 0;
+    UInt32 count = 0;
     
     if (NULL == destPtr || destLen < 2) {	
     	return 0;
@@ -321,7 +284,7 @@ tDirStatus _od_auth_get_search_node ( tDirReference inDirRef,
 							 tDirNodeReference *outSearchNodeRef )
 {
 	tDirStatus		dsStatus	= eMemoryAllocError;
-	unsigned long	uiCount		= 0;
+	UInt32 uiCount		= 0;
 	tDataBuffer	   *pTDataBuff	= NULL;
 	tDataList	   *pDataList	= NULL;
 
@@ -368,7 +331,7 @@ tDirStatus _od_auth_lookup_user ( tDirReference inDirRef,
 	tDirStatus				dsStatus		= eMemoryAllocError;
 	int						done			= FALSE;
 	char				   *pAcctName		= NULL;
-	unsigned long			uiRecCount		= 0;
+	UInt32					uiRecCount		= 0;
 	tDataBuffer			   *pTDataBuff		= NULL;
 	tDataList			   *pUserRecType	= NULL;
 	tDataList			   *pUserAttrType	= NULL;
@@ -490,6 +453,41 @@ tDirStatus _od_auth_lookup_user ( tDirReference inDirRef,
 } /* _od_auth_lookup_user */
 
 
+int
+od_auth_configure_directory_references()
+{
+	tDirStatus              dsStatus		= eDSNoErr;
+	
+	if (dirRef != 0 || searchNodeRef != 0) {
+		if (dsVerifyDirRefNum(dirRef) != eDSNoErr) {
+			dsCloseDirNode(searchNodeRef);
+			searchNodeRef = 0;
+
+			dsCloseDirService(dirRef);
+			dirRef = 0;
+		}
+	}
+
+	if (dirRef == 0) {
+		dsStatus = dsOpenDirService( &dirRef );
+		if (! IS_EXPECTED_DS_ERROR(dsStatus)) {
+			syslog( LOG_ERR, "od_auth: Unable to open directory. (Open Directory error: %d)", dsStatus );
+			goto done;
+		}
+	}
+
+	if (searchNodeRef == 0) {
+		dsStatus = _od_auth_get_search_node( dirRef, &searchNodeRef );
+		if (! IS_EXPECTED_DS_ERROR(dsStatus)) {
+			syslog( LOG_ERR, "od_auth: Unable to open directory search node. (Open Directory error: %d)", dsStatus );
+			goto done;
+		}
+	}
+
+done:
+	return dsStatus;
+}
+
 /* -----------------------------------------------------------------
 	_od_auth_validate_response ()
    ----------------------------------------------------------------- */
@@ -500,19 +498,17 @@ int _od_auth_validate_response ( const char *inUserID, const char *inChallenge,
 {
 	int		        iResult			= -1;
 	tDirStatus              dsStatus		= eDSNoErr;
-	tDirReference		dirRef			= 0;
-	tDirNodeReference	searchNodeRef           = 0;
 	tDirNodeReference	userNodeRef		= 0;
 	tDataBuffer		*pAuthBuff		= NULL;
 	tDataBuffer		*pStepBuff		= NULL;
 	tDataNode		*pAuthType		= NULL;
 	char			*userLoc		= NULL;
-	unsigned long		uiNameLen		= 0;
-	unsigned long		uiChalLen		= 0;
-	unsigned long		uiRespLen		= 0;
-	unsigned long		uiBuffSzie		= 0;
-	unsigned long		uiCurr			= 0;
-	unsigned long		uiLen			= 0;
+	UInt32				uiNameLen		= 0;
+	UInt32				uiChalLen		= 0;
+	UInt32				uiRespLen		= 0;
+	UInt32				uiBuffSzie		= 0;
+	UInt32				uiCurr			= 0;
+	UInt32				uiLen			= 0;
 	int                     logErrors               = kLogErrors_disabled;
 	
 	if (kValidate_User == validateType) 
@@ -528,127 +524,112 @@ int _od_auth_validate_response ( const char *inUserID, const char *inChallenge,
 
 	uiBuffSzie = uiNameLen + uiChalLen + uiRespLen + 32;
 
-	dsStatus = dsOpenDirService( &dirRef );
+	if (od_auth_configure_directory_references() != eDSNoErr) {
+		iResult = eDSInvalidReference;
+		goto done;
+	}
+
+	dsStatus = _od_auth_lookup_user( dirRef, searchNodeRef, inUserID, &userLoc );
 	if ( dsStatus == eDSNoErr ) {
-		dsStatus = _od_auth_get_search_node( dirRef, &searchNodeRef );
+		dsStatus = _od_auth_open_user_node( dirRef, userLoc, &userNodeRef );
 		if ( dsStatus == eDSNoErr ) {
-			dsStatus = _od_auth_lookup_user( dirRef, searchNodeRef, inUserID, &userLoc );
-			if ( dsStatus == eDSNoErr ) {
-				dsStatus = _od_auth_open_user_node( dirRef, userLoc, &userNodeRef );
-				if ( dsStatus == eDSNoErr ) {
-					pAuthBuff = dsDataBufferAllocate( dirRef, uiBuffSzie );
-					if ( pAuthBuff != NULL ) {
-						pStepBuff = dsDataBufferAllocate( dirRef, 256 );
-						if ( pStepBuff != NULL ) {
-							pAuthType = dsDataNodeAllocateString( dirRef, inAuthType );
-							if ( pAuthType != NULL ) {
-								/* User name */
-								uiLen = uiNameLen;
-								memcpy( &(pAuthBuff->fBufferData[ uiCurr ]), &uiLen, sizeof( unsigned long ) );
-								uiCurr += sizeof( unsigned long );
-								memcpy( &(pAuthBuff->fBufferData[ uiCurr ]), inUserID, uiLen );
-								uiCurr += uiLen;
+			pAuthBuff = dsDataBufferAllocate( dirRef, uiBuffSzie );
+			if ( pAuthBuff != NULL ) {
+				pStepBuff = dsDataBufferAllocate( dirRef, 256 );
+				if ( pStepBuff != NULL ) {
+					pAuthType = dsDataNodeAllocateString( dirRef, inAuthType );
+					if ( pAuthType != NULL ) {
+						/* User name */
+						uiLen = uiNameLen;
+						memcpy( &(pAuthBuff->fBufferData[ uiCurr ]), &uiLen, sizeof( UInt32 ) );
+						uiCurr += sizeof( UInt32 );
+						memcpy( &(pAuthBuff->fBufferData[ uiCurr ]), inUserID, uiLen );
+						uiCurr += uiLen;
 
-								if (kValidate_User == validateType) {
-									/* Challenge */
-									uiLen = uiChalLen;
-									memcpy( &(pAuthBuff->fBufferData[ uiCurr ]), &uiLen, sizeof( unsigned long ) );
-									uiCurr += sizeof( unsigned long );
-									memcpy( &(pAuthBuff->fBufferData[ uiCurr ]), inChallenge, uiLen );
-									uiCurr += uiLen;
+						if (kValidate_User == validateType) {
+							/* Challenge */
+							uiLen = uiChalLen;
+							memcpy( &(pAuthBuff->fBufferData[ uiCurr ]), &uiLen, sizeof( UInt32 ) );
+							uiCurr += sizeof( UInt32 );
+							memcpy( &(pAuthBuff->fBufferData[ uiCurr ]), inChallenge, uiLen );
+							uiCurr += uiLen;
 	
-									/* Response */
-									uiLen = uiRespLen;
-									memcpy( &(pAuthBuff->fBufferData[ uiCurr ]), &uiLen, sizeof( unsigned long ) );
-									uiCurr += sizeof( unsigned long );
-									memcpy( &(pAuthBuff->fBufferData[ uiCurr ]), inResponse, uiLen );
-									uiCurr += uiLen;
-								}
-								
-								pAuthBuff->fBufferLength = uiCurr;
+							/* Response */
+							uiLen = uiRespLen;
+							memcpy( &(pAuthBuff->fBufferData[ uiCurr ]), &uiLen, sizeof( UInt32 ) );
+							uiCurr += sizeof( UInt32 );
+							memcpy( &(pAuthBuff->fBufferData[ uiCurr ]), inResponse, uiLen );
+							uiCurr += uiLen;
+						}
+						
+						pAuthBuff->fBufferLength = uiCurr;
 
-								dsStatus = dsDoDirNodeAuth( userNodeRef, pAuthType, true, pAuthBuff, pStepBuff, NULL );
-								
+						dsStatus = dsDoDirNodeAuth( userNodeRef, pAuthType, true, pAuthBuff, pStepBuff, NULL );
+						
                                                                 if ( (kValidate_AuthMethod == validateType) && (eDSAuthFailed == dsStatus) )
                                                                         dsStatus = eDSAuthMethodNotSupported;
  
-								switch ( dsStatus )	{
-									case eDSNoErr:
-										iResult = eDSNoErr;
-										break;
-			
-									case eDSAuthNewPasswordRequired:
-										iResult = eDSNoErr;
-										break;
-			
-									case eDSAuthPasswordExpired:
-										iResult = eDSNoErr;
-										break;
+						switch ( dsStatus )	{
+							case eDSNoErr:
+								iResult = eDSNoErr;
+								break;
+	
+							case eDSAuthNewPasswordRequired:
+								iResult = eDSNoErr;
+								break;
+	
+							case eDSAuthPasswordExpired:
+								iResult = eDSNoErr;
+								break;
 
-									default:
-										iResult = dsStatus;
-										if (logErrors)
-										    syslog( LOG_ERR, "cram_md5_auth: Authentication failed for user %s err=%d",inUserID,dsStatus); 
-										break;
-								}
-								(void)dsDataNodeDeAllocate( dirRef, pAuthType );
-								pAuthType = NULL;
-							}
-							else {
-								if (logErrors) 
-								    syslog( LOG_ERR, "cram_md5_auth: Authentication failed for user %s.  Unable to allocate memory.", inUserID );
+							default:
 								iResult = dsStatus;
-							}
-
-							(void) dsDataNodeDeAllocate( dirRef, pStepBuff );
-							pStepBuff = NULL;
+								if (logErrors)
+								    syslog( LOG_ERR, "cram_md5_auth: Authentication failed for user %s err=%d",inUserID,dsStatus); 
+								break;
 						}
-						else {
-							if (logErrors)
-							    syslog( LOG_ERR, "cram_md5_auth: Authentication failed for user %s.  Unable to allocate memory.", inUserID );
-							iResult = dsStatus;
-						}
-						(void)dsDataNodeDeAllocate( dirRef, pAuthBuff );
-						pAuthBuff = NULL;
+						(void)dsDataNodeDeAllocate( dirRef, pAuthType );
+						pAuthType = NULL;
 					}
 					else {
-						if (logErrors)
+						if (logErrors) 
 						    syslog( LOG_ERR, "cram_md5_auth: Authentication failed for user %s.  Unable to allocate memory.", inUserID );
 						iResult = dsStatus;
 					}
-					(void)dsCloseDirNode( userNodeRef );
-					userNodeRef = 0;
+
+					(void) dsDataNodeDeAllocate( dirRef, pStepBuff );
+					pStepBuff = NULL;
 				}
 				else {
-				    if (logErrors)
-					    syslog( LOG_ERR, "cram_md5_auth: Unable to open user directory node for user %s. (Open Directory error: %d)", inUserID, dsStatus );
+					if (logErrors)
+					    syslog( LOG_ERR, "cram_md5_auth: Authentication failed for user %s.  Unable to allocate memory.", inUserID );
 					iResult = dsStatus;
 				}
+				(void)dsDataNodeDeAllocate( dirRef, pAuthBuff );
+				pAuthBuff = NULL;
 			}
 			else {
 				if (logErrors)
-				    syslog( LOG_ERR, "cram_md5_auth: Unable to find user %s. (Open Directory error: %d)", inUserID, dsStatus );
+				    syslog( LOG_ERR, "cram_md5_auth: Authentication failed for user %s.  Unable to allocate memory.", inUserID );
 				iResult = dsStatus;
 			}
-
-			(void)dsCloseDirNode( searchNodeRef );
-			searchNodeRef = 0;
+			(void)dsCloseDirNode( userNodeRef );
+			userNodeRef = 0;
 		}
 		else {
-			if (logErrors)
-			    syslog( dsStatus, "cram_md5_auth: Unable to open directroy search node. (Open Directory error: %d)", dsStatus );
+		    if (logErrors)
+			    syslog( LOG_ERR, "cram_md5_auth: Unable to open user directory node for user %s. (Open Directory error: %d)", inUserID, dsStatus );
 			iResult = dsStatus;
 		}
-
-		(void) dsCloseDirService( dirRef );
-		dirRef = 0;
 	}
 	else {
 		if (logErrors)
-		    syslog( LOG_ERR, "cram_md5_auth: Unable to open directroy. (Open Directory error: %d)", dsStatus );
+		    syslog( LOG_ERR, "cram_md5_auth: Unable to find user %s. (Open Directory error: %d)", inUserID, dsStatus );
 		iResult = dsStatus;
 	}
 
+
+done:
 	if (userLoc != NULL) {
 		free(userLoc);
 		userLoc = NULL;
@@ -665,63 +646,72 @@ int _od_auth_check_user_exists(const char *inUserID)
 {
 	int		        iResult			= 0;
 	tDirStatus              dsStatus		= eDSNoErr;
-	tDirReference		dirRef			= 0;
-	tDirNodeReference	searchNodeRef           = 0;
 	tDirNodeReference	userNodeRef		= 0;
 	char			*userLoc		= NULL;
-	unsigned long		uiNameLen		= 0;
-	unsigned long		uiBuffSzie		= 0;
+	UInt32				uiNameLen		= 0;
+	UInt32				uiBuffSzie		= 0;
 	int                     logErrors               = kLogErrors_disabled;
 	
 	if ( (inUserID == NULL) ) {
 		return( -1 );
 	}
 
+	/* This is a hack to work around the fact that we're calling into
+	 * DS/OD multiple times for the same user instead of making a single
+	 * call and retaining the results.  Doing this hack is easy, doing the
+	 * correct fix is difficult.  See <rdar://problem/6786738> "extra work
+	 * is being performed during DIGEST-MD5 auth" for the details.
+	 * All this code does is ask: "If the last time this function was
+	 * called we found that this user exists, then assume the user
+	 * still exists" -- that should be a safe assumption. */
+	if (*userExists != (char)0 && strcmp(userExists, inUserID) == 0) {
+		return 1; // user exists
+	}
+   
 	uiNameLen = strlen( inUserID );
 
 	uiBuffSzie = uiNameLen + 32;
 
-	dsStatus = dsOpenDirService( &dirRef );
+	if (od_auth_configure_directory_references() != eDSNoErr) {
+		iResult = eDSInvalidReference;
+		goto done;
+	}
+
+	dsStatus = _od_auth_lookup_user( dirRef, searchNodeRef, inUserID, &userLoc );
 	if ( dsStatus == eDSNoErr )	{
-		dsStatus = _od_auth_get_search_node( dirRef, &searchNodeRef );
-		if ( dsStatus == eDSNoErr )	{
-			dsStatus = _od_auth_lookup_user( dirRef, searchNodeRef, inUserID, &userLoc );
-			if ( dsStatus == eDSNoErr )	{
-				dsStatus = _od_auth_open_user_node( dirRef, userLoc, &userNodeRef );
-				if ( dsStatus == eDSNoErr )
-					iResult = 1; // user exists
-				else {
-				    if (logErrors)
-					    syslog( LOG_ERR, "_od_auth_check_user_exists: Unable to open user directory node for user %s. (Open Directory error: %d)", inUserID, dsStatus );
-					iResult = dsStatus;
-				}
-			}
-			else {
-				if (logErrors)
-				    syslog( LOG_ERR, "_od_auth_check_user_exists: Unable to find user %s. (Open Directory error: %d)", inUserID, dsStatus );
-				iResult = dsStatus;
-			}
-			(void)dsCloseDirNode( searchNodeRef );
-			searchNodeRef = 0;
+		dsStatus = _od_auth_open_user_node( dirRef, userLoc, &userNodeRef );
+		if ( dsStatus == eDSNoErr ) {
+			iResult = 1; // user exists
+
+			(void)dsCloseDirNode( userNodeRef );
+			userNodeRef = 0;
 		}
 		else {
-			if (logErrors)
-			    syslog( dsStatus, "_od_auth_check_user_exists: Unable to open directroy search node. (Open Directory error: %d)", dsStatus );
+		    if (logErrors)
+			    syslog( LOG_ERR, "_od_auth_check_user_exists: Unable to open user directory node for user %s. (Open Directory error: %d)", inUserID, dsStatus );
 			iResult = dsStatus;
 		}
-		(void)dsCloseDirService( dirRef );
-		dirRef = 0;
 	}
 	else {
 		if (logErrors)
-		    syslog( LOG_ERR, "_od_auth_check_user_exists: Unable to open directroy. (Open Directory error: %d)", dsStatus );
+		    syslog( LOG_ERR, "_od_auth_check_user_exists: Unable to find user %s. (Open Directory error: %d)", inUserID, dsStatus );
 		iResult = dsStatus;
 	}
 
-    if (userLoc != NULL) {
-        free(userLoc);
-        userLoc = NULL;
-    }
+done:
+
+	if (userLoc != NULL) {
+		free(userLoc);
+		userLoc = NULL;
+	}
+
+	if (iResult == 1) {
+		/* user exists, so cache that result */
+		if (strlcpy(userExists, inUserID, sizeof(userExists)) >= sizeof(userExists)) {
+			/* something went wrong, user id specified was too long, don't cache it */
+			*userExists = (char)0;
+		}
+	}
 
 	return( iResult );
 

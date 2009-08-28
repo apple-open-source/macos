@@ -27,8 +27,8 @@ XSLTPUBFUN int XSLTCALL
 						 int nsNr);
 XSLTPUBFUN xmlChar * XSLTCALL	
 		xsltEvalTemplateString		(xsltTransformContextPtr ctxt,
-						 xmlNodePtr node,
-						 xmlNodePtr parent);
+						 xmlNodePtr contextNode,
+						 xmlNodePtr inst);
 XSLTPUBFUN xmlChar * XSLTCALL	
 		xsltEvalAttrValueTemplate	(xsltTransformContextPtr ctxt,
 						 xmlNodePtr node,

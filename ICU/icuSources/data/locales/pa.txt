@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2006 International Business Machines
+// * Copyright (C) 2008 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/pa.xml
@@ -25,7 +25,41 @@ pa{
         " ਫ {ਫ਼} ਬ-ਰ ਲ ਵ ੜ ਾ-ੂ ੇ ੈ ੋ-੍]"
     }
     Languages{
+        ab{"ਅਬਖਾਜ਼ੀਅਨ"}
+        ace{"ਅਚੀਨੀ"}
+        ach{"ਅਕੋਲੀ"}
+        af{"ਅਫ਼ਰੀਕੀ"}
+        apa{"ਅਪਾਚੇ ਭਾਸ਼ਾ"}
+        ar{"ਅਰਬੀ"}
+        as{"ਅਸਾਮੀ"}
+        aus{"ਆਸਟਰੇਲੀਅਨ ਭਾਸ਼ਾ"}
+        az{"ਅਜ਼ੇਰਬੈਜਨਿ"}
+        bat{"ਬੈਲਟਿਕ ਭਾਸ਼ਾ"}
+        be{"ਬੇਲਾਰੂਸੀਅਨ"}
+        bn{"ਬੰਗਾਲੀ"}
+        da{"ਡੈਨਿਸ਼"}
+        de{"ਜਰਮਨ"}
+        en{"ਅੰਗਰੇਜ਼ੀ"}
+        eo{"ਏਸਪਰੇਂਟੋ"}
+        es{"ਸਪੇਨਿਸ਼"}
+        fi{"ਫਿਨਿਸ਼"}
+        fr{"ਫਰੈਂਚ"}
+        gu{"ਗੁਜਰਾਤੀ"}
+        hi{"ਹਿੰਦੀ"}
+        id{"ਇੰਡੋਨੇਸ਼ੀਆਈ"}
+        it{"ਇਤਾਲਵੀ"}
+        mk{"ਮੈਕੇਡੋਨੀਅਨ"}
+        nl{"ਡੱਚ"}
+        no{"ਨਾਰਵੇਜੀਅਨ"}
         pa{"ਪੰਜਾਬੀ"}
+        pt{"ਪੋਰਤੂਗੂਈਸ"}
+        sv{"ਸਵੈਡਿਸ਼"}
+        ta{"ਤਾਮਿਲ"}
+        te{"ਤੇਲਗੂ"}
+        th{"ਥਾਈ"}
+        tw{"ਤ੍ਵਿ"}
+        ug{"ਉਇਘੁਰ"}
+        und{"und"}
     }
     LocaleScript{
         "Guru",
@@ -46,11 +80,11 @@ pa{
     }
     NumberPatterns{
         "#,##,##0.###",
-        "¤ #,##,##0.00",
+        "¤ #,##,##0.00",
         "#,##,##0%",
         "#E0",
     }
-    Version{"1.45"}
+    Version{"1.61"}
     calendar{
         gregorian{
             AmPmMarkers{
@@ -77,32 +111,6 @@ pa{
                         "ਸ਼ੁੱਕਰਵਾਰ",
                         "ਸ਼ਨੀਚਰਵਾਰ",
                     }
-                }
-            }
-            fields{
-                day{
-                    dn{"ਦਿਨ"}
-                }
-                hour{
-                    dn{"ਘੰਟਾ"}
-                }
-                minute{
-                    dn{"ਮਿੰਟ"}
-                }
-                month{
-                    dn{"ਮਹੀਨਾ"}
-                }
-                week{
-                    dn{"ਹਫ਼ਤਾ"}
-                }
-                weekday{
-                    dn{"ਹਫ਼ਤੇ ਦਾ ਦਿਨ"}
-                }
-                year{
-                    dn{"ਸਾਲ"}
-                }
-                zone{
-                    dn{"ਖੇਤਰ"}
                 }
             }
             monthNames{
@@ -134,16 +142,6 @@ pa{
                         "ਅਕਤੂਬਰ",
                         "ਨਵੰਬਰ",
                         "ਦਸੰਬਰ",
-                    }
-                }
-            }
-            quarters{
-                format{
-                    wide{
-                        "ਪਹਿਲਾਂ ਚੌਥਾਈ",
-                        "ਦੂਜਾ ਚੌਥਾਈ",
-                        "ਤੀਜਾ ਚੌਥਾਈ",
-                        "ਚੌਥਾ ਚੌਥਾਈ",
                     }
                 }
             }

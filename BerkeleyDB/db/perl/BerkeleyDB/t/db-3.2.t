@@ -4,15 +4,9 @@
 
 use strict ;
 
-BEGIN {
-    unless(grep /blib/, @INC) {
-        chdir 't' if -d 't';
-        @INC = '../lib' if -d '../lib';
-    }
-}
-
+use lib 't' ;
 use BerkeleyDB; 
-use t::util ;
+use util ;
 
 BEGIN
 {
@@ -45,7 +39,7 @@ umask(0) ;
 
     my $home = "./fred" ;
     ok 2, my $lexD = new LexDir($home) ;
-    ok 3, my $env = new BerkeleyDB::Env -Home => $home,
+    ok 3, my $env = new BerkeleyDB::Env -Home => $home, @StdErrFile,
                                          -Flags => DB_CREATE ,
                                          -SetFlags => DB_NOMMAP ;
  
@@ -57,7 +51,7 @@ umask(0) ;
 
     my $home = "./fred" ;
     ok 4, my $lexD = new LexDir($home) ;
-    ok 5, my $env = new BerkeleyDB::Env -Home => $home,
+    ok 5, my $env = new BerkeleyDB::Env -Home => $home, @StdErrFile,
                                          -Flags => DB_CREATE ;
     ok 6, ! $env->set_flags(DB_NOMMAP, 1);
  

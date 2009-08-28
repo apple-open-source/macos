@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in
-# Copyright (C) 2002, 2003, 2004 Simon Josefsson.
+# Copyright (C) 2002, 2003, 2004, 2006, 2007 Simon Josefsson.
 #
 # This file is part of GNU Libidn.
 #
@@ -24,14 +24,14 @@ LDADD = ../lib/libidn.la libutils.la
 noinst_LTLIBRARIES = libutils.la
 libutils_la_SOURCES = utils.h utils.c
 
-TESTS = tst_stringprep tst_punycode tst_idna tst_idna2 tst_nfkc tst_pr29
-TESTS += tst_strerror
+ctests = tst_stringprep$(EXEEXT) tst_punycode$(EXEEXT)		\
+	tst_idna$(EXEEXT) tst_idna2$(EXEEXT) tst_nfkc$(EXEEXT)	\
+	tst_pr29$(EXEEXT) tst_strerror$(EXEEXT)
 if TLD
-TESTS += tst_tld
+ctests += tst_tld$(EXEEXT)
 endif
-check_PROGRAMS = $(TESTS)
 
-# Maintainer targets
+TESTS = $(ctests)	
+check_PROGRAMS = $(ctests)
 
-indent:
-	indent $(SOURCES)
+TESTS_ENVIRONMENT = $(VALGRIND)

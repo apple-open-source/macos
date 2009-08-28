@@ -51,7 +51,7 @@ SecPolicySearchCreate(
 	Required(searchRef);	// preflight
 	SecPointer<PolicyCursor> cursor(new PolicyCursor(oid, value));
 	*searchRef = cursor->handle();
-	END_SECAPI2("SecPolicySearchCreate")
+	END_SECAPI
 }
 
 
@@ -67,5 +67,5 @@ SecPolicySearchCopyNext(
 	if (!PolicyCursor::required(searchRef)->next(policy))
 		return errSecPolicyNotFound;
 	*policyRef = policy->handle();
-	END_SECAPI2("SecPolicySearchCopyNext")
+	END_SECAPI
 }

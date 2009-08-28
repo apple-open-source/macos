@@ -49,8 +49,10 @@ switch -glob [istarget] {
     default          { }
 }
 
-set lib_opts debug
-set exec_opts [list debug $dl_lib_flag additional_flags=-DSHLIB_DIR\=\"${shlibdir}\"]
+# APPLE LOCAL: We need to set the min version here to avoid some warning
+set macosxflags "-mmacosx-version-min=10.5"
+set lib_opts [list debug $macosxflags]
+set exec_opts [list debug $dl_lib_flag $macosxflags additional_flags=-DSHLIB_DIR\=\"${shlibdir}\"]
 
 if [get_compiler_info ${binfile}] {
     return -1
@@ -93,13 +95,14 @@ set unloadshr_line [gdb_get_line_number "unloadshr break" ${libsrcfile}]
 
 gdb_test "run" \
 "Starting program.*unload.*
+Reading symbol.*
 Breakpoint.*at.*
-Pending breakpoint \"shrfunc1\" resolved.*
+Pending breakpoint 1 - \"shrfunc1\" resolved.*
 Breakpoint.*, shrfunc1 \\\(x=3\\\).*unloadshr.c:$unloadshr_line.*" \
 "running program"
 
 gdb_test "continue" \
-"Continuing.*y is 7.*warning: Temporarily disabling breakpoints for.*unloadshr.sl.*Program exited normally." \
+"Continuing.*y is 7.*Program exited normally." \
 "continuing to end of program"
 
 #
@@ -111,6 +114,6 @@ gdb_test "run" \
 "rerun to shared library breakpoint"
 
 gdb_test "continue" \
-"Continuing.*y is 7.*warning: Temporarily disabling breakpoints for.*unloadshr.sl.*Program exited normally." \
+"Continuing.*y is 7.*Program exited normally." \
 "continuing to end of program second time"
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2007 Apple Inc.  All rights reserved.
+ * Copyright (c) 2002-2009 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -265,6 +265,9 @@ main(argc, argv)
 
 	sigemptyset(&waitset);
 	sigaddset(&waitset, SIGUSR1);
+	sigaddset(&waitset, SIGCHLD);
+	sigaddset(&waitset, SIGINT);
+	sigaddset(&waitset, SIGTERM);
 	sigprocmask(SIG_BLOCK, &waitset, &osigset);
 	switch (child = fork()) {
 	case -1:
@@ -380,6 +383,20 @@ main(argc, argv)
 		exit(1);
 	}
 
+	init_nsm();
+
+	/* raise our resource limits as far as they can go */
+	if (getrlimit(RLIMIT_NOFILE, &rlp)) {
+		syslog(LOG_WARNING, "getrlimit(RLIMIT_NOFILE) failed: %s",
+			strerror(errno));
+	} else {
+		rlp.rlim_cur = MIN(rlp.rlim_max, OPEN_MAX);
+		if (setrlimit(RLIMIT_NOFILE, &rlp)) {
+			syslog(LOG_WARNING, "setrlimit(RLIMIT_NOFILE) failed: %s",
+				strerror(errno));
+		}
+	}
+
 	/* set up grace period alarm */
 	sa.sa_handler = (sig_t) sigalarm_grace_period_handler;
 	sigemptyset(&sa.sa_mask);
@@ -395,20 +412,6 @@ main(argc, argv)
 		alarm(config.grace_period);
 	} else {
 		grace_expired = 1;
-	}
-
-	init_nsm();
-
-	/* raise our resource limits as far as they can go */
-	if (getrlimit(RLIMIT_NOFILE, &rlp)) {
-		syslog(LOG_WARNING, "getrlimit(RLIMIT_NOFILE) failed: %s",
-			strerror(errno));
-	} else {
-		rlp.rlim_cur = MIN(rlp.rlim_max, OPEN_MAX);
-		if (setrlimit(RLIMIT_NOFILE, &rlp)) {
-			syslog(LOG_WARNING, "setrlimit(RLIMIT_NOFILE) failed: %s",
-				strerror(errno));
-		}
 	}
 
 	/* Signal the parent (client process) that its ok to start */
@@ -439,19 +442,15 @@ void
 init_nsm(void)
 {
 	enum clnt_stat ret;
-	my_id id;
 	sm_stat mstat;
-	char name[] = "NFS NLM";
 	char localhost[] = "localhost";
 	int attempt = 0;
 
-	/*
-	 * !!!
-	 * The my_id structure isn't used by the SM_UNMON_ALL call, as far
-	 * as I know.  Leave it empty for now.
-	 */
-	memset(&id, 0, sizeof(id));
-	id.my_name = name;
+	/* setup constant data for SM_MON calls */
+	mon_host.mon_id.my_id.my_name = localhost;
+	mon_host.mon_id.my_id.my_prog = NLM_PROG;
+	mon_host.mon_id.my_id.my_vers = NLM_SM;
+	mon_host.mon_id.my_id.my_proc = NLM_SM_NOTIFY;  /* bsdi addition */
 
 	/*
 	 * !!!
@@ -461,7 +460,7 @@ init_nsm(void)
 	 */
 	do {
 		ret = callrpc("localhost", SM_PROG, SM_VERS, SM_UNMON_ALL,
-		    (xdrproc_t)xdr_my_id, &id, (xdrproc_t)xdr_sm_stat, &mstat);
+		    (xdrproc_t)xdr_my_id, &mon_host.mon_id.my_id, (xdrproc_t)xdr_sm_stat, &mstat);
 		if (ret) {
 			syslog(LOG_WARNING, "can't contact statd, %lu %s", SM_PROG, clnt_sperrno(ret));
 			if (++attempt < 20) {
@@ -481,11 +480,6 @@ init_nsm(void)
 
 	nsm_state = mstat.state;
 
-	/* setup constant data for SM_MON calls */
-	mon_host.mon_id.my_id.my_name = localhost;
-	mon_host.mon_id.my_id.my_prog = NLM_PROG;
-	mon_host.mon_id.my_id.my_vers = NLM_SM;
-	mon_host.mon_id.my_id.my_proc = NLM_SM_NOTIFY;  /* bsdi addition */
 }
 
 /*
@@ -497,8 +491,14 @@ init_nsm(void)
 void
 handle_sig_cleanup(int sig)
 {
+	pid_t pid;
+	int status;
+
 	if (server_pid != -1) {
-		kill(server_pid, SIGTERM);
+		pid = server_pid;
+		server_pid = -1;
+		kill(pid, SIGTERM);
+		wait4(pid, &status, 0, NULL);
 	} else {
 		alarm(1); /* XXX 5028243 in case pmap_unset() gets hung up during shutdown */
 		pmap_unset(NLM_PROG, NLM_SM);
@@ -750,10 +750,13 @@ statd_load(void)
 	launch_data_dict_insert(msg, job, LAUNCH_KEY_SUBMITJOB);
 
 	resp = launch_msg(msg);
-	if (!resp)
+	if (!resp) {
 		rv = errno;
-	else if (launch_data_get_type(resp) == LAUNCH_DATA_ERRNO)
-		rv = launch_data_get_errno(resp);
+	} else {
+		if (launch_data_get_type(resp) == LAUNCH_DATA_ERRNO)
+			rv = launch_data_get_errno(resp);
+		launch_data_free(resp);
+	}
 
 	launch_data_free(msg);
 	return (rv);
@@ -771,10 +774,13 @@ statd_service_start(void)
 	launch_data_dict_insert(msg, launch_data_new_string(_STATD_SERVICE_LABEL), LAUNCH_KEY_STARTJOB);
 
 	resp = launch_msg(msg);
-	if (!resp)
+	if (!resp) {
 		rv = errno;
-	else if (launch_data_get_type(resp) == LAUNCH_DATA_ERRNO)
-		rv = launch_data_get_errno(resp);
+	} else {
+		if (launch_data_get_type(resp) == LAUNCH_DATA_ERRNO)
+			rv = launch_data_get_errno(resp);
+		launch_data_free(resp);
+	}
 
 	launch_data_free(msg);
 	return (rv);
@@ -814,10 +820,13 @@ statd_stop(void)
 	launch_data_dict_insert(msg, launch_data_new_string(_STATD_SERVICE_LABEL), LAUNCH_KEY_REMOVEJOB);
 
 	resp = launch_msg(msg);
-	if (!resp)
+	if (!resp) {
 		rv = errno;
-	else if (launch_data_get_type(resp) == LAUNCH_DATA_ERRNO)
-		rv = launch_data_get_errno(resp);
+	} else {
+		if (launch_data_get_type(resp) == LAUNCH_DATA_ERRNO)
+			rv = launch_data_get_errno(resp);
+		launch_data_free(resp);
+	}
 
 	launch_data_free(msg);
 	return (rv);

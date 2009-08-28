@@ -165,7 +165,7 @@ IOReturn Apple16X50UARTSync::setPowerState(unsigned long powerStateOrdinal, IOSe
 void Apple16X50UARTSync::handleSetPowerState(thread_call_param_t param0, thread_call_param_t param1 )
 {
     Apple16X50UARTSync *self = OSDynamicCast(Apple16X50UARTSync, (const OSMetaClassBase *)param0);
-    UInt32 on_off = (UInt32)param1;		// new power state
+    UInt32 on_off = (UInt32)(uintptr_t)param1;		// new power state
     
     if (self && self->CommandGate) {
 	self->CommandGate->runAction(&(self->setPowerStateGated), (void *)on_off, (void *)0, (void *)0, (void *)0);
@@ -183,7 +183,7 @@ void Apple16X50UARTSync::handleSetPowerState(thread_call_param_t param0, thread_
 IOReturn Apple16X50UARTSync::setPowerStateGated(OSObject *owner, void *arg0, void *arg1, void *arg2, void *arg3)
 {
     Apple16X50UARTSync *self = OSDynamicCast(Apple16X50UARTSync, (const OSMetaClassBase *)owner);
-    UInt32 newState = (UInt32)arg0;		// new power state to go to
+    UInt32 newState = (UInt32)(uintptr_t)arg0;		// new power state to go to
     
     // sleep -> save UART settings
     // wake -> restore UART settings

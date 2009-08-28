@@ -20,16 +20,17 @@
  */
 
 /*
- *	Copyright (c) 1988 AT&T
- *	  All Rights Reserved
- *
- * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)output.c	1.20	06/04/19 SMI" 	/* SVr4.0 1.3	*/
+/*
+ *	Copyright (c) 1988 AT&T
+ *	  All Rights Reserved
+ */
 
-#include "syn.h"
+#pragma ident	"@(#)output.c	1.21	08/05/31 SMI"
+
 #include <sys/mman.h>
 #include <stdio.h>
 #include <stdlib.h>

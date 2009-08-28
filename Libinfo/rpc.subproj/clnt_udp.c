@@ -188,7 +188,7 @@ clntudp_bufcreate_timeout(struct sockaddr_in *raddr, uint32_t program, uint32_t 
 	
 	cu->cu_total_timeout.tv_sec = -1;
 	cu->cu_total_timeout.tv_usec = -1;
-	if (total_timeout != NULL) cu->cu_total_timeout = *retry_timeout;
+	if (total_timeout != NULL) cu->cu_total_timeout = *total_timeout;
 	
 	rfd = open("/dev/random", O_RDONLY, 0);
 	if ((rfd < 0) || (read(rfd, &call_msg.rm_xid, sizeof(call_msg.rm_xid)) != sizeof(call_msg.rm_xid)))
@@ -430,8 +430,11 @@ send_again:
 		if (inlen < sizeof(u_long))
 			continue;	
 		/* see if reply transaction id matches sent id */
-		if (*((u_long *)(cu->cu_inbuf)) != *((u_long *)(cu->cu_outbuf)))
-			continue;	
+#ifdef __LP64__
+		if (*((uint32_t *)(cu->cu_inbuf)) != *((uint32_t *)(cu->cu_outbuf))) continue;
+#else
+		if (*((u_long *)(cu->cu_inbuf)) != *((u_long *)(cu->cu_outbuf))) continue;
+#endif
 		/* we now assume we have the proper reply */
 		break;
 	}

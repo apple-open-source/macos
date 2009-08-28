@@ -1,0 +1,168 @@
+# Features covered:  XSLT Transformations
+#
+# This file contains a collection of tests for the TclXSLT package.
+# This file tests the parser's performance on tranformations.
+# Sourcing this file into Tcl runs the tests and generates output
+# for errors.  No output means no errors were found.
+#
+# Copyright (c) 2001-2002 Zveno Pty Ltd.
+#
+# $Id: transform.test,v 1.3 2002/03/01 03:33:22 balls Exp $
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    source [file join [pwd] [file dirname [info script]] defs.tcl]
+}
+
+if {[catch {package require dom 2.1}]} {
+    catch {puts stderr "Cannot load dom 2.1 package"}
+    return
+}
+if {[catch {package require xslt 2.0}]} {
+    catch {puts stderr "Cannot load xslt 2.0 package"}
+    return
+}
+
+set style1 [dom::libxml2::parse {<xsl:stylesheet version="1.0"
+	xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+
+  <xsl:output method="text"/>
+
+  <xsl:template match="/">
+    <xsl:text>Test value</xsl:text>
+  </xsl:template>
+
+</xsl:stylesheet>
+}]
+set xml1 [dom::libxml2::parse <Test/>]
+set xml2 [dom::libxml2::parse <AnotherTest/>]
+
+# In-memory tests
+
+test transform-1.1 {Single, simple XSLT Transformation} {
+    set result [[::xslt::compile $style1] transform $xml1]
+    dom::libxml2::serialize $result
+} {Test value}
+
+test transform-1.2 {Multiple simple XSLT Transformations} {
+    catch {unset ssheet}
+    catch {unset result}
+
+    set ssheet [::xslt::compile $style1]
+
+    set result1 [$ssheet transform $xml1]
+    # Stylesheet is now cached
+    set result2 [$ssheet transform $xml1]
+    list [::dom::libxml2::serialize $result1] [::dom::libxml2::serialize $result2]
+} [list {Test value} {Test value}]
+
+test transform-1.3 {Complex XSLT Transformation} {
+    catch {unset ssheet}
+
+    set ch [open transform-1.3.xsl]
+    set ssheet [::xslt::compile [::dom::libxml2::parse [read $ch]]]
+    close $ch
+
+    set ch [open transform-1.3.xml]
+    set source [::dom::libxml2::parse [read $ch]]
+    close $ch
+
+    set ch [open transform-1.3-result.html]
+    set expectedxml [read $ch]
+    close $ch
+
+    set result [$ssheet transform $source]
+    set resultxml [::dom::libxml2::serialize $result]
+
+    set e [expr {$resultxml == $expectedxml}]
+
+    if {$e == 0} {
+	set ch [open result.xml w]
+	puts $ch $resultxml
+	close $ch
+	set ch [open expected.xml w]
+	puts $ch $expectedxml
+	close $ch
+    }
+
+    set e
+} 1
+
+# Source documents in files
+
+# Stylesheets with includes/imports
+
+# Source documents with external entities
+
+# Parameters
+
+test transform-5.1 {Pass parameters} {
+    set style_5_1 [::dom::libxml2::parse {<xsl:stylesheet
+    version="1.0"
+    xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+
+  <xsl:output method="text"/>
+
+  <xsl:param name="test">wrong value</xsl:param>
+
+  <xsl:template match="/">
+    <xsl:value-of select="$test"/>
+  </xsl:template>
+
+</xsl:stylesheet>
+}]
+    set result_5_1 [[::xslt::compile $style_5_1] transform $xml1 test {correct value}]
+    ::dom::libxml2::serialize $result_5_1
+} {correct value}
+
+test transform-5.2 {Pass parameter, calculate result} {
+    # Create a large source document
+    set sourcexml_5_2 {<?xml version="1.0"?>
+<Test>
+}
+    for {set i 0} {$i < 1000} {incr i} {
+	append source "  <value/>\n"
+    }
+    append source {
+</Test>
+}
+    set source_5_2 [::dom::libxml2::parse $sourcexml_5_2]
+    set style_5_2 [::dom::libxml2 {<xsl:stylesheet
+    version="1.0"
+    xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+
+  <xsl:output method="text"/>
+
+  <xsl:param name="test" select="'10'"/>
+
+  <xsl:template match="value">
+    <!-- <xsl:message>Processing value <xsl:value-of select="position()"/></xsl:message> -->
+    <xsl:call-template name="recurse">
+      <xsl:with-param name="value" select="$test"/>
+    </xsl:call-template>
+  </xsl:template>
+
+  <xsl:template name="recurse">
+    <xsl:param name="value" select="'0'"/>
+
+    <xsl:choose>
+      <xsl:when test="$value = 0">
+      </xsl:when>
+      <xsl:otherwise>
+	<xsl:text>ooooXXXXoooo</xsl:text>
+	<xsl:call-template name="recurse">
+	  <xsl:with-param name="value" select="$value - 1"/>
+	</xsl:call-template>
+      </xsl:otherwise>
+    </xsl:choose>
+  </xsl:template>
+
+</xsl:stylesheet>
+}]
+    set result_5_2 [[::xslt::compile $style_5_2] transform $source_5_2 test '100']
+
+    expr {[string length $result] == 1000 * 100 * [string length "ooooXXXXoooo"]}
+} {1}
+
+# cleanup
+::tcltest::cleanupTests
+return

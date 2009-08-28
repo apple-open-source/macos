@@ -1,0 +1,139 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+<head>
+<link rel="STYLESHEET" href="mailman-install.css" type='text/css' />
+<link rel="first" href="mailman-install.html" title='GNU mailman - installation Manual' />
+<link rel='last' href='about.html' title='About this document...' />
+<link rel='help' href='about.html' title='About this document...' />
+<link rel="next" href="node40.html" />
+<link rel="prev" href="mail-server.html" />
+<link rel="parent" href="front.html" />
+<link rel="next" href="node40.html" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name='aesop' content='information' />
+<title>7 Review your site defaults</title>
+</head>
+<body>
+<div class="navigation">
+<div id='top-navigation-panel' xml:id='top-navigation-panel'>
+<table align="center" width="100%" cellpadding="0" cellspacing="2">
+<tr>
+<td class='online-navigation'><a rel="prev" title="6.4.3 more information"
+  href="node38.html"><img src='previous.png'
+  border='0' height='32'  alt='Previous Page' width='32' /></a></td>
+<td class='online-navigation'><a rel="parent" title="Front Matter"
+  href="front.html"><img src='up.png'
+  border='0' height='32'  alt='Up one Level' width='32' /></a></td>
+<td class='online-navigation'><a rel="next" title="8 create a site-wide"
+  href="node40.html"><img src='next.png'
+  border='0' height='32'  alt='Next Page' width='32' /></a></td>
+<td align="center" width="100%">GNU Mailman - Installation Manual</td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+</tr></table>
+<div class='online-navigation'>
+<b class="navlabel">Previous:</b>
+<a class="sectref" rel="prev" href="node38.html">6.4.3 More information</a>
+<b class="navlabel">Up:</b>
+<a class="sectref" rel="parent" href="front.html">Front Matter</a>
+<b class="navlabel">Next:</b>
+<a class="sectref" rel="next" href="node40.html">8 Create a site-wide</a>
+</div>
+<hr /></div>
+</div>
+<!--End of Navigation Panel-->
+
+<h1><a name="SECTION001700000000000000000"></a><a name="customizing"></a>
+<br>
+7 Review your site defaults
+</h1>
+
+<p>
+Mailman has a large number of site-wide configuration options which you should
+now review and change according to your needs.  Some of the options control
+how Mailman interacts with your environment, and other options select defaults
+for newly created lists<a name="tex2html5"
+  href="#foot733"><sup>5</sup></a>.
+There are system tuning parameters and integration options.
+
+<p>
+The full set of site-wide defaults lives in the
+<span class="file"><var>$prefix</var>/Mailman/Defaults.py</span> file, however you should
+<strong>never</strong> modify this file!  Instead, change the <span class="file">mm_cfg.py</span> file in
+that same directory.  You only need to add values to <span class="file">mm_cfg.py</span> that are
+different than the defaults in <span class="file">Defaults.py</span>, and future Mailman upgrades
+are guaranteed never to touch your <span class="file">mm_cfg.py</span> file.
+
+<p>
+The <span class="file">Defaults.py</span> file is documented extensively, so the options are not
+described here.  The <span class="file">Defaults.py</span> and <span class="file">mm_cfg.py</span> are both
+<a class="ulink" href="http://www.python.org"
+  >Python</a> files so valid Python syntax must be
+maintained or your Mailman installation will break.
+
+<p>
+<div class="note"><b class="label">Note:</b>
+
+Do <strong>not</strong> change the <var>HOME_DIR</var> or <var>MAILMAN_DIR</var> variables.
+These are set automatically by the <b class="program">configure</b> script, and you will
+break your Mailman installation by if you change these.
+</div>
+
+<p>
+You should make any changes to <span class="file">mm_cfg.py</span> using the account you
+installed Mailman under in the <a href="troubleshooting.html#building">14</a> section.
+
+<p>
+<br><hr><h4>Footnotes</h4>
+<dl>
+<dt><a name="foot733">... lists</a><A
+ href="customizing.html#tex2html5"><sup>5</sup></a></dt>
+<dd>In general, changing the list defaults
+described in this section will not affect any already created lists.  To make
+changes after a list has been created, use the web interface or the command
+line scripts, such as <b class="program">bin/withlist</b> and <b class="program">bin/config_list</b>.
+
+</dd>
+</dl>
+<div class="navigation">
+<div class='online-navigation'>
+<p></p><hr />
+<table align="center" width="100%" cellpadding="0" cellspacing="2">
+<tr>
+<td class='online-navigation'><a rel="prev" title="6.4.3 more information"
+  href="node38.html"><img src='previous.png'
+  border='0' height='32'  alt='Previous Page' width='32' /></a></td>
+<td class='online-navigation'><a rel="parent" title="Front Matter"
+  href="front.html"><img src='up.png'
+  border='0' height='32'  alt='Up one Level' width='32' /></a></td>
+<td class='online-navigation'><a rel="next" title="8 create a site-wide"
+  href="node40.html"><img src='next.png'
+  border='0' height='32'  alt='Next Page' width='32' /></a></td>
+<td align="center" width="100%">GNU Mailman - Installation Manual</td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+</tr></table>
+<div class='online-navigation'>
+<b class="navlabel">Previous:</b>
+<a class="sectref" rel="prev" href="node38.html">6.4.3 More information</a>
+<b class="navlabel">Up:</b>
+<a class="sectref" rel="parent" href="front.html">Front Matter</a>
+<b class="navlabel">Next:</b>
+<a class="sectref" rel="next" href="node40.html">8 Create a site-wide</a>
+</div>
+</div>
+<hr />
+<span class="release-info">Release 2.1, documentation updated on January 11, 2009.</span>
+</div>
+<!--End of Navigation Panel-->
+
+</body>
+</html>

@@ -34,32 +34,13 @@
 #include <DirectoryServiceCore/PrivateTypes.h>
 #include <DirectoryServiceCore/SharedConsts.h>
 #include <DirectoryService/DirServicesTypes.h>
-
-#ifndef SERVERINTERNAL
-#include <DirectoryService/CClientEndPoint.h>
-#include "DSTCPEndpoint.h"
-#endif
-
-class		DSMutexSemaphore;
+#include <DirectoryServiceCore/DSMutexSemaphore.h>
 
 class CMessaging {
 public:
 
-	   			CMessaging					( Boolean inMachEndpoint, UInt32 inTranslateBit );
+	   			CMessaging					( CIPCVirtualClass *inEndPoint, int inTranslateMode );
 virtual		   ~CMessaging					( void );
-
-		SInt32	ConfigTCP					(	const char *inRemoteIPAddress,
-												UInt32 inRemotePort );
-#ifndef SERVERINTERNAL
-		SInt32	SendServerMessage			( void );
-		SInt32	SendRemoteMessage			( void );
-#endif
-		SInt32	GetReplyMessage				( void );
-
-		SInt32	OpenCommPort				( Boolean inLocalDS );
-		SInt32	CloseCommPort				( void );
-		SInt32	OpenTCPEndpoint				( void );
-		SInt32	CloseTCPEndpoint			( void );
 
 		SInt32	Add_tDataBuff_ToMsg			( tDataBuffer *inBuff, eValueType inType );
 		SInt32	Add_tDataList_ToMsg			( tDataList *inList, eValueType inType );
@@ -76,21 +57,23 @@ virtual		   ~CMessaging					( void );
 		SInt32	Get_tRecordEntry_FromMsg	( tRecordEntry **outRecEntry, eValueType inType );
 
 		SInt32	SendInlineMessage			( UInt32 inMsgType );
+		SInt32	GetReplyMessage				( void );
 
+		void	CloseConnection				( void ) { if ( fCommPort != NULL ) fCommPort->Disconnect(); }
+	
 		void	Lock						( void );
 		void	Unlock						( void );
 		void	ClearMessageBlock			( void );
 		
 		UInt32	GetServerVersion			( void );
 		void	SetServerVersion			( UInt32 inServerVersion );
-		const char	*GetProxyIPAddress		( void );
 		void	ResetMessageBlock			( void );
-		void	ChangeLocalDaemonUse		( dsBool inLocalDaemon ) { fLocalDaemonInUse = inLocalDaemon; }
+		void	SetTranslateMode			( int inTranslateMode )	{ fTranslateMode = inTranslateMode;	}
+		int		GetTranslateMode			( void ) { return fTranslateMode; }
 #ifdef SERVERINTERNAL
-		static bool	IsThreadUsingInternalDispatchBuffering
-											( UInt32 inThreadSig );
+		bool	IsThreadUsingInternalDispatchBuffering( UInt32 inThreadSig );
 #endif
-		
+	
 private:
 		SInt32	GetEmptyObj					( sComData *inMsg, eValueType inType, sObject **outObj );
 		SInt32	GetThisObj					( sComData *inMsg, eValueType inType, sObject **outObj );
@@ -98,22 +81,13 @@ private:
 
 		bool	Grow						( UInt32 inOffset, UInt32 inSize );
 
-#ifndef SERVERINTERNAL
-		CClientEndPoint	   *fCommPort;
-		
-		DSTCPEndpoint	   *fTCPEndpoint;
-		UInt32				fRemoteIPAddress;
-		UInt32				fRemotePort;
-#endif
-		
-		dsBool				fLocalDaemonInUse;
-		UInt32				fTranslateBit;
+		CIPCVirtualClass	*fCommPort;
+		int					fTranslateMode;
 
-		DSMutexSemaphore   *fLock;
+		DSMutexSemaphore	fLock;
 
 		sComData		   *fMsgData;
-		Boolean				bMachEndpoint;	//mach = true and TCP = false
-		UInt32				fServerVersion; //1 for making sure data buffer not sent in dsGetRecordList call
+		UInt32				fServerVersion;
 };
 
 #endif

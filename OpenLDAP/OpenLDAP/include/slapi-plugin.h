@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/include/slapi-plugin.h,v 1.37.2.5 2006/01/03 22:16:06 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/include/slapi-plugin.h,v 1.52.2.5 2008/02/11 23:26:40 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * Portions Copyright 1997,2002,2003 IBM Corporation.
  * All rights reserved.
  *
@@ -31,9 +31,9 @@ typedef struct slapi_attr		Slapi_Attr;
 typedef struct slapi_value		Slapi_Value;
 typedef struct slapi_valueset		Slapi_ValueSet;
 typedef struct slapi_filter		Slapi_Filter;
-typedef struct slap_backend_db		Slapi_Backend;
-typedef struct slap_op			Slapi_Operation;
-typedef struct slap_conn		Slapi_Connection;
+typedef struct BackendDB		Slapi_Backend;
+typedef struct Operation		Slapi_Operation;
+typedef struct Connection		Slapi_Connection;
 typedef struct slapi_dn			Slapi_DN;
 typedef struct slapi_rdn		Slapi_RDN;
 typedef struct slapi_mod		Slapi_Mod;
@@ -528,9 +528,11 @@ int slapi_x_backend_get_flags( const Slapi_Backend *be, unsigned long *flags );
 #define SLAPI_X_CONN_SSF			1303
 #define SLAPI_X_CONN_SASL_CONTEXT		1304
 #define SLAPI_X_OPERATION_DELETE_GLUE_PARENT	1305
-#define SLAPI_X_MANAGEDIT			1306
+#define SLAPI_X_RELAX			1306
+#define SLAPI_X_MANAGEDIT			SLAPI_X_RELAX
 #define SLAPI_X_OPERATION_NO_SCHEMA_CHECK	1307
 #define SLAPI_X_ADD_STRUCTURAL_CLASS		1308
+#define SLAPI_X_OPERATION_NO_SUBORDINATE_GLUE	1309
 
 /*  Authentication types */
 #define SLAPD_AUTH_NONE   "none"
@@ -648,6 +650,7 @@ int slapi_x_backend_get_flags( const Slapi_Backend *be, unsigned long *flags );
 #define SLAPI_PLUGIN_BE_POST_DELETE_FN		553
 
 #define SLAPI_OPERATION_TYPE			590
+#define SLAPI_OPERATION_MSGID			591
 
 #define SLAPI_PLUGIN_MR_FILTER_CREATE_FN	600
 #define SLAPI_PLUGIN_MR_INDEXER_CREATE_FN	601
@@ -703,6 +706,7 @@ int slapi_x_backend_get_flags( const Slapi_Backend *be, unsigned long *flags );
 #define SLAPI_OPERATION_ID                      742
 #define SLAPI_CONN_CERT                         743
 #define SLAPI_CONN_AUTHMETHOD                   746
+#define SLAPI_IS_INTERNAL_OPERATION 		748
 
 #define SLAPI_RESULT_CODE                       881
 #define SLAPI_RESULT_TEXT                       882
@@ -723,6 +727,20 @@ int slapi_x_backend_get_flags( const Slapi_Backend *be, unsigned long *flags );
 #define SLAPI_X_GROUP_ATTRIBUTE			1251 /* member attribute */
 #define SLAPI_X_GROUP_OPERATION_DN		1252 /* asserted value */
 #define SLAPI_X_GROUP_TARGET_ENTRY		1253 /* target entry */
+
+/* internal preoperation extensions */
+#define SLAPI_PLUGIN_INTERNAL_PRE_BIND_FN	1260
+#define SLAPI_PLUGIN_INTERNAL_PRE_UNBIND_FN	1261
+#define SLAPI_PLUGIN_INTERNAL_PRE_SEARCH_FN	1262
+#define SLAPI_PLUGIN_INTERNAL_PRE_COMPARE_FN	1263
+#define SLAPI_PLUGIN_INTERNAL_PRE_ABANDON_FN	1264
+
+/* internal postoperation extensions */
+#define SLAPI_PLUGIN_INTERNAL_POST_BIND_FN	1270
+#define SLAPI_PLUGIN_INTERNAL_POST_UNBIND_FN	1271
+#define SLAPI_PLUGIN_INTERNAL_POST_SEARCH_FN	1272
+#define SLAPI_PLUGIN_INTERNAL_POST_COMPARE_FN	1273
+#define SLAPI_PLUGIN_INTERNAL_POST_ABANDON_FN	1274
 
 /* config stuff */
 #define SLAPI_CONFIG_FILENAME			40

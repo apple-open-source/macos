@@ -1,0 +1,162 @@
+#!/bin/sh
+# -*-tcl-*-
+# the next line restarts using tclsh \
+exec tclsh "${0}" "${@}"
+
+####################################
+# Parse a ChangeLog files into a tcl structure.
+
+proc main {} {
+    global argv
+    set in [lindex $argv 0]
+    set out [cl:parse [read [set fh [open $in r]]][close $fh]]
+
+    #puts [join $out \n] -- Test code
+    #exit
+    puts $out
+}
+
+proc cl:parse {data} {
+    set state         unknown
+    set chunk(date)   {}
+    set chunk(person) {}
+    set chunk(items)  {}
+    set idata         {}
+
+    foreach line [split $data \n] {
+	if {[cl:parse:chunk_intro $line date person]} {
+	    cl:parse:close_last_item
+	    cl:parse:close_last_chunk
+	    cl:parse:init_chunk $date $person
+	    continue
+	}
+	if {[cl:parse:item_line $line data]} {
+	    cl:parse:close_last_item
+	    cl:parse:init_item $data
+	    continue
+	}
+	if {[cl:parse:item_followup $line data]} {
+	    cl:parse:add2item $data
+	    continue
+	}
+	# ignore all other lines.
+    }
+
+    cl:parse:close_last_item
+    cl:parse:close_last_chunk
+
+    return $result
+}
+
+proc cl:parse:chunk_intro {line datevar personvar} {
+    if {![regexp "^\[^\t \]" $line]} {
+	return 0
+    }
+
+    upvar $datevar d $personvar p
+
+    if {[regexp -indices -- {^([0-9]+-[0-9-]+)} $line -> di]} {
+	foreach {da de} $di break ; # lassign
+
+	regsub -all "\[ \t\]+" [string trim [string range $line $da $de]]       { } d
+	regsub -all "\[ \t\]+" [string trim [string range $line [incr de] end]] { } p
+
+	#puts stderr "$line +--> ($d | $p)"
+
+	return 1
+    }
+
+    regsub -all "\[\t \]+" $line { } line
+
+    set line [split $line]
+    set d [join [lrange $line 0 4]]
+    set p [join [lrange $line 5 end]]
+
+    #puts stderr "$line |--> ($d | $p)"
+
+    return 1
+}
+
+proc cl:parse:close_last_chunk {} {
+    upvar result r chunk c
+
+    if {$c(date) != {}} {
+	lappend r [list $c(date) $c(person) $c(items)]
+	set c(date)   {}
+	set c(person) {}
+	set c(items)  {}
+
+    }
+    return
+}
+
+proc cl:parse:init_chunk {date person} {
+    upvar chunk c
+    set c(date)   $date
+    set c(person) $person
+    set c(items)  {}
+    return
+}
+
+proc cl:parse:item_line {line itemvar} {
+    if {![regexp "^\[\t \]+\\*" $line]} {
+	return 0
+    }
+
+    upvar $itemvar i
+
+    set line [string trimleft [string trimright $line] "\t *"]
+    set i $line
+    return 1
+}
+
+if {0} {
+    return 1
+}
+
+proc cl:parse:close_last_item {} {
+    upvar chunk c idata i
+
+    if {$i != {}} {
+	set ke [string first : $i]
+	if {$ke < 0} {
+	    set ke -1 ; # No key at all, pure comment
+	}
+
+	set k  [string trim [string range $i 0 [incr ke -1]]]
+	set co [string trim [string range $i [incr ke 2] end]]
+
+	lappend c(items) [list $k $co]
+	set i {}
+
+    }
+    return
+}
+
+proc cl:parse:init_item {comment} {
+    upvar idata i
+    set i $comment
+    return
+}
+
+proc cl:parse:item_followup {line commentvar} {
+    upvar $commentvar c
+
+    set line [string trim $line]
+    if {$line == {}} {
+	return 0
+    }
+
+    set c $line
+    return 1
+}
+
+proc cl:parse:add2item {comment} {
+    upvar idata i
+    append i " $comment"
+}
+
+##########################################################
+
+main
+exit 0

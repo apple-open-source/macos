@@ -1,0 +1,30 @@
+Tento text môže obsahovať <a
+href="http://docs.python.org/library/stdtypes.html#string-formatting-operations"
+">formátovacie
+príkazy jazyka Python</a>, ktoré sa nahradia príslušnými
+hodnotami pri vytváraní stránky.  Nejdôležitejšie premenné sú:
+
+<ul>
+    <li><b>real_name</b> - `Pekné' meno konferencie, 
+    bežne názov, ktorý má zachovanú veľkosť písmen (definované
+    v nastaveniach).
+
+    <li><b>list_name</b> - Meno konferencie, ako sa používa v URL
+    kde záleží na velikosti písmen (všetky písmená sú prevedené na malé).
+
+    <li><b>host_name</b> - Meno serveru (FQDN), na ktorom beží
+    konferencia.
+    
+    <li><b>web_page_url</b> - Základné URL pre Mailman.
+    Ak je použité napr. v tomto príkaze:
+    <em>listinfo/%(list_name)s</em>
+    ukazuje na stránku s informáciami o konferencii.
+
+    <li><b>description</b> - Krátky, charakteristický
+    popis konferencie (definovaný v nastaveniach).
+
+    <li><b>info</b> - Kompletný, dlhý popis konferencie.
+
+    <li><b>cgiext</b> - prípona pridávaná ku CGI skriptom.
+
+</ul>

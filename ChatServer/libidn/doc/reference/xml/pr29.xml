@@ -3,16 +3,19 @@
                "http://www.oasis-open.org/docbook/xml/4.1.2/docbookx.dtd">
 <refentry id="libidn-pr29">
 <refmeta>
-<refentrytitle>pr29</refentrytitle>
+<refentrytitle role="top_of_page">pr29</refentrytitle>
 <manvolnum>3</manvolnum>
 <refmiscinfo>LIBIDN Library</refmiscinfo>
 </refmeta>
 
 <refnamediv>
-<refname>pr29</refname><refpurpose></refpurpose>
+<refname>pr29</refname>
+<refpurpose></refpurpose>
+<!--[<xref linkend="desc" endterm="desc.title"/>]-->
 </refnamediv>
 
-<refsynopsisdiv><title>Synopsis</title>
+<refsynopsisdiv role="synopsis">
+<title role="synopsis.title">Synopsis</title>
 
 <synopsis>
 
@@ -35,17 +38,17 @@ const <link linkend="char">char</link>* <link linkend="pr29-strerror">pr29_strer
 
 
 
-<refsect1>
-<title>Description</title>
+<refsect1 role="desc">
+<title role="desc.title">Description</title>
 <para>
 
 </para>
 </refsect1>
 
-<refsect1>
-<title>Details</title>
+<refsect1 role="details">
+<title role="details.title">Details</title>
 <refsect2>
-<title><anchor id="Pr29-rc"/>enum Pr29_rc</title>
+<title><anchor id="Pr29-rc" role="enum"/>enum Pr29_rc</title>
 <indexterm><primary>Pr29_rc</primary></indexterm><programlisting>  typedef enum
   {
     PR29_SUCCESS = 0,
@@ -60,26 +63,26 @@ value 0 is guaranteed to always correspond to success.</para>
 
 </para><variablelist role="enum">
 <varlistentry>
-<term><literal>PR29_SUCCESS</literal></term>
+<term><anchor id="PR29-SUCCESS:CAPS" role="constant"/><literal>PR29_SUCCESS</literal></term>
 <listitem><simpara> Successful operation.  This value is guaranteed to
   always be zero, the remaining ones are only guaranteed to hold
   non-zero values, for logical comparison purposes.
 </simpara></listitem>
 </varlistentry>
 <varlistentry>
-<term><literal>PR29_PROBLEM</literal></term>
+<term><anchor id="PR29-PROBLEM:CAPS" role="constant"/><literal>PR29_PROBLEM</literal></term>
 <listitem><simpara> A problem sequence was encountered.
 </simpara></listitem>
 </varlistentry>
 <varlistentry>
-<term><literal>PR29_STRINGPREP_ERROR</literal></term>
+<term><anchor id="PR29-STRINGPREP-ERROR:CAPS" role="constant"/><literal>PR29_STRINGPREP_ERROR</literal></term>
 <listitem><simpara> The character set conversion failed (only
   for <link linkend="pr29-8"><function>pr29_8()</function></link> and <link linkend="pr29-8z"><function>pr29_8z()</function></link>).
 </simpara></listitem>
 </varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="pr29-strerror"/>pr29_strerror ()</title>
+<title><anchor id="pr29-strerror" role="function"/>pr29_strerror ()</title>
 <indexterm><primary>pr29_strerror</primary></indexterm><programlisting>const <link linkend="char">char</link>* pr29_strerror                   (<link linkend="Pr29-rc">Pr29_rc</link> rc);</programlisting>
 <para>
 Convert a return code integer to a text string.  This string can be
@@ -103,7 +106,7 @@ PR29_STRINGPREP_ERROR: The character set conversion failed (only
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="pr29-4"/>pr29_4 ()</title>
+<title><anchor id="pr29-4" role="function"/>pr29_4 ()</title>
 <indexterm><primary>pr29_4</primary></indexterm><programlisting><link linkend="int">int</link>         pr29_4                          (const <link linkend="uint32-t">uint32_t</link> *in,
                                              <link linkend="size-t">size_t</link> len);</programlisting>
 <para>
@@ -119,14 +122,14 @@ NFKC specifications.</para>
 <varlistentry><term><parameter>len</parameter>&nbsp;:</term>
 <listitem><simpara> length of input array with unicode code points.
 </simpara></listitem></varlistentry>
-<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns the <link linkend="Pr29-rc"><type>Pr29_rc</type></link> value <literal>PR29_SUCCESS</literal> on success,
-  and <literal>PR29_PROBLEM</literal> if the input sequence is a "problem sequence"
+<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns the <link linkend="Pr29-rc"><type>Pr29_rc</type></link> value <link linkend="PR29-SUCCESS:CAPS"><literal>PR29_SUCCESS</literal></link> on success,
+  and <link linkend="PR29-PROBLEM:CAPS"><literal>PR29_PROBLEM</literal></link> if the input sequence is a "problem sequence"
   (i.e., may be normalized into different strings by different
   implementations).
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="pr29-4z"/>pr29_4z ()</title>
+<title><anchor id="pr29-4z" role="function"/>pr29_4z ()</title>
 <indexterm><primary>pr29_4z</primary></indexterm><programlisting><link linkend="int">int</link>         pr29_4z                         (const <link linkend="uint32-t">uint32_t</link> *in);</programlisting>
 <para>
 Check the input to see if it may be normalized into different
@@ -138,14 +141,14 @@ NFKC specifications.</para>
 <varlistentry><term><parameter>in</parameter>&nbsp;:</term>
 <listitem><simpara> zero terminated array of Unicode code points.
 </simpara></listitem></varlistentry>
-<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns the <link linkend="Pr29-rc"><type>Pr29_rc</type></link> value <literal>PR29_SUCCESS</literal> on success,
-  and <literal>PR29_PROBLEM</literal> if the input sequence is a "problem sequence"
+<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns the <link linkend="Pr29-rc"><type>Pr29_rc</type></link> value <link linkend="PR29-SUCCESS:CAPS"><literal>PR29_SUCCESS</literal></link> on success,
+  and <link linkend="PR29-PROBLEM:CAPS"><literal>PR29_PROBLEM</literal></link> if the input sequence is a "problem sequence"
   (i.e., may be normalized into different strings by different
   implementations).
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="pr29-8z"/>pr29_8z ()</title>
+<title><anchor id="pr29-8z" role="function"/>pr29_8z ()</title>
 <indexterm><primary>pr29_8z</primary></indexterm><programlisting><link linkend="int">int</link>         pr29_8z                         (const <link linkend="char">char</link> *in);</programlisting>
 <para>
 Check the input to see if it may be normalized into different
@@ -157,10 +160,10 @@ NFKC specifications.</para>
 <varlistentry><term><parameter>in</parameter>&nbsp;:</term>
 <listitem><simpara> zero terminated input UTF-8 string.
 </simpara></listitem></varlistentry>
-<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns the <link linkend="Pr29-rc"><type>Pr29_rc</type></link> value <literal>PR29_SUCCESS</literal> on success,
-  and <literal>PR29_PROBLEM</literal> if the input sequence is a "problem sequence"
+<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns the <link linkend="Pr29-rc"><type>Pr29_rc</type></link> value <link linkend="PR29-SUCCESS:CAPS"><literal>PR29_SUCCESS</literal></link> on success,
+  and <link linkend="PR29-PROBLEM:CAPS"><literal>PR29_PROBLEM</literal></link> if the input sequence is a "problem sequence"
   (i.e., may be normalized into different strings by different
-  implementations), or <literal>PR29_STRINGPREP_ERROR</literal> if there was a
+  implementations), or <link linkend="PR29-STRINGPREP-ERROR:CAPS"><literal>PR29_STRINGPREP_ERROR</literal></link> if there was a
   problem converting the string from UTF-8 to UCS-4.
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>

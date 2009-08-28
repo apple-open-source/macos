@@ -12,7 +12,7 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  
 
 # Verify various kinds of gcov output: line counts, branch percentages,
 # and call return percentages.  None of this is language-specific.
@@ -27,7 +27,8 @@ global GCOV
 proc clean-gcov { testcase } {
     set basename [file tail $testcase]
     set base [file rootname $basename]
-    remote_file host delete $base.gcno $base.gcda $basename.gcov
+    remote_file host delete $base.gcno $base.gcda \
+	$basename.gcov $base.h.gcov
 }
 
 #
@@ -52,6 +53,7 @@ proc verify-lines { testcase file } {
 	    }
 	}
     }
+    close $fd
     return $failed
 }
 
@@ -249,8 +251,8 @@ proc run-gcov { args } {
     }
 
     verbose "Running $GCOV $testcase" 2
-    set testcase [remote_download host $testcase];
-    set result [remote_exec host $GCOV $gcov_args];
+    set testcase [remote_download host $testcase]
+    set result [remote_exec host $GCOV $gcov_args]
     if { [lindex $result 0] != 0 } {
 	fail "$subdir/$testcase gcov failed: [lindex $result 1]"
 	clean-gcov $testcase
@@ -262,9 +264,9 @@ proc run-gcov { args } {
     if { $files == "" } {
         fail "$subdir/$testcase gcov failed: $testcase.gcov does not exist"
         clean-gcov $testcase
-        return;
+        return
     }
-    remote_upload host $testcase.gcov $testcase.gcov;
+    remote_upload host $testcase.gcov $testcase.gcov
 
     if { $gcov_verify_xfail != "" } {
 	eval setup_xfail [split $gcov_verify_xfail]

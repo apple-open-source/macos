@@ -1,25 +1,4 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-/*
  * Sun RPC is a product of Sun Microsystems, Inc. and is provided for
  * unrestricted use provided that this legend is included on all tape
  * media and as a part of the software program in whole or part.  Users
@@ -68,13 +47,14 @@
 %#ifndef lint
 %/*static char sccsid[] = "from: @(#)rstat.x 1.2 87/09/18 Copyr 1987 Sun Micro";*/
 %/*static char sccsid[] = "from: @(#)rstat.x	2.2 88/08/01 4.0 RPCSRC";*/
-%static char rcsid[] = "$Id: rstat.x,v 1.2 2000/03/05 02:04:45 wsanchez Exp $";
 %#endif /* not lint */
+%#include <sys/cdefs.h>
+%__RCSID("$FreeBSD: src/include/rpcsvc/rstat.x,v 1.8 2003/05/04 02:51:42 obrien Exp $");
 
 #endif /* def RPC_HDR */
 
-const CPUSTATES = 4;
-const DK_NDRIVE = 4;
+const RSTAT_CPUSTATES = 4;
+const RSTAT_DK_NDRIVE = 4;
 
 /*
  * GMT since 0:00, January 1, 1970
@@ -85,8 +65,8 @@ struct rstat_timeval {
 };
 
 struct statstime {				/* RSTATVERS_TIME */
-	int cp_time[CPUSTATES];
-	int dk_xfer[DK_NDRIVE];
+	int cp_time[RSTAT_CPUSTATES];
+	int dk_xfer[RSTAT_DK_NDRIVE];
 	unsigned int v_pgpgin;	/* these are cumulative sum */
 	unsigned int v_pgpgout;
 	unsigned int v_pswpin;
@@ -104,8 +84,8 @@ struct statstime {				/* RSTATVERS_TIME */
 };
 
 struct statsswtch {			/* RSTATVERS_SWTCH */
-	int cp_time[CPUSTATES];
-	int dk_xfer[DK_NDRIVE];
+	int cp_time[RSTAT_CPUSTATES];
+	int dk_xfer[RSTAT_DK_NDRIVE];
 	unsigned int v_pgpgin;	/* these are cumulative sum */
 	unsigned int v_pgpgout;
 	unsigned int v_pswpin;
@@ -122,8 +102,8 @@ struct statsswtch {			/* RSTATVERS_SWTCH */
 };
 
 struct stats {				/* RSTATVERS_ORIG */
-	int cp_time[CPUSTATES];
-	int dk_xfer[DK_NDRIVE];
+	int cp_time[RSTAT_CPUSTATES];
+	int dk_xfer[RSTAT_DK_NDRIVE];
 	unsigned int v_pgpgin;	/* these are cumulative sum */
 	unsigned int v_pgpgout;
 	unsigned int v_pswpin;
@@ -169,3 +149,10 @@ program RSTATPROG {
 		RSTATPROC_HAVEDISK(void) = 2;
 	} = 1;
 } = 100001;
+
+#ifdef RPC_HDR
+%
+%enum clnt_stat rstat(char *, struct statstime *);
+%int havedisk(char *);
+%
+#endif

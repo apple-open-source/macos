@@ -78,7 +78,7 @@ NAMED_PROPERTY_GETTER(HTMLDocument)
             return value;
     }
 
-    HTMLDocument* htmlDocument = V8Proxy::DOMWrapperToNode<HTMLDocument>(info.Holder());
+    HTMLDocument* htmlDocument = V8DOMWrapper::convertDOMWrapperToNode<HTMLDocument>(info.Holder());
 
     // Fast case for named elements that are not there.
     if (!htmlDocument->hasNamedItem(key.impl()) && !htmlDocument->hasExtraNamedItem(key.impl()))
@@ -92,12 +92,12 @@ NAMED_PROPERTY_GETTER(HTMLDocument)
         Node* node = items->firstItem();
         Frame* frame = 0;
         if (node->hasTagName(HTMLNames::iframeTag) && (frame = static_cast<HTMLIFrameElement*>(node)->contentFrame()))
-            return V8Proxy::ToV8Object(V8ClassIndex::DOMWINDOW, frame->domWindow());
+            return V8DOMWrapper::convertToV8Object(V8ClassIndex::DOMWINDOW, frame->domWindow());
 
-        return V8Proxy::NodeToV8Object(node);
+        return V8DOMWrapper::convertNodeToV8Object(node);
     }
 
-    return V8Proxy::ToV8Object(V8ClassIndex::HTMLCOLLECTION, items.get());
+    return V8DOMWrapper::convertToV8Object(V8ClassIndex::HTMLCOLLECTION, items.get());
 }
 
 // HTMLDocument ----------------------------------------------------------------
@@ -117,8 +117,8 @@ static String writeHelperGetString(const v8::Arguments& args)
 CALLBACK_FUNC_DECL(HTMLDocumentWrite)
 {
     INC_STATS("DOM.HTMLDocument.write()");
-    HTMLDocument* htmlDocument = V8Proxy::DOMWrapperToNode<HTMLDocument>(args.Holder());
-    Frame* frame = V8Proxy::retrieveFrameForEnteredContext();
+    HTMLDocument* htmlDocument = V8DOMWrapper::convertDOMWrapperToNode<HTMLDocument>(args.Holder());
+    Frame* frame = V8Proxy::retrieveFrameForCallingContext();
     ASSERT(frame);
     htmlDocument->write(writeHelperGetString(args), frame->document());
     return v8::Undefined();
@@ -127,8 +127,8 @@ CALLBACK_FUNC_DECL(HTMLDocumentWrite)
 CALLBACK_FUNC_DECL(HTMLDocumentWriteln)
 {
     INC_STATS("DOM.HTMLDocument.writeln()");
-    HTMLDocument* htmlDocument = V8Proxy::DOMWrapperToNode<HTMLDocument>(args.Holder());
-    Frame* frame = V8Proxy::retrieveFrameForEnteredContext();
+    HTMLDocument* htmlDocument = V8DOMWrapper::convertDOMWrapperToNode<HTMLDocument>(args.Holder());
+    Frame* frame = V8Proxy::retrieveFrameForCallingContext();
     ASSERT(frame);
     htmlDocument->writeln(writeHelperGetString(args), frame->document());
     return v8::Undefined();
@@ -137,12 +137,12 @@ CALLBACK_FUNC_DECL(HTMLDocumentWriteln)
 CALLBACK_FUNC_DECL(HTMLDocumentOpen)
 {
     INC_STATS("DOM.HTMLDocument.open()");
-    HTMLDocument* htmlDocument = V8Proxy::DOMWrapperToNode<HTMLDocument>(args.Holder());
+    HTMLDocument* htmlDocument = V8DOMWrapper::convertDOMWrapperToNode<HTMLDocument>(args.Holder());
 
     if (args.Length() > 2) {
         if (Frame* frame = htmlDocument->frame()) {
             // Fetch the global object for the frame.
-            v8::Local<v8::Context> context = V8Proxy::GetContext(frame);
+            v8::Local<v8::Context> context = V8Proxy::context(frame);
             // Bail out if we cannot get the context.
             if (context.IsEmpty())
                 return v8::Undefined();
@@ -162,13 +162,13 @@ CALLBACK_FUNC_DECL(HTMLDocumentOpen)
             V8Proxy* proxy = V8Proxy::retrieve(frame);
             ASSERT(proxy);
 
-            v8::Local<v8::Value> result = proxy->CallFunction(v8::Local<v8::Function>::Cast(function), global, args.Length(), params);
+            v8::Local<v8::Value> result = proxy->callFunction(v8::Local<v8::Function>::Cast(function), global, args.Length(), params);
             delete[] params;
             return result;
         }
     }
 
-    Frame* frame = V8Proxy::retrieveFrameForEnteredContext();
+    Frame* frame = V8Proxy::retrieveFrameForCallingContext();
     htmlDocument->open(frame->document());
     // Return the document.
     return args.Holder();
@@ -179,9 +179,9 @@ ACCESSOR_GETTER(HTMLDocumentAll)
     INC_STATS("DOM.HTMLDocument.all._get");
     v8::HandleScope scope;
     v8::Handle<v8::Object> holder = info.Holder();
-    HTMLDocument* htmlDocument = V8Proxy::DOMWrapperToNode<HTMLDocument>(holder);
+    HTMLDocument* htmlDocument = V8DOMWrapper::convertDOMWrapperToNode<HTMLDocument>(holder);
     RefPtr<HTMLCollection> collection = WTF::getPtr(htmlDocument->all());
-    return V8Proxy::ToV8Object(V8ClassIndex::HTMLCOLLECTION, WTF::getPtr(collection));
+    return V8DOMWrapper::convertToV8Object(V8ClassIndex::HTMLCOLLECTION, WTF::getPtr(collection));
 }
 
 ACCESSOR_SETTER(HTMLDocumentAll)

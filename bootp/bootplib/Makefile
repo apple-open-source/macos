@@ -9,6 +9,9 @@ gen: genoptionfiles
 	./genoptionfiles -dhcptype > gen_dhcp_types.h
 	chmod 444 gen_dhcp*.h
 
+inetroute: inetroute.c
+	cc -Wall -g -o inetroute -DTEST_INETROUTE inetroute.c dynarray.c ptrlist.c util.c
+
 sharepoints:
 	cc -Wno-four-char-constants -o sharepoints $(OTHER_CFLAGS) -DTEST_SHAREPOINTS sharepoints.c -F$(NEXT_ROOT)/System/Library/PrivateFrameworks -framework ServerControl -framework ServerPrefix -framework AFPDefines
 
@@ -33,6 +36,9 @@ interfaces: interfaces.c interfaces.h
 dhcpopt: dhcp_options.c
 	cc -Wall -g -DTEST_DHCP_OPTIONS -o dhcpopt dhcp_options.c ptrlist.c util.c DNSNameList.c
 
+macncopt: macnc_options.c
+	cc -Wall -g -DTEST_MACNC_OPTIONS -o macncopt macnc_options.c dhcp_options.c ptrlist.c util.c DNSNameList.c
+
 nbsp: nbsp.c nbsp.h
 	cc -Wall -g -DTEST_NBSP -o nbsp nbsp.c ptrlist.c dynarray.c
 
@@ -50,3 +56,4 @@ subnets: subnets.c cfutil.c DNSNameList.c util.c ptrlist.c dynarray.c dhcp_optio
 
 clean:
 	rm -f afpusers arp dhcpopt dnsnamelist genoptionfiles hfsvols interfaces nbimages nbsp nihosts nilist readtest sharepoints subnets
+	rm -rf *.dSYM/

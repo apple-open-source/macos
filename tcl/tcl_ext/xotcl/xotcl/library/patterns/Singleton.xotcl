@@ -1,0 +1,84 @@
+# $Id: Singleton.xotcl,v 1.7 2006/09/27 08:12:40 neumann Exp $
+
+package provide xotcl::pattern::singleton 0.8
+package require XOTcl
+
+namespace eval ::xotcl::pattern::singleton {
+    namespace import ::xotcl::*
+
+    Class SingletonBase
+    SingletonBase instproc getInstance args {
+	my instvar _instance 
+	if {[info exists _instance]} {
+	    return $_instance
+	}
+	return ""
+    } 
+
+
+    #
+    # A simple pattern mixin that makes a class to a non-specializable singleton
+    #
+    Class NonSpecializableSingleton -superclass SingletonBase
+
+    NonSpecializableSingleton instproc create args {
+	my instvar _instance
+	if {![info exists _instance]} {
+	    set _instance [self]
+	    next
+	}
+	return $_instance
+    }
+
+    NonSpecializableSingleton instproc getInstance {} {
+	if {[info exists _instance]} {
+	    my instvar _instance
+	    return $_instance
+	}
+	return ""
+    }
+
+    #
+    # Specializable Singleton 
+    #
+    Class Singleton -superclass {SingletonBase Class}
+    Singleton instproc singletonFilter args {
+	switch -exact [self calledproc] {
+	    init {
+		set registrationclass [lindex [self filterreg] 0]
+		$registrationclass instvar _instance
+		if {![info exists _instance]} {
+		    set _instance [self]
+		    next
+		} else {
+		    my destroy
+		}
+		return $_instance
+	    }
+	    default {
+		return [next]
+	    }
+	}
+    }
+
+    Singleton instproc init args {
+	my instfilter add singletonFilter
+	#
+	# specialized singletons have to look up the singleton class
+	# first
+	Class instproc getInstance {} {
+	    foreach sc [my info superclass] {
+		if {[$sc info class] eq "::Singleton"} {
+		    return [$sc getInstance]
+		} else {
+		    return ""
+		}
+	    }
+	}
+	next
+    }
+
+    namespace export SingletonBase NonSpecializableSingleton Singleton
+}
+
+namespace import ::xotcl::pattern::singleton::*

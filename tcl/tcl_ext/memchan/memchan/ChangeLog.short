@@ -1,0 +1,127 @@
+Changes from 2.2.0 to 2.2.1
+
+*	Enhanced stubs API to permit Memchan channels to be created by
+	third party extensions. See memchanapi(n).
+
+Changes from 2.2a4 to 2.2.0
+
+*	New channels types random and zero.
+
+*	Improved compilation support for Windows.
+
+Changes from 2.1a1 to 2.2a4
+
+*	Moved to SourceForge
+
+*	Squashed dependency on Pool/MakeDist for generation
+	of a source distribution.
+
+*	Made raw CVS checkout a compileable and installable
+	distribution.
+
+Changes from 2.1p1 to 2.2a1
+
+*	Two new channel types, 'null' and 'fifo2'. One is a null
+	device, the other 2 cross-connected fifos allowing a
+	bidirectional stream of data between two interpreters.
+
+*	Restructured the internal buffer system.
+
+Changes from 2.1 to 2.1p1
+
+*	Bug fix in the TEA makefile.
+
+Changes from 2.0 to 2.1
+
+*	Added support for TEA compliant building of this extension,
+	see the subdirectory 'tea'. This requires at least Tcl/Tk 8.2.
+
+	The old built facilities (unix, win) still exist and are
+	still usable.
+
+*	Added an option to 'memchan', -initial-size, for preallocation
+	of bufferspace, proposed by Petteri.Kettunen@picker.fi
+
+*	Added option '-allocated' to 'fconfigure', to allow a user
+	to query the number of bytes allocated by the buffers, in
+	contrast to -length, which retrieves the number of used bytes.
+
+Changes from 1.9 to 2.0
+
+*	Dropped support for Tcl 7.6. Otherwise equivalent to 1.9.
+
+Changes from 1.8 to 1.9
+
+*	Made **thread-safe** if compiled against a thread-enabled 8.1.
+	(Mutex around counter used to generate handles).
+
+*	Small internal reorganization in the 'generic'
+	directory (memchan.c split into several files).
+
+*	Headers now usable with a C++ compiler.
+
+*	**New channel type**: fifo. Same as memchan, but with fifo
+	characteristics, like sockets and pipes.
+
+	Notes on fifos:
+	It was already said that memory channels are useful to transfer
+	large amounts of data between procedures or interpreters. The
+	difference is this: **memchan's** are block-oriented, **fifo's**
+	on the other hand are stream-oriented. With a 'memchan' the producer
+	fills the memory channel with the relevant data and then transfers
+	control to the consumer(s). With a 'fifo' producer and consumer
+	may work in parallel. This is currently only possible for an event-
+	driven application, but the moment additional interfaces come up
+	allowing me to transfer a channel between threads this concept may
+	find its real use for inter-thread communication of bulk information;
+	whose transfer through the currently implemented send-oriented
+	interface (see 'tclTestThread.c') is awkward. 'fifo's complement
+	this interface, they don't replace it.
+
+
+Changes from 1.7 to 1.8
+
+*	Bugfixes for windows.
+
+*	Added (minimal) test suite.
+
+Changes from 1.6
+
+*	Added 8.0.4 and 8.0.5 to the paths to search.
+*	Added stub-awareness to the extension (tcl 8.1 only).
+
+Changes from 1.5
+
+*	Added more intelligence to the 'configure' script. Setting one of
+	the variables (--with-tcl-include-dir, --with-tcl-lib-dir), but not
+	the other causes automatic definition of the missing part with a
+	value derived from the defined directory. Suggested by Larry Virden.
+	Added 8.0.3 to the paths to search. Added $exec_prefix/lib to
+	the paths to search for the tcl-library.
+
+Changes from 1.4
+
+*	Fixed a bug in 'configure'.
+	Found by David Herron <davidh@crl.com>
+
+Changes from 1.3:
+
+*	No changes in functionality, just updated to API changes in tcl 8.0b2
+
+Changes from 1.2
+
+*       Updated to work with tcl 8.0b1
+
+Changes from 1.1:
+
+*       Added support for Windows.
+*       Source distribution now available as zip-file too.
+*       Binary distribution available for Windows (used MSVC++ 4.2)
+
+Changes from 1.0:
+
+*       cleaned up configuration and removed misleading info (7.5)
+*       configure is now aware of tcl 8.0*
+*       changed search order used by configure.
+
+*       No, no changes in functionality :-)

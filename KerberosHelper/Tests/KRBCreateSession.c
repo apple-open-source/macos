@@ -25,48 +25,88 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <unistd.h>
 #include <string.h>
+#include <getopt.h>
+#include "utils.h"
 
-int main (int argc, const char * argv[]) {
+int main (int argc, char **argv) {
 	OSStatus err = 0;
 	void *krbHelper = NULL;
 
-	CFStringRef inHostName = NULL, inAdvertisedPrincipal = NULL, outRealm = NULL;
+	CFStringRef inHostName = NULL, inAdvertisedPrincipal = NULL;
+	CFStringRef outRealm = NULL, outServer = NULL, outNoCanon = NULL;
+	CFDictionaryRef outDict = NULL;
 	const char *inHostNameString = NULL, *inAdvertisedPrincipalString = NULL;
+	int no_lkdc = 0, ch;
 
-	if (argc > 1) {
-		inHostNameString = argv[1];
+	while ((ch = getopt(argc, argv, "n")) != -1) {
+	    switch (ch) {
+	    case 'n':
+		no_lkdc = 0;
+		break;
+	    default:
+		printf("usage");
+		exit(1);
+	    }
+	}
+
+	argc -= optind;
+	argv += optind;
+
+	if (argc > 0) {
+		inHostNameString = argv[0];
 		inHostName = CFStringCreateWithCString (NULL, inHostNameString, kCFStringEncodingASCII);
 	}
-	if (argc > 2) {
-		inAdvertisedPrincipalString = argv[2];
+	if (argc > 1) {
+		inAdvertisedPrincipalString = argv[1];
 		inAdvertisedPrincipal = CFStringCreateWithCString (NULL, inAdvertisedPrincipalString, kCFStringEncodingASCII);
 	}
 	
 	err = KRBCreateSession (inHostName, inAdvertisedPrincipal, &krbHelper);
 	if (noErr != err) { 
-		printf ("Error = %d from KRBCreateSession (\"%s\",\"%s\" ... )\n", err, inHostNameString, inAdvertisedPrincipalString);
+		printf ("ERROR=KRBCreateSession %d (\"%s\",\"%s\" ... )\n", (int)err, inHostNameString, inAdvertisedPrincipalString);
 		return 1;
 	}
 
 	err = KRBCopyRealm (krbHelper, &outRealm);
 	if (noErr != err) { 
-		printf ("Error = %d from KRBCopyRealm ()\n", err);
+		printf ("ERROR=%d from KRBCopyRealm ()\n", (int)err);
 		return 2;
 	}
+	if (outRealm == NULL) {
+		printf("ERROR=No realm from KRBCopyRealm\n");
+                return 3;
+        }
 
-	char *outRealmString = NULL;
-	
-	if (NULL != outRealm) {
-		int length = CFStringGetMaximumSizeForEncoding (CFStringGetLength (outRealm), kCFStringEncodingUTF8) + 1;
-		outRealmString = malloc (length);
-	
-		if (NULL != outRealmString && !CFStringGetCString (outRealm, outRealmString, length, kCFStringEncodingUTF8)) {
-			free (outRealmString);
-			outRealmString = NULL;
-			err = 32;
-		}
+	err = KRBCopyServicePrincipalInfo (krbHelper, CFSTR("host"), &outDict);
+	if (noErr != err) { 
+		printf ("ERROR=%d from KRBCopyServicePrincipal ()\n", (int)err);
+		return 2;
+	}
+	outServer = CFDictionaryGetValue(outDict, kKRBServicePrincipal);
+	if (outServer == NULL) {
+		printf("ERROR=No realm from KRBCopyServicePrincipal\n");
+		return 3;
 	}
 
+	outNoCanon = CFDictionaryGetValue(outDict, kKRBNoCanon);
+
+	char *outRealmString = NULL, *outServerString = NULL;
+	__KRBCreateUTF8StringFromCFString(outRealm, &outRealmString);
+	__KRBCreateUTF8StringFromCFString(outServer, &outServerString);
+
 	printf ("REALM=%s\n", outRealmString);
+	printf ("SERVER=%s\n", outServerString);
+	printf ("DNS-CANON=%s\n", outNoCanon ? "NO" : "YES");
+
+	__KRBReleaseUTF8String(outRealmString);
+	__KRBReleaseUTF8String(outServerString);
+
+	CFRelease(outRealm);
+	CFRelease(outDict);
+
+	KRBCloseSession(krbHelper);
+
+	sleep(100);
+
 	return err;
 }

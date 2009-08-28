@@ -1,5 +1,5 @@
 /* tst_tld.c --- Self tests for tld_*().
- * Copyright (C) 2004  Simon Josefsson.
+ * Copyright (C) 2004, 2005, 2006, 2007  Simon Josefsson.
  *
  * This file is part of GNU Libidn.
  *
@@ -19,7 +19,7 @@
  *
  */
 
-#if HAVE_CONFIG_H
+#ifdef HAVE_CONFIG_H
 # include "config.h"
 #endif
 

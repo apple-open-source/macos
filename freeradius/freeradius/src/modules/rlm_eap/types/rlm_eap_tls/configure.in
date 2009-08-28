@@ -1,11 +1,12 @@
 #
 # Autoconf input file.
 #
-# Version:	$Id: configure.in,v 1.9.4.1 2006/05/21 16:18:04 nbk Exp $
+# Version:	$Id$
 #
 
+AC_PREREQ([2.53])
 AC_INIT(rlm_eap_tls.c)
-AC_REVISION($Revision: 1.9.4.1 $)
+AC_REVISION($Revision$)
 AC_DEFUN(modname,[rlm_eap_tls])
 
 fail=
@@ -33,6 +34,13 @@ if test x$with_[]modname != xno; then
 	AC_MSG_CHECKING(for OpenSSL support)
 	if test "x$OPENSSL_LIBS" != "x"; then
 		AC_MSG_RESULT(yes)
+
+		AC_CHECK_LIB(c $OPENSSL_LIBS, EVP_sha256,
+		[  AC_DEFINE(HAVE_OPENSSL_EVP_SHA256, 1,
+		  [Define to 1 if you have the `EVP_sha256' function .])
+		],
+		[ AC_MSG_WARN([EVP_sha256 not found, may have issues wirh WiMAX certificates]) ])
+
 	else
 		AC_MSG_RESULT(no)
 		fail="OpenSSL"

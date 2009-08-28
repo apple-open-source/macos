@@ -1,5 +1,5 @@
 /* Input routines.
-   Copyright (C) 1989-1998, 2002-2003 Free Software Foundation, Inc.
+   Copyright (C) 1989-1998, 2002-2004 Free Software Foundation, Inc.
    Written by Douglas C. Schmidt <schmidt@ics.uci.edu>
    and Bruno Haible <bruno@clisp.org>.
 
@@ -18,7 +18,7 @@
    You should have received a copy of the GNU General Public License
    along with this program; see the file COPYING.
    If not, write to the Free Software Foundation, Inc.,
-   59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 /* Specification. */
 #include "input.h"
@@ -550,6 +550,11 @@ Input::read_input ()
                 if (is_define_declaration (line, line_end, lineno,
                                            "word-array-name", &arg))
                   option.set_wordlist_name (arg);
+                else
+
+                if (is_define_declaration (line, line_end, lineno,
+                                           "length-table-name", &arg))
+                  option.set_lengthtable_name (arg);
                 else
 
                 if (is_declaration_with_arg (line, line_end, lineno,

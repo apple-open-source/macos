@@ -135,6 +135,15 @@ enum {
 	kHubPortIndicatorOff
 };
 
+/*!
+ @enum Root Hub specific 
+ @discussion 
+ */
+enum {
+	kPrdRootHubApple			= 0x8005,	// ProductID for classic speed root hubs
+	kPrdRootHubAppleE			= 0x8006,	// ProductID for high speed root hubs
+	kUSBRootHubPollingRate		= 32		// Enpoint polling rate interval for root hubs
+};
 
 /*!
 @enum Hub Device Requests

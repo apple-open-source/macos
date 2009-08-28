@@ -67,7 +67,7 @@ typedef UInt32 SecKeychainSyncState;
 
 OSStatus SecKeychainCopySignature(SecKeychainRef keychainRef, CFDataRef *keychainSignature);
 OSStatus SecKeychainCopyBlob(SecKeychainRef keychainRef, CFDataRef *dbBlob);
-OSStatus SecKeychainRecodeKeychain(SecKeychainRef keychainRef, CFDataRef dbBlob, CFDataRef extraData);
+OSStatus SecKeychainRecodeKeychain(SecKeychainRef keychainRef, CFArrayRef dbBlobArray, CFDataRef extraData);
 OSStatus SecKeychainCreateWithBlob(const char* fullPathName, CFDataRef dbBlob, SecKeychainRef *kcRef);
 
 /* Keychain list manipulation */

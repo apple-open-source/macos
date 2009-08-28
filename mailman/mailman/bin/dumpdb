@@ -1,6 +1,6 @@
 #! @PYTHON@
 #
-# Copyright (C) 1998-2005 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2007 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -45,16 +45,15 @@ Python pickle.  In either case, if you want to override the default assumption
 -- or if the file ends in neither suffix -- use the -p or -m flags.
 """
 
-import os
 import sys
 import getopt
 import pprint
-from cPickle import load
+import cPickle
+import marshal
 from types import StringType
 
 import paths
 # Import this /after/ paths so that the sys.path is properly hacked
-from email.Generator import Generator
 from Mailman.i18n import _
 
 PROGRAM = sys.argv[0]
@@ -121,37 +120,35 @@ def main():
     # Handle dbs
     pp = pprint.PrettyPrinter(indent=4)
     if filetype == 1:
-        # BAW: this probably doesn't work if there are mixed types of .db
-        # files (i.e. some marshals, some bdbs).
-        d = DumperSwitchboard().read(filename)
-        if doprint:
-            pp.pprint(d)
-        return d
+        load = marshal.load
+        typename = 'marshal'
     else:
-        fp = open(filename)
-        m = []
-        try:
-            cnt = 1
-            if doprint:
-                print _('[----- start pickle file -----]')
-            while True:
-                try:
-                    obj = load(fp)
-                except EOFError:
-                    if doprint:
-                        print _('[----- end pickle file -----]')
-                    break
+        load = cPickle.load
+        typename = 'pickle'
+    fp = open(filename)
+    m = []
+    try:
+        cnt = 1
+        if doprint:
+            print _('[----- start %(typename)s file -----]')
+        while True:
+            try:
+                obj = load(fp)
+            except EOFError:
                 if doprint:
-                    print _('<----- start object %(cnt)s ----->')
-                    if isinstance(obj, StringType):
-                        print obj
-                    else:
-                        pp.pprint(obj)
-                cnt += 1
-                m.append(obj)
-        finally:
-            fp.close()
-        return m
+                    print _('[----- end %(typename)s file -----]')
+                break
+            if doprint:
+                print _('<----- start object %(cnt)s ----->')
+                if isinstance(obj, StringType):
+                    print obj
+                else:
+                    pp.pprint(obj)
+            cnt += 1
+            m.append(obj)
+    finally:
+        fp.close()
+    return m
 
 
 

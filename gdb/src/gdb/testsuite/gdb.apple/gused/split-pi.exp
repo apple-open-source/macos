@@ -39,6 +39,11 @@ if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable $add
      gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
 }
 
+if [target_info exists darwin64] {
+   verbose "This test file not applicable for x86-64, skipping."
+   return
+}
+
 # Start with a fresh gdb
 gdb_exit
 gdb_start

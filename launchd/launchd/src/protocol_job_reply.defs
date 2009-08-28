@@ -66,8 +66,6 @@ skip; /* uncork_fork */
 
 skip; /* swap_integer */
 
-skip; /* set_service_policy */
-
 skip; /* log */
 
 skip; /* lookup_per_user_context */
@@ -79,4 +77,28 @@ skip; /* swap_complex */
 simpleroutine job_mig_log_drain_reply(
 		__r_port	: mach_port_move_send_once_t;
 		__result	: kern_return_t, RetCode;
-		__outval        : pointer_t);
+		__outval	: pointer_t);
+
+skip; /* log_forward */
+
+skip; /* kickstart */
+
+skip; /* embedded_wait */
+
+skip; /* lookup_children */
+
+skip; /* switch_to_session */
+
+skip; /* transaction_count_for_pid */
+				
+skip; /* pid_is_managed */
+
+skip; /* port_for_label */
+
+skip; /* init_session */
+
+simpleroutine job_mig_wait2_reply(
+		__r_port	: mach_port_move_send_once_t;
+		__result	: kern_return_t, RetCode;
+		__waitval	: integer_t;
+		__legacy	: boolean_t);

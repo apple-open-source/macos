@@ -41,7 +41,7 @@ class PIVRecord : public Tokend::Record
 public:
 	PIVRecord(const unsigned char *application, size_t applicationSize, const char *description) :
 		mApplication(application, application + applicationSize), mDescription(description) {}
-	~PIVRecord();
+	virtual ~PIVRecord();
 
 	virtual const char *description() { return mDescription.c_str(); }
 
@@ -59,10 +59,10 @@ class PIVKeyRecord : public PIVRecord
 	NOCOPY(PIVKeyRecord)
 public:
 	PIVKeyRecord(const unsigned char *application, size_t applicationSize, const char *description,
-                 const Tokend::MetaRecord &metaRecord, unsigned char keyRef);
-    ~PIVKeyRecord();
+                 const Tokend::MetaRecord &metaRecord, unsigned char keyRef, size_t keySize);
+	virtual ~PIVKeyRecord();
 
-	size_t sizeInBits() const { return 1024; }
+	size_t sizeInBits() const;
 	void computeCrypt(PIVToken &pivToken, bool sign, const AccessCredentials *cred,
 		const byte_string& data_type, byte_string &output);
 
@@ -72,6 +72,7 @@ private:
 	AutoAclEntryInfoList mAclEntries;
 	const unsigned char keyRef;
 	bool isUserConsent() const;
+	size_t keySize;
 };
 
 

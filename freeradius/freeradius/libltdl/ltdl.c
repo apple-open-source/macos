@@ -2361,6 +2361,8 @@ lt_dlexit ()
 	  LT_DLMEM_REASSIGN (loader, next);
 	}
       loaders = 0;
+
+      LT_DLFREE (user_search_path);
     }
 
  done:
@@ -3500,6 +3502,10 @@ lt_dlopenext (filename)
     LT_DLMUTEX_SETERROR (LT_DLSTRERROR (FR_DEPLIB));
     return 0;	/* leaks tmp and handle */
   }
+  if (handle && errors) {
+    LT_DLMUTEX_SETERROR (LT_DLSTRERROR (FR_DEPLIB));
+    return 0;	/* leaks tmp and handle */
+  }
 
   /* If we found FILENAME, stop searching -- whether we were able to
      load the file as a module or not.  If the file exists but loading
@@ -3526,6 +3532,10 @@ lt_dlopenext (filename)
   else
     {
       tmp[len] = LT_EOS_CHAR;
+  if (handle && errors) {
+    LT_DLMUTEX_SETERROR (LT_DLSTRERROR (FR_DEPLIB));
+    return 0;	/* leaks tmp and handle */
+  }
     }
 
   strcat(tmp, shlib_ext);

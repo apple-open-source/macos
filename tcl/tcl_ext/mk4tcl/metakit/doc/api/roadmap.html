@@ -1,0 +1,210 @@
+<HTML><HEAD><TITLE>Metakit 2.0</TITLE></HEAD>
+<BODY  bgcolor="#FFFFFF" alink="#008000" vlink="#800080" link="#0000FF" text="#000000">
+
+<TABLE cellspacing=0 cellpadding=0 border=0 width="100%"><TR valign=top>
+	<TD width=100><A href="http://www.equi4.com/">
+		<IMG src=e4w.gif alt="E q u i 4" align=left width=97 height=35 hspace=0 border=0></A>
+	</TD><TD align=center>
+	<FONT size=+2>Metakit 2.0</FONT><BR>
+	<I>December 1999</I>
+	</TD><TD width=100></TD></Tr></TABLE>
+<P>
+
+
+<DL>
+<DT><H3>About these pages</H3><DD>
+
+As you can see on the right, this Metakit documentation is
+presented using a frames-based "browser" interface, which should make it
+easy to navigate and find specific information
+(<A href=index.html target="_top">click here</A>
+if you don't see the index pane).
+<P>
+
+The <B><A href=classes.html>Class Index</A></B> describes the API of
+all the public classes in Metakit.
+The <B><A href=samples.html>Sample Index</A></B> describes each of the
+samples supplied as part of the evaluation package.
+The <B><A href=tips.html>Tips and Tricks</A></B> section
+goes into issues such as performance and gives more advanced
+background information.
+
+<DT><H3>Class hierarchy</H3><DD>
+
+The following list only mentions the public API classes
+(<B>core classes</B> in bold):
+<P>
+
+<TABLE border=0 cellspacing=0 cellpadding=0>
+	<TR>
+		<TH align=left width=150>
+			Base class:
+		</TH><TH align=left width=200>
+			Derived classes:
+		</TH><TH align=left>
+			Virtual:
+		</TH>
+	</TR>
+	<TR><TD>
+		<A href="c4_Bytes.html">c4_Bytes</A>
+	</TD><TD>-</TD><TD valign=top>No</TD></TR>
+	<TR><TD>
+		<A href="c4_Cursor.html">c4_Cursor</A>
+	</TD><TD>-</TD><TD valign=top>No</TD></TR>
+	<TR><TD>
+		<A href="c4_CustomViewer.html">c4_CustomViewer</A>
+	</TD><TD>-</TD><TD valign=top>Abstract</TD></TR>
+	<TR><TD>
+		<A href="c4_Property.html"><B>c4_Property</B></A>
+	</TD><TD>
+		<A href="c4_IntProp.html">c4_IntProp</A>,
+		<A href="c4_StringProp.html">c4_StringProp</A>, ...
+	</TD><TD valign=top>No</TD></TR>
+	<TR><TD>
+		<A href="c4_Reference.html">c4_Reference</A>
+	</TD><TD>
+		<A href="c4_IntRef.html">c4_IntRef</A>,
+		<A href="c4_StringRef.html">c4_StringRef</A>, ...
+		</TD><TD valign=top>No</TD></TR>
+	<TR><TD>
+		<A href="c4_RowRef.html"><B>c4_RowRef</B></A>
+	</TD><TD>
+		<A href="c4_Row.html">c4_Row</A>
+		</TD><TD valign=top>No</TD></TR>
+	<TR><TD>
+		<A href="c4_Sequence.html">c4_Sequence</A>
+	</TD><TD>-</TD><TD valign=top>Yes</TD></TR>
+	<TR><TD>
+		<A href="c4_Storage.html"><B>c4_Storage</B></A>
+	</TD><TD>-</TD><TD valign=top>No</TD></TR>
+	<TR><TD>
+		<A href="c4_Strategy.html">c4_Strategy</A>
+	</TD><TD>-</TD><TD valign=top>Yes</TD></TR>
+	<TR><TD>
+		<A href="c4_View.html"><B>c4_View</B></A>
+	</TD><TD>-</TD><TD valign=top>No</TD></Tr>
+</TABLE>
+
+<P>
+
+The class documentation was generated using
+[<A href="http://friga.mer.utexas.edu/mark/perl/perceps/" target="_top">Perceps</A>],
+by Mark Peskin.
+
+<DT><H3>Glossary</H3><DD>
+
+<TABLE border=0 cellspacing=0 cellpadding=0>
+<TR>
+	<TH align=left width=100>
+		Term:
+	</TH><TH align=left width=250>
+		Description:
+	</TH><TH align=left>
+		Similar to:
+	</TH>
+</TR>
+<TR>
+	<TD valign=top>
+		Attached
+	</TD><TD valign=top>
+		Managed by storage object
+	</TD><TD valign=top>
+		persistent, on file
+	</TD>
+</TR>
+<TR>
+	<TD valign=top>
+		Cursor
+	</TD><TD valign=top>
+		Position in a view
+	</TD><TD valign=top>
+		pointer, recnum
+	</TD>
+</TR>
+<TR>
+	<TD valign=top>
+		Property
+	</TD><TD valign=top>
+		One data-value in a row
+	</TD><TD valign=top>
+		field, item
+	</TD>
+</TR>
+<TR>
+	<TD valign=top>
+		Row
+	</TD><TD valign=top>
+		Zero or more related data-values
+	</TD><TD valign=top>
+		tuple
+	</TD>
+</TR>
+<TR>
+	<TD valign=top>
+		RowRef
+	</TD><TD valign=top>
+		A row, or an entry in a view
+	</TD><TD valign=top>
+		record, array element
+	</TD>
+</TR>
+<TR>
+	<TD valign=top>
+		Storage
+	</TD><TD valign=top>
+		Maintains a datafile
+	</TD><TD valign=top>
+		database
+	</TD>
+</TR>
+<TR>
+	<TD valign=top>
+		Streaming
+	</TD><TD valign=top>
+		Sequential I/O (no seeks)
+	</TD><TD valign=top>
+		flattening, serializing
+	</TD>
+</TR>
+<TR>
+	<TD valign=top>
+		View
+	</TD><TD valign=top>
+		An indexable collection of rows
+	</TD><TD valign=top>
+		table, vector
+	</TD>
+</Tr>
+</TABLE>
+
+<DT><H3>Where to find the latest news</H3><DD>
+
+The "official" <B>Metakit Homepage</B> is at: &nbsp;
+[<A href="http://www.equi4.com/metakit/" target="_top"><A href="http://www.equi4.com/metakit/">http://www.equi4.com/metakit/</A></a>]
+<BR>You can subscribe to topics in the <B>Support Forum</B> to
+be notified by email.
+
+<DT><H3>Technical support</H3><DD>
+
+Metakit is actively supported by its designer (yours truly).  
+If you run into unexpected problems with this library please get in touch.
+
+</DL>
+<P>
+-- Jean-Claude Wippler &lt;<A href="mailto:jcw@equi4.com"><A href="mailto:jcw@equi4.com">jcw@equi4.com</A></a>&gt;
+</font>
+<P>
+<HR size=1>
+<CENTER>
+&nbsp; <A href="index.html" target="_top">Roadmap</A>
+&nbsp; <A href="classes.html">Class Index</A>
+&nbsp; <A href="samples.html">Sample Index</A>
+&nbsp; <A href="tips.html">Tips and Tricks</A>
+</CENTER>
+
+
+<HR size=1>
+<FONT color="#000099" size=-1>&copy; 1999 Equi4 Software. All rights reserved.</FONT>
+
+</BODY>
+</HTML>

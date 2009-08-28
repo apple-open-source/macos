@@ -15,8 +15,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 extern void arc_va_start (tree, rtx);
 
@@ -60,7 +60,6 @@ extern unsigned int arc_compute_frame_size (int);
 extern void arc_save_restore (FILE *, const char *, unsigned int,
 			      unsigned int, const char *);
 extern int arc_delay_slots_for_epilogue (void);
-extern void arc_finalize_pic (void);
 extern void arc_ccfsm_at_label (const char *, int);
 extern int arc_ccfsm_branch_deleted_p (void);
 extern void arc_ccfsm_record_branch_deleted (void);

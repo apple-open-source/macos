@@ -1,10 +1,10 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*           Copyright (c) 1992-2007 AT&T Knowledge Ventures            *
+*          Copyright (c) 1992-2007 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
-*                      by AT&T Knowledge Ventures                      *
+*                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
 *            http://www.opensource.org/licenses/cpl1.0.txt             *
@@ -48,6 +48,8 @@
 #endif
 
 #ifdef CMD_STANDALONE
+
+#define CMD_CONTEXT(c)		((Shbltin_t*)0)
 
 #if CMD_DYNAMIC
 
@@ -139,12 +141,13 @@ main(int argc, char** argv)
 
 #else
 
-#define _CMD_CONTEXT_OK(p)	(((Shbltin_t*)(p))->version>=20070511&&((Shbltin_t*)(p))->version<20350101)
 #undef	cmdinit
 #ifdef _MSC_VER
+#define CMD_CONTEXT(p)		((Shbltin_t*)(p))
 #define cmdinit(a,b,c,d,e)	do{if(_cmd_init(a,b,c,d,e))return -1;}while(0)
 #else
-#define cmdinit(a,b,c,d,e)	do{if((c)&&!_CMD_CONTEXT_OK(c))c=0;if(_cmd_init(a,b,c,d,e))return -1;}while(0)
+#define CMD_CONTEXT(p)		(((p)&&((Shbltin_t*)(p))->version>=20071012&&((Shbltin_t*)(p))->version<20350101)?((Shbltin_t*)(p)):0)
+#define cmdinit(a,b,c,d,e)	do{if((c)&&!CMD_CONTEXT(c))c=0;if(_cmd_init(a,b,c,d,e))return -1;}while(0)
 #endif
 
 #if _BLD_cmd && defined(__EXPORT__)

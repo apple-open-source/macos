@@ -26,6 +26,7 @@
 // child - track a single child process and its belongings
 //
 #include "child.h"
+#include "dtrace.h"
 #include <security_utilities/debugging.h>
 
 
@@ -47,7 +48,7 @@ ServerChild::ServerChild()
 //
 // If the ServerChild is destroyed, kill its process, nice or hard.
 //
-// In case  you wonder about the tango below, it's making sure we
+// In case you wonder about the tango below, it's making sure we
 // get to "It's dead, Jim" with the minimum number of checkChildren()
 // calls while still working correctly if this is the only thread alive.
 //
@@ -92,10 +93,12 @@ void ServerChild::parentAction()
 	if (state() == dead) {
 		// our child died
 		secdebug("serverchild", "%p (pid %d) died before checking in", this, pid());
+		SECURITYD_CHILD_STILLBORN(this->pid());
 	} else if (ready()) {
 		// child has checked in and is ready for service
 		secdebug("serverchild", "%p (pid %d) ready for service on port %d",
 			this, pid(), mServicePort.port());
+		SECURITYD_CHILD_READY(this->pid());
 	} else
 		assert(false);		// how did we ever get here?!
 }
@@ -106,6 +109,7 @@ void ServerChild::parentAction()
 //
 void ServerChild::dying()
 {
+	SECURITYD_CHILD_DYING(this->pid());
 	secdebug("serverchild", "%p is dead; resuming parent thread (if any)", this);
 	mCheckinCond.signal();
 }
@@ -122,10 +126,12 @@ void ServerChild::checkIn(Port servicePort, pid_t pid)
 			secdebug("serverchild", "%p (pid %d) checking in; resuming parent thread",
 				child, pid);
 		}
+		SECURITYD_CHILD_CHECKIN(pid, servicePort);
 		child->mCheckinCond.signal();
 	} else {
 		// Child has died; is wrong kind; or spurious checkin.
 		// If it was a proper child, death notifications will wake up the parent thread
 		secdebug("serverchild", "pid %d not in child set; checkin ignored", pid);
+		SECURITYD_CHILD_CHECKIN(pid, 0);
 	}
 }

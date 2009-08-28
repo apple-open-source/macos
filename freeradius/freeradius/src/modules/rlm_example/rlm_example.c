@@ -1,7 +1,7 @@
 /*
  * rlm_example.c
  *
- * Version:	$Id: rlm_example.c,v 1.26 2004/02/26 19:04:32 aland Exp $
+ * Version:	$Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,23 +15,17 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2000  The FreeRADIUS server project
+ * Copyright 2000,2006  The FreeRADIUS server project
  * Copyright 2000  your name <your address>
  */
 
-#include "autoconf.h"
-#include "libradius.h"
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
-#include <stdio.h>
-#include <stdlib.h>
-
-#include "radiusd.h"
-#include "modules.h"
-#include "conffile.h"
-
-static const char rcsid[] = "$Id: rlm_example.c,v 1.26 2004/02/26 19:04:32 aland Exp $";
+#include <freeradius-devel/radiusd.h>
+#include <freeradius-devel/modules.h>
 
 /*
  *	Define a structure for our module configuration.
@@ -56,7 +50,7 @@ typedef struct rlm_example_t {
  *	to the strdup'd string into 'config.string'.  This gets around
  *	buffer over-flows.
  */
-static CONF_PARSER module_config[] = {
+static const CONF_PARSER module_config[] = {
   { "integer", PW_TYPE_INTEGER,    offsetof(rlm_example_t,value), NULL,   "1" },
   { "boolean", PW_TYPE_BOOLEAN,    offsetof(rlm_example_t,boolean), NULL, "no"},
   { "string",  PW_TYPE_STRING_PTR, offsetof(rlm_example_t,string), NULL,  NULL},
@@ -65,21 +59,6 @@ static CONF_PARSER module_config[] = {
   { NULL, -1, 0, NULL, NULL }		/* end the list */
 };
 
-/*
- *	Do any per-module initialization.  e.g. set up connections
- *	to external databases, read configuration files, set up
- *	dictionary entries, etc.
- *
- *	Try to avoid putting too much stuff in here - it's better to
- *	do it in instantiate() where it is not global.
- */
-static int example_init(void)
-{
-	/*
-	 *	Everything's OK, return without an error.
-	 */
-	return 0;
-}
 
 /*
  *	Do any per-module initialization that is separate to each
@@ -138,7 +117,7 @@ static int example_authorize(void *instance, REQUEST *request)
 	 */
 	state =  pairfind(request->packet->vps, PW_STATE);
 	if (state != NULL) {
-		DEBUG("rlm_example: Found reply to access challenge");
+		RDEBUG("Found reply to access challenge");
 		return RLM_MODULE_OK;
 	}
 
@@ -156,7 +135,7 @@ static int example_authorize(void *instance, REQUEST *request)
 	 *  The server will take care of sending it to the user.
 	 */
 	request->reply->code = PW_ACCESS_CHALLENGE;
-	DEBUG("rlm_example: Sending Access-Challenge.");
+	RDEBUG("Sending Access-Challenge.");
 
 	return RLM_MODULE_HANDLED;
 }
@@ -216,9 +195,13 @@ static int example_checksimul(void *instance, REQUEST *request)
   return RLM_MODULE_OK;
 }
 
+
+/*
+ *	Only free memory we allocated.  The strings allocated via
+ *	cf_section_parse() do not need to be freed.
+ */
 static int example_detach(void *instance)
 {
-	free(((struct rlm_example_t *)instance)->string);
 	free(instance);
 	return 0;
 }
@@ -233,10 +216,11 @@ static int example_detach(void *instance)
  *	is single-threaded.
  */
 module_t rlm_example = {
+	RLM_MODULE_INIT,
 	"example",
 	RLM_TYPE_THREAD_SAFE,		/* type */
-	example_init,			/* initialization */
 	example_instantiate,		/* instantiation */
+	example_detach,			/* detach */
 	{
 		example_authenticate,	/* authentication */
 		example_authorize,	/* authorization */
@@ -247,6 +231,4 @@ module_t rlm_example = {
 		NULL,			/* post-proxy */
 		NULL			/* post-auth */
 	},
-	example_detach,			/* detach */
-	NULL,				/* destroy */
 };

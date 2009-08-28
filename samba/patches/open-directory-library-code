@@ -2,11 +2,11 @@ Index: samba/source/include/opendirectory.h
 ===================================================================
 --- /dev/null
 +++ samba/source/include/opendirectory.h
-@@ -0,0 +1,265 @@
+@@ -0,0 +1,337 @@
 +/*
 + * opendirectory.h
 + *
-+ * Copyright (C) 2003-2007 Apple Inc. All rights reserved.
++ * Copyright (C) 2003-2009 Apple Inc. All rights reserved.
 + *
 + * This program is free software; you can redistribute it and/or modify
 + * it under the terms of the GNU General Public License as published by
@@ -32,6 +32,15 @@ Index: samba/source/include/opendirectory.h
 +
 +#include <DirectoryService/DirServicesConst.h>
 +#include <DirectoryService/DirServicesUtils.h>
++
++#include <membership.h>
++
++/* These conflict with enum id_type. */
++#undef ID_TYPE_UID
++#undef ID_TYPE_GID
++
++#define MBR_ID_TYPE_UID 0
++#define MBR_ID_TYPE_GID 1
 +
 +/* Definitions */
 +#ifdef __cplusplus
@@ -100,8 +109,12 @@ Index: samba/source/include/opendirectory.h
 +
 +tDirStatus opendirectory_insert_search_results(tDirNodeReference node,
 +				    CFMutableArrayRef recordsArray,
-+				    const unsigned long recordCount,
++				    const UInt32 recordCount,
 +				    tDataBufferPtr dataBuffer);
++
++BOOL opendirectory_match_record_attribute(CFDictionaryRef record,
++				    const char *attribute,
++				    const char * value);
 +
 +/* High-level SAM policy APIs. */
 +
@@ -123,8 +136,15 @@ Index: samba/source/include/opendirectory.h
 +				struct opendirectory_session *session,
 +				const DOM_SID *group_sid);
 +
++CFDictionaryRef opendirectory_sam_searchugid_first(
++				struct opendirectory_session *session,
++				const char *type,
++				const char *attr,
++				const id_t ugid);
++
 +/* Miscellaneous helper APIs. */
 +
++tDataListPtr opendirectory_config_attrlist(struct opendirectory_session *session);
 +tDataListPtr opendirectory_sam_attrlist(struct opendirectory_session *session);
 +const char ** opendirectory_local_paths(struct opendirectory_session *session);
 +
@@ -132,6 +152,52 @@ Index: samba/source/include/opendirectory.h
 +				    CFDictionaryRef record,
 +				    const char *attribute);
 +char * opendirectory_talloc_cfstr(void *talloc_ctx, CFStringRef cfstring);
++
++BOOL opendirectory_node_path_is_local(
++				const struct opendirectory_session *session,
++				const char * node_path);
++
++typedef  CFDictionaryRef (*domain_sid_search_func) (
++				struct opendirectory_session *session,
++				const char *domain_name,
++				const DOM_SID *domain_sid,
++				const void *match_data);
++
++CFDictionaryRef opendirectory_search_domain_sid_cache(
++			    struct opendirectory_session *session,
++			    const void *match_data,
++			    domain_sid_search_func match);
++
++BOOL chop_sid_string(char * sid_string);
++BOOL convert_DOMSID_to_ntsid(nt_sid_t * ntsid, const DOM_SID * domsid);
++BOOL convert_ntsid_to_DOMSID(DOM_SID * domsid, const nt_sid_t * ntsid);
++BOOL is_compatibility_guid(const uuid_t guid, int * id_type, id_t * ugid);
++
++BOOL memberd_sid_to_uuid(const DOM_SID * sid, uuid_t uuid);
++BOOL memberd_uuid_to_sid(const uuid_t uuid, DOM_SID * sid);
++
++/* SAM SID configuration APIs. */
++
++tDirStatus opendirectory_query_machine_sid(
++				struct opendirectory_session *session,
++				DOM_SID *machine_sid);
++
++tDirStatus opendirectory_store_machine_sid(
++				struct opendirectory_session *session,
++				const DOM_SID *machine_sid);
++
++tDirStatus opendirectory_query_domain_sid(
++				struct opendirectory_session *session,
++				const char *domain,
++				DOM_SID *domain_sid);
++
++BOOL opendirectory_domain_sid_from_path(void * talloc_ctx,
++				struct opendirectory_session * session,
++				const char * node_path,
++				DOM_SID *samsid);
++
++void opendirectory_fill_domain_sid_cache(void * talloc_ctx,
++			    struct opendirectory_session *session);
 +
 +/* Authentication APIs. */
 +
@@ -168,7 +234,8 @@ Index: samba/source/include/opendirectory.h
 +tDirStatus opendirectory_cred_session_key(const DOM_CHAL *client_challenge,
 +				const DOM_CHAL *server_challenge,
 +				const char *machine_acct,
-+				char *session_key);
++				char *session_key,
++				u_int32_t option);
 +
 +tDirStatus opendirectory_set_workstation_nthash(const char *account_name,
 +				const char *nt_hash);
@@ -265,6 +332,11 @@ Index: samba/source/include/opendirectory.h
 +		LOG_DS_CHECK_BADREF(status); \
 +    	} while(0)
 +
++/* The DirectoryService framework is deprecated in 10.6, but we still use it
++ * and don't want to see the warnings.
++ */
++#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
++
 +#ifdef __cplusplus
 +}
 +#endif
@@ -272,11 +344,11 @@ Index: samba/source/lib/opendirectory.c
 ===================================================================
 --- /dev/null
 +++ samba/source/lib/opendirectory.c
-@@ -0,0 +1,2899 @@
+@@ -0,0 +1,2567 @@
 +/*
 + * opendirectory.c
 + *
-+ * Copyright (C) 2003-2008 Apple Inc. All rights reserved.
++ * Copyright (C) 2003-2009 Apple Inc. All rights reserved.
 + *
 + * This program is free software; you can redistribute it and/or modify
 + * it under the terms of the GNU General Public License as published by
@@ -295,20 +367,13 @@ Index: samba/source/lib/opendirectory.c
 +
 +#include "includes.h"
 +#include "opendirectory.h"
++#include <spawn.h>
++
++#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 +
 +/* ======================================================================= */
 +/* Miscellaneous APIs and utilities					   */
 +/* ======================================================================= */
-+
-+static CFDictionaryRef sam_searchattr_first(
-+				struct opendirectory_session *session,
-+				const char *type,
-+				const char *attr,
-+				const char *value);
-+static CFDictionaryRef sam_searchname_first(
-+				struct opendirectory_session *session,
-+				const char *type,
-+				const char *name);
 +
 +/* Data free API. Most (all?) of the ds* API will safely ignore a NULL or zero
 + * argument. The only reason we need this is that tDataListPtr needs
@@ -399,8 +464,24 @@ Index: samba/source/lib/opendirectory.c
 +
 + void opendirectory_disconnect(struct opendirectory_session *session)
 +{
++	const char ** path;
++
 +	DS_CLOSE_NODE(session->search);
 +	dsCloseDirService(session->ref);
++
++	if (session->domain_sid_cache) {
++		CFRelease(session->domain_sid_cache);
++	}
++
++        for (path = session->local_path_cache; path && *path; ++path) {
++		char * tmp = (char *)(*path);
++		SAFE_FREE(tmp); /* SAFE_FREE NULLs its argument, but we need
++				 * path for our iteration.
++				 */
++	}
++
++	SAFE_FREE(session->local_path_cache);
++
 +	ZERO_STRUCTP(session);
 +}
 +
@@ -411,7 +492,6 @@ Index: samba/source/lib/opendirectory.c
 +#undef DBGC_CLASS
 +#define DBGC_CLASS DBGC_AUTH
 +
-+#define credentialfile "/var/db/samba/opendirectorysam"
 +#define opendirectory_secret_sig 'odsa'
 +
 +typedef struct opendirectory_secret_header {
@@ -420,78 +500,6 @@ Index: samba/source/lib/opendirectory.c
 +    u_int32_t secret_len;
 +    u_int32_t authenticatorid_len;
 +} opendirectory_secret_header;
-+
-+#ifdef USES_KEYCHAIN
-+/* Stop the Security framework defining fixed-sized types that we already
-+ * define. Our definitions are incompatible since they are #defined rather
-+ * that typedef'd.
-+ */
-+#define _UINT64
-+#define _UINT32
-+#define _UINT16
-+#define _UINT8
-+#include <CoreFoundation/CoreFoundation.h>
-+#include <Security/Security.h>
-+#include <SystemConfiguration/SystemConfiguration.h>
-+//#include <CoreServices/CoreServices.h>
-+
-+#define KEYCHAIN_SERVICE "com.apple.samba"
-+#define SAMBA_APP_ID CFSTR("com.apple.samba")
-+
-+static char * get_admin_account(void)
-+{
-+	CFPropertyListRef	pref = NULL;
-+	char *			account = NULL;
-+	int			accountLength = 1024;
-+
-+	pref = CFPreferencesCopyAppValue (CFSTR("DomainAdmin"), SAMBA_APP_ID);
-+	if (pref != 0) {
-+		if (CFGetTypeID(pref) == CFStringGetTypeID()) {
-+			account = calloc(1, accountLength);
-+			if (!CFStringGetCString((CFStringRef)pref, account,
-+				    accountLength, kCFStringEncodingUTF8)) {
-+				free(account);
-+				account = NULL;
-+			}
-+		}
-+		CFRelease(pref);
-+	}
-+
-+	return account;
-+}
-+
-+static void *get_password_from_keychain(char *account, int accountLength)
-+{
-+	OSStatus status ;
-+	SecKeychainItemRef item;
-+	void *passwordData = NULL;
-+	UInt32 passwordLength = 0;
-+	void *password = NULL;
-+
-+	// Set the domain to System (daemon)
-+	status = SecKeychainSetPreferenceDomain(kSecPreferencesDomainSystem);
-+	status = SecKeychainGetUserInteractionAllowed (False);
-+
-+	 status = SecKeychainFindGenericPassword (
-+					 NULL,           // default keychain
-+					 strlen(KEYCHAIN_SERVICE),             // length of service name
-+					 KEYCHAIN_SERVICE,   // service name
-+					 accountLength,             // length of account name
-+					 account,   // account name
-+					 &passwordLength,  // length of password
-+					 &passwordData,   // pointer to password data
-+					 &item         // the item reference
-+					);
-+
-+	if ((status == noErr) && (item != NULL) && passwordLength)
-+	{
-+		password = calloc(1, passwordLength + 1);
-+		memcpy(password, (const void *)passwordData, passwordLength);
-+	}
-+	return password;
-+}
-+
-+#endif /* USES_KEYCHAIN */
 +
 +static opendirectory_secret_header *
 +get_opendirectory_secret_header(void *authenticator)
@@ -506,90 +514,6 @@ Index: samba/source/lib/opendirectory.c
 +	}
 +	return NULL;
 +}
-+
-+static void * get_opendirectory_authenticator(void)
-+{
-+	void *authenticator = NULL;
-+	int authentriessize = 0;
-+
-+#ifdef USES_KEYCHAIN
-+	opendirectory_secret_header *odhdr = NULL;
-+	char *password = NULL;
-+	char *account = NULL;
-+
-+	account = get_admin_account();
-+	if (!account) {
-+		return NULL;
-+	}
-+
-+	password = get_password_from_keychain(account, strlen(account));
-+	if (!password) {
-+		free(account);
-+		return NULL;
-+	}
-+
-+	authentriessize = strlen(account) + strlen(password);
-+	authenticator = calloc(1, sizeof(opendirectory_secret_header) +
-+					authentriessize);
-+	memcpy((uint8_t *)authenticator + sizeof(opendirectory_secret_header),
-+		account, strlen(account));
-+	memcpy((uint8_t *)authenticator + sizeof(opendirectory_secret_header)
-+					+ strlen(account),
-+		password, strlen(password));
-+	odhdr = (opendirectory_secret_header*)authenticator;
-+	odhdr->authenticator_len = strlen(account);
-+	odhdr->secret_len = strlen(password);
-+	odhdr->signature = opendirectory_secret_sig;
-+
-+	free(password);
-+	return authenticator;
-+
-+#else /* USES_KEYCHAIN */
-+
-+	int fd = -1;
-+	ssize_t len;
-+	opendirectory_secret_header hdr;
-+
-+	fd = open(credentialfile, O_RDONLY,0);
-+	if (fd == -1) {
-+		DEBUG(0, ("unable to open %s (%s)\n",
-+			    credentialfile, strerror(errno)));
-+		return NULL;
-+	}
-+
-+	len = read(fd, &hdr, sizeof(opendirectory_secret_header));
-+	if (len != sizeof(opendirectory_secret_header)) {
-+		goto cleanup;
-+	}
-+
-+	if (hdr.signature != opendirectory_secret_sig) {
-+		goto cleanup;
-+	}
-+
-+	authentriessize = hdr.authenticator_len + hdr.secret_len;
-+	authenticator = malloc(sizeof(opendirectory_secret_header) + authentriessize);
-+	memset(authenticator, 0, sizeof(opendirectory_secret_header) + authentriessize);
-+	memcpy(authenticator, &hdr, sizeof(opendirectory_secret_header));
-+
-+	len = read(fd, (uint8_t *)authenticator +
-+			sizeof(opendirectory_secret_header), authentriessize);
-+	if (len != authentriessize) {
-+		goto cleanup;
-+	}
-+
-+	return authenticator;
-+
-+cleanup:
-+	if (authenticator) {
-+		free(authenticator);
-+	}
-+
-+	close(fd);
-+	return NULL;
-+
-+#endif /* USES_KEYCHAIN */
-+}
-+
 +
 +static u_int32_t
 +authenticator_accountlen(void *authenticator)
@@ -650,13 +574,55 @@ Index: samba/source/lib/opendirectory.c
 +	}
 +}
 +
++static void * get_opendirectory_authenticator(void)
++{
++	void *authenticator = NULL;
++
++	const char * helper;
++	int err;
++	int fd = -1;
++	size_t size;
++
++	helper = lp_parm_const_string(GLOBAL_SECTION_SNUM,
++			"com.apple", "odauth helper",
++			"/usr/libexec/samba/smb-odauth-helper --keychain");
++
++	err = smbrun(helper, &fd);
++	if (err || fd == -1) {
++		DEBUG(0, ("failed to read DomainAdmin credentials, "
++			    "err=%d fd=%d errno=%d\n",
++			    err, fd, errno));
++		return NULL;
++	}
++
++	authenticator = fd_load(fd, &size, getpagesize());
++
++	close(fd);
++	if (authenticator) {
++	    size_t expected;
++
++	    expected = sizeof(opendirectory_secret_header)
++		 + authenticator_accountlen(authenticator)
++		 + authenticator_secretlen(authenticator);
++	    if (size != expected) {
++		DEBUG(0, ("error reading DomainAdmin credentials, "
++			    "expected=%u received=%u\n",
++			    (unsigned)expected, (unsigned)size));
++		SAFE_FREE(authenticator);
++		return NULL;
++	    }
++	}
++
++	return authenticator;
++}
++
 +static tDirStatus get_node_ref_and_name(
 +			struct opendirectory_session *session,
 +			const char *name, const char *recordType,
 +			tDirNodeReference *nodeRef, char *outRecordName)
 +{
 +	tDirStatus		status			= eDSNoErr;
-+	unsigned long		returnCount		= 0;
++	UInt32			returnCount		= 0;
 +	tDataBufferPtr		nodeBuffer		= NULL;
 +	tDataListPtr		NodePath		= NULL;
 +	char			NodePathStr[256]	= {0};
@@ -670,7 +636,7 @@ Index: samba/source/lib/opendirectory.c
 +	tAttributeEntryPtr	attributeInfo		= NULL;
 +	tAttributeValueListRef	attributeValueListRef	= 0;
 +	tAttributeValueEntryPtr	attrValue		= NULL;
-+	long			i			= 0;
++	UInt32			i			= 0;
 +
 +	*nodeRef = 0;
 +	*outRecordName = '\0';
@@ -789,12 +755,12 @@ Index: samba/source/lib/opendirectory.c
 + tDirStatus opendirectory_cred_session_key(const DOM_CHAL *client_challenge,
 +			    const DOM_CHAL *server_challenge,
 +			    const char *machine_acct,
-+			    char *session_key)
++			    char *session_key, u_int32_t option)
 +{
 +	struct opendirectory_session session;
 +	tDirStatus 		status			= eDSNoErr;
-+	unsigned long		curr			= 0;
-+	unsigned long		len			= 0;
++	size_t			curr			= 0;
++	UInt32			len			= 0;
 +	tDataBufferPtr		authBuff  		= NULL;
 +	tDataBufferPtr		stepBuff  		= NULL;
 +	tDataNodePtr		authType		= NULL;
@@ -841,28 +807,35 @@ Index: samba/source/lib/opendirectory.c
 +	}
 +
 +	// Target account
-+	len = strlen(targetaccount);
-+	memcpy(&(authBuff->fBufferData[ curr ]), &len, 4);
-+	curr += sizeof(long);
++	len = (UInt32)strlen(targetaccount);
++	memcpy(&(authBuff->fBufferData[ curr ]), &len, sizeof(len));
++	curr += sizeof(len);
 +	memcpy(&(authBuff->fBufferData[ curr ]), targetaccount, len);
 +	curr += len;
 +	// Client Challenge and Server Challenge
 +	len = 16;
-+	memcpy(&(authBuff->fBufferData[ curr ]), &len, 4);
-+	curr += sizeof(long);
++	memcpy(&(authBuff->fBufferData[ curr ]), &len, sizeof(len));
++	curr += sizeof(len);
 +	memcpy(&(authBuff->fBufferData[ curr ]), server_challenge->data, 8);
 +	curr += 8;
 +	memcpy(&(authBuff->fBufferData[ curr ]), client_challenge->data, 8);
 +	curr += 8;
++	len = sizeof(option);
++	memcpy(&(authBuff->fBufferData[ curr ]), &len, sizeof(len));
++	curr += sizeof(len);
++	memcpy(&(authBuff->fBufferData[ curr ]), &option, sizeof(option));
++	curr += sizeof(option);
 +
++	if (curr > INT32_MAX)
++	    smb_panic("PANIC: Looks like fBufferLength overflowed\n");
 +	authBuff->fBufferLength = curr;
 +	status = dsDoDirNodeAuthOnRecordType(nodeRef, authType, 1, authBuff,
 +			    stepBuff, NULL,  recordType);
 +
 +	if (status == eDSNoErr) {
 +		memcpy(&len, stepBuff->fBufferData, 4);
-+		stepBuff->fBufferData[len+4] = '\0';
-+		memcpy(session_key,stepBuff->fBufferData+4, 8);
++		DEBUG(4, ("opendirectory_cred_session_key len(%d)\n", len));
++		memcpy(session_key,stepBuff->fBufferData+4, len);
 +	}
 +
 +cleanup:
@@ -888,7 +861,7 @@ Index: samba/source/lib/opendirectory.c
 +			u_int32_t *key_length)
 +{
 +	tDirStatus 		status			= eDSNoErr;
-+	u_int32_t		len			= 0;
++	UInt32			len			= 0;
 +	tDataBufferPtr		authBuff  		= NULL;
 +	tDataBufferPtr		stepBuff  		= NULL;
 +	tDataNodePtr		authType		= NULL;
@@ -979,7 +952,7 @@ Index: samba/source/lib/opendirectory.c
 +			u_int8_t *session_key)
 +{
 +	tDirStatus 		status		= eDSNoErr;
-+	unsigned long		len		= 0;
++	UInt32			len		= 0;
 +	tDataBufferPtr		authBuff  	= NULL;
 +	tDataBufferPtr		stepBuff  	= NULL;
 +	tDataNodePtr		authType	= NULL;
@@ -1043,7 +1016,7 @@ Index: samba/source/lib/opendirectory.c
 +{
 +	struct opendirectory_session session;
 +	tDirStatus 		status			= eDSNoErr;
-+	unsigned long		len			= 0;
++	UInt32			len			= 0;
 +	tDataBufferPtr		authBuff  		= NULL;
 +	tDataBufferPtr		stepBuff  		= NULL;
 +	tDataNodePtr		authType		= NULL;
@@ -1456,8 +1429,8 @@ Index: samba/source/lib/opendirectory.c
 +	tAttributeValueListRef 	valueList = 0;
 +	tAttributeEntryPtr 	attributeEntry = NULL;
 +
-+	unsigned long		attributeIndex;
-+	unsigned long		valueIndex;
++	UInt32			attributeIndex;
++	UInt32			valueIndex;
 +	tDirStatus		status;
 +
 +	dsrecord = CFDictionaryCreateMutable(NULL, 0,
@@ -1573,12 +1546,12 @@ Index: samba/source/lib/opendirectory.c
 +
 + tDirStatus opendirectory_insert_search_results(tDirNodeReference node,
 +				    CFMutableArrayRef recordsArray,
-+				    const unsigned long recordCount,
++				    const UInt32 recordCount,
 +				    tDataBufferPtr dataBuffer)
 +{
 +	tAttributeListRef	attributeList;
 +	tRecordEntryPtr		recordEntry;
-+	unsigned long		recordIndex;
++	UInt32			recordIndex;
 +	CFMutableDictionaryRef	dsrecord;
 +	tDirStatus status;
 +
@@ -1626,7 +1599,7 @@ Index: samba/source/lib/opendirectory.c
 +	tDirStatus		status;
 +	tDataBufferPtr		dataBuffer;
 +
-+	tContextData		currentContextData = NULL;
++	tContextData		currentContextData = (tContextData)NULL;
 +
 +	dataBuffer = DS_DEFAULT_BUFFER(session->ref);
 +	if (dataBuffer == NULL) {
@@ -1635,7 +1608,7 @@ Index: samba/source/lib/opendirectory.c
 +	}
 +
 +	do {
-+		unsigned long recordCount;
++		UInt32 recordCount = 0;
 +
 +		status = dsDoAttributeValueSearchWithData(
 +				session->search, dataBuffer,
@@ -1652,7 +1625,7 @@ Index: samba/source/lib/opendirectory.c
 +
 +		opendirectory_insert_search_results(session->search,
 +				    recordsArray, recordCount, dataBuffer);
-+	} while (status == eDSNoErr && currentContextData != NULL);
++	} while (status == eDSNoErr && currentContextData != (tContextData)NULL);
 +
 +cleanup:
 +	opendirectory_free_buffer(session, dataBuffer);
@@ -1678,7 +1651,7 @@ Index: samba/source/lib/opendirectory.c
 +	tDirStatus		status;
 +	tDataBufferPtr		dataBuffer;
 +
-+	tContextData		currentContextData = NULL;
++	tContextData		currentContextData = (tContextData)NULL;
 +
 +	dataBuffer = DS_DEFAULT_BUFFER(session->ref);
 +	if (dataBuffer == NULL) {
@@ -1687,7 +1660,7 @@ Index: samba/source/lib/opendirectory.c
 +	}
 +
 +	do {
-+		unsigned long recordCount;
++		UInt32 recordCount;
 +
 +		status = dsGetRecordList(node, dataBuffer,
 +				searchName, eDSiExact, recordType,
@@ -1703,7 +1676,7 @@ Index: samba/source/lib/opendirectory.c
 +		opendirectory_insert_search_results(node, recordsArray,
 +					    recordCount, dataBuffer);
 +
-+	} while (status == eDSNoErr && currentContextData != NULL);
++	} while (status == eDSNoErr && currentContextData != (tContextData)NULL);
 +
 +cleanup:
 +	opendirectory_free_buffer(session, dataBuffer);
@@ -1733,13 +1706,14 @@ Index: samba/source/lib/opendirectory.c
 +
 +	status = opendirectory_searchnode(session);
 +	if (status != eDSNoErr) {
-+		return status;
++		goto cleanup;
 +	}
 +
 +	SMB_ASSERT(session->ref != 0);
 +	SMB_ASSERT(session->search != 0);
 +	if (session->ref == 0 || session->search == 0) {
-+		return eDSInvalidRefType;
++		status = eDSInvalidRefType;
++		goto cleanup;
 +	}
 +
 +	samAttributes = opendirectory_sam_attrlist(session);
@@ -1761,8 +1735,10 @@ Index: samba/source/lib/opendirectory.c
 +		status = eDSAllocationFailed;
 +	}
 +
++cleanup:
++
 +	/* We guarantee a result with a successful return. */
-+	if (CFArrayGetCount(*records) == 0) {
++	if (*records != NULL && CFArrayGetCount(*records) == 0) {
 +		CFRelease(*records);
 +		*records = NULL;
 +
@@ -1770,8 +1746,6 @@ Index: samba/source/lib/opendirectory.c
 +			status = eDSRecordNotFound;
 +		}
 +	}
-+
-+cleanup:
 +
 +	/* Make sure caller doesn't have to clean up on failure. */
 +	if (status != eDSNoErr && *records != NULL) {
@@ -1805,10 +1779,18 @@ Index: samba/source/lib/opendirectory.c
 +
 +	status = opendirectory_searchnode(session);
 +	if (status != eDSNoErr) {
-+		return status;
++		goto cleanup;
 +	}
 +
-+	samAttributes = opendirectory_sam_attrlist(session);
++	if (strequal(type, kDSStdRecordTypeConfig) &&
++			strequal(name, "CIFSServer")) {
++		/* Special query for /Config/CIFSServer. */
++		samAttributes = opendirectory_config_attrlist(session);
++	} else {
++		/* Standard SAM-style attributes */
++		samAttributes = opendirectory_sam_attrlist(session);
++	}
++
 +	if (samAttributes == NULL) {
 +		status = eDSAllocationFailed;
 +		goto cleanup;
@@ -1828,11 +1810,7 @@ Index: samba/source/lib/opendirectory.c
 +
 +	/* We guarantee a result with a successful return. */
 +	if (CFArrayGetCount(*records) == 0) {
-+		CFRelease(*records);
-+		*records = NULL;
-+		if (status == eDSNoErr) {
-+			status = eDSRecordNotFound;
-+		}
++		status = eDSRecordNotFound;
 +	}
 +
 +cleanup:
@@ -1841,7 +1819,6 @@ Index: samba/source/lib/opendirectory.c
 +	if (status != eDSNoErr && *records != NULL) {
 +		CFRelease(*records);
 +		*records = NULL;
-+		status = eDSRecordNotFound;
 +	}
 +
 +        opendirectory_free_list(session, recordType);
@@ -1915,7 +1892,7 @@ Index: samba/source/lib/opendirectory.c
 +		    strcmp(attribute, kDSNAttrRecordName) != 0) {
 +			DEBUG(0, ("WARNING: returning first of %d values "
 +				"for %s attribute\n",
-+				CFArrayGetCount(valueList), attribute));
++				(int)CFArrayGetCount(valueList), attribute));
 +		}
 +
 +                cfstrRef = (CFStringRef)CFArrayGetValueAtIndex(valueList, 0);
@@ -1978,7 +1955,7 @@ Index: samba/source/lib/opendirectory.c
 +
 +		for (i = 0; i < CFArrayGetCount(valueList); ++i) {
 +			cfstrRef =
-+			    (CFStringRef)CFArrayGetValueAtIndex(valueList, 0);
++			    (CFStringRef)CFArrayGetValueAtIndex(valueList, i);
 +
 +			if (cfstrRef == NULL) {
 +				continue;
@@ -2033,8 +2010,20 @@ Index: samba/source/lib/opendirectory.c
 +	return eNotYetImplemented;
 +}
 +
-+ tDataListPtr opendirectory_sam_attrlist(struct opendirectory_session *session)
++/* /Config/CIFSServer attributes. */
++ tDataListPtr opendirectory_config_attrlist(struct opendirectory_session *session)
 +{
++	return dsBuildListFromStrings(session->ref,
++			    kDSNAttrRecordName,
++			    kDSNAttrRecordType,
++			    kDSNAttrMetaNodeLocation,
++			    kDS1AttrXMLPlist,
++
++			    NULL);
++}
++
++/* Standard SAM record attributes. */
++ tDataListPtr opendirectory_sam_attrlist(struct opendirectory_session *session) {
 +	return dsBuildListFromStrings(session->ref,
 +			    kDSNAttrRecordName,
 +			    kDSNAttrRecordType,
@@ -2072,7 +2061,7 @@ Index: samba/source/lib/opendirectory.c
 + tDirStatus opendirectory_searchnode(struct opendirectory_session *session)
 +{
 +        tDirStatus              status = eDSNoErr;
-+        unsigned long           returnCount     = 0;
++        UInt32	                returnCount     = 0;
 +        tDataBufferPtr          nodeBuffer      = NULL;
 +        tDataListPtr            searchNodeName  = NULL;
 +
@@ -2123,7 +2112,7 @@ Index: samba/source/lib/opendirectory.c
 +	tDirStatus	status;
 +	tDataBufferPtr	nodeBuffer;
 +	tDataListPtr	localNodeName;
-+	unsigned long	returnCount;
++	UInt32		returnCount;
 +
 +	int current, i;
 +	const char ** path_list = NULL;
@@ -2196,7 +2185,7 @@ Index: samba/source/lib/opendirectory.c
 + * characters. This is needed for cases when we pull the SID from the
 + * CIFSServer config record and it contains trailing junk.
 + */
-+static BOOL chop_sid_string(char * sid_string)
++ BOOL chop_sid_string(char * sid_string)
 +{
 +	char * c;
 +
@@ -2312,73 +2301,10 @@ Index: samba/source/lib/opendirectory.c
 +	return ret;
 +}
 +
-+typedef  CFDictionaryRef (*domain_sid_search_func) (
-+				struct opendirectory_session *session,
-+				const DOM_SID *domain_sid,
-+				const DOM_SID *match_sid);
-+
-+struct search_context {
-+	domain_sid_search_func		match;
-+	struct opendirectory_session *	session;
-+	const DOM_SID *			match_sid;
-+	CFDictionaryRef			result;
-+};
-+
-+static void search_domain_sid_cache_cb(const CFStringRef nodeLocation,
-+					const CFDictionaryRef domainRecord,
-+					struct search_context ctx)
-+{
-+	DOM_SID domain_sid;
-+	char *	domain_sid_string;
-+
-+	if (ctx.result != NULL) {
-+	    return;
-+	}
-+
-+	domain_sid_string = opendirectory_get_record_attribute(NULL,
-+						    domainRecord, "SID");
-+	if (domain_sid_string &&
-+	    chop_sid_string(domain_sid_string) &&
-+	    string_to_sid(&domain_sid, domain_sid_string)) {
-+		ctx.result = ctx.match(ctx.session, &domain_sid,
-+					ctx.match_sid);
-+	}
-+
-+	TALLOC_FREE(domain_sid_string);
-+
-+}
-+
-+/* Apply the given function to each entry on the domain SID cache. We use this
-+ * to try any figure out the RID when all we have is an unadorned SID.
-+ */
-+static CFDictionaryRef search_domain_sid_cache(
-+			    struct opendirectory_session *session,
-+			    const DOM_SID *match_sid,
-+			    domain_sid_search_func match)
-+{
-+	struct search_context ctx =
-+	{
-+	    .match = match,
-+	    .session = session,
-+	    .match_sid = match_sid,
-+	    .result = NULL
-+	};
-+
-+	if (session->domain_sid_cache == NULL) {
-+		return NULL;
-+	}
-+
-+	CFDictionaryApplyFunction(session->domain_sid_cache,
-+		(CFDictionaryApplierFunction)search_domain_sid_cache_cb,
-+		&ctx);
-+
-+	return ctx.result;
-+}
-+
 +/* Fill the domain SID cache with the /Congif/CIFSServer records of all
 + * the domains that the directory knows about.
 + */
-+static void fill_domain_sid_cache(void *mem_ctx,
++ void opendirectory_fill_domain_sid_cache(void *mem_ctx,
 +			    struct opendirectory_session *session)
 +{
 +	tDirStatus status;
@@ -2416,8 +2342,11 @@ Index: samba/source/lib/opendirectory.c
 +	CFRelease(records);
 +}
 +
-+static BOOL get_domain_sid_from_path(void *mem_ctx,
-+				struct opendirectory_session *session,
++/* Given a directory node path, return the corresponding domain SID from
++ * the Config/CIFSServer record.
++ */
++ BOOL opendirectory_domain_sid_from_path(void * mem_ctx,
++				struct opendirectory_session * session,
 +				const char * node_path,
 +				DOM_SID *samsid)
 +{
@@ -2441,7 +2370,7 @@ Index: samba/source/lib/opendirectory.c
 +	}
 +
 +	if (session->domain_sid_cache == NULL) {
-+		fill_domain_sid_cache(mem_ctx, session);
++		opendirectory_fill_domain_sid_cache(mem_ctx, session);
 +	}
 +
 +	/* Check whether we have cached this domain SID already. */
@@ -2474,8 +2403,7 @@ Index: samba/source/lib/opendirectory.c
 +				    kDSStdRecordTypeConfig, NULL);
 +	recordName = dsBuildListFromStrings(session->ref,
 +				    "CIFSServer", NULL);
-+	attributes = dsBuildListFromStrings(session->ref,
-+				    kDS1AttrXMLPlist , NULL);
++	attributes = opendirectory_config_attrlist(session);
 +
 +	if (!recordName || !recordType || !attributes || !recordsArray) {
 +		goto cleanup;
@@ -2517,12 +2445,13 @@ Index: samba/source/lib/opendirectory.c
 +/* Match the given node path against our cached set of local paths to
 + * figure out whether it it local or not.
 + */
-+static BOOL node_path_is_local(const char ** local_paths,
++ BOOL opendirectory_node_path_is_local(
++				const struct opendirectory_session *session,
 +				const char * node_path)
 +{
 +        const char ** path;
 +
-+        for (path = local_paths; path && *path; ++path) {
++        for (path = session->local_path_cache; path && *path; ++path) {
 +                /* XXX: should this reallly be case-sensitive? -- jpeach */
 +                if (strcmp(node_path, *path) == 0) {
 +                        return True;
@@ -2532,7 +2461,499 @@ Index: samba/source/lib/opendirectory.c
 +        return False;
 +}
 +
-+static BOOL get_sid_for_samrecord(void *mem_ctx,
++struct domain_sid_search_context {
++	domain_sid_search_func		match;
++	struct opendirectory_session *	session;
++	const void *			match_data;
++	CFDictionaryRef			result;
++};
++
++static void search_domain_sid_cache_cb(const CFStringRef nodeLocation,
++					const CFDictionaryRef domainRecord,
++					struct domain_sid_search_context *ctx)
++{
++	DOM_SID	    domain_sid;
++	DOM_SID *   domain_sid_ptr = NULL;
++	char *	domain_sid_string;
++	char *	domain_name;
++
++	if (ctx->result != NULL) {
++	    return;
++	}
++
++	domain_name = opendirectory_get_record_attribute(NULL,
++						    domainRecord, "domain");
++
++	domain_sid_string = opendirectory_get_record_attribute(NULL,
++						    domainRecord, "SID");
++	if (domain_sid_string &&
++	    chop_sid_string(domain_sid_string) &&
++	    string_to_sid(&domain_sid, domain_sid_string)) {
++		domain_sid_ptr = &domain_sid;
++	}
++
++	ctx->result = ctx->match(ctx->session, domain_name,
++				domain_sid_ptr, ctx->match_data);
++
++	TALLOC_FREE(domain_sid_string);
++	TALLOC_FREE(domain_name);
++}
++
++/* Apply the given function to each entry on the domain SID cache. We use this
++ * to try any figure out the RID when all we have is an unadorned SID.
++ */
++ CFDictionaryRef opendirectory_search_domain_sid_cache(
++			    struct opendirectory_session *session,
++			    const void *match_data,
++			    domain_sid_search_func match)
++{
++	struct domain_sid_search_context ctx =
++	{
++	    .match = match,
++	    .session = session,
++	    .match_data = match_data,
++	    .result = NULL
++	};
++
++	if (session->domain_sid_cache == NULL) {
++		return NULL;
++	}
++
++	CFDictionaryApplyFunction(session->domain_sid_cache,
++		(CFDictionaryApplierFunction)search_domain_sid_cache_cb,
++		&ctx);
++
++	return ctx.result;
++}
++
++extern int gethostuuid(unsigned char *uuid, const struct timespec *timeout);
++
++static void uuid_to_sid(const uuid_t hostuuid, DOM_SID * hostsid)
++{
++	ZERO_STRUCTP(hostsid);
++
++	hostsid->sid_rev_num = 1;
++	hostsid->num_auths = 4;
++	hostsid->id_auth[5] = 5;
++	hostsid->sub_auths[0] = 21;
++
++#if 0
++	/* Vista can't join a PDC with 5 subuthorites ... sigh */
++	hostsid->sub_auths[1] =
++	    ((uint32_t)hostuuid[0] << 24) |
++	    ((uint32_t)hostuuid[1] << 16) |
++	    ((uint32_t)hostuuid[2] << 8) |
++	    (uint32_t)hostuuid[3];
++#endif
++
++	hostsid->sub_auths[1] =
++	    ((uint32_t)hostuuid[4] << 24) |
++	    ((uint32_t)hostuuid[5] << 16) |
++	    ((uint32_t)hostuuid[6] << 8) |
++	    (uint32_t)hostuuid[7];
++
++	hostsid->sub_auths[2] =
++	    ((uint32_t)hostuuid[8] << 24) |
++	    ((uint32_t)hostuuid[9] << 16) |
++	    ((uint32_t)hostuuid[10] << 8)  |
++	    (uint32_t)hostuuid[11];
++
++	hostsid->sub_auths[3] =
++	    ((uint32_t)hostuuid[12] << 24) |
++	    ((uint32_t)hostuuid[13] << 16) |
++	    ((uint32_t)hostuuid[14] << 8) |
++	    (uint32_t)hostuuid[15];
++}
++
++static tDirStatus machine_sid_from_uuid(DOM_SID * machine_sid)
++{
++	uuid_t hostuuid;
++	struct timespec timeout = {0}; /* How long the kernel can block while
++					* getting the UUID. Apparantly zero
++					* means an infinite timeout, not a zero
++					* timeout
++					*/
++	int err;
++
++	err = gethostuuid(hostuuid, &timeout);
++	if (err) {
++		DEBUG(0, ("gethostuuid failed: %s\n", strerror(errno)));
++		return eUnknownServerError;
++	}
++
++	uuid_to_sid(hostuuid, machine_sid);
++	return eDSNoErr;
++}
++
++/* Search any local nodes for a Computer record with a SMBSID attribute. */
++static tDirStatus search_machine_sid(void *mem_ctx,
++				struct opendirectory_session *session,
++				DOM_SID *machine_sid)
++{
++	int i;
++	tDirStatus status;
++	CFMutableArrayRef records = NULL;
++
++	status = opendirectory_sam_searchname(session, &records,
++			kDSStdRecordTypeComputers, "localhost");
++	if (!records) {
++		return status == eDSNoErr ? eDSRecordNotFound : status;
++	}
++
++	if (!session->local_path_cache) {
++		session->local_path_cache = opendirectory_local_paths(session);
++	}
++
++	for (i = 0; i < CFArrayGetCount(records); ++i) {
++		CFDictionaryRef rec;
++		char * record_path;
++		char * sidstr;
++
++                rec = (CFDictionaryRef)CFArrayGetValueAtIndex(records, i);
++		if (CFGetTypeID(rec) != CFDictionaryGetTypeID()) {
++			continue;
++		}
++
++		/* The localhost record should only be available on a local
++		 * directory node, but we'd better check and make sure.
++		 */
++		record_path = opendirectory_get_record_attribute(mem_ctx,
++				    rec, kDSNAttrMetaNodeLocation);
++
++		if (!opendirectory_node_path_is_local(session, record_path)) {
++			continue;
++		}
++
++		sidstr = opendirectory_get_record_attribute(mem_ctx,
++				    rec, kDS1AttrSMBSID);
++
++		if (sidstr && string_to_sid(machine_sid, sidstr)) {
++			status = eDSNoErr;
++			goto done;
++		}
++	}
++
++	/* Didn't find a localhost record */
++	status = eDSAttributeNotFound;
++
++done:
++	if (records) {
++		CFRelease(records);
++	}
++
++	return status;
++}
++
++tDirStatus opendirectory_query_machine_sid(
++				struct opendirectory_session *session,
++				DOM_SID *machine_sid)
++{
++	struct opendirectory_session local_session = {0};
++	BOOL local_disconnect = False;
++	tDirStatus status = 0;
++
++	void * mem_ctx = talloc_init(__func__);
++
++	if (session == NULL) {
++		status = opendirectory_connect(&local_session);
++		if (status != eDSNoErr) {
++			TALLOC_FREE(mem_ctx);
++			return status;
++		}
++
++		session = &local_session;
++		local_disconnect = True;
++	}
++
++	status = search_machine_sid(mem_ctx, session, machine_sid);
++
++	/* If we didn't find the record or the record didn't have a SMBSID
++	 * attribute, then generate a SID from the machine UUID.
++	 */
++	if (status == eDSAttributeNotFound || status == eDSRecordNotFound) {
++		status = machine_sid_from_uuid(machine_sid);
++	}
++
++	if (local_disconnect) {
++		opendirectory_disconnect(&local_session);
++	}
++
++	TALLOC_FREE(mem_ctx);
++	return status;
++}
++
++static CFDictionaryRef match_domain_by_name(
++				struct opendirectory_session *session,
++				const char *domain_name,
++				const DOM_SID *domain_sid,
++				const void *match_data)
++{
++	const char * match_name = (const char *)match_data;
++
++	if (match_name && domain_name && strequal(match_name, domain_name)) {
++		/* Returning the DOM_SID in the CFDictionaryRef is a bit hacky,
++		 * but the alternative is to return void * and sprinkle more
++		 * hacky casts around the place. Oh well.
++		 */
++		return (CFDictionaryRef)TALLOC_MEMDUP(NULL,
++			    domain_sid, sizeof(*domain_sid));
++	}
++
++	return NULL;
++}
++
++tDirStatus opendirectory_query_domain_sid(
++				struct opendirectory_session *session,
++				const char *domain,
++				DOM_SID *domain_sid)
++{
++	struct opendirectory_session local_session = {0};
++	BOOL local_disconnect = False;
++	tDirStatus status = eDSRecordNotFound;
++
++	DOM_SID * sid_result;
++
++	if (strequal(domain, global_myname())) {
++		return opendirectory_query_machine_sid(NULL, domain_sid);
++	}
++
++	void * mem_ctx = talloc_init(__func__);
++
++	if (session == NULL) {
++		status = opendirectory_connect(&local_session);
++		if (status != eDSNoErr) {
++			TALLOC_FREE(mem_ctx);
++			return status;
++		}
++
++		session = &local_session;
++		local_disconnect = True;
++	}
++
++	ZERO_STRUCTP(domain_sid);
++
++	if (session->domain_sid_cache == NULL) {
++		opendirectory_fill_domain_sid_cache(mem_ctx, session);
++	}
++
++	sid_result = (DOM_SID *)opendirectory_search_domain_sid_cache(
++				    session, domain, match_domain_by_name);
++
++	if (sid_result) {
++		sid_copy(domain_sid, sid_result);
++		TALLOC_FREE(sid_result);
++		status = eDSNoErr;
++	} else {
++		status = eDSRecordNotFound;
++	}
++
++	if (local_disconnect) {
++		opendirectory_disconnect(&local_session);
++	}
++
++	TALLOC_FREE(mem_ctx);
++	return status;
++}
++
++tDirStatus opendirectory_store_machine_sid(
++				struct opendirectory_session *session,
++				const DOM_SID *machine_sid)
++{
++	posix_spawn_file_actions_t action;
++	int status;
++	int err;
++	pid_t child;
++	fstring sidstr;
++
++	const char * argv[] =
++	{
++	    "/usr/bin/dscl", ".", "-create",
++		"/Computers/localhost", kDS1AttrSMBSID, sidstr, NULL
++	};
++
++	sid_to_string(sidstr, machine_sid);
++
++	err = posix_spawn_file_actions_init(&action);
++	if (err != 0) {
++	    DEBUG(0, ("%s: posix_spawn init failed: %s\n",
++			__func__, strerror(err)));
++	    return eDSAllocationFailed;
++	}
++
++	/* Redirect /dev/null to stdin. */
++	err = posix_spawn_file_actions_addopen(&action, STDIN_FILENO,
++		    "/dev/null", O_RDONLY, 0 /* mode */);
++	if (err != 0) {
++	    DEBUG(0, ("%s: stdin redirection failed: %s\n",
++			__func__, strerror(err)));
++	}
++
++	err = posix_spawn(&child, *argv, &action, NULL /* posix_spawnattr_t */,
++			    (char * const *)argv, NULL /* environ */);
++	if (err != 0) {
++	    DEBUG(0, ("failed to spawn %s: %s\n", *argv, strerror(err)));
++	    posix_spawn_file_actions_destroy(&action);
++	    return eUnknownServerError;
++	}
++
++	posix_spawn_file_actions_destroy(&action);
++
++	while (waitpid(child, &status, 0) != child) {
++	}
++
++	if (WIFEXITED(status) && WEXITSTATUS(status) == EXIT_SUCCESS) {
++	    /* yay, the helper ran and succeeded. */
++	    return eDSNoErr;
++	}
++
++	return eUnknownServerError;
++}
++
++/* DOM_SID and nt_sid_t are not the same binary layout, so we have to
++ * manually convert.
++ */
++ BOOL convert_DOMSID_to_ntsid(nt_sid_t * ntsid, const DOM_SID * domsid)
++{
++	ZERO_STRUCTP(ntsid);
++
++	if ((domsid->num_auths * sizeof(uint32_t)) >
++		sizeof(ntsid->sid_authorities)) {
++		DEBUG(0, ("DOM_SID has too many subauthorities (%d)\n",
++			    domsid->num_auths));
++		return False;
++	}
++
++	ntsid->sid_kind = domsid->sid_rev_num;
++	ntsid->sid_authcount = domsid->num_auths;
++	memcpy(ntsid->sid_authority, domsid->id_auth,
++		sizeof(ntsid->sid_authority));
++	memcpy(ntsid->sid_authorities, domsid->sub_auths,
++		sizeof(uint32) * domsid->num_auths);
++
++	return True;
++}
++
++ BOOL convert_ntsid_to_DOMSID(DOM_SID * domsid, const nt_sid_t * ntsid)
++{
++	ZERO_STRUCTP(domsid);
++
++	domsid->sid_rev_num = ntsid->sid_kind;
++	domsid->num_auths = ntsid->sid_authcount;
++	memcpy(domsid->id_auth, ntsid->sid_authority,
++		sizeof(ntsid->sid_authority));
++	memcpy(domsid->sub_auths, ntsid->sid_authorities,
++		sizeof(uint32) * domsid->num_auths);
++	return True;
++}
++
++ BOOL is_compatibility_guid(const uuid_t guid, int * id_type, id_t * ugid)
++{
++	const uint32_t * temp = (const uint32_t *)guid;
++
++	if ((temp[0] == htonl(0xFFFFEEEE)) &&
++		    (temp[1] == htonl(0xDDDDCCCC)) &&
++		    (temp[2] == htonl(0xBBBBAAAA))) {
++		*ugid = ntohl(temp[3]);
++		*id_type = MBR_ID_TYPE_UID;
++		return True;
++	} else if ((temp[0] == htonl(0xAAAABBBB)) &&
++		    (temp[1] == htonl(0xCCCCDDDD)) &&
++		    (temp[2] == htonl(0xEEEEFFFF))) {
++		*ugid = ntohl(temp[3]);
++		*id_type = MBR_ID_TYPE_GID;
++		return True;
++	}
++
++	return False;
++}
++
++ BOOL memberd_sid_to_uuid(
++		const DOM_SID * sid, uuid_t uuid)
++{
++	nt_sid_t ntsid;
++	int err;
++
++	if (!convert_DOMSID_to_ntsid(&ntsid, sid)) {
++		return False;
++	}
++
++	err = mbr_sid_to_uuid(&ntsid, uuid);
++	if (err) {
++		DEBUG(6, ("unable to map %s to a UUID: %s\n",
++			sid_string_static(sid),
++			strerror(err)));
++		return False;
++	}
++
++	return True;
++}
++
++ BOOL memberd_uuid_to_sid(
++	    const uuid_t uuid, DOM_SID * sid)
++{
++	nt_sid_t ntsid;
++	int err;
++
++	err = mbr_uuid_to_sid(uuid, &ntsid);
++	if (err != 0) {
++		if (DEBUGLVL(6)) {
++			uuid_string_t str;
++			uuid_unparse(uuid, str);
++
++			DEBUGADD(6,
++				("unable to map UUID %s to a SID: %s\n",
++				str, strerror(err)));
++		}
++
++		return False;
++	}
++
++	convert_ntsid_to_DOMSID(sid, &ntsid);
++	return True;
++}
++
+Index: samba/source/lib/opendirectory_sam.c
+===================================================================
+--- /dev/null
++++ samba/source/lib/opendirectory_sam.c
+@@ -0,0 +1,983 @@
++/*
++ * opendirectory.c
++ *
++ * Copyright (C) 2003-2009 Apple Inc. All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
++ */
++
++#include "includes.h"
++#include "opendirectory.h"
++
++#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
++
++static CFDictionaryRef sam_searchattr_first(
++				struct opendirectory_session * session,
++				const char *	type,
++				const char *	attr,
++				const char *	value);
++
++static CFDictionaryRef sam_searchname_first(
++				struct opendirectory_session * session,
++				const char *	type,
++				const char *	name);
++
++static void get_sid_for_samrecord(void *mem_ctx,
 +				struct opendirectory_session *session,
 +				CFDictionaryRef sam_record,
 +				DOM_SID *record_sid)
@@ -2546,35 +2967,118 @@ Index: samba/source/lib/opendirectory.c
 +	record_name = opendirectory_get_record_attribute(mem_ctx,
 +				    sam_record, kDSNAttrRecordName);
 +
-+	if (!record_path || !record_name) {
-+		goto done;
-+	}
++	SMB_ASSERT(record_path);
++	SMB_ASSERT(record_name);
 +
 +	DEBUG (5, ("resolving SID for record=%s within %s\n",
 +		    record_name, record_path));
 +
-+	/* By default, we will make this RID relative to the server SID. If
-+	 * the user record came from a directory path where we can resolve a
-+	 * domain SID, we will use that instead.
-+	 */
-+	sid_copy(record_sid, get_global_sam_sid());
-+
-+	/* Local Node - All Users are relative to the server sid */
-+	if (node_path_is_local(session->local_path_cache, record_path)) {
++	/* Local Node - All SIDs are relative to the server SID */
++	if (opendirectory_node_path_is_local(session, record_path)) {
++		sid_copy(record_sid, get_global_sam_sid());
 +		DEBUG(4, ("record=%s is local\n", record_name));
-+		goto done;
++		return;
 + 	}
 +
-+	if (get_domain_sid_from_path(mem_ctx, session,
++	if (opendirectory_domain_sid_from_path(mem_ctx, session,
 +					record_path, record_sid)) {
 +		DEBUG(4, ("record=%s is relative to domain SID=%s\n",
 +			    record_name, sid_to_string(sidstr, record_sid)));
 +	} else {
-+		DEBUG(4, ("no domain SID for %s, assuming local SID=%s\n",
++		/* It's a non-local record, and the node doesn't have
++		 * a domain SID, use the well-known synthetic domain SID.
++		 */
++		string_to_sid(record_sid,
++			"S-1-5-21-987654321-987654321-987654321");
++		DEBUG(4, ("no domain SID for %s, assuming synthetic SID=%s\n",
 +			record_path, sid_to_string(sidstr, record_sid)));
 +	}
 +
-+done:
++}
++
++/* Given a SAM record, use memberd to find the the SID. */
++static BOOL
++memberd_record_ugid_to_sid(
++		void * mem_ctx,
++		CFDictionaryRef sam_record,
++		const char * attr,
++		int id_type,
++		DOM_SID * sid)
++{
++	nt_sid_t ntsid;
++	uuid_t uuid;
++	id_t ugid;
++	int err;
++	char * strval;
++
++	strval = opendirectory_get_record_attribute(mem_ctx,
++					sam_record, attr);
++	if (!strval) {
++		return False;
++	}
++
++	ugid = (id_t)strtol(strval, NULL, 10 /* base */);
++
++	switch (id_type) {
++	case MBR_ID_TYPE_UID:
++		err = mbr_uid_to_uuid(ugid, uuid);
++		break;
++	case MBR_ID_TYPE_GID:
++		err = mbr_gid_to_uuid(ugid, uuid);
++		break;
++	default:
++		return False;
++	}
++
++	if (err != 0) {
++		DEBUG(6, ("failed to map %s %d: %s\n",
++			id_type == MBR_ID_TYPE_UID ? "UID" : "GID",
++			ugid, strerror(err)));
++	}
++
++	err = mbr_uuid_to_sid(uuid, &ntsid);
++	if (err != 0) {
++		uuid_string_t str;
++		uuid_unparse(uuid, str);
++		DEBUG(6, ("failed to map %s: %s\n",
++			    str, strerror(err)));
++		return False;
++	}
++
++	convert_ntsid_to_DOMSID(sid, &ntsid);
++	return True;
++}
++
++/* Given a SAM record, map its UUID (if present) to a SID using memberd. */
++static BOOL
++memberd_record_uuid_to_sid(
++		void * mem_ctx,
++		CFDictionaryRef sam_record,
++		DOM_SID * sid)
++{
++	nt_sid_t ntsid;
++	uuid_t uuid;
++	char * strval;
++	int err;
++
++	strval = opendirectory_get_record_attribute(mem_ctx,
++					sam_record, kDS1AttrGeneratedUID);
++	if (!strval) {
++		return False;
++	}
++
++	if (uuid_parse(strval, uuid) != 0) {
++		return False;
++	}
++
++	err = mbr_uuid_to_sid(uuid, &ntsid);
++	if (err != 0) {
++		DEBUG(6, ("failed to map %s: %s\n",
++			    strval, strerror(err)));
++		return False;
++	}
++
++	convert_ntsid_to_DOMSID(sid, &ntsid);
 +	return True;
 +}
 +
@@ -2603,6 +3107,25 @@ Index: samba/source/lib/opendirectory.c
 +		goto done;
 +	}
 +
++	/* Before we start, let's see whether DS has an answer for us. If
++	 * there is a UUID on this record, then we ought to be able to map
++	 * that. Otherwise, if there is a kDS1AttrUniqueID, we can try to
++	 * map that.
++	 */
++
++	if (memberd_record_uuid_to_sid(mem_ctx, sam_record, sid)) {
++		ret = True;
++		goto done;
++	}
++
++	if (memberd_record_ugid_to_sid(mem_ctx, sam_record,
++			    kDS1AttrUniqueID, MBR_ID_TYPE_UID, sid)) {
++		ret = True;
++		goto done;
++	}
++
++	/* DS didn't find a mapping. Make a best effort ... */
++
 +	if (!session->local_path_cache) {
 +		session->local_path_cache = opendirectory_local_paths(session);
 +	}
@@ -2619,10 +3142,7 @@ Index: samba/source/lib/opendirectory.c
 +	 * construct something by using an attribute as a RID. We can't do
 +	 * this unless we have a base SID for this record.
 +	 */
-+	if (!get_sid_for_samrecord(mem_ctx, session, sam_record, &samsid)) {
-+		goto done;
-+	}
-+
++	get_sid_for_samrecord(mem_ctx, session, sam_record, &samsid);
 +	sid_copy(sid, &samsid);
 +
 +	strval = opendirectory_get_record_attribute(mem_ctx,
@@ -2659,13 +3179,25 @@ Index: samba/source/lib/opendirectory.c
 +	return ret;
 +}
 +
++/* Find a primary group SID from a user or computer record.
++ *
++ * The order we try is
++ *	- kDS1AttrSMBPrimaryGroupSID
++ *	- kDS1AttrSMBGroupRID
++ *	- membership mapping of kDS1AttrPrimaryGroupID
++ *	- standard SID of group record from kDS1AttrPrimaryGroupID
++ *	- well-known Domain Users and Domain Computers RIDs
++ */
 +static BOOL find_groupsid_from_user(void *mem_ctx,
 +				struct opendirectory_session *session,
 +				CFDictionaryRef sam_record,
-+				DOM_SID *group_sid)
++				DOM_SID *group_sid,
++				unsigned fallback_rid)
 +{
 +	CFDictionaryRef group_record;
 +	char * strval;
++
++	DOM_SID samsid;
 +
 +	/* Both user and group records can have a kDS1AttrSMBPrimaryGroupSID
 +	 * attribute.
@@ -2674,6 +3206,30 @@ Index: samba/source/lib/opendirectory.c
 +				sam_record, kDS1AttrSMBPrimaryGroupSID);
 +	if (strval) {
 +		string_to_sid(group_sid, strval);
++		return True;
++	}
++
++	/* Since there is no SID attribute available, we will need to
++	 * construct something by using an attribute as a RID. We can't do
++	 * this unless we have a base SID for this record.
++	 */
++	get_sid_for_samrecord(mem_ctx, session, sam_record, &samsid);
++	sid_copy(group_sid, &samsid);
++
++	strval = opendirectory_get_record_attribute(mem_ctx,
++					sam_record,
++					kDS1AttrSMBGroupRID);
++	if (strval) {
++		uint32_t rid;
++
++		rid = (uint32_t)strtoul(strval, NULL, 10 /* base */);
++		sid_append_rid(group_sid, rid);
++		return True;
++	}
++
++	/* This might give the group SID if DS knows how to map the group ID. */
++	if (memberd_record_ugid_to_sid(mem_ctx, sam_record,
++			kDS1AttrPrimaryGroupID, MBR_ID_TYPE_GID, group_sid)) {
 +		return True;
 +	}
 +
@@ -2701,7 +3257,7 @@ Index: samba/source/lib/opendirectory.c
 +	 * it's a user record so we can put them in Domain Users.
 +	 */
 +	sid_copy(group_sid, get_global_sam_sid());
-+	sid_append_rid(group_sid, DOMAIN_GROUP_RID_USERS);
++	sid_append_rid(group_sid, fallback_rid);
 +
 +	return True;
 +}
@@ -2726,10 +3282,12 @@ Index: samba/source/lib/opendirectory.c
 +
 +	DEBUG(6, ("determining group SID for %s record\n", record_type));
 +
-+	/* Make sure we are dealing with a user, group or computer record. */
-+	if (strcmp(record_type, kDSStdRecordTypeGroups) != 0 &&
-+	    strcmp(record_type, kDSStdRecordTypeUsers) != 0 &&
-+	    strcmp(record_type, kDSStdRecordTypeComputers) != 0) {
++	/* If this is a group record, then maybe we can fast-path by just
++	 * mapping the UUID to a SID.
++	 */
++	if (strcmp(record_type, kDSStdRecordTypeGroups) == 0 &&
++	    memberd_record_uuid_to_sid(mem_ctx, sam_record, sid)) {
++		ret = True;
 +		goto done;
 +	}
 +
@@ -2738,11 +3296,24 @@ Index: samba/source/lib/opendirectory.c
 +	}
 +
 +	/* If we are finding the primary group sid with only a user record,
-+	 * punt it becasue we might need to look up the group record.
++	 * punt it because we might need to look up the group record.
++	 *
++	 * We treat computer records the same as user records.
 +	 */
 +	if (strcmp(record_type, kDSStdRecordTypeUsers) == 0) {
 +		ret = find_groupsid_from_user(mem_ctx, session,
-+						sam_record, sid);
++					    sam_record, sid,
++					    DOMAIN_GROUP_RID_USERS);
++		goto done;
++	} else if (strcmp(record_type, kDSStdRecordTypeComputers) == 0) {
++		ret = find_groupsid_from_user(mem_ctx, session,
++						sam_record, sid,
++						DOMAIN_GROUP_RID_COMPUTERS);
++		goto done;
++	}
++
++	/* From now on, we only deal with groups ... */
++	if (strcmp(record_type, kDSStdRecordTypeGroups) != 0) {
 +		goto done;
 +	}
 +
@@ -2766,10 +3337,7 @@ Index: samba/source/lib/opendirectory.c
 +	 * construct something by using an attribute as a RID. We can't do
 +	 * this unless we have a base SID for this record.
 +	 */
-+	if (!get_sid_for_samrecord(mem_ctx, session, sam_record, &samsid)) {
-+		goto done;
-+	}
-+
++	get_sid_for_samrecord(mem_ctx, session, sam_record, &samsid);
 +	sid_copy(sid, &samsid);
 +
 +	strval = opendirectory_get_record_attribute(mem_ctx,
@@ -2786,6 +3354,15 @@ Index: samba/source/lib/opendirectory.c
 +	if (strval) {
 +		uint32_t rid = (uint32_t)strtoul(strval, NULL, 10 /* base */);
 +		sid_append_rid(sid, rid);
++		ret = True;
++		goto done;
++	}
++
++	/* For all types of groups, this might give the group SID
++	 * if DS knows how to map the group ID.
++	 */
++	if (memberd_record_ugid_to_sid(mem_ctx, sam_record,
++			    kDS1AttrPrimaryGroupID, MBR_ID_TYPE_GID, sid)) {
 +		ret = True;
 +		goto done;
 +	}
@@ -2822,6 +3399,70 @@ Index: samba/source/lib/opendirectory.c
 +	return ret;
 +}
 +
++/* Search for a user or group record when we have the user of group ID. We do
++ * the search twice, once for unsigned formatting, once for signed.
++ */
++ CFDictionaryRef opendirectory_sam_searchugid_first(
++				struct opendirectory_session *session,
++				const char *type,
++				const char *attr,
++				const id_t ugid)
++{
++	char buf[64];
++	CFMutableArrayRef records = NULL;
++	tDirStatus status;
++
++	snprintf(buf, sizeof(buf), "%u", ugid);
++
++	status = opendirectory_sam_searchattr(session,
++			    &records, type, attr, buf);
++
++	if (status == eDSNoErr && records == NULL) {
++		/* Hmmm ... no records? Let's try a signed search .. */
++
++		snprintf(buf, sizeof(buf), "%d", ugid);
++
++		status = opendirectory_sam_searchattr(session,
++				    &records, type, attr, buf);
++	}
++
++	if (status == eDSNoErr && records) {
++		CFDictionaryRef first =
++		    (CFDictionaryRef)CFArrayGetValueAtIndex(records, 0);
++
++		CFRetain(first);
++		CFRelease(records);
++		return first;
++	}
++
++	return NULL;
++}
++
++static CFDictionaryRef sam_searchuuid_first(
++				struct opendirectory_session *session,
++				const char *type,
++				const uuid_t uuid)
++{
++	uuid_string_t str;
++	CFMutableArrayRef records = NULL;
++	tDirStatus status;
++
++	uuid_unparse_upper(uuid, str);
++	status = opendirectory_sam_searchattr(session,
++			    &records, type, kDS1AttrGeneratedUID, str);
++
++	if (status == eDSNoErr && records) {
++		CFDictionaryRef first =
++		    (CFDictionaryRef)CFArrayGetValueAtIndex(records, 0);
++
++		CFRetain(first);
++		CFRelease(records);
++		return first;
++	}
++
++	return NULL;
++}
++
 +static CFDictionaryRef sam_searchname_first(
 +				struct opendirectory_session *session,
 +				const char *type,
@@ -2833,7 +3474,7 @@ Index: samba/source/lib/opendirectory.c
 +	status = opendirectory_sam_searchname(session,
 +			    &records, type, name);
 +
-+	if (records) {
++	if (status == eDSNoErr && records) {
 +		CFDictionaryRef first =
 +		    (CFDictionaryRef)CFArrayGetValueAtIndex(records, 0);
 +
@@ -2857,7 +3498,7 @@ Index: samba/source/lib/opendirectory.c
 +	status = opendirectory_sam_searchattr(session,
 +			    &records, type, attr, value);
 +
-+	if (records) {
++	if (status == eDSNoErr && records) {
 +		CFDictionaryRef first =
 +		    (CFDictionaryRef)CFArrayGetValueAtIndex(records, 0);
 +
@@ -2871,13 +3512,16 @@ Index: samba/source/lib/opendirectory.c
 +
 +static CFDictionaryRef find_record_from_usersid_and_domsid(
 +				struct opendirectory_session *session,
++				const char *domain_name __unused,
 +				const DOM_SID *domain_sid,
-+				const DOM_SID *sid)
++				const void *data)
 +{
 +	CFDictionaryRef sam_record;
 +	fstring rid_string;
 +	fstring uid_string;
 +	uint32_t rid;
++
++	const DOM_SID * sid = (const DOM_SID *)data;
 +
 +	if (!sid_peek_check_rid(domain_sid, sid, &rid)) {
 +		return NULL;
@@ -2941,6 +3585,72 @@ Index: samba/source/lib/opendirectory.c
 +	return sid_compose(apple_sid, &apple_wellknown, rid);
 +}
 +
++/* Find a user or group record from a SID using membership routines. */
++static CFDictionaryRef memberd_find_record_from_sid(
++				struct opendirectory_session *session,
++				const int id_type,
++				const DOM_SID *sid)
++{
++	id_t ugid;
++	int ugid_type;
++	uuid_t uuid;
++	int err;
++
++	const char * type =
++	    (id_type == MBR_ID_TYPE_UID ? kDSStdRecordTypeUsers
++					: kDSStdRecordTypeGroups);
++
++	const char * ugid_attr =
++	    (id_type == MBR_ID_TYPE_UID ? kDS1AttrUniqueID
++					: kDS1AttrPrimaryGroupID);
++
++	CFDictionaryRef sam_record = NULL;
++
++	SMB_ASSERT(id_type == MBR_ID_TYPE_UID || id_type == MBR_ID_TYPE_GID);
++
++	/* First, convert the SID to a UUID. */
++	if (!memberd_sid_to_uuid(sid, uuid)) {
++		return NULL;
++	}
++
++	/* If it's a compatibility UUID, then try to search for a
++	 * user or group with that ID.
++	 */
++	if (is_compatibility_guid(uuid, &ugid_type, &ugid) &&
++	    ugid_type == id_type) {
++		DEBUG(6, ("searching compatibility ugid type=%d, ugid=%u\n",
++			id_type, ugid));
++		sam_record = opendirectory_sam_searchugid_first(session,
++					type, ugid_attr, ugid);
++	} else {
++		/* Otherwise, we ought to be able to just search by the UUID. */
++		sam_record = sam_searchuuid_first(session, type, uuid);
++	}
++
++	if (sam_record) {
++		return sam_record;
++	}
++
++	/* If we didn't find it, map the group UUID to a gid_t or uid_t
++	 * and search for the record with that ID.
++	 */
++	err = mbr_uuid_to_id(uuid, &ugid, &ugid_type);
++	if (err) {
++		uuid_string_t str;
++		uuid_unparse_upper(uuid, str);
++		DEBUG(6, ("unable to map %s to an ID: %s\n",
++			str, strerror(err)));
++		return NULL;
++	}
++
++	if (ugid_type == id_type) {
++		sam_record = opendirectory_sam_searchugid_first(session,
++					type, ugid_attr, ugid);
++	}
++
++	return sam_record;
++}
++
 + CFDictionaryRef opendirectory_find_record_from_usersid(
 +				struct opendirectory_session *session,
 +				const DOM_SID *sid)
@@ -2952,10 +3662,19 @@ Index: samba/source/lib/opendirectory.c
 +	DOM_SID apple_user_sid = {0};
 +	DOM_SID sam_sid = {0};
 +
++	sam_record = memberd_find_record_from_sid(session,
++			MBR_ID_TYPE_UID, sid);
++	if (sam_record) {
++		return sam_record;
++	}
++
 +	secrets_fetch_domain_sid(lp_workgroup(), &domain_sid);
 +	sam_sid = *get_global_sam_sid();
 +
 +	sid_to_string(sid_string, sid);
++
++	DEBUG(6, ("searching for user SID %s the hard way\n",
++		    sid_string));
 +
 +	sam_record = sam_searchattr_first(session, kDSStdRecordTypeUsers,
 +					 kDS1AttrSMBSID, sid_string);
@@ -2987,7 +3706,7 @@ Index: samba/source/lib/opendirectory.c
 +	 */
 +
 +	sam_record = find_record_from_usersid_and_domsid(session,
-+						    &sam_sid, sid);
++						    NULL, &sam_sid, sid);
 +	if (sam_record) {
 +		return sam_record;
 +	}
@@ -2995,7 +3714,7 @@ Index: samba/source/lib/opendirectory.c
 +	/* Also try the domain SID if it is not the same as our SAM SID. */
 +	if (sid_compare_domain(&domain_sid, &sam_sid) != 0) {
 +		sam_record = find_record_from_usersid_and_domsid(session,
-+							&domain_sid, sid);
++						    NULL, &domain_sid, sid);
 +		if (sam_record) {
 +			return sam_record;
 +		}
@@ -3006,23 +3725,26 @@ Index: samba/source/lib/opendirectory.c
 +	 */
 +	if (session->domain_sid_cache == NULL) {
 +		void * mem_ctx = talloc_init(__FUNCTION__);
-+		fill_domain_sid_cache(mem_ctx, session);
++		opendirectory_fill_domain_sid_cache(mem_ctx, session);
 +		TALLOC_FREE(mem_ctx);
 +	}
 +
-+	return search_domain_sid_cache(session, sid,
++	return opendirectory_search_domain_sid_cache(session, sid,
 +		    find_record_from_usersid_and_domsid);
 +}
 +
 +static CFDictionaryRef find_record_from_groupsid_and_domsid(
 +				struct opendirectory_session *session,
++				const char *domain_name __unused,
 +				const DOM_SID *domain_sid,
-+				const DOM_SID *group_sid)
++				const void *match_data)
 +{
 +	CFDictionaryRef sam_record;
 +	fstring rid_string;
 +	fstring gid_string;
 +	uint32_t rid;
++
++	const DOM_SID *group_sid = (const DOM_SID *)match_data;
 +
 +	if (!sid_peek_check_rid(domain_sid, group_sid, &rid)) {
 +		return NULL;
@@ -3093,8 +3815,7 @@ Index: samba/source/lib/opendirectory.c
 +	}
 +
 +	if (rid >= BASE_RID) {
-+		snprintf(gid_string, sizeof(gid_string) - 1, "%u",
-+				    pdb_group_rid_to_gid(rid));
++		id_t ugid = pdb_group_rid_to_gid(rid);
 +
 +		/* If it a generated user RID, searching won't help because
 +		 * we are looking for a group.
@@ -3103,9 +3824,10 @@ Index: samba/source/lib/opendirectory.c
 +			return NULL;
 +		}
 +
-+		sam_record = sam_searchattr_first(session,
++		sam_record = opendirectory_sam_searchugid_first(session,
 +					kDSStdRecordTypeGroups,
-+					kDS1AttrPrimaryGroupID, gid_string);
++					kDS1AttrPrimaryGroupID,
++					ugid);
 +		if (sam_record) {
 +			return sam_record;
 +		}
@@ -3125,10 +3847,18 @@ Index: samba/source/lib/opendirectory.c
 +	DOM_SID sam_sid = {0};
 +	DOM_SID apple_group_sid = {0};
 +
++	sam_record = memberd_find_record_from_sid(session,
++			MBR_ID_TYPE_GID, group_sid);
++	if (sam_record) {
++		return sam_record;
++	}
++
++	sid_to_string(sid_string, group_sid);
 +	secrets_fetch_domain_sid(lp_workgroup(), &domain_sid);
 +	sam_sid = *get_global_sam_sid();
 +
-+	sid_to_string(sid_string, group_sid);
++	DEBUG(6, ("searching for group SID %s the hard way\n",
++		    sid_string));
 +
 +	sam_record = sam_searchattr_first(session, kDSStdRecordTypeGroups,
 +					 kDS1AttrSMBSID, sid_string);
@@ -3147,14 +3877,14 @@ Index: samba/source/lib/opendirectory.c
 +	}
 +
 +	sam_record = find_record_from_groupsid_and_domsid(session,
-+				&sam_sid, group_sid);
++				NULL, &sam_sid, group_sid);
 +	if (sam_record) {
 +		return sam_record;
 +	}
 +
 +	if (sid_compare(&domain_sid, &sam_sid) != 0) {
 +		sam_record = find_record_from_groupsid_and_domsid(session,
-+					    &domain_sid, group_sid);
++					    NULL, &domain_sid, group_sid);
 +		if (sam_record) {
 +			return sam_record;
 +		}
@@ -3162,11 +3892,11 @@ Index: samba/source/lib/opendirectory.c
 +
 +	if (session->domain_sid_cache == NULL) {
 +		void * mem_ctx = talloc_init(__FUNCTION__);
-+		fill_domain_sid_cache(mem_ctx, session);
++		opendirectory_fill_domain_sid_cache(mem_ctx, session);
 +		TALLOC_FREE(mem_ctx);
 +	}
 +
-+	return search_domain_sid_cache(session, group_sid,
++	return opendirectory_search_domain_sid_cache(session, group_sid,
 +		    find_record_from_groupsid_and_domsid);
 +}
 +

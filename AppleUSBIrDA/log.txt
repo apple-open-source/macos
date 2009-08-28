@@ -1,0 +1,79 @@
+----- Version 1.4.5b4
+- implemented power on/off self-test in IrDA Menu Extra
+- cleaned up compile warnings in IrDA menu extra
+- <rdar://problem/5792684> IrDA menu extra needs to implement self test
+- jump over to workloop from setPowerState, delete bogus 'error' return
+- <rdar://problem/6109620> AppleUSBIrDADriver::setPowerState should not return IOPMNoSuchState
+- delete ancient SCC driver from source (for opensource)
+- <rdar://problem/6109632> AppleSCCIrDA::setPowerState should not return IOPMNoSuchState
+- touch /var/db/.selftest and reboot to enable self-test
+- menu - cleaned up DefaultPrefs to not convert from NSString to CFStringRef (toll free types)
+- added test applescript to invoke self-test
+- cvs tag AppleUSBIrDA-1-4-5b4
+
+----- Version 1.4.5b3
+- finished getting working in 64-bit kernel
+- remove unsafe string calls
+- comment out review warnings
+- ifdef out KUNCUserNotificationDisplayNotice, deprecated
+- <rdar://problem/6138197> HARDENING: Replace unsafe string functions in AppleUSBIrDA (41 found)
+- <rdar://problem/6159361> K64: Port AppleUSBIrDA to 64-Bit
+- cvs tag AppleUSBIrDA-1-4-5b3
+
+----- Version 1.4.5b2
+- more 64-bit cleanup in kext and menu
+- io_connect_method_structureI_structureO to IOConnectCallStructMethod
+- IORegistryDisposeEnumerator to IOObjectRelease
+- <rdar://problem/5845443> IrDA menu extra needs to build x86_64
+- cvs tag AppleUSBIrDA-1-4-5b2
+
+----- Version 1.4.5b1
+- fix typo in failure path of AppleIrDA::newUserClient
+- <rdar://problem/5412934> AppleUSBIrDA Error messages are incorrect (copy/paste error)
+- minor changes for gcc 4.2
+- <rdar://problem/5607347> SWB: AppleUSBIrDA needs changes to build using gcc 4.2
+- remove define of random(), causes problems in new build.
+- deleted unused build configurations
+- converted to native projects
+- updated symbol stripping script
+- cvs tag AppleUSBIrDA-1-4-5b1
+
+----- Version 1.4.4
+- new artwork again, no code changes
+- <rdar://problem/5434787> MENU EXTRA: Revised artwork for IRDA
+- cvs tag AppleUSBIrDA-1-4-4
+
+----- Version 1.4.3
+- <rdar://problem/5232104> IrDA Menu Extras need to update to new HI artwork and drawing routines for Leopard
+- cvs tag AppleUSBIrDA-1-4-3
+
+----- Version 1.4.2
+- endian bugs
+- xtrace changes
+- cvs tag AppleUSBIrDA-1-4-2
+
+----- Version 1.4.1
+- <rdar://problem/5293644> ER - Seed: IrDA Menu Extra: Still contains beta version info and "Apple Computer"
+- <rdar://problem/5356142> SCC version of IrDA should be removed from Leopard
+- cvs tag AppleUSBIrDA-1-4-1
+
+----- Version 1.4.0b1
+- fix leopard build problems
+- version to 1.4.0b1
+- <rdar://problem/4491547> Leopard: AppleUSBIrDA-135.2.2 is failing to build
+- cvs tag AppleUSBIrDA-1-4-0b1
+
+----- Version 1.3.5b2
+- minor tweaks for gcc4
+- version 1.3.5b2
+- <rdar://problem/4092030> AppleUSBIrDA-134.2.2 fails to build with gcc 4.0
+- cvs tag AppleUSBIrDA-1-3-5b2
+
+----- Version 1.3.4b2
+- switched to xcode
+- removed all English.lproj/InfoPlist.strings files
+- removed -mno-string compile option
+- version to 1.3.4b2
+- <rdar://problem/3824126> CI:Removing CFBundleShortVersionString and CFBundleGetInfoString keys from your localizable content
+- <rdar://problem/3826135> AppleUSBIrDA specifies "-mno-string" in wrong place in XCode
+- cvs tag AppleUSBIrDA-1-3-4b2

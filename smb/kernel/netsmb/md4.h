@@ -35,13 +35,10 @@ typedef struct MD4Context {
 #include <sys/cdefs.h>
 
 __BEGIN_DECLS
-void   MD4Init(MD4_CTX *);
-void   MD4Update(MD4_CTX *, const unsigned char *, unsigned int);
-void   MD4Pad(MD4_CTX *);
-void   MD4Final(unsigned char [16], MD4_CTX *);
-char * MD4End(MD4_CTX *, char *);
-char * MD4File(const char *, char *);
-char * MD4Data(const unsigned char *, unsigned int, char *);
+extern void MD4Init(MD4_CTX * /* context */);
+extern void MD4Update (MD4_CTX * /*context */, const unsigned char * /*input */, unsigned int /* inputLen */);
+extern void MD4Pad(MD4_CTX * /* context */);
+extern void MD4Final(unsigned char [16] /* digest */, MD4_CTX * /* context */);
 __END_DECLS
 
 #endif /* _MD4_H_ */

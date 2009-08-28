@@ -1,38 +1,41 @@
 
 Sehr geehrter Mailinglisten-Nutzer, 
 
-dies ist eine monatliche Infomail, die Sie über Ihre Mitgliedschaften 
-in  den Mailinglisten/e-Mail-Verteilern auf dem Server 
-%(hostname)s informiert. 
+diese regelmäßige E-Mail informiert Sie darüber, in welche Mailinglisten
+oder E-Mail-Verteiler Sie auf dem Server %(hostname)s 
+eingetragen sind.
+
+
+     * Wenn Sie sich austragen wollen: LESEN SIE DIESE E-Mail! *
+
 
 Mit den unten genannten Links und Passwörtern können Sie den Bezug
-der Mailinglisten beenden, ihre eingetragene e-Mailadresse oder andere 
-Einstellungen ändern.
+der Mailinglisten beenden, ihre eingetragene E-Mailadresse ändern und
+andere Einstellungen vornehmen.
 
-       * Wenn Sie sich austragen wollen: LESEN SIE DIESE e-Mail! *
+1) Klicken Sie unten auf den Link
+
+2) Geben das neben der E-Mailadresse genannte Passwort an (ggf. ein
+sechsstelliger Buchstabencode)
+
+3) Klicken auf der Webseite auf "Kündigung des Abos" oder nehmen Sie die 
+gewünschten Einstellungen vor.
+
+
+Wichtig: Achten Sie darauf, dass Ihre Mailsoftware den Link nicht durch einen
+Zeilenumbruch kaputt gemacht und ihre im Link enthaltene E-Mailadresse
+vollständig ist.
+
 
 Wenn Sie Fragen, Probleme, Kommentare etc. haben, können Sie sich (bitte
 freundlich) an %(owner)s wenden. Bitte versuchen Sie es 
 vorher allerdings selbst; mailen Sie nur, wenn es wirklich Probleme gibt.
 
-Am Ende dieser e-Mail steht jeweils der Name der Mailingliste, daneben 
-das Passwort (oft ein sechsstelliger Buchstabencode). 
-
-*UM SICH AUSZUTRAGEN* klicken Sie bitte auf den darunter genannten Link 
-und geben Sie auf der Webseite das hier genannte Passwort ein. 
-
-Achten Sie darauf, daß Ihre Mailsoftware den Link nicht durch einen
-Zeilenumbruch kaputt macht und die im Link enthaltene e-Mail-Adresse
-abschneidet.
-
-1) Klicken Sie unten auf den Link
-2) Geben das neben der e-Mailadresse genannte Passwort an
-3) Klicken auf der Webseite auf "Kündigung des Abos"
 
 Für Mailprofis: Zusätzlich zum Web-Interface können Sie solche Änderungen 
-auch via e-Mail vornehmen. Eine Anleitung dazu erhalten Sie, indem Sie 
-eine e-Mail mit dem Wort "help" an die '-request' Adresse der Liste (!) 
-senden (bitte nicht an den Absender dieser e-Mail).
+auch via E-Mail vornehmen. Eine Anleitung dazu erhalten Sie, indem Sie 
+eine E-Mail mit dem Wort "help" an die '-request' Adresse der Liste  
+senden (beispielsweise %(exreq)s).
 
 Hier sind Passwörter und Mailinglisten für %(useraddr)s:
 

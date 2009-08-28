@@ -14,7 +14,7 @@ require 'tempfile'
 STDOUT.sync = true
 File.umask(0)
 
-def parse_args()
+def parse_args(argv = ARGV)
   $mantype = 'doc'
   $destdir = nil
   $extout = nil
@@ -24,6 +24,12 @@ def parse_args()
   $installed_list = nil
   $dryrun = false
   $rdocdir = nil
+  $data_mode = 0644
+  $prog_mode = 0755
+  $dir_mode = nil
+  $script_mode = nil
+  $cmdtype = ('bat' if File::ALT_SEPARATOR == '\\')
+  mflags = []
   opt = OptionParser.new
   opt.on('-n') {$dryrun = true}
   opt.on('--dest-dir=DIR') {|dir| $destdir = dir}
@@ -37,23 +43,48 @@ def parse_args()
     $mflags.concat(v)
   end
   opt.on('-i', '--install=TYPE',
-         [:local, :bin, :lib, :man, :ext, :"ext-arch", :"ext-comm", :rdoc]) do |ins|
+         [:local, :bin, :"bin-arch", :"bin-comm", :lib, :man, :ext, :"ext-arch", :"ext-comm", :rdoc]) do |ins|
     $install << ins
+  end
+  opt.on('--data-mode=OCTAL-MODE', OptionParser::OctalInteger) do |mode|
+    $data_mode = mode
+  end
+  opt.on('--prog-mode=OCTAL-MODE', OptionParser::OctalInteger) do |mode|
+    $prog_mode = mode
+  end
+  opt.on('--dir-mode=OCTAL-MODE', OptionParser::OctalInteger) do |mode|
+    $dir_mode = mode
+  end
+  opt.on('--script-mode=OCTAL-MODE', OptionParser::OctalInteger) do |mode|
+    $script_mode = mode
   end
   opt.on('--installed-list [FILENAME]') {|name| $installed_list = name}
   opt.on('--rdoc-output [DIR]') {|dir| $rdocdir = dir}
+  opt.on('--cmd-type=TYPE', %w[bat cmd plain]) {|cmd| $cmdtype = (cmd unless cmd == 'plain')}
 
-  opt.parse! rescue abort [$!.message, opt].join("\n")
+  opt.order!(argv) do |v|
+    case v
+    when /\AINSTALL[-_]([-\w]+)=(.*)/
+      argv.unshift("--#{$1.tr('_', '-')}=#{$2}")
+    when /\A\w[-\w+]*=\z/
+      mflags << v
+    when /\A\w[-\w+]*\z/
+      $install << v.intern
+    else
+      raise OptionParser::InvalidArgument, v
+    end
+  end rescue abort [$!.message, opt].join("\n")
 
   $make, *rest = Shellwords.shellwords($make)
   $mflags.unshift(*rest) unless rest.empty?
+  $mflags.unshift(*mflags)
 
   def $mflags.set?(flag)
-    grep(/\A-(?!-).*#{'%c' % flag}/i) { return true }
+    grep(/\A-(?!-).*#{flag.chr}/i) { return true }
     false
   end
   def $mflags.defined?(var)
-    grep(/\A#{var}=(.*)/) {return $1}
+    grep(/\A#{var}=(.*)/) {return block_given? ? yield($1) : $1}
     false
   end
 
@@ -77,6 +108,9 @@ def parse_args()
   end
 
   $rdocdir ||= $mflags.defined?('RDOCOUT')
+
+  $dir_mode ||= $prog_mode | 0700
+  $script_mode ||= $prog_mode
 end
 
 parse_args()
@@ -119,29 +153,46 @@ def makedirs(dirs)
       File.directory?(realdir)
     end
   end.compact!
-  super(dirs, :mode => 0755) unless dirs.empty?
+  super(dirs, :mode => $dir_mode) unless dirs.empty?
 end
 
-def install_recursive(src, dest, options = {})
-  noinst = options.delete(:no_install)
-  subpath = src.size..-1
-  Dir.glob("#{src}/**/*", File::FNM_DOTMATCH) do |src|
-    next if /\A\.{1,2}\z/ =~ (base = File.basename(src))
-    next if noinst and File.fnmatch?(noinst, File.basename(src))
+def install_recursive(srcdir, dest, options = {})
+  opts = options.clone
+  noinst = opts.delete(:no_install)
+  glob = opts.delete(:glob) || "*"
+  subpath = srcdir.size..-1
+  Dir.glob("#{srcdir}/**/#{glob}") do |src|
+    case base = File.basename(src)
+    when /\A\#.*\#\z/, /~\z/
+      next
+    end
+    if noinst
+      if Array === noinst
+        next if noinst.any? {|n| File.fnmatch?(n, base)}
+      else
+        next if File.fnmatch?(noinst, base)
+      end
+    end
     d = dest + src[subpath]
     if File.directory?(src)
       makedirs(d)
     else
-      install src, d
+      makedirs(File.dirname(d))
+      install src, d, opts
     end
   end
 end
 
-def open_for_install(path, mode, &block)
+def open_for_install(path, mode)
+  data = open(realpath = with_destdir(path), "rb") {|f| f.read} rescue nil
+  newdata = yield
   unless $dryrun
-    open(with_destdir(path), mode, &block)
+    unless newdata == data
+      open(realpath, "wb", mode) {|f| f.write newdata}
+    end
+    File.chmod(mode, realpath)
   end
-  $installed_list.puts path if /^w/ =~ mode and $installed_list
+  $installed_list.puts path if $installed_list
 end
 
 def with_destdir(dir)
@@ -162,6 +213,8 @@ rubylibdir = CONFIG["rubylibdir"]
 archlibdir = CONFIG["archdir"]
 sitelibdir = CONFIG["sitelibdir"]
 sitearchlibdir = CONFIG["sitearchdir"]
+vendorlibdir = CONFIG["vendorlibdir"]
+vendorarchlibdir = CONFIG["vendorarchdir"]
 mandir = File.join(CONFIG["mandir"], "man")
 configure_args = Shellwords.shellwords(CONFIG["configure_args"])
 enable_shared = CONFIG["ENABLE_SHARED"] == 'yes'
@@ -169,25 +222,25 @@ dll = CONFIG["LIBRUBY_SO"]
 lib = CONFIG["LIBRUBY"]
 arc = CONFIG["LIBRUBY_A"]
 
-install?(:local, :arch, :bin) do
+install?(:local, :arch, :bin, :'bin-arch') do
   puts "installing binary commands"
 
   makedirs [bindir, libdir, archlibdir]
 
-  install ruby_install_name+exeext, bindir, :mode => 0755
+  install ruby_install_name+exeext, bindir, :mode => $prog_mode
   if rubyw_install_name and !rubyw_install_name.empty?
-    install rubyw_install_name+exeext, bindir, :mode => 0755
+    install rubyw_install_name+exeext, bindir, :mode => $prog_mode
   end
   if enable_shared and dll != lib
-    install dll, bindir, :mode => 0755
+    install dll, bindir, :mode => $prog_mode
   end
-  install lib, libdir, :mode => 0755 unless lib == arc
-  install arc, libdir, :mode => 0644
-  install "config.h", archlibdir, :mode => 0644
-  install "rbconfig.rb", archlibdir, :mode => 0644
+  install lib, libdir, :mode => $prog_mode unless lib == arc
+  install arc, libdir, :mode => $data_mode
+  install "config.h", archlibdir, :mode => $data_mode
+  install "rbconfig.rb", archlibdir, :mode => $data_mode
   if CONFIG["ARCHFILE"]
     for file in CONFIG["ARCHFILE"].split
-      install file, archlibdir, :mode => 0644
+      install file, archlibdir, :mode => $data_mode
     end
   end
 
@@ -202,16 +255,16 @@ if $extout
   extout = "#$extout"
   install?(:ext, :arch, :'ext-arch') do
     puts "installing extension objects"
-    makedirs [archlibdir, sitearchlibdir]
+    makedirs [archlibdir, sitearchlibdir, vendorarchlibdir]
     if noinst = CONFIG["no_install_files"] and noinst.empty?
       noinst = nil
     end
-    install_recursive("#{extout}/#{CONFIG['arch']}", archlibdir, :no_install => noinst)
+    install_recursive("#{extout}/#{CONFIG['arch']}", archlibdir, :no_install => noinst, :mode => $prog_mode)
   end
   install?(:ext, :comm, :'ext-comm') do
     puts "installing extension scripts"
-    makedirs [rubylibdir, sitelibdir]
-    install_recursive("#{extout}/common", rubylibdir)
+    makedirs [rubylibdir, sitelibdir, vendorlibdir]
+    install_recursive("#{extout}/common", rubylibdir, :mode => $data_mode)
   end
 end
 
@@ -222,11 +275,11 @@ install?(:rdoc) do
     ridatadir = File.join(CONFIG['datadir'], 'ri/$(MAJOR).$(MINOR)/system')
     Config.expand(ridatadir)
     makedirs [ridatadir]
-    install_recursive($rdocdir, ridatadir)
+    install_recursive($rdocdir, ridatadir, :mode => $data_mode)
   end
 end
 
-install?(:local, :comm, :bin) do
+install?(:local, :comm, :bin, :'bin-comm') do
   puts "installing command scripts"
 
   Dir.chdir srcdir
@@ -234,39 +287,33 @@ install?(:local, :comm, :bin) do
 
   ruby_shebang = File.join(bindir, ruby_install_name)
   if File::ALT_SEPARATOR
-    ruby_bin_dosish = ruby_shebang.tr(File::SEPARATOR, File::ALT_SEPARATOR)
+    ruby_bin = ruby_shebang.tr(File::SEPARATOR, File::ALT_SEPARATOR)
   end
   for src in Dir["bin/*"]
     next unless File.file?(src)
     next if /\/[.#]|(\.(old|bak|orig|rej|diff|patch|core)|~|\/core)$/i =~ src
 
     name = ruby_install_name.sub(/ruby/, File.basename(src))
-    dest = File.join(bindir, name)
-
-    install src, dest, :mode => 0755
-
-    next if $dryrun
 
     shebang = ''
     body = ''
-    open_for_install(dest, "r+") { |f|
+    open(src, "rb") do |f|
       shebang = f.gets
       body = f.read
+    end
+    shebang.sub!(/^\#!.*?ruby\b/) {"#!" + ruby_shebang}
+    shebang.sub!(/\r$/, '')
+    body.gsub!(/\r$/, '')
 
-      if shebang.sub!(/^\#!.*?ruby\b/) {"#!" + ruby_shebang}
-        f.rewind
-        f.print shebang, body
-        f.truncate(f.pos)
-      end
-    }
-
-    if ruby_bin_dosish
-      batfile = File.join(bindir, name + ".bat")
-      open_for_install(batfile, "wb") {|b|
-        b.print((<<EOH+shebang+body+<<EOF).gsub(/\r?\n/, "\r\n"))
+    cmd = File.join(bindir, name)
+    cmd << ".#{$cmdtype}" if $cmdtype
+    open_for_install(cmd, $script_mode) do
+      case $cmdtype
+      when "bat"
+        "#{<<EOH}#{shebang}#{body}#{<<EOF}".gsub(/$/, "\r")
 @echo off
 @if not "%~d0" == "~d0" goto WinNT
-#{ruby_bin_dosish} -x "#{batfile}" %1 %2 %3 %4 %5 %6 %7 %8 %9
+#{ruby_bin} -x "#{cmd}" %1 %2 %3 %4 %5 %6 %7 %8 %9
 @goto endofruby
 :WinNT
 "%~dp0#{ruby_install_name}" -x "%~f0" %*
@@ -275,7 +322,14 @@ EOH
 __END__
 :endofruby
 EOF
-      }
+      when "cmd"
+        "#{<<EOH}#{shebang}#{body}"
+@"%~dp0#{ruby_install_name}" -x "%~f0" %*
+@exit /b %ERRORLEVEL%
+EOH
+      else
+        shebang + body
+      end
     end
   end
 end
@@ -289,7 +343,7 @@ install?(:local, :comm, :lib) do
   for f in Dir["lib/**/*{.rb,help-message}"]
     dir = File.dirname(f).sub!(/\Alib/, rubylibdir) || rubylibdir
     makedirs dir
-    install f, dir, :mode => 0644
+    install f, dir, :mode => $data_mode
   end
 end
 
@@ -299,13 +353,13 @@ install?(:local, :arch, :lib) do
   Dir.chdir(srcdir)
   makedirs [archlibdir]
   for f in Dir["*.h"]
-    install f, archlibdir, :mode => 0644
+    install f, archlibdir, :mode => $data_mode
   end
 
   if RUBY_PLATFORM =~ /mswin32|mingw|bccwin32/
     win32libdir = File.join(archlibdir, "win32")
     makedirs win32libdir
-    install "win32/win32.h", win32libdir, :mode => 0644
+    install "win32/win32.h", win32libdir, :mode => $data_mode
   end
 end
 
@@ -322,7 +376,7 @@ install?(:local, :comm, :man) do
     makedirs destdir
 
     if $mantype == "doc"
-      install mdoc, destfile, :mode => 0644
+      install mdoc, destfile, :mode => $data_mode
     else
       require 'mdoc2man.rb'
 
@@ -334,15 +388,17 @@ install?(:local, :comm, :man) do
 
       w.close
 
-      install w.path, destfile, :mode => 0644
+      install w.path, destfile, :mode => $data_mode
     end
   end
 end
 
-$install.concat ARGV.collect {|n| n.intern}
 $install << :local << :ext if $install.empty?
 $install.each do |inst|
-  $install_procs[inst].each do |block|
+  if !(procs = $install_procs[inst]) || procs.empty?
+    next warn("unknown install target - #{inst}")
+  end
+  procs.each do |block|
     dir = Dir.pwd
     begin
       block.call

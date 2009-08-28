@@ -1,0 +1,143 @@
+# Copyright 2003 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+# This file was written by Caroline Tice <ctice@apple.com>
+
+# This test case tests that gcc's linetable information for
+# "blocks" is correct..
+
+
+if $tracelevel then {
+        strace $tracelevel
+        }
+
+#
+# test running programs
+#
+
+set prms_id 0
+set bug_id 0
+
+set testfile "blocks-linetables2"
+set srcfile ${testfile}.c
+set binfile ${objdir}/${subdir}/${testfile}
+
+set additional_flags "additional_flags=-mmacosx-version-min=10.6"
+if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable [list debug $additional_flags]] != "" } {
+     gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
+}
+
+if {$debug_default_format_is_dwarf == 0 } then {
+        return;
+}
+
+# Start with a fresh gdb
+gdb_exit
+gdb_start
+gdb_reinitialize_dir $srcdir/$subdir
+gdb_load "${binfile}"
+
+runto_main
+
+# Set breakpoints on block functions
+
+set bp_at_first_block_function   [gdb_get_line_number "Breakpoint for first Block function."]
+set bp_at_second_block_function  [gdb_get_line_number "Breakpoint for second Block function."]
+set bp_at_third_block_function   [gdb_get_line_number "Breakpoint for third Block function."]
+
+gdb_breakpoint $bp_at_first_block_function #  This is breakpoint 2
+gdb_breakpoint $bp_at_second_block_function # This is breakpoint 3
+gdb_breakpoint $bp_at_third_block_function # This is breakpoint 4
+
+# Verifying linear stepping through/over second block function (a single-line block function)
+
+gdb_test "continue" ".*Breakpoint 3, .*" "Continue to second Block function"
+
+gdb_test "next" ".*test_value .*" "Next"
+
+# Verifying linear stepping through first block function
+
+gdb_test "continue" ".*Breakpoint 2, .*" "Continue to first Block function"
+
+gdb_test "next" {.*(inval =|by_ref).*} "First next"
+gdb_test "next" {.*(by_ref|return).*} "Second next"
+gdb_test "next" {.*(return|\}).*} "Third next"
+
+# Verifying linear stepping through third block function
+
+gdb_test "continue" ".*Breakpoint 4, .*" "Continue to third Block function"
+
+gdb_test "next" {.*(called_from_block|if).*} "First next"
+gdb_test "next" {.*(if|my_struct).*} "Second next"
+gdb_test "next" {.*(my_struct).*} "Third next"
+gdb_test "next" {.*(my_struct|by_ref).*} "Fourth next"
+gdb_test "next" {.*(by_ref|return).*} "Fifth next"
+gdb_test "next" {.*(return|\}).*} "Sixth next"
+
+# Clean up after first set of tests
+
+gdb_test "delete 1 2 3 4" ".*" "Delete all breakpoints"
+
+# Set up for second set of tests
+
+gdb_test "break block_maker" "Breakpoint 5 at .*" "Set breakpoint at block_maker"
+
+gdb_test "break block_maker_struct" "Breakpoint 6 at .*" "Set breakpoint at block_maker_struct"
+
+send_gdb "run\n"
+gdb_expect {
+    -re ".*Start it from the beginning.*y or n. $"\
+	{send_gdb "y\n"
+	    gdb_expect {
+               -re ".*Breakpoint 5, block_maker .*$gdb_prompt $"\
+		   {pass "Break at block_maker"}
+               -re "$gdb_prompt $"\
+		   {fail "Break at block_maker"}
+		timeout {fail "(timeout) Break at block_maker"}
+	    }
+	}
+    -re "$gdb_prompt $"\
+	{fail "rerun for stepping through block maker functions"}
+    timeout {fail "(timeout) rerun for stepping through block maker functions"}
+}
+
+# Verifying linear stepping to & past statements that creates and
+# assigns block
+
+gdb_test "next" ".*int nother_value .*" "First next"
+gdb_test "next" ".*\}.*" "Second next, to end of block definition"
+gdb_test "next" ".*int .*" "Third next, to second block definition"
+gdb_test "next" ".*test_value .*" "Fourth next"
+gdb_test "next" ".*test_value2 .*" "Fifth next"
+gdb_test "next" ".*return Block_copy.*" "Sixth next"
+
+
+# Verifying stepping to & past statement that creates and assigns
+# block
+
+gdb_test "continue" ".*Breakpoint 6, block_maker_struct .*" "Continue to block_maker_struct"
+
+gdb_test "next" ".*int by_value .*" "First next"
+gdb_test "next" ".*by_ref.*" "Second next"
+gdb_test "next" ".*by_ref.*" "Third next"
+gdb_test "next" ".*\}.*" "Fourth next, to end of block definition"
+gdb_test "next" ".*test_value .*" "Fifth next"
+gdb_test "next" ".*return Block_copy.*" "Sixth next"
+
+# gdb_test "continue" ".*Program exited normally.*" "Finish program"
+
+gdb_exit
+return 0

@@ -279,6 +279,9 @@ something useful or simply ignore it.
 .El
 .It Fn yp_order
 Returns the order number for a map.
+The order number is updated whenever a map is updated.
+Clients may use the order number to check whether they are using the most
+recent map.
 .It Fn yp_master
 Returns the hostname for the machine on which the master YP server process for
 a map is running.

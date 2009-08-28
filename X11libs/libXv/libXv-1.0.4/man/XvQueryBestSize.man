@@ -1,0 +1,52 @@
+.TH XvQueryBestSize __libmansuffix__ __vendorversion__
+.SH Name
+XvQueryBestSize \- determine the optimum drawable region size
+.\"
+.SH Syntax
+.B #include <X11/extensions/Xvlib.h>
+.sp
+.nf
+.BI "XvQueryBestSize(Display *" dpy ", XvPort " port ", Bool " motion ",
+.BI "                unsigned int " vw ", unsigned int " vh ",
+.BI "                unsigned int " dw ", unsigned int " dh ",
+.BI "                unsigned int *" p_dw ", unsigned int *" p_dh ");"
+.fi
+.SH Arguments
+.\"
+.IP \fIdpy\fR 15
+Specifies the connection to the X server.
+.IP \fIport\fR 15
+Defines the port associated with the display and adaptor for which 
+the optimum size is to be calculated.
+.IP \fImotion\fR 15
+Specifies \fITrue\fP if the destination size needs to support
+full motion, and \fIFalse\fP if the destination size need only
+support still images.
+.IP \fIvw,vh\fR 15
+Specifies the size of the source video region desired.
+.IP \fIdw,dh\fR 15
+Specifies the size of the destination drawable region desired.
+.IP \fIp_dw,p_dh\fR 15
+Pointers to where the closest destination sizes supported by the server are
+returned.
+.\"
+.SH Description
+.\"
+Some ports may be able to scale incoming or outgoing video.  
+XvQueryBestSize(__libmansuffix__) returns the size of the closest destination
+region that is supported by the adaptor.  The returned size is
+guaranteed to be smaller than the requested size if a smaller 
+size is supported.
+.\"
+.SH Returned Values
+.IP [Success] 8
+Returned if XvQueryBestSize(__libmansuffix__) completed successfully.
+.IP [XvBadExtension] 8
+Returned if the Xv extension is unavailable.
+.IP [XvBadAlloc] 8
+Returned if XvQueryBestSize(__libmansuffix__) failed to allocate memory to process
+the request.
+.SH Diagnostics
+.IP [XvBadPort] 8
+Generated if the requested port does not exist.
+.br

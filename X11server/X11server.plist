@@ -4,22 +4,6 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2007-12-01</string>
-		<key>OpenSourceLicense</key>
-		<string>MIT</string>
-		<key>OpenSourceProject</key>
-		<string>MesaLib</string>
-		<key>OpenSourceSHA1</key>
-		<string>ba860bb6ee57c02202342dfd5927464a068ea18f</string>
-		<key>OpenSourceURL</key>
-		<string>http://downloads.sourceforge.net/mesa3d/MesaLib-6.5.2.tar.bz2</string>
-		<key>OpenSourceVersion</key>
-		<string>6.5.2</string>
-		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.mesa3d.org</string>
-	</dict>
-	<dict>
-		<key>OpenSourceImportDate</key>
 		<string>2008-08-25</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
@@ -36,17 +20,97 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2009-02-09</string>
+		<string>2008-08-25</string>
+		<key>OpenSourceLicense</key>
+		<string>MIT</string>
+		<key>OpenSourceProject</key>
+		<string>MesaLib</string>
+		<key>OpenSourceSHA1</key>
+		<string>264f3098392797d52b6119783e34d43156c0b6dd</string>
+		<key>OpenSourceURL</key>
+		<string>http://www.mesa3d.org/beta/MesaLib-7.2.tar.bz2</string>
+		<key>OpenSourceVersion</key>
+		<string>7.2</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.mesa3d.org</string>
+	</dict>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2008-08-25</string>
+		<key>OpenSourceLicense</key>
+		<string>MIT</string>
+		<key>OpenSourceProject</key>
+		<string>MesaDemos</string>
+		<key>OpenSourceSHA1</key>
+		<string>00d2131f441dd59db63eb8e4fc7d3750a82d36cb</string>
+		<key>OpenSourceURL</key>
+		<string>http://www.mesa3d.org/beta/MesaDemos-7.2.tar.bz2</string>
+		<key>OpenSourceVersion</key>
+		<string>7.2</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.mesa3d.org</string>
+	</dict>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2008-08-25</string>
+		<key>OpenSourceLicense</key>
+		<string>MIT</string>
+		<key>OpenSourceProject</key>
+		<string>MesaGLUT</string>
+		<key>OpenSourceSHA1</key>
+		<string>4bc9e7cd89f5f8167ed8fc17ed34ac1a0e62311f</string>
+		<key>OpenSourceURL</key>
+		<string>http://www.mesa3d.org/beta/MesaGLUT-7.2.tar.bz2</string>
+		<key>OpenSourceVersion</key>
+		<string>7.2</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.mesa3d.org</string>
+	</dict>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2009-04-01</string>
+		<key>OpenSourceLicense</key>
+		<string>MIT</string>
+		<key>OpenSourceProject</key>
+		<string>AppleSGLX</string>
+		<key>OpenSourceSHA1</key>
+		<string>80e5eb5cc6e9b1352bef86b67a14e3f6f61ef522</string>
+		<key>OpenSourceURL</key>
+		<string>http://static.macosforge.org/xquartz/downloads/src/AppleSGLX-57.tar.bz2</string>
+		<key>OpenSourceVersion</key>
+		<string>57</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.mesa3d.org</string>
+	</dict>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2009-07-03</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xorg-server</string>
 		<key>OpenSourceSHA1</key>
-		<string>s7af8bd6fb39a583f5696efd992aa33160ec08685</string>
+		<string>5cbfea304479ecd456149ae1721ab9392896c091</string>
 		<key>OpenSourceURL</key>
-		<string>http://xquartz.macosforge.org/downloads/src/xorg-server-1.4.2-apple33.tar.bz2</string>
+		<string>http://xquartz.macosforge.org/downloads/src/xorg-server-1.4.2-apple45.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.4.2-apple33</string>
+		<string>1.4.2-apple45</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://xquartz.macosforge.org</string>
+	</dict>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2009-02-25</string>
+		<key>OpenSourceLicense</key>
+		<string>MIT</string>
+		<key>OpenSourceProject</key>
+		<string>xorg-server</string>
+		<key>OpenSourceSHA1</key>
+		<string>9baf703a0dac91cb84c02caea18268d6afa78662</string>
+		<key>OpenSourceURL</key>
+		<string>http://xorg.freedesktop.org/archive/individual/xserver/xorg-server-1.6.0.tar.bz2</string>
+		<key>OpenSourceVersion</key>
+		<string>1.6.0</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://xquartz.macosforge.org</string>
 	</dict>

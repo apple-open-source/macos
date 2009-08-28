@@ -1,7 +1,7 @@
 
 /*
  *
- * (C) Copyright IBM Corp. 1998-2006 - All Rights Reserved
+ * (C) Copyright IBM Corp. 1998-2007 - All Rights Reserved
  *
  */
 
@@ -214,7 +214,7 @@ public:
      *
      * @see LECharMapper
      *
-     * @draft ICU 3.6
+     * @stable ICU 3.6
      */
     virtual void mapCharsToGlyphs(const LEUnicode chars[], le_int32 offset, le_int32 count, le_bool reverse, const LECharMapper *mapper, le_bool filterZeroWidth, LEGlyphStorage &glyphStorage) const;
 
@@ -231,10 +231,9 @@ public:
      *
      * @see LECharMapper
      *
-     * @draft ICU 3.6
+     * @stable ICU 3.6
      */
     virtual LEGlyphID mapCharToGlyph(LEUnicode32 ch, const LECharMapper *mapper, le_bool filterZeroWidth) const;
-
 
     /**
      * This method maps a single character to a glyph index, using the

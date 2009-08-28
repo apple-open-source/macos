@@ -306,6 +306,8 @@ extern LONGEST unpack_field_as_long (struct type *type,
 				     const gdb_byte *valaddr,
 				     int fieldno);
 
+extern void pack_long (gdb_byte *buf, struct type *type, LONGEST num);
+
 extern struct value *value_from_longest (struct type *type, LONGEST num);
 extern struct value *value_from_pointer (struct type *type, CORE_ADDR addr);
 extern struct value *value_from_double (struct type *type, DOUBLEST num);
@@ -480,7 +482,9 @@ extern int unop_user_defined_p (enum exp_opcode op, struct value *arg1);
 
 extern int destructor_name_p (const char *name, const struct type *type);
 
-#define value_free(val) xfree (val)
+/* APPLE LOCAL: Replace the #define with a real function so we can 
+   use it in cleanups.  */
+extern void value_free (struct value *);
 
 extern void free_all_values (void);
 
@@ -505,6 +509,9 @@ extern void print_longest (struct ui_file *stream, int format,
 			   int use_local, LONGEST val);
 
 extern void print_floating (const gdb_byte *valaddr, struct type *type,
+			    struct ui_file *stream);
+
+extern void print_floating_in_hex (const gdb_byte *valaddr, struct type *type,
 			    struct ui_file *stream);
 
 extern int value_print (struct value *val, struct ui_file *stream, int format,
@@ -588,7 +595,7 @@ extern CORE_ADDR legacy_push_arguments (int nargs, struct value ** args,
 					CORE_ADDR sp, int struct_return,
 					CORE_ADDR struct_addr);
 
-extern struct cached_value *create_cached_function (char *, struct type *);
+struct cached_value * create_cached_function (const char *, struct type *);
 
 extern struct value *lookup_cached_function (struct cached_value *cval);
 
@@ -614,5 +621,10 @@ extern int check_safe_call (regex_t unsafe[],
 			    enum check_which_threads which_thread);
 /* APPLE LOCAL end check safe call  */
 int set_unwind_on_signal (int new_val);
+/* APPLE LOCAL: Variant for use in make_cleanup calls.  */
+struct cleanup *make_cleanup_set_restore_unwind_on_signal (int newval);
+
+/* APPLE LOCAL: control casting closures to dynamic type.  */
+struct cleanup *make_cleanup_set_restore_print_closure (int newval);
 
 #endif /* !defined (VALUE_H) */

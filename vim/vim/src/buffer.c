@@ -33,7 +33,7 @@ static char_u	*buflist_match __ARGS((regprog_T *prog, buf_T *buf));
 static char_u	*fname_match __ARGS((regprog_T *prog, char_u *name));
 #endif
 static void	buflist_setfpos __ARGS((buf_T *buf, win_T *win, linenr_T lnum, colnr_T col, int copy_options));
-static wininfo_T *find_wininfo __ARGS((buf_T *buf));
+static wininfo_T *find_wininfo __ARGS((buf_T *buf, int skip_diff_buffer));
 #ifdef UNIX
 static buf_T	*buflist_findname_stat __ARGS((char_u *ffname, struct stat *st));
 static int	otherfile_buf __ARGS((buf_T *buf, char_u *ffname, struct stat *stp));
@@ -437,10 +437,6 @@ close_buffer(win, buf, action)
 	return;
 #endif
 
-#ifdef FEAT_NETBEANS_INTG
-    if (usingNetbeans)
-	netbeans_file_closed(buf);
-#endif
     /* Change directories when the 'acd' option is set. */
     DO_AUTOCHDIR
 
@@ -639,6 +635,10 @@ free_buffer_stuff(buf, free_options)
 #ifdef FEAT_SIGNS
     buf_delete_signs(buf);		/* delete any signs */
 #endif
+#ifdef FEAT_NETBEANS_INTG
+    if (usingNetbeans)
+        netbeans_file_killed(buf);
+#endif
 #ifdef FEAT_LOCALMAP
     map_clear_int(buf, MAP_ALL_MODES, TRUE, FALSE);  /* clear local mappings */
     map_clear_int(buf, MAP_ALL_MODES, TRUE, TRUE);   /* clear local abbrevs */
@@ -646,6 +646,9 @@ free_buffer_stuff(buf, free_options)
 #ifdef FEAT_MBYTE
     vim_free(buf->b_start_fenc);
     buf->b_start_fenc = NULL;
+#endif
+#ifdef FEAT_SPELL
+    ga_clear(&buf->b_langp);
 #endif
 }
 
@@ -812,9 +815,6 @@ do_bufdel(command, arg, addr_count, start_bnr, end_bnr, forceit)
     int		bnr;		/* buffer number */
     char_u	*p;
 
-#ifdef FEAT_NETBEANS_INTG
-    netbeansCloseFile = 1;
-#endif
     if (addr_count == 0)
     {
 	(void)do_buffer(command, DOBUF_CURRENT, FORWARD, 0, forceit);
@@ -909,9 +909,6 @@ do_bufdel(command, arg, addr_count, start_bnr, end_bnr, forceit)
 	}
     }
 
-#ifdef FEAT_NETBEANS_INTG
-    netbeansCloseFile = 0;
-#endif
 
     return errormsg;
 }
@@ -1090,7 +1087,7 @@ do_buffer(action, start, dir, count, forceit)
 #endif
 	    setpcmark();
 	    retval = do_ecmd(0, NULL, NULL, NULL, ECMD_ONE,
-						  forceit ? ECMD_FORCEIT : 0);
+					  forceit ? ECMD_FORCEIT : 0, curwin);
 
 	    /*
 	     * do_ecmd() may create a new buffer, then we have to delete
@@ -1237,7 +1234,7 @@ do_buffer(action, start, dir, count, forceit)
 	 * "buf" if one exists */
 	if ((swb_flags & SWB_USEOPEN) && buf_jump_open_win(buf))
 	    return OK;
-	/* If 'switchbuf' contians "usetab": jump to first window in any tab
+	/* If 'switchbuf' contains "usetab": jump to first window in any tab
 	 * page containing "buf" if one exists */
 	if ((swb_flags & SWB_USETAB) && buf_jump_open_tab(buf))
 	    return OK;
@@ -1313,7 +1310,7 @@ set_curbuf(buf, action)
     setpcmark();
     if (!cmdmod.keepalt)
 	curwin->w_alt_fnum = curbuf->b_fnum; /* remember alternate file */
-    buflist_altfpos();			 /* remember curpos */
+    buflist_altfpos(curwin);			 /* remember curpos */
 
 #ifdef FEAT_VISUAL
     /* Don't restart Select mode after switching to another buffer. */
@@ -1398,6 +1395,9 @@ enter_buffer(buf)
     curwin->w_cursor.coladd = 0;
 #endif
     curwin->w_set_curswant = TRUE;
+#ifdef FEAT_AUTOCMD
+    curwin->w_topline_was_set = FALSE;
+#endif
 
     /* Make sure the buffer is loaded. */
     if (curbuf->b_ml.ml_mfp == NULL)	/* need to load the file */
@@ -1437,7 +1437,8 @@ enter_buffer(buf)
     maketitle();
 #endif
 #ifdef FEAT_AUTOCMD
-    if (curwin->w_topline == 1)		/* when autocmds didn't change it */
+	/* when autocmds didn't change it */
+    if (curwin->w_topline == 1 && !curwin->w_topline_was_set)
 #endif
 	scroll_cursor_halfway(FALSE);	/* redisplay at correct position */
 
@@ -2401,22 +2402,70 @@ buflist_setfpos(buf, win, lnum, col, copy_options)
     return;
 }
 
+#ifdef FEAT_DIFF
+static int wininfo_other_tab_diff __ARGS((wininfo_T *wip));
+
+/*
+ * Return TRUE when "wip" has 'diff' set and the diff is only for another tab
+ * page.  That's because a diff is local to a tab page.
+ */
+    static int
+wininfo_other_tab_diff(wip)
+    wininfo_T	*wip;
+{
+    win_T	*wp;
+
+    if (wip->wi_opt.wo_diff)
+    {
+	for (wp = firstwin; wp != NULL; wp = wp->w_next)
+	    /* return FALSE when it's a window in the current tab page, thus
+	     * the buffer was in diff mode here */
+	    if (wip->wi_win == wp)
+		return FALSE;
+	return TRUE;
+    }
+    return FALSE;
+}
+#endif
+
 /*
  * Find info for the current window in buffer "buf".
  * If not found, return the info for the most recently used window.
+ * When "skip_diff_buffer" is TRUE avoid windows with 'diff' set that is in
+ * another tab page.
  * Returns NULL when there isn't any info.
  */
+/*ARGSUSED*/
     static wininfo_T *
-find_wininfo(buf)
+find_wininfo(buf, skip_diff_buffer)
     buf_T	*buf;
+    int		skip_diff_buffer;
 {
     wininfo_T	*wip;
 
     for (wip = buf->b_wininfo; wip != NULL; wip = wip->wi_next)
-	if (wip->wi_win == curwin)
+	if (wip->wi_win == curwin
+#ifdef FEAT_DIFF
+		&& (!skip_diff_buffer || !wininfo_other_tab_diff(wip))
+#endif
+	   )
 	    break;
-    if (wip == NULL)	/* if no fpos for curwin, use the first in the list */
-	wip = buf->b_wininfo;
+
+    /* If no wininfo for curwin, use the first in the list (that doesn't have
+     * 'diff' set and is in another tab page). */
+    if (wip == NULL)
+    {
+#ifdef FEAT_DIFF
+	if (skip_diff_buffer)
+	{
+	    for (wip = buf->b_wininfo; wip != NULL; wip = wip->wi_next)
+		if (!wininfo_other_tab_diff(wip))
+		    break;
+	}
+	else
+#endif
+	    wip = buf->b_wininfo;
+    }
     return wip;
 }
 
@@ -2437,7 +2486,7 @@ get_winopts(buf)
     clearFolding(curwin);
 #endif
 
-    wip = find_wininfo(buf);
+    wip = find_wininfo(buf, TRUE);
     if (wip != NULL && wip->wi_optset)
     {
 	copy_winopt(&wip->wi_opt, &curwin->w_onebuf_opt);
@@ -2469,7 +2518,7 @@ buflist_findfpos(buf)
     wininfo_T	*wip;
     static pos_T no_position = {1, 0};
 
-    wip = find_wininfo(buf);
+    wip = find_wininfo(buf, FALSE);
     if (wip != NULL)
 	return &(wip->wi_fpos);
     else
@@ -2790,14 +2839,14 @@ buflist_slash_adjust()
 #endif
 
 /*
- * Set alternate cursor position for current window.
+ * Set alternate cursor position for the current buffer and window "win".
  * Also save the local window option values.
  */
     void
-buflist_altfpos()
+buflist_altfpos(win)
+    win_T *win;
 {
-    buflist_setfpos(curbuf, curwin, curwin->w_cursor.lnum,
-						  curwin->w_cursor.col, TRUE);
+    buflist_setfpos(curbuf, win, win->w_cursor.lnum, win->w_cursor.col, TRUE);
 }
 
 /*
@@ -3964,7 +4013,7 @@ build_stl_str_hl(wp, out, outlen, fmt, use_sandbox, fillchar, maxwidth, hltab, t
     width = vim_strsize(out);
     if (maxwidth > 0 && width > maxwidth)
     {
-	/* Result is too long, must trunctate somewhere. */
+	/* Result is too long, must truncate somewhere. */
 	l = 0;
 	if (itemcnt == 0)
 	    s = out;
@@ -4489,7 +4538,7 @@ do_arg_all(count, forceit, keep_tabs)
 		      ECMD_ONE,
 		      ((P_HID(curwin->w_buffer)
 			   || bufIsChanged(curwin->w_buffer)) ? ECMD_HIDE : 0)
-							       + ECMD_OLDBUF);
+						       + ECMD_OLDBUF, curwin);
 #ifdef FEAT_AUTOCMD
 	    if (use_firstwin)
 		++autocmd_no_leave;
@@ -5063,7 +5112,7 @@ buf_spname(buf)
     {
 	if (buf->b_sfname != NULL)
 	    return (char *)buf->b_sfname;
-	return "[Scratch]";
+	return _("[Scratch]");
     }
 #endif
     if (buf->b_fname == NULL)

@@ -165,23 +165,31 @@ static struct builtin bintab[] = {
 };
 
 static struct conddef cotab[] = {
-    CONDDEF("len", 0, cond_p_len, 1, 2, 0),
     CONDDEF("ex", CONDF_INFIX, cond_i_ex, 0, 0, 0),
+    CONDDEF("len", 0, cond_p_len, 1, 2, 0),
 };
 
 static struct paramdef patab[] = {
+    ARRPARAMDEF("exarr", &arrparam),
     INTPARAMDEF("exint", &intparam),
     STRPARAMDEF("exstr", &strparam),
-    ARRPARAMDEF("exarr", &arrparam),
 };
 
 static struct mathfunc mftab[] = {
-    NUMMATHFUNC("sum", math_sum, 1, -1, 0),
     STRMATHFUNC("length", math_length, 0),
+    NUMMATHFUNC("sum", math_sum, 1, -1, 0),
 };
 
 static struct funcwrap wrapper[] = {
     WRAPDEF(ex_wrapper),
+};
+
+static struct features module_features = {
+    bintab, sizeof(bintab)/sizeof(*bintab),
+    cotab, sizeof(cotab)/sizeof(*cotab),
+    mftab, sizeof(mftab)/sizeof(*mftab),
+    patab, sizeof(patab)/sizeof(*patab),
+    0
 };
 
 /**/
@@ -195,6 +203,21 @@ setup_(UNUSED(Module m))
 
 /**/
 int
+features_(Module m, char ***features)
+{
+    *features = featuresarray(m, &module_features);
+    return 0;
+}
+
+/**/
+int
+enables_(Module m, int **enables)
+{
+    return handlefeatures(m, &module_features, enables);
+}
+
+/**/
+int
 boot_(Module m)
 {
     intparam = 42;
@@ -203,23 +226,15 @@ boot_(Module m)
     arrparam[0] = ztrdup("example");
     arrparam[1] = ztrdup("array");
     arrparam[2] = NULL;
-    return !(addbuiltins(m->nam, bintab, sizeof(bintab)/sizeof(*bintab)) |
-	     addconddefs(m->nam, cotab, sizeof(cotab)/sizeof(*cotab)) |
-	     addparamdefs(m->nam, patab, sizeof(patab)/sizeof(*patab)) |
-	     addmathfuncs(m->nam, mftab, sizeof(mftab)/sizeof(*mftab)) |
-	     !addwrapper(m, wrapper));
+    return addwrapper(m, wrapper);
 }
 
 /**/
 int
 cleanup_(Module m)
 {
-    deletebuiltins(m->nam, bintab, sizeof(bintab)/sizeof(*bintab));
-    deleteconddefs(m->nam, cotab, sizeof(cotab)/sizeof(*cotab));
-    deleteparamdefs(m->nam, patab, sizeof(patab)/sizeof(*patab));
-    deletemathfuncs(m->nam, mftab, sizeof(mftab)/sizeof(*mftab));
     deletewrapper(m, wrapper);
-    return 0;
+    return setfeatureenables(m, &module_features, NULL);
 }
 
 /**/

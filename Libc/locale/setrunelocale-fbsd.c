@@ -62,9 +62,6 @@ extern int		_MSKanji_init(struct __xlocale_st_runelocale *);
 extern int		_UTF2_init(struct __xlocale_st_runelocale *);	/* deprecated */
 extern struct __xlocale_st_runelocale	*_Read_RuneMagi(FILE *);
 
-extern void spin_lock(int *);
-extern void spin_unlock(int *);
-
 #ifdef LEGACY_RUNE_APIS
 /* depreciated interfaces */
 rune_t	sgetrune(const char *, size_t, char const **);
@@ -81,7 +78,7 @@ __setrunelocale(const char *encoding, locale_t loc)
 	int saverr, ret;
 	static struct __xlocale_st_runelocale *CachedRuneLocale;
 	extern int __mb_cur_max;
-	static int cache_lock = 0;
+	static pthread_lock_t cache_lock = LOCK_INITIALIZER;
 
 	/*
 	 * The "C" and "POSIX" locale are always here.
@@ -100,7 +97,7 @@ __setrunelocale(const char *encoding, locale_t loc)
 	/*
 	 * If the locale name is the same as our cache, use the cache.
 	 */
-	spin_lock(&cache_lock);
+	LOCK(cache_lock);
 	if (CachedRuneLocale != NULL &&
 	    strcmp(encoding, CachedRuneLocale->__ctype_encoding) == 0) {
 		XL_RELEASE(loc->__lc_ctype);
@@ -110,10 +107,10 @@ __setrunelocale(const char *encoding, locale_t loc)
 			_CurrentRuneLocale = &loc->__lc_ctype->_CurrentRuneLocale;
 			__mb_cur_max = loc->__lc_ctype->__mb_cur_max;
 		}
-		spin_unlock(&cache_lock);
+		UNLOCK(cache_lock);
 		return (0);
 	}
-	spin_unlock(&cache_lock);
+	UNLOCK(cache_lock);
 
 	/*
 	 * Slurp the locale file into the cache.
@@ -180,11 +177,11 @@ __setrunelocale(const char *encoding, locale_t loc)
 			_CurrentRuneLocale = &loc->__lc_ctype->_CurrentRuneLocale;
 			__mb_cur_max = loc->__lc_ctype->__mb_cur_max;
 		}
-		spin_lock(&cache_lock);
+		LOCK(cache_lock);
 		XL_RELEASE(CachedRuneLocale);
 		CachedRuneLocale = xrl;
 		XL_RETAIN(CachedRuneLocale);
-		spin_unlock(&cache_lock);
+		UNLOCK(cache_lock);
 	} else
 		XL_RELEASE(xrl);
 
@@ -195,7 +192,12 @@ __setrunelocale(const char *encoding, locale_t loc)
 int
 setrunelocale(const char *encoding)
 {
-	return __setrunelocale(encoding, &__global_locale);
+	int ret;
+
+	XL_LOCK(&__global_locale);
+	ret = __setrunelocale(encoding, &__global_locale);
+	XL_UNLOCK(&__global_locale);
+	return ret;
 }
 #endif /* LEGACY_RUNE_APIS */
 

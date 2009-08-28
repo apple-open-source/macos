@@ -1,6 +1,6 @@
 /*
  *
- * (C) Copyright IBM Corp. 1998-2005 - All Rights Reserved
+ * (C) Copyright IBM Corp. 1998-2007 - All Rights Reserved
  *
  */
 
@@ -63,6 +63,8 @@ public:
     void setCurrGlyphPositionAdjustment(float xPlacementAdjust, float yPlacementAdjust,
                                         float xAdvanceAdjust,   float yAdvanceAdjust);
 
+    void clearCursiveEntryPoint();
+    void clearCursiveExitPoint();
     void setCursiveEntryPoint(LEPoint &entryPoint);
     void setCursiveExitPoint(LEPoint &exitPoint);
     void setCursiveGlyph();
@@ -72,7 +74,7 @@ public:
 
 private:
     le_bool filterGlyph(le_uint32 index) const;
-    le_bool hasFeatureTag() const;
+    le_bool hasFeatureTag(le_bool matchGroup) const;
     le_bool nextInternal(le_uint32 delta = 1);
     le_bool prevInternal(le_uint32 delta = 1);
 
@@ -88,6 +90,7 @@ private:
     le_int32    destIndex;
     le_uint16   lookupFlags;
     FeatureMask featureMask;
+    le_int32    glyphGroup;
 
     const GlyphClassDefinitionTable *glyphClassDefinitionTable;
     const MarkAttachClassDefinitionTable *markAttachClassDefinitionTable;

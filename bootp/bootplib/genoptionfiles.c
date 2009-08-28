@@ -214,7 +214,7 @@ make_option(const char * name)
 {
     static char buf[80];
 
-    sprintf(buf, "dhcptag_%s_e", name);
+    snprintf(buf, sizeof(buf), "dhcptag_%s_e", name);
     return (buf);
 }
 
@@ -222,7 +222,7 @@ char *
 make_type(const char * name)
 {
     static char buf[80];
-    sprintf(buf, "dhcptype_%s_e", name);
+    snprintf(buf, sizeof(buf), "dhcptype_%s_e", name);
     return (buf);
 }
 
@@ -239,7 +239,7 @@ char *
 make_option_define(const char * name)
 {
     static char buf[80];
-    sprintf(buf, "DHCPTAG_%s", name);
+    snprintf(buf, sizeof(buf), "DHCPTAG_%s", name);
     S_upper_case(buf);
     return (buf);
 }
@@ -306,14 +306,14 @@ main(int argc, char * argv[])
 	    if (find_option(i) == -1) {
 		char buf[32];
 
-		sprintf(buf, "%d", i);
+		snprintf(buf, sizeof(buf), "%d", i);
 		printf("    %-35s\t= %d,\n", make_option(buf), i);
 	    }
 	}
 	printf("\n    /* site-specific 128..254 */\n");
 	for (i = 128; i <= 254; i++) {
 	    char buf[32];
-	    sprintf(buf, "%d", i);
+	    snprintf(buf, sizeof(buf), "%d", i);
 	    printf("    %-35s\t= %d,\n", make_option(buf), i);
 	}
 	printf("};\n");
@@ -331,7 +331,7 @@ main(int argc, char * argv[])
 	    if (find_option(i) == -1) {
 		char buf[32];
 
-		sprintf(buf, "%d", i);
+		snprintf(buf, sizeof(buf), "%d", i);
 		printf("#define %-35s\t\"%s\"\n", 
 		       make_option_define(buf), buf);
 	    }
@@ -339,7 +339,7 @@ main(int argc, char * argv[])
 	printf("\n/* site-specific 128..254 */\n");
 	for (i = 128; i <= 254; i++) {
 	    char buf[32];
-	    sprintf(buf, "%d", i);
+	    snprintf(buf, sizeof(buf), "%d", i);
 	    printf("#define %-35s\t\"%s\"\n", 
 		   make_option_define(buf), buf);
 	}
@@ -389,7 +389,7 @@ main(int argc, char * argv[])
 	    if (opt < 0) {
 		char	buf[128];
 		
-		sprintf(buf, "option_%d", i);
+		snprintf(buf, sizeof(buf), "option_%d", i);
 		printf("  /* %3d */ { %-20s, \"%s\" },\n", i, make_type("opaque"),
 		       buf);
 	    }

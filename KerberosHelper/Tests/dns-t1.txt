@@ -1,0 +1,18 @@
+
+searchpath example.com
+
+server.example.com			60	ADDR	"10.0.0.1"
+server.local { forward }		60	ADDR	"10.0.0.1"
+
+managedlocal.example.com		60	ADDR	"10.0.0.2"
+managedlocal.local { forward }		60	ADDR	"10.0.0.2"
+
+s\.c.example.com			60	ADDR	"10.0.0.4"
+s\.c.example.some.other.realm		60	ADDR	"10.0.0.4"
+
+managedrouted.example.com 		60	ADDR	"10.0.0.5"
+alias-mr.example.com { forward }	60	ADDR	"10.0.0.5"
+
+
+local-only.local			60	ADDR	"10.0.1.1"
+local-forward-only.local { forward } 	60	ADDR	"10.0.1.2"

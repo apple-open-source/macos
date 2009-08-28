@@ -3,7 +3,208 @@ TODO:
 - HPPA, bring the private version of mach/hppa/thread_status.h in sync with
   the kernel header and change ofile_print.c to recognize new thread states.
 
-Changes for the 5.25 release (the cctools-665 release):
+Changes for the 5.26 release (the cctools-750 release):
+- Changed so that armv7 defaults to printing in thumb mode.  Moved in_thumb
+  boolean to a global in arm_disasm.[ch] and set it to TRUE in main.c if the
+  binary is armv7.  Radar bug 6651124.
+- Fixed a problem with print_objc_segment() in print_objc.c that was incorrectly
+  using sizeof(void *) when it should have been using sizeof(uint32_t).
+  Radar bug #6652270.
+- Updated ofile_print.c for the places it was missing code for
+  S_16BYTE_LITERALS.  Radar bug #5947957.
+- Fixed the x86_64 disassembly of with and SIB byte when mode is 0 and base is 5
+  and ss is not zero so that it does not print a base register.  Radar bug
+  #6533811
+
+Changes for the 5.26 release (the cctools-749 release):
+- Fixed the printing of Objective-C meta data from 64-bit object files.  So that
+  every "dereference" of a pointer looks for a relocation entry.  Also added
+  the -V option to print the symbol names from the relocation entries.
+  Radar bug #6549235.
+
+Changes for the 5.26 release (the cctools-737 release):
+- Changed arm_r_types[] for entry 7 to T_BR32 in ofile_print.c for the new
+  ARM_THUMB_32BIT_BRANCH relocation type.  Radar bug #6511482.
+- In print_insn() in arm_disasm.c removed the code at the end to check for
+  status of running into the end of the section's memory and returning a -1
+  for the size of bytes it disassembled (as that caused it to loop).  Radar
+  bug #6504790.
+
+Changes for the 5.26 release (the cctools-733 release):
+- In arm_dis.c, updated thumb ldmia instruction to handle the case where Rn is
+  in the register list and thus shouldn't be updated. Radar bug #6394340.
+
+Changes for the 5.26 release (the cctools-725 release):
+- Changed print_library_toc() in ofile_print.c to set toc_byte_sex to the
+  host_byte_sex if it is passed as UNKNOWN_BYTE_SEX as a better guess.
+  Radar bug #6303685.
+- Added support for new compressed LINKEDIT information. Radar bug #6232822.
+  - Changed otool -lv to print out dyld_info command in ofile_print.[ch] .
+
+Changes for the 5.26 release (the cctools-724 release):
+- Updated print_mach_header() in ofile_print.c to print the MH_KEXT_BUNDLE
+  file type and the MH_DEAD_STRIPPABLE_DYLIB flag.  Radar bug #6272534.
+
+Changes for the 5.26 release (the cctools-722 release):
+- Changed print_ivar_list_t() in both print_objc2_32bit.c and
+  print_objc2_64bit.c to print the pointer value for ivar offsets in hex and
+  dereference that pointer and print the real offset as well.  Radar bug
+  #5733291.
+
+Changes for the 5.26 release (the cctools-715 release):
+- Fixed problems with the printing of the Objective-C meta data in print_objc.c
+  where if an object file has a non-zero sized section from the __OBJC segment
+  at address zero it will think NULL pointer feilds point to valid data.
+  The fixes were to the get_* routines to check the addr parameter to see it it
+  has the value of zero and if so return FALSE.  Also a few checks for lists
+  like ivars being past the end of a section needed a break not a continue to
+  terminate the loop.  Radar bug #6164922.
+
+Changes for the 5.26 release (the cctools-714 release):
+- Added the missing stuff for arm in print_arch() and print_cputype() in
+  ofile_print.c. Radar bug #6155212.
+
+Changes for the 5.26 release (the cctools-712 release):
+- Picked up fix to otool(1) -Lv when running on 64-bit hosts and calling
+  ctime() in print_libraries().  Radar bug #6107717.
+- Picked up fix to otool(1) -ov when running on 64-bit hosts in
+  print_objc_segment() in print_objc.c when trying to print the Category
+  Definition count where it was using sizeof(void *) which should have been
+  sizeof(uint32_t).  Radar bug #6107717.
+- Fixed another integer overflow problems in print_reloc() in ofile_print.c
+  Radar bug #5796857.
+
+Changes for the 5.26 release (the cctools-708 release):
+- Fixed integer overflows problems in ofile_print.c . Radar bug #5796857.
+
+Changes for the 5.26 release (the cctools-705 release):
+- Ported to work on 64-bit hosts.  Radar bug #6022298.
+
+Changes for the 5.26 release (the cctools-701 release):
+- Added printing the meta class for Objective-C 2 to both 32bit and 64bit
+  printing. Radar bug #5909952.
+
+Changes for the 5.26 release (the cctools-700 release):
+- Fix section printf format strings in print_objc2_64bit.c to limit segment
+  and section string lengths at 16 characters.  Radar bug #5912294.
+
+Changes for the 5.26 release (the cctools-699 release):
+- Added support for armv7 disassembly.  Radar bug #5874064.
+  - Removed the old arm-opc.h header and from the Makefile.
+  - Ported the GNU binutils version of src/opcodes/arm-dis.c into arm_disasm.c
+    that supports armv7.
+
+Changes for the 5.25 release (the cctools-693 release):
+- Added support for printing the objc 2.0 metadata in 32-bit Mach-O files.
+  Radar bug #5739542.
+  - Moved print_objc2.c to print_objc2_64bit.c and changed print_objc2() to
+    print_objc2_64bit()
+  - Copied print_objc2_64bit.c to print_objc2_32bit.c and changed every where
+    a 64-bit, pointer, name or value was used to used a 32-bit version.
+  - In print_objc2_32bit.c removed the reserved field from the class_ro_t
+    as it is a 64-bit only padding field.
+- Made a change in print_indirect_symbols() in ofile_print.c so it does not get
+  spurious error about a load command extending past the end of the load
+  commands.  Radar bug #5728302.
+- Made a change in print_indirect_symbols() in ofile_print.c to print ABSOLUTE
+  for cputype CPU_TYPE_I386 and S_SYMBOL_STUBS sections marked with just
+  INDIRECT_SYMBOL_ABS.  Radar bug #5829053.
+
+Changes for the 5.25 release (the cctools-691 release):
+- Added support for the LC_ENCRYPTION_INFO load command.  Radar bug #5811994.
+  - Added print_encryption_info_command() in ofile_print.[ch] .
+  - Added code in print_loadcmds() in ofile_print.c for LC_ENCRYPTION_INFO.
+
+Changes for the 5.25 release (the cctools-690 release):
+- Changed the Makefile to added -DEFI_SUPPORT if EFITOOLS is not via the top
+  level Makefile.  And #ifdef'ed EFI_SUPPORT the call to
+  print_coff_reloc_section() in main.c .Radar bug #5826370.
+
+Changes for the 5.25 release (the cctools-688 release):
+- Maded changes for the new LC_LAZY_LOAD_DYLIB load command. Radar bug #5760930.
+  - Added an test for the S_LAZY_DYLIB_SYMBOL_POINTERS section type in
+    processor() in main.c .
+  - In ofile_print.c these changes were made:
+    - print_loadcmds() had a case for LC_LAZY_LOAD_DYLIB added.
+    - print_loadcmds() had a case for LC_LAZY_LOAD_DYLIB added and a test of
+      LC_LAZY_LOAD_DYLIB to print the string "LC_LAZY_LOAD_DYLIB".
+    - print_section() had a test for S_LAZY_DYLIB_SYMBOL_POINTERS to print that
+      as a string and a test for printing "(index into indirect symbol table)"
+      after the reserved1 field.
+    - print_dylib_command() had a test for LC_LAZY_LOAD_DYLIB to print that as
+      a string.
+    - print_indirect_symbols() had a test for the S_NON_LAZY_SYMBOL_POINTERS
+      section type added.
+    - print_hints() had a case for LC_LAZY_LOAD_DYLIB added.
+    - guess_indirect_symbol() had a test for the S_NON_LAZY_SYMBOL_POINTERS
+      section type added in two places.
+
+Changes for the 5.25 release (the cctools-683 release):
+- Changed the Makefile to use OBJC_ABI for -fobjc-abi-version=1 since this is
+  not supported on Tiger.
+
+Changes for the 5.25 release (the cctools-682 release):
+- Added -fobjc-abi-version=1 to the Makefile rule for building print_objc.o
+  Since we're trying to get the objective-C 1.0 definitions and not the 2.0
+  definitions, this avoids problems with platforms where 2.0 is the default.
+  Radar bug #5725807.
+
+Changes for the 5.25 release (the cctools-681 release):
+- Removed all __OPEN_SOURCE__ references in Makefile, notes, arm_disasm.c,
+  main.c, ofile_print.c and otool.h .
+- Fixed a bug in disassembly for the i386 SSE4.1 instruction insertps
+  where it had the second parameter as a general register not a xmm register.
+  The change was in i386_disam.c in the table entry for insertps to use
+  SSE4i not SSE4ifm.  Radar bug #5650346.
+
+Changes for the 5.25 release (the cctools-677 release):
+- Changed the Makefile to not use -Wno-long-double and -no-cpp-precomp .
+  Radar bug #5563553.
+
+Changes for the 5.25 release (the cctools-676 release):
+- Added printing S_DTRACE_DOF section type to print_section() in ofile_print.c.
+- Fixed a problem with not all the i386 bad opcode bytes being printed.  The
+  fix was at the end of i386_disassemble() in i386_disasm.c for printing the
+  bad opcode byte to loop through all the length bytes it tried to disassemble
+  before it ran into the bad opcode.  Radar bug #4760658.
+- Fixed a problem with warning message being printed for zero length sections
+  appearing at the end of object files that should have not been printed.  The
+  test in get_sect_info() in main.c was testing for >= and not > against the
+  object size.  Radar bug #4455994.
+- Fixed the problems with x86_64 disassembly in printing the displacements or
+  their target symbols.  The problem was the code in displacement() in
+  i386_disasm.c did not take into account that instructions with and without
+  relocation entries are assembled differently than all other Mach-O files.
+  For x86_64 if it has a relocation entry the then displacement is an offset
+  even if the symbol is defined.  If not the displacement plus the pc is the
+  target address.  As part of the fix for this the addr and sect_addr needed
+  to be passed as 64-bit value to i386_disassemble() and displacement().  Then
+  the fix in displacement() was to construct a 64-bit target guess_addr if there
+  was no relocation entry found for the x86_64 case.  Radar bug #5122861.
+- Added support to print the PECOFF base relocation table. Radar bug #5218665.
+  - The new routine print_coff_reloc_section() was added to the files
+    coff_print.[ch].
+  - Added code in main.c to test for the (__RELOC,__reloc) section being
+    passed as the -s arguments and call print_coff_reloc_section().
+  - The routine get_sect_info() was made extern in main.c and added to
+    ofile_print.h so it could be called by print_coff_reloc_section().
+- Fixed a bug in print_label() where the addr argument was a unsigned long not
+  a uint64_t.  Changes in ofile_print.[ch] and print_objc.c. Radar bug #5186450.
+
+Changes for the 5.25 release (the cctools-675 release):
+- Changed print_indirect_symbols() so it would not crash if given a malformed
+  object file that had a segment command with a very large number of sections.
+  The fix was to add some size checking calculating the expected size in a
+  64 bit value compare that to see if it too large.  Radar bug #5405675.
+
+Changes for the 5.25 release (the cctools-673 release):
+- Changed the sources so the arm stuff is not in the open source version.
+  Radar bug #5326431.
+  - Changed the Makefile to #ifndef __OPEN_SOURCE__ out the arm files
+  - Added #ifndef __OPEN_SOURCE__ to the following files to bracket arm code:
+    main.c, ofile_print.c, otool.h and arm_disasm.c .
+
+Changes for the 5.24 release (the cctools-665 release):
 - Added the SSE4 instructions to the i386 disassembler.  The changes are in
   i386_disasm.c . Radar bug #4943015.
 

@@ -8,7 +8,7 @@
 
 major=1
 minor=2
-release=3
+release=8
 
 # greek is used for alpha or beta release tags.  If it is non-empty,
 # it will be appended to the version number.  It does not have to be
@@ -34,4 +34,4 @@ want_svn=0
 # distribution tarball is being made from an SVN checkout, the value
 # of svn_r in this file is replaced with the output of "svnversion".
 
-svn_r=r15136
+svn_r=r19718

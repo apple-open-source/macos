@@ -1,0 +1,43 @@
+.TH XvStopVideo __libmansuffix__ __vendorversion__
+.SH Name
+XvStopVideo \- stop active video 
+.\"
+.SH Syntax
+.B #include <X11/extensions/Xvlib.h>
+.sp
+.nf
+.BI "XvGetStill(Display *" dpy ", XvPortID " port ", Drawable " draw ");"
+.fi
+.SH Arguments
+.\"
+.IP \fIdpy\fR 8
+Specifies the connection to the X server.
+.IP \fIport\fR 8
+Specifies the port for which video is to be stopped.
+.IP \fIdraw\fR 8
+Specifies the drawable associated with the named port.
+.SH Description
+.\"
+XvStopVideo(__libmansuffix__) stops active video for the specified port and
+drawable.  If the port is not processing video, or if it is processing
+video in a different drawable, the request is ignored.  When video is
+stopped a XvVideoNotify(__libmansuffix__) event with detail XvStopped is generated
+for the associated drawable.
+.\"
+.SH Returned Values
+.IP [Success] 8
+Returned if XvStopVideo(__libmansuffix__) completed successfully.
+.IP [XvBadExtension] 8
+Returned if the Xv extension is unavailable.
+.IP [XvBadAlloc] 8
+Returned if XvStopVideo(__libmansuffix__) failed to allocate memory to process
+the request.
+.SH Diagnostics
+.IP [XvBadPort] 8
+Generated if the requested port does not exist.
+.IP [BadDrawable] 8
+Generated if the requested drawable does not exist.
+.\"
+.SH See Also
+XvGetVideo(__libmansuffix__), XvPutVideo(__libmansuffix__), XvVideoNotifyEvent(__libmansuffix__)
+.br

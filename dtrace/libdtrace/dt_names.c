@@ -47,7 +47,16 @@ dtrace_subrstr(dtrace_hdl_t *dtp, int subr)
 	case DIF_SUBR_SUBSTR: return ("substr");
 	case DIF_SUBR_INDEX: return ("index");
 	case DIF_SUBR_RINDEX: return ("rindex");
-	case DIF_SUBR_CHUD: return ("chud");
+	case DIF_SUBR_HTONS: return ("htons");
+	case DIF_SUBR_HTONL: return ("htonl");
+	case DIF_SUBR_HTONLL: return ("htonll");
+	case DIF_SUBR_NTOHS: return ("ntohs");
+	case DIF_SUBR_NTOHL: return ("ntohl");
+	case DIF_SUBR_NTOHLL: return ("ntohll");
+	case DIF_SUBR_INET_NTOP: return ("inet_ntop");
+	case DIF_SUBR_INET_NTOA: return ("inet_ntoa");
+	case DIF_SUBR_INET_NTOA6: return ("inet_ntoa6");
+	case DIF_SUBR_COREPROFILE: return ("core_profile");
 	default: return ("unknown");
 	}
 }

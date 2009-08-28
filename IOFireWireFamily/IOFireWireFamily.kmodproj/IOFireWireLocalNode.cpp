@@ -25,6 +25,12 @@
  */
 /*
 	$Log: IOFireWireLocalNode.cpp,v $
+	Revision 1.11  2009/03/26 22:45:17  calderon
+	<rdar://6728033> User client fails to terminate with unexpected consuequences
+	
+	Revision 1.10  2008/04/24 00:01:39  collin
+	more K640
+	
 	Revision 1.9  2006/11/08 22:33:38  ayanowit
 	Changed the SetProperty(...) function on the IOFireWireLocalNode, which is used to instantiate objects with the IOFireWireMatchingNub, to add a new way
 	of instantiating IOFireWireMatchingNub matched objects, where we ensure that only one of those objects gets instantiated on the LocalNode (SummonNubExclusive).
@@ -113,6 +119,11 @@ bool IOFireWireLocalNode::init(OSDictionary * propTable)
     fMaxReadROMPackLog = 11;
     fMaxReadPackLog = 11;
     fMaxWritePackLog = 11;
+	
+	fOpenClients = OSSet::withCapacity( 2 );
+	if( fOpenClients == NULL )
+		return false;
+	
     return true;
 }
 
@@ -125,7 +136,7 @@ IOFireWireNubAux * IOFireWireLocalNode::createAuxiliary( void )
 {
 	IOFireWireLocalNodeAux * auxiliary;
     
-	auxiliary = new IOFireWireLocalNodeAux;
+	auxiliary = OSTypeAlloc( IOFireWireLocalNodeAux );
 
     if( auxiliary != NULL && !auxiliary->init(this) ) 
 	{
@@ -134,6 +145,21 @@ IOFireWireNubAux * IOFireWireLocalNode::createAuxiliary( void )
     }
 	
     return auxiliary;
+}
+
+// free
+//
+//
+
+void IOFireWireLocalNode::free()
+{
+    if( fOpenClients != NULL )
+	{
+        fOpenClients->release();
+		fOpenClients = NULL;
+	}
+	
+    IOService::free();
 }
 
 // attach
@@ -209,11 +235,13 @@ bool IOFireWireLocalNode::handleOpen( 	IOService *	  forClient,
 {
 	bool ok = true ;
 
-	if ( fOpenCount == 0)
+	if ( fOpenClients->getCount() == 0)
 		ok = IOFireWireNub::handleOpen( this, 0, NULL ) ;
 	
 	if ( ok )
-		fOpenCount++ ;
+	{
+		fOpenClients->setObject( forClient );
+	}
 
     return ok;
 }
@@ -225,10 +253,11 @@ bool IOFireWireLocalNode::handleOpen( 	IOService *	  forClient,
 void IOFireWireLocalNode::handleClose(   IOService *	  forClient,
                             IOOptionBits	  options )
 {
-	if ( fOpenCount )
+	if( fOpenClients->containsObject( forClient ) )
 	{
-		fOpenCount-- ;
-		if ( fOpenCount == 0)
+		fOpenClients->removeObject( forClient );
+		
+		if ( fOpenClients->getCount() == 0 )
 			IOFireWireNub::handleClose( this, 0 );
 	}
 }
@@ -239,7 +268,7 @@ void IOFireWireLocalNode::handleClose(   IOService *	  forClient,
 
 bool IOFireWireLocalNode::handleIsOpen( const IOService * forClient ) const
 {
-	return (fOpenCount > 0 ) ;
+	return fOpenClients->containsObject( forClient );
 }
 
 // setProperties
@@ -332,7 +361,7 @@ IOReturn IOFireWireLocalNode::setProperties( OSObject * properties )
     if (doSummon)
 	{
 		do {
-			nub = new IOFireWireMagicMatchingNub;
+			nub = OSTypeAlloc( IOFireWireMagicMatchingNub );
 			if(!nub->init(summon))
 				break;
 			if (!nub->attach(this))	

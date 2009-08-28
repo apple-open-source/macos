@@ -114,10 +114,10 @@ gdb_expect {
 gdb_test "info pid" "Inferior has process ID $inferior_pid\." "Get pid via info pid in interp console mode"
 
 send_gdb "set interpreter mi1\n"
-mi_gdb_test "83-pid-info" "83\\^done,process-id=\"$inferior_pid\"" "Get pid via -pid-info in mi1 mode"
+mi_gdb_test "83-pid-info" "83\\^done,process-id=\"$inferior_pid\".*" "Get pid via -pid-info in mi1 mode"
 
 
-mi_gdb_test "84-gdb-set interpreter console-quoted" ".*Switching to interpreter .\"console-quoted.\".*84\\^done" "switch to console-quoted 2"
+mi_gdb_test "84-gdb-set interpreter console-quoted" ".*Switching to interpreter .\"console-quoted.\".*84\\^done.*" "switch to console-quoted 2"
 gdb_test "info pid" "\\~\"Inferior has process ID $inferior_pid\..n\"" "Get pid via info pid in console-quoted"
 
 gdb_test "set interpreter console" "Switching to interpreter \"console\"\..*" "switch back to console 2"

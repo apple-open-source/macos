@@ -96,10 +96,10 @@ SubnetListPrint(SubnetListRef subnets);
 /**
  ** SubnetRef API's
  **/
-dhcp_lease_t
+dhcp_lease_time_t
 SubnetGetMaxLease(SubnetRef subnet);
 
-dhcp_lease_t
+dhcp_lease_time_t
 SubnetGetMinLease(SubnetRef subnet);
 
 const char *

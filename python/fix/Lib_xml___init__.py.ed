@@ -1,8 +1,0 @@
-/^try/i
-import os
-
-# only prefer _xmlplus if the environment variable PY_USE_XMLPLUS is defined
-if os.environ.has_key('PY_USE_XMLPLUS'):
-.
-/try/,$s/^/    /
-w

@@ -10,7 +10,7 @@ $max = ($max_results) ? $max_results : 40;
 <meta http-equiv="Content-Type" content="text/html; charset=<?php echo $config[general_charset]?>">
 <link rel="stylesheet" href="style.css">
 </head>
-<body bgcolor="#80a040" background="images/greenlines1.gif" link="black" alink="black">
+<body>
 <center>
 <table border=0 width=550 cellpadding=0 cellspacing=0>
 <tr valign=top>
@@ -36,6 +36,7 @@ $max = ($max_results) ? $max_results : 40;
 
 <?php
 if ($find_user == 1){
+	unset($found_users);
 	if (is_file("../lib/$config[general_lib_type]/find.php3"))
 		include("../lib/$config[general_lib_type]/find.php3");
 	if (isset($found_users)){
@@ -50,11 +51,12 @@ EOM;
 		foreach ($found_users as $user){
 			if ($user == '')
 				$user = '-';
+			$User = urlencode($user);
 			$num++;
 			$msg .= <<<EOM
 			<tr align=center>
 			 	<td>$num</td>
-				<td><a href="user_admin.php3?login=$user" title="Edit user $user">$user</a></td>
+				<td><a href="user_admin.php3?login=$User" title="Edit user $user">$user</a></td>
 			</tr>
 EOM;
 		}
@@ -76,8 +78,9 @@ Search Criteria
 <?php
 echo <<<EOM
 <select name="search_IN" editable onChange="this.form.submit();">
+<option $selected[username] value="username">User Name
 <option $selected[name]  value="name">User Full Name
-<option $selected[ou] value="ou">User Department
+<option $selected[department] value="department">User Department
 <option $selected[radius] value="radius">User Radius Attribute
 EOM;
 ?>
@@ -97,7 +100,7 @@ RADIUS Attribute
 <select name="radius_attr" editable>
 EOM;
 	foreach($show_attrs as $key => $desc)
-		echo "<option $selected[$key] value=\"$key\">$desc\n";		
+		echo "<option $selected[$key] value=\"$key\">$desc\n";
 	echo <<<EOM
 </select>
 </td>

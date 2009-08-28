@@ -1,0 +1,209 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+<head>
+<link rel="STYLESHEET" href="mailman-member-es.css" type='text/css' />
+<link rel="first" href="mailman-member-es.html" title='GNU&nbsp;Mailman Manual&nbsp;del&nbsp;Suscriptor&nbsp;de&nbsp;Listas' />
+<link rel='contents' href='contents.html' title="Contents" />
+<link rel='last' href='about.html' title='About this document...' />
+<link rel='help' href='about.html' title='About this document...' />
+<link rel="prev" href="node39.html" />
+<link rel="parent" href="node38.html" />
+<link rel="next" href="node41.html" />
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<meta name='aesop' content='information' />
+<title>11.2 ¿Qué hace Mailman para ayudar a protegerme de correo basura no
+solicitado (spam)?</title>
+</head>
+<body>
+<div class="navigation">
+<div id='top-navigation-panel' xml:id='top-navigation-panel'>
+<table align="center" width="100%" cellpadding="0" cellspacing="2">
+<tr>
+<td class='online-navigation'><a rel="prev" title="11.1 ¿Cómo puedo consultar"
+  href="node39.html"><img src='previous.png'
+  border='0' height='32'  alt='Previous Page' width='32' /></a></td>
+<td class='online-navigation'><a rel="parent" title="11 otras preguntas comunes"
+  href="node38.html"><img src='up.png'
+  border='0' height='32'  alt='Up one Level' width='32' /></a></td>
+<td class='online-navigation'><a rel="next" title="1 referencia rápida de"
+  href="node41.html"><img src='next.png'
+  border='0' height='32'  alt='Next Page' width='32' /></a></td>
+<td align="center" width="100%">GNU&nbsp;Mailman Manual&nbsp;del&nbsp;Suscriptor&nbsp;de&nbsp;Listas</td>
+<td class='online-navigation'><a rel="contents" title="Table of Contents"
+  href="contents.html"><img src='contents.png'
+  border='0' height='32'  alt='Contents' width='32' /></a></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+</tr></table>
+<div class='online-navigation'>
+<b class="navlabel">Previous:</b>
+<a class="sectref" rel="prev" href="node39.html">11.1 ¿Cómo puedo consultar</a>
+<b class="navlabel">Up:</b>
+<a class="sectref" rel="parent" href="node38.html">11 Otras preguntas comunes</a>
+<b class="navlabel">Next:</b>
+<a class="sectref" rel="next" href="node41.html">1 Referencia rápida de</a>
+</div>
+<hr /></div>
+</div>
+<!--End of Navigation Panel-->
+
+<h2><a name="SECTION0021120000000000000000"></a><a name="sec:antispam"></a>
+<br>
+11.2 ¿Qué hace Mailman para ayudar a protegerme de correo basura no
+solicitado (spam)?
+</h2>
+
+<p>
+Los archivos de una lista técnica pueden incluir respuestas a un rango de
+preguntas diferentes.  A menudo, la gente que ha enviado estas respuestas
+estaría gustoso de ayudar a alguien que no entiende completamente la
+respuesta, y no le preocuparía dar su dirección para ese propósito.  Pero
+aunque sería maravilloso si todos nos puedieramos contactar unos a otros con
+facilidad, también queremos asegurarnos que la gente que envía spam no abuse
+de la lista ni de los archivos de la lista.
+
+<p>
+Para hacer que un rango de opciones esté disponible a los administradores de
+listas, Mailman permite una variedad de configuraciones para ayudar a proteger
+las direcciones de correo.  Muchos de estas configuraciones son opcionales
+para el administrador de la lista, así que su lista particular puede estar
+configurada en forma diferente.  Los administradores de listas deben encontrar
+un punto de equilibrio entre proteger a suscriptores y hacerlo difícil para que
+la gente se ponga en contacto.
+
+<p>
+
+<ul>
+<li>Lista de suscriptores
+		
+<ul>
+<li>El administrador de la lista puede seleccionar entre tener
+			la lista de suscriptores pública, visible únicamente a miembros
+			de la lista, o visible únicamente a administradores de la lista.
+</li>
+<li>La lista de suscriptores se muestra con las direcciones
+			disimuladas para que a los recolectores de spam se les dificulte
+			obtener su dirección.
+</li>
+<li>Usted puede mantener su dirección oculta de la lista de
+			suscriptores (mire más información en la Sección&nbsp;<a href="node37.html#sec:nolist">10.4</a>).
+</li>
+<li><b>Nota: </b>La lista entera de suscriptores siempre está
+			disponible a los administradores de la lista.
+		
+</li>
+</ul>
+
+<p>
+</li>
+<li>Archivos de la lista
+		
+<ul>
+<li>El administrador de la lista pueden elegir que los archivos
+			sean públicos, visibles únicamente a suscriptores (privados), o
+			completamente no disponibles.
+</li>
+<li>Los archivos HTML que son creados por Pipermail (el programa
+			de archivado que viene incluido por omisión con Mailman) contienen
+			únicamente direcciones disimuladas.  Existen otros programas de
+			archivado que modifican las direcciones en diferentes grados para
+			que permanezcan menos legibles.
+</li>
+<li>Si usted desea estar más seguro, puede definir la cabecera
+			de correo ``<span class="mailheader">X-No-archive:</span> yes'' y Mailman no
+			archivará sus envíos.  Similarmente, puede definir la cabecera de
+			correo ``<span class="mailheader">X-Archive:</span> no'' para inhabilitar el
+			archivado.
+
+<p>
+<b>Advertencia: </b>Esto no evita que otros suscritores reenvíen sus mensajes,
+			posiblemente aún, incluyendo su dirección de correo electrónico.
+		
+</li>
+</ul>
+
+<p>
+</li>
+<li>Envíos limitados a las listas
+		
+<ul>
+<li>El administrador de la lista puede elegir quien puede
+			envíar a la lista.  La mayoría de las listas, se moderan
+			(un moderador o administrador revisa cada envío), se configuran
+			para que solamente los suscriptores puedan enviar a la lista, o
+			se permite que cualquier persona pueda enviar a la lista.
+</li>
+<li>Permitiendo que solamente los suscriptores puedan enviar
+			a la lista, Mailman a menudo bloquea todo el spam y algunos
+			virus que se envían a la lista.  Como tal, esta es una
+			configuración bastante común utilizada por los administradores
+			de listas.
+		
+</li>
+</ul>
+
+<p>
+</li>
+<li>Listas anónimas
+		
+<ul>
+<li>Las listas también se pueden volver completamente anónimas:
+			toda la información que identifique al remitente se elimina de
+			la cabecera antes de enviar un mensaje.
+</li>
+<li>Esto no es tipicamente usado  como medida anti-spam (tiene
+			otros usos), pero se podría usar en esa forma si se quisiera.
+		
+</li>
+</ul>
+</li>
+</ul>
+
+<p>
+Por supuesto, muchos métodos para disimular direcciones pueden ser burlados por
+determinadas personas, así que sea consciente de que las protecciones usadas
+pueden no ser suficientes.
+
+<p>
+
+<div class="navigation">
+<div class='online-navigation'>
+<p></p><hr />
+<table align="center" width="100%" cellpadding="0" cellspacing="2">
+<tr>
+<td class='online-navigation'><a rel="prev" title="11.1 ¿Cómo puedo consultar"
+  href="node39.html"><img src='previous.png'
+  border='0' height='32'  alt='Previous Page' width='32' /></a></td>
+<td class='online-navigation'><a rel="parent" title="11 otras preguntas comunes"
+  href="node38.html"><img src='up.png'
+  border='0' height='32'  alt='Up one Level' width='32' /></a></td>
+<td class='online-navigation'><a rel="next" title="1 referencia rápida de"
+  href="node41.html"><img src='next.png'
+  border='0' height='32'  alt='Next Page' width='32' /></a></td>
+<td align="center" width="100%">GNU&nbsp;Mailman Manual&nbsp;del&nbsp;Suscriptor&nbsp;de&nbsp;Listas</td>
+<td class='online-navigation'><a rel="contents" title="Table of Contents"
+  href="contents.html"><img src='contents.png'
+  border='0' height='32'  alt='Contents' width='32' /></a></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+</tr></table>
+<div class='online-navigation'>
+<b class="navlabel">Previous:</b>
+<a class="sectref" rel="prev" href="node39.html">11.1 ¿Cómo puedo consultar</a>
+<b class="navlabel">Up:</b>
+<a class="sectref" rel="parent" href="node38.html">11 Otras preguntas comunes</a>
+<b class="navlabel">Next:</b>
+<a class="sectref" rel="next" href="node41.html">1 Referencia rápida de</a>
+</div>
+</div>
+<hr />
+<span class="release-info">Release 2.1, documentation updated on 11 de enero 2009.</span>
+</div>
+<!--End of Navigation Panel-->
+
+</body>
+</html>

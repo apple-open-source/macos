@@ -19,7 +19,7 @@ Overview
 
      The nano editor is now an official GNU package.  For more
      information on GNU and the Free Software Foundation, please see
-     http://www.gnu.org.
+     http://www.gnu.org/.
 
 How to compile and install nano
 
@@ -65,10 +65,6 @@ Mailing List and Bug Reports
 
 Current Status
 
-	GNU nano has reached its second stable milestone, 1.2.x.
-	Development of new features continues in the 1.3.x branch, while
-	1.2.x versions are dedicated to bug-fixing and polishing.
+	GNU nano has reached its third stable milestone, 2.0.x.
 
-   Chris Allegretta (chrisa@asty.org)
-
-$Id: README,v 1.21 2006/06/25 04:37:05 dolorous Exp $
+$Id: README,v 1.24 2006/12/30 23:24:50 dolorous Exp $

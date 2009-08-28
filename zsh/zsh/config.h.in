@@ -47,6 +47,9 @@
 /* Define to 1 if tcsetpgrp() doesn't work, ie BeOS R4.51. */
 #undef BROKEN_TCSETPGRP
 
+/* Define to 1 if the wcwidth() function is present but broken. */
+#undef BROKEN_WCWIDTH
+
 /* Define to 1 if you use BSD style signal handling (and can block signals).
    */
 #undef BSD_SIGNALS
@@ -67,6 +70,9 @@
 
 /* The default path; used when running commands with command -p */
 #undef DEFAULT_PATH
+
+/* Define default pager used by readnullcmd */
+#undef DEFAULT_READNULLCMD
 
 /* Define to 1 if you want to avoid calling functions that will require
    dynamic NSS modules. */
@@ -199,6 +205,15 @@
 /* Define to 1 if you have the `ftruncate' function. */
 #undef HAVE_FTRUNCATE
 
+/* Define to 1 if you have the <gdbm.h> header file. */
+#undef HAVE_GDBM_H
+
+/* Define to 1 if you have the `gdbm_open' function. */
+#undef HAVE_GDBM_OPEN
+
+/* Define to 1 if you have the `getcchar' function. */
+#undef HAVE_GETCCHAR
+
 /* Define to 1 if you have the `getenv' function. */
 #undef HAVE_GETENV
 
@@ -268,6 +283,9 @@
 /* Define to 1 if you have the `initgroups' function. */
 #undef HAVE_INITGROUPS
 
+/* Define to 1 if you have the `initscr' function. */
+#undef HAVE_INITSCR
+
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
 
@@ -291,6 +309,9 @@
 
 /* Define to 1 if you have the `dl' library (-ldl). */
 #undef HAVE_LIBDL
+
+/* Define to 1 if you have the `gdbm' library (-lgdbm). */
+#undef HAVE_LIBGDBM
 
 /* Define to 1 if you have the `m' library (-lm). */
 #undef HAVE_LIBM
@@ -348,6 +369,21 @@
 
 /* Define to 1 if you have the `munmap' function. */
 #undef HAVE_MUNMAP
+
+/* Define to 1 if you have the <ncursesw/ncurses.h> header file. */
+#undef HAVE_NCURSESW_NCURSES_H
+
+/* Define to 1 if you have the <ncursesw/term.h> header file. */
+#undef HAVE_NCURSESW_TERM_H
+
+/* Define to 1 if you have the <ncurses.h> header file. */
+#undef HAVE_NCURSES_H
+
+/* Define to 1 if you have the <ncurses/ncurses.h> header file. */
+#undef HAVE_NCURSES_NCURSES_H
+
+/* Define to 1 if you have the <ncurses/term.h> header file. */
+#undef HAVE_NCURSES_TERM_H
 
 /* Define to 1 if you have the <ndir.h> header file, and it defines `DIR'. */
 #undef HAVE_NDIR_H
@@ -418,6 +454,18 @@
 /* Define to 1 if you have the `readlink' function. */
 #undef HAVE_READLINK
 
+/* Define to 1 if you have the `regcomp' function. */
+#undef HAVE_REGCOMP
+
+/* Define to 1 if you have the `regerror' function. */
+#undef HAVE_REGERROR
+
+/* Define to 1 if you have the `regexec' function. */
+#undef HAVE_REGEXEC
+
+/* Define to 1 if you have the `regfree' function. */
+#undef HAVE_REGFREE
+
 /* Define to 1 if RLIMIT_AIO_MEM is present (whether or not as a macro). */
 #undef HAVE_RLIMIT_AIO_MEM
 
@@ -474,6 +522,12 @@
 
 /* Define to 1 if you have the `select' function. */
 #undef HAVE_SELECT
+
+/* Define to 1 if you have the `setcchar' function. */
+#undef HAVE_SETCCHAR
+
+/* Define to 1 if you have the `setenv' function. */
+#undef HAVE_SETENV
 
 /* Define to 1 if you have the `seteuid' function. */
 #undef HAVE_SETEUID
@@ -575,6 +629,9 @@
 /* Define to 1 if you have the `strstr' function. */
 #undef HAVE_STRSTR
 
+/* Define to 1 if you have the `strtoul' function. */
+#undef HAVE_STRTOUL
+
 /* Define if your system's struct direct has a member named d_ino. */
 #undef HAVE_STRUCT_DIRECT_D_INO
 
@@ -632,6 +689,33 @@
 /* Define if your system's struct sockaddr_in6 has a member named
    sin6_scope_id. */
 #undef HAVE_STRUCT_SOCKADDR_IN6_SIN6_SCOPE_ID
+
+/* Define to 1 if `st_atimensec' is member of `struct stat'. */
+#undef HAVE_STRUCT_STAT_ST_ATIMENSEC
+
+/* Define to 1 if `st_atimespec.tv_nsec' is member of `struct stat'. */
+#undef HAVE_STRUCT_STAT_ST_ATIMESPEC_TV_NSEC
+
+/* Define to 1 if `st_atim.tv_nsec' is member of `struct stat'. */
+#undef HAVE_STRUCT_STAT_ST_ATIM_TV_NSEC
+
+/* Define to 1 if `st_ctimensec' is member of `struct stat'. */
+#undef HAVE_STRUCT_STAT_ST_CTIMENSEC
+
+/* Define to 1 if `st_ctimespec.tv_nsec' is member of `struct stat'. */
+#undef HAVE_STRUCT_STAT_ST_CTIMESPEC_TV_NSEC
+
+/* Define to 1 if `st_ctim.tv_nsec' is member of `struct stat'. */
+#undef HAVE_STRUCT_STAT_ST_CTIM_TV_NSEC
+
+/* Define to 1 if `st_mtimensec' is member of `struct stat'. */
+#undef HAVE_STRUCT_STAT_ST_MTIMENSEC
+
+/* Define to 1 if `st_mtimespec.tv_nsec' is member of `struct stat'. */
+#undef HAVE_STRUCT_STAT_ST_MTIMESPEC_TV_NSEC
+
+/* Define to 1 if `st_mtim.tv_nsec' is member of `struct stat'. */
+#undef HAVE_STRUCT_STAT_ST_MTIM_TV_NSEC
 
 /* Define to 1 if struct timezone is defined by a system header */
 #undef HAVE_STRUCT_TIMEZONE
@@ -755,6 +839,12 @@
 /* Define to 1 if you have the `unlockpt' function. */
 #undef HAVE_UNLOCKPT
 
+/* Define to 1 if you have the `unsetenv' function. */
+#undef HAVE_UNSETENV
+
+/* Define to 1 if you have the `use_default_colors' function. */
+#undef HAVE_USE_DEFAULT_COLORS
+
 /* Define to 1 if you have the <utmpx.h> header file. */
 #undef HAVE_UTMPX_H
 
@@ -766,6 +856,9 @@
 
 /* Define to 1 if compiler supports variable-length arrays */
 #undef HAVE_VARIABLE_LENGTH_ARRAYS
+
+/* Define to 1 if you have the `waddwstr' function. */
+#undef HAVE_WADDWSTR
 
 /* Define to 1 if you have the `wait3' function. */
 #undef HAVE_WAIT3
@@ -779,6 +872,15 @@
 /* Define to 1 if you have the `wctomb' function. */
 #undef HAVE_WCTOMB
 
+/* Define to 1 if you have the `wget_wch' function. */
+#undef HAVE_WGET_WCH
+
+/* Define to 1 if you have the `win_wch' function. */
+#undef HAVE_WIN_WCH
+
+/* Define to 1 if you have the `xw' function. */
+#undef HAVE_XW
+
 /* Define to 1 if you have the `_mktemp' function. */
 #undef HAVE__MKTEMP
 
@@ -787,6 +889,9 @@
 
 /* Define as const if the declaration of iconv() needs const. */
 #undef ICONV_CONST
+
+/* Define to 1 if iconv() is linked from libiconv */
+#undef ICONV_FROM_LIBICONV
 
 /* Define to 1 if ino_t is 64 bit (for large file support). */
 #undef INO_T_IS_64_BIT
@@ -895,7 +1000,7 @@
 
 /* If using the C implementation of alloca, define if you know the
    direction of stack growth for your system; otherwise it will be
-   automatically deduced at run-time.
+   automatically deduced at runtime.
 	STACK_DIRECTION > 0 => grows toward higher addresses
 	STACK_DIRECTION < 0 => grows toward lower addresses
 	STACK_DIRECTION = 0 => direction of growth unknown */
@@ -910,9 +1015,6 @@
 /* Define to 1 if you use SYS style signal handling (and can block signals).
    */
 #undef SYSV_SIGNALS
-
-/* Define if term.h chokes without curses.h. */
-#undef TERM_H_NEEDS_CURSES_H
 
 /* Define to 1 if tgetent() accepts NULL as a buffer. */
 #undef TGETENT_ACCEPTS_NULL
@@ -951,6 +1053,12 @@
    tables. This turns on the `hashinfo' builtin. */
 #undef ZSH_HASH_DEBUG
 
+/* Define to 1 if some variant of a curses header can be included */
+#undef ZSH_HAVE_CURSES_H
+
+/* Define to 1 if some variant of term.h can be included */
+#undef ZSH_HAVE_TERM_H
+
 /* Define to 1 if you want to use zsh's own memory allocation routines */
 #undef ZSH_MEM
 
@@ -960,11 +1068,20 @@
 /* Define to 1 if you want to turn on warnings of memory allocation errors */
 #undef ZSH_MEM_WARNING
 
+/* Define if _XOPEN_SOURCE_EXTENDED should not be defined to avoid clashes */
+#undef ZSH_NO_XOPEN
+
 /* Define to 1 if you want to turn on memory checking for free(). */
 #undef ZSH_SECURE_FREE
 
 /* Define to the base type of the third argument of accept */
 #undef ZSOCKLEN_T
+
+/* Number of bits in a file offset, on hosts where this is settable. */
+#undef _FILE_OFFSET_BITS
+
+/* Define for large files, on AIX-style hosts. */
+#undef _LARGE_FILES
 
 /* Define to empty if `const' does not conform to ANSI C. */
 #undef const
@@ -978,7 +1095,7 @@
 /* Define to `int' if <sys/types.h> does not define. */
 #undef mode_t
 
-/* Define to `long' if <sys/types.h> does not define. */
+/* Define to `long int' if <sys/types.h> does not define. */
 #undef off_t
 
 /* Define to `int' if <sys/types.h> does not define. */
@@ -990,7 +1107,7 @@
 /* Define to `unsigned int' if <sys/types.h> or <signal.h> doesn't define */
 #undef sigset_t
 
-/* Define to `unsigned' if <sys/types.h> does not define. */
+/* Define to `unsigned int' if <sys/types.h> does not define. */
 #undef size_t
 
 /* Define to `int' if <sys/types.h> doesn't define. */

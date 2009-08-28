@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2005, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -242,8 +242,8 @@ create_set(int argc, char **argv)
 		Boolean		ok;
 
 		setName = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
-		argv++;
-		argc--;
+//		argv++;
+//		argc--;
 
 		ok = SCNetworkSetSetName(set, setName);
 		CFRelease(setName);
@@ -529,7 +529,6 @@ show_set(int argc, char **argv)
 		CFIndex			n;
 		CFIndex			nOrder	= 0;
 		CFArrayRef		order;
-		CFMutableArrayRef	sorted	= (CFMutableArrayRef)services;
 
 		order = SCNetworkSetGetServiceOrder(set);
 		if (order != NULL) {
@@ -538,11 +537,15 @@ show_set(int argc, char **argv)
 
 		n = CFArrayGetCount(services);
 		if (n > 1) {
+			CFMutableArrayRef	sorted;
+
 			sorted = CFArrayCreateMutableCopy(NULL, 0, services);
 			CFArraySortValues(sorted,
 					  CFRangeMake(0, CFArrayGetCount(sorted)),
 					  _compare_services,
 					  (void *)order);
+			CFRelease(services);
+			services = sorted;
 		}
 
 		SCPrint(TRUE, stdout, CFSTR("services =\n"));
@@ -553,7 +556,7 @@ show_set(int argc, char **argv)
 			CFStringRef		serviceName;
 			CFStringRef		serviceID;
 
-			service     = CFArrayGetValueAtIndex(sorted, i);
+			service     = CFArrayGetValueAtIndex(services, i);
 			serviceID   = SCNetworkServiceGetServiceID(service);
 			serviceName = SCNetworkServiceGetName(service);
 			if (serviceName == NULL) serviceName = CFSTR("");
@@ -582,8 +585,6 @@ show_set(int argc, char **argv)
 		}
 
 		CFRelease(services);
-
-		if (sorted != services) CFRelease(sorted);
 	}
 
 	if (_sc_debug) {

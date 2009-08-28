@@ -1,13 +1,26 @@
 #!/bin/sh
 
+unset RC_TRACE_DYLIBS
+unset RC_TRACE_ARCHIVES
+unset LD_TRACE_DYLIBS
+unset LD_TRACE_ARCHIVES
+
+export DYLD_FALLBACK_LIBRARY_PATH=${DYLD_FALLBACK_LIBRARY_PATH}:/Developer/usr/lib
 # cd into test-cases directory
 cd `echo "$0" | sed 's/run-all-unit-tests/test-cases/'`
 
 [ "$PROCTORRUN" ] && exec ../proctor-run
 
-all_archs="ppc ppc64 i386 x86_64"
+all_archs="x86_64  ppc i386  "
+#armv6 thumb
+valid_archs="x86_64 armv6 ppc i386  "
+
+# clean first
+../bin/make-recursive.pl clean > /dev/null
 
 mkdir /tmp/$$
+mkdir $BUILD_ROOT/lib
+ln -s /Developer/usr/lib/libLTO.dylib ${BUILD_ROOT}/lib/libLTO.dylib
 for arch in $all_archs
 do
 	echo ""
@@ -16,7 +29,7 @@ do
 	# build architecture
 	[ "$NEWTEST" ] && NT=-newtest
 
-	../bin/make-recursive$NT.pl ARCH=$arch VALID_ARCHS="$all_archs" | ../bin/result-filter.pl
+	../bin/make-recursive$NT.pl ARCH=$arch VALID_ARCHS="$valid_archs" | ../bin/result-filter.pl
 
 	# clean up so svn is happy
 	../bin/make-recursive.pl ARCH=$arch clean > /dev/null

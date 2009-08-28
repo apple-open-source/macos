@@ -2,7 +2,7 @@ Index: samba/source/smbd/reply.c
 ===================================================================
 --- samba/source/smbd/reply.c.orig
 +++ samba/source/smbd/reply.c
-@@ -4239,6 +4239,7 @@ NTSTATUS rename_internals_fsp(connection
+@@ -4240,6 +4240,7 @@ NTSTATUS rename_internals_fsp(connection
  	NTSTATUS status = NT_STATUS_OK;
  	BOOL dest_exists;
  	struct share_mode_lock *lck = NULL;
@@ -10,7 +10,7 @@ Index: samba/source/smbd/reply.c
  
  	ZERO_STRUCT(sbuf);
  
-@@ -4292,6 +4293,13 @@ NTSTATUS rename_internals_fsp(connection
+@@ -4293,6 +4294,13 @@ NTSTATUS rename_internals_fsp(connection
  			 * the original.
  			 */
  			pstrcpy(p+1, newname_last_component);
@@ -24,7 +24,7 @@ Index: samba/source/smbd/reply.c
  		}
  	}
  
-@@ -4306,33 +4314,41 @@ NTSTATUS rename_internals_fsp(connection
+@@ -4307,33 +4315,41 @@ NTSTATUS rename_internals_fsp(connection
  		return NT_STATUS_OK;
  	}
  
@@ -88,7 +88,7 @@ Index: samba/source/smbd/reply.c
  	}
  
  	if (rename_path_prefix_equal(fsp->fsp_name, newname)) {
-@@ -4455,6 +4471,7 @@ NTSTATUS rename_internals(connection_str
+@@ -4456,6 +4472,7 @@ NTSTATUS rename_internals(connection_str
  	const char *dname;
  	long offset = 0;
  	pstring destname;
@@ -96,7 +96,7 @@ Index: samba/source/smbd/reply.c
  
  	*directory = *mask = 0;
  
-@@ -4577,6 +4594,14 @@ NTSTATUS rename_internals(connection_str
+@@ -4578,6 +4595,14 @@ NTSTATUS rename_internals(connection_str
  				 * the original.
  				 */
  				pstrcpy(p+1, last_component_dest);
@@ -111,7 +111,7 @@ Index: samba/source/smbd/reply.c
  			}
  		}
  	
-@@ -4632,7 +4657,6 @@ NTSTATUS rename_internals(connection_str
+@@ -4633,7 +4658,6 @@ NTSTATUS rename_internals(connection_str
  		 * If the src and dest names are identical - including case,
  		 * don't do the rename, just return success.
  		 */
@@ -119,7 +119,7 @@ Index: samba/source/smbd/reply.c
  		if (strcsequal(directory, newname)) {
  			DEBUG(3, ("rename_internals: identical names in "
  				  "rename %s - returning success\n",
-@@ -4640,7 +4664,20 @@ NTSTATUS rename_internals(connection_str
+@@ -4641,7 +4665,20 @@ NTSTATUS rename_internals(connection_str
  			return NT_STATUS_OK;
  		}
  

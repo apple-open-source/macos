@@ -124,13 +124,13 @@ start_getloc(svn_ra_serf__xml_parser_t *parser,
       svn_revnum_t rev = SVN_INVALID_REVNUM;
       const char *revstr, *path;
 
-      revstr = svn_ra_serf__find_attr(attrs, "rev");
+      revstr = svn_xml_get_attr_value("rev", attrs);
       if (revstr)
         {
           rev = SVN_STR_TO_REV(revstr);
         }
 
-      path = svn_ra_serf__find_attr(attrs, "path");
+      path = svn_xml_get_attr_value("path", attrs);
 
       if (SVN_IS_VALID_REVNUM(rev) && path)
         {
@@ -185,10 +185,10 @@ svn_ra_serf__get_locations(svn_ra_session_t *ra_session,
   svn_ra_serf__session_t *session = ra_session->priv;
   svn_ra_serf__handler_t *handler;
   svn_ra_serf__xml_parser_t *parser_ctx;
-  serf_bucket_t *buckets, *tmp;
-  apr_hash_t *props;
-  const char *vcc_url, *relative_url, *basecoll_url, *req_url;
+  serf_bucket_t *buckets;
+  const char *relative_url, *basecoll_url, *req_url;
   int i;
+  svn_error_t *err;
 
   loc_ctx = apr_pcalloc(pool, sizeof(*loc_ctx));
   loc_ctx->pool = pool;
@@ -200,20 +200,11 @@ svn_ra_serf__get_locations(svn_ra_session_t *ra_session,
 
   buckets = serf_bucket_aggregate_create(session->bkt_alloc);
 
-  tmp = SERF_BUCKET_SIMPLE_STRING_LEN("<S:get-locations xmlns:S=\"",
-                                      sizeof("<S:get-locations xmlns:S=\"")-1,
-                                      session->bkt_alloc);
-  serf_bucket_aggregate_append(buckets, tmp);
-
-  tmp = SERF_BUCKET_SIMPLE_STRING_LEN(SVN_XML_NAMESPACE,
-                                      sizeof(SVN_XML_NAMESPACE)-1,
-                                      session->bkt_alloc);
-  serf_bucket_aggregate_append(buckets, tmp);
-
-  tmp = SERF_BUCKET_SIMPLE_STRING_LEN("\">",
-                                      sizeof("\">")-1,
-                                      session->bkt_alloc);
-  serf_bucket_aggregate_append(buckets, tmp);
+  svn_ra_serf__add_open_tag_buckets(buckets, session->bkt_alloc,
+                                    "S:get-locations",
+                                    "xmlns:S", SVN_XML_NAMESPACE,
+                                    "xmlns:D", "DAV:",
+                                    NULL);
 
   svn_ra_serf__add_tag_buckets(buckets,
                                "S:path", path,
@@ -231,29 +222,12 @@ svn_ra_serf__get_locations(svn_ra_session_t *ra_session,
                                    session->bkt_alloc);
     }
 
-  tmp = SERF_BUCKET_SIMPLE_STRING_LEN("</S:get-locations>",
-                                      sizeof("</S:get-locations>")-1,
-                                      session->bkt_alloc);
-  serf_bucket_aggregate_append(buckets, tmp);
+  svn_ra_serf__add_close_tag_buckets(buckets, session->bkt_alloc,
+                                     "S:get-locations");
 
-  props = apr_hash_make(pool);
-
-  SVN_ERR(svn_ra_serf__discover_root(&vcc_url, &relative_url,
-                                     session, session->conns[0],
-                                     session->repos_url.path, pool));
-
-  SVN_ERR(svn_ra_serf__retrieve_props(props,
-                                      session, session->conns[0],
-                                      vcc_url, peg_revision, "0",
-                                      baseline_props, pool));
-
-  basecoll_url = svn_ra_serf__get_ver_prop(props, vcc_url, peg_revision,
-                                           "DAV:", "baseline-collection");
-
-  if (!basecoll_url)
-    {
-      abort();
-    }
+  SVN_ERR(svn_ra_serf__get_baseline_info(&basecoll_url, &relative_url,
+                                         session, NULL, peg_revision, NULL,
+                                         pool));
 
   req_url = svn_path_url_add_component(basecoll_url, relative_url, pool);
 
@@ -280,14 +254,17 @@ svn_ra_serf__get_locations(svn_ra_session_t *ra_session,
 
   svn_ra_serf__request_create(handler);
 
-  SVN_ERR(svn_ra_serf__context_run_wait(&loc_ctx->done, session, pool));
+  err = svn_ra_serf__context_run_wait(&loc_ctx->done, session, pool);
 
-  if (loc_ctx->status_code == 404)
+  if (loc_ctx->error || parser_ctx->error)
     {
-      /* TODO Teach the parser to handle our custom error message. */
-      return svn_error_create(SVN_ERR_FS_NOT_FOUND, NULL,
-                              _("File doesn't exist on HEAD"));
+      svn_error_clear(err);
+      err = SVN_NO_ERROR;
+      SVN_ERR(loc_ctx->error);
+      SVN_ERR(parser_ctx->error);
     }
 
-  return loc_ctx->error;
+  SVN_ERR(svn_ra_serf__error_on_status(loc_ctx->status_code, req_url));
+
+  return err;
 }

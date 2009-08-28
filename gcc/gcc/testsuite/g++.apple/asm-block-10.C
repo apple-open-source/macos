@@ -8,4 +8,3 @@ void foo() {
     and ebx, 0fffffffCh// zero low two bits
   }
 }
-

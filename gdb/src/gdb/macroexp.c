@@ -738,8 +738,6 @@ gather_arguments (const char *name, struct macro_buffer *src, int *argc_p)
       depth = 0;
       for (;;)
         {
-          char *start = src->text;
-
           if (! get_token (&tok, src))
             error (_("Malformed argument list for macro `%s'."), name);
       

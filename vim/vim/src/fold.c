@@ -48,7 +48,7 @@ static int checkCloseRec __ARGS((garray_T *gap, linenr_T lnum, int level));
 static int foldFind __ARGS((garray_T *gap, linenr_T lnum, fold_T **fpp));
 static int foldLevelWin __ARGS((win_T *wp, linenr_T lnum));
 static void checkupdate __ARGS((win_T *wp));
-static void setFoldRepeat __ARGS((linenr_T lnum, long count, int open));
+static void setFoldRepeat __ARGS((linenr_T lnum, long count, int do_open));
 static linenr_T setManualFold __ARGS((linenr_T lnum, int opening, int recurse, int *donep));
 static linenr_T setManualFoldWin __ARGS((win_T *wp, linenr_T lnum, int opening, int recurse, int *donep));
 static void foldOpenNested __ARGS((fold_T *fpr));
@@ -740,7 +740,7 @@ deleteFold(start, end, recursive, had_visual)
     garray_T	*found_ga;
     fold_T	*found_fp = NULL;
     linenr_T	found_off = 0;
-    int		use_level = FALSE;
+    int		use_level;
     int		maybe_small = FALSE;
     int		level = 0;
     linenr_T	lnum = start;
@@ -757,6 +757,7 @@ deleteFold(start, end, recursive, had_visual)
 	gap = &curwin->w_folds;
 	found_ga = NULL;
 	lnum_off = 0;
+	use_level = FALSE;
 	for (;;)
 	{
 	    if (!foldFind(gap, lnum - lnum_off, &fp))
@@ -783,20 +784,21 @@ deleteFold(start, end, recursive, had_visual)
 	else
 	{
 	    lnum = found_fp->fd_top + found_fp->fd_len + found_off;
-	    did_one = TRUE;
 
 	    if (foldmethodIsManual(curwin))
 		deleteFoldEntry(found_ga,
 		    (int)(found_fp - (fold_T *)found_ga->ga_data), recursive);
 	    else
 	    {
-		if (found_fp->fd_top + found_off < first_lnum)
-		    first_lnum = found_fp->fd_top;
-		if (lnum > last_lnum)
+		if (first_lnum > found_fp->fd_top + found_off)
+		    first_lnum = found_fp->fd_top + found_off;
+		if (last_lnum < lnum)
 		    last_lnum = lnum;
-		parseMarker(curwin);
+		if (!did_one)
+		    parseMarker(curwin);
 		deleteFoldMarkers(found_fp, recursive, found_off);
 	    }
+	    did_one = TRUE;
 
 	    /* redraw window */
 	    changed_window_setting();
@@ -811,6 +813,10 @@ deleteFold(start, end, recursive, had_visual)
 	    redraw_curbuf_later(INVERTED);
 #endif
     }
+    else
+	/* Deleting markers may make cursor column invalid. */
+	check_cursor_col();
+
     if (last_lnum > 0)
 	changed_lines(first_lnum, (colnr_T)0, last_lnum, 0L);
 }
@@ -1241,10 +1247,10 @@ checkupdate(wp)
  * Repeat "count" times.
  */
     static void
-setFoldRepeat(lnum, count, open)
+setFoldRepeat(lnum, count, do_open)
     linenr_T	lnum;
     long	count;
-    int		open;
+    int		do_open;
 {
     int		done;
     long	n;
@@ -1252,7 +1258,7 @@ setFoldRepeat(lnum, count, open)
     for (n = 0; n < count; ++n)
     {
 	done = DONE_NOTHING;
-	(void)setManualFold(lnum, open, FALSE, &done);
+	(void)setManualFold(lnum, do_open, FALSE, &done);
 	if (!(done & DONE_ACTION))
 	{
 	    /* Only give an error message when no fold could be opened. */

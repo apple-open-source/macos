@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -102,24 +102,20 @@ SCDynamicStoreCopyMultiple(SCDynamicStoreRef	store,
 	if (xmlPatterns)	CFRelease(xmlPatterns);
 
 	if (status != KERN_SUCCESS) {
-#ifdef	DEBUG
-		if (status != MACH_SEND_INVALID_DEST)
-			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreCopyMultiple configget_m(): %s"), mach_error_string(status));
-#endif	/* DEBUG */
-		(void) mach_port_destroy(mach_task_self(), storePrivate->server);
+		if (status == MACH_SEND_INVALID_DEST) {
+			/* the server's gone and our session port's dead, remove the dead name right */
+			(void) mach_port_deallocate(mach_task_self(), storePrivate->server);
+		} else {
+			/* we got an unexpected error, leave the [session] port alone */
+			SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStoreCopyMultiple configget_m(): %s"), mach_error_string(status));
+		}
 		storePrivate->server = MACH_PORT_NULL;
 		_SCErrorSet(status);
 		return NULL;
 	}
 
 	if (sc_status != kSCStatusOK) {
-		status = vm_deallocate(mach_task_self(), (vm_address_t)xmlDictRef, xmlDictLen);
-#ifdef	DEBUG
-		if (status != KERN_SUCCESS) {
-			SCLog(TRUE, LOG_DEBUG, CFSTR("SCDynamicStoreCopyMultiple vm_deallocate(): %s"), mach_error_string(status));
-			/* non-fatal???, proceed */
-		}
-#endif	/* DEBUG */
+		(void) vm_deallocate(mach_task_self(), (vm_address_t)xmlDictRef, xmlDictLen);
 		_SCErrorSet(sc_status);
 		return NULL;
 	}
@@ -181,24 +177,20 @@ SCDynamicStoreCopyValue(SCDynamicStoreRef store, CFStringRef key)
 	CFRelease(utfKey);
 
 	if (status != KERN_SUCCESS) {
-#ifdef	DEBUG
-		if (status != MACH_SEND_INVALID_DEST)
-			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreCopyValue configget(): %s"), mach_error_string(status));
-#endif	/* DEBUG */
-		(void) mach_port_destroy(mach_task_self(), storePrivate->server);
+		if (status == MACH_SEND_INVALID_DEST) {
+			/* the server's gone and our session port's dead, remove the dead name right */
+			(void) mach_port_deallocate(mach_task_self(), storePrivate->server);
+		} else {
+			/* we got an unexpected error, leave the [session] port alone */
+			SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStoreCopyValue configget(): %s"), mach_error_string(status));
+		}
 		storePrivate->server = MACH_PORT_NULL;
 		_SCErrorSet(status);
 		return NULL;
 	}
 
 	if (sc_status != kSCStatusOK) {
-		status = vm_deallocate(mach_task_self(), (vm_address_t)xmlDataRef, xmlDataLen);
-#ifdef	DEBUG
-		if (status != KERN_SUCCESS) {
-			SCLog(TRUE, LOG_DEBUG, CFSTR("SCDynamicStoreCopyValue vm_deallocate(): %s"), mach_error_string(status));
-			/* non-fatal???, proceed */
-		}
-#endif	/* DEBUG */
+		(void) vm_deallocate(mach_task_self(), (vm_address_t)xmlDataRef, xmlDataLen);
 		_SCErrorSet(sc_status);
 		return NULL;
 	}

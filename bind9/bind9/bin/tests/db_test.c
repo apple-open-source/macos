@@ -1,8 +1,8 @@
 /*
- * Copyright (C) 2004, 2005  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2007, 2008  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2001  Internet Software Consortium.
  *
- * Permission to use, copy, modify, and distribute this software for any
+ * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
@@ -15,9 +15,9 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: db_test.c,v 1.59.18.3 2005/04/27 05:00:40 sra Exp $ */
+/* $Id: db_test.c,v 1.66 2008/09/25 04:02:38 tbox Exp $ */
 
-/*! \file 
+/*! \file
  * \author
  * Principal Author: Bob Halley
  */
@@ -177,8 +177,7 @@ list(dbinfo *dbi, char *seektext) {
 				dns_db_currentversion(dbi->db, &dbi->iversion);
 		}
 
-		result = dns_db_createiterator(dbi->db, ISC_FALSE,
-					       &dbi->dbiterator);
+		result = dns_db_createiterator(dbi->db, 0, &dbi->dbiterator);
 		if (result == ISC_R_SUCCESS) {
 			if (seektext != NULL) {
 				len = strlen(seektext);
@@ -386,7 +385,7 @@ main(int argc, char *argv[]) {
 	RUNTIME_CHECK(dns_dbtable_create(mctx, dns_rdataclass_in, &dbtable) ==
 		      ISC_R_SUCCESS);
 
-	
+
 
 	strcpy(dbtype, "rbt");
 	while ((ch = isc_commandline_parse(argc, argv, "c:d:t:z:P:Q:glpqvT"))
@@ -405,7 +404,7 @@ main(int argc, char *argv[]) {
 		case 'g':
 			options |= (DNS_DBFIND_GLUEOK|DNS_DBFIND_VALIDATEGLUE);
 			break;
-        	case 'l':
+		case 'l':
 			RUNTIME_CHECK(isc_log_create(mctx, &lctx,
 						     NULL) == ISC_R_SUCCESS);
 			isc_log_setcontext(lctx);

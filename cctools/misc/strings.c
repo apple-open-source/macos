@@ -88,7 +88,7 @@ struct flags {
     enum bool print_offsets;
     char *offset_format;
     enum bool all_sections;
-    unsigned long minimum_length;
+    uint32_t minimum_length;
 };
 
 static void usage(
@@ -99,11 +99,11 @@ static void ofile_processor(
     void *cookie);
 static void ofile_find(
     char *addr,
-    unsigned long size,
-    unsigned long offset,
+    uint32_t size,
+    uint32_t offset,
     struct flags *flags);
 static void find(
-    unsigned long cnt,
+    uint32_t cnt,
     struct flags *flags);
 static enum bool dirt(
     int c);
@@ -116,10 +116,10 @@ char **envp)
 {
     struct flags flags;
     int i;
-    unsigned long j, nfiles;
+    uint32_t j, nfiles;
     char *endp;
     struct arch_flag *arch_flags;
-    unsigned long narch_flags;
+    uint32_t narch_flags;
     enum bool all_archs, rest_args_files, use_member_syntax;
     struct stat stat_buf;
 
@@ -250,7 +250,7 @@ char **envp)
 			if(freopen(argv[i], "r", stdin) == NULL)
 			    system_error("can't open: %s", argv[i]);
 			rewind(stdin);
-			find(ULONG_MAX, &flags);
+			find(UINT_MAX, &flags);
 		    }
 		    else{
 			/*
@@ -275,7 +275,7 @@ char **envp)
 	    }
 	}
 	else{
-	    find(ULONG_MAX, &flags);
+	    find(UINT_MAX, &flags);
 	}
 	if(errors == 0)
 	    return(EXIT_SUCCESS);
@@ -315,7 +315,7 @@ char *arch_name,
 void *cookie)
 {
     char *addr;
-    unsigned long offset, size, i, j;
+    uint32_t offset, size, i, j;
     uint32_t ncmds;
     struct flags *flags;
     struct load_command *lc;
@@ -417,11 +417,11 @@ static
 void
 ofile_find(
 char *addr,
-unsigned long size,
-unsigned long offset,
+uint32_t size,
+uint32_t offset,
 struct flags *flags)
 {
-    unsigned long i, string_length;
+    uint32_t i, string_length;
     char c, *string;
 
 	string = addr;
@@ -455,7 +455,7 @@ struct flags *flags)
 static
 void
 find(
-unsigned long cnt,
+uint32_t cnt,
 struct flags *flags)
 {
     static char buf[BUFSIZ];

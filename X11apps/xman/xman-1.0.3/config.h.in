@@ -1,0 +1,55 @@
+/* config.h.in.  Generated from configure.ac by autoheader.  */
+
+/* Define to 1 if you have the `mkstemp' function. */
+#undef HAS_MKSTEMP
+
+/* Default local man page search path (default: none) */
+#undef LOCALMANPATH
+
+/* Define to path to man config file if you have one */
+#undef MANCONF
+
+/* Define to 1 if you have BSD format manpath.config */
+#undef MANCONFIGSTYLE_BSD
+
+/* Define to 1 if you have FreeBSD format manpath.config */
+#undef MANCONFIGSTYLE_FreeBSD
+
+/* Define to 1 if you have Linux format man.conf or man.config */
+#undef MANCONFIGSTYLE_Linux
+
+/* Define to 1 if you have OpenBSD format manpath.config */
+#undef MANCONFIGSTYLE_OpenBSD
+
+/* Name of package */
+#undef PACKAGE
+
+/* Define to the address where bug reports for this package should be sent. */
+#undef PACKAGE_BUGREPORT
+
+/* Define to the full name of this package. */
+#undef PACKAGE_NAME
+
+/* Define to the full name and version of this package. */
+#undef PACKAGE_STRING
+
+/* Define to the one symbol short name of this package. */
+#undef PACKAGE_TARNAME
+
+/* Define to the version of this package. */
+#undef PACKAGE_VERSION
+
+/* Major version of this package */
+#undef PACKAGE_VERSION_MAJOR
+
+/* Minor version of this package */
+#undef PACKAGE_VERSION_MINOR
+
+/* Patch version of this package */
+#undef PACKAGE_VERSION_PATCHLEVEL
+
+/* Default system man page search path (default: none) */
+#undef SYSMANPATH
+
+/* Version number of package */
+#undef VERSION

@@ -46,13 +46,15 @@ extern "C" {
  * @function dsDataBufferAllocate
  */
 tDataBufferPtr	dsDataBufferAllocate		(	tDirReference		inDirReference,
-												UInt32				inBufferSize );
+												UInt32				inBufferSize )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @function dsDataBufferDeAllocate
  */
 tDirStatus		dsDataBufferDeAllocate		(	tDirReference	inDirReference,
-												tDataBufferPtr	inDataBufferPtr );
+												tDataBufferPtr	inDataBufferPtr )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 //-----------------------------------------------
 //-----------------------------------------------
@@ -67,35 +69,41 @@ tDirStatus		dsDataBufferDeAllocate		(	tDirReference	inDirReference,
 tDataNodePtr	dsDataNodeAllocateBlock		(	tDirReference		inDirReference,
 												UInt32				inDataNodeSize,
 												UInt32				inDataNodeLength,
-												tBuffer				inDataNodeBuffer );
+												tBuffer				inDataNodeBuffer )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @function dsDataNodeAllocateString
  */
 tDataNodePtr	dsDataNodeAllocateString	(	tDirReference	inDirReference,
-												const char		*inCString );
+												const char		*inCString )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @function dsDataNodeDeAllocate
  */
 tDirStatus		dsDataNodeDeAllocate		(	tDirReference	inDirReference,
-												tDataNodePtr	inDataNodePtr );
+												tDataNodePtr	inDataNodePtr )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @function dsDataNodeSetLength
  */
 tDirStatus		dsDataNodeSetLength			(	tDataNodePtr		inDataNodePtr,
-												UInt32				inDataNodeLength );
+												UInt32				inDataNodeLength )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @function dsDataNodeGetLength
  */
-UInt32	dsDataNodeGetLength					(	tDataNodePtr	inDataNodePtr );
+UInt32	dsDataNodeGetLength					(	tDataNodePtr	inDataNodePtr )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @function dsDataNodeGetSize
  */
-UInt32	dsDataNodeGetSize					(	tDataNodePtr	inDataNodePtr );
+UInt32	dsDataNodeGetSize					(	tDataNodePtr	inDataNodePtr )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 
 
@@ -108,7 +116,8 @@ UInt32	dsDataNodeGetSize					(	tDataNodePtr	inDataNodePtr );
 /*!
  * @function dsDataListAllocate
  */
-tDataListPtr	dsDataListAllocate			(	tDirReference	inDirReference );
+tDataListPtr	dsDataListAllocate			(	tDirReference	inDirReference )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @function dsDataListDeallocate
@@ -117,7 +126,8 @@ tDataListPtr	dsDataListAllocate			(	tDirReference	inDirReference );
  *		head of the list after calling dsDataListDeallocate().
  */
 tDirStatus		dsDataListDeallocate		(	tDirReference	inDirReference,
-												tDataListPtr	inDataList );
+												tDataListPtr	inDataList )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @function dsDataListDeAllocate
@@ -125,7 +135,8 @@ tDirStatus		dsDataListDeallocate		(	tDirReference	inDirReference,
  */
 tDirStatus		dsDataListDeAllocate		(	tDirReference	inDirReference,
 												tDataListPtr	inDataList,
-												dsBool			inDeAllocateNodesFlag );
+												dsBool			inDeAllocateNodesFlag )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 //-----------------------------------------------
 
@@ -134,14 +145,16 @@ tDirStatus		dsDataListDeAllocate		(	tDirReference	inDirReference,
  */
 char*			dsGetPathFromList			(	tDirReference	inDirReference,
 												const tDataList	*inDataList,
-												const char		*inDelimiter );
+												const char		*inDelimiter )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @function dsBuildFromPath
  */
 tDataListPtr	dsBuildFromPath				(	tDirReference	inDirReference,
 												const char		*inPathCString,
-												const char		*inPathSeparatorCString );
+												const char		*inPathSeparatorCString )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @function dsBuildListFromPathAlloc
@@ -149,7 +162,8 @@ tDataListPtr	dsBuildFromPath				(	tDirReference	inDirReference,
 tDirStatus		dsBuildListFromPathAlloc	(	tDirReference	inDirReference,
 												tDataListPtr	inDataList,
 												const char		*inPathCString,
-												const char		*inPathSeparatorCString );
+												const char		*inPathSeparatorCString )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 
 /*!
@@ -158,14 +172,16 @@ tDirStatus		dsBuildListFromPathAlloc	(	tDirReference	inDirReference,
 tDirStatus		dsBuildListFromNodesAlloc	(	tDirReference	inDirReferences,
 												tDataListPtr	inDataList,
 												tDataNodePtr	in1stDataNodePtr,
-												... );
+												... )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @function dsBuildListFromStrings
  */
 tDataListPtr	dsBuildListFromStrings		(	tDirReference	inDirReference,
 												const char		*in1stCString,
-												... );
+												... )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @function dsBuildListFromStringsAlloc
@@ -173,7 +189,8 @@ tDataListPtr	dsBuildListFromStrings		(	tDirReference	inDirReference,
 tDirStatus		dsBuildListFromStringsAlloc	(	tDirReference	inDirReferences,
 												tDataListPtr	inDataList,
 												const char		*in1stCString,
-												... );
+												... )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @function dsBuildListFromStringsAllocV
@@ -181,28 +198,31 @@ tDirStatus		dsBuildListFromStringsAlloc	(	tDirReference	inDirReferences,
 tDirStatus		dsBuildListFromStringsAllocV ( tDirReference	inDirRef,
 												tDataList		*inDataList,
 												const char		*in1stCString,
-												va_list			args );
+												va_list			args )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @function dsAppendStringToListAlloc
  */
 tDirStatus		dsAppendStringToListAlloc	(	tDirReference	inDirReferences,
 												tDataListPtr	inDataList,
-												const char		* inCString );
+												const char		* inCString )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 //-----------------------------------------------
 
 /*!
  * @function dsDataListGetNodeCount
  */
-UInt32	dsDataListGetNodeCount				(	const tDataList	*inDataList );
+UInt32	dsDataListGetNodeCount				(	const tDataList	*inDataList )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @function dsAllocStringsFromList
  * @discussion Provides a char** of the strings contained within a tDataList.
  */
 char** dsAllocStringsFromList( tDirReference inDirRef, const tDataList *inDataList )
-AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_6;
 
 /*!
  * @function dsGetDataLength
@@ -220,27 +240,31 @@ UInt32	dsGetDataLength						(	const tDataList	*inDataList );
 tDirStatus		dsDataListInsertAfter		(	tDirReference	inDirReferences,
 												tDataListPtr	inDataList,
 												tDataNodePtr	inInsertDataNode,
-												const UInt32	inNodeIndex );
+												const UInt32	inNodeIndex )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @function dsDataListMergeListAfter
  */
 tDirStatus		dsDataListMergeListAfter	(	tDataListPtr	inTargetList,
 												tDataListPtr	inSourceList,
-												const UInt32	inNodeIndex );
+												const UInt32	inNodeIndex )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @function dsDataListCopyList
  */
 tDataListPtr	dsDataListCopyList			(	tDirReference	inDirReference,
-												const tDataList	*inDataListSource );
+												const tDataList	*inDataListSource )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @function dsDataListDeleteThisNode
  */
 tDirStatus		dsDataListDeleteThisNode	(	tDirReference		inDirReference,
 												tDataListPtr		inDataList,
-												UInt32				inNodeIndex );
+												UInt32				inNodeIndex )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @function dsDataListGetNodeAlloc
@@ -248,7 +272,8 @@ tDirStatus		dsDataListDeleteThisNode	(	tDirReference		inDirReference,
 tDirStatus		dsDataListGetNodeAlloc		(	tDirReference		inDirReference,
 												const tDataList		*inDataListPtr,
 												UInt32				inNodeIndex,
-												tDataNodePtr		*outDataNode );
+												tDataNodePtr		*outDataNode )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 //-----------------------------------------------
 
@@ -258,25 +283,29 @@ tDirStatus		dsDataListGetNodeAlloc		(	tDirReference		inDirReference,
 tAttributeValueEntryPtr		dsAllocAttributeValueEntry		(	tDirReference			inDirRef,
 																UInt32					inAttrValueID,
 																void				   *inAttrValueData,
-																UInt32					inAttrValueDataLen );
+																UInt32					inAttrValueDataLen )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @function dsDeallocAttributeValueEntry
  */
 tDirStatus					dsDeallocAttributeValueEntry	(	tDirReference			inDirRef,
-																tAttributeValueEntryPtr	inAttrValueEntry );
+																tAttributeValueEntryPtr	inAttrValueEntry )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @function dsDeallocAttributeEntry
  */
 tDirStatus					dsDeallocAttributeEntry			(	tDirReference			inDirRef,
-																tAttributeEntryPtr		inAttrEntry );
+																tAttributeEntryPtr		inAttrEntry )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @function dsDeallocRecordEntry
  */
 tDirStatus					dsDeallocRecordEntry			(	tDirReference			inDirRef,
-																tRecordEntryPtr			inRecEntry );
+																tRecordEntryPtr			inRecEntry )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 
 //-----------------------------------------------
@@ -286,14 +315,16 @@ tDirStatus					dsDeallocRecordEntry			(	tDirReference			inDirRef,
  * @param outRecName Used to return the record name to the client. Client is responsible for freeing
  * 		the resulting string.
  */
-tDirStatus		dsGetRecordNameFromEntry	(	tRecordEntryPtr inRecEntryPtr, char **outRecName );
+tDirStatus		dsGetRecordNameFromEntry	(	tRecordEntryPtr inRecEntryPtr, char **outRecName )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @function dsGetRecordTypeFromEntry
  * @param outRecType Used to return the record name to the client. Client is responsible for freeing
  * 		the resulting string.
  */
-tDirStatus		dsGetRecordTypeFromEntry	(	tRecordEntryPtr inRecEntryPtr, char **outRecType );
+tDirStatus		dsGetRecordTypeFromEntry	(	tRecordEntryPtr inRecEntryPtr, char **outRecType )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @function dsParseAuthAuthority
@@ -304,7 +335,7 @@ tDirStatus		dsGetRecordTypeFromEntry	(	tRecordEntryPtr inRecEntryPtr, char **out
  * and can be cleaned up using free().
  */
 tDirStatus		dsParseAuthAuthority		(   const char *inAuthAuthority, char **outVersion, char **outAuthTag, char **outAuthData ) 
-AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_6;
 
 /*!
  * @function dsCopyDirStatusName
@@ -313,13 +344,13 @@ AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
  * and can be cleaned up using free().
  */
 char*			dsCopyDirStatusName			(   SInt32 inDirStatus ) 
-AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_6;
 
 /*!
  * @function	dsFillAuthBuffer
  * @abstract	Fills a buffer with a list of items.
  * @discussion	Use this function as a convenient way to compose the buffer
-				for calls to dsDoDirNodeAuth().
+ *				for calls to dsDoDirNodeAuth().
  * @param		inOutAuthBuffer pass in a preallocated buffer to be filled.
  * @param		inCount the number of length/data pairs on the stack
  * @param		inLen the length of one buffer item
@@ -329,13 +360,13 @@ tDirStatus	dsFillAuthBuffer			(	tDataBufferPtr inOutAuthBuffer,
 												UInt32			inCount,
 												UInt32			inLen,
 												const void *inData, ... )
-AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_6;
 
 /*!
  * @function dsAppendAuthBuffer
  * @abstract	Appends a list of items to an existing buffer.
  * @discussion	Use this function as a convenient way to compose the buffer
-				for calls to dsDoDirNodeAuth().
+ *				for calls to dsDoDirNodeAuth().
  * @param		inOutAuthBuffer pass in a preallocated buffer.
  * @param		inCount the number of length/data pairs on the stack
  * @param		inLen the length of one buffer item
@@ -345,7 +376,7 @@ tDirStatus		dsAppendAuthBuffer				(	tDataBufferPtr inOutAuthBuffer,
 												UInt32			inCount,
 												UInt32			inLen,
 													const void *inData, ... )
-AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_6;
 
 /*!
  * @function dsAppendAuthBufferWithAuthorityAttribute
@@ -371,7 +402,7 @@ tDirStatus	dsAppendAuthBufferWithAuthorityAttribute
 													tAttributeValueListRef inValueRef,
 													const char *inUserName,
 													tDataBufferPtr inOutAuthBuffer )
-AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_6;
 
 /*!
  * @function dsAppendAuthBufferWithAuthorityStrings
@@ -391,7 +422,7 @@ tDirStatus dsAppendAuthBufferWithAuthorityStrings
 												(	const char *inUserName,
 													const char *inAuthAuthority[],
 													tDataBufferPtr inOutAuthBuffer )
-AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_6;
 
 /*!
  * @function dsServiceInformationAllocate
@@ -403,7 +434,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
  *				needs to be large enough to handle the context information and
  *				the data returned by the authentication method.
  * @param		inServiceInfo A dictionary that contains context information
-				from a service
+ *				from a service
  * @param		inBufferSize The desired size of the buffer. It is expanded if
  *				necessary to fit the context information. The buffer must be large
  *				enough to hold the data returned by the authentication method used.
@@ -415,7 +446,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 tDirStatus dsServiceInformationAllocate			(	CFDictionaryRef inServiceInfo,
 													UInt32 inBufferSize,
 													tDataBufferPtr *outPackedServiceInfo )
-AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_6;
 
 #ifdef __cplusplus
 }

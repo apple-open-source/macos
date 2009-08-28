@@ -1,10 +1,10 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*          Copyright (c) 1982-2007 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
-*                      by AT&T Knowledge Ventures                      *
+*                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
 *            http://www.opensource.org/licenses/cpl1.0.txt             *
@@ -43,6 +43,8 @@
 #   define WIFCONTINUED(wstat)	(0)
 #endif
 
+#define	NJOB_SAVELIST	4
+
 /*
  * temporary hack to get W* macros to work
  */
@@ -59,13 +61,35 @@ struct jobsave
 	unsigned short	exitval;
 };
 
+static struct jobsave *job_savelist;
+static int njob_savelist;
+
+static void init_savelist(void)
+{
+	register struct jobsave *jp;
+	while(njob_savelist < NJOB_SAVELIST)
+	{
+		jp = newof(0,struct jobsave,1,0);
+		jp->next = job_savelist;
+		job_savelist = jp;
+		njob_savelist++;
+	}
+}
+
 /*
  * return next on link list of jobsave free list
  */
 static struct jobsave *jobsave_create(pid_t pid)
 {
-	struct jobsave *jp;
-	if(jp = newof(0,struct jobsave,1,0))
+	register struct jobsave *jp = job_savelist;
+	if(jp)
+	{
+		njob_savelist--;
+		job_savelist = jp->next;
+	}
+	else
+		jp = newof(0,struct jobsave,1,0);
+	if(jp)
 		jp->pid = pid;
 	return(jp);
 }
@@ -74,6 +98,7 @@ struct back_save
 {
 	int		count;
 	struct jobsave	*list;
+	struct back_save*free;
 };
 
 #define BYTE(n)		(((n)+CHAR_BIT-1)/CHAR_BIT)
@@ -182,14 +207,37 @@ int job_reap(register int sig)
 	register int flags;
 	struct process dummy;
 	struct jobsave *jp;
+	struct back_save *bp;
 	int nochild=0, oerrno, wstat;
 	Waitevent_f waitevent = sh.waitevent;
 	static int wcontinued = WCONTINUED;
+	if(vmbusy()) { write(2,"vmbusy\n",7); abort(); }
 #ifdef DEBUG
 	if(sfprintf(sfstderr,"ksh: job line %4d: reap pid=%d critical=%d signal=%d\n",__LINE__,getpid(),job.in_critical,sig) <=0)
 		write(2,"waitsafe\n",9);
 	sfsync(sfstderr);
 #endif /* DEBUG */
+	if(bp=bck.free)
+	{
+		struct jobsave *jpnext;
+		struct back_save *bpfree;
+
+		/*
+		 * dispose old job_subrestore() lists
+		 */
+
+		bck.free = 0;
+		do
+		{
+			for(jp=bp->list; jp; jp=jpnext)
+			{
+				jpnext = jp->next;
+				free(jp);
+			}
+			bpfree = bp->free;
+			free(bp);
+		} while(bp=bpfree);
+	}
 	job.savesig = 0;
 	if(sig)
 		flags = WNOHANG|WUNTRACED|wcontinued;
@@ -350,7 +398,7 @@ int job_reap(register int sig)
  */
 static void job_waitsafe(int sig)
 {
-	if(job.in_critical)
+	if(job.in_critical || vmbusy())
 	{
 		job.savesig = sig;
 		job.waitsafe++;
@@ -371,6 +419,8 @@ void job_init(int lflag)
 #   if defined(SIGCLD) && (SIGCLD!=SIGCHLD)
 	signal(SIGCLD,job_waitsafe);
 #   endif
+	if(njob_savelist < NJOB_SAVELIST)
+		init_savelist();
 	if(!sh_isoption(SH_INTERACTIVE))
 		return;
 	/* use new line discipline when available */
@@ -996,6 +1046,8 @@ void	job_clear(void)
 		free((void*)jp);
 	}
 	bck.list = 0;
+	if(njob_savelist < NJOB_SAVELIST)
+		init_savelist();
 	job.pwlist = NIL(struct process*);
 	job.numpost=0;
 	job.waitall = 0;
@@ -1018,6 +1070,8 @@ int job_post(pid_t pid, pid_t join)
 	register struct process *pw;
 	register History_t *hp = sh.hist_ptr;
 	sh.jobenv = sh.curenv;
+	if(njob_savelist < NJOB_SAVELIST)
+		init_savelist();
 	if(job.toclear)
 	{
 		job_clear();
@@ -1276,7 +1330,13 @@ void	job_wait(register pid_t pid)
 							px->p_flag &= ~P_EXITSAVE;
 					}
 				}
-				if(!(px=job_unpost(pw,1)) || !job.waitall) 
+				if(!job.waitall)
+				{
+					if(!sh_isoption(SH_PIPEFAIL))
+						job_unpost(pw,1);
+					break;
+				}
+				else if(!(px=job_unpost(pw,1)))
 					break;
 				pw = px;
 				continue;
@@ -1315,6 +1375,8 @@ void	job_wait(register pid_t pid)
 	else
 		tty_set(-1, 0, NIL(struct termios*));
 done:
+	if(!job.waitall && sh_isoption(SH_PIPEFAIL))
+		return;
 	if(!sh.intrap)
 	{
 		job_lock();
@@ -1596,7 +1658,14 @@ static int job_chksave(register pid_t pid)
 		else
 			bck.list = jp->next;
 		bck.count--;
-		free((void*)jp);
+		if(njob_savelist < NJOB_SAVELIST)
+		{
+			njob_savelist++;
+			jp->next = job_savelist;
+			job_savelist = jp;
+		}
+		else
+			free((void*)jp);
 	}
 	return(r);
 }
@@ -1614,7 +1683,7 @@ void *job_subsave(void)
 
 void job_subrestore(void* ptr)
 {
-	register struct jobsave *jp,*jpnext;
+	register struct jobsave *jp;
 	register struct back_save *bp = (struct back_save*)ptr;
 	register struct process *pw, *px, *pwnext;
 	job_lock();
@@ -1627,12 +1696,16 @@ void job_subrestore(void* ptr)
 			px->p_flag |= P_DONE;
 		job_unpost(pw,0);
 	}
-	for(jp=bck.list,bck= *bp; jp; jp=jpnext)
-	{
-		jpnext = jp->next;
-		free((void*)jp);
-	}
-	free(ptr);
+
+	/*
+	 * queue up old lists for disposal by job_reap()
+	 */
+
+	jp = bck.list;
+	bp->free = bck.free;
+	bck = *bp;
+	bck.free = bp;
+	bp->list = jp;
 	job_unlock();
 }
 

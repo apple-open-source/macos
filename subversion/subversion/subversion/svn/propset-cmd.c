@@ -2,7 +2,7 @@
  * propset-cmd.c -- Set property values on files/dirs
  *
  * ====================================================================
- * Copyright (c) 2000-2004 CollabNet.  All rights reserved.
+ * Copyright (c) 2000-2007 CollabNet.  All rights reserved.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution.  The terms
@@ -57,8 +57,12 @@ svn_cl__propset(apr_getopt_t *os,
      version of the name, too. */
   SVN_ERR(svn_opt_parse_num_args(&args, os,
                                  opt_state->filedata ? 1 : 2, pool));
-  pname = ((const char **) (args->elts))[0];
+  pname = APR_ARRAY_IDX(args, 0, const char *);
   SVN_ERR(svn_utf_cstring_to_utf8(&pname_utf8, pname, pool));
+  if (! svn_prop_name_is_valid(pname_utf8))
+    return svn_error_createf(SVN_ERR_CLIENT_PROPERTY_NAME, NULL,
+                             _("'%s' is not a valid Subversion property name"),
+                             pname_utf8);
 
   /* Get the PROPVAL from either an external file, or from the command
      line. */
@@ -69,48 +73,49 @@ svn_cl__propset(apr_getopt_t *os,
     }
   else
     {
-      propval = svn_string_create(((const char **) (args->elts))[1], pool);
+      propval = svn_string_create(APR_ARRAY_IDX(args, 1, const char *), pool);
       propval_came_from_cmdline = TRUE;
     }
-  
+
   /* We only want special Subversion property values to be in UTF-8
      and LF line endings.  All other propvals are taken literally. */
   if (svn_prop_needs_translation(pname_utf8))
     SVN_ERR(svn_subst_translate_string(&propval, propval,
                                        opt_state->encoding, pool));
-  else 
+  else
     if (opt_state->encoding)
-      return svn_error_create 
+      return svn_error_create
         (SVN_ERR_UNSUPPORTED_FEATURE, NULL,
-         _("Bad encoding option: prop value not stored as UTF8"));
-  
+         _("--encoding option applies only to textual"
+           " Subversion-controlled properties"));
+
   /* Suck up all the remaining arguments into a targets array */
-  SVN_ERR(svn_opt_args_to_target_array2(&targets, os, 
-                                        opt_state->targets, pool));
+
+  SVN_ERR(svn_cl__args_to_target_array_print_reserved(&targets, os,
+                                                      opt_state->targets,
+                                                      ctx, pool));
+
+  if (! opt_state->quiet)
+    svn_cl__get_notifier(&ctx->notify_func2, &ctx->notify_baton2, FALSE,
+                         FALSE, FALSE, pool);
+
+  /* Implicit "." is okay for revision properties; it just helps
+     us find the right repository. */
+  if (opt_state->revprop)
+    svn_opt_push_implicit_dot_target(targets, pool);
 
   if (opt_state->revprop)  /* operate on a revprop */
     {
       svn_revnum_t rev;
       const char *URL;
 
-      /* Implicit "." is okay for revision properties; it just helps
-         us find the right repository. */
-      svn_opt_push_implicit_dot_target(targets, pool);
-
       SVN_ERR(svn_cl__revprop_prepare(&opt_state->start_revision, targets,
                                       &URL, pool));
 
       /* Let libsvn_client do the real work. */
-      SVN_ERR(svn_client_revprop_set(pname_utf8, propval,
-                                     URL, &(opt_state->start_revision),
-                                     &rev, opt_state->force, ctx, pool));
-      if (! opt_state->quiet) 
-        {
-          SVN_ERR
-            (svn_cmdline_printf
-             (pool, _("property '%s' set on repository revision %ld\n"),
-              pname_utf8, rev));
-        }      
+      SVN_ERR(svn_client_revprop_set2(pname_utf8, propval, NULL,
+                                      URL, &(opt_state->start_revision),
+                                      &rev, opt_state->force, ctx, pool));
     }
   else if (opt_state->start_revision.kind != svn_opt_revision_unspecified)
     {
@@ -123,9 +128,12 @@ svn_cl__propset(apr_getopt_t *os,
     {
       apr_pool_t *subpool = svn_pool_create(pool);
 
+      if (opt_state->depth == svn_depth_unknown)
+        opt_state->depth = svn_depth_empty;
+
       /* The customary implicit dot rule has been prone to user error
        * here.  People would do intuitive things like
-       * 
+       *
        *    $ svn propset svn:executable script
        *
        * and then be surprised to get an error like:
@@ -135,7 +143,7 @@ svn_cl__propset(apr_getopt_t *os,
        *
        * So we don't do the implicit dot thing anymore.  A * target
        * must always be explicitly provided when setting a versioned
-       * property.  See 
+       * property.  See
        *
        *    http://subversion.tigris.org/issues/show_bug.cgi?id=924
        *
@@ -161,30 +169,23 @@ svn_cl__propset(apr_getopt_t *os,
 
       for (i = 0; i < targets->nelts; i++)
         {
-          const char *target = ((const char **) (targets->elts))[i];
-          svn_boolean_t success;
+          const char *target = APR_ARRAY_IDX(targets, i, const char *);
+          svn_commit_info_t *commit_info;
 
           svn_pool_clear(subpool);
           SVN_ERR(svn_cl__check_cancel(ctx->cancel_baton));
-          SVN_ERR(svn_cl__try(svn_client_propset2(pname_utf8,
-                                                  propval, target,
-                                                  opt_state->recursive,
-                                                  opt_state->force,
-                                                  ctx, subpool),
-                              &success, opt_state->quiet,
+          SVN_ERR(svn_cl__try(svn_client_propset3
+                              (&commit_info, pname_utf8, propval, target,
+                               opt_state->depth, opt_state->force,
+                               SVN_INVALID_REVNUM, opt_state->changelists,
+                               NULL, ctx, subpool),
+                              NULL, opt_state->quiet,
                               SVN_ERR_UNVERSIONED_RESOURCE,
                               SVN_ERR_ENTRY_NOT_FOUND,
                               SVN_NO_ERROR));
 
-          if (success && (! opt_state->quiet))
-            {
-              SVN_ERR
-                (svn_cmdline_printf
-                 (pool, opt_state->recursive
-                  ? _("property '%s' set (recursively) on '%s'\n")
-                  : _("property '%s' set on '%s'\n"),
-                  pname, svn_path_local_style(target, pool)));
-            }
+          if (! opt_state->quiet)
+            svn_cl__check_boolean_prop_val(pname_utf8, propval->data, subpool);
         }
       svn_pool_destroy(subpool);
     }

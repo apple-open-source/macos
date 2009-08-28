@@ -29,7 +29,7 @@ OSDefineMetaClassAndStructors(IOFWSyncer, OSObject)
 
 IOFWSyncer * IOFWSyncer::create(bool twoRetains)
 {
-    IOFWSyncer * me = new IOFWSyncer;
+    IOFWSyncer * me = OSTypeAlloc( IOFWSyncer );
 
     if (me && !me->init(twoRetains)) {
         me->release();

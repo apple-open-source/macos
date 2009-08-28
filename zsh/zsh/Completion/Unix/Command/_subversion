@@ -30,7 +30,7 @@ _svn () {
 
         usage=${${(M)${(f)"$(LC_ALL=C _call_program options svn help $cmd)"}:#usage:*}#usage:*$cmd] }
         args=(
-          ${=${${${(M)${(f)"$(LC_ALL=C _call_program options svn help $cmd)"##*Valid options:}:#* :*}%% #:*}/ arg/:arg:}/(#b)-([[:alpha:]]) \[--([a-z-]##)\](:arg:)#/(--$match[2])-$match[1]$match[3] (-$match[1])--$match[2]$match[3]}
+          ${=${${${(M)${(f)"$(LC_ALL=C _call_program options svn help $cmd)"#(*Valid options:|(#e))}:#* :*}%% #:*}/ (arg|ARG)/:arg:}/(#b)-([[:alpha:]]) \[--([a-z-]##)\](:arg:)#/(--$match[2])-$match[1]$match[3] (-$match[1])--$match[2]$match[3]}
         )
 
         case $cmd in;
@@ -41,7 +41,7 @@ _svn () {
           ;;
           (commit)
             args=(
-	      ${args/(#b)(*--file*):arg:/$match[1]:file:_files}
+	      ${args/(#b)(*--file*):ARG:/$match[1]:file:_files}
               '*:file:_files -g "*(e:_svn_status:)"'
             )
           ;;
@@ -72,10 +72,16 @@ _svn () {
 	      '*:file:_files -g "*(e:_svn_controlled:)"'
             )
           ;;
+	  (propget|propedit)
+	    args+=(
+		'1:property name:_svn_props'
+		'2:target: _alternative "files:file:_files" "urls:URL:_svn_urls"'
+	    )
+	  ;;
 	  (propset)
 	    args=(
 	    ':propname:(svn:ignore svn:keywords svn:executable svn:eol-style svn:mime-type svn:externals svn:needs-lock)'
-	    ${args/(#b)(*--file*):arg:/$match[1]:file:_files}
+	    ${args/(#b)(*--file*):ARG:/$match[1]:file:_files}
 	    '*:path or url: _alternative "files:file:_files" "urls:URL:_svn_urls"'
 	    )
 	  ;;
@@ -142,7 +148,7 @@ _svnadmin () {
 
         usage=${${(M)${(f)"$(LC_ALL=C _call_program options svnadmin help $cmd)"}:#$cmd: usage:*}#$cmd: usage: svnadmin $cmd }
         args=(
-          ${=${${${(M)${(f)"$(LC_ALL=C _call_program options svnadmin help $cmd)"##*Valid options:}:#*:*}%% #:*}/ arg/:arg:}/(#b)-([[:alpha:]]) \[--([a-z-]##)\](:arg:)#/(--$match[2])-$match[1]$match[3] (-$match[1])--$match[2]$match[3]}
+          ${=${${${(M)${(f)"$(LC_ALL=C _call_program options svnadmin help $cmd)"#(*Valid options:|(#e))}:#* :*}%% #:*}/ (arg|ARG)/:arg:}/(#b)-([[:alpha:]]) \[--([a-z-]##)\](:arg:)#/(--$match[2])-$match[1]$match[3] (-$match[1])--$match[2]$match[3]}
         )
         if [[ $_svnadmin_subcmd_usage == *REPOS_PATH* ]]; then
           args+=( ":path:_files -/" )
@@ -232,6 +238,14 @@ _svn_commands() {
 (( $+functions[_svnadmin_command] )) ||
 _svnadmin_commands() {
   compadd "$@" -k _svnadmin_cmds || compadd "$@" ${(s.:.)_svnadmin_cmds}
+}
+
+(( $+functions[_svn_props] )) ||
+_svn_props() {
+  local properties
+
+  properties=( ${${(M)${(f)"$(svn proplist 2>/dev/null)"}:#  [^ ]*}#  } )
+  compadd "$@" -a properties && return 0
 }
 
 _subversion () {

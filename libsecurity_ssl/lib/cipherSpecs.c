@@ -41,11 +41,15 @@
 #include <string.h>
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 
-#define ENABLE_3DES		1		/* normally enabled */
-#define ENABLE_RC4		1		/* normally enabled */
-#define ENABLE_DES		1		/* normally enabled */
-#define ENABLE_RC2		1		/* normally enabled */
-#define ENABLE_AES		1		/* normally enabled, our first preference */
+#define ENABLE_3DES			1		/* normally enabled */
+#define ENABLE_RC4			1		/* normally enabled */
+#define ENABLE_DES			1		/* normally enabled */
+#define ENABLE_RC2			1		/* normally enabled */
+#define ENABLE_AES			1		/* normally enabled, our first preference */
+#define ENABLE_ECDHE		1
+#define ENABLE_ECDHE_RSA	1
+#define ENABLE_ECDH			1
+#define ENABLE_ECDH_RSA		1
 
 #define ENABLE_RSA_DES_SHA_NONEXPORT		ENABLE_DES	
 #define ENABLE_RSA_DES_MD5_NONEXPORT		ENABLE_DES
@@ -248,6 +252,132 @@ const SSLCipherSpec SSL_NULL_WITH_NULL_NULL_CipherSpec =
 static const SSLCipherSpec KnownCipherSpecs[] =
 {
 	/*** domestic only ***/
+	#if ENABLE_ECDHE
+	    {   
+	    	TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA, 
+	    	NotExportable, 
+	    	SSL_ECDHE_ECDSA, 
+	    	&HashHmacSHA1, 
+	    	&SSLCipherAES_256 
+	    },
+	    {   
+	    	TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA, 
+	    	NotExportable, 
+	    	SSL_ECDHE_ECDSA, 
+	    	&HashHmacSHA1, 
+	    	&SSLCipherAES_128 
+	    },
+	    {   
+	    	TLS_ECDHE_ECDSA_WITH_RC4_128_SHA, 
+	    	NotExportable, 
+	    	SSL_ECDHE_ECDSA, 
+	    	&HashHmacSHA1, 
+	    	&SSLCipherRC4_128 
+	    },
+	    {   
+	    	TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA, 
+	    	NotExportable, 
+	    	SSL_ECDHE_ECDSA, 
+	    	&HashHmacSHA1, 
+	    	&SSLCipher3DES_CBC 
+	    },
+	#endif	/* ENABLE_ECDHE */
+
+	#if ENABLE_ECDHE_RSA
+	    {   
+	    	TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA, 
+	    	NotExportable, 
+	    	SSL_ECDHE_RSA, 
+	    	&HashHmacSHA1, 
+	    	&SSLCipherAES_128 
+	    },
+	    {   
+	    	TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA, 
+	    	NotExportable, 
+	    	SSL_ECDHE_RSA, 
+	    	&HashHmacSHA1, 
+	    	&SSLCipherAES_256 
+	    },
+	    {   
+	    	TLS_ECDHE_RSA_WITH_RC4_128_SHA, 
+	    	NotExportable, 
+	    	SSL_ECDHE_RSA, 
+	    	&HashHmacSHA1, 
+	    	&SSLCipherRC4_128 
+	    },
+	    {   
+	    	TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA, 
+	    	NotExportable, 
+	    	SSL_ECDHE_RSA, 
+	    	&HashHmacSHA1, 
+	    	&SSLCipher3DES_CBC 
+	    },
+
+	#endif	/* ENABLE_ECDHE_RSA */
+	
+	#if ENABLE_ECDH
+	    {   
+	    	TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA, 
+	    	NotExportable, 
+	    	SSL_ECDH_ECDSA, 
+	    	&HashHmacSHA1, 
+	    	&SSLCipherAES_128 
+	    },
+	    {   
+	    	TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA, 
+	    	NotExportable, 
+	    	SSL_ECDH_ECDSA, 
+	    	&HashHmacSHA1, 
+	    	&SSLCipherAES_256 
+	    },
+	    {   
+	    	TLS_ECDH_ECDSA_WITH_RC4_128_SHA, 
+	    	NotExportable, 
+	    	SSL_ECDH_ECDSA, 
+	    	&HashHmacSHA1, 
+	    	&SSLCipherRC4_128 
+	    },
+	    {   
+	    	TLS_ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA, 
+	    	NotExportable, 
+	    	SSL_ECDH_ECDSA, 
+	    	&HashHmacSHA1, 
+	    	&SSLCipher3DES_CBC 
+	    },
+	#endif	/* ENABLE_ECDH */
+	
+	#if ENABLE_ECDH_RSA
+	    {   
+	    	TLS_ECDH_RSA_WITH_AES_128_CBC_SHA, 
+	    	NotExportable, 
+	    	SSL_ECDH_RSA, 
+	    	&HashHmacSHA1, 
+	    	&SSLCipherAES_128 
+	    },
+	    {   
+	    	TLS_ECDH_RSA_WITH_AES_256_CBC_SHA, 
+	    	NotExportable, 
+	    	SSL_ECDH_RSA, 
+	    	&HashHmacSHA1, 
+	    	&SSLCipherAES_256 
+	    },
+	    {   
+	    	TLS_ECDH_RSA_WITH_RC4_128_SHA, 
+	    	NotExportable, 
+	    	SSL_ECDH_RSA, 
+	    	&HashHmacSHA1, 
+	    	&SSLCipherRC4_128 
+	    },
+	    {   
+	    	TLS_ECDH_RSA_WITH_3DES_EDE_CBC_SHA, 
+	    	NotExportable, 
+	    	SSL_ECDH_RSA, 
+	    	&HashHmacSHA1, 
+	    	&SSLCipher3DES_CBC 
+	    },
+
+	#endif	/* ENABLE_ECDH_RSA */
+	
 	#if	ENABLE_AES
 	    {   
 	    	TLS_RSA_WITH_AES_128_CBC_SHA, 
@@ -504,8 +634,11 @@ static const unsigned CipherSpecCount = sizeof(KnownCipherSpecs) / sizeof(SSLCip
  * cipherSpecs are *not* SSLv2 only, storing result in 
  * ctx->numValidNonSSLv2Specs. ClientHello routines need this to set
  * up outgoing cipherSpecs arrays correctly.
+ *
+ * Also determines if any ECDSA/ECDH ciphers are enabled; we need to know
+ * that when creating a hello message. 
  */
-static void sslSetNumNonSSLv2Specs(SSLContext *ctx)
+static void sslAnalyzeCipherSpecs(SSLContext *ctx)
 {
 	unsigned 		dex;
 	SSLCipherSpec	*cipherSpec;
@@ -515,6 +648,17 @@ static void sslSetNumNonSSLv2Specs(SSLContext *ctx)
 	for(dex=0; dex<ctx->numValidCipherSpecs; dex++, cipherSpec++) {
 		if(!CIPHER_SUITE_IS_SSLv2(cipherSpec->cipherSpec)) {
 			ctx->numValidNonSSLv2Specs++;
+		}
+		switch(cipherSpec->keyExchangeMethod) {
+			case SSL_ECDH_ECDSA:
+			case SSL_ECDHE_ECDSA:
+			case SSL_ECDH_RSA:
+			case SSL_ECDHE_RSA:
+			case SSL_ECDH_anon:
+				ctx->ecdsaEnable = true;
+				break;
+			default:
+				break;
 		}
 	}
 }
@@ -539,11 +683,48 @@ OSStatus sslBuildCipherSpecArray(SSLContext *ctx)
 		ctx->numValidCipherSpecs = 0;
 		return memFullErr;
 	}
-	if(!ctx->anonCipherEnable) {
-		/* trim out the anonymous ciphers */
-		SSLCipherSpec *dst = ctx->validCipherSpecs;
-		const SSLCipherSpec *src = KnownCipherSpecs;
-		for(dex=0; dex<CipherSpecCount; dex++) {
+	
+	/* 
+	 * Trim out inappropriate ciphers:
+	 *  -- trim anonymous ciphers if !ctx->anonCipherEnable
+	 *  -- trim ECDSA ciphers for server side if appropriate
+	 *  -- trim ECDSA ciphers if TLSv1 disable or SSLv2 enabled (since
+	 *     we MUST do the Client Hello extensions to make these ciphers
+	 *     work reliably)
+	 */
+	SSLCipherSpec *dst = ctx->validCipherSpecs;
+	const SSLCipherSpec *src = KnownCipherSpecs;
+	
+	bool trimECDSA = false;
+	if((ctx->protocolSide == SSL_ServerSide) && !SSL_ECDSA_SERVER) {
+		trimECDSA = true;
+	}
+	if(ctx->versionSsl2Enable || !ctx->versionTls1Enable) {
+		trimECDSA = true;
+	}
+	
+	for(dex=0; dex<CipherSpecCount; dex++) {
+		/* First skip ECDSA ciphers as appropriate */
+		switch(src->keyExchangeMethod) {
+			case SSL_ECDH_ECDSA:
+			case SSL_ECDHE_ECDSA:
+			case SSL_ECDH_RSA:
+			case SSL_ECDHE_RSA:
+			case SSL_ECDH_anon:
+				if(trimECDSA) {
+					/* Skip this one */
+					ctx->numValidCipherSpecs--;
+					src++;
+					continue;
+				}
+				else {
+					break;
+				}
+			default:
+				break;
+		}
+		if(!ctx->anonCipherEnable) {
+			/* trim out the anonymous (and null-cipher) ciphers */
 			if(src->cipher == &SSLCipherNull) {
 				/* skip this one */
 				ctx->numValidCipherSpecs--;
@@ -553,20 +734,20 @@ OSStatus sslBuildCipherSpecArray(SSLContext *ctx)
 			switch(src->keyExchangeMethod) {
 				case SSL_DH_anon:
 				case SSL_DH_anon_EXPORT:
+				case SSL_ECDH_anon:
 					/* skip this one */
 					ctx->numValidCipherSpecs--;
 					src++;
-					break;
+					continue;
 				default:
-					*dst++ = *src++;
 					break;
 			}
 		}
+		
+		/* This one is good to go */
+		*dst++ = *src++;
 	}
-	else {
-		memmove(ctx->validCipherSpecs, KnownCipherSpecs, size);
-	}
-	sslSetNumNonSSLv2Specs(ctx);
+	sslAnalyzeCipherSpecs(ctx);
 	return noErr;
 }
 
@@ -681,7 +862,7 @@ SSLSetEnabledCiphers		(SSLContextRef			ctx,
 	
 	/* success */
 	ctx->numValidCipherSpecs = numCiphers;
-	sslSetNumNonSSLv2Specs(ctx);
+	sslAnalyzeCipherSpecs(ctx);
 	return noErr;
 }
 							 

@@ -30,16 +30,20 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD: src/usr.bin/calendar/calendar.h,v 1.9 2002/06/13 21:20:56 grog Exp $
+ * $FreeBSD: src/usr.bin/calendar/calendar.h,v 1.12 2007/06/09 05:54:13 grog Exp $
  */
 
+#include <sys/types.h>
+#include <sys/uio.h>
 
 extern struct passwd *pw;
 extern int doall;
 extern struct iovec header[];
 extern struct tm *tp;
 extern const char *calendarFile;
-extern char *optarg;
+extern int *cumdays;
+extern int yrdays;
+extern struct fixs neaster, npaskha;
 
 void	 cal(void);
 void	 closecal(FILE *);
@@ -52,11 +56,7 @@ int      getpaskha(char *, int);
 int      easter(int);
 int	 isnow(char *, int *, int *, int *);
 FILE	*opencal(void);
-#ifndef __APPLE__
 void	 settime(time_t);
-#else
-void     settime(time_t, short, short);
-#endif
 time_t   Mktime(char *);
 void	 usage(void);
 void     setnnames(void);
@@ -69,7 +69,7 @@ void     setnnames(void);
 #define	F_ISDAYVAR	0x04 /* variables day of week, like SundayLast */
 #define	F_EASTER	0x08 /* Easter or easter depending days */
 
-extern int f_dayAfter; /* days after current date */
+extern int f_dayAfter;	/* days after current date */
 extern int f_dayBefore; /* days bevore current date */
 extern int Friday;	/* day before weekend */
 
@@ -78,3 +78,16 @@ struct fixs {
 	int len;
 };
 
+struct event *event_add(struct event *events, int month, int day, char *date,
+                        int var, char *txt);
+void event_continue(struct event *events, char *txt);
+void event_print_all(FILE *fp, struct event *events);
+/* Stored calendar event */
+struct event {
+	int month;
+	int day;
+	int var;
+	char *date;
+	char *text;
+	struct event *next;
+};

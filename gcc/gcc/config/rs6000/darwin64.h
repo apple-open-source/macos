@@ -1,4 +1,3 @@
-/* APPLE LOCAL file mainline */
 /* Target definitions for PowerPC running Darwin (Mac OS X).
    Copyright (C) 2006 Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.

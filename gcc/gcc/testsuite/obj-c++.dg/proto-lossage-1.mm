@@ -1,4 +1,3 @@
-/* APPLE LOCAL file mainline */
 /* Test for situations in which protocol conformance information
    may be lost, leading to superfluous warnings.  */
 /* Author: Ziemowit Laski <zlaski@apple.com>.  */

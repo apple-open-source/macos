@@ -1,5 +1,5 @@
 .\"***************************************************************************
-.\" Copyright (c) 1998-2002,2004 Free Software Foundation, Inc.              *
+.\" Copyright (c) 1998-2004,2006 Free Software Foundation, Inc.              *
 .\"                                                                          *
 .\" Permission is hereby granted, free of charge, to any person obtaining a  *
 .\" copy of this software and associated documentation files (the            *
@@ -26,8 +26,8 @@
 .\" authorization.                                                           *
 .\"***************************************************************************
 .\"
-.\" $Id: terminfo.head,v 1.12 2004/09/25 19:07:11 tom Exp $
-.TH TERMINFO 5 "" "" "File Formats"
+.\" $Id: terminfo.head,v 1.16 2007/03/04 00:09:46 tom Exp $
+.TH terminfo 5 "" "" "File Formats"
 .ds n 5
 .ds d @TERMINFO@
 .SH NAME
@@ -45,11 +45,13 @@ and libraries such as
 describes terminals by giving a set of capabilities which they
 have, by specifying how to perform screen operations, and by
 specifying padding requirements and initialization sequences.
+This describes \fBncurses\fR
+version @NCURSES_MAJOR@.@NCURSES_MINOR@ (patch @NCURSES_PATCH@).
 .PP
 Entries in
 .I terminfo
 consist of a sequence of `,' separated fields (embedded commas may be
-escaped with a backslash or notated as \e054).
+escaped with a backslash or notated as \\054).
 White space after the `,' separator is ignored.
 The first entry for each terminal gives the names which are known for the
 terminal, separated by `|' characters.
@@ -60,14 +62,14 @@ All names but the last should be in lower case and contain no blanks;
 the last name may well contain upper case and blanks for readability.
 .PP
 Lines beginning with a `#' in the first column are treated as comments.
-While comment lines are legal at any point, the output of \fIcaptoinfo\fP
-and \fIinfotocap\fP (aliases for \fItic\fP)
+While comment lines are legal at any point, the output of \fB@CAPTOINFO@\fP
+and \fB@INFOTOCAP@\fP (aliases for \fB@TIC@\fP)
 will move comments so they occur only between entries.
 .PP
 Newlines and leading tabs may be used for formatting entries for readability.
 These are removed from parsed entries.
-The \fIinfocmp\ -f\fP option relies on this to format if-then-else expressions:
-the result can be read by \fItic\fP.
+The \fB@INFOCMP@\ -f\fP option relies on this to format if-then-else expressions:
+the result can be read by \fB@TIC@\fP.
 .PP
 Terminal names (except for the last, verbose entry) should
 be chosen using the following conventions.

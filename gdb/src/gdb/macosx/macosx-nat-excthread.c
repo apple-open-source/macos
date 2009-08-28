@@ -25,6 +25,7 @@
 #include "gdbcmd.h"
 #include "event-loop.h"
 #include "inferior.h"
+#include "exceptions.h"
 
 #include "macosx-nat-inferior.h"
 #include "macosx-nat-excthread.h"
@@ -294,7 +295,14 @@ kern_return_t
   static_message->exception_data = exception_data;
   static_message->data_count = data_count;
 
-  return KERN_SUCCESS;
+  /* If the task is not the same, it is for our child process.
+     In that case, return KERN_FAILURE so the exception will 
+     get routed on to the child.  */
+  extern macosx_inferior_status *macosx_status;
+  if (macosx_status->task == task_port)
+    return KERN_SUCCESS;
+  else
+    return KERN_FAILURE;
 }
 
 void
@@ -314,7 +322,11 @@ macosx_exception_thread_init (macosx_exception_thread_status *s)
 
   s->saved_exceptions_stepping = 0;
   s->exception_thread = THREAD_NULL;
+  s->shutting_down = 0;
 }
+
+pthread_mutex_t excthread_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t excthread_cond = PTHREAD_COND_INITIALIZER;
 
 void
 macosx_exception_thread_create (macosx_exception_thread_status *s,
@@ -324,6 +336,7 @@ macosx_exception_thread_create (macosx_exception_thread_status *s,
   int ret;
   kern_return_t kret;
   pthread_mutexattr_t attrib;
+  struct gdb_exception e;
 
   ret = pipe (fd);
   CHECK_FATAL (ret == 0);
@@ -340,6 +353,8 @@ macosx_exception_thread_create (macosx_exception_thread_status *s,
   s->transmit_to_fd = fd[1];
   s->receive_to_fd = fd[0];
   s->task = task;
+
+  s->shutting_down = 0;
 
   kret =
     mach_port_allocate (mach_task_self (), MACH_PORT_RIGHT_RECEIVE,
@@ -367,8 +382,20 @@ macosx_exception_thread_create (macosx_exception_thread_status *s,
   pthread_mutexattr_init (&attrib);
   pthread_mutex_init (&write_mutex, &attrib);
 
-  s->exception_thread =
-    gdb_thread_fork ((gdb_thread_fn_t) &macosx_exception_thread, s);
+  pthread_mutex_lock (&excthread_mutex);
+  TRY_CATCH (e, RETURN_MASK_ERROR)
+    {
+      s->exception_thread =
+	gdb_thread_fork ((gdb_thread_fn_t) &macosx_exception_thread, s);
+    }
+  if (e.reason != NO_ERROR)
+    {
+      pthread_mutex_unlock (&excthread_mutex);
+      throw_exception (e);
+    }
+
+  pthread_cond_wait (&excthread_cond, &excthread_mutex);
+  pthread_mutex_unlock (&excthread_mutex);
 }
 
 void
@@ -376,6 +403,14 @@ macosx_exception_thread_destroy (macosx_exception_thread_status *s)
 {
   if (s->exception_thread != THREAD_NULL)
     {
+
+      /* Let's destroy the exception port here, so that we
+	 will force the exception thread out of any mach_msg we
+	 may be sitting in.  */
+
+      s->shutting_down = 1;
+      mach_port_destroy (mach_task_self (), s->inferior_exception_port);
+      mach_port_destroy (mach_task_self (), s->task);
       /* The exception thread may have hit an error, in which
 	 case it's sitting in read wondering what to do.  Tell
 	 it to exit here.  */
@@ -417,10 +452,15 @@ macosx_exception_thread_destroy (macosx_exception_thread_status *s)
 static void
 macosx_exception_thread (void *arg)
 {
+  int first_time = 1;
   macosx_exception_thread_status *s = (macosx_exception_thread_status *) arg;
   CHECK_FATAL (s != NULL);
-
+  
   int next_msg_ctr;
+
+#ifdef HAVE_PTHREAD_SETNAME_NP
+  pthread_setname_np ("exception thread");
+#endif
 
   for (;;)
     {
@@ -459,12 +499,28 @@ macosx_exception_thread (void *arg)
 	{
 	  pthread_testcancel ();
 	  
+	  if (first_time)
+	    {
+	      first_time = 0;
+	      pthread_mutex_lock (&excthread_mutex);
+	      pthread_cond_signal (&excthread_cond);
+	      pthread_mutex_unlock (&excthread_mutex);
+	    }
+
 	  kret =
 	    mach_msg (&msg_data[next_msg_ctr].msgin.hdr, receive_options, 0,
 		      sizeof (msg_data[next_msg_ctr].msgin.data), 
 		      s->inferior_exception_port, 0,
 		      MACH_PORT_NULL);
 	  
+	  if (s->shutting_down)
+	    {
+	      excthread_debug_re (1, "Shutting down - got out of mach_msg with: : %s (0x%lx)\n",
+		   MACH_ERROR_STRING (kret), (unsigned long) kret);
+	      next_msg_ctr = -1;
+	      break;;
+	    }
+
 	  if (kret == MACH_RCV_INTERRUPTED)
 	    {  
 	      kern_return_t kret;
@@ -497,8 +553,8 @@ macosx_exception_thread (void *arg)
 	  else if (kret != KERN_SUCCESS)
 	    {
 	      excthread_debug_re
-		(0, "error receiving exception message: %s (0x%lx)\n",
-		 MACH_ERROR_STRING (kret), (unsigned long) kret);
+		  (0, "error receiving exception message: %s (0x%lx)\n",
+		   MACH_ERROR_STRING (kret), (unsigned long) kret);
 	      write (s->error_transmit_fd, "e", 1);
 	      next_msg_ctr = -1;
 	      break;
@@ -605,6 +661,11 @@ macosx_exception_thread (void *arg)
 	}
       excthread_debug_re (2, "Resuming task\n");
       task_resume (s->task);
+      if (kret != KERN_SUCCESS)
+	excthread_debug_re (2, "resumed task.\n");
+      else
+	excthread_debug_re (2, "resume task failed\n");
+
     }
 }
 

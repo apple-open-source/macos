@@ -25,6 +25,7 @@
 #include "gdbcmd.h"
 #include "event-loop.h"
 #include "inferior.h"
+#include "exceptions.h"
 
 #include "macosx-nat-sigthread.h"
 #include "macosx-nat-inferior.h"
@@ -68,11 +69,15 @@ macosx_signal_thread_init (macosx_signal_thread_status *s)
   s->signal_thread = THREAD_NULL;
 }
 
+static pthread_cond_t sigthread_cond = PTHREAD_COND_INITIALIZER;
+static pthread_mutex_t sigthread_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 void
 macosx_signal_thread_create (macosx_signal_thread_status *s, int pid)
 {
   int fd[2];
   int ret;
+  struct gdb_exception e;
 
   ret = pipe (fd);
   CHECK_FATAL (ret == 0);
@@ -82,8 +87,21 @@ macosx_signal_thread_create (macosx_signal_thread_status *s, int pid)
 
   s->inferior_pid = pid;
 
-  s->signal_thread =
-    gdb_thread_fork ((gdb_thread_fn_t) &macosx_signal_thread, s);
+  pthread_mutex_lock (&sigthread_mutex);
+  TRY_CATCH (e, RETURN_MASK_ERROR)
+  {
+    s->signal_thread =
+      gdb_thread_fork ((gdb_thread_fn_t) &macosx_signal_thread, s);
+  }
+  if (e.reason != NO_ERROR)
+    {
+      pthread_mutex_unlock (&sigthread_mutex);
+      throw_exception (e);
+    }
+
+  pthread_cond_wait (&sigthread_cond, &sigthread_mutex);
+  pthread_mutex_unlock (&sigthread_mutex);
+
 }
 
 void
@@ -138,12 +156,16 @@ macosx_signal_thread_debug_status (FILE *f, WAITSTATUS status)
 static void
 macosx_signal_thread (void *arg)
 {
+  int first_time = 1;
   macosx_signal_thread_status *s = (macosx_signal_thread_status *) arg;
   CHECK_FATAL (s != NULL);
 
+#ifdef HAVE_PTHREAD_SETNAME_NP
+  pthread_setname_np ("signal thread");
+#endif
+
   for (;;)
     {
-
       macosx_signal_thread_message msg;
       WAITSTATUS status = 0;
       pid_t pid = 0;
@@ -154,6 +176,14 @@ macosx_signal_thread (void *arg)
         ("macosx_signal_thread: waiting for events for pid %d\n",
          s->inferior_pid);
 
+      if (first_time)
+        {
+          first_time = 0;
+          pthread_mutex_lock (&sigthread_mutex);
+          pthread_cond_broadcast (&sigthread_cond);
+          pthread_mutex_unlock (&sigthread_mutex);
+        }
+      
       pid = waitpid (s->inferior_pid, &status, 0);
 
       sigthread_debug_re

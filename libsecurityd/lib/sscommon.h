@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004,2006-2007 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2000-2004,2006-2008 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,6 +33,12 @@
 
 #include <Security/cssm.h>
 
+//
+// some handle types used to be defined here, so don't break anybody still 
+// relying on that
+//
+#include <securityd_client/handletypes.h>
+
 #ifdef __cplusplus
 
 #include <security_utilities/alloc.h>
@@ -60,29 +66,6 @@ using MachPlusPlus::ReceivePort;
 //
 #define SECURITYSERVER_BOOTSTRAP_NAME	"com.apple.SecurityServer"
 #define SECURITYSERVER_BOOTSTRAP_ENV	"SECURITYSERVER"
-
-
-//
-// Handle types.
-// These are all CSSM_HANDLEs behind the curtain, but we try to be
-// explicit about which kind they are.
-// By protocol, each of these are in a different address space - i.e.
-// a KeyHandle and a DbHandle with the same value may or may not refer
-// to the same thing - it's up to the handle provider.
-// GenericHandle is for cases where a generic handle is further elaborated
-// with a "kind code" - currently for ACL manipulations only.
-//
-typedef CSSM_HANDLE DbHandle;			// database handle
-typedef CSSM_HANDLE KeyHandle;			// cryptographic key handle
-typedef CSSM_HANDLE RecordHandle;		// data record identifier handle
-typedef CSSM_HANDLE SearchHandle;		// search (query) handle
-typedef CSSM_HANDLE GenericHandle;		// for polymorphic handle uses
-
-static const DbHandle noDb = 0;
-static const KeyHandle noKey = 0;
-static const RecordHandle noRecord = 0;
-static const SearchHandle noSearch = 0;
-
 
 //
 // Types of ACL bearers

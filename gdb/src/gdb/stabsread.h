@@ -46,6 +46,8 @@ EXTERN struct symbol *global_sym_chain[HASHSIZE];
 extern void common_block_start (char *, struct objfile *);
 extern void common_block_end (struct objfile *);
 
+void cleanup_undefined_fields (void);
+
 /* Kludge for xcoffread.c */
 
 struct pending_stabs

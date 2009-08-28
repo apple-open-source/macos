@@ -1,8 +1,8 @@
 /* schema.c - routines to manage schema definitions */
-/* $OpenLDAP: pkg/ldap/servers/slapd/schema.c,v 1.100.2.5 2006/01/03 22:16:15 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/schema.c,v 1.105.2.4 2008/02/11 23:26:44 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,11 +42,11 @@ schema_info( Entry **entry, const char **text )
 	struct berval	vals[5];
 	struct berval	nvals[5];
 
-	e = (Entry *) SLAP_CALLOC( 1, sizeof(Entry) );
+	e = entry_alloc();
 	if( e == NULL ) {
 		/* Out of memory, do something about it */
 		Debug( LDAP_DEBUG_ANY, 
-			"schema_info: SLAP_CALLOC failed - out of memory.\n", 0, 0, 0 );
+			"schema_info: entry_alloc failed - out of memory.\n", 0, 0, 0 );
 		*text = "out of memory";
 		return LDAP_OTHER;
 	}
@@ -120,11 +120,11 @@ schema_info( Entry **entry, const char **text )
 		char		timebuf[ LDAP_LUTIL_GENTIME_BUFSIZE ];
 
 		/*
-		 * According to RFC 2251:
+		 * According to RFC 4512:
 
-   Servers SHOULD provide the attributes createTimestamp and
-   modifyTimestamp in subschema entries, in order to allow clients to
-   maintain their caches of schema information.
+   Servers SHOULD maintain the 'creatorsName', 'createTimestamp',       
+   'modifiersName', and 'modifyTimestamp' attributes for all entries of 
+   the DIT. 
 
 		 * to be conservative, we declare schema created 
 		 * AND modified at server startup time ...

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,69 +28,122 @@
 #define super IOMediaBSDClient
 OSDefineMetaClassAndStructors(IOCDMediaBSDClient, IOMediaBSDClient)
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+typedef struct
+{
+    uint64_t      offset;
+
+    uint8_t       sectorArea;
+    uint8_t       sectorType;
+
+    uint8_t       reserved0080[6];
+
+    uint32_t      bufferLength;
+    user32_addr_t buffer;
+} dk_cd_read_32_t;
 
 typedef struct
 {
-    uint64_t    offset;
+    uint64_t      offset;
 
-    uint8_t     sectorArea;
-    uint8_t     sectorType;
+    uint8_t       sectorArea;
+    uint8_t       sectorType;
 
-    uint8_t     reserved0080[10];
+    uint8_t       reserved0080[10];
 
-    uint32_t    bufferLength;
-    user_addr_t buffer;
+    uint32_t      bufferLength;
+    user64_addr_t buffer;
 } dk_cd_read_64_t;
 
 typedef struct
 {
-    uint8_t     format;
-    uint8_t     formatAsTime;
+    uint8_t       format;
+    uint8_t       formatAsTime;
 
-    uint8_t     reserved0016[5];
+    uint8_t       reserved0016[5];
 
     union
     {
-        uint8_t session;
-        uint8_t track;
+        uint8_t   session;
+        uint8_t   track;
     } address;
 
-    uint8_t     reserved0064[6];
+    uint8_t       reserved0064[2];
 
-    uint16_t    bufferLength;
-    user_addr_t buffer;
+    uint16_t      bufferLength;
+    user32_addr_t buffer;
+} dk_cd_read_toc_32_t;
+
+typedef struct
+{
+    uint8_t       format;
+    uint8_t       formatAsTime;
+
+    uint8_t       reserved0016[5];
+
+    union
+    {
+        uint8_t   session;
+        uint8_t   track;
+    } address;
+
+    uint8_t       reserved0064[6];
+
+    uint16_t      bufferLength;
+    user64_addr_t buffer;
 } dk_cd_read_toc_64_t;
 
 typedef struct
 {
-    uint8_t     reserved0000[14];
+    uint8_t       reserved0000[10];
 
-    uint16_t    bufferLength;
-    user_addr_t buffer;
+    uint16_t      bufferLength;
+    user32_addr_t buffer;
+} dk_cd_read_disc_info_32_t;
+
+typedef struct
+{
+    uint8_t       reserved0000[14];
+
+    uint16_t      bufferLength;
+    user64_addr_t buffer;
 } dk_cd_read_disc_info_64_t;
 
 typedef struct
 {
-    uint8_t     reserved0000[4];
+    uint8_t       reserved0000[4];
 
-    uint32_t    address;
-    uint8_t     addressType;
+    uint32_t      address;
+    uint8_t       addressType;
 
-    uint8_t     reserved0072[5];
+    uint8_t       reserved0072[1];
 
-    uint16_t    bufferLength;
-    user_addr_t buffer;
+    uint16_t      bufferLength;
+    user32_addr_t buffer;
+} dk_cd_read_track_info_32_t;
+
+typedef struct
+{
+    uint8_t       reserved0000[4];
+
+    uint32_t      address;
+    uint8_t       addressType;
+
+    uint8_t       reserved0072[5];
+
+    uint16_t      bufferLength;
+    user64_addr_t buffer;
 } dk_cd_read_track_info_64_t;
 
+#define DKIOCCDREAD32          _IOWR('d', 96, dk_cd_read_32_t)
 #define DKIOCCDREAD64          _IOWR('d', 96, dk_cd_read_64_t)
 
+#define DKIOCCDREADTOC32       _IOWR('d', 100, dk_cd_read_toc_32_t)
 #define DKIOCCDREADTOC64       _IOWR('d', 100, dk_cd_read_toc_64_t)
 
+#define DKIOCCDREADDISCINFO32  _IOWR('d', 101, dk_cd_read_disc_info_32_t)
 #define DKIOCCDREADDISCINFO64  _IOWR('d', 101, dk_cd_read_disc_info_64_t)
+#define DKIOCCDREADTRACKINFO32 _IOWR('d', 102, dk_cd_read_track_info_32_t)
 #define DKIOCCDREADTRACKINFO64 _IOWR('d', 102, dk_cd_read_track_info_64_t)
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 static bool DKIOC_IS_RESERVED(caddr_t data, uint32_t reserved)
 {
@@ -106,8 +159,6 @@ static bool DKIOC_IS_RESERVED(caddr_t data, uint32_t reserved)
 
     return false;
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 static IOMemoryDescriptor * DKIOC_PREPARE_BUFFER( user_addr_t address,
                                                   UInt32      length,
@@ -137,8 +188,6 @@ static IOMemoryDescriptor * DKIOC_PREPARE_BUFFER( user_addr_t address,
     return buffer;
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 static void DKIOC_COMPLETE_BUFFER(IOMemoryDescriptor * buffer)
 {
     if ( buffer )
@@ -147,8 +196,6 @@ static void DKIOC_COMPLETE_BUFFER(IOMemoryDescriptor * buffer)
         buffer->release();                               // (release the buffer)
     }
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IOCDMedia * IOCDMediaBSDClient::getProvider() const
 {
@@ -160,8 +207,6 @@ IOCDMedia * IOCDMediaBSDClient::getProvider() const
 
     return (IOCDMedia *) IOService::getProvider();
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 int IOCDMediaBSDClient::ioctl( dev_t   dev,
                                u_long  cmd,
@@ -179,15 +224,17 @@ int IOCDMediaBSDClient::ioctl( dev_t   dev,
 
     switch ( cmd )
     {
-        case DKIOCCDREAD:                              // readCD(dk_cd_read_t *)
+        case DKIOCCDREAD32:                               // (dk_cd_read_32_t *)
         {
-            UInt64         actualByteCount = 0;
-            dk_cd_read_t * request         = (dk_cd_read_t *) data;
+            UInt64            actualByteCount = 0;
+            dk_cd_read_32_t * request         = (dk_cd_read_32_t *) data;
+
+            if ( proc_is64bit(proc) )  { error = ENOTTY;  break; }
 
             if ( DKIOC_IS_RESERVED(data, 0xFC00) )  { error = EINVAL;  break; }
 
             buffer = DKIOC_PREPARE_BUFFER(
-                       /* address   */ CAST_USER_ADDR_T(request->buffer),
+                       /* address   */ request->buffer,
                        /* length    */ request->bufferLength,
                        /* direction */ kIODirectionIn,
                        /* proc      */ proc );
@@ -198,6 +245,9 @@ int IOCDMediaBSDClient::ioctl( dev_t   dev,
                        /* buffer          */                buffer,
                        /* sectorArea      */ (CDSectorArea) request->sectorArea,
                        /* sectorType      */ (CDSectorType) request->sectorType,
+#ifdef __LP64__
+                       /* attributes      */                NULL,
+#endif /* __LP64__ */
                        /* actualByteCount */                &actualByteCount );
 
             status = (status == kIOReturnUnderrun) ? kIOReturnSuccess : status;
@@ -208,7 +258,7 @@ int IOCDMediaBSDClient::ioctl( dev_t   dev,
 
         } break;
 
-        case DKIOCCDREAD64:
+        case DKIOCCDREAD64:                               // (dk_cd_read_64_t *)
         {
             UInt64            actualByteCount = 0;
             dk_cd_read_64_t * request         = (dk_cd_read_64_t *) data;
@@ -229,6 +279,9 @@ int IOCDMediaBSDClient::ioctl( dev_t   dev,
                        /* buffer          */                buffer,
                        /* sectorArea      */ (CDSectorArea) request->sectorArea,
                        /* sectorType      */ (CDSectorType) request->sectorType,
+#ifdef __LP64__
+                       /* attributes      */                NULL,
+#endif /* __LP64__ */
                        /* actualByteCount */                &actualByteCount );
 
             status = (status == kIOReturnUnderrun) ? kIOReturnSuccess : status;
@@ -239,7 +292,7 @@ int IOCDMediaBSDClient::ioctl( dev_t   dev,
 
         } break;
 
-        case DKIOCCDREADISRC:                   // readISRC(dk_cd_read_isrc_t *)
+        case DKIOCCDREADISRC:                           // (dk_cd_read_isrc_t *)
         {
             dk_cd_read_isrc_t * request = (dk_cd_read_isrc_t *) data;
 
@@ -249,7 +302,7 @@ int IOCDMediaBSDClient::ioctl( dev_t   dev,
 
         } break;
 
-        case DKIOCCDREADMCN:                      // readMCN(dk_cd_read_mcn_t *)
+        case DKIOCCDREADMCN:                             // (dk_cd_read_mcn_t *)
         {
             dk_cd_read_mcn_t * request = (dk_cd_read_mcn_t *) data;
 
@@ -259,26 +312,28 @@ int IOCDMediaBSDClient::ioctl( dev_t   dev,
 
         } break;
 
-        case DKIOCCDGETSPEED:                            // getSpeed(uint16_t *)
+        case DKIOCCDGETSPEED:                                    // (uint16_t *)
         {
             status = getProvider()->getSpeed((uint16_t *)data);
 
         } break;
 
-        case DKIOCCDSETSPEED:                            // setSpeed(uint16_t *)
+        case DKIOCCDSETSPEED:                                    // (uint16_t *)
         {
             status = getProvider()->setSpeed(*(uint16_t *)data);
 
         } break;
 
-        case DKIOCCDREADTOC:                     // readTOC(dk_cd_read_toc_t *);
+        case DKIOCCDREADTOC32:                        // (dk_cd_read_toc_32_t *)
         {
-            dk_cd_read_toc_t * request = (dk_cd_read_toc_t *) data;
+            dk_cd_read_toc_32_t * request = (dk_cd_read_toc_32_t *) data;
+
+            if ( proc_is64bit(proc) )  { error = ENOTTY;  break; }
 
             if ( DKIOC_IS_RESERVED(data, 0x37C) )  { error = EINVAL;  break; }
 
             buffer = DKIOC_PREPARE_BUFFER(
-                       /* address   */ CAST_USER_ADDR_T(request->buffer),
+                       /* address   */ request->buffer,
                        /* length    */ request->bufferLength,
                        /* direction */ kIODirectionIn,
                        /* proc      */ proc );
@@ -296,7 +351,7 @@ int IOCDMediaBSDClient::ioctl( dev_t   dev,
 
         } break;
 
-        case DKIOCCDREADTOC64:
+        case DKIOCCDREADTOC64:                        // (dk_cd_read_toc_64_t *)
         {
             dk_cd_read_toc_64_t * request = (dk_cd_read_toc_64_t *) data;
 
@@ -323,16 +378,18 @@ int IOCDMediaBSDClient::ioctl( dev_t   dev,
 
         } break;
 
-        case DKIOCCDREADDISCINFO:      // readDiscInfo(dk_cd_read_disc_info_t *)
+        case DKIOCCDREADDISCINFO32:             // (dk_cd_read_disc_info_32_t *)
         {
-            dk_cd_read_disc_info_t * request;
+            dk_cd_read_disc_info_32_t * request;
 
-            request = (dk_cd_read_disc_info_t *) data;
+            request = (dk_cd_read_disc_info_32_t *) data;
+
+            if ( proc_is64bit(proc) )  { error = ENOTTY;  break; }
 
             if ( DKIOC_IS_RESERVED(data, 0x3FF) )  { error = EINVAL;  break; }
 
             buffer = DKIOC_PREPARE_BUFFER(
-                       /* address   */ CAST_USER_ADDR_T(request->buffer),
+                       /* address   */ request->buffer,
                        /* length    */ request->bufferLength,
                        /* direction */ kIODirectionIn,
                        /* proc      */ proc );
@@ -347,7 +404,7 @@ int IOCDMediaBSDClient::ioctl( dev_t   dev,
 
         } break;
 
-        case DKIOCCDREADDISCINFO64:
+        case DKIOCCDREADDISCINFO64:             // (dk_cd_read_disc_info_64_t *)
         {
             dk_cd_read_disc_info_64_t * request;
 
@@ -373,16 +430,18 @@ int IOCDMediaBSDClient::ioctl( dev_t   dev,
 
         } break;
 
-        case DKIOCCDREADTRACKINFO:   // readTrackInfo(dk_cd_read_track_info_t *)
+        case DKIOCCDREADTRACKINFO32:           // (dk_cd_read_track_info_32_t *)
         {
-            dk_cd_read_track_info_t * request;
+            dk_cd_read_track_info_32_t * request;
 
-            request = (dk_cd_read_track_info_t *) data;
+            request = (dk_cd_read_track_info_32_t *) data;
+
+            if ( proc_is64bit(proc) )  { error = ENOTTY;  break; }
 
             if ( DKIOC_IS_RESERVED(data, 0x20F) )  { error = EINVAL;  break; }
 
             buffer = DKIOC_PREPARE_BUFFER(
-                       /* address   */ CAST_USER_ADDR_T(request->buffer),
+                       /* address   */ request->buffer,
                        /* length    */ request->bufferLength,
                        /* direction */ kIODirectionIn,
                        /* proc      */ proc );
@@ -399,7 +458,7 @@ int IOCDMediaBSDClient::ioctl( dev_t   dev,
 
         } break;
 
-        case DKIOCCDREADTRACKINFO64:
+        case DKIOCCDREADTRACKINFO64:           // (dk_cd_read_track_info_64_t *)
         {
             dk_cd_read_track_info_64_t * request;
 
@@ -441,34 +500,11 @@ int IOCDMediaBSDClient::ioctl( dev_t   dev,
     return error ? error : getProvider()->errnoFromReturn(status);
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOCDMediaBSDClient, 0);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOCDMediaBSDClient, 1);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOCDMediaBSDClient, 2);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOCDMediaBSDClient, 3);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOCDMediaBSDClient, 4);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOCDMediaBSDClient, 5);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOCDMediaBSDClient, 6);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOCDMediaBSDClient, 7);

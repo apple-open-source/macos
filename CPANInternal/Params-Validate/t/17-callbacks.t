@@ -27,7 +27,7 @@ use Test::More tests => 4;
                            bar => { type => SCALAR },
                          } ) };
 
-    ok( ! $@ );
+    is( $@, q{} );
 }
 
 {
@@ -53,5 +53,5 @@ use Test::More tests => 4;
                          { type => SCALAR },
                        ) };
 
-    ok( ! $@ );
+    is( $@, q{} );
 }

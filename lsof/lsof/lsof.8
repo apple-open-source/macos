@@ -1,4 +1,4 @@
-.ds VN 4.78
+.ds VN 4.82
 .TH LSOF 8 Revision-\*(VN
 .if !\n()P .nr )P 1v
 .SH NAME
@@ -6,7 +6,7 @@ lsof \- list open files
 .SH SYNOPSIS
 .B lsof
 [
-.B \-?abChlnNOPRstUvVX
+.B \-?abChlnNOPRtUvVX
 ] [
 .BI -A " A"
 ] [
@@ -38,7 +38,9 @@ lsof \- list open files
 ] [
 .BI \-p " s"
 ] [
-.BI +|\-r " [t]"
+.BI +|\-r " [t[m<fmt>]]"
+] [
+.BI \-s " [p:s]"
 ] [
 .BI \-S " [t]"
 ] [
@@ -58,19 +60,14 @@ lsof \- list open files
 ] [\fInames\fP]
 .SH DESCRIPTION
 .I Lsof
-revision \*(VN lists information about files opened by processes for the
-following UNIX dialects:
+revision \*(VN lists on its standard output file information about files
+opened by processes for the following UNIX dialects:
 .PP
 .nf
-	AIX 5.[12] and 5.3-ML1
-	Apple Darwin 7.x and 8.x for Power Macintosh systems
+	AIX 5.3
 	FreeBSD 4.9 for x86-based systems
-	FreeBSD 7.0 for AMD64-based systems
+	FreeBSD 7.[01] and 8.0 for AMD64-based systems
 	Linux 2.1.72 and above for x86-based systems
-	NetBSD 1.[456], 2.x and 3.x for Alpha, x86, and SPARC-based
-	    systems
-	NEXTSTEP 3.[13] for NEXTSTEP architectures
-	SCO OpenServer Release 5.0.6 for x86-based systems
 	Solaris 9 and 10
 .fi
 .PP
@@ -101,7 +98,7 @@ will run in repeat mode.
 In repeat mode it will produce output, delay, then repeat the output
 operation until stopped with an interrupt or quit signal.
 See the
-.BI +|\-r " [t]"
+.BI +|\-r " [t[m<fmt>]]"
 option description for more information.
 .SH OPTIONS
 In the absence of any options,
@@ -128,16 +125,33 @@ specifying the
 option without an address and the \fB\-u\fPfoo option produces a
 listing of all network files OR files belonging to processes owned
 by user ``foo''.
-Three exceptions are: 1) the `^' (negated) login name or user ID (UID),
-specified with the
+The exceptions are:
+.TP \w'1)\ 'u
+1)
+the `^' (negated) login name or user ID (UID), specified with the
 .B \-u
 option;
-2) the `^' (negated) process ID (PID), specified with the
+.TP \w'1)\ 'u
+2)
+the `^' (negated) process ID (PID), specified with the
 .B \-p
 option;
-and 3) the `^' (negated) process group ID (PGID), specified with the
+.TP \w'1)\ 'u
+3)
+the `^' (negated) process group ID (PGID), specified with the
 .B \-g
+option;
+.TP \w'1)\ 'u
+4)
+the `^' (negated) command, specified with the
+.B \-c
+option;
+.TP \w'1)\ 'u
+5)
+the (`^') negated TCP or UDP protocol state names, specified with the
+.BI \-s " [p:s]"
 option.
+.PP
 Since they represent exclusions, they are applied without ORing or ANDing
 and take effect before any other selection criteria are applied.
 .PP
@@ -181,6 +195,7 @@ However, since values are optional following
 .BR +|\-L ,
 .BR \-o ,
 .BR +|\-r ,
+.BR \-s ,
 .BR \-S ,
 .BR \-T ,
 .B \-x
@@ -266,6 +281,11 @@ Multiple commands may be specified, using multiple
 options.
 They are joined in a single ORed set before participating in
 AND option selection.
+.IP
+If
+.I c
+begins with a `^', then the following characters specify a command
+name whose processes are to be ignored (excluded.)
 .IP
 If
 .I c
@@ -381,14 +401,14 @@ The file descriptors are specified in the comma\-separated set
 \&\- e.g., ``cwd,1,3'', ``^6,^2''.
 (There should be no spaces in the set.)
 .IP
-The list is an exclusion list if all entries of the set begin with '^'.
-It is an inclusion list if no entry begins with '^'.
+The list is an exclusion list if all entries of the set begin with `^'.
+It is an inclusion list if no entry begins with `^'.
 Mixed lists are not permitted.
 .IP
 A file descriptor number range may be in the set as long as
 neither member is empty, both members are numbers, and the ending
 member is larger than the starting one \- e.g., ``0-7'' or ``3-10''.
-Ranges may be specified for exclusion if they have the '^' prefix \-
+Ranges may be specified for exclusion if they have the `^' prefix \-
 e.g., ``^0-7'' excludes all file descriptors 0 through 7.
 .IP
 Multiple file descriptor numbers are joined in a single ORed set before
@@ -623,18 +643,18 @@ as in these examples.
 The listing of information from kernel file structures, requested with the
 .B +f [cfgGn]
 option form, is normally
-inhibited, and is not available for some dialects \- e.g., /proc\-based
-Linux.
+inhibited, and is not available in whole or part for some dialects \- e.g.,
+/proc\-based Linux kernels below 2.6.22.
 When the prefix to
 .B f
 is a plus sign (`+'), these characters request file structure information:
 .IP
 .nf
-	\fBc\fR	file structure use count
-	\fBf\fR	file structure address
-	\fBg\fR	file flag abbreviations
-	\fBG\fR	file flags in hexadecimal
-	\fBn\fR	file structure node address
+	\fBc\fR	file structure use count (not Linux)
+	\fBf\fR	file structure address (not Linux)
+	\fBg\fR	file flag abbreviations (Linux 2.6.22 and up)
+	\fBG\fR	file flags in hexadecimal (Linux 2.6.22 and up)
+	\fBn\fR	file structure node address (not Linux)
 .fi
 .IP
 When the prefix is minus (`\-') the same characters disable the
@@ -777,7 +797,8 @@ where:
 .br
 		applies to all IP versions.
 .br
-	\fIprotocol\fP is a protocol name \- \fBTCP\fP or \fBUDP\fP.
+	\fIprotocol\fP is a protocol name \- \fBTCP\fP, \fBUDP\fP
+.br		or \fBUDPLITE\fP.
 .br
 	\fIhostname\fP is an Internet host name.  Unless a
 .br
@@ -851,7 +872,7 @@ If a
 .I service
 name list is specified, the
 .I protocol
-may also need to be specified if the TCP and UDP port numbers for
+may also need to be specified if the TCP, UDP and UDPLITE port numbers for
 the service name are different.
 Use any case \- lower or upper \- for
 .IR protocol .
@@ -889,7 +910,7 @@ Here are some sample addresses:
 .br
 	tcp@bar:1-smtp \- TCP, ports 1 through \fIsmtp\fP, host bar
 .br
-	:time \- either TCP or UDP time service port
+	:time \- either TCP, UDP or UDPLITE time service port
 .fi
 .TP \w'names'u+4
 .BI \-k " k"
@@ -987,7 +1008,7 @@ options are available.
 .TP \w'names'u+4
 .B +|\-M
 Enables (\fB+\fP) or disables (\fB-\fP) the
-reporting of portmapper registrations for local TCP and UDP ports.
+reporting of portmapper registrations for local TCP, UDP and UDPLITE ports.
 The default reporting mode is set by the
 .I lsof
 builder with the HASPMAPENABLED #define in the dialect's machine.h
@@ -1008,7 +1029,8 @@ enabling it when already enabled is acceptable.
 .IP
 When portmapper registration reporting is enabled,
 .I lsof
-displays the portmapper registration (if any) for local TCP or UDP ports
+displays the portmapper registration (if any) for local TCP, UDP or
+UDPLITE ports
 in square brackets immediately following the port numbers or service
 names \- e.g., ``:1234[name]'' or ``:name[100083]''.
 The registration information may be a name or number, depending
@@ -1025,7 +1047,7 @@ reporting is slowing or blocking
 .IP
 For purposes of portmapper registration reporting
 .I lsof
-considers a TCP or UDP port local if: it is found in the local part
+considers a TCP, UDP or UDPLITE port local if: it is found in the local part
 of its containing kernel structure;
 or if it is located in the foreign part of its containing kernel
 structure and the local and foreign Internet addresses are the same;
@@ -1158,7 +1180,7 @@ Inhibiting the conversion may make
 run a little faster.
 It is also useful when port name lookup is not working properly.
 .TP \w'names'u+4
-.BI +|\-r " [t]"
+.BI +|\-r " [t[m<fmt>]]"
 This option puts
 .I lsof
 in repeat mode.
@@ -1186,9 +1208,26 @@ listed.
 marks the end of each listing:
 if field output is in progress (the
 .BR \-F ,
-option has been specified), the marker is `m'; otherwise the marker
-is ``========''.
+option has been specified), the default marker is `m'; otherwise the
+default marker is ``========''.
 The marker is followed by a NL character.
+.IP
+The optional "m<fmt>" argument specifies a format for the marker line.
+The <fmt> characters following `m' are interpreted as a format
+specification to the
+.IR strftime (3)
+function, when both it and the
+.IR localtime (3)
+function are available in the dialect's C library.
+Consult the
+.IR strftime (3)
+documentation for what may appear in its format specification.
+Note that when field output is requested with the
+.B \-F
+option, <fmt> cannot contain the NL format, ``%n''.
+Note also that when <fmt> contains spaces or other characters that
+affect the shell's interpretation of arguments, <fmt> must be
+quoted appropriately.
 .IP
 Repeat mode reduces
 .I lsof
@@ -1223,18 +1262,72 @@ script, or a C program.
 This option directs lsof to list the Parent Process IDentification
 number in the PPID column.
 .TP \w'names'u+4
-.B \-s
-This option directs
+.BI \-s " [p:s]"
+.B s
+alone directs
 .I lsof
 to display file size at all times.
 It causes the SIZE/OFF output column title to be changed to SIZE.
 If the file does not have a size, nothing is displayed.
 .IP
+When followed by a protocol name (\fIp\fR), either TCP or UDP,
+a colon (`:') and a comma\-separated protocol state name list,
+the option causes open TCP and UDP files to be excluded if their
+state name(s) are in the list (\fIs\fP) preceded by a `^'; or
+included if their name(s) are not preceded by a `^'.
+.IP
+When an inclusion list is defined, only network files with state
+names in the list will be present in the
+.I lsof
+output.
+Thus, specifying one state name means that only network files
+with that lone state name will be listed.
+.IP
+Case is unimportant in the protocol or state names, but there may
+be no spaces and the colon (`:') separating the protocol
+name (\fIp\fP) and the state name list (\fIs\fP) is required.
+.IP
+If only TCP and UDP files are to be listed, as controlled by
+the specified exclusions and inclusions, the
+.B \-i
+option must be specified, too.
+If only a single protocol's files are to be listed, add its name
+as an argument to the
+.B \-i
+option.
+.IP
+For example, to list only network files with TCP state LISTEN, use:
+.IP
+.nf
+	\-iTCP \-sTCP:LISTEN
+.fi
+.IP
+Or, for example, to list network files with all UDP states except
+Idle, use:
+.IP
+.nf
+	\-iUDP -sUDP:Idle
+.fi
+.IP
+State names vary with UNIX dialects, so it's not possible to
+provide a complete list.  Some common TCP state names are:
+CLOSED, IDLE, BOUND, LISTEN, ESTABLISHED, SYN_SENT, SYN_RCDV,
+ESTABLISHED, CLOSE_WAIT, FIN_WAIT1, CLOSING, LAST_ACK, FIN_WAIT_2,
+and TIME_WAIT.
+Two common UDP state names are Unbound and Idle.
+.IP
+See the
+.I lsof
+FAQ (The \fBFAQ\fP section gives its location.)
+for more information on how to use protocol state exclusion and
+inclusion, including examples.
+.IP
 The
 .B \-o
 (without a following decimal digit count) and
 .B \-s
-options are mutually exclusive; they can't both be specified.
+option (without a following protocol and state name list)
+are mutually exclusive; they can't both be specified.
 When neither is specified,
 .I lsof
 displays whatever value \- size or offset \- is appropriate and
@@ -1266,8 +1359,8 @@ reported by
 .IR netstat (1),
 following the network addresses.
 In normal output the information appears in parentheses, each item
-except state identified by a keyword, followed by `=', separated from
-others by a single space:
+except TCP or TPI state name identified by a keyword, followed by `=',
+separated from others by a single space:
 .IP
 .nf
 	<TCP or TPI state name>
@@ -1564,10 +1657,11 @@ its APAR, and methods for defining readx() use when compiling
 .br
 This Linux option requests that
 .I lsof
-skip the reporting of information on all open TCP and UDP IPv4 and IPv6 files.
+skip the reporting of information on all open TCP, UDP and UDPLITE IPv4
+and IPv6 files.
 .IP
 This Linux option is most useful when the system has an extremely
-large number of open TCP and UDP files, the processing of whose
+large number of open TCP, UDP and UDPLITE files, the processing of whose
 information in the
 .I /proc/net/tcp*
 and
@@ -1579,7 +1673,7 @@ a long time, and whose reporting is not of interest.
 Use this option with care and only when you are sure that the
 information you want
 .I lsof
-to display isn't associated with open TCP or UDP socket files.
+to display isn't associated with open TCP, UDP or UDPLITE socket files.
 .HP \w'names'u+4
 \ \ \ \ Solaris 10 and above:
 .br
@@ -1622,6 +1716,11 @@ to other conditions specified by other options and arguments.
 .TP \w'names'u+4
 .BI \-Z " [Z]"
 specifies how SELinux security contexts are to be handled.
+This option and 'Z' field output character support are inhibited
+when SELinux is disabled in the running Linux kernel.
+See
+.B "OUTPUT FOR OTHER PROGRAMS"
+for more information on the 'Z' field output character.
 .IP
 Without a following argument \- e.g., NO
 .IR Z " \-"
@@ -2079,6 +2178,10 @@ is the SELinux security context.
 This column must be selected with the
 .B -Z
 option.
+Note that the
+.B -Z
+option is inhibited when SELinux is disabled in the running Linux
+kernel.
 .TP
 PPID
 is the Parent Process IDentification number of the process.
@@ -2478,6 +2581,7 @@ the following table:
 	DLY		delay
 	DOCL		do clone
 	DSYN		data\-only integrity
+	DTY		must be a directory
 	EVO		event only
 	EX		open for exec
 	EXCL		exclusive open
@@ -2494,6 +2598,7 @@ the following table:
 	MK		mark
 	MNT		mount
 	MSYN		multiplex synchronization
+	NATM		don't update atime
 	NB		non\-blocking I/O
 	NBDR		no BDRM check
 	NBIO		SYSV non\-blocking I/O
@@ -2502,6 +2607,7 @@ the following table:
 	ND		no delay
 	NDSY		no data synchronization
 	NET		network
+	NFLK		don't follow links
 	NMFS		NM file system
 	NOTO		disable background stop
 	NSH		no share
@@ -2514,6 +2620,7 @@ the following table:
 	REV		revoked
 	RSH		shared read
 	RSYN		read synchronization
+	RW		read and write access
 	SL		shared lock
 	SNAP		cooked snapshot
 	SOCK		socket
@@ -2696,7 +2803,7 @@ IPv4 INADDR_ANY and IPv6 IN6_IS_ADDR_UNSPECIFIED addresses, and
 zero port numbers are represented by an asterisk ('*');
 a UDP destination address may be followed by the amount of time
 elapsed since the last packet was sent to the destination;
-TCP and UDP remote addresses may be followed by TCP/TPI
+TCP, UDP and UDPLITE remote addresses may be followed by TCP/TPI
 information in parentheses \- state (e.g., ``(ESTABLISHED)'', ``(Unbound)''),
 queue sizes, and window sizes (not all dialects) \- in a fashion
 similar to what
@@ -2950,6 +3057,7 @@ The single character listed first is the field identifier.
 		  requested.)
 	u	process user ID
 	z	Solaris 10 and higher zone name
+	Z	SELinux security context (inhibited when SELinux is disabled)
 	0	use NUL field terminator character in place of NL
 	1\-9	dialect\-specific field identifiers (The output
 		of \fB\-F?\fP identifies the information to be found
@@ -3951,6 +4059,14 @@ IPv6) by an associated numeric colon\-form address that has a run of
 zeroes in it \- e.g., the loop\-back address \- use:
 .IP
 lsof -i@[::1]
+.PP
+To obtain a repeat mode marker line that contains the current time, use:
+.IP
+lsof -rm====%T====
+.PP
+To add spaces to the previous marker line, use:
+.IP
+lsof -r "m==== %T ===="
 .SH BUGS
 Since
 .I lsof
@@ -4174,6 +4290,7 @@ fuser(1),
 gethostname(2),
 isprint(3),
 kill(1),
+localtime(3),
 lstat(2),
 modload(8),
 mount(8),
@@ -4184,4 +4301,6 @@ ps(1),
 readlink(2),
 setlocale(3),
 stat(2),
+strftime(3),
+time(2),
 uname(1).

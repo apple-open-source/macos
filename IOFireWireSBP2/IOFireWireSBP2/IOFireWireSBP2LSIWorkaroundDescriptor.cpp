@@ -20,6 +20,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#if __ppc__
+
 #include <IOKit/IOLib.h>
 
 #include <IOKit/IOBufferMemoryDescriptor.h>
@@ -1397,3 +1399,5 @@ void IOFireWireSBP2LSIWorkaroundDescriptor::free( void )
 
 	IOGeneralMemoryDescriptor::free();
 }
+
+#endif

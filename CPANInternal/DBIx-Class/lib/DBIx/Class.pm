@@ -4,16 +4,27 @@ use strict;
 use warnings;
 
 use vars qw($VERSION);
-use base qw/DBIx::Class::Componentised Class::Data::Accessor/;
+use base qw/DBIx::Class::Componentised Class::Accessor::Grouped/;
+use DBIx::Class::StartupCheck;
 
-sub mk_classdata { shift->mk_classaccessor(@_); }
+
+sub mk_classdata { 
+  shift->mk_classaccessor(@_);
+}
+
+sub mk_classaccessor {
+  my $self = shift;
+  $self->mk_group_accessors('inherited', $_[0]); 
+  $self->set_inherited(@_) if @_ > 1;
+}
+
 sub component_base_class { 'DBIx::Class' }
 
 # Always remember to do all digits for the version even if they're 0
 # i.e. first release of 0.XX *must* be 0.XX000. This avoids fBSD ports
 # brain damage and presumably various other packaging systems too
 
-$VERSION = '0.07005';
+$VERSION = '0.08010';
 
 sub MODIFY_CODE_ATTRIBUTES {
   my ($class,$code,@attrs) = @_;
@@ -113,6 +124,8 @@ Then you can use these classes in your application's code:
   my $cd = $millennium_cds_rs->next; # SELECT ... FROM cds JOIN artists ...
   my $cd_artist_name = $cd->artist->name; # Already has the data so no query
 
+  # new() makes a DBIx::Class::Row object but doesnt insert it into the DB.
+  # create() is the same as new() then insert().
   my $new_cd = $schema->resultset('CD')->new({ title => 'Spoon' });
   $new_cd->artist($cd->artist);
   $new_cd->insert; # Auto-increment primary key filled in after INSERT
@@ -141,25 +154,27 @@ support for SQLite, MySQL, PostgreSQL, Oracle, SQL Server and DB2 and is
 known to be used in production on at least the first four, and is fork-
 and thread-safe out of the box (although your DBD may not be).
 
-This project is still under rapid development, so features added in the
-latest major release may not work 100% yet -- check the Changes if you run
-into trouble, and beware of anything explicitly marked EXPERIMENTAL. Failing
-test cases are *always* welcome and point releases are put out rapidly as
-bugs are found and fixed.
+This project is still under rapid development, so large new features may be
+marked EXPERIMENTAL - such APIs are still usable but may have edge bugs.
+Failing test cases are *always* welcome and point releases are put out rapidly
+as bugs are found and fixed.
 
-Even so, we do our best to maintain full backwards compatibility for published
-APIs, since DBIx::Class is used in production in a number of organisations.
-The test suite is quite substantial, and several developer releases are
-generally made to CPAN before the -current branch is merged back to trunk for
-a major release.
+We do our best to maintain full backwards compatibility for published
+APIs, since DBIx::Class is used in production in many organisations,
+and even backwards incompatible changes to non-published APIs will be fixed
+if they're reported and doing so doesn't cost the codebase anything.
+
+The test suite is quite substantial, and several developer releases
+are generally made to CPAN before the branch for the next release is
+merged back to trunk for a major release.
 
 The community can be found via:
 
-  Mailing list: http://lists.rawmode.org/mailman/listinfo/dbix-class/
+  Mailing list: http://lists.scsys.co.uk/mailman/listinfo/dbix-class/
 
-  SVN: http://dev.catalyst.perl.org/repos/bast/trunk/DBIx-Class/
+  SVN: http://dev.catalyst.perl.org/repos/bast/DBIx-Class/
 
-  Wiki: http://dbix-class.shadowcatsystems.co.uk/
+  SVNWeb: http://dev.catalyst.perl.org/svnweb/bast/browse/DBIx-Class/
 
   IRC: irc.perl.org#dbix-class
 
@@ -172,13 +187,22 @@ the modules where you will find documentation.
 
 mst: Matt S. Trout <mst@shadowcatsystems.co.uk>
 
+(I mostly consider myself "project founder" these days but the AUTHOR heading
+is traditional :)
+
 =head1 CONTRIBUTORS
 
 abraxxa: Alexander Hartmaier <alex_hartmaier@hotmail.com>
 
+aherzog: Adam Herzog <adam@herzogdesigns.com>
+
 andyg: Andy Grundman <andy@hybridized.org>
 
 ank: Andres Kievsky
+
+ash: Ash Berlin <ash@cpan.org>
+
+bert: Norbert Csongradi <bert@cpan.org>
 
 blblack: Brandon L. Black <blblack@gmail.com>
 
@@ -192,7 +216,11 @@ claco: Christopher H. Laco
 
 clkao: CL Kao
 
+da5id: David Jack Olrik <djo@cpan.org>
+
 dkubb: Dan Kubb <dan.kubb-cpan@onautopilot.com>
+
+dnm: Justin Wheeler <jwheeler@datademons.com>
 
 draven: Marcus Ramberg <mramberg@cpan.org>
 
@@ -206,9 +234,19 @@ jesper: Jesper Krogh
 
 jguenther: Justin Guenther <jguenther@cpan.org>
 
+jnapiorkowski: John Napiorkowski <jjn1056@yahoo.com>
+
+jon: Jon Schutz <jjschutz@cpan.org>
+
+jshirley: J. Shirley <jshirley@gmail.com>
+
 konobi: Scott McWhirter
 
 LTJake: Brian Cassidy <bricas@cpan.org>
+
+mattlaw: Matt Lawrence
+
+ned: Neil de Carteret
 
 nigel: Nigel Metheringham <nigelm@cpan.org>
 
@@ -216,9 +254,13 @@ ningu: David Kamholz <dkamholz@cpan.org>
 
 Numa: Dan Sully <daniel@cpan.org>
 
+oyse: Øystein Torget <oystein.torget@dnv.com>
+
 paulm: Paul Makepeace
 
 penguin: K J Cheetham
+
+perigrin: Chris Prather <chris@prather.org>
 
 phaylon: Robert Sedlacek <phaylon@dunkelheit.at>
 
@@ -228,11 +270,17 @@ sc_: Just Another Perl Hacker
 
 scotty: Scotty Allen <scotty@scottyallen.com>
 
+semifor: Marc Mims <marc@questright.com>
+
 sszabo: Stephan Szabo <sszabo@bigpanda.com>
 
 Todd Lipcon
 
+Tom Hukins
+
 typester: Daisuke Murase <typester@cpan.org>
+
+victori: Victor Igumnov <victori@cpan.org>
 
 wdh: Will Hawes
 

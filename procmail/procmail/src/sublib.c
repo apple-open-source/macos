@@ -8,7 +8,7 @@
  ************************************************************************/
 #ifdef RCS
 static /*const*/char rcsid[]=
- "$Id: sublib.c,v 1.1.1.3 2003/10/14 23:13:23 rbraun Exp $";
+ "$Id: sublib.c,v 1.32 2001/08/31 04:54:15 guenther Exp $";
 #endif
 #include "includes.h"
 #include "sublib.h"

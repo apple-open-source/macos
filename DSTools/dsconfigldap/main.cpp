@@ -29,6 +29,8 @@
 #include <Security/Authorization.h>
 #include <DirectoryService/DirServices.h>
 #include <DirectoryService/DirServicesUtils.h>
+#include <SystemConfiguration/SCDynamicStore.h>
+#include <SystemConfiguration/SCDynamicStoreCopySpecific.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -41,13 +43,11 @@
 #include <unistd.h>
 #include <termios.h>
 #include <pwd.h>
+#include <sysexits.h>
 
 #include "dscommon.h"
 #include "dstools_version.h"
 
-#warning VERIFY the version string before each major OS build submission that changes the dsconfigldap tool
-const char *version = "10.5.3";	// Matches OS version
-	
 #pragma mark Prototypes
 
 void usage( void );
@@ -146,8 +146,8 @@ typedef enum YBStatusCode
 // End New Directory Binding functionality ---------------
 
 static AuthorizationRef		gAuthRef				= NULL;
-static char					*kDirConfigAuthRight	= "system.services.directory.configure";
-static char					*kNetConfigAuthRight	= "system.preferences";
+static const char			*kDirConfigAuthRight	= "system.services.directory.configure";
+static const char			*kNetConfigAuthRight	= "system.preferences";
 
 #pragma mark -
 #pragma mark Functions
@@ -177,7 +177,7 @@ int main(int argc, char *argv[])
 	char		   *serverName		= nil;
 	char		   *serverNameDupe	= nil;
 	char		   *configName		= nil;
-	char		   *computerID		= "";
+	char		   *computerID		= NULL;
 	char		   *userName		= nil;
 	char		   *userPassword	= nil;
 	char		   *localName		= nil;
@@ -255,12 +255,14 @@ int main(int argc, char *argv[])
             break;
         case 'p':
             userPassword = strdup(optarg);
+			memset( optarg, '*', strlen(optarg) ); // blank out with *****
             break;
         case 'l':
             localName = strdup(optarg);
             break;
         case 'q':
             localPassword = strdup(optarg);
+			memset( optarg, '*', strlen(optarg) ); // blank out with *****
             break;
         case 'h':
         default:
@@ -279,22 +281,40 @@ int main(int argc, char *argv[])
 		localName = strdup(envStr);
 	}
 	envStr = nil;
-	envStr = getenv("HOST");
-	if ( bAddServer && (computerID == nil) && (envStr != nil) )
+	
+	if ( bVerbose == true )
+		fprintf( stdout, "dsconfigldap verbose mode\n" );
+	
+	if ( bAddServer == true && computerID == NULL )
 	{
-		char *dotLocation = nil;
-		computerID = strdup(envStr);
-		//do not use anything past first dot ie. first token in fully qualified domain name
-		if( (dotLocation = strcasestr( computerID, "." )) != NULL )
+		char *dotLocation = NULL;
+		CFStringRef tempName = SCDynamicStoreCopyLocalHostName( NULL );
+		if ( tempName != NULL )
 		{
-			*dotLocation = '\0';
+			size_t len = CFStringGetMaximumSizeForEncoding( CFStringGetLength(tempName), kCFStringEncodingUTF8 );
+			computerID = (char *) calloc( len + 1, sizeof(char) );
+			CFStringGetCString( tempName, computerID, len, kCFStringEncodingUTF8 );
+			
+			if ( bVerbose )
+				fprintf( stdout, "Using computer ID from System Configuration <%s>\n", computerID );
+			
+			CFRelease( tempName );
+			
+			//do not use anything past first dot ie. first token in fully qualified domain name
+			if ( (dotLocation = strcasestr( computerID, "." )) != NULL ) {
+				*dotLocation = '\0';
+			}
 		}
 	}
-	envStr = nil;
 
+	if ( computerID != NULL && strchr(computerID, ' ') != NULL )
+	{
+		fprintf( stderr, "Illegal character ' ' in Computer ID, configuration cancelled.\n" );
+		return EX_USAGE;
+	}
+	
 	if (bVerbose)
 	{
-		fprintf( stdout,"dsconfigldap verbose mode\n");
 		fprintf( stdout,"Options selected by user:\n");
 		if (bForceBinding)
 			fprintf( stdout,"Force authenticated (un)binding option selected\n");
@@ -474,7 +494,7 @@ int main(int argc, char *argv[])
 	if (configName)
 		free(configName);
 	if (computerID)
-		//free(computerID);
+		free(computerID);
 	if (userName)
 		free(userName);
 	if (userPassword)
@@ -517,7 +537,7 @@ void usage( void )
 			 "  -p password        password of a privileged network user for binding\n"
 			 "  -l username        username of a local administrator\n"
 			 "  -q password        password of a local administrator\n\n"
-			 , version );
+			 , TOOLS_VERSION );
 }
 
 #pragma mark -
@@ -650,6 +670,11 @@ int AddServer( char *inServerName, char *inConfigName, char *inComputerID, char 
 							
 							if( bDoBind && inUsername && inPassword )
 							{
+								if ( inComputerID == NULL ) {
+									fprintf( stdout, "No computer name provided and could not determine one to do auth binding\n" );
+									return eDSInvalidRecordName;
+								}
+								
 								CFRelease( xmlConfig );
 								xmlConfig = cfResponse;
 								cfResponse = NULL;

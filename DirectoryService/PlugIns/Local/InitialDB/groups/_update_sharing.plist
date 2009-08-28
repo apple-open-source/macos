@@ -18,5 +18,9 @@
 	<array>
 		<string>*</string>
 	</array>
+	<key>realname</key>
+	<array>
+		<string>Update Sharing</string>
+	</array>
 </dict>
 </plist>

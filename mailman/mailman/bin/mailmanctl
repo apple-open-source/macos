@@ -320,11 +320,11 @@ def main():
     force = 0
     quiet = 0
     if not os.path.isdir('/var/run/mailman'):
-        os.mkdir('/var/run/mailman', 02775)
+        os.mkdir('/var/run/mailman', 0775)
     if os.path.isdir('/var/run/mailman'):
         os.chown('/var/run/mailman', 78, 78)
     if not os.path.isdir('/var/log/mailman'):
-        os.mkdir('/var/log/mailman', 02775)
+        os.mkdir('/var/log/mailman', 0775)
     if os.path.isdir('/var/log/mailman'):
         os.chown('/var/log/mailman', 78, 78)
     for opt, arg in opts:
@@ -359,17 +359,6 @@ def main():
         if not quiet:
             print _("Shutting down Mailman's master qrunner")
         kill_watcher(signal.SIGTERM)
-    elif command == 'restart':
-        # Sent the master qrunner process a SIGHUP.  This will cause the
-        # master qrunner to kill and restart all the worker qrunners, and to
-        # close and re-open its log files.
-        if not quiet:
-            print _("Restarting Mailman's master qrunner")
-        kill_watcher(signal.SIGINT)
-    elif command == 'reopen':
-        if not quiet:
-            print _('Re-opening all log files')
-        kill_watcher(signal.SIGHUP)
     elif command == 'startf':
         # First, complain loudly if there's no site list.
         check_for_site_list()
@@ -549,6 +538,17 @@ Qrunner %s reached maximum restart limit of %d, not restarting.""",
         # Finally, give up the lock
         lock.unlock(unconditionally=1)
         os._exit(0)
+    elif command == 'restart':
+        # Sent the master qrunner process a SIGHUP.  This will cause the
+        # master qrunner to kill and restart all the worker qrunners, and to
+        # close and re-open its log files.
+        if not quiet:
+            print _("Restarting Mailman's master qrunner")
+        kill_watcher(signal.SIGINT)
+    elif command == 'reopen':
+        if not quiet:
+            print _('Re-opening all log files')
+        kill_watcher(signal.SIGHUP)
     elif command == 'start':
         # First, complain loudly if there's no site list.
         check_for_site_list()

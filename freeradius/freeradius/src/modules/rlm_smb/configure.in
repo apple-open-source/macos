@@ -1,6 +1,7 @@
+AC_PREREQ([2.53])
 AC_INIT(rlm_smb.c)
 AC_CONFIG_HEADER(config.h)
-AC_REVISION($Revision: 1.3 $)
+AC_REVISION($Revision$)
 AC_DEFUN(modname,[rlm_smb])
 
 if test x$with_[]modname != xno; then
@@ -66,7 +67,7 @@ if test x"$fail" != x""; then
 		AC_MSG_ERROR([set --without-]modname[ to disable it explicitly.])
 	else
 		AC_MSG_WARN([silently not building ]modname[.])
-		AC_MSG_WARN([FAILURE: ]modname[ requires: $fail.]); 
+		AC_MSG_WARN([FAILURE: ]modname[ requires: $fail.]);
 		targetname=""
 	fi
 fi

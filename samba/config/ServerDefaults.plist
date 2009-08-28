@@ -15,12 +15,9 @@
 	<key>DOSCodePage</key>
 	<string>CP437</string>
 	<key>EnabledServices</key>
-	<array>
-		<string>disk</string>
-		<string>print</string>
-	</array>
+	<array/>
 	<key>SuspendServices</key>
-	<true/>
+	<false/>
 	<key>KerberosRealm</key>
 	<string></string>
 	<key>LocalKerberosRealm</key>
@@ -36,14 +33,14 @@
 	<key>NetBIOSScope</key>
 	<string></string>
 	<key>PasswordServer</key>
-	<string/>
+	<string></string>
 	<key>ServerDescription</key>
 	<string>Mac OS X Server</string>
 	<key>ServerRole</key>
 	<string>Standalone</string>
 	<key>VirtualAdminShares</key>
 	<false/>
-	<key>VirtualHomesShares</key>
+	<key>VirtualHomeShares</key>
 	<true/>
 	<key>WINSServerAddressList</key>
 	<array/>

@@ -1,21 +1,18 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1999-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1999,2007 Oracle.  All rights reserved.
+ *
+ * $Id: os_errno.c,v 12.8 2007/05/17 15:15:46 bostic Exp $
  */
 
 #include "db_config.h"
-
-#ifndef lint
-static const char revid[] = "$Id: os_errno.c,v 1.2 2004/03/30 01:23:45 jtownsen Exp $";
-#endif /* not lint */
 
 #include "db_int.h"
 
 /*
  * __os_get_errno_ret_zero --
- *	Return the value of errno, even if it's zero.
+ *	Return the last system error, including an error of zero.
  *
  * PUBLIC: int __os_get_errno_ret_zero __P((void));
  */
@@ -27,26 +24,53 @@ __os_get_errno_ret_zero()
 }
 
 /*
+ * We've seen cases where system calls failed but errno was never set.  For
+ * that reason, __os_get_errno() and __os_get_syserr set errno to EAGAIN if
+ * it's not already set, to work around the problem.  For obvious reasons,
+ * we can only call this function if we know an error has occurred, that
+ * is, we can't test the return for a non-zero value after the get call.
+ *
  * __os_get_errno --
- *	Return the value of errno, or EAGAIN if errno is zero.
+ *	Return the last ANSI C "errno" value or EAGAIN if the last error
+ *	is zero.
  *
  * PUBLIC: int __os_get_errno __P((void));
  */
 int
 __os_get_errno()
 {
-	/*
-	 * This routine must be able to return the same value repeatedly.
-	 *
-	 * We've seen cases where system calls failed but errno was never set.
-	 * This version of __os_get_errno() sets errno to EAGAIN if it's not
-	 * already set, to work around that problem.  For obvious reasons, we
-	 * can only call this function if we know an error has occurred, that
-	 * is, we can't test errno for a non-zero value after this call.
-	 */
+	/* This routine must be able to return the same value repeatedly. */
+	return (__os_get_syserr());
+}
+
+#if 0
+/*
+ * __os_get_neterr --
+ *      Return the last network-related error or EAGAIN if the last
+ *	error is zero.
+ *
+ * PUBLIC: int __os_get_neterr __P((void));
+ */
+int
+__os_get_neterr()
+{
+	/* This routine must be able to return the same value repeatedly. */
+	return (__os_get_syserr());
+}
+#endif
+
+/*
+ * __os_get_syserr --
+ *	Return the last system error or EAGAIN if the last error is zero.
+ *
+ * PUBLIC: int __os_get_syserr __P((void));
+ */
+int
+__os_get_syserr()
+{
+	/* This routine must be able to return the same value repeatedly. */
 	if (errno == 0)
 		__os_set_errno(EAGAIN);
-
 	return (errno);
 }
 
@@ -70,4 +94,36 @@ __os_set_errno(evalue)
 	 */
 	errno =
 	    evalue >= 0 ? evalue : (evalue == DB_RUNRECOVERY ? EFAULT : EINVAL);
+}
+
+/*
+ * __os_strerror --
+ *	Return a string associated with the system error.
+ *
+ * PUBLIC: char *__os_strerror __P((int, char *, size_t));
+ */
+char *
+__os_strerror(error, buf, len)
+	int error;
+	char *buf;
+	size_t len;
+{
+	/* No translation is needed in the POSIX layer. */
+	(void)strncpy(buf, strerror(error), len - 1);
+	buf[len - 1] = '\0';
+
+	return (buf);
+}
+
+/*
+ * __os_posix_err
+ *	Convert a system error to a POSIX error.
+ *
+ * PUBLIC: int __os_posix_err __P((int));
+ */
+int
+__os_posix_err(error)
+	int error;
+{
+	return (error);
 }

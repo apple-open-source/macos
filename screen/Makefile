@@ -26,7 +26,13 @@ AEP_Version    = 4.0.3
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = Makefile.in.diff config.h.in.diff configure.diff pty.c.diff window.c.diff screen.c.diff
+AEP_Patches    = Makefile.in.diff \
+		config.h.in.diff \
+		configure.diff \
+		process.c.diff \
+		pty.c.diff \
+		screen.c.diff \
+		window.c.diff
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j

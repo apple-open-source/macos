@@ -1,0 +1,16 @@
+--- base5067/innobase/include/srv0srv.h	2008-08-04 05:19:15.000000000 -0700
++++ m5067/innobase/include/srv0srv.h	2008-09-08 06:53:12.000000000 -0700
+@@ -541,6 +541,8 @@
+         ulint innodb_buffer_pool_read_ahead_rnd;
+         ulint innodb_dblwr_pages_written;
+         ulint innodb_dblwr_writes;
++        ibool innodb_have_atomic_builtins;
++        ibool innodb_heap_enabled;
+         ulint innodb_log_waits;
+         ulint innodb_log_write_requests;
+         ulint innodb_log_writes;
+@@ -580,4 +582,3 @@
+ extern ulint	srv_n_threads_active[];
+ 
+ #endif
+-

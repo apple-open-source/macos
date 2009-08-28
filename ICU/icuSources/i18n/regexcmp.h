@@ -1,7 +1,7 @@
 //
 //  regexcmp.h
 //
-//  Copyright (C) 2002-2005, International Business Machines Corporation and others.
+//  Copyright (C) 2002-2008, International Business Machines Corporation and others.
 //  All Rights Reserved.
 //
 //  This file contains declarations for the class RegexCompile
@@ -33,14 +33,6 @@ U_NAMESPACE_BEGIN
 //  class RegexCompile    Contains the regular expression compiler.
 //
 //--------------------------------------------------------------------------------
-static const int    kStackSize = 100;               // The size of the state stack for
-                                                    //   pattern parsing.  Corresponds roughly
-                                                    //   to the depth of parentheses nesting
-                                                    //   that is allowed in the rules.
-
-enum EParseAction {dummy01, dummy02};               // Placeholder enum for the specifier for
-                                                    //   actions that are specified in the
-                                                    //   rule parsing state table.
 struct  RegexTableEl;
 class   RegexPattern;
 
@@ -48,13 +40,19 @@ class   RegexPattern;
 class RegexCompile : public UMemory {
 public:
 
+    enum {
+        kStackSize = 100            // The size of the state stack for
+    };                              //   pattern parsing.  Corresponds roughly
+                                    //   to the depth of parentheses nesting
+                                    //   that is allowed in the rules.
+
     struct RegexPatternChar {
         UChar32             fChar;
         UBool               fQuoted;
     };
 
     RegexCompile(RegexPattern *rp, UErrorCode &e);
-    
+
     void       compile(const UnicodeString &pat, UParseError &pp, UErrorCode &e);
 
 
@@ -71,7 +69,7 @@ public:
     //   determines the code to be generated when the matching close ) is encountered.
     enum EParenClass {
         plain        = -1,               // No special handling
-        capturing    = -2, 
+        capturing    = -2,
         atomic       = -3,
         lookAhead    = -4,
         negLookAhead = -5,
@@ -83,13 +81,13 @@ public:
 private:
 
 
-    UBool       doParseActions(EParseAction a);
+    UBool       doParseActions(int32_t a);
     void        error(UErrorCode e);                   // error reporting convenience function.
 
     UChar32     nextCharLL();
     UChar32     peekCharLL();
-    UnicodeSet  *scanSet();
     UnicodeSet  *scanProp();
+    UnicodeSet  *scanPosixProp();
     void        handleCloseParen();
     int32_t     blockTopLoc(UBool reserve);          // Locate a position in the compiled pattern
                                                      //  at the top of the just completed block
@@ -112,7 +110,11 @@ private:
                                int32_t end);
     void        matchStartType();
     void        stripNOPs();
-    void        OptDotStar();
+
+    void        setEval(int32_t op);
+    void        setPushOp(int32_t op);
+    UChar32     scanNamedChar();
+    UnicodeSet *createSetForProperty(const UnicodeString &propName, UBool negated);
 
 
     UErrorCode                    *fStatus;
@@ -128,7 +130,7 @@ private:
                                                      //   is the first character not yet scanned.
     UBool                         fQuoteMode;        // Scan is in a \Q...\E quoted region
     UBool                         fInBackslashQuote; // Scan is between a '\' and the following char.
-    UBool                         fEOLComments;      // When scan is just after '(?',  inhibit #... to 
+    UBool                         fEOLComments;      // When scan is just after '(?',  inhibit #... to
                                                      //   end of line comments, in favor of (?#...) comments.
     int32_t                       fLineNum;          // Line number in input file.
     int32_t                       fCharNum;          // Char position within the line.
@@ -170,7 +172,7 @@ private:
 
     UVector32                     fParenStack;       // parentheses stack.  Each frame consists of
                                                      //   the positions of compiled pattern operations
-                                                     //   needing fixup, followed by negative value.  The  
+                                                     //   needing fixup, followed by negative value.  The
                                                      //   first entry in each frame is the position of the
                                                      //   spot reserved for use when a quantifier
                                                      //   needs to add a SAVE at the start of a (block)
@@ -197,7 +199,32 @@ private:
     int32_t                       fNameStartPos;     // Starting position of a \N{NAME} name in a
                                                      //   pattern, valid while remainder of name is
                                                      //   scanned.
+
+    UStack                        fSetStack;         // Stack of UnicodeSets, used while evaluating
+                                                     //   (at compile time) set expressions within
+                                                     //   the pattern.
+    UStack                        fSetOpStack;       // Stack of pending set operators (&&, --, union)
+
+    UChar32                       fLastSetLiteral;   // The last single code point added to a set.
+                                                     //   needed when "-y" is scanned, and we need
+                                                     //   to turn "x-y" into a range.
+
 };
+
+// Constant values to be pushed onto fSetOpStack while scanning & evalueating [set expressions]
+//   The high 16 bits are the operator precedence, and the low 16 are a code for the operation itself.
+
+enum SetOperations {
+    setStart         = 0 << 16 | 1,
+    setEnd           = 1 << 16 | 2,
+    setNegation      = 2 << 16 | 3,
+    setCaseClose     = 2 << 16 | 9,
+    setDifference2   = 3 << 16 | 4,    // '--' set difference operator
+    setIntersection2 = 3 << 16 | 5,    // '&&' set intersection operator
+    setUnion         = 4 << 16 | 6,    // implicit union of adjacent items
+    setDifference1   = 4 << 16 | 7,    // '-', single dash difference op, for compatibility with old UnicodeSet.
+    setIntersection1 = 4 << 16 | 8     // '&', single amp intersection op, for compatibility with old UnicodeSet.
+    };
 
 U_NAMESPACE_END
 #endif   // !UCONFIG_NO_REGULAR_EXPRESSIONS

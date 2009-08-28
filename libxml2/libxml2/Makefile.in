@@ -39,7 +39,9 @@ noinst_PROGRAMS = testSchemas$(EXEEXT) testRelax$(EXEEXT) \
 	testSAX$(EXEEXT) testHTML$(EXEEXT) testXPath$(EXEEXT) \
 	testURI$(EXEEXT) testThreads$(EXEEXT) testC14N$(EXEEXT) \
 	testAutomata$(EXEEXT) testRegexp$(EXEEXT) testReader$(EXEEXT) \
-	testapi$(EXEEXT)
+	testapi$(EXEEXT) testModule$(EXEEXT) runtest$(EXEEXT) \
+	runsuite$(EXEEXT) testchar$(EXEEXT) testdict$(EXEEXT) \
+	runxmlconf$(EXEEXT) testrecurse$(EXEEXT)
 bin_PROGRAMS = xmllint$(EXEEXT) xmlcatalog$(EXEEXT)
 subdir = .
 DIST_COMMON = README $(am__configure_deps) $(srcdir)/Makefile.am \
@@ -71,7 +73,7 @@ am__installdirs = "$(DESTDIR)$(libdir)" "$(DESTDIR)$(bindir)" \
 	"$(DESTDIR)$(man3dir)" "$(DESTDIR)$(confexecdir)" \
 	"$(DESTDIR)$(m4datadir)" "$(DESTDIR)$(pkgconfigdir)"
 libLTLIBRARIES_INSTALL = $(INSTALL)
-LTLIBRARIES = $(lib_LTLIBRARIES)
+LTLIBRARIES = $(lib_LTLIBRARIES) $(noinst_LTLIBRARIES)
 am__DEPENDENCIES_1 =
 libxml2_la_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
 am__libxml2_la_SOURCES_DIST = SAX.c entities.c encoding.c error.c \
@@ -81,7 +83,8 @@ am__libxml2_la_SOURCES_DIST = SAX.c entities.c encoding.c error.c \
 	DOCBparser.c catalog.c globals.c threads.c c14n.c xmlstring.c \
 	xmlregexp.c xmlschemas.c xmlschemastypes.c xmlunicode.c \
 	xmlreader.c relaxng.c dict.c SAX2.c xmlwriter.c legacy.c \
-	chvalid.c pattern.c xmlsave.c triostr.c trio.c
+	chvalid.c pattern.c xmlsave.c xmlmodule.c schematron.c \
+	triostr.c trio.c
 @WITH_TRIO_SOURCES_FALSE@am_libxml2_la_OBJECTS = SAX.lo entities.lo \
 @WITH_TRIO_SOURCES_FALSE@	encoding.lo error.lo \
 @WITH_TRIO_SOURCES_FALSE@	parserInternals.lo parser.lo tree.lo \
@@ -96,7 +99,7 @@ am__libxml2_la_SOURCES_DIST = SAX.c entities.c encoding.c error.c \
 @WITH_TRIO_SOURCES_FALSE@	xmlunicode.lo xmlreader.lo relaxng.lo \
 @WITH_TRIO_SOURCES_FALSE@	dict.lo SAX2.lo xmlwriter.lo \
 @WITH_TRIO_SOURCES_FALSE@	legacy.lo chvalid.lo pattern.lo \
-@WITH_TRIO_SOURCES_FALSE@	xmlsave.lo
+@WITH_TRIO_SOURCES_FALSE@	xmlsave.lo xmlmodule.lo schematron.lo
 @WITH_TRIO_SOURCES_TRUE@am_libxml2_la_OBJECTS = SAX.lo entities.lo \
 @WITH_TRIO_SOURCES_TRUE@	encoding.lo error.lo \
 @WITH_TRIO_SOURCES_TRUE@	parserInternals.lo parser.lo tree.lo \
@@ -111,17 +114,39 @@ am__libxml2_la_SOURCES_DIST = SAX.c entities.c encoding.c error.c \
 @WITH_TRIO_SOURCES_TRUE@	xmlunicode.lo triostr.lo trio.lo \
 @WITH_TRIO_SOURCES_TRUE@	xmlreader.lo relaxng.lo dict.lo \
 @WITH_TRIO_SOURCES_TRUE@	SAX2.lo xmlwriter.lo legacy.lo \
-@WITH_TRIO_SOURCES_TRUE@	chvalid.lo pattern.lo xmlsave.lo
+@WITH_TRIO_SOURCES_TRUE@	chvalid.lo pattern.lo xmlsave.lo \
+@WITH_TRIO_SOURCES_TRUE@	xmlmodule.lo schematron.lo
 libxml2_la_OBJECTS = $(am_libxml2_la_OBJECTS)
 libxml2_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
 	$(libxml2_la_LDFLAGS) $(LDFLAGS) -o $@
+testdso_la_LIBADD =
+am_testdso_la_OBJECTS = testdso.lo
+testdso_la_OBJECTS = $(am_testdso_la_OBJECTS)
+testdso_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
+	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
+	$(testdso_la_LDFLAGS) $(LDFLAGS) -o $@
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS) $(noinst_PROGRAMS)
-am_testAutomata_OBJECTS = testAutomata.$(OBJEXT)
-testAutomata_OBJECTS = $(am_testAutomata_OBJECTS)
+am_runsuite_OBJECTS = runsuite.$(OBJEXT)
+runsuite_OBJECTS = $(am_runsuite_OBJECTS)
 am__DEPENDENCIES_2 = $(top_builddir)/libxml2.la $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1)
+runsuite_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(runsuite_LDFLAGS) \
+	$(LDFLAGS) -o $@
+am_runtest_OBJECTS = runtest.$(OBJEXT)
+runtest_OBJECTS = $(am_runtest_OBJECTS)
+runtest_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(runtest_LDFLAGS) \
+	$(LDFLAGS) -o $@
+am_runxmlconf_OBJECTS = runxmlconf.$(OBJEXT)
+runxmlconf_OBJECTS = $(am_runxmlconf_OBJECTS)
+runxmlconf_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
+	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
+	$(runxmlconf_LDFLAGS) $(LDFLAGS) -o $@
+am_testAutomata_OBJECTS = testAutomata.$(OBJEXT)
+testAutomata_OBJECTS = $(am_testAutomata_OBJECTS)
 testAutomata_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
 	$(testAutomata_LDFLAGS) $(LDFLAGS) -o $@
@@ -135,6 +160,11 @@ testHTML_OBJECTS = $(am_testHTML_OBJECTS)
 testHTML_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(testHTML_LDFLAGS) \
 	$(LDFLAGS) -o $@
+am_testModule_OBJECTS = testModule.$(OBJEXT)
+testModule_OBJECTS = $(am_testModule_OBJECTS)
+testModule_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
+	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
+	$(testModule_LDFLAGS) $(LDFLAGS) -o $@
 am_testReader_OBJECTS = testReader.$(OBJEXT)
 testReader_OBJECTS = $(am_testReader_OBJECTS)
 testReader_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
@@ -180,6 +210,21 @@ testapi_OBJECTS = $(am_testapi_OBJECTS)
 testapi_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(testapi_LDFLAGS) \
 	$(LDFLAGS) -o $@
+am_testchar_OBJECTS = testchar.$(OBJEXT)
+testchar_OBJECTS = $(am_testchar_OBJECTS)
+testchar_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(testchar_LDFLAGS) \
+	$(LDFLAGS) -o $@
+am_testdict_OBJECTS = testdict.$(OBJEXT)
+testdict_OBJECTS = $(am_testdict_OBJECTS)
+testdict_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(testdict_LDFLAGS) \
+	$(LDFLAGS) -o $@
+am_testrecurse_OBJECTS = testrecurse.$(OBJEXT)
+testrecurse_OBJECTS = $(am_testrecurse_OBJECTS)
+testrecurse_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
+	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
+	$(testrecurse_LDFLAGS) $(LDFLAGS) -o $@
 am_xmlcatalog_OBJECTS = xmlcatalog.$(OBJEXT)
 xmlcatalog_OBJECTS = $(am_xmlcatalog_OBJECTS)
 xmlcatalog_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
@@ -204,18 +249,26 @@ CCLD = $(CC)
 LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
 	$(LDFLAGS) -o $@
-SOURCES = $(libxml2_la_SOURCES) $(testAutomata_SOURCES) \
-	$(testC14N_SOURCES) $(testHTML_SOURCES) $(testReader_SOURCES) \
-	$(testRegexp_SOURCES) $(testRelax_SOURCES) $(testSAX_SOURCES) \
-	$(testSchemas_SOURCES) $(testThreads_SOURCES) \
-	$(testURI_SOURCES) $(testXPath_SOURCES) $(testapi_SOURCES) \
-	$(xmlcatalog_SOURCES) $(xmllint_SOURCES)
-DIST_SOURCES = $(am__libxml2_la_SOURCES_DIST) $(testAutomata_SOURCES) \
-	$(testC14N_SOURCES) $(testHTML_SOURCES) $(testReader_SOURCES) \
-	$(testRegexp_SOURCES) $(testRelax_SOURCES) $(testSAX_SOURCES) \
-	$(testSchemas_SOURCES) $(testThreads_SOURCES) \
-	$(testURI_SOURCES) $(testXPath_SOURCES) $(testapi_SOURCES) \
-	$(xmlcatalog_SOURCES) $(xmllint_SOURCES)
+SOURCES = $(libxml2_la_SOURCES) $(testdso_la_SOURCES) \
+	$(runsuite_SOURCES) $(runtest_SOURCES) $(runxmlconf_SOURCES) \
+	$(testAutomata_SOURCES) $(testC14N_SOURCES) \
+	$(testHTML_SOURCES) $(testModule_SOURCES) \
+	$(testReader_SOURCES) $(testRegexp_SOURCES) \
+	$(testRelax_SOURCES) $(testSAX_SOURCES) $(testSchemas_SOURCES) \
+	$(testThreads_SOURCES) $(testURI_SOURCES) $(testXPath_SOURCES) \
+	$(testapi_SOURCES) $(testchar_SOURCES) $(testdict_SOURCES) \
+	$(testrecurse_SOURCES) $(xmlcatalog_SOURCES) \
+	$(xmllint_SOURCES)
+DIST_SOURCES = $(am__libxml2_la_SOURCES_DIST) $(testdso_la_SOURCES) \
+	$(runsuite_SOURCES) $(runtest_SOURCES) $(runxmlconf_SOURCES) \
+	$(testAutomata_SOURCES) $(testC14N_SOURCES) \
+	$(testHTML_SOURCES) $(testModule_SOURCES) \
+	$(testReader_SOURCES) $(testRegexp_SOURCES) \
+	$(testRelax_SOURCES) $(testSAX_SOURCES) $(testSchemas_SOURCES) \
+	$(testThreads_SOURCES) $(testURI_SOURCES) $(testXPath_SOURCES) \
+	$(testapi_SOURCES) $(testchar_SOURCES) $(testdict_SOURCES) \
+	$(testrecurse_SOURCES) $(xmlcatalog_SOURCES) \
+	$(xmllint_SOURCES)
 RECURSIVE_TARGETS = all-recursive check-recursive dvi-recursive \
 	html-recursive info-recursive install-data-recursive \
 	install-dvi-recursive install-exec-recursive \
@@ -254,6 +307,7 @@ AUTOCONF = @AUTOCONF@
 AUTOHEADER = @AUTOHEADER@
 AUTOMAKE = @AUTOMAKE@
 AWK = @AWK@
+BASE_THREAD_LIBS = @BASE_THREAD_LIBS@
 C14N_OBJ = @C14N_OBJ@
 CATALOG_OBJ = @CATALOG_OBJ@
 CC = @CC@
@@ -261,10 +315,6 @@ CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
 CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
-CXX = @CXX@
-CXXCPP = @CXXCPP@
-CXXDEPMODE = @CXXDEPMODE@
-CXXFLAGS = @CXXFLAGS@
 CYGPATH_W = @CYGPATH_W@
 CYGWIN_EXTRA_LDFLAGS = @CYGWIN_EXTRA_LDFLAGS@
 CYGWIN_EXTRA_PYTHON_LIBADD = @CYGWIN_EXTRA_PYTHON_LIBADD@
@@ -273,14 +323,14 @@ DEFS = @DEFS@
 DEPDIR = @DEPDIR@
 DLLTOOL = @DLLTOOL@
 DOCB_OBJ = @DOCB_OBJ@
-ECHO = @ECHO@
+DSYMUTIL = @DSYMUTIL@
+DUMPBIN = @DUMPBIN@
 ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
 EXEEXT = @EXEEXT@
-F77 = @F77@
-FFLAGS = @FFLAGS@
+FGREP = @FGREP@
 FTP_OBJ = @FTP_OBJ@
 GREP = @GREP@
 HAVE_ISINF = @HAVE_ISINF@
@@ -295,6 +345,7 @@ INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
+LD = @LD@
 LDFLAGS = @LDFLAGS@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
@@ -306,14 +357,21 @@ LIBXML_VERSION = @LIBXML_VERSION@
 LIBXML_VERSION_EXTRA = @LIBXML_VERSION_EXTRA@
 LIBXML_VERSION_INFO = @LIBXML_VERSION_INFO@
 LIBXML_VERSION_NUMBER = @LIBXML_VERSION_NUMBER@
+LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
 MAKEINFO = @MAKEINFO@
 MKDIR_P = @MKDIR_P@
+MODULE_EXTENSION = @MODULE_EXTENSION@
+MODULE_PLATFORM_LIBS = @MODULE_PLATFORM_LIBS@
 MV = @MV@
 M_LIBS = @M_LIBS@
+NM = @NM@
+NMEDIT = @NMEDIT@
 OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
+OTOOL = @OTOOL@
+OTOOL64 = @OTOOL64@
 PACKAGE = @PACKAGE@
 PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
 PACKAGE_NAME = @PACKAGE_NAME@
@@ -321,7 +379,6 @@ PACKAGE_STRING = @PACKAGE_STRING@
 PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
-PATTERN_TEST = @PATTERN_TEST@
 PERL = @PERL@
 PYTHON = @PYTHON@
 PYTHON_INCLUDES = @PYTHON_INCLUDES@
@@ -334,6 +391,7 @@ RDL_LIBS = @RDL_LIBS@
 READER_TEST = @READER_TEST@
 RELDATE = @RELDATE@
 RM = @RM@
+SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STATIC_BINARIES = @STATIC_BINARIES@
@@ -343,11 +401,14 @@ TEST_C14N = @TEST_C14N@
 TEST_CATALOG = @TEST_CATALOG@
 TEST_DEBUG = @TEST_DEBUG@
 TEST_HTML = @TEST_HTML@
+TEST_MODULES = @TEST_MODULES@
+TEST_PATTERN = @TEST_PATTERN@
 TEST_PHTML = @TEST_PHTML@
 TEST_PUSH = @TEST_PUSH@
 TEST_REGEXPS = @TEST_REGEXPS@
 TEST_SAX = @TEST_SAX@
 TEST_SCHEMAS = @TEST_SCHEMAS@
+TEST_SCHEMATRON = @TEST_SCHEMATRON@
 TEST_THREADS = @TEST_THREADS@
 TEST_VALID = @TEST_VALID@
 TEST_VTIME = @TEST_VTIME@
@@ -359,6 +420,7 @@ THREAD_CFLAGS = @THREAD_CFLAGS@
 THREAD_LIBS = @THREAD_LIBS@
 U = @U@
 VERSION = @VERSION@
+WGET = @WGET@
 WIN32_EXTRA_LDFLAGS = @WIN32_EXTRA_LDFLAGS@
 WIN32_EXTRA_LIBADD = @WIN32_EXTRA_LIBADD@
 WITH_C14N = @WITH_C14N@
@@ -373,6 +435,7 @@ WITH_ICU = @WITH_ICU@
 WITH_ISO8859X = @WITH_ISO8859X@
 WITH_LEGACY = @WITH_LEGACY@
 WITH_MEM_DEBUG = @WITH_MEM_DEBUG@
+WITH_MODULES = @WITH_MODULES@
 WITH_OUTPUT = @WITH_OUTPUT@
 WITH_PATTERN = @WITH_PATTERN@
 WITH_PUSH = @WITH_PUSH@
@@ -381,6 +444,7 @@ WITH_REGEXPS = @WITH_REGEXPS@
 WITH_RUN_DEBUG = @WITH_RUN_DEBUG@
 WITH_SAX1 = @WITH_SAX1@
 WITH_SCHEMAS = @WITH_SCHEMAS@
+WITH_SCHEMATRON = @WITH_SCHEMATRON@
 WITH_THREADS = @WITH_THREADS@
 WITH_TREE = @WITH_TREE@
 WITH_TRIO = @WITH_TRIO@
@@ -389,6 +453,7 @@ WITH_WRITER = @WITH_WRITER@
 WITH_XINCLUDE = @WITH_XINCLUDE@
 WITH_XPATH = @WITH_XPATH@
 WITH_XPTR = @WITH_XPTR@
+WITH_ZLIB = @WITH_ZLIB@
 XINCLUDE_OBJ = @XINCLUDE_OBJ@
 XMLLINT = @XMLLINT@
 XML_CFLAGS = @XML_CFLAGS@
@@ -406,8 +471,7 @@ abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
 abs_top_srcdir = @abs_top_srcdir@
 ac_ct_CC = @ac_ct_CC@
-ac_ct_CXX = @ac_ct_CXX@
-ac_ct_F77 = @ac_ct_F77@
+ac_ct_DUMPBIN = @ac_ct_DUMPBIN@
 am__include = @am__include@
 am__leading_dot = @am__leading_dot@
 am__quote = @am__quote@
@@ -438,6 +502,7 @@ libdir = @libdir@
 libexecdir = @libexecdir@
 localedir = @localedir@
 localstatedir = @localstatedir@
+lt_ECHO = @lt_ECHO@
 mandir = @mandir@
 mkdir_p = @mkdir_p@
 oldincludedir = @oldincludedir@
@@ -459,7 +524,7 @@ INCLUDES = -I$(top_builddir)/include -I@srcdir@/include @THREAD_CFLAGS@ @Z_CFLAG
 bin_SCRIPTS = xml2-config
 lib_LTLIBRARIES = libxml2.la
 libxml2_la_LIBADD = @THREAD_LIBS@ @Z_LIBS@ $(ICONV_LIBS) $(ICU_LIBS) @M_LIBS@ @WIN32_EXTRA_LIBADD@
-libxml2_la_LDFLAGS = @CYGWIN_EXTRA_LDFLAGS@ @WIN32_EXTRA_LDFLAGS@ -version-info @LIBXML_VERSION_INFO@
+libxml2_la_LDFLAGS = @CYGWIN_EXTRA_LDFLAGS@ @WIN32_EXTRA_LDFLAGS@ -version-info @LIBXML_VERSION_INFO@ @MODULE_PLATFORM_LIBS@
 @WITH_TRIO_SOURCES_FALSE@libxml2_la_SOURCES = SAX.c entities.c encoding.c error.c parserInternals.c  \
 @WITH_TRIO_SOURCES_FALSE@		parser.c tree.c hash.c list.c xmlIO.c xmlmemory.c uri.c  \
 @WITH_TRIO_SOURCES_FALSE@		valid.c xlink.c HTMLparser.c HTMLtree.c debugXML.c xpath.c  \
@@ -467,7 +532,8 @@ libxml2_la_LDFLAGS = @CYGWIN_EXTRA_LDFLAGS@ @WIN32_EXTRA_LDFLAGS@ -version-info 
 @WITH_TRIO_SOURCES_FALSE@		catalog.c globals.c threads.c c14n.c xmlstring.c \
 @WITH_TRIO_SOURCES_FALSE@		xmlregexp.c xmlschemas.c xmlschemastypes.c xmlunicode.c \
 @WITH_TRIO_SOURCES_FALSE@		xmlreader.c relaxng.c dict.c SAX2.c \
-@WITH_TRIO_SOURCES_FALSE@		xmlwriter.c legacy.c chvalid.c pattern.c xmlsave.c
+@WITH_TRIO_SOURCES_FALSE@		xmlwriter.c legacy.c chvalid.c pattern.c xmlsave.c \
+@WITH_TRIO_SOURCES_FALSE@		xmlmodule.c schematron.c
 
 @WITH_TRIO_SOURCES_TRUE@libxml2_la_SOURCES = SAX.c entities.c encoding.c error.c parserInternals.c  \
 @WITH_TRIO_SOURCES_TRUE@		parser.c tree.c hash.c list.c xmlIO.c xmlmemory.c uri.c  \
@@ -476,13 +542,34 @@ libxml2_la_LDFLAGS = @CYGWIN_EXTRA_LDFLAGS@ @WIN32_EXTRA_LDFLAGS@ -version-info 
 @WITH_TRIO_SOURCES_TRUE@		catalog.c globals.c threads.c c14n.c xmlstring.c \
 @WITH_TRIO_SOURCES_TRUE@		xmlregexp.c xmlschemas.c xmlschemastypes.c xmlunicode.c \
 @WITH_TRIO_SOURCES_TRUE@		triostr.c trio.c xmlreader.c relaxng.c dict.c SAX2.c \
-@WITH_TRIO_SOURCES_TRUE@		xmlwriter.c legacy.c chvalid.c pattern.c xmlsave.c
+@WITH_TRIO_SOURCES_TRUE@		xmlwriter.c legacy.c chvalid.c pattern.c xmlsave.c \
+@WITH_TRIO_SOURCES_TRUE@		xmlmodule.c schematron.c
 
 DEPS = $(top_builddir)/libxml2.la
 LDADDS = @STATIC_BINARIES@ $(top_builddir)/libxml2.la @THREAD_LIBS@ @Z_LIBS@ $(ICONV_LIBS) $(ICU_LIBS) @M_LIBS@ @WIN32_EXTRA_LIBADD@
 man_MANS = xml2-config.1 libxml.3
 m4datadir = $(datadir)/aclocal
 m4data_DATA = libxml.m4
+runtest_SOURCES = runtest.c
+runtest_LDFLAGS = 
+runtest_DEPENDENCIES = $(DEPS)
+runtest_LDADD = @BASE_THREAD_LIBS@ @RDL_LIBS@ $(LDADDS)
+testrecurse_SOURCES = testrecurse.c
+testrecurse_LDFLAGS = 
+testrecurse_DEPENDENCIES = $(DEPS)
+testrecurse_LDADD = @BASE_THREAD_LIBS@ @RDL_LIBS@ $(LDADDS)
+testchar_SOURCES = testchar.c
+testchar_LDFLAGS = 
+testchar_DEPENDENCIES = $(DEPS)
+testchar_LDADD = @RDL_LIBS@ $(LDADDS)
+testdict_SOURCES = testdict.c
+testdict_LDFLAGS = 
+testdict_DEPENDENCIES = $(DEPS)
+testdict_LDADD = @RDL_LIBS@ $(LDADDS)
+runsuite_SOURCES = runsuite.c
+runsuite_LDFLAGS = 
+runsuite_DEPENDENCIES = $(DEPS)
+runsuite_LDADD = @RDL_LIBS@ $(LDADDS)
 xmllint_SOURCES = xmllint.c
 xmllint_LDFLAGS = 
 xmllint_DEPENDENCIES = $(DEPS)
@@ -510,7 +597,7 @@ testC14N_LDADD = $(LDADDS)
 testThreads_SOURCES = testThreads@THREADS_W32@.c
 testThreads_LDFLAGS = 
 testThreads_DEPENDENCIES = $(DEPS)
-testThreads_LDADD = $(LDADDS)
+testThreads_LDADD = @BASE_THREAD_LIBS@  $(LDADDS)
 testURI_SOURCES = testURI.c
 testURI_LDFLAGS = 
 testURI_DEPENDENCIES = $(DEPS)
@@ -535,11 +622,22 @@ testReader_SOURCES = testReader.c
 testReader_LDFLAGS = 
 testReader_DEPENDENCIES = $(DEPS)
 testReader_LDADD = $(LDADDS)
+testModule_SOURCES = testModule.c
+testModule_LDFLAGS = 
+testModule_DEPENDENCIES = $(DEPS)
+testModule_LDADD = $(LDADDS)
+noinst_LTLIBRARIES = testdso.la
+testdso_la_SOURCES = testdso.c
+testdso_la_LDFLAGS = -module -rpath $(libdir)
 testapi_SOURCES = testapi.c
 testapi_LDFLAGS = 
 testapi_DEPENDENCIES = $(DEPS)
 testapi_LDADD = $(LDADDS)
-CLEANFILES = xml2Conf.sh
+runxmlconf_SOURCES = runxmlconf.c
+runxmlconf_LDFLAGS = 
+runxmlconf_DEPENDENCIES = $(DEPS)
+runxmlconf_LDADD = $(LDADDS)
+CLEANFILES = xml2Conf.sh *.gcda *.gcno
 confexecdir = $(libdir)
 confexec_DATA = xml2Conf.sh
 CVS_EXTRA_DIST = 
@@ -553,6 +651,7 @@ EXTRA_DIST = xml2-config.in xml2Conf.sh.in libxml.spec.in libxml2.spec \
 	     triop.h triodef.h libxml.h elfgcchack.h \
 	     testThreadsWin32.c genUnicode.py TODO_SCHEMAS \
 	     dbgen.pl dbgenattr.pl regressions.py regressions.xml \
+	     README.tests Makefile.tests \
 	     $(CVS_EXTRA_DIST)
 
 pkgconfigdir = $(libdir)/pkgconfig
@@ -564,6 +663,13 @@ pkgconfig_DATA = libxml-2.0.pc
 BASE_DIR = $(datadir)/doc
 DOC_MODULE = libxml2-$(VERSION)
 EXAMPLES_DIR = $(BASE_DIR)/$(DOC_MODULE)/examples
+
+#
+# Coverage support, largely borrowed from libvirt
+# Both binaries comes from the lcov package in Fedora
+#
+LCOV = /usr/bin/lcov
+GENHTML = /usr/bin/genhtml
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-recursive
 
@@ -654,8 +760,19 @@ clean-libLTLIBRARIES:
 	  echo "rm -f \"$${dir}/so_locations\""; \
 	  rm -f "$${dir}/so_locations"; \
 	done
+
+clean-noinstLTLIBRARIES:
+	-test -z "$(noinst_LTLIBRARIES)" || rm -f $(noinst_LTLIBRARIES)
+	@list='$(noinst_LTLIBRARIES)'; for p in $$list; do \
+	  dir="`echo $$p | sed -e 's|/[^/]*$$||'`"; \
+	  test "$$dir" != "$$p" || dir=.; \
+	  echo "rm -f \"$${dir}/so_locations\""; \
+	  rm -f "$${dir}/so_locations"; \
+	done
 libxml2.la: $(libxml2_la_OBJECTS) $(libxml2_la_DEPENDENCIES) 
 	$(libxml2_la_LINK) -rpath $(libdir) $(libxml2_la_OBJECTS) $(libxml2_la_LIBADD) $(LIBS)
+testdso.la: $(testdso_la_OBJECTS) $(testdso_la_DEPENDENCIES) 
+	$(testdso_la_LINK)  $(testdso_la_OBJECTS) $(testdso_la_LIBADD) $(LIBS)
 install-binPROGRAMS: $(bin_PROGRAMS)
 	@$(NORMAL_INSTALL)
 	test -z "$(bindir)" || $(MKDIR_P) "$(DESTDIR)$(bindir)"
@@ -691,6 +808,15 @@ clean-noinstPROGRAMS:
 	  echo " rm -f $$p $$f"; \
 	  rm -f $$p $$f ; \
 	done
+runsuite$(EXEEXT): $(runsuite_OBJECTS) $(runsuite_DEPENDENCIES) 
+	@rm -f runsuite$(EXEEXT)
+	$(runsuite_LINK) $(runsuite_OBJECTS) $(runsuite_LDADD) $(LIBS)
+runtest$(EXEEXT): $(runtest_OBJECTS) $(runtest_DEPENDENCIES) 
+	@rm -f runtest$(EXEEXT)
+	$(runtest_LINK) $(runtest_OBJECTS) $(runtest_LDADD) $(LIBS)
+runxmlconf$(EXEEXT): $(runxmlconf_OBJECTS) $(runxmlconf_DEPENDENCIES) 
+	@rm -f runxmlconf$(EXEEXT)
+	$(runxmlconf_LINK) $(runxmlconf_OBJECTS) $(runxmlconf_LDADD) $(LIBS)
 testAutomata$(EXEEXT): $(testAutomata_OBJECTS) $(testAutomata_DEPENDENCIES) 
 	@rm -f testAutomata$(EXEEXT)
 	$(testAutomata_LINK) $(testAutomata_OBJECTS) $(testAutomata_LDADD) $(LIBS)
@@ -700,6 +826,9 @@ testC14N$(EXEEXT): $(testC14N_OBJECTS) $(testC14N_DEPENDENCIES)
 testHTML$(EXEEXT): $(testHTML_OBJECTS) $(testHTML_DEPENDENCIES) 
 	@rm -f testHTML$(EXEEXT)
 	$(testHTML_LINK) $(testHTML_OBJECTS) $(testHTML_LDADD) $(LIBS)
+testModule$(EXEEXT): $(testModule_OBJECTS) $(testModule_DEPENDENCIES) 
+	@rm -f testModule$(EXEEXT)
+	$(testModule_LINK) $(testModule_OBJECTS) $(testModule_LDADD) $(LIBS)
 testReader$(EXEEXT): $(testReader_OBJECTS) $(testReader_DEPENDENCIES) 
 	@rm -f testReader$(EXEEXT)
 	$(testReader_LINK) $(testReader_OBJECTS) $(testReader_LDADD) $(LIBS)
@@ -727,6 +856,15 @@ testXPath$(EXEEXT): $(testXPath_OBJECTS) $(testXPath_DEPENDENCIES)
 testapi$(EXEEXT): $(testapi_OBJECTS) $(testapi_DEPENDENCIES) 
 	@rm -f testapi$(EXEEXT)
 	$(testapi_LINK) $(testapi_OBJECTS) $(testapi_LDADD) $(LIBS)
+testchar$(EXEEXT): $(testchar_OBJECTS) $(testchar_DEPENDENCIES) 
+	@rm -f testchar$(EXEEXT)
+	$(testchar_LINK) $(testchar_OBJECTS) $(testchar_LDADD) $(LIBS)
+testdict$(EXEEXT): $(testdict_OBJECTS) $(testdict_DEPENDENCIES) 
+	@rm -f testdict$(EXEEXT)
+	$(testdict_LINK) $(testdict_OBJECTS) $(testdict_LDADD) $(LIBS)
+testrecurse$(EXEEXT): $(testrecurse_OBJECTS) $(testrecurse_DEPENDENCIES) 
+	@rm -f testrecurse$(EXEEXT)
+	$(testrecurse_LINK) $(testrecurse_OBJECTS) $(testrecurse_LDADD) $(LIBS)
 xmlcatalog$(EXEEXT): $(xmlcatalog_OBJECTS) $(xmlcatalog_DEPENDENCIES) 
 	@rm -f xmlcatalog$(EXEEXT)
 	$(xmlcatalog_LINK) $(xmlcatalog_OBJECTS) $(xmlcatalog_LDADD) $(LIBS)
@@ -782,9 +920,14 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/parserInternals.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pattern.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/relaxng.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/runsuite.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/runtest.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/runxmlconf.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/schematron.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/testAutomata.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/testC14N.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/testHTML.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/testModule.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/testReader.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/testRegexp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/testRelax.Po@am__quote@
@@ -794,6 +937,10 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/testURI.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/testXPath.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/testapi.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/testchar.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/testdict.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/testdso.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/testrecurse.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/threads.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tree.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/trio.Plo@am__quote@
@@ -806,6 +953,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/xmlcatalog.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/xmllint.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/xmlmemory.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/xmlmodule.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/xmlreader.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/xmlregexp.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/xmlsave.Plo@am__quote@
@@ -1265,7 +1413,6 @@ distcleancheck: distclean
 	       $(distcleancheck_listfiles) ; \
 	       exit 1; } >&2
 check-am: all-am
-	$(MAKE) $(AM_MAKEFLAGS) check-local
 check: check-recursive
 all-am: Makefile $(LTLIBRARIES) $(PROGRAMS) $(SCRIPTS) $(MANS) $(DATA) \
 		config.h
@@ -1304,7 +1451,8 @@ maintainer-clean-generic:
 clean: clean-recursive
 
 clean-am: clean-binPROGRAMS clean-generic clean-libLTLIBRARIES \
-	clean-libtool clean-noinstPROGRAMS mostlyclean-am
+	clean-libtool clean-noinstLTLIBRARIES clean-noinstPROGRAMS \
+	mostlyclean-am
 
 distclean: distclean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
@@ -1365,7 +1513,8 @@ ps-am:
 
 uninstall-am: uninstall-binPROGRAMS uninstall-binSCRIPTS \
 	uninstall-confexecDATA uninstall-libLTLIBRARIES \
-	uninstall-m4dataDATA uninstall-man uninstall-pkgconfigDATA
+	uninstall-local uninstall-m4dataDATA uninstall-man \
+	uninstall-pkgconfigDATA
 
 uninstall-man: uninstall-man1 uninstall-man3
 
@@ -1373,44 +1522,63 @@ uninstall-man: uninstall-man1 uninstall-man3
 	install-strip
 
 .PHONY: $(RECURSIVE_CLEAN_TARGETS) $(RECURSIVE_TARGETS) CTAGS GTAGS \
-	all all-am am--refresh check check-am check-local clean \
-	clean-binPROGRAMS clean-generic clean-libLTLIBRARIES \
-	clean-libtool clean-noinstPROGRAMS ctags ctags-recursive dist \
-	dist-all dist-bzip2 dist-gzip dist-hook dist-shar dist-tarZ \
-	dist-zip distcheck distclean distclean-compile \
-	distclean-generic distclean-hdr distclean-libtool \
-	distclean-tags distcleancheck distdir distuninstallcheck dvi \
-	dvi-am html html-am info info-am install install-am \
-	install-binPROGRAMS install-binSCRIPTS install-confexecDATA \
-	install-data install-data-am install-data-local install-dvi \
-	install-dvi-am install-exec install-exec-am install-html \
-	install-html-am install-info install-info-am \
-	install-libLTLIBRARIES install-m4dataDATA install-man \
-	install-man1 install-man3 install-pdf install-pdf-am \
-	install-pkgconfigDATA install-ps install-ps-am install-strip \
-	installcheck installcheck-am installdirs installdirs-am \
-	maintainer-clean maintainer-clean-generic mostlyclean \
-	mostlyclean-compile mostlyclean-generic mostlyclean-libtool \
-	pdf pdf-am ps ps-am tags tags-recursive uninstall uninstall-am \
-	uninstall-binPROGRAMS uninstall-binSCRIPTS \
-	uninstall-confexecDATA uninstall-libLTLIBRARIES \
-	uninstall-m4dataDATA uninstall-man uninstall-man1 \
-	uninstall-man3 uninstall-pkgconfigDATA
+	all all-am am--refresh check check-am clean clean-binPROGRAMS \
+	clean-generic clean-libLTLIBRARIES clean-libtool \
+	clean-noinstLTLIBRARIES clean-noinstPROGRAMS ctags \
+	ctags-recursive dist dist-all dist-bzip2 dist-gzip dist-hook \
+	dist-shar dist-tarZ dist-zip distcheck distclean \
+	distclean-compile distclean-generic distclean-hdr \
+	distclean-libtool distclean-tags distcleancheck distdir \
+	distuninstallcheck dvi dvi-am html html-am info info-am \
+	install install-am install-binPROGRAMS install-binSCRIPTS \
+	install-confexecDATA install-data install-data-am \
+	install-data-local install-dvi install-dvi-am install-exec \
+	install-exec-am install-html install-html-am install-info \
+	install-info-am install-libLTLIBRARIES install-m4dataDATA \
+	install-man install-man1 install-man3 install-pdf \
+	install-pdf-am install-pkgconfigDATA install-ps install-ps-am \
+	install-strip installcheck installcheck-am installdirs \
+	installdirs-am maintainer-clean maintainer-clean-generic \
+	mostlyclean mostlyclean-compile mostlyclean-generic \
+	mostlyclean-libtool pdf pdf-am ps ps-am tags tags-recursive \
+	uninstall uninstall-am uninstall-binPROGRAMS \
+	uninstall-binSCRIPTS uninstall-confexecDATA \
+	uninstall-libLTLIBRARIES uninstall-local uninstall-m4dataDATA \
+	uninstall-man uninstall-man1 uninstall-man3 \
+	uninstall-pkgconfigDATA
 
 
-testapi.c: gentest.py doc/libxml2-api.xml
-	-@(if [ "$(PYTHON)" != "" ] ; then $(PYTHON) gentest.py ; fi )
+# that one forces the rebuild when "make rebuild" is run on doc/
+rebuild_testapi:
+	-@(if [ "$(PYTHON)" != "" ] ; then \
+	    $(PYTHON) $(srcdir)/gentest.py $(srcdir) ; fi )
+
+# that one is just to make sure it is rebuilt if missing
+# but adding the dependances generate mess
+testapi.c: $(srcdir)/gentest.py
+	-@(if [ "$(PYTHON)" != "" ] ; then \
+	    $(PYTHON) $(srcdir)/gentest.py $(srcdir) ; fi )
 
 #testOOM_SOURCES=testOOM.c testOOMlib.h testOOMlib.c
 #testOOM_LDFLAGS = 
 #testOOM_DEPENDENCIES = $(DEPS)
 #testOOM_LDADD= $(LDADDS)
 
-check-local: all tests
+runtests:
+	$(CHECKER) ./runtest$(EXEEXT) && $(CHECKER) ./testrecurse$(EXEEXT) &&$(CHECKER) ./testapi$(EXEEXT) && $(CHECKER) ./testchar$(EXEEXT)&& $(CHECKER) ./testdict$(EXEEXT) && $(CHECKER) ./runxmlconf$(EXEEXT)
+	@(if [ "@PYTHON_SUBDIR@" != "" ] ; then cd python ; \
+	    $(MAKE) MAKEFLAGS+=--silent tests ; fi)
+
+check: all runtests
+
+check-valgrind: all
+	@echo '## Running the regression tests under Valgrind'
+	@echo '## Go get a cup of coffee it is gonna take a while ...'
+	$(MAKE) CHECKER='valgrind -q' check
 
 testall : tests SVGtests SAXtests
 
-tests: XMLtests XMLenttests NStests IDtests Errtests APItests @READER_TEST@ @TEST_SAX@ @TEST_PUSH@ @TEST_HTML@ @TEST_PHTML@  @TEST_VALID@ URItests @TEST_XPATH@ @TEST_XPTR@ @TEST_XINCLUDE@ @TEST_C14N@ @TEST_DEBUG@ @TEST_CATALOG@ @TEST_REGEXPS@ @TEST_SCHEMAS@ @TEST_THREADS@ Timingtests @TEST_VTIME@ @PYTHON_TESTS@
+tests: XMLtests XMLenttests NStests IDtests Errtests APItests @READER_TEST@ @TEST_SAX@ @TEST_PUSH@ @TEST_HTML@ @TEST_PHTML@  @TEST_VALID@ URItests @TEST_PATTERN@ @TEST_XPATH@ @TEST_XPTR@ @TEST_XINCLUDE@ @TEST_C14N@ @TEST_DEBUG@ @TEST_CATALOG@ @TEST_REGEXPS@ @TEST_SCHEMAS@ @TEST_SCHEMATRON@ @TEST_THREADS@ Timingtests @TEST_VTIME@ @PYTHON_TESTS@ @TEST_MODULES@
 	@(if [ "@PYTHON_SUBDIR@" != "" ] ; then cd python ; \
 	    $(MAKE) MAKEFLAGS+=--silent tests ; fi)
 	@(cd doc/examples ; $(MAKE) MAKEFLAGS+=--silent tests)
@@ -1623,15 +1791,14 @@ Errtests : xmllint$(EXEEXT)
 	      echo New test file $$name ; \
 	      $(CHECKER) $(top_builddir)/xmllint --stream $$i \
 	         2> $(srcdir)/result/errors/$$name.str \
-		 > $(srcdir)/result/errors/$$name ; \
+		 > /dev/null ; \
 	      grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0"; \
 	  else \
-	      log=`$(CHECKER) $(top_builddir)/xmllint --stream $$i 2> error.$$name > result.$$name ; \
+	      log=`$(CHECKER) $(top_builddir)/xmllint --stream $$i 2> error.$$name > /dev/null ; \
 	      grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0"; \
-	      diff $(srcdir)/result/errors/$$name result.$$name ; \
 	      diff $(srcdir)/result/errors/$$name.str error.$$name` ; \
 	      if [ -n "$$log" ] ; then echo $$name result ; echo $$log ; fi ; \
-	      rm result.$$name error.$$name ; \
+	      rm error.$$name ; \
 	  fi ; fi ; done)
 
 Docbtests : xmllint$(EXEEXT)
@@ -1984,7 +2151,7 @@ Readertests : xmllint$(EXEEXT)
 
 SAXtests : testSAX$(EXEEXT)
 	@(echo > .memdump)
-	@echo "## SAX callbacks regression tests"
+	@echo "## SAX1 callbacks regression tests"
 	-@(for i in $(srcdir)/test/* ; do \
 	  name=`basename $$i`; \
 	  if [ ! -d $$i ] ; then \
@@ -1996,6 +2163,21 @@ SAXtests : testSAX$(EXEEXT)
 	      log=`$(CHECKER) $(top_builddir)/testSAX $$i > result.$$name 2> /dev/null ; \
 	      grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0";\
 	      diff $(srcdir)/result/$$name.sax result.$$name` ; \
+	      if [ -n "$$log" ] ; then echo $$name result ; echo $$log ; fi ; \
+	      rm result.$$name ; \
+	  fi ; fi ; done)
+	@echo "## SAX2 callbacks regression tests"
+	-@(for i in $(srcdir)/test/* ; do \
+	  name=`basename $$i`; \
+	  if [ ! -d $$i ] ; then \
+	  if [ ! -f $(srcdir)/result/$$name.sax2 ] ; then \
+	      echo New test file $$name ; \
+	      $(CHECKER) $(top_builddir)/testSAX --sax2 $$i > $(srcdir)/result/$$name.sax2 2> /dev/null ; \
+	      grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0";\
+	  else \
+	      log=`$(CHECKER) $(top_builddir)/testSAX --sax2 $$i > result.$$name 2> /dev/null ; \
+	      grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0";\
+	      diff $(srcdir)/result/$$name.sax2 result.$$name` ; \
 	      if [ -n "$$log" ] ; then echo $$name result ; echo $$log ; fi ; \
 	      rm result.$$name ; \
 	  fi ; fi ; done)
@@ -2059,6 +2241,21 @@ Regexptests: testRegexp$(EXEEXT)
 	      if [ -n "$$log" ] ; then echo $$name result ; echo $$log ; fi ; \
 	      rm result.$$name ; \
 	  fi ; fi ; done)
+	@echo "## Formal expresssions regression tests"
+	-@(for i in $(srcdir)/test/expr/* ; do \
+	  name=`basename $$i`; \
+	  if [ ! -d $$i ] ; then \
+	  if [ ! -f $(srcdir)/result/expr/$$name ] ; then \
+	      echo New test file $$name ; \
+	      $(CHECKER) $(top_builddir)/testRegexp --expr -i $$i > $(srcdir)/result/expr/$$name; \
+	      grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0";\
+	  else \
+	      log=`$(CHECKER) $(top_builddir)/testRegexp --expr -i $$i 2>&1 > result.$$name ; \
+	      grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0";\
+	      diff $(srcdir)/result/expr/$$name result.$$name` ; \
+	      if [ -n "$$log" ] ; then echo $$name result ; echo $$log ; fi ; \
+	      rm result.$$name ; \
+	  fi ; fi ; done)
 
 Automatatests: testAutomata$(EXEEXT)
 	@(echo > .memdump)
@@ -2078,23 +2275,23 @@ Automatatests: testAutomata$(EXEEXT)
 	      rm result.$$name ; \
 	  fi ; fi ; done)
 
-$(srcdir)/dba100000.xml: dbgenattr.pl
+dba100000.xml: dbgenattr.pl
 	@echo "## generating dba100000.xml"
-	@($(PERL) $(top_srcdir)/dbgenattr.pl 100000 > $(srcdir)/dba100000.xml)
+	@($(PERL) $(top_srcdir)/dbgenattr.pl 100000 > dba100000.xml)
 
-Timingtests: xmllint$(EXEEXT) $(srcdir)/dba100000.xml
+Timingtests: xmllint$(EXEEXT) dba100000.xml
 	@echo "## Timing tests to try to detect performance"
 	@echo "## as well a memory usage breakage when streaming"
 	@echo "## 1/ using the file interface"
 	@echo "## 2/ using the memory interface"
 	@echo "## 3/ repeated DOM parsing"
 	@echo "## 4/ repeated DOM validation"
-	-@($(top_builddir)/xmllint --stream --timing $(srcdir)/dba100000.xml; \
+	-@($(top_builddir)/xmllint --stream --timing dba100000.xml; \
 	   MEM=`cat .memdump | grep "MEMORY ALLOCATED" | awk '{ print $$7}'`;\
 	   if [ "$$MEM" != "" ] ; then echo Using $$MEM bytes ; fi ; \
 	   grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0";\
 	   exit 0)
-	-@($(top_builddir)/xmllint --stream --timing --memory $(srcdir)/dba100000.xml; \
+	-@($(top_builddir)/xmllint --stream --timing --memory dba100000.xml; \
 	   MEM=`cat .memdump | grep "MEMORY ALLOCATED" | awk '{ print $$7}'`;\
 	   if [ "$$MEM" != "" ] ; then echo Using $$MEM bytes ; fi ; \
 	   grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0";\
@@ -2235,7 +2432,7 @@ Relaxtests: xmllint$(EXEEXT)
 		    > res.$$name 2> err.$$name;\
 	          grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0";\
 	          diff $(srcdir)/result/relaxng/"$$name"_"$$xno" res.$$name;\
-		  if [ "$$name" != "tutor10_1" -a "$$name" != "tutor10_2" -a "$$name" != "tutor3_2" ] ; then \
+		  if [ "$$name" != "tutor10_1" -a "$$name" != "tutor10_2" -a "$$name" != "tutor3_2" -a "$$name" != "307377" ] ; then \
 		      diff $(srcdir)/result/relaxng/"$$name"_"$$xno".err \
 			   err.$$name | grep -v "error detected at";\
 		  fi ; grep Unimplemented err.$$name`; \
@@ -2244,10 +2441,41 @@ Relaxtests: xmllint$(EXEEXT)
 	       fi ; fi ; \
 	  done; done)
 
+Schematrontests: xmllint$(EXEEXT)
+	@(echo > .memdump)
+	@echo "## Schematron regression tests"
+	-@(for i in $(srcdir)/test/schematron/*.sct ; do \
+	  name=`basename $$i | sed 's+\.sct++'`; \
+	  for j in $(srcdir)/test/schematron/"$$name"_*.xml ; do \
+	      if [ -f $$j ] ; then \
+	      xno=`basename $$j | sed 's+.*_\(.*\).xml+\1+'`; \
+	      if [ ! -f $(srcdir)/result/schematron/"$$name"_"$$xno" ]; \
+	      then \
+		  echo New test file "$$name"_"$$xno" ; \
+		  $(CHECKER) $(top_builddir)/xmllint$(EXEEXT) --schematron $$i $$j \
+		    > $(srcdir)/result/schematron/"$$name"_"$$xno" \
+		    2> $(srcdir)/result/schematron/"$$name"_"$$xno".err; \
+	          grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0";\
+	      else \
+	          log=`$(CHECKER) $(top_builddir)/xmllint$(EXEEXT) --schematron $$i $$j \
+		    > res.$$name 2> err.$$name;\
+	          grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0";\
+	          diff $(srcdir)/result/schematron/"$$name"_"$$xno" \
+		       res.$$name;\
+	          diff $(srcdir)/result/schematron/"$$name"_"$$xno".err \
+		       err.$$name | grep -v "error detected at";\
+		  grep Unimplemented err.$$name`; \
+		  if [ -n "$$log" ] ; then echo "$$name"_"$$xno" result ; echo $$log ; fi ; \
+	          rm res.$$name err.$$name ; \
+	       fi ; fi ; \
+	  done; done)
+
 RelaxNGPythonTests:
 	@(if [ -x $(PYTHON) ] ; then \
 	    PYTHONPATH=$(top_builddir)/python:$(top_builddir)/python/.libs:$$PYTHONPATH ; \
 	    export PYTHONPATH; \
+	    LD_LIBRARY_PATH="$(top_builddir)/.libs:$$LD_LIBRARY_PATH" ; \
+	    export LD_LIBRARY_PATH; \
 	    echo "## Relax-NG Python based test suite 1" ; \
 	    $(CHECKER) $(PYTHON) $(srcdir)/check-relaxng-test-suite.py ; \
 	    echo "## Relax-NG Python based test suite 2" ; \
@@ -2258,21 +2486,59 @@ SchemasPythonTests:
 	@(if [ -x $(PYTHON) ] ; then \
 	    PYTHONPATH=$(top_builddir)/python:$(top_builddir)/python/.libs:$$PYTHONPATH; \
 	    export PYTHONPATH; \
+	    LD_LIBRARY_PATH="$(top_builddir)/.libs:$$LD_LIBRARY_PATH" ; \
+	    export LD_LIBRARY_PATH; \
 	    echo "## XML Schemas datatypes Python based test suite" ; \
-	    echo "## It is normal to see 6 errors reported" ; \
+	    echo "## It is normal to see 11 errors reported" ; \
 	    $(CHECKER) $(PYTHON) $(srcdir)/check-xsddata-test-suite.py ; \
 	  fi)
 	@(if [ -x $(PYTHON) -a -d xstc ] ; then cd xstc ; $(MAKE) CHECKER="$(CHECKER)" MAKEFLAGS+=--silent pytests ; fi)
 
+Patterntests: xmllint$(EXEEXT)
+	@(echo > .memdump)
+	@echo "## Pattern regression tests"
+	-@(for i in $(srcdir)/test/pattern/*.pat ; do \
+	  name=`basename $$i .pat`; \
+	  if [ -f $(srcdir)/test/pattern/$$name.xml ] ; then \
+	  if [ ! -f $(srcdir)/result/pattern/$$name ] ; then \
+	      rm -f result.$$name ; \
+	      echo New test file $$name ; \
+	      for pat in `cat $$i` ; do \
+	      $(CHECKER) $(top_builddir)/xmllint --walker --pattern $$pat $(srcdir)/test/pattern/$$name.xml >> $(srcdir)/result/pattern/$$name ; \
+	      grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0";\
+	      done ;\
+	  else \
+	      rm -f result.$$name ; \
+	      lst=`cat $$i` ; \
+	      log=`for pat in $$lst ; do $(CHECKER) $(top_builddir)/xmllint --walker --pattern $$pat $(srcdir)/test/pattern/$$name.xml 2>&1 >> result.$$name ; \
+	      grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0";\
+	      done ;\
+	      diff $(srcdir)/result/pattern/$$name result.$$name` ; \
+	      if [ -n "$$log" ] ; then echo $$name result ; echo $$log ; fi ; \
+	      rm result.$$name ; \
+	  fi ; fi ; done ;)
+
+ModuleTests: testModule$(EXEEXT) testdso.la
+	@echo "## Module tests"
+	@(./testModule$(EXEEXT))
+
 cleanup:
 	-@(find . -name .\#\* -exec rm {} \;)
+	-@(find . -name \*.gcda -o *.gcno -exec rm {} \;)
+	-@(find . -name \*.orig -o -name \*.rej -o -name \*.old -exec rm {} \;)
 
 dist-hook: cleanup libxml2.spec
 	-cp libxml2.spec $(distdir)
-	(cd $(srcdir) ; tar -cf - --exclude CVS win32 macos vms test result SAXresult ) | (cd $(distdir); tar xf -)
+	(cd $(srcdir) ; tar -cf - --exclude CVS --exclude .svn win32 macos vms bakefile test result) | (cd $(distdir); tar xf -)
 
 dist-source: distdir
-	$(AMTAR) -chof - --exclude test --exclude result $(distdir) | GZIP=$(GZIP_ENV) gzip -c >`echo "$(distdir)" | sed "s+libxml2+libxml2-sources+"`.tar.gz
+	$(AMTAR) -chof - --exclude Tests --exclude test --exclude result $(distdir) | GZIP=$(GZIP_ENV) gzip -c >`echo "$(distdir)" | sed "s+libxml2+libxml2-sources+"`.tar.gz
+
+dist-test: distdir
+	(mkdir -p $(distdir))
+	(cd $(srcdir) ; tar -cf - --exclude CVS --exclude .svn xstc/Tests) | (cd $(distdir); tar xf -)
+	tar -cf - $(distdir)/test $(distdir)/result $(distdir)/xstc/Tests  $(distdir)/Makefile.tests $(distdir)/README $(distdir)/README.tests $(distdir)/AUTHORS $(distdir)/testapi.c $(distdir)/runtest.c $(distdir)/runsuite.c | GZIP=$(GZIP_ENV) gzip -c >`echo "$(distdir)" | sed "s+libxml2+libxml2-tests+"`.tar.gz
+	@(rm -rf $(distdir)/xstc/Test)
 
 cleantar:
 	@(rm -f libxml*.tar.gz COPYING.LIB)
@@ -2297,8 +2563,37 @@ install-data-local:
 	-@INSTALL@ -m 0644 $(srcdir)/testHTML.c $(DESTDIR)$(EXAMPLES_DIR)
 	-@INSTALL@ -m 0644 $(srcdir)/testXPath.c $(DESTDIR)$(EXAMPLES_DIR)
 
+uninstall-local:
+	rm $(DESTDIR)$(EXAMPLES_DIR)/testXPath.c
+	rm $(DESTDIR)$(EXAMPLES_DIR)/testHTML.c
+	rm $(DESTDIR)$(EXAMPLES_DIR)/testSAX.c
+	rm $(DESTDIR)$(EXAMPLES_DIR)/xmllint.c
+	rm -rf $(DESTDIR)$(EXAMPLES_DIR)
+	rm $(DESTDIR)$(BASE_DIR)/$(DOC_MODULE)/Copyright
+	rm -rf $(DESTDIR)$(BASE_DIR)/$(DOC_MODULE)
+
 tst: tst.c
 	$(CC) $(CFLAGS) -Iinclude -o tst tst.c .libs/libxml2.a -lpthread -lm -lz
+
+sparse: clean
+	$(MAKE) CC=cgcc
+
+cov: clean-cov
+	if [ "`echo $(LDFLAGS) | grep coverage`" = "" ] ; then \
+	    echo not configured with coverage; exit 1 ; fi
+	if [ ! -x $(LCOV) -o ! -x $(GENHTML) ] ; then \
+	    echo Need $(LCOV) and $(GENHTML) excecutables; exit 1 ; fi
+	-@($(MAKE) check)
+	-@(./runsuite$(EXEEXT))
+	mkdir $(top_builddir)/coverage
+	$(LCOV) -c -o $(top_builddir)/coverage/libxml2.info.tmp -d $(top_srcdir)
+	$(LCOV) -r $(top_builddir)/coverage/libxml2.info.tmp -o $(top_builddir)/coverage/libxml2.info *usr*
+	rm $(top_builddir)/coverage/libxml2.info.tmp
+	$(GENHTML) -s -t "libxml2" -o $(top_builddir)/coverage --legend $(top_builddir)/coverage/libxml2.info
+	echo "Coverage report is in $(top_builddir)/coverage/index.html"
+
+clean-cov:
+	rm -rf $(top_builddir)/coverage
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

@@ -3,8 +3,7 @@
 # Class name: ClassArray
 # Synopsis: Holds info about a class line array
 #
-# Author: David Gatwood (dgatwood@apple.com)
-# Last Updated: $Date: 2004/10/04 23:11:14 $
+# Last Updated: $Date: 2009/03/30 19:38:50 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -40,7 +39,7 @@ use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc printArr
 
 use strict;
 use vars qw($VERSION @ISA);
-$VERSION = '$Revision: 1.1.2.3 $';
+$HeaderDoc::ClassArray::VERSION = '$Revision: 1.3 $';
 
 sub new {
     my($param) = shift;
@@ -86,7 +85,7 @@ sub push
 
     if ($pushDebug) {
 	my $bc = $self->bracecount();
-	print "pushing (bc=$bc) $line\n";
+	print STDERR "pushing (bc=$bc) $line\n";
     }
 
     push(@{ $self->{LINEARRAY} }, $line);

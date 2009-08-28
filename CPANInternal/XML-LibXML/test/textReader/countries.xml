@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE countries SYSTEM "SR2006_countries_config.dtd">
+
+<countries>
+<country acronym="AL" report="true">
+  <emission acronym="AL" />
+  <emitter acronym="AL" />
+  <receptor acronym="AL" />
+</country>
+<country acronym="AM" report="true">
+  <emission acronym="AM" />
+  <emitter acronym="AM" />
+  <receptor acronym="AM" />
+</country>
+<country acronym="AT" report="true">
+  <emission acronym="AT" />
+  <emitter acronym="AT" />
+</country>
+</countries>

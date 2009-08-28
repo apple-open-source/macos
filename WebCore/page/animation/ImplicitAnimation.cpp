@@ -45,6 +45,7 @@ ImplicitAnimation::ImplicitAnimation(const Animation* transition, int animatingP
     , m_transitionProperty(transition->property())
     , m_animatingProperty(animatingProperty)
     , m_overridden(false)
+    , m_active(true)
     , m_fromStyle(fromStyle)
 {
     ASSERT(animatingProperty != cAnimateAll);
@@ -52,9 +53,9 @@ ImplicitAnimation::ImplicitAnimation(const Animation* transition, int animatingP
 
 ImplicitAnimation::~ImplicitAnimation()
 {
-    // Do the cleanup here instead of in the base class so the specialized methods get called
+    // // Make sure to tell the renderer that we are ending. This will make sure any accelerated animations are removed.
     if (!postActive())
-        updateStateMachine(AnimationStateInputEndAnimation, -1);
+        endAnimation(true);
 }
 
 bool ImplicitAnimation::shouldSendEventForListener(Document::ListenerType inListenerType) const
@@ -211,6 +212,10 @@ bool ImplicitAnimation::affectsProperty(int property) const
 
 bool ImplicitAnimation::isTargetPropertyEqual(int prop, const RenderStyle* targetStyle)
 {
+    // We can get here for a transition that has not started yet. This would make m_toStyle unset and null. 
+    // So we check that here (see <https://bugs.webkit.org/show_bug.cgi?id=26706>)
+    if (!m_toStyle)
+        return false;
     return propertiesEqual(prop, m_toStyle.get(), targetStyle);
 }
 

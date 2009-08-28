@@ -122,7 +122,7 @@ __private_extern__ struct hints_info output_hints_info = { { 0 } };
 __private_extern__ struct cksum_info output_cksum_info = { { 0 } };
 
 /*
- * The output file's prebind_cksum load command.
+ * The output file's UUID load command.
  */
 __private_extern__ struct uuid_info output_uuid_info = { 0 };
 
@@ -156,6 +156,8 @@ static struct hp_pa_frame_thread_state hppa_frame_state = { 0 };
 static struct hp_pa_integer_thread_state hppa_integer_state = { 0 };
 /* cputype == CPU_TYPE_SPARC, all subtypes */
 static struct sparc_thread_state_regs sparc_state = { {0} };
+/* cputype == CPU_TYPE_ARM, all subtypes */
+static struct arm_thread_state arm_state = { 0 };
 
 static void layout_segments(void);
 static unsigned long next_vmaddr(
@@ -918,7 +920,8 @@ layout_segments(void)
 			  (unsigned int)segalign);
 	    }
 	    else{
-		segs_read_write_addr = segs_read_only_addr + 0x10000000;
+		segs_read_write_addr = segs_read_only_addr + 
+				   get_shared_region_size_from_flag(&arch_flag);
 	    }
 	}
 	first_msg = merged_segments;
@@ -1174,7 +1177,9 @@ layout_segments(void)
 	 * Create the uuid load command.
 	 */
 #ifndef KLD
-	if(output_uuid_info.suppress != TRUE && output_uuid_info.emit == TRUE){
+	if(output_uuid_info.suppress != TRUE &&
+	   (output_uuid_info.emit == TRUE ||
+	    arch_flag.cputype == CPU_TYPE_ARM)){
 	    output_uuid_info.uuid_command.cmd = LC_UUID;
 	    output_uuid_info.uuid_command.cmdsize = sizeof(struct uuid_command);
 	    uuid(&(output_uuid_info.uuid_command.uuid[0]));
@@ -1274,6 +1279,15 @@ layout_segments(void)
 	      output_thread_info.state = &sparc_state;
 	      output_thread_info.thread_command.cmdsize += sizeof(long) *
 		SPARC_THREAD_STATE_REGS_COUNT;
+	    }
+	    else if (arch_flag.cputype == CPU_TYPE_ARM) {
+	      output_thread_info.flavor = ARM_THREAD_STATE;
+	      output_thread_info.count = ARM_THREAD_STATE_COUNT;
+	      output_thread_info.entry_point = (int *)&(arm_state.r15);
+	      output_thread_info.stack_pointer = (int *)&(arm_state.r13);
+	      output_thread_info.state = &arm_state;
+	      output_thread_info.thread_command.cmdsize += sizeof(long) *
+		ARM_THREAD_STATE_COUNT;
 	    }
 	    else{
 		fatal("internal error: layout_segments() called with unknown "
@@ -1856,8 +1870,14 @@ layout_segments(void)
 		   merged_symbol->nlist.n_type == (N_EXT | N_UNDF))
 		    fatal("initialization routine symbol name: %s not defined",
 			  init_name);
-		output_routines_info.routines_command.init_address =
-		    merged_symbol->nlist.n_value;
+		if(arch_flag.cputype == CPU_TYPE_ARM &&
+		   (merged_symbol->nlist.n_desc & N_ARM_THUMB_DEF))
+		    /* Have to set the low-order bit if symbol is Thumb */
+		    output_routines_info.routines_command.init_address =
+			merged_symbol->nlist.n_value | 1;
+		else
+		    output_routines_info.routines_command.init_address =
+			merged_symbol->nlist.n_value;
 		output_routines_info.routines_command.init_module =
 		    merged_symbol->definition_object->imodtab;
 	    }

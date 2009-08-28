@@ -1,4 +1,4 @@
-.\" Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+.\" Copyright (c) 2003-2009 Apple Inc. All rights reserved.
 .\" 
 .\" The contents of this file constitute Original Code as defined in and
 .\" are subject to the Apple Public Source License Version 1.1 (the
@@ -47,6 +47,11 @@ The version string compiled into the kernel executing on the host system.
 .It Processor Configuration:
 The maximum possible processors for which the kernel is configured, 
 followed by the number of physical and logical processors available.
+.Pp
+Note: on Intel architectures, physical processors are referred to as cores, and 
+logical processors are referred to as hardware threads; there may be multiple
+logical processors per core and multiple cores per processor package.
+This command does not report the number of processor packages.
 .Pp
 .It Processor type:
 The host's processor type and subtype.

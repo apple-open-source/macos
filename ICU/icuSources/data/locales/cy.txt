@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2006 International Business Machines
+// * Copyright (C) 2008 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/cy.xml
@@ -16,7 +16,7 @@ cy{
     }
     Currencies{
         BRL{
-            "BRL",
+            "R$",
             "Real Brasil",
         }
         CNY{
@@ -28,15 +28,15 @@ cy{
             "Ewro",
         }
         GBP{
-            "£",
+            "UK£",
             "Punt Sterling Prydain",
         }
         INR{
-            "=0#Rs.|1#Re.|1<Rs.",
+            "=0#Rs.|1#Re.|1<Rs." /** (choice)  */,
             "Rwpî India",
         }
         JPY{
-            "¥",
+            "JP¥",
             "Yen Siapan",
         }
         RUB{
@@ -44,7 +44,7 @@ cy{
             "Rwbl Rwsia",
         }
         USD{
-            "$",
+            "US$",
             "Doler yr UDA",
         }
     }
@@ -53,44 +53,122 @@ cy{
         "ò ô ö p {ph} r {rh} s t {th} u ú ù û ü w ẃ ẁ ŵ ẅ y ý ỳ ŷ ÿ]"
     }
     Languages{
+        af{"Affricaneg"}
+        am{"Amhareg"}
         ar{"Arabeg"}
+        as{"Asameg"}
+        be{"Belarwsiyn"}
+        bg{"Bwlgareg"}
+        bh{"Bihari"}
+        bn{"Bengali; Bangla"}
+        br{"Llydaweg"}
+        bs{"Bosnieg"}
+        ca{"Catalaneg"}
+        cs{"Tsiec"}
         cy{"Cymraeg"}
+        da{"Daneg"}
         de{"Almaeneg"}
+        el{"Groeg"}
         en{"Saesneg"}
+        eo{"Esperanto"}
         es{"Sbaeneg"}
+        et{"Estoneg"}
+        eu{"Basgeg"}
+        fa{"Persieg"}
+        fi{"Ffineg"}
+        fil{"Tagalog"}
+        fo{"Ffaroeg"}
         fr{"Ffrangeg"}
+        ga{"Gwyddeleg"}
+        gd{"Gaeleg yr Alban"}
+        gl{"Galiseg"}
+        he{"Hebraeg"}
         hi{"Hindi"}
+        hr{"Croateg"}
+        hu{"Hwngareg"}
+        hy{"Armeneg"}
+        ia{"Interlingua"}
+        id{"Indonesieg"}
+        ie{"Interlingue"}
+        is{"Islandeg"}
         it{"Eidaleg"}
         ja{"Siapaneeg"}
+        jv{"Jafanaeg"}
+        ka{"Georgeg"}
+        km{"Cambodieg"}
+        kn{"Kannada"}
+        ko{"Corëeg"}
+        ku{"Cwrdeg"}
+        la{"Lladin"}
+        ln{"Lingala"}
+        lo{"Laoeg"}
+        lt{"Lithwaneg"}
+        lv{"Latfieg"}
+        ml{"Malayalam"}
+        mn{"Mongoleg"}
+        mr{"Marathi"}
+        ms{"Malai"}
+        mt{"Malteseg"}
+        ne{"Nepali"}
+        nl{"Iseldireg"}
+        nn{"Norwyeg (Nynorsk)"}
+        no{"Norwyeg"}
+        oc{"Ocsitaneg"}
+        or{"Oriya"}
+        pa{"Pwnjabi"}
+        pl{"Pwyleg"}
+        ps{"Pashto"}
         pt{"Portiwgaleg"}
+        ro{"Rwmaneg"}
         ru{"Rwsieg"}
+        sa{"Sansgrit"}
+        sd{"Sindhi"}
+        sh{"Serbo-Croateg"}
+        si{"Sinhaleg"}
+        sk{"Slofaceg"}
+        sl{"Slofeneg"}
+        so{"Somaleg"}
+        sq{"Albaneg"}
+        sr{"Serbeg"}
+        st{"Sesotheg"}
+        su{"Sundaneg"}
+        sv{"Swedeg"}
+        sw{"Swahili"}
+        ta{"Tamil"}
+        tlh{"Klingon"}
+        uk{"Wcreineg"}
+        und{"anh"}
+        uz{"Wsbeceg"}
+        vi{"Fietnameg"}
         zh{"Tseineeg"}
+        zu{"Zwlw"}
     }
     LocaleScript{
         "Latn",
     }
-    NumberPatterns{
-        "#,##0.###",
-        "¤ #,##0.00",
-        "#,##0%",
-        "#E0",
-    }
     Scripts{
         Latn{"Lladin"}
     }
-    Version{"1.41"}
+    Version{"1.56"}
     calendar{
         gregorian{
+            AmPmMarkers{
+                "AM",
+                "PM",
+            }
             DateTimePatterns{
-                "HH:mm:ss z",
-                "HH:mm:ss z",
-                "HH:mm:ss",
-                "HH:mm",
+                "h:mm:ss a v",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
                 "EEEE, yyyy MMMM dd",
                 "yyyy MMMM d",
                 "yyyy MMM d",
-                "yy/MM/dd",
+                "yyyy-MM-dd",
                 "{1} {0}",
+            }
+            availableFormats{
+                Md{"d/M"}
             }
             dayNames{
                 format{
@@ -114,6 +192,15 @@ cy{
                     }
                 }
                 stand-alone{
+                    abbreviated{
+                        "Sul",
+                        "Llun",
+                        "Maw",
+                        "Mer",
+                        "Iau",
+                        "Gwe",
+                        "Sad",
+                    }
                     narrow{
                         "S",
                         "L",
@@ -123,6 +210,145 @@ cy{
                         "G",
                         "S",
                     }
+                }
+            }
+            eras{
+                abbreviated{
+                    "CC",
+                    "OC",
+                }
+                narrow{
+                    "C",
+                    "O",
+                }
+                wide{
+                    "Cyn Crist",
+                    "Oed Crist",
+                }
+            }
+            fields{
+                day{
+                    dn{"Dydd"}
+                    relative{
+                        "-2"{"Echdoe"}
+                        "-3"{"Dridiau yn ôl"}
+                        "2"{"Drennydd"}
+                        "3"{"Ymhen tridiau"}
+                    }
+                }
+                dayperiod{
+                    dn{"AM/PM"}
+                }
+                era{
+                    dn{"Oes"}
+                }
+                hour{
+                    dn{"Awr"}
+                }
+                minute{
+                    dn{"Munud"}
+                }
+                month{
+                    dn{"Mis"}
+                }
+                second{
+                    dn{"Eiliad"}
+                }
+                week{
+                    dn{"Wythnos"}
+                }
+                weekday{
+                    dn{"Dydd o'r Wythnos"}
+                }
+                year{
+                    dn{"Blwyddyn"}
+                }
+                zone{
+                    dn{"Cylchfa"}
+                }
+            }
+            intervalFormats{
+                M{
+                    M{"M-M"}
+                }
+                MEd{
+                    M{"E, d/M – E, d/M"}
+                    d{"E, d/M – E, d/M"}
+                }
+                MMM{
+                    M{"MMM-MMM"}
+                }
+                MMMEd{
+                    M{"E, d MMM – E, d MMM"}
+                    d{"E, d MMM – E, d MMM"}
+                }
+                MMMM{
+                    M{"LLLL-LLLL"}
+                }
+                MMMd{
+                    M{"d MMM – d MMM"}
+                    d{"MMM d–d"}
+                }
+                Md{
+                    M{"d/M – d/M"}
+                    d{"d/M – d/M"}
+                }
+                d{
+                    d{"d-d"}
+                }
+                fallback{"{0} – {1}"}
+                h{
+                    a{"h a – h a"}
+                    h{"h–h a"}
+                }
+                hm{
+                    a{"h:mm a – h:mm a"}
+                    h{"h:mm–h:mm a"}
+                    m{"h:mm–h:mm a"}
+                }
+                hmv{
+                    a{"h:mm a – h:mm a v"}
+                    h{"h:mm–h:mm a v"}
+                    m{"h:mm–h:mm a v"}
+                }
+                hv{
+                    a{"h a – h a v"}
+                    h{"h–h a v"}
+                }
+                y{
+                    y{"y-y"}
+                }
+                yM{
+                    M{"M/yy – M/yy"}
+                    y{"M/yy – M/yy"}
+                }
+                yMEd{
+                    M{"E, d/M/yy - E, d/M/yy"}
+                    d{"E, d/M/yy - E, d/M/yy"}
+                    y{"E, d/M/yy - E, d/M/yy"}
+                }
+                yMMM{
+                    M{"MMM - MMM, yyyy"}
+                    y{"MMM yyyy - MMM yyyy"}
+                }
+                yMMMEd{
+                    M{"E, d MMM - E, d MMM, yyyy"}
+                    d{"E, d MMM - E, d MMM, yyyy"}
+                    y{"E, d MMM, yyyy - E, d MMM, yyyy"}
+                }
+                yMMMM{
+                    M{"yyyy-MM – MM"}
+                    y{"yyyy-MM – yyyy-MM"}
+                }
+                yMMMd{
+                    M{"d MMM - d MMM, yyyy"}
+                    d{"d-d MMM, yyyy"}
+                    y{"d MMM, yyyy - d MMM, yyyy"}
+                }
+                yMd{
+                    M{"d/M/yy - d/M/yy"}
+                    d{"d/M/yy - d/M/yy"}
+                    y{"d/M/yy - d/M/yy"}
                 }
             }
             monthNames{
@@ -157,6 +383,20 @@ cy{
                     }
                 }
                 stand-alone{
+                    abbreviated{
+                        "Ion",
+                        "Chwe",
+                        "Maw",
+                        "Ebr",
+                        "Mai",
+                        "Meh",
+                        "Gor",
+                        "Awst",
+                        "Medi",
+                        "Hyd",
+                        "Tach",
+                        "Rhag",
+                    }
                     narrow{
                         "I",
                         "C",
@@ -171,9 +411,51 @@ cy{
                         "T",
                         "R",
                     }
+                    wide{
+                        "Ionawr",
+                        "Chwefror",
+                        "Mawrth",
+                        "Ebrill",
+                        "Mai",
+                        "Mehefin",
+                        "Gorffennaf",
+                        "Awst",
+                        "Medi",
+                        "Hydref",
+                        "Tachwedd",
+                        "Rhagfyr",
+                    }
+                }
+            }
+            quarters{
+                format{
+                    abbreviated{
+                        "Ch1",
+                        "Ch2",
+                        "Ch3",
+                        "Ch4",
+                    }
+                    wide{
+                        "Chwarter 1af",
+                        "2il chwarter",
+                        "3ydd chwarter",
+                        "4ydd chwarter",
+                    }
+                }
+                stand-alone{
+                    narrow{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                    }
                 }
             }
         }
+    }
+    measurementSystemNames{
+        US{"UD"}
+        metric{"Metrig"}
     }
     zoneStrings{
         hourFormat{"+HHmm;-HHmm"}

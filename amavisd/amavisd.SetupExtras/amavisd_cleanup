@@ -2,17 +2,39 @@
 #
 #  Periodically clean up amavis/tmp and virusmails
 
+#####################
+# amavisd temp directory
 AMAVISD_TMP_DIR="/var/amavis/tmp"
+
+#####################
+# get the size of the temp directory
+SIZE=`du -d 0 -h /var/amavis/tmp/ | sed -n -e "s/[^0-9]*\([0-9]*\).*/\1/p"`
+
+#####################
+# determine how may days to clean up based on size
+
+if [ $SIZE -gt 50 ]; then
+  DAYS="+1"
+elif [ $SIZE -gt 10 ]; then
+  DAYS="+7"
+else
+  DAYS="+14"
+fi
+
 if [ -d $AMAVISD_TMP_DIR ]; then
 	cd $AMAVISD_TMP_DIR
-	find $AMAVISD_TMP_DIR -type d -atime +30 -exec rm -r {} \;
-	find $AMAVISD_TMP_DIR -type f -atime +30 -exec rm -r {} \;
+	find $AMAVISD_TMP_DIR -type d -atime $DAYS -exec rm -r {} \;
+	find $AMAVISD_TMP_DIR -type f -atime $DAYS -exec rm -r {} \;
 fi
+
+#####################
+# virus quarantine directory
+# always clean up viruses after 1 day
 
 AMAVISD_VIR_DIR="/var/virusmails"
 if [ -d $AMAVISD_VIR_DIR ]; then
 	cd $AMAVISD_VIR_DIR
-	find $AMAVISD_VIR_DIR -type d -atime +30 -exec rm -r {} \;
-	find $AMAVISD_VIR_DIR -type f -atime +30 -exec rm -r {} \;
+	find $AMAVISD_VIR_DIR -type d -atime +1 -exec rm -r {} \;
+	find $AMAVISD_VIR_DIR -type f -atime +1 -exec rm -r {} \;
 fi
 

@@ -20,6 +20,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#include <stdint.h>
 #include "stuff/hash_string.h"
 /*
  * A hash function used for converting a string into a single number.  It is
@@ -27,12 +28,12 @@
  * table.
  */
 __private_extern__
-long
+int32_t
 hash_string(
 char *key)
 {
     char *cp;
-    long k;
+    int32_t k;
 
 	cp = key;
 	k = 0;
@@ -40,4 +41,3 @@ char *key)
 	    k = (((k << 1) + (k >> 14)) ^ (*cp++)) & 0x3fff;
 	return(k);
 }
-

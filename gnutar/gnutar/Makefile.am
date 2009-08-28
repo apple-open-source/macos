@@ -15,10 +15,17 @@
 
 ## You should have received a copy of the GNU General Public License
 ## along with this program; if not, write to the Free Software
-## Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-## 02111-1307, USA.
+## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+## 02110-1301, USA.
 
 ACLOCAL_AMFLAGS = -I m4
 EXTRA_DIST = ChangeLog.1 PORTS
 SUBDIRS = doc lib rmt src scripts po tests
 
+dist-hook: 
+	-rm -f $(distdir).cpio
+	find $(distdir) | cpio -Hcrc -o | \
+          GZIP=$(GZIP_ENV) gzip -c > $(distdir).cpio.gz
+
+distclean-local:
+	-rm -f $(distdir).cpio.gz

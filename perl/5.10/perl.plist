@@ -1,0 +1,29 @@
+<plist version="1.0">
+<dict>
+	<key>OpenSourceProject</key>
+	<string>perl</string>
+	<key>OpenSourceVersion</key>
+	<string>5.10.0</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://www.perl.com/</string>
+	<key>OpenSourceURL</key>
+	<string>http://www.cpan.org/src/perl-5.10.0.tar.gz</string>
+	<key>OpenSourceMD5</key>
+	<string>d2c39b002ebfd2c3c5dba589365c5a71</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>changes to build under XBS</string>
+		<string>prepend and append paths to @INC, using /Library/Perl/%lt;version%gt;/PrependToPath and /Library/Perl/%lt;version%gt;/AppendToPath</string>
+		<string>Config returns the correct sizes for both 32 and 64-bit</string>
+		<string>#29350: infinite loop fix when strftime fails</string>
+		<string>initial dtrace probe support</string>
+		<string>make CPAN::HandleConfig more forgiving about directory permissions</string>
+		<string>use File::Path 2.07_02 from 5.8.9</string>
+		<string>added new /Library/Perl/Updates/%lt;version%gt; directory that comes before the system perl directories in the module search order; installprivlib and installarchlib now point to this Updates directory</string>
+	</array>
+	<key>OpenSourceLicense</key>
+	<string>Artistic</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>perl.txt</string>
+</dict>
+</plist>

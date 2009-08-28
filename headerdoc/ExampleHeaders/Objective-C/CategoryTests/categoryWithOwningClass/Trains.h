@@ -41,13 +41,13 @@ typedef enum {
 
 
 /*!
- 	@class Trains
+ 	@class Trains_2
 	@abstract NSBox provides a visual grouping element.
 	@discussion An NSBox object is a simple NSView that can do two things: 
 	It can draw a border around itself, and it can title itself. 
 */
 
-@interface Trains : Vehicles
+@interface Trains_2 : Vehicles
 {
     /*All instance variables are private*/
     id                  _titleCell;
@@ -99,12 +99,12 @@ typedef enum {
 
 
 /*!
- 	@category Trains(TrainsCanFly)
+ 	@category Trains_2(TrainsCanFly)
 	@abstract The TrainsCanFly category adds levitation methods to the Train class.
 	@discussion Methods declared in the TrainsCanFly category of the Train class can only be used with properly equiped Train objects.   
 */
 
-@interface Trains(TrainsCanFly)
+@interface Trains_2(TrainsCanFly)
 /*!
  	@method levitateToHeight:
 	@abstract Raises the train specified number of centimeters
@@ -114,12 +114,12 @@ typedef enum {
 @end
 
 /*!
- 	@category Trains(TrainsUnderWater)
+ 	@category Trains_2(TrainsUnderWater)
 	@abstract The TrainsUnderWater category adds submarine methods to the Train class.
 	@discussion Methods declared in the TrainsUnderWater category of the Train class can only be used with properly equiped Train objects and appropriate infrastructure.   
 */
 
-@interface Trains(TrainsUnderWater)
+@interface Trains_2(TrainsUnderWater)
 /*!
  	@method enterChunnelOnTrack:
 	@abstract Directs the train to Channel Tunnel

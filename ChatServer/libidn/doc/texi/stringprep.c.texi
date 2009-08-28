@@ -1,3 +1,5 @@
+@subheading stringprep_4i
+@anchor{stringprep_4i}
 @deftypefun {int} {stringprep_4i} (uint32_t * @var{ucs4}, size_t * @var{len}, size_t @var{maxucs4len}, Stringprep_profile_flags @var{flags}, const Stringprep_profile * @var{profile})
 @var{ucs4}: input/output array with string to prepare.
 
@@ -33,6 +35,8 @@ the library, or use one of the currently supported profiles.
 @code{Stringprep_rc} error code.
 @end deftypefun
 
+@subheading stringprep_4zi
+@anchor{stringprep_4zi}
 @deftypefun {int} {stringprep_4zi} (uint32_t * @var{ucs4}, size_t @var{maxucs4len}, Stringprep_profile_flags @var{flags}, const Stringprep_profile * @var{profile})
 @var{ucs4}: input/output array with zero terminated string to prepare.
 
@@ -60,6 +64,8 @@ the library, or use one of the currently supported profiles.
 @code{Stringprep_rc} error code.
 @end deftypefun
 
+@subheading stringprep
+@anchor{stringprep}
 @deftypefun {int} {stringprep} (char * @var{in}, size_t @var{maxlen}, Stringprep_profile_flags @var{flags}, const Stringprep_profile * @var{profile})
 @var{in}: input/ouput array with string to prepare.
 
@@ -90,6 +96,8 @@ the library, or use one of the currently supported profiles.
 @strong{Return value:} Returns @code{STRINGPREP_OK} iff successful, or an error code.
 @end deftypefun
 
+@subheading stringprep_profile
+@anchor{stringprep_profile}
 @deftypefun {int} {stringprep_profile} (const char * @var{in}, char ** @var{out}, const char * @var{profile}, Stringprep_profile_flags @var{flags})
 @var{in}: input array with UTF-8 string to prepare.
 

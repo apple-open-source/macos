@@ -1,6 +1,6 @@
 /*
 ********************************************************************************
-*   Copyright (C) 1997-2006, International Business Machines
+*   Copyright (C) 1997-2008, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 ********************************************************************************
 *
@@ -172,6 +172,7 @@ public:
      * @deprecated ICU 2.6. Use C enum UCalendarDateFields defined in ucal.h
      */
     enum EDateFields {
+#ifndef U_HIDE_DEPRECATED_API
         ERA,                  // Example: 0..1
         YEAR,                 // Example: 1..big number
         MONTH,                // Example: 0..11
@@ -191,8 +192,14 @@ public:
         DST_OFFSET,           // Example: 0 or U_MILLIS_PER_HOUR
         YEAR_WOY,             // 'Y' Example: 1..big number - Year of Week of Year
         DOW_LOCAL,            // 'e' Example: 1..7 - Day of Week / Localized
+		
+		EXTENDED_YEAR,
+		JULIAN_DAY,
+		MILLISECONDS_IN_DAY,
+		IS_LEAP_MONTH,
 
         FIELD_COUNT = UCAL_FIELD_COUNT // See ucal.h for other fields.
+#endif /* U_HIDE_DEPRECATED_API */
     };
 
     /**
@@ -202,6 +209,7 @@ public:
      * @deprecated ICU 2.6. Use C enum UCalendarDaysOfWeek defined in ucal.h
      */
     enum EDaysOfWeek {
+#ifndef U_HIDE_DEPRECATED_API
         SUNDAY = 1,
         MONDAY,
         TUESDAY,
@@ -209,6 +217,7 @@ public:
         THURSDAY,
         FRIDAY,
         SATURDAY
+#endif /* U_HIDE_DEPRECATED_API */
     };
 
     /**
@@ -216,6 +225,7 @@ public:
      * @deprecated ICU 2.6. Use C enum UCalendarMonths defined in ucal.h
      */
     enum EMonths {
+#ifndef U_HIDE_DEPRECATED_API
         JANUARY,
         FEBRUARY,
         MARCH,
@@ -229,6 +239,7 @@ public:
         NOVEMBER,
         DECEMBER,
         UNDECIMBER
+#endif /* U_HIDE_DEPRECATED_API */
     };
 
     /**
@@ -236,8 +247,10 @@ public:
      * @deprecated ICU 2.6. Use C enum UCalendarAMPMs defined in ucal.h
      */
     enum EAmpm {
+#ifndef U_HIDE_DEPRECATED_API
         AM,
         PM
+#endif /* U_HIDE_DEPRECATED_API */
     };
 
     /**
@@ -949,7 +962,7 @@ public:
      * @return         the minimum of the given field for the current date of this Calendar
      * @stable ICU 2.6.
      */
-    int32_t getActualMinimum(UCalendarDateFields field, UErrorCode& status) const;
+    virtual int32_t getActualMinimum(UCalendarDateFields field, UErrorCode& status) const;
 
     /**
      * Return the maximum value that this field could have, given the current date.
@@ -985,7 +998,7 @@ public:
      * @return         the maximum of the given field for the current date of this Calendar
      * @stable ICU 2.6.
      */
-    int32_t getActualMaximum(UCalendarDateFields field, UErrorCode& status) const;
+    virtual int32_t getActualMaximum(UCalendarDateFields field, UErrorCode& status) const;
 
     /**
      * Gets the value for a given time field. Recalculate the current time field values
@@ -1666,7 +1679,6 @@ protected:
     /**
      * Return the extended year on the Gregorian calendar as computed by
      * <code>computeGregorianFields()</code>.
-     * @see #computeGregorianFields
      * @internal
      */
     int32_t getGregorianYear() const {
@@ -1676,7 +1688,6 @@ protected:
     /**
      * Return the month (0-based) on the Gregorian calendar as computed by
      * <code>computeGregorianFields()</code>.
-     * @see #computeGregorianFields
      * @internal
      */
     int32_t getGregorianMonth() const {
@@ -1686,7 +1697,6 @@ protected:
     /**
      * Return the day of year (1-based) on the Gregorian calendar as
      * computed by <code>computeGregorianFields()</code>.
-     * @see #computeGregorianFields
      * @internal
      */
     int32_t getGregorianDayOfYear() const {
@@ -1696,7 +1706,6 @@ protected:
     /**
      * Return the day of month (1-based) on the Gregorian calendar as
      * computed by <code>computeGregorianFields()</code>.
-     * @see #computeGregorianFields
      * @internal
      */
     int32_t getGregorianDayOfMonth() const {
@@ -1899,24 +1908,28 @@ private:
     /**
      * The Gregorian year, as computed by computeGregorianFields() and
      * returned by getGregorianYear().
+     * @see #computeGregorianFields
      */
     int32_t fGregorianYear;
 
     /**
      * The Gregorian month, as computed by computeGregorianFields() and
      * returned by getGregorianMonth().
+     * @see #computeGregorianFields
      */
     int32_t fGregorianMonth;
 
     /**
      * The Gregorian day of the year, as computed by
      * computeGregorianFields() and returned by getGregorianDayOfYear().
+     * @see #computeGregorianFields
      */
     int32_t fGregorianDayOfYear;
 
     /**
      * The Gregorian day of the month, as computed by
      * computeGregorianFields() and returned by getGregorianDayOfMonth().
+     * @see #computeGregorianFields
      */
     int32_t fGregorianDayOfMonth;
 
@@ -1930,6 +1943,8 @@ private:
      */
     void computeGregorianAndDOWFields(int32_t julianDay, UErrorCode &ec);
 
+	protected:
+
     /**
      * Compute the Gregorian calendar year, month, and day of month from the
      * Julian day.  These values are not stored in fields, but in member
@@ -1941,6 +1956,8 @@ private:
      * @see #computeGregorianMonthStart
      */
     void computeGregorianFields(int32_t julianDay, UErrorCode &ec);
+
+	private:
 
     /**
      * Compute the fields WEEK_OF_YEAR, YEAR_WOY, WEEK_OF_MONTH,
@@ -2138,12 +2155,6 @@ Calendar::internalSet(UCalendarDateFields field, int32_t value)
     fFields[field] = value;
     fStamp[field] = kInternallySet;
     fIsSet[field]     = TRUE; // Remove later
-}
-
-inline void
-Calendar::internalSet(EDateFields field, int32_t value)
-{
-    internalSet((UCalendarDateFields) field, value);
 }
 
 inline int32_t  Calendar::weekNumber(int32_t dayOfPeriod, int32_t dayOfWeek)

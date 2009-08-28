@@ -1,9 +1,9 @@
 /*
- * "$Id: subscriptions.h 7254 2008-01-23 22:23:42Z mike $"
+ * "$Id: subscriptions.h 7824 2008-08-01 21:11:55Z mike $"
  *
  *   Subscription definitions for the Common UNIX Printing System (CUPS) scheduler.
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -163,5 +163,5 @@ extern void	cupsdStopAllNotifiers(void);
 
 
 /*
- * End of "$Id: subscriptions.h 7254 2008-01-23 22:23:42Z mike $".
+ * End of "$Id: subscriptions.h 7824 2008-08-01 21:11:55Z mike $".
  */

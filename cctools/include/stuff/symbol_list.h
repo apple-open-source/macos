@@ -35,7 +35,7 @@ struct symbol_list {
 __private_extern__ void setup_symbol_list(
     char *file,
     struct symbol_list **list,
-    unsigned long *size);
+    uint32_t *size);
 
 __private_extern__ int symbol_list_bsearch(
     const char *name,

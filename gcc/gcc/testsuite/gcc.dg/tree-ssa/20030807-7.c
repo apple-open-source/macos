@@ -34,5 +34,5 @@ simplify_condition (cond_p)
 
 /* There should be exactly one IF conditional.  TBAA is not able to 
    determine that 'decl' and 'cond' can't alias.  */
-/* APPLE LOCAL mainline 4.0.2 4203511 */
 /* { dg-final { scan-tree-dump-times "if " 1 "dom3" { xfail *-*-* } } } */
+/* { dg-final { cleanup-tree-dump "dom3" } } */

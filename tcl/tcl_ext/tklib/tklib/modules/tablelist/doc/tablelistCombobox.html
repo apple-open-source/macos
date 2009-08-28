@@ -1,0 +1,142 @@
+<html>
+<head>
+  <title>Interactive Tablelist Cell Editing Using the combobox Package</title>
+
+  <meta name="Author" content="Csaba Nemethi">
+  <meta name="Keywords" content="tablelist, editing, combobox">
+</head>
+
+<body bgcolor="#FFFFFF">
+  <div align="center">
+    <h1>Interactive Tablelist Cell Editing Using the combobox Package</h1>
+
+    <h3>by</h3>
+
+    <h2>Csaba Nemethi</h2>
+
+    <address>
+      <a href="mailto:csaba.nemethi@t-online.de">csaba.nemethi@t-online.de</a>
+    </address>
+  </div>
+
+  <hr>
+
+  <h2><a name="contents"></a>Contents</h2>
+
+  <ul>
+    <li><a href="#overview">Overview</a></li>
+
+    <li><a href="#combobox">The
+    <code><b>tablelist::addOakleyCombobox</b></code> Command</a></li>
+  </ul>
+
+  <div align="center">
+    <p><a href="index.html">Start page</a></p>
+  </div>
+
+  <hr>
+
+  <h2><a name="overview"></a>Overview</h2>
+
+  <p>Bryan Oakley's combobox package is a library extension for Tcl/Tk version
+  8.0 or higher, written in pure Tcl/Tk code.&nbsp; Its download location
+  is</p>
+
+  <blockquote>
+    <address>
+      <a href=
+      "http://www.purl.org/net/oakley/tcl/combobox/index.html">http://www.purl.org/net/oakley/tcl/combobox/index.html</a>
+    </address>
+  </blockquote>
+
+  <p>Tablelist supports interactive cell editing with the aid of the combobox
+  widget implemented in the package mentioned above.&nbsp; The steps needed for
+  using this widget for editing the cells of a given column are as follows:</p>
+
+  <ol>
+    <li>Register the combobox widget for interactive cell editing by invoking
+    the <code><b><a href=
+    "#combobox">tablelist::addOakleyCombobox</a></b></code> command described
+    below.<br>
+    &nbsp;</li>
+
+    <li>Use the tablelist widget's <code><b><a href=
+    "tablelistWidget.html#columnconfigure">columnconfigure</a></b></code>
+    subcommand to set the given column's <code><b><a href=
+    "tablelistWidget.html#col_editable">-editable</a></b></code> option to true
+    and its <code><b><a href=
+    "tablelistWidget.html#col_editwindow">-editwindow</a></b></code> option to
+    the value returned by the command mentioned above.&nbsp; (These options are
+    supported at cell level, too, with the aid of the <code><b><a href=
+    "tablelistWidget.html#cellconfigure">cellconfigure</a></b></code>
+    subcommand.)</li>
+  </ol>
+
+  <div align="center">
+    <p><a href="#contents">Contents</a>&nbsp;&nbsp;&nbsp;&nbsp; <a href=
+    "index.html">Start page</a></p>
+  </div>
+
+  <hr>
+
+  <h2><a name="combobox"></a>The
+  <code><b>tablelist::addOakleyCombobox</b></code> Command</h2>
+
+  <dl>
+    <dt><b>NAME</b></dt>
+
+    <dd><code>tablelist::addOakleyCombobox</code> - Register Bryan Oakley's
+    combobox widget for interactive cell editing</dd>
+
+    <dt><br>
+    <b>SYNOPSIS</b></dt>
+
+    <dd>
+      <pre>
+<b>tablelist::addOakleyCombobox</b> ?<i>name</i>?
+</pre>
+    </dd>
+
+    <dt><b>DESCRIPTION</b></dt>
+
+    <dd>This command registers Bryan Oakley's combobox widget for interactive
+    cell editing in tablelist widgets.&nbsp; The optional argument specifies
+    the name to be used for the combobox widget as the value of the
+    <code><b><a href=
+    "tablelistWidget.html#col_editwindow">-editwindow</a></b></code> column or
+    cell configuration option.&nbsp; It may be any string that is different
+    from <code><b>entry</b></code>, <code><b>text</b></code>,
+    <code><b>spinbox</b></code>, <code><b>checkbutton</b></code>,
+    <code><b>ttk::entry</b></code>, <code><b>ttk::checkbutton</b></code>, and
+    <code><b>ttk::combobox</b></code>.&nbsp; The default is
+    <code><b>combobox</b></code>.&nbsp; The command returns its
+    <code><i>name</i></code> argument.</dd>
+
+    <dd><br>
+    The temporary embedded combobox widget associated with the above
+    <code><i>name</i></code> will be created with its
+    <code><b>-editable</b></code> option set to <code>1</code>.&nbsp; You can
+    use the script corresponding to the <code><b><a href=
+    "tablelistWidget.html#editstartcommand">-editstartcommand</a></b></code>
+    tablelist configuration option to make the combobox non-editable or define
+    validations for its entry child (whose path name can be obtained by
+    invoking the tablelist widget's <code><b><a href=
+    "tablelistWidget.html#entrypath">entrypath</a></b></code> subcommand, or by
+    appending <code><b>.entry</b></code> to the path name of the combobox
+    widget, or, if using combobox version 2.3 or later, with the aid of the
+    combobox widget's&nbsp; <code><b>subwidget entry</b></code>&nbsp;
+    subcommand), as well as for populating its listbox component (by using the
+    combobox widget's&nbsp; <code><b>list insert</b></code>&nbsp;
+    subcommand).</dd>
+
+    <dt><br>
+    <b>KEYWORDS</b></dt>
+
+    <dd>tablelist, editing, combobox</dd>
+  </dl>
+
+  <div align="center">
+    <p><a href="index.html">Start page</a></p>
+  </div>
+</body>
+</html>

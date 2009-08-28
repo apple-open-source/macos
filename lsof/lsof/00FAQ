@@ -13,7 +13,7 @@ This file contains frequently asked questions about lsof and answers
 to them.
 
 Vic Abell <abe@purdue.edu>
-April 24, 2007
+October 21, 2008
 ______________________________________________________________________
 
 Table of Contents:
@@ -39,6 +39,7 @@ Table of Contents:
 1.10.1	Does lsof support language locales?  How do I use the support?
 1.10.2	Does lsof support wide characters in language locales?
 1.11	Are any files in the lsof distribution copyrighted?
+1.12	Are there other lsof-related resources?
 
 2.0	Lsof Ports
 2.1	What ports exist?
@@ -46,6 +47,8 @@ Table of Contents:
 2.2.1	User-contributed Ports
 2.3	Why isn't there an AT&T SVR4 port?
 2.4	Why isn't there an SGI IRIX port?
+2.5	Why does lsof's Configure script report "WARNING: unsupported
+	dialect or version"?
 
 3.0	Lsof Problems
 3.1	Configuration Problems
@@ -250,6 +253,13 @@ Table of Contents:
 8.2	Why doesn't lsof work on my FreeBSD system?
 8.3	Why doesn't lsof work on the RELEASE version of CURRENT?
 8.4	Why can't kvm_open() can't find some file?
+8.5	FreeBSD ZFS Problems
+8.5.1	Why does FreeBSD lsof report "WARNING: no ZFS support has been
+8.6	Why can't Configure create lsof_owner.h for FreeBSD 6 and above?
+8.6.1	Why are there lockf structure compiler errors for FreeBSD 6.0
+	and higher lsof?
+8.6.2	Why don't /usr/src/sys/sys/lockf.h and /usr/include/sys/lockf.h
+	match?
 
 9.0	HP-UX Problems
 9.1	What do /dev/kmem-based and PSTAT-based mean?
@@ -291,6 +301,8 @@ Table of Contents:
 9.3.8	Why won't the bundled C compiler build PSTAT-based lsof for
 	PA-RISC HP-UX 11.23?
 9.3.9	Why won't gcc build PSTAT-based lsof for PA-RISC HP-UX 11.23?
+9.3.10	Why does PSTAT-based lsof complain, "FATAL: pst_stream_size
+	should be: 672; is 72" on HP-UX 11.11 and above?
 9.4	Why won't the HP-UX depot install?
 
 10.0	Linux Problems
@@ -311,6 +323,8 @@ Table of Contents:
 10.2.8	Why doesn't /proc-based Linux lsof report socket options and
 	values, socket state flags, and TCP options and values?
 10.2.9	Does /proc-based Linux lsof use a device cache?
+10.2.10	Why doesn't /proc-based Linux lsof report any or all file structure
+	values for its +fcfgGn option?
 10.3	Special Linux file types
 10.3.1	Why is ``DEL'' reported as a Linux file type?
 10.3.2	Why is ``unknown'' reported as a Linux file type?
@@ -376,6 +390,11 @@ Table of Contents:
 14.7	Why does lsof reject some -c command names, saying their lengths
 	are "> what system provides (nn)"?
 14.8	Why does lsof sometimes print TYPE numbers instead of names?
+14.9	Marker line format problems
+14.9.1	Why won't lsof accept a marker line format?
+14.9.2	Why does lsof reject the NL (%n) marker line format?
+14.10	How are protocol state name exclusion and inclusion used?
+14.10.1	Why doesn't my dialect support state name exclusion and inclusion?
 
 15.0	Pyramid Version Problems
 15.0.5	Statement of deprecation
@@ -528,12 +547,8 @@ ______________________________________________________________________
 	ftp://ftp.tau.ac.il/pub/unix/admin
 	ftp://ftp.cert.dfn.de/pub/tools/admin/lsof
 	ftp://ftp.fu-berlin.de/pub/unix/tools/lsof
-	ftp://ftp.kaizo.org/pub/lsof/
-	ftp://ftp.tu-darmstadt.de/pub/sysadmin/lsof
-	ftp://ftp.tux.org/pub/sites/vic.cc.purdue.edu/tools/unix/lsof
 	ftp://gd.tuwien.ac.at/utils/admin-tools/lsof
 	ftp://sunsite.ualberta.ca/pub/Mirror/lsof
-	ftp://the.wiretapped.net/pub/security/host-security/lsof/
 
 1.2.2	Are lsof executables available?
 
@@ -678,11 +693,10 @@ ______________________________________________________________________
 	I update it as soon as new information is available.   That may
 	include information about support that won't appear in the lsof
 	source distribution until the next revision.  If you encounter
-	something like that, please send me e-mail at
-	<abe@purdue.edu>.  I may be able to point you at a pre-release
-	distribution that contains the support of interest.  Make sure
-	"lsof" appears in the "Subject:" line so my e-mail filter won't
-	classify your letter as Spam.
+	something like that, please send me e-mail at <abe@purdue.edu>.  I
+	may be able to point you at a pre-release distribution that contains
+	the support of interest.  Make sure "lsof" appears in the "Subject:"
+	line so my e-mail filter won't classify your letter as Spam.
 
 1.6	Is there a test suite?
 
@@ -877,12 +891,30 @@ ______________________________________________________________________
 
 	A few files carry other copyright notices.  Some are BSD
 	notices and they explain the terms under which they are
-	included in the lsof distrbution.
+	included in the lsof distribution.
 	
 	Those that carry vendor copyright notices have been reproduced
 	in their original or modified forms with permission from the
 	copyright owners.  That permission is indicated in the README
 	files that accompany the files.
+
+1.12	Are there other lsof-related resources?
+
+	There are other resources available, connected to lsof.  Among
+	them are FreeBSD and Linux packages whose products use lsof and
+	two particularly interesting resources.
+
+	The two interesting resources are a Gnome Tool Kit (GTK) GUI
+	for lsof and a Perl wrapper module.
+
+	The GTK GUI is called Glsof and was developed by Gnele.  It can
+	be found at:
+
+	    http://www.sourceforge.net
+
+	The Perl wrapper module by Marc Beyer can be found at:
+
+	    http://search.cpan.org/dist/Unix-Lsof/
 
 
 2.0	Lsof Ports
@@ -891,30 +923,24 @@ ______________________________________________________________________
 
 	The pub/lsof.README file carries the latest port information:
 
-	    AIX 5.[23] and 5.3-ML1
-	    Apple Darwin 7.x and 8.x for Power Macintosh systems
+	    AIX 5.[23] and 5.3
 	    FreeBSD 4.9 for x86-based systems
-	    FreeBSD 7.0 for AMD64-based systems
+	    FreeBSD 7.0 and 8.0 for AMD64-based systems
 	    Linux 2.1.72 and above for x86-based systems
-	    NetBSD 1.[456], 2.x and 3.x for Alpha, x86, and SPARC-based
-		systems
-	    NEXTSTEP 3.[13]
-	    SCO OpenServer Release 5.0.4 for x86-based systems
 	    Solaris 9 and 10
 
-	In the above list the only UNIX dialects present are ones
-	for which I could test the current lsof revision.  Lsof
-	may still support unlisted dialect versions -- e.g., HP-UX
-	10.20, Solris 7, etc. -- but I don't have access to systems
-	where I could test lsof on them, so I can't claim lsof
-	works on them. If your dialect isn't in the list, you should
-	try building lsof on it anyway.
+	In the above list the only UNIX dialects present are ones for
+	which I test the current lsof revision.  Lsof may still support
+	unlisted dialect versions -- e.g., HP-UX 10.20, Solaris 7, etc.
+	-- but I don't have access to systems where I could test lsof
+	on them, so I can't claim lsof works on them. If your dialect
+	isn't in the list, you should try building lsof on it anyway.
 
-	Lsof version 4 predecessors, versions 2 and 3, may support
-	older version of some dialects.  Contact me via e-mail if
-	you're interested in their distributions.  Make sure "lsof"
-	appears in the "Subject:" line so my e-mail filter won't
-	classify your letter as Spam.
+	Lsof version 4 predecessors, versions 2 and 3, may support older
+	version of some dialects.  Contact me via e-mail at <abe@purdue.edu>
+	if you're interested in their distributions.  Make sure "lsof"
+	appears in the "Subject:" line so my e-mail filter won't classify
+	your letter as Spam.
 
 2.2	What about a new port?
 
@@ -993,6 +1019,23 @@ ______________________________________________________________________
 
 	    Problem Description:
 	    Email In  07/17/98 19:09:23
+
+2.5	Why does lsof's Configure script report "WARNING: unsupported
+	dialect or version"?
+
+	Lsof's Configure script issues this message when it encounters
+	a dialect or its version that lsof once supported, but no
+	longer does.  Usually I drop support for a dialect or version
+	when I can no longer test lsof on it.
+
+	However, it's worth trying to compile and use lsof.  Be sure to
+	run the test suite.  (See the answer to the "Is there a test
+	suite?  question for information on the test suite.)
+
+	If you have problems with an unsupported dialect or version,
+	contact me via e-mail at <abe@purdue.edu> and I may be able to help.
+	Make sure "lsof" appears in the "Subject:" line so my e-mail filter
+	won't classify your letter as Spam.
 
 
 3.0	Lsof Problems
@@ -1323,39 +1366,58 @@ ______________________________________________________________________
 3.4	Why is lsof so slow?
 
 	Lsof may appear to be slow if network address to host name
-	resolution is slow.  This can happen, for example, when
-	the name server is unreachable, or when a Solaris PPP cache
-	daemon is malfunctioning.
+	resolution is slow.  This can happen, for example, when the
+	name server is unreachable, or when a Solaris PPP cache daemon
+	is malfunctioning.
 
-	To see if name lookup is causing lsof to be slow, turn it
-	off with the ``-n'' option.
+	To see if name lookup is causing lsof to be slow, turn it off
+	with the ``-n'' option.
 
-	Port service name lookup or portmap registration lookup
-	may also be causes of slow-down.  To suppress port service
-	name lookup, specify the ``-P'' option.
+	Port service name lookup or portmap registration lookup may
+	also be causes of slow-down.  To suppress port service name
+	lookup, specify the ``-P'' option.
 
-	Lsof doesn't usually make direct portmap calls -- only when
-	+M is specified, or when HASPMAPENABLED is defined during
-	lsof construction.  (The lsof help panel, produced with
-	`lsof -h` will display the default portmap registration
-	reporting state.)  The quickest first step in checking if
-	lsof is slow because of the portmapper is to use lsof's
-	``-M'' option.
+	Lsof doesn't usually make direct portmap calls -- only when +M
+	is specified, or when HASPMAPENABLED is defined during lsof
+	construction.  (The lsof help panel, produced with `lsof -h`
+	will display the default portmap registration reporting
+	state.)  The quickest first step in checking if lsof is slow
+	because of the portmapper is to use lsof's ``-M'' option.
 
 	Lsof may be slow if UID to login name lookups are slow.
 	Suppress them with ``-l''.
 
 	On dialects where lsof uses the kernel name cache, try
-	disabling its use with ``-C''.  (You can tell if lsof uses
-	the kernel name cache by looking for ``-C'' in lsof's ``-h''
-	output.)  Of course, disabling kernel name cache use will
-	mean that lsof won't report full or partial path names,
-	just file system and character device names.
+	disabling its use with ``-C''.  (You can tell if lsof uses the
+	kernel name cache by looking for ``-C'' in lsof's ``-h''
+	output.)  Of course, disabling kernel name cache use will mean
+	that lsof won't report full or partial path names, just file
+	system and character device names.
+
+	If you're just interested in the open files of one process, try
+	using the ``-p <Process-ID>'' option to limit lsof to that
+	process.  (The ``-p'' option may also be followed with a list
+	of Process-IDs.)
+
+	If you're interested in including or excluding certain
+	commands, try lsof's "-c[^]cmd" option.
+
+	If you're interested in certain Internet TCP and UDP states
+	(e.g, ESTABLISHED) or in excluding some (e.g., CLOSE_WAIT), try
+	lsof's "-s p:s" option.  More information on it may be found in
+	the answer to the "How are protocol state name exclusion and
+	inclusion used?" question.
+	
+	Your UNIX dialect may not support "-s p:s" and its associated
+	performance improvments to Internet-only file processing.  You
+	can find more information on those topics in the answer to the
+	"Why doesn't my dialect support state name exclusion and
+	inclusion?" question.
 
 	Older AIX lsof may be slow to start because of its oslevel
-	identity comparison.  (Newer AIX lsof uses uname(2).)  See
-	the "Why does AIX lsof start so slowly?" and "Why does lsof
-	warn "compiled for x ... y; this is z.?" sections for more
+	identity comparison.  (Newer AIX lsof uses uname(2).)  See the
+	"Why does AIX lsof start so slowly?" and "Why does lsof warn
+	"compiled for x ... y; this is z.?" sections for more
 	information.
 
 3.5	Why doesn't lsof's setgid or setuid permission work?
@@ -3057,8 +3119,9 @@ ______________________________________________________________________
 	test.
 
 	If you think that's wrong for a particular dialect, contact me
-	via e-mail.  Make sure "lsof" appears in the "Subject:" line so
-	my e-mail filter won't classify your letter as Spam.
+	via e-mail at <abe@purdue.edu>.  Make sure "lsof" appears in the
+	"Subject:" line so my e-mail filter won't classify your letter
+	as Spam.
 
 3.43.2.2 Why does LTbigf complain about operations on its config.LTbigf*
 	 file?
@@ -3441,7 +3504,7 @@ ______________________________________________________________________
 	corruption.
 
 	This failure, known as the Stale Segment ID bug, is caused
-	by an error in the AIX kernel's journalled segment memory
+	by an error in the AIX kernel's journaled segment memory
 	handler that causes the kernel's dir_search() function
 	erroneously to believe directory entries contain zeroes.
 	The process using the readx() call need not be doing anything
@@ -4390,6 +4453,99 @@ ______________________________________________________________________
 
 	    # kldload mem
 
+8.5	FreeBSD ZFS Problems
+
+8.5.1	Why does FreeBSD lsof report "WARNING: no ZFS support has been
+	defined."?
+
+	Lsof issues that message when it detects a file on a ZFS file
+	system, but has not been built with support for ZFS.  Lsof's
+	Configure script detects support can be added for ZFS when it
+	finds this file:
+
+	/usr/src/sys/contrib/opensolaris/uts/common/fs/zfs/sys/zfs_znode.h
+
+	That header file and others in the OpenSolaris files in
+	/usr/src enable lsof to extract information about ZFS files
+	from the kernel structures associated with them.
+
+8.6	Why can't Configure create lsof_owner.h for FreeBSD 6 and above?
+
+	Lsof may report:
+
+	    Creating ./lockf_owner.h from /usr/src/sys/kern/kern_lockf.c
+	    FATAL ERROR: can't read /usr/src/sys/kern/kern_lockf.c
+	    FATAL ERROR: ./lockf_owner.h creation failed (see 00FAQ)
+	or
+	    Creating ./lockf_owner.h from /usr/src/sys/kern/kern_lockf.c
+	    FATAL ERROR: ./lockf_owner.h creation failed (see 00FAQ)
+
+	Those messages mean that lsof's Configure script failed to
+	create a local header file, ./lockf_owner.h, needed to use the
+	new kernel file locking code of some versions of FreeBSD 6 and
+	above.
+
+	The changes that implement that new locking code alter the
+	lockf structure in <sys/lockf.h> and introduce a new structure,
+	lockf_entry, to that header file.  When Configure detects the
+	presence of the lockf_entry definition in <sys/lockf.h>, it
+	tries to construct the local header file, ./lockf_owner.h.
+
+	Configure has to do that  because an unfortunate side effect of
+	the new kernel file locking code is that <sys/lockf.h> doesn't
+	contain the lockf_owner structure definition referenced in its
+	own lockf structure.  Lsof needs to access elements of that
+	lockf_owner structure to determine if a lock belongs to the
+	process that has a file open.
+
+	The missing lockf_owner structure definition is in the kernel
+	source file, typically /usr/src/sys/kern/kern_lockf.c.
+	Configure tries to extract the lockf_owner structure definition
+	from kern_lockf.c into lsof's local header file, ./lockf_owner.h.
+	If Configure can't do that, it reports:
+
+	    FATAL ERROR: ./lockf_owner.h creation failed
+
+	If Configure can't even read kern_lockf.c, it first reports:
+
+	    FATAL ERROR: can't read /usr/src/sys/kern/kern_lockf.c
+
+	The work-around for this problem is to update the FreeBSD
+	kernel /usr/src tree (e.g., do a CVSup or csup) on the system
+	where lsof is to be built and then do a "make buildworld"
+	followed by a "make installworld".
+
+8.6.1	Why are there lockf structure compiler errors for FreeBSD 6.0
+	and higher lsof?
+
+	If, when compiling lsof, the compiler complains with error
+	messages like:
+
+	    dnode.c: In function 'get_lock_state':
+	    dnode.c:113: error: 'struct lockf' has no member named 'lf_flags'
+	    dnode.c:115: error: 'struct lockf' has no member named 'lf_id'
+	    ...
+	    
+	Then lsof is being built on a system that has new kernel file
+	locking code and lsof's Configure script failed to build a
+	local lockf_owner.h header file with a structure definition
+	lsof needs.
+
+	See the "Why can't Configure create lsof_owner.h for FreeBSD 6
+	and above?" section for more information and a work-around.
+
+8.6.2	Why don't /usr/src/sys/sys/lockf.h and /usr/include/sys/lockf.h
+	match?
+
+	This mismatch can cause the errors explained in the answer to
+	the "Why are there lockf structure compiler errors for FreeBSD
+	6.0 and higher lsof?" question.
+
+	If /usr/src/sys/sys/lockf.h has been updated with a CVSup or
+	csup, the new lockf.h won't be propagated to /usr/include/sys
+	until the "make buildworld" and "make installworld" steps have
+	been completed.
+
 
 9.0	HP-UX Problems
 
@@ -5008,6 +5164,42 @@ ______________________________________________________________________
 	The only reliable work-around is to use the HP ANSI C
 	compiler.
 
+9.3.10	Why does PSTAT-based lsof complain, "FATAL: pst_stream_size
+	should be: 672; is 72" on HP-UX 11.11 and above?
+
+	This message indicates a mismatch between the PSTAT header
+	files used to build lsof (<sys/pstat.h> and those in the
+	/usr/include/sys/pstat subdirectory), and those that built the
+	running kernel.
+
+	Unfortunately the June 2008 patch set for HP-UX 11.23 creates
+	this inconsistency, because it does not contain all the patches
+	needed to match the kernel with the PSTAT header files.  Even
+	more serious is that the missing patches update the kernel's
+	PSTAT support to provide TCP/UDP endpoint information to lsof
+	from TCP/TLI streams.
+
+	The patch inconsistency comes about because, while the following
+	patch is installed,
+
+	    PHKL_36577  1.0  PM-PSTAT section 2 manpage changes
+
+	other kernel patches are not.
+
+	The PHKL_36577 patch updates the PSTAT header files and manual
+	pages to match kernel changes that other patches with the
+	following numbers (or patches that contain or supersede them)
+	contain:
+
+	    PHNE_36575  1.0  Cumulative STREAMS Patch
+	    PHNE_37670  1.0  cumulative ARPA Transport patch
+	    PHNE_37851  1.0  NFS cumulative patch
+
+	Those patches implement the kernel changes that support the
+	delivery of information promised in patch PHKL_36577.
+
+	The work-around is to install the missing patches.
+
 9.4	Why won't the HP-UX depot install?
 
 	I don't distribute lsof depts, so I can't support them.
@@ -5057,31 +5249,17 @@ ______________________________________________________________________
 
 10.2.1	Why doesn't /proc-based lsof report file offsets (positions)?
 
-	/proc-based lsof can't report file offsets (positions) when
-	no offset information is available in the /proc/<PID>/fd/
-	links that describe the files open to a process.  During
-	its initialization /proc-based lsof tests to see if offset
-	information might be present in the st_size element of the
-	stat structure returned by the lstat(2) kernel function,
-	when applied to one of its own open files.
+	/proc-based lsof revisions 4.79 and above can only report file
+	offsets (positions) for the files of Linux kernels 2.6.22 and
+	above.
 
-	To see if /proc-based lsof thinks your kernel reports
-	reliable offset information, specify the -o option to it.
-	If it replies with:
+	During its initialization /proc-based lsof tests to see if
+	offset information can be obtained.  If it cannot, lsof
+	disables offset reporting.  If the -o option was selected, lsof
+	also issues this warning:
 
 	    lsof: WARNING: can't report offset; disregarding -o.
-	
-	then its initialization test has indicated that using
-	lstat(2) on one of its own open files in /proc/<PID>/fd
-	doesn't deliver offset information.  (The /proc-based lsof
-	offset test may be found in the .../dialects/linux/proc/dproc.c
-	initialize() function.)
 
-	Contact me via e-mail at <abe@purdue.edu> for information on a
-	possible kernel patch that allows lstat(/proc/<PID>/fd/<FD>) to
-	deliver offset (position) information.  Make sure "lsof"
-	appears in the "Subject:" line so my e-mail filter won't
-	classify your letter as Spam.
 
 10.2.2	Why does /proc-based lsof report "can't identify protocol" for
 	some socket files?
@@ -5150,11 +5328,10 @@ ______________________________________________________________________
 	any NAME column information (e.g., local and remote addresses)
 	for socket files bound to the indicated network protocol.
 
-	If you get this warning, please send me e-mail at
-	<abe@purdue.edu>.  Include the contents of the file lsof claims
-	has an unsupported format.  Make sure "lsof" appears in the
-	"Subject:" line so my e-mail filter won't classify your letter
-	as Spam.
+	If you get this warning, please send me e-mail at <abe@purdue.edu>.
+	Include the contents of the file lsof claims has an unsupported
+	format.  Make sure "lsof" appears in the "Subject:" line so my
+	e-mail filter won't classify your letter as Spam.
 
 10.2.4   Why does /proc-based lsof report "(deleted)" after a path name?
 
@@ -5261,6 +5438,30 @@ ______________________________________________________________________
 	lsof via readlink(2).  It is not necessary to enable device
 	cache processing for /proc-based Linux lsof via the Customize
 	script or modifications to the Linux machine.h header file.
+
+10.2.10	Why doesn't /proc-based Linux lsof report any or all file structure
+	values for its +fcfgGn option?
+
+	/proc-based lsof revisions 4.79 and above can only report some
+	file structure values for Linux kernels below 2.6.22.
+
+	When running on Linux kernels at 2.6.22 and above lsof 4.79 can
+	report some file flag values -- i.e., in response to the +fg or
+	+fG options.  The flag values are obtained from the
+	/proc/<PID>/fdinfo/ files introduced at Linux kernel 2.6.22.
+
+	/proc-based Linux lsof tests its availability to obtain file
+	flag values at initialization.  If values are not available,
+	lsof disables file flag reporting.  If the flags were requested
+	with +fg or +fG, lsof displays this warning:
+
+	    lsof: WARNING: can't report file flags; disregarding +f.
+
+	As a special note, when Linux lsof can report flag bits, it
+	will not report 'R' for a read-only file.  There is no
+	read-only flag bit O_* symbol in <fcntl.h> (or <bits/fcntl.h>)
+	and lsof reports only bits that are set.  The absence of O_RDWR
+	and O_WRONLY flag bits implies the file is read-only.
 
 10.3	Special Linux file types
 
@@ -5398,6 +5599,7 @@ ______________________________________________________________________
 	path name, or it can't access the /proc/<PID>/fd subdirectory
 	with opendir() -- it will report the /proc/<PID> path in the
 	NAME column.
+
 10.8	Linux /proc/net/tcp* and /proc/net/udp* issues
 
 10.8.1	Why use the Linux -X option?
@@ -5911,16 +6113,110 @@ ______________________________________________________________________
 	When lsof can't convert a type number to a name for printing in
 	the TYPE column, it will report the number as four octets.
 
+14.9	Marker line format problems
+
+14.9.1	Why won't lsof accept a marker line format?
+
+	Lsof's Configure script must find the localtime(3) and
+	strftime(3) functions in the dialect's C library in order to
+	enable support for marker line formats.
+
+	Check the output of lsof's -v option for the presence of
+	-DHAS_STRFTIME in the compiler flags.  If it isn't there,
+	Configure didn't find the necessary two C library functions.
+
+	If you think lsof should have found the functions, make a copy
+	of the C test program in the Configure script that it uses to
+	find the functions.  Then use the copy, or a more informative
+	modification of it, to learn why Configure can't find the
+	functions.  You can find that program by searching for
+	strftime.
+
+14.9.2	Why does lsof reject the NL (%n) marker line format?
+
+	When repeat mode and field output (with -F) have both been
+	specified, lsof won't allow new line (NL) formats to be
+	specified with ``%n''.  That's because the marker line is
+	always guaranteed to be a single line.
+
+	There is no work-around to this restriction.
+
+14.10	How are protocol state name exclusion and inclusion used?
+
+	Protocol state name inclusion and exclusion with the ``-s p:s''
+	option and its arguments have some issues to consider.
+
+	First, there is the problem of determining what state names, if
+	any, the dialect produces.  Try running this lsof command to
+	find them:
+
+	    $ lsof -i
+
+	Knowing the state names of interest, the next problem is to
+	decide on the lsof options and their parameters that will
+	produce the desired output.  Here some examples are probably
+	the most useful.
+
+	To list only TCP socket files in LISTEN and CLOSE_WAIT states,
+	use:
+
+	    $ lsof -itcp -stcp:listen,close_wait
+	or
+	    $ lsof -iTCP -sTCP:LISTEN,CLOSE_WAIT
+
+	Case isn't important to lsof in protocol and state names.
+
+	To exclude TCP socket files in CLOSE_WAIT state, use:
+
+	    $ lsof -itcp -stcp:^close_wait
+
+	Note the `^' preceding close_wait; it selects exclusion.  You
+	can mix included and excluded names in a comma separated list,
+	but you may not include and exclude the same name for the same
+	protocol.
+
+	To list TCP files in LISTEN state and UDP files in Idle state,
+	use:
+
+	    $ lsof -i -stcp:listen -sudp:idle
+
+	Note: if you don't accompany the ``-s p:s'' list option and
+	argguments with the -i option, lsof will list all other regular
+	files, while applying the specified inclusion and exclusion
+	specifications to network files.  Generally, then, you want to
+	use -i with -s.
+
+14.10.1	Why doesn't my dialect support state name exclusion and inclusion?
+
+	When state name inclusion and exclusion was added, I had access
+	to test systems for AIX, Darwin, FreeBSD, Linux, PSTAT-based
+	HP-UX and Solaris.
+
+	Therefore, I was unable to add and test the support to any other
+	UNIX dialects.
+
+	If a dialect has the support, then the HASTCPUDPSTATE definition
+	in its machine.h header file will be active; if not, it will be
+	absent or commented out.
+
+	If your dialect doesn't have the support and you want it added,
+	you will have to provide me Internet access to a test host, where
+	I can compile lsof and have the credentials to test the changes
+	the support requires.  If that's possible for you, please contact
+	me via e-mail at <abe@purdue.edu>.  Make sure "lsof" appears in
+	the "Subject:" line so my e-mail filter won't classify your letter
+	as Spam.
+
 
 15.0	Pyramid Version Problems
 
 15.0.5	Statement of deprecation
 
 	As of lsof revision 4.52 support for all Pyramid versions has
-	been dropped.  Contact me via e-mail if you're interested in
-	obtaining the last lsof Pyramid distribution.  Make sure "lsof"
-	appears in the "Subject:" line so my e-mail filter won't
-	classify your letter as Spam.
+	been dropped.  Contact me via e-mail at <abe@purdue.edu> if you
+	are interested in obtaining the last lsof Pyramid distribution.
+	Make sure "lsof" appears in the "Subject:" line so my e-mail
+	filter won't classify your letter as Spam.
 
 
 16.0	SCO Problems
@@ -6018,9 +6314,9 @@ ______________________________________________________________________
 	classify your letter as Spam.
 
 	If you have a system with nsc_cfs and can offer me a test
-	account on it, please contact me via e-mail at
-	<abe@purdue.edu>.  Make sure "lsof" appears in the "Subject:"
-	line so my e-mail filter won't classify your letter as Spam.
+	account on it, please contact me via e-mail at <abe@purdue.edu>.
+	Make sure "lsof" appears in the "Subject:" line so my e-mail
+	filter won't classify your letter as Spam.
 
 16.2.2  Why does lsof complain about node_self() on my UnixWare
 	7.1.1 or above system?
@@ -6182,9 +6478,9 @@ ______________________________________________________________________
 17.0.5	Statement of deprecation
 
 	Lsof support for SunOS 4.1.x was last tested at revision 4.51.
-	Contact me via e-mail if you're interested in obtaining it.
-	Make sure "lsof" appears in the "Subject:" line so my e-mail
-	filter won't classify your letter as Spam.
+	Contact me via e-mail at <abe@purdue.edu> if you're interested in
+	obtaining it.  Make sure "lsof" appears in the "Subject:" line so
+	my e-mail filter won't classify your letter as Spam.
 
 17.1	My Sun gcc-compiled lsof doesn't work -- why?
 
@@ -7335,7 +7631,7 @@ ______________________________________________________________________
 	To provide ZFS support when lsof is compiled it needs to have
 	access to the definitions of ZFS structures used by the kernel.
 	Those definitions are contained in header files that Sun does
-	not distribute as of the November 2007 update to Solaris 10.
+	not distribute with Solaris 10.
 
 	When the Configure script detects the system might support ZFS
 	by finding the <sys/fs/zfs.h> header file, it checks for the
@@ -7347,7 +7643,7 @@ ______________________________________________________________________
 	ones; or 2) the necessary header files at some location other
 	than /usr/include/sys.
 	
-	The necessary heaer files are:
+	The necessary header files are:
 
 	    dmu.h  zfs_acl.h      zfs_debug.h  zfs_rlock.h   zil.h
 	    spa.h  zfs_context.h  zfs_dir.h    zfs_vfsops.h  zio.h
@@ -7355,16 +7651,17 @@ ______________________________________________________________________
 	
 	The necessary header files might have been obtained, for
 	example, from the http://src.opensolaris.org Open Solaris
-	source site.  The supplied header file path must point to a
-	directory that contains a sys/ subdirectory where the header
-	files are located -- e.g., if the supplied path is /tmp/zfs,
-	then /tmp/zfs/sys must contain the necessary header files.
-
-	See the answer to the "Why don't the Open Solaris ZFS header
-	files provide correct ZFS kernel structure definitions?'
-	question for information on why the Open Solaris ZFS header
-	files might not provide correct ZFS kernel structure
+	source site.  However, the Open Solaris header files might not
+	be adequate -- see the answer to the "Why don't the Open
+	Solaris ZFS header files provide correct ZFS kernel structure
+	definitions?' question for information on why the Open Solaris
+	ZFS header files might not provide correct ZFS kernel structure
 	definitions.
+
+	The supplied header file path must point to a directory that
+	contains a sys/ subdirectory where the matching header files
+	are located -- e.g., if the supplied path is /tmp/zfs, then
+	/tmp/zfs/sys must contain the necessary header files.
 
 	See the answer to the "Why do -h and -v output warn about
 	possibly inaccurate ZFS kernel structure definitions?" question
@@ -7380,9 +7677,9 @@ ______________________________________________________________________
 	incorrect device numbers, file sizes, node numbers and link
 	counts.
 
-	Please contact me via e-mail for work-around suggestions.  Make
-	sure "lsof" appears in the "Subject:" line so my e-mail filter
-	won't classify your letter as Spam.
+	Please contact me via e-mail at <abe@purdue.edu> for work-around
+	suggestions.  Make sure "lsof" appears in the "Subject:" line so
+	my e-mail filter won't classify your letter as Spam.
 
 17.27.3 Why don't the Open Solaris ZFS header files provide correct
 	ZFS kernel structure definitions?
@@ -7396,11 +7693,13 @@ ______________________________________________________________________
 	header files are not synchronized with any particular Solaris
 	10 release.  Consequently they might contain modifications to
 	the structures not in the structure definitions used to build
-	the running kernel.
+	the running kernel.  It may be that only Sun has header files
+	that match the kernel structures of the running Solaris 10
+	kernel.
 
-	Please contact me via e-mail for work-around suggestions.  Make
-	sure "lsof" appears in the "Subject:" line so my e-mail filter
-	won't classify your letter as Spam.
+	Please contact me via e-mail at <abe@purdue.edu> for work-around
+	suggestions.  Make sure "lsof" appears in the "Subject:" line so
+	my e-mail filter won't classify your letter as Spam.
 
 
 18.0	Lsof Features

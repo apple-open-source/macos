@@ -55,6 +55,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
+#include <stdint.h>
 #include <sys/time.h>
 
     /*
@@ -63,7 +64,7 @@
      */
 #define	HZ_WRONG	0
 
-unsigned long
+uint32_t
 hertz(
 void)
 {

@@ -1,0 +1,604 @@
+      Xedit is a simple text editor for X.
+
+      Please check xedit(1) for  information about resources  and configurable
+  options.
+
+      The authors  file should  list the  original authors  of all  files, but
+  unfortunately most  collaborators and  people that  changed portions  of the
+  code is not listed.
+
+
+      List of default keyboard commands.
+  Uppercase letters means both, uppercase and lowercase.
+  Lowercase letter usually means Shift key is not pressed.
+  C-    Means Control key.
+  M-    Means Meta key.
+        Usually Alt key has the same effect.
+  S-    Means Shift key.
+
+  C-A   Move cursor to beginning of line.
+  C-B or Left
+        Move cursor backwards one character.
+  C-C   Insert CUT_BUFFER0 selection at cursor position.
+  C-D   Delete next character.
+  C-E   Move cursor to end of line.
+  C-F or Right
+        Move cursor forwards one character.
+  C-G   Keyboard reset.
+        Use it to switch direction in the Undo stack, i.e. switch between
+        Undo and Redo.
+        It can also be used to stop the lisp interpreter if it is executing
+        code.
+  C-H   Deletes character before cursor.
+  C-J   Adds a newline and indent.
+        If the current buffer is the *scratch* buffer, it will work
+        like C-X,C-E, but print the lisp output directly to the scratch
+        buffer. Examples:
+        (list 1 2 3) C-J will print (1 2 3) and move the cursor to
+        the next line.
+  C-K   Deletes text from cursor position to end of line.
+  C-L   Redraw text window.
+  C-M   Adds a newline.
+  C-N or Down
+        Move cursor to next line.
+  C-O   Adds one newline at cursor position without moving cursor.
+  C-P or Up
+        Move cursor to previous line.
+  C-R   Opens search dialog, searching backwards.
+  C-S   Opens search dialog, searching forwards.
+  C-T   Transpose characters.
+  C-U   Starts multiply mode.
+        Multiply mode means that most keyboard commands will be repeated
+        by its parameter. After pressing C-U type a number, that can be
+        negative. Examples:
+        C-U 10 C-F  will move the cursor 10 characters forwards
+        C-U -10 C-F will move the cursor 10 characters backwards
+        If no number is specified, or if the number zero is specified,
+        the default value is 4.
+  C-V or PageDown
+        Move cursor to next page.
+  C-W   Kills current selection.
+        C-W is also useful when there is no active selection, to return to
+        the previous position the left mouse was clicked in the text window.
+  C-Y   Inserts SECONDARY selection.
+        This usually means text delete with commands other than by just
+        pressing Backspace or Delete (that can be multiplied)
+  C-Z   Scroll one line up.
+  M-B or C-Left
+        Move cursor backwards one word.
+        C-Left only moves over alphabetic or numeric characters
+  M-C   Capitalize word under cursor position, or next word.
+  M-F or C-Right
+        Move cursor forwards one word.
+        C-Right only moves over alphabetic or numeric characters.
+  M-I   Opens  a dialog prompting for a file name to be inserted at the
+        cursor position.
+        (This isn't very user friendly, this is a cavemen interface, you will
+        love it, you will never use it).
+  M-K   Kills text from cursor position to end of paragraph.
+  M-L   Downcase word at cursor position or next word.
+  M-Q   Format paragraph.
+        Xedit interfaces Xaw code that allows several types of text
+        formatting. To use it, you need to Select "Auto Fill" in the
+        "Edit Menu" and select values for "Break Columns". After that,
+        Select "Edit Menu"->"Justification" for the available options.
+        Text typed will usually be automatically corrected, but if you
+        need to change text in the middle of a previous line, use M-Q
+        to reformat, and C-_ to undo if required.
+        Examples of text:
+
+                    This text with align
+                    left and break
+                    columns at 20 and
+                    40.
+
+                         This text with align
+                              right and break
+                            columns at 25 and
+                            45. Remember that
+                            Auto Fill must be
+                         selected. And it may
+                         be required to press
+                          M-Q when going back
+                             to edit previous
+                                       lines.
+
+                                         This text with align center
+                                         and break columns at 40 and
+                                        70. A good tip is to make sure
+                                         there are empty lines before
+                                        and after the aligned text, so
+                                        that M-Q will not format more
+                                             text than it should.
+
+                 This text  with full  align,
+               note that  it will  spread the
+               words  to   fully   fill   the
+               configured break  columns,  in
+               this case 15 and 45. Also note
+               that  it  doesn't  remove  any
+               extra  indentation   from  the
+               first  line.   This   may   be
+               considered a  bug or  feature,
+               but  it   doesn't  respect   2
+               spaces after  an '.'  dot. And
+               it doesn't align the last line
+               of text.
+
+  This text with Auto Fill disabled. When Auto  Fill is disabled, tabs are
+usually preserved, like this,		and			this. But it
+will basically format the text to not be larger than the text widget screen
+width and. But it the screen is scrolled horizontally, it will not work as
+expected, the advantage over the above interface is that is considers font
+characters width, while the other interface assumes fixed width characters.
+
+        Notice that "auto formatting" with Auto Fill mode is done when
+        pressing enter, but information isn't saved per paragraph, so
+        if values of align or break columns are changed, trying to edit
+        a text block with different configuration will not give the expected
+        results.
+        Also notice that lines starting with non printable characters aren't
+        automatically formatted. This is helpful for some editing modes
+        where symbols can be used before lines in a paragraph. If you don't
+        need this feature, usually pressing Space or Tab is enough to put the
+        cursor at the proper position.
+  M-U   Upcase word at cursor position or next word.
+  M-V or PageUp
+        Move cursor to previous page.
+  M-Y   Kill ring yank feature. Basically it will circulate over all
+        text that has been cut in the current session. Keep pressing it
+        until happy :-)
+  M-Z   Scrolls one line down.
+  M-D   Kill word at cursor position or next word.
+  S-M-D Delete word at cursor position or next word.
+        Does not go to the kill ring.
+  M-H or M-Delete or M-Backspace.
+        Kill word at cursor position or previous word.
+  S-M-H or S-M-Delete or S-M-Backspace
+        Delete word at cursor position or previous word.
+        Does not go to the kill ring.
+  M-.   Find definition/declaration of symbol string of selected text, and/or
+        finds next tag when more than one definition exists for the symbol.
+  M-< or Home
+        Move cursor to beginning of file.
+  M-> or End
+        Move cursor to end of file.
+  M-] or C-Down
+        Move cursor to next paragraph.
+  M-[ or C-Up
+        Move cursor to previous paragraph.
+  C-_ or C-X,U
+        Undo.
+        If enabled in the given textwidget. Not enabled by default in the
+        message window and filename window, or any of the other text widgets
+        in the several available dialogs.
+  C-\ or C-Kanji
+        Reconnect Input Method.
+        In international mode (probably broken interface).
+  S-Insert
+        Insert PRIMARY selection from CUT_BUFFER0.
+  C-Q
+        Followed by any character, will insert the next typed character
+        useful to insert control characters. For example C-Q,C-L will
+        insert ^L at the cursor position.
+  LeftMouseButton
+        When pressed marks the start of a PRIMARY selection at CUTBUFFER0
+        When moved while pressed extends the selection.
+  MiddleMouseButton
+        When pressed, inserts the PRIMARY selection at CUTBUFFER0 at
+        the cursor position.
+  RightMouseButton
+        Can be used to adjust a selection done with LeftMouseButton.
+  C-A,Tab
+        If the loaded file has a indentation rules file, C or Lisp, xedit
+        will reindent the line. Also, entering a fresh character on a
+        newline should be enough to move the cursor to the proper position.
+        To override it, you may need to use the C-U to multiply the action,
+        as it will only indent if only one character was added.
+  C-X,C-C or (Pressing the Quit button)
+        Exits xedit.
+        If there are unsaved files, a message will be printed asking to
+        "exit" again, or save the files.
+  C-X,C-E
+        Execute lisp expression before the cursor position.
+  C-X,C-F
+        Changes keyboard input focus to the filename text input window.
+        In this mode, pressing Tab will try to complete the filename
+        being typed.
+        When more than one match exists, pressing Tab again will display
+        the directory navigation window.
+        The initial search path usually is the basename of the file loaded
+        in the current textwindow, or currently directory from where
+        xedit was started if the *scratch* is the current "buffer".
+        The character ~ can be used as a shortcut for the home directory
+        and ~username will be replaced by the home directory of "username"
+        if it exists.
+  C-X,C-S or (Pressing the Save button)
+        Saves the file in the current text window.
+  C-X,Tab
+        Indents the current paragraph.
+        Use the C-U modifier to specify the number of spaces to insert
+        or remove if the C-U parameter is negative.
+  C-X,0
+        Deletes the current window.
+        The file being edited is not unloaded.
+  C-X,1
+        Deletes the other window.
+        The file being edited is not unloaded.
+  C-X,2
+        Splits vertically the current window.
+  C-X,3
+        Splits vertically the current window.
+  C-X,b
+        Switch the contents of the current window to the next file in
+        the list of loaded files.
+  C-X,d
+        Displays the directory listing window.
+        In this window, it is possible to navigate in the file system
+        to choose a file to edit.
+        Usually, this is the same as pressing C-X,C-F,Tab
+        See C-X,C-F for more information.
+  C-X,k
+        Unloads the file being edited.
+        If the file has not been saved, a message will be displayed,
+        asking to either press C-X,k again, or save the file
+        The *scratch* buffer cannot be killed and will always
+        prints a warning when exiting xedit. This is the expected behavior.
+  C-X,o
+        Switch input focus to the other window, making it the current one
+        If the editor doesn't have splited windows, this command is ignored.
+  Insert
+        Switches between insert and overwrite mode.
+        In overwrite mode text is typed over existing file contents,
+        only extending the file contents when typing at the end of
+        a line (or file).
+  Escape
+        Enters the line edit mode.
+        In this mode it is possible to use regex expressions to search and
+        replace the contents of the file loaded in the current text window.
+        Refer to the xedit(1) manpage for more information of the regex
+        expression format.
+        Note that the regex used by xedit isn't IEEE Std 1003.2 compliant,
+        and not compliant with most regex implementations in that it doesn't
+        support some complex search patterns, usually involving patterns
+        like ((.*)+)? that may require too much restarts or have several
+        correct interpretations for multiple matches. Also, it always does
+        minimal matching, and it is not configurable like in pcre, example:
+        searching "a1a1a1" with the pattern "(.*)\d" will find "a1" and
+        not "a1a1a1" as could be expected.
+        Please refer to lisp/re/README for more information on the supported
+        regex expressions.
+  C-LeftMouseButton
+        Displays the "File Menu" from where it is possible to select a
+        new file to be edited in the current window.
+  C-MiddleMouseButton
+        Displays the "Edit Menu" that usually has the following options:
+     +------------------+-------------+
+     | Wrapping      -> | Never       |
+     |                  | Line        |
+     |                  | Word        |
+     | Auto Fill        +-------------+
+     |                  +-------------+
+     | Justification -> | Left        |
+     |                  | Right       |
+     |                  | Center      |
+     |                  | Full        |
+     |                  +-------------+
+     | Break Columns... |
+     |                  +-------------+
+     | Scrollbars    -> | Vertical    |
+     |                  | Horizontal  |
+     |                  +-------------+
+     |                  +-------------+
+     | Edit Mode     -> | Plain/None  |
+     |                  | C/C++       |
+     |                  | Lisp/Scheme |
+     |                  | X imake     |
+     |                  | Makefile    |
+     |                  | Unix shell  |
+     |                  | SGML        |
+     |                  | HTML        |
+     |                  | Man page    |
+     |                  | X resource  |
+     |                  | XF86Config  |
+     |                  | RPM spec    |
+     |                  | XFree86 log |
+     |                  | Patch file  |
+     +------------------+-------------+
+        "Wrapping" is disabled if "Auto Fill" is enabled.
+        "Justification" and "Break Columns..." are enabled if "Auto Fill"
+        is also enabled.
+        "Edit Mode" lists the available syntax highlight and indentation
+        rules defined.
+        Note that most of these options don't work in "international" mode.
+        Several xedit interfaces works only with 8 bits encodings, and
+        doesn't properly handle UTF-8.
+  C-RightMouseButton
+        Displays the "Option Menu".
+        Currently the only option is an Ispell frontend.
+  FourthMouseButton (usually also moving up the mouse wheel)
+        Scroll one line down
+  FifthMouseButton (usually also moving down the mouse wheel)
+        Scroll one line up
+
+
+
+      There  is   also   some   documentation   in   lisp/README,   lisp/TODO,
+  lisp/re/README, lisp/re/tests.txt, and comments/justifications/wishlists for
+  the cases the interpreter fail to give the proper result for a given test.
+
+      The  lisp  interpreter  implements  most  of   a  standard  COMMON  LISP
+  environment, but the  compiler generates only  byte code and  not everything
+  can be compiled, in those cases the interpreter  does the work. Examples are
+  constructs involving  UNWIND-PROTECT or  any  kind of  jump  outside of  the
+  current function body.
+
+      For more  information please  consult any  COMMON LISP  documentation or
+  tutorial.
+
+
+
+      Simple tutorial on writing a "foolang" syntax highlight mode for xedit.
+
+  Create a file called foolang.lsp
+  Add:
+  --
+  (require "syntax")
+  (require "indent")
+  (in-package "XEDIT")
+  --
+  to foolang.lsp
+  Check the available files if you want a custom property, or to know about
+  the available ones. One example is:
+  --
+  (defsynprop *prop-foolang*
+    "foolang"
+    :font       "fixed"
+    :foreground "rgb:a/b/c"
+    :background "rgb:1/2/3"
+    :underline  t
+    :overstrike t)
+  --
+  Check  lisp/modules/xedit.lsp  for   the  other  options,   like  subscript,
+  superscript and/or combining XLFD properties.
+  Create a syntax definition for foolang. Check the definition of defsyntax in
+  lisp/modules/syntax.lsp for more details. One example for foolang is:
+  --
+  (defsyntax *foolang-mode* :foolang nil nil nil
+    ;; use the sample property created for foolang whenever the string
+    ;; foolang is found at the toplevel
+    (syntoken "\\<foolang\\>" :property *prop-foolang*)
+
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ;; process C style comments
+    (syntoken "/*" :nospec t :begin :comment :contained t)
+      ;; contained is an option to not "export" this definition to child
+      ;; tables
+
+    (syntable :comment *prop-comment* #'default-indent
+      ;; #'default-indent means a very simple indent that follows indentation
+      ;; of previous line. Use nil for no indentation
+
+      ;; Don't start a new table, instead flag as an error if nested
+      (syntoken "/*" :nospec t :property *prop-error*)
+        ;; :nospec t sets the RE_NOSPEC flag for the regex, i.e. searches
+        ;; a literal string, and * will not be a special character
+
+      (syntoken "XXX|TODO|FIXME" :property *prop-annotation*)
+        ;; just to make it easier to flag some important comment
+
+      (syntoken "*/" :nospec t :switch -1)
+        ;; The :switch argument is the number of tables to "pop", in
+        ;; this case, we are at table :comment, and :switch -1 returns
+        ;; to table :foolang, that is the "root" table
+    )
+
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ;; Process lisp comments that can nest
+    (syntable :lisp-comment *prop-comment* nil
+
+      ;; Start a comment, possibly nested
+      (syntoken "#|" :nospec t :begin :lisp-comment)
+
+      ;; Returns to previous comment in stack or to main :foolang table
+      (syntoken "|#" :nospec t :switch -1)
+
+      ;; For easier flagging important comments
+      (syntoken "XXX|FIXME|TODO" :property *prop-annotation*)
+    )
+
+    ;; This is usually in the end of the list, but can be anywhere,
+    ;; just that if it isn't at the end, conflicting rules are resolved
+    ;; by declaration order
+    (synaugment :lisp-comment)
+      ;; Adds the :lisp-comment table to :foolang table
+
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ;; Lisp like strings that don't need a \ at the end of the line
+    (syntable :lisp-string *prop-string* nil
+      ;; ignore a escaped " in the middle of the string
+      (syntoken "\\\\.")
+        ;; Note that no options are used, just keep using the current
+        ;; property. Unfortunately, backslashes must be escaped twice.
+        ;; Once for the lisp reader and once for the regex compiler.
+
+      (syntoken "\"" :nospec: t :switch -1)
+        ;; :nospec is used just to create a faster regex. switch -1
+        ;; returns to the previous syntax table. It isn't an error to
+        ;; try to go down the "root" table, but if that happens, it
+        ;; probably means either wrong syntax definition of malformed input.
+    )
+
+    (synaugment :lisp-string)
+      ;; Adds the :lisp-string table to :foolang table
+      ;; Note that since there isn't a rule to start a string in the
+      ;; :lisp-string table, it cannot nest, maybe because the ending
+      ;; character is the starting character ? :-))
+
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ;; C style string rules
+    (syntable :string *prop-string* nil
+      ;; Ignore escaped characters
+      (syntoken "\\\\.")
+
+    ;; Match, most, printf arguments.
+    (syntoken "%%|%([+-]?\\d+)?(l?[deEfgiouxX]|[cdeEfgiopsuxX])"
+        :property *prop-format*)
+      ;; Just for fun. This makes easier to see printf formats in strings
+      ;; *prop-format* is *prop-string* with the :underline option
+
+    (syntoken "\\\\$")
+    ;; a backslash extends the string to the next line
+
+    ;; A nonscaped " inside a string finishes it, since this table doesn't
+    ;; have sub tables, and cannot nest, should return to :foolang table
+    ;; from here
+    (syntoken "\"" :nospec t :switch -1)
+
+    ;; This token rule starts a new table called :error because end of line
+    ;; has been matched. Note that it is defined last, so that a line
+    ;; ending with " or \ will be processed first.
+    (syntoken ".?$" :begin :error)
+
+    (synaugment :string)
+      ;; Adds the :string table to :foolang table
+
+    ;; This table is used by :string, but could be shared for other patterns
+    ;; like characters constants, etc.
+    ;; It uses :switch -2 because it is started inside the :string table,
+    ;; but it is also a table, so, pops two tables from the table stack
+    (syntable :error *prop-error* nil
+	(syntoken "^.*$" :switch -2)
+    )
+  )
+  --
+
+      Indentation rules are significantly  more complex. I suggest  looking at
+  lisp/modules/indent.lsp   for   the   macros   and   function   definitions;
+  and lisp/modules/progmodes/lisp.lsp and lisp/modules/progmodes/c.lsp for two
+  sample  implementations   of   indentation   for   Lisp/Scheme   and   C/C++
+  respectively.
+
+      Note also  that indentation  is parsed  backwards, what  can cause  some
+  confusion, and make "visualization" of order or precedence of evaluation for
+  rules harder to understand.
+
+      A simple indentation rules definition for foolang could be:
+
+  --
+  (defindent *foolang-mode-indent* :foolang
+    ;; This must be the first token and usually the only token matching
+    ;; BOL (Beginning of Line)
+    (indtoken "^\\s*"   :indent
+      :code (or *offset* (setq *offset* (+ *ind-offset* *ind-length*))))
+      ;; the keyword :indent is a pattern put on a list when there is
+      ;; a match, so that later patterns can be "reduced" by some other
+      ;; rule, i.e.:  (:indent :indent) could be reduced to (:indent)
+
+    (indtoken "//.*$"   nil)
+      ;; C++ style comment. Returning nil instead of a token basically
+      ;; ignores the token, as it should not enter the reduction pattern
+      ;; list
+
+    ;; Sample C comment pattern
+    (indtoken "*/" :ccomment :nospec t :begin :comment)
+      ;; Note that the indaugment macro doesn't need to be used, and actually
+      ;; would be an error. In this example, the indentation compiler checks
+      ;; the :begin :comment and handles it internally, as it already needs
+      ;; to check for things like typos, unreachable labels, detectable
+      ;; non resolving rules, etc. There is runtime check also, so it should
+      ;; never enter an infinite loop when trying to resolve reduction rules.
+      ;; Check lisp/modules/indent.lsp:(compile-indent-table) for the
+      ;; implementation and more comments.
+
+    ;; Indentation rules also have stacked tables
+    (indtable :comment
+      (indtoken "/*" :ocomment :nospec t :switch -1))
+      ;; Note that the name is :ocomment (open comment), but that the
+      ;; the table is finished when matching the open comment pattern
+
+    ;; A simple initialization of a variable used by the indentation rules
+    (indinit       (parens 0))
+      ;; This variable can be declared anywhere in the body of defindent,
+      ;; It will be properly moved to a "variables declaration section"
+      ;; when expanding and compiling the table.
+
+    (indtoken "("  :oparen  :nospec t  :code (incf parens))
+    (indtoken ")"  :cparen  :nospec t  :code (decf parens))
+      ;; These two tokes add the patterns :oparen and :cparen to the
+      ;; "pattern list", and also have code to remember the balancing
+      ;; of parenthesis.
+
+
+    ;; One of the simplest reduction rules :-)
+    (indreduce nil
+      t
+      ((:comment)))
+      ;; Once the boundings of a comment are found, just ignore it, like
+      ;; what was done with the // pattern, but in that case, the boundings
+      ;; were readily available.
+      ;; The t (True) parameter means that this rule is always evaluated,
+      ;; but conditional code may be used, and implicit code may be added
+      ;; to the end of the indreduce macro.
+      ;; Since it is a macro, code can be compiled to optimized bytecode
+      ;; after the macro is expanded.
+
+    (indinit    (indent 0))
+      ;; Note that there is a special *indent* variable that should hold the
+      ;; proper indentation value, but it may be required to "overwrite"
+      ;; without forgetting that value, for things like:
+      ;;
+      ;;  foo(bar(baz(blah
+      ;;      ^       ^
+      ;;      |       |
+      ;;      indent  |
+      ;;              effective indentation to be used
+      ;;
+      ;; where it is desirable to align the code in the next line with the
+      ;; last open parenthesis.
+
+
+      Since the  interface is,  unfortunately,  complex enough  to not  expect
+  casual users to have something like a $HOME/.xedit file,  if you want to add
+  new modes, please check lisp/modules/xedit.lsp:*auto-modes*
+
+      There is some documentation about the variable. It should be possible to
+  change/update the variable from the lisp interface  in the *scratch* buffer,
+  but for  safety, it  is suggested  that  if you  add new  rules, you  should
+  restart  xedit  after  it.  Also  note  that  there   is  compiled  code  in
+  lisp/xedit.c that expects that variable to follow an specific format.
+
+      You may notice that several .lsp files  aren't "properly indented"; this
+  is because the lisp indentation rules  file was made long after  most of the
+  other files were done, and it was considered  a bad practice to gratuitously
+  reindent all files.
+
+
+
+      At the  time  of this  writing,  the ispell  interface  should be  again
+  functional, but it may be required to use some  old ispell program to handle
+  non utf8 text. But it should work properly for  the english language, and in
+  international mode, should work with any language. But there are problems in
+  international mode not fixed.
+
+      I  (Paulo  Cesar)  considered  several  times   to   extend  the  normal
+  textwidget to handle  utf8, but this  is probably  a lot of  work/time badly
+  spent and I prefer  to work on other  personal projects, but still  xedit is
+  the editor I use for programming. The XPRINT support unfortunately is broken
+  due to it. Note that xedit,  like pretty much any other  Xaw application can
+  be linked against  Xaw with  XPRINT support. In  the case  of xedit,  a flag
+  could be used, like the "international" variable to, at runtime, disable all
+  the related code, if required.
+
+      Also at the time of this writing, the tags  interface was added, as well
+  as several other bug fixes. The tags interface is documented in the manpage,
+  but the action  shortcut may  not be clear.  The default  shortcut is  M-. .
+  There is no support for more  than one tags file, or changing  the tags file
+  at runtime. But  the code  should be  easy to  adapt for  this case,  as all
+  related functions receive pointers to the appropriate structures. One option
+  could be to descend  from the directory of  the loaded file searching  for a
+  tags file, and then associate the file with the tags definition, if it isn't
+  already loaded. Shouldn't be  hard to implement. For  "inter project" files,
+  it should be better to  have one xedit window per  "project", i.e. searching
+  the definition of something  like a libc  symbol should probably be  done in
+  another xedit window.

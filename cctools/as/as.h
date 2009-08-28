@@ -129,6 +129,29 @@ typedef enum {
 
 #define absolute_section	SEG_ABSOLUTE
 
+/* FROM line 285 */
+typedef int subsegT;
+
+/* Type of debugging information we should generate.  We currently support
+   stabs, ECOFF, and DWARF2.
+
+   NOTE!  This means debug information about the assembly source code itself
+   and _not_ about possible debug information from a high-level language.
+   This is especially relevant to DWARF2, since the compiler may emit line
+   number directives that the assembler resolves.  */
+
+enum debug_info_type
+{
+  DEBUG_UNSPECIFIED,
+  DEBUG_NONE,
+  DEBUG_STABS,
+  DEBUG_ECOFF,
+  DEBUG_DWARF,
+  DEBUG_DWARF2
+};
+
+extern enum debug_info_type debug_type;
+
 /*
  * main program "as.c" (command arguments etc)
  */
@@ -138,6 +161,8 @@ extern char flagseen[128];
 
 /* name of emitted object file, argument to -o if specified */
 extern char *out_file_name;
+
+typedef struct frag fragS;
 
 /* TRUE if -force_cpusubtype_ALL is specified */
 extern int force_cpusubtype_ALL;
@@ -156,6 +181,28 @@ struct directory_stack {
 };
 extern struct directory_stack include_defaults[];
 extern struct directory_stack *include;
+
+/* FROM 317 */
+#define undefined_section	SEG_UNKNOWN
+
+#include "expr.h"
+#include "write_object.h"
+
+/* STUFF from write.h */
+/* This is the name of a fake symbol which will never appear in the
+   assembler output.  S_IS_LOCAL detects it because of the \001.  */
+#ifndef FAKE_LABEL_NAME
+#define FAKE_LABEL_NAME "L0\001"
+#endif
+
+#ifdef __GNUC__
+#define as_bad_where(MY_FILE, MY_LINE, ...)	\
+  do {						\
+    layout_file = MY_FILE;			\
+    layout_line = MY_LINE;			\
+    as_bad (__VA_ARGS__);			\
+} while (0)
+#endif
 
 /* FROM 317 */
 #define undefined_section	SEG_UNKNOWN

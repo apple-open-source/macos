@@ -27,6 +27,7 @@
 #include "gdbcore.h"
 #include "symfile.h"
 #include "symtab.h"
+#include "target.h"
 
 #include "macosx-nat-inferior.h"
 #include "macosx-nat-inferior-util.h"
@@ -338,7 +339,8 @@ cfm_fetch_universe_info (struct cfm_parser *parser,
       return -1;
     }
 
-  ret = target_read_memory_partial (addr, buf, parser->universe_length, &err);
+  ret = target_read (&current_target, TARGET_OBJECT_MEMORY, NULL, buf, 
+                     addr, parser->universe_length); 
   if (ret < 0)
     {
       return -1;
@@ -374,8 +376,8 @@ cfm_fetch_container_info (struct cfm_parser *parser,
       return -1;
     }
 
-  ret =
-    target_read_memory_partial (addr, buf, parser->container_length, &err);
+  ret = target_read (&current_target, TARGET_OBJECT_MEMORY, NULL,
+                     buf, addr, parser->container_length);
   if (ret < 0)
     {
       return -1;
@@ -397,8 +399,8 @@ cfm_fetch_container_info (struct cfm_parser *parser,
 
   info->name[0] = name_length;
 
-  ret =
-    target_read_memory_partial (name_addr, &info->name[1], name_length, &err);
+  ret = target_read (&current_target, TARGET_OBJECT_MEMORY, NULL,
+                     &info->name[1], name_addr, name_length);
   if (ret < 0)
     return CFM_INTERNAL_ERROR;
 
@@ -439,8 +441,8 @@ cfm_fetch_connection_info (struct cfm_parser *parser,
       return -1;
     }
 
-  ret =
-    target_read_memory_partial (addr, buf, parser->connection_length, &err);
+  ret = target_read (&current_target, TARGET_OBJECT_MEMORY, NULL,
+                     buf, addr, parser->connection_length);
   if (ret < 0)
     {
       return -1;
@@ -563,9 +565,8 @@ cfm_fetch_container_section_info (struct cfm_parser *parser,
   offset =
     (addr + parser->container_length - (2 * parser->section_length) +
      (sectionIndex * parser->section_length));
-  ret =
-    target_read_memory_partial (offset, section_buf, parser->section_length,
-                                &err);
+  ret = target_read (&current_target, TARGET_OBJECT_MEMORY, NULL,
+                     section_buf, offset, parser->section_length);
   if (ret < 0)
     return CFM_INTERNAL_ERROR;
 

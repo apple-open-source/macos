@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/options.c,v 1.67.2.7 2006/04/03 19:49:54 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/options.c,v 1.75.2.6 2008/02/11 23:26:41 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,6 +30,9 @@
 
 #define LDAP_OPT_NEXTREF_PROC 0x4e815d
 #define LDAP_OPT_NEXTREF_PARAMS 0x4e815e
+
+#define LDAP_OPT_URLLIST_PROC 0x4e816d
+#define LDAP_OPT_URLLIST_PARAMS 0x4e816e
 
 static const LDAPAPIFeatureInfo features[] = {
 #ifdef LDAP_API_FEATURE_X_OPENLDAP
@@ -183,14 +186,18 @@ ldap_get_option(
 
 	case LDAP_OPT_TIMEOUT:
 		/* the caller has to free outvalue ! */
-		if ( ldap_int_timeval_dup( outvalue, lo->ldo_tm_api) != 0 ) {
+		if ( lo->ldo_tm_api.tv_sec < 0 ) {
+			*(void **)outvalue = NULL;
+		} else if ( ldap_int_timeval_dup( outvalue, &lo->ldo_tm_api ) != 0 ) {
 			return LDAP_OPT_ERROR;
 		}
 		return LDAP_OPT_SUCCESS;
 		
 	case LDAP_OPT_NETWORK_TIMEOUT:
 		/* the caller has to free outvalue ! */
-		if ( ldap_int_timeval_dup( outvalue, lo->ldo_tm_net ) != 0 ) {
+		if ( lo->ldo_tm_net.tv_sec < 0 ) {
+			*(void **)outvalue = NULL;
+		} else if ( ldap_int_timeval_dup( outvalue, &lo->ldo_tm_net ) != 0 ) {
 			return LDAP_OPT_ERROR;
 		}
 		return LDAP_OPT_SUCCESS;
@@ -239,7 +246,20 @@ ldap_get_option(
 		* (char **) outvalue = ldap_url_list2urls(lo->ldo_defludp);
 		return LDAP_OPT_SUCCESS;
 
-	case LDAP_OPT_ERROR_NUMBER:
+	case LDAP_OPT_DEFBASE:
+		if( lo->ldo_defbase == NULL ) {
+			* (char **) outvalue = NULL;
+		} else {
+			* (char **) outvalue = LDAP_STRDUP(lo->ldo_defbase);
+		}
+
+		return LDAP_OPT_SUCCESS;
+
+	case LDAP_OPT_CONNECT_ASYNC:
+		* (int *) outvalue = (int) LDAP_BOOL_GET(lo, LDAP_BOOL_CONNECT_ASYNC);
+		return LDAP_OPT_SUCCESS;
+		
+	case LDAP_OPT_RESULT_CODE:
 		if(ld == NULL) {
 			/* bad param */
 			break;
@@ -247,7 +267,7 @@ ldap_get_option(
 		* (int *) outvalue = ld->ld_errno;
 		return LDAP_OPT_SUCCESS;
 
-	case LDAP_OPT_ERROR_STRING:
+	case LDAP_OPT_DIAGNOSTIC_MESSAGE:
 		if(ld == NULL) {
 			/* bad param */
 			break;
@@ -389,6 +409,14 @@ ldap_set_option(
 			LDAP_BOOL_SET(lo, LDAP_BOOL_RESTART);
 		}
 		return LDAP_OPT_SUCCESS;
+
+	case LDAP_OPT_CONNECT_ASYNC:
+		if(invalue == LDAP_OPT_OFF) {
+			LDAP_BOOL_CLR(lo, LDAP_BOOL_CONNECT_ASYNC);
+		} else {
+			LDAP_BOOL_SET(lo, LDAP_BOOL_CONNECT_ASYNC);
+		}
+		return LDAP_OPT_SUCCESS;
 	}
 
 	/* options which can withstand invalue == NULL */
@@ -433,33 +461,6 @@ ldap_set_option(
 			}
 		} return LDAP_OPT_SUCCESS;
 
-	case LDAP_OPT_TIMEOUT: {
-			const struct timeval *tv = 
-				(const struct timeval *) invalue;
-
-			if ( lo->ldo_tm_api != NULL ) {
-				LDAP_FREE( lo->ldo_tm_api );
-				lo->ldo_tm_api = NULL;
-			}
-
-			if ( ldap_int_timeval_dup( &lo->ldo_tm_api, tv ) != 0 ) {
-				return LDAP_OPT_ERROR;
-			}
-		} return LDAP_OPT_SUCCESS;
-
-	case LDAP_OPT_NETWORK_TIMEOUT: {
-			const struct timeval *tv = 
-				(const struct timeval *) invalue;
-
-			if ( lo->ldo_tm_net != NULL ) {
-				LDAP_FREE( lo->ldo_tm_net );
-				lo->ldo_tm_net = NULL;
-			}
-
-			if ( ldap_int_timeval_dup( &lo->ldo_tm_net, tv ) != 0 ) {
-				return LDAP_OPT_ERROR;
-			}
-		} return LDAP_OPT_SUCCESS;
 
 	case LDAP_OPT_HOST_NAME: {
 			const char *host = (const char *) invalue;
@@ -475,7 +476,9 @@ ldap_set_option(
 				 * must want global default returned
 				 * to initial condition.
 				 */
-				rc = ldap_url_parselist(&ludlist, "ldap://localhost/");
+				rc = ldap_url_parselist_ext(&ludlist, "ldap://localhost/", NULL,
+					LDAP_PVT_URL_PARSE_NOEMPTY_HOST
+					| LDAP_PVT_URL_PARSE_DEF_PORT );
 
 			} else {
 				/*
@@ -502,13 +505,17 @@ ldap_set_option(
 			int rc = LDAP_OPT_SUCCESS;
 
 			if(urls != NULL) {
-				rc = ldap_url_parselist(&ludlist, urls);
+				rc = ldap_url_parselist_ext(&ludlist, urls, NULL,
+					LDAP_PVT_URL_PARSE_NOEMPTY_HOST
+					| LDAP_PVT_URL_PARSE_DEF_PORT );
 			} else if(ld == NULL) {
 				/*
 				 * must want global default returned
 				 * to initial condition.
 				 */
-				rc = ldap_url_parselist(&ludlist, "ldap://localhost/");
+				rc = ldap_url_parselist_ext(&ludlist, "ldap://localhost/", NULL,
+					LDAP_PVT_URL_PARSE_NOEMPTY_HOST
+					| LDAP_PVT_URL_PARSE_DEF_PORT );
 
 			} else {
 				/*
@@ -518,7 +525,7 @@ ldap_set_option(
 				ludlist = ldap_url_duplist(
 					ldap_int_global_options.ldo_defludp);
 				if (ludlist == NULL)
-					rc = LDAP_NO_MEMORY;
+					rc = LDAP_URL_ERR_MEM;
 			}
 
 			switch (rc) {
@@ -543,7 +550,7 @@ ldap_set_option(
 				break;
 			}
 
-			if (rc == LDAP_OPT_SUCCESS) {
+			if (rc == LDAP_SUCCESS) {
 				if (lo->ldo_defludp != NULL)
 					ldap_free_urllist(lo->ldo_defludp);
 				lo->ldo_defludp = ludlist;
@@ -551,74 +558,30 @@ ldap_set_option(
 			return rc;
 		}
 
-	/* Only accessed from inside this function by ldap_set_rebind_proc() */
-	case LDAP_OPT_REBIND_PROC: {
-			lo->ldo_rebind_proc = (LDAP_REBIND_PROC *)invalue;		
-		} return LDAP_OPT_SUCCESS;
-	case LDAP_OPT_REBIND_PARAMS: {
-			lo->ldo_rebind_params = (void *)invalue;		
-		} return LDAP_OPT_SUCCESS;
+	case LDAP_OPT_DEFBASE: {
+			const char *newbase = (const char *) invalue;
+			char *defbase = NULL;
 
-	/* Only accessed from inside this function by ldap_set_nextref_proc() */
-	case LDAP_OPT_NEXTREF_PROC: {
-			lo->ldo_nextref_proc = (LDAP_NEXTREF_PROC *)invalue;		
-		} return LDAP_OPT_SUCCESS;
-	case LDAP_OPT_NEXTREF_PARAMS: {
-			lo->ldo_nextref_params = (void *)invalue;		
-		} return LDAP_OPT_SUCCESS;
-	}
+			if ( newbase != NULL ) {
+				defbase = LDAP_STRDUP( newbase );
+				if ( defbase == NULL ) return LDAP_NO_MEMORY;
 
-	if(invalue == NULL) {
-		/* no place to set from */
-		return LDAP_OPT_ERROR;
-	}
-
-	/* options which cannot withstand invalue == NULL */
-
-	switch(option) {
-	case LDAP_OPT_API_INFO:
-	case LDAP_OPT_DESC:
-		/* READ ONLY */
-		break;
-
-	case LDAP_OPT_DEREF:
-		lo->ldo_deref = * (const int *) invalue;
-		return LDAP_OPT_SUCCESS;
-
-	case LDAP_OPT_SIZELIMIT:
-		lo->ldo_sizelimit = * (const int *) invalue;
-		return LDAP_OPT_SUCCESS;
-
-	case LDAP_OPT_TIMELIMIT:
-		lo->ldo_timelimit = * (const int *) invalue;
-		return LDAP_OPT_SUCCESS;
-
-	case LDAP_OPT_PROTOCOL_VERSION: {
-			int vers = * (const int *) invalue;
-			if (vers < LDAP_VERSION_MIN || vers > LDAP_VERSION_MAX) {
-				/* not supported */
-				break;
+			} else if ( ld != NULL ) {
+				defbase = LDAP_STRDUP( ldap_int_global_options.ldo_defbase );
+				if ( defbase == NULL ) return LDAP_NO_MEMORY;
 			}
-			lo->ldo_version = vers;
+			
+			if ( lo->ldo_defbase != NULL )
+				LDAP_FREE( lo->ldo_defbase );
+			lo->ldo_defbase = defbase;
 		} return LDAP_OPT_SUCCESS;
 
-	case LDAP_OPT_ERROR_NUMBER: {
-			int err = * (const int *) invalue;
-
-			if(ld == NULL) {
-				/* need a struct ldap */
-				break;
-			}
-
-			ld->ld_errno = err;
-		} return LDAP_OPT_SUCCESS;
-
-	case LDAP_OPT_ERROR_STRING: {
+	case LDAP_OPT_DIAGNOSTIC_MESSAGE: {
 			const char *err = (const char *) invalue;
 
 			if(ld == NULL) {
 				/* need a struct ldap */
-				break;
+				return LDAP_OPT_ERROR;
 			}
 
 			if( ld->ld_error ) {
@@ -636,7 +599,7 @@ ldap_set_option(
 
 			if (ld == NULL) {
 				/* need a struct ldap */
-				break;
+				return LDAP_OPT_ERROR;
 			}
 
 			if( ld->ld_matched ) {
@@ -654,24 +617,111 @@ ldap_set_option(
 			
 			if(ld == NULL) {
 				/* need a struct ldap */
-				break;
+				return LDAP_OPT_ERROR;
 			}
 
 			if( ld->ld_referrals ) {
 				LDAP_VFREE(ld->ld_referrals);
 			}
 
-			ld->ld_referrals = ldap_value_dup(referrals);
+			if ( referrals ) {
+				ld->ld_referrals = ldap_value_dup(referrals);
+			}
 		} return LDAP_OPT_SUCCESS;
 
+	/* Only accessed from inside this function by ldap_set_rebind_proc() */
+	case LDAP_OPT_REBIND_PROC: {
+			lo->ldo_rebind_proc = (LDAP_REBIND_PROC *)invalue;		
+		} return LDAP_OPT_SUCCESS;
+	case LDAP_OPT_REBIND_PARAMS: {
+			lo->ldo_rebind_params = (void *)invalue;		
+		} return LDAP_OPT_SUCCESS;
+
+	/* Only accessed from inside this function by ldap_set_nextref_proc() */
+	case LDAP_OPT_NEXTREF_PROC: {
+			lo->ldo_nextref_proc = (LDAP_NEXTREF_PROC *)invalue;		
+		} return LDAP_OPT_SUCCESS;
+	case LDAP_OPT_NEXTREF_PARAMS: {
+			lo->ldo_nextref_params = (void *)invalue;		
+		} return LDAP_OPT_SUCCESS;
+
+	/* Only accessed from inside this function by ldap_set_urllist_proc() */
+	case LDAP_OPT_URLLIST_PROC: {
+			lo->ldo_urllist_proc = (LDAP_URLLIST_PROC *)invalue;		
+		} return LDAP_OPT_SUCCESS;
+	case LDAP_OPT_URLLIST_PARAMS: {
+			lo->ldo_urllist_params = (void *)invalue;		
+		} return LDAP_OPT_SUCCESS;
+
+	/* read-only options */
+	case LDAP_OPT_API_INFO:
+	case LDAP_OPT_DESC:
+	case LDAP_OPT_SOCKBUF:
 	case LDAP_OPT_API_FEATURE_INFO:
-		/* read-only */
-		break;
+		return LDAP_OPT_ERROR;
+
+	}
+	
+	if(invalue == NULL) {
+		/* no place to set from */
+		return LDAP_OPT_ERROR;
+	}
+	
+	/* options which cannot withstand invalue == NULL */
+
+	switch(option) {
+	case LDAP_OPT_DEREF:
+		/* FIXME: check value for protocol compliance? */
+		lo->ldo_deref = * (const int *) invalue;
+		return LDAP_OPT_SUCCESS;
+
+	case LDAP_OPT_SIZELIMIT:
+		/* FIXME: check value for protocol compliance? */
+		lo->ldo_sizelimit = * (const int *) invalue;
+		return LDAP_OPT_SUCCESS;
+
+	case LDAP_OPT_TIMELIMIT:
+		/* FIXME: check value for protocol compliance? */
+		lo->ldo_timelimit = * (const int *) invalue;
+		return LDAP_OPT_SUCCESS;
+
+	case LDAP_OPT_TIMEOUT: {
+			const struct timeval *tv = 
+				(const struct timeval *) invalue;
+
+			lo->ldo_tm_api = *tv;
+		} return LDAP_OPT_SUCCESS;
+
+	case LDAP_OPT_NETWORK_TIMEOUT: {
+			const struct timeval *tv = 
+				(const struct timeval *) invalue;
+
+			lo->ldo_tm_net = *tv;
+		} return LDAP_OPT_SUCCESS;
+
+	case LDAP_OPT_PROTOCOL_VERSION: {
+			int vers = * (const int *) invalue;
+			if (vers < LDAP_VERSION_MIN || vers > LDAP_VERSION_MAX) {
+				/* not supported */
+				break;
+			}
+			lo->ldo_version = vers;
+		} return LDAP_OPT_SUCCESS;
+
+	case LDAP_OPT_RESULT_CODE: {
+			int err = * (const int *) invalue;
+
+			if(ld == NULL) {
+				/* need a struct ldap */
+				break;
+			}
+
+			ld->ld_errno = err;
+		} return LDAP_OPT_SUCCESS;
 
 	case LDAP_OPT_DEBUG_LEVEL:
 		lo->ldo_debug = * (const int *) invalue;
 		return LDAP_OPT_SUCCESS;
-
 	/* Apple specific options */
 	case LDAP_OPT_NOADDRERR:
 		lo->ldo_noaddr_option = * (const int *) invalue;
@@ -679,7 +729,7 @@ ldap_set_option(
 		
 	case LDAP_OPT_NOREVERSE_LOOKUP:
 		lo->ldo_noreverse_option = * (const int *) invalue;
-
+		
 #ifdef HAVE_CYRUS_SASL
 		/* here we also set the sasl option */
 		if ( ldap_int_sasl_set_option( ld, option, (void *)invalue ) == 0 )
@@ -688,16 +738,16 @@ ldap_set_option(
 #else
 		return LDAP_OPT_SUCCESS;
 #endif
-
+		
 	case LDAP_OPT_NOTIFYDESC_PROC:
 		lo->ldo_notifydesc_proc = (LDAP_NOTIFYDESC_PROC *) invalue;
 		return LDAP_OPT_SUCCESS;
-
+		
 	case LDAP_OPT_NOTIFYDESC_PARAMS:
 		lo->ldo_notifydesc_params = invalue;
 		return LDAP_OPT_SUCCESS;
-	/* Apple specific options end */
-
+	/* Apple specific options end */		
+	
 	default:
 #ifdef HAVE_TLS
 		if ( ldap_pvt_tls_set_option( ld, option, (void *)invalue ) == 0 )
@@ -707,8 +757,7 @@ ldap_set_option(
 		if ( ldap_int_sasl_set_option( ld, option, (void *)invalue ) == 0 )
 			return LDAP_OPT_SUCCESS;
 #endif
-		/* bad param */
-		break;
+			
 	}
 	return LDAP_OPT_ERROR;
 }
@@ -732,5 +781,16 @@ ldap_set_nextref_proc( LDAP *ld, LDAP_NEXTREF_PROC *proc, void *params )
 	if( rc != LDAP_OPT_SUCCESS ) return rc;
 
 	rc = ldap_set_option( ld, LDAP_OPT_NEXTREF_PARAMS, (void *)params );
+	return rc;
+}
+
+int
+ldap_set_urllist_proc( LDAP *ld, LDAP_URLLIST_PROC *proc, void *params )
+{
+	int rc;
+	rc = ldap_set_option( ld, LDAP_OPT_URLLIST_PROC, (void *)proc );
+	if( rc != LDAP_OPT_SUCCESS ) return rc;
+
+	rc = ldap_set_option( ld, LDAP_OPT_URLLIST_PARAMS, (void *)params );
 	return rc;
 }

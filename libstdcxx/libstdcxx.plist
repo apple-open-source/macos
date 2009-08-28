@@ -4,32 +4,36 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<date>2005-06-01T07:00:00Z</date>
+		<date>2007-07-19</date>
 		<key>OpenSourceLicense</key>
 		<string>GPL+exception</string>
 		<key>OpenSourceLicenseFile</key>
 		<string>libstdcxx.txt</string>
-		<key>OpenSourceMD5</key>
-		<string>55ee7df1b29f719138ec063c57b89db6</string>
+		<key>OpenSourceSHA1</key>
+		<string>b8a55b13c4e38fae78d5db9a456e2d4ffe003118</string>
 		<key>OpenSourceModifications</key>
 		<array>
+			<string>Allow tildes in build directory name.</string>
 			<string>Reduce emergency buffer size.</string>
 			<string>Support keymgr.</string>
-			<string>Allow tildes in build directory name.</string>
-			<string>Fix libtool bug for Jaguar.</string>
 			<string>Support for testing after installation.</string>
+			<string>Limited support for -malign-natural.</string>
+			<string>Fix libtool bug for Jaguar.</string>
 			<string>Handle 'semun' definition on Jaguar.</string>
 			<string>Don't export libm functions on Jaguar.</string>
-			<string>Limited support for -malign-natural.</string>
-			<string>Export control (from FSF 4.1).</string>
-			<string>Do export __eprintf.</string>
+			<string>Add test for stdexcept visibility</string>
+			<string>reconfigure for x86 visibility</string>
+			<string>reconfigure libiberty</string>
+			<string>Revert typeinfo ABI to 4.0.0</string>
+			<string>Set -fvisibility-inlines-hidden for x86.</string>
+			<string>Add suppport for darwin10.</string>
 		</array>
 		<key>OpenSourceProject</key>
 		<string>gcc</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://gcc.gnu.org/pub/gcc/releases/gcc-4.0.0/gcc-4.0.0.tar.bz2</string>
+		<string>ftp://ftp.gnu.org/gnu/gcc/gcc-4.2.1/gcc-4.2.1.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>4.0.0</string>
+		<string>4.2.1</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://gcc.gnu.org/</string>
 	</dict>

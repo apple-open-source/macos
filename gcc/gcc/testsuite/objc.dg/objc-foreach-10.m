@@ -1,7 +1,7 @@
 /* APPLE LOCAL file radar 4623423 */
 /* Test type 'Class' is recognized as type of a for-each's selector. */
 #include <Foundation/Foundation.h>
-/* { dg-options "-mmacosx-version-min=10.5" } */
+/* { dg-options "-mmacosx-version-min=10.5" { target powerpc*-*-darwin* i?86*-*-darwin* } } */
 /* { dg-do compile } */
 
 @interface PBXLSDebuggerAdaptor : NSObject {

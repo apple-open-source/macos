@@ -1,0 +1,196 @@
+[manpage_begin pop3 n 1.6.3]
+[comment {-*- tcl -*- doctools manpage}]
+[moddesc   {Tcl POP3 Client Library}]
+[titledesc {Tcl client for POP3 email protocol}]
+[require Tcl  8.2]
+[require pop3 [opt 1.6.3]]
+[description]
+
+The [package pop3] package provides a simple Tcl-only client library
+for the POP3 email protocol as specified in
+RFC 1939 ([uri http://www.rfc-editor.org/rfc/rfc1939.txt]). It works
+by opening the standard POP3 socket on the server, transmitting the
+username and password, then providing a Tcl API to access the POP3
+protocol commands.  All server errors are returned as Tcl errors
+(thrown) which must be caught with the Tcl [cmd catch] command.
+
+[section COMMANDS]
+
+[list_begin definitions]
+
+[call [cmd ::pop3::open] [opt "[option -msex] 0|1"] \
+	[opt "[option -retr-mode] retr|list|slow"] \
+	[arg {host username password}] [opt [arg port]]]
+
+Open a socket connection to the server specified by [arg host],
+transmit the [arg username] and [arg password] as login information to
+the server.  The default port number is 110, which can be overridden
+using the optional [arg port] argument.  The return value is a channel
+used by all of the other ::pop3 functions.
+
+[para]
+
+The command recognizes the options [option -msex] and
+
+[option -retr-mode]. The first of them can be used to notify the
+package of the fact that the server to talk to is an MS Exchange
+server (which has some oddities we have to work around). The default
+is 0.
+
+[para]
+
+The retrieval mode determines how exactly messages are read from the
+server. The allowed values are [const retr], [const list] and
+[const slow]. The default is [const retr]. See
+
+[cmd ::pop3::retrieve] for more information.
+
+
+[call [cmd ::pop3::config] [arg chan]]
+
+Returns the configuration of the pop3 connection identified by the
+channel handle [arg chan] as a serialized array.
+
+
+[call [cmd ::pop3::status] [arg chan]]
+
+Query the server for the status of the mail spool.  The status is
+returned as a list containing two elements, the first is the number of
+email messages on the server and the second is the size (in octets, 8
+byte blocks) of the entire mail spool.
+
+[call [cmd ::pop3::last] [arg chan]]
+
+Query the server for the last email message read from the spool.  This
+value includes all messages read from all clients connecting to the
+login account.  This command may not be supported by the email server,
+in which case the server may return 0 or an error.
+
+[call [cmd ::pop3::retrieve] [arg {chan startIndex}] [opt [arg endIndex]]]
+
+Retrieve a range of messages from the server.  If the [arg endIndex]
+is not specified, only one message will be retrieved.  The return
+value is a list containing each message as a separate element.  See
+the [arg startIndex] and [arg endIndex] descriptions below.
+
+[para]
+
+The retrieval mode determines how exactly messages are read from the
+server. The mode [const retr] assumes that the RETR command delivers
+the size of the message as part of the command status and uses this to
+read the message efficiently. In mode [const list] RETR does not
+deliver the size, but the LIST command does and we use this to
+retrieve the message size before the actual retrieval, which can then
+be done efficiently. In the last mode, [const slow], the system is
+unable to obtain the size of the message to retrieve in any manner and
+falls back to reading the message from the server line by line.
+
+[para]
+
+It should also be noted that the system checks upon the configured
+mode and falls back to the slower modes if the above assumptions are
+not true.
+
+
+[call [cmd ::pop3::delete] [arg {chan startIndex}] [opt [arg endIndex]]]
+
+Delete a range of messages from the server.  If the [arg endIndex] is
+not specified, only one message will be deleted.  Note, the indices
+are not reordered on the server, so if you delete message 1, then the
+first message in the queue is message 2 (message index 1 is no longer
+valid).  See the [arg startIndex] and [arg endIndex] descriptions
+below.
+
+[list_begin definitions]
+
+[def [arg startIndex]]
+
+The [arg startIndex] may be an index of a specific message starting
+with the index 1, or it have any of the following values:
+
+[list_begin definitions]
+
+[def [const start]]
+
+This is a logical value for the first message in the spool, equivalent
+to the value 1.
+
+[def [const next]]
+
+The message immediately following the last message read, see
+[cmd ::pop3::last]. 
+
+[def [const end]]
+
+The most recent message in the spool (the end of the spool).  This is
+useful to retrieve only the most recent message.
+
+[list_end]
+
+[def [arg endIndex]]
+
+The [arg endIndex] is an optional parameter and defaults to the value
+"-1", which indicates to only retrieve the one message specified by
+
+[arg startIndex].  If specified, it may be an index of a specific
+message starting with the index "1", or it may have any of the
+following values:
+
+[list_begin definitions]
+
+[def [const last]]
+
+The message is the last message read by a POP3 client, see
+[cmd ::pop3::last].
+
+[def [const end]]
+
+The most recent message in the spool (the end of the spool).
+
+[list_end]
+[list_end]
+
+[call [cmd ::pop3::list] [arg chan] [opt [arg msg]]]
+
+Returns the scan listing of the mailbox. If parameter [arg msg] is
+given, then the listing only for that message is returned.
+
+
+[call [cmd ::pop3::top] [arg chan] [arg msg] [arg n] ]
+
+
+Optional POP3 command, not all servers may support this.
+
+[cmd ::pop3::top] retrieves headers of a message, specified by
+parameter [arg msg], and number of [arg n] lines from the message
+body.
+
+[call [cmd ::pop3::uidl] [arg chan] [opt [arg msg]]]
+
+Optional POP3 command, not all servers may support this. 
+
+[cmd ::pop3::uidl] returns the uid listing of the mailbox. If the
+parameter [arg msg] is specified, then the listing only for that
+message is returned.
+
+[call [cmd ::pop3::close] [arg chan]]
+
+Gracefully close the connect after sending a POP3 QUIT command down
+the socket.
+
+[list_end]
+
+[section {BUGS, IDEAS, FEEDBACK}]
+
+This document, and the package it describes, will undoubtedly contain
+bugs and other problems.
+
+Please report such in the category [emph pop3] of the
+[uri {http://sourceforge.net/tracker/?group_id=12883} {Tcllib SF Trackers}].
+
+Please also report any ideas for enhancements you may have for either
+package and/or documentation.
+
+
+[keywords mail email pop pop3 {rfc 1939}]
+[manpage_end]

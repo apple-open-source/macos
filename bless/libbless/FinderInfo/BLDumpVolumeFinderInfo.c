@@ -48,7 +48,7 @@
  * 2. read in the finder words
  * 3. for the directories we're interested in, get the entries in /.vol
  */
-int BLCreateVolumeInformationDictionary(BLContextPtr context, const char * mount,
+int BLCreateVolumeInformationDictionary(BLContextPtr context, const char * mountpoint,
 					CFDictionaryRef *outDict) {
     uint32_t finderinfo[8];
     int err;
@@ -59,7 +59,7 @@ int BLCreateVolumeInformationDictionary(BLContextPtr context, const char * mount
 
     char blesspath[MAXPATHLEN];
 
-    err = BLGetVolumeFinderInfo(context, mount, finderinfo);
+    err = BLGetVolumeFinderInfo(context, mountpoint, finderinfo);
     if(err) {
         return 1;
     }
@@ -78,9 +78,9 @@ int BLCreateVolumeInformationDictionary(BLContextPtr context, const char * mount
       dirID = finderinfo[i];
       blesspath[0] = '\0';
       
-      err = BLLookupFileIDOnMount(context, mount, dirID, blesspath);
+      err = BLLookupFileIDOnMount(context, mountpoint, dirID, blesspath);
       
-      val = CFNumberCreate(kCFAllocatorDefault, kCFNumberLongType, &dirID);
+      val = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &dirID);
       CFDictionaryAddValue(word, CFSTR("Directory ID"), val);
       CFRelease(val); val = NULL;
       
@@ -88,10 +88,10 @@ int BLCreateVolumeInformationDictionary(BLContextPtr context, const char * mount
       CFDictionaryAddValue(word, CFSTR("Path"), val);
       CFRelease(val); val = NULL;
 
-      if(strlen(blesspath) == 0 || 0 == strcmp(mount, "/")) {
+      if(strlen(blesspath) == 0 || 0 == strcmp(mountpoint, "/")) {
 	  val = CFStringCreateWithCString(kCFAllocatorDefault, blesspath, kCFStringEncodingUTF8);
       } else {
-	  val = CFStringCreateWithCString(kCFAllocatorDefault, blesspath+strlen(mount), kCFStringEncodingUTF8);
+	  val = CFStringCreateWithCString(kCFAllocatorDefault, blesspath+strlen(mountpoint), kCFStringEncodingUTF8);
       }
       CFDictionaryAddValue(word, CFSTR("Relative Path"), val);
       CFRelease(val); val = NULL;
@@ -126,9 +126,9 @@ int BLCreateVolumeInformationDictionary(BLContextPtr context, const char * mount
 	CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     CFDataRef bdata = NULL;
 
-      fd = open(mount, O_RDONLY);
+      fd = open(mountpoint, O_RDONLY);
       if (fd == -1) {
-	contextprintf(context, kBLLogLevelError,  "Can't open volume mount point for %s\n", mount );
+	contextprintf(context, kBLLogLevelError,  "Can't open volume mount point for %s\n", mountpoint );
 	return 2;
       }
   

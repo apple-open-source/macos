@@ -63,7 +63,7 @@ IOFireWireUserClientIniter::init(OSDictionary * propTable)
 		bool result = false;
 		while( sIniterLock == NULL && result == false )
 		{
-			result = OSCompareAndSwap( NULL, (UInt32)lock, (UInt32*)&sIniterLock );
+			result = OSCompareAndSwapPtr( NULL, lock, (void * volatile *)&sIniterLock );
 		}
 
 		if( result == false )

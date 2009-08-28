@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001 - 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2001 - 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -60,7 +60,7 @@ void setcharset(const char *cp)
 	else
 		smb_log_info("setcharset expected 'CP%s' got '%s'?", 0, ASL_LEVEL_DEBUG, cp, cp);
 
-	codePage = strtol(cp, NULL, 0);
+	codePage = (UInt32)strtol(cp, NULL, 0);
 	
 	if (codePage == 0) {
 		smb_log_info("setcharset '%s' ignored", errno, ASL_LEVEL_ERR, cp);
@@ -92,17 +92,6 @@ char * str_upper(char *dst, const char *src)
 	return p;
 }
 
-/* Really should use CFStringLowercase */
-char * str_lower(char *dst, const char *src)
-{
-	char *p = dst;
-	
-	while (*src)
-	*dst++ = tolower(*src++);
-	*dst = 0;
-	return p;
-}
-
 /* Removes the "%" escape sequences from a URL component.
  * See IETF RFC 2396.
  */
@@ -120,7 +109,7 @@ unpercent(char * component)
                                 continue; /* ignore invalid escapes */
                         s[0] = hi*16 + lo;
                         /*      
-                         * This was strcpy(s + 1, s + 3); 
+                         * This was strcpy(s + 1, s + 3);
                          * But nowadays leftward overlapping copies are
                          * officially undefined in C.  Ours seems to
                          * work or not depending upon alignment.

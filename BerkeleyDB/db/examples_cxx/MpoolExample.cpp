@@ -1,10 +1,9 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1997-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1997,2007 Oracle.  All rights reserved.
  *
- * $Id: MpoolExample.cpp,v 1.2 2004/03/30 01:23:19 jtownsen Exp $
+ * $Id: MpoolExample.cpp,v 12.7 2007/05/17 15:15:31 bostic Exp $
  */
 
 #include <sys/types.h>
@@ -187,7 +186,7 @@ MpoolExample::run(int hits, int pagesize, int npages)
 	srand((unsigned int)time(NULL));
 	for (cnt = 0; cnt < hits; ++cnt) {
 		pageno = (rand() % npages) + 1;
-		if ((ret = mfp->get(&pageno, 0, &p)) != 0) {
+		if ((ret = mfp->get(&pageno, NULL, 0, &p)) != 0) {
 			cerr << "MpoolExample: unable to retrieve page "
 			     << (unsigned long)pageno << ": "
 			     << strerror(ret) << "\n";
@@ -199,7 +198,7 @@ MpoolExample::run(int hits, int pagesize, int npages)
 			     << *(int *)p << ")\n";
 			return (EXIT_FAILURE);
 		}
-		if ((ret = mfp->put(p, 0)) != 0) {
+		if ((ret = mfp->put(p, DB_PRIORITY_UNCHANGED, 0)) != 0) {
 			cerr << "MpoolExample: unable to return page "
 			     << (unsigned long)pageno << ": "
 			     << strerror(ret) << "\n";

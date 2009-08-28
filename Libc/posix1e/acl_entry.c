@@ -176,22 +176,21 @@ int
 acl_set_qualifier(acl_entry_t entry, const void *tag_qualifier_p)
 {
 	acl_tag_t	tag_type;
-	int		error;
 
 	_ACL_VALIDATE_ENTRY(entry);
-	if ((error = acl_get_tag_type(entry, &tag_type)) != 0)
-		return(error);
+	if (acl_get_tag_type(entry, &tag_type) != 0)
+		return(-1);
 
 	switch(tag_type) {
 	case ACL_EXTENDED_ALLOW:
 	case ACL_EXTENDED_DENY:
 		bcopy(tag_qualifier_p, &entry->ae_applicable, sizeof(guid_t));
-		error = 0;
 		break;
 	default:
-		error = EINVAL;
+		errno = EINVAL;
+		return(-1);
 	}
-	return(error);
+	return(0);
 }
 
 int
@@ -205,7 +204,8 @@ acl_set_tag_type(acl_entry_t entry, acl_tag_t tag_type)
 		entry->ae_tag = tag_type;
 		break;
 	default:
-		return(EINVAL);
+		errno = EINVAL;
+		return(-1);
 	}
 	return(0);
 }

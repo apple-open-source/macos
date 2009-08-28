@@ -39,16 +39,26 @@
 #include <servers/bootstrap.h>
 #include <errno.h>
 #include <pthread.h>
+#include <TargetConditionals.h>
 #include "notify.h"
 #include "notify_ipc.h"
-#include "common.h"
+#include "libnotify.h"
+#ifdef __BLOCKS__
+#include <Block.h>
+#include <dispatch/dispatch.h>
+#endif /* __BLOCKS__ */
 
 #define SELF_PREFIX "self."
 #define SELF_PREFIX_LEN 5
 
+#define NOTIFYD_PROCESS_FLAG 0x00000001
+
 extern uint32_t _notify_lib_peek(notify_state_t *ns, uint32_t cid, int *val);
 extern int *_notify_lib_check_addr(notify_state_t *ns, uint32_t cid);
 
+extern int __notify_78945668_info__;
+
+static pthread_mutex_t self_state_lock = PTHREAD_MUTEX_INITIALIZER;
 static notify_state_t *self_state = NULL;
 static mach_port_t notify_server_port = MACH_PORT_NULL;
 
@@ -65,6 +75,10 @@ typedef struct
 	uint32_t flags;
 	int fd;
 	mach_port_t mp;
+#ifdef __BLOCKS__
+	int token_id;
+	dispatch_source_t src;
+#endif /* __BLOCKS__ */
 } token_table_node_t;
 
 static table_t *token_table = NULL;
@@ -116,6 +130,12 @@ uint32_t
 _notify_lib_init(char *sname)
 {
 	kern_return_t status;
+
+	/*
+	 * notifyd sets a bit (NOTIFYD_PROCESS_FLAG) in this global.  If some library routine
+	 * calls into Libnotify from notifyd, we fail here.  This prevents deadlocks in notifyd.
+	 */
+	if (__notify_78945668_info__ & NOTIFYD_PROCESS_FLAG) return NOTIFY_STATUS_FAILED;
 
 	if (notify_server_port != MACH_PORT_NULL) return NOTIFY_STATUS_OK;
 	status = bootstrap_look_up(bootstrap_port, sname, &notify_server_port);
@@ -403,11 +423,39 @@ token_table_delete(uint32_t tid, token_table_node_t *t)
 	notify_release_file_descriptor(t->fd);
 	notify_release_mach_port(t->mp);
 
+#ifdef __BLOCKS__
+	if (t->src)
+	{
+		dispatch_cancel(t->src);
+		dispatch_release(t->src);
+		t->src = NULL;
+	}
+#endif /* __BLOCKS__ */
+
 	_nc_table_delete_n(token_table, tid);
+	t->client_id = NOTIFY_INVALID_CLIENT_ID;
 
 	pthread_mutex_unlock(&token_lock);
 
 	free(t);
+}
+
+static notify_state_t *
+_notify_lib_self_state()
+{
+	if (self_state != NULL) return self_state;
+
+	pthread_mutex_lock(&self_state_lock);
+	if (self_state != NULL)
+	{
+		pthread_mutex_unlock(&self_state_lock);
+		return self_state;
+	}
+
+	self_state = _notify_lib_notify_state_new(NOTIFY_STATE_USE_LOCKS);
+	pthread_mutex_unlock(&self_state_lock);
+
+	return self_state;
 }
 
 /*
@@ -417,20 +465,17 @@ token_table_delete(uint32_t tid, token_table_node_t *t)
 uint32_t
 notify_post(const char *name)
 {
+	notify_state_t *ns_self;
 	kern_return_t kstatus;
 	uint32_t status;
-	security_token_t sec;
-
-	sec.val[0] = -1;
-	sec.val[1] = -1;
 
 	if (name == NULL) return NOTIFY_STATUS_INVALID_NAME;
 
 	if (!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN))
 	{
-		if (self_state == NULL) self_state = _notify_lib_notify_state_new(NOTIFY_STATE_USE_LOCKS);
-		if (self_state == NULL) return NOTIFY_STATUS_FAILED;
-		_notify_lib_post(self_state, name, 0, 0);
+		ns_self = _notify_lib_self_state();
+		if (ns_self == NULL) return NOTIFY_STATUS_FAILED;
+		_notify_lib_post(ns_self, name, 0, 0);
 		return NOTIFY_STATUS_OK;
 	}
 
@@ -440,7 +485,7 @@ notify_post(const char *name)
 		if (status != 0) return NOTIFY_STATUS_FAILED;
 	}
 
-	kstatus = _notify_server_post(notify_server_port, (caddr_t)name, strlen(name), (int32_t *)&status, &sec);
+	kstatus = _notify_server_post(notify_server_port, (caddr_t)name, strlen(name), (int32_t *)&status);
 	if (kstatus != KERN_SUCCESS) return NOTIFY_STATUS_FAILED;
 
 	return status;
@@ -449,20 +494,17 @@ notify_post(const char *name)
 uint32_t
 notify_set_owner(const char *name, uint32_t uid, uint32_t gid)
 {
+	notify_state_t *ns_self;
 	kern_return_t kstatus;
 	uint32_t status;
-	security_token_t sec;
-
-	sec.val[0] = -1;
-	sec.val[1] = -1;
 
 	if (name == NULL) return NOTIFY_STATUS_INVALID_NAME;
 
 	if (!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN))
 	{
-		if (self_state == NULL) self_state = _notify_lib_notify_state_new(NOTIFY_STATE_USE_LOCKS);
-		if (self_state == NULL) return NOTIFY_STATUS_FAILED;
-		status = _notify_lib_set_owner(self_state, name, uid, gid);
+		ns_self = _notify_lib_self_state();
+		if (ns_self == NULL) return NOTIFY_STATUS_FAILED;
+		status = _notify_lib_set_owner(ns_self, name, uid, gid);
 		return status;
 	}
 
@@ -472,7 +514,7 @@ notify_set_owner(const char *name, uint32_t uid, uint32_t gid)
 		if (status != 0) return NOTIFY_STATUS_FAILED;
 	}
 
-	kstatus = _notify_server_set_owner(notify_server_port, (caddr_t)name, strlen(name), uid, gid, (int32_t *)&status, &sec);
+	kstatus = _notify_server_set_owner(notify_server_port, (caddr_t)name, strlen(name), uid, gid, (int32_t *)&status);
 	if (kstatus != KERN_SUCCESS) return NOTIFY_STATUS_FAILED;
 	return status;
 }
@@ -480,20 +522,17 @@ notify_set_owner(const char *name, uint32_t uid, uint32_t gid)
 uint32_t
 notify_get_owner(const char *name, uint32_t *uid, uint32_t *gid)
 {
+	notify_state_t *ns_self;
 	kern_return_t kstatus;
 	uint32_t status;
-	security_token_t sec;
-
-	sec.val[0] = -1;
-	sec.val[1] = -1;
 
 	if (name == NULL) return NOTIFY_STATUS_INVALID_NAME;
 
 	if (!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN))
 	{
-		if (self_state == NULL) self_state = _notify_lib_notify_state_new(NOTIFY_STATE_USE_LOCKS);
-		if (self_state == NULL) return NOTIFY_STATUS_FAILED;
-		status = _notify_lib_get_owner(self_state, name, uid, gid);
+		ns_self = _notify_lib_self_state();
+		if (ns_self == NULL) return NOTIFY_STATUS_FAILED;
+		status = _notify_lib_get_owner(ns_self, name, uid, gid);
 		return status;
 	}
 
@@ -503,7 +542,7 @@ notify_get_owner(const char *name, uint32_t *uid, uint32_t *gid)
 		if (status != 0) return NOTIFY_STATUS_FAILED;
 	}
 
-	kstatus = _notify_server_get_owner(notify_server_port, (caddr_t)name, strlen(name), (int32_t *)uid, (int32_t *)gid, (int32_t *)&status, &sec);
+	kstatus = _notify_server_get_owner(notify_server_port, (caddr_t)name, strlen(name), (int32_t *)uid, (int32_t *)gid, (int32_t *)&status);
 	if (kstatus != KERN_SUCCESS) return NOTIFY_STATUS_FAILED;
 	return status;
 }
@@ -511,20 +550,17 @@ notify_get_owner(const char *name, uint32_t *uid, uint32_t *gid)
 uint32_t
 notify_set_access(const char *name, uint32_t access)
 {
+	notify_state_t *ns_self;
 	kern_return_t kstatus;
 	uint32_t status;
-	security_token_t sec;
-
-	sec.val[0] = -1;
-	sec.val[1] = -1;
 
 	if (name == NULL) return NOTIFY_STATUS_INVALID_NAME;
 
 	if (!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN))
 	{
-		if (self_state == NULL) self_state = _notify_lib_notify_state_new(NOTIFY_STATE_USE_LOCKS);
-		if (self_state == NULL) return NOTIFY_STATUS_FAILED;
-		status = _notify_lib_set_access(self_state, name, access);
+		ns_self = _notify_lib_self_state();
+		if (ns_self == NULL) return NOTIFY_STATUS_FAILED;
+		status = _notify_lib_set_access(ns_self, name, access);
 		return status;
 	}
 
@@ -534,7 +570,7 @@ notify_set_access(const char *name, uint32_t access)
 		if (status != 0) return NOTIFY_STATUS_FAILED;
 	}
 
-	kstatus = _notify_server_set_access(notify_server_port, (caddr_t)name, strlen(name), access, (int32_t *)&status, &sec);
+	kstatus = _notify_server_set_access(notify_server_port, (caddr_t)name, strlen(name), access, (int32_t *)&status);
 	if (kstatus != KERN_SUCCESS) return NOTIFY_STATUS_FAILED;
 	return status;
 }
@@ -542,20 +578,17 @@ notify_set_access(const char *name, uint32_t access)
 uint32_t
 notify_get_access(const char *name, uint32_t *access)
 {
+	notify_state_t *ns_self;
 	kern_return_t kstatus;
 	uint32_t status;
-	security_token_t sec;
-
-	sec.val[0] = -1;
-	sec.val[1] = -1;
 
 	if (name == NULL) return NOTIFY_STATUS_INVALID_NAME;
 
 	if (!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN))
 	{
-		if (self_state == NULL) self_state = _notify_lib_notify_state_new(NOTIFY_STATE_USE_LOCKS);
-		if (self_state == NULL) return NOTIFY_STATUS_FAILED;
-		status = _notify_lib_get_access(self_state, name, access);
+		ns_self = _notify_lib_self_state();
+		if (ns_self == NULL) return NOTIFY_STATUS_FAILED;
+		status = _notify_lib_get_access(ns_self, name, access);
 		return status;
 	}
 
@@ -565,7 +598,7 @@ notify_get_access(const char *name, uint32_t *access)
 		if (status != 0) return NOTIFY_STATUS_FAILED;
 	}
 
-	kstatus = _notify_server_get_access(notify_server_port, (caddr_t)name, strlen(name), (int32_t *)access, (int32_t *)&status, &sec);
+	kstatus = _notify_server_get_access(notify_server_port, (caddr_t)name, strlen(name), (int32_t *)access, (int32_t *)&status);
 	if (kstatus != KERN_SUCCESS) return NOTIFY_STATUS_FAILED;
 	return status;
 }
@@ -573,20 +606,17 @@ notify_get_access(const char *name, uint32_t *access)
 uint32_t
 notify_release_name(const char *name)
 {
+	notify_state_t *ns_self;
 	kern_return_t kstatus;
 	uint32_t status;
-	security_token_t sec;
-
-	sec.val[0] = -1;
-	sec.val[1] = -1;
 
 	if (name == NULL) return NOTIFY_STATUS_INVALID_NAME;
 
 	if (!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN))
 	{
-		if (self_state == NULL) self_state = _notify_lib_notify_state_new(NOTIFY_STATE_USE_LOCKS);
-		if (self_state == NULL) return NOTIFY_STATUS_FAILED;
-		status = _notify_lib_release_name(self_state, name, 0, 0);
+		ns_self = _notify_lib_self_state();
+		if (ns_self == NULL) return NOTIFY_STATUS_FAILED;
+		status = _notify_lib_release_name(ns_self, name, 0, 0);
 		return status;
 	}
 
@@ -596,33 +626,109 @@ notify_release_name(const char *name)
 		if (status != 0) return NOTIFY_STATUS_FAILED;
 	}
 
-	kstatus = _notify_server_release_name(notify_server_port, (caddr_t)name, strlen(name), (int32_t *)&status, &sec);
+	kstatus = _notify_server_release_name(notify_server_port, (caddr_t)name, strlen(name), (int32_t *)&status);
 	if (kstatus != KERN_SUCCESS) return NOTIFY_STATUS_FAILED;
 	return status;
 }
 
+#ifdef __BLOCKS__
+static boolean_t
+_notify_handle_mach_msg(mach_msg_header_t *msg, mach_msg_header_t *reply)
+{
+	token_table_node_t *t;
+	int token;
+
+	mig_reply_setup(msg, reply);
+	((mig_reply_error_t*)reply)->RetCode = MIG_NO_REPLY;
+
+	token = (int)msg->msgh_id;
+
+	t = token_table_find(token);
+	if ((t != NULL) && (t->src != NULL))
+	{
+		dispatch_source_trigger(t->src, 1);
+	}
+
+	return TRUE;
+}
+
+uint32_t
+notify_register_dispatch(const char *name, int *out_token, dispatch_queue_t queue, notify_handler_t handler)
+{
+	static mach_port_t port = MACH_PORT_NULL;
+	static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+	static dispatch_source_t source;
+	uint32_t status;
+	int token;
+	token_table_node_t *t;
+
+	status = NOTIFY_STATUS_FAILED;
+
+	if (handler == NULL) return NOTIFY_STATUS_FAILED;
+	if (port == MACH_PORT_NULL)
+	{
+		pthread_mutex_lock(&lock);
+		if (port == MACH_PORT_NULL)
+		{
+			/* one-time initialization of a dispatch source to re-use for subsequent registrations */
+			status = notify_register_mach_port(name, &port, 0, out_token);
+			if (status == NOTIFY_STATUS_OK)
+			{
+				source = dispatch_source_mig_create(port, sizeof(mach_msg_empty_rcv_t), NULL, dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_HIGH), _notify_handle_mach_msg);
+			}
+			else
+			{
+				port = MACH_PORT_NULL;
+			}
+		}
+		pthread_mutex_unlock(&lock);
+	}
+
+	if ((port != MACH_PORT_NULL) && (status != NOTIFY_STATUS_OK))
+	{
+		status = notify_register_mach_port(name, &port, NOTIFY_REUSE, out_token);
+	}
+
+	if (status == NOTIFY_STATUS_OK)
+	{
+		token = *out_token;
+		t = token_table_find(token);
+		if (t == NULL) return NOTIFY_STATUS_FAILED;
+
+		t->src = NULL;
+		t->token_id = token;
+
+		t->src = dispatch_source_data_create(DISPATCH_SOURCE_DATA_ADD, NULL, queue, ^(dispatch_source_t ds) { if (!dispatch_testcancel(ds)) { handler(token); }});
+
+		if (t->src == NULL)
+		{
+			token_table_delete(token, t);
+			return NOTIFY_STATUS_FAILED;
+		}
+	}
+
+	return status;
+}
+#endif /* __BLOCKS__ */
+
 uint32_t
 notify_register_check(const char *name, int *out_token)
 {
+	notify_state_t *ns_self;
 	kern_return_t kstatus;
 	uint32_t status, cid;
 	int32_t slot, shmsize;
-	task_t task;
-	security_token_t sec;
-
-	sec.val[0] = -1;
-	sec.val[1] = -1;
 
 	if (name == NULL) return NOTIFY_STATUS_INVALID_NAME;
 
-	task = mach_task_self();
-
 	if (!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN))
 	{
-		if (self_state == NULL) self_state = _notify_lib_notify_state_new(NOTIFY_STATE_USE_LOCKS);
-		if (self_state == NULL) return NOTIFY_STATUS_FAILED;
-		status = _notify_lib_register_plain(self_state, name, task, -1, 0, 0, &cid);
+		ns_self = _notify_lib_self_state();
+		if (ns_self == NULL) return NOTIFY_STATUS_FAILED;
+
+		status = _notify_lib_register_plain(ns_self, name, TASK_NAME_NULL, -1, 0, 0, &cid);
 		if (status != NOTIFY_STATUS_OK) return status;
+
 		*out_token = token_table_add(cid, -1, TOKEN_TYPE_SELF, 1, -1, MACH_PORT_NULL);
 		return NOTIFY_STATUS_OK;
 	}
@@ -633,7 +739,7 @@ notify_register_check(const char *name, int *out_token)
 		if (status != 0) return NOTIFY_STATUS_FAILED;
 	}
 
-	kstatus = _notify_server_register_check(notify_server_port, (caddr_t)name, strlen(name), task, &shmsize, &slot, (int32_t *)&cid, (int32_t *)&status, &sec);
+	kstatus = _notify_server_register_check(notify_server_port, (caddr_t)name, strlen(name), &shmsize, &slot, (int32_t *)&cid, (int32_t *)&status);
 	if (kstatus != KERN_SUCCESS) return NOTIFY_STATUS_FAILED;
 	if (status == NOTIFY_STATUS_OK)
 	{
@@ -659,24 +765,20 @@ notify_register_check(const char *name, int *out_token)
 uint32_t
 notify_register_plain(const char *name, int *out_token)
 {
+	notify_state_t *ns_self;
 	kern_return_t kstatus;
 	uint32_t status, cid;
-	task_t task;
-	security_token_t sec;
-
-	sec.val[0] = -1;
-	sec.val[1] = -1;
 
 	if (name == NULL) return NOTIFY_STATUS_INVALID_NAME;
 
-	task = mach_task_self();
-
 	if (!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN))
 	{
-		if (self_state == NULL) self_state = _notify_lib_notify_state_new(NOTIFY_STATE_USE_LOCKS);
-		if (self_state == NULL) return NOTIFY_STATUS_FAILED;
-		status = _notify_lib_register_plain(self_state, name, task, -1, 0, 0, &cid);
+		ns_self = _notify_lib_self_state();
+		if (ns_self == NULL) return NOTIFY_STATUS_FAILED;
+
+		status = _notify_lib_register_plain(ns_self, name, TASK_NAME_NULL, -1, 0, 0, &cid);
 		if (status != NOTIFY_STATUS_OK) return status;
+
 		*out_token = token_table_add(cid, -1, TOKEN_TYPE_SELF, 1, -1, MACH_PORT_NULL);
 		return NOTIFY_STATUS_OK;
 	}
@@ -687,7 +789,7 @@ notify_register_plain(const char *name, int *out_token)
 		if (status != 0) return NOTIFY_STATUS_FAILED;
 	}
 
-	kstatus = _notify_server_register_plain(notify_server_port, (caddr_t)name, strlen(name), task, (int32_t *)&cid, (int32_t *)&status, &sec);
+	kstatus = _notify_server_register_plain(notify_server_port, (caddr_t)name, strlen(name), (int32_t *)&cid, (int32_t *)&status);
 	if (kstatus != KERN_SUCCESS) return NOTIFY_STATUS_FAILED;
 	if (status == NOTIFY_STATUS_OK) *out_token = token_table_add(cid, -1, 0, 1, -1, MACH_PORT_NULL);
 	return status;
@@ -696,24 +798,20 @@ notify_register_plain(const char *name, int *out_token)
 uint32_t
 notify_register_signal(const char *name, int sig, int *out_token)
 {
+	notify_state_t *ns_self;
 	kern_return_t kstatus;
 	uint32_t status, cid;
-	task_t task;
-	security_token_t sec;
-
-	sec.val[0] = -1;
-	sec.val[1] = -1;
 
 	if (name == NULL) return NOTIFY_STATUS_INVALID_NAME;
 
-	task = mach_task_self();
-
 	if (!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN))
 	{
-		if (self_state == NULL) self_state = _notify_lib_notify_state_new(NOTIFY_STATE_USE_LOCKS);
-		if (self_state == NULL) return NOTIFY_STATUS_FAILED;
-		status = _notify_lib_register_signal(self_state, name, task, sig, 0, 0, &cid);
+		ns_self = _notify_lib_self_state();
+		if (ns_self == NULL) return NOTIFY_STATUS_FAILED;
+
+		status = _notify_lib_register_signal(ns_self, name, TASK_NAME_NULL, getpid(), sig, 0, 0, &cid);
 		if (status != NOTIFY_STATUS_OK) return status;
+
 		*out_token = token_table_add(cid, -1, TOKEN_TYPE_SELF, 1, -1, MACH_PORT_NULL);
 		return NOTIFY_STATUS_OK;
 	}
@@ -724,7 +822,7 @@ notify_register_signal(const char *name, int sig, int *out_token)
 		if (status != 0) return NOTIFY_STATUS_FAILED;
 	}
 
-	kstatus = _notify_server_register_signal(notify_server_port, (caddr_t)name, strlen(name), task, sig, (int32_t *)&cid, (int32_t *)&status, &sec);
+	kstatus = _notify_server_register_signal(notify_server_port, (caddr_t)name, strlen(name), sig, (int32_t *)&cid, (int32_t *)&status);
 	if (kstatus != KERN_SUCCESS) return NOTIFY_STATUS_FAILED;
 	if (status == NOTIFY_STATUS_OK) *out_token = token_table_add(cid, -1, 0, 1, -1, MACH_PORT_NULL);
 	return status;
@@ -733,16 +831,13 @@ notify_register_signal(const char *name, int sig, int *out_token)
 uint32_t
 notify_register_mach_port(const char *name, mach_port_name_t *notify_port, int flags, int *out_token)
 {
+	notify_state_t *ns_self;
 	kern_return_t kstatus;
 	uint32_t status, cid;
 	task_t task;
-	security_token_t sec;
 	int mine;
 
 	mine = 0;
-
-	sec.val[0] = -1;
-	sec.val[1] = -1;
 
 	if (name == NULL) return NOTIFY_STATUS_INVALID_NAME;
 	if (notify_port == NULL) return NOTIFY_STATUS_INVALID_PORT;
@@ -765,8 +860,8 @@ notify_register_mach_port(const char *name, mach_port_name_t *notify_port, int f
 
 	if (!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN))
 	{
-		if (self_state == NULL) self_state = _notify_lib_notify_state_new(NOTIFY_STATE_USE_LOCKS);
-		if (self_state == NULL)
+		ns_self = _notify_lib_self_state();
+		if (ns_self == NULL)
 		{
 			if (mine == 1) mach_port_destroy(task, *notify_port);
 			return NOTIFY_STATUS_FAILED;
@@ -774,7 +869,7 @@ notify_register_mach_port(const char *name, mach_port_name_t *notify_port, int f
 
 		/* lock so that we can reserve current token_id */
 		pthread_mutex_lock(&token_lock);
-		status = _notify_lib_register_mach_port(self_state, name, task, *notify_port, token_id, 0, 0, &cid);
+		status = _notify_lib_register_mach_port(ns_self, name, TASK_NAME_NULL, *notify_port, token_id, 0, 0, &cid);
 		if (status != NOTIFY_STATUS_OK)
 		{
 			if (mine == 1) mach_port_destroy(task, *notify_port);
@@ -801,7 +896,7 @@ notify_register_mach_port(const char *name, mach_port_name_t *notify_port, int f
 
 	/* lock so that we can reserve current token_id */
 	pthread_mutex_lock(&token_lock);
-	kstatus = _notify_server_register_mach_port(notify_server_port, (caddr_t)name, strlen(name), task, *notify_port, token_id, (int32_t *)&cid, (int32_t *)&status, &sec);
+	kstatus = _notify_server_register_mach_port(notify_server_port, (caddr_t)name, strlen(name), *notify_port, token_id, (int32_t *)&cid, (int32_t *)&status);
 	if (kstatus != KERN_SUCCESS)
 	{
 		if (mine == 1) mach_port_destroy(task, *notify_port);
@@ -823,9 +918,23 @@ notify_register_mach_port(const char *name, mach_port_name_t *notify_port, int f
 static char *
 _notify_mk_tmp_path(int tid)
 {
+#if TARGET_OS_EMBEDDED
+	int freetmp = 0;
+	char *path, *tmp = getenv("TMPDIR");
+	if (tmp == NULL) {
+		asprintf(&tmp, "/tmp/com.apple.notify.%d", geteuid());
+		mkdir(tmp, 0755);
+		freetmp = 1;
+	}
+	if (tmp == NULL) return NULL;
+	asprintf(&path, "%s/com.apple.notify.%d.%d", tmp, getpid(), tid);
+	if (freetmp) free(tmp);
+	return path;
+#else
     char tmp[PATH_MAX], *path;
 
 	if (confstr(_CS_DARWIN_USER_TEMP_DIR, tmp, sizeof(tmp)) <= 0) return NULL;
+#endif
 
 	path = NULL;
 	asprintf(&path, "%s/com.apple.notify.%d.%d", tmp, getpid(), tid);
@@ -835,23 +944,18 @@ _notify_mk_tmp_path(int tid)
 uint32_t
 notify_register_file_descriptor(const char *name, int *notify_fd, int flags, int *out_token)
 {
+	notify_state_t *ns_self;
 	kern_return_t kstatus;
 	uint32_t i, status, cid;
-	task_t task;
-	security_token_t sec;
-	int mine, fd;
+	struct sockaddr_un sun;
+	int mine, sock, opt;
 	char *path;
 
 	mine = 0;
 	path = NULL;
 
-	sec.val[0] = -1;
-	sec.val[1] = -1;
-
 	if (name == NULL) return NOTIFY_STATUS_INVALID_NAME;
 	if (notify_fd == NULL) return NOTIFY_STATUS_INVALID_FILE;
-
-	task = mach_task_self();
 
 	/* lock so that we can reserve current token_id */
 	pthread_mutex_lock(&token_lock);
@@ -860,32 +964,46 @@ notify_register_file_descriptor(const char *name, int *notify_fd, int flags, int
 	{
 		mine = 1;
 
-		path = _notify_mk_tmp_path(token_id);
-		if (path == NULL)
+		sock = socket(AF_UNIX, SOCK_DGRAM, 0);
+		if (sock < 0)
 		{
 			pthread_mutex_unlock(&token_lock);
 			return NOTIFY_STATUS_FAILED;
 		}
+
+		path = _notify_mk_tmp_path(token_id);
+		if (path == NULL)
+		{
+			close(sock);
+			pthread_mutex_unlock(&token_lock);
+			return NOTIFY_STATUS_FAILED;
+		}
+
+		memset(&sun, 0, sizeof(sun));
+		sun.sun_family = AF_UNIX;
+		strncpy(sun.sun_path, path, sizeof(sun.sun_path));
 
 		/* unlink in case pids wrapped around */
 		unlink(path);
 
-		if (mkfifo(path, 0600) < 0)
+		if (bind(sock, (struct sockaddr *)&sun, sizeof(struct sockaddr_un)) < 0)
 		{
 			free(path);
+			close(sock);
 			pthread_mutex_unlock(&token_lock);
 			return NOTIFY_STATUS_FAILED;
 		}
 
-		fd = open(path, O_RDWR, 0);
-		if (fd < 0)
+		opt = 1;
+		if (setsockopt(sock, SOL_SOCKET, SO_NOSIGPIPE, &opt, sizeof(opt)) < 0)
 		{
 			free(path);
+			close(sock);
 			pthread_mutex_unlock(&token_lock);
 			return NOTIFY_STATUS_FAILED;
 		}
 
-		*notify_fd = fd;
+		*notify_fd = sock;
 	}
 	else
 	{
@@ -895,7 +1013,7 @@ notify_register_file_descriptor(const char *name, int *notify_fd, int flags, int
 			if (fd_list[i] == *notify_fd) path = fd_path[i];
 		}
 
-		if (status == 0)
+		if (path == NULL)
 		{
 			pthread_mutex_unlock(&token_lock);
 			return NOTIFY_STATUS_INVALID_FILE;
@@ -904,8 +1022,8 @@ notify_register_file_descriptor(const char *name, int *notify_fd, int flags, int
 
 	if (!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN))
 	{
-		if (self_state == NULL) self_state = _notify_lib_notify_state_new(NOTIFY_STATE_USE_LOCKS);
-		if (self_state == NULL)
+		ns_self = _notify_lib_self_state();
+		if (ns_self == NULL)
 		{
 			if (mine == 1)
 			{
@@ -917,11 +1035,15 @@ notify_register_file_descriptor(const char *name, int *notify_fd, int flags, int
 			return NOTIFY_STATUS_FAILED;
 		}
 
-		status = _notify_lib_register_file_descriptor(self_state, name, task, path, token_id, 0, 0, (uint32_t *)&cid);
-		if (mine == 1) free(path);
+		status = _notify_lib_register_file_descriptor(ns_self, name, TASK_NAME_NULL, path, token_id, 0, 0, (uint32_t *)&cid);
 		if (status != NOTIFY_STATUS_OK)
 		{
-			if (mine == 1) close(*notify_fd);
+			if (mine == 1)
+			{
+				free(path);
+				close(*notify_fd);
+			}
+
 			pthread_mutex_unlock(&token_lock);
 			return status;
 		}
@@ -929,6 +1051,7 @@ notify_register_file_descriptor(const char *name, int *notify_fd, int flags, int
 		*out_token = token_table_add(cid, -1, TOKEN_TYPE_SELF, 0, *notify_fd, MACH_PORT_NULL);
 
 		notify_retain_file_descriptor(*notify_fd, path);
+		if (mine == 1) free(path);
 
 		pthread_mutex_unlock(&token_lock);
 		return NOTIFY_STATUS_OK;
@@ -950,11 +1073,15 @@ notify_register_file_descriptor(const char *name, int *notify_fd, int flags, int
 		}
 	}
 
-	kstatus = _notify_server_register_file_descriptor(notify_server_port, (caddr_t)name, strlen(name), task, path, strlen(path), token_id, (int32_t *)&cid, (int32_t *)&status, &sec);
+	kstatus = _notify_server_register_file_descriptor(notify_server_port, (caddr_t)name, strlen(name), path, strlen(path), token_id, (int32_t *)&cid, (int32_t *)&status);
 	if (kstatus != KERN_SUCCESS)
 	{
-		if (mine == 1) free(path);
-		if (mine == 1) close(*notify_fd);
+		if (mine == 1)
+		{
+			free(path);
+			close(*notify_fd);
+		}
+
 		pthread_mutex_unlock(&token_lock);
 		return NOTIFY_STATUS_FAILED;
 	}
@@ -977,16 +1104,13 @@ notify_check(int token, int *check)
 	kern_return_t kstatus;
 	uint32_t status, val;
 	token_table_node_t *t;
-	security_token_t sec;
-
-	sec.val[0] = -1;
-	sec.val[1] = -1;
 
 	t = token_table_find(token);
 	if (t == NULL) return NOTIFY_STATUS_INVALID_TOKEN;
 
 	if (t->flags & TOKEN_TYPE_SELF)
 	{
+		/* _notify_lib_check returns NOTIFY_STATUS_FAILED if self_state is NULL */
 		return _notify_lib_check(self_state, t->client_id, check);
 	}
 
@@ -1010,7 +1134,7 @@ notify_check(int token, int *check)
 		if (status != 0) return NOTIFY_STATUS_FAILED;
 	}
 
-	kstatus = _notify_server_check(notify_server_port, t->client_id, check, (int32_t *)&status, &sec);
+	kstatus = _notify_server_check(notify_server_port, t->client_id, check, (int32_t *)&status);
 	if (kstatus != KERN_SUCCESS) return NOTIFY_STATUS_FAILED;
 	return status;
 }
@@ -1025,6 +1149,7 @@ notify_peek(int token, uint32_t *val)
 
 	if (t->flags & TOKEN_TYPE_SELF)
 	{
+		/* _notify_lib_peek returns NOTIFY_STATUS_FAILED if self_state is NULL */
 		return _notify_lib_peek(self_state, t->client_id, (int *)val);
 	}
 
@@ -1049,6 +1174,7 @@ notify_check_addr(int token)
 
 	if (t->flags & TOKEN_TYPE_SELF)
 	{
+		/* _notify_lib_check_addr returns NOTIFY_STATUS_FAILED if self_state is NULL */
 		return _notify_lib_check_addr(self_state, t->client_id);
 	}
 
@@ -1067,10 +1193,6 @@ notify_monitor_file(int token, char *path, int flags)
 	kern_return_t kstatus;
 	uint32_t status, len;
 	token_table_node_t *t;
-	security_token_t sec;
-
-	sec.val[0] = -1;
-	sec.val[1] = -1;
 
 	t = token_table_find(token);
 	if (t == NULL) return NOTIFY_STATUS_INVALID_TOKEN;
@@ -1089,7 +1211,7 @@ notify_monitor_file(int token, char *path, int flags)
 	len = 0;
 	if (path != NULL) len = strlen(path);
 
-	kstatus = _notify_server_monitor_file(notify_server_port, t->client_id, path, len, flags, (int32_t *)&status, &sec);
+	kstatus = _notify_server_monitor_file(notify_server_port, t->client_id, path, len, flags, (int32_t *)&status);
 	if (kstatus != KERN_SUCCESS) return NOTIFY_STATUS_FAILED;
 	return status;
 }
@@ -1100,10 +1222,6 @@ notify_get_event(int token, int *ev, char *buf, int *len)
 	kern_return_t kstatus;
 	uint32_t status;
 	token_table_node_t *t;
-	security_token_t sec;
-
-	sec.val[0] = -1;
-	sec.val[1] = -1;
 
 	t = token_table_find(token);
 	if (t == NULL) return NOTIFY_STATUS_INVALID_TOKEN;
@@ -1119,7 +1237,7 @@ notify_get_event(int token, int *ev, char *buf, int *len)
 		if (status != 0) return NOTIFY_STATUS_FAILED;
 	}
 
-	kstatus = _notify_server_get_event(notify_server_port, t->client_id, ev, buf, (uint32_t *)len, (int32_t *)&status, &sec);
+	kstatus = _notify_server_get_event(notify_server_port, t->client_id, ev, buf, (uint32_t *)len, (int32_t *)&status);
 	if (kstatus != KERN_SUCCESS) return NOTIFY_STATUS_FAILED;
 	return status;
 }
@@ -1130,16 +1248,13 @@ notify_get_state(int token, uint64_t *state)
 	kern_return_t kstatus;
 	uint32_t status;
 	token_table_node_t *t;
-	security_token_t sec;
-
-	sec.val[0] = -1;
-	sec.val[1] = -1;
 
 	t = token_table_find(token);
 	if (t == NULL) return NOTIFY_STATUS_INVALID_TOKEN;
 
 	if (t->flags & TOKEN_TYPE_SELF)
 	{
+		/* _notify_lib_get_state returns NOTIFY_STATUS_FAILED if self_state is NULL */
 		return _notify_lib_get_state(self_state, t->client_id, state);
 	}
 
@@ -1149,7 +1264,7 @@ notify_get_state(int token, uint64_t *state)
 		if (status != 0) return NOTIFY_STATUS_FAILED;
 	}
 
-	kstatus = _notify_server_get_state(notify_server_port, t->client_id, state, (int32_t *)&status, &sec);
+	kstatus = _notify_server_get_state(notify_server_port, t->client_id, state, (int32_t *)&status);
 	if (kstatus != KERN_SUCCESS) return NOTIFY_STATUS_FAILED;
 	return status;
 }
@@ -1160,16 +1275,13 @@ notify_set_state(int token, uint64_t state)
 	kern_return_t kstatus;
 	uint32_t status;
 	token_table_node_t *t;
-	security_token_t sec;
-
-	sec.val[0] = -1;
-	sec.val[1] = -1;
 
 	t = token_table_find(token);
 	if (t == NULL) return NOTIFY_STATUS_INVALID_TOKEN;
 
 	if (t->flags & TOKEN_TYPE_SELF)
 	{
+		/* _notify_lib_set_state returns NOTIFY_STATUS_FAILED if self_state is NULL */
 		return _notify_lib_set_state(self_state, t->client_id, state, 0, 0);
 	}
 
@@ -1179,7 +1291,7 @@ notify_set_state(int token, uint64_t state)
 		if (status != 0) return NOTIFY_STATUS_FAILED;
 	}
 
-	kstatus = _notify_server_set_state(notify_server_port, t->client_id, state, (int32_t *)&status, &sec);
+	kstatus = _notify_server_set_state(notify_server_port, t->client_id, state, (int32_t *)&status);
 	if (kstatus != KERN_SUCCESS) return NOTIFY_STATUS_FAILED;
 	return status;
 }
@@ -1190,16 +1302,13 @@ notify_get_val(int token, int *val)
 	kern_return_t kstatus;
 	uint32_t status;
 	token_table_node_t *t;
-	security_token_t sec;
-
-	sec.val[0] = -1;
-	sec.val[1] = -1;
 
 	t = token_table_find(token);
 	if (t == NULL) return NOTIFY_STATUS_INVALID_TOKEN;
 
 	if (t->flags & TOKEN_TYPE_SELF)
 	{
+		/* _notify_lib_get_val returns NOTIFY_STATUS_FAILED if self_state is NULL */
 		return _notify_lib_get_val(self_state, t->client_id, val);
 	}
 
@@ -1217,7 +1326,7 @@ notify_get_val(int token, int *val)
 		if (status != 0) return NOTIFY_STATUS_FAILED;
 	}
 
-	kstatus = _notify_server_get_val(notify_server_port, t->client_id, val, (int32_t *)&status, &sec);
+	kstatus = _notify_server_get_val(notify_server_port, t->client_id, val, (int32_t *)&status);
 	if (kstatus != KERN_SUCCESS) return NOTIFY_STATUS_FAILED;
 	return status;
 }
@@ -1228,16 +1337,13 @@ notify_set_val(int token, int val)
 	kern_return_t kstatus;
 	uint32_t status;
 	token_table_node_t *t;
-	security_token_t sec;
-
-	sec.val[0] = -1;
-	sec.val[1] = -1;
 
 	t = token_table_find(token);
 	if (t == NULL) return NOTIFY_STATUS_INVALID_TOKEN;
 
 	if (t->flags & TOKEN_TYPE_SELF)
 	{
+		/* _notify_lib_set_val returns NOTIFY_STATUS_FAILED if self_state is NULL */
 		return _notify_lib_set_val(self_state, t->client_id, val, 0, 0);
 	}
 
@@ -1247,7 +1353,7 @@ notify_set_val(int token, int val)
 		if (status != 0) return NOTIFY_STATUS_FAILED;
 	}
 
-	kstatus = _notify_server_set_val(notify_server_port, t->client_id, val, (int32_t *)&status, &sec);
+	kstatus = _notify_server_set_val(notify_server_port, t->client_id, val, (int32_t *)&status);
 	if (kstatus != KERN_SUCCESS) return NOTIFY_STATUS_FAILED;
 	return status;
 }
@@ -1258,16 +1364,16 @@ notify_cancel(int token)
 	token_table_node_t *t;
 	uint32_t status;
 	kern_return_t kstatus;
-	security_token_t sec;
-
-	sec.val[0] = -1;
-	sec.val[1] = -1;
 
 	t = token_table_find(token);
 	if (t == NULL) return NOTIFY_STATUS_INVALID_TOKEN;
 
 	if (t->flags & TOKEN_TYPE_SELF)
 	{
+		/*
+		 * _notify_lib_cancel returns NOTIFY_STATUS_FAILED if self_state is NULL
+		 * We let it fail quietly.
+		 */
 		_notify_lib_cancel(self_state, t->client_id);
 		token_table_delete(token, t);
 		return NOTIFY_STATUS_OK;
@@ -1283,14 +1389,12 @@ notify_cancel(int token)
 		}
 	}
 
-	kstatus = _notify_server_cancel(notify_server_port, t->client_id, (int32_t *)&status, &sec);
-	if (kstatus != KERN_SUCCESS)
-	{
-		token_table_delete(token, t);
-		return NOTIFY_STATUS_FAILED;
-	}
-
+	kstatus = _notify_server_cancel(notify_server_port, t->client_id, (int32_t *)&status);
 	token_table_delete(token, t);
+
+	if ((kstatus == MIG_SERVER_DIED) || (kstatus == MACH_SEND_INVALID_DEST)) status = NOTIFY_STATUS_OK;
+	else if (kstatus != KERN_SUCCESS) status = NOTIFY_STATUS_FAILED;
+
 	return status;
 }
 

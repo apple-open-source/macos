@@ -42,10 +42,12 @@
 #include <dirent.h>
 #include <signal.h>
 #include <fstab.h>
+#include <mntopts.h>
 #include <sys/param.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/ioctl.h>
 #include <sys/mount.h>
 #include <fts.h>
 
@@ -56,6 +58,8 @@
 #include "automount.h"
 #include "automount_ds.h"
 
+static int parse_mntopts(const char *, int *, int *);
+static int paths_match(struct autodir *, struct autodir *);
 static int mkdir_r(char *);
 static void rmdir_r(char *);
 static int have_ad(void);
@@ -63,12 +67,15 @@ struct autodir *dir_head;
 struct autodir *dir_tail;
 static int num_current_mounts;
 static struct statfs *current_mounts;
-static struct statfs *find_mount(char *);
+static void make_symlink(const char *, const char *);
+static struct statfs *find_mount(const char *);
 int verbose = 0;
 int trace = 0;
 
+static int autofs_control_fd;
+
 static void usage(void);
-static void do_unmounts(int);
+static void do_unmounts(void);
 static int load_autofs(void);
 
 static int mount_timeout = AUTOFS_MOUNT_TIMEOUT;
@@ -88,12 +95,13 @@ pthread_cond_t cleanup_done_cv;
 int
 main(int argc, char *argv[])
 {
+	long timeout_val;
 	int c;
 	int flushcache = 0;
 	struct autodir *dir, *d;
+	char real_mntpnt[PATH_MAX];
 	struct stat stbuf;
 	char *master_map = "auto_master";
-	int autofs_control_fd;
 	int null;
 	struct statfs *mntp;
 	int count = 0;
@@ -101,6 +109,8 @@ main(int argc, char *argv[])
 	char **stkptr;
 	char *defval;
 	int fd;
+	int flags, altflags;
+	struct staticmap *static_ent;
 
 	/*
 	 * Read in the values from config file first before we check
@@ -109,9 +119,10 @@ main(int argc, char *argv[])
 	if ((defopen(AUTOFSADMIN)) == 0) {
 		if ((defval = defread("AUTOMOUNT_TIMEOUT=")) != NULL) {
 			errno = 0;
-			mount_timeout = strtol(defval, (char **)NULL, 10);
-			if (errno != 0)
-				mount_timeout = AUTOFS_MOUNT_TIMEOUT;
+			timeout_val = strtol(defval, (char **)NULL, 10);
+			if (errno == 0 && timeout_val > 0 &&
+			    timeout_val <= INT_MAX)
+				mount_timeout = (int)timeout_val;
 		}
 		if ((defval = defread("AUTOMOUNT_VERBOSE=")) != NULL) {
 			if (strncasecmp("true", defval, 4) == 0)
@@ -209,8 +220,7 @@ main(int argc, char *argv[])
 		 */
 		error = load_autofs();
 		if (error != 0) {
-			pr_msg("mount %s: can't load autofs kext: %s",
-			    strerror(errno));
+			pr_msg("can't load autofs kext");
 			exit(1);
 		}
 
@@ -253,6 +263,30 @@ main(int argc, char *argv[])
 	 */
 	for (dir = dir_head; dir; dir = dir->dir_next) {
 
+		if (realpath(dir->dir_name, real_mntpnt) == NULL) {
+			/*
+			 * We couldn't get the real path for this,
+			 * perhaps because it doesn't exist.
+			 * If it's not because it doesn't exist, just
+			 * give up on this entry.  Otherwise, just null
+			 * out the real path - we'll try creating the
+			 * directory later, and will set dir_realpath
+			 * then, if that succeeds.
+			 */
+			if (errno != ENOENT) {
+				pr_msg("%s: Can't convert to real path: %m",
+				    dir->dir_name);
+				continue;
+			}
+			dir->dir_realpath = NULL;
+		} else {
+			dir->dir_realpath = strdup(real_mntpnt);
+			if (dir->dir_realpath == NULL) {
+				pr_msg("Couldn't allocate real path: %m");
+				exit(1);
+			}
+		}
+
 		/*
 		 * Skip null entries
 		 */
@@ -264,7 +298,7 @@ main(int argc, char *argv[])
 		 */
 		null = 0;
 		for (d = dir->dir_prev; d; d = d->dir_prev) {
-			if (strcmp(dir->dir_name, d->dir_name) == 0)
+			if (paths_match(dir, d))
 				null = 1;
 		}
 		if (null)
@@ -305,7 +339,7 @@ main(int argc, char *argv[])
 		if (strcmp(dir->dir_map, "-fstab") == 0 ||
 		    strcmp(dir->dir_map, "-static") == 0) {
 			for (d = dir_head; d; d = d->dir_next) {
-				if (strcmp(dir->dir_name, d->dir_name) == 0 &&
+				if (paths_match(dir, d) &&
 				    strcmp(d->dir_map, "-fstab") != 0 &&
 				    strcmp(d->dir_map, "-static") != 0) {
 					pr_msg("%s: ignoring redundant %s map",
@@ -316,10 +350,58 @@ main(int argc, char *argv[])
 		}
 
 		/*
+		 * Parse the mount options and get additional flags to pass
+		 * to mount() (standard mount options) and autofs mount
+		 * options.
+		 *
+		 * XXX - we ignore flags on an update; if they're different
+		 * from the current flags for that mount, we'd need to do a
+		 * remount.
+		 */
+		if (!parse_mntopts(dir->dir_opts, &flags, &altflags)) {
+			/*
+			 * Failed.
+			 */
+			continue;
+		}
+
+		/*
+		 * If this is -static, check whether the entry refers
+		 * to this host; if so, make the appropriate symlink
+		 * exist at the "mount point" path.
+		 */
+		if (strcmp(dir->dir_map, "-static") == 0) {
+			static_ent = get_staticmap_entry(dir->dir_name);
+			if (static_ent == NULL) {
+				/*
+				 * Whiskey tango foxtrot?  There should
+				 * be an entry here.  Log an error and
+				 * ignore this mount.
+				 */
+				pr_msg("can't find fstab entry for %s",
+				    dir->dir_name);
+				continue;
+			}
+			if (host_is_us(static_ent->host, strlen(static_ent->host)) ||
+			    self_check(static_ent->host)) {
+				/*
+				 * Yup, this is us.
+				 * Try to make the appropriate symlink.
+				 */
+				make_symlink(static_ent->localpath,
+				    dir->dir_name);
+				release_staticmap_entry(static_ent);
+				continue;
+			}
+			release_staticmap_entry(static_ent);
+		}
+
+		/*
 		 * Check whether there's already an entry
 		 * in the mnttab for this mountpoint.
 		 */
-		if ((mntp = find_mount(dir->dir_name)) != NULL) {
+		if (dir->dir_realpath != NULL &&
+		    (mntp = find_mount(dir->dir_realpath)) != NULL) {
 			struct autofs_update_args au;
 
 			/*
@@ -327,8 +409,8 @@ main(int argc, char *argv[])
 			 * mount over it.
 			 */
 			if (strcmp(mntp->f_fstypename, MNTTYPE_AUTOFS) != 0) {
-				pr_msg("%s: already mounted",
-					mntp->f_mntfromname);
+				pr_msg("%s: already mounted on %s",
+					mntp->f_mntfromname, dir->dir_realpath);
 				continue;
 			}
 
@@ -343,7 +425,7 @@ main(int argc, char *argv[])
 			au.fsid		= mntp->f_fsid;
 			au.opts		= dir->dir_opts;
 			au.map		= dir->dir_map;
-			au.mntflags	= 0;	/* XXX - right value? */
+			au.mntflags	= altflags;
 			au.mount_to	= mount_timeout;
 #if 0
 			au.mach_to	= AUTOFS_RPC_TIMEOUT;
@@ -354,25 +436,46 @@ main(int argc, char *argv[])
 
 			if (ioctl(autofs_control_fd, AUTOFS_UPDATE_OPTIONS,
 			    &au) < 0) {
-				pr_msg("update %s: %m", dir->dir_name);
+				pr_msg("update %s: %m", dir->dir_realpath);
 				continue;
 			}
 			if (verbose)
-				pr_msg("%s updated", dir->dir_name);
+				pr_msg("%s updated", dir->dir_realpath);
 		} else {
 			struct autofs_args ai;
 
 			/*
-			 * This trigger isn't already mounted.
+			 * This trigger isn't already mounted; either
+			 * the path doesn't exist at all, or it
+			 * exists but nothing is mounted on it.
 			 *
 			 * Create a mount point if necessary
 			 * If the path refers to an existing symbolic
 			 * link, refuse to mount on it.  This avoids
-			 * future problems.
+			 * future problems.  (We don't use dir->dir_realpath
+			 * because that's never a symbolic link.)
 			 */
 			if (lstat(dir->dir_name, &stbuf) == 0) {
 				if ((stbuf.st_mode & S_IFMT) != S_IFDIR) {
 					pr_msg("%s: Not a directory", dir->dir_name);
+					continue;
+				}
+
+				/*
+				 * Either realpath() succeeded or it
+				 * failed with ENOENT; otherwise, we
+				 * would have quit before getting here.
+				 *
+				 * If it failed, report an error, as
+				 * the problem isn't that "dir->dir_name"
+				 * doesn't exist, the problem is that,
+				 * somehow, we got ENOENT even though
+				 * it exists.
+				 */
+				if (dir->dir_realpath == NULL) {
+					errno = ENOENT;
+					pr_msg("%s: Can't convert to real path: %m",
+					    dir->dir_name);
 					continue;
 				}
 			} else {
@@ -380,13 +483,36 @@ main(int argc, char *argv[])
 					pr_msg("%s: %m", dir->dir_name);
 					continue;
 				}
+
+				/*
+				 * realpath() presumably didn't succeed,
+				 * as dir->dir_name couldn't be statted.
+				 * Call it again, to get the real path
+				 * corresponding to the newly-created
+				 * mount point.
+				 */
+				if (realpath(dir->dir_name, real_mntpnt) == NULL) {
+					/*
+					 * Failed.
+					 */
+					pr_msg("%s: Can't convert to real path: %m",
+					    dir->dir_name);
+					continue;
+				}
+				dir->dir_realpath = strdup(real_mntpnt);
+				if (dir->dir_realpath == NULL) {
+					pr_msg("Couldn't allocate real path for %s: %m",
+					    dir->dir_name);
+					continue;
+				}
 			}
 
 			/*
-			 * Mount it.
+			 * Mount it.  Use the real path (symlink-free),
+			 * for reasons mentioned above.
 			 */
 			ai.version	= AUTOFS_ARGSVERSION;
-			ai.path 	= dir->dir_name;
+			ai.path 	= dir->dir_realpath;
 			ai.opts		= dir->dir_opts;
 			ai.map		= dir->dir_map;
 			ai.subdir	= "";
@@ -395,7 +521,7 @@ main(int argc, char *argv[])
 				ai.key = dir->dir_name;
 			else
 				ai.key = "";
-			ai.mntflags	= 0;	/* XXX - right value? */
+			ai.mntflags	= altflags;
 			ai.mount_to	= mount_timeout;
 #if 0
 			ai.mach_to	= AUTOFS_RPC_TIMEOUT;
@@ -404,13 +530,14 @@ main(int argc, char *argv[])
 #endif
 			ai.trigger	= 0;	/* not a special trigger-point submount */
 
-			if (mount(MNTTYPE_AUTOFS, dir->dir_name,
-			    MNT_DONTBROWSE | MNT_AUTOMOUNTED, &ai) < 0) {
-				pr_msg("mount %s: %m", dir->dir_name);
+			if (mount(MNTTYPE_AUTOFS, dir->dir_realpath,
+			    MNT_DONTBROWSE | MNT_AUTOMOUNTED | flags,
+			    &ai) < 0) {
+				pr_msg("mount %s: %m", dir->dir_realpath);
 				continue;
 			}
 			if (verbose)
-				pr_msg("%s mounted", dir->dir_name);
+				pr_msg("%s mounted", dir->dir_realpath);
 		}
 
 		count++;
@@ -428,7 +555,7 @@ main(int argc, char *argv[])
 	 * XXX - if there are no autofs mounts left, should we
 	 * unload autofs, or arrange that it be unloaded?
 	 */
-	do_unmounts(autofs_control_fd);
+	do_unmounts();
 
 	/*
 	 * Let PremountHomeDirectoryWithAuthentication() know that we're
@@ -440,12 +567,136 @@ main(int argc, char *argv[])
 	return (0);
 }
 
+static void
+make_symlink(const char *target, const char *path)
+{
+	struct stat stbuf;
+	char linktarget[PATH_MAX + 1];
+	ssize_t pathlength;
+	struct statfs *mnt;
+
+	/*
+	 * Does the target exist?
+	 */
+	if (lstat(path, &stbuf) == 0) {
+		/*
+		 * Yes.  What is it?
+		 */
+		if ((stbuf.st_mode & S_IFMT) == S_IFLNK) {
+			/*
+			 * It's a symlink.
+			 * What does it point to?
+			 */
+			pathlength = readlink(path, linktarget, PATH_MAX);
+			if (pathlength == -1) {
+				/*
+				 * FAIL.
+				 */
+				pr_msg("can't read target of %s: %m", path);
+				return;
+			}
+			linktarget[pathlength] = '\0';
+
+			/*
+			 * Does it point to the same place that we
+			 * want it to point to?
+			 *
+			 * XXX - case-sensitivity?  That's hard to
+			 * handle, given that the path might cross
+			 * multiple file systems with different case-
+			 * sensitivities.
+			 */
+			if (strcmp(linktarget, target) == 0) {
+				/*
+				 * Yes, it does.
+				 * We don't need to do anything.
+				 */
+				if (verbose)
+					pr_msg("link %s unchanged", path);
+				return;
+			}
+
+			/*
+			 * Get rid of the existing symlink.
+			 */
+			if (unlink(path) == -1) {
+				pr_msg("can't unlink %s: %m", path);
+				return;
+			}
+		} else if ((stbuf.st_mode & S_IFMT) == S_IFDIR) {
+			/*
+			 * It's a directory.
+			 * Is there an autofs mount atop it?
+			 */
+			mnt = find_mount(path);
+			if (mnt != NULL) {
+				/*
+				 * Something's mounted atop it; is it
+				 * autofs?
+				 */
+				if (strcmp(mnt->f_fstypename, MNTTYPE_AUTOFS) == 0) {
+					/*
+					 * Yes.  Try to unmount it (and
+					 * everything under it).
+					 */
+					if (ioctl(autofs_control_fd,
+					    AUTOFS_UNMOUNT, &mnt->f_fsid) != 0) {
+						/*
+						 * Failed.
+						 * Leave it alone for now.
+						 */
+						return;
+					}
+				}
+			}
+
+			/*
+			 * Now try to remove the directory.
+			 */
+			if (rmdir(path) != 0) {
+				/*
+				 * Failed.  Leave it alone.
+				 */
+				return;
+			}
+		} else {
+			/*
+			 * Neither a symlink nor a directory.
+			 * Leave it alone.
+			 */
+			return;
+		}
+	} else {
+		/*
+		 * lstat() failed; is it because the target doesn't
+		 * exist, or because we couldn't get its
+		 * information?
+		 */
+		if (errno != ENOENT) {
+			/*
+			 * We couldn't get its information.
+			 * Leave it alone.
+			 */
+			return;
+		}
+	}
+
+	/*
+	 * OK, the target should not exist.
+	 * Make the symlink.
+	 */
+	if (symlink(target, path) == -1) {
+		pr_msg("can't create symlink from %s to %s: %m",
+		    path, target);
+	}
+}
+
 /*
  * Find the first mount entry given the mountpoint path.
  */
 static struct statfs *
 find_mount(mntpnt)
-	char *mntpnt;
+	const char *mntpnt;
 {
 	int i;
 	struct statfs *mnt;
@@ -468,11 +719,49 @@ usage()
 }
 
 /*
+ * Given a mount options string, get the flags argument to pass to mount()
+ * and the autofs mount options.
+ *
+ * We put "nobrowse" in front of MOPT_STDOPTS so that the mount
+ * options "browse" and "nobrowse" are interpreted as autofs
+ * mount options controlling whether you can get a directory listing,
+ * not OS X mount options controlling whether the mounts are treated as
+ * "real" volumes or not (we force MNT_NOBROWSE on for any mounts we do).
+ */
+static const struct mntopt mopts_autofs[] = {
+	{ "browse",			1, AUTOFS_MNT_NORDDIR, 1 },
+	MOPT_STDOPTS,
+	{ MNTOPT_RESTRICT,		0, AUTOFS_MNT_RESTRICT, 1 },
+	{ MNTOPT_HIDEFROMFINDER,	0, AUTOFS_MNT_HIDEFROMFINDER, 1 },
+	{ NULL,				0, 0, 0 }
+};
+
+static int
+parse_mntopts(const char *opts, int *flags, int *altflags)
+{
+	mntoptparse_t mp;
+
+	/*
+	 * Parse the mount options and fill in "flags" and "altflags".
+	 */
+	*flags = *altflags = 0;
+	getmnt_silent = 1;
+	mp = getmntopts(opts, mopts_autofs, flags, altflags);
+	if (mp == NULL) {
+		pr_msg("memory allocation failure");
+		return (0);
+	}
+	freemntopts(mp);
+
+	return (1);
+}
+
+/*
  * Unmount any autofs mounts that
  * aren't in the master map
  */
 static void
-do_unmounts(int autofs_control_fd)
+do_unmounts(void)
 {
 	int i;
 	struct statfs *mnt;
@@ -496,7 +785,8 @@ do_unmounts(int autofs_control_fd)
 
 		current = 0;
 		for (dir = dir_head; dir; dir = dir->dir_next) {
-			if (strcmp(dir->dir_name, mnt->f_mntonname) == 0) {
+			if (dir->dir_realpath != NULL &&
+			    strcmp(dir->dir_realpath, mnt->f_mntonname) == 0) {
 				current = strcmp(dir->dir_map, "-null");
 				break;
 			}
@@ -539,6 +829,30 @@ do_unmounts(int autofs_control_fd)
 	}
 	if (verbose && count == 0)
 		pr_msg("no unmounts");
+}
+
+/*
+ * Check whether two entries refer to the same directory; we compare
+ * both the path name and the realpath()ed path name.
+ */
+static int
+paths_match(struct autodir *d1, struct autodir *d2)
+{
+	if (strcmp(d1->dir_name, d2->dir_name) == 0)
+		return (1);
+	if (d1->dir_realpath != NULL) {
+		if (strcmp(d1->dir_realpath, d2->dir_name) == 0)
+			return (1);
+		if (d2->dir_realpath != NULL) {
+			if (strcmp(d1->dir_realpath, d2->dir_realpath) == 0)
+				return (1);
+		}
+	}
+	if (d2->dir_realpath != NULL) {
+		if (strcmp(d1->dir_name, d2->dir_realpath) == 0)
+			return (1);
+	}
+	return (0);
 }
 
 static int
@@ -640,23 +954,27 @@ have_ad(void)
 	tDirNodeReference node_ref;
 	tDirStatus status;
 	tDataListPtr attribute_type = NULL;
-	static unsigned long attr_bufsize = 2*1024;
+	static UInt32 attr_bufsize = 2*1024;
 	tDataBufferPtr buffer = NULL;
-	unsigned long num_results;
+	UInt32 num_results;
 	tAttributeListRef attr_list_ref;
 	tContextData context;
 	tAttributeValueListRef value_list_ref;
 	tAttributeEntry *attr_entry_p;
-	unsigned long i;
+	UInt32 i;
 	tAttributeValueEntry *value_entry_p;
 	char *value;
-	unsigned long value_len;
+	UInt32 value_len;
 	static const char ad_prefix[] = "/Active Directory";
 	size_t ad_prefix_len = sizeof ad_prefix - 1;
 
 	/* Open an Open Directory session. */
-	if (dsOpenDirService(&session) != eDSNoErr)
+	status = dsOpenDirService(&session);
+	if (status != eDSNoErr) {
+		pr_msg("have_ad: can't open session: %s (%d)",
+		    dsCopyDirStatusName(status), status);
 		return (0);
+	}
 
 	/*
 	 * Get the search node.
@@ -674,8 +992,7 @@ have_ad(void)
 	    NULL);
 	if (attribute_type == NULL) {
 		pr_msg(
-		    "have_ad: can't build attribute type list: %s (%d)",
-		    dsCopyDirStatusName(status), status);
+		    "have_ad: can't build attribute type list: malloc failed");
 		goto done;
 	}
 
@@ -691,8 +1008,11 @@ have_ad(void)
 		}
 
 		/* Get the node info. */
+		context = 0;
 		status = dsGetDirNodeInfo(node_ref, attribute_type, buffer,
 		    FALSE, &num_results, &attr_list_ref, &context);
+		if (context != 0)
+			dsReleaseContinueData(session, context);
 		if (status != eDSBufferTooSmall) {
 			/* Well, the buffer wasn't too small */
 			break;
@@ -790,15 +1110,14 @@ pr_msg(const char *fmt, ...)
 	char buf[BUFSIZ], *p2;
 	const char *p1;
 
-	(void) strcpy(buf, "automount: ");
+	(void) strlcpy(buf, "automount: ", sizeof buf);
 	p2 = buf + strlen(buf);
 
 	for (p1 = fmt; *p1; p1++) {
 		if (*p1 == '%' && *(p1+1) == 'm') {
-			if (errno < sys_nerr) {
-				(void) strcpy(p2, sys_errlist[errno]);
-				p2 += strlen(p2);
-			}
+			(void) strlcpy(p2, strerror(errno),
+			    sizeof buf - (p2 - buf));
+			p2 += strlen(p2);
 			p1++;
 		} else {
 			*p2++ = *p1;

@@ -216,6 +216,14 @@ fastfind
 			count += c - OFFSET;
 		}
 
+#ifdef __APPLE__
+		if (count < 0) {
+			errx(1, "Your locate database appears to be corrupt. "
+			    "Run 'sudo /usr/libexec/locate.updatedb' to "
+			    "regenerate the database.");
+		}
+#endif /* __APPLE__ */
+
 		/* overlay old path */
 		p = path + count;
 		foundchar = p - 1;

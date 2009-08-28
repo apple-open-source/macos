@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_TOPLEV_H
 #define GCC_TOPLEV_H
@@ -44,39 +44,33 @@ extern void _fatal_insn (const char *, rtx, const char *, int, const char *)
 /* If we haven't already defined a frontend specific diagnostics
    style, use the generic one.  */
 #ifndef GCC_DIAG_STYLE
-#define GCC_DIAG_STYLE __gcc_diag__
-#define NO_FRONT_END_DIAG
+#define GCC_DIAG_STYLE __gcc_tdiag__
 #endif
 /* None of these functions are suitable for ATTRIBUTE_PRINTF, because
    each language front end can extend them with its own set of format
-   specifiers.  We must use custom format checks.  Note that at present
-   the front-end %D specifier is used in non-front-end code with some
-   functions, and those formats can only be checked in front-end code.  */
-#if GCC_VERSION >= 3005
+   specifiers.  We must use custom format checks.  */
+#if GCC_VERSION >= 4001
 #define ATTRIBUTE_GCC_DIAG(m, n) __attribute__ ((__format__ (GCC_DIAG_STYLE, m, n))) ATTRIBUTE_NONNULL(m)
-#ifdef NO_FRONT_END_DIAG
-#define ATTRIBUTE_GCC_FE_DIAG(m, n) ATTRIBUTE_NONNULL(m)
-#else
-#define ATTRIBUTE_GCC_FE_DIAG(m, n) __attribute__ ((__format__ (GCC_DIAG_STYLE, m, n))) ATTRIBUTE_NONNULL(m)
-#endif
 #else
 #define ATTRIBUTE_GCC_DIAG(m, n) ATTRIBUTE_NONNULL(m)
-#define ATTRIBUTE_GCC_FE_DIAG(m, n) ATTRIBUTE_NONNULL(m)
 #endif
 extern void internal_error (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2)
      ATTRIBUTE_NORETURN;
-extern void warning (const char *, ...) ATTRIBUTE_GCC_FE_DIAG(1,2);
-extern void error (const char *, ...) ATTRIBUTE_GCC_FE_DIAG(1,2);
+extern void warning0 (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
+/* Pass one of the OPT_W* from options.h as the first parameter.  */
+extern void warning (int, const char *, ...) ATTRIBUTE_GCC_DIAG(2,3);
+extern void error (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
 extern void fatal_error (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2)
      ATTRIBUTE_NORETURN;
-extern void pedwarn (const char *, ...) ATTRIBUTE_GCC_FE_DIAG(1,2);
-extern void sorry (const char *, ...) ATTRIBUTE_GCC_FE_DIAG(1,2);
+extern void pedwarn (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
+extern void sorry (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
 extern void inform (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
+extern void verbatim (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
 
 extern void rest_of_decl_compilation (tree, int, int);
 extern void rest_of_type_compilation (tree, int);
 extern void tree_rest_of_compilation (tree);
-extern void init_tree_optimization_passes (void);
+extern void init_optimization_passes (void);
 extern void finish_optimization_passes (void);
 extern bool enable_rtl_dump_file (int);
 
@@ -98,8 +92,12 @@ extern void fnotice			(FILE *, const char *, ...)
      ATTRIBUTE_PRINTF_2;
 #endif
 
-extern int wrapup_global_declarations (tree *, int);
+extern void wrapup_global_declaration_1 (tree);
+extern bool wrapup_global_declaration_2 (tree);
+extern bool wrapup_global_declarations (tree *, int);
+extern void check_global_declaration_1 (tree);
 extern void check_global_declarations (tree *, int);
+extern void emit_debug_global_declarations (tree *, int);
 extern void write_global_declarations (void);
 
 /* A unique local time stamp, might be zero if none is available.  */
@@ -120,7 +118,6 @@ extern int target_flags_explicit;
 extern bool user_defined_section_attribute;
 
 /* See toplev.c.  */
-extern int flag_loop_optimize;
 extern int flag_crossjumping;
 extern int flag_if_conversion;
 extern int flag_if_conversion2;
@@ -134,12 +131,9 @@ extern int flag_unroll_all_loops;
 extern int flag_unswitch_loops;
 extern int flag_cprop_registers;
 extern int time_report;
-extern int flag_tree_based_profiling;
 
 /* Things to do with target switches.  */
-extern void display_target_options (void);
 extern void print_version (FILE *, const char *);
-extern void set_target_switch (const char *);
 extern void * default_get_pch_validity (size_t *);
 extern const char * default_pch_valid_p (const void *, size_t);
 

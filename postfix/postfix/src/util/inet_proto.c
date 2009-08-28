@@ -86,10 +86,15 @@
 #include <sys_defs.h>
 #include <netinet/in.h>
 #include <arpa/nameser.h>
+#ifdef __APPLE_OS_X_SERVER__
+#include <arpa/nameser_compat.h>
+#endif
 #ifdef RESOLVE_H_NEEDS_STDIO_H
 #include <stdio.h>
 #endif
+#ifndef __APPLE_OS_X_SERVER__
 #include <resolv.h>
+#endif
 #include <stdarg.h>
 #include <unistd.h>
 
@@ -117,7 +122,7 @@ INET_PROTO_INFO *inet_proto_table = 0;
 #define INET_PROTO_MASK_IPV4	(1<<0)
 #define INET_PROTO_MASK_IPV6	(1<<1)
 
-static NAME_MASK proto_table[] = {
+static const NAME_MASK proto_table[] = {
 #ifdef HAS_IPV6
     INET_PROTO_NAME_ALL, INET_PROTO_MASK_IPV4 | INET_PROTO_MASK_IPV6,
     INET_PROTO_NAME_IPV6, INET_PROTO_MASK_IPV6,

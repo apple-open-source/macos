@@ -1,0 +1,4082 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 45;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		72570DA20EE8EBF3000F4CFB /* All-Embedded */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 72570DA60EE8EC0F000F4CFB /* Build configuration list for PBXAggregateTarget "All-Embedded" */;
+			buildPhases = (
+			);
+			dependencies = (
+				72570DB60EE8EC46000F4CFB /* PBXTargetDependency */,
+				72570E130EE8F517000F4CFB /* PBXTargetDependency */,
+				72570E110EE8F517000F4CFB /* PBXTargetDependency */,
+				7251B2080EE9D36800F29440 /* PBXTargetDependency */,
+				72570E0F0EE8F517000F4CFB /* PBXTargetDependency */,
+				72570E0D0EE8F517000F4CFB /* PBXTargetDependency */,
+			);
+			name = "All-Embedded";
+			productName = "All-Embedded";
+		};
+		726121430EE8717500AFED1B /* All */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 7261214B0EE8717D00AFED1B /* Build configuration list for PBXAggregateTarget "All" */;
+			buildPhases = (
+			);
+			dependencies = (
+				726121470EE8717B00AFED1B /* PBXTargetDependency */,
+				726121490EE8717B00AFED1B /* PBXTargetDependency */,
+				7261217D0EE8896800AFED1B /* PBXTargetDependency */,
+				726121B30EE88B7900AFED1B /* PBXTargetDependency */,
+				724DAB790EE88EA6008900D0 /* PBXTargetDependency */,
+				724DAB9A0EE88F5D008900D0 /* PBXTargetDependency */,
+				724DABC30EE890A6008900D0 /* PBXTargetDependency */,
+				724DABEC0EE891DF008900D0 /* PBXTargetDependency */,
+				724DAC240EE89525008900D0 /* PBXTargetDependency */,
+				7216D2670EE8978F00AE70E4 /* PBXTargetDependency */,
+				7216D2C00EE89ADF00AE70E4 /* PBXTargetDependency */,
+				7216D2C20EE89ADF00AE70E4 /* PBXTargetDependency */,
+				7216D2DA0EE89BE900AE70E4 /* PBXTargetDependency */,
+				7216D3060EE89D9A00AE70E4 /* PBXTargetDependency */,
+				7216D34D0EE89FEC00AE70E4 /* PBXTargetDependency */,
+				7216D37F0EE8A0B300AE70E4 /* PBXTargetDependency */,
+				7294F0EA0EE8BAC80052EC88 /* PBXTargetDependency */,
+				7294F1210EE8BCC20052EC88 /* PBXTargetDependency */,
+				72CD1D9C0EE8C47C005F825D /* PBXTargetDependency */,
+			);
+			name = All;
+			productName = "network_cmds (Aggregate)";
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		7216D24C0EE896F300AE70E4 /* data.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261208B0EE86F4800AFED1B /* data.c */; };
+		7216D24D0EE896F300AE70E4 /* if.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261208D0EE86F4800AFED1B /* if.c */; };
+		7216D24E0EE896F300AE70E4 /* inet.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261208E0EE86F4800AFED1B /* inet.c */; };
+		7216D24F0EE896F300AE70E4 /* inet6.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261208F0EE86F4800AFED1B /* inet6.c */; };
+		7216D2500EE896F300AE70E4 /* ipsec.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120900EE86F4800AFED1B /* ipsec.c */; };
+		7216D2510EE896F300AE70E4 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120910EE86F4800AFED1B /* main.c */; };
+		7216D2520EE896F300AE70E4 /* mbuf.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120930EE86F4800AFED1B /* mbuf.c */; };
+		7216D2530EE896F300AE70E4 /* mcast.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120940EE86F4800AFED1B /* mcast.c */; };
+		7216D2540EE896F300AE70E4 /* mroute.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120950EE86F4800AFED1B /* mroute.c */; };
+		7216D2550EE896F300AE70E4 /* mroute6.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120960EE86F4800AFED1B /* mroute6.c */; };
+		7216D2560EE896F300AE70E4 /* route.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120990EE86F4800AFED1B /* route.c */; };
+		7216D2570EE896F300AE70E4 /* tp_astring.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261209A0EE86F4800AFED1B /* tp_astring.c */; };
+		7216D2580EE896F300AE70E4 /* unix.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261209B0EE86F4800AFED1B /* unix.c */; };
+		7216D2600EE8971500AE70E4 /* netstat.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 726120970EE86F4800AFED1B /* netstat.1 */; };
+		7216D2800EE8981C00AE70E4 /* ping.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120A10EE86F5000AFED1B /* ping.c */; };
+		7216D2880EE8982F00AE70E4 /* ping.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 726120A00EE86F5000AFED1B /* ping.8 */; };
+		7216D2A00EE898DF00AE70E4 /* md5.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120A60EE86F5C00AFED1B /* md5.c */; };
+		7216D2A10EE898DF00AE70E4 /* ping6.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120A90EE86F5C00AFED1B /* ping6.c */; };
+		7216D2A90EE898F300AE70E4 /* ping6.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 726120A80EE86F5C00AFED1B /* ping6.8 */; };
+		7216D2D10EE89B8300AE70E4 /* rarpd.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120AF0EE86F6700AFED1B /* rarpd.c */; };
+		7216D2E40EE89C8B00AE70E4 /* rarpd.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 726120AE0EE86F6700AFED1B /* rarpd.8 */; };
+		7216D2F20EE89CD600AE70E4 /* route.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120B80EE86F7200AFED1B /* route.c */; };
+		7216D3040EE89D4900AE70E4 /* route.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 726120B70EE86F7200AFED1B /* route.8 */; };
+		7216D3190EE89EC100AE70E4 /* advcap.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120BC0EE86F8200AFED1B /* advcap.c */; };
+		7216D31A0EE89EC100AE70E4 /* config.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120BE0EE86F8200AFED1B /* config.c */; };
+		7216D31B0EE89EC100AE70E4 /* dump.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120C00EE86F8200AFED1B /* dump.c */; };
+		7216D31C0EE89EC100AE70E4 /* if.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120C20EE86F8200AFED1B /* if.c */; };
+		7216D31D0EE89EC100AE70E4 /* rrenum.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120C60EE86F8200AFED1B /* rrenum.c */; };
+		7216D31E0EE89EC100AE70E4 /* rtadvd.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120C90EE86F8200AFED1B /* rtadvd.c */; };
+		7216D31F0EE89EC100AE70E4 /* timer.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120CD0EE86F8200AFED1B /* timer.c */; };
+		7216D3240EE89F4200AE70E4 /* rtadvd.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 726120C80EE86F8200AFED1B /* rtadvd.8 */; };
+		7216D3390EE89F8400AE70E4 /* rtadvd.conf.5 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 726120CB0EE86F8200AFED1B /* rtadvd.conf.5 */; };
+		7216D3410EE89FAF00AE70E4 /* rtadvd.conf in CopyFiles */ = {isa = PBXBuildFile; fileRef = 726120CA0EE86F8200AFED1B /* rtadvd.conf */; };
+		7216D3670EE8A04700AE70E4 /* dump.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120D20EE86F9100AFED1B /* dump.c */; };
+		7216D3680EE8A04700AE70E4 /* if.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120D30EE86F9100AFED1B /* if.c */; };
+		7216D3690EE8A04700AE70E4 /* probe.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120D50EE86F9100AFED1B /* probe.c */; };
+		7216D36A0EE8A04700AE70E4 /* rtsock.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120D60EE86F9100AFED1B /* rtsock.c */; };
+		7216D36B0EE8A04700AE70E4 /* rtsol.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120D80EE86F9100AFED1B /* rtsol.c */; };
+		7216D36C0EE8A04700AE70E4 /* rtsold.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120D90EE86F9100AFED1B /* rtsold.c */; };
+		7216D3700EE8A05B00AE70E4 /* rtsol.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 726120D70EE86F9100AFED1B /* rtsol.8 */; };
+		7216D3AB0EE8A3C400AE70E4 /* spray.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120E00EE86F9D00AFED1B /* spray.c */; };
+		7216D3AF0EE8A3D800AE70E4 /* spray.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 726120DF0EE86F9D00AFED1B /* spray.8 */; };
+		724DAB640EE88E63008900D0 /* ipfw2.c in Sources */ = {isa = PBXBuildFile; fileRef = 726121000EE8701100AFED1B /* ipfw2.c */; };
+		724DAB680EE88E78008900D0 /* ipfw.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 726120FF0EE8701100AFED1B /* ipfw.8 */; };
+		724DAB860EE88F0D008900D0 /* ip6fw.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120690EE86F2300AFED1B /* ip6fw.c */; };
+		724DAB8A0EE88F24008900D0 /* ip6fw.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 726120680EE86F2300AFED1B /* ip6fw.8 */; };
+		724DABA60EE88FED008900D0 /* kdumpd.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120710EE86F2D00AFED1B /* kdumpd.c */; };
+		724DABA70EE88FED008900D0 /* kdumpsubs.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120720EE86F2D00AFED1B /* kdumpsubs.c */; };
+		724DABAB0EE89006008900D0 /* kdumpd.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 726120700EE86F2D00AFED1B /* kdumpd.8 */; };
+		724DABBC0EE8908A008900D0 /* com.apple.kdumpd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7261206E0EE86F2D00AFED1B /* com.apple.kdumpd.plist */; };
+		724DABDF0EE89151008900D0 /* natd.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261207C0EE86F3600AFED1B /* natd.c */; };
+		724DABE00EE89155008900D0 /* icmp.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120790EE86F3600AFED1B /* icmp.c */; };
+		724DABE40EE8916B008900D0 /* natd.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7261207B0EE86F3600AFED1B /* natd.8 */; };
+		724DABF90EE89269008900D0 /* libalias.A.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 7261210C0EE8707500AFED1B /* libalias.A.dylib */; };
+		724DAC120EE89423008900D0 /* ndp.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120870EE86F4000AFED1B /* ndp.c */; };
+		724DAC3B0EE89555008900D0 /* ndp.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 726120860EE86F4000AFED1B /* ndp.8 */; };
+		7251B1F80EE9D2AB00F29440 /* ping.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120A10EE86F5000AFED1B /* ping.c */; };
+		72570DAB0EE8EC2E000F4CFB /* arp.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261204E0EE86EF900AFED1B /* arp.c */; };
+		72570DC10EE8F49A000F4CFB /* ifconfig.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120570EE86F0900AFED1B /* ifconfig.c */; };
+		72570DC20EE8F49A000F4CFB /* ifmedia.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120590EE86F0900AFED1B /* ifmedia.c */; };
+		72570DD40EE8F4C4000F4CFB /* data.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261208B0EE86F4800AFED1B /* data.c */; };
+		72570DD50EE8F4C4000F4CFB /* if.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261208D0EE86F4800AFED1B /* if.c */; };
+		72570DD60EE8F4C4000F4CFB /* inet.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261208E0EE86F4800AFED1B /* inet.c */; };
+		72570DD80EE8F4C4000F4CFB /* ipsec.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120900EE86F4800AFED1B /* ipsec.c */; };
+		72570DD90EE8F4C4000F4CFB /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120910EE86F4800AFED1B /* main.c */; };
+		72570DDA0EE8F4C4000F4CFB /* mbuf.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120930EE86F4800AFED1B /* mbuf.c */; };
+		72570DDB0EE8F4C4000F4CFB /* mcast.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120940EE86F4800AFED1B /* mcast.c */; };
+		72570DDE0EE8F4C4000F4CFB /* route.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120990EE86F4800AFED1B /* route.c */; };
+		72570DDF0EE8F4C4000F4CFB /* tp_astring.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261209A0EE86F4800AFED1B /* tp_astring.c */; };
+		72570DE00EE8F4C4000F4CFB /* unix.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261209B0EE86F4800AFED1B /* unix.c */; };
+		72570DF00EE8F4DE000F4CFB /* route.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120B80EE86F7200AFED1B /* route.c */; };
+		72570DFE0EE8F4EA000F4CFB /* as.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120E50EE86FA700AFED1B /* as.c */; };
+		72570DFF0EE8F4EA000F4CFB /* findsaddr-socket.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120E70EE86FA700AFED1B /* findsaddr-socket.c */; };
+		72570E000EE8F4EA000F4CFB /* ifaddrlist.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120EA0EE86FA700AFED1B /* ifaddrlist.c */; };
+		72570E010EE8F4EA000F4CFB /* traceroute.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120F10EE86FA700AFED1B /* traceroute.c */; };
+		72570E020EE8F4EA000F4CFB /* version.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120F30EE86FA700AFED1B /* version.c */; };
+		726121110EE870AB00AFED1B /* alias.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120390EE86EEB00AFED1B /* alias.c */; };
+		726121130EE870AB00AFED1B /* alias_cuseeme.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261203B0EE86EEB00AFED1B /* alias_cuseeme.c */; };
+		726121140EE870AB00AFED1B /* alias_db.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261203C0EE86EEB00AFED1B /* alias_db.c */; };
+		726121150EE870AB00AFED1B /* alias_ftp.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261203D0EE86EEB00AFED1B /* alias_ftp.c */; };
+		726121160EE870AB00AFED1B /* alias_irc.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261203E0EE86EEB00AFED1B /* alias_irc.c */; };
+		726121180EE870AB00AFED1B /* alias_nbt.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120400EE86EEB00AFED1B /* alias_nbt.c */; };
+		726121190EE870AB00AFED1B /* alias_pptp.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120410EE86EEB00AFED1B /* alias_pptp.c */; };
+		7261211A0EE870AB00AFED1B /* alias_proxy.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120420EE86EEB00AFED1B /* alias_proxy.c */; };
+		7261211B0EE870AB00AFED1B /* alias_smedia.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120430EE86EEB00AFED1B /* alias_smedia.c */; };
+		7261211C0EE870AB00AFED1B /* alias_util.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120440EE86EEB00AFED1B /* alias_util.c */; };
+		726121310EE8711E00AFED1B /* arp.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261204E0EE86EF900AFED1B /* arp.c */; };
+		726121350EE8713800AFED1B /* arp.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7261204D0EE86EF900AFED1B /* arp.8 */; };
+		7261215A0EE8883900AFED1B /* ifbond.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120550EE86F0900AFED1B /* ifbond.c */; };
+		7261215B0EE8883900AFED1B /* ifconfig.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120570EE86F0900AFED1B /* ifconfig.c */; };
+		7261215C0EE8883900AFED1B /* ifmedia.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120590EE86F0900AFED1B /* ifmedia.c */; };
+		7261215D0EE8883900AFED1B /* ifvlan.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261205A0EE86F0900AFED1B /* ifvlan.c */; };
+		726121610EE8885400AFED1B /* ifconfig.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 726120560EE86F0900AFED1B /* ifconfig.8 */; };
+		726121890EE889C100AFED1B /* ip6tool.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120630EE86F1A00AFED1B /* ip6tool.c */; };
+		7261219A0EE88AB500AFED1B /* ip6.8 in Copy Files man */ = {isa = PBXBuildFile; fileRef = 726120600EE86F1A00AFED1B /* ip6.8 */; };
+		7261219B0EE88AB500AFED1B /* ip6config.8 in Copy Files man */ = {isa = PBXBuildFile; fileRef = 726120620EE86F1A00AFED1B /* ip6config.8 */; };
+		7261219F0EE88ADD00AFED1B /* 6to4.conf in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7261205F0EE86F1A00AFED1B /* 6to4.conf */; };
+		726121AA0EE88B2700AFED1B /* ip6config in CopyFiles */ = {isa = PBXBuildFile; fileRef = 726120610EE86F1A00AFED1B /* ip6config */; };
+		7263A9630EEE31C800164D5D /* libipsec.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 72CD1DB50EE8C619005F825D /* libipsec.dylib */; };
+		7294F0DF0EE8BA730052EC88 /* spray.x in Sources */ = {isa = PBXBuildFile; fileRef = 726120E10EE86F9D00AFED1B /* spray.x */; };
+		7294F1000EE8BB990052EC88 /* as.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120E50EE86FA700AFED1B /* as.c */; };
+		7294F1010EE8BB990052EC88 /* findsaddr-socket.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120E70EE86FA700AFED1B /* findsaddr-socket.c */; };
+		7294F1020EE8BB990052EC88 /* ifaddrlist.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120EA0EE86FA700AFED1B /* ifaddrlist.c */; };
+		7294F1030EE8BB990052EC88 /* traceroute.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120F10EE86FA700AFED1B /* traceroute.c */; };
+		7294F1040EE8BB990052EC88 /* version.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120F30EE86FA700AFED1B /* version.c */; };
+		7294F1080EE8BBB10052EC88 /* traceroute.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 726120F00EE86FA700AFED1B /* traceroute.8 */; };
+		7294F12E0EE8BD2F0052EC88 /* traceroute6.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120FB0EE86FB500AFED1B /* traceroute6.c */; };
+		7294F1320EE8BD430052EC88 /* traceroute6.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 726120FA0EE86FB500AFED1B /* traceroute6.8 */; };
+		72B894EC0EEDB17C00C218D6 /* libipsec.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 72CD1DB50EE8C619005F825D /* libipsec.dylib */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXBuildRule section */
+		7216D47D0EE8B84900AE70E4 /* PBXBuildRule */ = {
+			isa = PBXBuildRule;
+			compilerSpec = com.apple.compilers.proxy.script;
+			filePatterns = "$(PROJECT_DIR)/spray.tproj/spray.x";
+			fileType = pattern.proxy;
+			isEditable = 1;
+			outputFiles = (
+				"$(DERIVED_FILES_DIR)/$(INPUT_FILE_BASE).h",
+				"$(DERIVED_FILES_DIR)/$(INPUT_FILE_BASE)_xdr.c",
+			);
+			script = "/usr/bin/rpcgen -h -o ${DERIVED_FILES_DIR}/${INPUT_FILE_BASE}.h ${INPUT_FILE_PATH}\n/usr/bin/rpcgen -c -o ${DERIVED_FILES_DIR}/${INPUT_FILE_BASE}_xdr.c ${INPUT_FILE_PATH}";
+		};
+/* End PBXBuildRule section */
+
+/* Begin PBXContainerItemProxy section */
+		7216D2660EE8978F00AE70E4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7216D2450EE896C000AE70E4;
+			remoteInfo = netstat;
+		};
+		7216D2BF0EE89ADF00AE70E4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7216D27B0EE8980A00AE70E4;
+			remoteInfo = ping;
+		};
+		7216D2C10EE89ADF00AE70E4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7216D2990EE898BD00AE70E4;
+			remoteInfo = ping6;
+		};
+		7216D2D90EE89BE900AE70E4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7216D2CC0EE89B7900AE70E4;
+			remoteInfo = rarpd;
+		};
+		7216D3050EE89D9A00AE70E4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7216D2EC0EE89CBC00AE70E4;
+			remoteInfo = route;
+		};
+		7216D34C0EE89FEC00AE70E4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7216D3130EE89E9E00AE70E4;
+			remoteInfo = rtadvd;
+		};
+		7216D37E0EE8A0B300AE70E4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7216D3580EE8A02200AE70E4;
+			remoteInfo = rtsol;
+		};
+		724DAB780EE88EA6008900D0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 724DAB5E0EE88E2A008900D0;
+			remoteInfo = ipfw;
+		};
+		724DAB990EE88F5D008900D0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 724DAB810EE88EFA008900D0;
+			remoteInfo = ip6fw;
+		};
+		724DABC20EE890A6008900D0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 724DABA10EE88FE3008900D0;
+			remoteInfo = kdumpd;
+		};
+		724DABEB0EE891DF008900D0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 724DABDA0EE8912D008900D0;
+			remoteInfo = natd;
+		};
+		724DAC230EE89525008900D0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 724DAC0C0EE8940D008900D0;
+			remoteInfo = ndp;
+		};
+		7251B2070EE9D36800F29440 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7251B1F60EE9D2AB00F29440;
+			remoteInfo = "ping embedded";
+		};
+		72570DB50EE8EC46000F4CFB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 72570DA90EE8EC2E000F4CFB;
+			remoteInfo = "arp-embedded";
+		};
+		72570E0C0EE8F517000F4CFB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 72570DFC0EE8F4EA000F4CFB;
+			remoteInfo = "traceroute embedded";
+		};
+		72570E0E0EE8F517000F4CFB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 72570DEE0EE8F4DE000F4CFB;
+			remoteInfo = "route embedded";
+		};
+		72570E100EE8F517000F4CFB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 72570DD20EE8F4C4000F4CFB;
+			remoteInfo = "netstat embedded";
+		};
+		72570E120EE8F517000F4CFB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 72570DBE0EE8F49A000F4CFB;
+			remoteInfo = "ifconfig embedded";
+		};
+		726121460EE8717B00AFED1B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7261210B0EE8707500AFED1B;
+			remoteInfo = alias;
+		};
+		726121480EE8717B00AFED1B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7261212C0EE8710B00AFED1B;
+			remoteInfo = arp;
+		};
+		7261217C0EE8896800AFED1B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 726121530EE8881700AFED1B;
+			remoteInfo = ifconfig;
+		};
+		726121B20EE88B7900AFED1B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 726121820EE8897C00AFED1B;
+			remoteInfo = ip6conf;
+		};
+		7294F0E90EE8BAC80052EC88 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7216D3A60EE8A3BA00AE70E4;
+			remoteInfo = spray;
+		};
+		7294F1200EE8BCC20052EC88 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7294F0F80EE8BB460052EC88;
+			remoteInfo = traceroute;
+		};
+		72CD1D9B0EE8C47C005F825D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7294F1290EE8BD280052EC88;
+			remoteInfo = traceroute6;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		7216D2750EE8979500AE70E4 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man1;
+			dstSubfolderSpec = 0;
+			files = (
+				7216D2600EE8971500AE70E4 /* netstat.1 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		7216D2930EE8988200AE70E4 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				7216D2880EE8982F00AE70E4 /* ping.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		7216D2AA0EE8991200AE70E4 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				7216D2A90EE898F300AE70E4 /* ping6.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		7216D2E20EE89BEA00AE70E4 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				7216D2E40EE89C8B00AE70E4 /* rarpd.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		7216D2FA0EE89D2600AE70E4 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				7216D3040EE89D4900AE70E4 /* route.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		7216D3370EE89F7500AE70E4 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				7216D3240EE89F4200AE70E4 /* rtadvd.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		7216D3380EE89F7500AE70E4 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man5;
+			dstSubfolderSpec = 0;
+			files = (
+				7216D3390EE89F8400AE70E4 /* rtadvd.conf.5 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		7216D3460EE89FD700AE70E4 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /private/etc;
+			dstSubfolderSpec = 0;
+			files = (
+				7216D3410EE89FAF00AE70E4 /* rtadvd.conf in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		7216D37B0EE8A06200AE70E4 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				7216D3700EE8A05B00AE70E4 /* rtsol.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		7216D3C10EE8A42D00AE70E4 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				7216D3AF0EE8A3D800AE70E4 /* spray.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		724DAB760EE88E9C008900D0 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				724DAB680EE88E78008900D0 /* ipfw.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		724DAB970EE88F56008900D0 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				724DAB8A0EE88F24008900D0 /* ip6fw.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		724DABB70EE89035008900D0 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				724DABAB0EE89006008900D0 /* kdumpd.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		724DABC10EE89090008900D0 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/LaunchDaemons;
+			dstSubfolderSpec = 0;
+			files = (
+				724DABBC0EE8908A008900D0 /* com.apple.kdumpd.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		724DABE90EE891AD008900D0 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				724DABE40EE8916B008900D0 /* natd.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		724DAC1D0EE894E8008900D0 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				724DAC3B0EE89555008900D0 /* ndp.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		7261213F0EE8713B00AFED1B /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				726121350EE8713800AFED1B /* arp.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		726121620EE8887300AFED1B /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				726121610EE8885400AFED1B /* ifconfig.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		726121A50EE88AF300AFED1B /* Copy Files man */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				7261219A0EE88AB500AFED1B /* ip6.8 in Copy Files man */,
+				7261219B0EE88AB500AFED1B /* ip6config.8 in Copy Files man */,
+			);
+			name = "Copy Files man";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		726121A60EE88AF300AFED1B /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /private/etc;
+			dstSubfolderSpec = 0;
+			files = (
+				7261219F0EE88ADD00AFED1B /* 6to4.conf in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		726121AE0EE88B4200AFED1B /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/sbin;
+			dstSubfolderSpec = 0;
+			files = (
+				726121AA0EE88B2700AFED1B /* ip6config in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		7294F11A0EE8BC0C0052EC88 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				7294F1080EE8BBB10052EC88 /* traceroute.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		7294F13E0EE8BDB30052EC88 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				7294F1320EE8BD430052EC88 /* traceroute6.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		7216D2460EE896C000AE70E4 /* netstat */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = netstat; sourceTree = BUILT_PRODUCTS_DIR; };
+		7216D27C0EE8980A00AE70E4 /* ping */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ping; sourceTree = BUILT_PRODUCTS_DIR; };
+		7216D29A0EE898BD00AE70E4 /* ping6 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ping6; sourceTree = BUILT_PRODUCTS_DIR; };
+		7216D2CD0EE89B7900AE70E4 /* rarpd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = rarpd; sourceTree = BUILT_PRODUCTS_DIR; };
+		7216D2ED0EE89CBC00AE70E4 /* route */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = route; sourceTree = BUILT_PRODUCTS_DIR; };
+		7216D3140EE89E9E00AE70E4 /* rtadvd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = rtadvd; sourceTree = BUILT_PRODUCTS_DIR; };
+		7216D3590EE8A02200AE70E4 /* rtsol */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = rtsol; sourceTree = BUILT_PRODUCTS_DIR; };
+		7216D3A70EE8A3BB00AE70E4 /* spray */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = spray; sourceTree = BUILT_PRODUCTS_DIR; };
+		724DAB5F0EE88E2A008900D0 /* ipfw */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ipfw; sourceTree = BUILT_PRODUCTS_DIR; };
+		724DAB820EE88EFA008900D0 /* ip6fw */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ip6fw; sourceTree = BUILT_PRODUCTS_DIR; };
+		724DABA20EE88FE3008900D0 /* kdumpd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = kdumpd; sourceTree = BUILT_PRODUCTS_DIR; };
+		724DABDB0EE8912D008900D0 /* natd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = natd; sourceTree = BUILT_PRODUCTS_DIR; };
+		724DAC0D0EE8940D008900D0 /* ndp */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ndp; sourceTree = BUILT_PRODUCTS_DIR; };
+		7251B2000EE9D2AB00F29440 /* ping */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ping; sourceTree = BUILT_PRODUCTS_DIR; };
+		72570DB30EE8EC2E000F4CFB /* arp */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = arp; sourceTree = BUILT_PRODUCTS_DIR; };
+		72570DCB0EE8F49A000F4CFB /* ifconfig */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ifconfig; sourceTree = BUILT_PRODUCTS_DIR; };
+		72570DE80EE8F4C4000F4CFB /* netstat */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = netstat; sourceTree = BUILT_PRODUCTS_DIR; };
+		72570DF80EE8F4DE000F4CFB /* route */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = route; sourceTree = BUILT_PRODUCTS_DIR; };
+		72570E0A0EE8F4EA000F4CFB /* traceroute */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = traceroute; sourceTree = BUILT_PRODUCTS_DIR; };
+		726120390EE86EEB00AFED1B /* alias.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = alias.c; sourceTree = "<group>"; };
+		7261203B0EE86EEB00AFED1B /* alias_cuseeme.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = alias_cuseeme.c; sourceTree = "<group>"; };
+		7261203C0EE86EEB00AFED1B /* alias_db.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = alias_db.c; sourceTree = "<group>"; };
+		7261203D0EE86EEB00AFED1B /* alias_ftp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = alias_ftp.c; sourceTree = "<group>"; };
+		7261203E0EE86EEB00AFED1B /* alias_irc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = alias_irc.c; sourceTree = "<group>"; };
+		726120400EE86EEB00AFED1B /* alias_nbt.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = alias_nbt.c; sourceTree = "<group>"; };
+		726120410EE86EEB00AFED1B /* alias_pptp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = alias_pptp.c; sourceTree = "<group>"; };
+		726120420EE86EEB00AFED1B /* alias_proxy.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = alias_proxy.c; sourceTree = "<group>"; };
+		726120430EE86EEB00AFED1B /* alias_smedia.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = alias_smedia.c; sourceTree = "<group>"; };
+		726120440EE86EEB00AFED1B /* alias_util.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = alias_util.c; sourceTree = "<group>"; };
+		7261204D0EE86EF900AFED1B /* arp.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = arp.8; sourceTree = "<group>"; };
+		7261204E0EE86EF900AFED1B /* arp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = arp.c; sourceTree = "<group>"; };
+		7261204F0EE86EF900AFED1B /* arp4.4 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = arp4.4; sourceTree = "<group>"; };
+		726120550EE86F0900AFED1B /* ifbond.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ifbond.c; sourceTree = "<group>"; };
+		726120560EE86F0900AFED1B /* ifconfig.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ifconfig.8; sourceTree = "<group>"; };
+		726120570EE86F0900AFED1B /* ifconfig.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ifconfig.c; sourceTree = "<group>"; };
+		726120580EE86F0900AFED1B /* ifconfig.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ifconfig.h; sourceTree = "<group>"; };
+		726120590EE86F0900AFED1B /* ifmedia.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ifmedia.c; sourceTree = "<group>"; };
+		7261205A0EE86F0900AFED1B /* ifvlan.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ifvlan.c; sourceTree = "<group>"; };
+		7261205F0EE86F1A00AFED1B /* 6to4.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = 6to4.conf; sourceTree = "<group>"; };
+		726120600EE86F1A00AFED1B /* ip6.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ip6.8; sourceTree = "<group>"; };
+		726120610EE86F1A00AFED1B /* ip6config */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.perl; path = ip6config; sourceTree = "<group>"; };
+		726120620EE86F1A00AFED1B /* ip6config.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ip6config.8; sourceTree = "<group>"; };
+		726120630EE86F1A00AFED1B /* ip6tool.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ip6tool.c; sourceTree = "<group>"; };
+		726120680EE86F2300AFED1B /* ip6fw.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ip6fw.8; sourceTree = "<group>"; };
+		726120690EE86F2300AFED1B /* ip6fw.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ip6fw.c; sourceTree = "<group>"; };
+		7261206E0EE86F2D00AFED1B /* com.apple.kdumpd.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.kdumpd.plist; sourceTree = "<group>"; };
+		7261206F0EE86F2D00AFED1B /* kdump.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kdump.h; sourceTree = "<group>"; };
+		726120700EE86F2D00AFED1B /* kdumpd.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = kdumpd.8; sourceTree = "<group>"; };
+		726120710EE86F2D00AFED1B /* kdumpd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kdumpd.c; sourceTree = "<group>"; };
+		726120720EE86F2D00AFED1B /* kdumpsubs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kdumpsubs.c; sourceTree = "<group>"; };
+		726120730EE86F2D00AFED1B /* kdumpsubs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kdumpsubs.h; sourceTree = "<group>"; };
+		726120780EE86F3600AFED1B /* HISTORY */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = HISTORY; sourceTree = "<group>"; };
+		726120790EE86F3600AFED1B /* icmp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = icmp.c; sourceTree = "<group>"; };
+		7261207B0EE86F3600AFED1B /* natd.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = natd.8; sourceTree = "<group>"; };
+		7261207C0EE86F3600AFED1B /* natd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = natd.c; sourceTree = "<group>"; };
+		7261207D0EE86F3600AFED1B /* natd.cf.sample */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = natd.cf.sample; sourceTree = "<group>"; };
+		7261207E0EE86F3600AFED1B /* natd.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = natd.h; sourceTree = "<group>"; };
+		7261207F0EE86F3600AFED1B /* natd.test */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = natd.test; sourceTree = "<group>"; };
+		726120800EE86F3600AFED1B /* README */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = README; sourceTree = "<group>"; };
+		726120840EE86F4000AFED1B /* gnuc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = gnuc.h; sourceTree = "<group>"; };
+		726120860EE86F4000AFED1B /* ndp.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ndp.8; sourceTree = "<group>"; };
+		726120870EE86F4000AFED1B /* ndp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ndp.c; sourceTree = "<group>"; };
+		7261208B0EE86F4800AFED1B /* data.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = data.c; sourceTree = "<group>"; };
+		7261208C0EE86F4800AFED1B /* DERIVED_FILES */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = DERIVED_FILES; sourceTree = "<group>"; };
+		7261208D0EE86F4800AFED1B /* if.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = if.c; sourceTree = "<group>"; };
+		7261208E0EE86F4800AFED1B /* inet.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = inet.c; sourceTree = "<group>"; };
+		7261208F0EE86F4800AFED1B /* inet6.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = inet6.c; sourceTree = "<group>"; };
+		726120900EE86F4800AFED1B /* ipsec.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ipsec.c; sourceTree = "<group>"; };
+		726120910EE86F4800AFED1B /* main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
+		726120930EE86F4800AFED1B /* mbuf.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = mbuf.c; sourceTree = "<group>"; };
+		726120940EE86F4800AFED1B /* mcast.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = mcast.c; sourceTree = "<group>"; };
+		726120950EE86F4800AFED1B /* mroute.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = mroute.c; sourceTree = "<group>"; };
+		726120960EE86F4800AFED1B /* mroute6.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = mroute6.c; sourceTree = "<group>"; };
+		726120970EE86F4800AFED1B /* netstat.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = netstat.1; sourceTree = "<group>"; };
+		726120980EE86F4800AFED1B /* netstat.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = netstat.h; sourceTree = "<group>"; };
+		726120990EE86F4800AFED1B /* route.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = route.c; sourceTree = "<group>"; };
+		7261209A0EE86F4800AFED1B /* tp_astring.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tp_astring.c; sourceTree = "<group>"; };
+		7261209B0EE86F4800AFED1B /* unix.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = unix.c; sourceTree = "<group>"; };
+		726120A00EE86F5000AFED1B /* ping.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ping.8; sourceTree = "<group>"; };
+		726120A10EE86F5000AFED1B /* ping.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ping.c; sourceTree = "<group>"; };
+		726120A50EE86F5C00AFED1B /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
+		726120A60EE86F5C00AFED1B /* md5.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md5.c; sourceTree = "<group>"; };
+		726120A70EE86F5C00AFED1B /* md5.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = md5.h; sourceTree = "<group>"; };
+		726120A80EE86F5C00AFED1B /* ping6.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ping6.8; sourceTree = "<group>"; };
+		726120A90EE86F5C00AFED1B /* ping6.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ping6.c; sourceTree = "<group>"; };
+		726120AE0EE86F6700AFED1B /* rarpd.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = rarpd.8; sourceTree = "<group>"; };
+		726120AF0EE86F6700AFED1B /* rarpd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = rarpd.c; sourceTree = "<group>"; };
+		726120B30EE86F7200AFED1B /* gen_header.pl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.perl; path = gen_header.pl; sourceTree = "<group>"; };
+		726120B40EE86F7200AFED1B /* keywords */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = keywords; sourceTree = "<group>"; };
+		726120B50EE86F7200AFED1B /* keywords.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = keywords.h; sourceTree = "<group>"; };
+		726120B70EE86F7200AFED1B /* route.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = route.8; sourceTree = "<group>"; };
+		726120B80EE86F7200AFED1B /* route.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = route.c; sourceTree = "<group>"; };
+		726120BC0EE86F8200AFED1B /* advcap.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = advcap.c; sourceTree = "<group>"; };
+		726120BD0EE86F8200AFED1B /* advcap.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = advcap.h; sourceTree = "<group>"; };
+		726120BE0EE86F8200AFED1B /* config.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = config.c; sourceTree = "<group>"; };
+		726120BF0EE86F8200AFED1B /* config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = config.h; sourceTree = "<group>"; };
+		726120C00EE86F8200AFED1B /* dump.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = dump.c; sourceTree = "<group>"; };
+		726120C10EE86F8200AFED1B /* dump.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = dump.h; sourceTree = "<group>"; };
+		726120C20EE86F8200AFED1B /* if.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = if.c; sourceTree = "<group>"; };
+		726120C30EE86F8200AFED1B /* if.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = if.h; sourceTree = "<group>"; };
+		726120C50EE86F8200AFED1B /* pathnames.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pathnames.h; sourceTree = "<group>"; };
+		726120C60EE86F8200AFED1B /* rrenum.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = rrenum.c; sourceTree = "<group>"; };
+		726120C70EE86F8200AFED1B /* rrenum.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = rrenum.h; sourceTree = "<group>"; };
+		726120C80EE86F8200AFED1B /* rtadvd.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = rtadvd.8; sourceTree = "<group>"; };
+		726120C90EE86F8200AFED1B /* rtadvd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = rtadvd.c; sourceTree = "<group>"; };
+		726120CA0EE86F8200AFED1B /* rtadvd.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = rtadvd.conf; sourceTree = "<group>"; };
+		726120CB0EE86F8200AFED1B /* rtadvd.conf.5 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = rtadvd.conf.5; sourceTree = "<group>"; };
+		726120CC0EE86F8200AFED1B /* rtadvd.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = rtadvd.h; sourceTree = "<group>"; };
+		726120CD0EE86F8200AFED1B /* timer.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = timer.c; sourceTree = "<group>"; };
+		726120CE0EE86F8200AFED1B /* timer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = timer.h; sourceTree = "<group>"; };
+		726120D20EE86F9100AFED1B /* dump.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = dump.c; sourceTree = "<group>"; };
+		726120D30EE86F9100AFED1B /* if.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = if.c; sourceTree = "<group>"; };
+		726120D50EE86F9100AFED1B /* probe.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = probe.c; sourceTree = "<group>"; };
+		726120D60EE86F9100AFED1B /* rtsock.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = rtsock.c; sourceTree = "<group>"; };
+		726120D70EE86F9100AFED1B /* rtsol.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = rtsol.8; sourceTree = "<group>"; };
+		726120D80EE86F9100AFED1B /* rtsol.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = rtsol.c; sourceTree = "<group>"; };
+		726120D90EE86F9100AFED1B /* rtsold.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = rtsold.c; sourceTree = "<group>"; };
+		726120DA0EE86F9100AFED1B /* rtsold.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = rtsold.h; sourceTree = "<group>"; };
+		726120DF0EE86F9D00AFED1B /* spray.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = spray.8; sourceTree = "<group>"; };
+		726120E00EE86F9D00AFED1B /* spray.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = spray.c; sourceTree = "<group>"; };
+		726120E10EE86F9D00AFED1B /* spray.x */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = spray.x; sourceTree = "<group>"; };
+		726120E50EE86FA700AFED1B /* as.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = as.c; sourceTree = "<group>"; };
+		726120E60EE86FA700AFED1B /* as.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = as.h; sourceTree = "<group>"; };
+		726120E70EE86FA700AFED1B /* findsaddr-socket.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "findsaddr-socket.c"; sourceTree = "<group>"; };
+		726120E80EE86FA700AFED1B /* findsaddr.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = findsaddr.h; sourceTree = "<group>"; };
+		726120E90EE86FA700AFED1B /* gnuc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = gnuc.h; sourceTree = "<group>"; };
+		726120EA0EE86FA700AFED1B /* ifaddrlist.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ifaddrlist.c; sourceTree = "<group>"; };
+		726120EB0EE86FA700AFED1B /* ifaddrlist.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ifaddrlist.h; sourceTree = "<group>"; };
+		726120ED0EE86FA700AFED1B /* mean.awk */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mean.awk; sourceTree = "<group>"; };
+		726120EE0EE86FA700AFED1B /* median.awk */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = median.awk; sourceTree = "<group>"; };
+		726120EF0EE86FA700AFED1B /* README */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = README; sourceTree = "<group>"; };
+		726120F00EE86FA700AFED1B /* traceroute.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = traceroute.8; sourceTree = "<group>"; };
+		726120F10EE86FA700AFED1B /* traceroute.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = traceroute.c; sourceTree = "<group>"; };
+		726120F20EE86FA700AFED1B /* traceroute.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = traceroute.h; sourceTree = "<group>"; };
+		726120F30EE86FA700AFED1B /* version.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = version.c; sourceTree = "<group>"; };
+		726120F90EE86FB500AFED1B /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
+		726120FA0EE86FB500AFED1B /* traceroute6.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = traceroute6.8; sourceTree = "<group>"; };
+		726120FB0EE86FB500AFED1B /* traceroute6.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = traceroute6.c; sourceTree = "<group>"; };
+		726120FF0EE8701100AFED1B /* ipfw.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ipfw.8; sourceTree = "<group>"; };
+		726121000EE8701100AFED1B /* ipfw2.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ipfw2.c; sourceTree = "<group>"; };
+		7261210C0EE8707500AFED1B /* libalias.A.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libalias.A.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		726121220EE870D400AFED1B /* alias_local.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = alias_local.h; sourceTree = "<group>"; };
+		726121230EE870D400AFED1B /* alias.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = alias.h; sourceTree = "<group>"; };
+		726121240EE870D400AFED1B /* libalias.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = libalias.3; sourceTree = "<group>"; };
+		7261212D0EE8710B00AFED1B /* arp */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = arp; sourceTree = BUILT_PRODUCTS_DIR; };
+		726121540EE8881700AFED1B /* ifconfig */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ifconfig; sourceTree = BUILT_PRODUCTS_DIR; };
+		726121830EE8897C00AFED1B /* ip6 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ip6; sourceTree = BUILT_PRODUCTS_DIR; };
+		7294F0F90EE8BB460052EC88 /* traceroute */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = traceroute; sourceTree = BUILT_PRODUCTS_DIR; };
+		7294F12A0EE8BD280052EC88 /* traceroute6 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = traceroute6; sourceTree = BUILT_PRODUCTS_DIR; };
+		72CD1DB50EE8C619005F825D /* libipsec.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libipsec.dylib; path = /usr/lib/libipsec.dylib; sourceTree = "<absolute>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		7216D2440EE896C000AE70E4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7216D27A0EE8980A00AE70E4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7216D2980EE898BD00AE70E4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7263A9630EEE31C800164D5D /* libipsec.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7216D2CB0EE89B7900AE70E4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7216D2EB0EE89CBC00AE70E4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7216D3120EE89E9E00AE70E4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7216D3570EE8A02200AE70E4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7216D3A50EE8A3BA00AE70E4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		724DAB5D0EE88E2A008900D0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		724DAB800EE88EFA008900D0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		724DABA00EE88FE3008900D0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		724DABD90EE8912D008900D0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				724DABF90EE89269008900D0 /* libalias.A.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		724DAC0B0EE8940D008900D0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7251B1F90EE9D2AB00F29440 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		72570DAC0EE8EC2E000F4CFB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		72570DC40EE8F49A000F4CFB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		72570DE10EE8F4C4000F4CFB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		72570DF10EE8F4DE000F4CFB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		72570E030EE8F4EA000F4CFB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7261210A0EE8707500AFED1B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7261212B0EE8710B00AFED1B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		726121520EE8881700AFED1B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		726121810EE8897C00AFED1B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7294F0F70EE8BB460052EC88 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7294F1280EE8BD280052EC88 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				72B894EC0EEDB17C00C218D6 /* libipsec.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		7248622F0EE86EB7001D0DE9 = {
+			isa = PBXGroup;
+			children = (
+				726120380EE86EEB00AFED1B /* alias */,
+				7261204C0EE86EF900AFED1B /* arp.tproj */,
+				726120540EE86F0900AFED1B /* ifconfig.tproj */,
+				7261205E0EE86F1A00AFED1B /* ip6conf.tproj */,
+				726120FE0EE8701100AFED1B /* ipfw.tproj */,
+				726120670EE86F2300AFED1B /* ip6fw.tproj */,
+				7261206D0EE86F2D00AFED1B /* kdumpd.tproj */,
+				726120770EE86F3600AFED1B /* natd.tproj */,
+				726120830EE86F4000AFED1B /* ndp.tproj */,
+				7261208A0EE86F4800AFED1B /* netstat.tproj */,
+				7261209E0EE86F5000AFED1B /* ping.tproj */,
+				726120A40EE86F5C00AFED1B /* ping6.tproj */,
+				726120AC0EE86F6700AFED1B /* rarpd.tproj */,
+				726120B20EE86F7200AFED1B /* route.tproj */,
+				726120BB0EE86F8200AFED1B /* rtadvd.tproj */,
+				726120D10EE86F9100AFED1B /* rtsol.tproj */,
+				726120DD0EE86F9D00AFED1B /* spray.tproj */,
+				726120E40EE86FA700AFED1B /* traceroute.tproj */,
+				726120F80EE86FB500AFED1B /* traceroute6.tproj */,
+				72CD1DB50EE8C619005F825D /* libipsec.dylib */,
+				7261210D0EE8707500AFED1B /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		726120380EE86EEB00AFED1B /* alias */ = {
+			isa = PBXGroup;
+			children = (
+				726121220EE870D400AFED1B /* alias_local.h */,
+				726121230EE870D400AFED1B /* alias.h */,
+				726121240EE870D400AFED1B /* libalias.3 */,
+				726120390EE86EEB00AFED1B /* alias.c */,
+				7261203B0EE86EEB00AFED1B /* alias_cuseeme.c */,
+				7261203C0EE86EEB00AFED1B /* alias_db.c */,
+				7261203D0EE86EEB00AFED1B /* alias_ftp.c */,
+				7261203E0EE86EEB00AFED1B /* alias_irc.c */,
+				726120400EE86EEB00AFED1B /* alias_nbt.c */,
+				726120410EE86EEB00AFED1B /* alias_pptp.c */,
+				726120420EE86EEB00AFED1B /* alias_proxy.c */,
+				726120430EE86EEB00AFED1B /* alias_smedia.c */,
+				726120440EE86EEB00AFED1B /* alias_util.c */,
+			);
+			path = alias;
+			sourceTree = "<group>";
+		};
+		7261204C0EE86EF900AFED1B /* arp.tproj */ = {
+			isa = PBXGroup;
+			children = (
+				7261204D0EE86EF900AFED1B /* arp.8 */,
+				7261204E0EE86EF900AFED1B /* arp.c */,
+				7261204F0EE86EF900AFED1B /* arp4.4 */,
+			);
+			path = arp.tproj;
+			sourceTree = "<group>";
+		};
+		726120540EE86F0900AFED1B /* ifconfig.tproj */ = {
+			isa = PBXGroup;
+			children = (
+				726120550EE86F0900AFED1B /* ifbond.c */,
+				726120560EE86F0900AFED1B /* ifconfig.8 */,
+				726120570EE86F0900AFED1B /* ifconfig.c */,
+				726120580EE86F0900AFED1B /* ifconfig.h */,
+				726120590EE86F0900AFED1B /* ifmedia.c */,
+				7261205A0EE86F0900AFED1B /* ifvlan.c */,
+			);
+			path = ifconfig.tproj;
+			sourceTree = "<group>";
+		};
+		7261205E0EE86F1A00AFED1B /* ip6conf.tproj */ = {
+			isa = PBXGroup;
+			children = (
+				7261205F0EE86F1A00AFED1B /* 6to4.conf */,
+				726120600EE86F1A00AFED1B /* ip6.8 */,
+				726120610EE86F1A00AFED1B /* ip6config */,
+				726120620EE86F1A00AFED1B /* ip6config.8 */,
+				726120630EE86F1A00AFED1B /* ip6tool.c */,
+			);
+			path = ip6conf.tproj;
+			sourceTree = "<group>";
+		};
+		726120670EE86F2300AFED1B /* ip6fw.tproj */ = {
+			isa = PBXGroup;
+			children = (
+				726120680EE86F2300AFED1B /* ip6fw.8 */,
+				726120690EE86F2300AFED1B /* ip6fw.c */,
+			);
+			path = ip6fw.tproj;
+			sourceTree = "<group>";
+		};
+		7261206D0EE86F2D00AFED1B /* kdumpd.tproj */ = {
+			isa = PBXGroup;
+			children = (
+				7261206E0EE86F2D00AFED1B /* com.apple.kdumpd.plist */,
+				7261206F0EE86F2D00AFED1B /* kdump.h */,
+				726120700EE86F2D00AFED1B /* kdumpd.8 */,
+				726120710EE86F2D00AFED1B /* kdumpd.c */,
+				726120720EE86F2D00AFED1B /* kdumpsubs.c */,
+				726120730EE86F2D00AFED1B /* kdumpsubs.h */,
+			);
+			path = kdumpd.tproj;
+			sourceTree = "<group>";
+		};
+		726120770EE86F3600AFED1B /* natd.tproj */ = {
+			isa = PBXGroup;
+			children = (
+				726120780EE86F3600AFED1B /* HISTORY */,
+				726120790EE86F3600AFED1B /* icmp.c */,
+				7261207B0EE86F3600AFED1B /* natd.8 */,
+				7261207C0EE86F3600AFED1B /* natd.c */,
+				7261207D0EE86F3600AFED1B /* natd.cf.sample */,
+				7261207E0EE86F3600AFED1B /* natd.h */,
+				7261207F0EE86F3600AFED1B /* natd.test */,
+				726120800EE86F3600AFED1B /* README */,
+			);
+			path = natd.tproj;
+			sourceTree = "<group>";
+		};
+		726120830EE86F4000AFED1B /* ndp.tproj */ = {
+			isa = PBXGroup;
+			children = (
+				726120840EE86F4000AFED1B /* gnuc.h */,
+				726120860EE86F4000AFED1B /* ndp.8 */,
+				726120870EE86F4000AFED1B /* ndp.c */,
+			);
+			path = ndp.tproj;
+			sourceTree = "<group>";
+		};
+		7261208A0EE86F4800AFED1B /* netstat.tproj */ = {
+			isa = PBXGroup;
+			children = (
+				7261208B0EE86F4800AFED1B /* data.c */,
+				7261208C0EE86F4800AFED1B /* DERIVED_FILES */,
+				7261208D0EE86F4800AFED1B /* if.c */,
+				7261208E0EE86F4800AFED1B /* inet.c */,
+				7261208F0EE86F4800AFED1B /* inet6.c */,
+				726120900EE86F4800AFED1B /* ipsec.c */,
+				726120910EE86F4800AFED1B /* main.c */,
+				726120930EE86F4800AFED1B /* mbuf.c */,
+				726120940EE86F4800AFED1B /* mcast.c */,
+				726120950EE86F4800AFED1B /* mroute.c */,
+				726120960EE86F4800AFED1B /* mroute6.c */,
+				726120970EE86F4800AFED1B /* netstat.1 */,
+				726120980EE86F4800AFED1B /* netstat.h */,
+				726120990EE86F4800AFED1B /* route.c */,
+				7261209A0EE86F4800AFED1B /* tp_astring.c */,
+				7261209B0EE86F4800AFED1B /* unix.c */,
+			);
+			path = netstat.tproj;
+			sourceTree = "<group>";
+		};
+		7261209E0EE86F5000AFED1B /* ping.tproj */ = {
+			isa = PBXGroup;
+			children = (
+				726120A00EE86F5000AFED1B /* ping.8 */,
+				726120A10EE86F5000AFED1B /* ping.c */,
+			);
+			path = ping.tproj;
+			sourceTree = "<group>";
+		};
+		726120A40EE86F5C00AFED1B /* ping6.tproj */ = {
+			isa = PBXGroup;
+			children = (
+				726120A50EE86F5C00AFED1B /* Makefile */,
+				726120A60EE86F5C00AFED1B /* md5.c */,
+				726120A70EE86F5C00AFED1B /* md5.h */,
+				726120A80EE86F5C00AFED1B /* ping6.8 */,
+				726120A90EE86F5C00AFED1B /* ping6.c */,
+			);
+			path = ping6.tproj;
+			sourceTree = "<group>";
+		};
+		726120AC0EE86F6700AFED1B /* rarpd.tproj */ = {
+			isa = PBXGroup;
+			children = (
+				726120AE0EE86F6700AFED1B /* rarpd.8 */,
+				726120AF0EE86F6700AFED1B /* rarpd.c */,
+			);
+			path = rarpd.tproj;
+			sourceTree = "<group>";
+		};
+		726120B20EE86F7200AFED1B /* route.tproj */ = {
+			isa = PBXGroup;
+			children = (
+				726120B30EE86F7200AFED1B /* gen_header.pl */,
+				726120B40EE86F7200AFED1B /* keywords */,
+				726120B50EE86F7200AFED1B /* keywords.h */,
+				726120B70EE86F7200AFED1B /* route.8 */,
+				726120B80EE86F7200AFED1B /* route.c */,
+			);
+			path = route.tproj;
+			sourceTree = "<group>";
+		};
+		726120BB0EE86F8200AFED1B /* rtadvd.tproj */ = {
+			isa = PBXGroup;
+			children = (
+				726120BC0EE86F8200AFED1B /* advcap.c */,
+				726120BD0EE86F8200AFED1B /* advcap.h */,
+				726120BE0EE86F8200AFED1B /* config.c */,
+				726120BF0EE86F8200AFED1B /* config.h */,
+				726120C00EE86F8200AFED1B /* dump.c */,
+				726120C10EE86F8200AFED1B /* dump.h */,
+				726120C20EE86F8200AFED1B /* if.c */,
+				726120C30EE86F8200AFED1B /* if.h */,
+				726120C50EE86F8200AFED1B /* pathnames.h */,
+				726120C60EE86F8200AFED1B /* rrenum.c */,
+				726120C70EE86F8200AFED1B /* rrenum.h */,
+				726120C80EE86F8200AFED1B /* rtadvd.8 */,
+				726120C90EE86F8200AFED1B /* rtadvd.c */,
+				726120CA0EE86F8200AFED1B /* rtadvd.conf */,
+				726120CB0EE86F8200AFED1B /* rtadvd.conf.5 */,
+				726120CC0EE86F8200AFED1B /* rtadvd.h */,
+				726120CD0EE86F8200AFED1B /* timer.c */,
+				726120CE0EE86F8200AFED1B /* timer.h */,
+			);
+			path = rtadvd.tproj;
+			sourceTree = "<group>";
+		};
+		726120D10EE86F9100AFED1B /* rtsol.tproj */ = {
+			isa = PBXGroup;
+			children = (
+				726120D20EE86F9100AFED1B /* dump.c */,
+				726120D30EE86F9100AFED1B /* if.c */,
+				726120D50EE86F9100AFED1B /* probe.c */,
+				726120D60EE86F9100AFED1B /* rtsock.c */,
+				726120D70EE86F9100AFED1B /* rtsol.8 */,
+				726120D80EE86F9100AFED1B /* rtsol.c */,
+				726120D90EE86F9100AFED1B /* rtsold.c */,
+				726120DA0EE86F9100AFED1B /* rtsold.h */,
+			);
+			path = rtsol.tproj;
+			sourceTree = "<group>";
+		};
+		726120DD0EE86F9D00AFED1B /* spray.tproj */ = {
+			isa = PBXGroup;
+			children = (
+				726120DF0EE86F9D00AFED1B /* spray.8 */,
+				726120E00EE86F9D00AFED1B /* spray.c */,
+				726120E10EE86F9D00AFED1B /* spray.x */,
+			);
+			path = spray.tproj;
+			sourceTree = "<group>";
+		};
+		726120E40EE86FA700AFED1B /* traceroute.tproj */ = {
+			isa = PBXGroup;
+			children = (
+				726120E50EE86FA700AFED1B /* as.c */,
+				726120E60EE86FA700AFED1B /* as.h */,
+				726120E70EE86FA700AFED1B /* findsaddr-socket.c */,
+				726120E80EE86FA700AFED1B /* findsaddr.h */,
+				726120E90EE86FA700AFED1B /* gnuc.h */,
+				726120EA0EE86FA700AFED1B /* ifaddrlist.c */,
+				726120EB0EE86FA700AFED1B /* ifaddrlist.h */,
+				726120ED0EE86FA700AFED1B /* mean.awk */,
+				726120EE0EE86FA700AFED1B /* median.awk */,
+				726120EF0EE86FA700AFED1B /* README */,
+				726120F00EE86FA700AFED1B /* traceroute.8 */,
+				726120F10EE86FA700AFED1B /* traceroute.c */,
+				726120F20EE86FA700AFED1B /* traceroute.h */,
+				726120F30EE86FA700AFED1B /* version.c */,
+			);
+			path = traceroute.tproj;
+			sourceTree = "<group>";
+		};
+		726120F80EE86FB500AFED1B /* traceroute6.tproj */ = {
+			isa = PBXGroup;
+			children = (
+				726120F90EE86FB500AFED1B /* Makefile */,
+				726120FA0EE86FB500AFED1B /* traceroute6.8 */,
+				726120FB0EE86FB500AFED1B /* traceroute6.c */,
+			);
+			path = traceroute6.tproj;
+			sourceTree = "<group>";
+		};
+		726120FE0EE8701100AFED1B /* ipfw.tproj */ = {
+			isa = PBXGroup;
+			children = (
+				726120FF0EE8701100AFED1B /* ipfw.8 */,
+				726121000EE8701100AFED1B /* ipfw2.c */,
+			);
+			path = ipfw.tproj;
+			sourceTree = "<group>";
+		};
+		7261210D0EE8707500AFED1B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				7261210C0EE8707500AFED1B /* libalias.A.dylib */,
+				7261212D0EE8710B00AFED1B /* arp */,
+				726121540EE8881700AFED1B /* ifconfig */,
+				726121830EE8897C00AFED1B /* ip6 */,
+				724DAB5F0EE88E2A008900D0 /* ipfw */,
+				724DAB820EE88EFA008900D0 /* ip6fw */,
+				724DABA20EE88FE3008900D0 /* kdumpd */,
+				724DABDB0EE8912D008900D0 /* natd */,
+				724DAC0D0EE8940D008900D0 /* ndp */,
+				7216D2460EE896C000AE70E4 /* netstat */,
+				7216D27C0EE8980A00AE70E4 /* ping */,
+				7216D29A0EE898BD00AE70E4 /* ping6 */,
+				7216D2CD0EE89B7900AE70E4 /* rarpd */,
+				7216D2ED0EE89CBC00AE70E4 /* route */,
+				7216D3140EE89E9E00AE70E4 /* rtadvd */,
+				7216D3590EE8A02200AE70E4 /* rtsol */,
+				7216D3A70EE8A3BB00AE70E4 /* spray */,
+				7294F0F90EE8BB460052EC88 /* traceroute */,
+				7294F12A0EE8BD280052EC88 /* traceroute6 */,
+				72570DB30EE8EC2E000F4CFB /* arp */,
+				72570DCB0EE8F49A000F4CFB /* ifconfig */,
+				72570DE80EE8F4C4000F4CFB /* netstat */,
+				72570DF80EE8F4DE000F4CFB /* route */,
+				72570E0A0EE8F4EA000F4CFB /* traceroute */,
+				7251B2000EE9D2AB00F29440 /* ping */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		726121080EE8707500AFED1B /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		7216D2450EE896C000AE70E4 /* netstat */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7216D24B0EE896EC00AE70E4 /* Build configuration list for PBXNativeTarget "netstat" */;
+			buildPhases = (
+				7216D2430EE896C000AE70E4 /* Sources */,
+				7216D2440EE896C000AE70E4 /* Frameworks */,
+				7216D2750EE8979500AE70E4 /* CopyFiles */,
+				7216D2640EE8972E00AE70E4 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = netstat;
+			productName = netstat;
+			productReference = 7216D2460EE896C000AE70E4 /* netstat */;
+			productType = "com.apple.product-type.tool";
+		};
+		7216D27B0EE8980A00AE70E4 /* ping */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7216D2940EE8988200AE70E4 /* Build configuration list for PBXNativeTarget "ping" */;
+			buildPhases = (
+				7216D2790EE8980A00AE70E4 /* Sources */,
+				7216D27A0EE8980A00AE70E4 /* Frameworks */,
+				7216D2930EE8988200AE70E4 /* CopyFiles */,
+				7216D2870EE8982900AE70E4 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ping;
+			productName = ping;
+			productReference = 7216D27C0EE8980A00AE70E4 /* ping */;
+			productType = "com.apple.product-type.tool";
+		};
+		7216D2990EE898BD00AE70E4 /* ping6 */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7216D2AB0EE8991200AE70E4 /* Build configuration list for PBXNativeTarget "ping6" */;
+			buildPhases = (
+				7216D2970EE898BD00AE70E4 /* Sources */,
+				7216D2980EE898BD00AE70E4 /* Frameworks */,
+				7216D2AA0EE8991200AE70E4 /* CopyFiles */,
+				7216D2AF0EE8993100AE70E4 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ping6;
+			productName = ping6;
+			productReference = 7216D29A0EE898BD00AE70E4 /* ping6 */;
+			productType = "com.apple.product-type.tool";
+		};
+		7216D2CC0EE89B7900AE70E4 /* rarpd */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7216D2E30EE89BEA00AE70E4 /* Build configuration list for PBXNativeTarget "rarpd" */;
+			buildPhases = (
+				7216D2CA0EE89B7900AE70E4 /* Sources */,
+				7216D2CB0EE89B7900AE70E4 /* Frameworks */,
+				7216D2E20EE89BEA00AE70E4 /* CopyFiles */,
+				7216D2D80EE89B9B00AE70E4 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = rarpd;
+			productName = rarpd;
+			productReference = 7216D2CD0EE89B7900AE70E4 /* rarpd */;
+			productType = "com.apple.product-type.tool";
+		};
+		7216D2EC0EE89CBC00AE70E4 /* route */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7216D2FB0EE89D2600AE70E4 /* Build configuration list for PBXNativeTarget "route" */;
+			buildPhases = (
+				7216D2EA0EE89CBC00AE70E4 /* Sources */,
+				7216D2EB0EE89CBC00AE70E4 /* Frameworks */,
+				7216D2FA0EE89D2600AE70E4 /* CopyFiles */,
+				7216D3030EE89D4300AE70E4 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = route;
+			productName = route;
+			productReference = 7216D2ED0EE89CBC00AE70E4 /* route */;
+			productType = "com.apple.product-type.tool";
+		};
+		7216D3130EE89E9E00AE70E4 /* rtadvd */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7216D3200EE89EDF00AE70E4 /* Build configuration list for PBXNativeTarget "rtadvd" */;
+			buildPhases = (
+				7216D3110EE89E9E00AE70E4 /* Sources */,
+				7216D3120EE89E9E00AE70E4 /* Frameworks */,
+				7216D3370EE89F7500AE70E4 /* CopyFiles */,
+				7216D3380EE89F7500AE70E4 /* CopyFiles */,
+				7216D3460EE89FD700AE70E4 /* CopyFiles */,
+				7216D3450EE89FB900AE70E4 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = rtadvd;
+			productName = rtadvd;
+			productReference = 7216D3140EE89E9E00AE70E4 /* rtadvd */;
+			productType = "com.apple.product-type.tool";
+		};
+		7216D3580EE8A02200AE70E4 /* rtsol */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7216D3660EE8A02B00AE70E4 /* Build configuration list for PBXNativeTarget "rtsol" */;
+			buildPhases = (
+				7216D3560EE8A02200AE70E4 /* Sources */,
+				7216D3570EE8A02200AE70E4 /* Frameworks */,
+				7216D37B0EE8A06200AE70E4 /* CopyFiles */,
+				7216D3740EE8A06000AE70E4 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = rtsol;
+			productName = rtsol;
+			productReference = 7216D3590EE8A02200AE70E4 /* rtsol */;
+			productType = "com.apple.product-type.tool";
+		};
+		7216D3A60EE8A3BA00AE70E4 /* spray */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7216D3C20EE8A42D00AE70E4 /* Build configuration list for PBXNativeTarget "spray" */;
+			buildPhases = (
+				7216D3A40EE8A3BA00AE70E4 /* Sources */,
+				7216D3A50EE8A3BA00AE70E4 /* Frameworks */,
+				7216D3C10EE8A42D00AE70E4 /* CopyFiles */,
+				7216D3B30EE8A3E000AE70E4 /* ShellScript */,
+			);
+			buildRules = (
+				7216D47D0EE8B84900AE70E4 /* PBXBuildRule */,
+			);
+			dependencies = (
+			);
+			name = spray;
+			productName = spray;
+			productReference = 7216D3A70EE8A3BB00AE70E4 /* spray */;
+			productType = "com.apple.product-type.tool";
+		};
+		724DAB5E0EE88E2A008900D0 /* ipfw */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 724DAB770EE88E9C008900D0 /* Build configuration list for PBXNativeTarget "ipfw" */;
+			buildPhases = (
+				724DAB5C0EE88E2A008900D0 /* Sources */,
+				724DAB5D0EE88E2A008900D0 /* Frameworks */,
+				724DAB760EE88E9C008900D0 /* CopyFiles */,
+				72CD1DB00EE8C551005F825D /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ipfw;
+			productName = ipfw;
+			productReference = 724DAB5F0EE88E2A008900D0 /* ipfw */;
+			productType = "com.apple.product-type.tool";
+		};
+		724DAB810EE88EFA008900D0 /* ip6fw */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 724DAB980EE88F56008900D0 /* Build configuration list for PBXNativeTarget "ip6fw" */;
+			buildPhases = (
+				724DAB7F0EE88EFA008900D0 /* Sources */,
+				724DAB800EE88EFA008900D0 /* Frameworks */,
+				724DAB970EE88F56008900D0 /* CopyFiles */,
+				724DAC1B0EE89440008900D0 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ip6fw;
+			productName = ip6fw;
+			productReference = 724DAB820EE88EFA008900D0 /* ip6fw */;
+			productType = "com.apple.product-type.tool";
+		};
+		724DABA10EE88FE3008900D0 /* kdumpd */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 724DABB80EE89035008900D0 /* Build configuration list for PBXNativeTarget "kdumpd" */;
+			buildPhases = (
+				724DAB9F0EE88FE3008900D0 /* Sources */,
+				724DABA00EE88FE3008900D0 /* Frameworks */,
+				724DABB70EE89035008900D0 /* CopyFiles */,
+				724DABC10EE89090008900D0 /* CopyFiles */,
+				7216D25F0EE8970100AE70E4 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = kdumpd;
+			productName = kdumpd;
+			productReference = 724DABA20EE88FE3008900D0 /* kdumpd */;
+			productType = "com.apple.product-type.tool";
+		};
+		724DABDA0EE8912D008900D0 /* natd */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 724DABEA0EE891AD008900D0 /* Build configuration list for PBXNativeTarget "natd" */;
+			buildPhases = (
+				724DABD80EE8912D008900D0 /* Sources */,
+				724DABD90EE8912D008900D0 /* Frameworks */,
+				724DABE90EE891AD008900D0 /* CopyFiles */,
+				724DABE80EE8917A008900D0 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = natd;
+			productName = natd;
+			productReference = 724DABDB0EE8912D008900D0 /* natd */;
+			productType = "com.apple.product-type.tool";
+		};
+		724DAC0C0EE8940D008900D0 /* ndp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 724DAC1E0EE894E8008900D0 /* Build configuration list for PBXNativeTarget "ndp" */;
+			buildPhases = (
+				724DAC0A0EE8940D008900D0 /* Sources */,
+				724DAC0B0EE8940D008900D0 /* Frameworks */,
+				724DAC1D0EE894E8008900D0 /* CopyFiles */,
+				724DAC440EE89562008900D0 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ndp;
+			productName = ndp;
+			productReference = 724DAC0D0EE8940D008900D0 /* ndp */;
+			productType = "com.apple.product-type.tool";
+		};
+		7251B1F60EE9D2AB00F29440 /* ping embedded */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7251B1FD0EE9D2AB00F29440 /* Build configuration list for PBXNativeTarget "ping embedded" */;
+			buildPhases = (
+				7251B1F70EE9D2AB00F29440 /* Sources */,
+				7251B1F90EE9D2AB00F29440 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "ping embedded";
+			productName = ping;
+			productReference = 7251B2000EE9D2AB00F29440 /* ping */;
+			productType = "com.apple.product-type.tool";
+		};
+		72570DA90EE8EC2E000F4CFB /* arp embedded */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 72570DB00EE8EC2E000F4CFB /* Build configuration list for PBXNativeTarget "arp embedded" */;
+			buildPhases = (
+				72570DAA0EE8EC2E000F4CFB /* Sources */,
+				72570DAC0EE8EC2E000F4CFB /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "arp embedded";
+			productName = arp;
+			productReference = 72570DB30EE8EC2E000F4CFB /* arp */;
+			productType = "com.apple.product-type.tool";
+		};
+		72570DBE0EE8F49A000F4CFB /* ifconfig embedded */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 72570DC80EE8F49A000F4CFB /* Build configuration list for PBXNativeTarget "ifconfig embedded" */;
+			buildPhases = (
+				72570DBF0EE8F49A000F4CFB /* Sources */,
+				72570DC40EE8F49A000F4CFB /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "ifconfig embedded";
+			productName = ifconfig;
+			productReference = 72570DCB0EE8F49A000F4CFB /* ifconfig */;
+			productType = "com.apple.product-type.tool";
+		};
+		72570DD20EE8F4C4000F4CFB /* netstat embedded */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 72570DE50EE8F4C4000F4CFB /* Build configuration list for PBXNativeTarget "netstat embedded" */;
+			buildPhases = (
+				72570DD30EE8F4C4000F4CFB /* Sources */,
+				72570DE10EE8F4C4000F4CFB /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "netstat embedded";
+			productName = netstat;
+			productReference = 72570DE80EE8F4C4000F4CFB /* netstat */;
+			productType = "com.apple.product-type.tool";
+		};
+		72570DEE0EE8F4DE000F4CFB /* route embedded */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 72570DF50EE8F4DE000F4CFB /* Build configuration list for PBXNativeTarget "route embedded" */;
+			buildPhases = (
+				72570DEF0EE8F4DE000F4CFB /* Sources */,
+				72570DF10EE8F4DE000F4CFB /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "route embedded";
+			productName = route;
+			productReference = 72570DF80EE8F4DE000F4CFB /* route */;
+			productType = "com.apple.product-type.tool";
+		};
+		72570DFC0EE8F4EA000F4CFB /* traceroute embedded */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 72570E070EE8F4EA000F4CFB /* Build configuration list for PBXNativeTarget "traceroute embedded" */;
+			buildPhases = (
+				72570DFD0EE8F4EA000F4CFB /* Sources */,
+				72570E030EE8F4EA000F4CFB /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "traceroute embedded";
+			productName = traceroute;
+			productReference = 72570E0A0EE8F4EA000F4CFB /* traceroute */;
+			productType = "com.apple.product-type.tool";
+		};
+		7261210B0EE8707500AFED1B /* alias */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 726121100EE8707600AFED1B /* Build configuration list for PBXNativeTarget "alias" */;
+			buildPhases = (
+				726121080EE8707500AFED1B /* Headers */,
+				726121090EE8707500AFED1B /* Sources */,
+				7261210A0EE8707500AFED1B /* Frameworks */,
+				7294F1510EE8BF2D0052EC88 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = alias;
+			productName = alias;
+			productReference = 7261210C0EE8707500AFED1B /* libalias.A.dylib */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+		7261212C0EE8710B00AFED1B /* arp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 726121400EE8713B00AFED1B /* Build configuration list for PBXNativeTarget "arp" */;
+			buildPhases = (
+				7261212A0EE8710B00AFED1B /* Sources */,
+				7261212B0EE8710B00AFED1B /* Frameworks */,
+				7261213F0EE8713B00AFED1B /* CopyFiles */,
+				72CD1DA00EE8C4EC005F825D /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = arp;
+			productName = arp;
+			productReference = 7261212D0EE8710B00AFED1B /* arp */;
+			productType = "com.apple.product-type.tool";
+		};
+		726121530EE8881700AFED1B /* ifconfig */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 726121630EE8887300AFED1B /* Build configuration list for PBXNativeTarget "ifconfig" */;
+			buildPhases = (
+				726121510EE8881700AFED1B /* Sources */,
+				726121520EE8881700AFED1B /* Frameworks */,
+				726121620EE8887300AFED1B /* CopyFiles */,
+				72CD1DA40EE8C500005F825D /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ifconfig;
+			productName = ifconfig;
+			productReference = 726121540EE8881700AFED1B /* ifconfig */;
+			productType = "com.apple.product-type.tool";
+		};
+		726121820EE8897C00AFED1B /* ip6conf */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 726121870EE8898B00AFED1B /* Build configuration list for PBXNativeTarget "ip6conf" */;
+			buildPhases = (
+				726121800EE8897C00AFED1B /* Sources */,
+				726121810EE8897C00AFED1B /* Frameworks */,
+				726121A50EE88AF300AFED1B /* Copy Files man */,
+				726121A60EE88AF300AFED1B /* CopyFiles */,
+				726121AE0EE88B4200AFED1B /* CopyFiles */,
+				726121BB0EE88BB300AFED1B /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ip6conf;
+			productName = ip6conf;
+			productReference = 726121830EE8897C00AFED1B /* ip6 */;
+			productType = "com.apple.product-type.tool";
+		};
+		7294F0F80EE8BB460052EC88 /* traceroute */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7294F0FD0EE8BB550052EC88 /* Build configuration list for PBXNativeTarget "traceroute" */;
+			buildPhases = (
+				7294F0F60EE8BB460052EC88 /* Sources */,
+				7294F0F70EE8BB460052EC88 /* Frameworks */,
+				7294F11A0EE8BC0C0052EC88 /* CopyFiles */,
+				7294F10C0EE8BBB60052EC88 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = traceroute;
+			productName = traceroute;
+			productReference = 7294F0F90EE8BB460052EC88 /* traceroute */;
+			productType = "com.apple.product-type.tool";
+		};
+		7294F1290EE8BD280052EC88 /* traceroute6 */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7294F13F0EE8BDB30052EC88 /* Build configuration list for PBXNativeTarget "traceroute6" */;
+			buildPhases = (
+				7294F1270EE8BD280052EC88 /* Sources */,
+				7294F1280EE8BD280052EC88 /* Frameworks */,
+				7294F13E0EE8BDB30052EC88 /* CopyFiles */,
+				7294F1360EE8BD4D0052EC88 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = traceroute6;
+			productName = traceroute6;
+			productReference = 7294F12A0EE8BD280052EC88 /* traceroute6 */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		724862310EE86EB7001D0DE9 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 724862340EE86EB7001D0DE9 /* Build configuration list for PBXProject "network_cmds" */;
+			compatibilityVersion = "Xcode 3.1";
+			hasScannedForEncodings = 0;
+			mainGroup = 7248622F0EE86EB7001D0DE9;
+			productRefGroup = 7261210D0EE8707500AFED1B /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				726121430EE8717500AFED1B /* All */,
+				7261210B0EE8707500AFED1B /* alias */,
+				7261212C0EE8710B00AFED1B /* arp */,
+				726121530EE8881700AFED1B /* ifconfig */,
+				726121820EE8897C00AFED1B /* ip6conf */,
+				724DAB5E0EE88E2A008900D0 /* ipfw */,
+				724DAB810EE88EFA008900D0 /* ip6fw */,
+				724DABA10EE88FE3008900D0 /* kdumpd */,
+				724DABDA0EE8912D008900D0 /* natd */,
+				724DAC0C0EE8940D008900D0 /* ndp */,
+				7216D2450EE896C000AE70E4 /* netstat */,
+				7216D27B0EE8980A00AE70E4 /* ping */,
+				7216D2990EE898BD00AE70E4 /* ping6 */,
+				7216D2CC0EE89B7900AE70E4 /* rarpd */,
+				7216D2EC0EE89CBC00AE70E4 /* route */,
+				7216D3130EE89E9E00AE70E4 /* rtadvd */,
+				7216D3580EE8A02200AE70E4 /* rtsol */,
+				7216D3A60EE8A3BA00AE70E4 /* spray */,
+				7294F0F80EE8BB460052EC88 /* traceroute */,
+				7294F1290EE8BD280052EC88 /* traceroute6 */,
+				72570DA20EE8EBF3000F4CFB /* All-Embedded */,
+				72570DA90EE8EC2E000F4CFB /* arp embedded */,
+				72570DBE0EE8F49A000F4CFB /* ifconfig embedded */,
+				72570DD20EE8F4C4000F4CFB /* netstat embedded */,
+				7251B1F60EE9D2AB00F29440 /* ping embedded */,
+				72570DEE0EE8F4DE000F4CFB /* route embedded */,
+				72570DFC0EE8F4EA000F4CFB /* traceroute embedded */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		7216D25F0EE8970100AE70E4 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "/bin/chmod 0444 $DSTROOT/usr/share/man/man8/kdumpd.8\n/bin/chmod 0644 $DSTROOT/System/Library/LaunchDaemons/com.apple.kdumpd.plist";
+		};
+		7216D2640EE8972E00AE70E4 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "/bin/chmod 0444 $DSTROOT/usr/share/man/man1/netstat.1\t";
+		};
+		7216D2870EE8982900AE70E4 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "/bin/chmod 0444 $DSTROOT/usr/share/man/man8/ping.8\t";
+		};
+		7216D2AF0EE8993100AE70E4 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "/bin/chmod 0444 $DSTROOT/usr/share/man/man8/ping6.8";
+		};
+		7216D2D80EE89B9B00AE70E4 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "/bin/chmod 0444 $DSTROOT/usr/share/man/man8/rarpd.8";
+		};
+		7216D3030EE89D4300AE70E4 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "/bin/chmod 0444 $DSTROOT/usr/share/man/man8/route.8";
+		};
+		7216D3450EE89FB900AE70E4 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "/bin/chmod 0444 $DSTROOT/usr/share/man/man8/rtadvd.8\n/bin/chmod 0444 $DSTROOT/usr/share/man/man5/rtadvd.conf.5\n/bin/chmod 0644 $DSTROOT/private/etc/rtadvd.conf";
+		};
+		7216D3740EE8A06000AE70E4 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "/bin/chmod 0444 $DSTROOT/usr/share/man/man8/rtsol.8\n/bin/ln -f $DSTROOT/usr/share/man/man8/rtsol.8 $DSTROOT/usr/share/man/man8/rtsold.8\n/bin/ln -f $DSTROOT/sbin/rtsol $DSTROOT/usr/sbin/rtsold\n/usr/bin/strip $DSTROOT/usr/sbin/rtsold\n/bin/chmod 0555 $DSTROOT/usr/sbin/rtsold\n";
+		};
+		7216D3B30EE8A3E000AE70E4 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "/bin/chmod 0444 $DSTROOT/usr/share/man/man8/spray.8";
+		};
+		724DABE80EE8917A008900D0 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "/bin/chmod 0444 $DSTROOT/usr/share/man/man8/natd.8\t";
+		};
+		724DAC1B0EE89440008900D0 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "/bin/chmod 0444 $DSTROOT/usr/share/man/man8/ip6fw.8\t";
+		};
+		724DAC440EE89562008900D0 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "/bin/chmod 0444 $DSTROOT/usr/share/man/man8/ndp.8\t";
+		};
+		726121BB0EE88BB300AFED1B /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "/bin/chmod 0644 $DSTROOT/private/etc/6to4.conf\n/bin/chmod 0555 $DSTROOT/usr/sbin/ip6config\n/bin/chmod 0444 $DSTROOT/usr/share/man/man8/ip6.8\n/bin/chmod 0444 $DSTROOT/usr/share/man/man8/ip6config.8\n";
+		};
+		7294F10C0EE8BBB60052EC88 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "/bin/chmod 0444 $DSTROOT/usr/share/man/man8/traceroute.8";
+		};
+		7294F1360EE8BD4D0052EC88 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "/bin/chmod 0444 $DSTROOT/usr/share/man/man8/traceroute6.8";
+		};
+		7294F1510EE8BF2D0052EC88 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "/bin/ln -s libalias.A.dylib $DSTROOT/usr/lib/libalias.dylib";
+		};
+		72CD1DA00EE8C4EC005F825D /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "/bin/chmod 0444 $DSTROOT/usr/share/man/man8/arp.8";
+		};
+		72CD1DA40EE8C500005F825D /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "/bin/chmod 0444 $DSTROOT/usr/share/man/man8/ifconfig.8\t";
+		};
+		72CD1DB00EE8C551005F825D /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "/bin/chmod 0444 $DSTROOT/usr/share/man/man8/ipfw.8\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		7216D2430EE896C000AE70E4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7216D24C0EE896F300AE70E4 /* data.c in Sources */,
+				7216D24D0EE896F300AE70E4 /* if.c in Sources */,
+				7216D24E0EE896F300AE70E4 /* inet.c in Sources */,
+				7216D24F0EE896F300AE70E4 /* inet6.c in Sources */,
+				7216D2500EE896F300AE70E4 /* ipsec.c in Sources */,
+				7216D2510EE896F300AE70E4 /* main.c in Sources */,
+				7216D2520EE896F300AE70E4 /* mbuf.c in Sources */,
+				7216D2530EE896F300AE70E4 /* mcast.c in Sources */,
+				7216D2540EE896F300AE70E4 /* mroute.c in Sources */,
+				7216D2550EE896F300AE70E4 /* mroute6.c in Sources */,
+				7216D2560EE896F300AE70E4 /* route.c in Sources */,
+				7216D2570EE896F300AE70E4 /* tp_astring.c in Sources */,
+				7216D2580EE896F300AE70E4 /* unix.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7216D2790EE8980A00AE70E4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7216D2800EE8981C00AE70E4 /* ping.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7216D2970EE898BD00AE70E4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7216D2A00EE898DF00AE70E4 /* md5.c in Sources */,
+				7216D2A10EE898DF00AE70E4 /* ping6.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7216D2CA0EE89B7900AE70E4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7216D2D10EE89B8300AE70E4 /* rarpd.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7216D2EA0EE89CBC00AE70E4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7216D2F20EE89CD600AE70E4 /* route.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7216D3110EE89E9E00AE70E4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7216D3190EE89EC100AE70E4 /* advcap.c in Sources */,
+				7216D31A0EE89EC100AE70E4 /* config.c in Sources */,
+				7216D31B0EE89EC100AE70E4 /* dump.c in Sources */,
+				7216D31C0EE89EC100AE70E4 /* if.c in Sources */,
+				7216D31D0EE89EC100AE70E4 /* rrenum.c in Sources */,
+				7216D31E0EE89EC100AE70E4 /* rtadvd.c in Sources */,
+				7216D31F0EE89EC100AE70E4 /* timer.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7216D3560EE8A02200AE70E4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7216D3670EE8A04700AE70E4 /* dump.c in Sources */,
+				7216D3680EE8A04700AE70E4 /* if.c in Sources */,
+				7216D3690EE8A04700AE70E4 /* probe.c in Sources */,
+				7216D36A0EE8A04700AE70E4 /* rtsock.c in Sources */,
+				7216D36B0EE8A04700AE70E4 /* rtsol.c in Sources */,
+				7216D36C0EE8A04700AE70E4 /* rtsold.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7216D3A40EE8A3BA00AE70E4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7216D3AB0EE8A3C400AE70E4 /* spray.c in Sources */,
+				7294F0DF0EE8BA730052EC88 /* spray.x in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		724DAB5C0EE88E2A008900D0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				724DAB640EE88E63008900D0 /* ipfw2.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		724DAB7F0EE88EFA008900D0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				724DAB860EE88F0D008900D0 /* ip6fw.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		724DAB9F0EE88FE3008900D0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				724DABA60EE88FED008900D0 /* kdumpd.c in Sources */,
+				724DABA70EE88FED008900D0 /* kdumpsubs.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		724DABD80EE8912D008900D0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				724DABDF0EE89151008900D0 /* natd.c in Sources */,
+				724DABE00EE89155008900D0 /* icmp.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		724DAC0A0EE8940D008900D0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				724DAC120EE89423008900D0 /* ndp.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7251B1F70EE9D2AB00F29440 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7251B1F80EE9D2AB00F29440 /* ping.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		72570DAA0EE8EC2E000F4CFB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				72570DAB0EE8EC2E000F4CFB /* arp.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		72570DBF0EE8F49A000F4CFB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				72570DC10EE8F49A000F4CFB /* ifconfig.c in Sources */,
+				72570DC20EE8F49A000F4CFB /* ifmedia.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		72570DD30EE8F4C4000F4CFB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				72570DD40EE8F4C4000F4CFB /* data.c in Sources */,
+				72570DD50EE8F4C4000F4CFB /* if.c in Sources */,
+				72570DD60EE8F4C4000F4CFB /* inet.c in Sources */,
+				72570DD80EE8F4C4000F4CFB /* ipsec.c in Sources */,
+				72570DD90EE8F4C4000F4CFB /* main.c in Sources */,
+				72570DDA0EE8F4C4000F4CFB /* mbuf.c in Sources */,
+				72570DDB0EE8F4C4000F4CFB /* mcast.c in Sources */,
+				72570DDE0EE8F4C4000F4CFB /* route.c in Sources */,
+				72570DDF0EE8F4C4000F4CFB /* tp_astring.c in Sources */,
+				72570DE00EE8F4C4000F4CFB /* unix.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		72570DEF0EE8F4DE000F4CFB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				72570DF00EE8F4DE000F4CFB /* route.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		72570DFD0EE8F4EA000F4CFB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				72570DFE0EE8F4EA000F4CFB /* as.c in Sources */,
+				72570DFF0EE8F4EA000F4CFB /* findsaddr-socket.c in Sources */,
+				72570E000EE8F4EA000F4CFB /* ifaddrlist.c in Sources */,
+				72570E010EE8F4EA000F4CFB /* traceroute.c in Sources */,
+				72570E020EE8F4EA000F4CFB /* version.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		726121090EE8707500AFED1B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				726121110EE870AB00AFED1B /* alias.c in Sources */,
+				726121130EE870AB00AFED1B /* alias_cuseeme.c in Sources */,
+				726121140EE870AB00AFED1B /* alias_db.c in Sources */,
+				726121150EE870AB00AFED1B /* alias_ftp.c in Sources */,
+				726121160EE870AB00AFED1B /* alias_irc.c in Sources */,
+				726121180EE870AB00AFED1B /* alias_nbt.c in Sources */,
+				726121190EE870AB00AFED1B /* alias_pptp.c in Sources */,
+				7261211A0EE870AB00AFED1B /* alias_proxy.c in Sources */,
+				7261211B0EE870AB00AFED1B /* alias_smedia.c in Sources */,
+				7261211C0EE870AB00AFED1B /* alias_util.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7261212A0EE8710B00AFED1B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				726121310EE8711E00AFED1B /* arp.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		726121510EE8881700AFED1B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7261215A0EE8883900AFED1B /* ifbond.c in Sources */,
+				7261215B0EE8883900AFED1B /* ifconfig.c in Sources */,
+				7261215C0EE8883900AFED1B /* ifmedia.c in Sources */,
+				7261215D0EE8883900AFED1B /* ifvlan.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		726121800EE8897C00AFED1B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				726121890EE889C100AFED1B /* ip6tool.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7294F0F60EE8BB460052EC88 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7294F1000EE8BB990052EC88 /* as.c in Sources */,
+				7294F1010EE8BB990052EC88 /* findsaddr-socket.c in Sources */,
+				7294F1020EE8BB990052EC88 /* ifaddrlist.c in Sources */,
+				7294F1030EE8BB990052EC88 /* traceroute.c in Sources */,
+				7294F1040EE8BB990052EC88 /* version.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7294F1270EE8BD280052EC88 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7294F12E0EE8BD2F0052EC88 /* traceroute6.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		7216D2670EE8978F00AE70E4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7216D2450EE896C000AE70E4 /* netstat */;
+			targetProxy = 7216D2660EE8978F00AE70E4 /* PBXContainerItemProxy */;
+		};
+		7216D2C00EE89ADF00AE70E4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7216D27B0EE8980A00AE70E4 /* ping */;
+			targetProxy = 7216D2BF0EE89ADF00AE70E4 /* PBXContainerItemProxy */;
+		};
+		7216D2C20EE89ADF00AE70E4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7216D2990EE898BD00AE70E4 /* ping6 */;
+			targetProxy = 7216D2C10EE89ADF00AE70E4 /* PBXContainerItemProxy */;
+		};
+		7216D2DA0EE89BE900AE70E4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7216D2CC0EE89B7900AE70E4 /* rarpd */;
+			targetProxy = 7216D2D90EE89BE900AE70E4 /* PBXContainerItemProxy */;
+		};
+		7216D3060EE89D9A00AE70E4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7216D2EC0EE89CBC00AE70E4 /* route */;
+			targetProxy = 7216D3050EE89D9A00AE70E4 /* PBXContainerItemProxy */;
+		};
+		7216D34D0EE89FEC00AE70E4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7216D3130EE89E9E00AE70E4 /* rtadvd */;
+			targetProxy = 7216D34C0EE89FEC00AE70E4 /* PBXContainerItemProxy */;
+		};
+		7216D37F0EE8A0B300AE70E4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7216D3580EE8A02200AE70E4 /* rtsol */;
+			targetProxy = 7216D37E0EE8A0B300AE70E4 /* PBXContainerItemProxy */;
+		};
+		724DAB790EE88EA6008900D0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 724DAB5E0EE88E2A008900D0 /* ipfw */;
+			targetProxy = 724DAB780EE88EA6008900D0 /* PBXContainerItemProxy */;
+		};
+		724DAB9A0EE88F5D008900D0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 724DAB810EE88EFA008900D0 /* ip6fw */;
+			targetProxy = 724DAB990EE88F5D008900D0 /* PBXContainerItemProxy */;
+		};
+		724DABC30EE890A6008900D0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 724DABA10EE88FE3008900D0 /* kdumpd */;
+			targetProxy = 724DABC20EE890A6008900D0 /* PBXContainerItemProxy */;
+		};
+		724DABEC0EE891DF008900D0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 724DABDA0EE8912D008900D0 /* natd */;
+			targetProxy = 724DABEB0EE891DF008900D0 /* PBXContainerItemProxy */;
+		};
+		724DAC240EE89525008900D0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 724DAC0C0EE8940D008900D0 /* ndp */;
+			targetProxy = 724DAC230EE89525008900D0 /* PBXContainerItemProxy */;
+		};
+		7251B2080EE9D36800F29440 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7251B1F60EE9D2AB00F29440 /* ping embedded */;
+			targetProxy = 7251B2070EE9D36800F29440 /* PBXContainerItemProxy */;
+		};
+		72570DB60EE8EC46000F4CFB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 72570DA90EE8EC2E000F4CFB /* arp embedded */;
+			targetProxy = 72570DB50EE8EC46000F4CFB /* PBXContainerItemProxy */;
+		};
+		72570E0D0EE8F517000F4CFB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 72570DFC0EE8F4EA000F4CFB /* traceroute embedded */;
+			targetProxy = 72570E0C0EE8F517000F4CFB /* PBXContainerItemProxy */;
+		};
+		72570E0F0EE8F517000F4CFB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 72570DEE0EE8F4DE000F4CFB /* route embedded */;
+			targetProxy = 72570E0E0EE8F517000F4CFB /* PBXContainerItemProxy */;
+		};
+		72570E110EE8F517000F4CFB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 72570DD20EE8F4C4000F4CFB /* netstat embedded */;
+			targetProxy = 72570E100EE8F517000F4CFB /* PBXContainerItemProxy */;
+		};
+		72570E130EE8F517000F4CFB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 72570DBE0EE8F49A000F4CFB /* ifconfig embedded */;
+			targetProxy = 72570E120EE8F517000F4CFB /* PBXContainerItemProxy */;
+		};
+		726121470EE8717B00AFED1B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7261210B0EE8707500AFED1B /* alias */;
+			targetProxy = 726121460EE8717B00AFED1B /* PBXContainerItemProxy */;
+		};
+		726121490EE8717B00AFED1B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7261212C0EE8710B00AFED1B /* arp */;
+			targetProxy = 726121480EE8717B00AFED1B /* PBXContainerItemProxy */;
+		};
+		7261217D0EE8896800AFED1B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 726121530EE8881700AFED1B /* ifconfig */;
+			targetProxy = 7261217C0EE8896800AFED1B /* PBXContainerItemProxy */;
+		};
+		726121B30EE88B7900AFED1B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 726121820EE8897C00AFED1B /* ip6conf */;
+			targetProxy = 726121B20EE88B7900AFED1B /* PBXContainerItemProxy */;
+		};
+		7294F0EA0EE8BAC80052EC88 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7216D3A60EE8A3BA00AE70E4 /* spray */;
+			targetProxy = 7294F0E90EE8BAC80052EC88 /* PBXContainerItemProxy */;
+		};
+		7294F1210EE8BCC20052EC88 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7294F0F80EE8BB460052EC88 /* traceroute */;
+			targetProxy = 7294F1200EE8BCC20052EC88 /* PBXContainerItemProxy */;
+		};
+		72CD1D9C0EE8C47C005F825D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7294F1290EE8BD280052EC88 /* traceroute6 */;
+			targetProxy = 72CD1D9B0EE8C47C005F825D /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		7216D2480EE896C100AE70E4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					INET6,
+					IPSEC,
+				);
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = netstat;
+			};
+			name = Debug;
+		};
+		7216D2490EE896C100AE70E4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					INET6,
+					IPSEC,
+				);
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = netstat;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		7216D27E0EE8980B00AE70E4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = ping;
+			};
+			name = Debug;
+		};
+		7216D27F0EE8980B00AE70E4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = ping;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		7216D29C0EE898BE00AE70E4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /sbin;
+				PREBINDING = NO;
+				PRODUCT_NAME = ping6;
+			};
+			name = Debug;
+		};
+		7216D29D0EE898BE00AE70E4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					INET6,
+					IPSEC_DEBUG,
+					KAME_SCOPEID,
+					IPSEC,
+				);
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /sbin;
+				PREBINDING = NO;
+				PRODUCT_NAME = ping6;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		7216D2CF0EE89B7A00AE70E4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = YES;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = "TFTP_DIR=\\\"/tftpboot\\\"";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = rarpd;
+			};
+			name = Debug;
+		};
+		7216D2D00EE89B7A00AE70E4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_PREPROCESSOR_DEFINITIONS = "TFTP_DIR=\\\"/tftpboot\\\"";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = rarpd;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		7216D2EF0EE89CBC00AE70E4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					INET6,
+					IPSEC,
+				);
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = route;
+			};
+			name = Debug;
+		};
+		7216D2F00EE89CBC00AE70E4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					INET6,
+					IPSEC,
+				);
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = route;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		7216D3160EE89E9F00AE70E4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					INET6,
+					HAVE_GETIFADDRS,
+				);
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-Wno-deprecated-declarations",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = rtadvd;
+				WARNING_CFLAGS = "";
+			};
+			name = Debug;
+		};
+		7216D3170EE89E9F00AE70E4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					INET6,
+					HAVE_GETIFADDRS,
+				);
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-Wno-deprecated-declarations",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = rtadvd;
+				WARNING_CFLAGS = "";
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		7216D35B0EE8A02300AE70E4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					INET6,
+					HAVE_GETIFADDRS,
+				);
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-Wno-deprecated-declarations",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = rtsol;
+			};
+			name = Debug;
+		};
+		7216D35C0EE8A02300AE70E4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					INET6,
+					HAVE_GETIFADDRS,
+				);
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-Wno-deprecated-declarations",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = rtsol;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		7216D3A90EE8A3BB00AE70E4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = spray;
+			};
+			name = Debug;
+		};
+		7216D3AA0EE8A3BB00AE70E4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = spray;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		724862320EE86EB7001D0DE9 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+			};
+			name = Debug;
+		};
+		724862330EE86EB7001D0DE9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			name = Release;
+		};
+		724DAB610EE88E2B008900D0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = IP_FW_PRIVATE;
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = ipfw;
+			};
+			name = Debug;
+		};
+		724DAB620EE88E2B008900D0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_PREPROCESSOR_DEFINITIONS = IP_FW_PRIVATE;
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = ipfw;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		724DAB840EE88EFA008900D0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = IP_FW_PRIVATE;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = ip6fw;
+			};
+			name = Debug;
+		};
+		724DAB850EE88EFA008900D0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_PREPROCESSOR_DEFINITIONS = IP_FW_PRIVATE;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = ip6fw;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		724DABA40EE88FE3008900D0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/libexec;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = kdumpd;
+			};
+			name = Debug;
+		};
+		724DABA50EE88FE3008900D0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/libexec;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = kdumpd;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		724DABDD0EE8912E008900D0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = YES;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = "";
+				HEADER_SEARCH_PATHS = ../alias;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-Wno-deprecated-declarations",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = natd;
+			};
+			name = Debug;
+		};
+		724DABDE0EE8912E008900D0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_PREPROCESSOR_DEFINITIONS = "";
+				HEADER_SEARCH_PATHS = ../alias;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-Wno-deprecated-declarations",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = natd;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		724DAC0F0EE8940E008900D0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					INET6,
+					IPSEC_DEBUG,
+					KAME_SCOPEID,
+				);
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = ndp;
+			};
+			name = Debug;
+		};
+		724DAC100EE8940E008900D0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					INET6,
+					IPSEC_DEBUG,
+					KAME_SCOPEID,
+				);
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = ndp;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		7251B1FE0EE9D2AB00F29440 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = ping;
+				SDKROOT = iphoneos3.0.internal;
+			};
+			name = Debug;
+		};
+		7251B1FF0EE9D2AB00F29440 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = ping;
+				SDKROOT = iphoneos3.0.internal;
+				STRIPFLAGS = "-S";
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		72570DA30EE8EBF3000F4CFB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				PRODUCT_NAME = network_cmds;
+			};
+			name = Debug;
+		};
+		72570DA40EE8EBF3000F4CFB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				PRODUCT_NAME = network_cmds;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		72570DB10EE8EC2E000F4CFB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_INCREASE_PRECOMPILED_HEADER_SHARING = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = "TARGET_OS_EMBEDDED=1";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = arp;
+				SDKROOT = iphoneos3.0.internal;
+				STRIPFLAGS = "";
+			};
+			name = Debug;
+		};
+		72570DB20EE8EC2E000F4CFB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				COPY_PHASE_STRIP = YES;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_INCREASE_PRECOMPILED_HEADER_SHARING = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_PREPROCESSOR_DEFINITIONS = "TARGET_OS_EMBEDDED=1";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = arp;
+				SDKROOT = iphoneos3.0.internal;
+				STRIPFLAGS = "-S";
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		72570DC90EE8F49A000F4CFB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					TARGET_OS_EMBEDDED,
+					USE_IF_MEDIA,
+					NO_IPX,
+				);
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = ifconfig;
+				SDKROOT = iphoneos3.0.internal;
+				STRIPFLAGS = "-S";
+			};
+			name = Debug;
+		};
+		72570DCA0EE8F49A000F4CFB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				COPY_PHASE_STRIP = YES;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					TARGET_OS_EMBEDDED,
+					USE_IF_MEDIA,
+					NO_IPX,
+				);
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = ifconfig;
+				SDKROOT = iphoneos3.0.internal;
+				STRIPFLAGS = "-S";
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		72570DE60EE8F4C4000F4CFB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					TARGET_OS_EMBEDDED,
+					IPSEC,
+				);
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = netstat;
+				SDKROOT = iphoneos3.0.internal;
+			};
+			name = Debug;
+		};
+		72570DE70EE8F4C4000F4CFB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				COPY_PHASE_STRIP = YES;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					TARGET_OS_EMBEDDED,
+					IPSEC,
+				);
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = netstat;
+				SDKROOT = iphoneos3.0.internal;
+				STRIPFLAGS = "-S";
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		72570DF60EE8F4DE000F4CFB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					TARGET_OS_EMBEDDED,
+					IPSEC,
+				);
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = route;
+				SDKROOT = iphoneos3.0.internal;
+			};
+			name = Debug;
+		};
+		72570DF70EE8F4DE000F4CFB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				COPY_PHASE_STRIP = YES;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					TARGET_OS_EMBEDDED,
+					IPSEC,
+				);
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = route;
+				SDKROOT = iphoneos3.0.internal;
+				STRIPFLAGS = "-S";
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		72570E080EE8F4EA000F4CFB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALTERNATE_MODE = 04555;
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					TARGET_OS_EMBEDDED,
+					HAVE_SOCKADDR_SA_LEN,
+				);
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 04555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = traceroute;
+				SDKROOT = iphoneos3.0.internal;
+			};
+			name = Debug;
+		};
+		72570E090EE8F4EA000F4CFB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALTERNATE_MODE = 04555;
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				COPY_PHASE_STRIP = YES;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					TARGET_OS_EMBEDDED,
+					HAVE_SOCKADDR_SA_LEN,
+				);
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 04555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = traceroute;
+				SDKROOT = iphoneos3.0.internal;
+				STRIPFLAGS = "-S";
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		7261210E0EE8707600AFED1B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DYLIB_CURRENT_VERSION = 1;
+				EXECUTABLE_PREFIX = lib;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/lib;
+				PREBINDING = NO;
+				PRODUCT_NAME = alias.A;
+			};
+			name = Debug;
+		};
+		7261210F0EE8707600AFED1B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DYLIB_CURRENT_VERSION = 1;
+				EXECUTABLE_PREFIX = lib;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/lib;
+				PREBINDING = NO;
+				PRODUCT_NAME = alias.A;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		7261212F0EE8710B00AFED1B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = arp;
+			};
+			name = Debug;
+		};
+		726121300EE8710B00AFED1B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = arp;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		726121440EE8717500AFED1B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				PRODUCT_NAME = network_cmds;
+			};
+			name = Debug;
+		};
+		726121450EE8717500AFED1B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				PRODUCT_NAME = network_cmds;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		726121560EE8881800AFED1B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					USE_IF_MEDIA,
+					INET6,
+					NO_IPX,
+					USE_VLANS,
+					USE_BONDS,
+				);
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = ifconfig;
+			};
+			name = Debug;
+		};
+		726121570EE8881800AFED1B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					USE_IF_MEDIA,
+					INET6,
+					NO_IPX,
+					USE_VLANS,
+					USE_BONDS,
+				);
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = ifconfig;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		726121850EE8897C00AFED1B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = ip6;
+			};
+			name = Debug;
+		};
+		726121860EE8897C00AFED1B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = ip6;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		7294F0FB0EE8BB460052EC88 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALTERNATE_MODE = 04555;
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = HAVE_SOCKADDR_SA_LEN;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 04555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = traceroute;
+			};
+			name = Debug;
+		};
+		7294F0FC0EE8BB460052EC88 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALTERNATE_MODE = 04555;
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_PREPROCESSOR_DEFINITIONS = HAVE_SOCKADDR_SA_LEN;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 04555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = traceroute;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		7294F12C0EE8BD290052EC88 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					INET6,
+					IPSEC,
+				);
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 04555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = traceroute6;
+			};
+			name = Debug;
+		};
+		7294F12D0EE8BD290052EC88 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					INET6,
+					IPSEC,
+				);
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 04555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+					"-mdynamic-no-pic",
+					"-dead_strip",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = traceroute6;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		7216D24B0EE896EC00AE70E4 /* Build configuration list for PBXNativeTarget "netstat" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7216D2480EE896C100AE70E4 /* Debug */,
+				7216D2490EE896C100AE70E4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7216D2940EE8988200AE70E4 /* Build configuration list for PBXNativeTarget "ping" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7216D27E0EE8980B00AE70E4 /* Debug */,
+				7216D27F0EE8980B00AE70E4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7216D2AB0EE8991200AE70E4 /* Build configuration list for PBXNativeTarget "ping6" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7216D29C0EE898BE00AE70E4 /* Debug */,
+				7216D29D0EE898BE00AE70E4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7216D2E30EE89BEA00AE70E4 /* Build configuration list for PBXNativeTarget "rarpd" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7216D2CF0EE89B7A00AE70E4 /* Debug */,
+				7216D2D00EE89B7A00AE70E4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7216D2FB0EE89D2600AE70E4 /* Build configuration list for PBXNativeTarget "route" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7216D2EF0EE89CBC00AE70E4 /* Debug */,
+				7216D2F00EE89CBC00AE70E4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7216D3200EE89EDF00AE70E4 /* Build configuration list for PBXNativeTarget "rtadvd" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7216D3160EE89E9F00AE70E4 /* Debug */,
+				7216D3170EE89E9F00AE70E4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7216D3660EE8A02B00AE70E4 /* Build configuration list for PBXNativeTarget "rtsol" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7216D35B0EE8A02300AE70E4 /* Debug */,
+				7216D35C0EE8A02300AE70E4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7216D3C20EE8A42D00AE70E4 /* Build configuration list for PBXNativeTarget "spray" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7216D3A90EE8A3BB00AE70E4 /* Debug */,
+				7216D3AA0EE8A3BB00AE70E4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		724862340EE86EB7001D0DE9 /* Build configuration list for PBXProject "network_cmds" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				724862320EE86EB7001D0DE9 /* Debug */,
+				724862330EE86EB7001D0DE9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		724DAB770EE88E9C008900D0 /* Build configuration list for PBXNativeTarget "ipfw" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				724DAB610EE88E2B008900D0 /* Debug */,
+				724DAB620EE88E2B008900D0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		724DAB980EE88F56008900D0 /* Build configuration list for PBXNativeTarget "ip6fw" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				724DAB840EE88EFA008900D0 /* Debug */,
+				724DAB850EE88EFA008900D0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		724DABB80EE89035008900D0 /* Build configuration list for PBXNativeTarget "kdumpd" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				724DABA40EE88FE3008900D0 /* Debug */,
+				724DABA50EE88FE3008900D0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		724DABEA0EE891AD008900D0 /* Build configuration list for PBXNativeTarget "natd" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				724DABDD0EE8912E008900D0 /* Debug */,
+				724DABDE0EE8912E008900D0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		724DAC1E0EE894E8008900D0 /* Build configuration list for PBXNativeTarget "ndp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				724DAC0F0EE8940E008900D0 /* Debug */,
+				724DAC100EE8940E008900D0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7251B1FD0EE9D2AB00F29440 /* Build configuration list for PBXNativeTarget "ping embedded" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7251B1FE0EE9D2AB00F29440 /* Debug */,
+				7251B1FF0EE9D2AB00F29440 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		72570DA60EE8EC0F000F4CFB /* Build configuration list for PBXAggregateTarget "All-Embedded" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				72570DA30EE8EBF3000F4CFB /* Debug */,
+				72570DA40EE8EBF3000F4CFB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		72570DB00EE8EC2E000F4CFB /* Build configuration list for PBXNativeTarget "arp embedded" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				72570DB10EE8EC2E000F4CFB /* Debug */,
+				72570DB20EE8EC2E000F4CFB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		72570DC80EE8F49A000F4CFB /* Build configuration list for PBXNativeTarget "ifconfig embedded" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				72570DC90EE8F49A000F4CFB /* Debug */,
+				72570DCA0EE8F49A000F4CFB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		72570DE50EE8F4C4000F4CFB /* Build configuration list for PBXNativeTarget "netstat embedded" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				72570DE60EE8F4C4000F4CFB /* Debug */,
+				72570DE70EE8F4C4000F4CFB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		72570DF50EE8F4DE000F4CFB /* Build configuration list for PBXNativeTarget "route embedded" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				72570DF60EE8F4DE000F4CFB /* Debug */,
+				72570DF70EE8F4DE000F4CFB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		72570E070EE8F4EA000F4CFB /* Build configuration list for PBXNativeTarget "traceroute embedded" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				72570E080EE8F4EA000F4CFB /* Debug */,
+				72570E090EE8F4EA000F4CFB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		726121100EE8707600AFED1B /* Build configuration list for PBXNativeTarget "alias" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7261210E0EE8707600AFED1B /* Debug */,
+				7261210F0EE8707600AFED1B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		726121400EE8713B00AFED1B /* Build configuration list for PBXNativeTarget "arp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7261212F0EE8710B00AFED1B /* Debug */,
+				726121300EE8710B00AFED1B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7261214B0EE8717D00AFED1B /* Build configuration list for PBXAggregateTarget "All" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				726121440EE8717500AFED1B /* Debug */,
+				726121450EE8717500AFED1B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		726121630EE8887300AFED1B /* Build configuration list for PBXNativeTarget "ifconfig" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				726121560EE8881800AFED1B /* Debug */,
+				726121570EE8881800AFED1B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		726121870EE8898B00AFED1B /* Build configuration list for PBXNativeTarget "ip6conf" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				726121850EE8897C00AFED1B /* Debug */,
+				726121860EE8897C00AFED1B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7294F0FD0EE8BB550052EC88 /* Build configuration list for PBXNativeTarget "traceroute" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7294F0FB0EE8BB460052EC88 /* Debug */,
+				7294F0FC0EE8BB460052EC88 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7294F13F0EE8BDB30052EC88 /* Build configuration list for PBXNativeTarget "traceroute6" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7294F12C0EE8BD290052EC88 /* Debug */,
+				7294F12D0EE8BD290052EC88 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 724862310EE86EB7001D0DE9 /* Project object */;
+}

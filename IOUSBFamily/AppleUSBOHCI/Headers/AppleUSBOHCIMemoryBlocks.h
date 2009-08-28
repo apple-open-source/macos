@@ -118,4 +118,5 @@ public:
     OHCIIsochTransferDescriptorSharedPtr			GetSharedLogicalPtr(UInt32 index);
     AppleOHCIIsochTransferDescriptorPtr				GetITD(UInt32 index);
 };
+#endif
 

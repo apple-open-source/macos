@@ -5,8 +5,8 @@
 
 <doc:doc>Some ignored documentation the prefix should not show
          up on the doc element</doc:doc>
-<xsl:template xsl:exclude-result-prefixes="doc" match="/">
-<out>SUCCESS</out>
+<xsl:template match="/">
+<out xsl:exclude-result-prefixes="doc">SUCCESS</out>
 </xsl:template>
 
 </xsl:stylesheet>

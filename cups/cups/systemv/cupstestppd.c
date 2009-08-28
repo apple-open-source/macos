@@ -1,9 +1,9 @@
 /*
- * "$Id: cupstestppd.c 7729 2008-07-14 18:06:16Z mike $"
+ * "$Id: cupstestppd.c 7807 2008-07-28 21:54:24Z mike $"
  *
  *   PPD test program for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007-2008 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -28,11 +28,12 @@
  *   check_duplex()       - Check duplex keywords in the PPD file.
  *   check_filters()      - Check filters in the PPD file.
  *   check_profiles()     - Check ICC color profiles in the PPD file.
+ *   check_sizes()        - Check media sizes in the PPD file.
  *   check_translations() - Check translations in the PPD file.
- *   ppd_hash_name()      - Generate a hash value for a device or profile name.
  *   show_conflicts()     - Show option conflicts in a PPD file.
  *   test_raster()        - Test PostScript commands for raster printers.
  *   usage()              - Show program usage...
+ *   valid_path()         - Check whether a path has the correct capitalization.
  *   valid_utf8()         - Check whether a string contains valid UTF-8 text.
  */
 
@@ -42,11 +43,13 @@
 
 #include <cups/string.h>
 #include <cups/cups.h>
+#include <cups/dir.h>
+#include <cups/ppd-private.h>
 #include <cups/i18n.h>
-#include <filter/raster.h>
+#include <cups/raster.h>
 #include <errno.h>
 #include <stdlib.h>
-#include <sys/stat.h>
+#include <math.h>
 
 
 /*
@@ -59,10 +62,11 @@ enum
   WARN_CONSTRAINTS = 1,
   WARN_DEFAULTS = 2,
   WARN_FILTERS = 4,
-  WARN_TRANSLATIONS = 8,
-  WARN_PROFILES = 16,
+  WARN_PROFILES = 8,
+  WARN_TRANSLATIONS = 16,
   WARN_DUPLEX = 32,
-  WARN_ALL = 63
+  WARN_SIZES = 64,
+  WARN_ALL = 127
 };
 
 
@@ -94,6 +98,168 @@ enum
 
 
 /*
+ * Standard Adobe media keywords (must remain sorted)...
+ */
+
+static const char adobe_size_names[][PPD_MAX_NAME] =
+{
+  "10x11",
+  "10x13",
+  "10x14",
+  "12x11",
+  "15x11",
+  "7x9",
+  "8x10",
+  "9x11",
+  "9x12",
+  "A0",
+  "A1",
+  "A10",
+  "A2",
+  "A3",
+  "A3Extra",
+  "A3Rotated",
+  "A4",
+  "A4Extra",
+  "A4Plus",
+  "A4Rotated",
+  "A4Small",
+  "A5",
+  "A5Extra",
+  "A5Rotated",
+  "A6",
+  "A6Rotated",
+  "A7",
+  "A8",
+  "A9",
+  "ARCHA",
+  "ARCHB",
+  "ARCHC",
+  "ARCHD",
+  "ARCHE",
+  "AnsiA",
+  "AnsiB",
+  "AnsiC",
+  "AnsiD",
+  "AnsiE",
+  "B0",
+  "B1",
+  "B1",
+  "B10",
+  "B2",
+  "B3",
+  "B4",
+  "B4Rotated",
+  "B5",
+  "B5Rotated",
+  "B6",
+  "B6Rotated",
+  "B7",
+  "B8",
+  "B9",
+  "C4",
+  "C5",
+  "C6",
+  "DL",
+  "DoublePostcard",
+  "DoublePostcardRotated",
+  "Env10",
+  "Env11",
+  "Env12",
+  "Env14",
+  "Env9",
+  "EnvC0",
+  "EnvC1",
+  "EnvC2",
+  "EnvC3",
+  "EnvC4",
+  "EnvC5",
+  "EnvC6",
+  "EnvC65",
+  "EnvC7",
+  "EnvChou3",
+  "EnvChou3Rotated",
+  "EnvChou4",
+  "EnvChou4Rotated",
+  "EnvDL",
+  "EnvISOB4",
+  "EnvISOB5",
+  "EnvISOB6",
+  "EnvInvite",
+  "EnvItalian",
+  "EnvKaku2",
+  "EnvKaku2Rotated",
+  "EnvKaku3",
+  "EnvKaku3Rotated",
+  "EnvMonarch",
+  "EnvPRC1",
+  "EnvPRC10",
+  "EnvPRC10Rotated",
+  "EnvPRC1Rotated",
+  "EnvPRC2",
+  "EnvPRC2Rotated",
+  "EnvPRC3",
+  "EnvPRC3Rotated",
+  "EnvPRC4",
+  "EnvPRC4Rotated",
+  "EnvPRC5",
+  "EnvPRC5Rotated",
+  "EnvPRC6",
+  "EnvPRC6Rotated",
+  "EnvPRC7",
+  "EnvPRC7Rotated",
+  "EnvPRC8",
+  "EnvPRC8Rotated",
+  "EnvPRC9",
+  "EnvPRC9Rotated",
+  "EnvPersonal",
+  "EnvYou4",
+  "EnvYou4Rotated",
+  "Executive",
+  "FanFoldGerman",
+  "FanFoldGermanLegal",
+  "FanFoldUS",
+  "Folio",
+  "ISOB0",
+  "ISOB1",
+  "ISOB10",
+  "ISOB2",
+  "ISOB3",
+  "ISOB4",
+  "ISOB5",
+  "ISOB5Extra",
+  "ISOB6",
+  "ISOB7",
+  "ISOB8",
+  "ISOB9",
+  "Ledger",
+  "Legal",
+  "LegalExtra",
+  "Letter",
+  "LetterExtra",
+  "LetterPlus",
+  "LetterRotated",
+  "LetterSmall",
+  "Monarch",
+  "Note",
+  "PRC16K",
+  "PRC16KRotated",
+  "PRC32K",
+  "PRC32KBig",
+  "PRC32KBigRotated",
+  "PRC32KRotated",
+  "Postcard",
+  "PostcardRotated",
+  "Quarto",
+  "Statement",
+  "SuperA",
+  "SuperB",
+  "Tabloid",
+  "TabloidExtra"
+};
+
+
+/*
  * Local functions...
  */
 
@@ -109,12 +275,14 @@ static int	check_filters(ppd_file_t *ppd, const char *root, int errors,
 		              int verbose, int warn);
 static int	check_profiles(ppd_file_t *ppd, const char *root, int errors,
 		               int verbose, int warn);
-static int	check_translations(ppd_file_t *ppd, int errors, int verbose,\
+static int	check_sizes(ppd_file_t *ppd, int errors, int verbose, int warn);
+static int	check_translations(ppd_file_t *ppd, int errors, int verbose,
 		                   int warn);
-static unsigned	ppd_hash_name(const char *name);
 static void	show_conflicts(ppd_file_t *ppd);
 static int	test_raster(ppd_file_t *ppd, int verbose);
 static void	usage(void);
+static int	valid_path(const char *keyword, const char *path, int errors,
+		           int verbose, int warn);
 static int	valid_utf8(const char *s);
 
 
@@ -204,6 +372,8 @@ main(int  argc,				/* I - Number of command-line args */
 	        warn |= WARN_FILTERS;
 	      else if (!strcmp(argv[i], "profiles"))
 	        warn |= WARN_PROFILES;
+	      else if (!strcmp(argv[i], "sizes"))
+	        warn |= WARN_SIZES;
 	      else if (!strcmp(argv[i], "translations"))
 	        warn |= WARN_TRANSLATIONS;
 	      else if (!strcmp(argv[i], "all"))
@@ -515,9 +685,28 @@ main(int  argc,				/* I - Number of command-line args */
 	  }
 	}
 
-      if (ppdFindAttr(ppd, "FileVersion", NULL) != NULL)
+      if ((attr = ppdFindAttr(ppd, "FileVersion", NULL)) != NULL)
       {
-	if (verbose > 0)
+        for (ptr = attr->value; *ptr; ptr ++)
+	  if (!isdigit(*ptr & 255) && *ptr != '.')
+	    break;
+
+	if (*ptr)
+	{
+	  if (verbose >= 0)
+	  {
+	    if (!errors && !verbose)
+	      _cupsLangPuts(stdout, _(" FAIL\n"));
+
+	    _cupsLangPrintf(stdout,
+			    _("      **FAIL**  Bad FileVersion \"%s\"\n"
+			      "                REF: Page 56, section 5.3.\n"),
+			    attr->value);
+	  }
+
+	  errors ++;
+	}
+	else if (verbose > 0)
 	  _cupsLangPuts(stdout, _("        PASS    FileVersion\n"));
       }
       else
@@ -535,9 +724,33 @@ main(int  argc,				/* I - Number of command-line args */
 	errors ++;
       }
 
-      if (ppdFindAttr(ppd, "FormatVersion", NULL) != NULL)
+      if ((attr = ppdFindAttr(ppd, "FormatVersion", NULL)) != NULL)
       {
-	if (verbose > 0)
+        ptr = attr->value;
+	if (*ptr == '4' && ptr[1] == '.')
+	{
+	  
+	  for (ptr += 2; *ptr; ptr ++)
+	    if (!isdigit(*ptr & 255))
+	      break;
+        }
+
+	if (*ptr)
+	{
+	  if (verbose >= 0)
+	  {
+	    if (!errors && !verbose)
+	      _cupsLangPuts(stdout, _(" FAIL\n"));
+
+	    _cupsLangPrintf(stdout,
+			    _("      **FAIL**  Bad FormatVersion \"%s\"\n"
+			      "                REF: Page 56, section 5.3.\n"),
+			    attr->value);
+	  }
+
+	  errors ++;
+	}
+	else if (verbose > 0)
 	  _cupsLangPuts(stdout, _("        PASS    FormatVersion\n"));
       }
       else
@@ -1046,6 +1259,9 @@ main(int  argc,				/* I - Number of command-line args */
       if (!(warn & WARN_PROFILES))
         errors = check_profiles(ppd, root, errors, verbose, 0);
 
+      if (!(warn & WARN_SIZES))
+	errors = check_sizes(ppd, errors, verbose, 0);
+
       if (!(warn & WARN_TRANSLATIONS))
         errors = check_translations(ppd, errors, verbose, 0);
 
@@ -1174,11 +1390,16 @@ main(int  argc,				/* I - Number of command-line args */
 	if (warn & WARN_DEFAULTS)
 	  errors = check_defaults(ppd, errors, verbose, 1);
 
+	if (warn & WARN_PROFILES)
+	  errors = check_profiles(ppd, root, errors, verbose, 1);
+
 	if (warn & WARN_FILTERS)
 	  errors = check_filters(ppd, root, errors, verbose, 1);
 
-	if (warn & WARN_PROFILES)
-	  errors = check_profiles(ppd, root, errors, verbose, 1);
+        if (warn & WARN_SIZES)
+	  errors = check_sizes(ppd, errors, verbose, 1);
+        else
+	  errors = check_sizes(ppd, errors, verbose, 2);
 
 	if (warn & WARN_TRANSLATIONS)
 	  errors = check_translations(ppd, errors, verbose, 1);
@@ -1341,36 +1562,6 @@ main(int  argc,				/* I - Number of command-line args */
         	}
 	  }
       }
-
-#ifdef __APPLE__
-     /*
-      * APDialogExtension
-      */
-
-      for (attr = ppdFindAttr(ppd, "APDialogExtension", NULL); 
-	   attr != NULL; 
-	   attr = ppdFindNextAttr(ppd, "APDialogExtension", NULL))
-      {
-	if ((!attr->value || access(attr->value, 0)) && verbose >= 0)
-	  _cupsLangPrintf(stdout, _("        WARN    Missing "
-				    "APDialogExtension file \"%s\"\n"),
-			  attr->value ? attr->value : "<NULL>");
-      }
-
-     /*
-      * APPrinterIconPath
-      */
-
-      for (attr = ppdFindAttr(ppd, "APPrinterIconPath", NULL); 
-	   attr != NULL; 
-	   attr = ppdFindNextAttr(ppd, "APPrinterIconPath", NULL))
-      {
-	if ((!attr->value || access(attr->value, 0)) && verbose >= 0)
-	  _cupsLangPrintf(stdout, _("        WARN    Missing "
-				    "APPrinterIconPath file \"%s\"\n"),
-			  attr->value ? attr->value : "<NULL>");
-      }
-#endif	/* __APPLE__ */
 
       if (verbose > 0)
       {
@@ -1647,73 +1838,302 @@ check_constraints(ppd_file_t *ppd,	/* I - PPD file */
                   int        verbose,	/* I - Verbosity level */
                   int        warn)	/* I - Warnings only? */
 {
-  int		j;			/* Looping var */
-  ppd_const_t	*c;			/* Current constraint */
-  ppd_option_t	*option;		/* Standard UI option */
-  ppd_option_t	*option2;		/* Standard UI option */
-  const char	*prefix;		/* WARN/FAIL prefix */
+  int			i;		/* Looping var */
+  const char		*prefix;	/* WARN/FAIL prefix */
+  ppd_const_t		*c;		/* Current UIConstraints data */
+  ppd_attr_t		*constattr;	/* Current cupsUIConstraints attribute */
+  const char		*vptr;		/* Pointer into constraint value */
+  char			option[PPD_MAX_NAME],
+  					/* Option name/MainKeyword */
+			choice[PPD_MAX_NAME],
+					/* Choice/OptionKeyword */
+			*ptr;		/* Pointer into option or choice */
+  int			num_options;	/* Number of options */
+  cups_option_t		*options;	/* Options */
+  ppd_option_t		*o;		/* PPD option */
 
 
   prefix = warn ? "  WARN  " : "**FAIL**";
 
-  for (j = ppd->num_consts, c = ppd->consts; j > 0; j --, c ++)
+
+ /*
+  * See what kind of constraint data we have in the PPD...
+  */
+
+  if ((constattr = ppdFindAttr(ppd, "cupsUIConstraints", NULL)) != NULL)
   {
-    option  = ppdFindOption(ppd, c->option1);
-    option2 = ppdFindOption(ppd, c->option2);
+   /*
+    * Check new-style cupsUIConstraints data...
+    */
 
-    if (!option || !option2)
+    for (; constattr;
+         constattr = ppdFindNextAttr(ppd, "cupsUIConstraints", NULL))
     {
-      if (!warn && !errors && !verbose)
-	_cupsLangPuts(stdout, _(" FAIL\n"));
+      if (!constattr->value)
+      {
+	if (!warn && !errors && !verbose)
+	  _cupsLangPuts(stdout, _(" FAIL\n"));
 
-      if (!option)
+	_cupsLangPrintf(stdout,
+			_("      %s  Empty cupsUIConstraints %s!\n"),
+			prefix, constattr->spec);
+
+	if (!warn)
+	  errors ++;
+
+        continue;
+      }
+
+      for (i = 0, vptr = strchr(constattr->value, '*');
+           vptr;
+	   i ++, vptr = strchr(vptr + 1, '*'));
+
+      if (i == 0)
+      {
+	if (!warn && !errors && !verbose)
+	  _cupsLangPuts(stdout, _(" FAIL\n"));
+
+	_cupsLangPrintf(stdout,
+			_("      %s  Bad cupsUIConstraints %s: \"%s\"!\n"),
+			prefix, constattr->spec, constattr->value);
+
+	if (!warn)
+	  errors ++;
+
+        continue;
+      }
+
+      cupsArraySave(ppd->sorted_attrs);
+
+      if (constattr->spec[0] &&
+          !ppdFindAttr(ppd, "cupsUIResolver", constattr->spec))
+      {
+	if (!warn && !errors && !verbose)
+	  _cupsLangPuts(stdout, _(" FAIL\n"));
+
+	_cupsLangPrintf(stdout,
+			_("      %s  Missing cupsUIResolver %s!\n"),
+			prefix, constattr->spec);
+
+	if (!warn)
+	  errors ++;
+      }
+
+      cupsArrayRestore(ppd->sorted_attrs);
+
+      num_options = 0;
+      options     = NULL;
+
+      for (vptr = strchr(constattr->value, '*');
+           vptr;
+	   vptr = strchr(vptr, '*'))
+      {
+       /*
+        * Extract "*Option Choice" or just "*Option"...
+	*/
+
+        for (vptr ++, ptr = option; *vptr && !isspace(*vptr & 255); vptr ++)
+	  if (ptr < (option + sizeof(option) - 1))
+	    *ptr++ = *vptr;
+
+        *ptr = '\0';
+
+        while (isspace(*vptr & 255))
+	  vptr ++;
+
+        if (*vptr == '*')
+	  choice[0] = '\0';
+	else
+	{
+	  for (ptr = choice; *vptr && !isspace(*vptr & 255); vptr ++)
+	    if (ptr < (choice + sizeof(choice) - 1))
+	      *ptr++ = *vptr;
+
+	  *ptr = '\0';
+	}
+
+        if (!strncasecmp(option, "Custom", 6) && !strcasecmp(choice, "True"))
+	{
+	  _cups_strcpy(option, option + 6);
+	  strcpy(choice, "Custom");
+	}
+
+        if ((o = ppdFindOption(ppd, option)) == NULL)
+	{
+	  if (!warn && !errors && !verbose)
+	    _cupsLangPuts(stdout, _(" FAIL\n"));
+
+	  _cupsLangPrintf(stdout,
+			  _("      %s  Missing option %s in "
+			    "cupsUIConstraints %s: \"%s\"!\n"),
+			  prefix, option, constattr->spec, constattr->value);
+	  
+	  if (!warn)
+	    errors ++;
+
+	  continue;
+	}
+
+        if (choice[0] && !ppdFindChoice(o, choice))
+	{
+	  if (!warn && !errors && !verbose)
+	    _cupsLangPuts(stdout, _(" FAIL\n"));
+
+	  _cupsLangPrintf(stdout,
+			  _("      %s  Missing choice *%s %s in "
+			    "cupsUIConstraints %s: \"%s\"!\n"),
+			  prefix, option, choice, constattr->spec,
+			  constattr->value);
+
+	  if (!warn)
+	    errors ++;
+
+	  continue;
+	}
+
+        if (choice[0])
+	  num_options = cupsAddOption(option, choice, num_options, &options);
+	else
+	{
+	  for (i = 0; i < o->num_choices; i ++)
+	    if (strcasecmp(o->choices[i].choice, "None") &&
+	        strcasecmp(o->choices[i].choice, "Off") &&
+	        strcasecmp(o->choices[i].choice, "False"))
+            {
+	      num_options = cupsAddOption(option, o->choices[i].choice,
+	                                  num_options, &options);
+              break;
+	    }
+	}
+      }
+
+     /*
+      * Resolvers must list at least two options...
+      */
+
+      if (num_options < 2)
+      {
+	if (!warn && !errors && !verbose)
+	  _cupsLangPuts(stdout, _(" FAIL\n"));
+
+	_cupsLangPrintf(stdout,
+			_("      %s  cupsUIResolver %s does not list at least "
+			  "two different options!\n"),
+			prefix, constattr->spec);
+
+	if (!warn)
+	  errors ++;
+      }
+
+     /*
+      * Test the resolver...
+      */
+
+      if (!cupsResolveConflicts(ppd, NULL, NULL, &num_options, &options))
+      {
+	if (!warn && !errors && !verbose)
+	  _cupsLangPuts(stdout, _(" FAIL\n"));
+
+	_cupsLangPrintf(stdout,
+			_("      %s  cupsUIResolver %s causes a loop!\n"),
+			prefix, constattr->spec);
+
+	if (!warn)
+	  errors ++;
+      }
+
+      cupsFreeOptions(num_options, options);
+    }
+  }
+  else
+  {
+   /*
+    * Check old-style [Non]UIConstraints data...
+    */
+
+    for (i = ppd->num_consts, c = ppd->consts; i > 0; i --, c ++)
+    {
+      if (!strncasecmp(c->option1, "Custom", 6) &&
+          !strcasecmp(c->choice1, "True"))
+      {
+	strcpy(option, c->option1 + 6);
+	strcpy(choice, "Custom");
+      }
+      else
+      {
+	strcpy(option, c->option1);
+	strcpy(choice, c->choice1);
+      }
+
+      if ((o = ppdFindOption(ppd, option)) == NULL)
+      {
+	if (!warn && !errors && !verbose)
+	  _cupsLangPuts(stdout, _(" FAIL\n"));
+
 	_cupsLangPrintf(stdout,
 			_("      %s  Missing option %s in "
-			  "UIConstraint \"*%s %s *%s %s\"!\n"),
+			  "UIConstraints \"*%s %s *%s %s\"!\n"),
 			prefix, c->option1,
 			c->option1, c->choice1, c->option2, c->choice2);
-      
-      if (!option2)
+
+	if (!warn)
+	  errors ++;
+      }
+      else if (choice[0] && !ppdFindChoice(o, choice))
+      {
+	if (!warn && !errors && !verbose)
+	  _cupsLangPuts(stdout, _(" FAIL\n"));
+
+	_cupsLangPrintf(stdout,
+			_("      %s  Missing choice *%s %s in "
+			  "UIConstraints \"*%s %s *%s %s\"!\n"),
+			prefix, c->option1, c->choice1,
+			c->option1, c->choice1, c->option2, c->choice2);
+
+	if (!warn)
+	  errors ++;
+      }
+
+      if (!strncasecmp(c->option2, "Custom", 6) &&
+          !strcasecmp(c->choice2, "True"))
+      {
+	strcpy(option, c->option2 + 6);
+	strcpy(choice, "Custom");
+      }
+      else
+      {
+	strcpy(option, c->option2);
+	strcpy(choice, c->choice2);
+      }
+
+      if ((o = ppdFindOption(ppd, option)) == NULL)
+      {
+	if (!warn && !errors && !verbose)
+	  _cupsLangPuts(stdout, _(" FAIL\n"));
+
 	_cupsLangPrintf(stdout,
 			_("      %s  Missing option %s in "
-			  "UIConstraint \"*%s %s *%s %s\"!\n"),
+			  "UIConstraints \"*%s %s *%s %s\"!\n"),
 			prefix, c->option2,
 			c->option1, c->choice1, c->option2, c->choice2);
 
-      if (!warn)
-        errors ++;
+	if (!warn)
+	  errors ++;
+      }
+      else if (choice[0] && !ppdFindChoice(o, choice))
+      {
+	if (!warn && !errors && !verbose)
+	  _cupsLangPuts(stdout, _(" FAIL\n"));
 
-      continue;
-    }
+	_cupsLangPrintf(stdout,
+			_("      %s  Missing choice *%s %s in "
+			  "UIConstraints \"*%s %s *%s %s\"!\n"),
+			prefix, c->option2, c->choice2,
+			c->option1, c->choice1, c->option2, c->choice2);
 
-    if (c->choice1[0] && !ppdFindChoice(option, c->choice1))
-    {
-      if (!warn && !errors && !verbose)
-	_cupsLangPuts(stdout, _(" FAIL\n"));
-
-      _cupsLangPrintf(stdout,
-		      _("      %s  Missing choice *%s %s in "
-			"UIConstraint \"*%s %s *%s %s\"!\n"),
-		      prefix, c->option1, c->choice1,
-		      c->option1, c->choice1, c->option2, c->choice2);
-
-      if (!warn)
-        errors ++;
-    }
-
-    if (c->choice2[0] && !ppdFindChoice(option2, c->choice2))
-    {
-      if (!warn && !errors && !verbose)
-	_cupsLangPuts(stdout, _(" FAIL\n"));
-
-      _cupsLangPrintf(stdout,
-		      _("      %s  Missing choice *%s %s in "
-			"UIConstraint \"*%s %s *%s %s\"!\n"),
-		      prefix, c->option2, c->choice2,
-		      c->option1, c->choice1, c->option2, c->choice2);
-
-      if (!warn)
-        errors ++;
+	if (!warn)
+	  errors ++;
+      }
     }
   }
 
@@ -1992,6 +2412,10 @@ check_filters(ppd_file_t *ppd,		/* I - PPD file */
 
   prefix = warn ? "  WARN  " : "**FAIL**";
 
+ /*
+  * cupsFilter
+  */
+
   for (i = 0; i < ppd->num_filters; i ++)
   {
     if (sscanf(ppd->filters[i], "%15[^/]/%255s%d%*[ \t]%1023[^\n]", super, type,
@@ -2037,13 +2461,33 @@ check_filters(ppd_file_t *ppd,		/* I - PPD file */
 	if (!warn)
 	  errors ++;
       }
+      else
+        errors = valid_path("cupsFilter", pathprog, errors, verbose, warn);
     }
   }
+
+ /*
+  * cupsPreFilter
+  */
 
   for (attr = ppdFindAttr(ppd, "cupsPreFilter", NULL);
        attr;
        attr = ppdFindNextAttr(ppd, "cupsPreFilter", NULL))
   {
+    if (strcmp(attr->name, "cupsPreFilter"))
+    {
+      if (!warn && !errors && !verbose)
+	_cupsLangPuts(stdout, _(" FAIL\n"));
+
+      if (verbose >= 0)
+	_cupsLangPrintf(stdout,
+			_("      %s  Bad spelling of %s - should be %s!\n"),
+			prefix, attr->name, "cupsPreFilter");
+
+      if (!warn)
+        errors ++;
+    }
+
     if (!attr->value ||
 	sscanf(attr->value, "%15[^/]/%255s%d%*[ \t]%1023[^\n]", super, type,
 	       &cost, program) != 4)
@@ -2088,8 +2532,218 @@ check_filters(ppd_file_t *ppd,		/* I - PPD file */
         if (!warn)
 	  errors ++;
       }
+      else
+        errors = valid_path("cupsPreFilter", pathprog, errors, verbose, warn);
     }
   }
+
+#ifdef __APPLE__
+ /*
+  * APDialogExtension
+  */
+
+  for (attr = ppdFindAttr(ppd, "APDialogExtension", NULL); 
+       attr != NULL; 
+       attr = ppdFindNextAttr(ppd, "APDialogExtension", NULL))
+  {
+    if (strcmp(attr->name, "APDialogExtension"))
+    {
+      if (!warn && !errors && !verbose)
+	_cupsLangPuts(stdout, _(" FAIL\n"));
+
+      if (verbose >= 0)
+	_cupsLangPrintf(stdout,
+			_("      %s  Bad spelling of %s - should be %s!\n"),
+			prefix, attr->name, "APDialogExtension");
+
+      if (!warn)
+        errors ++;
+    }
+
+    if (!attr->value || access(attr->value, 0))
+    {
+      if (!warn && !errors && !verbose)
+	_cupsLangPuts(stdout, _(" FAIL\n"));
+
+      if (verbose >= 0)
+	_cupsLangPrintf(stdout, _("      %s  Missing "
+				  "APDialogExtension file \"%s\"\n"),
+			prefix, attr->value ? attr->value : "<NULL>");
+
+      if (!warn)
+	errors ++;
+    }
+    else
+      errors = valid_path("APDialogExtension", attr->value, errors, verbose,
+                          warn);
+  }
+
+ /*
+  * APPrinterIconPath
+  */
+
+  if ((attr = ppdFindAttr(ppd, "APPrinterIconPath", NULL)) != NULL)
+  {
+    if (strcmp(attr->name, "APPrinterIconPath"))
+    {
+      if (!warn && !errors && !verbose)
+	_cupsLangPuts(stdout, _(" FAIL\n"));
+
+      if (verbose >= 0)
+	_cupsLangPrintf(stdout,
+			_("      %s  Bad spelling of %s - should be %s!\n"),
+			prefix, attr->name, "APPrinterIconPath");
+
+      if (!warn)
+        errors ++;
+    }
+
+    if (!attr->value || access(attr->value, 0))
+    {
+      if (!warn && !errors && !verbose)
+	_cupsLangPuts(stdout, _(" FAIL\n"));
+
+      if (verbose >= 0)
+	_cupsLangPrintf(stdout, _("      %s  Missing "
+				  "APPrinterIconPath file \"%s\"\n"),
+			prefix, attr->value ? attr->value : "<NULL>");
+
+      if (!warn)
+	errors ++;
+    }
+    else
+      errors = valid_path("APPrinterIconPath", attr->value, errors, verbose,
+                          warn);
+  }
+
+ /*
+  * APPrinterLowInkTool
+  */
+
+  if ((attr = ppdFindAttr(ppd, "APPrinterLowInkTool", NULL)) != NULL)
+  {
+    if (strcmp(attr->name, "APPrinterLowInkTool"))
+    {
+      if (!warn && !errors && !verbose)
+	_cupsLangPuts(stdout, _(" FAIL\n"));
+
+      if (verbose >= 0)
+	_cupsLangPrintf(stdout,
+			_("      %s  Bad spelling of %s - should be %s!\n"),
+			prefix, attr->name, "APPrinterLowInkTool");
+
+      if (!warn)
+        errors ++;
+    }
+
+    if (!attr->value || access(attr->value, 0))
+    {
+      if (!warn && !errors && !verbose)
+	_cupsLangPuts(stdout, _(" FAIL\n"));
+
+      if (verbose >= 0)
+	_cupsLangPrintf(stdout, _("      %s  Missing "
+				  "APPrinterLowInkTool file \"%s\"\n"),
+			prefix, attr->value ? attr->value : "<NULL>");
+
+      if (!warn)
+	errors ++;
+    }
+    else
+      errors = valid_path("APPrinterLowInkTool", attr->value, errors, verbose,
+                          warn);
+  }
+
+ /*
+  * APPrinterUtilityPath
+  */
+
+  if ((attr = ppdFindAttr(ppd, "APPrinterUtilityPath", NULL)) != NULL)
+  {
+    if (strcmp(attr->name, "APPrinterUtilityPath"))
+    {
+      if (!warn && !errors && !verbose)
+	_cupsLangPuts(stdout, _(" FAIL\n"));
+
+      if (verbose >= 0)
+	_cupsLangPrintf(stdout,
+			_("      %s  Bad spelling of %s - should be %s!\n"),
+			prefix, attr->name, "APPrinterUtilityPath");
+
+      if (!warn)
+        errors ++;
+    }
+
+    if (!attr->value || access(attr->value, 0))
+    {
+      if (!warn && !errors && !verbose)
+	_cupsLangPuts(stdout, _(" FAIL\n"));
+
+      if (verbose >= 0)
+	_cupsLangPrintf(stdout, _("      %s  Missing "
+				  "APPrinterUtilityPath file \"%s\"\n"),
+			prefix, attr->value ? attr->value : "<NULL>");
+
+      if (!warn)
+	errors ++;
+    }
+    else
+      errors = valid_path("APPrinterUtilityPath", attr->value, errors, verbose,
+                          warn);
+  }
+
+ /*
+  * APScanAppBundleID and APScanAppPath
+  */
+
+  if ((attr = ppdFindAttr(ppd, "APScanAppPath", NULL)) != NULL)
+  {
+    if (strcmp(attr->name, "APScanAppPath"))
+    {
+      if (!warn && !errors && !verbose)
+	_cupsLangPuts(stdout, _(" FAIL\n"));
+
+      if (verbose >= 0)
+	_cupsLangPrintf(stdout,
+			_("      %s  Bad spelling of %s - should be %s!\n"),
+			prefix, attr->name, "APScanAppPath");
+
+      if (!warn)
+        errors ++;
+    }
+
+    if (!attr->value || access(attr->value, 0))
+    {
+      if (!warn && !errors && !verbose)
+	_cupsLangPuts(stdout, _(" FAIL\n"));
+
+      if (verbose >= 0)
+	_cupsLangPrintf(stdout, _("      %s  Missing "
+				  "APScanAppPath file \"%s\"\n"),
+			prefix, attr->value ? attr->value : "<NULL>");
+
+      if (!warn)
+	errors ++;
+    }
+    else
+      errors = valid_path("APScanAppPath", attr->value, errors, verbose,
+                          warn);
+
+    if (ppdFindAttr(ppd, "APScanAppBundleID", NULL))
+    {
+      if (!warn && !errors && !verbose)
+	_cupsLangPuts(stdout, _(" FAIL\n"));
+
+      if (verbose >= 0)
+	_cupsLangPrintf(stdout, _("      %s  Cannot provide both "
+				  "APScanAppPath and APScanAppBundleID!\n"),
+			prefix);
+
+      if (!warn)
+	errors ++;
+    }
+  }
+#endif	/* __APPLE__ */
 
   return (errors);
 }
@@ -2177,12 +2831,14 @@ check_profiles(ppd_file_t *ppd,		/* I - PPD file */
       if (!warn)
 	errors ++;
     }
+    else
+      errors = valid_path("cupsICCProfile", filename, errors, verbose, warn);
 
    /*
     * Check for hash collisions...
     */
 
-    hash = ppd_hash_name(attr->spec);
+    hash = _ppdHashName(attr->spec);
 
     if (num_profiles > 0)
     {
@@ -2223,6 +2879,158 @@ check_profiles(ppd_file_t *ppd,		/* I - PPD file */
 
 
 /*
+ * 'check_sizes()' - Check media sizes in the PPD file.
+ */
+
+static int				/* O - Errors found */
+check_sizes(ppd_file_t *ppd,		/* I - PPD file */
+	    int        errors,		/* I - Errors found */
+	    int        verbose,		/* I - Verbosity level */
+	    int        warn)		/* I - Warnings only? */
+{
+  int		i;			/* Looping vars */
+  ppd_size_t	*size;			/* Current size */
+  int		width,			/* Custom width */
+		length;			/* Custom length */
+  char		name[PPD_MAX_NAME],	/* Size name without dot suffix */
+		*nameptr;		/* Pointer into name */
+  const char	*prefix;		/* WARN/FAIL prefix */
+  ppd_option_t	*page_size,		/* PageSize option */
+		*page_region;		/* PageRegion option */
+
+
+  prefix = warn ? "  WARN  " : "**FAIL**";
+
+  if ((page_size = ppdFindOption(ppd, "PageSize")) == NULL && warn != 2)
+  {
+    if (!warn && !errors && !verbose)
+      _cupsLangPuts(stdout, _(" FAIL\n"));
+
+    if (verbose >= 0)
+      _cupsLangPrintf(stdout,
+		      _("      %s  Missing REQUIRED PageSize option!\n"
+		        "                REF: Page 99, section 5.14.\n"),
+		      prefix);
+
+    if (!warn)
+      errors ++;
+  }
+
+  if ((page_region = ppdFindOption(ppd, "PageRegion")) == NULL && warn != 2)
+  {
+    if (!warn && !errors && !verbose)
+      _cupsLangPuts(stdout, _(" FAIL\n"));
+
+    if (verbose >= 0)
+      _cupsLangPrintf(stdout,
+		      _("      %s  Missing REQUIRED PageRegion option!\n"
+		        "                REF: Page 100, section 5.14.\n"),
+		      prefix);
+
+    if (!warn)
+      errors ++;
+  }
+
+  for (i = ppd->num_sizes, size = ppd->sizes; i > 0; i --, size ++)
+  {
+   /*
+    * Check that the size name is standard...
+    */
+
+    if (!strcmp(size->name, "Custom"))
+    {
+     /*
+      * Skip custom page size...
+      */
+
+      continue;
+    }
+    else if (warn != 2 && size->name[0] == 'w' &&
+             sscanf(size->name, "w%dh%d", &width, &length) == 2)
+    {
+     /*
+      * Validate device-specific size wNNNhNNN should have proper width and
+      * length...
+      */
+
+      if (fabs(width - size->width) >= 1.0 ||
+          fabs(length - size->length) >= 1.0)
+      {
+	if (!warn && !errors && !verbose)
+	  _cupsLangPuts(stdout, _(" FAIL\n"));
+
+	if (verbose >= 0)
+	  _cupsLangPrintf(stdout,
+			  _("      %s  Size \"%s\" has unexpected dimensions "
+			    "(%gx%g)!\n"),
+			  prefix, size->name, size->width, size->length);
+
+	if (!warn)
+	  errors ++;
+      }
+    }
+    else if (warn && verbose >= 0)
+    {
+     /*
+      * Lookup the size name in the standard size table...
+      */
+
+      strlcpy(name, size->name, sizeof(name));
+      if ((nameptr = strchr(name, '.')) != NULL)
+        *nameptr = '\0';
+
+      if (!bsearch(name, adobe_size_names,
+                   sizeof(adobe_size_names) /
+		       sizeof(adobe_size_names[0]),
+		   sizeof(adobe_size_names[0]),
+		   (int (*)(const void *, const void *))strcmp))
+      {
+	_cupsLangPrintf(stdout,
+			_("      %s  Non-standard size name \"%s\"!\n"
+			  "                REF: Page 187, section B.2.\n"),
+			prefix, size->name);
+      }
+    }
+
+   /*
+    * Verify that the size is defined for both PageSize and PageRegion...
+    */
+
+    if (warn != 2 && !ppdFindChoice(page_size, size->name))
+    {
+      if (!warn && !errors && !verbose)
+	_cupsLangPuts(stdout, _(" FAIL\n"));
+
+      if (verbose >= 0)
+	_cupsLangPrintf(stdout,
+			_("      %s  Size \"%s\" defined for %s but not for "
+			  "%s!\n"),
+			prefix, size->name, "PageRegion", "PageSize");
+
+      if (!warn)
+	errors ++;
+    }
+    else if (warn != 2 && !ppdFindChoice(page_region, size->name))
+    {
+      if (!warn && !errors && !verbose)
+	_cupsLangPuts(stdout, _(" FAIL\n"));
+
+      if (verbose >= 0)
+	_cupsLangPrintf(stdout,
+			_("      %s  Size \"%s\" defined for %s but not for "
+			  "%s!\n"),
+			prefix, size->name, "PageSize", "PageRegion");
+
+      if (!warn)
+	errors ++;
+    }
+  }
+
+  return (errors);
+}
+
+
+/*
  * 'check_translations()' - Check translations in the PPD file.
  */
 
@@ -2234,9 +3042,9 @@ check_translations(ppd_file_t *ppd,	/* I - PPD file */
 {
   int		j;			/* Looping var */
   ppd_attr_t	*attr;			/* PPD attribute */
-  char		*languages,		/* Copy of attribute value */
-		*langstart,		/* Start of current language */
-		*langptr,		/* Pointer into languages */
+  cups_array_t	*languages;		/* Array of languages */
+  int		langlen;		/* Length of language */
+  char		*language,		/* Current language */
 		keyword[PPD_MAX_NAME],	/* Localization keyword (full) */
 		llkeyword[PPD_MAX_NAME],/* Localization keyword (base) */
 		ckeyword[PPD_MAX_NAME],	/* Custom option keyword (full) */
@@ -2245,7 +3053,6 @@ check_translations(ppd_file_t *ppd,	/* I - PPD file */
   ppd_option_t	*option;		/* Standard UI option */
   ppd_coption_t	*coption;		/* Custom option */
   ppd_cparam_t	*cparam;		/* Custom parameter */
-  cups_array_t	*langlist;		/* List of languages so far */
   char		ll[3];			/* Base language */
   const char	*prefix;		/* WARN/FAIL prefix */
   const char	*text;			/* Pointer into UI text */
@@ -2253,43 +3060,18 @@ check_translations(ppd_file_t *ppd,	/* I - PPD file */
 
   prefix = warn ? "  WARN  " : "**FAIL**";
 
-  if ((attr = ppdFindAttr(ppd, "cupsLanguages", NULL)) != NULL &&
-      attr->value)
+  if ((languages = _ppdGetLanguages(ppd)) != NULL)
   {
    /*
     * This file contains localizations, check them...
     */
 
-    if ((languages = strdup(attr->value)) == NULL)
-      return (1);
-
-    langlist = cupsArrayNew((cups_array_func_t)strcmp, NULL);
-
-    for (langptr = languages; *langptr;)
+    for (language = (char *)cupsArrayFirst(languages);
+         language;
+	 language = (char *)cupsArrayNext(languages))
     {
-     /*
-      * Skip leading whitespace...
-      */
-
-      while (isspace(*langptr & 255))
-	langptr ++;
-
-      if (!*langptr)
-	break;
-
-     /*
-      * Find the end of this language name...
-      */
-
-      for (langstart = langptr;
-	   *langptr && !isspace(*langptr & 255);
-	   langptr ++);
-
-      if (*langptr)
-	*langptr++ = '\0';
-
-      j = strlen(langstart);
-      if (j != 2 && j != 5)
+      langlen = strlen(language);
+      if (langlen != 2 && langlen != 5)
       {
 	if (!warn && !errors && !verbose)
 	  _cupsLangPuts(stdout, _(" FAIL\n"));
@@ -2297,7 +3079,7 @@ check_translations(ppd_file_t *ppd,	/* I - PPD file */
 	if (verbose >= 0)
 	  _cupsLangPrintf(stdout,
 			  _("      %s  Bad language \"%s\"!\n"),
-			  prefix, langstart);
+			  prefix, language);
 
 	if (!warn)
 	  errors ++;
@@ -2305,12 +3087,10 @@ check_translations(ppd_file_t *ppd,	/* I - PPD file */
 	continue;
       }
 
-      if (!strcmp(langstart, "en"))
+      if (!strcmp(language, "en"))
         continue;
 
-      cupsArrayAdd(langlist, langstart);
-
-      strlcpy(ll, langstart, sizeof(ll));
+      strlcpy(ll, language, sizeof(ll));
 
      /*
       * Loop through all options and choices...
@@ -2323,7 +3103,7 @@ check_translations(ppd_file_t *ppd,	/* I - PPD file */
         if (!strcmp(option->keyword, "PageRegion"))
 	  continue;
 
-	snprintf(keyword, sizeof(keyword), "%s.Translation", langstart);
+	snprintf(keyword, sizeof(keyword), "%s.Translation", language);
 	snprintf(llkeyword, sizeof(llkeyword), "%s.Translation", ll);
 
 	if ((attr = ppdFindAttr(ppd, keyword, option->keyword)) == NULL &&
@@ -2336,7 +3116,7 @@ check_translations(ppd_file_t *ppd,	/* I - PPD file */
 	    _cupsLangPrintf(stdout,
 			    _("      %s  Missing \"%s\" translation "
 			      "string for option %s!\n"),
-			    prefix, langstart, option->keyword);
+			    prefix, language, option->keyword);
 
           if (!warn)
 	    errors ++;
@@ -2350,13 +3130,13 @@ check_translations(ppd_file_t *ppd,	/* I - PPD file */
 	    _cupsLangPrintf(stdout,
 			    _("      %s  Bad UTF-8 \"%s\" translation "
 			      "string for option %s!\n"),
-			    prefix, langstart, option->keyword);
+			    prefix, language, option->keyword);
 
 	  if (!warn)
 	    errors ++;
 	}
 
-	snprintf(keyword, sizeof(keyword), "%s.%s", langstart,
+	snprintf(keyword, sizeof(keyword), "%s.%s", language,
 		 option->keyword);
 	snprintf(llkeyword, sizeof(llkeyword), "%s.%s", ll,
 		 option->keyword);
@@ -2384,7 +3164,7 @@ check_translations(ppd_file_t *ppd,	/* I - PPD file */
 					     option->keyword)) != NULL)
 	  {
 	    snprintf(ckeyword, sizeof(ckeyword), "%s.Custom%s",
-		     langstart, option->keyword);
+		     language, option->keyword);
 
 	    if ((attr = ppdFindAttr(ppd, ckeyword, "True")) != NULL &&
 		!valid_utf8(attr->text))
@@ -2397,8 +3177,8 @@ check_translations(ppd_file_t *ppd,	/* I - PPD file */
 				_("      %s  Bad UTF-8 \"%s\" "
 				  "translation string for option %s, "
 				  "choice %s!\n"),
-				prefix, langstart,
-				ckeyword + 1 + strlen(langstart),
+				prefix, language,
+				ckeyword + 1 + strlen(language),
 				"True");
 
               if (!warn)
@@ -2412,7 +3192,7 @@ check_translations(ppd_file_t *ppd,	/* I - PPD file */
 		   cparam = (ppd_cparam_t *)cupsArrayNext(coption->params))
 	      {
 		snprintf(ckeyword, sizeof(ckeyword), "%s.ParamCustom%s",
-			 langstart, option->keyword);
+			 language, option->keyword);
 		snprintf(cllkeyword, sizeof(cllkeyword), "%s.ParamCustom%s",
 			 ll, option->keyword);
 
@@ -2429,8 +3209,8 @@ check_translations(ppd_file_t *ppd,	/* I - PPD file */
 				    _("      %s  Missing \"%s\" "
 				      "translation string for option %s, "
 				      "choice %s!\n"),
-				    prefix, langstart,
-				    ckeyword + 1 + strlen(langstart),
+				    prefix, language,
+				    ckeyword + 1 + strlen(language),
 				    cparam->name);
 
                   if (!warn)
@@ -2446,8 +3226,8 @@ check_translations(ppd_file_t *ppd,	/* I - PPD file */
 				    _("      %s  Bad UTF-8 \"%s\" "
 				      "translation string for option %s, "
 				      "choice %s!\n"),
-				    prefix, langstart,
-				    ckeyword + 1 + strlen(langstart),
+				    prefix, language,
+				    ckeyword + 1 + strlen(language),
 				    cparam->name);
 
 		  if (!warn)
@@ -2469,7 +3249,7 @@ check_translations(ppd_file_t *ppd,	/* I - PPD file */
 			      _("      %s  Missing \"%s\" "
 				"translation string for option %s, "
 				"choice %s!\n"),
-			      prefix, langstart, option->keyword,
+			      prefix, language, option->keyword,
 			      option->choices[j].choice);
 
 	    if (!warn)
@@ -2485,7 +3265,7 @@ check_translations(ppd_file_t *ppd,	/* I - PPD file */
 			      _("      %s  Bad UTF-8 \"%s\" "
 				"translation string for option %s, "
 				"choice %s!\n"),
-			      prefix, langstart, option->keyword,
+			      prefix, language, option->keyword,
 			      option->choices[j].choice);
 
 	    if (!warn)
@@ -2499,20 +3279,20 @@ check_translations(ppd_file_t *ppd,	/* I - PPD file */
     * Verify that we have the base language for each localized one...
     */
 
-    for (langptr = (char *)cupsArrayFirst(langlist);
-	 langptr;
-	 langptr = (char *)cupsArrayNext(langlist))
-      if (langptr[2])
+    for (language = (char *)cupsArrayFirst(languages);
+	 language;
+	 language = (char *)cupsArrayNext(languages))
+      if (language[2])
       {
        /*
 	* Lookup the base language...
 	*/
 
-	cupsArraySave(langlist);
+	cupsArraySave(languages);
 
-	strlcpy(ll, langptr, sizeof(ll));
+	strlcpy(ll, language, sizeof(ll));
 
-	if (!cupsArrayFind(langlist, ll) &&
+	if (!cupsArrayFind(languages, ll) &&
 	    strcmp(ll, "zh") && strcmp(ll, "en"))
 	{
 	  if (!warn && !errors && !verbose)
@@ -2527,39 +3307,17 @@ check_translations(ppd_file_t *ppd,	/* I - PPD file */
 	    errors ++;
 	}
 
-	cupsArrayRestore(langlist);
+	cupsArrayRestore(languages);
       }
 
    /*
     * Free memory used for the languages...
     */
 
-    cupsArrayDelete(langlist);
-    free(languages);
+    _ppdFreeLanguages(languages);
   }
 
   return (errors);
-}
-
-
-/*
- * 'ppd_hash_name()' - Generate a hash value for a device or profile name.
- *
- * This function is primarily used on Mac OS X, but is generally accessible
- * since cupstestppd needs to check for profile name collisions in PPD files...
- */
-
-unsigned				/* O - Hash value */
-ppd_hash_name(const char *name)		/* I - Name to hash */
-{
-  int		mult;			/* Multiplier */
-  unsigned	hash = 0;		/* Hash value */
-
-
-  for (mult = 1; *name && mult <= 128; mult ++, name ++)
-    hash += (*name & 255) * mult;
-
-  return (hash);
 }
 
 
@@ -2730,7 +3488,7 @@ usage(void)
 		  "\n"
 		  "    -R root-directory    Set alternate root\n"
 		  "    -W {all,none,constraints,defaults,duplex,filters,"
-		  "translations}\n"
+		  "profiles,sizes,translations}\n"
 		  "                         Issue warnings instead of errors\n"
 		  "    -q                   Run silently\n"
 		  "    -r                   Use 'relaxed' open mode\n"
@@ -2738,6 +3496,89 @@ usage(void)
 		  "    -vv                  Be very verbose\n"));
 
   exit(ERROR_USAGE);
+}
+
+
+/*
+ * 'valid_path()' - Check whether a path has the correct capitalization.
+ */
+
+static int				/* O - Errors found */
+valid_path(const char *keyword,		/* I - Keyword using path */
+           const char *path,		/* I - Path to check */
+	   int        errors,		/* I - Errors found */
+	   int        verbose,		/* I - Verbosity level */
+	   int        warn)		/* I - Warnings only? */
+{
+  cups_dir_t	*dir;			/* Current directory */
+  cups_dentry_t	*dentry;		/* Current directory entry */
+  char		temp[1024],		/* Temporary path */
+		*ptr;			/* Pointer into temporary path */
+  const char	*prefix;		/* WARN/FAIL prefix */
+
+
+  prefix = warn ? "  WARN  " : "**FAIL**";
+
+ /*
+  * Loop over the components of the path, checking that the entry exists with
+  * the same capitalization...
+  */
+
+  strlcpy(temp, path, sizeof(temp));
+
+  while ((ptr = strrchr(temp, '/')) != NULL)
+  {
+   /*
+    * Chop off the trailing component so temp == dirname and ptr == basename.
+    */
+
+    *ptr++ = '\0';
+
+   /*
+    * Try opening the directory containing the base name...
+    */
+
+    if (temp[0])
+      dir = cupsDirOpen(temp);
+    else
+      dir = cupsDirOpen("/");
+
+    if (!dir)
+      dentry = NULL;
+    else
+    {
+      while ((dentry = cupsDirRead(dir)) != NULL)
+      {
+        if (!strcmp(dentry->filename, ptr))
+	  break;
+      }
+
+      cupsDirClose(dir);
+    }
+
+   /*
+    * Display an error if the filename doesn't exist with the same
+    * capitalization...
+    */
+
+    if (!dentry)
+    {
+      if (!warn && !errors && !verbose)
+	_cupsLangPuts(stdout, _(" FAIL\n"));
+
+      if (verbose >= 0)
+	_cupsLangPrintf(stdout,
+			_("      %s  %s file \"%s\" has the wrong "
+			  "capitalization!\n"), prefix, keyword, path);
+
+      if (!warn)
+	errors ++;
+
+      break;
+    }
+  }
+
+  return (errors);
 }
 
 
@@ -2818,5 +3659,5 @@ valid_utf8(const char *s)		/* I - String to check */
 
 
 /*
- * End of "$Id: cupstestppd.c 7729 2008-07-14 18:06:16Z mike $".
+ * End of "$Id: cupstestppd.c 7807 2008-07-28 21:54:24Z mike $".
  */

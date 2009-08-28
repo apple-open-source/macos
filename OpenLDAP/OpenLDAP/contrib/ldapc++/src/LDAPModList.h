@@ -1,3 +1,4 @@
+// $OpenLDAP: pkg/ldap/contrib/ldapc++/src/LDAPModList.h,v 1.7.6.2 2008/04/14 23:29:26 quanah Exp $
 /*
  * Copyright 2000, OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
@@ -15,9 +16,9 @@
  * This container class is used to store multiple LDAPModification-objects.
  */
 class LDAPModList{
-        typedef std::list<LDAPModification> ListType;
+    typedef std::list<LDAPModification> ListType;
 
-	public : 
+    public : 
         /**
          * Constructs an empty list.
          */   
@@ -40,7 +41,17 @@ class LDAPModList{
          */
         LDAPMod** toLDAPModArray();
 
-	private : 
+        /**
+         * @returns true, if the ModList contains no Operations
+         */
+        bool empty() const;
+        
+        /**
+         * @returns number of Modifications in the ModList
+         */
+        unsigned int size() const;
+
+    private : 
         ListType m_modList;
 };
 #endif //LDAP_MOD_LIST_H

@@ -1,7 +1,6 @@
 /*
 *****************************************************************************************
-*   Copyright (C) 2006, Apple Computer, Inc.
-*   All Rights Reserved.
+* Copyright (C) 2006-2008 Apple Inc. All Rights Reserved.
 *****************************************************************************************
 */
 
@@ -67,6 +66,24 @@ urbtok_openBinaryRules(const uint8_t *rules,
     return uBI;
 }
 
+U_CAPI UBreakIterator* U_EXPORT2
+urbtok_openBinaryRulesNoCopy(const uint8_t *rules,
+               UErrorCode      *status)
+{
+    if (status == NULL || U_FAILURE(*status)){
+        return 0;
+    }
+
+    BreakIterator *result = 0;
+    result = new RuleBasedTokenizer(rules, RuleBasedTokenizer::kDontAdopt, *status);
+    if(U_FAILURE(*status)) {
+        return 0;
+    }
+
+    UBreakIterator *uBI = (UBreakIterator *)result;
+    return uBI;
+}
+
 U_CAPI uint32_t U_EXPORT2
 urbtok_getBinaryRules(UBreakIterator      *bi,
                 uint8_t             *buffer,
@@ -109,6 +126,8 @@ urbtok_swapBinaryRules(const uint8_t *rules,
                UBool            outIsBigEndian,
                UErrorCode       *status)
 {
+    DataHeader *outH = NULL;
+    int32_t outLength = 0;
     UDataSwapper *ds = udata_openSwapper(inIsBigEndian, U_CHARSET_FAMILY, outIsBigEndian, U_CHARSET_FAMILY, status);
     
     if (status == NULL || U_FAILURE(*status)){
@@ -124,7 +143,7 @@ urbtok_swapBinaryRules(const uint8_t *rules,
         *status = U_MEMORY_ALLOCATION_ERROR;
         goto closeSwapper;
     }
-    DataHeader *outH = (DataHeader *)uprv_malloc(totalLength);
+    outH = (DataHeader *)uprv_malloc(totalLength);
     if (outH == 0)
     {
         *status = U_MEMORY_ALLOCATION_ERROR;
@@ -148,7 +167,7 @@ urbtok_swapBinaryRules(const uint8_t *rules,
     dh->info.dataVersion[3] = 0;
     uprv_memcpy(((uint8_t*)dh) + sizeof(DataHeader), rules, length);
     
-    int32_t outLength = ubrk_swap(ds, dh, totalLength, outH, status);
+    outLength = ubrk_swap(ds, dh, totalLength, outH, status);
     if (U_SUCCESS(*status) && outLength != totalLength)   // something went horribly wrong
     {
         *status = U_INVALID_FORMAT_ERROR;

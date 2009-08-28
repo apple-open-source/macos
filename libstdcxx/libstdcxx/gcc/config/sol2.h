@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* We use stabs-in-elf for debugging, because that is what the native
    toolchain uses.  */
@@ -47,8 +47,8 @@ Boston, MA 02111-1307, USA.  */
 
 #undef CPP_SUBTARGET_SPEC
 #define CPP_SUBTARGET_SPEC "\
-%{pthreads:-D_REENTRANT -D_PTHREADS} \
-%{!pthreads:%{threads:-D_REENTRANT -D_SOLARIS_THREADS}} \
+%{pthreads|pthread:-D_REENTRANT -D_PTHREADS} \
+%{!pthreads:%{!pthread:%{threads:-D_REENTRANT -D_SOLARIS_THREADS}}} \
 %{compat-bsd:-iwithprefixbefore ucbinclude -I/usr/ucbinclude} \
 "
 
@@ -72,11 +72,6 @@ Boston, MA 02111-1307, USA.  */
 	    builtin_define ("_LARGEFILE64_SOURCE=1");	\
 	    builtin_define ("__EXTENSIONS__");		\
 	  }						\
-	if (flag_pic)					\
-	  {						\
-	    builtin_define ("__PIC__");			\
-	    builtin_define ("__pic__");			\
-	  }						\
 	TARGET_SUB_OS_CPP_BUILTINS();			\
     } while (0)
 
@@ -98,8 +93,8 @@ Boston, MA 02111-1307, USA.  */
   "%{compat-bsd:-lucb -lsocket -lnsl -lelf -laio} \
    %{!shared:\
      %{!symbolic:\
-       %{pthreads:-lpthread} \
-       %{!pthreads:%{threads:-lthread}} \
+       %{pthreads|pthread:-lpthread} \
+       %{!pthreads:%{!pthread:%{threads:-lthread}}} \
        %{p|pg:-ldl} -lc}}"
 
 #undef  ENDFILE_SPEC
@@ -146,7 +141,7 @@ Boston, MA 02111-1307, USA.  */
 #undef  LINK_SPEC
 #define LINK_SPEC \
   "%{h*} %{v:-V} \
-   %{b} %{Wl,*:%*} \
+   %{b} \
    %{static:-dn -Bstatic} \
    %{shared:-G -dy %{!mimpure-text:-z text}} \
    %{symbolic:-Bsymbolic -G -dy -z text} \

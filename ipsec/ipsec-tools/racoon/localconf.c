@@ -64,7 +64,11 @@
 
 #ifdef __APPLE__
 #include <CoreFoundation/CoreFoundation.h>
+#if HAVE_SECURITY_FRAMEWORK
 #include <Security/Security.h>
+#else
+typedef void * SecKeychainRef;
+#endif
 #endif
 
 struct localconf *lcconf;
@@ -135,6 +139,7 @@ setdefault()
 	lcconf->natt_ka_interval = LC_DEFAULT_NATT_KA_INTERVAL;
 	lcconf->auto_exit_delay = 0;
 	lcconf->auto_exit_state &= ~LC_AUTOEXITSTATE_SET;
+	lcconf->auto_exit_state |= LC_AUTOEXITSTATE_CLIENT;				/* always auto exit as default */
 }
 
 /*
@@ -165,7 +170,7 @@ end:
 	return key;
 }
 
-#ifdef __APPLE__
+#if defined(__APPLE__) && HAVE_KEYCHAIN
 /*
  * get PSK from keyChain.
  */
@@ -210,7 +215,7 @@ getpskfromkeychain(const char *name, u_int8_t etype, int secrettype, vchar_t *id
 			case IPSECDOI_ID_IPV6_ADDR_RANGE:
 			case IPSECDOI_ID_DER_ASN1_DN:
 			case IPSECDOI_ID_DER_ASN1_GN:
-				goto end;
+				goto no_id;
 				break;
 				
 			case IPSECDOI_ID_FQDN:
@@ -239,11 +244,23 @@ getpskfromkeychain(const char *name, u_int8_t etype, int secrettype, vchar_t *id
 								&cur_password,
 								NULL);
 
+		/* try find it using using only the peer id. */
+		if (status == errSecItemNotFound) 
+			status = SecKeychainFindGenericPassword(keychain,
+								idlen,
+								peer_id,
+								0,
+								0,
+								&cur_password_len,
+								&cur_password,
+								NULL);
+	
 		if (status == noErr)
 			goto end;
 		/* otherwise fall through to use the default value */
 	}
 	
+no_id:
 	/*	use the value in remote config sharedsecret field
 		this is either the value specified for lookup or the 
 		default when lookup by id fails.
@@ -481,4 +498,6 @@ doitype2doi(doitype)
 		return lc_doitype2doi[doitype];
 	return -1;
 }
+
+
 

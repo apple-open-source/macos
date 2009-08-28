@@ -162,6 +162,19 @@ EXTRA_DIST = \
     bug-152.out bug-152.xsl \
     bug-153.out bug-153.xsl \
     bug-154.out bug-154.xsl \
+    bug-155.out bug-155.xsl \
+    bug-156.err bug-156.out bug-156.xsl \
+    bug-156.imp1.imp bug-156.imp2.imp \
+    bug-157.err bug-157.out bug-157.xsl \
+    bug-158.out bug-158.xsl \
+    bug-159.out bug-159.xsl \
+    bug-160.out bug-160.xsl \
+    bug-161.out bug-161.xsl \
+    bug-163.out bug-163.xsl \
+    bug-164.out bug-164.xsl \
+    bug-165.out bug-165.xsl bug-145.err \
+    bug-166.out bug-166.xsl \
+    bug-167.out bug-167.xsl \
     character.out character.xsl \
     character2.out character2.xsl \
     itemschoose.out itemschoose.xsl \
@@ -187,6 +200,38 @@ test tests: $(top_builddir)/xsltproc/xsltproc
 	  out=$(srcdir)/"$$name".out; \
 	  err=$(srcdir)/"$$name".err; \
 	  log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc $$j $$i \
+	  	> result.$$name 2>err.$$name; \
+	  if [ ! -f $$out ] ; then \
+	  	cp result.$$name $$out ; \
+		if [ -s err.$$name ] ; then \
+			cp err.$$name $$err ; \
+		fi ; \
+	  else \
+	  	diff $$out result.$$name; \
+		if [ -s $$err ] ; then \
+	  		diff $$err err.$$name; \
+		else \
+			diff /dev/null err.$$name; \
+		fi ; \
+	  fi ; \
+	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`;\
+	  if [ -n "$$log" ] ; then \
+	  	echo $$name result ; \
+		echo $$log ; \
+	  fi ; \
+	  rm -f result.$$name err.$$name; \
+	  done ; done)
+	@echo '## Running general tests without dictionaries'
+	-@(for i in $(srcdir)/../docs/*.xml ; do \
+	  if [ -d $$i ] ; then continue ; fi ; \
+	  doc=`basename $$i .xml` ; \
+	  for j in $(srcdir)/$$doc*.xsl ; do \
+	  if [ ! -f $$j ] ; then continue ; fi ; \
+	  if [ -d $$j ] ; then continue ; fi ; \
+	  name=`basename $$j .xsl`; \
+	  out=$(srcdir)/"$$name".out; \
+	  err=$(srcdir)/"$$name".err; \
+	  log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc --nodict $$j $$i \
 	  	> result.$$name 2>err.$$name; \
 	  if [ ! -f $$out ] ; then \
 	  	cp result.$$name $$out ; \

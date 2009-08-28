@@ -11,7 +11,7 @@
  */
 
 #ifndef lint
-static const char rcsid[] __attribute__((__unused__)) = "$OpenBSD: getoldopt.c,v 1.8 2003/07/02 21:19:33 deraadt Exp $";
+static const char rcsid[] = "$OpenBSD: getoldopt.c,v 1.8 2003/07/02 21:19:33 deraadt Exp $";
 #endif /* not lint */
 
 #include <sys/types.h>

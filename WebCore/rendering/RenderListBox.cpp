@@ -42,7 +42,6 @@
 #include "FrameView.h"
 #include "GraphicsContext.h"
 #include "HTMLNames.h"
-#include "HTMLSelectElement.h"
 #include "HitTestResult.h"
 #include "OptionGroupElement.h"
 #include "OptionElement.h"
@@ -51,6 +50,7 @@
 #include "RenderTheme.h"
 #include "RenderView.h"
 #include "Scrollbar.h"
+#include "SelectElement.h"
 #include "SelectionController.h"
 #include "NodeRenderStyle.h"
 #include <math.h>
@@ -72,7 +72,7 @@ const int maxDefaultSize = 10;
 // widget, but I'm not sure this is right for the new control.
 const int baselineAdjustment = 7;
 
-RenderListBox::RenderListBox(HTMLSelectElement* element)
+RenderListBox::RenderListBox(Element* element)
     : RenderBlock(element)
     , m_optionsChanged(true)
     , m_scrollToRevealSelectionAfterLayout(false)
@@ -96,12 +96,12 @@ void RenderListBox::styleDidChange(StyleDifference diff, const RenderStyle* oldS
 void RenderListBox::updateFromElement()
 {
     if (m_optionsChanged) {
-        const Vector<HTMLElement*>& listItems = static_cast<HTMLSelectElement*>(node())->listItems();
+        const Vector<Element*>& listItems = toSelectElement(static_cast<Element*>(node()))->listItems();
         int size = numItems();
         
         float width = 0;
         for (int i = 0; i < size; ++i) {
-            HTMLElement* element = listItems[i];
+            Element* element = listItems[i];
             String text;
             Font itemFont = style()->font();
             if (OptionElement* optionElement = toOptionElement(element))
@@ -151,7 +151,7 @@ void RenderListBox::layout()
 
 void RenderListBox::scrollToRevealSelection()
 {    
-    HTMLSelectElement* select = static_cast<HTMLSelectElement*>(node());
+    SelectElement* select = toSelectElement(static_cast<Element*>(node()));
 
     m_scrollToRevealSelectionAfterLayout = false;
 
@@ -197,7 +197,7 @@ void RenderListBox::calcPrefWidths()
 
 int RenderListBox::size() const
 {
-    int specifiedSize = static_cast<HTMLSelectElement*>(node())->size();
+    int specifiedSize = toSelectElement(static_cast<Element*>(node()))->size();
     if (specifiedSize > 1)
         return max(minSize, specifiedSize);
     return min(max(minSize, numItems()), maxDefaultSize);
@@ -211,7 +211,7 @@ int RenderListBox::numVisibleItems() const
 
 int RenderListBox::numItems() const
 {
-    return static_cast<HTMLSelectElement*>(node())->listItems().size();
+    return toSelectElement(static_cast<Element*>(node()))->listItems().size();
 }
 
 int RenderListBox::listHeight() const
@@ -293,9 +293,9 @@ void RenderListBox::paintScrollbar(PaintInfo& paintInfo, int tx, int ty)
 
 void RenderListBox::paintItemForeground(PaintInfo& paintInfo, int tx, int ty, int listIndex)
 {
-    HTMLSelectElement* select = static_cast<HTMLSelectElement*>(node());
-    const Vector<HTMLElement*>& listItems = select->listItems();
-    HTMLElement* element = listItems[listIndex];
+    SelectElement* select = toSelectElement(static_cast<Element*>(node()));
+    const Vector<Element*>& listItems = select->listItems();
+    Element* element = listItems[listIndex];
     OptionElement* optionElement = toOptionElement(element);
 
     String itemText;
@@ -324,7 +324,7 @@ void RenderListBox::paintItemForeground(PaintInfo& paintInfo, int tx, int ty, in
     paintInfo.context->setFillColor(textColor);
 
     Font itemFont = style()->font();
-    if (element->hasTagName(optgroupTag)) {
+    if (isOptionGroupElement(element)) {
         FontDescription d = itemFont.fontDescription();
         d.setWeight(d.bolderWeight());
         itemFont = Font(d, itemFont.letterSpacing(), itemFont.wordSpacing());
@@ -342,9 +342,9 @@ void RenderListBox::paintItemForeground(PaintInfo& paintInfo, int tx, int ty, in
 
 void RenderListBox::paintItemBackground(PaintInfo& paintInfo, int tx, int ty, int listIndex)
 {
-    HTMLSelectElement* select = static_cast<HTMLSelectElement*>(node());
-    const Vector<HTMLElement*>& listItems = select->listItems();
-    HTMLElement* element = listItems[listIndex];
+    SelectElement* select = toSelectElement(static_cast<Element*>(node()));
+    const Vector<Element*>& listItems = select->listItems();
+    Element* element = listItems[listIndex];
     OptionElement* optionElement = toOptionElement(element);
 
     Color backColor;
@@ -370,7 +370,7 @@ bool RenderListBox::isPointInOverflowControl(HitTestResult& result, int _x, int 
         return false;
 
     IntRect vertRect(_tx + width() - borderRight() - m_vBar->width(),
-                     _ty,
+                     _ty + borderTop(),
                      m_vBar->width(),
                      height() - borderTop() - borderBottom());
 
@@ -416,29 +416,29 @@ void RenderListBox::panScroll(const IntPoint& panStartMousePosition)
 
     int yDelta = currentMousePosition.y() - panStartMousePosition.y();
 
-   // If the point is too far from the center we limit the speed
+    // If the point is too far from the center we limit the speed
     yDelta = max(min(yDelta, maxSpeed), -maxSpeed);
     
-    if(abs(yDelta) < iconRadius) // at the center we let the space for the icon
+    if (abs(yDelta) < iconRadius) // at the center we let the space for the icon
         return;
 
     if (yDelta > 0)
         //offsetY = view()->viewHeight();
         absOffset.move(0, listHeight());
-   else if (yDelta < 0)
-       yDelta--;
+    else if (yDelta < 0)
+        yDelta--;
 
     // Let's attenuate the speed
     yDelta /= speedReducer;
 
-    IntPoint scrollPoint(0,0);
+    IntPoint scrollPoint(0, 0);
     scrollPoint.setY(absOffset.y() + yDelta);
     int newOffset = scrollToward(scrollPoint);
     if (newOffset < 0) 
         return;
 
     m_inAutoscroll = true;
-    HTMLSelectElement* select = static_cast<HTMLSelectElement*>(node());
+    SelectElement* select = toSelectElement(static_cast<Element*>(node()));
     select->updateListBoxSelection(!select->multiple());
     m_inAutoscroll = false;
 }
@@ -468,7 +468,7 @@ void RenderListBox::autoscroll()
 
     int endIndex = scrollToward(pos);
     if (endIndex >= 0) {
-        HTMLSelectElement* select = static_cast<HTMLSelectElement*>(node());
+        SelectElement* select = toSelectElement(static_cast<Element*>(node()));
         m_inAutoscroll = true;
 
         if (!select->multiple())
@@ -482,7 +482,7 @@ void RenderListBox::autoscroll()
 
 void RenderListBox::stopAutoscroll()
 {
-    static_cast<HTMLSelectElement*>(node())->listBoxOnChange();
+    toSelectElement(static_cast<Element*>(node()))->listBoxOnChange();
 }
 
 bool RenderListBox::scrollToRevealElementAtListIndex(int index)
@@ -515,9 +515,10 @@ bool RenderListBox::scroll(ScrollDirection direction, ScrollGranularity granular
 
 void RenderListBox::valueChanged(unsigned listIndex)
 {
-    HTMLSelectElement* select = static_cast<HTMLSelectElement*>(node());
+    Element* element = static_cast<Element*>(node());
+    SelectElement* select = toSelectElement(element);
     select->setSelectedIndex(select->listToOptionIndex(listIndex));
-    select->onChange();
+    element->dispatchFormControlChangeEvent();
 }
 
 void RenderListBox::valueChanged(Scrollbar*)
@@ -583,13 +584,13 @@ bool RenderListBox::nodeAtPoint(const HitTestRequest& request, HitTestResult& re
 {
     if (!RenderBlock::nodeAtPoint(request, result, x, y, tx, ty, hitTestAction))
         return false;
-    const Vector<HTMLElement*>& listItems = static_cast<HTMLSelectElement*>(node())->listItems();
+    const Vector<Element*>& listItems = toSelectElement(static_cast<Element*>(node()))->listItems();
     int size = numItems();
     tx += this->x();
     ty += this->y();
     for (int i = 0; i < size; ++i) {
         if (itemBoundingBoxRect(tx, ty, i).contains(x, y)) {
-            if (HTMLElement* node = listItems[i]) {
+            if (Element* node = listItems[i]) {
                 result.setInnerNode(node);
                 if (!result.innerNonSharedNode())
                     result.setInnerNonSharedNode(node);
@@ -620,6 +621,64 @@ void RenderListBox::invalidateScrollbarRect(Scrollbar* scrollbar, const IntRect&
     IntRect scrollRect = rect;
     scrollRect.move(width() - borderRight() - scrollbar->width(), borderTop());
     repaintRectangle(scrollRect);
+}
+
+IntRect RenderListBox::convertFromScrollbarToContainingView(const Scrollbar* scrollbar, const IntRect& scrollbarRect) const
+{
+    RenderView* view = this->view();
+    if (!view)
+        return scrollbarRect;
+
+    IntRect rect = scrollbarRect;
+
+    int scrollbarLeft = width() - borderRight() - scrollbar->width();
+    int scrollbarTop = borderTop();
+    rect.move(scrollbarLeft, scrollbarTop);
+
+    return view->frameView()->convertFromRenderer(this, rect);
+}
+
+IntRect RenderListBox::convertFromContainingViewToScrollbar(const Scrollbar* scrollbar, const IntRect& parentRect) const
+{
+    RenderView* view = this->view();
+    if (!view)
+        return parentRect;
+
+    IntRect rect = view->frameView()->convertToRenderer(this, parentRect);
+
+    int scrollbarLeft = width() - borderRight() - scrollbar->width();
+    int scrollbarTop = borderTop();
+    rect.move(-scrollbarLeft, -scrollbarTop);
+    return rect;
+}
+
+IntPoint RenderListBox::convertFromScrollbarToContainingView(const Scrollbar* scrollbar, const IntPoint& scrollbarPoint) const
+{
+    RenderView* view = this->view();
+    if (!view)
+        return scrollbarPoint;
+
+    IntPoint point = scrollbarPoint;
+
+    int scrollbarLeft = width() - borderRight() - scrollbar->width();
+    int scrollbarTop = borderTop();
+    point.move(scrollbarLeft, scrollbarTop);
+
+    return view->frameView()->convertFromRenderer(this, point);
+}
+
+IntPoint RenderListBox::convertFromContainingViewToScrollbar(const Scrollbar* scrollbar, const IntPoint& parentPoint) const
+{
+    RenderView* view = this->view();
+    if (!view)
+        return parentPoint;
+
+    IntPoint point = view->frameView()->convertToRenderer(this, parentPoint);
+
+    int scrollbarLeft = width() - borderRight() - scrollbar->width();
+    int scrollbarTop = borderTop();
+    point.move(-scrollbarLeft, -scrollbarTop);
+    return point;
 }
 
 PassRefPtr<Scrollbar> RenderListBox::createScrollbar()

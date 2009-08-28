@@ -26,6 +26,7 @@
 #include <libc.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/mman.h>
 #include <mach/mach.h>
 
 #include "stuff/bool.h"
@@ -54,9 +55,8 @@ char *flag,	/* "-dylib_file" or "default" */
 char *argument) /* -dylib_file argument or "dylib table" */
 {
     int fd;
-    kern_return_t r;
     struct stat stat_buf;
-    unsigned long j, k, file_size, new_dylib_table_size;
+    uint32_t j, k, file_size, new_dylib_table_size;
     char *file_addr, *endp;
     struct dylib_table *new_dylib_table;
 
@@ -70,12 +70,13 @@ char *argument) /* -dylib_file argument or "dylib table" */
 	 * For some reason mapping files with zero size fails
 	 * so it has to be handled specially.
 	 */
+	file_addr = NULL;
 	if(stat_buf.st_size != 0){
-	    if((r = map_fd((int)fd, (vm_offset_t)0,
-		(vm_offset_t *)&file_addr, (boolean_t)TRUE,
-		(vm_size_t)stat_buf.st_size)) != KERN_SUCCESS)
-		mach_fatal(r, "can't map file: %s for %s %s",
-		    file_name, flag, argument);
+	    file_addr = mmap(0, stat_buf.st_size, PROT_READ|PROT_WRITE,
+			     MAP_FILE|MAP_PRIVATE, fd, 0);
+	    if((intptr_t)file_addr == -1)
+		system_error("can't map file: %s for %s %s", file_name, flag,
+			     argument);
 	}
 	else
 	    fatal("Empty file: %s for %s %s", file_name, flag, argument);
@@ -109,11 +110,11 @@ char *argument) /* -dylib_file argument or "dylib table" */
 	    new_dylib_table[k].seg1addr =
 		strtoul(file_addr + j, &endp, 16);
 	    if(endp == NULL)
-		fatal("improper hexadecimal number on line %lu in "
+		fatal("improper hexadecimal number on line %u in "
 		      "file: %s for %s %s", j, file_name, flag, argument);
 	    j = endp - file_addr;
 	    if(j == file_size)
-		fatal("missing library name on line %lu in file: "
+		fatal("missing library name on line %u in file: "
 		      "%s for %s %s", j, file_name, flag, argument);
 	    /*
 	     * Since we checked to see the file ends in a '\n' we can
@@ -122,7 +123,7 @@ char *argument) /* -dylib_file argument or "dylib table" */
 	    while(file_addr[j] == ' ' || file_addr[j] == '\t')
 		j++;
 	    if(file_addr[j] == '\n')
-		fatal("missing library name on line %lu in file: "
+		fatal("missing library name on line %u in file: "
 		      "%s for %s %s", j, file_name, flag, argument);
 	    new_dylib_table[k].name = file_addr + j;
 	    k++;
@@ -143,7 +144,7 @@ struct dylib_table *
 parse_default_dylib_table(
 char **file_name)
 {
-    unsigned long i;
+    uint32_t i;
     FILE *fp;
 
 	*file_name = allocate(MAXPATHLEN+1);
@@ -200,7 +201,7 @@ char *
 guess_dylib_install_name(
 char *name)
 {
-    unsigned long i;
+    uint32_t i;
     char *guess;
     struct stat stat_buf;
 

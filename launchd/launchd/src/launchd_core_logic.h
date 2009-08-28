@@ -20,6 +20,7 @@
  * @APPLE_APACHE_LICENSE_HEADER_END@
  */
 
+#include "launchd_runtime.h"
 #include "bootstrap.h"
 #include "launch.h"
 
@@ -28,10 +29,15 @@ typedef struct jobmgr_s *jobmgr_t;
 
 extern jobmgr_t root_jobmgr;
 extern mach_port_t inherited_bootstrap_port;
+extern mach_port_t g_audit_session_port;
+extern au_asid_t g_audit_session;
+extern bool g_flat_mach_namespace;
+extern bool g_embedded_privileged_action;
 
 void jobmgr_init(bool);
 jobmgr_t jobmgr_shutdown(jobmgr_t jm);
 void jobmgr_dispatch_all_semaphores(jobmgr_t jm);
+void jobmgr_dispatch_all_interested(jobmgr_t jm, job_t j);
 jobmgr_t jobmgr_delete_anything_with_port(jobmgr_t jm, mach_port_t port);
 
 launch_data_t job_export_all(void);
@@ -45,11 +51,15 @@ launch_data_t job_export(job_t j);
 void job_stop(job_t j);
 void job_checkin(job_t j);
 void job_remove(job_t j);
+bool job_is_god(job_t j);
 job_t job_import(launch_data_t pload);
 launch_data_t job_import_bulk(launch_data_t pload);
 job_t job_mig_intran(mach_port_t mp);
 void job_mig_destructor(job_t j);
 void job_ack_no_senders(job_t j);
 void job_log(job_t j, int pri, const char *msg, ...) __attribute__((format(printf, 3, 4)));
+void job_set_pid_crashed(pid_t p);
+
+int launchd_set_jetsam_priorities(launch_data_t priorities);
 
 #endif

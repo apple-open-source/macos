@@ -17,6 +17,9 @@ You should have received a copy of the GNU General Public License
 along with GAS; see the file COPYING.  If not, write to
 the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
+/* FROM line 22 */
+#include "as.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -35,7 +38,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* Length in LittleNums of guard bits. */
 #define GUARD (2)
 
-static unsigned long int mask [] = {
+static uint32_t mask [] = {
   0x00000000,
   0x00000001,
   0x00000003,
@@ -158,7 +161,7 @@ LITTLENUM_TYPE *words)	/* Build the binary here. */
 				/* the last contain flonum bits. */
 	char *		return_value;
 	int		precision; /* Number of 16-bit words in the format. */
-	long int	exponent_bits;
+	int32_t		exponent_bits;
 
 	return_value = str;
 	generic_floating_point_number.low	= bits + MAX_PRECISION;
@@ -245,10 +248,10 @@ int exponent_bits)
 {
 	int return_value=0;
 
-	long int	exponent_1;
-	long int	exponent_2;
-	long int	exponent_3;
-	long int	exponent_4;
+	int32_t		exponent_1;
+	int32_t		exponent_2;
+	int32_t		exponent_3;
+	int32_t		exponent_4;
 	int		exponent_skippage;
 	LITTLENUM_TYPE	word1;
 	LITTLENUM_TYPE *	lp;
@@ -433,7 +436,7 @@ int exponent_bits)
 				   (lp[n]&mask[tmp_bits])!=mask[tmp_bits])
 #endif /* NeXT_MOD */
 				{
-					unsigned long int carry;
+					uint32_t carry;
 
 					for (carry = 1; carry && (lp >= words); lp --) {
 						carry = * lp + carry;
@@ -498,7 +501,7 @@ int exponent_bits)
 		*lp++ = next_bits (LITTLENUM_NUMBER_OF_BITS);
 
 	if (next_bits (1)) {
-		unsigned long int	carry;
+		uint32_t	carry;
 			/*
 			 * Since the NEXT bit is a 1, round UP the mantissa.
 			 * The cunning design of these hidden-1 floats permits
@@ -540,12 +543,12 @@ int exponent_bits)
  */
 void
 int_to_gen(
-long x)
+int x)
 {
 	char buf[20];
 	char *bufp;
 
-	sprintf(buf,"%ld",x);
+	sprintf(buf,"%d",x);
 	bufp= &buf[0];
 	if(atof_generic(&bufp,".", md_EXP_CHARS, &generic_floating_point_number))
 		as_fatal("Error converting number to floating point (Exponent overflow?)");

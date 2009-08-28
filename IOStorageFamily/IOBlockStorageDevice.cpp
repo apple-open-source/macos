@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -112,6 +112,19 @@ IOBlockStorageDevice::setProperties(OSObject * properties)
     return(kIOReturnUnsupported);
 }
 
+#ifndef __LP64__
+IOReturn
+IOBlockStorageDevice::reportMaxReadTransfer(UInt64 blockSize,UInt64 *max)
+{
+    return(kIOReturnUnsupported);
+}
+
+IOReturn
+IOBlockStorageDevice::reportMaxWriteTransfer(UInt64 blockSize,UInt64 *max)
+{
+    return(kIOReturnUnsupported);
+}
+
 IOReturn
 IOBlockStorageDevice::doSyncReadWrite(IOMemoryDescriptor *buffer,
                                       UInt32 block,UInt32 nblks)
@@ -139,23 +152,17 @@ IOBlockStorageDevice::doAsyncReadWrite(IOMemoryDescriptor *buffer,
     }
 }
 
-OSMetaClassDefineReservedUsed(IOBlockStorageDevice, 0);
-
 IOReturn
 IOBlockStorageDevice::getWriteCacheState(bool *enabled)
 {
     return(kIOReturnUnsupported);
 }
 
-OSMetaClassDefineReservedUsed(IOBlockStorageDevice, 1);
-
 IOReturn
 IOBlockStorageDevice::setWriteCacheState(bool enabled)
 {
     return(kIOReturnUnsupported);
 }
-
-OSMetaClassDefineReservedUsed(IOBlockStorageDevice, 2);
 
 IOReturn
 IOBlockStorageDevice::doAsyncReadWrite(IOMemoryDescriptor *buffer,
@@ -169,8 +176,7 @@ IOBlockStorageDevice::doAsyncReadWrite(IOMemoryDescriptor *buffer,
         return(doAsyncReadWrite(buffer,block,nblks,completion ? *completion : (IOStorageCompletion) { 0 }));
     }
 }
-
-OSMetaClassDefineReservedUsed(IOBlockStorageDevice, 3);
+#endif /* !__LP64__ */
 
 IOReturn
 IOBlockStorageDevice::requestIdle(void)
@@ -178,16 +184,27 @@ IOBlockStorageDevice::requestIdle(void)
     return(kIOReturnUnsupported);
 }
 
-OSMetaClassDefineReservedUsed(IOBlockStorageDevice, 4);
-
 IOReturn
 IOBlockStorageDevice::doDiscard(UInt64 block, UInt64 nblks)
 {
     return(kIOReturnUnsupported);
 }
 
-OSMetaClassDefineReservedUsed(IOBlockStorageDevice, 5);
-
+#ifdef __LP64__
+OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  0);
+OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  1);
+OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  2);
+OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  3);
+OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  4);
+OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  5);
+#else /* !__LP64__ */
+OSMetaClassDefineReservedUsed(IOBlockStorageDevice,  0);
+OSMetaClassDefineReservedUsed(IOBlockStorageDevice,  1);
+OSMetaClassDefineReservedUsed(IOBlockStorageDevice,  2);
+OSMetaClassDefineReservedUsed(IOBlockStorageDevice,  3);
+OSMetaClassDefineReservedUsed(IOBlockStorageDevice,  4);
+OSMetaClassDefineReservedUsed(IOBlockStorageDevice,  5);
+#endif /* !__LP64__ */
 OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  6);
 OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  7);
 OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  8);

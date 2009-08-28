@@ -1,23 +1,22 @@
 /*
- * Copyright (c) 1999-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -35,6 +34,9 @@
 #include "BTreeScanner.h"
 #include "hfs_endian.h"
 #include "../fsck_debug.h"
+#include "../fsck_messages.h"
+#include "../fsck_hfs_msgnums.h"
+#include "../fsck_msgnums.h"
 #include "../fsck_hfs.h"
 
 #include <assert.h>
@@ -190,11 +192,6 @@ typedef struct SDPR {
 	CatalogName			directoryName;		//	directory CName
 } SDPR;
 	
-typedef	SDPR SDPT[CMMaxDepth]; 			//	directory path table
-	
-#define	LenSDPT	( sizeof(SDPR) * CMMaxDepth )	//	length of Tree Path Table
-
-
 enum {
 //	kInvalidMRUCacheKey			= -1L,							/* flag to denote current MRU cache key is invalid*/
 	kDefaultNumMRUCacheBlocks	= 16							/* default number of blocks in each cache*/
@@ -532,7 +529,7 @@ typedef struct FCBArray FCBArray;
 			return true if the user wants to cancel the CheckDisk operation
  */
 
-typedef int (*UserCancelProcPtr)(UInt16 progress, UInt16 secondsRemaining, Boolean progressChanged, UInt16 stage, void *context);
+typedef int (*UserCancelProcPtr)(UInt16 progress, UInt16 secondsRemaining, Boolean progressChanged, UInt16 stage, void *context, int passno);
 
 
 #if  0
@@ -553,8 +550,8 @@ typedef int (*UserCancelProcPtr)(UInt16 progress, UInt16 secondsRemaining, Boole
 	#define NewUserCancelProc(userRoutine)		\
 			(UserCancelUPP) NewRoutineDescriptor((ProcPtr)(userRoutine), uppUserCancelProcInfo, GetCurrentArchitecture())
 	
-	#define CallUserCancelProc(userRoutine, progress, secondsRemaining, progressChanged, stage, context)		\
-			CallUniversalProc((UniversalProcPtr)(userRoutine), uppUserCancelProcInfo, (progress), (secondsRemaining), (progressChanged), (stage), (context))
+	#define CallUserCancelProc(userRoutine, progress, secondsRemaining, progressChanged, stage, context, p)		\
+			CallUniversalProc((UniversalProcPtr)(userRoutine), uppUserCancelProcInfo, (progress), (secondsRemaining), (progressChanged), (stage), (context), (p))
 
 #else /* not CFM */
 
@@ -563,8 +560,8 @@ typedef int (*UserCancelProcPtr)(UInt16 progress, UInt16 secondsRemaining, Boole
 	#define NewUserCancelProc(userRoutine)		\
 			((UserCancelUPP) (userRoutine))
 	
-	#define CallUserCancelProc(userRoutine, progress, secondsRemaining, progressChanged, stage, context)		\
-			(*(userRoutine))((progress), (secondsRemaining), (progressChanged), (stage), (context))
+	#define CallUserCancelProc(userRoutine, progress, secondsRemaining, progressChanged, stage, context, p)		\
+			(*(userRoutine))((progress), (secondsRemaining), (progressChanged), (stage), (context), (p))
 
 #endif
 
@@ -679,6 +676,7 @@ typedef struct VolumeObject {
 
 
 typedef struct SGlob {
+	void *				scavStaticPtr;			// pointer to static structure allocated in ScavSetUp
 	SInt16				DrvNum;					//	drive number of target drive
 	SInt16				RepLevel;				//	repair level, 1 = minor repair, 2 = major repair
 	SInt16				ScavRes;				//	scavenge result code
@@ -698,7 +696,8 @@ typedef struct SGlob {
 	SInt16				BTLevel;				//	current BTree enumeration level
 	SBTPT				*BTPTPtr;				//	BTree path table pointer
 	SInt16				DirLevel;				//	current directory enumeration level
-	SDPT				*DirPTPtr;				//	directory path table pointer
+	SDPR				*DirPTPtr;				//	directory path table pointer (pointer to array of SDPR)
+	uint32_t			dirPathCount;			//  number of SDPR entries allocated in directory path table
 	SInt16				CNType;					//	current CNode type
 	UInt32				ParID;					//	current parent DirID
 	CatalogName			CName;					//	current CName
@@ -748,7 +747,7 @@ typedef struct SGlob {
 
 	Boolean			cleanUnmount;
 	Boolean			guiControl;
-	int				logLevel;
+	fsck_ctx_t		context;
 	int				chkLevel;
 	int             repairLevel;
 	Boolean			minorRepairErrors;	// indicates some minor repairs failed
@@ -822,6 +821,7 @@ enum
 #define S_SecurityCount			0x0020	// incorrect number of security xattrs in attribute btree in comparison with security bit in catalog btree
 #define S_AttrRec				0x0010	// orphaned/unknown record in attribute BTree
 #define S_ParentHierarchy		0x0008	// bad parent hierarchy, could not lookup parent directory record */
+#define S_UnusedNodesNotZero	0x0004	/* Unused B-tree nodes are not filled with zeroes */
 
 /* catalog file status flags (contents of CatStat) */
 
@@ -888,172 +888,7 @@ enum
 /* Status messages written to summary */
 enum {
 	M_FirstMessage              =  1,
-
-	M_CheckingHFSVolume         =  1,
-	M_CheckingNoJnlHFSPlusVolume=  2,
-	M_ExtBTChk                  =  3,
-	M_CatBTChk                  =  4,
-	M_CatHChk                   =  5,
-	M_AttrBTChk                 =  6,
-	M_VolumeBitMapChk           =  7,
-	M_VInfoChk                  =  8,
-	M_MultiLinkFileCheck        =  9,
-	M_Orphaned                  = 10,
-	M_RebuildingExtentsBTree    = 11,
-	M_RebuildingCatalogBTree    = 12,
-	M_RebuildingAttributesBTree = 13,
-	M_Repair                    = 14,
-	M_NeedsRepair               = 15,
-	M_AllOK                     = 16,
-	M_RepairOK                  = 17,
-	M_RepairFailed              = 18,
-	M_CheckFailed               = 19,
-	M_Rescan	               	= 20,
-	M_Look		               	= 21,
-	M_RepairOtherWriters		= 22,
-	M_CaseSensitive		       	= 23,
-	M_ReRepairFailed			= 24,			
-	M_LookDamagedDir			= 25,
-	M_MultiLinkDirCheck         = 26,
-	M_CheckingJnlHFSPlusVolume  = 27,
-	M_LiveVerify                = 28,
-	M_VerifyOtherWriters        = 29,	
-
 	M_LastMessage               = 29
-};
-
-/*------------------------------------------------------------------------------
- Scavenger Result/Error Codes
-------------------------------------------------------------------------------*/
-
-/*
- * Scavenger errors.
- * If negative, they are unrecoverable (scavenging terminates).
- * If positive, they are recoverable (scavenging continues).
- *
- */	
-enum {
-	E_FirstError		=  500,
-
-	E_PEOF			=  500,	/* Invalid PEOF */
-	E_LEOF			=  501,	/* Invalid LEOF */
-	E_DirVal		=  502,	/* Invalid directory valence */
-	E_CName			=  503,	/* Invalid CName */
-	E_NHeight		=  504,	/* Invalid node height */
-	E_NoFile		=  505,	/* Missing file record for file thread */
-	E_ABlkSz		= -506,	/* Invalid allocation block size */
-	E_NABlks		= -507,	/* Invalid number of allocation blocks */
-	E_VBMSt			= -508,	/* Invalid VBM start block */
-	E_ABlkSt		= -509,	/* Invalid allocation block start */
-
-	E_ExtEnt		= -510,	/* Invalid extent entry */
-	E_OvlExt		=  511,	/* overlapped extent allocation */
-	E_LenBTH		= -512,	/* Invalid BTH length */
-	E_ShortBTM		= -513,	/* BT map too short to repair */
-	E_BTRoot		= -514,	/* Invalid root node number */
-	E_NType			= -515,	/* Invalid node type */
-	E_NRecs			= -516,	/* Invalid record count */
-	E_IKey			= -517,	/* Invalid index key */
-	E_IndxLk		= -518,	/* Invalid index link */
-	E_SibLk			= -519,	/* Invalid sibling link */
-
-	E_BadNode		= -520,	/* Invalid node structure */
-	E_OvlNode		= -521,	/* overlapped node allocation */
-	E_MapLk			= -522,	/* Invalid map node linkage */
-	E_KeyLen		= -523,	/* Invalid key length */
-	E_KeyOrd		= -524,	/* Keys out of order */
-	E_BadMapN		= -525,	/* Invalid map node */
-	E_BadHdrN		= -526,	/* Invalid header node */
-	E_BTDepth		= -527,	/* exceeded maximum BTree depth */
-	E_CatRec		= -528,	/* Invalid catalog record type */
-	E_LenDir		= -529,	/* Invalid directory record length */
-
-	E_LenThd		= -530,	/* Invalid thread record length */
-	E_LenFil		= -531,	/* Invalid file record length */
-	E_NoRtThd		= -532,	/* Missing thread record for root directory */
-	E_NoThd			= -533,	/* Missing thread record */
-	E_NoDir			= 534,	/* Missing directory record */
-	E_ThdKey		= -535,	/* Invalid key for thread record */
-	E_ThdCN			= -536,	/* Invalid  parent CName in thread record */
-	E_LenCDR		= -537,	/* Invalid catalog record length */
-	E_DirLoop		= -538,	/* loop in directory hierarchy */
-	E_RtDirCnt		=  539,	/* Invalid root directory count */
-
-	E_RtFilCnt		=  540,	/* Invalid root file count */
-	E_DirCnt		=  541,	/* Invalid volume directory count */
-	E_FilCnt		=  542,	/* Invalid volume file count */
-	E_CatPEOF		= -543,	/* Invalid catalog PEOF */
-	E_ExtPEOF		= -544,	/* Invalid extent file PEOF */
-	E_CatDepth		=  545,	/* exceeded maximum catalog depth */
-	E_NoFThdFlg		= -546,	/* file thread flag not set in file record */
-	E_CatalogFlagsNotZero	=  547,
-	E_BadFileName		= -548,	/* Invalid file/folder name problem */
-	E_InvalidClumpSize	=  549,	/* bad file clump size */
-
-	E_InvalidBTreeHeader	=  550,	/* Invalid btree header */
-	E_LockedDirName		=  551,	/* Inappropriate locked folder name */
-	E_EntryNotFound		= -552,	/* volume catalog entry not found */
-	E_FreeBlocks		=  553,
-	E_MDBDamaged		=  554,	/* MDB Damaged */
-	E_VolumeHeaderDamaged	=  555,	/* Volume Header Damaged */
-	E_VBMDamaged		=  556,	/* Volume Bit Map needs minor repair */
-	E_InvalidNodeSize	= -557,	/* Bad BTree node size */
-	E_LeafCnt		=  558,
-	E_BadValue		=  559,
-
-	E_InvalidID		=  560,
-	E_VolumeHeaderTooNew	=  561,
-	E_DiskFull		= -562,
-	E_InternalFileOverlap	= -563,	/* This is a serious error */
-	E_InvalidVolumeHeader	= -564,
-	E_InvalidMDBdrAlBlSt	=  565,
-	E_InvalidWrapperExtents	=  566,
-	E_InvalidLinkCount	=  567,	/* Invalid Hardlink count */
-	E_UnlinkedFile		=  568,	/* Unlinked file needs to be deleted */
-	E_InvalidPermissions	=  569,
-
-	E_InvalidUID_Unused	=  570, /* Invalid UID/GID in BSD info - Unused (4538396) */
-	E_IllegalName		=  571,
-	E_IncorrectNumThdRcd	=  572,
-	E_SymlinkCreate		=  573,
-	E_BadJournal		=  574, /* Bad Journal content */	
-	E_IncorrectAttrCount	=  575,	/* Incorrect attributes in attr btree with attr bits in catalog btree */
-	E_IncorrectSecurityCount=  576, /* Incorrect security attributes in attr btree with security bits in catalog btree */
-	E_PEOAttr		=  577, /* Incorrect physical end of extended attribute data */
-	E_LEOAttr		=  578, /* Incorrect logical end of extended attribute data */
-	E_AttrRec		=  579, /* Invalid attribute record (overflow extent without original extent, unknown type) */
-
-	E_FldCount		=  580,	/* Incorrect folder count in a directory */
-	E_HsFldCount		=  581,	/* HasFolderCount flag needs to be set */
-	E_BadPermPrivDir	=  582, /* Incorrect permissions for private directory for directory hard links */
-	E_DirInodeBadFlags	=  583, /* Incorrect flags for directory inode */
-	E_DirInodeBadParent	= -584, /* Invalid parent for directory inode */
-	E_DirInodeBadName	= -585, /* Invalid name for directory inode */
-	E_DirHardLinkChain	=  586, /* Incorrect number of directory hard link count */
-	E_DirHardLinkOwnerFlags	=  587, /* Incorrect owner flags for directory hard link */
-	E_DirHardLinkFinderInfo =  588, /* Invalid finder info for directory hard link */
-	E_DirLinkAncestorFlags	=  589, /* Invalid flags for directory hard link parent ancestor */
-	
-	E_BadParentHierarchy	= -590, /* Bad parent hierarchy, could not lookup parent directory record */
-	E_DirHardLinkNesting	= -591, /* Maximum nesting of folders and directory hard links reached */
-	E_MissingPrivDir	= -592,	/* Missing private directory for directory hard links */
-	E_InvalidLinkChainPrev	=  593, /* Previous ID in a hard lnk chain is incorrect */
-	E_InvalidLinkChainNext	=  594,	/* Next ID in a hard link chain is incorrect */
-	E_FileInodeBadFlags	=  595,	/* Incorrecgt flags for file inode */
-	E_FileInodeBadParent	= -596, /* Invalid parent for file inode */
-	E_FileInodeBadName	= -597, /* Invalid name for file inode */
-	E_FileHardLinkChain	=  598, /* Incorrect number of file hard link count */
-	E_FileHardLinkFinderInfo=  599, /* Invalid finder info for file hard link */
-
-	E_InvalidLinkChainFirst	=  600,	/* Invalid first link in hard link chain */
-	E_FileLinkBadFlags	=  601, /* Incorrect flags for file hard link */
-	E_DirLinkBadFlags	=  602, /* Incorrect flags for directory hard link */
-	E_OrphanFileLink	=  603, /* Orphan file hard link */
-	E_OrphanDirLink	 	=  604, /* Orphan directory hard link */
-	E_OrphanFileInode	=  605,	/* Orphan file inode, no file hard links pointing to this inode */
-	E_OrphanDirInode	=  606, /* Orphan directory inode, no directory hard links pointing to this inode */
-
-	E_LastError		=  606
 };
 
 
@@ -1108,16 +943,12 @@ extern	void	WriteMsg( SGlobPtr GPtr, short messageID, short messageType );
 extern	void	WriteError( SGlobPtr GPtr, short msgID, UInt32 tarID, UInt64 tarBlock );
 extern	short	CheckPause( void );
 
-extern void	PrintError(SGlobPtr GPtr, short error, int vargc, ...);
-extern void	PrintStatus(SGlobPtr GPtr, short status, int vargc, ...);
-
-
 /* ------------------------------- From SControl.c ------------------------------- */
 
 void			ScavCtrl( SGlobPtr GPtr, UInt32 ScavOp, short *ScavRes );
 
 extern	short	CheckForStop( SGlobPtr GPtr );
-	
+
 
 /* ------------------------------- From SRepair.c -------------------------------- */
 
@@ -1144,7 +975,7 @@ extern	int		IntError( SGlobPtr GPtr, OSErr ErrCode );
 
 extern	void	RcdError( SGlobPtr GPtr, OSErr ErrCode );
 
-extern	RepairOrderPtr AllocMinorRepairOrder( SGlobPtr GPtr, int extraBytes );
+extern	RepairOrderPtr AllocMinorRepairOrder( SGlobPtr GPtr, size_t extraBytes );
 
 extern int IsDuplicateRepairOrder(SGlobPtr GPtr, RepairOrderPtr orig);
 
@@ -1260,9 +1091,11 @@ extern	int		CmpMDB( SGlobPtr GPtr, HFSMasterDirectoryBlock * mdbP);
 
 extern	int		CmpVBM( SGlobPtr GPtr );
 
-extern	OSErr	CmpBlock( void *block1P, void *block2P, UInt32 length ); /* same as 'memcmp', but EQ/NEQ only */
+extern	OSErr	CmpBlock( void *block1P, void *block2P, size_t length ); /* same as 'memcmp', but EQ/NEQ only */
 	
 extern	OSErr	ChkExtRec ( SGlobPtr GPtr, const void *extents , unsigned int *lastExtentIndex);
+
+extern	int		BTCheckUnusedNodes(SGlobPtr GPtr, short fileRefNum, UInt16 *btStat);
 
 
 /* -------------------------- From SRebuildCatalogBTree.c ------------------------- */
@@ -1286,7 +1119,7 @@ OSErr MapFileBlockC (
 	SVCB		*vcb,				// volume that file resides on
 	SFCB			*fcb,				// FCB of file
 	UInt32			numberOfBytes,		// number of contiguous bytes desired
-	UInt32			sectorOffset,		// starting offset within file (in 512-byte sectors)
+	UInt64			sectorOffset,		// starting offset within file (in 512-byte sectors)
 	UInt64			*startSector,		// first 512-byte volume sector (NOT an allocation block)
 	UInt32			*availableBytes);	// number of contiguous bytes (up to numberOfBytes)
 
@@ -1311,6 +1144,12 @@ OSErr UpdateExtentRecord (
 	const HFSPlusExtentKey	*extentFileKey,
 	HFSPlusExtentRecord		extentData,
 	UInt32					extentBTreeHint);
+
+OSErr ReleaseExtents(
+	SVCB 					*vcb,
+	const HFSPlusExtentRecord extentRecord,
+	UInt32					*numReleasedAllocationBlocks,
+	Boolean 				*releasedLastExtent);
 
 OSErr	CheckFileExtents( SGlobPtr GPtr, UInt32 fileNumber, UInt8 forkType, const unsigned char *xattrName,
                           const void *extents, UInt32 *blocksUsed );
@@ -1568,6 +1407,24 @@ extern int  ReleaseBitmapBits(UInt32 startBit, UInt32 bitCount);
 extern int  CheckVolumeBitMap(SGlobPtr g, Boolean repair);
 extern void UpdateFreeBlockCount(SGlobPtr g);
 extern int 	AllocateContigBitmapBits (SVCB *vcb, UInt32 numBlocks, UInt32 *actualStartBlock);
+
+/*
+ * Variables and routines to support mapping a physical block number to a
+ * file path
+ */
+struct found_blocks {
+	u_int64_t block;
+	u_int32_t fileID;
+	u_int32_t padding;
+};
+#define FOUND_BLOCKS_QUANTUM	30
+extern int gBlkListEntries;
+extern u_int64_t *gBlockList;
+extern int gFoundBlockEntries;
+extern struct found_blocks *gFoundBlocksList;
+extern long gBlockSize;
+void CheckPhysicalMatch(SVCB *vcb, UInt32 startblk, UInt32 blkcount, UInt32 fileNumber, UInt8 forkType);
+void dumpblocklist(SGlobPtr GPtr);
 
 #ifdef __cplusplus
 };

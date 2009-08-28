@@ -1,0 +1,46 @@
+[manpage_begin uri_urn n 1.1.2]
+[moddesc   {Tcl Uniform Resource Identifier Management}]
+[titledesc {URI utilities, URN scheme}]
+[require Tcl 8.2]
+[require uri::urn [opt 1.1.2]]
+[description]
+
+This package provides two commands to quote and unquote the disallowed
+characters for url using the [term urn] scheme, registers the scheme
+with the package [package uri], and provides internal helpers which
+will be automatically used by the commands [cmd uri::split] and
+[cmd uri::join] of package [package uri] to handle urls using the
+[term urn] scheme.
+
+[section COMMANDS]
+
+[list_begin definitions]
+
+[call [cmd uri::urn::quote] [arg url]]
+
+This command quotes the characters disallowed by the [term urn] scheme
+(per RFC 2141 sec2.2) in the [arg url] and returns the modified url as
+its result.
+
+[call [cmd uri::urn::unquote] [arg url]]
+
+This commands performs the reverse of [cmd ::uri::urn::quote]. It
+takes an [term urn] url, removes the quoting from all disallowed
+characters, and returns the modified urls as its result.
+
+[list_end]
+
+[section {BUGS, IDEAS, FEEDBACK}]
+
+This document, and the package it describes, will undoubtedly contain
+bugs and other problems.
+
+Please report such in the category [emph uri] of the
+[uri {http://sourceforge.net/tracker/?group_id=12883} {Tcllib SF Trackers}].
+
+Please also report any ideas for enhancements you may have for either
+package and/or documentation.
+
+[keywords uri url urn]
+[keywords {rfc 2141}]
+[manpage_end]

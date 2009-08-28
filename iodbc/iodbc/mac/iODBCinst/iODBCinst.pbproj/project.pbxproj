@@ -122,11 +122,11 @@
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleShortVersionString</key>
-	<string>3.52.5</string>
+	<string>3.52.6</string>
 	<key>CFBundleSignature</key>
 	<string>odbc</string>
 	<key>CFBundleVersion</key>
-	<string>3.52.5</string>
+	<string>3.52.6</string>
 	<key>CSResourcesFileMapped</key>
 	<true/>
 </dict>
@@ -278,9 +278,9 @@
 		4F0BB7EC011F40E904CA0E50 = {
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 3.52.5;
+				CURRENT_PROJECT_VERSION = 3.52.6;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
-				DYLIB_CURRENT_VERSION = 3.52.5;
+				DYLIB_CURRENT_VERSION = 3.52.6;
 				EXPORTED_SYMBOLS_FILE = ../../mac/iodbcinst.exp;
 				FRAMEWORK_VERSION = 3.52;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -298,9 +298,9 @@
 		4F0BB7ED011F40E904CA0E50 = {
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 3.52.5;
+				CURRENT_PROJECT_VERSION = 3.52.6;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
-				DYLIB_CURRENT_VERSION = 3.52.5;
+				DYLIB_CURRENT_VERSION = 3.52.6;
 				EXPORTED_SYMBOLS_FILE = ../../mac/iodbcinst.exp;
 				FRAMEWORK_VERSION = 3.52;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;

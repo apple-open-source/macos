@@ -42,7 +42,7 @@ static const char copyright[] =
 static char sccsid[] = "@(#)portmap.c	8.1 (Berkeley) 6/6/93";
 #endif
 static const char rcsid[] =
-  "$FreeBSD: src/usr.sbin/portmap/portmap.c,v 1.10.2.1 2001/04/09 23:35:19 dillon Exp $";
+  "$FreeBSD: src/usr.sbin/portmap/portmap.c,v 1.10.2.3 2002/05/06 18:18:21 dwmalone Exp $";
 #endif /* not lint */
 
 /*
@@ -87,6 +87,7 @@ static char sccsid[] = "@(#)portmap.c 1.32 87/08/06 Copyr 1984 Sun Micro";
 #include <err.h>
 #include <errno.h>
 #include <netdb.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -104,9 +105,11 @@ static char sccsid[] = "@(#)portmap.c 1.32 87/08/06 Copyr 1984 Sun Micro";
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <launch.h>
-#ifdef USE_RENDEZVOUS
-#include <DNSServiceDiscovery/DNSServiceDiscovery.h>
-#endif
+#ifdef INSTANT_OFF
+#include <vproc.h>
+#include <rpcsvc/nlm_prot.h>
+#include <rpcsvc/sm_inter.h>
+#endif /* INSTANT_OFF */
 
 #include "pmap_check.h"
 
@@ -117,25 +120,15 @@ static void callit __P((struct svc_req *, SVCXPRT *));
 static void usage __P((void));
 static bool should_timeout(void);
 
-struct pmaprlist {
-	struct pmaplist pl;
-#ifdef USE_RENDEZVOUS
-	dns_service_discovery_ref mdnsref;
-#endif
-};
-
-struct pmaprlist *pmaplist;
+struct pmaplist *pmaplist;
 int debugging = 0;
 static bool use_launchd = false;
+#ifdef INSTANT_OFF
+vproc_transaction_t vt = NULL;
+sigset_t vt_set;
+#endif /* INSTANT_OFF */
 
 extern int svc_maxfd;
-
-#ifdef USE_RENDEZVOUS
-static void mdns_callback(DNSServiceRegistrationReplyErrorType err, void *d)
-{
-        return;
-}
-#endif
 
 int
 main(argc, argv)
@@ -265,7 +258,7 @@ main(argc, argv)
 	while (nhosts > 0) {
 	    --nhosts;
 
-	    if (inet_aton(hosts[nhosts], &addr.sin_addr) < 0) {
+	    if (!inet_aton(hosts[nhosts], &addr.sin_addr)) {
 		    syslog(LOG_ERR, "bad IP address: %s", hosts[nhosts]);
 		    exit(1);
 	    }
@@ -290,13 +283,13 @@ main(argc, argv)
 	}
 	free(hosts);
 	/* make an entry for ourself */
-	pml = (struct pmaplist *)malloc((u_int)sizeof(struct pmaprlist));
+	pml = (struct pmaplist *)malloc((u_int)sizeof(struct pmaplist));
 	pml->pml_next = 0;
 	pml->pml_map.pm_prog = PMAPPROG;
 	pml->pml_map.pm_vers = PMAPVERS;
 	pml->pml_map.pm_prot = IPPROTO_UDP;
 	pml->pml_map.pm_port = PMAPPORT;
-	(struct pmaplist *)pmaplist = pml;
+	pmaplist = pml;
 
 	/*
 	 * Add TCP socket
@@ -320,16 +313,13 @@ main(argc, argv)
 		exit(1);
 	}
 	/* make an entry for ourself */
-	pml = (struct pmaplist *)malloc((u_int)sizeof(struct pmaprlist));
+	pml = (struct pmaplist *)malloc((u_int)sizeof(struct pmaplist));
 	pml->pml_map.pm_prog = PMAPPROG;
 	pml->pml_map.pm_vers = PMAPVERS;
 	pml->pml_map.pm_prot = IPPROTO_TCP;
 	pml->pml_map.pm_port = PMAPPORT;
-	pml->pml_next = (struct pmaplist *)pmaplist;
-#ifdef USE_RENDEZVOUS
-	((struct pmaprlist *)pml)->mdnsref = DNSServiceRegistrationCreate("", "_portmapper._tcp", "", PMAPPORT, "", mdns_callback, NULL);
-#endif
-	(struct pmaplist *)pmaplist = pml;
+	pml->pml_next = pmaplist;
+	pmaplist = pml;
 
 	(void)svc_register(xprt, PMAPPROG, PMAPVERS, reg_service, FALSE);
 
@@ -345,7 +335,7 @@ main(argc, argv)
 			maxfd = (svc_maxfd > l_on_d_fd ? svc_maxfd : l_on_d_fd) + 1;
 			FD_SET(l_on_d_fd, &readfds);
 		} else {
-			maxfd = svc_maxfd;
+			maxfd = svc_maxfd + 1;
 		}
 		r = select(maxfd, &readfds, NULL, NULL, should_timeout() ? &timeout : NULL);
 		if (r == -1) {
@@ -370,6 +360,8 @@ main(argc, argv)
 			}
                         svc_getreqset(&readfds);
                 } else {
+			if (debugging)
+				(void) fprintf(stderr, "timed out, exiting\n");
 			exit(EXIT_SUCCESS);
 		}
         }
@@ -378,7 +370,7 @@ main(argc, argv)
 static void
 usage()
 {
-	fprintf(stderr, "usage: portmap [-dv]\n");
+	fprintf(stderr, "usage: portmap [-dv] [-h bindip]\n");
 	exit(1);
 }
 
@@ -396,15 +388,15 @@ static struct pmaplist *
 find_service(prog, vers, prot)
 	u_long prog, vers, prot;
 {
-	struct pmaplist *hit = NULL;
-	struct pmaprlist *pml;
+	register struct pmaplist *hit = NULL;
+	register struct pmaplist *pml;
 
-	for (pml = pmaplist; pml != NULL; (struct pmaplist *)pml = pml->pl.pml_next) {
-		if ((pml->pl.pml_map.pm_prog != prog) ||
-			(pml->pl.pml_map.pm_prot != prot))
+	for (pml = pmaplist; pml != NULL; pml = pml->pml_next) {
+		if ((pml->pml_map.pm_prog != prog) ||
+			(pml->pml_map.pm_prot != prot))
 			continue;
-		hit = (struct pmaplist *)pml;
-		if (pml->pl.pml_map.pm_vers == vers)
+		hit = pml;
+		if (pml->pml_map.pm_vers == vers)
 		    break;
 	}
 	return (hit);
@@ -414,19 +406,46 @@ static bool
 should_timeout(void)
 {
 	bool r = true;
-	struct pmaprlist *pml;
+	struct pmaplist *pml;
 
 	if (!use_launchd)
 		return false;
 
-	for (pml = pmaplist; pml != NULL; (struct pmaplist *)pml = pml->pl.pml_next) {
-		if (pml->pl.pml_map.pm_prog != PMAPPROG) {
+	for (pml = pmaplist; pml != NULL; pml = pml->pml_next) {
+		if (pml->pml_map.pm_prog != PMAPPROG) {
 			r = false;
 			break;
 		}
 	}
 	return r;
 }
+
+#ifdef INSTANT_OFF
+static void
+toggle_instantoff()
+{
+	struct pmaplist *pml;
+	int count = 0;
+	sigset_t nset;
+
+	for (pml = pmaplist; pml != NULL; pml = pml->pml_next) {
+		/* 6985009: we only care about the nfs services */
+		if (pml->pml_map.pm_prog == NLM_PROG || pml->pml_map.pm_prog == SM_PROG)
+			++count;
+	}
+
+	if (count > 0 && vt == NULL) {
+		sigemptyset(&nset);
+		sigaddset(&nset, SIGTERM);
+		sigprocmask(SIG_BLOCK, &nset, &vt_set);
+		vt = vproc_transaction_begin(NULL);
+	} else if (count == 0 && vt != NULL) {
+		vproc_transaction_end(NULL, vt);
+		vt = NULL;
+		sigprocmask(SIG_SETMASK, &vt_set, NULL);
+	}
+}
+#endif /* INSTANT_OFF */
 
 /*
  * 1 OK, 0 not
@@ -458,7 +477,7 @@ reg_service(rqstp, xprt)
 		 */
 		/* remote host authorization check */
 		check_default(svc_getcaller(xprt), rqstp->rq_proc, (u_long) 0);
-		if (!svc_sendreply(xprt, xdr_void, (caddr_t)0) && debugging) {
+		if (!svc_sendreply(xprt, (xdrproc_t)xdr_void, (caddr_t)0) && debugging) {
 			abort();
 		}
 		break;
@@ -492,39 +511,31 @@ reg_service(rqstp, xprt)
 					goto done;
 				}
 			} else {
-				struct rpcent *rent;
-				struct protoent *pent;
 				/*
 				 * add to END of list
 				 */
 				pml = (struct pmaplist *)
-				    malloc((u_int)sizeof(struct pmaprlist));
+				    malloc((u_int)sizeof(struct pmaplist));
 				pml->pml_map = reg;
 				pml->pml_next = 0;
-				rent = getrpcbynumber(reg.pm_prog);
-				pent = getprotobynumber(reg.pm_prot);
-#ifdef USE_RENDEZVOUS
-				if( rent != NULL && pent != NULL ) {
-					char *snam;
-					asprintf(&snam, "_%s._%s", rent->r_name, pent->p_name);
-					((struct pmaprlist *)pml)->mdnsref = DNSServiceRegistrationCreate("", snam, "", reg.pm_port, "", mdns_callback, NULL);
-				}
-#endif
 				if (pmaplist == 0) {
-					(struct pmaplist *)pmaplist = pml;
+					pmaplist = pml;
 				} else {
-					for (fnd= (struct pmaplist *)pmaplist; fnd->pml_next != 0;
+					for (fnd= pmaplist; fnd->pml_next != 0;
 					    fnd = fnd->pml_next);
 					fnd->pml_next = pml;
 				}
 				ans = 1;
 			}
 		done:
-			if ((!svc_sendreply(xprt, xdr_long, (caddr_t)&ans)) &&
+			if ((!svc_sendreply(xprt, (xdrproc_t)xdr_long, (caddr_t)&ans)) &&
 			    debugging) {
 				(void) fprintf(stderr, "svc_sendreply\n");
 				abort();
 			}
+#ifdef INSTANT_OFF
+			toggle_instantoff();
+#endif /* INSTANT_OFF */
 		}
 		break;
 
@@ -540,7 +551,7 @@ reg_service(rqstp, xprt)
 			if (!check_setunset(svc_getcaller(xprt),
 			    rqstp->rq_proc, reg.pm_prog, (u_long) 0))
 				goto done;
-			for (prevpml = NULL, pml = (struct pmaplist *)pmaplist; pml != NULL; ) {
+			for (prevpml = NULL, pml = pmaplist; pml != NULL; ) {
 				if ((pml->pml_map.pm_prog != reg.pm_prog) ||
 					(pml->pml_map.pm_vers != reg.pm_vers)) {
 					/* both pml & prevpml move forwards */
@@ -559,24 +570,21 @@ reg_service(rqstp, xprt)
 				}
 				ans = 1;
 				t = (caddr_t)pml;
-#ifdef USE_RENDEZVOUS
-				if (((struct pmaprlist *)pml)->mdnsref) {
-					DNSServiceDiscoveryDeallocate(((struct pmaprlist *)pml)->mdnsref);
-					((struct pmaprlist *)pml)->mdnsref = 0;
-				}
-#endif
 				pml = pml->pml_next;
 				if (prevpml == NULL)
-					(struct pmaplist *)pmaplist = pml;
+					pmaplist = pml;
 				else
 					prevpml->pml_next = pml;
 				free(t);
 			}
-			if ((!svc_sendreply(xprt, xdr_long, (caddr_t)&ans)) &&
+			if ((!svc_sendreply(xprt, (xdrproc_t)xdr_long, (caddr_t)&ans)) &&
 			    debugging) {
 				(void) fprintf(stderr, "svc_sendreply\n");
 				abort();
 			}
+#ifdef INSTANT_OFF
+			toggle_instantoff();
+#endif /* INSTANT_OFF */
 		}
 		break;
 
@@ -599,7 +607,7 @@ reg_service(rqstp, xprt)
 				port = fnd->pml_map.pm_port;
 			else
 				port = 0;
-			if ((!svc_sendreply(xprt, xdr_long, (caddr_t)&port)) &&
+			if ((!svc_sendreply(xprt, (xdrproc_t)xdr_long, (caddr_t)&port)) &&
 			    debugging) {
 				(void) fprintf(stderr, "svc_sendreply\n");
 				abort();
@@ -620,9 +628,9 @@ reg_service(rqstp, xprt)
 			    rqstp->rq_proc, (u_long) 0)) {
 				p = 0;	/* send empty list */
 			} else {
-				p = (struct pmaplist *)pmaplist;
+				p = pmaplist;
 			}
-			if ((!svc_sendreply(xprt, xdr_pmaplist,
+			if ((!svc_sendreply(xprt, (xdrproc_t)xdr_pmaplist,
 			    (caddr_t)&p)) && debugging) {
 				(void) fprintf(stderr, "svc_sendreply\n");
 				abort();
@@ -670,10 +678,17 @@ xdr_encap_parms(xdrs, epp)
 }
 
 struct rmtcallargs {
+#ifdef __LP64__
+	unsigned int	rmt_prog;
+	unsigned int	rmt_vers;
+	unsigned int	rmt_port;
+	unsigned int	rmt_proc;
+#else
 	u_long	rmt_prog;
 	u_long	rmt_vers;
 	u_long	rmt_port;
 	u_long	rmt_proc;
+#endif
 	struct encap_parms rmt_args;
 };
 
@@ -798,9 +813,9 @@ callit(rqstp, xprt)
 			   au->aup_uid, au->aup_gid, au->aup_len, au->aup_gids);
 		}
 		a.rmt_port = (u_long)port;
-		if (clnt_call(client, a.rmt_proc, xdr_opaque_parms, &a,
-		    xdr_len_opaque_parms, &a, timeout) == RPC_SUCCESS) {
-			svc_sendreply(xprt, xdr_rmtcall_result, (caddr_t)&a);
+		if (clnt_call(client, a.rmt_proc, (xdrproc_t)xdr_opaque_parms, &a,
+		    (xdrproc_t)xdr_len_opaque_parms, &a, timeout) == RPC_SUCCESS) {
+			svc_sendreply(xprt, (xdrproc_t)xdr_rmtcall_result, (caddr_t)&a);
 		}
 		AUTH_DESTROY(client->cl_auth);
 		clnt_destroy(client);

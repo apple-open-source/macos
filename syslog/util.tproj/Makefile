@@ -17,3 +17,6 @@ Extra_CC_Flags += -DCONFIG_IPHONE
 endif
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make
+
+after_install:
+	codesign -s- $(DSTROOT)/usr/bin/syslog

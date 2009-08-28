@@ -7,12 +7,15 @@
 # Project info
 Project               = tbcload
 
-Extra_Configure_Flags = $(TEA_Configure_Flags)
-Extra_CPP_Flags       = -I$(TclHeaders) -I$(TclPrivateHeaders)
-Extra_LD_Flags        = -L$(TclFramework)
-Extra_Environment     = CPPFLAGS="$(CPPFLAGS)" $(TEA_Environment)
+# Fetch info
+Release               = 1.7
+Url                   = http://www.categorifiedcoder.info/tcltk/$(UrlFile)$(UrlExt)
+ExtractedDir          = $(Project)_src
 
-GnuAfterInstall       = strip
+Extra_Configure_Flags = $(TEA_Configure_Flags)
+Extra_Environment     = $(TEA_Environment)
+
+GnuAfterInstall       = strip fix-perms
 
 # include TEA Tcl extension build support
 include ../TEA.make

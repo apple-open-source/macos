@@ -1,8 +1,8 @@
 /* init.c - initialize ldap backend */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/init.c,v 1.79.2.11 2006/01/03 22:16:18 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/init.c,v 1.99.2.8 2008/07/09 23:36:23 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2003-2006 The OpenLDAP Foundation.
+ * Copyright 2003-2008 The OpenLDAP Foundation.
  * Portions Copyright 1999-2003 Howard Chu.
  * Portions Copyright 2000-2003 Pierangelo Masarati.
  * All rights reserved.
@@ -29,7 +29,18 @@
 #include <ac/socket.h>
 
 #include "slap.h"
+#include "config.h"
 #include "back-ldap.h"
+
+static const ldap_extra_t ldap_extra = {
+	ldap_back_proxy_authz_ctrl,
+	ldap_back_controls_free,
+	slap_idassert_authzfrom_parse_cf,
+	slap_idassert_parse_cf,
+	slap_retry_info_destroy,
+	slap_retry_info_parse,
+	slap_retry_info_unparse
+};
 
 int
 ldap_back_open( BackendInfo	*bi )
@@ -41,6 +52,18 @@ ldap_back_open( BackendInfo	*bi )
 int
 ldap_back_initialize( BackendInfo *bi )
 {
+	int		rc;
+
+	bi->bi_flags =
+#ifdef LDAP_DYNAMIC_OBJECTS
+		/* this is set because all the support a proxy has to provide
+		 * is the capability to forward the refresh exop, and to
+		 * pass thru entries that contain the dynamicObject class
+		 * and the entryTtl attribute */
+		SLAP_BFLAG_DYNAMIC |
+#endif /* LDAP_DYNAMIC_OBJECTS */
+		0;
+
 	bi->bi_open = ldap_back_open;
 	bi->bi_config = 0;
 	bi->bi_close = 0;
@@ -49,7 +72,7 @@ ldap_back_initialize( BackendInfo *bi )
 	bi->bi_db_init = ldap_back_db_init;
 	bi->bi_db_config = config_generic_wrapper;
 	bi->bi_db_open = ldap_back_db_open;
-	bi->bi_db_close = 0;
+	bi->bi_db_close = ldap_back_db_close;
 	bi->bi_db_destroy = ldap_back_db_destroy;
 
 	bi->bi_op_bind = ldap_back_bind;
@@ -70,22 +93,39 @@ ldap_back_initialize( BackendInfo *bi )
 	bi->bi_connection_init = 0;
 	bi->bi_connection_destroy = ldap_back_conn_destroy;
 
-	if ( chain_init() ) {
-		return -1;
+	bi->bi_extra = (void *)&ldap_extra;
+
+	rc = chain_initialize();
+	if ( rc ) {
+		return rc;
 	}
+
+#ifdef SLAP_DISTPROC
+	rc = distproc_initialize();
+	if ( rc ) {
+		return rc;
+	}
+#endif
 
 	return ldap_back_init_cf( bi );
 }
 
 int
-ldap_back_db_init( Backend *be )
+ldap_back_db_init( Backend *be, ConfigReply *cr )
 {
 	ldapinfo_t	*li;
+	int		rc;
+	unsigned	i;
 
 	li = (ldapinfo_t *)ch_calloc( 1, sizeof( ldapinfo_t ) );
 	if ( li == NULL ) {
  		return -1;
  	}
+
+	li->li_rebind_f = ldap_back_default_rebind;
+	li->li_urllist_f = ldap_back_default_urllist;
+	li->li_urllist_p = li;
+	ldap_pvt_thread_mutex_init( &li->li_uri_mutex );
 
 	BER_BVZERO( &li->li_acl_authcID );
 	BER_BVZERO( &li->li_acl_authcDN );
@@ -105,7 +145,7 @@ ldap_back_db_init( Backend *be )
 
 	li->li_idassert_authmethod = LDAP_AUTH_NONE;
 	BER_BVZERO( &li->li_idassert_sasl_mech );
-	li->li_idassert.sb_tls = SB_TLS_DEFAULT;
+	li->li_idassert_tls = SB_TLS_DEFAULT;
 
 	/* by default, use proxyAuthz control on each operation */
 	li->li_idassert_flags = LDAP_BACK_AUTH_PRESCRIPTIVE;
@@ -120,18 +160,33 @@ ldap_back_db_init( Backend *be )
 
 	ldap_pvt_thread_mutex_init( &li->li_conninfo.lai_mutex );
 
+	for ( i = LDAP_BACK_PCONN_FIRST; i < LDAP_BACK_PCONN_LAST; i++ ) {
+		li->li_conn_priv[ i ].lic_num = 0;
+		LDAP_TAILQ_INIT( &li->li_conn_priv[ i ].lic_priv );
+	}
+	li->li_conn_priv_max = LDAP_BACK_CONN_PRIV_DEFAULT;
+
 	be->be_private = li;
 	SLAP_DBFLAGS( be ) |= SLAP_DBFLAG_NOLASTMOD;
 
 	be->be_cf_ocs = be->bd_info->bi_cf_ocs;
 
-	return 0;
+	rc = ldap_back_monitor_db_init( be );
+	if ( rc != 0 ) {
+		/* ignore, by now */
+		rc = 0;
+	}
+
+	return rc;
 }
 
 int
-ldap_back_db_open( BackendDB *be )
+ldap_back_db_open( BackendDB *be, ConfigReply *cr )
 {
 	ldapinfo_t	*li = (ldapinfo_t *)be->be_private;
+
+	slap_bindconf	sb = { BER_BVNULL };
+	int		rc = 0;
 
 	Debug( LDAP_DEBUG_TRACE,
 		"ldap_back_db_open: URI=%s\n",
@@ -150,49 +205,43 @@ ldap_back_db_open( BackendDB *be )
 		break;
 	}
 
-#if 0 && defined(SLAPD_MONITOR)
-	{
-		/* FIXME: disabled because namingContexts doesn't have
-		 * a matching rule, and using an MRA filter doesn't work
-		 * because the normalized assertion is compared to the 
-		 * non-normalized value, which in general differs from
-		 * the normalized one.  See ITS#3406 */
-		struct berval	filter,
-				base = BER_BVC( "cn=Databases," SLAPD_MONITOR );
-		Attribute	a = { 0 };
+	ber_str2bv( li->li_uri, 0, 0, &sb.sb_uri );
+	sb.sb_version = li->li_version;
+	sb.sb_method = LDAP_AUTH_SIMPLE;
+	BER_BVSTR( &sb.sb_binddn, "" );
 
-		filter.bv_len = STRLENOF( "(&(namingContexts:distinguishedNameMatch:=)(monitoredInfo=ldap))" )
-			+ be->be_nsuffix[ 0 ].bv_len;
-		filter.bv_val = ch_malloc( filter.bv_len + 1 );
-		snprintf( filter.bv_val, filter.bv_len + 1,
-				"(&(namingContexts:distinguishedNameMatch:=%s)(monitoredInfo=ldap))",
-				be->be_nsuffix[ 0 ].bv_val );
-
-		a.a_desc = slap_schema.si_ad_labeledURI;
-		a.a_vals = li->li_bvuri;
-		a.a_nvals = li->li_bvuri;
-		if ( monitor_back_register_entry_attrs( NULL, &a, NULL, &base, LDAP_SCOPE_SUBTREE, &filter ) ) {
-			/* error */
-		}
-
-		ch_free( filter.bv_val );
-	}
-#endif /* SLAPD_MONITOR */
-
-	if ( li->li_flags & LDAP_BACK_F_SUPPORT_T_F_DISCOVER ) {
-		int		rc;
-
-		li->li_flags &= ~LDAP_BACK_F_SUPPORT_T_F_DISCOVER;
-
-		rc = slap_discover_feature( li->li_uri, li->li_version,
+	if ( LDAP_BACK_T_F_DISCOVER( li ) && !LDAP_BACK_T_F( li ) ) {
+		rc = slap_discover_feature( &sb,
 				slap_schema.si_ad_supportedFeatures->ad_cname.bv_val,
 				LDAP_FEATURE_ABSOLUTE_FILTERS );
 		if ( rc == LDAP_COMPARE_TRUE ) {
-			li->li_flags |= LDAP_BACK_F_SUPPORT_T_F;
+			li->li_flags |= LDAP_BACK_F_T_F;
 		}
 	}
 
-	return 0;
+	if ( LDAP_BACK_CANCEL_DISCOVER( li ) && !LDAP_BACK_CANCEL( li ) ) {
+		rc = slap_discover_feature( &sb,
+				slap_schema.si_ad_supportedExtension->ad_cname.bv_val,
+				LDAP_EXOP_CANCEL );
+		if ( rc == LDAP_COMPARE_TRUE ) {
+			li->li_flags |= LDAP_BACK_F_CANCEL_EXOP;
+		}
+	}
+
+	/* monitor setup */
+	rc = ldap_back_monitor_db_open( be );
+	if ( rc != 0 ) {
+		/* ignore by now */
+		rc = 0;
+#if 0
+		goto fail;
+#endif
+	}
+
+	li->li_flags |= LDAP_BACK_F_ISOPEN;
+
+fail:;
+	return rc;
 }
 
 void
@@ -213,16 +262,31 @@ ldap_back_conn_free( void *v_lc )
 	if ( !BER_BVISNULL( &lc->lc_local_ndn ) ) {
 		ch_free( lc->lc_local_ndn.bv_val );
 	}
+	lc->lc_q.tqe_prev = NULL;
+	lc->lc_q.tqe_next = NULL;
 	ch_free( lc );
 }
 
 int
-ldap_back_db_destroy(
-    Backend	*be
-)
+ldap_back_db_close( Backend *be, ConfigReply *cr )
+{
+	int		rc = 0;
+
+	if ( be->be_private ) {
+		rc = ldap_back_monitor_db_close( be );
+	}
+
+	return rc;
+}
+
+int
+ldap_back_db_destroy( Backend *be, ConfigReply *cr )
 {
 	if ( be->be_private ) {
 		ldapinfo_t	*li = ( ldapinfo_t * )be->be_private;
+		unsigned	i;
+
+		(void)ldap_back_monitor_db_destroy( be );
 
 		ldap_pvt_thread_mutex_lock( &li->li_conninfo.lai_mutex );
 
@@ -285,9 +349,22 @@ ldap_back_db_destroy(
                	if ( li->li_conninfo.lai_tree ) {
 			avl_free( li->li_conninfo.lai_tree, ldap_back_conn_free );
 		}
+		for ( i = LDAP_BACK_PCONN_FIRST; i < LDAP_BACK_PCONN_LAST; i++ ) {
+			while ( !LDAP_TAILQ_EMPTY( &li->li_conn_priv[ i ].lic_priv ) ) {
+				ldapconn_t	*lc = LDAP_TAILQ_FIRST( &li->li_conn_priv[ i ].lic_priv );
+
+				LDAP_TAILQ_REMOVE( &li->li_conn_priv[ i ].lic_priv, lc, lc_q );
+				ldap_back_conn_free( lc );
+			}
+		}
+		if ( LDAP_BACK_QUARANTINE( li ) ) {
+			slap_retry_info_destroy( &li->li_quarantine );
+			ldap_pvt_thread_mutex_destroy( &li->li_quarantine_mutex );
+		}
 
 		ldap_pvt_thread_mutex_unlock( &li->li_conninfo.lai_mutex );
 		ldap_pvt_thread_mutex_destroy( &li->li_conninfo.lai_mutex );
+		ldap_pvt_thread_mutex_destroy( &li->li_uri_mutex );
 	}
 
 	ch_free( be->be_private );

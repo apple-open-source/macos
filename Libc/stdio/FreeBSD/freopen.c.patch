@@ -1,10 +1,5 @@
-Index: freopen.c
-===================================================================
-RCS file: /cvs/root/Libc/stdio/FreeBSD/freopen.c,v
-retrieving revision 1.3
-diff -u -d -b -w -p -r1.3 freopen.c
---- freopen.c	2004/11/25 19:38:34	1.3
-+++ freopen.c	2005/01/25 18:01:26
+--- freopen.c.orig	2009-02-15 03:11:22.000000000 -0800
++++ freopen.c	2009-02-15 14:26:16.000000000 -0800
 @@ -99,7 +99,7 @@ freopen(file, mode, fp)
  		    (oflags & O_ACCMODE)) {
  			fclose(fp);
@@ -42,3 +37,12 @@ diff -u -d -b -w -p -r1.3 freopen.c
  	}
  
  	/* Get a new descriptor to refer to the new file. */
+@@ -191,7 +200,7 @@ finish:
+ 	memset(&fp->_extra->mbstate, 0, sizeof(mbstate_t));
+ 
+ 	if (f < 0) {			/* did not get it after all */
+-		fp->_flags = 0;		/* set it free */
++		__sfprelease(fp);	/* set it free */
+ 		errno = sverrno;	/* restore in case _close clobbered */
+ 		FUNLOCKFILE(fp);
+ 		return (NULL);

@@ -1,10 +1,10 @@
 /*
- * "$Id: rastertoepson.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: rastertoepson.c 7450 2008-04-14 19:39:02Z mike $"
  *
  *   EPSON ESC/P and ESC/P2 filter for the Common UNIX Printing System
  *   (CUPS).
  *
- *   Copyright 2007-2008 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 1993-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -34,11 +34,12 @@
 #include <cups/ppd.h>
 #include <cups/string.h>
 #include <cups/i18n.h>
-#include "raster.h"
+#include <cups/raster.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <errno.h>
 
 
 /*
@@ -104,7 +105,7 @@ void	OutputRows(const cups_page_header2_t *header, int row);
 void
 Setup(void)
 {
-  const char	*device_uri;	/* The device for the printer... */
+  const char	*device_uri;		/* The device for the printer... */
 
 
  /*
@@ -123,11 +124,12 @@ Setup(void)
  */
 
 void
-StartPage(const ppd_file_t         *ppd,	/* I - PPD file */
-          const cups_page_header2_t *header)	/* I - Page header */
+StartPage(
+    const ppd_file_t         *ppd,	/* I - PPD file */
+    const cups_page_header2_t *header)	/* I - Page header */
 {
-  int	n, t;					/* Numbers */
-  int	plane;					/* Looping var */
+  int	n, t;				/* Numbers */
+  int	plane;				/* Looping var */
 
 
  /*
@@ -143,8 +145,6 @@ StartPage(const ppd_file_t         *ppd,	/* I - PPD file */
   * See which type of printer we are using...
   */
 
-  EjectPage = header->Margins[0] || header->Margins[1];
-    
   switch (Model)
   {
     case EPSON_9PIN :
@@ -164,8 +164,8 @@ StartPage(const ppd_file_t         *ppd,	/* I - PPD file */
 
 	printf("\033l%c\033Q%c", 0,	/* Side margins */
                       (int)(10.0 * header->PageSize[0] / 72.0 + 0.5));
-	printf("\033C%c%c", 0,		/* Page length */
-                      (int)(header->PageSize[1] / 72.0 + 0.5));
+	printf("\033\062\033C%c",	/* Page length in 1/6th inches */
+		      (int)(header->PageSize[1] / 12.0 + 0.5));
 	printf("\033N%c", 0);		/* Bottom margin */
         printf("\033O");		/* No perforation skip */
 
@@ -320,7 +320,8 @@ StartPage(const ppd_file_t         *ppd,	/* I - PPD file */
  */
 
 void
-EndPage(const cups_page_header2_t *header)	/* I - Page header */
+EndPage(
+    const cups_page_header2_t *header)	/* I - Page header */
 {
   if (DotBytes && header)
   {
@@ -349,8 +350,7 @@ EndPage(const cups_page_header2_t *header)	/* I - Page header */
   * Eject the current page...
   */
 
-  if (EjectPage)
-    putchar(12);		/* Form feed */
+  putchar(12);				/* Form feed */
   fflush(stdout);
 
  /*
@@ -608,7 +608,8 @@ CompressData(const unsigned char *line,	/* I - Data to compress */
  */
 
 void
-OutputLine(const cups_page_header2_t *header)	/* I - Page header */
+OutputLine(
+    const cups_page_header2_t *header)	/* I - Page header */
 {
   if (header->cupsRowCount)
   {
@@ -776,14 +777,15 @@ OutputLine(const cups_page_header2_t *header)	/* I - Page header */
  */
 
 void
-OutputRows(const cups_page_header2_t *header,	/* I - Page image header */
-           int                      row)	/* I - Row number (0 or 1) */
+OutputRows(
+    const cups_page_header2_t *header,	/* I - Page image header */
+    int                      row)	/* I - Row number (0 or 1) */
 {
-  unsigned	i, n;				/* Looping vars */
-  int		dot_count,			/* Number of bytes to print */
-                dot_min;			/* Minimum number of bytes */
-  unsigned char *dot_ptr,			/* Pointer to print data */
-		*ptr;				/* Current data */
+  unsigned	i, n;			/* Looping vars */
+  int		dot_count,		/* Number of bytes to print */
+                dot_min;		/* Minimum number of bytes */
+  unsigned char *dot_ptr,		/* Pointer to print data */
+		*ptr;			/* Current data */
 
 
   dot_min = DotBytes * DotColumns;
@@ -982,8 +984,9 @@ main(int  argc,				/* I - Number of command-line arguments */
     * and return.
     */
 
-    fprintf(stderr, _("Usage: %s job-id user title copies options [file]\n"),
-            argv[0]);
+    _cupsLangPrintf(stderr,
+                    _("Usage: %s job-id user title copies options [file]\n"),
+                    "rastertoepson");
     return (1);
   }
 
@@ -995,7 +998,8 @@ main(int  argc,				/* I - Number of command-line arguments */
   {
     if ((fd = open(argv[6], O_RDONLY)) == -1)
     {
-      perror("ERROR: Unable to open raster file - ");
+      _cupsLangPrintf(stderr, _("ERROR: Unable to open raster file - %s\n"),
+                      strerror(errno));
       sleep(1);
       return (1);
     }
@@ -1073,8 +1077,8 @@ main(int  argc,				/* I - Number of command-line arguments */
 	break;
 
       if ((y & 127) == 0)
-        fprintf(stderr, _("INFO: Printing page %d, %d%% complete...\n"), page,
-	        100 * y / header.cupsHeight);
+        _cupsLangPrintf(stderr, _("INFO: Printing page %d, %d%% complete...\n"),
+                        page, 100 * y / header.cupsHeight);
 
      /*
       * Read a line of graphics...
@@ -1121,14 +1125,18 @@ main(int  argc,				/* I - Number of command-line arguments */
   */
 
   if (page == 0)
-    fputs(_("ERROR: No pages found!\n"), stderr);
+  {
+    _cupsLangPuts(stderr, _("ERROR: No pages found!\n"));
+    return (1);
+  }
   else
-    fputs(_("INFO: Ready to print.\n"), stderr);
-
-  return (page == 0);
+  {
+    _cupsLangPuts(stderr, _("INFO: Ready to print.\n"));
+    return (0);
+  }
 }
 
 
 /*
- * End of "$Id: rastertoepson.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: rastertoepson.c 7450 2008-04-14 19:39:02Z mike $".
  */

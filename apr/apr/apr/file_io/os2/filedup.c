@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -91,7 +91,8 @@ APR_DECLARE(apr_status_t) apr_file_setaside(apr_file_t **new_file,
     (*new_file)->pool = p;
 
     if (old_file->buffered) {
-        (*new_file)->buffer = apr_palloc(p, APR_FILE_BUFSIZE);
+        (*new_file)->buffer = apr_palloc(p, old_file->bufsize);
+        (*new_file)->bufsize = old_file->bufsize;
 
         if (old_file->direction == 1) {
             memcpy((*new_file)->buffer, old_file->buffer, old_file->bufpos);

@@ -2,7 +2,7 @@
  * wc.h :  shared stuff internal to the svn_wc library.
  *
  * ====================================================================
- * Copyright (c) 2000-2006 CollabNet.  All rights reserved.
+ * Copyright (c) 2000-2008 CollabNet.  All rights reserved.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution.  The terms
@@ -33,7 +33,6 @@ extern "C" {
 
 
 #define SVN_WC__TMP_EXT       ".tmp"
-#define SVN_WC__TEXT_REJ_EXT  ".rej"
 #define SVN_WC__PROP_REJ_EXT  ".prej"
 #define SVN_WC__BASE_EXT      ".svn-base" /* for text and prop bases */
 #define SVN_WC__WORK_EXT      ".svn-work" /* for working propfiles */
@@ -67,9 +66,15 @@ extern "C" {
  *
  * The change from 7 to 8 was putting wcprops in one file per directory.
  *
+ * The change from 8 to 9 was the addition of changelists, keep-local,
+ * and sticky depth (for selective/sparse checkouts).
+ *
+ * The change from 9 to 10 was the addition of tree-conflicts, file
+ * externals and a different canonicalization of urls.
+ *
  * Please document any further format changes here.
  */
-#define SVN_WC__VERSION       8
+#define SVN_WC__VERSION       10
 
 /* A version <= this doesn't have property caching in the entries file. */
 #define SVN_WC__NO_PROPCACHING_VERSION 5
@@ -79,6 +84,10 @@ extern "C" {
 
 /* A version <= this has wcprops stored in one file per entry. */
 #define SVN_WC__WCPROPS_MANY_FILES_VERSION 7
+
+/* A version < this can have urls that aren't canonical according to the new
+   rules. See issue #2475. */
+#define SVN_WC__CHANGED_CANONICAL_URLS 10
 
 /*** Update traversals. ***/
 
@@ -90,13 +99,18 @@ struct svn_wc_traversal_info_t
 
   /* The before and after values of the SVN_PROP_EXTERNALS property,
    * for each directory on which that property changed.  These have
-   * the same layout as those returned by svn_wc_edited_externals(). 
+   * the same layout as those returned by svn_wc_edited_externals().
    *
    * The hashes, their keys, and their values are allocated in the
    * above pool.
    */
   apr_hash_t *externals_old;
   apr_hash_t *externals_new;
+
+  /* The ambient depths of the working copy directories.  The keys are
+     working copy paths (as for svn_wc_edited_externals()), the values
+     are the result of svn_depth_to_word(depth_of_each_dir). */
+  apr_hash_t *depths;
 };
 
 
@@ -105,10 +119,21 @@ struct svn_wc_traversal_info_t
 
 /* A special timestamp value which means "use the timestamp from the
    working copy".  This is sometimes used in a log entry like:
-   
+
    <modify-entry name="foo.c" revision="5" timestamp="working"/>
  */
 #define SVN_WC__TIMESTAMP_WC   "working"
+
+
+
+/*** Filesizes. ***/
+
+/* A special filesize value which means "use the filesize from the
+   working copy".  This is sometimes used in a log entry like:
+
+   <modify-entry name="foo.c" revision="5" working-size="working"/>
+ */
+#define SVN_WC__WORKING_SIZE_WC   "working"
 
 
 
@@ -138,6 +163,9 @@ struct svn_wc_traversal_info_t
    directory.  */
 #define SVN_WC__THIS_DIR_PREJ           "dir_conflicts"
 
+/* Possible contents of the killme file.  If present, signals that the
+   administrative area only should be deleted. */
+#define SVN_WC__KILL_ADM_ONLY           "adm-only"
 
 
 /* A space separated list of properties that we cache presence/absence of.
@@ -202,6 +230,15 @@ svn_wc__text_modified_internal_p(svn_boolean_t *modified_p,
 /* Merge the difference between LEFT and RIGHT into MERGE_TARGET,
    accumulating instructions to update the working copy into LOG_ACCUM.
 
+   Note that, in the case of updating, the update can have sent new
+   properties, which could affect the way the wc target is
+   detranslated and compared with LEFT and RIGHT for merging.
+
+   If COPYFROM_TEXT is not NULL, the "local mods" text should be taken
+   from the path named there instead of from MERGE_TARGET (but the
+   merge should still be installed into MERGE_TARGET).  The merge
+   target is allowed to not be under version control in this case.
+
    The merge result is stored in *MERGE_OUTCOME and merge conflicts
    are marked in MERGE_RESULT using LEFT_LABEL, RIGHT_LABEL and
    TARGET_LABEL.
@@ -214,16 +251,30 @@ svn_wc__text_modified_internal_p(svn_boolean_t *modified_p,
    When MERGE_OPTIONS are specified, they are used by the internal
    diff3 routines, or passed to the external diff3 tool.
 
-   For a complete description, see svn_wc_merge2() for which this is
-   the (loggy) implementation.
+   If CONFLICT_FUNC is non-NULL, then call it with CONFLICT_BATON if a
+   conflict is encountered, giving the callback a chance to resolve
+   the conflict (before marking the file 'conflicted').
 
+   When LEFT_VERSION and RIGHT_VERSION are non-NULL, pass them to the
+   conflict resolver as older_version and their_version.
+
+   ## TODO: We should store the information in LEFT_VERSION and RIGHT_VERSION
+            in the workingcopy for future retrieval via svn info.
+
+   Property changes sent by the update are provided in PROP_DIFF.
+
+   For a complete description, see svn_wc_merge3() for which this is
+   the (loggy) implementation.
 */
 svn_error_t *
 svn_wc__merge_internal(svn_stringbuf_t **log_accum,
                        enum svn_wc_merge_outcome_t *merge_outcome,
                        const char *left,
+                       svn_wc_conflict_version_t *left_version,
                        const char *right,
+                       svn_wc_conflict_version_t *right_version,
                        const char *merge_target,
+                       const char *copyfrom_text,
                        svn_wc_adm_access_t *adm_access,
                        const char *left_label,
                        const char *right_label,
@@ -231,7 +282,63 @@ svn_wc__merge_internal(svn_stringbuf_t **log_accum,
                        svn_boolean_t dry_run,
                        const char *diff3_cmd,
                        const apr_array_header_t *merge_options,
+                       const apr_array_header_t *prop_diff,
+                       svn_wc_conflict_resolver_func_t conflict_func,
+                       void *conflict_baton,
                        apr_pool_t *pool);
+
+/* A default error handler for svn_wc_walk_entries3().  Returns ERR in
+   all cases. */
+svn_error_t *
+svn_wc__walker_default_error_handler(const char *path,
+                                     svn_error_t *err,
+                                     void *walk_baton,
+                                     apr_pool_t *pool);
+
+/* Set *EDITOR and *EDIT_BATON to an ambient-depth-based filtering
+ * editor that wraps WRAPPED_EDITOR and WRAPPED_BATON.  This is only
+ * required for operations where the requested depth is @c
+ * svn_depth_unknown and the server's editor driver doesn't understand
+ * depth.  It is safe for *EDITOR and *EDIT_BATON to start as
+ * WRAPPED_EDITOR and WRAPPED_BATON.
+ *
+ * ANCHOR, TARGET, and ADM_ACCESS are as in svn_wc_get_update_editor3.
+ *
+ * @a requested_depth must be one of the following depth values:
+ * @c svn_depth_infinity, @c svn_depth_empty, @c svn_depth_files,
+ * @c svn_depth_immediates, or @c svn_depth_unknown.
+ *
+ * Allocations are done in POOL.
+ */
+svn_error_t *
+svn_wc__ambient_depth_filter_editor(const svn_delta_editor_t **editor,
+                                    void **edit_baton,
+                                    const svn_delta_editor_t *wrapped_editor,
+                                    void *wrapped_edit_baton,
+                                    const char *anchor,
+                                    const char *target,
+                                    svn_wc_adm_access_t *adm_access,
+                                    apr_pool_t *pool);
+
+/* Similar to svn_wc_walk_entries3(), but also visit unversioned paths that
+ * are tree conflict victims. For such a path, call the "found_entry"
+ * callback but with a null "entry" parameter. Walk all entries including
+ * hidden and schedule-delete entries, like with "show_hidden = TRUE" in
+ * svn_wc_walk_entries3().
+ *
+ * @a adm_access should be an access baton in a set that includes @a path
+ * (unless @a path is an unversioned victim of a tree conflict) and @a
+ * path's parent directory (if available).  If neither is available, @a
+ * adm_access may be null. */
+svn_error_t *
+svn_wc__walk_entries_and_tc(const char *path,
+                            svn_wc_adm_access_t *adm_access,
+                            const svn_wc_entry_callbacks2_t *walk_callbacks,
+                            void *walk_baton,
+                            svn_depth_t depth,
+                            svn_cancel_func_t cancel_func,
+                            void *cancel_baton,
+                            apr_pool_t *pool);
 
 #ifdef __cplusplus
 }

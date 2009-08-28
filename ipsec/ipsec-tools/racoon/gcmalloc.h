@@ -1,3 +1,5 @@
+/*	$NetBSD: gcmalloc.h,v 1.4 2006/09/09 16:22:09 manu Exp $	*/
+
 /*	$KAME: gcmalloc.h,v 1.4 2001/11/16 04:34:57 sakane Exp $	*/
 
 /*
@@ -77,12 +79,20 @@ free(void *ptr)
 
 	GC_FREE(ptr);
 }
+
+char *
+strdup(const char *str)
+{
+
+	return (GC_STRDUP(str));
+}
 #endif /* RACOON_MAIN_PROGRAM */
 
 #define	racoon_malloc(sz)	GC_debug_malloc(sz, GC_EXTRAS)
 #define	racoon_calloc(cnt, sz)	GC_debug_malloc(cnt * sz, GC_EXTRAS)
 #define	racoon_realloc(old, sz)	GC_debug_realloc(old, sz, GC_EXTRAS)
 #define	racoon_free(p)		GC_debug_free(p)
+#define	racoon_strdup(str)	GC_debug_strdup(str)
 
 #endif /* GC */
 
@@ -108,6 +118,9 @@ free(void *ptr)
 #endif
 #ifndef racoon_free
 #define	racoon_free(p)		free((p))
+#endif
+#ifndef racoon_strdup
+#define	racoon_strdup(s)	strdup((s))
 #endif
 #endif /* DEBUG_RECORD_MALLOCATION */
 

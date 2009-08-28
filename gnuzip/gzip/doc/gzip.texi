@@ -11,8 +11,8 @@ This manual is for Gzip
 (version @value{VERSION}, @value{UPDATED}),
 and documents commands for compressing and decompressing data.
 
-Copyright @copyright{} 1998, 1999, 2001, 2002, 2006 Free Software
-Foundation, Inc.
+Copyright @copyright{} 1998, 1999, 2001, 2002, 2006, 2007 Free
+Software Foundation, Inc.
 
 Copyright @copyright{} 1992, 1993 Jean-loup Gailly
 
@@ -55,7 +55,7 @@ Free Documentation License''.
 @contents
 
 @ifnottex
-@node Top, , , (dir)
+@node Top
 @top Compressing Files
 
 @insertcopying
@@ -63,180 +63,194 @@ Free Documentation License''.
 
 @menu
 * Overview::		Preliminary information.
-* Sample::		Sample output from @code{gzip}.
-* Invoking gzip::	How to run @code{gzip}.
+* Sample::		Sample output from @command{gzip}.
+* Invoking gzip::	How to run @command{gzip}.
 * Advanced usage::	Concatenated files.
-* Environment::		The @code{GZIP} environment variable
-* Tapes::               Using @code{gzip} on tapes.
+* Environment::		The @env{GZIP} environment variable
+* Tapes::               Using @command{gzip} on tapes.
 * Problems::		Reporting bugs.
 * Copying This Manual:: How to make copies of this manual.
 * Concept Index::	Index of concepts.
 @end menu
 
-@node Overview, Sample, , Top
+@node Overview
 @chapter Overview
 @cindex overview
 
-@code{gzip} reduces the size of the named files using Lempel-Ziv coding
+@command{gzip} reduces the size of the named files using Lempel-Ziv coding
 (LZ77).  Whenever possible, each file is replaced by one with the
 extension @samp{.gz}, while keeping the same ownership modes, access and
-modification times.  (The default extension is @samp{-gz} for VMS,
-@samp{z} for MSDOS, OS/2 FAT and Atari.)  If no files are specified or
+modification times.  (The default extension is @option{-gz} for @abbr{VMS},
+@samp{z} for @abbr{MSDOS}, @abbr{OS/2} @abbr{FAT} and Atari.)
+If no files are specified or
 if a file name is "-", the standard input is compressed to the standard
-output. @code{gzip} will only attempt to compress regular files.  In
+output.  @command{gzip} will only attempt to compress regular files.  In
 particular, it will ignore symbolic links.
 
-If the new file name is too long for its file system, @code{gzip}
-truncates it.  @code{gzip} attempts to truncate only the parts of the
+If the new file name is too long for its file system, @command{gzip}
+truncates it.  @command{gzip} attempts to truncate only the parts of the
 file name longer than 3 characters.  (A part is delimited by dots.) If
 the name consists of small parts only, the longest parts are truncated.
 For example, if file names are limited to 14 characters, gzip.msdos.exe
 is compressed to gzi.msd.exe.gz.  Names are not truncated on systems
 which do not have a limit on file name length.
 
-By default, @code{gzip} keeps the original file name and timestamp in
-the compressed file. These are used when decompressing the file with the
-@samp{-N} option. This is useful when the compressed file name was
+By default, @command{gzip} keeps the original file name and time stamp in
+the compressed file.  These are used when decompressing the file with the
+@option{-N} option.  This is useful when the compressed file name was
 truncated or when the time stamp was not preserved after a file
-transfer.  However, due to limitations in the current @code{gzip} file
+transfer.  However, due to limitations in the current @command{gzip} file
 format, fractional seconds are discarded.  Also, time stamps must fall
 within the range 1970-01-01 00:00:00 through 2106-02-07 06:28:15
-@acronym{UTC}, and hosts whose operating systems use 32-bit time
+@abbr{UTC}, and hosts whose operating systems use 32-bit time
 stamps are further restricted to time stamps no later than 2038-01-19
-03:14:07 @acronym{UTC}.  The upper bounds assume the typical case
+03:14:07 @abbr{UTC}.  The upper bounds assume the typical case
 where leap seconds are ignored.
 
 Compressed files can be restored to their original form using @samp{gzip -d}
-or @code{gunzip} or @code{zcat}.  If the original name saved in the
+or @command{gunzip} or @command{zcat}.  If the original name saved in the
 compressed file is not suitable for its file system, a new name is
 constructed from the original one to make it legal.
 
-@code{gunzip} takes a list of files on its command line and replaces
+@command{gunzip} takes a list of files on its command line and replaces
 each file whose name ends with @samp{.gz}, @samp{.z}, @samp{.Z},
-@samp{-gz}, @samp{-z} or @samp{_z} and which begins with the correct
+@option{-gz}, @option{-z} or @samp{_z} and which begins with the correct
 magic number with an uncompressed file without the original extension.
-@code{gunzip} also recognizes the special extensions @samp{.tgz} and
+@command{gunzip} also recognizes the special extensions @samp{.tgz} and
 @samp{.taz} as shorthands for @samp{.tar.gz} and @samp{.tar.Z}
-respectively. When compressing, @code{gzip} uses the @samp{.tgz}
+respectively.  When compressing, @command{gzip} uses the @samp{.tgz}
 extension if necessary instead of truncating a file with a @samp{.tar}
 extension.
 
-@code{gunzip} can currently decompress files created by @code{gzip},
-@code{zip}, @code{compress} or @code{pack}. The detection of the input
-format is automatic.  When using the first two formats, @code{gunzip}
-checks a 32 bit CRC (cyclic redundancy check). For @code{pack},
-@code{gunzip} checks the uncompressed length. The @code{compress} format
-was not designed to allow consistency checks. However @code{gunzip} is
-sometimes able to detect a bad @samp{.Z} file. If you get an error when
+@command{gunzip} can currently decompress files created by @command{gzip},
+@command{zip}, @command{compress} or @command{pack}.  The detection of the input
+format is automatic.  When using the first two formats, @command{gunzip}
+checks a 32 bit @abbr{CRC} (cyclic redundancy check).  For @command{pack},
+@command{gunzip} checks the uncompressed length.  The @command{compress} format
+was not designed to allow consistency checks.  However @command{gunzip} is
+sometimes able to detect a bad @samp{.Z} file.  If you get an error when
 uncompressing a @samp{.Z} file, do not assume that the @samp{.Z} file is
-correct simply because the standard @code{uncompress} does not complain.
-This generally means that the standard @code{uncompress} does not check
-its input, and happily generates garbage output.  The SCO @samp{compress
--H} format (@code{lzh} compression method) does not include a CRC but
+correct simply because the standard @command{uncompress} does not complain.
+This generally means that the standard @command{uncompress} does not check
+its input, and happily generates garbage output.  The @abbr{SCO} @samp{compress
+-H} format (@abbr{LZH} compression method) does not include a @abbr{CRC} but
 also allows some consistency checks.
 
-Files created by @code{zip} can be uncompressed by @code{gzip} only if
-they have a single member compressed with the 'deflation' method. This
-feature is only intended to help conversion of @code{tar.zip} files to
-the @code{tar.gz} format.  To extract a @code{zip} file with a single
+Files created by @command{zip} can be uncompressed by @command{gzip} only if
+they have a single member compressed with the 'deflation' method.  This
+feature is only intended to help conversion of @file{tar.zip} files to
+the @file{tar.gz} format.  To extract a @command{zip} file with a single
 member, use a command like @samp{gunzip <foo.zip} or @samp{gunzip -S
-.zip foo.zip}.  To extract @code{zip} files with several
-members, use @code{unzip} instead of @code{gunzip}.
+.zip foo.zip}.  To extract @command{zip} files with several
+members, use @command{unzip} instead of @command{gunzip}.
 
-@code{zcat} is identical to @samp{gunzip -c}.  @code{zcat}
+@command{zcat} is identical to @samp{gunzip -c}.  @command{zcat}
 uncompresses either a list of files on the command line or its standard
-input and writes the uncompressed data on standard output.  @code{zcat}
+input and writes the uncompressed data on standard output.  @command{zcat}
 will uncompress files that have the correct magic number whether they
 have a @samp{.gz} suffix or not.
 
-@code{gzip} uses the Lempel-Ziv algorithm used in @code{zip} and PKZIP.
+@command{gzip} uses the Lempel-Ziv algorithm used in @command{zip} and
+@abbr{PKZIP}@.
 The amount of compression obtained depends on the size of the input and
 the distribution of common substrings.  Typically, text such as source
 code or English is reduced by 60-70%.  Compression is generally much
-better than that achieved by LZW (as used in @code{compress}), Huffman
-coding (as used in @code{pack}), or adaptive Huffman coding
-(@code{compact}).
+better than that achieved by @abbr{LZW} (as used in @command{compress}), Huffman
+coding (as used in @command{pack}), or adaptive Huffman coding
+(@command{compact}).
 
 Compression is always performed, even if the compressed file is slightly
-larger than the original. The worst case expansion is a few bytes for
-the @code{gzip} file header, plus 5 bytes every 32K block, or an expansion
-ratio of 0.015% for large files. Note that the actual number of used
-disk blocks almost never increases.  @code{gzip} normally preserves the mode,
+larger than the original.  The worst case expansion is a few bytes for
+the @command{gzip} file header, plus 5 bytes every 32K block, or an expansion
+ratio of 0.015% for large files.  Note that the actual number of used
+disk blocks almost never increases.  @command{gzip} normally preserves the mode,
 ownership and time stamps of files when compressing or decompressing.
 
-The @code{gzip} file format is specified in P. Deutsch, @sc{gzip} file
+The @command{gzip} file format is specified in P. Deutsch, @sc{gzip} file
 format specification version 4.3,
-@uref{ftp://ftp.isi.edu/in-notes/rfc1952.txt, Internet RFC 1952} (May
-1996).  The @code{zip} deflation format is specified in P. Deutsch,
+@uref{ftp://ftp.isi.edu/in-notes/rfc1952.txt, Internet @abbr{RFC} 1952} (May
+1996).  The @command{zip} deflation format is specified in P. Deutsch,
 @sc{deflate} Compressed Data Format Specification version 1.3,
-@uref{ftp://ftp.isi.edu/in-notes/rfc1951.txt, Internet RFC 1951} (May
+@uref{ftp://ftp.isi.edu/in-notes/rfc1951.txt, Internet @abbr{RFC} 1951} (May
 1996).
 
-@node Sample, Invoking gzip, Overview, Top
+@node Sample
 @chapter Sample Output
 @cindex sample
 
-Here are some realistic examples of running @code{gzip}.
+Here are some realistic examples of running @command{gzip}.
 
 This is the output of the command @samp{gzip -h}:
 
 @example
-gzip @var{version-number}
-usage: gzip [-cdfhlLnNrtvV19] [-S suffix] [file ...]
- -c --stdout      write on standard output, keep original files unchanged
- -d --decompress  decompress
- -f --force       force overwrite of output file and compress links
- -h --help        give this help
- -l --list        list compressed file contents
- -L --license     display software license
- -n --no-name     do not save or restore the original name and time stamp
- -N --name        save or restore the original name and time stamp
- -q --quiet       suppress all warnings
- -r --recursive   operate recursively on directories
- -S .suf  --suffix .suf     use suffix .suf on compressed files
- -t --test        test compressed file integrity
- -v --verbose     verbose mode
- -V --version     display version number
- -1 --fast        compress faster
- -9 --best        compress better
- file...          files to (de)compress. If none given, use standard input.
+Usage: gzip [OPTION]... [FILE]...
+Compress or uncompress FILEs (by default, compress FILES in-place).
+
+Mandatory arguments to long options are mandatory for short options too.
+
+  -c, --stdout      write on standard output, keep original files unchanged
+  -d, --decompress  decompress
+  -f, --force       force overwrite of output file and compress links
+  -h, --help        give this help
+  -l, --list        list compressed file contents
+  -L, --license     display software license
+  -n, --no-name     do not save or restore the original name and time stamp
+  -N, --name        save or restore the original name and time stamp
+  -q, --quiet       suppress all warnings
+  -r, --recursive   operate recursively on directories
+  -S, --suffix=SUF  use suffix SUF on compressed files
+  -t, --test        test compressed file integrity
+  -v, --verbose     verbose mode
+  -V, --version     display version number
+  -1, --fast        compress faster
+  -9, --best        compress better
+
+With no FILE, or when FILE is -, read standard input.
+
 Report bugs to <bug-gzip@@gnu.org>.
 @end example
 
 This is the output of the command @samp{gzip -v texinfo.tex}:
 
 @example
-texinfo.tex:             69.7% -- replaced with texinfo.tex.gz
+texinfo.tex:     69.3% -- replaced with texinfo.tex.gz
 @end example
 
-The following command will find all @code{gzip} files in the current
-directory and subdirectories, and extract them in place without
-destroying the original:
+The following command will find all regular @samp{.gz} files in the
+current directory and subdirectories (skipping file names that contain
+newlines), and extract them in place without destroying the original,
+stopping on the first failure:
 
 @example
-find . -name '*.gz' -print | sed 's/^\(.*\)[.]gz$/gunzip < "&" > "\1"/' | sh
+find . -name '*
+*' -prune -o -name '*.gz' -type f -print |
+  sed "
+    s/'/'\\''/g
+    s/^\\(.*\\)\\.gz$/gunzip <'\\1.gz' >'\\1'/
+  " |
+  sh -e
 @end example
 
-@node Invoking gzip, Advanced usage, Sample, Top
-@chapter Invoking @code{gzip}
+@node Invoking gzip
+@chapter Invoking @command{gzip}
 @cindex invoking
 @cindex options
 
-The format for running the @code{gzip} program is:
+The format for running the @command{gzip} program is:
 
 @example
 gzip @var{option} @dots{}
 @end example
 
-@code{gzip} supports the following options:
+@command{gzip} supports the following options:
 
-@table @samp
+@table @option
 @item --stdout
 @itemx --to-stdout
 @itemx -c
 Write output on standard output; keep original files unchanged.
 If there are several input files, the output consists of a sequence of
-independently compressed members. To obtain better compression,
+independently compressed members.  To obtain better compression,
 concatenate all input files before compressing them.
 
 @item --decompress
@@ -248,11 +262,11 @@ Decompress.
 @itemx -f
 Force compression or decompression even if the file has multiple links
 or the corresponding file already exists, or if the compressed data
-is read from or written to a terminal. If the input data is not in
-a format recognized by @code{gzip}, and if the option @samp{--stdout} is also
+is read from or written to a terminal.  If the input data is not in
+a format recognized by @command{gzip}, and if the option @option{--stdout} is also
 given, copy the input data without change to the standard output: let
-@code{zcat} behave as @code{cat}. If @samp{-f} is not given, and
-when not running in the background, @code{gzip} prompts to verify
+@command{zcat} behave as @command{cat}.  If @option{-f} is not given, and
+when not running in the background, @command{gzip} prompts to verify
 whether an existing file should be overwritten.
 
 @item --help
@@ -270,15 +284,15 @@ ratio: compression ratio (0.0% if unknown)
 uncompressed_name: name of the uncompressed file
 @end example
 
-The uncompressed size is given as @samp{-1} for files not in @code{gzip}
-format, such as compressed @samp{.Z} files. To get the uncompressed size for
+The uncompressed size is given as @minus{}1 for files not in @command{gzip}
+format, such as compressed @samp{.Z} files.  To get the uncompressed size for
 such a file, you can use:
 
 @example
 zcat file.Z | wc -c
 @end example
 
-In combination with the @samp{--verbose} option, the following fields are also
+In combination with the @option{--verbose} option, the following fields are also
 displayed:
 
 @example
@@ -287,15 +301,15 @@ crc: the 32-bit CRC of the uncompressed data
 date & time: time stamp for the uncompressed file
 @end example
 
-The crc is given as ffffffff for a file not in gzip format.
+The @abbr{CRC} is given as ffffffff for a file not in gzip format.
 
-With @samp{--verbose}, the size totals and compression ratio for all files
-is also displayed, unless some sizes are unknown. With @samp{--quiet},
+With @option{--verbose}, the size totals and compression ratio for all files
+is also displayed, unless some sizes are unknown.  With @option{--quiet},
 the title and totals lines are not displayed.
 
-The @code{gzip} format represents the input size modulo
+The @command{gzip} format represents the input size modulo
 @math{2^32}, so the uncompressed size and compression ratio are listed
-incorrectly for uncompressed files 4 GB and larger. To work around
+incorrectly for uncompressed files 4 GiB and larger.  To work around
 this problem, you can use the following command to discover a large
 uncompressed file's true size:
 
@@ -305,23 +319,23 @@ zcat file.gz | wc -c
 
 @item --license
 @itemx -L
-Display the @code{gzip} license then quit.
+Display the @command{gzip} license then quit.
 
 @item --no-name
 @itemx -n
 When compressing, do not save the original file name and time stamp by
-default. (The original name is always saved if the name had to be
-truncated.) When decompressing, do not restore the original file name
-if present (remove only the @code{gzip}
+default.  (The original name is always saved if the name had to be
+truncated.)  When decompressing, do not restore the original file name
+if present (remove only the @command{gzip}
 suffix from the compressed file name) and do not restore the original
-time stamp if present (copy it from the compressed file). This option
+time stamp if present (copy it from the compressed file).  This option
 is the default when decompressing.
 
 @item --name
 @itemx -N
 When compressing, always save the original file name and time stamp; this
-is the default. When decompressing, restore the original file name and
-time stamp if present. This option is useful on systems which have
+is the default.  When decompressing, restore the original file name and
+time stamp if present.  This option is useful on systems which have
 a limit on file name length or when the time stamp has been lost after
 a file transfer.
 
@@ -331,14 +345,14 @@ Suppress all warning messages.
 
 @item --recursive
 @itemx -r
-Travel the directory structure recursively. If any of the file names
-specified on the command line are directories, @code{gzip} will descend
+Travel the directory structure recursively.  If any of the file names
+specified on the command line are directories, @command{gzip} will descend
 into the directory and compress all the files it finds there (or
-decompress them in the case of @code{gunzip}).
+decompress them in the case of @command{gunzip}).
 
 @item --suffix @var{suf}
 @itemx -S @var{suf}
-Use suffix @samp{@var{suf}} instead of @samp{.gz}. Any suffix can be
+Use suffix @var{suf} instead of @samp{.gz}.  Any suffix can be
 given, but suffixes other than @samp{.z} and @samp{.gz} should be
 avoided to avoid confusion when files are transferred to other systems.
 A null suffix forces gunzip to try decompression on all given files
@@ -348,55 +362,57 @@ regardless of suffix, as in:
 gunzip -S "" *        (*.* for MSDOS)
 @end example
 
-Previous versions of gzip used the @samp{.z} suffix. This was changed to
-avoid a conflict with @code{pack}.
+Previous versions of gzip used the @samp{.z} suffix.  This was changed to
+avoid a conflict with @command{pack}.
 
 @item --test
 @itemx -t
-Test. Check the compressed file integrity.
+Test.  Check the compressed file integrity.
 
 @item --verbose
 @itemx -v
-Verbose. Display the name and percentage reduction for each file compressed.
+Verbose.  Display the name and percentage reduction for each file compressed.
 
 @item --version
 @itemx -V
-Version. Display the version number and compilation options, then quit.
+Version.  Display the version number and compilation options, then quit.
 
 @item --fast
 @itemx --best
 @itemx -@var{n}
 Regulate the speed of compression using the specified digit @var{n},
-where @samp{-1} or @samp{--fast} indicates the fastest compression
-method (less compression) and @samp{--best} or @samp{-9} indicates the
+where @option{-1} or @option{--fast} indicates the fastest compression
+method (less compression) and @option{--best} or @option{-9} indicates the
 slowest compression method (optimal compression).  The default
-compression level is @samp{-6} (that is, biased towards high compression at
+compression level is @option{-6} (that is, biased towards high compression at
 expense of speed).
 @end table
 
-@node Advanced usage, Environment, Invoking gzip, Top
+@node Advanced usage
 @chapter Advanced usage
 @cindex concatenated files
 
-Multiple compressed files can be concatenated. In this case,
-@code{gunzip} will extract all members at once. If one member is
+Multiple compressed files can be concatenated.  In this case,
+@command{gunzip} will extract all members at once.  If one member is
 damaged, other members might still be recovered after removal of the
-damaged member. Better compression can be usually obtained if all
+damaged member.  Better compression can be usually obtained if all
 members are decompressed and then recompressed in a single step.
 
-This is an example of concatenating @code{gzip} files:
+This is an example of concatenating @command{gzip} files:
 
 @example
 gzip -c file1  > foo.gz
 gzip -c file2 >> foo.gz
 @end example
 
+@noindent
 Then
 
 @example
 gunzip -c foo
 @end example
 
+@noindent
 is equivalent to
 
 @example
@@ -404,13 +420,14 @@ cat file1 file2
 @end example
 
 In case of damage to one member of a @samp{.gz} file, other members can
-still be recovered (if the damaged member is removed). However,
+still be recovered (if the damaged member is removed).  However,
 you can get better compression by compressing all members at once:
 
 @example
 cat file1 file2 | gzip > foo.gz
 @end example
 
+@noindent
 compresses better than
 
 @example
@@ -424,8 +441,9 @@ zcat old.gz | gzip > new.gz
 @end example
 
 If a compressed file consists of several members, the uncompressed
-size and CRC reported by the @samp{--list} option applies to the last member
-only. If you need the uncompressed size for all members, you can use:
+size and @abbr{CRC} reported by the @option{--list} option applies to
+the last member
+only.  If you need the uncompressed size for all members, you can use:
 
 @example
 zcat file.gz | wc -c
@@ -433,16 +451,17 @@ zcat file.gz | wc -c
 
 If you wish to create a single archive file with multiple members so
 that members can later be extracted independently, use an archiver such
-as @code{tar} or @code{zip}. GNU @code{tar} supports the @samp{-z}
-option to invoke @code{gzip} transparently. @code{gzip} is designed as a
-complement to @code{tar}, not as a replacement.
+as @command{tar} or @command{zip}.  @acronym{GNU} @command{tar}
+supports the @option{-z}
+option to invoke @command{gzip} transparently.  @command{gzip} is designed as a
+complement to @command{tar}, not as a replacement.
 
-@node Environment, Tapes, Advanced usage, Top
+@node Environment
 @chapter Environment
 @cindex Environment
 
-The environment variable @code{GZIP} can hold a set of default options for
-@code{gzip}.  These options are interpreted first and can be overwritten by
+The environment variable @env{GZIP} can hold a set of default options for
+@command{gzip}.  These options are interpreted first and can be overwritten by
 explicit command line parameters.  For example:
 
 @example
@@ -451,46 +470,48 @@ for csh:   setenv GZIP "-8v --name"
 for MSDOS: set GZIP=-8v --name
 @end example
 
-On Vax/VMS, the name of the environment variable is @code{GZIP_OPT}, to
+On @abbr{VMS}, the name of the environment variable is @env{GZIP_OPT}, to
 avoid a conflict with the symbol set for invocation of the program.
 
-@node Tapes, Problems, Environment, Top
-@chapter Using @code{gzip} on tapes
+@node Tapes
+@chapter Using @command{gzip} on tapes
 @cindex tapes
 
 When writing compressed data to a tape, it is generally necessary to pad
-the output with zeroes up to a block boundary. When the data is read and
-the whole block is passed to @code{gunzip} for decompression,
-@code{gunzip} detects that there is extra trailing garbage after the
+the output with zeroes up to a block boundary.  When the data is read and
+the whole block is passed to @command{gunzip} for decompression,
+@command{gunzip} detects that there is extra trailing garbage after the
 compressed data and emits a warning by default if the garbage contains
-nonzero bytes. You have to use the
-@samp{--quiet} option to suppress the warning. This option can be set in the
-@code{GZIP} environment variable, as in:
+nonzero bytes.  You have to use the
+@option{--quiet} option to suppress the warning.  This option can be set in the
+@env{GZIP} environment variable, as in:
 
 @example
 for sh:    GZIP="-q"  tar -xfz --block-compress /dev/rst0
 for csh:   (setenv GZIP "-q"; tar -xfz --block-compress /dev/rst0)
 @end example
 
-In the above example, @code{gzip} is invoked implicitly by the @samp{-z}
-option of GNU @code{tar}.  Make sure that the same block size (@samp{-b}
-option of @code{tar}) is used for reading and writing compressed data on
-tapes.  (This example assumes you are using the GNU version of
-@code{tar}.)
+In the above example, @command{gzip} is invoked implicitly by the @option{-z}
+option of @acronym{GNU} @command{tar}.  Make sure that the same block
+size (@option{-b}
+option of @command{tar}) is used for reading and writing compressed data on
+tapes.  (This example assumes you are using the @acronym{GNU} version of
+@command{tar}.)
 
-@node Problems, Copying This Manual, Tapes, Top
+@node Problems
 @chapter Reporting Bugs
 @cindex bugs
 
-If you find a bug in @code{gzip}, please send electronic mail to
+If you find a bug in @command{gzip}, please send electronic mail to
 @email{bug-gzip@@gnu.org}.  Include the version number,
 which you can find by running @w{@samp{gzip -V}}.  Also include in your
 message the hardware and operating system, the compiler used to compile
-@code{gzip},
-a description of the bug behavior, and the input to @code{gzip} that triggered
+@command{gzip},
+a description of the bug behavior, and the input to @command{gzip}
+that triggered
 the bug.@refill
 
-@node Copying This Manual, Concept Index, Problems, Top
+@node Copying This Manual
 @appendix Copying This Manual
 
 @menu
@@ -499,7 +520,7 @@ the bug.@refill
 
 @include fdl.texi
 
-@node Concept Index, , Copying This Manual, Top
+@node Concept Index
 @appendix Concept Index
 
 @printindex cp

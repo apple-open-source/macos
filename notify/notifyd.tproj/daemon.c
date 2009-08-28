@@ -40,9 +40,7 @@
 #include <servers/bootstrap.h>
 #include <asl.h>
 #include <asl_private.h>
-#include "common.h"
 #include "daemon.h"
-#include "watcher.h"
 #include "file_watcher.h"
 #include "service.h"
 #include "notify_ipc.h"
@@ -61,17 +59,17 @@
 
 #ifdef DEBUG
 #define V_DEBUG 0
-#define V_DEBUG_LOG 1
 #define V_RESTART 1
 #else
 #define V_DEBUG 0
-#define V_DEBUG_LOG 0
 #define V_RESTART 1
 #endif
 
 #define STATUS_REQUEST_SHORT 1
 #define STATUS_REQUEST_LONG 2
 #define PRINT_STATUS_MSG_ID 0xfadefade
+
+#define NOTIFYD_PROCESS_FLAG 0x00000001
 
 mach_port_t server_port = MACH_PORT_NULL;
 mach_port_t dead_session_port = MACH_PORT_NULL;
@@ -80,9 +78,7 @@ int kq = -1;
 uint32_t debug = V_DEBUG;
 uint32_t restart = V_RESTART;
 FILE *debug_log_file = NULL;
-uint32_t debug_log = V_DEBUG_LOG;
-aslmsg aslm = NULL;
-char *syslog_filter_name = NULL;
+int log_cutoff = ASL_LEVEL_NOTICE;
 uint32_t shm_enabled = 1;
 uint32_t nslots = 1024;
 int32_t shmfd = -1;
@@ -90,8 +86,6 @@ uint32_t *shm_base = NULL;
 uint32_t *shm_refcount = NULL;
 uint32_t slot_id = (uint32_t)-1;
 notify_state_t *ns = NULL;
-aslclient asl = NULL;
-uint32_t asl_filter = ASL_FILTER_MASK_UPTO(ASL_LEVEL_NOTICE);
 uint32_t status_request = 0;
 char *status_file = NULL;
 
@@ -156,7 +150,6 @@ close_shared_memory(void)
 static void
 fprint_client(FILE *f, client_t *c)
 {
-	int pid = 0;
 	w_event_t *e;
 	svc_info_t *s;
 
@@ -166,10 +159,9 @@ fprint_client(FILE *f, client_t *c)
 		return;
 	}
 
-	pid_for_task(c->info->session, &pid);
 	fprintf(f, "client_id: %u\n", c->client_id);
 	fprintf(f, "session: 0x%08x\n", c->info->session);
-	fprintf(f, "pid: %d\n", pid);
+	fprintf(f, "pid: %d\n", c->info->pid);
 	fprintf(f, "lastval: %u\n", c->info->lastval);
 	fprintf(f, "notify: %s\n", notify_type_name[c->info->notify_type]);
 	switch(c->info->notify_type)
@@ -205,7 +197,7 @@ fprint_client(FILE *f, client_t *c)
 		s = (svc_info_t *)c->info->private;
 		for (e = s->private; e != NULL; e = e->next)
 		{
-			fprintf(f, "0x%x %s %u %u (%u)\n", (uint32_t)e, e->name, e->type, e->flags, e->refcount);
+			fprintf(f, "0x%lx %s %u %u (%u)\n", (unsigned long)e, e->name, e->type, e->flags, e->refcount);
 		}
 	}
 }
@@ -285,37 +277,10 @@ log_message(int priority, char *str, ...)
 	va_list ap;
 	char now[32];
 	time_t t;
-	name_info_t *n;
-	int filter, pmask;
 
-	if (asl == NULL) 
-	{
-		/*
-		 * To avoid deadlock in the asl library, we open an asl connection
-		 * with ASL_OPT_NO_REMOTE so that the library won't call notifyd
-		 * to get a cutoff priority.  We "hand crank" the cutoff priority below.
-		 */
-		asl = asl_open("notifyd", "daemon", ASL_OPT_NO_REMOTE);
-		if (asl == NULL) return;
+	if (priority > log_cutoff) return;
 	
-		/* ASL filter is wide open - we do our own filtering */
-		if (asl != NULL) asl_set_filter(asl, ASL_FILTER_MASK_UPTO(ASL_LEVEL_DEBUG));
-	}
-
 	va_start(ap, str);
-
-	filter = asl_filter;
-	if (syslog_filter_name != NULL)
-	{
-		n = (name_info_t *)_nc_table_find(ns->name_table, syslog_filter_name);
-		if (n != NULL)
-		{
-			if (n->state != 0) filter = n->state;
-		}
-	}
-
-	pmask = ASL_FILTER_MASK(priority);
-	if ((pmask & filter) != 0) asl_vlog(asl, aslm, priority, str, ap);
 
 	if (debug_log_file != NULL)
 	{
@@ -324,8 +289,11 @@ log_message(int priority, char *str, ...)
 		strftime(now, 32, "%b %e %T", localtime(&t));
 		fprintf(debug_log_file, "notifyd %s: ", now);
 		vfprintf(debug_log_file, str, ap);
-		fprintf(debug_log_file, "\n");
 		fflush(debug_log_file);
+	}
+	else
+	{
+		vfprintf(stderr, str, ap);
 	}
 
 	va_end(ap);
@@ -466,6 +434,7 @@ server_run_loop()
 {
 	int len;
 	struct kevent event;
+	unsigned long x;
 	uint32_t kid;
 
 	forever
@@ -477,9 +446,11 @@ server_run_loop()
 		len = kevent(kq, NULL, 0, &event, 1, NULL);
 		if (len == 0) continue;
 
-		kid = (uint32_t)event.udata;
+		x = (unsigned long)event.udata;
+		kid = x;
+
 #ifdef DEBUG
-		log_message(ASL_LEVEL_ERR, "kevent %u fflags 0x%08x", kid, event.fflags);
+		log_message(ASL_LEVEL_ERR, "kevent %u fflags 0x%08x\n", kid, event.fflags);
 #endif
 		pthread_mutex_lock(&daemon_lock);
 		watcher_trigger(kid, event.fflags, 0);
@@ -502,7 +473,7 @@ server_side_loop()
 	rps = sizeof(notify_reply_msg) + MAX_TRAILER_SIZE;
 	reply = (notify_reply_msg *)calloc(1, rps);
 
-	rbits = MACH_RCV_MSG | MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_SENDER) | MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0);
+	rbits = MACH_RCV_MSG | MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_AUDIT) | MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0);
 	sbits = MACH_SEND_MSG | MACH_SEND_TIMEOUT;
 
 	forever
@@ -718,13 +689,13 @@ read_config()
 	
 	if (sb.st_uid != 0)
 	{
-		log_message(ASL_LEVEL_ERR, "config file %s not owned by root: ignored", CONFIG_FILE_PATH);
+		log_message(ASL_LEVEL_ERR, "config file %s not owned by root: ignored\n", CONFIG_FILE_PATH);
 		return;
 	}
 
 	if (sb.st_mode & 02)
 	{
-		log_message(ASL_LEVEL_ERR, "config file %s is world-writable: ignored", CONFIG_FILE_PATH);
+		log_message(ASL_LEVEL_ERR, "config file %s is world-writable: ignored\n", CONFIG_FILE_PATH);
 		return;
 	}
 
@@ -840,7 +811,7 @@ poke_run_loop()
 	msg.header.msgh_size = sizeof(mach_msg_empty_send_t);
 	msg.header.msgh_id = PRINT_STATUS_MSG_ID;
 
-	kstatus = mach_msg(&(msg.header), MACH_SEND_MSG, msg.header.msgh_size, 0, MACH_PORT_NULL, MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);
+	kstatus = mach_msg(&(msg.header), MACH_SEND_MSG | MACH_SEND_TIMEOUT, msg.header.msgh_size, 0, MACH_PORT_NULL, 10, MACH_PORT_NULL);
 }
 
 static void
@@ -857,6 +828,13 @@ catch_usr2(int x)
 	poke_run_loop();
 }
 
+static void
+catch_winch(int x)
+{
+	if (log_cutoff == ASL_LEVEL_DEBUG) log_cutoff = ASL_LEVEL_NOTICE;
+	else log_cutoff = ASL_LEVEL_DEBUG;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -864,13 +842,12 @@ main(int argc, char *argv[])
 	kern_return_t kstatus;
 	pthread_t t;
 	int32_t i, first_start, do_startup;
-	uint32_t cid;
 	int kid;
 	char line[1024], *sname;
 	watcher_t *w;
 	list_t *n;
 
-	__notify_78945668_info__ = -1;
+	__notify_78945668_info__ = NOTIFYD_PROCESS_FLAG;
 	signal(SIGPIPE, SIG_IGN);
 
 	nslots = getpagesize() / sizeof(uint32_t);
@@ -882,18 +859,23 @@ main(int argc, char *argv[])
 	{
 		if (!strcmp(argv[i], "-d"))
 		{
+			log_cutoff = ASL_LEVEL_DEBUG;
+		}
+		else if (!strcmp(argv[i], "-D"))
+		{
 			debug = 1;
 			debug_log_file = stderr;
+			log_cutoff = ASL_LEVEL_DEBUG;
 			restart = 0;
 			sname = argv[++i];
 		}
-		else if (!strcmp(argv[i], "-v"))
+		else if (!strcmp(argv[i], "-log_file"))
 		{
-			debug_log = 1;
+			debug_log_file = fopen(argv[++i], "a");
 		}
-		else if (!strcmp(argv[i], "-l"))
+		else if (!strcmp(argv[i], "-log_cutoff"))
 		{
-			asl_filter = ASL_FILTER_MASK_UPTO(atoi(argv[++i]));
+			log_cutoff = atoi(argv[++i]);
 		}
 		else if (!strcmp(argv[i], "-no_startup"))
 		{
@@ -913,19 +895,11 @@ main(int argc, char *argv[])
 	/* Create state table early */
 	ns = _notify_lib_notify_state_new(0);
 
-	if (debug == 0)
-	{
-		asprintf(&syslog_filter_name, "%s.%d", NOTIFY_PREFIX_SYSTEM, getpid());
-		_notify_lib_register_plain(ns, syslog_filter_name, 0, -1, 0, 0, &cid);
-
-		aslm = asl_new(ASL_TYPE_MSG);
-
-		log_message(ASL_LEVEL_DEBUG, "notifyd started");
-	}
+	if (debug == 0) log_message(ASL_LEVEL_DEBUG, "notifyd started\n");
 
 	if (geteuid() != 0)
 	{
-		log_message(ASL_LEVEL_ERR, "not root: disabled shared memory");
+		log_message(ASL_LEVEL_ERR, "not root: disabled shared memory\n");
 		shm_enabled = 0;
 	}
 
@@ -943,7 +917,7 @@ main(int argc, char *argv[])
 	kstatus = create_service(sname, &server_port);
 	if (kstatus != KERN_SUCCESS)
 	{
-		log_message(ASL_LEVEL_ERR, "create_service failed (%u)", kstatus);
+		log_message(ASL_LEVEL_ERR, "create_service failed (%u)\n", kstatus);
 		exit(1);
 	}
 
@@ -951,7 +925,7 @@ main(int argc, char *argv[])
 	kstatus = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &dead_session_port);
 	if (kstatus != KERN_SUCCESS)
 	{
-		log_message(ASL_LEVEL_ERR, "mach_port_allocate dead_session_port failed (%u)", kstatus);
+		log_message(ASL_LEVEL_ERR, "mach_port_allocate dead_session_port failed (%u)\n", kstatus);
 		exit(1);
 	}
 
@@ -959,26 +933,27 @@ main(int argc, char *argv[])
 	kstatus = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_PORT_SET, &listen_set);
 	if (kstatus != KERN_SUCCESS)
 	{
-		log_message(ASL_LEVEL_ERR, "mach_port_allocate listen_set failed (%u)", kstatus);
+		log_message(ASL_LEVEL_ERR, "mach_port_allocate listen_set failed (%u)\n", kstatus);
 		exit(1);
 	}
 
 	kstatus = mach_port_move_member(mach_task_self(), server_port, listen_set);
 	if (kstatus != KERN_SUCCESS)
 	{
-		log_message(ASL_LEVEL_ERR, "mach_port_move_member server_port failed (%u)", kstatus);
+		log_message(ASL_LEVEL_ERR, "mach_port_move_member server_port failed (%u)\n", kstatus);
 		exit(1);
 	}
 	
 	kstatus = mach_port_move_member(mach_task_self(), dead_session_port, listen_set);
 	if (kstatus != KERN_SUCCESS)
 	{
-		log_message(ASL_LEVEL_ERR, "mach_port_move_member dead_session_port failed (%u)", kstatus);
+		log_message(ASL_LEVEL_ERR, "mach_port_move_member dead_session_port failed (%u)\n", kstatus);
 		exit(1);
 	}
 	
 	signal(SIGUSR1, catch_usr1);
 	signal(SIGUSR2, catch_usr2);
+	signal(SIGWINCH, catch_winch);
 
 	if (do_startup != 0)
 	{
@@ -1045,13 +1020,8 @@ main(int argc, char *argv[])
 
 	daemon_shutdown();
 
-	log_message(ASL_LEVEL_DEBUG, "notifyd exiting");
-	if (debug == 0)
-	{
-		asl_close(asl);
-		asl_free(aslm);
-		if (syslog_filter_name != NULL) free(syslog_filter_name);
-	}
+	log_message(ASL_LEVEL_DEBUG, "notifyd exiting\n");
+	if (debug_log_file != NULL) fclose(debug_log_file);
 
 	exit(0);
 }

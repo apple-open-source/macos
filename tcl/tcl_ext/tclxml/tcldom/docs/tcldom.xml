@@ -1,0 +1,1194 @@
+<!DOCTYPE refentry SYSTEM "tcldoc-1.0.dtd">
+
+<refentry xmlns:xlink='http://www.w3.org/XLink'>
+
+  <refentryinfo>
+    <author xlink:href='http://www.zveno.com/staff/Steve.Ball/'>
+      <firstname>Steve</firstname>
+      <surname>Ball</surname>
+    </author>
+    <copyright>
+      <year>2002</year>
+      <holder xlink:href='http://www.zveno.com/'>Zveno Pty Ltd</holder>
+    </copyright>
+    <legalnotice>
+      <para>Zveno makes this software and all associated data and documentation ('Software') available free of charge for any purpose.  Copies may be made of this Software but all of this notice must be included on any copy.</para>
+      <para>The Software was developed for research purposes and Zveno does not warrant that it is error free or fit for any purpose.  Zveno disclaims any liability for all claims, expenses, losses, damages and costs any user may incur as a result of using, copying or modifying the Software.</para>
+    </legalnotice>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>TclDOM</refentrytitle>
+    <manvolnum>n</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>::dom::DOMImplementation</refname>
+    <refname>::dom::create</refname>
+    <refname>::dom::parse</refname>
+    <refname>::dom::serialize</refname>
+    <refname>::dom::document</refname>
+    <refname>::dom::node</refname>
+    <refname>::dom::element</refname>
+    <refname>::dom::event</refname>
+    <refname>::dom::selectNode</refname>
+
+    <refpurpose>Tcl language binding for the W3C Document Object Model</refpurpose>
+
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <tclcmdsynopsis>
+      <command>package require dom</command>
+    </tclcmdsynopsis>
+
+    <tclpkgsynopsis>
+      <package>dom</package>
+      <version>2.5</version>
+    </tclpkgsynopsis>
+
+    <tclnamespacesynopsis>
+      <tclnamespace>::dom</tclnamespace>
+      <tclnamespace>::dom::tcl</tclnamespace>
+      <tclnamespace>::dom::libxml2</tclnamespace>
+    </tclnamespacesynopsis>
+
+    <tclcmdsynopsis>
+      <command>::dom::DOMImplementation</command>
+      <arg><replaceable>method</replaceable></arg>
+      <group choice='opt' rep='repeat'><arg>args</arg></group>
+    </tclcmdsynopsis>
+
+    <tclcmdsynopsis>
+      <command>::dom::create</command>
+      <arg><replaceable>element</replaceable></arg>
+    </tclcmdsynopsis>
+
+    <tclcmdsynopsis>
+      <command>::dom::parse</command>
+      <arg><replaceable>xml</replaceable></arg>
+      <group choice='opt' rep='repeat'><arg>option</arg><arg>value</arg></group>
+    </tclcmdsynopsis>
+
+    <tclcmdsynopsis>
+      <command>::dom::serialize</command>
+      <arg><replaceable>token</replaceable></arg>
+      <group choice='opt' rep='repeat'><arg>option</arg><arg>value</arg></group>
+    </tclcmdsynopsis>
+
+    <tclcmdsynopsis>
+      <command>::dom::document</command>
+      <arg><replaceable>method</replaceable></arg>
+      <arg><replaceable>token</replaceable></arg>
+      <group choice='opt' rep='repeat'><arg>args</arg></group>
+    </tclcmdsynopsis>
+
+    <tclcmdsynopsis>
+      <command>::dom::node</command>
+      <arg><replaceable>method</replaceable></arg>
+      <arg><replaceable>token</replaceable></arg>
+      <group choice='opt' rep='repeat'><arg>args</arg></group>
+    </tclcmdsynopsis>
+
+    <tclcmdsynopsis>
+      <command>::dom::element</command>
+      <arg><replaceable>method</replaceable></arg>
+      <arg><replaceable>token</replaceable></arg>
+      <group choice='opt' rep='repeat'><arg>args</arg></group>
+    </tclcmdsynopsis>
+
+    <tclcmdsynopsis>
+      <command>::dom::event</command>
+      <arg><replaceable>method</replaceable></arg>
+      <arg><replaceable>token</replaceable></arg>
+      <group choice='opt' rep='repeat'><arg>args</arg></group>
+    </tclcmdsynopsis>
+
+    <tclcmdsynopsis>
+      <command>::dom::selectNode</command>
+      <arg><replaceable>token</replaceable></arg>
+      <arg><replaceable>xpath</replaceable></arg>
+      <group choice='opt' rep='repeat'><arg>option value</arg></group>
+    </tclcmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>TclDOM is a Tcl language binding for the <ulink url='http://www.w3c.org/DOM/'>W3C Document Object Model</ulink> (DOM).  DOM provides a view of a XML (or HTML) document as a tree structure.  Currently, TclDOM only supports XML documents.</para>
+
+    <para>The package implements most of the DOM Level 1 interfaces and also some Level 2 and Level 3 interfaces.  There are also a number of non-standard commands and methods provided for the convenience of application developers (these are documented).</para>
+
+    <para>The DOM specification should be read in conjunction with this reference manual, as it explains the meaning and purpose of the various interfaces.  This manual is not a tutorial on how to use the DOM.</para>
+
+    <para>TclDOM also provides several implementations of the API, with a layered architecture.  A generic layer provides a stable API to the application, and specific implementations may register themselves.  Currently, three implementations exists: a pure-Tcl implementation, a C implementation (based on TclDOMPro) and another C implementation based on the Gnome libxml2 &amp; gdome2 libraries.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Packages and Namespaces</title>
+
+    <para>The TclDOM generic layer defines the <tclpackage>dom</tclpackage> package and also a Tcl namespace using that name.  The generic layer also uses the package name <tclpackage>dom::generic</tclpackage>.</para>
+
+    <para>Implementations define their own package name and Tcl namespace within the generic layer:</para>
+    <variablelist>
+      <varlistentry>
+        <term>Tcl implementation</term>
+	<listitem>
+	  <para>Package <tclpackage>dom::tcl</tclpackage>, Tcl namespace <tclnamespace>::dom::tcl</tclnamespace>.</para>
+	</listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>TclDOMPro</term>
+	<listitem>
+	  <para>Package <tclpackage>dom::c</tclpackage>, Tcl namespace <tclnamespace>::dom::c</tclnamespace>.</para>
+	</listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>libxml2</term>
+	<listitem>
+	  <para>Package <tclpackage>dom::libxml2</tclpackage>, Tcl namespace <tclnamespace>::dom::libxml2</tclnamespace>.</para>
+	</listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Tokens</title>
+
+    <para>The TclDOM API uses <emphasis>tokens</emphasis> as identifiers for nodes within the document tree.  This technique has been used to allow alternate implementations of TclDOM to be efficient, while retaining compatibility with the pure-Tcl implementation.</para>
+
+    <para>The format of the token itself as well as the data structure referred to by the token are <emphasis>not</emphasis> public and an application should not rely on these.  Instead, an application should use the accessor methods provided by the API.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>DOM Interfaces</title>
+
+    <para>Each <emphasis>Interface</emphasis> in the DOM specification is implemented with a Tcl command in the <tclnamespace>dom</tclnamespace> namespace.  A few interfaces have not been mapped to Tcl commands because Tcl already provides the required functionality, for example the <classname>CharacterData</classname> interface.</para>
+
+    <para><emphasis>method</emphasis>s for interfaces are methods (subcommands) of the corresponding Tcl command.</para>
+
+    <para>Each <emphasis>attribute</emphasis> of an interface is a configuration option for an object in the document tree.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Convenience Commands and Methods</title>
+
+    <para>DOM doesn't always provide an interface, method or attribute for every function required.  For example, until DOM Level 3 for was no standard for creating, parsing and serializing a document.  Sometimes using the standard DOM interface is awkward.  TclDOM provides a number of non-standard features to overcome these problems.</para>
+
+    <para>A major convenience is that each method of the <classname>DOMImplementation</classname> interface is also defined as a command.  For example, rather than using <tclcommand>dom::DOMImplementation create</tclcommand> to create a new document, the shorter command <tclcommand>dom::create</tclcommand> may be used.</para>
+
+    <para>Implementations may also provide direct access to specific features.  Refer to the documentation for a DOM implementation.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
+
+    <refsect2>
+      <title><tclcommand>::dom::DOMImplementation</tclcommand></title>
+      <para>The <tclcommand>::dom::DOMImplementation</tclcommand> command implements the <classname>DOMImplementation</classname> DOM interface.  It is used to provide implementation-specific features not explicitly defined in the DOM specification.</para>
+
+      <refsect3>
+        <title>Command Options</title>
+	<para>The following command options may be used.  These are also available as commands.</para>
+
+	<variablelist>
+
+	  <varlistentry>
+	    <term><methodname>hasFeature</methodname></term>
+	    <listitem>
+	      <tclcmdsynopsis>
+	        <arg>hasFeature</arg>
+	        <arg><replaceable class='parameter'>feature</replaceable></arg>
+	      </tclcmdsynopsis>
+	      <para>Provides a test for existence of a feature.  Returns <literal>1</literal> if a feature is implemented, <literal>0</literal> otherwise.  Uses the default DOM implementation.</para>
+	    </listitem>
+	  </varlistentry>
+
+	  <varlistentry>
+	    <term><methodname>create</methodname></term>
+	    <listitem>
+	      <tclcmdsynopsis>
+	        <arg>create</arg>
+	        <arg choice='opt'><replaceable class='parameter'>type</replaceable></arg>
+	      </tclcmdsynopsis>
+	      <para>Creates the root node of a new DOM document, using the default DOM implementation.  The document element type may be specified as an argument, in which case that element is created.  The return value is a token referring to the root node of the newly created document.</para>
+
+	      <note>
+	        <para>Non-standard method.  DOM Level 2 introduced the <methodname>createDocument</methodname> method.</para>
+	      </note>
+	    </listitem>
+	  </varlistentry>
+
+	  <varlistentry>
+	    <term><methodname>createDocument</methodname></term>
+	    <listitem>
+	      <tclcmdsynopsis>
+	        <arg>createDocument</arg>
+	        <arg><replaceable>nsURI</replaceable></arg>
+	        <arg><replaceable>type</replaceable></arg>
+	        <arg choice='opt'><replaceable>doctype</replaceable></arg>
+	      </tclcmdsynopsis>
+	      <para>Creates the root node of a new DOM document, using the default DOM implementation.  The document element namespace URI and local-name (element type) may be specified as an argument, in which case that element is created.  If the document type is given then the newly created document is configured to use that document type.  The return value is a token referring to the root node of the newly created document.</para>
+	    </listitem>
+	  </varlistentry>
+
+	  <varlistentry>
+	    <term><methodname>createDocumentType</methodname></term>
+	    <listitem>
+	      <tclcmdsynopsis>
+	        <arg>createDocumentType</arg>
+	        <arg><replaceable>token</replaceable></arg>
+	        <arg><replaceable>name</replaceable></arg>
+	        <arg><replaceable>publicid</replaceable></arg>
+	        <arg><replaceable>systemid</replaceable></arg>
+	        <arg><replaceable>internaldtd</replaceable></arg>
+	      </tclcmdsynopsis>
+	      <para>Creates a Document Type Declaration, using the default DOM implementation.  The return value is a token for the newly created document type declaration.</para>
+	    </listitem>
+	  </varlistentry>
+
+	  <varlistentry>
+	    <term><methodname>createNode</methodname></term>
+	    <listitem>
+	      <tclcmdsynopsis>
+	        <arg>createNode</arg>
+	        <arg><replaceable>token</replaceable></arg>
+	        <arg><replaceable>xpath</replaceable></arg>
+	      </tclcmdsynopsis>
+	      <para>May create a node in the document.  <option><replaceable>token</replaceable></option> specifies a context for the XPath expression given by <option><replaceable>xpath</replaceable></option>.  The expression must resolve to a node.  If the node exists then no further action is taken.  Otherwise the node is created.  The token of the matched or newly created node is returned.</para>
+
+	      <note>
+	        <para>Non-standard method.</para>
+	      </note>
+	    </listitem>
+	  </varlistentry>
+
+	  <varlistentry>
+	    <term><methodname>destroy</methodname></term>
+	    <listitem>
+	      <tclcmdsynopsis>
+	        <arg>destroy</arg>
+	        <arg><replaceable class='parameter'>token</replaceable></arg>
+	      </tclcmdsynopsis>
+	      <para>This method frees all data structures associated with a DOM node.  The <option><replaceable class='parameter'>token</replaceable></option> argument must refer to a valid token for any node in the document tree.  The node is removed from the tree before it is destroyed.  If the node has children, they will also be destroyed.</para>
+	    </listitem>
+	  </varlistentry>
+
+	  <varlistentry>
+	    <term><methodname>isNode</methodname></term>
+	    <listitem>
+	      <tclcmdsynopsis>
+	        <arg>isNode</arg>
+	        <arg><replaceable>token</replaceable></arg>
+	      </tclcmdsynopsis>
+	      <para>Tests whether the given token is a valid token for some DOM node in the default DOM implementation.</para>
+
+	      <note>
+	        <para>Non-standard method.</para>
+	      </note>
+	    </listitem>
+	  </varlistentry>
+
+	  <varlistentry>
+	    <term><methodname>parse</methodname></term>
+	    <listitem>
+	      <tclcmdsynopsis>
+	        <arg>parse</arg>
+	        <arg><replaceable class='parameter'>xml</replaceable></arg>
+	        <group>
+	          <arg><replaceable>option</replaceable></arg>
+	          <arg><replaceable>value</replaceable></arg>
+	        </group>
+	      </tclcmdsynopsis>
+	      <para>This method parses XML formatted text given by the <option><replaceable class='parameter'>xml</replaceable></option> argument and constructs a DOM tree for the document.  The return result is the token of the root node of the newly created document.</para>
+
+	      <para>This method requires an event-based XML parser to be loaded to perform the parsing operation.  The <tclpackage>dom</tclpackage> package itself does not include an XML parser.  Support for the use of <ulink url="http://tclxml.sourceforge.net/">TclXML</ulink> is provided.  Any other Tcl event-based XML parser
+implementing the TclXML API may also be used.  The <option>-parser</option> may be used to specify which XML parser to use.</para>
+
+	      <para>In some circumstances, a DOM implementation may parse the XML document directly, for example libxml2.  In this case, it may not be possible to interpose on the parsing operation.</para>
+
+	      <para>Valid configuration options are:</para>
+
+	      <variablelist>
+	        <varlistentry>
+		  <term><arg>-parser</arg> <arg><group><arg>{}</arg><arg>expat</arg><arg>tcl</arg></group></arg></term>
+		  <listitem>
+		    <para>This option specifies which XML parser to use to parse the XML data.  If an empty string is given then the default behaviour described above is used.  The value <option>expat</option> specifies that the Expat parser must be used.  The value <option>tcl</option> specifies that the Tcl-only parser must be used.  If an explicit value is given and that parser cannot be loaded then the command will fail, despite the fact that another parser may be available.</para>
+	          </listitem>
+	        </varlistentry>
+	        <varlistentry>
+		  <term><arg>-progresscommand</arg> <arg><replaceable>script</replaceable></arg></term>
+		  <listitem>
+		    <para>This option specifies a Tcl command to be invoked from time to time while the DOM tree is being constructed.  The script will be invoked after a certain number of element start tags have been processed, given by the <option>-chunksize</option> option.</para>
+	          </listitem>
+	        </varlistentry>
+	        <varlistentry>
+		  <term><arg>-chunksize</arg> <arg><replaceable>integer</replaceable></arg></term>
+		  <listitem>
+		    <para>This option specifies how many element start tags to process before invoking the script given by the <option>-progresscommand</option> option.</para>
+	          </listitem>
+	        </varlistentry>
+	      </variablelist>
+	    </listitem>
+	  </varlistentry>
+
+	  <varlistentry>
+	    <term><methodname>selectNode</methodname></term>
+	    <listitem>
+	      <tclcmdsynopsis>
+	        <arg>selectNode</arg>
+	        <arg><replaceable>token</replaceable></arg>
+	        <arg><replaceable>xpath</replaceable></arg>
+		<group choice='opt' rep='repeat'><arg>option value</arg></group>
+	      </tclcmdsynopsis>
+	      <para>Resolves the XPath location path given by <option><replaceable>xpath</replaceable></option>.  <option><replaceable>token</replaceable></option> is the initial context for the location path.  Returns the resulting nodeset as a Tcl list.</para>
+
+	      <para>The following options may be specified:</para>
+	      <variablelist>
+		<varlistentry>
+		  <term><option>-namespaces</option></term>
+		  <listitem>
+		    <para>The value for this option is a list of prefix-URI pairs.  Each of these pairs defines an XML Namespace and its prefix for the purposes of evaluating the XPath expression.  The document itself may use a different prefix for the same XML Namespace.</para>
+		    <para>This option may be repeated, in which case the lists of namespace pairs are merged and all of the XML Namespaces registered.</para>
+		  </listitem>
+		</varlistentry>
+	      </variablelist>
+
+	      <note>
+	        <para>Non-standard method.</para>
+	      </note>
+	    </listitem>
+	  </varlistentry>
+
+	  <varlistentry>
+	    <term><methodname>serialize</methodname></term>
+	    <listitem>
+	      <tclcmdsynopsis>
+	        <arg>serialize</arg>
+		<arg><replaceable>token</replaceable></arg>
+	        <group>
+	          <arg><replaceable>option</replaceable></arg>
+	          <arg><replaceable>value</replaceable></arg>
+	        </group>
+	      </tclcmdsynopsis>
+	      <para>This method returns the XML formatted text corresponding to the node given by <option>token</option>.  The text is guaranteed to be a well-formed XML document, unless the <option>-method</option> option specifies a non-XML output method.</para>
+
+	      <para>Valid configuration options are:</para>
+
+	      <variablelist>
+	        <varlistentry>
+		  <term><arg>-newline</arg> <arg><replaceable>elementlist</replaceable></arg></term>
+		  <listitem>
+		    <para>This option specifies a list of element types for which newline characters will be added before and after the start and end tags for those elements upon serialization.</para>
+
+		    <para>White space is significant in XML, so the <tclpackage>dom</tclpackage> package never adds extra white spacefor purposes of &quot;pretty-printing&quot; the XML source document.  On some platforms, such as VMS, this can actually cause serious problems due to line length limitations.  This option provides the convenience of adding newlines to certain nominated element types for formatting the source into lines.</para>
+
+		    <para>Examples:</para>
+
+		    <para>Suppose the following DOM document is constructed:</para>
+
+		    <informalexample>
+		      <programlisting>
+set doc [::dom::DOMImplementation create]
+set top [::dom::document createElement $doc Root]
+set node [::dom::document createElement $top First]
+::dom::document createElement $node Second
+::dom::document createElement $top First
+</programlisting>
+		    </informalexample>
+
+		    <para>Without the <option>-newline</option> option the serialized document would be:</para>
+
+		    <informalexample>
+		      <programlisting>
+::dom::DOMImplementation serialize $doc
+<computeroutput><![CDATA[
+<?xml version="1.0"?>
+<!DOCTYPE Root>
+<Root><First><Second/></First><First/></Root>
+]]>
+</computeroutput>
+</programlisting>
+		    </informalexample>
+
+		    <para>With the <option>-newline</option> option the serialized document would be:</para>
+
+		    <informalexample>
+		      <programlisting>
+::dom::DOMImplementation serialize $doc -newline First
+<computeroutput><![CDATA[
+<?xml version="1.0"?>
+<!DOCTYPE Root>
+<Root>
+<First>
+<Second/>
+</First>
+<First/>
+</Root>
+]]>
+</computeroutput>
+</programlisting>
+		    </informalexample>
+		  </listitem>
+		</varlistentry>
+	      </variablelist>
+
+	    </listitem>
+	  </varlistentry>
+
+	  <varlistentry>
+	    <term><methodname>trim</methodname></term>
+	    <listitem>
+	      <tclcmdsynopsis>
+		<arg>trim</arg>
+		<arg><replaceable>token</replaceable></arg>
+	      </tclcmdsynopsis>
+	      <para>This method removes any node containing only white space from the document tree of the node given by <option><replaceable>token</replaceable></option>.</para>
+	    </listitem>
+	  </varlistentry>
+	</variablelist>
+      </refsect3>
+    </refsect2>
+
+    <refsect2>
+      <title><tclcommand>::dom::document</tclcommand></title>
+
+      <para>This command implements the Document interface in the DOM specification.  The most important aspect of this command are its factory methods for creating nodes.</para>
+
+      <para>The methods accepted by this command are as follows:</para>
+
+      <variablelist>
+        <varlistentry>
+	  <term><methodname>cget</methodname></term>
+	  <listitem>
+	    <tclcmdsynopsis>
+	      <methodname>cget</methodname>
+	      <arg><replaceable>token</replaceable></arg>
+	      <arg>-option</arg>
+	    </tclcmdsynopsis>
+	    <para>This method returns the value of the given configuration option.</para>
+	  </listitem>
+	</varlistentry>
+
+        <varlistentry>
+	  <term><methodname>configure</methodname></term>
+	  <listitem>
+	    <tclcmdsynopsis>
+	      <methodname>configure</methodname>
+	      <arg><replaceable>token</replaceable></arg>
+	      <group rep='repeat'>
+	        <arg><replaceable>option</replaceable></arg>
+	        <arg><replaceable>value</replaceable></arg>
+	      </group>
+	    </tclcmdsynopsis>
+	    <para>This method sets the value of the given configuration options.</para>
+
+	    <para>Valid configuration options are:</para>
+
+	    <variablelist>
+	      <varlistentry>
+	        <term><arg>-doctype</arg></term>
+		<listitem>
+		  <para>Specifies the token of the Document Type Declaration node.</para>
+
+		  <para>This is a read-only option.  Use the factory method to create a Document Type Declaration node.</para>
+		</listitem>
+	      </varlistentry>
+	      <varlistentry>
+	        <term><arg>-implementation</arg></term>
+		<listitem>
+		  <para>Specifies the token of the document's implementation.</para>
+
+		  <para>This is a read-only option.</para>
+		</listitem>
+	      </varlistentry>
+	      <varlistentry>
+	        <term><arg>-documentElement</arg></term>
+		<listitem>
+		  <para>Specifies the token of the document's document element node.  A document node may only have one document element, but may have other types of children (such as comments).</para>
+
+		  <para>This is a read-only option.  Use the factory method to create the document element node.</para>
+		</listitem>
+	      </varlistentry>
+	    </variablelist>
+	  </listitem>
+	</varlistentry>
+
+        <varlistentry>
+	  <term><methodname>createElement</methodname></term>
+	  <listitem>
+	    <tclcmdsynopsis>
+	      <methodname>createElement</methodname>
+	      <arg><replaceable>token</replaceable></arg>
+	      <arg><replaceable>type</replaceable></arg>
+	    </tclcmdsynopsis>
+	    <para>This method creates an element node as a child of the given node specified by <option><replaceable>token</replaceable></option>.  <option><replaceable>token</replaceable></option> must be a node of type element, document or documentFragment.  The new, child element is added as the last child of <option><replaceable>token</replaceable></option>'s list of children.  The new element's type is given by the <option><replaceable>type</replaceable></option> argument.  The new element is created with an empty attribute list.</para>
+	  </listitem>
+	</varlistentry>
+
+        <varlistentry>
+	  <term><methodname>createElementNS</methodname></term>
+	  <listitem>
+	    <tclcmdsynopsis>
+	      <methodname>createElementNS</methodname>
+	      <arg><replaceable>token</replaceable></arg>
+	      <arg><replaceable>nsuri</replaceable></arg>
+	      <arg><replaceable>qualname</replaceable></arg>
+	    </tclcmdsynopsis>
+	    <para>This method creates an element node in an XML Namespace as a child of the given node specified by <option><replaceable>token</replaceable></option>.  <option><replaceable>token</replaceable></option> must be a node of type element, document or documentFragment.  The new, child element is added as the last child of <option><replaceable>token</replaceable></option>'s list of children.  The new element is created in the XML Namespace given by the namespace URI <option><replaceable>nsuri</replaceable></option>.  The new element's qualifed name (QName) is given by the <option><replaceable>qualname</replaceable></option> argument.  Qualified names have the form <literal>prefix:local-part</literal>.  The new element is created with an empty attribute list.</para>
+	  </listitem>
+	</varlistentry>
+
+        <varlistentry>
+	  <term><methodname>createDocumentFragment</methodname></term>
+	  <listitem>
+	    <tclcmdsynopsis>
+	      <methodname>createDocumentFragment</methodname>
+	      <arg><replaceable>token</replaceable></arg>
+	    </tclcmdsynopsis>
+	    <para>This method creates a documentFragment node as a child of the given node specified by <option><replaceable>token</replaceable></option>.  <option><replaceable>token</replaceable></option> must be a node of type element, document or documentFragment.</para>
+	  </listitem>
+	</varlistentry>
+
+        <varlistentry>
+	  <term><methodname>createTextNode</methodname></term>
+	  <listitem>
+	    <tclcmdsynopsis>
+	      <methodname>createTextNode</methodname>
+	      <arg><replaceable>token</replaceable></arg>
+	      <arg><replaceable>text</replaceable></arg>
+	    </tclcmdsynopsis>
+	    <para>This method creates a textNode node as a child of the given node specified by <option><replaceable>token</replaceable></option>.  <option><replaceable>token</replaceable></option> must be a node of type element, document or documentFragment.  The new, child textNode is added as the last child of <option><replaceable>token</replaceable></option>'s list of children.  The new textNode is created with its value set to <option><replaceable>text</replaceable></option>.</para>
+	  </listitem>
+	</varlistentry>
+
+        <varlistentry>
+	  <term><methodname>createComment</methodname></term>
+	  <listitem>
+	    <tclcmdsynopsis>
+	      <methodname>createComment</methodname>
+	      <arg><replaceable>token</replaceable></arg>
+	      <arg><replaceable>data</replaceable></arg>
+	    </tclcmdsynopsis>
+	    <para>This method creates a comment node as a child of the given node specified by <option><replaceable>token</replaceable></option>.  <option><replaceable>token</replaceable></option> must be a node of type element, document or documentFragment.  The new, child comment is added as the last child of <option><replaceable>token</replaceable></option>'s list of children.  The new comment is created with its value set to <option><replaceable>data</replaceable></option>.</para>
+	  </listitem>
+	</varlistentry>
+
+        <varlistentry>
+	  <term><methodname>createCDATASection</methodname></term>
+	  <listitem>
+	    <tclcmdsynopsis>
+	      <methodname>createCDATASection</methodname>
+	      <arg><replaceable>token</replaceable></arg>
+	      <arg><replaceable>text</replaceable></arg>
+	    </tclcmdsynopsis>
+	    <para>TclDOM does not distinguish between textNodes and CDATASection nodes.  Accordingly, this method creates a textNode node as a child of the given node specified by <option><replaceable>token</replaceable></option>.  <option><replaceable>token</replaceable></option> must be a node of type element, document or documentFragment.  The new, child textNode is added as the last child of <option><replaceable>token</replaceable></option>'s list of children.  The new node is created with its value set to <option><replaceable>text</replaceable></option> and has the attribute <option>-cdatasection</option> set to the value <literal>1</literal>.</para>
+	  </listitem>
+	</varlistentry>
+
+        <varlistentry>
+	  <term><methodname>createProcessingInstruction</methodname></term>
+	  <listitem>
+	    <tclcmdsynopsis>
+	      <methodname>createProcessingInstruction</methodname>
+	      <arg><replaceable>token</replaceable></arg>
+	      <arg><replaceable>target</replaceable></arg>
+	      <arg><replaceable>data</replaceable></arg>
+	    </tclcmdsynopsis>
+	    <para>This method creates a processingInstruction node as a child of the given node specified by <option><replaceable>token</replaceable></option>.  <option><replaceable>token</replaceable></option> must be a node of type element, document or documentFragment.  The new, child processingInstruction is added as the last child of <option><replaceable>token</replaceable></option>'s list of children.  The new node is created with its name set to <option><replaceable>target</replaceable></option> and its value set to <option><replaceable>data</replaceable></option>.</para>
+	  </listitem>
+	</varlistentry>
+
+        <varlistentry>
+	  <term><methodname>createAttribute</methodname></term>
+	  <listitem>
+	    <tclcmdsynopsis>
+	      <methodname>createAttribute</methodname>
+	      <arg><replaceable>token</replaceable></arg>
+	      <arg><replaceable>name</replaceable></arg>
+	    </tclcmdsynopsis>
+	    <para>This method creates an attribute node for the given element specified by <option><replaceable>token</replaceable></option>.  <option><replaceable>token</replaceable></option> must be a node of type element.  The new attribute is created with its name set to <option><replaceable>name</replaceable></option> and an empty value.</para>
+	    <note>
+	      <para>This method is included for completeness with respect to the DOM specification.  The preferred method for setting element attributes is to use the <tclcommand>::dom::element</tclcommand> command.</para>
+	    </note>
+	  </listitem>
+	</varlistentry>
+
+        <varlistentry>
+	  <term><methodname>createEntity</methodname></term>
+	  <listitem>
+	    <tclcmdsynopsis>
+	      <methodname>createEntity</methodname>
+	      <arg><replaceable>token</replaceable></arg>
+	    </tclcmdsynopsis>
+	    <para>Not currently implemented.</para>
+	  </listitem>
+	</varlistentry>
+
+        <varlistentry>
+	  <term><methodname>createEntityReference</methodname></term>
+	  <listitem>
+	    <tclcmdsynopsis>
+	      <methodname>createEntityReference</methodname>
+	      <arg><replaceable>token</replaceable></arg>
+	      <arg><replaceable>name</replaceable></arg>
+	    </tclcmdsynopsis>
+	    <para>Not currently implemented.</para>
+	  </listitem>
+	</varlistentry>
+
+        <varlistentry>
+	  <term><methodname>createDocTypeDecl</methodname></term>
+	  <listitem>
+	    <tclcmdsynopsis>
+	      <methodname>createDocTypeDecl</methodname>
+	      <arg><replaceable>token</replaceable></arg>
+	      <arg><replaceable>name</replaceable></arg>
+	      <arg><replaceable>extid</replaceable></arg>
+	      <arg><replaceable>dtd</replaceable></arg>
+	      <arg><replaceable>entities</replaceable></arg>
+	      <arg><replaceable>notations</replaceable></arg>
+	    </tclcmdsynopsis>
+	    <para>This method creates a Document Type Declaration node as a child of the given node specified by <option><replaceable>token</replaceable></option>.  <option><replaceable>token</replaceable></option> must be a node of type document.  <option><replaceable>name</replaceable></option> is the element type of the document element.  If the document already has a document element then this name must match with that element type.  <option><replaceable>extid</replaceable></option> is an external identifier to include in the document type declaration.  <option><replaceable>dtd</replaceable></option> is an internal DTD subset to include in the document type declaration.  This is specified as XML text.  <option><replaceable>entities</replaceable></option> and <option><replaceable>notations</replaceable></option> are included for completeness with the DOM specification, but are not currently implemented.</para>
+
+	    <para><emphasis>Non-standard:</emphasis> This method is not a standard method as specified by the DOM Recommendation, see <tclcommand>::dom::DOMImplementation <methodname>createDocumentType</methodname></tclcommand>.</para>
+	  </listitem>
+	</varlistentry>
+
+        <varlistentry>
+	  <term><methodname>createEvent</methodname></term>
+	  <listitem>
+	    <tclcmdsynopsis>
+	      <methodname>createEvent</methodname>
+	      <arg><replaceable>token</replaceable></arg>
+	      <arg><replaceable>name</replaceable></arg>
+	    </tclcmdsynopsis>
+	    <para>This method creates an event node in the document specified by <option><replaceable>token</replaceable></option>.  <option><replaceable>token</replaceable></option> must be a node of type document.  The event type is specified by <option><replaceable>name</replaceable></option>.</para>
+	  </listitem>
+	</varlistentry>
+
+        <varlistentry>
+	  <term><methodname>getElementsByTagName</methodname></term>
+	  <listitem>
+	    <tclcmdsynopsis>
+	      <methodname>getElementsByTagName</methodname>
+	      <arg><replaceable>token</replaceable></arg>
+	      <arg><replaceable>name</replaceable></arg>
+	    </tclcmdsynopsis>
+	    <para>This method searches the node given by the argument <option><replaceable>token</replaceable></option> for child elements with a type matching the argument <option><replaceable>name</replaceable></option>.  The name <literal>*</literal> matches all elements.  All descendants of <option><replaceable>token</replaceable></option> are searched.  This method returns a "live-list"; the return result of this method is the name of a Tcl variable, the content of which is a Tcl list containing tokens for all elements that match.</para>
+	  </listitem>
+	</varlistentry>
+
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title><tclcommand>dom::node</tclcommand></title>
+
+      <para>This command implements generic functions for DOM nodes.</para>
+
+      <para>The methods accepted by this command are as follows:</para>
+
+      <variablelist>
+        <varlistentry>
+	  <term><methodname>cget</methodname></term>
+	  <listitem>
+	    <tclcmdsynopsis>
+	      <methodname>cget</methodname>
+	      <arg><replaceable>token</replaceable></arg>
+	      <arg>option</arg>
+	    </tclcmdsynopsis>
+
+	    <para>This method returns the value of the given configuration option for the node given by <option><replaceable>token</replaceable></option>.</para>
+	  </listitem>
+	</varlistentry>
+
+        <varlistentry>
+	  <term><methodname>configure</methodname></term>
+	  <listitem>
+	    <tclcmdsynopsis>
+	      <methodname>configure</methodname>
+	      <arg><replaceable>token</replaceable></arg>
+	      <group rep='repeat'>
+	        <arg><replaceable>option</replaceable></arg>
+	        <arg><replaceable>value</replaceable></arg>
+	      </group>
+	    </tclcmdsynopsis>
+
+	    <para>This method sets the value of the given configuration option for the node given by <option><replaceable>token</replaceable></option>.</para>
+
+	    <para>Valid configuration options are as follows:</para>
+
+	    <variablelist>
+	      <varlistentry>
+	        <term><arg>-nodeName</arg></term>
+		<listitem>
+		  <para>Returns the node name.  This is a read-only option.</para>
+
+		  <para>The DOM specification gives the meaning of names for different types of nodes.  For example, the <option>-nodeName</option> option of an element node is the element type.</para>
+		</listitem>
+	      </varlistentry>
+	      <varlistentry>
+	        <term><arg>-nodeType</arg></term>
+		<listitem>
+		  <para>Returns the type of the node given by <option><replaceable>token</replaceable></option>.  This is a read-only option.</para>
+		</listitem>
+	      </varlistentry>
+	      <varlistentry>
+	        <term><option>-parentNode</option></term>
+		<listitem>
+		  <para>Returns the parent node of the node given by <option><replaceable>token</replaceable></option>.  This is a read-only option.</para>
+		</listitem>
+	      </varlistentry>
+	      <varlistentry>
+	        <term><option>-childNodes</option></term>
+		<listitem>
+		  <para>Returns the name of a Tcl variable which contains a list of the children of the node given by <option><replaceable>token</replaceable></option>.  The variable contains the &quot;live&quot; list of children.  This is a read-only option.</para>
+		</listitem>
+	      </varlistentry>
+	      <varlistentry>
+	        <term><option>-firstChild</option></term>
+		<listitem>
+		  <para>Returns the first child node of the node given by <option><replaceable>token</replaceable></option>.  This is a read-only option.</para>
+		</listitem>
+	      </varlistentry>
+	      <varlistentry>
+	        <term><option>-lastChild</option></term>
+		<listitem>
+		  <para>Returns the last child node of the node given by <option><replaceable>token</replaceable></option>.  This is a read-only option.</para>
+		</listitem>
+	      </varlistentry>
+	      <varlistentry>
+	        <term><option>-previousSibling</option></term>
+		<listitem>
+		  <para>Returns the parent's child node which appears before this node.  If this child is the first child of its parent then returns an empty string.  This is a read-only option.</para>
+		</listitem>
+	      </varlistentry>
+	      <varlistentry>
+	        <term><option>-nextSibling</option></term>
+		<listitem>
+		  <para>Returns the parent's child node which appears after this node.  If this child is the last child of its parent then returns an empty string.  This is a read-only option.</para>
+		</listitem>
+	      </varlistentry>
+	      <varlistentry>
+	        <term><option>-attributes</option></term>
+		<listitem>
+		  <para>Returns the name of a Tcl array variable which contains the attribute list for an element node.  If the node is not an element type node then returns an empty string.  The indices of the array are attribute names, and the values of the array elements are their corresponding attribute values.  This is a read-only option.</para>
+		</listitem>
+	      </varlistentry>
+	      <varlistentry>
+	        <term><option>-nodeValue</option> <arg><replaceable>data</replaceable></arg></term>
+		<listitem>
+		  <para>Specifies the value of a node.  The DOM specification gives the meaning of values for different types of nodes.  For example, the <option>-nodeValue</option> option of a textNode node is the node's text.</para>
+		</listitem>
+	      </varlistentry>
+	    </variablelist>
+	  </listitem>
+	</varlistentry>
+
+	<valistentry>
+	  <term><methodname>insertBefore</methodname></term>
+	  <listitem>
+	    <tclcmdsynopsis>
+	      <methodname>insertBefore</methodname>
+	      <arg><replaceable>token</replaceable></arg>
+	      <arg><replaceable>newchild</replaceable></arg>
+	      <arg choice='opt'><replaceable>refchild</replaceable></arg>
+	    </tclcmdsynopsis>
+	    <para>This method removes the node given by <option><replaceable>newchild</replaceable></option> from its parent.  If no <option><replaceable>refchild</replaceable></option> argument is given then <option><replaceable>newchild</replaceable></option> is appended to <option><replaceable>token</replaceable></option>'s list of children.  If the <option><replaceable>refchild</replaceable></option> argument is given then this method adds <option><replaceable>newchild</replaceable></option> as a child of <option><replaceable>token</replaceable></option>.  The new child node is positioned before the node <option><replaceable>refchild</replaceable></option> in <option><replaceable>token</replaceable></option>'s list of children.  Returns an empty string.</para>
+	  </listitem>
+	</valistentry>
+
+	<valistentry>
+	  <term><methodname>replaceChild</methodname></term>
+	  <listitem>
+	    <tclcmdsynopsis>
+	      <methodname>replaceChild</methodname>
+	      <arg><replaceable>token</replaceable></arg>
+	      <arg><replaceable>newchild</replaceable></arg>
+	      <arg><replaceable>oldchild</replaceable></arg>
+	    </tclcmdsynopsis>
+	    <para>This method removes the node given by <option><replaceable>newchild</replaceable></option> from its parent.  It then also removes the node given by <option><replaceable>oldchild</replaceable></option> from <option><replaceable>token</replaceable></option>.  <option><replaceable>newchild</replaceable></option> is then added as a child of <option><replaceable>token</replaceable></option> in <option><replaceable>oldchild</replaceable></option>'s original position in the list of children.  The method returns the token <option><replaceable>oldchild</replaceable></option>, which will now have no parent.</para>
+	  </listitem>
+	</valistentry>
+
+	<valistentry>
+	  <term><methodname>removeChild</methodname></term>
+	  <listitem>
+	    <tclcmdsynopsis>
+	      <methodname>removeChild</methodname>
+	      <arg><replaceable>token</replaceable></arg>
+	      <arg><replaceable>oldchild</replaceable></arg>
+	    </tclcmdsynopsis>
+	    <para>This method removes the node given by <option><replaceable>oldchild</replaceable></option> from its parent, <option><replaceable>token</replaceable></option>.  The method returns the token <option><replaceable>oldchild</replaceable></option>, which will now have no parent.</para>
+	  </listitem>
+	</valistentry>
+
+	<valistentry>
+	  <term><methodname>appendChild</methodname></term>
+	  <listitem>
+	    <tclcmdsynopsis>
+	      <methodname>appendChild</methodname>
+	      <arg><replaceable>token</replaceable></arg>
+	      <arg><replaceable>newchild</replaceable></arg>
+	    </tclcmdsynopsis>
+	    <para>This method removes the node given by <option><replaceable>newchild</replaceable></option> from its parent.  <option><replaceable>newchild</replaceable></option> is then appended to the end of the list of children for node <option><replaceable>token</replaceable></option>.  The method returns the token <option><replaceable>newchild</replaceable></option>.</para>
+	  </listitem>
+	</valistentry>
+
+	<valistentry>
+	  <term><methodname>hasChildNodes</methodname></term>
+	  <listitem>
+	    <tclcmdsynopsis>
+	      <methodname>hasChildNodes</methodname>
+	      <arg><replaceable>token</replaceable></arg>
+	    </tclcmdsynopsis>
+	    <para>Returns <literal>1</literal> if the given node has any child nodes, <literal>0</literal> otherwise.</para>
+	  </listitem>
+	</valistentry>
+
+	<valistentry>
+	  <term><methodname>cloneNode</methodname></term>
+	  <listitem>
+	    <tclcmdsynopsis>
+	      <methodname>cloneNode</methodname>
+	      <arg><replaceable>token</replaceable></arg>
+	      <arg choice='opt'><replaceable>deep</replaceable></arg>
+	    </tclcmdsynopsis>
+	    <para>This method makes a copy the node given by <option><replaceable>token</replaceable></option>.  If the argument <option><replaceable>deep</replaceable></option> is not specified or has the value <literal>0</literal> then only the node itself is copied, not its children.  If the argument <option><replaceable>deep</replaceable></option> has the value <literal>1</literal> then <option><replaceable>token</replaceable></option>'s children are also copied recursively.  This method returns the token of the newly created node.  This new node will have no parent.</para>
+	  </listitem>
+	</valistentry>
+
+	<valistentry>
+	  <term><methodname>children</methodname></term>
+	  <listitem>
+	    <tclcmdsynopsis>
+	      <methodname>children</methodname>
+	      <arg><replaceable>token</replaceable></arg>
+	    </tclcmdsynopsis>
+	    <para>This is a convenience method which returns the list of child nodes for the given node as a (static) Tcl list.</para>
+
+	    <para>This is not a standard DOM method for this interface.</para>
+	  </listitem>
+	</valistentry>
+
+	<valistentry>
+	  <term><methodname>parent</methodname></term>
+	  <listitem>
+	    <tclcmdsynopsis>
+	      <methodname>parent</methodname>
+	      <arg><replaceable>token</replaceable></arg>
+	    </tclcmdsynopsis>
+	    <para>This is a convenience method which returns the parent node for the given node.</para>
+
+	    <para>This is not a standard DOM method for this interface.</para>
+	  </listitem>
+	</valistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title><tclcommand>dom::element</tclcommand></title>
+
+      <para>This command provides functions for element type nodes.</para>
+
+      <para>Valid methods for this command are as follows:</para>
+
+      <variablelist>
+        <varlistentry>
+	  <term><methodname>cget</methodname></term>
+	  <listitem>
+	    <tclcmdsynopsis>
+	      <methodname>cget</methodname>
+	      <arg><replaceable>token</replaceable></arg>
+	      <arg><replaceable>option</replaceable></arg>
+	    </tclcmdsynopsis>
+	    <para>This method returns the current setting of configuration options for an element.  See the <methodname>configure</methodname> method for the list of valid configuration options.</para>
+	  </listitem>
+	</varlistentry>
+
+        <varlistentry>
+	  <term><methodname>configure</methodname></term>
+	  <listitem>
+	    <tclcmdsynopsis>
+	      <methodname>configure</methodname>
+	      <arg><replaceable>token</replaceable></arg>
+	      <group rep='repeat'>
+	        <arg><replaceable>option</replaceable></arg>
+	        <arg><replaceable>value</replaceable></arg>
+	      </group>
+	    </tclcmdsynopsis>
+	    <para>This method sets configuration options for an element.  Note that element type nodes only have read-only options.</para>
+
+	    <para>Valid configuration options are as follows:</para>
+
+	    <variablelist>
+	      <varlistentry>
+	        <term><option>-tagName</option> <arg><replaceable>name</replaceable></arg></term>
+		<listitem>The tag name, or element type, of this element.</listitem>
+	      </varlistentry>
+	      <varlistentry>
+	        <term><option>-empty</option> <arg><replaceable>boolean</replaceable></arg></term>
+		<listitem>
+		  <para>Sets whether this element was specified as an empty element when the document was parsed.  That is, XML empty element syntax such as <literal>&lt;Empty/&gt;</literal> was used.</para>
+
+		  <para>This option has no effect upon output (serialization) of the XML document.  Empty element syntax is automatically used where appropriate.</para>
+		</listitem>
+	      </varlistentry>
+	    </variablelist>
+	  </listitem>
+	</varlistentry>
+
+        <varlistentry>
+	  <term><methodname>getAttribute</methodname></term>
+	  <listitem>
+	    <tclcmdsynopsis>
+	      <methodname>getAttribute</methodname>
+	      <arg><replaceable>token</replaceable></arg>
+	      <arg><replaceable>name</replaceable></arg>
+	    </tclcmdsynopsis>
+	    <para>This method returns the attribute value of the attribute given by <option><replaceable>name</replaceable></option>.  If the attribute does not exist, then an empty string is returned.</para>
+	  </listitem>
+	</varlistentry>
+
+        <varlistentry>
+	  <term><methodname>setAttribute</methodname></term>
+	  <listitem>
+	    <tclcmdsynopsis>
+	      <methodname>setAttribute</methodname>
+	      <arg><replaceable>token</replaceable></arg>
+	      <arg><replaceable>name</replaceable></arg>
+	      <arg><replaceable>value</replaceable></arg>
+	    </tclcmdsynopsis>
+	    <para>This method sets the attribute value of the attribute given by <option><replaceable>name</replaceable></option>.  If the attribute already exists then its value is replaced, otherwise the attribute is created.</para>
+	  </listitem>
+	</varlistentry>
+
+        <varlistentry>
+	  <term><methodname>removeAttribute</methodname></term>
+	  <listitem>
+	    <tclcmdsynopsis>
+	      <methodname>removeAttribute</methodname>
+	      <arg><replaceable>token</replaceable></arg>
+	      <arg><replaceable>name</replaceable></arg>
+	    </tclcmdsynopsis>
+	    <para>This method deletes the attribute given by <option><replaceable>name</replaceable></option>.  If the attribute does not exist then the method has no effect.</para>
+	  </listitem>
+	</varlistentry>
+
+        <varlistentry>
+	  <term><methodname>getAttributeNode</methodname></term>
+	  <listitem>
+	    <tclcmdsynopsis>
+	      <methodname>getAttributeNode</methodname>
+	      <arg><replaceable>token</replaceable></arg>
+	      <arg><replaceable>name</replaceable></arg>
+	    </tclcmdsynopsis>
+	    <para>Not implemented.</para>
+	  </listitem>
+	</varlistentry>
+
+        <varlistentry>
+	  <term><methodname>setAttributeNode</methodname></term>
+	  <listitem>
+	    <tclcmdsynopsis>
+	      <methodname>setAttributeNode</methodname>
+	      <arg><replaceable>token</replaceable></arg>
+	      <arg><replaceable>name</replaceable></arg>
+	    </tclcmdsynopsis>
+	    <para>Not implemented.</para>
+	  </listitem>
+	</varlistentry>
+
+        <varlistentry>
+	  <term><methodname>removeAttributeNode</methodname></term>
+	  <listitem>
+	    <tclcmdsynopsis>
+	      <methodname>removeAttributeNode</methodname>
+	      <arg><replaceable>token</replaceable></arg>
+	      <arg><replaceable>name</replaceable></arg>
+	    </tclcmdsynopsis>
+	    <para>Not implemented.</para>
+	  </listitem>
+	</varlistentry>
+
+        <varlistentry>
+	  <term><methodname>getElementsByTagName</methodname></term>
+	  <listitem>
+	    <tclcmdsynopsis>
+	      <methodname>getElementsByTagName</methodname>
+	      <arg><replaceable>token</replaceable></arg>
+	      <arg><replaceable>name</replaceable></arg>
+	    </tclcmdsynopsis>
+	    <para>This method searches the node given by the argument <option><replaceable>token</replaceable></option> for descendant child elements with a type matching the argument <option><replaceable>name</replaceable></option>.  The wildcard character <literal>*</literal> matches any element type.  The return result is a "live-list" which is represented by a Tcl variable.  This method returns the name of the Tcl variable that contains the list of tokens that match.</para>
+	  </listitem>
+	</varlistentry>
+
+        <varlistentry>
+	  <term><methodname>normalize</methodname></term>
+	  <listitem>
+	    <tclcmdsynopsis>
+	      <methodname>normalize</methodname>
+	      <arg><replaceable>token</replaceable></arg>
+	    </tclcmdsynopsis>
+	    <para>This method recursively coalesces textNodes within the children of the given node.  textNodes which are adjacent in the DOM tree cannot be distinguished in the serialized XML document.</para>
+	  </listitem>
+	</varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title><tclcommand>dom::processinginstruction</tclcommand></title>
+
+      <para>This command provides functions for processingInstruction type nodes.</para>
+
+      <para>Valid methods for this command are as follows:</para>
+
+      <variablelist>
+        <varlistentry>
+	  <term><methodname>cget</methodname></term>
+	  <listitem>
+	    <tclcmdsynopsis>
+	      <methodname>cget</methodname>
+	      <arg><replaceable>token</replaceable></arg>
+	      <arg><replaceable>option</replaceable></arg>
+	    </tclcmdsynopsis>
+	    <para>This method returns the current setting of configuration options for an element.  See the <methodname>configure</methodname> method for the list of valid configuration options.</para>
+	  </listitem>
+	</varlistentry>
+
+        <varlistentry>
+	  <term><methodname>configure</methodname></term>
+	  <listitem>
+	    <tclcmdsynopsis>
+	      <methodname>configure</methodname>
+	      <arg><replaceable>token</replaceable></arg>
+	      <group rep='repeat'>
+	        <arg><replaceable>option</replaceable></arg>
+	        <arg><replaceable>value</replaceable></arg>
+	      </group>
+	    </tclcmdsynopsis>
+	    <para>This method sets configuration options for a processing instruction.</para>
+
+	    <para>Valid configuration options are as follows:</para>
+
+	    <variablelist>
+	      <varlistentry>
+	        <term><option>-target</option> <arg><replaceable>name</replaceable></arg></term>
+		<listitem>This option sets the target of the processing instruction.  This is a read-only configuration option.</listitem>
+	      </varlistentry>
+	      <varlistentry>
+	        <term><option>-data</option> <arg><replaceable>data</replaceable></arg></term>
+		<listitem>
+		  <para>This option sets the data of the processing instruction.</para>
+		</listitem>
+	      </varlistentry>
+	    </variablelist>
+	  </listitem>
+	</varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title><tclcommand>dom::event</tclcommand></title>
+
+      <para>This command provides functions for event type nodes.</para>
+
+      <para>Valid methods for this command are as follows:</para>
+
+      <variablelist>
+        <varlistentry>
+	  <term><methodname>cget</methodname></term>
+	  <listitem>
+	    <tclcmdsynopsis>
+	      <methodname>cget</methodname>
+	      <arg><replaceable>token</replaceable></arg>
+	    </tclcmdsynopsis>
+	    <para>This method retrieves configuration options for an event.</para>
+
+	    <para>Valid configuration options are as follows:</para>
+
+	    <variablelist>
+	      <varlistentry>
+	        <term><option>-altKey</option></term>
+		<listitem>This option determines whether the ALT modifier key has been specified for this event.</listitem>
+	      </varlistentry>
+	      <varlistentry>
+	        <term><option>-timeStamp</option></term>
+		<listitem>
+		  <para>This option gives the time at which the event was posted.  The value is the number of milliseconds since the epoch, which is compatible with the Tcl <command>clock</command> command.  </para>
+		  <note>The implementation of this method depends on the <methodname>Tcl_GetTime</methodname> function.This function only became publically available in Tcl 8.4.  If a version of Tcl prior to 8.4 is being used, then this option will have the value <literal>0</literal>.</note>
+		</listitem>
+	      </varlistentry>
+	    </variablelist>
+	  </listitem>
+	</varlistentry>
+        <varlistentry>
+	  <term><methodname>configure</methodname></term>
+	  <listitem>
+	    <tclcmdsynopsis>
+	      <methodname>configure</methodname>
+	      <arg><replaceable>token</replaceable></arg>
+	      <group rep='repeat'>
+	        <arg><replaceable>option</replaceable></arg>
+	        <arg><replaceable>value</replaceable></arg>
+	      </group>
+	    </tclcmdsynopsis>
+	    <para>This method sets the configuration options for an event.  See the <methodname>cget</methodname> method for the list of valid configuration options.</para>
+	  </listitem>
+	</varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Implementations</title>
+
+    <para>This section documents the various implmentations of the TclDOM API.</para>
+
+    <refsect2>
+      <title>Tcl Implementation</title>
+
+      <para>The Tcl implementation is provided by the <tclpackage>dom::tcl</tclpackage> package.</para>
+
+      <para>It is a reference implementation, and implements the TclDOM API as described above.</para>
+
+      <para>A DOM tree using this implementation may be created using the <tclcommand>dom::tcl::create</tclcommand> command.</para>
+    </refsect2>
+
+    <refsect2>
+      <title>libxml2 Implementation</title>
+
+      <para>The TclDOM/libxml2 implementation is a wrapper for the <ulink url='http://xmlsoft.org/'>Gnome libxml2 library</ulink>.  It is provided by the <tclpackage>dom::libxml2</tclpackage> package.  It is a high-performance library, making use of Tcl objects for fast access to tree nodes.</para>
+
+      <para>A DOM tree using this implementation may be created using the <tclcommand>dom::libxml2::create</tclcommand> command.</para>
+
+      <para></para>
+
+      <refsect3>
+        <title>Notes</title>
+
+	<itemizedlist>
+	  <listitem>
+	    <para>The <tclcommand>dom::libxml2::parse</tclcommand> command is linked directly to the libxml2 parser.  It is not possible to specify TclXML configuration options (ie. callbacks).  The following configuration options are valid:</para>
+
+	    <variablelist>
+	      <varlistentry>
+	        <term><option>-- fill this in --</option></term>
+		<listitem>
+		  <para>-- fill this in --</para>
+		</listitem>
+	      </varlistentry>
+	    </variablelist>
+	  </listitem>
+
+	  <listitem>
+	    <para>The implementation of most of the commands are incomplete.  Missing methods and options will be documented here...</para>
+	  </listitem>
+	</itemizedlist>
+      </refsect3>
+
+    </refsect2>
+  </refsect1>
+
+</refentry>

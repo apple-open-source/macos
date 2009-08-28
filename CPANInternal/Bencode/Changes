@@ -1,0 +1,58 @@
+=head1 Revision history for Bencode
+
+
+=head2 1.31 (2007-11-05 02:53:06+01:00)
+
+=over 4
+
+=item * C<use vars> is necessary to get rid of C<our>. Why doesn't C<./Build distcheck> run tests?
+
+=back
+
+
+=head2 1.3 (2007-11-05 00:08:04+01:00)
+
+=over 4
+
+=item * Get rid of C<our>; should work as far back as Perl 5.4 now
+
+=back
+
+
+=head2 1.2 (2007-11-04 19:37:37+01:00)
+
+=over 4
+
+=item * 1.1 was released without changes in Changelog; fill in changes
+
+=item * Switch to POD changelog
+
+=item * Add test for newline-resilient string parsing (RT #30466)
+
+=back
+
+
+=head2 1.1 (2007-11-04 19:14:24+01:00)
+
+=over 4
+
+=item * Change parsing of strings to not break on newlines (RT #30466)
+
+=item * Add leniency option to C<bdecode> (RT #19665)
+
+=item * Greatly improved error reporting (RT #30466)
+
+=item * Fix test suite to check for correct error message when rejecting input
+
+=item * Switch to inheritance-based use of L<Exporter> (previously imported C<import>; not available on older Perls)
+
+=back
+
+
+=head2 1.0 (2006-04-15 11:54:39+01:00)
+
+=over 4
+
+=item * Initial release.
+
+=back

@@ -1,34 +1,35 @@
 /* lt_dlloader.c -- dynamic library loader interface
-   Copyright (C) 2004 Free Software Foundation, Inc.
-   Originally by Gary V. Vaughan  <gary@gnu.org>
+
+   Copyright (C) 2004, 2007 Free Software Foundation, Inc.
+   Written by Gary V. Vaughan, 2004
 
    NOTE: The canonical source of this file is maintained with the
    GNU Libtool package.  Report bugs to bug-libtool@gnu.org.
 
-This library is free software; you can redistribute it and/or
+GNU Libltdl is free software; you can redistribute it and/or
 modify it under the terms of the GNU Lesser General Public
 License as published by the Free Software Foundation; either
 version 2 of the License, or (at your option) any later version.
 
 As a special exception to the GNU Lesser General Public License,
 if you distribute this file as part of a program or library that
-is built using GNU libtool, you may include it under the same
-distribution terms that you use for the rest of that program.
+is built using GNU Libtool, you may include this file under the
+same distribution terms that you use for the rest of that program.
 
-This library is distributed in the hope that it will be useful,
+GNU Libltdl is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-Lesser General Public License for more details.
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Lesser General Public License for more details.
 
 You should have received a copy of the GNU Lesser General Public
-License along with this library; if not, write to the Free Software
-Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301  USA
-
+License along with GNU Libltdl; see the file COPYING.LIB.  If not, a
+copy can be downloaded from  http://www.gnu.org/licenses/lgpl.html,
+or obtained by writing to the Free Software Foundation, Inc.,
+51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 */
 
-#include "lt_dlloader.h"
 #include "lt__private.h"
+#include "lt_dlloader.h"
 
 #define RETURN_SUCCESS 0
 #define RETURN_FAILURE 1
@@ -96,6 +97,33 @@ lt_dlloader_add (const lt_dlvtable *vtable)
   return RETURN_SUCCESS;
 }
 
+#ifdef LT_DEBUG_LOADERS
+static void *
+loader_dump_callback (SList *item, void *userdata)
+{
+  const lt_dlvtable *vtable = (const lt_dlvtable *) item->userdata;
+  fprintf (stderr, ", %s", (vtable && vtable->name) ? vtable->name : "(null)");
+  return 0;
+}
+
+void
+lt_dlloader_dump (void)
+{
+  fprintf (stderr, "loaders: ");
+  if (!loaders)
+    {
+      fprintf (stderr, "(empty)");
+    }
+  else
+    {
+      const lt_dlvtable *head = (const lt_dlvtable *) loaders->userdata;
+      fprintf (stderr, "%s", (head && head->name) ? head->name : "(null)");
+      if (slist_tail (loaders))
+	slist_foreach (slist_tail (loaders), loader_dump_callback, NULL);
+    }
+  fprintf (stderr, "\n");
+}
+#endif
 
 /* An iterator for the global loader list: if LOADER is NULL, then
    return the first element, otherwise the following element.  */

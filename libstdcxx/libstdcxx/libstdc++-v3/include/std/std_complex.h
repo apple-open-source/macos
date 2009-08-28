@@ -16,7 +16,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -28,16 +28,16 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
+/** @file complex
+ *  This is a Standard C++ Library header.
+ */
+
 //
 // ISO C++ 14882: 26.2  Complex Numbers
 // Note: this is not a conforming implementation.
 // Initially implemented by Ulrich Drepper <drepper@cygnus.com>
 // Improved by Gabriel Dos Reis <dosreis@cmla.ens-cachan.fr>
 //
-
-/** @file complex
- *  This is a Standard C++ Library header.
- */
 
 #ifndef _GLIBCXX_COMPLEX
 #define _GLIBCXX_COMPLEX 1
@@ -49,8 +49,8 @@
 #include <cmath>
 #include <sstream>
 
-namespace std
-{
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   // Forward declarations.
   template<typename _Tp> class complex;
   template<> class complex<float>;
@@ -749,7 +749,7 @@ namespace std
     __complex_log(const complex<_Tp>& __z)
     { return complex<_Tp>(log(std::abs(__z)), std::arg(__z)); }
 
-  /*
+#if _GLIBCXX_USE_C99_COMPLEX
   inline __complex__ float
   __complex_log(__complex__ float __z) { return __builtin_clogf(__z); }
 
@@ -758,14 +758,16 @@ namespace std
 
   inline __complex__ long double
   __complex_log(const __complex__ long double& __z)
-  { return __builtin_clogl(__z); } */
+  { return __builtin_clogl(__z); }
 
-  // FIXME: Currently we don't use built-ins for log() because of some
-  //        obscure user name-space issues.  So, we use the generic version
-  //        which is why we don't use __z.__rep() in the call below.
+  template<typename _Tp>
+    inline complex<_Tp>
+    log(const complex<_Tp>& __z) { return __complex_log(__z.__rep()); }
+#else
   template<typename _Tp>
     inline complex<_Tp>
     log(const complex<_Tp>& __z) { return __complex_log(__z); }
+#endif
 
   template<typename _Tp>
     inline complex<_Tp>
@@ -1481,6 +1483,7 @@ namespace std
   inline
   complex<long double>::complex(const complex<double>& __z)
   : _M_value(__z.__rep()) { }
-} // namespace std
+
+_GLIBCXX_END_NAMESPACE
 
 #endif	/* _GLIBCXX_COMPLEX */

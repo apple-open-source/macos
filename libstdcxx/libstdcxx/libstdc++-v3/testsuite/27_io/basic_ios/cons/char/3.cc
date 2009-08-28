@@ -15,7 +15,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -100,11 +100,11 @@ namespace std
       }
 
       static char_type 
-      to_char_type(const int_type& __c)
+      to_char_type(const int_type&)
       { return char_type(); }
 
       static int_type 
-      to_int_type(const char_type& __c) { return int_type(); }
+      to_int_type(const char_type&) { return int_type(); }
 
       static bool 
       eq_int_type(const int_type& __c1, const int_type& __c2)

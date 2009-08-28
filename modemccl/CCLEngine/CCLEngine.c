@@ -230,7 +230,7 @@ u_int8_t *GetVarString(u_int32_t vs);
 int PrepScript();
 u_int8_t NextLine();
 int NextCommand();
-int NextInt(u_int32_t *theIntPtr);
+int NextInt(u_int32_t *theIntPtr);		// XXX returns signed numbers!
 void PrepStr(u_int8_t *destStr, u_int32_t *isVarString, u_int32_t *varIndex, int varSubstitution);
 void SkipBlanks();
 void RunScript();
@@ -518,17 +518,21 @@ void sLog(char *fmt, ...)
 	char taggedfmt[LOG_MAX], s[64];
 	time_t t;
 
-	va_start(ap, fmt);
 
-	if (sysloglevel)
+	if (sysloglevel) {
+		va_start(ap, fmt);
 		vsyslog(sysloglevel, fmt, ap);
+		va_end(ap);
+	}
 	if (usestderr) {
 		time(&t);
 		strftime(s, sizeof(s), "%c : ", localtime(&t));
 		strlcpy(taggedfmt, s, LOG_MAX);
 		strlcat(taggedfmt, fmt, LOG_MAX);
 		strlcat(taggedfmt, "\n", LOG_MAX);
+		va_start(ap, fmt);
 		vfprintf(stderr, taggedfmt, ap);
+		va_end(ap);
 	}
 }
 
@@ -748,15 +752,11 @@ int main(int argc, char **argv)
     struct stat     statbuf;
     fd_set          rset;
     struct timeval  timo;
-	
-/* DEBUG for attach
- fprintf(stderr, "CCLEngine pid %d\n", getpid());
- fflush(stderr);
- sleep(10);
-*/
+
+/* move the DEBUG below here if ppp/CCLEngine interactions need debugging */
     
-    signal(SIGHUP, hangup);		/* Hangup */
-    signal(SIGINT, hangup);		/* Interrupt */
+    signal(SIGHUP, hangup);			/* Hangup */
+    signal(SIGINT, hangup);			/* Interrupt */
     signal(SIGTERM, hangup);		/* Terminate */
     signal(SIGCHLD, badsignal);
     signal(SIGUSR1, badsignal);
@@ -777,6 +777,15 @@ int main(int argc, char **argv)
 
     if(!ParsePipeArgs())
         terminate(cclErr_BadParameter);
+
+/* DEBUG for attach on connect only (don't sweat the PID;
+   (gdb) attach CCLEngine * /
+if (enginemode == mode_connect) {
+fprintf(stderr, "CCLEngine pid %d\n", getpid());
+fflush(stderr);
+sleep(3);
+}
+*/
 
     InitScript();       // sets whatever variables PPA() didn't
 
@@ -1070,7 +1079,7 @@ void Play(void)
             break;
     }
 
-    RunScript();	// plays the script from @Originate until EXIT 0
+    RunScript();	// plays the script from @entrypoint until Exit
 }
 
 /* --------------------------------------------------------------------------
@@ -1082,7 +1091,7 @@ int PrepScript()
     u_int8_t	*bp, *d, *s, c;
     u_int16_t	*indexp, Lindex, i, cmd;
     u_int32_t	labelIndex;
-    int		result = 0;
+    int			result = 0;
 
     // The following "do {} while (false);" construct
     // prepares for the task of looping through the lines
@@ -1111,7 +1120,13 @@ int PrepScript()
             break;
         }
 
-        SV.lineCount = Lindex;
+		// Lindex is 1-based; lineCount is zero-based
+		// However, if the last character wasn't a line terminator; bump
+        SV.lineCount = Lindex - 1;
+        c = SV.script[SV.scriptSize-1];
+        if (c != chrCR && c != chrNL)
+            SV.lineCount++;
+
         bp = malloc(500);
         if (!bp) {
             result = ENOMEM;
@@ -1211,7 +1226,7 @@ int PrepScript()
             case cExit:
                 // check for exit result parameter
                 result = NextInt(&labelIndex);
-                // check for result in appropriate range.
+                // check for result in appropriate range?
                 break;
 
             case cHSReset:
@@ -1268,7 +1283,7 @@ int PrepScript()
                 PrepStr(SV.strBuf, NULL, NULL, 1);
                 if( SV.strBuf[0] == 0 )
                     result = cclErr_BadParameter;
-                    break;
+				break;
 
             case cSerReset:
                 for (i = 0; result == 0 && i < kSerResetParamCount; i++)
@@ -1363,7 +1378,7 @@ u_int8_t NextLine()
     u_int8_t	*bp;
     short	i;
 
-    SV.scriptLineIndex = 0;		/* reset line index			*/
+    SV.scriptLineIndex = 0;			/* reset line index			*/
     SV.scriptLine++;				/* check for out of bounds	*/
     if ((SV.scriptLine < 1) || (SV.scriptLine > SV.lineCount))
         return 0;
@@ -1374,12 +1389,12 @@ u_int8_t NextLine()
 
     SV.scriptLineSize = 0;
     bp = SV.scriptLinePtr;
-    while ((*bp != chrCR) && (*bp != chrNL)
-           && (i++ < SV.scriptSize)
-           && (SV.scriptLineSize < 255)) {
+    while ((i++ < SV.scriptSize) &&
+		   (*bp != chrCR) && (*bp != chrNL) &&
+           (SV.scriptLineSize < 255)) {
         bp++;
+		SV.scriptLineSize++;
     }
-    SV.scriptLineSize = bp - SV.scriptLinePtr;// - 1;
     return 1;
 }
 
@@ -1471,6 +1486,12 @@ void PrepStr(u_int8_t *destStr, u_int32_t *isVarString, u_int32_t *varIndex, int
     if ( isVarString != NULL )
         *isVarString = 0;
 
+	// make sure we don't walk off the end of the line
+	if (SV.scriptLineIndex > SV.scriptLineSize) {
+		destStr[0] = '\0';
+		return;
+	}
+
     srcStrIndex	= SV.scriptLineIndex;
     s		= SV.scriptLinePtr + srcStrIndex;
 
@@ -1529,8 +1550,10 @@ void PrepStr(u_int8_t *destStr, u_int32_t *isVarString, u_int32_t *varIndex, int
                 else if (*s == 'x') {
                     srcStrIndex += 4;
                     s++;                   
-                    escChar = ((*s - ((*s++ <= '9') ? '0' : ('A' - 10))) * 16);
-					escChar += (*s - ((*s++ <= '9') ? '0' : ('A' - 10)));
+                    escChar = ((*s - ((*s <= '9') ? '0' : ('A' - 10))) * 16);
+					s++;
+					escChar += (*s - ((*s <= '9') ? '0' : ('A' - 10)));
+					s++;
                     *d++ = escChar;
                 }
                 else {
@@ -1738,8 +1761,8 @@ the end of the script, or waiting for an asynchronous command to complete.
 void RunScript()  
 {
     u_int8_t	running, cmd;
-    int		result = 0;
-    u_int32_t	i, exitError, lval, jumpLabel;
+    int         code, result = 0;
+    u_int32_t   i, lval, jumpLabel;
 
     if (SV.scriptLine == 0) {			// no entry point, so terminate the script.
         SV.ctlFlags &= ~cclPlaying;				// don't play this script.
@@ -1792,15 +1815,12 @@ void RunScript()
                 running = 0;
                 SV.ctlFlags &= ~cclPlaying;
 
-                NextInt(&i);				// fetch the Exit code
-                if (i) { 				// non-zero means trouble
-                    SV.theAbortErr = i;			// will be used by WrapScript().
-                    exitError = i;			// for use by terminate().
-                    SkipBlanks();			// get to the string.
-                    PrepStr(SV.strBuf, 0, 0, 1);		// returns a pointer to a [optional] Pascal string.
-                    terminate(exitError);	// send an ARA_Notify message upstream.
-                }
-                    terminate(0);	// send an ARA_Notify message upstream.
+                NextInt((u_int32_t*)&code);		// fetch the Exit code
+				SV.theAbortErr = code;			// not currently used
+
+				Note();							// handle optional string
+
+				terminate(code);	// send an ARA_Notify message upstream.
                 break;
 
             case cFlush:
@@ -2033,7 +2053,7 @@ index.  Returns which matchstring matched, if any
 int MatchFind(u_int8_t newChar)
 {
     int			i, matchFound;
-    TPMatchStrInfo	matchInfo;
+    TPMatchStrInfo	matchInfo = NULL;
     char 		text[256];
     u_int8_t		matchStrChar, c;
 
@@ -2216,12 +2236,14 @@ listed are valid
                 ((a) == 7200)	||		\
                 ((a) == 9600)	||		\
                 ((a) == 14400)	||		\
-                ((a) == 19200)	||		\
-                ((a) == 28800)	||		\
-                ((a) == 38400)	||		\
-                ((a) == 57600)	||		\
-                ((a) == 115200)	||		\
-                ((a) == 230400))
+                ((a) == 19200)  ||      \
+                ((a) == 28800)  ||      \
+                ((a) == 38400)  ||      \
+                ((a) == 57600)  ||      \
+                ((a) == 115200) ||      \
+                ((a) == 230400) ||      \
+                ((a) == 460800) ||      \
+                ((a) == 921600))
 
 /* --------------------------------------------------------------------------
 Reset the Serial driver transmission rate, parity, number of data bits,
@@ -2238,6 +2260,7 @@ void SerReset(void)
     // Get the baud rate from the script and filter out invalid values.
     NextInt(&temp);
     SV.serialSpeed	= IsValidBaudRate(temp) ? temp : 9600;
+    // sLog("SerReset: setting serial speed to %d", SV.serialSpeed);
     cfsetispeed(&tios, SV.serialSpeed);
     cfsetospeed(&tios, SV.serialSpeed);
 
@@ -2420,38 +2443,36 @@ bool localizeStringWithBundle(u_char* inString, u_char* outString, CFIndex outSi
 	if(curURL && inString && outString)
 	{
 		CFStringRef			ref, loggedInUser, msg;
-		CFPropertyListRef		langRef;
+		CFPropertyListRef	langRef;
 		CFBundleRef			bdl;
-		if(curURL!= NULL) 
+
+		loggedInUser = SCDynamicStoreCopyConsoleUser(NULL, 0, 0);
+		if (loggedInUser) 
 		{
-			loggedInUser = SCDynamicStoreCopyConsoleUser(0, 0, 0);
-			if (loggedInUser) 
+			CFPreferencesSynchronize(kCFPreferencesAnyApplication, loggedInUser, kCFPreferencesAnyHost);
+			langRef = CFPreferencesCopyValue(CFSTR("AppleLanguages"), kCFPreferencesAnyApplication, 
+							loggedInUser, kCFPreferencesAnyHost);
+			if (langRef) 
 			{
-				CFPreferencesSynchronize(kCFPreferencesAnyApplication, loggedInUser, kCFPreferencesAnyHost);
-				langRef = CFPreferencesCopyValue(CFSTR("AppleLanguages"), kCFPreferencesAnyApplication, 
-								loggedInUser, kCFPreferencesAnyHost);
-				if (langRef) 
+				ref = CFStringCreateWithPascalString(NULL, inString, kCFStringEncodingUTF8);
+				if (ref) 
 				{
-					ref = CFStringCreateWithPascalString(NULL, inString, kCFStringEncodingUTF8);
-					if (ref) 
+					bdl = CFBundleCreate(0, curURL);
+					if (bdl) 
 					{
-						bdl = CFBundleCreate(0, curURL);
-						if (bdl) 
+						msg = copyUserLocalizedString(bdl, ref, ref, langRef);
+						if (msg) 
 						{
-							msg = copyUserLocalizedString(bdl, ref, ref, langRef);
-							if (msg) 
-							{
-								retVal= CFStringGetPascalString(msg, outString, outSize, kCFStringEncodingUTF8);
-								CFRelease(msg);
-							}
-							CFRelease(bdl);
+							retVal= CFStringGetPascalString(msg, outString, outSize, kCFStringEncodingUTF8);
+							CFRelease(msg);
 						}
-						CFRelease(ref);
+						CFRelease(bdl);
 					}
-					CFRelease(langRef);
+					CFRelease(ref);
 				}
-				CFRelease(loggedInUser);
+				CFRelease(langRef);
 			}
+			CFRelease(loggedInUser);
 		}
 	}
 	return retVal;
@@ -2459,19 +2480,23 @@ bool localizeStringWithBundle(u_char* inString, u_char* outString, CFIndex outSi
 
 /* --------------------------------------------------------------------------
 -------------------------------------------------------------------------- */
-bool localizeString(u_char* inString, u_char* outString, CFIndex outSize)
+void localizeString(u_char* inString, u_char* outString, CFIndex outSize)
 {
-	bool retVal= true;
+	bool success = true;
 	outString[0]= 0;
 
 	if(!localizeStringWithBundle(inString, outString, outSize, cclBundleURL))
 	{
 		if(!localizeStringWithBundle(inString, outString, outSize, appBundleURL))
 		{
-			retVal= localizeStringWithBundle(inString, outString, outSize, localBundleURL);
+			success = localizeStringWithBundle(inString, outString, outSize, localBundleURL);
 		}
 	}
-	return retVal;
+
+	// if we couldn't localize, just copy the non-localized version
+	// (the routines above used to do that, but they're busted)
+	if (!success)
+		bcopy(inString, outString, inString[0]+1);
 }
 
 #pragma mark -
@@ -2483,7 +2508,7 @@ void Note()
 {
     u_char 	text[256];
 	u_char	localText[256];
-    u_int32_t	msgDestination, msgLevel;	// will contain code for destination.
+    u_int32_t	msgDestination, msgLevel = 0;	// code -> destination
     CFStringRef	ref;
     
     SkipBlanks();
@@ -2494,7 +2519,7 @@ void Note()
 
     varSubstitution(localText, SV.strBuf, sizeof(SV.strBuf));
 
-    NextInt(&msgLevel);				// get the destination.
+    NextInt(&msgLevel);				// get the destination, if present
     switch (msgLevel) {
         case 1:
             msgDestination = kUserMsgFLog;
@@ -2508,8 +2533,9 @@ void Note()
             break;
     }
 
+    // localText switching from P-string to C-string
     bcopy(&SV.strBuf[1], &localText[0], SV.strBuf[0]);
-    localText[SV.strBuf[0]] = 0;
+    localText[SV.strBuf[0]] = '\0';
 
     if (serviceID && (msgDestination & 2)) {
         ref = CFStringCreateWithCString(NULL, (char*) localText, kCFStringEncodingUTF8);
@@ -2560,10 +2586,8 @@ u_int8_t Write()
         VerboseBuffer[0] = j - 1;
     }
 
-    //bcopy(&SV.strBuf[1], &text[0], SV.strBuf[0]);
-    //text[SV.strBuf[0]] = 0;
-        bcopy(&VerboseBuffer[1], &text[0], VerboseBuffer[0]);
-        text[VerboseBuffer[0]] = 0;
+	bcopy(&VerboseBuffer[1], &text[0], VerboseBuffer[0]);
+	text[VerboseBuffer[0]] = 0;
     if (verbose) {
 		sLog("CCLWrite : %s", text);
     }
@@ -3016,13 +3040,23 @@ static char* cclErrStrings[] =
 void terminate(int exitError)
 {
     //u_long m = exitError;
+#if 0
     CFNumberRef		num;
-#pragma unused(num)
+#endif
 #if 1
     if (verbose || exitError != 0) {
 		char *errStr = NULL;
 
-		if (exitError <= cclErr_AbortMatchRead &&
+		if (exitError == cclErr_DuplicateLabel) {
+			// null terminate the P-string :P
+			if (SV.strBuf[0]) {
+				SV.strBuf[SV.strBuf[0]+1] = '\0';
+				errStr = (char*)(&SV.strBuf[0] + 1);
+			} else {
+				// empty custom error
+				errStr = "<no custom error>";
+			}
+		} else if (exitError <= cclErr_AbortMatchRead &&
 				exitError >= cclErr_BadScriptErr)
 			errStr = cclErrStrings[cclErr_AbortMatchRead - exitError];
 

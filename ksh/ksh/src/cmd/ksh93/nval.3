@@ -60,6 +60,7 @@ void	nv_newattr(Namval_t *\fInp\fP, unsigned \fIflags\fP, int \fIsize\fP);
 .ft 5
 unsigned nv_isarray(Namval_t *\fInp\fP);
 Namarr_t	*nv_setarray(Namval_t *\fInp\fP,void*(*\fIfun\fP)(Namval_t*,const char*,int));
+Namarr_t	*nv_arrayptr(Namval_t *\fInp\fP);
 Namval_t	*nv_putsub(Namval_t *\fInp\fP, char *\fIname\fP, long \fImode\fP);
 Namval_t	*nv_opensub(Namval_t *\fInp\fP);
 void	nv_setvec(Namval_t *\fInp\fP, int \fIappend\fP, int \fIargc\fP, char *\fIargv\fP[]);
@@ -85,7 +86,7 @@ const Namdisc_t	*nv_discfun(int \fIwhich\fP);
 .nf
 .ft 5
 int	nv_scan(Dt_t *\fIdict\fP, void(*\fIfn\fP)(Namval_t*,void*), void *\fIdata\fP, int \fImask\fP, int \fIflags\fP);
-Dt_t	nv_dict(Namval_t *\fInp\fP);
+Dt_t	*nv_dict(Namval_t *\fInp\fP);
 void	nv_setvtree(Namval_t *\fInp\fP);
 void	nv_setref(Namval_t *\fInp\fP, Dt_t *\fIdp\fP, int \fIflags\fP);
 Namval_t	*nv_lastdict(void);
@@ -558,6 +559,11 @@ The name of the current subscript must be returned.
 Returns a pointer to a name-value pair corresponding to the
 current subscript, or \f5NULL\fP if this array type doesn't
 create represent each element as a name-value pair.
+.PP
+If \fInp\fP refers to an array,
+\f5nv_arrayptr()\fP returns a pointer to
+the array discipline structure \f5Namarr_t\fP.
+Otherwise \f5nv_arrayptr()\fP returns \f5NULL\fP.
 .PP
 If \fInp\fP refers to an array,
 the \f5nv_getsub()\fP returns a pointer to

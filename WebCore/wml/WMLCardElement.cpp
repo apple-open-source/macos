@@ -31,8 +31,10 @@
 #include "RenderStyle.h"
 #include "WMLDocument.h"
 #include "WMLDoElement.h"
+#include "WMLInputElement.h"
 #include "WMLIntrinsicEventHandler.h"
 #include "WMLNames.h"
+#include "WMLSelectElement.h"
 #include "WMLTemplateElement.h"
 #include "WMLTimerElement.h"
 #include "WMLVariables.h"
@@ -164,16 +166,15 @@ void WMLCardElement::handleIntrinsicEventIfNeeded()
     if (m_eventTimer)
         m_eventTimer->start();
 
-    // FIXME: Initialize input/select  elements in this card
-    /*
-    Node* node = this;
-    while (node = node->traverseNextNode()) {
+    for (Node* node = traverseNextNode(); node != 0; node = node->traverseNextNode()) {
+        if (!node->isElementNode())
+            continue;
+
         if (node->hasTagName(inputTag))
-            static_cast<WMLInputElement*>(node)->init();
+            static_cast<WMLInputElement*>(node)->initialize();
         else if (node->hasTagName(selectTag))
             static_cast<WMLSelectElement*>(node)->selectInitialOptions();
     }
-    */
 }
 
 void WMLCardElement::handleDeckLevelTaskOverridesIfNeeded()
@@ -201,6 +202,11 @@ void WMLCardElement::handleDeckLevelTaskOverridesIfNeeded()
 
     for (; it != end; ++it)
         (*it)->setActive(!cardDoElementNames.contains((*it)->name()));
+}
+
+String WMLCardElement::title() const
+{
+    return parseValueSubstitutingVariableReferences(getAttribute(HTMLNames::titleAttr));
 }
 
 void WMLCardElement::parseMappedAttribute(MappedAttribute* attr)

@@ -1,0 +1,442 @@
+######################################################################
+#
+#  Microsoft Visual C++  makefile for XOTcl
+#
+#  do not edit in this file, edit "configs.vc"
+#
+######################################################################
+
+!include "configs.vc"
+
+BINROOT		= .
+ROOT		= ..
+NAMEPREFIX	= lib
+NAME		= xotcl
+STUBSUFFIX	= stub
+
+XOTCL_DIR =		..
+XOTCL_BUILD_DIR =	..\win
+SDBM_DIR =		..\library\store\XOTclSdbm
+EXPAT_DIR = 		..\library\xml\TclExpat-1.1
+MAKE_XOTCL = 		.\library\lib\make.xotcl
+
+MAKECMD	= nmake.exe -nologo /$(MAKEFLAGS) -f makefile.vc
+
+########################################################################
+
+lflags	= /NODEFAULTLIB /NOLOGO /MACHINE:$(MACHINE) $(libpath32)
+conlflags = $(lflags) -subsystem:console -entry:mainCRTStartup
+guilflags = $(lflags) -subsystem:windows -entry:WinMainCRTStartup
+
+!IF "$(MACHINE)" == "PPC"
+libc = libc$(DBGX).lib
+libcdll = crtdll$(DBGX).lib
+!ELSE
+libc = libc$(DBGX).lib oldnames.lib
+libcdll = msvcrt$(DBGX).lib oldnames.lib
+!ENDIF
+
+baselibs   = kernel32.lib $(optlibs) advapi32.lib user32.lib
+winlibs	   = $(baselibs) gdi32.lib comdlg32.lib winspool.lib
+
+guilibs	   = $(libc) $(winlibs)
+conlibs	   = $(libc) $(baselibs)
+guilibsdll = $(libcdll) $(winlibs)
+conlibsdll = $(libcdll) $(baselibs)
+
+########################################################################
+
+!if $(DEBUG)
+TMPNAME		= Debug
+DBGX		= d
+!else
+TMPNAME		= Release
+DBGX		=
+!endif
+
+TMP_DIR		= $(BINROOT)\$(TMPNAME)
+
+!ifndef OUT_DIR
+OUT_DIR		= $(TMP_DIR)
+!endif
+
+!if $(STATIC_BUILD)
+XOTCLOUTNAME	= $(NAMEPREFIX)$(NAME)$(XOTCL_VERSION)$(DBGX)
+XOTCLTARGET	= "$(OUT_DIR)\$(XOTCLOUTNAME).lib"
+!else
+XOTCLOUTNAME	= $(NAMEPREFIX)$(NAME)$(XOTCL_VERSION)$(DBGX)
+XOTCLIMPLIB	= "$(OUT_DIR)\$(XOTCLOUTNAME).lib"
+XOTCLTARGET	= "$(OUT_DIR)\$(XOTCLOUTNAME).dll"
+!endif
+
+TCLSTUBLIB	= "$(TCLROOT)\win\Release\tclstub$(TCL_VERSION).lib"
+TCLIMPLIB	= "$(TCLROOT)\win\$(OUT_DIR)\tcl$(TCL_VERSION)$(DBGX).lib"
+TKIMPLIB	= "$(TKROOT)\win\$(OUT_DIR)\tk$(TCL_VERSION)$(DBGX).lib"
+TCLSH		= "$(TCLROOT)\win\$(OUT_DIR)\tclsh$(TCL_VERSION)$(DBGX).exe"
+
+XOTCLSTUBLIBNAME	= $(NAMEPREFIX)$(NAME)$(STUBSUFFIX)$(XOTCL_VERSION)$(DBGX).lib
+XOTCLSTUBLIB		= "$(OUT_DIR)\$(XOTCLSTUBLIBNAME)"
+
+LIB_INSTALL_DIR		= $(INSTALLDIR)\lib
+BIN_INSTALL_DIR		= $(INSTALLDIR)\bin
+SCRIPT_INSTALL_DIR	= $(INSTALLDIR)\lib\xotcl$(XOTCL_DOTVERSION)
+INCLUDE_INSTALL_DIR	= $(INSTALLDIR)\include
+
+XOTCLOBJS_STUB = $(TMP_DIR)\xotclStubInit.obj
+COMPILE_XOTCL_STUBS = -DCOMPILE_XOTCL_STUBS=1
+
+!if $(TCLMAJOR)	== 8
+!if $(TCLMINOR)	== 0
+XOTCLOBJS_STUB = ""
+COMPILE_XOTCL_STUBS=""
+!endif
+!endif
+
+XOTCLOBJS = $(XOTCLOBJS_STUB) \
+	$(TMP_DIR)\xotcl.obj \
+	$(TMP_DIR)\xotclError.obj \
+	$(TMP_DIR)\xotclMetaData.obj \
+	$(TMP_DIR)\xotclObjectData.obj \
+	$(TMP_DIR)\xotclProfile.obj \
+	$(TMP_DIR)\xotclTrace.obj \
+	$(TMP_DIR)\xotclShadow.obj \
+	$(TMP_DIR)\xotclUtil.obj \
+	$(TMP_DIR)\aolstub.obj \
+!if $(STATIC_BUILD) == 0
+	$(TMP_DIR)\dllEntryPoint.obj \
+	$(TMP_DIR)\dllResource.obj \
+!endif
+
+XOTCLSHOBJS = $(TMP_DIR)\xotclAppInit.obj
+XOWISHOBJS = $(TMP_DIR)\winMain.obj
+
+XOTCLSTUBOBJS = \
+	$(TMP_DIR)\xotclStubLib.obj
+
+WINDIR		= $(ROOT)\win
+GENERICDIR	= $(ROOT)\generic
+RCDIR		= $(ROOT)\win\rc
+
+######################################################################
+# Link flags
+######################################################################
+
+!if $(DEBUG)
+ldebug	= -debug:full -debugtype:cv
+!else
+ldebug	= -release
+!endif
+
+# declarations common to all linker options
+lcommon = -nologo -link50compat -machine:$(MACHINE)
+
+XOTCL_LFLAGS = $(lcommon) $(ldebug) -subsystem:windows -dll
+
+!if $(USE_TCL_STUBS) == 0
+XOTCL_LLIBS	= $(TCLIMPLIB)
+!else
+XOTCL_LLIBS	= $(TCLSTUBLIB)
+!endif
+
+######################################################################
+# Compile flags
+######################################################################
+
+!if !$(DEBUG)
+# This cranks the optimization level to maximize speed
+cdebug	= -O2 -Gs
+!else if "$(MACHINE)" == "IA64"
+cdebug	= -Od -Zi
+!else
+cdebug	= -Z7 -Od -WX
+DBGX	= d
+!endif
+
+!if $(STATIC_BUILD)
+cdll	=
+!else
+cdll	= -GD
+!endif
+
+# declarations common to all compiler options
+ccommon = -nologo -c -W3 -YX \
+
+
+!if $(STATIC_BUILD) && $(NOMSVCRT)
+crt	= -MT$(DBGX)
+!else
+crt	= -MD$(DBGX)
+!endif
+
+TCL_INCLUDES	= -I"$(TCLROOT)\generic"
+TK_INCLUDES	= -I"$(TKROOT)\generic" -I$(TKROOT)\win -I$(TKROOT)\xlib
+
+XOTCL_INCLUDES	= -I$(WINDIR) -I$(GENERICDIR)
+XOTCL_DEFINES	= -DBUILD_$(NAME) -DTCL_THREADS=1 \
+			-DXOLIBPKG=$(INST_XOLIBPKG) \
+			-DXOTCLVERSION=$(XOTCLVERSION) \
+			-DPACKAGE_VERSION=$(PACKAGE_VERSION) \
+			-DXOTCLPATCHLEVEL=$(XOTCLPATCHLEVEL) \
+			-D__WIN32__ -DVISUAL_CC $(COMPILE_XOTCL_STUBS)
+
+XOTCL_EXE_CFLAGS	= $(ccommon) $(cdebug) $(crt) $(cdll) $(XOTCL_INCLUDES) \
+		$(XOTCL_DEFINES) $(TCL_INCLUDES) $(TK_INCLUDES)
+
+!if $(USE_TCL_STUBS)
+XOTCL_CFLAGS	= $(XOTCL_EXE_CFLAGS) -DUSE_TCL_STUBS
+!else
+XOTCL_CFLAGS	= $(XOTCL_EXE_CFLAGS)
+!endif
+
+######################################################################
+# Project specific targets
+######################################################################
+
+all : libs packages end
+
+#xotcl : xotclsh xowish
+
+libs : setup $(XOTCLTARGET) $(XOTCLSTUBLIB) ./pkgIndex.tcl
+	cd $(SDBM_DIR)
+	$(MAKECMD)
+	cd ..\..
+	cd $(EXPAT_DIR)
+	$(MAKECMD)
+	cd ..\..\..\win
+
+end:
+	@echo ************************************************************
+	@echo *
+	@echo * Make completed.
+	@echo *
+	@echo * In order to test XOTcl, invoke:
+	@echo *
+	@echo *   nmake -fmakefile.vc test
+	@echo *
+	@echo * In order install XOTcl, invoke the installWin.tcl
+	@echo * installation script, like:
+	@echo *
+	@echo *   tclsh83 installWin.tcl c:\Progra~1
+	@echo * 
+	@echo *	or:
+	@echo *
+	@echo *   nmake -fmakefile.vc install
+	@echo *	
+	@echo * To run XOTcl from the local directory, set the environment
+	@echo * variable TCLLIBPATH to the toplevel directory of xotcl and
+	@echo * execute tclsh:         
+	@echo *  
+	@echo *   set TCLLIBPATH=$(ROOT) 
+	@echo *   tclsh83
+	@echo *   package require XOTcl; namespace import -force xotcl::*
+	@echo *
+	@echo ************************************************************
+
+packages : libs
+	cd ..\library
+	set TCLLIBPATH=$(ROOT)
+	$(TCLSH) ..\$(MAKE_XOTCL) -target $(INST_XOLIBPKG) -all
+	cd ..\win
+
+install :  all
+	set TCLLIBPATH=$(ROOT)
+	$(TCLSH) .\installWin.tcl
+
+test : $(TCLSH)
+	set TCLLIBPATH=$(ROOT)
+	$(TCLSH) $(ROOT)\tests\speedtest.xotcl
+	$(TCLSH) $(ROOT)\tests\testx.xotcl
+	$(TCLSH) $(ROOT)\tests\testo.xotcl
+	$(TCLSH) $(ROOT)\tests\forwardtest.xotcl
+	$(TCLSH) $(ROOT)\tests\actiweb.test	
+	$(TCLSH) $(ROOT)\tests\persistence.test
+	$(TCLSH) $(ROOT)\tests\xoRDF.test
+	$(TCLSH) $(ROOT)\tests\xocomm.test
+
+tar : distclean
+	cd ..
+	tar cvfz xotcl-$(FULLVERSION).tar.gz xotcl-$(FULLVERSION)/*
+	cd xotcl-$(FULLVERSION)
+
+
+./pkgIndex.tcl : $(XOTCLTARGET)
+	echo package ifneeded XOTcl $(XOTCL_VERSION) [list load [file join $$dir $(TMPNAME)/$(XOTCLOUTNAME).dll] XOTcl] > \
+		".\pkgIndex.tcl"
+
+setup :
+	@$(vcvars) > nul
+	@if not exist $(TMP_DIR)\nul mkdir $(TMP_DIR) &\
+		echo Created directory '$(TMP_DIR)'
+	@if not exist $(OUT_DIR)\nul mkdir $(OUT_DIR) &\
+		echo Created directory '$(OUT_DIR)'
+
+$(XOTCLTARGET) : $(XOTCLOBJS)
+!if $(STATIC_BUILD)
+	$(lib32) -nologo -machine:$(MACHINE) -out:$@ @<<
+!else
+	$(link32) $(XOTCL_LFLAGS) -base:@$(XOTCL_DIR)\win\dllBase.txt,$@ -out:$@ $(XOTCL_LLIBS) @<<
+!endif
+		$(XOTCLOBJS)
+<<
+
+#!if $(DEBUG) == 0
+$(XOTCLSTUBLIB) : $(XOTCLSTUBOBJS)
+	$(lib32) -nologo -out:$@ $(XOTCLSTUBOBJS)
+#!else
+#$(XOTCLSTUBLIB) :
+#!endif
+
+#install : all
+#	if not exist "$(INSTALLDIR)" mkdir "$(INSTALLDIR)"
+#	if not exist "$(BIN_INSTALL_DIR)" mkdir "$(BIN_INSTALL_DIR)"
+#	if not exist "$(LIB_INSTALL_DIR)" mkdir "$(LIB_INSTALL_DIR)"
+#	if not exist "$(SCRIPT_INSTALL_DIR)" mkdir "$(SCRIPT_INSTALL_DIR)"
+#	if not exist "$(INCLUDE_INSTALL_DIR)" mkdir "$(INCLUDE_INSTALL_DIR)"
+#	copy $(XOTCLTARGET) "$(SCRIPT_INSTALL_DIR)"
+#	-copy $(XOTCLSTUBLIB) "$(LIB_INSTALL_DIR)"
+#	copy $(ROOT)\generic\xotcl.h "$(INCLUDE_INSTALL_DIR)"
+#	copy $(ROOT)\generic\xotclDecls.h "$(INCLUDE_INSTALL_DIR)"
+#	copy $(ROOT)\library\*.* "$(SCRIPT_INSTALL_DIR)"
+#	echo package ifneeded XOTcl $(XOTCL_DOTVERSION) [list load [file join $$dir ../../bin $(XOTCLOUTNAME).dll] XOTcl] > \
+#		"$(SCRIPT_INSTALL_DIR)\pkgIndex.tcl"
+
+######################################################################
+# Regenerate the stubs files.
+######################################################################
+
+genstubs:
+	$(TCLSH) $(TCLROOT)\tools\genStubs.tcl $(GENERICDIR) \
+		$(GENERICDIR)\xotcl.decls $(GENERICDIR)\xotclInt.decls
+
+######################################################################
+# Special case object file targets
+######################################################################
+
+# The following object is part of the stub library and should not
+# be built as DLL objects but none of the symbols should be exported
+
+$(TMP_DIR)\xotclStubLib.obj : $(GENERICDIR)\xotclStubLib.c
+	$(cc32) -DSTATIC_BUILD $(XOTCL_EXE_CFLAGS) -Zl -Fo$@ $?
+
+$(TMP_DIR)\dllResource.obj : $(TMP_DIR)\xotcl.res
+	$(cvtres32) -nologo -machine:$(MACHINE) -out:$@ $?
+
+predefined : $(GENERICDIR)\predefined.xotcl
+	cd $(GENERICDIR)
+	$(TCLSH) mk_predefined.xotcl > predefined.h
+        cd ..\win
+
+######################################################################
+# Inference rules.  Use batch-mode when supported.
+######################################################################
+
+$(TMP_DIR)\xotclAppInit.obj : $(GENERICDIR)\xotclAppInit.c
+	$(cc32) $(XOTCL_EXE_CFLAGS) -Fo$@ $?
+
+$(TMP_DIR)\findXOTcl.obj : $(GENERICDIR)\findXOTcl.c
+	$(cc32) $(XOTCL_EXE_CFLAGS) -Fo$@ $?
+
+$(TMP_DIR)\winMain.obj : $(WINDIR)\winMain.c
+	$(cc32) $(XOTCL_EXE_CFLAGS) -Fo$@ $?
+
+
+
+!if $(_NMAKE_VER) < 162
+{$(WINDIR)}.c{$(TMP_DIR)}.obj :
+!else
+{$(WINDIR)}.c{$(TMP_DIR)}.obj ::
+!endif
+	$(cc32) -DDLL_BUILD $(XOTCL_CFLAGS) -Fo$(TMP_DIR)\ @<<
+$<
+<<
+
+!if $(_NMAKE_VER) < 162
+{$(GENERICDIR)}.c{$(TMP_DIR)}.obj :
+!else
+{$(GENERICDIR)}.c{$(TMP_DIR)}.obj ::
+!endif
+	$(cc32) -DDLL_BUILD $(XOTCL_CFLAGS) -Fo$(TMP_DIR)\ @<<
+$<
+<<
+
+XOTCL_VERSION_DEFINES = \
+	-DXOTCL_MAJOR_VERSION=$(XOTCL_MAJOR_VERSION) \
+	-DXOTCL_MINOR_VERSION=$(XOTCL_MINOR_VERSION) \
+	-DXOTCL_VERSION=\"$(XOTCL_VERSION)\"
+
+
+{$(RCDIR)}.rc{$(TMP_DIR)}.res :
+	$(rc32) -fo $@ -DDEBUG=$(DEBUG) $(XOTCL_VERSION_DEFINES) $(XOTCL_INCLUDES) $(TCL_INCLUDES) $(XOTCL_DEFINES) $<
+
+######################################################################
+# Clean up
+######################################################################
+
+tidy :
+	-del $(TMP_DIR)\*.pch
+	-del $(TMP_DIR)\*.obj
+	-del $(TMP_DIR)\*.res
+	-del .\*.pdb
+	-del .\*.pch
+	cd $(SDBM_DIR)
+	$(MAKECMD) tidy
+	cd ..\..
+	cd $(EXPAT_DIR)
+	$(MAKECMD) tidy
+	cd ..\..\..\win
+
+clean :
+	-del $(TMP_DIR)\*.pch
+	-del $(TMP_DIR)\*.obj
+	-del $(TMP_DIR)\*.res
+	-del .\*.pdb
+	-del .\*.pch
+	-del $(OUT_DIR)\*.exp
+	-del $(OUT_DIR)\*.lib
+	-del $(OUT_DIR)\*.dll
+	-del ..\*.exp
+	-del ..\*.lib
+	-del ..\xotclsh.exe
+	-del ..\xowish.exe
+	cd $(SDBM_DIR)
+	$(MAKECMD)  clean
+	cd ..\..
+	cd $(EXPAT_DIR)
+	$(MAKECMD)  clean
+	cd ..\..\..\win
+
+distclean : clean
+	-rmdir $(OUT_DIR)
+	-rmdir $(TMP_DIR)
+	cd $(SDBM_DIR)
+	$(MAKECMD)  distclean
+	cd ..\..
+	cd $(EXPAT_DIR)
+	$(MAKECMD)  distclean
+	cd ..\..\..\win
+
+#
+# tar
+#
+
+tar : distclean
+	cd ..\..
+	tar cvfz xotcl-$(FULLVERSION).tar.gz xotcl-$(FULLVERSION)/*
+	cd xotcl-$(FULLVERSION)\win
+
+#
+# XOTcl Shells
+#
+../xotclsh.exe: $(XOTCLSHOBJS) $(TCLIMPLIB) $(TMP_DIR)\xotcl.res
+	$(link32) $(ldebug) $(conlflags) $(TMP_DIR)\xotcl.res -stack:2300000 \
+		-out:$@ $(conlibsdll) $(TCLIMPLIB) $(XOTCLSHOBJS)
+
+../xowish.exe: $(XOWISHOBJS) $(TCLIMPLIB) $(TKIMPLIB) $(TMP_DIR)\xotcl.res
+	$(link32) $(ldebug) $(guilflags) $(TMP_DIR)\xotcl.res -out:$@ \
+		$(guilibsdll) $(TCLIMPLIB) $(TKIMPLIB) $(XOTCLLIB) $(XOWISHOBJS)
+
+
+xotclsh: ../xotclsh.exe
+xowish: ../xowish.exe
+
+xotclshells: xotclsh xowish

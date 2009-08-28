@@ -1,0 +1,10 @@
+[comment {-*- tcl -*- doctools}]
+[vset FORMATNAME bmp]
+[vset FORMATFULLNAME {Windows Bitmap Format}]
+
+[include format-header.inc]
+
+This handler does not provide additional configuration options.
+
+[include format-middle.inc]
+[include format-footer.inc]

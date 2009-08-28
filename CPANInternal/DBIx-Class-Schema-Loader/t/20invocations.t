@@ -3,8 +3,6 @@ use Test::More;
 use lib qw(t/lib);
 use make_dbictest_db;
 
-$SIG{__WARN__} = sub { }; # Suppress warnings, as we test a lot of deprecated stuff here
-
 # Takes a $schema as input, runs 4 basic tests
 sub test_schema {
     my ($testname, $schema) = @_;
@@ -23,56 +21,23 @@ sub test_schema {
 }
 
 my @invocations = (
-    'deprecated_one' => sub {
-        package DBICTest::Schema::1;
-        use base qw/ DBIx::Class::Schema::Loader /;
-        __PACKAGE__->connection($make_dbictest_db::dsn);
-        __PACKAGE__->load_from_connection( relationships => 1 );
-        __PACKAGE__;
-    },
-    'deprecated_two' => sub {
-        package DBICTest::Schema::2;
-        use base qw/ DBIx::Class::Schema::Loader /;
-        __PACKAGE__->load_from_connection(
-            relationships => 1,
-            connect_info => [ $make_dbictest_db::dsn ],
-        );
-        __PACKAGE__;
-    },
-    'deprecated_three' => sub {
-        package DBICTest::Schema::3;
-        use base qw/ DBIx::Class::Schema::Loader /;
-        __PACKAGE__->load_from_connection(
-            relationships => 1,
-            dsn => $make_dbictest_db::dsn,
-        );
-        __PACKAGE__;
-    },
-    'deprecated_four' => sub {
-        package DBICTest::Schema::4;
-        use base qw/ DBIx::Class::Schema::Loader /;
-        __PACKAGE__->connection($make_dbictest_db::dsn);
-        __PACKAGE__->loader_options( relationships => 1 );
-        __PACKAGE__;
-    },
     'hardcode' => sub {
         package DBICTest::Schema::5;
         use base qw/ DBIx::Class::Schema::Loader /;
-        __PACKAGE__->loader_options( relationships => 1 );
         __PACKAGE__->connection($make_dbictest_db::dsn);
         __PACKAGE__;
     },
     'normal' => sub {
         package DBICTest::Schema::6;
         use base qw/ DBIx::Class::Schema::Loader /;
-        __PACKAGE__->loader_options( relationships => 1 );
+        __PACKAGE__->loader_options();
         __PACKAGE__->connect($make_dbictest_db::dsn);
     },
     'make_schema_at' => sub {
         use DBIx::Class::Schema::Loader qw/ make_schema_at /;
         make_schema_at(
             'DBICTest::Schema::7',
-            { relationships => 1 },
+            { really_erase_my_files => 1 },
             [ $make_dbictest_db::dsn ],
         );
         DBICTest::Schema::7->clone;
@@ -82,7 +47,7 @@ my @invocations = (
         use base qw/ DBIx::Class::Schema::Loader /;
         __PACKAGE__->connect(
             $make_dbictest_db::dsn,
-            { loader_options => { relationships => 1 } }
+            { loader_options => { really_erase_my_files => 1 } }
         );
     },
     'embedded_options_in_attrs' => sub {
@@ -92,7 +57,7 @@ my @invocations = (
             $make_dbictest_db::dsn,
             undef,
             undef,
-            { AutoCommit => 1, loader_options => { relationships => 1 } }
+            { AutoCommit => 1, loader_options => { really_erase_my_files => 1 } }
         );
     },
     'embedded_options_make_schema_at' => sub {
@@ -102,7 +67,7 @@ my @invocations = (
             { },
             [
                 $make_dbictest_db::dsn,
-                { loader_options => { relationships => 1 } },
+                { loader_options => { really_erase_my_files => 1 } },
             ],
         );
         "DBICTest::Schema::10";
@@ -110,7 +75,7 @@ my @invocations = (
     'almost_embedded' => sub {
         package DBICTest::Schema::11;
         use base qw/ DBIx::Class::Schema::Loader /;
-        __PACKAGE__->loader_options( relationships => 1 );
+        __PACKAGE__->loader_options( really_erase_my_files => 1 );
         __PACKAGE__->connect(
             $make_dbictest_db::dsn,
             undef, undef, { AutoCommit => 1 }
@@ -120,7 +85,7 @@ my @invocations = (
         use DBIx::Class::Schema::Loader;
         DBIx::Class::Schema::Loader::make_schema_at(
             'DBICTest::Schema::12',
-            { relationships => 1 },
+            { really_erase_my_files => 1 },
             [ $make_dbictest_db::dsn ],
         );
         DBICTest::Schema::12->clone;

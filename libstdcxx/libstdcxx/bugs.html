@@ -53,13 +53,13 @@
 <h1><a name="report">Reporting Bugs</a></h1>
 
 <p>The main purpose of a bug report is to enable us to fix the bug. The
-most important prerequisite for this is that the report must be complete and
-self-contained, which we explain in detail below.</p>
+most important prerequisite for this is that the report must be complete
+and self-contained.</p>
 
 <p>Before you report a bug, please check the 
-<a href="#known">list of well-known bugs</a> and, <strong>if possible
-in any way, try a current development snapshot</strong>.
-If you want to report a bug with versions of GCC before 3.1 we strongly
+<a href="#known">list of well-known bugs</a> and, <strong>if possible,
+try a current development snapshot</strong>.
+If you want to report a bug with versions of GCC before 3.4 we strongly
 recommend upgrading to the current release first.</p>
 
 <p>Before reporting that GCC compiles your code incorrectly, please
@@ -116,10 +116,6 @@ three of which can be obtained from the output of <code>gcc -v</code>:</p>
   a successful compilation; this is a symptom of a hardware problem,
   not of a compiler bug (sorry)</li>
 
-  <li>E-mail messages that complement previous, incomplete bug
-  reports. Post a new, self-contained, full bug report instead, if
-  possible as a follow-up to the original bug report</li>
-
   <li>Assembly files (<code>*.s</code>) produced by the compiler, or any
   binary files, such as object files, executables, core files, or
   precompiled header files</li>
@@ -163,17 +159,6 @@ preprocessed file it generates.</p>
 <blockquote><p><code>gcc -v -save-temps <i>all-your-options
 source-file</i></code></p></blockquote>
 
-<p>Typically the preprocessed file (extension <code>.i</code> for C or
-<code>.ii</code> for C++, and <code>.f</code> if the preprocessor is used on
-Fortran files) will be large, so please compress the
-resulting file with one of the popular compression programs such as
-bzip2, gzip, zip or compress (in
-decreasing order of preference).  Use maximum compression
-(<code>-9</code>) if available.  Please include the compressed
-preprocessor output in your bug report, even if the source code is
-freely available elsewhere; it makes the job of our volunteer testers
-much easier.</p>
-
 <p>The <b>only</b> excuses to not send us the preprocessed sources are
 (i) if you've found a bug in the preprocessor, (ii) if you've reduced
 the testcase to a small file that doesn't include any other file or
@@ -186,12 +171,6 @@ then try to create a small file that triggers the same problem.</p>
 it in the bug report, although you may want to post parts of it to
 point out assembly code you consider to be wrong.</p>
 
-<p>Whether to use MIME attachments or <code>uuencode</code> is up to
-you.  In any case, make sure the compiler command line, version and
-error output are in plain text, so that we don't have to decode the
-bug report in order to tell who should take care of it.  A meaningful
-subject indicating language and platform also helps.</p>
-
 <p>Please avoid posting an archive (.tar, .shar or .zip); we generally
 need just a single file to reproduce the bug (the .i/.ii/.f preprocessed
 file), and, by storing it in an archive, you're just making our
@@ -203,16 +182,6 @@ we need the main file and all <code>INCLUDE</code>d files.  In any case,
 make sure the compiler version, error message, etc, are included in
 the body of your bug report as plain text, even if needlessly
 duplicated as part of an archive.</p>
-
-<p>If you fail to supply enough information for a bug report to be
-reproduced, someone will probably ask you to post additional
-information (or just ignore your bug report, if they're in a bad day,
-so try to get it right on the first posting :-).  In this case, please
-post the additional information to the bug reporting mailing list, not
-just to the person who requested it, unless explicitly told so.  If
-possible, please include in this follow-up all the information you had
-supplied in the incomplete bug report (including the preprocessor
-output), so that the new bug report is self-contained.</p>
 
 <h2><a name="gnat">Detailed bug reporting instructions for GNAT</a></h2>
 
@@ -399,9 +368,9 @@ statements, people also frequently put the object in parentheses.</p></dd>
 
 <h2><a name="fortran">Fortran</a></h2>
 
-<p>Fortran bugs are documented in the G77 manual rather than
+<p>G77 bugs are documented in the G77 manual rather than
 explicitly listed here.  Please see 
-<a href="http://gcc.gnu.org/onlinedocs/g77/Trouble.html">Known Causes of
+<a href="http://gcc.gnu.org/onlinedocs/gcc-3.4.6/g77/Trouble.html">Known Causes of
 Trouble with GNU Fortran</a> in the G77 manual.</p>
 
 <hr />

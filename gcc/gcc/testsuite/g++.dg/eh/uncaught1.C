@@ -1,6 +1,5 @@
 // PR libstdc++/10606
 // { dg-do run }
-// APPLE LOCAL mainline 2006-02-24 4086777
 // { dg-options "-fuse-cxa-get-exception-ptr" { target powerpc*-*-darwin* } }
 
 #include <exception>

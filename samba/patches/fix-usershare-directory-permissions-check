@@ -2,7 +2,7 @@ Index: samba/source/param/loadparm.c
 ===================================================================
 --- samba/source/param/loadparm.c.orig
 +++ samba/source/param/loadparm.c
-@@ -4723,66 +4723,99 @@ static BOOL usershare_exists(int iServic
+@@ -4754,66 +4754,99 @@ static BOOL usershare_exists(int iServic
  }
  
  /***************************************************************************
@@ -135,7 +135,7 @@ Index: samba/source/param/loadparm.c
  	}
  
  	return process_usershare_file(usersharepath, servicename, snum_template);
-@@ -4798,7 +4831,6 @@ int load_usershare_service(const char *s
+@@ -4829,7 +4862,6 @@ int load_usershare_service(const char *s
  int load_usershare_shares(void)
  {
  	SMB_STRUCT_DIR *dp;
@@ -143,7 +143,7 @@ Index: samba/source/param/loadparm.c
  	SMB_STRUCT_DIRENT *de;
  	int num_usershares = 0;
  	int max_user_shares = Globals.iUsershareMaxShares;
-@@ -4810,52 +4842,10 @@ int load_usershare_shares(void)
+@@ -4841,52 +4873,10 @@ int load_usershare_shares(void)
  	const char *usersharepath = Globals.szUsersharePath;
  	int ret = lp_numservices();
  

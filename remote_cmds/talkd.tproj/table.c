@@ -1,27 +1,4 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-/*
  * Copyright (c) 1983, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -54,15 +31,20 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__unused static char sccsid[] = "@(#)table.c	8.1 (Berkeley) 6/4/93";
+#if 0
+static char sccsid[] = "@(#)table.c	8.1 (Berkeley) 6/4/93";
+#endif
+static const char rcsid[] =
+  "$FreeBSD: src/libexec/talkd/table.c,v 1.9 2003/04/03 05:13:27 jmallett Exp $";
 #endif /* not lint */
+
+#include <sys/cdefs.h>
 
 /*
  * Routines to handle insertion, deletion, etc on the table
  * of requests kept by the daemon. Nothing fancy here, linear
- * search on a double-linked list. A time is kept with each 
+ * search on a double-linked list. A time is kept with each
  * entry so that overly old invitations can be eliminated.
  *
  * Consider this a mis-guided attempt at modularity
@@ -70,13 +52,15 @@ __unused static char sccsid[] = "@(#)table.c	8.1 (Berkeley) 6/4/93";
 #include <sys/param.h>
 #include <sys/time.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
 #include <protocols/talkd.h>
-#include <syslog.h>
-#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "talkd.h"
+#include <syslog.h>
+#include <unistd.h>
+
+#include "extern.h"
 
 #define MAX_ID 16000	/* << 2^15 so I don't have sign troubles */
 
@@ -95,21 +79,18 @@ struct table_entry {
 	TABLE_ENTRY *last;
 };
 
-TABLE_ENTRY *table = NIL;
-CTL_MSG *find_request();
-CTL_MSG *find_match();
+static void delete(TABLE_ENTRY *);
 
-void	delete __P((TABLE_ENTRY *ptr));
+TABLE_ENTRY *table = NIL;
 
 /*
  * Look in the table for an invitation that matches the current
  * request looking for an invitation
  */
 CTL_MSG *
-find_match(request)
-	register CTL_MSG *request;
+find_match(CTL_MSG *request)
 {
-	register TABLE_ENTRY *ptr;
+	TABLE_ENTRY *ptr;
 	time_t current_time;
 
 	gettimeofday(&tp, &txp);
@@ -137,13 +118,12 @@ find_match(request)
 
 /*
  * Look for an identical request, as opposed to a complimentary
- * one as find_match does 
+ * one as find_match does
  */
 CTL_MSG *
-find_request(request)
-	register CTL_MSG *request;
+find_request(CTL_MSG *request)
 {
-	register TABLE_ENTRY *ptr;
+	TABLE_ENTRY *ptr;
 	time_t current_time;
 
 	gettimeofday(&tp, &txp);
@@ -178,11 +158,9 @@ find_request(request)
 }
 
 void
-insert_table(request, response)
-	CTL_MSG *request;
-	CTL_RESPONSE *response;
+insert_table(CTL_MSG *request, CTL_RESPONSE *response)
 {
-	register TABLE_ENTRY *ptr;
+	TABLE_ENTRY *ptr;
 	time_t current_time;
 
 	gettimeofday(&tp, &txp);
@@ -208,7 +186,7 @@ insert_table(request, response)
  * Generate a unique non-zero sequence number
  */
 int
-new_id()
+new_id(void)
 {
 	static int current_id = 0;
 
@@ -223,10 +201,9 @@ new_id()
  * Delete the invitation with id 'id_num'
  */
 int
-delete_invite(id_num)
-	int id_num;
+delete_invite(u_int32_t id_num)
 {
-	register TABLE_ENTRY *ptr;
+	TABLE_ENTRY *ptr;
 
 	ptr = table;
 	if (debug)
@@ -247,9 +224,8 @@ delete_invite(id_num)
 /*
  * Classic delete from a double-linked list
  */
-void
-delete(ptr)
-	register TABLE_ENTRY *ptr;
+static void
+delete(TABLE_ENTRY *ptr)
 {
 
 	if (debug)

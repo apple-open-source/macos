@@ -35,32 +35,27 @@
 #include <DirectoryServiceCore/SharedConsts.h>
 #include <DirectoryService/DirServicesTypesPriv.h>
 
-
 //------------------------------------------------------------------------------
 //	* CClientEndPoint
 //------------------------------------------------------------------------------
 
-class CClientEndPoint
+class CClientEndPoint : public CIPCVirtualClass
 {
-public:
-					CClientEndPoint			( const char *inSrvrName );
-	virtual		   ~CClientEndPoint			( void );
+	public:
+						CClientEndPoint		( const char *inServiceName );
+		virtual			~CClientEndPoint	( void );
 
-	static	UInt32	fMessageID;
-	static	UInt32	GetMessageID		( void );
+		virtual	SInt32	Connect				( void );
+		virtual	void	Disconnect			( void );
+	
+		virtual SInt32	SendMessage			( sComData *inMessage );
+		virtual SInt32	GetReplyMessage		( sComData **outMessage );
 
-	SInt32			Initialize			( void );
-	SInt32			SendServerMessage	( sComData *inMsg );
-	SInt32			GetServerReply		( sComData **outMsg );
-
-private:
-	char		   *fSrvrName;
-
-	mach_port_t		fServerPort;
-	mach_port_t		fSessionPort;
-	sComData	   *fReplyMsg;
-
-	bool IsLongRequest( sComData *inMsg );
+	private:
+		char			*fServiceName;
+		mach_port_t		fServicePort;
+		mach_port_t		fSessionPort;
+		sComData		*fReplyMsg;
 };
 
 #endif

@@ -2,21 +2,22 @@
  * Copyright (c) 2000-2002, 2004-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -183,7 +184,7 @@ CheckHardLinkList(SGlobPtr gp, UInt32 inodeID, struct HardLinkList *list, int ca
 	int indx;
 
 	if (list == NULL) {
-		if (gp->logLevel >= kDebugLog) {
+		if (fsckGetVerbosity(gp->context) >= kDebugLog) {
 			plog("\tCheckHardLinkList: list=NULL for inodeID = %u\n", inodeID);
 		}
 		return ENOMEM;
@@ -228,7 +229,7 @@ CheckHardLinkList(SGlobPtr gp, UInt32 inodeID, struct HardLinkList *list, int ca
 done:
 #if DEBUG_HARDLINKCHECK
 	/* This is just for debugging -- it's useful to know what the list looks like */
-	if (gp->logLevel >= kDebugLog) {
+	if (fsckGetVerbosity(gp->context) >= kDebugLog) {
 		for (indx = 0; indx < calc_link_count; indx++) {
 			fplog(stderr, "CNID %u: #%u:  <%u, %u, %u>\n", inodeID, indx, list[indx].prev, list[indx].fileID, list[indx].next);
 		}
@@ -260,8 +261,8 @@ HardLinkCheckBegin(SGlobPtr gp, void** cookie)
 	info = (struct HardLinkInfo *) malloc(sizeof(struct HardLinkInfo));
 
 	if (info == NULL) {
-		if (gp->logLevel >= kDebugLog) {
-		plog("hardLinkCheckBegin:  malloc(%zu) failed\n", sizeof(struct HardLinkInfo));
+		if (fsckGetVerbosity(gp->context) >= kDebugLog) {
+			plog("hardLinkCheckBegin:  malloc(%zu) failed\n", sizeof(struct HardLinkInfo));
 		}
 		return 1;
 	}
@@ -278,7 +279,7 @@ HardLinkCheckBegin(SGlobPtr gp, void** cookie)
 
 	info->fileBucket = calloc(1, sizeof(PrimeBuckets));
 	if (info->fileBucket == NULL) {
-		if (gp->logLevel >= kDebugLog) {
+		if (fsckGetVerbosity(gp->context) >= kDebugLog) {
 			plog("HardLinkCheckBegin: prime bucket allocation failed\n");
 		}
 	}
@@ -510,7 +511,7 @@ RepairHardLinkChains(SGlobPtr gp, Boolean isdir)
 	UInt32	linkID, inodeID;
 	UInt32	metadirid;
 	SFCB	*fcb;
-	int	prefixlen;
+	size_t	prefixlen;
 	int	slotsUsed = 0, slots = 0;
 	char *prefixName;
 	UInt32 folderID;
@@ -529,7 +530,7 @@ RepairHardLinkChains(SGlobPtr gp, Boolean isdir)
 	}
 
 	if (metadirid == 0) {
-		if (gp->logLevel >= kDebugLog) {
+		if (fsckGetVerbosity(gp->context) >= kDebugLog) {
 			if (isdir) {
 				plog ("\tPrivate directory for dirlinks not found.  Stopping repairs.\n");
 			} else {
@@ -555,8 +556,8 @@ RepairHardLinkChains(SGlobPtr gp, Boolean isdir)
 		slots <<= 1;
 	linkInfo = calloc(slots, sizeof(struct IndirectLinkInfo));
 	if (linkInfo == NULL) {
-		if (gp->logLevel >= kDebugLog) {
-		plog("RepairHardLinkChains:  calloc(%d, %zu) failed\n", slots, sizeof(struct IndirectLinkInfo));
+		if (fsckGetVerbosity(gp->context) >= kDebugLog) {
+			plog("RepairHardLinkChains:  calloc(%d, %zu) failed\n", slots, sizeof(struct IndirectLinkInfo));
 		}
 		result = ENOMEM;
 		goto done;
@@ -779,7 +780,7 @@ RepairHardLinkChains(SGlobPtr gp, Boolean isdir)
 
 			result = get_first_link_id(gp, &rec, inodeID, isdir, &first_link_id);
 			if (result != 0) {
-				if (gp->logLevel >= kDebugLog)
+				if (fsckGetVerbosity(gp->context) >= kDebugLog)
 					plog("\tError getting first link ID for inode = %u (result=%d)\n", inodeID, result);
 			}
 
@@ -856,8 +857,8 @@ CheckHardLinks(void *cookie)
 	BTreeIterator       iterator;
 	FSBufferDescriptor  btrec;
 	UInt16              reclen;
-	size_t              len;
-	int prefixlen;
+	size_t len;
+	size_t prefixlen;
 	int result;
 	unsigned char filename[64];
 	PrimeBuckets *catBucket;
@@ -867,14 +868,14 @@ CheckHardLinks(void *cookie)
 		return (0);
 
 	gp = info->globals;
-	PrintStatus(gp, M_MultiLinkFileCheck, 0);
+	fsckPrint(gp->context, hfsHardLinkCheck);
 
 	folderID = info->privDirID;
 
 	catBucket = calloc(1, sizeof(PrimeBuckets));
 	if (catBucket == NULL) {
-		if (gp->logLevel >= kDebugLog) {
-		plog("CheckHardLinks:  calloc(1, %zu) failed\n", sizeof(PrimeBuckets));
+		if (fsckGetVerbosity(gp->context) >= kDebugLog) {
+			plog("CheckHardLinks:  calloc(1, %zu) failed\n", sizeof(PrimeBuckets));
 		}
 		result = ENOMEM;
 		goto exit;
@@ -917,7 +918,7 @@ CheckHardLinks(void *cookie)
 		
 		/* Report Orphaned nodes only in debug mode */
 		if ((strstr((char *)filename, HFS_DELETE_PREFIX) == (char *)filename) &&
-			(gp->logLevel == kDebugLog)) {
+			(fsckGetVerbosity(gp->context) == kDebugLog)) {
 			RecordOrphanOpenUnlink(gp, folderID, filename);
 			continue;		
 		}
@@ -946,7 +947,7 @@ CheckHardLinks(void *cookie)
 		result = compare_prime_buckets(catBucket, info->fileBucket);
 		if (result) {
 			record_link_badchain(gp, false);
-			if (gp->logLevel >= kDebugLog) {
+			if (fsckGetVerbosity(gp->context) >= kDebugLog) {
 				plog("\tfilelink prime buckets do not match\n");
 			}
 			goto exit;
@@ -970,7 +971,7 @@ CheckHardLinks(void *cookie)
 		 * reported.  This will be performed only if any other 
 		 * file hard link repairs are performed.
 		 */
-		if (gp->logLevel >= kDebugLog) {
+		if (fsckGetVerbosity(gp->context) >= kDebugLog) {
 			plog("\tCheckHardLinks: found %u pre-Leopard file inodes.\n", filelink_entry_count);
 		}
 
@@ -1044,11 +1045,9 @@ GetPrivateDir(SGlobPtr gp, CatalogRecord * rec)
 static int
 RecordOrphanLink(SGlobPtr gp, Boolean isdir, UInt32 linkID)
 {
-	char str[12];
 	RepairOrderPtr p;
 	
-	snprintf(str, sizeof(str), "%u", linkID);
-	PrintError(gp, isdir ? E_OrphanDirLink : E_OrphanFileLink, 1, str);
+	fsckPrint(gp->context, isdir ? E_OrphanDirLink : E_OrphanFileLink, linkID);
 
 	p = AllocMinorRepairOrder(gp, 0);
 	if (p == NULL)
@@ -1071,11 +1070,9 @@ RecordOrphanLink(SGlobPtr gp, Boolean isdir, UInt32 linkID)
 static int
 RecordOrphanInode(SGlobPtr gp, Boolean isdir, UInt32 inodeID)
 {
-	char str[12];
 	RepairOrderPtr p;
 	
-	snprintf(str, sizeof(str), "%u", inodeID);
-	PrintError(gp, isdir ? E_OrphanDirInode : E_OrphanFileInode, 1, str);
+	fsckPrint(gp->context, isdir ? E_OrphanDirInode : E_OrphanFileInode, inodeID);
 
 	p = AllocMinorRepairOrder(gp, 0);
 	if (p == NULL)
@@ -1098,9 +1095,9 @@ static int
 RecordOrphanOpenUnlink(SGlobPtr gp, UInt32 parID, unsigned char* filename)
 {
 	RepairOrderPtr p;
-	int n;
+	size_t n;
 	
-	PrintError(gp, E_UnlinkedFile, 1, filename);
+	fsckPrint(gp->context, E_UnlinkedFile, filename);
 	
 	n = strlen((char *)filename);
 	p = AllocMinorRepairOrder(gp, n + 1);
@@ -1126,11 +1123,10 @@ RecordBadHardLinkChainFirst(SGlobPtr gp, UInt32 fileID, UInt32 is, UInt32 should
 	RepairOrderPtr p;
 	char goodstr[16], badstr[16];
 
-	sprintf(goodstr, "%u", fileID);
-	PrintError(gp, E_InvalidLinkChainFirst, 1, goodstr);
+	fsckPrint(gp->context, E_InvalidLinkChainFirst, fileID);
 	sprintf(goodstr, "%u", shouldbe);
 	sprintf(badstr, "%u", is);
-	PrintError(gp, E_BadValue, 2, goodstr, badstr);
+	fsckPrint(gp->context, E_BadValue, goodstr, badstr);
 
 	p = AllocMinorRepairOrder(gp, 0);
 
@@ -1155,11 +1151,10 @@ RecordBadHardLinkPrev(SGlobPtr gp, UInt32 fileID, UInt32 is, UInt32 shouldbe)
 	RepairOrderPtr p;
 	char goodstr[16], badstr[16];
 
-	sprintf(goodstr, "%u", fileID);
-	PrintError(gp, E_InvalidLinkChainPrev, 1, goodstr);
+	fsckPrint(gp->context, E_InvalidLinkChainPrev, fileID);
 	sprintf(goodstr, "%u", shouldbe);
 	sprintf(badstr, "%u", is);
-	PrintError(gp, E_BadValue, 2, goodstr, badstr);
+	fsckPrint(gp->context, E_BadValue, goodstr, badstr);
 
 	p = AllocMinorRepairOrder(gp, 0);
 	if (p == NULL)
@@ -1180,11 +1175,11 @@ RecordBadHardLinkNext(SGlobPtr gp, UInt32 fileID, UInt32 is, UInt32 shouldbe)
 	RepairOrderPtr p;
 	char goodstr[16], badstr[16];
 
-	sprintf(goodstr, "%u", fileID);
-	PrintError(gp, E_InvalidLinkChainNext, 1, goodstr);
+	fsckPrint(gp->context, E_InvalidLinkChainNext, fileID);
+
 	sprintf(goodstr, "%u", shouldbe);
 	sprintf(badstr, "%u", is);
-	PrintError(gp, E_BadValue, 2, goodstr, badstr);
+	fsckPrint(gp->context, E_BadValue, goodstr, badstr);
 
 	p = AllocMinorRepairOrder(gp, 0);
 	if (p == NULL)
@@ -1204,13 +1199,11 @@ RecordBadLinkCount(SGlobPtr gp, UInt32 inodeID, UInt32 is, UInt32 shouldbe)
 {
 	RepairOrderPtr p;
 	char goodstr[16], badstr[16];
-
-	sprintf(badstr, "%u", inodeID);
-	PrintError(gp, E_InvalidLinkCount, 1, badstr);
+	fsckPrint(gp->context, E_InvalidLinkCount, inodeID);
 
 	sprintf(goodstr, "%u", shouldbe);
 	sprintf(badstr, "%u", is);
-	PrintError(gp, E_BadValue, 2, goodstr, badstr);
+	fsckPrint(gp->context, E_BadValue, goodstr, badstr);
 
 	p = AllocMinorRepairOrder(gp, 0);
 	if (p == NULL)

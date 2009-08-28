@@ -95,21 +95,12 @@ extern "C" {
 *      Taxonomy of floating point data types                                  *
 ******************************************************************************/
 
-enum {
-	_FP_NAN          = 1,                   /*      NaN                    */
-	_FP_INFINITE     = 2,                   /*      + or - infinity        */
-	_FP_ZERO         = 3,                   /*      + or - zero            */
-	_FP_NORMAL       = 4,                   /*      all normal numbers     */
-	_FP_SUBNORMAL    = 5,					/*      denormal numbers       */
-	_FP_SUPERNORMAL  = 6                    /*      long double delivering > LDBL_DIG, e.g. 1. + 2^-1000 */
-};
-
-#define FP_NAN          _FP_NAN
-#define FP_INFINITE     _FP_INFINITE
-#define FP_ZERO         _FP_ZERO
-#define FP_NORMAL       _FP_NORMAL
-#define FP_SUBNORMAL    _FP_SUBNORMAL
-#define FP_SUPERNORMAL  _FP_SUPERNORMAL
+#define FP_NAN          1
+#define FP_INFINITE     2
+#define FP_ZERO         3
+#define FP_NORMAL       4
+#define FP_SUBNORMAL    5
+#define FP_SUPERNORMAL  6
 
 /* fma() *function call* is more costly than equivalent (in-line) multiply and add operations */
 #undef FP_FAST_FMA

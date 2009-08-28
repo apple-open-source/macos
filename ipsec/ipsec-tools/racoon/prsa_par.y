@@ -1,4 +1,6 @@
-/* $Id: prsa_par.y,v 1.3 2004/11/08 12:04:23 ludvigm Exp $ */
+/*	$NetBSD: prsa_par.y,v 1.4 2006/09/09 16:22:10 manu Exp $	*/
+
+/* Id: prsa_par.y,v 1.3 2004/11/08 12:04:23 ludvigm Exp */
 
 %{
 /*
@@ -98,7 +100,7 @@ prsaerror(const char *s, ...)
 #endif
 	snprintf(fmt, sizeof(fmt), "%s:%d: %s",
 		prsa_cur_fname, prsa_cur_lineno, s);
-	plogv(LLV_ERROR, LOCATION, NULL, fmt, ap);
+	plogv(LLV_ERROR, LOCATION, NULL, fmt, &ap);
 	va_end(ap);
 }
 
@@ -115,7 +117,7 @@ prsawarning(const char *s, ...)
 #endif
 	snprintf(fmt, sizeof(fmt), "%s:%d: %s",
 		prsa_cur_fname, prsa_cur_lineno, s);
-	plogv(LLV_WARNING, LOCATION, NULL, fmt, ap);
+	plogv(LLV_WARNING, LOCATION, NULL, fmt, &ap);
 	va_end(ap);
 }
 

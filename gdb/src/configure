@@ -1309,6 +1309,12 @@ Optional Features:
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
   --enable-libada        Builds libada directory
   --enable-libssp        Builds libssp directory
+  --disable-carbon-framework
+                          disable Carbon framework use even when available
+  --disable-debug-symbols-framework
+                          disable DebugSymbols framework use even when
+                          available
+  --disable-arch-for-exec disable use of arch for exec
   --enable-bootstrap=lean     Enable bootstrapping no
   --enable-serial-{host,target,build}-configure
                           Force sequential configuration of
@@ -2429,7 +2435,52 @@ case "${target}" in
     enable_shared=no
     enable_64_bit_bfd=yes
     enable_softfloat=no
-    host_configargs=" $host_configargs --disable-shared --enable-64-bit-bfd --disable-softfloat "
+    host_configargs=" $host_configargs --disable-shared --enable-64-bit-bfd --disable-softfloat --disable-werror "
+
+    # Check whether --enable-carbon-framework was given.
+if test "${enable_carbon_framework+set}" = set; then
+  enableval=$enable_carbon_framework; case $enableval in
+      yes)
+        host_configargs=" $host_configargs --enable-carbon-framework" ;;
+      no)
+        host_configargs=" $host_configargs --disable-carbon-framework" ;;
+      *)
+        { { echo "$as_me:$LINENO: error: bad value '$enableval' for --enable-carbon-framework" >&5
+echo "$as_me: error: bad value '$enableval' for --enable-carbon-framework" >&2;}
+   { (exit 1); exit 1; }; } ;;
+    esac
+fi
+
+
+    # Check whether --enable-debug-symbols-framework was given.
+if test "${enable_debug_symbols_framework+set}" = set; then
+  enableval=$enable_debug_symbols_framework; case $enableval in
+      yes)
+        host_configargs=" $host_configargs --enable-debug-symbols-framework" ;;
+      no)
+        host_configargs=" $host_configargs --disable-debug-symbols-framework" ;;
+      *)
+        { { echo "$as_me:$LINENO: error: bad value '$enableval' for --enable-debug-symbols-framework" >&5
+echo "$as_me: error: bad value '$enableval' for --enable-debug-symbols-framework" >&2;}
+   { (exit 1); exit 1; }; } ;;
+    esac
+fi
+
+
+    # Check whether --enable-arch-for-exec was given.
+if test "${enable_arch_for_exec+set}" = set; then
+  enableval=$enable_arch_for_exec; case $enableval in
+        yes)
+          host_configargs=" $host_configargs --enable-arch-for-exec" ;;
+        no)
+          host_configargs=" $host_configargs --disable-arch-for-exec" ;;
+        *)
+          { { echo "$as_me:$LINENO: error: bad value '$enableval' for --enable-arch-for-exec" >&5
+echo "$as_me: error: bad value '$enableval' for --enable-arch-for-exec" >&2;}
+   { (exit 1); exit 1; }; } ;;
+      esac
+fi
+
     ;;
   *-*-freebsd[12] | *-*-freebsd[12].* | *-*-freebsd*aout*)
     noconfigdirs="$noconfigdirs target-newlib target-libgloss ${libgcj}"

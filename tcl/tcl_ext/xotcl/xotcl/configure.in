@@ -1,0 +1,508 @@
+
+#--------------------------------------------------------------------
+# Sample configure.in for Tcl Extensions.  The only places you should
+# need to modify this file are marked by the string __CHANGE__
+#--------------------------------------------------------------------
+
+#--------------------------------------------------------------------
+# __CHANGE__
+# This very first macro is used to verify that the configure script can 
+# find the sources.  The argument to AC_INIT should be a unique filename
+# for this package, and can be a relative path, such as:
+#
+#--------------------------------------------------------------------
+define(XOTclVersion, 1.6.2)
+AC_INIT([xotcl], [XOTclVersion])
+
+#--------------------------------------------------------------------
+# Call TEA_INIT as the first TEA_ macro to set up initial vars.
+# This will define a ${TEA_PLATFORM} variable == "unix" or "windows".
+#--------------------------------------------------------------------
+
+TEA_INIT([3.7])
+AC_CONFIG_AUX_DIR(config)
+
+#--------------------------------------------------------------------
+# specify some extra flags
+#--------------------------------------------------------------------
+
+AC_ARG_WITH(gdbm,
+        [  --with-gdbm=GDBM_INCLUDE_DIR[,GDBM_LIB_DIR]
+            absolute path to gdbm.h and optionally the path to the library, 
+           --without-gdbm disables build of Tcl Gdbm],
+        [with_gdbm=$withval], [with_gdbm=no])
+AC_ARG_WITH(aolserver3,
+        [  --with-aolserver3=AOL_SERVER_DIR, (containing include ,...)
+           --without-aolserver3 disables build of AOLserver 3 module],
+        [with_aol3=$withval], [with_aol3=no])
+AC_ARG_WITH(actiweb,
+        [  --with-actiweb=yes|no,
+           --without-actiweb disables actiweb components],
+        [with_actiweb=$withval], [with_actiweb=no])
+AC_ARG_WITH(xotclsh,
+        [  --with-xotclsh=yes|no,
+	   --without-xotclsh disables built of xotclsh],
+        [with_xotclsh=$withval], [with_xotclsh=no])
+AC_ARG_WITH(xowish,
+        [  --with-xowish=yes|no,
+	   --without-xowish disables built of xowish],
+        [with_xowish=$withval], [with_xowish=no])
+AC_ARG_WITH(all,
+        [  --with-all=yes|no,
+	   --without-all disables built of all],
+        [with_all=$withval], [with_all=no])
+AC_ARG_WITH(all,
+        [  --with-all=yes|no,
+	   --without-all disables built of all],
+        [with_all=$withval], [with_all=no])
+AC_ARG_WITH(tclinclude, 
+        [  --with-tclinclude       directory containing the public Tcl  header files.], 
+         with_tclinclude=${withval})
+
+subdirs=""
+
+if test "$with_all" = yes; then
+   with_actiweb=yes
+   with_xotclsh=yes
+   with_xowish=yes
+   with_gdbm=yes
+fi
+   
+if test "$with_actiweb" = yes; then
+   test_actiweb="test-actiweb"
+   libdirs_actiweb="actiweb rdf registry store xml patterns"
+   apps_actiweb="actiweb persistence"
+   subdirs="$subdirs library/store/XOTclSdbm/"
+dnl    AC_CONFIG_SUBDIRS(library/store/XOTclSdbm/)
+   if ! test "$with_gdbm" = no; then
+       subdirs="$subdirs library/store/XOTclGdbm/"
+dnl       AC_CONFIG_SUBDIRS(library/store/XOTclGdbm/)
+   fi
+   subdirs="$subdirs library/xml/TclExpat-1.1/"
+dnl    AC_CONFIG_SUBDIRS(library/xml/TclExpat-1.1/)
+else
+   test_actiweb=""
+   libdirs_actiweb=""
+   apps_actiweb=""
+fi
+
+AC_SUBST(subdirs)
+
+if test "$with_tk" = no; then with_xowish="" ; fi
+if test "$with_xotclsh" = yes; then XOTCLSH="xotclsh" ; else XOTCLSH=""; fi
+if test "$with_xowish" = yes;  then XOWISH="xowish"   ; else XOWISH=""; fi
+
+
+#--------------------------------------------------------------------
+# __CHANGE__
+# Set your package name and version numbers here.  The NODOT_VERSION is
+# required for constructing the library name on systems that don't like
+# dots in library names (Windows).  The VERSION variable is used on the
+# other systems.
+#--------------------------------------------------------------------
+
+# do not modify the following lines manually, they are generated with changeXOTclVersion
+XOTCL_MAJOR_VERSION=1
+XOTCL_MINOR_VERSION=6
+XOTCL_RELEASE_LEVEL=.2
+
+XOTCL_VERSION=${XOTCL_MAJOR_VERSION}.${XOTCL_MINOR_VERSION}
+NODOT_VERSION=${XOTCL_MAJOR_VERSION}${XOTCL_MINOR_VERSION}
+
+AC_SUBST(XOTCL_VERSION)
+AC_SUBST(XOTCL_MAJOR_VERSION)
+AC_SUBST(XOTCL_MINOR_VERSION)
+AC_SUBST(XOTCL_RELEASE_LEVEL)
+
+echo "Configuring XOTcl Version $PACKAGE_VERSION"
+
+#--------------------------------------------------------------------
+# Load the tclConfig.sh file
+#--------------------------------------------------------------------
+
+TEA_PATH_TCLCONFIG
+TEA_LOAD_TCLCONFIG
+
+#--------------------------------------------------------------------
+# check for TK
+#--------------------------------------------------------------------
+
+if test "$with_xowish" = yes; then
+	TEA_PATH_TKCONFIG
+	TEA_LOAD_TKCONFIG
+#	TEA_PUBLIC_TK_HEADERS
+#	TEA_PATH_X
+fi
+
+#--------------------------------------------------------------------
+# Handle the --prefix=... option by defaulting to what Tcl gave.
+# Must be called after TEA_LOAD_TCLCONFIG and before TEA_SETUP_COMPILER.
+#-----------------------------------------------------------------------
+
+TEA_PREFIX
+
+#-----------------------------------------------------------------------
+# Standard compiler checks.
+# This sets up CC by using the CC env var, or looks for gcc otherwise.
+# This also calls AC_PROG_CC, AC_PROG_INSTALL and a few others to create
+# the basic setup necessary to compile executables.
+#-----------------------------------------------------------------------
+                                                                               
+TEA_SETUP_COMPILER
+
+#--------------------------------------------------------------------
+# check for extra flags
+#
+# FORCE_NO_STUBS is deactivated for now
+if ! test "$with_aol3" = "no"; then
+	echo "Pre-configuring AOL-Server (xotcl)"
+	AOL_DEFINES="-DAOL_SERVER -DUSE_TCL8X -I$with_aol3/include -I$TCL_SRC_DIR/generic"
+	FORCE_NO_STUBS=1
+else
+	AOL_DEFINES=""
+	FORCE_NO_STUBS=0
+fi
+
+aol_prefix="/usr/local/aolserver"
+if test -d "${prefix}/modules/tcl" ; then aol_prefix="${prefix}" ; fi
+AC_SUBST(aol_prefix)
+
+#--------------------------------------------------------------------
+# check for tclCompile.h (needed, when compiled without full source)
+if test -f "$TCL_SRC_DIR/generic/tclCompile.h"; then
+   HAVE_TCL_COMPILE_H="-DHAVE_TCL_COMPILE_H=1"
+else
+   HAVE_TCL_COMPILE_H=""
+fi
+
+#-----------------------------------------------------------------------
+# __CHANGE__
+# Specify the C source files to compile in TEA_ADD_SOURCES,
+# public headers that need to be installed in TEA_ADD_HEADERS,
+# stub library C source files to compile in TEA_ADD_STUB_SOURCES,
+# and runtime Tcl library files in TEA_ADD_TCL_SOURCES.
+# This defines PKG(_STUB)_SOURCES, PKG(_STUB)_OBJECTS, PKG_HEADERS
+# and PKG_TCL_SOURCES.
+#-----------------------------------------------------------------------
+
+
+TEA_ADD_SOURCES([xotcl.c xotclError.c xotclMetaData.c xotclObjectData.c xotclProfile.c \
+	xotclTrace.c xotclUtil.c xotclShadow.c xotclCompile.c aolstub.c xotclStubInit.c])
+TEA_ADD_HEADERS([generic/xotcl.h generic/xotclInt.h generic/xotclDecls.h generic/xotclIntDecls.h])
+TEA_ADD_INCLUDES([])
+TEA_ADD_LIBS([])
+TEA_ADD_CFLAGS([-DXOTCLVERSION=\\\"$XOTCL_VERSION\\\" -DXOTCLPATCHLEVEL=\\\"$XOTCL_RELEASE_LEVEL\\\" \
+	$AOL_DEFINES $HAVE_TCL_COMPILE_H])
+TEA_ADD_STUB_SOURCES([xotclStubLib.c])
+TEA_ADD_TCL_SOURCES([])
+
+
+#--------------------------------------------------------------------
+
+#--------------------------------------------------------------------
+# __CHANGE__
+# Choose which headers you need.  Extension authors should try very
+# hard to only rely on the Tcl public header files.  Internal headers
+# contain private data structures and are subject to change without
+# notice.
+# This must be done AFTER calling TEa_PATH_TCLCONFIG/TEA_LOAD_TCLCONFIG
+# so that we can extract TCL_SRC_DIR from the config file (in the case
+# of private headers
+#--------------------------------------------------------------------
+
+#TEA_PUBLIC_TCL_HEADERS
+TEA_PRIVATE_TCL_HEADERS
+
+if test x"${with_tclinclude}" != x ; then
+   if test -f "${with_tclinclude}/tcl.h" ; then
+      TCL_INCLUDES="-I${with_tclinclude} ${TCL_INCLUDES}"
+   else
+      AC_MSG_ERROR([${with_tclinclude} directory does not contain Tcl header file tcl.h])
+   fi
+fi
+
+#--------------------------------------------------------------------
+# __CHANGE__
+# A few miscellaneous platform-specific items:
+#
+# Define a special symbol for Windows (BUILD_xotcl in this case) so
+# that we create the export library with the dll.  See sha1.h on how
+# to use this.
+#
+# Windows creates a few extra files that need to be cleaned up.
+# You can add more files to clean if your extension creates any extra
+# files.
+#
+# Define any extra compiler flags in the PACKAGE_CFLAGS variable.
+# These will be appended to the current set of compiler flags for
+# your system.
+#--------------------------------------------------------------------
+
+if test "${TEA_PLATFORM}" = "windows" ; then
+	AC_DEFINE(BUILD_xotcl)
+	if test "$GCC" != "yes" ; then
+		AC_DEFINE(VISUAL_CC)
+	fi
+	CLEANFILES="*.lib *.dll *.exp *.ilk *.pdb vc50.pch vc60.pch"
+	#TEA_ADD_SOURCES([win/winFile.c])
+	#TEA_ADD_INCLUDES([-I\"$(${CYGPATH} ${srcdir}/w
+else
+	CLEANFILES="*.o *.a *.so *~ core gmon.out"
+	#TEA_ADD_SOURCES([unix/unixFile.c])
+	#TEA_ADD_LIBS([-lsuperfly])
+fi
+
+
+AC_SUBST(CLEANFILES)
+
+#--------------------------------------------------------------------
+# Check whether --enable-threads or --disable-threads was given.
+#--------------------------------------------------------------------
+
+TEA_ENABLE_THREADS
+
+#--------------------------------------------------------------------
+# The statement below defines a collection of symbols related to
+# building as a shared library instead of a static library.
+#--------------------------------------------------------------------
+
+TEA_ENABLE_SHARED
+
+#--------------------------------------------------------------------
+# This macro figures out what flags to use with the compiler/linker
+# when building shared/static debug/optimized objects.  This information
+# can be taken from the tclConfig.sh file, but this figures it all out.
+#--------------------------------------------------------------------
+
+TEA_CONFIG_CFLAGS
+
+# Without the following two eval statements, XOTCL_SHARED_LIB_SUFFIX 
+# in xotclConfig.sh has $PACKAGE_VERSION unresolved. When another
+# app links against xotcl, the PACKAGE_VERSIONs are confused.
+#
+# Without the first eval, we get
+#   XOTCL_SHARED_LIB_SUFFIX=${PACKAGE_VERSION}\$\{DBGX\}${SHLIB_SUFFIX}
+#   XOTCL_UNSHARED_LIB_SUFFIX=${PACKAGE_VERSION}\$\{DBGX\}.a
+#
+# after the first eval, we get
+#   XOTCL_SHARED_LIB_SUFFIX=1.2.1${DBGX}.so
+#   XOTCL_UNSHARED_LIB_SUFFIX=1.2.1${DBGX}.a
+# after the second eval, all variables are resolved.
+
+
+eval "SHARED_LIB_SUFFIX=${SHARED_LIB_SUFFIX}"
+eval "UNSHARED_LIB_SUFFIX=${UNSHARED_LIB_SUFFIX}"
+
+#eval "SHARED_LIB_SUFFIX=${SHARED_LIB_SUFFIX}"
+#eval "UNSHARED_LIB_SUFFIX=${UNSHARED_LIB_SUFFIX}"
+
+#--------------------------------------------------------------------
+# Set the default compiler switches based on the --enable-symbols 
+# option.
+#--------------------------------------------------------------------
+
+TEA_ENABLE_SYMBOLS
+
+#--------------------------------------------------------------------
+# Everyone should be linking against the Tcl stub library.  If you
+# can't for some reason, remove this definition.  If you aren't using
+# stubs, you also need to modify the SHLIB_LD_LIBS setting below to
+# link against the non-stubbed Tcl library.
+#--------------------------------------------------------------------
+
+
+#if test "${TCL_MAJOR_VERSION}" = "8" -a "${TCL_MINOR_VERSION}" = "0"; then
+#	FORCE_NO_STUBS=1
+#fi
+
+if test "${FORCE_NO_STUBS}" = "0" ; then
+	AC_DEFINE(USE_TCL_STUBS)
+fi
+
+#--------------------------------------------------------------------
+# This macro generates a line to use when building a library.  It
+# depends on values set by the TEA_ENABLE_SHARED, TEA_ENABLE_SYMBOLS,
+# and TEA_LOAD_TCLCONFIG macros above.
+#--------------------------------------------------------------------
+
+TEA_MAKE_LIB
+
+#--------------------------------------------------------------------
+# Find tclsh so that we can run pkg_mkIndex to generate the pkgIndex.tcl
+# file during the install process.  Don't run the TCLSH_PROG through
+# ${CYGPATH} because it's being used directly by make.
+# Require that we use a tclsh shell version 8.2 or later since earlier
+# versions have bugs in the pkg_mkIndex routine.
+#--------------------------------------------------------------------
+
+TEA_PROG_TCLSH
+if test "$with_tk" != no; then
+TEA_PROG_WISH
+fi
+
+# make this available, for such as xotclConfig.sh
+XOTCL_COMPATIBLE_TCLSH=${TCLSH_PROG}
+AC_SUBST(XOTCL_COMPATIBLE_TCLSH)
+
+# resolve the variables
+eval "libdir=${libdir}"
+eval "datadir=${datadir}"
+eval "includedir=${includedir}"
+
+PKG_DIR="${PACKAGE_NAME}${PACKAGE_VERSION}"
+pkgdatadir="${datadir}/${PKG_DIR}"
+pkglibdir="${libdir}/${PKG_DIR}"
+# make sure this is right (then remove this comment)
+pkgincludedir="${includedir}/${PKG_DIR}"
+
+AC_SUBST(PKG_DIR)
+AC_SUBST(pkgdatadir)
+AC_SUBST(pkglibdir)
+AC_SUBST(pkgincludedir)
+
+#
+# XOTcl specific configs
+#
+
+if test "${TEA_PLATFORM}" != "windows" ; then
+
+XOTCL_BUILD_LIB_SPEC="-L`pwd` -lxotcl${PACKAGE_VERSION}"
+XOTCL_LIB_SPEC="-L${pkglibdir} -lxotcl${PACKAGE_VERSION}"
+
+# stub libs are not build for 8.0
+if test "${TCL_MAJOR_VERSION}" = "8" -a "${TCL_MINOR_VERSION}" = "0"; then
+	XOTCL_BUILD_STUB_LIB_PATH=""
+	XOTCL_STUB_LIB_PATH=""
+	XOTCL_BUILD_STUB_LIB_SPEC=""
+	XOTCL_STUB_LIB_SPEC=""
+else
+	XOTCL_BUILD_STUB_LIB_PATH="`pwd`/${PKG_STUB_LIB_FILE}"
+	XOTCL_STUB_LIB_PATH="${pkglibdir}/${PKG_STUB_LIB_FILE}"
+	XOTCL_BUILD_STUB_LIB_SPEC="-L`pwd` -lxotclstub${PACKAGE_VERSION}"
+	XOTCL_STUB_LIB_SPEC="-L${pkglibdir} -lxotclstub${PACKAGE_VERSION}"
+	AC_DEFINE(COMPILE_XOTCL_STUBS)
+fi 
+
+else
+
+XOTCL_BUILD_LIB_SPEC="`pwd`/${PKG_LIB_FILE}"
+XOTCL_LIB_SPEC="${pkglibdir}/${PKG_LIB_FILE}"
+XOTCL_BUILD_STUB_LIB_PATH="`pwd`/${PKG_STUB_LIB_FILE}"
+XOTCL_STUB_LIB_PATH="${pkglibdir}/${PKG_STUB_LIB_FILE}"
+XOTCL_BUILD_STUB_LIB_SPEC="`pwd`/${PKG_STUB_LIB_FILE}"
+XOTCL_STUB_LIB_SPEC="${pkglibdir}/${PKG_STUB_LIB_FILE}"
+
+fi
+
+AC_SUBST(SHARED_LIB_SUFFIX)
+AC_SUBST(UNSHARED_LIB_SUFFIX)
+AC_SUBST(XOTCL_BUILD_LIB_SPEC)
+AC_SUBST(XOTCL_LIB_SPEC)
+AC_SUBST(XOTCL_BUILD_STUB_LIB_SPEC)
+AC_SUBST(XOTCL_STUB_LIB_SPEC)
+AC_SUBST(XOTCL_BUILD_STUB_LIB_PATH)
+AC_SUBST(XOTCL_STUB_LIB_PATH)
+XOTCL_SRC_DIR=$srcdir
+AC_SUBST(XOTCL_SRC_DIR)
+AC_SUBST(XOTCLSH)
+AC_SUBST(XOWISH)
+
+# include dir of xotcl during build process (i.e., does not assume installed)
+XOTCL_BUILD_INCLUDE_DIR="${XOTCL_SRC_DIR}/generic"
+XOTCL_BUILD_INCLUDE_SPEC="-I${XOTCL_BUILD_INCLUDE_DIR}"
+AC_SUBST(XOTCL_BUILD_INCLUDE_DIR)
+AC_SUBST(XOTCL_BUILD_INCLUDE_SPEC)
+
+AC_SUBST(test_actiweb)
+AC_SUBST(libdirs_actiweb)
+AC_SUBST(apps_actiweb)
+
+AC_SUBST(TEA_PLATFORM)
+
+dnl macro expanding to the names of files ./configure is to generate.
+dnl reasoning: this is a factoring; I use this value elsewhere.
+dnl
+dnl Change the value of -this- macro if you want to add or remove
+dnl such files.
+
+AC_DEFUN(CONFIG_OUTPUT_FILES, [[Makefile xotclConfig.sh apps/utils/xotclsh apps/utils/xowish unix/xotcl.spec unix/pkgIndex.unix]])
+
+#--------------------------------------------------------------------
+# the value of this variable is set to the files which are to be
+# removed when the user invokes 'make distclean' (i.e., those 
+# files generated by ./configure) and is used in the make distclean
+# target, defined in Makefile.in
+#--------------------------------------------------------------------
+
+CONFIG_CLEAN_FILES="CONFIG_OUTPUT_FILES autom4te.cache/"
+AC_SUBST(CONFIG_CLEAN_FILES)
+AC_CONFIG_FILES(CONFIG_OUTPUT_FILES)
+
+#--------------------------------------------------------------------
+# Finally, substitute all of the various values into the Makefile,
+# and generate the other output files. (this is done by invoking
+# config.status)
+# 
+# NOTE the lack of parameters! AC_OUTPUT with params is deprecated;
+# use macros such as AC_CONFIG_FILES, AC_HEADER_FILES, etc to add
+# to the files output by ./configure.
+#--------------------------------------------------------------------
+
+AC_OUTPUT
+
+here=${PWD}
+
+for subdir in ${subdirs}
+do
+	echo "==================== configure $subdir ====================="
+	if test x"${srcdir}" = x. ; then
+		confdir=.
+	else
+   		mkdir -p $subdir
+		confdir=${srcdir}/$subdir
+	fi
+    (cd $subdir; echo $SHELL ${confdir}/configure ${ac_configure_args} --with-xotcl=${here}; eval $SHELL ${confdir}/configure ${ac_configure_args} --with-xotcl=${here})
+done
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

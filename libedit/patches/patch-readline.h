@@ -1,9 +1,11 @@
---- src/editline/readline.h.orig	2007-01-05 11:25:13.000000000 -0800
-+++ src/editline/readline.h	2007-01-05 11:27:13.000000000 -0800
-@@ -44,12 +44,18 @@
+--- src/editline/readline.h.orig	2008-07-12 01:38:05.000000000 -0700
++++ src/editline/readline.h	2008-08-07 13:23:29.000000000 -0700
+@@ -41,13 +41,19 @@
  typedef void	  VCPFunction(char *);
  typedef char	 *CPFunction(const char *, int);
  typedef char	**CPPFunction(const char *, int, int);
+-typedef char     *rl_compentry_func_t(const char *, int);
++typedef char	 *rl_compentry_func_t(const char *, int);
 +typedef int	  rl_command_func_t (int, int);
 +
 +/* only supports length */
@@ -20,7 +22,7 @@
  } HIST_ENTRY;
  
  typedef struct _keymap_entry {
-@@ -83,12 +89,14 @@
+@@ -81,12 +87,14 @@
  
  #define RUBOUT		0x7f
  #define ABORT_CHAR	CTRL('G')
@@ -43,7 +45,7 @@
  int		 history_total_bytes(void);
  int		 history_set_pos(int);
  HIST_ENTRY	*previous_history(void);
-@@ -149,6 +158,7 @@
+@@ -149,10 +158,12 @@
  int		 history_search_pos(const char *, int, int);
  int		 read_history(const char *);
  int		 write_history(const char *);
@@ -51,7 +53,12 @@
  int		 history_expand(char *, char **);
  char	       **history_tokenize(const char *);
  const char	*get_history_event(const char *, int *, int);
-@@ -163,8 +173,9 @@
+ char		*history_arg_extract(int, int, const char *);
++HISTORY_STATE	*history_get_history_state(void);
+ 
+ char		*tilde_expand(char *);
+ char		*filename_completion_function(const char *, int);
+@@ -163,8 +174,9 @@
  void		 rl_display_match_list(char **, int, int);
  
  int		 rl_insert(int, int);
@@ -62,16 +69,8 @@
  int		 rl_newline(int, int);
  void		 rl_callback_read_char(void);
  void		 rl_callback_handler_install(const char *, VCPFunction *);
-@@ -178,6 +189,7 @@
- int		 rl_variable_bind(const char *, const char *);
- void		 rl_stuff_char(int);
- int		 rl_add_defun(const char *, Function *, int);
-+HISTORY_STATE	*history_get_history_state(void);
- 
- /*
-  * The following are not implemented
-@@ -185,7 +197,9 @@
- Keymap		 rl_get_keymap(void);
+@@ -194,7 +206,9 @@
+ void		 rl_set_keymap(Keymap);
  Keymap		 rl_make_bare_keymap(void);
  int		 rl_generic_bind(int, const char *, const char *, Keymap);
 -int		 rl_bind_key_in_map(int, Function *, Keymap);

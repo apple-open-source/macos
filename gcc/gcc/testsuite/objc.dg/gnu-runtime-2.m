@@ -1,11 +1,8 @@
-/* APPLE LOCAL file mainline */
 /* Sanity check for GNU-runtime version of constant strings,
    regardless of runtime used on target system.  */
 
 /* { dg-do compile } */
 /* { dg-options "-fgnu-runtime" } */
-/* APPLE LOCAL radar 4894756 */
-/* { dg-skip-if "" { *-*-darwin* } { "-m64" } { "" } } */
 
 #include <objc/Object.h>
 #include <string.h>

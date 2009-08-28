@@ -49,7 +49,7 @@ proc get_mi_thread_list {name} {
   # ^done,thread-ids=[thread-id="1",thread-id="2",...],number-of-threads="N"
   # (gdb)
   mi_gdb_test "-thread-list-ids" \
-    {\^done,thread-ids={(thread-id="[0-9]+"(,)?)+},number-of-threads="[0-9]+"} \
+    {\^done,thread-ids={(thread-id="[0-9]+"(,)?)+},number-of-threads="[0-9]+",threads=\[(thread={thread-id="[0-9]+",state="WAITING",mach-port-number="0x[0-9a-f]+",pthread-id="0x[0-9a-f]+",unique-id="0x[0-9a-f]+"(,workqueue="[a-z.-]+")?}(,)?)+\]} \
     "-thread_list_ids ($name)"
 
   set output {}

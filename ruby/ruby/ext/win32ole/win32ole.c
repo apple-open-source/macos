@@ -12,7 +12,7 @@
  */
 
 /*
-  $Date: 2008-07-07 12:10:04 +0900 (Mon, 07 Jul 2008) $
+  $Date: 2008-07-07 12:29:28 +0900 (Mon, 07 Jul 2008) $
   modified for win32ole (ruby) by Masaki.Suketa <masaki.suketa@nifty.ne.jp>
  */
 
@@ -3381,6 +3381,54 @@ fole_method_help( self, cmdname )
 }
 
 /*
+ *  call-seq:
+ *     WIN32OLE#ole_activex_initialize() -> Qnil
+ *
+ *  Initialize WIN32OLE object(ActiveX Control) by calling 
+ *  IPersistMemory::InitNew.
+ *
+ *  Before calling OLE method, some kind of the ActiveX controls 
+ *  created with MFC should be initialized by calling 
+ *  IPersistXXX::InitNew.
+ *
+ *  If and only if you recieved the exception "HRESULT error code:
+ *  0x8000ffff catastrophic failure", try this method before
+ *  invoking any ole_method.
+ *
+ *     obj = WIN32OLE.new("ProgID_or_GUID_of_ActiveX_Control")
+ *     obj.ole_activex_initialize
+ *     obj.method(...)
+ *  
+ */ 
+static VALUE
+fole_activex_initialize(self)
+    VALUE self; 
+{
+    struct oledata *pole;
+    IPersistMemory *pPersistMemory;
+
+    HRESULT hr = S_OK;
+
+    OLEData_Get_Struct(self, pole);
+
+    hr = pole->pDispatch->lpVtbl->QueryInterface(pole->pDispatch, &IID_IPersistMemory,
+                                                 (void **)&pPersistMemory);
+    if (SUCCEEDED(hr)) {
+        hr = pPersistMemory->lpVtbl->InitNew(pPersistMemory);
+        OLE_RELEASE(pPersistMemory);
+        if (SUCCEEDED(hr)) {
+            return Qnil;
+        }
+    }
+
+    if (FAILED(hr)) {
+        ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, "fail to initialize ActiveX control");
+    }
+
+    return Qnil;
+}
+
+/*
  *   call-seq:
  *      WIN32OLE_TYPE.ole_classes(typelib)
  * 
@@ -6289,6 +6337,7 @@ Init_win32ole()
     rb_define_method(cWIN32OLE, "ole_method", fole_method_help, 1);
     rb_define_alias(cWIN32OLE, "ole_method_help", "ole_method");
     rb_define_method(cWIN32OLE, "ole_obj_help", fole_obj_help, 0);
+    rb_define_method(cWIN32OLE, "ole_activex_initialize", fole_activex_initialize, 0);
 
     rb_define_const(cWIN32OLE, "VERSION", rb_str_new2(WIN32OLE_VERSION));
     rb_define_const(cWIN32OLE, "ARGV", rb_ary_new());

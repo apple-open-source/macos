@@ -14,8 +14,8 @@
 
 #You should have received a copy of the GNU General Public License
 #along with GCC; see the file COPYING.  If not, write to
-#the Free Software Foundation, 59 Temple Place - Suite 330,
-#Boston MA 02111-1307, USA.
+#the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+#Boston MA 02110-1301, USA.
 
 # GCC's Makefile fragment for libada.
 # libada needs some information from the GCC configure file at the moment,
@@ -23,12 +23,8 @@
 
 exeext=@host_exeext@
 libdir=@libdir@
-gcc_version=@gcc_version@
 NOCOMMON_FLAG=@nocommon_flag@
 WARN_CFLAGS=@warn_cflags@
-cc_set_by_configure=@cc_for_cross_gnattools@
 gcc_tmake_file=@tmake_file@
 gcc_xmake_file=@xmake_file@
-
-# This really shouldn't be needed, but for now...
-CC=@CC@
+host_cc_for_libada=@host_cc_for_libada@

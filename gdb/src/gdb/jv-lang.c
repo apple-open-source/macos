@@ -257,8 +257,6 @@ type_from_class (struct value *clas)
   struct value *utf8_name;
   char *nptr;
   CORE_ADDR addr;
-  struct block *bl;
-  struct dict_iterator iter;
   int is_array = 0;
 
   type = check_typedef (value_type (clas));
@@ -411,13 +409,13 @@ java_link_class_type (struct type *type, struct value *clas)
   if (i > 2 && name[i - 1] == ']' && tsuper != NULL)
     {
       /* FIXME */
-      TYPE_LENGTH (type) = TYPE_LENGTH (tsuper) + 4;	/* size with "length" */
+      TYPE_LENGTH_ASSIGN (type) = TYPE_LENGTH (tsuper) + 4;	/* size with "length" */
     }
   else
     {
       temp = clas;
       temp = value_struct_elt (&temp, NULL, "size_in_bytes", NULL, "structure");
-      TYPE_LENGTH (type) = value_as_long (temp);
+      TYPE_LENGTH_ASSIGN (type) = value_as_long (temp);
     }
 
   fields = NULL;
@@ -469,7 +467,7 @@ java_link_class_type (struct type *type, struct value *clas)
       if (accflags & 0x0008)	/* ACC_STATIC */
 	SET_FIELD_PHYSADDR (TYPE_FIELD (type, i), boffset);
       else
-	TYPE_FIELD_BITPOS (type, i) = 8 * boffset;
+	TYPE_FIELD_BITPOS_ASSIGN (type, i) = 8 * boffset;
       if (accflags & 0x8000)	/* FIELD_UNRESOLVED_FLAG */
 	{
 	  TYPE_FIELD_TYPE (type, i) = get_java_object_type ();	/* FIXME */
@@ -1015,7 +1013,6 @@ java_class_name_from_physname (const char *physname)
 {
   char *ret = NULL;
   const char *end;
-  int depth = 0;
   char *demangled_name = java_demangle (physname, DMGL_PARAMS | DMGL_ANSI);
 
   if (demangled_name == NULL)

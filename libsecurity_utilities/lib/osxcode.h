@@ -24,6 +24,7 @@
 
 #include <security_utilities/refcount.h>
 #include <security_utilities/cfutilities.h>
+#include <Security/CodeSigning.h>
 #include <limits.h>
 #include <string>
 #include <vector>
@@ -40,10 +41,6 @@ class OSXCode : public RefCount {
 public:
 	virtual ~OSXCode() { }
 	
-	// encoding and decoding as a UTF-8 string
-	virtual string encode() const = 0;
-	static OSXCode *decode(const char *extForm);
-	
 public:
 	// creating OSXCode objects
 	static RefPointer<OSXCode> main();
@@ -53,6 +50,7 @@ public:
 public:
 	virtual string canonicalPath() const = 0;	// reverse of at()
 	virtual string executablePath() const = 0;	// path to main executable file
+	virtual SecStaticCodeRef codeRef() const;	// defaults to code at canonicalPath()
 
 protected:
 	OSXCode() { }	// nonpublic
@@ -65,7 +63,6 @@ protected:
 class ExecutableTool : public OSXCode {
 public:
 	ExecutableTool(const char *path) : mPath(path) { }
-	string encode() const;
 	
 	string path() const		{ return mPath; }
 	string canonicalPath() const;
@@ -85,8 +82,6 @@ public:
 	Bundle(CFBundleRef bundle, const char *root = NULL);		// from existing CFBundleRef
 	~Bundle();
 
-	string encode() const;
-	
 	string canonicalPath() const;
 	string path() const				{ return mPath; }
 	string executablePath() const;
@@ -117,6 +112,21 @@ public:
 	virtual bool isLoaded() const;
 	virtual void load();
 	virtual void unload();
+};
+
+
+class OSXCodeWrap : public OSXCode {
+public:
+	OSXCodeWrap(SecStaticCodeRef code) : mCode(code) { }
+
+	string encode() const;
+	
+	string canonicalPath() const;
+	string executablePath() const;
+	SecStaticCodeRef codeRef() const;
+
+private:
+	CFCopyRef<SecStaticCodeRef> mCode;
 };
 
 

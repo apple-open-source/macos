@@ -5,7 +5,7 @@ use HeaderDoc::PerfEngine;
 
 my $global_perf = HeaderDoc::PerfEngine->new;
 
-print "Testing Perf engine.\n";
+print STDERR "Testing Perf engine.\n";
 foo();
 baz();
 incomplete();

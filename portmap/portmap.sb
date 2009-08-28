@@ -7,22 +7,16 @@
 ;;
 (version 1)
 (debug deny)
+
+(import "bsd.sb")
+
 (allow process-exec (regex #"^/usr/sbin/portmap$"))
 (allow process-fork)
-(allow sysctl-read)
 (allow file-read-data file-read-metadata (regex
     #"^/etc"
-    #"^/usr/lib/.*\.dylib$"
     #"^/var"
-    #"^/private/var/db/dyld/"
     #"^/dev/urandom$"))
-(allow file-write-data (regex
-    #"^/dev/dtracehelper$"))
-(allow network-accept)
-(allow network-inbound (to tcp4 "*:111"))
-(allow network-inbound (to udp4 "*:111"))
+(allow network-bind (local ip4))
+(allow network-inbound (local ip4 "*:111"))
 (allow network-outbound)
-(allow mach-lookup (global-name
-    "com.apple.system.notification_center"
-    "com.apple.system.DirectoryService.libinfo_v1"))
 (deny default)

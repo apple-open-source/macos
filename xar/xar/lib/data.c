@@ -45,6 +45,7 @@
 #include "filetree.h"
 #include "archive.h"
 #include "io.h"
+#include "arcmod.h"
 
 #ifndef O_EXLOCK
 #define O_EXLOCK 0
@@ -55,6 +56,7 @@ struct _data_context{
 	void *buffer;
 	size_t length;
 	off_t offset;
+	off_t total;
 };
 
 #define DATA_CONTEXT(x) ((struct _data_context*)(x))
@@ -78,11 +80,13 @@ int32_t xar_data_read(xar_t x, xar_file_t f, void *inbuf, size_t bsize, void *co
 		/* dont read passed the end of the buffer */
 		if((DATA_CONTEXT(context)->offset + sizetoread) > DATA_CONTEXT(context)->length){
 			return -1;
+			//sizetoread = (DATA_CONTEXT(context)->offset + sizetoread) - DATA_CONTEXT(context)->length;
 		}
 		
 		readbuf += DATA_CONTEXT(context)->offset;
 		memcpy(inbuf,readbuf,sizetoread);
 		
+		DATA_CONTEXT(context)->total += sizetoread;
 		DATA_CONTEXT(context)->offset += sizetoread;
 		
 		return sizetoread;
@@ -92,6 +96,7 @@ int32_t xar_data_read(xar_t x, xar_file_t f, void *inbuf, size_t bsize, void *co
 		r = read(DATA_CONTEXT(context)->fd, inbuf, bsize);
 		if( (r < 0) && (errno == EINTR) )
 			continue;
+		DATA_CONTEXT(context)->total += r;
 		return r;
 	}		
 	
@@ -119,7 +124,7 @@ int32_t xar_data_write(xar_t x, xar_file_t f, void *buf, size_t len, void *conte
 	}
 	
 	do {
-		r = write(DATA_CONTEXT(context)->fd, buf+off, len-off);
+		r = write(DATA_CONTEXT(context)->fd, ((char *)buf)+off, len-off);
 		if( (r < 0) && (errno != EINTR) )
 			return r;
 		off += r;
@@ -135,8 +140,12 @@ int32_t xar_data_archive(xar_t x, xar_file_t f, const char *file, const char *bu
 	const char *opt;
 	int32_t retval = 0;
 	struct _data_context context;
+	xar_prop_t tmpp;
 	
 	memset(&context,0,sizeof(struct _data_context));
+
+	if( !xar_check_prop(x, "data") )
+		return 0;
 
 	xar_prop_get(f, "type", &opt);
 	if(!opt) return 0;
@@ -171,7 +180,10 @@ int32_t xar_data_archive(xar_t x, xar_file_t f, const char *file, const char *bu
 	fcntl(context.fd, F_NOCACHE, 1);
 #endif
 
-	retval = xar_attrcopy_to_heap(x, f, "data", xar_data_read,(void *)(&context));
+	tmpp = xar_prop_pset(f, NULL, "data", NULL);
+	retval = xar_attrcopy_to_heap(x, f, tmpp, xar_data_read,(void *)(&context));
+	if( context.total == 0 )
+		xar_prop_unset(f, "data");
 
 	if(context.fd > 0){
 		close(context.fd);
@@ -185,6 +197,7 @@ int32_t xar_data_extract(xar_t x, xar_file_t f, const char *file, char *buffer, 
 	const char *opt;
 	int32_t retval = 0;
 	struct _data_context context;
+	xar_prop_t tmpp;
 	
 	memset(&context,0,sizeof(struct _data_context));
 	
@@ -211,15 +224,8 @@ int32_t xar_data_extract(xar_t x, xar_file_t f, const char *file, char *buffer, 
 		/* mode 600 since other modules may need to operate on the file
 		* prior to the real permissions being set.
 		*/
-TRYAGAIN:
 		context.fd = open(file, O_RDWR|O_TRUNC|O_EXLOCK, 0600);
 		if( context.fd < 0 ) {
-			if( errno == ENOENT ) {
-				xar_file_t parent = XAR_FILE(f)->parent;
-				if( parent && (xar_extract(x, parent) == 0) )
-					goto TRYAGAIN;
-			}
-			
 			xar_err_new(x);
 			xar_err_set_file(x, f);
 			xar_err_set_string(x, "io: Could not create file");
@@ -229,7 +235,14 @@ TRYAGAIN:
 		
 	}
 	
-	retval = xar_attrcopy_from_heap(x, f, "data", xar_data_write, (void *)(&context));
+	tmpp = xar_prop_pfirst(f);
+	if( tmpp )
+		tmpp = xar_prop_find(tmpp, "data");
+	if( !tmpp ) {
+		close(context.fd);
+		return 0;
+	}
+	retval = xar_attrcopy_from_heap(x, f, tmpp, xar_data_write, (void *)(&context));
 	
 	if( context.fd > 0 ){		
 		close(context.fd);
@@ -243,6 +256,7 @@ int32_t xar_data_verify(xar_t x, xar_file_t f)
 {
 	const char *opt;
 	struct _data_context context;
+	xar_prop_t tmpp;
 	
 	memset(&context,0,sizeof(struct _data_context));
 
@@ -253,5 +267,8 @@ int32_t xar_data_verify(xar_t x, xar_file_t f)
 		return 0;
 	}
 	
-	return xar_attrcopy_from_heap(x, f, "data", NULL , (void *)(&context));
+	tmpp = xar_prop_pfirst(f);
+	if( tmpp )
+		tmpp = xar_prop_find(tmpp, "data");
+	return xar_attrcopy_from_heap(x, f, tmpp, NULL , (void *)(&context));
 }

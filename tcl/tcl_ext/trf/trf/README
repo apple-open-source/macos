@@ -1,0 +1,104 @@
+
+		Tcl Data transformations (Tcl-Trf)
+		(Version 2.1.3 / DEC-06-2008)
+
+		Andreas Kupries	(andreas_kupries@users.sourceforge.net)
+
+This directory contains a freely distributable extension to Tcl/Tk called Tcl
+Data transformations (Tcl-Trf). The collection of provided transformation
+procedures includes:
+
+*	Generation of message digests (hash values, checksums)
+
+	MD2, MD5, SHA/SHS, SHA-1, HAVAL, RIPEMD-128, -160
+	CRC (polynomial used by PGP)
+	ADLER (based upon zlib)
+
+*	Conversion from and to various data encodings:
+
+	dual, octal, hexadecimal representation	
+	uuencoding, base64-encoding, ASCII85-encoding
+
+*	A reed-solomon error correcting coder.
+
+*	(De)Compression based on zlib 1.0.4 or higher (1.1.3 is current)
+	(if available as shared library)
+
+*	Data encryption:
+
+	Was removed from the base package, but is available
+	separately (TrfCrypt).
+
+
+Example applications distributed with the package are:
+
+*	'tools/md', a message digest generator.
+	Upwardly compatible to 'md5sum'.
+
+Tcl-Trf is developed for Tcl 7.6 or higher.  It is a pure Tcl extension,
+Tk is not required.  The extension requires a patched core. Patch files
+for 7.6, 8.0 and 8.0a2 are part of the distribution.  The plus-patches
+maintained by Jan Nijtmans (nijtmans@nici.kun.nl) contain this patch too .
+
+Supporting (optional) packages are:
+
+*	memchan 1.0  or higher (required by testsuite, by same author)
+
+	See	http://www.oche.de/~akupries/soft/memchan/
+
+*	zlib-1.0.4   or higher (1.1.3 is current!)
+
+	See	http://www.cdrom.com/pub/infozip/zlib/
+
+*	SSLeay or OpenSSL
+
+	See	http://www.ssleay.org/
+	or	http://www.openssl.org/
+
+Packages built upon the fundament provided by Trf are
+
+*	TrfCrypt, contains various encryption systems, by myself.
+
+	See	http://www.oche.de/~akupries/soft/trfcrypt/
+
+*	TLS, an SSL/TLS implementation for all valid Tcl channels,
+	by Matt Newman <matt@novadigm.com>
+
+	See	http://www.sensus.org/tcl/tls.htm
+		http://www.sensus.org/tcl/tls11.tgz
+
+
+This distribution contains the source code for Tcl-Trf + documentation
+describing commands (-> latex) and c-level interfaces (-> man-pages).
+
+
+
+COMPILING/USING Tcl-Trf
+
+To compile Tcl-Trf please follow the instructions in the HTML
+documentation (file: doc/html/trf_compile.html).
+
+To report bugs, bug fixes, descriptions of interesting Tcl-Trf
+applications, and suggested improvements:
+
++) Send email to andreas_kupries@users.sourceforge.net
+
+or
+
++) Post an article to the newsgroup	comp.lang.tcl
+
+
+PLATFORMS
+	tested:
+		Linux 2.0.29	(gcc 2.7.2.3)	Development system
+		IRIX 6.2	(cc only)
+		ULTRIX 4.1	(both cc and gcc)
+		ULTRIX 4.4	(cc 3.0)
+		HP-UX-9		(both cc and gcc)
+		HP-UX-10.2
+		Solaris 2.5	(gcc only)
+
+	Other machines and OS's should work too. 
+
+Feedback about other OS's and compilers is appreciated. Please
+help me in making this package better.

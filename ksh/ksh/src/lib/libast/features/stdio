@@ -295,6 +295,7 @@ output{
 		printf("#define vsscanf		_ast_vsscanf\n");
 
 		printf("#define fcloseall	_ast_fcloseall\n");
+		printf("#define _filbuf		_ast__filbuf\n");
 		printf("#define fmemopen	_ast_fmemopen\n");
 		printf("#define __getdelim	_ast___getdelim\n");
 		printf("#define getdelim	_ast_getdelim\n");

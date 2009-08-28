@@ -1,5 +1,5 @@
 /*
- * "$Id: client.h 7039 2007-10-22 18:52:13Z mike $"
+ * "$Id: client.h 7935 2008-09-11 01:54:11Z mike $"
  *
  *   Client definitions for the Common UNIX Printing System (CUPS) scheduler.
  *
@@ -17,6 +17,7 @@
 #  include <Security/Authorization.h>
 #endif /* HAVE_AUTHORIZATION_H */
 
+
 /*
  * HTTP client structure...
  */
@@ -27,7 +28,7 @@ struct cupsd_client_s
   ipp_t			*request,	/* IPP request information */
 			*response;	/* IPP response information */
   cupsd_location_t	*best;		/* Best match for AAA */
-  time_t		start;		/* Request start time */
+  struct timeval	start;		/* Request start time */
   http_state_t		operation;	/* Request operation */
   off_t			bytes;		/* Bytes transferred for this request */
   int			type;		/* AuthType for username */
@@ -44,7 +45,8 @@ struct cupsd_client_s
   int			pipe_pid;	/* Pipe process ID (or 0 if not a pipe) */
   int			sent_header,	/* Non-zero if sent HTTP header */
 			got_fields,	/* Non-zero if all fields seen */
-			field_col;	/* Column within line */
+			header_used;	/* Number of header bytes used */
+  char			header[2048];	/* Header from CGI program */
   cups_lang_t		*language;	/* Language to use */
 #ifdef HAVE_SSL
   int			auto_ssl;	/* Automatic test for SSL/TLS */
@@ -53,11 +55,11 @@ struct cupsd_client_s
   char			servername[256];/* Server name for connection */
   int			serverport;	/* Server port for connection */
 #ifdef HAVE_GSSAPI
-  int			gss_have_creds;	/* Have authenticated credentials */
+  int			have_gss;	/* Have GSS credentials? */
+  gss_cred_id_t 	gss_creds;	/* Delegated credentials from client */
+  unsigned		gss_flags;	/* Credential flags */
   gss_buffer_desc 	gss_output_token;
 					/* Output token for Negotiate header */
-  gss_cred_id_t 	gss_delegated_cred;
-					/* Credentials from client header */
 #endif /* HAVE_GSSAPI */
 #ifdef HAVE_AUTHORIZATION_H
   AuthorizationRef	authref;	/* Authorization ref */
@@ -85,16 +87,20 @@ typedef struct
 
 VAR int			ListenBackLog	VALUE(SOMAXCONN),
 					/* Max backlog of pending connections */
-			LocalPort	VALUE(631);
+			LocalPort	VALUE(631),
 					/* Local port to use */
+			RemotePort	VALUE(0);
+					/* Remote port to use */
 VAR http_encryption_t	LocalEncryption	VALUE(HTTP_ENCRYPT_IF_REQUESTED);
 					/* Local port encryption to use */
 VAR cups_array_t	*Listeners	VALUE(NULL);
 					/* Listening sockets */
 VAR time_t		ListeningPaused	VALUE(0);
 					/* Time when listening was paused */
-VAR cups_array_t	*Clients	VALUE(NULL);
+VAR cups_array_t	*Clients	VALUE(NULL),
 					/* HTTP clients */
+			*ActiveClients	VALUE(NULL);
+					/* Active HTTP clients */
 VAR char		*ServerHeader	VALUE(NULL);
 					/* Server header in requests */
 VAR int			CGIPipes[2]	VALUE2(-1,-1);
@@ -130,5 +136,5 @@ extern void	cupsdWriteClient(cupsd_client_t *con);
 
 
 /*
- * End of "$Id: client.h 7039 2007-10-22 18:52:13Z mike $".
+ * End of "$Id: client.h 7935 2008-09-11 01:54:11Z mike $".
  */

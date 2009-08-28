@@ -1,15 +1,16 @@
 # APPLE LOCAL begin fpsave.asm moved from _STATIC_EXTRA to _EXTRA --dbj
 LIB2FUNCS_EXTRA = $(srcdir)/config/rs6000/darwin-tramp.asm \
 	$(srcdir)/config/rs6000/darwin-fpsave.asm \
-	$(srcdir)/config/rs6000/darwin-ldouble.c
+	$(srcdir)/config/rs6000/ppc64-fp.c \
+	$(srcdir)/config/darwin-64.c \
+	$(srcdir)/config/rs6000/darwin-ldouble.c \
+	$(srcdir)/config/rs6000/darwin-world.asm
 
 LIB2FUNCS_STATIC_EXTRA = \
-	$(srcdir)/config/rs6000/darwin-vecsave.asm  \
-	$(srcdir)/config/rs6000/darwin-world.asm
+	$(srcdir)/config/rs6000/darwin-vecsave.asm
 # APPLE LOCAL end fpsave.asm moved from _STATIC_EXTRA to _EXTRA --dbj
 
-# APPLE LOCAL mainline 2006-12-22 4505290
-DARWIN_EXTRA_CRT_BUILD_CFLAGS = -mlongcall -mmacosx-version-min=10.4
+DARWIN_EXTRA_CRT_BUILD_CFLAGS = -mlongcall
 
 # The .asm files above are designed to run on all processors,
 # even though they use AltiVec instructions.  -Wa is used because
@@ -19,26 +20,27 @@ DARWIN_EXTRA_CRT_BUILD_CFLAGS = -mlongcall -mmacosx-version-min=10.4
 # it to not properly process the first # directive, causing temporary
 # file names to appear in stabs, causing the bootstrap to fail.  Using -pipe
 # works around this by not having any temporary file names.
-# APPLE LOCAL mainline default to G4 for 10.5 4479990
-TARGET_LIBGCC2_CFLAGS = -Wa,-force_cpusubtype_ALL -pipe -mmacosx-version-min=10.4
+# APPLE LOCAL begin gcov 5573505
+TARGET_LIBGCC2_CFLAGS = -Wa,-force_cpusubtype_ALL -pipe
+TARGET_LIBGCC2_STATIC_CFLAGS = -mmacosx-version-min=10.4
+# APPLE LOCAL end gcov 5573505
+
+# APPLE LOCAL 5901604 6499452
+MULTILIB_EXTRA_OPTS = isysroot/Developer/SDKs/MacOSX10.5.sdk mmacosx-version-min=10.5
 
 # Export the _xlq* symbols from darwin-ldouble.c.
 SHLIB_MAPFILES += $(srcdir)/config/rs6000/libgcc-ppc64.ver
 
- # APPLE LOCAL begin mainline 2005-10-02 4218570
 SHLIB_VERPFX = $(srcdir)/config/rs6000/darwin-libgcc
 
- # APPLE LOCAL end mainline 2005-10-02 4218570
 LIB2ADDEH += $(srcdir)/config/rs6000/darwin-fallback.c
 
 darwin-fpsave.o:	$(srcdir)/config/rs6000/darwin-asm.h
 darwin-tramp.o:		$(srcdir)/config/rs6000/darwin-asm.h
- # APPLE LOCAL begin mainline 2006-12-22 3992198
 
 # Explain how to build crt2.o
 $(T)crt2$(objext): $(srcdir)/config/darwin-crt2.c $(GCC_PASSES) \
 	$(TCONFIG_H) stmp-int-hdrs tsystem.h
-	$(GCC_FOR_TARGET) $(GCC_CFLAGS) $(INCLUDES) $(MULTILIB_CFLAGS) \
-	  $(DARWIN_EXTRA_CRT_BUILD_CFLAGS) \
+	# APPLE LOCAL use -mlongcall for large text support
+	$(GCC_FOR_TARGET) $(GCC_CFLAGS) $(INCLUDES) $(MULTILIB_CFLAGS) -mlongcall \
 	  -c $(srcdir)/config/darwin-crt2.c -o $(T)crt2$(objext)
- # APPLE LOCAL end mainline 2006-12-22 3992198

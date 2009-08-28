@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2008 Apple Inc. All rights reserved.
  *
  * This file contains Original Code and/or Modifications of Original Code as
  * defined in and that are subject to the Apple Public Source License Version
@@ -23,6 +23,8 @@
 #define FSUC_GETUUID 'k'
 #endif
 
+#include <sys/disk.h>
+#include <sys/ioctl.h>
 #include <sys/mount.h>
 #include <sys/param.h>
 #include <sys/stat.h>
@@ -61,7 +63,7 @@ typedef struct {
 	u32 sector_size;		/* in bytes */
 	u32 cluster_size;		/* in bytes */
 	u32 mft_record_size;		/* in bytes */
-	u32 index_record_size;		/* in bytes */
+	u32 index_block_size;		/* in bytes */
 	LCN mft_lcn;			/* Cluster location of mft data. */
 	LCN mftmirr_lcn;		/* Cluster location of copy of mft. */
 	int mftmirr_size;		/* Size of mft mirror in mft records. */
@@ -172,9 +174,9 @@ static BOOL ntfs_boot_sector_is_valid(const NTFS_BOOT_SECTOR *b)
 			goto not_ntfs;
 		}
 	/* Check clusters per index block value is valid. */
-	if ((u8)b->clusters_per_index_record < 0xe1 ||
-			(u8)b->clusters_per_index_record > 0xf7)
-		switch (b->clusters_per_index_record) {
+	if ((u8)b->clusters_per_index_block < 0xe1 ||
+			(u8)b->clusters_per_index_block > 0xf7)
+		switch (b->clusters_per_index_block) {
 		case 1: case 2: case 4: case 8: case 16: case 32: case 64:
 			break;
 		default:
@@ -712,14 +714,15 @@ static int get_volume_mft_record(char *rdev, ntfs_volume *vol,
 {
 	VCN vcn;
 	LCN lcn;
-	s64 clusters;
+	s64 clusters, io_size;
 	void *buf;
 	NTFS_BOOT_SECTOR *bs;
 	MFT_RECORD *m;
 	ntfs_rl_element *rl;
 	long sector_size;
 	unsigned vcn_ofs;
-	int f, err, io_size, to_read;
+	int f, err, to_read;
+	u32 dev_block_size;
 	ntfs_attr_search_ctx ctx;
 
 	/*
@@ -739,11 +742,24 @@ static int get_volume_mft_record(char *rdev, ntfs_volume *vol,
 		sector_size = 32768;
 	if (sector_size < NTFS_BLOCK_SIZE)
 		sector_size = NTFS_BLOCK_SIZE;
-	buf = malloc(sector_size);
-	if (!buf)
-		return FSUR_IO_FAIL;
 	f = open(rdev, O_RDONLY);
 	if (f == -1) {
+		return FSUR_IO_FAIL;
+	}
+	/*
+	 * Get the native block size of the device.  If it is bigger than
+	 * @sector_size we need to do i/o in multiples of the native block
+	 * size.
+	 */
+	if (ioctl(f, DKIOCGETBLOCKSIZE, &dev_block_size) < 0) {
+		err = FSUR_IO_FAIL;
+		buf = NULL;
+		goto err;
+	}
+	if (dev_block_size > (u32)sector_size)
+		sector_size = dev_block_size;
+	buf = malloc(sector_size);
+	if (!buf) {
 		err = FSUR_IO_FAIL;
 		goto err;
 	}
@@ -838,9 +854,9 @@ rl_free_err:
 free_err:
 	free(m);
 err:
-	if (f != -1)
-		(void)close(f);
-	free(buf);
+	if (buf)
+		free(buf);
+	(void)close(f);
 	return err;
 }
 

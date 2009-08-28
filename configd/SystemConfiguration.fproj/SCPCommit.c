@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -106,7 +106,7 @@ __SCPreferencesCommitChanges_helper(SCPreferencesRef prefs)
 
 
 static ssize_t
-writen(int ref, void *data, size_t len)
+writen(int ref, const void *data, size_t len)
 {
 	size_t		left	= len;
 	ssize_t		n;
@@ -210,7 +210,7 @@ SCPreferencesCommitChanges(SCPreferencesRef prefs)
 			(void) close(fd);
 			goto done;
 		}
-		if (writen(fd, (void *)CFDataGetBytePtr(newPrefs), CFDataGetLength(newPrefs)) == -1) {
+		if (writen(fd, (const void *)CFDataGetBytePtr(newPrefs), CFDataGetLength(newPrefs)) == -1) {
 			_SCErrorSet(errno);
 			SCLog(_sc_verbose, LOG_ERR, CFSTR("SCPreferencesCommitChanges write() failed: %s"), strerror(errno));
 			SCLog(_sc_verbose, LOG_ERR, CFSTR("  path = %s"), thePath);
@@ -221,6 +221,7 @@ SCPreferencesCommitChanges(SCPreferencesRef prefs)
 			goto done;
 		}
 
+#if	!TARGET_OS_IPHONE
 		/* synchronize the file's in-core state with that on disk */
 		if (fsync(fd) == -1) {
 			_SCErrorSet(errno);
@@ -239,6 +240,7 @@ SCPreferencesCommitChanges(SCPreferencesRef prefs)
 		 * Note: at present, this only works on HFS filesystems
 		 */
 		(void) fcntl(fd, F_FULLFSYNC, 0);
+#endif	// !TARGET_OS_IPHONE
 
 		/* new preferences have been written */
 		if (close(fd) == -1) {

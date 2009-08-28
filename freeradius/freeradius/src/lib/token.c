@@ -2,7 +2,7 @@
  * token.c	Read the next token from a string.
  *		Yes it's pretty primitive but effective.
  *
- * Version:	$Id: token.c,v 1.17.2.1.2.1 2006/03/15 15:37:58 nbk Exp $
+ * Version:	$Id$
  *
  *   This library is free software; you can redistribute it and/or
  *   modify it under the terms of the GNU Lesser General Public
@@ -18,18 +18,18 @@
  *   License along with this library; if not, write to the Free Software
  *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2000  The FreeRADIUS server project
+ * Copyright 2000,2006  The FreeRADIUS server project
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
+
+#include <freeradius-devel/libradius.h>
+#include <freeradius-devel/token.h>
+
 #include <ctype.h>
-#include "token.h"
 
-static const char rcsid[] = "$Id: token.c,v 1.17.2.1.2.1 2006/03/15 15:37:58 nbk Exp $";
-
-static const LRAD_NAME_NUMBER tokens[] = {
+static const FR_NAME_NUMBER tokens[] = {
 	{ "=~", T_OP_REG_EQ,	}, /* order is important! */
 	{ "!~", T_OP_REG_NE,	},
 	{ "{",	T_LCBRACE,	},
@@ -69,15 +69,16 @@ static const LRAD_NAME_NUMBER tokens[] = {
  *	At end-of-line, buf[0] is set to '\0'.
  *	Returns 0 or special token value.
  */
-static LRAD_TOKEN getthing(char **ptr, char *buf, int buflen, int tok,
-			   const LRAD_NAME_NUMBER *tokenlist)
+static FR_TOKEN getthing(const char **ptr, char *buf, int buflen, int tok,
+			 const FR_NAME_NUMBER *tokenlist)
 {
-	char	*s, *p;
+	char *s;
+	const char *p;
 	int	quote;
 	int	escape;
-	int	x;
-	const LRAD_NAME_NUMBER*t;
-	LRAD_TOKEN rcode;
+	unsigned int	x;
+	const FR_NAME_NUMBER*t;
+	FR_TOKEN rcode;
 
 	buf[0] = 0;
 
@@ -101,7 +102,7 @@ static LRAD_TOKEN getthing(char **ptr, char *buf, int buflen, int tok,
 			while (isspace((int) *p))
 				p++;
 			*ptr = p;
-			return (LRAD_TOKEN) t->number;
+			return (FR_TOKEN) t->number;
 		}
 	}
 
@@ -117,8 +118,9 @@ static LRAD_TOKEN getthing(char **ptr, char *buf, int buflen, int tok,
 	escape = 0;
 
 	while (*p && buflen-- > 1) {
-		if (escape) {
-			escape = 0;
+		if (quote && (*p == '\\')) {
+			p++;
+
 			switch(*p) {
 				case 'r':
 					*s++ = '\r';
@@ -129,14 +131,9 @@ static LRAD_TOKEN getthing(char **ptr, char *buf, int buflen, int tok,
 				case 't':
 					*s++ = '\t';
 					break;
-				case '"':
-					*s++ = '"';
-					break;
-				case '\'':
-					*s++ = '\'';
-					break;
-				case '`':
-					*s++ = '`';
+				case '\0':
+					*s++ = '\\';
+					p--; /* force EOS */
 					break;
 				default:
 					if (*p >= '0' && *p <= '9' &&
@@ -148,11 +145,6 @@ static LRAD_TOKEN getthing(char **ptr, char *buf, int buflen, int tok,
 					break;
 			}
 			p++;
-			continue;
-		}
-		if (*p == '\\') {
-			p++;
-			escape = 1;
 			continue;
 		}
 		if (quote && (*p == quote)) {
@@ -205,7 +197,7 @@ static LRAD_TOKEN getthing(char **ptr, char *buf, int buflen, int tok,
  *	Read a "word" - this means we don't honor
  *	tokens as delimiters.
  */
-int getword(char **ptr, char *buf, int buflen)
+int getword(const char **ptr, char *buf, int buflen)
 {
 	return getthing(ptr, buf, buflen, 0, tokens) == T_EOL ? 0 : 1;
 }
@@ -214,9 +206,9 @@ int getword(char **ptr, char *buf, int buflen)
  *	Read a bare "word" - this means we don't honor
  *	tokens as delimiters.
  */
-int getbareword(char **ptr, char *buf, int buflen)
+int getbareword(const char **ptr, char *buf, int buflen)
 {
-	LRAD_TOKEN token;
+	FR_TOKEN token;
 
 	token = getthing(ptr, buf, buflen, 0, NULL);
 	if (token != T_BARE_WORD) {
@@ -229,17 +221,35 @@ int getbareword(char **ptr, char *buf, int buflen)
 /*
  *	Read the next word, use tokens as delimiters.
  */
-LRAD_TOKEN gettoken(char **ptr, char *buf, int buflen)
+FR_TOKEN gettoken(const char **ptr, char *buf, int buflen)
 {
 	return getthing(ptr, buf, buflen, 1, tokens);
 }
 
 /*
+ *	Expect a string.
+ */
+FR_TOKEN getstring(const char **ptr, char *buf, int buflen)
+{
+	const char *p = *ptr;
+
+	while (p && (isspace((int)*p))) p++;
+
+	*ptr = p;
+
+	if ((*p == '"') || (*p == '\'') || (*p == '`')) {
+		return gettoken(ptr, buf, buflen);
+	}
+
+	return getthing(ptr, buf, buflen, 0, tokens);
+}
+
+/*
  *	Convert a string to an integer
  */
-int lrad_str2int(const LRAD_NAME_NUMBER *table, const char *name, int def)
+int fr_str2int(const FR_NAME_NUMBER *table, const char *name, int def)
 {
-	const LRAD_NAME_NUMBER *this;
+	const FR_NAME_NUMBER *this;
 
 	for (this = table; this->name != NULL; this++) {
 		if (strcasecmp(this->name, name) == 0) {
@@ -253,10 +263,10 @@ int lrad_str2int(const LRAD_NAME_NUMBER *table, const char *name, int def)
 /*
  *	Convert an integer to a string.
  */
-const char *lrad_int2str(const LRAD_NAME_NUMBER *table, int number,
+const char *fr_int2str(const FR_NAME_NUMBER *table, int number,
 			 const char *def)
 {
-	const LRAD_NAME_NUMBER *this;
+	const FR_NAME_NUMBER *this;
 
 	for (this = table; this->name != NULL; this++) {
 		if (this->number == number) {

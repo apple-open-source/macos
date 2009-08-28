@@ -1,3 +1,5 @@
+@subheading pr29_strerror
+@anchor{pr29_strerror}
 @deftypefun {const char *} {pr29_strerror} (Pr29_rc @var{rc})
 @var{rc}: an @code{Pr29_rc} return code.
 

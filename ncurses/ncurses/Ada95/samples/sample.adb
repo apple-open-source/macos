@@ -7,7 +7,7 @@
 --                                 B O D Y                                  --
 --                                                                          --
 ------------------------------------------------------------------------------
--- Copyright (c) 1998 Free Software Foundation, Inc.                        --
+-- Copyright (c) 1998,2008 Free Software Foundation, Inc.                   --
 --                                                                          --
 -- Permission is hereby granted, free of charge, to any person obtaining a  --
 -- copy of this software and associated documentation files (the            --
@@ -35,7 +35,8 @@
 ------------------------------------------------------------------------------
 --  Author:  Juergen Pfeifer, 1996
 --  Version Control
---  $Revision: 1.14 $
+--  $Revision: 1.17 $
+--  $Date: 2008/09/27 14:42:40 $
 --  Binding Version 01.00
 ------------------------------------------------------------------------------
 with Text_IO;
@@ -110,7 +111,7 @@ package body Sample is
                if K = QUIT then
                   return True;
                elsif K = SELECT_ITEM then
-                  if Idx in 1 .. 4 then
+                  if Idx <= 4 then
                      Hide (Pan);
                      Update_Panels;
                   end if;
@@ -121,7 +122,7 @@ package body Sample is
                      when 4 => Sample.Text_IO_Demo.Demo;
                      when others => null;
                   end case;
-                  if Idx in 1 .. 4 then
+                  if Idx <= 4 then
                      Top (Pan);
                      Show (Pan);
                      Update_Panels;
@@ -190,7 +191,7 @@ package body Sample is
 
          Set_Soft_Label_Key_Attributes (Color => Header_Color);
          --  This propagates the attributes to the label window
-         Clear_Soft_Label_Keys; Restore_Soft_Label_Keys;
+         Refresh_Soft_Label_Keys;
       end if;
 
       Init_Keyboard_Handler;
@@ -204,6 +205,7 @@ package body Sample is
       --  We have some fixed key throughout this sample
       Main_Menu;
       End_Windows;
+      Curses_Free_All;
 
    exception
       when Event : others =>

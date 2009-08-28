@@ -3,9 +3,11 @@
 <keywords>
 HTTP
 HTTP GET
+cookies
 header dump
 </keywords>
 </info>
+
 # Server-side
 <reply>
 <data>
@@ -41,7 +43,7 @@ http://%HOSTIP:%HTTPPORT/we/want/7 -b none -D log/heads7.txt
 </strip>
 <protocol>
 GET /we/want/7 HTTP/1.1
-Host: 127.0.0.1:%HTTPPORT
+Host: %HOSTIP:%HTTPPORT
 Accept: */*
 
 </protocol>

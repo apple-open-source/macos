@@ -175,7 +175,7 @@ start_lock(svn_ra_serf__xml_parser_t *parser,
         }
       else
         {
-          abort();
+          SVN_ERR_MALFUNCTION();
         }
     }
   else if (state == LOCK_SCOPE)
@@ -186,7 +186,7 @@ start_lock(svn_ra_serf__xml_parser_t *parser,
         }
       else
         {
-          abort();
+          SVN_ERR_MALFUNCTION();
         }
     }
 
@@ -290,6 +290,8 @@ cdata_lock(svn_ra_serf__xml_parser_t *parser,
   lock_state_e state;
   lock_prop_info_t *info;
 
+  UNUSED_CTX(lock_ctx);
+
   state = parser->state->current_state;
   info = parser->state->private;
 
@@ -367,6 +369,15 @@ handle_lock(serf_request_t *request,
         {
           ctx->error = svn_ra_serf__handle_server_error(request, response,
                                                         pool);
+
+          /* Older servers may not give a descriptive error. */
+          if (!ctx->error)
+            {
+              ctx->error = svn_error_createf(SVN_ERR_FS_PATH_ALREADY_LOCKED,
+                                             NULL,
+                                             _("Lock request failed: %d %s"),
+                                             ctx->status_code, ctx->reason);
+            }
           return ctx->error->apr_err;
         }
 
@@ -416,24 +427,26 @@ handle_lock(serf_request_t *request,
   return status;
 }
 
-#define GET_LOCK "<?xml version=\"1.0\" encoding=\"utf-8\"?><propfind xmlns=\"DAV:\"><prop><lockdiscovery/></prop></propfind>"
-
 static serf_bucket_t*
 create_getlock_body(void *baton,
                     serf_bucket_alloc_t *alloc,
                     apr_pool_t *pool)
 {
-  serf_bucket_t *buckets, *tmp;
-      
+  serf_bucket_t *buckets;
+
   buckets = serf_bucket_aggregate_create(alloc);
-  tmp = SERF_BUCKET_SIMPLE_STRING_LEN(GET_LOCK, sizeof(GET_LOCK)-1, alloc);
-  serf_bucket_aggregate_append(buckets, tmp);
+
+  svn_ra_serf__add_xml_header_buckets(buckets, alloc);
+  svn_ra_serf__add_open_tag_buckets(buckets, alloc, "propfind",
+                                    "xmlns", "DAV:",
+                                    NULL);
+  svn_ra_serf__add_open_tag_buckets(buckets, alloc, "prop", NULL);
+  svn_ra_serf__add_tag_buckets(buckets, "lockdiscovery", NULL, alloc);
+  svn_ra_serf__add_close_tag_buckets(buckets, alloc, "prop");
+  svn_ra_serf__add_close_tag_buckets(buckets, alloc, "propfind");
 
   return buckets;
 }
-
-#define LOCK_HEADER "<?xml version=\"1.0\" encoding=\"utf-8\"?><lockinfo xmlns=\"DAV:\">"
-#define LOCK_TRAILER "</lockinfo>"
 
 static serf_bucket_t*
 create_lock_body(void *baton,
@@ -441,33 +454,30 @@ create_lock_body(void *baton,
                  apr_pool_t *pool)
 {
   lock_info_t *ctx = baton;
-  serf_bucket_t *buckets, *tmp;
-      
+  serf_bucket_t *buckets;
+
   buckets = serf_bucket_aggregate_create(alloc);
-      
-  tmp = SERF_BUCKET_SIMPLE_STRING_LEN(LOCK_HEADER, sizeof(LOCK_HEADER)-1,
-                                      alloc);
-  serf_bucket_aggregate_append(buckets, tmp);
 
-  svn_ra_serf__add_tag_buckets(buckets, "lockscope", "<exclusive/>", alloc);
+  svn_ra_serf__add_xml_header_buckets(buckets, alloc);
+  svn_ra_serf__add_open_tag_buckets(buckets, alloc, "lockinfo",
+                                    "xmlns", "DAV:",
+                                    NULL);
 
-  svn_ra_serf__add_tag_buckets(buckets, "locktype", "<write/>", alloc);
+  svn_ra_serf__add_open_tag_buckets(buckets, alloc, "lockscope", NULL);
+  svn_ra_serf__add_tag_buckets(buckets, "exclusive", NULL, alloc);
+  svn_ra_serf__add_close_tag_buckets(buckets, alloc, "lockscope");
+
+  svn_ra_serf__add_open_tag_buckets(buckets, alloc, "locktype", NULL);
+  svn_ra_serf__add_tag_buckets(buckets, "write", NULL, alloc);
+  svn_ra_serf__add_close_tag_buckets(buckets, alloc, "locktype");
 
   if (ctx->lock->comment)
     {
-      svn_stringbuf_t *xml_esc = NULL;
-      svn_string_t val;
-
-      val.data = ctx->lock->comment;
-      val.len = strlen(ctx->lock->comment);
-
-      svn_xml_escape_cdata_string(&xml_esc, &val, pool);
-      svn_ra_serf__add_tag_buckets(buckets, "owner", xml_esc->data, alloc);
+      svn_ra_serf__add_tag_buckets(buckets, "owner", ctx->lock->comment,
+                                   alloc);
     }
 
-  tmp = SERF_BUCKET_SIMPLE_STRING_LEN(LOCK_TRAILER, sizeof(LOCK_TRAILER)-1,
-                                      alloc);
-  serf_bucket_aggregate_append(buckets, tmp);
+  svn_ra_serf__add_close_tag_buckets(buckets, alloc, "lockinfo");
 
   return buckets;
 }
@@ -484,6 +494,7 @@ svn_ra_serf__get_lock(svn_ra_session_t *ra_session,
   lock_info_t *lock_ctx;
   const char *req_url;
   svn_error_t *err;
+  int status_code;
 
   req_url = svn_path_url_add_component(session->repos_url.path, path, pool);
 
@@ -495,31 +506,46 @@ svn_ra_serf__get_lock(svn_ra_session_t *ra_session,
   lock_ctx->lock->path = path;
 
   handler = apr_pcalloc(pool, sizeof(*handler));
-      
+
   handler->method = "PROPFIND";
   handler->path = req_url;
   handler->body_type = "text/xml";
   handler->conn = session->conns[0];
   handler->session = session;
-      
+
   parser_ctx = apr_pcalloc(pool, sizeof(*parser_ctx));
-      
+
   parser_ctx->pool = pool;
   parser_ctx->user_data = lock_ctx;
   parser_ctx->start = start_lock;
   parser_ctx->end = end_lock;
   parser_ctx->cdata = cdata_lock;
   parser_ctx->done = &lock_ctx->done;
-  
+  parser_ctx->status_code = &status_code;
+
   handler->body_delegate = create_getlock_body;
   handler->body_delegate_baton = lock_ctx;
 
   handler->response_handler = handle_lock;
   handler->response_baton = parser_ctx;
-      
+
   svn_ra_serf__request_create(handler);
   err = svn_ra_serf__context_run_wait(&lock_ctx->done, session, pool);
+  if (lock_ctx->error || parser_ctx->error)
+    {
+      svn_error_clear(err);
+      /* A 403 forbidden error indicates there's no lock, which we can ignore
+         here. */
+      if (lock_ctx->error && lock_ctx->status_code == 403)
+        svn_error_clear(lock_ctx->error);
+      SVN_ERR(parser_ctx->error);
+    }
 
+  if (status_code == 404)
+    {
+      return svn_error_create(SVN_ERR_RA_ILLEGAL_URL, NULL,
+                              _("Malformed URL for repository"));
+    }
   if (err)
     {
       /* TODO Shh.  We're telling a white lie for now. */
@@ -555,9 +581,9 @@ svn_ra_serf__lock(svn_ra_session_t *ra_session,
       lock_info_t *lock_ctx;
       const void *key;
       void *val;
-      svn_error_t *error;
+      svn_error_t *err, *new_err;
 
-      apr_pool_clear(subpool);
+      svn_pool_clear(subpool);
 
       lock_ctx = apr_pcalloc(subpool, sizeof(*lock_ctx));
 
@@ -574,22 +600,22 @@ svn_ra_serf__lock(svn_ra_session_t *ra_session,
                                            lock_ctx->path, subpool);
 
       handler = apr_pcalloc(subpool, sizeof(*handler));
-      
+
       handler->method = "LOCK";
       handler->path = req_url;
       handler->body_type = "text/xml";
       handler->conn = session->conns[0];
       handler->session = session;
-      
+
       parser_ctx = apr_pcalloc(subpool, sizeof(*parser_ctx));
-      
+
       parser_ctx->pool = subpool;
       parser_ctx->user_data = lock_ctx;
       parser_ctx->start = start_lock;
       parser_ctx->end = end_lock;
       parser_ctx->cdata = cdata_lock;
       parser_ctx->done = &lock_ctx->done;
-     
+
       handler->header_delegate = set_lock_headers;
       handler->header_delegate_baton = lock_ctx;
 
@@ -598,19 +624,41 @@ svn_ra_serf__lock(svn_ra_session_t *ra_session,
 
       handler->response_handler = handle_lock;
       handler->response_baton = parser_ctx;
-      
+
       svn_ra_serf__request_create(handler);
-      error = svn_ra_serf__context_run_wait(&lock_ctx->done, session, subpool);
-      SVN_ERR(lock_ctx->error);
-      SVN_ERR(parser_ctx->error);
-      if (error)
+      err = svn_ra_serf__context_run_wait(&lock_ctx->done, session, subpool);
+
+      if (!lock_ctx->error)
         {
-          return svn_error_create(SVN_ERR_RA_DAV_REQUEST_FAILED, error,
-                                  _("Lock request failed"));
+          if (parser_ctx->error)
+            {
+              svn_error_clear(err);
+              return parser_ctx->error;
+            }
         }
 
-      SVN_ERR(lock_func(lock_baton, lock_ctx->path, TRUE, lock_ctx->lock, NULL,
-                        subpool));
+      svn_error_clear(parser_ctx->error);
+
+      /* An error stored in lock_ctx->error will always have a more specific
+         error code as the one returen from serf_context_run (err), so we prefer
+         to pass this back to the caller. However, if no such error is stored in
+         lock_ctx->error, we still want to use the error returned from
+         serf_context_run, as in some situations, eg. an 'out of date' error
+         will be returned this way. */
+      if (lock_ctx->error && !SVN_ERR_IS_LOCK_ERROR(lock_ctx->error))
+        {
+          svn_error_clear(err);
+
+          return lock_ctx->error;
+        }
+
+      if (lock_func)
+        new_err = lock_func(lock_baton, lock_ctx->path, TRUE, lock_ctx->lock,
+                        lock_ctx->error ? lock_ctx->error : err, subpool);
+      svn_error_clear(err);
+      svn_error_clear(lock_ctx->error);
+
+      SVN_ERR(new_err);
     }
 
   return SVN_NO_ERROR;
@@ -661,7 +709,7 @@ svn_ra_serf__unlock(svn_ra_session_t *ra_session,
       void *val;
       struct unlock_context_t unlock_ctx;
 
-      apr_pool_clear(subpool);
+      svn_pool_clear(subpool);
 
       ctx = apr_pcalloc(subpool, sizeof(*ctx));
 
@@ -684,8 +732,13 @@ svn_ra_serf__unlock(svn_ra_session_t *ra_session,
                                       path);
 
               if (lock_func)
-                SVN_ERR(lock_func(lock_baton, path, FALSE, NULL, err, subpool));
-
+                {
+                  svn_error_t *err2;
+                  err2 = lock_func(lock_baton, path, FALSE, NULL, err, subpool);
+                  svn_error_clear(err);
+                  if (err2)
+                    return err2;
+                }
               continue;
             }
         }
@@ -697,18 +750,18 @@ svn_ra_serf__unlock(svn_ra_session_t *ra_session,
                                            subpool);
 
       handler = apr_pcalloc(subpool, sizeof(*handler));
-      
+
       handler->method = "UNLOCK";
       handler->path = req_url;
       handler->conn = session->conns[0];
       handler->session = session;
-      
+
       handler->header_delegate = set_unlock_headers;
       handler->header_delegate_baton = &unlock_ctx;
 
       handler->response_handler = svn_ra_serf__handle_status_only;
       handler->response_baton = ctx;
-      
+
       svn_ra_serf__request_create(handler);
       SVN_ERR(svn_ra_serf__context_run_wait(&ctx->done, session, subpool));
 

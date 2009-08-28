@@ -1,0 +1,41 @@
+Announcing XOTcl 1.3.9
+*************************
+
+Hi everybody. I am pleased to annouce the availability of XOTcl 1.3.9.
+Major changes relative to 1.3.8 are:
+
+     * Improved Functionality
+       + new subcommand for self: [self args] return the full argument list 
+          of the current call
+       + "<obj> info vars" does not trigger read traces on each variable anymore
+       + Serializer: exportMethods accepts forwards/instforwards now 
+           as well
+       + new switch -nocomplain for "mixin|instmixin|filter|instfilter delete"
+            to avoid error messages when deleting entries not there (similar unset) 
+       + require automatically a namespace when a childobject is added
+       + new command ::xotcl::__qualify: convert an relative name
+           into an command name (exactly as create does it, ignoring
+           namespaces from transparent interceptors)
+
+     * Improved code quality: 
+       + fixing version numbers for package require 
+       + Upgraded TEA to 3.4
+       + updated rpm build (many thanks to Ildiko Schmidt and Alexander Bergolth)
+       + fixed bug with error propagation when getter/setter methods are 
+           used for parameters (many thanks to Manfred Stelzhammer for
+           pointing this out)
+
+ For more details about the changes, please consult the ChangeLog and
+ documentation.
+
+MORE INFO
+  General and more detailed information about XOTcl and its components
+  can be found at http://www.xotcl.org
+
+
+Best regards,
+
+Gustaf Neumann
+Uwe Zdun
+
+

@@ -1,3 +1,5 @@
+@subheading stringprep_convert
+@anchor{stringprep_convert}
 @deftypefun {char *} {stringprep_convert} (const char * @var{str}, const char * @var{to_codeset}, const char * @var{from_codeset})
 @var{str}: input zero-terminated string.
 

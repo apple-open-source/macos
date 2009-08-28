@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2006 International Business Machines
+// * Copyright (C) 2008 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/mr.xml
@@ -169,7 +169,13 @@ mr{
     LocaleScript{
         "Deva",
     }
-    Version{"1.50"}
+    NumberPatterns{
+        "#,##,##0.###",
+        "¤ #,##,##0.00",
+        "#,##,##0%",
+        "#E0",
+    }
+    Version{"1.69"}
     calendar{
         gregorian{
             AmPmMarkers{
@@ -208,7 +214,7 @@ mr{
                 format{
                     abbreviated{
                         "जानेवारी",
-                        "फेबृवारी",
+                        "फेब्रुवारी",
                         "मार्च",
                         "एप्रिल",
                         "मे",
@@ -222,7 +228,7 @@ mr{
                     }
                     wide{
                         "जानेवारी",
-                        "फेबृवारी",
+                        "फेब्रुवारी",
                         "मार्च",
                         "एप्रिल",
                         "मे",
@@ -238,13 +244,16 @@ mr{
             }
         }
     }
+    delimiters{
+        alternateQuotationEnd{"\""}
+        alternateQuotationStart{"\""}
+        quotationEnd{"'"}
+        quotationStart{"'"}
+    }
     zoneStrings{
-        "Asia:Calcutta"{
-            ec{"Calcutta"}
-            ld{"भारतीय समय"}
+        "meta:India"{
+            cu:int{1}
             ls{"भारतीय समय"}
-            sd{"IST"}
-            ss{"IST"}
         }
     }
 }

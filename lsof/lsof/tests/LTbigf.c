@@ -107,6 +107,21 @@ main(argc, argv)
 #endif	/* defined(LT_DIAL_bsdi) */
 
 
+#if	defined(LT_DIAL_darwin)
+/*
+ * Darwin-specific definitions
+ */
+
+# if	LT_VERS>=900
+#define	OFFSET_T	off_t		/* define offset type */
+#define	OPENF		open		/* define open function */
+#define	SEEKF		lseek		/* define seek function */
+#define	STATF		stat		/* define stat function */
+#define	STATS		struct stat	/* define stat structure */
+# endif	/* LT_VERS>=900 */
+#endif	/* defined(LT_DIAL_darwin) */
+
+
 #if	defined(LT_DIAL_du)
 /*
  * DEC_OSF/1|Digital_UNIX|Tru64_UNIX-specific items
@@ -139,12 +154,16 @@ main(argc, argv)
  */
 
 #undef	OFFTST_STAT
-#define	OFFTST_STAT	0		/* Linux lsof can't report offsets */
+#define	OFFTST_STAT	0		/* Linux lsof may not be able to report
+					 * offsets -- see the function
+					 * ck_Linux_offset_support() */
 #define	OFFSET_T	off_t		/* define offset type */
 #define	OPENF		open		/* define open function */
 #define	SEEKF		lseek		/* define seek function */
 #define	STATF		stat		/* define stat function */
 #define	STATS		struct stat	/* define stat structure */
+
+_PROTOTYPE(static int ck_Linux_offset_support,(void));
 #endif	/* defined(LT_DIAL_linux) */
 
 
@@ -273,6 +292,7 @@ main(argc, argv)
     char *argv[];			/* arguments */
 {
     char buf[2048];			/* temporary buffer */
+    int do_offt = OFFTST_STAT;		/* do offset tests if == 1 */
     char *em;				/* error message pointer */
     int i;				/* temporary integer */
     int len;				/* string length */
@@ -304,6 +324,14 @@ main(argc, argv)
 	PrtMsg       ("       -h       print help (this panel)", Pn);
 	PrtMsgX      ("       -p path  define test file path", Pn, cleanup, xv);
     }
+
+#if	defined(LT_DIAL_linux)
+/*
+ * If this is Linux, see if lsof can report file offsets.
+ */
+	do_offt = ck_Linux_offset_support();
+#endif	/* defined(LT_DIAL_linux) */
+
 /*
  * See if lsof can be executed and can access kernel memory.
  */
@@ -407,16 +435,15 @@ print_hint:
 	goto print_hint;
     }
 
-#if	OFFTST_STAT==0
 /*
- * Inhibit offset tests if lsof for this dialect doesn't support the reporting
- * of file offsets.
+ * If this dialect can't report offsets, disable the offset tests.
  */
-    tofft = toffx = 1;
-    PrtMsg("WARNING!!!  lsof can't return file offsets for this dialect,", Pn);
-    PrtMsg("  so offset tests have been disabled.", Pn);
-#endif	/* OFFTST_STAT==0 */
-
+    if (!do_offt) {
+	tofft = toffx = 1;
+	PrtMsg("WARNING!!!  lsof can't return file offsets for this dialect,",
+	    Pn);
+	PrtMsg("  so offset tests have been disabled.", Pn);
+    }
 /*
  * Do file size test.
  */
@@ -443,6 +470,50 @@ print_hint:
 }
 
 
+#if	defined(LT_DIAL_linux)
+/*
+ * ck_Linux_offset_support() -- see if lsof can report offsets for this
+ *				Linux implementation
+ */
+
+static int
+ck_Linux_offset_support()
+{
+	char buf[1024];			/* lsof output line buffer */
+	int bufl = sizeof(buf);		/* size of buf[] */
+	char *opv[5];			/* option vector for lsof */
+	int rv = 1;			/* return value:
+					 *     0 == no lsof offset support
+					 *     1 == lsof offset support */
+/*
+ * Ask lsof to report the test's FD zero offset.
+ */
+	if (IsLsofExec())
+	    return(0);
+	opv[0] = "-o";
+	snprintf(buf, bufl - 1, "-p%d", (int)getpid());
+	opv[1] = buf;
+	opv[2] = "-ad0";
+	opv[3] = "+w";
+	opv[4] = (char *)NULL;
+	if (ExecLsof(opv))
+	    return(0);
+/*
+ * Read the lsof output.  Look for a line with "WARNING: can't report offset"
+ * in it.  If it is found, then this Linux lsof can't report offsets.
+ */
+	while(fgets(buf, bufl - 1, LsofFs)) {
+	    if (strstr(buf, "WARNING: can't report offset")) {
+		rv = 0;
+		break;
+	    }
+	}
+	(void) StopLsof();
+	return(rv);
+}
+#endif	/* defined(LT_DIAL_linux) */
+
+
 /*
  * cleanup() -- release resources
  */
@@ -451,12 +522,19 @@ static void
 cleanup()
 {
     if (Fd >= 0) {
-	(void) close(Fd);
-	Fd = -1;
+/*
+ * Close the test file.
+ *
+ * But first unlink it to discourage some kernel file system implementations
+ * (e.g., HFS on Apple Darwin, aka Mac OS X) from trying to fill the file's
+ * large holes.  (Filling can take a long time.)
+ */
 	if (Path) {
 	    (void) unlink(Path);
 	    Path = (char *)NULL;
 	}
+	(void) close(Fd);
+	Fd = -1;
     }
 }
 
@@ -531,6 +609,8 @@ tstwlsof(tt, opt, sz)
 
 #if	defined(USE_LSOF_C_OPT)
     opv[ti++] = "-C";
+#else	/* !defined(USE_LSOF_C_OPT) */
+    opv[ti++] = "--";
 #endif	/* defined(USE_LSOF_C_OPT) */
 
     opv[ti++] = Path;

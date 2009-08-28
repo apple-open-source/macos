@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/tests/progs/slapd-modify.c,v 1.3.2.9 2006/01/03 22:16:28 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/tests/progs/slapd-modify.c,v 1.19.2.5 2008/02/11 23:26:50 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2006 The OpenLDAP Foundation.
+ * Copyright 1999-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -17,26 +17,27 @@
 
 #include <stdio.h>
 
-#include <ac/stdlib.h>
+#include "ac/stdlib.h"
 
-#include <ac/ctype.h>
-#include <ac/param.h>
-#include <ac/socket.h>
-#include <ac/string.h>
-#include <ac/unistd.h>
-#include <ac/wait.h>
+#include "ac/ctype.h"
+#include "ac/param.h"
+#include "ac/socket.h"
+#include "ac/string.h"
+#include "ac/unistd.h"
+#include "ac/wait.h"
 
-#define LDAP_DEPRECATED 1
-#include <ldap.h>
-#include <lutil.h>
+#include "ldap.h"
+#include "lutil.h"
+
+#include "slapd-common.h"
 
 #define LOOPS	100
 #define RETRIES 0
 
 static void
-do_modify( char *uri, char *host, int port, char *manager, char *passwd,
+do_modify( char *uri, char *manager, struct berval *passwd,
 		char *entry, char *attr, char *value, int maxloop,
-		int maxretries, int delay, int friendly );
+		int maxretries, int delay, int friendly, int chaserefs );
 
 
 static void
@@ -48,10 +49,13 @@ usage( char *name )
 		"-D <manager> "
 		"-w <passwd> "
 		"-e <entry> "
+		"[-i <ignore>] "
 		"[-l <loops>] "
+		"[-L <outerloops>] "
 		"[-r <maxretries>] "
 		"[-t <delay>] "
-		"[-F]\n",
+		"[-F] "
+		"[-C]\n",
 			name );
 	exit( EXIT_FAILURE );
 }
@@ -64,17 +68,26 @@ main( int argc, char **argv )
 	char		*host = "localhost";
 	int		port = -1;
 	char		*manager = NULL;
-	char		*passwd = NULL;
+	struct berval	passwd = { 0, NULL };
 	char		*entry = NULL;
 	char		*ava = NULL;
 	char		*value = NULL;
 	int		loops = LOOPS;
+	int		outerloops = 1;
 	int		retries = RETRIES;
 	int		delay = 0;
 	int		friendly = 0;
+	int		chaserefs = 0;
 
-	while ( (i = getopt( argc, argv, "FH:h:p:D:w:e:a:l:r:t:" )) != EOF ) {
-		switch( i ) {
+	tester_init( "slapd-modify", TESTER_MODIFY );
+
+	while ( ( i = getopt( argc, argv, "a:CD:e:FH:h:i:L:l:p:r:t:w:" ) ) != EOF )
+	{
+		switch ( i ) {
+		case 'C':
+			chaserefs++;
+			break;
+
 		case 'F':
 			friendly++;
 			break;
@@ -85,6 +98,10 @@ main( int argc, char **argv )
 
 		case 'h':		/* the servers host */
 			host = strdup( optarg );
+			break;
+
+		case 'i':
+			/* ignored (!) by now */
 			break;
 
 		case 'p':		/* the servers port */
@@ -98,7 +115,9 @@ main( int argc, char **argv )
 			break;
 
 		case 'w':		/* the server managers password */
-			passwd = strdup( optarg );
+			passwd.bv_val = strdup( optarg );
+			passwd.bv_len = strlen( optarg );
+			memset( optarg, '*', passwd.bv_len );
 			break;
 
 		case 'e':		/* entry to modify */
@@ -111,6 +130,12 @@ main( int argc, char **argv )
 
 		case 'l':		/* the number of loops */
 			if ( lutil_atoi( &loops, optarg ) != 0 ) {
+				usage( argv[0] );
+			}
+			break;
+
+		case 'L':		/* the number of outerloops */
+			if ( lutil_atoi( &outerloops, optarg ) != 0 ) {
 				usage( argv[0] );
 			}
 			break;
@@ -158,28 +183,31 @@ main( int argc, char **argv )
 	while ( *value && isspace( (unsigned char) *value ))
 		value++;
 
-	do_modify( uri, host, port, manager, passwd, entry, ava, value,
-			loops, retries, delay, friendly );
+	uri = tester_uri( uri, host, port );
+
+	for ( i = 0; i < outerloops; i++ ) {
+		do_modify( uri, manager, &passwd, entry, ava, value,
+				loops, retries, delay, friendly, chaserefs );
+	}
+
 	exit( EXIT_SUCCESS );
 }
 
 
 static void
-do_modify( char *uri, char *host, int port, char *manager,
-	char *passwd, char *entry, char* attr, char* value,
-	int maxloop, int maxretries, int delay, int friendly )
+do_modify( char *uri, char *manager,
+	struct berval *passwd, char *entry, char* attr, char* value,
+	int maxloop, int maxretries, int delay, int friendly, int chaserefs )
 {
 	LDAP	*ld = NULL;
 	int  	i = 0, do_retry = maxretries;
-	pid_t	pid;
 	int     rc = LDAP_SUCCESS;
 
 	struct ldapmod mod;
 	struct ldapmod *mods[2];
 	char *values[2];
+	int version = LDAP_VERSION3;
 
-	pid = getpid();
-	
 	values[0] = value;
 	values[1] = NULL;
 	mod.mod_op = LDAP_MOD_ADD;
@@ -189,30 +217,24 @@ do_modify( char *uri, char *host, int port, char *manager,
 	mods[1] = NULL;
 
 retry:;
-	if ( uri ) {
-		ldap_initialize( &ld, uri );
-	} else {
-		ld = ldap_init( host, port );
-	}
+	ldap_initialize( &ld, uri );
 	if ( ld == NULL ) {
-		perror( "ldap_init" );
+		tester_perror( "ldap_initialize", NULL );
 		exit( EXIT_FAILURE );
 	}
 
-	{
-		int version = LDAP_VERSION3;
-		(void) ldap_set_option( ld, LDAP_OPT_PROTOCOL_VERSION,
-			&version ); 
-	}
+	(void) ldap_set_option( ld, LDAP_OPT_PROTOCOL_VERSION, &version ); 
+	(void) ldap_set_option( ld, LDAP_OPT_REFERRALS,
+		chaserefs ? LDAP_OPT_ON : LDAP_OPT_OFF );
 
 	if ( do_retry == maxretries ) {
 		fprintf( stderr, "PID=%ld - Modify(%d): entry=\"%s\".\n",
 			(long) pid, maxloop, entry );
 	}
 
-	rc = ldap_bind_s( ld, manager, passwd, LDAP_AUTH_SIMPLE );
+	rc = ldap_sasl_bind_s( ld, manager, LDAP_SASL_SIMPLE, passwd, NULL, NULL, NULL );
 	if ( rc != LDAP_SUCCESS ) {
-		ldap_perror( ld, "ldap_bind" );
+		tester_ldap_error( ld, "ldap_sasl_bind_s", NULL );
 		switch ( rc ) {
 		case LDAP_BUSY:
 		case LDAP_UNAVAILABLE:
@@ -232,9 +254,9 @@ retry:;
 
 	for ( ; i < maxloop; i++ ) {
 		mod.mod_op = LDAP_MOD_ADD;
-		rc = ldap_modify_s( ld, entry, mods );
+		rc = ldap_modify_ext_s( ld, entry, mods, NULL, NULL );
 		if ( rc != LDAP_SUCCESS ) {
-			ldap_perror( ld, "ldap_modify" );
+			tester_ldap_error( ld, "ldap_modify_ext_s", NULL );
 			switch ( rc ) {
 			case LDAP_TYPE_OR_VALUE_EXISTS:
 				/* NOTE: this likely means
@@ -259,9 +281,9 @@ retry:;
 		}
 		
 		mod.mod_op = LDAP_MOD_DELETE;
-		rc = ldap_modify_s( ld, entry, mods );
+		rc = ldap_modify_ext_s( ld, entry, mods, NULL, NULL );
 		if ( rc != LDAP_SUCCESS ) {
-			ldap_perror( ld, "ldap_modify" );
+			tester_ldap_error( ld, "ldap_modify_ext_s", NULL );
 			switch ( rc ) {
 			case LDAP_NO_SUCH_ATTRIBUTE:
 				/* NOTE: this likely means
@@ -290,7 +312,7 @@ retry:;
 done:;
 	fprintf( stderr, " PID=%ld - Modify done (%d).\n", (long) pid, rc );
 
-	ldap_unbind( ld );
+	ldap_unbind_ext( ld, NULL, NULL );
 }
 
 

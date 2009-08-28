@@ -2,8 +2,8 @@
 
   etc.c -
 
-  $Author: shyouhei $
-  $Date: 2007-03-16 20:53:15 +0900 (Fri, 16 Mar 2007) $
+  $Author: matz $
+  $Date: 2007-08-27 19:16:25 +0900 (Mon, 27 Aug 2007) $
   created at: Tue Mar 22 18:39:19 JST 1994
 
 ************************************************/
@@ -35,6 +35,8 @@ char *getenv();
 char *getlogin();
 
 /* Returns the short user name of the currently logged in user.
+ * Unfortunately, it is often rather easy to fool getlogin().
+ * Avoid getlogin() for security-related purposes.
  *
  * e.g.
  *   Etc.getlogin -> 'guest'

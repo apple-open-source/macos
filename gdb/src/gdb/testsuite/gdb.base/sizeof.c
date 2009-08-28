@@ -100,18 +100,18 @@ main ()
 {
   fill_structs ();
 
-  printf ("sizeof (char) == %d\n", sizeof (char));
-  printf ("sizeof (short) == %d\n", sizeof (short));
-  printf ("sizeof (int) == %d\n", sizeof (int));
-  printf ("sizeof (long) == %d\n", sizeof (long));
-  printf ("sizeof (long long) == %d\n", sizeof (long long));
+  printf ("sizeof (char) == %zd\n", sizeof (char));
+  printf ("sizeof (short) == %zd\n", sizeof (short));
+  printf ("sizeof (int) == %zd\n", sizeof (int));
+  printf ("sizeof (long) == %zd\n", sizeof (long));
+  printf ("sizeof (long long) == %zd\n", sizeof (long long));
 
-  printf ("sizeof (void *) == %d\n", sizeof (void*));
-  printf ("sizeof (void (*)(void)) == %d\n", sizeof (void (*)(void)));
+  printf ("sizeof (void *) == %zd\n", sizeof (void*));
+  printf ("sizeof (void (*)(void)) == %zd\n", sizeof (void (*)(void)));
 
-  printf ("sizeof (float) == %d\n", sizeof (float));
-  printf ("sizeof (double) == %d\n", sizeof (double));
-  printf ("sizeof (long double) == %d\n", sizeof (long double));
+  printf ("sizeof (float) == %zd\n", sizeof (float));
+  printf ("sizeof (double) == %zd\n", sizeof (double));
+  printf ("sizeof (long double) == %zd\n", sizeof (long double));
 
   /* Signed char?  */
   printf ("valueof ('\\377') == %d\n", '\377');

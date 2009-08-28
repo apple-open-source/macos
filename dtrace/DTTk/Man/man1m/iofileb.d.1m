@@ -10,8 +10,7 @@ iofile.d script - which prints in terms of I/O wait time, not bytes.
 I/O wait time is a better metric for understanding performance issues.
 Both disk and NFS I/O are measured.
 
-Since this uses DTrace, only the root user or users with the
-dtrace_kernel privilege can run this command.
+Since this uses DTrace, only users with root privileges can run this command.
 .SH EXAMPLES
 .TP
 Sample until Ctrl\-C is hit then print report,

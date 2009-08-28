@@ -1,10 +1,9 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1997-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1997,2007 Oracle.  All rights reserved.
  *
- * $Id: AccessExample.cpp,v 1.2 2004/03/30 01:23:18 jtownsen Exp $
+ * $Id: AccessExample.cpp,v 12.5 2007/05/17 15:15:31 bostic Exp $
  */
 
 #include <sys/types.h>
@@ -113,12 +112,10 @@ void AccessExample::run(bool removeExistingDatabase, const char *fileName)
 	// Insert records into the database, where the key is the user
 	// input and the data is the user input in reverse order.
 	//
-	char buf[1024];
-	char rbuf[1024];
-	char *t;
-	char *p;
+	char buf[1024], rbuf[1024];
+	char *p, *t;
 	int ret;
-	int len;
+	u_int32_t len;
 
 	for (;;) {
 		cout << "input> ";
@@ -128,7 +125,7 @@ void AccessExample::run(bool removeExistingDatabase, const char *fileName)
 		if (cin.eof())
 			break;
 
-		if ((len = strlen(buf)) <= 0)
+		if ((len = (u_int32_t)strlen(buf)) <= 0)
 			continue;
 		for (t = rbuf, p = buf + (len - 1); p >= buf;)
 			*t++ = *p--;

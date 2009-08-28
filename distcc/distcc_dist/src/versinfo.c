@@ -13,6 +13,12 @@
 #include "trace.h"
 #include "versinfo.h"
 
+// Path to xcode-select(1) to use to find the current developer directory path
+#define XCODE_SELECT_PATH "/usr/bin/xcode-select"
+// Environment variable controlling whether to use xcode-select(1) to find compilers
+#define XCODE_SELECT_ENV_SWITCH "USE_XCODE_SELECT_PATH"
+#define MAX_PLATFORM_PATHS 25       // could you have more than 25 unique platform paths? 
+
 typedef struct _CompilerInfo {
     char *abs_path;          /* Absolute path to the compiler's executable */
     char *raw_path;          /* Path to compare to the client's compiler path */
@@ -99,6 +105,163 @@ static const char *dcc_get_executable_path()
     return exe_path;
 }
 
+/* Get the path to the usr directory in the xcode-select-indicated developer directory */
+static const char *dcc_get_xcodeselect_path()
+{
+    char *returnPath = NULL;
+    static char xcodeSelectUsrPath[PATH_MAX];
+
+    char *developerPath = dcc_run_simple_command(XCODE_SELECT_PATH" --print-path");
+    if (NULL == developerPath) {
+        rs_log_error(XCODE_SELECT_PATH" failed.");
+    }
+    else {
+        char unresolvedPath[PATH_MAX];
+        strlcpy(unresolvedPath, developerPath, sizeof(unresolvedPath));
+        
+        // Strip trailing newline
+        size_t len = strlen(unresolvedPath);
+        if (len > 0 && '\n' == unresolvedPath[len - 1]) {
+            unresolvedPath[len - 1] = '\0';
+        }
+        
+        strlcat(unresolvedPath, "/usr", sizeof(unresolvedPath));
+        char *ret = realpath(unresolvedPath, xcodeSelectUsrPath);
+        if (NULL == ret) {
+            rs_log_error("Cannot resolve xcode-select'ed developer usr directory %s.", xcodeSelectUsrPath);
+            *xcodeSelectUsrPath = 0;
+        }
+        else {
+            returnPath = xcodeSelectUsrPath;
+        }
+        
+        free(developerPath);
+    }
+    
+    return returnPath;
+}
+
+/* Get the path to the usr directory to use */
+static const char *dcc_get_usr_path()
+{
+    const char *usr_path;
+    
+    if (dcc_getenv_bool(XCODE_SELECT_ENV_SWITCH)) {
+        usr_path = dcc_get_xcodeselect_path();
+    }
+    else {
+        usr_path = dcc_get_executable_path();
+    }
+        
+    return usr_path;
+}
+
+/* Get the path to the usr directory to use */
+static const char **dcc_get_platform_usr_paths()
+{
+    static const char **platform_usr_paths = 0;
+
+    if ( platform_usr_paths ) {
+        return platform_usr_paths;
+    }
+    
+    // initialize the static table
+    platform_usr_paths = calloc( MAX_PLATFORM_PATHS+1, sizeof(char*) );
+    int pupIndex = 0;
+    platform_usr_paths[pupIndex++] = dcc_get_usr_path();  // const char*
+    
+    if ( !dcc_getenv_bool(XCODE_SELECT_ENV_SWITCH) ) {
+        return platform_usr_paths;
+    }
+    
+    
+    /* when using XCODE_SELECT_ENV_SWITCH, also look in Platforms */
+
+    char *platformPaths = dcc_run_simple_command("xcodebuild -version -sdk | grep PlatformPath | sort -u | sed -e 's|PlatformPath: ||g' | sed -e 's|\\.platform|\\.platform/Developer/usr|g'  ");
+
+    if (NULL == platformPaths) {
+        // that didn't work, log and revert to non-Platform behaviour
+        rs_log_error("failed to enumerate platforms with xcodebuild.");
+        return platform_usr_paths;
+    }
+
+#if 0       // example of what the table might look like
+    platform_usr_paths[pupIndex++] = "/Developer/Platforms/iPhoneOS.platform/Developer/usr";
+    platform_usr_paths[pupIndex++] = "/Developer/Platforms/iPhoneSimulator.platform/Developer/usr";
+    return platform_usr_paths;
+#endif
+
+    // Parse the command results
+    int     len = strlen(platformPaths);
+    int     i;
+    for (i=0; i<len; i++)
+        if (platformPaths[i] == '\n')
+            platformPaths[i] = '\0';
+    
+    for (i=0; i<len; i++, platformPaths++) {
+       if ( platform_usr_paths[pupIndex] == NULL ) {
+            // waiting for a new path
+            if ( *platformPaths != '\0' ) {
+                // found one
+                platform_usr_paths[pupIndex] = platformPaths;  // save off a platform path
+            }
+       } else if ( *platformPaths != '\0' ) {
+            // found end of path, ready for the next one
+            pupIndex++;
+       }
+    }
+
+    return platform_usr_paths;
+}
+
+
+void dcc_parse_compiler(CompilerInfo **compilers, char * linePointer, size_t buff_len )
+{
+    const char **platform_paths = dcc_get_platform_usr_paths();
+    
+    int index;
+    for ( index = 0; platform_paths[index]; index++) {
+        /*
+         * We have not seen this compiler before so allocate a new node note
+         * that we do not fill in the version info here
+         */
+        CompilerInfo *ci = (CompilerInfo *)calloc(1, sizeof(CompilerInfo));
+        const char *usr_path = platform_paths[index];
+
+        /* The "raw path" is unaltered from the 'distcc_compilers' file. It
+         * is used during comparisons against the client's compiler path. */
+        ci->raw_path = (char *)calloc(1, buff_len);
+        strlcpy(ci->raw_path, linePointer, buff_len);
+
+        if (*ci->raw_path != '/') {
+            /* This is a relative path */
+            char c_path[PATH_MAX];
+            strlcpy(c_path, usr_path, sizeof(c_path));
+            strlcat(c_path, "/", sizeof(c_path));
+            strlcat(c_path, ci->raw_path, sizeof(c_path));
+            ci->abs_path = strdup(c_path);
+        } else {
+            /* This is an absolute path */
+            ci->abs_path = ci->raw_path;
+        }
+        
+        struct stat cc_sb;
+        if (stat(ci->abs_path, &cc_sb) == 0) {
+            ci->next = *compilers;
+            *compilers = ci;
+        } else {
+            if (ci->raw_path != ci->abs_path) free(ci->raw_path);
+            free(ci->abs_path);
+            free(ci);
+        }
+
+        /* absolute paths resolve only once */
+        if (*ci->raw_path == '/') {
+            break;
+        }
+    }
+}
+
 static CompilerInfo *dcc_parse_distcc_compilers()
 {
     /*
@@ -123,7 +286,7 @@ static CompilerInfo *dcc_parse_distcc_compilers()
     }
 
     if (stat(distcc_path, &sb) != 0) {
-        rs_log_error("distcc_compilers file not found on path '%s'!", exe_path);
+        rs_log_error("distcc_compilers file not found on path '%s' ('%s') !", exe_path, distcc_path);
         return NULL;
     }
 
@@ -146,6 +309,8 @@ static CompilerInfo *dcc_parse_distcc_compilers()
         close(compilersFD);
         return NULL;
     }
+    
+    const char *usr_path = dcc_get_usr_path();
 
     compilersBuff[sb.st_size] = '\0'; // null terminate
 
@@ -160,40 +325,10 @@ static CompilerInfo *dcc_parse_distcc_compilers()
     int lineStart, lineLen, compilerCount = 0;
     for (lineStart = 0; lineStart < sb.st_size; lineStart += lineLen + 1) {
         lineLen = strlen(&compilersBuff[lineStart]);
-        if (lineLen > 0 && compilersBuff[lineStart] != '#') {
-            /*
-             * We have not seen this compiler before so allocate a new node note
-             * that we do not fill in the version info here
-             */
-            CompilerInfo *ci = (CompilerInfo *)calloc(1, sizeof(CompilerInfo));
-            size_t buff_len = strlen(&compilersBuff[lineStart]) + 1;
+        if (lineLen > 0 && compilersBuff[lineStart] != '#')  {
+            
+            dcc_parse_compiler(&compilers, &compilersBuff[lineStart], strlen(&compilersBuff[lineStart]) + 1 );
 
-            /* The "raw path" is unaltered from the 'distcc_compilers' file. It
-             * is used during comparisons against the client's compiler path. */
-            ci->raw_path = (char *)calloc(1, buff_len);
-            strlcpy(ci->raw_path, &compilersBuff[lineStart], buff_len);
-
-            if (*ci->raw_path != '/') {
-                /* This is a relative path */
-                char c_path[PATH_MAX];
-                strlcpy(c_path, exe_path, sizeof(c_path));
-                strlcat(c_path, "/", sizeof(c_path));
-                strlcat(c_path, ci->raw_path, sizeof(c_path));
-                ci->abs_path = strdup(c_path);
-            } else {
-                /* This is an absolute path */
-                ci->abs_path = ci->raw_path;
-            }
-
-            struct stat cc_sb;
-            if (stat(ci->abs_path, &cc_sb) == 0) {
-                ci->next = compilers;
-                compilers = ci;
-            } else {
-                if (ci->raw_path != ci->abs_path) free(ci->raw_path);
-                free(ci->abs_path);
-                free(ci);
-            }
         }
     }
 
@@ -207,12 +342,10 @@ static CompilerInfo *dcc_parse_distcc_compilers()
  *
  *   - If it is a relative path, take the last two components of the compiler
  *     path from the client's incoming compiler path and compare it. If there is
- *     a match, use _NSGetExecutablePath() to get the path to that compiler,
- *     remove the last two path components to obtain the <developer_usr_dir>
- *     path prefix, apply it to the validated compiler subpath, and verify that
- *     the resulting path exists.
+ *     a match, append it to the path returned by dcc_get_usr_path() and verify
+ *     that the resulting path exists.
  *     
- *   - If it is an absoluate path and it's equal to the compiler path, then
+ *   - If it is an absolute path and it's equal to the compiler path, then
  *     verify that that compiler exists and, if so, use it.
  */
 static CompilerInfo *dcc_compiler_info_for_path(const char *compiler)
@@ -222,6 +355,18 @@ static CompilerInfo *dcc_compiler_info_for_path(const char *compiler)
     if (!compilers) {
         rs_log_error("Couldn't find or parse 'distcc_compilers' file");
         return NULL;
+    }
+
+    if ( compiler[0] == '/' ) {
+        /* full path specified, see if an exact match within <DEVELOPER_DIR> is possible */
+        char* compilerPlatformDir = strstr(compiler, "/Platforms/");
+        CompilerInfo *pointer = compilers;
+        for (; pointer; pointer = pointer->next) {
+            char* absPathPlatformDir = strstr(pointer->abs_path, "/Platforms/");
+            if ( compilerPlatformDir && absPathPlatformDir && strcmp(absPathPlatformDir, compilerPlatformDir) == 0 ) {
+                return pointer;
+            }
+        }
     }
 
     /* Find the last two components of the client's compiler path */
@@ -242,7 +387,7 @@ static CompilerInfo *dcc_compiler_info_for_path(const char *compiler)
             /* Absolute path. We want to compare against the full client's
              * path */
             compiler_path = compiler;
-
+ 
         if (strcmp(compilers->raw_path, compiler_path) == 0)
             break;
     }
@@ -301,10 +446,25 @@ char *dcc_get_compiler_version(char *compilerPath)
     return _dcc_get_compiler_version(dcc_compiler_info_for_path(compilerPath));
 }
 
-int dcc_is_allowed_compiler(char *path)
+char *dcc_get_allowed_compiler_for_path(char *path)
 {
+    char *compilerPath = NULL;
+
     rs_trace("(dcc_is_allowed_compiler) allowed compiler path: %s", path);
-    return dcc_compiler_info_for_path(path) != NULL;
+    CompilerInfo *info = dcc_compiler_info_for_path(path);
+    
+    if (info && info->abs_path) {
+        size_t bufSize = strlen(info->abs_path) + 1;
+        compilerPath = malloc(bufSize);
+        if (compilerPath) {
+            size_t copylen = strlcpy(compilerPath, info->abs_path, bufSize);
+            if (0 == copylen) {
+                free(compilerPath);
+                compilerPath = NULL;
+            }
+        }
+    }
+    return compilerPath;
 }
 
 /*

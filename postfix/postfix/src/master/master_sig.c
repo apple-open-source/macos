@@ -166,6 +166,8 @@ static void master_sigchld(int sig)
 #endif
 
 #ifdef __APPLE_OS_X_SERVER__
+#include <stdio.h>
+#include <string.h>
 
 static void sigusr1_handler(int sig)
 {
@@ -180,7 +182,7 @@ static void sigusr1_handler(int sig)
 	}
 	else
 	{
-		sprintf( pData, SRVR_MGR_DATA, smtp_count, smtpd_count );
+		snprintf( pData, sizeof pData, SRVR_MGR_DATA, smtp_count, smtpd_count );
 
 		if ( lseek(file_fd, 0, SEEK_SET) == -1 ||
 			ftruncate(file_fd, 0) == -1 ||

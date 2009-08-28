@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,7 +22,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <AvailabilityMacros.h>
 
 #if __ppc__ && __DYNAMIC__
 //
@@ -86,7 +85,7 @@ start:	mr      r26,r1              ; save original stack pointer into r26
 	addi	r27,r3,1            ; calculate argc + 1 into r27
 	slwi	r27,r27,2	    ; calculate (argc + 1) * sizeof(char *) into r27
 	add     r5,r4,r27           ; get address of env[0] into r5
-#if MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_5	
+#if OLD_LIBSYSTEM_SUPPORT	
 	bl	__start		    ; 24-bt branch to __start.  ld64 will make a branch island if needed
 	trap                        ; should never return
 #else
@@ -113,7 +112,7 @@ start:	mr      r26,r1              ; save original stack pointer into r26
 	addi	r27,r3,1            ; calculate argc + 1 into r27
 	sldi	r27,r27,3	    ; calculate (argc + 1) * sizeof(char *) into r27
 	add     r5,r4,r27           ; get address of env[0] into r5
-#if MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_5	
+#if OLD_LIBSYSTEM_SUPPORT	
 	bl	__start		    ; 24-bt branch to __start.  ld64 will make a branch island if needed
 	trap                        ; should never return
 #else
@@ -141,7 +140,7 @@ start:	pushl	$0		    # push a zero for debugger end of frames marker
 	sall	$2,%ebx		    # * sizeof(char *)
 	addl	%ecx,%ebx	    # addr of env[0], envp, into %ebx
 	movl	%ebx,8(%esp)	    # envp to reserved stack word
-#if MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_5	
+#if OLD_LIBSYSTEM_SUPPORT	
 	call	__start		    # call _start(argc, argv, envp)
 	hlt			    # should never return
 #else
@@ -169,7 +168,7 @@ start:	pushq	$0		    # push a zero for debugger end of frames marker
 	addl	$1,%edx		    # argc + 1 for zero word
 	sall	$3,%edx		    # * sizeof(char *)
 	addq	%rsi,%rdx	    # addr of env[0], envp, into %rdx
-#if MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_5	
+#if OLD_LIBSYSTEM_SUPPORT	
 	call	__start		    # call _start(argc, argv, envp)
 	hlt			    # should never return
 #else
@@ -186,6 +185,58 @@ Lapple2:cmpq	$0,(%rcx)	    # look for NULL ending env[] array
 #endif
 #endif // __x86_64__ 
 
+#ifdef __arm__
+start:
+	ldr	r0, [sp]		// get argc into r0
+	add	r1, sp, #4		// get argv into r1
+	add	r4, r0, #1		// calculate argc + 1 into r4
+	add	r2, r1, r4, lsl #2	// get address of env[0] into r2
+	bic	sp, sp, #7		// force eight-byte alignment
+#if OLD_LIBSYSTEM_SUPPORT	
+	bl	__start
+	.long	0xe1200070		// should never return
+#else
+	mov	r3, r2 
+Lapple:
+	ldr	r4, [r3], #4		// look for NULL ending env[] array
+	cmp	r4, #0
+	bne	Lapple			
+					// "apple" param now in r3
+#if __STATIC__
+	bl	_main
+	b	_exit
+#else
+// use -mlong-branch style call sites so that main executable can be >32MB 
+	ldr	ip, L4
+L2:	add	ip, pc, ip
+	ldr	ip, [ip, #0]
+#if __ARM_ARCH_4T__
+	mov lr, pc		// blx not supported, so simulate it in two steps
+	bx  ip
+#else
+	blx	ip			// call main()
+#endif
+	
+	ldr	ip, L5
+L3:	add	ip, pc, ip
+	ldr	ip, [ip, #0]
+	bx	ip			// jmp exit()
+	
+L4:	.long	L_main$non_lazy_ptr-(L2+8)
+L5:	.long	L_exit$non_lazy_ptr-(L3+8)
+
+	.non_lazy_symbol_pointer
+L_main$non_lazy_ptr:
+	.indirect_symbol _main
+	.long	0
+L_exit$non_lazy_ptr:
+	.indirect_symbol _exit
+	.long	0
+#endif
+
+
+#endif
+#endif /* __arm__ */
 
 // This code has be written to allow dead code stripping
 	.subsections_via_symbols

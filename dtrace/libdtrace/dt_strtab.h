@@ -2,9 +2,8 @@
  * CDDL HEADER START
  *
  * The contents of this file are subject to the terms of the
- * Common Development and Distribution License, Version 1.0 only
- * (the "License").  You may not use this file except in compliance
- * with the License.
+ * Common Development and Distribution License (the "License").
+ * You may not use this file except in compliance with the License.
  *
  * You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
  * or http://www.opensolaris.org/os/licensing.
@@ -19,15 +18,16 @@
  *
  * CDDL HEADER END
  */
+
 /*
- * Copyright 2004 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
 #ifndef	_DT_STRTAB_H
 #define	_DT_STRTAB_H
 
-#pragma ident	"@(#)dt_strtab.h	1.3	05/06/08 SMI"
+#pragma ident	"@(#)dt_strtab.h	1.4	06/09/19 SMI"
 
 #if !defined(__APPLE__)
 #include <sys/types.h>
@@ -63,6 +63,7 @@ typedef ssize_t dt_strtab_write_f(const char *, size_t, size_t, void *);
 
 extern dt_strtab_t *dt_strtab_create(size_t);
 extern void dt_strtab_destroy(dt_strtab_t *);
+extern ssize_t dt_strtab_index(dt_strtab_t *, const char *);
 extern ssize_t dt_strtab_insert(dt_strtab_t *, const char *);
 extern size_t dt_strtab_size(const dt_strtab_t *);
 extern ssize_t dt_strtab_write(const dt_strtab_t *,

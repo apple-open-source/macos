@@ -1,8 +1,6 @@
 
                       Traces of the ApacheDBI modules
 
-$Id: traces.txt,v 1.1.1.1 2004/05/25 23:07:10 jpetri Exp $
-
 The traces are supposed to serve as a reference, to check the local setup.
 They also serve as specification for regression testing of the modules.
 

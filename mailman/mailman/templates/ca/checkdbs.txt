@@ -1,7 +1,8 @@
-La llista de correu de %(real_name)s@%(host_name)s té %(count)d peticions
-Esperant la seva consideració a:
+La llista de correu de %(real_name)s@%(host_name)s tÃ© %(count)d solÂ·licituds
+pendents a:
 
 	%(adminDB)s
 	
-Si us plau, ocupi's d'això quan li sigui possible.  Aquesta notificació de solicituds pendents, si n'hi ha,
-serà enviada diàriament.
+Us n'haurÃ­eu d'ocupar tan bon punt us sigui possible.  En cas que n'hi
+hagi, se us enviarÃ  aquesta notificaciÃ³ de solÂ·licituds pendents a
+diari.

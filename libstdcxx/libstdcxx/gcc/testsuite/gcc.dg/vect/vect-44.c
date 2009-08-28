@@ -5,8 +5,6 @@
 
 #define N 256
 
-typedef float afloat __attribute__ ((__aligned__(16)));
-
 void bar (float *pa, float *pb, float *pc) 
 {
   int i;
@@ -21,6 +19,13 @@ void bar (float *pa, float *pb, float *pc)
   return;
 }
 
+/* Unaligned pointer accesses, with unknown alignment.
+   The loop bound is known and divisible by the vectorization factor.
+   No aliasing problems.
+   vect-50.c is similar to this one with one difference:
+        the loop bound is unknown.
+   vect-45.c is similar to this one with one difference:
+        can't prove that pointers don't alias.  */
 
 int
 main1 (float * __restrict__ pa, float * __restrict__ pb, float * __restrict__ pc)
@@ -40,9 +45,9 @@ main1 (float * __restrict__ pa, float * __restrict__ pb, float * __restrict__ pc
 int main (void)
 {
   int i;
-  afloat a[N+4];
-  afloat b[N+4] = {0,3,6,9,12,15,18,21,24,27,30,33,36,39,42,45,48,51,54,57,60,63,66,69};
-  afloat c[N+4] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23};
+  float a[N+4] __attribute__ ((__aligned__(16)));
+  float b[N+4] __attribute__ ((__aligned__(16))) = {0,3,6,9,12,15,18,21,24,27,30,33,36,39,42,45,48,51,54,57,60,63,66,69};
+  float c[N+4] __attribute__ ((__aligned__(16))) = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23};
 
   check_vect ();
 
@@ -54,6 +59,12 @@ int main (void)
   return 0;
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { xfail vect_no_align } } } */
+/* For targets that don't support misaligned loads we version for the 
+   all three accesses (peeling to align the store will not force the
+   two loads to be aligned).  */
+
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
 /* { dg-final { scan-tree-dump-times "Vectorizing an unaligned access" 2 "vect" { xfail vect_no_align } } } */
 /* { dg-final { scan-tree-dump-times "Alignment of access forced using peeling" 1 "vect" { xfail vect_no_align } } } */
+/* { dg-final { scan-tree-dump-times "Alignment of access forced using versioning." 3 "vect" { target vect_no_align } } } */
+/* { dg-final { cleanup-tree-dump "vect" } } */

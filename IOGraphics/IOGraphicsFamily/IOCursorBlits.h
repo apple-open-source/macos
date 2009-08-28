@@ -104,72 +104,26 @@ void IOFramebuffer::StdFBDisplayCursor555(
     }
 }
 
-void IOFramebuffer::StdFBDisplayCursor444(
-                IOFramebuffer * inst,
-                StdFBShmem_t *shmem,
-                volatile unsigned short *vramPtr,
-                unsigned int cursStart,
-                unsigned int vramRow,
-                unsigned int cursRow,
-                int width,
-                int height )
-{
-    int i, j;
-    volatile unsigned short *savePtr;	/* saved screen data pointer */
-    volatile unsigned short *cursPtr;
-    unsigned short s, d, f;
-
-    savePtr = (volatile unsigned short *) inst->cursorSave;
-    cursPtr = (volatile unsigned short *) inst->__private->cursorImages[ shmem->frame ];
-    cursPtr += cursStart;
-
-    for (i = height; --i >= 0; ) {
-        for (j = width; --j >= 0; ) {
-            d = *savePtr++ = *vramPtr;
-            if ( (s = *cursPtr++) == 0 )
-            {	/* Transparent black area.  Leave dst as is. */
-                ++vramPtr;
-                continue;
-            }
-            if ( (f = (~s) & (unsigned int)AMASK) == 0 )
-            {	/* Opaque cursor pixel.  Mark it. */
-                *vramPtr++ = s;
-                continue;
-            }
-            if ((f == AMASK))
-            {	/* Transparent non black cursor pixel.  xor it. */
-                *vramPtr++ = d ^ s;
-                continue;
-            }
-            /* Alpha is not 0 or 1.0.  Sover the cursor. */
-            *vramPtr++ = s + (((((d & RBMASK)>>4)*f + GAMASK) & RBMASK)
-                              | ((((d & GAMASK)*f+GAMASK)>>4) & GAMASK));
-        }
-        cursPtr += cursRow; /* starting point of next cursor line */
-        vramPtr += vramRow; /* starting point of next screen line */
-    }
-}
-
 static inline unsigned int MUL32(unsigned int a, unsigned int b)
 {
     unsigned int v, w;
 
-    v  = ((a & 0xff00ff00) >> 8) * b;
-    v += ((v & 0xff00ff00) >> 8) + 0x00010001;
-    w  = (a & 0x00ff00ff) * b;
-    w += ((w & 0xff00ff00) >> 8) + 0x00010001;
+    v  = ((a & 0xFF00FF00) >> 8) * b;
+    v += ((v & 0xFF00FF00) >> 8) + 0x00010001;
+    w  = (a & 0x00FF00FF) * b;
+    w += ((w & 0xFF00FF00) >> 8) + 0x00010001;
 
-    return (v & 0xff00ff00) | ((w >> 8) & 0x00ff00ff);
+    return (v & 0xFF00FF00) | ((w >> 8) & 0x00FF00FF);
 }
 
 static inline unsigned char map32to256( unsigned char *directToLogical, unsigned int s)
 {
     unsigned char logicalValue;
 
-    if ((s ^ (s>>8)) & 0x00ffff00) {
+    if ((s ^ (s>>8)) & 0x00FFFF00) {
 	logicalValue =  directToLogical[(s>>24)        + 0] +
-			directToLogical[((s>>16)&0xff) + 256] +
-			directToLogical[((s>>8)&0xff)  + 512];
+			directToLogical[((s>>16)&0xFF) + 256] +
+			directToLogical[((s>>8)&0xFF)  + 512];
     } else {
 	logicalValue =  directToLogical[(s>>24)        + 768];
     }
@@ -212,13 +166,13 @@ void IOFramebuffer::StdFBDisplayCursor8P(
             if ((alpha = *maskPtr)) {
                 if ((alpha = ~alpha)) {
                     rgb32val = _bm256To38SampleTable[dst];
-                    rgb32val = (_bm256To38SampleTable[src] & ~0xff) +
+                    rgb32val = (_bm256To38SampleTable[src] & ~0xFF) +
                                       MUL32(rgb32val, alpha);
                     *vramPtr = map32to256(_bm38To256SampleTable, rgb32val);
                 } else
                     *vramPtr = src;
             } else if (src == white)
-                *vramPtr = dst ^ 0xff;
+                *vramPtr = dst ^ 0xFF;
         }
         cursPtr += cursRow; /* starting point of next cursor line */
         maskPtr += cursRow;
@@ -268,6 +222,55 @@ void IOFramebuffer::StdFBDisplayCursor8G(
     }
 }
 
+void IOFramebuffer::StdFBDisplayCursor30Axxx(
+                                 IOFramebuffer * inst,
+                                 StdFBShmem_t *shmem,
+                                 volatile unsigned int *vramPtr,
+                                 unsigned int cursStart,
+                                 unsigned int vramRow,
+                                 unsigned int cursRow,
+                                 int width,
+                                 int height )
+{
+    int i, j;
+    volatile unsigned int *savePtr;	/* saved screen data pointer */
+    unsigned long long s, d;
+    unsigned int f;
+    volatile unsigned int *cursPtr;
+
+    savePtr = (volatile unsigned int *) inst->cursorSave;
+    cursPtr = (volatile unsigned int *) inst->__private->cursorImages[ shmem->frame ];
+    cursPtr += cursStart;
+
+    /* Pixel format is Axxx */
+    for (i = height; --i >= 0; ) {
+        for (j = width; --j >= 0; ) {
+            d = *savePtr++ = *vramPtr;
+            s = *cursPtr++;
+            f = s >> 24;
+	    s = ((s&0x000000FF)<<2)|((s&0x0000FF00)<<4)|((s&0x00FF0000)<<6);
+            if (f) {
+                if (f == 0xFF)		// Opaque pixel
+                    *vramPtr++ = s;
+                else {			// SOVER the cursor pixel
+                    s <<= 10;  d <<= 10;   /* Now pixels are xxxA */
+                    f ^= 0xFF;
+                    d = s+(((((d&0xFFC00FFC00ULL)>>8)*f+0x0FF000FF) & 0xFFC00FFC00ULL)
+                        | ((((d & 0x3FF003FF)*f+0x0FF000FF)>>8) & 0x3FF003FF));
+                    *vramPtr++ = (d>>10) | 0xC0000000;
+                }
+            } else if (s) {
+                // Transparent non black cursor pixel.  xor it.
+                *vramPtr++ = d ^ s;
+                continue;
+            } else			// Transparent cursor pixel
+                vramPtr++;
+        }
+        cursPtr += cursRow; /* starting point of next cursor line */
+        vramPtr += vramRow; /* starting point of next screen line */
+    }
+}
+
 void IOFramebuffer::StdFBDisplayCursor32Axxx(
                                  IOFramebuffer * inst,
                                  StdFBShmem_t *shmem,
@@ -294,7 +297,7 @@ void IOFramebuffer::StdFBDisplayCursor32Axxx(
             s = *cursPtr++;
             f = s >> 24;
             if (f) {
-                if (f == 0xff)		// Opaque pixel
+                if (f == 0xFF)		// Opaque pixel
                     *vramPtr++ = s;
                 else {			// SOVER the cursor pixel
                     s <<= 8;  d <<= 8;   /* Now pixels are xxxA */
@@ -302,54 +305,7 @@ void IOFramebuffer::StdFBDisplayCursor32Axxx(
                     d = s+(((((d&0xFF00FF00)>>8)*f+0x00FF00FF)&0xFF00FF00)
                         | ((((d & 0x00FF00FF)*f+0x00FF00FF)>>8) &
                             0x00FF00FF));
-                    *vramPtr++ = (d>>8) | 0xff000000;
-                }
-            } else if (s) {
-                // Transparent non black cursor pixel.  xor it.
-                *vramPtr++ = d ^ s;
-                continue;
-            } else			// Transparent cursor pixel
-                vramPtr++;
-        }
-        cursPtr += cursRow; /* starting point of next cursor line */
-        vramPtr += vramRow; /* starting point of next screen line */
-    }
-}
-
-void IOFramebuffer::StdFBDisplayCursor32xxxA(
-                                            IOFramebuffer * inst,
-                                            StdFBShmem_t *shmem,
-                                            volatile unsigned int *vramPtr,
-                                            unsigned int cursStart,
-                                            unsigned int vramRow,
-                                            unsigned int cursRow,
-                                            int width,
-                                            int height )
-{
-    int i, j;
-    volatile unsigned int *savePtr;	/* saved screen data pointer */
-    unsigned int s, d, f;
-    volatile unsigned int *cursPtr;
-
-    savePtr = (volatile unsigned int *) inst->cursorSave;
-    cursPtr = (volatile unsigned int *) inst->__private->cursorImages[ shmem->frame ];
-    cursPtr += cursStart;
-
-    /* Pixel format is xxxA */
-    for (i = height; --i >= 0; ) {
-        for (j = width; --j >= 0; ) {
-            d = *savePtr++ = *vramPtr;
-            s = *cursPtr++;
-            f = s & (unsigned int)0xFF;
-            if (f) {
-                if (f == 0xff)		// Opaque pixel
-                    *vramPtr++ = s;
-                else {			// SOVER the cursor pixel
-                    f ^= 0xFF;
-                    d = s+(((((d&0xFF00FF00)>>8)*f+0x00FF00FF)&0xFF00FF00)
-                        | ((((d & 0x00FF00FF)*f+0x00FF00FF)>>8) &
-                            0x00FF00FF));
-                    *vramPtr++ = d;
+                    *vramPtr++ = (d>>8) | 0xFF000000;
                 }
             } else if (s) {
                 // Transparent non black cursor pixel.  xor it.

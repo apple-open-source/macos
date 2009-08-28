@@ -42,6 +42,8 @@ public:
 public:
     // make default forms
     PasswordImpl(SecItemClass itemClass, SecKeychainAttributeList *searchAttrList, SecKeychainAttributeList *itemAttrList);
+	PasswordImpl(PasswordImpl& existing);
+
     virtual ~PasswordImpl() throw();
 
     bool getData(UInt32 *length, const void **data);
@@ -59,6 +61,7 @@ private:
     bool mUseKeychain;
     bool mFoundInKeychain;
     bool mRememberInKeychain;
+	Mutex mMutex;
 };
 
 class Password : public SecPointer<PasswordImpl>

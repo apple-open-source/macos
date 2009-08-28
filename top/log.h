@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2008 Apple Computer, Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,5 +20,13 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-boolean_t
-log_run(void);
+#ifndef LOG_H
+#define LOG_H
+
+#include <stddef.h>
+#include <stdio.h>
+
+void top_log(const char *format, ...);
+void top_log_set_file(FILE *fp);
+
+#endif

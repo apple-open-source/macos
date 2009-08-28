@@ -151,7 +151,7 @@ SInt32 CPluginConfig::Initialize ( void )
 			}
 			else
 			{
-				Boolean		bUpgradedConfigVersion = false;
+				Boolean		bSaveFile = false;
 				
 				CFRetain( configVersion );  // release at end
 				
@@ -164,7 +164,7 @@ SInt32 CPluginConfig::Initialize ( void )
 					// Now the change, we want to force AppleTalk plugin to be active by default
 					CFDictionarySetValue( fDictRef, CFSTR(kAppleTalkPluginKey), CFSTR(kActiveValue) );
 					
-					bUpgradedConfigVersion = true;
+					bSaveFile = true;
 					SrvrLog( kLogApplication, "Plugin configuration file upgraded to 1.1, AppleTalk plugin now Active." );
 				}
 /*				
@@ -181,16 +181,7 @@ SInt32 CPluginConfig::Initialize ( void )
 				}
 */
 
-				// we need to ensure BSD is enabled by default regardless
-				CFStringRef cfTemp = (CFStringRef) CFDictionaryGetValue( fDictRef, CFSTR("BSD") );
-				if ( cfTemp == NULL || CFEqual( cfTemp, CFSTR(kInactiveValue) ) == true )
-				{
-					CFDictionarySetValue( fDictRef, CFSTR("BSD"), CFSTR( kActiveValue ) );
-					SaveConfigData();
-				}
-								
-				if ( bUpgradedConfigVersion == true )
-				{
+				if ( bSaveFile == true ) {
 					SaveConfigData();
 				}
 				
@@ -237,29 +228,23 @@ SInt32 CPluginConfig::Initialize ( void )
 				{
 					if ( ::CFDictionaryGetTypeID() == ::CFGetTypeID( fPlistRef ) )
 					{
+						bool bSaveFile = false;
+						
 						fDictRef = (CFMutableDictionaryRef)fPlistRef;
 
 						//make the new Active Directory plugin InActive by default if not already installed and setup
-						CFStringRef keyStr2Ref = NULL;
-						keyStr2Ref = ::CFStringCreateWithCString( kCFAllocatorDefault, "Active Directory", kCFStringEncodingMacRoman );
-						if ( keyStr2Ref != nil )
-						{
-							bool bFound = false;
-							bFound =::CFDictionaryContainsKey( fDictRef, keyStr2Ref );
-							if ( bFound == false )
-							{
-								::CFDictionarySetValue( fDictRef, keyStr2Ref, CFSTR( kInactiveValue ) );
-								SaveConfigData();
-							}
-							::CFRelease( keyStr2Ref );
-							keyStr2Ref = NULL;
+						if ( CFDictionaryContainsKey(fDictRef, CFSTR("Active Directory")) == false ) {
+							CFDictionarySetValue( fDictRef, CFSTR("Active Directory"), CFSTR(kInactiveValue) );
+							bSaveFile = true;
+						}
+						
+						if ( bSaveFile == true ) {
+							//let's make sure we don't run into these non-config file problems again
+							//ie. write the file since we have it figured out
+							SaveConfigData();
 						}
 						
 						bSuccess = true;
-						
-						//let's make sure we don't run into these non-config file problems again
-						//ie. write the file since we have it figured out
-						SaveConfigData();
 					}
 				}
 				CFRelease( dataRef );
@@ -269,6 +254,34 @@ SInt32 CPluginConfig::Initialize ( void )
 
 		if (fDictRef != nil)
 		{
+			bool bSaveFile = false;
+			
+			// we need to ensure BSD, Local and Cache are always enabled by default
+			CFStringRef cfTemp = (CFStringRef) CFDictionaryGetValue( fDictRef, CFSTR("BSD") );
+			if ( cfTemp == NULL || CFEqual( cfTemp, CFSTR(kInactiveValue) ) == true )
+			{
+				CFDictionarySetValue( fDictRef, CFSTR("BSD"), CFSTR(kActiveValue) );
+				bSaveFile = true;
+			}
+			
+			cfTemp = (CFStringRef) CFDictionaryGetValue( fDictRef, CFSTR("Local") );
+			if ( cfTemp == NULL || CFEqual( cfTemp, CFSTR(kInactiveValue) ) == true )
+			{
+				CFDictionarySetValue( fDictRef, CFSTR("Local"), CFSTR(kActiveValue) );
+				bSaveFile = true;
+			}
+			
+			cfTemp = (CFStringRef) CFDictionaryGetValue( fDictRef, CFSTR("Cache") );
+			if ( cfTemp == NULL || CFEqual( cfTemp, CFSTR(kInactiveValue) ) == true )
+			{
+				CFDictionarySetValue( fDictRef, CFSTR("Cache"), CFSTR(kActiveValue) );
+				bSaveFile = true;
+			}
+			
+			if ( bSaveFile == true ) {
+				SaveConfigData();
+			}
+			
 			keyStrRef = ::CFStringCreateWithCString( NULL, kTooManyReferencesWarningCount, kCFStringEncodingMacRoman );
 			if ( keyStrRef != nil )
 			{
@@ -335,7 +348,6 @@ SInt32 CPluginConfig::Initialize ( void )
 
 } // Initialize
 
-
 //--------------------------------------------------------------------------------------------------
 //	* GetPluginState ()
 //
@@ -392,8 +404,9 @@ SInt32 CPluginConfig::SetPluginState ( const char *inPluginName, const ePluginSt
 {
 	CFStringRef		keyStrRef		= nil;
 
-	// set the prefs for the plugin, but don't change the state of BSD
-	if ( (fDictRef != nil) && (inPluginName != nil) && (strcmp(inPluginName, "BSD") != 0) )
+	// set the prefs for the plugin, but don't change the state of BSD, Cache, or Local
+	if ( (fDictRef != nil) && (inPluginName != nil) && (strcmp(inPluginName, "BSD") != 0) && (strcmp(inPluginName, "Cache") != 0) &&
+		 (strcmp(inPluginName, "Local") != 0) )
 	{
 		CServerPlugin*	plugin = gPlugins->GetPlugInPtr( inPluginName, false );		// don't load plugin if it isn't already...
 		
@@ -415,9 +428,11 @@ SInt32 CPluginConfig::SetPluginState ( const char *inPluginName, const ePluginSt
 			::CFRelease( keyStrRef );
 			keyStrRef = nil;
 		}
+		
+		return eDSNoErr;
 	}
 
-	return( eDSNoErr );
+	return eDSOperationFailed;
 
 } // SetPluginState
 

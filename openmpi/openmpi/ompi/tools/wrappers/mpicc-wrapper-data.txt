@@ -7,7 +7,7 @@
 
 project=Open MPI
 project_short=OMPI
-version=1.2.3
+version=1.2.8
 language=C
 compiler_env=CC
 compiler_flags_env=CFLAGS

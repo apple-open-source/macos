@@ -1,9 +1,9 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2006-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+ * Portions Copyright (c) 2003 Apple Computer, Inc.  All Rights
  * Reserved.  This file contains Original Code and/or Modifications of
  * Original Code as defined in and that are subject to the Apple Public
  * Source License Version 1.1 (the "License").  You may not use this file
@@ -21,16 +21,15 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- * Useful macros and other stuff for generic lookups
- * Copyright (C) 1989 by NeXT, Inc.
- */
 
 #ifndef _KVBUF_H_
 #define _KVBUF_H_
 
 #include <stdint.h>
 #include <sys/cdefs.h>
+#include <malloc/malloc.h>
+
+#define KVBUF_START_SIZE 128
 
 /*
  * kvbuf_t is used to encode requests and replies.
@@ -77,13 +76,19 @@ __BEGIN_DECLS
  * Utilities for creating KV buffers
  */
 kvbuf_t *kvbuf_new(void);
+kvbuf_t *kvbuf_new_zone(malloc_zone_t *zone);
 kvbuf_t *kvbuf_init(char *buffer, uint32_t length);
+kvbuf_t *kvbuf_init_zone(malloc_zone_t *zone, char *buffer, uint32_t length);
 
 void kvbuf_add_dict(kvbuf_t *kv);
 void kvbuf_add_key(kvbuf_t *kv, const char *key);
 void kvbuf_add_val(kvbuf_t *kv, const char *val);
 void kvbuf_add_val_len(kvbuf_t *kv, const char *val, uint32_t len);
 uint32_t kvbuf_get_len(const char *p);
+
+void kvbuf_make_purgeable(kvbuf_t *kv);
+int kvbuf_make_nonpurgeable(kvbuf_t *kv);
+
 void kvbuf_free(kvbuf_t *kv);
 
 /* 
@@ -131,6 +136,14 @@ char *kvbuf_next_val(kvbuf_t *kv);
  * Returns the value.  Don't free it!
  */
 char *kvbuf_next_val_len(kvbuf_t *kv, uint32_t *vl );
+
+/*
+ * kvbuf query support
+ */
+kvbuf_t *kvbuf_query(char *fmt, ...);
+kvbuf_t *kvbuf_query_key_int(const char *key, int32_t i);
+kvbuf_t *kvbuf_query_key_uint(const char *key, uint32_t u);
+kvbuf_t *kvbuf_query_key_val(const char *key, const char *val);
 
 __END_DECLS
 

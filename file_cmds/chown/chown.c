@@ -82,7 +82,7 @@ main(int argc, char **argv)
 {
 	FTS *ftsp;
 	FTSENT *p;
-	int Hflag, Lflag, Rflag, fflag, hflag, vflag;
+	int Hflag, Lflag, Pflag, Rflag, fflag, hflag, vflag;
 	int ch, fts_options, rval;
 	char *cp;
 	int unix2003_compat = 0;
@@ -94,18 +94,19 @@ main(int argc, char **argv)
 	cp = (cp != NULL) ? cp + 1 : argv[0];
 	ischown = (strcmp(cp, "chown") == 0);
 
-	Hflag = Lflag = Rflag = fflag = hflag = vflag = 0;
+	Hflag = Lflag = Pflag = Rflag = fflag = hflag = vflag = 0;
 	while ((ch = getopt(argc, argv, "HLPRfhv")) != -1)
 		switch (ch) {
 		case 'H':
 			Hflag = 1;
-			Lflag = 0;
+			Lflag = Pflag = 0;
 			break;
 		case 'L':
 			Lflag = 1;
-			Hflag = 0;
+			Hflag = Pflag = 0;
 			break;
 		case 'P':
+			Pflag = 1;
 			Hflag = Lflag = 0;
 			break;
 		case 'R':
@@ -129,6 +130,8 @@ main(int argc, char **argv)
 
 	if (argc < 2)
 		usage();
+	if (!Rflag && (Hflag || Lflag || Pflag))
+		warnx("options -H, -L, -P only useful with -R");
 
 	if (Rflag) {
 		fts_options = FTS_PHYSICAL;

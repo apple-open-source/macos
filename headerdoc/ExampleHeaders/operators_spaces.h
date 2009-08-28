@@ -1,5 +1,9 @@
 /*! @functiongroup  Operators */
 
+/*! class */
+class operator_test_class
+{
+
 /*!
     @function
  */
@@ -14,7 +18,7 @@ foo_t operator new();
 */
 bool
     operator << (
-            const Message &inOtherMessage) const
+            const operator_test_class &inOtherMessage) const
     {
         return !(*this == inOtherMessage);
     }
@@ -28,7 +32,7 @@ bool
 */
 bool
     operator >> (
-            const Message &inOtherMessage) const
+            const operator_test_class &inOtherMessage) const
     {
         return !(*this == inOtherMessage);
     }
@@ -46,7 +50,7 @@ const int foo;
 */
 bool
     operator == (
-            const Message &inOtherMessage) const;
+            const operator_test_class &inOtherMessage) const;
 /*!
     @function       operator !=
     @abstract       Inequality operator
@@ -56,7 +60,7 @@ bool
 */
 bool
     operator != (
-            const Message &inOtherMessage) const
+            const operator_test_class &inOtherMessage) const
     {
         return !(*this == inOtherMessage);
     }
@@ -70,7 +74,7 @@ bool
 */
 bool
     operator +(
-            const Message &inOtherMessage) const
+            const operator_test_class &inOtherMessage) const
     {
         return !(*this == inOtherMessage);
     }
@@ -84,7 +88,7 @@ bool
 */
 bool
     operator ++(
-            const Message &inOtherMessage) const
+            const operator_test_class &inOtherMessage) const
     {
         return !(*this == inOtherMessage);
     }
@@ -98,7 +102,7 @@ bool
 */
 bool
     operator -(
-            const Message &inOtherMessage) const
+            const operator_test_class &inOtherMessage) const
     {
         return !(*this == inOtherMessage);
     }
@@ -112,7 +116,7 @@ bool
 */
 bool
     operator --(
-            const Message &inOtherMessage) const
+            const operator_test_class &inOtherMessage) const
     {
         return !(*this == inOtherMessage);
     }
@@ -126,7 +130,7 @@ bool
 */
 bool
     operator *(
-            const Message &inOtherMessage) const
+            const operator_test_class &inOtherMessage) const
     {
         return !(*this == inOtherMessage);
     }
@@ -140,9 +144,10 @@ bool
 */
 bool
     operator /(
-            const Message &inOtherMessage) const
+            const operator_test_class &inOtherMessage) const
     {
         return !(*this == inOtherMessage);
     }
 
+};
 

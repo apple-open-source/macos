@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005 Rob Braun
+ * Copyright (c) 2005-2007 Rob Braun
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,7 +28,7 @@
  */
 /*
  * 03-Apr-2005
- * DRI: Rob Braun <bbraun@opendarwin.org>
+ * DRI: Rob Braun <bbraun@synack.net>
  */
 
 #include <stdlib.h>
@@ -40,9 +40,14 @@
 #define ECTX(x) ((struct errctx *)(x))
 
 void xar_register_errhandler(xar_t x, err_handler callback, void *usrctx) {
+	ECTX(&XAR(x)->errctx)->x = x;
 	ECTX(&XAR(x)->errctx)->usrctx = usrctx;
 	XAR(x)->ercallback = callback;
 	return;
+}
+
+xar_t xar_err_get_archive(xar_errctx_t ctx) {
+	return ECTX(ctx)->x;
 }
 
 xar_file_t xar_err_get_file(xar_errctx_t ctx) {

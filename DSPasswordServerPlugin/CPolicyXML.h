@@ -55,8 +55,8 @@ class CPolicyXML : public CPolicyBase
 		unsigned long mWarnOfDisableMinutes;
 		time_t mProjectedPasswordExpireDate;
 		time_t mProjectedAccountDisableDate;
+		time_t mModDateOfPassword;
 };
-
 
 #endif
 

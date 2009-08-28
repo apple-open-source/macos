@@ -22,7 +22,10 @@ SAX.characters(
   , 3)
 SAX.startElement(script, type='text/javascript')
 SAX.characters(
-  ... unescaped script conten, 38)
+  ... unescaped script , 24)
+SAX.characters(<, 1)
+SAX.characters( content ...
+  , 15)
 SAX.endElement(script)
 SAX.characters(
   , 3)

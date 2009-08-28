@@ -4,22 +4,25 @@
         <key>OpenSourceProject</key>
         <string>sudo</string>
         <key>OpenSourceVersion</key>
-        <string>1.6.8p9</string>
+        <string>1.7.0</string>
         <key>OpenSourceWebsiteURL</key>
-        <string>http://www.courtesan.com/sudo/</string>
+        <string>http://www.sudo.ws/</string>
         <key>OpenSourceURL</key>
-        <string>http://www.courtesan.com/sudo/dist/sudo-1.6.8p9.tar.gz</string>
+        <string>http://www.sudo.ws/sudo/dist/sudo-1.7.0.tar.gz</string>
         <key>OpenSourceSHA1</key>
-        <string>f264d1ad9f197920f2e69614db7935b35ca51672</string>
+        <string>77bb230148b305e8608a3e552f1747507a84a55c</string>
         <key>OpenSourceImportDate</key>
-        <string>2005-09-08</string>
+        <string>2009-06-02</string>
         <key>OpenSourceModifications</key>
         <array>
         	<string>Add BSM auditing support.</string>
         	<string>Disable sudoedit.</string>
         	<string>Remove login_cap reference from man page.</string>
         	<string>Allow admin group by default.</string>
-        	<string>Typo fix in sudoers man page.</string>
+        	<string>Fix memberd group resolution.</string>
+        	<string>Reset timer password on reboot.</string>
+        	<string>Friendlier warning on first usage.</string>
+        	<string>Clean the environment.</string>
         </array>
         <key>OpenSourceLicense</key>
         <string>Other</string>

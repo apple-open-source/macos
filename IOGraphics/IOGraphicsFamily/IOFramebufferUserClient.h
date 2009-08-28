@@ -46,8 +46,8 @@ public:
     virtual IOReturn clientMemoryForType( UInt32 type,
         IOOptionBits * options, IOMemoryDescriptor ** memory );
 
-    virtual IOExternalMethod * getTargetAndMethodForIndex(
-                                        IOService ** targetP, UInt32 index );
+    virtual IOReturn externalMethod( uint32_t selector, IOExternalMethodArguments * args,
+					IOExternalMethodDispatch * dispatch, OSObject * target, void * reference );
 
     virtual IOReturn registerNotificationPort( mach_port_t, UInt32, UInt32 );
     virtual IOReturn getNotificationSemaphore( UInt32 interruptType,
@@ -61,9 +61,6 @@ public:
 
     virtual bool start( IOService * provider );
     virtual IOReturn setProperties( OSObject * properties );
-
-    virtual IOReturn getAttribute( IOSelect attribute, UInt32 * value );
-    virtual IOReturn setAttribute( IOSelect attribute, UInt32 value );
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -90,8 +87,6 @@ public:
 
     virtual IOReturn getNotificationSemaphore( UInt32 notification_type,
                                     semaphore_t * semaphore );
-    
-    virtual IOExternalMethod * getTargetAndMethodForIndex( IOService ** targetP, UInt32 index );
 
     // others
     static IOFramebufferSharedUserClient * withTask( task_t owningTask );

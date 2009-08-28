@@ -1,21 +1,12 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1996,2007 Oracle.  All rights reserved.
+ *
+ * $Id: db_ret.c,v 12.9 2007/05/17 15:14:57 bostic Exp $
  */
 
 #include "db_config.h"
-
-#ifndef lint
-static const char revid[] = "$Id: db_ret.c,v 1.2 2004/03/30 01:21:24 jtownsen Exp $";
-#endif /* not lint */
-
-#ifndef NO_SYSTEM_INCLUDES
-#include <sys/types.h>
-
-#include <string.h>
-#endif
 
 #include "db_int.h"
 #include "dbinc/db_page.h"
@@ -25,12 +16,13 @@ static const char revid[] = "$Id: db_ret.c,v 1.2 2004/03/30 01:21:24 jtownsen Ex
  * __db_ret --
  *	Build return DBT.
  *
- * PUBLIC: int __db_ret __P((DB *,
+ * PUBLIC: int __db_ret __P((DB *, DB_TXN *,
  * PUBLIC:    PAGE *, u_int32_t, DBT *, void **, u_int32_t *));
  */
 int
-__db_ret(dbp, h, indx, dbt, memp, memsize)
+__db_ret(dbp, txn, h, indx, dbt, memp, memsize)
 	DB *dbp;
+	DB_TXN *txn;
 	PAGE *h;
 	u_int32_t indx;
 	DBT *dbt;
@@ -45,11 +37,12 @@ __db_ret(dbp, h, indx, dbt, memp, memsize)
 	void *data;
 
 	switch (TYPE(h)) {
+	case P_HASH_UNSORTED:
 	case P_HASH:
 		hk = P_ENTRY(dbp, h, indx);
 		if (HPAGE_PTYPE(hk) == H_OFFPAGE) {
 			memcpy(&ho, hk, sizeof(HOFFPAGE));
-			return (__db_goff(dbp, dbt,
+			return (__db_goff(dbp, txn, dbt,
 			    ho.tlen, ho.pgno, memp, memsize));
 		}
 		len = LEN_HKEYDATA(dbp, h, dbp->pgsize, indx);
@@ -61,7 +54,7 @@ __db_ret(dbp, h, indx, dbt, memp, memsize)
 		bk = GET_BKEYDATA(dbp, h, indx);
 		if (B_TYPE(bk->type) == B_OVERFLOW) {
 			bo = (BOVERFLOW *)bk;
-			return (__db_goff(dbp, dbt,
+			return (__db_goff(dbp, txn, dbt,
 			    bo->tlen, bo->pgno, memp, memsize));
 		}
 		len = bk->len;
@@ -120,17 +113,22 @@ __db_retcopy(dbenv, dbt, data, len, memp, memsize)
 	 * If the length we're going to copy is 0, the application-supplied
 	 * memory pointer is allowed to be NULL.
 	 */
-	if (F_ISSET(dbt, DB_DBT_MALLOC)) {
+	if (F_ISSET(dbt, DB_DBT_USERCOPY)) {
+		dbt->size = len;
+		return (len == 0 ? 0 : dbenv->dbt_usercopy(dbt, 0, data,
+		    len, DB_USERCOPY_SETDATA));
+
+	} else if (F_ISSET(dbt, DB_DBT_MALLOC))
 		ret = __os_umalloc(dbenv, len, &dbt->data);
-	} else if (F_ISSET(dbt, DB_DBT_REALLOC)) {
+	else if (F_ISSET(dbt, DB_DBT_REALLOC)) {
 		if (dbt->data == NULL || dbt->size == 0 || dbt->size < len)
 			ret = __os_urealloc(dbenv, len, &dbt->data);
 	} else if (F_ISSET(dbt, DB_DBT_USERMEM)) {
 		if (len != 0 && (dbt->data == NULL || dbt->ulen < len))
-			ret = ENOMEM;
-	} else if (memp == NULL || memsize == NULL) {
+			ret = DB_BUFFER_SMALL;
+	} else if (memp == NULL || memsize == NULL)
 		ret = EINVAL;
-	} else {
+	else {
 		if (len != 0 && (*memsize == 0 || *memsize < len)) {
 			if ((ret = __os_realloc(dbenv, len, memp)) == 0)
 				*memsize = len;

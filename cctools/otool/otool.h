@@ -47,12 +47,13 @@ extern enum bool iflag; /* print the shared library initialization table */
 extern enum bool Wflag; /* print the mod time of an archive as an decimal number */
 extern enum bool Xflag; /* don't print leading address in disassembly */
 extern enum bool Zflag; /* don't use simplified ppc mnemonics in disassembly */
+extern enum bool Bflag; /* force Thumb disassembly (ARM objects only) */
 extern char *pflag; 	/* procedure name to start disassembling from */
 extern char *segname,
      *sectname;	    /* name of the section to print the contents of */
 
-unsigned long m68k_usrstack(void);
-unsigned long m88k_usrstack(void);
-unsigned long i386_usrstack(void);
-unsigned long hppa_usrstack(void);
-unsigned long sparc_usrstack(void);
+uint32_t m68k_usrstack(void);
+uint32_t m88k_usrstack(void);
+uint32_t i386_usrstack(void);
+uint32_t hppa_usrstack(void);
+uint32_t sparc_usrstack(void);

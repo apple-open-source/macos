@@ -54,7 +54,7 @@ enum {
 	errSecCSGuestInvalid,				/* code identity has been invalidated */
 	errSecCSUnsigned,					/* code object is not signed */
 	errSecCSSignatureFailed,			/* code or signature modified */
-	errSecCSSignatureNotVerifiable,			/* signature cannot be read, e.g., due to a filesystem that maps root to an unprivileged user */
+	errSecCSSignatureNotVerifiable,		/* signature cannot be read, e.g., due to a filesystem that maps root to an unprivileged user */
 	errSecCSSignatureUnsupported,		/* unsupported type or version of signature */
 	errSecCSBadDictionaryFormat,		/* a required plist file or resource is malformed */
 	errSecCSResourcesNotSealed,			/* resources are not sealed by signature */
@@ -79,6 +79,11 @@ enum {
 	errSecCSInvalidOperation,			/* requested operation is not valid */
 	errSecCSNotSupported,				/* operation not supported for this type of code */
 	errSecCSCMSTooLarge,				/* signature too large to embed */
+	errSecCSHostProtocolInvalidHash,	/* host protocol violation - invalid guest hash */
+	errSecCSStaticCodeChanged,			/* the program on disk does not match what is running */
+	errSecCSSigDBDenied,				/* access to signature database denied */
+	errSecCSSigDBAccess,				/* cannot access signature database */
+	errSecCSHostProtocolInvalidAttribute, /* host returned invalid or inconsistent guest attributes */
 };
 
 
@@ -126,7 +131,7 @@ typedef struct __SecRequirement *SecRequirementRef;	/* code requirement */
 	An abstract handle to identify a particular Guest in the context of its Host.
 	
 	Guest handles are assigned by the host at will, with kSecNoGuest (zero) being
-	reserved as the null value). They can be reused for new children if desired.
+	reserved as the null value. They can be reused for new children if desired.
 */
 typedef u_int32_t SecGuestRef;
 
@@ -136,7 +141,7 @@ enum {
 
 
 /*!
-	@typddef SecCSFlags
+	@typedef SecCSFlags
 	This is the type of flags arguments to Code Signing API calls.
 	It provides a bit mask of request and option flags. All of the bits in these
 	masks are reserved to Apple; if you set any bits not defined in these headers,
@@ -193,7 +198,7 @@ enum {
 	guarantees that the code will always be valid, since it will die immediately
 	if it becomes invalid.
 	@constant kSecCodeSignatureForceExpiration
-	Forces the kSecCSConsiderExpiration on all validations of the code.
+	Forces the kSecCSConsiderExpiration flag on all validations of the code.
  */
 typedef uint32_t SecCodeSignatureFlags;
 
@@ -207,9 +212,43 @@ enum {
 
 
 /*!
+	@typedef SecCodeStatus
+	The code signing system attaches a set of operational flags to each running code.
+	These flags are maintained by the code's host, and can be read by anyone.
+	A code may change its own flags, and root may change anyone's flags.
+	However, these flags are sticky in that each can change in only one direction
+	(and never back, for the lifetime of the code). Not even root can violate this restriction.
+
+	There are other flags in SecCodeStatus that are not publicly documented.
+	Do not rely on them.
+
+	@constant kSecCodeStatusValid
+	Indicates that the code is dynamically valid, i.e. it started properly signed
+	and has not been invalidated since it started. The valid bit can only be cleared.
+	Note that this bit does not make any representations on the static validity of the code.
+	@constant kSecCodeStatusHard
+	Indicates that the code prefers to be denied access to resources if gaining access
+	would invalidate it. This bit can only be set.
+	It is undefined whether a code that is marked hard and is already invalid will still
+	be denied access to a resource that would invalidate it if it were still valid. That is,
+	the code may or may not get access to such a resource while being invalid, and that choice
+	may seem random.
+	@constant kSecCodeStatusKill
+	Indicates that the code wants to be killed (terminated) if it ever loses its validity.
+	This bit can only be set. Code that has the kill flag set will never be invalid (and live).
+*/
+typedef uint32_t SecCodeStatus;
+enum {
+	kSecCodeStatusValid =	0x0001,
+	kSecCodeStatusHard =	0x0100,
+	kSecCodeStatusKill =	0x0200,
+};
+
+
+/*!
 	@typedef SecRequirementType
 	An enumeration indicating different types of internal requirements for code.
-*/
+ */
 typedef uint32_t SecRequirementType;
 
 enum {

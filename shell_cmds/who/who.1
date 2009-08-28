@@ -1,3 +1,5 @@
+.\"	$NetBSD: who.1,v 1.22 2007/01/18 00:15:05 wiz Exp $
+.\"
 .\" Copyright (c) 1986, 1991, 1993
 .\"	The Regents of the University of California.  All rights reserved.
 .\"
@@ -9,11 +11,7 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
-.\" 4. Neither the name of the University nor the names of its contributors
+.\" 3. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
 .\"
@@ -30,95 +28,95 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)who.1	8.2 (Berkeley) 12/30/93
-.\" $FreeBSD: src/usr.bin/who/who.1,v 1.16 2004/07/02 22:22:34 ru Exp $
 .\"
-.Dd May 8, 2002
+.Dd January 17, 2007
 .Dt WHO 1
 .Os
 .Sh NAME
 .Nm who
-.Nd display who is on the system
+.Nd display who is logged in
 .Sh SYNOPSIS
 .Nm
-.Op Fl HmqsTu
-.Op Cm am I
+.Op Fl abdHlmpqrsTtu
 .Op Ar file
+.Nm
+.Ar am i
 .Sh DESCRIPTION
 The
 .Nm
-utility displays information about currently logged in users.
-By default, this includes the login name, tty name, date and time of login and
-remote hostname if not local.
+utility displays a list of all users currently logged on, showing for
+each user the login name, tty name, the date and time of login, and
+hostname if not local.
 .Pp
-The options are as follows:
-.Bl -tag -width indent
+Available options:
+.Pp
+.Bl -tag -width file
+.It Fl a
+Same as
+.Fl bdlprTtu .
+.It Fl b
+Time of last system boot.
+.It Fl d
+Print dead processes.
 .It Fl H
-Write column headings above the output.
+Write column headings above the regular output.
+.It Fl l
+Print system login processes (unsupported).
 .It Fl m
-Show information about the terminal attached to standard input only.
+Only print information about the current terminal.
+This is the
+.Tn POSIX
+way of saying
+.Nm
+.Ar am i .
+.It Fl p
+Print active processes spawned by
+.Xr launchd 8
+(unsupported).
 .It Fl q
-.Dq "Quick mode" :
-List the names and number of logged in users in columns.
-All other command line options are ignored.
+.Dq Quick mode :
+List only the names and the number of users currently logged on.
+When this option is used, all other options are ignored.
+.It Fl r
+Print the current runlevel.
+This is meaningless on Mac OS X.
 .It Fl s
-Show the name, line and time fields only.
+List only the name, line and time fields.
 This is the default.
 .It Fl T
-Indicate whether each user is accepting messages.
-One of the following characters is written:
-.Pp
-.Bl -tag -width 1n -compact
-.It Li +
-User is accepting messages.
-.It Li \&-
-User is not accepting messages.
-.It Li \&?
-An error occurred.
-.El
+Print a character after the user name indicating the state of the
+terminal line:
+.Sq +
+if the terminal is writable;
+.Sq -
+if it is not;
+and
+.Sq \&?
+if a bad line is encountered.
+.It Fl t
+Print last system clock change (unsupported).
 .It Fl u
-Show idle time for each user in hours and minutes as
-.Ar hh Ns : Ns Ar mm ,
-.Ql \&.
-if the user has been idle less than a minute, and
-.Dq Li old
-if the user has been idle more than 24 hours.
-Additionally, display the PID of the user's login process.
-.It Cm am I
-Equivalent to
-.Fl m .
-.El
-.Pp
+Print the idle time for each user, and the associated process ID.
+.It Ar \&am I
+Returns the invoker's real user name.
+.It Ar file
 By default,
 .Nm
 gathers information from the file
 .Pa /var/run/utmpx .
-An alternate
+An alternative
 .Ar file
 may be specified.
-.Sh LEGACY DESCRIPTION
-In legacy mode,
-.Fl u
-does not display the PID of the user's login process.
-.Sh ENVIRONMENT
-The
-.Ev COLUMNS , LANG , LC_ALL
-and
-.Ev LC_TIME
-environment variables affect the execution of
-.Nm
-as described in
-.Xr environ 7 .
+.El
 .Sh FILES
-.Bl -tag -width /var/log/utmpx -compact
+.Bl -tag -width /var/run/utmpx -compact
 .It Pa /var/run/utmpx
 .El
-.Sh DIAGNOSTICS
-.Ex -std
 .Sh SEE ALSO
 .Xr last 1 ,
+.Xr mesg 1 ,
 .Xr users 1 ,
-.Xr w 1 ,
-.Xr compat 5 ,
+.Xr getuid 2 ,
 .Xr utmpx 5
 .Sh STANDARDS
 The
@@ -128,5 +126,5 @@ utility conforms to
 .Sh HISTORY
 A
 .Nm
-command appeared in
-.At v1 .
+utility appeared in
+.At v6 .

@@ -1,0 +1,97 @@
+========================================================================
+kinit Version History
+========================================================================
+Current version:        1.3a1
+Date:                   October 2, 2008
+Authors:                lxs@mit.edu
+========================================================================
+
+kinit 1.3
+To be released with KfM 6.5
+
+========================================================================
+
+	kinit 1.3a1
+	October 2, 2008
+	
+	[RT 6129] KIM-based kinit
+	
+	========================================================================
+
+kinit 1.2
+Released as part of KfM 6.0
+
+========================================================================
+
+	kinit 1.2fc1
+	February 16, 2007
+
+	Moved to final candidate
+		
+	========================================================================
+
+	kinit 1.2a1
+	August 23, 2006
+
+	[RTÊ4169]ÊRemove Kerberos v4
+		
+	========================================================================
+
+kinit 1.1
+Released as part of KfM 5.5
+
+========================================================================
+
+	kinit 1.1fc2
+	March 21, 2005
+
+	[RT 2954] kinit -P and -p flags should apply to proxiability, 
+                  not forwardability
+	
+	========================================================================
+
+	kinit 1.1fc1
+	December 6, 2004
+
+	Moved to final candidate.
+	
+	========================================================================
+
+	kinit 1.1a2
+	August 20, 2004
+
+	[RT 2658] kinit should support getting non-renewable tickets
+	
+	========================================================================
+
+	kinit 1.1a1
+	March 11, 2003
+
+	[RT 1359] Usage message for kinit lists -A twice and not -a
+	[RT 1360] kinit should default to the principal in the default cache
+	
+	========================================================================
+
+kinit 1.0
+Released as part of KfM 5.0
+
+========================================================================
+
+	kinit 1.0a2
+	March 11, 2003
+
+	[BZ 726]	Use KLL to get tickets
+	[BZ 742]	kinit returns a bad error for expired credentials
+	[BZ 755]	Bad error message when edu.mit.Kerberos is missing
+	[BZ 763]	-s option should take an absolute time
+	
+	========================================================================
+	kinit 1.0a1
+	June 10, 2002
+
+	[BZ 726]	Use KLL to get tickets
+	[BZ 742]	kinit returns a bad error for expired credentials
+	[BZ 755]	Bad error message when edu.mit.Kerberos is missing
+	[BZ 763]	-s option should take an absolute time
+	
+	========================================================================

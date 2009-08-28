@@ -1,8 +1,8 @@
 /* obstack.c - subroutines used implicitly by object stack macros
 
    Copyright (C) 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation,
-   Inc.
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software
+   Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -16,16 +16,13 @@
 
    You should have received a copy of the GNU General Public License along
    with this program; if not, write to the Free Software Foundation,
-   Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
-
-#ifdef HAVE_CONFIG_H
-# include <config.h>
-#endif
+   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 #ifdef _LIBC
 # include <obstack.h>
 # include <shlib-compat.h>
 #else
+# include <config.h>
 # include "obstack.h"
 #endif
 
@@ -51,21 +48,11 @@
 # endif
 #endif
 
-#if defined _LIBC && defined USE_IN_LIBIO
-# include <wchar.h>
-#endif
-
 #include <stddef.h>
 
 #ifndef ELIDE_CODE
 
-
-# if HAVE_INTTYPES_H
-#  include <inttypes.h>
-# endif
-# if HAVE_STDINT_H || defined _LIBC
-#  include <stdint.h>
-# endif
+# include <stdint.h>
 
 /* Determine default alignment.  */
 union fooround
@@ -74,12 +61,17 @@ union fooround
   long double d;
   void *p;
 };
+struct fooalign
+{
+  char c;
+  union fooround u;
+};
 /* If malloc were really smart, it would round addresses to DEFAULT_ALIGNMENT.
    But in fact it might be less smart and round addresses to as much as
    DEFAULT_ROUNDING.  So we prepare for it to do that.  */
 enum
   {
-    DEFAULT_ALIGNMENT = offsetof (struct { char c; union fooround u; }, u),
+    DEFAULT_ALIGNMENT = offsetof (struct fooalign, u),
     DEFAULT_ROUNDING = sizeof (union fooround)
   };
 
@@ -350,7 +342,7 @@ _obstack_allocated_p (struct obstack *h, void *obj)
 # undef obstack_free
 
 void
-obstack_free (struct obstack *h, void *obj)
+__obstack_free (struct obstack *h, void *obj)
 {
   register struct _obstack_chunk *lp;	/* below addr of any objects in this chunk */
   register struct _obstack_chunk *plp;	/* point to previous chunk if any */
@@ -428,12 +420,11 @@ print_and_abort (void)
      happen because the "memory exhausted" message appears in other places
      like this and the translation should be reused instead of creating
      a very similar string which requires a separate translation.  */
-# if defined _LIBC && defined USE_IN_LIBIO
-  if (_IO_fwide (stderr, 0) > 0)
-    __fwprintf (stderr, L"%s\n", _("memory exhausted"));
-  else
+# ifdef _LIBC
+  (void) __fxprintf (NULL, "%s\n", _("memory exhausted"));
+# else
+  fprintf (stderr, "%s\n", _("memory exhausted"));
 # endif
-    fprintf (stderr, "%s\n", _("memory exhausted"));
   exit (obstack_exit_failure);
 }
 

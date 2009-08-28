@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in
-# Copyright (C) 2004, 2005 Simon Josefsson.
+# Copyright (C) 2004, 2005, 2006, 2007 Simon Josefsson.
 #
 # This file is part of GNU Libidn.
 #
@@ -50,7 +50,7 @@ clean-local:
 # Invoked by ../doc/java/Makefile.
 .PHONY: javadoc
 javadoc:
-	cd $(srcdir) && $(GJDOC) -d ../doc/java gnu/inet/encoding/*.java
+	cd $(srcdir) && $(GJDOC) -d $(top_builddir)/doc/java gnu/inet/encoding/*.java
 endif
 
 install-data-local: $(INSTALL_TARGETS)

@@ -24,9 +24,7 @@
 				6191043409E42A0300F06CF9 /* PBXTargetDependency */,
 				AA6B3666080D893500FBE535 /* PBXTargetDependency */,
 				846C1B4C087C7BAB0073AF5B /* PBXTargetDependency */,
-				84B0C51609ED9C810026664E /* PBXTargetDependency */,
 				AAD5BEFA09F6DB710024526F /* PBXTargetDependency */,
-				AA269FB30B2F6B46002EC0F6 /* PBXTargetDependency */,
 			);
 			name = DSTools;
 			productName = DSTools;
@@ -43,17 +41,11 @@
 		6191041509E4292700F06CF9 /* DirectoryService.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 000AD6890382D97600DD2B5C /* DirectoryService.framework */; };
 		6191041609E4292700F06CF9 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 61B12CF303D7777400DD2B5C /* Security.framework */; };
 		6191041909E4292700F06CF9 /* dsconfigldap.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = E52AF99D064C4D0500A7A081 /* dsconfigldap.1 */; };
-		6191043709E42A2200F06CF9 /* dscommon.h in Headers */ = {isa = PBXBuildFile; fileRef = 84AEA251065BB95F00B63BFF /* dscommon.h */; };
 		6191043809E42A2200F06CF9 /* dstools_version.h in Headers */ = {isa = PBXBuildFile; fileRef = AAE880DB06ADB63700DCA962 /* dstools_version.h */; };
-		6191043909E42A2200F06CF9 /* HighLevelDirServicesMini.h in Headers */ = {isa = PBXBuildFile; fileRef = F06BAE8B07B9882E00C7A234 /* HighLevelDirServicesMini.h */; };
 		6191043B09E42A2200F06CF9 /* dseditgroup.c in Sources */ = {isa = PBXBuildFile; fileRef = 849AD6FC05EFCF040005E3DB /* dseditgroup.c */; };
-		6191043C09E42A2200F06CF9 /* dscommon.c in Sources */ = {isa = PBXBuildFile; fileRef = 84AEA259065BB97600B63BFF /* dscommon.c */; };
 		6191043D09E42A2200F06CF9 /* dstools_version.c in Sources */ = {isa = PBXBuildFile; fileRef = AAE880C706ADB61600DCA962 /* dstools_version.c */; };
-		6191043E09E42A2200F06CF9 /* HighLevelDirServicesMini.c in Sources */ = {isa = PBXBuildFile; fileRef = F06BAE8A07B9882E00C7A234 /* HighLevelDirServicesMini.c */; };
-		6191044009E42A2200F06CF9 /* DirectoryService.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 000AD6890382D97600DD2B5C /* DirectoryService.framework */; };
 		6191044109E42A2200F06CF9 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 61D8174E04827BEA0026B447 /* CoreFoundation.framework */; };
 		6191044409E42A2200F06CF9 /* dseditgroup.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 849AD6F905EFCEF30005E3DB /* dseditgroup.8 */; };
-		6191044609E42A2200F06CF9 /* updateGroupGUIDs in CopyFiles */ = {isa = PBXBuildFile; fileRef = 61E5E7130711F7FB00340448 /* updateGroupGUIDs */; };
 		6191045609E42A5600F06CF9 /* dsenableroot.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 79FF8B5604E48B4F0013D6D1 /* dsenableroot.8 */; };
 		6191045809E42A5600F06CF9 /* dstools_version.h in Headers */ = {isa = PBXBuildFile; fileRef = AAE880DB06ADB63700DCA962 /* dstools_version.h */; };
 		6191045A09E42A5600F06CF9 /* dsenableroot.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 617BBE920466DF54008A5E07 /* dsenableroot.cpp */; };
@@ -162,40 +154,30 @@
 		6191050F09E42B0200F06CF9 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 000AD4F60382D96800DD2B5C /* Foundation.framework */; };
 		6191051009E42B0200F06CF9 /* DirectoryService.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 000AD6890382D97600DD2B5C /* DirectoryService.framework */; };
 		61D46F0E09ED5F87005664D4 /* DSObjCWrappers.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6191051709E42B0200F06CF9 /* DSObjCWrappers.framework */; };
-		61ECA27D0A2CBBCC00D9F51F /* configODServers in CopyFiles */ = {isa = PBXBuildFile; fileRef = 61ECA27A0A2CBA3400D9F51F /* configODServers */; };
+		6B690CB30EE5BF58005C4AFE /* OpenDirectory.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6B9BC23C0B575D470098F7BB /* OpenDirectory.framework */; };
+		6B690CB40EE5BF59005C4AFE /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 000AD4F60382D96800DD2B5C /* Foundation.framework */; };
+		6B929AE70E5E823C003925E2 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA26A0100B2F6D2D002EC0F6 /* SystemConfiguration.framework */; };
+		6B929BC50E5F4B0E003925E2 /* OpenDirectory.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6B9BC23C0B575D470098F7BB /* OpenDirectory.framework */; };
 		6B953B410B5AD5870085D127 /* lookupd.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 6B953B400B5AD5820085D127 /* lookupd.1 */; };
 		6B953B420B5AD5900085D127 /* dscacheutil.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 6B953AF00B5AC8FA0085D127 /* dscacheutil.1 */; };
 		6B9BC2160B575C180098F7BB /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 6B9BC1F70B575AEF0098F7BB /* main.m */; };
 		6B9BC2170B575C180098F7BB /* MyController.m in Sources */ = {isa = PBXBuildFile; fileRef = 6B9BC1F90B575AEF0098F7BB /* MyController.m */; };
 		6B9BC23D0B575D470098F7BB /* OpenDirectory.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6B9BC23C0B575D470098F7BB /* OpenDirectory.framework */; };
-		6B9BC2A90B5766B20098F7BB /* OpenDirectory.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6B9BC23C0B575D470098F7BB /* OpenDirectory.framework */; };
 		6BC7AF0F0B576D92003B57ED /* MainMenu.nib in Resources */ = {isa = PBXBuildFile; fileRef = 6BC7AF0D0B576D92003B57ED /* MainMenu.nib */; };
 		6BC7AF140B576DA5003B57ED /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 6BC7AF120B576DA5003B57ED /* InfoPlist.strings */; };
 		6BC7B2840B589083003B57ED /* memberd.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 6BC7B2830B589083003B57ED /* memberd.1 */; };
+		6BDDC5E30EE47693006EFB5E /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 000AD4F60382D96800DD2B5C /* Foundation.framework */; };
+		6BDDC6B20EE476A9006EFB5E /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6BDDC6B10EE476A9006EFB5E /* AppKit.framework */; };
 		6BEFB0860B596BC70023391C /* dscacheutil.m in Sources */ = {isa = PBXBuildFile; fileRef = 6BEFB0730B596A850023391C /* dscacheutil.m */; };
 		846C1B57087C7C030073AF5B /* dsmemberutil.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 8463DA94087C5CEC002463BA /* dsmemberutil.1 */; };
 		846C1B59087C7C230073AF5B /* dsmbrutil.c in Sources */ = {isa = PBXBuildFile; fileRef = 846C1B58087C7C230073AF5B /* dsmbrutil.c */; };
-		84B0C4FC09ED9A490026664E /* ExportController.mm in Sources */ = {isa = PBXBuildFile; fileRef = 84B0C4FA09ED9A3E0026664E /* ExportController.mm */; };
-		84B0C4FD09ED9A490026664E /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 84B0C4FB09ED9A3E0026664E /* main.m */; };
-		84B0C51B09ED9D3F0026664E /* dsexport.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 84B0C4F709ED9A3E0026664E /* dsexport.1 */; };
-		84B0C51E09ED9D640026664E /* ExportController.h in Headers */ = {isa = PBXBuildFile; fileRef = 84B0C4F909ED9A3E0026664E /* ExportController.h */; };
 		AA0AC6EE0B7F6F69002F1785 /* DirectoryServiceCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 615CF62A053B4545008BD144 /* DirectoryServiceCore.framework */; };
 		AA264FFA0B65375800BD9F3C /* DSAuthenticateLM.h in Headers */ = {isa = PBXBuildFile; fileRef = AA264FF80B65375800BD9F3C /* DSAuthenticateLM.h */; };
 		AA264FFB0B65375800BD9F3C /* DSAuthenticateLM.m in Sources */ = {isa = PBXBuildFile; fileRef = AA264FF90B65375800BD9F3C /* DSAuthenticateLM.m */; };
-		AA269F950B2F64D0002EC0F6 /* Common.mm in Sources */ = {isa = PBXBuildFile; fileRef = AA269F8F0B2F64D0002EC0F6 /* Common.mm */; };
-		AA269F960B2F64D0002EC0F6 /* UpdateKerberosConfig.m in Sources */ = {isa = PBXBuildFile; fileRef = AA269F900B2F64D0002EC0F6 /* UpdateKerberosConfig.m */; };
-		AA269F970B2F64D0002EC0F6 /* changeip_ds.mm in Sources */ = {isa = PBXBuildFile; fileRef = AA269F910B2F64D0002EC0F6 /* changeip_ds.mm */; };
-		AA269FAA0B2F6552002EC0F6 /* PasswordServer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA6A7E340714626F00F0F5A1 /* PasswordServer.framework */; };
-		AA269FAB0B2F6557002EC0F6 /* DirectoryService.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 000AD6890382D97600DD2B5C /* DirectoryService.framework */; };
-		AA26A0110B2F6D2D002EC0F6 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA26A0100B2F6D2D002EC0F6 /* SystemConfiguration.framework */; };
-		AA26A0120B2F6D47002EC0F6 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 61D8174E04827BEA0026B447 /* CoreFoundation.framework */; };
-		AA26A0140B2F6D5F002EC0F6 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 000AD4F60382D96800DD2B5C /* Foundation.framework */; };
-		AA26A0180B2F6EC0002EC0F6 /* libresolv.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = AA26A0170B2F6EC0002EC0F6 /* libresolv.dylib */; };
 		AA6B3616080D848B00FBE535 /* dserr.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AA6B3615080D848B00FBE535 /* dserr.cpp */; };
 		AA6B3640080D873E00FBE535 /* DirectoryService.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 000AD6890382D97600DD2B5C /* DirectoryService.framework */; };
 		AA6B3664080D88AA00FBE535 /* dstools_version.c in Sources */ = {isa = PBXBuildFile; fileRef = AAE880C706ADB61600DCA962 /* dstools_version.c */; };
 		AA6B368D080D8A3A00FBE535 /* dserr.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AA6B3688080D8A0700FBE535 /* dserr.8 */; };
-		AA74CC5A0B3078AE007A4339 /* DSUtils.mm in Sources */ = {isa = PBXBuildFile; fileRef = AA269F8E0B2F64D0002EC0F6 /* DSUtils.mm */; };
 		AAD5BEFB09F6DB800024526F /* Main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 844B3BDE043113F200D87C54 /* Main.cpp */; };
 		AAD5BEFC09F6DB800024526F /* PwdPolicyTool.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 844B3BD8043113F200D87C54 /* PwdPolicyTool.cpp */; };
 		AAD5BEFF09F6DB9C0024526F /* pwpolicy.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 844B3BDF043113F200D87C54 /* pwpolicy.8 */; };
@@ -204,6 +186,8 @@
 		AAD5BF5109F6DBB00024526F /* PasswordServer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA6A7E340714626F00F0F5A1 /* PasswordServer.framework */; };
 		AAD5BF8109F6DBD20024526F /* dstools_version.c in Sources */ = {isa = PBXBuildFile; fileRef = AAE880C706ADB61600DCA962 /* dstools_version.c */; };
 		B01B5E6E0D4A6F01002A935E /* CAuthAuthority.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B01B5E6D0D4A6F01002A935E /* CAuthAuthority.cpp */; };
+		C54432ED0EA92E1B004A2589 /* PathRecordConfig.h in Headers */ = {isa = PBXBuildFile; fileRef = C54432EB0EA92E1B004A2589 /* PathRecordConfig.h */; };
+		C54432EE0EA92E1B004A2589 /* PathRecordConfig.m in Sources */ = {isa = PBXBuildFile; fileRef = C54432EC0EA92E1B004A2589 /* PathRecordConfig.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -277,20 +261,6 @@
 			remoteGlobalIDString = 846C1B46087C7B560073AF5B;
 			remoteInfo = mbrutil;
 		};
-		84B0C51509ED9C810026664E /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 000AD48C0382D5A600DD2B5C /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 84B0C4EA09ED99700026664E;
-			remoteInfo = dsexport;
-		};
-		AA269FB20B2F6B46002EC0F6 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 000AD48C0382D5A600DD2B5C /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = AA269F890B2F648B002EC0F6;
-			remoteInfo = changeip_ds;
-		};
 		AA6B3665080D893500FBE535 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 000AD48C0382D5A600DD2B5C /* Project object */;
@@ -328,17 +298,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		6191044509E42A2200F06CF9 /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			comments = "Script used to update well known groups with GUID, SID and Comment values.";
-			dstPath = /System/Library/PrivateFrameworks/Admin.framework/Versions/A/Resources;
-			dstSubfolderSpec = 0;
-			files = (
-				6191044609E42A2200F06CF9 /* updateGroupGUIDs in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
 		6191045509E42A5600F06CF9 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -362,7 +321,7 @@
 		6191048609E42AA000F06CF9 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = /usr/share/man/man1;
+			dstPath = /usr/local/share/man/man1;
 			dstSubfolderSpec = 0;
 			files = (
 				6191048709E42AA000F06CF9 /* dirt.1 in CopyFiles */,
@@ -376,16 +335,6 @@
 			dstSubfolderSpec = 0;
 			files = (
 				619104AE09E42AD800F06CF9 /* dscl.1 in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		61ECA2840A2CBBFB00D9F51F /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /System/Library/PrivateFrameworks/Admin.framework/Versions/A/Resources;
-			dstSubfolderSpec = 0;
-			files = (
-				61ECA27D0A2CBBCC00D9F51F /* configODServers in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -408,25 +357,6 @@
 			files = (
 				6BC7B2840B589083003B57ED /* memberd.1 in CopyFiles */,
 				846C1B57087C7C030073AF5B /* dsmemberutil.1 in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		84B0C51709ED9D030026664E /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /usr/share/man/man1;
-			dstSubfolderSpec = 0;
-			files = (
-				84B0C51B09ED9D3F0026664E /* dsexport.1 in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		AA269FB10B2F65C1002EC0F6 /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /usr/share/man/man8;
-			dstSubfolderSpec = 0;
-			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -510,7 +440,7 @@
 		6191047D09E42A7B00F06CF9 /* dsperfmonitor */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = dsperfmonitor; sourceTree = BUILT_PRODUCTS_DIR; };
 		619104A009E42AA000F06CF9 /* dirt */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = dirt; sourceTree = BUILT_PRODUCTS_DIR; };
 		619104E509E42AD800F06CF9 /* dscl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = dscl; sourceTree = BUILT_PRODUCTS_DIR; };
-		6191051609E42B0200F06CF9 /* Info-DSObjCWrappers__Upgraded_.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "Info-DSObjCWrappers__Upgraded_.plist"; sourceTree = "<group>"; };
+		6191051609E42B0200F06CF9 /* Info-DSObjCWrappers__Upgraded_.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-DSObjCWrappers__Upgraded_.plist"; sourceTree = "<group>"; };
 		6191051709E42B0200F06CF9 /* DSObjCWrappers.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = DSObjCWrappers.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		61B12CE303D776E100DD2B5C /* DSAuthenticate.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; name = DSAuthenticate.m; path = dirt/DSAuthenticate.m; sourceTree = "<group>"; };
 		61B12CE503D776E100DD2B5C /* DSException.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; name = DSException.m; path = dirt/DSException.m; sourceTree = "<group>"; };
@@ -522,8 +452,6 @@
 		61B12CF303D7777400DD2B5C /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = /System/Library/Frameworks/Security.framework; sourceTree = "<absolute>"; };
 		61D8174B048278250026B447 /* libcrypto.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcrypto.dylib; path = /usr/lib/libcrypto.dylib; sourceTree = "<absolute>"; };
 		61D8174E04827BEA0026B447 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
-		61E5E7130711F7FB00340448 /* updateGroupGUIDs */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.sh; path = updateGroupGUIDs; sourceTree = "<group>"; };
-		61ECA27A0A2CBA3400D9F51F /* configODServers */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.sh; path = configODServers; sourceTree = "<group>"; };
 		6B685410074E38650051C3C0 /* DSObjCWrappers.order */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = DSObjCWrappers.order; path = DSObjCWrappers/DSObjCWrappers.order; sourceTree = "<group>"; };
 		6B953AF00B5AC8FA0085D127 /* dscacheutil.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = dscacheutil.1; sourceTree = "<group>"; };
 		6B953B400B5AD5820085D127 /* lookupd.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = lookupd.1; sourceTree = "<group>"; };
@@ -531,11 +459,12 @@
 		6B9BC1F80B575AEF0098F7BB /* MyController.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MyController.h; sourceTree = "<group>"; };
 		6B9BC1F90B575AEF0098F7BB /* MyController.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = MyController.m; sourceTree = "<group>"; };
 		6B9BC20F0B575BFA0098F7BB /* DSCacheInspector.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DSCacheInspector.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		6B9BC2110B575BFA0098F7BB /* DSCacheInspector-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "DSCacheInspector-Info.plist"; sourceTree = "<group>"; };
+		6B9BC2110B575BFA0098F7BB /* DSCacheInspector-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "DSCacheInspector-Info.plist"; sourceTree = "<group>"; };
 		6B9BC23C0B575D470098F7BB /* OpenDirectory.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenDirectory.framework; path = /System/Library/PrivateFrameworks/OpenDirectory.framework; sourceTree = "<absolute>"; };
 		6BC7AF0E0B576D92003B57ED /* English */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = English; path = MainMenu.nib; sourceTree = "<group>"; };
-		6BC7AF130B576DA5003B57ED /* English */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.strings; name = English; path = InfoPlist.strings; sourceTree = "<group>"; };
+		6BC7AF130B576DA5003B57ED /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = InfoPlist.strings; sourceTree = "<group>"; };
 		6BC7B2830B589083003B57ED /* memberd.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = memberd.1; sourceTree = "<group>"; };
+		6BDDC6B10EE476A9006EFB5E /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = /System/Library/Frameworks/AppKit.framework; sourceTree = "<absolute>"; };
 		6BEFB0730B596A850023391C /* dscacheutil.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = dscacheutil.m; sourceTree = "<group>"; };
 		6BEFB0790B596AD00023391C /* dscacheutil */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = dscacheutil; sourceTree = BUILT_PRODUCTS_DIR; };
 		79FF8B5604E48B4F0013D6D1 /* dsenableroot.8 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = dsenableroot.8; path = dsenableroot/dsenableroot.8; sourceTree = "<group>"; };
@@ -550,20 +479,8 @@
 		849AD6FC05EFCF040005E3DB /* dseditgroup.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = dseditgroup.c; path = ugtools/dseditgroup.c; sourceTree = "<group>"; };
 		84AEA251065BB95F00B63BFF /* dscommon.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = dscommon.h; path = commonC/dscommon.h; sourceTree = "<group>"; };
 		84AEA259065BB97600B63BFF /* dscommon.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = dscommon.c; path = commonC/dscommon.c; sourceTree = "<group>"; };
-		84B0C4EB09ED99700026664E /* dsexport */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = dsexport; sourceTree = BUILT_PRODUCTS_DIR; };
-		84B0C4F709ED9A3E0026664E /* dsexport.1 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.man; path = dsexport.1; sourceTree = "<group>"; };
-		84B0C4F909ED9A3E0026664E /* ExportController.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ExportController.h; sourceTree = "<group>"; };
-		84B0C4FA09ED9A3E0026664E /* ExportController.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; path = ExportController.mm; sourceTree = "<group>"; usesTabs = 0; };
-		84B0C4FB09ED9A3E0026664E /* main.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		AA264FF80B65375800BD9F3C /* DSAuthenticateLM.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = DSAuthenticateLM.h; path = dirt/DSAuthenticateLM.h; sourceTree = "<group>"; };
 		AA264FF90B65375800BD9F3C /* DSAuthenticateLM.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; name = DSAuthenticateLM.m; path = dirt/DSAuthenticateLM.m; sourceTree = "<group>"; };
-		AA269F8A0B2F648B002EC0F6 /* changeip_ds */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = changeip_ds; sourceTree = BUILT_PRODUCTS_DIR; };
-		AA269F8E0B2F64D0002EC0F6 /* DSUtils.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = DSUtils.mm; path = changeip_ds/DSUtils.mm; sourceTree = "<group>"; };
-		AA269F8F0B2F64D0002EC0F6 /* Common.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = Common.mm; path = changeip_ds/Common.mm; sourceTree = "<group>"; };
-		AA269F900B2F64D0002EC0F6 /* UpdateKerberosConfig.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; name = UpdateKerberosConfig.m; path = changeip_ds/UpdateKerberosConfig.m; sourceTree = "<group>"; };
-		AA269F910B2F64D0002EC0F6 /* changeip_ds.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = changeip_ds.mm; path = changeip_ds/changeip_ds.mm; sourceTree = "<group>"; };
-		AA269F920B2F64D0002EC0F6 /* DSUtils.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = DSUtils.h; path = changeip_ds/DSUtils.h; sourceTree = "<group>"; };
-		AA269F930B2F64D0002EC0F6 /* Common.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = Common.h; path = changeip_ds/Common.h; sourceTree = "<group>"; };
 		AA26A0100B2F6D2D002EC0F6 /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = /System/Library/Frameworks/SystemConfiguration.framework; sourceTree = "<absolute>"; };
 		AA26A0170B2F6EC0002EC0F6 /* libresolv.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libresolv.dylib; path = /usr/lib/libresolv.dylib; sourceTree = "<absolute>"; };
 		AA290C01096B4C590075B1A4 /* dsclPlugInHelper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = dsclPlugInHelper.h; path = dscl/dsclPlugInHelper.h; sourceTree = "<group>"; };
@@ -578,6 +495,8 @@
 		AAE880DB06ADB63700DCA962 /* dstools_version.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = dstools_version.h; path = commonC/dstools_version.h; sourceTree = "<group>"; };
 		B01B5E6C0D4A6F01002A935E /* CAuthAuthority.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = CAuthAuthority.h; path = pwpolicy/CAuthAuthority.h; sourceTree = "<group>"; };
 		B01B5E6D0D4A6F01002A935E /* CAuthAuthority.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = CAuthAuthority.cpp; path = pwpolicy/CAuthAuthority.cpp; sourceTree = "<group>"; };
+		C54432EB0EA92E1B004A2589 /* PathRecordConfig.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = PathRecordConfig.h; path = dscl/PathRecordConfig.h; sourceTree = "<group>"; usesTabs = 0; };
+		C54432EC0EA92E1B004A2589 /* PathRecordConfig.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = PathRecordConfig.m; path = dscl/PathRecordConfig.m; sourceTree = "<group>"; usesTabs = 0; };
 		C54F6C9005D46600001F9C89 /* DSoNodeBrowserItem.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = DSoNodeBrowserItem.h; path = DSObjCWrappers/DSoNodeBrowserItem.h; sourceTree = "<group>"; };
 		C54F6C9105D46600001F9C89 /* DSoNodeBrowserItem.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; name = DSoNodeBrowserItem.m; path = DSObjCWrappers/DSoNodeBrowserItem.m; sourceTree = "<group>"; };
 		C56EC77E085E6353009B5F36 /* libedit.2.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libedit.2.dylib; path = /usr/lib/libedit.2.dylib; sourceTree = "<absolute>"; };
@@ -587,8 +506,6 @@
 		C5B101DC043E7F1700A34AD1 /* DSoDirectoryPriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DSoDirectoryPriv.h; sourceTree = "<group>"; };
 		E52AF99D064C4D0500A7A081 /* dsconfigldap.1 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.man; name = dsconfigldap.1; path = dsconfigldap/dsconfigldap.1; sourceTree = "<group>"; };
 		E52AF9AD064C4D2300A7A081 /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = main.cpp; path = dsconfigldap/main.cpp; sourceTree = "<group>"; };
-		F06BAE8A07B9882E00C7A234 /* HighLevelDirServicesMini.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = HighLevelDirServicesMini.c; path = HighLevelDirServices/HighLevelDirServicesMini.c; sourceTree = "<group>"; };
-		F06BAE8B07B9882E00C7A234 /* HighLevelDirServicesMini.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = HighLevelDirServicesMini.h; path = HighLevelDirServices/HighLevelDirServicesMini.h; sourceTree = "<group>"; };
 		F5DE84B10475A79E01FF1AEF /* DSAuthenticateNT.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = DSAuthenticateNT.h; path = dirt/DSAuthenticateNT.h; sourceTree = "<group>"; };
 		F5DE84B20475A79E01FF1AEF /* DSAuthenticateNT.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; name = DSAuthenticateNT.m; path = dirt/DSAuthenticateNT.m; sourceTree = "<group>"; };
 		FE1B92D1040D5BF100DD2834 /* dsperfmonitor.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; name = dsperfmonitor.1; path = dsperfmonitor/dsperfmonitor.1; sourceTree = "<group>"; };
@@ -602,6 +519,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6B929AE70E5E823C003925E2 /* SystemConfiguration.framework in Frameworks */,
 				6191041409E4292700F06CF9 /* Foundation.framework in Frameworks */,
 				6191041509E4292700F06CF9 /* DirectoryService.framework in Frameworks */,
 				6191041609E4292700F06CF9 /* Security.framework in Frameworks */,
@@ -612,7 +530,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				6191044009E42A2200F06CF9 /* DirectoryService.framework in Frameworks */,
+				6B929BC50E5F4B0E003925E2 /* OpenDirectory.framework in Frameworks */,
 				6191044109E42A2200F06CF9 /* CoreFoundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -673,7 +591,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6BDDC5E30EE47693006EFB5E /* Foundation.framework in Frameworks */,
 				6B9BC23D0B575D470098F7BB /* OpenDirectory.framework in Frameworks */,
+				6BDDC6B20EE476A9006EFB5E /* AppKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -681,6 +601,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6B690CB30EE5BF58005C4AFE /* OpenDirectory.framework in Frameworks */,
+				6B690CB40EE5BF59005C4AFE /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -688,27 +610,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		84B0C4E909ED99700026664E /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				6B9BC2A90B5766B20098F7BB /* OpenDirectory.framework in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		AA269F880B2F648B002EC0F6 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				AA269FAA0B2F6552002EC0F6 /* PasswordServer.framework in Frameworks */,
-				AA269FAB0B2F6557002EC0F6 /* DirectoryService.framework in Frameworks */,
-				AA26A0110B2F6D2D002EC0F6 /* SystemConfiguration.framework in Frameworks */,
-				AA26A0120B2F6D47002EC0F6 /* CoreFoundation.framework in Frameworks */,
-				AA26A0140B2F6D5F002EC0F6 /* Foundation.framework in Frameworks */,
-				AA26A0180B2F6EC0002EC0F6 /* libresolv.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -740,7 +641,6 @@
 				6B9BC1F50B575A6B0098F7BB /* DSCacheInspector */,
 				000AD48D0382D5BB00DD2B5C /* ObjC Wrappers */,
 				84AEA23C065BB88600B63BFF /* DSCommonC */,
-				AA269F820B2F645B002EC0F6 /* changeip_ds */,
 				61B12CDE03D7767900DD2B5C /* dirt */,
 				000AD4900382D5EB00DD2B5C /* dscl */,
 				6BEFB0710B596A210023391C /* dscacheutil */,
@@ -748,12 +648,9 @@
 				AA6B3610080D841000FBE535 /* dserr */,
 				849AD6E805EFCE7A0005E3DB /* dseditgroup */,
 				617BBE910466DED6008A5E07 /* dsenableroot */,
-				84B0C4F609ED9A3E0026664E /* dsexport */,
 				FE38203B040C3B3B00DD2834 /* dsperfmonitor */,
 				8463DA92087C5CE0002463BA /* dsmbrutil */,
 				844B3B6C04310E2500D87C54 /* pwpolicy */,
-				61E5E70E0711F7B800340448 /* updateGroupGUID Script */,
-				61ECA2710A2CB9AB00D9F51F /* configODServers */,
 				000AD4F50382D90B00DD2B5C /* External Frameworks */,
 				000AD69C0382DA4A00DD2B5C /* Products */,
 				6191051609E42B0200F06CF9 /* Info-DSObjCWrappers__Upgraded_.plist */,
@@ -844,6 +741,7 @@
 				000AD4C10382D77100DD2B5C /* PathNodeConfig.h */,
 				C5850B97076ADC9D002BAAC5 /* PathNodeSearch.h */,
 				000AD4C40382D77100DD2B5C /* PathRecord.h */,
+				C54432EB0EA92E1B004A2589 /* PathRecordConfig.h */,
 				000AD4C50382D77100DD2B5C /* PathRecordType.h */,
 				000AD4C60382D77100DD2B5C /* PathRecordTypeConfig.h */,
 			);
@@ -865,6 +763,7 @@
 				000AD4AB0382D71F00DD2B5C /* PathNodeConfig.m */,
 				C5850B98076ADC9D002BAAC5 /* PathNodeSearch.m */,
 				000AD4B10382D71F00DD2B5C /* PathRecord.m */,
+				C54432EC0EA92E1B004A2589 /* PathRecordConfig.m */,
 				000AD4B30382D71F00DD2B5C /* PathRecordType.m */,
 				000AD4B50382D71F00DD2B5C /* PathRecordTypeConfig.m */,
 			);
@@ -874,6 +773,7 @@
 		000AD4F50382D90B00DD2B5C /* External Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				6BDDC6B10EE476A9006EFB5E /* AppKit.framework */,
 				6B9BC23C0B575D470098F7BB /* OpenDirectory.framework */,
 				AA26A0170B2F6EC0002EC0F6 /* libresolv.dylib */,
 				AA26A0100B2F6D2D002EC0F6 /* SystemConfiguration.framework */,
@@ -901,9 +801,7 @@
 				619104A009E42AA000F06CF9 /* dirt */,
 				619104E509E42AD800F06CF9 /* dscl */,
 				6191051709E42B0200F06CF9 /* DSObjCWrappers.framework */,
-				84B0C4EB09ED99700026664E /* dsexport */,
 				AAD5BEF709F6DB640024526F /* pwpolicy */,
-				AA269F8A0B2F648B002EC0F6 /* changeip_ds */,
 				6B9BC20F0B575BFA0098F7BB /* DSCacheInspector.app */,
 				6BEFB0790B596AD00023391C /* dscacheutil */,
 			);
@@ -960,22 +858,6 @@
 				61B12CE703D776E100DD2B5C /* DSStatus.m */,
 			);
 			name = Classes;
-			sourceTree = "<group>";
-		};
-		61E5E70E0711F7B800340448 /* updateGroupGUID Script */ = {
-			isa = PBXGroup;
-			children = (
-				61E5E7130711F7FB00340448 /* updateGroupGUIDs */,
-			);
-			name = "updateGroupGUID Script";
-			sourceTree = "<group>";
-		};
-		61ECA2710A2CB9AB00D9F51F /* configODServers */ = {
-			isa = PBXGroup;
-			children = (
-				61ECA27A0A2CBA3400D9F51F /* configODServers */,
-			);
-			name = configODServers;
 			sourceTree = "<group>";
 		};
 		6B9BC1F50B575A6B0098F7BB /* DSCacheInspector */ = {
@@ -1045,7 +927,6 @@
 		849AD6EB05EFCE910005E3DB /* Other Sources */ = {
 			isa = PBXGroup;
 			children = (
-				F06BAE8A07B9882E00C7A234 /* HighLevelDirServicesMini.c */,
 				849AD6FC05EFCF040005E3DB /* dseditgroup.c */,
 			);
 			name = "Other Sources";
@@ -1054,7 +935,6 @@
 		849AD6EE05EFCEA00005E3DB /* Headers */ = {
 			isa = PBXGroup;
 			children = (
-				F06BAE8B07B9882E00C7A234 /* HighLevelDirServicesMini.h */,
 			);
 			name = Headers;
 			sourceTree = "<group>";
@@ -1092,30 +972,6 @@
 				AAE880DB06ADB63700DCA962 /* dstools_version.h */,
 			);
 			name = Headers;
-			sourceTree = "<group>";
-		};
-		84B0C4F609ED9A3E0026664E /* dsexport */ = {
-			isa = PBXGroup;
-			children = (
-				84B0C4F709ED9A3E0026664E /* dsexport.1 */,
-				84B0C4F909ED9A3E0026664E /* ExportController.h */,
-				84B0C4FA09ED9A3E0026664E /* ExportController.mm */,
-				84B0C4FB09ED9A3E0026664E /* main.m */,
-			);
-			path = dsexport;
-			sourceTree = "<group>";
-		};
-		AA269F820B2F645B002EC0F6 /* changeip_ds */ = {
-			isa = PBXGroup;
-			children = (
-				AA269F910B2F64D0002EC0F6 /* changeip_ds.mm */,
-				AA269F8F0B2F64D0002EC0F6 /* Common.mm */,
-				AA269F930B2F64D0002EC0F6 /* Common.h */,
-				AA269F8E0B2F64D0002EC0F6 /* DSUtils.mm */,
-				AA269F920B2F64D0002EC0F6 /* DSUtils.h */,
-				AA269F900B2F64D0002EC0F6 /* UpdateKerberosConfig.m */,
-			);
-			name = changeip_ds;
 			sourceTree = "<group>";
 		};
 		AA6B3610080D841000FBE535 /* dserr */ = {
@@ -1194,9 +1050,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				6191043709E42A2200F06CF9 /* dscommon.h in Headers */,
 				6191043809E42A2200F06CF9 /* dstools_version.h in Headers */,
-				6191043909E42A2200F06CF9 /* HighLevelDirServicesMini.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1260,6 +1114,7 @@
 				619104C809E42AD800F06CF9 /* PathNodeSearch.h in Headers */,
 				619104C909E42AD800F06CF9 /* dsclPlugInHelper.h in Headers */,
 				619104CA09E42AD800F06CF9 /* PlugInManager.h in Headers */,
+				C54432ED0EA92E1B004A2589 /* PathRecordConfig.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1286,14 +1141,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		84B0C51C09ED9D520026664E /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				84B0C51E09ED9D640026664E /* ExportController.h in Headers */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
@@ -1306,7 +1153,6 @@
 				6191041309E4292700F06CF9 /* Frameworks */,
 				6191041709E4292700F06CF9 /* Rez */,
 				6191041809E4292700F06CF9 /* CopyFiles */,
-				61ECA2840A2CBBFB00D9F51F /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -1327,8 +1173,6 @@
 				6191043F09E42A2200F06CF9 /* Frameworks */,
 				6191044209E42A2200F06CF9 /* Rez */,
 				6191044309E42A2200F06CF9 /* CopyFiles */,
-				6191044509E42A2200F06CF9 /* CopyFiles */,
-				6191044709E42A2200F06CF9 /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -1491,42 +1335,6 @@
 			productReference = 846C1B47087C7B560073AF5B /* dsmemberutil */;
 			productType = "com.apple.product-type.tool";
 		};
-		84B0C4EA09ED99700026664E /* dsexport */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 84B0C4ED09ED99E60026664E /* Build configuration list for PBXNativeTarget "dsexport" */;
-			buildPhases = (
-				84B0C51709ED9D030026664E /* CopyFiles */,
-				84B0C51C09ED9D520026664E /* Headers */,
-				84B0C4E809ED99700026664E /* Sources */,
-				84B0C4E909ED99700026664E /* Frameworks */,
-				84B0C52009ED9D7E0026664E /* Rez */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = dsexport;
-			productName = dsexport;
-			productReference = 84B0C4EB09ED99700026664E /* dsexport */;
-			productType = "com.apple.product-type.tool";
-		};
-		AA269F890B2F648B002EC0F6 /* changeip_ds */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = AA269F980B2F64D1002EC0F6 /* Build configuration list for PBXNativeTarget "changeip_ds" */;
-			buildPhases = (
-				AA269F870B2F648B002EC0F6 /* Sources */,
-				AA269F880B2F648B002EC0F6 /* Frameworks */,
-				AA269FB10B2F65C1002EC0F6 /* CopyFiles */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = changeip_ds;
-			productName = changeip_ds;
-			productReference = AA269F8A0B2F648B002EC0F6 /* changeip_ds */;
-			productType = "com.apple.product-type.tool";
-		};
 		AA6B3607080D83DD00FBE535 /* dserr */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = AA5C6C7E08FC5739001444CB /* Build configuration list for PBXNativeTarget "dserr" */;
@@ -1576,7 +1384,6 @@
 			targets = (
 				000AD6940382DA1C00DD2B5C /* DSTools */,
 				619104ED09E42B0200F06CF9 /* DSObjCWrappers */,
-				AA269F890B2F648B002EC0F6 /* changeip_ds */,
 				6191048509E42AA000F06CF9 /* dirt */,
 				6BEFB0780B596AD00023391C /* dscacheutil */,
 				619104AC09E42AD800F06CF9 /* dscl */,
@@ -1584,7 +1391,6 @@
 				6191040B09E4292700F06CF9 /* dsconfigldap */,
 				6191043509E42A2200F06CF9 /* dseditgroup */,
 				6191045409E42A5600F06CF9 /* dsenableroot */,
-				84B0C4EA09ED99700026664E /* dsexport */,
 				6191046D09E42A7B00F06CF9 /* dsperfmonitor */,
 				846C1B46087C7B560073AF5B /* dsmemberutil */,
 				AAD5BEF609F6DB640024526F /* pwpolicy */,
@@ -1662,31 +1468,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		84B0C52009ED9D7E0026664E /* Rez */ = {
-			isa = PBXRezBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXRezBuildPhase section */
-
-/* Begin PBXShellScriptBuildPhase section */
-		6191044709E42A2200F06CF9 /* ShellScript */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 8;
-			comments = "Want to ensure that the script is runnable";
-			files = (
-			);
-			inputPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
-			shellScript = "/bin/chmod 755 ${DSTROOT}//System/Library/PrivateFrameworks/Admin.framework/Versions/A/Resources/updateGroupGUIDs";
-		};
-/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		6191040F09E4292700F06CF9 /* Sources */ = {
@@ -1704,9 +1486,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				6191043B09E42A2200F06CF9 /* dseditgroup.c in Sources */,
-				6191043C09E42A2200F06CF9 /* dscommon.c in Sources */,
 				6191043D09E42A2200F06CF9 /* dstools_version.c in Sources */,
-				6191043E09E42A2200F06CF9 /* HighLevelDirServicesMini.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1760,6 +1540,7 @@
 				619104D709E42AD800F06CF9 /* dstools_version.c in Sources */,
 				619104D809E42AD800F06CF9 /* PathNodeSearch.m in Sources */,
 				619104D909E42AD800F06CF9 /* PlugInManager.m in Sources */,
+				C54432EE0EA92E1B004A2589 /* PathRecordConfig.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1805,26 +1586,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				846C1B59087C7C230073AF5B /* dsmbrutil.c in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		84B0C4E809ED99700026664E /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				84B0C4FC09ED9A490026664E /* ExportController.mm in Sources */,
-				84B0C4FD09ED9A490026664E /* main.m in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		AA269F870B2F648B002EC0F6 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				AA269F950B2F64D0002EC0F6 /* Common.mm in Sources */,
-				AA269F960B2F64D0002EC0F6 /* UpdateKerberosConfig.m in Sources */,
-				AA269F970B2F64D0002EC0F6 /* changeip_ds.mm in Sources */,
-				AA74CC5A0B3078AE007A4339 /* DSUtils.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1901,16 +1662,6 @@
 			target = 846C1B46087C7B560073AF5B /* dsmemberutil */;
 			targetProxy = 846C1B4B087C7BAB0073AF5B /* PBXContainerItemProxy */;
 		};
-		84B0C51609ED9C810026664E /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 84B0C4EA09ED99700026664E /* dsexport */;
-			targetProxy = 84B0C51509ED9C810026664E /* PBXContainerItemProxy */;
-		};
-		AA269FB30B2F6B46002EC0F6 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = AA269F890B2F648B002EC0F6 /* changeip_ds */;
-			targetProxy = AA269FB20B2F6B46002EC0F6 /* PBXContainerItemProxy */;
-		};
 		AA6B3666080D893500FBE535 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = AA6B3607080D83DD00FBE535 /* dserr */;
@@ -1946,61 +1697,43 @@
 		6191041B09E4292700F06CF9 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = dsconfigldap;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
 				);
-				ZERO_LINK = NO;
 			};
 			name = Development;
 		};
 		6191041C09E4292700F06CF9 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = dsconfigldap;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
 				);
-				ZERO_LINK = NO;
 			};
 			name = Deployment;
 		};
 		6191041D09E4292700F06CF9 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = dsconfigldap;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -2012,85 +1745,43 @@
 		6191044909E42A2200F06CF9 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = ppc;
-				COPY_PHASE_STRIP = NO;
-				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				HEADER_SEARCH_PATHS = (
-					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/DirectoryServiceCore.framework/Versions/A/Headers",
-					"$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Headers",
-					HighLevelDirServices,
-				);
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				INSTALL_PATH = /usr/sbin;
-				LIBRARY_SEARCH_PATHS = "\"$(APPLE_INTERNAL_DIR)/Developer/libs\"";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = dseditgroup;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
 				);
-				ZERO_LINK = NO;
 			};
 			name = Development;
 		};
 		6191044A09E42A2200F06CF9 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = ppc;
-				COPY_PHASE_STRIP = YES;
-				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				HEADER_SEARCH_PATHS = (
-					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/DirectoryServiceCore.framework/Versions/A/Headers",
-					"$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Headers",
-					HighLevelDirServices,
-				);
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				INSTALL_PATH = /usr/sbin;
-				LIBRARY_SEARCH_PATHS = "\"$(APPLE_INTERNAL_DIR)/Developer/libs\"";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = dseditgroup;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
 				);
-				ZERO_LINK = NO;
 			};
 			name = Deployment;
 		};
 		6191044B09E42A2200F06CF9 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = ppc;
-				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				HEADER_SEARCH_PATHS = (
-					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/DirectoryServiceCore.framework/Versions/A/Headers",
-					"$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Headers",
-					HighLevelDirServices,
-				);
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				INSTALL_PATH = /usr/sbin;
-				LIBRARY_SEARCH_PATHS = "\"$(APPLE_INTERNAL_DIR)/Developer/libs\"";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = dseditgroup;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -2102,76 +1793,58 @@
 		6191046209E42A5600F06CF9 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
 				HEADER_SEARCH_PATHS = (
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/DirectoryServiceCore.framework/Versions/A/Headers",
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Headers",
 				);
 				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = dsenableroot;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
 				);
-				ZERO_LINK = NO;
 			};
 			name = Development;
 		};
 		6191046309E42A5600F06CF9 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				HEADER_SEARCH_PATHS = (
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/DirectoryServiceCore.framework/Versions/A/Headers",
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Headers",
 				);
 				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = dsenableroot;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
 				);
-				ZERO_LINK = NO;
 			};
 			name = Deployment;
 		};
 		6191046409E42A5600F06CF9 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				HEADER_SEARCH_PATHS = (
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/DirectoryServiceCore.framework/Versions/A/Headers",
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Headers",
 				);
 				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = dsenableroot;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -2183,76 +1856,58 @@
 		6191047A09E42A7B00F06CF9 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
 				HEADER_SEARCH_PATHS = (
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Headers",
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/DirectoryServiceCore.framework/Versions/A/Headers",
 				);
 				INSTALL_PATH = /usr/bin;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = dsperfmonitor;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
 				);
-				ZERO_LINK = NO;
 			};
 			name = Development;
 		};
 		6191047B09E42A7B00F06CF9 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				HEADER_SEARCH_PATHS = (
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Headers",
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/DirectoryServiceCore.framework/Versions/A/Headers",
 				);
 				INSTALL_PATH = /usr/bin;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = dsperfmonitor;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
 				);
-				ZERO_LINK = NO;
 			};
 			name = Deployment;
 		};
 		6191047C09E42A7B00F06CF9 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				HEADER_SEARCH_PATHS = (
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Headers",
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/DirectoryServiceCore.framework/Versions/A/Headers",
 				);
 				INSTALL_PATH = /usr/bin;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = dsperfmonitor;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -2264,81 +1919,46 @@
 		6191049D09E42AA000F06CF9 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
-				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				INSTALL_PATH = /usr/bin;
-				OTHER_CFLAGS = (
-					"-fobjc-gc",
-					"-fobjc-exceptions",
-					"-gfull",
-				);
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
+				INSTALL_PATH = /usr/local/bin;
 				PRODUCT_NAME = dirt;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
 				);
-				ZERO_LINK = NO;
 			};
 			name = Development;
 		};
 		6191049E09E42AA000F06CF9 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
-				COPY_PHASE_STRIP = YES;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_OPTIMIZATION_LEVEL = 2;
-				INSTALL_PATH = /usr/bin;
-				OTHER_CFLAGS = (
-					"-fobjc-gc",
-					"-fobjc-exceptions",
-					"-gfull",
-				);
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
+				INSTALL_PATH = /usr/local/bin;
 				PRODUCT_NAME = dirt;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
 				);
-				ZERO_LINK = NO;
 			};
 			name = Deployment;
 		};
 		6191049F09E42AA000F06CF9 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_OPTIMIZATION_LEVEL = 2;
-				INSTALL_PATH = /usr/bin;
-				OTHER_CFLAGS = (
-					"-fobjc-gc",
-					"-fobjc-exceptions",
-					"-gfull",
-				);
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
+				INSTALL_PATH = /usr/local/bin;
 				PRODUCT_NAME = dirt;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -2350,78 +1970,49 @@
 		619104E209E42AD800F06CF9 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = /usr/bin;
-				OTHER_CFLAGS = (
-					"-fobjc-exceptions",
-					"-gfull",
-				);
-				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
-				OTHER_LDFLAGS = "-twolevel_namespace";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = dscl;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "x86_64 i386";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
 				);
-				ZERO_LINK = NO;
 			};
 			name = Development;
 		};
 		619104E309E42AD800F06CF9 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_OPTIMIZATION_LEVEL = 2;
 				INSTALL_PATH = /usr/bin;
-				OTHER_CFLAGS = (
-					"-fobjc-exceptions",
-					"-gfull",
-				);
-				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
-				OTHER_LDFLAGS = "-twolevel_namespace";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = dscl;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "x86_64 i386";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
 				);
-				ZERO_LINK = NO;
 			};
 			name = Deployment;
 		};
 		619104E409E42AD800F06CF9 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_OPTIMIZATION_LEVEL = 2;
 				INSTALL_PATH = /usr/bin;
-				OTHER_CFLAGS = (
-					"-fobjc-exceptions",
-					"-gfull",
-				);
-				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
-				OTHER_LDFLAGS = "-twolevel_namespace";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = dscl;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "x86_64 i386";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -2436,31 +2027,15 @@
 				ARCHS = (
 					i386,
 					ppc,
-					ppc64,
 					x86_64,
 				);
-				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				FRAMEWORK_VERSION = A;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
-				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_ENABLE_OBJC_GC = YES;
 				INFOPLIST_FILE = "Info-DSObjCWrappers__Upgraded_.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
-				OTHER_CFLAGS = (
-					"-fobjc-gc",
-					"-fobjc-exceptions",
-					"-gfull",
-				);
-				OTHER_LDFLAGS = (
-					"-twolevel_namespace",
-					"-dead_strip",
-				);
-				OTHER_LIBTOOL_FLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRINCIPAL_CLASS = "";
 				PRODUCT_NAME = DSObjCWrappers;
 				SECTORDER_FLAGS = (
 					"-sectorder",
@@ -2477,39 +2052,19 @@
 					"-Wno-unknown-pragmas",
 				);
 				WRAPPER_EXTENSION = framework;
-				ZERO_LINK = NO;
 			};
 			name = Development;
 		};
 		6191051409E42B0200F06CF9 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					i386,
-					ppc,
-					ppc64,
-					x86_64,
-				);
-				COPY_PHASE_STRIP = YES;
+				DEAD_CODE_STRIPPING = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				FRAMEWORK_VERSION = A;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_ENABLE_OBJC_GC = YES;
 				INFOPLIST_FILE = "Info-DSObjCWrappers__Upgraded_.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
-				OTHER_CFLAGS = (
-					"-fobjc-gc",
-					"-fobjc-exceptions",
-					"-gfull",
-				);
-				OTHER_LDFLAGS = (
-					"-twolevel_namespace",
-					"-dead_strip",
-				);
-				OTHER_LIBTOOL_FLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRINCIPAL_CLASS = "";
 				PRODUCT_NAME = DSObjCWrappers;
 				SECTORDER_FLAGS = (
 					"-sectorder",
@@ -2526,37 +2081,19 @@
 					"-Wno-unknown-pragmas",
 				);
 				WRAPPER_EXTENSION = framework;
-				ZERO_LINK = NO;
 			};
 			name = Deployment;
 		};
 		6191051509E42B0200F06CF9 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					i386,
-					ppc,
-					ppc64,
-					x86_64,
-				);
+				DEAD_CODE_STRIPPING = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				FRAMEWORK_VERSION = A;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_ENABLE_OBJC_GC = YES;
 				INFOPLIST_FILE = "Info-DSObjCWrappers__Upgraded_.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
-				OTHER_CFLAGS = (
-					"-fobjc-gc",
-					"-fobjc-exceptions",
-					"-gfull",
-				);
-				OTHER_LDFLAGS = (
-					"-twolevel_namespace",
-					"-dead_strip",
-				);
-				OTHER_LIBTOOL_FLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRINCIPAL_CLASS = "";
 				PRODUCT_NAME = DSObjCWrappers;
 				SECTORDER_FLAGS = (
 					"-sectorder",
@@ -2579,388 +2116,113 @@
 		6B9BC2130B575BFB0098F7BB /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
-				);
-				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 0;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "$(SYSTEM_LIBRARY_DIR)/Frameworks/AppKit.framework/Headers/AppKit.h";
 				INFOPLIST_FILE = "DSCacheInspector/DSCacheInspector-Info.plist";
-				INSTALL_PATH = "$(HOME)/Applications";
-				OTHER_LDFLAGS = (
-					"-framework",
-					Foundation,
-					"-framework",
-					AppKit,
-				);
-				PREBINDING = NO;
+				INSTALL_PATH = /AppleInternal/Applications;
 				PRODUCT_NAME = DSCacheInspector;
+				VALID_ARCHS = "x86_64 i386";
 				WRAPPER_EXTENSION = app;
-				ZERO_LINK = YES;
 			};
 			name = Development;
 		};
 		6B9BC2140B575BFB0098F7BB /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
-				);
-				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_MODEL_TUNING = G5;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "$(SYSTEM_LIBRARY_DIR)/Frameworks/AppKit.framework/Headers/AppKit.h";
-				INFOPLIST_FILE = "DSCacheInspector-Info.plist";
-				INSTALL_PATH = "$(HOME)/Applications";
-				OTHER_LDFLAGS = (
-					"-framework",
-					Foundation,
-					"-framework",
-					AppKit,
-				);
-				PREBINDING = NO;
+				INFOPLIST_FILE = "DSCacheInspector/DSCacheInspector-Info.plist";
+				INSTALL_PATH = /AppleInternal/Applications;
 				PRODUCT_NAME = DSCacheInspector;
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "x86_64 i386";
 				WRAPPER_EXTENSION = app;
-				ZERO_LINK = NO;
 			};
 			name = Deployment;
 		};
 		6B9BC2150B575BFB0098F7BB /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
-				);
-				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_MODEL_TUNING = G5;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "$(SYSTEM_LIBRARY_DIR)/Frameworks/AppKit.framework/Headers/AppKit.h";
 				INFOPLIST_FILE = "DSCacheInspector/DSCacheInspector-Info.plist";
 				INSTALL_PATH = /AppleInternal/Applications;
-				OTHER_LDFLAGS = (
-					"-framework",
-					Foundation,
-					"-framework",
-					AppKit,
-					"-framework",
-					OpenDirectory,
-				);
-				PREBINDING = NO;
 				PRODUCT_NAME = DSCacheInspector;
+				VALID_ARCHS = "x86_64 i386";
 				WRAPPER_EXTENSION = app;
-				ZERO_LINK = YES;
 			};
 			name = Default;
 		};
 		6BEFB07E0B596AFE0023391C /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				FRAMEWORK_SEARCH_PATHS = /System/Library/PrivateFrameworks;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_ENABLE_OBJC_GC = YES;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				INSTALL_PATH = /usr/bin;
-				OTHER_LDFLAGS = (
-					"-framework",
-					Foundation,
-					"-framework",
-					OpenDirectory,
-				);
-				PREBINDING = NO;
 				PRODUCT_NAME = dscacheutil;
-				VALID_ARCHS = "i386 32bit ppc";
-				ZERO_LINK = YES;
+				VALID_ARCHS = "i386 x86_64";
 			};
 			name = Development;
 		};
 		6BEFB07F0B596AFE0023391C /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				FRAMEWORK_SEARCH_PATHS = /System/Library/PrivateFrameworks;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_ENABLE_OBJC_GC = YES;
-				GCC_MODEL_TUNING = G5;
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				INSTALL_PATH = /usr/bin;
-				OTHER_LDFLAGS = (
-					"-framework",
-					Foundation,
-					"-framework",
-					OpenDirectory,
-				);
-				PREBINDING = NO;
 				PRODUCT_NAME = dscacheutil;
-				VALID_ARCHS = "i386 32bit ppc";
-				ZERO_LINK = NO;
+				VALID_ARCHS = "i386 x86_64";
 			};
 			name = Deployment;
 		};
 		6BEFB0800B596AFE0023391C /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				FRAMEWORK_SEARCH_PATHS = /System/Library/PrivateFrameworks;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_ENABLE_OBJC_GC = YES;
-				GCC_MODEL_TUNING = G5;
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				INSTALL_PATH = /usr/bin;
-				OTHER_LDFLAGS = (
-					"-framework",
-					Foundation,
-					"-framework",
-					OpenDirectory,
-				);
-				PREBINDING = NO;
 				PRODUCT_NAME = dscacheutil;
-				VALID_ARCHS = "i386 32bit ppc";
-				ZERO_LINK = NO;
-			};
-			name = Default;
-		};
-		84B0C4EE09ED99E60026664E /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_2)",
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_3)",
-				);
-				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				FRAMEWORK_SEARCH_PATHS_QUOTED_2 = "\"$(SRCROOT)/../../../../Library/Frameworks\"";
-				FRAMEWORK_SEARCH_PATHS_QUOTED_3 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = "$(SYSTEM_LIBRARY_DIR)/Frameworks/AppKit.framework/Headers/AppKit.h";
-				INSTALL_PATH = /usr/bin;
-				LIBRARY_SEARCH_PATHS = "";
-				OTHER_CFLAGS = (
-					"-fobjc-exceptions",
-					"-gfull",
-				);
-				OTHER_LDFLAGS = (
-					"-framework",
-					Foundation,
-					"-framework",
-					AppKit,
-				);
-				PREBINDING = NO;
-				PRODUCT_NAME = dsexport;
-				VALID_ARCHS = "ppc i386";
-				ZERO_LINK = NO;
-			};
-			name = Development;
-		};
-		84B0C4EF09ED99E60026664E /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ARCHS = (
-					ppc,
-					i386,
-				);
-				COPY_PHASE_STRIP = YES;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_2)",
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
-				);
-				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				FRAMEWORK_SEARCH_PATHS_QUOTED_2 = "\"$(SRCROOT)/../../../../Library/Frameworks\"";
-				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
-				GCC_MODEL_TUNING = G5;
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = "$(SYSTEM_LIBRARY_DIR)/Frameworks/AppKit.framework/Headers/AppKit.h";
-				INSTALL_PATH = /usr/bin;
-				LIBRARY_SEARCH_PATHS = "";
-				OTHER_LDFLAGS = (
-					"-framework",
-					Foundation,
-					"-framework",
-					AppKit,
-				);
-				PREBINDING = NO;
-				PRODUCT_NAME = dsexport;
-				VALID_ARCHS = "ppc i386";
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		84B0C4F009ED99E60026664E /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_2)",
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_3)",
-				);
-				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				FRAMEWORK_SEARCH_PATHS_QUOTED_2 = "\"$(SRCROOT)/../../../../Library/Frameworks\"";
-				FRAMEWORK_SEARCH_PATHS_QUOTED_3 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
-				GCC_MODEL_TUNING = G5;
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = "$(SYSTEM_LIBRARY_DIR)/Frameworks/AppKit.framework/Headers/AppKit.h";
-				INSTALL_PATH = /usr/bin;
-				LIBRARY_SEARCH_PATHS = "";
-				OTHER_CFLAGS = (
-					"-fobjc-exceptions",
-					"-gfull",
-				);
-				OTHER_LDFLAGS = (
-					"-framework",
-					Foundation,
-					"-framework",
-					AppKit,
-				);
-				PREBINDING = NO;
-				PRODUCT_NAME = dsexport;
-				VALID_ARCHS = "ppc i386";
-				ZERO_LINK = NO;
-			};
-			name = Default;
-		};
-		AA269F990B2F64D1002EC0F6 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
-				);
-				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				INSTALL_PATH = /usr/libexec/changeip/;
-				OTHER_LDFLAGS = "";
-				PREBINDING = NO;
-				PRODUCT_NAME = changeip_ds;
-				VALID_ARCHS = "i386 ppc";
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		AA269F9A0B2F64D1002EC0F6 /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
-				);
-				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_MODEL_TUNING = G5;
-				INSTALL_PATH = /usr/libexec/changeip/;
-				PREBINDING = NO;
-				PRODUCT_NAME = changeip_ds;
-				VALID_ARCHS = "i386 ppc";
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		AA269F9B0B2F64D1002EC0F6 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
-				);
-				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_MODEL_TUNING = G5;
-				INSTALL_PATH = /usr/libexec/changeip/;
-				PREBINDING = NO;
-				PRODUCT_NAME = changeip_ds;
-				VALID_ARCHS = "i386 ppc";
-				ZERO_LINK = NO;
+				VALID_ARCHS = "i386 x86_64";
 			};
 			name = Default;
 		};
 		AA5C6C7F08FC5739001444CB /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = NO;
 				DEAD_CODE_STRIPPING = YES;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 0;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				INSTALL_PATH = /usr/bin/;
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PREBINDING = NO;
-				PRESERVE_DEAD_CODE_INITS_AND_TERMS = NO;
 				PRODUCT_NAME = dserr;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
 				);
-				ZERO_LINK = NO;
 			};
 			name = Development;
 		};
 		AA5C6C8008FC5739001444CB /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
 				DEAD_CODE_STRIPPING = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
-				GCC_MODEL_TUNING = G5;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				INSTALL_PATH = /usr/bin/;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PREBINDING = NO;
-				PRESERVE_DEAD_CODE_INITS_AND_TERMS = NO;
 				PRODUCT_NAME = dserr;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
 				);
-				ZERO_LINK = NO;
 			};
 			name = Deployment;
 		};
@@ -2968,17 +2230,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DEAD_CODE_STRIPPING = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
-				GCC_MODEL_TUNING = G5;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				INSTALL_PATH = /usr/bin/;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PREBINDING = NO;
-				PRESERVE_DEAD_CODE_INITS_AND_TERMS = NO;
 				PRODUCT_NAME = dserr;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -2990,75 +2245,43 @@
 		AA5C6C8308FC5739001444CB /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
-				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_C_LANGUAGE_STANDARD = "compiler-default";
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = /usr/bin;
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PREBINDING = NO;
 				PRODUCT_NAME = dsmemberutil;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "32bit i386 ppc";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
 				);
-				ZERO_LINK = NO;
 			};
 			name = Development;
 		};
 		AA5C6C8408FC5739001444CB /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
-				COPY_PHASE_STRIP = YES;
-				GCC_C_LANGUAGE_STANDARD = "compiler-default";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
-				GCC_MODEL_TUNING = G5;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				INSTALL_PATH = /usr/bin;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PREBINDING = NO;
 				PRODUCT_NAME = dsmemberutil;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
 				);
-				ZERO_LINK = NO;
 			};
 			name = Deployment;
 		};
 		AA5C6C8508FC5739001444CB /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_C_LANGUAGE_STANDARD = "compiler-default";
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
-				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/bin;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PREBINDING = NO;
 				PRODUCT_NAME = dsmemberutil;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -3075,8 +2298,7 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = "-Wno-deprecated-declarations";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = DSTools;
@@ -3121,6 +2343,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wno-deprecated-declarations",
 				);
 			};
 			name = Default;
@@ -3140,75 +2363,52 @@
 		AA5C6C8D08FC5739001444CB /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 			};
 			name = Default;
 		};
 		AAD5BF7E09F6DBCE0024526F /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(FRAMEWORK_SEARCH_PATHS)",
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = /usr/bin;
-				PREBINDING = NO;
 				PRODUCT_NAME = pwpolicy;
-				SYMROOT = build;
-				USER_HEADER_SEARCH_PATHS = /usr/include/sasl;
-				VALID_ARCHS = "i386 ppc";
-				ZERO_LINK = NO;
+				VALID_ARCHS = "i386 x86_64";
 			};
 			name = Development;
 		};
 		AAD5BF7F09F6DBCE0024526F /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					i386,
-					ppc,
-				);
-				COPY_PHASE_STRIP = YES;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(FRAMEWORK_SEARCH_PATHS)",
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
-				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/bin;
-				PREBINDING = NO;
 				PRODUCT_NAME = pwpolicy;
-				USER_HEADER_SEARCH_PATHS = /usr/include/sasl;
-				VALID_ARCHS = "i386 ppc";
-				ZERO_LINK = NO;
+				VALID_ARCHS = "i386 x86_64";
 			};
 			name = Deployment;
 		};
 		AAD5BF8009F6DBCE0024526F /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					i386,
-					ppc,
-				);
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(FRAMEWORK_SEARCH_PATHS)",
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/bin;
-				PREBINDING = NO;
 				PRODUCT_NAME = pwpolicy;
-				USER_HEADER_SEARCH_PATHS = /usr/include/sasl;
-				VALID_ARCHS = "i386 ppc";
-				ZERO_LINK = NO;
+				VALID_ARCHS = "i386 x86_64";
 			};
 			name = Default;
 		};
@@ -3301,26 +2501,6 @@
 				6BEFB07E0B596AFE0023391C /* Development */,
 				6BEFB07F0B596AFE0023391C /* Deployment */,
 				6BEFB0800B596AFE0023391C /* Default */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
-		};
-		84B0C4ED09ED99E60026664E /* Build configuration list for PBXNativeTarget "dsexport" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				84B0C4EE09ED99E60026664E /* Development */,
-				84B0C4EF09ED99E60026664E /* Deployment */,
-				84B0C4F009ED99E60026664E /* Default */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
-		};
-		AA269F980B2F64D1002EC0F6 /* Build configuration list for PBXNativeTarget "changeip_ds" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				AA269F990B2F64D1002EC0F6 /* Development */,
-				AA269F9A0B2F64D1002EC0F6 /* Deployment */,
-				AA269F9B0B2F64D1002EC0F6 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;

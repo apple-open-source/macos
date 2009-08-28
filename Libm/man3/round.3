@@ -32,7 +32,7 @@
 .\"     from: @(#)rint.3	5.1 (Berkeley) 5/2/91
 .\"	$Id: round.3,v 1.4 2004/12/20 21:35:46 scp Exp $
 .\"
-.Dd July 22, 2003
+.Dd July 02, 2008
 .Dt ROUND 3
 .Os
 .Sh NAME
@@ -95,6 +95,12 @@ The
 and
 .Fn llround
 functions need not raise the "inexact" floating-point exception for non-integer arguments that round to within the range of the return type.
+.Sh NOTE
+The
+.Fn roundtol
+function is deprecated.  Please use the C99 function
+.Fn lround
+instead.
 .Sh SEE ALSO
 .Xr abs 3 ,
 .Xr fabs 3 ,

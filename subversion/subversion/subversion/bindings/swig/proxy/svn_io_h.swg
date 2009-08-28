@@ -6,14 +6,32 @@
 %nodefault svn_stream_t;
 #endif
 
-/* Includes */
+/* Callback typemaps */
 #ifdef SWIGPYTHON
-%import proxy.swg
-%import apr.swg
-%include svn_types_h.swg
-%include svn_error_h.swg
-%include svn_string_h.swg
+%apply CALLABLE_CALLBACK {
+  svn_read_fn_t,
+  svn_write_fn_t,
+  svn_close_fn_t,
+  svn_io_walk_func_t
+};
+%apply CALLABLE_CALLBACK * {
+  svn_read_fn_t *,
+  svn_write_fn_t *,
+  svn_close_fn_t *,
+  svn_io_walk_func_t *
+};
 #endif
+
+/* Baton typemaps */
+#ifdef SWIGPYTHON
+%apply void *PY_AS_VOID {
+  void *cancel_baton,
+  void *baton,
+  void *walk_baton
+};
+#endif
+
+/* Includes */
 %{
 #include "svn_io.h"
 %}
@@ -28,4 +46,32 @@
 /* Callbacks */
 
 %inline %{
+static svn_error_t * svn_read_invoke_fn(
+  svn_read_fn_t _obj, void *baton, char *buffer, apr_size_t *len) {
+  return _obj(baton, buffer, len);
+}
+
+static svn_error_t * svn_write_invoke_fn(
+  svn_write_fn_t _obj, void *baton, const char *data, apr_size_t *len) {
+  return _obj(baton, data, len);
+}
+
+static svn_error_t * svn_close_invoke_fn(
+  svn_close_fn_t _obj, void *baton) {
+  return _obj(baton);
+}
+
+static svn_error_t * svn_io_invoke_walk_func(
+  svn_io_walk_func_t _obj, void *baton, const char *path, const apr_finfo_t *finfo, apr_pool_t *pool) {
+  return _obj(baton, path, finfo, pool);
+}
+
 %}
+
+#ifdef SWIGPYTHON
+%funcptr_proxy(svn_read_fn_t, svn_read_invoke_fn);
+%funcptr_proxy(svn_write_fn_t, svn_write_invoke_fn);
+%funcptr_proxy(svn_close_fn_t, svn_close_invoke_fn);
+%funcptr_proxy(svn_io_walk_func_t, svn_io_invoke_walk_func);
+
+#endif

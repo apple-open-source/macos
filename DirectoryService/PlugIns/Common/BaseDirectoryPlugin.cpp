@@ -33,6 +33,7 @@
 #include <DirectoryServiceCore/CContinue.h>
 #include <DirectoryServiceCore/CPluginRef.h>
 #include <DirectoryServiceCore/CBuff.h>
+#include <dispatch/dispatch.h>
 #include "BDPIVirtualNode.h"
 
 extern "C" int ConvertXMLPolicyToSpaceDelimited( const char *inXMLDataStr, char **outPolicyStr );
@@ -103,6 +104,7 @@ BaseDirectoryPlugin::BaseDirectoryPlugin( const char *inName ) : fBasePluginMute
 	fCustomCallReadConfig = eDSCustomCallReadPluginConfigData;
 	fCustomCallWriteConfig = eDSCustomCallWritePluginConfigData;
 	fCustomCallVerifyConfig = eDSCustomCallVerifyPluginConfigData;	
+	fQueue = dispatch_queue_create( "BaseDirectoryPlugin fQueue", NULL );
 } // BaseDirectoryPlugin
 
 // --------------------------------------------------------------------------------
@@ -116,6 +118,7 @@ BaseDirectoryPlugin::~BaseDirectoryPlugin ( void )
 	DSDelete( fReadyForRequests );
 	DSFree( fPluginPrefix );
 	DSCFRelease( fPluginPrefixCF );
+	dispatch_release( fQueue );
 } // ~BaseDirectoryPlugin
 
 SInt32 BaseDirectoryPlugin::Initialize( void )
@@ -399,33 +402,38 @@ SInt32 BaseDirectoryPlugin::ProcessRequest ( void *inData )
 			break;
 
 		case kHandleNetworkTransition:
-			fBasePluginMutex.WaitLock();
-			if( fTransitionTimer != NULL )
-			{
-				DbgLog( kLogPlugin, "%s: Invalidating previous timer for network transition", fPlugInName );
-
-				CFRunLoopTimerInvalidate( fTransitionTimer );
-				CFRelease( fTransitionTimer );
-				fTransitionTimer = NULL;
-			}
-			
-			// Only add to the timer if timer is greater than 2 seconds from last transition timer
-			{
-				CFRunLoopTimerContext context = { 1, this, NULL, NULL, NULL };
-				
-				fTransitionTimer = CFRunLoopTimerCreate(	NULL,
-															CFAbsoluteTimeGetCurrent() + 2.0,
-															0,
-															0,
-															0,
-															BDPIHandleNetTransition,
-															&context );
-				
-				CFRunLoopAddTimer( fPluginRunLoop, fTransitionTimer, kCFRunLoopDefaultMode );
-				DbgLog( kLogPlugin, "%s: Added timer for network transition", fPlugInName );
-			}
-			fBasePluginMutex.SignalLock();
-			siResult = eDSNoErr;
+            // this is serialized on fQueue to ensure ordered operations on fTransitionTimer
+            {
+                void (^timerBlock)(dispatch_source_t) = ^(dispatch_source_t ds) {
+                    if ( dispatch_source_get_error(ds, NULL) == 0 ) {
+                        DbgLog( kLogInfo, "%s: Network transition - acting on the timer", fPlugInName );
+                        NetworkTransition();
+                        dispatch_cancel( ds );
+                    }
+                    else {
+                        dispatch_release( ds );
+                        fTransitionTimer = NULL;
+                    }
+                };
+                
+                dispatch_async( fQueue,
+                                ^(void) {
+                                    if ( fTransitionTimer != NULL ) {
+                                        dispatch_source_timer_set_time( fTransitionTimer, 2ull * NSEC_PER_SEC, 0 );
+                                        DbgLog( kLogInfo, "%s: Network transition - pushing previous timer forward (coalescing)", fPlugInName );
+                                    }
+                                    else {
+                                        DbgLog( kLogInfo, "%s: Network transition - creating timer for 2 seconds from now", fPlugInName );
+                                        fTransitionTimer = dispatch_source_timer_create( DISPATCH_TIMER_ONESHOT, 
+                                                                                         2ull * NSEC_PER_SEC, 
+                                                                                         0,
+                                                                                         NULL,
+                                                                                         fQueue, 
+                                                                                         timerBlock );
+                                    }
+                                } );
+                siResult = eDSNoErr;
+            }
 			break;
 		
 		default:
@@ -620,7 +628,9 @@ tDirStatus BaseDirectoryPlugin::DoPlugInCustomCall( sDoPlugInCustomCall *inData 
 			
 			if ( pContext->fUID == 0 || pContext->fEffectiveUID == 0 )
 			{
-				AuthorizationExternalForm	blankExtForm = { 0 };
+				AuthorizationExternalForm	blankExtForm;
+                
+                bzero( &blankExtForm, sizeof(blankExtForm) );
 				
 				if ( memcmp(inData->fInRequestData->fBufferData, &blankExtForm, sizeof(AuthorizationExternalForm)) == 0 )
 				{
@@ -824,7 +834,7 @@ tDirStatus BaseDirectoryPlugin::CloseDirNode( sCloseDirNode *inData )
 		goto failure;
 	}
 
-	fContinueHash->RemoveItems( inData->fInNodeRef );
+	fContinueHash->RemovePointersForRefNum( inData->fInNodeRef );
 	fContextHash->RemoveItem( inData->fInNodeRef );
 
 failure:
@@ -864,20 +874,20 @@ tDirStatus BaseDirectoryPlugin::GetDirNodeInfo( sGetDirNodeInfo *inData )
 		goto failure;
 	}
 	
-	if ( inData->fOutContinueData != NULL )
+	if ( inData->fOutContinueData != 0 )
 	{
-		sBDPISearchRecordsContext *pContinue = (sBDPISearchRecordsContext *) inData->fOutContinueData;
-		if ( fContinueHash->VerifyItem(pContinue) == false )
+		sBDPISearchRecordsContext *pContinue = (sBDPISearchRecordsContext *) fContinueHash->GetPointer( inData->fOutContinueData );
+		if ( pContinue == NULL )
 		{
 			siResult = eDSInvalidContinueData;
 			goto failure;
 		}
 		
 		cfNodeInfo = (CFMutableDictionaryRef) pContinue->fStateInfo;
+		pContinue->fStateInfo = NULL;
 		
-		// just remove it, we'll recreate it if needed
-		inData->fOutContinueData = NULL;
-		fContinueHash->RemoveItem( pContinue );
+		fContinueHash->RemoveContext( inData->fOutContinueData );
+		inData->fOutContinueData = 0;
 	}
 	else
 	{
@@ -897,29 +907,28 @@ tDirStatus BaseDirectoryPlugin::GetDirNodeInfo( sGetDirNodeInfo *inData )
 	
 	if ( cfNodeInfo != NULL && CFDictionaryGetCount(cfNodeInfo) > 0 )
 	{
-		UInt32		buffType	= 'Gdni';
+		CFMutableArrayRef cfValues = CFArrayCreateMutable( kCFAllocatorDefault, 1, &kCFTypeArrayCallBacks );
+		CFDictionaryRef cfAttributes = (CFDictionaryRef) CFDictionaryGetValue( cfNodeInfo, kBDPIAttributeKey );
 		
-		bcopy( &buffType, inData->fOutDataBuff->fBufferData, sizeof(buffType) );
-		inData->fOutDataBuff->fBufferLength = sizeof(buffType);
+		// safety - for plugins not filling these fields
+		if ( CFDictionaryContainsKey(cfNodeInfo, kBDPINameKey) == false ) {
+			CFDictionarySetValue( cfNodeInfo, kBDPINameKey, CFSTR("DirectoryNodeInfo") );
+		}
 		
-		sBDPIRecordEntryContext *pAttrContext = (sBDPIRecordEntryContext *) MakeContextData( kBDPIRecordEntry );
-		if ( pAttrContext != NULL )
-		{
-			CFDictionaryRef	cfAttributes	= (CFDictionaryRef) CFDictionaryGetValue( cfNodeInfo, kBDPIAttributeKey );
-
-			pAttrContext->fVirtualNode = pContext->fVirtualNode;
-			pAttrContext->fRecord = cfNodeInfo;
-
-			inData->fOutContinueData = 0;
-			inData->fOutAttrInfoCount = CFDictionaryGetCount( cfAttributes );
-
-			fContextHash->AddItem( inData->fOutAttrListRef, pAttrContext );
-			cfNodeInfo = NULL;
+		if ( CFDictionaryContainsKey(cfNodeInfo, kBDPITypeKey) == false ) {
+			CFDictionarySetValue( cfNodeInfo, kBDPITypeKey, CFSTR(kDSStdRecordTypeDirectoryNodeInfo) );
 		}
-		else
-		{
-			siResult = eMemoryAllocError;
+		
+		CFArrayAppendValue( cfValues, cfNodeInfo );
+
+		SInt32 count = FillBuffer( cfValues, inData->fOutDataBuff );
+		if ( count == 0 ) {
+			siResult = eDSBufferTooSmall;
 		}
+		
+		inData->fOutAttrInfoCount = CFDictionaryGetCount( cfAttributes );
+
+		DSCFRelease( cfValues );
 	}
 	
 	EXCEPTION_END
@@ -1313,8 +1322,8 @@ tDirStatus BaseDirectoryPlugin::GetRecordList( sGetRecordList *inData )
 
 	if ( inData->fIOContinueData )
 	{
-		pContinue = (sBDPISearchRecordsContext *) inData->fIOContinueData;
-		if ( fContinueHash->VerifyItem(pContinue) == false )
+		pContinue = (sBDPISearchRecordsContext *) fContinueHash->GetPointer( inData->fIOContinueData );
+		if ( pContinue ==  NULL )
 		{
 			siResult = eDSInvalidContinueData;
 			goto failure;
@@ -1334,9 +1343,7 @@ tDirStatus BaseDirectoryPlugin::GetRecordList( sGetRecordList *inData )
 		pContinue->fMaxRecCount = inData->fOutRecEntryCount;
 		pContinue->fStateInfo = NULL;
 		
-		inData->fIOContinueData = pContinue;
-		
-		fContinueHash->AddItem( (void *) pContinue, inData->fInNodeRef );
+		inData->fIOContinueData = fContinueHash->AddPointer( pContinue, inData->fInNodeRef );
 	}
 	
 	inData->fOutRecEntryCount = 0;
@@ -1350,8 +1357,8 @@ tDirStatus BaseDirectoryPlugin::GetRecordList( sGetRecordList *inData )
 	// if we have 0 records and no error or we got some kind of error
 	if ( (inData->fOutRecEntryCount == 0 && siResult == eDSNoErr) || (siResult != eDSBufferTooSmall && siResult != eDSNoErr)  )
 	{
-		inData->fIOContinueData = NULL;
-		fContinueHash->RemoveItem( pContinue );
+		fContinueHash->RemoveContext( inData->fIOContinueData );
+		inData->fIOContinueData = 0;
 	}
 
 	EXCEPTION_END
@@ -1408,15 +1415,14 @@ tDirStatus BaseDirectoryPlugin::DoAttributeValueSearchWithData( sDoAttrValueSear
 	}
 
 	// check to make sure context IN is the same as RefTable saved context
-	if ( inData->fIOContinueData != NULL )
+	if ( inData->fIOContinueData != 0 )
 	{
-		if ( fContinueHash->VerifyItem(inData->fIOContinueData) == false )
+		pContinue = (sBDPISearchRecordsContext *) fContinueHash->GetPointer( inData->fIOContinueData );
+		if ( pContinue == NULL )
 		{
 			siResult = eDSInvalidContinueData;
 			goto failure;
 		}
-
-		pContinue = (sBDPISearchRecordsContext *) inData->fIOContinueData;
 	}
 	else
 	{
@@ -1476,9 +1482,7 @@ tDirStatus BaseDirectoryPlugin::DoAttributeValueSearchWithData( sDoAttrValueSear
 		pContinue->fIndex = 0;
 		pContinue->fMaxRecCount = inData->fOutMatchRecordCount;
 		
-		inData->fIOContinueData = pContinue;
-		
-		fContinueHash->AddItem( (void *) pContinue, inData->fInNodeRef );
+		inData->fIOContinueData = fContinueHash->AddPointer( pContinue, inData->fInNodeRef );
 	}
 	
 	inData->fOutMatchRecordCount = 0;
@@ -1491,8 +1495,8 @@ tDirStatus BaseDirectoryPlugin::DoAttributeValueSearchWithData( sDoAttrValueSear
 	
 	if ( (inData->fOutMatchRecordCount == 0 && siResult == eDSNoErr) || (siResult != eDSBufferTooSmall && siResult != eDSNoErr) )
 	{
-		inData->fIOContinueData = NULL;
-		fContinueHash->RemoveItem( pContinue );
+		fContinueHash->RemoveContext( inData->fIOContinueData );
+		inData->fIOContinueData = 0;
 	}
 
 	EXCEPTION_END
@@ -1610,10 +1614,18 @@ tDirStatus BaseDirectoryPlugin::GetRecordEntry( sGetRecordEntry *inData )
 
 tDirStatus BaseDirectoryPlugin::GetRecRefInfo( sGetRecRefInfo *inData )
 {
-    tDirStatus	siResult	= eDSNoErr;
-	int			uiOffset	= 0;
-	char		*tmpRecName	= NULL;
-	char		*tmpRecType	= NULL;
+    tDirStatus      siResult	= eDSNoErr;
+	int             uiOffset	= 0;
+	char            *tmpRecName	= NULL;
+	char            *tmpRecType	= NULL;
+	CFDictionaryRef pRecord     = NULL;
+	CFStringRef 	cfRecType   = NULL;
+	CFStringRef 	cfRecName   = NULL;
+	const char      *recName    = NULL;
+	const char      *recType    = NULL;
+	uint16_t        recNameLen  = 0;
+	uint16_t        recTypeLen  = 0;
+    tRecordEntry    *pRecEntry  = NULL;
 
 	sBDPIRecordEntryContext *pContext = (sBDPIRecordEntryContext *) fContextHash->GetItemData( inData->fInRecRef );
 	if ( pContext == NULL )
@@ -1622,18 +1634,17 @@ tDirStatus BaseDirectoryPlugin::GetRecRefInfo( sGetRecRefInfo *inData )
 		goto failure;
 	}
 
-	CFDictionaryRef pRecord = pContext->fRecord;
-	
-	CFStringRef cfRecType = (CFStringRef) CFDictionaryGetValue( pRecord, kBDPITypeKey );
-	CFStringRef cfRecName = (CFStringRef) CFDictionaryGetValue( pRecord, kBDPINameKey );
-	
-	const char *recName = GetCStringFromCFString( cfRecName, &tmpRecName );
-	const char *recType = GetCStringFromCFString( cfRecType, &tmpRecType );
+    pRecord = pContext->fRecord;
 
-	uint16_t recNameLen = strlen( recName );
-	uint16_t recTypeLen = strlen( recType );
+	cfRecName = (CFStringRef) CFDictionaryGetValue( pRecord, kBDPINameKey );
+	recName = GetCStringFromCFString( cfRecName, &tmpRecName );
+	recNameLen = strlen( recName );
 
-	tRecordEntry *pRecEntry = (tRecordEntry *) calloc( 1, sizeof(tRecordEntry) + recNameLen + recTypeLen + 4 + kBPDIBufferTax );
+    cfRecType = (CFStringRef) CFDictionaryGetValue( pRecord, kBDPITypeKey );
+	recType = GetCStringFromCFString( cfRecType, &tmpRecType );
+	recTypeLen = strlen( recType );
+
+	pRecEntry = (tRecordEntry *) calloc( 1, sizeof(tRecordEntry) + recNameLen + recTypeLen + 4 + kBPDIBufferTax );
 	if ( pRecEntry == NULL )
 	{
 		siResult = eMemoryAllocError;
@@ -3053,7 +3064,7 @@ tDirStatus BaseDirectoryPlugin::FillBuffer( CFMutableArrayRef inRecordList, BDPI
 
 tDirStatus BaseDirectoryPlugin::ReleaseContinueData( sReleaseContinueData *inData )
 {
-	return (tDirStatus)fContinueHash->RemoveItem( inData->fInContinueData );
+	return (tDirStatus)fContinueHash->RemoveContext( inData->fInContinueData );
 }
 
 void BaseDirectoryPlugin::ContextDeallocProc( void *inContextData )
@@ -3156,9 +3167,9 @@ tDirStatus BaseDirectoryPlugin::CleanContextData ( void *inContext )
     return( siResult );
 } // CleanContextData
 
-void BaseDirectoryPlugin::BDPIHandleNetTransition( CFRunLoopTimerRef timer, void *info )
+UInt32 BaseDirectoryPlugin::CalculateCRCWithLength( const void *inData, UInt32 inLength )
 {
-	((BaseDirectoryPlugin *) info)->NetworkTransition();
+	return CalcCRCWithLength( inData, inLength );
 }
 
 CFMutableArrayRef BaseDirectoryPlugin::CreateCFArrayFromList( tDataListPtr attribList )

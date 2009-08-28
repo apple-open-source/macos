@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -36,10 +36,10 @@ pedwarn_c99 (const char *gmsgid, ...)
 {
   diagnostic_info diagnostic;
   va_list ap;
-  
+
   va_start (ap, gmsgid);
   diagnostic_set_info (&diagnostic, gmsgid, &ap, input_location,
-                       flag_isoc99 ? pedantic_error_kind () : DK_WARNING);
+		       flag_isoc99 ? pedantic_error_kind () : DK_WARNING);
   report_diagnostic (&diagnostic);
   va_end (ap);
 }
@@ -57,7 +57,7 @@ pedwarn_c90 (const char *gmsgid, ...)
 
   va_start (ap, gmsgid);
   diagnostic_set_info (&diagnostic, gmsgid, &ap, input_location,
-                       flag_isoc99 ? DK_WARNING : pedantic_error_kind ());
+		       flag_isoc99 ? DK_WARNING : pedantic_error_kind ());
   report_diagnostic (&diagnostic);
   va_end (ap);
 }

@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright © 1998-2009 Apple Inc.  All rights reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -34,10 +34,6 @@
 #include <IOKit/usb/USB.h>
 #include <IOKit/usb/IOUSBLog.h>
 
-#if !TARGET_OS_EMBEDDED
-	#include <IOKit/pccard/IOPCCard.h>
-#endif
-
 #include <IOKit/usb/IOUSBRootHubDevice.h>
 
 #include "AppleUSBEHCI.h"
@@ -45,6 +41,7 @@
 #include "AppleEHCItdMemoryBlock.h"
 #include "AppleEHCIitdMemoryBlock.h"
 #include "AppleEHCIsitdMemoryBlock.h"
+#include "USBTracepoints.h"
 
 #define super IOUSBControllerV3
 #define self this
@@ -131,7 +128,7 @@ AppleUSBEHCI::free()
 
 void AppleUSBEHCI::showRegisters(UInt32 level, const char *s)
 {
-    int i, numPorts;
+    int i;
 
 	if (!_controllerAvailable)
 		return;
@@ -159,8 +156,8 @@ void AppleUSBEHCI::showRegisters(UInt32 level, const char *s)
     USBLog(level,"   PerListBase:  %p", (void*)USBToHostLong(_pEHCIRegisters->PeriodicListBase));
     USBLog(level,"   AsyncListAd:  %p", (void*)USBToHostLong(_pEHCIRegisters->AsyncListAddr));
     USBLog(level,"   ConfFlg: %p", (void*)USBToHostLong(_pEHCIRegisters->ConfigFlag));
-    numPorts = USBToHostLong(_pEHCICapRegisters->HCSParams) & kEHCINumPortsMask;
-    for(i=0;i<numPorts;i++)
+
+    for(i=0;i<_rootHubNumPorts;i++)
     {
         UInt32 x;
         x = USBToHostLong(_pEHCIRegisters->PortSC[i]);
@@ -194,7 +191,7 @@ AppleUSBEHCI::UIMInitialize(IOService * provider)
     IOReturn			err = kIOReturnSuccess;
     UInt16				lvalue;
 	UInt8				bValue;
-    int					i, numPorts;
+    int					i;
 	bool				gotTimerThreads;
     
     USBLog(7, "AppleUSBEHCI[%p]::UIMInitialize",  this);
@@ -352,16 +349,16 @@ AppleUSBEHCI::UIMInitialize(IOService * provider)
 		_isochBandwidthAvail = 5 *1024;
 		_outSlot = kEHCIPeriodicListEntries+1;			// No Isoc transactions currently
 		_frameNumber = 0;
-		_expansionData->_isochMaxBusStall = 25000;		// we need a requireMaxBusStall of 25 microseconds for EHCI
+		_expansionData->_isochMaxBusStall = 25000;						// we need a requireMaxBusStall of 25 microseconds for EHCI
 		
 		if ((err = InterruptInitialize()))
 			continue;
 
 		CheckSleepCapability();
 
-		numPorts = USBToHostLong(_pEHCICapRegisters->HCSParams) & kEHCINumPortsMask;
 		gotTimerThreads = true;
-		for (i=0; i < numPorts; i++)
+		_rootHubNumPorts = USBToHostLong(_pEHCICapRegisters->HCSParams) & kEHCINumPortsMask;
+		for (i=0; i < _rootHubNumPorts; i++)
 		{
 			_rhResumePortTimerThread[i] = thread_call_allocate((thread_call_func_t)RHResumePortTimerEntry, (thread_call_param_t)this);
 			if (!_rhResumePortTimerThread[i])
@@ -584,6 +581,7 @@ AppleUSBEHCI::UIMFinalize(void)
     }
     
     USBLog(1, "AppleUSBEHCI[%p]::UIMFinalize isInactive(%x) _pEHCIRegisters(%p) _device(%p)",  this, isInactive(), _pEHCIRegisters, _device);
+	USBTrace( kUSBTEHCI, kTPEHCIUIMFinalize , (uintptr_t)this, isInactive(), (uintptr_t)_pEHCIRegisters, (uintptr_t)_device);
 	
     // If we are NOT being terminated, then talk to the EHCI controller and
     // set up all the registers to be off
@@ -703,6 +701,7 @@ AppleUSBEHCI::GetFrameNumber32()
 	if ( USBToHostLong(_pEHCIRegisters->USBSTS) & kEHCIHCHaltedBit)
 	{
 		USBLog(1, "AppleUSBEHCI[%p]::GetFrameNumber32 called but controller is halted",  this);
+		USBTrace( kUSBTEHCI, kTPEHCIGetFrameNumber32 , (uintptr_t)this, USBToHostLong(_pEHCIRegisters->USBSTS), kEHCIHCHaltedBit, 0);
 		return 0;
 	}
 	
@@ -737,6 +736,7 @@ AppleUSBEHCI::GetFrameNumber()
 	if ( USBToHostLong(_pEHCIRegisters->USBSTS) & kEHCIHCHaltedBit)
 	{
 		USBLog(1, "AppleUSBEHCI[%p]::GetFrameNumber called but controller is halted",  this);
+		USBTrace( kUSBTEHCI, kTPEHCIGetFrameNumber , (uintptr_t)this, USBToHostLong(_pEHCIRegisters->USBSTS), kEHCIHCHaltedBit, 0);
 		return 0;
 	}
 	
@@ -828,6 +828,7 @@ AppleUSBEHCI::AllocateQH(void)
 		if (!memBlock)
 		{
 			USBLog(1, "AppleUSBEHCI[%p]::AllocateED - unable to allocate a new memory block!",  this);
+			USBTrace( kUSBTEHCI, kTPEHCIAllocateQH , (uintptr_t)this, (uintptr_t)memBlock, 0, 1);
 			return NULL;
 		}
 		// link it in to my list of ED memory blocks
@@ -842,6 +843,7 @@ AppleUSBEHCI::AllocateQH(void)
 			if (!freeQH)
 			{
 				USBLog(1, "AppleUSBEHCI[%p]::AllocateED - hmm. ran out of EDs in a memory block",  this);
+				USBTrace( kUSBTEHCI, kTPEHCIAllocateQH , (uintptr_t)this, 0, 0, 2 );
 				freeQH = _pFreeQH;
 				break;
 			}
@@ -1196,6 +1198,7 @@ AppleUSBEHCI::EnableAsyncSchedule(bool waitForON)
     if (stat)
     {
 		USBLog(1, "AppleUSBEHCI[%p]::EnableAsyncSchedule: returning status %x",  this, stat);
+		USBTrace( kUSBTEHCI, kTPEHCIEnableAsyncSchedule , (uintptr_t)this, stat, 0, 0);
     }
     else
     {
@@ -1229,6 +1232,7 @@ AppleUSBEHCI::DisableAsyncSchedule(bool waitForOFF)
 				if (i >= 100)
 				{
 					USBLog(1, "AppleUSBEHCI[%p]::DisableAsyncSchedule: ERROR: USBCMD and USBSTS won't synchronize OFF",  this);
+					USBTrace( kUSBTEHCI, kTPEHCIDisableAsyncSchedule , (uintptr_t)this, USBToHostLong(_pEHCIRegisters->USBCMD), USBToHostLong(_pEHCIRegisters->USBSTS), kIOReturnInternalError);
 					stat = kIOReturnInternalError;
 				}
 				else
@@ -1246,6 +1250,7 @@ AppleUSBEHCI::DisableAsyncSchedule(bool waitForOFF)
     if (stat)
     {
 		USBLog(1, "AppleUSBEHCI[%p]::DisableAsyncSchedule: returning status %x",  this, stat);
+		USBTrace( kUSBTEHCI, kTPEHCIDisableAsyncSchedule, (uintptr_t)this, stat, 0, 0);
     }
     else
     {
@@ -1285,6 +1290,7 @@ AppleUSBEHCI::EnablePeriodicSchedule(bool waitForON)
 				if (i >= 100)
 				{
 					USBLog(1, "AppleUSBEHCI[%p]::EnablePeriodicSchedule: ERROR: USBCMD and USBSTS won't synchronize ON",  this);
+					USBTrace( kUSBTEHCI, kTPEHCIEnablePeriodicSchedule , (uintptr_t)this, USBToHostLong(_pEHCIRegisters->USBCMD), USBToHostLong(_pEHCIRegisters->USBSTS), kIOReturnInternalError);
 					stat = kIOReturnInternalError;
 				}
 				else
@@ -1302,6 +1308,7 @@ AppleUSBEHCI::EnablePeriodicSchedule(bool waitForON)
     if (stat)
     {
 		USBLog(1, "AppleUSBEHCI[%p]::EnablePeriodicSchedule: returning status %x",  this, stat);
+		USBTrace( kUSBTEHCI, kTPEHCIEnablePeriodicSchedule , (uintptr_t)this, stat, 0, 0);
     }
     else
     {
@@ -1336,6 +1343,7 @@ AppleUSBEHCI::DisablePeriodicSchedule(bool waitForOFF)
 				if (i >= 100)
 				{
 					USBLog(1, "AppleUSBEHCI[%p]::DisablePeriodicSchedule: ERROR: USBCMD and USBSTS won't synchronize OFF",  this);
+					USBTrace( kUSBTEHCI, kTPEHCIDisablePeriodicSchedule , (uintptr_t)this, USBToHostLong(_pEHCIRegisters->USBCMD), USBToHostLong(_pEHCIRegisters->USBSTS), kIOReturnInternalError );
 					stat = kIOReturnInternalError;
 				}
 				else
@@ -1353,6 +1361,7 @@ AppleUSBEHCI::DisablePeriodicSchedule(bool waitForOFF)
     if (stat)
     {
 		USBLog(1, "AppleUSBEHCI[%p]::DisablePeriodicSchedule: returning status %x",  this, stat);
+		USBTrace( kUSBTEHCI, kTPEHCIDisablePeriodicSchedule , (uintptr_t)this, stat, 0, 0);
     }
     else
     {
@@ -1382,31 +1391,16 @@ AppleUSBEHCI::message( UInt32 type, IOService * provider,  void * argument )
 
 			nub->retain();
 			USBLog(1, "AppleUSBEHCI[%p]::message - got kIOUSBMessageExpressCardCantWake from driver %s[%p] argument is %s[%p]", this, provider->getName(), provider, nub->getName(), nub);
+			USBTrace( kUSBTEHCI, kTPEHCIMessage , (uintptr_t)this, (uintptr_t)provider, (uintptr_t)nub, kIOUSBMessageExpressCardCantWake );
 			if (parentHub == _rootHubDevice)
 			{
 				USBLog(1, "AppleUSBEHCI[%p]::message - device is attached to my root hub!!", this);
+				USBTrace( kUSBTEHCI, kTPEHCIMessage , (uintptr_t)this, 0, 0, 0);
 				_badExpressCardAttached = true;
 			}
 			nub->release();
 			return kIOReturnSuccess;  // this message was handled
 			break;
-			
-#if !TARGET_OS_EMBEDDED
-		case kIOPCCardCSEventMessage:
-			cs_event_t	pccardevent;
-			pccardevent = (uintptr_t) argument;
-			
-			if ( pccardevent == CS_EVENT_CARD_REMOVAL )
-			{
-				// Should return all transactions in any endpoints
-				//
-				USBLog(5,"AppleUSBEHCI[%p]: Received kIOPCCardCSEventMessage Need to return all transactions",this);
-				_pcCardEjected = true;
-			}
-			// let the super-class run as well...
-			break;
-#endif
-			
 	}
 	
 

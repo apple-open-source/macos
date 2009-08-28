@@ -1,0 +1,104 @@
+package provide xotcl::test 1.38
+package require XOTcl
+
+namespace eval ::xotcl::test {
+  namespace import ::xotcl::*
+
+  @ @File {description {
+    Simple regression test support.
+  }}
+
+  @ Class Test {
+    description {
+      Class Test is used to configure test instances, which can 
+      be configured by the following parameters:
+      <@ul>
+      <@li>cmd: the command to be executed</@li>
+      <@li>expected: the expected result</@li>
+      <@li>count: number of executions of cmd</@li>
+      <@li>pre: a command to be executed at the begin of the test (before cmd)</@li>
+      <@li>post: a command to be executed after the test (after all cmds)</@li>
+      <@li>namespace in which pre, post and cmd are evaluated; default ::</@li>
+      </@ul>
+      The defined tests can be executed by <@tt>Test run</@tt>
+    }
+  }
+
+  Class Test -parameter {
+    {name ""}
+    cmd 
+    {namespace ::}
+    {verbose 0} 
+    {expected 1} 
+    {count 1000} 
+    msg setResult errorReport
+    pre post
+  }
+  Test set count 0 
+  Test proc new args {
+    my instvar case ccount name
+    if {[my exists case]} {
+      if {![info exists ccount($case)]} {set ccount($case) 0}
+      set name $case.[format %.3d [incr ccount($case)]]
+    } else {
+      set name t.[format %.3d [my incr count]]
+    }
+    eval my create $name -name $name $args
+  }
+  Test proc run {} {
+    set startTime [clock clicks -milliseconds]
+    foreach example [lsort [my allInstances]] {
+      $example run
+    }
+    puts stderr "Total Time: [expr {[clock clicks -milliseconds]-$startTime}] ms"
+  }
+  Test proc _allInstances {C} {
+    set set [$C info instances]
+    foreach sc [$C info subclass] {
+      eval lappend set [my _allInstances $sc]
+    }
+    return $set
+  }
+  Test proc allInstances {} {
+    return [my _allInstances Test]
+  }
+
+  Test instproc call {msg cmd} {
+    if {[my verbose]} {puts stderr "$msg: $cmd"}
+    namespace eval [my namespace] $cmd
+  }
+  Test instproc run args {
+    my instvar cmd expected pre post count msg
+    if {[info exists pre]} {my call "pre" $pre}
+    if {![info exists msg]} {set msg $cmd}
+    set r [my call "run" $cmd]
+    if {[my exists setResult]} {set r [eval [my set setResult]]}
+    if {$r == $expected} {
+      if {[info exists count]} {set c $count} {set c 1000}
+      if {[my verbose]} {
+	puts stderr "running test $c times"
+      }
+      if {$c > 1} {
+	#set r0 [time $cmd $c]
+	#puts stderr "time {time $cmd $c}"
+	set r1 [time {time {namespace eval [my namespace] $cmd} $c}]
+	#regexp {^(-?[0-9]+) +} $r0 _ mS0
+	regexp {^(-?[0-9]+) +} $r1 _ mS1
+	set ms [expr {$mS1*1.0/$c}]
+	puts stderr "[my name]:\t[format %6.1f $ms] mms, $msg"
+      } else {
+	puts stderr "[my name]: $msg ok"
+      }
+    } else {
+      puts stderr "[my name]:\tincorrect result for '$msg'"
+      puts stderr "\texpected: '$expected', got '$r' [my exists errorReport]"
+      if {[my exists errorReport]} {eval [my set errorReport]}
+      exit -1
+    }
+    if {[info exists post]} {my call "post" $post}
+  }
+  proc case name {::xotcl::test::Test set case $name}
+  namespace export Test
+}
+
+namespace import ::xotcl::test::*

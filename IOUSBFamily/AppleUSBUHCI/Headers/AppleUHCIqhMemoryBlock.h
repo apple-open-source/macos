@@ -54,4 +54,5 @@ public:
     UHCIQueueHeadSharedPtr						GetLogicalPtr(UInt32 index);
 };
 
+#endif
 

@@ -1,4 +1,3 @@
-/* APPLE LOCAL file mainline */
 /* Check that local variables that get modified inside the @try
    block survive until the @catch block is reached.  */
 /* Developed by Ziemowit Laski <zlaski@apple.com>.  */
@@ -41,19 +40,20 @@ void foo (int arg1, float *arg2)
     @throw [Object new];
   }
   @catch (Object *obj) {
-   if(local1 != 123 || local2 != 345 || local3 != 5.0 || local4 != 6.0 || local5 != 17 || local6 != 18.0) {
+   if (local1 != 123 || local2 != 345 || local3 != 5.0
+       || local4 != 6.0 || local5 != 17 || local6 != 18.0) {
      printf("Abort 1\n");
      abort();
    }
-   if(pi != &gi2 || pf != &gf2) {
+   if (pi != &gi2 || pf != &gf2) {
      printf("Abort 2\n");
      abort();
    }
-   if(!obj1 || obj1 != obj2) {
+   if (!obj1 || obj1 != obj2) {
      printf("Abort 3\n");
      abort();
    }
-   if(arg1 != 17 || arg2 != &gf2) {
+   if (arg1 != 17 || arg2 != &gf2) {
      printf("Abort 4\n");
      abort();
    }

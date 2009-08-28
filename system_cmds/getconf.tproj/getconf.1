@@ -26,7 +26,7 @@
 .\" OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\" $FreeBSD: src/usr.bin/getconf/getconf.1,v 1.12 2003/09/08 19:57:21 ru Exp $
+.\" $FreeBSD: src/usr.bin/getconf/getconf.1,v 1.14 2005/01/18 13:43:49 ru Exp $
 .\"
 .Dd September 18, 2002
 .Dt GETCONF 1
@@ -149,22 +149,8 @@ to use the standard programming environments described above.
 Many of these values are also available through the
 .Xr sysctl 8
 mechanism.
-.Sh DIAGNOSTICS
+.Sh EXIT STATUS
 .Ex -std
-Use of a
-.Ar system_var
-or
-.Ar path_var
-which is completely unrecognized is considered an error,
-causing a diagnostic message to be written to standard error.
-One
-which is known but merely undefined does not result in an error
-indication.
-The
-.Nm
-utility recognizes all of the variables defined for
-.St -p1003.1-2001 ,
-including those which are not currently implemented.
 .Sh EXAMPLES
 The command:
 .Pp
@@ -192,6 +178,21 @@ in the
 .Li POSIX_V6_LPBIG_OFFBIG
 programming environment,
 if the system supports that environment.
+.Sh DIAGNOSTICS
+Use of a
+.Ar system_var
+or
+.Ar path_var
+which is completely unrecognized is considered an error,
+causing a diagnostic message to be written to standard error.
+One
+which is known but merely undefined does not result in an error
+indication.
+The
+.Nm
+utility recognizes all of the variables defined for
+.St -p1003.1-2001 ,
+including those which are not currently implemented.
 .Sh SEE ALSO
 .Xr pathconf 2 ,
 .Xr confstr 3 ,

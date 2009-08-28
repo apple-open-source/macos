@@ -1,0 +1,837 @@
+# -*- tcl -*- $Id: Httpd.xotcl,v 1.9 2007/08/14 16:38:26 neumann Exp $
+#
+# The XOTcl class Httpd implements an HTTP/1.0 and HTTP/1.1 server with  
+# basic functionality.
+#
+#  Gustaf Neumann (neumann@wu-wien.ac.at)
+
+set VERSION 1.1
+package provide xotcl::comm::httpd $VERSION
+
+package require XOTcl
+
+#package require xotcl::comm::httpAccess
+
+package require xotcl::comm::connection
+package require xotcl::trace
+package require xotcl::comm::mime
+
+namespace eval ::xotcl::comm::httpd {
+  namespace import ::xotcl::*
+
+  Class Httpd -parameter {
+    {port 80} 
+    ipaddr 
+    {root ./} 
+    {logdir $::xotcl::logdir} 
+    {httpdWrk Httpd::Wrk}
+    {redirects [list]}
+    {workerTimeout 10000}
+  }
+  Httpd proc Date seconds {clock format $seconds -format {%a, %d %b %Y %T %Z}}
+  Httpd instproc checkRoot {} {
+    my instvar root
+    set root [string trimright $root /]
+    if {![file isdir $root]} {
+      puts stderr "Warning: create root directory '$root'"
+      file mkdir $root
+    } 
+    # make directory absolute
+    set currentdir [pwd]
+    cd $root
+    set root [pwd]
+    #puts stderr "[self] root=$root"
+    cd $currentdir
+  }
+
+  proc ! string {
+    set f [open [::xotcl::tmpdir]log w+]; 
+    puts $f "[clock format [clock seconds]] $string"
+    close $f}
+
+  Httpd instproc init args {
+    my instvar port logdir logfile redirects
+    if {![my exists workerMixins]} {
+      my set workerMixins {}
+      #puts stderr "resetting workermixins of [self]"
+    }
+    next
+    set proto [string trim [namespace tail [my info class]] :d]
+    puts stderr "Starting XOTcl [string toupper $proto] server $::VERSION\
+	[string tolower $proto]://[info hostname]:$port/"
+
+    # Start a server by listening on the port
+    if {[my exists ipaddr]} {set ip "-myaddr [my set ipaddr]"} {set ip ""}
+    my set listen [eval [list socket -server [list [self] accept]] $ip $port]
+    #my set listen [socket -server [list [self] accept] $port]
+
+    my checkRoot
+    if {![file isdir $logdir]} {file mkdir $logdir}
+    set logfile [open $logdir/serverlog-$port a+]
+    my array set requiresBody \
+	{GET 0 HEAD 0 POST 1 PUT 1 DELETE 0 OPTIONS 0 TRACE 0}
+  }
+  Httpd instproc destroy {} {			# destructor
+    catch {close [my set listen]}
+    catch {close [my set logfile]}
+    next
+  }
+  Httpd instproc accept {socket ipaddr port} {	# Accept a new connection and set up a handler
+    #puts stderr "using workermixins of [self] {[my set workerMixins]}"
+
+    [my set httpdWrk] new -childof [self] -socket $socket -ipaddr $ipaddr \
+	-port $port -mixin [my set workerMixins]
+  }
+  Httpd instproc redirect list {
+    foreach {pattern hostport} $list {
+      my lappend redirects $pattern $hostport
+    }
+  }
+
+
+  Class Httpd::Wrk -parameter {socket port ipaddr}
+  Httpd::Wrk array set codes {
+    200 {Data follows}          201 {Created}         204 {No Content}
+    302 {Moved Temporarily}     304 {Not Modified}
+    400 {Bad Request}           401 {Unauthorized}    402 {Payment Required}
+    403 {Forbidden}             404 {Not Found}       405 {Method Not Allowed}
+    406 {Not Acceptable}        408 {Request Timeout} 411 {Length Required}
+    500 {Internal Server Error} 503 {Service Unavailable}  504 {Service Temporarily Unavailable}
+  }
+  Httpd::Wrk instproc formData {} {my set formData}
+  Httpd::Wrk instproc init args {		# Constructor 
+    my instvar socket port ipaddr
+    my set formData [list]
+    my set replyHeaderFields [list]
+    next
+    my makeConnection $socket
+    my log Connect "$ipaddr $port"
+    my connection translation {auto crlf}
+    my connection event readable [self] firstLine
+  }
+  Httpd::Wrk instproc makeConnection {socket} {
+    Connection create [self]::connection -socket $socket -req [self]
+  }
+  Httpd::Wrk instproc close {} {		# logical close of a single request
+    #my showCall
+    my instvar version timeout meta
+    set eof [my connection eof]
+    if {$version > 1.0 && !$eof} {
+      #my showMsg "!EOF in http/$version"
+      my connection flush
+      set timeout [after [[my info parent] workerTimeout] [self] destroy]
+      ### reset parameters, worker will be potentially reused
+      if {[array exists meta]} {
+	unset meta
+	array set meta {}
+      }
+      unset version
+      if {[my exists user]} {
+	my unset user
+	my unset realm
+      }
+      foreach c [my set formData] { $c destroy }
+      my set replyHeaderFields [list]
+      my set formData {}
+      #my showVars
+      my connection translation {auto crlf}
+      my connection event readable [self] firstLine
+    } elseif {$eof} {
+      #my showMsg "Destroy in http/$version"
+      # the client side has closed the connection
+      my destroy
+    } else {
+      #my showMsg "!EOF in http/$version ???"
+      # we close the conneciton actively (e.g. forced by an error)
+      my connection flush
+      #puts stderr "DESTROY----this line should never show up"
+      my destroy
+    }
+  }
+  Httpd::Wrk instproc destroy {} {
+    #my showCall
+    if {[my isobject [self]::connection]} {
+      my connection close
+    }
+    next
+  }
+  Httpd::Wrk instproc freeConnection {} {
+  }
+  Httpd::Wrk instproc firstLine {} {	# Read the first line of the request
+    #my showCall
+    my instvar method resourceName hasFormData query fileName \
+	version timeout 
+    if {[info exists timeout]} {
+      after cancel $timeout
+      unset timeout
+    }
+    my lappend replyHeaderFields Date [Httpd Date [clock seconds]]
+    set n [my connection gets firstLine]
+    if {$n > 0} {
+      #::puts stderr "[self] firstline=<$firstLine>"
+      # parse request line, ignore HTTP version for now
+      if {[regexp {^(POST|GET|PUT|HEAD|OPTIONS) ([^?]+)(\??)([^ ]*) *HTTP/(.*)$} \
+	       $firstLine _ method resourceName hasFormData query version]} {
+	set resourceName [string trimright [string trimleft $resourceName ./] " "]
+	# construct filename
+	[my info parent] instvar root
+	set fileName $root/[url decodeName $resourceName]
+	#puts stderr ---[encoding convertfrom utf-8 $fileName]----
+	set fileName [encoding convertfrom utf-8 $fileName]
+	#
+	my decode-formData $query
+	my log Query $firstLine
+	if {[my exists forceVersion1.0]} {
+	  set version 1.0
+	}
+	my connection makePersistent [expr {$version > 1.0}]
+	my connection event readable [self] header
+      } else {
+	set version 1.0
+	set resourceName ???
+	set method ???
+	my log Error "bad first line:$firstLine"
+	my replyCode 400
+	my replyErrorMsg
+      }
+    } elseif {![my connection eof]} {
+      #my showMsg "+++ not completed EOF=[my connection eof]"
+    } else {
+      set version 1.0
+      #my showMsg "+++ n=negative ($n) EOF=[my connection eof] version set to 1.0"
+      my close
+    }
+  }
+  Httpd::Wrk instproc header {} {			# Read the header
+    #my showCall
+    my instvar method data
+    if {[my connection gets line] > 0} {
+      #puts stderr line=$line
+      if {[regexp -nocase {^([^:]+): *(.+)$} $line _ key value]} {
+	my set meta([string tolower $key]) $value
+      }
+    } else {
+      #puts stderr line-EMPTY
+      if {[my exists meta(content-length)] && [my set meta(content-length)]>0} {
+	#puts stderr "we have content-length [my set meta(content-length)]"
+	set data ""
+	my connection translation binary
+	my connection event readable [self] receive-body
+      } elseif {[my exists meta(content-type)] &&
+		[regexp -nocase {multipart/form-data; *boundary=} \
+		     [my set meta(content-type)]]} {
+	#puts stderr "formdata"
+	set data ""
+	my connection event readable [self] receive-body
+      } else {
+	#puts stderr "no-content-length, triggering respond"
+	my connection event readable [self] ""
+	[my info parent] instvar requiresBody
+	if {$requiresBody($method)} {
+	  my replyCode 411
+	  my replyErrorMsg
+	} else {
+	  my check-redirect
+	}
+      }
+    }
+  }
+  Httpd::Wrk instproc receive-body {} {	;# ... now we have to read the body
+    #my showCall
+    my instvar method data meta
+    set d [my connection read]
+    if {$d ne ""} {
+      append data $d
+      #my showMsg "datal=[string length $data], cl=$meta(content-length)"
+      if {[string length $data] >= $meta(content-length)} {
+	my connection event readable [self] ""
+	if {$method eq "POST"} { my decode-POST-query  }
+	my check-redirect
+      }
+    } else {   ;# 0 byte, must be eof...
+      my showMsg "received 0 bytes"
+      my connection event readable [self] ""
+      if {[string length $data] < $meta(content-length)} {
+	my replyCode 404
+	my replyErrorMsg
+      } else {
+	my check-redirect
+      }
+    }
+  }
+  Httpd::Wrk instproc unmodified mtime {
+    my instvar meta
+    if {[info exists meta(if-modified-since)]} {
+      set ms $meta(if-modified-since)
+      regexp {^([^;]+);(.*)$} $ms _ ms options
+      if {[catch {set mss [clock scan $ms]}]} {
+	regsub -all -- {-} $ms " " ms
+	if {[catch {set mss [clock scan $ms]}]} {
+	  set ms [lreplace $ms end end]
+	  set mss [clock scan $ms]
+	}
+      }
+      return [expr {$mtime <= $mss}]
+    }
+    return 0
+  }
+  Httpd::Wrk instproc check-redirect {} {	
+    [my info parent] instvar redirects
+    my instvar resourceName hasFormData query
+    set resource $resourceName$hasFormData$query
+    foreach {pattern hostport} $redirects {
+      #puts stderr "match <$pattern> <$resource> [regexp $pattern $resource]"
+      if {[regexp $pattern $resource]} {
+	#puts stderr "do redirect to $hostport/$resource"
+	my replyCode 302 location $hostport/$resource
+	my replyErrorMsg
+	return
+      }
+    }
+    my respond
+  }
+  Httpd::Wrk instproc respond {} {			# Respond to the query
+    # the request was read completely...   This method is wellsuited for mixins!
+    my respond-[my set method]
+  }
+
+  Httpd::Wrk instproc respond-GET {} {
+    #my showCall
+    my instvar fileName
+    my sendFile $fileName
+  }
+  Httpd::Wrk instproc respond-HEAD {} {			# Respond to the query
+    my instvar fileName
+    if {[file readable $fileName]} {
+      my replyCode 200 \
+	  Last-Modified [Httpd Date [file mtime $fileName]] \
+	  Content-Type [Mime guessContentType $fileName] \
+	  Content-Length [file size $fileName]
+      my connection puts ""
+      #my log Done "$fileName [Mime guessContentType $fileName]"
+      my close
+    } else {
+      my replyCode 404
+      my replyErrorMsg
+    }
+  }
+  Httpd::Wrk instproc respond-OPTIONS {} {			# Respond to the query
+    my replyCode 200 \
+	Allow "OPTIONS, GET, HEAD, POST" \
+	Public "OPTIONS, GET, HEAD, POST"
+    my connection puts ""
+    my close
+  }
+  Httpd::Wrk instproc respond-PUT {} {
+    my instvar data method fileName
+    my replyCode [expr {[file writable $fileName] ? 200 : 201}]
+    my connection puts ""
+    set out [open $fileName w]
+    fconfigure $out -translation binary
+    puts -nonewline $out $data
+    my log Done "$fileName [Mime guessContentType $fileName]"
+    close $out
+    my close
+  }
+  Httpd::Wrk instproc respond-CGI {} {
+    my instvar fileName
+    if {[file executable $fileName]} {
+      my replyCode 200
+      my connection puts [exec $fileName]      ;# no parameter handling yet
+      my close
+    } else {
+      my replyCode 403
+      my replyErrorMsg
+    }
+  }
+  Httpd::Wrk instproc new-formData {} {
+    set arg [Object create [self]::[my autoname formData]]
+    my lappend formData $arg
+    return $arg
+  }
+  Httpd::Wrk instproc decode-formData {query} {
+    #my showCall
+    foreach pair [split [string trimleft $query \n] &] {
+      set arg [my new-formData]
+      if {[regexp {^(.+)=(.*)$} $pair _ name content]} {
+	$arg set name [url decodeItem $name]
+	$arg set content [url decodeItem $content]
+      } else {
+	$arg set content [url decodeItem $pair]
+      }
+    }
+  }
+  Httpd::Wrk instproc decode-POST-query {} {
+    if {[my exists meta(content-type)]} {
+      set ct [my set meta(content-type)]
+      if {[regexp -nocase {application/x-www-form-urlencoded} $ct]} {
+	#my showMsg "ordinary FORM"
+	my decode-formData [my set data]
+	return
+      } elseif {[regexp -nocase {multipart/form-data; *boundary=(.*)$} $ct \
+		     _ boundary]} {
+	#my showMsg "multipart FORM"
+	set parts [my set data]
+	set bl [expr {[string length $boundary]+2}]
+	while {[set endIDX [string first --$boundary $parts]] > -1} {
+	  set part [string range $parts $bl [expr {$endIDX-1}]]
+	  if {[set endHD [string first \r\n\r\n $part]] > -1} {
+	    set arg [my new-formData]
+	    if {[catch {Mime multipart-decode-header \
+			    [string range $part 0 [expr {$endHD-1}]] \
+			    $arg} msg]} {
+	      my replyCode 406
+	      my replyErrorMsg $msg
+	      return 0
+	    }
+	    $arg set content [string range $part \
+				  [expr {$endHD + 4}] \
+				  [expr {[string length $part] -3}]]
+	    #$arg showVars
+	  }
+	  set parts [string range $parts [expr {$endIDX+2}] end]
+	}
+      }
+    }
+  }
+  Httpd::Wrk instproc respond-POST {} {
+    my replyCode 405
+    my replyErrorMsg
+    #my respond-CGI
+  }
+
+  Httpd::Wrk instproc replyErrorMsg {{msg ""} args} {
+    my instvar replyCode
+    [self class] instvar codes
+    foreach {tag value} $args {my connection puts "$tag: $value"}
+    my sendText "\n<HTML><title>Status Code: $replyCode</title>\n\
+      <BODY>$msg<p>\n\
+      Status Code $replyCode: <b>$codes($replyCode)</b><br>\n\
+      Resource Name: [my set resourceName]</BODY></HTML>\n"
+    my close  ;# close must be last call
+  }
+  Httpd::Wrk instproc replyCode {code args} {
+    #my showCall
+    my instvar version
+    [self class] instvar codes
+    my set replyCode $code
+    my connection puts "HTTP/$version $code $codes($code)"
+    foreach {tag value} [my set replyHeaderFields] {my connection puts "$tag: $value"}
+    foreach {tag value} $args {my connection puts "$tag: $value"}
+    if {$code >= 400} {
+      my log Error "$code $codes($code)\tmeta: [my array get meta]"
+    }  else {
+      my log Done "$code $codes($code)"
+    }
+  }
+  Httpd::Wrk instproc sendText {response {type text/html}} {
+    #my showCall
+    my connection puts "Content-Type: $type"
+    # bei einer leeren Responses blockieren Klienten und melden Fehler
+    if {$response eq ""} { set response " " }
+    my connection puts "Content-Length: [string length $response]\n"
+    if {[my set method] ne "HEAD"} {
+      my connection fconfigure -translation {auto binary}
+      my connection puts-nonewline $response
+    } else {
+      my showMsg HEAD!
+    }
+  }
+  Httpd::Wrk instproc sendMsg {response {type text/html}} {
+    # my showCall
+    my replyCode 200
+    my sendText $response $type 
+    my close
+  }
+  Httpd::Wrk instproc sendDir {dirName} {
+    [my info parent] instvar root
+    set title "Directory listing"
+    set reply "<HTML><TITLE>$title</TITLE><BODY><H1>$title</H1>\n<TABLE>\n"
+    set oldpwd [pwd]
+    cd $root
+    set dirs ""; set files ""
+    foreach f [lsort -dictionary [glob -nocomplain ./$dirName/*]] {
+      set full [file join $root $f]
+      set pname [string trimleft $f ./]
+      if {[file isdir $full]} {
+	append pname /
+      }
+      if {![catch {set size [file size $full]}]} {
+	# it is not a broken link
+	set entry ""
+	append entry <tr> \
+	    <td> "<A href='/$pname'>$pname</a>"    </td> \
+	    "<td align='right'>" $size </td> \
+	    "<td align='right'>" [clock format [file mtime $full]] </td> \
+	    </tr>\n
+	if {[string match */ $pname]} {append dirs $entry} else {append files $entry}
+      }
+    }
+    append reply $dirs $files "</TABLE></HTML>\n"
+    cd $oldpwd
+    my sendMsg $reply
+    return
+  }
+
+  Httpd::Wrk instproc sendFile {fn {type ""}} {
+    #my showCall
+    if {[file isdirectory $fn]} {
+      set full [file join $fn index.html]
+      if {[file readable $full]} {
+	set fn $full
+      } else {
+	my sendDir [my set resourceName]
+	return
+      }
+    }
+    #puts stderr "readable '$fn' [file readable $fn]"
+    if {[file readable $fn]} {
+      set mtime [file mtime $fn]
+      if {[my unmodified $mtime]} { 
+	my replyCode 304
+	my replyErrorMsg
+	return 
+      }
+      if {$type eq ""} {set type [Mime guessContentType $fn]}
+      my replyCode 200 \
+	  Last-Modified [Httpd Date $mtime] \
+	  Content-Type $type \
+	  Content-Length [file size $fn]
+      my connection puts ""
+      my connection fconfigure -translation binary ;#-buffersize 65536
+      set localFile [open $fn]
+      fconfigure $localFile -translation binary -buffersize 65536
+      fcopy $localFile [my connection set socket] \
+	  -command [list [self] fcopy-end $localFile]
+    } else {
+      my replyCode 404
+      my replyErrorMsg
+    }
+  }
+  Httpd::Wrk instproc fcopy-end {localFile args} {	# End of fcopy
+    close $localFile
+    my connection fconfigure -blocking false ;# fconfigure changes blocking in 8.3.2!
+    my close
+  }
+  Httpd::Wrk instproc log {reason arg} {			# trivial logging
+    my instvar port ipaddr
+    if {[my exists user]} {
+      set user [my set user]/[my set realm]
+    } {set user -}
+    [my info parent] instvar logfile
+    puts $logfile "[clock format [clock seconds]] $user $ipaddr:$port\t$reason\t$arg"
+    flush $logfile
+  }
+
+
+  #########################################################################
+  Class Httpsd -superclass Httpd -parameter {
+    {port 443}
+    {httpdWrk Httpsd::Wrk}
+    {requestCert 0}
+    {requireValidCert 0}
+    {certfile filename.crt}
+    {keyfile filename.key}
+    {cafile cacert.pem}
+    {infoCb {}}
+  }
+  Httpsd instproc init args {
+    package require tls
+    proc tls::password {} {
+      puts stderr "getting passwd"
+      return pemp
+    }
+    next
+  }
+
+  Class Httpsd::Wrk -superclass Httpd::Wrk
+  Httpsd::Wrk instproc firstLine {} {
+    my set forceVersion1.0 1
+    my lappend replyHeaderFields Connection close
+    next
+  }
+  Httpsd::Wrk instproc makeConnection {socket} {
+    Connection create [self]::connection -socket $socket -req [self]
+    [my info parent] instvar \
+	keyfile certfile cafile infoCb requestCert requireValidCert
+    # SSL-enable a regular Tcl channel - it need not be a socket, but
+    # must provide bi-directional flow. Also setting session parameters
+    # for SSL handshake. www.sensus.org/tcl/tls.htm
+    
+    # -request bool --> Request a certificate from peer during SSL
+    # handshake. (default: true)
+    
+    # -require bool --> Require a valid certificate from peer during SSL
+    # handshake. If this is set to true then -request must also be set
+    # to true. (default: false)
+    
+    # -server bool --> Handshake as server if true, else handshake as
+    # client.(default: false)
+    my connection importSSL -server 1 \
+	-certfile  $certfile \
+	-keyfile  $keyfile \
+	-cafile    $cafile \
+	-request   $requestCert \
+	-require   $requireValidCert \
+	-command   $infoCb
+  }
+  #########################################################################
+
+
+
+  ###
+  ### Mixin-Classes for respond patterns
+  ### mixes into Http and Httpd::Wrk 
+  ###
+  Class Httpd::Responder
+  Httpd::Responder instproc init args {
+    next
+    my lappend workerMixins Httpd::Responder::Wrk
+    my set respondpatterns {}
+    # Example how to register new methods: regexp is matched with the triple
+    # (HTTP-METHOD URL HASFORMDATA) where HASFORMDATA is empty when no
+    # parameters are given. The parsed components of the url etc. are
+    # available as instvars
+    my actions {^GET cgi[-]bin [?]} respond-CGI
+  }
+  Httpd::Responder instproc actions {regexp method} {
+    my lappend respondpatterns $regexp $method
+  }
+  Class Httpd::Responder::Wrk
+  Httpd::Responder::Wrk instproc respond {} {
+    my instvar fileName method resourceName hasFormData
+    [my info parent] instvar respondpatterns
+    ### auch das ist ein kandidat fuer eine chain of responsibility
+    foreach {pattern action} $respondpatterns {
+      if {[regexp $pattern "$method $resourceName $hasFormData"]} {
+	my $action
+	return
+      }
+    }
+    next
+  }
+
+  ###
+  ### Mixin-Classes for Access Control
+  ### mixes into Http and Httpd::Wrk
+  ###
+  Class Httpd::AccessControl
+  Httpd::AccessControl abstract instproc protectedResource {fn method varAuthMethod varRealm}
+  Httpd::AccessControl abstract instproc credentialsNotOk {wrk credentials authMethod realm}
+  Httpd::AccessControl abstract instproc addRealmFile {realm authFile}
+  Httpd::AccessControl abstract instproc addRealmEntry {realm passwds}
+  Httpd::AccessControl abstract instproc protectDir {realm path methods}
+
+  Class Httpd::AccessControl::Wrk
+  Httpd::AccessControl::Wrk instproc respond {} {
+    my instvar fileName method digestChallengeData
+    set controller [my info parent]
+    if {[$controller protectedResource $fileName $method authMethod realm]} {
+      #my showMsg "*** Protected resource: $fileName $method"
+      if {![my exists meta(authorization)] ||
+	  [$controller credentialsNotOk [self] \
+	       [my set meta(authorization)] $authMethod $realm]} {
+	my unauthorizedAccess $realm
+	return
+      }
+    }
+    next
+  }
+
+  ###########################################################################
+  ## Basic Access Control
+  ###########################################################################
+  Class Httpd::BasicAccessControl -superclass Httpd::AccessControl
+
+  Httpd::BasicAccessControl instproc initWorkerMixins {} {
+    my lappend workerMixins [self class]::Wrk
+  }
+
+  Httpd::BasicAccessControl instproc init args {
+    next
+    my initWorkerMixins
+  }
+
+  Httpd::BasicAccessControl instproc protectedResource {fn method varAuthMethod varRealm} {
+    #my showCall
+    # check whether access to $fn via $method is protected
+    upvar [self callinglevel] $varAuthMethod authMethod $varRealm realm
+    # we check only the current directory, not the parent directories
+    if {[string match */ $fn]} {
+      set path $fn
+    } else {
+      set path [file dirname $fn]/
+    } 
+    foreach i [list $path $path:$method] {
+      if {[my exists protected($i)]} {
+	set realm [my set protected($i)]
+	set authMethod Basic
+	return 1
+      }
+    }
+    return 0
+  }
+
+  Httpd::BasicAccessControl instproc credentialsNotOk {wrk credentials authMethod realm} {
+    # check whether $credentials are sufficient for $realm
+    regexp {^(.*):(.*)$} [base64 decode [lindex $credentials 1]] _ user pwd
+    #puts stderr "passwd($realm:$user)=[my exists passwd($realm:$user)]"
+    $wrk set user $user
+    $wrk set realm $realm
+    if {[my exists passwd($realm:$user)]} {
+      return [expr {[my set passwd($realm:$user)] != $pwd}]
+    }
+    return 1
+  }
+
+  Httpd::BasicAccessControl instproc addRealmEntry {realm passwds} {
+    if {[llength $passwds] == 1} {
+      my addRealmFile [lindex $passwds 0]
+    } else {
+      foreach {name pwd} $passwds {
+	#puts stderr "realm='$realm' adding user: $name pw: $pwd"
+	my set passwd($realm:$name) $pwd
+      }
+    }
+  }
+  Httpd::BasicAccessControl instproc addRealmFile {realm authFile} {
+    set FILE [open $authFile r]
+    while {![eof $FILE]} {
+      foreach {name pwd} [split [gets $FILE] :] {
+	my addRealmEntry $realm [list $name $pwd]
+      }
+    }
+    close $FILE
+  }
+
+  Httpd::BasicAccessControl instproc protectDir {realm path methods} {
+    my instvar root
+    my checkRoot
+    set resource $root/$path      ;# resources are currently directories
+    if {$methods == {}} {
+      my set protected($resource) $realm       ;#for every method
+    } else {
+      foreach m $methods {
+	my set protected($resource:$m) $realm  ;#for selected methods
+      }
+    }
+  }
+  Class Httpd::BasicAccessControl::Wrk -superclass Httpd::AccessControl::Wrk
+  Httpd::BasicAccessControl::Wrk instproc unauthorizedAccess {realm} {
+    my set digestChallengeData(realm) $realm
+    my replyCode 401 www-authenticate "Basic realm=\"$realm\""
+    my replyErrorMsg "Unauthorized request for realm '$realm'" 
+  }
+
+
+
+  ###########################################################################
+  ## Digest Access Control
+  ###########################################################################
+  Class Httpd::DigestAccessControl -superclass Httpd::BasicAccessControl
+  Httpd::DigestAccessControl instproc init args {
+    package require tcu
+    next
+    my lappend workerMixins [self class]::Wrk
+  }
+  Httpd::DigestAccessControl instproc credentialsNotOk {wrk credentials authMethod realm} {
+    # check whether $credentials are sufficient for $realm
+    my showMsg "Digest Authentication ..."
+    # HELP FD: hier muss ich noch überprüfen, ob die digest-header
+    # (credentials) ok sind. Hier habe ich probleme auf die sachen,
+    # die der worker gesendet (bspw. nonce) hat zu kommen. Ich
+    # weiß, man kann mit [my info children] daran kommen. Aber,
+    # was ist, wenn man mehrere Worker hat?
+
+    ## Fredj, das sollte kein Problem sein: das credentialsNotOk wird
+    ## vom aktuellen worker (respond) aufgerufen. man kann dem *NotOk
+    ## den worker mitgeben, oder die beiden Methoden etwas umorganisieren.
+    return
+  }
+  Class Httpd::DigestAccessControl::Wrk -superclass Httpd::BasicAccessControl::Wrk
+  Httpd::DigestAccessControl::Wrk instproc unauthorizedAccess {realm} {
+    my set digestChallengeData(realm) $realm
+    my replyCode 401 www-authenticate "Digest [my digestChallenge]"
+    my replyErrorMsg "Unauthorized request for realm '$realm'"
+  }
+  Httpd::DigestAccessControl::Wrk instproc digestChallenge {} {
+    my showCall
+    my instvar digestChallengeData
+    my mkDigestChallengeData
+    set digestResponse {}
+    foreach {t v} [array get digestChallengeData] {
+      append digestResponse "$t = \"$v\", "
+    }
+    regsub {, $} $digestResponse {} digestResponse
+    return $digestResponse
+  }
+  Httpd::DigestAccessControl::Wrk instproc mkDigestChallengeData {} {
+    my showCall
+    my instvar digestChallengeData
+
+    # RFC 2617
+    #   challenge         =  "Digest" digest-challenge
+    #   digest-challenge  = 1#( realm | [ domain ] | nonce |
+    #                       [ opaque ] |[ stale ] | [ algorithm ] |
+    #                       [ qop-options ] | [auth-param] )
+    #   domain            = "domain" "=" <"> URI ( 1*SP URI ) <">
+    #   URI               = absoluteURI | abs_path
+    #   nonce             = "nonce" "=" nonce-value
+    #   nonce-value       = quoted-string
+    #   opaque            = "opaque" "=" quoted-string
+    #   stale             = "stale" "=" ( "true" | "false" )
+    #   algorithm         = "algorithm" "=" ( "MD5" | "MD5-sess" | token )
+    #   qop-options       = "qop" "=" <"> 1#qop-value <">
+    #   qop-value         = "auth" | "auth-int" | token
+
+    # FD: hier würde man die nötigen parametern (nonce,domain,opaque,
+    # etc.) berechnen und in dem asso. Array speichern.
+    # FD: minimale Anforderung
+    set digestChallengeData(nonce)  [my genNonce]
+    set digestChallengeData(opaque) [base64 encode [self]:my-self-spcified-string]
+    set digestChallengeData(algorithm) "MD5" ;#default
+    set digestChallengeData(qop) "auth"
+    set digestChallengeData(domain) [array names [my info parent]::protected]
+  }
+
+  Httpd::DigestAccessControl::Wrk instproc genNonce {} {
+    my showCall
+    my instvar digestChallengeData
+    set timeStamp [clock seconds]
+    set nonce [base64 encode [md5 $timeStamp:[self]]]
+    return $nonce
+  }
+
+
+  #
+  # example usage:
+
+  #Httpd h1 -port 8081 -root [glob ~/wafe]
+  #Httpd h2 -port 9086 -root $root \
+      -mixin {Httpd::Responder Httdp::BasicAccessControl} \
+      -addRealmEntry test {test test} -protectDir test "" {} \
+      -redirect {^(mailman|pipermail|cgi-bin) http://alice.wu-wien.ac.at:80}
+
+
+  namespace export Httpd Httpsd 
+  namespace eval Httpd               {
+    namespace export Wrk \
+	AccessControl BasicAccessControl DigestAccessControl \
+	Responder
+  }
+  namespace eval Httpsd              {
+    namespace export Wrk
+  }
+  #namespace eval Responder           {namespace export Wrk}
+  #namespace eval AccessControl       {namespace export Wrk}
+  #namespace eval BasicAccessControl  {namespace export Wrk}
+  #namespace eval DigestAccessControl {namespace export Wrk}
+}
+
+namespace import ::xotcl::comm::httpd::*
+namespace eval Httpd               {namespace import ::xotcl::comm::httpd::Httpd::*}
+namespace eval Httpsd              {namespace import ::xotcl::comm::httpd::Httpsd::*}
+#namespace eval Responder           {namespace import ::xotcl::comm::httpd::Responder::*}
+#namespace eval AccessControl       {namespace import ::xotcl::comm::httpd::AccessControl::*}
+#namespace eval BasicAccessControl  {namespace import ::xotcl::comm::httpd::BasicAccessControl::*}
+#namespace eval DigestAccessControl {namespace import ::xotcl::comm::httpd::DigestAccessControl::*}

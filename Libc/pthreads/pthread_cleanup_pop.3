@@ -47,6 +47,11 @@ is non-zero, it will execute the function.
 If there is no cleanup routine,
 .Fn pthread_cleanup_pop
 does nothing.
+.Pp
+.Fn pthread_cleanup_pop
+must be paired with a corresponding
+.Xr pthread_cleanup_push 3
+in the same lexical scope.
 .Sh RETURN VALUES
 .Fn pthread_cleanup_pop
 does not return any value.

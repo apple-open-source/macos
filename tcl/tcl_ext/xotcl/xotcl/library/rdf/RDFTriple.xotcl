@@ -1,0 +1,545 @@
+# $Id: RDFTriple.xotcl,v 1.6 2006/09/27 08:12:40 neumann Exp $
+package provide xotcl::rdf::triple 1.0
+
+package require XOTcl
+package require xotcl::rdf::parser
+
+namespace eval ::xotcl::rdf::triple {
+  namespace import ::xotcl::*
+
+  Class RDFTriple -parameter {
+    predicate
+    subject
+    object
+  }
+
+  RDFTriple instproc dump {} {
+    #set o [my object]; if {[info command $o] ne ""} { $o showVars  }
+    #return "P: [my predicate] S: [my subject] O: [my object]\n"
+    return "[my subject] -[my predicate]-> '[my object]'\n"
+  }
+
+  Class NodeInfo -parameter {
+    lastCurrentNode
+    {aboutEach 0}
+    {aboutEachPrefix 0}
+    topID
+    {statements ""}
+  }
+
+  Class DescriptionInfo -superclass NodeInfo -parameter {
+    {bagID 0}
+  }
+
+  Class PropertyInfo -superclass NodeInfo -parameter {
+    {reify 0}
+    generatedParentID
+  }
+
+  Class AboutEachMgr
+
+  AboutEachMgr instproc init args {
+    my array set entries {}
+    next
+  }
+
+  AboutEachMgr instproc reset {} {
+    foreach c [my info children] {$c destroy}
+    my init
+  }
+
+  AboutEachMgr instproc addEntry {name} {
+    my set entries($name) ""
+  }
+
+  AboutEachMgr instproc isEntry {name} {
+    my exists entries($name)
+  }
+
+  AboutEachMgr instproc addTriple {name p s o} {
+    if {[my exists entries($name)]} {
+      set r [RDFTriple create [self]::[my autoname name%08d]]
+      $r set predicate $p
+      $r set subject $s
+      $r set object $o
+      my lappend entries($name) $r
+      return $r
+    }
+    return ""
+  }
+
+  AboutEachMgr instproc getTriples {name} {
+    if {[my exists entries($name)]} {
+      my set entries($name)
+    } else {return ""}
+  }
+
+  Class RDFTripleDB
+  RDFTripleDB instproc add {p s o} {
+    #my showCall
+    set r [RDFTriple create [self]::[my autoname triple%08d]]
+    $r set predicate $p
+    $r set subject $s
+    $r set object $o
+    return $r
+  }
+  RDFTripleDB instproc dump {} {
+    #my showCall
+    set r ""
+    foreach fact [my info children] {append r [$fact dump]}
+    return $r
+  }
+  RDFTripleDB instproc getTriples {} {
+    # for the time being: return only children of type RDFTriple
+    set ch {}
+    foreach c [my info children] {if {[$c istype "RDFTriple"]} {lappend ch $c}}
+    return $ch
+    #my info children
+  }
+  RDFTripleDB instproc reset {} {
+    #my showCall
+    foreach c [my info children] {$c destroy}
+    my autoname -reset triple
+    #my showMsg "children after reset: <[my info children]>'"
+  }
+  # return all triples that match the subject
+  RDFTripleDB instproc querySubject {s} {
+    #my showCall
+    set r ""
+    foreach t [my info children] {
+      if {[string match $s [$t subject]]} {
+	lappend r $t
+      }
+    }
+    return $r
+  }
+
+  RDFTripleDB instproc queryPredicate {p} {
+    #my showCall
+    set r ""
+    foreach t [my info children] {
+      if {[string match $p [$t predicate]]} {
+	lappend r $t
+      }
+    }
+    return $r
+  }
+
+  RDFTripleDB instproc queryPredicateOnSubject {p s} {
+    #my showCall
+    foreach t [my querySubject $s] {
+      if {[string match $p [$t predicate]]} {
+	# there may be only one matching P on a S
+	# return the triple
+	return $t
+      }
+    }
+    return ""
+  }
+  RDFTripleDB instproc prettyTriples {} {
+    my instvar result
+    if {[my exists table]} {my unset table}
+    if {[my exists subjectPrinted]} {my unset subjectPrinted}
+    set result ""
+
+    foreach triple [lsort [my getTriples]] {
+      set subject [$triple set subject]
+      set predicate [$triple set predicate]
+      set object [$triple set object]
+
+      regexp {^http.*w3[.]org.*(\#.*)$} $predicate _ predicate
+      regexp {^http.*w3[.]org.*(\#.*)$} $object _ object
+      my lappend table($subject) $predicate $object
+    }
+    foreach subject [lsort [my array names table]] {
+      if {![regexp {^rdfdoc\#} $subject]} { my prettyStatements "" $subject }
+    }
+    set r $result; set result ""
+    foreach subject [lsort [my array names table]] {
+      if {![my exists subjectPrinted($subject)]} { 
+	my prettyStatements "" $subject 
+      }
+    }
+    if {$result ne ""} {
+      append r "\n=================== unreferenced:\n$result"
+      
+    }
+    return $r
+  }
+  RDFTripleDB instproc prettyStatement {space subject predicate object} {
+    my append result "$space   [format %-35s $subject] [format %-25s $predicate] $object\n"
+  }
+  RDFTripleDB instproc prettyStatements {space subject} {
+    if {![my exists table($subject)]} {
+      my append result "$space NO VALUE FOR $subject\n"
+    } else {
+      if {![my exists subjectPrinted($subject)]} {
+	my set subjectPrinted($subject) 1
+	foreach {predicate object} [my set table($subject)] {
+	  my prettyStatement $space $subject $predicate $object
+	  if {[regexp {^rdfdoc\#} $object]} {
+	    my prettyStatements "$space  " $object
+	  }
+	}
+      }
+    }
+  }
+
+
+  Class TripleVisitor -superclass NodeTreeVisitor -parameter {
+    {descriptionAsBag 0}
+    {currentNode ""}
+    parser
+    rdfNS
+  }
+
+  TripleVisitor instproc getInfo {} {
+    my set openNode([my set currentNode])
+  }
+
+  TripleVisitor instproc getLastInfo {info} {
+    my set openNode([$info set lastCurrentNode])
+  }
+
+  TripleVisitor instproc popInfo {objName} {
+    set i [my getInfo]
+    my set currentNode [$i set lastCurrentNode]
+    my unset openNode($objName)
+    return $i
+  }
+
+  TripleVisitor instproc pushInfo {objName ei} {
+    set lce [$ei set lastCurrentNode [my set currentNode]]
+    if {$lce ne ""} {
+      set lastInfo [my set openNode($lce)]
+      $ei aboutEach [$lastInfo aboutEach]
+      $ei aboutEachPrefix [$lastInfo aboutEachPrefix]
+    }
+    my set openNode($objName) $ei
+    my set currentNode $objName
+  }
+
+  TripleVisitor instproc qualify {obj var} {
+    [$obj resolveNS] getFullName $var
+  }
+
+  TripleVisitor instproc init args {
+    my array set openNode {{} {}}
+    RDFTripleDB create [self]::db
+    AboutEachMgr create [self]::aboutEach
+    AboutEachMgr create [self]::aboutEachPrefix
+    next
+  }
+
+  TripleVisitor instproc resetWithoutDB args {
+    [self]::aboutEach reset
+    [self]::aboutEachPrefix reset
+    next
+  }
+
+  TripleVisitor instproc reset args {
+    [self]::db reset
+    my resetWithoutDB
+    next
+  }
+
+  TripleVisitor instproc addDB {p s o} {
+    #puts "ADDDB: P<$p> S<$s> O<$o>"
+    set info [my getInfo]
+    if {$info ne ""} {
+      set topID [$info set topID]
+      if {[$info aboutEach]} {
+	return [[self]::aboutEach addTriple $topID $p $s $o]
+      } elseif {[$info aboutEachPrefix]} {
+	return [[self]::aboutEachPrefix addTriple $topID $p $s $o]
+      }
+    }
+    return [[self]::db add $p $s $o]
+  }
+
+  TripleVisitor instproc checkReification {triple node} {
+    # for statements that nest inside a description/property, we remember
+    # the statement to be able to reify them
+    # (e.g., bag created for description)
+    if {$triple ne "" && $node ne ""} {
+      set info [my set openNode($node)]
+      if {[my isobject $info] && [$info istype NodeInfo]} {
+	${info} lappend statements $triple
+      }
+    }
+  }
+
+  TripleVisitor instproc qualifyWithBaseURL v {
+    if {[string match "\#*" $v]} {
+      return [[my set parser] baseURL]$v
+    }
+    return $v
+  }
+
+  TripleVisitor instproc RDFTag {objName} {
+    set ns [$objName resolveNS]
+    set rdfNS [$ns searchNamespaceByPrefix rdf]
+    if {$rdfNS eq ""} {
+      set rdfNS [$ns searchNamespaceByPrefix xmlns]
+    }
+    my set rdfNS $rdfNS
+  }
+  TripleVisitor instproc DescriptionNode objName {
+    set di [DescriptionInfo create [self]::[my autoname di]]
+    $di topID [my qualifyWithBaseURL [$objName getSubject]]
+    my pushInfo $objName $di
+    #
+    # if a description nests inside a Member, we need a triple
+    # for the member index (connected to the Description topId)
+    #
+    if {[namespace tail [[set member [$objName info parent]] info class]] \
+	    == "RDFMember"} {
+      set bag_ID [[$member info parent] set ID]
+      my addDB [my qualify $objName [$member set memberIndex]] \
+	  $bag_ID [$di set topID] 
+    }
+  }
+
+  TripleVisitor instproc handlePCData {objName pcdata} {
+    set info [my getInfo]
+
+    if {[set lcn [$info set lastCurrentNode]] == ""} {
+      #puts stderr "cannot determine lastCurrentNode from $info"
+      #$info showVars
+      set selector ""
+    } else {
+      set selector [namespace tail [$lcn info class]]
+    }
+    
+    switch -exact $selector {
+      RDFDescription {
+	set triple [my addDB \
+			[my qualify $objName [$objName set content]] \
+			[$info set topID] $pcdata]
+	my checkReification $triple $lcn
+      }
+      RDFProperty {
+	if {[set rAttr [$lcn getRDFAttribute resource]] != ""} {
+	  set triple [my addDB \
+			  [my qualify $objName [$objName set content]] \
+			  [$lcn set $rAttr] $pcdata]
+	  #$lcn showVars
+	} else {
+	  set lastInfo [my getLastInfo $info]
+	  if {[$lastInfo exists generatedParentID]} {
+	    set parentID [$lastInfo set generatedParentID]
+	  } else {
+	    set parentID [[$objName info parent] set ID]
+	  }
+	  #set parentID [$lastInfo set generatedParentID]
+	  set triple [my addDB \
+			  [my qualify $objName [$objName set content]] \
+			  $parentID $pcdata]
+	}
+      }
+      default {
+	#puts stderr "create a generatedParentID for reification"
+	$info set generatedParentID [[my set parser] makeID]
+	set triple [my addDB \
+			[my qualify $objName [$objName set content]] \
+			[$info set generatedParentID] $pcdata]
+	my checkReification $triple [my set currentNode]
+      }
+    }
+    $info set tripleWritten 1
+  }
+
+  TripleVisitor instproc Property objName {
+    set info [PropertyInfo create [self]::[my autoname pi]]
+    ## if we find no subject and are in Container ->
+    ## reifiy over generatedParentID
+    set propSubject [$objName getSubject]
+
+    $info topID [my qualifyWithBaseURL $propSubject]
+    my pushInfo $objName $info
+    
+    if {[$objName exists pcdata]} {
+      my handlePCData $objName [$objName getFirstPCData]
+    } 
+  }
+
+  TripleVisitor instproc ContainerNode objName {
+    set ID [my qualifyWithBaseURL [$objName set ID]]
+    foreach t [$objName array names rdfTypes] {
+      my addDB [my qualify $objName \
+		    [$objName qualifyWithRdfNsPrefix type]] $ID $t
+    }
+  }
+
+  TripleVisitor instproc Member objName {
+    set container [$objName info parent]
+    set resource [$objName qualifyWithRdfNsPrefix resource]
+    set parseType [$objName qualifyWithRdfNsPrefix parseType]
+    if {[$objName exists pcdata]} {
+      set co [$objName getFirstPCData]
+    } elseif {[$objName exists attributes(resource)]} {
+      set co [$objName set attributes(resource)]
+    } elseif {[$objName exists attributes($resource)]} {
+      set co [$objName set attributes($resource)]
+    }
+    #puts stderr "CONTAINER = [info exists co]"
+    if {[info exists co]} {
+      my addDB \
+	  [my qualify $container [$objName set memberIndex]] \
+	  [$container set ID] $co
+    } else {
+      #$objName showVars
+    }
+  }
+
+  TripleVisitor instproc visit objName {
+    set cl [namespace tail [$objName info class]]
+    $objName instvar attributes
+    set triple ""
+
+    #puts "********Visit $objName -- $cl"
+
+    switch -exact $cl {
+      RDFTag 		{my RDFTag $objName}
+      RDFDescription 	{my DescriptionNode $objName}
+      RDFProperty 	{my Property $objName}
+      RDFBag - RDFSeq - RDFAlt {my ContainerNode $objName}
+      RDFMember 	{my Member $objName}
+    }
+
+    foreach a [array names attributes] {
+      regexp "^([$objName set rdfNSPrefix]:|)(.*)" $a _ __ an
+      switch -exact $an {
+	bagID {
+	  set info [my getInfo]
+	  $info set bagID 1
+	}
+	aboutEach {
+	  set info [my getInfo]
+	  if {[DescriptionInfo info instances $info] eq ""} {
+	    error "AboutEach not in description"
+	  }
+	  $info aboutEach 1
+	  [self]::aboutEach addEntry [my qualifyWithBaseURL [$objName getSubject]]
+	}
+	aboutEachPrefix {
+	  set info [my getInfo]
+	  if {[DescriptionInfo info instances $info] eq ""} {
+	    error "AboutEachPrefix not in description"
+	  }
+	  $info aboutEachPrefix 1
+	  [self]::aboutEachPrefix addEntry [my qualifyWithBaseURL [$objName getSubject]]
+	}
+	resource {
+	  if {$cl eq "RDFProperty"} {
+	    my handlePCData $objName [set attributes($a)]
+	  }
+	}
+      }
+    }
+  }
+
+  TripleVisitor instproc reificate {objName p s o} {
+    set memberID [[my set parser] makeID]
+    my addDB [my qualify $objName \
+		  [$objName qualifyWithRdfNsPrefix predicate]] $memberID $p
+    my addDB [my qualify $objName \
+		  [$objName qualifyWithRdfNsPrefix subject]] $memberID $s
+    my addDB [my qualify $objName \
+		  [$objName qualifyWithRdfNsPrefix object]] $memberID $o
+    my addDB [my qualify $objName \
+		  [$objName qualifyWithRdfNsPrefix type]] $memberID \
+	[my qualify $objName [$objName qualifyWithRdfNsPrefix Statement]]
+    return $memberID
+  }
+
+  TripleVisitor instproc visitEnd objName {
+    switch -exact [namespace tail [$objName info class]] {
+      RDFDescription {
+	set di [my popInfo $objName]
+	if {[my descriptionAsBag] || [$di set bagID]} {
+	  set bagID [$objName set bagID]
+	  my addDB [my qualify $objName [$objName qualifyWithRdfNsPrefix type]] \
+	      $bagID [my qualify $objName [$objName qualifyWithRdfNsPrefix Bag]]
+	  
+	  set bagCount 0
+	  
+	  foreach s [$di set statements] {
+	    set memberID [my reificate $objName \
+			      [$s set predicate] [$s set subject] [$s set object]]
+	    my addDB [my qualify $objName \
+			  [$objName qualifyWithRdfNsPrefix _[incr bagCount]]] \
+		$bagID $memberID
+	  }
+	}
+	foreach t [$objName array names rdfTypes] {
+	  my addDB [my qualify $objName [$objName qualifyWithRdfNsPrefix "type"]] \
+	      [$objName getSubject] $t
+	}
+	$di destroy
+      }
+      RDFProperty {
+	set info [my popInfo $objName]
+	if {![$info exists tripleWritten]} {
+	  set triple ""
+	  foreach fc [$objName info children] {
+	    switch -exact [namespace tail [$fc info class]] {
+	      RDFDescription {
+		set triple [my addDB \
+				[my qualify $objName [$objName set content]] \
+				[my qualifyWithBaseURL [$objName getSubject]] [$fc getSubject]]
+		break
+	      }
+	      RDFBag - RDFSeq - RDFAlt {
+		set triple [my addDB \
+				[my qualify $objName [$objName set content]] \
+				[my qualifyWithBaseURL [$objName getSubject]] [$fc set ID]]
+		break
+	      }
+	    }
+	  }
+	  if {$triple ne ""} {
+	    my checkReification $triple [my set currentNode]
+	  }
+	}
+	$info destroy
+      }
+    }
+  }
+
+  TripleVisitor instproc evaluateAboutEach {} {
+    set triplesWritten ""
+    set rdfNSFullName [[my rdfNS] searchPrefix rdf]
+
+    foreach entry [[self]::aboutEach array names entries] {
+      # matching entry triples should be bag types and their
+      # members -> duplication of aboutEach statements for the
+      # members
+      foreach entryTriple [lsort [[self]::db querySubject $entry]] {
+	if {[regexp "^${rdfNSFullName}_\[0-9\]*$" [$entryTriple predicate]]} {
+	  foreach t [[self]::aboutEach getTriples $entry] {
+	    set subject [$t subject]
+	    # if this is a toplevel elt of an about each tree -> its
+	    # subject is the object of the container member
+	    if {$subject eq $entry} {
+	      [self]::db add [$t predicate] [$entryTriple object] [$t object]
+	    } elseif {[lsearch $triplesWritten $t] == -1} {
+	      [self]::db add [$t predicate] $subject [$t object]
+	      lappend triplesWritten $t
+	    }
+	  }
+	}
+      }
+    }
+  }
+
+  TripleVisitor instproc interpretNodeTree {node} {
+    my set parser [$node set parser]
+    $node accept [self]
+    my evaluateAboutEach
+  }
+
+  namespace export RDFTriple NodeInfo DescriptionInfo PropertyInfo \
+      AboutEachMgr RDFTripleDB TripleVisitor
+}
+namespace import ::xotcl::rdf::triple::*

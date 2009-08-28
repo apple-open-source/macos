@@ -1,23 +1,18 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1997-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1997,2007 Oracle.  All rights reserved.
+ *
+ * $Id: cxx_dbc.cpp,v 12.10 2007/06/26 16:58:17 bostic Exp $
  */
 
 #include "db_config.h"
 
-#ifndef lint
-static const char revid[] = "$Id: cxx_dbc.cpp,v 1.2 2004/03/30 01:21:24 jtownsen Exp $";
-#endif /* not lint */
-
-#include <errno.h>
-#include <string.h>
+#include "db_int.h"
 
 #include "db_cxx.h"
 #include "dbinc/cxx_int.h"
 
-#include "db_int.h"
 #include "dbinc/db_page.h"
 #include "dbinc_auto/db_auto.h"
 #include "dbinc_auto/crdel_auto.h"
@@ -37,7 +32,7 @@ int Dbc::_name _argspec							\
 	int ret;							\
 	DBC *dbc = this;						\
 									\
-	ret = dbc->c_##_name _arglist;					\
+	ret = dbc->_name _arglist;					\
 	if (!_retok(ret))						\
 		DB_ERROR(DbEnv::get_DbEnv(dbc->dbp->dbenv), \
 			"Dbc::" # _name, ret, ON_ERROR_UNKNOWN); \
@@ -62,7 +57,7 @@ int Dbc::dup(Dbc** cursorp, u_int32_t _flags)
 	DBC *dbc = this;
 	DBC *new_cursor = 0;
 
-	ret = dbc->c_dup(dbc, &new_cursor, _flags);
+	ret = dbc->dup(dbc, &new_cursor, _flags);
 
 	if (DB_RETOK_STD(ret))
 		// The following cast implies that Dbc can be no larger than DBC
@@ -79,13 +74,13 @@ int Dbc::get(Dbt* key, Dbt *data, u_int32_t _flags)
 	int ret;
 	DBC *dbc = this;
 
-	ret = dbc->c_get(dbc, key, data, _flags);
+	ret = dbc->get(dbc, key, data, _flags);
 
 	if (!DB_RETOK_DBCGET(ret)) {
-		if (ret == ENOMEM && DB_OVERFLOWED_DBT(key))
+		if (ret == DB_BUFFER_SMALL && DB_OVERFLOWED_DBT(key))
 			DB_ERROR_DBT(DbEnv::get_DbEnv(dbc->dbp->dbenv),
 				"Dbc::get", key, ON_ERROR_UNKNOWN);
-		else if (ret == ENOMEM && DB_OVERFLOWED_DBT(data))
+		else if (ret == DB_BUFFER_SMALL && DB_OVERFLOWED_DBT(data))
 			DB_ERROR_DBT(DbEnv::get_DbEnv(dbc->dbp->dbenv),
 				"Dbc::get", data, ON_ERROR_UNKNOWN);
 		else
@@ -101,14 +96,14 @@ int Dbc::pget(Dbt* key, Dbt *pkey, Dbt *data, u_int32_t _flags)
 	int ret;
 	DBC *dbc = this;
 
-	ret = dbc->c_pget(dbc, key, pkey, data, _flags);
+	ret = dbc->pget(dbc, key, pkey, data, _flags);
 
 	/* Logic is the same as for Dbc::get - reusing macro. */
 	if (!DB_RETOK_DBCGET(ret)) {
-		if (ret == ENOMEM && DB_OVERFLOWED_DBT(key))
+		if (ret == DB_BUFFER_SMALL && DB_OVERFLOWED_DBT(key))
 			DB_ERROR_DBT(DbEnv::get_DbEnv(dbc->dbp->dbenv),
 				"Dbc::pget", key, ON_ERROR_UNKNOWN);
-		else if (ret == ENOMEM && DB_OVERFLOWED_DBT(data))
+		else if (ret == DB_BUFFER_SMALL && DB_OVERFLOWED_DBT(data))
 			DB_ERROR_DBT(DbEnv::get_DbEnv(dbc->dbp->dbenv),
 				"Dbc::pget", data, ON_ERROR_UNKNOWN);
 		else
@@ -121,3 +116,6 @@ int Dbc::pget(Dbt* key, Dbt *pkey, Dbt *data, u_int32_t _flags)
 
 DBC_METHOD(put, (Dbt* key, Dbt *data, u_int32_t _flags),
     (dbc, key, data, _flags), DB_RETOK_DBCPUT)
+DBC_METHOD(get_priority, (DB_CACHE_PRIORITY *priorityp),
+    (dbc, priorityp), DB_RETOK_STD)
+DBC_METHOD(set_priority, (DB_CACHE_PRIORITY pri), (dbc, pri), DB_RETOK_STD)

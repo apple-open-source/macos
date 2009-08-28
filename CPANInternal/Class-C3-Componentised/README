@@ -1,0 +1,15 @@
+README for Class::C3::Componentised
+
+Description here
+
+INSTALL
+
+        perl Build.PL
+        ./Build
+        ./Build test
+        ./Build install
+
+LICENSE
+
+This program is free software; you can redistribute it and/or modify it
+under the same terms as Perl itself.

@@ -1,5 +1,5 @@
---- src/history.c.orig	2006-08-29 12:18:07.000000000 -0700
-+++ src/history.c	2007-07-20 13:32:05.000000000 -0700
+--- src/history.c.orig	2008-07-12 01:38:05.000000000 -0700
++++ src/history.c	2008-08-07 12:44:29.000000000 -0700
 @@ -117,6 +117,7 @@
   */
  typedef struct hentry_t {
@@ -96,7 +96,7 @@
  	h->cursor->ev.num = ++h->eventid;
  	h->cursor->next = h->list.next;
  	h->cursor->prev = &h->list;
-@@ -787,6 +838,23 @@
+@@ -788,6 +839,23 @@
  }
  
  
@@ -120,7 +120,7 @@
  /* history_next_event():
   *	Find the next event, with number given
   */
-@@ -976,6 +1044,36 @@
+@@ -977,6 +1045,36 @@
  		retval = 0;
  		break;
  

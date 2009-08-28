@@ -2,11 +2,11 @@
 <api name='libexslt'>
   <files>
     <file name='exslt'>
-     <exports symbol='EXSLT_COMMON_NAMESPACE' type='macro'/>
      <exports symbol='EXSLT_DATE_NAMESPACE' type='macro'/>
-     <exports symbol='EXSLT_FUNCTIONS_NAMESPACE' type='macro'/>
      <exports symbol='EXSLT_STRINGS_NAMESPACE' type='macro'/>
      <exports symbol='SAXON_NAMESPACE' type='macro'/>
+     <exports symbol='EXSLT_COMMON_NAMESPACE' type='macro'/>
+     <exports symbol='EXSLT_FUNCTIONS_NAMESPACE' type='macro'/>
      <exports symbol='EXSLT_SETS_NAMESPACE' type='macro'/>
      <exports symbol='EXSLT_DYNAMIC_NAMESPACE' type='macro'/>
      <exports symbol='EXSLT_CRYPTO_NAMESPACE' type='macro'/>
@@ -17,14 +17,14 @@
      <exports symbol='exsltLibxsltVersion' type='variable'/>
      <exports symbol='exsltDynRegister' type='function'/>
      <exports symbol='exsltCommonRegister' type='function'/>
-     <exports symbol='exsltMathRegister' type='function'/>
-     <exports symbol='exsltStrRegister' type='function'/>
-     <exports symbol='exsltFuncRegister' type='function'/>
-     <exports symbol='exsltSaxonRegister' type='function'/>
      <exports symbol='exsltRegisterAll' type='function'/>
+     <exports symbol='exsltFuncRegister' type='function'/>
+     <exports symbol='exsltStrRegister' type='function'/>
      <exports symbol='exsltSetsRegister' type='function'/>
      <exports symbol='exsltDateRegister' type='function'/>
      <exports symbol='exsltCryptoRegister' type='function'/>
+     <exports symbol='exsltMathRegister' type='function'/>
+     <exports symbol='exsltSaxonRegister' type='function'/>
     </file>
     <file name='exsltexports'>
      <exports symbol='LIBEXSLT_PUBLIC' type='macro'/>

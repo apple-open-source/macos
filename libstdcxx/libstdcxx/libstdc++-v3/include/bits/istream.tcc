@@ -1,6 +1,7 @@
 // istream classes -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
+// 2006, 2007
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -16,7 +17,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -45,8 +46,8 @@
 #include <locale>
 #include <ostream> // For flush()
 
-namespace std
-{
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   template<typename _CharT, typename _Traits>
     basic_istream<_CharT, _Traits>::sentry::
     sentry(basic_istream<_CharT, _Traits>& __in, bool __noskip) : _M_ok(false)
@@ -86,331 +87,64 @@ namespace std
     }
 
   template<typename _CharT, typename _Traits>
-    basic_istream<_CharT, _Traits>&
-    basic_istream<_CharT, _Traits>::
-    operator>>(__istream_type& (*__pf)(__istream_type&))
-    { return __pf(*this); }
-
-  template<typename _CharT, typename _Traits>
-    basic_istream<_CharT, _Traits>&
-    basic_istream<_CharT, _Traits>::
-    operator>>(__ios_type& (*__pf)(__ios_type&))
-    {
-      __pf(*this);
-      return *this;
-    }
-
-  template<typename _CharT, typename _Traits>
-    basic_istream<_CharT, _Traits>&
-    basic_istream<_CharT, _Traits>::
-    operator>>(ios_base& (*__pf)(ios_base&))
-    {
-      __pf(*this);
-      return *this;
-    }
-
-  template<typename _CharT, typename _Traits>
-    basic_istream<_CharT, _Traits>&
-    basic_istream<_CharT, _Traits>::
-    operator>>(bool& __n)
-    {
-      sentry __cerb(*this, false);
-      if (__cerb)
-	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
-	    {
-	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
-	      __ng.get(*this, 0, *this, __err, __n);
-	    }
-	  catch(...)
-	    { this->_M_setstate(ios_base::badbit); }
-	  if (__err)
-	    this->setstate(__err);
-	}
-      return *this;
-    }
+    template<typename _ValueT>
+      basic_istream<_CharT, _Traits>&
+      basic_istream<_CharT, _Traits>::
+      _M_extract(_ValueT& __v)
+      {
+	sentry __cerb(*this, false);
+	if (__cerb)
+	  {
+	    ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+	    try
+	      {
+		const __num_get_type& __ng = __check_facet(this->_M_num_get);
+		__ng.get(*this, 0, *this, __err, __v);
+	      }
+	    catch(...)
+	      { this->_M_setstate(ios_base::badbit); }
+	    if (__err)
+	      this->setstate(__err);
+	  }
+	return *this;
+      }
 
   template<typename _CharT, typename _Traits>
     basic_istream<_CharT, _Traits>&
     basic_istream<_CharT, _Traits>::
     operator>>(short& __n)
     {
-      sentry __cerb(*this, false);
-      if (__cerb)
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 118. basic_istream uses nonexistent num_get member functions.
+      long __l;
+      _M_extract(__l);
+      if (!this->fail())
 	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
-	    {
-	      long __l;
-	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
-	      __ng.get(*this, 0, *this, __err, __l);
-	      // _GLIBCXX_RESOLVE_LIB_DEFECTS
-	      // 118. basic_istream uses nonexistent num_get member functions.
-	      if (!(__err & ios_base::failbit)
-		  && (numeric_limits<short>::min() <= __l
-		      && __l <= numeric_limits<short>::max()))
-		__n = __l;
-	      else
-                __err |= ios_base::failbit;
-	    }
-	  catch(...)
-	    { this->_M_setstate(ios_base::badbit); }
-	  if (__err)
-	    this->setstate(__err);
+	  if (numeric_limits<short>::min() <= __l
+	      && __l <= numeric_limits<short>::max())
+	    __n = __l;
+	  else
+	    this->setstate(ios_base::failbit);
 	}
       return *this;
     }
-
-  template<typename _CharT, typename _Traits>
-    basic_istream<_CharT, _Traits>&
-    basic_istream<_CharT, _Traits>::
-    operator>>(unsigned short& __n)
-    {
-      sentry __cerb(*this, false);
-      if (__cerb)
-	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
-	    {
-	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
-	      __ng.get(*this, 0, *this, __err, __n);
-	    }
-	  catch(...)
-	    { this->_M_setstate(ios_base::badbit); }
-	  if (__err)
-	    this->setstate(__err);
-	}
-      return *this;
-    }
-
+    
   template<typename _CharT, typename _Traits>
     basic_istream<_CharT, _Traits>&
     basic_istream<_CharT, _Traits>::
     operator>>(int& __n)
     {
-      sentry __cerb(*this, false);
-      if (__cerb)
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 118. basic_istream uses nonexistent num_get member functions.
+      long __l;
+      _M_extract(__l);
+      if (!this->fail())
 	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
-	    {
-	      long __l;
-	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
-	      __ng.get(*this, 0, *this, __err, __l);
-	      // _GLIBCXX_RESOLVE_LIB_DEFECTS
-	      // 118. basic_istream uses nonexistent num_get member functions.
-	      if (!(__err & ios_base::failbit)
-		  && (numeric_limits<int>::min() <= __l
-		      && __l <= numeric_limits<int>::max()))
-		__n = __l;
-	      else
-                __err |= ios_base::failbit;
-	    }
-	  catch(...)
-	    { this->_M_setstate(ios_base::badbit); }
-	  if (__err)
-	    this->setstate(__err);
-	}
-      return *this;
-    }
-
-  template<typename _CharT, typename _Traits>
-    basic_istream<_CharT, _Traits>&
-    basic_istream<_CharT, _Traits>::
-    operator>>(unsigned int& __n)
-    {
-      sentry __cerb(*this, false);
-      if (__cerb)
-	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
-	    {
-	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
-	      __ng.get(*this, 0, *this, __err, __n);
-	    }
-	  catch(...)
-	    { this->_M_setstate(ios_base::badbit); }
-	  if (__err)
-	    this->setstate(__err);
-	}
-      return *this;
-    }
-
-  template<typename _CharT, typename _Traits>
-    basic_istream<_CharT, _Traits>&
-    basic_istream<_CharT, _Traits>::
-    operator>>(long& __n)
-    {
-      sentry __cerb(*this, false);
-      if (__cerb)
-	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
-	    {
-	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
-	      __ng.get(*this, 0, *this, __err, __n);
-	    }
-	  catch(...)
-	    { this->_M_setstate(ios_base::badbit); }
-	  if (__err)
-	    this->setstate(__err);
-	}
-      return *this;
-    }
-
-  template<typename _CharT, typename _Traits>
-    basic_istream<_CharT, _Traits>&
-    basic_istream<_CharT, _Traits>::
-    operator>>(unsigned long& __n)
-    {
-      sentry __cerb(*this, false);
-      if (__cerb)
-	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
-	    {
-	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
-	      __ng.get(*this, 0, *this, __err, __n);
-	    }
-	  catch(...)
-	    { this->_M_setstate(ios_base::badbit); }
-	  if (__err)
-	    this->setstate(__err);
-	}
-      return *this;
-    }
-
-#ifdef _GLIBCXX_USE_LONG_LONG
-  template<typename _CharT, typename _Traits>
-    basic_istream<_CharT, _Traits>&
-    basic_istream<_CharT, _Traits>::
-    operator>>(long long& __n)
-    {
-      sentry __cerb(*this, false);
-      if (__cerb)
-	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
-	    {
-	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
-	      __ng.get(*this, 0, *this, __err, __n);
-	    }
-	  catch(...)
-	    { this->_M_setstate(ios_base::badbit); }
-	  if (__err)
-	    this->setstate(__err);
-	}
-      return *this;
-    }
-
-  template<typename _CharT, typename _Traits>
-    basic_istream<_CharT, _Traits>&
-    basic_istream<_CharT, _Traits>::
-    operator>>(unsigned long long& __n)
-    {
-      sentry __cerb(*this, false);
-      if (__cerb)
-	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
-	    {
-	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
-	      __ng.get(*this, 0, *this, __err, __n);
-	    }
-	  catch(...)
-	    { this->_M_setstate(ios_base::badbit); }
-	  if (__err)
-	    this->setstate(__err);
-	}
-      return *this;
-    }
-#endif
-
-  template<typename _CharT, typename _Traits>
-    basic_istream<_CharT, _Traits>&
-    basic_istream<_CharT, _Traits>::
-    operator>>(float& __n)
-    {
-      sentry __cerb(*this, false);
-      if (__cerb)
-	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
-	    {
-	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
-	      __ng.get(*this, 0, *this, __err, __n);
-	    }
-	  catch(...)
-	    { this->_M_setstate(ios_base::badbit); }
-	  if (__err)
-	    this->setstate(__err);
-	}
-      return *this;
-    }
-
-  template<typename _CharT, typename _Traits>
-    basic_istream<_CharT, _Traits>&
-    basic_istream<_CharT, _Traits>::
-    operator>>(double& __n)
-    {
-      sentry __cerb(*this, false);
-      if (__cerb)
-	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
-	    {
-	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
-	      __ng.get(*this, 0, *this, __err, __n);
-	    }
-	  catch(...)
-	    { this->_M_setstate(ios_base::badbit); }
-	  if (__err)
-	    this->setstate(__err);
-	}
-      return *this;
-    }
-
-  template<typename _CharT, typename _Traits>
-    basic_istream<_CharT, _Traits>&
-    basic_istream<_CharT, _Traits>::
-    operator>>(long double& __n)
-    {
-      sentry __cerb(*this, false);
-      if (__cerb)
-	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
-	    {
-	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
-	      __ng.get(*this, 0, *this, __err, __n);
-	    }
-	  catch(...)
-	    { this->_M_setstate(ios_base::badbit); }
-	  if (__err)
-	    this->setstate(__err);
-	}
-      return *this;
-    }
-
-  template<typename _CharT, typename _Traits>
-    basic_istream<_CharT, _Traits>&
-    basic_istream<_CharT, _Traits>::
-    operator>>(void*& __n)
-    {
-      sentry __cerb(*this, false);
-      if (__cerb)
-	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
-	    {
-	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
-	      __ng.get(*this, 0, *this, __err, __n);
-	    }
-	  catch(...)
-	    { this->_M_setstate(ios_base::badbit); }
-	  if (__err)
-	    this->setstate(__err);
+	  if (numeric_limits<int>::min() <= __l
+	      && __l <= numeric_limits<int>::max())
+	    __n = __l;
+	  else
+	    this->setstate(ios_base::failbit);
 	}
       return *this;
     }
@@ -426,8 +160,11 @@ namespace std
 	{
 	  try
 	    {
-	      if (!__copy_streambufs(this->rdbuf(), __sbout))
+	      bool __ineof;
+	      if (!__copy_streambufs_eof(this->rdbuf(), __sbout, __ineof))
 		__err |= ios_base::failbit;
+	      if (__ineof)
+		__err |= ios_base::eofbit;
 	    }
 	  catch(...)
 	    { this->_M_setstate(ios_base::failbit); }
@@ -954,7 +691,8 @@ namespace std
       try
 	{
 	  if (!this->fail())
-	    __ret = this->rdbuf()->pubseekoff(0, ios_base::cur, ios_base::in);
+	    __ret = this->rdbuf()->pubseekoff(0, ios_base::cur,
+					      ios_base::in);
 	}
       catch(...)
 	{ this->_M_setstate(ios_base::badbit); }
@@ -976,8 +714,8 @@ namespace std
 	      // 136.  seekp, seekg setting wrong streams?
 	      const pos_type __p = this->rdbuf()->pubseekpos(__pos,
 							     ios_base::in);
-
-	      // 129. Need error indication from seekp() and seekg()
+	      
+	      // 129.  Need error indication from seekp() and seekg()
 	      if (__p == pos_type(off_type(-1)))
 		__err |= ios_base::failbit;
 	    }
@@ -1004,8 +742,8 @@ namespace std
 	      // 136.  seekp, seekg setting wrong streams?
 	      const pos_type __p = this->rdbuf()->pubseekoff(__off, __dir,
 							     ios_base::in);
-
-	      // 129. Need error indication from seekp() and seekg()
+	      
+	      // 129.  Need error indication from seekp() and seekg()
 	      if (__p == pos_type(off_type(-1)))
 		__err |= ios_base::failbit;
 	    }
@@ -1251,12 +989,6 @@ namespace std
       return __in;
     }
 
-  template<class _CharT, class _Traits, class _Alloc>
-    inline basic_istream<_CharT,_Traits>&
-    getline(basic_istream<_CharT, _Traits>& __in,
-	    basic_string<_CharT,_Traits,_Alloc>& __str)
-    { return getline(__in, __str, __in.widen('\n')); }
-
   // Inhibit implicit instantiations for required instantiations,
   // which are defined via explicit instantiations elsewhere.
   // NB:  This syntax is a GNU extension.
@@ -1270,6 +1002,20 @@ namespace std
   extern template istream& operator>>(istream&, unsigned char*);
   extern template istream& operator>>(istream&, signed char*);
 
+  extern template istream& istream::_M_extract(unsigned short&);
+  extern template istream& istream::_M_extract(unsigned int&);  
+  extern template istream& istream::_M_extract(long&);
+  extern template istream& istream::_M_extract(unsigned long&);
+  extern template istream& istream::_M_extract(bool&);
+#ifdef _GLIBCXX_USE_LONG_LONG
+  extern template istream& istream::_M_extract(long long&);
+  extern template istream& istream::_M_extract(unsigned long long&);
+#endif
+  extern template istream& istream::_M_extract(float&);
+  extern template istream& istream::_M_extract(double&);
+  extern template istream& istream::_M_extract(long double&);
+  extern template istream& istream::_M_extract(void*&);
+
   extern template class basic_iostream<char>;
 
 #ifdef _GLIBCXX_USE_WCHAR_T
@@ -1278,9 +1024,24 @@ namespace std
   extern template wistream& operator>>(wistream&, wchar_t&);
   extern template wistream& operator>>(wistream&, wchar_t*);
 
+  extern template wistream& wistream::_M_extract(unsigned short&);
+  extern template wistream& wistream::_M_extract(unsigned int&);  
+  extern template wistream& wistream::_M_extract(long&);
+  extern template wistream& wistream::_M_extract(unsigned long&);
+  extern template wistream& wistream::_M_extract(bool&);
+#ifdef _GLIBCXX_USE_LONG_LONG
+  extern template wistream& wistream::_M_extract(long long&);
+  extern template wistream& wistream::_M_extract(unsigned long long&);
+#endif
+  extern template wistream& wistream::_M_extract(float&);
+  extern template wistream& wistream::_M_extract(double&);
+  extern template wistream& wistream::_M_extract(long double&);
+  extern template wistream& wistream::_M_extract(void*&);
+
   extern template class basic_iostream<wchar_t>;
 #endif
 #endif
-} // namespace std
+
+_GLIBCXX_END_NAMESPACE
 
 #endif

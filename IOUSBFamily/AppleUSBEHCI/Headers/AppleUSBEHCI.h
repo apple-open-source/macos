@@ -123,7 +123,7 @@ enum
 };
 
 enum{
-	kMaxPorts = 16
+	kMaxPorts = 15
 };
 
 
@@ -560,6 +560,8 @@ public:
     IOReturn EHCIRootHubPortPower(UInt16 port, bool on);
     IOReturn SimulateEDDelete (short endpointNumber, short direction);
 	IOReturn SimulateEDAbort (short endpointNumber, short direction);
+	IOReturn RHCompleteResumeOnAllPorts();
+    void		RHCheckForPortResumes(void);
 
     IOReturn GetRootHubStringDescriptor(UInt8	index, OSData *desc);
     AbsoluteTime	LastRootHubPortStatusChanged( bool reset );

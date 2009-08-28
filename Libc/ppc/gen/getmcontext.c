@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -57,9 +57,9 @@ getmcontext(ucontext_t *uctx, void *sp)
 	}
 
 	if (stacksize == 0) {	/* main thread doesn't have pthread stack size */
-		rlim_t rlim;
+		struct rlimit rlim;
 		if (0 == getrlimit(RLIMIT_STACK, &rlim))
-			stacksize = rlim;
+			stacksize = rlim.rlim_cur;
 	}
 
 	uctx->uc_stack.ss_size = stacksize;

@@ -1,0 +1,12 @@
+--- pyobjc-core/Modules/objc/objc-class.m.orig	2009-06-23 15:35:44.000000000 -0700
++++ pyobjc-core/Modules/objc/objc-class.m	2009-06-29 12:41:41.000000000 -0700
+@@ -1408,7 +1408,9 @@
+ 	if (strcmp(className, "NSBlock") == 0) {
+ 		((PyTypeObject *)result)->tp_basicsize = sizeof(PyObjCBlockObject);
+ 		((PyTypeObject *)result)->tp_call = PyObjCBlock_Call;
++#if PY_MAJOR_VERSION > 2 || PY_MAJOR_VERSION == 2 && PY_MINOR_VERSION > 5
+ 		PyType_Modified((PyTypeObject*)result);
++#endif /* > 2.5 */
+ 		PyType_Ready((PyTypeObject *)result);
+ 	}
+ 

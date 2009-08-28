@@ -32,7 +32,6 @@
 #include <fcntl.h>
 #include <syslog.h>
 #include <netdb.h>
-#include <utmp.h>
 #include <paths.h>
 #include <sys/queue.h>
 		
@@ -115,6 +114,7 @@ int ppp_process_prefs(struct vpn_params *params)
     // always try to use options defined in /etc/ppp/peers/[service provider] 
     // they can override what have been specified by the prefs file
     // be careful to the conflicts on options
+	len = sizeof(pathStr);
     get_str_option(params->serverRef, kRASEntPPP, kRASPropUserDefinedName, pathStr, &len, "");
     if (pathStr[0])
         addstrparam(params->exec_args, &params->next_arg_index, "call", pathStr);
@@ -135,7 +135,8 @@ fail:
 static int process_interface_prefs(struct vpn_params *params)
 {
     CFDictionaryRef	dict;
-       
+    int path_len = 0;
+	
     //  get type/subtype of server
     dict = CFDictionaryGetValue(params->serverRef, kRASEntInterface);
 
@@ -143,14 +144,19 @@ static int process_interface_prefs(struct vpn_params *params)
 	params->serverSubTypeRef = CFDictionaryGetValue(dict, kRASPropInterfaceSubType);
 	if (!isString(params->serverSubTypeRef)) {
 		vpnlog(LOG_ERR, "Incorrect server subtype found\n");
+		params->serverSubTypeRef = NULL;
 		return -1;
 	}
-	params->plugin_path = malloc(CFStringGetLength(params->serverSubTypeRef) + 5); 
+	path_len = CFStringGetLength(params->serverSubTypeRef) + 5;
+	params->plugin_path = malloc(path_len); 
 	CFStringGetCString(params->serverSubTypeRef, params->plugin_path, 
-						CFStringGetLength(params->serverSubTypeRef) + 5, kCFStringEncodingUTF8);
-	strcat(params->plugin_path, ".ppp");
+						path_len, kCFStringEncodingUTF8);
+	strlcat(params->plugin_path, ".ppp", path_len);
 	if (!plugin_exists(params->plugin_path)) {
 		vpnlog(LOG_ERR, "Unsupported plugin '%s'\n", params->plugin_path);
+		params->serverSubTypeRef = NULL;
+		free(params->plugin_path);
+		params->plugin_path = NULL;
 		return -1;
 	}
 	
@@ -190,6 +196,7 @@ static int process_ipv4_prefs(struct vpn_params *params)
     if ((dict = CFDictionaryGetValue(params->serverRef, kRASEntIPv4)) && isDictionary(dict)) {
     
         // get server side address
+		len = sizeof(str);
         get_array_option(params->serverRef, kRASEntIPv4, kRASPropIPv4Addresses, 0, str, &len, "");
         if (str[0] == 0) {
             // get the address of the default interface
@@ -201,7 +208,7 @@ static int process_ipv4_prefs(struct vpn_params *params)
             }
         }
         if (str[0]) {
-            strcat(str, ":");
+            strlcat(str, ":", sizeof(str));
             addparam(params->exec_args, &params->next_arg_index, str);
         }
         
@@ -265,6 +272,7 @@ static int process_ipv4_prefs(struct vpn_params *params)
     return 0;
     
 }
+
 
 // ----------------------------------------------------------------------------
 //	process_ipv6_prefs
@@ -361,6 +369,7 @@ static int process_ppp_prefs(struct vpn_params *params)
     if (lval)
         addparam(params->exec_args, &params->next_arg_index, "debug");
 
+	len = sizeof(optStr);
     get_str_option(params->serverRef, kRASEntPPP, kRASPropPPPLogfile, optStr, &len, "");
     if (optStr[0]) {
         // if logfile start with /, it's a full path
@@ -372,7 +381,7 @@ static int process_ppp_prefs(struct vpn_params *params)
         // with debug option, pppd will log the negociation
         // debug option is different from kernel debug trace
 
-        sprintf(pathStr, "%s%s", optStr[0] == '/' ? "" : DIR_LOGS, optStr);
+        snprintf(pathStr, sizeof(pathStr), "%s%s", optStr[0] == '/' ? "" : DIR_LOGS, optStr);
         addstrparam(params->exec_args, &params->next_arg_index, "logfile", pathStr);
     }
                     
@@ -456,8 +465,8 @@ static int process_ppp_prefs(struct vpn_params *params)
         pathStr[0] = 0;
         for (lval1 = 0; lval1 < 32; lval1++) {
             if ((lval >> lval1) & 1) {
-                sprintf(optStr, "%d,", lval1);
-                strcat(pathStr, optStr);
+                snprintf(optStr, sizeof(optStr), "%d,", lval1);
+                strlcat(pathStr, optStr, sizeof(pathStr));
             }
         }
         pathStr[strlen(pathStr)-1] = 0; // remove last ','
@@ -597,7 +606,7 @@ static int process_ppp_prefs(struct vpn_params *params)
 		do {
 			lval = get_array_option(params->serverRef, kRASEntPPP, kRASPropPPPAuthenticatorEAPPlugins, i++, pathStr, &len, "");
 			if (pathStr[0]) {
-				strcat(pathStr, ".ppp");	// add plugin suffix
+				strlcat(pathStr, ".ppp", sizeof(pathStr));	// add plugin suffix
 				if (!plugin_exists(pathStr)) {
 					vpnlog(LOG_ERR, "EAP plugin '%s' not found\n", pathStr);
 					return -1;
@@ -623,9 +632,10 @@ static int process_ppp_prefs(struct vpn_params *params)
     // add authentication plugins
     i = 0;
     do {
-        lval = get_array_option(params->serverRef, kRASEntPPP, kRASPropPPPAuthenticatorPlugins, i++, pathStr, &len, "");
+		len = sizeof(pathStr);
+       lval = get_array_option(params->serverRef, kRASEntPPP, kRASPropPPPAuthenticatorPlugins, i++, pathStr, &len, "");
         if (pathStr[0]) {
-            strcat(pathStr, ".ppp");	// add plugin suffix
+            strlcat(pathStr, ".ppp", sizeof(pathStr));	// add plugin suffix
             if (!plugin_exists(pathStr)) {
                 vpnlog(LOG_ERR, "Authentication plugin '%s' not found\n", pathStr);
                 return -1;
@@ -638,14 +648,15 @@ static int process_ppp_prefs(struct vpn_params *params)
     // add access control list plugins
     i = 0;
     do {
-        lval = get_array_option(params->serverRef, kRASEntPPP, kRASPropPPPAuthenticatorACLPlugins, i++, pathStr, &len, "");
+ 		len = sizeof(pathStr);
+       lval = get_array_option(params->serverRef, kRASEntPPP, kRASPropPPPAuthenticatorACLPlugins, i++, pathStr, &len, "");
         if (pathStr[0]) {
-            strcat(pathStr, ".ppp");	// add plugin suffix
+            strlcat(pathStr, ".ppp", sizeof(pathStr));	// add plugin suffix
             if (!plugin_exists(pathStr)) {
                 vpnlog(LOG_ERR, "Access Control plugin '%s' not found\n", pathStr);
                 return -1;
             }
-            addstrparam(params->exec_args, &params->next_arg_index, "plugin", pathStr);
+            addstrparam(params->exec_args, &params->next_arg_index, "plugin2", pathStr);
         }
     }
     while (lval);
@@ -653,9 +664,10 @@ static int process_ppp_prefs(struct vpn_params *params)
     // add any additional plugin we want to load
     i = 0;
     do {
+		len = sizeof(pathStr);
         lval = get_array_option(params->serverRef, kRASEntPPP, kRASPropPPPPlugins, i++, pathStr, &len, "");
         if (pathStr[0]) {
-            strcat(pathStr, ".ppp");	// add plugin suffix
+            strlcat(pathStr, ".ppp", sizeof(pathStr));	// add plugin suffix
             if (!plugin_exists(pathStr)) {
                 vpnlog(LOG_ERR, "Plugin '%s' not found\n", pathStr);
                 return -1;

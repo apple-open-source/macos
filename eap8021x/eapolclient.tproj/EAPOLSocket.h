@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,78 +32,69 @@
 #define _S_EAPOLSOCKET_H
 
 
-#include <EAP8021X/EAPOL.h>
+#include "EAPOL.h"
+#include "EAPOLControlTypes.h"
 #include "wireless.h"
+#include "ClientControlInterface.h"
 
-typedef struct EAPOLSocket_s EAPOLSocket;
+typedef struct EAPOLSocket_s EAPOLSocket, * EAPOLSocketRef;
 
 typedef struct {
     EAPOLPacket *		eapol_p;
     unsigned int		length;
-    boolean_t			logged;
 } EAPOLSocketReceiveData, *EAPOLSocketReceiveDataRef;
 
 typedef void (EAPOLSocketReceiveCallback)(void * arg1, void * arg2, 
-					  EAPOLSocketReceiveData * data);
-int
-eapol_socket(char * ifname, boolean_t blocking);
+					  EAPOLSocketReceiveDataRef data);
+typedef EAPOLSocketReceiveCallback * EAPOLSocketReceiveCallbackRef;
 
 void
 EAPOLSocketSetDebug(boolean_t debug);
 
-void
-EAPOLSocket_free(EAPOLSocket * * eapol_p);
-
-EAPOLSocket *
-EAPOLSocket_create(int fd, const struct sockaddr_dl * link);
+bool
+EAPOLSocketIsLinkActive(EAPOLSocketRef sock);
 
 int
-EAPOLSocket_mtu(EAPOLSocket * sock);
+EAPOLSocketMTU(EAPOLSocketRef sock);
 
 boolean_t
-EAPOLSocket_is_wireless(EAPOLSocket * sock);
+EAPOLSocketIsWireless(EAPOLSocketRef sock);
 
 boolean_t
-EAPOLSocket_set_key(EAPOLSocket * sock, wirelessKeyType type,
-		    int index, const uint8_t * key, int key_length);
+EAPOLSocketSetKey(EAPOLSocketRef sock, wirelessKeyType type,
+		  int index, const uint8_t * key, int key_length);
 
 boolean_t
-EAPOLSocket_set_wpa_session_key(EAPOLSocket * sock, 
-				const uint8_t * key, int key_length);
+EAPOLSocketSetPMK(EAPOLSocketRef sock, 
+		  const uint8_t * key, int key_length);
 
-/*
- * Function: EAPOLSocket_link_update
- * Purpose:
- *   Update the stored BSSID.
- * Returns:
- *   Whether the stored BSSID was modified.
- */
-boolean_t
-EAPOLSocket_link_update(EAPOLSocket * sock);
+CFStringRef
+EAPOLSocketGetSSID(EAPOLSocketRef sock);
 
 void
-EAPOLSocket_disable_receive(EAPOLSocket * eapol_socket);
+EAPOLSocketDisableReceive(EAPOLSocketRef eapol_socket);
 
 void
-EAPOLSocket_enable_receive(EAPOLSocket * eapol_socket,
-			   EAPOLSocketReceiveCallback * func,
-			   void * arg1, void * arg2);
+EAPOLSocketEnableReceive(EAPOLSocketRef eapol_socket,
+			 EAPOLSocketReceiveCallback * func,
+			 void * arg1, void * arg2);
 
 int
-EAPOLSocket_transmit(EAPOLSocket * sock,
-		     EAPOLPacketType packet_type,
-		     void * body, unsigned int body_length,
-		     struct sockaddr_dl * dest,
-		     boolean_t print_whole_packet);
+EAPOLSocketTransmit(EAPOLSocketRef sock,
+		    EAPOLPacketType packet_type,
+		    void * body, unsigned int body_length);
 
 const char *
-EAPOLSocket_if_name(EAPOLSocket * sock, uint32_t * length);
+EAPOLSocketIfName(EAPOLSocketRef sock, uint32_t * length);
+
+const char *
+EAPOLSocketName(EAPOLSocketRef sock);
 
 void
-eapol_packet_print(EAPOLPacket * eapol_p, unsigned int length);
+EAPOLSocketReportStatus(EAPOLSocketRef sock, CFDictionaryRef status_dict);
 
-void
-eap_packet_print(EAPPacketRef pkt_p, unsigned int length);
+EAPOLControlMode
+EAPOLSocketGetMode(EAPOLSocketRef sock);
 
-#endif _S_EAPOLSOCKET_H
+#endif /* _S_EAPOLSOCKET_H */
 

@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: post-callback.c,v 1.5 2005/12/14 13:10:14 bagder Exp $
+ * $Id: post-callback.c,v 1.10 2008-05-22 21:20:09 danf Exp $
  *
  * An example source code that issues a HTTP POST and we provide the actual
  * data through a read callback.
@@ -15,14 +15,14 @@
 #include <string.h>
 #include <curl/curl.h>
 
-char data[]="this is what we post to the silly web server";
+const char data[]="this is what we post to the silly web server";
 
 struct WriteThis {
-  char *readptr;
+  const char *readptr;
   int sizeleft;
 };
 
-size_t read_callback(void *ptr, size_t size, size_t nmemb, void *userp)
+static size_t read_callback(void *ptr, size_t size, size_t nmemb, void *userp)
 {
   struct WriteThis *pooh = (struct WriteThis *)userp;
 
@@ -36,7 +36,7 @@ size_t read_callback(void *ptr, size_t size, size_t nmemb, void *userp)
     return 1;                        /* we return 1 byte at a time! */
   }
 
-  return -1;                         /* no more data left to deliver */
+  return 0;                          /* no more data left to deliver */
 }
 
 int main(void)
@@ -55,7 +55,7 @@ int main(void)
     curl_easy_setopt(curl, CURLOPT_URL,
                      "http://receivingsite.com.pooh/index.cgi");
     /* Now specify we want to POST data */
-    curl_easy_setopt(curl, CURLOPT_POST, TRUE);
+    curl_easy_setopt(curl, CURLOPT_POST, 1L);
 
     /* we want to use our own read function */
     curl_easy_setopt(curl, CURLOPT_READFUNCTION, read_callback);
@@ -64,7 +64,7 @@ int main(void)
     curl_easy_setopt(curl, CURLOPT_READDATA, &pooh);
 
     /* get verbose debug output please */
-    curl_easy_setopt(curl, CURLOPT_VERBOSE, 1);
+    curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
 
     /*
       If you use POST to a HTTP 1.1 server, you can send data without knowing
@@ -75,7 +75,7 @@ int main(void)
     */
 #ifdef USE_CHUNKED
     {
-      curl_slist *chunk = NULL;
+      struct curl_slist *chunk = NULL;
 
       chunk = curl_slist_append(chunk, "Transfer-Encoding: chunked");
       res = curl_easy_setopt(curl, CURLOPT_HTTPHEADER, chunk);
@@ -85,7 +85,7 @@ int main(void)
 #else
     /* Set the expected POST size. If you want to POST large amounts of data,
        consider CURLOPT_POSTFIELDSIZE_LARGE */
-    curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, pooh.sizeleft);
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, (curl_off_t)pooh.sizeleft);
 #endif
 
 #ifdef DISABLE_EXPECT
@@ -98,7 +98,7 @@ int main(void)
     /* A less good option would be to enforce HTTP 1.0, but that might also
        have other implications. */
     {
-      curl_slist *chunk = NULL;
+      struct curl_slist *chunk = NULL;
 
       chunk = curl_slist_append(chunk, "Expect:");
       res = curl_easy_setopt(curl, CURLOPT_HTTPHEADER, chunk);

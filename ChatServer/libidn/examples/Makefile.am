@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in
-# Copyright (C) 2002, 2003, 2004 Simon Josefsson.
+# Copyright (C) 2002, 2003, 2004, 2006, 2007 Simon Josefsson.
 #
 # This file is part of GNU Libidn.
 #
@@ -26,8 +26,3 @@ noinst_PROGRAMS = example example2 example3 example4
 if TLD
 noinst_PROGRAMS += example5
 endif
-
-# Maintainer targets
-
-indent:
-	indent $(SOURCES)

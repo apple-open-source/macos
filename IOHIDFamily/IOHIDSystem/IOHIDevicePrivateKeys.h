@@ -32,7 +32,9 @@ enum {
 
 enum {
     kScrollTypeContinuous       = 0x0001,
-    kScrollTypeZoom             = 0x0002
+    kScrollTypeZoom             = 0x0002,
+    kScrollTypeIgnored			= 0x0004,
+    kScrollTypeTouch			= 0x0008
 };
 
 #define kIOHIDEventServicePropertiesKey "HIDEventServiceProperties"

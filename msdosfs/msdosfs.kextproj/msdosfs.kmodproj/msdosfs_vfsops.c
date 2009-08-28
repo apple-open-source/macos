@@ -95,6 +95,7 @@
 #include <miscfs/specfs/specdev.h>
 #include <IOKit/IOTypes.h>
 #include <libkern/OSMalloc.h>
+#include <libkern/OSKextLib.h>
 
 #include "bpb.h"
 #include "bootsect.h"
@@ -109,7 +110,7 @@
 
 extern u_int16_t dos2unicode[32];
 
-extern long msdos_secondsWest;	/* In msdosfs_conv.c */
+extern int32_t msdos_secondsWest;	/* In msdosfs_conv.c */
 
 lck_grp_attr_t *msdosfs_lck_grp_attr = NULL;
 lck_grp_t *msdosfs_lck_grp = NULL;
@@ -132,7 +133,7 @@ static int	msdosfs_vfs_setattr(mount_t mp, struct vfs_attr *attr, vfs_context_t 
 static int	msdosfs_sync __P((struct mount *, int, vfs_context_t));
 static int	msdosfs_unmount __P((struct mount *, int, vfs_context_t));
 
-static int	get_root_label(struct mount *mp, vfs_context_t context);
+static int	scan_root_dir(struct mount *mp, vfs_context_t context);
 
 /* The routines are exported for the KEXT glue to link against. */
 int msdosfs_module_start(kmod_info_t *ki, void *data);
@@ -212,9 +213,11 @@ msdosfs_mount(mp, devvp, data, context)
 	struct msdosfsmount *pmp = NULL;
 	int error, flags;
 
+	OSKextRetainKextWithLoadTag(OSKextGetCurrentLoadTag());
+
 	error = copyin(data, &args, sizeof(struct msdosfs_args));
 	if (error)
-		return (error);
+		goto error_exit;
 	if (args.magic != MSDOSFS_ARGSMAGIC)
 		args.flags = 0;
 
@@ -237,7 +240,7 @@ msdosfs_mount(mp, devvp, data, context)
 			/* not yet implemented */
 			error = ENOTSUP;
 		if (error)
-			return (error);
+			goto error_exit;
 		if ((pmp->pm_flags & MSDOSFSMNT_RONLY) && vfs_iswriteupgrade(mp)) {
 			/* ¥ Assuming that VFS has verified we can write to the device */
 
@@ -247,7 +250,7 @@ msdosfs_mount(mp, devvp, data, context)
 			error = markvoldirty(pmp, 1);
 			if (error) {
 				pmp->pm_flags |= MSDOSFSMNT_RONLY;
-				return error;
+				goto error_exit;
 			}
 		}
 	}
@@ -255,7 +258,7 @@ msdosfs_mount(mp, devvp, data, context)
 	if ( !vfs_isupdate(mp)) {
 		error = mountmsdosfs(devvp, mp, context);
 		if (error)
-			return error;	/* mountmsdosfs cleaned up already */
+			goto error_exit;	/* mountmsdosfs cleaned up already */
 	}
 
 	if (error == 0)
@@ -265,8 +268,12 @@ msdosfs_mount(mp, devvp, data, context)
 		(void) msdosfs_statfs(mp, vfs_statfs(mp), context);
 
 	if (error)
-		msdosfs_unmount(mp, MNT_FORCE, context);
+		msdosfs_unmount(mp, MNT_FORCE, context);	/* NOTE: calls OSKextReleaseKextWithLoadTag */
 
+	return error;
+
+error_exit:
+	OSKextReleaseKextWithLoadTag(OSKextGetCurrentLoadTag());
 	return error;
 }
 
@@ -283,10 +290,10 @@ mountmsdosfs(devvp, mp, context)
 	struct byte_bpb33 *b33;
 	struct byte_bpb50 *b50;
 	struct byte_bpb710 *b710;
-	u_long fat_sectors;
-	u_long clusters;
+	uint32_t fat_sectors;
+	uint32_t clusters;
 	uint32_t fsinfo = 0;
-	int	ronly, error;
+	int	error;
 	struct vfsstatfs *vfsstatfs;
 	u_int8_t SecPerClust;
 	
@@ -308,8 +315,6 @@ mountmsdosfs(devvp, mp, context)
 	error = buf_invalidateblks(devvp, BUF_WRITE_DATA, 0, 0);
 	if (error)
 		return (error);
-
-	ronly = vfs_isrdonly(mp);
 
 	vfs_setlocklocal(mp);
 	
@@ -359,14 +364,14 @@ mountmsdosfs(devvp, mp, context)
 	 * the fields that are different between dos 5 and dos 3.3.
 	 */
 	SecPerClust = b50->bpbSecPerClust;
-	pmp->pm_BytesPerSec = getushort(b50->bpbBytesPerSec);
-	pmp->pm_ResSectors = getushort(b50->bpbResSectors);
+	pmp->pm_BytesPerSec = getuint16(b50->bpbBytesPerSec);
+	pmp->pm_ResSectors = getuint16(b50->bpbResSectors);
 	pmp->pm_FATs = b50->bpbFATs;
-	pmp->pm_RootDirEnts = getushort(b50->bpbRootDirEnts);
-	pmp->pm_Sectors = getushort(b50->bpbSectors);
-	fat_sectors = getushort(b50->bpbFATsecs);
-	pmp->pm_SecPerTrack = getushort(b50->bpbSecPerTrack);
-	pmp->pm_Heads = getushort(b50->bpbHeads);
+	pmp->pm_RootDirEnts = getuint16(b50->bpbRootDirEnts);
+	pmp->pm_Sectors = getuint16(b50->bpbSectors);
+	fat_sectors = getuint16(b50->bpbFATsecs);
+	pmp->pm_SecPerTrack = getuint16(b50->bpbSecPerTrack);
+	pmp->pm_Heads = getuint16(b50->bpbHeads);
 	pmp->pm_Media = b50->bpbMedia;
 	pmp->pm_label_cluster = CLUST_EOFE;	/* Assume there is no label in the root */
 
@@ -384,7 +389,7 @@ mountmsdosfs(devvp, mp, context)
 		pmp->pm_PhysBlockSize = pmp->pm_BlockSize;
 	
 	if (pmp->pm_Sectors == 0) {
-		pmp->pm_HugeSectors = getulong(b50->bpbHugeSectors);
+		pmp->pm_HugeSectors = getuint32(b50->bpbHugeSectors);
 	} else {
 		pmp->pm_HugeSectors = pmp->pm_Sectors;
 	}
@@ -392,7 +397,7 @@ mountmsdosfs(devvp, mp, context)
 	if (pmp->pm_RootDirEnts == 0) {
 		if (pmp->pm_Sectors != 0
 		    || fat_sectors != 0
-		    || getushort(b710->bpbFSVers) != 0) {
+		    || getuint16(b710->bpbFSVers) != 0) {
 			error = EINVAL;
 			printf("mountmsdosfs(): bad FAT32 filesystem\n");
 			goto error_exit;
@@ -400,9 +405,9 @@ mountmsdosfs(devvp, mp, context)
 		pmp->pm_fatmask = FAT32_MASK;
 		pmp->pm_fatmult = 4;
 		pmp->pm_fatdiv = 1;
-		fat_sectors = getulong(b710->bpbBigFATsecs);
-		if (getushort(b710->bpbExtFlags) & FATMIRROR)
-			pmp->pm_curfat = getushort(b710->bpbExtFlags) & FATNUM;
+		fat_sectors = getuint32(b710->bpbBigFATsecs);
+		if (getuint16(b710->bpbExtFlags) & FATMIRROR)
+			pmp->pm_curfat = getuint16(b710->bpbExtFlags) & FATNUM;
 		else
 			pmp->pm_flags |= MSDOSFS_FATMIRROR;
 	} else
@@ -425,10 +430,10 @@ mountmsdosfs(devvp, mp, context)
 	}
 
 	if (FAT32(pmp)) {
-		pmp->pm_rootdirblk = getulong(b710->bpbRootClust);
+		pmp->pm_rootdirblk = getuint32(b710->bpbRootClust);
 		pmp->pm_firstcluster = pmp->pm_ResSectors
 			+ (pmp->pm_FATs * fat_sectors);
-		fsinfo = getushort(b710->bpbFSInfo);
+		fsinfo = getuint16(b710->bpbFSInfo);
 	} else {
                 /*
                  * Compute the root directory and first cluster as sectors
@@ -451,7 +456,7 @@ mountmsdosfs(devvp, mp, context)
 	if (FAT32(pmp) && (pmp->pm_rootdirblk < CLUST_FIRST ||
 		pmp->pm_rootdirblk > pmp->pm_maxcluster))
 	{
-		printf("mountmsdosfs: root starting cluster (%lu) out of range\n",
+		printf("mountmsdosfs: root starting cluster (%u) out of range\n",
 			pmp->pm_rootdirblk);
 		error = EINVAL;
 		goto error_exit;
@@ -486,8 +491,8 @@ mountmsdosfs(devvp, mp, context)
 	clusters /= pmp->pm_fatmult;				/* Max number of clusters, rounded down */
         
 	if (pmp->pm_maxcluster >= clusters) {
-		printf("Warning: number of clusters (%ld) exceeds FAT "
-		    "capacity (%ld)\n", pmp->pm_maxcluster + 1, clusters);
+		printf("Warning: number of clusters (%d) exceeds FAT "
+		    "capacity (%d)\n", pmp->pm_maxcluster + 1, clusters);
 		pmp->pm_maxcluster = clusters - 1;
 	}
 
@@ -629,7 +634,7 @@ mountmsdosfs(devvp, mp, context)
 		if (!bcmp(fp->fsisig1, "RRaA", 4)
 		    && !bcmp(fp->fsisig2, "rrAa", 4)
 		    && !bcmp(fp->fsisig3, "\0\0\125\252", 4)) {
-			pmp->pm_nxtfree = getulong(fp->fsinxtfree);
+			pmp->pm_nxtfree = getuint32(fp->fsinxtfree);
 		} else {
 			printf("mountmsdosfs: FSInfo has bad signature\n");
 			pmp->pm_fsinfo_size = 0;
@@ -676,16 +681,35 @@ mountmsdosfs(devvp, mp, context)
 	}
 	
 	/*
-	 * Finish up.
+	 * Set up our private data pointer for use by other routines.
 	 */
-	if (ronly)
+	vfs_setfsprivate(mp, (void *)pmp);
+	
+	/*
+	 * Look through the root directory for volume name, and Windows hibernation.
+	 */
+	error = scan_root_dir(mp, context);
+	if (error)
+	{
+		if (error == EIO && vfs_isrdwr(mp))
+		{
+			(void) markvoldirty(pmp, 1);	/* Verify/repair the volume next time. */
+		}
+		goto error_exit;
+	}
+
+	/*
+	 * NOTE: we have to call vfs_isrdonly here, not cache the value from earlier.
+	 * It is possible that scan_root_dir made the mount read-only due to a
+	 * Windows hibernation image.
+	 */
+	if (vfs_isrdonly(mp))
 		pmp->pm_flags |= MSDOSFSMNT_RONLY;
 	else {
 		/* [2753891] Mark the volume dirty while it is mounted read/write */
 		if ((error = markvoldirty(pmp, 1)) != 0)
 			goto error_exit;
 	}
-	vfs_setfsprivate(mp, (void *)pmp);
 
 	/*
 	 * Fill in the statvfs fields that are constant (not updated by msdosfs_statfs)
@@ -695,14 +719,11 @@ mountmsdosfs(devvp, mp, context)
 	vfsstatfs->f_iosize = pmp->pm_iosize;
 	/* Clusters are numbered from 2..pm_maxcluster, so pm_maxcluster - 2 + 1 of them */
 	vfsstatfs->f_blocks = pmp->pm_maxcluster - 1;
-	vfsstatfs->f_fsid.val[0] = (long)dev;
+	vfsstatfs->f_fsid.val[0] = dev;
 	vfsstatfs->f_fsid.val[1] = vfs_typenum(mp);
 
 	vfs_setflags(mp, MNT_IGNORE_OWNERSHIP);
 	
-	error = get_root_label(mp, context);
-	if (error)
-		goto error_exit;
 
 	return 0;
 
@@ -717,8 +738,12 @@ error_exit:
 			pmp->pm_sync_timer = NULL;
 		}
 		
+		(void) vflush(mp, NULLVP, SKIPSYSTEM|FORCECLOSE);
+		
 		msdosfs_fat_uninit_vol(pmp);
 
+		(void) vflush(mp, NULLVP, FORCECLOSE);
+		
 		lck_mtx_free(pmp->pm_fat_lock, msdosfs_lck_grp);
 		lck_mtx_free(pmp->pm_rename_lock, msdosfs_lck_grp);
 		
@@ -780,7 +805,7 @@ msdosfs_unmount(mp, mntflags, context)
 		 * keep track of the number of callbacks in progress.
 		 */
 		if (thread_call_cancel(pmp->pm_sync_timer))
-			OSDecrementAtomic(&pmp->pm_sync_count);
+			OSDecrementAtomic(&pmp->pm_sync_incomplete);
 		thread_call_free(pmp->pm_sync_timer);
 		pmp->pm_sync_timer = NULL;
 		
@@ -788,27 +813,31 @@ msdosfs_unmount(mp, mntflags, context)
 		 * This waits for all of the callbacks that were entered before
 		 * we did thread_call_cancel above, but have not completed yet.
 		 */
-		while(pmp->pm_sync_count > 0)
+		while(pmp->pm_sync_incomplete > 0)
 		{
-			msleep(&pmp->pm_sync_count, NULL, PWAIT, "msdosfs_unmount", &ts);
+			msleep(&pmp->pm_sync_incomplete, NULL, PWAIT, "msdosfs_unmount", &ts);
 		}
 		
-		if (pmp->pm_sync_count < 0)
-			panic("msdosfs_unmount: pm_sync_count underflow!\n");
+		if (pmp->pm_sync_incomplete < 0)
+			panic("msdosfs_unmount: pm_sync_incomplete underflow!\n");
 	}
 	
 	error = vflush(mp, NULLVP, flags);
 	if (error && !force)
-		return (error);
+		goto error_exit;
 
-	/* [2753891] If the volume was mounted read/write, mark it clean now */
-	if ((pmp->pm_flags & MSDOSFSMNT_RONLY) == 0) {
+	/*
+	 * [2753891] If the volume was mounted read/write, and no corruption
+	 * was detected, mark it clean now.
+	 */
+	if ((pmp->pm_flags & (MSDOSFSMNT_RONLY | MSDOSFS_CORRUPT)) == 0) {
 		error = markvoldirty(pmp, 0);
 		if (error && !force)
-			return (error);
+			goto error_exit;
 	}
 	
 	msdosfs_fat_uninit_vol(pmp);
+	(void) vflush(mp, NULLVP, FORCECLOSE);
 	VNOP_FSYNC(pmp->pm_devvp, MNT_WAIT, context);
 
 	lck_mtx_free(pmp->pm_fat_lock, msdosfs_lck_grp);
@@ -818,7 +847,17 @@ msdosfs_unmount(mp, mntflags, context)
 
 	vfs_setfsprivate(mp, (void *)NULL);
 
-	return (0);
+	OSKextReleaseKextWithLoadTag(OSKextGetCurrentLoadTag());
+	
+	/*
+	 * If "force" was set, we may get here with error != 0.  Since we have
+	 * in fact completed the unmount (as best we can), we need to return
+	 * no error so that VFS can clean up our mount point.
+	 */
+	error = 0;
+
+error_exit:
+	return (error);
 }
 
 static int
@@ -900,7 +939,7 @@ msdosfs_vfs_getattr(mount_t mp, struct vfs_attr *attr, vfs_context_t context)
 	/* FAT doesn't have a fixed limit on the number of file nodes */
 	
 	if (VFSATTR_IS_ACTIVE(attr, f_fsid)) {
-		attr->f_fsid.val[0] = (long)pmp->pm_dev;
+		attr->f_fsid.val[0] = pmp->pm_dev;
 		attr->f_fsid.val[1] = vfs_typenum(mp);
 		VFSATTR_SET_SUPPORTED(attr, f_fsid);
 	}
@@ -1151,7 +1190,7 @@ static int	msdosfs_vfs_setattr(mount_t mp, struct vfs_attr *attr, vfs_context_t 
         for (i=0; i<unichars; ++i) {
             c = volName[i];
             if (c < 0x100)
-                c = l2u[c];			/* Convert to upper case */
+                c = l2u[c];			/* Convert to lower case */
             if (c != ' ')			/* Allow space to pass unchanged */
                 c = unicode2dos(c);	/* Convert to local encoding */
             if (c < 3)
@@ -1382,18 +1421,22 @@ msdosfs_module_stop(kmod_info_t *ki, void *data)
 /*
  * Look through the root directory for a volume label entry.
  * If found, use it to replace the label in the mount point.
+ * Also look for a file with short name HIBERFIL.SYS; if it is less than
+ * 4KiB in size, or has non-zero bytes in the first 4KiB, then force the
+ * mount to read-only because Windows is hibernated on this volume.
  */
-static int get_root_label(struct mount *mp, vfs_context_t context)
+static int scan_root_dir(struct mount *mp, vfs_context_t context)
 {
     int error;
     struct msdosfsmount *pmp;
     vnode_t vp = NULL;
     struct buf *bp = NULL;
-    u_long frcn;	/* file relative cluster number in root directory */
+    uint32_t frcn;	/* file relative cluster number in root directory */
     daddr64_t bn;		/* block number of current dir block */
-    u_long cluster;	/* cluster number of current dir block */
-    u_long blsize;	/* size of current dir block */
+    uint32_t cluster;	/* cluster number of current dir block */
+    uint32_t blsize;	/* size of current dir block */
     unsigned blkoff;		/* dir entry offset within current dir block */
+	unsigned diroff;	/* offset from start of directory */
     struct dosdirentry *dep = NULL;
     struct denode *root;
     u_int16_t unichars;
@@ -1401,7 +1444,7 @@ static int get_root_label(struct mount *mp, vfs_context_t context)
     u_char uc;
     int i;
     size_t outbytes;
-    char *bdata;
+    char *bdata = NULL;
 
     pmp = VFSTOMSDOSFS(mp);
 
@@ -1410,6 +1453,7 @@ static int get_root_label(struct mount *mp, vfs_context_t context)
         return error;
     root = VTODE(vp);
     
+	diroff = 0;
     for (frcn=0; ; frcn++) {
         error = pcbmap(root, frcn, 1, &bn, &cluster, &blsize);
         if (error) {
@@ -1419,13 +1463,16 @@ static int get_root_label(struct mount *mp, vfs_context_t context)
             goto not_found;
         }
 
-        error = (int)buf_meta_bread(pmp->pm_devvp, bn, blsize, vfs_context_ucred(context), &bp);
-        if (error) {
-            goto not_found;
-        }
-		bdata = (char *)buf_dataptr(bp);
-
-        for (blkoff = 0; blkoff < blsize; blkoff += sizeof(struct dosdirentry)) {
+        for (blkoff = 0; blkoff < blsize; blkoff += sizeof(struct dosdirentry), diroff += sizeof(struct dosdirentry)) {
+			/* Make sure we have the buffer containing the current entry */
+			if (bp == NULL) {
+				error = (int)buf_meta_bread(pmp->pm_devvp, bn, blsize, vfs_context_ucred(context), &bp);
+				if (error) {
+					goto not_found;
+				}
+				bdata = (char *)buf_dataptr(bp);
+			}
+			
             dep = (struct dosdirentry *) (bdata + blkoff);
 
             /* Skip deleted directory entries */
@@ -1449,11 +1496,11 @@ static int get_root_label(struct mount *mp, vfs_context_t context)
                  * Copy the dates from the label to the root vnode.
                  */
                 root->de_CHun = dep->deCHundredth;
-                root->de_CTime = getushort(dep->deCTime);
-                root->de_CDate = getushort(dep->deCDate);
-                root->de_ADate = getushort(dep->deADate);
-                root->de_MTime = getushort(dep->deMTime);
-                root->de_MDate = getushort(dep->deMDate);
+                root->de_CTime = getuint16(dep->deCTime);
+                root->de_CDate = getuint16(dep->deCDate);
+                root->de_ADate = getuint16(dep->deADate);
+                root->de_MTime = getuint16(dep->deMTime);
+                root->de_MDate = getuint16(dep->deMDate);
 
 				/*
                  * We don't call dos2unicodefn() because it assumes the last three
@@ -1476,10 +1523,81 @@ static int get_root_label(struct mount *mp, vfs_context_t context)
 								sizeof(pmp->pm_label), 0, UTF_DECOMPOSED);
                 goto found;
             }
+			
+			if (!bcmp(dep->deName, "HIBERFILSYS", SHORT_NAME_LEN))
+			{
+				struct denode *hibernate = NULL;
+				buf_t hibernate_bp = NULL;
+				char *hibernate_data = NULL;
+				
+				if (getuint32(dep->deFileSize) < 4096)
+				{
+					if (DEBUG) printf("msdosfs: Volume is hibernated; hiberfile.sys < 4096 bytes\n");
+					goto hibernated;
+				}
+				
+				/* Release the current directory block so we can deget() the current entry. */
+				buf_brelse(bp);
+				bp = NULL;
+
+				/* Need to open the file so we can check the first 4KiB */
+				error = deget(pmp, cluster, diroff, NULL, NULL, &hibernate, context);
+				if (error)
+				{
+					printf("msdosfs: error %d trying to open hiberfil.sys\n", error);
+					error = 0;
+					goto hibernated;
+				}
+				error = buf_meta_bread(DETOV(hibernate), 0, 4096, vfs_context_ucred(context), &hibernate_bp);
+				if (error)
+				{
+					printf("msdosfs: error %d trying to read hiberfil.sys\n", error);
+					error = 0;
+					goto hibernated;
+				}
+				hibernate_data = (char *) buf_dataptr(hibernate_bp);
+				if (!strncmp(hibernate_data, "hibr", 4))
+				{
+					if (DEBUG) printf("msdosfs: Volume is hibernated; signature = 'hibr'\n");
+					goto hibernated;
+				}
+				if (!strncmp(hibernate_data, "HIBR", 4))
+				{
+					if (DEBUG) printf("msdosfs: Volume is hibernated; signature = 'HIBR'\n");
+					goto hibernated;
+				}
+				for (i=0; i<4096; ++i)
+				{
+					if (hibernate_data[i])
+					{
+						if (DEBUG) printf("msdosfs: Volume is hibernated (non-zero header)\n");
+						goto hibernated;
+					}
+				}
+				
+				if (DEBUG) printf("msdosfs: Volume is not hibernated (hiberfil.sys header all zeroes)\n");
+				goto not_hibernated;
+				
+hibernated:
+				printf("msdosfs: Mounting hibernated volume read-only\n");
+				vfs_setflags(mp, MNT_RDONLY);
+				
+not_hibernated:
+				if (hibernate_bp)
+					buf_brelse(hibernate_bp);
+				if (hibernate)
+				{
+					vnode_recycle(DETOV(hibernate));
+					vnode_put(DETOV(hibernate));
+				}
+			}
         }
         
-        buf_brelse(bp);
-        bp = NULL;
+		/* We're done with the current block.  Release it if we still have it. */
+		if (bp != NULL) {
+			buf_brelse(bp);
+			bp = NULL;
+		}
     }
 
 found:

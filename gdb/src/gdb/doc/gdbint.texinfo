@@ -30,7 +30,7 @@ Free Documentation License''.
 
 @titlepage
 @title @value{GDBN} Internals
-@subtitle{A guide to the internals of the GNU debugger}
+@subtitle A guide to the internals of the GNU debugger
 @author John Gilmore
 @author Cygnus Solutions
 @author Second Edition:
@@ -2603,7 +2603,7 @@ This function is normally called from within a symbol reader.  See
 Given the type flags representing an address class qualifier, return
 its name.
 @end deftypefn
-@deftypefn {Target Macro} int ADDRESS_CLASS_NAME_to_TYPE_FLAGS (int @var{name}, int *var{type_flags_ptr})
+@deftypefn {Target Macro} int ADDRESS_CLASS_NAME_to_TYPE_FLAGS (int @var{name}, int *@var{type_flags_ptr})
 Given an address qualifier name, set the @code{int} refererenced by @var{type_flags_ptr} to the type flags
 for that address class qualifier.
 @end deftypefn

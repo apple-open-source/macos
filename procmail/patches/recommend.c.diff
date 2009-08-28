@@ -1,0 +1,14 @@
+diff -r -u -I : procmail-3.22/src/recommend.c procmail/src/recommend.c
+--- procmail-3.22/src/recommend.c	1999-10-19 21:47:45.000000000 -0700
++++ procmail/src/recommend.c	2008-07-06 23:12:48.000000000 -0700
+@@ -47,8 +47,10 @@
+      printf("chmod %lo %s\n",(unsigned long)(sgid|PERMIS),argv[2]);
+   else if(chmdir==1)
+      goto nogchmod;
++#ifndef __APPLE__
+   if(chmdir)
+      printf("chmod %c+w %s/.\n",chmdir==1?'g':'a',mailspooldir);
++#endif
+ nogchmod:
+   return EXIT_SUCCESS;
+ }

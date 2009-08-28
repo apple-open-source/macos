@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -190,9 +190,7 @@ public:
                                 const DVDKeyClass    keyClass,
                                 const UInt32         address,
                                 const UInt8          grantID,
-                                const DVDKeyFormat   format );
-
-    OSMetaClassDeclareReservedUsed(IODVDMedia, 0); /* 10.1.0 */
+                                const DVDKeyFormat   format ); /* 10.1.0 */
 
     /*!
      * @function sendKey
@@ -215,9 +213,7 @@ public:
     virtual IOReturn sendKey( IOMemoryDescriptor * buffer,
                               const DVDKeyClass    keyClass,
                               const UInt8          grantID,
-                              const DVDKeyFormat   format );
-
-    OSMetaClassDeclareReservedUsed(IODVDMedia, 1); /* 10.1.0 */
+                              const DVDKeyFormat   format ); /* 10.1.0 */
 
     /*!
      * @function readStructure
@@ -242,9 +238,7 @@ public:
                                     const DVDStructureFormat format,
                                     const UInt32             address,
                                     const UInt8              layer,
-                                    const UInt8              grantID );
-
-    OSMetaClassDeclareReservedUsed(IODVDMedia, 2); /* 10.1.0 */
+                                    const UInt8              grantID ); /* 10.1.0 */
 
     /*!
      * @function getSpeed
@@ -259,9 +253,7 @@ public:
      * Returns the status of the operation.
      */
 
-    virtual IOReturn getSpeed(UInt16 * kilobytesPerSecond);
-
-    OSMetaClassDeclareReservedUsed(IODVDMedia, 3); /* 10.1.0 */
+    virtual IOReturn getSpeed(UInt16 * kilobytesPerSecond); /* 10.1.0 */
 
     /*!
      * @function setSpeed
@@ -276,9 +268,7 @@ public:
      * Returns the status of the operation.
      */
 
-    virtual IOReturn setSpeed(UInt16 kilobytesPerSecond);
-
-    OSMetaClassDeclareReservedUsed(IODVDMedia, 4); /* 10.1.0 */
+    virtual IOReturn setSpeed(UInt16 kilobytesPerSecond); /* 10.1.0 */
 
     /*!
      * @function readDiscInfo
@@ -294,9 +284,7 @@ public:
      */
 
     virtual IOReturn readDiscInfo( IOMemoryDescriptor * buffer,
-                                   UInt16 *             actualByteCount );
-
-    OSMetaClassDeclareReservedUsed(IODVDMedia, 5); /* 10.2.0 */
+                                   UInt16 *             actualByteCount ); /* 10.2.0 */
 
     /*!
      * @function readRZoneInfo
@@ -318,10 +306,25 @@ public:
     virtual IOReturn readRZoneInfo( IOMemoryDescriptor *    buffer,
                                     UInt32                  address,
                                     DVDRZoneInfoAddressType addressType,
-                                    UInt16 *                actualByteCount );
+                                    UInt16 *                actualByteCount ); /* 10.2.0 */
 
-    OSMetaClassDeclareReservedUsed(IODVDMedia, 6); /* 10.2.0 */
-
+#ifdef __LP64__
+    OSMetaClassDeclareReservedUnused(IODVDMedia,  0);
+    OSMetaClassDeclareReservedUnused(IODVDMedia,  1);
+    OSMetaClassDeclareReservedUnused(IODVDMedia,  2);
+    OSMetaClassDeclareReservedUnused(IODVDMedia,  3);
+    OSMetaClassDeclareReservedUnused(IODVDMedia,  4);
+    OSMetaClassDeclareReservedUnused(IODVDMedia,  5);
+    OSMetaClassDeclareReservedUnused(IODVDMedia,  6);
+#else /* !__LP64__ */
+    OSMetaClassDeclareReservedUsed(IODVDMedia,  0);
+    OSMetaClassDeclareReservedUsed(IODVDMedia,  1);
+    OSMetaClassDeclareReservedUsed(IODVDMedia,  2);
+    OSMetaClassDeclareReservedUsed(IODVDMedia,  3);
+    OSMetaClassDeclareReservedUsed(IODVDMedia,  4);
+    OSMetaClassDeclareReservedUsed(IODVDMedia,  5);
+    OSMetaClassDeclareReservedUsed(IODVDMedia,  6);
+#endif /* !__LP64__ */
     OSMetaClassDeclareReservedUnused(IODVDMedia,  7);
     OSMetaClassDeclareReservedUnused(IODVDMedia,  8);
     OSMetaClassDeclareReservedUnused(IODVDMedia,  9);

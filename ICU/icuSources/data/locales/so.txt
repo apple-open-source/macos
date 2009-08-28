@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2006 International Business Machines
+// * Copyright (C) 2008 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/so.xml
@@ -110,21 +110,57 @@ so{
         ZA{"Koonfur Afrika"}
         ZM{"Saambiya"}
         ZW{"Simbaabwe"}
+        ZZ{"Far aan la aqoon amase aan saxnayn"}
     }
     Currencies{
         KES{
             "Ksh",
             "KES",
         }
+        SOS{
+            "$",
+            "SOS",
+        }
     }
     ExemplarCharacters{"[a-z]"}
     Languages{
+        ar{"Carabi"}
+        de{"Jarmal"}
+        es{"Isbaanish"}
+        fa{"Faarisi"}
+        fr{"Faransiis"}
+        fy{"Firiisiyan Galbeed"}
+        it{"Talyaani"}
         so{"Soomaali"}
     }
     LocaleScript{
         "Latn",
     }
-    Version{"1.42"}
+    NumberElements{
+        ".",
+        ",",
+        ";",
+        "%",
+        "0",
+        "#",
+        "-",
+        "E",
+        "‰",
+        "∞",
+        "NaN",
+        "+",
+    }
+    NumberPatterns{
+        "#,##0.###",
+        "¤#,##0.00",
+        "#,##0%",
+        "#E0",
+    }
+    Scripts{
+        Zxxx{"Aan la qorin"}
+        Zzzz{"Far aan la aqoon amase aan saxnayn"}
+    }
+    Version{"1.56"}
     calendar{
         gregorian{
             AmPmMarkers{
@@ -132,8 +168,8 @@ so{
                 "gn",
             }
             DateTimePatterns{
-                "h:mm:ss a",
-                "h:mm:ss a",
+                "h:mm:ss a v",
+                "h:mm:ss a z",
                 "h:mm:ss a",
                 "h:mm a",
                 "EEEE, MMMM dd, yyyy",
@@ -161,17 +197,6 @@ so{
                         "Khamiis",
                         "Jimco",
                         "Sabti",
-                    }
-                }
-                stand-alone{
-                    narrow{
-                        "A",
-                        "I",
-                        "S",
-                        "A",
-                        "K",
-                        "J",
-                        "S",
                     }
                 }
             }
@@ -212,23 +237,12 @@ so{
                         "Bisha Laba iyo Tobnaad",
                     }
                 }
-                stand-alone{
-                    narrow{
-                        "K",
-                        "L",
-                        "S",
-                        "A",
-                        "S",
-                        "L",
-                        "T",
-                        "S",
-                        "S",
-                        "T",
-                        "K",
-                        "L",
-                    }
-                }
             }
+        }
+    }
+    zoneStrings{
+        "Etc:Unknown"{
+            ec{"Far aan la aqoon amase aan saxnayn"}
         }
     }
 }

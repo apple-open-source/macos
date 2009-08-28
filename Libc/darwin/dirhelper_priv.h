@@ -44,6 +44,7 @@ typedef enum {
 __BEGIN_DECLS
 char *__user_local_dirname(uid_t uid, dirhelper_which_t which, char *path,
 	size_t pathlen);
+char *__user_local_mkdir_p(char *path);
 __END_DECLS
 
 #endif /* _DIRHELPER_PRIV_H_ */

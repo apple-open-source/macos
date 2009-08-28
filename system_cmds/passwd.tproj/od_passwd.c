@@ -28,7 +28,6 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <OpenDirectory/OpenDirectory.h>
 #include <OpenDirectory/OpenDirectoryPriv.h>
-#include <DirectoryService/DirServicesTypes.h>
 
 extern char* progname;
 int master_mode;
@@ -161,7 +160,7 @@ od_passwd(char* uname, char* locn, char* aname)
 	 * Connect to DS server
 	 */
 	session = ODSessionCreate(NULL, NULL, &error);
-	if ( !session && error && CFErrorGetCode(error) == eServerNotRunning ) {
+	if ( !session && error && CFErrorGetCode(error) == kODErrorSessionDaemonNotRunning ) {
 		/*
 		 * In single-user mode, attempt to load the local DS daemon.
 		 */
@@ -190,13 +189,13 @@ od_passwd(char* uname, char* locn, char* aname)
 	if (location) {
 		node = ODNodeCreateWithName(NULL, session, location, &error);
 	} else {
-		node = ODNodeCreateWithNodeType(NULL, session, kODTypeAuthenticationSearchNode, &error);
+		node = ODNodeCreateWithNodeType(NULL, session, kODNodeTypeAuthentication, &error);
 	}
 
 	if (session) CFRelease(session);
 
 	if (node) {
-		rec = ODNodeCopyRecord(node, CFSTR(kDSStdRecordTypeUsers), username, NULL, &error );
+		rec = ODNodeCopyRecord(node, kODRecordTypeUsers, username, NULL, &error );
 		CFRelease(node);
 	}
 
@@ -213,7 +212,7 @@ od_passwd(char* uname, char* locn, char* aname)
 	 * Get the actual location.
 	 */
 	CFArrayRef values = NULL;
-	values = ODRecordCopyValues(rec, CFSTR(kDSNAttrMetaNodeLocation), &error);
+	values = ODRecordCopyValues(rec, kODAttributeTypeMetaNodeLocation, &error);
 	location = (values && CFArrayGetCount(values) > 0) ? CFArrayGetValueAtIndex(values, 0) : location;
 	
 	printf("Changing password for %s.\n", uname);
@@ -265,8 +264,8 @@ od_passwd(char* uname, char* locn, char* aname)
 		CFArrayRef      authItems = CFArrayCreate(NULL, values, 4, &kCFTypeArrayCallBacks);
 
 		ODRecordSetNodeCredentialsExtended(rec,
-			CFSTR(kDSStdRecordTypeUsers),
-			CFSTR(kDSStdAuthSetPasswd),
+			kODRecordTypeUsers,
+			kODAuthenticationTypeSetPassword,
 			authItems,
 			NULL,
 			NULL,

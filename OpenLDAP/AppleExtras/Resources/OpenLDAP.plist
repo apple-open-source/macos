@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-09-15</string>
+		<string>2008-09-15</string>
 		<key>OpenSourceLicense</key>
 		<string>Other</string>
 		<key>OpenSourceLicenseFile</key>
@@ -13,17 +13,43 @@
 		<array>
 			<string>added dynid overlay</string>
 			<string>added idattr dynacl</string>
+			<string>added kqueue</string>
+			<string>added rb tree for responses</string>
 		</array>
 		<key>OpenSourceProject</key>
 		<string>OpenLDAP</string>
 		<key>OpenSourceSHA1</key>
-		<string>c2b6ac3ec89d0f58d079592946d045dba45edafe</string>
+		<string>5a7d2d8824d8d2671a781a2fc24b629a145b919d</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.OpenLDAP.org/pub/OpenLDAP/openldap-release/openldap-2.3.27.tgz</string>
+		<string>ftp://ftp.OpenLDAP.org/pub/OpenLDAP/openldap-release/openldap-2.4.11.tgz</string>
 		<key>OpenSourceVersion</key>
-		<string>2.3.27</string>
+		<string>2.4.11</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.openldap.org</string>
+	</dict>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2008-08-25</string>
+		<key>OpenSourceLicense</key>
+		<string>BSD</string>
+		<key>OpenSourceProject</key>
+		<string>NetBSD</string>
+		<key>OpenSourceURL</key>
+		<string>http://cvsweb.netbsd.org/bsdweb.cgi/~checkout~/src/common/lib/libc/gen/rb.c?rev=1.3&amp;content-type=text/plain&amp;only_with_tag=MAIN</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.netbsd.org</string>
+	</dict>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2008-08-25</string>
+		<key>OpenSourceLicense</key>
+		<string>BSD</string>
+		<key>OpenSourceProject</key>
+		<string>NetBSD</string>
+		<key>OpenSourceURL</key>
+		<string>http://cvsweb.netbsd.org/bsdweb.cgi/~checkout~/src/sys/sys/rb.h?rev=1.11&amp;content-type=text/plain&amp;only_with_tag=MAIN</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.netbsd.org</string>
 	</dict>
 </array>
 </plist>

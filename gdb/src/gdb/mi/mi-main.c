@@ -61,6 +61,9 @@
 #include "mi-common.h"
 #include "inlining.h"
 /* APPLE LOCAL end subroutine inlining  */
+#include "objc-lang.h"
+/* APPLE LOCAL Disable breakpoints while updating data formatters.  */
+#include "breakpoint.h"
 
 enum
   {
@@ -124,7 +127,7 @@ static char *old_regs;
    down to continuation routines. */
 struct mi_timestamp *current_command_ts;
 
-static int do_timings = 0;
+static int do_timings = 1;
 
 /* Points to the current interpreter, used by the mi context callbacks.  */
 struct interp *mi_interp;
@@ -175,7 +178,13 @@ static void print_diff (struct mi_timestamp *start, struct mi_timestamp *end);
 static long wallclock_diff (struct mi_timestamp *start, struct mi_timestamp *end);
 static long user_diff (struct mi_timestamp *start, struct mi_timestamp *end);
 static long system_diff (struct mi_timestamp *start, struct mi_timestamp *end);
+static void start_remote_counts (struct mi_timestamp *tv, const char *token);
+static void end_remote_counts (struct mi_timestamp *tv);
 
+ /* When running a synchronous target, we would like to have interpreter-exec
+    give the same output as for an asynchronous one.  Use this to tell us that
+    it did run so we can fake up the output.  */
+ int mi_interp_exec_cmd_did_run;
 
 /* Command implementations. FIXME: Is this libgdb? No.  This is the MI
    layer that calls libgdb.  Any operation used in the below should be
@@ -289,15 +298,7 @@ mi_cmd_exec_interrupt (char *args, int from_tty)
       return MI_CMD_ERROR;
     }
     
-  if (0)
-    {
-      interrupt_target_command (args, from_tty);
-    }
-  else
-    {
-      int pid = PIDGET (inferior_ptid);
-      kill (pid, SIGINT);
-    }
+  interrupt_target_command (args, from_tty);
 
   if (current_command_token) {
     fputs_unfiltered (current_command_token, raw_stdout);
@@ -348,60 +349,92 @@ mi_cmd_exec_status (char *command, char **argv, int argc)
 
 }
 
-/* exec-safe-call takes one optional argument which is a thread id.  
-   It then checks to the best of its ability whether it would be safe
-   to call functions on that thread.  */
+/* exec-safe-call <THREAD> <SUBSYSTEM>
+   
+   Checks whether it would be safe to call into SUBSYSTEM.  The first
+   argument is the thread id to check - or optionally "all" for all
+   threads, or "current" for the current thead.  Relies on the
+   target's check_safe_call method.  Also uses the scheduler value to
+   determine whether to check all threads even if a given thread is
+   passed in.  Subsequent arguments are the subsystems to check,
+   and the currently valid values are "malloc", "objc", "loader"
+   and "all".  */
 
 enum mi_cmd_result
 mi_cmd_exec_safe_call (char *command, char **argv, int argc)
 {
-  enum mi_cmd_result rc = MI_CMD_DONE;
   struct cleanup *old_cleanups;
   ptid_t current_ptid = inferior_ptid;
   int safe;
+  int i;
+  int subsystems = 0;
+  enum check_which_threads thread_mode;
 
-  if (argc > 1)
+  if (argc == 0 || argc < 2)
     {
       xasprintf (&mi_error_message,
-		 "mi_cmd_exec_safe_call: USAGE: <threadnum>");
+		 "mi_cmd_exec_safe_call: USAGE: threadnum system [system... ]");
       return MI_CMD_ERROR;
     }
 
   if (!target_has_execution)
     {
       ui_out_field_int (uiout, "safe", 0);
-      ui_out_field_string (uiout, "reason", "program not running");
+      ui_out_field_string (uiout, "problem", "program not running");
     }
 
   if (target_executing)
     {
       ui_out_field_int (uiout, "safe", 0);
-      ui_out_field_string (uiout, "reason", "program executing");
+      ui_out_field_string (uiout, "problem", "program executing");
     }
 
-  if (argc == 0)
+  if (strcmp (argv[0], "all") == 0)
     {
       old_cleanups = make_cleanup (null_cleanup, NULL);
+      thread_mode = CHECK_ALL_THREADS;
+    }
+  else if (strcmp (argv[0], "current") == 0)
+    {
+      old_cleanups = make_cleanup (null_cleanup, NULL);
+      thread_mode = CHECK_SCHEDULER_VALUE;
     }
   else
     {
+      enum gdb_rc rc;
       old_cleanups = make_cleanup_restore_current_thread (current_ptid, 0);
       rc = gdb_thread_select (uiout, argv[0], 0, 0);
+      thread_mode = CHECK_SCHEDULER_VALUE;
       
       /* RC is enum gdb_rc if it is successful (>=0)
 	 enum return_reason if not (<0). */
-      if ((int) rc < 0 && (enum return_reason) rc == RETURN_ERROR)
-	return MI_CMD_ERROR;
-      else if ((int) rc >= 0 && rc == GDB_RC_FAIL)
-	return MI_CMD_ERROR;
+      if (((int) rc < 0 && (enum return_reason) rc == RETURN_ERROR) ||
+          ((int) rc >= 0 && rc == GDB_RC_FAIL))
+	{
+	  error ("Could not set thread to \"%s\".\n", argv[0]);
+	}
     }
 
-  safe = target_check_safe_call (current_ptid);
+  for (i = 1; i < argc; i++)
+    {
+      if (strcmp (argv[i], "malloc") == 0)
+	subsystems |= MALLOC_SUBSYSTEM;
+      else if (strcmp (argv[i], "loader") == 0)
+	subsystems |= LOADER_SUBSYSTEM;
+      else if (strcmp (argv[i], "objc") == 0)
+	subsystems |= OBJC_SUBSYSTEM;
+      else if (strcmp (argv[i], "all") == 0)
+	subsystems |= ALL_SUBSYSTEMS;
+      else
+	error ("Unrecognized subsystem: %s", argv[i]);
+    }
+
+  safe = target_check_safe_call (subsystems, thread_mode);
 
   ui_out_field_int (uiout, "safe", safe);
   do_cleanups (old_cleanups);
 
-  return rc;
+  return MI_CMD_DONE;
 }
 
 /* APPLE LOCAL: Have a show version that returns something useful...  
@@ -591,7 +624,12 @@ mi_cmd_thread_set_pc (char *command, char **argv, int argc)
      to set the CLI default source/line #'s and such.  */
   sal = find_pc_line (new_pc, 0);
   if (sal.symtab != s)
-    error ("mi_cmd_thread_set_pc: Found symtab '%s' by filename lookup, but symtab '%s' by PC lookup.", s->filename, sal.symtab->filename);
+    {
+      if (s == NULL || sal.symtab == NULL)
+        error ("mi_cmd_thread_set_pc: Found one symtab by filename lookup, but symtab another by PC lookup, and one of them is null.");
+      else
+        error ("mi_cmd_thread_set_pc: Found symtab '%s' by filename lookup, but symtab '%s' by PC lookup.", s->filename, sal.symtab->filename);
+    }
 
   /* By default we don't want to let someone set the PC into the middle
      of the prologue or the quality of their debugging experience will 
@@ -698,7 +736,6 @@ mi_cmd_file_fix_file (char *command, char **argv, int argc)
 {
   char *source_filename = NULL;
   char *bundle_filename = NULL;
-  char *object_filename = NULL;
   char *solib_filename = NULL;
   int optind = 0;
   char *optarg;
@@ -721,9 +758,7 @@ mi_cmd_file_fix_file (char *command, char **argv, int argc)
     {
       bundle_filename = argv[0];
       source_filename = argv[1];
-      if (argc == 3)
-        object_filename = argv[2];
-      fix_command_1 (source_filename, bundle_filename, object_filename, NULL);
+      fix_command_1 (source_filename, bundle_filename, NULL);
       return MI_CMD_DONE;
     }
 
@@ -747,8 +782,6 @@ mi_cmd_file_fix_file (char *command, char **argv, int argc)
           make_cleanup (xfree, source_filename);
           break;
         case OBJECT_OPT:
-          object_filename = xstrdup (optarg);
-          make_cleanup (xfree, object_filename);
           break;
         case SOLIB_OPT:
           solib_filename = xstrdup (optarg);
@@ -763,8 +796,7 @@ mi_cmd_file_fix_file (char *command, char **argv, int argc)
      error ("mi_cmd_file_fix_file: Usage -f source-filename -b bundle-filename "
             "[-o object-filename] [-s dylib-filename]");
 
-   fix_command_1 (source_filename, bundle_filename, object_filename, 
-                  solib_filename);
+   fix_command_1 (source_filename, bundle_filename, solib_filename);
 
    do_cleanups (wipe);
    return MI_CMD_DONE;
@@ -1044,7 +1076,7 @@ static int
 get_register (int regnum, int format)
 {
   gdb_byte buffer[MAX_REGISTER_SIZE];
-  int optim;
+  enum opt_state optim;
   int realnum;
   CORE_ADDR addr;
   enum lval_type lval;
@@ -1210,12 +1242,17 @@ mi_cmd_data_evaluate_expression (char *command, char **argv, int argc)
 {
   struct expression *expr;
   struct cleanup *old_chain = NULL;
+  /* APPLE LOCAL Disable breakpoints while updating data formatters.  */
+  struct cleanup *bp_cleanup;
   struct value *val;
   struct ui_stream *stb = NULL;
   int unwinding_was_requested = 0;
   char *expr_string;
 
   stb = ui_out_stream_new (uiout);
+
+  /* APPLE LOCAL Disable breakpoints while updating data formatters.  */
+  bp_cleanup = make_cleanup_enable_disable_bpts_during_varobj_operation ();
 
   if (argc == 1)
     {
@@ -1225,6 +1262,9 @@ mi_cmd_data_evaluate_expression (char *command, char **argv, int argc)
     {
       if (strcmp (argv[0], "-u") != 0)
 	{
+	  /* APPLE LOCAL Disable breakpoints while updating data
+	     formatters.  */
+	  do_cleanups (bp_cleanup);
 	  xasprintf (&mi_error_message,
 		     "mi_cmd_data_evaluate_expression: Usage: "
 		     "-data-evaluate-expression [-u] expression");
@@ -1238,13 +1278,15 @@ mi_cmd_data_evaluate_expression (char *command, char **argv, int argc)
     }
   else
     {
+      /* APPLE LOCAL Disable breakpoints while updating data formatters.  */
+      do_cleanups (bp_cleanup);
       mi_error_message = xstrprintf ("mi_cmd_data_evaluate_expression: Usage: -data-evaluate-expression [-u] expression");
       return MI_CMD_ERROR;
     }
   
   old_chain = make_cleanup_set_restore_scheduler_locking_mode (scheduler_locking_on);
   if (unwinding_was_requested)
-    make_cleanup (set_unwind_on_signal, set_unwind_on_signal (1));
+    make_cleanup_set_restore_unwind_on_signal (1);
 
   expr = parse_expression (expr_string);
 
@@ -1261,6 +1303,8 @@ mi_cmd_data_evaluate_expression (char *command, char **argv, int argc)
   ui_out_stream_delete (stb);
 
   do_cleanups (old_chain);
+  /* APPLE LOCAL Disable breakpoints while updating data formatters.  */
+  do_cleanups (bp_cleanup);
 
   return MI_CMD_DONE;
 }
@@ -1268,19 +1312,39 @@ mi_cmd_data_evaluate_expression (char *command, char **argv, int argc)
 /* APPLE LOCAL: -target-attach
    This implements "-target-attach <PID>".  It is
    identical to the CLI command except that we raise
-   an error if we are already attached.  */
+   an error if we are already attached.  
+   We also support "-waitfor PROCESS_NAME" by passing
+   the two arguments put together to target_attach and
+   letting the implementation deal with it.  */
 
 enum mi_cmd_result
 mi_cmd_target_attach (char *command, char **argv, int argc)
 {
-  if (argc != 1) 
-    error ("mi_cmd_target_attach: Usage PID");
+  char *attach_arg;
+  struct cleanup *cleanups;
 
   if (target_has_execution)
     error ("mi_cmd_target_attach: Already debugging - detach first");
 
-  attach_command (argv[0], 0);
+  if (argc == 1)
+    {
+      attach_arg = argv[0];
+      cleanups = make_cleanup (null_cleanup, NULL);
+    }
+  else if (argc == 2 && strcmp (argv[0], "-waitfor") == 0)
+    {
+      int arg_len;
+      arg_len = strlen ("-waitfor \"") + strlen (argv[1]) + 2;
+      attach_arg = xmalloc (arg_len);
+      cleanups = make_cleanup (xfree, attach_arg);
+      snprintf (attach_arg, arg_len, "-waitfor \"%s\"", argv[1]);
+    }
+  else 
+    error ("mi_cmd_target_attach: Usage PID|-waitfor \"PROCESS\"");
 
+  attach_command (attach_arg, 0);
+
+  do_cleanups (cleanups);
   return MI_CMD_DONE;
 }
 
@@ -1323,6 +1387,99 @@ mi_cmd_target_select (char *args, int from_tty)
   fputs_unfiltered ("^connected", raw_stdout);
   do_exec_cleanups (ALL_CLEANUPS);
   return MI_CMD_QUIET;
+}
+
+/* TARGET-LOAD-SOLIB:
+
+   PATH: path to the shared library to be loaded
+   FLAGS: a string containing the flags.  This will be passed
+   as is to the target's to_load_solib function.  If the flags
+   are not provided, the target's to_load_solib function will
+   pick whatever is considered the default for the platform.
+
+   Loads the shared library pointed to by PATH, using FLAGS as
+   interpreted by the target specific function.
+
+   Returns:
+   A token that can be passed to TARGET-UNLOAD-SOLIB to unload
+   this shared library.
+
+   If the library can't be loaded, the command will return an
+   error, and the platform specific error message if it can 
+   be retrieved.
+*/
+
+struct solib_token_elem
+{
+  char *token;
+  struct value *val;
+  struct solib_token_elem *next;
+} *solib_token_list;
+
+enum mi_cmd_result
+mi_cmd_target_load_solib (char *command, char **argv, int argc)
+{
+  static int token_ctr = 0;
+  struct value *ret_val;
+  struct gdb_exception e;
+  struct solib_token_elem *new_token;
+
+  if (argc > 2)
+    {
+      mi_error_message = xstrdup ("Too many arguments: target-load-solib <PATH> [<FLAGS>]");
+      return MI_CMD_ERROR;
+    }
+  else if (argc == 0)
+    {
+      mi_error_message = xstrdup ("Too few arguments: target-load-solib <PATH> [<FLAGS>]");
+      return MI_CMD_ERROR;
+    }
+
+  TRY_CATCH (e, RETURN_MASK_ALL)
+    {
+      ret_val = target_load_solib (argv[0], argv[1]);
+    }
+
+  if (ret_val == NULL)
+    {
+      mi_error_message = xstrprintf ("Unknown error loading shared library \"%s\"", argv[0]);
+      return MI_CMD_ERROR;
+    }
+  else if (e.reason != NO_ERROR)
+    {
+      mi_error_message = xstrdup (e.message);
+      return MI_CMD_ERROR;
+    }
+
+  new_token = xmalloc (sizeof (struct solib_token_elem));
+  new_token->token = xstrprintf ("%d-solib", token_ctr++);
+  new_token->val = ret_val;
+  release_value (ret_val);
+
+  new_token->next = solib_token_list;
+  solib_token_list = new_token;
+  
+  ui_out_field_string (uiout, "token", new_token->token);
+  return MI_CMD_DONE;
+
+}
+
+/* TARGET-UNLOAD-SOLIB
+
+   Takes a token (the return value of a previous call to target-load-solib)
+   and unloads that shared library.
+
+   If there's some error unloading the library, we will return an
+   error and if possible fetch the error message.
+
+   FIXME: Implement this if somebody ever needs it.
+*/
+
+enum mi_cmd_result
+mi_cmd_target_unload_solib (char *command, char **argv, int argc)
+{
+  mi_error_message = xstrprintf ("Not yet implemented.");
+  return MI_CMD_ERROR;
 }
 
 /* DATA-MEMORY-READ:
@@ -1369,7 +1526,7 @@ mi_cmd_data_read_memory (char *command, char **argv, int argc)
   static struct mi_opt opts[] =
   {
     {"o", OFFSET_OPT, 1},
-    0
+    {0, 0, 0},
   };
 
   while (1)
@@ -1449,16 +1606,14 @@ mi_cmd_data_read_memory (char *command, char **argv, int argc)
   total_bytes = word_size * nr_rows * nr_cols;
   mbuf = xcalloc (total_bytes, 1);
   make_cleanup (xfree, mbuf);
-  nr_bytes = 0;
-  while (nr_bytes < total_bytes)
+
+  nr_bytes = target_read (&current_target, TARGET_OBJECT_MEMORY, NULL,
+			  mbuf, addr, total_bytes);
+  if (nr_bytes <= 0)
     {
-      int error;
-      long num = target_read_memory_partial (addr + nr_bytes, mbuf + nr_bytes,
-					     total_bytes - nr_bytes,
-					     &error);
-      if (num <= 0)
-	break;
-      nr_bytes += num;
+      do_cleanups (cleanups);
+      mi_error_message = xstrdup ("Unable to read memory.");
+      return MI_CMD_ERROR;
     }
 
   /* output the header information. */
@@ -1571,7 +1726,7 @@ mi_cmd_data_write_memory (char *command, char **argv, int argc)
   static struct mi_opt opts[] =
   {
     {"o", OFFSET_OPT, 1},
-    0
+    {0, 0, 0},
   };
 
   while (1)
@@ -1743,12 +1898,39 @@ captured_mi_execute_command (struct ui_out *uiout, void *data)
       if (do_timings)
 	current_command_ts = context->cmd_start;
 
+      /* Set this to 0 so we don't mistakenly think this command
+        caused the target to run under interpreter-exec.  */
+      mi_interp_exec_cmd_did_run = 0;
       args->rc = mi_cmd_execute (context);
 
+      /* Check if CURRENT_COMMAND_TS has been nulled out ... if the
+         mi_cmd_execute command completed the command and printed out
+         the timing information already (e.g. see mi_execute_async_cli_command)
+         we don't want to double-print.  */
+      if (current_command_ts == NULL)
+        context->cmd_start = NULL;
+
       if (do_timings)
+        {
           timestamp (&cmd_finished);
+          if (context->cmd_start)
+            end_remote_counts (context->cmd_start);
+        }
       
-      if (!target_can_async_p () || !target_executing
+      if (!target_can_async_p () && mi_interp_exec_cmd_did_run)
+        {
+          fputs_unfiltered ("(gdb) \n", raw_stdout);
+          gdb_flush (raw_stdout);
+          if (current_command_token)
+            {
+              fputs_unfiltered (current_command_token, raw_stdout);
+            }
+          fputs_unfiltered ("*stopped", raw_stdout);
+          mi_out_put (saved_uiout, raw_stdout);
+          mi_out_rewind (saved_uiout);
+          fputs_unfiltered ("\n", raw_stdout);
+        }
+      else if (!target_can_async_p () || !target_executing
 	  || mi_command_completes_while_target_executing (context->command))
 	{
 	  /* print the result if there were no errors 
@@ -1768,7 +1950,9 @@ captured_mi_execute_command (struct ui_out *uiout, void *data)
 	      /* Have to check cmd_start, since the command could be
 		 "mi-enable-timings". */
 	      if (do_timings && context->cmd_start)
+                {
 		  print_diff (context->cmd_start, &cmd_finished);
+                }
 	      fputs_unfiltered ("\n", raw_stdout);
 	    }
 	  else if (args->rc == MI_CMD_QUIET)
@@ -1808,7 +1992,6 @@ captured_mi_execute_command (struct ui_out *uiout, void *data)
 
     case CLI_COMMAND:
       {
-	char *argv[2];
 	/* A CLI command was read from the input stream.  */
 	/* This "feature" will be removed as soon as we have a
 	   complete set of mi commands.  */
@@ -1821,6 +2004,7 @@ captured_mi_execute_command (struct ui_out *uiout, void *data)
 	   mi_execute_cli_command, which isn't perfect either.  */
 
 #if 0
+	char *argv[2];
 	/* Call the "console" interpreter.  */
 	argv[0] = "console";
 	argv[1] = context->command;
@@ -1881,7 +2065,10 @@ mi_interpreter_exec_continuation (struct continuation_arg *in_arg)
 
       fputs_unfiltered ("*stopped", raw_stdout);
       if (do_timings && arg && arg->timestamp)
-	print_diff_now (arg->timestamp);
+        {
+          end_remote_counts (arg->timestamp);
+	  print_diff_now (arg->timestamp);
+        }
       mi_out_put (uiout, raw_stdout);
       fputs_unfiltered ("\n", raw_stdout);
       
@@ -1893,7 +2080,10 @@ mi_interpreter_exec_continuation (struct continuation_arg *in_arg)
       if (target_can_async_p()) 
 	{
 	  if (arg && arg->timestamp)
-	    timestamp (arg->timestamp);
+            {
+	      timestamp (arg->timestamp);
+              start_remote_counts (arg->timestamp, arg->token);
+            }
 	  
 	  add_continuation (mi_interpreter_exec_continuation, 
 			  (struct continuation_arg *) arg);
@@ -1917,7 +2107,10 @@ mi_interpreter_exec_continuation (struct continuation_arg *in_arg)
 	    fputs_unfiltered (arg->token, raw_stdout);
 	  fputs_unfiltered ("*started", raw_stdout);
 	  if (do_timings && arg && arg->timestamp)
-	    print_diff_now (arg->timestamp);
+            {
+              end_remote_counts (arg->timestamp);
+	      print_diff_now (arg->timestamp);
+            }
 	  mi_out_put (uiout, raw_stdout);
 	  fputs_unfiltered ("\n", raw_stdout);
 	}
@@ -1957,6 +2150,7 @@ mi_execute_command (char *cmd, int from_tty)
 	  command->cmd_start = (struct mi_timestamp *)
 	    xmalloc (sizeof (struct mi_timestamp));
 	  timestamp (command->cmd_start);
+          start_remote_counts (command->cmd_start, command->token);
 	}
 
       args.command = command;
@@ -2122,6 +2316,20 @@ mi_execute_async_cli_command (char *mi, char *args, int from_tty)
       /* Do this before doing any printing.  It would appear that some
          print code leaves garbage around in the buffer. */
       do_cleanups (old_cleanups);
+
+      /* We should do whatever breakpoint actions are pending.
+       This works even if the breakpoint command causes the target
+       to continue, but we won't exit bpstat_do_actions here till
+       the target is all the way stopped.
+
+       Note, I am doing this before putting out the *stopped.  If we
+       told the UI that we had stopped & continued again, we would
+       have to figure out how to tell it that as well.  This is
+       easier.  If the command continues the target, the UI will
+       just think it hasn't stopped yet, which is probably also
+       okay.  */
+       bpstat_do_actions (&stop_bpstat);
+
       /* If the target was doing the operation synchronously we fake
          the stopped message. */
       if (current_command_token)
@@ -2130,7 +2338,12 @@ mi_execute_async_cli_command (char *mi, char *args, int from_tty)
         }
       fputs_unfiltered ("*stopped", raw_stdout);
       if (current_command_ts)
-	print_diff_now (current_command_ts);
+        {
+          end_remote_counts (current_command_ts);
+	  print_diff_now (current_command_ts);
+          xfree (current_command_ts);
+          current_command_ts = NULL;  /* Indicate that the ts was printed */
+        }
       return MI_CMD_QUIET;
     }
   else
@@ -2185,7 +2398,9 @@ mi_execute_async_cli_command (char *mi, char *args, int from_tty)
 	  ui_out_field_string (uiout, "reason",
 			       async_reason_lookup 
 			       (EXEC_ASYNC_END_STEPPING_RANGE));
-	  mi_exec_async_cli_cmd_continuation (arg);
+	  ui_out_print_annotation_int (uiout, 0, "thread-id",
+				       pid_to_thread_id (inferior_ptid));
+	  mi_exec_async_cli_cmd_continuation ((struct continuation_arg *) arg);
 	}
       /* APPLE LOCAL end inlined subroutine  */
       else
@@ -2193,7 +2408,7 @@ mi_execute_async_cli_command (char *mi, char *args, int from_tty)
 	  /* If we didn't manage to set the inferior going, that's
 	     most likely an error... */
 	  discard_all_continuations ();
-	  if (arg->exec_error_cleanups != (struct cleanups *) -1)
+	  if (arg->exec_error_cleanups != (struct cleanup *) -1)
 	    discard_exec_error_cleanups (arg->exec_error_cleanups);
 	  free_continuation_arg (arg);
 	  if (except.message != NULL)
@@ -2225,7 +2440,10 @@ mi_exec_error_cleanup (void *in_arg)
   fputs_unfiltered ("*stopped", raw_stdout);
   ui_out_field_string (uiout, "reason", "error");
   if (do_timings && arg && arg->timestamp)
-    print_diff_now (arg->timestamp);
+    {
+      end_remote_counts (arg->timestamp);
+      print_diff_now (arg->timestamp);
+    }
   mi_out_put (uiout, raw_stdout);
   fputs_unfiltered ("\n", raw_stdout);
   fputs_unfiltered ("(gdb) \n", raw_stdout);
@@ -2256,15 +2474,18 @@ mi_exec_async_cli_cmd_continuation (struct continuation_arg *in_arg)
 	  arg->cleanups = NULL;
 	}
       
-      if (arg->exec_error_cleanups != (struct cleanups *) -1)
+      if (arg->exec_error_cleanups != (struct cleanup *) -1)
 	{
 	  discard_exec_error_cleanups (arg->exec_error_cleanups);
-	  arg->exec_error_cleanups = -1;
+	  arg->exec_error_cleanups = (struct cleanup *) -1;
 	}
 
       fputs_unfiltered ("*stopped", raw_stdout);
       if (do_timings && arg && arg->timestamp)
-	print_diff_now (arg->timestamp);
+        {
+          end_remote_counts (arg->timestamp);
+	  print_diff_now (arg->timestamp);
+        }
       mi_out_put (uiout, raw_stdout);
       fputs_unfiltered ("\n", raw_stdout);
       
@@ -2287,7 +2508,10 @@ mi_exec_async_cli_cmd_continuation (struct continuation_arg *in_arg)
 	  /* Reset the timer, we will just accumulate times for this
 	     command. */
 	  if (do_timings && arg && arg->timestamp)
-	    timestamp (arg->timestamp);
+            {
+	      timestamp (arg->timestamp);
+              start_remote_counts (arg->timestamp, arg->token);
+            }
 	  add_continuation (mi_exec_async_cli_cmd_continuation, 
 			    (struct continuation_arg *) arg);
 	}
@@ -2320,7 +2544,8 @@ mi_exec_async_cli_cmd_continuation (struct continuation_arg *in_arg)
     }
   else if (target_can_async_p ())
     {
-      add_continuation (mi_exec_async_cli_cmd_continuation, in_arg);
+      add_continuation (mi_exec_async_cli_cmd_continuation, 
+                        (struct continuation_arg *) in_arg);
     }
 }
 
@@ -2389,6 +2614,17 @@ route_output_through_mi (char *prefix, char *notification)
 
 }
 
+static void
+route_output_to_mi_result (const char *name, const char *string)
+{
+  struct ui_out *mi_uiout;
+  if (mi_interp != NULL)
+    {
+      mi_uiout = interp_ui_out (mi_interp);
+      ui_out_field_string (mi_uiout, name, string);
+    }
+}
+
 void
 mi_output_async_notification (char *notification)
 {
@@ -2411,6 +2647,43 @@ void
 mi_interp_continue_command_hook ()
 {
   output_control_change_notification("continuing");
+}
+
+static void
+mi_interp_sync_fake_running ()
+{
+  char *prefix;
+  int free_me = 0;
+
+  if (current_command_token)
+    {
+      prefix = xmalloc (strlen (current_command_token) + 2);
+      sprintf (prefix, "%s^", current_command_token);
+      free_me = 1;
+    }
+  else
+    prefix = "^";
+
+  route_output_through_mi (prefix,"running");
+  if (free_me)
+    xfree (prefix);
+  ui_out_set_annotation_printer (route_output_to_mi_result);
+}
+
+void
+mi_interp_sync_stepping_command_hook ()
+{
+  mi_interp_exec_cmd_did_run = 1;
+  output_control_change_notification("stepping");
+  mi_interp_sync_fake_running ();
+}
+
+void
+mi_interp_sync_continue_command_hook ()
+{
+  mi_interp_exec_cmd_did_run = 1;
+  output_control_change_notification("continuing");
+  mi_interp_sync_fake_running ();
 }
 
 int
@@ -2489,7 +2762,11 @@ free_continuation_arg (struct mi_continuation_arg *arg)
       if (arg->token)
 	xfree (arg->token);
       if (arg->timestamp)
-	xfree (arg->timestamp);
+        {
+          end_remote_counts (arg->timestamp);
+	  xfree (arg->timestamp);
+          arg->timestamp = NULL;
+        }
       xfree (arg);
     }
 }
@@ -2499,57 +2776,112 @@ free_continuation_arg (struct mi_continuation_arg *arg)
 
 static void 
 timestamp (struct mi_timestamp *tv)
-  {
-    gettimeofday (&tv->wallclock, NULL);
-    getrusage (RUSAGE_SELF, &tv->rusage);
-  }
+{
+  gettimeofday (&tv->wallclock, NULL);
+  getrusage (RUSAGE_SELF, &tv->rusage);
+  tv->remotestats.mi_token[0] = '\0';
+  tv->remotestats.assigned_to_global = 0;
+}
+
+/* The remote protocol packet counts are updated over in remote.c
+   which won't have access to the saved timestamps that are handled
+   here in mi-main.c so we need to push/pop a "current remote stats"
+   global whenever we start/end recording timestamp.. */
+
+static void
+start_remote_counts (struct mi_timestamp *tv, const char *token)
+{
+  /* Initialize the gdb remote packet counts; set this as the current
+     remote stats struct.  */
+  tv->remotestats.pkt_sent = 0;
+  tv->remotestats.pkt_recvd = 0;
+  tv->remotestats.acks_sent = 0;
+  tv->remotestats.acks_recvd = 0;
+  timerclear (&tv->remotestats.totaltime);
+  tv->saved_remotestats = current_remote_stats;
+  if (token)
+    {
+      int bufsz = sizeof (tv->remotestats.mi_token);
+      strncpy (tv->remotestats.mi_token, token, bufsz - 1);
+      tv->remotestats.mi_token[bufsz - 1] = '\0';
+    }
+  else
+    tv->remotestats.mi_token[0] = '\0';
+  current_remote_stats = &tv->remotestats;
+  tv->remotestats.assigned_to_global = 1;
+}
+
+static void
+end_remote_counts (struct mi_timestamp *tv)
+{
+  if (tv && tv->remotestats.assigned_to_global)
+    {
+      current_remote_stats = tv->saved_remotestats;
+      tv->remotestats.assigned_to_global = 0;
+    }
+}
 
 static void 
 print_diff_now (struct mi_timestamp *start)
-  {
-    struct mi_timestamp now;
-    timestamp (&now);
-    print_diff (start, &now);
-  }
+{
+  struct mi_timestamp now;
+  timestamp (&now);
+  print_diff (start, &now);
+}
 
 static void
 copy_timestamp (struct mi_timestamp *dst, struct mi_timestamp *src)
-  {
-    memcpy (dst, src, sizeof (struct mi_timestamp));
-  }
+{
+  memcpy (dst, src, sizeof (struct mi_timestamp));
+}
 
 static void 
 print_diff (struct mi_timestamp *start, struct mi_timestamp *end)
-  {
-    fprintf_unfiltered (raw_stdout,
-       ",time={wallclock=\"%0.5f\",user=\"%0.5f\",system=\"%0.5f\",start=\"%d.%06d\",end=\"%d.%06d\"}", 
-       wallclock_diff (start, end) / 1000000.0, 
-       user_diff (start, end) / 1000000.0, 
-       system_diff (start, end) / 1000000.0,
-       (int) start->wallclock.tv_sec, (int) start->wallclock.tv_usec,
-       (int) end->wallclock.tv_sec, (int) end->wallclock.tv_usec);
-  }
+{
+  fprintf_unfiltered (raw_stdout,
+     ",time={wallclock=\"%0.5f\",user=\"%0.5f\",system=\"%0.5f\",start=\"%d.%06d\",end=\"%d.%06d\"}", 
+     wallclock_diff (start, end) / 1000000.0, 
+     user_diff (start, end) / 1000000.0, 
+     system_diff (start, end) / 1000000.0,
+     (int) start->wallclock.tv_sec, (int) start->wallclock.tv_usec,
+     (int) end->wallclock.tv_sec, (int) end->wallclock.tv_usec);
+
+  /* If we have any remote protocol stats, print them.  */
+  if (start->remotestats.pkt_sent != 0 || start->remotestats.pkt_recvd != 0)
+    {
+      fprintf_unfiltered (raw_stdout,
+        ",remotestats={packets_sent=\"%d\",packets_received=\"%d\","
+        "acks_sent=\"%d\",acks_received=\"%d\","
+        "time=\"%0.5f\","
+        "total_packets_sent=\"%lld\",total_packets_received=\"%lld\"}",
+        start->remotestats.pkt_sent, start->remotestats.pkt_recvd,
+        start->remotestats.acks_sent, start->remotestats.acks_recvd,
+        (double) ((start->remotestats.totaltime.tv_sec * 1000000) + start->remotestats.totaltime.tv_usec) / 1000000.0,
+        total_packets_sent, total_packets_received);
+    }
+}
 
 static long 
 wallclock_diff (struct mi_timestamp *start, struct mi_timestamp *end)
-  {
-    return ((end->wallclock.tv_sec - start->wallclock.tv_sec) * 1000000) +
-           (end->wallclock.tv_usec - start->wallclock.tv_usec);
-  }
+{
+  struct timeval result;
+  timersub (&end->wallclock, &start->wallclock, &result);
+  return result.tv_sec * 1000000 + result.tv_usec;
+}
 
 static long 
 user_diff (struct mi_timestamp *start, struct mi_timestamp *end)
-  {
-    return 
-     ((end->rusage.ru_utime.tv_sec - start->rusage.ru_utime.tv_sec) * 1000000) +
-      (end->rusage.ru_utime.tv_usec - start->rusage.ru_utime.tv_usec);
-  }
+{
+  struct timeval result;
+  timersub (&(end->rusage.ru_utime), &(start->rusage.ru_utime), &result);
+  return result.tv_sec * 1000000 + result.tv_usec;
+}
 
 static long 
 system_diff (struct mi_timestamp *start, struct mi_timestamp *end)
-  {
-    return 
-     ((end->rusage.ru_stime.tv_sec - start->rusage.ru_stime.tv_sec) * 1000000) +
-      (end->rusage.ru_stime.tv_usec - start->rusage.ru_stime.tv_usec);
-  }
+{
+  struct timeval result;
+  timersub (&(end->rusage.ru_stime), &(start->rusage.ru_stime), &result);
+  return result.tv_sec * 1000000 + result.tv_usec;
+}
 /* APPLE LOCAL end mi */

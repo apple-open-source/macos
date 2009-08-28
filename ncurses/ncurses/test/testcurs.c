@@ -7,7 +7,7 @@
  *  wrs(5/28/93) -- modified to be consistent (perform identically) with either
  *                  PDCurses or under Unix System V, R4
  *
- * $Id: testcurs.c,v 1.34 2005/04/16 16:19:12 tom Exp $
+ * $Id: testcurs.c,v 1.39 2008/08/03 17:58:09 tom Exp $
  */
 
 #include <test.priv.h>
@@ -44,14 +44,14 @@ static const COMMAND command[] =
     {"Input Test", inputTest},
     {"Output Test", outputTest}
 };
-#define MAX_OPTIONS SIZEOF(command)
+#define MAX_OPTIONS (int) SIZEOF(command)
 
 #if !HAVE_STRDUP
 #define strdup my_strdup
 static char *
 strdup(char *s)
 {
-    char *p = (char *) malloc(strlen(s) + 1);
+    char *p = typeMalloc(char, strlen(s) + 1);
     if (p)
 	strcpy(p, s);
     return (p);
@@ -70,7 +70,7 @@ main(
     int old_option = (-1);
     int new_option = 0;
     bool quit = FALSE;
-    unsigned n;
+    int n;
 
     setlocale(LC_ALL, "");
 
@@ -120,12 +120,15 @@ main(
 	    display_menu(old_option, new_option);
 	    break;
 	case KEY_UP:
-	    new_option = (new_option == 0) ? new_option : new_option - 1;
+	    new_option = ((new_option == 0)
+			  ? new_option
+			  : new_option - 1);
 	    display_menu(old_option, new_option);
 	    break;
 	case KEY_DOWN:
-	    new_option = (new_option == MAX_OPTIONS - 1) ? new_option :
-		new_option + 1;
+	    new_option = ((new_option == (MAX_OPTIONS - 1))
+			  ? new_option
+			  : new_option + 1);
 	    display_menu(old_option, new_option);
 	    break;
 	case 'Q':
@@ -342,13 +345,19 @@ inputTest(WINDOW *win)
     mvwaddstr(win, 1, 1, "Press keys (or mouse buttons) to show their names");
     mvwaddstr(win, 2, 1, "Press spacebar to finish");
     wrefresh(win);
+
     keypad(win, TRUE);
     raw();
     noecho();
+
+#if HAVE_TYPEAHEAD
     typeahead(-1);
+#endif
+
 #if defined(PDCURSES)
     mouse_set(ALL_MOUSE_EVENTS);
 #endif
+
     for (;;) {
 	wmove(win, 3, 5);
 	c = wgetch(win);
@@ -440,6 +449,17 @@ outputTest(WINDOW *win)
     chtype ch;
     int by, bx;
 
+#if !HAVE_TIGETSTR
+#if HAVE_TGETENT
+    char tc_buffer[4096];
+    char tc_parsed[4096];
+    char *area_pointer = tc_parsed;
+    tgetent(tc_buffer, getenv("TERM"));
+#else
+#define tgetstr(a,b) 0
+#endif
+#endif /* !HAVE_TIGETSTR */
+
     nl();
     wclear(win);
     mvwaddstr(win, 1, 1,
@@ -530,8 +550,10 @@ outputTest(WINDOW *win)
     winsch(win, ch);
     Continue(win);
 
+#if HAVE_WINSSTR
     mvwinsstr(win, 6, 2, "A1B2C3D4E5");
     Continue(win);
+#endif
 
     wmove(win, 5, 1);
     winsertln(win);
@@ -554,14 +576,14 @@ outputTest(WINDOW *win)
     *Buffer = 0;
     scanw("%s", Buffer);
 
-    if (tigetstr("cvvis") != 0) {
+    if (TIGETSTR("cvvis", "vs") != 0) {
 	wclear(win);
 	curs_set(2);
 	mvwaddstr(win, 1, 1, "The cursor should appear as a block (visible)");
 	Continue(win);
     }
 
-    if (tigetstr("civis") != 0) {
+    if (TIGETSTR("civis", "vi") != 0) {
 	wclear(win);
 	curs_set(0);
 	mvwaddstr(win, 1, 1,
@@ -569,7 +591,7 @@ outputTest(WINDOW *win)
 	Continue(win);
     }
 
-    if (tigetstr("cnorm") != 0) {
+    if (TIGETSTR("cnorm", "ve") != 0) {
 	wclear(win);
 	curs_set(1);
 	mvwaddstr(win, 1, 1, "The cursor should be an underline (normal)");
@@ -586,6 +608,8 @@ outputTest(WINDOW *win)
 #endif
 
     werase(win);
+
+#if HAVE_TERMNAME
     mvwaddstr(win, 1, 1, "Information About Your Terminal");
     mvwaddstr(win, 3, 1, termname());
     mvwaddstr(win, 4, 1, longname());
@@ -593,6 +617,7 @@ outputTest(WINDOW *win)
 	mvwaddstr(win, 5, 1, "This terminal supports blinking.");
     else
 	mvwaddstr(win, 5, 1, "This terminal does NOT support blinking.");
+#endif
 
     mvwaddnstr(win, 7, 5, "Have a nice day!ok", 16);
     wrefresh(win);
@@ -654,37 +679,38 @@ padTest(WINDOW *dummy GCC_UNUSED)
 {
     WINDOW *pad, *spad;
 
-    pad = newpad(50, 100);
-    wattron(pad, A_REVERSE);
-    mvwaddstr(pad, 5, 2, "This is a new pad");
-    wattrset(pad, A_NORMAL);
-    mvwaddstr(pad, 8, 0,
-	      "The end of this line should be truncated here:except  now");
-    mvwaddstr(pad, 11, 1, "This line should not appear.It will now");
-    wmove(pad, 10, 1);
-    wclrtoeol(pad);
-    mvwaddstr(pad, 10, 1, " Press any key to continue");
-    prefresh(pad, 0, 0, 0, 0, 10, 45);
-    keypad(pad, TRUE);
-    raw();
-    wgetch(pad);
+    if ((pad = newpad(50, 100)) != 0) {
+	wattron(pad, A_REVERSE);
+	mvwaddstr(pad, 5, 2, "This is a new pad");
+	wattrset(pad, A_NORMAL);
+	mvwaddstr(pad, 8, 0,
+		  "The end of this line should be truncated here:except  now");
+	mvwaddstr(pad, 11, 1, "This line should not appear.It will now");
+	wmove(pad, 10, 1);
+	wclrtoeol(pad);
+	mvwaddstr(pad, 10, 1, " Press any key to continue");
+	prefresh(pad, 0, 0, 0, 0, 10, 45);
+	keypad(pad, TRUE);
+	raw();
+	wgetch(pad);
 
-    spad = subpad(pad, 12, 25, 6, 52);
-    mvwaddstr(spad, 2, 2, "This is a new subpad");
-    box(spad, 0, 0);
-    prefresh(pad, 0, 0, 0, 0, 15, 75);
-    keypad(pad, TRUE);
-    raw();
-    wgetch(pad);
+	spad = subpad(pad, 12, 25, 6, 52);
+	mvwaddstr(spad, 2, 2, "This is a new subpad");
+	box(spad, 0, 0);
+	prefresh(pad, 0, 0, 0, 0, 15, 75);
+	keypad(pad, TRUE);
+	raw();
+	wgetch(pad);
 
-    mvwaddstr(pad, 35, 2, "This is displayed at line 35 in the pad");
-    mvwaddstr(pad, 40, 1, " Press any key to continue");
-    prefresh(pad, 30, 0, 0, 0, 10, 45);
-    keypad(pad, TRUE);
-    raw();
-    wgetch(pad);
+	mvwaddstr(pad, 35, 2, "This is displayed at line 35 in the pad");
+	mvwaddstr(pad, 40, 1, " Press any key to continue");
+	prefresh(pad, 30, 0, 0, 0, 10, 45);
+	keypad(pad, TRUE);
+	raw();
+	wgetch(pad);
 
-    delwin(pad);
+	delwin(pad);
+    }
 }
 
 static void
@@ -692,13 +718,17 @@ display_menu(int old_option, int new_option)
 {
     int i;
 
+    assert((new_option >= 0) && (new_option < MAX_OPTIONS));
+
     attrset(A_NORMAL);
     mvaddstr(3, 20, "PDCurses Test Program");
 
     for (i = 0; i < (int) MAX_OPTIONS; i++)
 	mvaddstr(5 + i, 25, command[i].text);
-    if (old_option != (-1))
+
+    if ((old_option >= 0) && (old_option < MAX_OPTIONS))
 	mvaddstr(5 + old_option, 25, command[old_option].text);
+
     attrset(A_REVERSE);
     mvaddstr(5 + new_option, 25, command[new_option].text);
     attrset(A_NORMAL);

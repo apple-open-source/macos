@@ -1,18 +1,22 @@
-Això és un recordatori, que s'envia un cop al mes sobre la comunitat de
-membres de la seva llista de correus %(hostname)s.  
-Inclou la vostra informació de subscripció i el que
-s´ha de fer per canviar-la o donar-se de baixa d'una llista.
+AixÃ² Ã©s un recordatori que s'envia un cop cada mes i que fa referÃ¨ncia
+a les vostres subscripcions a les llistes de correu a %(hostname)s.
+S'hi inclou informaciÃ³ sobre la vostra subscripciÃ³ i com canviar-la, o
+bÃ© com cancelÂ·lar-la.
 
-Pot visitar les URLs per canviar la seva categoria de mebre o la seva
-configuració, també per donar-se de baixa, setting digest-style delivery
-or disabling delivery altogether (e.g., for a vacation), and so on.
+Podeu anar als URL per a canviar l'estat de la vostra subscripciÃ³ o
+configuraciÃ³.  Entre d'altres coses, allÃ­ podreu cancelÂ·lar la
+subscripciÃ³, activar l'enviament de compilacions de missatges,
+inhabilitar l'enviament (p.ex. quan sigueu de vacances), etc.
 
-A més de les interfície de les URLs, pot usar l'email per fer aquests mateixos canvis.
-Per a més informació, envieu un missatge a l'adreça '-request-' de la llista (per exemple,
-%(exreq)s) amb només la paraula 'ajuda' en el cos del missatge, i un mail li serà enviat amb instruccions.
+A mÃ©s de la interfÃ­cie d'URL, tambÃ© podeu utilitzar el correu electrÃ²nic
+per a aplicar els canvis esmentats.  Si voleu obtenir mÃ©s informaciÃ³,
+envieu un missatge a l'adreÃ§a Â«-requestÂ» de la llista (per exemple
+%(exreq)s), el qual nomÃ©s cal que contingui la paraula Â«helpÂ» en el cos
+del missatge.  Un cop l'hÃ giu enviat, rebreu un missatge amb
+instruccions addicionals.
 
-Si té preguntes, problemes,comentaris, etc, envii'ls a
-%(owner)s.  Gràcies!
+En cas que tingueu preguntes, problemes, comentaris, etc, envieu-los a
+%(owner)s.  GrÃ cies!
 
-Clau de pas per %(useraddr)s:
+Contrasenyes de %(useraddr)s:
 

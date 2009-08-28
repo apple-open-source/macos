@@ -38,8 +38,6 @@
 OSDefineMetaClassAndStructors(IOFWAsyncStreamCommand, IOFWCommand)
 OSMetaClassDefineReservedUnused(IOFWAsyncStreamCommand, 0);
 OSMetaClassDefineReservedUnused(IOFWAsyncStreamCommand, 1);
-OSMetaClassDefineReservedUnused(IOFWAsyncStreamCommand, 2);
-OSMetaClassDefineReservedUnused(IOFWAsyncStreamCommand, 3);
 
 #pragma mark -
 
@@ -58,6 +56,22 @@ bool IOFWAsyncStreamCommand::initAll(
                                 int						speed,
                                 FWAsyncStreamCallback 	completion,
                                 void 					* refcon)
+{
+	return initAll( control, generation, channel, sync, tag, hostMem, size, speed, completion, refcon, false);
+}
+
+bool IOFWAsyncStreamCommand::initAll(
+    							IOFireWireController 	* control,
+                                UInt32 					generation, 
+                                UInt32 					channel,
+                                UInt32 					sync,
+                                UInt32 					tag,
+                                IOMemoryDescriptor 		* hostMem,
+                                UInt32					size,
+                                int						speed,
+                                FWAsyncStreamCallback 	completion,
+                                void 					* refcon,
+								bool					failOnReset)
 {
 	bool success = true;
 	
@@ -81,11 +95,12 @@ bool IOFWAsyncStreamCommand::initAll(
 		fTag = tag;
 		fSpeed = speed;
 		fSize = size;
-		fFailOnReset = false;
+		fFailOnReset = failOnReset;
     }
 
 	return success;
 }
+
 
 // free
 //
@@ -130,6 +145,26 @@ IOReturn IOFWAsyncStreamCommand::reinit(
     fSpeed = speed;
     fSize = size;
     return fStatus = kIOReturnSuccess;
+}
+
+IOReturn IOFWAsyncStreamCommand::reinit(
+								UInt32 					generation, 
+                                UInt32 					channel,
+                                UInt32 					sync,
+                                UInt32 					tag,
+                                IOMemoryDescriptor 		* hostMem,
+                                UInt32					size,
+                                int						speed,
+                                FWAsyncStreamCallback 	completion,
+                                void 					* refcon,
+								bool					failOnReset)
+{
+	if(fStatus == kIOReturnBusy || fStatus == kIOFireWirePending)
+		return fStatus;
+
+	fFailOnReset = failOnReset;
+		
+	return reinit( generation, channel, sync, tag, hostMem, size, speed, completion, refcon );
 }
 
 // complete
@@ -200,6 +235,12 @@ IOReturn IOFWAsyncStreamCommand::execute()
     IOReturn result = kIOReturnBadArgument;
     
     fStatus = kIOReturnBusy;
+
+    if( !fFailOnReset ) 
+	{
+        // Update generation
+        fGeneration = fControl->getGeneration();
+    }
 
 	fSpeed = min((int)fControl->getBroadcastSpeed(), fSpeed) ;
 

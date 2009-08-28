@@ -64,6 +64,13 @@ clean_dir () {
   rm -f "$binmain" *.o *.ali > /dev/null 2>&1
 }
 
+find_main () {
+  ls ${i}?.adb > ${i}.lst 2> /dev/null
+  ls ${i}*m.adb >> ${i}.lst 2> /dev/null
+  ls ${i}.adb >> ${i}.lst 2> /dev/null
+  main=`tail -1 ${i}.lst`
+}
+
 EXTERNAL_OBJECTS=""
 # Global variable to communicate external objects to link with.
 
@@ -215,6 +222,14 @@ for chapter in $chapters; do
       if [ $? -eq 0 ]; then
          extraflags="$extraflags -gnatE"
       fi
+      grep $i $testdir/stackcheck.lst > /dev/null 2>&1
+      if [ $? -eq 0 ]; then
+         extraflags="$extraflags -fstack-check"
+      fi
+      grep $i $testdir/ada95.lst > /dev/null 2>&1
+      if [ $? -eq 0 ]; then
+         extraflags="$extraflags -gnat95"
+      fi
       test=$dir/tests/$chapter/$i
       mkdir $test && cd $test >> $dir/acats.log 2>&1
 
@@ -226,10 +241,12 @@ for chapter in $chapters; do
       fi
 
       target_gnatchop -c -w `ls ${test}*.a ${test}*.ada ${test}*.adt ${test}*.am ${test}*.dep 2> /dev/null` >> $dir/acats.log 2>&1
-      ls ${i}?.adb > ${i}.lst 2> /dev/null
-      ls ${i}*m.adb >> ${i}.lst 2> /dev/null
-      ls ${i}.adb >> ${i}.lst 2> /dev/null
-      main=`tail -1 ${i}.lst`
+      main=""
+      find_main
+      if [ -z "$main" ]; then
+         sync
+         find_main
+      fi
       binmain=`echo $main | sed -e 's/\(.*\)\..*/\1/g'`
       echo "BUILD $main" >> $dir/acats.log
       EXTERNAL_OBJECTS=""
@@ -256,6 +273,9 @@ for chapter in $chapters; do
 
       echo "RUN $binmain" >> $dir/acats.log
       cd $dir/run
+      if [ ! -x $dir/tests/$chapter/$i/$binmain ]; then
+         sync
+      fi
       target_run $dir/tests/$chapter/$i/$binmain > $dir/tests/$chapter/$i/${i}.log 2>&1
       cd $dir/tests/$chapter/$i
       cat ${i}.log >> $dir/acats.log

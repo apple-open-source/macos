@@ -10,6 +10,8 @@ Get it from RubyForge (http://rubygems.rubyforge.org) and run (as root, if appro
 
 For more details and other options, see:
 
+  ruby setup.rb --help
+
 * {User Guide/Installation}[http://docs.rubygems.org/read/chapter/3]
 
 == For User Documentation, see
@@ -30,10 +32,8 @@ For more details and other options, see:
 
 [./bin/...]       binary commands (gem, gem_server, etc)
 [./lib/...]       the RubyGems library
-[./packages/...]  default RubyGems packages (currently only 'sources')
+[./pkgs/...]  default RubyGems packages (currently only 'sources')
 [./test/...]      unit and functional tests
-[./examples/...]  example library w/gemspec for generating and installing gems
-[./gemspecs/...]  example gemspecs
 
 == Credits
 

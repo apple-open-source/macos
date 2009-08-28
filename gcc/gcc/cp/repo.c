@@ -1,5 +1,5 @@
 /* Code to maintain a C++ template repository.
-   Copyright (C) 1995, 1996, 1997, 1998, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1995, 1996, 1997, 1998, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Jason Merrill (jason@cygnus.com)
 
@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* My strategy here is as follows:
 
@@ -36,16 +36,16 @@ Boston, MA 02111-1307, USA.  */
 #include "obstack.h"
 #include "toplev.h"
 #include "diagnostic.h"
+#include "flags.h"
 
 static char *extract_string (char **);
 static const char *get_base_filename (const char *);
-static void open_repo_file (const char *);
+static FILE *open_repo_file (const char *);
 static char *afgets (FILE *);
-static void reopen_repo_file_for_write (void);
+static FILE *reopen_repo_file_for_write (void);
 
 static GTY(()) tree pending_repo;
 static char *repo_name;
-static FILE *repo_file;
 
 static const char *old_args, *old_dir, *old_main;
 
@@ -84,7 +84,7 @@ extract_string (char **pp)
 
   obstack_1grow (&temporary_obstack, '\0');
   *pp = p;
-  return obstack_finish (&temporary_obstack);
+  return (char *) obstack_finish (&temporary_obstack);
 }
 
 static const char *
@@ -109,33 +109,33 @@ get_base_filename (const char *filename)
 
   if (p && ! compiling)
     {
-      warning ("-frepo must be used with -c");
+      warning (0, "-frepo must be used with -c");
       flag_use_repository = 0;
       return NULL;
     }
 
   return lbasename (filename);
-}        
+}
 
-static void
+static FILE *
 open_repo_file (const char *filename)
 {
   const char *p;
   const char *s = get_base_filename (filename);
 
   if (s == NULL)
-    return;
+    return NULL;
 
   p = lbasename (s);
   p = strrchr (p, '.');
   if (! p)
     p = s + strlen (s);
 
-  repo_name = xmalloc (p - s + 5);
+  repo_name = XNEWVEC (char, p - s + 5);
   memcpy (repo_name, s, p - s);
   memcpy (repo_name + (p - s), ".rpo", 5);
 
-  repo_file = fopen (repo_name, "r");
+  return fopen (repo_name, "r");
 }
 
 static char *
@@ -147,13 +147,14 @@ afgets (FILE *stream)
   if (obstack_object_size (&temporary_obstack) == 0)
     return NULL;
   obstack_1grow (&temporary_obstack, '\0');
-  return obstack_finish (&temporary_obstack);
+  return (char *) obstack_finish (&temporary_obstack);
 }
 
 void
 init_repo (void)
 {
   char *buf;
+  FILE *repo_file;
 
   if (! flag_use_repository)
     return;
@@ -166,7 +167,7 @@ init_repo (void)
   if (!temporary_obstack_initialized_p)
     gcc_obstack_init (&temporary_obstack);
 
-  open_repo_file (main_input_filename);
+  repo_file = open_repo_file (main_input_filename);
 
   if (repo_file == 0)
     return;
@@ -204,16 +205,18 @@ init_repo (void)
   fclose (repo_file);
 }
 
-static void
+static FILE *
 reopen_repo_file_for_write (void)
 {
-  repo_file = fopen (repo_name, "w");
+  FILE *repo_file = fopen (repo_name, "w");
 
   if (repo_file == 0)
     {
       error ("can't create repository information file %qs", repo_name);
       flag_use_repository = 0;
     }
+
+  return repo_file;
 }
 
 /* Emit any pending repos.  */
@@ -223,14 +226,15 @@ finish_repo (void)
 {
   tree t;
   char *dir, *args;
+  FILE *repo_file;
 
   if (!flag_use_repository)
     return;
 
   if (errorcount || sorrycount)
-    goto out;
+    return;
 
-  reopen_repo_file_for_write ();
+  repo_file = reopen_repo_file_for_write ();
   if (repo_file == 0)
     goto out;
 
@@ -239,7 +243,16 @@ finish_repo (void)
   fprintf (repo_file, "D %s\n", dir);
   args = getenv ("COLLECT_GCC_OPTIONS");
   if (args)
-    fprintf (repo_file, "A %s\n", args);
+    {
+      fprintf (repo_file, "A %s", args);
+      /* If -frandom-seed is not among the ARGS, then add the value
+	 that we chose.  That will ensure that the names of types from
+	 anonymous namespaces will get the same mangling when this
+	 file is recompiled.  */
+      if (!strstr (args, "'-frandom-seed="))
+	fprintf (repo_file, " '-frandom-seed=%s'", flag_random_seed);
+      fprintf (repo_file, "\n");
+    }
 
   for (t = pending_repo; t; t = TREE_CHAIN (t))
     {
@@ -285,7 +298,14 @@ repo_emit_p (tree decl)
       else if (DECL_TINFO_P (decl))
 	type = TREE_TYPE (DECL_NAME (decl));
       if (!DECL_TEMPLATE_INSTANTIATION (decl)
-	  && !CLASSTYPE_TEMPLATE_INSTANTIATION (type))
+	  && (!TYPE_LANG_SPECIFIC (type)
+	      || !CLASSTYPE_TEMPLATE_INSTANTIATION (type)))
+	return 2;
+      /* Static data members initialized by constant expressions must
+	 be processed where needed so that their definitions are
+	 available.  */
+      if (DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl)
+	  && DECL_CLASS_SCOPE_P (decl))
 	return 2;
     }
   else if (!DECL_TEMPLATE_INSTANTIATION (decl))
@@ -332,7 +352,7 @@ repo_export_class_p (tree class_type)
     return false;
   /* If the virtual table has been assigned to this translation unit,
      export the class.  */
-  return (IDENTIFIER_REPO_CHOSEN 
+  return (IDENTIFIER_REPO_CHOSEN
 	  (DECL_ASSEMBLER_NAME (CLASSTYPE_VTABLES (class_type))));
 }
 

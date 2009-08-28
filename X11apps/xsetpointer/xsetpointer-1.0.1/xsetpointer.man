@@ -1,0 +1,17 @@
+.\" $XdotOrg: $
+.\" $XFree86: xc/programs/xsetpointer/xsetpnt.man,v 3.0 1995/12/26 06:10:25 dawes Exp $
+.\"
+.TH xsetpointer 1 __vendorversion__
+.SH NAME
+xsetpointer \- set an X Input device as the main pointer
+.SH SYNOPSIS
+.B xsetpointer \-l
+|
+.I device-name
+.SH DESCRIPTION
+Xsetpointer sets an XInput device as the main pointer.  When called with
+the \-l flag it lists the available devices.  When called with the -c/+c
+flag, it toggles the sending of core input events, for servers which
+implement a virtual core pointer; -c disables core events, and +c enables.
+.SH AUTHOR
+Frederic Lepied

@@ -21,6 +21,8 @@
 
 #include "svn_types.h"
 #include "svn_error.h"
+#include "svn_compat.h"
+#include "svn_props.h"
 
 
 /* Baton for use with svn_compat_wrap_commit_callback */
@@ -62,3 +64,96 @@ svn_compat_wrap_commit_callback(svn_commit_callback2_t *callback2,
   *callback2 = commit_wrapper_callback;
 }
 
+
+void
+svn_compat_log_revprops_clear(apr_hash_t *revprops)
+{
+  if (revprops)
+    {
+      apr_hash_set(revprops, SVN_PROP_REVISION_AUTHOR,
+                   APR_HASH_KEY_STRING, NULL);
+      apr_hash_set(revprops, SVN_PROP_REVISION_DATE,
+                   APR_HASH_KEY_STRING, NULL);
+      apr_hash_set(revprops, SVN_PROP_REVISION_LOG,
+                   APR_HASH_KEY_STRING, NULL);
+    }
+}
+
+apr_array_header_t *
+svn_compat_log_revprops_in(apr_pool_t *pool)
+{
+  apr_array_header_t *revprops = apr_array_make(pool, 3, sizeof(char *));
+
+  APR_ARRAY_PUSH(revprops, const char *) = SVN_PROP_REVISION_AUTHOR;
+  APR_ARRAY_PUSH(revprops, const char *) = SVN_PROP_REVISION_DATE;
+  APR_ARRAY_PUSH(revprops, const char *) = SVN_PROP_REVISION_LOG;
+
+  return revprops;
+}
+
+void
+svn_compat_log_revprops_out(const char **author, const char **date,
+                            const char **message, apr_hash_t *revprops)
+{
+  svn_string_t *author_s, *date_s,  *message_s;
+
+  *author = *date = *message = NULL;
+  if (revprops)
+    {
+      if ((author_s = apr_hash_get(revprops, SVN_PROP_REVISION_AUTHOR,
+                                   APR_HASH_KEY_STRING)))
+        *author = author_s->data;
+      if ((date_s = apr_hash_get(revprops, SVN_PROP_REVISION_DATE,
+                                 APR_HASH_KEY_STRING)))
+        *date = date_s->data;
+      if ((message_s = apr_hash_get(revprops, SVN_PROP_REVISION_LOG,
+                                    APR_HASH_KEY_STRING)))
+        *message = message_s->data;
+    }
+}
+
+/* Baton for use with svn_compat_wrap_log_receiver */
+struct log_wrapper_baton {
+  void *baton;
+  svn_log_message_receiver_t receiver;
+};
+
+/* This implements svn_log_entry_receiver_t. */
+static svn_error_t *
+log_wrapper_callback(void *baton,
+                     svn_log_entry_t *log_entry,
+                     apr_pool_t *pool)
+{
+  struct log_wrapper_baton *lwb = baton;
+
+  if (lwb->receiver && SVN_IS_VALID_REVNUM(log_entry->revision))
+    {
+      const char *author, *date, *message;
+      svn_compat_log_revprops_out(&author, &date, &message,
+                                  log_entry->revprops);
+      return lwb->receiver(lwb->baton,
+                           log_entry->changed_paths2,
+                           log_entry->revision,
+                           author, date, message,
+                           pool);
+    }
+
+  return SVN_NO_ERROR;
+}
+
+void
+svn_compat_wrap_log_receiver(svn_log_entry_receiver_t *receiver2,
+                             void **receiver2_baton,
+                             svn_log_message_receiver_t receiver,
+                             void *receiver_baton,
+                             apr_pool_t *pool)
+{
+  struct log_wrapper_baton *lwb = apr_palloc(pool, sizeof(*lwb));
+
+  /* Set the user provided old format callback in the baton. */
+  lwb->baton = receiver_baton;
+  lwb->receiver = receiver;
+
+  *receiver2_baton = lwb;
+  *receiver2 = log_wrapper_callback;
+}

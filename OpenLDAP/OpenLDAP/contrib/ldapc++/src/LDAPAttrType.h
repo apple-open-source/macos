@@ -1,3 +1,4 @@
+// $OpenLDAP: pkg/ldap/contrib/ldapc++/src/LDAPAttrType.h,v 1.3.4.3 2008/05/01 21:28:42 quanah Exp $
 /*
  * Copyright 2003, OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
@@ -22,20 +23,17 @@ using namespace std;
 class LDAPAttrType{
     private :
 	StringList names;
-	string desc, oid;
+	std::string desc, oid, superiorOid, equalityOid;
+        std::string orderingOid, substringOid, syntaxOid;
 	bool single;
-	
+	int usage;
+
     public :
 
         /**
          * Constructor
          */   
         LDAPAttrType();
-
-        /**
-         * Copy constructor
-         */   
-	LDAPAttrType (const LDAPAttrType& oc);
 
         /**
 	 * Constructs new object and fills the data structure by parsing the
@@ -56,33 +54,50 @@ class LDAPAttrType{
 	/**
 	 * Returns attribute description
 	 */
-	string getDesc ();
+	string getDesc() const;
 	
 	/**
 	 * Returns attribute oid
 	 */
-	string getOid ();
+	string getOid() const;
 
 	/**
 	 * Returns attribute name (first one if there are more of them)
 	 */
-	string getName ();
+	string getName() const;
 
 	/**
 	 * Returns all attribute names
 	 */
-	StringList getNames();
+	StringList getNames() const;
 	
 	/**
-	 * Returns true if attribute type hllows only single value
+	 * Returns true if attribute type allows only single value
 	 */
-	bool isSingle();
+	bool isSingle() const;
 	
-	void setNames (char **at_names);
-	void setDesc (char *at_desc);
-	void setOid (char *at_oid);
-	void setSingle (int at_single_value);
-	
+	/**
+ 	 * Return the 'usage' value:
+ 	 * (0=userApplications, 1=directoryOperation, 2=distributedOperation, 
+	 *  3=dSAOperation)
+ 	 */
+ 	int getUsage () const;
+        std::string getSuperiorOid() const;
+        std::string getEqualityOid() const;
+        std::string getOrderingOid() const;
+        std::string getSubstringOid() const;
+        std::string getSyntaxOid() const;
+
+	void setNames( char **at_names);
+	void setDesc(const char *at_desc);
+	void setOid(const char *at_oid);
+	void setSingle(int at_single_value);
+	void setUsage(int at_usage );
+        void setSuperiorOid( const char *oid );
+        void setEqualityOid( const char *oid );
+        void setOrderingOid( const char *oid );
+        void setSubstringOid( const char *oid );
+        void setSyntaxOid( const char *oid );
 };
 
 #endif // LDAP_ATTRTYPE_H

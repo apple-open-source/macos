@@ -19,8 +19,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /*}}}*/ 
 /*{{{  Driver configuration.  */ 
@@ -48,24 +48,6 @@ Boston, MA 02111-1307, USA.  */
       builtin_assert ("machine=fr30");		\
     }						\
    while (0)
-
-/* Use LDI:20 instead of LDI:32 to load addresses.  */
-#define TARGET_SMALL_MODEL_MASK	(1 << 0)
-#define TARGET_SMALL_MODEL	(target_flags & TARGET_SMALL_MODEL_MASK)
-
-#define TARGET_DEFAULT		0
-
-/* This declaration should be present.  */
-extern int target_flags;
-
-#define TARGET_SWITCHES						\
-{								\
-  { "small-model",      TARGET_SMALL_MODEL_MASK,		\
-    N_("Assume small address space") },				\
-  { "no-small-model", - TARGET_SMALL_MODEL_MASK, "" },		\
-  { "no-lsim",          0, "" },				\
-  { "",                 TARGET_DEFAULT, "" }			\
-}
 
 #define TARGET_VERSION fprintf (stderr, " (fr30)");
 
@@ -481,8 +463,8 @@ enum reg_class
    to a smaller address.  */
 #define STACK_GROWS_DOWNWARD 1
 
-/* Define this macro if the addresses of local variable slots are at negative
-   offsets from the frame pointer.  */
+/* Define this to macro nonzero if the addresses of local variable slots
+   are at negative offsets from the frame pointer.  */
 #define FRAME_GROWS_DOWNWARD 1
 
 /* Offset from the frame pointer to the first local variable slot to be
@@ -860,13 +842,15 @@ do										\
         goto LABEL;							\
       if (GET_CODE (X) == PLUS						\
 	  && ((MODE) == SImode || (MODE) == SFmode)			\
-	  && XEXP (X, 0) == stack_pointer_rtx				\
+	  && GET_CODE (XEXP (X, 0)) == REG				\
+          && REGNO (XEXP (X, 0)) == STACK_POINTER_REGNUM		\
 	  && GET_CODE (XEXP (X, 1)) == CONST_INT			\
 	  && IN_RANGE (INTVAL (XEXP (X, 1)), 0, (1 <<  6) - 4))		\
 	goto LABEL;							\
       if (GET_CODE (X) == PLUS						\
 	  && ((MODE) == SImode || (MODE) == SFmode)			\
-	  && XEXP (X, 0) == frame_pointer_rtx				\
+	  && GET_CODE (XEXP (X, 0)) == REG				\
+          && REGNO (XEXP (X, 0)) == FRAME_POINTER_REGNUM		\
 	  && GET_CODE (XEXP (X, 1)) == CONST_INT			\
 	  && IN_RANGE (INTVAL (XEXP (X, 1)), -(1 << 9), (1 <<  9) - 4))	\
         goto LABEL;							\
@@ -880,15 +864,16 @@ do										\
         goto LABEL;							\
       if (GET_CODE (X) == PLUS						\
 	  && ((MODE) == SImode || (MODE) == SFmode)			\
-	  && XEXP (X, 0) == stack_pointer_rtx				\
+	  && GET_CODE (XEXP (X, 0)) == REG				\
+          && REGNO (XEXP (X, 0)) == STACK_POINTER_REGNUM		\
 	  && GET_CODE (XEXP (X, 1)) == CONST_INT			\
 	  && IN_RANGE (INTVAL (XEXP (X, 1)), 0, (1 <<  6) - 4))		\
 	goto LABEL;							\
       if (GET_CODE (X) == PLUS						\
 	  && ((MODE) == SImode || (MODE) == SFmode)			\
-	  && GET_CODE (XEXP (X, 0)) == REG \
-          && (REGNO (XEXP (X, 0)) == FRAME_POINTER_REGNUM \
-           || REGNO (XEXP (X, 0)) == ARG_POINTER_REGNUM) \
+	  && GET_CODE (XEXP (X, 0)) == REG				\
+          && (REGNO (XEXP (X, 0)) == FRAME_POINTER_REGNUM		\
+	      || REGNO (XEXP (X, 0)) == ARG_POINTER_REGNUM)		\
 	  && GET_CODE (XEXP (X, 1)) == CONST_INT			\
 	  && IN_RANGE (INTVAL (XEXP (X, 1)), -(1 << 9), (1 <<  9) - 4))	\
         goto LABEL;							\
@@ -1138,20 +1123,6 @@ fprintf (STREAM, "\t.word .L%d\n", VALUE)
 
 extern struct rtx_def * fr30_compare_op0;
 extern struct rtx_def * fr30_compare_op1;
-
-/*}}}*/ 
-/*{{{  PREDICATE_CODES.  */ 
-
-#define PREDICATE_CODES					\
-  { "stack_add_operand",	{ CONST_INT }},		\
-  { "high_register_operand",	{ REG }},		\
-  { "low_register_operand",	{ REG }},		\
-  { "call_operand",		{ MEM }},		\
-  { "fp_displacement_operand",	{ CONST_INT }},		\
-  { "sp_displacement_operand",	{ CONST_INT }},		\
-  { "di_operand",		{ CONST_INT, CONST_DOUBLE, REG, MEM }},	\
-  { "nonimmediate_di_operand",	{ REG, MEM }},		\
-  { "add_immediate_operand",	{ REG, CONST_INT }},
 
 /*}}}*/ 
 

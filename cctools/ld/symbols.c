@@ -360,9 +360,6 @@ struct object_file link_edit_common_object = {
  */
 static char **multiple_defs = NULL;
 static unsigned long nmultiple_defs = 0;
-#ifndef RLD
-static enum bool told_ProjectBuilder = FALSE;
-#endif
 
 /*
  * This is the count of indirect symbols in the merged symbol table.  It is used
@@ -1259,6 +1256,16 @@ merge_symbols(void)
 			   (object_symbols[i].n_desc & REFERENCED_DYNAMICALLY);
 
 			/*
+			 * This is part of the cctools_aek-thumb-hack branch.
+			 * It seems to think undefined symbols would be marked
+			 * as symbols that are definitions of Thumb symbols.
+			 * But since undefined symbols are not definitions I
+			 * don't see how this code would ever be used.
+			merged_symbol->nlist.n_desc |=
+			   (object_symbols[i].n_desc & N_ARM_THUMB_DEF);
+			 */
+
+			/*
 			 * If the merged symbol is also an undefined deal with
 			 * weak reference mismatches if any.
 			 */
@@ -1383,6 +1390,12 @@ merge_symbols(void)
 			n_desc |= (merged_symbol->nlist.n_desc &
 				   REFERENCED_DYNAMICALLY);
 			/*
+			 * If the object symbol is a symbol defined as Thumb
+			 * symbol then keep this information.
+			 */
+			n_desc |= (object_symbols[i].n_desc & N_ARM_THUMB_DEF);
+
+			/*
 			 * If the object symbol is a weak definition it may be
 			 * later discarded for a non-weak symbol from a dylib so
 			 * if the undefined symbol is a weak reference keep that
@@ -1494,10 +1507,32 @@ merge_symbols(void)
 			   REFERENCED_DYNAMICALLY)
 			    merged_symbol->nlist.n_desc =
 				object_symbols[i].n_desc |
-				REFERENCED_DYNAMICALLY;
+				REFERENCED_DYNAMICALLY
+				/*
+				 * This was part of the cctools_aek-thumb-hack
+				 * branch.  It seems to think if the discarded
+				 * weak merged symbol was marked as Thumb
+				 * definition then that should be preserved.
+				 * But since the object symbol is being used
+				 * instead it may not be a Thumb definition.
+				| (merged_symbol->nlist.n_desc &
+				   N_ARM_THUMB_DEF)
+				*/
+				;
 			else
 			    merged_symbol->nlist.n_desc =
-				object_symbols[i].n_desc;
+				object_symbols[i].n_desc
+				/*
+				 * This was part of the cctools_aek-thumb-hack
+				 * branch.  It seems to think if the discarded
+				 * weak merged symbol was marked as Thumb
+				 * definition then that should be preserved.
+				 * But since the object symbol is being used
+				 * instead it may not be a Thumb definition.
+				| (merged_symbol->nlist.n_desc &
+				   N_ARM_THUMB_DEF)
+				*/
+				;
 			if(merged_symbol->nlist.n_type == (N_EXT | N_INDR))
 			    enter_indr_symbol(merged_symbol,
 					      &(object_symbols[i]),
@@ -2243,14 +2278,9 @@ char *indr_symbol_name)
 		    if(allow_multiply_defined_symbols == TRUE)
 			warning("multiple definitions of symbol %s",
 			      merged_symbol->nlist.n_un.n_name);
-		    else{
-			if(told_ProjectBuilder == FALSE){
-			    tell_ProjectBuilder("Multiply defined symbols");
-			    told_ProjectBuilder = TRUE;
-			}
+		    else
 			error("multiple definitions of symbol %s",
 			      merged_symbol->nlist.n_un.n_name);
-		    }
 		    multiple_defs = reallocate(multiple_defs, (nmultiple_defs +
 					       1) * sizeof(char *));
 		    multiple_defs[nmultiple_defs++] =
@@ -2531,11 +2561,6 @@ struct dynamic_library *dynamic_library)
 				}
 				else if(multiply_defined_flag ==
 				   MULTIPLY_DEFINED_ERROR){
-				    if(told_ProjectBuilder == FALSE){
-					tell_ProjectBuilder("Multiply defined "
-							    "symbols");
-					told_ProjectBuilder = TRUE;
-				    }
 				    error("multiple definitions of symbol %s",
 					  merged_symbol->nlist.n_un.n_name);
 				}
@@ -2544,10 +2569,6 @@ struct dynamic_library *dynamic_library)
 				    continue;
 			}
 			else{
-			    if(told_ProjectBuilder == FALSE){
-				tell_ProjectBuilder("Multiply defined symbols");
-				told_ProjectBuilder = TRUE;
-			    }
 			    error("multiple definitions of symbol %s",
 				  merged_symbol->nlist.n_un.n_name);
 			}
@@ -2607,6 +2628,8 @@ printf("merging in coalesced symbol %s\n", merged_symbol->nlist.n_un.n_name);
 	     * contains the reference type (lazy or non-lazy).
 	     */
 	    merged_symbol->nlist.n_value = symbols[j].n_value;
+	    if(symbols[j].n_desc & N_ARM_THUMB_DEF)
+		merged_symbol->nlist.n_value |= 1;
 	    merged_symbol->definition_object = cur_obj;
 	    merged_symbol->defined_in_dylib = TRUE;
 	    merged_symbol->definition_library = dynamic_library;
@@ -3081,11 +3104,6 @@ struct dynamic_library *dynamic_library)
 					  merged_symbol->nlist.n_un.n_name);
 				else if(multiply_defined_flag ==
 				   MULTIPLY_DEFINED_ERROR){
-				    if(told_ProjectBuilder == FALSE){
-					tell_ProjectBuilder("Multiply defined "
-							    "symbols");
-					told_ProjectBuilder = TRUE;
-				    }
 				    error("multiple definitions of symbol %s",
 					  merged_symbol->nlist.n_un.n_name);
 				}
@@ -3094,10 +3112,6 @@ struct dynamic_library *dynamic_library)
 				    continue;
 			}
 			else{
-			    if(told_ProjectBuilder == FALSE){
-				tell_ProjectBuilder("Multiply defined symbols");
-				told_ProjectBuilder = TRUE;
-			    }
 			    error("multiple definitions of symbol %s",
 				  merged_symbol->nlist.n_un.n_name);
 			}
@@ -3880,12 +3894,6 @@ char *object_strings)
 		warning("multiple definitions of symbol %s",
 		      merged_symbol->nlist.n_un.n_name);
 	    else{
-#ifndef RLD
-		if(told_ProjectBuilder == FALSE){
-		    tell_ProjectBuilder("Multiply defined symbols");
-		    told_ProjectBuilder = TRUE;
-		}
-#endif
 		error("multiple definitions of symbol %s",
 		      merged_symbol->nlist.n_un.n_name);
 	    }
@@ -7329,9 +7337,6 @@ void)
 				       prebound_undef == TRUE)
 					errors = errors_save;
 				}
-#ifndef RLD
-	    			tell_ProjectBuilder("Undefined symbols");
-#endif
 				printed_undef = TRUE;
 			    }
 			    else if(errors == 0 &&

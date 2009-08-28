@@ -45,3 +45,10 @@ simpleroutine didDeactivate(requestport instanceReplyPort: mach_port_t);
 
 simpleroutine reportError(requestport instanceReplyPort: mach_port_t;
 	status: OSStatus);
+    
+simpleroutine didStartTx(clientReplyPort: mach_port_move_send_once_t; 
+    result: kern_return_t);
+    
+// in case we decide to support true synchronous agent client IPCs, this 
+// keeps sa_reply routine #s at parity with sa_request routine #s
+skip;   // client: txEnd

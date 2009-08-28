@@ -42,7 +42,7 @@ int sopen(int fdvol, const char *path, int flags, mode_t mode);
 // additionally, caller must close non-(-1) olddir if requested (cf. restoredir)
 int schdir(int fdvol, const char *path, int *olddir);
 int schdirparent(int fdvol, const char *path, int *olddir, char childname[PATH_MAX]);
-int restoredir(int savedir);	    // check errors if you want them
+int restoredir(int savedir);        // check errors if you want them
 
 // these are trivially implemented with the above
 int smkdir(int fdvol, const char *path, mode_t mode);
@@ -52,7 +52,7 @@ int sunlink(int fdvol, const char *path);
 int srename(int fdvol, const char *oldpath, const char *newname);
 
 // uses FTS to recurse downwards, calling sunlink and srmdir as appropriate
-int sdeepunlink(int fdvol, char *path);	    // fts_open won't take const char*?
+int sdeepunlink(int fdvol, char *path);     // fts_open won't take const char*?
 // 'mkdir -p' (recursively applies mode)
 int sdeepmkdir(int fdvol, const char *path, mode_t mode);
 // creates intermediate directories for you; only copies one file
@@ -63,14 +63,14 @@ int scopyfile(int srcvolfd, const char *srcpath, int dstvolfd, const char *dstpa
 #endif
 #if STRICT_SAFETY
 
-// #define open() 		// #error use sopen (need a chicken)
-#define chdir() 		// #error use schdir
+// #define open()               // #error use sopen (need a chicken)
+#define chdir()                 // #error use schdir
 
-#define mkdir() 		// #error use smkdir
-#define rmdir() 		// #error use srmdir
-#define unlink() 		// #error use sunlink
-#define rename() 		// #error srename
+#define mkdir()                 // #error use smkdir
+#define rmdir()                 // #error use srmdir
+#define unlink()                // #error use sunlink
+#define rename()                // #error srename
 
-#define copyfile() 		// #error use scopyfile
+#define copyfile()              // #error use scopyfile
 
 #endif // STRICT_SAFETY

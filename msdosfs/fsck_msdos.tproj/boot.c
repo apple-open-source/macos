@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2005-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -178,7 +178,7 @@ readboot(dosfs, boot)
 		    || fsinfo[0x1fd]
 		    || fsinfo[0x1fe] != 0x55
 		    || fsinfo[0x1ff] != 0xaa) {
-			pwarn("Invalid signature in fsinfo block");
+			pwarn("Invalid signature in fsinfo block\n");
 			if (ask(0, "fix")) {
 				memcpy(fsinfo, "RRaA", 4);
 				memcpy(fsinfo + 0x1e4, "rrAa", 4);

@@ -19,6 +19,7 @@
 #include "ompi_config.h"
 
 #include "ompi/mpi/f77/bindings.h"
+#include "ompi/mpi/f77/constants.h"
 
 #if OMPI_HAVE_WEAK_SYMBOLS && OMPI_PROFILE_LAYER
 #pragma weak PMPI_ALLTOALLW = mpi_alltoallw_f
@@ -88,6 +89,10 @@ void mpi_alltoallw_f(char *sendbuf, MPI_Fint *sendcounts,
         --size;
     }
 
+    /* Alltoallw does not support MPI_IN_PLACE */
+    sendbuf = OMPI_F2C_BOTTOM(sendbuf);
+    recvbuf = OMPI_F2C_BOTTOM(recvbuf);
+
     *ierr = OMPI_INT_2_FINT(MPI_Alltoallw(sendbuf, 
 					  OMPI_ARRAY_NAME_CONVERT(sendcounts),
 					  OMPI_ARRAY_NAME_CONVERT(sdispls),
@@ -101,4 +106,6 @@ void mpi_alltoallw_f(char *sendbuf, MPI_Fint *sendcounts,
     OMPI_ARRAY_FINT_2_INT_CLEANUP(sdispls);
     OMPI_ARRAY_FINT_2_INT_CLEANUP(recvcounts);
     OMPI_ARRAY_FINT_2_INT_CLEANUP(rdispls);
+    free(c_sendtypes);
+    free(c_recvtypes);
 }

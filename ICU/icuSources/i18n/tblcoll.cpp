@@ -1,58 +1,58 @@
 /*
-******************************************************************************
-* Copyright (C) 1996-2006, International Business Machines Corporation and   *
-* others. All Rights Reserved.                                               *
-******************************************************************************
-*/
+ ******************************************************************************
+ * Copyright (C) 1996-2008, International Business Machines Corporation and   *
+ * others. All Rights Reserved.                                               *
+ ******************************************************************************
+ */
 
 /**
-* File tblcoll.cpp
-*
-* Created by: Helena Shih
-*
-* Modification History:
-*
-*  Date        Name        Description
-*  2/5/97      aliu        Added streamIn and streamOut methods.  Added
-*                          constructor which reads RuleBasedCollator object from
-*                          a binary file.  Added writeToFile method which streams
-*                          RuleBasedCollator out to a binary file.  The streamIn
-*                          and streamOut methods use istream and ostream objects
-*                          in binary mode.
-*  2/11/97     aliu        Moved declarations out of for loop initializer.
-*                          Added Mac compatibility #ifdef for ios::nocreate.
-*  2/12/97     aliu        Modified to use TableCollationData sub-object to
-*                          hold invariant data.
-*  2/13/97     aliu        Moved several methods into this class from Collation.
-*                          Added a private RuleBasedCollator(Locale&) constructor,
-*                          to be used by Collator::getInstance().  General
-*                          clean up.  Made use of UErrorCode variables consistent.
-*  2/20/97     helena      Added clone, operator==, operator!=, operator=, and copy
-*                          constructor and getDynamicClassID.
-*  3/5/97      aliu        Changed compaction cycle to improve performance.  We
-*                          use the maximum allowable value which is kBlockCount.
-*                          Modified getRules() to load rules dynamically.  Changed
-*                          constructFromFile() call to accomodate this (added
-*                          parameter to specify whether binary loading is to
-*                          take place).
-* 05/06/97     helena      Added memory allocation error check.
-*  6/20/97     helena      Java class name change.
-*  6/23/97     helena      Adding comments to make code more readable.
-* 09/03/97     helena      Added createCollationKeyValues().
-* 06/26/98     erm         Changes for CollationKeys using byte arrays.
-* 08/10/98     erm         Synched with 1.2 version of RuleBasedCollator.java
-* 04/23/99     stephen     Removed EDecompositionMode, merged with
-*                          Normalizer::EMode
-* 06/14/99     stephen     Removed kResourceBundleSuffix
-* 06/22/99     stephen     Fixed logic in constructFromFile() since .ctx
-*                          files are no longer used.
-* 11/02/99     helena      Collator performance enhancements.  Special case
-*                          for NO_OP situations.
-* 11/17/99     srl         More performance enhancements. Inlined some internal functions.
-* 12/15/99     aliu        Update to support Thai collation.  Move NormalizerIterator
-*                          to implementation file.
-* 01/29/01     synwee      Modified into a C++ wrapper calling C APIs (ucol.h)
-*/
+ * File tblcoll.cpp
+ *
+ * Created by: Helena Shih
+ *
+ * Modification History:
+ *
+ *  Date        Name        Description
+ *  2/5/97      aliu        Added streamIn and streamOut methods.  Added
+ *                          constructor which reads RuleBasedCollator object from
+ *                          a binary file.  Added writeToFile method which streams
+ *                          RuleBasedCollator out to a binary file.  The streamIn
+ *                          and streamOut methods use istream and ostream objects
+ *                          in binary mode.
+ *  2/11/97     aliu        Moved declarations out of for loop initializer.
+ *                          Added Mac compatibility #ifdef for ios::nocreate.
+ *  2/12/97     aliu        Modified to use TableCollationData sub-object to
+ *                          hold invariant data.
+ *  2/13/97     aliu        Moved several methods into this class from Collation.
+ *                          Added a private RuleBasedCollator(Locale&) constructor,
+ *                          to be used by Collator::getInstance().  General
+ *                          clean up.  Made use of UErrorCode variables consistent.
+ *  2/20/97     helena      Added clone, operator==, operator!=, operator=, and copy
+ *                          constructor and getDynamicClassID.
+ *  3/5/97      aliu        Changed compaction cycle to improve performance.  We
+ *                          use the maximum allowable value which is kBlockCount.
+ *                          Modified getRules() to load rules dynamically.  Changed
+ *                          constructFromFile() call to accomodate this (added
+ *                          parameter to specify whether binary loading is to
+ *                          take place).
+ * 05/06/97     helena      Added memory allocation error check.
+ *  6/20/97     helena      Java class name change.
+ *  6/23/97     helena      Adding comments to make code more readable.
+ * 09/03/97     helena      Added createCollationKeyValues().
+ * 06/26/98     erm         Changes for CollationKeys using byte arrays.
+ * 08/10/98     erm         Synched with 1.2 version of RuleBasedCollator.java
+ * 04/23/99     stephen     Removed EDecompositionMode, merged with
+ *                          Normalizer::EMode
+ * 06/14/99     stephen     Removed kResourceBundleSuffix
+ * 06/22/99     stephen     Fixed logic in constructFromFile() since .ctx
+ *                          files are no longer used.
+ * 11/02/99     helena      Collator performance enhancements.  Special case
+ *                          for NO_OP situations.
+ * 11/17/99     srl         More performance enhancements. Inlined some internal functions.
+ * 12/15/99     aliu        Update to support Thai collation.  Move NormalizerIterator
+ *                          to implementation file.
+ * 01/29/01     synwee      Modified into a C++ wrapper calling C APIs (ucol.h)
+ */
 
 #include "unicode/utypes.h"
 
@@ -534,10 +534,13 @@ Collator* RuleBasedCollator::safeClone(void)
     }
 
     RuleBasedCollator *result = new RuleBasedCollator();
-    result->ucollator = ucol;
-    result->dataIsOwned = TRUE;
-    result->isWriteThroughAlias = FALSE;
-    setRuleStringFromCollator();
+    // Null pointer check
+    if (result != NULL) {
+	    result->ucollator = ucol;
+	    result->dataIsOwned = TRUE;
+	    result->isWriteThroughAlias = FALSE;
+	    setRuleStringFromCollator();
+    }
 
     return result;
 }
@@ -598,18 +601,18 @@ const Locale RuleBasedCollator::getLocale(ULocDataLocaleType type, UErrorCode &s
 }
 
 void
-RuleBasedCollator::setLocales(const Locale& requestedLocale, const Locale& validLocale) {
+RuleBasedCollator::setLocales(const Locale& requestedLocale, const Locale& validLocale, const Locale& actualLocale) {
     checkOwned();
-    size_t rlen = uprv_strlen(requestedLocale.getName());
-    char* rloc  = (char *)uprv_malloc((rlen+1)*sizeof(char));
+    char* rloc  = uprv_strdup(requestedLocale.getName());
     if (rloc) {
-        uprv_strcpy(rloc, requestedLocale.getName());
-        size_t vlen = uprv_strlen(validLocale.getName());
-        char* vloc = (char*)uprv_malloc((vlen+1)*sizeof(char));
+        char* vloc = uprv_strdup(validLocale.getName());
         if (vloc) {
-            uprv_strcpy(vloc, validLocale.getName());
-            ucol_setReqValidLocales(ucollator, rloc, vloc);
-            return;
+            char* aloc = uprv_strdup(actualLocale.getName());
+            if (aloc) {
+                ucol_setReqValidLocales(ucollator, rloc, vloc, aloc);
+                return;
+            }
+            uprv_free(vloc);
         }
         uprv_free(rloc);
     }
@@ -694,58 +697,6 @@ RuleBasedCollator::checkOwned() {
         isWriteThroughAlias = FALSE;
     }
 }
-
-/* RuleBasedCollator private data members -------------------------------- */
-
-/*
- * TODO:
- * These should probably be enums (<=0xffff) or #defines (>0xffff)
- * for better performance.
- * Include ucol_imp.h and use its constants if possible.
- * Only used in coleitr.h?!
- * Remove from here!
- */
-
-/* need look up in .commit() */
-const int32_t RuleBasedCollator::CHARINDEX = 0x70000000;
-/* Expand index follows */
-const int32_t RuleBasedCollator::EXPANDCHARINDEX = 0x7E000000;
-/* contract indexes follows */
-const int32_t RuleBasedCollator::CONTRACTCHARINDEX = 0x7F000000;
-/* unmapped character values */
-const int32_t RuleBasedCollator::UNMAPPED = 0xFFFFFFFF;
-/* primary strength increment */
-const int32_t RuleBasedCollator::PRIMARYORDERINCREMENT = 0x00010000;
-/* secondary strength increment */
-const int32_t RuleBasedCollator::SECONDARYORDERINCREMENT = 0x00000100;
-/* tertiary strength increment */
-const int32_t RuleBasedCollator::TERTIARYORDERINCREMENT = 0x00000001;
-/* mask off anything but primary order */
-const int32_t RuleBasedCollator::PRIMARYORDERMASK = 0xffff0000;
-/* mask off anything but secondary order */
-const int32_t RuleBasedCollator::SECONDARYORDERMASK = 0x0000ff00;
-/* mask off anything but tertiary order */
-const int32_t RuleBasedCollator::TERTIARYORDERMASK = 0x000000ff;
-/* mask off ignorable char order */
-const int32_t RuleBasedCollator::IGNORABLEMASK = 0x0000ffff;
-/* use only the primary difference */
-const int32_t RuleBasedCollator::PRIMARYDIFFERENCEONLY = 0xffff0000;
-/* use only the primary and secondary difference */
-const int32_t RuleBasedCollator::SECONDARYDIFFERENCEONLY = 0xffffff00;
-/* primary order shift */
-const int32_t RuleBasedCollator::PRIMARYORDERSHIFT = 16;
-/* secondary order shift */
-const int32_t RuleBasedCollator::SECONDARYORDERSHIFT = 8;
-/* starting value for collation elements */
-const int32_t RuleBasedCollator::COLELEMENTSTART = 0x02020202;
-/* testing mask for primary low element */
-const int32_t RuleBasedCollator::PRIMARYLOWZEROMASK = 0x00FF0000;
-/* reseting value for secondaries and tertiaries */
-const int32_t RuleBasedCollator::RESETSECONDARYTERTIARY = 0x00000202;
-/* reseting value for tertiaries */
-const int32_t RuleBasedCollator::RESETTERTIARY = 0x00000002;
-
-const int32_t RuleBasedCollator::PRIMIGNORABLE = 0x0202;
 
 UOBJECT_DEFINE_RTTI_IMPLEMENTATION(RuleBasedCollator)
 

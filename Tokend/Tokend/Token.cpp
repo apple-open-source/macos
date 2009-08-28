@@ -239,8 +239,9 @@ CSSM_RETURN Token::_releaseSearch(CSSM_HANDLE hSearch)
 {
 	BEGIN
 	secdebug("tokend", "releaseSearch(%ld)", hSearch);
-	Security::HandleObject::findAndKill<Cursor>(hSearch,
+	Cursor &curs = Security::HandleObject::findAndKill<Cursor>(hSearch,
 		CSSMERR_CSSM_INVALID_ADDIN_HANDLE);
+	delete &curs;
 	END(DL)
 }
 
@@ -248,8 +249,9 @@ CSSM_RETURN Token::_releaseRecord(CSSM_HANDLE hRecord)
 {
 	BEGIN
 	secdebug("tokend", "releaseRecord(%ld)", hRecord);
-	Security::HandleObject::findAndKill<RecordHandle>(hRecord,
+	RecordHandle &rech = Security::HandleObject::findAndKill<RecordHandle>(hRecord,
 		CSSMERR_CSSM_INVALID_ADDIN_HANDLE);
+	delete &rech;
 	END(DL)
 }
 
@@ -265,8 +267,9 @@ CSSM_RETURN Token::_releaseKey(CSSM_HANDLE hKey)
 {
 	BEGIN
 	secdebug("tokend", "releaseKey(%ld)", hKey);
-	Security::HandleObject::findAndKill<KeyHandle>(hKey,
+	KeyHandle &keyh = Security::HandleObject::findAndKill<KeyHandle>(hKey,
 		CSSMERR_CSP_INVALID_KEY_REFERENCE);
+	delete &keyh;
 	END(CSP)
 }
 
@@ -692,7 +695,7 @@ CSSM_RETURN Token::_isLocked(uint32 *locked)
 	BEGIN
 	secdebug("tokend", "_isLocked");
 	Required(locked) = token->isLocked();
-	secdebug("tokend", "_isLocked: ", *locked);
+	secdebug("tokend", "_isLocked: %d", *locked);
 	END(DL)
 }
 
@@ -842,6 +845,8 @@ void Token::authenticate(CSSM_DB_ACCESS_TYPE mode,
 		case CSSM_SAMPLE_TYPE_PROMPTED_PASSWORD:
 		case CSSM_SAMPLE_TYPE_PROTECTED_PASSWORD:
 		{
+			if (sample.length() != 2)	// not recognized, may have non-existing data
+				return;
 			CssmData &pin = sample[1].data();
 			return verifyPIN(pinNum, pin.Data, pin.Length);
 		}

@@ -1,43 +1,40 @@
-/// <summary> Copyright (C) 2004, 2005  Free Software Foundation, Inc.
+/// <summary>
 /// *
-/// Author: Alexander Gnauck AG-Software
+/// Author: Alexander Gnauck AG-Software, mailto:gnauck@ag-software.de
 /// *
 /// This file is part of GNU Libidn.
 /// *
-/// This program is free software; you can redistribute it and/or
-/// modify it under the terms of the GNU General Public License as
-/// published by the Free Software Foundation; either version 2 of the
-/// License, or (at your option) any later version.
+/// This library is free software; you can redistribute it and/or
+/// modify it under the terms of the GNU Lesser General Public License
+/// as published by the Free Software Foundation; either version 2.1 of
+/// the License, or (at your option) any later version.
 /// *
-/// This program is distributed in the hope that it will be useful,
-/// but WITHOUT ANY WARRANTY; without even the implied warranty of
+/// This library is distributed in the hope that it will be useful, but
+/// WITHOUT ANY WARRANTY; without even the implied warranty of
 /// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-/// General Public License for more details.
+/// Lesser General Public License for more details.
 /// *
-/// You should have received a copy of the GNU General Public License
-/// along with this program; if not, write to the Free Software
-/// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-/// 02111-1307 USA.
+/// You should have received a copy of the GNU Lesser General Public
+/// License along with this library; if not, write to the Free Software
+/// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301
+/// USA
 /// </summary>
 
 using System;
+using System.Text;
 
-namespace gnu.inet.encoding
-{	
-	
+namespace Gnu.Inet.Encoding
+{		
 	public class NFKC
 	{
-		/// <summary> Applies NFKC normalization to a string.
-		/// *
-		/// </summary>
-		/// <param name="in">The string to normalize.
-		/// </param>
-		/// <returns> An NFKC normalized string.
-		/// 
-		/// </returns>
-		public static System.String normalizeNFKC(System.String sbIn)
+		/// <summary>
+        /// Applies NFKC normalization to a string.
+        /// </summary>
+		/// <param name="in">The string to normalize.</param>
+		/// <returns> An NFKC normalized string.</returns>
+		public static string NormalizeNFKC(string sbIn)
 		{
-			System.Text.StringBuilder sbOut = new System.Text.StringBuilder();
+			StringBuilder sbOut = new StringBuilder();
 			
 			for (int i = 0; i < sbIn.Length; i++)
 			{
@@ -115,15 +112,12 @@ namespace gnu.inet.encoding
 		}
 		
 		
-		/// <summary> Returns the index inside the decomposition table, implemented
+		/// <summary>
+        /// Returns the index inside the decomposition table, implemented
 		/// using a binary search.
-		/// *
 		/// </summary>
-		/// <param name="c">Character to look up.
-		/// </param>
-		/// <returns> Index if found, -1 otherwise.
-		/// 
-		/// </returns>
+		/// <param name="c">Character to look up.</param>
+		/// <returns> Index if found, -1 otherwise.</returns>
 		internal static int decomposeIndex(char c)
 		{
 			int start = 0;
@@ -154,14 +148,11 @@ namespace gnu.inet.encoding
 			}
 		}
 		
-		/// <summary> Returns the combining class of a given character.
-		/// *
+		/// <summary>
+        /// Returns the combining class of a given character.
 		/// </summary>
-		/// <param name="c">The character.
-		/// </param>
-		/// <returns> The combining class.
-		/// 
-		/// </returns>
+		/// <param name="c">The character.</param>
+		/// <returns> The combining class.</returns>
 		internal static int combiningClass(char c)
 		{
 			int h = c >> 8;
@@ -170,7 +161,7 @@ namespace gnu.inet.encoding
 			int i = CombiningClass.i[h];
 			if (i > - 1)
 			{
-				return CombiningClass.c[i][l];
+				return CombiningClass.c[i, l];
 			}
 			else
 			{
@@ -178,14 +169,12 @@ namespace gnu.inet.encoding
 			}
 		}
 		
-		/// <summary> Rearranges characters in a stringbuffer in order to respect the
+		/// <summary>
+        /// Rearranges characters in a stringbuffer in order to respect the
 		/// canonical ordering properties.
-		/// *
 		/// </summary>
-		/// <param name="The">StringBuffer to rearrange.
-		/// 
-		/// </param>
-		internal static void  canonicalOrdering(System.Text.StringBuilder sbIn)
+		/// <param name="The">StringBuffer to rearrange.</param>
+		internal static void  canonicalOrdering(StringBuilder sbIn)
 		{
 			bool isOrdered = false;
 			
@@ -222,14 +211,11 @@ namespace gnu.inet.encoding
 			}
 		}
 		
-		/// <summary> Returns the index inside the composition table.
-		/// *
+		/// <summary>
+        /// Returns the index inside the composition table.		
 		/// </summary>
-		/// <param name="a">Character to look up.
-		/// </param>
-		/// <returns> Index if found, -1 otherwise.
-		/// 
-		/// </returns>
+		/// <param name="a">Character to look up.</param>
+		/// <returns> Index if found, -1 otherwise.</returns>
 		internal static int composeIndex(char a)
 		{
 			if (a >> 8 >= Composition.composePage.Length)
@@ -241,20 +227,15 @@ namespace gnu.inet.encoding
 			{
 				return - 1;
 			}
-			return Composition.composeData[ap][a & 0xff];
+			return Composition.composeData[ap, a & 0xff];
 		}
 		
-		/// <summary> Tries to compose two characters canonically.
-		/// *
+		/// <summary>
+        /// Tries to compose two characters canonically.
 		/// </summary>
-		/// <param name="a">First character.
-		/// </param>
-		/// <param name="b">Second character.
-		/// </param>
-		/// <returns> The composed character or -1 if no composition could be
-		/// found.
-		/// 
-		/// </returns>
+		/// <param name="a">First character.</param>
+		/// <param name="b">Second character.</param>
+		/// <returns> The composed character or -1 if no composition could be found.</returns>
 		internal static int compose(char a, char b)
 		{
 			int h = composeHangul(a, b);
@@ -267,23 +248,24 @@ namespace gnu.inet.encoding
 			
 			if (ai >= Composition.singleFirstStart && ai < Composition.singleSecondStart)
 			{
-				if (b == Composition.singleFirst[ai - Composition.singleFirstStart][0])
+				if (b == Composition.singleFirst[ai - Composition.singleFirstStart, 0])                
 				{
-					return Composition.singleFirst[ai - Composition.singleFirstStart][1];
+					return Composition.singleFirst[ai - Composition.singleFirstStart, 1];                    
 				}
 				else
 				{
 					return - 1;
 				}
 			}
+
 			
 			int bi = composeIndex(b);
 			
 			if (bi >= Composition.singleSecondStart)
 			{
-				if (a == Composition.singleSecond[bi - Composition.singleSecondStart][0])
+				if (a == Composition.singleSecond[bi - Composition.singleSecondStart,0])
 				{
-					return Composition.singleSecond[bi - Composition.singleSecondStart][1];
+					return Composition.singleSecond[bi - Composition.singleSecondStart,1];
 				}
 				else
 				{
@@ -307,15 +289,14 @@ namespace gnu.inet.encoding
 						return r;
 					}
 				}
-			}
-			
+			}			
 			
 			return - 1;
 		}
 		
-		/// <summary> Entire hangul code copied from:
+		/// <summary>
+        /// Entire hangul code copied from:
 		/// http://www.unicode.org/unicode/reports/tr15/
-		/// *
 		/// Several hangul specific constants
 		/// </summary>
 		internal const int SBase = 0xAC00;
@@ -330,24 +311,21 @@ namespace gnu.inet.encoding
 		
 		internal static readonly int SCount = LCount * NCount;
 		
-		/// <summary> Decomposes a hangul character.
-		/// *
+		/// <summary>
+        /// Decomposes a hangul character.
 		/// </summary>
-		/// <param name="s">A character to decompose.
-		/// </param>
+		/// <param name="s">A character to decompose.</param>
 		/// <returns> A string containing the hangul decomposition of the input
 		/// character. If no hangul decomposition can be found, a string
-		/// containing the character itself is returned.
-		/// 
-		/// </returns>
-		internal static System.String decomposeHangul(char s)
+		/// containing the character itself is returned.</returns>
+		internal static string decomposeHangul(char s)
 		{
 			int SIndex = s - SBase;
 			if (SIndex < 0 || SIndex >= SCount)
 			{
 				return s.ToString();
 			}
-			System.Text.StringBuilder result = new System.Text.StringBuilder();
+			StringBuilder result = new StringBuilder();
 			int L = LBase + SIndex / NCount;
 			int V = VBase + (SIndex % NCount) / TCount;
 			int T = TBase + SIndex % TCount;
@@ -358,17 +336,12 @@ namespace gnu.inet.encoding
 			return result.ToString();
 		}
 		
-		/// <summary> Composes two hangul characters.
-		/// *
+		/// <summary>
+        /// Composes two hangul characters.
 		/// </summary>
-		/// <param name="a">First character.
-		/// </param>
-		/// <param name="b">Second character.
-		/// </param>
-		/// <returns> Returns the composed character or -1 if the two
-		/// characters cannot be composed.
-		/// 
-		/// </returns>
+		/// <param name="a">First character.</param>
+		/// <param name="b">Second character.</param>
+		/// <returns> Returns the composed character or -1 if the two characters cannot be composed.</returns>
 		internal static int composeHangul(char a, char b)
 		{
 			// 1. check to see if two current characters are L and V

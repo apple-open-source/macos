@@ -102,11 +102,11 @@
 #define kXMLMakeDefLDAPFlagKey				"Default LDAP Search Path"
 #define kXMLServerMappingsFlagKey			"Server Mappings"
 #define kXMLIsSSLFlagKey					"SSL"
-#define kXMLLDAPv2ReadOnlyKey				"LDAPv2 Read Only"
 #define kXMLMapSearchBase					"Map Search Base"
 #define kXMLReferralFlagKey					"LDAP Referrals"
 #define kXMLTemplateSearchBaseSuffix		"Template Search Base Suffix"
 #define kXMLConfigurationUUID				"Configuration UUID"
+#define kXMLDeniedSASLMethods				"Denied SASL Methods"
 
 #define kXMLAttrTypeMapDictKey				"Attribute Type Map"
 

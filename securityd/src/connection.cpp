@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2007 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2000-2009 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -56,8 +56,7 @@ Connection::Connection(Process &proc, Port rPort)
 	// bump the send-rights count on the reply port so we keep the right after replying
 	mClientPort.modRefs(MACH_PORT_RIGHT_SEND, +1);
 	
-	secdebug("SS", "New connection %p for process %d clientport=%d",
-		this, process().pid(), int(rPort));
+	SECURITYD_CLIENT_CONNECTION_NEW(this, rPort, &proc);
 }
 
 
@@ -67,7 +66,7 @@ Connection::Connection(Process &proc, Port rPort)
 //
 Connection::~Connection()
 {
-	secdebug("SS", "Connection %p destroyed", this);
+	SECURITYD_CLIENT_CONNECTION_RELEASE(this);
 	assert(!agentWait);
 }
 
@@ -113,7 +112,7 @@ void Connection::abort(bool keepReplyPort)
 	case busy:
 		state = dying;				// shoot me soon, please
 		if (agentWait)
-			agentWait->destroy();
+			agentWait->disconnect();
 		secdebug("SS", "Connection %p abort deferred (busy)", this);
 		break;
 	default:
@@ -129,8 +128,11 @@ void Connection::abort(bool keepReplyPort)
 // into the Big Bad Void as Connections and processes drop out from
 // under them.
 //
-void Connection::beginWork()
+void Connection::beginWork(audit_token_t &auditToken)
 {
+    // assume the audit token will be valid for the Connection's lifetime 
+    // (but no longer)
+    mAuditToken = &auditToken;
 	switch (state) {
 	case idle:
 		state = busy;
@@ -160,6 +162,8 @@ void Connection::checkWork()
 
 void Connection::endWork(CSSM_RETURN &rcode)
 {
+    mAuditToken = NULL;
+
 	switch (state) {
 	case busy:
 		if (mOverrideReturn && rcode == CSSM_OK)

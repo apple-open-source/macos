@@ -1,31 +1,70 @@
 Project        = mod_perl
-ProjectVersion = $(Project)-2.0.2
-Patches        = patch-lib__Apache2__Build.pm patch-lib__ModPerl__BuildMM.pm CVE-2007-1349.diff
+ProjectVersion = $(Project)-2.0.4
+Patches        = 
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
+
+# multi-version support
+VERSIONERDIR := /usr/local/versioner
+
+# Perl multi-version support
+PERLVERSIONS := $(VERSIONERDIR)/perl/versions
+PERLSUBDEFAULT := $(shell sed -n '/^DEFAULT = /s///p' $(PERLVERSIONS))
+PERLDEFAULT := $(shell grep '^$(PERLSUBDEFAULT)' $(PERLVERSIONS))
+PERLUNORDEREDVERS := $(shell grep -v '^DEFAULT' $(PERLVERSIONS))
+# do default version last
+PERLORDEREDVERS := $(filter-out $(PERLDEFAULT),$(PERLUNORDEREDVERS)) $(PERLDEFAULT)
 
 PERLEXTRASLIB := $(subst Perl,Perl/Extras,$(shell perl -e 'require Config; print $$Config::Config{installprivlib}'))
 PERLARCHLIB := $(shell perl -e 'require Config; print $$Config::Config{installarchlib}')
 PERLEXTRASARCHLIB := $(subst Perl,Perl/Extras,$(PERLARCHLIB))
 
 install::
+	@echo "--> Extracting..."
 	$(TAR) -C $(OBJROOT) -zxf $(SRCROOT)/$(ProjectVersion).tar.gz
-	@for patch in $(Patches); do \
-		cd $(OBJROOT)/$(ProjectVersion) && patch -p0 < $(SRCROOT)/files/$${patch}; \
+
+	@echo "--> Applying patches..."
+	@set -x && \
+	cd $(OBJROOT)/$(ProjectVersion) && \
+	for patch in $(Patches); do \
+		patch -p0 -F0 -i $(SRCROOT)/files/$${patch}; \
 	done
-	cd $(OBJROOT)/$(ProjectVersion) && perl Makefile.PL \
-		MP_APXS=/usr/sbin/apxs \
+
+	@echo "--> Building/installing..."
+	@set -x && \
+	cd $(OBJROOT)/$(ProjectVersion) && \
+	for vers in $(PERLORDEREDVERS); do \
+		export VERSIONER_PERL_VERSION=$${vers} && \
+	    installarchlib=`perl -MConfig -e 'print $$Config::Config{installarchlib}' | sed 's,Perl,Perl/Extras,'` && \
+	    installprivlib=`perl -MConfig -e 'print $$Config::Config{installprivlib}' | sed 's,Perl,Perl/Extras,'` && \
+		ARCHFLAGS="$(RC_CFLAGS)" perl Makefile.PL \
+		MP_APXS="/usr/sbin/apxs" \
 		MP_CCOPTS="$(CFLAGS)" \
-		INSTALLSITELIB=$(PERLEXTRASLIB) \
-		INSTALLSITEARCH=$(PERLEXTRASARCHLIB) \
-		INSTALLSITEMAN3DIR=$(MANDIR)/man3
-	$(MAKE) -C $(OBJROOT)/$(ProjectVersion)
-	$(MAKE) -C $(OBJROOT)/$(ProjectVersion) install DESTDIR=$(DSTROOT)
-	$(RM) $(DSTROOT)/$(PERLARCHLIB)/perllocal.pod
-	$(STRIP) -x $(DSTROOT)$(shell apxs -q LIBEXECDIR)/mod_perl.so
-	$(STRIP) -x $(DSTROOT)$(PERLEXTRASARCHLIB)/auto/*/*.bundle
-	$(STRIP) -x $(DSTROOT)$(PERLEXTRASARCHLIB)/auto/*/*/*.bundle
+		INSTALLARCHLIB=$${installarchlib} \
+		INSTALLDIRS=perl \
+		INSTALLMAN3DIR="$(MANDIR)/man3" && \
+		$(MAKE) && \
+		$(MAKE) install DESTDIR=$(DSTROOT); \
+	done
+
+	@echo "--> Post install cleanup..."
+	find $(DSTROOT) -name \*.bs -delete
+	find $(DSTROOT) -name perllocal.pod -delete
+	find $(DSTROOT) -type d -empty -delete
+
+	@set -x && \
+	cd $(DSTROOT) && \
+	for bundle in `find . -type f -name \*.bundle -o -name \*.so`; do \
+		bundledir=$(SYMROOT)/`dirname $${bundle}` && \
+		$(MKDIR) $${bundledir} && \
+		$(CP) $${bundle} $${bundledir} && \
+		$(STRIP) -x $${bundle}; \
+	done
+
 	$(INSTALL_DIRECTORY) $(DSTROOT)/usr/local/OpenSourceVersions
 	$(INSTALL_FILE) $(SRCROOT)/mod_perl.plist $(DSTROOT)/usr/local/OpenSourceVersions/apache_mod_perl.plist
 	$(INSTALL_DIRECTORY) $(DSTROOT)/usr/local/OpenSourceLicenses
 	$(INSTALL_FILE) $(OBJROOT)/$(ProjectVersion)/LICENSE $(DSTROOT)/usr/local/OpenSourceLicenses/apache_mod_perl.txt
+	$(MKDIR) $(DSTROOT)/usr/share/man/man1
+	$(INSTALL_FILE) $(SRCROOT)/mp2bug.1 $(DSTROOT)/usr/share/man/man1
+	$(_v) $(MAKE) compress_man_pages

@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2007, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2008, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,15 +18,11 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: getpart.c,v 1.23 2007-01-23 20:24:26 danf Exp $
+ * $Id: getpart.c,v 1.28 2008-10-23 14:07:28 yangtse Exp $
  ***************************************************************************/
 
 #include "setup.h"
 
-#include <stdio.h>
-#include <ctype.h>
-#include <string.h>
-#include <stdlib.h>
 #include "getpart.h"
 
 #define _MPRINTF_REPLACE /* use our functions only */
@@ -37,7 +33,8 @@ struct SessionHandle {
   int fake;
 };
 
-#include "base64.h"
+#include "curl_base64.h"
+#include "memory.h"
 
 /* include memdebug.h last */
 #include "memdebug.h"
@@ -52,11 +49,19 @@ struct SessionHandle {
 #define show(x)
 #endif
 
+#if defined(_MSC_VER) && defined(_DLL)
+#  pragma warning(disable:4232) /* MSVC extension, dllimport identity */
+#endif
+
 curl_malloc_callback Curl_cmalloc = (curl_malloc_callback)malloc;
 curl_free_callback Curl_cfree = (curl_free_callback)free;
 curl_realloc_callback Curl_crealloc = (curl_realloc_callback)realloc;
 curl_strdup_callback Curl_cstrdup = (curl_strdup_callback)strdup;
 curl_calloc_callback Curl_ccalloc = (curl_calloc_callback)calloc;
+
+#if defined(_MSC_VER) && defined(_DLL)
+#  pragma warning(default:4232) /* MSVC extension, dllimport identity */
+#endif
 
 static
 char *appendstring(char *string, /* original string */
@@ -65,14 +70,20 @@ char *appendstring(char *string, /* original string */
                    size_t *stralloc,  /* allocated size */
                    char base64) /* 1 if base64 encoded */
 {
+  union {
+    unsigned char * as_uchar;
+             char * as_char;
+  } buf64;
+
   size_t len = strlen(buffer);
   size_t needed_len = len + *stringlen + 1;
-  char *buf64=NULL;
+
+  buf64.as_char = NULL;
 
   if(base64) {
     /* decode the given buffer first */
-    len = Curl_base64_decode(buffer, (unsigned char**)&buf64); /* updated len */
-    buffer = buf64;
+    len = Curl_base64_decode(buffer, &buf64.as_uchar); /* updated len */
+    buffer = buf64.as_char;
     needed_len = len + *stringlen + 1; /* recalculate */
   }
 
@@ -86,8 +97,8 @@ char *appendstring(char *string, /* original string */
       *stralloc = newsize;
     }
     else {
-      if(buf64)
-        free(buf64);
+      if(buf64.as_char)
+        free(buf64.as_char);
       return NULL;
     }
   }
@@ -96,8 +107,8 @@ char *appendstring(char *string, /* original string */
   *stringlen += len;
   string[*stringlen]=0;
 
-  if(buf64)
-    free(buf64);
+  if(buf64.as_char)
+    free(buf64.as_char);
 
   return string;
 }
@@ -126,7 +137,7 @@ const char *spitout(FILE *stream,
     STATE_ILLEGAL
   } state = STATE_OUTSIDE;
 
-  string = (char *)malloc(stralloc);
+  string = malloc(stralloc);
   if(!string)
     return NULL;
 

@@ -1,9 +1,8 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1996-2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 1996,2007 Oracle.  All rights reserved.
 #
-# $Id: txn007.tcl,v 1.2 2004/03/30 01:24:09 jtownsen Exp $
+# $Id: txn007.tcl,v 12.6 2007/05/17 15:15:56 bostic Exp $
 #
 #TEST	txn007
 #TEST	Test of DB_TXN_WRITE_NOSYNC
@@ -40,7 +39,7 @@ proc txn007 { { iter 50 } } {
 		if { [string equal $txt {Times log written}] == 1 } {
 			set wrval [lindex $i 1]
 		}
-		if { [string equal $txt {Times log flushed}] == 1 } {
+		if { [string equal $txt {Times log flushed to disk}] == 1 } {
 			set syncval [lindex $i 1]
 		}
 	}

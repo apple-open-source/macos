@@ -1,7 +1,7 @@
 .TH SLAPD.CONF 5 "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" Copyright 1998-2006 The OpenLDAP Foundation All Rights Reserved.
+.\" Copyright 1998-2008 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
-.\" $OpenLDAP: pkg/ldap/doc/man/man5/slapd.conf.5,v 1.191.2.22 2006/07/31 23:09:53 quanah Exp $
+.\" $OpenLDAP: pkg/ldap/doc/man/man5/slapd.conf.5,v 1.239.2.18 2008/05/29 22:54:56 quanah Exp $
 .SH NAME
 slapd.conf \- configuration file for slapd, the stand-alone LDAP daemon
 .SH SYNOPSIS
@@ -11,9 +11,7 @@ The file
 .B ETCDIR/slapd.conf
 contains configuration information for the
 .BR slapd (8)
-daemon.  This configuration file is also used by the
-.BR slurpd (8)
-replication daemon and by the SLAPD tools
+daemon.  This configuration file is also used by the SLAPD tools
 .BR slapacl (8),
 .BR slapadd (8),
 .BR slapauth (8),
@@ -54,7 +52,10 @@ than once, the last appearance in the
 file is used).
 .LP
 If a line begins with white space, it is considered a continuation
-of the previous line.  Blank lines and comment lines beginning with
+of the previous line.  No physical line should be over 2000 bytes
+long.
+.LP
+Blank lines and comment lines beginning with
 a `#' character are ignored.  Note: continuation lines are unwrapped
 before comment processing is applied.
 .LP
@@ -102,6 +103,9 @@ allows unauthenticated (anonymous) bind when DN is not empty.
 .B update_anon
 allows unauthenticated (anonymous) update operations to be processed
 (subject to access controls and other administrative limits).
+.B proxy_authz_anon
+allows unauthenticated (anonymous) proxy authorization control to be processed
+(subject to access controls, authorization and other administrative limits).
 .TP
 .B argsfile <filename>
 The ( absolute ) name of a file that will hold the 
@@ -213,7 +217,7 @@ and
 .I authzTo
 describes an 
 .B identity 
-or a set of identities; it can take three forms:
+or a set of identities; it can take five forms:
 .RS
 .TP
 .B ldap:///<base>??[<scope>]?<filter>
@@ -415,9 +419,10 @@ does not prohibit anonymous directory access (See "require authc").
 disables simple (bind) authentication.
 .B tls_2_anon
 disables forcing session to anonymous status (see also
-.BR tls_authc ) upon StartTLS operation receipt.
+.BR tls_authc )
+upon StartTLS operation receipt.
 .B tls_authc
-dissallow the StartTLS operation if authenticated (see also
+disallows the StartTLS operation if authenticated (see also
 .BR tls_2_anon ).
 .HP
 .hy 0
@@ -465,6 +470,12 @@ feature.  The default is 0.
 Read additional configuration information from the given file before
 continuing with the next line of the current file.
 .TP
+.B index_intlen <integer>
+Specify the key length for ordered integer indices. The most significant
+bytes of the binary integer will be used for index keys. The default
+value is 4, which provides exact indexing for 31 bit values.
+A floating point representation is used to index too large values.
+.TP
 .B index_substr_if_minlen <integer>
 Specify the minimum length for subinitial and subfinal indices. An
 attribute value must have at least this many characters in order to be
@@ -491,12 +502,12 @@ lookup. The default is 2. For example, with the default values, a search
 using this filter "cn=*abcdefgh*" would generate index lookups for
 "abcd", "cdef", and "efgh".
 
-.\"-- NEW_LOGGING option --
-.\".TP
-.\".B logfile <filename>
-.\"Specify a file for recording debug log messages. By default these messages
-.\"only go to stderr and are not recorded anywhere else. Specifying a logfile
-.\"copies messages to both stderr and the logfile.
+.LP
+Note: Indexing support depends on the particular backend in use. Also,
+changing these settings will generally require deleting any indices that
+depend on these parameters and recreating them with
+.BR slapindex (8).
+
 .TP
 .B localSSF <SSF>
 Specifies the Security Strength Factor (SSF) to be given local LDAP sessions,
@@ -506,6 +517,11 @@ see
 .B minssf
 option description.  The default is 71.
 .TP
+.B logfile <filename>
+Specify a file for recording debug log messages. By default these messages
+only go to stderr and are not recorded anywhere else. Specifying a logfile
+copies messages to both stderr and the logfile.
+.TP
 .B loglevel <integer> [...]
 Specify the level at which debugging statements and operation 
 statistics should be syslogged (currently logged to the
@@ -514,8 +530,7 @@ LOG_LOCAL4 facility).
 They must be considered subsystems rather than increasingly verbose 
 log levels.
 Some messages with higher priority are logged regardless 
-of the configured loglevel as soon as some logging is configured,
-otherwise anything is logged at all.
+of the configured loglevel as soon as any logging is configured.
 Log levels are additive, and available levels are:
 .RS
 .RS
@@ -526,7 +541,7 @@ Log levels are additive, and available levels are:
 trace function calls
 .TP
 .B 2
-.B (0x2 packet)
+.B (0x2 packets)
 debug packet handling
 .TP
 .B 4
@@ -555,7 +570,7 @@ access control list processing
 .TP
 .B 256
 .B (0x100 stats)
-stats log connections/operations/results
+connections, LDAP operations, results (recommended)
 .TP
 .B 512
 .B (0x200 stats2)
@@ -568,14 +583,14 @@ print communication with shell backends
 .B 2048
 .B (0x800 parse)
 entry parsing
-.TP
-.B 4096
-.B (0x1000 cache)
-caching (unused)
-.TP
-.B 8192
-.B (0x2000 index)
-data indexing (unused)
+\".TP
+\".B 4096
+\".B (0x1000 cache)
+\"caching (unused)
+\".TP
+\".B 8192
+\".B (0x2000 index)
+\"data indexing (unused)
 .TP
 .B 16384
 .B (0x4000 sync)
@@ -607,10 +622,14 @@ The keyword
 .BR none ,
 or the equivalent integer representation, causes those messages
 that are logged regardless of the configured loglevel to be logged.
-In fact, if no loglevel (or a 0 level) is defined, no logging occurs, 
+In fact, if loglevel is set to 0, no logging occurs, 
 so at least the 
 .B none
 level is required to have high priority messages logged.
+
+The loglevel defaults to \fBstats\fP.
+This level should usually also be included when using other loglevels, to
+help analyze the logs.
 .RE
 .TP
 .B moduleload <filename>
@@ -716,24 +735,6 @@ Specify the referral to pass back when
 cannot find a local database to handle a request.
 If specified multiple times, each url is provided.
 .TP
-.B replica-argsfile
-The ( absolute ) name of a file that will hold the 
-.B slurpd
-server's command line options
-if started without the debugging command line option.
-.TP
-.B replica-pidfile
-The ( absolute ) name of a file that will hold the 
-.B slurpd
-server's process ID ( see
-.BR getpid (2)
-) if started without the debugging command line option.
-.TP
-.B replicationinterval
-The number of seconds 
-.B slurpd 
-waits before checking the replogfile for changes.
-.TP
 .B require <conditions>
 Specify a set of conditions (separated by white space) to
 require (default none).
@@ -766,6 +767,14 @@ if compiled with --enable-rlookups).
 Specify the name of an LDIF(5) file containing user defined attributes
 for the root DSE.  These attributes are returned in addition to the
 attributes normally produced by slapd.
+
+The root DSE is an entry with information about the server and its
+capabilities, in operational attributes.
+It has the empty DN, and can be read with e.g.:
+.ti +4
+ldapsearch -x -b "" -s base "+"
+.br
+See RFC 4512 section 5.1 for details.
 .TP
 .B sasl-host <fqdn>
 Used to specify the fully qualified domain name used for SASL processing.
@@ -857,6 +866,24 @@ Note that the
 factor is measure of security provided by the underlying transport,
 e.g. ldapi:// (and eventually IPSEC).  It is not normally used.
 .TP
+.B serverID <integer> [<URL>]
+Specify an integer ID from 0 to 4095 for this server (limited
+to 3 hexadecimal digits).
+These IDs are
+required when using multimaster replication and each master must have a
+unique ID. Note that this requirement also applies to separate masters
+contributing to a glued set of databases.
+If the URL is provided, this directive may be specified
+multiple times, providing a complete list of participating servers
+and their IDs. The fully qualified hostname of each server should be
+used in the supplied URLs. The IDs are used in the "replica id" field
+of all CSNs generated by the specified server. The default value is zero.
+Example:
+.LP
+.nf
+	serverID 1
+.fi
+.TP
 .B sizelimit {<integer>|unlimited}
 .TP
 .B sizelimit size[.{soft|hard|unchecked}]=<integer> [...]
@@ -878,6 +905,14 @@ The default is 262143.
 .B sockbuf_max_incoming_auth <integer>
 Specify the maximum incoming LDAP PDU size for authenticated sessions.
 The default is 4194303.
+.TP
+.B sortvals <attr> [...]
+Specify a list of multi-valued attributes whose values will always
+be maintained in sorted order. Using this option will allow Modify,
+Compare, and filter evaluations on these attributes to be performed
+more efficiently. The resulting sort order depends on the
+attributes' syntax and matching rules and may not correspond to
+lexical order or any other recognizable order.
 .TP
 .B threads <integer>
 Specify the maximum size of the primary thread pool.
@@ -921,7 +956,16 @@ TLSCipherSuite HIGH:MEDIUM:+SSLv2
 
 To check what ciphers a given spec selects, use:
 
-openssl ciphers -v <cipher-suite-spec>
+.nf
+	openssl ciphers -v <cipher-suite-spec>
+.fi
+
+To obtain the list of ciphers in GNUtls use:
+
+.nf
+	gnutls-cli -l
+.fi
+
 .TP
 .B TLSCACertificateFile <filename>
 Specifies the file that contains certificates for all of the Certificate
@@ -932,7 +976,8 @@ will recognize.
 .B TLSCACertificatePath <path>
 Specifies the path of a directory that contains Certificate Authority
 certificates in separate individual files. Usually only one of this
-or the TLSCACertificateFile is used.
+or the TLSCACertificateFile is used. This directive is not supported
+when using GNUtls.
 .TP
 .B TLSCertificateFile <filename>
 Specifies the file that contains the
@@ -955,12 +1000,14 @@ them will be processed.  Note that setting this option may also enable
 Anonymous Diffie-Hellman key exchanges in certain non-default cipher suites.
 You should append "!ADH" to your cipher suites if you have changed them
 from the default, otherwise no certificate exchanges or verification will
-be done.
+be done. When using GNUtls these parameters are always generated randomly so
+this directive is ignored.
 .TP
 .B TLSRandFile <filename>
 Specifies the file to obtain random bits from when /dev/[u]random
 is not available.  Generally set to the name of the EGD/PRNGD socket.
 The environment variable RANDFILE can also be used to specify the filename.
+This directive is ignored with GNUtls.
 .TP
 .B TLSVerifyClient <level>
 Specifies what checks to perform on client certificates in an
@@ -1002,7 +1049,7 @@ Specifies if the Certificate Revocation List (CRL) of the CA should be
 used to verify if the client certificates have not been revoked. This
 requires
 .B TLSCACertificatePath
-parameter to be set.
+parameter to be set. This directive is ignored with GNUtls.
 .B <level>
 can be specified as one of the following keywords:
 .RS
@@ -1016,6 +1063,11 @@ Check the CRL of the peer certificate
 .B all
 Check the CRL for a whole certificate chain
 .RE
+.TP
+.B TLSCRLFile <filename>
+Specifies a file containing a Certificate Revocation List to be used
+for verifying that certificates have not been revoked. This directive is
+only valid when using GNUtls.
 .SH GENERAL BACKEND OPTIONS
 Options in this section only apply to the configuration file section
 for the specified backend.  They are supported by every
@@ -1029,7 +1081,6 @@ should be one of
 .BR dnssrv ,
 .BR hdb ,
 .BR ldap ,
-.BR ldbm ,
 .BR ldif ,
 .BR meta ,
 .BR monitor ,
@@ -1059,7 +1110,6 @@ should be one of
 .BR dnssrv ,
 .BR hdb ,
 .BR ldap ,
-.BR ldbm ,
 .BR ldif ,
 .BR meta ,
 .BR monitor ,
@@ -1071,6 +1121,13 @@ should be one of
 or
 .BR sql ,
 depending on which backend will serve the database.
+.TP
+.B hidden on | off
+Controls whether the database will be used to answer
+queries. A database that is hidden will never be
+selected to answer any queries, and any suffix configured
+on the database will be ignored in checks for conflicts
+with other databases. By default, hidden is off.
 .TP
 .B lastmod on | off
 Controls whether
@@ -1297,11 +1354,34 @@ is requested cannot exceed the
 size limit of regular searches unless extended by the
 .B prtotal
 switch.
+
+The \fBlimits\fP statement is typically used to let an unlimited
+number of entries be returned by searches performed
+with the identity used by the consumer for synchronization purposes
+by means of the RFC 4533 LDAP Content Synchronization protocol
+(see \fBsyncrepl\fP for details).
 .RE
 .TP
 .B maxderefdepth <depth>
 Specifies the maximum number of aliases to dereference when trying to
-resolve an entry, used to avoid infinite alias loops. The default is 1.
+resolve an entry, used to avoid infinite alias loops. The default is 15.
+.TP
+.B mirrormode on | off
+This option puts a replica database into "mirror" mode.  Update
+operations will be accepted from any user, not just the updatedn.  The
+database must already be configured as a syncrepl consumer
+before this keyword may be set. This mode also requires a
+.B serverID
+(see above) to be configured.
+By default, mirrormode is off.
+.TP
+.B monitoring on | off
+This option enables database-specific monitoring in the entry related
+to the current database in the "cn=Databases,cn=Monitor" subtree 
+of the monitor database, if the monitor database is enabled.
+Currently, only the BDB and the HDB databases provide database-specific
+monitoring.
+The default depends on the backend type.
 .TP
 .B overlay <overlay-name>
 Add the specified overlay to this database. An overlay is a piece of
@@ -1309,85 +1389,16 @@ code that intercepts database operations in order to extend or change
 them. Overlays are pushed onto
 a stack over the database, and so they will execute in the reverse
 of the order in which they were configured and the database itself
-will receive control last of all.
+will receive control last of all. See the
+.BR slapd.overlays (5)
+manual page for an overview of the available overlays.
+Note that all of the database's
+regular settings should be configured before any overlay settings.
 .TP
 .B readonly on | off
 This option puts the database into "read-only" mode.  Any attempts to 
 modify the database will return an "unwilling to perform" error.  By
 default, readonly is off.
-.HP
-.hy 0
-.B replica uri=ldap[s]://<hostname>[:port]|host=<hostname>[:port] 
-.B [starttls=yes|critical]
-.B [suffix=<suffix> [...]]
-.B bindmethod=simple|sasl [binddn=<simple DN>] [credentials=<simple password>]
-.B [saslmech=<SASL mech>] [secprops=<properties>] [realm=<realm>]
-.B [authcId=<authentication ID>] [authzId=<authorization ID>]
-.B [attr[!]=<attr list>]
-.RS
-Specify a replication site for this database.  Refer to the "OpenLDAP 
-Administrator's Guide" for detailed information on setting up a replicated
-.B slapd
-directory service. Zero or more
-.B suffix
-instances can be used to select the subtrees that will be replicated
-(defaults to all the database). 
-.B host
-is deprecated in favor of the
-.B uri
-option.
-.B uri
-allows the replica LDAP server to be specified as an LDAP URI. 
-A
-.B bindmethod
-of
-.B simple
-requires the options
-.B binddn 
-and
-.B credentials  
-and should only be used when adequate security services 
-(e.g TLS or IPSEC) are in place. A
-.B bindmethod 
-of
-.B sasl 
-requires the option
-.B saslmech. 
-Specific security properties (as with the
-.B sasl-secprops
-keyword above) for a SASL bind can be set with the
-.B secprops
-option. A non-default SASL realm can be set with the
-.B realm
-option.
-If the 
-.B mechanism
-will use Kerberos, a kerberos instance should be given in 
-.B authcId.
-An
-.B attr list
-can be given after the 
-.B attr
-keyword to allow the selective replication of the listed attributes only;
-if the optional 
-.B !
-mark is used, the list is considered exclusive, i.e. the listed attributes
-are not replicated.
-If an objectClass is listed, all the related attributes
-are (are not) replicated.
-.RE
-.TP
-.B replogfile <filename>
-Specify the name of the replication log file to log changes to.  
-The replication log is typically written by
-.BR slapd (8)
-and read by
-.BR slurpd (8).
-See
-.BR slapd.replog (5)
-for more information.  The specified file should be located
-in a directory with limited read/write/execute access as the replication
-logs may contain sensitive information.
 .TP
 .B restrict <oplist>
 Specify a whitespace separated list of operations that are restricted.
@@ -1427,7 +1438,8 @@ when initially populating a database).  If the rootdn is within
 a namingContext (suffix) of the database, a simple bind password
 may also be provided using the
 .B rootpw
-directive. Note that the rootdn is always needed when using syncrepl.
+directive. Many optional features, including syncrepl, require the
+rootdn to be defined for the database.
 .TP
 .B rootpw <password>
 Specify a password (or hash of the password) for the rootdn.  The
@@ -1501,18 +1513,19 @@ in order to work over all of the glued databases. E.g.
 .hy 0
 .B syncrepl rid=<replica ID>
 .B provider=ldap[s]://<hostname>[:port]
+.B searchbase=<base DN>
 .B [type=refreshOnly|refreshAndPersist]
 .B [interval=dd:hh:mm:ss]
 .B [retry=[<retry interval> <# of retries>]+]
-.B [searchbase=<base DN>]
 .B [filter=<filter str>]
-.B [scope=sub|one|base]
+.B [scope=sub|one|base|subord]
 .B [attrs=<attr list>]
 .B [attrsonly]
 .B [sizelimit=<limit>]
 .B [timelimit=<limit>]
 .B [schemachecking=on|off]
-.B [starttls=yes|critical]
+.B [network-timeout=<seconds>]
+.B [timeout=<seconds>]
 .B [bindmethod=simple|sasl]
 .B [binddn=<dn>]
 .B [saslmech=<mech>]
@@ -1521,6 +1534,14 @@ in order to work over all of the glued databases. E.g.
 .B [credentials=<passwd>]
 .B [realm=<realm>]
 .B [secprops=<properties>]
+.B [starttls=yes|critical]
+.B [tls_cert=<file>]
+.B [tls_key=<file>]
+.B [tls_cacert=<file>]
+.B [tls_cacertdir=<path>]
+.B [tls_reqcert=never|allow|try|demand]
+.B [tls_ciphersuite=<ciphers>]
+.B [tls_crlcheck=none|peer|all]
 .B [logbase=<base DN>]
 .B [logfilter=<filter str>]
 .B [syncdata=default|accesslog|changelog]
@@ -1539,15 +1560,20 @@ setting up a replicated
 directory service using the 
 .B syncrepl
 replication engine.
+
 .B rid
 identifies the current
 .B syncrepl
 directive within the replication consumer site.
-It is a non-negative integer having no more than three digits.
+It is a non-negative integer not greater than 4095 (limited
+to three hexadecimal digits).
+
 .B provider
 specifies the replication provider site containing the master content
 as an LDAP URI. If <port> is not given, the standard LDAP port number
-(389 or 636) is used. The content of the
+(389 or 636) is used.
+
+The content of the
 .B syncrepl
 replica is defined using a search
 specification as its result set. The consumer
@@ -1555,16 +1581,26 @@ specification as its result set. The consumer
 will send search requests to the provider
 .B slapd
 according to the search specification. The search specification includes
-.B searchbase, scope, filter, attrs, attrsonly, sizelimit,
+.BR searchbase ", " scope ", " filter ", " attrs ", " attrsonly ", " sizelimit ", "
 and
 .B timelimit
 parameters as in the normal search specification. 
 The \fBscope\fP defaults to \fBsub\fP, the \fBfilter\fP defaults to
-\fB(objectclass=*)\fP, and there is no default \fBsearchbase\fP. The
+\fB(objectclass=*)\fP, while there is no default \fBsearchbase\fP. The
 \fBattrs\fP list defaults to \fB"*,+"\fP to return all user and operational
 attributes, and \fBattrsonly\fP is unset by default.
 The \fBsizelimit\fP and \fBtimelimit\fP only
 accept "unlimited" and positive integers, and both default to "unlimited".
+The \fBsizelimit\fP and \fBtimelimit\fP parameters define
+a consumer requested limitation on the number of entries that can be returned
+by the LDAP Content Synchronization operation; as such, it is intended
+to implement partial replication based on the size of the replicated database
+and on the time required by the synchronization.
+Note, however, that any provider-side limits for the replication identity
+will be enforced by the provider regardless of the limits requested
+by the LDAP Content Synchronization operation, much like for any other
+search operation.
+
 The LDAP Content Synchronization protocol has two operation types.
 In the
 .B refreshOnly
@@ -1580,6 +1616,7 @@ Further updates to the master replica will generate
 .B searchResultEntry
 to the consumer slapd as the search responses to the persistent
 synchronization search.
+
 If an error occurs during replication, the consumer will attempt to
 reconnect according to the
 .B retry
@@ -1588,17 +1625,29 @@ For example, retry="60 10 300 3" lets the consumer retry every 60 seconds
 for the first 10 times and then retry every 300 seconds for the next 3
 times before stop retrying. The `+' in <# of retries> means indefinite
 number of retries until success.
+
 The schema checking can be enforced at the LDAP Sync
 consumer site by turning on the
 .B schemachecking
-parameter. The default is off.
+parameter. The default is \fBoff\fP.
+Schema checking \fBon\fP means that replicated entries must have
+a structural objectClass, must obey to objectClass requirements
+in terms of required/allowed attributes, and that naming attributes
+and distinguished values must be present.
+As a consequence, schema checking should be \fBoff\fP when partial
+replication is used.
+
 The
-.B starttls
-parameter specifies use of the StartTLS extended operation
-to establish a TLS session before Binding to the provider. If the
-.B critical
-argument is supplied, the session will be aborted if the StartTLS request
-fails. Otherwise the syncrepl session continues without TLS.
+.B network-timeout
+parameter sets how long the consumer will wait to establish a
+network connection to the provider. Once a connection is
+established, the
+.B timeout
+parameter determines how long the consumer will wait for the initial
+Bind request to complete. The defaults for these parameters come
+from 
+.BR ldap.conf (5).
+
 A
 .B bindmethod
 of 
@@ -1609,6 +1658,7 @@ and
 .B credentials
 and should only be used when adequate security services
 (e.g. TLS or IPSEC) are in place.
+.B REMEMBER: simple bind credentials must be in cleartext!
 A
 .B bindmethod
 of
@@ -1630,6 +1680,26 @@ keyword above) for a SASL bind can be set with the
 option. A non default SASL realm can be set with the
 .B realm 
 option.
+The identity used for synchronization by the consumer should be allowed
+to receive an unlimited number of entries in response to a search request.
+The provider, other than allow authentication of the syncrepl identity,
+should grant that identity appropriate access privileges to the data 
+that is being replicated (\fBaccess\fP directive), and appropriate time 
+and size limits.
+This can be accomplished by either allowing unlimited \fBsizelimit\fP
+and \fBtimelimit\fP, or by setting an appropriate \fBlimits\fP statement
+in the consumer's configuration (see \fBsizelimit\fP and \fBlimits\fP
+for details).
+
+The
+.B starttls
+parameter specifies use of the StartTLS extended operation
+to establish a TLS session before Binding to the provider. If the
+.B critical
+argument is supplied, the session will be aborted if the StartTLS request
+fails. Otherwise the syncrepl session continues without TLS. The
+tls_reqcert setting defaults to "demand" and the other TLS settings
+default to the same as the main slapd TLS settings.
 
 Rather than replicating whole entries, the consumer can query logs of
 data modifications. This mode of operation is referred to as \fIdelta
@@ -1650,12 +1720,10 @@ ignored.
 .TP
 .B updatedn <dn>
 This option is only applicable in a slave
-database updated using
-.BR slurpd(8). 
+database.
 It specifies the DN permitted to update (subject to access controls)
-the replica (typically, this is the DN
-.BR slurpd (8)
-binds to update the replica).  Generally, this DN
+the replica.  It is only needed in certain push-mode
+replication scenarios.  Generally, this DN
 .I should not
 be the same as the
 .B rootdn 
@@ -1669,182 +1737,9 @@ If specified multiple times, each url is provided.
 
 .SH DATABASE-SPECIFIC OPTIONS
 Each database may allow specific configuration options; they are
-documented separately in the backends' manual pages.
-.SH BACKENDS
-The following backends can be compiled into slapd.
-They are documented in the
-.BR slapd-<backend> (5)
-manual pages.
-.TP
-.B bdb
-This is the recommended primary backend for a normal slapd database.
-It takes care to configure it properly.
-It uses the transactional database interface of the Sleepycat Berkeley
-DB (BDB) package to store data.
-.TP
-.B config
-This backend is used to manage the configuration of slapd run-time.
-.TP
-.B dnssrv
-This backend is experimental.
-It serves up referrals based upon SRV resource records held in the
-Domain Name System.
-.TP
-.B hdb
-This is a variant of the BDB backend that uses a hierarchical database
-layout which supports subtree renames.
-.TP
-.B ldap
-This backend acts as a proxy to forward incoming requests to another
-LDAP server.
-.TP
-.B ldbm
-This is an easy-to-configure but obsolete database backend. It
-does not offer the data durability features of the BDB and HDB
-backends and hence is deprecated in favor of these robust backends.
-LDBM uses lightweight non-transactional DB interfaces,
-such as those providing by GDBM or Berkeley DB, to store data.
-.TP
-.B ldif
-This database uses the filesystem to build the tree structure
-of the database, using plain ascii files to store data.
-Its usage should be limited to very simple databases, where performance
-is not a requirement.
-.TP
-.B meta
-This backend performs basic LDAP proxying with respect to a set of
-remote LDAP servers. It is an enhancement of the ldap backend.
-.TP
-.B monitor
-This backend provides information about the running status of the slapd
-daemon.
-.TP
-.B null
-Operations in this backend succeed but do nothing.
-.TP
-.B passwd
-This backend is provided for demonstration purposes only.
-It serves up user account information from the system
-.BR passwd (5)
-file.
-.TP
-.B perl
-This backend embeds a
-.BR perl (1)
-interpreter into slapd.
-It runs Perl subroutines to implement LDAP operations.
-.TP
-.B relay
-This backend is experimental.
-It redirects LDAP operations to another database
-in the same server, based on the naming context of the request.
-Its use requires the 
-.B rwm
-overlay (see
-.BR slapo-rwm (5)
-for details) to rewrite the naming context of the request.
-It is primarily intended to implement virtual views on databases
-that actually store data.
-.TP
-.B shell
-This backend executes external programs to implement LDAP operations.
-It is primarily intended to be used in prototypes.
-.TP
-.B sql
-This backend is experimental.
-It services LDAP requests from an SQL database.
-.SH OVERLAYS
-The following overlays can be compiled into slapd.
-They are documented in the
-.BR slapo-<overlay> (5)
-manual pages.
-.TP
-.B accesslog
-Access Logging.
-This overlay can record accesses to a given backend database on another
-database.
-.TP
-.B auditlog
-Audit Logging.
-This overlay records changes on a given backend database to an LDIF log
-file.
-By default it is not built.
-.TP
-.B chain
-Chaining.
-This overlay allows automatic referral chasing when a referral would
-have been returned, either when configured by the server or when 
-requested by the client.
-.TP
-.B denyop
-Deny Operation.
-This overlay allows selected operations to be denied, similar to the
-\fBrestrict\fP option.
-.TP
-.B dyngroup
-Dynamic Group.
-This is a demo overlay which extends the Compare operation to detect
-members of a dynamic group.
-It has no effect on any other operations.
-.TP
-.B dynlist
-Dynamic List.
-This overlay allows expansion of dynamic groups and more.
-.TP
-.B lastmod
-Last Modification.
-This overlay maintains a service entry in the database with the DN,
-modification type, modifiersName and modifyTimestamp of the last write
-operation performed on that database.
-.TP
-.B pcache
-Proxycache.
-This overlay allows caching of LDAP search requests in a local database.
-It is most often used with the ldap or meta backends.
-.TP
-.B ppolicy
-Password Policy.
-This overlay provides a variety of password control mechanisms,
-e.g. password aging, password reuse and duplication control, mandatory
-password resets, etc.
-.TP
-.B refint
-Referential Integrity.
-This overlay can be used with a backend database such as
-.BR slapd-bdb (5)
-to maintain the cohesiveness of a schema which utilizes reference
-attributes.
-.TP
-.B retcode
-Return Code.
-This overlay is useful to test the behavior of clients when
-server-generated erroneous and/or unusual responses occur.
-.TP
-.B rwm
-Rewrite/remap.
-This overlay is experimental.
-It performs basic DN/data rewrite and
-objectClass/attributeType mapping.
-.TP
-.B syncprov
-Syncrepl Provider.
-This overlay implements the provider-side support for
-.B syncrepl
-replication, including persistent search functionality.
-.TP
-.B translucent
-Translucent Proxy.
-This overlay can be used with a backend database such as
-.BR slapd-bdb (5)
-to create a "translucent proxy".
-Content of entries retrieved from a remote LDAP server can be partially
-overridden by the database.
-.TP
-.B unique
-Attribute Uniqueness.
-This overlay can be used with a backend database such as
-.BR slapd-bdb (5)
-to enforce the uniqueness of some or all attributes within a subtree.
+documented separately in the backends' manual pages. See the
+.BR slapd.backends (5)
+manual page for an overview of available backends.
 .SH EXAMPLES
 .LP
 Here is a short example of a configuration file:
@@ -1852,13 +1747,13 @@ Here is a short example of a configuration file:
 .RS
 .nf
 include   SYSCONFDIR/schema/core.schema
-pidfile   LOCALSTATEDIR/slapd.pid
+pidfile   LOCALSTATEDIR/run/slapd.pid
 
 # Subtypes of "name" (e.g. "cn" and "ou") with the
 # option ";x-hidden" can be searched for/compared,
 # but are not shown.  See \fBslapd.access\fP(5).
 attributeoptions x-hidden lang-
-access to attr=name;x-hidden by * =cs
+access to attrs=name;x-hidden by * =cs
 
 # Protect passwords.  See \fBslapd.access\fP(5).
 access    to attrs=userPassword  by * auth
@@ -1893,21 +1788,10 @@ ETCDIR/slapd.conf
 default slapd configuration file
 .SH SEE ALSO
 .BR ldap (3),
-.BR slapd\-bdb (5),
-.BR slapd\-dnssrv (5),
-.BR slapd\-hdb (5),
-.BR slapd\-ldap (5),
-.BR slapd\-ldbm (5),
-.BR slapd\-ldif (5),
-.BR slapd\-meta (5),
-.BR slapd\-monitor (5),
-.BR slapd\-null (5),
-.BR slapd\-passwd (5),
-.BR slapd\-perl (5),
-.BR slapd\-relay (5),
-.BR slapd\-shell (5),
-.BR slapd\-sql (5),
+.BR slapd\-config (5),
 .BR slapd.access (5),
+.BR slapd.backends (5),
+.BR slapd.overlays (5),
 .BR slapd.plugin (5),
 .BR slapd.replog (5),
 .BR slapd (8),
@@ -1918,27 +1802,8 @@ default slapd configuration file
 .BR slapdn (8),
 .BR slapindex (8),
 .BR slappasswd (8),
-.BR slaptest (8),
-.BR slurpd (8).
-
-Known overlays are documented in
-.BR slapo\-accesslog (5),
-.BR slapo\-auditlog (5),
-.BR slapo\-chain (5),
-.BR slapo\-dynlist (5),
-.BR slapo\-lastmod (5),
-.BR slapo\-pcache (5),
-.BR slapo\-ppolicy (5),
-.BR slapo\-refint (5),
-.BR slapo\-retcode (5),
-.BR slapo\-rwm (5),
-.BR slapo\-syncprov (5),
-.BR slapo\-translucent (5),
-.BR slapo\-unique (5).
+.BR slaptest (8).
 .LP
 "OpenLDAP Administrator's Guide" (http://www.OpenLDAP.org/doc/admin/)
 .SH ACKNOWLEDGEMENTS
-.B OpenLDAP
-is developed and maintained by The OpenLDAP Project (http://www.openldap.org/).
-.B OpenLDAP
-is derived from University of Michigan LDAP 3.3 Release.  
+.so ../Project

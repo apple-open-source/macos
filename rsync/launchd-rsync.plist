@@ -18,6 +18,8 @@
 	<dict>
 		<key>Listeners</key>
 		<dict>
+			<key>SockNodeName</key>
+			<string>localhost</string>
 			<key>SockServiceName</key>
 			<string>rsync</string>
 			<key>SockFamily</key>

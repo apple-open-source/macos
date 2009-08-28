@@ -107,115 +107,115 @@ static const struct instable op_invalid_64 = {"",TERM,/* UNKNOWN */0,0};
 static void get_operand(
     const char **symadd,
     const char **symsub,
-    unsigned long *value,
-    unsigned long *value_size,
+    uint32_t *value,
+    uint32_t *value_size,
     char *result,
     const cpu_type_t cputype,
-    const unsigned long mode,
-    const unsigned long r_m,
-    const unsigned long wbit,
+    const uint32_t mode,
+    const uint32_t r_m,
+    const uint32_t wbit,
     const enum bool data16,
     const enum bool addr16,
     const enum bool sse2,
     const enum bool mmx,
 	const unsigned int rex,
     const char *sect,
-    unsigned long sect_addr,
-    unsigned long *length,
-    unsigned long *left,
-    const unsigned long addr,
+    uint32_t sect_addr,
+    uint32_t *length,
+    uint32_t *left,
+    const uint32_t addr,
     const struct relocation_info *sorted_relocs,
-    const unsigned long nsorted_relocs,
+    const uint32_t nsorted_relocs,
     const struct nlist *symbols,
     const struct nlist_64 *symbols64,
-    const unsigned long nsymbols,
+    const uint32_t nsymbols,
     const char *strings,
-    const unsigned long strings_size,
+    const uint32_t strings_size,
     const struct symbol *sorted_symbols,
-    const unsigned long nsorted_symbols,
+    const uint32_t nsorted_symbols,
     const enum bool verbose);
 
 static void immediate(
     const char **symadd,
     const char **symsub,
-    unsigned long long *value,
-    unsigned long value_size,
+    uint64_t *value,
+    uint32_t value_size,
     const char *sect,
-    unsigned long sect_addr,
-    unsigned long *length,
-    unsigned long *left,
+    uint32_t sect_addr,
+    uint32_t *length,
+    uint32_t *left,
     const cpu_type_t cputype,
-    const unsigned long addr,
+    const uint32_t addr,
     const struct relocation_info *sorted_relocs,
-    const unsigned long nsorted_relocs,
+    const uint32_t nsorted_relocs,
     const struct nlist *symbols,
     const struct nlist_64 *symbols64,
-    const unsigned long nsymbols,
+    const uint32_t nsymbols,
     const char *strings,
-    const unsigned long strings_size,
+    const uint32_t strings_size,
     const struct symbol *sorted_symbols,
-    const unsigned long nsorted_symbols,
+    const uint32_t nsorted_symbols,
     const enum bool verbose);
 
 static void displacement(
     const char **symadd,
     const char **symsub,
-    unsigned long *value,
-    const unsigned long value_size,
+    uint32_t *value,
+    const uint32_t value_size,
     const char *sect,
-    unsigned long sect_addr,
-    unsigned long *length,
-    unsigned long *left,
+    uint64_t sect_addr,
+    uint32_t *length,
+    uint32_t *left,
     const cpu_type_t cputype,
-    const unsigned long addr,
+    const uint64_t addr,
     const struct relocation_info *sorted_relocs,
-    const unsigned long nsorted_relocs,
+    const uint32_t nsorted_relocs,
     const struct nlist *symbols,
     const struct nlist_64 *symbols64,
-    const unsigned long nsymbols,
+    const uint32_t nsymbols,
     const char *strings,
-    const unsigned long strings_size,
+    const uint32_t strings_size,
     const struct symbol *sorted_symbols,
-    const unsigned long nsorted_symbols,
+    const uint32_t nsorted_symbols,
     const enum bool verbose);
 
 static void get_symbol(
     const char **symadd,
     const char **symsub,
-    unsigned long long *offset,
+    uint64_t *offset,
     const cpu_type_t cputype,
-    const unsigned long sect_offset,
-    const unsigned long long value,
+    const uint32_t sect_offset,
+    const uint64_t value,
     const struct relocation_info *relocs,
-    const unsigned long nrelocs,
+    const uint32_t nrelocs,
     const struct nlist *symbols,
     const struct nlist_64 *symbols64,
-    const unsigned long nsymbols,
+    const uint32_t nsymbols,
     const char *strings,
-    const unsigned long strings_size,
+    const uint32_t strings_size,
     const struct symbol *sorted_symbols,
-    const unsigned long nsorted_symbols,
+    const uint32_t nsorted_symbols,
     const enum bool verbose);
 
 static void print_operand(
     const char *seg,
     const char *symadd,
     const char *symsub,
-    unsigned long long value,
+    uint64_t value,
     unsigned int value_size,
     const char *result,
     const char *tail);
 
-static unsigned long long get_value(
-    const unsigned long size,
+static uint64_t get_value(
+    const uint32_t size,
     const char *sect,
-    unsigned long *length,
-    unsigned long *left);
+    uint32_t *length,
+    uint32_t *left);
 
 static void modrm_byte(
-    unsigned long *mode,
-    unsigned long *reg,
-    unsigned long *r_m,
+    uint32_t *mode,
+    uint32_t *reg,
+    uint32_t *r_m,
     unsigned char byte);
 
 #define GET_OPERAND(symadd, symsub, value, value_size, result) \
@@ -704,7 +704,7 @@ static const struct instable op0F3A[112] = {
 		INVALID,	INVALID,
 /*  [1C]  */	INVALID,	INVALID,
 		INVALID,	INVALID,
-/*  [20]  */	{"pinsrb",TERM,SSE4ifm,0},	{"insertps",TERM,SSE4ifm,0},
+/*  [20]  */	{"pinsrb",TERM,SSE4ifm,0},	{"insertps",TERM,SSE4i,0},
 		{"pinsr",TERM,SSE4ifm,0},	INVALID,
 /*  [24]  */	INVALID,	INVALID,
 		INVALID,	INVALID,
@@ -1496,24 +1496,24 @@ static unsigned int xmm_rm(int r_m, int rex)
 /*
  * i386_disassemble()
  */
-unsigned long
+uint32_t
 i386_disassemble(
 char *sect,
-unsigned long left,
-unsigned long addr,
-unsigned long sect_addr,
+uint32_t left,
+uint64_t addr,
+uint64_t sect_addr,
 enum byte_sex object_byte_sex,
 struct relocation_info *sorted_relocs,
-unsigned long nsorted_relocs,
+uint32_t nsorted_relocs,
 struct nlist *symbols,
 struct nlist_64 *symbols64,
-unsigned long nsymbols,
+uint32_t nsymbols,
 struct symbol *sorted_symbols,
-unsigned long nsorted_symbols,
+uint32_t nsorted_symbols,
 char *strings,
-unsigned long strings_size,
+uint32_t strings_size,
 uint32_t *indirect_symbols,
-unsigned long nindirect_symbols,
+uint32_t nindirect_symbols,
 cpu_type_t cputype,
 struct load_command *load_commands,
 uint32_t ncmds,
@@ -1524,21 +1524,21 @@ enum bool verbose)
     const char *seg;
     const char *symbol0, *symbol1;
     const char *symadd0, *symsub0, *symadd1, *symsub1;
-    unsigned long value0, value1;
-    unsigned long long imm0, imm1;
-    unsigned long value0_size, value1_size;
+    uint32_t value0, value1;
+    uint64_t imm0, imm1;
+    uint32_t value0_size, value1_size;
     char result0[MAX_RESULT], result1[MAX_RESULT];
     const char *indirect_symbol_name;
 
-    unsigned long length;
+    uint32_t i, length;
     unsigned char byte;
        unsigned char opcode_suffix;
     /* nibbles (4 bits) of the opcode */
     unsigned opcode1, opcode2, opcode3, opcode4, opcode5, prefix_byte;
     const struct instable *dp, *prefix_dp;
-    unsigned long wbit, vbit;
+    uint32_t wbit, vbit;
     enum bool got_modrm_byte;
-    unsigned long mode, reg, r_m;
+    uint32_t mode, reg, r_m;
     const char *reg_name;
     enum bool data16;		/* 16- or 32-bit data */
     enum bool addr16;		/* 16- or 32-bit addressing */
@@ -1593,7 +1593,7 @@ enum bool verbose)
 
 	    if(dp->adr_mode == PREFIX){
 		if(prefix_dp != NULL)
-		    printf(dp->name);
+		    printf("%s", dp->name);
 		prefix_dp = dp;
 		prefix_byte = byte;
 	    }
@@ -1713,7 +1713,7 @@ enum bool verbose)
 		     * delayed last prefix if any.
 		     */
 		    if(prefix_dp != NULL)
-			printf(prefix_dp->name);
+			printf("%s", prefix_dp->name);
 		}
             }
 	}
@@ -1744,7 +1744,7 @@ enum bool verbose)
 		    byte == 0xaa || byte == 0xab))  /* stos */
 		    printf("rep/");
 		else
-		    printf(prefix_dp->name);
+		    printf("%s", prefix_dp->name);
 	    }
 	}
 
@@ -1756,7 +1756,7 @@ enum bool verbose)
 	    if(got_modrm_byte == FALSE){
 		got_modrm_byte = TRUE;
 		byte = get_value(sizeof(char), sect, &length, &left);
-		modrm_byte(&mode, (unsigned long *)&opcode3, &r_m, byte);
+		modrm_byte(&mode, (uint32_t *)&opcode3, &r_m, byte);
 	    }
 	    /*
 	     * decode 287 instructions (D8-DF) from opcodeN
@@ -1954,7 +1954,7 @@ enum bool verbose)
 		}
 		else if(prefix_byte == 0xf0){
 		    /* movq from mm to mm/m64 */
-		    printf("%sd\t%%mm%lu,", mnemonic, reg);
+		    printf("%sd\t%%mm%u,", mnemonic, reg);
 		    mmx = TRUE;
 		    GET_OPERAND(&symadd1, &symsub1, &value1, &value1_size,
 				result1);
@@ -1973,7 +1973,7 @@ enum bool verbose)
 		}
 		else{ /* no prefix_byte */
 		    /* movd from mm to r/m32 */
-		    printf("%sd\t%%mm%lu,", mnemonic, reg);
+		    printf("%sd\t%%mm%u,", mnemonic, reg);
 		    wbit = LONGOPERAND;
 		    GET_OPERAND(&symadd1, &symsub1, &value1, &value1_size,
 				result1);
@@ -2036,7 +2036,7 @@ enum bool verbose)
 		else if(prefix_byte == 0xf3)
 		    printf("%sdqu\t", mnemonic);
 		else{
-		    sprintf(result0, "%%mm%lu", reg);
+		    sprintf(result0, "%%mm%u", reg);
 		    printf("%sq\t", mnemonic);
 		    mmx = TRUE;
 		}
@@ -2046,7 +2046,7 @@ enum bool verbose)
 		    printf("%stdq\t", mnemonic);
 		}
 		else{ /* no prefix_byte */
-		    sprintf(result0, "%%mm%lu", reg);
+		    sprintf(result0, "%%mm%u", reg);
 		    printf("%stq\t", mnemonic);
 		    mmx = TRUE;
 		}
@@ -2072,7 +2072,7 @@ enum bool verbose)
 	    }
 	    else{ /* no prefix byte */
 		mmx = TRUE;
-		sprintf(result1, "%%mm%lu", reg);
+		sprintf(result1, "%%mm%u", reg);
 	    }
 	    printf("%s\t", mnemonic);
 	    GET_OPERAND(&symadd0, &symsub0, &value0, &value0_size, result0);
@@ -2095,7 +2095,7 @@ enum bool verbose)
 	    }
 	    else{ /* no prefix byte */
 		mmx = TRUE;
-		sprintf(result1, "%%mm%lu", reg);
+		sprintf(result1, "%%mm%u", reg);
 	    }
 	    GET_OPERAND(&symadd0, &symsub0, &value0, &value0_size, result0);
 	    byte = get_value(sizeof(char), sect, &length, &left);
@@ -2215,7 +2215,7 @@ enum bool verbose)
 		if(prefix_byte == 0x66){
 		    sse2 = TRUE;
 		    printf("%stpd2pi\t", mnemonic);
-		    sprintf(result1, "%%mm%lu", reg);
+		    sprintf(result1, "%%mm%u", reg);
 		}
 		else if(prefix_byte == 0xf2){
 		    sse2 = TRUE;
@@ -2232,14 +2232,14 @@ enum bool verbose)
 		else{ /* no prefix_byte */
 		    sse2 = TRUE;
 		    printf("%stps2pi\t", mnemonic);
-		    sprintf(result1, "%%mm%lu", reg);
+		    sprintf(result1, "%%mm%u", reg);
 		}
 		break;
 	    case 0x2d: /* cvtpd2pi, cvtsd2si, cvtss2si & cvtps2pi */
 		if(prefix_byte == 0x66){
 		    sse2 = TRUE;
 		    printf("%spd2pi\t", mnemonic);
-		    sprintf(result1, "%%mm%lu", reg);
+		    sprintf(result1, "%%mm%u", reg);
 		}
 		else if(prefix_byte == 0xf2){
 		    sse2 = TRUE;
@@ -2256,7 +2256,7 @@ enum bool verbose)
 		else{ /* no prefix_byte */
 		    sse2 = TRUE;
 		    printf("%sps2pi\t", mnemonic);
-		    sprintf(result1, "%%mm%lu", reg);
+		    sprintf(result1, "%%mm%u", reg);
 		}
 		break;
 	    case 0x2e: /* ucomisd & ucomiss */
@@ -2274,7 +2274,7 @@ enum bool verbose)
 		    printf("%s\t", mnemonic);
 		}
 		else{ /* no prefix_byte */
-		    sprintf(result1, "%%mm%lu", reg);
+		    sprintf(result1, "%%mm%u", reg);
 		    printf("%s\t", mnemonic);
 		    mmx = TRUE;
 		}
@@ -2359,7 +2359,7 @@ enum bool verbose)
 		    sse2 = TRUE;
 		}
 		else{ /* no prefix_byte */
-		    sprintf(result1, "%%mm%lu", reg);
+		    sprintf(result1, "%%mm%u", reg);
 		    printf("%s\t", mnemonic);
 		    mmx = TRUE;
 		}
@@ -2380,14 +2380,14 @@ enum bool verbose)
 		    printf("%sdqu\t", mnemonic);
 		}
 		else{ /* no prefix_byte */
-		    sprintf(result1, "%%mm%lu", reg);
+		    sprintf(result1, "%%mm%u", reg);
 		    printf("%sq\t", mnemonic);
 		    mmx = TRUE;
 		}
 		break;
 	    case 0xd6: /* movdq2q & movq2dq */
 		if(prefix_byte == 0xf2){
-		    sprintf(result1, "%%mm%lu", reg);
+		    sprintf(result1, "%%mm%u", reg);
 		    printf("%sdq2q\t", mnemonic);
 		    sse2 = TRUE;
 		}
@@ -2402,7 +2402,7 @@ enum bool verbose)
 		    wbit = LONGOPERAND;
 		}
 		else{ /* no prefix_byte */
-		    sprintf(result1, "%%mm%lu", reg);
+		    sprintf(result1, "%%mm%u", reg);
 		    printf("%s\t", mnemonic);
 		    wbit = LONGOPERAND;
 		}
@@ -2419,7 +2419,7 @@ enum bool verbose)
 		    sse2 = TRUE;
 		}
 		else{ /* no prefix_byte */
-		    sprintf(result1, "%%mm%lu", reg);
+		    sprintf(result1, "%%mm%u", reg);
 		    printf("%s\t", mnemonic);
 		    mmx = TRUE;
 		}
@@ -2433,7 +2433,7 @@ enum bool verbose)
 		}
 		else{ /* no prefix_byte */
 		    reg_name = get_reg_name(reg, 1, data16, rex);
-		    printf("%s\t%%mm%lu,%s\n", mnemonic, r_m, reg_name);
+		    printf("%s\t%%mm%u,%s\n", mnemonic, r_m, reg_name);
 		    return(length);
 		}
 		break;
@@ -2449,7 +2449,7 @@ enum bool verbose)
 		    printf("%s\t", mnemonic);
 		}
 		else{ /* no prefix_byte */
-		    sprintf(result1, "%%mm%lu", reg);
+		    sprintf(result1, "%%mm%u", reg);
 		    printf("%s\t", mnemonic);
 		    mmx = TRUE;
 		}
@@ -2463,7 +2463,7 @@ enum bool verbose)
 		if(prefix_byte == 0x66)
 		    printf("%sdqu\t", mnemonic);
 		else{ /* no prefix_byte */
-		    printf("%sq\t%%mm%lu,%%mm%lu\n", mnemonic, r_m, reg);
+		    printf("%sq\t%%mm%u,%%mm%u\n", mnemonic, r_m, reg);
 		    return(length);
 		}
 		break;
@@ -2631,7 +2631,7 @@ enum bool verbose)
 		    printf("%sfw\t$0x%x,", mnemonic, byte);
 		    print_operand(seg, symadd0, symsub0, value0, value0_size,
 				  result0, ",");
-		    printf("%%mm%lu\n", reg);
+		    printf("%%mm%u\n", reg);
 		    return(length);
 		}
 		break;
@@ -2643,7 +2643,7 @@ enum bool verbose)
 		    printf("%s\t$0x%x,", mnemonic, byte);
 		    print_operand(seg, symadd0, symsub0, value0, value0_size,
 				  result0, ",");
-		    printf("%%mm%lu\n", reg);
+		    printf("%%mm%u\n", reg);
 		    return(length);
 		}
 		break;
@@ -2656,7 +2656,7 @@ enum bool verbose)
 		}
 		else{ /* no prefix_byte */
 		    reg_name = get_reg_name(reg, 1, data16, rex);
-		    printf("%s\t$0x%x,%%mm%lu,%s\n", mnemonic, byte, r_m,
+		    printf("%s\t$0x%x,%%mm%u,%s\n", mnemonic, byte, r_m,
 			   reg_name);
 		    return(length);
 		}
@@ -2702,7 +2702,7 @@ enum bool verbose)
 			printf("%sraw\t$0x%x,", mnemonic, byte);
 		    else if(reg == 0x6)
 			printf("%sllw\t$0x%x,", mnemonic, byte);
-		    printf("%%mm%lu\n", r_m);
+		    printf("%%mm%u\n", r_m);
 		    return(length);
 		}
 		break;
@@ -2722,7 +2722,7 @@ enum bool verbose)
 			printf("%srad\t$0x%x,", mnemonic, byte);
 		    else if(reg == 0x6)
 			printf("%slld\t$0x%x,", mnemonic, byte);
-		    printf("%%mm%lu\n", r_m);
+		    printf("%%mm%u\n", r_m);
 		    return(length);
 		}
 		break;
@@ -2742,7 +2742,7 @@ enum bool verbose)
 			printf("%srlq\t$0x%x,", mnemonic, byte);
 		    else if(reg == 0x6)
 			printf("%sllq\t$0x%x,", mnemonic, byte);
-		    printf("%%mm%lu\n", r_m);
+		    printf("%%mm%u\n", r_m);
 		    return(length);
 		}
 		break;
@@ -2753,7 +2753,7 @@ enum bool verbose)
        /* 3DNow instructions */
        case AMD3DNOW:
                printf("%s\t", mnemonic);
-           sprintf(result1, "%%mm%lu", reg);
+           sprintf(result1, "%%mm%u", reg);
            print_operand(seg, symadd0, symsub0, value0, value0_size,
                          result0, ",");
            printf("%s\n", result1);
@@ -3271,7 +3271,7 @@ enum bool verbose)
 	    value0_size = sizeof(char);
 	    DISPLACEMENT(&symadd0, &symsub0, &value0, value0_size);
 	    printf("%s\t", mnemonic);
-	    print_operand(seg, symadd0, symsub0, value0, sizeof(long), "",
+	    print_operand(seg, symadd0, symsub0, value0, sizeof(int32_t), "",
 			  "\n");
 	    return(length);
 
@@ -3385,16 +3385,16 @@ enum bool verbose)
 
 	/* float reg */
 	case F:
-	    printf("%s\t%%st(%1.1lu)\n", mnemonic, r_m);
+	    printf("%s\t%%st(%1.1u)\n", mnemonic, r_m);
 	    return(length);
 
 	/* float reg to float reg, with ret bit present */
 	case FF:
 	    /* return result bit for 287 instructions */
 	    if(((opcode2 >> 2) & 0x1) == 0x1 && opcode2 != 0xf)
-		printf("%s\t%%st,%%st(%1.1lu)\n", mnemonic, r_m);
+		printf("%s\t%%st,%%st(%1.1u)\n", mnemonic, r_m);
 	    else
-		printf("%s\t%%st(%1.1lu),%%st\n", mnemonic, r_m);
+		printf("%s\t%%st(%1.1u),%%st\n", mnemonic, r_m);
 	    return(length);
 
 	/* an invalid op code */
@@ -3404,7 +3404,10 @@ enum bool verbose)
 	case PREFIX:
 	case UNKNOWN:
 	default:
-	    printf(".byte 0x%02x #bad opcode\n", (unsigned int)byte);
+	    printf(".byte 0x%02x", 0xff & sect[0]);
+	    for(i = 1; i < length; i++)
+		printf(", 0x%02x", 0xff & sect[i]);
+	    printf(" #bad opcode\n");
 	    return(length);
 	} /* end switch */
 }
@@ -3418,14 +3421,14 @@ void
 get_operand(
 const char **symadd,
 const char **symsub,
-unsigned long *value,
-unsigned long *value_size,
+uint32_t *value,
+uint32_t *value_size,
 char *result,
 
 const cpu_type_t cputype,
-const unsigned long mode,
-const unsigned long r_m,
-const unsigned long wbit,
+const uint32_t mode,
+const uint32_t r_m,
+const uint32_t wbit,
 const enum bool data16,
 const enum bool addr16,
 const enum bool sse2,
@@ -3433,30 +3436,30 @@ const enum bool mmx,
 const unsigned int rex,
 
 const char *sect,
-unsigned long sect_addr,
-unsigned long *length,
-unsigned long *left,
+uint32_t sect_addr,
+uint32_t *length,
+uint32_t *left,
 
-const unsigned long addr,
+const uint32_t addr,
 const struct relocation_info *sorted_relocs,
-const unsigned long nsorted_relocs,
+const uint32_t nsorted_relocs,
 const struct nlist *symbols,
 const struct nlist_64 *symbols64,
-const unsigned long nsymbols,
+const uint32_t nsymbols,
 const char *strings,
-const unsigned long strings_size,
+const uint32_t strings_size,
 
 const struct symbol *sorted_symbols,
-const unsigned long nsorted_symbols,
+const uint32_t nsorted_symbols,
 const enum bool verbose)
 {
     enum bool s_i_b;		/* flag presence of scale-index-byte */
     unsigned char byte;		/* the scale-index-byte */
-    unsigned long ss;		/* scale-factor from scale-index-byte */
-    unsigned long index; 	/* index register number from scale-index-byte*/
-    unsigned long base;  	/* base register number from scale-index-byte */
-    unsigned long sect_offset;
-    unsigned long long offset;
+    uint32_t ss;		/* scale-factor from scale-index-byte */
+    uint32_t index; 		/* index register number from scale-index-byte*/
+    uint32_t base;  		/* base register number from scale-index-byte */
+    uint32_t sect_offset;
+    uint64_t offset;
 
 	*symadd = NULL;
 	*symsub = NULL;
@@ -3479,7 +3482,7 @@ const enum bool verbose)
 	    *value_size = dispsize32[r_m][mode];
 
 	if(s_i_b == TRUE && mode == 0 && base == EBP)
-	    *value_size = sizeof(long);
+	    *value_size = sizeof(int32_t);
 
 	if(*value_size != 0){
 	    sect_offset = addr + *length - sect_addr;
@@ -3514,9 +3517,19 @@ const enum bool verbose)
 		    }
 		}
 		else{
-		    sprintf(result, "(%s%s,%s)", regname64[mode][base +
-			    (REX_B(rex) << 3)], indexname64[index +
-			    (REX_X(rex) << 3)], scale_factor[ss]);
+		    /*
+		     * If mode is 0 and base is 5 (regardless of the rex bit)
+		     * there is no base register.
+		     */
+		    if(mode == 0 && base == 5){
+			sprintf(result, "(%s,%s)", indexname64[index +
+				(REX_X(rex) << 3)], scale_factor[ss]);
+		    }
+		    else{
+			sprintf(result, "(%s%s,%s)", regname64[mode][base +
+				(REX_B(rex) << 3)], indexname64[index +
+				(REX_X(rex) << 3)], scale_factor[ss]);
+		    }
 		}
 	    }
 	    else{
@@ -3546,7 +3559,7 @@ const enum bool verbose)
 		if(sse2 == TRUE)
 		    sprintf(result, "%%xmm%u", xmm_rm(r_m, rex));
 		else if(mmx == TRUE)
-		    sprintf(result, "%%mm%lu", r_m);
+		    sprintf(result, "%%mm%u", r_m);
 		else if (data16 == FALSE || rex != 0)
 		    /* The presence of a REX byte overrides 66h. */
 		    strcpy(result, REG32[r_m + (REX_B(rex) << 3)][wbit +
@@ -3600,30 +3613,30 @@ void
 immediate(
 const char **symadd,
 const char **symsub,
-unsigned long long *value,
-unsigned long value_size,
+uint64_t *value,
+uint32_t value_size,
 
 const char *sect,
-unsigned long sect_addr,
-unsigned long *length,
-unsigned long *left,
+uint32_t sect_addr,
+uint32_t *length,
+uint32_t *left,
 
 const cpu_type_t cputype,
-const unsigned long addr,
+const uint32_t addr,
 const struct relocation_info *sorted_relocs,
-const unsigned long nsorted_relocs,
+const uint32_t nsorted_relocs,
 const struct nlist *symbols,
 const struct nlist_64 *symbols64,
-const unsigned long nsymbols,
+const uint32_t nsymbols,
 const char *strings,
-const unsigned long strings_size,
+const uint32_t strings_size,
 
 const struct symbol *sorted_symbols,
-const unsigned long nsorted_symbols,
+const uint32_t nsorted_symbols,
 const enum bool verbose)
 {
-    unsigned long sect_offset;
-	unsigned long long offset;
+    uint32_t sect_offset;
+	uint64_t offset;
 
 	sect_offset = addr + *length - sect_addr;
 	*value = get_value(value_size, sect, length, left);
@@ -3647,30 +3660,31 @@ void
 displacement(
 const char **symadd,
 const char **symsub,
-unsigned long *value,
-const unsigned long value_size,
+uint32_t *value,
+const uint32_t value_size,
 
 const char *sect,
-unsigned long sect_addr,
-unsigned long *length,
-unsigned long *left,
+uint64_t sect_addr,
+uint32_t *length,
+uint32_t *left,
 
 const cpu_type_t cputype,
-const unsigned long addr,
+const uint64_t addr,
 const struct relocation_info *sorted_relocs,
-const unsigned long nsorted_relocs,
+const uint32_t nsorted_relocs,
 const struct nlist *symbols,
 const struct nlist_64 *symbols64,
-const unsigned long nsymbols,
+const uint32_t nsymbols,
 const char *strings,
-const unsigned long strings_size,
+const uint32_t strings_size,
 
 const struct symbol *sorted_symbols,
-const unsigned long nsorted_symbols,
+const uint32_t nsorted_symbols,
 const enum bool verbose)
 {
-    unsigned long sect_offset;
-	unsigned long long offset;
+    uint32_t sect_offset;
+	uint64_t offset;
+	uint64_t guess_addr;
 
 	sect_offset = addr + *length - sect_addr;
 	*value = get_value(value_size, sect, length, left);
@@ -3686,11 +3700,25 @@ const enum bool verbose)
 	}
 	if((cputype & CPU_ARCH_ABI64) != CPU_ARCH_ABI64)
 	    *value += addr + *length;
+
 	GET_SYMBOL(symadd, symsub, &offset, sect_offset, *value);
 	if(*symadd == NULL){
-	    *symadd = GUESS_SYMBOL(*value);
-	    if(*symadd != NULL)
-		*value = 0;
+	    if((cputype & CPU_ARCH_ABI64) != CPU_ARCH_ABI64){
+		*symadd = GUESS_SYMBOL(*value);
+		if(*symadd != NULL)
+		    *value = 0;
+	    }
+	    else{
+		guess_addr = *value;
+		if((*value) & 0x80000000)
+		    guess_addr |= 0xffffffff00000000ULL;
+		guess_addr += addr + *length;
+		*symadd = GUESS_SYMBOL(guess_addr);
+		if(*symadd != NULL)
+		    *value = 0;
+		else
+		    *value += addr + *length;
+	    }
 	}
 	else if(*symsub != NULL){
 	    *value = offset;
@@ -3706,25 +3734,25 @@ void
 get_symbol(
 const char **symadd,
 const char **symsub,
-unsigned long long *offset,
+uint64_t *offset,
 
 const cpu_type_t cputype,
-const unsigned long sect_offset,
-const unsigned long long value,
+const uint32_t sect_offset,
+const uint64_t value,
 const struct relocation_info *relocs,
-const unsigned long nrelocs,
+const uint32_t nrelocs,
 const struct nlist *symbols,
 const struct nlist_64 *symbols64,
-const unsigned long nsymbols,
+const uint32_t nsymbols,
 const char *strings,
-const unsigned long strings_size,
+const uint32_t strings_size,
 const struct symbol *sorted_symbols,
-const unsigned long nsorted_symbols,
+const uint32_t nsorted_symbols,
 const enum bool verbose)
 {
-    unsigned long i;
+    uint32_t i;
     unsigned int r_symbolnum;
-    unsigned long n_strx;
+    uint32_t n_strx;
     struct scattered_relocation_info *sreloc, *pair;
     const char *name, *add, *sub;
 
@@ -3744,7 +3772,7 @@ const enum bool verbose)
 		sreloc = (struct scattered_relocation_info *)(relocs + i);
 		if(sreloc->r_type == GENERIC_RELOC_PAIR){
 		    fprintf(stderr, "Stray GENERIC_RELOC_PAIR relocation entry "
-			    "%lu\n", i);
+			    "%u\n", i);
 		    continue;
 		}
 		if(sreloc->r_type == GENERIC_RELOC_VANILLA){
@@ -3764,7 +3792,7 @@ const enum bool verbose)
 		if(sreloc->r_type != GENERIC_RELOC_SECTDIFF &&
 		   sreloc->r_type != GENERIC_RELOC_LOCAL_SECTDIFF){
 		    fprintf(stderr, "Unknown relocation r_type for entry "
-			    "%lu\n", i);
+			    "%u\n", i);
 		    continue;
 		}
 		if(i + 1 < nrelocs){
@@ -3772,13 +3800,13 @@ const enum bool verbose)
 		    if(pair->r_scattered == 0 ||
 		       pair->r_type != GENERIC_RELOC_PAIR){
 			fprintf(stderr, "No GENERIC_RELOC_PAIR relocation "
-				"entry after entry %lu\n", i);
+				"entry after entry %u\n", i);
 			continue;
 		    }
 		}
 		else{
 		    fprintf(stderr, "No GENERIC_RELOC_PAIR relocation entry "
-			    "after entry %lu\n", i);
+			    "after entry %u\n", i);
 		    continue;
 		}
 		i++; /* skip the pair reloc */
@@ -3805,7 +3833,7 @@ const enum bool verbose)
 		}
 	    }
 	    else{
-		if((unsigned long)relocs[i].r_address == sect_offset){
+		if((uint32_t)relocs[i].r_address == sect_offset){
 		    r_symbolnum = relocs[i].r_symbolnum;
 		    if(relocs[i].r_extern){
 		        if(r_symbolnum >= nsymbols)
@@ -3835,7 +3863,7 @@ print_operand(
 const char *seg,
 const char *symadd,
 const char *symsub,
-unsigned long long value,
+uint64_t value,
 unsigned int value_size,
 const char *result,
 const char *tail)
@@ -3881,18 +3909,18 @@ const char *tail)
  * get_value() gets a value of size from sect + length and decrease left by the
  * size and increase length by size.  The size of the value can be 1, 2, 4, or 8
  * bytes and the value is in little endian byte order.  The value is always
- * returned as a unsigned long and is not sign extended.
+ * returned as a uint64_t and is not sign extended.
  */
 static
-unsigned long long
+uint64_t
 get_value(
-const unsigned long size,/* size of the value to get as a number of bytes (in)*/
+const uint32_t size,	/* size of the value to get as a number of bytes (in)*/
 const char *sect,	/* pointer to the raw data of the section (in) */
-unsigned long *length,	/* number of bytes taken from the sect (in/out) */
-unsigned long *left)	/* number of bytes left in sect after length (in/out) */
+uint32_t *length,	/* number of bytes taken from the sect (in/out) */
+uint32_t *left)		/* number of bytes left in sect after length (in/out) */
 {
-    unsigned long i;
-	unsigned long long value;
+    uint32_t i;
+    uint64_t value;
     unsigned char byte;
 
 	if(left == 0)
@@ -3906,7 +3934,7 @@ unsigned long *left)	/* number of bytes left in sect after length (in/out) */
 		(*length)++;
 		(*left)--;
 	    }
-	    value |= (unsigned long long)byte << (8*i);
+	    value |= (uint64_t)byte << (8*i);
 	}
 	return(value);
 }
@@ -3917,9 +3945,9 @@ unsigned long *left)	/* number of bytes left in sect after length (in/out) */
 static
 void
 modrm_byte(
-unsigned long *mode,
-unsigned long *reg,
-unsigned long *r_m,
+uint32_t *mode,
+uint32_t *reg,
+uint32_t *r_m,
 unsigned char byte)
 {
 	*r_m = byte & 0x7; /* r/m field from the byte */

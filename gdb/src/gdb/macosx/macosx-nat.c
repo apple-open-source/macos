@@ -29,6 +29,7 @@
 #include <signal.h>
 #include <sys/un.h>
 #include <sys/stat.h>
+#include <sys/socket.h>
 
 #include "bfd.h"
 #include "defs.h"
@@ -127,6 +128,12 @@ macosx_classic_create_inferior (pid_t pid)
     
   task_t task;
   kr = task_for_pid (mach_task_self (),  pid, &task);
+  if (kr != KERN_SUCCESS)
+    {
+      if (macosx_get_task_for_pid_rights () == 1)
+	kr = task_for_pid (mach_task_self (), pid, &task);
+    }
+  
   if (kr != KERN_SUCCESS) 
     {
       error ("task_for_pid failed for pid %d: %s", pid, 
@@ -158,6 +165,7 @@ macosx_classic_create_inferior (pid_t pid)
               dyld_remove_objfile (e);
               dyld_objfile_entry_clear (e);
           }
+          macosx_dyld_status.dyld_minsyms_have_been_relocated = 1;
           macosx_dyld_update (1);
         }
 #if WITH_CFM
@@ -200,7 +208,7 @@ classic_socket_exists_p (pid_t pid)
    because the process is running under a different uid and gdb isn't
    being run by root.)  */
 
-static int
+int
 is_pid_classic (pid_t pid)
 {
   int mib[] = { CTL_KERN, KERN_CLASSIC, pid };
@@ -249,10 +257,6 @@ can_attach (pid_t target_pid)
     {
       if (target_is_classic == 0)
           return 1;
-
-      /* Support debugging of classic runtime infrastructure */
-      if (target_is_classic == 1)
-        return 1;
 
       /* List processes we couldn't get classic status of.  Fixme - these
          are all processes running under other uids so we can't inspect
@@ -313,30 +317,54 @@ attach_to_classic_process (pid_t pid)
   update_current_target ();
 }
 
+static int orig_rlimit;
+
+void
+restore_orig_rlimit ()
+{
+  struct rlimit limit;
+
+  getrlimit (RLIMIT_NOFILE, &limit);
+  limit.rlim_cur = orig_rlimit;
+  setrlimit (RLIMIT_NOFILE, &limit);
+}
 
 void
 _initialize_macosx_nat ()
 {
   struct rlimit limit;
   rlim_t reserve;
+  int ret;
 
   getrlimit (RLIMIT_NOFILE, &limit);
+  orig_rlimit = limit.rlim_cur;
   limit.rlim_cur = limit.rlim_max;
-  setrlimit (RLIMIT_NOFILE, &limit);
+  ret = setrlimit (RLIMIT_NOFILE, &limit);
+  if (ret != 0)
+    {
+      /* Okay, that didn't work, let's try something that's at least
+	 reasonably big: */
+      limit.rlim_cur = 10000;
+      ret = setrlimit (RLIMIT_NOFILE, &limit);
+    }
+  /* rlim_max is set to RLIM_INFINITY on X, at least on Leopard &
+     SnowLeopard.  so it's better to see what we really got and use
+     cur, not max below...  */ 
+  getrlimit (RLIMIT_NOFILE, &limit);
 
   /* Reserve 10% of file descriptors for non-BFD uses, or 5, whichever
      is greater.  Allocate at least one file descriptor for use by
      BFD. */
 
-  reserve = (int) limit.rlim_max * 0.1;
+  reserve = limit.rlim_cur * 0.1;
   reserve = (reserve > 5) ? reserve : 5;
-  if (reserve >= limit.rlim_max)
+  if (reserve >= limit.rlim_cur)
     {
       bfd_set_cache_max_open (1);
     }
   else
     {
-      bfd_set_cache_max_open (limit.rlim_max - reserve);
+      bfd_set_cache_max_open (limit.rlim_cur - reserve);
     }
 
   /* classic-inferior-support */

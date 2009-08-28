@@ -33,31 +33,34 @@
  *					    using method, return sizeof new
  */
 #include "file.h"
+
+#ifndef lint
+FILE_RCSID("@(#)$File: compress.c,v 1.61 2009/02/03 20:27:51 christos Exp $")
+#endif
+
 #include "magic.h"
-#include <stdio.h>
 #include <stdlib.h>
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 #include <string.h>
 #include <errno.h>
-#include <sys/types.h>
+#include <sys/ioctl.h>
 #ifdef HAVE_SYS_WAIT_H
 #include <sys/wait.h>
 #endif
-#ifdef HAVE_LIBZ
+#if defined(HAVE_SYS_TIME_H)
+#include <sys/time.h>
+#endif
+#if defined(HAVE_ZLIB_H) && defined(HAVE_LIBZ)
+#define BUILTIN_DECOMPRESS
 #include <zlib.h>
 #endif
 
-#ifndef lint
-FILE_RCSID("@(#)$Id: compress.c,v 1.42 2005/03/06 05:58:22 christos Exp $")
-#endif
-
-
-private struct {
-	const char *magic;
+private const struct {
+	const char magic[8];
 	size_t maglen;
-	const char *const argv[3];
+	const char *argv[3];
 	int silent;
 } compr[] = {
 	{ "\037\235", 2, { "gzip", "-cdq", NULL }, 1 },		/* compressed */
@@ -72,27 +75,30 @@ private struct {
 	{ "PK\3\4",   4, { "gzip", "-cdq", NULL }, 1 },		/* pkzipped, */
 					    /* ...only first file examined */
 	{ "BZh",      3, { "bzip2", "-cd", NULL }, 1 },		/* bzip2-ed */
+	{ "LZIP",     4, { "lzip", "-cdq", NULL }, 1 },
 };
 
-private int ncompr = sizeof(compr) / sizeof(compr[0]);
+private size_t ncompr = sizeof(compr) / sizeof(compr[0]);
+
+#define NODATA ((size_t)~0)
 
 
 private ssize_t swrite(int, const void *, size_t);
-private ssize_t sread(int, void *, size_t);
 private size_t uncompressbuf(struct magic_set *, int, size_t,
     const unsigned char *, unsigned char **, size_t);
-#ifdef HAVE_LIBZ
+#ifdef BUILTIN_DECOMPRESS
 private size_t uncompressgzipped(struct magic_set *, const unsigned char *,
     unsigned char **, size_t);
 #endif
 
 protected int
-file_zmagic(struct magic_set *ms, int fd, const unsigned char *buf,
-    size_t nbytes)
+file_zmagic(struct magic_set *ms, int fd, const char *name,
+    const unsigned char *buf, size_t nbytes)
 {
 	unsigned char *newbuf = NULL;
 	size_t i, nsz;
 	int rv = 0;
+	int mime = ms->flags & MAGIC_MIME;
 
 	if ((ms->flags & MAGIC_COMPRESS) == 0)
 		return 0;
@@ -102,16 +108,23 @@ file_zmagic(struct magic_set *ms, int fd, const unsigned char *buf,
 			continue;
 		if (memcmp(buf, compr[i].magic, compr[i].maglen) == 0 &&
 		    (nsz = uncompressbuf(ms, fd, i, buf, &newbuf,
-		    nbytes)) != 0) {
+		    nbytes)) != NODATA) {
 			ms->flags &= ~MAGIC_COMPRESS;
 			rv = -1;
-			if (file_buffer(ms, -1, newbuf, nsz) == -1)
+			if (file_buffer(ms, -1, name, newbuf, nsz) == -1)
 				goto error;
-			if (file_printf(ms, " (") == -1)
+
+			if (mime == MAGIC_MIME || mime == 0) {
+				if (file_printf(ms, mime ?
+				    " compressed-encoding=" : " (") == -1)
+					goto error;
+			}
+
+			if ((mime == 0 || mime & MAGIC_MIME_ENCODING) &&
+			    file_buffer(ms, -1, NULL, buf, nbytes) == -1)
 				goto error;
-			if (file_buffer(ms, -1, buf, nbytes) == -1)
-				goto error;
-			if (file_printf(ms, ")") == -1)
+
+			if (!mime && file_printf(ms, ")") == -1)
 				goto error;
 			rv = 1;
 			break;
@@ -152,14 +165,55 @@ swrite(int fd, const void *buf, size_t n)
 /*
  * `safe' read for sockets and pipes.
  */
-private ssize_t
-sread(int fd, void *buf, size_t n)
+protected ssize_t
+sread(int fd, void *buf, size_t n, int canbepipe)
 {
-	int rv;
+	int rv, cnt;
+#ifdef FIONREAD
+	int t = 0;
+#endif
 	size_t rn = n;
 
+	if (fd == STDIN_FILENO)
+		goto nocheck;
+
+#ifdef FIONREAD
+	if ((canbepipe && (ioctl(fd, FIONREAD, &t) == -1)) || (t == 0)) {
+#ifdef FD_ZERO
+		for (cnt = 0;; cnt++) {
+			fd_set check;
+			struct timeval tout = {0, 100 * 1000};
+			int selrv;
+
+			FD_ZERO(&check);
+			FD_SET(fd, &check);
+
+			/*
+			 * Avoid soft deadlock: do not read if there
+			 * is nothing to read from sockets and pipes.
+			 */
+			selrv = select(fd + 1, &check, NULL, NULL, &tout);
+			if (selrv == -1) {
+				if (errno == EINTR || errno == EAGAIN)
+					continue;
+			} else if (selrv == 0 && cnt >= 5) {
+				return 0;
+			} else
+				break;
+		}
+#endif
+		(void)ioctl(fd, FIONREAD, &t);
+	}
+
+	if (t > 0 && (size_t)t < n) {
+		n = t;
+		rn = n;
+	}
+#endif
+
+nocheck:
 	do
-		switch (rv = read(fd, buf, n)) {
+		switch ((rv = read(fd, buf, n))) {
 		case -1:
 			if (errno == EINTR)
 				continue;
@@ -182,7 +236,7 @@ file_pipe2file(struct magic_set *ms, int fd, const void *startbuf,
 	char buf[4096];
 	int r, tfd;
 
-	(void)strcpy(buf, "/tmp/file.XXXXXX");
+	(void)strlcpy(buf, "/tmp/file.XXXXXX", sizeof buf);
 #ifndef HAVE_MKSTEMP
 	{
 		char *ptr = mktemp(buf);
@@ -206,7 +260,7 @@ file_pipe2file(struct magic_set *ms, int fd, const void *startbuf,
 	if (swrite(tfd, startbuf, nbytes) != (ssize_t)nbytes)
 		r = 1;
 	else {
-		while ((r = sread(fd, buf, sizeof(buf))) > 0)
+		while ((r = sread(fd, buf, sizeof(buf), 1)) > 0)
 			if (swrite(tfd, buf, (size_t)r) != r)
 				break;
 	}
@@ -239,7 +293,7 @@ file_pipe2file(struct magic_set *ms, int fd, const void *startbuf,
 	return fd;
 }
 
-#ifdef HAVE_LIBZ
+#ifdef BUILTIN_DECOMPRESS
 
 #define FHCRC		(1 << 1)
 #define FEXTRA		(1 << 2)
@@ -275,7 +329,7 @@ uncompressgzipped(struct magic_set *ms, const unsigned char *old,
 
 	if (data_start >= n)
 		return 0;
-	if ((*newch = (unsigned char *)malloc(HOWMANY + 1)) == NULL) {
+	if ((*newch = CAST(unsigned char *, malloc(HOWMANY + 1))) == NULL) {
 		return 0;
 	}
 	
@@ -302,10 +356,10 @@ uncompressgzipped(struct magic_set *ms, const unsigned char *old,
 	}
 
 	n = (size_t)z.total_out;
-	inflateEnd(&z);
+	(void)inflateEnd(&z);
 	
 	/* let's keep the nul-terminate tradition */
-	(*newch)[n++] = '\0';
+	(*newch)[n] = '\0';
 
 	return n;
 }
@@ -318,7 +372,8 @@ uncompressbuf(struct magic_set *ms, int fd, size_t method,
 	int fdin[2], fdout[2];
 	int r;
 
-#ifdef HAVE_LIBZ
+#ifdef BUILTIN_DECOMPRESS
+        /* FIXME: This doesn't cope with bzip2 */
 	if (method == 2)
 		return uncompressgzipped(ms, old, newch, n);
 #endif
@@ -327,7 +382,7 @@ uncompressbuf(struct magic_set *ms, int fd, size_t method,
 
 	if ((fd != -1 && pipe(fdin) == -1) || pipe(fdout) == -1) {
 		file_error(ms, errno, "cannot create pipe");	
-		return 0;
+		return NODATA;
 	}
 	switch (fork()) {
 	case 0:	/* child */
@@ -350,8 +405,8 @@ uncompressbuf(struct magic_set *ms, int fd, size_t method,
 			(void)close(2);
 #endif
 
-		execvp(compr[method].argv[0],
-		       (char *const *)(intptr_t)compr[method].argv);
+		(void)execvp(compr[method].argv[0],
+		    (char *const *)(intptr_t)compr[method].argv);
 #ifdef DEBUG
 		(void)fprintf(stderr, "exec `%s' failed (%s)\n",
 		    compr[method].argv[0], strerror(errno));
@@ -360,7 +415,7 @@ uncompressbuf(struct magic_set *ms, int fd, size_t method,
 		/*NOTREACHED*/
 	case -1:
 		file_error(ms, errno, "could not fork");
-		return 0;
+		return NODATA;
 
 	default: /* parent */
 		(void) close(fdout[1]);
@@ -373,7 +428,7 @@ uncompressbuf(struct magic_set *ms, int fd, size_t method,
 			switch (fork()) {
 			case 0: /* child */
 				(void)close(fdout[0]);
-				if (swrite(fdin[1], old, n) != n) {
+				if (swrite(fdin[1], old, n) != (ssize_t)n) {
 #ifdef DEBUG
 					(void)fprintf(stderr,
 					    "Write failed (%s)\n",
@@ -407,7 +462,7 @@ uncompressbuf(struct magic_set *ms, int fd, size_t method,
 			n = 0;
 			goto err;
 		}
-		if ((r = sread(fdout[0], *newch, HOWMANY)) <= 0) {
+		if ((r = sread(fdout[0], *newch, HOWMANY, 0)) <= 0) {
 #ifdef DEBUG
 			(void)fprintf(stderr, "Read failed (%s)\n",
 			    strerror(errno));
@@ -420,7 +475,7 @@ uncompressbuf(struct magic_set *ms, int fd, size_t method,
 			n = r;
 		}
  		/* NUL terminate, as every buffer is handled here. */
- 		(*newch)[n++] = '\0';
+ 		(*newch)[n] = '\0';
 err:
 		if (fdin[1] != -1)
 			(void) close(fdin[1]);

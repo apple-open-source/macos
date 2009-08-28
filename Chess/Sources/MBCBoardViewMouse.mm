@@ -2,7 +2,7 @@
 	File:		MBCBoardViewMouse.mm
 	Contains:	Handle mouse coordinate transformations
 	Version:	1.0
-	Copyright:	© 2002 by Apple Computer, Inc., all rights reserved.
+	Copyright:	Â© 2002-2008 by Apple Inc., all rights reserved.
 
 	File Ownership:
 
@@ -15,6 +15,15 @@
 	Change History (most recent first):
 
 		$Log: MBCBoardViewMouse.mm,v $
+		Revision 1.24  2008/10/24 22:07:28  neerache
+		<rdar://problem/5459104> Chess: Rotating the playing board while computer is moving results with the mouse as the chess piece
+		
+		Revision 1.23  2008/10/24 20:04:48  neerache
+		<rdar://problem/3726597> Implement diagonal moves, but disable them
+		
+		Revision 1.22  2008/04/22 19:47:41  neerache
+		<rdar://problem/5750936> Adoption of Clean / Dirty API by Chess
+		
 		Revision 1.21  2007/03/02 23:06:00  neerache
 		<rdar://problem/4038207> Allow the user to type in a move in Chess
 		
@@ -83,6 +92,8 @@
 #import "MBCBoardViewMouse.h"
 #import "MBCBoardViewDraw.h" // For drawBoardPlane
 #import "MBCInteractivePlayer.h"
+#import "MBCController.h"
+#import "MBCEngine.h"
 
 #import <OpenGL/glu.h>
 
@@ -90,6 +101,9 @@
 
 using std::min;
 using std::max;
+
+extern NSString * kMBCBoardAngle;
+extern NSString * kMBCBoardSpin;
 
 //
 // We're doing a lot of Projects and UnProjects. 
@@ -271,9 +285,7 @@ MBCPosition operator-(const MBCPosition & a, const MBCPosition & b)
 	// enough, this seems to give the most natural feeling mouse behavior.
 	//
 	MBCPosition pos = [self mouseToPosition:l];
-
-	MBCSquare selectedStart = fSelectedDest = 
-		[self positionToSquareOrRegion:&pos];
+	fSelectedDest	= [self positionToSquareOrRegion:&pos];
     switch (fSelectedDest) {
 	case kInvalidSquare:
 		return;
@@ -285,7 +297,6 @@ MBCPosition operator-(const MBCPosition & a, const MBCPosition & b)
 		fOrigMouse 			= l;
 		fCurMouse 			= l;
 		fRawAzimuth 		= fAzimuth;
-		fSelectedPiece		= 0;
 		[NSCursor hide];
 		[NSEvent startPeriodicEventsAfterDelay:0.1f withPeriod:0.1f];
 		break;
@@ -301,7 +312,6 @@ MBCPosition operator-(const MBCPosition & a, const MBCPosition & b)
 		break;
 	}
 	pos[1]		    	= 0.0f;
-	fSelectedStartPos	= pos;
 	gettimeofday(&fLastRedraw, NULL);
 	fLastSelectedPos	= pos;
 	//
@@ -324,6 +334,9 @@ MBCPosition operator-(const MBCPosition & a, const MBCPosition & b)
 			break;
 		case NSLeftMouseUp: {
 			[self dragAndRedraw:event forceRedraw:YES];
+			NSUserDefaults * defaults 	= [NSUserDefaults standardUserDefaults];
+			[defaults setFloat:fElevation forKey:kMBCBoardAngle];
+			[defaults setFloat:fAzimuth 	 forKey:kMBCBoardSpin];
 			[fInteractive endSelection:fSelectedDest animate:NO];
 			if (fPickedSquare == previouslyPicked)
 				fPickedSquare = kInvalidSquare; // Toggle pick
@@ -392,19 +405,20 @@ MBCPosition operator-(const MBCPosition & a, const MBCPosition & b)
 		NSPoint p = [event locationInWindow];
 		NSPoint l = [self convertPoint:p fromView:nil];
 		fCurMouse = l;
-		//
-		// On drag, we can use a fairly fast interpolation to determine
-		// the 3D coordinate using the y where we touched the piece
-		//
-		MBCUnProjector	unproj(l.x, l.y);
+		
+		if (!fInAnimation) {
+			//
+			// On drag, we can use a fairly fast interpolation to determine
+			// the 3D coordinate using the y where we touched the piece
+			//
+			MBCUnProjector	unproj(l.x, l.y);
 
-		fSelectedPos 				= unproj.UnProject(0.0f);
-		[self snapToSquare:&fSelectedPos];
+			fSelectedPos 				= unproj.UnProject(0.0f);
+			[self snapToSquare:&fSelectedPos];
+		}
 	}
 	struct timeval	now;
 	gettimeofday(&now, NULL);
-	MBCPosition		delta		= fSelectedPos-fLastSelectedPos;
-	GLfloat			d2      	= delta[0]*delta[0]+delta[2]*delta[2];
 	NSTimeInterval	dt			= 
 		now.tv_sec - fLastRedraw.tv_sec 
 		+ 0.000001 * (now.tv_usec - fLastRedraw.tv_usec);
@@ -419,6 +433,29 @@ MBCPosition operator-(const MBCPosition & a, const MBCPosition & b)
 	} else if (fSelectedDest == kBorderRegion) {
 		float dx =  fCurMouse.x-fOrigMouse.x;
 		float dy =	fCurMouse.y-fOrigMouse.y;
+#if FULL_DIAGONAL_MOVES
+		bool mustDraw = false;
+		if (fabs(dx) > kThreshold) {
+			fRawAzimuth += dx*dt*kSpinSpeed;
+			fRawAzimuth = fmod(fRawAzimuth+360.0f, 360.0f);
+			float angle	= fmod((fAzimuth = fRawAzimuth), 90.0f);
+			if (angle < kAzimuthRound)
+				fAzimuth	-= angle;
+			else if (angle > 90.0f-kAzimuthRound)
+				fAzimuth 	+= 90.0f-angle;
+			mustDraw		= true;
+		} 
+		if (fabs(dy) > kThreshold) {
+			fElevation -= dy*dt*kTiltSpeed;
+			fElevation = max(kMinElevation, min(kMaxElevation, fElevation));
+			mustDraw		= true;
+		}
+		if (mustDraw) {
+			fNeedPerspective= true;
+			fLastRedraw 	= now;
+			[self drawNow];
+		}
+#else
 		if (fabs(dx) > fabs(dy) && fabs(dx) > kThreshold) {
 			fRawAzimuth += dx*dt*kSpinSpeed;
 			fRawAzimuth = fmod(fRawAzimuth+360.0f, 360.0f);
@@ -438,10 +475,16 @@ MBCPosition operator-(const MBCPosition & a, const MBCPosition & b)
 			fLastRedraw 	= now;
 			[self drawNow];
 		}
-	} else if (d2 > 25.0f || (d2 > 1.0f && dt > 0.02)) {
-		fSelectedDest	= [self positionToSquare:&fSelectedPos];
-		fLastRedraw 	= now;
-		[self drawNow];
+#endif
+	} else {
+		MBCPosition		delta		= fSelectedPos-fLastSelectedPos;
+		GLfloat			d2      	= delta[0]*delta[0]+delta[2]*delta[2];
+
+		if (d2 > 25.0f || (d2 > 1.0f && dt > 0.02)) {
+			fSelectedDest	= [self positionToSquare:&fSelectedPos];
+			fLastRedraw 	= now;
+			[self drawNow];
+		}
 	}
 }
 

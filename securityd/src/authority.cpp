@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2004,2008-2009 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -253,10 +253,10 @@ AuthorizationToken::setCredentialInfo(const Credential &inCred)
     if (snprintf(uid_string, sizeof(uid_string), "%u", inCred->uid()) >=
 		int(sizeof(uid_string)))
         uid_string[0] = '\0';
-    AuthItemRef uidHint("uid", AuthValueOverlay(uid_string ? strlen(uid_string) + 1 : 0, uid_string), 0);
+    AuthItemRef uidHint("uid", AuthValueOverlay(uid_string[0] ? strlen(uid_string) + 1 : 0, uid_string), 0);
     dstInfoSet.insert(uidHint);
  
-    AuthItemRef userHint("username", AuthValueOverlay(inCred->name()), 0);
+    AuthItemRef userHint("username", AuthValueOverlay(inCred->username()), 0);
     dstInfoSet.insert(userHint);
  
 	setInfoSet(dstInfoSet);

@@ -27,7 +27,7 @@
 #include "gdb_string.h"
 #include "event-top.h"
 #include "exceptions.h"
-#include "macosx-self-backtrace.h"
+#include <execinfo.h>
 
 #ifdef TUI
 #include "tui/tui.h"		/* For tui_get_command_dimension.   */
@@ -60,6 +60,9 @@
 #include <sys/param.h>		/* For MAXPATHLEN */
 
 #include "gdb_curses.h"
+
+#include "ui-out.h"
+#include "cli-out.h"
 
 #include "readline/readline.h"
 
@@ -141,6 +144,10 @@ static struct cleanup *exec_error_cleanup_chain;
    does the target extended-remote command. */
 struct continuation *cmd_continuation;
 struct continuation *intermediate_continuation;
+
+/* APPLE LOCAL: Used to clean up the ObjC "debugger mode" when we go back to
+   ordinary execution.  */
+static struct cleanup *hand_call_cleanup_chain;
 
 /* Nonzero if we have job control. */
 
@@ -261,6 +268,12 @@ make_exec_error_cleanup (make_cleanup_ftype *function, void *arg)
   return make_my_cleanup (&exec_error_cleanup_chain, function, arg);
 }
 
+struct cleanup *
+make_hand_call_cleanup (make_cleanup_ftype *function, void *arg)
+{
+  return make_my_cleanup (&hand_call_cleanup_chain, function, arg);
+}
+
 static void
 do_freeargv (void *arg)
 {
@@ -329,6 +342,32 @@ static void
 do_restore_uiout_cleanup (void *arg)
 {
   uiout = (struct ui_out *) arg;
+}
+
+static void
+do_restore_output (void *data)
+{
+  ui_file_rewind (gdb_null);
+  uiout = (struct ui_out *) data;
+}
+
+/* Use this call if you want to suppress output.  It does this by
+   swapping the ui_out you pass in with another that we will just
+   dump later.  Then just call the cleanup returned to turn the
+   output back on again.  */
+struct cleanup *
+make_cleanup_ui_out_suppress_output (struct ui_out *cur_uiout)
+{
+  struct ui_out *stored_uiout;
+  static struct ui_out *null_uiout = NULL;
+  if (null_uiout == NULL)
+    null_uiout = cli_out_new (gdb_null);
+  if (null_uiout == NULL)
+    error ("Unable to open null uiout in utils.c.");
+  stored_uiout = uiout;
+  uiout = null_uiout;
+
+  return make_cleanup (do_restore_output, stored_uiout);
 }
 
 static void
@@ -429,6 +468,16 @@ do_exec_error_cleanups (struct cleanup *old_chain)
   do_my_cleanups (&exec_error_cleanup_chain, old_chain);
 }
 
+void
+do_hand_call_cleanups (struct cleanup *old_chain)
+{
+  if (debug_handcall_setup && hand_call_cleanup_chain != NULL)
+    printf_unfiltered ("Executing hand call cleanups.\n");
+  do_my_cleanups (&hand_call_cleanup_chain, old_chain);
+  if (debug_handcall_setup && hand_call_cleanup_chain != NULL)
+    printf_unfiltered ("Done executing hand call cleanups.\n");
+}
+
 static void
 do_my_cleanups (struct cleanup **pmy_chain,
 		struct cleanup *old_chain)
@@ -461,6 +510,15 @@ void
 discard_exec_error_cleanups (struct cleanup *old_chain)
 {
   discard_my_cleanups (&exec_error_cleanup_chain, old_chain);
+}
+
+void
+discard_hand_call_cleanups (struct cleanup *old_chain)
+{
+  if (debug_handcall_setup && hand_call_cleanup_chain != NULL)
+    printf_unfiltered ("Discarding hand call cleanups.\n");
+
+  discard_my_cleanups (&hand_call_cleanup_chain, old_chain);
 }
 
 void
@@ -824,9 +882,9 @@ internal_vproblem (struct internal_problem *problem,
      to get useful bug reports.  */
   {
     void *bt_buffer[15];
-    int count = gdb_self_backtrace (bt_buffer, 15);
+    int count = backtrace (bt_buffer, 15);
     fprintf (stderr, "gdb stack crawl at point of internal error:\n");
-    gdb_self_backtrace_symbols_fd (bt_buffer, count, STDERR_FILENO, 2, 14);
+    backtrace_symbols_fd (bt_buffer, count, STDERR_FILENO);
   }
 
   /* Create a string containing the full error/warning message.  Need
@@ -998,7 +1056,7 @@ perror_with_name (const char *string)
   bfd_set_error (bfd_error_no_error);
   errno = 0;
 
-  error (_("%s."), combined);
+  error ("%s", combined);
 }
 
 /* Print the system error message for ERRCODE, and also mention STRING
@@ -1368,8 +1426,6 @@ xasprintf (char **ret, const char *format, ...)
 void
 xvasprintf (char **ret, const char *format, va_list ap)
 {
-  char *tmp;
-  int status = vasprintf (ret, format, ap);
   /* NULL could be returned due to a memory allocation problem; a
      badly format string; or something else. */
   if ((*ret) == NULL)
@@ -2845,8 +2901,6 @@ pagination_off_command (char *arg, int from_tty)
 void
 initialize_utils (void)
 {
-  struct cmd_list_element *c;
-
   add_setshow_uinteger_cmd ("width", class_support, &chars_per_line, _("\
 Set number of characters gdb thinks are in a line."), _("\
 Show number of characters gdb thinks are in a line."), NULL,
@@ -3475,4 +3529,235 @@ align_down (ULONGEST v, int n)
   /* Check that N is really a power of two.  */
   gdb_assert (n && (n & (n-1)) == 0);
   return (v & -n);
+}
+
+/* Break up SCRATCH into an argument vector suitable for passing to
+   execvp and store it in ARGV.  E.g., on "run a b c d" this routine
+   would get as input the string "a b c d", and as output it would
+   fill in ARGV with the four arguments "a", "b", "c", "d".  */
+
+/* APPLE LOCAL: Moved this from fork-child since I need it in remote
+   and fork-child doesn't get built for a cross.  I also changed this
+   to report argv as well.  */
+void
+breakup_args (char *scratch, int *argc, char **argv)
+{
+  char *cp = scratch;
+
+  *argc = 0;
+
+  for (;;)
+    {
+      /* Scan past leading separators */
+      while (*cp == ' ' || *cp == '\t' || *cp == '\n')
+	cp++;
+
+      /* Break if at end of string.  */
+      if (*cp == '\0')
+	break;
+
+      /* Take an arg.  */
+      *argv++ = cp;
+      (*argc)++;
+
+      /* Scan for next arg separator */
+      while (!(*cp == '\0' || *cp == ' ' || *cp == '\t' || *cp == '\n'))
+	{
+	  cp++;
+	}
+
+      /* No separators => end of string => break */
+      if (*cp == '\0')
+	break;
+
+      /* Replace the separator with a terminator.  */
+      *cp++ = '\0';
+    }
+
+  /* Null-terminate the vector.  */
+  *argv = NULL;
+}
+
+
+/* We may have one bundle embedded inside another; we want the innermost
+   bundle name we can find.  So we need a reverse strstr() function.  Here's
+   a simple way to do it; it could probably be done more efficiently. 
+
+   Search string S to find the last occurrence of substring R.
+   Returns NULL if R is not present in S.  */
+
+static const char *
+strrstr (const char *s, const char *r)
+{
+  int s_len = strlen (s);
+  int r_len = strlen (r);
+  const char *i, *j;
+  i = strstr (s, r);
+  j = i;
+  while (i != NULL)
+    {
+      j = i;
+      if (i + r_len < s + s_len)
+        i = strstr (i + 1, r);
+      else
+        break;
+    }
+  return j;
+}
+
+/* Search a string between BEG and END for character C, scanning backwards
+   from END to BEG.  
+   Returns a pointer to the matched character, or NULL if not present in the
+   string.  */
+
+static const char *
+strrchr_bounded (const char *beg, const char *end, char c)
+{
+  const char *i = end;
+  if (end <= beg)
+    return NULL;
+
+  while (i > beg && *i != c)
+    i--;
+  if (*i != c)
+    return NULL;
+  return i;
+}
+
+/* This version is like basename(3) but instead of returning a pointer to the
+   final component of the filename, it returns a pointer to the name of a 
+   bundle in FILEPATH, if any.  There may be bundles nested inside frameworks
+   nested inside app bundles -- a pointer to the innermost (i.e. last) bundle 
+   name will be returned.
+   
+   Some example test paths:
+
+   /System/Library/PreferencePanes/Localization.prefPane/Contents/Resources/IntlKeyboard.prefPane/Contents/Resources/sv.lproj/IntlKeyboard.nib
+   /Developer/Applications/Dashcode.app/Contents/Frameworks/CYKit.framework/Versions/A/Resources/Parts/FrontLozengeTextButton.part/Info.plist
+   /Developer/Applications/Dashcode.app/Contents/Frameworks/CYKit.framework/Versions/A/Resources/Snippets/DnDsetup.snippet/Info.plist
+   /AppleInternal/Developer/Examples/PrinterSupport/DSTROOT/Library/Printers/Vendor/InkJet/1.plugin/Contents/Info.plist
+   /Developer/Applications/Dashcode.app/Contents/Frameworks/CYKit.framework/Versions/A/Resources/Parts/BottomRectangleShape.part/Info.plist
+   /Developer/Applications/Dashcode.app/Contents/Frameworks/CYKit.framework/Versions/A/Resources/Parts/InputCheckbox.part/Variations/MobileWeb.part/Info.plist
+   /Developer/Applications/Dashcode.app/Contents/Frameworks/CYKit.framework/Versions/A/Resources/Parts/Text.part/Variations/MobileWeb.part/Info.plist
+   /Library/Printers/Xerox/PDEs/Xerox DocuColor 5252.plugin/Contents/PlugIns/WatermarkEditor.bundle/Contents/Resources/fr.lproj/WatermarkEditor.nib/objects.nib
+   /System/Library/PrivateFrameworks/ScreenReader.framework/Versions/A/Resources/VoiceOver Quickstart.app/Contents/Resources/VOTraining.bundle/Contents/Resources/French.lproj/Practice.nib
+   /System/Library/Speech/Recognizers/AppleSpeakableItems.SpeechRecognizer/Contents/Resources/PreferenceViewPlugin.bundle/Contents/Resources/English.lproj/ApplePreferenceViewPlugin.nib/keyedobjects.nib
+   /Library/Frameworks/HPDeviceModel.framework/Versions/2.0/Frameworks/Core.framework/Versions/2.0/Resources/DMF/7B5B9995E033B681A0797A33402E62C0/FFE335C58B478842
+   /Library/Frameworks/HPDeviceModel.framework/Versions/2.0/Frameworks/Core.framework/Versions/2.0/Resources/PlugIns/CFXmlParser.plugin/Contents/_CodeSignature/CodeResources
+   /Library/Frameworks/HPDeviceModel.framework/Versions/2.0/Frameworks/Status.framework/Versions/2.0/Resources/PlugIns/DeviceTrays.plugin/Contents/MacOS/DeviceTrays
+
+*/
+
+const char *
+bundle_basename (const char *filepath)
+{
+  const char *i, *j;
+  const char *bundle_name_start = NULL;
+  const char *bundle_name_end = NULL;  /* points to '/' after bundle name */
+  int deep_bundle = 0;
+
+  /* A file in a bundle must have multiple file path parts.  */
+  if (filepath == NULL || strchr (filepath, '/') == NULL)
+    return NULL;
+
+  /* Look for: foo.definition/Contents/Resources/whatev */
+
+  if (bundle_name_start == NULL
+      && (i = strrstr (filepath, "Contents")) != NULL
+      && i > filepath + 2)
+    {
+      j = strrchr_bounded (filepath, i - 2, '/');
+      if (j == filepath || j == NULL)
+        {
+          if (*filepath == '/')
+            bundle_name_start = filepath + 1;
+          else
+            bundle_name_start = filepath;
+          bundle_name_end = i - 1;
+          deep_bundle = 1;
+        }
+      else if (*j == '/')
+        {
+          bundle_name_start = j + 1;
+          bundle_name_end = i - 1;
+          deep_bundle = 1;
+        }
+    }
+
+  /* Look for: foo.framework/Versions/Current/whatev */
+
+  if ((i = strrstr (filepath, "Versions")) != NULL
+      && i > filepath + 2)
+    {
+      j = strrchr_bounded (filepath, i - 2, '/');
+      if (j == filepath || j == NULL)
+        {
+          if (*filepath == '/')
+            bundle_name_start = filepath + 1;
+          else
+            bundle_name_start = filepath;
+          bundle_name_end = i - 1;
+          deep_bundle = 1;
+        }
+      else if (*j == '/' && j + 1 > bundle_name_start)
+        {
+          bundle_name_start = j + 1;
+          bundle_name_end = i - 1;
+          deep_bundle = 1;
+        }
+    }
+
+  /* Look for: QTMPEG.component/Contents/Resources/Dutch.lproj/Localized.rsrc 
+     Should return Dutch.lproj here, or a shallow bundle on the 
+     iPhone platform  */
+
+  if ((i = strrchr (filepath, '/')) != NULL)
+    {
+      /* if there is no preceding pathname component before I */
+      if (i < filepath + 2)
+        return NULL;
+
+      j = strrchr_bounded (filepath, i - 1, '/');
+      if (j == filepath || j == NULL)
+        {
+          if (strrchr_bounded (filepath, i, '.') != NULL)
+            {
+              bundle_name_start = filepath;
+              bundle_name_end = i;
+            }
+        }
+      else if (*j == '/' && j + 1 > bundle_name_start)
+        {
+          if (strrchr_bounded (j + 1, i, '.') != NULL)
+            {
+              bundle_name_start = j + 1;
+              bundle_name_end = i;
+            }
+        }
+    }
+
+  if (bundle_name_start == NULL || bundle_name_end == NULL)
+    return NULL;
+  if (bundle_name_start == bundle_name_end)
+    return NULL;
+  if (bundle_name_start + 1 == bundle_name_end)
+    return NULL;
+
+  /* Now inspect the characters between bundle_name_start and bundle_name_end
+     to see if it looks like <chars> <dot> <alpha-chars>.  */
+
+  const char *dot = strrchr_bounded (bundle_name_start, bundle_name_end, '.');
+
+  if (dot == bundle_name_start)
+    return NULL;
+  if (dot + 1 == bundle_name_end)
+    return NULL;
+
+  for (i = dot + 1; i < bundle_name_end; i++)
+    {
+      if (!isalpha (*i))
+        return NULL;
+    }
+
+  return bundle_name_start;
 }

@@ -1,0 +1,3705 @@
+Return-Path: localhost!smtp_client
+Return-Path: <smtp_client@localhost>
+X-POP3-Rcpt: a.kupries@genesis
+Received: from ergolab4.psych.kun.nl (ergolab4.psych.kun.nl [131.174.200.119]) by genesis.westend.com (8.7.5/8.7.3) with SMTP id RAA13304 for <a.kupries@westend.com>; Wed, 11 Dec 1996 17:18:22 +0100 (MET)
+From: nijtmans@ergolab4.psych.kun.nl
+Received: (from nijtmans@localhost) by ergolab4.psych.kun.nl (8.6.12/8.6.12) id RAA08975; Wed, 11 Dec 1996 17:13:19 +0100
+Date: Wed, 11 Dec 1996 17:13:19 +0100
+Message-Id: <199612111613.RAA08975@ergolab4.psych.kun.nl>
+To: a.kupries@westend.com
+Subject: Re: memchan and trf
+Cc: nijtmans@ergolab4.psych.kun.nl
+X-Sun-Charset: US-ASCII
+
+
+Another thing I am pushing John Ousterhout to do is to add
+compatible functions for dlopen(), dlsym() and dlerror() to
+the Tcl8.0 library. This makes it possible for extensions to
+load other libraries dynamically at runtime, using a single
+consistent API for all systems.
+
+I now extended your Trf package to do that (see patch below).
+The advantages are:
+
+- The Trf package can be compiled without the z library, so
+  it doesn't need to be distributed together with it any more.
+  If the user didn't install libz, the adler, crc-zlib and zip
+  functions just are not available but everyting else is.
+- The user can install libz at any later time without the need
+  to recompile Trf to make use of it. Or if libz.so.1.0.4 is
+  replaced by libz.so.1.0.5, the newer one will be used
+  automatically without re-compilation.
+- libz is loaded dynamically only when it is needed for the
+  first time. That saves unneccary initialization time and
+  system memory as long as libz is not used.
+
+
+The patch below makes the following enhancements to the Trf
+package:
+
+- The configure scripts checks if zlib.h is available. If
+  it is not present, compat/zlib.h is used in stead.
+- If the dl library is present, dynamical loading is no
+  problem at all. For many systems there exist compatibility
+  functions to make it work:
+	compat/tclLoadAix.c		for Aix
+	compat/tclLoadAout.c		for Ultrix
+	compat/tclLoadShl.c		for HP-UX
+	compat/tclLoadDld.c		for systems using GNU dld.
+	compat/tclLoadWin.c		for Windows 3.1 and NT
+	compat/tclLoadMac.c		for Mac
+  The configure script automatically detects which one of these
+  is needed. I only tested the Ultrix and HP-UX versions, other
+  machines I don't have access to. (Other people reported
+  to me that the Windows and Mac versions work fine as well)
+- The configure script is also enhanced such that it handles
+  some systems correctly (which Tcl7.6 still doesn't):
+     - Irix 5.3 doesn't accept multiple -rpath arguments. And
+       its linker doesn't accept the option "-Wl,-rpath".
+     - In some older Linux version libm.so is missing,
+       so "-lm" cannot be included when linking the shared
+       library.
+     - In some older dld-systems libc.so is missing, which means
+       that "-lc" cannot be used with the shared library.
+  The patches below correct this for all systems I know of.
+
+I hope that John Ousterhout implements all of these in Tcl8.0,
+then you can remove the .c-files from the compat directory
+(the plus-patch already has all of them as well, but it
+doesn't distrurb to have it twice). You can remove the
+complete zlib subdirectory from the Trf distribution.
+
+Another small remark: The macros ckalloc() and ckfree(), are more
+efficient than Tcl_Alloc() and Tcl_Free() on UNIX. You only forgot
+to include <stdlib.h>, that's why it didn't work before.
+
+You could use the same method to get rid of the des subdirectory
+as well.
+
+Happy Hacking,  :-)
+
+	Jan Nijtmans
+	NICI (Nijmegen Institute of Cognition and Information)
+	email: nijtmans@nici.kun.nl
+	url:   http://www.cogsci.kun.nl/~nijtmans/
+*** configure.in.orig	Wed Dec 11 11:10:28 1996
+--- configure.in	Wed Dec 11 15:55:48 1996
+***************
+*** 13,18 ****
+--- 13,20 ----
+  TCL_REQ_MAJOR_VERSION=7
+  TCL_REQ_MINOR_VERSION=6
+  
++ AC_PROG_CC
++ AC_HAVE_HEADERS(dlfcn.h zlib.h stdlib.h)
+  
+  dnl
+  dnl use location of tclsh (wish?) as default for prefix, exec-prefix
+***************
+*** 50,56 ****
+  dnl	checks for alternative programs:
+  dnl		GNU cc, cpp, install, ranlib, makeinfo
+  dnl
+- AC_PROG_CC
+  AC_PROG_CPP
+  AC_PROG_RANLIB
+  dnl
+--- 52,57 ----
+***************
+*** 217,223 ****
+  SHLIB_VERSION=$TCL_SHLIB_VERSION
+  DL_LIBS=$TCL_DL_LIBS
+  LD_FLAGS=$TCL_LD_FLAGS
+! TRF_LD_SEARCH_FLAGS=$TCL_LD_SEARCH_FLAGS
+  
+  #--------------------------------------------------------------------
+  #	The statements below define a collection of symbols related to
+--- 218,229 ----
+  SHLIB_VERSION=$TCL_SHLIB_VERSION
+  DL_LIBS=$TCL_DL_LIBS
+  LD_FLAGS=$TCL_LD_FLAGS
+! LIB_RUNTIME_DIR='${LIB_RUNTIME_DIR}:${TCL_LIB_DIR}'
+! if test "${TCL_LD_SEARCH_FLAGS}" = '-L${LIB_RUNTIME_DIR}'; then
+!     LIB_RUNTIME_DIR=`echo ${LIB_RUNTIME_DIR} |sed -e 's/:/ -L/g'`
+! fi
+! eval "TRF_CC_SEARCH_FLAGS=\"$TCL_LD_SEARCH_FLAGS\""
+! TRF_LD_SEARCH_FLAGS=`echo ${TRF_CC_SEARCH_FLAGS} |sed -e "s|-Wl,||g" -e "s|,| |g"`
+  
+  #--------------------------------------------------------------------
+  #	The statements below define a collection of symbols related to
+***************
+*** 270,277 ****
+--- 276,339 ----
+  dnl non-standard substitutions
+  dnl
+  
++ SHARED_LIBS=""
++ TEST_SUFFIX="${SHLIB_SUFFIX}"
++ if test "$DL_LIBS" = "-ldl"; then
++     DL_OBJS=""
++     dirs="/lib/libdl${TEST_SUFFIX}* /usr/lib/libdl${TEST_SUFFIX}*"
++     for i in $dirs ; do
++ 	if test -f $i; then
++ 	    SHARED_LIBS="${SHARED_LIBS} -ldl"
++ 	    break;
++ 	fi
++     done
++ elif test "$DL_LIBS" = "-ldld"; then
++     if test "$SHLIB_SUFFIX" = ".sl"; then
++ 	DL_OBJS="tclLoadShl.o"
++     else
++ 	DL_OBJS="tclLoadDld.o"
++     fi
++     dirs="/lib/libdld${TEST_SUFFIX}* /usr/lib/libdld${TEST_SUFFIX}*"
++     for i in $dirs ; do
++ 	if test -f $i; then
++ 	    SHARED_LIBS="${SHARED_LIBS} -ldld"
++ 	    break;
++ 	fi
++     done
++ elif test "$DL_LIBS" = "-lld"; then
++     DL_OBJS="tclLoadAix.o"
++     SHARED_LIBS="${TCL_LIB_SPEC} -lld"
++     TEST_SUFFIX=".a"
++ elif test "$SHLIB_SUFFIX" = "..o" -o "$SHLIB_SUFFIX" = ".a"; then
++     DL_OBJS="tclLoadAout.o"
++     if test "x${SHLIB_CFLAGS}" = "x-G 0"; then
++ 	TEST_SUFFIX="_G0.a"
++     else
++ 	TEST_SUFFIX=".a"
++     fi
++ else
++     DL_OBJS=""
++ fi
++ 
++ dirs="/lib/libm${TEST_SUFFIX}* /usr/lib/libm${TEST_SUFFIX}*"
++ for i in $dirs ; do
++     if test -f $i; then
++ 	SHARED_LIBS="${SHARED_LIBS} -lm"
++ 	break;
++     fi
++ done
++ dirs="/lib/libc${TEST_SUFFIX}* /usr/lib/libc${TEST_SUFFIX}*"
++ for i in $dirs ; do
++     if test -f $i; then
++ 	SHARED_LIBS="${SHARED_LIBS} -lc"
++ 	break;
++     fi
++ done
++ AC_SUBST(SHARED_LIBS)
++ 
+  AC_SUBST(CC)
+  AC_SUBST(DL_LIBS)
++ AC_SUBST(DL_OBJS)
+  AC_SUBST(LD_FLAGS)
+  AC_SUBST(TCL_LIBS)
+  AC_SUBST(MAKE_LIB)
+***************
+*** 282,287 ****
+--- 344,350 ----
+  AC_SUBST(SHLIB_VERSION)
+  AC_SUBST(TCL_BUILD_LIB_SPEC)
+  AC_SUBST(TCL_LIB_SPEC)
++ AC_SUBST(TCL_DEFS)
+  AC_SUBST(TCL_SRC_DIR)
+  AC_SUBST(TCL_LIB_DIR)
+  AC_SUBST(TCL_INCLUDE_DIR)
+***************
+*** 288,293 ****
+--- 351,357 ----
+  AC_SUBST(TCL_VERSION)
+  AC_SUBST(TRF_BUILD_LIB_SPEC)
+  AC_SUBST(TRF_LD_SEARCH_FLAGS)
++ AC_SUBST(TRF_CC_SEARCH_FLAGS)
+  AC_SUBST(TRF_LIB_FILE)
+  AC_SUBST(TRF_LIB_SPEC)
+  AC_SUBST(TRF_LIB_DIR)
+*** Makefile.in.orig	Wed Dec 11 11:17:10 1996
+--- Makefile.in	Wed Dec 11 15:57:44 1996
+***************
+*** 116,123 ****
+  # Libraries to use when linking:  must include at least the dynamic
+  # loading library and the math library (in that order).  This
+  # definition is determined by the configure script.
+! LIBS = @TCL_LIB_SPEC@ @TCL_LIBS@ @LIBS@ -lc
+  
+  TRF_LIB_FILE = @TRF_LIB_FILE@
+  #TRF_LIB_FILE = libtrf.a
+  
+--- 116,125 ----
+  # Libraries to use when linking:  must include at least the dynamic
+  # loading library and the math library (in that order).  This
+  # definition is determined by the configure script.
+! ALL_LIBS = @TCL_LIB_SPEC@ @TCL_LIBS@ @LIBS@ @TRF_CC_SEARCH_FLAGS@
+  
++ LIBS = @TRF_LD_SEARCH_FLAGS@ @SHARED_LIBS@
++ 
+  TRF_LIB_FILE = @TRF_LIB_FILE@
+  #TRF_LIB_FILE = libtrf.a
+  
+***************
+*** 139,145 ****
+  
+  CC		=	@CC@
+  
+! CC_SWITCHES	=	$(CFLAGS) $(TRF_SHLIB_CFLAGS) $(CPPFLAGS)
+  # $(TCL_CC_SWITCHES)
+  CPPFLAGS	=	$(DEFINES) $(INCLUDES)
+  
+--- 141,147 ----
+  
+  CC		=	@CC@
+  
+! CC_SWITCHES	=	$(CFLAGS) $(TRF_SHLIB_CFLAGS) $(CPPFLAGS) -DZ_LIB_NAME=\"libz@SHLIB_SUFFIX@\"
+  # $(TCL_CC_SWITCHES)
+  CPPFLAGS	=	$(DEFINES) $(INCLUDES)
+  
+***************
+*** 153,159 ****
+  
+  #		fundamentals of this library
+  BASE_SRC	=	init.c registry.c
+! BASE_OBJ	=	init.o registry.o
+  
+  #		conversions, base & algorithms
+  CVT_SRC		=	$(CVT_BASE_SRC) $(CVT_ALG_SRC)
+--- 155,161 ----
+  
+  #		fundamentals of this library
+  BASE_SRC	=	init.c registry.c
+! BASE_OBJ	=	init.o registry.o @DL_OBJS@
+  
+  #		conversions, base & algorithms
+  CVT_SRC		=	$(CVT_BASE_SRC) $(CVT_ALG_SRC)
+***************
+*** 188,195 ****
+  ECC_OBJ		=	rs_ecc.o
+  
+  #		compression, base
+! COMPRESS_SRC	=	$(ZLIB_SRC) zip_opt.c zip.c
+! COMPRESS_OBJ	=	$(ZLIB_OBJ) zip_opt.o zip.o
+  
+  #		external library used to build compressor
+  zlibdir		=	$(srcdir)/zlib
+--- 190,197 ----
+  ECC_OBJ		=	rs_ecc.o
+  
+  #		compression, base
+! COMPRESS_SRC	=	zip_opt.c zip.c
+! COMPRESS_OBJ	=	zip_opt.o zip.o
+  
+  #		external library used to build compressor
+  zlibdir		=	$(srcdir)/zlib
+***************
+*** 219,225 ****
+  APP		=	$(srcdir)/tclsh
+  
+  LDFLAGS		=	@LD_FLAGS@
+! LOADLIBES	=	@TRF_BUILD_LIB_SPEC@ $(LIBS) @TRF_LD_SEARCH_FLAGS@
+  
+  
+  #-------------------------------------------------------#
+--- 221,227 ----
+  APP		=	$(srcdir)/tclsh
+  
+  LDFLAGS		=	@LD_FLAGS@
+! LOADLIBES	=	@TRF_BUILD_LIB_SPEC@ $(ALL_LIBS)
+  
+  
+  #-------------------------------------------------------#
+***************
+*** 293,298 ****
+--- 295,312 ----
+  .c.o:
+  	$(CC) -c $(CC_SWITCHES) $< -o $@
+  
++ tclLoadAix.o:	compat/tclLoadAix.c
++ 	$(CC) -c $(CC_SWITCHES) compat/tclLoadAix.c -o $@
++ 
++ tclLoadDld.o:	compat/tclLoadDld.c
++ 	$(CC) -c $(CC_SWITCHES) compat/tclLoadDld.c -o $@
++ 
++ tclLoadShl.o:	compat/tclLoadShl.c
++ 	$(CC) -c $(CC_SWITCHES) compat/tclLoadShl.c -o $@
++ 
++ tclLoadAout.o:	compat/tclLoadAout.c
++ 	$(CC) -c $(CC_SWITCHES) compat/tclLoadAout.c -o $@
++ 
+  #-------------------------------------------------------#
+  
+  $(TRF_LIB_FILE):	$(OBJECTS)
+*** adler.c.orig	Wed Dec 11 12:40:44 1996
+--- adler.c	Wed Dec 11 13:26:25 1996
+***************
+*** 28,34 ****
+   */
+  
+  #include "transformInt.h"
+! #include "zlib/zlib.h"
+  
+  /*
+   * Generator description
+--- 28,42 ----
+   */
+  
+  #include "transformInt.h"
+! #ifdef MAC_TCL
+! #include "compat:zlib.h"
+! #else
+! #ifdef HAVE_ZLIB_H
+! #   include <zlib.h>
+! #else
+! #   include "compat/zlib.h"
+! #endif
+! #endif
+  
+  /*
+   * Generator description
+***************
+*** 39,45 ****
+   */
+  
+  #define DIGEST_SIZE               4 /* byte == 32 bit */
+! #define CTX_TYPE                  uLong
+  
+  /*
+   * Declarations of internal procedures.
+--- 47,53 ----
+   */
+  
+  #define DIGEST_SIZE               4 /* byte == 32 bit */
+! #define CTX_TYPE                  unsigned long
+  
+  /*
+   * Declarations of internal procedures.
+***************
+*** 62,68 ****
+    MD_Final
+  };
+  
+! #define ADLER (*((uLong*) context))
+  
+  /*
+   *------------------------------------------------------*
+--- 70,76 ----
+    MD_Final
+  };
+  
+! #define ADLER (*((CTX_TYPE*) context))
+  
+  /*
+   *------------------------------------------------------*
+***************
+*** 114,120 ****
+  {
+    /* call md specific initialization here */
+  
+!   ADLER = adler32 (0L, Z_NULL, 0);
+  }
+  
+  /*
+--- 122,128 ----
+  {
+    /* call md specific initialization here */
+  
+!   ADLER = TrfAdler32 (0L, Z_NULL, 0);
+  }
+  
+  /*
+***************
+*** 145,151 ****
+  
+    unsigned char buf = character;
+  
+!   ADLER = adler32 (ADLER, &buf, 1);
+  }
+  
+  /*
+--- 153,159 ----
+  
+    unsigned char buf = character;
+  
+!   ADLER = TrfAdler32 (ADLER, &buf, 1);
+  }
+  
+  /*
+***************
+*** 174,180 ****
+  {
+    /* call md specific finalization here */
+  
+!   uLong adler = ADLER;
+    char*   out = (char*) digest;
+  
+    /* BIGENDIAN output */
+--- 182,188 ----
+  {
+    /* call md specific finalization here */
+  
+!   CTX_TYPE adler = ADLER;
+    char*   out = (char*) digest;
+  
+    /* BIGENDIAN output */
+*** crc_zlib.c.orig	Wed Dec 11 13:03:59 1996
+--- crc_zlib.c	Wed Dec 11 13:26:25 1996
+***************
+*** 28,34 ****
+   */
+  
+  #include "transformInt.h"
+! #include "zlib/zlib.h"
+  
+  /*
+   * Generator description
+--- 28,42 ----
+   */
+  
+  #include "transformInt.h"
+! #ifdef MAC_TCL
+! #include "compat:zlib.h"
+! #else
+! #ifdef HAVE_ZLIB_H
+! #   include <zlib.h>
+! #else
+! #   include "compat/zlib.h"
+! #endif
+! #endif
+  
+  /*
+   * Generator description
+***************
+*** 39,45 ****
+   */
+  
+  #define DIGEST_SIZE               4 /* byte == 32 bit */
+! #define CTX_TYPE                  uLong
+  
+  /*
+   * Declarations of internal procedures.
+--- 47,53 ----
+   */
+  
+  #define DIGEST_SIZE               4 /* byte == 32 bit */
+! #define CTX_TYPE                  unsigned long
+  
+  /*
+   * Declarations of internal procedures.
+***************
+*** 62,68 ****
+    MD_Final
+  };
+  
+! #define CRC (*((uLong*) context))
+  
+  /*
+   *------------------------------------------------------*
+--- 70,76 ----
+    MD_Final
+  };
+  
+! #define CRC (*((CTX_TYPE*) context))
+  
+  /*
+   *------------------------------------------------------*
+***************
+*** 114,120 ****
+  {
+    /* call md specific initialization here */
+  
+!   CRC = crc32 (0L, Z_NULL, 0);
+  }
+  
+  /*
+--- 122,128 ----
+  {
+    /* call md specific initialization here */
+  
+!   CRC = TrfCrc32 (0L, Z_NULL, 0);
+  }
+  
+  /*
+***************
+*** 145,151 ****
+  
+    unsigned char buf = character;
+  
+!   CRC = crc32 (CRC, &buf, 1);
+  }
+  
+  /*
+--- 153,159 ----
+  
+    unsigned char buf = character;
+  
+!   CRC = TrfCrc32 (CRC, &buf, 1);
+  }
+  
+  /*
+***************
+*** 174,180 ****
+  {
+    /* call md specific finalization here */
+  
+!   uLong crc = CRC;
+    char*   out = (char*) digest;
+  
+    /* LITTLE ENDIAN output */
+--- 182,188 ----
+  {
+    /* call md specific finalization here */
+  
+!   CTX_TYPE crc = CRC;
+    char*   out = (char*) digest;
+  
+    /* LITTLE ENDIAN output */
+*** transformInt.h.orig	Wed Dec 11 12:56:19 1996
+--- transformInt.h	Wed Dec 11 15:17:10 1996
+***************
+*** 30,35 ****
+--- 30,55 ----
+  #include <errno.h>
+  #include <string.h>
+  #include <assert.h>
++ #ifdef MAC_TCL
++ #include "compat:dlfcn.h"
++ #include "compat:zlib.h"
++ #else
++ #ifdef HAVE_DLFCN_H
++ #   include <dlfcn.h>
++ #else
++ #   include "compat/dlfcn.h"
++ #endif
++ #ifdef HAVE_ZLIB_H
++ #   include <zlib.h>
++ #else
++ #   include "compat/zlib.h"
++ #endif
++ #endif
++ #ifdef HAVE_STDLIB_H
++ #   include <stdlib.h>
++ #else
++ #   include "compat/stdlib.h"
++ #endif
+  #include "transform.h"
+  
+  /* make internal procedure of tcl available */
+***************
+*** 204,209 ****
+--- 224,235 ----
+  #define TRF_MIN_LEVEL_STR "1"
+  #define TRF_MAX_LEVEL_STR "9"
+  
++ EXTERN int TrfLoadZlib _ANSI_ARGS_((Tcl_Interp *interp));
++ EXTERN unsigned long TrfAdler32 _ANSI_ARGS_((unsigned long adler,
++ 	CONST unsigned char *buf, unsigned int len));
++ EXTERN unsigned long TrfCrc32 _ANSI_ARGS_((unsigned long crc,
++ 	CONST unsigned char *buf, unsigned int len));
++ 
+  /*
+   * Internal initialization procedures for all transformers implemented here.
+   */
+*** zip.c.orig	Wed Dec 11 11:21:35 1996
+--- zip.c	Wed Dec 11 16:04:29 1996
+***************
+*** 28,36 ****
+   */
+  
+  #include "transformInt.h"
+- #include "zlib/zlib.h"
+  
+  /*
+   * Declarations of internal procedures.
+   */
+  
+--- 28,52 ----
+   */
+  
+  #include "transformInt.h"
+  
++ #ifdef __WIN32__
++ #define Z_LIB_NAME "z.dll"
++ #endif
++ 
++ #ifndef Z_LIB_NAME
++ #define Z_LIB_NAME "libz.so"
++ #endif
++ 
+  /*
++  * In some systems, like SunOS 4.1.3, the RTLD_NOW flag isn't defined
++  * and this argument to dlopen must always be 1.
++  */
++ 
++ #ifndef RTLD_NOW
++ #   define RTLD_NOW 1
++ #endif
++ 
++ /*
+   * Declarations of internal procedures.
+   */
+  
+***************
+*** 74,79 ****
+--- 90,209 ----
+  				    CONST char* prefix));
+  
+  
++ static struct ZFunctions {
++     VOID *handle;
++     int (* deflate) _ANSI_ARGS_((z_streamp strm, int flush));
++     int (* deflateEnd) _ANSI_ARGS_((z_streamp strm));
++     int (* deflateInit_) _ANSI_ARGS_((z_streamp strm, int level,
++ 			CONST char *version, int stream_size));
++     int (* deflateReset) _ANSI_ARGS_((z_streamp strm));
++     int (* inflate) _ANSI_ARGS_((z_streamp strm, int flush));
++     int (* inflateEnd) _ANSI_ARGS_((z_streamp strm));
++     int (* inflateInit_) _ANSI_ARGS_((z_streamp strm,
++ 			CONST char *version, int stream_size));
++     int (* inflateReset) _ANSI_ARGS_((z_streamp strm));
++     unsigned long (* adler32) _ANSI_ARGS_((unsigned long adler,
++ 			CONST unsigned char *buf, unsigned int len));
++     unsigned long (* crc32) _ANSI_ARGS_((unsigned long crc,
++ 			CONST unsigned char *buf, unsigned int len));
++ } z = {0};
++ 
++ #ifndef offsetof
++ #define offsetof(type,field) (((char *) &((type *) 0)->field))
++ #endif
++ 
++ #define FN_DIST ((int ) offsetof(struct ZFunctions, deflateEnd) - \
++ 	(int) offsetof(struct ZFunctions, deflate))/sizeof(char *)
++ 
++ static char *symbols[] = {
++     "_deflate",
++     "_deflateEnd",
++     "_deflateInit_",
++     "_deflateReset",
++     "_inflate",
++     "_inflateEnd",
++     "_inflateInit_",
++     "_inflateReset",
++     "_adler32",
++     "_crc32",
++     (char *) NULL
++ };
++ 
++ unsigned long TrfAdler32 (adler, buf, len)
++     unsigned long adler;
++     CONST unsigned char *buf;
++     unsigned int len;
++ {
++     if (TrfLoadZlib((Tcl_Interp *) NULL) != TCL_OK) {
++ 	return 0;
++     } else {
++ 	return z.adler32(adler, buf, len);
++     }
++ }
++ 
++ unsigned long TrfCrc32 (crc, buf, len)
++     unsigned long crc;
++     CONST unsigned char *buf;
++     unsigned int len;
++ {
++     if (TrfLoadZlib((Tcl_Interp *) NULL) != TCL_OK) {
++ 	return 0;
++     } else {
++ 	return z.crc32(crc, buf, len);
++     }
++ }
++ 
++ int
++ TrfLoadZlib(interp)
++     Tcl_Interp *interp;
++ {
++     VOID *handle = (VOID *) NULL;
++     char **p = (char **) &z.deflate;
++     char **q = symbols;
++     char *buf;
++ 
++     if (z.handle != NULL) {
++ 	return TCL_OK;
++     }
++ 
++     buf = (char *) ckalloc(strlen(Z_LIB_NAME) + 3);
++     strcat(buf,".1");
++     handle = dlopen(buf, RTLD_NOW);
++     ckfree(buf);
++ 
++     if (handle == NULL) {
++ 	dlerror();
++ 	handle = dlopen(Z_LIB_NAME, RTLD_NOW);
++     }
++     if (handle == NULL) {
++ 	if (interp != NULL) {
++ 	    Tcl_AppendResult(interp,"cannot open ",Z_LIB_NAME,
++ 		    ": ", dlerror(), (char *) NULL);
++ 	}
++ 	return TCL_ERROR;
++     }
++ 
++     while (*q) {
++ 	*p = (char *) dlsym(handle,(*q)+1);
++ 	if (*p == (char *)NULL) {
++ 	    *p = (char *) dlsym(handle,*q);
++ 	    if (*p == (char *)NULL) {
++ 		if (interp != NULL) {
++ 		    Tcl_AppendResult(interp,"cannot open ",Z_LIB_NAME,
++ 			    ": symbol \"",(*q)+1,"\" not found", (char *) NULL);
++ 		}
++ 		return TCL_ERROR;
++ 	    }
++ 	}
++ 	q++;
++ 	p += FN_DIST;
++     }
++ 
++     z.handle = handle;
++ 
++     return TCL_OK;
++ }
++ 
+  /*
+   * Converter definition.
+   */
+***************
+*** 184,190 ****
+    TrfZipOptionBlock* o = (TrfZipOptionBlock*) optInfo;
+    int res;
+  
+!   c = (EncoderControl*) Tcl_Alloc (sizeof (EncoderControl));
+    c->write           = fun;
+    c->writeClientData = writeClientData;
+  
+--- 314,324 ----
+    TrfZipOptionBlock* o = (TrfZipOptionBlock*) optInfo;
+    int res;
+  
+!   if (TrfLoadZlib(interp) != TCL_OK) {
+!     return (ClientData) NULL;
+!   }
+! 
+!   c = (EncoderControl*) ckalloc (sizeof (EncoderControl));
+    c->write           = fun;
+    c->writeClientData = writeClientData;
+  
+***************
+*** 194,200 ****
+    c->state.zfree  = Z_NULL;
+    c->state.opaque = Z_NULL;
+  
+!   res = deflateInit (&c->state, o->level);
+  
+    if (res != Z_OK) {
+      if (interp) {
+--- 328,334 ----
+    c->state.zfree  = Z_NULL;
+    c->state.opaque = Z_NULL;
+  
+!   res = z.deflateInit_ (&c->state, o->level, ZLIB_VERSION, sizeof(z_stream));
+  
+    if (res != Z_OK) {
+      if (interp) {
+***************
+*** 201,207 ****
+        ZlibError (interp, &c->state, res, "compressor/init");
+      }
+  
+!     Tcl_Free ((VOID*) c);
+      return (ClientData) NULL;
+    }
+  
+--- 335,341 ----
+        ZlibError (interp, &c->state, res, "compressor/init");
+      }
+  
+!     ckfree ((char *) c);
+      return (ClientData) NULL;
+    }
+  
+***************
+*** 235,242 ****
+  
+    /* release conversion specific items here (ZIP) */
+  
+!   deflateEnd (&c->state);
+!   Tcl_Free ((char*) c);
+  }
+  
+  /*
+--- 369,376 ----
+  
+    /* release conversion specific items here (ZIP) */
+  
+!   z.deflateEnd (&c->state);
+!   ckfree ((char *) c);
+  }
+  
+  /*
+***************
+*** 282,288 ****
+      c->state.next_out  = out;
+      c->state.avail_out = OUT_SIZE;
+  
+!     res = deflate (&c->state, Z_NO_FLUSH);
+  
+      if (res < Z_OK) {
+        if (interp) {
+--- 416,422 ----
+      c->state.next_out  = out;
+      c->state.avail_out = OUT_SIZE;
+  
+!     res = z.deflate (&c->state, Z_NO_FLUSH);
+  
+      if (res < Z_OK) {
+        if (interp) {
+***************
+*** 349,355 ****
+      c->state.next_out  = out;
+      c->state.avail_out = OUT_SIZE;
+  
+!     res = deflate (&c->state, Z_FINISH);
+  
+      if (res < Z_OK) {
+        if (interp) {
+--- 483,489 ----
+      c->state.next_out  = out;
+      c->state.avail_out = OUT_SIZE;
+  
+!     res = z.deflate (&c->state, Z_FINISH);
+  
+      if (res < Z_OK) {
+        if (interp) {
+***************
+*** 401,407 ****
+  
+    /* execute conversion specific code here (ZIP) */
+  
+!   deflateReset (&c->state);
+  }
+  
+  /*
+--- 535,541 ----
+  
+    /* execute conversion specific code here (ZIP) */
+  
+!   z.deflateReset (&c->state);
+  }
+  
+  /*
+***************
+*** 434,440 ****
+    DecoderControl*    c;
+    int res;
+  
+!   c = (DecoderControl*) Tcl_Alloc (sizeof (DecoderControl));
+    c->write           = fun;
+    c->writeClientData = writeClientData;
+  
+--- 568,578 ----
+    DecoderControl*    c;
+    int res;
+  
+!   if (TrfLoadZlib(interp) != TCL_OK) {
+!     return (ClientData) NULL;
+!   }
+! 
+!   c = (DecoderControl*) ckalloc (sizeof (DecoderControl));
+    c->write           = fun;
+    c->writeClientData = writeClientData;
+  
+***************
+*** 444,450 ****
+    c->state.zfree  = Z_NULL;
+    c->state.opaque = Z_NULL;
+  
+!   res = inflateInit (&c->state);
+  
+    if (res != Z_OK) {
+      if (interp) {
+--- 582,588 ----
+    c->state.zfree  = Z_NULL;
+    c->state.opaque = Z_NULL;
+  
+!   res = z.inflateInit_ (&c->state, ZLIB_VERSION, sizeof(z_stream));
+  
+    if (res != Z_OK) {
+      if (interp) {
+***************
+*** 451,457 ****
+        ZlibError (interp, &c->state, res, "decompressor/init");
+      }
+  
+!     Tcl_Free ((VOID*) c);
+      return (ClientData) NULL;
+    }
+  
+--- 589,595 ----
+        ZlibError (interp, &c->state, res, "decompressor/init");
+      }
+  
+!     ckfree ((char *) c);
+      return (ClientData) NULL;
+    }
+  
+***************
+*** 485,493 ****
+  
+    /* release conversion specific items here (ZIP) */
+  
+!   inflateEnd (&c->state);
+  
+!   Tcl_Free ((char*) c);
+  }
+  
+  /*
+--- 623,631 ----
+  
+    /* release conversion specific items here (ZIP) */
+  
+!   z.inflateEnd (&c->state);
+  
+!   ckfree ((char *) c);
+  }
+  
+  /*
+***************
+*** 532,538 ****
+      c->state.next_out  = out;
+      c->state.avail_out = OUT_SIZE;
+  
+!     res = inflate (&c->state, Z_NO_FLUSH);
+  
+      if (res < Z_OK) {
+        if (interp) {
+--- 670,676 ----
+      c->state.next_out  = out;
+      c->state.avail_out = OUT_SIZE;
+  
+!     res = z.inflate (&c->state, Z_NO_FLUSH);
+  
+      if (res < Z_OK) {
+        if (interp) {
+***************
+*** 599,605 ****
+      c->state.next_out  = out;
+      c->state.avail_out = OUT_SIZE;
+  
+!     res = inflate (&c->state, Z_FINISH);
+  
+      if ((res < Z_OK) || (res == Z_NEED_DICT)) {
+        if (interp) {
+--- 737,743 ----
+      c->state.next_out  = out;
+      c->state.avail_out = OUT_SIZE;
+  
+!     res = z.inflate (&c->state, Z_FINISH);
+  
+      if ((res < Z_OK) || (res == Z_NEED_DICT)) {
+        if (interp) {
+***************
+*** 651,657 ****
+  
+    /* execute conversion specific code here (ZIP) */
+  
+!   inflateReset (&c->state);
+  }
+  
+  /*
+--- 789,795 ----
+  
+    /* execute conversion specific code here (ZIP) */
+  
+!   z.inflateReset (&c->state);
+  }
+  
+  /*
+*** compat/dlfcn.h.orig	Wed Dec 11 10:20:31 1996
+--- compat/dlfcn.h	Wed Dec 11 09:54:37 1996
+***************
+*** 0 ****
+--- 1,59 ----
++ /* 
++  * dlfcn.h --
++  *
++  *	This file provides a replacement for the header file "dlfcn.h"
++  *	on systems where dlfcn.h is missing.  It's primary use is for
++  *	AIX, where Tcl emulates the dl library.
++  *
++  *	This file is subject to the following copyright notice, which is
++  *	different from the notice used elsewhere in Tcl but rougly
++  *	equivalent in meaning.
++  *
++  *	Copyright (c) 1992,1993,1995,1996, Jens-Uwe Mager, Helios Software GmbH
++  *	Not derived from licensed software.
++  *
++  *	Permission is granted to freely use, copy, modify, and redistribute
++  *	this software, provided that the author is not construed to be liable
++  *	for any results of using the software, alterations are clearly marked
++  *	as such, and this notice is not modified.
++  *
++  * SCCS: @(#) dlfcn.h 1.4 96/09/17 09:05:59
++  */
++ 
++ /*
++  * @(#)dlfcn.h	1.4 revision of 95/04/25  09:36:52
++  * This is an unpublished work copyright (c) 1992 HELIOS Software GmbH
++  * 30159 Hannover, Germany
++  */
++ 
++ #ifndef __dlfcn_h__
++ #define __dlfcn_h__
++ 
++ #ifndef _TCL
++ #include <tcl.h>
++ #endif
++ 
++ #ifdef __cplusplus
++ extern "C" {
++ #endif
++ 
++ /*
++  * Mode flags for the dlopen routine.
++  */
++ #define RTLD_LAZY	1	/* lazy function call binding */
++ #define RTLD_NOW	2	/* immediate function call binding */
++ #define RTLD_GLOBAL	0x100	/* allow symbols to be global */
++ 
++ /*
++  * Declarations used for dynamic linking support routines.
++  */
++ VOID *dlopen _ANSI_ARGS_((const char *path, int mode));
++ VOID *dlsym _ANSI_ARGS_((void *handle, const char *symbol));
++ char *dlerror _ANSI_ARGS_((void));
++ int dlclose _ANSI_ARGS_((void *handle));
++ 
++ #ifdef __cplusplus
++ }
++ #endif
++ 
++ #endif /* __dlfcn_h__ */
+*** compat/stdlib.h.orig	Wed Dec 11 14:52:09 1996
+--- compat/stdlib.h	Wed Dec 11 14:51:38 1996
+***************
+*** 0 ****
+--- 1,45 ----
++ /*
++  * stdlib.h --
++  *
++  *	Declares facilities exported by the "stdlib" portion of
++  *	the C library.  This file isn't complete in the ANSI-C
++  *	sense;  it only declares things that are needed by Tcl.
++  *	This file is needed even on many systems with their own
++  *	stdlib.h (e.g. SunOS) because not all stdlib.h files
++  *	declare all the procedures needed here (such as strtod).
++  *
++  * Copyright (c) 1991 The Regents of the University of California.
++  * Copyright (c) 1994 Sun Microsystems, Inc.
++  *
++  * See the file "license.terms" for information on usage and redistribution
++  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
++  *
++  * SCCS: @(#) stdlib.h 1.10 96/02/15 14:43:54
++  */
++ 
++ #ifndef _STDLIB
++ #define _STDLIB
++ 
++ #include <tcl.h>
++ 
++ extern void		abort _ANSI_ARGS_((void));
++ extern double		atof _ANSI_ARGS_((CONST char *string));
++ extern int		atoi _ANSI_ARGS_((CONST char *string));
++ extern long		atol _ANSI_ARGS_((CONST char *string));
++ extern char *		calloc _ANSI_ARGS_((unsigned int numElements,
++ 			    unsigned int size));
++ extern void		exit _ANSI_ARGS_((int status));
++ extern int		free _ANSI_ARGS_((char *blockPtr));
++ extern char *		getenv _ANSI_ARGS_((CONST char *name));
++ extern char *		malloc _ANSI_ARGS_((unsigned int numBytes));
++ extern void		qsort _ANSI_ARGS_((VOID *base, int n, int size,
++ 			    int (*compar)(CONST VOID *element1, CONST VOID
++ 			    *element2)));
++ extern char *		realloc _ANSI_ARGS_((char *ptr, unsigned int numBytes));
++ extern double		strtod _ANSI_ARGS_((CONST char *string, char **endPtr));
++ extern long		strtol _ANSI_ARGS_((CONST char *string, char **endPtr,
++ 			    int base));
++ extern unsigned long	strtoul _ANSI_ARGS_((CONST char *string,
++ 			    char **endPtr, int base));
++ 
++ #endif /* _STDLIB */
+*** compat/tclLoadAix.c.orig	Wed Dec 11 10:20:43 1996
+--- compat/tclLoadAix.c	Wed Dec 11 15:19:13 1996
+***************
+*** 0 ****
+--- 1,563 ----
++ /* 
++  * tclLoadAix.c --
++  *
++  *	This file implements the dlopen and dlsym APIs under the
++  *	AIX operating system, to enable the Tcl "load" command to
++  *	work.  This code was provided by Jens-Uwe Mager.
++  *
++  *	This file is subject to the following copyright notice, which is
++  *	different from the notice used elsewhere in Tcl.  The file has
++  *	been modified to incorporate the file dlfcn.h in-line.
++  *
++  *	Copyright (c) 1992,1993,1995,1996, Jens-Uwe Mager, Helios Software GmbH
++  *	Not derived from licensed software.
++ 
++  *	Permission is granted to freely use, copy, modify, and redistribute
++  *	this software, provided that the author is not construed to be liable
++  *	for any results of using the software, alterations are clearly marked
++  *	as such, and this notice is not modified.
++  *
++  * SCCS: @(#) tclLoadAix.c 1.11 96/10/07 10:41:24
++  *
++  * Note:  this file has been altered from the original in a few
++  * ways in order to work properly with Tcl.
++  */
++ 
++ /*
++  * @(#)dlfcn.c	1.7 revision of 95/08/14  19:08:38
++  * This is an unpublished work copyright (c) 1992 HELIOS Software GmbH
++  * 30159 Hannover, Germany
++  */
++ 
++ #include <stdio.h>
++ #include <errno.h>
++ #include <string.h>
++ #include <transformInt.h>
++ #include <sys/types.h>
++ #include <sys/ldr.h>
++ #include <a.out.h>
++ #include <ldfcn.h>
++ 
++ /*
++  * We simulate dlopen() et al. through a call to load. Because AIX has
++  * no call to find an exported symbol we read the loader section of the
++  * loaded module and build a list of exported symbols and their virtual
++  * address.
++  */
++ 
++ typedef struct {
++ 	char		*name;		/* the symbols's name */
++ 	VOID		*addr;		/* its relocated virtual address */
++ } Export, *ExportPtr;
++ 
++ /*
++  * To be able to intialize, a library may provide a dl_info structure
++  * that contains functions to be called to initialize and terminate.
++  */
++ struct dl_info {
++ 	void (*init) _ANSI_ARGS_((void));
++ 	void (*fini) _ANSI_ARGS_((void));
++ };
++ 
++ /*
++  * The VOID * handle returned from dlopen is actually a ModulePtr.
++  */
++ typedef struct Module {
++ 	struct Module	*next;
++ 	char		*name;		/* module name for refcounting */
++ 	int		refCnt;		/* the number of references */
++ 	VOID		*entry;		/* entry point from load */
++ 	struct dl_info	*info;		/* optional init/terminate functions */
++ 	struct dl_info	*cdtors;	/* optional C++ constructors */
++ 	int		nExports;	/* the number of exports found */
++ 	ExportPtr	exports;	/* the array of exports */
++ } Module, *ModulePtr;
++ 
++ /*
++  * We keep a list of all loaded modules to be able to call the fini
++  * handlers and destructors at atexit() time.
++  */
++ static ModulePtr modList;
++ 
++ /*
++  * The last error from one of the dl* routines is kept in static
++  * variables here. Each error is returned only once to the caller.
++  */
++ static char errbuf[BUFSIZ];
++ static int errvalid;
++ 
++ static void caterr _ANSI_ARGS_((char *));
++ static int readExports _ANSI_ARGS_((ModulePtr));
++ static void terminate _ANSI_ARGS_((void));
++ static VOID *findMain _ANSI_ARGS_((void));
++ 
++ VOID *
++ dlopen(path, mode)
++     const char *path;
++     int mode;
++ {
++ 	register ModulePtr mp;
++ 	static VOID *mainModule;
++ 
++ 	/*
++ 	 * Upon the first call register a terminate handler that will
++ 	 * close all libraries. Also get a reference to the main module
++ 	 * for use with loadbind.
++ 	 */
++ 	if (!mainModule) {
++ 		if ((mainModule = findMain()) == NULL)
++ 			return NULL;
++ 		atexit(terminate);
++ 	}
++ 	/*
++ 	 * Scan the list of modules if we have the module already loaded.
++ 	 */
++ 	for (mp = modList; mp; mp = mp->next)
++ 		if (strcmp(mp->name, path) == 0) {
++ 			mp->refCnt++;
++ 			return (VOID *) mp;
++ 		}
++ 	if ((mp = (ModulePtr)calloc(1, sizeof(*mp))) == NULL) {
++ 		errvalid++;
++ 		strcpy(errbuf, "calloc: ");
++ 		strcat(errbuf, strerror(errno));
++ 		return (VOID *) NULL;
++ 	}
++ 	mp->name = malloc((unsigned) (strlen(path) + 1));
++ 	strcpy(mp->name, path);
++ 	/*
++ 	 * load should be declared load(const char *...). Thus we
++ 	 * cast the path to a normal char *. Ugly.
++ 	 */
++ 	if ((mp->entry = (VOID *)load((char *)path, L_NOAUTODEFER, NULL)) == NULL) {
++ 		free(mp->name);
++ 		free(mp);
++ 		errvalid++;
++ 		strcpy(errbuf, "dlopen: ");
++ 		strcat(errbuf, path);
++ 		strcat(errbuf, ": ");
++ 		/*
++ 		 * If AIX says the file is not executable, the error
++ 		 * can be further described by querying the loader about
++ 		 * the last error.
++ 		 */
++ 		if (errno == ENOEXEC) {
++ 			char *tmp[BUFSIZ/sizeof(char *)];
++ 			if (loadquery(L_GETMESSAGES, tmp, sizeof(tmp)) == -1)
++ 				strcpy(errbuf, strerror(errno));
++ 			else {
++ 				char **p;
++ 				for (p = tmp; *p; p++)
++ 					caterr(*p);
++ 			}
++ 		} else
++ 			strcat(errbuf, strerror(errno));
++ 		return (VOID *) NULL;
++ 	}
++ 	mp->refCnt = 1;
++ 	mp->next = modList;
++ 	modList = mp;
++ 	if (loadbind(0, mainModule, mp->entry) == -1) {
++ 		dlclose(mp);
++ 		errvalid++;
++ 		strcpy(errbuf, "loadbind: ");
++ 		strcat(errbuf, strerror(errno));
++ 		return (VOID *) NULL;
++ 	}
++ 	/*
++ 	 * If the user wants global binding, loadbind against all other
++ 	 * loaded modules.
++ 	 */
++ 	if (mode & RTLD_GLOBAL) {
++ 		register ModulePtr mp1;
++ 		for (mp1 = mp->next; mp1; mp1 = mp1->next)
++ 			if (loadbind(0, mp1->entry, mp->entry) == -1) {
++ 				dlclose(mp);
++ 				errvalid++;
++ 				strcpy(errbuf, "loadbind: ");
++ 				strcat(errbuf, strerror(errno));
++ 				return (VOID *) NULL;
++ 			}
++ 	}
++ 	if (readExports(mp) == -1) {
++ 		dlclose(mp);
++ 		return (VOID *) NULL;
++ 	}
++ 	/*
++ 	 * If there is a dl_info structure, call the init function.
++ 	 */
++ 	if (mp->info = (struct dl_info *)dlsym(mp, "dl_info")) {
++ 		if (mp->info->init)
++ 			(*mp->info->init)();
++ 	} else
++ 		errvalid = 0;
++ 	/*
++ 	 * If the shared object was compiled using xlC we will need
++ 	 * to call static constructors (and later on dlclose destructors).
++ 	 */
++ 	if (mp->cdtors = (struct dl_info *) dlsym(mp, "__cdtors")) {
++ 		while (mp->cdtors->init) {
++ 			(*mp->cdtors->init)();
++ 			mp->cdtors++;
++ 		}
++ 	} else
++ 		errvalid = 0;
++ 	return (VOID *) mp;
++ }
++ 
++ /*
++  * Attempt to decipher an AIX loader error message and append it
++  * to our static error message buffer.
++  */
++ static void
++ caterr(s)
++     char *s;
++ {
++ 	register char *p = s;
++ 
++ 	while (*p >= '0' && *p <= '9')
++ 		p++;
++ 	switch(atoi(s)) {
++ 	case L_ERROR_TOOMANY:
++ 		strcat(errbuf, "to many errors");
++ 		break;
++ 	case L_ERROR_NOLIB:
++ 		strcat(errbuf, "can't load library");
++ 		strcat(errbuf, p);
++ 		break;
++ 	case L_ERROR_UNDEF:
++ 		strcat(errbuf, "can't find symbol");
++ 		strcat(errbuf, p);
++ 		break;
++ 	case L_ERROR_RLDBAD:
++ 		strcat(errbuf, "bad RLD");
++ 		strcat(errbuf, p);
++ 		break;
++ 	case L_ERROR_FORMAT:
++ 		strcat(errbuf, "bad exec format in");
++ 		strcat(errbuf, p);
++ 		break;
++ 	case L_ERROR_ERRNO:
++ 		strcat(errbuf, strerror(atoi(++p)));
++ 		break;
++ 	default:
++ 		strcat(errbuf, s);
++ 		break;
++ 	}
++ }
++ 
++ VOID *
++ dlsym(handle, symbol)
++     VOID *handle;
++     CONST char *symbol;
++ {
++ 	register ModulePtr mp = (ModulePtr)handle;
++ 	register ExportPtr ep;
++ 	register int i;
++ 
++ 	/*
++ 	 * Could speed up the search, but I assume that one assigns
++ 	 * the result to function pointers anyways.
++ 	 */
++ 	for (ep = mp->exports, i = mp->nExports; i; i--, ep++)
++ 		if (strcmp(ep->name, symbol) == 0)
++ 			return ep->addr;
++ 	errvalid++;
++ 	strcpy(errbuf, "dlsym: undefined symbol ");
++ 	strcat(errbuf, symbol);
++ 	return NULL;
++ }
++ 
++ char *
++ dlerror()
++ {
++ 	if (errvalid) {
++ 		errvalid = 0;
++ 		return errbuf;
++ 	}
++ 	return NULL;
++ }
++ 
++ int
++ dlclose(handle)
++     VOID *handle;
++ {
++ 	register ModulePtr mp = (ModulePtr)handle;
++ 	int result;
++ 	register ModulePtr mp1;
++ 
++ 	if (--mp->refCnt > 0)
++ 		return 0;
++ 	if (mp->info && mp->info->fini)
++ 		(*mp->info->fini)();
++ 	if (mp->cdtors)
++ 		while (mp->cdtors->fini) {
++ 			(*mp->cdtors->fini)();
++ 			mp->cdtors++;
++ 		}
++ 	result = unload(mp->entry);
++ 	if (result == -1) {
++ 		errvalid++;
++ 		strcpy(errbuf, strerror(errno));
++ 	}
++ 	if (mp->exports) {
++ 		register ExportPtr ep;
++ 		register int i;
++ 		for (ep = mp->exports, i = mp->nExports; i; i--, ep++)
++ 			if (ep->name)
++ 				free(ep->name);
++ 		free(mp->exports);
++ 	}
++ 	if (mp == modList)
++ 		modList = mp->next;
++ 	else {
++ 		for (mp1 = modList; mp1; mp1 = mp1->next)
++ 			if (mp1->next == mp) {
++ 				mp1->next = mp->next;
++ 				break;
++ 			}
++ 	}
++ 	free(mp->name);
++ 	free(mp);
++ 	return result;
++ }
++ 
++ static void
++ terminate()
++ {
++ 	while (modList)
++ 		dlclose(modList);
++ }
++ 
++ /*
++  * Build the export table from the XCOFF .loader section.
++  */
++ static int
++ readExports(mp)
++     ModulePtr mp;
++ {
++ 	LDFILE *ldp = NULL;
++ 	SCNHDR sh, shdata;
++ 	LDHDR *lhp;
++ 	char *ldbuf;
++ 	LDSYM *ls;
++ 	int i;
++ 	ExportPtr ep;
++ 
++ 	if ((ldp = ldopen(mp->name, ldp)) == NULL) {
++ 		struct ld_info *lp;
++ 		char *buf;
++ 		int size = 4*1024;
++ 		if (errno != ENOENT) {
++ 			errvalid++;
++ 			strcpy(errbuf, "readExports: ");
++ 			strcat(errbuf, strerror(errno));
++ 			return -1;
++ 		}
++ 		/*
++ 		 * The module might be loaded due to the LIBPATH
++ 		 * environment variable. Search for the loaded
++ 		 * module using L_GETINFO.
++ 		 */
++ 		if ((buf = malloc(size)) == NULL) {
++ 			errvalid++;
++ 			strcpy(errbuf, "readExports: ");
++ 			strcat(errbuf, strerror(errno));
++ 			return -1;
++ 		}
++ 		while ((i = loadquery(L_GETINFO, buf, size)) == -1 && errno == ENOMEM) {
++ 			free(buf);
++ 			size += 4*1024;
++ 			if ((buf = malloc(size)) == NULL) {
++ 				errvalid++;
++ 				strcpy(errbuf, "readExports: ");
++ 				strcat(errbuf, strerror(errno));
++ 				return -1;
++ 			}
++ 		}
++ 		if (i == -1) {
++ 			errvalid++;
++ 			strcpy(errbuf, "readExports: ");
++ 			strcat(errbuf, strerror(errno));
++ 			free(buf);
++ 			return -1;
++ 		}
++ 		/*
++ 		 * Traverse the list of loaded modules. The entry point
++ 		 * returned by load() does actually point to the data
++ 		 * segment origin.
++ 		 */
++ 		lp = (struct ld_info *)buf;
++ 		while (lp) {
++ 			if (lp->ldinfo_dataorg == mp->entry) {
++ 				ldp = ldopen(lp->ldinfo_filename, ldp);
++ 				break;
++ 			}
++ 			if (lp->ldinfo_next == 0)
++ 				lp = NULL;
++ 			else
++ 				lp = (struct ld_info *)((char *)lp + lp->ldinfo_next);
++ 		}
++ 		free(buf);
++ 		if (!ldp) {
++ 			errvalid++;
++ 			strcpy(errbuf, "readExports: ");
++ 			strcat(errbuf, strerror(errno));
++ 			return -1;
++ 		}
++ 	}
++ 	if (TYPE(ldp) != U802TOCMAGIC) {
++ 		errvalid++;
++ 		strcpy(errbuf, "readExports: bad magic");
++ 		while(ldclose(ldp) == FAILURE)
++ 			;
++ 		return -1;
++ 	}
++ 	/*
++ 	 * Get the padding for the data section. This is needed for
++ 	 * AIX 4.1 compilers. This is used when building the final
++ 	 * function pointer to the exported symbol.
++ 	 */
++ 	if (ldnshread(ldp, _DATA, &shdata) != SUCCESS) {
++ 		errvalid++;
++ 		strcpy(errbuf, "readExports: cannot read data section header");
++ 		while(ldclose(ldp) == FAILURE)
++ 			;
++ 		return -1;
++ 	}
++ 	if (ldnshread(ldp, _LOADER, &sh) != SUCCESS) {
++ 		errvalid++;
++ 		strcpy(errbuf, "readExports: cannot read loader section header");
++ 		while(ldclose(ldp) == FAILURE)
++ 			;
++ 		return -1;
++ 	}
++ 	/*
++ 	 * We read the complete loader section in one chunk, this makes
++ 	 * finding long symbol names residing in the string table easier.
++ 	 */
++ 	if ((ldbuf = (char *)malloc(sh.s_size)) == NULL) {
++ 		errvalid++;
++ 		strcpy(errbuf, "readExports: ");
++ 		strcat(errbuf, strerror(errno));
++ 		while(ldclose(ldp) == FAILURE)
++ 			;
++ 		return -1;
++ 	}
++ 	if (FSEEK(ldp, sh.s_scnptr, BEGINNING) != OKFSEEK) {
++ 		errvalid++;
++ 		strcpy(errbuf, "readExports: cannot seek to loader section");
++ 		free(ldbuf);
++ 		while(ldclose(ldp) == FAILURE)
++ 			;
++ 		return -1;
++ 	}
++ 	if (FREAD(ldbuf, sh.s_size, 1, ldp) != 1) {
++ 		errvalid++;
++ 		strcpy(errbuf, "readExports: cannot read loader section");
++ 		free(ldbuf);
++ 		while(ldclose(ldp) == FAILURE)
++ 			;
++ 		return -1;
++ 	}
++ 	lhp = (LDHDR *)ldbuf;
++ 	ls = (LDSYM *)(ldbuf+LDHDRSZ);
++ 	/*
++ 	 * Count the number of exports to include in our export table.
++ 	 */
++ 	for (i = lhp->l_nsyms; i; i--, ls++) {
++ 		if (!LDR_EXPORT(*ls))
++ 			continue;
++ 		mp->nExports++;
++ 	}
++ 	if ((mp->exports = (ExportPtr)calloc(mp->nExports, sizeof(*mp->exports))) == NULL) {
++ 		errvalid++;
++ 		strcpy(errbuf, "readExports: ");
++ 		strcat(errbuf, strerror(errno));
++ 		free(ldbuf);
++ 		while(ldclose(ldp) == FAILURE)
++ 			;
++ 		return -1;
++ 	}
++ 	/*
++ 	 * Fill in the export table. All entries are relative to
++ 	 * the entry point we got from load.
++ 	 */
++ 	ep = mp->exports;
++ 	ls = (LDSYM *)(ldbuf+LDHDRSZ);
++ 	for (i = lhp->l_nsyms; i; i--, ls++) {
++ 		char *symname;
++ 		char tmpsym[SYMNMLEN+1];
++ 		if (!LDR_EXPORT(*ls))
++ 			continue;
++ 		if (ls->l_zeroes == 0)
++ 			symname = ls->l_offset+lhp->l_stoff+ldbuf;
++ 		else {
++ 			/*
++ 			 * The l_name member is not zero terminated, we
++ 			 * must copy the first SYMNMLEN chars and make
++ 			 * sure we have a zero byte at the end.
++ 			 */
++ 			strncpy(tmpsym, ls->l_name, SYMNMLEN);
++ 			tmpsym[SYMNMLEN] = '\0';
++ 			symname = tmpsym;
++ 		}
++ 		ep->name = malloc((unsigned) (strlen(symname) + 1));
++ 		strcpy(ep->name, symname);
++ 		ep->addr = (VOID *)((unsigned long)mp->entry +
++ 					ls->l_value - shdata.s_vaddr);
++ 		ep++;
++ 	}
++ 	free(ldbuf);
++ 	while(ldclose(ldp) == FAILURE)
++ 		;
++ 	return 0;
++ }
++ 
++ /*
++  * Find the main modules entry point. This is used as export pointer
++  * for loadbind() to be able to resolve references to the main part.
++  */
++ static VOID *
++ findMain()
++ {
++ 	struct ld_info *lp;
++ 	char *buf;
++ 	int size = 4*1024;
++ 	int i;
++ 	VOID *ret;
++ 
++ 	if ((buf = malloc(size)) == NULL) {
++ 		errvalid++;
++ 		strcpy(errbuf, "findMain: ");
++ 		strcat(errbuf, strerror(errno));
++ 		return NULL;
++ 	}
++ 	while ((i = loadquery(L_GETINFO, buf, size)) == -1 && errno == ENOMEM) {
++ 		free(buf);
++ 		size += 4*1024;
++ 		if ((buf = malloc(size)) == NULL) {
++ 			errvalid++;
++ 			strcpy(errbuf, "findMain: ");
++ 			strcat(errbuf, strerror(errno));
++ 			return NULL;
++ 		}
++ 	}
++ 	if (i == -1) {
++ 		errvalid++;
++ 		strcpy(errbuf, "findMain: ");
++ 		strcat(errbuf, strerror(errno));
++ 		free(buf);
++ 		return NULL;
++ 	}
++ 	/*
++ 	 * The first entry is the main module. The entry point
++ 	 * returned by load() does actually point to the data
++ 	 * segment origin.
++ 	 */
++ 	lp = (struct ld_info *)buf;
++ 	ret = lp->ldinfo_dataorg;
++ 	free(buf);
++ 	return ret;
++ }
++ 
+*** compat/tclLoadAout.c.orig	Wed Dec 11 10:20:54 1996
+--- compat/tclLoadAout.c	Wed Dec 11 15:19:46 1996
+***************
+*** 0 ****
+--- 1,570 ----
++ /* 
++  * tclLoadAout.c --
++  *
++  *	This procedure provides a version of dlopen() that
++  *	provides pseudo-static linking using version-7 compatible
++  *	a.out files described in either sys/exec.h or sys/a.out.h.
++  *
++  * Copyright (c) 1995, by General Electric Company. All rights reserved.
++  *
++  * See the file "license.terms" for information on usage and redistribution
++  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
++  *
++  * This work was supported in part by the ARPA Manufacturing Automation
++  * and Design Engineering (MADE) Initiative through ARPA contract
++  * F33615-94-C-4400.
++  *
++  * SCCS: @(#) tclLoadAout.c 1.7 96/02/15 11:58:53
++  */
++ 
++ #include "transformInt.h"
++ #include <fcntl.h>
++ #ifdef HAVE_EXEC_AOUT_H
++ #   include <sys/exec_aout.h>
++ #endif
++ 
++ /*
++  * Some systems describe the a.out header in sys/exec.h, and some in
++  * a.out.h.
++  */
++ 
++ #ifdef USE_SYS_EXEC_H
++ #include <sys/exec.h>
++ #endif
++ #ifdef USE_A_OUT_H
++ #include <a.out.h>
++ #endif
++ #ifdef USE_SYS_EXEC_AOUT_H
++ #include <sys/exec_aout.h>
++ #define a_magic a_midmag
++ #endif
++ 
++ /*
++  * TCL_LOADSHIM is the amount by which to shim the break when loading
++  */
++ 
++ #ifndef TCL_LOADSHIM
++ #define TCL_LOADSHIM 0x4000L
++ #endif
++ 
++ /*
++  * TCL_LOADALIGN must be a power of 2, and is the alignment to which
++  * to force the origin of load modules
++  */
++ 
++ #ifndef TCL_LOADALIGN
++ #define TCL_LOADALIGN 0x4000L
++ #endif
++ 
++ /*
++  * TCL_LOADMAX is the maximum size of a load module, and is used as
++  * a sanity check when loading
++  */
++ 
++ #ifndef TCL_LOADMAX
++ #define TCL_LOADMAX 2000000L
++ #endif
++ 
++ /*
++  * Kernel calls that appear to be missing from the system .h files:
++  */
++ 
++ extern char * brk _ANSI_ARGS_((char *));
++ extern char * sbrk _ANSI_ARGS_((size_t));
++ 
++ /*
++  * The static variable SymbolTableFile contains the file name where the
++  * result of the last link was stored.  The file is kept because doing so
++  * allows one load module to use the symbols defined in another.
++  */
++ 
++ static char * SymbolTableFile = NULL;
++ 
++ /*
++  * Prototypes for procedures referenced only in this file:
++  */
++ 
++ static int FindLibraries _ANSI_ARGS_((CONST char *fileName, Tcl_DString *buf));
++ static void UnlinkSymbolTable _ANSI_ARGS_((void));
++ static void Seterror _ANSI_ARGS_((char *message));
++ static int GuessPackageName _ANSI_ARGS_((CONST char *fileName, Tcl_DString *bufPtr));
++ static char *errorMessage = NULL;
++ 
++ 
++ /*
++  *----------------------------------------------------------------------
++  *
++  * dlopen --
++  *
++  *	Dynamically loads a binary code file into memory.
++  *
++  * Results:
++  *	A handle which can be used in later calls to dlsym(),
++  *	or NULL when the attempt fails.
++  *
++  * Side effects:
++  *	New code suddenly appears in memory.
++  *
++  *
++  * Bugs:
++  *	This function does not attempt to handle the case where the
++  *	BSS segment is not executable.  It will therefore fail on
++  *	Encore Multimax, Pyramid 90x, and similar machines.  The
++  *	reason is that the mprotect() kernel call, which would
++  *	otherwise be employed to mark the newly-loaded text segment
++  *	executable, results in a system crash on BSD/386.
++  *
++  *	In an effort to make it fast, this function eschews the
++  *	technique of linking the load module once, reading its header
++  *	to determine its size, allocating memory for it, and linking
++  *	it again.  Instead, it `shims out' memory allocation by
++  *	placing the module TCL_LOADSHIM bytes beyond the break,
++  *	and assuming that any malloc() calls required to run the
++  *	linker will not advance the break beyond that point.  If
++  *	the break is advanced beyonnd that point, the load will
++  *	fail with an `inconsistent memory allocation' error.
++  *	It perhaps ought to retry the link, but the failure has
++  *	not been observed in two years of daily use of this function.
++  *----------------------------------------------------------------------
++  */
++ 
++ VOID *
++ dlopen(path, flags)
++     CONST char *path;
++     int flags;
++ {
++   char * inputSymbolTable;	/* Name of the file containing the 
++ 				 * symbol table from the last link. */
++   Tcl_DString linkCommandBuf;	/* Command to do the run-time relocation
++ 				 * of the module.*/
++   char * linkCommand;
++   char relocatedFileName [L_tmpnam];
++ 				/* Name of the file holding the relocated */
++ 				/* text of the module */
++   int relocatedFd = -1;		/* File descriptor of the file holding
++ 				 * relocated text */
++   struct exec relocatedHead;	/* Header of the relocated text */
++   unsigned long relocatedSize;	/* Size of the relocated text */
++   char * startAddress;		/* Starting address of the module */
++   int status;			/* Status return from Tcl_ calls */
++   char *p;
++   Tcl_Interp *interp;
++ 
++   if (path == (char *) NULL) {
++     return (VOID *) TclLoadDictionary_Tcl;
++   }
++ 
++   interp = NULL;
++ 
++   errno = 0;
++   if (errorMessage) {
++     ckfree(errorMessage);
++     errorMessage = NULL;
++   }
++ 
++   /* Find the file that contains the symbols for the run-time link. */
++ 
++   if (SymbolTableFile != NULL) {
++     inputSymbolTable = SymbolTableFile;
++   } else if (tclExecutableName == NULL) {
++     Seterror("can't find the tclsh executable");
++     goto error;
++   } else {
++     inputSymbolTable = tclExecutableName;
++   }
++ 
++   /* Construct the `ld' command that builds the relocated module */
++ 
++   interp = Tcl_CreateInterp();
++ 
++   tmpnam (relocatedFileName);
++   Tcl_DStringInit (&linkCommandBuf);
++   Tcl_DStringAppend (&linkCommandBuf, "exec ld -o ", -1);
++   Tcl_DStringAppend (&linkCommandBuf, relocatedFileName, -1);
++ #if defined(__mips) || defined(mips)
++   Tcl_DStringAppend (&linkCommandBuf, " -G 0 ", -1);
++ #endif
++   Tcl_DStringAppend (&linkCommandBuf, " -u TclLoadDictionary_", -1);
++   GuessPackageName(path, &linkCommandBuf);
++   Tcl_DStringAppend (&linkCommandBuf, " -A ", -1);
++   Tcl_DStringAppend (&linkCommandBuf, inputSymbolTable, -1);
++   Tcl_DStringAppend (&linkCommandBuf, " -N -T XXXXXXXX ", -1);
++   Tcl_DStringAppend (&linkCommandBuf, (char *) path, -1);
++   Tcl_DStringAppend (&linkCommandBuf, " ", -1);
++   if (FindLibraries (path, &linkCommandBuf) != TCL_OK) {
++     Tcl_DStringFree (&linkCommandBuf);
++     goto error;
++   }
++   linkCommand = Tcl_DStringValue (&linkCommandBuf);
++ 
++   /* Determine the starting address, and plug it into the command */
++   
++   startAddress = (char *) (((unsigned long) sbrk (0)
++ 			    + TCL_LOADSHIM + TCL_LOADALIGN - 1)
++ 			   & (- TCL_LOADALIGN));
++   p = strstr (linkCommand, "-T") + 3;
++   sprintf (p, "%08lx", (long) startAddress);
++   p [8] = ' ';
++ 
++   /* Run the linker */
++ 
++   status = Tcl_Eval (interp, linkCommand);
++   Tcl_DStringFree (&linkCommandBuf);
++   if (status != 0) {
++     Seterror(interp->result);
++     errno = 0;
++     goto error;
++   }
++ 
++   /* Open the linker's result file and read the header */
++ 
++   relocatedFd = open (relocatedFileName, O_RDONLY);
++   if (relocatedFd < 0) {
++     goto ioError;
++   }
++   status= read (relocatedFd, (char *) & relocatedHead, sizeof relocatedHead);
++   if (status < sizeof relocatedHead) {
++     goto ioError;
++   }
++ 
++   /* Check the magic number */
++ 
++   if (relocatedHead.a_magic != OMAGIC) {
++     Seterror("bad magic number in intermediate file");
++     goto failure;
++   }
++ 
++   /* Make sure that memory allocation is still consistent */
++ 
++   if ((unsigned long) sbrk (0) > (unsigned long) startAddress) {
++     Seterror("can't load, memory allocation is inconsistent");
++     goto failure;
++   }
++ 
++   /* Make sure that the relocated module's size is reasonable */
++ 
++   relocatedSize = relocatedHead.a_text + relocatedHead.a_data
++     + relocatedHead.a_bss;
++   if (relocatedSize > TCL_LOADMAX) {
++     Seterror("module too big to load");
++     goto failure;
++   }
++ 
++   /* Advance the break to protect the loaded module */
++ 
++   (void) brk (startAddress + relocatedSize);
++ 
++   /* Seek to the start of the module's text */
++ 
++ #if defined(__mips) || defined(mips)
++   status = lseek (relocatedFd,
++ 		  N_TXTOFF (relocatedHead.ex_f, relocatedHead.ex_o),
++ 		  SEEK_SET);
++ #else
++   status = lseek (relocatedFd, N_TXTOFF (relocatedHead), SEEK_SET);
++ #endif
++   if (status < 0) {
++     goto ioError;
++   }
++ 
++   /* Read in the module's text and data */
++ 
++   relocatedSize = relocatedHead.a_text + relocatedHead.a_data;
++   if (read (relocatedFd, startAddress, relocatedSize) < relocatedSize) {
++     brk (startAddress);
++   ioError:
++     Seterror("error on intermediate file: ");
++   failure:
++     (void) unlink (relocatedFileName);
++     goto error;
++   }
++ 
++   /* Close the intermediate file. */
++ 
++   (void) close (relocatedFd);
++ 
++   /* Arrange things so that intermediate symbol tables eventually get
++    * deleted. If the flag RTLD_GLOBAL is not set, just keep the
++    * old file. */
++ 
++   if (flags & RTLD_GLOBAL) {
++     if (SymbolTableFile != NULL) {
++       UnlinkSymbolTable ();
++     } else {
++       atexit (UnlinkSymbolTable);
++     }
++     SymbolTableFile = ckalloc (strlen (relocatedFileName) + 1);
++     strcpy (SymbolTableFile, relocatedFileName);
++   } else {
++     (void) unlink (relocatedFileName);
++   }
++   return (VOID *) startAddress;
++ 
++ error:
++   if (relocatedFd>=0) {
++ 	close (relocatedFd);
++   }
++   if (interp) {
++     Tcl_DeleteInterp(interp);
++   }
++   return NULL;
++ }
++ 
++ 
++ /*
++  *----------------------------------------------------------------------
++  *
++  * dlsym --
++  *
++  *	This function returns the address of a
++  *	symbol, give the handle returned by dlopen().
++  *
++  * Results:
++  *	Returns the address of the symbol in the dll.
++  *
++  * Side effects:
++  *	None.
++  *
++  *----------------------------------------------------------------------
++  */
++ 
++ VOID *dlsym(handle, symbol)
++     VOID *handle;
++     CONST char *symbol;
++ {
++     if ((handle != NULL) && (symbol != NULL)) {
++ 	return ((VOID * (*) _ANSI_ARGS_((CONST char *))) handle) (symbol);
++     } else {
++ 	return (VOID *) NULL;
++     }
++ }
++ 
++ 
++ /*
++  *----------------------------------------------------------------------
++  *
++  * dlerror --
++  *
++  *	This function returns a string describing the error which
++  *	occurred in dlopen().
++  *
++  * Results:
++  *	Returns an error message.
++  *
++  * Side effects:
++  *	None.
++  *
++  *----------------------------------------------------------------------
++  */
++ 
++ char *
++ dlerror()
++ {
++     char *err, *msg;
++ 
++     if (errorMessage && errno) {
++ 	err = Tcl_ErrnoMsg(errno);
++ 	msg = ckalloc(strlen(errorMessage)+strlen(err)+1);
++ 	strcpy(msg, errorMessage);
++ 	strcat(msg, err);
++ 	ckfree(errorMessage);
++ 	errorMessage = msg;
++     }
++     return errorMessage;
++ }
++ 
++ 
++ /*
++  *----------------------------------------------------------------------
++  *
++  * dlclose --
++  *
++  *	Just a dummy function, only for compatibility. There is no
++  *	way to remove dll's from memory.
++  *
++  * Results:
++  *	Always returns 0 (= O.K.)
++  *
++  * Side effects:
++  *	None
++  *
++  *----------------------------------------------------------------------
++  */
++ 
++ int
++ dlclose(handle)
++     VOID *handle;
++ {
++     return 0;
++ }
++ 
++ static void
++ Seterror(message)
++     char *message;
++ {
++     if (errorMessage) {
++ 	ckfree(errorMessage);
++     }
++     errorMessage = ckalloc(strlen(message)+1);
++     strcpy(errorMessage, message);
++     return;
++ }
++ 
++ 
++ /*
++  *------------------------------------------------------------------------
++  *
++  * FindLibraries --
++  *
++  *	Find the libraries needed to link a load module at run time.
++  *
++  * Results:
++  *	A standard Tcl completion code.  If an error occurs,
++  *	an error message is left in interp->result.  The -l and -L flags
++  *	are concatenated onto the dynamic string `buf'.
++  *
++  *------------------------------------------------------------------------
++  */
++ 
++ static int
++ FindLibraries (fileName, buf)
++      CONST char * fileName;	/* Name of the load module */
++      Tcl_DString * buf;		/* Buffer where the -l an -L flags */
++ {
++   FILE * f;			/* The load module */
++   int c;			/* Byte from the load module */
++   char * p;
++ 
++   /* Open the load module */
++ 
++   if ((f = fopen (fileName, "rb")) == NULL) {
++     Seterror("");
++     return TCL_ERROR;
++   }
++ 
++   /* Search for the library list in the load module */
++ 
++   p = "@LIBS: ";
++   while (*p != '\0' && (c = getc (f)) != EOF) {
++     if (c == *p) {
++       ++p;
++     }
++     else {
++       p = "@LIBS: ";
++       if (c == *p) {
++ 	++p;
++       }
++     }
++   }
++ 
++   /* No library list -- this must be an ill-formed module */
++ 
++   if (c == EOF) {
++     Seterror("is not a Tcl load module.");
++     (void) fclose (f);
++     return TCL_ERROR;
++   }
++ 
++   /* Accumulate the library list */
++ 
++   while ((c = getc (f)) != '\0' && c != EOF) {
++     char cc = c;
++     Tcl_DStringAppend (buf, &cc, 1);
++   }
++   (void) fclose (f);
++ 
++   if (c == EOF) {
++     Seterror("Library directory ends prematurely");
++     return TCL_ERROR;
++   }
++ 
++   return TCL_OK;
++ }
++ 
++ /*
++  *------------------------------------------------------------------------
++  *
++  * UnlinkSymbolTable --
++  *
++  *	Remove the symbol table file from the last dynamic link.
++  *
++  * Results:
++  *	None.
++  *
++  * Side effects:
++  *	The symbol table file from the last dynamic link is removed.
++  *	This function is called when (a) a new symbol table is present
++  *	because another dynamic link is complete, or (b) the process
++  *	is exiting.
++  *------------------------------------------------------------------------
++  */
++ 
++ static void
++ UnlinkSymbolTable ()
++ {
++   (void) unlink (SymbolTableFile);
++   ckfree (SymbolTableFile);
++   SymbolTableFile = NULL;
++ }
++ 
++ /*
++  *----------------------------------------------------------------------
++  *
++  * GuessPackageName --
++  *
++  *	Determinsed the package name from the file name. The package
++  *	name is appended to the dynamic string, if possible.
++  *
++  * Results:
++  *	Returns 1 if the guess succeeds, 0 otherwise.
++  *
++  * Side effects:
++  *	None.
++  *
++  *----------------------------------------------------------------------
++  */
++ 
++ static int
++ GuessPackageName(fileName, bufPtr)
++     CONST char *fileName;	/* Name of file containing package (already
++ 				 * translated to local form if needed). */
++     Tcl_DString *bufPtr;	/* Initialized empty dstring.  Append
++ 				 * package name to this if possible. */
++ {
++     CONST char *p,*pkgGuess;
++     char *r;
++ 
++     if (pkgGuess = strrchr(fileName,'/')) {
++ 	pkgGuess++;
++     } else {
++ 	pkgGuess = fileName;
++     }
++     if (!strncmp(pkgGuess,"lib",3)) {
++ 	pkgGuess+=3;
++     }
++     for (p = pkgGuess; (*p) && (*p != '.') && (!isdigit(UCHAR(*p))); p++) {
++ 	/* Empty loop body. */
++     }
++     if ((p>pkgGuess+3) && !strncasecmp(p-3,"_G0.",4)) {
++ 	p-=3;
++     }
++     if (p == pkgGuess) {
++ 	return 0;
++     }
++ 
++     Tcl_DStringAppend(bufPtr,pkgGuess, p-pkgGuess);
++ 
++     r = Tcl_DStringValue(bufPtr);
++     r += strlen(r) - (p-pkgGuess);
++ 
++     if (islower(UCHAR(*r))) {
++ 	*r = (char) toupper(UCHAR(*r));
++     }
++     while (*(++r)) {
++ 	if (isupper(UCHAR(*r))) {
++ 	    *r = (char) tolower(UCHAR(*r));
++ 	}
++     }
++ 
++     return 1;
++ }
+*** compat/tclLoadDld.c.orig	Wed Dec 11 10:21:04 1996
+--- compat/tclLoadDld.c	Wed Dec 11 15:20:16 1996
+***************
+*** 0 ****
+--- 1,95 ----
++ /* 
++  * tclLoadDld.c --
++  *
++  *	This procedure provides a version of dlopen() that
++  *	works with the "dld_link" and "dld_get_func" library procedures
++  *	for dynamic loading.  It has been tested on Linux 1.1.95 and
++  *	dld-3.2.7.  This file probably isn't needed anymore, since it
++  *	makes more sense to use "dl_open" etc.
++  *
++  * Copyright (c) 1995 Sun Microsystems, Inc.
++  *
++  * See the file "license.terms" for information on usage and redistribution
++  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
++  *
++  * SCCS: @(#) tclLoadDld.c 1.4 96/02/15 11:58:46
++  */
++ 
++ #include "transformInt.h"
++ #include "dld.h"
++ 
++ /*
++  *----------------------------------------------------------------------
++  *
++  * dlopen --
++  *
++  *	This function is an implementation of dlopen() using
++  *	the dld library.
++  *
++  * Results:
++  *	Returns the handle of the newly loaded library, or NULL on
++  *	failure.
++  *
++  * Side effects:
++  *	Loads the specified library into the process.
++  *
++  *----------------------------------------------------------------------
++  */
++ 
++ static int returnCode = 0;
++ 
++ extern char *tclExecutableName;
++ 
++ VOID *dlopen(path, mode)
++     CONST char *path;
++     int mode;
++ {
++     static int firstTime = 1;
++ 
++     /*
++      *  The dld package needs to know the pathname to the tcl binary.
++      *  If that's not know, return an error.
++      */
++ 
++     returnCode = 0;
++     if (firstTime) {
++ 	if (tclExecutableName == NULL) {
++ 	    return (VOID *) NULL;
++ 	}
++ 	returnCode = dld_init(tclExecutableName);
++ 	if (returnCode != 0) {
++ 	    return (VOID *) NULL;
++ 	}
++ 	firstTime = 0;
++     }
++ 
++     if ((path != NULL) && ((returnCode = dld_link(path)) != 0)) {
++ 	return (VOID *) NULL;
++     }
++ 
++     return (VOID *) 1;
++ }
++ 
++ VOID *
++ dlsym(handle, symbol)
++     VOID *handle;
++     CONST char *symbol;
++ {
++     return (VOID *) dld_get_func(symbol);
++ }
++ 
++ char *
++ dlerror()
++ {
++     if (tclExecutableName == NULL) {
++ 	return "don't know name of application binary file, so can't initialize dynamic loader";
++     }
++     return dld_strerror(returnCode);
++ }
++ 
++ int
++ dlclose(handle)
++     VOID *handle;
++ {
++     return 0;
++ }
+*** compat/tclLoadMac.c.orig	Wed Dec 11 10:21:14 1996
+--- compat/tclLoadMac.c	Wed Dec 11 15:18:38 1996
+***************
+*** 0 ****
+--- 1,277 ----
++ /*
++  * tclLoadMac.c --
++  *
++  *	This procedure provides a version of the dlopen() function for use
++  *	on the Macintosh.  This procedure will only work with systems 
++  *	that use the Code Fragment Manager.
++  *
++  *	Adapted from tclMacLoad.c in the Tcl 7.6 distribution.
++  */
++ 
++ #include <CodeFragments.h>
++ #include <Errors.h>
++ #include <Resources.h>
++ #include <Strings.h>
++ #include <FSpCompat.h>
++ #include "transformInt.h"
++ 
++ #if GENERATINGPOWERPC
++     #define OUR_ARCH_TYPE kPowerPCCFragArch
++ #else
++     #define OUR_ARCH_TYPE kMotorola68KCFragArch
++ #endif
++ 
++ /*
++  * The following data structure defines the structure of a code fragment
++  * resource.  We can cast the resource to be of this type to access
++  * any fields we need to see.
++  */
++ struct CfrgHeader {
++     long 	res1;
++     long 	res2;
++     long 	version;
++     long 	res3;
++     long 	res4;
++     long 	filler1;
++     long 	filler2;
++     long 	itemCount;
++     char	arrayStart;	/* Array of externalItems begins here. */
++ };
++ typedef struct CfrgHeader CfrgHeader, *CfrgHeaderPtr, **CfrgHeaderPtrHand;
++ 
++ /*
++  * The below structure defines a cfrag item within the cfrag resource.
++  */
++ struct CfrgItem {
++     OSType 	archType;
++     long 	updateLevel;
++     long	currVersion;
++     long	oldDefVersion;
++     long	appStackSize;
++     short	appSubFolder;
++     char	usage;
++     char	location;
++     long	codeOffset;
++     long	codeLength;
++     long	res1;
++     long	res2;
++     short	itemSize;
++     Str255	name;		/* This is actually variable sized. */
++ };
++ typedef struct CfrgItem CfrgItem;
++ 
++ /*
++  *----------------------------------------------------------------------
++  *
++  * dlopen --
++  *
++  *	This function is an implementation of dlopen() for the Mac.
++  *
++  * Results:
++  *	Returns the handle of the newly loaded library, or NULL on
++  *	failure.
++  *
++  * Side effects:
++  *	Loads the specified library into the process.
++  *
++  *----------------------------------------------------------------------
++  */
++ 
++ static Str255 errName;
++ 
++ VOID *
++ dlopen(path, mode)
++     CONST char *path;
++     int mode;
++ {
++     ConnectionID connID;
++     Ptr dummy;
++     OSErr err;
++     FSSpec fileSpec;
++     short fragFileRef, saveFileRef;
++     Handle fragResource;
++     UInt32 offset = 0;
++     UInt32 length = kWholeFork;
++     char packageName[255];
++     CONST char* pkgGuess;
++     char* p;
++ 
++     /*
++      * First thing we must do is infer the package name from the file
++      * name.  This is kind of dumb since the caller actually knows
++      * this value, it just doesn't give it to us.
++      */
++     
++     if ((pkgGuess = strrchr(path,':')) != NULL) {
++       pkgGuess++;
++     } else {
++       pkgGuess = path;
++     }
++     if (!strncmp(pkgGuess,"lib",3)) {
++       pkgGuess+=3;
++     }
++     strcpy(packageName,pkgGuess);
++     p = packageName;
++     if ((*p) && islower(UCHAR(*p++))) {
++       packageName[0] = (char) toupper(UCHAR(packageName[0]));
++     }
++     while (isalpha(UCHAR(*p)) || (*p == '_')) {
++       if (isupper(UCHAR(*p))) {
++         *p = (char) tolower(UCHAR(*p));
++       }
++       p++;
++     }
++     *p = 0;
++ 
++     err = FSpLocationFromPath(strlen(path), (char *) path, &fileSpec);
++     if (err != noErr) {
++ 	strcpy((char *) errName, "file not found");
++ 	return (VOID *) NULL;
++     }
++     
++     /*
++      * See if this fragment has a 'cfrg' resource.  It will tell us were
++      * to look for the fragment in the file.  If it doesn't exist we will
++      * assume we have a ppc frag using the whole data fork.  If it does
++      * exist we find the frag that matches the one we are looking for and
++      * get the offset and size from the resource.
++      */
++     saveFileRef = CurResFile();
++     SetResLoad(false);
++     fragFileRef = FSpOpenResFile(&fileSpec, fsRdPerm);
++     SetResLoad(true);
++     if (fragFileRef != -1) {
++ 	UseResFile(fragFileRef);
++ 	fragResource = Get1Resource(kCFragResourceType, kCFragResourceID);
++ 	HLock(fragResource);
++ 	if (ResError() == noErr) {
++ 	    CfrgItem* srcItem;
++ 	    long itemCount, index;
++ 	    Ptr itemStart;
++ 
++ 	    itemCount = (*(CfrgHeaderPtrHand)fragResource)->itemCount;
++ 	    itemStart = &(*(CfrgHeaderPtrHand)fragResource)->arrayStart;
++ 	    for (index = 0; index < itemCount;
++ 		 index++, itemStart += srcItem->itemSize) {
++ 		srcItem = (CfrgItem*)itemStart;
++ 		if (srcItem->archType != OUR_ARCH_TYPE) continue;
++ 		if (!strncasecmp(packageName, (char *) srcItem->name + 1,
++ 			srcItem->name[0])) {
++ 		    offset = srcItem->codeOffset;
++ 		    length = srcItem->codeLength;
++ 		}
++ 	    }
++ 	}
++ 	/*
++ 	 * Close the resource file.  If the extension wants to reopen the
++ 	 * resource fork it should use the tclMacLibrary.c file during it's
++ 	 * construction.
++ 	 */
++ 	HUnlock(fragResource);
++ 	ReleaseResource(fragResource);
++ 	CloseResFile(fragFileRef);
++ 	UseResFile(saveFileRef);
++     }
++ 
++     /*
++      * Now we can attempt to load the fragement using the offset & length
++      * obtained from the resource.  We don't worry about the main entry point
++      * as we are going to search for specific entry points passed to us.
++      */
++     
++     c2pstr(packageName);
++     err = GetDiskFragment(&fileSpec, offset, length, (StringPtr) packageName,
++ 	    kLoadLib, &connID, &dummy, errName);
++     if (err != fragNoErr) {
++ 	p2cstr(errName);
++ 	return (VOID *) NULL;
++     }
++     return (VOID *) connID;
++ }
++ 
++ /*
++  *----------------------------------------------------------------------
++  *
++  * dlsym --
++  *
++  *	This function is an alternative for the system function
++  *	GetProcAddress. It returns the address of a
++  *	symbol, give the handle returned by dlopen().
++  *
++  * Results:
++  *	Returns the address of the symbol in the dll.
++  *
++  * Side effects:
++  *	None.
++  *
++  *----------------------------------------------------------------------
++  */
++ 
++ VOID *
++ dlsym(handle, symbol)
++     VOID *handle;
++     CONST char *symbol;
++ {
++     VOID *procPtr;
++     char sym1[255];
++     OSErr err;
++     SymClass symClass;
++ 
++     strcpy(sym1, symbol);
++     c2pstr(sym1);
++ 
++     err = FindSymbol((ConnectionID) handle, (StringPtr) sym1,
++ 	    (Ptr *) &procPtr, &symClass);
++     if (err != fragNoErr || symClass == kDataCFragSymbol) {
++ 	procPtr = (VOID *) NULL;
++     }
++     return procPtr;
++ }
++ 
++ /*
++  *----------------------------------------------------------------------
++  *
++  * dlerror --
++  *
++  *	This function returns a string describing the error which
++  *	occurred in dlopen().
++  *
++  * Results:
++  *	Returns an error message.
++  *
++  * Side effects:
++  *	None.
++  *
++  *----------------------------------------------------------------------
++  */
++ 
++ char *
++ dlerror()
++ {
++     return (char *) errName;
++ }
++ 
++ 
++ /*
++  *----------------------------------------------------------------------
++  *
++  * dlclose --
++  *
++  *	Not implemented yet.
++  *
++  * Results:
++  *	Always returns 0 (= O.K.)
++  *
++  * Side effects:
++  *	None
++  *
++  *----------------------------------------------------------------------
++  */
++ 
++ int
++ dlclose(handle)
++     VOID *handle;
++ {
++     return 0;
++ }
++ 
+*** compat/tclLoadShl.c.orig	Wed Dec 11 10:21:24 1996
+--- compat/tclLoadShl.c	Wed Dec 11 16:37:31 1996
+***************
+*** 0 ****
+--- 1,65 ----
++ /* 
++  * tclLoadShl.c --
++  *
++  *	This procedure provides a version of the TclLoadFile that works
++  *	with the "shl_load" and "shl_findsym" library procedures for
++  *	dynamic loading (e.g. for HP machines).
++  *
++  * Copyright (c) 1995-1996 Sun Microsystems, Inc.
++  *
++  * See the file "license.terms" for information on usage and redistribution
++  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
++  *
++  * SCCS: @(#) tclLoadShl.c 1.5 96/03/15 15:01:44
++  */
++ 
++ #include <dl.h>
++ 
++ /*
++  * On some HP machines, dl.h defines EXTERN; remove that definition.
++  */
++ 
++ #ifdef EXTERN
++ #   undef EXTERN
++ #endif
++ 
++ #include "transformInt.h"
++ 
++ #ifndef DYNAMIC_PATH
++ #    define DYNAMIC_PATH 0
++ #endif
++ 
++ VOID *dlopen(path, mode)
++     CONST char *path;
++     int mode;
++ {
++     if (path == (char *) NULL) {
++ 	return (VOID *) PROG_HANDLE;
++     }
++     return (VOID *) shl_load(path, ((mode & RTLD_NOW) ?
++ 		BIND_IMMEDIATE : BIND_DEFERRED) |
++ 	    DYNAMIC_PATH, 0L);
++ }
++ 
++ VOID *dlsym(handle, symbol)
++     VOID *handle;
++     CONST char *symbol;
++ {   VOID *address;
++ 
++     if (shl_findsym((shl_t *)&handle, symbol,
++ 	    (short) TYPE_UNDEFINED, &address) != 0) {
++ 	address = NULL;
++     }
++     return address;
++ }
++ 
++ char *dlerror()
++ {
++     return Tcl_ErrnoMsg(errno);
++ }
++ 
++ int dlclose(handle)
++     VOID *handle;
++ {
++     return shl_unload((shl_t) handle);
++ }
+*** compat/tclLoadWin.c.orig	Wed Dec 11 10:21:36 1996
+--- compat/tclLoadWin.c	Wed Dec 11 15:18:10 1996
+***************
+*** 0 ****
+--- 1,193 ----
++ /* 
++  * tclLoadWin.c --
++  *
++  *	This procedure provides a version of dlopen() that
++  *	works with the Windows "LoadLibrary" and "GetProcAddress"
++  *	API for dynamic loading.
++  *
++  */
++ 
++ #include <windows.h>
++ #include "transformInt.h"
++ 
++ typedef struct LibraryList {
++     HINSTANCE handle;
++     struct LibraryList *nextPtr;
++ } LibraryList;
++ 
++ static LibraryList *libraryList = NULL;	/* List of currently loaded DLL's.  */
++ 
++ /*
++  * Declarations for functions that are only used in this file.
++  */
++ 
++ static void 		UnloadLibraries _ANSI_ARGS_((ClientData clientData));
++ 
++ 
++ /*
++  *----------------------------------------------------------------------
++  *
++  * dlopen --
++  *
++  *	This function is an alternative for the functions
++  *	TclWinLoadLibrary and TclWinGetTclInstance.  It is
++  *	responsible for adding library handles to the library list so
++  *	the libraries can be freed when tcl.dll is unloaded.
++  *
++  * Results:
++  *	Returns the handle of the newly loaded library, or NULL on
++  *	failure. If path is NULL, the global library instance handle
++  *	is returned.
++  *
++  * Side effects:
++  *	Loads the specified library into the process.
++  *
++  *----------------------------------------------------------------------
++  */
++ 
++ VOID *dlopen(path, mode)
++     CONST char *path;
++     int mode;
++ {
++     VOID *handle;
++     LibraryList *ptr;
++     static int intialized = 0;
++ 
++     if (!initialized) {
++ 	initialized = 1;
++ 	Tcl_CreateExitHandler((Tcl_ExitProc *) UnloadLibraries,
++ 	    (ClientData) &libraryList);
++     }
++     handle = (VOID *) LoadLibrary(path);
++     if (handle != NULL) {
++ 	    ptr = (LibraryList*) ckalloc(sizeof(LibraryList));
++ 	    ptr->handle = (HINSTANCE) handle;
++ 	    ptr->nextPtr = libraryList;
++ 	    libraryList = ptr;
++     }
++     return handle;
++ }
++ 
++ 
++ /*
++  *----------------------------------------------------------------------
++  *
++  * dlclose --
++  *
++  *	This function is an alternative for the function
++  *	FreeLibrary.  It is responsible for removing library
++  *	handles from the library list and remove the dll
++  *	from memory.
++  *
++  * Results:
++  *	-1 on error, 0 on success.
++  *
++  * Side effects:
++  *	Removes the specified library from the process.
++  *
++  *----------------------------------------------------------------------
++  */
++ 
++ int
++ dlclose(handle)
++     VOID *handle;
++ {
++     LibraryList *ptr, *prevPtr;
++ 
++     ptr = libraryList; prevPtr = NULL;
++     while (ptr != NULL) {
++ 	if (ptr->handle == (HINSTANCE) handle) {
++ 	    FreeLibrary((HINSTANCE) handle);
++ 	    if (prevPtr) {
++ 		prevPtr->nextPtr = ptr->nextPtr;
++ 	    } else {
++ 		libraryList = ptr->nextPtr;
++ 	    }
++ 	    ckfree(ptr);
++ 	    return 0;
++ 	}
++ 	prevPtr = ptr;
++ 	ptr = ptr->nextPtr;
++     }
++     return -1;
++ }
++ 
++ /*
++  *----------------------------------------------------------------------
++  *
++  * dlsym --
++  *
++  *	This function is an alternative for the system function
++  *	GetProcAddress. It returns the address of a
++  *	symbol, give the handle returned by dlopen().
++  *
++  * Results:
++  *	Returns the address of the symbol in the dll.
++  *
++  * Side effects:
++  *	None.
++  *
++  *----------------------------------------------------------------------
++  */
++ 
++ VOID *dlsym(handle, symbol)
++     VOID *handle;
++     CONST char *symbol;
++ {
++     return (VOID *) GetProcAddress((HINSTANCE) handle, symbol);
++ }
++ 
++ 
++ /*
++  *----------------------------------------------------------------------
++  *
++  * dlerror --
++  *
++  *	This function returns a string describing the error which
++  *	occurred in dlopen().
++  *
++  * Results:
++  *	Returns an error message.
++  *
++  * Side effects:
++  *	errno is set.
++  *
++  *----------------------------------------------------------------------
++  */
++ char *
++ dlerror()
++ {
++     TclWinConvertError(GetLastError());
++     return Tcl_ErrnoMsg(errno);
++ }
++ 
++ /*
++  *----------------------------------------------------------------------
++  *
++  * UnloadLibraries --
++  *
++  *	Frees any dynamically allocated libraries loaded by Tcl.
++  *
++  * Results:
++  *	None.
++  *
++  * Side effects:
++  *	Frees the libraries on the library list as well as the list.
++  *
++  *----------------------------------------------------------------------
++  */
++ 
++ static void
++ UnloadLibraries(clientData)
++     ClientData clientData;
++ {
++     LibraryList *ptr;
++     LibraryList *list = *((LibraryList **) clientData)
++ 
++     while (list != NULL) {
++ 	FreeLibrary(list->handle);
++ 	ptr = list->nextPtr;
++ 	ckfree(list);
++ 	list = ptr;
++     }
++ }
+*** compat/zlib.h.orig	Wed Dec 11 11:22:27 1996
+--- compat/zlib.h	Wed Dec 11 11:34:14 1996
+***************
+*** 0 ****
+--- 1,778 ----
++ /* zlib.h -- interface of the 'zlib' general purpose compression library
++   version 1.0.4, Jul 24th, 1996.
++ 
++   Copyright (C) 1995-1996 Jean-loup Gailly and Mark Adler
++ 
++   This software is provided 'as-is', without any express or implied
++   warranty.  In no event will the authors be held liable for any damages
++   arising from the use of this software.
++ 
++   Permission is granted to anyone to use this software for any purpose,
++   including commercial applications, and to alter it and redistribute it
++   freely, subject to the following restrictions:
++ 
++   1. The origin of this software must not be misrepresented; you must not
++      claim that you wrote the original software. If you use this software
++      in a product, an acknowledgment in the product documentation would be
++      appreciated but is not required.
++   2. Altered source versions must be plainly marked as such, and must not be
++      misrepresented as being the original software.
++   3. This notice may not be removed or altered from any source distribution.
++ 
++   Jean-loup Gailly        Mark Adler
++   gzip@prep.ai.mit.edu    madler@alumni.caltech.edu
++ 
++ 
++   The data format used by the zlib library is described by RFCs (Request for
++   Comments) 1950 to 1952 in the files ftp://ds.internic.net/rfc/rfc1950.txt
++   (zlib format), rfc1951.txt (deflate format) and rfc1952.txt (gzip format).
++ */
++ 
++ #ifndef _ZLIB_H
++ #define _ZLIB_H
++ 
++ #ifdef __cplusplus
++ extern "C" {
++ #endif
++ 
++ #define ZLIB_VERSION "1.0.4"
++ 
++ /* 
++      The 'zlib' compression library provides in-memory compression and
++   decompression functions, including integrity checks of the uncompressed
++   data.  This version of the library supports only one compression method
++   (deflation) but other algorithms may be added later and will have the same
++   stream interface.
++ 
++      For compression the application must provide the output buffer and
++   may optionally provide the input buffer for optimization. For decompression,
++   the application must provide the input buffer and may optionally provide
++   the output buffer for optimization.
++ 
++      Compression can be done in a single step if the buffers are large
++   enough (for example if an input file is mmap'ed), or can be done by
++   repeated calls of the compression function.  In the latter case, the
++   application must provide more input and/or consume the output
++   (providing more output space) before each call.
++ 
++      The library does not install any signal handler. It is recommended to
++   add at least a handler for SIGSEGV when decompressing; the library checks
++   the consistency of the input data whenever possible but may go nuts
++   for some forms of corrupted input.
++ */
++ 
++ typedef VOID * (*alloc_func) _ANSI_ARGS_((VOID * opaque, unsigned int items, unsigned int size));
++ typedef void   (*free_func)  _ANSI_ARGS_((VOID * opaque, VOID * address));
++ 
++ struct internal_state;
++ 
++ typedef struct z_stream_s {
++     unsigned char    *next_in;  /* next input byte */
++     unsigned int     avail_in;  /* number of bytes available at next_in */
++     unsigned long    total_in;  /* total nb of input bytes read so far */
++ 
++     unsigned char    *next_out; /* next output byte should be put there */
++     unsigned int     avail_out; /* remaining free space at next_out */
++     unsigned long    total_out; /* total nb of bytes output so far */
++ 
++     char     *msg;      /* last error message, NULL if no error */
++     struct internal_state *state; /* not visible by applications */
++ 
++     alloc_func zalloc;  /* used to allocate the internal state */
++     free_func  zfree;   /* used to free the internal state */
++     VOID *     opaque;  /* private data object passed to zalloc and zfree */
++ 
++     int     data_type;  /* best guess about the data type: ascii or binary */
++     unsigned long   adler;      /* adler32 value of the uncompressed data */
++     unsigned long   reserved;   /* reserved for future use */
++ } z_stream;
++ 
++ typedef z_stream *z_streamp;
++ 
++ /*
++    The application must update next_in and avail_in when avail_in has
++    dropped to zero. It must update next_out and avail_out when avail_out
++    has dropped to zero. The application must initialize zalloc, zfree and
++    opaque before calling the init function. All other fields are set by the
++    compression library and must not be updated by the application.
++ 
++    The opaque value provided by the application will be passed as the first
++    parameter for calls of zalloc and zfree. This can be useful for custom
++    memory management. The compression library attaches no meaning to the
++    opaque value.
++ 
++    zalloc must return Z_NULL if there is not enough memory for the object.
++    On 16-bit systems, the functions zalloc and zfree must be able to allocate
++    exactly 65536 bytes, but will not be required to allocate more than this
++    if the symbol MAXSEG_64K is defined (see zconf.h). WARNING: On MSDOS,
++    pointers returned by zalloc for objects of exactly 65536 bytes *must*
++    have their offset normalized to zero. The default allocation function
++    provided by this library ensures this (see zutil.c). To reduce memory
++    requirements and avoid any allocation of 64K objects, at the expense of
++    compression ratio, compile the library with -DMAX_WBITS=14 (see zconf.h).
++ 
++    The fields total_in and total_out can be used for statistics or
++    progress reports. After compression, total_in holds the total size of
++    the uncompressed data and may be saved for use in the decompressor
++    (particularly if the decompressor wants to decompress everything in
++    a single step).
++ */
++ 
++                         /* CONSTants */
++ 
++ #define Z_NO_FLUSH      0
++ #define Z_PARTIAL_FLUSH 1
++ #define Z_SYNC_FLUSH    2
++ #define Z_FULL_FLUSH    3
++ #define Z_FINISH        4
++ /* Allowed flush values; see deflate() below for details */
++ 
++ #define Z_OK            0
++ #define Z_STREAM_END    1
++ #define Z_NEED_DICT     2
++ #define Z_ERRNO        (-1)
++ #define Z_STREAM_ERROR (-2)
++ #define Z_DATA_ERROR   (-3)
++ #define Z_MEM_ERROR    (-4)
++ #define Z_BUF_ERROR    (-5)
++ #define Z_VERSION_ERROR (-6)
++ /* Return codes for the compression/decompression functions. Negative
++  * values are errors, positive values are used for special but normal events.
++  */
++ 
++ #define Z_NO_COMPRESSION         0
++ #define Z_BEST_SPEED             1
++ #define Z_BEST_COMPRESSION       9
++ #define Z_DEFAULT_COMPRESSION  (-1)
++ /* compression levels */
++ 
++ #define Z_FILTERED            1
++ #define Z_HUFFMAN_ONLY        2
++ #define Z_DEFAULT_STRATEGY    0
++ /* compression strategy; see deflateInit2() below for details */
++ 
++ #define Z_BINARY   0
++ #define Z_ASCII    1
++ #define Z_UNKNOWN  2
++ /* Possible values of the data_type field */
++ 
++ #define Z_DEFLATED   8
++ /* The deflate compression method (the only one supported in this version) */
++ 
++ #define Z_NULL  0  /* for initializing zalloc, zfree, opaque */
++ 
++ #define zlib_version zlibVersion()
++ /* for compatibility with versions < 1.0.2 */
++ 
++                         /* basic functions */
++ 
++ extern CONST char * zlibVersion _ANSI_ARGS_((void));
++ /* The application can compare zlibVersion and ZLIB_VERSION for consistency.
++    If the first character differs, the library code actually used is
++    not compatible with the zlib.h header file used by the application.
++    This check is automatically made by deflateInit and inflateInit.
++  */
++ 
++ /* 
++ extern int deflateInit _ANSI_ARGS_((z_streamp strm, int level));
++ 
++      Initializes the internal stream state for compression. The fields
++    zalloc, zfree and opaque must be initialized before by the caller.
++    If zalloc and zfree are set to Z_NULL, deflateInit updates them to
++    use default allocation functions.
++ 
++      The compression level must be Z_DEFAULT_COMPRESSION, or between 0 and 9:
++    1 gives best speed, 9 gives best compression, 0 gives no compression at
++    all (the input data is simply copied a block at a time).
++    Z_DEFAULT_COMPRESSION requests a default compromise between speed and
++    compression (currently equivalent to level 6).
++ 
++      deflateInit returns Z_OK if success, Z_MEM_ERROR if there was not
++    enough memory, Z_STREAM_ERROR if level is not a valid compression level,
++    Z_VERSION_ERROR if the zlib library version (zlib_version) is incompatible
++    with the version assumed by the caller (ZLIB_VERSION).
++    msg is set to null if there is no error message.  deflateInit does not
++    perform any compression: this will be done by deflate().
++ */
++ 
++ 
++ extern int deflate _ANSI_ARGS_((z_streamp strm, int flush));
++ /*
++   Performs one or both of the following actions:
++ 
++   - Compress more input starting at next_in and update next_in and avail_in
++     accordingly. If not all input can be processed (because there is not
++     enough room in the output buffer), next_in and avail_in are updated and
++     processing will resume at this point for the next call of deflate().
++ 
++   - Provide more output starting at next_out and update next_out and avail_out
++     accordingly. This action is forced if the parameter flush is non zero.
++     Forcing flush frequently degrades the compression ratio, so this parameter
++     should be set only when necessary (in interactive applications).
++     Some output may be provided even if flush is not set.
++ 
++   Before the call of deflate(), the application should ensure that at least
++   one of the actions is possible, by providing more input and/or consuming
++   more output, and updating avail_in or avail_out accordingly; avail_out
++   should never be zero before the call. The application can consume the
++   compressed output when it wants, for example when the output buffer is full
++   (avail_out == 0), or after each call of deflate(). If deflate returns Z_OK
++   and with zero avail_out, it must be called again after making room in the
++   output buffer because there might be more output pending.
++ 
++     If the parameter flush is set to Z_PARTIAL_FLUSH, the current compression
++   block is terminated and flushed to the output buffer so that the
++   decompressor can get all input data available so far. For method 9, a future
++   variant on method 8, the current block will be flushed but not terminated.
++   Z_SYNC_FLUSH has the same effect as partial flush except that the compressed
++   output is byte aligned (the compressor can clear its internal bit buffer)
++   and the current block is always terminated; this can be useful if the
++   compressor has to be restarted from scratch after an interruption (in which
++   case the internal state of the compressor may be lost).
++     If flush is set to Z_FULL_FLUSH, the compression block is terminated, a
++   special marker is output and the compression dictionary is discarded; this
++   is useful to allow the decompressor to synchronize if one compressed block
++   has been damaged (see inflateSync below).  Flushing degrades compression and
++   so should be used only when necessary.  Using Z_FULL_FLUSH too often can
++   seriously degrade the compression. If deflate returns with avail_out == 0,
++   this function must be called again with the same value of the flush
++   parameter and more output space (updated avail_out), until the flush is
++   complete (deflate returns with non-zero avail_out).
++ 
++     If the parameter flush is set to Z_FINISH, pending input is processed,
++   pending output is flushed and deflate returns with Z_STREAM_END if there
++   was enough output space; if deflate returns with Z_OK, this function must be
++   called again with Z_FINISH and more output space (updated avail_out) but no
++   more input data, until it returns with Z_STREAM_END or an error. After
++   deflate has returned Z_STREAM_END, the only possible operations on the
++   stream are deflateReset or deflateEnd.
++   
++     Z_FINISH can be used immediately after deflateInit if all the compression
++   is to be done in a single step. In this case, avail_out must be at least
++   0.1% larger than avail_in plus 12 bytes.  If deflate does not return
++   Z_STREAM_END, then it must be called again as described above.
++ 
++     deflate() may update data_type if it can make a good guess about
++   the input data type (Z_ASCII or Z_BINARY). In doubt, the data is considered
++   binary. This field is only for information purposes and does not affect
++   the compression algorithm in any manner.
++ 
++     deflate() returns Z_OK if some progress has been made (more input
++   processed or more output produced), Z_STREAM_END if all input has been
++   consumed and all output has been produced (only when flush is set to
++   Z_FINISH), Z_STREAM_ERROR if the stream state was inconsistent (for example
++   if next_in or next_out was NULL), Z_BUF_ERROR if no progress is possible.
++ */
++ 
++ 
++ extern int deflateEnd _ANSI_ARGS_((z_streamp strm));
++ /*
++      All dynamically allocated data structures for this stream are freed.
++    This function discards any unprocessed input and does not flush any
++    pending output.
++ 
++      deflateEnd returns Z_OK if success, Z_STREAM_ERROR if the
++    stream state was inconsistent, Z_DATA_ERROR if the stream was freed
++    prematurely (some input or output was discarded). In the error case,
++    msg may be set but then points to a static string (which must not be
++    deallocated).
++ */
++ 
++ 
++ /* 
++ extern int inflateInit _ANSI_ARGS_((z_streamp strm));
++ 
++      Initializes the internal stream state for decompression. The fields
++    zalloc, zfree and opaque must be initialized before by the caller.  If
++    zalloc and zfree are set to Z_NULL, inflateInit updates them to use default
++    allocation functions.
++ 
++      inflateInit returns Z_OK if success, Z_MEM_ERROR if there was not
++    enough memory, Z_VERSION_ERROR if the zlib library version is incompatible
++    with the version assumed by the caller.  msg is set to null if there is no
++    error message. inflateInit does not perform any decompression: this will be
++    done by inflate().
++ */
++ 
++ 
++ extern int inflate _ANSI_ARGS_((z_streamp strm, int flush));
++ /*
++   Performs one or both of the following actions:
++ 
++   - Decompress more input starting at next_in and update next_in and avail_in
++     accordingly. If not all input can be processed (because there is not
++     enough room in the output buffer), next_in is updated and processing
++     will resume at this point for the next call of inflate().
++ 
++   - Provide more output starting at next_out and update next_out and avail_out
++     accordingly.  inflate() provides as much output as possible, until there
++     is no more input data or no more space in the output buffer (see below
++     about the flush parameter).
++ 
++   Before the call of inflate(), the application should ensure that at least
++   one of the actions is possible, by providing more input and/or consuming
++   more output, and updating the next_* and avail_* values accordingly.
++   The application can consume the uncompressed output when it wants, for
++   example when the output buffer is full (avail_out == 0), or after each
++   call of inflate(). If inflate returns Z_OK and with zero avail_out, it
++   must be called again after making room in the output buffer because there
++   might be more output pending.
++ 
++     If the parameter flush is set to Z_PARTIAL_FLUSH, inflate flushes as much
++   output as possible to the output buffer. The flushing behavior of inflate is
++   not specified for values of the flush parameter other than Z_PARTIAL_FLUSH
++   and Z_FINISH, but the current implementation actually flushes as much output
++   as possible anyway.
++ 
++     inflate() should normally be called until it returns Z_STREAM_END or an
++   error. However if all decompression is to be performed in a single step
++   (a single call of inflate), the parameter flush should be set to
++   Z_FINISH. In this case all pending input is processed and all pending
++   output is flushed; avail_out must be large enough to hold all the
++   uncompressed data. (The size of the uncompressed data may have been saved
++   by the compressor for this purpose.) The next operation on this stream must
++   be inflateEnd to deallocate the decompression state. The use of Z_FINISH
++   is never required, but can be used to inform inflate that a faster routine
++   may be used for the single inflate() call.
++ 
++     inflate() returns Z_OK if some progress has been made (more input
++   processed or more output produced), Z_STREAM_END if the end of the
++   compressed data has been reached and all uncompressed output has been
++   produced, Z_NEED_DICT if a preset dictionary is needed at this point (see
++   inflateSetDictionary below), Z_DATA_ERROR if the input data was corrupted,
++   Z_STREAM_ERROR if the stream structure was inconsistent (for example if
++   next_in or next_out was NULL), Z_MEM_ERROR if there was not enough memory,
++   Z_BUF_ERROR if no progress is possible or if there was not enough room in
++   the output buffer when Z_FINISH is used. In the Z_DATA_ERROR case, the
++   application may then call inflateSync to look for a good compression block.
++   In the Z_NEED_DICT case, strm->adler is set to the Adler32 value of the
++   dictionary chosen by the compressor.
++ */
++ 
++ 
++ extern int inflateEnd _ANSI_ARGS_((z_streamp strm));
++ /*
++      All dynamically allocated data structures for this stream are freed.
++    This function discards any unprocessed input and does not flush any
++    pending output.
++ 
++      inflateEnd returns Z_OK if success, Z_STREAM_ERROR if the stream state
++    was inconsistent. In the error case, msg may be set but then points to a
++    static string (which must not be deallocated).
++ */
++ 
++                         /* Advanced functions */
++ 
++ /*
++     The following functions are needed only in some special applications.
++ */
++ 
++ /*   
++ extern int deflateInit2 _ANSI_ARGS_((z_streamp strm,
++                                    int  level,
++                                    int  method,
++                                    int  windowBits,
++                                    int  memLevel,
++                                    int  strategy));
++ 
++      This is another version of deflateInit with more compression options. The
++    fields next_in, zalloc, zfree and opaque must be initialized before by
++    the caller.
++ 
++      The method parameter is the compression method. It must be Z_DEFLATED in
++    this version of the library. (Method 9 will allow a 64K history buffer and
++    partial block flushes.)
++ 
++      The windowBits parameter is the base two logarithm of the window size
++    (the size of the history buffer).  It should be in the range 8..15 for this
++    version of the library (the value 16 will be allowed for method 9). Larger
++    values of this parameter result in better compression at the expense of
++    memory usage. The default value is 15 if deflateInit is used instead.
++ 
++      The memLevel parameter specifies how much memory should be allocated
++    for the internal compression state. memLevel=1 uses minimum memory but
++    is slow and reduces compression ratio; memLevel=9 uses maximum memory
++    for optimal speed. The default value is 8. See zconf.h for total memory
++    usage as a function of windowBits and memLevel.
++ 
++      The strategy parameter is used to tune the compression algorithm. Use the
++    value Z_DEFAULT_STRATEGY for normal data, Z_FILTERED for data produced by a
++    filter (or predictor), or Z_HUFFMAN_ONLY to force Huffman encoding only (no
++    string match).  Filtered data consists mostly of small values with a
++    somewhat random distribution. In this case, the compression algorithm is
++    tuned to compress them better. The effect of Z_FILTERED is to force more
++    Huffman coding and less string matching; it is somewhat intermediate
++    between Z_DEFAULT and Z_HUFFMAN_ONLY. The strategy parameter only affects
++    the compression ratio but not the correctness of the compressed output even
++    if it is not set appropriately.
++ 
++      If next_in is not null, the library will use this buffer to hold also
++    some history information; the buffer must either hold the entire input
++    data, or have at least 1<<(windowBits+1) bytes and be writable. If next_in
++    is null, the library will allocate its own history buffer (and leave next_in
++    null). next_out need not be provided here but must be provided by the
++    application for the next call of deflate().
++ 
++      If the history buffer is provided by the application, next_in must
++    must never be changed by the application since the compressor maintains
++    information inside this buffer from call to call; the application
++    must provide more input only by increasing avail_in. next_in is always
++    reset by the library in this case.
++ 
++       deflateInit2 returns Z_OK if success, Z_MEM_ERROR if there was
++    not enough memory, Z_STREAM_ERROR if a parameter is invalid (such as
++    an invalid method). msg is set to null if there is no error message.
++    deflateInit2 does not perform any compression: this will be done by
++    deflate(). 
++ */
++                             
++ extern int deflateSetDictionary _ANSI_ARGS_((z_streamp strm,
++                                            CONST unsigned char *dictionary,
++ 				           unsigned int  dictLength));
++ /*
++      Initializes the compression dictionary (history buffer) from the given
++    byte sequence without producing any compressed output. This function must
++    be called immediately after deflateInit or deflateInit2, before any call
++    of deflate. The compressor and decompressor must use exactly the same
++    dictionary (see inflateSetDictionary).
++      The dictionary should consist of strings (byte sequences) that are likely
++    to be encountered later in the data to be compressed, with the most commonly
++    used strings preferably put towards the end of the dictionary. Using a
++    dictionary is most useful when the data to be compressed is short and
++    can be predicted with good accuracy; the data can then be compressed better
++    than with the default empty dictionary. In this version of the library,
++    only the last 32K bytes of the dictionary are used.
++      Upon return of this function, strm->adler is set to the Adler32 value
++    of the dictionary; the decompressor may later use this value to determine
++    which dictionary has been used by the compressor. (The Adler32 value
++    applies to the whole dictionary even if only a subset of the dictionary is
++    actually used by the compressor.)
++ 
++      deflateSetDictionary returns Z_OK if success, or Z_STREAM_ERROR if a
++    parameter is invalid (such as NULL dictionary) or the stream state
++    is inconsistent (for example if deflate has already been called for this
++    stream). deflateSetDictionary does not perform any compression: this will
++    be done by deflate(). 
++ */
++ 
++ extern int deflateCopy _ANSI_ARGS_((z_streamp dest,
++                                   z_streamp source));
++ /*
++      Sets the destination stream as a complete copy of the source stream.  If
++    the source stream is using an application-supplied history buffer, a new
++    buffer is allocated for the destination stream.  The compressed output
++    buffer is always application-supplied. It's the responsibility of the
++    application to provide the correct values of next_out and avail_out for the
++    next call of deflate.
++ 
++      This function can be useful when several compression strategies will be
++    tried, for example when there are several ways of pre-processing the input
++    data with a filter. The streams that will be discarded should then be freed
++    by calling deflateEnd.  Note that deflateCopy duplicates the internal
++    compression state which can be quite large, so this strategy is slow and
++    can consume lots of memory.
++ 
++      deflateCopy returns Z_OK if success, Z_MEM_ERROR if there was not
++    enough memory, Z_STREAM_ERROR if the source stream state was inconsistent
++    (such as zalloc being NULL). msg is left unchanged in both source and
++    destination.
++ */
++ 
++ extern int deflateReset _ANSI_ARGS_((z_streamp strm));
++ /*
++      This function is equivalent to deflateEnd followed by deflateInit,
++    but does not free and reallocate all the internal compression state.
++    The stream will keep the same compression level and any other attributes
++    that may have been set by deflateInit2.
++ 
++       deflateReset returns Z_OK if success, or Z_STREAM_ERROR if the source
++    stream state was inconsistent (such as zalloc or state being NULL).
++ */
++ 
++ extern int deflateParams _ANSI_ARGS_((z_streamp strm, int level, int strategy));
++ /*
++      Dynamically update the compression level and compression strategy.
++    This can be used to switch between compression and straight copy of
++    the input data, or to switch to a different kind of input data requiring
++    a different strategy. If the compression level is changed, the input
++    available so far is compressed with the old level (and may be flushed);
++    the new level will take effect only at the next call of deflate().
++ 
++      Before the call of deflateParams, the stream state must be set as for
++    a call of deflate(), since the currently available input may have to
++    be compressed and flushed. In particular, strm->avail_out must be non-zero.
++ 
++      deflateParams returns Z_OK if success, Z_STREAM_ERROR if the source
++    stream state was inconsistent or if a parameter was invalid, Z_BUF_ERROR
++    if strm->avail_out was zero.
++ */
++ 
++ /*   
++ extern int inflateInit2 _ANSI_ARGS_((z_streamp strm,
++                                    int  windowBits));
++ 
++      This is another version of inflateInit with more compression options. The
++    fields next_out, zalloc, zfree and opaque must be initialized before by
++    the caller.
++ 
++      The windowBits parameter is the base two logarithm of the maximum window
++    size (the size of the history buffer).  It should be in the range 8..15 for
++    this version of the library (the value 16 will be allowed soon). The
++    default value is 15 if inflateInit is used instead. If a compressed stream
++    with a larger window size is given as input, inflate() will return with
++    the error code Z_DATA_ERROR instead of trying to allocate a larger window.
++ 
++      If next_out is not null, the library will use this buffer for the history
++    buffer; the buffer must either be large enough to hold the entire output
++    data, or have at least 1<<windowBits bytes.  If next_out is null, the
++    library will allocate its own buffer (and leave next_out null). next_in
++    need not be provided here but must be provided by the application for the
++    next call of inflate().
++ 
++      If the history buffer is provided by the application, next_out must
++    never be changed by the application since the decompressor maintains
++    history information inside this buffer from call to call; the application
++    can only reset next_out to the beginning of the history buffer when
++    avail_out is zero and all output has been consumed.
++ 
++       inflateInit2 returns Z_OK if success, Z_MEM_ERROR if there was
++    not enough memory, Z_STREAM_ERROR if a parameter is invalid (such as
++    windowBits < 8). msg is set to null if there is no error message.
++    inflateInit2 does not perform any decompression: this will be done by
++    inflate().
++ */
++ 
++ extern int inflateSetDictionary _ANSI_ARGS_((z_streamp strm,
++ 				           CONST unsigned char *dictionary,
++ 					   unsigned int  dictLength));
++ /*
++      Initializes the decompression dictionary (history buffer) from the given
++    uncompressed byte sequence. This function must be called immediately after
++    a call of inflate if this call returned Z_NEED_DICT. The dictionary chosen
++    by the compressor can be determined from the Adler32 value returned by this
++    call of inflate. The compressor and decompressor must use exactly the same
++    dictionary (see deflateSetDictionary).
++ 
++      inflateSetDictionary returns Z_OK if success, Z_STREAM_ERROR if a
++    parameter is invalid (such as NULL dictionary) or the stream state is
++    inconsistent, Z_DATA_ERROR if the given dictionary doesn't match the
++    expected one (incorrect Adler32 value). inflateSetDictionary does not
++    perform any decompression: this will be done by subsequent calls of
++    inflate().
++ */
++ 
++ extern int inflateSync _ANSI_ARGS_((z_streamp strm));
++ /* 
++     Skips invalid compressed data until the special marker (see deflate()
++   above) can be found, or until all available input is skipped. No output
++   is provided.
++ 
++     inflateSync returns Z_OK if the special marker has been found, Z_BUF_ERROR
++   if no more input was provided, Z_DATA_ERROR if no marker has been found,
++   or Z_STREAM_ERROR if the stream structure was inconsistent. In the success
++   case, the application may save the current current value of total_in which
++   indicates where valid compressed data was found. In the error case, the
++   application may repeatedly call inflateSync, providing more input each time,
++   until success or end of the input data.
++ */
++ 
++ extern int inflateReset _ANSI_ARGS_((z_streamp strm));
++ /*
++      This function is equivalent to inflateEnd followed by inflateInit,
++    but does not free and reallocate all the internal decompression state.
++    The stream will keep attributes that may have been set by inflateInit2.
++ 
++       inflateReset returns Z_OK if success, or Z_STREAM_ERROR if the source
++    stream state was inconsistent (such as zalloc or state being NULL).
++ */
++ 
++ 
++                         /* utility functions */
++ 
++ /*
++      The following utility functions are implemented on top of the
++    basic stream-oriented functions. To simplify the interface, some
++    default options are assumed (compression level, window size,
++    standard memory allocation functions). The source code of these
++    utility functions can easily be modified if you need special options.
++ */
++ 
++ extern int compress _ANSI_ARGS_((unsigned char *dest,   unsigned long *destLen,
++ 			       CONST unsigned char *source, unsigned long sourceLen));
++ /*
++      Compresses the source buffer into the destination buffer.  sourceLen is
++    the byte length of the source buffer. Upon entry, destLen is the total
++    size of the destination buffer, which must be at least 0.1% larger than
++    sourceLen plus 12 bytes. Upon exit, destLen is the actual size of the
++    compressed buffer.
++      This function can be used to compress a whole file at once if the
++    input file is mmap'ed.
++      compress returns Z_OK if success, Z_MEM_ERROR if there was not
++    enough memory, Z_BUF_ERROR if there was not enough room in the output
++    buffer.
++ */
++ 
++ extern int uncompress _ANSI_ARGS_((unsigned char *dest,   unsigned long *destLen,
++ 				 CONST unsigned char *source, unsigned long sourceLen));
++ /*
++      Decompresses the source buffer into the destination buffer.  sourceLen is
++    the byte length of the source buffer. Upon entry, destLen is the total
++    size of the destination buffer, which must be large enough to hold the
++    entire uncompressed data. (The size of the uncompressed data must have
++    been saved previously by the compressor and transmitted to the decompressor
++    by some mechanism outside the scope of this compression library.)
++    Upon exit, destLen is the actual size of the compressed buffer.
++      This function can be used to decompress a whole file at once if the
++    input file is mmap'ed.
++ 
++      uncompress returns Z_OK if success, Z_MEM_ERROR if there was not
++    enough memory, Z_BUF_ERROR if there was not enough room in the output
++    buffer, or Z_DATA_ERROR if the input data was corrupted.
++ */
++ 
++ 
++ typedef VOID * gzFile;
++ 
++ extern gzFile gzopen  _ANSI_ARGS_((CONST char *path, CONST char *mode));
++ /*
++      Opens a gzip (.gz) file for reading or writing. The mode parameter
++    is as in fopen ("rb" or "wb") but can also include a compression level
++    ("wb9").  gzopen can be used to read a file which is not in gzip format;
++    in this case gzread will directly read from the file without decompression.
++      gzopen returns NULL if the file could not be opened or if there was
++    insufficient memory to allocate the (de)compression state; errno
++    can be checked to distinguish the two cases (if errno is zero, the
++    zlib error is Z_MEM_ERROR).
++ */
++ 
++ extern gzFile gzdopen  _ANSI_ARGS_((int fd, CONST char *mode));
++ /*
++      gzdopen() associates a gzFile with the file descriptor fd.  File
++    descriptors are obtained from calls like open, dup, creat, pipe or
++    fileno (in the file has been previously opened with fopen).
++    The mode parameter is as in gzopen.
++      The next call of gzclose on the returned gzFile will also close the
++    file descriptor fd, just like fclose(fdopen(fd), mode) closes the file
++    descriptor fd. If you want to keep fd open, use gzdopen(dup(fd), mode).
++      gzdopen returns NULL if there was insufficient memory to allocate
++    the (de)compression state.
++ */
++ 
++ extern int    gzread  _ANSI_ARGS_((gzFile file, VOID * buf, unsigned len));
++ /*
++      Reads the given number of uncompressed bytes from the compressed file.
++    If the input file was not in gzip format, gzread copies the given number
++    of bytes into the buffer.
++      gzread returns the number of uncompressed bytes actually read (0 for
++    end of file, -1 for error). */
++ 
++ extern int    gzwrite _ANSI_ARGS_((gzFile file, CONST VOID * buf, unsigned len));
++ /*
++      Writes the given number of uncompressed bytes into the compressed file.
++    gzwrite returns the number of uncompressed bytes actually written
++    (0 in case of error).
++ */
++ 
++ extern int    gzflush _ANSI_ARGS_((gzFile file, int flush));
++ /*
++      Flushes all pending output into the compressed file. The parameter
++    flush is as in the deflate() function. The return value is the zlib
++    error number (see function gzerror below). gzflush returns Z_OK if
++    the flush parameter is Z_FINISH and all output could be flushed.
++      gzflush should be called only when strictly necessary because it can
++    degrade compression.
++ */
++ 
++ extern int    gzclose _ANSI_ARGS_((gzFile file));
++ /*
++      Flushes all pending output if necessary, closes the compressed file
++    and deallocates all the (de)compression state. The return value is the zlib
++    error number (see function gzerror below).
++ */
++ 
++ extern CONST char * gzerror _ANSI_ARGS_((gzFile file, int *errnum));
++ /*
++      Returns the error message for the last error which occurred on the
++    given compressed file. errnum is set to zlib error number. If an
++    error occurred in the file system and not in the compression library,
++    errnum is set to Z_ERRNO and the application may consult errno
++    to get the exact error code.
++ */
++ 
++                         /* checksum functions */
++ 
++ /*
++      These functions are not related to compression but are exported
++    anyway because they might be useful in applications using the
++    compression library.
++ */
++ 
++ extern unsigned long adler32 _ANSI_ARGS_((unsigned long adler, CONST unsigned char *buf, unsigned int len));
++ 
++ /*
++      Update a running Adler-32 checksum with the bytes buf[0..len-1] and
++    return the updated checksum. If buf is NULL, this function returns
++    the required initial value for the checksum.
++    An Adler-32 checksum is almost as reliable as a CRC32 but can be computed
++    much faster. Usage example:
++ 
++      unsigned long adler = adler32(0L, Z_NULL, 0);
++ 
++      while (read_buffer(buffer, length) != EOF) {
++        adler = adler32(adler, buffer, length);
++      }
++      if (adler != original_adler) error();
++ */
++ 
++ extern unsigned long crc32   _ANSI_ARGS_((unsigned long crc, CONST unsigned char *buf, unsigned int len));
++ /*
++      Update a running crc with the bytes buf[0..len-1] and return the updated
++    crc. If buf is NULL, this function returns the required initial value
++    for the crc. Pre- and post-conditioning (one's complement) is performed
++    within this function so it shouldn't be done by the application.
++    Usage example:
++ 
++      unsigned long crc = crc32(0L, Z_NULL, 0);
++ 
++      while (read_buffer(buffer, length) != EOF) {
++        crc = crc32(crc, buffer, length);
++      }
++      if (crc != original_crc) error();
++ */
++ 
++ 
++                         /* various hacks, don't look :) */
++ 
++ /* deflateInit and inflateInit are macros to allow checking the zlib version
++  * and the compiler's view of z_stream:
++  */
++ extern int deflateInit_ _ANSI_ARGS_((z_streamp strm, int level,
++ 			           CONST char *version, int stream_size));
++ extern int inflateInit_ _ANSI_ARGS_((z_streamp strm,
++ 				   CONST char *version, int stream_size));
++ extern int deflateInit2_ _ANSI_ARGS_((z_streamp strm, int  level, int  method,
++ 				    int windowBits, int memLevel, int strategy,
++ 				    CONST char *version, int stream_size));
++ extern int inflateInit2_ _ANSI_ARGS_((z_streamp strm, int  windowBits,
++ 				    CONST char *version, int stream_size));
++ #define deflateInit(strm, level) \
++         deflateInit_((strm), (level),       ZLIB_VERSION, sizeof(z_stream))
++ #define inflateInit(strm) \
++         inflateInit_((strm),                ZLIB_VERSION, sizeof(z_stream))
++ #define deflateInit2(strm, level, method, windowBits, memLevel, strategy) \
++         deflateInit2_((strm),(level),(method),(windowBits),(memLevel),\
++ 		      (strategy),           ZLIB_VERSION, sizeof(z_stream))
++ #define inflateInit2(strm, windowBits) \
++         inflateInit2_((strm), (windowBits), ZLIB_VERSION, sizeof(z_stream))
++ 
++ #if !defined(_Z_UTIL_H) && !defined(NO_DUMMY_DECL)
++     struct internal_state {int dummy;}; /* hack for buggy compilers */
++ #endif
++ 
++ unsigned long *get_crc_table _ANSI_ARGS_((void)); /* can be used by asm versions of crc32() */
++ 
++ #ifdef __cplusplus
++ }
++ #endif
++ 
++ #endif /* _ZLIB_H */
+

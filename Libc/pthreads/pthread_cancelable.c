@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -73,6 +73,7 @@ extern int _pthread_cond_wait(pthread_cond_t *cond,
 			const struct timespec *abstime,
 			int isRelative,
 			int isconforming);
+extern int __semwait_signal(int cond_sem, int mutex_sem, int timeout, int relative, __int64_t tv_sec, __int32_t tv_nsec);
 extern int __sigwait(const sigset_t *set, int *sig);
 
 /*
@@ -82,13 +83,13 @@ int
 pthread_join(pthread_t thread, 
 	     void **value_ptr)
 {
-	kern_return_t kern_res;
 	int res = 0;
 	pthread_t self = pthread_self();
-	mach_port_t ignore;
 	mach_port_t kthport;
 	int conforming = 0;
-	task_t tself = mach_task_self();
+#if !__DARWIN_UNIX03
+	kern_return_t kern_res;
+#endif
 
 #if __DARWIN_UNIX03
 	if (__unix_conforming == 0)
@@ -127,7 +128,7 @@ pthread_join(pthread_t thread,
 					/* Wait for it to signal... */ 
 					pthread_cleanup_push(__posix_join_cleanup, (void *)thread);
 					do {
-						res = __semwait_signal(death, 0, 0, 0, 0, 0);
+						res = __semwait_signal(death, 0, 0, 0, (int64_t)0, (int32_t)0);
 					} while ((res < 0) && (errno == EINTR));
 					pthread_cleanup_pop(0);
 
@@ -169,7 +170,7 @@ pthread_join(pthread_t thread,
 		semaphore_t death = SEMAPHORE_NULL; /* in case we need it */
 		semaphore_t joinsem = SEMAPHORE_NULL;
 
-		if (thread->joiner_notify == NULL)
+		if (thread->joiner_notify == MACH_PORT_NULL)
 			 death = new_sem_from_pool();
 
 		LOCK(thread->lock);
@@ -179,11 +180,9 @@ pthread_join(pthread_t thread,
 			assert(thread->kernel_thread == kthport);
 			if (thread != self && (self == NULL || self->joiner != thread))
 			{
-				int already_exited;
-
-				if (thread->joiner_notify == NULL) {
+				if (thread->joiner_notify == MACH_PORT_NULL) {
 					if (death == SEMAPHORE_NULL)
-						abort();
+						LIBC_ABORT("thread %p: death == SEMAPHORE_NULL", thread);
 					thread->joiner_notify = death;
 					death = SEMAPHORE_NULL;
 				} 
@@ -199,7 +198,7 @@ pthread_join(pthread_t thread,
 				/* Wait for it to signal... */ 
 				pthread_cleanup_push(__posix_join_cleanup, (void *)thread);
 				do {
-					res = __semwait_signal(joinsem, 0, 0, 0, 0, 0);
+					res = __semwait_signal(joinsem, 0, 0, 0, (int64_t)0, (int32_t)0);
 				} while ((res < 0) && (errno == EINTR));
 				pthread_cleanup_pop(0);
 #else /* __DARWIN_UNIX03 */
@@ -285,10 +284,27 @@ sigwait(const sigset_t * set, int * sig)
 
 	if (__sigwait(set, sig) == -1) {
 		err = errno;
+		
+		/* 
+		 * EINTR that isn't a result of pthread_cancel()
+		 * is translated to 0.
+		 */
+		if (err == EINTR) {
+			err = 0;
+		}
 	}
 	return(err);
 #else /* __DARWIN_UNIX03 */
-	return(__sigwait(set, sig));
+	if (__sigwait(set, sig) == -1) {
+		/* 
+		 * EINTR that isn't a result of pthread_cancel()
+		 * is translated to 0.
+		 */
+		if (errno != EINTR) {
+			return -1;
+		}
+	}
 
+	return 0;
 #endif /* __DARWIN_UNIX03 */
 }

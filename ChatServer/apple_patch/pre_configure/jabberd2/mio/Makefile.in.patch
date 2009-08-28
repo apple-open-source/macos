@@ -1,0 +1,30 @@
+--- /tmp/jabberd-2.1.24.1/mio/Makefile.in	2008-04-27 02:58:16.000000000 -0700
++++ ./jabberd2/mio/Makefile.in	2009-01-25 18:35:06.000000000 -0800
+@@ -46,7 +46,7 @@ CONFIG_HEADER = $(top_builddir)/config.h
+ CONFIG_CLEAN_FILES =
+ LTLIBRARIES = $(noinst_LTLIBRARIES)
+ libmio_la_DEPENDENCIES =
+-am_libmio_la_OBJECTS = mio.lo mio_epoll.lo mio_poll.lo mio_select.lo
++am_libmio_la_OBJECTS = mio.lo mio_epoll.lo mio_kqueue.lo mio_poll.lo mio_select.lo
+ libmio_la_OBJECTS = $(am_libmio_la_OBJECTS)
+ DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
+ depcomp = $(SHELL) $(top_srcdir)/depcomp
+@@ -188,8 +188,8 @@ target_alias = @target_alias@
+ top_builddir = @top_builddir@
+ top_srcdir = @top_srcdir@
+ noinst_LTLIBRARIES = libmio.la
+-noinst_HEADERS = mio.h mio_impl.h mio_epoll.h mio_poll.h mio_select.h
+-libmio_la_SOURCES = mio.c mio_epoll.c mio_poll.c mio_select.c
++noinst_HEADERS = mio.h mio_impl.h mio_epoll.h mio_kqueue.h mio_poll.h mio_select.h
++libmio_la_SOURCES = mio.c mio_epoll.c mio_kqueue.c mio_poll.c mio_select.c
+ libmio_la_LIBADD = @LDFLAGS@
+ all: all-am
+ 
+@@ -244,6 +244,7 @@ distclean-compile:
+ 
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mio.Plo@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mio_epoll.Plo@am__quote@
++@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mio_kqueue.Plo@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mio_poll.Plo@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mio_select.Plo@am__quote@
+ 

@@ -33,6 +33,7 @@
 
 #include <Carbon/Carbon.h>
 #include <OpenDirectory/OpenDirectory.h>
+#include <DirectoryService/DirectoryService.h>
 
 OSStatus DSCopyLocalKDC (CFStringRef *realm) 
 {
@@ -46,8 +47,8 @@ OSStatus DSCopyLocalKDC (CFStringRef *realm)
 	if (NULL == realm) { err = paramErr; goto Error; }
 
 	*realm = NULL;
-	
-    cfNodeRef = ODNodeCreateWithNodeType( kCFAllocatorDefault, kODSessionDefault, kODTypeAuthenticationSearchNode, NULL );
+        
+    cfNodeRef = ODNodeCreateWithNodeType( kCFAllocatorDefault, kODSessionDefault, kODNodeTypeAuthentication, NULL );
 
     if ( NULL == cfNodeRef ) { err = paramErr; goto Error; }
 	

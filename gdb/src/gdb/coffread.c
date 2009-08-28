@@ -509,8 +509,6 @@ coff_symfile_read (struct objfile *objfile, int mainline)
   int stringtab_offset;
   struct cleanup *back_to, *cleanup_minimal_symbols;
   int stabstrsize;
-  int len;
-  char * target;
   
   info = (struct coff_symfile_info *) objfile->deprecated_sym_private;
   dbxinfo = objfile->deprecated_sym_stab_info;
@@ -1398,7 +1396,7 @@ patch_type (struct type *type, struct type *real_type)
   struct type *real_target = TYPE_TARGET_TYPE (real_type);
   int field_size = TYPE_NFIELDS (real_target) * sizeof (struct field);
 
-  TYPE_LENGTH (target) = TYPE_LENGTH (real_target);
+  TYPE_LENGTH_ASSIGN (target) = TYPE_LENGTH (real_target);
   TYPE_NFIELDS (target) = TYPE_NFIELDS (real_target);
   TYPE_FIELDS (target) = (struct field *) TYPE_ALLOC (target, field_size);
 
@@ -1842,7 +1840,7 @@ decode_base_type (struct coff_symbol *cs, unsigned int c_type,
 	     "struct {...}".  */
 	  TYPE_TAG_NAME (type) = NULL;
 	  INIT_CPLUS_SPECIFIC (type);
-	  TYPE_LENGTH (type) = 0;
+	  TYPE_LENGTH_ASSIGN (type) = 0;
 	  TYPE_FIELDS (type) = 0;
 	  TYPE_NFIELDS (type) = 0;
 	}
@@ -1865,7 +1863,7 @@ decode_base_type (struct coff_symbol *cs, unsigned int c_type,
 	     "union {...}".  */
 	  TYPE_TAG_NAME (type) = NULL;
 	  INIT_CPLUS_SPECIFIC (type);
-	  TYPE_LENGTH (type) = 0;
+	  TYPE_LENGTH_ASSIGN (type) = 0;
 	  TYPE_FIELDS (type) = 0;
 	  TYPE_NFIELDS (type) = 0;
 	}
@@ -1889,7 +1887,7 @@ decode_base_type (struct coff_symbol *cs, unsigned int c_type,
 	     to NULL is right, and the printing code can print it as
 	     "enum {...}".  */
 	  TYPE_TAG_NAME (type) = NULL;
-	  TYPE_LENGTH (type) = 0;
+	  TYPE_LENGTH_ASSIGN (type) = 0;
 	  TYPE_FIELDS (type) = 0;
 	  TYPE_NFIELDS (type) = 0;
 	}
@@ -1954,7 +1952,7 @@ coff_read_struct_type (int index, int length, int lastsym)
   type = coff_alloc_type (index);
   TYPE_CODE (type) = TYPE_CODE_STRUCT;
   INIT_CPLUS_SPECIFIC (type);
-  TYPE_LENGTH (type) = length;
+  TYPE_LENGTH_ASSIGN (type) = length;
 
   while (!done && symnum < lastsym && symnum < nlist_nsyms_global)
     {
@@ -2088,9 +2086,9 @@ coff_read_enum_type (int index, int length, int lastsym)
   /* Now fill in the fields of the type-structure.  */
 
   if (length > 0)
-    TYPE_LENGTH (type) = length;
+    TYPE_LENGTH_ASSIGN (type) = length;
   else
-    TYPE_LENGTH (type) = TARGET_INT_BIT / TARGET_CHAR_BIT;	/* Assume ints */
+    TYPE_LENGTH_ASSIGN (type) = TARGET_INT_BIT / TARGET_CHAR_BIT;	/* Assume ints */
   TYPE_CODE (type) = TYPE_CODE_ENUM;
   TYPE_NFIELDS (type) = nsyms;
   TYPE_FIELDS (type) = (struct field *)
@@ -2115,7 +2113,7 @@ coff_read_enum_type (int index, int length, int lastsym)
 	  struct symbol *xsym = syms->symbol[j];
 	  SYMBOL_TYPE (xsym) = type;
 	  TYPE_FIELD_NAME (type, n) = DEPRECATED_SYMBOL_NAME (xsym);
-	  TYPE_FIELD_BITPOS (type, n) = SYMBOL_VALUE (xsym);
+	  TYPE_FIELD_BITPOS_ASSIGN (type, n) = SYMBOL_VALUE (xsym);
 	  if (SYMBOL_VALUE (xsym) < 0)
 	    unsigned_enum = 0;
 	  TYPE_FIELD_BITSIZE (type, n) = 0;

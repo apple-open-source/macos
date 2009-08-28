@@ -1,5 +1,5 @@
 /* Emulate getpagesize on systems that lack it.
-   Copyright (C) 1999, 2000, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2004, 2005 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -13,22 +13,20 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
    USA.  */
 
 #ifndef HAVE_GETPAGESIZE
 
-#ifdef HAVE_UNISTD_H
-# include <unistd.h>
-#endif
+#include <unistd.h>
 
 #if !defined getpagesize && defined _SC_PAGESIZE
-# if !(defined VMS && __VMS_VER < 70000000)
+# if ! (defined __VMS && __VMS_VER < 70000000)
 #  define getpagesize() sysconf (_SC_PAGESIZE)
 # endif
 #endif
 
-#if !defined getpagesize && defined VMS
+#if !defined getpagesize && defined __VMS
 # ifdef __ALPHA
 #  define getpagesize() 8192
 # else
@@ -42,6 +40,11 @@
 # if defined B_PAGE_SIZE
 #  define getpagesize() B_PAGE_SIZE
 # endif
+#endif
+
+/* This is for AmigaOS4.0.  */
+#if !defined getpagesize && defined __amigaos4__
+# define getpagesize() 2048
 #endif
 
 #if !defined getpagesize && HAVE_SYS_PARAM_H

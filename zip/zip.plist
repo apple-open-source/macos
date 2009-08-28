@@ -4,21 +4,23 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-10-05</string>
+		<string>2008-09-22</string>
 		<key>OpenSourceLicense</key>
 		<string>Info-ZIP</string>
 		<key>OpenSourceLicenseFile</key>
 		<string>zip.txt</string>
 		<key>OpenSourceSHA1</key>
-		<string>5bc562bf95d9aee0cb6625e6038898e1f191a4aa</string>
+		<string>4f244128ee8fa3fc07eedfee3d4ac634dcabd492</string>
 		<key>OpenSourceModifications</key>
-		<array/>
+		<array>
+		  <string>Porting fixes for Mac OS X</string>
+		</array>
 		<key>OpenSourceProject</key>
 		<string>zip</string>
 		<key>OpenSourceURL</key>
-		<string>http://ftp.info-zip.org/pub/infozip/src/zip232.tar.gz</string>
+		<string>http://superb-east.dl.sourceforge.net/sourceforge/infozip/zip30.zip</string>
 		<key>OpenSourceVersion</key>
-		<string>2.32</string>
+		<string>3.0</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.info-zip.org/pub/infozip/Zip.html</string>
 	</dict>
@@ -34,6 +36,8 @@
 		<key>OpenSourceModifications</key>
 		<array>
 		  <string>CVE-2005-2475, obtained from FreeBSD ports/85920</string>
+		  <string>Support for quarantine</string>
+		  <string>CVE-2008-8880, obtained from FedoraProject</string>
 		</array>
 		<key>OpenSourceProject</key>
 		<string>unzip</string>

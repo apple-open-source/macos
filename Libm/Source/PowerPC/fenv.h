@@ -67,34 +67,18 @@ typedef unsigned int			fenv_t;
 typedef unsigned int			fexcept_t;
 
 /*    Definitions of floating-point exception macros                          */
-enum {
-  _FE_INEXACT                    = 0x02000000,
-  _FE_DIVBYZERO                  = 0x04000000,
-  _FE_UNDERFLOW                  = 0x08000000,
-  _FE_OVERFLOW                   = 0x10000000,
-  _FE_INVALID                    = 0x20000000,
-  _FE_ALL_EXCEPT                 = 0x3E000000 /* FE_INEXACT | FE_DIVBYZERO | FE_UNDERFLOW | FE_OVERFLOW | FE_INVALID*/
-};
-
-#define FE_INEXACT      _FE_INEXACT
-#define FE_DIVBYZERO    _FE_DIVBYZERO
-#define FE_UNDERFLOW    _FE_UNDERFLOW
-#define FE_OVERFLOW     _FE_OVERFLOW
-#define FE_INVALID      _FE_INVALID
-#define FE_ALL_EXCEPT   _FE_ALL_EXCEPT
+#define FE_INEXACT      0x02000000
+#define FE_DIVBYZERO    0x04000000
+#define FE_UNDERFLOW    0x08000000
+#define FE_OVERFLOW     0x10000000
+#define FE_INVALID      0x20000000
+#define FE_ALL_EXCEPT   0x3E000000
 
 /*    Definitions of rounding direction macros                                */
-enum {
-  _FE_TONEAREST                  = 0x00000000,
-  _FE_TOWARDZERO                 = 0x00000001,
-  _FE_UPWARD                     = 0x00000002,
-  _FE_DOWNWARD                   = 0x00000003
-};
-
-#define FE_TONEAREST    _FE_TONEAREST
-#define FE_TOWARDZERO   _FE_TOWARDZERO
-#define FE_UPWARD       _FE_UPWARD
-#define FE_DOWNWARD     _FE_DOWNWARD
+#define FE_TONEAREST    0x00000000
+#define FE_TOWARDZERO   0x00000001
+#define FE_UPWARD       0x00000002
+#define FE_DOWNWARD     0x00000003
 
 /* default environment object        */
 extern const fenv_t _FE_DFL_ENV;

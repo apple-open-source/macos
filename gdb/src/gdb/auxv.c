@@ -150,7 +150,6 @@ target_auxv_search (struct target_ops *ops, CORE_ADDR match, CORE_ADDR *valp)
   gdb_byte *data;
   int n = target_auxv_read (ops, &data);
   gdb_byte *ptr = data;
-  int ents = 0;
 
   if (n <= 0)
     return n;

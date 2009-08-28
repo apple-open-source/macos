@@ -22,30 +22,15 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <fcntl.h>
+#include <sys/errno.h>
 
-#include <netat/appletalk.h>
-#include <netat/ddp.h>
-#include <netat/pap.h>
 
-extern struct pap_state *paps[];
-extern int papm[];
+#define	SET_ERRNO(e) errno = e
 
 int	pap_read_ignore(fd)
 int fd;
 {
-	register struct pap_state *papp;
-
-				/* check for invalid paramaters! */
-	if (fd < 0)
-	    return -1;
-
-	papp = paps[papm[fd]];
-	if (papp == 0)
-	    return -1;
-	if ((papp->pap_ignore_id = 
-	     pap_send_request(fd, papp, AT_PAP_TYPE_SEND_DATA, 1, 1)) < 0)
-	    return -1;
-	papp->pap_read_ignore = 1;
-	return(0);
+	SET_ERRNO(ENXIO);
+	return (-1);
 }
 

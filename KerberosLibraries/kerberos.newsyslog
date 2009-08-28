@@ -1,0 +1,3 @@
+# logfilename          [owner:group]    mode count size when  flags [/pid_file] [sig_num]
+/var/log/krb5kdc/kdc.log		640  5     1000	*     J /var/run/krb5kdc.pid
+/var/log/krb5kdc/kadmin.log		640  5     1000	*     J /var/run/kadmind.pid

@@ -35,7 +35,7 @@ my (@patchesToApply) = (
     ## SOAP::Lite applied a patch for version .65 that
     ## does not work as advertised. The previous 
     ## code worked as expected. 
-    './PatchFiles/Lite.pm.diff', 
+    #'./PatchFiles/Lite.pm.diff', 
     
     # <rdar://problem/5460193> SOAP::Lite isn't compressing
     './PatchFiles/SOAP-Transport-HTTP.pm.diff',
@@ -61,6 +61,18 @@ my (@patchesToApply) = (
     # Fix an error attempting to locate the default .inflectrc
     # file in Lingua-EN-Inflect
     './PatchFiles/Inflect.pm.diff',
+
+	# Added krb5_set_default_realm function to Authen::Krb5.xs
+	'./PatchFiles/Authen-Krb5.diff',
+
+    # DBIx-Class-Storage-DBI doesn't like to txn_commit when AutoCommit
+    # is NOT on ... odd really. Simple patch to workaround this
+    './PatchFiles/DBIx-Class-Storage-DBI.pm.diff',
+
+
+    # Net-IP installs a couple of executable perl scripts into
+    # /usr/bin which we don't need or want to ship...
+    './PatchFiles/Net-IP-Makefile.PL.diff',
 );
 
 

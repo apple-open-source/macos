@@ -176,6 +176,16 @@ XSLTPUBFUN xmlNodePtr XSLTCALL
 					 xmlNodePtr target,
 					 const xmlChar *string,
 					 int noescape);
+
+/* Following 2 functions needed for libexslt/functions.c */
+XSLTPUBFUN void XSLTCALL
+		xsltLocalVariablePop	(xsltTransformContextPtr ctxt,
+					 int limitNr,
+					 int level);
+XSLTPUBFUN int XSLTCALL
+		xsltLocalVariablePush	(xsltTransformContextPtr ctxt,
+					 xsltStackElemPtr variable,
+					 int level);
 /*
  * Hook for the debugger if activated.
  */

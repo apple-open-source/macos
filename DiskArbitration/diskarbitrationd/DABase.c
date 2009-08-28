@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,11 +30,15 @@
 #include <pwd.h>
 #include <sysexits.h>
 #include <unistd.h>
+#include <vproc.h>
 #include <sys/attr.h>
 #include <sys/stat.h>
 #include <CommonCrypto/CommonDigest.h>
 #include <CoreFoundation/CFBundlePriv.h>
 #include <IOKit/hidsystem/IOHIDLib.h>
+
+static vproc_transaction_t __vproc_transaction       = NULL;
+static size_t              __vproc_transaction_count = 0;
 
 __private_extern__ int ___chattr( const char * path, ___attr_t attr, ___attr_t noattr )
 {
@@ -157,6 +161,28 @@ __private_extern__ int ___mkdir( const char * path, mode_t mode )
     return status;
 }
 
+__private_extern__ void ___vproc_transaction_begin( void )
+{
+    if ( __vproc_transaction_count == 0 )
+    {
+        __vproc_transaction = vproc_transaction_begin( NULL );
+    }
+
+    __vproc_transaction_count++;
+}
+
+__private_extern__ void ___vproc_transaction_end( void )
+{
+    __vproc_transaction_count--;
+
+    if ( __vproc_transaction_count == 0 )
+    {
+        vproc_transaction_end( NULL, __vproc_transaction );
+
+        __vproc_transaction = NULL;
+    }
+}
+
 __private_extern__ void ___CFArrayIntersect( CFMutableArrayRef array1, CFArrayRef array2 )
 {
     /*
@@ -274,7 +300,7 @@ __private_extern__ CFDataRef ___CFDataCreateFromString( CFAllocatorRef allocator
 
         length = CFStringGetLength( string );
 
-        for ( index = 0; index + 1 < length ; index += 2 )
+        for ( index = 0; index + 1 < length; index += 2 )
         {
             UInt8   byte;
             UniChar character1;
@@ -519,7 +545,7 @@ __private_extern__ CFUUIDRef ___CFUUIDCreateFromString( CFAllocatorRef allocator
 
     length = CFStringGetLength( string );
 
-    for ( index = 0; index < length ; index++ )
+    for ( index = 0; index < length; index++ )
     {
         UniChar character;
 

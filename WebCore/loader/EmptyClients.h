@@ -137,7 +137,19 @@ public:
 
     virtual void formStateDidChange(const Node*) { }
 
-    virtual HTMLParserQuirks* createHTMLParserQuirks() { return 0; }
+    virtual PassOwnPtr<HTMLParserQuirks> createHTMLParserQuirks() { return 0; }
+
+    virtual bool setCursor(PlatformCursorHandle) { return false; }
+
+    virtual void scrollRectIntoView(const IntRect&, const ScrollView*) const {}
+
+    virtual void requestGeolocationPermissionForFrame(Frame*, Geolocation*) {}
+
+#if USE(ACCELERATED_COMPOSITING)
+    virtual void attachRootGraphicsLayer(Frame*, GraphicsLayer*) {};
+    virtual void setNeedsOneShotDrawingSynchronization() {};
+    virtual void scheduleViewUpdate() {};
+#endif
 };
 
 class EmptyFrameLoaderClient : public FrameLoaderClient {
@@ -258,8 +270,8 @@ public:
     virtual bool canCachePage() const { return false; }
 
     virtual PassRefPtr<Frame> createFrame(const KURL&, const String&, HTMLFrameOwnerElement*, const String&, bool, int, int) { return 0; }
-    virtual Widget* createPlugin(const IntSize&, HTMLPlugInElement*, const KURL&, const Vector<String>&, const Vector<String>&, const String&, bool) { return 0; }
-    virtual Widget* createJavaAppletWidget(const IntSize&, HTMLAppletElement*, const KURL&, const Vector<String>&, const Vector<String>&) { return 0; }
+    virtual PassRefPtr<Widget> createPlugin(const IntSize&, HTMLPlugInElement*, const KURL&, const Vector<String>&, const Vector<String>&, const String&, bool) { return 0; }
+    virtual PassRefPtr<Widget> createJavaAppletWidget(const IntSize&, HTMLAppletElement*, const KURL&, const Vector<String>&, const Vector<String>&) { return 0; }
 
     virtual ObjectContentType objectContentType(const KURL&, const String&) { return ObjectContentType(); }
     virtual String overrideMediaType() const { return String(); }
@@ -270,6 +282,11 @@ public:
     virtual void didPerformFirstNavigation() const { }
 
     virtual void registerForIconNotification(bool) { }
+
+#if USE(V8)
+    virtual void didCreateScriptContext() { }
+    virtual void didDestroyScriptContext() { }
+#endif
 
 #if PLATFORM(MAC)
     virtual NSCachedURLResponse* willCacheResponse(DocumentLoader*, unsigned long, NSCachedURLResponse* response) const { return response; }
@@ -369,6 +386,7 @@ public:
     virtual void ignoreWordInSpellDocument(const String&) { }
     virtual void learnWord(const String&) { }
     virtual void checkSpellingOfString(const UChar*, int, int*, int*) { }
+    virtual String getAutoCorrectSuggestionForMisspelledWord(const String&) { return String(); }
     virtual void checkGrammarOfString(const UChar*, int, Vector<GrammarDetail>&, int*, int*) { }
 #if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
     virtual void checkTextOfParagraph(const UChar*, int, uint64_t, Vector<TextCheckingResult>&) { };
@@ -395,6 +413,7 @@ public:
     virtual void copyImageToClipboard(const HitTestResult&) { }
     virtual void searchWithGoogle(const Frame*) { }
     virtual void lookUpInDictionary(Frame*) { }
+    virtual bool isSpeaking() { return false; }
     virtual void speak(const String&) { }
     virtual void stopSpeaking() { }
 
@@ -447,3 +466,4 @@ public:
 }
 
 #endif // EmptyClients_h
+

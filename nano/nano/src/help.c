@@ -1,9 +1,9 @@
-/* $Id: help.c,v 1.54 2006/11/10 02:47:11 dolorous Exp $ */
+/* $Id: help.c,v 1.58.2.1 2007/04/19 03:15:04 dolorous Exp $ */
 /**************************************************************************
  *   help.c                                                               *
  *                                                                        *
  *   Copyright (C) 2000, 2001, 2002, 2003, 2004 Chris Allegretta          *
- *   Copyright (C) 2005, 2006 David Lawrence Ramsey                       *
+ *   Copyright (C) 2005, 2006, 2007 David Lawrence Ramsey                 *
  *   This program is free software; you can redistribute it and/or modify *
  *   it under the terms of the GNU General Public License as published by *
  *   the Free Software Foundation; either version 2, or (at your option)  *
@@ -51,7 +51,7 @@ void do_help(void (*refresh_func)(void))
 	/* The current shortcut list. */
 #endif
     const char *ptr;
-	/* The current line of help text. */
+	/* The current line of the help text. */
     size_t old_line = (size_t)-1;
 	/* The line we were on before the current line. */
 
@@ -159,11 +159,11 @@ void do_help(void (*refresh_func)(void))
 		if (line + (editwinrows - 1) < last_line)
 		    line++;
 		break;
-	    case NANO_FIRSTLINE_ALTKEY:
+	    case NANO_FIRSTLINE_METAKEY:
 		if (meta_key)
 		    line = 0;
 		break;
-	    case NANO_LASTLINE_ALTKEY:
+	    case NANO_LASTLINE_METAKEY:
 		if (meta_key) {
 		    if (line + (editwinrows - 1) < last_line)
 			line = last_line - (editwinrows - 1);
@@ -191,7 +191,7 @@ void do_help(void (*refresh_func)(void))
     curs_set(1);
     refresh_func();
 
-    /* The help_init() at the beginning allocated help_text.  Since 
+    /* The help_init() at the beginning allocated help_text.  Since
      * help_text has now been written to the screen, we don't need it
      * anymore. */
     free(help_text);
@@ -212,7 +212,7 @@ void do_browser_help(void)
 }
 #endif
 
-/* This function allocates help_text, and stores the help string in it. 
+/* This function allocates help_text, and stores the help string in it.
  * help_text should be NULL initially. */
 void help_init(void)
 {
@@ -493,7 +493,7 @@ void help_init(void)
 	    }
 	    /* Yucky sentinel values that we can't handle a better
 	     * way. */
-	    if (s->metaval == NANO_ALT_SPACE && entries == 1) {
+	    if (s->metaval == NANO_META_SPACE && entries == 1) {
 		char *space_ptr = display_string(_("Space"), 0, 13,
 			FALSE);
 
@@ -609,8 +609,8 @@ size_t help_line_len(const char *ptr)
     while (*(ptr + retval) != '\0' && *(ptr + retval) != '\n')
 	retval += move_mbright(ptr + retval, 0);
 
-    /* If the entire line doesn't go more than 1 column beyond where we
-     * tried to break it, we should display it as-is.  Otherwise, we
+    /* If the entire line doesn't go more than one column beyond where
+     * we tried to break it, we should display it as-is.  Otherwise, we
      * should display it only up to the break. */
     if (strnlenpt(ptr, retval) > help_cols + 1)
 	retval = retval_save;

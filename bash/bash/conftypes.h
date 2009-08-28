@@ -29,8 +29,12 @@
 #  define OSTYPE	CONF_OSTYPE
 #  define MACHTYPE	CONF_MACHTYPE
 #else /* RHAPSODY */
-#  if   defined(__powerpc__) || defined(__ppc__)
+#  if __ppc64__
+#    define HOSTTYPE "ppc64"
+#  elif __ppc__
 #    define HOSTTYPE "powerpc"
+#  elif __x86_64__
+#    define HOSTTYPE "x86_64"
 #  elif defined(__i386__)
 #    define HOSTTYPE "i386"
 #  else

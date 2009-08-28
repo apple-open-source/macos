@@ -1,6 +1,6 @@
 Please read the README file in this directory first.
 .ex
-.Id $Id: procmailex.man,v 1.1.1.3 2003/10/14 23:13:23 rbraun Exp $
+.Id $Id: procmailex.man,v 1.54 2001/08/04 06:08:20 guenther Exp $
 .TH PROCMAILEX 5 \*(Dt BuGless
 .na
 .SH NAME

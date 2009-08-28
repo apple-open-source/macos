@@ -1,7 +1,7 @@
 #
 # Makefile
 #
-# Version:	$Id: Makefile,v 1.4.4.2.2.4 2007/04/04 09:23:57 nbk Exp $
+# Version:	$Id$
 #
 
 include ../Make.inc

@@ -1,7 +1,7 @@
 /* argmatch.c -- find a match for a string in an array
 
-   Copyright (C) 1990, 1998, 1999, 2001, 2002, 2003, 2004 Free
-   Software Foundation, Inc.
+   Copyright (C) 1990, 1998, 1999, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -15,14 +15,12 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software Foundation,
-   Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 /* Written by David MacKenzie <djm@ai.mit.edu>
    Modified by Akim Demaille <demaille@inf.enst.fr> */
 
-#if HAVE_CONFIG_H
-# include <config.h>
-#endif
+#include <config.h>
 
 /* Specification.  */
 #include "argmatch.h"
@@ -36,7 +34,6 @@
 #define _(msgid) gettext (msgid)
 
 #include "error.h"
-#include "exit.h"
 #include "quotearg.h"
 #include "quote.h"
 
@@ -73,7 +70,7 @@ argmatch_exit_fn argmatch_die = __argmatch_die;
 
 
 /* If ARG is an unambiguous match for an element of the
-   null-terminated array ARGLIST, return the index in ARGLIST
+   NULL-terminated array ARGLIST, return the index in ARGLIST
    of the matched element, else -1 if it does not match any element
    or -2 if it is ambiguous (is a prefix of more than one element).
 

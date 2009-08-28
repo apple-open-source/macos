@@ -1,8 +1,8 @@
 /* unbind.c - decode an ldap unbind operation and pass it to a backend db */
-/* $OpenLDAP: pkg/ldap/servers/slapd/unbind.c,v 1.23.2.3 2006/01/03 22:16:16 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/unbind.c,v 1.26.2.3 2008/02/11 23:26:45 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,7 +36,8 @@
 int
 do_unbind( Operation *op, SlapReply *rs )
 {
-	Debug( LDAP_DEBUG_TRACE, "do_unbind\n", 0, 0, 0 );
+	Debug( LDAP_DEBUG_TRACE, "%s do_unbind\n",
+		op->o_log_prefix, 0, 0 );
 
 	/*
 	 * Parse the unbind request.  It looks like this:

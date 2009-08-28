@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
  *  Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
- *  Copyright (c) 2009, Google Inc. All rights reserved.
+ *  Copyright (C) 2009 Google Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -27,6 +27,8 @@
 #include <stdint.h>
 #include <string.h>
 #include <wtf/Assertions.h>
+#include <wtf/CrossThreadRefCounted.h>
+#include <wtf/OwnFastMallocPtr.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/PtrAndFlags.h>
 #include <wtf/RefPtr.h>
@@ -75,6 +77,7 @@ namespace JSC {
         friend class JIT;
 
     public:
+        typedef CrossThreadRefCounted<OwnFastMallocPtr<UChar> > SharedUChar;
         struct BaseString;
         struct Rep : Noncopyable {
             friend class JIT;
@@ -101,6 +104,10 @@ namespace JSC {
             // Returns UString::Rep::null for null input or conversion failure.
             static PassRefPtr<Rep> createFromUTF8(const char*);
 
+            // Uses SharedUChar to have joint ownership over the UChar*.
+            static PassRefPtr<Rep> create(UChar*, int, PassRefPtr<SharedUChar>);
+
+            SharedUChar* sharedBuffer();
             void destroy();
 
             bool baseIsSelf() const { return m_identifierTableAndFlags.isFlagSet(BaseStringFlag); }
@@ -145,13 +152,13 @@ namespace JSC {
             bool reserveCapacity(int capacity);
 
         protected:
-            // constructor for use by BaseString subclass; they are their own bases
+            // Constructor for use by BaseString subclass; they use the union with m_baseString for another purpose.
             Rep(int length)
                 : offset(0)
                 , len(length)
                 , rc(1)
                 , _hash(0)
-                , m_baseString(static_cast<BaseString*>(this))
+                , m_baseString(0)
             {
             }
 
@@ -165,8 +172,12 @@ namespace JSC {
                 checkConsistency();
             }
 
-
-            BaseString* m_baseString;
+            union {
+                // If !baseIsSelf()
+                BaseString* m_baseString;
+                // If baseIsSelf()
+                SharedUChar* m_sharedBuffer;
+            };
 
         private:
             // For SmallStringStorage which allocates an array and does initialization manually.
@@ -180,7 +191,15 @@ namespace JSC {
 
 
         struct BaseString : public Rep {
-            bool isShared() { return rc != 1; }
+            bool isShared() { return rc != 1 || isBufferReadOnly(); }
+            void setSharedBuffer(PassRefPtr<SharedUChar>);
+
+            bool isBufferReadOnly()
+            {
+                if (!m_sharedBuffer)
+                    return false;
+                return slowIsBufferReadOnly();
+            }
 
             // potentially shared data.
             UChar* buf;
@@ -204,6 +223,9 @@ namespace JSC {
                 m_identifierTableAndFlags.setFlag(BaseStringFlag);
                 checkConsistency();
             }
+
+            SharedUChar* sharedBuffer();
+            bool slowIsBufferReadOnly();
 
             friend struct Rep;
             friend class SmallStringsStorage;
@@ -355,7 +377,26 @@ namespace JSC {
     PassRefPtr<UString::Rep> concatenate(UString::Rep*, int);
     PassRefPtr<UString::Rep> concatenate(UString::Rep*, double);
 
-    bool operator==(const UString&, const UString&);
+    inline bool operator==(const UString& s1, const UString& s2)
+    {
+        int size = s1.size();
+        switch (size) {
+        case 0:
+            return !s2.size();
+        case 1:
+            return s2.size() == 1 && s1.data()[0] == s2.data()[0];
+        case 2: {
+            if (s2.size() != 2)
+                return false;
+            const UChar* d1 = s1.data();
+            const UChar* d2 = s2.data();
+            return (d1[0] == d2[0]) & (d1[1] == d2[1]);
+        }
+        default:
+            return s2.size() == size && memcmp(s1.data(), s2.data(), size * sizeof(UChar)) == 0;
+        }
+    }
+
 
     inline bool operator!=(const UString& s1, const UString& s2)
     {
@@ -434,12 +475,12 @@ namespace JSC {
 
     inline UString::BaseString* UString::Rep::baseString()
     {
-        return m_baseString;
+        return !baseIsSelf() ? m_baseString : reinterpret_cast<BaseString*>(this) ;
     }
 
     inline const UString::BaseString* UString::Rep::baseString() const
     {
-        return m_baseString;
+        return const_cast<Rep*>(this)->baseString();
     }
 
 #ifdef NDEBUG

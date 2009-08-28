@@ -35,27 +35,8 @@
 #include <security_utilities/unix++.h>
 #include <security_utilities/unixchild.h>
 
-extern "C" {
-#include <copyfile.h>
-}
-
 namespace Security {
 namespace CodeSigning {
-
-
-//
-// A helper to deal with the magic merger logic of internal requirements
-//
-class InternalRequirements : public Requirements::Maker {
-public:
-	InternalRequirements() : mReqs(NULL) { }
-	~InternalRequirements() { ::free((void *)mReqs); }
-	void operator () (const Requirements *given, const Requirements *defaulted);
-	operator const Requirements * () const { return mReqs; }
-
-private:
-	const Requirements *mReqs;
-};
 
 
 //
@@ -132,7 +113,6 @@ protected:
 class BlobEditor : public ArchEditor {
 public:
 	BlobEditor(Universal &fat, SecCodeSigner::Signer &s) : ArchEditor(fat), signer(s) { }
-	~BlobEditor() { }
 	
 	SecCodeSigner::Signer &signer;
 	
@@ -176,61 +156,6 @@ private:
 	
 	const char *mHelperPath;
 	bool mHelperOverridden;
-};
-
-
-//
-// Encapsulation of the copyfile(3) API.
-// This is slated to go into utilities once stable.
-//
-class Copyfile {
-public:
-	Copyfile();
-	~Copyfile()	{ copyfile_state_free(mState); }
-	
-	operator copyfile_state_t () const { return mState; }
-	
-	void set(uint32_t flag, const void *value);
-	void get(uint32_t flag, void *value);
-	
-	void operator () (const char *src, const char *dst, copyfile_flags_t flags);
-
-private:
-	void check(int rc);
-	
-private:
-	copyfile_state_t mState;
-};
-
-
-//
-// A reliable uid set/reset bracket
-//
-class UidGuard {
-public:
-	UidGuard() : mPrevious(-1) { }
-	UidGuard(uid_t uid) : mPrevious(-1) { seteuid(uid); }
-	~UidGuard()
-	{
-		if (active())
-			UnixError::check(::seteuid(mPrevious));
-	}
-	
-	bool seteuid(uid_t uid)
-	{
-		if (uid == geteuid())
-			return true;	// no change, don't bother the kernel
-		if (!active())
-			mPrevious = ::geteuid();
-		return ::seteuid(uid) == 0;
-	}
-	
-	bool active() const { return mPrevious != uid_t(-1); }
-	operator bool () const { return active(); }
-	uid_t saved() const { assert(active()); return mPrevious; }
-
-private:
-	uid_t mPrevious;
 };
 
 

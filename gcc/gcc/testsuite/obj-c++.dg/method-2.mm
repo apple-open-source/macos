@@ -1,7 +1,7 @@
-/* APPLE LOCAL file mainline */
 /* Test if prior method lookup at method @implementation time is not
    overly aggressive, leading to methods being found in other classes.  */
 /* Author: Ziemowit Laski <zlaski@apple.com>.  */
+
 /* { dg-do compile } */
 
 /* APPLE LOCAL radar 4894756 */
@@ -15,14 +15,14 @@
 @end
 
 @interface NSMenuItem : Object <NSMenuItem> {
-    @private
-    id _menu;
+  @private
+  id _menu;
 }
 @end
 
 @interface NSResponder : Object <NSMenuItem>
 {
-    id _nextResponder;
+  id _nextResponder;
 }
 @end
 
@@ -37,14 +37,14 @@
 
 @interface NSView : NSResponder
 {
-    id _superview;
-    id _subviews;
+  id _superview;
+  id _subviews;
 }
 @end
 
 @interface SKTGraphicView : NSView {
-    @private
-    float _gridSpacing;
+  @private
+  float _gridSpacing;
 }
 @end
 

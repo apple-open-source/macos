@@ -50,7 +50,7 @@
  * @param inParent The node in which to create this record.
  * @param inName The name of the user record.
  */
-- (id)initInNode:(DSoNode*)inParent name:(NSString*)inName;
+- (id)initInNode:(DSoNode*)inParent name:(NSString*)inName DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method getUid
@@ -58,7 +58,7 @@
  * @discussion This retrieves the UniqueID, or uid number
  *		of a user.
  */
-- (uid_t) getUid;
+- (uid_t) getUid DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method getGid
@@ -66,7 +66,7 @@
  * @discussion This retrieves the GroupID, or gid number
  *		of the primary group of this user user.
  */
-- (gid_t) getGid;
+- (gid_t) getGid DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method authenticate:
@@ -78,7 +78,7 @@
  * @result Returns eDSNoErr if the password is correct,
  *		else the status of the authentication attempt.
  */
-- (tDirStatus) authenticate:(NSString*)inPassword;
+- (tDirStatus) authenticate:(NSString*)inPassword DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method setPassword:
@@ -87,7 +87,7 @@
  *		doDirNodeAuth() with the setpassword Auth Method.
  * @result Will raise an exception if it fails.
  */
-- (void) setPassword:(NSString*)inNewPassword;
+- (void) setPassword:(NSString*)inNewPassword DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
 * @method changePassword:toNewPassword:
@@ -96,7 +96,7 @@
  *		doDirNodeAuth() with the changepassword Auth Method.
  * @result Will raise an exception if it fails.
  */
-- (void)changePassword:(NSString*)inOldPassword toNewPassword:(NSString*)inNewPassword;
+- (void)changePassword:(NSString*)inOldPassword toNewPassword:(NSString*)inNewPassword DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method isAdmin
@@ -104,6 +104,6 @@
  * @discussion This method determines if the user is
  *		in the member list of the admin group for the user's node.
  */
-- (BOOL) isAdmin;
+- (BOOL) isAdmin DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 @end

@@ -10,6 +10,10 @@
 	<array>
 		<string>9</string>
 	</array>
+	<key>groupmembers</key>
+	<array>
+		<string>FFFFEEEE-DDDD-CCCC-BBBB-AAAA00000000</string>
+	</array>
 	<key>name</key>
 	<array>
 		<string>procmod</string>
@@ -17,6 +21,10 @@
 	<key>passwd</key>
 	<array>
 		<string>*</string>
+	</array>
+	<key>realname</key>
+	<array>
+		<string>procmod</string>
 	</array>
 	<key>users</key>
 	<array>

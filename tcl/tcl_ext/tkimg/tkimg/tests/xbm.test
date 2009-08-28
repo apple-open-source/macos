@@ -1,0 +1,29 @@
+# This file is a Tcl script to test out XBM reading and writing.
+# It is organized in the standard fashion for Tcl tests.
+#
+
+if {[string compare test [info procs test]] == 1} {
+    source defs
+}
+
+catch {image delete i}
+
+test xbm-1.1 {} {
+    image create photo i -file folder.xbm
+    i data -format xbm
+} {#define InlineData_width 16
+#define InlineData_height 12
+static char InlineData_bits[] = {
+  0x78, 0x00,
+  0x86, 0x55,
+  0x02, 0x01,
+  0xff, 0x5f,
+  0x01, 0x30,
+  0x01, 0x50,
+  0x01, 0x10,
+  0x01, 0x50,
+  0x01, 0x10,
+  0x01, 0x50,
+  0x01, 0x30,
+  0xff, 0x1f};
+}

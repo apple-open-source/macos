@@ -180,39 +180,49 @@ xsltEvalXPathString(xsltTransformContextPtr ctxt, xmlXPathCompExprPtr comp) {
 /**
  * xsltEvalTemplateString:
  * @ctxt:  the XSLT transformation context
- * @node:  the stylesheet node
- * @parent:  the content parent
+ * @contextNode:  the current node in the source tree
+ * @inst:  the XSLT instruction (xsl:comment, xsl:processing-instruction)
  *
- * Evaluate a template string value, i.e. the parent list is interpreter
- * as template content and the resulting tree string value is returned
- * This is needed for example by xsl:comment and xsl:processing-instruction
+ * Processes the sequence constructor of the given instruction on
+ * @contextNode and converts the resulting tree to a string.
+ * This is needed by e.g. xsl:comment and xsl:processing-instruction.
  *
- * Returns the computed string value or NULL, must be deallocated by the
- *    caller.
+ * Returns the computed string value or NULL; it's up to the caller to
+ *         free the result.
  */
 xmlChar *
-xsltEvalTemplateString(xsltTransformContextPtr ctxt, xmlNodePtr node,
-	               xmlNodePtr parent) {
+xsltEvalTemplateString(xsltTransformContextPtr ctxt,
+		       xmlNodePtr contextNode,
+	               xmlNodePtr inst)
+{
     xmlNodePtr oldInsert, insert = NULL;
     xmlChar *ret;
 
-    if ((ctxt == NULL) || (node == NULL) || (parent == NULL))
+    if ((ctxt == NULL) || (contextNode == NULL) || (inst == NULL))
 	return(NULL);
 
-    if (parent->children == NULL)
+    if (inst->children == NULL)
 	return(NULL);
 
+    /*
+    * This creates a temporary element-node to add the resulting
+    * text content to.
+    * OPTIMIZE TODO: Keep such an element-node in the transformation
+    *  context to avoid creating it every time.
+    */
     insert = xmlNewDocNode(ctxt->output, NULL,
 	                   (const xmlChar *)"fake", NULL);
     if (insert == NULL) {
-	xsltTransformError(ctxt, NULL, node,
+	xsltTransformError(ctxt, NULL, contextNode,
 		"Failed to create temporary node\n");
 	return(NULL);
     }
     oldInsert = ctxt->insert;
     ctxt->insert = insert;
-
-    xsltApplyOneTemplate(ctxt, node, parent->children, NULL, NULL);
+    /*
+    * OPTIMIZE TODO: if inst->children consists only of text-nodes.
+    */
+    xsltApplyOneTemplate(ctxt, contextNode, inst->children, NULL, NULL);
 
     ctxt->insert = oldInsert;
 
@@ -226,17 +236,26 @@ xsltEvalTemplateString(xsltTransformContextPtr ctxt, xmlNodePtr node,
  * xsltAttrTemplateValueProcessNode:
  * @ctxt:  the XSLT transformation context
  * @str:  the attribute template node value
- * @node:  the node hosting the attribute
+ * @inst:  the instruction (or LRE) in the stylesheet holding the
+ *         attribute with an AVT
  *
  * Process the given string, allowing to pass a namespace mapping
  * context and return the new string value.
+ *
+ * Called by:
+ *  - xsltAttrTemplateValueProcess() (templates.c)
+ *  - xsltEvalAttrValueTemplate() (templates.c)
+ *
+ * QUESTION: Why is this function public? It is not used outside
+ *  of templates.c.
  *
  * Returns the computed string value or NULL, must be deallocated by the
  *    caller.
  */
 xmlChar *
 xsltAttrTemplateValueProcessNode(xsltTransformContextPtr ctxt,
-	  const xmlChar *str, xmlNodePtr node) {
+	  const xmlChar *str, xmlNodePtr inst)
+{
     xmlChar *ret = NULL;
     const xmlChar *cur;
     xmlChar *expr, *val;
@@ -262,7 +281,7 @@ xsltAttrTemplateValueProcessNode(xsltTransformContextPtr ctxt,
 	    cur++;
 	    while ((*cur != 0) && (*cur != '}')) cur++;
 	    if (*cur == 0) {
-	        xsltTransformError(ctxt, NULL, NULL,
+	        xsltTransformError(ctxt, NULL, inst,
 			"xsltAttrTemplateValueProcessNode: unmatched '{'\n");
 		ret = xmlStrncat(ret, str, cur - str);
 		return(ret);
@@ -279,10 +298,10 @@ xsltAttrTemplateValueProcessNode(xsltTransformContextPtr ctxt,
 		/*
 		 * TODO: keep precompiled form around
 		 */
-		if ((nsList == NULL) && (node != NULL)) {
+		if ((nsList == NULL) && (inst != NULL)) {
 		    int i = 0;
 
-		    nsList = xmlGetNsList(node->doc, node);
+		    nsList = xmlGetNsList(inst->doc, inst);
 		    if (nsList != NULL) {
 			while (nsList[i] != NULL)
 			    i++;
@@ -308,7 +327,7 @@ xsltAttrTemplateValueProcessNode(xsltTransformContextPtr ctxt,
 		str = cur;
 		continue;
 	    } else {
-	        xsltTransformError(ctxt, NULL, NULL,
+	        xsltTransformError(ctxt, NULL, inst,
 		     "xsltAttrTemplateValueProcessNode: unmatched '}'\n");
 	    }
 	} else
@@ -342,7 +361,8 @@ xsltAttrTemplateValueProcess(xsltTransformContextPtr ctxt, const xmlChar *str) {
 /**
  * xsltEvalAttrValueTemplate:
  * @ctxt:  the XSLT transformation context
- * @node:  the stylesheet node
+ * @inst:  the instruction (or LRE) in the stylesheet holding the
+ *         attribute with an AVT
  * @name:  the attribute QName
  * @ns:  the attribute namespace URI
  *
@@ -354,15 +374,16 @@ xsltAttrTemplateValueProcess(xsltTransformContextPtr ctxt, const xmlChar *str) {
  *    caller.
  */
 xmlChar *
-xsltEvalAttrValueTemplate(xsltTransformContextPtr ctxt, xmlNodePtr node,
-	                  const xmlChar *name, const xmlChar *ns) {
+xsltEvalAttrValueTemplate(xsltTransformContextPtr ctxt, xmlNodePtr inst,
+	                  const xmlChar *name, const xmlChar *ns)
+{
     xmlChar *ret;
     xmlChar *expr;
 
-    if ((ctxt == NULL) || (node == NULL) || (name == NULL))
+    if ((ctxt == NULL) || (inst == NULL) || (name == NULL))
 	return(NULL);
 
-    expr = xsltGetNsProp(node, name, ns);
+    expr = xsltGetNsProp(inst, name, ns);
     if (expr == NULL)
 	return(NULL);
 
@@ -372,7 +393,7 @@ xsltEvalAttrValueTemplate(xsltTransformContextPtr ctxt, xmlNodePtr node,
      *       attribute content and the XPath precompiled expressions around
      */
 
-    ret = xsltAttrTemplateValueProcessNode(ctxt, expr, node);
+    ret = xsltAttrTemplateValueProcessNode(ctxt, expr, inst);
 #ifdef WITH_XSLT_DEBUG_TEMPLATES
     XSLT_TRACE(ctxt,XSLT_TRACE_TEMPLATES,xsltGenericDebug(xsltGenericDebugContext,
 	 "xsltEvalAttrValueTemplate: %s returns %s\n", expr, ret));
@@ -385,7 +406,8 @@ xsltEvalAttrValueTemplate(xsltTransformContextPtr ctxt, xmlNodePtr node,
 /**
  * xsltEvalStaticAttrValueTemplate:
  * @style:  the XSLT stylesheet
- * @node:  the stylesheet node
+ * @inst:  the instruction (or LRE) in the stylesheet holding the
+ *         attribute with an AVT
  * @name:  the attribute Name
  * @ns:  the attribute namespace URI
  * @found:  indicator whether the attribute is present
@@ -397,15 +419,15 @@ xsltEvalAttrValueTemplate(xsltTransformContextPtr ctxt, xmlNodePtr node,
  *    caller.
  */
 const xmlChar *
-xsltEvalStaticAttrValueTemplate(xsltStylesheetPtr style, xmlNodePtr node,
+xsltEvalStaticAttrValueTemplate(xsltStylesheetPtr style, xmlNodePtr inst,
 			const xmlChar *name, const xmlChar *ns, int *found) {
     const xmlChar *ret;
     xmlChar *expr;
 
-    if ((style == NULL) || (node == NULL) || (name == NULL))
+    if ((style == NULL) || (inst == NULL) || (name == NULL))
 	return(NULL);
 
-    expr = xsltGetNsProp(node, name, ns);
+    expr = xsltGetNsProp(inst, name, ns);
     if (expr == NULL) {
 	*found = 0;
 	return(NULL);
@@ -425,67 +447,94 @@ xsltEvalStaticAttrValueTemplate(xsltStylesheetPtr style, xmlNodePtr node,
 /**
  * xsltAttrTemplateProcess:
  * @ctxt:  the XSLT transformation context
- * @target:  the result node
- * @cur:  the attribute template node
+ * @target:  the element where the attribute will be grafted
+ * @attr:  the attribute node of a literal result element
  *
- * Process the given attribute and return the new processed copy.
+ * Process one attribute of a Literal Result Element (in the stylesheet).
+ * Evaluates Attribute Value Templates and copies the attribute over to
+ * the result element.
+ * This does *not* process attribute sets (xsl:use-attribute-set).
+ * 
  *
- * Returns the attribute replacement.
+ * Returns the generated attribute node.
  */
 xmlAttrPtr
 xsltAttrTemplateProcess(xsltTransformContextPtr ctxt, xmlNodePtr target,
-	                xmlAttrPtr cur) {
+	                xmlAttrPtr attr)
+{
     const xmlChar *value;
-    xmlNsPtr ns;
     xmlAttrPtr ret;
-    if ((ctxt == NULL) || (cur == NULL))
+
+    if ((ctxt == NULL) || (attr == NULL) || (target == NULL))
 	return(NULL);
     
-    if (cur->type != XML_ATTRIBUTE_NODE)
+    if (attr->type != XML_ATTRIBUTE_NODE)
 	return(NULL);
 
-    if ((cur->children == NULL) || (cur->children->type != XML_TEXT_NODE) ||
-        (cur->children->next != NULL)) {
-	xsltTransformError(ctxt, NULL, cur->parent,
-		"attribute %s content problem\n", cur->name);
-        return(NULL);
-    }
-    value = cur->children->content;
-    if (value == NULL) value = BAD_CAST "";
-    if ((cur->ns != NULL) &&
-	(xmlStrEqual(cur->ns->href, XSLT_NAMESPACE))) {
-	if (xmlStrEqual(cur->name, (const xmlChar *)"use-attribute-sets")) {
-	    xsltApplyAttributeSet(ctxt, ctxt->node, NULL, value);
+    /*
+    * Skip all XSLT attributes.
+    */
+#ifdef XSLT_REFACTORED    
+    if (attr->psvi == xsltXSLTAttrMarker)
+	return(NULL);
+#else
+    if ((attr->ns != NULL) && xmlStrEqual(attr->ns->href, XSLT_NAMESPACE))
+	return(NULL);
+#endif
+    /*
+    * Get the value.
+    */
+    if (attr->children != NULL) {
+	if ((attr->children->type != XML_TEXT_NODE) ||
+	    (attr->children->next != NULL))
+	{
+	    xsltTransformError(ctxt, NULL, attr->parent,
+		"Internal error: The children of an attribute node of a "
+		"literal result element are not in the expected form.\n");
+	    return(NULL);
 	}
-	return(NULL);
-    }
-
+	value = attr->children->content;
+	if (value == NULL)
+	    value = xmlDictLookup(ctxt->dict, BAD_CAST "", 0);
+    } else
+	value = xmlDictLookup(ctxt->dict, BAD_CAST "", 0);
+    /*
+    * Overwrite duplicates.
+    */
     ret = target->properties;
     while (ret != NULL) {
-        if (xmlStrEqual(ret->name, cur->name)) {
-	    if (cur->ns == NULL) {
-	        if (ret->ns == NULL)
-		    break;
-	    } else {
-	        if ((ret->ns != NULL) &&
-		    (xmlStrEqual(ret->ns->href, cur->ns->href)))
-		    break;
-	    }
+        if (((attr->ns != NULL) == (ret->ns != NULL)) &&
+	    xmlStrEqual(ret->name, attr->name) &&
+	    ((attr->ns == NULL) || xmlStrEqual(ret->ns->href, attr->ns->href)))
+	{
+	    break;
 	}
         ret = ret->next;
     }
-    if (ret != NULL) {
+    if (ret != NULL) {	
         /* free the existing value */
 	xmlFreeNodeList(ret->children);
 	ret->children = ret->last = NULL;
+	/*
+	* Adjust ns-prefix if needed.
+	*/
+	if ((ret->ns != NULL) &&
+	    (! xmlStrEqual(ret->ns->prefix, attr->ns->prefix)))
+	{
+	    ret->ns = xsltGetNamespace(ctxt, attr->parent, attr->ns, target);
+	}
     } else {
         /* create a new attribute */
-	if (cur->ns != NULL)
-	    ns = xsltGetPlainNamespace(ctxt, cur->parent, cur->ns, target);
+	if (attr->ns != NULL)
+	    ret = xmlNewNsProp(target,
+		xsltGetNamespace(ctxt, attr->parent, attr->ns, target),
+		    attr->name, NULL);
 	else
-	    ns = NULL;
-	ret = xmlNewNsProp(target, ns, cur->name, NULL);
+	    ret = xmlNewNsProp(target, NULL, attr->name, NULL);	
     }
+    /*
+    * Set the value.
+    */
     if (ret != NULL) {
         xmlNodePtr text;
 
@@ -494,21 +543,51 @@ xsltAttrTemplateProcess(xsltTransformContextPtr ctxt, xmlNodePtr target,
 	    ret->last = ret->children = text;
 	    text->parent = (xmlNodePtr) ret;
 	    text->doc = ret->doc;
-	    if (cur->psvi != NULL) {
+
+	    if (attr->psvi != NULL) {
+		/*
+		* Evaluate the Attribute Value Template.
+		*/
 		xmlChar *val;
-		val = xsltEvalAVT(ctxt, cur->psvi, cur->parent);
+		val = xsltEvalAVT(ctxt, attr->psvi, attr->parent);
 		if (val == NULL) {
-		    text->content = xmlStrdup(BAD_CAST "runtime error");
+		    /*
+		    * TODO: Damn, we need an easy mechanism to report
+		    * qualified names!
+		    */
+		    if (attr->ns) {
+			xsltTransformError(ctxt, NULL, attr->parent,
+			    "Internal error: Failed to evaluate the AVT "
+			    "of attribute '{%s}%s'.\n",
+			    attr->ns->href, attr->name);
+		    } else {
+			xsltTransformError(ctxt, NULL, attr->parent,
+			    "Internal error: Failed to evaluate the AVT "
+			    "of attribute '%s'.\n",
+			    attr->name);
+		    }
+		    text->content = xmlStrdup(BAD_CAST "");
 		} else {
 		    text->content = val;
 		}
+	    } else if ((ctxt->internalized) && (target != NULL) &&
+	               (target->doc != NULL) &&
+		       (target->doc->dict == ctxt->dict)) {
+		text->content = (xmlChar *) value;
 	    } else {
 		text->content = xmlStrdup(value);
 	    }
 	}
     } else {
-	xsltTransformError(ctxt, NULL, cur->parent,
-		"Failed to create attribute %s\n", cur->name);
+	if (attr->ns) {
+	    xsltTransformError(ctxt, NULL, attr->parent,
+	    	"Internal error: Failed to create attribute '{%s}%s'.\n",
+		attr->ns->href, attr->name);
+	} else {
+	    xsltTransformError(ctxt, NULL, attr->parent,
+	    	"Internal error: Failed to create attribute '%s'.\n",
+		attr->name);
+	}
     }
     return(ret);
 }
@@ -518,34 +597,208 @@ xsltAttrTemplateProcess(xsltTransformContextPtr ctxt, xmlNodePtr target,
  * xsltAttrListTemplateProcess:
  * @ctxt:  the XSLT transformation context
  * @target:  the element where the attributes will be grafted
- * @cur:  the first attribute
+ * @attrs:  the first attribute
  *
- * Do a copy of an attribute list with attribute template processing
+ * Processes all attributes of a Literal Result Element.
+ * Attribute references are applied via xsl:use-attribute-set
+ * attributes.
+ * Copies all non XSLT-attributes over to the @target element
+ * and evaluates Attribute Value Templates.
  *
- * Returns: a new xmlAttrPtr, or NULL in case of error.
+ * Called by xsltApplySequenceConstructor() (transform.c).
+ *
+ * Returns a new list of attribute nodes, or NULL in case of error.
+ *         (Don't assign the result to @target->properties; if
+ *         the result is NULL, you'll get memory leaks, since the
+ *         attributes will be disattached.)
  */
 xmlAttrPtr
 xsltAttrListTemplateProcess(xsltTransformContextPtr ctxt, 
-	                    xmlNodePtr target, xmlAttrPtr cur) {
-    xmlAttrPtr ret = NULL;
-    xmlAttrPtr q;
-    xmlNodePtr oldInsert;
+	                    xmlNodePtr target, xmlAttrPtr attrs)
+{
+    xmlAttrPtr attr, copy, last;
+    xmlNodePtr oldInsert, text;
+    xmlNsPtr origNs = NULL, copyNs = NULL;
+    const xmlChar *value;
+    xmlChar *valueAVT;
+
+    if ((ctxt == NULL) || (target == NULL) || (attrs == NULL))
+	return(NULL);
 
     oldInsert = ctxt->insert;
-    ctxt->insert = target;
-    while (cur != NULL) {
-        q = xsltAttrTemplateProcess(ctxt, target, cur);
-	if (q != NULL) {
-	    q->parent = target;
-	    q->doc = target->doc;
-	    if (ret == NULL) {
-		ret = q;
+    ctxt->insert = target;        
+
+    /*
+    * Instantiate LRE-attributes.
+    */
+    if (target->properties) {
+	last = target->properties;
+	while (last->next != NULL)
+	    last = last->next;
+    } else {
+	last = NULL;
+    }    
+    attr = attrs;
+    do {
+	/*
+	* Skip XSLT attributes.
+	*/
+#ifdef XSLT_REFACTORED
+	if (attr->psvi == xsltXSLTAttrMarker) {
+	    goto next_attribute;
+	}
+#else
+	if ((attr->ns != NULL) &&
+	    xmlStrEqual(attr->ns->href, XSLT_NAMESPACE))
+	{
+	    goto next_attribute;
+	}
+#endif
+	/*
+	* Get the value.
+	*/
+	if (attr->children != NULL) {
+	    if ((attr->children->type != XML_TEXT_NODE) ||
+		(attr->children->next != NULL))
+	    {
+		xsltTransformError(ctxt, NULL, attr->parent,
+		    "Internal error: The children of an attribute node of a "
+		    "literal result element are not in the expected form.\n");
+		goto error;
+	    }
+	    value = attr->children->content;
+	    if (value == NULL)
+		value = xmlDictLookup(ctxt->dict, BAD_CAST "", 0);
+	} else
+	    value = xmlDictLookup(ctxt->dict, BAD_CAST "", 0);
+
+	/*
+	* Create a new attribute.
+	*/
+	copy = xmlNewDocProp(target->doc, attr->name, NULL);
+	if (copy == NULL) {
+	    if (attr->ns) {
+		xsltTransformError(ctxt, NULL, attr->parent,
+		    "Internal error: Failed to create attribute '{%s}%s'.\n",
+		    attr->ns->href, attr->name);
+	    } else {
+		xsltTransformError(ctxt, NULL, attr->parent,
+		    "Internal error: Failed to create attribute '%s'.\n",
+		    attr->name);
+	    }
+	    goto error;
+	}
+	/*
+	* Attach it to the target element.
+	*/
+	copy->parent = target;
+	if (last == NULL) {
+	    target->properties = copy;
+	    last = copy;
+	} else {
+	    last->next = copy;
+	    copy->prev = last;
+	    last = copy;
+	}
+	/*
+	* Set the namespace. Avoid lookups of same namespaces.
+	*/
+	if (attr->ns != origNs) {
+	    origNs = attr->ns;
+	    if (attr->ns != NULL) {
+#ifdef XSLT_REFACTORED
+		copyNs = xsltGetSpecialNamespace(ctxt, attr->parent,
+		    attr->ns->href, attr->ns->prefix, target);
+#else
+		copyNs = xsltGetNamespace(ctxt, attr->parent,
+		    attr->ns, target);
+#endif
+		if (copyNs == NULL)
+		    goto error;
+	    } else
+		copyNs = NULL;
+	}
+	copy->ns = copyNs;
+	
+	/*
+	* Set the value.
+	*/	    
+	text = xmlNewText(NULL);
+	if (text != NULL) {
+	    copy->last = copy->children = text;
+	    text->parent = (xmlNodePtr) copy;
+	    text->doc = copy->doc;
+	    
+	    if (attr->psvi != NULL) {
+		/*
+		* Evaluate the Attribute Value Template.
+		*/		
+		valueAVT = xsltEvalAVT(ctxt, attr->psvi, attr->parent);
+		if (valueAVT == NULL) {
+		    /*
+		    * TODO: Damn, we need an easy mechanism to report
+		    * qualified names!
+		    */
+		    if (attr->ns) {
+			xsltTransformError(ctxt, NULL, attr->parent,
+			    "Internal error: Failed to evaluate the AVT "
+			    "of attribute '{%s}%s'.\n",
+			    attr->ns->href, attr->name);			    
+		    } else {
+			xsltTransformError(ctxt, NULL, attr->parent,
+			    "Internal error: Failed to evaluate the AVT "
+			    "of attribute '%s'.\n",
+			    attr->name);
+		    }
+		    text->content = xmlStrdup(BAD_CAST "");
+		    goto error;
+		} else {
+		    text->content = valueAVT;
+		}
+	    } else if ((ctxt->internalized) &&
+		(target->doc != NULL) &&
+		(target->doc->dict == ctxt->dict))
+	    {
+		text->content = (xmlChar *) value;
+	    } else {
+		text->content = xmlStrdup(value);
 	    }
 	}
-	cur = cur->next;
-    }
+
+next_attribute:
+	attr = attr->next;
+    } while (attr != NULL);
+
+    /*
+    * Apply attribute-sets.
+    * The creation of such attributes will not overwrite any existing
+    * attribute.
+    */
+    attr = attrs;
+    do {
+#ifdef XSLT_REFACTORED
+	if ((attr->psvi == xsltXSLTAttrMarker) &&
+	    xmlStrEqual(attr->name, (const xmlChar *)"use-attribute-sets"))
+	{
+	    xsltApplyAttributeSet(ctxt, ctxt->node, (xmlNodePtr) attr, NULL);
+	}
+#else
+	if ((attr->ns != NULL) &&
+	    xmlStrEqual(attr->name, (const xmlChar *)"use-attribute-sets") &&
+	    xmlStrEqual(attr->ns->href, XSLT_NAMESPACE))
+	{
+	    xsltApplyAttributeSet(ctxt, ctxt->node, (xmlNodePtr) attr, NULL);
+	}
+#endif
+	attr = attr->next;
+    } while (attr != NULL);
+
     ctxt->insert = oldInsert;
-    return(ret);
+    return(target->properties);
+
+error:
+    ctxt->insert = oldInsert;
+    return(NULL);
 }
 
 
@@ -554,9 +807,9 @@ xsltAttrListTemplateProcess(xsltTransformContextPtr ctxt,
  * @ctxt:  the XSLT transformation context
  * @node:  the attribute template node
  *
- * Process the given node and return the new string value.
+ * Obsolete. Don't use it.
  *
- * Returns the computed tree replacement
+ * Returns NULL.
  */
 xmlNodePtr *
 xsltTemplateProcess(xsltTransformContextPtr ctxt ATTRIBUTE_UNUSED, xmlNodePtr node) {

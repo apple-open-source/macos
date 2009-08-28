@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2005  Mark Nudelman
+ * Copyright (C) 1984-2007  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -59,6 +59,7 @@ extern int bl_s_width, bl_e_width;
 extern int so_s_width, so_e_width;
 extern int sc_width, sc_height;
 extern int utf_mode;
+extern int oldbot;
 extern POSITION start_attnpos;
 extern POSITION end_attnpos;
 
@@ -267,7 +268,7 @@ pshift(shift)
 	while (shifted <= shift && from < curr)
 	{
 		c = linebuf[from];
-		if (c == ESC && ctldisp == OPT_ONPLUS)
+		if (ctldisp == OPT_ONPLUS && IS_CSI_START(c))
 		{
 			/* Keep cumulative effect.  */
 			linebuf[to] = c;
@@ -522,7 +523,7 @@ in_ansi_esc_seq()
 	for (p = &linebuf[curr];  p > linebuf; )
 	{
 		LWCHAR ch = step_char(&p, -1, linebuf);
-		if (ch == ESC)
+		if (IS_CSI_START(ch))
 			return (1);
 		if (!is_ansi_middle(ch))
 			return (0);
@@ -600,14 +601,16 @@ store_char(ch, a, rep, pos)
 		if (!is_ansi_end(ch) && !is_ansi_middle(ch)) {
 			/* Remove whole unrecognized sequence.  */
 			do {
+				if (curr == 0)
+					break;
 				--curr;
-			} while (linebuf[curr] != ESC);
+			} while (!IS_CSI_START(linebuf[curr]));
 			return 0;
 		}
 		a = AT_ANSI;	/* Will force re-AT_'ing around it.  */
 		w = 0;
 	}
-	else if (ctldisp == OPT_ONPLUS && ch == ESC)
+	else if (ctldisp == OPT_ONPLUS && IS_CSI_START(ch))
 	{
 		a = AT_ANSI;	/* Will force re-AT_'ing around it.  */
 		w = 0;
@@ -941,7 +944,7 @@ do_append(ch, rep, pos)
 	} else if ((!utf_mode || is_ascii_char(ch)) && control_char((char)ch))
 	{
 	do_control_char:
-		if (ctldisp == OPT_ON || (ctldisp == OPT_ONPLUS && ch == ESC))
+		if (ctldisp == OPT_ON || (ctldisp == OPT_ONPLUS && IS_CSI_START(ch)))
 		{
 			/*
 			 * Output as a normal character.
@@ -994,6 +997,8 @@ pflushmbc()
 pdone(endline)
 	int endline;
 {
+	int nl;
+
 	(void) pflushmbc();
 
 	if (pendc && (pendc != '\r' || !endline))
@@ -1024,12 +1029,42 @@ pdone(endline)
 	/*
 	 * Add a newline if necessary,
 	 * and append a '\0' to the end of the line.
+	 * We output a newline if we're not at the right edge of the screen,
+	 * or if the terminal doesn't auto wrap,
+	 * or if this is really the end of the line AND the terminal ignores
+	 * a newline at the right edge.
+	 * (In the last case we don't want to output a newline if the terminal 
+	 * doesn't ignore it since that would produce an extra blank line.
+	 * But we do want to output a newline if the terminal ignores it in case
+	 * the next line is blank.  In that case the single newline output for
+	 * that blank line would be ignored!)
 	 */
-	if (column < sc_width || !auto_wrap || ignaw || ctldisp == OPT_ON)
+	if (!oldbot)
+		nl = (column < sc_width || !auto_wrap || (endline && ignaw) || ctldisp == OPT_ON);
+	else
+		nl = (column < sc_width || !auto_wrap || ignaw || ctldisp == OPT_ON);
+	if (nl)
 	{
 		linebuf[curr] = '\n';
 		attr[curr] = AT_NORMAL;
 		curr++;
+	} 
+	else if (ignaw && !auto_wrap && column >= sc_width)
+	{
+		/*
+		 * Big horrible kludge.
+		 * No-wrap terminals are too hard to deal with when they get in
+		 * the state where a full screen width of characters have been 
+		 * output but the cursor is sitting on the right edge instead
+		 * of at the start of the next line.  
+		 * So after we output a full line, we output an extra 
+		 * space and backspace to force the cursor to the 
+		 * beginning of the next line, like a sane terminal.
+		 */
+		linebuf[curr] = ' '; 
+		attr[curr++] = AT_NORMAL;
+		linebuf[curr] = '\b'; 
+		attr[curr++] = AT_NORMAL;
 	}
 	linebuf[curr] = '\0';
 	attr[curr] = AT_NORMAL;
@@ -1093,9 +1128,10 @@ null_line()
  * {{ This is supposed to be more efficient than forw_line(). }}
  */
 	public POSITION
-forw_raw_line(curr_pos, linep)
+forw_raw_line(curr_pos, linep, line_lenp)
 	POSITION curr_pos;
 	char **linep;
+	int *line_lenp;
 {
 	register int n;
 	register int c;
@@ -1131,6 +1167,8 @@ forw_raw_line(curr_pos, linep)
 	linebuf[n] = '\0';
 	if (linep != NULL)
 		*linep = linebuf;
+	if (line_lenp != NULL)
+		*line_lenp = n;
 	return (new_pos);
 }
 
@@ -1139,9 +1177,10 @@ forw_raw_line(curr_pos, linep)
  * {{ This is supposed to be more efficient than back_line(). }}
  */
 	public POSITION
-back_raw_line(curr_pos, linep)
+back_raw_line(curr_pos, linep, line_lenp)
 	POSITION curr_pos;
 	char **linep;
+	int *line_lenp;
 {
 	register int n;
 	register int c;
@@ -1202,5 +1241,7 @@ back_raw_line(curr_pos, linep)
 	}
 	if (linep != NULL)
 		*linep = &linebuf[n];
+	if (line_lenp != NULL)
+		*line_lenp = size_linebuf - 1 - n;
 	return (new_pos);
 }

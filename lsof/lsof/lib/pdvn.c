@@ -37,13 +37,13 @@
 # if	!defined(lint)
 static char copyright[] =
 "@(#) Copyright 1997 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: pdvn.c,v 1.7 2002/02/26 15:16:41 abe Exp $";
+static char *rcsid = "$Id: pdvn.c,v 1.8 2008/10/21 16:12:36 abe Exp $";
 # endif	/* !defined(lint) */
 
 #include "../lsof.h"
 
 #else	/* !defined(USE_LIB_PRINTDEVNAME) */
-static char d1[] = "d"; static char *d2 = d1;
+char pdvn_d1[] = "d"; char *pdvn_d2 = pdvn_d1;
 #endif	/* defined(USE_LIB_PRINTDEVNAME) */
 
 

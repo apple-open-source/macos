@@ -10,7 +10,7 @@ Index: samba/source/smbd/chgpasswd.c
  
  extern struct passdb_ops pdb_ops;
  
-@@ -714,21 +715,66 @@ NTSTATUS pass_oem_change(char *user,
+@@ -722,21 +723,66 @@ NTSTATUS pass_oem_change(char *user,
  {
  	pstring new_passwd;
  	struct samu *sampass = NULL;

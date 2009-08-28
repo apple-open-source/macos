@@ -144,9 +144,10 @@
 		043801560002B0C411CE2282 /* IOFireWireSBP2LSIWorkaroundDescriptor.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOFireWireSBP2LSIWorkaroundDescriptor.h; sourceTree = "<group>"; };
 		043801570002B0C411CE2282 /* IOFireWireSBP2LSIWorkaroundDescriptor.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOFireWireSBP2LSIWorkaroundDescriptor.cpp; sourceTree = "<group>"; };
 		301B84E108906F3000D77901 /* System.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = System.framework; path = /System/Library/Frameworks/System.framework; sourceTree = "<absolute>"; };
-		4D0AF47906389034001DAB44 /* Info-IOFireWireSBP2.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "Info-IOFireWireSBP2.plist"; sourceTree = "<group>"; };
+		3085C9720F96BC7600113B7C /* Info-IOFireWireSBP2-FireLog.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "Info-IOFireWireSBP2-FireLog.plist"; sourceTree = "<group>"; };
+		4D0AF47906389034001DAB44 /* Info-IOFireWireSBP2.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IOFireWireSBP2.plist"; sourceTree = "<group>"; };
 		4D0AF47A06389034001DAB44 /* IOFireWireSBP2.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOFireWireSBP2.kext; sourceTree = BUILT_PRODUCTS_DIR; };
-		4D0AF49106389035001DAB44 /* Info-IOFireWireSBP2Lib.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "Info-IOFireWireSBP2Lib.plist"; sourceTree = "<group>"; };
+		4D0AF49106389035001DAB44 /* Info-IOFireWireSBP2Lib.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IOFireWireSBP2Lib.plist"; sourceTree = "<group>"; };
 		4D0AF49206389035001DAB44 /* IOFireWireSBP2Lib.plugin */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOFireWireSBP2Lib.plugin; sourceTree = BUILT_PRODUCTS_DIR; };
 		F5278E6000D571A901CE2124 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
 		F5278E6100D571A901CE2124 /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = /System/Library/Frameworks/Kernel.framework; sourceTree = "<absolute>"; };
@@ -183,6 +184,7 @@
 				00F0F439FFCA255711CE233C /* IOFireWireSBP2 */,
 				00F0F450FFCA255711CE233C /* Products */,
 				4D0AF47906389034001DAB44 /* Info-IOFireWireSBP2.plist */,
+				3085C9720F96BC7600113B7C /* Info-IOFireWireSBP2-FireLog.plist */,
 				4D0AF49106389035001DAB44 /* Info-IOFireWireSBP2Lib.plist */,
 			);
 			name = IOFireWireSBP2;
@@ -457,7 +459,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = (
-					ppc64,
 					ppc,
 					i386,
 					x86_64,
@@ -470,7 +471,6 @@
 				INFOPLIST_FILE = "Info-IOFireWireSBP2Lib.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = /System/Library/Extensions/IOFireWireSBP2.kext/Contents/PlugIns/;
-				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = (
 					"-bundle",
@@ -497,9 +497,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = (
-					i386,
 					ppc,
-					ppc64,
+					i386,
 					x86_64,
 				);
 				BUILD_STYLE = Deployment;
@@ -533,16 +532,15 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = (
-					i386,
 					ppc,
-					ppc64,
+					i386,
 					x86_64,
 				);
 				BUILD_STYLE = FireLog;
+				GCC_OPTIMIZATION_LEVEL = 0;
 				INFOPLIST_FILE = "Info-IOFireWireSBP2Lib.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = /System/Library/Extensions/IOFireWireSBP2.kext/Contents/PlugIns/;
-				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = (
 					"-bundle",
@@ -568,9 +566,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = (
-					i386,
 					ppc,
-					ppc64,
+					i386,
 					x86_64,
 				);
 				BUILD_STYLE = Default;
@@ -602,8 +599,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = (
-					i386,
 					ppc,
+					i386,
+					x86_64,
 				);
 				BUILD_STYLE = Development;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -616,14 +614,13 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireSBP2;
-				MODULE_VERSION = 1.9.8;
-				OPTIMIZATION_CFLAGS = "-O0";
+				MODULE_VERSION = 4.0.5;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOFireWireSBP2;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc7400 ppc970 i386 ppc";
+				VALID_ARCHS = "ppc7400 ppc970 i386 ppc x86_64";
 				WARNING_CFLAGS = (
 					"-W",
 					"-Wall",
@@ -640,6 +637,11 @@
 		30E4465E08394D3A00BE2CD4 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+					x86_64,
+				);
 				BUILD_STYLE = Deployment;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				INFOPLIST_FILE = "Info-IOFireWireSBP2.plist";
@@ -648,13 +650,13 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireSBP2;
-				MODULE_VERSION = 1.9.8;
+				MODULE_VERSION = 4.0.5;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOFireWireSBP2;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc7400 ppc970 i386 ppc";
+				VALID_ARCHS = "ppc7400 ppc970 i386 ppc x86_64";
 				WARNING_CFLAGS = (
 					"-W",
 					"-Wall",
@@ -671,21 +673,26 @@
 		30E4465F08394D3A00BE2CD4 /* FireLog */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+					x86_64,
+				);
 				BUILD_STYLE = FireLog;
-				INFOPLIST_FILE = "Info-IOFireWireSBP2.plist";
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INFOPLIST_FILE = "Info-IOFireWireSBP2-FireLog.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = /System/Library/Extensions;
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireSBP2;
-				MODULE_VERSION = 1.9.8;
-				OPTIMIZATION_CFLAGS = "-O0";
+				MODULE_VERSION = 4.0.5;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOFireWireSBP2;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc7400 ppc970 i386 ppc";
+				VALID_ARCHS = "ppc7400 ppc970 i386 ppc x86_64";
 				WARNING_CFLAGS = (
 					"-W",
 					"-Wall",
@@ -701,6 +708,11 @@
 		30E4466008394D3A00BE2CD4 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+					x86_64,
+				);
 				BUILD_STYLE = Default;
 				INFOPLIST_FILE = "Info-IOFireWireSBP2.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
@@ -708,13 +720,13 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireSBP2;
-				MODULE_VERSION = 1.9.8;
+				MODULE_VERSION = 4.0.5;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOFireWireSBP2;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc7400 ppc970 i386 ppc";
+				VALID_ARCHS = "ppc7400 ppc970 i386 ppc x86_64";
 				WARNING_CFLAGS = (
 					"-W",
 					"-Wall",
@@ -735,7 +747,6 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -773,7 +784,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_STYLE = FireLog;
-				OPTIMIZATION_CFLAGS = "-O0";
+				GCC_OPTIMIZATION_LEVEL = 0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";

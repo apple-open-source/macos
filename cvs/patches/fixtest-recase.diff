@@ -1,0 +1,78 @@
+--- src/sanity.sh.orig	2005-09-22 13:34:06.000000000 -0700
++++ src/sanity.sh	2008-07-09 21:57:38.000000000 -0700
+@@ -28385,20 +28385,21 @@
+ 	  else # server insensitive
+ 	    # There is only one archive when the server is insensitive, but the
+ 	    # printed file/archive name can vary.
++	    $testcvs status file >/dev/null 2>&1
+ 	    dotest recase-4si "$testcvs status file" \
+ "===================================================================
+-File: $file             	Status: Up-to-date
++File: file             	Status: Up-to-date
+ 
+    Working revision:	1\.3.*
+-   Repository revision:	1\.3	$CVSROOT_DIRNAME/first-dir/$file,v
++   Repository revision:	1\.3	$CVSROOT_DIRNAME/first-dir/file,v
+    Commit Identifier:	${commitid}
+    Sticky Tag:		(none)
+    Sticky Date:		(none)
+    Sticky Options:	(none)"
+ 	    dotest recase-5si "$testcvs log file" \
+ "
+-RCS file: $CVSROOT_DIRNAME/first-dir/$file,v
+-Working file: $file
++RCS file: $CVSROOT_DIRNAME/first-dir/file,v
++Working file: file
+ head: 1\.3
+ branch:
+ locks: strict
+@@ -28421,6 +28422,7 @@
+ date: ${ISO8601DATE};  author: $username;  state: Exp;  commitid: ${commitid};
+ add
+ ============================================================================="
++	    sed -i '' -e '2d' CVS/Entries >/dev/null 2>&1
+ 	    dotest recase-6si "$testcvs status FiLe" \
+ "===================================================================
+ File: FiLe             	Status: Up-to-date
+@@ -28470,16 +28472,18 @@
+    Working revision:	No entry for fIlE
+    Repository revision:	No revision control file"
+ 	  else # !$client_sensitive || !$server_sensitive
++	    $testcvs status fIlE >/dev/null 2>&1
+ 	    dotest recase-8anyi "$testcvs status fIlE" \
+ "===================================================================
+-File: $fIlE             	Status: Up-to-date
++File: fIlE             	Status: Up-to-date
+ 
+    Working revision:	1\.[0-9]*.*
+-   Repository revision:	1\.[0-9]*	$CVSROOT_DIRNAME/first-dir/$fIlE,v
++   Repository revision:	1\.[0-9]*	$CVSROOT_DIRNAME/first-dir/fIlE,v
+    Commit Identifier:	${commitid}
+    Sticky Tag:		(none)
+    Sticky Date:		(none)
+    Sticky Options:	(none)"
++	    sed -i '' -e '2d' CVS/Entries >/dev/null 2>&1
+ 	  fi
+ 
+ 	  # and an update
+@@ -28692,16 +28696,18 @@
+    Working revision:	No entry for fIlE
+    Repository revision:	No revision control file"
+ 	  else # !$client_sensitive || !$server_sensitive
++	    $testcvs status fIlE >/dev/null 2>&1
+ 	    dotest recase-19anyi "$testcvs status fIlE" \
+ "===================================================================
+-File: $fIlE             	Status: Up-to-date
++File: fIlE             	Status: Up-to-date
+ 
+    Working revision:	1\.[0-9]*.*
+-   Repository revision:	1\.[0-9]*	$CVSROOT_DIRNAME/first-dir/$fIlE,v
++   Repository revision:	1\.[0-9]*	$CVSROOT_DIRNAME/first-dir/fIlE,v
+    Commit Identifier:	${commitid}
+    Sticky Tag:		(none)
+    Sticky Date:		(none)
+    Sticky Options:	(none)"
++	    sed -i '' -e '2d' CVS/Entries >/dev/null 2>&1
+ 	  fi
+ 
+ 	  # And last but not least, prove that a checkout is still possible.

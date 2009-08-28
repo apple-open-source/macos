@@ -1,3 +1,28 @@
+07-10-31 regex/regcomp.c: fix REX_COLL_CLASS node allocation size
+07-10-31 sfio/sfcvt.c: use signbit() if available
+07-10-31 features/isoc99: _ISOC99_SOURCE tests
+07-10-31 port/astmath.c: add -DN=8 for signbit()
+07-10-31 sfio/sfstrtod.h: don't forget about -0.0
+07-10-26 features/map.c: add { optopt optarg optind opterr }
+07-10-26 features/stdio: add _filbuf => _ast__filbuf
+07-10-26 comp/getsubopt.c: fix #undef that interfered with <ast_map.h>
+07-10-26 regex/regcomp.c: fix bug that missed ')' in ~(F)...
+07-10-12 port/astconf.c: fix CONF_ALLOC 16 bit overflow
+07-10-12 misc/fts.c: fix fts_close() to free the handle -- doh
+07-10-11 comp/setlocale.c: second and subsequent setlocale(*,"") reverts to previous
+07-10-11 path/pathprobe.c: add vfs ST_NOSUID check
+07-10-10 comp/conf.tab: add a few more xpg6 deferrals
+07-09-28 astsa: update to share with mainline src via _PACKAGE_astsa
+07-09-25 sfio/sfgetr.c: no limit on string stream line size
+07-09-25 sfio/sfextern.c: increase _Sfmaxr to 256*1024
+07-09-18 misc/procopen.c: tighten up SIGCHLD logic between parent/child
+07-09-18 misc/signal.c: unblock SIG_DFL after setting handler, sig<0 => don't unblock
+07-09-13 misc/fs3d.c: no $LD_PRELOAD => no 3d and avoids invalid mount(2) call
+07-09-11 vmalloc: vmstat(0,0)==1 => region in use, drop VM_primary|VM_secondary
+07-09-05 misc/recstr.c: handle [lL] gobbled by strtol() -- ouch
+07-08-17 path/pathprobe.c: handle '\r' in VERSION string
+07-07-17 regex/regcache.c: regcache(0,n,0) extends cache to size n (no shrinking)
+07-07-16 tm/tmdata.c: add 2005-12-31, drop 1999-12-31 (where did that come from?)
 07-05-21 tm/tmxfmt.c,tmxscan.c: %F => %L (TM_DEFAULT); %F => %Y-%m-%d
 07-05-15 sfio/sfvprintf.c: %h? and SFFMT_SHORT => raw bytes
 07-05-09 features/signal.c,features/siglist: use kill -l & strsignal()

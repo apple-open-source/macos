@@ -56,13 +56,15 @@
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.iokit.IOUSBFamily</key>
-		<string>3.0.0</string>
+		<string>3.5.0a20</string>
 		<key>com.apple.kpi.mach</key>
-		<string>9.0.0</string>
+		<string>10.0.0d4</string>
 		<key>com.apple.kpi.libkern</key>
-		<string>9.0.0</string>
+		<string>10.0.0d4</string>
 		<key>com.apple.kpi.iokit</key>
-		<string>9.0.0</string>
+		<string>10.0.0d4</string>
+		<key>com.apple.kpi.bsd</key>
+		<string>10.0.0d4</string>
 	</dict>
 	<key>OSBundleRequired</key>
 	<string>Root</string>

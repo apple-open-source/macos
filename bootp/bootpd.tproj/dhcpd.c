@@ -67,6 +67,9 @@
 #include "bootplookup.h"
 
 
+typedef long			dhcp_time_secs_t;
+#define DHCP_INFINITE_TIME	((dhcp_time_secs_t)-1)
+
 #define MAX_RETRY	5
 
 static boolean_t	S_extend_leases = TRUE;
@@ -137,14 +140,17 @@ DHCPLeases_reclaim(DHCPLeases_t * leases, interface_t * if_p,
 	lease_index = ni_proplist_match(scan->pl, NIPROP_DHCP_LEASE, NULL);
 	if (lease_index != NI_INDEX_NULL) {
 	    ni_namelist *		lease_nl_p;
+	    long			val;
+
 	    lease_nl_p = &scan->pl.nipl_val[lease_index].nip_val;
 	    if (lease_nl_p->ninl_len == 0) {
 		continue;
 	    }
-	    expiry = strtol(lease_nl_p->ninl_val[0], NULL, 0);
-	    if (expiry == LONG_MAX && errno == ERANGE) {
+	    val = strtol(lease_nl_p->ninl_val[0], NULL, 0);
+	    if (val == LONG_MAX && errno == ERANGE) {
 		continue;
 	    }
+	    expiry = (dhcp_time_secs_t)val;
 	}
 	if (lease_index == NI_INDEX_NULL || time_in_p->tv_sec > expiry) {
 	    if (S_remove_host(&scan)) {
@@ -233,7 +239,7 @@ S_lease_propval(ni_proplist * pl_p)
     return (ni_valforprop(pl_p, NIPROP_DHCP_LEASE));
 }
 
-#define LEASE_FORMAT	"0x%x"
+#define LEASE_FORMAT	"0x%lx"
 
 static void
 S_set_lease(ni_proplist * pl_p, dhcp_time_secs_t lease_time_expiry, 
@@ -251,13 +257,15 @@ S_lease_time_expiry(ni_proplist * pl_p)
 {
     dhcp_time_secs_t 	expiry = DHCP_INFINITE_TIME;
     ni_name 		str = S_lease_propval(pl_p);
+    long		val;
 
     if (str) {
-	expiry = strtol(str, NULL, 0);
-	if (expiry == LONG_MAX && errno == ERANGE) {
+	val = strtol(str, NULL, 0);
+	if (val == LONG_MAX && errno == ERANGE) {
 	    my_log(LOG_INFO, "S_lease_time_expiry: lease '%s' bad", str);
 	    return (0);
 	}
+	expiry = (dhcp_time_secs_t)val;
     }
     return (expiry);
     
@@ -344,8 +352,11 @@ S_ipinuse(void * arg, struct in_addr ip)
     struct timeval * 	time_in_p = (struct timeval *)arg;
 
     if (bootp_getbyip_file(ip, NULL, NULL)
+#if !TARGET_OS_EMBEDDED
 	|| ((use_open_directory == TRUE)
-	    && bootp_getbyip_ds(ip, NULL, NULL))) {
+	    && bootp_getbyip_ds(ip, NULL, NULL))
+#endif /* !TARGET_OS_EMBEDDED */
+        ) {
 	return (TRUE);
     }
 
@@ -471,7 +482,7 @@ dhcp_bootp_allocate(char * idstr, char * hwstr, struct dhcp * rq,
     struct in_addr 	iaddr;
     dhcp_time_secs_t	lease_time_expiry = 0;
     subnet_match_args_t	match;
-    dhcp_lease_t	max_lease;
+    dhcp_lease_time_t	max_lease;
     boolean_t		modified = FALSE;
     SubnetRef		subnet = NULL;
 
@@ -482,9 +493,13 @@ dhcp_bootp_allocate(char * idstr, char * hwstr, struct dhcp * rq,
 
     if (bootp_getbyhw_file(rq->dp_htype, rq->dp_chaddr, rq->dp_hlen,
 			   subnet_match, &match, &iaddr, NULL, NULL)
+#if !TARGET_OS_EMBEDDED
 	|| ((use_open_directory == TRUE)
 	    && bootp_getbyhw_ds(rq->dp_htype, rq->dp_chaddr, rq->dp_hlen,
-				subnet_match, &match, &iaddr, NULL, NULL))) {
+				subnet_match, &match, &iaddr, NULL, NULL))
+#endif /* !TARGET_OS_EMBEDDED */
+	) {
+
 	/* infinite lease */
 	*iaddr_p = iaddr;
 	if (subnets != NULL) {
@@ -569,12 +584,12 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
     char *		hwstr = NULL;
     char *		idstr = NULL;
     struct in_addr	iaddr;
-    dhcp_lease_t	lease = 0;
+    dhcp_lease_time_t	lease = 0;
     dhcp_time_secs_t	lease_time_expiry = 0;
     int			len;
     int			max_packet;
-    dhcp_lease_t	min_lease;
-    dhcp_lease_t	max_lease;
+    dhcp_lease_time_t	min_lease;
+    dhcp_lease_time_t	max_lease;
     boolean_t		modified = FALSE;
     dhcpoa_t		options;
     boolean_t		orphan = FALSE;
@@ -584,7 +599,7 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
     char		scratch_idstr[128];
     char		scratch_hwstr[sizeof(rq->dp_chaddr) * 3];
     SubnetRef 		subnet = NULL;
-    dhcp_lease_t *	suggested_lease = NULL;
+    dhcp_lease_time_t *	suggested_lease = NULL;
     dhcp_cstate_t	state = dhcp_cstate_none_e;
     char		txbuf[2048];
     boolean_t		use_broadcast = FALSE;
@@ -648,8 +663,9 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
     }
 
     suggested_lease = 
-	(dhcp_lease_t *)dhcpol_find(request->options_p, dhcptag_lease_time_e,
-				    &len, NULL);
+	(dhcp_lease_time_t *)dhcpol_find(request->options_p,
+					 dhcptag_lease_time_e,
+					 &len, NULL);
     if (cid_type != 0) { 
 	subnet_match_args_t	match;
 
@@ -662,10 +678,13 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 	if (bootp_getbyhw_file(cid_type, cid, cid_len,
 			       subnet_match, &match, &iaddr,
 			       &hostname, NULL)
+#if !TARGET_OS_EMBEDDED
 	    || ((use_open_directory == TRUE)
 		&& bootp_getbyhw_ds(cid_type, cid, cid_len,
 				    subnet_match, &match, &iaddr,
-				    &hostname, NULL))) {
+				    &hostname, NULL))
+#endif /* !TARGET_OS_EMBEDDED */
+	    ) {
 	    binding = dhcp_binding_permanent_e;
 	    lease_time_expiry = DHCP_INFINITE_TIME;
 	}

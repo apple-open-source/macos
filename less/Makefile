@@ -15,18 +15,11 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 # Automatic Extract & Patch
 AEP            = YES
 AEP_Project    = $(Project)
-AEP_Version    = 394
+AEP_Version    = 418
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = command.c.diff forwback.c.diff main.c.diff \
-                 screen.c.diff search.c.diff signal.c.diff \
-                 decode.c.diff funcs.h.diff main.c.diff2 screen.c.diff2 \
-                 funcs.h.diff2 command.c.diff2 edit.c.diff \
-                 ifile.c.diff main.c.diff3 optfunc.c.diff option.c.diff \
-                 opttbl.c.diff tags.c.diff ttyin.c.diff position.c.diff \
-                 main.c.diff4
-
+AEP_Patches    = Apple.diff jump.c.diff
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j
 else
@@ -39,8 +32,10 @@ ifeq ($(AEP),YES)
 	$(TAR) -C $(SRCROOT) -$(AEP_ExtractOption)xf $(SRCROOT)/$(AEP_Filename)
 	$(RMDIR) $(SRCROOT)/$(AEP_Project)
 	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(AEP_Project)
+	$(RM) $(SRCROOT)/$(AEP_Project)/COPYING
+	$(CHMOD) -R a+r $(SRCROOT)/$(AEP_Project)
 	for patchfile in $(AEP_Patches); do \
-		cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile; \
+		cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile || exit 1; \
 	done
 endif
 
@@ -61,3 +56,11 @@ install-plist:
 	$(INSTALL_FILE) $(SRCROOT)/$(Project).plist $(OSV)/$(Project).plist
 	$(MKDIR) $(OSL)
 	$(INSTALL_FILE) $(Sources)/LICENSE $(OSL)/$(Project).txt
+
+.PHONY: remove-gz
+clean:: remove-gz
+
+remove-gz:
+ifeq ($(AEP),YES)
+	$(RM) $(SRCROOT)/$(AEP_Filename)
+endif

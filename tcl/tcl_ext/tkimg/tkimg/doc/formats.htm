@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+	"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title>Img Documentation</title>
+  <meta http-equiv="Content-Type" content="text/html" />
+</head>
+
+<body>
+<h1>Img Manual</h1>
+
+<table width="100%">
+  <tbody>
+    <tr>
+      <td><a href="index.htm">Introduction</a></td>
+      <td><a href="install.htm">Installation</a></td>
+      <td><a href="formats.htm">Format handlers</a></td>
+      <td><a href="library.htm">External libraries</a></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Format handlers</h3>
+<dl>
+  <dt>The pixmap image type can be used as follows:</dt>
+    <dd>image create pixmap -file </dd>
+  <dt>or</dt>
+    <dd>image create pixmap -data ;#(in XPM format)</dd>
+</dl>
+<dl>
+  <dt>The photo image type works the same:</dt>
+    <dd>image create photo -file </dd>
+  <dt>or</dt>
+    <dd>image create photo -data ;#(base-64 encoding required with Tk8.2 and lower)</dd>
+</dl>
+
+<p>Valid format specifiers for reading photo's:</p>
+
+<table width="100%">
+  <tbody>
+    <tr>
+      <td width="10%">&nbsp;</td>
+      <td>"bmp"</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>"gif -index &lt;n&gt;"</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>"jpeg -fast -grayscale"</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>"png"</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>"tiff"</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>"xbm"</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>"xpm"</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>"postscript -index &lt;n&gt; -zoom &lt;x&gt; &lt;y&gt;"</td>
+      <td>(-index not yet implemented) <!--<tr><td>&nbsp;<td>"pdf -index &lt;n> -zoom &lt;x> &lt;y>"<td>(-index not yet implemented)-->
+      </td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>"window"</td>
+      <td>(works only with "-data", not "-file")</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Valid format specifiers for writing photo's:</p>
+
+<table width="100%">
+  <tbody>
+    <tr>
+      <td width="10%">&nbsp;</td>
+      <td>"bmp"</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>"gif -interlaced &lt;bool&gt;"</td>
+      <td>(-interlaced not yet implemented)</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>"jpeg -quality &lt;n&gt; -smooth &lt;n&gt; -grayscale -optimize
+        -progressive"</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>"png Author &lt;name&gt; Title &lt;title&gt; Description ....."<br />
+        Each pair of arguments will add a named text chunk to the file.</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>"tiff -compression &lt;compression&gt; -byteorder &lt;byteorder&gt;"</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>"xbm"</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>"xpm"</td>
+      <td></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The format options have the following meaning:</p>
+
+<table width="100%">
+  <tbody>
+    <tr>
+      <td width="10%">&nbsp;</td>
+      <td>-background C:</td>
+      <td>use color C as background color for transparent parts of the
+      image.</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>-byteorder:</td>
+      <td>Byteorder for TIFF file. Should be one of bigendian, littleendian,
+        network, smallendian or {}. Default: {}</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>-compression:</td>
+      <td>Compression for TIFF file. Should be one of none, jpeg, packbits or
+        deflate. Default: none.</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>-fast:</td>
+      <td>Fast, low-quality processing.</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>-grayscale:</td>
+      <td>Force incoming image to grayscale/ Create monochrome file.</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>-index N:</td>
+      <td>Select one of the sub-images (GIF and postscript only, not yet
+        implemented for postscript). Default value: 0</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>-interlaced N:</td>
+      <td>N=1: interlaced. N=0: non-interlaced (not yet implemented).</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>-optimize:</td>
+      <td>Optimize Huffman table.</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>-progressive:</td>
+      <td>Create progressive file (JPEG only).</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>-quality N:</td>
+      <td>Compression quality (0..100; 5-95 is useful range). Default value:
+        75</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>-smooth N:</td>
+      <td>Perform smoothing (10-30 is enough for most GIF's). Default value:
+      0</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>-zoom X Y:</td>
+      <td>Multiply image size by given scale factors. If Y is missing, the
+        default is the same as X. X and Y are allowed to be in floating point
+        format, but they are rounded to the nearest practically possible
+        value. For postscript this means the zoom factors should be multiples
+        of 1/72.</td>
+    </tr>
+  </tbody>
+</table>
+</body>
+</html>

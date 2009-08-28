@@ -22,26 +22,26 @@ other.  Using any of the names will result in exactly identical behavior.
 .PP
 Single Process Multiple Data (SPMD) Model:
 
-.B mpirun 
-.R [ options ] 
+.B mpirun
+[ options ] 
 .B <program>
-.R [ <args> ]
-.
+[ <args> ]
+.P
 
 Multiple Instruction Multiple Data (MIMD) Model:
 
 .B mpirun
-.R [ global_options ]
+[ global_options ]
        [ local_options1 ]
 .B <program1>
-.R [ <args1> ] :
+[ <args1> ] :
        [ local_options2 ]
 .B <program2>
-.R [ <args2> ] : 
+[ <args2> ] : 
        ... : 
        [ local_optionsN ]
 .B <programN>
-.R [ <argsN> ]
+[ <argsN> ]
 .P
 
 Note that in both models, invoking \fImpirun\fR via an absolute path
@@ -455,7 +455,7 @@ nodes.
 .SS Specifying Hosts
 .
 Hosts can be specified in a number of ways. The most common of which is in a
-'hostfile' or 'machinefile'. If our hostfile contain the following information:
+\&'hostfile' or 'machinefile'. If our hostfile contain the following information:
 .
 .
 

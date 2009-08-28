@@ -15,7 +15,7 @@ MAN_DIR = $(DSTROOT)/usr/share/man/man8
 #
 # Standard B&I targets
 #
-all: $(SYMROOT)/gssd $(SRCROOT)/gssd.8 $(SYMROOT)/gsstest
+all: $(SYMROOT)/gssd $(SRCROOT)/gssd.8 $(SYMROOT)/gsstest 
 
 install: all
 	install -d -o root -g wheel -m 755 $(MAN_DIR)
@@ -46,7 +46,7 @@ CFLAGS		= -g -Os -Wall -Wextra -Wshadow -Wmissing-prototypes \
 CFLAGS		+= $(RC_CFLAGS)
 LDFLAGS	= -lbsm -framework Kerberos
 
-$(SYMROOT)/gssd: $(OBJROOT)/gssd.o $(OBJROOT)/gssd_machUser.o $(OBJROOT)/gssd_machServer.o
+$(SYMROOT)/gssd: $(OBJROOT)/gssd.o $(OBJROOT)/gssd_machUser.o $(OBJROOT)/gssd_machServer.o $(OBJROOT)/gssd_validate.o
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
 
 $(SRCROOT)/gssd.c: $(OBJROOT)/gssd_mach.h $(OBJROOT)/gssd_machServer.h

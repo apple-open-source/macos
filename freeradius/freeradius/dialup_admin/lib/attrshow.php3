@@ -1,7 +1,12 @@
 <?php
+include_once('../lib/xlat.php3');
 #Read user_edit attribute map
+unset($show_attrs);
+if (isset($_SESSION['show_attrs']))
+	$show_attrs = $_SESSION['show_attrs'];
 if (!isset($show_attrs)){
-	$ARR = file($config[general_user_edit_attrs_file]);
+	$infile = xlat($config[general_user_edit_attrs_file],$login,$config);
+	$ARR = file($infile);
 	foreach($ARR as $val){
 		$val=chop($val);
 		if (ereg('^[[:space:]]*#',$val) || ereg('^[[:space:]]*$',$val))
@@ -12,8 +17,12 @@ if (!isset($show_attrs)){
 	if ($config[general_use_session] == 'yes')
 		session_register('show_attrs');
 }
+unset($acct_attrs);
+if (isset($_SESSION['acct_attrs']))
+	$acct_attrs = $_SESSION['acct_attrs'];
 if (!isset($acct_attrs) && isset($config[general_accounting_attrs_file])){
-	$ARR = file($config[general_accounting_attrs_file]);
+	$infile = xlat($config[general_accounting_attrs_file],$login,$config);
+	$ARR = file($infile);
 	foreach ($ARR as $val){
 		$val=chop($val);
 		if (ereg('^[[:space:]]*#',$val) || ereg('^[[:space:]]*$',$val))

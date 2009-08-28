@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -23,31 +23,55 @@
 #ifndef __Mbrd_HashTable_h__
 #define	__Mbrd_HashTable_h__		1
 
-#include "Mbrd_UserGroup.h"
+#include <DirectoryServiceCore/DSUtils.h>
+#include <pthread.h>
+#include <unistd.h>
+#include <stdbool.h>
+#include <dispatch/dispatch.h>
+#include "rb.h"
+
+typedef enum eHashType
+{
+	eIDHash			= 1,
+	eGUIDHash		= 2,
+	eSIDHash		= 3,
+	eNameHash		= 4,
+	eKerberosHash	= 5,
+	eX509DNHash		= 6
+} eHashType;
 
 typedef struct HashTable
 {
-	struct UserGroup**   fTable;
-	long	fTableSize;
-	long	fNumEntries;
-	long	fKeyOffset;
-	long	fKeySize;
-	long	fKeyIsPtr;
-	long	fCountReference;
+	volatile int32_t	fRefCount;
+	
+	dispatch_queue_t	fQueue;
+	struct rb_tree		fRBtree;
+	uint32_t			fHashType;
+	long				fKeyOffset;
+	long				fNumEntries;
+	void *				fOwner;
+	const char *		fName;
 } HashTable;
+
+struct UserGroup;
 
 __BEGIN_DECLS
 
-HashTable* CreateHash(int offset, int size, long isPtr, int countReference);
-void ReleaseHash(HashTable* hash);
+HashTable* HashTable_Create( const char *name, void *owner, eHashType hashType );
+void HashTable_Initialize( HashTable *hash, const char *name, void *owner, eHashType hashType );
+void HashTable_FreeContents( HashTable *hash );
+void HashTable_Reset( HashTable* hash );
+int HashTable_ResetMemberships( HashTable *hash ); // only clears online entries
 
-unsigned int ComputeHashFromItem(HashTable* hash, void* item);
-void AddToHash(HashTable* hash, UserGroup* item);
-UserGroup* HashLookup(HashTable* hash, void* data);
-void RemoveFromHash(HashTable* hash, UserGroup* item);
+#define HashTable_Retain(a)		((HashTable *) dsRetainObject(a, &a->fRefCount))
+void HashTable_Release( HashTable* hash );
 
-void MergeHashEntries(HashTable* destination, HashTable* source);
-int GetHashEntries(HashTable* hash, UserGroup** itemArray, long itemArraySize);
+bool HashTable_Add( HashTable* hash, struct UserGroup* item, bool replaceExisting );
+struct UserGroup* HashTable_GetAndRetain( HashTable* hash, const void* data );
+void HashTable_Remove( HashTable* hash, struct UserGroup* item );
+
+void HashTable_Merge( HashTable* destination, HashTable* source );
+int HashTable_CreateItemArray( HashTable *hash, struct UserGroup*** itemArray );
 
 __END_DECLS
 

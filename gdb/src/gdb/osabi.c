@@ -73,6 +73,7 @@ static const char * const gdb_osabi_names[] =
   /* APPLE LOCAL begin Darwin */
   "Darwin",
   "Darwin64",
+  "DarwinV6",
   /* APPLE LOCAL end Darwin */
 
   "QNX Neutrino",
@@ -206,6 +207,11 @@ gdbarch_lookup_osabi (bfd *abfd)
     return user_selected_osabi;
   return gdbarch_lookup_osabi_from_bfd (abfd);
 }
+
+/* APPLE LOCAL: I factored out the part that just returns 
+   the user selected OSABI because sometimes you actually 
+   want to know what the ABI of THIS bfd is, so you can 
+   see if it matches the one the user requested.  */
 
 enum gdb_osabi
 gdbarch_lookup_osabi_from_bfd (bfd *abfd)
@@ -348,18 +354,30 @@ gdbarch_init_osabi (struct gdbarch_info info, struct gdbarch *gdbarch)
          (or more generally "64-bit ISA can run code for the 32-bit
          ISA").  BFD doesn't normally consider 32-bit and 64-bit
          "compatible" so it doesn't succeed.  */
+
+#if defined (TARGET_ARM) && defined (TM_NEXTSTEP)
+      /* APPLE LOCAL: This check doesn't work for darwin gdb setup on ARM:
+	 armv4 (-arch arm) binaries run on a armv6 system will work fine, but
+	 will load the armv6 side of any fat binaries they run across.  So 
+	 the user needs to be able to force the OSABI regardless of whether 
+	 the armv6 code COULD run on a armv4 or not...  */
+      (*handler->init_osabi) (info, gdbarch);
+      return;
+#else
       if (can_run_code_for (info.bfd_arch_info, handler->arch_info))
 	{
 	  (*handler->init_osabi) (info, gdbarch);
 	  return;
 	}
+#endif
     }
 
   warning
-    ("A handler for the OS ABI \"%s\" is not built into this configuration\n"
-     "of GDB.  Attempting to continue with the default %s settings.\n",
-     gdbarch_osabi_name (info.osabi),
-     info.bfd_arch_info->printable_name);
+    ("This configuration supports \"%s\" but is attempting to load\n"
+      "an executable of type %s which is unlikely to work.\n"
+      "Attempting to continue.",
+      gdbarch_osabi_name (info.osabi),
+      info.bfd_arch_info->printable_name);
 }
 
 /* Limit on the amount of data to be read.  */
@@ -624,6 +642,19 @@ set_osabi (char *args, int from_tty, struct cmd_list_element *c)
     internal_error (__FILE__, __LINE__, _("Updating OS ABI failed."));
 }
 
+/* APPLE LOCAL BEGIN: Set the osabi via option. 
+   This function wraps setting the osabi static string and calls the 
+   set_osabi() function and makes a cleaner interface for external code
+   to access.  */
+void
+set_osabi_option (const char *osabi_str)
+{
+  set_osabi_string = osabi_str;
+  set_osabi(NULL, 0, NULL);
+}
+/* APPLE LOCAL END: Set the osabi via option.  */
+
+
 static void
 show_osabi (struct ui_file *file, int from_tty, struct cmd_list_element *c,
 	    const char *value)
@@ -646,8 +677,6 @@ extern initialize_file_ftype _initialize_gdb_osabi; /* -Wmissing-prototype */
 void
 _initialize_gdb_osabi (void)
 {
-  struct cmd_list_element *c;
-
   if (strcmp (gdb_osabi_names[GDB_OSABI_INVALID], "<invalid>") != 0)
     internal_error
       (__FILE__, __LINE__,

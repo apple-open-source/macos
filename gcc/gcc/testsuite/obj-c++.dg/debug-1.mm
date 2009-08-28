@@ -3,7 +3,7 @@
 /* Tesst debug info for virtual base class.  */
 /* { dg-do compile }  */
 /* { dg-options "-gstabs+ -gfull" } */
-/* { dg-skip-if "" { *-*-darwin* } { "-m64" } { "" } } */
+/* { dg-require-effective-target ilp32 } */
 
 class A
 {

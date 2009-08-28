@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.  TMS320C[34]x
    Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003, 2004 Free Software Foundation, Inc.
+   2003, 2004, 2005 Free Software Foundation, Inc.
 
    Contributed by Michael Hayes (m.hayes@elec.canterbury.ac.nz)
               and Herman Ten Brugge (Haj.Ten.Brugge@net.HCC.nl).
@@ -19,8 +19,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 /* RUN-TIME TARGET SPECIFICATION.  */
 
@@ -79,14 +79,6 @@
     }						\
   while (0)
 
-/* Name of the c4x assembler.  */
-
-#define ASM_PROG "c4x-as"
-
-/* Name of the c4x linker.  */
-
-#define LD_PROG "c4x-ld"
-
 /* Define assembler options.  */
 
 #define ASM_SPEC "\
@@ -123,186 +115,26 @@
 
 #define ENDFILE_SPEC ""
 
-/* Target compilation option flags.  */
-
-#define SMALL_MEMORY_FLAG   0x0000001 /* Small memory model.  */
-#define MPYI_FLAG           0x0000002 /* Use 24-bit MPYI for C3x.  */
-#define FAST_FIX_FLAG       0x0000004 /* Fast fixing of floats.  */
-#define RPTS_FLAG           0x0000008 /* Allow use of RPTS.  */
-#define C3X_FLAG            0x0000010 /* Emit C3x code.  */
-#define TI_FLAG             0x0000020 /* Be compatible with TI assembler.  */
-#define PARANOID_FLAG       0x0000040 /* Be paranoid about DP reg. in ISRs.  */
-#define MEMPARM_FLAG        0x0000080 /* Pass arguments on stack.  */
-#define DEVEL_FLAG          0x0000100 /* Enable features under development.  */
-#define RPTB_FLAG           0x0000200 /* Enable repeat block.  */
-#define BK_FLAG             0x0000400 /* Use BK as general register.  */
-#define DB_FLAG             0x0000800 /* Use decrement and branch for C3x.  */
-#define DEBUG_FLAG          0x0001000 /* Enable debugging of GCC.  */
-#define HOIST_FLAG          0x0002000 /* Force constants into registers.  */
-#define LOOP_UNSIGNED_FLAG  0x0004000 /* Allow unsigned loop counters.  */
-#define FORCE_FLAG          0x0008000 /* Force op0 and op1 to be same.  */
-#define PRESERVE_FLOAT_FLAG 0x0010000 /* Save all 40 bits for floats.  */
-#define PARALLEL_INSN_FLAG  0x0020000 /* Allow parallel insns.  */
-#define PARALLEL_MPY_FLAG   0x0040000 /* Allow MPY||ADD, MPY||SUB insns.  */
-#define ALIASES_FLAG	    0x0080000 /* Assume mem refs possibly aliased.  */
-
-#define C30_FLAG            0x0100000 /* Emit C30 code.  */
-#define C31_FLAG            0x0200000 /* Emit C31 code.  */
-#define C32_FLAG            0x0400000 /* Emit C32 code.  */
-#define C33_FLAG            0x0800000 /* Emit C33 code.  */
-#define C40_FLAG            0x1000000 /* Emit C40 code.  */
-#define C44_FLAG            0x2000000 /* Emit C44 code.  */
-
-/* Run-time compilation parameters selecting different hardware subsets.
-
-   Macro to define tables used to set the flags.
-   This is a list in braces of triplets in braces,
-   each pair being { "NAME", VALUE, "DESCRIPTION" }
-   where VALUE is the bits to set or minus the bits to clear.
-   An empty string NAME is used to identify the default VALUE.  */
-
-#define TARGET_SWITCHES							\
-{ { "small", SMALL_MEMORY_FLAG,						\
-    N_("Small memory model") },						\
-  { "big", -SMALL_MEMORY_FLAG,						\
-    N_("Big memory model") },						\
-  { "mpyi", MPYI_FLAG,							\
-    N_("Use MPYI instruction for C3x") },				\
-  { "no-mpyi", -MPYI_FLAG,						\
-    N_("Do not use MPYI instruction for C3x") },			\
-  { "fast-fix", FAST_FIX_FLAG,						\
-    N_("Use fast but approximate float to integer conversion") },	\
-  { "no-fast-fix", -FAST_FIX_FLAG,					\
-    N_("Use slow but accurate float to integer conversion") },		\
-  { "rpts", RPTS_FLAG,							\
-    N_("Enable use of RTPS instruction") },				\
-  { "no-rpts", -RPTS_FLAG,						\
-    N_("Disable use of RTPS instruction") },				\
-  { "rptb", RPTB_FLAG,							\
-    N_("Enable use of RTPB instruction") },				\
-  { "no-rptb", -RPTB_FLAG,						\
-    N_("Disable use of RTPB instruction") },				\
-  { "30", C30_FLAG,							\
-    N_("Generate code for C30 CPU")},					\
-  { "31", C31_FLAG,							\
-    N_("Generate code for C31 CPU")},					\
-  { "32", C32_FLAG,							\
-    N_("Generate code for C32 CPU")},					\
-  { "33", C33_FLAG,							\
-    N_("Generate code for C33 CPU")},					\
-  { "40", C40_FLAG,							\
-    N_("Generate code for C40 CPU")},					\
-  { "44", C44_FLAG,							\
-    N_("Generate code for C44 CPU")},					\
-  { "ti", TI_FLAG,							\
-    N_("Emit code compatible with TI tools")},				\
-  { "no-ti", -TI_FLAG,							\
-    N_("Emit code to use GAS extensions")},				\
-  { "paranoid", PARANOID_FLAG,						\
-    N_("Save DP across ISR in small memory model") },			\
-  { "no-paranoid", -PARANOID_FLAG,					\
-    N_("Don't save DP across ISR in small memory model") },		\
-  { "isr-dp-reload", PARANOID_FLAG,					\
-    N_("Save DP across ISR in small memory model") },			\
-  { "no-isr-dp-reload", -PARANOID_FLAG,					\
-    N_("Don't save DP across ISR in small memory model") },		\
-  { "memparm", MEMPARM_FLAG,						\
-    N_("Pass arguments on the stack") },				\
-  { "regparm", -MEMPARM_FLAG,						\
-    N_("Pass arguments in registers") },				\
-  { "devel", DEVEL_FLAG,						\
-    N_("Enable new features under development") },			\
-  { "no-devel", -DEVEL_FLAG,						\
-    N_("Disable new features under development") },			\
-  { "bk", BK_FLAG,							\
-    N_("Use the BK register as a general purpose register") },		\
-  { "no-bk", -BK_FLAG,							\
-    N_("Do not allocate BK register") },				\
-  { "db", DB_FLAG,							\
-    N_("Enable use of DB instruction") },				\
-  { "no-db", -DB_FLAG,							\
-    N_("Disable use of DB instruction") },				\
-  { "debug", DEBUG_FLAG,						\
-    N_("Enable debugging") },						\
-  { "no-debug", -DEBUG_FLAG,						\
-    N_("Disable debugging") },						\
-  { "hoist", HOIST_FLAG,						\
-    N_("Force constants into registers to improve hoisting") },		\
-  { "no-hoist", -HOIST_FLAG,						\
-    N_("Don't force constants into registers") },			\
-  { "force", FORCE_FLAG,						\
-    N_("Force RTL generation to emit valid 3 operand insns") },		\
-  { "no-force", -FORCE_FLAG,						\
-    N_("Allow RTL generation to emit invalid 3 operand insns") },	\
-  { "loop-unsigned", LOOP_UNSIGNED_FLAG,				\
-    N_("Allow unsigned iteration counts for RPTB/DB") },		\
-  { "no-loop-unsigned", -LOOP_UNSIGNED_FLAG,				\
-    N_("Disallow unsigned iteration counts for RPTB/DB") },		\
-  { "preserve-float", PRESERVE_FLOAT_FLAG,				\
-    N_("Preserve all 40 bits of FP reg across call") },			\
-  { "no-preserve-float", -PRESERVE_FLOAT_FLAG,				\
-    N_("Only preserve 32 bits of FP reg across call") },		\
-  { "parallel-insns", PARALLEL_INSN_FLAG,				\
-    N_("Enable parallel instructions") },				\
-  { "no-parallel-insns", -PARALLEL_INSN_FLAG,				\
-    N_("Disable parallel instructions") },				\
-  { "parallel-mpy", PARALLEL_MPY_FLAG,					\
-    N_("Enable MPY||ADD and MPY||SUB instructions") },			\
-  { "no-parallel-mpy", -PARALLEL_MPY_FLAG,				\
-    N_("Disable MPY||ADD and MPY||SUB instructions") },			\
-  { "aliases", ALIASES_FLAG,						\
-    N_("Assume that pointers may be aliased") },			\
-  { "no-aliases", -ALIASES_FLAG,					\
-    N_("Assume that pointers not aliased") },				\
-  { "", TARGET_DEFAULT, ""} }
-
-/* Default target switches.  */
-
-/* Play safe, not the fastest code.  */
-#define TARGET_DEFAULT		ALIASES_FLAG | PARALLEL_INSN_FLAG \
-				| PARALLEL_MPY_FLAG | RPTB_FLAG
-
 /* Caveats:
    Max iteration count for RPTB/RPTS is 2^31 + 1.
    Max iteration count for DB is 2^31 + 1 for C40, but 2^23 + 1 for C30.
    RPTS blocks interrupts.  */
 
 
-extern int target_flags;
+extern int c4x_cpu_version;		/* Cpu version C30/31/32/33/40/44.  */
 
 #define TARGET_INLINE		(! optimize_size) /* Inline MPYI.  */
 #define TARGET_SMALL_REG_CLASS	0
 
-#define TARGET_SMALL		(target_flags & SMALL_MEMORY_FLAG)
-#define TARGET_MPYI		(!TARGET_C3X || (target_flags & MPYI_FLAG))
-#define TARGET_FAST_FIX		(target_flags & FAST_FIX_FLAG)
-#define TARGET_RPTS		(target_flags & RPTS_FLAG)
-#define TARGET_TI		(target_flags & TI_FLAG)
-#define TARGET_PARANOID		(target_flags & PARANOID_FLAG)
-#define TARGET_MEMPARM		(target_flags & MEMPARM_FLAG)
-#define TARGET_DEVEL		(target_flags & DEVEL_FLAG)
-#define TARGET_RPTB		(target_flags & RPTB_FLAG \
-				 && optimize >= 2)
-#define TARGET_BK		(target_flags & BK_FLAG)
-#define TARGET_DB		(! TARGET_C3X || (target_flags & DB_FLAG))
-#define TARGET_DEBUG		(target_flags & DEBUG_FLAG)
-#define TARGET_HOIST		(target_flags & HOIST_FLAG)
-#define TARGET_LOOP_UNSIGNED	(target_flags & LOOP_UNSIGNED_FLAG)
-#define TARGET_FORCE		(target_flags & FORCE_FLAG)
-#define	TARGET_PRESERVE_FLOAT	(target_flags & PRESERVE_FLOAT_FLAG)
-#define TARGET_PARALLEL		((target_flags & PARALLEL_INSN_FLAG) \
-				 && optimize >= 2)
-#define TARGET_PARALLEL_MPY	(TARGET_PARALLEL \
-				 && (target_flags & PARALLEL_MPY_FLAG))
-#define	TARGET_ALIASES		(target_flags & ALIASES_FLAG)
+#define TARGET_C3X		(c4x_cpu_version >= 30 \
+				 && c4x_cpu_version <= 39)
 
-#define TARGET_C3X		(target_flags & C3X_FLAG)
-#define TARGET_C30		(target_flags & C30_FLAG)
-#define TARGET_C31		(target_flags & C31_FLAG)
-#define TARGET_C32		(target_flags & C32_FLAG)
-#define TARGET_C33		(target_flags & C33_FLAG)
-#define TARGET_C40		(target_flags & C40_FLAG)
-#define TARGET_C44		(target_flags & C44_FLAG)
+#define TARGET_C30		(c4x_cpu_version == 30)
+#define TARGET_C31		(c4x_cpu_version == 31)
+#define TARGET_C32		(c4x_cpu_version == 32)
+#define TARGET_C33		(c4x_cpu_version == 33)
+#define TARGET_C40		(c4x_cpu_version == 40)
+#define TARGET_C44		(c4x_cpu_version == 44)
 
 /* Nonzero to use load_immed_addr pattern rather than forcing memory
    addresses into memory.  */
@@ -320,16 +152,6 @@ extern int target_flags;
    and less than max-cycles.  */
 
 #define TARGET_RPTS_CYCLES(CYCLES) (TARGET_RPTS || (CYCLES) < c4x_rpts_cycles)
-
-/* -mcpu=XX    with XX = target DSP version number.  */
-
-extern const char *c4x_rpts_cycles_string, *c4x_cpu_version_string;
-
-#define TARGET_OPTIONS						\
-{ {"rpts=", &c4x_rpts_cycles_string,				\
-   N_("Specify maximum number of iterations for RPTS"), 0},	\
-  {"cpu=", &c4x_cpu_version_string,				\
-   N_("Select CPU to generate code for"), 0} }
 
 /* Sometimes certain combinations of command options do not make sense
    on a particular target machine.  You can define a macro
@@ -1041,12 +863,12 @@ enum reg_class
 /* #define STACK_GROWS_DOWNWARD.  */
 /* Like the dsp16xx, i370, i960, and we32k ports.  */
 
-/* Define this if the nominal address of the stack frame
+/* Define this to nonzero if the nominal address of the stack frame
    is at the high-address end of the local variables;
    that is, each additional local variable allocated
    goes at a more negative offset in the frame.  */
 
-/* #define FRAME_GROWS_DOWNWARD.  */
+#define FRAME_GROWS_DOWNWARD 0
 
 
 /* Registers That Address the Stack Frame.  */
@@ -1416,37 +1238,6 @@ if (REG_P (OP1) && ! REG_P (OP0))			\
 #endif
 
 #define FINI_SECTION_ASM_OP  "\t.sect\t\".fini\""
-
-#undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_init, in_fini
-
-#undef EXTRA_SECTION_FUNCTIONS
-#define EXTRA_SECTION_FUNCTIONS					\
-  INIT_SECTION_FUNCTION						\
-  FINI_SECTION_FUNCTION
-
-#define INIT_SECTION_FUNCTION					\
-extern void init_section (void);				\
-void								\
-init_section (void)						\
-{								\
-  if (in_section != in_init)					\
-    {								\
-      fprintf (asm_out_file, ";\t.init\n");			\
-      in_section = in_init;					\
-    }								\
-}
-
-#define FINI_SECTION_FUNCTION					\
-void								\
-fini_section ()							\
-{								\
-  if (in_section != in_fini)					\
-    {								\
-      fprintf (asm_out_file, "%s\n", FINI_SECTION_ASM_OP);	\
-      in_section = in_fini;					\
-    }								\
-}
 
 /* Switch into a generic section.  */
 #define TARGET_ASM_NAMED_SECTION c4x_asm_named_section
@@ -1844,42 +1635,6 @@ if (final_sequence != NULL_RTX)				\
 /* We don't want a leading tab.  */
 
 #define ASM_OUTPUT_ASM(FILE, STRING) fprintf (FILE, "%s\n", STRING)
-
-/* Define the codes that are matched by predicates in c4x.c.  */
-
-#define PREDICATE_CODES						\
-  {"fp_zero_operand", {CONST_DOUBLE}},				\
-  {"const_operand", {CONST_INT, CONST_DOUBLE}},			\
-  {"stik_const_operand", {CONST_INT}},				\
-  {"not_const_operand", {CONST_INT}},				\
-  {"reg_operand", {REG, SUBREG}},				\
-  {"reg_or_const_operand", {REG, SUBREG, CONST_INT, CONST_DOUBLE}},\
-  {"r0r1_reg_operand", {REG, SUBREG}},				\
-  {"r2r3_reg_operand", {REG, SUBREG}},				\
-  {"ext_low_reg_operand", {REG, SUBREG}},			\
-  {"ext_reg_operand", {REG, SUBREG}},				\
-  {"std_reg_operand", {REG, SUBREG}},				\
-  {"std_or_reg_operand", {REG, SUBREG}},			\
-  {"addr_reg_operand", {REG, SUBREG}},				\
-  {"index_reg_operand", {REG, SUBREG}},				\
-  {"dp_reg_operand", {REG}},					\
-  {"sp_reg_operand", {REG}},					\
-  {"st_reg_operand", {REG}},					\
-  {"rc_reg_operand", {REG}},					\
-  {"call_address_operand", {REG, SYMBOL_REF, LABEL_REF, CONST}}, \
-  {"dst_operand", {SUBREG, REG, MEM}}, \
-  {"src_operand", {SUBREG, REG, MEM, CONST_INT, CONST_DOUBLE}}, \
-  {"src_hi_operand", {SUBREG, REG, MEM, CONST_DOUBLE}}, 	\
-  {"lsrc_operand", {SUBREG, REG, MEM, CONST_INT, CONST_DOUBLE}}, \
-  {"tsrc_operand", {SUBREG, REG, MEM, CONST_INT, CONST_DOUBLE}}, \
-  {"nonimmediate_src_operand", {SUBREG, REG, MEM}}, 		\
-  {"nonimmediate_lsrc_operand", {SUBREG, REG, MEM}}, 		\
-  {"any_operand", {SUBREG, REG, MEM, CONST_INT, CONST_DOUBLE}}, \
-  {"par_ind_operand", {MEM}},					\
-  {"parallel_operand", {SUBREG, REG, MEM}},			\
-  {"symbolic_address_operand", {SYMBOL_REF, LABEL_REF, CONST}},	\
-  {"mem_operand", {MEM}},					
-
 
 /* Define the intrinsic functions for the c3x/c4x.  */
 

@@ -1,18 +1,18 @@
 
 
-/*! @function foo
+/*! @function foo_define_001
 	@param a arg1
 	@param b arg2
  */
 
-#define foo(a, b) { printf(a, b) }
+#define foo_define_001(a, b) { printf(a, b) }
 
-/*! @function bar
+/*! @function bar_define_001
 	@param c arg3
 	@param d arg4
  */
 
-#define bar(c, d) { \
+#define bar_define_001(c, d) { \
 	printf(c, d) \
 	}
 

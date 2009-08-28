@@ -1,9 +1,9 @@
 /*
- * "$Id: language.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: language.c 7558 2008-05-12 23:46:44Z mike $"
  *
  *   I18N/language support for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007-2008 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -345,7 +345,7 @@ cupsLangFlush(void)
 /*
  * 'cupsLangFree()' - Free language data.
  *
- * This does not actually free anything; use cupsLangFlush() for that.
+ * This does not actually free anything; use @link cupsLangFlush@ for that.
  */
 
 void
@@ -429,7 +429,7 @@ cupsLangGet(const char *language)	/* I - Language or locale */
 		};
 
 
-  DEBUG_printf(("cupsLangGet(language=\"%s\")\n", language ? language : "(null)"));
+  DEBUG_printf(("2cupsLangGet(language=\"%s\")", language));
 
 #ifdef __APPLE__
  /*
@@ -443,8 +443,13 @@ cupsLangGet(const char *language)	/* I - Language or locale */
   * preference so we have to look it up this way...
   */
 
-  if (!language && (language = getenv("LANG")) == NULL)
-    language = appleLangDefault();
+  if (!language)
+  {
+    if (!getenv("SOFTWARE") || (language = getenv("LANG")) == NULL)
+      language = appleLangDefault();
+
+    DEBUG_printf(("4cupsLangGet: language=\"%s\"", language));
+  }
 
 #else
  /*
@@ -472,8 +477,7 @@ cupsLangGet(const char *language)	/* I - Language or locale */
     ptr = setlocale(LC_ALL, NULL);
 #  endif /* LC_MESSAGES */
 
-    DEBUG_printf(("cupsLangGet: current locale is \"%s\"\n",
-                  ptr ? ptr : "(null)"));
+    DEBUG_printf(("4cupsLangGet: current locale is \"%s\"", ptr));
 
     if (!ptr || !strcmp(ptr, "C") || !strcmp(ptr, "POSIX"))
     {
@@ -521,7 +525,7 @@ cupsLangGet(const char *language)	/* I - Language or locale */
       if (!strncmp(locale, "nb", 2))
         locale[1] = 'o';
 
-      DEBUG_printf(("cupsLangGet: new language value is \"%s\"\n", language));
+      DEBUG_printf(("4cupsLangGet: new language value is \"%s\"", language));
     }
   }
 #endif /* __APPLE__ */
@@ -558,8 +562,8 @@ cupsLangGet(const char *language)	/* I - Language or locale */
 
     *ptr = '\0';
 
-    DEBUG_printf(("cupsLangGet: charset set to \"%s\" via nl_langinfo(CODESET)...\n",
-                  charset));
+    DEBUG_printf(("4cupsLangGet: charset set to \"%s\" via "
+                  "nl_langinfo(CODESET)...", charset));
   }
 #endif /* CODESET */
 
@@ -638,7 +642,7 @@ cupsLangGet(const char *language)	/* I - Language or locale */
     }
   }
 
-  DEBUG_printf(("cupsLangGet: langname=\"%s\", country=\"%s\", charset=\"%s\"\n",
+  DEBUG_printf(("4cupsLangGet: langname=\"%s\", country=\"%s\", charset=\"%s\"",
                 langname, country, charset));
 
  /*
@@ -676,7 +680,7 @@ cupsLangGet(const char *language)	/* I - Language or locale */
     }
   }
 
-  DEBUG_printf(("cupsLangGet: encoding=%d(%s)\n", encoding,
+  DEBUG_printf(("4cupsLangGet: encoding=%d(%s)", encoding,
                 encoding == CUPS_AUTO_ENCODING ? "auto" :
 		    lang_encodings[encoding]));
 
@@ -707,6 +711,8 @@ cupsLangGet(const char *language)	/* I - Language or locale */
     pthread_mutex_unlock(&lang_mutex);
 #endif /* HAVE_PTHREAD_H */
 
+    DEBUG_printf(("3cupsLangGet: Using cached copy of \"%s\"...", real));
+
     return (lang);
   }
 
@@ -725,7 +731,8 @@ cupsLangGet(const char *language)	/* I - Language or locale */
       * No generic localization, so use POSIX...
       */
 
-      DEBUG_printf(("access(\"%s\", 0): %s\n", filename, strerror(errno)));
+      DEBUG_printf(("4cupsLangGet: access(\"%s\", 0): %s", filename,
+                    strerror(errno)));
 
       snprintf(filename, sizeof(filename), "%s/C/cups_C.po", cg->localedir);
     }
@@ -783,7 +790,7 @@ cupsLangGet(const char *language)	/* I - Language or locale */
   * Read the strings from the file...
   */
 
-  lang->strings = _cupsMessageLoad(filename);
+  lang->strings = _cupsMessageLoad(filename, 1);
 
  /*
   * Return...
@@ -875,7 +882,8 @@ _cupsMessageFree(cups_array_t *a)	/* I - Message array */
  */
 
 cups_array_t *				/* O - New message array */
-_cupsMessageLoad(const char *filename)	/* I - Message catalog to load */
+_cupsMessageLoad(const char *filename,	/* I - Message catalog to load */
+                 int        unquote)	/* I - Unescape \foo in strings */
 {
   cups_file_t		*fp;		/* Message file */
   cups_array_t		*a;		/* Message array */
@@ -886,21 +894,28 @@ _cupsMessageLoad(const char *filename)	/* I - Message catalog to load */
   int			length;		/* Length of combined strings */
 
 
-  DEBUG_printf(("_cupsMessageLoad(filename=\"%s\")\n", filename));
+  DEBUG_printf(("4_cupsMessageLoad(filename=\"%s\")", filename));
 
  /*
   * Create an array to hold the messages...
   */
 
   if ((a = cupsArrayNew((cups_array_func_t)cups_message_compare, NULL)) == NULL)
+  {
+    DEBUG_puts("5_cupsMessageLoad: Unable to allocate array!");
     return (NULL);
+  }
 
  /*
   * Open the message catalog file...
   */
 
   if ((fp = cupsFileOpen(filename, "r")) == NULL)
+  {
+    DEBUG_printf(("5_cupsMessageLoad: Unable to open file: %s",
+                  strerror(errno)));
     return (a);
+  }
 
  /*
   * Read messages from the catalog file until EOF...
@@ -952,7 +967,8 @@ _cupsMessageLoad(const char *filename)	/* I - Message catalog to load */
     * Unquote the text...
     */
 
-    cups_unquote(ptr, ptr);
+    if (unquote)
+      cups_unquote(ptr, ptr);
 
    /*
     * Create or add to a message...
@@ -1051,6 +1067,9 @@ _cupsMessageLoad(const char *filename)	/* I - Message catalog to load */
 
   cupsFileClose(fp);
 
+  DEBUG_printf(("5_cupsMessageLoad: Returning %d messages...",
+                cupsArrayCount(a)));
+
   return (a);
 }
 
@@ -1102,13 +1121,15 @@ appleLangDefault(void)
   					/* Pointer to library globals */
 
 
+  DEBUG_puts("2appleLangDefault()");
+
  /*
   * Only do the lookup and translation the first time.
   */
 
   if (!cg->language[0])
   {
-    if ((lang = getenv("LANG")))
+    if (getenv("SOFTWARE") != NULL && (lang = getenv("LANG")) != NULL)
     {
       strlcpy(cg->language, lang, sizeof(cg->language));
       return (cg->language);
@@ -1145,7 +1166,7 @@ appleLangDefault(void)
 			       kCFStringEncodingASCII);
 	    CFRelease(localeName);
 
-	    DEBUG_printf(("appleLangDefault: cg->language=\"%s\"\n",
+	    DEBUG_printf(("9appleLangDefault: cg->language=\"%s\"",
 			  cg->language));
 
 	   /*
@@ -1159,7 +1180,7 @@ appleLangDefault(void)
 	    {
 	      if (!strcmp(cg->language, apple_language_locale[i].language))
 	      {
-		DEBUG_printf(("appleLangDefault: mapping \"%s\" to \"%s\"...\n",
+		DEBUG_printf(("9appleLangDefault: mapping \"%s\" to \"%s\"...",
 			      cg->language, apple_language_locale[i].locale));
 		strlcpy(cg->language, apple_language_locale[i].locale, 
 			sizeof(cg->language));
@@ -1212,7 +1233,7 @@ cups_cache_lookup(const char      *name,/* I - Name of locale */
   cups_lang_t	*lang;			/* Current language */
 
 
-  DEBUG_printf(("cups_cache_lookup(name=\"%s\", encoding=%d(%s))\n", name,
+  DEBUG_printf(("7cups_cache_lookup(name=\"%s\", encoding=%d(%s))", name,
                 encoding, encoding == CUPS_AUTO_ENCODING ? "auto" :
 		              lang_encodings[encoding]));
 
@@ -1222,8 +1243,8 @@ cups_cache_lookup(const char      *name,/* I - Name of locale */
 
   for (lang = lang_cache; lang != NULL; lang = lang->next)
   {
-    DEBUG_printf(("cups_cache_lookup: lang=%p, language=\"%s\", encoding=%d(%s)\n",
-                  lang, lang->language, lang->encoding,
+    DEBUG_printf(("9cups_cache_lookup: lang=%p, language=\"%s\", "
+		  "encoding=%d(%s)", lang, lang->language, lang->encoding,
 		  lang_encodings[lang->encoding]));
 
     if (!strcmp(lang->language, name) &&
@@ -1231,13 +1252,13 @@ cups_cache_lookup(const char      *name,/* I - Name of locale */
     {
       lang->used ++;
 
-      DEBUG_puts("cups_cache_lookup: returning match!");
+      DEBUG_puts("8cups_cache_lookup: returning match!");
 
       return (lang);
     }
   }
 
-  DEBUG_puts("cups_cache_lookup: returning NULL!");
+  DEBUG_puts("8cups_cache_lookup: returning NULL!");
 
   return (NULL);
 }
@@ -1304,5 +1325,5 @@ cups_unquote(char       *d,		/* O - Unquoted string */
 
 
 /*
- * End of "$Id: language.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: language.c 7558 2008-05-12 23:46:44Z mike $".
  */

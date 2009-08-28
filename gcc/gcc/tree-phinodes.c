@@ -1,5 +1,5 @@
 /* Generic routines for manipulating PHIs
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -15,8 +15,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -197,16 +197,14 @@ ideal_phi_node_len (int len)
   return new_len;
 }
 
-/* Return a PHI node for variable VAR defined in statement STMT.
-   STMT may be an empty statement for artificial references (e.g., default
-   definitions created when a variable is used without a preceding
-   definition).  */
+
+/* Return a PHI node with LEN argument slots for variable VAR.  */
 
 static tree
 make_phi_node (tree var, int len)
 {
   tree phi;
-  int capacity;
+  int capacity, i;
 
   capacity = ideal_phi_node_len (len);
 
@@ -226,6 +224,15 @@ make_phi_node (tree var, int len)
   else
     SET_PHI_RESULT (phi, make_ssa_name (var, phi));
 
+  for (i = 0; i < capacity; i++)
+    {
+      use_operand_p  imm;
+      imm = &(PHI_ARG_IMM_USE_NODE (phi, i));
+      imm->use = &(PHI_ARG_DEF_TREE (phi, i));
+      imm->prev = NULL;
+      imm->next = NULL;
+      imm->stmt = phi;
+    }
   return phi;
 }
 
@@ -236,6 +243,14 @@ release_phi_node (tree phi)
 {
   int bucket;
   int len = PHI_ARG_CAPACITY (phi);
+  int x;
+
+  for (x = 0; x < PHI_NUM_ARGS (phi); x++)
+    {
+      use_operand_p  imm;
+      imm = &(PHI_ARG_IMM_USE_NODE (phi, x));
+      delink_imm_use (imm);
+    }
 
   bucket = len > NUM_BUCKETS - 1 ? NUM_BUCKETS - 1 : len;
   bucket -= 2;
@@ -250,7 +265,7 @@ release_phi_node (tree phi)
 static void
 resize_phi_node (tree *phi, int len)
 {
-  int old_size;
+  int old_size, i;
   tree new_phi;
 
   gcc_assert (len > PHI_ARG_CAPACITY (*phi));
@@ -265,7 +280,27 @@ resize_phi_node (tree *phi, int len)
 
   memcpy (new_phi, *phi, old_size);
 
+  for (i = 0; i < PHI_NUM_ARGS (new_phi); i++)
+    {
+      use_operand_p imm, old_imm;
+      imm = &(PHI_ARG_IMM_USE_NODE (new_phi, i));
+      old_imm = &(PHI_ARG_IMM_USE_NODE (*phi, i));
+      imm->use = &(PHI_ARG_DEF_TREE (new_phi, i));
+      relink_imm_use_stmt (imm, old_imm, new_phi);
+    }
+
   PHI_ARG_CAPACITY (new_phi) = len;
+
+  for (i = PHI_NUM_ARGS (new_phi); i < len; i++)
+    {
+      use_operand_p imm;
+      imm = &(PHI_ARG_IMM_USE_NODE (new_phi, i));
+      imm->use = &(PHI_ARG_DEF_TREE (new_phi, i));
+      imm->prev = NULL;
+      imm->next = NULL;
+      imm->stmt = new_phi;
+    }
+
 
   *phi = new_phi;
 }
@@ -279,7 +314,7 @@ reserve_phi_args_for_new_edge (basic_block bb)
   int len = EDGE_COUNT (bb->preds);
   int cap = ideal_phi_node_len (len + 4);
 
-  for (loc = &(bb_ann (bb)->phi_nodes);
+  for (loc = &(bb->phi_nodes);
        *loc;
        loc = &PHI_CHAIN (*loc))
     {
@@ -319,7 +354,7 @@ create_phi_node (tree var, basic_block bb)
 
   /* Add the new PHI node to the list of PHI nodes for block BB.  */
   PHI_CHAIN (phi) = phi_nodes (bb);
-  bb_ann (bb)->phi_nodes = phi;
+  bb->phi_nodes = phi;
 
   /* Associate BB to the PHI node.  */
   set_bb_for_stmt (phi, bb);
@@ -357,7 +392,6 @@ add_phi_arg (tree phi, tree def, edge e)
     }
 
   SET_PHI_ARG_DEF (phi, e->dest_idx, def);
-  PHI_ARG_NONZERO (phi, e->dest_idx) = false;
 }
 
 /* Remove the Ith argument from PHI's argument list.  This routine
@@ -372,18 +406,25 @@ remove_phi_arg_num (tree phi, int i)
 
   gcc_assert (i < num_elem);
 
-  /* If we are not at the last element, switch the last element
-     with the element we want to delete.  */
+
+  /* Delink the item which is being removed.  */
+  delink_imm_use (&(PHI_ARG_IMM_USE_NODE (phi, i)));
+
+  /* If it is not the last element, move the last element
+     to the element we want to delete, resetting all the links. */
   if (i != num_elem - 1)
     {
-      SET_PHI_ARG_DEF (phi, i, PHI_ARG_DEF (phi, num_elem - 1));
-      PHI_ARG_NONZERO (phi, i) = PHI_ARG_NONZERO (phi, num_elem - 1);
+      use_operand_p old_p, new_p;
+      old_p = &PHI_ARG_IMM_USE_NODE (phi, num_elem - 1);
+      new_p = &PHI_ARG_IMM_USE_NODE (phi, i);
+      /* Set use on new node, and link into last element's place.  */
+      *(new_p->use) = *(old_p->use);
+      relink_imm_use (new_p, old_p);
     }
 
   /* Shrink the vector and return.  Note that we do not have to clear
-     PHI_ARG_DEF or PHI_ARG_NONZERO because the garbage collector will
-     not look at those elements beyond the first PHI_NUM_ARGS elements
-     of the array.  */
+     PHI_ARG_DEF because the garbage collector will not look at those
+     elements beyond the first PHI_NUM_ARGS elements of the array.  */
   PHI_NUM_ARGS (phi)--;
 }
 
@@ -402,92 +443,31 @@ remove_phi_args (edge e)
    used as the node immediately before PHI in the linked list.  */
 
 void
-remove_phi_node (tree phi, tree prev, basic_block bb)
+remove_phi_node (tree phi, tree prev)
 {
+  tree *loc;
+
   if (prev)
     {
-      /* Rewire the list if we are given a PREV pointer.  */
-      PHI_CHAIN (prev) = PHI_CHAIN (phi);
-
-      /* If we are deleting the PHI node, then we should release the
-	 SSA_NAME node so that it can be reused.  */
-      release_ssa_name (PHI_RESULT (phi));
-      release_phi_node (phi);
-    }
-  else if (phi == phi_nodes (bb))
-    {
-      /* Update the list head if removing the first element.  */
-      bb_ann (bb)->phi_nodes = PHI_CHAIN (phi);
-
-      /* If we are deleting the PHI node, then we should release the
-	 SSA_NAME node so that it can be reused.  */
-      release_ssa_name (PHI_RESULT (phi));
-      release_phi_node (phi);
+      loc = &PHI_CHAIN (prev);
     }
   else
     {
-      /* Traverse the list looking for the node to remove.  */
-      tree prev, t;
-      prev = NULL_TREE;
-      for (t = phi_nodes (bb); t && t != phi; t = PHI_CHAIN (t))
-	prev = t;
-      if (t)
-	remove_phi_node (t, prev, bb);
+      for (loc = &(bb_for_stmt (phi)->phi_nodes);
+	   *loc != phi;
+	   loc = &PHI_CHAIN (*loc))
+	;
     }
+
+  /* Remove PHI from the chain.  */
+  *loc = PHI_CHAIN (phi);
+
+  /* If we are deleting the PHI node, then we should release the
+     SSA_NAME node so that it can be reused.  */
+  release_phi_node (phi);
+  release_ssa_name (PHI_RESULT (phi));
 }
 
-
-/* Remove all the PHI nodes for variables in the VARS bitmap.  */
-
-void
-remove_all_phi_nodes_for (bitmap vars)
-{
-  basic_block bb;
-
-  FOR_EACH_BB (bb)
-    {
-      /* Build a new PHI list for BB without variables in VARS.  */
-      tree phi, new_phi_list, next;
-      tree *lastp = &new_phi_list;
-
-      for (phi = phi_nodes (bb); phi; phi = next)
-	{
-	  tree var = SSA_NAME_VAR (PHI_RESULT (phi));
-
-	  next = PHI_CHAIN (phi);
-	  /* Only add PHI nodes for variables not in VARS.  */
-	  if (!bitmap_bit_p (vars, var_ann (var)->uid))
-	    {
-	      /* If we're not removing this PHI node, then it must have
-		 been rewritten by a previous call into the SSA rewriter.
-		 Note that fact in PHI_REWRITTEN.  */
-	      PHI_REWRITTEN (phi) = 1;
-
-	      *lastp = phi;
-	      lastp = &PHI_CHAIN (phi);
-	    }
-	  else
-	    {
-	      /* If we are deleting the PHI node, then we should release the
-		 SSA_NAME node so that it can be reused.  */
-	      release_ssa_name (PHI_RESULT (phi));
-	      release_phi_node (phi);
-	    }
-	}
-
-      /* Make sure the last node in the new list has no successors.  */
-      *lastp = NULL;
-      bb_ann (bb)->phi_nodes = new_phi_list;
-
-#if defined ENABLE_CHECKING
-      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-	{
-	  tree var = SSA_NAME_VAR (PHI_RESULT (phi));
-	  gcc_assert (!bitmap_bit_p (vars, var_ann (var)->uid));
-	}
-#endif
-    }
-}
 
 /* Reverse the order of PHI nodes in the chain PHI.
    Return the new head of the chain (old last PHI node).  */
@@ -506,4 +486,3 @@ phi_reverse (tree phi)
 }
 
 #include "gt-tree-phinodes.h"
-

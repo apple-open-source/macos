@@ -1,5 +1,8 @@
-# $Id: Makefile.in,v 1.1.1.1 2002/10/26 04:23:42 lukem Exp $
+# $NetBSD: Makefile.in,v 1.5 2008/09/27 16:03:25 lukem Exp $
 #
+
+PROG	= tnftpd@EXEEXT@
+SUBDIRS	= libnetbsd src
 
 srcdir	= @srcdir@
 VPATH	= @srcdir@
@@ -7,23 +10,24 @@ SHELL	= /bin/sh
 
 @SET_MAKE@
 
-SUBDIRS	= libnetbsd src
 
-all:	ftpd
+all:	${PROG}
 
-ftpd:	@LIBNETBSD@
-	( cd src; ${MAKE} )
+${PROG}: @LIBNETBSD@
+	( cd src && ${MAKE} all )
 
 libnetbsd.a:
-	( cd libnetbsd; ${MAKE} )
+	( cd libnetbsd && ${MAKE} all )
 
 install clean:
 	@for i in ${SUBDIRS}; do \
-	    ( echo "$@ ===> $$i" ; cd $$i ; ${MAKE} $@ ); \
+	    ( echo "$@ ===> $$i" ; cd $$i && ${MAKE} $@ ); \
 	done
 
 distclean: clean
 	@for i in ${SUBDIRS}; do \
-	    ( echo "$@ ===> $$i" ; cd $$i ; ${MAKE} $@ ); \
+	    ( echo "$@ ===> $$i" ; cd $$i && ${MAKE} $@ ); \
 	done
 	rm -f Makefile config.cache config.log config.status config.h
+
+.PHONY: all install clean distclean

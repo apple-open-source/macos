@@ -11,12 +11,11 @@
 #include "slap.h"
 #include "overlayutils.h"
 
-static AttributeDescription	*record_uuid;
-
 typedef struct adpair {
 	struct adpair *ap_next;
 	AttributeDescription *memberAttr;
 	AttributeDescription *expandAttr;
+	AttributeDescription *uuidAttr;
 } adpair;
 
 typedef struct nestedgroup_id_to_dn_t {
@@ -61,7 +60,7 @@ nestedgroup_is_member (
 	nestedgroup_ismember_t ismember =  {0};
 	int rc = 0;
 	
-	target_bd = select_backend(&op->o_req_ndn, 0 , 0);
+	target_bd = select_backend(&op->o_req_ndn, 0);
 	
 	if (!target_bd || !target_bd->be_compare)
 		return LDAP_NOT_SUPPORTED;
@@ -136,7 +135,7 @@ nestedgroup_id_to_dn (
 	nestedgroup_id_to_dn_t dn_result =  {0};
 	int rc = 0;
 	
-	target_bd = select_backend(&op->o_req_ndn, 0 , 0);
+	target_bd = select_backend(&op->o_req_ndn, 0);
 	
 	if (!target_bd || !target_bd->be_search)
 		return LDAP_NOT_SUPPORTED;
@@ -193,7 +192,7 @@ nestedgroup_getgroup(Operation *op, adpair *ap, int *isMember )
 	};
 	
 	*isMember = 0;
-	op->o_bd = select_backend( &op->o_req_ndn, 0, 0 );
+	op->o_bd = select_backend( &op->o_req_ndn, 0);
 	
 	if (op->o_bd) {
 		rc = be_entry_get_rw( op, &op->o_req_ndn, NULL, ap->expandAttr, 0, &e );
@@ -213,7 +212,7 @@ nestedgroup_getgroup(Operation *op, adpair *ap, int *isMember )
 						dump_berval( &(members->a_nvals[i]) );
 						struct berval member_dn = BER_BVNULL;
 						
-						nestedgroup_id_to_dn (op, record_uuid, &(members->a_nvals[i]), &member_dn);
+						nestedgroup_id_to_dn (op, ap->uuidAttr, &(members->a_nvals[i]), &member_dn);
 						if (!BER_BVISNULL(&member_dn)) {
 							*isMember = 0;
 							nestedgroup_is_member (op, &member_dn, op->oq_compare.rs_ava->aa_desc, &op->oq_compare.rs_ava->aa_value, isMember);
@@ -306,7 +305,7 @@ static int nestedgroup_config(
 			return( 1 );
 		}
 
-		if ( slap_str2ad( "apple-generateduid", &record_uuid, &text ) ) {
+		if ( slap_str2ad( "apple-generateduid", &ap.uuidAttr, &text ) ) {
 			Debug( LDAP_DEBUG_ANY,"unable to lookup apple-generateduid [%s]\n", text, 0, 0);
 			return( 1 );
 		}
@@ -315,6 +314,7 @@ static int nestedgroup_config(
 		a2->ap_next = on->on_bi.bi_private;
 		a2->memberAttr = ap.memberAttr;
 		a2->expandAttr = ap.expandAttr;
+		a2->uuidAttr = ap.uuidAttr;
 		on->on_bi.bi_private = a2;
 	} else {
 		return SLAP_CONF_UNKNOWN;
@@ -385,9 +385,9 @@ ng_cfgen( ConfigArgs *c )
 		case NG_EXPANDATTRIBUTE:
 			if ( ap && ap->memberAttr && ap->expandAttr) {
 				struct berval bv;
-				bv.bv_len = sprintf( c->msg, "%s %s",
+				bv.bv_len = sprintf( c->cr_msg, "%s %s",
 					ap->memberAttr->ad_cname.bv_val, ap->expandAttr->ad_cname.bv_val);
-				bv.bv_val = c->msg;
+				bv.bv_val = c->cr_msg;
 				value_add_one( &c->rvalue_vals, &bv );
 				Debug(LDAP_DEBUG_CONFIG, "[SLAP_CONFIG_EMIT] nestedgroup-expandattribute target Attribute (%s) expanded Attribute (%s)\n", ap->memberAttr->ad_cname.bv_val, ap->expandAttr->ad_cname.bv_val, 0);
 			} else {
@@ -406,42 +406,43 @@ ng_cfgen( ConfigArgs *c )
 
 	switch( c->type ) {
 		case NG_EXPANDATTRIBUTE: {
-			AttributeDescription *targetAD = NULL, *expandedAD = NULL;
+			AttributeDescription *targetAD = NULL, *expandedAD = NULL, *uuidAttr = NULL;
 			adpair *aplist = (adpair *)on->on_bi.bi_private;
 			const char		*text;
 			
 			rc = slap_str2ad( c->argv[ 1 ], &targetAD, &text );
 			if ( rc != LDAP_SUCCESS ) {
-				snprintf( c->msg, sizeof( c->msg ),
+				snprintf( c->cr_msg, sizeof( c->cr_msg ),
 					"\"nestedgroup-expandattribute [<target attrbute>] [<expanded attribute>]\": "
 					"unable to find AttributeDescription \"%s\"",
 					c->argv[ 1 ] );
 				Debug( LDAP_DEBUG_CONFIG, "%s: %s.\n",
-					c->log, c->msg, 0 );
+					c->log, c->cr_msg, 0 );
 				return ARG_BAD_CONF;
 			}
 			Debug(LDAP_DEBUG_CONFIG, "=> nestedgroup-expandattribute  target AttributeDescription (%s)\n", targetAD->ad_cname.bv_val, 0, 0);
 	
 			rc = slap_str2ad( c->argv[ 2 ], &expandedAD, &text );
 			if ( rc != LDAP_SUCCESS ) {
-				snprintf( c->msg, sizeof( c->msg ),
+				snprintf( c->cr_msg, sizeof( c->cr_msg ),
 					"\"nestedgroup-expandattribute [<target attrbute>] [<expanded attribute>]\": "
 					"unable to find AttributeDescription \"%s\"",
 					c->argv[ 2 ] );
 				Debug( LDAP_DEBUG_CONFIG, "%s: %s.\n",
-					c->log, c->msg, 0 );
+					c->log, c->cr_msg, 0 );
 				return ARG_BAD_CONF;
 			}
 			Debug(LDAP_DEBUG_CONFIG, "=> nestedgroup-expandattribute  expanded AttributeDescription (%s)\n", expandedAD->ad_cname.bv_val, 0, 0);
 
-			aplist->memberAttr = targetAD;
-			aplist->expandAttr = expandedAD;
-			
-			if ( slap_str2ad( "apple-generateduid", &record_uuid, &text ) ) {
+			rc = slap_str2ad( "apple-generateduid", &uuidAttr, &text );
+			if ( rc != LDAP_SUCCESS ) {
 				Debug( LDAP_DEBUG_ANY,"nestedgroup: unable to lookup apple-generateduid [%s]\n", text, 0, 0);
 				return( -1 );
 			}
 
+			aplist->memberAttr = targetAD;
+			aplist->expandAttr = expandedAD;
+			aplist->uuidAttr = uuidAttr;
 		} break;
 
 		default:

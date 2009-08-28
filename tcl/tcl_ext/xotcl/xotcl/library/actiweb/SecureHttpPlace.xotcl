@@ -1,0 +1,52 @@
+# $Id: SecureHttpPlace.xotcl,v 1.3 2005/09/09 21:09:01 neumann Exp $
+
+package provide xotcl::actiweb::secureHttpPlace 0.8
+
+package require xotcl::actiweb::httpPlace
+
+package require XOTcl
+
+namespace eval ::xotcl::actiweb::secureHttpPlace {
+    namespace import ::xotcl::*
+
+    Class SecurePlace -superclass Place -parameter {
+	{port 443}
+	{requestCert 0}
+	{requireValidCert 0}
+	{certfile server.pem}
+	{keyfile server.key} 
+	{cafile cacert.pem}
+	{infoCb {}}
+    }
+
+    SecurePlace instproc startHttpd {} {
+	my instvar port root  requestCert requireValidCert \
+	    certfile cafile infoCb keyfile
+	Httpsd h1 -port $port \
+	    -root $root \
+	    -httpdWrk SecurePlace::HttpsdWrk \
+	    -infoCb $infoCb \
+	    -requestCert $requestCert \
+	    -requireValidCert $requireValidCert \
+	    -certfile $certfile -cafile $cafile \
+	    -keyfile $keyfile
+    }
+
+    SecurePlace instproc init args {
+	my set startHTTPServer 0
+	next
+	[self] startHttpd
+    }
+
+    Class SecurePlace::HttpsdWrk -superclass {Httpsd::Wrk Place::HttpdWrk} 
+
+    namespace export SecurePlace
+    namespace eval SecurePlace {
+	namespace export HttpsdWrk
+    }
+}
+
+namespace import ::xotcl::actiweb::secureHttpPlace::*
+namespace eval SecurePlace {
+    namespace import ::xotcl::actiweb::secureHttpPlace::SecurePlace::*
+}

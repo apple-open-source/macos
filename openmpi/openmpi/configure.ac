@@ -699,7 +699,8 @@ AC_CACHE_SAVE
 
 ompi_show_title "Library and Function tests"
 
-AC_CHECK_LIB([util], [openpty])
+# Darwin doesn't need -lutil, as it's something other than this -lutil.
+OMPI_CHECK_FUNC_LIB([openpty], [util])
 
 AC_CHECK_LIB([nsl], [gethostbyname])
 
@@ -815,6 +816,24 @@ AC_DEFINE_UNQUOTED(OMPI_OFFSET_DATATYPE, $MPI_OFFSET_DATATYPE, [MPI datatype cor
 AC_C_BIGENDIAN
 
 OMPI_CHECK_BROKEN_QSORT
+
+AC_CACHE_CHECK([if word-sized integers must be word-size aligned],
+    [ompi_cv_c_word_size_align],
+    [AC_LANG_PUSH(C)
+     AC_RUN_IFELSE([AC_LANG_PROGRAM([dnl
+#include <stdlib.h>], [[    long data[2] = {0, 0};
+    long *lp;
+    int *ip;
+    ip = (int*) data;
+    ip++;
+    lp = (long*) ip;
+    return lp[0]; ]])],
+        [ompi_cv_c_word_size_align=no],
+        [ompi_cv_c_word_size_align=yes],
+        [ompi_cv_c_word_size_align=yes])])
+AS_IF([test $ompi_cv_c_word_size_align = yes], [results=1], [results=0])
+AC_DEFINE_UNQUOTED([OMPI_ALIGN_WORD_SIZE_INTEGERS], [$results],
+    [set to 1 if word-size integers must be aligned to word-size padding to prevent bus errors])
 
 # all: SYSV semaphores
 # all: SYSV shared memory
@@ -1094,6 +1113,27 @@ AC_SUBST(FCFLAGS)
 
 ompi_show_subtitle "Wrapper compiler flags"
 OMPI_SETUP_WRAPPER_FINAL
+
+# Recreate some defines prefixed with OMPI_ so that there are no bare
+# autoconf macro defines in mpi.h.  Since AC sometimes changes whether
+# things are defined as null tokens or an integer result, two projects
+# with different versions of AC can cause problems.
+if test $ac_cv_header_stdc = yes; then
+  AC_DEFINE(OMPI_STDC_HEADERS, 1,
+	    [Do not use outside of mpi.h.  Define to 1 if you have the ANSI C header files.])
+fi
+if test $ac_cv_header_sys_time_h = yes ; then
+  AC_DEFINE(OMPI_HAVE_SYS_TIME_H, 1,
+	    [Do not use outside of mpi.h.  Define to 1 if you have the <sys/time.h> header file.])
+fi
+if test $ac_cv_type_long_long = yes ; then
+  AC_DEFINE(OMPI_HAVE_LONG_LONG, 1,
+	    [Do not use outside of mpi.h.  Define to 1 if the system has the type `long long'.]) dnl `
+fi
+AC_DEFINE_UNQUOTED(OMPI_SIZEOF_BOOL, $ac_cv_sizeof_bool,
+          [Do not use outside of mpi.h.  The size of a `bool', as computed by sizeof.]) dnl `
+AC_DEFINE_UNQUOTED(OMPI_SIZEOF_INT, $ac_cv_sizeof_int,
+          [Do not use outside of mpi.h.  The size of a `int', as computed by sizeof.]) dnl `
 
 ############################################################################
 # Party on

@@ -1,4 +1,6 @@
-/* $Id: remoteconf.c,v 1.26.2.5 2005/11/06 17:18:26 monas Exp $ */
+/*	$NetBSD: remoteconf.c,v 1.9.4.1 2007/08/01 11:52:22 vanhu Exp $	*/
+
+/* Id: remoteconf.c,v 1.38 2006/05/06 15:52:44 manubsd Exp */
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -60,18 +62,23 @@
 #include "debug.h"
 
 #include "isakmp_var.h"
+#ifdef ENABLE_HYBRID
+#include "isakmp_xauth.h"
+#endif
 #include "isakmp.h"
 #include "ipsec_doi.h"
 #include "oakley.h"
 #include "remoteconf.h"
 #include "localconf.h"
 #include "grabmyaddr.h"
+#include "policy.h"
 #include "proposal.h"
 #include "vendorid.h"
 #include "gcmalloc.h"
 #include "strnames.h"
 #include "algorithm.h"
 #include "nattraversal.h"
+#include "isakmp_frag.h"
 #include "genlist.h"
 #include "rsalist.h"
 
@@ -81,7 +88,6 @@ static TAILQ_HEAD(_rmtree, remoteconf) rmtree;
  * Script hook names and script hook paths
  */
 char *script_names[SCRIPT_MAX + 1] = { "phase1_up", "phase1_down" };
-vchar_t *script_paths = NULL;
 
 /*%%%*/
 /*
@@ -147,6 +153,11 @@ getrmconf_strict(remote, allow_anon)
 	}
 
 	TAILQ_FOREACH(p, &rmtree, chain) {
+#ifdef __APPLE__
+		if (p->to_delete || p->to_remove) {
+			continue;
+		}
+#endif
 		if ((remote->sa_family == AF_UNSPEC
 		     && remote->sa_family == p->remote->sa_family)
 		 || (!withport && cmpsaddrwop(remote, p->remote) == 0)
@@ -173,12 +184,63 @@ getrmconf_strict(remote, allow_anon)
 	return NULL;
 }
 
+int
+no_remote_configs()
+{
+	
+	struct remoteconf *p;
+
+	TAILQ_FOREACH(p, &rmtree, chain) {
+		if (p->remote->sa_family == AF_UNSPEC)	/* anonymous */
+			continue;
+		return 0;
+	}
+	return 1;
+}
+
 struct remoteconf *
 getrmconf(remote)
 	struct sockaddr *remote;
 {
 	return getrmconf_strict(remote, 1);
 }
+
+#ifdef __APPLE__
+int
+link_rmconf_to_ph1 (struct remoteconf *new)
+{
+	if (!new) {
+		return(-1);
+	}
+	if (new->to_delete ||
+		new->to_remove) {
+		return(-1);
+	}
+	new->linked_to_ph1++;
+	return(0);
+}
+
+int
+unlink_rmconf_from_ph1 (struct remoteconf *old)
+{
+	if (!old) {
+		return(-1);
+	}
+	if (old->linked_to_ph1 <= 0) {
+		return(-1);
+	}
+	old->linked_to_ph1--;
+	if (old->linked_to_ph1 == 0) {
+		if (old->to_remove) {
+			remrmconf(old);
+		}
+		if (old->to_delete) {
+			delrmconf(old);
+		}
+	}
+	return(0);
+}
+#endif
 
 struct remoteconf *
 newrmconf()
@@ -209,18 +271,23 @@ newrmconf()
 	new->getcert_method = ISAKMP_GETCERT_PAYLOAD;
 	new->getcacert_method = ISAKMP_GETCERT_LOCALFILE;
 	new->cacerttype = ISAKMP_CERT_X509SIGN;
+	new->certtype = ISAKMP_CERT_NONE;
 	new->cacertfile = NULL;
 	new->send_cert = TRUE;
 	new->send_cr = TRUE;
 	new->support_proxy = FALSE;
 	for (i = 0; i <= SCRIPT_MAX; i++)
-		new->script[i] = -1;
+		new->script[i] = NULL;
 	new->gen_policy = FALSE;
 	new->retry_counter = lcconf->retry_counter;
 	new->retry_interval = lcconf->retry_interval;
 #ifdef __APPLE__
 	new->nat_traversal = NATT_ON;
 	new->natt_multiple_user = FALSE;
+	new->natt_keepalive = TRUE;
+	new->to_remove = FALSE;
+	new->to_delete = FALSE;
+	new->linked_to_ph1 = 0;
 #else
 	new->nat_traversal = NATT_OFF;
 #endif
@@ -233,7 +300,15 @@ newrmconf()
 	new->dpd_interval = 0; /* Disable DPD checks by default */
 	new->dpd_retry = 5;
 	new->dpd_maxfails = 5;
+    new->dpd_algo = DPD_ALGO_INBOUND_DETECT;
+    new->idle_timeout = 0;
 
+	new->weak_phase1_check = 0;
+
+#ifdef ENABLE_HYBRID
+	new->xauth = NULL;
+#endif
+	new->initiate_ph1rekey = TRUE;
 	return new;
 }
 
@@ -266,8 +341,10 @@ dupidvl(entry, arg)
 	id = newidspec();
 	if (!id) return (void *) -1;
 
-	if (set_identifier(&id->id, old->idtype, old->id) != 0) 
+	if (set_identifier(&id->id, old->idtype, old->id) != 0) {
+		racoon_free(id);
 		return (void *) -1;
+	}
 
 	id->idtype = old->idtype;
 
@@ -338,10 +415,22 @@ void
 delrmconf(rmconf)
 	struct remoteconf *rmconf;
 {
+#ifdef __APPLE__
+	if (rmconf->linked_to_ph1) {
+		rmconf->to_delete = TRUE;
+		return;
+	}
+#endif
 	if (rmconf->remote)
 		racoon_free(rmconf->remote);
-	if (rmconf->etypes)
+#ifdef ENABLE_HYBRID
+	if (rmconf->xauth)
+		xauth_rmconf_delete(&rmconf->xauth);
+#endif
+	if (rmconf->etypes) {
 		deletypes(rmconf->etypes);
+		rmconf->etypes=NULL;
+	}
 	if (rmconf->idv)
 		vfree(rmconf->idv);
 	if (rmconf->idvl_p)
@@ -436,6 +525,12 @@ void
 remrmconf(rmconf)
 	struct remoteconf *rmconf;
 {
+#ifdef __APPLE__
+	if (rmconf->linked_to_ph1) {
+		rmconf->to_remove = TRUE;
+		return;
+	}
+#endif
 	TAILQ_REMOVE(&rmtree, rmconf, chain);
 }
 
@@ -622,7 +717,8 @@ dump_rmconf_single (struct remoteconf *p, void *data)
 	plog(LLV_INFO, LOCATION, NULL, "\tpassive %s;\n",
 		s_switch (p->passive));
 	plog(LLV_INFO, LOCATION, NULL, "\tike_frag %s;\n",
-		s_switch (p->ike_frag));
+		p->ike_frag == ISAKMP_FRAG_FORCE ?
+			"force" : s_switch (p->ike_frag));
 	plog(LLV_INFO, LOCATION, NULL, "\tesp_frag %d;\n", p->esp_frag);
 	plog(LLV_INFO, LOCATION, NULL, "\tinitial_contact %s;\n",
 		s_switch (p->ini_contact));
@@ -678,13 +774,13 @@ newidspec()
 	return new;
 }
 
-int
+vchar_t *
 script_path_add(path)
 	vchar_t *path;
 {
 	char *script_dir;
-	vchar_t *new_storage;
 	vchar_t *new_path;
+	vchar_t *new_storage;
 	vchar_t **sp;
 	size_t len;
 	size_t size;
@@ -698,44 +794,24 @@ script_path_add(path)
 		if ((new_path = vmalloc(len)) == NULL) {
 			plog(LLV_ERROR, LOCATION, NULL,
 			    "Cannot allocate memory: %s\n", strerror(errno));
-			return -1;
+			return NULL;
 		}
 
 		new_path->v[0] = '\0';
-		(void)strlcat(new_path->v, script_dir, len);
-		(void)strlcat(new_path->v, "/", len);
-		(void)strlcat(new_path->v, path->v, len);
+		(void)strlcat(new_path->v, script_dir, new_path->l);
+		(void)strlcat(new_path->v, "/", new_path->l);
+		(void)strlcat(new_path->v, path->v, new_path->l);
 
 		vfree(path);
 		path = new_path;
 	}
 
-	/* First time, initialize */
-	if (script_paths == NULL)
-		len = sizeof(vchar_t *);
-	else
-		len = script_paths->l;
-
-	/* Add a slot for a new path */
-	len += sizeof(vchar_t *);
-	if ((new_storage = vrealloc(script_paths, len)) == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
-		    "Cannot allocate memory: %s\n", strerror(errno));
-		return -1;
-	}
-	script_paths = new_storage;
-
-	size = len / sizeof(vchar_t *);
-	sp = (vchar_t **)script_paths->v;	
-	sp[size - 1] = NULL;
-	sp[size - 2] = path;
-
-	return (size - 2);
+	return path;
 }
 
+
 struct isakmpsa *
-dupisakmpsa(sa)
-	struct isakmpsa *sa;
+dupisakmpsa(struct isakmpsa *sa)
 {
 	struct isakmpsa *res = NULL;
 
@@ -748,9 +824,7 @@ dupisakmpsa(sa)
 
 	*res = *sa;
 #ifdef HAVE_GSSAPI
-	/* 
-	 * XXX gssid
-	 */
+	res->gssid=vdup(sa->gssid);
 #endif
 	res->next=NULL;
 

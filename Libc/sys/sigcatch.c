@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,6 +32,6 @@
 /*
  * Actually declare the global data.
  */
-sigcatch_t sigcatch[PADDING] = { (void (*)(int, int, struct sigcontext *))0 };
+sigcatch_t sigcatch[PADDING] = { (sigcatch_t)0 };
 
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,10 +28,13 @@
 #include <CoreFoundation/CFMachPort.h>
 
 boolean_t
-server_active();
+server_active(void);
 
 void
-server_init();
+server_register(void);
+
+void
+server_start(void);
 
 void
 server_handle_request(CFMachPortRef port, void *msg, CFIndex size, void *info);

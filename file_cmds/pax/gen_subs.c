@@ -1,4 +1,4 @@
-/*	$OpenBSD: gen_subs.c,v 1.17 2003/06/13 17:51:14 millert Exp $	*/
+/*	$OpenBSD: gen_subs.c,v 1.19 2007/04/04 21:55:10 millert Exp $	*/
 /*	$NetBSD: gen_subs.c,v 1.5 1995/03/21 09:07:26 cgd Exp $	*/
 
 /*-
@@ -38,7 +38,7 @@
 #if 0
 static const char sccsid[] = "@(#)gen_subs.c	8.1 (Berkeley) 5/31/93";
 #else
-static const char rcsid[] __attribute__((__unused__)) = "$OpenBSD: gen_subs.c,v 1.17 2003/06/13 17:51:14 millert Exp $";
+static const char rcsid[] = "$OpenBSD: gen_subs.c,v 1.19 2007/04/04 21:55:10 millert Exp $";
 #endif
 #endif /* not lint */
 
@@ -48,11 +48,11 @@ static const char rcsid[] __attribute__((__unused__)) = "$OpenBSD: gen_subs.c,v 
 #include <sys/param.h>
 #include <stdio.h>
 #include <tzfile.h>
-#include <utmp.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
 #include <vis.h>
+#include <langinfo.h>
 #include "pax.h"
 #include "extern.h"
 
@@ -66,38 +66,13 @@ static const char rcsid[] __attribute__((__unused__)) = "$OpenBSD: gen_subs.c,v 
 #define MODELEN 20
 #define DATELEN 64
 #define SIXMONTHS	 ((DAYSPERNYEAR / 2) * SECSPERDAY)
-#define CURFRMT		"%b %e %H:%M"
-#define OLDFRMT		"%b %e  %Y"
+#define CURFRMTM	"%b %e %H:%M"
+#define OLDFRMTM	"%b %e  %Y"
+#define CURFRMTD	"%e %b %H:%M"
+#define OLDFRMTD	"%e %b  %Y"
 #define NAME_WIDTH	8
 
-/*
- * format_date
- *       format date of file for printing
- */
-
-static void
-format_date(char * f_date, time_t file_time, time_t current)
-{
-	const char *timefrmt;
-
-	if (ltmfrmt == NULL) {
-		/*
-		 * no locale specified format. 
-		 */
-		/* use the same format that ls -l uses */
-		if ((file_time + SIXMONTHS) <= current || file_time > current)
-			timefrmt = OLDFRMT;
-		else
-			timefrmt = CURFRMT;
-	} else
-		timefrmt = ltmfrmt;
-
-	/*
-	 * convert time to string for printing
-	 */
-	if (strftime(f_date,DATELEN,timefrmt,localtime((const time_t *)&(file_time))) == 0)
-		*f_date = '\0';
-}
+static int d_first = -1;
 
 /*
  * ls_list()
@@ -110,6 +85,7 @@ ls_list(ARCHD *arcn, time_t now, FILE *fp)
 	struct stat *sbp;
 	char f_mode[MODELEN];
 	char f_date[DATELEN];
+	const char *timefrmt;
 	int term;
 
 	term = zeroflag ? '\0' : '\n';	/* path termination character */
@@ -131,17 +107,30 @@ ls_list(ARCHD *arcn, time_t now, FILE *fp)
 		pax_format_list_output(arcn, now, fp, term);
 		return;
 	}
+
+	if (d_first < 0)
+		d_first = (*nl_langinfo(D_MD_ORDER) == 'd');
 	/*
 	 * user wants long mode
 	 */
 	sbp = &(arcn->sb);
 	strmode(sbp->st_mode, f_mode);
 
-	format_date(&f_date[0], sbp->st_mtime, now);
+	/*
+	 * time format based on age compared to the time pax was started.
+	 */
+	if ((sbp->st_mtime + SIXMONTHS) <= now ||
+		sbp->st_mtime > now)
+		timefrmt = d_first ? OLDFRMTD : OLDFRMTM;
+	else
+		timefrmt = d_first ? CURFRMTD : CURFRMTM;
 
 	/*
 	 * print file mode, link count, uid, gid and time
 	 */
+	if (strftime(f_date,DATELEN,timefrmt,localtime(&(sbp->st_mtime))) == 0)
+		f_date[0] = '\0';
+#define UT_NAMESIZE 8
 	(void)fprintf(fp, "%s%2u %-*.*s %-*.*s ", f_mode, sbp->st_nlink,
 		NAME_WIDTH, UT_NAMESIZE, name_uid(sbp->st_uid, 1),
 		NAME_WIDTH, UT_NAMESIZE, name_gid(sbp->st_gid, 1));
@@ -174,7 +163,7 @@ ls_list(ARCHD *arcn, time_t now, FILE *fp)
 		fputs(" == ", fp);
 		safe_print(arcn->ln_name, fp);
 	} else if (arcn->type == PAX_SLK) {
-		fputs(" => ", fp);
+		fputs(" -> ", fp);
 		safe_print(arcn->ln_name, fp);
 	}
 	(void)putc(term, fp);
@@ -192,9 +181,22 @@ ls_tty(ARCHD *arcn)
 {
 	char f_date[DATELEN];
 	char f_mode[MODELEN];
+	const char *timefrmt;
 
-	format_date(&f_date[0], arcn->sb.st_mtime, time(NULL));
+	if (d_first < 0)
+		d_first = (*nl_langinfo(D_MD_ORDER) == 'd');
 
+	if ((arcn->sb.st_mtime + SIXMONTHS) <= time(NULL))
+		timefrmt = d_first ? OLDFRMTD : OLDFRMTM;
+	else
+		timefrmt = d_first ? CURFRMTD : CURFRMTM;
+
+	/*
+	 * convert time to string, and print
+	 */
+	if (strftime(f_date, DATELEN, timefrmt,
+	    localtime(&(arcn->sb.st_mtime))) == 0)
+		f_date[0] = '\0';
 	strmode(arcn->sb.st_mode, f_mode);
 	tty_prnt("%s%s %s\n", f_mode, f_date, arcn->name);
 	return;
@@ -412,3 +414,25 @@ uqd_asc(u_quad_t val, char *str, int len, int base)
 	return(0);
 }
 #endif
+
+/*
+ * Copy at max min(bufz, fieldsz) chars from field to buf, stopping
+ * at the first NUL char. NUL terminate buf if there is room left.
+ */
+size_t
+fieldcpy(char *buf, size_t bufsz, const char *field, size_t fieldsz)
+{
+	char *p = buf;
+	const char *q = field;
+	size_t i = 0;
+
+	if (fieldsz > bufsz)
+		fieldsz = bufsz;
+	while (i < fieldsz && *q != '\0') {
+		*p++ = *q++;
+		i++;
+	}
+	if (i < bufsz)
+		*p = '\0';
+	return(i);
+}

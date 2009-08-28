@@ -14,7 +14,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
    Written by Per Bothner <bothner@cygnus.com>, July 1993.  */
 
@@ -202,6 +202,8 @@ scan_decls (cpp_reader *pfile, int argc ATTRIBUTE_UNUSED,
 		 parameter list */
 	      while (token->type != CPP_SEMICOLON && token->type != CPP_EOF)
 		token = get_a_token (pfile);
+	      if (token->type == CPP_EOF)
+		return 0;
 	      goto new_statement;
 	    }
 	  break;

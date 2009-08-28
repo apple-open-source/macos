@@ -260,6 +260,11 @@ void show(io_registry_entry_t service, UInt32 serviceDepth, UInt64 stackOfBits, 
 	
 	status = IORegistryEntryGetNameInPlane(service, plane, name);
     if (status == KERN_SUCCESS)  {
+		if ( !strncmp("IORawPCIAddressSpace", name, 20) )
+		{
+			return;
+		}
+		
         sprintf((char *)tempbuf, "%s", name);
         strcat(buf,tempbuf); 
     }

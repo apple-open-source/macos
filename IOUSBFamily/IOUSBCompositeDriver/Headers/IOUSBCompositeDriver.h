@@ -49,6 +49,12 @@
 //
 //================================================================================================
 //
+/*!
+ @class IOUSBCompositeDriver
+ @abstract Driver that matches to USB composite devices.
+ @discussion This class can be overriden to provide for specific behaviors.  The driver itself essentially
+ just calls SetConfiguration().
+ */
 class IOUSBCompositeDriver : public IOService
 {
     OSDeclareDefaultStructors(IOUSBCompositeDriver)

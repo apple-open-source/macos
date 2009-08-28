@@ -1,24 +1,25 @@
 #ifndef _INET6_UTILS_H_
 #define _INET6_UTILS_H_
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -57,13 +58,13 @@ long				random_range(long bottom, long top);
 #define IP6_FORMAT	"%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x"
 #define IP6_CH(ip6, i)	(((u_char *)(ip6))[i])
 #define IP6_LIST(ip6)	IP6_CH((ip6)->s6_addr, 0),IP6_CH((ip6)->s6_addr, 1), \
-                        IP6_CH((ip6)->s6_addr, 2),IP6_CH((ip6)->s6_addr, 3), \
-                        IP6_CH((ip6)->s6_addr, 4),IP6_CH((ip6)->s6_addr, 5), \
-                        IP6_CH((ip6)->s6_addr, 6),IP6_CH((ip6)->s6_addr, 7), \
-                        IP6_CH((ip6)->s6_addr, 8),IP6_CH((ip6)->s6_addr, 9), \
-                        IP6_CH((ip6)->s6_addr, 10),IP6_CH((ip6)->s6_addr, 11), \
-                        IP6_CH((ip6)->s6_addr, 12),IP6_CH((ip6)->s6_addr, 13), \
-                        IP6_CH((ip6)->s6_addr, 14),IP6_CH((ip6)->s6_addr, 15)
+			IP6_CH((ip6)->s6_addr, 2),IP6_CH((ip6)->s6_addr, 3), \
+			IP6_CH((ip6)->s6_addr, 4),IP6_CH((ip6)->s6_addr, 5), \
+			IP6_CH((ip6)->s6_addr, 6),IP6_CH((ip6)->s6_addr, 7), \
+			IP6_CH((ip6)->s6_addr, 8),IP6_CH((ip6)->s6_addr, 9), \
+			IP6_CH((ip6)->s6_addr, 10),IP6_CH((ip6)->s6_addr, 11), \
+			IP6_CH((ip6)->s6_addr, 12),IP6_CH((ip6)->s6_addr, 13), \
+			IP6_CH((ip6)->s6_addr, 14),IP6_CH((ip6)->s6_addr, 15)
 
 #define USE_NEW_API	0
 #define IN6_INFINITE_LIFETIME		0xffffffff
@@ -76,9 +77,9 @@ long				random_range(long bottom, long top);
 static __inline__ boolean_t
 ip_valid(struct in6_addr * ip)
 {
-	/* can't be multicast or unspec */
+    /* can't be multicast or unspec */
     if (IN6_IS_ADDR_UNSPECIFIED(ip) || IN6_IS_ADDR_MULTICAST(ip))
-		return (FALSE);
+	return (FALSE);
     return (TRUE);
 }
 
@@ -91,7 +92,7 @@ int		ifflags_set(int s, char * name, short flags);
 int		get_llocal_if_addr_flags(const char * name, short * flags);
 int		inet6_difaddr(int s, char * name, const struct in6_addr * addr);
 int		inet6_aifaddr(int s, char * name, const struct in6_addr * addr,
-			const struct in6_addr * dstaddr, const struct in6_addr * prefixmask);
+			      const struct in6_addr * dstaddr, const struct in6_addr * prefixmask);
 int		getinet6sysctl(int code);
 int		setinet6sysctl(int code, int value);
 int		lladdropt_length(link_addr_t * link);
@@ -102,8 +103,8 @@ void		lladdropt_fill(link_addr_t * link, struct nd_opt_hdr *ndopt);
  *
  */
 
-void			my_CFRelease(void * t);
-void			my_CFArrayAppendUniqueValue(CFMutableArrayRef arr, CFTypeRef new);
+void		my_CFRelease(void * t);
+void		my_CFArrayAppendUniqueValue(CFMutableArrayRef arr, CFTypeRef new);
 
 
 #endif /* _INET6_UTILS_H_ */

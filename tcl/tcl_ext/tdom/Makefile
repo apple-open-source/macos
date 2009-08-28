@@ -7,16 +7,24 @@
 # Project info
 Project               = tdom
 ProjectName           = tDOM
+License               = LICENSE
+
+# Fetch info
+Release               = 0.8.3
+TEApotVersion         = 0.0.0.2008.08.27.18.17.27
+TEApotProject         = $(Project)
+#UrlFile               = $(ProjectName)-$(Release)
+#Url                   = http://www.tdom.org/files/$(UrlFile).tgz
 
 Extra_Configure_Flags = $(TEA_Configure_Flags)
-Extra_LD_Flags        = -L$(TclFramework)
-Extra_CC_Flags        = -fno-common -DXMLCALL=''
-Extra_Environment     = CC=gcc $(TEA_Environment)
+Extra_Environment     = $(TEA_Environment)
 
-GnuAfterInstall       = strip install-doc fix-config fix-owner
+GnuAfterInstall       = strip install-doc fix-config fix-perms
 
 # include TEA Tcl extension build support
 include ../TEA.make
+
+Install_Target        = install-binaries install-doc
 
 install-doc:
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/$(TclExtHtmlDir)"

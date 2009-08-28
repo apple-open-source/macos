@@ -1,25 +1,29 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2008 Apple Inc. All rights reserved.
  *
- * @APPLE_LICENSE_HEADER_START@
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
  * 
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
- * @APPLE_LICENSE_HEADER_END@
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 /*
  * Copyright (c) 1983, 1988, 1993
@@ -58,14 +62,6 @@
 char const copyright[] =
 "@(#) Copyright (c) 1983, 1988, 1993\n\
 	Regents of the University of California.  All rights reserved.\n";
-#endif /* not lint */
-
-#ifndef lint
-#if 0
-static char sccsid[] = "@(#)main.c	8.4 (Berkeley) 3/1/94";
-#endif
-static const char rcsid[] =
-	"$Id: main.c,v 1.8 2004/10/14 22:24:09 lindak Exp $";
 #endif /* not lint */
 
 #include <sys/param.h>
@@ -195,9 +191,9 @@ struct protox {
 	u_char	pr_index;		/* index into nlist of cb head */
 	u_char	pr_sindex;		/* index into nlist of stat block */
 	u_char	pr_wanted;		/* 1 if wanted, 0 otherwise */
-	void	(*pr_cblocks)(u_long, char *, int);
+	void	(*pr_cblocks)(uint32_t, char *, int);
 					/* control blocks printing routine */
-	void	(*pr_stats)(u_long, char *, int);
+	void	(*pr_stats)(uint32_t, char *, int);
 					/* statistics printing routine */
 	void	(*pr_istats)(char *);	/* per/if statistics printing routine */
 	char	*pr_name;		/* well-known name */
@@ -218,10 +214,6 @@ struct protox {
 #ifdef IPSEC
 	{ -1,		-1,	1,	0,
 	  ipsec_stats,	NULL,		"ipsec",	IPPROTO_ESP},
-#endif
-#if 0
-	{ -1,		-1,		1,	0,
-	  bdg_stats,	NULL,		"bdg",	1 /* bridging... */ },
 #endif
 	{ -1,		-1,		0,	0,
 	  0,		NULL,		0 }
@@ -247,10 +239,6 @@ struct protox ip6protox[] = {
 #endif
 	{ -1,		-1,		1,	0,
 	  rip6_stats,	NULL,		"rip6",	IPPROTO_RAW },
-#if 0
-	{ -1,		-1,		1,	0,
-	  bdg_stats,	NULL,		"bdg",	1 /* bridging... */ },
-#endif
 	{ -1,		-1,		0,	0,
 	  0,		NULL,		0,	0 }
 };
@@ -264,59 +252,6 @@ struct protox pfkeyprotox[] = {
 	  0,		NULL,		0,	0 }
 };
 #endif
-#ifndef __APPLE__
-struct protox atalkprotox[] = {
-	{ N_DDPCB,	N_DDPSTAT,	1,	atalkprotopr,
-	  ddp_stats,	NULL,		"ddp" },
-	{ -1,		-1,		0,	0,
-	  0,		NULL,		0 }
-};
-
-struct protox netgraphprotox[] = {
-	{ N_NGSOCKS,	-1,		1,	netgraphprotopr,
-	  NULL,		NULL,		"ctrl" },
-	{ N_NGSOCKS,	-1,		1,	netgraphprotopr,
-	  NULL,		NULL,		"data" },
-	{ -1,		NULL,		0,	0,
-	  0,		NULL,		0 }
-};
-
-struct protox ipxprotox[] = {
-	{ N_IPX,	N_IPXSTAT,	1,	ipxprotopr,
-	  ipx_stats,	NULL,		"ipx",	0 },
-	{ N_IPX,	N_SPXSTAT,	1,	ipxprotopr,
-	  spx_stats,	NULL,		"spx",	0 },
-	{ -1,		-1,		0,	0,
-	  0,		NULL,		0,	0 }
-};
-#endif
-#ifdef NS
-struct protox nsprotox[] = {
-	{ N_IDP,	N_IDPSTAT,	1,	nsprotopr,
-	  idp_stats,	NULL,		"idp" },
-	{ N_IDP,	N_SPPSTAT,	1,	nsprotopr,
-	  spp_stats,	NULL,		"spp" },
-	{ -1,		N_NSERR,	1,	0,
-	  nserr_stats,	NULL,		"ns_err" },
-	{ -1,		-1,		0,	0,
-	  0,		NULL,		0 }
-};
-#endif
-
-#ifdef ISO
-struct protox isoprotox[] = {
-	{ ISO_TP,	N_TPSTAT,	1,	iso_protopr,
-	  tp_stats,	NULL,		"tp" },
-	{ N_CLTP,	N_CLTPSTAT,	1,	iso_protopr,
-	  cltp_stats,	NULL,		"cltp" },
-	{ -1,		N_CLNPSTAT,	1,	 0,
-	  clnp_stats,	NULL,		"clnp"},
-	{ -1,		N_ESISSTAT,	1,	 0,
-	  esis_stats,	NULL,		"esis"},
-	{ -1,		-1,		0,	0,
-	  0,		NULL,		0 }
-};
-#endif
 
 struct protox *protoprotox[] = {
 					 protox,
@@ -325,15 +260,6 @@ struct protox *protoprotox[] = {
 #endif
 #ifdef IPSEC
 					 pfkeyprotox,
-#endif
-#ifndef __APPLE__
-					 ipxprotox, atalkprotox,
-#endif
-#ifdef NS
-					 nsprotox, 
-#endif
-#ifdef ISO
-					 isoprotox, 
 #endif
 					 NULL };
 
@@ -395,11 +321,6 @@ main(argc, argv)
 			dflag = 1;
 			break;
 		case 'f':
-#ifdef NS
-			if (strcmp(optarg, "ns") == 0)
-				af = AF_NS;
-			else
-#endif
 			if (strcmp(optarg, "ipx") == 0)
 				af = AF_IPX;
 			else if (strcmp(optarg, "inet") == 0)
@@ -414,17 +335,6 @@ main(argc, argv)
 #endif /*INET6*/
 			else if (strcmp(optarg, "unix") == 0)
 				af = AF_UNIX;
-#ifndef __APPLE__
-			else if (strcmp(optarg, "atalk") == 0)
-				af = AF_APPLETALK;
-			else if (strcmp(optarg, "ng") == 0
-			    || strcmp(optarg, "netgraph") == 0)
-				af = AF_NETGRAPH;
-#endif
-#ifdef ISO
-			else if (strcmp(optarg, "iso") == 0)
-				af = AF_ISO;
-#endif
 			else {
 				errx(1, "%s: unknown address family", optarg);
 			}
@@ -509,20 +419,6 @@ main(argc, argv)
 		mbpr();
 		exit(0);
 	}
-#if 0
-	/*
-	 * Keep file descriptors open to avoid overhead
-	 * of open/close on each call to get* routines.
-	 */
-	sethostent(1);
-	setnetent(1);
-#else
-	/*
-	 * This does not make sense any more with DNS being default over
-	 * the files.  Doing a setXXXXent(1) causes a tcp connection to be
-	 * used for the queries, which is slower.
-	 */
-#endif
 	if (iflag && !sflag) {
 		intpr(NULL);
 		exit(0);
@@ -573,28 +469,6 @@ main(argc, argv)
 		for (tp = pfkeyprotox; tp->pr_name; tp++)
 			printproto(tp, tp->pr_name);
 #endif /*IPSEC*/
-#ifndef __APPLE__
-	if (af == AF_IPX || af == AF_UNSPEC) {
-		for (tp = ipxprotox; tp->pr_name; tp++)
-			printproto(tp, tp->pr_name);
-	}
-	if (af == AF_APPLETALK || af == AF_UNSPEC)
-		for (tp = atalkprotox; tp->pr_name; tp++)
-			printproto(tp, tp->pr_name);
-	if (af == AF_NETGRAPH || af == AF_UNSPEC)
-		for (tp = netgraphprotox; tp->pr_name; tp++)
-			printproto(tp, tp->pr_name);
-#endif
-#ifdef NS
-	if (af == AF_NS || af == AF_UNSPEC)
-		for (tp = nsprotox; tp->pr_name; tp++)
-			printproto(tp, tp->pr_name);
-#endif
-#ifdef ISO
-	if (af == AF_ISO || af == AF_UNSPEC)
-		for (tp = isoprotox; tp->pr_name; tp++)
-			printproto(tp, tp->pr_name);
-#endif
 	if ((af == AF_UNIX || af == AF_UNSPEC) && !Lflag && !sflag)
 		unixpr();
 #ifdef SRVCACHE
@@ -613,8 +487,8 @@ printproto(tp, name)
 	register struct protox *tp;
 	char *name;
 {
-	void (*pr)(u_long, char *, int);
-	u_long off;
+	void (*pr)(uint32_t, char *, int);
+	uint32_t off;
 
 	if (sflag) {
 		if (iflag && !pflag) {
@@ -730,4 +604,3 @@ usage(void)
 	(void) fprintf(stderr, "%s\n", NETSTAT_USAGE);
 	exit(1);
 }
-

@@ -1,0 +1,8 @@
+Pre prihlásenie účastníka do konferencie je potrebný Váš súhlas.
+
+    Účastník:		%(username)s
+    Konferencia:	%(listname)s@%(hostname)s
+
+Žiadosť môžete vybaviť na stránke:
+
+	%(admindb_url)s

@@ -130,7 +130,7 @@ krbtf_init (
 	    /* This execution is using krb5 */
 	    /* Both MIT krb5 and Heimdal support MEMORY: ccaches */
 	    tfn_cookie = "MEMORY:0";
-	    tfn_cookie_len = strlen(tfn_cookie);
+	    tfn_cookie_len = (int)strlen(tfn_cookie);
 	    return 0;
     }
 #endif /* AUTH_KRB5 */
@@ -188,7 +188,7 @@ krbtf_name (
 	}
 	strcpy(tfname, tfn_cookie);
     } else {
-	int dir_len = sizeof (tf_dir) - 1; /* don't count the null */
+	int dir_len = (int)sizeof (tf_dir) - 1; /* don't count the null */
 	int want_len = dir_len + 1 + pidstring_len + 1;
 
 	if (want_len > len) {

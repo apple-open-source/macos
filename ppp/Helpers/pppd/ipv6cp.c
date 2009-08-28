@@ -202,6 +202,7 @@ int no_ifaceid_neg = 0;
 
 /* local vars */
 static int ipv6cp_is_up;
+static int ipv6cp_is_open;		/* haven't called np_finished() */
 
 /*
  * Callbacks for fsm code.  (CI = Configuration Information)
@@ -450,7 +451,7 @@ llv6_ntoa(ifaceid)
 {
     static char b[64];
 
-    sprintf(b, "fe80::%s", eui64_ntoa(ifaceid));
+    snprintf(b, sizeof(b), "fe80::%s", eui64_ntoa(ifaceid));
     return b;
 }
 
@@ -495,6 +496,7 @@ ipv6cp_open(unit)
     int unit;
 {
     fsm_open(&ipv6cp_fsm[unit]);
+    ipv6cp_is_open = 1;
 }
 
 
@@ -1433,7 +1435,10 @@ static void
 ipv6cp_finished(f)
     fsm *f;
 {
-    np_finished(f->unit, PPP_IPV6);
+	if (ipv6cp_is_open) {
+		ipv6cp_is_open = 0;
+        np_finished(f->unit, PPP_IPV6);
+    }
 }
 
 
@@ -1474,9 +1479,9 @@ ipv6cp_script(script)
     char strspeed[32], strlocal[32], strremote[32];
     char *argv[8];
 
-    sprintf(strspeed, "%d", baud_rate);
-    strcpy(strlocal, llv6_ntoa(ipv6cp_gotoptions[0].ourid));
-    strcpy(strremote, llv6_ntoa(ipv6cp_hisoptions[0].hisid));
+    snprintf(strspeed, sizeof(strspeed), "%d", baud_rate);
+    strlcpy(strlocal, llv6_ntoa(ipv6cp_gotoptions[0].ourid), sizeof(strlocal));
+    strlcpy(strremote, llv6_ntoa(ipv6cp_hisoptions[0].hisid), sizeof(strremote));
 
     argv[0] = script;
     argv[1] = ifname;

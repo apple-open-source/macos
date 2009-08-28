@@ -4,7 +4,6 @@
 
 import os
 import md5
-import string
 
 import gen_base
 import gen_win
@@ -21,21 +20,33 @@ class Generator(gen_win.WinGeneratorBase):
   def quote(self, str):
     return '&quot;%s&quot;' % str
 
+  def get_external_project(self, target, proj_ext):
+    "Link project files: prefer vcproj's, but if don't exist, try dsp's."
+    vcproj = gen_win.WinGeneratorBase.get_external_project(self, target,
+                                                           proj_ext)
+    if vcproj and not os.path.exists(vcproj):
+      dspproj = gen_win.WinGeneratorBase.get_external_project(self, target,
+                                                              'dsp')
+      if os.path.exists(dspproj):
+        return dspproj
+
+    return vcproj
+
   def write_project(self, target, fname):
     "Write a Project (.vcproj)"
 
-    if isinstance(target, gen_base.TargetExe):
+    if isinstance(target, gen_base.TargetProject):
+      config_type=10
+    elif isinstance(target, gen_base.TargetExe):
       #EXE
       config_type=1
     elif isinstance(target, gen_base.TargetJava):
-      config_type=1
+      config_type=10
     elif isinstance(target, gen_base.TargetLib):
       if target.msvc_static:
         config_type=4
       else:
         config_type=2
-    elif isinstance(target, gen_base.TargetProject):
-      config_type=1
     elif isinstance(target, gen_base.TargetI18N):
       config_type=4
     else:
@@ -82,30 +93,26 @@ class Generator(gen_win.WinGeneratorBase):
     ### implement this from scratch using the algorithms described in
     ### http://www.webdav.org/specs/draft-leach-uuids-guids-01.txt
 
-    hash = md5.md5(data)
-    try:
-      myhash = hash.hexdigest()
-    except AttributeError:
-      # Python 1.5.2
-      myhash = string.join(map(lambda x: '%02x' % ord(x), hash.digest()), '')
+    myhash = md5.md5(data).hexdigest()
 
-    guid = string.upper("{%s-%s-%s-%s-%s}" % (myhash[0:8], myhash[8:12],
-                                              myhash[12:16], myhash[16:20],
-                                              myhash[20:32]))
+    guid = ("{%s-%s-%s-%s-%s}" % (myhash[0:8], myhash[8:12],
+                                  myhash[12:16], myhash[16:20],
+                                  myhash[20:32])).upper()
     return guid
-  
+
   def getguid(self, path):
-    "Try to a project's guid from it's project file"
+    "Try to get a project's guid from its project file"
     try:
       proj = open(path)
       line = proj.readline()
       while len(line) > 0:
-        l = string.lower(line)
-        pos = string.find(l, 'projectguid="{')
+        l = line.lower()
+        pos = l.find('projectguid="{')
         if pos >= 0:
           guid = line[pos+13:pos+13+38]
           return guid
         line = proj.readline()
+      proj.close()
     except IOError:
       return None
 
@@ -171,20 +178,50 @@ class Generator(gen_win.WinGeneratorBase):
         deplist.append(gen_win.ProjectItem(guid=guids[depends[i].name],
                                            index=i,
                                            ))
+
+      groupname = ''
+
+      if target.name.startswith('__'):
+        groupname = 'root'
+      elif isinstance(target, gen_base.TargetLib):
+        if isinstance(target, gen_base.TargetSWIGLib) \
+           or isinstance(target, gen_base.TargetSWIG):
+          groupname = 'swiglib'
+        elif target.msvc_fake:
+          groupname = 'fake'
+        elif target.msvc_export and not self.disable_shared:
+          groupname = 'dll'
+        else:
+          groupname = 'lib'
+      elif isinstance(target, gen_base.TargetSWIGProject):
+        groupname = 'swiglib'
+      elif isinstance(target, gen_base.TargetJava):
+        # Keep the buildbot happy
+        groupname = 'root'
+        # groupname = 'java'
+      elif isinstance(target, gen_base.TargetExe):
+        if target.name.endswith('-test') \
+           or target.name.endswith('-tests') \
+           or target.name.startswith('diff'):
+          groupname = 'test'
+        else:
+          groupname = 'exe'
+
       targets.append(
         gen_win.ProjectItem(name=target.name,
-                            path=string.replace(fname, os.sep, '\\'),
+                            path=fname.replace(os.sep, '\\'),
                             guid=guids[target.name],
                             depends=deplist,
+                            group=groupname,
                             ))
 
     # the path name in the .sln template is already enclosed with ""
     # therefore, remove them from the path itself
     for target in targets:
-      target.path = string.rstrip(target.path, '"')
-      target.path = string.lstrip(target.path, '"')
+      target.path = target.path.rstrip('"')
+      target.path = target.path.lstrip('"')
 
-    targets.sort(lambda x, y: cmp(x.name, y.name))
+    targets.sort(key = lambda x: x.name)
 
     configs = [ ]
     for i in range(len(self.configs)):
@@ -192,8 +229,7 @@ class Generator(gen_win.WinGeneratorBase):
       configs.append(gen_win.ProjectItem(name=self.configs[i], index=i))
 
     # sort the values for output stability.
-    guidvals = guids.values()
-    guidvals.sort()
+    guidvals = sorted(guids.values())
 
     data = {
       'version': self.vsnet_version,
@@ -203,15 +239,7 @@ class Generator(gen_win.WinGeneratorBase):
       'guids' : guidvals,
       }
 
-    if self.vsnet_version == '9.00':
+    if self.vsnet_version == '10.00' or self.vsnet_version == '9.00':
       self.write_with_template('subversion_vcnet.sln', 'vc2005_sln.ezt', data)
     else:
       self.write_with_template('subversion_vcnet.sln', 'vcnet_sln.ezt', data)
-
-
-# compatibility with older Pythons:
-try:
-  True
-except NameError:
-  True = 1
-  False = 0

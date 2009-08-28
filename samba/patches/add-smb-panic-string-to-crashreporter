@@ -2,7 +2,7 @@ Index: samba/source/lib/util.c
 ===================================================================
 --- samba/source/lib/util.c.orig
 +++ samba/source/lib/util.c
-@@ -1616,6 +1616,20 @@ BOOL nametogid(const char *name, gid_t *
+@@ -1617,6 +1617,20 @@ BOOL nametogid(const char *name, gid_t *
   Something really nasty happened - panic !
  ********************************************************************/
  
@@ -23,7 +23,7 @@ Index: samba/source/lib/util.c
  void smb_panic(const char *const why)
  {
  	char *cmd;
-@@ -1649,6 +1663,13 @@ void smb_panic(const char *const why)
+@@ -1650,6 +1664,13 @@ void smb_panic(const char *const why)
  					  WEXITSTATUS(result)));
  	}
  

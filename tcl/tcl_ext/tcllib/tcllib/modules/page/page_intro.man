@@ -1,0 +1,39 @@
+[comment {-*- tcl -*- doctools manpage}]
+[manpage_begin page_intro n 1.0]
+[copyright {2007 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
+[moddesc   {Parser generator tools}]
+[titledesc {page introduction}]
+[keywords page {parser generator} {text processing}]
+[description]
+[para]
+
+[term page] (short for [emph {parser generator}]) stands for a set of
+related packages which help in the construction of parser generators,
+and other utilities doing text processing.
+
+[para]
+
+They are mainly geared towards supporting the Tcllib application
+[syscmd page], with the package [package page::pluginmgr] in a central
+role as the plugin management for the application. The other packages
+are performing low-level text processing and utility tasks geared
+towards parser generation and mainly accessed by [syscmd page] through
+plugins.
+
+[para]
+
+The packages implementing the plugins are not documented as regular
+packages, as they cannot be loaded into a general interpreter, like
+tclsh, without extensive preparation of the interpreter. Preparation
+which is done for them by the plugin manager.
+
+[section {BUGS, IDEAS, FEEDBACK}]
+
+This document, will undoubtedly contain bugs and other problems.
+
+Please report such in the category [emph page] of the
+[uri {http://sourceforge.net/tracker/?group_id=12883} {Tcllib SF Trackers}].
+
+Please also report any ideas for enhancements you may have.
+
+[manpage_end]

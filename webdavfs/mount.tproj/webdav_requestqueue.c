@@ -60,12 +60,12 @@ typedef struct webdav_requestqueue_element_tag
 		{
 			u_int32_t delay;					/* used for backoff delay sending ping requests to the server */
 		} serverping;
-		
+
 		struct seqwrite_read_rsp
 		{
 			struct stream_put_ctx *ctx;
 		} seqwrite_read_rsp;
-		
+				
 	} element;
 } webdav_requestqueue_element_t;
 
@@ -179,7 +179,7 @@ static int get_request(int so, int *operation, void *key, size_t klen)
 	int error;
 	struct iovec iov[2];
 	struct msghdr msg;
-	int n;
+	ssize_t n;
 	
 	iov[0].iov_base = (caddr_t)operation;
 	iov[0].iov_len = sizeof(int);
@@ -220,7 +220,7 @@ static int get_request(int so, int *operation, void *key, size_t klen)
 
 static void send_reply(int so, void *data, size_t size, int error)
 {
-	int n;
+	ssize_t n;
 	struct iovec iov[2];
 	struct msghdr msg;
 	int send_error = error;
@@ -397,7 +397,7 @@ static void handle_filesystem_request(int so)
 					error = filesystem_invalidate_caches((struct webdav_request_invalcaches *)key);
 					send_reply(so, (void *)0, 0, error);
 					break;
-					
+
 				case WEBDAV_WRITESEQ:
 					error = filesystem_write_seq((struct webdav_request_writeseq *)key);
 					send_reply(so, (void *)0, 0, error);
@@ -575,7 +575,7 @@ static int handle_request_thread(void *arg)
 					/* Send an OPTIONS request to the server. */
 					network_server_ping(myrequest->element.serverping.delay);
 				break;
-				
+
 				case WEBDAV_SEQWRITE_MANAGER_TYPE:
 					/* Read the response stream of a sequential write sequence */
 					network_seqwrite_manager(myrequest->element.seqwrite_read_rsp.ctx);

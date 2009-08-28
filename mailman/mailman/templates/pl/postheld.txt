@@ -1,15 +1,16 @@
-Wys³ana na listê %(listname)s wiadomo¶æ o tytule
+wiadomo¶æ o tytule 
 
     %(subject)s
 
-zosta³a wstrzymana do dalszej decyzji moderatora.
+wys³ana na listê %(listname)s, zosta³a wstrzymana do dalszej 
+decyzji moderatora.
 
 Powodem wstrzymania by³o:
 
     %(reason)s
 
 Gdyby Twoja wiadomo¶æ nie zosta³a przekazana na listê, dostaniesz
-dodatkowego maila z decyzj± moderatora. Mo¿esz odwo³aæ wys³any b³êdnie list
-wchodz±c na stronê:
+dodatkowego maila z decyzj± moderatora. Mo¿esz anulowaæ b³êdnie 
+wys³any email wchodz±c na stronê:
 
     %(confirmurl)s

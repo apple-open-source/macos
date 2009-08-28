@@ -32,7 +32,7 @@
 .\"     from: @(#)floor.3	6.5 (Berkeley) 4/19/91
 .\"	$Id: nan.3,v 1.5 2004/12/20 21:35:46 scp Exp $
 .\"
-.Dd July 24, 2003
+.Dd July 01, 2008
 .Dt NAN 3
 .Os
 .Sh NAME
@@ -49,15 +49,24 @@
 .Sh DESCRIPTION
 The
 .Fn nan
-functions return a quiet NaN. The character string 
+functions return a quiet NaN, whose trailing fraction field contains the result
+of converting
 .Fa tagp
-is converted to an integer, which is clipped
-to the range 0 to 255, inclusive. This value is used as the NaN code. The NaN code is placed
-in the 8th through 15th most significant bits of the fraction field of the resulting NaN.   
+to an unsigned integer.  If
+.Fa tagp
+is too large to be contained in the trailing fraction field of the NaN, then 
+the least significant bits of the integer represented by
+.Fa tagp
+are used.
 .Sh SPECIAL VALUES
+If 
+.Fa tagp
+contains any non-numeric characters, the
+function returns a NaN whos trailing fraction field is zero.
+.Pp
 If
 .Fa tagp
-is empty, 0 is used for the NaN code.
+is empty, the function returns a NaN whos trailing fraction field is zero.
 .Sh STANDARDS
 The
 .Fn nan

@@ -1,8 +1,7 @@
-/* APPLE LOCAL file mainline */
 /* Test errors for constant strings.  */
 /* { dg-do compile } */
+/* APPLE LOCAL constant cfstrings */
 /* { dg-options "-fgnu-runtime -fno-constant-cfstrings" } */
-/* { dg-skip-if "" { *-*-darwin* } { "-m64" } { "" } } */
 
 #ifdef __cplusplus
 extern void baz(...);

@@ -1,4 +1,4 @@
-/* APPLE LOCAL file for-4_3 4134307 */
+/* APPLE LOCAL file mainline 4.3 2006-10-31 4134307 */
 /* { dg-do compile } */
 /* { dg-options "-std=gnu89" } */
 extern inline void func1 (void) {

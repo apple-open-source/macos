@@ -31,6 +31,7 @@
 #include <sys/mount.h>
 #include <sys/file.h>
 #include <sys/stat.h>
+#include <sys/mman.h>
 
 #define kAtomicFileMaxBlockSize INT_MAX
 
@@ -158,21 +159,16 @@ AtomicFile::create(mode_t mode)
 }
 
 // Lock the database file for writing and return a newly created AtomicTempFile.
+// If the parent directory allows the write we're going to allow this.  Previous
+// versions checked for writability of the db file and that caused problems when
+// setuid programs had made entries.  As long as the db (keychain) file is readable
+// this function can make the newer keychain file with the correct owner just by virtue
+// of the copy that takes place.
+
 RefPointer<AtomicTempFile>
 AtomicFile::write()
 {
-	// check and see if we can write before doing so.  We have to open it (access is not sufficient
-	// due to acl support
-	int fileNo = open (path().c_str(), O_WRONLY, 0);
-	if (fileNo == -1)
-	{
-		CssmError::throwMe(CSSM_ERRCODE_OS_ACCESS_DENIED);
-	}
-	else
-	{
-		close (fileNo);
-	}
-	
+
 	RefPointer<AtomicLockedFile> lock(new AtomicLockedFile(*this));
 	return new AtomicTempFile(*this, lock);
 }
@@ -181,7 +177,7 @@ AtomicFile::write()
 RefPointer<AtomicBufferedFile>
 AtomicFile::read()
 {
-	return new AtomicBufferedFile(mPath);
+	return new AtomicBufferedFile(mPath, mIsLocalFileSystem);
 }
 
 mode_t
@@ -221,6 +217,24 @@ AtomicFile::pathSplit(const std::string &inFull, std::string &outDir, std::strin
 	}
 }
 
+static std::string RemoveDoubleSlashes(const std::string &path)
+{
+	std::string result;
+	unsigned i;
+	for (i = 0; i < path.length(); ++i)
+	{
+		result += path[i];
+		if ((i < path.length() - 2) && path[i] == '/' && path[i + 1] == '/')
+		{
+			i += 1; // skip a second '/'
+		}
+	}
+	
+	return result;
+}
+
+
+
 //
 // Make sure the directory up to inDir exists inDir *must* end in a slash.
 //
@@ -234,6 +248,17 @@ AtomicFile::mkpath(const std::string &inDir, mode_t mode)
 		struct stat sb;
 		if (::stat(cpath, &sb))
 		{
+			// if we are creating a path in the user's home directory, override the user's mode
+			std::string homedir = getenv("HOME");
+			
+			// canonicalize the path (remove double slashes)
+			string canonPath = RemoveDoubleSlashes(cpath);
+			
+			if (canonPath.find(homedir, 0) == 0)
+			{
+				mode = 0700;
+			}
+			
 			if (errno != ENOENT || ::mkdir(cpath, mode))
 				UnixError::throwMe(errno);
 		}
@@ -271,11 +296,12 @@ AtomicFile::rclose(int fd)
 // The file is read into memory and closed after this is done.
 // The memory is released when this object is destroyed.
 //
-AtomicBufferedFile::AtomicBufferedFile(const std::string &inPath) :
+AtomicBufferedFile::AtomicBufferedFile(const std::string &inPath, bool isLocal) :
 	mPath(inPath),
 	mFileRef(-1),
 	mBuffer(NULL),
-	mLength(0)
+	mLength(0),
+	mIsMapped(isLocal)
 {
 }
 
@@ -290,7 +316,7 @@ AtomicBufferedFile::~AtomicBufferedFile()
 	if (mBuffer)
 	{
 		secdebug("atomicfile", "%p free %s buffer %p", this, mPath.c_str(), mBuffer);
-		free(mBuffer);
+		unloadBuffer();
 	}
 }
 
@@ -323,8 +349,13 @@ AtomicBufferedFile::open()
 			UnixError::throwMe(error);
     }
 
-	mLength = ::lseek(mFileRef, 0, SEEK_END);
-	if (mLength == -1)
+	struct stat st;
+	int result = fstat(mFileRef, &st);
+	if (result == 0)
+	{
+		mLength = st.st_size;
+	}
+	else
 	{
 		int error = errno;
 		secdebug("atomicfile", "lseek(%s, END): %s", path, strerror(error));
@@ -336,6 +367,73 @@ AtomicBufferedFile::open()
 
 	return mLength;
 }
+
+//
+// Unload the contents of the file.
+//
+void
+AtomicBufferedFile::unloadBuffer()
+{
+	if (!mIsMapped)
+	{
+		delete [] mBuffer;
+	}
+	else
+	{
+		munmap(mBuffer, mLength);
+	}
+}
+
+//
+// Load the contents of the file into memory.
+// If we are on a local file system, we mmap the file.  Otherwise, we
+// read it all into memory
+void
+AtomicBufferedFile::loadBuffer()
+{
+	if (!mIsMapped)
+	{
+		// make a buffer big enough to hold the entire file
+		mBuffer = new uint8[mLength];
+		lseek(mFileRef, 0, SEEK_SET);
+		ssize_t pos = 0;
+		
+		ssize_t bytesToRead = mLength;
+		while (bytesToRead > 0)
+		{
+			ssize_t bytesRead = ::read(mFileRef, mBuffer + pos, bytesToRead);
+			if (bytesRead == -1)
+			{
+				if (errno != EINTR)
+				{
+					int error = errno;
+					secdebug("atomicfile", "lseek(%s, END): %s", mPath.c_str(), strerror(error));
+					AtomicFile::rclose(mFileRef);
+					UnixError::throwMe(error);
+				}
+			}
+			else
+			{
+				bytesToRead -= bytesRead;
+				pos += bytesRead;
+			}
+		}
+	}
+	else
+	{
+		// mmap the buffer into place
+		mBuffer = (uint8*) mmap(NULL, mLength, PROT_READ, MAP_PRIVATE, mFileRef, 0);
+		if (mBuffer == (uint8*) -1)
+		{
+			int error = errno;
+			secdebug("atomicfile", "lseek(%s, END): %s", mPath.c_str(), strerror(error));
+			AtomicFile::rclose(mFileRef);
+			UnixError::throwMe(error);
+		}
+	}
+}
+
+
 
 //
 // Read the file starting at inOffset for inLength bytes into the buffer and return
@@ -353,51 +451,25 @@ AtomicBufferedFile::read(off_t inOffset, off_t inLength, off_t &outLength)
 	}
 
 	off_t bytesLeft = inLength;
-	uint8 *ptr;
 	if (mBuffer)
 	{
 		secdebug("atomicfile", "%p free %s buffer %p", this, mPath.c_str(), mBuffer);
-		free(mBuffer);
+		unloadBuffer();
 	}
 
-	mBuffer = ptr = reinterpret_cast<uint8 *>(malloc(bytesLeft));
+	loadBuffer();
+	
 	secdebug("atomicfile", "%p allocated %s buffer %p size %qd", this, mPath.c_str(), mBuffer, bytesLeft);
-	off_t pos = inOffset;
-	while (bytesLeft)
+	
+	ssize_t maxEnd = inOffset + inLength;
+	if (maxEnd > mLength)
 	{
-		size_t toRead = bytesLeft > kAtomicFileMaxBlockSize ? kAtomicFileMaxBlockSize : size_t(bytesLeft);
-		ssize_t bytesRead = ::pread(mFileRef, ptr, toRead, pos);
-		if (bytesRead == -1)
-		{
-			int error = errno;
-			if (error == EINTR)
-			{
-				// We got interrupted by a signal, so try again.
-				secdebug("atomicfile", "pread %s: interrupted, retrying", mPath.c_str());
-				continue;
-			}
-
-			secdebug("atomicfile", "pread %s: %s", mPath.c_str(), strerror(error));
-			free(mBuffer);
-			mBuffer = NULL;
-			UnixError::throwMe(error);
-		}
-
-		// Read returning 0 means EOF was reached so we're done.
-		if (bytesRead == 0)
-			break;
-
-		secdebug("atomicfile", "%p read %s: %ld bytes to %p", this, mPath.c_str(), bytesRead, ptr);
-
-		bytesLeft -= bytesRead;
-		ptr += bytesRead;
-		pos += bytesRead;
+		maxEnd = mLength;
 	}
-
-	// Compute length
-	outLength = ptr - mBuffer;
-
-	return mBuffer;
+	
+	outLength = maxEnd - inOffset;
+	
+	return mBuffer + inOffset;
 }
 
 void
@@ -696,12 +768,14 @@ LocalFileLocker::~LocalFileLocker()
 
 
 
+#ifndef NDEBUG
 static double GetTime()
 {
 	struct timeval t;
 	gettimeofday(&t, NULL);
 	return ((double) t.tv_sec) + ((double) t.tv_usec) / 1000000.0;
 }
+#endif
 
 
 
@@ -722,11 +796,11 @@ LocalFileLocker::lock(mode_t mode)
 		}
 		
 		// try to get exclusive access to the file
-		double startTime = GetTime();
+		IFDEBUG(double startTime = GetTime());
 		int result = flock(mLockFile, LOCK_EX);
-		double endTime = GetTime();
+		IFDEBUG(double endTime = GetTime());
 		
-		secdebug("atomictime", "Waited %.4f milliseconds for file lock", (endTime - startTime) * 1000.0);
+		IFDEBUG(secdebug("atomictime", "Waited %.4f milliseconds for file lock", (endTime - startTime) * 1000.0));
 		
 		// errors at this point are bad
 		if (result == -1)
@@ -768,7 +842,7 @@ NetworkFileLocker::NetworkFileLocker(AtomicFile &inFile) :
 {
 }
 
-NetworkFileLocker::~AtomicLockedFile()
+NetworkFileLocker::~NetworkFileLocker()
 {
 }
 

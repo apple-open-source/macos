@@ -53,6 +53,7 @@ struct target_ops;
 #include "symtab.h"
 #include "dcache.h"
 #include "memattr.h"
+#include "value.h"  /* APPLE LOCAL - needed for enum check_which_threads.  */
 
 enum strata
   {
@@ -233,6 +234,10 @@ enum target_object
   TARGET_OBJECT_AVR,
   /* Transfer up-to LEN bytes of memory starting at OFFSET.  */
   TARGET_OBJECT_MEMORY,
+  /* Memory, avoiding GDB's data cache and trusting the executable.
+     Target implementations of to_xfer_partial never need to handle
+     this object, and most callers should not use it.  */
+  TARGET_OBJECT_RAW_MEMORY,
   /* Kernel Unwind Table.  See "ia64-tdep.c".  */
   TARGET_OBJECT_UNWIND_TABLE,
   /* Transfer auxilliary vector.  */
@@ -247,6 +252,19 @@ extern LONGEST target_read_partial (struct target_ops *ops,
 				    enum target_object object,
 				    const char *annex, gdb_byte *buf,
 				    ULONGEST offset, LONGEST len);
+
+/* Similar to target_write, except that it also calls PROGRESS
+   with the number of bytes written and the opaque BATON after
+   every partial write.  This is useful for progress reporting
+   and user interaction while writing data.  To abort the transfer,
+   the progress callback can throw an exception.  */
+LONGEST target_write_with_progress (struct target_ops *ops,
+				    enum target_object object,
+				    const char *annex, const gdb_byte *buf,
+				    ULONGEST offset, LONGEST len,
+				    void (*progress) (ULONGEST, void *),
+				    void *baton);
+
 
 extern LONGEST target_write_partial (struct target_ops *ops,
 				     enum target_object object,
@@ -434,12 +452,21 @@ struct target_ops
 				gdb_byte *readbuf, const gdb_byte *writebuf,
 				ULONGEST offset, LONGEST len);
 
+    /* APPLE LOCAL: If this system supports setting names on threads, return
+       the name of this thread in a static buffer that will be reused on 
+       subsequent calls.  */
+   char *(*to_get_thread_name) (ptid_t ptid);
+
+    /* APPLE LOCAL: Return a string that uniquely identifies a given thread
+       in a way meaningful to the given target. */
+   char *(*to_get_thread_id_str) (ptid_t ptid);
+
     /* APPLE LOCAL: Check whether calling a function on the current
        thread is advisable (for instance, does the thread hold a
        malloc lock that is going to cause a deadlock.)  Returns 1 if
        safe to call 0 if unsafe, and -1 if there was an error
        checking.  */
-    int (*to_check_safe_call) ();
+    int (*to_check_safe_call) (int subsystem, enum check_which_threads thread_mode);
 
     /* APPLE LOCAL: Allocate SIZE bytes in the target. */
     CORE_ADDR (*to_allocate_memory) (int size);
@@ -448,6 +475,11 @@ struct target_ops
        the inferior's process (so it is safe to set breakpoints
        from that objfile.)  */
     int (*to_check_is_objfile_loaded) (struct objfile *objfile);
+
+    /* APPLE LOCAL: How do we load a shared library into the target?  
+       Returns a value containing the return value of the native
+       loader function.  */
+    struct value *(*to_load_solib) (char *path, char *flags);
 
     int to_magic;
     /* Need sub-structure for target machine related rather than comm related?
@@ -572,9 +604,6 @@ extern void target_disconnect (char *, int);
 
 extern DCACHE *target_dcache;
 
-extern int do_xfer_memory (CORE_ADDR memaddr, gdb_byte *myaddr, int len,
-			   int write, struct mem_attrib *attrib);
-
 extern int target_read_string (CORE_ADDR, char **, int, int *);
 
 extern int target_read_memory (CORE_ADDR memaddr, gdb_byte *myaddr, int len);
@@ -587,18 +616,6 @@ extern int xfer_memory (CORE_ADDR, gdb_byte *, int, int,
 
 extern int child_xfer_memory (CORE_ADDR, gdb_byte *, int, int,
 			      struct mem_attrib *, struct target_ops *);
-
-/* Make a single attempt at transfering LEN bytes.  On a successful
-   transfer, the number of bytes actually transfered is returned and
-   ERR is set to 0.  When a transfer fails, -1 is returned (the number
-   of bytes actually transfered is not defined) and ERR is set to a
-   non-zero error indication.  */
-
-extern int target_read_memory_partial (CORE_ADDR addr, char *buf, int len,
-				       int *err);
-
-extern int target_write_memory_partial (CORE_ADDR addr, char *buf, int len,
-					int *err);
 
 extern char *child_pid_to_exec_file (int);
 
@@ -715,8 +732,7 @@ extern void print_section_info_objfile (struct objfile *o);
 
 /* Kill the inferior process.   Make it go away.  */
 
-#define target_kill() \
-     (*current_target.to_kill) ()
+extern void target_kill (void);
 
 /* Load an executable file into the target process.  This is expected
    to not only bring new code into the target process, but also to
@@ -929,7 +945,7 @@ extern int gdb_override_async;
 
 /* Use this to set the override of async behavior.
    Set ON to 1 to turn on the override, 0 to turn it off. */
-extern void gdb_set_async_override (int on);
+void gdb_set_async_override (void *on);
 
 /* Can the target support asynchronous execution? */
 #define target_can_async_p() (gdb_override_async ? 0 : current_target.to_can_async_p ())
@@ -1050,11 +1066,25 @@ extern void (*deprecated_target_new_objfile_hook) (struct objfile *);
      (current_target.to_bind_function) (NAME)
 
 /*
+ * APPLE LOCAL: Get the name of the thread for a given PTID
+ */
+
+#define target_get_thread_name(PTID)	\
+  (current_target.to_get_thread_name) (PTID)
+
+/*
+ * APPLE LOCAL: Get a string representatin of a thread identifier
+ */
+
+#define target_get_thread_id_str(PTID)	\
+  (current_target.to_get_thread_id_str) (PTID)
+
+/*
  * APPLE LOCAL: Check whether it is safe to call functions on this thread 
  */
 
-#define target_check_safe_call \
-    (current_target.to_check_safe_call)
+#define target_check_safe_call(WHICH, THREAD_MODE)	\
+  (current_target.to_check_safe_call) (WHICH, THREAD_MODE)
 
 /*
  * APPLE LOCAL: Allocate memory in the target.
@@ -1070,6 +1100,14 @@ extern void (*deprecated_target_new_objfile_hook) (struct objfile *);
 
 #define target_check_is_objfile_loaded(OBJFILE) \
     (current_target.to_check_is_objfile_loaded) (OBJFILE)
+
+/*
+ * APPLE LOCAL: Check whether OBJFILE has been loaded or
+ * not.
+ */
+
+#define target_load_solib(PATH,MODE)		\
+  (current_target.to_load_solib) (PATH,MODE)
 
 /* Thread-local values.  */
 #define target_get_thread_local_address \
@@ -1306,4 +1344,11 @@ void update_current_target (void);
 
 extern struct target_ops deprecated_child_ops;
 
+/* APPLE LOCAL: Override trust-readonly-sections.  */
+extern int set_trust_readonly (int);
+void set_trust_readonly_cleanup (void *new);
+/* END APPLE LOCAL */
+
+/* APPLE LOCAL */
+int length_of_this_instruction (CORE_ADDR memaddr);
 #endif /* !defined (TARGET_H) */

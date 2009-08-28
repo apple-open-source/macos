@@ -1,7 +1,8 @@
 /* frontend.c - routines for dealing with frontend */
+/* $OpenLDAP: pkg/ldap/servers/slapd/frontend.c,v 1.19.2.6 2008/04/24 08:13:39 hyc Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,11 +43,57 @@ static BackendInfo	slap_frontendInfo;
 static BackendDB	slap_frontendDB;
 BackendDB	*frontendDB;
 
+static int
+fe_entry_get_rw(
+	Operation *op,
+	struct berval *ndn,
+	ObjectClass *oc,
+	AttributeDescription *at,
+	int rw,
+	Entry **e )
+{
+	BackendDB	*bd;
+	int		rc = LDAP_NO_SUCH_OBJECT;
+
+	bd = op->o_bd;
+	op->o_bd = select_backend( ndn, 0 );
+	if ( op->o_bd != NULL ) {
+		if ( op->o_bd->be_fetch ) {
+			rc = op->o_bd->be_fetch( op, ndn, oc, at, rw, e );
+		}
+	}
+	op->o_bd = bd;
+
+	return rc;
+}
+
+static int
+fe_entry_release_rw(
+	Operation *op,
+	Entry *e,
+	int rw )
+{
+	BackendDB	*bd;
+	int		rc = LDAP_NO_SUCH_OBJECT;
+
+	bd = op->o_bd;
+	op->o_bd = select_backend( &e->e_nname, 0 );
+	if ( op->o_bd != NULL ) {
+		if ( op->o_bd->be_release ) {
+			rc = op->o_bd->be_release( op, e, rw );
+		}
+	}
+	op->o_bd = bd;
+
+	return rc;
+}
+
 int
 frontend_init( void )
 {
 	/* data */
 	frontendDB = &slap_frontendDB;
+	frontendDB->bd_self = frontendDB;
 
 	/* ACLs */
 	frontendDB->be_dfltaccess = ACL_READ;
@@ -115,15 +162,11 @@ frontend_init( void )
 	frontendDB->bd_info->bi_op_search = fe_op_search;
 	frontendDB->bd_info->bi_extended = fe_extended;
 	frontendDB->bd_info->bi_operational = fe_aux_operational;
-#if 0
 	frontendDB->bd_info->bi_entry_get_rw = fe_entry_get_rw;
 	frontendDB->bd_info->bi_entry_release_rw = fe_entry_release_rw;
-#endif
-#ifdef SLAP_OVERLAY_ACCESS
 	frontendDB->bd_info->bi_access_allowed = fe_access_allowed;
 	frontendDB->bd_info->bi_acl_group = fe_acl_group;
 	frontendDB->bd_info->bi_acl_attribute = fe_acl_attribute;
-#endif /* SLAP_OVERLAY_ACCESS */
 
 #if 0
 	/* FIXME: is this too early? */

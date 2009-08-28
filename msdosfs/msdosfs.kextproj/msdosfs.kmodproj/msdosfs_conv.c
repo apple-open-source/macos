@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -88,7 +88,7 @@
 /*
  * Total number of days that have passed for each month in a regular year.
  */
-static u_short regyear[] = {
+static uint16_t regyear[] = {
 	31, 59, 90, 120, 151, 181,
 	212, 243, 273, 304, 334, 365
 };
@@ -96,7 +96,7 @@ static u_short regyear[] = {
 /*
  * Total number of days that have passed for each month in a leap year.
  */
-static u_short leapyear[] = {
+static uint16_t leapyear[] = {
 	31, 60, 91, 121, 152, 182,
 	213, 244, 274, 305, 335, 366
 };
@@ -105,10 +105,10 @@ static u_short leapyear[] = {
  * Variables used to remember parts of the last time conversion.  Maybe we
  * can avoid a full conversion.
  */
-static u_long  lasttime;
-static u_long  lastday;
-static u_short lastddate;
-static u_short lastdtime;
+static uint32_t  lasttime;
+static uint32_t  lastday;
+static uint16_t lastddate;
+static uint16_t lastdtime;
 
 static __inline u_int8_t find_lcode __P((u_int16_t code, u_int16_t *u2w));
 
@@ -126,7 +126,7 @@ static __inline u_int8_t find_lcode __P((u_int16_t code, u_int16_t *u2w));
  * throughout the year.  Of course, the GUI would have to do the opposite
  * conversion when converting to local time for display to the user.
  */
-__private_extern__ long msdos_secondsWest = 0;
+__private_extern__ int32_t msdos_secondsWest = 0;
 
 /*
  * Convert the unix version of time to dos's idea of time to be used in
@@ -139,12 +139,12 @@ unix2dostime(tsp, ddp, dtp, dhp)
 	u_int16_t *dtp;
 	u_int8_t *dhp;
 {
-	u_long t;
-	u_long days;
-	u_long inc;
-	u_long year;
-	u_long month;
-	u_short *months;
+	uint32_t t;
+	uint32_t days;
+	uint32_t inc;
+	uint32_t year;
+	uint32_t month;
+	uint16_t *months;
 
 	/*
 	 * If the time from the last conversion is the same as now, then
@@ -203,8 +203,8 @@ unix2dostime(tsp, ddp, dtp, dhp)
  */
 #define	SECONDSTO1980	(((8 * 365) + (2 * 366)) * (24 * 60 * 60))
 
-static u_short lastdosdate;
-static u_long  lastseconds;
+static uint16_t lastdosdate;
+static uint32_t  lastseconds;
 
 /*
  * Convert from dos' idea of time to unix'. This will probably only be
@@ -218,11 +218,11 @@ dos2unixtime(dd, dt, dh, tsp)
 	u_int dh;
 	struct timespec *tsp;
 {
-	u_long seconds;
-	u_long month;
-	u_long year;
-	u_long days;
-	u_short *months;
+	uint32_t seconds;
+	uint32_t month;
+	uint32_t year;
+	uint32_t days;
+	uint16_t *months;
 
 	if (dd == 0) {
 		/*
@@ -251,7 +251,7 @@ dos2unixtime(dd, dt, dh, tsp)
 		months = year & 0x03 ? regyear : leapyear;
 		month = (dd & DD_MONTH_MASK) >> DD_MONTH_SHIFT;
 		if (month < 1 || month > 12) {
-			printf("dos2unixtime(): month value out of range (%ld)\n",
+			printf("dos2unixtime(): month value out of range (%d)\n",
 			    month);
 			month = 1;
 		}
@@ -265,7 +265,8 @@ dos2unixtime(dd, dt, dh, tsp)
 }
 
 /*
- * Unicode (LSB) to Win Latin1 (ANSI CodePage 1252)
+ * Unicode (LSB) to Win Latin1 (ANSI CodePage 1252).
+ * Also converts ASCII to upper case.
  *
  * 0 - character disallowed in long file name.
  * 1 - character should be replaced by '_' in DOS file name, 
@@ -290,7 +291,7 @@ unilsb2dos[256] = {
 	0x60, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47,	/* 60-67 */
 	0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f,	/* 68-6f */
 	0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57,	/* 70-77 */
-	0x58, 0x59, 0x5a, 0x7b, 1,    0x7d, 0x7e, 0,	/* 78-7f */
+	0x58, 0x59, 0x5a, 0x7b, 1,    0x7d, 0x7e, 0x7f,	/* 78-7f */
 	0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87,	/* 80-87 */
 	0x88, 0x89, 0x8a, 0x8b, 0x8c, 0x8d, 0x8e, 0x8f,	/* 88-8f */
 	0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97,	/* 90-97 */
@@ -399,6 +400,7 @@ ascii_case[128] = {
 	0x01, 0x01, 0x01, 0x00, 0x04, 0x00, 0x00, 0x00,	/* 78-7F */
 };
 
+#if 0
 /*
  * Macintosh Unicode (LSB) to Microsoft Services for Macintosh (SFM) Unicode
  */
@@ -437,6 +439,7 @@ sfm2mac[42] = {
 	0x22, 0x2a, 0x3a, 0x3c, 0x3e, 0x3f, 0x5c, 0x7c,	/* 20-27 */
 	0x20, 0x2e, 	 							 	/* 28-29 */
 };
+#endif
 
 /* map a Unicode char into a DOS char */
 __private_extern__ u_char
@@ -495,34 +498,32 @@ unicode2dos(uc)
 
 /*
  * Convert a DOS filename to a Unicode filename. And, return the number of
- * characters in the resulting unix filename excluding the terminating
- * null.
+ * characters in the resulting unix filename.
  */
-__private_extern__ int
-dos2unicodefn(dn, un, lower)
-	u_char dn[SHORT_NAME_LEN];
-	u_int16_t *un;
-	int lower;
+__private_extern__ size_t
+dos2unicodefn(u_char dn[SHORT_NAME_LEN], u_int16_t *un, int lower)
 {
 	int i;
 	u_char dc;
 	int unichars = 0;
-	/*
-	 * Copy the name portion into our Unicode string.
+
+	/* 
+	 * Copy the base name portion into the Unicode string.
 	 */
-	for (i = 0; i < 8 && *dn != ' '; i++) {
+	for (i = 0; i < 8; i++) {
 		dc = *dn++;
-		/*
-		* If first char of the filename is SLOT_E5 (0x05), then
-		* the real first char of the filename should be 0xe5.
-		* But, they couldn't just have a 0xe5 mean 0xe5 because
-		* that is used to mean a freed directory slot.
-		*/
-		if (i == 0 && dc == SLOT_E5)
-			dc = 0xe5;
 		
 		/*
-		 * If the name was supposed to be all lower case,
+		 * If first char of the filename is SLOT_E5 (0x05), then
+		 * the real first char of the filename should be 0xe5.
+		 * But, they couldn't just have a 0xe5 mean 0xe5 because
+		 * that is used to mean a freed directory slot.
+		 */
+		if (i == 0 && dc == SLOT_E5)
+			dc = 0xe5;
+
+		/*
+		 * If the base name was supposed to be lower case,
 		 * then convert it.
 		 */
 		if (lower & LCASE_BASE)
@@ -530,30 +531,46 @@ dos2unicodefn(dn, un, lower)
 		
 		un[unichars++] = (dc < 0x80 || dc > 0x9F ? (u_int16_t)dc : dos2unicode[dc - 0x80]);
 	}
-	dn += 8 - i;
-
+	
 	/*
-	 * Now, if there is an extension then put in a period and copy in
-	 * the extension.
+	 * Get rid of trailing space padding in the base name.
 	 */
-	if (*dn != ' ') {
-		un[unichars++] = '.';
-		for (i = 0; i < 3 && *dn != ' '; i++) {
-			dc = *dn++;
-
-			/*
-			 * If the extension was supposed to be all lower case,
-			 * then convert it.
-			 */
-			if (lower & LCASE_EXT)
-				dc = l2u[dc];	/* Map to lower case equivalent */
-			
-			un[unichars++] = (dc < 0x80 || dc > 0x9F ? (u_int16_t)dc : dos2unicode[dc - 0x80]);
-		}
+	while (unichars > 0 && un[unichars-1]==' ')
+	{
+		-- unichars;
 	}
+	
+	/*
+	 * Copy the extension portion (with dot) into the Unicode string.
+	 */
+	un[unichars++] = '.';
+	for (i = 0; i < 3; i++) {
+		dc = *dn++;
 
-	return (unichars);
+		/*
+		 * If the extension was supposed to be all lower case,
+		 * then convert it.
+		 */
+		if (lower & LCASE_EXT)
+			dc = l2u[dc];	/* Map to lower case equivalent */
+		
+		un[unichars++] = (dc < 0x80 || dc > 0x9F ? (u_int16_t)dc : dos2unicode[dc - 0x80]);
+	}
+	
+	/*
+	 * Get rid of trailing space padding in the extension (and the dot
+	 * if there was no extension).
+	 */
+	for (i=0; i<3 && un[unichars-1]==' '; ++i)
+	{
+		--unichars;
+	}
+	if (i==3)			/* Was the extension entirely spaces? */
+		--unichars;		/* Yes, so remove the dot, too. */
+
+	return unichars;
 }
+
 
 /*
  * Convert a Unicode filename to a DOS filename according to Win95 rules.
@@ -597,18 +614,17 @@ unicode2dosfn(const u_int16_t *un, u_char dn[SHORT_NAME_LEN], int unlen, u_int g
 	 * Fill the dos filename string with blanks. These are DOS's pad
 	 * characters.
 	 */
-	for (i = 0; i < SHORT_NAME_LEN; i++)
-		dn[i] = ' ';
+	memset(dn, ' ', SHORT_NAME_LEN);
 
 	/*
 	 * The filenames "." and ".." are handled specially, since they
 	 * don't follow dos filename rules.
 	 */
-	if (un[0] == '.' && unlen == 1) {
+	if (unlen == 1 && un[0] == '.') {
 		dn[0] = '.';
 		return gen <= 1;
 	}
-	if (un[0] == '.' && un[1] == '.' && unlen == 2) {
+	if (unlen == 2 && un[0] == '.' && un[1] == '.') {
 		dn[0] = '.';
 		dn[1] = '.';
 		return gen <= 1;
@@ -853,6 +869,8 @@ find_lcode(code, u2w)
  * Convert a Unicode character to a single known case.  Upper and lower case
  * variants of the same character produce the same result.
  *
+ * As an implementation detail, we convert the character to lower case.
+ *
  * Note: this currently only handles case folding of ASCII characters.  The
  * Unicode standard defines case equivalence for other characters (such as
  * precomposed characters), but I don't know whether Windows considers them
@@ -860,10 +878,26 @@ find_lcode(code, u2w)
  */
 static inline u_int16_t case_fold(u_int16_t ch)
 {
-    if (ch < 0x100)
-        return l2u[ch];
-    else
-        return ch;
+	if (ch < 0x100)
+		return l2u[ch];
+	else
+		return ch;
+}
+
+/*
+ * Case-insensitive comparison of Unicode file names.  Returns zero if the
+ * names are equivalent.
+ */
+__private_extern__ int
+compareUnicodeNames(u_int16_t *x, u_int16_t *y, int length)
+{
+	for ( ; length; --length)
+	{
+		if (case_fold(*x++) != case_fold(*y++))
+			return 1;	/* Names differ */
+	}
+	
+	return 0;	/* Names are equivalent! */
 }
 
 /*
@@ -1134,6 +1168,7 @@ winSlotCnt(un, unlen)
  * This conversion also creating files with trailing spaces and dots in filename.
  * Reference: http://support.microsoft.com/kb/q117258/
  */
+#if 0
 __private_extern__ void
 mac2sfmfn(un, unlen)
 	u_int16_t* un;
@@ -1175,4 +1210,5 @@ sfm2macfn(un, unlen)
 		}
 	}
 }
+#endif
 

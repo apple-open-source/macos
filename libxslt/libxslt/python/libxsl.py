@@ -20,9 +20,9 @@ else:
             if osname == 'Linux' or osname == 'SunOS':
                 RTLD_GLOBAL = 0x00100
                 RTLD_NOW = 0x00002
-	    elif osname == 'Darwin':
-	        RTLD_GLOBAL = 0x8
-		RTLD_NOW = 0x2
+            elif osname == 'Darwin':
+                RTLD_GLOBAL = 0x8
+                RTLD_NOW = 0x2
             #
             # is there a better method ?
             #
@@ -30,12 +30,12 @@ else:
 #                print "libxslt could not guess RTLD_GLOBAL and RTLD_NOW " + \
 #                      "on this platform: %s" % (osname)
         except:
-	     pass
+             pass
 #            print "libxslt could not guess RTLD_GLOBAL and RTLD_NOW " + \
 #                  "on this platform: %s" % (osname)
     except:
-	 RTLD_GLOBAL = -1
-	 RTLD_NOW = -1
+        RTLD_GLOBAL = -1
+        RTLD_NOW = -1
 
     if RTLD_GLOBAL != -1 and RTLD_NOW != -1:
         try:
@@ -56,6 +56,37 @@ else:
         import libxsltmod
         import libxml2
 
+
+class transformCtxtBase:
+    def __init__(self, _obj=None):
+        if _obj != None: 
+            self._o = _obj;
+            return
+        self._o = None
+    def __hash__(self):
+        v = libxsltmod.xsltGetTransformContextHashCode(self._o)
+        return v
+    def __eq__(self, other):
+        if other == None:
+            return 0
+        v = libxsltmod.xsltCompareTransformContextsEqual(self._o, other._o)
+        return v
+        
+class stylesheetBase:
+    def __init__(self, _obj=None):
+        if _obj != None: 
+            self._o = _obj;
+            return
+        self._o = None
+    def __hash__(self):
+        v = libxsltmod.xsltGetStylesheetHashCode(self._o)
+        return v
+    def __eq__(self, other):
+        if other == None:
+            return 0
+        v = libxsltmod.xsltCompareStylesheetsEqual(self._o, other._o)
+        return v
+
 class extensionModule:
     def _styleInit(self, style, URI):
         return self.styleInit(stylesheet(_obj=style), URI)
@@ -71,21 +102,21 @@ class extensionModule:
 
     def styleInit(self, style, URI):
         """Callback function when used in a newly compiled stylesheet,
-	   the return value is passed in subsequent calls"""
-	pass
+           the return value is passed in subsequent calls"""
+        pass
 
     def styleShutdown(self, style, URI, data):
         """Callback function when a stylesheet using it is destroyed"""
-	pass
+        pass
 
     def ctxtInit(self, ctxt, URI):
         """Callback function when used in a new transformation process,
-	   the return value is passed in subsequent calls"""
-	pass
+           the return value is passed in subsequent calls"""
+        pass
 
     def ctxtShutdown(self, ctxt, URI, data):
         """Callback function when a transformation using it finishes"""
-	pass
+        pass
 
 def cleanup():
     """Cleanup all libxslt and libxml2 memory allocated"""

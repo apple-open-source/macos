@@ -1,8 +1,35 @@
 #!/bin/sh
+
 PATH=/usr/sbin:/usr/bin:/bin
+TIMEOUT=30
+KEY=State:/Network/Global/DNS
+DNS=/var/run/resolv.conf
+# sentinel to special case DNS readiness at boot
+LOG=/var/run/sntp.log
 
 ipconfig waitall
-ntpdate -bvs
+
+if [[ ! -f ${LOG} ]]; then
+    DEADLINE=$((SECONDS+TIMEOUT))
+    for (( CURTIMEOUT=TIMEOUT; SECONDS < DEADLINE; CURTIMEOUT=DEADLINE-SECONDS )); do
+	if scutil -w ${KEY} -t ${CURTIMEOUT}; then
+	    if [[ -f ${DNS} ]]; then 
+		break;
+	    fi			# else retry false alarms
+	else
+	    logger -p daemon.err "$0: scutil key ${KEY} not present after ${TIMEOUT} seconds"
+	    break;
+	fi
+    done
+fi
+
+for server in $(awk '/^server/ {print $2}' /etc/ntp.conf); do
+    if sntp -v -r -P no -l /var/run/sntp.pid ${server} &> ${LOG}; then
+	break
+    else
+	logger -p daemon.err -f ${LOG}
+    fi
+done
 
 # Un-comment the following line to run ntp with a sandbox profile.
 # Sandbox profiles restrict processes from performing unauthorized

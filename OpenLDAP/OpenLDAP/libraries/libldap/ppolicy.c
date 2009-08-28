@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/ppolicy.c,v 1.3.2.4 2006/05/09 17:43:11 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/ppolicy.c,v 1.11.2.4 2008/02/11 23:26:41 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2004-2006 The OpenLDAP Foundation.
+ * Copyright 2004-2008 The OpenLDAP Foundation.
  * Portions Copyright 2004 Hewlett-Packard Company.
  * Portions Copyright 2004 Howard Chu, Symas Corp.
  * All rights reserved.
@@ -33,7 +33,7 @@
 
 /* IMPLICIT TAGS, all context-specific */
 #define PPOLICY_WARNING 0xa0L	/* constructed + 0 */
-#define PPOLICY_ERROR 0x81L	/* primitive + 1 */
+#define PPOLICY_ERROR 0x81L		/* primitive + 1 */
 
 #define PPOLICY_EXPIRE 0x80L	/* primitive + 0 */
 #define PPOLICY_GRACE  0x81L	/* primitive + 1 */
@@ -61,22 +61,14 @@ int
 ldap_create_passwordpolicy_control( LDAP *ld,
                                     LDAPControl **ctrlp )
 {
-	BerElement *ber;
-
 	assert( ld != NULL );
 	assert( LDAP_VALID( ld ) );
 	assert( ctrlp != NULL );
 
-	if ((ber = ldap_alloc_ber_with_options(ld)) == NULL) {
-		ld->ld_errno = LDAP_NO_MEMORY;
-		return(LDAP_NO_MEMORY);
-	}
+	ld->ld_errno = ldap_control_create( LDAP_CONTROL_PASSWORDPOLICYREQUEST,
+		0, NULL, 0, ctrlp );
 
-	ld->ld_errno = ldap_create_control( LDAP_CONTROL_PASSWORDPOLICYREQUEST,
-		ber, 0, ctrlp);
-
-	ber_free(ber, 1);
-	return(ld->ld_errno);
+	return ld->ld_errno;
 }
 
 
@@ -87,9 +79,10 @@ ldap_create_passwordpolicy_control( LDAP *ld,
 
    ld           (IN)   An LDAP session handle.
    
-   ctrls        (IN)   The address of an
-					   LDAPControl structure, typically obtained 
-					   by a call to ldap_find_control().
+   ctrl         (IN)   The address of an
+					   LDAPControl structure, either obtained 
+					   by running thorugh the list of response controls or
+					   by a call to ldap_control_find().
 
    exptimep     (OUT)  This result parameter is filled in with the number of seconds before
                                            the password will expire, if expiration is imminent
@@ -126,9 +119,9 @@ int
 ldap_parse_passwordpolicy_control(
 	LDAP           *ld,
 	LDAPControl    *ctrl,
-        int            *expirep,
-        int            *gracep,
-        LDAPPasswordPolicyError *errorp )
+	ber_int_t      *expirep,
+	ber_int_t      *gracep,
+	LDAPPasswordPolicyError *errorp )
 {
 	BerElement  *ber;
 	int exp = -1, grace = -1;
@@ -149,68 +142,67 @@ ldap_parse_passwordpolicy_control(
 		return(ld->ld_errno);
 	}
 
-        tag = ber_peek_tag( ber, &berLen );
-        if (tag != LBER_SEQUENCE) goto exit;
+	tag = ber_peek_tag( ber, &berLen );
+	if (tag != LBER_SEQUENCE) goto exit;
 
-        for( tag = ber_first_element( ber, &berLen, &last );
-             tag != LBER_DEFAULT;
-             tag = ber_next_element( ber, &berLen, last ) ) {
-            switch (tag) {
-                case PPOLICY_WARNING:
-                    ber_skip_tag(ber, &berLen );
-                    tag = ber_peek_tag( ber, &berLen );
-                    switch( tag ) {
-                        case PPOLICY_EXPIRE:
-                            if (ber_get_int( ber, &exp ) == LBER_DEFAULT) goto exit;
-                            break;
-                        case PPOLICY_GRACE:
-                            if (ber_get_int( ber, &grace ) == LBER_DEFAULT) goto exit;
-                            break;
-                        default:
-                            goto exit;
+	for( tag = ber_first_element( ber, &berLen, &last );
+		tag != LBER_DEFAULT;
+		tag = ber_next_element( ber, &berLen, last ) )
+	{
+		switch (tag) {
+		case PPOLICY_WARNING:
+			ber_skip_tag(ber, &berLen );
+			tag = ber_peek_tag( ber, &berLen );
+			switch( tag ) {
+			case PPOLICY_EXPIRE:
+				if (ber_get_int( ber, &exp ) == LBER_DEFAULT) goto exit;
+				break;
+			case PPOLICY_GRACE:
+				if (ber_get_int( ber, &grace ) == LBER_DEFAULT) goto exit;
+				break;
+			default:
+				goto exit;
+			}
+			break;
+		case PPOLICY_ERROR:
+			if (ber_get_enum( ber, &err ) == LBER_DEFAULT) goto exit;
+			break;
+		default:
+			goto exit;
+		}
+	}
 
-                    }
-                    
-                    break;
-                case PPOLICY_ERROR:
-                    if (ber_get_enum( ber, &err ) == LBER_DEFAULT) goto exit;
-                    break;
-                default:
-                    goto exit;
-            }
-        }
-        
 	ber_free(ber, 1);
 
 	/* Return data to the caller for items that were requested. */
-        if (expirep) *expirep = exp;
-        if (gracep) *gracep = grace;
-        if (errorp) *errorp = err;
+	if (expirep) *expirep = exp;
+	if (gracep) *gracep = grace;
+	if (errorp) *errorp = err;
         
 	ld->ld_errno = LDAP_SUCCESS;
 	return(ld->ld_errno);
 
   exit:
-        ber_free(ber, 1);
-        ld->ld_errno = LDAP_DECODING_ERROR;
-        return(ld->ld_errno);
+	ber_free(ber, 1);
+	ld->ld_errno = LDAP_DECODING_ERROR;
+	return(ld->ld_errno);
 }
 
 const char *
 ldap_passwordpolicy_err2txt( LDAPPasswordPolicyError err )
 {
 	switch(err) {
-		case PP_passwordExpired: return "Password expired";
-		case PP_accountLocked: return "Account locked";
-		case PP_changeAfterReset: return "Password must be changed";
-		case PP_passwordModNotAllowed: return "Policy prevents password modification";
-		case PP_mustSupplyOldPassword: return "Policy requires old password in order to change password";
-		case PP_insufficientPasswordQuality: return "Password fails quality checks";
-		case PP_passwordTooShort: return "Password is too short for policy";
-		case PP_passwordTooYoung: return "Password has been changed too recently";
-		case PP_passwordInHistory: return "New password is in list of old passwords";
-		case PP_noError: return "No error";
-		default: return "Unknown error code";
+	case PP_passwordExpired: return "Password expired";
+	case PP_accountLocked: return "Account locked";
+	case PP_changeAfterReset: return "Password must be changed";
+	case PP_passwordModNotAllowed: return "Policy prevents password modification";
+	case PP_mustSupplyOldPassword: return "Policy requires old password in order to change password";
+	case PP_insufficientPasswordQuality: return "Password fails quality checks";
+	case PP_passwordTooShort: return "Password is too short for policy";
+	case PP_passwordTooYoung: return "Password has been changed too recently";
+	case PP_passwordInHistory: return "New password is in list of old passwords";
+	case PP_noError: return "No error";
+	default: return "Unknown error code";
 	}
 }
 

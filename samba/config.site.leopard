@@ -6,6 +6,9 @@ samba_cv_HAVE_Wdeclaration_after_statement=yes
 samba_cv_HAVE_Werror=yes
 samba_cv_HAVE_w2=yes
 
+# Enable randomised DSO loading, <rdar://problem/5631230>
+samba_cv_fpie=yes
+
 SMB_BUILD_CC_NEGATIVE_ENUM_VALUES=yes # Whether the C compiler understands
 				      # negative enum values
 

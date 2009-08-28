@@ -135,7 +135,7 @@ extern WORD_LIST *expand_string_unsplit __P((char *, int));
 extern WORD_LIST *expand_string_assignment __P((char *, int));
 
 /* Expand a prompt string. */
-extern WORD_LIST *expand_prompt_string __P((char *, int));
+extern WORD_LIST *expand_prompt_string __P((char *, int, int));
 
 /* Expand STRING just as if you were expanding a word.  This also returns
    a list of words.  Note that filename globbing is *NOT* done for word

@@ -1,10 +1,10 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*           Copyright (c) 1990-2007 AT&T Knowledge Ventures            *
+*          Copyright (c) 1990-2007 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
-*                      by AT&T Knowledge Ventures                      *
+*                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
 *            http://www.opensource.org/licenses/cpl1.0.txt             *
@@ -77,7 +77,7 @@
 #if !defined(__LINKAGE__)
 #define __LINKAGE__		/* 2004-08-11 transition */
 #endif
-#line 1 "proto.c"
+#line 1 "/home/gsf/src/cmd/proto/proto.c"
  
 
 #line 147
@@ -195,14 +195,14 @@ replace __PARAM__((const char* newfile, const char* oldfile, int preserve), (new
 # undef	utime
 # define utime		______utime
 
-#line 1 "../../lib/libpp/ppproto.c"
+#line 1 "/home/gsf/src/lib/libpp/ppproto.c"
  
 #line 13
-static const char id[] = "\n@(#)$Id: proto (AT&T Research) 2006-06-28 $\000\n";
+static const char id[] = "\n@(#)$Id: proto (AT&T Research) 2007-09-21 $\000\n";
 
-#line 1 "../../lib/libpp/ppfsm.c"
+#line 1 "/home/gsf/src/lib/libpp/ppfsm.c"
  
-#line 1 "../../lib/libpp/pplib.h"
+#line 1 "/home/gsf/src/lib/libpp/pplib.h"
    
 #line 108
 struct ppsymbol;
@@ -311,7 +311,7 @@ struct pathid
 	struct ppfileid	id;		 
 };
 
-#line 1 "../../lib/libpp/pp.h"
+#line 1 "/home/gsf/src/lib/libpp/pp.h"
  
 #line 206
  
@@ -415,20 +415,20 @@ extern __MANGLE__ void		pppragma __PROTO__((char*, char*, char*, char*, int));
 extern __MANGLE__ int		ppprintf __PROTO__((char*, ...));
 extern __MANGLE__ int		ppsync __PROTO__((void));
 
-#line 366 "../../lib/libpp/pplib.h"
+#line 366 "/home/gsf/src/lib/libpp/pplib.h"
 
 #line 1 "../../lib/libpp/ppdef.h"
  
-#line 367 "../../lib/libpp/pplib.h"
+#line 367 "/home/gsf/src/lib/libpp/pplib.h"
 
-#line 1 "../../lib/libpp/ppkey.h"
+#line 1 "/home/gsf/src/lib/libpp/ppkey.h"
  
 #line 16
         
 #line 125
 extern __MANGLE__ struct ppkeyword	ppkey[];
 
-#line 368 "../../lib/libpp/pplib.h"
+#line 368 "/home/gsf/src/lib/libpp/pplib.h"
   
 #line 681
 struct ppcontext			 
@@ -528,9 +528,9 @@ extern __MANGLE__ char*		ppstatestr __PROTO__((long));
 extern __MANGLE__ char*		pptokstr __PROTO__((char*, int));
 extern __MANGLE__ void		pptrace __PROTO__((int));
 
-#line 11 "../../lib/libpp/ppfsm.c"
+#line 11 "/home/gsf/src/lib/libpp/ppfsm.c"
 
-#line 1 "../../lib/libpp/ppfsm.h"
+#line 1 "/home/gsf/src/lib/libpp/ppfsm.h"
      
 #line 185
      
@@ -545,7 +545,7 @@ extern __MANGLE__ char		_pp_trigraph[255+1];
 
 extern __MANGLE__ void		_pp_refill __PROTO__((int));
 
-#line 12 "../../lib/libpp/ppfsm.c"
+#line 12 "/home/gsf/src/lib/libpp/ppfsm.c"
 
   
 #line 67
@@ -1272,7 +1272,7 @@ ppfsm __PARAM__((int op, register char* s), (op, s)) __OTORP__(int op; register 
 
 
 
-#line 18 "../../lib/libpp/ppproto.c"
+#line 18 "/home/gsf/src/lib/libpp/ppproto.c"
 
 #line 1 "../../../include/ast/hashkey.h"
   
@@ -1282,9 +1282,9 @@ ppfsm __PARAM__((int op, register char* s), (op, s)) __OTORP__(int op; register 
 #line 68
 extern __MANGLE__  long	strkey  __PROTO__((const char*));
 
-#line 20 "../../lib/libpp/ppproto.c"
+#line 20 "/home/gsf/src/lib/libpp/ppproto.c"
 
-#line 40
+#line 41
 struct proto 
 {
 	int		brace;		 
@@ -1319,7 +1319,7 @@ struct proto
 };
 
   
-#line 162
+#line 163
 static char*
 number __PARAM__((register char* p, register long n), (p, n)) __OTORP__(register char* p; register long n;){
 	register long	d;
@@ -1335,7 +1335,7 @@ number __PARAM__((register char* p, register long n), (p, n)) __OTORP__(register
 static int		errors;
 
  
-#line 193
+#line 194
  
 
 
@@ -1443,7 +1443,7 @@ memcopy __PARAM__((register char* s, register char* t, int n), (s, t, n)) __OTOR
 	return s;
 }
 
-#line 1 "../../lib/libast/port/astlicense.c"
+#line 1 "/home/gsf/src/lib/libast/port/astlicense.c"
 
 
  
@@ -2483,9 +2483,9 @@ astlicense __PARAM__((char* p, int size, char* file, char* options, int cc1, int
 		comment(&notice, &buf, ((char*)0), -1, 0);
 	return (*(( &buf)->nxt>=( &buf)->end?(( &buf)->nxt=( &buf)->end-1):( &buf)->nxt)=0,( &buf)->nxt-( &buf)->buf);
 }
-#line 305 "../../lib/libpp/ppproto.c"
+#line 306 "/home/gsf/src/lib/libpp/ppproto.c"
  
-#line 317
+#line 318
 static char*
 linesync __PARAM__((register struct proto* proto, register char* p, register long n), (proto, p, n)) __OTORP__(register struct proto* proto; register char* p; register long n;){
 
@@ -2626,7 +2626,7 @@ init __PARAM__((struct proto* proto, char* op, int flags), (proto, op, flags)) _
 }
 
  
-#line 391
+#line 392
 static char*
 nns __PARAM__((register char* s), (s)) __OTORP__(register char* s;){
 	while (*s == ' ' || *s == '\t' || *s == '\n')
@@ -2635,7 +2635,7 @@ nns __PARAM__((register char* s), (s)) __OTORP__(register char* s;){
 }
 
  
-#line 408
+#line 409
 static int
 directive __PARAM__((register char* s, int dir), (s, dir)) __OTORP__(register char* s; int dir;){
 	switch (*(s = nns(s)))
@@ -4229,7 +4229,7 @@ pppclose __PARAM__((char* iob), (iob)) __OTORP__(char* iob;){
 }
 
  
-#line 2007
+#line 2008
 char*
 pppopen __PARAM__((char* file, int fd, char* notice, char* options, char* package, char* comment, int flags), (file, fd, notice, options, package, comment, flags)) __OTORP__(char* file; int fd; char* notice; char* options; char* package; char* comment; int flags;){
 	register struct proto*	proto;
@@ -4323,7 +4323,7 @@ pppopen __PARAM__((char* file, int fd, char* notice, char* options, char* packag
 	*(proto->ip + n) = 0;
 
  
-#line 2112
+#line 2113
 	if (!notice && !options || (comlen = astlicense(com, sizeof(com), ((char*)0), "type=check", proto->cc[0], proto->cc[1], proto->cc[2])) <= 0)
 		*com = 0;
 
@@ -4388,6 +4388,11 @@ pppopen __PARAM__((char* file, int fd, char* notice, char* options, char* packag
 							notice = options = 0;
 							break;
 						}
+					}
+					if (*s == *"Public Domain"&& !sstrncmp( s, "Public Domain", sizeof("Public Domain") - 1))
+					{
+						notice = options = 0;
+						break;
 					}
 					else if (*s++ == '\n')
 					{
@@ -4638,7 +4643,7 @@ pppread __PARAM__((char* iob), (iob)) __OTORP__(char* iob;){
 
 
 
-#line 265 "proto.c"
+#line 265 "/home/gsf/src/cmd/proto/proto.c"
 
 
 

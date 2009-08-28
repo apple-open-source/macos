@@ -51,6 +51,7 @@ typedef struct sFWRefMapEntry {
 	sPIDFWInfo	   *fChildPID;
 	UInt32			fMessageTableIndex;
 	char		   *fPluginName;
+	bool			fBigEndian;
 } sFWRefMapEntry;
 
 // -------------------------------------------
@@ -97,31 +98,10 @@ public:
 	UInt32		GetMessageTableIndex( UInt32 inRefNum, UInt32 inType, SInt32 inPID );
 	tDirStatus	SetMessageTableIndex( UInt32 inRefNum, UInt32 inType, UInt32 inMsgTableIndex, SInt32 inPID );
 
-	tDirStatus	SetPluginName		( UInt32 inRefNum, UInt32 inType, char* inPluginName, SInt32 inPID );
 	char*		GetPluginName		( UInt32 inRefNum, SInt32 inPID );
 
 	UInt32		GetRefNum			( UInt32 inRefNum, UInt32 inType, SInt32 inPID );
-	UInt32		GetRefNumMap	 	( UInt32 inRefNum, UInt32 inType, SInt32 inPID );
 	
-#ifdef __LITTLE_ENDIAN__
-	static void			MapServerRefToLocalRef
-											( UInt32 inServerRef, UInt32 inLocalRef );
-	static void			RemoveServerToLocalRefMap
-											( UInt32 inServerRef );
-	static UInt32		GetLocalRefFromServerMap
-											( UInt32 inServerRef );
-	static void			MapMsgIDToServerRef	( UInt32 inMsgID, UInt32 inServerRef );
-	static void			RemoveMsgIDToServerRefMap
-											( UInt32 inMsgID );
-	static UInt32		GetServerRefFromMsgIDMap
-											( UInt32 inMsgID );
-	static void			MapMsgIDToCustomCode( UInt32 inMsgID, UInt32 inCustomCode );
-	static void			RemoveMsgIDToCustomCodeMap
-											( UInt32 inMsgID );
-	static UInt32		GetCustomCodeFromMsgIDMap
-											( UInt32 inMsgID );
-#endif
-
 private:
 	DSMutexSemaphore	fMapMutex;
 	UInt32				fTableCount;

@@ -1,4 +1,4 @@
-# Copyright (C) 2001-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 2001-2007 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,7 +12,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 """GUI component for managing the non-digest delivery options.
 """
@@ -143,6 +144,31 @@ and footers:
              access via web browser. If you want the attachments totally
              disappear, you can use content filter options.''')),
             ])
+
+        info.extend([
+            _('Sibling lists'),
+
+            ('regular_exclude_lists', mm_cfg.EmailList, (3, WIDTH), 0,
+             _("""Other mailing lists on this site whose members are
+             excluded from the regular (non-digest) delivery if those
+             list addresses appear in a To: or Cc: header."""),
+             _("""The list addresses should be written in full mail address
+             format (e.g. mailman@example.com). Do not specify this list
+             address mutually in the exclude list configuration page of the
+             other list, or members of both lists won't get any message.
+             Note also that the site administrator may prohibit cross domain
+             siblings.""")),
+
+            ('regular_include_lists', mm_cfg.EmailList, (3, WIDTH), 0,
+             _("""Other mailing lists on this site whose members are
+             included in the regular (non-digest) delivery if those
+             list addresses don't appear in a To: or Cc: header."""),
+             _("""The list addresses should be written in full mail address
+             format (e.g. mailman@example.com). Note also that the site
+             administrator may prohibit cross domain siblings.""")),
+            ])
+
+
         return info
 
     def _setValue(self, mlist, property, val, doc):

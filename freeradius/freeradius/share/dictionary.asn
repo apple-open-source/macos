@@ -5,7 +5,7 @@
 #
 #	Taken from http://svn.asn.pl/misc/freeradius/dictionary.asn
 #
-#	$Id: dictionary.asn,v 1.1.2.2 2007/01/30 10:55:00 aland Exp $
+#	$Id$
 #
 ##############################################################################
 
@@ -75,8 +75,8 @@ VALUE	ASN-Webfilter-Mode		Allow			2
 #         query string of %u, but note for convenience
 #         without the leading "/".
 #    %t - matched destination group or "unknown"
-#    %u - requested URL                  
-#    %% - single '%'                          
+#    %u - requested URL
+#    %% - single '%'
 #
 ATTRIBUTE	ASN-Webfilter-Redirect			114	string
 

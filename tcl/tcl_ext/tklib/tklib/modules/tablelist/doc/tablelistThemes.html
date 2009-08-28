@@ -1,0 +1,280 @@
+<html>
+<head>
+  <title>Commands Related to tile Themes</title>
+
+  <meta name="Author" content="Csaba Nemethi">
+  <meta name="Keywords" content="tablelist, theme, tile">
+</head>
+
+<body bgcolor="#FFFFFF">
+  <div align="center">
+    <h1>Commands Related to tile Themes</h1>
+
+    <h3>by</h3>
+
+    <h2>Csaba Nemethi</h2>
+
+    <address>
+      <a href="mailto:csaba.nemethi@t-online.de">csaba.nemethi@t-online.de</a>
+    </address>
+  </div>
+
+  <hr>
+
+  <h2><a name="contents"></a>Contents</h2>
+
+  <ul>
+    <li><a href="#overview">Overview</a></li>
+
+    <li><a href="#setTheme">The <code><b>tablelist::setTheme</b></code>
+    Command</a></li>
+
+    <li><a href="#getCurrentTheme">The
+    <code><b>tablelist::getCurrentTheme</b></code> Command</a></li>
+
+    <li><a href="#getThemes">The <code><b>tablelist::getThemes</b></code>
+    Command</a></li>
+
+    <li><a href="#setThemeDefaults">The
+    <code><b>tablelist::setThemeDefaults</b></code> Command</a></li>
+  </ul>
+
+  <div align="center">
+    <p><a href="index.html">Start page</a></p>
+  </div>
+
+  <hr>
+
+  <h2><a name="overview"></a>Overview</h2>
+
+  <p>The commands described in this reference page should only be invoked when
+  using the package Tablelist_tile.&nbsp; They enable you to set and query the
+  current theme, to retrieve a list of the available themes, and to make sure
+  that your widgets will have a theme-specific appearance.</p>
+
+  <div align="center">
+    <p><a href="#contents">Contents</a>&nbsp;&nbsp;&nbsp;&nbsp; <a href=
+    "index.html">Start page</a></p>
+  </div>
+
+  <hr>
+
+  <h2><a name="setTheme"></a>The <code><b>tablelist::setTheme</b></code>
+  Command</h2>
+
+  <dl>
+    <dt><b>NAME</b></dt>
+
+    <dd><code>tablelist::setTheme</code> - Set the current theme</dd>
+
+    <dt><br>
+    <b>SYNOPSIS</b></dt>
+
+    <dd>
+      <pre>
+<b>tablelist::setTheme</b> <i>theme</i>
+</pre>
+    </dd>
+
+    <dt><b>DESCRIPTION</b></dt>
+
+    <dd>
+      This command sets the current theme to <code><i>theme</i></code>, loading
+      it if necessary.&nbsp; It is simply an alias for
+      <code><b>ttk::setTheme</b></code> or <code><b>tile::setTheme</b></code>,
+      depending on the tile version loaded into the interpreter.&nbsp; (The
+      <code><b>tile::setTheme</b></code> command was renamed to
+      <code><b>ttk::setTheme</b></code> in tile version 0.8.)
+
+      <p>Being just an alias for a tile library procedure, the
+      <code><b>tablelist::setTheme</b></code> command does exactly the same as
+      the original one: It loads the package implementing the given theme if
+      needed, sets the theme to the specified one, and saves the latter in the
+      variable <code><b>ttk::currentTheme</b></code> or
+      <code><b>tile::currentTheme</b></code>, depending on the current tile
+      version.</p>
+    </dd>
+
+    <dt><b>KEYWORDS</b></dt>
+
+    <dd>tablelist, theme, tile</dd>
+  </dl>
+
+  <div align="center">
+    <p><a href="#contents">Contents</a>&nbsp;&nbsp;&nbsp;&nbsp; <a href=
+    "index.html">Start page</a></p>
+  </div>
+
+  <hr>
+
+  <h2><a name="getCurrentTheme"></a>The
+  <code><b>tablelist::getCurrentTheme</b></code> Command</h2>
+
+  <dl>
+    <dt><b>NAME</b></dt>
+
+    <dd><code>tablelist::getCurrentTheme</code> - Get the current theme</dd>
+
+    <dt><br>
+    <b>SYNOPSIS</b></dt>
+
+    <dd>
+      <pre>
+<b>tablelist::getCurrentTheme</b>
+</pre>
+    </dd>
+
+    <dt><b>DESCRIPTION</b></dt>
+
+    <dd>This command returns the value of the variable
+    <code><b>ttk::currentTheme</b></code> or
+    <code><b>tile::currentTheme</b></code>, depending on the tile version
+    loaded into the interpreter.&nbsp; (The namespace containing the variable
+    <code><b>currentTheme</b></code> was changed in tile version 0.8 from
+    <code><b>tile</b></code> to <code><b>ttk</b></code>.)</dd>
+
+    <dt><br>
+    <b>KEYWORDS</b></dt>
+
+    <dd>tablelist, theme, tile</dd>
+  </dl>
+
+  <div align="center">
+    <p><a href="#contents">Contents</a>&nbsp;&nbsp;&nbsp;&nbsp; <a href=
+    "index.html">Start page</a></p>
+  </div>
+
+  <hr>
+
+  <h2><a name="getThemes"></a>The <code><b>tablelist::getThemes</b></code>
+  Command</h2>
+
+  <dl>
+    <dt><b>NAME</b></dt>
+
+    <dd><code>tablelist::getThemes</code> - Get the themes registered in the
+    package database</dd>
+
+    <dt><br>
+    <b>SYNOPSIS</b></dt>
+
+    <dd>
+      <pre>
+<b>tablelist::getThemes</b>
+</pre>
+    </dd>
+
+    <dt><b>DESCRIPTION</b></dt>
+
+    <dd>This command returns a list of the themes registered in the package
+    database.&nbsp; It is simply an alias for <code><b>ttk::themes</b></code>
+    or <code><b>tile::availableThemes</b></code>, depending on the tile version
+    loaded into the interpreter.&nbsp; (The
+    <code><b>tile::availableThemes</b></code> command was renamed to
+    <code><b>ttk::themes</b></code> in tile version 0.8.)</dd>
+
+    <dt><br>
+    <b>KEYWORDS</b></dt>
+
+    <dd>tablelist, theme, tile</dd>
+  </dl>
+
+  <div align="center">
+    <p><a href="#contents">Contents</a>&nbsp;&nbsp;&nbsp;&nbsp; <a href=
+    "index.html">Start page</a></p>
+  </div>
+
+  <hr>
+
+  <h2>The <a name="setThemeDefaults"></a>
+  <code><b>tablelist::setThemeDefaults</b></code> Command</h2>
+
+  <dl>
+    <dt><b>NAME</b></dt>
+
+    <dd><code>tablelist::setThemeDefaults</code> - Set theme-specific default
+    values of some tablelist configuration options</dd>
+
+    <dt><br>
+    <b>SYNOPSIS</b></dt>
+
+    <dd>
+      <pre>
+<b>tablelist::setThemeDefaults</b>
+</pre>
+    </dd>
+
+    <dt><b>DESCRIPTION</b></dt>
+
+    <dd>
+      This command populates the array
+      <code><b>tablelist::themeDefaults</b></code> with theme-specific default
+      values of a series of Tablelist configuration options.&nbsp; The array
+      names are the command-line names of the options, and the corresponding
+      array values are the default values of these configuration options for
+      the currently set tile theme.
+
+      <p>The options whose names and values are written into the array
+      <code><b>tablelist::themeDefaults</b></code> are:
+      <code><b>-background</b></code>, <code><b>-foreground</b></code>,
+      <code><b>-disabledforeground</b></code>,
+      <code><b>-stripebackground</b></code>,
+      <code><b>-selectbackground</b></code>,
+      <code><b>-selectforeground</b></code>,
+      <code><b>-selectborderwidth</b></code>, <code><b>-font</b></code>,
+      <code><b>-labelbackground</b></code>,
+      <code><b>-labelforeground</b></code>, <code><b>-labelfont</b></code>,
+      <code><b>-labelborderwidth</b></code>, <code><b>-labelpady</b></code>,
+      <code><b>-arrowcolor</b></code>, <code><b>-arrowdisabledcolor</b></code>,
+      and <code><b>-arrowstyle</b></code>.&nbsp; In addition, the command sets
+      some other array elements to theme-specific default values of the
+      background and foreground colors of the column labels in
+      <code><b>disabled</b></code>, <code><b>active</b></code>, and
+      <code><b>pressed</b></code> states.&nbsp; (Tablelist needs the label
+      colors for handling sort arrows and images with transparent background in
+      the column labels.)</p>
+
+      <p>The <code><b>tablelist::setThemeDefaults</b></code> command is invoked
+      by Tablelist_tile automatically whenever a tablelist widget is createad
+      or the <code><b>&lt;&lt;ThemeChanged&gt;&gt;</b></code> virtual event is
+      received by a tablelist widget.&nbsp; In the latter case, the widget is
+      reconfigured, using the new default values of those options that were not
+      set explicitly to values different from the corresponding defaults.</p>
+
+      <p>Besides being used by the Tablelist_tile code, this command can also
+      be invoked in Tcl scripts, still before creating any tile-based tablelist
+      widget.&nbsp; By calling it explicitly and using the values written by it
+      into the array <code><b>tablelist::themeDefaults</b></code>, you can make
+      sure that classical Tk widgets, e.g., listbox and text, will have a
+      theme-specific appearance, just like the tile widgets.&nbsp; For example,
+      you can add some common configuration options to the option database as
+      follows:</p>
+
+      <blockquote>
+        <pre>
+tablelist::setThemeDefaults
+if {$tile::currentTheme eq "aqua"} {
+    option add *Listbox.selectBackground \
+               $tablelist::themeDefaults(-selectbackground)
+    option add *Listbox.selectForeground \
+               $tablelist::themeDefaults(-selectforeground)
+} else {
+    option add *selectBackground  $tablelist::themeDefaults(-selectbackground)
+    option add *selectForeground  $tablelist::themeDefaults(-selectforeground)
+}
+option add *selectBorderWidth     $tablelist::themeDefaults(-selectborderwidth)
+</pre>
+      </blockquote>
+    </dd>
+
+    <dt><b>KEYWORDS</b></dt>
+
+    <dd>tablelist, theme, tile</dd>
+  </dl>
+
+  <div align="center">
+    <p><a href="#contents">Contents</a>&nbsp;&nbsp;&nbsp;&nbsp; <a href=
+    "index.html">Start page</a></p>
+  </div>
+</body>
+</html>

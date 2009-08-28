@@ -1,0 +1,730 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 38;
+	objects = {
+		014CEA520018CE5811CA2923 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				OPTIMIZATION_CFLAGS = "-O0";
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		014CEA530018CE5811CA2923 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+//010
+//011
+//012
+//013
+//014
+//080
+//081
+//082
+//083
+//084
+		08FB7793FE84155DC02AAC07 = {
+			buildStyles = (
+				014CEA520018CE5811CA2923,
+				014CEA530018CE5811CA2923,
+			);
+			isa = PBXProject;
+			mainGroup = 08FB7794FE84155DC02AAC07;
+			projectDirPath = "";
+			targets = (
+				F5438EB302E77D89019975B1,
+				F560CE68035A6F9701000126,
+				F52C926B03A3F80B01A80104,
+				F5896A4702EB6F57017D9FBE,
+			);
+		};
+		08FB7794FE84155DC02AAC07 = {
+			children = (
+				F5438EB802E77E73019975B1,
+				F5438EB902E77E73019975B1,
+				F52C926A03A3F7A801A80104,
+				08FB7795FE84155DC02AAC07,
+				F5438ECC02E7AD0D019975B1,
+				1AB674ADFE9D54B511CA2CBB,
+			);
+			isa = PBXGroup;
+			name = tcldom;
+			refType = 4;
+		};
+		08FB7795FE84155DC02AAC07 = {
+			children = (
+				F5438EB402E77DB9019975B1,
+				F5438EB502E77DB9019975B1,
+				F5869C210379F82D014E047A,
+				F5869C220379F82D014E047A,
+				F5869C230379F82D014E047A,
+			);
+			isa = PBXGroup;
+			name = "TclDOM-libxml2 Source";
+			refType = 4;
+		};
+//080
+//081
+//082
+//083
+//084
+//1A0
+//1A1
+//1A2
+//1A3
+//1A4
+		1AB674ADFE9D54B511CA2CBB = {
+			children = (
+				F5896A4602EB6F57017D9FBE,
+				F560CE69035A6F9701000126,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+//1A0
+//1A1
+//1A2
+//1A3
+//1A4
+//F50
+//F51
+//F52
+//F53
+//F54
+		F514DDB50400477901A80104 = {
+			isa = PBXFrameworkReference;
+			name = libxml.framework;
+			path = "/Volumes/ufs/steve/libxml2-2.5.3/macosx/build/libxml.framework";
+			refType = 0;
+		};
+		F514DDDC0400477901A80104 = {
+			fileRef = F514DDB50400477901A80104;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F51F4A010404F26101A80104 = {
+			isa = PBXFrameworkReference;
+			name = Tcl.framework;
+			path = "/Volumes/ufs/steve/tcltk-8.4.2-embedded/Applications/Utilities/Wish Shell.app/Contents/Frameworks/Tcl.framework";
+			refType = 0;
+		};
+		F51F4A0E0404F26101A80104 = {
+			fileRef = F51F4A010404F26101A80104;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F51F4A130404F57F01A80104 = {
+			fileRef = F51F4A010404F26101A80104;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F52C926803A3F79701A80104 = {
+			isa = PBXFileReference;
+			name = TcldomConfig.sh;
+			path = /Volumes/ufs/steve/tcldom/TcldomConfig.sh;
+			refType = 0;
+		};
+		F52C926903A3F79701A80104 = {
+			fileRef = F52C926803A3F79701A80104;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F52C926A03A3F7A801A80104 = {
+			children = (
+				F52C926E03A4899D01A80104,
+			);
+			isa = PBXGroup;
+			name = "TclDOM-libxml2 Scripts";
+			refType = 4;
+		};
+		F52C926B03A3F80B01A80104 = {
+			buildArgumentsString = "./configure --prefix=/Library/Frameworks  --enable-framework --with-tcl=../../src/tcl/macosx/build/Tcl.framework/Resources --with-Tcldom=.. --with-libxml2-include=../../libxml2-2.5.3/include --with-libxml2-lib=../../libxml2-2.5.3/macosx/build/libxml.framework";
+			buildPhases = (
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "Configure libxml2";
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			buildToolPath = /bin/sh;
+			buildWorkingDirectory = "$SRCROOT/../src-libxml2";
+			dependencies = (
+				F52C926D03A3FA7A01A80104,
+			);
+			isa = PBXLegacyTarget;
+			name = "Configure libxml2";
+			productName = "Configure libxml2";
+			settingsToExpand = 6;
+			settingsToPassInEnvironment = 287;
+			settingsToPassOnCommandLine = 280;
+			shouldUseHeadermap = 0;
+		};
+		F52C926D03A3FA7A01A80104 = {
+			isa = PBXTargetDependency;
+			target = F5438EB302E77D89019975B1;
+		};
+		F52C926E03A4899D01A80104 = {
+			isa = PBXFileReference;
+			name = tcldomxmlConfig.sh;
+			path = "../src-libxml2/tcldomxmlConfig.sh";
+			refType = 2;
+		};
+		F52C926F03A4899D01A80104 = {
+			fileRef = F52C926E03A4899D01A80104;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5438EB302E77D89019975B1 = {
+			buildArgumentsString = "./configure --prefix=/Library/Frameworks  --with-tcl=../src/tcl/macosx/build/Tcl.framework/Resources";
+			buildPhases = (
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = Configure;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			buildToolPath = /bin/sh;
+			buildWorkingDirectory = $SRCROOT/..;
+			dependencies = (
+			);
+			isa = PBXLegacyTarget;
+			name = Configure;
+			productName = Configure;
+			settingsToExpand = 6;
+			settingsToPassInEnvironment = 287;
+			settingsToPassOnCommandLine = 280;
+			shouldUseHeadermap = 0;
+		};
+		F5438EB402E77DB9019975B1 = {
+			isa = PBXFileReference;
+			name = "tcldom-libxml2.c";
+			path = "../src-libxml2/tcldom-libxml2.c";
+			refType = 2;
+		};
+		F5438EB502E77DB9019975B1 = {
+			isa = PBXFileReference;
+			name = "tcldom-libxml2.h";
+			path = "../src-libxml2/tcldom-libxml2.h";
+			refType = 2;
+		};
+		F5438EB802E77E73019975B1 = {
+			children = (
+				F5438EC702E77EFA019975B1,
+				F5438EC802E77EFA019975B1,
+				F5438EC902E77EFA019975B1,
+				F5438ECA02E77EFA019975B1,
+				F5438EDD02E7D66B019975B1,
+				F52C926803A3F79701A80104,
+			);
+			isa = PBXGroup;
+			name = "TclDOM Scripts";
+			refType = 4;
+		};
+		F5438EB902E77E73019975B1 = {
+			children = (
+				F5438EBA02E77E73019975B1,
+				F5438EBB02E77E73019975B1,
+				F5869C190379F7E5014E047A,
+				F5869C1A0379F7E5014E047A,
+				F5869C1B0379F7E5014E047A,
+			);
+			isa = PBXGroup;
+			name = "TclDOM Source";
+			refType = 4;
+		};
+		F5438EBA02E77E73019975B1 = {
+			isa = PBXFileReference;
+			name = tcldom.c;
+			path = ../tcldom.c;
+			refType = 2;
+		};
+		F5438EBB02E77E73019975B1 = {
+			isa = PBXFileReference;
+			name = tcldom.h;
+			path = ../tcldom.h;
+			refType = 2;
+		};
+		F5438EC702E77EFA019975B1 = {
+			isa = PBXFileReference;
+			name = dom.tcl;
+			path = ../library/dom.tcl;
+			refType = 2;
+		};
+		F5438EC802E77EFA019975B1 = {
+			isa = PBXFileReference;
+			name = domimpl.tcl;
+			path = ../library/domimpl.tcl;
+			refType = 2;
+		};
+		F5438EC902E77EFA019975B1 = {
+			isa = PBXFileReference;
+			name = dommap.tcl;
+			path = ../library/dommap.tcl;
+			refType = 2;
+		};
+		F5438ECA02E77EFA019975B1 = {
+			isa = PBXFileReference;
+			name = xmlswitch.tcl;
+			path = ../library/xmlswitch.tcl;
+			refType = 2;
+		};
+		F5438ECC02E7AD0D019975B1 = {
+			children = (
+				F51F4A010404F26101A80104,
+				F5EB60A703D650E801A80104,
+				F514DDB50400477901A80104,
+			);
+			isa = PBXGroup;
+			name = "External Frameworks";
+			refType = 4;
+		};
+		F5438EDD02E7D66B019975B1 = {
+			isa = PBXFileReference;
+			name = pkgIndex.tcl;
+			path = ../library/pkgIndex.tcl;
+			refType = 2;
+		};
+		F560CE63035A6F9701000126 = {
+			buildActionMask = 2147483647;
+			files = (
+				F560CE72035A6FB501000126,
+				F5869C1C0379F7E5014E047A,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F560CE64035A6F9701000126 = {
+			buildActionMask = 2147483647;
+			files = (
+				F560CE6C035A6FB001000126,
+				F560CE6D035A6FB101000126,
+				F560CE6E035A6FB201000126,
+				F560CE6F035A6FB301000126,
+				F560CE70035A6FB401000126,
+				F52C926903A3F79701A80104,
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F560CE65035A6F9701000126 = {
+			buildActionMask = 2147483647;
+			files = (
+				F560CE71035A6FB501000126,
+				F5869C1D0379F7E5014E047A,
+				F5869C1E0379F7E5014E047A,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F560CE66035A6F9701000126 = {
+			buildActionMask = 2147483647;
+			files = (
+				F51F4A130404F57F01A80104,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F560CE67035A6F9701000126 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F560CE68035A6F9701000126 = {
+			buildPhases = (
+				F560CE63035A6F9701000126,
+				F560CE64035A6F9701000126,
+				F588FE73035BD31301000126,
+				F560CE65035A6F9701000126,
+				F560CE66035A6F9701000126,
+				F560CE67035A6F9701000126,
+			);
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				FRAMEWORK_SEARCH_PATHS = "\"/Volumes/ufs/steve/tcltk-8.4.2-embedded/Applications/Utilities/Wish Shell.app/Contents/Frameworks\"";
+				FRAMEWORK_VERSION = 2.6;
+				INSTALL_PATH = "@executable_path/../Frameworks";
+				OTHER_CFLAGS = "-DVERSION=\\\\\\\"2.6\\\\\\\" -DTCLDOM_VERSION=\\\\\\\"2.6\\\\\\\" -DTCLDOM_BUILD_AS_FRAMEWORK";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRINCIPAL_CLASS = "";
+				PRODUCT_NAME = tcldom;
+				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = YES;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = framework;
+			};
+			dependencies = (
+			);
+			isa = PBXFrameworkTarget;
+			name = tcldom;
+			productInstallPath = "";
+			productName = tcldom;
+			productReference = F560CE69035A6F9701000126;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string></string>
+	<key>CFBundleGetInfoString</key>
+	<string>TclDOM v2.6</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.zveno.tcldom</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>TclDOM</string>
+	<key>CFBundlePackageType</key>
+	<string>FMWK</string>
+	<key>CFBundleShortVersionString</key>
+	<string>v2.6</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>2.6</string>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		F560CE69035A6F9701000126 = {
+			isa = PBXFrameworkReference;
+			path = tcldom.framework;
+			refType = 3;
+		};
+		F560CE6B035A6FA601000126 = {
+			isa = PBXTargetDependency;
+			target = F560CE68035A6F9701000126;
+		};
+		F560CE6C035A6FB001000126 = {
+			fileRef = F5438EC702E77EFA019975B1;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F560CE6D035A6FB101000126 = {
+			fileRef = F5438EC802E77EFA019975B1;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F560CE6E035A6FB201000126 = {
+			fileRef = F5438EC902E77EFA019975B1;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F560CE6F035A6FB301000126 = {
+			fileRef = F5438ECA02E77EFA019975B1;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F560CE70035A6FB401000126 = {
+			fileRef = F5438EDD02E7D66B019975B1;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F560CE71035A6FB501000126 = {
+			fileRef = F5438EBA02E77E73019975B1;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F560CE72035A6FB501000126 = {
+			fileRef = F5438EBB02E77E73019975B1;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		F5869C190379F7E5014E047A = {
+			isa = PBXFileReference;
+			name = tcldomDecls.h;
+			path = ../tcldomDecls.h;
+			refType = 2;
+		};
+		F5869C1A0379F7E5014E047A = {
+			isa = PBXFileReference;
+			name = tcldomStubInit.c;
+			path = /Volumes/ufs/steve/tcldom/tcldomStubInit.c;
+			refType = 0;
+		};
+		F5869C1B0379F7E5014E047A = {
+			isa = PBXFileReference;
+			name = tcldomStubLib.c;
+			path = /Volumes/ufs/steve/tcldom/tcldomStubLib.c;
+			refType = 0;
+		};
+		F5869C1C0379F7E5014E047A = {
+			fileRef = F5869C190379F7E5014E047A;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		F5869C1D0379F7E5014E047A = {
+			fileRef = F5869C1A0379F7E5014E047A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5869C1E0379F7E5014E047A = {
+			fileRef = F5869C1B0379F7E5014E047A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5869C210379F82D014E047A = {
+			isa = PBXFileReference;
+			name = tcldomxmlDecls.h;
+			path = "../src-libxml2/tcldomxmlDecls.h";
+			refType = 2;
+		};
+		F5869C220379F82D014E047A = {
+			isa = PBXFileReference;
+			name = tcldomxmlStubInit.c;
+			path = "../src-libxml2/tcldomxmlStubInit.c";
+			refType = 2;
+		};
+		F5869C230379F82D014E047A = {
+			isa = PBXFileReference;
+			name = tcldomxmlStubLib.c;
+			path = "../src-libxml2/tcldomxmlStubLib.c";
+			refType = 2;
+		};
+		F5869C240379F82D014E047A = {
+			fileRef = F5869C210379F82D014E047A;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		F5869C250379F82D014E047A = {
+			fileRef = F5869C220379F82D014E047A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5869C260379F82D014E047A = {
+			fileRef = F5869C230379F82D014E047A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F588FE08035AA22101000126 = {
+			fileRef = F560CE69035A6F9701000126;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F588FE73035BD31301000126 = {
+			buildActionMask = 12;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "mkdir $TARGET_BUILD_DIR/$TARGET_NAME.framework/Resources/Scripts\nmv $TARGET_BUILD_DIR/$TARGET_NAME.framework/Resources/*.tcl $TARGET_BUILD_DIR/$TARGET_NAME.framework/Resources/Scripts\nrm -f $TARGET_BUILD_DIR/$TARGET_NAME.framework/Resources/Scripts/libTcldom$FRAMEWORK_VERSION.dylib\nln -s ../../$TARGET_NAME $TARGET_BUILD_DIR/$TARGET_NAME.framework/Resources/Scripts/libTcldom$FRAMEWORK_VERSION.dylib";
+		};
+		F5896A4602EB6F57017D9FBE = {
+			isa = PBXFrameworkReference;
+			path = "tcldom-libxml2.framework";
+			refType = 3;
+		};
+		F5896A4702EB6F57017D9FBE = {
+			buildPhases = (
+				F5896A4A02EB6F57017D9FBE,
+				F5896A4C02EB6F57017D9FBE,
+				F58E0CD0035CFFE101C69E6A,
+				F5896A4D02EB6F57017D9FBE,
+				F5896A4F02EB6F57017D9FBE,
+				F5896A5302EB6F57017D9FBE,
+			);
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				FRAMEWORK_SEARCH_PATHS = "/Volumes/ufs/steve/libiconv-1.8/macosx/build /Volumes/ufs/steve/libxml2-2.5.3/macosx/build \"/Volumes/ufs/steve/tcltk-8.4.2-embedded/Applications/Utilities/Wish Shell.app/Contents/Frameworks\"";
+				FRAMEWORK_VERSION = 2.6;
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "@executable_path/../Frameworks";
+				OTHER_CFLAGS = "-DTCLDOMXML_VERSION=\\\\\\\"2.6\\\\\\\" -DTCLDOM_BUILD_AS_FRAMEWORK";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRINCIPAL_CLASS = "";
+				PRODUCT_NAME = "tcldom-libxml2";
+				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = YES;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = framework;
+			};
+			dependencies = (
+				F560CE6B035A6FA601000126,
+			);
+			isa = PBXFrameworkTarget;
+			name = "tcldom-libxml2";
+			productInstallPath = "@executable_path@/../Frameworks";
+			productName = "tcldom-libxml2";
+			productReference = F5896A4602EB6F57017D9FBE;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string></string>
+	<key>CFBundleGetInfoString</key>
+	<string>TclDOM-libxml2 v2.6</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.zveno.tcldom-libxml2</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>TclDOM-libxml2</string>
+	<key>CFBundlePackageType</key>
+	<string>FMWK</string>
+	<key>CFBundleShortVersionString</key>
+	<string>2.6</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>2.6</string>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		F5896A4A02EB6F57017D9FBE = {
+			buildActionMask = 2147483647;
+			files = (
+				F5896A4B02EB6F57017D9FBE,
+				F5869C240379F82D014E047A,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F5896A4B02EB6F57017D9FBE = {
+			fileRef = F5438EB502E77DB9019975B1;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		F5896A4C02EB6F57017D9FBE = {
+			buildActionMask = 2147483647;
+			files = (
+				F52C926F03A4899D01A80104,
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F5896A4D02EB6F57017D9FBE = {
+			buildActionMask = 2147483647;
+			files = (
+				F5896A4E02EB6F57017D9FBE,
+				F5869C250379F82D014E047A,
+				F5869C260379F82D014E047A,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F5896A4E02EB6F57017D9FBE = {
+			fileRef = F5438EB402E77DB9019975B1;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5896A4F02EB6F57017D9FBE = {
+			buildActionMask = 2147483647;
+			files = (
+				F588FE08035AA22101000126,
+				F5EB60AC03D650E801A80104,
+				F514DDDC0400477901A80104,
+				F51F4A0E0404F26101A80104,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F5896A5302EB6F57017D9FBE = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F58E0CD0035CFFE101C69E6A = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "cd $SRCROOT/../src-libxml2\necho \"package ifneeded dom::libxml2 $FRAMEWORK_VERSION [list load [file join [file dirname [file dirname \\$dir]] tcldom-libxml2] Tcldomxml]\" > pkgIndex.tcl\nmkdir -p $TARGET_BUILD_DIR/$TARGET_NAME.framework/Resources/Scripts\ncp $SRCROOT/../src-libxml2/*.tcl $TARGET_BUILD_DIR/$TARGET_NAME.framework/Resources/Scripts";
+		};
+		F5EB60A703D650E801A80104 = {
+			isa = PBXFrameworkReference;
+			name = libiconv.framework;
+			path = "../../libiconv-1.8/macosx/build/libiconv.framework";
+			refType = 2;
+		};
+		F5EB60AC03D650E801A80104 = {
+			fileRef = F5EB60A703D650E801A80104;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+	};
+	rootObject = 08FB7793FE84155DC02AAC07;
+}

@@ -1,0 +1,7 @@
+//
+//  Created by korver@apple.com on 2/3/09.
+//  Copyright 2009 Apple, Inc.. All rights reserved.
+//
+
+These files are pulled from out of the jabberd sources to be used in the test harness.
+They're for computing authentication digests.

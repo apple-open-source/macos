@@ -25,12 +25,14 @@
 // cs_sign - codesign signing operation
 //
 #include "codesign.h"
+#include <Security/Security.h>
 #include <Security/SecCodeSigner.h>
+#include <Security/SecRequirementPriv.h>
+#include <Security/CSCommonPriv.h>
+#include <security_utilities/blob.h>
 #include <cstdio>
 #include <cmath>
 
-
-using namespace CodeSigning;
 using namespace UnixPlusPlus;
 
 
@@ -42,10 +44,14 @@ static SecCodeSignerRef signerRef;				// global signer object
 
 void prepareToSign()
 {
-	parameters =
-		makeCFMutableDictionary(1,
-			kSecCodeSignerIdentity, signer
-		);
+	parameters = makeCFMutableDictionary();
+	SecCSFlags flags = kSecCSDefaultFlags;
+
+	if (signer)
+		CFDictionaryAddValue(parameters,
+			kSecCodeSignerIdentity, signer);
+	else
+		flags |= kSecCSRemoveSignature;
 	
 	if (uniqueIdentifier)
 		CFDictionaryAddValue(parameters,
@@ -54,15 +60,9 @@ void prepareToSign()
 		CFDictionaryAddValue(parameters,
 			kSecCodeSignerIdentifierPrefix, CFTempString(identifierPrefix));
 	
-	if (internalReq) {
-		const Requirements *internalReqs = readRequirement<Requirements>(internalReq);
+	if (internalReq)
 		CFDictionaryAddValue(parameters,
-			kSecCodeSignerRequirements, CFTempData(*internalReqs));
-		if (internalReqs->find(kSecGuestRequirementType)) {
-			secdebug("codesign", "has guest requirements; setting host flag");
-			cdFlags |= kSecCodeSignatureHost;
-		}
-	}
+			kSecCodeSignerRequirements, readRequirements(internalReq));
 	
 	if (signatureSize)
 		CFDictionaryAddValue(parameters, CFSTR("cmssize"), CFTempNumber(signatureSize));
@@ -70,10 +70,13 @@ void prepareToSign()
 		CFDictionaryAddValue(parameters, kSecCodeSignerPageSize, CFTempNumber(pagesize));
 	if (cdFlags)
 		CFDictionaryAddValue(parameters, kSecCodeSignerFlags, CFTempNumber(cdFlags));
-	if (detached)
-		CFDictionaryAddValue(parameters, kSecCodeSignerDetached, CFTempURL(detached));
 	if (signingTime)
 		CFDictionaryAddValue(parameters, kSecCodeSignerSigningTime, signingTime);
+		
+	if (detached)
+		CFDictionaryAddValue(parameters, kSecCodeSignerDetached, CFTempURL(detached));
+	else if (detachedDb)
+		CFDictionaryAddValue(parameters, kSecCodeSignerDetached, kCFNull);
 	
 	if (resourceRules) {
 		if (CFRef<CFDataRef> data = cfLoadFile(resourceRules)) {
@@ -84,19 +87,28 @@ void prepareToSign()
 	}
 	
 	if (entitlements) {
-		AutoFileDesc fd(entitlements);
-		BlobCore *blob = BlobCore::readBlob(fd);
-		if (!blob)
-			fail("%s: cannot read entitlements", entitlements);
-		if (blob->length() != fd.fileSize())
-			fail("%s: invalid length in entitlement blob", entitlements);
-		CFDictionaryAddValue(parameters, kSecCodeSignerEntitlements, CFTempData(*blob));
+		if (CFRef<CFDataRef> data = cfLoadFile(entitlements)) {	// load the proposed entitlement blob
+			if (CFRef<CFDictionaryRef> dict = makeCFDictionaryFrom(data)) {
+				// plain plist - (silently) wrap into canonical blob form
+				BlobWrapper *wrap = BlobWrapper::alloc(CFDataGetBytePtr(data), CFDataGetLength(data), kSecCodeMagicEntitlement);
+				CFDictionaryAddValue(parameters, kSecCodeSignerEntitlements, CFTempData(*(BlobCore*)wrap));
+				::free(wrap);
+			} else {
+				const BlobCore *blob = reinterpret_cast<const BlobCore *>(CFDataGetBytePtr(data));
+				if (blob->magic() != kSecCodeMagicEntitlement)
+					note(0, "%s: unrecognized blob type (accepting blindly)", entitlements);
+				if (blob->length() != CFDataGetLength(data))
+					fail("%s: invalid length in entitlement blob", entitlements);
+				CFDictionaryAddValue(parameters, kSecCodeSignerEntitlements, CFTempData(*blob));
+			}
+		} else
+			fail("%s: cannot read entitlement data", entitlements);
 	}
 	
 	if (dryrun)
 		CFDictionaryAddValue(parameters, kSecCodeSignerDryRun, kCFBooleanTrue);
 	
-	MacOSError::check(SecCodeSignerCreate(parameters, kSecCSDefaultFlags, &signerRef));
+	MacOSError::check(SecCodeSignerCreate(parameters, flags, &signerRef));
 }
 
 
@@ -117,7 +129,7 @@ void sign(const char *target)
 		&dict.aref())) {
 	case noErr:
 		if (CFDictionaryGetValue(dict, kSecCodeInfoIdentifier)) {	// binary is signed
-			if (detached)
+			if (detached || detachedDb)
 				note(0, "%s: not disturbing embedded signature", target);
 			else if (force)
 				note(0, "%s: replacing existing signature", target);
@@ -138,13 +150,13 @@ void sign(const char *target)
 		MacOSError::throwMe(rc);
 	}
 	
-	CFRef<SecCodeSignerRef> currentSigner = signerRef;			// the one we prepared during setup
+	CFCopyRef<SecCodeSignerRef> currentSigner = signerRef;		// the one we prepared during setup
 	if (preserveMetadata) {
 		CFRef<CFMutableDictionaryRef> param = CFDictionaryCreateMutableCopy(NULL, 0, parameters);
-		if (!CFDictionaryGetValue(param, kSecCodeSignerRequirements))
+		if (dict && !CFDictionaryGetValue(param, kSecCodeSignerRequirements))
 			if (CFTypeRef ireqs = CFDictionaryGetValue(dict, kSecCodeInfoRequirementData))
 				CFDictionaryAddValue(param, kSecCodeSignerRequirements, ireqs);
-		if (!CFDictionaryGetValue(param, kSecCodeSignerEntitlements))
+		if (dict && !CFDictionaryGetValue(param, kSecCodeSignerEntitlements))
 			if (CFTypeRef entitlements = CFDictionaryGetValue(dict, kSecCodeInfoEntitlements))
 				CFDictionaryAddValue(param, kSecCodeSignerEntitlements, entitlements);
 		MacOSError::check(SecCodeSignerCreate(param, kSecCSDefaultFlags, &currentSigner.aref()));

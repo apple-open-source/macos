@@ -173,7 +173,7 @@ namespace IOFireWireLib {
 			for( unsigned index=0; index < fData.rangeCount; ++index )
 			{
 #ifdef __LP64__
-				fprintf( file, "\t\t\t\t%u: < %lx, %u >\n", index, fData.ranges[index].address, fData.ranges[index].length ) ;
+				fprintf( file, "\t\t\t\t%u: < %llx, %u >\n", index, fData.ranges[index].address, fData.ranges[index].length ) ;
 #else
 				fprintf( file, "\t\t\t\t%u: < %x, %lu >\n", index, fData.ranges[index].address, fData.ranges[index].length ) ;
 #endif

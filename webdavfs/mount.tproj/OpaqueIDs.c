@@ -63,17 +63,17 @@ enum
 /*
  * Get the count part of an opaque_id
  */
-#define GetOpaqueIDCounterPart(id) (((u_int32_t)(id)) >> kOpaqueIDIndexBits)
+#define GetOpaqueIDCounterPart(id) (((uint32_t)(id)) >> kOpaqueIDIndexBits)
 
 /*
  * Get the index part of an opaque_id
  */
-#define GetOpaqueIDIndexPart(id) (((unsigned long)(id)) & kOpaqueIDIndexMask)
+#define GetOpaqueIDIndexPart(id) (((uint32_t)(id)) & kOpaqueIDIndexMask)
 
 /*****************************************************************************/
 
 /*
- * Keep a 'list' of free records in the gOpaqueEntryArray table, using the .data field as
+ * Keep a 'list' of free records in the gOpaqueEntryArray table, using the .nextIndex field as
  * the link to the next one.  Nodes are put into this list at the end, and removed
  * from the front, to try harder to keep from re-allocating a particular opaque id
  * anytime soon after it has been disposed of.
@@ -82,7 +82,8 @@ enum
 struct OpaqueEntry
 {
 	opaque_id id;	/* when in use, this is the opaque ID; when not in use, the index part is zero */
-	void *data;		/* when in use, this is pointer to the data; when not in use, this is the linkage for the free list */
+	uint32_t nextIndex;	/* linkage for the free list */
+	void *data;		/* when in use, this is pointer to the data; it is NULL otherwise */
 };
 typedef struct OpaqueEntry *OpaqueEntryArrayPtr;
 
@@ -102,15 +103,19 @@ static u_int32_t gIndexOfFreeOpaqueEntryTail = 0;
  */
 static void AddToFreeList(u_int32_t indexToFree)
 {
+	OpaqueEntryArrayPtr freeEntry;
+
 	/* don't add the OpaqueEntry at index 0 to free list -- it just won't be used */
 	if ( indexToFree != 0 )
 	{
-		gOpaqueEntryArray[indexToFree].data = 0;
+		freeEntry = &gOpaqueEntryArray[indexToFree];
+		freeEntry->data = 0;
+		freeEntry->nextIndex = 0;
 		
 		/* Add this OpaqueEntry to the tail of the free list */
 		if ( gIndexOfFreeOpaqueEntryTail != 0 )
 		{
-			gOpaqueEntryArray[gIndexOfFreeOpaqueEntryTail].data = (void *)indexToFree;
+			gOpaqueEntryArray[gIndexOfFreeOpaqueEntryTail].nextIndex = indexToFree;
 		}
 		gIndexOfFreeOpaqueEntryTail = indexToFree;
 
@@ -143,7 +148,7 @@ static u_int32_t RemoveFromFreeList()
 			gIndexOfFreeOpaqueEntryTail = 0;
 		}
 
-		gIndexOfFreeOpaqueEntryHead = (u_int32_t)gOpaqueEntryArray[gIndexOfFreeOpaqueEntryHead].data;
+		gIndexOfFreeOpaqueEntryHead = gOpaqueEntryArray[gIndexOfFreeOpaqueEntryHead].nextIndex;
 	}
 	else
 	{
@@ -232,7 +237,7 @@ bad_parameter:
 int DeleteOpaqueID(opaque_id inID)
 {
 	int error;
-	u_int32_t index;
+	uint32_t index;
 
 	error = pthread_mutex_lock(&gOpaqueEntryMutex);
 	require_noerr(error, pthread_mutex_lock);
@@ -268,7 +273,7 @@ pthread_mutex_lock:
 int RetrieveDataFromOpaqueID(opaque_id inID, void **outData)
 {
 	int error;
-	u_int32_t index;
+	uint32_t index;
 
 	error = pthread_mutex_lock(&gOpaqueEntryMutex);
 	require_noerr(error, pthread_mutex_lock);

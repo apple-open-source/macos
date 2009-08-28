@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 2001-2005, International Business Machines
+*   Copyright (C) 2001-2007, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -16,7 +16,6 @@
 #include "unicode/uiter.h"
 #include "nortrans.h"
 #include "unormimp.h"
-#include "mutex.h"
 #include "ucln_in.h"
 
 U_NAMESPACE_BEGIN
@@ -83,12 +82,12 @@ Transliterator(o) {
 /**
  * Assignment operator.
  */
-NormalizationTransliterator& NormalizationTransliterator::operator=(const NormalizationTransliterator& o) {
+/*NormalizationTransliterator& NormalizationTransliterator::operator=(const NormalizationTransliterator& o) {
     Transliterator::operator=(o);
     fMode = o.fMode;
     options = o.options;
     return *this;
-}
+}*/
 
 /**
  * Transliterator API.

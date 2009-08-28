@@ -547,7 +547,7 @@ static int remainingFreshEntries = 0;
     [entry release];
 
     if (_dumpingFile != NULL) {
-        fprintf(_dumpingFile, [aString cStringUsingEncoding:NSUTF8StringEncoding]);
+        fprintf(_dumpingFile, "@%s", [aString cStringUsingEncoding:NSUTF8StringEncoding]);
         fflush(_dumpingFile);
     }
     
@@ -565,7 +565,7 @@ static int remainingFreshEntries = 0;
     [_outputLock unlock];
     
     if (_dumpingFile != NULL) {
-        fprintf(_dumpingFile, [text cStringUsingEncoding:NSUTF8StringEncoding]);
+        fprintf(_dumpingFile, "@%s", [text cStringUsingEncoding:NSUTF8StringEncoding]);
         fflush(_dumpingFile);
     }
     

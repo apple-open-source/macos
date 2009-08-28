@@ -1,9 +1,9 @@
-/* Copyright 2002-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -54,31 +54,31 @@ static void test_str(abts_case *tc, void *data)
     ABTS_PTR_NOTNULL(tc, pattern_zero);
 
     match = apr_strmatch(pattern, input1, strlen(input1));
-    ABTS_PTR_EQUAL(tc, match, NULL);
+    ABTS_PTR_EQUAL(tc, NULL, match);
 
     match = apr_strmatch(pattern, input2, strlen(input2));
-    ABTS_PTR_EQUAL(tc, match, input2 + 23);
+    ABTS_PTR_EQUAL(tc, input2 + 23, match);
 
     match = apr_strmatch(pattern_onechar, input1, strlen(input1));
-    ABTS_PTR_EQUAL(tc, match, input1 + 5);
+    ABTS_PTR_EQUAL(tc, input1 + 5, match);
 
     match = apr_strmatch(pattern_zero, input1, strlen(input1));
-    ABTS_PTR_EQUAL(tc, match, input1);
+    ABTS_PTR_EQUAL(tc, input1, match);
 
     match = apr_strmatch(pattern_nocase, input1, strlen(input1));
-    ABTS_PTR_EQUAL(tc, match, input1 + 23);
+    ABTS_PTR_EQUAL(tc, input1 + 23, match);
 
     match = apr_strmatch(pattern, input3, strlen(input3));
-    ABTS_PTR_EQUAL(tc, match, input3);
+    ABTS_PTR_EQUAL(tc, input3, match);
 
     match = apr_strmatch(pattern, input4, strlen(input4));
-    ABTS_PTR_EQUAL(tc, match, input4 + 24);
+    ABTS_PTR_EQUAL(tc, input4 + 24, match);
 
     match = apr_strmatch(pattern, input5, strlen(input5));
-    ABTS_PTR_EQUAL(tc, match, NULL);
+    ABTS_PTR_EQUAL(tc, NULL, match);
 
     match = apr_strmatch(pattern, input6, strlen(input6));
-    ABTS_PTR_EQUAL(tc, match, input6 + 35);
+    ABTS_PTR_EQUAL(tc, input6 + 35, match);
 }
 
 abts_suite *teststrmatch(abts_suite *suite)

@@ -1,8 +1,9 @@
 /* APPLE LOCAL file ObjC GC */
 /* Do _not_ generate write barriers for global function pointers,
    even ones returning 'id'.  */
-/* { dg-do compile } */
-/* { dg-options "-fnext-runtime -fobjc-gc -Wassign-intercept" } */
+/* { dg-do compile { target powerpc*-*-darwin* i?86*-*-darwin* } } */
+/* { dg-options "-fnext-runtime -fobjc-gc -Wno-non-lvalue-assign -Wassign-intercept" } */
+/* { dg-require-effective-target objc_gc } */
 
 /* APPLE LOCAL radar 4894756 */
 #include "../objc/execute/Object2.h"

@@ -69,6 +69,7 @@
 #include <vstring.h>
 #include <split_at.h>
 #include <dict.h>
+#include <events.h>
 
 /* Global library. */
 
@@ -101,6 +102,7 @@ TRANSPORT_INFO *transport_pre_init(const char *transport_maps_name,
 				     | DICT_FLAG_NO_REGSUB);
     tp->wildcard_channel = tp->wildcard_nexthop = 0;
     tp->transport_errno = 0;
+    tp->expire = 0;
     return (tp);
 }
 
@@ -208,6 +210,16 @@ static void transport_wildcard_init(TRANSPORT_INFO *tp)
     VSTRING *nexthop = vstring_alloc(10);
 
     /*
+     * Both channel and nexthop may be zero-length strings. Therefore we must
+     * use something else to represent "wild-card does not exist". We use
+     * null VSTRING pointers, for historical reasons.
+     */
+    if (tp->wildcard_channel)
+	vstring_free(tp->wildcard_channel);
+    if (tp->wildcard_nexthop)
+	vstring_free(tp->wildcard_nexthop);
+
+    /*
      * Technically, the wildcard lookup pattern is redundant. A static map
      * (keys always match, result is fixed string) could achieve the same:
      * 
@@ -223,11 +235,7 @@ static void transport_wildcard_init(TRANSPORT_INFO *tp)
 
     if (find_transport_entry(tp, WILDCARD, "", FULL, channel, nexthop)) {
 	tp->transport_errno = 0;
-	if (tp->wildcard_channel)
-	    vstring_free(tp->wildcard_channel);
 	tp->wildcard_channel = channel;
-	if (tp->wildcard_nexthop)
-	    vstring_free(tp->wildcard_nexthop);
 	tp->wildcard_nexthop = nexthop;
 	if (msg_verbose)
 	    msg_info("wildcard_{chan:hop}={%s:%s}",
@@ -236,7 +244,10 @@ static void transport_wildcard_init(TRANSPORT_INFO *tp)
 	tp->transport_errno = dict_errno;
 	vstring_free(channel);
 	vstring_free(nexthop);
+	tp->wildcard_channel = 0;
+	tp->wildcard_nexthop = 0;
     }
+    tp->expire = event_time() + 30;		/* XXX make configurable */
 }
 
 /* transport_lookup - map a transport domain */
@@ -321,7 +332,7 @@ int     transport_lookup(TRANSPORT_INFO *tp, const char *addr,
     /*
      * Fall back to the wild-card entry.
      */
-    if (tp->transport_errno)
+    if (tp->transport_errno || event_time() > tp->expire)
 	transport_wildcard_init(tp);
     if (tp->transport_errno) {
 	dict_errno = tp->transport_errno;

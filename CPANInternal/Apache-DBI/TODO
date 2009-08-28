@@ -1,0 +1,13 @@
+
+Showstoppers for 1.06:
+----------------------
+Migrate test suite to 1.06
+
+Nice to have for 1.06:
+-----------------------
+Add tests for other DBDs starting with PostgreSQL.
+
+
+General:
+------------------------
+Actually test AuthDBI

@@ -1,0 +1,20 @@
+--- libarchive/archive_write_disk.c.orig	2008-11-11 15:28:22.000000000 -0800
++++ libarchive/archive_write_disk.c	2008-11-11 19:31:00.000000000 -0800
+@@ -1391,6 +1391,9 @@
+ 				 * so we can overwrite it with the
+ 				 * item being extracted.
+ 				 */
++#ifdef __APPLE__
++				break;
++#else
+ 				if (unlink(a->name)) {
+ 					archive_set_error(&a->archive, errno,
+ 					    "Could not remove symlink %s",
+@@ -1413,6 +1416,7 @@
+ 				/* Symlink gone.  No more problem! */
+ 				pn[0] = c;
+ 				return (0);
++#endif
+ 			} else if (a->flags & ARCHIVE_EXTRACT_UNLINK) {
+ 				/* User asked us to remove problems. */
+ 				if (unlink(a->name) != 0) {

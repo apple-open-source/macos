@@ -1,3 +1,5 @@
+@subheading stringprep_utf8_to_ucs4
+@anchor{stringprep_utf8_to_ucs4}
 @deftypefun {uint32_t *} {stringprep_utf8_to_ucs4} (const char * @var{str}, ssize_t @var{len}, size_t * @var{items_written})
 @var{str}: a UTF-8 encoded string
 

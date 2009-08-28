@@ -34,7 +34,7 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.Dd November 4, 1996
+.Dd April 5, 2008
 .Dt OPENPTY 3
 .Os
 .Sh NAME
@@ -60,7 +60,7 @@ functions perform manipulations on ttys and pseudo-ttys.
 .Pp
 The
 .Fn openpty
-function finds an available pseudo-tty and returns file descriptors
+function allocates a pseudo-tty and returns file descriptors
 for the master and slave in
 .Fa amaster
 and
@@ -132,8 +132,8 @@ returns the process ID of the child process.
 .Fn openpty
 will fail if:
 .Bl -tag -width Er
-.It Bq Er ENOENT
-There are no available ttys.
+.It Bq Er EAGAIN
+There are no available pseudo-ttys.
 .El
 .Pp
 .Fn login_tty
@@ -149,15 +149,11 @@ or
 .Fn fork
 fails.
 .Sh FILES
-.Bl -tag -width /dev/[pt]ty[pqrstuwxyzPQRST][0123456789abcdef] -compact
-.It Pa /dev/[pt]ty[pqrstuwxyzPQRST][0123456789abcdef]
+.Bl -tag -width /dev/ttys[0-9][0-9][0-9] -compact
+.It Pa /dev/ptmx
+cloning pseudo-tty device
+.It Pa /dev/ttys[0-9][0-9][0-9]
+slave pseudo-tty devices
 .El
 .Sh SEE ALSO
 .Xr fork 2
-.Sh BUGS
-The names of the virtual consoles for the i386 PCVT console driver
-conflict with what would be the seventh group of pseudo-ttys, so
-.Fn openpty
-skips
-.Pa /dev/[pt]tyv[0123456789abcdef]
-while looking for pseudo-ttys.

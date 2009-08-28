@@ -53,11 +53,16 @@ public:
 	// new item constructor
     Certificate(const CSSM_DATA &data, CSSM_CERT_TYPE type, CSSM_CERT_ENCODING encoding);
 
+private:
 	// db item constructor
     Certificate(const Keychain &keychain, const PrimaryKey &primaryKey, const CssmClient::DbUniqueRecord &uniqueId);
 
 	// PrimaryKey item constructor
     Certificate(const Keychain &keychain, const PrimaryKey &primaryKey);
+
+public:
+	static Certificate* make(const Keychain &keychain, const PrimaryKey &primaryKey, const CssmClient::DbUniqueRecord &uniqueId);
+	static Certificate* make(const Keychain &keychain, const PrimaryKey &primaryKey);
 
 	Certificate(Certificate &certificate);
     virtual ~Certificate() throw();
@@ -95,6 +100,8 @@ public:
 
 	bool operator < (Certificate &other);
 	bool operator == (Certificate &other);
+
+	bool equal(SecCFObject &other);
 
 public:
 	CSSM_DATA_PTR copyFirstFieldValue(const CSSM_OID &field);

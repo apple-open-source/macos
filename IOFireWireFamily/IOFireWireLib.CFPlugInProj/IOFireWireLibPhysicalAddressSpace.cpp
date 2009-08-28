@@ -163,7 +163,7 @@ namespace IOFireWireLib {
 		if ( error || mSegmentCount == 0)
 			throw error ;
 			
-		mSegments = new PhysicalSegment[mSegmentCount] ;
+		mSegments = new FWPhysicalSegment32[mSegmentCount] ;
 		if (!mSegments)
 		{
 			throw kIOReturnNoMemory ;

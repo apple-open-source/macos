@@ -1,0 +1,48 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+ <HEAD>
+   <TITLE> %(title)s
+   </TITLE>
+   <LINK REL="Index" HREF="index.html" >
+   <LINK REL="made" HREF="mailto:%(email_url)s">
+   <META NAME="robots" CONTENT="index,nofollow">
+   %(encoding)s
+   %(prev)s
+   %(next)s
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>%(subject_html)s
+   </H1>
+    <B>%(author_html)s
+    </B> 
+    <A HREF="mailto:%(email_url)s"
+       TITLE="%(subject_html)s">%(email_html)s
+       </A><BR>
+    <I>%(datestr_html)s</I>
+    <P><UL>
+        %(prev_wsubj)s
+        %(next_wsubj)s
+         <LI> <B>Mensaxes ordenadas por:</B> 
+              <a href="date.html#%(sequence)s">[ data ]</a>
+              <a href="thread.html#%(sequence)s">[ f&iacute;o ]</a>
+              <a href="subject.html#%(sequence)s">[ asunto ]</a>
+              <a href="author.html#%(sequence)s">[ autor ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+%(body)s
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	%(prev_wsubj)s
+	%(next_wsubj)s
+         <LI> <B>Mensaxes ordenadas por:</B> 
+              <a href="date.html#%(sequence)s">[ data ]</a>
+              <a href="thread.html#%(sequence)s">[ f&iacute;o ]</a>
+              <a href="subject.html#%(sequence)s">[ asunto ]</a>
+              <a href="author.html#%(sequence)s">[ autor ]</a>
+         </LI>
+       </UL>
+</body></html>

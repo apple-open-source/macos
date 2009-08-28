@@ -312,6 +312,8 @@ ifeq "YES" "$(CONVERT_BUNDLE_BACKDOOR)"
 PROJTYPE_CONVERT_BUNDLE = YES
 endif
 
+# NOTE!!!  The convertBundle utility has been removed, for SnowLeopard (Mac OS X 10.6).
+# These build rules are only still here to "fail loudly" in case anything is still using this support.
 ifeq "YES" "$(PROJTYPE_CONVERT_BUNDLE)"
 ifeq "MACOSX" "$(BUNDLE_STYLE)"
 convert-bundle:

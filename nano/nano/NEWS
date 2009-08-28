@@ -1,3 +1,44 @@
+2007/04/26 - GNU nano 2.0.6 "that was quick" is released.  This release
+		fixes a potential segfault after justifying text marked
+		from the bottom up.  It also adds one more minor
+		documentation update.  Enjoy.
+
+2007/04/22 - GNU nano 2.0.5 braces for impact.  Among other things, this
+		release fixes various problems (including a segfault)
+		when trying to open or save a file in a directory
+		beginning with "~" that isn't a home directory; fixes a
+		problem where a file with no name could be saved over an
+		existing filename with no warning about overwriting it;
+		properly disallows opening directories or device files
+		from "include" commands in nanorc files; no longer
+		displays a misleading prompt when trying to save in
+		restricted mode with the mark on; and properly supports
+		the Cancel and Shift-Cancel keys.  It also improves
+		several color syntaxes to highlight trailing whitespace,
+		just as the Java syntax does, and adds yet more minor
+		documentation updates.  Have fun.
+
+2007.04.06 - GNU nano 2.0.4 heralds the dawn.  This release contains
+		proper support for the Ctrl-[arrow key], Shift-[arrow
+		key], and F13-F16 keys under Xfce's Terminal.  It also
+		adds still more minor documentation updates.  Enjoy.
+
+2007.01.29 - GNU nano 2.0.3 flows toward its ending.  This release
+		contains several minor optimizations to make the
+		executable a little smaller under some circumstances,
+		some translation updates, improvements to the color
+		syntax for Python, and still more minor documentation
+		updates.  Have fun.
+
+2006.12.20 - GNU nano 2.0.2 forges ahead.  This release fixes a segfault
+		when trying to save in a nonexistent directory; fixes
+		handling of strings containing nulls at the "Write File",
+		"Insert File", "Execute Command", and "Go to Directory"
+		prompts; fixes several minor memory leaks; fixes two
+		more potential compilation warnings; adds a few
+		translation updates; and adds a few more minor
+		documentation updates.  Enjoy.
+
 2006.11.20 - GNU nano 2.0.1 emerges from its cocoon.  This release
 		contains several bugfixes: saving one file over another
 		will now always warn about overwriting it, overwriting
@@ -211,8 +252,8 @@
 		and replacing all text in a file now properly updates
 		the screen in all cases.  New features include sample
 		regexes for patch files, improvements to the sample
-		regexes for C files, and support for strings 
-		greater than 1023 characters and/or containing nulls in
+		regexes for C files, and support for strings greater
+		than 1023 characters and/or containing nulls in
 		.nano_history.  Additionally, the full justify keystroke
 		has been changed to match current Pico, and whitespace
 		display mode is now turned off by default.  Enjoy.
@@ -988,4 +1029,4 @@
 		update your bookmarks, tell your friends, and all that
 		jazz.
 
-$Id: NEWS,v 1.78 2006/11/20 14:38:31 dolorous Exp $
+$Id: NEWS,v 1.81.2.3 2007/04/26 12:00:33 dolorous Exp $

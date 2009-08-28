@@ -1,4 +1,4 @@
-# Copyright (c) 2006-2007, The RubyCocoa Project.
+# Copyright (c) 2006-2008, The RubyCocoa Project.
 # Copyright (c) 2001-2006, FUJIMOTO Hisakuni.
 # All Rights Reserved.
 #
@@ -7,6 +7,8 @@
 
 require 'osx/objc/oc_wrapper'
 
+OSX._ignore_ns_override = true
+  
 module OSX
   
   # Utility for private use
@@ -29,74 +31,72 @@ module OSX
     include Enumerable
     
     def grep(pattern)
-      result = OSX::NSMutableArray.array
+      result = []
       if block_given?
-        each {|i| result.addObject(yield(i)) if pattern === i }
+        each {|i| result << (yield i) if pattern === i }
       else
-        each {|i| result.addObject(i) if pattern === i }
+        each {|i| result << i if pattern === i }
       end
-      result
+      result.to_ns
     end
     
     def map
-      result = OSX::NSMutableArray.array
-      each {|i| result.addObject(yield(i)) }
-      result
+      result = []
+      each {|i| result << (yield i) }
+      result.to_ns
     end
     alias_method :collect, :map
     
     def select
-      result = OSX::NSMutableArray.array
-      each {|i| result.addObject(i) if yield(i) }
-      result
+      result = []
+      each {|i| result << i if yield i }
+      result.to_ns
     end
     alias_method :find_all, :select
     
     def partition
-      selected = OSX::NSMutableArray.array
-      others = OSX::NSMutableArray.array
+      selected = []
+      others = []
       each do |i|
-        if yield(i)
-          selected.addObject(i)
+        if yield i
+          selected << i
         else
-          others.addObject(i)
+          others << i
         end
       end
-      OSX::NSMutableArray.arrayWithArray([selected, others])
+      [selected, others].to_ns
     end
     
     def reject
-      result = OSX::NSMutableArray.array
-      each {|i| result.addObject(i) unless yield(i) }
-      result
+      result = []
+      each {|i| result << i unless yield i }
+      result.to_ns
     end
     
     def sort(&block)
-      OSX::NSMutableArray.arrayWithArray(to_a.sort(&block))
+      to_a.sort(&block).to_ns
     end
     
     def sort_by
-      map {|i| [yield(i),i] }.
-      sort {|a,b| a[0] <=> b[0] }.
-      map! {|i| i[1] }
+      map {|i| [(yield i), i]}.sort {|a,b| a[0] <=> b[0]}.map! {|i| i[1]}
     end
     
     def zip(*args)
       if block_given?
         each_with_index do |obj,n|
-          cur = OSX::NSMutableArray.array
-          [self, *args].each {|i| cur.addObject(i[n]) }
-          yield(cur)
+          cur = []
+          [self, *args].each {|i| cur << i[n] }
+          yield cur
         end
         nil
       else
-        result = OSX::NSMutableArray.array
+        result = []
         each_with_index do |obj,n|
-          cur = OSX::NSMutableArray.array
-          [self, *args].each {|i| cur.addObject(i[n]) }
-          result.addObject(cur)
+          cur = []
+          [self, *args].each {|i| cur << i[n] }
+          result << cur
         end
-        result
+        result.to_ns
       end
     end
   end
@@ -267,17 +267,14 @@ module OSX
       if args.is_a?(Array) || args.is_a?(OSX::NSArray)
         args = args.map {|i| i.is_a?(OSX::NSObject) ? i.to_ruby : i }
       end
-      OSX::NSMutableString.stringWithString(to_s % args)
+      (to_s % args).to_ns
     end
 
     def *(times)
       unless times.is_a?(Numeric) || times.is_a?(OSX::NSNumber)
         raise TypeError, "can't convert #{times.class} into Integer"
       end
-      i = times.to_i
-      s = OSX::NSMutableString.string
-      times.times { s.appendString(self) }
-      s
+      (to_s * times.to_i).to_ns
     end
 
     def +(other)
@@ -308,11 +305,10 @@ module OSX
     alias_method :concat, :<<
     
     def capitalize
-      len = length
-      if len > 0
+      if length > 0
         substringToIndex(1).upcase + substringFromIndex(1).downcase
       else
-        OSX::NSMutableString.string
+        ''.to_ns
       end
     end
     
@@ -338,7 +334,7 @@ module OSX
         raise TypeError, "can't convert #{padstr.class} into String"
       end
       len = len.to_i
-      padstr = OSX::NSString.stringWithString(padstr) if padstr.is_a?(String)
+      padstr = padstr.to_ns if padstr.is_a?(String)
       padlen = padstr.length
       if padlen == 0
         raise ArgumentError, "zero width padding"
@@ -350,7 +346,7 @@ module OSX
         len -= curlen
         leftlen = len / 2
         rightlen = len - leftlen
-        s = OSX::NSMutableString.string
+        s = ''.to_ns
         if leftlen > 0
           s << padstr * (leftlen / padlen)
           leftlen %= padlen
@@ -407,11 +403,11 @@ module OSX
     def chop
       len = length
       if len == 0
-        OSX::NSMutableString.string
+        ''.to_ns
       elsif hasSuffix("\r\n")
-        substringToIndex(length-2).mutableCopy
+        substringToIndex(len-2).mutableCopy
       else
-        substringToIndex(length-1).mutableCopy
+        substringToIndex(len-1).mutableCopy
       end
     end
     
@@ -427,7 +423,7 @@ module OSX
     
     def chr
       if empty?
-        OSX::NSMutableString.string
+        ''.to_ns
       else
         substringToIndex(1).mutableCopy
       end
@@ -443,7 +439,7 @@ module OSX
     end
     
     def crypt(salt)
-      OSX::NSMutableString.stringWithString(to_s.crypt(salt.to_s))
+      to_s.crypt(salt.to_s).to_ns
     end
     
     def delete(*strs)
@@ -476,7 +472,7 @@ module OSX
     end
     
     def dump
-      OSX::NSMutableString.stringWithString(to_s.dump)
+      to_s.dump.to_ns
     end
     
     def each_byte(&block)
@@ -488,7 +484,6 @@ module OSX
       if rs == nil
         yield mutableCopy
       else
-        pos = 0
         if rs.empty?
           paragraph_mode = true
           sep = $/*2
@@ -501,13 +496,14 @@ module OSX
           sep = sep.to_ns if sep.is_a?(String)
         end
         
+        pos = 0
         count = length
         loop do
           break if count <= pos
           n = index(sep, pos)
           unless n
             yield self[pos..-1]
-            return
+            break
           end
           len = sep.length
           if paragraph_mode
@@ -583,7 +579,7 @@ module OSX
           return nil
         end
         range = rangeOfString_options_range(s, 0, OSX::NSRange.new(n, len - n))
-        if range.location == OSX::NSNotFound
+        if range.not_found?
           nil
         else
           range.location
@@ -619,9 +615,9 @@ module OSX
     alias_method :to_sym, :intern
     
     def lines
-      result = OSX::NSMutableArray.array
+      result = []
       each_line {|i| result << i }
-      result
+      result.to_ns
     end
     
     def ljust(len, padstr=' ')
@@ -632,7 +628,7 @@ module OSX
         raise TypeError, "can't convert #{padstr.class} into String"
       end
       len = len.to_i
-      padstr = OSX::NSString.stringWithString(padstr) if padstr.is_a?(String)
+      padstr = padstr.to_ns if padstr.is_a?(String)
       padlen = padstr.length
       if padlen == 0
         raise ArgumentError, "zero width padding"
@@ -654,7 +650,7 @@ module OSX
       cs = OSX::NSCharacterSet.characterSetWithCharactersInString(" \t\r\n\f\v").invertedSet
       r = rangeOfCharacterFromSet(cs)
       if r.not_found?
-        OSX::NSMutableString.string
+        ''.to_ns
       else
         substringFromIndex(r.location).mutableCopy
       end
@@ -671,7 +667,7 @@ module OSX
     end
     
     def next
-      OSX::NSMutableString.stringWithString(to_s.next)
+      to_s.next.to_ns
     end
     alias_method :succ, :next
     
@@ -697,15 +693,14 @@ module OSX
       r = rangeOfString(sep)
       if r.not_found?
         left = mutableCopy
-        right = OSX::NSMutableString.string
+        right = ''.to_ns
         sep = right.mutableCopy
-        OSX::NSMutableArray.arrayWithArray([left, sep, right])
       else
         left = substringToIndex(r.location).mutableCopy
         right = substringFromIndex(r.location + r.length).mutableCopy
         sep = substringWithRange(r).mutableCopy
-        OSX::NSMutableArray.arrayWithArray([left, sep, right])
       end
+      [left, sep, right].to_ns
     end
     
     def replace(other)
@@ -714,7 +709,7 @@ module OSX
     end
     
     def reverse
-      s = OSX::NSMutableString.string
+      s = ''.to_ns
       (length-1).downto(0) do |i|
         s.appendFormat("%C", characterAtIndex(i))
       end
@@ -755,7 +750,7 @@ module OSX
         n += s.length
         n = len if len < n
         range = rangeOfString_options_range(s, OSX::NSBackwardsSearch, OSX::NSRange.new(0, n))
-        if range.location == OSX::NSNotFound
+        if range.not_found?
           nil
         else
           range.location
@@ -771,7 +766,7 @@ module OSX
         raise TypeError, "can't convert #{padstr.class} into String"
       end
       len = len.to_i
-      padstr = OSX::NSString.stringWithString(padstr) if padstr.is_a?(String)
+      padstr = padstr.to_ns if padstr.is_a?(String)
       padlen = padstr.length
       if padlen == 0
         raise ArgumentError, "zero width padding"
@@ -780,7 +775,7 @@ module OSX
       if len <= curlen
         mutableCopy
       else
-        s = OSX::NSMutableString.string
+        s = ''.to_ns
         len -= curlen
         s << padstr * (len / padlen)
         len %= padlen
@@ -794,22 +789,21 @@ module OSX
       r = rangeOfString_options(sep, OSX::NSBackwardsSearch)
       if r.not_found?
         left = mutableCopy
-        right = OSX::NSMutableString.string
+        right = ''.to_ns
         sep = right.mutableCopy
-        OSX::NSMutableArray.arrayWithArray([left, sep, right])
       else
         left = substringToIndex(r.location).mutableCopy
         right = substringFromIndex(r.location + r.length).mutableCopy
         sep = substringWithRange(r).mutableCopy
-        OSX::NSMutableArray.arrayWithArray([left, sep, right])
       end
+      [left, sep, right].to_ns
     end
     
     def rstrip
       cs = OSX::NSCharacterSet.characterSetWithCharactersInString(" \t\r\n\f\v").invertedSet
       r = rangeOfCharacterFromSet_options(cs, OSX::NSBackwardsSearch)
       if r.not_found?
-        OSX::NSMutableString.string
+        ''.to_ns
       else
         substringToIndex(r.location + 1).mutableCopy
       end
@@ -826,7 +820,11 @@ module OSX
     end
     
     def scan(re, &block)
-      to_s.scan(re, &block).to_ns
+      if block
+        to_s.scan(re) {|i| block.call(i.to_ns)}.to_ns
+      else
+        to_s.scan(re).to_ns
+      end
     end
     
     def size
@@ -837,24 +835,23 @@ module OSX
       _read_impl(:slice!, args)
     end
     
-    def split(sep=$/, limit=0)
+    def split(sep=$;, limit=0)
       sep = sep.to_ns if sep.is_a?(String)
+      result = []
       if sep && sep.empty?
-        result = OSX::NSMutableArray.array
         if limit > 0
           0.upto(limit-2) do |i|
             result << self[i..i]
           end
-          result << substringFromIndex(limit-1) if limit < length
+          result << substringFromIndex(limit-1).mutableCopy if limit < length
         else
           0.upto(length-1) {|i| result << self[i..i]}
           if limit == 0
             while last = result[-1] && last.empty?
-              result.removeLastObject
+              result.delete_at(-1)
             end
           end
         end
-        result
       else
         space = ' '.to_ns
         if sep.nil? || sep.isEqualTo(space)
@@ -864,7 +861,6 @@ module OSX
           str = self
         end
         
-        result = OSX::NSMutableArray.array
         n = nil
         pos = 0
         count = str.length
@@ -880,16 +876,15 @@ module OSX
           pos = n + len
         end
         
-        result << str.substringFromIndex(pos)
+        result << str.substringFromIndex(pos).mutableCopy
         
         if limit == 0
           while (last = result[-1]) && last.empty?
-            result.removeLastObject
+            result.delete_at(-1)
           end
         end
-        
-        result
       end
+      result.to_ns
     end
     
     def squeeze(*chars)
@@ -950,7 +945,7 @@ module OSX
     end
     
     def swapcase
-      OSX::NSMutableString.stringWithString(to_s.swapcase)
+      to_s.swapcase.to_ns
     end
     
     def swapcase!
@@ -1016,10 +1011,8 @@ module OSX
     end
     
     def upto(max)
-      max = OSX::NSString.stringWithString(max)
-      (self..max).each do |i|
-        yield i
-      end
+      max = max.to_ns unless max.is_a?(NSString)
+      (self..max).each {|i| yield i}
       self
     end
     
@@ -1033,38 +1026,12 @@ module OSX
         first = args.first
         case first
         when Numeric,OSX::NSNumber
-          n = first.to_i
-          n += count if n < 0
-          if 0 <= n && n < count
-            c = characterAtIndex(n)
-            deleteCharactersInRange(OSX::NSRange.new(n, 1)) if slice
-            c
-          else
-            nil
-          end
+	  _read_impl_num(slice, first.to_i, count)
         when String,OSX::NSString
-          str = first.to_ns
-          n = index(str)
-          if n
-            s = str.mutableCopy
-            deleteCharactersInRange(OSX::NSRange.new(n, str.length)) if slice
-            s
-          else
-            nil
-          end
+	  _read_impl_str(slice, first.to_ns)
         #when Regexp
         when Range
-          n, len = OSX::RangeUtil.normalize(first, count)
-          if 0 <= n && n < count
-            range = OSX::NSRange.new(n, len)
-            s = substringWithRange(range).mutableCopy
-            deleteCharactersInRange(range) if slice
-            s
-          elsif n == count
-            OSX::NSMutableString.string
-          else
-            nil
-          end
+	  _read_impl_range(slice, first, count)
         else
           raise TypeError, "can't convert #{first.class} into Integer"
         end
@@ -1075,21 +1042,60 @@ module OSX
           unless second.is_a?(Numeric) || second.is_a?(OSX::NSNumber)
             raise TypeError, "can't convert #{second.class} into Integer"
           end
-          n, len = first.to_i, second.to_i
-          n += count if n < 0
-          if n < 0 || count < n
-            nil
-          elsif len < 0
-            nil
-          else
-            _read_impl(method, [n...n+len])
-          end
+	  _read_impl_num_len(method, first.to_i, second.to_i, count)
         #when Regexp
         else
           raise TypeError, "can't convert #{first.class} into Integer"
         end
       else
         raise ArgumentError, "wrong number of arguments (#{args.length} for 2)"
+      end
+    end
+
+    def _read_impl_num(slice, num, count)
+      num += count if num < 0
+      if 0 <= num && num < count
+	c = characterAtIndex(num)
+	deleteCharactersInRange(OSX::NSRange.new(num, 1)) if slice
+	c
+      else
+	nil
+      end
+    end
+
+    def _read_impl_str(slice, str)
+      n = index(str)
+      if n
+	s = str.mutableCopy
+	deleteCharactersInRange(OSX::NSRange.new(n, str.length)) if slice
+	s
+      else
+	nil
+      end
+    end
+
+    def _read_impl_range(slice, range, count)
+      n, len = OSX::RangeUtil.normalize(range, count)
+      if 0 <= n && n < count
+	range = OSX::NSRange.new(n, len)
+	s = substringWithRange(range).mutableCopy
+	deleteCharactersInRange(range) if slice
+	s
+      elsif n == count
+	''.to_ns
+      else
+	nil
+      end
+    end
+
+    def _read_impl_num_len(method, num, len, count)
+      num += count if num < 0
+      if num < 0 || count < num
+	nil
+      elsif len < 0
+	nil
+      else
+	_read_impl(method, [num...num+len])
       end
     end
   end
@@ -1138,7 +1144,7 @@ module OSX
     def each
       iter = objectEnumerator
       while obj = iter.nextObject
-        yield(obj)
+        yield obj
       end
       self
     end
@@ -1146,7 +1152,7 @@ module OSX
     def reverse_each
       iter = reverseObjectEnumerator
       while obj = iter.nextObject
-        yield(obj)
+        yield obj
       end
       self
     end
@@ -1255,8 +1261,8 @@ module OSX
           raise TypeError, "can't convert #{other.class} into Array"
         end
       end
-      result = OSX::NSMutableArray.array
-      dic = OSX::NSMutableDictionary.dictionary
+      result = [].to_ns
+      dic = {}.to_ns
       each {|i| dic.setObject_forKey(i, i) }
       ary.each do |i|
         if dic.objectForKey(i)
@@ -1279,8 +1285,8 @@ module OSX
           raise TypeError, "can't convert #{other.class} into Array"
         end
       end
-      result = OSX::NSMutableArray.array
-      dic = OSX::NSMutableDictionary.dictionary
+      result = [].to_ns
+      dic = {}.to_ns
       [self, ary].each do |obj|
         obj.each do |i|
           unless dic.objectForKey(i)
@@ -1295,7 +1301,7 @@ module OSX
     def *(arg)
       case arg
       when Numeric
-        OSX::NSMutableArray.arrayWithArray(to_a * arg)
+        (to_a * arg).to_ns
       when String
         join(arg)
       else
@@ -1332,8 +1338,8 @@ module OSX
           raise TypeError, "can't convert #{other.class} into Array"
         end
       end
-      result = OSX::NSMutableArray.array
-      dic = OSX::NSMutableDictionary.dictionary
+      result = [].to_ns
+      dic = {}.to_ns
       ary.each {|i| dic.setObject_forKey(i, i) }
       each {|i| result.addObject(i) unless dic.objectForKey(i) }
       result
@@ -1360,7 +1366,7 @@ module OSX
     end
 
     def collect!
-      copy.each_with_index {|i,n| replaceObjectAtIndex_withObject(n, yield(i)) }
+      copy.each_with_index {|i,n| replaceObjectAtIndex_withObject(n, (yield i)) }
       self
     end
     alias_method :map!, :collect!
@@ -1378,11 +1384,12 @@ module OSX
       indexes = OSX::NSMutableIndexSet.indexSet
       each_with_index {|i,n| indexes.addIndex(n) if i.isEqual(val) }
       removeObjectsAtIndexes(indexes) if indexes.count > 0
-      if block_given?
-        yield
-      elsif indexes.count > 0
+      if indexes.count > 0
         val
       else
+        if block_given?
+          yield
+        end
         nil
       end
     end
@@ -1409,8 +1416,8 @@ module OSX
     end
 
     def reject!
-      indexes = OSX::NSMutableIndexSet.alloc.init
-      each_with_index {|i,n| indexes.addIndex(n) if yield(i) }
+      indexes = OSX::NSMutableIndexSet.indexSet
+      each_with_index {|i,n| indexes.addIndex(n) if yield i }
       if indexes.count > 0
         removeObjectsAtIndexes(indexes)
         self
@@ -1420,7 +1427,7 @@ module OSX
     end
 
     def each_index
-      each_with_index {|i,n| yield(n) }
+      each_with_index {|i,n| yield n }
     end
 
     def empty?
@@ -1553,7 +1560,7 @@ module OSX
     end
 
     def flatten
-      result = OSX::NSMutableArray.array
+      result = [].to_ns
       each do |i|
         if i.is_a? OSX::NSArray
           result.addObjectsFromArray(i.flatten)
@@ -1566,7 +1573,7 @@ module OSX
 
     def flatten!
       flat = true
-      result = OSX::NSMutableArray.array
+      result = [].to_ns
       each do |i|
         if i.is_a? OSX::NSArray
           flat = false
@@ -1589,10 +1596,10 @@ module OSX
 
     def index(*args)
       if block_given?
-        each_with_index {|i,n| return n if yield(i) }
+        each_with_index {|i,n| return n if yield i}
       elsif args.length == 1
         val = args.first
-        each_with_index {|i,n| return n if i.isEqual(val) }
+        each_with_index {|i,n| return n if i.isEqual(val)}
       else
         raise ArgumentError, "wrong number of arguments (#{args.length} for 1)"
       end
@@ -1614,11 +1621,11 @@ module OSX
       each do |i|
         s += sep if sep && !s.empty?
         if i == self
-          s += '[...]'
+          s << '[...]'
         elsif i.is_a? OSX::NSArray
-          s += i.join(sep)
+          s << i.join(sep)
         else
-          s += i.to_s
+          s << i.to_s
         end
       end
       s
@@ -1632,7 +1639,7 @@ module OSX
             raise ArgumentError, "negative array size (or size too big)"
           end
           if len == 0
-            OSX::NSMutableArray.array
+            [].to_ns
           elsif len >= count
             mutableCopy
           else
@@ -1689,7 +1696,7 @@ module OSX
     end
 
     def reverse
-      OSX::NSMutableArray.arrayWithArray(to_a.reverse)
+      to_a.reverse.to_ns
     end
 
     def reverse!
@@ -1702,7 +1709,7 @@ module OSX
         n = count
         reverse_each do |i|
           n -= 1
-          return n if yield(i)
+          return n if yield i
         end
       elsif args.length == 1
         val = args.first
@@ -1727,6 +1734,10 @@ module OSX
       end
     end
 
+    def count
+      oc_count
+    end
+
     def size
       count
     end
@@ -1747,12 +1758,12 @@ module OSX
     end
 
     def transpose
-      OSX::NSMutableArray.arrayWithArray(to_a.transpose)
+      to_a.transpose.to_ns
     end
 
     def uniq
-      result = OSX::NSMutableArray.array
-      dic = OSX::NSMutableDictionary.dictionary
+      result = [].to_ns
+      dic = {}.to_ns
       each do |i|
         unless dic.has_key?(i)
           dic.setObject_forKey(i, i)
@@ -1766,7 +1777,7 @@ module OSX
       if empty?
         nil
       else
-        dic = OSX::NSMutableDictionary.dictionary
+        dic = {}.to_ns
         indexes = OSX::NSMutableIndexSet.indexSet
         each_with_index do |i,n|
           if dic.has_key?(i)
@@ -1802,9 +1813,7 @@ module OSX
     end
 
     def values_at(*indexes)
-      result = OSX::NSMutableArray.array
-      indexes.each {|i| result.addObject(self[i]) }
-      result
+      indexes.map {|i| self[i]}.to_ns
     end
     alias_method :indexes, :values_at
     alias_method :indices, :values_at
@@ -1827,34 +1836,9 @@ module OSX
         first = args.first
         case first
         when Numeric,OSX::NSNumber
-          n = first.to_i
-          n += count if n < 0
-          if 0 <= n && n < count
-            result = objectAtIndex(n)
-            removeObjectAtIndex(n) if slice
-            result
-          else
-            nil
-          end
+	  _read_impl_num(slice, first.to_i, count)
         when Range
-          range = first
-          n, len = OSX::RangeUtil.normalize(range, count)
-          if n < 0 || count < n
-            if slice
-              raise RangeError, "#{first} out of range"
-            end
-            return nil
-          end
-          
-          if 0 <= n && n < count
-            nsrange = OSX::NSRange.new(n, len)
-            indexes = OSX::NSIndexSet.indexSetWithIndexesInRange(nsrange)
-            result = objectsAtIndexes(indexes).mutableCopy
-            removeObjectsAtIndexes(indexes) if slice
-            result
-          else
-            OSX::NSMutableArray.array
-          end
+	  _read_impl_range(slice, first, count)
         else
           raise TypeError, "can't convert #{args.first.class} into Integer"
         end
@@ -1866,26 +1850,97 @@ module OSX
         unless len.is_a?(Numeric) || len.is_a?(OSX::NSNumber)
           raise TypeError, "can't convert #{len.class} into Integer"
         end
-        n = n.to_i
-        len = len.to_i
-        if len < 0
-          if slice
-            raise IndexError, "negative length (#{args[1]})"
-          end
-          nil
-        else
-          n += count if n < 0
-          if n < 0
-            nil
-          else
-            _read_impl(method, [n...n+len])
-          end
-        end
+	_read_impl_num_len(slice, method, n.to_i, len.to_i, count)
       else
         raise ArgumentError, "wrong number of arguments (#{args.length} for 2)"
       end
     end
+
+    def _read_impl_num(slice, num, count)
+      num += count if num < 0
+      if 0 <= num && num < count
+	result = objectAtIndex(num)
+	removeObjectAtIndex(num) if slice
+	result
+      else
+	nil
+      end
+    end
+
+    def _read_impl_range(slice, range, count)
+      n, len = OSX::RangeUtil.normalize(range, count)
+      if n < 0 || count < n
+	return nil
+      end
+      
+      if 0 <= n && n < count
+	nsrange = OSX::NSRange.new(n, len)
+	indexes = OSX::NSIndexSet.indexSetWithIndexesInRange(nsrange)
+	result = objectsAtIndexes(indexes).mutableCopy
+	removeObjectsAtIndexes(indexes) if slice
+	result
+      else
+	[].to_ns
+      end
+    end
+
+    def _read_impl_num_len(slice, method, num, len, count)
+      if len < 0
+	nil
+      else
+	num += count if num < 0
+	if num < 0
+	  nil
+	else
+	  _read_impl(method, [num...num+len])
+	end
+      end
+    end
+
+    # the behavior of Array#slice is different from 1.8.6 or earlier
+    # against an out of range argument
+    if RUBY_VERSION <= '1.8.6'
+      def _read_impl_range(slice, range, count)
+	n, len = OSX::RangeUtil.normalize(range, count)
+	if n < 0 || count < n
+	  if slice
+	    # raises RangeError, 1.8.7 or later returns nil
+	    raise RangeError, "#{first} out of range" 
+	  end
+	  return nil
+	end
+	
+	if 0 <= n && n < count
+	  nsrange = OSX::NSRange.new(n, len)
+	  indexes = OSX::NSIndexSet.indexSetWithIndexesInRange(nsrange)
+	  result = objectsAtIndexes(indexes).mutableCopy
+	  removeObjectsAtIndexes(indexes) if slice
+	  result
+	else
+	  [].to_ns
+	end
+      end
+
+      def _read_impl_num_len(slice, method, num, len, count)
+	if len < 0
+	  if slice
+	    # raises IndexError, 1.8.7 or later returns nil
+	    raise IndexError, "negative length (#{len})"
+	  end
+	  nil
+	else
+	  num += count if num < 0
+	  if num < 0
+	    nil
+	  else
+	    _read_impl(method, [num...num+len])
+	  end
+	end
+    end
+
+    end
   end
+
   class NSArray
     include NSEnumerable
   end
@@ -1935,7 +1990,7 @@ module OSX
     def each
       iter = keyEnumerator
       while key = iter.nextObject
-        yield([key, objectForKey(key)])
+        yield [key, objectForKey(key)]
       end
       self
     end
@@ -1943,7 +1998,7 @@ module OSX
     def each_pair
       iter = keyEnumerator
       while key = iter.nextObject
-        yield(key, objectForKey(key))
+        yield key, objectForKey(key)
       end
       self
     end
@@ -1951,7 +2006,7 @@ module OSX
     def each_key
       iter = keyEnumerator
       while key = iter.nextObject
-        yield(key)
+        yield key
       end
       self
     end
@@ -1959,7 +2014,7 @@ module OSX
     def each_value
       iter = objectEnumerator
       while obj = iter.nextObject
-        yield(obj)
+        yield obj
       end
       self
     end
@@ -2017,7 +2072,7 @@ module OSX
         obj
       else
         if block_given?
-          yield(key)
+          yield key
         else
           nil
         end
@@ -2037,7 +2092,7 @@ module OSX
         if args.length > 0
           args.first
         elsif block_given?
-          yield(key)
+          yield key
         else
           raise IndexError, "key not found"
         end
@@ -2045,8 +2100,8 @@ module OSX
     end
 
     def reject!
-      keys = OSX::NSMutableArray.array
-      each {|key,value| keys.addObject(key) if yield(key, value) }
+      keys = [].to_ns
+      each {|key,value| keys.addObject(key) if yield key, value }
       if keys.count > 0
         removeObjectsForKeys(keys)
         self
@@ -2073,7 +2128,7 @@ module OSX
     alias_method :value?, :has_value?
 
     def invert
-      dic = OSX::NSMutableDictionary.dictionary
+      dic = {}.to_ns
       each_pair {|key,value| dic[value] = key }
       dic
     end
@@ -2097,13 +2152,13 @@ module OSX
       if block_given?
         other.each do |key,value|
           if mine = objectForKey(key)
-            setObject_forKey(yield(key, mine, value),key)
+            setObject_forKey((yield key, mine, value), key)
           else
             setObject_forKey(value,key)
           end
         end
       else
-        other.each {|key,value| setObject_forKey(value,key) }
+        other.each {|key,value| setObject_forKey(value, key) }
       end
       self
     end
@@ -2116,10 +2171,13 @@ module OSX
         key = allKeys.objectAtIndex(0)
         value = objectForKey(key)
         removeObjectForKey(key)
-        OSX::NSMutableArray.arrayWithArray([key, value])
+        [key, value].to_ns
       end
     end
 
+    def count
+      oc_count
+    end
     def size
       count
     end
@@ -2141,15 +2199,15 @@ module OSX
     end
 
     def values_at(*args)
-      result = OSX::NSMutableArray.array
+      result = []
       args.each do |k|
         if v = objectForKey(k)
-          result.addObject(v)
+          result << v
         else
-          result.addObject(default)
+          result << default
         end
       end
-      result
+      result.to_ns
     end
     
     def inspect
@@ -2227,21 +2285,26 @@ module OSX
     end
 
     def to_f
-      self.floatValue
+      self.doubleValue
     end
     
     def float?
+      warn "#{caller[0]}: 'NSNumber#float?' is now deprecated and its use is discouraged, please use integer? instead."
       OSX::CFNumberIsFloatType(self)
+    end
+    
+    def integer?
+      !OSX::CFNumberIsFloatType(self)
     end
     
     def ==(other)
       if other.is_a? NSNumber
         isEqualToNumber?(other)
       elsif other.is_a? Numeric
-        if float?
-          to_f == other
-        else
+        if integer?
           to_i == other
+        else
+          to_f == other
         end
       else
         false
@@ -2252,10 +2315,10 @@ module OSX
       if other.is_a? NSNumber
         compare(other)
       elsif other.is_a? Numeric
-        if float?
-          to_f <=> other
-        else
+        if integer?
           to_i <=> other
+        else
+          to_f <=> other
         end
       else
         nil
@@ -2293,7 +2356,7 @@ module OSX
       when OSX::NSCFBoolean
         self.boolValue
       when OSX::NSNumber
-        self.float? ? self.to_f : self.to_i
+        self.integer? ? self.to_i : self.to_f
       when OSX::NSString
         self.to_s
       when OSX::NSAttributedString
@@ -2314,3 +2377,5 @@ module OSX
     end
   end
 end
+
+OSX._ignore_ns_override = false

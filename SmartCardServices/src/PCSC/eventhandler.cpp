@@ -204,7 +204,7 @@ LONG EHSpawnEventHandler(PREADER_CONTEXT rContext)
 	UCHAR ucAtr[MAX_ATR_SIZE];
 	DWORD dwAtrLen = 0;
 
-	secdebug("pcscd", "EHSpawnEventHandler: rContext: 0x%08X", rContext);
+	secdebug("pcscd", "EHSpawnEventHandler: rContext: %p", rContext);
 	rv = IFDStatusICC(rContext, &dwStatus, ucAtr, &dwAtrLen);
 	if (rv != SCARD_S_SUCCESS)
 	{
@@ -262,7 +262,7 @@ void EHStatusHandlerThread(PREADER_CONTEXT rContext)
 	dwReaderSharing = 0;
 	dwCurrentState = 0;
 
-	secdebug("pcscd", "EHStatusHandlerThread: rContext: 0x%08X", rContext);
+	secdebug("pcscd", "EHStatusHandlerThread: rContext: %p", rContext);
 	lpcReader = rContext->lpcReader;
 
 	PCSCD::SharedReaderState *rs = PCSCD::SharedReaderState::overlay(rContext->readerState);

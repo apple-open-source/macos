@@ -5,6 +5,16 @@ test1abcdefg::test1abcdefg() :
 {
 }
 
+int foo ()
+{
+  return 5;
+}
+
+test1abcdefg::test1abcdefg(const test1abcdefg &rhs) 
+{
+  foo ();
+}
+
 test1abcdefg::~test1abcdefg()
 {
 }

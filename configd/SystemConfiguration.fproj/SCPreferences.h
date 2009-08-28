@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2004, 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2004, 2005, 2007-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,13 +22,26 @@
  */
 
 #ifndef _SCPREFERENCES_H
+#ifdef	USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS
+#include <SystemConfiguration/_SCPreferences.h>
+#else	/* USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS */
 #define _SCPREFERENCES_H
 
-#include <AvailabilityMacros.h>
+#include <Availability.h>
+#include <TargetConditionals.h>
 #include <sys/cdefs.h>
+#if	!TARGET_OS_IPHONE
+#include <dispatch/dispatch.h>
+#endif	// !TARGET_OS_IPHONE
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SCDynamicStore.h>
+
+#if	!TARGET_OS_IPHONE
 #include <Security/Security.h>
+#else	// !TARGET_OS_IPHONE
+typedef const struct AuthorizationOpaqueRef *	AuthorizationRef;
+#endif	// !TARGET_OS_IPHONE
+
 
 /*!
 	@header SCPreferences
@@ -62,8 +75,6 @@
  */
 typedef const struct __SCPreferences *	SCPreferencesRef;
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
-
 /*!
 	@enum SCPreferencesNotification
 	@discussion Used with the SCPreferencesCallBack callback
@@ -74,10 +85,13 @@ typedef const struct __SCPreferences *	SCPreferencesRef;
 		request has been made to apply the currently saved
 		preferences to the active system configuration.
  */
+#if	(__MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
 enum {
 	kSCPreferencesNotificationCommit	= 1<<0,
 	kSCPreferencesNotificationApply		= 1<<1
 };
+#endif	(__MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/
+
 typedef	uint32_t	SCPreferencesNotification;
 
 /*!
@@ -122,8 +136,6 @@ typedef void (*SCPreferencesCallBack)   (
 					void				*info
 					);
 
-#endif	/* MAC_OS_X_VERSION_MAX_ALLOWED >= 1040 */
-
 
 __BEGIN_DECLS
 
@@ -132,7 +144,7 @@ __BEGIN_DECLS
 	@discussion Returns the type identifier of all SCPreferences instances.
  */
 CFTypeID
-SCPreferencesGetTypeID		(void);
+SCPreferencesGetTypeID			(void)			__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
 /*!
 	@function SCPreferencesCreate
@@ -152,13 +164,12 @@ SCPreferencesGetTypeID		(void);
 		You must release the returned value.
  */
 SCPreferencesRef
-SCPreferencesCreate		(
-				CFAllocatorRef		allocator,
-				CFStringRef		name,
-				CFStringRef		prefsID
-				);
+SCPreferencesCreate			(
+					CFAllocatorRef		allocator,
+					CFStringRef		name,
+					CFStringRef		prefsID
+					)			__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
 
 /*!
 	@function SCPreferencesCreateWithAuthorization
@@ -186,9 +197,7 @@ SCPreferencesCreateWithAuthorization	(
 					CFStringRef		name,
 					CFStringRef		prefsID,
 					AuthorizationRef	authorization
-					)				AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
-
-#endif	/* MAC_OS_X_VERSION_MAX_ALLOWED >= 1050 */
+					)			__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
 
 /*!
 	@function SCPreferencesLock
@@ -206,10 +215,10 @@ SCPreferencesCreateWithAuthorization	(
 		FALSE if an error occurred.
  */
 Boolean
-SCPreferencesLock		(
-				SCPreferencesRef	prefs,
-				Boolean			wait
-				);
+SCPreferencesLock			(
+					SCPreferencesRef	prefs,
+					Boolean			wait
+					)			__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
 /*!
 	@function SCPreferencesCommitChanges
@@ -229,9 +238,9 @@ SCPreferencesLock		(
 		FALSE if an error occurred.
  */
 Boolean
-SCPreferencesCommitChanges	(
-				SCPreferencesRef	prefs
-				);
+SCPreferencesCommitChanges		(
+					SCPreferencesRef	prefs
+					)			__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
 /*!
 	@function SCPreferencesApplyChanges
@@ -242,9 +251,9 @@ SCPreferencesCommitChanges	(
 		FALSE if an error occurred.
  */
 Boolean
-SCPreferencesApplyChanges	(
-				SCPreferencesRef	prefs
-				);
+SCPreferencesApplyChanges		(
+					SCPreferencesRef	prefs
+					)			__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
 /*!
 	@function SCPreferencesUnlock
@@ -258,9 +267,9 @@ SCPreferencesApplyChanges	(
 		FALSE if an error occurred.
  */
 Boolean
-SCPreferencesUnlock		(
-				SCPreferencesRef	prefs
-				);
+SCPreferencesUnlock			(
+					SCPreferencesRef	prefs
+					)			__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
 /*!
 	@function SCPreferencesGetSignature
@@ -271,9 +280,9 @@ SCPreferencesUnlock		(
 		preferences at the time of the call to the SCPreferencesCreate function.
  */
 CFDataRef
-SCPreferencesGetSignature	(
-				SCPreferencesRef	prefs
-				);
+SCPreferencesGetSignature		(
+					SCPreferencesRef	prefs
+					)			__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
 /*!
 	@function SCPreferencesCopyKeyList
@@ -283,9 +292,9 @@ SCPreferencesGetSignature	(
 		You must release the returned value.
  */
 CFArrayRef
-SCPreferencesCopyKeyList	(
-				SCPreferencesRef	prefs
-				);
+SCPreferencesCopyKeyList		(
+					SCPreferencesRef	prefs
+					)			__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
 /*!
 	@function SCPreferencesGetValue
@@ -302,10 +311,10 @@ SCPreferencesCopyKeyList	(
 		NULL if no value was located.
  */
 CFPropertyListRef
-SCPreferencesGetValue		(
-				SCPreferencesRef	prefs,
-				CFStringRef		key
-				);
+SCPreferencesGetValue			(
+					SCPreferencesRef	prefs,
+					CFStringRef		key
+					)			__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
 /*!
 	@function SCPreferencesAddValue
@@ -323,11 +332,11 @@ SCPreferencesGetValue		(
 		if an error occurred.
  */
 Boolean
-SCPreferencesAddValue		(
-				SCPreferencesRef	prefs,
-				CFStringRef		key,
-				CFPropertyListRef	value
-				);
+SCPreferencesAddValue			(
+					SCPreferencesRef	prefs,
+					CFStringRef		key,
+					CFPropertyListRef	value
+					)			__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
 /*!
 	@function SCPreferencesSetValue
@@ -344,11 +353,11 @@ SCPreferencesAddValue		(
 		FALSE if an error occurred.
  */
 Boolean
-SCPreferencesSetValue		(
-				SCPreferencesRef	prefs,
-				CFStringRef		key,
-				CFPropertyListRef	value
-				);
+SCPreferencesSetValue			(
+					SCPreferencesRef	prefs,
+					CFStringRef		key,
+					CFPropertyListRef	value
+					)			__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
 /*!
 	@function SCPreferencesRemoveValue
@@ -363,12 +372,10 @@ SCPreferencesSetValue		(
 		FALSE if the key did not exist or if an error occurred.
  */
 Boolean
-SCPreferencesRemoveValue	(
-				SCPreferencesRef	prefs,
-				CFStringRef		key
-				);
-
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
+SCPreferencesRemoveValue		(
+					SCPreferencesRef	prefs,
+					CFStringRef		key
+					)			__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
 /*!
 	@function SCPreferencesSetCallback
@@ -388,7 +395,7 @@ SCPreferencesSetCallback		(
 					SCPreferencesRef	prefs,
 					SCPreferencesCallBack	callout,
 					SCPreferencesContext	*context
-					)				AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+					)			__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
 
 /*!
 	@function SCPreferencesScheduleWithRunLoop
@@ -408,7 +415,7 @@ SCPreferencesScheduleWithRunLoop	(
 					SCPreferencesRef	prefs,
 					CFRunLoopRef		runLoop,
 					CFStringRef		runLoopMode
-					)				AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+					)			__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
 
 /*!
 	@function SCPreferencesUnscheduleFromRunLoop
@@ -428,7 +435,24 @@ SCPreferencesUnscheduleFromRunLoop	(
 					SCPreferencesRef	prefs,
 					CFRunLoopRef		runLoop,
 					CFStringRef		runLoopMode
-					)				AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+					)			__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
+
+#if	!TARGET_OS_IPHONE
+/*!
+	@function SCPreferencesSetDispatchQueue
+	@discussion Schedule commit and apply notifications for the specified
+		preferences session.
+	@param prefs The preferences session.
+	@param queue The dispatch queue to run the callback function on.
+	@result Returns TRUE if the notifications are successfully scheduled;
+		FALSE otherwise.
+ */
+Boolean
+SCPreferencesSetDispatchQueue		(
+					 SCPreferencesRef	prefs,
+					 dispatch_queue_t	queue
+					 )			__OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_NA);
+#endif	// !TARGET_OS_IPHONE
 
 /*!
 	@function SCPreferencesSynchronize
@@ -444,10 +468,9 @@ SCPreferencesUnscheduleFromRunLoop	(
 void
 SCPreferencesSynchronize		(
 					SCPreferencesRef	prefs
-					)				AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
-
-#endif	/* MAC_OS_X_VERSION_MAX_ALLOWED >= 1040 */
+					)			__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);
 
 __END_DECLS
 
+#endif	/* USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS */
 #endif /* _SCPREFERENCES_H */

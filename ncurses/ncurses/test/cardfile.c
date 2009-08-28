@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 1999-2003,2004 Free Software Foundation, Inc.              *
+ * Copyright (c) 1999-2007,2008 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -29,7 +29,7 @@
 /*
  * Author: Thomas E. Dickey
  *
- * $Id: cardfile.c,v 1.27 2004/11/06 19:33:39 tom Exp $
+ * $Id: cardfile.c,v 1.35 2008/08/05 00:42:24 tom Exp $
  *
  * File format: text beginning in column 1 is a title; other text is content.
  */
@@ -71,9 +71,9 @@ static char default_name[] = "cardfile.dat";
 #if !HAVE_STRDUP
 #define strdup my_strdup
 static char *
-strdup(char *s)
+strdup(const char *s)
 {
-    char *p = (char *) malloc(strlen(s) + 1);
+    char *p = typeMalloc(char, strlen(s) + 1);
     if (p)
 	strcpy(p, s);
     return (p);
@@ -111,7 +111,7 @@ add_title(const char *title)
 	    break;
     }
 
-    card = (CARD *) calloc(1, sizeof(CARD));
+    card = typeCalloc(CARD, 1);
     card->title = strdup(title);
     card->content = strdup("");
 
@@ -133,16 +133,19 @@ add_content(CARD * card, const char *content)
 
     content = skip(content);
     if ((total = strlen(content)) != 0) {
-	if ((offset = strlen(card->content)) != 0) {
+	if (card->content != 0 && (offset = strlen(card->content)) != 0) {
 	    total += 1 + offset;
-	    card->content = (char *) realloc(card->content, total + 1);
-	    strcpy(card->content + offset++, " ");
+	    card->content = typeRealloc(char, total + 1, card->content);
+	    if (card->content)
+		strcpy(card->content + offset++, " ");
 	} else {
+	    offset = 0;
 	    if (card->content != 0)
 		free(card->content);
-	    card->content = (char *) malloc(total + 1);
+	    card->content = typeMalloc(char, total + 1);
 	}
-	strcpy(card->content + offset, content);
+	if (card->content)
+	    strcpy(card->content + offset, content);
     }
 }
 
@@ -306,8 +309,8 @@ form_virtualize(WINDOW *w)
 	return (MY_CTRL_N);
     case CTRL('P'):
 	return (MY_CTRL_P);
-    case CTRL('Q'):
-    case 033:
+    case QUIT:
+    case ESCAPE:
 	return (MY_CTRL_Q);
 
     case KEY_BACKSPACE:
@@ -334,7 +337,7 @@ form_virtualize(WINDOW *w)
 static FIELD **
 make_fields(CARD * p, int form_high, int form_wide)
 {
-    FIELD **f = (FIELD **) calloc(3, sizeof(FIELD *));
+    FIELD **f = typeCalloc(FIELD *, 3);
 
     f[0] = new_field(1, form_wide, 0, 0, 0, 0);
     set_field_back(f[0], A_REVERSE);
@@ -389,7 +392,6 @@ cardfile(char *fname)
     int y;
     int x;
     int ch = ERR;
-    int last_ch;
     int finished = FALSE;
 
     show_legend();
@@ -433,7 +435,6 @@ cardfile(char *fname)
 	update_panels();
 	doupdate();
 
-	last_ch = ch;
 	ch = form_virtualize(panel_window(top_card->panel));
 	switch (form_driver(top_card->form, ch)) {
 	case E_OK:
@@ -570,7 +571,7 @@ main(int argc, char *argv[])
 
     setlocale(LC_ALL, "");
 
-    while ((n = getopt(argc, argv, "c")) != EOF) {
+    while ((n = getopt(argc, argv, "c")) != -1) {
 	switch (n) {
 	case 'c':
 	    try_color = TRUE;

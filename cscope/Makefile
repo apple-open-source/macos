@@ -9,7 +9,7 @@ ToolType              = Commands
 Extra_Environment     =   AUTOCONF="$(Sources)/missing autoconf"        \
                         AUTOHEADER="$(Sources)/missing autoheader"
 Extra_CC_Flags        = -mdynamic-no-pic
-GnuAfterInstall       = post-install install-plist
+GnuAfterInstall       = install-plist post-install 
 
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
@@ -50,3 +50,5 @@ install-plist:
 
 post-install:
 	$(INSTALL_FILE) $(SRCROOT)/patches/ocs.1 $(DSTROOT)/usr/share/man/man1/
+	$(MKDIR) -p $(DSTROOT)/usr/local
+	$(MV) $(DSTROOT)/usr/bin $(DSTROOT)/usr/share $(DSTROOT)/usr/local

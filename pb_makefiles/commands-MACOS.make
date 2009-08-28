@@ -53,7 +53,7 @@ LN = /bin/ln
 SYMLINK = /bin/ln -s
 CP = /bin/cp
 MV = /bin/mv
-FASTCP = /usr/lib/fastcp
+FASTCP = $(MAKEFILEDIR)/fastcp
 TAR = /usr/bin/gnutar
 ifneq "" "$(wildcard /bin/mkdirs)"
   MKDIRS = /bin/mkdirs
@@ -85,10 +85,10 @@ TR = /usr/bin/tr
 ARCH_CMD = /usr/bin/arch
 VERS_STRING = /usr/bin/vers_string
 FIXPRECOMPS = /usr/bin/fixPrecomps
-MERGEINFO = /usr/lib/mergeInfo
+MERGEINFO = $(MAKEFILEDIR)/mergeInfo
 COMPILEHELP = /usr/bin/compileHelp
-OFILE_LIST_TOOL = /usr/lib/ofileListTool
-FRAMEWORK_TOOL = /usr/lib/frameworkFlags
+OFILE_LIST_TOOL = $(MAKEFILEDIR)/ofileListTool
+FRAMEWORK_TOOL = $(MAKEFILEDIR)/frameworkFlags
 NEWER = $(MAKEFILEDIR)/newer
 DOTDOTIFY = $(MAKEFILEDIR)/dotdotify
 CLONEHDRS = $(MAKEFILEDIR)/clonehdrs
@@ -121,11 +121,7 @@ endif
 
 JAVATOOL = /usr/bin/javatool
 BRIDGET = /usr/bin/bridget
-BUILDFILTER = /usr/lib/BuildFilter
 EOPREINDEX = $(NEXT_ROOT)/usr/bin/eopreindex
-
-GENFORCELOAD = /usr/lib/genforceload
-GENCLASSPATH = /usr/lib/genclasspath
 
 JAVA = $(JDKBINDIR)/java
 JAVAH = $(JDKBINDIR)/javah
@@ -142,4 +138,3 @@ MKZIP = /usr/bin/zip
 
 JAVA_PATH_SEPARATOR=:
 
-PLISTREAD = /usr/lib/plistread

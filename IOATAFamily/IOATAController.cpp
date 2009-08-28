@@ -52,6 +52,8 @@
 #define kStatusDelayLoopMS  1000 / kStatusDelayTime
 
 
+#define _doubleBufferDesc	reserved->_doubleBufferDesc
+
 
 #ifdef DLOG
 #undef DLOG
@@ -155,6 +157,9 @@ IOATAController::probe(IOService* provider,	SInt32*	score)
 bool 
 IOATAController::start(IOService *provider)
 {
+
+	OSObject * prop;
+
     DLOG("IOATAController::start() begin\n");
 
  	_provider = provider;
@@ -162,7 +167,7 @@ IOATAController::start(IOService *provider)
  	_currentCommand = 0L;
  	_selectedUnit = kATAInvalidDeviceID;
  	_queueState = IOATAController::kQueueOpen;
-
+	
  	// call start on the superclass
     if (!super::start(_provider))
  	{
@@ -170,12 +175,24 @@ IOATAController::start(IOService *provider)
         return false;
 	}
 
-	OSObject * prop = getProperty ( kIOPropertyPhysicalInterconnectTypeKey, gIOServicePlane );
+	prop = getProperty ( kIOPropertyPhysicalInterconnectTypeKey, gIOServicePlane );
 	if ( prop == NULL )
 	{
 		setProperty ( kIOPropertyPhysicalInterconnectTypeKey, kIOPropertyPhysicalInterconnectTypeATA);
 	}
 
+	prop = getProperty ( kIOPropertyPhysicalInterconnectLocationKey, gIOServicePlane );
+	if ( prop == NULL )
+	{
+		setProperty ( kIOPropertyPhysicalInterconnectLocationKey, kIOPropertyInternalKey);
+	}
+
+	reserved = ( ExpansionData * ) IOMalloc ( sizeof ( ExpansionData ) );
+	if ( !reserved )
+		return false;
+	
+	bzero ( reserved, sizeof ( ExpansionData ) );
+	
 	if( !configureTFPointers() )
 	{
 		DLOG("IOATA TF Pointers failed\n");
@@ -203,6 +220,7 @@ IOATAController::start(IOService *provider)
        return false;
 	}
 	
+	_workLoop->retain();
 	
 	// create a timer event source and attach it to the work loop
     _timer = ATATimerEventSource::ataTimerEventSource(this,
@@ -240,15 +258,46 @@ IOATAController::start(IOService *provider)
 void
 IOATAController::free()
 {
-
-	if( _doubleBuffer.logicalBuffer )
-	{
 	
-		IOFreeContiguous( (void*) _doubleBuffer.logicalBuffer, _doubleBuffer.bufferSize );
+	if ( _workLoop )
+	{
+		
+		if ( _cmdGate )
+		{
+			
+			_workLoop->removeEventSource(_cmdGate);
+			_cmdGate = NULL;
+			
+		}
+		
+		if ( _timer )
+		{
+			
+			_workLoop->removeEventSource(_timer);
+			_timer = NULL;
+			
+		}
+		
+		_workLoop->release();
+		
+	}
+	
+	if ( _doubleBufferDesc )
+	{
+		
+		_doubleBufferDesc->complete();
+		_doubleBufferDesc->release();
 		_doubleBuffer.bufferSize = 0;
 		_doubleBuffer.logicalBuffer = 0;
 		_doubleBuffer.physicalBuffer = 0;	
+		_doubleBufferDesc = NULL;
+		
+	}
 	
+	if ( reserved )
+	{
+		IOFree ( reserved, sizeof ( ExpansionData ) );
+		reserved = NULL;
 	}
 	
 	super::free();
@@ -271,17 +320,26 @@ bool
 IOATAController::allocateDoubleBuffer( void )
 {
 
-    DLOG("IOATAController::allocateDoubleBuffer() started\n");
-
-	_doubleBuffer.logicalBuffer = (IOLogicalAddress) IOMallocContiguous( ( kATADefaultSectorSize * 8),
-												4096, &_doubleBuffer.physicalBuffer) ;  // 4096 bytes
-
-	if( _doubleBuffer.logicalBuffer == 0L)
-		return false;
-
-	_doubleBuffer.bufferSize = kATADefaultSectorSize * 8;
- 
-   DLOG("IOATAController::allocateDoubleBuffer() done\n");
+	DLOG("IOATAController::allocateDoubleBuffer() started\n");
+	
+	_doubleBufferDesc = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(
+		kernel_task,
+		kIODirectionInOut | kIOMemoryPhysicallyContiguous,
+		(kATADefaultSectorSize * 8),
+		0xFFFFF000UL );
+	
+    if ( !_doubleBufferDesc )
+    {
+        IOLog("%s: double buffer allocation failed\n", getName());
+        return false;
+    }
+	
+	_doubleBufferDesc->prepare();
+	_doubleBuffer.logicalBuffer 	= (IOLogicalAddress)_doubleBufferDesc->getBytesNoCopy();
+	_doubleBuffer.physicalBuffer	= _doubleBufferDesc->getPhysicalAddress();
+	_doubleBuffer.bufferSize		= kATADefaultSectorSize * 8;
+ 	
+	DLOG("IOATAController::allocateDoubleBuffer() done\n");
 	
 	return true;
 
@@ -637,11 +695,11 @@ IOATAController::dispatchNext( void )
 	
 	
 		case kATAFnExecIO:			/* Execute ATA I/O */
-		case kATAPIFnExecIO:		/* ATAPI I/O */	
+		case kATAPIFnExecIO:		/* ATAPI I/O */
 			result = handleExecIO();			
 		break;
 
-		case kATAFnRegAccess:		/* Register Access */	
+		case kATAFnRegAccess:		/* Register Access */
 			result = handleRegAccess();
 		break;
 		
@@ -2836,7 +2894,7 @@ IOATAController::bitSigToNumeric(UInt16 binary)
 {
 	UInt16  i, integer;
 
-	/* Test all bits from left to right, terminating at the first non-zero bit. */	
+	/* Test all bits from left to right, terminating at the first non-zero bit. */
 	for (i = 0x0080, integer = 7; ((i & binary) == 0 && i != 0) ; i >>= 1, integer-- )
 	{;}
 	return (integer);

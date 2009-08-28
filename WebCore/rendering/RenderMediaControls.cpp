@@ -51,19 +51,20 @@ SOFT_LINK(SafariTheme, STPaintProgressIndicator, void, APIENTRY, (ProgressIndica
 static ThemeControlState determineState(RenderObject* o)
 {
     ThemeControlState result = 0;
-    if (theme()->isActive(o))
+    RenderTheme* theme = o->theme();
+    if (theme->isActive(o))
         result |= SafariTheme::ActiveState;
-    if (theme()->isEnabled(o) && !theme()->isReadOnlyControl(o))
+    if (theme->isEnabled(o) && !theme->isReadOnlyControl(o))
         result |= SafariTheme::EnabledState;
-    if (theme()->isPressed(o))
+    if (theme->isPressed(o))
         result |= SafariTheme::PressedState;
-    if (theme()->isChecked(o))
+    if (theme->isChecked(o))
         result |= SafariTheme::CheckedState;
-    if (theme()->isIndeterminate(o))
+    if (theme->isIndeterminate(o))
         result |= SafariTheme::IndeterminateCheckedState;
-    if (theme()->isFocused(o))
+    if (theme->isFocused(o))
         result |= SafariTheme::FocusedState;
-    if (theme()->isDefault(o))
+    if (theme->isDefault(o))
         result |= SafariTheme::DefaultState;
     return result;
 }
@@ -76,8 +77,9 @@ void RenderMediaControls::adjustMediaSliderThumbSize(RenderObject* o)
     if (o->style()->appearance() != MediaSliderThumbPart)
         return;
 
-    o->style()->setWidth(Length(mediaSliderThumbWidth, Fixed));
-    o->style()->setHeight(Length(mediaSliderThumbHeight, Fixed));
+    float zoomLevel = o->style()->effectiveZoom();
+    o->style()->setWidth(Length(static_cast<int>(mediaSliderThumbWidth * zoomLevel), Fixed));
+    o->style()->setHeight(Length(static_cast<int>(mediaSliderThumbHeight * zoomLevel), Fixed));
 }
 
 static HTMLMediaElement* parentMediaElement(RenderObject* o)
@@ -100,13 +102,17 @@ bool RenderMediaControls::paintMediaControlsPart(MediaControlElementType part, R
             break;
         case MediaMuteButton:
         case MediaUnMuteButton:
-            if (HTMLMediaElement* mediaElement = parentMediaElement(o))
-                paintThemePart(mediaElement->muted() ? SafariTheme::MediaUnMuteButtonPart : SafariTheme::MediaMuteButtonPart, paintInfo.context->platformContext(), r, NSRegularControlSize, determineState(o));
+            if (MediaControlMuteButtonElement* btn = static_cast<MediaControlMuteButtonElement*>(o->node())) {
+                bool audioEnabled = btn->displayType() == MediaMuteButton;
+                paintThemePart(audioEnabled ? SafariTheme::MediaMuteButtonPart : SafariTheme::MediaUnMuteButtonPart, paintInfo.context->platformContext(), r, NSRegularControlSize, determineState(o));
+            }
             break;
         case MediaPauseButton:
         case MediaPlayButton:
-            if (HTMLMediaElement* mediaElement = parentMediaElement(o))
-                paintThemePart(mediaElement->canPlay() ? SafariTheme::MediaPlayButtonPart : SafariTheme::MediaPauseButtonPart, paintInfo.context->platformContext(), r, NSRegularControlSize, determineState(o));
+            if (MediaControlPlayButtonElement* btn = static_cast<MediaControlPlayButtonElement*>(o->node())) {
+                bool currentlyPlaying = btn->displayType() == MediaPlayButton;
+                paintThemePart(currentlyPlaying ? SafariTheme::MediaPauseButtonPart : SafariTheme::MediaPlayButtonPart, paintInfo.context->platformContext(), r, NSRegularControlSize, determineState(o));
+            }
             break;
         case MediaSeekBackButton:
             paintThemePart(SafariTheme::MediaSeekBackButtonPart, paintInfo.context->platformContext(), r, NSRegularControlSize, determineState(o));
@@ -115,15 +121,8 @@ bool RenderMediaControls::paintMediaControlsPart(MediaControlElementType part, R
             paintThemePart(SafariTheme::MediaSeekForwardButtonPart, paintInfo.context->platformContext(), r, NSRegularControlSize, determineState(o));
             break;
         case MediaSlider: {
-            HTMLMediaElement* mediaElement = parentMediaElement(o);
-            if (!mediaElement)
-                break;
-
-            MediaPlayer* player = mediaElement->player();
-            float duration = player ? player->duration() : 0;
-            float percentLoaded = duration ? player->maxTimeBuffered() /duration : 0;
-
-            STPaintProgressIndicator(SafariTheme::MediaType, paintInfo.context->platformContext(), r, NSRegularControlSize, 0, percentLoaded);
+            if (HTMLMediaElement* mediaElement = parentMediaElement(o))
+                STPaintProgressIndicator(SafariTheme::MediaType, paintInfo.context->platformContext(), r, NSRegularControlSize, 0, mediaElement->percentLoaded());
             break;
         }
         case MediaSliderThumb:

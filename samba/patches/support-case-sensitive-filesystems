@@ -2,7 +2,7 @@ Index: samba/source/include/smb.h
 ===================================================================
 --- samba/source/include/smb.h.orig
 +++ samba/source/include/smb.h
-@@ -664,10 +664,14 @@ typedef struct connection_struct {
+@@ -680,10 +680,14 @@ typedef struct connection_struct {
  	int num_files_open;
  	unsigned int num_smb_operations; /* Count of smb operations on this tree. */
  
@@ -21,7 +21,7 @@ Index: samba/source/smbd/service.c
 ===================================================================
 --- samba/source/smbd/service.c.orig
 +++ samba/source/smbd/service.c
-@@ -1025,6 +1025,21 @@ static connection_struct *make_connectio
+@@ -1023,6 +1023,21 @@ static connection_struct *make_connectio
  		vfs_ChDir(conn,conn->connectpath);
  	}
  #endif
@@ -47,7 +47,7 @@ Index: samba/source/smbd/filename.c
 ===================================================================
 --- samba/source/smbd/filename.c.orig
 +++ samba/source/smbd/filename.c
-@@ -557,6 +557,15 @@ static BOOL scan_directory(connection_st
+@@ -562,6 +562,15 @@ static BOOL scan_directory(connection_st
  	if (*path == 0)
  		path = ".";
  
@@ -67,13 +67,13 @@ Index: samba/source/smbd/dir.c
 ===================================================================
 --- samba/source/smbd/dir.c.orig
 +++ samba/source/smbd/dir.c
-@@ -630,10 +630,13 @@ const char *dptr_ReadDirName(struct dptr
+@@ -629,10 +629,13 @@ const char *dptr_ReadDirName(struct dptr
  			}
  		}
  
 -		/* In case sensitive mode we don't search - we know if it doesn't exist 
 -		   with a stat we will fail. */
-+		/* Stat failed. We know this is authoratiative if we are
++		/* Stat failed. We know this is authoritative if we are
 +		 * providing case sensitive semantics or the underlying
 +		 * filesystem is case sensitive.
 +		 */
@@ -84,7 +84,7 @@ Index: samba/source/smbd/dir.c
  			/* We need to set the underlying dir_hnd offset to -1 also as
  			   this function is usually called with the output from TellDir. */
  			dptr->dir_hnd->offset = *poffset = END_OF_DIRECTORY_OFFSET;
-@@ -869,12 +872,7 @@ static BOOL user_can_read_file(connectio
+@@ -868,12 +871,7 @@ static BOOL user_can_read_file(connectio
  		return True;
  	}
  
@@ -98,7 +98,7 @@ Index: samba/source/smbd/dir.c
  
  	/* Pseudo-open the file (note - no fd's created). */
  
-@@ -933,10 +931,7 @@ static BOOL user_can_write_file(connecti
+@@ -932,10 +930,7 @@ static BOOL user_can_write_file(connecti
  		return True;
  	}
  
@@ -110,7 +110,7 @@ Index: samba/source/smbd/dir.c
  
  	/* Pseudo-open the file */
  
-@@ -984,9 +979,7 @@ static BOOL file_is_special(connection_s
+@@ -983,9 +978,7 @@ static BOOL file_is_special(connection_s
  	if (conn->admin_user)
  		return False;
  
@@ -121,7 +121,7 @@ Index: samba/source/smbd/dir.c
  
  	if (S_ISREG(pst->st_mode) || S_ISDIR(pst->st_mode) || S_ISLNK(pst->st_mode))
  		return False;
-@@ -995,7 +988,9 @@ static BOOL file_is_special(connection_s
+@@ -994,7 +987,9 @@ static BOOL file_is_special(connection_s
  }
  
  /*******************************************************************
@@ -132,7 +132,7 @@ Index: samba/source/smbd/dir.c
  ********************************************************************/
  
  BOOL is_visible_file(connection_struct *conn, const char *dir_path, const char *name, SMB_STRUCT_STAT *pst, BOOL use_veto)
-@@ -1032,6 +1027,15 @@ BOOL is_visible_file(connection_struct *
+@@ -1031,6 +1026,15 @@ BOOL is_visible_file(connection_struct *
  			return True;
  		}
  

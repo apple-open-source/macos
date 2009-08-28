@@ -68,6 +68,7 @@
 #define FLAG_HLINK_TOL (1<<4)	/* receiver/generator */
 #define FLAG_NO_FUZZY (1<<5)	/* generator */
 #define FLAG_MISSING (1<<6)	/* generator */
+#define FLAG_CLEAR_METADATA (1<<7) /* receiver */
 
 /* update this if you make incompatible changes */
 #define PROTOCOL_VERSION 29
@@ -662,10 +663,7 @@ struct chmod_mode_struct;
 #include "lib/permstring.h"
 #include "lib/addrinfo.h"
 
-#if !defined __GNUC__ || defined __APPLE__
-/* Apparently the OS X port of gcc gags on __attribute__.
- *
- * <http://www.opensource.apple.com/bugs/X/gcc/2512150.html> */
+#if !defined __GNUC__
 #define __attribute__(x)
 #endif
 

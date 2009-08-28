@@ -160,7 +160,14 @@ typedef enum
     SSL_DHE_RSA_EXPORT,
     SSL_DH_anon,
     SSL_DH_anon_EXPORT,
-    SSL_Fortezza
+    SSL_Fortezza,
+	
+	/* ECDSA addenda, RFC 4492 */
+	SSL_ECDH_ECDSA,
+	SSL_ECDHE_ECDSA,
+	SSL_ECDH_RSA,
+	SSL_ECDHE_RSA,
+	SSL_ECDH_anon
 } KeyExchangeMethod;
 
 typedef struct {

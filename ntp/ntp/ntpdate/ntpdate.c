@@ -159,11 +159,6 @@ int simple_query = 0;
 int unpriv_port = 0;
 
 /*
- * Time to spend measuring drift rate
- */
-int rate = 0;
-
-/*
  * Program name.
  */
 char *progname;
@@ -222,8 +217,8 @@ static	void	receive 	P((struct recvbuf *));
 static	void	server_data P((struct server *, s_fp, l_fp *, u_fp));
 static	void	clock_filter	P((struct server *));
 static	struct server *clock_select P((void));
-void	addserver	P((char *));
 static	int clock_adjust	P((void));
+static	void	addserver	P((char *));
 static	struct server *findserver P((struct sockaddr_storage *));
 		void	timer		P((void));
 static	void	init_alarm	P((void));
@@ -279,10 +274,6 @@ void clear_globals()
   unpriv_port = 0;
 
   /*
-   * Time to spend measuring drift rate
-   */
-  rate = 0;
-  /*
    * Systemwide parameters and flags
    */
   sys_numservers = 0;	  /* number of servers to poll */
@@ -337,11 +328,10 @@ ntpdatemain (
 	l_fp tmp;
 	int errflg;
 	int c;
-	char *cfgpath;
 	int nfound;
 
 #ifdef HAVE_NETINFO
-	ni_namelist *netinfoservers = NULL;
+	ni_namelist *netinfoservers;
 #endif
 #ifdef SYS_WINNT
 	HANDLE process_handle;
@@ -371,14 +361,13 @@ ntpdatemain (
 	}
 
 	errflg = 0;
-	cfgpath = 0;
 	progname = argv[0];
 	syslogit = 0;
 
 	/*
 	 * Decode argument list
 	 */
-	while ((c = ntp_getopt(argc, argv, "46a:bBc:de:k:o:p:qr:st:uv")) != EOF)
+	while ((c = ntp_getopt(argc, argv, "46a:bBde:k:o:p:qst:uv")) != EOF)
 		switch (c)
 		{
 		case '4':
@@ -399,9 +388,6 @@ ntpdatemain (
 		case 'B':
 			never_step++;
 			always_step = 0;
-			break;
-		case 'c':
-			cfgpath = ntp_optarg;
 			break;
 		case 'd':
 			++debug;
@@ -437,17 +423,6 @@ ntpdatemain (
 		case 'q':
 			simple_query = 1;
 			break;
-		case 'r':
-			c = atoi(ntp_optarg);
-			if (c <= 0 || c > (60 * 60)) {
-				(void) fprintf(stderr,
-					   "%s: rate (%d) is invalid: 0 - %d\n",
-					   progname, c, (60 * 60));
-				errflg++;
-			} else {
-				rate = c;
-			}
-			break;
 		case 's':
 			syslogit = 1;
 			break;
@@ -479,7 +454,7 @@ ntpdatemain (
 	
 	if (errflg) {
 		(void) fprintf(stderr,
-		    "usage: %s [-46bBdqsuv] [-a key#] [-c path] [-e delay] [-k file] [-p samples] [-o version#] [-r rate] [-t timeo] server ...\n",
+		    "usage: %s [-46bBdqsuv] [-a key#] [-e delay] [-k file] [-p samples] [-o version#] [-t timeo] server ...\n",
 		    progname);
 		exit(2);
 	}
@@ -520,19 +495,13 @@ ntpdatemain (
 	}
 
 	if (debug || verbose)
-		msyslog(LOG_INFO, "%s", Version);
+		msyslog(LOG_NOTICE, "%s", Version);
 
 	/*
 	 * Add servers we are going to be polling
 	 */
-
-#ifdef __APPLE__
-	loadservers(cfgpath);
-#endif
-
 #ifdef HAVE_NETINFO
-	if (sys_numservers == 0)
-		netinfoservers = getnetinfoservers();
+	netinfoservers = getnetinfoservers();
 #endif
 
 	for ( ; ntp_optind < argc; ntp_optind++)
@@ -544,13 +513,6 @@ ntpdatemain (
 		    *netinfoservers->ni_namelist_val ) {
 			u_int servercount = 0;
 			while (servercount < netinfoservers->ni_namelist_len) {
-				int  quoted = 0;
-				char *token = netinfoservers->ni_namelist_val[servercount];
-
-				while ((*token != '\0') && ((*token != ' ') || quoted))
-					quoted ^= (*token++ == '"');
-				*token = '\0';
-
 				if (debug) msyslog(LOG_DEBUG,
 						   "Adding time server %s from NetInfo configuration.",
 						   netinfoservers->ni_namelist_val[servercount]);
@@ -1323,14 +1285,14 @@ clock_adjust(void)
 
 	if (dostep) {
 		if (simple_query || l_step_systime(&server->offset)) {
-			msyslog(LOG_INFO, "step time server %s offset %s sec",
+			msyslog(LOG_NOTICE, "step time server %s offset %s sec",
 				stoa(&server->srcadr),
 				lfptoa(&server->offset, 6));
 		}
 	} else {
 #if !defined SYS_WINNT && !defined SYS_CYGWIN32
 		if (simple_query || l_adj_systime(&server->offset)) {
-			msyslog(LOG_INFO, "adjust time server %s offset %s sec",
+			msyslog(LOG_NOTICE, "adjust time server %s offset %s sec",
 				stoa(&server->srcadr),
 				lfptoa(&server->offset, 6));
 		}
@@ -1381,7 +1343,7 @@ is_reachable (struct sockaddr_storage *dst)
  * addserver - determine a server's address and allocate a new structure
  *		for it.
  */
-void
+static void
 addserver(
 	char *serv
 	)
@@ -1500,7 +1462,7 @@ findserver(
 		server = (struct server *)emalloc(sizeof(struct server));
 		memset((char *)server, 0, sizeof(struct server));
 
-		memcpy(&server->srcadr, &addr, sizeof(struct sockaddr_storage));
+		memcpy(&server->srcadr, addr, sizeof(struct sockaddr_storage));
 
 		server->event_time = ++sys_numservers;
 

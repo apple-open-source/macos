@@ -67,6 +67,15 @@ $Id: readerfactory.c,v 1.3 2004/10/14 20:33:35 mb Exp $
 
 #include <security_utilities/debugging.h>
 
+/*
+ 64 bit
+ */
+
+#include <mach/machine.h>
+#include <sys/sysctl.h>
+
+static cpu_type_t architectureForPid(pid_t pid);
+
 #ifndef PCSCLITE_HP_BASE_PORT
 #define PCSCLITE_HP_BASE_PORT       0x200000
 #endif /* PCSCLITE_HP_BASE_PORT */
@@ -94,6 +103,12 @@ static BOOL ReaderNameMatchForIndex(DWORD dwPort, LPCSTR lpcReader, int index);
 static void ReaderContextDuplicateSlot(PREADER_CONTEXT ctxBase, PREADER_CONTEXT ctxSlot, int slotNumber, BOOL baseIsThreadSafe);
 static int ReaderCheckForClone(PREADER_CONTEXT ctx, LPCSTR lpcReader, 
 	DWORD dwPort, LPCSTR lpcLibrary);
+
+static int ReaderCheckArchitecture(LPCSTR lpcLibrary);
+static cpu_type_t architectureForPid(pid_t pid);
+static int architectureMatch(const char *name);
+
+extern int DBUpdateReaders(char *readerconf);
 
 
 LONG RFAllocateReaderSpace()
@@ -169,6 +184,10 @@ LONG RFAddReader(LPSTR lpcReader, DWORD dwPort, LPSTR lpcLibrary, LPSTR lpcDevic
 	if (rv != SCARD_S_SUCCESS)
 		goto xit;
 
+	rv = ReaderCheckArchitecture(lpcLibrary);
+	if (rv != SCARD_S_SUCCESS)
+		goto xit;
+	
 	rv = RFInitializeReader(baseContext);
 	if (rv != SCARD_S_SUCCESS)
 		goto xit;
@@ -1062,7 +1081,7 @@ void RFCleanupReaders(int shouldExit)
 
 int RFStartSerialReaders(const char *readerconf)
 {
-	return DBUpdateReaders(readerconf);
+	return DBUpdateReaders((char *)readerconf);
 }
 
 void RFReCheckReaderConf(void)
@@ -1466,4 +1485,122 @@ static void ReaderContextDuplicateSlot(PREADER_CONTEXT ctxBase, PREADER_CONTEXT 
 	else
 		*ctxSlot->pdwMutex += 1;
 }
+
+#pragma mark ---------- 64 bit routines ----------
+
+/*
+ This section contains code needed to determine which architecture we are on.
+ */
+
+#include <spawn.h>
+#include <err.h>
+#include <CoreFoundation/CFBundle.h>
+#include <CoreFoundation/CFNumber.h>
+#include <signal.h>
+
+extern char **environ;
+extern char **globalArgv;
+
+static cpu_type_t architectureForPid(pid_t pid)
+{
+	// 	pid_t mypid = getpid();		// current process
+	
+	cpu_type_t cpuType = CPU_TYPE_ANY;
+	int mib[CTL_MAXNAME]={0,};
+	size_t len = CTL_MAXNAME;
+	if (sysctlnametomib("sysctl.proc_cputype", mib, &len) != -1) 
+	{
+		mib[len] = pid;
+		len++;
+		
+		size_t cputypelen = sizeof(cpuType);
+		if (sysctl(mib, len, &cpuType, &cputypelen, 0, 0) == -1) 
+		{
+			cpuType = CPU_TYPE_ANY;
+		}
+	}
+	return cpuType;
+}
+
+static int ReaderCheckArchitecture(LPCSTR lpcLibrary)
+{
+#if MAX_OS_X_VERSION_MIN_REQUIRED <= MAX_OS_X_VERSION_10_5
+	/*
+		Get architecture for current process. If we are already in 32-bit mode,
+		just keep going to avoid reswpaning ourselves over and over again.
+	*/
+	cpu_type_t cputype = architectureForPid(getpid());
+	if (! (cputype & CPU_ARCH_ABI64))
+		return SCARD_S_SUCCESS;
+	
+	/* 
+		Check to see if the driver has an architecture that matches how we are
+		running now. If it doesn't, we will try to relaunch in 32 bit mode.
+	*/
+	if (architectureMatch(lpcLibrary))
+		return SCARD_S_SUCCESS;
+	
+	pid_t pid = getpid();
+	
+	Log2(PCSC_LOG_INFO, "Send respawn signal to pcscd (pid=%d)", pid);
+	if (kill(pid, SIGUSR2) < 0)
+	{
+		Log3(PCSC_LOG_CRITICAL, "Can't signal pcscd (pid=%d): %s",
+			 pid, strerror(errno));
+	}
+	void *value_ptr;
+	pthread_exit(value_ptr);
+	return SCARD_E_SERVICE_STOPPED;
+#else
+	return SCARD_S_SUCCESS;
+#endif
+}
+
+static int architectureMatch(const char *name)
+{
+	int rx = false;
+	const Boolean isDirectory = true;
+	cpu_type_t cputype;
+	CFArrayRef pluginArchitectures = NULL;
+	
+	CFURLRef exurl = CFURLCreateWithFileSystemPath(kCFAllocatorDefault, 
+												   CFStringCreateWithCString(kCFAllocatorDefault, name, kCFStringEncodingUTF8), kCFURLPOSIXPathStyle, isDirectory);
+	if (!exurl)
+		return false;
+	
+	CFBundleRef theBundle = CFBundleCreate(kCFAllocatorDefault, exurl);
+	if (theBundle == NULL)
+		goto xit;
+	
+	pluginArchitectures = CFBundleCopyExecutableArchitectures(theBundle);
+	if (pluginArchitectures == NULL)
+		goto xit;
+	
+	cputype = architectureForPid(getpid());
+	
+	int ix;
+	for (ix = CFArrayGetCount(pluginArchitectures); --ix >= 0; )
+	{
+		CFNumberRef cfarch = (CFNumberRef)CFArrayGetValueAtIndex(pluginArchitectures, ix);
+		UInt32 arch;
+		CFNumberGetValue(cfarch, kCFNumberSInt32Type, &arch);
+		if (cputype == arch)
+		{
+			rx = true;
+			break;
+		}
+	}
+	
+xit:
+	
+	if (exurl)
+		CFRelease(exurl);
+	if (theBundle)
+		CFRelease(theBundle);
+	if (pluginArchitectures)
+		CFRelease(pluginArchitectures);
+	
+	return rx;
+}
+
 

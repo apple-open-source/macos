@@ -1,0 +1,23 @@
+--- /tmp/jabberd-2.1.24.1/tools/db-setup.sqlite	2008-04-27 02:57:26.000000000 -0700
++++ ./jabberd2/tools/db-setup.sqlite	2008-11-24 14:21:54.000000000 -0800
+@@ -52,6 +52,11 @@ CREATE TABLE "roster-items" (
+ 
+ CREATE INDEX i_rosteri_owner ON "roster-items"("collection-owner");
+ 
++---
++--- Apple index to speed up jabber_autobuddy operations (still necessary in jabberd 2.1, with i_rosteri_owner added?)
++---
++CREATE INDEX "roster-items-owner-jid-index" on "roster-items" ("collection-owner", "jid");
++
+ --
+ -- Roster groups
+ -- Used by: mod_roster
+@@ -122,6 +127,8 @@ CREATE TABLE "vcard" (
+     
+     "rev" TEXT );
+ 
++CREATE INDEX i_vcard_owner ON "vcard"("collection-owner");
++
+ --
+ -- Offline message queue
+ -- Used by: mod_offline

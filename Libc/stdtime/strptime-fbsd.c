@@ -71,6 +71,8 @@ __FBSDID("$FreeBSD: src/lib/libc/stdtime/strptime.c,v 1.35 2003/11/17 04:19:15 n
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+#include <stdint.h>
+#include <limits.h>
 #include "un-namespace.h"
 #include "libc_private.h"
 #include "timelocal.h"
@@ -82,15 +84,14 @@ time_t _mktime(struct tm *, const char *);
 
 enum {CONVERT_NONE, CONVERT_GMT, CONVERT_ZONE};
 
+#define _strptime(b,f,t,c,l)	_strptime0(b,f,t,c,l,-1,0,-1)
+
 static char *
-_strptime(const char *buf, const char *fmt, struct tm *tm, int *convp, locale_t loc)
+_strptime0(const char *buf, const char *fmt, struct tm *tm, int *convp, locale_t loc, int year, int yday, int wday)
 {
 	char	c;
 	const char *ptr;
 	int	i,
-		year = -1,
-		yday = 0,
-		wday = -1,
 		len;
 	int Ealternative, Oalternative;
 	struct lc_time_T *tptr = __get_current_time_locale(loc);
@@ -522,10 +523,55 @@ label:
 
 #if __DARWIN_UNIX03
 			if (c == 'Y') {
-				for (i = 0; *buf != 0 && isdigit_l((unsigned char)*buf, loc); buf++) {
-					i *= 10;
-					i += *buf - '0';
+				int savei = 0;
+				const char *savebuf = buf;
+				int64_t i64 = 0;
+				int overflow = 0;
+
+				for (len = 0; *buf != 0 && isdigit_l((unsigned char)*buf, loc); buf++) {
+					i64 *= 10;
+					i64 += *buf - '0';
+					if (++len <= 4) {
+						savei = i64;
+						savebuf = buf + 1;
+					}
+					if (i64 > INT_MAX) {
+						overflow++;
+						break;
+					}
 				}
+				/*
+				 * Conformance requires %Y to be more then 4
+				 * digits.  However, there are several cases
+				 * where %Y is immediately followed by other
+				 * digits values.  So we do the conformance
+				 * case first (as many digits as possible),
+				 * and if we fail, we backup and try just 4
+				 * digits for %Y.
+				 */
+				if (len > 4 && !overflow) {
+					struct tm savetm = *tm;
+					int saveconv = *convp;
+					const char *saveptr = ptr;
+					char *ret;
+
+					if (i64 < 1900)
+						return 0;
+
+					tm->tm_year = i64 - 1900;
+
+					if (*buf != 0 && isspace_l((unsigned char)*buf, loc))
+						while (*ptr != 0 && !isspace_l((unsigned char)*ptr, loc) && *ptr != '%')
+							ptr++;
+					ret = _strptime0(buf, ptr, tm, convp, loc, tm->tm_year, yday, wday);
+					if (ret) return ret;
+					/* Failed, so try 4-digit year */
+					*tm = savetm;
+					*convp = saveconv;
+					ptr = saveptr;
+				}
+				buf = savebuf;
+				i = savei;
 			} else {
 				len = 2;
 #else /* !__DARWIN_UNIX03 */

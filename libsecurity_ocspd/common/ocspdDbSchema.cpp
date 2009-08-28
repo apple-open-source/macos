@@ -42,7 +42,7 @@ static const CSSM_DB_ATTRIBUTE_INFO ocspdDbAttrs[] = {
 };
 
 static const CSSM_DB_INDEX_INFO ocspdDbIndex[] = {
-	UNIQUE_INDEX_ATTRIBUTE("CertID", BLOB)
+	UNIQUE_INDEX_ATTRIBUTE((char*) "CertID", BLOB)
 };
 
 const OcspdDbRelationInfo kOcspDbRelations[] =

@@ -34,9 +34,13 @@
 #include "Document.h"
 #include "ScriptExecutionContext.h"
 #include "ScriptSourceCode.h"
+#include "ScriptValue.h"
 
 #include "V8Binding.h"
 #include "V8Proxy.h"
+#include "WorkerContext.h"
+#include "WorkerContextExecutionProxy.h"
+#include "WorkerThread.h"
 
 namespace WebCore {
 
@@ -46,7 +50,7 @@ ScheduledAction::ScheduledAction(v8::Handle<v8::Function> func, int argc, v8::Ha
     m_function = v8::Persistent<v8::Function>::New(func);
 
 #ifndef NDEBUG
-    V8Proxy::RegisterGlobalHandle(SCHEDULED_ACTION, this, m_function);
+    V8GCController::registerGlobalHandle(SCHEDULED_ACTION, this, m_function);
 #endif
 
     m_argc = argc;
@@ -56,7 +60,7 @@ ScheduledAction::ScheduledAction(v8::Handle<v8::Function> func, int argc, v8::Ha
             m_argv[i] = v8::Persistent<v8::Value>::New(argv[i]);
 
 #ifndef NDEBUG
-    V8Proxy::RegisterGlobalHandle(SCHEDULED_ACTION, this, m_argv[i]);
+    V8GCController::registerGlobalHandle(SCHEDULED_ACTION, this, m_argv[i]);
 #endif
         }
     } else
@@ -69,13 +73,13 @@ ScheduledAction::~ScheduledAction()
         return;
 
 #ifndef NDEBUG
-    V8Proxy::UnregisterGlobalHandle(this, m_function);
+    V8GCController::unregisterGlobalHandle(this, m_function);
 #endif
     m_function.Dispose();
 
     for (int i = 0; i < m_argc; i++) {
 #ifndef NDEBUG
-        V8Proxy::UnregisterGlobalHandle(this, m_argv[i]);
+        V8GCController::unregisterGlobalHandle(this, m_argv[i]);
 #endif
         m_argv[i].Dispose();
     }
@@ -86,13 +90,23 @@ ScheduledAction::~ScheduledAction()
 
 void ScheduledAction::execute(ScriptExecutionContext* context)
 {
-    // FIXME: Timeouts for running the javascript code are not set.
     V8Proxy* proxy = V8Proxy::retrieve(context);
-    if (!proxy)
-        return;
+    if (proxy)
+        execute(proxy);
+#if ENABLE(WORKERS)
+    else {
+        ASSERT(context->isWorkerContext());
+        execute(static_cast<WorkerContext*>(context));
+    }
+#endif
+}
+
+void ScheduledAction::execute(V8Proxy* proxy)
+{
+    ASSERT(proxy);
 
     v8::HandleScope handleScope;
-    v8::Local<v8::Context> v8Context = proxy->GetContext();
+    v8::Local<v8::Context> v8Context = proxy->context();
     if (v8Context.IsEmpty())
         return; // JS may not be enabled.
 
@@ -100,13 +114,33 @@ void ScheduledAction::execute(ScriptExecutionContext* context)
 
     proxy->setTimerCallback(true);
 
+    // FIXME: Need to implement timeouts for preempting a long-running script.
     if (!m_function.IsEmpty() && m_function->IsFunction()) {
-        proxy->CallFunction(v8::Persistent<v8::Function>::Cast(m_function), v8Context->Global(), m_argc, m_argv);
+        proxy->callFunction(v8::Persistent<v8::Function>::Cast(m_function), v8Context->Global(), m_argc, m_argv);
         Document::updateStyleForAllDocuments();
     } else
         proxy->evaluate(m_code, 0);
 
     proxy->setTimerCallback(false);
 }
+
+#if ENABLE(WORKERS)
+void ScheduledAction::execute(WorkerContext* workerContext)
+{
+    // In a Worker, the execution should always happen on a worker thread.
+    ASSERT(workerContext->thread()->threadID() == currentThread());
+  
+    WorkerScriptController* scriptController = workerContext->script();
+
+    if (!m_function.IsEmpty() && m_function->IsFunction()) {
+        v8::HandleScope handleScope;
+        v8::Local<v8::Context> v8Context = scriptController->proxy()->GetContext();
+        ASSERT(!v8Context.IsEmpty());
+        v8::Context::Scope scope(v8Context);
+        m_function->Call(v8Context->Global(), m_argc, m_argv);
+    } else
+        scriptController->evaluate(m_code);
+}
+#endif
 
 } // namespace WebCore

@@ -97,6 +97,7 @@ CLEANUP_STATE *cleanup_state_alloc(VSTREAM *src)
     state->append_hdr_pt_target = -1;
     state->rcpt_count = 0;
     state->reason = 0;
+    state->smtp_reply = 0;
     state->attr = nvtable_create(10);
     nvtable_update(state->attr, MAIL_ATTR_LOG_ORIGIN, MAIL_ATTR_ORG_LOCAL);
     state->mime_state = 0;
@@ -117,6 +118,7 @@ CLEANUP_STATE *cleanup_state_alloc(VSTREAM *src)
     state->client_port = 0;
     state->milter_ext_from = 0;
     state->milter_ext_rcpt = 0;
+    state->milter_err_text = 0;
     state->free_regions = state->body_regions = state->curr_body_region = 0;
     return (state);
 }
@@ -149,6 +151,8 @@ void    cleanup_state_free(CLEANUP_STATE *state)
     been_here_free(state->dups);
     if (state->reason)
 	myfree(state->reason);
+    if (state->smtp_reply)
+	myfree(state->smtp_reply);
     nvtable_free(state->attr);
     if (state->mime_state)
 	mime_state_free(state->mime_state);
@@ -168,6 +172,8 @@ void    cleanup_state_free(CLEANUP_STATE *state)
 	vstring_free(state->milter_ext_from);
     if (state->milter_ext_rcpt)
 	vstring_free(state->milter_ext_rcpt);
+    if (state->milter_err_text)
+	vstring_free(state->milter_err_text);
     cleanup_region_done(state);
     myfree((char *) state);
 }

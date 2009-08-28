@@ -1,26 +1,3 @@
-/*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
 /*-
  * Copyright (c) 1985, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -54,24 +31,21 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__unused static char sccsid[] = "@(#)correct.c	8.1 (Berkeley) 6/6/93";
-#endif /* not lint */
-
-#ifdef sgi
-#ident "$Revision: 1.2 $"
+#if 0
+static char sccsid[] = "@(#)correct.c	8.1 (Berkeley) 6/6/93";
 #endif
+static const char rcsid[] =
+  "$FreeBSD: src/usr.sbin/timed/timed/correct.c,v 1.8 2007/11/07 10:53:41 kevlo Exp $";
+#endif /* not lint */
+#include <sys/cdefs.h>
 
 #include "globals.h"
 #include <math.h>
 #include <sys/types.h>
 #include <sys/times.h>
-#ifdef sgi
-#include <sys/syssgi.h>
-#endif /* sgi */
 
-static void adjclock __P((struct timeval *));
+static void adjclock(struct timeval *);
 
 /*
  * sends to the slaves the corrections for their clocks after fixing our
@@ -83,7 +57,7 @@ correct(avdelta)
 {
 	struct hosttbl *htp;
 	int corr;
-	struct timeval adjlocal;
+	struct timeval adjlocal, tmptv;
 	struct tsp to;
 	struct tsp *answer;
 
@@ -101,11 +75,17 @@ correct(avdelta)
 			    || corr >= MAXADJ*1000
 			    || corr <= -MAXADJ*1000) {
 				htp->need_set = 0;
-				(void)gettimeofday(&to.tsp_time,0);
-				timevaladd(&to.tsp_time, &adjlocal);
+				(void)gettimeofday(&tmptv,0);
+				timevaladd(&tmptv, &adjlocal);
+				to.tsp_time.tv_sec = tmptv.tv_sec;
+				to.tsp_time.tv_usec = tmptv.tv_usec;
 				to.tsp_type = TSP_SETTIME;
 			} else {
-				mstotvround(&to.tsp_time, corr);
+				tmptv.tv_sec = to.tsp_time.tv_sec;
+				tmptv.tv_usec = to.tsp_time.tv_usec;
+				mstotvround(&tmptv, corr);
+				to.tsp_time.tv_sec = tmptv.tv_sec;
+				to.tsp_time.tv_usec = tmptv.tv_usec;
 				to.tsp_type = TSP_ADJTIME;
 			}
 			(void)strcpy(to.tsp_name, hostname);
@@ -187,112 +167,13 @@ adjclock(corr)
 		}
 	} else {
 		syslog(LOG_WARNING,
-		       "clock correction %d sec too large to adjust",
+		       "clock correction %ld sec too large to adjust",
 		       adj.tv_sec);
 		(void) gettimeofday(&now, 0);
 		timevaladd(&now, corr);
 		if (settimeofday(&now, 0) < 0)
 			syslog(LOG_ERR, "settimeofday: %m");
 	}
-
-#ifdef sgi
-	/* Accumulate the total change, and use it to adjust the basic
-	 * clock rate.
-	 */
-	if (++passes > 2) {
-#define F_USEC_PER_SEC	(1000000*1.0)	/* reduce typos */
-#define F_NSEC_PER_SEC	(F_USEC_PER_SEC*1000.0)
-
-		extern char *timetrim_fn;
-		extern char *timetrim_wpat;
-		extern long timetrim;
-		extern double tot_adj, hr_adj;	/* totals in nsec */
-		extern double tot_ticks, hr_ticks;
-
-		static double nag_tick;
-		double cur_ticks, hr_delta_ticks, tot_delta_ticks;
-		double tru_tot_adj, tru_hr_adj; /* nsecs of adjustment */
-		double tot_trim, hr_trim;   /* nsec/sec */
-		struct tms tm;
-		FILE *timetrim_st;
-
-		cur_ticks = times(&tm);
-		tot_adj += delta*1000.0;
-		hr_adj += delta*1000.0;
-
-		tot_delta_ticks = cur_ticks-tot_ticks;
-		if (tot_delta_ticks >= 16*SECDAY*CLK_TCK) {
-			tot_adj -= rint(tot_adj/16);
-			tot_ticks += rint(tot_delta_ticks/16);
-			tot_delta_ticks = cur_ticks-tot_ticks;
-		}
-		hr_delta_ticks = cur_ticks-hr_ticks;
-
-		tru_hr_adj = hr_adj + timetrim*rint(hr_delta_ticks/CLK_TCK);
-		tru_tot_adj = (tot_adj
-			       + timetrim*rint(tot_delta_ticks/CLK_TCK));
-
-		if (hr_delta_ticks >= SECDAY*CLK_TCK
-		    || (tot_delta_ticks < 4*SECDAY*CLK_TCK
-			&& hr_delta_ticks >= SECHR*CLK_TCK)
-		    || (trace && hr_delta_ticks >= (SECHR/10)*CLK_TCK)) {
-
-			tot_trim = rint(tru_tot_adj*CLK_TCK/tot_delta_ticks);
-			hr_trim = rint(tru_hr_adj*CLK_TCK/hr_delta_ticks);
-
-			if (trace
-			    || (abs(timetrim - hr_trim) > 100000.0
-				&& 0 == timetrim_fn
-				&& ((cur_ticks - nag_tick)
-				    >= 24*SECDAY*CLK_TCK))) {
-				nag_tick = cur_ticks;
-				syslog(LOG_NOTICE,
-		   "%+.3f/%.2f or %+.3f/%.2f sec/hr; timetrim=%+.0f or %+.0f",
-				       tru_tot_adj/F_NSEC_PER_SEC,
-				       tot_delta_ticks/(SECHR*CLK_TCK*1.0),
-				       tru_hr_adj/F_NSEC_PER_SEC,
-				       hr_delta_ticks/(SECHR*CLK_TCK*1.0),
-				       tot_trim,
-				       hr_trim);
-			}
-
-			if (tot_trim < -MAX_TRIM || tot_trim > MAX_TRIM) {
-				tot_ticks = hr_ticks;
-				tot_adj = hr_adj;
-			} else if (0 > syssgi(SGI_SETTIMETRIM,
-					      (long)tot_trim)) {
-				syslog(LOG_ERR, "SETTIMETRIM(%d): %m",
-				       (long)tot_trim);
-			} else {
-				if (0 != timetrim_fn) {
-				    timetrim_st = fopen(timetrim_fn, "w");
-				    if (0 == timetrim_st) {
-					syslog(LOG_ERR, "fopen(%s): %m",
-					       timetrim_fn);
-				    } else {
-					if (0 > fprintf(timetrim_st,
-							timetrim_wpat,
-							(long)tot_trim,
-							tru_tot_adj,
-							tot_delta_ticks)) {
-						syslog(LOG_ERR,
-						       "fprintf(%s): %m",
-						       timetrim_fn);
-					}
-					(void)fclose(timetrim_st);
-				    }
-				}
-
-				tot_adj -= ((tot_trim - timetrim)
-					    * rint(tot_delta_ticks/CLK_TCK));
-				timetrim = tot_trim;
-			}
-
-			hr_ticks = cur_ticks;
-			hr_adj = 0;
-		}
-	}
-#endif /* sgi */
 }
 
 

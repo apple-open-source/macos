@@ -1,0 +1,358 @@
+## -*- mode: Tcl; coding: utf-8; -*-
+ # ###################################################################
+ #  TclAE - AppleEvent extension for Tcl
+ # 
+ #  FILE: "tclAEHandler.test"
+ #                                    created: 9/10/2000 {3:48:20 PM}
+ #                                last update: 11/17/02 {7:20:41 PM} 
+ #  Author: Jonathan Guyer
+ #  E-mail: jguyer@his.com
+ #    mail: POMODORO no seisan
+ #     www: http://www.his.com/jguyer/
+ #  
+ # ========================================================================
+ #               Copyright © 2000 Jonathan Guyer
+ #                      All rights reserved
+ # ========================================================================
+ # Permission to use, copy, modify, and distribute this software and its
+ # documentation for any purpose and without fee is hereby granted,
+ # provided that the above copyright notice appear in all copies and that
+ # both that the copyright notice and warranty disclaimer appear in
+ # supporting documentation.
+ # 
+ # Jonathan Guyer disclaims all warranties with regard to this software,
+ # including all implied warranties of merchantability and fitness.  In
+ # no event shall Jonathan Guyer be liable for any special, indirect or
+ # consequential damages or any damages whatsoever resulting from loss of
+ # use, data or profits, whether in an action of contract, negligence or
+ # other tortuous action, arising out of or in connection with the use or
+ # performance of this software.
+ # ========================================================================
+ #  Description: 
+ # 
+ #   This file contains a collection of tests for one or more of
+ #   the TclAE commands.  Sourcing this file into Tcl runs the
+ #   tests and generates output for errors.  No output means no
+ #   errors were found.
+ #   
+ #  History
+ # 
+ #  modified   by  rev reason
+ #  ---------- --- --- -----------
+ #  2000-09-10 JEG 1.0 original
+ # ###################################################################
+ ##
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+	package require tcltest
+	namespace import ::tcltest::*
+}
+
+if {[catch {package require tclAE}]} {
+	catch {puts "Cannot load TclAE"}
+}
+
+# Only run the test if we can load the TclAE package
+set ::tcltest::testConstraints(tclAE) [expr {[info commands tclAE::send] != ""}]
+set ::tcltest::testConstraints(tclAEshlb) [set ::tcltest::testConstraints(tclAE)]
+set ::tcltest::testConstraints(tclAEalphaTcl) 0
+
+if {$tcl_platform(platform) == "unix" && $tcl_platform(os) == "Darwin"} {
+	set ::tcltest::testConstraints(macOnly) 1
+	set testProgram "-s"
+}
+
+test tclAEHandler-1.1 {tclAE::installCoercionHandler noargs} {macOnly tclAEshlb} {
+    set err [catch {tclAE::installCoercionHandler} msg]
+    list $err $msg
+} {1 {wrong # args: should be "tclAE::installCoercionHandler <fromType> <toType> <coercionHandlerProc>"}}
+
+test tclAEHandler-1.2 {tclAE::installCoercionHandler} {macOnly tclAE tclAE} {
+    proc testHandler {typeCode data toType resultDesc} {
+	binary scan $data a* text
+        tclAE::replaceDescData $resultDesc $toType [binary format I [expr {2 * $text}]]
+    }
+    catch {tclAE::installCoercionHandler TEXT YoYo testHandler}
+    catch {tclAE::coerceData TEXT "4" YoYo} tempAEDesc
+    list $tempAEDesc
+} {YoYo(«00000008»)}
+catch {tclAE::removeCoercionHandler TEXT YoYo testHandler}
+catch {rename testHandler ""}
+
+test tclAEHandler-1.3 {tclAE::installCoercionHandler text data} {macOnly tclAE} {
+    proc testHandler {typeCode data toType resultDesc} {
+        if {$data} {
+            tclAE::replaceDescData $resultDesc $toType [binary format c 1]
+        } else {
+            tclAE::replaceDescData $resultDesc $toType [binary format c 0]
+        }
+    }
+    catch {tclAE::installCoercionHandler TEXT BOOL testHandler}
+    catch {tclAE::coerceData TEXT "true" BOOL} tempAEDesc
+    regsub {BOOL\(«0(.)»\)} $tempAEDesc  {\1} gizmo
+    list $gizmo
+} {1}
+catch {tclAE::removeCoercionHandler TEXT BOOL testHandler}
+catch {rename testHandler ""}
+
+test tclAEHandler-1.4 {tclAE::installCoercionHandler binary data} {macOnly tclAE} {
+    proc testHandler {typeCode data toType resultDesc} {
+        binary scan $data c bool
+        if {$bool} {
+            tclAE::replaceDescData $resultDesc $toType "∏rue"
+        } else {
+            tclAE::replaceDescData $resultDesc $toType "ƒalse"
+        }
+    }
+    catch {tclAE::installCoercionHandler BOOL TEXT testHandler}
+    catch {tclAE::coerceData BOOL [binary format c 0] TEXT} tempAEDesc
+    list $tempAEDesc
+} {TEXT(«C4616C7365»)}
+catch {tclAE::removeCoercionHandler BOOL TEXT testHandler}
+catch {rename testHandler ""}
+
+test tclAEHandler-1.5 {tclAE::installCoercionHandler error from handler} {macOnly tclAE tclAEshlb} {
+    proc testHandler {typeCode data toType resultDesc} {
+        error "this is an error"
+    }
+    catch {tclAE::installCoercionHandler Bool TEXT testHandler}
+    catch {tclAE::coerceData Bool "bool" TEXT} msg
+    regsub {(Couldn't coerce |bool| from 'Bool' to 'TEXT': )(Bad parameter data or unable to coerce the data supplied|OSErr -1700)} $msg {\1Bad parameter data or unable to coerce the data supplied} msg
+    set msg
+} {Couldn't coerce |bool| from 'Bool' to 'TEXT': Bad parameter data or unable to coerce the data supplied}
+catch {tclAE::removeCoercionHandler Bool TEXT testHandler}
+catch {rename testHandler ""}
+
+test tclAEHandler-1.6 {tclAE::installCoercionHandler no proc} {macOnly tclAEshlb} {
+    catch {rename testHandler ""}
+    catch {tclAE::installCoercionHandler TEXT BOOL testHandler}
+    catch {tclAE::coerceData TEXT "true" BOOL} msg
+    regsub {(Couldn't coerce |true| from 'TEXT' to 'bool': )(No handler in the dispatch tables fits the parameters to AEGetEventHandler or AEGetCoercionHandler|OSErr -1717)} $msg {\1No handler in the dispatch tables fits the parameters to AEGetEventHandler or AEGetCoercionHandler} msg
+    set msg
+} {Couldn't coerce |true| from 'TEXT' to 'BOOL': OSErr -1700}
+catch {tclAE::removeCoercionHandler TEXT BOOL testHandler}
+
+
+
+
+test tclAEHandler-2.1 {tclAE::getCoercionHandler noargs} {macOnly tclAEshlb} {
+    set err [catch {tclAE::getCoercionHandler} msg]
+    list $err $msg
+} {1 {wrong # args: should be "tclAE::getCoercionHandler <fromType> <toType>"}}
+
+test tclAEHandler-2.2 {tclAE::getCoercionHandler} {macOnly tclAE tclAE} {
+    proc testHandler {typeCode data toType resultDesc} {
+        if {$data} {
+            tclAE::replaceDescData $resultDesc $toType [binary format c 1]
+        } else {
+            tclAE::replaceDescData $resultDesc $toType [binary format c 0]
+        }
+    }
+    catch {tclAE::installCoercionHandler TEXT BOOL testHandler}
+    catch {tclAE::getCoercionHandler TEXT BOOL} handler
+    list $handler
+} {testHandler}
+catch {tclAE::removeCoercionHandler TEXT BOOL testHandler}
+
+test tclAEHandler-2.3 {tclAE::getCoercionHandler no handler} {macOnly tclAE tclAEshlb} {
+    catch {tclAE::removeCoercionHandler TEXT bool testHandler}
+    catch {tclAE::getCoercionHandler TEXT bool} msg
+    regsub {(Couldn't find coercion handler: )(No handler in the dispatch tables fits the parameters to AEGetEventHandler or AEGetCoercionHandler|OSErr -1717)} $msg {\1No handler in the dispatch tables fits the parameters to AEGetEventHandler or AEGetCoercionHandler} msg
+    set msg
+} {Couldn't find coercion handler: No handler in the dispatch tables fits the parameters to AEGetEventHandler or AEGetCoercionHandler}
+
+
+
+
+test tclAEHandler-3.1 {tclAE::removeCoercionHandler noargs} {macOnly tclAEshlb} {
+    set err [catch {tclAE::removeCoercionHandler} msg]
+    list $err $msg
+} {1 {wrong # args: should be "tclAE::removeCoercionHandler <fromType> <toType> <coercionHandlerProc>"}}
+
+test tclAEHandler-3.2 {tclAE::removeCoercionHandler} {macOnly tclAE tclAEshlb} {
+    catch {tclAE::installCoercionHandler TEXT bool testHandler}
+    catch {tclAE::getCoercionHandler TEXT bool} handler
+    catch {tclAE::removeCoercionHandler TEXT bool testHandler} msg1
+    catch {tclAE::getCoercionHandler TEXT bool} msg2
+    regsub {(Couldn't find coercion handler: )(No handler in the dispatch tables fits the parameters to AEGetEventHandler or AEGetCoercionHandler|OSErr -1717)} $msg2 {\1No handler in the dispatch tables fits the parameters to AEGetEventHandler or AEGetCoercionHandler} msg2
+    list $handler $msg1 $msg2
+} {testHandler {} {Couldn't find coercion handler: No handler in the dispatch tables fits the parameters to AEGetEventHandler or AEGetCoercionHandler}}
+
+test tclAEHandler-3.3 {tclAE::removeCoercionHandler no handler} {macOnly tclAE tclAEshlb} {
+    catch {tclAE::removeCoercionHandler TEXT bool testHandler}
+    catch {tclAE::removeCoercionHandler TEXT bool testHandler} msg
+    regsub {(Couldn't remove coercion handler: )(No handler in the dispatch tables fits the parameters to AEGetEventHandler or AEGetCoercionHandler|OSErr -1717)} $msg {\1No handler in the dispatch tables fits the parameters to AEGetEventHandler or AEGetCoercionHandler} msg
+    set msg
+} {Couldn't remove coercion handler: No handler in the dispatch tables fits the parameters to AEGetEventHandler or AEGetCoercionHandler}
+
+
+
+test tclAEHandler-4.1 {tclAE::installEventHandler noargs} {macOnly tclAEshlb} {
+    set err [catch {tclAE::installEventHandler} msg]
+    list $err $msg
+} {1 {wrong # args: should be "tclAE::installEventHandler <aeclass> <aeeventID> <eventHandlerProc>"}}
+
+test tclAEHandler-4.2 {tclAE::installEventHandler} {macOnly tclAE tclAE} {
+    proc testHandler {theAppleEvent theReplyAE} {
+        catch {tclAE::getKeyData $theAppleEvent ----} text
+        return [string toupper $text]
+    }
+    catch {tclAE::installEventHandler TclÆ test testHandler}
+    catch {tclAE::send -r $testProgram TclÆ test ---- {“some text”}} gizmo
+    regsub {(aevt\\ansr\{'----':“SOME TEXT”).*\}} $gizmo "\\1\}" gizmo
+    set gizmo
+} {aevt\ansr{'----':“SOME TEXT”}}
+catch {tclAE::removeEventHandler TclÆ test testHandler}
+catch {rename testHandler ""}
+
+test tclAEHandler-4.3 {tclAE::installEventHandler} {macOnly tclAE tclAEshlb} {
+    proc testHandler {theAppleEvent theReplyAE} {
+        catch {tclAE::getKeyData $theAppleEvent ----} text
+        catch {tclAE::putKeyData $theReplyAE ---- TEXT [string toupper $text]}
+        # we specifically assigned the direct object, so
+        # implicit [return 0] should be ignored
+    }
+    catch {tclAE::installEventHandler TclÆ test testHandler}
+    catch {tclAE::send -r $testProgram TclÆ test ---- {“some text”}} gizmo
+    regsub {(aevt\\ansr\{'----':“SOME TEXT”).*\}} $gizmo "\\1\}" gizmo
+    set gizmo
+} {aevt\ansr{'----':“SOME TEXT”}}
+catch {tclAE::removeEventHandler TclÆ test testHandler}
+catch {rename testHandler ""}
+
+test tclAEHandler-4.4 {tclAE::installEventHandler} {macOnly tclAE tclAEshlb} {
+    proc testHandler {theAppleEvent theReplyAE} {
+        catch {tclAE::getKeyData $theAppleEvent ----} text
+        catch {tclAE::putKeyData $theReplyAE lowc TEXT $text}
+        catch {tclAE::putKeyData $theReplyAE uppc TEXT [string toupper $text]}
+        # prevent any direct object from being assigned
+        return
+    }
+    catch {tclAE::installEventHandler TclÆ test testHandler}
+    catch {tclAE::send -r $testProgram TclÆ test ---- {“some text”}} gizmo
+    regsub {(aevt\\ansr\{lowc:“some text”, uppc:“SOME TEXT”).*\}} $gizmo "\\1\}" gizmo
+    set gizmo
+} {aevt\ansr{lowc:“some text”, uppc:“SOME TEXT”}}
+catch {tclAE::removeEventHandler TclÆ test testHandler}
+catch {rename testHandler ""}
+
+test tclAEHandler-4.5 {tclAE::installEventHandler error from handler} {macOnly tclAE tclAEshlb} {
+    proc testHandler {theAppleEvent theReplyAE} {
+        error "this is an error"
+    }
+    catch {tclAE::installEventHandler TclÆ test testHandler}
+    catch {tclAE::send -r $testProgram TclÆ test ---- {“some text”}} gizmo
+    regsub {(aevt\\ansr\{errs:“this is an error”).*\}} $gizmo "\\1\}" gizmo
+    set gizmo
+} {aevt\ansr{errs:“this is an error”}}
+catch {tclAE::removeEventHandler TclÆ test testHandler}
+catch {rename testHandler ""}
+
+test tclAEHandler-4.6 {tclAE::installEventHandler error from handler} {macOnly tclAE tclAEshlb} {
+    proc testHandler {theAppleEvent theReplyAE} {
+        error -1703
+    }
+    catch {tclAE::installEventHandler TclÆ test testHandler}
+    catch {tclAE::send -r $testProgram TclÆ test ---- {“some text”}} gizmo
+    regsub {(aevt\\ansr\{errs:“-1703”, errn:-1703).*\}} $gizmo "\\1\}" gizmo
+    set gizmo
+} {aevt\ansr{errs:“-1703”, errn:-1703}}
+catch {tclAE::removeEventHandler TclÆ test testHandler}
+catch {rename testHandler ""}
+
+test tclAEHandler-4.7 {tclAE::installEventHandler error from handler} {macOnly tclAE tclAEshlb} {
+    proc testHandler {theAppleEvent theReplyAE} {
+        error "êrror µessage" "" -1703
+    }
+    catch {tclAE::installEventHandler TclÆ test testHandler}
+    catch {tclAE::send -r $testProgram TclÆ test ---- {“some text”}} gizmo
+    list [tclAE::getKeyData $gizmo errs] [tclAE::getKeyData $gizmo errn]
+} {{êrror µessage} -1703}
+catch {tclAE::removeEventHandler TclÆ test testHandler}
+catch {rename testHandler ""}
+
+test tclAEHandler-4.8 {tclAE::installEventHandler error from handler} {macOnly tclAE tclAEshlb} {
+    proc testHandler {theAppleEvent theReplyAE} {
+        error::throwOSErr -1703
+    }
+    catch {tclAE::installEventHandler TclÆ test testHandler}
+    catch {tclAE::send -r $testProgram TclÆ test ---- {“some text”}} gizmo
+    catch {tclAE::getKeyData $gizmo errn} msg
+    set msg
+} {-1703}
+catch {tclAE::removeEventHandler TclÆ test testHandler}
+catch {rename testHandler ""}
+
+test tclAEHandler-4.9 {tclAE::installEventHandler no proc} {macOnly tclAE tclAEshlb} {
+    catch {tclAE::removeEventHandler TclÆ test testHandler}
+    catch {tclAE::installEventHandler TclÆ test testHandler}
+    catch {tclAE::send -r $testProgram TclÆ test ---- {“some text”}} msg
+    catch {tclAE::getKeyData $msg errn} msg
+    set msg
+} {-1717}
+catch {tclAE::removeEventHandler TclÆ test testHandler}
+catch {rename testHandler ""}
+
+
+
+test tclAEHandler-5.1 {tclAE::getEventHandler noargs} {macOnly tclAEshlb} {
+    set err [catch {tclAE::getEventHandler} msg]
+    list $err $msg
+} {1 {wrong # args: should be "tclAE::getEventHandler <aeclass> <aeeventID>"}}
+
+test tclAEHandler-5.2 {tclAE::getEventHandler} {macOnly tclAE tclAE} {
+    proc testHandler {theAppleEvent theReplyAE} {
+    }
+    catch {tclAE::installEventHandler TclÆ test testHandler}
+    catch {tclAE::getEventHandler TclÆ test} handler
+    list $handler
+} {testHandler}
+catch {tclAE::removeEventHandler TclÆ test testHandler}
+
+test tclAEHandler-5.3 {tclAE::getEventHandler no handler} {macOnly tclAE tclAEshlb} {
+    catch {tclAE::removeEventHandler TclÆ test testHandler}
+    catch {tclAE::getEventHandler TclÆ test} msg
+    regsub {(Couldn't find event handler: )(No handler in the dispatch tables fits the parameters to AEGetEventHandler or AEGetCoercionHandler|OSErr -1717)} $msg {\1No handler in the dispatch tables fits the parameters to AEGetEventHandler or AEGetCoercionHandler} msg
+    list $msg
+} {{Couldn't find event handler: No handler in the dispatch tables fits the parameters to AEGetEventHandler or AEGetCoercionHandler}}
+
+
+
+
+test tclAEHandler-6.1 {tclAE::removeEventHandler noargs} {macOnly tclAEshlb} {
+    set err [catch {tclAE::removeEventHandler} msg]
+    list $err $msg
+} {1 {wrong # args: should be "tclAE::removeEventHandler <aeclass> <aeeventID> <eventHandlerProc>"}}
+
+test tclAEHandler-6.2 {tclAE::removeEventHandler} {macOnly tclAE tclAEshlb} {
+    catch {tclAE::installEventHandler TclÆ test testHandler}
+    catch {tclAE::getEventHandler TclÆ test} handler
+    catch {tclAE::removeEventHandler TclÆ test testHandler} msg1
+    catch {tclAE::getEventHandler TclÆ test} msg2
+    regsub {(Couldn't find event handler: )(No handler in the dispatch tables fits the parameters to AEGetEventHandler or AEGetCoercionHandler|OSErr -1717)} $msg2 {\1No handler in the dispatch tables fits the parameters to AEGetEventHandler or AEGetCoercionHandler} msg2
+    list $handler $msg1 $msg2
+} {testHandler {} {Couldn't find event handler: No handler in the dispatch tables fits the parameters to AEGetEventHandler or AEGetCoercionHandler}}
+
+test tclAEHandler-6.3 {tclAE::removeEventHandler no handler} {macOnly tclAE tclAEshlb} {
+    catch {tclAE::removeEventHandler TclÆ test testHandler}
+    catch {tclAE::removeEventHandler TclÆ test testHandler} msg
+    regsub {(Couldn't remove event handler: )(No handler in the dispatch tables fits the parameters to AEGetEventHandler or AEGetCoercionHandler|OSErr -1717)} $msg {\1No handler in the dispatch tables fits the parameters to AEGetEventHandler or AEGetCoercionHandler} msg
+    set msg
+} {Couldn't remove event handler: No handler in the dispatch tables fits the parameters to AEGetEventHandler or AEGetCoercionHandler}
+
+
+
+::tcltest::cleanupTests
+return
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,6 +1,6 @@
 /* 
    neon-specific test utils
-   Copyright (C) 2001-2005, Joe Orton <joe@manyfish.co.uk>
+   Copyright (C) 2001-2008, Joe Orton <joe@manyfish.co.uk>
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -61,8 +61,16 @@ struct string {
     size_t len;
 };
 
+struct double_serve_args {
+    struct string first, second;
+};
+
 /* Serve a struct string. */
 int serve_sstring(ne_socket *sock, void *ud);
+
+/* Discards an HTTP request, serves response ->first, discards another
+ * HTTP request, then serves response ->second. */
+int double_serve_sstring(ne_socket *s, void *userdata);
 
 /* Serve a struct string slowly. */
 int serve_sstring_slowly(ne_socket *sock, void *ud);

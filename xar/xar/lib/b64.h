@@ -8,7 +8,6 @@
 #define _XAR_BASE64_H_
 
 unsigned char* xar_to_base64(const unsigned char* input, int len);
-unsigned char* xar_from_base64(const unsigned char* input, int inputLength,
-   unsigned int *outputLength);
+unsigned char* xar_from_base64(const unsigned char* input, int inputLength, unsigned int *outputLength);
 
 #endif /* _XAR_BASE64_H_ */

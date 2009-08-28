@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,17 +22,17 @@
  */
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	Includes
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 #include <IOKit/IOTypes.h>
 #include "SCSIParallelTimer.h"
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	Macros
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 #define DEBUG 												0
 #define DEBUG_ASSERT_COMPONENT_NAME_STRING					"SPI TIMER"
@@ -46,7 +46,7 @@
 
 
 #if ( SCSI_PARALLEL_TIMER_DEBUGGING_LEVEL >= 1 )
-#define PANIC_NOW(x)		IOPanic x
+#define PANIC_NOW(x)		panic x
 #else
 #define PANIC_NOW(x)
 #endif
@@ -75,9 +75,9 @@ OSDefineMetaClassAndStructors ( SCSIParallelTimer, IOTimerEventSource );
 #endif
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	CreateTimerEventSource									   [STATIC][PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 SCSIParallelTimer *
 SCSIParallelTimer::CreateTimerEventSource ( OSObject * owner, Action action )
@@ -88,7 +88,7 @@ SCSIParallelTimer::CreateTimerEventSource ( OSObject * owner, Action action )
 	timer = OSTypeAlloc ( SCSIParallelTimer );
 	require_nonzero ( timer, ErrorExit );
 	
-	require ( timer->init ( owner, action ), FreeTimer );
+	require ( timer->Init ( owner, action ), FreeTimer );
 	
 	return timer;
 	
@@ -107,11 +107,25 @@ ErrorExit:
 	return timer;
 	
 }
-	
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+//-----------------------------------------------------------------------------
 //	Enable - Enables timer.											   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+
+bool
+SCSIParallelTimer::Init ( OSObject * owner, Action action )
+{
+	
+	queue_init ( &fListHead );
+	return super::init ( owner, action );
+	
+}
+
+
+//-----------------------------------------------------------------------------
+//	Enable - Enables timer.											   [PUBLIC]
+//-----------------------------------------------------------------------------
 
 void
 SCSIParallelTimer::Enable ( void )
@@ -120,9 +134,9 @@ SCSIParallelTimer::Enable ( void )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	Disable - Disables timer.										   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 void
 SCSIParallelTimer::Disable ( void )
@@ -131,9 +145,9 @@ SCSIParallelTimer::Disable ( void )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	CancelTimeout - Cancels timeout.								   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 void
 SCSIParallelTimer::CancelTimeout ( void )
@@ -142,9 +156,9 @@ SCSIParallelTimer::CancelTimeout ( void )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	BeginTimeoutContext - Begins context.							   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 void
 SCSIParallelTimer::BeginTimeoutContext ( void )
@@ -157,9 +171,9 @@ SCSIParallelTimer::BeginTimeoutContext ( void )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	EndTimeoutContext - Ends context.								   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 
 void
@@ -173,9 +187,9 @@ SCSIParallelTimer::EndTimeoutContext ( void )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	CompareDeadlines - Compares absolute times.						   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 SInt32
 SCSIParallelTimer::CompareDeadlines ( AbsoluteTime time1, AbsoluteTime time2 )
@@ -186,9 +200,9 @@ SCSIParallelTimer::CompareDeadlines ( AbsoluteTime time1, AbsoluteTime time2 )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	GetDeadline - Gets the deadline from the task.					   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 AbsoluteTime
 SCSIParallelTimer::GetDeadline ( SCSIParallelTask * task )
@@ -200,60 +214,9 @@ SCSIParallelTimer::GetDeadline ( SCSIParallelTask * task )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	SetDeadline - Gets the deadline from the task.					   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-
-void
-SCSIParallelTimer::SetDeadline ( SCSIParallelTask * task, UInt32 inTimeoutMS )
-{
-	
-	AbsoluteTime		delta;
-	AbsoluteTime		deadline;
-	
-	check ( task != NULL );
-	
-	// Compute the deadline starting now.
-	clock_interval_to_absolutetime_interval ( inTimeoutMS, kMillisecondScale, &delta );
-	clock_get_uptime ( &deadline );
-	ADD_ABSOLUTETIME ( &deadline, &delta );
-	
-	return task->SetTimeoutDeadline ( deadline );
-	
-}
-
-
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	GetNextTask - Gets the next task in timeout list from the task.	   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-
-SCSIParallelTask *
-SCSIParallelTimer::GetNextTask ( SCSIParallelTask * task )
-{
-	
-	check ( task != NULL );
-	return task->GetNextTimeoutTaskInList ( );
-	
-}
-
-
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	SetNextTask - Sets the next task in timeout list from the task.	   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-
-void
-SCSIParallelTimer::SetNextTask ( SCSIParallelTask * task, SCSIParallelTask * next )
-{
-	
-	check ( task != NULL );
-	return task->SetNextTimeoutTaskInList ( next );
-	
-}
-
-
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	GetTimeoutDuration - Gets the timeout from the task.			   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 UInt32
 SCSIParallelTimer::GetTimeoutDuration ( SCSIParallelTask * task )
@@ -265,58 +228,50 @@ SCSIParallelTimer::GetTimeoutDuration ( SCSIParallelTask * task )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	GetExpiredTask - Gets the task which timed out.					   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 SCSIParallelTaskIdentifier
 SCSIParallelTimer::GetExpiredTask ( void )
 {
 	
-	SCSIParallelTask *	task = NULL;
+	SCSIParallelTask *	expiredTask = NULL;
 	
 	closeGate ( );
 	
-	if ( fTimeoutTaskListHead != NULL )
+	if ( queue_empty ( &fListHead ) == false )
 	{
 		
-		AbsoluteTime			now;
-		AbsoluteTime			deadline;
+		uint64_t			now;
+		AbsoluteTime		deadline1;
+		AbsoluteTime		deadline2;
+		SCSIParallelTask *	task;
 		
-        clock_get_uptime ( &now );
-		deadline = GetDeadline ( fTimeoutTaskListHead );
+        task		= ( SCSIParallelTask * ) queue_first ( &fListHead );
+        now 		= mach_absolute_time ( );
+        deadline1	= *( AbsoluteTime * ) &now;
+		deadline2 	= GetDeadline ( task );
 		
-		if ( CompareDeadlines ( now, deadline ) == 1 )
+		if ( CompareDeadlines ( deadline1, deadline2 ) == 1 )
 		{
 			
-			SCSIParallelTask *		newHead = NULL;
-			
-			newHead = GetNextTask ( fTimeoutTaskListHead );
-			task = fTimeoutTaskListHead;
-			SetNextTask ( task, NULL );
-			fTimeoutTaskListHead = newHead;
+			queue_remove_first ( &fListHead, expiredTask, SCSIParallelTask *, fTimeoutChain );
 			
 		}
 		
 	}
 	
-	if ( fTimeoutTaskListHead == NULL )
-	{
-		
-		cancelTimeout ( );
-		
-	}
-	
 	openGate ( );
 	
-	return ( SCSIParallelTaskIdentifier ) task;
+	return ( SCSIParallelTaskIdentifier ) expiredTask;
 	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	SetTimeout - Sets timeout.										   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 IOReturn
 SCSIParallelTimer::SetTimeout ( SCSIParallelTaskIdentifier	taskIdentifier,
@@ -325,6 +280,7 @@ SCSIParallelTimer::SetTimeout ( SCSIParallelTaskIdentifier	taskIdentifier,
 	
 	SCSIParallelTask *	task 		= ( SCSIParallelTask * ) taskIdentifier;
 	IOReturn			status		= kIOReturnBadArgument;
+	AbsoluteTime		deadline;
 	
 	require_nonzero ( task, ErrorExit );
 	
@@ -349,60 +305,61 @@ SCSIParallelTimer::SetTimeout ( SCSIParallelTaskIdentifier	taskIdentifier,
 		
 	}
 	
-	SetDeadline ( task, inTimeoutMS );
-	
-	// Now move command down list to keep list sorted
+	clock_interval_to_deadline ( inTimeoutMS, kMillisecondScale, &deadline );
+	task->SetTimeoutDeadline ( deadline );
 	
 	// 1) Check if we have a list head. If not, put this
 	// element at the beginning.
 	// 2) Check if the task has a shorter timeout than the list head
-	if ( ( fTimeoutTaskListHead == NULL ) ||
-		 ( CompareDeadlines ( GetDeadline ( fTimeoutTaskListHead ), GetDeadline ( task ) ) == 1 ) )
+	if ( ( queue_empty ( &fListHead ) == true ) ||
+		 ( CompareDeadlines ( GetDeadline ( ( SCSIParallelTask * ) queue_first ( &fListHead ) ), deadline ) == 1 ) )
 	{
 		
-		SCSIParallelTask *	oldHead = fTimeoutTaskListHead;
-		
-		fTimeoutTaskListHead = task;
-		task->SetNextTimeoutTaskInList ( oldHead );
-		
+		queue_enter_first ( &fListHead, task, SCSIParallelTask *, fTimeoutChain );
 		Rearm ( );
 		
 	}
 	
-	else
+	// 3) In the normal case, I/Os are coming down with standard timeout intervals (30s). In this
+	// case, we try to check against the last I/O on the timeout list (to avoid walking the entire
+	// list in the normal case).
+	else if ( CompareDeadlines ( deadline, GetDeadline ( ( SCSIParallelTask * ) queue_last ( &fListHead ) ) ) == 1 )
 	{
 		
-		SCSIParallelTask *	prev = fTimeoutTaskListHead;
-		SCSIParallelTask *	next = NULL;
+		queue_enter ( &fListHead, task, SCSIParallelTask *, fTimeoutChain );
 		
-		next = GetNextTask ( fTimeoutTaskListHead );
-		while ( next != NULL )
+	}
+	
+	// 4) Walk the entire list looking for the proper slot. <sigh>
+	else
+	{
+
+		SCSIParallelTask *	currentTask = NULL;
+		bool				slotFound	= false;
+		
+		queue_iterate ( &fListHead, currentTask, SCSIParallelTask *, fTimeoutChain )
 		{
 			
 			// Check if the next deadline is greater or not.
-			if ( CompareDeadlines ( GetDeadline ( next ), GetDeadline ( task ) ) == 1 )
+			if ( CompareDeadlines ( GetDeadline ( currentTask ), deadline ) == 1 )
 			{
 				
-				// Found the slot. This task should be ahead of next
-				SetNextTask ( task, next );
-				SetNextTask ( prev, task );
+				// Found the slot. This task should be ahead of currentTask.
+				queue_insert_before ( &fListHead, task, currentTask, SCSIParallelTask *, fTimeoutChain );
+				slotFound = true;
 				
 				// We're done. Break out.
 				break;
 				
 			}
 			
-			prev = next;
-			next = GetNextTask ( next );
-			
 		}
 		
-		if ( next == NULL )
+		if ( slotFound == false )
 		{
 			
 			// Found the slot (end of the list).
-			SetNextTask ( task, NULL );
-			SetNextTask ( prev, task );
+			queue_enter ( &fListHead, task, SCSIParallelTask *, fTimeoutChain );
 			
 		}
 		
@@ -420,70 +377,58 @@ ErrorExit:
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	RemoveTask - Removes a task from the timeout list.				   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 void
 SCSIParallelTimer::RemoveTask ( SCSIParallelTaskIdentifier parallelRequest )
 {
 	
-	SCSIParallelTask *	task 		= NULL;
-	SCSIParallelTask *	prevTask	= NULL;
+	SCSIParallelTask *	task		= NULL;
+	bool				headOfList	= false;
+	
+	task = OSDynamicCast ( SCSIParallelTask, parallelRequest );
+	
+	require_nonzero ( task, Exit );
+	require_nonzero ( ( task->fTimeoutChain.next ), Exit );
+	require_nonzero ( ( task->fTimeoutChain.prev ), Exit );
 	
 	closeGate ( );
 	
-	require_nonzero ( OSDynamicCast ( SCSIParallelTask, parallelRequest ), Exit );
-	require_nonzero ( fTimeoutTaskListHead, Exit );
+	require ( ( queue_empty ( &fListHead ) == false ), ExitGate );
+	
+	if ( task == ( SCSIParallelTask * ) queue_first ( &fListHead ) )
+		headOfList = true;
+	
+	queue_remove ( &fListHead, task, SCSIParallelTask *, fTimeoutChain );
 	
 	// Special case for parallelRequest being the list head.
-	if ( parallelRequest == fTimeoutTaskListHead )
+	if ( headOfList == true )
 	{
 		
-		fTimeoutTaskListHead = GetNextTask ( ( SCSIParallelTask * ) parallelRequest );
-		
-		// Rearm the timer.
 		Rearm ( );
 		
 	}
 	
-	else
-	{
-		
-		// It isn't the list head, so search the list for the task.
-		task = GetNextTask ( fTimeoutTaskListHead );
-		prevTask = fTimeoutTaskListHead;
-		
-		while ( task != NULL )
-		{
-			
-			if ( task == parallelRequest )
-			{
-				
-				SetNextTask ( prevTask, GetNextTask ( task ) );
-				break;
-				
-			}
-			
-			prevTask = task;
-			task = GetNextTask ( task );
-			
-		}
-		
-	}
+	
+ExitGate:
+	
+	
+	openGate ( );
 	
 	
 Exit:
 	
 	
-	openGate ( );
+	return;
 	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	Rearm - Arms the timeout timer.									   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 bool
 SCSIParallelTimer::Rearm ( void )
@@ -493,11 +438,11 @@ SCSIParallelTimer::Rearm ( void )
 	
 	closeGate ( );
 	
-	if ( ( fTimeoutTaskListHead != NULL ) && ( fHandlingTimeout == false ) )
+	if ( ( queue_empty ( &fListHead ) == false ) && ( fHandlingTimeout == false ) )
 	{
 		
 		// Re-arm the timer with new timeout deadline
-		wakeAtTime ( GetDeadline ( fTimeoutTaskListHead ) );
+		wakeAtTime ( GetDeadline ( ( SCSIParallelTask * ) queue_first ( &fListHead ) ) );
 		result = true;
 		
 	}

@@ -1,0 +1,160 @@
+# $Id: xmlRecreatorVisitor.xotcl,v 1.6 2006/09/27 08:12:40 neumann Exp $
+
+package provide xotcl::xml::recreatorVisitor 0.9
+package require xotcl::xml::parser
+package require XOTcl
+
+namespace eval ::xotcl::xml::recreatorVisitor {
+    namespace import ::xotcl::*
+
+    ##############################################################################
+    #
+    # a visitor that recreates an XML representation from a
+    # node tree
+    #
+    #############################################################################
+    Class XMLRecreatorVisitor -superclass NodeTreeVisitor -parameter useCDATA
+
+    #
+    # determine nesting depth of an object if the aggregation tree
+    #
+    XMLRecreatorVisitor instproc nestingDepth {obj} {
+	for {set d 0;set s [$obj info parent]} {$s ne "::"} {set s [$s info parent]} {
+	    incr d
+	}
+	return $d
+    }
+
+    #
+    # insert appropriate number of spaces for indentation -> return space string
+    #
+    XMLRecreatorVisitor instproc indent chars {
+	set spaces "          "
+	for {set l 9} {$l<$chars} {incr l $l} {append spaces $spaces}
+	return [string range $spaces 1 $chars]
+    }
+    XMLRecreatorVisitor instproc insertIndent {obj} {
+	my instvar nestingStart
+	return [my indent [expr {([my nestingDepth $obj] - $nestingStart)*2} - 2]]
+    }
+
+    XMLRecreatorVisitor instproc attrIndent {objName fa} {
+	upvar [self callinglevel] $fa firstAttr
+	if {$firstAttr} {
+	    set firstAttr 0
+	    return  " "
+	} else {
+	    return "\n[my insertIndent $objName]    "
+	}  
+    }
+
+    XMLRecreatorVisitor instproc getContent objName {
+	return [$objName content]
+    }
+    XMLRecreatorVisitor instproc hasOnlyAttrs {obj} {
+	if {[$obj exists pcdata]} {return 0}
+	foreach c [$obj info children] {
+	    if {[$c istype XMLNode]} {return 0}
+	}
+	return 1
+    }
+
+    #
+    # hook to append line feed dependent on the object
+    # default is to append one \n
+    #
+    XMLRecreatorVisitor instproc appendLineFeed obj {
+	return "\n"
+    }
+
+    #
+    # evaluate node objName
+    #
+    XMLRecreatorVisitor instproc visit objName {
+	my instvar result
+	set c [my getContent $objName]
+	if {$c ne ""} {
+	    $objName instvar attributes pcdata 
+	    set ns [$objName resolveNS]
+	    set firstAttr 1
+	    set attrStr ""
+	    if {[string first $objName $ns] != -1} {
+		# append xmlns attributes, xmlns=... first
+		if {[$ns exists nsArray(xmlns)]} {
+		    append attrStr [my attrIndent $objName firstAttr]
+		    append attrStr "xmlns = \"[$ns set nsArray(xmlns)]\""
+		}
+		foreach a [$ns array names nsArray] {
+		    if {$a ne "xmlns"} {
+			append attrStr [my attrIndent $objName firstAttr]
+			append attrStr "xmlns:${a} = \"[$ns set nsArray($a)]\""
+		    }
+		}
+	    }
+	    foreach a [array names attributes] {
+		append attrStr [my attrIndent $objName firstAttr]
+		append attrStr "$a = \"$attributes($a)\""
+	    }
+	    append result "[my insertIndent $objName]<${c}$attrStr"
+
+	    if {[my hasOnlyAttrs $objName]} { 
+		append result "/>"
+	    } else {
+		append result ">"
+	    }
+
+	    if {[info exists pcdata] && [llength $pcdata]>1 && 
+		[lindex $pcdata 0] eq ""} {
+		append result " " [my pcdataString [lindex $pcdata 1]]
+	    }
+	    append result [my appendLineFeed $objName]
+	}
+	return $result
+    }
+    XMLRecreatorVisitor instproc pcdataString text {
+	if {[my exists useCDATA] && [regexp < $text]} {
+	    return "<!\[CDATA\[$text]]>"
+	}
+	return $text
+    }
+
+    #
+    # evaluate end of a node
+    # 
+    XMLRecreatorVisitor instproc visitEnd objName {
+	my instvar result
+	set c [$objName content]
+	if {$c ne ""} {
+	    if {![my hasOnlyAttrs $objName]} {
+		append result [my insertIndent $objName] </$c>\n
+	    }
+	}
+	# a child is responsible for the "mixed content" data elements
+	# that have a location after the child
+	set p [$objName info parent]
+	if {[$p istype XMLElement] && [$p mixedContent]} {
+	    foreach {location data} [$p set pcdata] {
+		if {$location == $objName} {
+		    append result [my insertIndent $objName] \
+			[my pcdataString $data] \n
+		}
+	    }
+	}
+    }
+
+
+    #
+    # public method to be called on top node -> returns XML text as result
+    #
+    XMLRecreatorVisitor instproc interpretNodeTree node {
+	my instvar result
+	set result ""
+	my set nestingStart [my nestingDepth $node]
+	$node accept [self]
+	return $result
+    }
+
+    namespace export XMLRecreatorVisitor
+}
+
+namespace import ::xotcl::xml::recreatorVisitor::*

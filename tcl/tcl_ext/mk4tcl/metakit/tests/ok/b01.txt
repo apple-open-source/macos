@@ -1,0 +1,2 @@
+>>> Should succeed
+<<< done.

@@ -178,3 +178,4 @@ __dtrace_version
 _Pstate
 _Pstatus
 _Pxlookup_by_addr
+_demangleSymbolCString

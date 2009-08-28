@@ -1,0 +1,107 @@
+.\" $Xorg: fslsfonts.man,v 1.4 2001/02/09 02:05:30 xorgcvs Exp $
+.\" Copyright 1991, Network Computing Devices, Inc
+.\" Copyright 1993, 1994, 1998  The Open Group
+.\" 
+.\" Permission to use, copy, modify, distribute, and sell this software and its
+.\" documentation for any purpose is hereby granted without fee, provided that
+.\" the above copyright notice appear in all copies and that both that
+.\" copyright notice and this permission notice appear in supporting
+.\" documentation.
+.\" 
+.\" The above copyright notice and this permission notice shall be included
+.\" in all copies or substantial portions of the Software.
+.\" 
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+.\" OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+.\" MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+.\" IN NO EVENT SHALL THE OPEN GROUP BE LIABLE FOR ANY CLAIM, DAMAGES OR
+.\" OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+.\" ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+.\" OTHER DEALINGS IN THE SOFTWARE.
+.\" 
+.\" Except as contained in this notice, the name of The Open Group shall
+.\" not be used in advertising or otherwise to promote the sale, use or
+.\" other dealings in this Software without prior written authorization
+.\" from The Open Group.
+.\"
+.\" $XFree86: xc/programs/fslsfonts/fslsfonts.man,v 1.6 2001/01/27 18:21:01 dawes Exp $
+.\"
+.TH FSLSFONTS 1 __xorgversion__
+.SH NAME
+fslsfonts \- list fonts served by X font server
+.SH SYNOPSIS
+.B fslsfonts
+[\-options ...] [\-fn pattern]
+.SH DESCRIPTION
+.I fslsfonts
+lists the fonts that match the given \fIpattern\fP.
+The wildcard character "*" may be used to match any sequence of
+characters (including none), and "?" to match any single character.
+If no pattern is given, "*" is assumed.
+.PP
+The "*" and "?" characters must be quoted to prevent them from
+being expanded by the shell.
+.SH "OPTIONS"
+.PP
+.TP 8
+.B \-server \fIservername\fP
+This option specifies the X font server to contact.
+.I servername 
+must be specified in one of the formats defined in the
+.I Font Server Names
+section of X(__miscmansuffix__).   If not specified, the server name in the
+.B FONTSERVER
+environment variable is used.
+.PP
+.TP 8
+.B \-l
+Lists some attributes of the font on one line in addition to its name.
+.TP 8
+.B \-ll
+Lists font properties in addition to \fB\-l\fP output.
+.TP 8
+.B \-lll
+Supported for compatibility with \fIxlsfonts\fP, but output is the
+same as for \fB\-ll\fP.
+.TP 8
+.B \-m
+This option indicates that long listings should also print the minimum and
+maximum bounds of each font.
+.TP 8
+.B \-C
+This option indicates that listings should use multiple columns.  This is the
+same as \fB\-n 0\fP.
+.TP 8
+.B \-1
+This option indicates that listings should use a single column.  This is the
+same as \fB\-n 1\fP.
+.TP 8
+.B \-w \fIwidth\fP
+This option specifies the width in characters that should be used in 
+figuring out how many columns to print.  The default is 79.
+.TP 8
+.B \-n \fIcolumns\fP
+This option specifies the number of columns to use in displaying the output.
+The default is 0, which
+will attempt to fit as many columns of font names into the 
+number of character specified by \fB\-w\fP \fIwidth\fP.
+.TP 8
+.B \-u
+This option indicates that the output should be left unsorted.
+.PP
+.SH ENVIRONMENT
+.TP 8
+.B FONTSERVER
+To get the default fontserver.  The server name must
+be specified in one of the formats defined in the
+.I Font Server Names
+section of X(__miscmansuffix__).
+.SH "SEE ALSO"
+xfs(__appmansuffix__), showfont(__appmansuffix__), xlsfonts(__appmansuffix__),
+X(__miscmansuffix__).
+.SH BUGS
+Doing ``fslsfonts \-l'' can tie up your server for a very long time.
+This is really a bug with single-threaded non-preemptable servers, not with
+this program.
+.SH AUTHOR
+Dave Lemke, Network Computing Devices, Inc

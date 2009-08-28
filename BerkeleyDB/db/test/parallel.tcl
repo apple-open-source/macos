@@ -1,5 +1,5 @@
 # Code to load up the tests in to the Queue database
-# $Id: parallel.tcl,v 1.2 2004/03/30 01:24:07 jtownsen Exp $
+# $Id: parallel.tcl,v 12.6 2007/06/05 20:00:46 carol Exp $
 proc load_queue { file  {dbdir RUNQUEUE} nitems } {
 	global serial_tests
 	global num_serial
@@ -12,7 +12,7 @@ proc load_queue { file  {dbdir RUNQUEUE} nitems } {
 	error_check_good dbenv [is_valid_env $env] TRUE
 
 	# Open two databases, one for tests that may be run
-	# in parallel, the other for tests we want to run 
+	# in parallel, the other for tests we want to run
 	# while only a single process is testing.
 	set db [eval {berkdb_open -env $env -create \
             -mode 0644 -len 200 -queue queue.db} ]
@@ -68,19 +68,19 @@ proc load_queue { file  {dbdir RUNQUEUE} nitems } {
 
 	puts "loading..."
 	flush stdout
-	set num_serial 0 
+	set num_serial 0
 	set num_parallel 0
 	for { set i 0 } { $i < $maxload } { incr i } {
 		set str $testarr($i)
 		# Push serial tests into serial testing db, others
-		# into parallel db. 
+		# into parallel db.
 		if { [is_serial $str] } {
 			set ret [eval {$serialdb put -append $str}]
-			error_check_good put:serialdb [expr $ret > 0] 1 
+			error_check_good put:serialdb [expr $ret > 0] 1
 			incr num_serial
 		} else {
 			set ret [eval {$db put -append $str}]
-			error_check_good put:paralleldb [expr $ret > 0] 1  
+			error_check_good put:paralleldb [expr $ret > 0] 1
 			incr num_parallel
 		}
         }
@@ -100,14 +100,14 @@ proc init_runqueue { {dbdir RUNQUEUE} nitems list} {
 		file mkdir $dbdir
 	}
 	puts "Creating test list..."
-	$list -n
+	$list ALL -n
 	load_queue ALL.OUT $dbdir $nitems
 	file delete TEST.LIST
 	file rename ALL.OUT TEST.LIST
 }
 
 proc run_parallel { nprocs {list run_all} {nitems ALL} } {
-	global num_serial 
+	global num_serial
 	global num_parallel
 
 	# Forcibly remove stuff from prior runs, if it's still there.
@@ -148,19 +148,24 @@ proc run_parallel { nprocs {list run_all} {nitems ALL} } {
 			close $f
 		} res]
 	}
-	watch_procs $pidlist 300 360000
+	watch_procs $pidlist 300 1000000
 
 	set failed 0
 	for { set i 0 } { $i <= $nprocs } { incr i } {
 		if { [file exists ALL.OUT.$i] == 1 } {
-			if { [check_failed_run ALL.OUT.$i] != 0 } {
+			puts -nonewline "Checking output from ALL.OUT.$i ... "
+			if { [check_output ALL.OUT.$i] == 1 } {
 				set failed 1
-				puts "Regression tests failed in process $i."
 			}
+			puts " done."
 		}
 	}
 	if { $failed == 0 } {
 		puts "Regression tests succeeded."
+	} else {
+		puts "Regression tests failed."
+		puts "Review UNEXPECTED OUTPUT lines above for errors."
+		puts "Complete logs found in ALL.OUT.x files"
 	}
 }
 
@@ -204,16 +209,17 @@ proc run_queue { i rundir queuedir {qtype parallel} {nitems 0} } {
 			set o [open $builddir/ALL.OUT.$i a]
 			puts $o "\nExecuting record $num ([timestamp -w]):\n"
 			set tdir "TESTDIR.$i"
-			regsub {TESTDIR} $cmd $tdir cmd
+			regsub -all {TESTDIR} $cmd $tdir cmd
 			puts $o $cmd
 			close $o
 			if { [expr {$num % 10} == 0] && $nitems != 0 } {
 				puts -nonewline \
 				    "Starting test $num of $nitems $qtype items.  "
 				set now [timestamp -r]
-				set elapsed [expr $now - $starttime]
-				set esttotal [expr $nitems * $elapsed / $num]
-				set remaining [expr $esttotal - $elapsed]
+				set elapsed_secs [expr $now - $starttime]
+				set secs_per_test [expr $elapsed_secs / $num]
+				set esttotal [expr $nitems * $secs_per_test]
+				set remaining [expr $esttotal - $elapsed_secs]
 				if { $remaining < 3600 } {
 					puts "\tRough guess: less than 1\
 					    hour left."
@@ -250,9 +256,9 @@ proc run_queue { i rundir queuedir {qtype parallel} {nitems 0} } {
 	puts "Process $i: $count commands executed in [format %02u:%02u \
 	    [expr $elapsed / 3600] [expr ($elapsed % 3600) / 60]]"
 
-	$dbc close
-	$db close
-	$dbenv close
+	error_check_good close_parallel_cursor_$i [$dbc close] 0
+	error_check_good close_parallel_db_$i [$db close] 0
+	error_check_good close_parallel_env_$i [$dbenv close] 0
 
 	#
 	# We need to put the pid file in the builddir's idea
@@ -292,7 +298,7 @@ proc mkparalleldirs { nprocs basename queuedir } {
 		catch {eval file copy \
 		    [eval glob {$dir/db_{checkpoint,deadlock}$EXE} \
 		    {$dir/db_{dump,load,printlog,recover,stat,upgrade}$EXE} \
-		    {$dir/db_{archive,verify}$EXE}] \
+		    {$dir/db_{archive,verify,hotbackup}$EXE}] \
 		    $destdir}
 
 		# Create modified copies of include.tcl in parallel
@@ -322,6 +328,7 @@ proc mkparalleldirs { nprocs basename queuedir } {
 
 proc run_ptest { nprocs test args } {
 	global parms
+	global valid_methods
 	set basename ./PARALLEL_TESTDIR
 	set queuedir NULL
 	source ./include.tcl
@@ -329,8 +336,7 @@ proc run_ptest { nprocs test args } {
 	mkparalleldirs $nprocs $basename $queuedir
 
 	if { [info exists parms($test)] } {
-		foreach method \
-		    "hash queue queueext recno rbtree frecno rrecno btree" {
+		foreach method $valid_methods {
 			if { [eval exec_ptest $nprocs $basename \
 			    $test $method $args] != 0 } {
 				break
@@ -363,7 +369,7 @@ proc exec_ptest { nprocs basename test args } {
 	watch_procs $pidlist 30 36000
 	set failed 0
 	for { set i 1 } { $i <= $nprocs } { incr i } {
-		if { [check_failed_run ALL.OUT.$i] != 0 } {
+		if { [check_output ALL.OUT.$i] == 1 } {
 			set failed 1
 			puts "Test $test failed in process $i."
 		}

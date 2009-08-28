@@ -1,5 +1,5 @@
-# $OpenLDAP: pkg/openldap-guide/admin/dbtools.sdf,v 1.23.2.1 2006/01/03 22:16:03 kurt Exp $
-# Copyright 1999-2006 The OpenLDAP Foundation, All Rights Reserved.
+# $OpenLDAP: pkg/openldap-guide/admin/dbtools.sdf,v 1.24.2.6 2008/02/11 23:26:39 kurt Exp $
+# Copyright 1999-2008 The OpenLDAP Foundation, All Rights Reserved.
 # COPYING RESTRICTIONS APPLY, see COPYRIGHT.
 
 H1: Database Creation and Maintenance Tools
@@ -7,18 +7,18 @@ H1: Database Creation and Maintenance Tools
 This section tells you how to create a slapd database from scratch,
 and how to do trouble shooting if you run into problems. There are
 two ways to create a database. First, you can create the database
-on-line using LDAP. With this method, you simply start up slapd
+on-line using {{TERM:LDAP}}. With this method, you simply start up slapd
 and add entries using the LDAP client of your choice. This method
 is fine for relatively small databases (a few hundred or thousand
 entries, depending on your requirements). This method works for
 database types which support updates.
 
 The second method of database creation is to do it off-line using
-special utilities provided with slapd. This method is best if you
+special utilities provided with {{slapd}}(8). This method is best if you
 have many thousands of entries to create, which would take an
 unacceptably long time using the LDAP method, or if you want to
 ensure the database is not accessed while it is being created. Note
-that not all database types support these utilitites.
+that not all database types support these utilities.
 
 
 H2: Creating a database over LDAP
@@ -186,6 +186,15 @@ format}} section).
 
 Specifies the slapd configuration file that tells where to create
 the indices, what indices to create, etc.
+
+>	-F <slapdconfdirectory>
+
+Specifies a config directory.  If both {{EX:-f}} and {{EX:-F}} are specified, 
+the config file will be read and converted to config  directory format and 
+written to the specified directory.  If neither option is specified, an attempt 
+to read the default config directory will be made before trying to use the 
+default config file. If a valid config directory exists then the default 
+config file is ignored. If dryrun mode is also specified, no conversion will occur.
 
 >	-d <debuglevel>
 

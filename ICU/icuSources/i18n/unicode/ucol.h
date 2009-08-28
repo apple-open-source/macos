@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (c) 1996-2006, International Business Machines Corporation and others.
+* Copyright (c) 1996-2008, International Business Machines Corporation and others.
 * All Rights Reserved.
 *******************************************************************************
 */
@@ -29,11 +29,11 @@
  * <em>Important: </em>The ICU collation service has been reimplemented 
  * in order to achieve better performance and UCA compliance. 
  * For details, see the 
- * <a href="http://dev.icu-project.org/cgi-bin/viewcvs.cgi/~checkout~/icuhtml/design/collation/ICU_collation_design.htm">
+ * <a href="http://source.icu-project.org/repos/icu/icuhtml/trunk/design/collation/ICU_collation_design.htm">
  * collation design document</a>.
  * <p>
  * For more information about the collation service see 
- * <a href="http://icu.sourceforge.net/userguide/Collate_Intro.html">the users guide</a>.
+ * <a href="http://icu-project.org/userguide/Collate_Intro.html">the users guide</a>.
  * <p>
  * Collation service provides correct sorting orders for most locales supported in ICU. 
  * If specific data for a locale is not available, the orders eventually falls back
@@ -41,7 +41,7 @@
  * <p>
  * Sort ordering may be customized by providing your own set of rules. For more on
  * this subject see the 
- * <a href="http://icu.sourceforge.net/userguide/Collate_Customization.html">
+ * <a href="http://icu-project.org/userguide/Collate_Customization.html">
  * Collation customization</a> section of the users guide.
  * <p>
  * @see         UCollationResult
@@ -292,7 +292,7 @@ ucol_openRules( const UChar        *rules,
  * Open a collator defined by a short form string.
  * The structure and the syntax of the string is defined in the "Naming collators"
  * section of the users guide: 
- * http://icu.sourceforge.net/userguide/Collate_Concepts.html#Naming_Collators
+ * http://icu-project.org/userguide/Collate_Concepts.html#Naming_Collators
  * Attributes are overriden by the subsequent attributes. So, for "S2_S3", final
  * strength will be 3. 3066bis locale overrides individual locale parts.
  * The call to this function is equivalent to a call to ucol_open, followed by a 
@@ -355,9 +355,9 @@ ucol_getContractions( const UCollator *coll,
  * @param addPrefixes add the prefix contextual elements to contractions
  * @param status to hold the error code
  *
- * @draft ICU 3.4
+ * @stable ICU 3.4
  */
-U_DRAFT void U_EXPORT2
+U_STABLE void U_EXPORT2
 ucol_getContractionsAndExpansions( const UCollator *coll,
                   USet *contractions, USet *expansions,
                   UBool addPrefixes, UErrorCode *status);
@@ -591,7 +591,7 @@ ucol_getKeywordValues(const char *keyword, UErrorCode *status);
  * applications who wish to cache collators, or otherwise reuse
  * collators when possible.  The functional equivalent may change
  * over time.  For more information, please see the <a
- * href="http://icu.sourceforge.net/userguide/locale.html#services">
+ * href="http://icu-project.org/userguide/locale.html#services">
  * Locales and Services</a> section of the ICU User Guide.
  * @param result fillin for the functionally equivalent locale
  * @param resultCapacity capacity of the fillin buffer
@@ -631,7 +631,7 @@ ucol_getRules(    const    UCollator    *coll,
  *  This string will be normalized.
  *  The structure and the syntax of the string is defined in the "Naming collators"
  *  section of the users guide: 
- *  http://icu.sourceforge.net/userguide/Collate_Concepts.html#Naming_Collators
+ *  http://icu-project.org/userguide/Collate_Concepts.html#Naming_Collators
  *  This API supports preflighting.
  *  @param coll a collator
  *  @param locale a locale that will appear as a collators locale in the resulting
@@ -678,7 +678,7 @@ ucol_normalizeShortDefinitionString(const char *source,
                                     int32_t capacity,
                                     UParseError *parseError,
                                     UErrorCode *status);
-        
+
 
 /**
  * Get a sort key for a string from a UCollator.
@@ -688,7 +688,9 @@ ucol_normalizeShortDefinitionString(const char *source,
  * @param sourceLength The length of source, or -1 if null-terminated.
  * @param result A pointer to a buffer to receive the attribute.
  * @param resultLength The maximum size of result.
- * @return The size needed to fully store the sort key..
+ * @return The size needed to fully store the sort key.
+ *      If there was an internal error generating the sort key,
+ *      a zero value is returned.
  * @see ucol_keyHashCode
  * @stable ICU 2.0
  */
@@ -1011,99 +1013,6 @@ ucol_getLocaleByType(const UCollator *coll, ULocDataLocaleType type, UErrorCode 
  */
 U_STABLE USet * U_EXPORT2
 ucol_getTailoredSet(const UCollator *coll, UErrorCode *status);
-
-#ifndef U_HIDE_INTERNAL_API
-/**
- * Returned by ucol_collatorToIdentifier to signify that collator is
- * not encodable as an identifier.
- * @internal ICU 3.0
- */
-#define UCOL_SIT_COLLATOR_NOT_ENCODABLE 0x80000000
-#endif /* U_HIDE_INTERNAL_API */
-
-/**
- * Get a 31-bit identifier given a collator. 
- * @param coll UCollator
- *  @param locale a locale that will appear as a collators locale in the resulting
- *                short string definition. If NULL, the locale will be harvested 
- *                from the collator.
- * @param status holds error messages
- * @return 31-bit identifier. MSB is used if the collator cannot be encoded. In that
- *         case UCOL_SIT_COLLATOR_NOT_ENCODABLE is returned
- * @see ucol_openFromIdentifier
- * @see ucol_identifierToShortString
- * @internal ICU 3.0
- */
-U_INTERNAL uint32_t U_EXPORT2
-ucol_collatorToIdentifier(const UCollator *coll,
-                          const char *locale,
-                          UErrorCode *status);
-
-/**
- * Open a collator given a 31-bit identifier
- * @param identifier 31-bit identifier, encoded by calling ucol_collatorToIdentifier
- * @param forceDefaults if FALSE, the settings that are the same as the collator 
- *                   default settings will not be applied (for example, setting
- *                   French secondary on a French collator would not be executed). 
- *                   If TRUE, all the settings will be applied regardless of the 
- *                   collator default value. If the definition
- *                   strings that can be produced from a collator instantiated by 
- *                   calling this API are to be cached, should be set to FALSE.
- * @param status for returning errors
- * @return UCollator object
- * @see ucol_collatorToIdentifier
- * @see ucol_identifierToShortString
- * @internal ICU 3.0
- */
-U_INTERNAL UCollator* U_EXPORT2
-ucol_openFromIdentifier(uint32_t identifier,
-                        UBool forceDefaults,
-                        UErrorCode *status);
-
-
-/**
- * Calculate the short definition string given an identifier. Supports preflighting.
- * @param identifier 31-bit identifier, encoded by calling ucol_collatorToIdentifier
- * @param buffer buffer to store the result
- * @param capacity buffer capacity
- * @param forceDefaults whether the settings that are the same as the default setting
- *                      should be forced anyway. Setting this argument to FALSE reduces
- *                      the number of different configurations, but decreases performace
- *                      as a collator has to be instantiated.
- * @param status for returning errors
- * @return length of the short definition string
- * @see ucol_collatorToIdentifier
- * @see ucol_openFromIdentifier
- * @see ucol_shortStringToIdentifier
- * @internal ICU 3.0
- */
-U_INTERNAL int32_t U_EXPORT2
-ucol_identifierToShortString(uint32_t identifier,
-                             char *buffer,
-                             int32_t capacity,
-                             UBool forceDefaults,
-                             UErrorCode *status);
-
-/**
- * Calculate the identifier given a short definition string. Supports preflighting.
- * @param definition short string definition
- * @param forceDefaults whether the settings that are the same as the default setting
- *                      should be forced anyway. Setting this argument to FALSE reduces
- *                      the number of different configurations, but decreases performace
- *                      as a collator has to be instantiated.
- * @param status for returning errors
- * @return identifier
- * @see ucol_collatorToIdentifier
- * @see ucol_openFromIdentifier
- * @see ucol_identifierToShortString
- * @internal ICU 3.0
- */
-U_INTERNAL uint32_t U_EXPORT2
-ucol_shortStringToIdentifier(const char *definition,
-                             UBool forceDefaults,
-                             UErrorCode *status);
-
-
 
 /**
  * Universal attribute getter that returns UCOL_DEFAULT if the value is default

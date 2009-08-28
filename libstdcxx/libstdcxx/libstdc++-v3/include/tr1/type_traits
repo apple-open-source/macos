@@ -1,6 +1,6 @@
 // TR1 type_traits -*- C++ -*-
 
-// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -15,7 +15,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -27,12 +27,12 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-/** @file 
+/** @file tr1/type_traits
  *  This is a TR1 C++ Library header. 
  */
 
-#ifndef _TYPE_TRAITS
-#define _TYPE_TRAITS 1
+#ifndef _TR1_TYPE_TRAITS
+#define _TR1_TYPE_TRAITS 1
 
 #include <bits/c++config.h>
 #include <tr1/type_traits_fwd.h>
@@ -40,26 +40,27 @@
 // namespace std::tr1
 namespace std
 {
-namespace tr1
-{
-  // For use in __conv_helper, is_abstract and elsewhere.
+_GLIBCXX_BEGIN_NAMESPACE(tr1)
+
+  // For use in __in_array and elsewhere.
   struct __sfinae_types
   {
     typedef char __one;
     typedef struct { char __arr[2]; } __two;
   };
 
-  template<typename _From, typename _To>
-    struct __conv_helper
+  template<typename _Tp>
+    struct __in_array
     : public __sfinae_types
     {
     private:
-      static __one __test(_To);
-      static __two __test(...);
-      static _From __makeFrom();
+      template<typename _Up>
+        static __one __test(_Up(*)[1]);
+      template<typename>
+        static __two __test(...);
     
     public:
-      static const bool __value = sizeof(__test(__makeFrom())) == 1;
+      static const bool __value = sizeof(__test<_Tp>(0)) == 1;
     };
 
 #define _DEFINE_SPEC_BODY(_Value)                                    \
@@ -96,6 +97,9 @@ namespace tr1
     };
   typedef integral_constant<bool, true>     true_type;
   typedef integral_constant<bool, false>    false_type;
+
+  template<typename _Tp, _Tp __v>
+    const _Tp integral_constant<_Tp, __v>::value;
 
   /// @brief  primary type categories [4.5.1].
   template<typename>
@@ -183,22 +187,12 @@ namespace tr1
   template<typename>
     struct is_class { };
 
-  template<typename _Tp, bool = (is_void<_Tp>::value
-				 || is_reference<_Tp>::value)>
-    struct __is_function_helper
-    {
-      static const bool __value = (__conv_helper<typename
-				   add_reference<_Tp>::type, typename
-				   add_pointer<_Tp>::type>::__value);
-    };
-
-  template<typename _Tp>
-    struct __is_function_helper<_Tp, true>
-    { static const bool __value = false; };
-
   template<typename _Tp>
     struct is_function
-    : public integral_constant<bool, __is_function_helper<_Tp>::__value>
+    : public integral_constant<bool, !(__in_array<_Tp>::__value
+				       || __is_union_or_class<_Tp>::value
+				       || is_reference<_Tp>::value
+				       || is_void<_Tp>::value)>
     { };
 
   /// @brief  composite type traits [4.5.2].
@@ -284,7 +278,7 @@ namespace tr1
 				      remove_all_extents<_Tp>::type>::value)>
     { };
 
-  // N.B. Without compiler support we cannot tell union from class types,
+  // NB: Without compiler support we cannot tell union from class types,
   // and is_empty and is_polymorphic don't work at all with the former. 
   template<typename _Tp, bool = !__is_union_or_class<_Tp>::value>
     struct __is_empty_helper
@@ -321,7 +315,7 @@ namespace tr1
         : public _Up
 	{ 
 	  virtual void __dummy();
-	  virtual ~__second();
+	  virtual ~__second() throw();
 	};
 
     public:
@@ -338,27 +332,10 @@ namespace tr1
     { };
 
   // Exploit the resolution DR core/337.
-  template<typename _Tp, bool = !is_object<_Tp>::value>
-    struct __is_abstract_helper
-    : public __sfinae_types
-    {
-    private:
-      template<typename>
-        static __one __test(...);
-      template<typename _Up>
-        static __two __test(_Up(*)[1]);
-    
-    public:
-      static const bool __value = sizeof(__test<_Tp>(0)) == 1;
-    };
-  
-  template<typename _Tp>
-    struct __is_abstract_helper<_Tp, true>
-    { static const bool __value = false; };
-
   template<typename _Tp>
     struct is_abstract
-    : public integral_constant<bool, __is_abstract_helper<_Tp>::__value> { };
+    : public integral_constant<bool, (!__in_array<_Tp>::__value
+				      && __is_union_or_class<_Tp>::value)> { };
 
   template<typename _Tp>
     struct has_trivial_constructor
@@ -366,14 +343,11 @@ namespace tr1
 
   template<typename _Tp>
     struct has_trivial_copy
-    : public integral_constant<bool, (is_pod<_Tp>::value 
-				      && !is_volatile<_Tp>::value)> { };
+    : public integral_constant<bool, is_pod<_Tp>::value> { };
 
   template<typename _Tp>
     struct has_trivial_assign
-    : public integral_constant<bool, (is_pod<_Tp>::value
-				      && !is_const<_Tp>::value
-				      && !is_volatile<_Tp>::value)> { };
+    : public integral_constant<bool, is_pod<_Tp>::value> { };
 
   template<typename _Tp>
     struct has_trivial_destructor
@@ -385,14 +359,11 @@ namespace tr1
 
   template<typename _Tp>
     struct has_nothrow_copy
-    : public integral_constant<bool, (is_pod<_Tp>::value 
-				      && !is_volatile<_Tp>::value)> { };
+    : public integral_constant<bool, is_pod<_Tp>::value> { };
 
   template<typename _Tp>
     struct has_nothrow_assign
-    : public integral_constant<bool, (is_pod<_Tp>::value
-				      && !is_const<_Tp>::value
-				      && !is_volatile<_Tp>::value)> { };
+    : public integral_constant<bool, is_pod<_Tp>::value> { };
 
   template<typename>
     struct has_virtual_destructor
@@ -496,6 +467,19 @@ namespace tr1
 			       __is_base_of_helper<_Base, _Derived>::__value>
     { };
 
+  template<typename _From, typename _To>
+    struct __is_convertible_simple
+    : public __sfinae_types
+    {
+    private:
+      static __one __test(_To);
+      static __two __test(...);
+      static _From __makeFrom();
+    
+    public:
+      static const bool __value = sizeof(__test(__makeFrom())) == 1;
+    };
+
   template<typename _Tp>
     struct __is_int_or_cref
     {
@@ -507,7 +491,8 @@ namespace tr1
     };
 
   template<typename _From, typename _To,
-	   bool = (is_function<_To>::value || is_array<_To>::value
+	   bool = (is_void<_From>::value || is_void<_To>::value
+		   || is_function<_To>::value || is_array<_To>::value
 		   // This special case is here only to avoid warnings.		   
 		   || (is_floating_point<typename
 		       remove_reference<_From>::type>::value
@@ -515,13 +500,15 @@ namespace tr1
     struct __is_convertible_helper
     {
       // "An imaginary lvalue of type From...".
-      static const bool __value = (__conv_helper<typename
+      static const bool __value = (__is_convertible_simple<typename
 				   add_reference<_From>::type, _To>::__value);
     };
 
   template<typename _From, typename _To>
     struct __is_convertible_helper<_From, _To, true>
-    { static const bool __value = __is_int_or_cref<_To>::__value; };
+    { static const bool __value = (is_void<_To>::value
+				   || (__is_int_or_cref<_To>::__value
+				       && !is_void<_From>::value)); };
 
   template<typename _From, typename _To>
     struct is_convertible
@@ -576,16 +563,23 @@ namespace tr1
   template<typename _Tp>
     struct remove_reference<_Tp&>
     { typedef _Tp     type; };
-  
+
+  // NB: Careful with reference to void.
+  template<typename _Tp, bool = (is_void<_Tp>::value
+				 || is_reference<_Tp>::value)>
+    struct __add_reference_helper
+    { typedef _Tp&    type; };
+
+  template<typename _Tp>
+    struct __add_reference_helper<_Tp, true>
+    { typedef _Tp     type; };
+
   template<typename _Tp>
     struct add_reference
-    { typedef _Tp&    type; };
+    : public __add_reference_helper<_Tp>
+    { };
 
-  template<typename _Tp>
-    struct add_reference<_Tp&>
-    { typedef _Tp&    type; };
-
-  /// @brief  array modififications [4.7.3].
+  /// @brief  array modifications [4.7.3].
   template<typename _Tp>
     struct remove_extent
     { typedef _Tp     type; };
@@ -703,7 +697,7 @@ namespace tr1
 #undef _DEFINE_SPEC
 #undef _DEFINE_SPEC_BODY
 
-}
+_GLIBCXX_END_NAMESPACE
 }
 
 #endif

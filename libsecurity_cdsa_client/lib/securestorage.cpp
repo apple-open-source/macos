@@ -167,6 +167,9 @@ SSDbImpl::insert(CSSM_DB_RECORDTYPE recordType,
 		}
 		throw;
 	}
+
+	// keep the compiler happy -- this path is NEVER taken
+	CssmError::throwMe(0);
 }
 
 SSDbUniqueRecord
@@ -211,7 +214,7 @@ SSDbImpl::newDbUniqueRecord()
 // SSGroup -- Group key with acl, used to protect a group of items.
 //
 // @@@ Get this from a shared spot.
-CSSM_DB_NAME_ATTR(SSGroupImpl::kLabel, 6, "Label", 0, NULL, BLOB);
+CSSM_DB_NAME_ATTR(SSGroupImpl::kLabel, 6, (char*) "Label", 0, NULL, BLOB);
 
 // Create a new group.
 SSGroupImpl::SSGroupImpl(const SSDb &ssDb,

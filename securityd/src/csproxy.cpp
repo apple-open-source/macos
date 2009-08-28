@@ -27,7 +27,9 @@
 //
 #include "csproxy.h"
 #include "server.h"
+#include <Security/SecStaticCode.h>
 #include <securityd_client/cshosting.h>
+#include <security_utilities/cfmunge.h>
 
 
 //
@@ -60,6 +62,7 @@ void CodeSigningHost::reset()
 	case dynamicHosting:
 		mHostingPort.destroy();
 		mHostingPort = MACH_PORT_NULL;
+		SECURITYD_HOST_UNREGISTER(DTSELF);
 		break;
 	case proxyHosting:
 		Server::active().remove(*this);	// unhook service handler
@@ -67,6 +70,7 @@ void CodeSigningHost::reset()
 		mHostingState = noHosting;
 		mHostingPort = MACH_PORT_NULL;
 		mGuests.erase(mGuests.begin(), mGuests.end());
+		SECURITYD_HOST_UNREGISTER(DTSELF);
 		break;
 	}
 }
@@ -84,7 +88,6 @@ CodeSigningHost::Guest *CodeSigningHost::findHost(SecGuestRef hostRef)
 	for (;;) {
 		if (Guest *guest = findGuest(host))
 			if (guest->dedicated) {
-				secdebug("hosting", "%p selecting dedicated guest %p of %p", this, guest, host);
 				host = guest;
 				continue;
 			}
@@ -127,12 +130,10 @@ CodeSigningHost::Guest *CodeSigningHost::findGuest(Guest *host, const CssmData &
 	if (CFNumberRef canonical = attrs.get<CFNumberRef>(kSecGuestAttributeCanonical)) {
 		// direct lookup by SecGuestRef (canonical guest handle)
 		SecGuestRef guestRef = cfNumber<SecGuestRef>(canonical);
-		secdebug("hosting", "host %p looking for guest handle 0x%x", host, guestRef);
 		if (Guest *guest = findGuest(guestRef, true))	// found guest handle
-			if (guest->isGuestOf(host, loose)) {
-				secdebug("hosting", "found guest %p, continuing search", guest);
+			if (guest->isGuestOf(host, loose))
 				host = guest;		// new starting point
-			} else
+			else
 				MacOSError::throwMe(errSecCSNoSuchCode); // not a guest of given host
 		else
 			MacOSError::throwMe(errSecCSNoSuchCode); // not there at all
@@ -143,7 +144,6 @@ CodeSigningHost::Guest *CodeSigningHost::findGuest(Guest *host, const CssmData &
 	CFTypeRef keys[count], values[count];
 	CFDictionaryGetKeysAndValues(attrs, keys, values);
 	for (;;) {
-		secdebug("hosting", "searching host %p by attributes", host);
 		Guest *match = NULL;	// previous match found
 		for (GuestMap::const_iterator it = mGuests.begin(); it != mGuests.end(); ++it)
 			if (it->second->isGuestOf(host, strict))
@@ -152,13 +152,10 @@ CodeSigningHost::Guest *CodeSigningHost::findGuest(Guest *host, const CssmData &
 						MacOSError::throwMe(errSecCSMultipleGuests);	// ambiguous
 					else
 						match = it->second;
-		if (!match) {		// nothing found
-			secdebug("hosting", "nothing found, returning %p", host);
+		if (!match)		// nothing found
 			return host;
-		} else {
-			secdebug("hosting", "found guest %p, continuing", match);
+		else
 			host = match;	// and repeat
-		}
 	}
 }
 
@@ -186,10 +183,9 @@ void CodeSigningHost::registerCodeSigning(mach_port_t hostingPort, SecCSFlags fl
 {
 	switch (mHostingState) {
 	case noHosting:
-		secdebug("hosting", "%p registering for dynamic hosting on port %d",
-			this, hostingPort);
 		mHostingPort = hostingPort;
 		mHostingState = dynamicHosting;
+		SECURITYD_HOST_REGISTER(DTSELF, mHostingPort);
 		break;
 	default:
 		MacOSError::throwMe(errSecCSHostProtocolContradiction);
@@ -203,35 +199,36 @@ void CodeSigningHost::registerCodeSigning(mach_port_t hostingPort, SecCSFlags fl
 // This engages proxy hosting mode, and is incompatible with dynamic hosting mode.
 //
 SecGuestRef CodeSigningHost::createGuest(SecGuestRef hostRef,
-		uint32_t status, const char *path, const CssmData &attributes, SecCSFlags flags)
+		uint32_t status, const char *path,
+		const CssmData &cdhash, const CssmData &attributes, SecCSFlags flags)
 {
-	secdebug("hosting", "%p create guest from host %d", this, hostRef);
-	
 	if (path[0] != '/')		// relative path (relative to what? :-)
 		MacOSError::throwMe(errSecCSHostProtocolRelativePath);
+	if (cdhash.length() > maxUcspHashLength)
+		MacOSError::throwMe(errSecCSHostProtocolInvalidHash);
 	
 	// set up for hosting proxy services if nothing's there yet
 	switch (mHostingState) {
-	case noHosting:
+	case noHosting:										// first hosting call, this host
 		// set up proxy hosting
-		mHostingPort.allocate();
-		MachServer::Handler::port(mHostingPort);
-		MachServer::active().add(*this);
-		mHostingState = proxyHosting;
-		secdebug("hosting", "%p created hosting port %d for proxy hosting", this, mHostingPort.port());
+		mHostingPort.allocate();						// allocate service port
+		MachServer::Handler::port(mHostingPort);		// put into Handler
+		MachServer::active().add(*this);				// start listening
+		mHostingState = proxyHosting;					// now proxying for this host
+		SECURITYD_HOST_PROXY(DTSELF, mHostingPort);
 		break;
-	case proxyHosting:
-		break;		// all set
-	case dynamicHosting:
+	case proxyHosting:									// already proxying
+		break;
+	case dynamicHosting:								// in dynamic mode, can't switch
 		MacOSError::throwMe(errSecCSHostProtocolContradiction);
 	}
 	
 	RefPointer<Guest> host = findHost(hostRef);
-	RefPointer<Guest> knownGuest = findGuest(host);
-	if ((flags & kSecCSDedicatedHost) && knownGuest)
-		MacOSError::throwMe(errSecCSHostProtocolDedicationError);	// can't dedicate with other guests
-	else if (knownGuest && knownGuest->dedicated)
-		MacOSError::throwMe(errSecCSHostProtocolDedicationError);	// other guest is already dedicated
+	if (RefPointer<Guest> knownGuest = findGuest(host))	// got a guest already
+		if (flags & kSecCSDedicatedHost)
+			MacOSError::throwMe(errSecCSHostProtocolDedicationError);	// can't dedicate with other guests
+		else if (knownGuest->dedicated)
+			MacOSError::throwMe(errSecCSHostProtocolDedicationError);	// other guest is already dedicated
 
 	// create the new guest
 	RefPointer<Guest> guest = new Guest;
@@ -241,27 +238,30 @@ SecGuestRef CodeSigningHost::createGuest(SecGuestRef hostRef,
 	guest->status = status;
 	guest->path = path;
 	guest->setAttributes(attributes);
+	guest->setHash(cdhash, flags & kSecCSGenerateGuestHash);
 	guest->dedicated = (flags & kSecCSDedicatedHost);
 	mGuests[guest->guestRef()] = guest;
-	secdebug("hosting", "guest 0x%x created %sstatus=0x%x path=%s",
-		guest->guestRef(), guest->dedicated ? "dedicated " : "", guest->status, guest->path.c_str());
+	SECURITYD_GUEST_CREATE(DTSELF, hostRef, guest->guestRef(), guest->status, flags, (char *)guest->path.c_str());
+	if (SECURITYD_GUEST_CDHASH_ENABLED())
+		SECURITYD_GUEST_CDHASH(DTSELF, guest->guestRef(),
+			(void*)CFDataGetBytePtr(guest->cdhash), CFDataGetLength(guest->cdhash));
 	return guest->guestRef();
 }
 
 
 void CodeSigningHost::setGuestStatus(SecGuestRef guestRef, uint32_t status, const CssmData &attributes)
 {
-	secdebug("hosting", "%p set guest 0x%x", this, guestRef);
 	if (mHostingState != proxyHosting)
 		MacOSError::throwMe(errSecCSHostProtocolNotProxy);
 	Guest *guest = findGuest(guestRef);
 
 	// state modification machine
-	if ((status & ~guest->status) & CS_VALID)
+	if ((status & ~guest->status) & kSecCodeStatusValid)
 		MacOSError::throwMe(errSecCSHostProtocolStateError); // can't set
-	if ((~status & guest->status) & (CS_HARD | CS_KILL))
+	if ((~status & guest->status) & (kSecCodeStatusHard | kSecCodeStatusKill))
 		MacOSError::throwMe(errSecCSHostProtocolStateError); // can't clear
 	guest->status = status;
+	SECURITYD_GUEST_CHANGE(DTSELF, guestRef, status);
 
 	// replace attributes if requested
 	if (attributes)
@@ -274,7 +274,6 @@ void CodeSigningHost::setGuestStatus(SecGuestRef guestRef, uint32_t status, cons
 //
 void CodeSigningHost::removeGuest(SecGuestRef hostRef, SecGuestRef guestRef)
 {
-	secdebug("hosting", "%p removes guest %d from host %d", this, guestRef, hostRef);
 	if (mHostingState != proxyHosting) 
 		MacOSError::throwMe(errSecCSHostProtocolNotProxy);
 	RefPointer<Guest> host = findHost(hostRef);
@@ -284,8 +283,10 @@ void CodeSigningHost::removeGuest(SecGuestRef hostRef, SecGuestRef guestRef)
 	if (!guest->isGuestOf(host, strict))
 		MacOSError::throwMe(errSecCSHostProtocolUnrelated);
 	for (GuestMap::iterator it = mGuests.begin(); it != mGuests.end(); ++it)
-		if (it->second->isGuestOf(guest, loose))
+		if (it->second->isGuestOf(guest, loose)) {
+			SECURITYD_GUEST_DESTROY(DTSELF, it->first);
 			mGuests.erase(it);
+		}
 }
 
 
@@ -293,20 +294,42 @@ void CodeSigningHost::removeGuest(SecGuestRef hostRef, SecGuestRef guestRef)
 // The internal Guest object
 //
 CodeSigningHost::Guest::~Guest()
-{
-	secdebug("hosting", "guest %ld destroyed", handle());
-}
+{ }
 
 void CodeSigningHost::Guest::setAttributes(const CssmData &attrData)
 {
 	CFRef<CFNumberRef> guest = makeCFNumber(guestRef());
 	if (attrData) {
-		CFRef<CFDictionaryRef> inputDict = makeCFDictionaryFrom(attrData.data(), attrData.length());
-		CFRef<CFMutableDictionaryRef> dict = CFDictionaryCreateMutableCopy(NULL, 0, inputDict);
-		CFDictionaryAddValue(dict, kSecGuestAttributeCanonical, guest);
-		attributes.take(dict);
+		attributes.take(cfmake<CFDictionaryRef>("{+%O,%O=%O}",
+			makeCFDictionaryFrom(attrData.data(), attrData.length()), kSecGuestAttributeCanonical, guest.get()));
 	} else {
 		attributes.take(makeCFDictionary(1, kSecGuestAttributeCanonical, guest.get()));
+	}
+}
+
+CFDataRef CodeSigningHost::Guest::attrData() const
+{
+	if (!mAttrData)
+		mAttrData = makeCFData(this->attributes.get());
+	return mAttrData;
+}
+
+
+void CodeSigningHost::Guest::setHash(const CssmData &given, bool generate)
+{
+	if (given.length())		// explicitly given
+		this->cdhash.take(makeCFData(given));
+	else if (CFTypeRef hash = CFDictionaryGetValue(this->attributes, kSecGuestAttributeHash))
+		if (CFGetTypeID(hash) == CFDataGetTypeID())
+			this->cdhash = CFDataRef(hash);
+		else
+			MacOSError::throwMe(errSecCSHostProtocolInvalidHash);
+	else if (generate) {		// generate from path (well, try)
+		CFRef<SecStaticCodeRef> code;
+		MacOSError::check(SecStaticCodeCreateWithPath(CFTempURL(this->path), kSecCSDefaultFlags, &code.aref()));
+		CFRef<CFDictionaryRef> info;
+		MacOSError::check(SecCodeCopySigningInformation(code, kSecCSDefaultFlags, &info.aref()));
+		this->cdhash = CFDataRef(CFDictionaryGetValue(info, kSecCodeInfoUnique));
 	}
 }
 
@@ -416,10 +439,26 @@ kern_return_t cshosting_server_findGuest(CSH_ARGS, SecGuestRef hostRef,
 //
 // Retrieve the path to a guest specified by canonical reference.
 //
-kern_return_t cshosting_server_guestPath(CSH_ARGS, SecGuestRef guestRef, char *path)
+kern_return_t cshosting_server_identifyGuest(CSH_ARGS, SecGuestRef guestRef,
+	char *path, char *hash, uint32_t *hashLength, DATA_OUT(attributes))
 {
 	BEGIN_IPC
-	strncpy(path, context()->findGuest(guestRef)->path.c_str(), MAXPATHLEN);
+	CodeSigningHost::Guest *guest = context()->findGuest(guestRef);
+	strncpy(path, guest->path.c_str(), MAXPATHLEN);
+
+	// canonical cdhash
+	if (guest->cdhash) {
+		*hashLength = CFDataGetLength(guest->cdhash);
+		assert(*hashLength <= maxUcspHashLength);
+		memcpy(hash, CFDataGetBytePtr(guest->cdhash), *hashLength);
+	} else
+		*hashLength = 0;	// unavailable
+
+	// visible attributes. This proxy returns all attributes set by the host
+	CFDataRef attrData = guest->attrData();	// (the guest will cache this until it dies)
+	*attributes = (void *)CFDataGetBytePtr(attrData);	// MIG botch (it doesn't need a writable pointer)
+	*attributesLength = CFDataGetLength(attrData);
+	
 	END_IPC
 }
 

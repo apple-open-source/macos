@@ -1,0 +1,142 @@
+[comment {-*- tcl -*- doctools}]
+[include common/trf_version.inc]
+[manpage_begin trf-intro n [vset trf_version]]
+[titledesc {Introduction to Trf}]
+[include common/trf_header.inc]
+[description]
+
+The package [package Trf] provides a number of commands which take
+data and transform them in various ways.
+
+[section BACKGROUND]
+
+The implementation of Trf began as proof-of-concept of the validity
+and usefulness of the "stacked channel" patches to the core. These
+patches allow the writing of extensions to the generic I/O system of
+the core which are able to intercept all read/write operations on
+designated channels, thus giving it the ability to transform the data
+flowing through these channels as desired.
+
+[para]
+
+This allows things like transparent encryption, compression, charset
+recoding, etc.
+
+[para]
+
+Since version 8.2 of the tcl core the aforementioned patches are part
+of the tcl core itself, changing the status of [package trf] from
+"extension requiring core patches" to "normal extension".
+
+[para]
+
+Other packages built upon either the stackd channels directly, or Trf
+are:
+
+[list_begin enum]
+[enum]
+[package TrfCrypt], by myself, contains various encryption systems 
+[enum]
+[package TLS], an SSL/TLS implementation by Matt Newman. 
+[enum]
+[package {Tcl MIME}] by Marshall Rose. 
+[list_end]
+
+
+[section API]
+
+The commands provide by [package trf] can be placed into the three
+categories listed below. Note that all commands are added to the
+global namespace.
+
+[list_begin definitions]
+
+[lst_item [term Encodings]]
+
+The encoding commands either take some data and return the same data
+in encoded form, or take encoded data and return a decoded result.
+
+[list_begin enum]
+[enum]
+[cmd oct]
+[enum]
+[cmd hex]
+[enum]
+[cmd oct]
+[enum]
+[cmd base64]
+[enum]
+[cmd uuencode]
+[enum]
+[cmd ascii85]
+[enum]
+[cmd otp_words]
+[enum]
+[cmd quoted-printable]
+[list_end]
+[nl]
+
+[lst_item [term {Message Digests}]]
+
+The second category are message digests in general, simple ones like
+[cmd crc], and cryptographically strong algorithms like [cmd md5].
+
+[list_begin enum]
+[enum]
+[cmd crc-zlib]
+[enum]
+[cmd crc]
+[enum]
+[cmd adler]
+[enum]
+[cmd md2]
+[enum]
+[cmd md5]
+[enum]
+[cmd md5_otp]
+[enum]
+[cmd sha]
+[enum]
+[cmd sha1]
+[enum]
+[cmd sha1_otp]
+[enum]
+[cmd haval]
+[enum]
+[cmd ripemd-160]
+[enum]
+[cmd ripemd-128]
+[list_end]
+[nl]
+
+[lst_item Miscellaneous]
+
+At last a number of commands not readily placed into categories
+providing password crypting, general transformations, data
+compression, error correction and others.
+
+[list_begin enum]
+[enum]
+[cmd crypt]
+[enum]
+[cmd md5crypt]
+[enum]
+[cmd transform]
+[enum]
+[cmd rs_ecc]
+[enum]
+[cmd zip]
+[enum]
+[cmd bz2]
+[enum]
+[cmd unstack]
+[list_end]
+
+[list_end]
+
+[see_also oct hex oct base64 uuencode ascii85 otp_words quoted-printable crc-zlib crc adler md2 md5 md5_otp sha sha1 sha1_otp haval ripemd-160 ripemd-128 crypt md5crypt transform rs_ecc zip bz2]
+[keywords transformation encoding {message digest} compression {error correction}]
+[manpage_end]
+
+
+

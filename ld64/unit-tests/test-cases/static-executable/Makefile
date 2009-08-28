@@ -24,20 +24,12 @@ TESTROOT = ../..
 include ${TESTROOT}/include/common.makefile
 
 #
-# The point of this test is a sanity check that ld
-# can link a static executable (requires non-public archives)
+# Test that ld can link a static executable
 #
 
-run:
-	@if [ ${ARCH} = ppc ] || [ ${ARCH} = i386 ] ; then \
-	$(MAKE) all ; \
-	else \
-	$(PASS_IFF) /usr/bin/true ; \
-	fi
-
 all:
-	${CC} ${CCFLAGS} test.c -static -o test-${ARCH} -L/usr/local/lib/system -lc_static -lm_static -dead_strip 2>/dev/null
-	${PASS_IFF_GOOD_MACHO} test-${ARCH}
+	${CC} ${CCFLAGS} test.c -static -o test -e _entry -nostdlib -Wl,-new_linker
+	${PASS_IFF_GOOD_MACHO} test
 
 clean:
-	rm -rf test-*
+	rm -rf test

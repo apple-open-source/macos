@@ -29,10 +29,10 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\"	from: @(#)su.1	8.2 (Berkeley) 4/18/94
-.\"	$NetBSD: su.1,v 1.14 1997/10/19 23:31:52 lukem Exp $
+.\"	@(#)su.1	8.2 (Berkeley) 4/18/94
+.\" $FreeBSD: src/usr.bin/su/su.1,v 1.40 2007/07/24 06:41:07 delphij Exp $
 .\"
-.Dd April 18, 1994
+.Dd September 13, 2006
 .Dt SU 1
 .Os
 .Sh NAME
@@ -44,19 +44,45 @@
 .Op Fl flm
 .Op Ar login Op Ar args
 .Sh DESCRIPTION
+The
 .Nm
-requests the password for
-.Ar login
-and switches to
-that user and group ID after obtaining proper authentication.
-A shell is then executed, and any additional
-.Ar "shell arguments"
-after the login name
-are passed to the shell.
-If
-.Nm
-is executed by root, no password is requested and a shell
-with the appropriate user ID is executed.
+utility requests appropriate user credentials via PAM
+and switches to that user ID
+(the default user is the superuser).
+A shell is then executed.
+.Pp
+PAM is used to set the policy
+.Xr su 1
+will use.
+In particular, by default only users in the
+.Dq Li admin
+or
+.Dq Li wheel
+groups can switch to UID 0
+.Pq Dq Li root .
+This group requirement may be changed by modifying the
+.Dq Li pam_group
+section of
+.Pa /etc/pam.d/su .
+See
+.Xr pam_group 8
+for details on how to modify this setting.
+.Pp
+By default, the environment is unmodified with the exception of
+.Ev USER ,
+.Ev HOME ,
+and
+.Ev SHELL .
+.Ev HOME
+and
+.Ev SHELL
+are set to the target login's default values.
+.Ev USER
+is set to the target login, unless the target login has a user ID of 0,
+in which case it is unmodified.
+The invoked shell is the one belonging to the target login.
+This is the traditional behavior of
+.Nm .
 .Pp
 The options are as follows:
 .Bl -tag -width Ds
@@ -89,7 +115,9 @@ is imported from your current environment.
 The invoked shell is the target login's, and
 .Nm
 will change directory to the target login's home directory.
-This option is identical to just passing "-", as in "su -".
+.It Fl
+(no letter) The same as
+.Fl l .
 .It Fl m
 Leave the environment unmodified.
 The invoked shell is your login shell, and no directory changes are made.
@@ -104,40 +132,31 @@ will fail.
 .Pp
 The
 .Fl l
+(or
+.Fl )
 and
 .Fl m
 options are mutually exclusive; the last one specified
 overrides any previous ones.
 .Pp
-Only users in group
-.Dq wheel
-(normally gid 0)
-or group
-.Dq admin
-(normally gid 20) can
+If the optional
+.Ar args
+are provided on the command line, they are passed to the login shell of
+the target login.
+Note that all command line arguments before the target login name are
+processed by
 .Nm
-to
-.Dq root .
+itself, everything after the target login name gets passed to the login
+shell.
 .Pp
 By default (unless the prompt is reset by a startup file) the super-user
 prompt is set to
 .Dq Sy \&#
 to remind one of its awesome power.
-.Sh SEE ALSO
-.Xr csh 1 ,
-.Xr login 1 ,
-.Xr sh 1 ,
-.Xr skey 1 ,
-.Xr kinit 1 ,
-.Xr kerberos 1 ,
-.Xr passwd 5 ,
-.Xr group 5 ,
-.Xr environ 7
 .Sh ENVIRONMENT
 Environment variables used by
-.Nm 
-:
-.Bl -tag -width "HOME"
+.Nm :
+.Bl -tag -width HOME
 .It Ev HOME
 Default home directory of real user ID unless modified as
 specified above.
@@ -151,8 +170,44 @@ The user ID is always the effective ID (the target user ID) after an
 .Nm
 unless the user ID is 0 (root).
 .El
+.Sh FILES
+.Bl -tag -width ".Pa /etc/pam.d/su" -compact
+.It Pa /etc/pam.d/su
+PAM configuration for
+.Nm .
+.El
+.Sh EXAMPLES
+.Bl -tag -width 5n -compact
+.It Li "su man -c catman"
+Runs the command
+.Li catman
+as user
+.Li man .
+You will be asked for man's password unless your real UID is 0.
+.It Li "su man -c 'catman /usr/share/man /usr/local/man'"
+Same as above, but the target command consists of more than a
+single word and hence is quoted for use with the
+.Fl c
+option being passed to the shell.
+(Most shells expect the argument to
+.Fl c
+to be a single word).
+.It Li "su -l foo"
+Simulate a login for user foo.
+.It Li "su - foo"
+Same as above.
+.It Li "su -"
+Simulate a login for root.
+.El
+.Sh SEE ALSO
+.Xr csh 1 ,
+.Xr sh 1 ,
+.Xr group 5 ,
+.Xr passwd 5 ,
+.Xr environ 7 ,
+.Xr pam_group 8
 .Sh HISTORY
 A
 .Nm
 command appeared in
-.At v7 .
+.At v1 .

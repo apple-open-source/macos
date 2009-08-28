@@ -348,6 +348,8 @@ struct isakmp_pl_n {
 #define ISAKMP_NTYPE_CERTIFICATE_UNAVAILABLE	28
 #define ISAKMP_NTYPE_UNSUPPORTED_EXCHANGE_TYPE	29
 #define ISAKMP_NTYPE_UNEQUAL_PAYLOAD_LENGTHS	30
+#define ISAKMP_NTYPE_MINERROR			1
+#define ISAKMP_NTYPE_MAXERROR			16383
 /* NOTIFY MESSAGES - STATUS TYPES */
 #define ISAKMP_NTYPE_CONNECTED			16384
 /* 4.6.3 IPSEC DOI Notify Message Types */
@@ -361,6 +363,7 @@ struct isakmp_pl_n {
 
 #define ISAKMP_NTYPE_LOAD_BALANCE		40501
 #define ISAKMP_NTYPE_HEARTBEAT			40503
+
 
 /* using only to log */
 #define ISAKMP_LOG_RETRY_LIMIT_REACHED		65530
@@ -442,6 +445,17 @@ struct isakmp_pl_lb {
 	cookie_t  i_ck;		/* Initiator Cookie */
 	cookie_t r_ck;		/* Responder cookie*/
 	u_int32_t address;	/* redirect address */
+} __attribute__((__packed__));
+
+/* Responder-Lifetime Notification */
+struct isakmp_pl_resp_lifetime {
+	struct isakmp_gen h;
+	u_int32_t doi;		/* Domain of Interpretation */
+	u_int8_t proto_id;	/* Protocol-Id */
+	u_int8_t spi_size;	/* SPI Size */
+	u_int16_t type;		/* Notify type */
+    /* spi follows next */
+    /* data follows next */
 } __attribute__((__packed__));
 
 #endif /* _ISAKMP_H */

@@ -111,4 +111,19 @@
 #define LIBC_EXTSN(sym)		__asm("_" __STRING(sym) LIBC_SUF_EXTSN)
 #define LIBC_EXTSN_C(sym)	__asm("_" __STRING(sym) LIBC_SUF_EXTSN LIBC_SUF_NON_CANCELABLE)
 
+extern int __pthread_tsd_first;
+extern int pthread_key_init_np(int, void (*)(void *));
+
+#define	__LIBC_PTHREAD_KEY(x)		(__pthread_tsd_first + (x))
+
+/*
+ * Libc pthread key assignments
+ */
+#define __LIBC_PTHREAD_KEY_XLOCALE	__LIBC_PTHREAD_KEY(0)
+#define __LIBC_PTHREAD_KEY_TTYNAME	__LIBC_PTHREAD_KEY(1)
+#define __LIBC_PTHREAD_KEY_LOCALTIME	__LIBC_PTHREAD_KEY(2)
+#define __LIBC_PTHREAD_KEY_GMTIME	__LIBC_PTHREAD_KEY(3)
+#define __LIBC_PTHREAD_KEY_GDTOA_BIGINT	__LIBC_PTHREAD_KEY(4)
+#define __LIBC_PTHREAD_KEY_PARSEFLOAT	__LIBC_PTHREAD_KEY(5)
+
 #endif /* _LIBC_SYS_CDEFS_H_ */

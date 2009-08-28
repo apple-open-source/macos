@@ -1,5 +1,5 @@
 /*
- * "$Id: classes.c 7725 2008-07-14 06:16:34Z mike $"
+ * "$Id: classes.c 7724 2008-07-14 06:06:06Z mike $"
  *
  *   Printer class routines for the Common UNIX Printing System (CUPS).
  *
@@ -18,7 +18,6 @@
  *   cupsdAddPrinterToClass()        - Add a printer to a class...
  *   cupsdDeletePrinterFromClass()   - Delete a printer from a class.
  *   cupsdDeletePrinterFromClasses() - Delete a printer from all classes.
- *   cupsdDeleteAllClasses()         - Remove all classes from the system.
  *   cupsdFindAvailablePrinter()     - Find an available printer in a class.
  *   cupsdFindClass()                - Find the named class.
  *   cupsdLoadAllClasses()           - Load classes from the classes.conf file.
@@ -56,9 +55,9 @@ cupsdAddClass(const char *name)		/* I - Name of class */
 
     c->type = CUPS_PRINTER_CLASS;
 
-    cupsdSetStringf(&c->uri, "ipp://%s:%d/classes/%s", ServerName, LocalPort,
+    cupsdSetStringf(&c->uri, "ipp://%s:%d/classes/%s", ServerName, RemotePort,
                     name);
-    cupsdSetString(&c->error_policy, "retry-job");
+    cupsdSetString(&c->error_policy, "retry-current-job");
   }
 
   return (c);
@@ -199,24 +198,6 @@ cupsdDeletePrinterFromClasses(
 
 
 /*
- * 'cupsdDeleteAllClasses()' - Remove all classes from the system.
- */
-
-void
-cupsdDeleteAllClasses(void)
-{
-  cupsd_printer_t	*c;		/* Pointer to current printer/class */
-
-
-  for (c = (cupsd_printer_t *)cupsArrayFirst(Printers);
-       c;
-       c = (cupsd_printer_t *)cupsArrayNext(Printers))
-    if (c->type & CUPS_PRINTER_CLASS)
-      cupsdDeletePrinter(c, 0);
-}
-
-
-/*
  * 'cupsdFindAvailablePrinter()' - Find an available printer in a class.
  */
 
@@ -304,9 +285,10 @@ cupsdFindClass(const char *name)	/* I - Name of class */
 void
 cupsdLoadAllClasses(void)
 {
+  int			i;		/* Looping var */
   cups_file_t		*fp;		/* classes.conf file */
   int			linenum;	/* Current line number */
-  char			line[1024],	/* Line from file */
+  char			line[4096],	/* Line from file */
 			*value,		/* Pointer to value */
 			*valueptr;	/* Pointer into value */
   cupsd_printer_t	*p,		/* Current printer class */
@@ -372,11 +354,8 @@ cupsdLoadAllClasses(void)
 	  DefaultPrinter = p;
       }
       else
-      {
         cupsdLogMessage(CUPSD_LOG_ERROR,
 	                "Syntax error on line %d of classes.conf.", linenum);
-        break;
-      }
     }
     else if (!strcasecmp(line, "</Class>"))
     {
@@ -386,17 +365,13 @@ cupsdLoadAllClasses(void)
         p = NULL;
       }
       else
-      {
         cupsdLogMessage(CUPSD_LOG_ERROR,
 	                "Syntax error on line %d of classes.conf.", linenum);
-        break;
-      }
     }
     else if (!p)
     {
       cupsdLogMessage(CUPSD_LOG_ERROR,
                       "Syntax error on line %d of classes.conf.", linenum);
-      break;
     }
     else if (!strcasecmp(line, "AuthInfoRequired"))
     {
@@ -440,7 +415,7 @@ cupsdLoadAllClasses(void)
       {
 	cupsdLogMessage(CUPSD_LOG_ERROR,
 	                "Syntax error on line %d of classes.conf.", linenum);
-	break;
+        continue;
       }
       else if ((temp = cupsdFindPrinter(value)) == NULL)
       {
@@ -480,14 +455,24 @@ cupsdLoadAllClasses(void)
       if (!strcasecmp(value, "idle"))
         p->state = IPP_PRINTER_IDLE;
       else if (!strcasecmp(value, "stopped"))
-        p->state = IPP_PRINTER_STOPPED;
-      else
       {
+        p->state = IPP_PRINTER_STOPPED;
+
+        for (i = 0 ; i < p->num_reasons; i ++)
+	  if (!strcmp("paused", p->reasons[i]))
+	    break;
+
+        if (i >= p->num_reasons &&
+	    p->num_reasons < (int)(sizeof(p->reasons) / sizeof(p->reasons[0])))
+	{
+	  p->reasons[p->num_reasons] = _cupsStrAlloc("paused");
+	  p->num_reasons ++;
+	}
+      }
+      else
 	cupsdLogMessage(CUPSD_LOG_ERROR,
 	                "Syntax error on line %d of classes.conf.",
 	                linenum);
-	break;
-      }
     }
     else if (!strcasecmp(line, "StateMessage"))
     {
@@ -524,12 +509,9 @@ cupsdLoadAllClasses(void)
         	!strcasecmp(value, "false")))
         p->accepting = 0;
       else
-      {
 	cupsdLogMessage(CUPSD_LOG_ERROR,
 	                "Syntax error on line %d of classes.conf.",
 	                linenum);
-	break;
-      }
     }
     else if (!strcasecmp(line, "Shared"))
     {
@@ -548,12 +530,9 @@ cupsdLoadAllClasses(void)
         	!strcasecmp(value, "false")))
         p->shared = 0;
       else
-      {
 	cupsdLogMessage(CUPSD_LOG_ERROR,
 	                "Syntax error on line %d of classes.conf.",
 	                linenum);
-	break;
-      }
     }
     else if (!strcasecmp(line, "JobSheets"))
     {
@@ -588,11 +567,8 @@ cupsdLoadAllClasses(void)
 	}
       }
       else
-      {
 	cupsdLogMessage(CUPSD_LOG_ERROR,
 	                "Syntax error on line %d of classes.conf.", linenum);
-	break;
-      }
     }
     else if (!strcasecmp(line, "AllowUser"))
     {
@@ -602,11 +578,8 @@ cupsdLoadAllClasses(void)
         cupsdAddPrinterUser(p, value);
       }
       else
-      {
 	cupsdLogMessage(CUPSD_LOG_ERROR,
 	                "Syntax error on line %d of classes.conf.", linenum);
-	break;
-      }
     }
     else if (!strcasecmp(line, "DenyUser"))
     {
@@ -616,44 +589,32 @@ cupsdLoadAllClasses(void)
         cupsdAddPrinterUser(p, value);
       }
       else
-      {
 	cupsdLogMessage(CUPSD_LOG_ERROR,
 	                "Syntax error on line %d of classes.conf.", linenum);
-	break;
-      }
     }
     else if (!strcasecmp(line, "QuotaPeriod"))
     {
       if (value)
         p->quota_period = atoi(value);
       else
-      {
 	cupsdLogMessage(CUPSD_LOG_ERROR,
 	                "Syntax error on line %d of classes.conf.", linenum);
-	break;
-      }
     }
     else if (!strcasecmp(line, "PageLimit"))
     {
       if (value)
         p->page_limit = atoi(value);
       else
-      {
 	cupsdLogMessage(CUPSD_LOG_ERROR,
 	                "Syntax error on line %d of classes.conf.", linenum);
-	break;
-      }
     }
     else if (!strcasecmp(line, "KLimit"))
     {
       if (value)
         p->k_limit = atoi(value);
       else
-      {
 	cupsdLogMessage(CUPSD_LOG_ERROR,
 	                "Syntax error on line %d of classes.conf.", linenum);
-	break;
-      }
     }
     else if (!strcasecmp(line, "OpPolicy"))
     {
@@ -673,22 +634,21 @@ cupsdLoadAllClasses(void)
 			  value, linenum);
       }
       else
-      {
 	cupsdLogMessage(CUPSD_LOG_ERROR,
 	                "Syntax error on line %d of classes.conf.", linenum);
-	break;
-      }
     }
     else if (!strcasecmp(line, "ErrorPolicy"))
     {
       if (value)
-        cupsdSetString(&p->error_policy, value);
-      else
       {
+        if (strcmp(value, "retry-current-job") && strcmp(value, "retry-job"))
+	  cupsdLogMessage(CUPSD_LOG_WARN,
+	                  "ErrorPolicy %s ignored on line %d of classes.conf",
+			  value, linenum);
+      }
+      else
 	cupsdLogMessage(CUPSD_LOG_ERROR,
 	                "Syntax error on line %d of classes.conf.", linenum);
-	break;
-      }
     }
     else
     {
@@ -714,14 +674,14 @@ void
 cupsdSaveAllClasses(void)
 {
   cups_file_t		*fp;		/* classes.conf file */
-  char			temp[1024];	/* Temporary string */
-  char			backup[1024];	/* classes.conf.O file */
+  char			temp[1024],	/* Temporary string */
+			backup[1024],	/* printers.conf.O file */
+			value[2048];	/* Value string */
   cupsd_printer_t	*pclass;	/* Current printer class */
   int			i;		/* Looping var */
   time_t		curtime;	/* Current time */
   struct tm		*curdate;	/* Current date */
   cups_option_t		*option;	/* Current option */
-  const char		*ptr;		/* Pointer into info/location */
 
 
  /*
@@ -797,53 +757,38 @@ cupsdSaveAllClasses(void)
 
     if (pclass->num_auth_info_required > 0)
     {
-      cupsFilePrintf(fp, "AuthInfoRequired %s", pclass->auth_info_required[0]);
-      for (i = 1; i < pclass->num_auth_info_required; i ++)
-        cupsFilePrintf(fp, ",%s", pclass->auth_info_required[i]);
-      cupsFilePutChar(fp, '\n');
+      switch (pclass->num_auth_info_required)
+      {
+        case 1 :
+            strlcpy(value, pclass->auth_info_required[0], sizeof(value));
+	    break;
+
+        case 2 :
+            snprintf(value, sizeof(value), "%s,%s",
+	             pclass->auth_info_required[0],
+		     pclass->auth_info_required[1]);
+	    break;
+
+        case 3 :
+	default :
+            snprintf(value, sizeof(value), "%s,%s,%s",
+	             pclass->auth_info_required[0],
+		     pclass->auth_info_required[1],
+		     pclass->auth_info_required[2]);
+	    break;
+      }
+
+      cupsFilePutConf(fp, "AuthInfoRequired", value);
     }
 
     if (pclass->info)
-    {
-      if ((ptr = strchr(pclass->info, '#')) != NULL)
-      {
-       /*
-        * Need to quote the first # in the info string...
-	*/
-
-        cupsFilePuts(fp, "Info ");
-	cupsFileWrite(fp, pclass->info, ptr - pclass->info);
-	cupsFilePutChar(fp, '\\');
-	cupsFilePuts(fp, ptr);
-	cupsFilePutChar(fp, '\n');
-      }
-      else
-        cupsFilePrintf(fp, "Info %s\n", pclass->info);
-    }
+      cupsFilePutConf(fp, "Info", pclass->info);
 
     if (pclass->location)
-    {
-      if ((ptr = strchr(pclass->info, '#')) != NULL)
-      {
-       /*
-        * Need to quote the first # in the location string...
-	*/
-
-        cupsFilePuts(fp, "Location ");
-	cupsFileWrite(fp, pclass->location, ptr - pclass->location);
-	cupsFilePutChar(fp, '\\');
-	cupsFilePuts(fp, ptr);
-	cupsFilePutChar(fp, '\n');
-      }
-      else
-        cupsFilePrintf(fp, "Location %s\n", pclass->location);
-    }
+      cupsFilePutConf(fp, "Location", pclass->location);
 
     if (pclass->state == IPP_PRINTER_STOPPED)
-    {
       cupsFilePuts(fp, "State Stopped\n");
-      cupsFilePrintf(fp, "StateMessage %s\n", pclass->state_message);
-    }
     else
       cupsFilePuts(fp, "State Idle\n");
 
@@ -859,8 +804,9 @@ cupsdSaveAllClasses(void)
     else
       cupsFilePuts(fp, "Shared No\n");
 
-    cupsFilePrintf(fp, "JobSheets %s %s\n", pclass->job_sheets[0],
-                   pclass->job_sheets[1]);
+    snprintf(value, sizeof(value), "%s %s", pclass->job_sheets[0],
+             pclass->job_sheets[1]);
+    cupsFilePutConf(fp, "JobSheets", value);
 
     for (i = 0; i < pclass->num_printers; i ++)
       cupsFilePrintf(fp, "Printer %s\n", pclass->printers[i]->name);
@@ -870,18 +816,21 @@ cupsdSaveAllClasses(void)
     cupsFilePrintf(fp, "KLimit %d\n", pclass->k_limit);
 
     for (i = 0; i < pclass->num_users; i ++)
-      cupsFilePrintf(fp, "%sUser %s\n", pclass->deny_users ? "Deny" : "Allow",
-        	     pclass->users[i]);
+      cupsFilePutConf(fp, pclass->deny_users ? "DenyUser" : "AllowUser",
+                      pclass->users[i]);
 
-    if (pclass->op_policy)
-      cupsFilePrintf(fp, "OpPolicy %s\n", pclass->op_policy);
+     if (pclass->op_policy)
+      cupsFilePutConf(fp, "OpPolicy", pclass->op_policy);
     if (pclass->error_policy)
-      cupsFilePrintf(fp, "ErrorPolicy %s\n", pclass->error_policy);
+      cupsFilePutConf(fp, "ErrorPolicy", pclass->error_policy);
 
     for (i = pclass->num_options, option = pclass->options;
          i > 0;
 	 i --, option ++)
-      cupsFilePrintf(fp, "Option %s %s\n", option->name, option->value);
+    {
+      snprintf(value, sizeof(value), "%s %s", option->name, option->value);
+      cupsFilePutConf(fp, "Option", value);
+    }
 
     cupsFilePuts(fp, "</Class>\n");
   }
@@ -921,5 +870,5 @@ cupsdUpdateImplicitClasses(void)
 
 
 /*
- * End of "$Id: classes.c 7725 2008-07-14 06:16:34Z mike $".
+ * End of "$Id: classes.c 7724 2008-07-14 06:06:06Z mike $".
  */

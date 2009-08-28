@@ -1,3 +1,30 @@
+/*
+ * Copyright (c) 2006-2008 Apple Inc. All rights reserved.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ * 
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
+ */
 #ifndef __MACHO_UTIL_H__
 #define __MACHO_UTIL_H__
 
@@ -30,12 +57,16 @@ own risk.
                                ((magic) == MH_CIGAM_64))
 #define ISSWAPPEDMACHO(magic)  (((magic) == MH_CIGAM) || \
                                ((magic) == MH_CIGAM_64))
+#define ISMACHO64(magic)      (((magic) == MH_MAGIC_64) || \
+                               ((magic) == MH_CIGAM_64))
 
 /*******************************************************************************
 *
 *******************************************************************************/
 #define CondSwapInt32(flag, value)  ((flag) ? OSSwapInt32((value)) : \
                                     (uint32_t)(value))
+#define CondSwapInt64(flag, value)  ((flag) ? OSSwapInt64((value)) : \
+                                    (uint64_t)(value))
 /*!
  * @enum macho_seek_result
  * @abstract Results of a lookup within a Mach-O file.
@@ -50,11 +81,11 @@ own risk.
  *           when they can determine conclusively that the requested item does not exist.
  */
 typedef enum {
-    macho_seek_result_error = -1,
-    macho_seek_result_found = 0,
+    macho_seek_result_error          = -1,
+    macho_seek_result_found          = 0,
     macho_seek_result_found_no_value = 1,
-    macho_seek_result_not_found = 2,
-    macho_seek_result_stop = 3,
+    macho_seek_result_not_found      = 2,
+    macho_seek_result_stop           = 3,
 } macho_seek_result;
 
 /*!
@@ -67,11 +98,11 @@ typedef enum {
  *        containing the data for that symbol. Only symbols of type
  *        N_SECT, N_UNDF, and N_ABS are currently supported, and for N_ABS
  *        the result will be macho_seek_result_found_no_value.
- * @param mach_header A pointer to the beginning of the mapped Mach-O file.
+ * @param file_start A pointer to the beginning of the mapped Mach-O file.
  * @param file_end A pointer to the end of the mapped Mach-O file.
- * @param symbol_entry The nlist entry for the symbol. It is only valid while
- *        the macho_iterator exists.
- * @param symbol_name The name of the symbol to find.
+ * @param name The name of the symbol to find.
+ * @param nlist_type The address of a uint8_t that will be filled with the type
+ *        of the located symbol.
  * @param symbol_address The address of a pointer that will be filled
  *        with the location of the symbol's data in the mapped file,
  *        if it is found.
@@ -80,11 +111,11 @@ typedef enum {
  * or macho_seek_result_error if an error occurs.
  */
 macho_seek_result macho_find_symbol(
-    const void * file_start,
-    const void * file_end,
-    const char * symbol_name,
-    const struct nlist ** symbol_entry,
-    const void ** mapped_file_address);
+    const void          * file_start,
+    const void          * file_end,
+    const char          * name,
+          uint8_t       * nlist_type,
+    const void         ** symbol_address);
 
 /*!
  * @function macho_find_symtab
@@ -101,8 +132,8 @@ macho_seek_result macho_find_symbol(
  * or macho_seek_result_error if an error occurs.
  */
 macho_seek_result macho_find_symtab(
-    const void * file_start,
-    const void * file_end,
+    const void             * file_start,
+    const void             * file_end,
     struct symtab_command ** symtab);
 
 /*!
@@ -122,7 +153,8 @@ macho_seek_result macho_find_symtab(
  * @result Returns a pointer to the requested section struct if it exists;
  *         otherwise returns NULL.
  */
-struct section * macho_find_section_numbered(
+// cast to (struct section[_64] *)
+void * macho_find_section_numbered(
     const void * file_start,
     const void * file_end,
     uint8_t sect_num);
@@ -153,9 +185,9 @@ struct section * macho_find_section_numbered(
  */
 typedef macho_seek_result (*macho_lc_callback)(
     struct load_command * load_command,
-    const void * file_end,
-    uint8_t swap,
-    void * user_data
+    const void          * file_end,
+    uint8_t               swap,
+    void                * user_data
 );
 
 /*!
@@ -176,9 +208,37 @@ typedef macho_seek_result (*macho_lc_callback)(
  *         otherwise returns NULL.
  */
 macho_seek_result macho_scan_load_commands(
-    const void * file_start,
-    const void * file_end,
-    macho_lc_callback lc_callback,
-    void * user_data);
+    const void        * file_start,
+    const void        * file_end,
+    macho_lc_callback   lc_callback,
+    void              * user_data);
+
+boolean_t macho_swap(
+    u_char            * file);
+
+boolean_t macho_unswap(
+    u_char            * file);
+
+struct segment_command * macho_get_segment_by_name(
+    struct mach_header    * mach_header,
+    const char            * segname)
+    __attribute__((visibility("hidden")));
+
+struct segment_command_64 * macho_get_segment_by_name_64(
+    struct mach_header_64      * mach_header,
+    const char                 * segname)
+    __attribute__((visibility("hidden")));
+
+struct section * macho_get_section_by_name(
+    struct mach_header    * mach_header,
+    const char            * segname,
+    const char            * sectname)
+    __attribute__((visibility("hidden")));
+
+struct section_64 * macho_get_section_by_name_64(
+    struct mach_header_64     * mach_header,
+    const char                * segname,
+    const char                * sectname)
+    __attribute__((visibility("hidden")));
 
 #endif /* __MACHO_UTIL_H__ */

@@ -1,35 +1,50 @@
 require "fileutils"
+require "pathname"
 
-require "svn/client"
-require "svn/repos"
+require "my-assertions"
+
+class Time
+  unless instance_methods.include?("to_int")
+    alias to_int to_i
+  end
+end
+
+require 'greek_tree'
 
 module SvnTestUtil
-
-  def setup_basic
+  def setup_default_variables
     @author = ENV["USER"] || "sample-user"
     @password = "sample-password"
     @realm = "sample realm"
-    @repos_path = File.join("test", "repos")
+    @repos_path = "repos"
     @full_repos_path = File.expand_path(@repos_path)
-    @repos_uri = "file://#{@full_repos_path}"
+    @repos_uri = "file://#{@full_repos_path.sub(/^\/?/, '/')}"
     @svnserve_host = "127.0.0.1"
     @svnserve_ports = (64152..64282).collect{|x| x.to_s}
-    @wc_base_dir = File.join("test", "wc-tmp")
+    @wc_base_dir = "wc-tmp"
     @wc_path = File.join(@wc_base_dir, "wc")
     @full_wc_path = File.expand_path(@wc_path)
-    @tmp_path = File.join("test", "tmp")
-    @config_path = File.join("test", "config")
+    @tmp_path = "tmp"
+    @config_path = "config"
+    @greek = Greek.new(@tmp_path, @wc_path, @repos_uri)
+  end
+
+  def setup_basic(need_svnserve=false)
+    @need_svnserve = need_svnserve
+    setup_default_variables
     setup_tmp
     setup_repository
     add_hooks
-    setup_svnserve
+    setup_svnserve if @need_svnserve
     setup_config
     setup_wc
     add_authentication
+    GC.stress = true if GC.respond_to?(:stress=) and $DEBUG
   end
 
   def teardown_basic
-    teardown_svnserve
+    GC.stress = false if GC.respond_to?(:stress=)
+    teardown_svnserve if @need_svnserve
     teardown_repository
     teardown_wc
     teardown_config
@@ -43,7 +58,9 @@ module SvnTestUtil
       puts
       puts "before pools: #{before_pools}"
     end
-    GC.start
+    gc_enable do
+      GC.start
+    end
     if $DEBUG
       after_pools = Svn::Core::Pool.number_of_pools
       puts "after pools: #{after_pools}"
@@ -62,7 +79,7 @@ module SvnTestUtil
       end
     end
   end
-  
+
   def gc_disable(&block)
     change_gc_status(GC.disable, &block)
   end
@@ -79,57 +96,21 @@ module SvnTestUtil
   def teardown_tmp(path=@tmp_path)
     FileUtils.rm_rf(path)
   end
-  
+
   def setup_repository(path=@repos_path, config={}, fs_config={})
+    require "svn/repos"
     FileUtils.rm_rf(path)
     FileUtils.mkdir_p(File.dirname(path))
-    Svn::Repos.create(path, config, fs_config)
-    @repos = Svn::Repos.open(@repos_path)
+    @repos = Svn::Repos.create(path, config, fs_config)
     @fs = @repos.fs
   end
 
   def teardown_repository(path=@repos_path)
-    Svn::Repos.delete(path)
+    @fs.close unless @fs.nil?
+    @repos.close unless @repos.nil?
+    Svn::Repos.delete(path) if File.exists?(path)
     @repos = nil
     @fs = nil
-  end
-
-  def setup_svnserve
-    @svnserve_port = nil
-    @repos_svnserve_uri = nil
-    @svnserve_ports.each do |port|
-      @svnserve_pid = fork {
-        STDERR.close
-        exec("svnserve",
-             "--listen-host", @svnserve_host,
-             "--listen-port", port,
-             "-d", "--foreground")
-      }
-      pid, status = Process.waitpid2(@svnserve_pid, Process::WNOHANG)
-      if status and status.exited?
-        STDERR.puts "port #{port} couldn't be used for svnserve"
-      else
-        @svnserve_port = port
-        @repos_svnserve_uri =
-          "svn://#{@svnserve_host}:#{@svnserve_port}#{@full_repos_path}"
-        break
-      end
-    end
-    if @svnserve_port.nil?
-      msg = "Can't run svnserve because available port "
-      msg << "isn't exist in [#{@svnserve_ports.join(', ')}]"
-      raise msg
-    end
-  end
-
-  def teardown_svnserve
-    if @svnserve_pid
-      Process.kill(:TERM, @svnserve_pid)
-      begin
-        Process.waitpid(@svnserve_pid)
-      rescue Errno::ECHILD
-      end
-    end
   end
 
   def setup_wc
@@ -140,7 +121,7 @@ module SvnTestUtil
   def teardown_wc
     FileUtils.rm_rf(@wc_base_dir)
   end
-  
+
   def setup_config
     teardown_config
     Svn::Core::Config.ensure(@config_path)
@@ -149,7 +130,7 @@ module SvnTestUtil
   def teardown_config
     FileUtils.rm_rf(@config_path)
   end
-  
+
   def add_authentication
     passwd_file = "passwd"
     File.open(@repos.svnserve_conf, "w") do |conf|
@@ -173,26 +154,6 @@ realm = #{@realm}
     add_pre_revprop_change_hook
   end
 
-  def add_pre_revprop_change_hook
-    File.open(@repos.pre_revprop_change_hook, "w") do |hook|
-      hook.print <<-HOOK
-#!/bin/sh
-REPOS="$1"
-REV="$2"
-USER="$3"
-PROPNAME="$4"
-
-if [ "$PROPNAME" = "#{Svn::Core::PROP_REVISION_LOG}" -a \
-     "$USER" = "#{@author}" ]; then
-  exit 0
-fi
-
-exit 1
-      HOOK
-    end
-    FileUtils.chmod(0755, @repos.pre_revprop_change_hook)
-  end
-  
   def youngest_rev
     @fs.youngest_rev
   end
@@ -215,11 +176,117 @@ exit 1
       cred.may_save = false
     end
     setup_auth_baton(ctx.auth_baton)
-    ctx
+    return ctx unless block_given?
+    begin
+      yield ctx
+    ensure
+      ctx.destroy
+    end
   end
 
   def setup_auth_baton(auth_baton)
     auth_baton[Svn::Core::AUTH_PARAM_CONFIG_DIR] = @config_path
     auth_baton[Svn::Core::AUTH_PARAM_DEFAULT_USERNAME] = @author
+  end
+
+  def normalize_line_break(str)
+    if windows?
+      str.gsub(/\n/, "\r\n")
+    else
+      str
+    end
+  end
+
+  def setup_greek_tree
+    @greek.setup(make_context("setup greek tree"))
+  end
+
+  module_function
+  def windows?
+    /cygwin|mingw|mswin32|bccwin32/.match(RUBY_PLATFORM)
+  end
+
+  module Svnserve
+    def setup_svnserve
+      @svnserve_port = nil
+      @repos_svnserve_uri = nil
+
+      # Look through the list of potential ports until we're able to
+      # successfully start svnserve on a free one.
+      @svnserve_ports.each do |port|
+        @svnserve_pid = fork {
+          STDERR.close
+          exec("svnserve",
+               "--listen-host", @svnserve_host,
+               "--listen-port", port,
+               "-d", "--foreground")
+        }
+        pid, status = Process.waitpid2(@svnserve_pid, Process::WNOHANG)
+        if status and status.exited?
+          if $DEBUG
+            STDERR.puts "port #{port} couldn't be used for svnserve"
+          end
+        else
+          # svnserve started successfully.  Note port number and cease
+          # startup attempts.
+          @svnserve_port = port
+          @repos_svnserve_uri =
+            "svn://#{@svnserve_host}:#{@svnserve_port}#{@full_repos_path}"
+          break
+        end
+      end
+      if @svnserve_port.nil?
+        msg = "Can't run svnserve because available port "
+        msg << "isn't exist in [#{@svnserve_ports.join(', ')}]"
+        raise msg
+      end
+    end
+
+    def teardown_svnserve
+      if @svnserve_pid
+        Process.kill(:TERM, @svnserve_pid)
+        begin
+          Process.waitpid(@svnserve_pid)
+        rescue Errno::ECHILD
+        end
+      end
+    end
+
+    def add_pre_revprop_change_hook
+      File.open(@repos.pre_revprop_change_hook, "w") do |hook|
+        hook.print <<-HOOK
+#!/bin/sh
+REPOS="$1"
+REV="$2"
+USER="$3"
+PROPNAME="$4"
+
+if [ "$PROPNAME" = "#{Svn::Core::PROP_REVISION_LOG}" -a \
+     "$USER" = "#{@author}" ]; then
+  exit 0
+fi
+
+exit 1
+        HOOK
+      end
+      FileUtils.chmod(0755, @repos.pre_revprop_change_hook)
+    end
+  end
+
+  module SetupEnvironment
+    def setup_test_environment(top_dir, base_dir, ext_dir)
+      svnserve_dir = File.join(top_dir, 'subversion', 'svnserve')
+      ENV["PATH"] = "#{svnserve_dir}:#{ENV['PATH']}"
+      FileUtils.ln_sf(File.join(base_dir, ".libs"), ext_dir)
+    end
+  end
+
+  if windows?
+    require 'windows_util'
+    include Windows::Svnserve
+    extend Windows::SetupEnvironment
+  else
+    include Svnserve
+    extend SetupEnvironment
   end
 end

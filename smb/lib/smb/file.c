@@ -2,7 +2,7 @@
  * Copyright (c) 2000, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -55,31 +55,34 @@
 #include <cflib.h>
 
 int
-smb_read(struct smb_ctx *ctx, smbfh fh, off_t offset, size_t count, char *dst)
+smb_read(struct smb_ctx *ctx, smbfh fh, off_t offset, u_int32_t count, char *dst)
 {
 	struct smbioc_rw rwrq;
 
+	bzero(&rwrq, sizeof(rwrq));
+	rwrq.ioc_version = SMB_IOC_STRUCT_VERSION;
 	rwrq.ioc_fh = fh;
 	rwrq.ioc_base = dst;
 	rwrq.ioc_cnt = count;
 	rwrq.ioc_offset = offset;
-	if (ioctl(ctx->ct_fd, SMBIOC_READ, &rwrq) == -1) {
+	if (smb_ioctl_call(ctx->ct_fd, SMBIOC_READ, &rwrq) == -1) {
 		return -1;
 	}
 	return rwrq.ioc_cnt;
 }
 
 int
-smb_write(struct smb_ctx *ctx, smbfh fh, off_t offset, size_t count,
-	const char *src)
+smb_write(struct smb_ctx *ctx, smbfh fh, off_t offset, u_int32_t count, const char *src)
 {
 	struct smbioc_rw rwrq;
 
+	bzero(&rwrq, sizeof(rwrq));
+	rwrq.ioc_version = SMB_IOC_STRUCT_VERSION;
 	rwrq.ioc_fh = fh;
 	rwrq.ioc_base = (char *)src;
 	rwrq.ioc_cnt = count;
 	rwrq.ioc_offset = offset;
-	if (ioctl(ctx->ct_fd, SMBIOC_WRITE, &rwrq) == -1) {
+	if (smb_ioctl_call(ctx->ct_fd, SMBIOC_WRITE, &rwrq) == -1) {
 		return -1;
 	}
 	return rwrq.ioc_cnt;

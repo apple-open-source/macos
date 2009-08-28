@@ -49,7 +49,7 @@
 # if	!defined(lint)
 static char copyright[] =
 "@(#) Copyright 1997 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: cvfs.c,v 1.5 2005/08/29 10:03:45 abe Exp $";
+static char *rcsid = "$Id: cvfs.c,v 1.6 2008/10/21 16:12:36 abe Exp $";
 # endif	/* !defined(lint) */
 
 #include	"../lsof.h"
@@ -106,5 +106,5 @@ completevfs(vfs, dev)
 	}
 }
 #else	/* !defined(USE_LIB_COMPLETEVFS) */
-static char d1[] = "d"; static char *d2 = d1;
+char cvfs_d1[] = "d"; char *cvfs_d2 = cvfs_d1;
 #endif	/* defined(USE_LIB_COMPLETEVFS) */

@@ -215,12 +215,19 @@ private:
     IOUSBCompletion     fWriteCompletionInfo;
     IOUSBCompletion     fRequestCompletionInfo;
     
+    thread_call_t	fPowerThreadCall;
+    IOCommandGate	*fGate;
+    bool		fWaitForGatedCmd;
+    
     static void         interruptReadComplete(  void *obj, void *param, IOReturn ior, UInt32 remaining );
     static void         dataReadComplete(  void *obj, void *param, IOReturn ior, UInt32 remaining );
     static void         dataWriteComplete( void *obj, void *param, IOReturn ior, UInt32 remaining );
     static void         workAroundComplete( void *obj, void *param, IOReturn ior, UInt32 remaining );
     
     bool                initForPM(IOService *provider);
+    static void		handleSetPowerState(thread_call_param_t param0, thread_call_param_t param1 );
+    static IOReturn	setPowerStateGated(OSObject *owner, void *arg0, void *arg1, void *arg2, void *arg3);
+    IOReturn		setPowerStateGatedPrivate(uintptr_t powerStateOrdinal);
 
 public:
 
@@ -306,7 +313,7 @@ private:
     void            stopPipes();
     bool            createSerialStream();                       // create bsd stream
     void            destroySerialStream();                      // delete bsd stream
-    bool            createSuffix( unsigned char *sufKey );
+    bool            createSuffix( unsigned char *sufKey, int sufMaxLen );
     bool            startIrDA();                                // start irda up
     void            stopIrDA();                                 // shut down irda
     bool            createNub();                                // create nub (and port)

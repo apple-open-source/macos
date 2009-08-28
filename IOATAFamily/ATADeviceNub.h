@@ -37,8 +37,8 @@
 
 
 /*!
-@class ATADeviceNub is a concrete implementation of IOATADevice.
-
+@class ATADeviceNub
+@abstract ATADeviceNub is a concrete implementation of IOATADevice.
 @discussion clients of IOATA (disk drivers) should use the interface presented
 by IOATADevice.  Concrete nubs are private to the IOATA family and 
 specific subclasses of IOATADevice are instantiated by controller 
@@ -47,18 +47,18 @@ drivers to provide the abstract interface to clients.
 */
 class ATADeviceNub : public IOATADevice
 {
-    OSDeclareDefaultStructors(ATADeviceNub)
+    OSDeclareDefaultStructors(ATADeviceNub);
 
 public:
 
 	/*!@function ataDeviceNub
 	@abstract static creator function - used by IOATAControllers to create nubs.
-	*/	
+	*/
 	static ATADeviceNub* ataDeviceNub( IOATAController* provider, ataUnitID unit, ataDeviceType devType);
  
 	/*!@function attach
 	@abstract override of IOService method.
-	*/	
+	*/
     virtual bool attach(IOService* provider );
  
  
@@ -67,7 +67,7 @@ public:
  
 	/*!@function executeCommand
 	@abstract Submit IO requests 
-	*/ 
+	*/
     virtual IOReturn executeCommand(IOATACommand* command);
 
 	// create and destroy IOATACommands
@@ -83,43 +83,53 @@ public:
 	
 	
 protected:
+	
     /*!@function init
 	@abstract used after creating the nub.
 	*/
     virtual bool init(IOATAController* provider, ataUnitID unit, ataDeviceType devType);
+	
 	/*!@function publishProperties
 	@abstract publish the nub's properties in the device tree.
-	*/	virtual void publishProperties( void );
+	*/
+	virtual void publishProperties( void );
 	
 	/*!@function publishBusProperties
 	@abstract puts info about this device's bus capability in the device tree.
-	*/	virtual void publishBusProperties(void);
+	*/
+	virtual void publishBusProperties(void);
 	
 	/*!@function publishVendorProperties
 	@abstract will be deprecated.
-	*/    virtual void publishVendorProperties( void );
-
+	*/
+	virtual void publishVendorProperties( void );
 
 	/*!@function getDeviceID
 	@abstract get the unit id of this drive (0 or 1)
-	*/	virtual IOReturn getDeviceID(void);
+	*/
+	virtual IOReturn getDeviceID(void);
 
 	/*!@function MyATACallback
 	@abstract to be deprecated.
-	*/	static void MyATACallback(IOATACommand* command );
+	*/
+	static void MyATACallback(IOATACommand* command );
+	
 	/*!@function processCallback
 	@abstract to be deprecated.
-	*/	void processCallback(IOATACommand* command );
+	*/
+	void processCallback(IOATACommand* command );
+	
 	/*!@function swapBytes16
 	@abstract to be deprecated.
-	*/    void swapBytes16( UInt8* dataBuffer, IOByteCount length);
+	*/
+	void swapBytes16( UInt8* dataBuffer, IOByteCount length);
     
     UInt8* buffer;
 	
 protected:
 /*! @struct ExpansionData
     @discussion This structure will be used to expand the capablilties of the ATADeviceNub in the future.
-    */    
+    */
     struct ExpansionData { };
 
 /*! @var reserved

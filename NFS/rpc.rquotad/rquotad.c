@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007 Apple Inc.  All rights reserved.
+ * Copyright (c) 2007-2009 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -68,7 +68,7 @@ int bindresvport_sa(int sd, struct sockaddr *sa);
 void rquota_service(struct svc_req *request, SVCXPRT *transp);
 void ext_rquota_service(struct svc_req *request, SVCXPRT *transp);
 void sendquota(struct svc_req *request, int vers, SVCXPRT *transp);
-int getfsquota(int type, long id, char *path, struct dqblk *dqblk);
+int getfsquota(int type, int id, char *path, struct dqblk *dqblk);
 int hasquota(struct statfs *fst, char **uqfnamep, char **gqfnamep);
 void lock_fsq(void);
 void unlock_fsq(void);
@@ -115,16 +115,16 @@ pthread_mutex_t fsq_mutex;		/* mutex for file system quota list */
 int gotterm = 0;
 struct nfs_conf_server config;
 
-char *qfextension[] = INITQFNAMES;
+const char *qfextension[] = INITQFNAMES;
 
 void 
-sigmux(int dummy)
+sigmux(__unused int dummy)
 {
 	gotterm = 1;
 }
 
 int
-main(int argc, char *argv[])
+main(__unused int argc, __unused char *argv[])
 {
 	SVCXPRT *transp;
 	struct sockaddr_in inetaddr;
@@ -299,7 +299,7 @@ ext_rquota_service(struct svc_req *request, SVCXPRT *transp)
 int
 ismember(struct authunix_parms *aup, int gid)
 {
-	int g;
+	uint g;
 
 	if (aup->aup_gid == gid)
 		return (1);
@@ -392,7 +392,7 @@ sendquota(struct svc_req *request, int vers, SVCXPRT *transp)
  * Return 0 if fail, 1 otherwise
  */
 int
-getfsquota(int type, long id, char *path, struct dqblk *dqblk)
+getfsquota(int type, int id, char *path, struct dqblk *dqblk)
 {
 	struct stat st_path;
 	struct fsq_stat *fs;
@@ -483,15 +483,15 @@ hasquota(struct statfs *fst, char **uqfnamep, char **gqfnamep)
 	  on disk quota files.
 	*/
 
-	sprintf(buf, "%s/%s.%s", fst->f_mntonname, QUOTAOPSNAME, qfextension[USRQUOTA] );
+	snprintf(buf, sizeof(buf), "%s/%s.%s", fst->f_mntonname, QUOTAOPSNAME, qfextension[USRQUOTA] );
 	if (stat(buf, &sb) == 0) {
-		sprintf(buf, "%s/%s.%s", fst->f_mntonname, QUOTAFILENAME, qfextension[USRQUOTA]);
+		snprintf(ubuf, sizeof(ubuf), "%s/%s.%s", fst->f_mntonname, QUOTAFILENAME, qfextension[USRQUOTA]);
 		*uqfnamep = ubuf;
 		qcnt++;
 	}
-	sprintf(buf, "%s/%s.%s", fst->f_mntonname, QUOTAOPSNAME, qfextension[GRPQUOTA] );
+	snprintf(buf, sizeof(buf), "%s/%s.%s", fst->f_mntonname, QUOTAOPSNAME, qfextension[GRPQUOTA] );
 	if (stat(buf, &sb) == 0) {
-		sprintf(buf, "%s/%s.%s", fst->f_mntonname, QUOTAFILENAME, qfextension[GRPQUOTA]);
+		snprintf(gbuf, sizeof(gbuf), "%s/%s.%s", fst->f_mntonname, QUOTAFILENAME, qfextension[GRPQUOTA]);
 		*gqfnamep = gbuf;
 		qcnt++;
 	}
@@ -519,7 +519,7 @@ static void
 fsadd(struct statfs *fst)
 {
 	struct fsq_stat *fs = NULL, *fs2;
-	char *uqfpathname, *gqfpathname;
+	char *uqfpathname = NULL, *gqfpathname = NULL;
 	struct stat st;
 
 	if (strcmp(fst->f_fstypename, "hfs") &&
@@ -690,7 +690,7 @@ config_read(struct nfs_conf_server *conf)
 	FILE *f;
 	size_t len, linenum = 0;
 	char *line, *p, *key, *value;
-	int val;
+	long val;
 
 	if (!(f = fopen(_PATH_NFS_CONF, "r"))) {
 		if (errno != ENOENT)

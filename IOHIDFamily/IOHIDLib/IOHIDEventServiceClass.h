@@ -93,6 +93,7 @@ protected:
                                             void *                      info);
     void                    dispatchHIDEvent(IOHIDEventRef event, IOOptionBits options=0);
 
+    CFDictionaryRef         createFixedProperties(CFDictionaryRef floatProperties);
 public:
     // IOCFPlugin stuff
     static IOCFPlugInInterface **alloc();

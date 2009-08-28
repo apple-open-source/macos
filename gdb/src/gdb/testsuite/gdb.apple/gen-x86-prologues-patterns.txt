@@ -214,38 +214,6 @@ L1:
   pop %ebp
   ret
 
-# SOURCE: Karma8V10 libobjc.A.dylib _objc_msgForward
-# PROLOGUE
-  cmp $0x0, %edx # [ 0x83 0xfa 0x00 ]
-  je LM288  # [ 0x74 0x54 (54 being a disp8, so 0x00 in this case) ]
-LM288:
-  push %ebp
-  mov %esp, %ebp
-  sub $0x8, %esp
-# EPILOGUE
-  add $0x8, %esp
-  pop %ebp
-  ret
-
-# SOURCE: Karma8V10 libbz2.1.0.2.dylib dyld_stub_binding_helper
-# PROLOGUE
-  push %eax
-  pop  %eax # [ 0x58 ]
-  mov  $_main, %eax
-  pushl 0x104(%eax) # [ 0xff 0xb0 0x7f 0xf8 0xff 0x0f ]
-  pop  %eax
-  push %ebp
-  jmp LM388   # Skip over some instructions that aren't actually correct here..
-  mov 268436759(%eax), %eax # [ 0x8b 0x80 0x27 0x05 0x00 0x10 ]
-  jmp *%eax # [ 0xff 0xe0 ]
-LM388:
-  mov %esp, %ebp
-  sub $0x8, %esp
-# EPILOGUE
-  add $0x8, %esp
-  pop %ebp
-  ret
-
 # SOURCE: Karma8V10 libcom_err.dylib gssint_lib_init
 # PROLOGUE
   push %ebp

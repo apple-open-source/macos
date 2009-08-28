@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2007 Apple Inc.  All rights reserved.
+ * Copyright (c) 2002-2008 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -268,8 +268,7 @@ svc_lockd_request(
 		ans.la_errno = ENOTSUP;
 
 		if (nfslockdans(LOCKD_ANS_VERSION, &ans)) {
-			syslog(LOG_DEBUG, "process %lu: %m",
-					(u_long)msg.lm_fl.l_pid);
+			syslog(LOG_DEBUG, "process %d: %m", msg.lm_fl.l_pid);
 		}
 	}
 	return (KERN_SUCCESS);
@@ -726,10 +725,8 @@ lock_answer(int version, netobj *netcookie, nlm4_lock *lock, int flags, int resu
 	}
 
 	if (d_calls)
-		syslog(LOG_DEBUG, "lock answer: pid %lu: %s %d",
-		    (unsigned long)ans.la_pid,
-		    version == NLM_VERS4 ? "nlmv4" : "nlmv3",
-		    result);
+		syslog(LOG_DEBUG, "lock answer: pid %d: %s %d", ans.la_pid,
+		    version == NLM_VERS4 ? "nlmv4" : "nlmv3", result);
 
 	if (version == NLM_VERS4)
 		switch (result) {
@@ -777,6 +774,7 @@ lock_answer(int version, netobj *netcookie, nlm4_lock *lock, int flags, int resu
 			break;
 		case nlm4_denied_grace_period:
 			ans.la_errno = EAGAIN;
+			ans.la_flags |= LOCKD_ANS_DENIED_GRACE;
 			break;
 		case nlm4_deadlck:
 			ans.la_errno = EDEADLK;
@@ -840,6 +838,7 @@ lock_answer(int version, netobj *netcookie, nlm4_lock *lock, int flags, int resu
 			break;
 		case nlm_denied_grace_period:
 			ans.la_errno = EAGAIN;
+			ans.la_flags |= LOCKD_ANS_DENIED_GRACE;
 			break;
 		case nlm_deadlck:
 			ans.la_errno = EDEADLK;
@@ -847,8 +846,8 @@ lock_answer(int version, netobj *netcookie, nlm4_lock *lock, int flags, int resu
 		}
 
 	if (nfslockdans(LOCKD_ANS_VERSION, &ans)) {
-		syslog(LOG_DEBUG, "lock_answer(%d): process %lu: %m",
-			result, (u_long)ans.la_pid);
+		syslog(LOG_DEBUG, "lock_answer(%d): process %d: %m",
+			result, ans.la_pid);
 		return -1;
 	}
 	return 0;
@@ -865,7 +864,7 @@ show(LOCKD_MSG *mp)
 	size_t len;
 	u_int8_t *p, *t, buf[NFS_SMALLFH*3+1];
 
-	syslog(LOG_DEBUG, "process ID: %lu\n", (long)mp->lm_fl.l_pid);
+	syslog(LOG_DEBUG, "process ID: %d\n", mp->lm_fl.l_pid);
 
 	for (t = buf, p = (u_int8_t *)mp->lm_fh,
 	    len = mp->lm_fh_len;
@@ -879,8 +878,8 @@ show(LOCKD_MSG *mp)
 	syslog(LOG_DEBUG, "fh_len %d, fh %s\n", mp->lm_fh_len, buf);
 
 	/* Show flock structure. */
-	syslog(LOG_DEBUG, "start %qu; len %qu; pid %lu; type %d; whence %d\n",
-	    mp->lm_fl.l_start, mp->lm_fl.l_len, (u_long)mp->lm_fl.l_pid,
+	syslog(LOG_DEBUG, "start %qu; len %qu; pid %d; type %d; whence %d\n",
+	    mp->lm_fl.l_start, mp->lm_fl.l_len, mp->lm_fl.l_pid,
 	    mp->lm_fl.l_type, mp->lm_fl.l_whence);
 
 	/* Show wait flag. */

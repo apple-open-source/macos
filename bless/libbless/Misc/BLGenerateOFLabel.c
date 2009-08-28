@@ -195,7 +195,7 @@ uint16_t width, uint16_t height, uint16_t *newwidth) {
         
         // white text on black background, for OF/EFI bitmap
         const CGFloat components[] = {
-            1.0, 1.0
+            (CGFloat)1.0, (CGFloat)1.0
         };
         
         /* set to white background for testing
@@ -206,7 +206,7 @@ uint16_t width, uint16_t height, uint16_t *newwidth) {
         color = CGColorCreate(colorSpace, components);
         if(color == NULL) return 1;
         
-        fontRef = CTFontCreateWithName(CFSTR("Helvetica"), 10.0, NULL);
+        fontRef = CTFontCreateWithName(CFSTR("Helvetica"), (CGFloat)10.0, NULL);
         if(fontRef == NULL) return 1;
         
         dict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
@@ -226,7 +226,7 @@ uint16_t width, uint16_t height, uint16_t *newwidth) {
         
         rect = CTLineGetImageBounds(ct1, context);
         
-        CGContextSetTextPosition(context, 2.0, 2.0);
+        CGContextSetTextPosition(context, (CGFloat)2.0, (CGFloat)2.0);
         
         CTLineDraw(ct1, context);
         

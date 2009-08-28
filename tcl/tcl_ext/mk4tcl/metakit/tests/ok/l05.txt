@@ -1,0 +1,2 @@
+>>> Delete from 32 Kb of strings
+<<< done.

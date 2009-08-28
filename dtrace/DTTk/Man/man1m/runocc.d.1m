@@ -10,8 +10,7 @@ A consistant run queue occupancy is a sign of CPU saturation.
 The value is similar to that seen in "sar -q", however this is
 calculated in a more accurate manner - sampling at 1000 Hertz.
 
-Since this uses DTrace, only the root user or users with the
-dtrace_kernel privilege can run this command.
+Since this uses DTrace, only users with root privileges can run this command.
 .SH EXAMPLES
 .TP
 Print %runocc by CPU every second,

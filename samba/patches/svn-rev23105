@@ -5,7 +5,7 @@ Index: samba/source/lib/system.c
 ===================================================================
 --- samba/source/lib/system.c.orig
 +++ samba/source/lib/system.c
-@@ -642,6 +642,25 @@ int sys_chown(const char *fname,uid_t ui
+@@ -643,6 +643,25 @@ int sys_chown(const char *fname,uid_t ui
  }
  
  /*******************************************************************
@@ -312,7 +312,7 @@ Index: samba/source/configure.in
 ===================================================================
 --- samba/source/configure.in.orig
 +++ samba/source/configure.in
-@@ -1219,7 +1219,7 @@ if test x"$ac_cv_func_execl" = x"no"; th
+@@ -1230,7 +1230,7 @@ if test x"$ac_cv_func_execl" = x"no"; th
      EXTRA_BIN_PROGS="$EXTRA_BIN_PROGS bin/smbrun\$(EXEEXT)"
  fi
  

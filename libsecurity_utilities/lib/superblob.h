@@ -38,6 +38,8 @@ public:
 		Endian<Offset> offset;		// starting offset
 	};
 	
+	bool validateBlob(size_t maxSize = 0) const;
+	
 	unsigned count() const { return mCount; }
 
 	// access by index number
@@ -56,6 +58,24 @@ private:
 	Index mIndex[0];				// <count> IndexSlot structures
 	// followed by sub-Blobs, packed and ordered in an undefined way
 };
+
+
+template <class _BlobType, uint32_t _magic, class _Type>
+inline bool SuperBlobCore<_BlobType, _magic, _Type>::validateBlob(size_t maxSize /* = 0 */) const
+{
+	unsigned count = mCount;
+	size_t ixLimit = sizeof(SuperBlobCore) + count * sizeof(Index);	// end of index vector
+	if (!BlobCore::validateBlob(_magic, ixLimit, maxSize))
+		return false;
+	for (const Index *ix = mIndex + count - 1; ix >= mIndex; ix--) {
+		Offset offset = ix->offset;
+		if (offset < ixLimit														// offset not too small
+			|| offset + sizeof(BlobCore) > this->length()							// fits Blob header (including length field)
+			|| offset + at<const BlobCore>(offset)->length() > this->length())		// fits entire blob
+			return false;
+	}
+	return true;
+}
 
 
 //

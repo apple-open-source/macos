@@ -24,8 +24,8 @@
 #ifndef _COBJECT_H
 #define _COBJECT_H
 
-#include <libkern/OSAtomic.h>
 #include <stdlib.h>
+#include <DirectoryServiceCore/DSUtils.h>
 
 template <class ClassType> class CObject
 {
@@ -37,24 +37,14 @@ template <class ClassType> class CObject
 	
 		ClassType *Retain( void )
 		{
-			if ( 0 < mRefCount )
-			{
-				OSAtomicAdd32Barrier( 1, &mRefCount );
-				return static_cast<ClassType *>( this );
-			}
-			else
-			{
-				abort();	// we abort so we can get crashes
-			}
-			
-			return NULL;
+			return static_cast<ClassType *>( dsRetainObject(this, &mRefCount) );
 		}
 	
 		void Release( void )
 		{
-			int32_t newCount = OSAtomicAdd32Barrier( -1, &mRefCount );
-			if ( newCount == 0 ) delete this;
-			else if ( newCount < 0 ) abort(); // we abort so we can get crashes
+			if ( dsReleaseObject(this, &mRefCount, false) == true ) {
+				delete this;
+			}
 		}
 	
 	protected:
@@ -69,7 +59,7 @@ template <class ClassType> class CObject
 		}
 	
 	private:
-		int32_t	mRefCount;	// our Refcount
+		volatile int32_t	mRefCount;	// our Refcount
 };
 
 #endif

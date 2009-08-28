@@ -41,6 +41,7 @@
 #define TTY_NUM_FLAGS		1
 #define TTY_NUM_TYPES		(1 << TTY_NUM_FLAGS)
 
+
 class IOSerialStreamSync;
 class IOSerialSessionSync;
 class IOSerialBSDClient : public IOService
@@ -65,7 +66,7 @@ public:
 
 private:
     struct Session {
-        struct tty ftty;	// Unix tty structure
+        struct tty *ftty;	// Unix tty structure
         /*
          * This is the glue between the tty line discipline and the bsd
          * client.  Must be at begining of this struct otherwise I wont
@@ -84,14 +85,17 @@ private:
     Session *fActiveSession;
     IOThread frxThread;		// Recieve data and event's thread
     IOThread ftxThread;		// Transmit data and state tracking thread
-
-    dev_t fBaseDev;
+    IOLock * fThreadLock;
+    IOLock * fIoctlLock;
+    IOLock * fOpenCloseLock;
+	dev_t fBaseDev;
 
     int fInOpensPending;	/* Count of opens waiting for carrier */
     thread_call_t fDCDThreadCall;	/* used for DCD debouncing */
 
     /* state determined at time of open */
     bool fPreemptAllowed; 		/* Active session is pre-emptible */
+    bool fPreemptInProgress;	/* tracks Preemption in progress for syncronization */
     bool fConnectTransit;		/* A thread is open() or closing()  */
 
     boolean_t   fAcquired:1;		/* provider has been acquired */
@@ -111,7 +115,8 @@ private:
      */
 
     // Open/close semantic routines
-    int open(dev_t dev, int flags, int devtype, struct proc *p);
+
+	int open(dev_t dev, int flags, int devtype, struct proc *p);
     void close(dev_t dev, int flags, int devtype, struct proc *p);
     void startConnectTransit();
     void endConnectTransit();
@@ -125,8 +130,10 @@ private:
     // General routines
     bool createDevNodes();
     bool setBaseTypeForDev();
-
+	IOThread createThread(IOThreadFunc fcn, void *arg);
     IOReturn setOneProperty(const OSSymbol *key, OSObject *value);
+	
+	intptr_t whichSession(struct tty *tp);
 
     void optimiseInput(struct termios *t);
     void convertFlowCtrl(Session *sp, struct termios *t);
@@ -137,13 +144,14 @@ private:
     // Receive and Transmit engine thread functions
     void getData(Session *sp);
     void procEvent(Session *sp);
-    void txload(Session *sp, u_long *wait_mask);
-    void rxFunc();
+    void txload(Session *sp, UInt32 *wait_mask);
+	void rxFunc();
     void txFunc();
 
     void launchThreads();
     void killThreads();
     void cleanupResources();
+
 
     // session based accessors to Serial Stream Sync 
     IOReturn sessionSetState(Session *sp, UInt32 state, UInt32 mask);
@@ -170,7 +178,7 @@ private:
     static int  iossioctl(dev_t dev, u_long cmd, caddr_t data, int fflag,
                             struct proc *p);
     static int  iossstop(struct tty *tp, int rw);
-    static void iossstart(struct tty *tp);	// assign to tp->t_oproc
+	static void iossstart(struct tty *tp);	// assign to tp->t_oproc
     static int  iossparam(struct tty *tp, struct termios *t);
     static void iossdcddelay(thread_call_param_t vSelf, thread_call_param_t vSp);
     // debug support
@@ -179,6 +187,7 @@ private:
     static char *state2StringPD(UInt32 state);
     static char *state2StringTTY(UInt32 state);
 #endif
+
 };
 
 #endif /* ! _IOSERIALSERVER_H */

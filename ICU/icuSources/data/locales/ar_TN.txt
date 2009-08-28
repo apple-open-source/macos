@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2006 International Business Machines
+// * Copyright (C) 2008 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/ar_TN.xml
@@ -10,15 +10,15 @@ ar_TN{
     NumberElements{
         "٫",
         "٬",
-        ";",
+        "؛",
         "٪",
         "0",
         "#",
         "-",
-        "E",
+        "اس",
         "‰",
         "∞",
-        "NaN",
+        "ليس رقم",
         "+",
     }
     NumberPatterns{
@@ -27,12 +27,26 @@ ar_TN{
         "#,##0%",
         "#E0",
     }
-    Version{"1.38"}
+    Scripts{
+        Ital{"اللأيطالية القديمة"}
+    }
+    Version{"1.48"}
     calendar{
         gregorian{
             DateTimeElements:intvector{
                 7,
                 1,
+            }
+            DateTimePatterns{
+                "v h:mm:ss a",
+                "z h:mm:ss a",
+                "h:mm:ss a",
+                "h:mm a",
+                "EEEE، d MMMM، yyyy",
+                "‏d MMMM، yyyy",
+                "dd/MM/yyyy",
+                "d/M/yyyy",
+                "{1} {0}",
             }
             dayNames{
                 format{
@@ -48,9 +62,9 @@ ar_TN{
                 }
             }
             weekend:intvector{
-                5,
-                0,
                 6,
+                0,
+                7,
                 86400000,
             }
         }

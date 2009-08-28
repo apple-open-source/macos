@@ -1,25 +1,29 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2008 Apple Inc. All rights reserved.
  *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ *
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 /*
  * Copyright (c) 1983, 1989, 1991, 1993
@@ -80,12 +84,6 @@ __unused static const char rcsid[] =
 #include <net/route.h>
 #include <net/if_dl.h>
 #include <netinet/in.h>
-#ifndef __APPLE__
-#include <netatalk/at.h>
-#endif
-#ifdef NS
-#include <netns/ns.h>
-#endif
 #include <arpa/inet.h>
 #include <netdb.h>
 
@@ -108,18 +106,11 @@ struct keytab {
 	{0, 0}
 };
 
-struct	ortentry route;
 union	sockunion {
 	struct	sockaddr sa;
 	struct	sockaddr_in sin;
 #ifdef INET6
 	struct	sockaddr_in6 sin6;
-#endif
-#ifndef __APPLE__
-	struct	sockaddr_at sat;
-#endif
-#ifdef NS
-	struct	sockaddr_ns sns;
 #endif
 	struct	sockaddr_dl sdl;
 	struct	sockaddr_storage ss; /* added to avoid memory overrun */
@@ -133,10 +124,7 @@ int	iflag, verbose, aflen = sizeof (struct sockaddr_in);
 int	locking, lockrest, debugonly;
 struct	rt_metrics rt_metrics;
 u_long  rtm_inits;
-#ifndef __APPLE__
-int	atalk_aton __P((const char *, struct at_addr *));
-char	*atalk_ntoa __P((struct at_addr));
-#endif
+unsigned int ifscope;
 const char	*routename(), *netname();
 void	flushroutes(), newroute(), monitor(), sockaddr(), sodump(), bprintf();
 void	print_getmsg(), print_rtmsg(), pmsg_common(), pmsg_addrs(), mask_addr();
@@ -159,7 +147,7 @@ usage(cp)
 }
 
 #define ROUNDUP(a) \
-	((a) > 0 ? (1 + (((a) - 1) | (sizeof(long) - 1))) : sizeof(long))
+	((a) > 0 ? (1 + (((a) - 1) | (sizeof(uint32_t) - 1))) : sizeof(uint32_t))
 #define ADVANCE(x, n) (x += ROUNDUP((n)->sa_len))
 
 int
@@ -261,16 +249,6 @@ flushroutes(argc, argv)
 				af = AF_INET6;
 				break;
 #endif
-#ifndef __APPLE__
-			case K_ATALK:
-				af = AF_APPLETALK;
-				break;
-#endif
-#ifdef NS
-			case K_XNS:
-				af = AF_NS;
-				break;
-#endif
 			case K_LINK:
 				af = AF_LINK;
 				break;
@@ -342,9 +320,6 @@ routename(sa)
 	struct hostent *hp;
 	static char domain[MAXHOSTNAMELEN + 1];
 	static int first = 1;
-#ifdef NS
-	char *ns_print();
-#endif
 
 	if (first) {
 		first = 0;
@@ -423,17 +398,6 @@ routename(sa)
 		return(line);
 	}
 #endif
-#ifndef __APPLE__
-	case AF_APPLETALK:
-		(void) snprintf(line, sizeof(line), "atalk %s",
-			atalk_ntoa(((struct sockaddr_at *)sa)->sat_addr));
-		break;
-#endif
-
-#ifdef NS
-	case AF_NS:
-		return (ns_print((struct sockaddr_ns *)sa));
-#endif
 
 	case AF_LINK:
 		return (link_ntoa((struct sockaddr_dl *)sa));
@@ -463,12 +427,9 @@ netname(sa)
 	char *cp = 0;
 	static char line[MAXHOSTNAMELEN + 1];
 	struct netent *np = 0;
-	u_long net, mask;
-	register u_long i;
+	in_addr_t net, mask;
+	register in_addr_t i;
 	int subnetshift;
-#ifdef NS
-	char *ns_print();
-#endif
 
 	switch (sa->sa_family) {
 
@@ -497,7 +458,7 @@ netname(sa)
 			 * width subnet fields.
 			 */
 			while (in.s_addr &~ mask)
-				mask = (long)mask >> subnetshift;
+				mask = mask >> subnetshift;
 			net = in.s_addr & mask;
 			while ((mask & 1) == 0)
 				mask >>= 1, net >>= 1;
@@ -554,19 +515,6 @@ netname(sa)
 
 		return(line);
 	}
-#endif
-
-#ifndef __APPLE__
-	case AF_APPLETALK:
-		(void) snprintf(line, sizeof(line), "atalk %s",
-			atalk_ntoa(((struct sockaddr_at *)sa)->sat_addr));
-		break;
-#endif
-
-#ifdef NS
-	case AF_NS:
-		return (ns_print((struct sockaddr_ns *)sa));
-		break;
 #endif
 
 	case AF_LINK:
@@ -647,22 +595,10 @@ newroute(argc, argv)
 				aflen = sizeof(struct sockaddr_in6);
 				break;
 #endif
-#ifndef __APPLE__
-			case K_ATALK:
-				af = AF_APPLETALK;
-				aflen = sizeof(struct sockaddr_at);
-				break;
-#endif
 			case K_SA:
 				af = PF_ROUTE;
 				aflen = sizeof(union sockunion);
 				break;
-#ifdef NS
-			case K_XNS:
-				af = AF_NS;
-				aflen = sizeof(struct sockaddr_ns);
-				break;
-#endif
 			case K_IFACE:
 			case K_INTERFACE:
 				iflag++;
@@ -760,6 +696,14 @@ newroute(argc, argv)
 					usage((char *)NULL);
 				set_metric(*++argv, key);
 				break;
+			case K_IFSCOPE:
+				if (!--argc)
+					usage((char *)NULL);
+				if ((ifscope = if_nametoindex(*++argv)) != 0)
+					flags |= RTF_IFSCOPE;
+				else
+					errx(1, "bad interface name");
+				break;
 			default:
 				usage(1+*argv);
 			}
@@ -821,8 +765,7 @@ newroute(argc, argv)
 	if (*gateway) {
 		(void) printf(": gateway %s", gateway);
 		if (attempts > 1 && ret == 0 && af == AF_INET)
-		    (void) printf(" (%s)",
-			inet_ntoa(((struct sockaddr_in *)&route.rt_gateway)->sin_addr));
+		    (void) printf(" (%s)", inet_ntoa(so_gate.sin.sin_addr));
 	}
 	if (ret == 0)
 		(void) printf("\n");
@@ -847,10 +790,10 @@ newroute(argc, argv)
 
 void
 inet_makenetandmask(net, sin, bits)
-	u_long net, bits;
+	in_addr_t net, bits;
 	register struct sockaddr_in *sin;
 {
-	u_long addr, mask = 0;
+	in_addr_t addr, mask = 0;
 	register char *cp;
 
 	rtm_addrs |= RTA_NETMASK;
@@ -903,7 +846,7 @@ getaddr(which, s, hpp)
 	register sup su = NULL;
 	struct hostent *hp;
 	struct netent *np;
-	u_long val;
+	in_addr_t val;
 	char *q;
 	int afamily;  /* local copy of af so we can change it */
 
@@ -1017,30 +960,6 @@ getaddr(which, s, hpp)
 	}
 #endif /* INET6 */
 
-#ifdef NS
-	case AF_NS:
-		if (which == RTA_DST) {
-			extern short ns_bh[3];
-			struct sockaddr_ns *sms = &(so_mask.sns);
-			bzero((char *)sms, sizeof(*sms));
-			sms->sns_family = 0;
-			sms->sns_len = 6;
-			sms->sns_addr.x_net = *(union ns_net *)ns_bh;
-			rtm_addrs |= RTA_NETMASK;
-		}
-		su->sns.sns_addr = ns_addr(s);
-		return (!ns_nullhost(su->sns.sns_addr));
-#endif
-
-
-#ifndef __APPLE__
-	case AF_APPLETALK:
-		if (!atalk_aton(s, &su->sat.sat_addr))
-			errx(EX_NOHOST, "bad address: %s", s);
-		rtm_addrs |= RTA_NETMASK;
-		return(forcehost || su->sat.sat_addr.s_node != 0);
-#endif
-
 	case AF_LINK:
 		link_addr(s, &su->sdl);
 		return (1);
@@ -1145,57 +1064,6 @@ prefixlen(s)
 		return len;
 }
 
-#ifdef NS
-short ns_nullh[] = {0,0,0};
-short ns_bh[] = {-1,-1,-1};
-
-char *
-ns_print(sns)
-	struct sockaddr_ns *sns;
-{
-	struct ns_addr work;
-	union { union ns_net net_e; u_long long_e; } net;
-	u_short port;
-	static char mybuf[50+MAXHOSTNAMELEN], cport[10], chost[25];
-	char *host = "";
-	register char *p;
-	register u_char *q;
-
-	work = sns->sns_addr;
-	port = ntohs(work.x_port);
-	work.x_port = 0;
-	net.net_e  = work.x_net;
-	if (ns_nullhost(work) && net.long_e == 0) {
-		if (!port)
-			return ("*.*");
-		(void) sprintf(mybuf, "*.%XH", port);
-		return (mybuf);
-	}
-
-	if (bcmp((char *)ns_bh, (char *)work.x_host.c_host, 6) == 0)
-		host = "any";
-	else if (bcmp((char *)ns_nullh, (char *)work.x_host.c_host, 6) == 0)
-		host = "*";
-	else {
-		q = work.x_host.c_host;
-		(void) sprintf(chost, "%02X%02X%02X%02X%02X%02XH",
-			q[0], q[1], q[2], q[3], q[4], q[5]);
-		for (p = chost; *p == '0' && p < chost + 12; p++)
-			/* void */;
-		host = p;
-	}
-	if (port)
-		(void) sprintf(cport, ".%XH", htons(port));
-	else
-		*cport = 0;
-
-	(void) snprintf(mybuf, sizeof(mybuf), "%lxH.%s%s",
-			(unsigned long)ntohl(net.long_e),
-			host, cport);
-	return (mybuf);
-}
-#endif
-
 void
 interfaces()
 {
@@ -1286,6 +1154,7 @@ rtmsg(cmd, flags)
 	rtm.rtm_addrs = rtm_addrs;
 	rtm.rtm_rmx = rt_metrics;
 	rtm.rtm_inits = rtm_inits;
+	rtm.rtm_index = ifscope;
 
 	if (rtm_addrs & RTA_NETMASK)
 		mask_addr();
@@ -1331,9 +1200,6 @@ mask_addr()
 	if ((rtm_addrs & RTA_DST) == 0)
 		return;
 	switch (so_dst.sa.sa_family) {
-#ifdef NS
-	case AF_NS:
-#endif
 	case AF_INET:
 #ifdef INET6
 	case AF_INET6:
@@ -1376,10 +1242,10 @@ char metricnames[] =
 "\011pksent\010rttvar\7rtt\6ssthresh\5sendpipe\4recvpipe\3expire\2hopcount"
 "\1mtu";
 char routeflags[] =
-"\1UP\2GATEWAY\3HOST\4REJECT\5DYNAMIC\6MODIFIED\7DONE\010MASK_PRESENT"
+"\1UP\2GATEWAY\3HOST\4REJECT\5DYNAMIC\6MODIFIED\7DONE\010DELCLONE"
 "\011CLONING\012XRESOLVE\013LLINFO\014STATIC\015BLACKHOLE\016b016"
-"\017PROTO2\020PROTO1\021PRCLONING\022WASCLONED\023PROTO3\024CHAINDELETE"
-"\025PINNED\026LOCAL\027BROADCAST\030MULTICAST";
+"\017PROTO2\020PROTO1\021PRCLONING\022WASCLONED\023PROTO3\024b024"
+"\025PINNED\026LOCAL\027BROADCAST\030MULTICAST\031IFSCOPE";
 char ifnetflags[] =
 "\1UP\2BROADCAST\3DEBUG\4LOOPBACK\5PTP\6b6\7RUNNING\010NOARP"
 "\011PPROMISC\012ALLMULTI\013OACTIVE\014SIMPLEX\015LINK0\016LINK1"
@@ -1428,8 +1294,11 @@ print_rtmsg(rtm, msglen)
 		break;
 #endif
 	default:
-		(void) printf("pid: %ld, seq %d, errno %d, flags:",
+		(void) printf("pid: %ld, seq %d, errno %d, ",
 			(long)rtm->rtm_pid, rtm->rtm_seq, rtm->rtm_errno);
+		if (rtm->rtm_flags & RTF_IFSCOPE)
+			(void) printf("ifscope %d, ", rtm->rtm_index);
+		(void) printf("flags:");
 		bprintf(stdout, rtm->rtm_flags, routeflags);
 		pmsg_common(rtm);
 	}
@@ -1621,18 +1490,6 @@ sodump(su, which)
 		(void) printf("%s: inet %s; ",
 		    which, inet_ntoa(su->sin.sin_addr));
 		break;
-#ifndef __APPLE__
-	case AF_APPLETALK:
-		(void) printf("%s: atalk %s; ",
-		    which, atalk_ntoa(su->sat.sat_addr));
-		break;
-#endif
-#ifdef NS
-	case AF_NS:
-		(void) printf("%s: xns %s; ",
-		    which, ns_ntoa(su->sns.sns_addr));
-		break;
-#endif
 	}
 	(void) fflush(stdout);
 }
@@ -1689,27 +1546,3 @@ sockaddr(addr, sa)
 	} while (cp < cplim);
 	sa->sa_len = cp - (char *)sa;
 }
-
-#ifndef __APPLE__
-int
-atalk_aton(const char *text, struct at_addr *addr)
-{
-	u_int net, node;
-
-	if (sscanf(text, "%u.%u", &net, &node) != 2
-	    || net > 0xffff || node > 0xff)
-		return(0);
-	addr->s_net = htons(net);
-	addr->s_node = node;
-	return(1);
-}
-
-char *
-atalk_ntoa(struct at_addr at)
-{
-	static char buf[20];
-
-	(void) snprintf(buf, sizeof(buf), "%u.%u", ntohs(at.s_net), at.s_node);
-	return(buf);
-}
-#endif

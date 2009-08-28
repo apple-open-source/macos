@@ -248,7 +248,7 @@ BOOL make_user_info_netlogon_interactive(auth_usersupplied_info **user_info,
 	unsigned char key[16];
 	
 	ZERO_STRUCT(key);
-	memcpy(key, dc_sess_key, 8);
+	memcpy(key, dc_sess_key, 16);
 	
 	if (lm_interactive_pwd)
 		memcpy(lm_pwd, lm_interactive_pwd, sizeof(lm_pwd));
@@ -811,7 +811,7 @@ static NTSTATUS create_builtin_administrators( void )
 		return NT_STATUS_NO_MEMORY;
 	}
 	fstr_sprintf( root_name, "%s\\root", get_global_sam_name() );
-	ret = lookup_name( ctx, root_name, 0, NULL, NULL, &root_sid, &type );
+	ret = lookup_name( ctx, root_name, LOOKUP_NAME_DOMAIN, NULL, NULL, &root_sid, &type );
 	TALLOC_FREE( ctx );
 
 	if ( ret ) {
@@ -949,11 +949,14 @@ static struct nt_user_token *create_local_nt_token(TALLOC_CTX *mem_ctx,
 	
 	if (lp_winbind_nested_groups()) {
 
+		become_root();
+
 		/* Now add the aliases. First the one from our local SAM */
 
 		status = add_aliases(get_global_sam_sid(), result);
 
 		if (!NT_STATUS_IS_OK(status)) {
+			unbecome_root();
 			TALLOC_FREE(result);
 			return NULL;
 		}
@@ -963,9 +966,12 @@ static struct nt_user_token *create_local_nt_token(TALLOC_CTX *mem_ctx,
 		status = add_aliases(&global_sid_Builtin, result);
 
 		if (!NT_STATUS_IS_OK(status)) {
+			unbecome_root();
 			TALLOC_FREE(result);
 			return NULL;
 		}
+
+		unbecome_root();
 	} 
 
 
@@ -1112,6 +1118,7 @@ NTSTATUS create_token_from_username(TALLOC_CTX *mem_ctx, const char *username,
 	}
 
 	if (sid_check_is_in_our_domain(&user_sid)) {
+		BOOL ret;
 
 		/* This is a passdb user, so ask passdb */
 
@@ -1122,7 +1129,11 @@ NTSTATUS create_token_from_username(TALLOC_CTX *mem_ctx, const char *username,
 			goto done;
 		}
 
-		if (!pdb_getsampwsid(sam_acct, &user_sid)) {
+		become_root();
+		ret = pdb_getsampwsid(sam_acct, &user_sid);
+		unbecome_root();
+
+		if (!ret) {
 			DEBUG(1, ("pdb_getsampwsid(%s) for user %s failed\n",
 				  sid_string_static(&user_sid), username));
 			DEBUGADD(1, ("Fall back to unix user %s\n", username));
@@ -1365,10 +1376,12 @@ NTSTATUS make_server_info_pw(auth_serversupplied_info **server_info,
 	if ( !(sampass = samu_new( NULL )) ) {
 		return NT_STATUS_NO_MEMORY;
 	}
-	
-	status = samu_set_unix( sampass, pwd );
-	if (!NT_STATUS_IS_OK(status)) {
-		return status;
+
+        if (!pdb_getsampwnam(sampass, unix_username)) {
+		status = samu_set_unix( sampass, pwd );
+		if (!NT_STATUS_IS_OK(status)) {
+			return status;
+		}
 	}
 
 	result = make_server_info(NULL);

@@ -1,0 +1,777 @@
+# $Id: xoRDF.xotcl,v 1.4 2005/09/09 21:09:01 neumann Exp $
+package provide xotcl::rdf::parser 1.0
+
+package require XOTcl
+package require xotcl::xml::parser
+#package require xotcl::pattern::link
+package require xotcl::trace
+
+namespace eval ::xotcl::rdf::parser {
+  namespace import ::xotcl::*
+
+  ##############################################################################
+  #
+  #  RDF Parse Type Handling for RDF Node Class and RDF Parser class
+  #  to be used as mixin. Here, we have decomposed the parse type handling
+  #
+  ##############################################################################
+
+  #
+  #  Nodes just call "isParseLiteral", "isParseResource", and "handleParseType"
+  #  by their template methods -> mixins concretizes implementation
+  #
+  Class RDFNodeParseTypeHandling
+
+  #
+  # parseType=literal nodes are not parsed, but handled as literals
+  # -> the XML parser should parse these nodes -> we have cut them off
+  # if we encounter "parseType = literal" nextParsedLiterals searches the
+  # parseLiterals array and returns the content
+  #
+  RDFNodeParseTypeHandling instproc nextParsedLiterals {} {
+    set parser [my set parser]
+    $parser set parseLiterals([$parser incr parseLiteralsCount])
+  }
+
+  #
+  # handle attributes that determine the parse type
+  #
+  RDFNodeParseTypeHandling instproc handleParseType value {
+    if {$value eq "Resource"} {
+      my set parseResource 1
+    } else {
+      # with RDF 1.0 all values other than Resource are treated
+      # as parseType = literal
+      my set pcdata [list "" [my nextParsedLiterals]]
+      my set parseLiteral 1
+    }
+  }
+
+  #
+  # two convinience methods that tell us whether the parse type is literal/resource
+  #
+  RDFNodeParseTypeHandling instproc isParseLiteral {} {
+    #
+    # if the parse literal var is set -> one child
+    # is of type ParseTypeLiteral !
+    #
+    my exists parseLiteral
+  }
+  RDFNodeParseTypeHandling instproc isParseResource {} {
+    #
+    # if the parseResource var is set -> one child
+    # is of type ParseTypeResource !
+    #
+    my exists parseResource
+  }
+
+  #
+  # and we overload the Parser's parse method in order to cut off
+  # all parseType = "Literal", because we have to hinder the XML
+  # parser to parse RDF text that is marked as parseType = literal
+  # we store the result in an array "parseLiterals" that is used
+  # by the RDFNodeParseTypeHandling Mixin
+  #
+  Class RDFParserParseTypeHandling
+  RDFParserParseTypeHandling instproc parse data {
+    my array set parseLiterals {}
+    my set parseLiteralsCount 0
+    set count 0
+
+    set dt $data
+
+    while {[set pt [string first "parseType" $dt]] != -1} {
+      # we cut the string off manually, because a regexp is slower
+      if {$::tcl_version > 8.0} {
+	set last [string first "=" $dt $pt]
+      } else {
+	set last [string first "=" [string range $dt $pt end]]
+	incr last $pt
+      }
+      set ptStart [expr {[string last "<" [string range $dt 0 $pt]] + 1}]
+      set propName [string range $dt $ptStart $pt]
+      set blank [string first " " $propName]
+      if {$blank != -1} {
+	set propName [string range $propName 0 [expr {$blank -1}]]
+      }
+      set dt [string range $dt $last end]
+      # All parse types != Resource treated as literals
+      if {![regexp {^= *[\"']Resource} $dt]} {
+	regexp -indices ">" $dt idx
+	set start [lindex $idx 1]
+	if {[regexp -indices "</$propName>" $dt idx]} {
+	  set endTagLeft [lindex $idx 0]
+	  set literal [string range $dt [expr {$start + 1}] [expr {$endTagLeft - 1}]]
+	  set dt [string range $dt $endTagLeft end]
+	  my set parseLiterals([incr count]) $literal
+	} else {
+	  error "end tag for $propName missing"
+	}
+      }
+    }
+    next $data
+  }
+
+  ##############################################################################
+  #
+  #  RDFNode Node Class
+  #
+  ##############################################################################
+
+  Class RDFNode -superclass XMLNode -parameter {
+    subject
+    {rdfNSPrefix ""}
+  }
+  @ Class RDFNode -superclass XMLNode {
+    description {
+      general superclass for RDF nodes
+      common properties
+    }
+  }
+
+  #
+  # add mixins for parse type handling
+  #
+  RDFNode instproc init args {
+    next
+    my mixin add RDFNodeParseTypeHandling
+    set p [my info parent]
+    if {[$p exists rdfNSPrefix]} {
+      my set rdfNSPrefix [$p set rdfNSPrefix]
+      #puts stderr "RDF Prefix defined in [self]->init to [$p set rdfNSPrefix]" 
+    }
+  }
+
+  RDFNode instproc parseData {text} {
+    if {[my isParseLiteral]} {return}
+    next
+  }
+
+  #
+  # try to find the "subject" of the RDF statement ->
+  # if it not found on the actual node search the parents
+  #
+  # per default subject is ""; subclasses add subjects,
+  # when they encounter ID, about, ... attrs
+  #
+  RDFNode instproc getSubject {} {
+    for {set o [self]} {![$o istype RDFTag]} {set o [$o info parent]} {
+      if {[$o exists subject]} {return [$o set subject]}
+    }
+    return ""
+  }
+
+
+  #
+  # lets the parser construct an unique ID in the parser
+  #
+  RDFNode instproc makeID {} {
+    [my set parser] makeID
+  }
+
+  #
+  # abstract methods that have to be concretized with parse type handling
+  # by a parse type mixin (or in subclass)
+  #
+  RDFNode abstract instproc isParseLiteral {}
+  RDFNode abstract instproc isParseResource {}
+  RDFNode abstract instproc handleParseType value
+
+  RDFNode instproc appendRDFType t {
+    set t [[my resolveNS] getFullName $t]
+    my set rdfTypes($t) 1
+  }
+
+  #
+  # get a typed node abbreviation -> convert it to
+  # a description + a nested rdf:type property
+  #
+  RDFNode instproc getTypedNode {name attrList} {
+    set r [my getNestingNode RDFDescription \
+	       [my qualifyWithRdfNsPrefix Description] $attrList]
+    $r appendRDFType $name
+    set r
+  }
+
+  #
+  # try to parse children corresponding to parse type or if none is given
+  # try to parse a child of type obj -> Description or Container
+  #
+  RDFNode instproc parseNestedChild {name attrList} {
+    if {[my isParseResource]} {
+      if {![my exists resourceDescription]} {
+	my set resourceDescription \
+	    [my getNestingNode RDFDescription \
+		 [my qualifyWithRdfNsPrefix Description] {}]
+	# we have resolved parseType="resource" with a description
+	# -> remove parse type attribute info ... it is not correct anymore,
+	# but remember parseResource flag
+	if {[my exists attributes(parseType)]} {
+	  my unset attributes(parseType)
+	}
+	if {[my exists attributes([set parseType [my qualifyWithRdfNsPrefix parseType]])]} {
+	  my unset attributes($parseType)
+	}
+      }
+      
+      set r [[my set resourceDescription] getPropertyNodeChild $name $attrList]
+    } elseif {[my isParseLiteral]} {
+      set r [self]
+      # literal -> do nothing
+    } else {
+      if {[set node [my isNestingNode $name]] ne ""} {
+	set r [my getNestingNode $node $name $attrList]
+      } else {
+	set r [my getTypedNode $name $attrList]
+      }
+    }
+    return $r
+  }
+
+  #
+  # step forward in the attrList
+  #
+  RDFNode instproc nextAttrNode {node attrList index} {
+    upvar [self callinglevel] $index i $attrList a
+    if {$node ne ""} {
+      set a [lreplace $a $i [expr {$i + 1}]]
+    } else {
+      incr i 2
+    }
+  }
+
+  #
+  # create a child node of Property type and return it
+  #
+  # don't build a node for "type" properties, but append them to
+  # the list
+  #
+  RDFNode instproc getPropertyNodeChild {name attrList} {
+    regexp "^[my set rdfNSPrefix]:(.*)" $name _ name
+    set parser [my set parser]
+    if {$name eq "type" && [my istype RDFResource]} {
+      # seek for resource attribute and append type to list
+      set rp [my prependRDFPrefix resource]
+      set rdfns [$parser set rdfNamespace]
+      foreach {n v} $attrList {
+	if {![my istype RDFContainerNodeClass]} {
+	  if {$n eq $rp || $n eq "resource"} {
+	    foreach c {Bag Alt Seq} {
+	      if {$v eq "$rdfns$c"} {
+		my class RDF$c
+		my set memberNr 0
+		my set ID [my set bagID]
+		my unset bagID
+		my set content [my prependRDFPrefix $c]
+		# reclass existing li props to member
+		set li [my prependRDFPrefix li]
+		foreach child [lsort [my info children]] {
+		  if {[namespace tail [$child info class]] eq "RDFProperty"} {
+		    if {[$child set content] eq $li || 
+			[$child set content] eq "li"} {
+		      $child class RDFMember
+		      my giveMemberNr $child
+		      $child set content $li
+		    }
+		  }
+		}
+	      }
+	    }
+	  }
+	}
+	my appendRDFType $v
+      }
+      return [self]
+    } else {
+      set nf [$parser set nodeFactory]
+      set r [$nf getNode RDFProperty [self]::[my nextChild prop] $parser]
+      $r set content $name
+      $r parseAttributes $name $attrList
+      set r
+    }
+  }
+
+  #
+  # property in abbr syntax (as attribute)
+  #
+  RDFNode instproc propertyAttribute {n v} {
+    set r [my getPropertyNodeChild $n ""]
+    $r parseData $v
+    set r
+  }
+
+  #
+  # check whether an attribute name matches an attributed RDFNode
+  # of this class or not
+  # return the corresponding node class
+  #
+  RDFNode instproc isAttribute {n} {
+    regexp "^[my set rdfNSPrefix]:(.*)" $n _ n
+    if {[lsearch [[my info class] set attributeList] $n] != -1} {
+      return $n
+    } elseif {$n eq "xml:lang"} {
+      # we create attribute for xml_lang (for recreation purposes)
+      return $n
+    }
+    return ""
+  }
+
+  #
+  # check if name matches an node class that may be nested in [self]
+  #
+  RDFNode instproc isNestingNode {n} {
+    regexp "^[my set rdfNSPrefix]:(.*)" $n _ n
+    set cl [my info class]
+    if {[$cl exists nestingList($n)]} {
+      return [$cl set nestingList($n)]
+    }
+    return ""
+  }
+
+  RDFNode instproc getNestingNode {node name attrList} {
+    set parser [my set parser]
+    set nf [$parser set nodeFactory]
+    switch [namespace tail $node] {
+      "RDFMember" - "RDFProperty" {set objName prop} 
+      default {set objName res}
+    }
+    set r [$nf getNode $node [self]::[my nextChild $objName] $parser]
+    $r set content $name
+    $r parseAttributes $name $attrList
+    set r
+  }
+
+  #
+  # check whether the RDF namespace is redefined to another prefix
+  #
+  RDFNode instproc makeIndividualNSEntry {prefix entry} {
+    if {$entry eq [[my set parser] rdfNamespace]} {
+      if {[my set rdfNSPrefix] eq "" || $prefix ne "xmlns"} {
+	my set rdfNSPrefix $prefix
+      }
+      #puts stderr "RDF Prefix redefined in [self] to $prefix"
+    }
+    next
+  }
+
+  RDFNode instproc qualifyWithRdfNsPrefix t {
+    set ns [my set rdfNSPrefix]
+    if {$ns eq "xmlns"} {return $t}
+    return $ns:$t
+  }
+
+  #
+  # checks whether a given attribute is part of the attributes array
+  # and returns the varname, otherwise ""
+  #
+  RDFNode instproc getAttribute {n nsFullName} {
+    set ns [my resolveNS]
+    set xmlns [$ns searchPrefix xmlns]
+    if {$xmlns eq $nsFullName && [my exists attributes($n)]} {
+      return attributes($n)
+    }
+    set prefix [$ns searchFullName $nsFullName]
+    if {$prefix ne "" &&
+	[my exists attributes($prefix:$n)]} {
+      return attributes($prefix:$n)
+    }
+    return ""
+  }
+
+  #
+  # searches for attribute "n" with rdf namespace prefix
+  #
+  RDFNode instproc getRDFAttribute {n} {
+    if {[my exists attributes($n)]} {
+      return [my set attributes($n)]
+    }
+    set rdfNSPrefix [my set rdfNSPrefix]
+    if {$rdfNSPrefix ne "xmlns"} {
+      set n $rdfNSPrefix:$n
+      if {[my exists attributes($n)]} {
+	return [my set attributes($n)]
+      }
+    }
+    return ""
+  }
+
+  RDFNode instproc prependRDFPrefix ts {
+    set rdfNSPrefix [my set rdfNSPrefix]
+    if {$rdfNSPrefix ne "xmlns"} {set ts $rdfNSPrefix:$ts}
+    return $ts
+  }
+
+  ##############################################################################
+  #
+  # superclass for all resources (like Description, Alt, Seq, Beg)
+  # used directly in the parse tree ... resource nodes are mixed in
+  #
+  ##############################################################################
+
+  Class RDFResource -superclass RDFNode
+
+  RDFResource instproc print {} {
+    set t [my array names rdfTypes]
+    if {$t eq ""} {return [next]} else {return "[next]\nTYPES: $t"}
+  }
+
+
+  ##############################################################################
+  #
+  # superclasses for container node classes (alt seq bag)
+  #
+  ##############################################################################
+  Class RDFContainerNodeClass -superclass RDFResource
+
+  RDFContainerNodeClass instproc init args {
+    # cache the member number
+    # 0 inidicates, there is currently no member
+    next
+
+    my set memberNr 0
+    my set ID [my makeID]
+    my appendRDFType [my qualifyWithRdfNsPrefix \
+			  [[my info class] set content]]
+  }
+
+  RDFContainerNodeClass instproc parseAttributes {name attrList} {
+    #set index 0
+    foreach {n v} $attrList {
+      if {[set an [my isAttribute $n]] ne ""} {
+	my set attributes($n) $v
+	if {$an eq "ID"} {	
+	  my set subject $v
+	  my set ID [[my set parser] set baseURL]\#$v
+	}
+      }
+      #set attrList [my nextAttrNode $an attrList index]
+    }
+  }
+
+  RDFContainerNodeClass instproc giveMemberNr {member} {
+    set pf [my getContentPrefix]
+    if {$pf ne ""} {append pf ":"}
+    $member set memberIndex "${pf}_[my incr memberNr]"
+  }
+
+  RDFContainerNodeClass instproc parseStart {name attrList} {
+    set r [self]
+    next
+    if {[set node [my isNestingNode $name]] ne ""} {
+      set r [my getNestingNode $node $name $attrList]
+      if {[namespace tail [$r info class]] eq "RDFMember"} {
+	my giveMemberNr $r
+      }
+    } else {
+      set r [my getPropertyNodeChild $name $attrList]
+    }
+    return $r
+  }
+
+  ##############################################################################
+  #
+  # Concrete Factory for creating RDF-style nodes
+  #
+  ##############################################################################
+  Class RDFNodeClassFactory -superclass XMLNodeClassFactory
+  RDFNodeClassFactory instproc content content {
+    my set content $content
+  }
+  RDFNodeClassFactory instproc attributeList attributeList {
+    my set attributeList $attributeList
+  }
+  RDFNodeClassFactory instproc nestingTo nestingTo {
+    set name [string trimleft [self] :]
+    foreach cl $nestingTo {
+      $cl set nestingList([my set content]) $name
+    }
+  }
+
+  RDFNodeClassFactory proc create args {
+    # create the class
+    set name [next]
+    switch -exact $name {
+      RDFDescription - RDFProperty - RDFMember {
+	my array set attributeList {}
+      }
+      RDFMember - RDFProperty {
+	my array set nestingList {}
+      }
+    }
+  }
+  ##########################################################################
+  #
+  # now create a factory and build all the node classes
+  # needed for the RDF Parser/Interpreter
+  #
+  ##########################################################################
+  RDFNodeClassFactory proc createFactories {} {
+    foreach {name superclasses content attributeList} {
+      RDFTag 	  RDFNode		        RDF     {}
+      RDFBag 	  RDFContainerNodeClass 	Bag     {ID}
+      RDFSeq 	  RDFContainerNodeClass 	Seq     {ID}
+      RDFAlt 	  RDFContainerNodeClass 	Alt     {ID}
+      RDFProperty RDFNode	    	""      {bagID ID resource parseType}
+      RDFMember   RDFProperty           li      {resource parseType}
+      RDFDescription  RDFResource	Description {ID bagID about type aboutEach aboutEachPrefix}
+    } {
+      #puts "Create class: $name -superclass $superclasses"
+      RDFNodeClassFactory create $name -superclass $superclasses \
+	  -content $content \
+	  -attributeList $attributeList
+    }
+  }
+  RDFNodeClassFactory createFactories
+
+  #
+  # define nesting constraints
+  #
+  RDFTag nestingTo {}
+  RDFBag nestingTo {RDFTag RDFProperty}
+  RDFSeq nestingTo {RDFTag RDFProperty}
+  RDFAlt nestingTo {RDFTag RDFProperty}
+  RDFMember nestingTo {RDFContainerNodeClass RDFBag RDFSeq RDFAlt}
+  RDFProperty nestingTo {}
+  RDFDescription nestingTo {RDFTag RDFMember RDFProperty}
+
+  ##############################################################################
+  #
+  # add some methods to the property node class
+  #
+  ##############################################################################
+
+  RDFProperty instproc parseAttributes {name attrList} {
+    set r [self]
+    #set index 0
+    foreach {n v} $attrList {
+      if {[my checkForXmlNS $n $v]} {continue}
+      if {[set an [my isAttribute $n]] ne ""} {
+	my set attributes($n) $v
+	if {$an eq "parseType"} {my handleParseType $v}
+      } else {
+	if {![info exists abbrvPropResource]} {
+	  set abbrvPropResource \
+	      [my getNestingNode RDFDescription \
+		   [my qualifyWithRdfNsPrefix Description] {}]
+	}
+	$abbrvPropResource propertyAttribute $n $v
+      }
+      #set attrList [my nextAttrNode $an attrList index]
+    }
+
+    if {[info exists abbrvPropResource]} {
+      # if resource attribute is given -> use it for abbr property 
+      # description as about attr  
+      if {[my exists attributes(resource)]} {
+	set about [my set attributes(resource)]
+	my unset attributes(resource)
+      }
+      if  {[my exists attributes([set resource [my qualifyWithRdfNsPrefix resource]])]} {
+	set about [my set attributes($resource)]
+	my unset attributes($resource)
+      }
+      if {[info exists about]} {
+	$abbrvPropResource set attributes(about) $about
+	$abbrvPropResource set subject $about
+      }
+    }
+  }
+  RDFProperty instproc parseStart {name attrList} {
+    if {[my isParseLiteral]} {return [self]}
+    next
+    return [my parseNestedChild $name $attrList]
+  }
+
+  ##############################################################################
+  #
+  # add methods to the member class
+  #
+  ##############################################################################
+
+  RDFMember parameter {
+    memberIndex
+  }
+
+  RDFMember instproc parseAttributes {name attrList} {
+    #set index 0
+    foreach {n v} $attrList {
+      if {[set an [my isAttribute $n]] ne ""} {
+	my set attributes($n) $v
+	if {$an eq "parseType"} {my handleParseType $v}
+      }
+      #set attrList [my nextAttrNode $an attrList index]
+    }
+  }
+
+  RDFMember instproc print {} {
+    return "[next]\nMEMBER-INDEX: [my set memberIndex]"
+  }
+
+  ##############################################################################
+  #
+  # add methods to the description node class
+  #
+  ##############################################################################
+
+  RDFDescription instproc init {args} {
+    next
+    set ID [my makeID]
+    my set subject $ID
+    my set bagID $ID
+  }
+
+  RDFDescription instproc parseAttributes {name attrList} {
+    set r [self]
+
+    # if the parent is a property with an ID -> use it
+    # as description subject
+    set ID [my qualifyWithRdfNsPrefix ID]
+    set parent [my info parent]
+    if {[$parent exists attributes(ID)]} {
+      my set subject [$parent set attributes(ID)]
+    } elseif {[$parent exists attributes($ID)]} {
+      my set subject [$parent set attributes($ID)]
+    }
+
+    foreach {n v} $attrList {
+      if {[my checkForXmlNS $n $v]} {continue}
+      if {[set an [my isAttribute $n]] ne ""} {
+	my set attributes($n) $v
+	switch -exact $an {
+	  about -
+	  ID -
+	  aboutEach -
+	  aboutEachPrefix {
+	    my set subject $v
+	  }
+	  bagID {
+	    my set bagID [[my set parser] set baseURL]\#$v
+	  }
+	  type {
+	    my appendRDFType $v
+	  }
+	}
+      } else {
+	set r [my propertyAttribute $n $v]
+      }
+    }
+    return $r
+  }
+
+  RDFDescription instproc parseStart {name attrList} {
+    next
+    return [my getPropertyNodeChild $name $attrList]
+  }
+
+  ##############################################################################
+  #
+  # add some methods to the <RDF> node class
+  #
+  ##############################################################################
+
+  RDFTag parameter {{startTagOn 0}}
+
+  RDFTag instproc match {c} {
+    # the prefix of the topnode determines initially how the RDF 
+    # namespace is named ... since several examples don't have a 
+    # namespace definition for this ns, we set here a default, which
+    # may be overridden by ns definitions in the XML text
+    if {[regexp {^([^:]*):(.*)} $c _ pre c]} {
+      my makeIndividualNSEntry $pre [[my set parser] rdfNamespace]
+      #puts stderr "Making RDF namespace entry for <$pre>"
+    }
+    #puts "Match for $c --- Content: [[my info class] set content]"
+    expr {$c eq [[my info class] set content]}
+  }
+
+  RDFTag instproc parseStart {name attrList} {
+    set parsed 0
+    if {[set node [my isNestingNode $name]] ne ""} {
+      set r [my getNestingNode $node $name $attrList]
+    } else {
+      set r [my getTypedNode $name $attrList]
+    }
+    next
+    return $r
+  }
+
+  RDFTag instproc parseEnd content {
+    if {!([my startTagOn] && [my match $content])} {
+      [my errorChild $content]
+    }
+    next
+    self ;# return [self]
+  }
+
+  ##############################################################################
+  #
+  # RDF Factory for creating node objects
+  #
+  ##############################################################################
+  Class RDFNodeFactory -superclass XMLNodeFactory
+  RDFNodeFactory create rdfNodeFactory -sharedNodes {RDFDescription RDFTag}
+
+
+  ##############################################################################
+  #
+  # RDF parser class used to access the xml parser and produce the
+  # rdf node tree
+  #
+  ##############################################################################
+  Class RDFParser -superclass XMLParser -parameter {
+    {baseURL "rdfdoc"}
+    {rdfNamespace "http://www.w3.org/1999/02/22-rdf-syntax-ns#"}
+  }
+
+  RDFParser instproc init args {
+    my mixin add RDFParserParseTypeHandling
+
+    ### this special parser handles rdf:RDF tags
+    my topLevelHandlerPattern {^([^:]*):RDF|RDF} RDFTag
+
+    next
+    my set nodeFactory "rdfNodeFactory"
+  }
+
+  RDFParser instproc makeID {} {
+    my autoname [my baseURL]\#id
+  }
+
+  RDFParser instproc reset {} {
+    next
+    set id [my baseURL]\#id
+    my autoname -reset $id
+  }
+
+  RDFParser instproc createTopLevelNode {name attrList} {
+    set tn [next]
+    #$tn makeIndividualNSEntry xmlns [my set rdfNamespace]
+    ### toplevel node must be of type RDFTag
+    if {![$tn istype RDFTag]} {
+      error "Top level node must be of type RDFTag"
+    }
+    if {[$tn match $name]} {
+      $tn set content $name
+      $tn startTagOn 1
+
+      ### use default values for rdf/default (xmlns) namespace
+      #my makeIndividualNSEntry rdfs "http://www.w3.org/TR/1999/PR-rdf-schema-19990303#"
+
+      foreach {n v} $attrList {
+	if {[$tn checkForXmlNS $n $v]} {continue}
+      }
+    }
+    return $tn
+  }
+
+  #RDFParser instproc parse data {
+  #  next
+  #}
+
+  namespace export RDFNodeParseTypeHandling RDFParserParseTypeHandling \
+      RDFNode RDFResource RDFContainerNodeClass RDFNodeClassFactory \
+      RDFNodeFactory RDFParser rdfNodeFactory \
+      RDFTag RDFBag RDFSeq RDFAlt RDFProperty  RDFMember RDFDescription
+}
+
+namespace import ::xotcl::rdf::parser::*

@@ -35,9 +35,9 @@
 
 #include "Document.h"
 #include "Frame.h"
-#include "ScriptFunctionCall.h"
+#include "InspectorFrontend.h"
+#include "InspectorJSONObject.h"
 #include "ScriptObjectQuarantine.h"
-#include "ScriptValue.h"
 #include "Storage.h"
 
 using namespace JSC;
@@ -48,6 +48,7 @@ InspectorDOMStorageResource::InspectorDOMStorageResource(Storage* domStorage, bo
     : m_domStorage(domStorage)
     , m_isLocalStorage(isLocalStorage)
     , m_frame(frame)
+    , m_scriptObjectCreated(false)
 {
 }
 
@@ -56,38 +57,25 @@ bool InspectorDOMStorageResource::isSameHostAndType(Frame* frame, bool isLocalSt
     return equalIgnoringCase(m_frame->document()->securityOrigin()->host(), frame->document()->securityOrigin()->host()) && m_isLocalStorage == isLocalStorage;
 }
 
-void InspectorDOMStorageResource::bind(ScriptState* scriptState, const ScriptObject& webInspector)
+void InspectorDOMStorageResource::bind(InspectorFrontend* frontend)
 {
-    if (!m_scriptObject.hasNoValue())
+    if (m_scriptObjectCreated)
         return;
 
-    ASSERT(scriptState);
-    ASSERT(!webInspector.hasNoValue());
-    if (!scriptState || webInspector.hasNoValue())
-        return;
-
-    ScriptFunctionCall resourceConstructor(scriptState, webInspector, "DOMStorage");
+    InspectorJSONObject jsonObject = frontend->newInspectorJSONObject();
     ScriptObject domStorage;
     if (!getQuarantinedScriptObject(m_frame.get(), m_domStorage.get(), domStorage))
         return;
-
-    resourceConstructor.appendArgument(domStorage);
-    resourceConstructor.appendArgument(m_frame->document()->securityOrigin()->host());
-    resourceConstructor.appendArgument(m_isLocalStorage);
-
-    bool hadException = false;
-    m_scriptObject = resourceConstructor.construct(hadException);
-    if (hadException)
-        return;
-
-    ScriptFunctionCall addDOMStorage(scriptState, webInspector, "addDOMStorage");
-    addDOMStorage.appendArgument(m_scriptObject);
-    addDOMStorage.call(hadException);
+    jsonObject.set("domStorage", domStorage);
+    jsonObject.set("host", m_frame->document()->securityOrigin()->host());
+    jsonObject.set("isLocalStorage", m_isLocalStorage);
+    if (frontend->addDOMStorage(jsonObject))
+        m_scriptObjectCreated = true;
 }
 
 void InspectorDOMStorageResource::unbind()
 {
-    m_scriptObject = ScriptObject();
+    m_scriptObjectCreated = false;
 }
 
 } // namespace WebCore

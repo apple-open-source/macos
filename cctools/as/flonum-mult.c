@@ -83,11 +83,11 @@ FLONUM_TYPE *product)
   int			size_of_product;	/* 0 origin */
   int			size_of_sum;		/* 0 origin */
   int			extra_product_positions;/* 1 origin */
-  unsigned long int	work;
-  unsigned long int	carry;
-  long int		exponent;
+  uint32_t		work;
+  uint32_t		carry;
+  int32_t		exponent;
   LITTLENUM_TYPE *	q;
-  long int		significant;		/* TRUE when we emit a non-0 littlenum  */
+  int32_t		significant;		/* TRUE when we emit a non-0 littlenum  */
 				/* ForTran accent follows. */
   int			P;	/* Scan product low-order -> high. */
   int			N;	/* As in sum above.  */

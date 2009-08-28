@@ -1,0 +1,15 @@
+Index: samba/source/tdb/common/open.c
+===================================================================
+--- samba/source/tdb/common/open.c.orig
++++ samba/source/tdb/common/open.c
+@@ -259,8 +259,8 @@ struct tdb_context *tdb_open_ex(const ch
+ 		goto fail;
+ 
+ 	if (tdb->header.rwlocks != 0) {
+-		TDB_LOG((tdb, TDB_DEBUG_ERROR, "tdb_open_ex: spinlocks no longer supported\n"));
+-		goto fail;
++		TDB_LOG((tdb, TDB_DEBUG_ERROR, "tdb_open_ex: spinlocks no longer supported, clearing spinlock flag\n"));
++		tdb->header.rwlocks = 0;
+ 	}
+ 
+ 	/* Is it already in the open list?  If so, fail. */

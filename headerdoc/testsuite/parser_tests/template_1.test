@@ -1,0 +1,6589 @@
+FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$6|RESULT$14|RESULT_ALLDECS$7|SUBLANG$4|TYPE$835|class This_Does_Not_Contain_Templates {
+    public:
+    /*! @functiongroup group_1 */
+    /*! @function foo
+        @abstract Test method
+     */
+    static int foo(int a, char *b) { if (a < 3) printf("%s\n", b); };
+    /*! @functiongroup group_2 */
+    /*! @method mymethod
+        @abstract My method
+      */
+    void mymethod(int b);
+
+    /*! @struct foobar
+        @abstract test foobar
+        @updated 2003-02-01
+     */
+    struct {
+        int a;
+        char *b;
+    } foobar;
+
+    /*! @var test
+        @abstract test
+        @updated 12-14-06
+     */
+    int test;
+    /*! @functiongroup group_1 */
+    /*! @function group1_test
+     */
+    void group1_test(int a);
+
+private:
+
+/*!
+    @var foovar
+    @abstract This is a test abstract.
+    @discussion This is a test discussion.
+    @updated 2003-05-02
+ */
+int foovar;
+} ;
+$239|/*! @class This_Does_Not_Contain_Templates
+    @discussion This is a test class.  This tests to make sure that
+        less than and greater than signs in code are not interpreted
+        as template parameters.
+    @updated 2003-04-01
+*/
+$0|$42321|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 1
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/template_1.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/template_1.test
+$parserState->{ISFORWARDDECLARATION} => 0
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => -1
+$parserState->{categoryClass} => 
+$parserState->{classNameFound} => 1
+$parserState->{classtype} => class
+$parserState->{forceClassDone} => 1
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 1
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 26
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => ;
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 1
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 0
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{preclasssodtype} => class
+$parserState->{returntype} => class This_Does_Not_Contain_Templates 
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => class
+$parserState->{sodname} => This_Does_Not_Contain_Templates
+$parserState->{sodtype} => 
+$parserState->{sodtypeclasstoken} => class
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{storeDec} => 
+$parserState->{temponlyComments} => 0
+$parserState->{treePopTwo} => 0
+$parserState->{typestring} => This_Does_Not_Contain_Templates
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 26
+typelist: class
+namelist: This_Does_Not_Contain_Templates
+posstypes: 
+value: 
+returntype: 
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 16
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---class
++--- 
++---This_Does_Not_Contain_Templates
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---    
+|   +---public
+|   +---:
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @functiongroup group_1 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @function foo
+|   |   +---
+@abstract Test method
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-static (HAS STATE)
+|   +--- 
+|   +---int
+|   +--- 
+|   +---foo
+|   +---(
+|   |   +---int
+|   |   +--- 
+|   |   +---a
+|   |   +---,
+|   |   +--- 
+|   |   +---char
+|   |   +--- 
+|   |   +---*
+|   |   +---b
+|   |   +---)
+|   +--- 
+|   +---;
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @functiongroup group_2 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @method mymethod
+|   |   +---
+@abstract My method
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-void (HAS STATE)
+|   +--- 
+|   +---mymethod
+|   +---(
+|   |   +---int
+|   |   +--- 
+|   |   +---b
+|   |   +---)
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @struct foobar
+|   |   +---
+@abstract test foobar
+|   |   +---
+@updated 2003-02-01
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-struct (HAS STATE)
+|   +--- 
+|   +---{
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +---int
+|   |   +--- 
+|   |   +---a
+|   |   +---;
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +---char
+|   |   +--- 
+|   |   +---*
+|   |   +---b
+|   |   +---;
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +---}
+|   +--- 
+|   +---foobar
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @var test
+|   |   +---
+@abstract test
+|   |   +---
+@updated 12-14-06
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-int (HAS STATE)
+|   +--- 
+|   +---test
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @functiongroup group_1 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @function group1_test
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-void (HAS STATE)
+|   +--- 
+|   +---group1_test
+|   +---(
+|   |   +---int
+|   |   +--- 
+|   |   +---a
+|   |   +---)
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---private
+|   +---:
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@var foovar
+|   |   +---
+@abstract This is a test abstract.
+|   |   +---
+@discussion This is a test discussion.
+|   |   +---
+@updated 2003-05-02
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-int (HAS STATE)
+|   +--- 
+|   +---foovar
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---}
++--- 
++---;
++--- 
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: template 1
+APIUID: //test_ref/doc/header/template_1.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::CPPClass
+    NAME: This_Does_Not_Contain_Templates
+    APIUID: 
+    ABSTRACT: ""
+    DISCUSSION: "<p>This is a test class.  This tests to make sure that
+less than and greater than signs in code are not interpreted
+as template parameters.
+"
+    UPDATED: "April 01, 2003"
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: "April 01, 2003"
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::CPPClass"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "1"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p><b>Declared In:</b> <a href="../../index.html" target="_top">template 1</a><br>
+</p>
+    LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Function
+        NAME: foo
+        APIUID: //test_ref/cpp/clm/This_Does_Not_Contain_Templates/foo/int/(int,char*)
+        ABSTRACT: "<p>Test method
+"
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: "group_1 "
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: "public"
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: " static int"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Function"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: a
+            TYPE: int
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: <p></p>
+            LONG ATTRIBUTES: <p></p>
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: b
+            TYPE: char *
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: <p></p>
+            LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Function
+        NAME: mymethod
+        APIUID: //test_ref/cpp/instm/This_Does_Not_Contain_Templates/mymethod/void/(int)
+        ABSTRACT: "<p>My method
+"
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: "group_2 "
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: "public"
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: " void"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Function"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: b
+            TYPE: int
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: <p></p>
+            LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Function
+        NAME: group1_test
+        APIUID: //test_ref/cpp/instm/This_Does_Not_Contain_Templates/group1_test/void/(int)
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: "group_1 "
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: "public"
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: " void"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Function"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: a
+            TYPE: int
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: <p></p>
+            LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Struct
+        NAME: foobar
+        APIUID: //test_ref/cpp/tag/This_Does_Not_Contain_Templates/foobar
+        ABSTRACT: "<p>test foobar
+"
+        DISCUSSION: "<p></p>"
+        UPDATED: "February 01, 2003"
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: "February 01, 2003"
+        LINKAGESTATE: ""
+        ACCESSCONTROL: "public"
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::Struct"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: a
+            TYPE: int
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: <p></p>
+            LONG ATTRIBUTES: <p></p>
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: b
+            TYPE: char *
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: <p></p>
+            LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: test
+        APIUID: //test_ref/cpp/data/This_Does_Not_Contain_Templates/test
+        ABSTRACT: "<p>test
+"
+        DISCUSSION: "<p></p>"
+        UPDATED: "December 14, 2006"
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: "December 14, 2006"
+        LINKAGESTATE: ""
+        ACCESSCONTROL: "public"
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "int"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: foovar
+        APIUID: //test_ref/cpp/data/This_Does_Not_Contain_Templates/foovar
+        ABSTRACT: "<p>This is a test abstract.
+"
+        DISCUSSION: "<p>This is a test discussion.
+"
+        UPDATED: "May 02, 2003"
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: "May 02, 2003"
+        LINKAGESTATE: ""
+        ACCESSCONTROL: "private"
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "int"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: This_Does_Not_Contain_Templates (HeaderDoc::CPPClass)
++---class
++--- 
++---This_Does_Not_Contain_Templates
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---    
+|   +---public
+|   +---:
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @functiongroup group_1 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @function foo
+|   |   +---
+@abstract Test method
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-static (HAS STATE)
+|   +--- 
+|   +---int
+|   +--- 
+|   +---foo
+|   +---(
+|   |   +---int
+|   |   +--- 
+|   |   +---a
+|   |   +---,
+|   |   +--- 
+|   |   +---char
+|   |   +--- 
+|   |   +---*
+|   |   +---b
+|   |   +---)
+|   +--- 
+|   +---;
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @functiongroup group_2 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @method mymethod
+|   |   +---
+@abstract My method
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-void (HAS STATE)
+|   +--- 
+|   +---mymethod
+|   +---(
+|   |   +---int
+|   |   +--- 
+|   |   +---b
+|   |   +---)
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @struct foobar
+|   |   +---
+@abstract test foobar
+|   |   +---
+@updated 2003-02-01
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-struct (HAS STATE)
+|   +--- 
+|   +---{
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +---int
+|   |   +--- 
+|   |   +---a
+|   |   +---;
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +---char
+|   |   +--- 
+|   |   +---*
+|   |   +---b
+|   |   +---;
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +---}
+|   +--- 
+|   +---foobar
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @var test
+|   |   +---
+@abstract test
+|   |   +---
+@updated 12-14-06
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-int (HAS STATE)
+|   +--- 
+|   +---test
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @functiongroup group_1 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @function group1_test
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-void (HAS STATE)
+|   +--- 
+|   +---group1_test
+|   +---(
+|   |   +---int
+|   |   +--- 
+|   |   +---a
+|   |   +---)
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---private
+|   +---:
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@var foovar
+|   |   +---
+@abstract This is a test abstract.
+|   |   +---
+@discussion This is a test discussion.
+|   |   +---
+@updated 2003-05-02
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-int (HAS STATE)
+|   +--- 
+|   +---foovar
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---}
++--- 
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: foo (HeaderDoc::Function)
++-*-static (HAS STATE)
++--- 
++---int
++--- 
++---foo
++---(
+|   +---int
+|   +--- 
+|   +---a
+|   +---,
+|   +--- 
+|   +---char
+|   +--- 
+|   +---*
+|   +---b
+|   +---)
++--- 
++---;
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @functiongroup group_2 
+|   +---*/
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @method mymethod
+|   +---
+@abstract My method
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-void (HAS STATE)
++--- 
++---mymethod
++---(
+|   +---int
+|   +--- 
+|   +---b
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @struct foobar
+|   +---
+@abstract test foobar
+|   +---
+@updated 2003-02-01
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-struct (HAS STATE)
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---        
+|   +---int
+|   +--- 
+|   +---a
+|   +---;
+|   +---[ NEWLINE ]
+|   +---        
+|   +---char
+|   +--- 
+|   +---*
+|   +---b
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---}
++--- 
++---foobar
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @var test
+|   +---
+@abstract test
+|   +---
+@updated 12-14-06
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-int (HAS STATE)
++--- 
++---test
++---;
++--- 
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @functiongroup group_1 
+|   +---*/
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @function group1_test
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-void (HAS STATE)
++--- 
++---group1_test
++---(
+|   +---int
+|   +--- 
+|   +---a
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---private
++---:
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +---
+@var foovar
+|   +---
+@abstract This is a test abstract.
+|   +---
+@discussion This is a test discussion.
+|   +---
+@updated 2003-05-02
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++-*-int (HAS STATE)
++--- 
++---foovar
++---;
++--- 
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: mymethod (HeaderDoc::Function)
++-*-void (HAS STATE)
++--- 
++---mymethod
++---(
+|   +---int
+|   +--- 
+|   +---b
+|   +---)
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @struct foobar
+|   +---
+@abstract test foobar
+|   +---
+@updated 2003-02-01
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-struct (HAS STATE)
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---        
+|   +---int
+|   +--- 
+|   +---a
+|   +---;
+|   +---[ NEWLINE ]
+|   +---        
+|   +---char
+|   +--- 
+|   +---*
+|   +---b
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---}
++--- 
++---foobar
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @var test
+|   +---
+@abstract test
+|   +---
+@updated 12-14-06
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-int (HAS STATE)
++--- 
++---test
++---;
++--- 
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @functiongroup group_1 
+|   +---*/
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @function group1_test
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-void (HAS STATE)
++--- 
++---group1_test
++---(
+|   +---int
+|   +--- 
+|   +---a
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---private
++---:
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +---
+@var foovar
+|   +---
+@abstract This is a test abstract.
+|   +---
+@discussion This is a test discussion.
+|   +---
+@updated 2003-05-02
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++-*-int (HAS STATE)
++--- 
++---foovar
++---;
++--- 
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: group1_test (HeaderDoc::Function)
++-*-void (HAS STATE)
++--- 
++---group1_test
++---(
+|   +---int
+|   +--- 
+|   +---a
+|   +---)
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---private
++---:
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +---
+@var foovar
+|   +---
+@abstract This is a test abstract.
+|   +---
+@discussion This is a test discussion.
+|   +---
+@updated 2003-05-02
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++-*-int (HAS STATE)
++--- 
++---foovar
++---;
++--- 
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: foobar (HeaderDoc::Struct)
++-*-struct (HAS STATE)
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---        
+|   +---int
+|   +--- 
+|   +---a
+|   +---;
+|   +---[ NEWLINE ]
+|   +---        
+|   +---char
+|   +--- 
+|   +---*
+|   +---b
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---}
++--- 
++---foobar
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @var test
+|   +---
+@abstract test
+|   +---
+@updated 12-14-06
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-int (HAS STATE)
++--- 
++---test
++---;
++--- 
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @functiongroup group_1 
+|   +---*/
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @function group1_test
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-void (HAS STATE)
++--- 
++---group1_test
++---(
+|   +---int
+|   +--- 
+|   +---a
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---private
++---:
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +---
+@var foovar
+|   +---
+@abstract This is a test abstract.
+|   +---
+@discussion This is a test discussion.
+|   +---
+@updated 2003-05-02
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++-*-int (HAS STATE)
++--- 
++---foovar
++---;
++--- 
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: test (HeaderDoc::Var)
++-*-int (HAS STATE)
++--- 
++---test
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @functiongroup group_1 
+|   +---*/
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @function group1_test
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-void (HAS STATE)
++--- 
++---group1_test
++---(
+|   +---int
+|   +--- 
+|   +---a
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---private
++---:
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +---
+@var foovar
+|   +---
+@abstract This is a test abstract.
+|   +---
+@discussion This is a test discussion.
+|   +---
+@updated 2003-05-02
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++-*-int (HAS STATE)
++--- 
++---foovar
++---;
++--- 
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: foovar (HeaderDoc::Var)
++-*-int (HAS STATE)
++--- 
++---foovar
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: This_Does_Not_Contain_Templates (HeaderDoc::CPPClass)
+	<span class="keyword">class</span> <!-- a logicalPath="//test_ref/cpp/cl/This_Does_Not_Contain_Templates //test_ref/cpp/tdef/This_Does_Not_Contain_Templates //test_ref/cpp/tag/This_Does_Not_Contain_Templates //test_ref/cpp/econst/This_Does_Not_Contain_Templates //test_ref/cpp/struct/This_Does_Not_Contain_Templates //test_ref/cpp/clconst/This_Does_Not_Contain_Templates //test_ref/cpp/intf/This_Does_Not_Contain_Templates" --><span class="type">This_Does_Not_Contain_Templates</span><!-- /a --> { 
+	    <span class="keyword">public</span>: <span class="comment">/*! @functiongroup group_1 */</span>
+	    <span class="comment">/*! @function foo
+	@abstract Test method</span>
+	        <span class="comment">*/</span>
+	    <span class="keyword">static</span> <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/foo //test_ref/cpp/clm/foo //test_ref/cpp/intfcm/foo //test_ref/cpp/intfm/foo //test_ref/cpp/func/foo //test_ref/cpp/ftmplt/foo //test_ref/cpp/defn/foo //test_ref/cpp/macro/foo" --><span class="function">foo</span><!-- /a -->(
+	        <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <span class="param">a</span>,
+	        <!-- a logicalPath="//test_ref/cpp/cl/char //test_ref/cpp/tdef/char //test_ref/cpp/tag/char //test_ref/cpp/econst/char //test_ref/cpp/struct/char //test_ref/cpp/clconst/char //test_ref/cpp/intf/char" --><span class="type">char</span><!-- /a --> <span class="type">*</span><span class="param">b</span>); 
+	    <span class="comment">/*! @functiongroup group_2 */</span>
+	    <span class="comment">/*! @method mymethod
+	@abstract My method</span>
+	        <span class="comment">*/</span>
+	    <!-- a logicalPath="//test_ref/cpp/cl/void //test_ref/cpp/tdef/void //test_ref/cpp/tag/void //test_ref/cpp/econst/void //test_ref/cpp/struct/void //test_ref/cpp/clconst/void //test_ref/cpp/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/mymethod //test_ref/cpp/clm/mymethod //test_ref/cpp/intfcm/mymethod //test_ref/cpp/intfm/mymethod //test_ref/cpp/func/mymethod //test_ref/cpp/ftmplt/mymethod //test_ref/cpp/defn/mymethod //test_ref/cpp/macro/mymethod" --><span class="function">mymethod</span><!-- /a -->(
+	        <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <span class="param">b</span>);  
+	    <span class="comment">/*! @struct foobar
+	@abstract test foobar
+	@updated 2003-02-01</span>
+	        <span class="comment">*/</span>
+	    <span class="keyword">struct</span> { 
+	        <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/econst/a //test_ref/cpp/data/a" --><span class="var">a</span><!-- /a -->; 
+	        <!-- a logicalPath="//test_ref/cpp/cl/char //test_ref/cpp/tdef/char //test_ref/cpp/tag/char //test_ref/cpp/econst/char //test_ref/cpp/struct/char //test_ref/cpp/clconst/char //test_ref/cpp/intf/char" --><span class="type">char</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/cpp/econst/b //test_ref/cpp/data/b" --><span class="var">b</span><!-- /a -->; 
+	        } <!-- a logicalPath="//test_ref/cpp/econst/foobar //test_ref/cpp/data/foobar" --><span class="var">foobar</span><!-- /a -->;  
+	    <span class="comment">/*! @var test
+	@abstract test
+	@updated 12-14-06</span>
+	        <span class="comment">*/</span>
+	    <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/econst/test //test_ref/cpp/data/test" --><span class="var">test</span><!-- /a -->; 
+	    <span class="comment">/*! @functiongroup group_1 */</span>
+	    <span class="comment">/*! @function group1_test</span>
+	        <span class="comment">*/</span>
+	    <!-- a logicalPath="//test_ref/cpp/cl/void //test_ref/cpp/tdef/void //test_ref/cpp/tag/void //test_ref/cpp/econst/void //test_ref/cpp/struct/void //test_ref/cpp/clconst/void //test_ref/cpp/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/group1_test //test_ref/cpp/clm/group1_test //test_ref/cpp/intfcm/group1_test //test_ref/cpp/intfm/group1_test //test_ref/cpp/func/group1_test //test_ref/cpp/ftmplt/group1_test //test_ref/cpp/defn/group1_test //test_ref/cpp/macro/group1_test" --><span class="function">group1_test</span><!-- /a -->(
+	        <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <span class="param">a</span>);  
+	    <span class="keyword">private</span>:  <span class="comment">/*!
+	@var foovar
+	@abstract This is a test abstract.
+	@discussion This is a test discussion.
+	@updated 2003-05-02</span>
+	        <span class="comment">*/</span>
+	    <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/econst/foovar //test_ref/cpp/data/foovar" --><span class="var">foovar</span><!-- /a -->; 
+	};  
+END OF OBJECT
+
+
+OBJECT: foo (HeaderDoc::Function)
+	<span class="keyword">static</span> <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/foo //test_ref/cpp/clm/foo //test_ref/cpp/intfcm/foo //test_ref/cpp/intfm/foo //test_ref/cpp/func/foo //test_ref/cpp/ftmplt/foo //test_ref/cpp/defn/foo //test_ref/cpp/macro/foo" --><span class="function">foo</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <span class="param">a</span>,
+	    <!-- a logicalPath="//test_ref/cpp/cl/char //test_ref/cpp/tdef/char //test_ref/cpp/tag/char //test_ref/cpp/econst/char //test_ref/cpp/struct/char //test_ref/cpp/clconst/char //test_ref/cpp/intf/char" --><span class="type">char</span><!-- /a --> <span class="type">*</span><span class="param">b</span>);
+END OF OBJECT
+
+
+OBJECT: mymethod (HeaderDoc::Function)
+	<!-- a logicalPath="//test_ref/cpp/cl/void //test_ref/cpp/tdef/void //test_ref/cpp/tag/void //test_ref/cpp/econst/void //test_ref/cpp/struct/void //test_ref/cpp/clconst/void //test_ref/cpp/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/mymethod //test_ref/cpp/clm/mymethod //test_ref/cpp/intfcm/mymethod //test_ref/cpp/intfm/mymethod //test_ref/cpp/func/mymethod //test_ref/cpp/ftmplt/mymethod //test_ref/cpp/defn/mymethod //test_ref/cpp/macro/mymethod" --><span class="function">mymethod</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <span class="param">b</span>); 
+END OF OBJECT
+
+
+OBJECT: group1_test (HeaderDoc::Function)
+	<!-- a logicalPath="//test_ref/cpp/cl/void //test_ref/cpp/tdef/void //test_ref/cpp/tag/void //test_ref/cpp/econst/void //test_ref/cpp/struct/void //test_ref/cpp/clconst/void //test_ref/cpp/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/group1_test //test_ref/cpp/clm/group1_test //test_ref/cpp/intfcm/group1_test //test_ref/cpp/intfm/group1_test //test_ref/cpp/func/group1_test //test_ref/cpp/ftmplt/group1_test //test_ref/cpp/defn/group1_test //test_ref/cpp/macro/group1_test" --><span class="function">group1_test</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <span class="param">a</span>); 
+END OF OBJECT
+
+
+OBJECT: foobar (HeaderDoc::Struct)
+	<span class="keyword">struct</span> { 
+	    <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/econst/a //test_ref/cpp/data/a" --><span class="var">a</span><!-- /a -->; 
+	    <!-- a logicalPath="//test_ref/cpp/cl/char //test_ref/cpp/tdef/char //test_ref/cpp/tag/char //test_ref/cpp/econst/char //test_ref/cpp/struct/char //test_ref/cpp/clconst/char //test_ref/cpp/intf/char" --><span class="type">char</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/cpp/econst/b //test_ref/cpp/data/b" --><span class="var">b</span><!-- /a -->; 
+	} <!-- a logicalPath="//test_ref/cpp/econst/foobar //test_ref/cpp/data/foobar" --><span class="var">foobar</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: test (HeaderDoc::Var)
+	<!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/econst/test //test_ref/cpp/data/test" --><span class="var">test</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: foovar (HeaderDoc::Var)
+	<!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/econst/foovar //test_ref/cpp/data/foovar" --><span class="var">foovar</span><!-- /a -->; 
+END OF OBJECT
+
+
+
+$42321|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 1
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/template_1.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/template_1.test
+$parserState->{ISFORWARDDECLARATION} => 0
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => -1
+$parserState->{categoryClass} => 
+$parserState->{classNameFound} => 1
+$parserState->{classtype} => class
+$parserState->{forceClassDone} => 1
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 1
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 26
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => ;
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 1
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 0
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{preclasssodtype} => class
+$parserState->{returntype} => class This_Does_Not_Contain_Templates 
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => class
+$parserState->{sodname} => This_Does_Not_Contain_Templates
+$parserState->{sodtype} => 
+$parserState->{sodtypeclasstoken} => class
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{storeDec} => 
+$parserState->{temponlyComments} => 0
+$parserState->{treePopTwo} => 0
+$parserState->{typestring} => This_Does_Not_Contain_Templates
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 26
+typelist: class
+namelist: This_Does_Not_Contain_Templates
+posstypes: 
+value: 
+returntype: 
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 16
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---class
++--- 
++---This_Does_Not_Contain_Templates
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---    
+|   +---public
+|   +---:
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @functiongroup group_1 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @function foo
+|   |   +---
+@abstract Test method
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-static (HAS STATE)
+|   +--- 
+|   +---int
+|   +--- 
+|   +---foo
+|   +---(
+|   |   +---int
+|   |   +--- 
+|   |   +---a
+|   |   +---,
+|   |   +--- 
+|   |   +---char
+|   |   +--- 
+|   |   +---*
+|   |   +---b
+|   |   +---)
+|   +--- 
+|   +---;
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @functiongroup group_2 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @method mymethod
+|   |   +---
+@abstract My method
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-void (HAS STATE)
+|   +--- 
+|   +---mymethod
+|   +---(
+|   |   +---int
+|   |   +--- 
+|   |   +---b
+|   |   +---)
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @struct foobar
+|   |   +---
+@abstract test foobar
+|   |   +---
+@updated 2003-02-01
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-struct (HAS STATE)
+|   +--- 
+|   +---{
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +---int
+|   |   +--- 
+|   |   +---a
+|   |   +---;
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +---char
+|   |   +--- 
+|   |   +---*
+|   |   +---b
+|   |   +---;
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +---}
+|   +--- 
+|   +---foobar
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @var test
+|   |   +---
+@abstract test
+|   |   +---
+@updated 12-14-06
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-int (HAS STATE)
+|   +--- 
+|   +---test
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @functiongroup group_1 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @function group1_test
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-void (HAS STATE)
+|   +--- 
+|   +---group1_test
+|   +---(
+|   |   +---int
+|   |   +--- 
+|   |   +---a
+|   |   +---)
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---private
+|   +---:
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@var foovar
+|   |   +---
+@abstract This is a test abstract.
+|   |   +---
+@discussion This is a test discussion.
+|   |   +---
+@updated 2003-05-02
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-int (HAS STATE)
+|   +--- 
+|   +---foovar
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---}
++--- 
++---;
++--- 
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: template 1
+APIUID: //test_ref/doc/header/template_1.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::CPPClass
+    NAME: This_Does_Not_Contain_Templates
+    APIUID: 
+    ABSTRACT: ""
+    DISCUSSION: "<p>This is a test class.  This tests to make sure that
+less than and greater than signs in code are not interpreted
+as template parameters.
+"
+    UPDATED: "April 01, 2003"
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: "April 01, 2003"
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::CPPClass"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "1"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p><b>Declared In:</b> <a href="../../index.html" target="_top">template 1</a><br>
+</p>
+    LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Function
+        NAME: foo
+        APIUID: //test_ref/cpp/clm/This_Does_Not_Contain_Templates/foo/int/(int,char*)
+        ABSTRACT: "<p>Test method
+"
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: "group_1 "
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: "public"
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: " static int"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Function"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: a
+            TYPE: int
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: <p></p>
+            LONG ATTRIBUTES: <p></p>
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: b
+            TYPE: char *
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: <p></p>
+            LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Function
+        NAME: mymethod
+        APIUID: //test_ref/cpp/instm/This_Does_Not_Contain_Templates/mymethod/void/(int)
+        ABSTRACT: "<p>My method
+"
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: "group_2 "
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: "public"
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: " void"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Function"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: b
+            TYPE: int
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: <p></p>
+            LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Function
+        NAME: group1_test
+        APIUID: //test_ref/cpp/instm/This_Does_Not_Contain_Templates/group1_test/void/(int)
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: "group_1 "
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: "public"
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: " void"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Function"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: a
+            TYPE: int
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: <p></p>
+            LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Struct
+        NAME: foobar
+        APIUID: //test_ref/cpp/tag/This_Does_Not_Contain_Templates/foobar
+        ABSTRACT: "<p>test foobar
+"
+        DISCUSSION: "<p></p>"
+        UPDATED: "February 01, 2003"
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: "February 01, 2003"
+        LINKAGESTATE: ""
+        ACCESSCONTROL: "public"
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::Struct"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: a
+            TYPE: int
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: <p></p>
+            LONG ATTRIBUTES: <p></p>
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: b
+            TYPE: char *
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: <p></p>
+            LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: test
+        APIUID: //test_ref/cpp/data/This_Does_Not_Contain_Templates/test
+        ABSTRACT: "<p>test
+"
+        DISCUSSION: "<p></p>"
+        UPDATED: "December 14, 2006"
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: "December 14, 2006"
+        LINKAGESTATE: ""
+        ACCESSCONTROL: "public"
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "int"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: foovar
+        APIUID: //test_ref/cpp/data/This_Does_Not_Contain_Templates/foovar
+        ABSTRACT: "<p>This is a test abstract.
+"
+        DISCUSSION: "<p>This is a test discussion.
+"
+        UPDATED: "May 02, 2003"
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: "May 02, 2003"
+        LINKAGESTATE: ""
+        ACCESSCONTROL: "private"
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "int"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: This_Does_Not_Contain_Templates (HeaderDoc::CPPClass)
++---class
++--- 
++---This_Does_Not_Contain_Templates
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---    
+|   +---public
+|   +---:
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @functiongroup group_1 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @function foo
+|   |   +---
+@abstract Test method
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-static (HAS STATE)
+|   +--- 
+|   +---int
+|   +--- 
+|   +---foo
+|   +---(
+|   |   +---int
+|   |   +--- 
+|   |   +---a
+|   |   +---,
+|   |   +--- 
+|   |   +---char
+|   |   +--- 
+|   |   +---*
+|   |   +---b
+|   |   +---)
+|   +--- 
+|   +---;
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @functiongroup group_2 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @method mymethod
+|   |   +---
+@abstract My method
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-void (HAS STATE)
+|   +--- 
+|   +---mymethod
+|   +---(
+|   |   +---int
+|   |   +--- 
+|   |   +---b
+|   |   +---)
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @struct foobar
+|   |   +---
+@abstract test foobar
+|   |   +---
+@updated 2003-02-01
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-struct (HAS STATE)
+|   +--- 
+|   +---{
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +---int
+|   |   +--- 
+|   |   +---a
+|   |   +---;
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +---char
+|   |   +--- 
+|   |   +---*
+|   |   +---b
+|   |   +---;
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +---}
+|   +--- 
+|   +---foobar
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @var test
+|   |   +---
+@abstract test
+|   |   +---
+@updated 12-14-06
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-int (HAS STATE)
+|   +--- 
+|   +---test
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @functiongroup group_1 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @function group1_test
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-void (HAS STATE)
+|   +--- 
+|   +---group1_test
+|   +---(
+|   |   +---int
+|   |   +--- 
+|   |   +---a
+|   |   +---)
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---private
+|   +---:
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@var foovar
+|   |   +---
+@abstract This is a test abstract.
+|   |   +---
+@discussion This is a test discussion.
+|   |   +---
+@updated 2003-05-02
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-int (HAS STATE)
+|   +--- 
+|   +---foovar
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---}
++--- 
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: foo (HeaderDoc::Function)
++-*-static (HAS STATE)
++--- 
++---int
++--- 
++---foo
++---(
+|   +---int
+|   +--- 
+|   +---a
+|   +---,
+|   +--- 
+|   +---char
+|   +--- 
+|   +---*
+|   +---b
+|   +---)
++--- 
++---;
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @functiongroup group_2 
+|   +---*/
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @method mymethod
+|   +---
+@abstract My method
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-void (HAS STATE)
++--- 
++---mymethod
++---(
+|   +---int
+|   +--- 
+|   +---b
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @struct foobar
+|   +---
+@abstract test foobar
+|   +---
+@updated 2003-02-01
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-struct (HAS STATE)
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---        
+|   +---int
+|   +--- 
+|   +---a
+|   +---;
+|   +---[ NEWLINE ]
+|   +---        
+|   +---char
+|   +--- 
+|   +---*
+|   +---b
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---}
++--- 
++---foobar
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @var test
+|   +---
+@abstract test
+|   +---
+@updated 12-14-06
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-int (HAS STATE)
++--- 
++---test
++---;
++--- 
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @functiongroup group_1 
+|   +---*/
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @function group1_test
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-void (HAS STATE)
++--- 
++---group1_test
++---(
+|   +---int
+|   +--- 
+|   +---a
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---private
++---:
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +---
+@var foovar
+|   +---
+@abstract This is a test abstract.
+|   +---
+@discussion This is a test discussion.
+|   +---
+@updated 2003-05-02
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++-*-int (HAS STATE)
++--- 
++---foovar
++---;
++--- 
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: mymethod (HeaderDoc::Function)
++-*-void (HAS STATE)
++--- 
++---mymethod
++---(
+|   +---int
+|   +--- 
+|   +---b
+|   +---)
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @struct foobar
+|   +---
+@abstract test foobar
+|   +---
+@updated 2003-02-01
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-struct (HAS STATE)
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---        
+|   +---int
+|   +--- 
+|   +---a
+|   +---;
+|   +---[ NEWLINE ]
+|   +---        
+|   +---char
+|   +--- 
+|   +---*
+|   +---b
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---}
++--- 
++---foobar
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @var test
+|   +---
+@abstract test
+|   +---
+@updated 12-14-06
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-int (HAS STATE)
++--- 
++---test
++---;
++--- 
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @functiongroup group_1 
+|   +---*/
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @function group1_test
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-void (HAS STATE)
++--- 
++---group1_test
++---(
+|   +---int
+|   +--- 
+|   +---a
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---private
++---:
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +---
+@var foovar
+|   +---
+@abstract This is a test abstract.
+|   +---
+@discussion This is a test discussion.
+|   +---
+@updated 2003-05-02
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++-*-int (HAS STATE)
++--- 
++---foovar
++---;
++--- 
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: group1_test (HeaderDoc::Function)
++-*-void (HAS STATE)
++--- 
++---group1_test
++---(
+|   +---int
+|   +--- 
+|   +---a
+|   +---)
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---private
++---:
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +---
+@var foovar
+|   +---
+@abstract This is a test abstract.
+|   +---
+@discussion This is a test discussion.
+|   +---
+@updated 2003-05-02
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++-*-int (HAS STATE)
++--- 
++---foovar
++---;
++--- 
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: foobar (HeaderDoc::Struct)
++-*-struct (HAS STATE)
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---        
+|   +---int
+|   +--- 
+|   +---a
+|   +---;
+|   +---[ NEWLINE ]
+|   +---        
+|   +---char
+|   +--- 
+|   +---*
+|   +---b
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---}
++--- 
++---foobar
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @var test
+|   +---
+@abstract test
+|   +---
+@updated 12-14-06
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-int (HAS STATE)
++--- 
++---test
++---;
++--- 
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @functiongroup group_1 
+|   +---*/
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @function group1_test
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-void (HAS STATE)
++--- 
++---group1_test
++---(
+|   +---int
+|   +--- 
+|   +---a
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---private
++---:
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +---
+@var foovar
+|   +---
+@abstract This is a test abstract.
+|   +---
+@discussion This is a test discussion.
+|   +---
+@updated 2003-05-02
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++-*-int (HAS STATE)
++--- 
++---foovar
++---;
++--- 
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: test (HeaderDoc::Var)
++-*-int (HAS STATE)
++--- 
++---test
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @functiongroup group_1 
+|   +---*/
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @function group1_test
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-void (HAS STATE)
++--- 
++---group1_test
++---(
+|   +---int
+|   +--- 
+|   +---a
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---private
++---:
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +---
+@var foovar
+|   +---
+@abstract This is a test abstract.
+|   +---
+@discussion This is a test discussion.
+|   +---
+@updated 2003-05-02
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++-*-int (HAS STATE)
++--- 
++---foovar
++---;
++--- 
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: foovar (HeaderDoc::Var)
++-*-int (HAS STATE)
++--- 
++---foovar
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: This_Does_Not_Contain_Templates (HeaderDoc::CPPClass)
+	<span class="keyword">class</span> <!-- a logicalPath="//test_ref/cpp/cl/This_Does_Not_Contain_Templates //test_ref/cpp/tdef/This_Does_Not_Contain_Templates //test_ref/cpp/tag/This_Does_Not_Contain_Templates //test_ref/cpp/econst/This_Does_Not_Contain_Templates //test_ref/cpp/struct/This_Does_Not_Contain_Templates //test_ref/cpp/clconst/This_Does_Not_Contain_Templates //test_ref/cpp/intf/This_Does_Not_Contain_Templates" --><span class="type">This_Does_Not_Contain_Templates</span><!-- /a --> { 
+	    <span class="keyword">public</span>: <span class="comment">/*! @functiongroup group_1 */</span>
+	    <span class="comment">/*! @function foo
+	@abstract Test method</span>
+	        <span class="comment">*/</span>
+	    <span class="keyword">static</span> <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/foo //test_ref/cpp/clm/foo //test_ref/cpp/intfcm/foo //test_ref/cpp/intfm/foo //test_ref/cpp/func/foo //test_ref/cpp/ftmplt/foo //test_ref/cpp/defn/foo //test_ref/cpp/macro/foo" --><span class="function">foo</span><!-- /a -->(
+	        <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <span class="param">a</span>,
+	        <!-- a logicalPath="//test_ref/cpp/cl/char //test_ref/cpp/tdef/char //test_ref/cpp/tag/char //test_ref/cpp/econst/char //test_ref/cpp/struct/char //test_ref/cpp/clconst/char //test_ref/cpp/intf/char" --><span class="type">char</span><!-- /a --> <span class="type">*</span><span class="param">b</span>); 
+	    <span class="comment">/*! @functiongroup group_2 */</span>
+	    <span class="comment">/*! @method mymethod
+	@abstract My method</span>
+	        <span class="comment">*/</span>
+	    <!-- a logicalPath="//test_ref/cpp/cl/void //test_ref/cpp/tdef/void //test_ref/cpp/tag/void //test_ref/cpp/econst/void //test_ref/cpp/struct/void //test_ref/cpp/clconst/void //test_ref/cpp/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/mymethod //test_ref/cpp/clm/mymethod //test_ref/cpp/intfcm/mymethod //test_ref/cpp/intfm/mymethod //test_ref/cpp/func/mymethod //test_ref/cpp/ftmplt/mymethod //test_ref/cpp/defn/mymethod //test_ref/cpp/macro/mymethod" --><span class="function">mymethod</span><!-- /a -->(
+	        <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <span class="param">b</span>);  
+	    <span class="comment">/*! @struct foobar
+	@abstract test foobar
+	@updated 2003-02-01</span>
+	        <span class="comment">*/</span>
+	    <span class="keyword">struct</span> { 
+	        <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/econst/a //test_ref/cpp/data/a" --><span class="var">a</span><!-- /a -->; 
+	        <!-- a logicalPath="//test_ref/cpp/cl/char //test_ref/cpp/tdef/char //test_ref/cpp/tag/char //test_ref/cpp/econst/char //test_ref/cpp/struct/char //test_ref/cpp/clconst/char //test_ref/cpp/intf/char" --><span class="type">char</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/cpp/econst/b //test_ref/cpp/data/b" --><span class="var">b</span><!-- /a -->; 
+	        } <!-- a logicalPath="//test_ref/cpp/econst/foobar //test_ref/cpp/data/foobar" --><span class="var">foobar</span><!-- /a -->;  
+	    <span class="comment">/*! @var test
+	@abstract test
+	@updated 12-14-06</span>
+	        <span class="comment">*/</span>
+	    <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/econst/test //test_ref/cpp/data/test" --><span class="var">test</span><!-- /a -->; 
+	    <span class="comment">/*! @functiongroup group_1 */</span>
+	    <span class="comment">/*! @function group1_test</span>
+	        <span class="comment">*/</span>
+	    <!-- a logicalPath="//test_ref/cpp/cl/void //test_ref/cpp/tdef/void //test_ref/cpp/tag/void //test_ref/cpp/econst/void //test_ref/cpp/struct/void //test_ref/cpp/clconst/void //test_ref/cpp/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/group1_test //test_ref/cpp/clm/group1_test //test_ref/cpp/intfcm/group1_test //test_ref/cpp/intfm/group1_test //test_ref/cpp/func/group1_test //test_ref/cpp/ftmplt/group1_test //test_ref/cpp/defn/group1_test //test_ref/cpp/macro/group1_test" --><span class="function">group1_test</span><!-- /a -->(
+	        <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <span class="param">a</span>);  
+	    <span class="keyword">private</span>:  <span class="comment">/*!
+	@var foovar
+	@abstract This is a test abstract.
+	@discussion This is a test discussion.
+	@updated 2003-05-02</span>
+	        <span class="comment">*/</span>
+	    <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/econst/foovar //test_ref/cpp/data/foovar" --><span class="var">foovar</span><!-- /a -->; 
+	};  
+END OF OBJECT
+
+
+OBJECT: foo (HeaderDoc::Function)
+	<span class="keyword">static</span> <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/foo //test_ref/cpp/clm/foo //test_ref/cpp/intfcm/foo //test_ref/cpp/intfm/foo //test_ref/cpp/func/foo //test_ref/cpp/ftmplt/foo //test_ref/cpp/defn/foo //test_ref/cpp/macro/foo" --><span class="function">foo</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <span class="param">a</span>,
+	    <!-- a logicalPath="//test_ref/cpp/cl/char //test_ref/cpp/tdef/char //test_ref/cpp/tag/char //test_ref/cpp/econst/char //test_ref/cpp/struct/char //test_ref/cpp/clconst/char //test_ref/cpp/intf/char" --><span class="type">char</span><!-- /a --> <span class="type">*</span><span class="param">b</span>);
+END OF OBJECT
+
+
+OBJECT: mymethod (HeaderDoc::Function)
+	<!-- a logicalPath="//test_ref/cpp/cl/void //test_ref/cpp/tdef/void //test_ref/cpp/tag/void //test_ref/cpp/econst/void //test_ref/cpp/struct/void //test_ref/cpp/clconst/void //test_ref/cpp/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/mymethod //test_ref/cpp/clm/mymethod //test_ref/cpp/intfcm/mymethod //test_ref/cpp/intfm/mymethod //test_ref/cpp/func/mymethod //test_ref/cpp/ftmplt/mymethod //test_ref/cpp/defn/mymethod //test_ref/cpp/macro/mymethod" --><span class="function">mymethod</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <span class="param">b</span>); 
+END OF OBJECT
+
+
+OBJECT: group1_test (HeaderDoc::Function)
+	<!-- a logicalPath="//test_ref/cpp/cl/void //test_ref/cpp/tdef/void //test_ref/cpp/tag/void //test_ref/cpp/econst/void //test_ref/cpp/struct/void //test_ref/cpp/clconst/void //test_ref/cpp/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/group1_test //test_ref/cpp/clm/group1_test //test_ref/cpp/intfcm/group1_test //test_ref/cpp/intfm/group1_test //test_ref/cpp/func/group1_test //test_ref/cpp/ftmplt/group1_test //test_ref/cpp/defn/group1_test //test_ref/cpp/macro/group1_test" --><span class="function">group1_test</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <span class="param">a</span>); 
+END OF OBJECT
+
+
+OBJECT: foobar (HeaderDoc::Struct)
+	<span class="keyword">struct</span> { 
+	    <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/econst/a //test_ref/cpp/data/a" --><span class="var">a</span><!-- /a -->; 
+	    <!-- a logicalPath="//test_ref/cpp/cl/char //test_ref/cpp/tdef/char //test_ref/cpp/tag/char //test_ref/cpp/econst/char //test_ref/cpp/struct/char //test_ref/cpp/clconst/char //test_ref/cpp/intf/char" --><span class="type">char</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/cpp/econst/b //test_ref/cpp/data/b" --><span class="var">b</span><!-- /a -->; 
+	} <!-- a logicalPath="//test_ref/cpp/econst/foobar //test_ref/cpp/data/foobar" --><span class="var">foobar</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: test (HeaderDoc::Var)
+	<!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/econst/test //test_ref/cpp/data/test" --><span class="var">test</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: foovar (HeaderDoc::Var)
+	<!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/econst/foovar //test_ref/cpp/data/foovar" --><span class="var">foovar</span><!-- /a -->; 
+END OF OBJECT
+
+
+
+_$38|testsuite/parser_tests/template_1.test$1|C$10|template 1$42321|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 1
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/template_1.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/template_1.test
+$parserState->{ISFORWARDDECLARATION} => 0
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => -1
+$parserState->{categoryClass} => 
+$parserState->{classNameFound} => 1
+$parserState->{classtype} => class
+$parserState->{forceClassDone} => 1
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 1
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 26
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => ;
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 1
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 0
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{preclasssodtype} => class
+$parserState->{returntype} => class This_Does_Not_Contain_Templates 
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => class
+$parserState->{sodname} => This_Does_Not_Contain_Templates
+$parserState->{sodtype} => 
+$parserState->{sodtypeclasstoken} => class
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{storeDec} => 
+$parserState->{temponlyComments} => 0
+$parserState->{treePopTwo} => 0
+$parserState->{typestring} => This_Does_Not_Contain_Templates
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 26
+typelist: class
+namelist: This_Does_Not_Contain_Templates
+posstypes: 
+value: 
+returntype: 
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 16
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---class
++--- 
++---This_Does_Not_Contain_Templates
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---    
+|   +---public
+|   +---:
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @functiongroup group_1 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @function foo
+|   |   +---
+@abstract Test method
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-static (HAS STATE)
+|   +--- 
+|   +---int
+|   +--- 
+|   +---foo
+|   +---(
+|   |   +---int
+|   |   +--- 
+|   |   +---a
+|   |   +---,
+|   |   +--- 
+|   |   +---char
+|   |   +--- 
+|   |   +---*
+|   |   +---b
+|   |   +---)
+|   +--- 
+|   +---;
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @functiongroup group_2 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @method mymethod
+|   |   +---
+@abstract My method
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-void (HAS STATE)
+|   +--- 
+|   +---mymethod
+|   +---(
+|   |   +---int
+|   |   +--- 
+|   |   +---b
+|   |   +---)
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @struct foobar
+|   |   +---
+@abstract test foobar
+|   |   +---
+@updated 2003-02-01
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-struct (HAS STATE)
+|   +--- 
+|   +---{
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +---int
+|   |   +--- 
+|   |   +---a
+|   |   +---;
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +---char
+|   |   +--- 
+|   |   +---*
+|   |   +---b
+|   |   +---;
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +---}
+|   +--- 
+|   +---foobar
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @var test
+|   |   +---
+@abstract test
+|   |   +---
+@updated 12-14-06
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-int (HAS STATE)
+|   +--- 
+|   +---test
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @functiongroup group_1 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @function group1_test
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-void (HAS STATE)
+|   +--- 
+|   +---group1_test
+|   +---(
+|   |   +---int
+|   |   +--- 
+|   |   +---a
+|   |   +---)
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---private
+|   +---:
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@var foovar
+|   |   +---
+@abstract This is a test abstract.
+|   |   +---
+@discussion This is a test discussion.
+|   |   +---
+@updated 2003-05-02
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-int (HAS STATE)
+|   +--- 
+|   +---foovar
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---}
++--- 
++---;
++--- 
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: template 1
+APIUID: //test_ref/doc/header/template_1.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::CPPClass
+    NAME: This_Does_Not_Contain_Templates
+    APIUID: 
+    ABSTRACT: ""
+    DISCUSSION: "<p>This is a test class.  This tests to make sure that
+less than and greater than signs in code are not interpreted
+as template parameters.
+"
+    UPDATED: "April 01, 2003"
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: "April 01, 2003"
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::CPPClass"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "1"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p><b>Declared In:</b> <a href="../../index.html" target="_top">template 1</a><br>
+</p>
+    LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Function
+        NAME: foo
+        APIUID: //test_ref/cpp/clm/This_Does_Not_Contain_Templates/foo/int/(int,char*)
+        ABSTRACT: "<p>Test method
+"
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: "group_1 "
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: "public"
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: " static int"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Function"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: a
+            TYPE: int
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: <p></p>
+            LONG ATTRIBUTES: <p></p>
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: b
+            TYPE: char *
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: <p></p>
+            LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Function
+        NAME: mymethod
+        APIUID: //test_ref/cpp/instm/This_Does_Not_Contain_Templates/mymethod/void/(int)
+        ABSTRACT: "<p>My method
+"
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: "group_2 "
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: "public"
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: " void"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Function"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: b
+            TYPE: int
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: <p></p>
+            LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Function
+        NAME: group1_test
+        APIUID: //test_ref/cpp/instm/This_Does_Not_Contain_Templates/group1_test/void/(int)
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: "group_1 "
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: "public"
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: " void"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Function"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: a
+            TYPE: int
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: <p></p>
+            LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Struct
+        NAME: foobar
+        APIUID: //test_ref/cpp/tag/This_Does_Not_Contain_Templates/foobar
+        ABSTRACT: "<p>test foobar
+"
+        DISCUSSION: "<p></p>"
+        UPDATED: "February 01, 2003"
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: "February 01, 2003"
+        LINKAGESTATE: ""
+        ACCESSCONTROL: "public"
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::Struct"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: a
+            TYPE: int
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: <p></p>
+            LONG ATTRIBUTES: <p></p>
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: b
+            TYPE: char *
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: <p></p>
+            LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: test
+        APIUID: //test_ref/cpp/data/This_Does_Not_Contain_Templates/test
+        ABSTRACT: "<p>test
+"
+        DISCUSSION: "<p></p>"
+        UPDATED: "December 14, 2006"
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: "December 14, 2006"
+        LINKAGESTATE: ""
+        ACCESSCONTROL: "public"
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "int"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: foovar
+        APIUID: //test_ref/cpp/data/This_Does_Not_Contain_Templates/foovar
+        ABSTRACT: "<p>This is a test abstract.
+"
+        DISCUSSION: "<p>This is a test discussion.
+"
+        UPDATED: "May 02, 2003"
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: "May 02, 2003"
+        LINKAGESTATE: ""
+        ACCESSCONTROL: "private"
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "int"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: This_Does_Not_Contain_Templates (HeaderDoc::CPPClass)
++---class
++--- 
++---This_Does_Not_Contain_Templates
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---    
+|   +---public
+|   +---:
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @functiongroup group_1 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @function foo
+|   |   +---
+@abstract Test method
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-static (HAS STATE)
+|   +--- 
+|   +---int
+|   +--- 
+|   +---foo
+|   +---(
+|   |   +---int
+|   |   +--- 
+|   |   +---a
+|   |   +---,
+|   |   +--- 
+|   |   +---char
+|   |   +--- 
+|   |   +---*
+|   |   +---b
+|   |   +---)
+|   +--- 
+|   +---;
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @functiongroup group_2 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @method mymethod
+|   |   +---
+@abstract My method
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-void (HAS STATE)
+|   +--- 
+|   +---mymethod
+|   +---(
+|   |   +---int
+|   |   +--- 
+|   |   +---b
+|   |   +---)
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @struct foobar
+|   |   +---
+@abstract test foobar
+|   |   +---
+@updated 2003-02-01
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-struct (HAS STATE)
+|   +--- 
+|   +---{
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +---int
+|   |   +--- 
+|   |   +---a
+|   |   +---;
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +---char
+|   |   +--- 
+|   |   +---*
+|   |   +---b
+|   |   +---;
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +---}
+|   +--- 
+|   +---foobar
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @var test
+|   |   +---
+@abstract test
+|   |   +---
+@updated 12-14-06
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-int (HAS STATE)
+|   +--- 
+|   +---test
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @functiongroup group_1 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @function group1_test
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-void (HAS STATE)
+|   +--- 
+|   +---group1_test
+|   +---(
+|   |   +---int
+|   |   +--- 
+|   |   +---a
+|   |   +---)
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---private
+|   +---:
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@var foovar
+|   |   +---
+@abstract This is a test abstract.
+|   |   +---
+@discussion This is a test discussion.
+|   |   +---
+@updated 2003-05-02
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-int (HAS STATE)
+|   +--- 
+|   +---foovar
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---}
++--- 
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: foo (HeaderDoc::Function)
++-*-static (HAS STATE)
++--- 
++---int
++--- 
++---foo
++---(
+|   +---int
+|   +--- 
+|   +---a
+|   +---,
+|   +--- 
+|   +---char
+|   +--- 
+|   +---*
+|   +---b
+|   +---)
++--- 
++---;
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @functiongroup group_2 
+|   +---*/
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @method mymethod
+|   +---
+@abstract My method
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-void (HAS STATE)
++--- 
++---mymethod
++---(
+|   +---int
+|   +--- 
+|   +---b
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @struct foobar
+|   +---
+@abstract test foobar
+|   +---
+@updated 2003-02-01
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-struct (HAS STATE)
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---        
+|   +---int
+|   +--- 
+|   +---a
+|   +---;
+|   +---[ NEWLINE ]
+|   +---        
+|   +---char
+|   +--- 
+|   +---*
+|   +---b
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---}
++--- 
++---foobar
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @var test
+|   +---
+@abstract test
+|   +---
+@updated 12-14-06
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-int (HAS STATE)
++--- 
++---test
++---;
++--- 
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @functiongroup group_1 
+|   +---*/
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @function group1_test
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-void (HAS STATE)
++--- 
++---group1_test
++---(
+|   +---int
+|   +--- 
+|   +---a
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---private
++---:
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +---
+@var foovar
+|   +---
+@abstract This is a test abstract.
+|   +---
+@discussion This is a test discussion.
+|   +---
+@updated 2003-05-02
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++-*-int (HAS STATE)
++--- 
++---foovar
++---;
++--- 
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: mymethod (HeaderDoc::Function)
++-*-void (HAS STATE)
++--- 
++---mymethod
++---(
+|   +---int
+|   +--- 
+|   +---b
+|   +---)
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @struct foobar
+|   +---
+@abstract test foobar
+|   +---
+@updated 2003-02-01
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-struct (HAS STATE)
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---        
+|   +---int
+|   +--- 
+|   +---a
+|   +---;
+|   +---[ NEWLINE ]
+|   +---        
+|   +---char
+|   +--- 
+|   +---*
+|   +---b
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---}
++--- 
++---foobar
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @var test
+|   +---
+@abstract test
+|   +---
+@updated 12-14-06
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-int (HAS STATE)
++--- 
++---test
++---;
++--- 
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @functiongroup group_1 
+|   +---*/
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @function group1_test
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-void (HAS STATE)
++--- 
++---group1_test
++---(
+|   +---int
+|   +--- 
+|   +---a
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---private
++---:
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +---
+@var foovar
+|   +---
+@abstract This is a test abstract.
+|   +---
+@discussion This is a test discussion.
+|   +---
+@updated 2003-05-02
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++-*-int (HAS STATE)
++--- 
++---foovar
++---;
++--- 
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: group1_test (HeaderDoc::Function)
++-*-void (HAS STATE)
++--- 
++---group1_test
++---(
+|   +---int
+|   +--- 
+|   +---a
+|   +---)
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---private
++---:
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +---
+@var foovar
+|   +---
+@abstract This is a test abstract.
+|   +---
+@discussion This is a test discussion.
+|   +---
+@updated 2003-05-02
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++-*-int (HAS STATE)
++--- 
++---foovar
++---;
++--- 
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: foobar (HeaderDoc::Struct)
++-*-struct (HAS STATE)
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---        
+|   +---int
+|   +--- 
+|   +---a
+|   +---;
+|   +---[ NEWLINE ]
+|   +---        
+|   +---char
+|   +--- 
+|   +---*
+|   +---b
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---}
++--- 
++---foobar
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @var test
+|   +---
+@abstract test
+|   +---
+@updated 12-14-06
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-int (HAS STATE)
++--- 
++---test
++---;
++--- 
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @functiongroup group_1 
+|   +---*/
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @function group1_test
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-void (HAS STATE)
++--- 
++---group1_test
++---(
+|   +---int
+|   +--- 
+|   +---a
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---private
++---:
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +---
+@var foovar
+|   +---
+@abstract This is a test abstract.
+|   +---
+@discussion This is a test discussion.
+|   +---
+@updated 2003-05-02
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++-*-int (HAS STATE)
++--- 
++---foovar
++---;
++--- 
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: test (HeaderDoc::Var)
++-*-int (HAS STATE)
++--- 
++---test
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @functiongroup group_1 
+|   +---*/
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @function group1_test
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-void (HAS STATE)
++--- 
++---group1_test
++---(
+|   +---int
+|   +--- 
+|   +---a
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---private
++---:
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +---
+@var foovar
+|   +---
+@abstract This is a test abstract.
+|   +---
+@discussion This is a test discussion.
+|   +---
+@updated 2003-05-02
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++-*-int (HAS STATE)
++--- 
++---foovar
++---;
++--- 
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: foovar (HeaderDoc::Var)
++-*-int (HAS STATE)
++--- 
++---foovar
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: This_Does_Not_Contain_Templates (HeaderDoc::CPPClass)
+	<span class="keyword">class</span> <!-- a logicalPath="//test_ref/cpp/cl/This_Does_Not_Contain_Templates //test_ref/cpp/tdef/This_Does_Not_Contain_Templates //test_ref/cpp/tag/This_Does_Not_Contain_Templates //test_ref/cpp/econst/This_Does_Not_Contain_Templates //test_ref/cpp/struct/This_Does_Not_Contain_Templates //test_ref/cpp/clconst/This_Does_Not_Contain_Templates //test_ref/cpp/intf/This_Does_Not_Contain_Templates" --><span class="type">This_Does_Not_Contain_Templates</span><!-- /a --> { 
+	    <span class="keyword">public</span>: <span class="comment">/*! @functiongroup group_1 */</span>
+	    <span class="comment">/*! @function foo
+	@abstract Test method</span>
+	        <span class="comment">*/</span>
+	    <span class="keyword">static</span> <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/foo //test_ref/cpp/clm/foo //test_ref/cpp/intfcm/foo //test_ref/cpp/intfm/foo //test_ref/cpp/func/foo //test_ref/cpp/ftmplt/foo //test_ref/cpp/defn/foo //test_ref/cpp/macro/foo" --><span class="function">foo</span><!-- /a -->(
+	        <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <span class="param">a</span>,
+	        <!-- a logicalPath="//test_ref/cpp/cl/char //test_ref/cpp/tdef/char //test_ref/cpp/tag/char //test_ref/cpp/econst/char //test_ref/cpp/struct/char //test_ref/cpp/clconst/char //test_ref/cpp/intf/char" --><span class="type">char</span><!-- /a --> <span class="type">*</span><span class="param">b</span>); 
+	    <span class="comment">/*! @functiongroup group_2 */</span>
+	    <span class="comment">/*! @method mymethod
+	@abstract My method</span>
+	        <span class="comment">*/</span>
+	    <!-- a logicalPath="//test_ref/cpp/cl/void //test_ref/cpp/tdef/void //test_ref/cpp/tag/void //test_ref/cpp/econst/void //test_ref/cpp/struct/void //test_ref/cpp/clconst/void //test_ref/cpp/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/mymethod //test_ref/cpp/clm/mymethod //test_ref/cpp/intfcm/mymethod //test_ref/cpp/intfm/mymethod //test_ref/cpp/func/mymethod //test_ref/cpp/ftmplt/mymethod //test_ref/cpp/defn/mymethod //test_ref/cpp/macro/mymethod" --><span class="function">mymethod</span><!-- /a -->(
+	        <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <span class="param">b</span>);  
+	    <span class="comment">/*! @struct foobar
+	@abstract test foobar
+	@updated 2003-02-01</span>
+	        <span class="comment">*/</span>
+	    <span class="keyword">struct</span> { 
+	        <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/econst/a //test_ref/cpp/data/a" --><span class="var">a</span><!-- /a -->; 
+	        <!-- a logicalPath="//test_ref/cpp/cl/char //test_ref/cpp/tdef/char //test_ref/cpp/tag/char //test_ref/cpp/econst/char //test_ref/cpp/struct/char //test_ref/cpp/clconst/char //test_ref/cpp/intf/char" --><span class="type">char</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/cpp/econst/b //test_ref/cpp/data/b" --><span class="var">b</span><!-- /a -->; 
+	        } <!-- a logicalPath="//test_ref/cpp/econst/foobar //test_ref/cpp/data/foobar" --><span class="var">foobar</span><!-- /a -->;  
+	    <span class="comment">/*! @var test
+	@abstract test
+	@updated 12-14-06</span>
+	        <span class="comment">*/</span>
+	    <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/econst/test //test_ref/cpp/data/test" --><span class="var">test</span><!-- /a -->; 
+	    <span class="comment">/*! @functiongroup group_1 */</span>
+	    <span class="comment">/*! @function group1_test</span>
+	        <span class="comment">*/</span>
+	    <!-- a logicalPath="//test_ref/cpp/cl/void //test_ref/cpp/tdef/void //test_ref/cpp/tag/void //test_ref/cpp/econst/void //test_ref/cpp/struct/void //test_ref/cpp/clconst/void //test_ref/cpp/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/group1_test //test_ref/cpp/clm/group1_test //test_ref/cpp/intfcm/group1_test //test_ref/cpp/intfm/group1_test //test_ref/cpp/func/group1_test //test_ref/cpp/ftmplt/group1_test //test_ref/cpp/defn/group1_test //test_ref/cpp/macro/group1_test" --><span class="function">group1_test</span><!-- /a -->(
+	        <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <span class="param">a</span>);  
+	    <span class="keyword">private</span>:  <span class="comment">/*!
+	@var foovar
+	@abstract This is a test abstract.
+	@discussion This is a test discussion.
+	@updated 2003-05-02</span>
+	        <span class="comment">*/</span>
+	    <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/econst/foovar //test_ref/cpp/data/foovar" --><span class="var">foovar</span><!-- /a -->; 
+	};  
+END OF OBJECT
+
+
+OBJECT: foo (HeaderDoc::Function)
+	<span class="keyword">static</span> <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/foo //test_ref/cpp/clm/foo //test_ref/cpp/intfcm/foo //test_ref/cpp/intfm/foo //test_ref/cpp/func/foo //test_ref/cpp/ftmplt/foo //test_ref/cpp/defn/foo //test_ref/cpp/macro/foo" --><span class="function">foo</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <span class="param">a</span>,
+	    <!-- a logicalPath="//test_ref/cpp/cl/char //test_ref/cpp/tdef/char //test_ref/cpp/tag/char //test_ref/cpp/econst/char //test_ref/cpp/struct/char //test_ref/cpp/clconst/char //test_ref/cpp/intf/char" --><span class="type">char</span><!-- /a --> <span class="type">*</span><span class="param">b</span>);
+END OF OBJECT
+
+
+OBJECT: mymethod (HeaderDoc::Function)
+	<!-- a logicalPath="//test_ref/cpp/cl/void //test_ref/cpp/tdef/void //test_ref/cpp/tag/void //test_ref/cpp/econst/void //test_ref/cpp/struct/void //test_ref/cpp/clconst/void //test_ref/cpp/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/mymethod //test_ref/cpp/clm/mymethod //test_ref/cpp/intfcm/mymethod //test_ref/cpp/intfm/mymethod //test_ref/cpp/func/mymethod //test_ref/cpp/ftmplt/mymethod //test_ref/cpp/defn/mymethod //test_ref/cpp/macro/mymethod" --><span class="function">mymethod</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <span class="param">b</span>); 
+END OF OBJECT
+
+
+OBJECT: group1_test (HeaderDoc::Function)
+	<!-- a logicalPath="//test_ref/cpp/cl/void //test_ref/cpp/tdef/void //test_ref/cpp/tag/void //test_ref/cpp/econst/void //test_ref/cpp/struct/void //test_ref/cpp/clconst/void //test_ref/cpp/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/group1_test //test_ref/cpp/clm/group1_test //test_ref/cpp/intfcm/group1_test //test_ref/cpp/intfm/group1_test //test_ref/cpp/func/group1_test //test_ref/cpp/ftmplt/group1_test //test_ref/cpp/defn/group1_test //test_ref/cpp/macro/group1_test" --><span class="function">group1_test</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <span class="param">a</span>); 
+END OF OBJECT
+
+
+OBJECT: foobar (HeaderDoc::Struct)
+	<span class="keyword">struct</span> { 
+	    <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/econst/a //test_ref/cpp/data/a" --><span class="var">a</span><!-- /a -->; 
+	    <!-- a logicalPath="//test_ref/cpp/cl/char //test_ref/cpp/tdef/char //test_ref/cpp/tag/char //test_ref/cpp/econst/char //test_ref/cpp/struct/char //test_ref/cpp/clconst/char //test_ref/cpp/intf/char" --><span class="type">char</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/cpp/econst/b //test_ref/cpp/data/b" --><span class="var">b</span><!-- /a -->; 
+	} <!-- a logicalPath="//test_ref/cpp/econst/foobar //test_ref/cpp/data/foobar" --><span class="var">foobar</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: test (HeaderDoc::Var)
+	<!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/econst/test //test_ref/cpp/data/test" --><span class="var">test</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: foovar (HeaderDoc::Var)
+	<!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/econst/foovar //test_ref/cpp/data/foovar" --><span class="var">foovar</span><!-- /a -->; 
+END OF OBJECT
+
+
+
+$42321|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 1
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/template_1.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/template_1.test
+$parserState->{ISFORWARDDECLARATION} => 0
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => -1
+$parserState->{categoryClass} => 
+$parserState->{classNameFound} => 1
+$parserState->{classtype} => class
+$parserState->{forceClassDone} => 1
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 1
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 26
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => ;
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 1
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 0
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{preclasssodtype} => class
+$parserState->{returntype} => class This_Does_Not_Contain_Templates 
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => class
+$parserState->{sodname} => This_Does_Not_Contain_Templates
+$parserState->{sodtype} => 
+$parserState->{sodtypeclasstoken} => class
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{storeDec} => 
+$parserState->{temponlyComments} => 0
+$parserState->{treePopTwo} => 0
+$parserState->{typestring} => This_Does_Not_Contain_Templates
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 26
+typelist: class
+namelist: This_Does_Not_Contain_Templates
+posstypes: 
+value: 
+returntype: 
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 16
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---class
++--- 
++---This_Does_Not_Contain_Templates
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---    
+|   +---public
+|   +---:
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @functiongroup group_1 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @function foo
+|   |   +---
+@abstract Test method
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-static (HAS STATE)
+|   +--- 
+|   +---int
+|   +--- 
+|   +---foo
+|   +---(
+|   |   +---int
+|   |   +--- 
+|   |   +---a
+|   |   +---,
+|   |   +--- 
+|   |   +---char
+|   |   +--- 
+|   |   +---*
+|   |   +---b
+|   |   +---)
+|   +--- 
+|   +---;
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @functiongroup group_2 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @method mymethod
+|   |   +---
+@abstract My method
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-void (HAS STATE)
+|   +--- 
+|   +---mymethod
+|   +---(
+|   |   +---int
+|   |   +--- 
+|   |   +---b
+|   |   +---)
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @struct foobar
+|   |   +---
+@abstract test foobar
+|   |   +---
+@updated 2003-02-01
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-struct (HAS STATE)
+|   +--- 
+|   +---{
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +---int
+|   |   +--- 
+|   |   +---a
+|   |   +---;
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +---char
+|   |   +--- 
+|   |   +---*
+|   |   +---b
+|   |   +---;
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +---}
+|   +--- 
+|   +---foobar
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @var test
+|   |   +---
+@abstract test
+|   |   +---
+@updated 12-14-06
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-int (HAS STATE)
+|   +--- 
+|   +---test
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @functiongroup group_1 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @function group1_test
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-void (HAS STATE)
+|   +--- 
+|   +---group1_test
+|   +---(
+|   |   +---int
+|   |   +--- 
+|   |   +---a
+|   |   +---)
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---private
+|   +---:
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@var foovar
+|   |   +---
+@abstract This is a test abstract.
+|   |   +---
+@discussion This is a test discussion.
+|   |   +---
+@updated 2003-05-02
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-int (HAS STATE)
+|   +--- 
+|   +---foovar
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---}
++--- 
++---;
++--- 
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: template 1
+APIUID: //test_ref/doc/header/template_1.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::CPPClass
+    NAME: This_Does_Not_Contain_Templates
+    APIUID: 
+    ABSTRACT: ""
+    DISCUSSION: "<p>This is a test class.  This tests to make sure that
+less than and greater than signs in code are not interpreted
+as template parameters.
+"
+    UPDATED: "April 01, 2003"
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: "April 01, 2003"
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::CPPClass"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "1"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p><b>Declared In:</b> <a href="../../index.html" target="_top">template 1</a><br>
+</p>
+    LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Function
+        NAME: foo
+        APIUID: //test_ref/cpp/clm/This_Does_Not_Contain_Templates/foo/int/(int,char*)
+        ABSTRACT: "<p>Test method
+"
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: "group_1 "
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: "public"
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: " static int"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Function"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: a
+            TYPE: int
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: <p></p>
+            LONG ATTRIBUTES: <p></p>
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: b
+            TYPE: char *
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: <p></p>
+            LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Function
+        NAME: mymethod
+        APIUID: //test_ref/cpp/instm/This_Does_Not_Contain_Templates/mymethod/void/(int)
+        ABSTRACT: "<p>My method
+"
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: "group_2 "
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: "public"
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: " void"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Function"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: b
+            TYPE: int
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: <p></p>
+            LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Function
+        NAME: group1_test
+        APIUID: //test_ref/cpp/instm/This_Does_Not_Contain_Templates/group1_test/void/(int)
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: "group_1 "
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: "public"
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: " void"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Function"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: a
+            TYPE: int
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: <p></p>
+            LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Struct
+        NAME: foobar
+        APIUID: //test_ref/cpp/tag/This_Does_Not_Contain_Templates/foobar
+        ABSTRACT: "<p>test foobar
+"
+        DISCUSSION: "<p></p>"
+        UPDATED: "February 01, 2003"
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: "February 01, 2003"
+        LINKAGESTATE: ""
+        ACCESSCONTROL: "public"
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::Struct"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: a
+            TYPE: int
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: <p></p>
+            LONG ATTRIBUTES: <p></p>
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: b
+            TYPE: char *
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: <p></p>
+            LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: test
+        APIUID: //test_ref/cpp/data/This_Does_Not_Contain_Templates/test
+        ABSTRACT: "<p>test
+"
+        DISCUSSION: "<p></p>"
+        UPDATED: "December 14, 2006"
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: "December 14, 2006"
+        LINKAGESTATE: ""
+        ACCESSCONTROL: "public"
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "int"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: foovar
+        APIUID: //test_ref/cpp/data/This_Does_Not_Contain_Templates/foovar
+        ABSTRACT: "<p>This is a test abstract.
+"
+        DISCUSSION: "<p>This is a test discussion.
+"
+        UPDATED: "May 02, 2003"
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: "May 02, 2003"
+        LINKAGESTATE: ""
+        ACCESSCONTROL: "private"
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "int"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: This_Does_Not_Contain_Templates (HeaderDoc::CPPClass)
++---class
++--- 
++---This_Does_Not_Contain_Templates
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---    
+|   +---public
+|   +---:
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @functiongroup group_1 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @function foo
+|   |   +---
+@abstract Test method
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-static (HAS STATE)
+|   +--- 
+|   +---int
+|   +--- 
+|   +---foo
+|   +---(
+|   |   +---int
+|   |   +--- 
+|   |   +---a
+|   |   +---,
+|   |   +--- 
+|   |   +---char
+|   |   +--- 
+|   |   +---*
+|   |   +---b
+|   |   +---)
+|   +--- 
+|   +---;
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @functiongroup group_2 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @method mymethod
+|   |   +---
+@abstract My method
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-void (HAS STATE)
+|   +--- 
+|   +---mymethod
+|   +---(
+|   |   +---int
+|   |   +--- 
+|   |   +---b
+|   |   +---)
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @struct foobar
+|   |   +---
+@abstract test foobar
+|   |   +---
+@updated 2003-02-01
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-struct (HAS STATE)
+|   +--- 
+|   +---{
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +---int
+|   |   +--- 
+|   |   +---a
+|   |   +---;
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +---char
+|   |   +--- 
+|   |   +---*
+|   |   +---b
+|   |   +---;
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +---}
+|   +--- 
+|   +---foobar
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @var test
+|   |   +---
+@abstract test
+|   |   +---
+@updated 12-14-06
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-int (HAS STATE)
+|   +--- 
+|   +---test
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @functiongroup group_1 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @function group1_test
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-void (HAS STATE)
+|   +--- 
+|   +---group1_test
+|   +---(
+|   |   +---int
+|   |   +--- 
+|   |   +---a
+|   |   +---)
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---private
+|   +---:
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@var foovar
+|   |   +---
+@abstract This is a test abstract.
+|   |   +---
+@discussion This is a test discussion.
+|   |   +---
+@updated 2003-05-02
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-int (HAS STATE)
+|   +--- 
+|   +---foovar
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---}
++--- 
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: foo (HeaderDoc::Function)
++-*-static (HAS STATE)
++--- 
++---int
++--- 
++---foo
++---(
+|   +---int
+|   +--- 
+|   +---a
+|   +---,
+|   +--- 
+|   +---char
+|   +--- 
+|   +---*
+|   +---b
+|   +---)
++--- 
++---;
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @functiongroup group_2 
+|   +---*/
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @method mymethod
+|   +---
+@abstract My method
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-void (HAS STATE)
++--- 
++---mymethod
++---(
+|   +---int
+|   +--- 
+|   +---b
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @struct foobar
+|   +---
+@abstract test foobar
+|   +---
+@updated 2003-02-01
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-struct (HAS STATE)
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---        
+|   +---int
+|   +--- 
+|   +---a
+|   +---;
+|   +---[ NEWLINE ]
+|   +---        
+|   +---char
+|   +--- 
+|   +---*
+|   +---b
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---}
++--- 
++---foobar
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @var test
+|   +---
+@abstract test
+|   +---
+@updated 12-14-06
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-int (HAS STATE)
++--- 
++---test
++---;
++--- 
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @functiongroup group_1 
+|   +---*/
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @function group1_test
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-void (HAS STATE)
++--- 
++---group1_test
++---(
+|   +---int
+|   +--- 
+|   +---a
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---private
++---:
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +---
+@var foovar
+|   +---
+@abstract This is a test abstract.
+|   +---
+@discussion This is a test discussion.
+|   +---
+@updated 2003-05-02
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++-*-int (HAS STATE)
++--- 
++---foovar
++---;
++--- 
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: mymethod (HeaderDoc::Function)
++-*-void (HAS STATE)
++--- 
++---mymethod
++---(
+|   +---int
+|   +--- 
+|   +---b
+|   +---)
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @struct foobar
+|   +---
+@abstract test foobar
+|   +---
+@updated 2003-02-01
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-struct (HAS STATE)
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---        
+|   +---int
+|   +--- 
+|   +---a
+|   +---;
+|   +---[ NEWLINE ]
+|   +---        
+|   +---char
+|   +--- 
+|   +---*
+|   +---b
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---}
++--- 
++---foobar
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @var test
+|   +---
+@abstract test
+|   +---
+@updated 12-14-06
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-int (HAS STATE)
++--- 
++---test
++---;
++--- 
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @functiongroup group_1 
+|   +---*/
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @function group1_test
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-void (HAS STATE)
++--- 
++---group1_test
++---(
+|   +---int
+|   +--- 
+|   +---a
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---private
++---:
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +---
+@var foovar
+|   +---
+@abstract This is a test abstract.
+|   +---
+@discussion This is a test discussion.
+|   +---
+@updated 2003-05-02
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++-*-int (HAS STATE)
++--- 
++---foovar
++---;
++--- 
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: group1_test (HeaderDoc::Function)
++-*-void (HAS STATE)
++--- 
++---group1_test
++---(
+|   +---int
+|   +--- 
+|   +---a
+|   +---)
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---private
++---:
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +---
+@var foovar
+|   +---
+@abstract This is a test abstract.
+|   +---
+@discussion This is a test discussion.
+|   +---
+@updated 2003-05-02
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++-*-int (HAS STATE)
++--- 
++---foovar
++---;
++--- 
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: foobar (HeaderDoc::Struct)
++-*-struct (HAS STATE)
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---        
+|   +---int
+|   +--- 
+|   +---a
+|   +---;
+|   +---[ NEWLINE ]
+|   +---        
+|   +---char
+|   +--- 
+|   +---*
+|   +---b
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---}
++--- 
++---foobar
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @var test
+|   +---
+@abstract test
+|   +---
+@updated 12-14-06
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-int (HAS STATE)
++--- 
++---test
++---;
++--- 
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @functiongroup group_1 
+|   +---*/
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @function group1_test
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-void (HAS STATE)
++--- 
++---group1_test
++---(
+|   +---int
+|   +--- 
+|   +---a
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---private
++---:
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +---
+@var foovar
+|   +---
+@abstract This is a test abstract.
+|   +---
+@discussion This is a test discussion.
+|   +---
+@updated 2003-05-02
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++-*-int (HAS STATE)
++--- 
++---foovar
++---;
++--- 
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: test (HeaderDoc::Var)
++-*-int (HAS STATE)
++--- 
++---test
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @functiongroup group_1 
+|   +---*/
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- @function group1_test
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++---    
++-*-void (HAS STATE)
++--- 
++---group1_test
++---(
+|   +---int
+|   +--- 
+|   +---a
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---private
++---:
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +---
+@var foovar
+|   +---
+@abstract This is a test abstract.
+|   +---
+@discussion This is a test discussion.
+|   +---
+@updated 2003-05-02
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++-*-int (HAS STATE)
++--- 
++---foovar
++---;
++--- 
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: foovar (HeaderDoc::Var)
++-*-int (HAS STATE)
++--- 
++---foovar
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: This_Does_Not_Contain_Templates (HeaderDoc::CPPClass)
+	<span class="keyword">class</span> <!-- a logicalPath="//test_ref/cpp/cl/This_Does_Not_Contain_Templates //test_ref/cpp/tdef/This_Does_Not_Contain_Templates //test_ref/cpp/tag/This_Does_Not_Contain_Templates //test_ref/cpp/econst/This_Does_Not_Contain_Templates //test_ref/cpp/struct/This_Does_Not_Contain_Templates //test_ref/cpp/clconst/This_Does_Not_Contain_Templates //test_ref/cpp/intf/This_Does_Not_Contain_Templates" --><span class="type">This_Does_Not_Contain_Templates</span><!-- /a --> { 
+	    <span class="keyword">public</span>: <span class="comment">/*! @functiongroup group_1 */</span>
+	    <span class="comment">/*! @function foo
+	@abstract Test method</span>
+	        <span class="comment">*/</span>
+	    <span class="keyword">static</span> <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/foo //test_ref/cpp/clm/foo //test_ref/cpp/intfcm/foo //test_ref/cpp/intfm/foo //test_ref/cpp/func/foo //test_ref/cpp/ftmplt/foo //test_ref/cpp/defn/foo //test_ref/cpp/macro/foo" --><span class="function">foo</span><!-- /a -->(
+	        <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <span class="param">a</span>,
+	        <!-- a logicalPath="//test_ref/cpp/cl/char //test_ref/cpp/tdef/char //test_ref/cpp/tag/char //test_ref/cpp/econst/char //test_ref/cpp/struct/char //test_ref/cpp/clconst/char //test_ref/cpp/intf/char" --><span class="type">char</span><!-- /a --> <span class="type">*</span><span class="param">b</span>); 
+	    <span class="comment">/*! @functiongroup group_2 */</span>
+	    <span class="comment">/*! @method mymethod
+	@abstract My method</span>
+	        <span class="comment">*/</span>
+	    <!-- a logicalPath="//test_ref/cpp/cl/void //test_ref/cpp/tdef/void //test_ref/cpp/tag/void //test_ref/cpp/econst/void //test_ref/cpp/struct/void //test_ref/cpp/clconst/void //test_ref/cpp/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/mymethod //test_ref/cpp/clm/mymethod //test_ref/cpp/intfcm/mymethod //test_ref/cpp/intfm/mymethod //test_ref/cpp/func/mymethod //test_ref/cpp/ftmplt/mymethod //test_ref/cpp/defn/mymethod //test_ref/cpp/macro/mymethod" --><span class="function">mymethod</span><!-- /a -->(
+	        <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <span class="param">b</span>);  
+	    <span class="comment">/*! @struct foobar
+	@abstract test foobar
+	@updated 2003-02-01</span>
+	        <span class="comment">*/</span>
+	    <span class="keyword">struct</span> { 
+	        <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/econst/a //test_ref/cpp/data/a" --><span class="var">a</span><!-- /a -->; 
+	        <!-- a logicalPath="//test_ref/cpp/cl/char //test_ref/cpp/tdef/char //test_ref/cpp/tag/char //test_ref/cpp/econst/char //test_ref/cpp/struct/char //test_ref/cpp/clconst/char //test_ref/cpp/intf/char" --><span class="type">char</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/cpp/econst/b //test_ref/cpp/data/b" --><span class="var">b</span><!-- /a -->; 
+	        } <!-- a logicalPath="//test_ref/cpp/econst/foobar //test_ref/cpp/data/foobar" --><span class="var">foobar</span><!-- /a -->;  
+	    <span class="comment">/*! @var test
+	@abstract test
+	@updated 12-14-06</span>
+	        <span class="comment">*/</span>
+	    <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/econst/test //test_ref/cpp/data/test" --><span class="var">test</span><!-- /a -->; 
+	    <span class="comment">/*! @functiongroup group_1 */</span>
+	    <span class="comment">/*! @function group1_test</span>
+	        <span class="comment">*/</span>
+	    <!-- a logicalPath="//test_ref/cpp/cl/void //test_ref/cpp/tdef/void //test_ref/cpp/tag/void //test_ref/cpp/econst/void //test_ref/cpp/struct/void //test_ref/cpp/clconst/void //test_ref/cpp/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/group1_test //test_ref/cpp/clm/group1_test //test_ref/cpp/intfcm/group1_test //test_ref/cpp/intfm/group1_test //test_ref/cpp/func/group1_test //test_ref/cpp/ftmplt/group1_test //test_ref/cpp/defn/group1_test //test_ref/cpp/macro/group1_test" --><span class="function">group1_test</span><!-- /a -->(
+	        <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <span class="param">a</span>);  
+	    <span class="keyword">private</span>:  <span class="comment">/*!
+	@var foovar
+	@abstract This is a test abstract.
+	@discussion This is a test discussion.
+	@updated 2003-05-02</span>
+	        <span class="comment">*/</span>
+	    <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/econst/foovar //test_ref/cpp/data/foovar" --><span class="var">foovar</span><!-- /a -->; 
+	};  
+END OF OBJECT
+
+
+OBJECT: foo (HeaderDoc::Function)
+	<span class="keyword">static</span> <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/foo //test_ref/cpp/clm/foo //test_ref/cpp/intfcm/foo //test_ref/cpp/intfm/foo //test_ref/cpp/func/foo //test_ref/cpp/ftmplt/foo //test_ref/cpp/defn/foo //test_ref/cpp/macro/foo" --><span class="function">foo</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <span class="param">a</span>,
+	    <!-- a logicalPath="//test_ref/cpp/cl/char //test_ref/cpp/tdef/char //test_ref/cpp/tag/char //test_ref/cpp/econst/char //test_ref/cpp/struct/char //test_ref/cpp/clconst/char //test_ref/cpp/intf/char" --><span class="type">char</span><!-- /a --> <span class="type">*</span><span class="param">b</span>);
+END OF OBJECT
+
+
+OBJECT: mymethod (HeaderDoc::Function)
+	<!-- a logicalPath="//test_ref/cpp/cl/void //test_ref/cpp/tdef/void //test_ref/cpp/tag/void //test_ref/cpp/econst/void //test_ref/cpp/struct/void //test_ref/cpp/clconst/void //test_ref/cpp/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/mymethod //test_ref/cpp/clm/mymethod //test_ref/cpp/intfcm/mymethod //test_ref/cpp/intfm/mymethod //test_ref/cpp/func/mymethod //test_ref/cpp/ftmplt/mymethod //test_ref/cpp/defn/mymethod //test_ref/cpp/macro/mymethod" --><span class="function">mymethod</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <span class="param">b</span>); 
+END OF OBJECT
+
+
+OBJECT: group1_test (HeaderDoc::Function)
+	<!-- a logicalPath="//test_ref/cpp/cl/void //test_ref/cpp/tdef/void //test_ref/cpp/tag/void //test_ref/cpp/econst/void //test_ref/cpp/struct/void //test_ref/cpp/clconst/void //test_ref/cpp/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/group1_test //test_ref/cpp/clm/group1_test //test_ref/cpp/intfcm/group1_test //test_ref/cpp/intfm/group1_test //test_ref/cpp/func/group1_test //test_ref/cpp/ftmplt/group1_test //test_ref/cpp/defn/group1_test //test_ref/cpp/macro/group1_test" --><span class="function">group1_test</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <span class="param">a</span>); 
+END OF OBJECT
+
+
+OBJECT: foobar (HeaderDoc::Struct)
+	<span class="keyword">struct</span> { 
+	    <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/econst/a //test_ref/cpp/data/a" --><span class="var">a</span><!-- /a -->; 
+	    <!-- a logicalPath="//test_ref/cpp/cl/char //test_ref/cpp/tdef/char //test_ref/cpp/tag/char //test_ref/cpp/econst/char //test_ref/cpp/struct/char //test_ref/cpp/clconst/char //test_ref/cpp/intf/char" --><span class="type">char</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/cpp/econst/b //test_ref/cpp/data/b" --><span class="var">b</span><!-- /a -->; 
+	} <!-- a logicalPath="//test_ref/cpp/econst/foobar //test_ref/cpp/data/foobar" --><span class="var">foobar</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: test (HeaderDoc::Var)
+	<!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/econst/test //test_ref/cpp/data/test" --><span class="var">test</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: foovar (HeaderDoc::Var)
+	<!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/econst/int //test_ref/cpp/struct/int //test_ref/cpp/clconst/int //test_ref/cpp/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/econst/foovar //test_ref/cpp/data/foovar" --><span class="var">foovar</span><!-- /a -->; 
+END OF OBJECT
+
+
+
+$1|C$6|parser

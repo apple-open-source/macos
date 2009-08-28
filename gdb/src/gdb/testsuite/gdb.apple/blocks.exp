@@ -1,0 +1,74 @@
+# Copyright 2003 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
+
+# This file was written by Jim Ingham <jingham@apple.com>
+
+# This test case tests some basic features of gdb's support for
+# "blocks".
+
+
+if $tracelevel then {
+	strace $tracelevel
+}
+
+set prms_id 0
+set bug_id 0
+
+set testfile "blocks"
+set srcfile ${testfile}.c
+set binfile ${objdir}/${subdir}/${testfile}
+
+if  { [gdb_compile "${srcdir}/${subdir}/$srcfile" "${binfile}" executable {debug}] != "" } {
+     gdb_suppress_entire_file "Testcase compile failed, so all tests in this fil
+e will automatically fail."
+}
+
+# Start with a fresh gdb
+
+gdb_exit
+gdb_start
+gdb_reinitialize_dir $srcdir/$subdir
+gdb_load ${binfile}
+
+runto_main
+
+set bp_after_making_blocks    [gdb_get_line_number "Breakpoint after making blocks"]
+set bp_in_struct_return_block [gdb_get_line_number "Breakpoint in struct return block"]
+set bp_in_int_return_block    [gdb_get_line_number "Breakpoint in int return block"]
+
+gdb_breakpoint $bp_after_making_blocks # This is breakpoint 2
+gdb_continue_to_breakpoint "continue over making blocks" 2
+gdb_test "print *block_ptr" {.*(isa.*flags.*descriptor|FuncPtr.*).*(|by_value = -55.*by_ref =.*|by_ref = .*by_value = -55.*).*} "Print blockptr after it has been made"
+gdb_test "print *block_ptr->descriptor" {.*(FuncPtr|There is no member).*} "Print blockptr->descriptor after it has been made"
+
+# Test the "invoke-block" command here.
+
+gdb_test {invoke-block block_ptr 100 "\"this string\""} {\$[0-9]* = 246} "invoke-block returning an int"
+gdb_test {invoke-block struct_block_ptr 100} {\$[0-9]* = \{test1_char = 97 'a', test1_int = 101\}} "invoke-block returning a struct"
+
+gdb_breakpoint $bp_in_int_return_block # This is breakpoint 3
+gdb_breakpoint $bp_in_struct_return_block # This is breakpoint 4
+
+gdb_continue_to_breakpoint "continue into int return block" 3
+gdb_test "print by_ref" {\$[0-9]* = 102} "Print by_ref in int return block"
+gdb_test "print by_value" {\$[0-9]* = -55} "Print by_value in int return block"
+gdb_test "print local_var" {\$[0-9]* = -45} "Print local_var in int return block"
+
+gdb_test "print *_self" {.*(isa.*flags.*descriptor|FuncPtr).*(by_value = -55.*by_ref =.*|by_ref = .*by_value = -55.*).*} "Print self in int return block"
+
+gdb_continue_to_breakpoint "continue into struct return block" 4
+
+return 0

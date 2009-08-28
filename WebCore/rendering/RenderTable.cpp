@@ -128,34 +128,28 @@ void RenderTable::addChild(RenderObject* child, RenderObject* beforeChild)
     } else if (child->isTableSection()) {
         switch (child->style()->display()) {
             case TABLE_HEADER_GROUP:
-                if (child->isTableSection()) {
-                    resetSectionPointerIfNotBefore(m_head, beforeChild);
-                    if (!m_head) {
-                        m_head = static_cast<RenderTableSection*>(child);
-                    } else {
-                        resetSectionPointerIfNotBefore(m_firstBody, beforeChild);
-                        if (!m_firstBody) 
-                            m_firstBody = static_cast<RenderTableSection*>(child);
-                    }
+                resetSectionPointerIfNotBefore(m_head, beforeChild);
+                if (!m_head) {
+                    m_head = static_cast<RenderTableSection*>(child);
+                } else {
+                    resetSectionPointerIfNotBefore(m_firstBody, beforeChild);
+                    if (!m_firstBody) 
+                        m_firstBody = static_cast<RenderTableSection*>(child);
                 }
                 wrapInAnonymousSection = false;
                 break;
             case TABLE_FOOTER_GROUP:
-                if (child->isTableSection()) {
-                    resetSectionPointerIfNotBefore(m_foot, beforeChild);
-                    if (!m_foot) {
-                        m_foot = static_cast<RenderTableSection*>(child);
-                        wrapInAnonymousSection = false;
-                        break;
-                    }
+                resetSectionPointerIfNotBefore(m_foot, beforeChild);
+                if (!m_foot) {
+                    m_foot = static_cast<RenderTableSection*>(child);
+                    wrapInAnonymousSection = false;
+                    break;
                 }
                 // Fall through.
             case TABLE_ROW_GROUP:
-                if (child->isTableSection()) {
-                    resetSectionPointerIfNotBefore(m_firstBody, beforeChild);
-                    if (!m_firstBody)
-                        m_firstBody = static_cast<RenderTableSection*>(child);
-                }
+                resetSectionPointerIfNotBefore(m_firstBody, beforeChild);
+                if (!m_firstBody)
+                    m_firstBody = static_cast<RenderTableSection*>(child);
                 wrapInAnonymousSection = false;
                 break;
             default:
@@ -291,6 +285,9 @@ void RenderTable::layout()
             if (collapsing)
                 section->recalcOuterBorder();
             ASSERT(!section->needsLayout());
+        } else if (child->isTableCol()) {
+            child->layoutIfNeeded();
+            ASSERT(!child->needsLayout());
         }
     }
 
@@ -517,16 +514,9 @@ void RenderTable::paintBoxDecorations(PaintInfo& paintInfo, int tx, int ty)
             ty += captionHeight;
     }
 
-    int my = max(ty, paintInfo.rect.y());
-    int mh;
-    if (ty < paintInfo.rect.y())
-        mh = max(0, h - (paintInfo.rect.y() - ty));
-    else
-        mh = min(paintInfo.rect.height(), h);
-
     paintBoxShadow(paintInfo.context, tx, ty, w, h, style());
     
-    paintFillLayers(paintInfo, style()->backgroundColor(), style()->backgroundLayers(), my, mh, tx, ty, w, h);
+    paintFillLayers(paintInfo, style()->backgroundColor(), style()->backgroundLayers(), tx, ty, w, h);
 
     if (style()->hasBorder() && !collapseBorders())
         paintBorder(paintInfo.context, tx, ty, w, h, style());
@@ -548,14 +538,7 @@ void RenderTable::paintMask(PaintInfo& paintInfo, int tx, int ty)
             ty += captionHeight;
     }
 
-    int my = max(ty, paintInfo.rect.y());
-    int mh;
-    if (ty < paintInfo.rect.y())
-        mh = max(0, h - (paintInfo.rect.y() - ty));
-    else
-        mh = min(paintInfo.rect.height(), h);
-    
-    paintMaskImages(paintInfo, my, mh, tx, ty, w, h);
+    paintMaskImages(paintInfo, tx, ty, w, h);
 }
 
 void RenderTable::calcPrefWidths()
@@ -899,8 +882,7 @@ int RenderTable::outerBorderBottom() const
         bottomSection = m_foot;
     else {
         RenderObject* child;
-        for (child = lastChild(); child && !child->isTableSection(); child = child->previousSibling())
-            ;
+        for (child = lastChild(); child && !child->isTableSection(); child = child->previousSibling()) { }
         bottomSection = child ? static_cast<RenderTableSection*>(child) : 0;
     }
     if (bottomSection) {

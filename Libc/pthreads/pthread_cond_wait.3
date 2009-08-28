@@ -48,7 +48,10 @@ function atomically unlocks the
 .Fa mutex 
 argument and waits on the 
 .Fa cond
-argument.
+argument. Before returning control to the calling function, 
+.Fn pthread_cond_wait 
+re-acquires the
+.Fa mutex.
 .Sh RETURN VALUES
 If successful, the
 .Fn pthread_cond_wait

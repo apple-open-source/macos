@@ -363,13 +363,10 @@ The command:
 sets the date to
 .Dq Li "June 13, 1985, 4:27 PM" .
 .Pp
-.Dl "date ""+%Y%m%d%H%M.%S"""
+.Dl "date ""+%m%d%H%M%Y.%S"""
 .Pp
 may be used on one machine to print out the date
 suitable for setting on another.
-.Qq ( Li "+%m%d%H%M%Y.%S"
-for use on
-.Tn Linux . )
 .Pp
 The command:
 .Pp
@@ -422,6 +419,9 @@ Unable to set the date
 .It 2
 Able to set the local date, but unable to set it globally
 .El
+.Pp
+For more information about legacy mode, see
+.Xr compat 5 .
 .Sh SEE ALSO
 .Xr gettimeofday 2 ,
 .Xr strftime 3 ,

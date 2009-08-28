@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -76,10 +76,9 @@ routine _DAServerSessionCopyCallbackQueue( _session : mach_port_t;
                                        out _queue   : ___vm_address_t, dealloc );
 
 routine _DAServerSessionCreate( _session : mach_port_t;
-                                _client  : mach_port_t;
                                 _name    : ___caddr_t;
                                 _pid     : ___pid_t;
-                            out _server  : mach_port_t );
+                            out _server  : mach_port_make_send_t );
 
 routine _DAServerSessionQueueRequest( _session   : mach_port_t;
                                       _kind      : int32_t;
@@ -111,6 +110,9 @@ simpleroutine _DAServerSessionRelease( _session : mach_port_t );
 
 simpleroutine _DAServerSessionSetAuthorization( _session       : mach_port_t;
                                                 _authorization : ___AuthorizationExternalForm );
+
+simpleroutine _DAServerSessionSetClientPort( _session : mach_port_t;
+                                             _client  : mach_port_make_send_t );
 
 simpleroutine _DAServerSessionUnregisterCallback( _session : mach_port_t;
                                                   _address : mach_vm_offset_t;

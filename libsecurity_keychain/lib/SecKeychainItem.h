@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,6 +31,7 @@
 #ifndef _SECURITY_SECKEYCHAINITEM_H_
 #define _SECURITY_SECKEYCHAINITEM_H_
 
+#include <CoreFoundation/CFData.h>
 #include <Security/SecBase.h>
 #include <Security/cssmapple.h>
 
@@ -269,6 +270,25 @@ OSStatus SecKeychainItemCopyKeychain(SecKeychainItemRef itemRef, SecKeychainRef 
 */
 OSStatus SecKeychainItemCreateCopy(SecKeychainItemRef itemRef, SecKeychainRef destKeychainRef,
 	SecAccessRef initialAccess, SecKeychainItemRef *itemCopy);
+
+/*!
+    @function SecKeychainItemCreatePersistentReference
+    @abstract Returns a CFDataRef which can be used as a persistent reference to the given keychain item. The data obtained can be turned back into a SecKeychainItemRef later by calling SecKeychainItemCopyFromPersistentReference().
+    @param itemRef A reference to a keychain item.
+    @param persistentItemRef On return, a CFDataRef containing a persistent reference. You must release this data reference by calling the CFRelease function.
+    @result A result code. See "Security Error Codes" (SecBase.h).
+*/
+OSStatus SecKeychainItemCreatePersistentReference(SecKeychainItemRef itemRef, CFDataRef *persistentItemRef);
+
+
+/*!
+    @function SecKeychainItemCopyFromPersistentReference
+    @abstract Returns a SecKeychainItemRef, given a persistent reference previously obtained by calling SecKeychainItemCreatePersistentReference().
+    @param persistentItemRef A CFDataRef containing a persistent reference to a keychain item.
+    @param itemRef On return, a SecKeychainItemRef for the keychain item described by the persistent reference. You must release this item reference by calling the CFRelease function.
+    @result A result code. See "Security Error Codes" (SecBase.h).
+*/
+OSStatus SecKeychainItemCopyFromPersistentReference(CFDataRef persistentItemRef, SecKeychainItemRef *itemRef);
 
 
 #pragma mark ---- CSSM Bridge Functions ----

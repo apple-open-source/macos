@@ -6,9 +6,6 @@
 # errors if the included makefiles don't change these:
 MDSRCS=
 MISRCS=
-MDASM=
-MIASM=
-NOASM=
 
 # SUPPRESSSRCS is used to prevent machine-independent files from being
 # built, when a machine-dependent file defines multiple symbols.
@@ -23,36 +20,36 @@ AUTOPATCHSRCS=
 # Auto-patch (or symlink)
 _AUTOPATCH: .USE
 	@if [ -f ${.ALLSRC}.patch ]; then \
-	    echo cp ${.ALLSRC} ${.TARGET}; \
-	    cp ${.ALLSRC} ${.TARGET}; \
-	    echo patch ${.TARGET} ${.ALLSRC}.patch; \
-	    patch ${.TARGET} ${.ALLSRC}.patch; \
+	    ${ECHO} ${CP} ${.ALLSRC} ${.TARGET}; \
+	    ${CP} ${.ALLSRC} ${.TARGET}; \
+	    ${ECHO} ${PATCH} ${.TARGET} ${.ALLSRC}.patch; \
+	    ${PATCH} ${.TARGET} ${.ALLSRC}.patch; \
 	else \
-	    t=`basename ${.ALLSRC}` && x=`dirname ${.ALLSRC}` && d=`basename $$x`; \
-	    echo ln -fs $$d/$$t ${.TARGET}; \
-	    ln -fs $$d/$$t ${.TARGET}; \
+	    t=`${BASENAME} ${.ALLSRC}` && x=`${DIRNAME} ${.ALLSRC}` && d=`${BASENAME} $$x`; \
+	    ${ECHO} ${LN} -fs $$d/$$t ${.TARGET}; \
+	    ${LN} -fs $$d/$$t ${.TARGET}; \
 	fi
 # Standard compilation for the various forms
 _STANDARD_STATIC: .USE
-	${CC} -static \
+	${MYCC} -static \
 	    ${PRECFLAGS} ${PRECFLAGS-${.IMPSRC:T}} \
 	    ${CFLAGS} ${CFLAGS-${.IMPSRC:T}} \
 	    ${VARIANTCFLAGS} ${LIBCFLAGS} \
 	    -Os ${OPTIMIZE-${.IMPSRC:T}} -c ${.IMPSRC} -o ${.TARGET}
 _STANDARD_PROFILE: .USE
-	${CC} -pg -DPROFILE \
+	${MYCC} -pg -DPROFILE \
 	    ${PRECFLAGS} ${PRECFLAGS-${.IMPSRC:T}} \
 	    ${CFLAGS} ${CFLAGS-${.IMPSRC:T}} \
 	    ${VARIANTCFLAGS} ${LIBCFLAGS} \
 	    -Os ${OPTIMIZE-${.IMPSRC:T}} -c ${.IMPSRC} -o ${.TARGET}
 _STANDARD_DYNAMIC: .USE
-	${CC} \
+	${MYCC} \
 	    ${PRECFLAGS} ${PRECFLAGS-${.IMPSRC:T}} \
 	    ${CFLAGS} ${CFLAGS-${.IMPSRC:T}} \
 	    ${VARIANTCFLAGS} ${LIBCFLAGS} \
 	    -Os ${OPTIMIZE-${.IMPSRC:T}} -c ${.IMPSRC} -o ${.TARGET}
 _STANDARD_DEBUG: .USE
-	${CC} -g -DDEBUG \
+	${MYCC} -g -DDEBUG \
 	    ${PRECFLAGS} ${PRECFLAGS-${.IMPSRC:T}} \
 	    ${CFLAGS} ${CFLAGS-${.IMPSRC:T}} \
 	    ${VARIANTCFLAGS} ${LIBCFLAGS} \

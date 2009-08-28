@@ -108,7 +108,8 @@
 /*	event_drain() repeatedly calls event_loop() until no more timer
 /*	events or I/O events are pending or until the time limit is reached.
 /*	This routine must not be called from an event_whatever() callback
-/*	routine.
+/*	routine. Note: this function ignores pending timer events, and
+/*	assumes that no new I/O events will be registered.
 /* DIAGNOSTICS
 /*	Panics: interface violations. Fatal errors: out of memory,
 /*	system call failure. Warnings: the number of available
@@ -353,6 +354,7 @@ static int event_pollfd;		/* handle to file descriptor set */
 
 #define EVENT_REG_INIT_HANDLE(er, n) do { \
 	er = event_pollfd = open("/dev/poll", O_RDWR); \
+	if (event_pollfd >= 0) close_on_exec(event_pollfd, CLOSE_ON_EXEC); \
     } while (0)
 #define EVENT_REG_INIT_TEXT	"open /dev/poll"
 
@@ -424,6 +426,7 @@ static int event_epollfd;		/* epoll handle */
 
 #define EVENT_REG_INIT_HANDLE(er, n) do { \
 	er = event_epollfd = epoll_create(n); \
+	if (event_epollfd >= 0) close_on_exec(event_epollfd, CLOSE_ON_EXEC); \
     } while (0)
 #define EVENT_REG_INIT_TEXT	"epoll_create"
 
@@ -517,6 +520,13 @@ static void event_init(void)
      */
 #if (EVENTS_STYLE == EVENTS_STYLE_SELECT)
     if ((event_fdlimit = open_limit(FD_SETSIZE)) < 0)
+	msg_fatal("unable to determine open file limit");
+#elif defined(__APPLE_OS_X_SERVER__)
+    /* setrlimit(2) says:
+     setrlimit() now returns with errno set to EINVAL in places that histori-
+     cally succeeded.  It no longer accepts "rlim_cur = RLIM_INFINITY" for
+     RLIM_NOFILE.  Use "rlim_cur = min(OPEN_MAX, rlim_max)". */
+    if ((event_fdlimit = open_limit(OPEN_MAX)) < 0)
 	msg_fatal("unable to determine open file limit");
 #else
     if ((event_fdlimit = open_limit(INT_MAX)) < 0)
@@ -622,7 +632,11 @@ void    event_drain(int time_limit)
     if (EVENT_INIT_NEEDED())
 	return;
 
+#if (EVENTS_STYLE == EVENTS_STYLE_SELECT)
     EVENT_MASK_ZERO(&zero_mask);
+#else
+    EVENT_MASK_ALLOC(&zero_mask, event_fdslots);
+#endif
     (void) time(&event_present);
     max_time = event_present + time_limit;
     while (event_present < max_time
@@ -630,6 +644,9 @@ void    event_drain(int time_limit)
 	       || memcmp(&zero_mask, &event_xmask,
 			 EVENT_MASK_BYTE_COUNT(&zero_mask)) != 0))
 	event_loop(1);
+#if (EVENTS_STYLE != EVENTS_STYLE_SELECT)
+    EVENT_MASK_FREE(&zero_mask);
+#endif
 }
 
 /* event_enable_read - enable read events */

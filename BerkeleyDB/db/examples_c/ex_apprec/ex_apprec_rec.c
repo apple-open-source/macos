@@ -1,10 +1,9 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1996,2007 Oracle.  All rights reserved.
  *
- * $Id: ex_apprec_rec.c,v 1.2 2004/03/30 01:23:17 jtownsen Exp $
+ * $Id: ex_apprec_rec.c,v 12.5 2007/05/17 15:15:13 bostic Exp $
  */
 
 /*

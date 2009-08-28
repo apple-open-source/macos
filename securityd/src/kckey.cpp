@@ -29,6 +29,7 @@
 #include "server.h"
 #include "database.h"
 #include <security_cdsa_utilities/acl_any.h>
+#include <security_cdsa_utilities/cssmendian.h>
 
 
 //
@@ -56,7 +57,7 @@ KeychainKey::KeychainKey(Database &db, const KeyBlob *blob)
     mBlob = blob->copy(Allocator::standard());
 	mValidBlob = true;
 	db.addReference(*this);
-    secdebug("SSkey", "%p (handle 0x%lx) created from blob version %x",
+    secdebug("SSkey", "%p (handle %#x) created from blob version %x",
 		this, handle(), blob->version());
 }
 
@@ -109,6 +110,7 @@ void KeychainKey::getHeader(CssmKey::Header &hdr)
 //
 // Ensure that a key is fully decoded.
 // This makes the mKey key value available for use, as well as its ACL.
+// Caller must hold the key object lock.
 //
 void KeychainKey::decode()
 {
@@ -180,6 +182,7 @@ void KeychainKey::invalidateBlob()
 //
 void KeychainKey::instantiateAcl()
 {
+	StLock<Mutex> _(*this);
 	decode();
 }
 

@@ -1,0 +1,17 @@
+cgi-bin/README                                             -*-text-*-
+
+This directory contains files used to support provision of SOAP and
+XML-RPC webservices via the SOAP::CGI package. These scripts can be
+seen in action as http://tclsoap.sourceforge.net/cgi-bin/rpc
+
+rpc            - sample SOAP/XML-RPC endpoint
+soapmat.dat    - SOAPAction to script file map
+xmlrpcmap.dat  - XML-RPC class name to script file map.
+
+soap/soapinterop.tcl - Tcl implementation of the SOAP Interoperability
+		       Lab Test Suite Round 1.
+soap/validator.tcl   - Implementation of the XMethods validator suite
+		       as used by http://validator.soapware.org/ and
+		       http://validator.xmlrpc.com/
+soap/tclsoap-Test.tcl - various sample methods in the urn:tclsoap:Test
+		       namespace.

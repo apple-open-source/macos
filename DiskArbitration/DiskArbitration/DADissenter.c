@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,6 +25,8 @@
 
 #include "DAInternal.h"
 
+#include <unistd.h>
+
 DADissenterRef DADissenterCreate( CFAllocatorRef allocator, DAReturn status, CFStringRef string )
 {
     CFMutableDictionaryRef dissenter;
@@ -33,7 +35,8 @@ DADissenterRef DADissenterCreate( CFAllocatorRef allocator, DAReturn status, CFS
 
     if ( dissenter )
     {
-        ___CFDictionarySetIntegerValue( dissenter, _kDADissenterStatusKey, status );
+        ___CFDictionarySetIntegerValue( dissenter, _kDADissenterProcessIDKey, getpid( ) );
+        ___CFDictionarySetIntegerValue( dissenter, _kDADissenterStatusKey,    status    );
 
         if ( string )
         {
@@ -42,6 +45,11 @@ DADissenterRef DADissenterCreate( CFAllocatorRef allocator, DAReturn status, CFS
     }
 
     return ( void * ) dissenter;
+}
+
+pid_t DADissenterGetProcessID( DADissenterRef dissenter )
+{
+    return ___CFDictionaryGetIntegerValue( ( void * ) dissenter, _kDADissenterProcessIDKey );
 }
 
 DAReturn DADissenterGetStatus( DADissenterRef dissenter )

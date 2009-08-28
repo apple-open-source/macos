@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (C) 1997-2006, International Business Machines Corporation and    *
+* Copyright (C) 1997-2009, International Business Machines Corporation and    *
 * others. All Rights Reserved.                                                *
 *******************************************************************************
 *
@@ -75,7 +75,8 @@ static const UChar gLastResortScientificPat[] = {
 
 // If the maximum base 10 exponent were 4, then the largest number would
 // be 99,999 which has 5 digits.
-static const int32_t gMaxIntegerDigits = DBL_MAX_10_EXP + 1; // Should be ~40 ? --srl
+// On IEEE754 systems gMaxIntegerDigits is 308 + possible denormalized 15 digits + rounding digit
+static const int32_t gMaxIntegerDigits = DBL_MAX_10_EXP + DBL_DIG + 1;
 static const int32_t gMinIntegerDigits = 127;
 
 static const UChar * const gLastResortNumberPatterns[] =
@@ -130,7 +131,8 @@ NumberFormat::NumberFormat()
     fMinIntegerDigits(1),
     fMaxFractionDigits(3), // invariant, >= minFractionDigits
     fMinFractionDigits(0),
-    fParseIntegerOnly(FALSE)
+    fParseIntegerOnly(FALSE),
+    fParseStrict(TRUE)  // TODO: Should this be FALSE?
 {
     fCurrency[0] = 0;
 }
@@ -360,9 +362,11 @@ Formattable& NumberFormat::parseCurrency(const UnicodeString& text,
         getEffectiveCurrency(curr, ec);
         if (U_SUCCESS(ec)) {
             Formattable n(result);
-            result.adoptObject(new CurrencyAmount(n, curr, ec));
-            if (U_FAILURE(ec)) {
+            CurrencyAmount *tempCurAmnt = new CurrencyAmount(n, curr, ec);  // Use for null testing.
+            if (U_FAILURE(ec) || tempCurAmnt == NULL) {
                 pos.setIndex(start); // indicate failure
+            } else {
+            	result.adoptObject(tempCurAmnt);
             }
         }
     }
@@ -376,6 +380,15 @@ void
 NumberFormat::setParseIntegerOnly(UBool value)
 {
     fParseIntegerOnly = value;
+}
+
+// -------------------------------------
+// Sets whether or not parse is strict.
+
+void
+NumberFormat::setParseStrict(UBool value)
+{
+    fParseStrict = value;
 }
 
 // -------------------------------------
@@ -585,26 +598,22 @@ static ICULocaleService*
 getNumberFormatService(void)
 {
     UBool needInit;
-    {
-        Mutex mutex;
-        needInit = (UBool)(gService == NULL);
-    }
+    UMTX_CHECK(NULL, (UBool)(gService == NULL), needInit);
     if (needInit) {
         ICULocaleService * newservice = new ICUNumberFormatService();
         if (newservice) {
-            Mutex mutex;
+            umtx_lock(NULL);
             if (gService == NULL) {
                 gService = newservice;
                 newservice = NULL;
             }
+            umtx_unlock(NULL);
         }
         if (newservice) {
             delete newservice;
         } else {
             // we won the contention, this thread can register cleanup.
-#if !UCONFIG_NO_SERVICE
             ucln_i18n_registerCleanup(UCLN_I18N_NUMFMT, numfmt_cleanup);
-#endif
         }
     }
     return gService;
@@ -617,7 +626,10 @@ NumberFormat::registerFactory(NumberFormatFactory* toAdopt, UErrorCode& status)
 {
   ICULocaleService *service = getNumberFormatService();
   if (service) {
-    return service->registerFactory(new NFFactory(toAdopt), status);
+	  NFFactory *tempnnf = new NFFactory(toAdopt);
+	  if (tempnnf != NULL) {
+		  return service->registerFactory(tempnnf, status);
+	  }
   }
   status = U_MEMORY_ALLOCATION_ERROR;
   return NULL;
@@ -629,9 +641,8 @@ UBool U_EXPORT2
 NumberFormat::unregister(URegistryKey key, UErrorCode& status)
 {
     if (U_SUCCESS(status)) {
-        umtx_lock(NULL);
-        UBool haveService = gService != NULL;
-        umtx_unlock(NULL);
+        UBool haveService;
+        UMTX_CHECK(NULL, gService != NULL, haveService);
         if (haveService) {
             return gService->unregister(key, status);
         }
@@ -657,9 +668,8 @@ NumberFormat* U_EXPORT2
 NumberFormat::createInstance(const Locale& loc, EStyles kind, UErrorCode& status)
 {
 #if !UCONFIG_NO_SERVICE
-    umtx_lock(NULL);
-    UBool haveService = gService != NULL;
-    umtx_unlock(NULL);
+    UBool haveService;
+    UMTX_CHECK(NULL, gService != NULL, haveService);
     if (haveService) {
         return (NumberFormat*)gService->get(loc, kind, status);
     }

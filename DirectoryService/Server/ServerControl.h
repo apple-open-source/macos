@@ -31,10 +31,12 @@
 #include <mach/port.h>
 #define USE_SYSTEMCONFIGURATION_PUBLIC_APIS
 #include <SystemConfiguration/SystemConfiguration.h>
+#include <dispatch/dispatch.h>
 
 #include "PrivateTypes.h"
 #include "SharedConsts.h"
 #include "CCachePlugin.h"
+#include "CRefTable.h"
 
 const UInt32 kMaxHandlerThreads			= 256; // this is used for both mach and TCP handler thread max
 
@@ -114,8 +116,10 @@ typedef enum {
     kDSLUinnetgr,
     kDSLUgetnetgrent,
     
+#ifdef HANDLE_DNS_LOOKUPS    
     kDSLUgetaddrinfo,
     kDSLUgetnameinfo,
+#endif
     kDSLUgethostbyname,
     kDSLUgethostbyaddr,
     kDSLUgethostent,
@@ -126,22 +130,30 @@ typedef enum {
 	kDSLUgetbootpbyaddr,
 
 	// other types of calls
+#ifdef HANDLE_DNS_LOOKUPS    
 	kDSLUdns_proxy,
+#endif
+	kDSLUgethostbyname_service,
 
 	kDSLUflushcache,
     kDSLUflushentry,
+	
+	kDSLUgetpwnam_ext,
+    kDSLUgetpwnam_initext,
+    kDSLUgetgrnam_ext,
+    kDSLUgetgrnam_initext,	
 
     kDSLUlastprocnum // this number will increment automatically
 } eDSLookupProcedureNumber;
 
 typedef struct {
-	SInt32						clientPID;
-	SInt32						error;
+	int32_t						clientPID;
+	int32_t						error;
 } ErrorByPID;
 
 typedef struct {
-	UInt32						msgCnt;
-	UInt32						errCnt;
+	int32_t						msgCnt;
+	int32_t						errCnt;
 	double						minTime;
 	double						maxTime;
 	double						totTime;
@@ -160,7 +172,6 @@ typedef struct {
 //-----------------------------------------------------------------------------
 
 class	DSTCPListener;
-class	CHandlerThread;
 class	CNodeList;
 class	CPlugInList;
 
@@ -178,25 +189,25 @@ extern CPlugInList	*gPlugins;
 class ServerControl
 {
 public:
+	static	dispatch_source_t	fTCPListener;
+
+public:
 						ServerControl		 ( void );
 	virtual			   ~ServerControl		 ( void );
 
 	virtual SInt32		StartUpServer		( void );
 	virtual SInt32		ShutDownServer		( void );
-			SInt32		StartAHandler		( const FourCharCode inThreadSignature );
-			SInt32		StopAHandler		( const FourCharCode inThreadSignature, UInt32 iThread, CHandlerThread *inThread );
-			void		WakeAHandler		( const FourCharCode inThreadSignature );
-			void		SleepAHandler		( const FourCharCode inThreadSignature, UInt32 waitTime );
-			UInt32		GetHandlerCount		( const FourCharCode inThreadSignature );
 			SInt32		StartTCPListener	( UInt32 inPort );
 			SInt32		StopTCPListener		( void );
+			void		StartKernelListener	( void );
 
-			SInt32		HandleNetworkTransition	( void );
 			SInt32		HandleSystemWillSleep	( void );
 			SInt32		HandleSystemWillPowerOn	( void );
-			SInt32		FlushMemberDaemonCache	( void );
-			SInt32		SetUpPeriodicTask	( void );
-			SInt32		ResetDebugging		( void );
+	
+	static	void		DoPeriodicTask			( dispatch_source_t );
+	static	void		HandleNetworkTransition	( void );
+	static	void		ResetDebugging			( void );
+	static	void		ToggleAPILogging		( bool fromSignal );
 
 #ifdef BUILD_IN_PERFORMANCE
 			void		ActivatePeformanceStatGathering( void ) { fPerformanceStatGatheringActive = true; }
@@ -208,13 +219,8 @@ public:
 
 			bool		IsPeformanceStatGatheringActive
 													( void ) { return fPerformanceStatGatheringActive; }
-			void		NotifyDirNodeAdded			( const char* newNode );
-			void		NotifyDirNodeDeleted		( char* oldNode );
-			
-			void		SearchPolicyChangedNotify	( void );
-			void		DoSearchPolicyChangedNotify	( void ); // should only be called by Timer
-			void		NodeSearchPolicyChanged		( void );
-			void		DoNodeSearchPolicyChange	( void ); // should only be called by Timer
+
+	static	SInt32		RefDeallocProc				( UInt32 inRefNum, eRefType inRefType, CServerPlugin *inPluginPtr );
 
 protected:
 #ifdef BUILD_IN_PERFORMANCE
@@ -223,11 +229,15 @@ protected:
 						CreatePerfStatTable			( void );
 #endif
 
+	static	void		TCPListenerEventCallback	( int listenFD );
+	static	void		TCPReadEventCallback		( void *, dispatch_source_t ds );
+	
 			SInt32		RegisterForSystemPower		( void );
 			SInt32		UnRegisterForSystemPower	( void );
 			SInt32		RegisterForNetworkChange	( void );
 			SInt32		UnRegisterForNetworkChange	( void );
-			void		CreateDebugPrefFileIfNecessary	( bool bForceCreate = false );
+	static	void		CreateDebugPrefFileIfNecessary	( bool bForceCreate = false );
+
 private:
 
 	UInt32				fTCPHandlerThreadsCnt;
@@ -239,15 +249,10 @@ private:
 	UInt32				fPerfTableNumPlugins;
 #endif
 	
-	DSTCPListener	   *fTCPListener;
-	CHandlerThread	  **fTCPHandlers;
-	CHandlerThread    **fLibinfoHandlers;
 	SCDynamicStoreRef	fSCDStore;
 	bool				fPerformanceStatGatheringActive;
 	UInt32				fMemberDaemonFlushCacheRequestCount;
 	CFStringRef			fServiceNameString;
-	static	CFRunLoopTimerRef	fNSPCTimerRef; //NSPC = Node Search Policy Change
-	static	CFRunLoopTimerRef	fSPCNTimerRef; //SPCN = Search Policy Changed Notify
 };
 
 extern ServerControl	*gSrvrCntl;

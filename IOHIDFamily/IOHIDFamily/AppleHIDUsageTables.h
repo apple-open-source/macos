@@ -35,10 +35,12 @@ enum
 {
     kHIDPage_AppleVendor                        = 0xff00,
     kHIDPage_AppleVendorKeyboard                = 0xff01,
-    kHIDPage_AppleVendorDisplay                 = 0xff92,
+	kHIDPage_AppleVendorMouse					= 0xff02,
     kHIDPage_AppleVendorAccelerometer           = 0xff03,
     kHIDPage_AppleVendorAmbientLightSensor      = 0xff04,
     kHIDPage_AppleVendorTemperatureSensor       = 0xff05,
+    kHIDPage_AppleVendorHeadset                 = 0xff07,
+    kHIDPage_AppleVendorDisplay                 = 0xff92,
 	kHIDPage_AppleVendorTopCase                 = 0x00ff
 };
 
@@ -51,7 +53,8 @@ enum
     kHIDUsage_AppleVendor_Accelerometer         = 0x0003, /* Application Collection */
     kHIDUsage_AppleVendor_AmbientLightSensor    = 0x0004, /* Application Collection */
     kHIDUsage_AppleVendor_TemperatureSensor     = 0x0005, /* Application Collection */
-    kHIDUsage_AppleVendor_Keyboard              = 0x0006  /* Application Collection */
+    kHIDUsage_AppleVendor_Keyboard              = 0x0006, /* Application Collection */
+    kHIDUsage_AppleVendor_Headset               = 0x0007  /* Application Collection */
 };
 
 
@@ -69,6 +72,11 @@ enum
     kHIDUsage_AppleVendorKeyboard_Brightness_Down       = 0x0021
 };
 
+/* AppleVendor Page Headset (0xff07) */
+enum
+{
+    kHIDUsage_AV_Headset_Availability           = 0x0001
+};
 
 /* AppleVendor Page Top Case (0x00ff) */
 enum

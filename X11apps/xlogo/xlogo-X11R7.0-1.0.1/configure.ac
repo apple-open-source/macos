@@ -31,7 +31,7 @@ AC_PROG_CC
 AC_PROG_INSTALL
 
 # Checks for pkg-config packages
-XAW_CHECK_XPRINT_SUPPORT(XLOGO)
+PKG_CHECK_MODULES(XLOGO, xaw7)
 
 if test "x$xaw_use_xprint" = "xyes" ; then
    PKG_CHECK_MODULES(XPRINT_UTIL, xprintutil xp)

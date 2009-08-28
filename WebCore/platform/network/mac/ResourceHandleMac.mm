@@ -33,6 +33,7 @@
 #import "FormDataStreamMac.h"
 #import "Frame.h"
 #import "FrameLoader.h"
+#import "Logging.h"
 #import "MIMETypeRegistry.h"
 #import "Page.h"
 #import "ResourceError.h"
@@ -42,11 +43,8 @@
 #import "SharedBuffer.h"
 #import "SubresourceLoader.h"
 #import "WebCoreSystemInterface.h"
+#import "WebCoreURLResponse.h"
 #import <wtf/UnusedParam.h>
-
-#ifndef BUILDING_ON_TIGER
-#import <objc/objc-class.h>
-#endif
 
 #ifdef BUILDING_ON_TIGER
 typedef int NSInteger;
@@ -91,9 +89,6 @@ using namespace WebCore;
 
 static NSString *WebCoreSynchronousLoaderRunLoopMode = @"WebCoreSynchronousLoaderRunLoopMode";
 
-static IMP oldNSURLResponseMIMETypeIMP = 0;
-static NSString *webNSURLResponseMIMEType(id, SEL);
-
 #endif
 
 namespace WebCore {
@@ -130,6 +125,8 @@ ResourceHandleInternal::~ResourceHandleInternal()
 ResourceHandle::~ResourceHandle()
 {
     releaseDelegate();
+
+    LOG(Network, "Handle %p destroyed", this);
 }
 
 static const double MaxFoundationVersionWithoutdidSendBodyDataDelegate = 677.21;
@@ -178,11 +175,18 @@ bool ResourceHandle::start(Frame* frame)
     if (!ResourceHandle::didSendBodyDataDelegateExists())
         associateStreamWithResourceHandle([d->m_request.nsURLRequest() HTTPBodyStream], this);
 
+#ifdef BUILDING_ON_TIGER
+    // A conditional request sent by WebCore (e.g. to update appcache) can be for a resource that is not cacheable by NSURLConnection,
+    // which can get confused and fail to load it in this case.
+    if (d->m_request.isConditional())
+        d->m_request.setCachePolicy(ReloadIgnoringCacheData);
+#endif
+
     d->m_needsSiteSpecificQuirks = frame->settings() && frame->settings()->needsSiteSpecificQuirks();
 
     NSURLConnection *connection;
     
-    if (d->m_shouldContentSniff) 
+    if (d->m_shouldContentSniff || frame->settings()->localFileContentSniffingEnabled()) 
 #ifdef BUILDING_ON_TIGER
         connection = [[NSURLConnection alloc] initWithRequest:d->m_request.nsURLRequest() delegate:delegate];
 #else
@@ -222,6 +226,8 @@ bool ResourceHandle::start(Frame* frame)
 #ifndef NDEBUG
     isInitializingConnection = NO;
 #endif
+
+    LOG(Network, "Handle %p starting connection %p for %@", this, connection, d->m_request.nsURLRequest());
     
     d->m_connection = connection;
 
@@ -241,6 +247,8 @@ bool ResourceHandle::start(Frame* frame)
 
 void ResourceHandle::cancel()
 {
+    LOG(Network, "Handle %p cancel connection %p", this, d->m_connection.get());
+
     if (!ResourceHandle::didSendBodyDataDelegateExists())
         disassociateStreamWithResourceHandle([d->m_request.nsURLRequest() HTTPBodyStream]);
     [d->m_connection.get() cancel];
@@ -248,6 +256,8 @@ void ResourceHandle::cancel()
 
 void ResourceHandle::setDefersLoading(bool defers)
 {
+    LOG(Network, "Handle %p setDefersLoading(%s)", this, defers ? "true" : "false");
+
     d->m_defersLoading = defers;
     if (d->m_connection)
         wkSetNSURLConnectionDefersCallbacks(d->m_connection.get(), defers);
@@ -541,9 +551,9 @@ void ResourceHandle::receivedCancellation(const AuthenticationChallenge& challen
     m_handle = 0;
 }
 
-- (NSURLRequest *)connection:(NSURLConnection *)unusedConnection willSendRequest:(NSURLRequest *)newRequest redirectResponse:(NSURLResponse *)redirectResponse
+- (NSURLRequest *)connection:(NSURLConnection *)connection willSendRequest:(NSURLRequest *)newRequest redirectResponse:(NSURLResponse *)redirectResponse
 {
-    UNUSED_PARAM(unusedConnection);
+    UNUSED_PARAM(connection);
 
     // the willSendRequest call may cancel this load, in which case self could be deallocated
     RetainPtr<WebCoreResourceHandleAsDelegate> protect(self);
@@ -555,6 +565,8 @@ void ResourceHandle::receivedCancellation(const AuthenticationChallenge& challen
     if (!redirectResponse)
         return newRequest;
     
+    LOG(Network, "Handle %p delegate connection:%p willSendRequest:%@ redirectResponse:%p", m_handle, connection, [newRequest description], redirectResponse);
+
     CallbackGuard guard;
     ResourceRequest request = newRequest;
     m_handle->willSendRequest(request, redirectResponse);
@@ -573,9 +585,11 @@ void ResourceHandle::receivedCancellation(const AuthenticationChallenge& challen
     return request.nsURLRequest();
 }
 
-- (BOOL)connectionShouldUseCredentialStorage:(NSURLConnection *)unusedConnection
+- (BOOL)connectionShouldUseCredentialStorage:(NSURLConnection *)connection
 {
-    UNUSED_PARAM(unusedConnection);
+    UNUSED_PARAM(connection);
+
+    LOG(Network, "Handle %p delegate connectionShouldUseCredentialStorage:%p", m_handle, connection);
 
     if (!m_handle)
         return NO;
@@ -584,19 +598,23 @@ void ResourceHandle::receivedCancellation(const AuthenticationChallenge& challen
     return m_handle->shouldUseCredentialStorage();
 }
 
-- (void)connection:(NSURLConnection *)unusedConnection didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge
+- (void)connection:(NSURLConnection *)connection didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge
 {
-    UNUSED_PARAM(unusedConnection);
-    
+    UNUSED_PARAM(connection);
+
+    LOG(Network, "Handle %p delegate connection:%p didReceiveAuthenticationChallenge:%p", m_handle, connection, challenge);
+
     if (!m_handle)
         return;
     CallbackGuard guard;
     m_handle->didReceiveAuthenticationChallenge(core(challenge));
 }
 
-- (void)connection:(NSURLConnection *)unusedConnection didCancelAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge
+- (void)connection:(NSURLConnection *)connection didCancelAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge
 {
-    UNUSED_PARAM(unusedConnection);
+    UNUSED_PARAM(connection);
+
+    LOG(Network, "Handle %p delegate connection:%p didCancelAuthenticationChallenge:%p", m_handle, connection, challenge);
 
     if (!m_handle)
         return;
@@ -604,31 +622,45 @@ void ResourceHandle::receivedCancellation(const AuthenticationChallenge& challen
     m_handle->didCancelAuthenticationChallenge(core(challenge));
 }
 
-- (void)connection:(NSURLConnection *)unusedConnection didReceiveResponse:(NSURLResponse *)r
+- (void)connection:(NSURLConnection *)connection didReceiveResponse:(NSURLResponse *)r
 {
-    UNUSED_PARAM(unusedConnection);
+    UNUSED_PARAM(connection);
+
+    LOG(Network, "Handle %p delegate connection:%p didReceiveResponse:%p (HTTP status %d, MIMEType '%s', reported MIMEType '%s')", m_handle, connection, r, [r respondsToSelector:@selector(statusCode)] ? [(id)r statusCode] : 0, [[r MIMEType] UTF8String], [[r _webcore_reportedMIMEType] UTF8String]);
 
     if (!m_handle || !m_handle->client())
         return;
     CallbackGuard guard;
 
-#ifndef BUILDING_ON_TIGER
-    if (!oldNSURLResponseMIMETypeIMP) {
-        Method nsURLResponseMIMETypeMethod = class_getInstanceMethod(objc_getClass("NSURLResponse"), @selector(MIMEType));
-        ASSERT(nsURLResponseMIMETypeMethod);
-        oldNSURLResponseMIMETypeIMP = method_setImplementation(nsURLResponseMIMETypeMethod, (IMP)webNSURLResponseMIMEType);
-    }
-#endif
+    swizzleMIMETypeMethodIfNecessary();
 
     if ([m_handle->request().nsURLRequest() _propertyForKey:@"ForceHTMLMIMEType"])
         [r _setMIMEType:@"text/html"];
 
+#if ENABLE(WML)
+    const KURL& url = [r URL];
+    if (url.isLocalFile()) {
+        // FIXME: Workaround for <rdar://problem/6917571>: The WML file extension ".wml" is not mapped to
+        // the right MIME type, work around that CFNetwork problem, to unbreak WML support for local files.
+        const String& path = url.path();
+  
+        DEFINE_STATIC_LOCAL(const String, wmlExt, (".wml"));
+        if (path.endsWith(wmlExt, false)) {
+            static NSString* defaultMIMETypeString = [(NSString*) defaultMIMEType() retain];
+            if ([[r MIMEType] isEqualToString:defaultMIMETypeString])
+                [r _setMIMEType:@"text/vnd.wap.wml"];
+        }
+    }
+#endif
+
     m_handle->client()->didReceiveResponse(m_handle, r);
 }
 
-- (void)connection:(NSURLConnection *)unusedConnection didReceiveData:(NSData *)data lengthReceived:(long long)lengthReceived
+- (void)connection:(NSURLConnection *)connection didReceiveData:(NSData *)data lengthReceived:(long long)lengthReceived
 {
-    UNUSED_PARAM(unusedConnection);
+    UNUSED_PARAM(connection);
+
+    LOG(Network, "Handle %p delegate connection:%p didReceiveData:%p lengthReceived:%lld", m_handle, connection, data, lengthReceived);
 
     if (!m_handle || !m_handle->client())
         return;
@@ -639,9 +671,11 @@ void ResourceHandle::receivedCancellation(const AuthenticationChallenge& challen
     m_handle->client()->didReceiveData(m_handle, (const char*)[data bytes], [data length], static_cast<int>(lengthReceived));
 }
 
-- (void)connection:(NSURLConnection *)unusedConnection willStopBufferingData:(NSData *)data
+- (void)connection:(NSURLConnection *)connection willStopBufferingData:(NSData *)data
 {
-    UNUSED_PARAM(unusedConnection);
+    UNUSED_PARAM(connection);
+
+    LOG(Network, "Handle %p delegate connection:%p willStopBufferingData:%p", m_handle, connection, data);
 
     if (!m_handle || !m_handle->client())
         return;
@@ -652,10 +686,12 @@ void ResourceHandle::receivedCancellation(const AuthenticationChallenge& challen
     m_handle->client()->willStopBufferingData(m_handle, (const char*)[data bytes], static_cast<int>([data length]));
 }
 
-- (void)connection:(NSURLConnection *)unusedConnection didSendBodyData:(NSInteger)unusedBytesWritten totalBytesWritten:(NSInteger)totalBytesWritten totalBytesExpectedToWrite:(NSInteger)totalBytesExpectedToWrite
+- (void)connection:(NSURLConnection *)connection didSendBodyData:(NSInteger)bytesWritten totalBytesWritten:(NSInteger)totalBytesWritten totalBytesExpectedToWrite:(NSInteger)totalBytesExpectedToWrite
 {
-    UNUSED_PARAM(unusedConnection);
-    UNUSED_PARAM(unusedBytesWritten);
+    UNUSED_PARAM(connection);
+    UNUSED_PARAM(bytesWritten);
+
+    LOG(Network, "Handle %p delegate connection:%p didSendBodyData:%d totalBytesWritten:%d totalBytesExpectedToWrite:%d", m_handle, connection, bytesWritten, totalBytesWritten, totalBytesExpectedToWrite);
 
     if (!m_handle || !m_handle->client())
         return;
@@ -663,9 +699,11 @@ void ResourceHandle::receivedCancellation(const AuthenticationChallenge& challen
     m_handle->client()->didSendData(m_handle, totalBytesWritten, totalBytesExpectedToWrite);
 }
 
-- (void)connectionDidFinishLoading:(NSURLConnection *)unusedConnection
+- (void)connectionDidFinishLoading:(NSURLConnection *)connection
 {
-    UNUSED_PARAM(unusedConnection);
+    UNUSED_PARAM(connection);
+
+    LOG(Network, "Handle %p delegate connectionDidFinishLoading:%p", m_handle, connection);
 
     if (!m_handle || !m_handle->client())
         return;
@@ -677,9 +715,11 @@ void ResourceHandle::receivedCancellation(const AuthenticationChallenge& challen
     m_handle->client()->didFinishLoading(m_handle);
 }
 
-- (void)connection:(NSURLConnection *)unusedConnection didFailWithError:(NSError *)error
+- (void)connection:(NSURLConnection *)connection didFailWithError:(NSError *)error
 {
-    UNUSED_PARAM(unusedConnection);
+    UNUSED_PARAM(connection);
+
+    LOG(Network, "Handle %p delegate connection:%p didFailWithError:%@", m_handle, connection, error);
 
     if (!m_handle || !m_handle->client())
         return;
@@ -704,6 +744,8 @@ void ResourceHandle::receivedCancellation(const AuthenticationChallenge& challen
 
 - (NSCachedURLResponse *)connection:(NSURLConnection *)connection willCacheResponse:(NSCachedURLResponse *)cachedResponse
 {
+    LOG(Network, "Handle %p delegate connection:%p willCacheResponse:%p", m_handle, connection, cachedResponse);
+
 #ifdef BUILDING_ON_TIGER
     // On Tiger CFURLConnection can sometimes call the connection:willCacheResponse: delegate method on
     // a secondary thread instead of the main thread. If this happens perform the work on the main thread.
@@ -959,15 +1001,5 @@ void ResourceHandle::receivedCancellation(const AuthenticationChallenge& challen
 }
 
 @end
-
-static NSString *webNSURLResponseMIMEType(id self, SEL _cmd)
-{
-    ASSERT(oldNSURLResponseMIMETypeIMP);
-    if (NSString *result = oldNSURLResponseMIMETypeIMP(self, _cmd))
-        return result;
-
-    static NSString *defaultMIMETypeString = [(NSString *)defaultMIMEType() retain];
-    return defaultMIMETypeString;
-}
 
 #endif

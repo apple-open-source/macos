@@ -1,0 +1,68 @@
+[comment {-*- tcl -*- doctools}]
+[vset FORMATNAME window]
+[vset FORMATFULLNAME {Tk Windows}]
+
+[manpage_begin img-[vset FORMATNAME] n 1.3]
+[moddesc Img]
+[titledesc "Img, [vset FORMATFULLNAME] ([vset FORMATNAME])"]
+[copyright {1995-2003 Jan Nijtmans <nijtmans@users.sourceforge.net>}]
+[require Tk]
+[require img::[vset FORMATNAME] [opt 1.3]]
+[description]
+
+The package [package img::[vset FORMATNAME]] is a sub-package of
+[package Img]. It can be loaded as a part of the complete Img support,
+via [cmd {package require Img}], or on its own, via
+
+[cmd "package require img::[vset FORMATNAME]"].
+
+[para]
+
+Like all packages of [package Img] it does [emph not] provide new
+commands, but extends the existing [package Tk] command [cmd image].
+More specifically
+
+[package img::[vset FORMATNAME]] extends [package Tk]'s [cmd photo]
+image type.
+
+[para]
+
+The name of the new format handler is [const [vset FORMATNAME]].
+
+[para]
+
+This handler does not provide additional configuration options.
+
+This handler is special. Instead of reading or writing image data from
+a file or string it allows the embedding of a Tk widget into the photo
+image. In other words, it takes a snapshot of the contents of a Tk
+window.
+
+[para]
+
+All of the above means that in a call like
+
+[list_begin definitions]
+[call [cmd image] [method {create photo}] [opt [arg name]] [opt [arg options]]]
+[list_end]
+
+[list_begin enum]
+[enum]
+
+Image data in [vset FORMATNAME] format (option [option -data]) is
+detected automatically. Image data is considered to be in the
+
+[const [vset FORMATNAME]] format if the value given to option
+[option -data] is the name of an existing Tk window.
+
+[nl]
+
+Note that the standard option [option -file] is not supported by this
+handler.
+
+
+[enum]
+The format name [const [vset FORMATNAME]] is recognized by the option [option -format].
+
+
+[include format-footer.inc]

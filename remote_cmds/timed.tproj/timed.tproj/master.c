@@ -1,26 +1,3 @@
-/*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
 /*-
  * Copyright (c) 1985, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -54,26 +31,23 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__unused static char sccsid[] = "@(#)master.c	8.1 (Berkeley) 6/6/93";
-#endif /* not lint */
-
-#ifdef sgi
-#ident "$Revision: 1.2 $"
+#if 0
+static char sccsid[] = "@(#)master.c	8.1 (Berkeley) 6/6/93";
 #endif
+static const char rcsid[] =
+  "$FreeBSD: src/usr.sbin/timed/timed/master.c,v 1.10 2007/11/07 10:53:41 kevlo Exp $";
+#endif /* not lint */
+#include <sys/cdefs.h>
 
 #include "globals.h"
 #include <sys/file.h>
 #include <sys/types.h>
 #include <sys/times.h>
 #include <setjmp.h>
-#ifdef sgi
-#include <sys/schedctl.h>
-#include <utmp.h>
-#else /* !sgi */
+#ifdef __APPLE__
 #include <utmpx.h>
-#endif /* sgi */
+#endif
 #include "pathnames.h"
 
 extern int measure_delta;
@@ -84,11 +58,11 @@ extern int justquit;
 static int dictate;
 static int slvcount;			/* slaves listening to our clock */
 
-static void mchgdate __P((struct tsp *));
+static void mchgdate(struct tsp *);
 
-#ifdef sgi
-extern void logwtmp __P((struct timeval *, struct timeval *));
-#endif /* sgi */
+#ifndef __APPLE__
+extern void logwtmp(char *, char *, char *);
+#endif
 
 /*
  * The main function of `master' is to periodically compute the differences
@@ -99,7 +73,7 @@ extern void logwtmp __P((struct timeval *, struct timeval *));
  * master's name, remote requests to set the network time, ...), and
  * takes the appropriate action.
  */
-void
+int
 master()
 {
 	struct hosttbl *htp;
@@ -107,6 +81,7 @@ master()
 #define POLLRATE 4
 	int polls;
 	struct timeval wait, ntime;
+	time_t tsp_time_sec;
 	struct tsp *msg, *answer, to;
 	char newdate[32];
 	struct sockaddr_in taddr;
@@ -200,11 +175,8 @@ loop:
 			/*
 			 * XXX check to see it is from ourself
 			 */
-#ifdef sgi
-			(void)cftime(newdate, "%D %T", &msg->tsp_time.tv_sec);
-#else
-			(void)strcpy(newdate, ctime(&msg->tsp_time.tv_sec));
-#endif /* sgi */
+			tsp_time_sec = msg->tsp_time.tv_sec;
+			(void)strcpy(newdate, ctime(&tsp_time_sec));
 			if (!good_host_name(msg->tsp_name)) {
 				syslog(LOG_NOTICE,
 				       "attempted date change by %s to %s",
@@ -221,11 +193,8 @@ loop:
 		case TSP_SETDATEREQ:
 			if (!fromnet || fromnet->status != MASTER)
 				break;
-#ifdef sgi
-			(void)cftime(newdate, "%D %T", &msg->tsp_time.tv_sec);
-#else
-			(void)strcpy(newdate, ctime(&msg->tsp_time.tv_sec));
-#endif /* sgi */
+			tsp_time_sec = msg->tsp_time.tv_sec;
+			(void)strcpy(newdate, ctime(&tsp_time_sec));
 			htp = findhost(msg->tsp_name);
 			if (htp == 0) {
 				syslog(LOG_ERR,
@@ -374,6 +343,7 @@ loop:
 		}
 	}
 	goto loop;
+	return 0;
 }
 
 
@@ -386,7 +356,7 @@ mchgdate(msg)
 {
 	char tname[MAXHOSTNAMELEN];
 	char olddate[32];
-	struct timeval otime, ntime;
+	struct timeval otime, ntime, tmptv;
 
 	(void)strcpy(tname, msg->tsp_name);
 
@@ -398,7 +368,9 @@ mchgdate(msg)
 	(void)gettimeofday(&otime, 0);
 	adj_msg_time(msg,&otime);
 
-	timevalsub(&ntime, &msg->tsp_time, &otime);
+ 	tmptv.tv_sec = msg->tsp_time.tv_sec;
+ 	tmptv.tv_usec = msg->tsp_time.tv_usec;
+	timevalsub(&ntime, &tmptv, &otime);
 	if (ntime.tv_sec < MAXADJ && ntime.tv_sec > -MAXADJ) {
 		/*
 		 * do not change the clock if we can adjust it
@@ -406,22 +378,23 @@ mchgdate(msg)
 		dictate = 3;
 		synch(tvtomsround(ntime));
 	} else {
-#ifdef sgi
-		if (0 > settimeofday(&msg->tsp_time, 0)) {
-			syslog(LOG_ERR, "settimeofday(): %m");
-		}
-		logwtmp(&otime, &msg->tsp_time);
-#else
+#ifdef __APPLE__
+		// rdar://problem/4433603
 		struct utmpx u;
 		bzero(&u, sizeof(u));
 		u.ut_type = OLD_TIME;
 		u.ut_tv = otime;
 		pututxline(&u);
-		(void)settimeofday(&msg->tsp_time, 0);
 		u.ut_type = NEW_TIME;
-		u.ut_tv = msg->tsp_time;
+		u.ut_tv.tv_sec = msg->tsp_time.tv_sec;
+		u.ut_tv.tv_usec = msg->tsp_time.tv_usec;
+		(void)settimeofday(&u.ut_tv, 0);
 		pututxline(&u);
-#endif /* sgi */
+#else /* !__APPLE__ */
+		logwtmp("|", "date", "");
+ 		(void)settimeofday(&tmptv, 0);
+		logwtmp("{", "date", "");
+#endif /* __APPLE__ */
 		spreadtime();
 	}
 
@@ -440,20 +413,11 @@ synch(mydelta)
 	struct hosttbl *htp;
 	int measure_status;
 	struct timeval check, stop, wait;
-#ifdef sgi
-	int pri;
-#endif /* sgi */
 
 	if (slvcount > 0) {
 		if (trace)
 			fprintf(fd, "measurements starting at %s\n", date());
 		(void)gettimeofday(&check, 0);
-#ifdef sgi
-		/* run fast to get good time */
-		pri = schedctl(NDPRI,0,NDPHIMIN);
-		if (pri < 0)
-			syslog(LOG_ERR, "schedctl(): %m");
-#endif /* sgi */
 		for (htp = self.l_fwd; htp != &self; htp = htp->l_fwd) {
 			if (htp->noanswer != 0) {
 				measure_status = measure(500, 100,
@@ -497,10 +461,6 @@ synch(mydelta)
 				(void)gettimeofday(&check, 0);
 			}
 		}
-#ifdef sgi
-		if (pri >= 0)
-			(void)schedctl(NDPRI,0,pri);
-#endif /* sgi */
 		if (trace)
 			fprintf(fd, "measurements finished at %s\n", date());
 	}
@@ -526,6 +486,7 @@ spreadtime()
 	struct hosttbl *htp;
 	struct tsp to;
 	struct tsp *answer;
+	struct timeval tmptv;
 
 /* Do not listen to the consensus after forcing the time.  This is because
  *	the consensus takes a while to reach the time we are dictating.
@@ -534,7 +495,9 @@ spreadtime()
 	for (htp = self.l_fwd; htp != &self; htp = htp->l_fwd) {
 		to.tsp_type = TSP_SETTIME;
 		(void)strcpy(to.tsp_name, hostname);
-		(void)gettimeofday(&to.tsp_time, 0);
+		(void)gettimeofday(&tmptv, 0);
+		to.tsp_time.tv_sec = tmptv.tv_sec;
+		to.tsp_time.tv_usec = tmptv.tv_usec;
 		answer = acksend(&to, &htp->addr, htp->name,
 				 TSP_ACK, 0, htp->noanswer);
 		if (answer == 0) {
@@ -571,7 +534,7 @@ prthp(delta)
 		return;
 
 	this_time = times(&tm);
-	if (this_time + delta < next_time)
+	if ((time_t)(this_time + delta) < next_time)
 		return;
 	next_time = this_time + CLK_TCK;
 
@@ -799,7 +762,7 @@ newslave(msg)
 {
 	struct hosttbl *htp;
 	struct tsp *answer, to;
-	struct timeval now;
+	struct timeval now, tmptv;
 
 	if (!fromnet || fromnet->status != MASTER)
 		return;
@@ -818,7 +781,9 @@ newslave(msg)
 	    || now.tv_sec < fromnet->slvwait.tv_sec) {
 		to.tsp_type = TSP_SETTIME;
 		(void)strcpy(to.tsp_name, hostname);
-		(void)gettimeofday(&to.tsp_time, 0);
+		(void)gettimeofday(&tmptv, 0);
+		to.tsp_time.tv_sec = tmptv.tv_sec;
+		to.tsp_time.tv_usec = tmptv.tv_usec;
 		answer = acksend(&to, &htp->addr,
 				 htp->name, TSP_ACK,
 				 0, htp->noanswer);
@@ -906,32 +871,3 @@ traceoff(msg)
 #endif
 	trace = OFF;
 }
-
-
-#ifdef sgi
-void
-logwtmp(otime, ntime)
-	struct timeval *otime, *ntime;
-{
-	static struct utmp wtmp[2] = {
-		{"","",OTIME_MSG,0,OLD_TIME,0,0,0},
-		{"","",NTIME_MSG,0,NEW_TIME,0,0,0}
-	};
-	static char *wtmpfile = WTMP_FILE;
-	int f;
-
-	wtmp[0].ut_time = otime->tv_sec + (otime->tv_usec + 500000) / 1000000;
-	wtmp[1].ut_time = ntime->tv_sec + (ntime->tv_usec + 500000) / 1000000;
-	if (wtmp[0].ut_time == wtmp[1].ut_time)
-		return;
-
-	setutent();
-	(void)pututline(&wtmp[0]);
-	(void)pututline(&wtmp[1]);
-	endutent();
-	if ((f = open(wtmpfile, O_WRONLY|O_APPEND)) >= 0) {
-		(void) write(f, (char *)wtmp, sizeof(wtmp));
-		(void) close(f);
-	}
-}
-#endif /* sgi */

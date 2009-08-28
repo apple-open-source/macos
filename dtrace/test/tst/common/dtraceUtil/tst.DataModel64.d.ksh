@@ -40,7 +40,14 @@
 
 script()
 {
-	$dtrace -64 -s /dev/stdin <<EOF
+##
+#	This was the original Solaris invocation.
+#
+#	$dtrace -64 -s /dev/stdin <<EOF
+#	
+#	Apple instead uses a -arch flag.
+##
+	$dtrace -arch x86_64 -s /dev/stdin <<EOF
 	BEGIN
 	/8 != sizeof(long)/
 	{

@@ -1,0 +1,32 @@
+--- /tmp/jabberd-2.1.24.1/config.h.in	2008-04-27 02:58:14.000000000 -0700
++++ ./jabberd2/config.h.in	2009-01-25 18:35:06.000000000 -0800
+@@ -129,6 +129,9 @@
+ /* Define to 1 if you have the `isascii' function. */
+ #undef HAVE_ISASCII
+ 
++/* Define to 1 if you have the `kqueue' function. */
++#undef HAVE_KQUEUE
++
+ /* Define to 1 if you have the <lber.h> header file. */
+ #undef HAVE_LBER_H
+ 
+@@ -350,6 +353,9 @@
+ /* Define to 1 if you have the <sys/epoll.h> header file. */
+ #undef HAVE_SYS_EPOLL_H
+ 
++/* Define to 1 if you have the <sys/event.h> header file. */
++#undef HAVE_SYS_EVENT_H
++
+ /* Define to 1 if you have the <sys/filio.h> header file. */
+ #undef HAVE_SYS_FILIO_H
+ 
+@@ -462,6 +468,9 @@
+ /* Define to 1 if you want to use 'epoll' for non-blocking I/O. */
+ #undef MIO_EPOLL
+ 
++/* Define to 1 if you want to use 'kqueue' for non-blocking I/O. */
++#undef MIO_KQUEUE
++
+ /* Define to 1 if you want to use 'poll' for non-blocking I/O. */
+ #undef MIO_POLL
+ 

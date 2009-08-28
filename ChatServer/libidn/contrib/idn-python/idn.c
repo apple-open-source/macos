@@ -4,7 +4,7 @@
  *
  * Stephane Bortzmeyer <bortzmeyer@nic.fr>
  *
- * $Id: idn.c,v 1.2 2004/04/05 20:52:12 jas Exp $
+ * $Id$
  */
 
 #include <Python.h>

@@ -272,7 +272,7 @@ int main (int argc, const char * argv[]) {
                 if (noErr == err) {
                         printf("[%d] Ticket was already available\n", testNumber);
                 } else {
-                        printf("[%d] Ticket was not available (err=%d), trying to obtain one\n", testNumber, err);
+			printf("[%d] Ticket was not available (err=%d), trying to obtain one\n", testNumber, (int)err);
                         err = KRBAcquireTicket(krbHelper, outDict);
                         if (noErr != err) { lineNumber = __LINE__; goto Error; }
                 }
@@ -290,7 +290,7 @@ Error:
 		system (command);
 	}
 	if (err) {
-		fprintf (stdout, "Error (%d) in test %d at line %d\n", err, testNumber, lineNumber);
+		fprintf (stdout, "Error (%d) in test %d at line %d\n", (int)err, testNumber, lineNumber);
 		return 1;
 	}
 	return 0;

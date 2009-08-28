@@ -33,13 +33,13 @@ typedef enum _NSTitlePosition {
 } NSTitlePosition;
 
 /*!
- 	@protocol ObjCProtocolOne
+ 	@protocol ObjCProtocolOne_A
 	@abstract Protocol implemented by validator objects.
 	@discussion All validator objects validate--in fact, they can't 
 	help themselves. That's what they do. 
 */
 
-@protocol ObjCProtocolOne
+@protocol ObjCProtocolOne_A
 /*!
  	@method ProtoOneMethodOne:
 	@abstract Validates the specified item.
@@ -75,7 +75,7 @@ typedef enum _NSTitlePosition {
 	help themselves. That's what they do. 
 */
 
-@protocol ObjCProtocolTwo <NSObject, NSCopying, NSCoding>
+@protocol ObjCProtocolThree <NSObject, NSCopying, NSCoding>
 /*!
  	@method doSomething:
 	@abstract Validates the specified item.

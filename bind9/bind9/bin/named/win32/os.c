@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2008  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2007, 2008  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2002  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: os.c,v 1.20.18.8 2008/10/24 01:28:08 marka Exp $ */
+/* $Id: os.c,v 1.31 2008/11/17 05:41:10 marka Exp $ */
 
 #include <config.h>
 #include <stdarg.h>
@@ -155,6 +155,8 @@ ns_os_closedevnull(void) {
 
 void
 ns_os_chroot(const char *root) {
+	if (root != NULL)
+		ns_main_earlyfatal("chroot(): isn't supported by Win32 API");
 }
 
 void

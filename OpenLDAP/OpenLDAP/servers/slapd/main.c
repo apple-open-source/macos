@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/main.c,v 1.198.2.20 2006/02/17 07:38:40 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/main.c,v 1.239.2.13 2008/05/20 00:10:40 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -104,51 +104,23 @@ const char Versionstr[] =
 	OPENLDAP_PACKAGE " " OPENLDAP_VERSION " Standalone LDAP Server (slapd)";
 #endif
 
-#ifdef LOG_LOCAL4
-#define DEFAULT_SYSLOG_USER  LOG_LOCAL4
-
-typedef struct _str2intDispatch {
-	char	*stringVal;
-	int	 abbr;
-	int	 intVal;
-} STRDISP, *STRDISP_P;
-
-/* table to compute syslog-options to integer */
-static STRDISP	syslog_types[] = {
-	{ "LOCAL0", sizeof("LOCAL0"), LOG_LOCAL0 },
-	{ "LOCAL1", sizeof("LOCAL1"), LOG_LOCAL1 },
-	{ "LOCAL2", sizeof("LOCAL2"), LOG_LOCAL2 },
-	{ "LOCAL3", sizeof("LOCAL3"), LOG_LOCAL3 },
-	{ "LOCAL4", sizeof("LOCAL4"), LOG_LOCAL4 },
-	{ "LOCAL5", sizeof("LOCAL5"), LOG_LOCAL5 },
-	{ "LOCAL6", sizeof("LOCAL6"), LOG_LOCAL6 },
-	{ "LOCAL7", sizeof("LOCAL7"), LOG_LOCAL7 },
-#ifdef LOG_USER
-	{ "USER", sizeof("USER"), LOG_USER },
-#endif
-#ifdef LOG_DAEMON
-	{ "DAEMON", sizeof("DAEMON"), LOG_DAEMON },
-#endif
-	{ NULL, 0, 0 }
-};
-
-static int cnvt_str2int( char *, STRDISP_P, int );
-#endif	/* LOG_LOCAL4 */
-
-#define CHECK_NONE	0x00
-#define CHECK_CONFIG	0x01
+#define	CHECK_NONE	0x00
+#define	CHECK_CONFIG	0x01
+#define	CHECK_LOGLEVEL	0x02
 static int check = CHECK_NONE;
 static int version = 0;
 
 void *slap_tls_ctx;
+LDAP *slap_tls_ld;
 
 static int
 slapd_opt_slp( const char *val, void *arg )
 {
 #ifdef HAVE_SLP
 	/* NULL is default */
-	if ( val == NULL || strcasecmp( val, "on" ) == 0 ) {
+	if ( val == NULL || *val == '(' || strcasecmp( val, "on" ) == 0 ) {
 		slapd_register_slp = 1;
+		slapd_slp_attrs = (val != NULL && *val == '(') ? val : NULL;
 
 	} else if ( strcasecmp( val, "off" ) == 0 ) {
 		slapd_register_slp = 0;
@@ -187,9 +159,74 @@ struct option_helper {
 	void		*oh_arg;
 	const char	*oh_usage;
 } option_helpers[] = {
-	{ BER_BVC("slp"),	slapd_opt_slp,	NULL, "slp[={on|off}] enable/disable SLP" },
+	{ BER_BVC("slp"),	slapd_opt_slp,	NULL, "slp[={on|off|(attrs)}] enable/disable SLP using (attrs)" },
 	{ BER_BVNULL, 0, NULL, NULL }
 };
+
+#if defined(LDAP_DEBUG) && defined(LDAP_SYSLOG)
+#ifdef LOG_LOCAL4
+int
+parse_syslog_user( const char *arg, int *syslogUser )
+{
+	static slap_verbmasks syslogUsers[] = {
+		{ BER_BVC( "LOCAL0" ), LOG_LOCAL0 },
+		{ BER_BVC( "LOCAL1" ), LOG_LOCAL1 },
+		{ BER_BVC( "LOCAL2" ), LOG_LOCAL2 },
+		{ BER_BVC( "LOCAL3" ), LOG_LOCAL3 },
+		{ BER_BVC( "LOCAL4" ), LOG_LOCAL4 },
+		{ BER_BVC( "LOCAL5" ), LOG_LOCAL5 },
+		{ BER_BVC( "LOCAL6" ), LOG_LOCAL6 },
+		{ BER_BVC( "LOCAL7" ), LOG_LOCAL7 },
+#ifdef LOG_USER
+		{ BER_BVC( "USER" ), LOG_USER },
+#endif /* LOG_USER */
+#ifdef LOG_DAEMON
+		{ BER_BVC( "DAEMON" ), LOG_DAEMON },
+#endif /* LOG_DAEMON */
+		{ BER_BVNULL, 0 }
+	};
+	int i = verb_to_mask( arg, syslogUsers );
+
+	if ( BER_BVISNULL( &syslogUsers[ i ].word ) ) {
+		Debug( LDAP_DEBUG_ANY,
+			"unrecognized syslog user \"%s\".\n",
+			arg, 0, 0 );
+		return 1;
+	}
+
+	*syslogUser = syslogUsers[ i ].mask;
+
+	return 0;
+}
+#endif /* LOG_LOCAL4 */
+
+int
+parse_syslog_level( const char *arg, int *levelp )
+{
+	static slap_verbmasks	str2syslog_level[] = {
+		{ BER_BVC( "EMERG" ),	LOG_EMERG },
+		{ BER_BVC( "ALERT" ),	LOG_ALERT },
+		{ BER_BVC( "CRIT" ),	LOG_CRIT },
+		{ BER_BVC( "ERR" ),	LOG_ERR },
+		{ BER_BVC( "WARNING" ),	LOG_WARNING },
+		{ BER_BVC( "NOTICE" ),	LOG_NOTICE },
+		{ BER_BVC( "INFO" ),	LOG_INFO },
+		{ BER_BVC( "DEBUG" ),	LOG_DEBUG },
+		{ BER_BVNULL, 0 }
+	};
+	int i = verb_to_mask( arg, str2syslog_level );
+	if ( BER_BVISNULL( &str2syslog_level[ i ].word ) ) {
+		Debug( LDAP_DEBUG_ANY,
+			"unknown syslog level \"%s\".\n",
+			arg, 0, 0 );
+		return 1;
+	}
+	
+	*levelp = str2syslog_level[ i ].mask;
+
+	return 0;
+}
+#endif /* LDAP_DEBUG && LDAP_SYSLOG */
 
 int
 parse_debug_unknowns( char **unknowns, int *levelp )
@@ -214,7 +251,7 @@ parse_debug_level( const char *arg, int *levelp, char ***unknowns )
 {
 	int	level;
 
-	if ( arg != NULL && arg[ 0 ] != '-' && !isdigit( arg[ 0 ] ) )
+	if ( arg && arg[ 0 ] != '-' && !isdigit( (unsigned char) arg[ 0 ] ) )
 	{
 		int	i;
 		char	**levels;
@@ -274,7 +311,7 @@ usage( char *name )
 		"\t-g group\tGroup (id or name) to run as\n"
 #endif
 		"\t-h URLs\t\tList of URLs to serve\n"
-#ifdef LOG_LOCAL4
+#ifdef SLAP_DEFAULT_SYSLOG_USER
 		"\t-l facility\tSyslog facility (default: LOCAL4)\n"
 #endif
 		"\t-n serverName\tService name\n"
@@ -317,8 +354,8 @@ int main( int argc, char **argv )
 #if defined(HAVE_CHROOT)
 	char *sandbox = NULL;
 #endif
-#ifdef LOG_LOCAL4
-	int syslogUser = DEFAULT_SYSLOG_USER;
+#ifdef SLAP_DEFAULT_SYSLOG_USER
+	int syslogUser = SLAP_DEFAULT_SYSLOG_USER;
 #endif
 	
 	int g_argc = argc;
@@ -339,6 +376,7 @@ int main( int argc, char **argv )
 	size_t	l;
 
 	int slapd_pid_file_unlink = 0, slapd_args_file_unlink = 0;
+	int firstopt = 1;
 
 #ifdef CSRIMALLOC
 	FILE *leakfile;
@@ -364,7 +402,7 @@ int main( int argc, char **argv )
 
 #ifdef HAVE_NT_SERVICE_MANAGER
 	{
-		int *i;
+		int *ip;
 		char *newConfigFile;
 		char *newConfigDir;
 		char *newUrls;
@@ -376,9 +414,9 @@ int main( int argc, char **argv )
 			    regService = serverName;
 		}
 
-		i = (int*)lutil_getRegParam( regService, "DebugLevel" );
-		if ( i != NULL ) {
-			slap_debug = *i;
+		ip = (int*)lutil_getRegParam( regService, "DebugLevel" );
+		if ( ip != NULL ) {
+			slap_debug = *ip;
 			Debug( LDAP_DEBUG_ANY,
 				"new debug level from registry is: %d\n", slap_debug, 0, 0 );
 		}
@@ -409,17 +447,20 @@ int main( int argc, char **argv )
 
 	while ( (i = getopt( argc, argv,
 			     "c:d:f:F:h:n:o:s:tT:V"
-#if LDAP_PF_INET6
+#ifdef LDAP_PF_INET6
 				"46"
 #endif
 #ifdef HAVE_CHROOT
 				"r:"
 #endif
+#if defined(LDAP_DEBUG) && defined(LDAP_SYSLOG)
+				"S:"
 #ifdef LOG_LOCAL4
-			     "l:"
+				"l:"
+#endif
 #endif
 #if defined(HAVE_SETUID) && defined(HAVE_SETGID)
-			     "u:g:"
+				"u:g:"
 #endif
 			     )) != EOF ) {
 		switch ( i ) {
@@ -468,6 +509,11 @@ int main( int argc, char **argv )
 		case 'd': {	/* set debug level and 'do not detach' flag */
 			int	level = 0;
 
+			if ( strcmp( optarg, "?" ) == 0 ) {
+				check |= CHECK_LOGLEVEL;
+				break;
+			}
+
 			no_detach = 1;
 			if ( parse_debug_level( optarg, &level, &debug_unknowns ) ) {
 				goto destroy;
@@ -492,7 +538,6 @@ int main( int argc, char **argv )
 		case 'o': {
 			char		*val = strchr( optarg, '=' );
 			struct berval	opt;
-			int		i;
 
 			opt.bv_val = optarg;
 			
@@ -524,17 +569,31 @@ int main( int argc, char **argv )
 		}
 
 		case 's':	/* set syslog level */
+			if ( strcmp( optarg, "?" ) == 0 ) {
+				check |= CHECK_LOGLEVEL;
+				break;
+			}
+
 			if ( parse_debug_level( optarg, &ldap_syslog, &syslog_unknowns ) ) {
+				goto destroy;
+			}
+			break;
+
+#if defined(LDAP_DEBUG) && defined(LDAP_SYSLOG)
+		case 'S':
+			if ( parse_syslog_level( optarg, &ldap_syslog_level ) ) {
 				goto destroy;
 			}
 			break;
 
 #ifdef LOG_LOCAL4
 		case 'l':	/* set syslog local user */
-			syslogUser = cnvt_str2int( optarg,
-				syslog_types, DEFAULT_SYSLOG_USER );
+			if ( parse_syslog_user( optarg, &syslogUser ) ) {
+				goto destroy;
+			}
 			break;
 #endif
+#endif /* LDAP_DEBUG && LDAP_SYSLOG */
 
 #ifdef HAVE_CHROOT
 		case 'r':
@@ -571,6 +630,12 @@ int main( int argc, char **argv )
 			break;
 
 		case 'T':
+			if ( firstopt == 0 ) {
+				fprintf( stderr, "warning: \"-T %s\" "
+					"should be the first option.\n",
+					optarg );
+			}
+
 			/* try full option string first */
 			for ( i = 0; tools[i].name; i++ ) {
 				if ( strcmp( optarg, &tools[i].name[4] ) == 0 ) {
@@ -601,10 +666,19 @@ unhandled_option:;
 			SERVICE_EXIT( ERROR_SERVICE_SPECIFIC_ERROR, 15 );
 			goto stop;
 		}
+
+		if ( firstopt ) {
+			firstopt = 0;
+		}
 	}
 
 	ber_set_option(NULL, LBER_OPT_DEBUG_LEVEL, &slap_debug);
 	ldap_set_option(NULL, LDAP_OPT_DEBUG_LEVEL, &slap_debug);
+#ifdef __APPLE__
+	//set global tls require cert to never
+	int tls__require_client_option = LDAP_OPT_X_TLS_NEVER;
+	(void) ldap_pvt_tls_set_option( NULL, LDAP_OPT_X_TLS_REQUIRE_CERT, &tls__require_client_option );
+#endif	
 	ldif_debug = slap_debug;
 
 	if ( version ) {
@@ -612,6 +686,7 @@ unhandled_option:;
 		if ( version > 1 ) goto stop;
 	}
 
+#if defined(LDAP_DEBUG) && defined(LDAP_SYSLOG)
 	{
 		char *logName;
 #ifdef HAVE_EBCDIC
@@ -623,30 +698,18 @@ unhandled_option:;
 
 #ifdef LOG_LOCAL4
 		openlog( logName, OPENLOG_OPTIONS, syslogUser );
-#elif LOG_DEBUG
+#elif defined LOG_DEBUG
 		openlog( logName, OPENLOG_OPTIONS );
 #endif
 #ifdef HAVE_EBCDIC
 		free( logName );
 #endif
 	}
+#endif /* LDAP_DEBUG && LDAP_SYSLOG */
 
 	Debug( LDAP_DEBUG_ANY, "%s", Versionstr, 0, 0 );
 
-#ifdef __APPLE__
-	{
-		struct rlimit rlim;
-		rlim.rlim_cur = 1024;
-		rlim.rlim_max = 1024;
-		if (setrlimit(RLIMIT_NOFILE, &rlim) < 0) {
-#ifdef NEW_LOGGING
-			LDAP_LOG( SLAPD, ERR, "main: setrlimit failed with %d.\n", errno, 0, 0 );
-#else
-			Debug( LDAP_DEBUG_ANY, "setrlimit failed with %d.\n", errno, 0, 0 );
-#endif
-		}
-	}
-#endif
+	global_host = ldap_pvt_get_fqdn( NULL );
 
 	if( check == CHECK_NONE && slapd_daemon_init( urls ) != 0 ) {
 		rc = 1;
@@ -677,7 +740,21 @@ unhandled_option:;
 
 	extops_init();
 	lutil_passwd_init();
-	slap_op_init();
+
+#ifdef HAVE_TLS
+	rc = ldap_create( &slap_tls_ld );
+	if ( rc ) {
+		SERVICE_EXIT( ERROR_SERVICE_SPECIFIC_ERROR, 20 );
+		goto destroy;
+	}
+	/* Library defaults to full certificate checking. This is correct when
+	 * a client is verifying a server because all servers should have a
+	 * valid cert. But few clients have valid certs, so we want our default
+	 * to be no checking. The config file can override this as usual.
+	 */
+	rc = LDAP_OPT_X_TLS_NEVER;
+	(void) ldap_pvt_tls_set_option( slap_tls_ld, LDAP_OPT_X_TLS_REQUIRE_CERT, &rc );
+#endif
 
 	rc = slap_init( serverMode, serverName );
 	if ( rc ) {
@@ -709,6 +786,11 @@ unhandled_option:;
 		syslog_unknowns = NULL;
 		if ( rc )
 			goto destroy;
+	}	
+
+	if ( check & CHECK_LOGLEVEL ) {
+		rc = 0;
+		goto destroy;
 	}
 
 	if ( check & CHECK_CONFIG ) {
@@ -749,19 +831,13 @@ unhandled_option:;
 	}
 
 	{
-		void *def_ctx = NULL;
-
-		/* Save existing default ctx, if any */
-		ldap_pvt_tls_get_option( NULL, LDAP_OPT_X_TLS_CTX, &def_ctx );
+		int opt = 1;
 
 		/* Force new ctx to be created */
-		ldap_pvt_tls_set_option( NULL, LDAP_OPT_X_TLS_CTX, NULL );
-
-		rc = ldap_pvt_tls_init_def_ctx( 1 );
+		rc = ldap_pvt_tls_set_option( slap_tls_ld, LDAP_OPT_X_TLS_NEWCTX, &opt );
 		if( rc == 0 ) {
-			ldap_pvt_tls_get_option( NULL, LDAP_OPT_X_TLS_CTX, &slap_tls_ctx );
-			/* Restore previous ctx */
-			ldap_pvt_tls_set_option( NULL, LDAP_OPT_X_TLS_CTX, def_ctx );
+			/* The ctx's refcount is bumped up here */
+			ldap_pvt_tls_get_option( slap_tls_ld, LDAP_OPT_X_TLS_CTX, &slap_tls_ctx );
 			load_extop( &slap_EXOP_START_TLS, 0, starttls_extop );
 		} else if ( rc != LDAP_NOT_SUPPORTED ) {
 			Debug( LDAP_DEBUG_ANY,
@@ -771,6 +847,12 @@ unhandled_option:;
 			SERVICE_EXIT( ERROR_SERVICE_SPECIFIC_ERROR, 20 );
 			goto destroy;
 		}
+	}
+#endif
+
+#ifdef HAVE_CYRUS_SASL
+	if( sasl_host == NULL ) {
+		sasl_host = ch_strdup( global_host );
 	}
 #endif
 
@@ -858,6 +940,8 @@ unhandled_option:;
 	 */
 	time( &starttime );
 
+	connections_init();
+
 	if ( slap_startup( NULL ) != 0 ) {
 		rc = 1;
 		SERVICE_EXIT( ERROR_SERVICE_SPECIFIC_ERROR, 21 );
@@ -885,6 +969,9 @@ shutdown:
 	rc |= slap_shutdown( NULL );
 
 destroy:
+	if ( check & CHECK_LOGLEVEL ) {
+		(void)loglevel_print( stdout );
+	}
 	/* remember an error during destroy */
 	rc |= slap_destroy();
 
@@ -898,9 +985,10 @@ destroy:
 	module_kill();
 #endif
 
-	slap_op_destroy();
-
 	extops_kill();
+
+	supported_feature_destroy();
+	entry_info_destroy();
 
 stop:
 #ifdef HAVE_NT_EVENT_LOG
@@ -922,13 +1010,21 @@ stop:
 
 	controls_destroy();
 
+	filter_destroy();
+
 	schema_destroy();
 
 	lutil_passwd_destroy();
 
 #ifdef HAVE_TLS
+	if ( slap_tls_ld ) {
+		ldap_pvt_tls_ctx_free( slap_tls_ctx );
+		ldap_unbind_ext( slap_tls_ld, NULL, NULL );
+	}
 	ldap_pvt_tls_destroy();
 #endif
+
+	slap_sasl_regexp_destroy();
 
 	if ( slapd_pid_file_unlink ) {
 		unlink( slapd_pid_file );
@@ -945,6 +1041,9 @@ stop:
 		ch_free( configdir );
 	if ( urls )
 		ch_free( urls );
+
+	/* kludge, get symbols referenced */
+	tavl_free( NULL, NULL );
 
 #ifdef CSRIMALLOC
 	mal_dumpleaktrace( leakfile );
@@ -983,31 +1082,3 @@ wait4child( int sig )
 
 #endif /* LDAP_SIGCHLD */
 
-
-#ifdef LOG_LOCAL4
-
-/*
- *  Convert a string to an integer by means of a dispatcher table
- *  if the string is not in the table return the default
- */
-
-static int
-cnvt_str2int( char *stringVal, STRDISP_P dispatcher, int defaultVal )
-{
-    int	       retVal = defaultVal;
-    STRDISP_P  disp;
-
-    for (disp = dispatcher; disp->stringVal; disp++) {
-
-	if (!strncasecmp (stringVal, disp->stringVal, disp->abbr)) {
-
-	    retVal = disp->intVal;
-	    break;
-
-	}
-    }
-
-    return (retVal);
-}
-
-#endif	/* LOG_LOCAL4 */

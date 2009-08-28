@@ -1,29 +1,1623 @@
 ------------------------------------------------------------------------
-r1140 | joe | 2007-01-23 11:41:40 +0000 (Tue, 23 Jan 2007) | 1 line
+r1538 | joe | 2008-08-20 20:45:52 +0100 (Wed, 20 Aug 2008) | 1 line
 
-Tag release 0.26.3.
+Tag release 0.28.3.
 ------------------------------------------------------------------------
-r1137 | joe | 2007-01-22 17:59:58 +0000 (Mon, 22 Jan 2007) | 5 lines
+r1537 | joe | 2008-08-20 20:45:21 +0100 (Wed, 20 Aug 2008) | 2 lines
 
-Merge r1103 from trunk:
-
-* test/socket.c (write_reset): Warn rather than fail for a failure
-to elicit an RST.
+* NEWS: Tweak.
 
 ------------------------------------------------------------------------
-r1136 | joe | 2007-01-22 17:57:47 +0000 (Mon, 22 Jan 2007) | 2 lines
+r1536 | joe | 2008-08-20 20:35:19 +0100 (Wed, 20 Aug 2008) | 2 lines
+
+* NEWS, macros/neon.m4: Prepare for 0.28.3.
+
+------------------------------------------------------------------------
+r1535 | joe | 2008-08-20 20:32:21 +0100 (Wed, 20 Aug 2008) | 5 lines
+
+Merge r1527 from trunk:
+
+* src/ne_uri.h (ne_uri_parse, ne_uri_resolve): Clarify API constraints
+and guarantees on path being non-NULL on success.
+
+------------------------------------------------------------------------
+r1534 | joe | 2008-08-20 20:29:56 +0100 (Wed, 20 Aug 2008) | 5 lines
+
+Merge r1530 from trunk:
+
+* test/request.c (status_chunked, status): Cope with systems where
+  'localhost' resolves to ::1 not 127.0.0.1.
+
+------------------------------------------------------------------------
+r1533 | joe | 2008-08-20 20:28:47 +0100 (Wed, 20 Aug 2008) | 13 lines
+
+Merge r1532 from trunk:
+
+SECURITY (CVE-2008-3746):
+
+Fix a possible NULL pointer dereference in the Digest domain parameter
+support, which allows a malicious server to crash the library,
+resulting in a possible denial of service attack.
+
+* src/ne_auth.c (parse_domain): Ensure that URI ->path fields passed
+  to ne_uri_resolve are non-NULL.
+
+* test/auth.c (CVE_2008_3746): Add test case.
+
+------------------------------------------------------------------------
+r1526 | joe | 2008-08-05 13:26:05 +0100 (Tue, 05 Aug 2008) | 1 line
+
+* NEWS: Convert to UTF-8.
+------------------------------------------------------------------------
+r1525 | joe | 2008-08-05 13:20:11 +0100 (Tue, 05 Aug 2008) | 4 lines
+
+Merge r1524 from trunk:
+
+* src/ne_session.h: Clarify that progress increments.
+
+------------------------------------------------------------------------
+r1516 | joe | 2008-07-25 14:39:21 +0100 (Fri, 25 Jul 2008) | 24 lines
+
+Merge r1505, r1512 from trunk:
+
+Fail with a useful error message in the case where a client cert is
+requested during handshake, none can be provided, and the handshake
+fails:
+
+* src/ne_private.h (struct ne_session_s): Add ssl_cc_requested field.
+
+* src/ne_openssl.c (provide_client_cert): Set ssl_cc_requested if
+  no cert is provided.
+  (ne__negotiate_ssl): Clear ssl_cc_requested before handshake.
+  Use different, more useful error message if handshake fails and flag
+  is now set.
+
+* test/ssl.c (struct ssl_server_args): Add fail_silently flag.
+  (ssl_server): Exit with success if handshake fails and above flag set.
+  (no_client_cert): New test case.
+
+
+* src/ne_gnutls.c (provide_client_cert): Set ssl_cc_requested flag
+  if no client cert is provided.
+  (ne__negotiate_ssl): Give useful error message if handshake fails
+  and ssl_cc_requested flag is set.
+
+------------------------------------------------------------------------
+r1515 | joe | 2008-07-25 13:59:56 +0100 (Fri, 25 Jul 2008) | 6 lines
+
+Merge r1513 from trunk:
+
+* src/ne_request.c (body_fd_send): Fix compiler warnings.
+
+Submitted by: Henrik Holst
+
+------------------------------------------------------------------------
+r1511 | joe | 2008-07-19 23:01:46 +0100 (Sat, 19 Jul 2008) | 4 lines
+
+Merge r1480 from trunk:
+
+* test/auth.c (check_digest): Fix compiler warnings with gcc 4.3.
+
+------------------------------------------------------------------------
+r1510 | joe | 2008-07-19 22:56:05 +0100 (Sat, 19 Jul 2008) | 6 lines
+
+Merge r1509 from trunk:
+
+Update mailing list address throughout.
+
+* doc/using-neon.txt: Remove stale doc.
+
+------------------------------------------------------------------------
+r1508 | joe | 2008-07-19 22:43:48 +0100 (Sat, 19 Jul 2008) | 8 lines
+
+Merge r1507 from trunk:
+
+* src/ne_auth.c (tokenize): NUL terminate at a closing quote, ignore
+  any trailing characters.
+
+* test/auth.c (basic): Add test case for trailing characters after
+  quoted value token.
+
+------------------------------------------------------------------------
+r1504 | joe | 2008-07-19 21:17:37 +0100 (Sat, 19 Jul 2008) | 8 lines
+
+Merge r1412, r1415 from trunk:
+
+* configure.in, autogen.sh: Support libtool 2.2.
+
+Submitted by: Arfrever Frehtes Taifersar Arahesis
+
+* autogen.sh: Use libtoolize --install where supported.
+
+------------------------------------------------------------------------
+r1503 | joe | 2008-07-19 21:16:07 +0100 (Sat, 19 Jul 2008) | 2 lines
+
+* NEWS: News so far.
+
+------------------------------------------------------------------------
+r1502 | joe | 2008-07-19 21:15:40 +0100 (Sat, 19 Jul 2008) | 6 lines
+
+Merge r1500 from trunk:
+
+* src/ne_defs.h (ne_attribute_sentinel): New macro.
+
+* src/ne_string.h (ne_concat, ne_buffer_concat): Use it.
+
+------------------------------------------------------------------------
+r1501 | joe | 2008-07-19 21:14:36 +0100 (Sat, 19 Jul 2008) | 5 lines
+
+Merge r1460 from trunk:
+
+* test/makekeys.sh: Fix for versions of OpenSSL where ca fails
+  if cert subjects are not unique.
+
+------------------------------------------------------------------------
+r1499 | joe | 2008-07-19 13:49:21 +0100 (Sat, 19 Jul 2008) | 12 lines
+
+Merge r1497 from trunk:
+
+* src/ne_session.h (ne_set_notifier, ne_set_progress): Document existing and
+  previous (respectively) API guarantee that a NULL callback deregisters
+  an existing callback.
+
+* src/ne_session.c (ne_set_progress): Fix regression in 0.27, support
+  NULL progress callback correctly.
+
+* test/request.c (dereg_progress): Add regression test.
+
+
+------------------------------------------------------------------------
+r1498 | joe | 2008-07-19 13:16:12 +0100 (Sat, 19 Jul 2008) | 2 lines
+
+* macros/neon.m4 (NE_VERSIONS_BUNDLED): Bump to 0.28.3-dev.
+
+------------------------------------------------------------------------
+r1461 | joe | 2008-07-03 13:39:52 +0100 (Thu, 03 Jul 2008) | 6 lines
+
+Merge r1457, r1458 from trunk:
+
+* doc/ref/sessflags.xml: Document NE_SESSFLAG_TLS_SNI.
+
+* doc/ref/opts.xml: Document ne_set_connect_timeout and drop ne_set_persist.
+
+------------------------------------------------------------------------
+r1456 | joe | 2008-07-03 11:11:37 +0100 (Thu, 03 Jul 2008) | 17 lines
+
+Merge r1449, r1451, r1452, r1455 from trunk:
+
+* doc/man.xsl: New file.
+
+* Makefile.in: Use man.xsl to customize man page output.
+
+* configure.in: Build PIC objects in default configuration, unless
+  non-PIC explicitly requested.
+
+* src/ne_socket.c (ne_sock_connect): Disable Nagle on Windows even if
+TCP_NODELAY is not defined as a macro.
+
+* src/ne_socket.c (raw_poll): Work around broken FD_SET on Netware.
+
+* src/ne_defs.h: Pick up time_t on Netware.
+
+
+------------------------------------------------------------------------
+r1447 | joe | 2008-04-03 12:39:55 +0100 (Thu, 03 Apr 2008) | 2 lines
+
+* NEWS: Update.
+
+------------------------------------------------------------------------
+r1446 | joe | 2008-04-03 12:39:23 +0100 (Thu, 03 Apr 2008) | 8 lines
+
+Merge r1442, r1443, r1445 from trunk:
+
+* src/ne_gnutls.c (ne__ssl_init): Enable fast initialization for GnuTLS.
+
+* src/ne_gnutls.c: Enable quick-random in gcrypt unconditionally.
+
+* src/ne_gnutls.c: Unbreak ts-ssl build.
+
+------------------------------------------------------------------------
+r1440 | joe | 2008-04-03 12:10:01 +0100 (Thu, 03 Apr 2008) | 7 lines
+
+Merge r1439 from trunk:
+
+* test/utils.c (double_serve_sstring): New function.
+
+* test/compress.c (retry_notcompress, retry_compress_helper,
+  retry_compress):Use double_serve_sstring.
+
+------------------------------------------------------------------------
+r1437 | joe | 2008-03-29 21:06:27 +0000 (Sat, 29 Mar 2008) | 4 lines
+
+Merge r1405 from trunk:
+
+* doc/xml.xml, doc/ssl.xml: Use id on footnotes for stable doc generation.
+
+------------------------------------------------------------------------
+r1436 | joe | 2008-03-29 21:02:27 +0000 (Sat, 29 Mar 2008) | 4 lines
+
+Merge r1433 from trunk:
+
+* test/makekeys.sh: Be quieter on stdout.
+
+------------------------------------------------------------------------
+r1432 | joe | 2008-03-28 20:03:19 +0000 (Fri, 28 Mar 2008) | 4 lines
+
+Merge r1431 from trunk:
+
+* src/ne_gnutls.c (read_to_datum): Fix fd leak.
+
+------------------------------------------------------------------------
+r1409 | joe | 2008-03-13 20:26:51 +0000 (Thu, 13 Mar 2008) | 2 lines
+
+* NEWS, macros/neon.m4: Prepare for 0.28.2.
+
+------------------------------------------------------------------------
+r1408 | joe | 2008-03-13 20:26:29 +0000 (Thu, 13 Mar 2008) | 22 lines
+
+Merge r1406, r1407 from trunk:
+
+Fix use of NTLM with some borked proxies which require use of a
+persistent connection but don't advertise such support in an
+HTTP-compliant manner:
+
+* src/ne_request.c (add_fixed_headers): Add the request header
+  "Proxy-Connection: Keep-Alive" for a non-HTTP/1.1 next-hop, iff a
+  proxy is configured. 
+  (ne_begin_request): Where the next-hop is non-HTTP/1.1, a proxy
+  is configured, *and* the conn-auth flag is enabled, enable use of
+  persistent connections if the next-hop sends the response header
+  "Proxy-Connection: Keep-Alive".
+
+* test/request.c (test_persist_p): Renamed from test_persist.  Take
+  proxy flag and enable proxy and conn-auth if set.
+  (test_persist): New function.
+  (persist_proxy_http10): New test case.
+
+* src/ne_request.c (add_fixed_headers): Do not send "Keep-Alive"
+  in the Connection header to a potentially-1.0 proxy, per 2616 rules.
+
+------------------------------------------------------------------------
+r1401 | joe | 2008-03-04 11:56:16 +0000 (Tue, 04 Mar 2008) | 4 lines
+
+Merge r1367 from trunk:
+
+* src/ne_string.c: Fix typo in comment. (Arfrever)
+
+------------------------------------------------------------------------
+r1400 | joe | 2008-03-04 11:54:45 +0000 (Tue, 04 Mar 2008) | 7 lines
+
+Merge r1376, r1377 from trunk:
+
+* src/ne_pkcs11.c: Add a laundry list.
+
+* src/ne_pkcs11.c (pk11_login): Succeed if login fails with
+  CKR_USER_ALREADY_LOGGED_IN.
+
+------------------------------------------------------------------------
+r1399 | joe | 2008-03-03 13:32:17 +0000 (Mon, 03 Mar 2008) | 5 lines
+
+Merge r1398 from trunk:
+
+* macros/neon-xml-parser.m4 (NEON_XML_PARSER): Define NE_FMT_XML_SIZE
+for Subversion-bundled-expat build.
+
+------------------------------------------------------------------------
+r1397 | joe | 2008-03-03 10:45:21 +0000 (Mon, 03 Mar 2008) | 2 lines
+
+* NEWS: Tweak.
+
+------------------------------------------------------------------------
+r1396 | joe | 2008-03-03 10:43:57 +0000 (Mon, 03 Mar 2008) | 2 lines
+
+* NEWS: Update.
+
+------------------------------------------------------------------------
+r1395 | joe | 2008-03-03 10:42:47 +0000 (Mon, 03 Mar 2008) | 2 lines
 
 * po/: make update-po.
 
 ------------------------------------------------------------------------
-r1135 | joe | 2007-01-22 17:56:53 +0000 (Mon, 22 Jan 2007) | 2 lines
+r1394 | joe | 2008-03-03 09:03:52 +0000 (Mon, 03 Mar 2008) | 8 lines
 
-Changes for 0.26.3.
+Merge r1393 from trunk:
+
+* configure.in: zh -> zh_CN in ALL_LINGUAS.
+
+* po/zh_CN.po: New translation, from Dongsheng Song.
+
+* po/zh.po: Renamed to above.  
 
 ------------------------------------------------------------------------
-r1134 | joe | 2007-01-22 16:12:23 +0000 (Mon, 22 Jan 2007) | 15 lines
+r1392 | joe | 2008-02-29 16:33:58 +0000 (Fri, 29 Feb 2008) | 2 lines
 
-Merge r1132 from trunk:
+* NEWS: Update for 0.28.1 so far, and add complete 0.27.x history.
+
+------------------------------------------------------------------------
+r1391 | joe | 2008-02-29 16:30:12 +0000 (Fri, 29 Feb 2008) | 11 lines
+
+Merge r1387, r1388, r1389 from trunk:
+
+* test/makekeys.sh: Print OpenSSL version for diagnostic purposes.
+
+* test/request.c: Wrap any_request() calls in ONREQ not CALL, throughout.
+
+* src/ne_auth.c (inside_domain): Fix to treat domain as a prefix,
+as required by 2617.
+
+* test/auth.c (domains): Tweak test case to cover this.
+
+------------------------------------------------------------------------
+r1390 | joe | 2008-02-29 16:23:20 +0000 (Fri, 29 Feb 2008) | 3 lines
+
+* macros/neon.m4 (NEON_VERSIONS_BUNDLED): Update libtool
+versioning logic, bump to .1.
+
+------------------------------------------------------------------------
+r1386 | joe | 2008-02-29 16:17:15 +0000 (Fri, 29 Feb 2008) | 2 lines
+
+* src/ne_auth.c (parse_domain): Fix debug output.
+
+------------------------------------------------------------------------
+r1385 | joe | 2008-02-29 10:07:47 +0000 (Fri, 29 Feb 2008) | 21 lines
+
+Merge r1374, r1375 from trunk:
+
+Add test case for PKCS#11 support using NSS software token:
+
+* configure.in: Check for pk12util, certutil.  Generate test/makekeys.
+
+* test/ssl.c (pkcs11, pkcs11_pin): New functions.
+
+* test/makekeys.sh: Use configure-determined paths for openssl, and
+  NSS tools.  Generate nssdb for PKCS#11 testing if NSS tools present.
+
+* test/Makefile.in (ca-stamp): Run generated makekeys in builddir.
+  (makekeys): Generate using config.status.
+  (clean): Clean nssdb.
+
+
+* test/ssl.c (pkcs11): Fix typo.
+
+Submitted by: joe
+Reviewed by: jorton
+
+------------------------------------------------------------------------
+r1384 | joe | 2008-02-29 10:05:27 +0000 (Fri, 29 Feb 2008) | 16 lines
+
+Merge r1368, r1369, r1371, r1372, r1373 from trunk:
+
+* src/ne_socket.h: Pick up size_t definition on Win32.
+
+* test/makekeys.sh: Prepend the real CA to the calist.pem.
+
+* test/ssl.c (cc_check_dnames): Update for the above.
+
+* src/ne_gnutls.c (check_identity): Ensure that strings are NUL terminated
+since this is not explicitly guaranteed by the GnuTLS API.
+
+* src/ne_request.c (do_connect): Fail with NE_TIMEOUT for a timed-out
+connect() call.
+
+* doc/ref/neon.xml: Fix braino.
+
+------------------------------------------------------------------------
+r1383 | joe | 2008-02-29 10:01:56 +0000 (Fri, 29 Feb 2008) | 7 lines
+
+Merge r1382 from trunk:
+
+* test/openssl.conf: Fix makekeys for some versions of OpenSSL.
+
+Submitted by: joe
+Reviewed by: jorton
+
+------------------------------------------------------------------------
+r1381 | joe | 2008-02-28 13:19:19 +0000 (Thu, 28 Feb 2008) | 15 lines
+
+Merge r1378, r1379, r1380 from trunk:
+
+Fix build on systems with getaddrinfo but without AF_INET6.
+
+* src/ne_socket.c (ipv6_disabled) [!AF_INET6]: Define as 1.
+  (ne_addr_resolve) [AF_INET6]: Make handling of v6 literals
+  conditional.
+  (do_bind) [AF_INET6]: Likewise for local bind address.
+  (ne_iaddr_typeof, ne_iaddr_cmp): Likewise for address types.
+
+* src/ne_socket.c (ne_sock_peer): Fix for !AF_INET6 && USE_GAI case;
+  thanks to Nico Kadel-Garcia.
+
+* test/socket.c: Fail more gracefully.
+
+------------------------------------------------------------------------
+r1355 | joe | 2008-02-11 09:32:36 +0000 (Mon, 11 Feb 2008) | 9 lines
+
+Merge r1352, r1354 from trunk:
+
+* macros/neon.m4 (NEON_SSL): Add --without-pakchois.
+
+Submitted by: Arfrever Frehtes Taifersar Arahesis
+
+* macros/neon.m4: Define NE_FMT_NE_OFF_T for external-neon 
+library builds.
+
+------------------------------------------------------------------------
+r1350 | joe | 2008-02-08 17:02:05 +0000 (Fri, 08 Feb 2008) | 2 lines
+
+* po/: make update-po.
+
+------------------------------------------------------------------------
+r1349 | joe | 2008-02-08 16:58:57 +0000 (Fri, 08 Feb 2008) | 6 lines
+
+Merge r1348 from trunk:
+
+* src/ne_session (ne_session_destroy): Destroy close_conn hooks
+to avoid memory leak (thanks, --enable-memleak mode).
+
+
+------------------------------------------------------------------------
+r1347 | joe | 2008-02-08 16:39:29 +0000 (Fri, 08 Feb 2008) | 3 lines
+
+* macros/neon.m4 (NE_ADD_ABITAG): Make no-op to retain neon 0.27
+ABI.
+
+------------------------------------------------------------------------
+r1346 | joe | 2008-02-08 16:34:27 +0000 (Fri, 08 Feb 2008) | 1 line
+
+Remove stale ChangeLog.
+------------------------------------------------------------------------
+r1345 | joe | 2008-02-08 14:48:38 +0000 (Fri, 08 Feb 2008) | 15 lines
+
+Merge r1344 from trunk:
+
+Add a close-connection hook (thanks to Robert J. van der Boon):
+
+* src/ne_private.h (struct ne_session_s): Add close_conn_hooks.
+
+* src/ne_session.c (ne_hook_close_conn, ne_unhook_close_conn): New
+  functions.
+(ne_close_connection): Run close_conn hooks.
+
+* src/ne_request.h (ne_hook_close_conn, ne_unhook_close_conn): New
+  prototypes.
+
+* test/request.c (hook_close_conn, hooks): Add tests.
+
+------------------------------------------------------------------------
+r1343 | joe | 2008-02-08 10:21:40 +0000 (Fri, 08 Feb 2008) | 2 lines
+
+Revert r1295 for 0.28.x.
+
+------------------------------------------------------------------------
+r1342 | joe | 2008-02-08 10:19:45 +0000 (Fri, 08 Feb 2008) | 2 lines
+
+Create 0.28.x branch.
+
+------------------------------------------------------------------------
+r1341 | joe | 2008-02-08 10:16:32 +0000 (Fri, 08 Feb 2008) | 2 lines
+
+* NEWS: No news like good news.
+
+------------------------------------------------------------------------
+r1340 | joe | 2008-02-08 10:14:23 +0000 (Fri, 08 Feb 2008) | 3 lines
+
+* neon.mak: Removes quotes around $(MAKE) since nmake quotes
+this internally.
+
+------------------------------------------------------------------------
+r1338 | joe | 2008-02-07 22:22:07 +0000 (Thu, 07 Feb 2008) | 9 lines
+
+* src/ne_basic.h: Deprecate ne_options API.  Add NE_CAP_* constants,
+ne_options2 prototype.
+
+* src/ne_basic.c (options_map): Add options mapping table.
+(parse_dav_header): Adjust to use mapping table and capabilities
+bitmask.
+(ne_options2): New function; renamed from ne_options.
+(ne_options): Re-implement on top of ne_options2.
+
+------------------------------------------------------------------------
+r1337 | joe | 2008-02-07 17:18:42 +0000 (Thu, 07 Feb 2008) | 2 lines
+
+* Makefile.in: Install ne_pkcs11.h.
+
+------------------------------------------------------------------------
+r1336 | joe | 2008-02-07 13:53:47 +0000 (Thu, 07 Feb 2008) | 2 lines
+
+* src/ne_pkcs11.h: Further doc tweaks.
+
+------------------------------------------------------------------------
+r1335 | joe | 2008-02-07 13:45:07 +0000 (Thu, 07 Feb 2008) | 5 lines
+
+* src/ne_pkcs11.h: Add interface description for attempt parameter.
+
+* src/ne_pkcs11.c (pk11_login): Start attempt at 1 as per auth
+  callbacks.
+
+------------------------------------------------------------------------
+r1334 | joe | 2008-02-07 13:40:30 +0000 (Thu, 07 Feb 2008) | 2 lines
+
+* src/ne_pkcs11.c: Clean up debugging.
+
+------------------------------------------------------------------------
+r1333 | joe | 2008-02-07 11:06:13 +0000 (Thu, 07 Feb 2008) | 18 lines
+
+Adjust PKCS#11 interfaces to allow a single provider to be shared
+between sessions:
+
+* src/ne_session.c (ne_ssl_set_pkcs11_pin): Removed function.
+
+* src/ne_private.h (struct ne_session_s): Remove PKCS#11 pin callback.
+
+* src/ne_pkcs11.c (pk11_find_x509): Take provider object and set
+client cert.
+(pk11_find_pkey): Take provider object and set private key.
+(find_client_cert): Take provider object and pass through.
+(pk11_sign_callback, pk11_login, pk11_provide): Take provider object,
+adjust accordingly.
+
+(pk11_init, ne_ssl_pkcs11_provider_init, ne_ssl_nsspk11_provider_init,
+ne_ssl_pkcs11_provider_destroy, ne_ssl_pkcs11_provider_pin): New
+functions.
+
+------------------------------------------------------------------------
+r1332 | joe | 2008-02-07 08:31:51 +0000 (Thu, 07 Feb 2008) | 3 lines
+
+* src/ne_gnutls.c (match_hostname, check_identity): Tone down 
+the debugging output.
+
+------------------------------------------------------------------------
+r1331 | joe | 2008-02-07 08:24:05 +0000 (Thu, 07 Feb 2008) | 4 lines
+
+* src/ne_gnutls.c (ne_ssl_clicert_read): Fail if missing cert or key.
+(ne__ssl_clicert_exkey_import): Set decrypted flag on imported
+keyless clicert.
+
+------------------------------------------------------------------------
+r1330 | joe | 2008-02-06 21:37:26 +0000 (Wed, 06 Feb 2008) | 2 lines
+
+* src/Makefile.in: Regenerate deps.
+
+------------------------------------------------------------------------
+r1329 | joe | 2008-02-06 21:31:30 +0000 (Wed, 06 Feb 2008) | 22 lines
+
+Initial support for PKCS#11, based on the pakchois PKCS#11 library:
+
+* src/ne_pkcs11.c, src/ne_pkcs11: New files.
+
+* src/ne_gnutls.c (struct ne_ssl_client_cert_s): Add keyless flag.
+(dup_client_cert): Support keyless clicerts.
+(ne__ssl_clicert_exkey_import): New function.
+(provide_client_cert): Use proper GnuTLS error codes in failure
+cases.
+
+* src/ne_privssl.h (ne__ssl_clicert_exkey_import) [HAVE_GNUTLS]: Add
+  prototype.
+
+* src/ne_private.h: Include ne_pkcs11.h.
+(struct ne_session_s): Add pin callback and userdata.
+
+* src/ne_session.c (ne_ssl_set_pkcs11_pin): New function.
+
+* src/Makefile.in, neon.mak: Build ne_pkcs11.c.
+
+* macros/neon.m4 (NEON_SSL): Check for pakchois.
+
+------------------------------------------------------------------------
+r1328 | joe | 2008-02-06 21:29:44 +0000 (Wed, 06 Feb 2008) | 3 lines
+
+* macros/neon.m4 (NEON_WITH_LIBS): Adjust PKG_CONFIG_PATH 
+appropriately.
+
+------------------------------------------------------------------------
+r1327 | joe | 2008-02-06 21:19:35 +0000 (Wed, 06 Feb 2008) | 3 lines
+
+* src/ne_alloc.h: Include stdlib.h on all platforms to
+pick up free() definition.
+
+------------------------------------------------------------------------
+r1326 | joe | 2008-02-06 11:30:41 +0000 (Wed, 06 Feb 2008) | 11 lines
+
+Restore parts of r1315:
+
+* macros/neon.m4 (NEON_SSL): Check for gnutls_sign_callback_set.
+
+* src/ne_privssl.h (struct ne_ssl_context_s): Add sign_func, sign_data
+  fields.
+
+* src/ne_socket.c (ne_sock_connect_ssl): Set up the sign_func callback
+  if non-NULL.
+
+
+------------------------------------------------------------------------
+r1325 | joe | 2008-02-06 11:27:38 +0000 (Wed, 06 Feb 2008) | 8 lines
+
+Re-apply r1317, portion of r1316:
+
+* src/ne_gnutls.c (ne_ssl_clicert_read): Fail if cert or key is missing.
+
+* src/ne_openssl.c (ne_ssl_clicert_read): Fail if private key lacks
+  cert or pkey.
+
+
+------------------------------------------------------------------------
+r1324 | joe | 2008-02-06 11:17:54 +0000 (Wed, 06 Feb 2008) | 3 lines
+
+* test/ssl.c, test/makekeys.sh: Restore test cases for PKCS#12 
+clicerts with missing halves.
+
+------------------------------------------------------------------------
+r1323 | joe | 2008-02-06 11:12:09 +0000 (Wed, 06 Feb 2008) | 2 lines
+
+Revert diff r1320:r1314.
+
+------------------------------------------------------------------------
+r1322 | joe | 2008-02-06 10:13:42 +0000 (Wed, 06 Feb 2008) | 2 lines
+
+* src/ne_socket.c (ne_sock_cipher): Fix non-SSL build.
+
+------------------------------------------------------------------------
+r1321 | joe | 2008-02-06 09:51:54 +0000 (Wed, 06 Feb 2008) | 2 lines
+
+* NEWS: News so far.
+
+------------------------------------------------------------------------
+r1320 | joe | 2008-01-31 15:22:13 +0000 (Thu, 31 Jan 2008) | 2 lines
+
+* src/ne_ssl.h: Update docco for ne_ssl_clicert*_read.
+
+------------------------------------------------------------------------
+r1319 | joe | 2008-01-31 15:08:53 +0000 (Thu, 31 Jan 2008) | 6 lines
+
+* test/makekeys.sh: Generate clicert without cert, and encrypted
+  clicert without pkey.
+
+* test/ssl.c (load_client_cert): Add tests for more clicert
+  variations.
+
+------------------------------------------------------------------------
+r1318 | joe | 2008-01-31 12:12:16 +0000 (Thu, 31 Jan 2008) | 3 lines
+
+* src/Makefile.in, Makefile.in: Fix for NE_SSL_LIBNAME for non-GnuTLS
+build.
+
+------------------------------------------------------------------------
+r1317 | joe | 2008-01-31 11:49:36 +0000 (Thu, 31 Jan 2008) | 3 lines
+
+* src/ne_openssl.c (ne_ssl_clicert_read): Fail if private key lacks
+  cert or pkey.
+
+------------------------------------------------------------------------
+r1316 | joe | 2008-01-31 11:46:32 +0000 (Thu, 31 Jan 2008) | 21 lines
+
+Add support for PKCS#12 client certs which don't include a private
+key:
+
+* src/ne_gnutls.c (struct ne_ssl_client_cert_s): Add keyless flag.
+(dup_client_cert): Support keyless clicerts.
+(pkcs12_parse): Make pkey handling optional.
+(read_client_cert): Factor out from ne_ssl_clicert_read; take additional
+key_required flag; fail if cert or key is required and not supplied;
+initialize keyless flag.
+(ne_ssl_clicert_read): Reimplement using read_client_cert.
+(ne_ssl_clicert_exkey_read): New function.
+(ne_ssl_clicert_decrypt): Handle keyless failure case.
+
+* src/ne_openssl.c (ne_ssl_clicert_exkey_read): Add stub.
+
+* src/ne_stubssl.c (ne_ssl_clicert_exkey_read): Add stub.
+
+* test/ssl.c (load_client_cert): Test ne_ssl_clicert_exkey_read.
+
+* test/makekeys.sh: Generate keyless ccert.
+
+------------------------------------------------------------------------
+r1315 | joe | 2008-01-31 11:40:22 +0000 (Thu, 31 Jan 2008) | 27 lines
+
+Add libneon-gnutls support library to allow use of external signing
+callback with GnuTLS:
+
+* src/lib_gnutls.c, src/ne_gnutls.h, neon-gnutls.pc.in: New files.
+
+* src/ne_privssl.h (struct ne_ssl_context_s): Add sign_func, sign_data
+  fields.
+
+* macros/neon.m4 (NEON_SSL): Define NE_SSL_LIBNAME; check for
+  gnutls_sign_callback_set, add new exports NE_SSL_CFLAGS and
+  NE_LIBSSL_LTFLAGS.  Export NEON_LIBEXT in place of NEON_TARGET,
+  NE_LIBNEON_LTFLAGS in place of NEON_LINK_FLAGS;
+
+* src/Makefile.in: Add and adjust targets to build libneon-gnutls iff
+  configured with GnuTLS support.
+
+* Makefile.in (install-lib-ssl-no, install-lib-ssl-gnutls): New
+  targets.
+
+* neon-config.in: Add --la-file=gnutls, --cflags=gnutls support.
+
+* src/ne_socket.c (ne_sock_connect_ssl): Set up the sign_func callback
+  if non-NULL.
+
+* configure.in: Adjust for NEON_LINK_FLAGS rename.  Define
+  NE_LIBSSL_LTFLAGS.  Generate neon-gnutls.pc.
+
+------------------------------------------------------------------------
+r1314 | joe | 2008-01-31 09:54:15 +0000 (Thu, 31 Jan 2008) | 3 lines
+
+* src/ne_socket.c (ne_sock_accept_ssl, ne_sock_connect_ssl): Fix
+  compiler warnings on LP64 platforms.
+
+------------------------------------------------------------------------
+r1313 | joe | 2008-01-31 09:43:11 +0000 (Thu, 31 Jan 2008) | 4 lines
+
+* src/ne_session.c (ne_get_error): Don't "clean" the error string
+  again here, since it may have been localised and hence not be 7-bit
+  ASCII.
+
+------------------------------------------------------------------------
+r1312 | joe | 2008-01-31 09:09:03 +0000 (Thu, 31 Jan 2008) | 2 lines
+
+* Makefile.in: Add datarootdir to silence autoconf/config.status warning.
+
+------------------------------------------------------------------------
+r1311 | joe | 2008-01-31 08:58:21 +0000 (Thu, 31 Jan 2008) | 4 lines
+
+* src/ne_string.c (ascii_printable): Define array.
+(ne_strclean): Reimplement using above to be independent
+of locale.
+
+------------------------------------------------------------------------
+r1310 | joe | 2008-01-30 22:22:31 +0000 (Wed, 30 Jan 2008) | 3 lines
+
+* test/request.c (send_bad_offset): Use a pipe rather than a 
+negative offset; better guarantee of failure.
+
+------------------------------------------------------------------------
+r1309 | joe | 2008-01-30 22:06:43 +0000 (Wed, 30 Jan 2008) | 2 lines
+
+* src/ne_gnutls.c: Remove now-redundant #includes.
+
+------------------------------------------------------------------------
+r1308 | joe | 2008-01-30 21:19:34 +0000 (Wed, 30 Jan 2008) | 2 lines
+
+* config.hw.in: Fix build with VS2008 (Stefan Kung).
+
+------------------------------------------------------------------------
+r1307 | joe | 2008-01-30 20:24:59 +0000 (Wed, 30 Jan 2008) | 2 lines
+
+* configure.in: Wording tweak, no functional change.
+
+------------------------------------------------------------------------
+r1306 | joe | 2008-01-30 16:59:35 +0000 (Wed, 30 Jan 2008) | 5 lines
+
+* src/ne_basic.c (dispatch_to_fd): Fix handling of ranged PUT with
+  unspecified length.  (Submitted by Henrik Holst <henrik witsbits.com>)
+
+* test/basic. (get_eof_range): New test case.
+
+------------------------------------------------------------------------
+r1305 | joe | 2008-01-30 16:40:14 +0000 (Wed, 30 Jan 2008) | 2 lines
+
+* src/ne_session.h: Docco update.
+
+------------------------------------------------------------------------
+r1304 | joe | 2008-01-30 16:38:19 +0000 (Wed, 30 Jan 2008) | 5 lines
+
+* src/ne_props.c (startelm): Include the namespaces for both element
+  and attributes in flat property dumps.
+
+* test/props.c (propfind): Add test case for attribute handling.
+
+------------------------------------------------------------------------
+r1303 | joe | 2008-01-30 11:53:32 +0000 (Wed, 30 Jan 2008) | 8 lines
+
+* src/ne_dates.c (GMTOFF) [HAVE_TIMEZONE]: Add definition.
+(all callers of GMTOFF): Separate mktime from GMTOFF invocation to
+ensure a sequence point between the two.
+
+* macros/neon.m4 (LIBNEON_SOURCE_CHECKS): Update timezone warning.
+
+Submitted by: Alessandro Vesely <vesely tana.it>
+
+------------------------------------------------------------------------
+r1302 | joe | 2008-01-30 11:35:52 +0000 (Wed, 30 Jan 2008) | 11 lines
+
+* src/ne_private.h (struct ne_session_s): Add local_addr field.
+
+* src/ne_session.c (ne_set_localaddr): New prototype.
+
+* src/ne_session.c (ne_set_localaddr): New function.
+
+* src/ne_request.c (do_connect): Call ne_sock_prebind if local_addr is
+  non-NULL.
+
+* test/request.c (local_addr): New test case.
+
+------------------------------------------------------------------------
+r1299 | joe | 2007-12-27 21:10:43 +0000 (Thu, 27 Dec 2007) | 2 lines
+
+* src/ne_ssl.h: Docco tweaks.
+
+------------------------------------------------------------------------
+r1298 | joe | 2007-12-27 21:08:25 +0000 (Thu, 27 Dec 2007) | 2 lines
+
+* test/request.c: Spelling fix.
+
+------------------------------------------------------------------------
+r1297 | joe | 2007-12-16 14:05:07 +0000 (Sun, 16 Dec 2007) | 2 lines
+
+* src/Makefile.in: Add deps for ne_gnutls.c.
+
+------------------------------------------------------------------------
+r1296 | joe | 2007-12-16 14:01:46 +0000 (Sun, 16 Dec 2007) | 2 lines
+
+* src/ne_session.h: Clarify when ne_session_proxy may be called.
+
+------------------------------------------------------------------------
+r1295 | joe | 2007-12-16 13:58:47 +0000 (Sun, 16 Dec 2007) | 10 lines
+
+* src/ne_acl.h (ne_acl_entry): Rename "apply" field "target", split
+  out enums; rename "principal" to "tname"; add single "principles"
+  bit-field.  Add NE_ACL_* constants.
+
+* src/ne_acl.c (acl_body): Adjust accordingly.
+
+* test/acl.c: All tests updated accordingly.
+
+Submitted by: Henrik Holst, joe
+
+------------------------------------------------------------------------
+r1294 | joe | 2007-12-16 11:24:39 +0000 (Sun, 16 Dec 2007) | 3 lines
+
+* test/socket.c (ssl_session_id): Skip if given a zero-length session
+  ID as recent OpenSSL seems to do.
+
+------------------------------------------------------------------------
+r1293 | joe | 2007-12-05 16:42:01 +0000 (Wed, 05 Dec 2007) | 2 lines
+
+* src/ne_ssl.h: Doc tweak; server is not a person.
+
+------------------------------------------------------------------------
+r1292 | joe | 2007-12-05 16:39:58 +0000 (Wed, 05 Dec 2007) | 11 lines
+
+* src/ne_auth.h (NE_AUTH_ALL, NE_AUTH_DEFAULT): Add new protocol
+  codes.
+
+* src/ne_auth.c (auth_register): Interpret NE_AUTH_ALL and
+  NE_AUTH_DEFAULT.  
+  (auth_register_default): Remove function.
+  (ne_set_server_auth, ne_set_proxy_auth): Re-implement 
+  using auth_register.
+
+* test/auth.c (defaults): New test case.
+
+------------------------------------------------------------------------
+r1291 | joe | 2007-12-05 15:23:40 +0000 (Wed, 05 Dec 2007) | 2 lines
+
+* src/ne_socket.c (ne_sock_cipher): Fix non-SSL build.
+
+------------------------------------------------------------------------
+r1290 | joe | 2007-12-05 15:11:24 +0000 (Wed, 05 Dec 2007) | 10 lines
+
+Enable TLS SNI support for GnuTLS builds:
+
+* src/ne_privssl.h [HAVE_GNUTLS] (struct ne_ssl_context_s): Add
+  hostname field.
+
+* src/ne_gnutls.c (ne__negotiate_ssl): Pass through hostname if SNI
+  enabled.
+
+,* src/ne_socket.c [HAVE_GNUTLS] (ne_sock_connect_ssl): Set hostname.
+
+------------------------------------------------------------------------
+r1289 | joe | 2007-12-05 15:04:51 +0000 (Wed, 05 Dec 2007) | 6 lines
+
+* src/ne_socket.c (ne_sock_cipher): New function.
+
+* src/ne_socket.h (ne_sock_cipher): Add prototype.
+
+* test/socket.c (cipher): Add test case.
+
+------------------------------------------------------------------------
+r1288 | joe | 2007-12-05 14:57:54 +0000 (Wed, 05 Dec 2007) | 6 lines
+
+* src/ne_auth.c (inside_domain): Parse request-URI to handle proxies
+  correctly.
+
+* test/auth.c (verify_digest_header, serve_digest, domains): Test
+  domain handling via proxy.
+
+------------------------------------------------------------------------
+r1287 | joe | 2007-12-05 14:31:19 +0000 (Wed, 05 Dec 2007) | 3 lines
+
+* src/ne_auth.c (parse_domain): Fix memory handling (fix tests with
+  --enable-memleak).
+
+------------------------------------------------------------------------
+r1286 | joe | 2007-12-05 14:16:35 +0000 (Wed, 05 Dec 2007) | 5 lines
+
+* src/ne_auth.c (parse_domain): Fix to parse domain parameter as
+  space-separated list.
+
+* test/auth.c (domains): Fix test case.
+
+------------------------------------------------------------------------
+r1285 | joe | 2007-12-05 14:14:37 +0000 (Wed, 05 Dec 2007) | 2 lines
+
+* src/ne_auth.c (get_cnonce): Reformat code; no functional change.
+
+------------------------------------------------------------------------
+r1284 | joe | 2007-12-05 14:10:57 +0000 (Wed, 05 Dec 2007) | 3 lines
+
+* src/ne_auth.c (get_cnonce): Use gcrypt to create the nonce if
+  configured with GnuTLS.
+
+------------------------------------------------------------------------
+r1283 | joe | 2007-12-05 11:04:47 +0000 (Wed, 05 Dec 2007) | 2 lines
+
+* src/ne_uri.c (ne_path_unescape): Remove redundant \0 (Hannes Eder).
+
+------------------------------------------------------------------------
+r1282 | joe | 2007-12-04 22:02:27 +0000 (Tue, 04 Dec 2007) | 2 lines
+
+* src/ne_md5.c: Use ANSI C prototypes throughout (Hannes Eder).
+
+------------------------------------------------------------------------
+r1281 | joe | 2007-12-01 16:07:44 +0000 (Sat, 01 Dec 2007) | 15 lines
+
+Add TLS SNI support and enable by default:
+
+* src/ne_session.h (ne_session_flag_e): Add NE_SESSFLAG_TLS_SNI.
+
+* src/ne_session.c (ne_session_create): Enable the SNI flag by
+  default.
+
+* src/ne_privssl.h (struct ne_ssl_context_s): Add hostname field.
+
+* src/ne_socket.c (ne_sock_connect_ssl) [HAVE_OPENSSL]: Enable SNI
+  extension if hostname passed-through.
+
+* src/ne_openssl.c (ne__negotiate_ssl): Set hostname field in context,
+  if SNI flag enbled.
+
+------------------------------------------------------------------------
+r1280 | joe | 2007-11-30 14:12:59 +0000 (Fri, 30 Nov 2007) | 3 lines
+
+* src/ne_socket.c (ne_sock_connect): Fix fd leak on connect() failure;
+  regresion since 0.26 (Andrew Teirney).
+
+------------------------------------------------------------------------
+r1279 | joe | 2007-11-29 23:05:18 +0000 (Thu, 29 Nov 2007) | 3 lines
+
+* src/ne_openssl.c (ne_ssl_context_create): Enable client session
+  cache if creating server context.
+
+------------------------------------------------------------------------
+r1278 | joe | 2007-11-26 20:42:08 +0000 (Mon, 26 Nov 2007) | 5 lines
+
+* src/ne_basic.c (ne_getmodtime): Set modtime to -1 if no header
+  given.  (Henrik Holst)
+
+* src/ne_basic.h (ne_getmodtime): Clarify interface.
+
+------------------------------------------------------------------------
+r1277 | joe | 2007-11-26 20:15:17 +0000 (Mon, 26 Nov 2007) | 6 lines
+
+Add Polish translation, from Arfrever Frehtes Taifersar Arahesis:
+
+* configure.in: Add pl locale.
+
+* po/pl.po: New file.
+
+------------------------------------------------------------------------
+r1276 | joe | 2007-11-26 20:07:39 +0000 (Mon, 26 Nov 2007) | 2 lines
+
+* po/: make update-po.
+
+------------------------------------------------------------------------
+r1275 | joe | 2007-11-26 15:52:26 +0000 (Mon, 26 Nov 2007) | 4 lines
+
+* src/ne_compress.c (set_zlib_error),
+* src/ne_auth.c (challenge_error): Don't mark untranslateable strings
+as translatable (patch by Arfrever Frehtes Taifersar Arahesis).
+
+------------------------------------------------------------------------
+r1274 | joe | 2007-11-21 11:17:02 +0000 (Wed, 21 Nov 2007) | 3 lines
+
+* src/ne_socket.c (ne_sock_connect): Set the FD_CLOEXEC bit on
+the socket fd.
+
+------------------------------------------------------------------------
+r1273 | joe | 2007-11-19 15:55:30 +0000 (Mon, 19 Nov 2007) | 15 lines
+
+Add support for domain handling in Digest authentication:
+
+* src/ne_auth.c (struct auth_challenge): Add domain field.
+(auth_session): Add domains, ndomains fields.
+(free_domains, parse_domain, inside_domain): New functions.
+(clean_session): Call free_domains.
+(digest_challenge): Parse the domain parameter.
+(request_digest): Don't submit credentials if request falls outside
+the defined auth domain, if any.
+(auth_challenge): Capture the domain parameter.
+
+* test/auth.c (make_digest_header, serve_digest): Update for
+handling domains test.
+(domains): New test case.
+
+------------------------------------------------------------------------
+r1272 | joe | 2007-11-19 13:57:25 +0000 (Mon, 19 Nov 2007) | 3 lines
+
+* doc/: Add documentation for _set_*_flag interfaces, misc. 
+updates to neon(3) main page.
+
+------------------------------------------------------------------------
+r1271 | joe | 2007-10-31 21:20:59 +0000 (Wed, 31 Oct 2007) | 2 lines
+
+* macros/neon.m4: Fix comment.
+
+------------------------------------------------------------------------
+r1270 | joe | 2007-10-24 17:37:35 +0100 (Wed, 24 Oct 2007) | 2 lines
+
+* src/ne_socket.c (ne_socket_s): Reorder for better packing.
+
+------------------------------------------------------------------------
+r1269 | joe | 2007-10-22 10:08:29 +0100 (Mon, 22 Oct 2007) | 2 lines
+
+* src/ne_socket.c (do_bind, ne_sock_peer): Fix for !USE_GETADDRINFO build.
+
+------------------------------------------------------------------------
+r1268 | joe | 2007-10-22 09:58:19 +0100 (Mon, 22 Oct 2007) | 15 lines
+
+* src/ne_socket.h (ne_sock_peer, ne_sock_prebind): Add prototypes.
+
+* src/ne_socket.c (ne_sock_peer, ne_sock_prebind, do_bind): New
+  functions.
+(ne_sock_connect): Use do_bind.
+(struct ne_socket_s): Add laddr, lport fields.
+
+* macros/neon.m4 (LIBNEON_SOURCE_CHECKS): Define socklen_t if 
+not available.
+
+* config.hw.in: Define socklen_t.
+
+* test/socket.c (addr_peer, serve_ppeer, try_prebind, prebind):
+New tests.
+
+------------------------------------------------------------------------
+r1267 | joe | 2007-10-19 11:25:38 +0100 (Fri, 19 Oct 2007) | 3 lines
+
+* test-common/tests.c (t_context, in_child): Print failure messages to the
+child debug log as well as to stderr.
+
+------------------------------------------------------------------------
+r1266 | joe | 2007-10-19 11:24:35 +0100 (Fri, 19 Oct 2007) | 2 lines
+
+* src/ne_request.c (build_request): Use ne_buffer_czappend.
+
+------------------------------------------------------------------------
+r1264 | joe | 2007-10-19 11:13:02 +0100 (Fri, 19 Oct 2007) | 3 lines
+
+* test/auth.c (serve_digest): Inhibit "server child failure" messages
+when the server should quit.
+
+------------------------------------------------------------------------
+r1263 | joe | 2007-10-18 15:37:59 +0100 (Thu, 18 Oct 2007) | 6 lines
+
+* src/ne_socket.c (ne_sock_sessid): Don't copy from beyond
+  ->session_id array.
+
+* test/socket.c (ssl_session_id): Test that only expected number of
+bytes are copied.
+
+------------------------------------------------------------------------
+r1262 | joe | 2007-10-18 15:33:15 +0100 (Thu, 18 Oct 2007) | 2 lines
+
+* src/Makefile.in (update-deps): Fix location of config.h.
+
+------------------------------------------------------------------------
+r1256 | joe | 2007-09-25 10:22:50 +0100 (Tue, 25 Sep 2007) | 3 lines
+
+* src/ne_auth.c (verify_negotiate_response): Fix crash in GSSAPI
+Negotiate response header verification.
+
+------------------------------------------------------------------------
+r1253 | joe | 2007-09-11 17:01:20 +0100 (Tue, 11 Sep 2007) | 2 lines
+
+* test/run.sh: Run all test suites despite failures.
+
+------------------------------------------------------------------------
+r1252 | joe | 2007-09-09 21:46:28 +0100 (Sun, 09 Sep 2007) | 2 lines
+
+* test/socket.c (serve_reset): Add delay before sending RST.
+
+------------------------------------------------------------------------
+r1251 | joe | 2007-09-09 21:44:38 +0100 (Sun, 09 Sep 2007) | 2 lines
+
+* test/request.c (status, status_chunked): Fix memory leak.
+
+------------------------------------------------------------------------
+r1250 | joe | 2007-09-09 21:40:11 +0100 (Sun, 09 Sep 2007) | 3 lines
+
+* src/ne_openssl.c: Update comments.  (match_hostname): Remove
+debugging.
+
+------------------------------------------------------------------------
+r1249 | joe | 2007-09-07 13:24:54 +0100 (Fri, 07 Sep 2007) | 2 lines
+
+* src/Makefile.in (update-deps): New target; regenerate dependencies.
+
+------------------------------------------------------------------------
+r1248 | joe | 2007-09-02 21:27:57 +0100 (Sun, 02 Sep 2007) | 7 lines
+
+* configure.in: Set NEON_LINK_FLAGS later; also use -release if ABI 
+variations are noted.
+
+* macros/neon.m4 (NE_ADD_ABITAG): New macro.
+(NE_LARGEFILE): Add LFS ABI tag if LFS is enabled.
+(NEON_COMMON_BUNDLED): Add NODAV ABI tag if DAV support is disabled.
+
+------------------------------------------------------------------------
+r1240 | joe | 2007-08-22 13:02:05 +0100 (Wed, 22 Aug 2007) | 2 lines
+
+* macros/neon-xml-parser.m4 (NE_XML_BUNDLED_EXPAT): Define NE_FMT_XML_SIZE.
+
+------------------------------------------------------------------------
+r1238 | joe | 2007-08-22 12:57:37 +0100 (Wed, 22 Aug 2007) | 2 lines
+
+* src/ne_session.h: Add forward-compat note for ne_session_status enum.
+
+------------------------------------------------------------------------
+r1237 | joe | 2007-08-22 12:55:38 +0100 (Wed, 22 Aug 2007) | 5 lines
+
+* src/ne_session.h: Fix description of total counter for response
+progress.
+
+* test/request.c (status_chunked): New test.
+
+------------------------------------------------------------------------
+r1235 | joe | 2007-08-22 12:42:13 +0100 (Wed, 22 Aug 2007) | 2 lines
+
+* src/ne_request.c (ne_read_response_block): Fix response progress counter.
+
+------------------------------------------------------------------------
+r1232 | joe | 2007-08-21 20:12:30 +0100 (Tue, 21 Aug 2007) | 2 lines
+
+* NEWS: Tweak more.
+
+------------------------------------------------------------------------
+r1231 | joe | 2007-08-21 20:09:07 +0100 (Tue, 21 Aug 2007) | 2 lines
+
+* po/: make update-po.
+
+------------------------------------------------------------------------
+r1230 | joe | 2007-08-21 20:07:23 +0100 (Tue, 21 Aug 2007) | 2 lines
+
+* NEWS: Tweak.
+
+------------------------------------------------------------------------
+r1229 | joe | 2007-08-21 20:06:43 +0100 (Tue, 21 Aug 2007) | 2 lines
+
+* NEWS: Tweak, update.
+
+------------------------------------------------------------------------
+r1228 | joe | 2007-08-21 19:59:32 +0100 (Tue, 21 Aug 2007) | 4 lines
+
+* macros/neon.m4: Bump to 0.27.
+
+* NEWS: Update.
+
+------------------------------------------------------------------------
+r1227 | joe | 2007-08-21 19:59:07 +0100 (Tue, 21 Aug 2007) | 3 lines
+
+* BUGS: Note a broken HTTP server which would need some custom
+hack to be supported.
+
+------------------------------------------------------------------------
+r1226 | joe | 2007-08-21 19:56:40 +0100 (Tue, 21 Aug 2007) | 11 lines
+
+Make the notifier and progress interfaces mutually exclusive since the
+old interface is only kept for backwards-compatibility.
+
+* src/ne_request.c (notify_status): Don't invoke the progress
+callback.
+
+* src/ne_session.c (progress_notifier): New function.
+(ne_set_progress): Implement using a notifier callback.
+
+* src/ne_session.h: Note the mutual exclusivity.
+
+------------------------------------------------------------------------
+r1225 | joe | 2007-08-21 16:38:12 +0100 (Tue, 21 Aug 2007) | 3 lines
+
+* src/ne_gnutls.c [HAVE_ICONV && HAVE_GNUTLS_X509_DN_GET_RDN_AVA]:
+Include errno.h, fix build.
+
+------------------------------------------------------------------------
+r1224 | joe | 2007-08-19 09:56:45 +0100 (Sun, 19 Aug 2007) | 6 lines
+
+* src/ne_session.h (ne_ssl_trust_cert): Clarify use with non-SSL session.
+
+* src/ne_session.c (ne_ssl_trust_cert): Do nothing for non-SSL session.
+
+* test/ssl.c (nonssl_trust): New test case.
+
+------------------------------------------------------------------------
+r1223 | joe | 2007-08-18 14:28:22 +0100 (Sat, 18 Aug 2007) | 2 lines
+
+* test/socket.c (addr_reverse): Remove debugging code added in r1220.
+
+------------------------------------------------------------------------
+r1222 | joe | 2007-08-10 16:26:08 +0100 (Fri, 10 Aug 2007) | 5 lines
+
+Perform hostname canonicalization for SSPI, patch by Yves Martin:
+
+* src/ne_sspi.c (canonical_hostname): New function.
+(ne_sspi_create_context): Use the canonical hostname in the SPN.
+
+------------------------------------------------------------------------
+r1221 | joe | 2007-08-10 15:39:26 +0100 (Fri, 10 Aug 2007) | 2 lines
+
+* config.hw.in: Fix ne_xml.c build on Win32.
+
+------------------------------------------------------------------------
+r1220 | joe | 2007-08-10 14:05:10 +0100 (Fri, 10 Aug 2007) | 7 lines
+
+* src/ne_socket.h (ne_iaddr_reverse),
+  src/ne_socket.c (ne_iaddr_reverse): New function.
+
+* test/socket.c (addr_reverse): New tests.
+
+* macros/neon.m4 (LIBNEON_SOURCE_CHECKS): Check for getnameinfo too.
+
+------------------------------------------------------------------------
+r1219 | joe | 2007-08-10 11:29:26 +0100 (Fri, 10 Aug 2007) | 9 lines
+
+* src/ne_request.c (ne_begin_request): Ignore the "identity"
+transfer-coding since "privoxy" apparently sends it.  Fail for unknown
+transfer-codings.
+
+* test/request.c (te_identity): New test, replacing any_te_header.
+(fail_on_invalid): Test for failure with unknown transfer-codings.
+
+* doc/using.xml: Update section on transfer-encoding interpretation.
+
+------------------------------------------------------------------------
+r1218 | joe | 2007-08-09 10:46:36 +0100 (Thu, 09 Aug 2007) | 11 lines
+
+Fix compiler warnings with expat 2.x API:
+
+* macros/neon.m4 (NEON_FORMAT): Fix use of headers passed to
+AC_CHECK_SIZEOF.
+
+* macros/neon-xml-parser.m4 (NE_XML_EXPAT): Check how to print
+the XML_Size type, if defined.
+
+* src/ne_xml.c (ne_xml_parse): Use correct format string for
+return value of XML_GetCurrentLineNumber.
+
+------------------------------------------------------------------------
+r1217 | joe | 2007-08-08 09:29:00 +0100 (Wed, 08 Aug 2007) | 10 lines
+
+* src/ne_session.h (ne_session_flag): Add NE_SESSFLAG_CONNAUTH.
+
+* src/ne_request.c (ne_begin_request): Ignore the IDEMPOTENT flag if
+the session CONNAUTH flag is set.
+
+* src/ne_auth.c: Define AUTH_FLAG_CONN_AUTH macro, use for
+Negotiate/NTLM schemes.
+(ah_pre_send): Remove non-functional hack to clear IDEMPOTENT flag.
+(ah_post_send): Set or clear session CONNAUTH flag appropriately.
+
+------------------------------------------------------------------------
+r1216 | joe | 2007-07-31 19:28:30 +0100 (Tue, 31 Jul 2007) | 4 lines
+
+* src/ne_uri.c (URI_FRAGMENT): Add macro.
+(ne_uri_parse): Add comments and use URI_FRAGMENT; no functional
+change.
+
+------------------------------------------------------------------------
+r1215 | joe | 2007-07-31 19:19:34 +0100 (Tue, 31 Jul 2007) | 5 lines
+
+* src/ne_session.h (ne_session_flag): Add NE_SESSFLAG_RFC4918.
+
+* src/ne_basic.c (copy_or_move): Use an abs_path in Destination
+header, rather than an absoluteURI, iff the 4918 flag is enabled.
+
+------------------------------------------------------------------------
+r1214 | joe | 2007-07-31 19:14:25 +0100 (Tue, 31 Jul 2007) | 2 lines
+
+* src/ne_session.h (ne_session_status): Clarify meaning of _recv/_sending.
+
+------------------------------------------------------------------------
+r1213 | joe | 2007-07-29 16:38:22 +0100 (Sun, 29 Jul 2007) | 2 lines
+
+Changes so far.
+
+------------------------------------------------------------------------
+r1212 | joe | 2007-07-26 13:33:58 +0100 (Thu, 26 Jul 2007) | 4 lines
+
+* src/ne_gnutls.c (check_identity): Take URI object as argument;
+handle URI subjectAltNames.
+(check_certificate, populate_cert): Adjust accordingly.
+
+------------------------------------------------------------------------
+r1211 | joe | 2007-07-20 12:52:33 +0100 (Fri, 20 Jul 2007) | 3 lines
+
+* doc/ref/neon.xml: Add a list of the functions using global state, for clarity.
+Add more symbol namespaces used by dependencies of neon.
+
+------------------------------------------------------------------------
+r1210 | joe | 2007-07-17 11:11:04 +0100 (Tue, 17 Jul 2007) | 2 lines
+
+* src/ne_session.h: Better docs for ne_session_status_info union.
+
+------------------------------------------------------------------------
+r1209 | joe | 2007-07-17 10:47:16 +0100 (Tue, 17 Jul 2007) | 2 lines
+
+* src/ne_session.h: Update ABI note for status union.
+
+------------------------------------------------------------------------
+r1208 | joe | 2007-07-16 11:25:10 +0100 (Mon, 16 Jul 2007) | 3 lines
+
+* macros/neon.m4 (NEON_SSL): Don't attempt to prevent incompatibility
+with future releases of GnuTLS.
+
+------------------------------------------------------------------------
+r1207 | joe | 2007-07-16 08:47:28 +0100 (Mon, 16 Jul 2007) | 2 lines
+
+* src/ne_xml.h, src/ne_socket.h: Documentation updates.
+
+------------------------------------------------------------------------
+r1206 | joe | 2007-07-16 08:39:43 +0100 (Mon, 16 Jul 2007) | 3 lines
+
+* src/ne_alloc.h (ne_realloc): Don't mark with malloc attribute, per
+GCC manual.
+
+------------------------------------------------------------------------
+r1205 | joe | 2007-07-16 07:54:57 +0100 (Mon, 16 Jul 2007) | 3 lines
+
+* src/ne_utils.h, src/ne_md5.h, src/ne_compress.h: Docs updates;
+use extern-C everywhere.  No functional changes.
+
+------------------------------------------------------------------------
+r1204 | joe | 2007-07-16 07:40:03 +0100 (Mon, 16 Jul 2007) | 2 lines
+
+* src/ne_redirect.h: Cleanup docs; no functional change.
+
+------------------------------------------------------------------------
+r1203 | joe | 2007-07-16 07:35:17 +0100 (Mon, 16 Jul 2007) | 2 lines
+
+* src/ne_string.h: More docco cleanup; no functional changes.
+
+------------------------------------------------------------------------
+r1202 | joe | 2007-07-16 06:46:30 +0100 (Mon, 16 Jul 2007) | 2 lines
+
+* src/ne_string.h: Update docco for ne_buffer_*; no functional change.
+
+------------------------------------------------------------------------
+r1198 | joe | 2007-07-14 21:35:28 +0100 (Sat, 14 Jul 2007) | 2 lines
+
+Update credit roll, copyright notice.
+
+------------------------------------------------------------------------
+r1188 | joe | 2007-07-14 10:01:23 +0100 (Sat, 14 Jul 2007) | 2 lines
+
+* test/auth.c (multi_handler): Use any_request().
+
+------------------------------------------------------------------------
+r1187 | joe | 2007-07-14 09:55:32 +0100 (Sat, 14 Jul 2007) | 4 lines
+
+* src/ne_auth.c (auth_register): Fix multiple handler use (Werner Baumann)
+
+* test/auth.c (multi_cb, multi_handler): New test case.
+
+------------------------------------------------------------------------
+r1185 | joe | 2007-07-14 09:05:02 +0100 (Sat, 14 Jul 2007) | 8 lines
+
+Make the backwards-compat break in the status notification interface
+more explicit by renaming the function:
+
+* src/ne_session.h, src/ne_session.c (ne_set_notifier): Renamed from
+  ne_set_status.
+
+* test/request.c (status): Adjust accordingly.
+
+------------------------------------------------------------------------
+r1184 | joe | 2007-07-14 09:01:58 +0100 (Sat, 14 Jul 2007) | 2 lines
+
+* src/ne_ssl.h: Docs cleanup.
+
+------------------------------------------------------------------------
+r1183 | joe | 2007-07-12 21:37:51 +0100 (Thu, 12 Jul 2007) | 6 lines
+
+* src/ne_string.h (ne_buffer_snprintf): New prototype.
+
+* src/ne_string.c (ne_buffer_snprintf): New function.
+
+* test/string-tests.c (buf_print): New test case.
+
+------------------------------------------------------------------------
+r1182 | joe | 2007-07-12 11:38:00 +0100 (Thu, 12 Jul 2007) | 6 lines
+
+* src/ne_session.h: Add ne_status_disconnected status type.
+(ne_close_connection): Invoke the notifier callback.
+(ne_session_destroy): Close the connection earlier.
+
+* test/request.c (status_cb, status): Test ne_status_disconnected.
+
+------------------------------------------------------------------------
+r1181 | joe | 2007-07-11 23:23:02 +0100 (Wed, 11 Jul 2007) | 3 lines
+
+* src/ne_gnutls.c (ne__ssl_exit): Implement for recent versions of
+GnuTLS, per comment.
+
+------------------------------------------------------------------------
+r1180 | joe | 2007-07-03 13:01:39 +0100 (Tue, 03 Jul 2007) | 9 lines
+
+* src/ne_xml.h (ne_xml_resolve_nspace): New interface.
+
+* src/ne_xml.c (ne_xml_resolve_nspace): New function.
+
+* test/xml.c: Adjust all callbacks to take 'struct context' pointer.
+(parse_match): Pass a struct context pointer.
+(startelm): Add "eval-xmlns-" evaluators.
+(matches): Test namespace interfaces.
+
+------------------------------------------------------------------------
+r1179 | joe | 2007-07-03 10:14:52 +0100 (Tue, 03 Jul 2007) | 2 lines
+
+* doc/ref/err.xml: Update ne_get_error docs.
+
+------------------------------------------------------------------------
+r1178 | joe | 2007-07-02 17:34:33 +0100 (Mon, 02 Jul 2007) | 3 lines
+
+* doc/manual.xml: Split name and version to silence new
+docbook-xsl stylesheets.
+
+------------------------------------------------------------------------
+r1177 | joe | 2007-07-02 17:24:33 +0100 (Mon, 02 Jul 2007) | 2 lines
+
+* test/request.c (fail_statusline): Adjust for new error message.
+
+------------------------------------------------------------------------
+r1176 | joe | 2007-07-02 17:22:55 +0100 (Mon, 02 Jul 2007) | 9 lines
+
+* src/ne_openssl.c (check_identity): Take URI object as argument;
+handle URI subjectAltNames.
+(check_certificate, populate_cert): Adjust accordingly.
+
+* test/ssl.c (uri_altname, fail_bad_urialtname): Add tests.
+(cert_identities): Test the URI-altname cert.
+
+* test/openssl.conf, test/makekeys.sh: Create new test certs.
+
+------------------------------------------------------------------------
+r1175 | joe | 2007-07-02 17:17:32 +0100 (Mon, 02 Jul 2007) | 3 lines
+
+* src/ne_request.c, src/ne_redirect.c, src/ne_basic.c: Update error
+messages to omit trailing period.
+
+------------------------------------------------------------------------
+r1174 | joe | 2007-07-02 17:15:37 +0100 (Mon, 02 Jul 2007) | 3 lines
+
+* test/xml.c (parse_match): Give descriptive failures.
+(fail_parse): Enable tests for ill-formed UTF-8.
+
+------------------------------------------------------------------------
+r1173 | joe | 2007-06-27 14:43:32 +0100 (Wed, 27 Jun 2007) | 3 lines
+
+* src/ne_gnutls.c (ne_ssl_clicert_read): Update code/comment on
+friendly_name handling in encrypted c.certs.
+
+------------------------------------------------------------------------
+r1172 | joe | 2007-06-27 14:40:07 +0100 (Wed, 27 Jun 2007) | 3 lines
+
+* src/ne_gnutls.c (pkcs12_parse, ne_ssl_clicert_read): Remove
+now-redundant code on encrypted-cert path.
+
+------------------------------------------------------------------------
+r1171 | joe | 2007-06-27 14:39:10 +0100 (Wed, 27 Jun 2007) | 3 lines
+
+* src/ne_gnutls.c (pkcs12_parse, ne_ssl_clicert_read): Fix handling of
+PKCS#12 client certs with zero-length password.
+
+------------------------------------------------------------------------
+r1170 | joe | 2007-06-27 14:03:53 +0100 (Wed, 27 Jun 2007) | 7 lines
+
+* macros/neon.m4 (NEON_SSL): Check for gnutls_x509_dn_get_rdn_ava and
+iconv.
+
+* src/ne_gnutls.c [HAVE_GNUTLS_X509_DN_GET_RDN_AVA]
+(convert_dirstring, append_dirstring, ne_ssl_readable_dname):
+Implement better RDN handling using GnuTLS 1.7.x interfaces.
+
+------------------------------------------------------------------------
+r1169 | joe | 2007-06-17 22:20:30 +0100 (Sun, 17 Jun 2007) | 2 lines
+
+* doc/ref/alloc.xml: Fix prototype, thanks to Joshua Swink.
+
+------------------------------------------------------------------------
+r1165 | joe | 2007-04-03 21:25:13 +0100 (Tue, 03 Apr 2007) | 5 lines
+
+* src/ne_request.c (proxy_tunnel): Pass back error string and code for
+CONNECT failure.
+
+* test/ssl.c (auth_tunnel_fail): Add regression test for above.
+
+------------------------------------------------------------------------
+r1164 | joe | 2007-02-26 17:04:19 +0000 (Mon, 26 Feb 2007) | 3 lines
+
+* Makefile.in (install-nls-yes): Fix for VPATH builds, patch from Hans
+Meine.
+
+------------------------------------------------------------------------
+r1162 | joe | 2007-02-08 09:45:10 +0000 (Thu, 08 Feb 2007) | 2 lines
+
+* config.hw.in: Define NE_FMT_NE_OFF_T.
+
+------------------------------------------------------------------------
+r1161 | joe | 2007-02-07 17:45:05 +0000 (Wed, 07 Feb 2007) | 4 lines
+
+* src/ne_auth.c (ah_post_send): Fix for SSPI to avoid invoking the
+NULL response header verification callback (patch from
+dicuccio@comcast.net).
+
+------------------------------------------------------------------------
+r1160 | joe | 2007-02-07 17:38:50 +0000 (Wed, 07 Feb 2007) | 2 lines
+
+* src/ne_auth.c: Update comment.
+
+------------------------------------------------------------------------
+r1159 | joe | 2007-02-07 17:36:25 +0000 (Wed, 07 Feb 2007) | 7 lines
+
+* src/ne_string.c (ne_strerror): Handle failure cases for POSIX-style
+strerror_r; always use a temp buffer and copy back to truncate rather
+than fail for a short input buffer.
+
+* test/string-tests.c (str_errors): Test for handling of bogus errno
+values into too-short buffer.
+
+------------------------------------------------------------------------
+r1158 | joe | 2007-02-06 12:46:23 +0000 (Tue, 06 Feb 2007) | 3 lines
+
+* test/util-tests.c (digest_md5, md5): Meet alignment requirement of
+MD5 API.
+
+------------------------------------------------------------------------
+r1156 | joe | 2007-02-05 14:10:27 +0000 (Mon, 05 Feb 2007) | 3 lines
+
+* src/ne_socket.c (write_raw): Work around QNX issue passing large
+buffers to send() over loopback; send 8K at a time.
+
+------------------------------------------------------------------------
+r1155 | joe | 2007-02-05 13:11:00 +0000 (Mon, 05 Feb 2007) | 4 lines
+
+* src/ne_auth.c (verify_negotiate_response): Fix comparison
+of Negotiate response header token, and set error message
+on failure.
+
+------------------------------------------------------------------------
+r1154 | joe | 2007-02-05 13:07:09 +0000 (Mon, 05 Feb 2007) | 3 lines
+
+* src/ne_auth.c (ah_pre_send): Set request idempotent flag
+for SSPI to prevent connection closure.
+
+------------------------------------------------------------------------
+r1153 | joe | 2007-02-05 10:09:27 +0000 (Mon, 05 Feb 2007) | 2 lines
+
+* src/ne_locks.c (lk_pre_send): Terminate If header with CRLF not LF.
+
+------------------------------------------------------------------------
+r1152 | joe | 2007-01-26 00:00:59 +0000 (Fri, 26 Jan 2007) | 5 lines
+
+Build fixes for SSPI code on MingW from Gisle Vanem:
+
+* src/ne_sspi.c: Define SECURITY_ENTRYPOINT if missing.
+(base64ToBuffer): Fix cast.
+
+------------------------------------------------------------------------
+r1132 | joe | 2007-01-11 22:12:58 +0000 (Thu, 11 Jan 2007) | 13 lines
 
 Fix 0.26.x regression; ensure the "attempt" counter passed to creds
 callbacks reflects the number of invocation of that callback only per
@@ -39,9 +1633,7 @@ same.
 regression.
 
 ------------------------------------------------------------------------
-r1133 | joe | 2007-01-11 22:31:47 +0000 (Thu, 11 Jan 2007) | 7 lines
-
-Merge r1131 from trunk:
+r1131 | joe | 2007-01-11 21:33:14 +0000 (Thu, 11 Jan 2007) | 5 lines
 
 * src/ne_uri.c (uri_lookup): Fix cast to prevent buffer under-read on
 non-ASCII characters (CVE-2007-0157, Laszlo Boszormenyi).  
@@ -49,9 +1641,31 @@ non-ASCII characters (CVE-2007-0157, Laszlo Boszormenyi).
 * test/uri-tests.c (parse): Add test case.
 
 ------------------------------------------------------------------------
-r1127 | joe | 2007-01-04 18:58:03 +0000 (Thu, 04 Jan 2007) | 15 lines
+r1130 | joe | 2007-01-09 11:24:54 +0000 (Tue, 09 Jan 2007) | 2 lines
 
-Merge r1126 from trunk:
+* src/ne_auth.c (digest_challenge): Fix comment.
+
+------------------------------------------------------------------------
+r1129 | joe | 2007-01-06 14:27:18 +0000 (Sat, 06 Jan 2007) | 10 lines
+
+* src/ne_auth.c (digest_challenge): Fix to fail correctly for invalid
+case where stale=true is given with an initial challenge; fix to not
+leak sess->nonce for a valid stale challenge.
+
+* test/auth.c (struct digest_parms): Add stale field, enum value.
+(make_digest_header): Send stale=true as appropriate.
+(serve_digest): Adjust to serve challenges with stale=true.
+(digest): Add test for stale=true handling.
+(digest_failures): Add test for error stale=true failure case.
+
+------------------------------------------------------------------------
+r1128 | joe | 2007-01-05 11:07:32 +0000 (Fri, 05 Jan 2007) | 3 lines
+
+* src/ne_request.c (ne_begin_request): Move call to lookup_host from here...
+(open_connection): ...to here; and simplify slightly as a result.
+
+------------------------------------------------------------------------
+r1126 | joe | 2007-01-04 18:44:49 +0000 (Thu, 04 Jan 2007) | 13 lines
 
 Fix nextnonce handling in Digest auth:
 
@@ -67,30 +1681,111 @@ set.
 (digest_failure): Set new paramater fields.
 
 ------------------------------------------------------------------------
-r1122 | joe | 2006-12-28 23:45:54 +0000 (Thu, 28 Dec 2006) | 5 lines
+r1125 | joe | 2007-01-04 18:08:52 +0000 (Thu, 04 Jan 2007) | 3 lines
 
-Merge r1121 from trunk:
+* test/auth.c (make_authinfo_header, digest_failures): Add test for
+failure to parse the nc paramater in an A-I response header.
+
+------------------------------------------------------------------------
+r1124 | joe | 2007-01-03 22:13:05 +0000 (Wed, 03 Jan 2007) | 18 lines
+
+Give descriptive error messages for multiple-challenge authentication
+failures:
+
+* src/ne_auth.c (struct auth_class): Add error_noauth field.
+(struct auth_protocol): Pass errmsg buffers to challenge callback; 
+specify error message location for verify callback.
+(challenge_error): New function.
+(get_credentials, basic_challenge, continue_negotiate,
+negotiate_challenge, digest_challenge): Take errmsg buffer; use
+challenge_error on failure.
+(verify_negotiate_response): Create errmsg buffer, pass to
+continue_negotiate, and set session error string on failure.
+(auth_challenge): Create error buffer and build error message during
+challenge parsing.
+
+* test/auth.c (digest_failures): Adjust for new error string.
+(fail_cb, fail_challenge): Add tests for challenge parse failures.
+
+------------------------------------------------------------------------
+r1123 | joe | 2006-12-29 23:34:09 +0000 (Fri, 29 Dec 2006) | 2 lines
+
+* test/socket.c (connect_timeout): Remove redundant code.
+
+------------------------------------------------------------------------
+r1121 | joe | 2006-12-28 23:41:31 +0000 (Thu, 28 Dec 2006) | 3 lines
 
 * src/ne_session.h (ne_ssl_set_clicert, ne_ssl_trust_cert): Clarify
 lack of lifetime requirement for passed-in objects.
 
 ------------------------------------------------------------------------
-r1110 | joe | 2006-12-28 17:21:59 +0000 (Thu, 28 Dec 2006) | 5 lines
+r1120 | joe | 2006-12-28 23:19:57 +0000 (Thu, 28 Dec 2006) | 2 lines
 
-Merge r1109 from trunk:
+* TODO: Remove features already added.
+
+------------------------------------------------------------------------
+r1119 | joe | 2006-12-28 23:12:18 +0000 (Thu, 28 Dec 2006) | 27 lines
+
+Add support for configurable socket connect timeouts:
+
+* src/ne_socket.h (ne_sock_connect_timeout): New function.
+(ne_sock_connect): Clarify timeout handling.
+
+* src/ne_socket.c: Define USE_NONBLOCKING_CONNECT if appropriate.
+Define NE_ISINPROGRESS.
+(struct ne_socket_s): Add cotimeout field.
+(timed_connect): New function.
+(connect_socket): Renamed from raw_connect; use timed_connect; takes
+socket structure and sets ->error string on failure.
+(ne_sock_connect): Adapt to use connect_socket.
+(ne_sock_connect_timeout): New function.
+
+* src/ne_private.h (struct ne_session_s): Add cotimeout field.
+
+* src/ne_session.h (ne_set_connect_timeout): New prototype...
+
+* src/ne_session.c (ne_set_connect_timeout): ...implement it.
+
+* src/ne_request.c (do_connect): Set socket timeout if appropriate.
+
+* macros/neon.m4 (LIBNEON_SOURCE_CHECKS): Check for fcntl, getsockopt,
+fcntl.h and socklen_t.
+
+* test/socket.c (connect_timeout): Add test (disabled by default).
+
+------------------------------------------------------------------------
+r1118 | joe | 2006-12-28 23:04:28 +0000 (Thu, 28 Dec 2006) | 3 lines
+
+* src/ne_socket.c (raw_poll): Factor out from readable_raw.
+(readable_raw): Use it.
+
+------------------------------------------------------------------------
+r1109 | joe | 2006-12-28 17:20:56 +0000 (Thu, 28 Dec 2006) | 5 lines
+
+Merge r1106 from 0.25.x branch:
 
 * macros/neon-test.m4 (NE_FORMAT_TIMET): Factor out.
 (NEON_TEST): Use it.
 
 ------------------------------------------------------------------------
-r1100 | joe | 2006-10-30 13:20:14 +0000 (Mon, 30 Oct 2006) | 2 lines
+r1104 | joe | 2006-11-30 13:03:34 +0000 (Thu, 30 Nov 2006) | 3 lines
 
-Update for .2.
+* test/request.c (fail_double_lookup, proxy_no_resolve): Use hostname
+in the .invalid TLD, reserved by RFC2606.
 
 ------------------------------------------------------------------------
-r1099 | joe | 2006-10-30 13:18:51 +0000 (Mon, 30 Oct 2006) | 9 lines
+r1103 | joe | 2006-11-08 13:41:10 +0000 (Wed, 08 Nov 2006) | 3 lines
 
-Merge r1098 from trunk:
+* test/socket.c (write_reset): Warn rather than fail for a failure
+to elicit an RST.
+
+------------------------------------------------------------------------
+r1102 | joe | 2006-10-31 10:35:38 +0000 (Tue, 31 Oct 2006) | 2 lines
+
+Note the reports about a GSSAPI problem.
+
+------------------------------------------------------------------------
+r1098 | joe | 2006-10-30 12:35:21 +0000 (Mon, 30 Oct 2006) | 7 lines
 
 Fix real cause of h_errno problem on HP-UX (Albert Chin):
 
@@ -100,29 +1795,81 @@ HP-UX.
 * src/ne_socket.c: Use HAVE_DECL_H_ERRNO macro correctly.
 
 ------------------------------------------------------------------------
-r1091 | joe | 2006-10-05 19:39:44 +0100 (Thu, 05 Oct 2006) | 2 lines
+r1097 | joe | 2006-10-30 12:33:34 +0000 (Mon, 30 Oct 2006) | 2 lines
 
-* NEWS: Matthias not Matthew.
-
-------------------------------------------------------------------------
-r1090 | joe | 2006-10-05 19:35:47 +0100 (Thu, 05 Oct 2006) | 2 lines
-
-* po/: make update-po.
+* src/ne_session.h: Remove trailing comma from new enum (Albert Chin).
 
 ------------------------------------------------------------------------
-r1089 | joe | 2006-10-05 19:34:00 +0100 (Thu, 05 Oct 2006) | 2 lines
+r1096 | joe | 2006-10-30 12:32:45 +0000 (Mon, 30 Oct 2006) | 2 lines
 
-* NEWS: Update for 0.26.2.
-
-------------------------------------------------------------------------
-r1088 | joe | 2006-10-05 19:33:05 +0100 (Thu, 05 Oct 2006) | 2 lines
-
-* macros/neon.m4: Bump to 0.26.2.
+* src/ne_session.h: Docs clarification for new notification interface.
 
 ------------------------------------------------------------------------
-r1087 | joe | 2006-10-05 19:32:01 +0100 (Thu, 05 Oct 2006) | 11 lines
+r1095 | joe | 2006-10-24 21:32:50 +0100 (Tue, 24 Oct 2006) | 3 lines
 
-Merge r1086 from trunk:
+* test/request.c (s_progress): Fix to use ne_off_t types and format
+strings.
+
+------------------------------------------------------------------------
+r1094 | joe | 2006-10-24 21:26:15 +0100 (Tue, 24 Oct 2006) | 20 lines
+
+Add add new type-safer notification/status API:
+
+* src/ne_session.h (ne_notify_status): Redefine callback type,
+passing pointer to ne_session_status_info structure.
+
+* src/ne_request.c (notify_status): Invoke notify callback, and
+progress callback as appropriate.
+(send_request_body, ne_read_response_block, lookup_host,
+ne_begin_request, do_connect): Adjust to set up and invoke
+the notify callback.
+
+* src/ne_openssl.c (ne__negotiate_ssl): Drop notify callback
+invocation.
+
+* src/ne_private.h (struct ne_session_s): Store status union.
+
+* macros/neon.m4: Define NE_FMT_NE_OFF_T.
+
+* test/request.c (status_cb, status): Add new test.
+
+------------------------------------------------------------------------
+r1093 | joe | 2006-10-24 20:45:01 +0100 (Tue, 24 Oct 2006) | 3 lines
+
+* src/ne_auth.c (ah_post_send): Correctly test ->flags against
+AUTH_FLAG_VERIFY_NON40x flag.
+
+------------------------------------------------------------------------
+r1092 | joe | 2006-10-24 20:40:09 +0100 (Tue, 24 Oct 2006) | 26 lines
+
+Simplify LFS support, drop *64 transition functions:
+
+* src/ne_defs.h: Add ne_off_t typedef.
+
+* src/ne_request.h (ne_set_request_body_fd64,
+ne_set_request_body_provider64): Removed.
+
+(ne_set_request_body_fd, ne_set_request_body_provider):
+Take ne_off_t arguments.
+
+* src/ne_internal.h: Move LFS definitions here...
+
+* src/ne_request.c: ...from here.
+(ne_set_request_body_fd64, ne_set_request_body_provider64): Removed.
+(ne_set_request_body_fd, ne_set_request_body_provider): Adjust for
+ne_off_t arguments.
+
+* src/ne_basic.h (ne_get_range64): Removed prototype.
+(ne_content_range): Use ne_off_t offsets.
+
+* src/ne_basic.c (ne_get_range64): Removed function.
+(ne_get_range): Adjust for ne_off_t offsets.
+
+* test/largefile.c (send_high_offset, read_large_response): Adjust to
+use normal interfaces.  Save and restore debug mask.
+
+------------------------------------------------------------------------
+r1086 | joe | 2006-10-05 19:31:18 +0100 (Thu, 05 Oct 2006) | 9 lines
 
 * macros/neon.m4 (NE_CHECK_OS): Split out from NE_OS_*.  Conditionally
 add _XOPEN_SOURCE_EXTENDED=1 to CPPFLAGS for HP-UXes.
@@ -134,9 +1881,7 @@ here.
 * src/ne_socket.c: Don't set _XOPEN_SOURCE_EXTENDED here.
 
 ------------------------------------------------------------------------
-r1085 | joe | 2006-10-05 14:12:18 +0100 (Thu, 05 Oct 2006) | 9 lines
-
-Merge r1084 from trunk:
+r1084 | joe | 2006-10-05 14:10:00 +0100 (Thu, 05 Oct 2006) | 7 lines
 
 * test/makekeys.sh: Remove hostname-based munging for wildcard cert; always
 use *.example.com.
@@ -146,79 +1891,182 @@ use *.example.com.
 (wildcard_init): Removed function.
 
 ------------------------------------------------------------------------
-r1083 | joe | 2006-10-05 13:50:26 +0100 (Thu, 05 Oct 2006) | 10 lines
+r1080 | joe | 2006-10-05 13:33:33 +0100 (Thu, 05 Oct 2006) | 3 lines
 
-Merge r1054, r1065 from trunk:
-
-* configure.in: Substitute NEON_PC_LIBS for neon.pc.
-
-* neon.pc.in: Define Libs.Private; use only NEON_PC_LIBS in Libs.
-
-* src/ne_string.c (ascii_tolower): Use integer constants rather than
-character constants to fix warnings with Sun cc; patch from Peter
-O'Gorman.
+* macros/neon.m4 (NEON_I18N): Really disable i18n if libintl.h is not
+detected.
 
 ------------------------------------------------------------------------
-r1082 | joe | 2006-10-05 13:40:46 +0100 (Thu, 05 Oct 2006) | 11 lines
+r1079 | joe | 2006-10-03 22:03:31 +0100 (Tue, 03 Oct 2006) | 2 lines
 
-Merge r1071, r1072, r1073 from trunk:
-
-* src/ne_uri.c (ne_path_lower): Avoid use of min() (Matthias Miller).
-
-* macros/neon.m4 (NE_OS_MINGW): New macro.
-(NE_SEARCH_LIBS): Check for function using __stdcall calling convention if
-on MinGW and library to search is -lws2_32.
-(LIBNEON_SOURCE_CHECKS): Also check for gethostbyname in -lws2_32.
-
-* macros/neon.m4 (NE_OS_MINGW): Update comment, thanks to Matthias Miller.
+* test/request.c (fail_noheader): New regression test.
 
 ------------------------------------------------------------------------
-r1081 | joe | 2006-10-05 13:37:24 +0100 (Thu, 05 Oct 2006) | 14 lines
+r1078 | joe | 2006-10-03 21:31:28 +0100 (Tue, 03 Oct 2006) | 7 lines
 
-Merge r1020, r1078, r1079, r1080 from trunk:
-
-* test/run.sh: Don't limit virtual memory use.
+Fix error reported for LOCK responses which lack a Lock-Token header:
 
 * src/ne_locks.c (struct lock_ctx): Add parser pointer.
 (lk_startelm): Set XML parser error when failing parse.
 (ne_lock, ne_lock_refresh): Set parser in context; omit explicit XML
 parse error handling already done by ne_xml_dispatch_request.
 
-* test/request.c (fail_noheader): New regression test.
+------------------------------------------------------------------------
+r1077 | joe | 2006-09-26 10:35:46 +0100 (Tue, 26 Sep 2006) | 14 lines
 
-* macros/neon.m4 (NEON_I18N): Really disable i18n if libintl.h is not
-detected.
+* src/ne_xmlreq.h (ne_xml_dispatch_request): Update API semantics to
+constrain media type of parsed responses.
+
+* src/ne_xmlreq.c (media_type_is_xml): New function.
+(ne_xml_dispatch_request): Use it; only parse 2xx responses with XML
+media types.
+
+* test/xmlreq.c (startelm): New function.
+(success): Check XML is actually parsed.
+(types): New test.
+
+* test/lock.c (lock_timeout, lock_shared): Add content-type for XML
+responses.
 
 ------------------------------------------------------------------------
-r1066 | joe | 2006-09-05 15:43:47 +0100 (Tue, 05 Sep 2006) | 14 lines
+r1076 | joe | 2006-09-26 10:18:09 +0100 (Tue, 26 Sep 2006) | 2 lines
 
-Merge r1055, r1058, r1062, r1063, r1064 from trunk:
+* src/ne_request.c (ne_begin_request): Remove redundant test.
 
-* src/ne_openssl.c (ne__ssl_init): Call CRYPTO_malloc_init() first per
-dev@apr discussion.
+------------------------------------------------------------------------
+r1075 | joe | 2006-09-26 10:13:42 +0100 (Tue, 26 Sep 2006) | 18 lines
 
-* config.hw.in: Enable debugging for Win32 build.
+Add new hook which runs after the headers have been read:
 
-* src/ne_sspi.c (ne_sspi_clear_context): Add missing return statement;
-patch from Kiyo Kelvin Lee.
+* src/ne_request.h (ne_post_headers_fn, ne_hook_post_headers): Add
+type, prototype.
 
-* src/ne_sspi.c (resetContext): Fix build with older SDKs (Kiyo Kelvin Lee).
+* src/ne_private.h (struct ne_session_s): Add post_headers_hooks
+field.
+
+* src/ne_request.c (ne_begin_request): Run post_headers hooks.
+
+* src/ne_session.c (ne_session_destroy): Destroy post_headers hooks.
+(ne_hook_post_headers, ne_unhook_post_headers): New functions.
+
+* test/request.c (status_to_string): New function.
+(hook_post_send): Use it.
+(hook_post_headers): New function.
+(hooks): Test post_headers hook.
+
+------------------------------------------------------------------------
+r1073 | joe | 2006-09-13 18:38:32 +0100 (Wed, 13 Sep 2006) | 2 lines
+
+* macros/neon.m4 (NE_OS_MINGW): Update comment, thanks to Matthias Miller.
+
+------------------------------------------------------------------------
+r1072 | joe | 2006-09-12 22:04:31 +0100 (Tue, 12 Sep 2006) | 7 lines
+
+Fix library detection on MinGW, based on patch by Matthias Miller:
+
+* macros/neon.m4 (NE_OS_MINGW): New macro.
+(NE_SEARCH_LIBS): Check for function using __stdcall calling convention if
+on MinGW and library to search is -lws2_32.
+(LIBNEON_SOURCE_CHECKS): Also check for gethostbyname in -lws2_32.
+
+------------------------------------------------------------------------
+r1071 | joe | 2006-09-12 21:54:17 +0100 (Tue, 12 Sep 2006) | 2 lines
+
+* src/ne_uri.c (ne_path_lower): Avoid use of min() (Matthias Miller).
+
+------------------------------------------------------------------------
+r1070 | joe | 2006-09-12 19:51:28 +0100 (Tue, 12 Sep 2006) | 4 lines
+
+* src/ne_acl.h (ne_acl_set): Take const entries array.
+
+* src/ne_acl.c (ne_acl_set, acl_body): Likewise.
+
+------------------------------------------------------------------------
+r1069 | joe | 2006-09-12 18:38:57 +0100 (Tue, 12 Sep 2006) | 7 lines
+
+Remove use of session-private interfaces in auth code:
+
+* src/ne_auth.c: Drop ne_private.h #include.
+(sspi_challenge) [HAVE_SSPI]: Use ne_fill_server_uri.
+(auth_register) [HAVE_GSSAPI]: Use ne_fill_proxy_uri or
+ne_fill_server_uri.
+
+------------------------------------------------------------------------
+r1068 | joe | 2006-09-12 18:36:41 +0100 (Tue, 12 Sep 2006) | 10 lines
+
+Update for bleeding-edge OpenSSL thread-safety interfaces:
+
+* macros/neon.m4 (NEON_SSL): Check for CRYPTO_set_idptr_callback.
+
+* src/ne_openssl.c (thread_id_neon): Update comments.
+(ID_CALLBACK_IS_OTHER, ID_CALLBACK_IS_NEON): New macros.
+(ne__ssl_init, ne__ssl_exit): Update to use avoid touching the
+"id" callback if the idptr interfaces exist, since the default
+will be sane.
+
+------------------------------------------------------------------------
+r1067 | joe | 2006-09-12 14:52:39 +0100 (Tue, 12 Sep 2006) | 2 lines
+
+* src/ne_string.h (ne_strnzcpy): Avoid expanding argument twice.
+
+------------------------------------------------------------------------
+r1065 | joe | 2006-09-05 08:39:48 +0100 (Tue, 05 Sep 2006) | 4 lines
+
+* src/ne_string.c (ascii_tolower): Use integer constants rather than
+character constants to fix warnings with Sun cc; patch from Peter
+O'Gorman.
+
+------------------------------------------------------------------------
+r1064 | joe | 2006-08-09 15:56:04 +0100 (Wed, 09 Aug 2006) | 2 lines
 
 * config.hw.in: Fixes for newer SDKs; patch from Kiyo Kelvin Lee.
 
 ------------------------------------------------------------------------
-r1052 | joe | 2006-05-23 21:31:51 +0100 (Tue, 23 May 2006) | 2 lines
+r1063 | joe | 2006-08-09 15:54:51 +0100 (Wed, 09 Aug 2006) | 2 lines
 
-* po/: make update-po.
+* src/ne_sspi.c (resetContext): Fix build with older SDKs.
 
 ------------------------------------------------------------------------
-r1051 | joe | 2006-05-23 21:30:44 +0100 (Tue, 23 May 2006) | 1 line
+r1062 | joe | 2006-08-09 15:49:12 +0100 (Wed, 09 Aug 2006) | 3 lines
 
-Bump for 0.26.1.
+* src/ne_sspi.c (ne_sspi_clear_context): Add missing return statement;
+patch from Kiyo Kelvin Lee.
+
 ------------------------------------------------------------------------
-r1050 | joe | 2006-05-23 21:27:37 +0100 (Tue, 23 May 2006) | 8 lines
+r1058 | joe | 2006-07-17 12:52:11 +0100 (Mon, 17 Jul 2006) | 2 lines
 
-Merge r1049 from trunk:
+* config.hw.in: Enable debugging for Win32 build.
+
+------------------------------------------------------------------------
+r1057 | joe | 2006-06-29 16:02:03 +0100 (Thu, 29 Jun 2006) | 7 lines
+
+* src/ne_session.h (ne_fill_proxy_uri): New prototype.
+(ne_fill_server_uri): Clarify.
+
+* src/ne_session.c (ne_fill_proxy_uri): New function.
+
+* test/session.c (fill_proxy_uri): New test.
+
+------------------------------------------------------------------------
+r1056 | joe | 2006-06-29 15:44:37 +0100 (Thu, 29 Jun 2006) | 2 lines
+
+* src/ne_auth.c (auth_session): Remove unused fields.
+
+------------------------------------------------------------------------
+r1055 | joe | 2006-06-26 12:25:20 +0100 (Mon, 26 Jun 2006) | 3 lines
+
+* src/ne_openssl.c (ne__ssl_init): Call CRYPTO_malloc_init() first per
+dev@apr discussion.
+
+------------------------------------------------------------------------
+r1054 | joe | 2006-06-26 11:01:29 +0100 (Mon, 26 Jun 2006) | 4 lines
+
+* configure.in: Substitute NEON_PC_LIBS for neon.pc.
+
+* neon.pc.in: Define Libs.Private; use only NEON_PC_LIBS in Libs.
+
+------------------------------------------------------------------------
+r1049 | joe | 2006-05-23 21:17:41 +0100 (Tue, 23 May 2006) | 6 lines
 
 Readonly data fixes from Benoît Dejean:
 
@@ -227,9 +2075,17 @@ Readonly data fixes from Benoît Dejean:
 * src/ne_dates.c (rfc1123_weekdays, short_months): Mark more const.
 
 ------------------------------------------------------------------------
-r1048 | joe | 2006-05-23 21:11:06 +0100 (Tue, 23 May 2006) | 8 lines
+r1046 | joe | 2006-05-11 10:43:43 +0100 (Thu, 11 May 2006) | 1 line
 
-Merge r1044 from trunk:
+* po/: make update-po.
+------------------------------------------------------------------------
+r1045 | joe | 2006-05-11 10:41:55 +0100 (Thu, 11 May 2006) | 3 lines
+
+* configure.in, po/zh.po: Add Simplified Chinese translation, from Dongsheng 
+Song.
+
+------------------------------------------------------------------------
+r1044 | joe | 2006-05-09 08:02:43 +0100 (Tue, 09 May 2006) | 6 lines
 
 Win32 build fixes from D.J. Heap:
 
@@ -238,35 +2094,16 @@ forward-declaration.
 (request_sspi): Fix declaration.
 
 ------------------------------------------------------------------------
-r1047 | joe | 2006-05-23 21:09:22 +0100 (Tue, 23 May 2006) | 5 lines
+r1020 | joe | 2006-03-24 12:24:39 +0000 (Fri, 24 Mar 2006) | 2 lines
 
-Merge r1045 from trunk:
-
-* configure.in, po/zh.po: Add Simplified Chinese translation, from Dongsheng 
-Song.
+* test/run.sh: Don't limit virtual memory use.
 
 ------------------------------------------------------------------------
-r1032 | joe | 2006-04-13 14:10:57 +0100 (Thu, 13 Apr 2006) | 2 lines
-
-* test-common/tests.c (main): Fix for neon < 0.26.
-
-------------------------------------------------------------------------
-r1017 | joe | 2006-03-14 16:59:17 +0000 (Tue, 14 Mar 2006) | 5 lines
-
-Merge r1016 from trunk:
+r1016 | joe | 2006-03-14 16:57:43 +0000 (Tue, 14 Mar 2006) | 3 lines
 
 * macros/neon.m4 (LIBNEON_SOURCE_CHECKS): Make the timezone test match
 the code; fix OS X build.
 
-------------------------------------------------------------------------
-r1006 | joe | 2006-03-11 19:04:12 +0000 (Sat, 11 Mar 2006) | 2 lines
-
-Add 0.26.x branch.
-
-------------------------------------------------------------------------
-r1005 | joe | 2006-03-11 18:54:19 +0000 (Sat, 11 Mar 2006) | 1 line
-
-Tag release 0.26.0.
 ------------------------------------------------------------------------
 r1004 | joe | 2006-03-11 18:51:51 +0000 (Sat, 11 Mar 2006) | 2 lines
 

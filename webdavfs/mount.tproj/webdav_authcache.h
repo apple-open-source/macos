@@ -60,18 +60,20 @@ int authcache_apply(
 	CFHTTPMessageRef request,			/* -> the request to apply authentication to */
 	UInt32 statusCode,					/* -> the status code (401, 407), or 0 if no challenge */
 	CFHTTPMessageRef response,			/* -> the response containing the challenge, or NULL if no challenge */
-	AuthRequestContext *ctx);			/* <- the auth context for this request */
+	UInt32 *generation);				/* <- the generation count of the cache entry */
 
 int authcache_valid(
 	uid_t uid,							/* -> uid of the user making the request */
 	CFHTTPMessageRef request,			/* -> the message of the successful request */
-	AuthRequestContext *ctx);			/* -> the auth context for this request */
+	UInt32 generation);					/* -> the generation count of the cache entry */
 
 int authcache_proxy_invalidate(void);
 
 int authcache_init(
 	char *username,				/* -> username to attempt to use on first server challenge, or NULL */
 	char *password,				/* -> password to attempt to use on first server challenge, or NULL */
+	char *proxy_username,		/* -> username to attempt to use on first proxy server challenge, or NULL */
+	char *proxy_password,		/* -> password to attempt to use on first proxy server challenge, or NULL */
 	char *domain);				/* -> account domain to attempt to use on first server challenge, or NULL */
 
 /*****************************************************************************/

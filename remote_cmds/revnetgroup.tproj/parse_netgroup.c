@@ -1,28 +1,4 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-/* $OpenBSD: parse_netgroup.c,v 1.2 1997/08/18 03:11:35 millert Exp $ */
-/*
  * Copyright (c) 1992, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -56,9 +32,12 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- *	$FreeBSD: parse_netgroup.c,v 1.5 1997/02/22 14:22:02 peter Exp $
  */
+
+#ifndef lint
+static const char rcsid[] =
+  "$FreeBSD: src/libexec/revnetgroup/parse_netgroup.c,v 1.9 2002/04/01 21:13:15 mike Exp $";
+#endif /* not lint */
 
 /*
  * This is a specially hacked-up version of getnetgrent.c used to parse
@@ -69,13 +48,10 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <strings.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include "hash.h"
-
-#ifndef lint
-static const char rcsid[] = "$OpenBSD: parse_netgroup.c,v 1.2 1997/08/18 03:11:35 millert Exp $";
-#endif
 
 /*
  * Static Variables and functions used by setnetgrent(), getnetgrent() and
@@ -109,10 +85,8 @@ static struct {
 	(struct netgrp *)0,
 	(char *)0,
 };
-static int parse_netgrp();
-static struct linelist *read_for_group();
-void __setnetgrent(), __endnetgrent();
-int __getnetgrent();
+static int parse_netgrp(char *group);
+static struct linelist *read_for_group(char *group);
 extern struct group_entry *gtable[];
 
 /*
@@ -122,8 +96,7 @@ extern struct group_entry *gtable[];
  * most of the work.
  */
 void
-__setnetgrent(group)
-	char *group;
+__setnetgrent(char *group)
 {
 	/* Sanity check */
 
@@ -148,8 +121,7 @@ __setnetgrent(group)
  * Get the next netgroup off the list.
  */
 int
-__getnetgrent(hostp, userp, domp)
-	char **hostp, **userp, **domp;
+__getnetgrent(char **hostp, char **userp, char **domp)
 {
 	if (nextgrp) {
 		*hostp = nextgrp->ng_str[NG_HOST];
@@ -165,10 +137,10 @@ __getnetgrent(hostp, userp, domp)
  * __endnetgrent() - cleanup
  */
 void
-__endnetgrent()
+__endnetgrent(void)
 {
-	register struct linelist *lp, *olp;
-	register struct netgrp *gp, *ogp;
+	struct linelist *lp, *olp;
+	struct netgrp *gp, *ogp;
 
 	lp = linehead;
 	while (lp) {
@@ -202,13 +174,12 @@ __endnetgrent()
  * Parse the netgroup file setting up the linked lists.
  */
 static int
-parse_netgrp(group)
-	char *group;
+parse_netgrp(char *group)
 {
-	register char *spos, *epos;
-	register int len, strpos;
+	char *spos, *epos;
+	int len, strpos;
 #ifdef DEBUG
-	register int fields;
+	int fields;
 #endif
 	char *pos, *gpos;
 	struct netgrp *grp;
@@ -233,7 +204,7 @@ parse_netgrp(group)
 		 * spewing it out from inside libc can actually hose
 		 * certain programs.
 		 */
-		fprintf(stderr, "Cycle in netgroup %s\n", lp->l_groupname);
+		warnx("cycle in netgroup %s", lp->l_groupname);
 #endif
 		return (1);
 	} else
@@ -287,7 +258,7 @@ parse_netgrp(group)
 			 * stay silent by default for compatibility's sake.
 			 */
 			if (fields < 3)
-					fprintf(stderr, "Bad entry (%s%s%s%s%s) in netgroup \"%s\"\n",
+					warnx("bad entry (%s%s%s%s%s) in netgroup \"%s\"",
 						grp->ng_str[NG_HOST] == NULL ? "" : grp->ng_str[NG_HOST],
 						grp->ng_str[NG_USER] == NULL ? "" : ",",
 						grp->ng_str[NG_USER] == NULL ? "" : grp->ng_str[NG_USER],
@@ -313,11 +284,10 @@ parse_netgrp(group)
  * is found. Return 1 if eof is encountered.
  */
 static struct linelist *
-read_for_group(group)
-	char *group;
+read_for_group(char *group)
 {
-	register char *pos, *spos, *linep = NULL, *olinep = NULL;
-	register int len, olen;
+	char *pos, *spos, *linep = NULL, *olinep = NULL;
+	int len, olen;
 	int cont;
 	struct linelist *lp;
 	char line[LINSIZ + 1];

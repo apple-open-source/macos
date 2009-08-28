@@ -2,7 +2,7 @@
 #define CIRCULAR_H
 
 #include <render.h>
-#include <block.h>
+#include <graphviz_block.h>
 #include <stack.h>
 
 typedef struct {

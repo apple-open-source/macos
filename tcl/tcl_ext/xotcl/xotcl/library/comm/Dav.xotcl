@@ -1,0 +1,175 @@
+# $Id: Dav.xotcl,v 1.4 2006/02/18 22:17:33 neumann Exp $
+
+package provide xotcl::comm::dav 0.9
+
+package require XOTcl
+
+namespace eval ::xotcl::comm::dav {
+  package require xotcl::comm::httpAccess
+  namespace import ::xotcl::*
+
+  Class Dav -superclass Http
+  Dav instproc initialize args {
+    my instvar contentType 
+    #showCall
+    set contentType text/xml
+    next
+  }
+
+  Dav instproc PROPFIND {} {
+    #showCall
+    # extra dav headers
+    # Depth: ("0" | "1" | "infinity") [infinity is the default]
+    
+    # body is a propfind XML-Element
+    # <!ELEMENT propfind (allprop | propname | prop) >
+    #     <!ELEMENT allprop EMPTY >
+    #     <!ELEMENT propname EMPTY >
+    #     <!ELEMENT prop ANY>
+
+    # this should be set by the clients
+    #<?xml version="1.0" encoding="utf-8" ?>
+    #             <D:propfind xmlns:D='DAV:'>
+    #                  <D:allprop/>
+    #             </D:propfind>
+    my open
+  }
+  Dav instproc PROPPATCH {} {
+    #showCall
+    # body is a propertyupdate XML-Element
+    # <!ELEMENT propertyupdate (remove | set)+ >
+    #     <!ELEMENT remove (prop) >
+    #     <!ELEMENT set (prop) >
+    
+    #   set xmlReqBody($method) "<?xml version=\"1.0\" encoding=\"utf-8\" ?>
+    #             <D:propertyupdate xmlns:D=\"DAV:\">
+    #                 <D:remove>
+    #                    <D:prop> 
+    #                        <D:displayname/>
+    #                    </D:prop>                    
+    #                  </D:remove>
+    #             </D:propertyupdate>"
+    my open
+  }
+  Dav instproc MKCOL {} {
+    #showCall
+    # invoked without a request body (may contain a message body?)
+    my open
+  }
+  Dav instproc GET {} {
+    #showCall
+    # invoked without a request body and without extra header
+    # back to HTTP class
+    next
+  }
+  Dav instproc HEAD {} {
+    #showCall
+    # invoked without a request bodyand without extra header
+    # back to HTTP class
+    next
+  }
+  Dav instproc POST {} {
+    #showCall
+    # the same as in  RFC2068
+    # back to HTTP class
+    next
+  }
+  Dav instproc DELETE {} {
+    #showCall
+    # extra dav headers
+    # Depth: ("0" | "1" | "infinity")
+
+    # invoked without a request body
+    my open
+  }
+  Dav instproc PUT {} {
+    #showCall
+    # PUT for Non-Collection Resources --> RFC2068
+    # PUT for Collections --> MKCOL
+    # next
+  }
+  Dav instproc COPY {} {
+    #showCall
+    # extra dav headers
+    # If: [see 9.4 WebDAV]
+    # Destination: <absolutURI> [see RFC2396 for the definition of absolutURI]
+    # Depth: ("0" | "1" | "infinity")
+    # Overwrite: ("T" | "F")
+    
+
+    # body is a propertybehavior XML-Element
+    # <!ELEMENT propertybehavior (omit | keepalive) >
+    #     <!ELEMENT omit EMPTY >
+    #     <!ELEMENT keepalive (#PCDATA | href+) >
+    #         <!ELEMENT href (#PCDATA) >
+    my open
+  }
+  Dav instproc MOVE {} {
+    #showCall
+    # extra dav headers
+    # If: [see 9.4 WebDAV]
+    # Destination: <absolutURI> [see RFC2396 for the definition of absolutURI]
+    # Depth: "infinity" [see 8.9.2]
+    # Overwrite: ("T" | "F")
+
+    # body is a propertybehavior XML-Element
+    # see COPY
+    my open
+  }
+  Dav instproc LOCK {} {
+    #showCall
+    # extra dav headers
+    # If: [see 9.4 WebDAV]
+    # Destination: <absolutURI> [see RFC2396 for the definition of absolutURI]
+    # Depth: ("0" | "1" | "infinity")
+    # Timeout: [see 9.8 WebDAV]
+    # Authorization: (defined in HTTP1.1 in 14.8)
+
+    # body is a lockinfo XML-Element
+    # <!ELEMENT lockinfo (lockscope, locktype, owner?) >
+    #    <!ELEMENT lockscope (exclusive | shared) >
+    #        <!ELEMENT exclusive EMPTY >
+    #        <!ELEMENT shared EMPTY >
+    #    <!ELEMENT locktype (write) >
+    #        <!ELEMENT write EMPTY >
+    #    <!ELEMENT owner ANY>
+    my open
+  }
+
+  # The Lock-Token request header is used with the UNLOCK method to
+  # identify the lock to be removed.
+  Dav instproc UNLOCK {} {
+    my instvar headers 
+    #showCall
+    # extra dav headers
+    # Lock-Token: <Coded-URL> [see 8.11 in WebDAV]
+
+    # invoked without a request body
+    my open
+  }
+
+  #---------------------
+  # Utility            #
+  #---------------------
+
+  #?
+  Object xmlReqBodyManager 
+  xmlReqBodyManager proc requireXmlReqBody {request} {
+  }
+
+  #? 
+  Object davHeaderManager 
+  davHeaderManager proc requireDavHeader {request} {
+  }
+
+
+
+  #LOCK /DAV/welcome.html HTTP/1.1  
+  #Host: wawog
+  #Connection: close
+
+  namespace export Dav \
+      xmlReqBodyManager davHeaderManager 
+}
+
+namespace import ::xotcl::comm::dav::*

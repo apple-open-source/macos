@@ -42,12 +42,13 @@ includes
 #include <SystemConfiguration/SCPrivate.h>      // for SCLog()
 
 #include "ppp_msg.h"
+#include "scnc_main.h"
 #include "ppp_privmsg.h"
-#include "ppp_client.h"
+#include "scnc_client.h"
 #include "ppp_manager.h"
 #include "ppp_option.h"
 #include "ppp_socket_server.h"
-#include "ppp_utils.h"
+#include "scnc_utils.h"
 
 /* -----------------------------------------------------------------------------
 definitions
@@ -101,7 +102,7 @@ static void clientCallBack(CFSocketRef s, CFSocketCallBackType type,
 globals
 ----------------------------------------------------------------------------- */
 
-extern TAILQ_HEAD(, ppp) 	ppp_head;
+extern TAILQ_HEAD(, service) 	service_head;
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
@@ -216,7 +217,6 @@ void listenCallBack(CFSocketRef inref, CFSocketCallBackType type,
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-static 
 int readn(int ref, void *data, int len)
 {
     int 	n, left = len;
@@ -305,7 +305,7 @@ void clientCallBack(CFSocketRef inref, CFSocketCallBackType type,
         switch (n) {
             case -1:
                 action = do_close;
-                break;
+				goto clientCallBackPerformAction;
             default:
                 client->msglen += n;
                 if (client->msglen == sizeof(struct ppp_msg_hdr)) {
@@ -313,36 +313,52 @@ void clientCallBack(CFSocketRef inref, CFSocketCallBackType type,
 					/* check if message bytes are in network order */
 					if (!(client->flags & CLIENT_FLAG_PRIVILEDGED) && (client->msghdr.m_type > LAST_REQUEST)) {
 						client->flags |= CLIENT_FLAG_SWAP_BYTES;
-						client->msghdr.m_flags = htons(client->msghdr.m_flags);
-						client->msghdr.m_type = htons(client->msghdr.m_type);
-						client->msghdr.m_result = htonl(client->msghdr.m_result);
-						client->msghdr.m_cookie = htonl(client->msghdr.m_cookie);
-						client->msghdr.m_link = htonl(client->msghdr.m_link);
-						client->msghdr.m_len = htonl(client->msghdr.m_len);
+						client->msghdr.m_flags = ntohs(client->msghdr.m_flags);
+						client->msghdr.m_type = ntohs(client->msghdr.m_type);
+						client->msghdr.m_result = ntohl(client->msghdr.m_result);
+						client->msghdr.m_cookie = ntohl(client->msghdr.m_cookie);
+						client->msghdr.m_link = ntohl(client->msghdr.m_link);
+						client->msghdr.m_len = ntohl(client->msghdr.m_len);
 					}
 					else 
 						client->flags &= ~CLIENT_FLAG_SWAP_BYTES;
+
+					/* verify msghdr fields that are used to calculate msgtotallen */
+					if (client->msghdr.m_len > PPP_MSG_MAX_DATA_LEN) {
+						SCLog(TRUE, LOG_ERR, CFSTR("Invalid client message header: length %d...\n"), client->msghdr.m_len);
+						action = do_error;
+						goto clientCallBackPerformAction;
+					}
+					if (client->msghdr.m_flags & USE_SERVICEID &&
+						client->msghdr.m_link > PPP_MSG_MAX_SERVICEID_LEN) {
+						SCLog(TRUE, LOG_ERR, CFSTR("Invalid client message header: service-id %d...\n"), client->msghdr.m_link);
+						action = do_error;
+						goto clientCallBackPerformAction;
+					}
 
                     client->msgtotallen = client->msglen
                         + client->msghdr.m_len
                         + (client->msghdr.m_flags & USE_SERVICEID ? client->msghdr.m_link : 0);
                     client->msg = my_Allocate(client->msgtotallen + 1);
-                    if (client->msg == 0)
+					if (client->msg == 0) {
+						SCLog(TRUE, LOG_ERR, CFSTR("Failed to allocate client message...\n"));
                         action = do_error;
-                    else {
+						goto clientCallBackPerformAction;
+                    } else {
                         bcopy(&client->msghdr, client->msg, sizeof(struct ppp_msg_hdr));
                         // let's end the message with a null byte
                         client->msg[client->msgtotallen] = 0;
                     }
                 }
         }
-    }
-     
+	}
+
     /* first read the data part of the message, including serviceid */
     if (client->msglen >= sizeof(struct ppp_msg_hdr)) {
         n = readn(s, &client->msg[client->msglen], client->msgtotallen - client->msglen);
         switch (n) {
             case -1:
+				SCLog(TRUE, LOG_ERR, CFSTR("Failed to read client message...\n"));
                 action = do_close;
                 break;
             default:
@@ -353,6 +369,7 @@ void clientCallBack(CFSocketRef inref, CFSocketCallBackType type,
         }
     }
 
+clientCallBackPerformAction:
     /* perform action */
     switch (action) {
         case do_nothing:
@@ -451,13 +468,13 @@ void processRequest (struct client *client, struct msg *msg)
 /* -----------------------------------------------------------------------------
 find the ppp structure corresponding to the message
 ----------------------------------------------------------------------------- */
-struct ppp *ppp_find(struct msg *msg)
+struct service *ppp_find(struct msg *msg)
 {
 
     if (msg->hdr.m_flags & USE_SERVICEID)
-        return ppp_findbysid(msg->data, msg->hdr.m_link);
+        return findbysid(msg->data, msg->hdr.m_link);
     else
-        return ppp_findbyref(msg->hdr.m_link);
+        return findbyref(TYPE_PPP, msg->hdr.m_link);
 
     return 0;
 }
@@ -467,17 +484,17 @@ struct ppp *ppp_find(struct msg *msg)
 static
 void socket_status(struct client *client, struct msg *msg, void **reply)
 {
-    struct ppp			*ppp = ppp_find(msg);
+    struct service			*serv = ppp_find(msg);
     int					err;
 	u_int16_t			replylen;
 
-    if (!ppp) {
+    if (!serv) {
         msg->hdr.m_result = ENODEV;
         msg->hdr.m_len = 0;
         return;
     }
 
-	err = ppp_getstatus(ppp, reply, &replylen);
+	err = ppp_getstatus1(serv, reply, &replylen);
 	if (err) {
 		msg->hdr.m_result = err;
 		msg->hdr.m_len = 0;
@@ -506,17 +523,17 @@ void socket_status(struct client *client, struct msg *msg, void **reply)
 static
 void socket_extendedstatus(struct client *client, struct msg *msg, void **reply)
 {
-    struct ppp			*ppp = ppp_find(msg);
+    struct service			*serv = ppp_find(msg);
     u_int16_t			replylen = 0;
 	int					err;
     
-    if (!ppp) {
+    if (!serv) {
         msg->hdr.m_result = ENODEV;
         msg->hdr.m_len = 0;
         return;
     }
 
-	err = ppp_copyextendedstatus(ppp, reply, &replylen);
+	err = ppp_copyextendedstatus(serv, reply, &replylen);
 	if (err) {
 		msg->hdr.m_result = err;
 		msg->hdr.m_len = 0;
@@ -532,11 +549,11 @@ void socket_extendedstatus(struct client *client, struct msg *msg, void **reply)
 static
 void socket_connect(struct client *client, struct msg *msg, void **reply)
 {
-    void 		*data = (struct ppp_status *)&msg->data[MSG_DATAOFF(msg)];
-    struct ppp		*ppp = ppp_find(msg);
+    void			*data = (struct ppp_status *)&msg->data[MSG_DATAOFF(msg)];
+    struct service	*serv = ppp_find(msg);
     CFDictionaryRef	opts = 0;
 
-    if (!ppp) {
+    if (!serv) {
         msg->hdr.m_result = ENODEV;
         msg->hdr.m_len = 0;
         return;
@@ -544,7 +561,7 @@ void socket_connect(struct client *client, struct msg *msg, void **reply)
         
     if (msg->hdr.m_len == 0) {
         // first find current the appropriate set of options
-        opts = client_findoptset(client, ppp->serviceID);
+        opts = client_findoptset(client, serv->serviceID);
     }
     else {
         opts = (CFDictionaryRef)Unserialize(data, msg->hdr.m_len);
@@ -557,7 +574,7 @@ void socket_connect(struct client *client, struct msg *msg, void **reply)
         }
     }
     
-    msg->hdr.m_result = ppp_connect(ppp, opts, 0, 
+    msg->hdr.m_result = scnc_start(serv, opts, 
         (msg->hdr.m_flags & CONNECT_ARBITRATED_FLAG) ? client : 0,  
         (msg->hdr.m_flags & CONNECT_AUTOCLOSE_FLAG) ? 1 : 0, client->uid, client->gid, 0);
     if (opts && msg->hdr.m_len) 
@@ -570,15 +587,15 @@ void socket_connect(struct client *client, struct msg *msg, void **reply)
 static
 void socket_disconnect(struct client *client, struct msg *msg, void **reply)
 {
-    struct ppp		*ppp = ppp_find(msg);
+    struct service		*serv = ppp_find(msg);
     
-    if (!ppp) {
+    if (!serv) {
         msg->hdr.m_result = ENODEV;
         msg->hdr.m_len = 0;
         return;
     }
     
-    ppp_disconnect(ppp, (msg->hdr.m_flags & DISCONNECT_ARBITRATED_FLAG) ? client : 0, SIGHUP);
+    scnc_stop(serv, (msg->hdr.m_flags & DISCONNECT_ARBITRATED_FLAG) ? client : 0, SIGHUP);
 
     msg->hdr.m_result = 0;
     msg->hdr.m_len = 0;
@@ -589,15 +606,15 @@ void socket_disconnect(struct client *client, struct msg *msg, void **reply)
 static
 void socket_suspend(struct client *client, struct msg *msg, void **reply)
 {
-    struct ppp		*ppp = ppp_find(msg);
+    struct service		*serv = ppp_find(msg);
     
-    if (!ppp) {
+    if (!serv) {
         msg->hdr.m_result = ENODEV;
         msg->hdr.m_len = 0;
         return;
     }
     
-    ppp_suspend(ppp); 
+    ppp_suspend(serv); 
 
     msg->hdr.m_result = 0;
     msg->hdr.m_len = 0;
@@ -608,15 +625,15 @@ void socket_suspend(struct client *client, struct msg *msg, void **reply)
 static
 void socket_resume(struct client *client, struct msg *msg, void **reply)
 {
-    struct ppp		*ppp = ppp_find(msg);
+    struct service		*serv = ppp_find(msg);
     
-    if (!ppp) {
+    if (!serv) {
         msg->hdr.m_result = ENODEV;
         msg->hdr.m_len = 0;
         return;
     }
     
-    ppp_resume(ppp);
+    ppp_resume(serv);
 
     msg->hdr.m_result = 0;
     msg->hdr.m_len = 0;
@@ -627,17 +644,17 @@ void socket_resume(struct client *client, struct msg *msg, void **reply)
 static
 void socket_getconnectdata(struct client *client, struct msg *msg, void **reply)
 {
-    struct ppp			*ppp = ppp_find(msg);
+    struct service			*serv = ppp_find(msg);
     int					err;
 	u_int16_t			replylen;
 
-    if (!ppp) {
+    if (!serv) {
         msg->hdr.m_result = ENODEV;
         msg->hdr.m_len = 0;
         return;
     }
 
-	err = ppp_getconnectdata(ppp, reply, &replylen, 0);
+	err = ppp_getconnectdata(serv, reply, &replylen, 0);
 	if (err) {
 		msg->hdr.m_result = err;
 		msg->hdr.m_len = 0;
@@ -750,13 +767,13 @@ void socket_version(struct client *client, struct msg *msg, void **reply)
 static
 void socket_getnblinks(struct client *client, struct msg *msg, void **reply)
 {
-    u_long		nb = 0;
-    struct ppp		*ppp;
-    u_short		subtype = msg->hdr.m_link >> 16;
+    u_int32_t		nb = 0;
+    struct service	*serv;
+    u_short			subtype = msg->hdr.m_link >> 16;
 
-    TAILQ_FOREACH(ppp, &ppp_head, next) {
+    TAILQ_FOREACH(serv, &service_head, next) {
         if ((subtype == 0xFFFF)
-            || ( subtype == ppp->subtype)) {
+            || ( subtype == serv->subtype)) {
             nb++;
         }
     }
@@ -782,17 +799,17 @@ index if between 0 and nblinks
 static
 void socket_getlinkbyindex(struct client *client, struct msg *msg, void **reply)
 {
-    u_long		nb = 0, len = 0, err = ENODEV, index;
-    struct ppp		*ppp;
-    u_short		subtype = msg->hdr.m_link >> 16;
+    u_int32_t		nb = 0, len = 0, err = ENODEV, index;
+    struct service	*serv;
+    u_short			subtype = msg->hdr.m_link >> 16;
 
-    index = *(u_long *)&msg->data[0];
+    index = *(u_int32_t *)&msg->data[0];
 	if (client->flags & CLIENT_FLAG_SWAP_BYTES) 
 		index = htonl(index);
 
-    TAILQ_FOREACH(ppp, &ppp_head, next) {
+    TAILQ_FOREACH(serv, &service_head, next) {
         if ((subtype == 0xFFFF)
-            || (subtype == ppp->subtype)) {
+            || (subtype == serv->subtype)) {
             if (nb == index) {
                 *reply = my_Allocate(sizeof(u_int32_t));
                 if (*reply == 0)
@@ -800,7 +817,7 @@ void socket_getlinkbyindex(struct client *client, struct msg *msg, void **reply)
                 else {
                     err = 0;
                     len = sizeof(u_int32_t);
-                    *(u_int32_t*)*reply = ppp_makeref(ppp);
+                    *(u_int32_t*)*reply = makeref(serv);
 					if (client->flags & CLIENT_FLAG_SWAP_BYTES) 
 						*(u_int32_t*)*reply = htonl(*(u_int32_t*)*reply);
                 }
@@ -819,22 +836,22 @@ void socket_getlinkbyindex(struct client *client, struct msg *msg, void **reply)
 static
 void socket_getlinkbyserviceid(struct client *client, struct msg *msg, void **reply)
 {
-    u_long		len = 0, err = ENODEV;
-    struct ppp		*ppp;
+    u_int32_t		len = 0, err = ENODEV;
+    struct service	*serv;
     CFStringRef		ref;
 
     msg->data[msg->hdr.m_len] = 0;
     ref = CFStringCreateWithCString(NULL, msg->data, kCFStringEncodingUTF8);
     if (ref) {
-	ppp = ppp_findbyserviceID(ref);
-        if (ppp) {
+	serv = findbyserviceID(ref);
+        if (serv) {
             *reply = my_Allocate(sizeof(u_int32_t));
             if (*reply == 0)
                 err = ENOMEM;
             else {
                 err = 0;
                 len = sizeof(u_int32_t);
-                *(u_int32_t*)*reply = ppp_makeref(ppp);
+                *(u_int32_t*)*reply = makeref(serv);
 				if (client->flags & CLIENT_FLAG_SWAP_BYTES) 
 					*(u_int32_t*)*reply = htonl(*(u_int32_t*)*reply);
             }
@@ -853,20 +870,20 @@ void socket_getlinkbyserviceid(struct client *client, struct msg *msg, void **re
 static
 void socket_getlinkbyifname(struct client *client, struct msg *msg, void **reply)
 {
-    u_long		len = 0, err = ENODEV;
-    struct ppp		*ppp;
+    u_int32_t		len = 0, err = ENODEV;
+    struct service	*serv;
 
-    TAILQ_FOREACH(ppp, &ppp_head, next) {
-        if (!strncmp(ppp->ifname, &msg->data[0], sizeof(ppp->ifname))) {
+    TAILQ_FOREACH(serv, &service_head, next) {
+        if (!strncmp(serv->u.ppp.ifname, &msg->data[0], sizeof(serv->u.ppp.ifname))) {
             
             if (msg->hdr.m_flags & USE_SERVICEID) {
-                *reply = my_Allocate(strlen(ppp->sid));
+                *reply = my_Allocate(strlen(serv->sid));
                 if (*reply == 0)
                     err = ENOMEM;
                 else {
                     err = 0;
-                    len = strlen(ppp->sid);
-                    bcopy(ppp->sid, *reply, len);
+                    len = strlen(serv->sid);
+                    bcopy(serv->sid, *reply, len);
                 }
             }
             else {
@@ -876,7 +893,7 @@ void socket_getlinkbyifname(struct client *client, struct msg *msg, void **reply
                 else {
                     err = 0;
                     len = sizeof(u_int32_t);
-                    *(u_int32_t*)*reply = ppp_makeref(ppp);
+                    *(u_int32_t*)*reply = makeref(serv);
 					if (client->flags & CLIENT_FLAG_SWAP_BYTES) 
 						*(u_int32_t*)*reply = htonl(*(u_int32_t*)*reply);
                 }
@@ -894,7 +911,7 @@ void socket_getlinkbyifname(struct client *client, struct msg *msg, void **reply
 static
 void socket_pppd_event(struct client *client, struct msg *msg)
 {
-    struct ppp		*ppp = ppp_find(msg);
+    struct service		*serv = ppp_find(msg);
     void 		*data = &msg->data[MSG_DATAOFF(msg)];
     u_int32_t		event = *(u_int32_t *)data;
     u_int32_t		error = *(u_int32_t *)(data + 4);
@@ -902,18 +919,18 @@ void socket_pppd_event(struct client *client, struct msg *msg)
     msg->hdr.m_len = 0xFFFFFFFF; // no reply
     //printf("ppp_event, event = 0x%x, cause = 0x%x, serviceid = '%s'\n", event, error, serviceid);
 
-    if (!ppp)
+    if (!serv)
         return;
 
     if (event == PPP_EVT_DISCONNECTED) {
         //if (error == EXIT_USER_REQUEST)
         //    return;	// PPP API generates PPP_EVT_DISCONNECTED only for unrequested disconnections
-        error = ppp_translate_error(ppp->subtype, error, 0);
+        error = ppp_translate_error(serv->subtype, error, 0);
     }
     else 
         error = 0;
         
-    client_notify(ppp->serviceID, ppp->sid, ppp_makeref(ppp), event, error, CLIENT_FLAG_NOTIFY_EVENT);
+    client_notify(serv->serviceID, serv->sid, makeref(serv), event, error, CLIENT_FLAG_NOTIFY_EVENT, ppp_getstatus(serv));
 }
 
 /* -----------------------------------------------------------------------------
@@ -921,17 +938,17 @@ void socket_pppd_event(struct client *client, struct msg *msg)
 static
 void socket_pppd_status(struct client *client, struct msg *msg)
 {
-    struct ppp		*ppp = ppp_find(msg);
+    struct service		*serv = ppp_find(msg);
     void 		*data = &msg->data[MSG_DATAOFF(msg)];
     u_int32_t		status = *(u_int32_t *)data;
     u_int32_t		devstatus = *(u_int32_t *)(data + 4);
 
     msg->hdr.m_len = 0xFFFFFFFF; // no reply
 
-    if (!ppp)
+    if (!serv)
         return;
     
-    ppp_updatestatus(ppp, status, devstatus);
+    ppp_updatestatus(serv, status, devstatus);
     
 }
 
@@ -940,16 +957,16 @@ void socket_pppd_status(struct client *client, struct msg *msg)
 static
 void socket_pppd_phase(struct client *client, struct msg *msg)
 {
-    struct ppp		*ppp = ppp_find(msg);
+    struct service		*serv = ppp_find(msg);
     void 		*data = &msg->data[MSG_DATAOFF(msg)];
     u_int32_t		phase = *(u_int32_t *)data;
 
     msg->hdr.m_len = 0xFFFFFFFF; // no reply
 
-    if (!ppp)
+    if (!serv)
         return;
 
-    ppp_updatephase(ppp, phase);
+    ppp_updatephase(serv, phase);
 
 }
 
@@ -1080,15 +1097,15 @@ id must be a valid client
 static
 void socket_setoption(struct client *client, struct msg *msg, void **reply)
 {
-    struct ppp_opt 	*opt = (struct ppp_opt *)&msg->data[MSG_DATAOFF(msg)];
-    u_int32_t		optint = *(u_int32_t *)(&opt->o_data[0]);
-    u_char		*optstr = &opt->o_data[0];
+    struct ppp_opt			*opt = (struct ppp_opt *)&msg->data[MSG_DATAOFF(msg)];
+    u_int32_t				optint = *(u_int32_t *)(&opt->o_data[0]);
+    u_char					*optstr = &opt->o_data[0];
     CFMutableDictionaryRef	opts;
-    u_long		err = 0, len = msg->hdr.m_len - sizeof(struct ppp_opt_hdr), speed;
-    struct ppp 		*ppp = ppp_find(msg);
-    CFStringRef		string1, string2;
+    u_int32_t				err = 0, len = msg->hdr.m_len - sizeof(struct ppp_opt_hdr), speed;
+    struct service			*serv = ppp_find(msg);
+    CFStringRef				string1, string2;
     
-    if (!ppp) {
+    if (!serv) {
         msg->hdr.m_result = ENODEV;
         msg->hdr.m_len = 0;
         return;
@@ -1100,10 +1117,10 @@ void socket_setoption(struct client *client, struct msg *msg, void **reply)
 	}
 	
     // not connected, set the client options that will be used.
-    opts = client_findoptset(client, ppp->serviceID);
+    opts = client_findoptset(client, serv->serviceID);
     if (!opts) {
         // first option used by client, create private set
-        opts = client_newoptset(client, ppp->serviceID);
+        opts = client_newoptset(client, serv->serviceID);
         if (!opts) {
             msg->hdr.m_result = ENOMEM;
             msg->hdr.m_len = 0;
@@ -1279,11 +1296,11 @@ void socket_getoption (struct client *client, struct msg *msg, void **reply)
 {
     struct ppp_opt 		*opt = (struct ppp_opt *)&msg->data[MSG_DATAOFF(msg)];
     CFDictionaryRef		opts;
-    struct ppp 			*ppp = ppp_find(msg);
+    struct service		*serv = ppp_find(msg);
     u_int8_t			optdata[OPT_STR_LEN + 1];
     u_int32_t			optlen;
 	
-    if (!ppp) {
+    if (!serv) {
         msg->hdr.m_len = 0;
         msg->hdr.m_result = ENODEV;
         return;
@@ -1292,14 +1309,14 @@ void socket_getoption (struct client *client, struct msg *msg, void **reply)
 	if (client->flags & CLIENT_FLAG_SWAP_BYTES)
 		opt->o_type = htonl(opt->o_type);
 
-    if (ppp->phase != PPP_IDLE)
+    if (serv->u.ppp.phase != PPP_IDLE)
         // take the active user options
-        opts = ppp->connectopts; 
+        opts = serv->connectopts; 
     else 
         // not connected, get the client options that will be used.
-        opts = client_findoptset(client, ppp->serviceID);
+        opts = client_findoptset(client, serv->serviceID);
     
-    if (!ppp_getoptval(ppp, opts, 0, opt->o_type, optdata, &optlen)) {
+    if (!ppp_getoptval(serv, opts, 0, opt->o_type, optdata, &optlen)) {
         msg->hdr.m_len = 0;
         msg->hdr.m_result = EOPNOTSUPP;
         return;
@@ -1353,7 +1370,7 @@ void socket_getoption (struct client *client, struct msg *msg, void **reply)
 void socket_client_notify (CFSocketRef ref, u_char *sid, u_int32_t link, u_long event, u_long error, u_int32_t flags)
 {
     struct ppp_msg_hdr	msg;    
-	int link_len;
+	int link_len = 0;
 	
 	bzero(&msg, sizeof(msg));
 	msg.m_type = PPP_EVENT;

@@ -1,4 +1,4 @@
-/*	$OpenBSD: pat_rep.c,v 1.28 2004/06/11 03:10:43 millert Exp $	*/
+/*	$OpenBSD: pat_rep.c,v 1.30 2005/08/05 08:30:10 djm Exp $	*/
 /*	$NetBSD: pat_rep.c,v 1.4 1995/03/21 09:07:33 cgd Exp $	*/
 
 /*-
@@ -38,7 +38,7 @@
 #if 0
 static const char sccsid[] = "@(#)pat_rep.c	8.2 (Berkeley) 4/18/94";
 #else
-static const char rcsid[] __attribute__((__unused__)) = "$OpenBSD: pat_rep.c,v 1.28 2004/06/11 03:10:43 millert Exp $";
+static const char rcsid[] = "$OpenBSD: pat_rep.c,v 1.30 2005/08/05 08:30:10 djm Exp $";
 #endif
 #endif /* not lint */
 
@@ -468,7 +468,7 @@ pat_match(ARCHD *arcn)
 	/*
 	 * we had a match, now when we invert the sense (-c) we reject this
 	 * member. However we have to tag the pattern a being successful, (in a
-	 * match, not in selecting a archive member) so we call pat_sel() here.
+	 * match, not in selecting an archive member) so we call pat_sel() here.
 	 */
 	arcn->pat = pt;
 	if (!cflag)
@@ -518,7 +518,7 @@ fn_match(char *pattern, char *string, char **pend)
 			*pend = string;
 			return(0);
 		case '?':
-			if ((test = *string++) == '\0')
+			if ((*string++) == '\0')
 				return (-1);
 			break;
 		case '*':
@@ -538,7 +538,7 @@ fn_match(char *pattern, char *string, char **pend)
 			/*
 			 * General case, use recursion.
 			 */
-			while ((test = *string) != '\0') {
+			while ((*string) != '\0') {
 				if (!fn_match(pattern, string, pend))
 					return (0);
 				++string;
@@ -614,7 +614,7 @@ mod_name(ARCHD *arcn)
 	 * Strip off leading '/' if appropriate.
 	 * Currently, this option is only set for the tar format.
 	 */
-	if (rmleadslash && arcn->name[0] == '/') {
+	while (rmleadslash && arcn->name[0] == '/') {
 		if (arcn->name[1] == '\0') {
 			arcn->name[0] = '.';
 		} else {
@@ -627,7 +627,7 @@ mod_name(ARCHD *arcn)
 			paxwarn(0, "Removing leading / from absolute path names in the archive");
 		}
 	}
-	if (rmleadslash && arcn->ln_name[0] == '/' &&
+	while (rmleadslash && arcn->ln_name[0] == '/' &&
 	    (arcn->type == PAX_HLK || arcn->type == PAX_HRG)) {
 		if (arcn->ln_name[1] == '\0') {
 			arcn->ln_name[0] = '.';
@@ -750,6 +750,8 @@ tty_rename(ARCHD *arcn)
 	tty_prnt("Processing continues, name changed to: %s\n", tmpname);
 	res = add_name(arcn->name, arcn->nlen, tmpname);
 	arcn->nlen = strlcpy(arcn->name, tmpname, sizeof(arcn->name));
+	if (arcn->nlen >= sizeof(arcn->name))
+		arcn->nlen = sizeof(arcn->name) - 1; /* XXX truncate? */
 	if (res < 0)
 		return(-1);
 	return(0);
@@ -1051,7 +1053,7 @@ resub(regex_t *rp, regmatch_t *pm, char *src, char *inpt, char *dest,
 		 * fail if we run out of space or the match string is damaged
 		 */
 		if (len > (destend - dpt))
-			return (-1);
+			len = destend - dpt;
 		strncpy(dpt, inpt + pmpt->rm_so, len);
 		dpt += len;
 	}

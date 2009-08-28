@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2006, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -49,7 +49,6 @@
  */
 
 
-__private_extern__
 dns_create_config_t
 _dns_configuration_create()
 {
@@ -109,7 +108,6 @@ config_add_attribute(dns_create_config_t	*_config,
 }
 
 
-__private_extern__
 void
 _dns_configuration_add_resolver(dns_create_config_t     *_config,
 				dns_create_resolver_t	_resolver)
@@ -146,7 +144,6 @@ _dns_configuration_add_resolver(dns_create_config_t     *_config,
 }
 
 
-__private_extern__
 _Bool
 _dns_configuration_store(dns_create_config_t *_config)
 {
@@ -180,7 +177,6 @@ _dns_configuration_store(dns_create_config_t *_config)
 }
 
 
-__private_extern__
 void
 _dns_configuration_free(dns_create_config_t *_config)
 {
@@ -196,7 +192,6 @@ _dns_configuration_free(dns_create_config_t *_config)
  * DNS resolver configuration functions
  */
 
-__private_extern__
 dns_create_resolver_t
 _dns_resolver_create()
 {
@@ -251,7 +246,6 @@ _dns_resolver_add_attribute(dns_create_resolver_t	*_resolver,
 }
 
 
-__private_extern__
 void
 _dns_resolver_set_domain(dns_create_resolver_t *_resolver, const char *domain)
 {
@@ -260,7 +254,6 @@ _dns_resolver_set_domain(dns_create_resolver_t *_resolver, const char *domain)
 }
 
 
-__private_extern__
 void
 _dns_resolver_add_nameserver(dns_create_resolver_t *_resolver, struct sockaddr *nameserver)
 {
@@ -272,7 +265,6 @@ _dns_resolver_add_nameserver(dns_create_resolver_t *_resolver, struct sockaddr *
 }
 
 
-__private_extern__
 void
 _dns_resolver_set_port(dns_create_resolver_t *_resolver, uint16_t port)
 {
@@ -283,7 +275,6 @@ _dns_resolver_set_port(dns_create_resolver_t *_resolver, uint16_t port)
 }
 
 
-__private_extern__
 void
 _dns_resolver_add_search(dns_create_resolver_t *_resolver, const char *search)
 {
@@ -295,7 +286,6 @@ _dns_resolver_add_search(dns_create_resolver_t *_resolver, const char *search)
 }
 
 
-__private_extern__
 void
 _dns_resolver_add_sortaddr(dns_create_resolver_t *_resolver, dns_sortaddr_t *sortaddr)
 {
@@ -307,7 +297,6 @@ _dns_resolver_add_sortaddr(dns_create_resolver_t *_resolver, dns_sortaddr_t *sor
 }
 
 
-__private_extern__
 void
 _dns_resolver_set_options(dns_create_resolver_t *_resolver, const char *options)
 {
@@ -316,7 +305,6 @@ _dns_resolver_set_options(dns_create_resolver_t *_resolver, const char *options)
 }
 
 
-__private_extern__
 void
 _dns_resolver_set_timeout(dns_create_resolver_t *_resolver, uint32_t timeout)
 {
@@ -327,7 +315,6 @@ _dns_resolver_set_timeout(dns_create_resolver_t *_resolver, uint32_t timeout)
 }
 
 
-__private_extern__
 void
 _dns_resolver_set_order(dns_create_resolver_t *_resolver, uint32_t order)
 {
@@ -338,7 +325,6 @@ _dns_resolver_set_order(dns_create_resolver_t *_resolver, uint32_t order)
 }
 
 
-__private_extern__
 void
 _dns_resolver_free(dns_create_resolver_t *_resolver)
 {

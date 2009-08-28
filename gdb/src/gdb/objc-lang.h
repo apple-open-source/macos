@@ -40,6 +40,8 @@ extern int find_objc_msgcall (CORE_ADDR pc, CORE_ADDR *new_pc);
 
 void tell_objc_msgsend_cacher_objfile_changed (struct objfile *);
 
+void objc_clear_caches ();
+
 CORE_ADDR find_implementation (CORE_ADDR object, CORE_ADDR sel, int stret);
 
 extern char *parse_selector (char *method, char **selector);
@@ -74,4 +76,36 @@ struct symbol *lookup_struct_typedef (char *name, struct block *block,
    translated programs.  */
 extern int lookup_objc_class_p;
 
+extern int objc_handle_update (CORE_ADDR stop_addr);
+void objc_init_trampoline_observer ();
+int pc_in_objc_trampoline_p (CORE_ADDR pc, uint32_t *flags);
+
+void objc_invalidate_objc_class (struct type *type);
+
+/* APPLE LOCAL Disable breakpoints while updating data formatters.  */
+extern int is_objc_exception_throw_breakpoint (struct breakpoint *);
+
+enum objc_debugger_mode_result
+  {
+    objc_debugger_mode_unknown,
+    objc_debugger_mode_success,
+    objc_debugger_mode_fail_unable_to_enter_debug_mode,
+    objc_debugger_mode_fail_spinlock_held,
+    objc_debugger_mode_fail_malloc_lock_held,
+    objc_debugger_mode_fail_objc_api_unavailable
+  };
+
+enum objc_debugger_mode_result make_cleanup_set_restore_debugger_mode (struct cleanup **cleanup, int level);
+
+enum objc_handcall_fail_reasons
+  {
+    objc_no_fail,
+    objc_exception_thrown,
+    objc_debugger_mode_fail
+  };
+
+enum objc_handcall_fail_reasons objc_pc_at_fail_point (CORE_ADDR pc);
+struct cleanup *make_cleanup_init_objc_exception_catcher (void);
+void reinitialize_objc ();
+int get_objc_runtime_check_level ();
 #endif

@@ -136,6 +136,23 @@ __user_local_dirname(uid_t uid, dirhelper_which_t which, char *path, size_t path
     return path;
 }
 
+char *
+__user_local_mkdir_p(char *path)
+{
+    char *next;
+    int res;
+    
+    next = path + strlen(VAR_FOLDERS_PATH);
+    while ((next = strchr(next, '/')) != NULL) {
+	*next = 0; // temporarily truncate
+	res = mkdir(path, 0755);
+	if (res != 0 && errno != EEXIST)
+	    return NULL;
+	*next++ = '/'; // restore the slash and increment
+    }
+    return path;
+}
+
 __private_extern__ char *
 _dirhelper(dirhelper_which_t which, char *path, size_t pathlen)
 {
@@ -151,42 +168,54 @@ _dirhelper(dirhelper_which_t which, char *path, size_t pathlen)
 
     if(!*userdir) {
 	MUTEX_LOCK(&lock);
-	if(!*userdir) {
-	    mach_port_t mp;
-
-	    if(bootstrap_look_up(bootstrap_port, DIRHELPER_BOOTSTRAP_NAME, &mp) != KERN_SUCCESS) {
-		errno = EPERM;
-		MUTEX_UNLOCK(&lock);
-		return NULL;
-	    }
+	if (!*userdir) {
+	    
 	    if(__user_local_dirname(geteuid(), DIRHELPER_USER_LOCAL, userdir, sizeof(userdir)) == NULL) {
-server_error:
-		mach_port_deallocate(mach_task_self(), mp);
 		MUTEX_UNLOCK(&lock);
 		return NULL;
 	    }
 	    /*
-	     * check if userdir exists, and if not, call
-	     * __dirhelper_create_user_local to create it
-	     * (we have to check again afterwards).
+	     * check if userdir exists, and if not, either do the work
+	     * ourself if we are root, or call
+	     * __dirhelper_create_user_local to create it (we have to
+	     * check again afterwards).
 	     */
 	    if(stat(userdir, &sb) < 0) {
+		mach_port_t mp;
+		
 		if(errno != ENOENT) { /* some unknown error */
 		    *userdir = 0;
-		    goto server_error;
+		    MUTEX_UNLOCK(&lock);
+		    return NULL;
 		}
-		if(__dirhelper_create_user_local(mp) != KERN_SUCCESS) {
-		    errno = EPERM;
-		    *userdir = 0;
-		    goto server_error;
-		}
-		/* double check that the directory really got created */
-		if(stat(userdir, &sb) < 0) {
-		    *userdir = 0;
-		    goto server_error;
+		/*
+		 * If we are root, lets do what dirhelper does for us.
+		 */
+		if (geteuid() == 0) {
+		    if (__user_local_mkdir_p(userdir) == NULL) {
+			*userdir = 0;
+			MUTEX_UNLOCK(&lock);
+			return NULL;
+		    }
+		} else {
+		    if(bootstrap_look_up(bootstrap_port, DIRHELPER_BOOTSTRAP_NAME, &mp) != KERN_SUCCESS) {
+			errno = EPERM;
+		    server_error:
+			mach_port_deallocate(mach_task_self(), mp);
+			MUTEX_UNLOCK(&lock);
+			return NULL;
+		    }
+		    if(__dirhelper_create_user_local(mp) != KERN_SUCCESS) {
+			errno = EPERM;
+			goto server_error;
+		    }
+		    /* double check that the directory really got created */
+		    if(stat(userdir, &sb) < 0) {
+			goto server_error;
+		    }
+		    mach_port_deallocate(mach_task_self(), mp);
 		}
 	    }
-	    mach_port_deallocate(mach_task_self(), mp);
 	}
 	MUTEX_UNLOCK(&lock);
     }

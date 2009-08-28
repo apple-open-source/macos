@@ -1,9 +1,9 @@
---- tnftpd.h	2004-08-09 18:00:10.000000000 -0700
-+++ tnftpd.h.new	2004-09-10 13:42:56.000000000 -0700
-@@ -426,8 +426,12 @@
+--- tnftpd.h.orig	2008-06-18 13:57:42.000000000 -0700
++++ tnftpd.h	2008-06-18 13:58:19.000000000 -0700
+@@ -548,8 +548,12 @@
  #define TM_YEAR_BASE	1900
  
- #if ! defined(LOGIN_NAME_MAX)
+ #if !defined(LOGIN_NAME_MAX)
 +#ifdef __APPLE__
 +# define LOGIN_NAME_MAX (256)
 +#else
@@ -11,5 +11,5 @@
  #endif
 +#endif
  
- #if ! defined(_POSIX_LOGIN_NAME_MAX)
+ #if !defined(_POSIX_LOGIN_NAME_MAX)
  # define _POSIX_LOGIN_NAME_MAX LOGIN_NAME_MAX

@@ -1,21 +1,12 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2001-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 2001,2007 Oracle.  All rights reserved.
+ *
+ * $Id: db_idspace.c,v 12.6 2007/05/17 15:14:55 bostic Exp $
  */
 
 #include "db_config.h"
-
-#ifndef lint
-static const char revid[] = "$Id: db_idspace.c,v 1.2 2004/03/30 01:21:22 jtownsen Exp $";
-#endif /* not lint */
-
-#ifndef NO_SYSTEM_INCLUDES
-#include <sys/types.h>
-
-#include <stdlib.h>
-#endif
 
 #include "db_int.h"
 
@@ -44,7 +35,8 @@ __db_idcmp(a, b)
  *
  * On input, minp and maxp contain the minimum and maximum valid values for
  * the name space and on return, they contain the minimum and maximum ids
- * available (by finding the biggest gap).
+ * available (by finding the biggest gap).  The minimum can be an inuse
+ * value, but the maximum cannot be.
  *
  * PUBLIC: void __db_idspace __P((u_int32_t *, int, u_int32_t *, u_int32_t *));
  */
@@ -85,9 +77,9 @@ __db_idspace(inuse, n, minp, maxp)
 		/* Do same check as we do in the n == 1 case. */
 		if (inuse[n - 1] != *maxp)
 			*minp = inuse[n - 1];
-		*maxp = inuse[0];
+		*maxp = inuse[0] - 1;
 	} else {
 		*minp = inuse[low];
-		*maxp = inuse[low + 1];
+		*maxp = inuse[low + 1] - 1;
 	}
 }

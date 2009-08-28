@@ -56,7 +56,7 @@ IOFireWireController * IOFireWireLink::createController()
 {
     IOFireWireController *control;
 
-    control = new IOFireWireController;
+    control = OSTypeAlloc( IOFireWireController );
     if(NULL == control)
         return NULL;
 
@@ -78,7 +78,7 @@ IOFireWireLink::createDeviceNub(CSRNodeUniqueID guid, const IOFWNodeScan *scan)
     IOFireWireDevice *newDevice;
     OSDictionary *propTable;
 
-    newDevice = new IOFireWireDevice;
+    newDevice = OSTypeAlloc( IOFireWireDevice );
 
     if (!newDevice)
         return NULL;
@@ -138,12 +138,6 @@ IOFireWireLink::createDCLPool (
 	return NULL ;
 }
 
-IOFWBufferFillIsochPort * 
-IOFireWireLink::createBufferFillIsochPort ()
-{
-	return NULL ;
-}
- 
 void IOFireWireLink::disablePHYPortOnSleep( UInt32 mask )
 {
 	// nothing to do

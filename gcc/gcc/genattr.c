@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 #include "bconfig.h"
@@ -79,6 +79,7 @@ gen_attr (rtx attr)
       puts ("\
 extern void shorten_branches (rtx);\n\
 extern int insn_default_length (rtx);\n\
+extern int insn_min_length (rtx);\n\
 extern int insn_variable_length_p (rtx);\n\
 extern int insn_current_length (rtx);\n\n\
 #include \"insn-addr.h\"\n");
@@ -173,13 +174,8 @@ main (int argc, char **argv)
       printf ("#define CPU_UNITS_QUERY 0\n");
       printf ("#endif\n\n");
       /* Interface itself: */
-      printf ("extern int max_dfa_issue_rate;\n\n");
-      printf ("/* The following macro value is calculated from the\n");
-      printf ("   automaton based pipeline description and is equal to\n");
-      printf ("   maximal number of all insns described in constructions\n");
-      printf ("   `define_insn_reservation' which can be issued on the\n");
-      printf ("   same processor cycle. */\n");
-      printf ("#define MAX_DFA_ISSUE_RATE max_dfa_issue_rate\n\n");
+      printf ("/* Internal insn code number used by automata.  */\n");
+      printf ("extern int internal_dfa_insn_code (rtx);\n\n");
       printf ("/* Insn latency time defined in define_insn_reservation. */\n");
       printf ("extern int insn_default_latency (rtx);\n\n");
       printf ("/* Return nonzero if there is a bypass for given insn\n");
@@ -197,7 +193,7 @@ main (int argc, char **argv)
       printf ("#endif\n\n");
       printf ("/* Maximal possible number of insns waiting results being\n");
       printf ("   produced by insns whose execution is not finished. */\n");
-      printf ("extern int max_insn_queue_index;\n\n");
+      printf ("extern const int max_insn_queue_index;\n\n");
       printf ("/* Pointer to data describing current state of DFA.  */\n");
       printf ("typedef void *state_t;\n\n");
       printf ("/* Size of the data in bytes.  */\n");
@@ -254,6 +250,7 @@ main (int argc, char **argv)
       printf ("   define_insn_reservation will be changed after\n");
       printf ("   last call of dfa_start.  */\n");
       printf ("extern void dfa_clean_insn_cache (void);\n\n");
+      printf ("extern void dfa_clear_single_insn_cache (rtx);\n\n");      
       printf ("/* Initiate and finish work with DFA.  They should be\n");
       printf ("   called as the first and the last interface\n");
       printf ("   functions.  */\n");
@@ -284,11 +281,4 @@ main (int argc, char **argv)
     return FATAL_EXIT_CODE;
 
   return SUCCESS_EXIT_CODE;
-}
-
-/* Define this so we can link with print-rtl.o to get debug_rtx function.  */
-const char *
-get_insn_name (int code ATTRIBUTE_UNUSED)
-{
-  return NULL;
 }

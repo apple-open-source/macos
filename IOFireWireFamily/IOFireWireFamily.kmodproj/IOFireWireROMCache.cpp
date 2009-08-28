@@ -47,7 +47,7 @@ OSMetaClassDefineReservedUnused(IOFireWireROMCache, 7);
 
 IOFireWireROMCache * IOFireWireROMCache::withOwnerAndBytes( IOFireWireDevice *owner, const void *bytes, unsigned int inLength, UInt32 generation )
 {
-    IOFireWireROMCache *me = new IOFireWireROMCache;
+    IOFireWireROMCache *me = OSTypeAlloc( IOFireWireROMCache );
 
     if( me && !me->initWithOwnerAndBytes( owner, bytes, inLength, generation ) ) 
 	{

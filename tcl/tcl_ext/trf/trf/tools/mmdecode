@@ -1,0 +1,42 @@
+#!/usr/local/bin/tclsh
+# demonstration application, decodes the incoming byte stream from base64
+package require Trf
+
+
+# line buffer for parcel below.
+
+proc join {cmd buffer} {
+    #puts stderr "$cmd [string length buffer] $buffer"
+
+    switch -- $cmd {
+	create/write {
+	    set line ""
+	}
+	delete/write {
+	    set line ""
+	}
+	write {
+	    regsub -all "\[\n\r\]" $buffer {} buffer
+	    return $buffer
+	}
+	flush/write {
+	    return ""
+	}
+	clear/write {
+	    set line ""
+	}
+    }
+}
+
+
+fconfigure stdout -translation binary
+base64    -attach stdout -mode decode
+transform -attach stdout -command join
+
+fcopy stdin stdout
+close stdout
+
+# close is *required* to flush out the internal buffers.
+# This is not done during a simple exit :-(
+
+exit

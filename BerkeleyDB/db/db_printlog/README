@@ -1,4 +1,4 @@
-# $Id: README,v 1.2 2004/03/30 01:21:27 jtownsen Exp $
+# $Id: README,v 12.0 2004/11/17 03:43:23 bostic Exp $
 
 Berkeley DB log dump utility.  This utility dumps out a DB log in human
 readable form, a record at a time, to assist in recovery and transaction
@@ -28,7 +28,7 @@ rectype.awk     Print out a range of the log -- command line should
 		rectypes (or partial strings of rectypes) sought.
 
 status.awk	Read through db_printlog output and list the transactions
-		encountered, and whether they commited or aborted.
+		encountered, and whether they committed or aborted.
 
 txn.awk		Print out all the records for a comma-separated list of
 		transaction IDs.

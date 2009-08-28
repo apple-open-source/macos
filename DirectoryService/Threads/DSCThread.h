@@ -80,7 +80,7 @@ public:
 	static	SInt32		Count					( void );
 
 	// Class methods
-	virtual UInt32		GetID					( void ) const;
+	virtual long		GetID					( void ) const;
 	virtual UInt32		GetSignature			( void ) const;
 
 protected:

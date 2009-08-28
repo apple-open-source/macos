@@ -10,3 +10,4 @@ color brightblue "\<(cat|cd|chmod|chown|cp|echo|env|export|grep|install|let|ln|m
 icolor brightred "\$\{?[0-9A-Z_!@#$*?-]+\}?"
 color cyan "(^|[[:space:]])#.*$"
 color brightyellow ""(\\.|[^"])*"" "'(\\.|[^'])*'"
+color ,green "[[:space:]]+$"

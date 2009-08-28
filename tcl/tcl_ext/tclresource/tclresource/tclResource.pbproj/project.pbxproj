@@ -1,0 +1,316 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 38;
+	objects = {
+		034768DDFF38A45A11DB9C8B = {
+			children = (
+				F550918E036C35030130931B,
+			);
+			isa = PBXGroup;
+			name = Products;
+			path = "";
+			refType = 4;
+		};
+//030
+//031
+//032
+//033
+//034
+//080
+//081
+//082
+//083
+//084
+		0867D690FE84028FC02AAC07 = {
+			buildStyles = (
+				4F0BB7EC011F40E904CA0E50,
+				4F0BB7ED011F40E904CA0E50,
+			);
+			hasScannedForEncodings = 1;
+			isa = PBXProject;
+			mainGroup = 0867D691FE84028FC02AAC07;
+			productRefGroup = 034768DDFF38A45A11DB9C8B;
+			projectDirPath = "";
+			targets = (
+				F550918D036C35030130931B,
+			);
+		};
+		0867D691FE84028FC02AAC07 = {
+			children = (
+				08FB77ACFE841707C02AAC07,
+				F959A7C7056355AE006F5A0B,
+				089C1665FE841158C02AAC07,
+				0867D69AFE84028FC02AAC07,
+				034768DDFF38A45A11DB9C8B,
+			);
+			isa = PBXGroup;
+			refType = 4;
+		};
+		0867D69AFE84028FC02AAC07 = {
+			children = (
+				08FB77AAFE841565C02AAC07,
+				F5A272820377DE8D01FEA954,
+				F94429230420B8C2006F146B,
+			);
+			isa = PBXGroup;
+			name = "External Frameworks and Libraries";
+			refType = 4;
+		};
+		089C1665FE841158C02AAC07 = {
+			children = (
+				F94429120420B651006F146B,
+			);
+			isa = PBXGroup;
+			name = Resources;
+			refType = 4;
+		};
+		08FB77AAFE841565C02AAC07 = {
+			isa = PBXFrameworkReference;
+			name = Carbon.framework;
+			path = /System/Library/Frameworks/Carbon.framework;
+			refType = 0;
+		};
+		08FB77ACFE841707C02AAC07 = {
+			children = (
+				F959A7C5056355A0006F5A0B,
+			);
+			isa = PBXGroup;
+			name = Source;
+			refType = 4;
+		};
+//080
+//081
+//082
+//083
+//084
+//4F0
+//4F1
+//4F2
+//4F3
+//4F4
+		4F0BB7EC011F40E904CA0E50 = {
+			buildRules = (
+			);
+			buildSettings = {
+				TEMP_DIR = "${OBJROOT}/Development.build/$(PROJECT_NAME).build/$(TARGET_NAME).build";
+				UNSTRIPPED_PRODUCT = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		4F0BB7ED011F40E904CA0E50 = {
+			buildRules = (
+			);
+			buildSettings = {
+				DEBUGGING_SYMBOLS = NO;
+				OPTIMIZATION_CFLAGS = "-Os -mcpu=750";
+				TEMP_DIR = "${OBJROOT}/Deployment.build/$(PROJECT_NAME).build/$(TARGET_NAME).build";
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+//4F0
+//4F1
+//4F2
+//4F3
+//4F4
+//F50
+//F51
+//F52
+//F53
+//F54
+		F550918A036C35030130931B = {
+			buildActionMask = 2147483647;
+			files = (
+				F959A7C6056355A0006F5A0B,
+				F959A7DE05635A54006F5A0B,
+				F959A96B05635DC2006F5A0B,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F550918B036C35030130931B = {
+			buildActionMask = 2147483647;
+			files = (
+				F5509190036C35B40130931B,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F550918D036C35030130931B = {
+			buildPhases = (
+				F96B6BDA0420C120006F146B,
+				F550918A036C35030130931B,
+				F550918B036C35030130931B,
+				F96B6BDB0420C430006F146B,
+			);
+			buildSettings = {
+				CC = "gcc-3.3";
+				CPLUSPLUS = "g++-3.3";
+				DYLIB_COMPATIBILITY_VERSION = 1.0;
+				DYLIB_CURRENT_VERSION = 1.1.1;
+				DYLIB_INSTALLED_NAME = "resource${DYLIB_CURRENT_VERSION}.dylib";
+				EXPORTED_SYMBOLS_FILE = tclResource_OSX.exp;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_VERSION = 3.x;
+				GLOBAL_CFLAGS = "-include tclResource_CarbonMachO.pch";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "/Library/Tcl/Tclresource${DYLIB_CURRENT_VERSION}";
+				LIBRARY_SEARCH_PATHS = /Library/Frameworks/Tcl.framework;
+				LIBRARY_STYLE = DYNAMIC;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "-DTCLRESOURCE_USE_FRAMEWORK_INCLUDES";
+				OTHER_LDFLAGS = "-ltclstub8.4";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRECOMPILE_PREFIX_HEADER = NO;
+				PREFIX_HEADER = "";
+				PRODUCT_NAME = resource1.1.1.dylib;
+				SECTORDER_FLAGS = "";
+				USE_GCC3_PFE_SUPPORT = YES;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXLibraryTarget;
+			name = tclResource;
+			productInstallPath = "/Library/Tcl/Tclresource${DYLIB_COMPATIBILITY_VERSION}";
+			productName = "Tclresource dylib";
+			productReference = F550918E036C35030130931B;
+		};
+		F550918E036C35030130931B = {
+			isa = PBXLibraryReference;
+			path = resource1.1.1.dylib;
+			refType = 3;
+		};
+		F5509190036C35B40130931B = {
+			fileRef = 08FB77AAFE841565C02AAC07;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5A272820377DE8D01FEA954 = {
+			isa = PBXFileReference;
+			name = libtclstub8.4.a;
+			path = /Library/Frameworks/Tcl.framework/libtclstub8.4.a;
+			refType = 0;
+		};
+//F50
+//F51
+//F52
+//F53
+//F54
+//F90
+//F91
+//F92
+//F93
+//F94
+		F94429120420B651006F146B = {
+			isa = PBXFileReference;
+			path = pkgIndex.tcl;
+			refType = 4;
+		};
+		F94429230420B8C2006F146B = {
+			isa = PBXFrameworkReference;
+			name = Tcl.framework;
+			path = /Library/Frameworks/Tcl.framework;
+			refType = 0;
+		};
+		F959A7C5056355A0006F5A0B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = tclResourceOSX.c;
+			refType = 4;
+		};
+		F959A7C6056355A0006F5A0B = {
+			fileRef = F959A7C5056355A0006F5A0B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F959A7C7056355AE006F5A0B = {
+			children = (
+				F959A7C8056355CB006F5A0B,
+				F959A7C9056355CB006F5A0B,
+				F959A7CA056355CB006F5A0B,
+				F959A7CB056355CB006F5A0B,
+				F959A96A05635DC2006F5A0B,
+			);
+			isa = PBXGroup;
+			name = Headers;
+			path = "";
+			refType = 4;
+		};
+		F959A7C8056355CB006F5A0B = {
+			isa = PBXFileReference;
+			path = tclResource_CarbonMachO.pch;
+			refType = 4;
+		};
+		F959A7C9056355CB006F5A0B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = tclResource_CarbonXMachO.h;
+			refType = 4;
+		};
+		F959A7CA056355CB006F5A0B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = tclResource_Headers.h;
+			refType = 4;
+		};
+		F959A7CB056355CB006F5A0B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = tclResource_version.h;
+			refType = 4;
+		};
+		F959A7DE05635A54006F5A0B = {
+			fileRef = F959A7CB056355CB006F5A0B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F959A96A05635DC2006F5A0B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = tclResource_OSX.exp;
+			refType = 4;
+		};
+		F959A96B05635DC2006F5A0B = {
+			fileRef = F959A96A05635DC2006F5A0B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F96B6BDA0420C120006F146B = {
+			buildActionMask = 8;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "# ensure we can overwrite a previous install\nif [ -d \"${INSTALL_ROOT}${INSTALL_PATH}\" ]; then\n    chmod -RH u+w \"${INSTALL_ROOT}${INSTALL_PATH}\"\nfi";
+		};
+		F96B6BDB0420C430006F146B = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/usr/bin/install -m 444 -g staff \"${SRCROOT}/pkgIndex.tcl\" \"${TARGET_BUILD_DIR}\"";
+		};
+	};
+	rootObject = 0867D690FE84028FC02AAC07;
+}

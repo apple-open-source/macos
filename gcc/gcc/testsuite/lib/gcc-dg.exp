@@ -1,4 +1,5 @@
-#   Copyright (C) 1997, 1999, 2000, 2003, 2004, 2005 Free Software Foundation, Inc.
+#   Copyright (C) 1997, 1999, 2000, 2003, 2004, 2005, 2006
+#   Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -12,14 +13,16 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 load_lib dg.exp
 load_lib file-format.exp
 load_lib target-supports.exp
 load_lib target-supports-dg.exp
 load_lib scanasm.exp
+load_lib scanrtl.exp
 load_lib scantree.exp
+load_lib scanipa.exp
 load_lib prune.exp
 load_lib libgloss.exp
 load_lib target-libpath.exp
@@ -122,7 +125,7 @@ proc gcc-dg-test-1 { target_compile prog do_what extra_tool_flags } {
 	    set output_file "./[file rootname [file tail $prog]].exe"
 	    # This is the only place where we care if an executable was
 	    # created or not.  If it was, dg.exp will try to run it.
-	    remote_file build delete $output_file;
+	    catch { remote_file build delete $output_file }
 	}
 	default {
 	    perror "$do_what: not a valid dg-do keyword"
@@ -134,7 +137,15 @@ proc gcc-dg-test-1 { target_compile prog do_what extra_tool_flags } {
 	lappend options "additional_flags=$extra_tool_flags"
     }
 
-    set comp_output [$target_compile "$prog" "$output_file" "$compile_type" $options];
+    set comp_output [$target_compile "$prog" "$output_file" "$compile_type" $options]
+
+    # Look for an internal compiler error, which sometimes masks the fact
+    # that we didn't get an expected error message.  An ICE always fails,
+    # there's no way to XFAIL it.
+    if [string match "*internal compiler error*" $comp_output] {
+	upvar 2 name name
+	fail "$name (internal compiler error)"
+    }
 
     if { $do_what == "repo" } {
 	set object_file "$output_file"
@@ -173,6 +184,28 @@ proc gcc-dg-prune { system text } {
     }
 
     return $text
+}
+
+# Replace ${tool}_load with a wrapper to provide for an expected nonzero
+# exit status.  Multiple languages include this file so this handles them
+# all, not just gcc.
+if { [info procs ${tool}_load] != [list] \
+      && [info procs saved_${tool}_load] == [list] } {
+    rename ${tool}_load saved_${tool}_load
+
+    proc ${tool}_load { program args } {
+	global tool
+	global shouldfail
+	set result [eval [list saved_${tool}_load $program] $args]
+	if { $shouldfail != 0 } {
+	    switch [lindex $result 0] {
+		"pass" { set status "fail" }
+		"fail" { set status "pass" }
+	    }
+	    set result [list $status [lindex $result 1]]
+	}
+	return $result
+    }
 }
 
 # Utility routines.
@@ -259,7 +292,12 @@ proc gcc-dg-debug-runtest { target_compile trivial opt_opts testcases } {
 
 	foreach flags $DEBUG_TORTURE_OPTIONS {
 	    set doit 1
-	    if { [string match {*/debug-[126].c} "$nshort"] \
+
+	    # These tests check for information which may be deliberately
+	    # suppressed at -g1.
+	    if { ([string match {*/debug-[126].c} "$nshort"] \
+		   || [string match {*/enum-1.c} "$nshort"] \
+		   || [string match {*/enum-[12].C} "$nshort"]) \
 		    && [string match "*1" [lindex "$flags" 0] ] } {
 		set doit 0
 	    }
@@ -295,6 +333,165 @@ proc dg-prune-output { args } {
     lappend additional_prunes [lindex $args 1]
 }
 
+# Remove files matching the pattern from the build machine.
+proc remove-build-file { pat } {
+    verbose "remove-build-file `$pat'" 2
+    set file_list "[glob -nocomplain $pat]"
+    verbose "remove-build-file `$file_list'" 2
+    foreach output_file $file_list {
+	remote_file build delete $output_file
+    }
+}
+
+# Remove compiler-generated coverage files for the current test.
+proc cleanup-coverage-files { } {
+    # This assumes that we are two frames down from dg-test or some other proc
+    # that stores the filename of the testcase in a local variable "name".
+    # A cleaner solution would require a new DejaGnu release.
+    upvar 2 name testcase
+    remove-build-file "[file rootname [file tail $testcase]].gc??"
+
+    # Clean up coverage files for additional source files.
+    if [info exists additional_sources] {
+	foreach srcfile $additional_sources {
+	    remove-build-file "[file rootname [file tail $srcfile]].gc??"
+	}
+    }
+}
+
+# Remove compiler-generated files from -repo for the current test.
+proc cleanup-repo-files { } {
+    # This assumes that we are two frames down from dg-test or some other proc
+    # that stores the filename of the testcase in a local variable "name".
+    # A cleaner solution would require a new DejaGnu release.
+    upvar 2 name testcase
+    remove-build-file "[file rootname [file tail $testcase]].o"
+    remove-build-file "[file rootname [file tail $testcase]].rpo"
+
+    # Clean up files for additional source files.
+    if [info exists additional_sources] {
+	foreach srcfile $additional_sources {
+	    remove-build-file "[file rootname [file tail $srcfile]].o"
+	    remove-build-file "[file rootname [file tail $srcfile]].rpo"
+	}
+    }
+}
+
+# Remove compiler-generated RTL dump files for the current test.
+#
+# SUFFIX is the filename suffix pattern.
+proc cleanup-rtl-dump { suffix } {
+  cleanup-dump "\[0-9\]\[0-9\]\[0-9\]r.$suffix"
+}
+
+# Remove a specific tree dump file for the current test.
+#
+# SUFFIX is the tree dump file suffix pattern.
+proc cleanup-tree-dump { suffix } {
+  cleanup-dump "\[0-9\]\[0-9\]\[0-9\]t.$suffix"
+}
+
+# Remove a specific ipa dump file for the current test.
+#
+# SUFFIX is the ipa dump file suffix pattern.
+proc cleanup-ipa-dump { suffix } {
+  cleanup-dump "\[0-9\]\[0-9\]\[0-9\]i.$suffix"
+}
+
+# Remove all dump files with the provided suffix.
+proc cleanup-dump { suffix } {
+    # This assumes that we are three frames down from dg-test or some other
+    # proc that stores the filename of the testcase in a local variable
+    # "name".  A cleaner solution would require a new DejaGnu release.
+    upvar 3 name testcase
+    # The name might include a list of options; extract the file name.
+    set src [file tail [lindex $testcase 0]]
+    remove-build-file "[file tail $src].$suffix"
+
+    # Clean up dump files for additional source files.
+    if [info exists additional_sources] {
+	foreach srcfile $additional_sources {
+	    remove-build-file "[file tail $srcfile].$suffix"
+	}
+    }
+}
+
+# Remove files kept by --save-temps for the current test.
+#
+# Currently this is only .i files, but more can be added if there are
+# tests generating them.
+proc cleanup-saved-temps { } {
+    global additional_sources
+
+    # This assumes that we are two frames down from dg-test or some other proc
+    # that stores the filename of the testcase in a local variable "name".
+    # A cleaner solution would require a new DejaGnu release.
+    upvar 2 name testcase
+    remove-build-file "[file rootname [file tail $testcase]].ii"
+    remove-build-file "[file rootname [file tail $testcase]].i"
+
+    # Clean up saved temp files for additional source files.
+    if [info exists additional_sources] {
+	foreach srcfile $additional_sources {
+            remove-build-file "[file rootname [file tail $srcfile]].ii"
+            remove-build-file "[file rootname [file tail $srcfile]].i"
+	}
+    }
+}
+
+# Remove files for specified Fortran modules.
+proc cleanup-modules { modlist } {
+    foreach modname $modlist {
+	remove-build-file [string tolower $modname].mod
+    }
+}
+
+# Verify that the compiler output file exists, invoked via dg-final.
+proc output-exists { args } {
+    # Process an optional target or xfail list.
+    if { [llength $args] >= 1 } {
+	switch [dg-process-target [lindex $args 0]] {
+	    "S" { }
+	    "N" { return }
+	    "F" { setup_xfail "*-*-*" }
+	    "P" { }
+	}
+    }
+
+    # Access variables from gcc-dg-test-1.
+    upvar 2 name testcase
+    upvar 2 output_file output_file
+
+    if [file exists $output_file] {
+	pass "$testcase output-exists $output_file"
+    } else {
+	fail "$testcase output-exists $output_file"
+    }
+}
+
+# Verify that the compiler output file does not exist, invoked via dg-final.
+proc output-exists-not { args } {
+    # Process an optional target or xfail list.
+    if { [llength $args] >= 1 } {
+	switch [dg-process-target [lindex $args 0]] {
+	    "S" { }
+	    "N" { return }
+	    "F" { setup_xfail "*-*-*" }
+	    "P" { }
+	}
+    }
+
+    # Access variables from gcc-dg-test-1.
+    upvar 2 name testcase
+    upvar 2 output_file output_file
+
+    if [file exists $output_file] {
+	fail "$testcase output-exists-not $output_file"
+    } else {
+	pass "$testcase output-exists-not $output_file"
+    }
+}
+
 # We need to make sure that additional_* are cleared out after every
 # test.  It is not enough to clear them out *before* the next test run
 # because gcc-target-compile gets run directly from some .exp files
@@ -312,12 +509,14 @@ if { [info procs saved-dg-test] == [list] } {
 	global additional_prunes
 	global errorInfo
 	global compiler_conditional_xfail_data
+	global shouldfail
 
 	if { [ catch { eval saved-dg-test $args } errmsg ] } {
 	    set saved_info $errorInfo
 	    set additional_files ""
 	    set additional_sources ""
 	    set additional_prunes ""
+	    set shouldfail 0
 	    if [info exists compiler_conditional_xfail_data] {
 		unset compiler_conditional_xfail_data
 	    }
@@ -326,6 +525,7 @@ if { [info procs saved-dg-test] == [list] } {
 	set additional_files ""
 	set additional_sources ""
 	set additional_prunes ""
+	set shouldfail 0
 	if [info exists compiler_conditional_xfail_data] {
 	    unset compiler_conditional_xfail_data
 	}

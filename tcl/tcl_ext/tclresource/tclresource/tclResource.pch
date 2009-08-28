@@ -1,0 +1,13 @@
+// File: "TclResource.pch"
+//                        Created: 2003-09-22 10:47:15
+//              Last modification: 2005-12-27 16:51:25
+// Author: Bernard Desgraupes
+// Description: Use this header to build the precompiled header
+
+
+#ifndef __APPLE_CC__
+#pragma precompile_target "MW_TclResourceHeaderCarbonX"
+#endif
+
+#include "tclResource_version.h"
+#include "tclResource.h"

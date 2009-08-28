@@ -2,7 +2,7 @@
 /* Test if constant CFStrings get placed in the correct section.  */
 
 /* { dg-options "-fconstant-cfstrings -m64 -mmacosx-version-min=10.5" } */
-/* { dg-do compile { target *-*-darwin* } } */
+/* { dg-do compile { target powerpc*-*-darwin* i?86*-*-darwin* } } */
 
 typedef const struct __CFString * CFStringRef;
 static CFStringRef appKey = (CFStringRef) @"com.apple.soundpref";

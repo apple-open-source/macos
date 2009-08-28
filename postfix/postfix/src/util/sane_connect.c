@@ -15,8 +15,8 @@
 /*	known harmless error results to EAGAIN.
 /* BUGS
 /*	Bizarre systems may have other harmless error results. Such
-/*	systems encourage programers to ignore error results, and
-/*	penalizes programmers who code defensively.
+/*	systems encourage programmers to ignore error results, and
+/*	penalize programmers who code defensively.
 /* LICENSE
 /* .ad
 /* .fi
@@ -50,14 +50,16 @@ int     sane_connect(int sock, struct sockaddr * sa, SOCKADDR_SIZE len)
      * socket. Turning on keepalives will fix a blocking socket provided that
      * the kernel's keepalive timer expires before the Postfix watchdog
      * timer.
+     * 
+     * XXX Work around NAT induced damage by sending a keepalive before an idle
+     * connection is expired. This requires that the kernel keepalive timer
+     * is set to a short time, like 100s.
      */
-#if defined(BROKEN_READ_SELECT_ON_TCP_SOCKET) && defined(SO_KEEPALIVE)
     if (sa->sa_family == AF_INET) {
 	int     on = 1;
 
 	(void) setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE,
 			  (char *) &on, sizeof(on));
     }
-#endif
     return (connect(sock, sa, len));
 }

@@ -1,5 +1,5 @@
 #
-# $Id: rlm_ippool_tool.pod,v 1.2 2003/10/02 00:43:20 phampson Exp $
+# $Id$
 #
 
 =head1 NAME

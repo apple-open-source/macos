@@ -519,7 +519,7 @@ print_newports(ipfw_insn_u16 *cmd, int proto, int opcode)
 	}
 	sep = " ";
 	for (i = F_LEN((ipfw_insn *)cmd) - 1; i > 0; i--, p += 2) {
-		printf(sep);
+		printf("%s", sep);
 		print_port(proto, p[0]);
 		if (p[0] != p[1]) {
 			printf("-");
@@ -800,7 +800,7 @@ print_ip(ipfw_insn_ip *cmd, char const *s)
 	    (cmd->o.opcode == O_IP_SRC || cmd->o.opcode == O_IP_DST) ?
 		32 : contigmask((uint8_t *)&(a[1]), 32);
 	if (mb == 32 && do_resolv)
-		he = gethostbyaddr((char *)&(a[0]), sizeof(u_long), AF_INET);
+		he = gethostbyaddr((char *)&(a[0]), sizeof(in_addr_t), AF_INET);
 	if (he != NULL)		/* resolved to name */
 		printf("%s", he->h_name);
 	else if (mb == 0)	/* any */
@@ -1528,7 +1528,7 @@ list_pipes(void *data, uint nbytes, int ac, char *av[])
 		char buf[30];
 		char prefix[80];
 
-		if (p->next != (struct dn_pipe *)DN_IS_PIPE)
+		if (p->next.sle_next != (struct dn_pipe *)DN_IS_PIPE)
 			break;	/* done with pipes, now queues */
 
 		/*
@@ -1567,7 +1567,7 @@ list_pipes(void *data, uint nbytes, int ac, char *av[])
 	for (fs = next; nbytes >= sizeof *fs; fs = next) {
 		char prefix[80];
 
-		if (fs->next != (struct dn_flow_set *)DN_IS_QUEUE)
+		if (fs->next.sle_next != (struct dn_flow_set *)DN_IS_QUEUE)
 			break;
 		l = sizeof(*fs) + fs->rq_elements * sizeof(*q);
 		next = (char *)fs + l;

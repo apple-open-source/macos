@@ -1,6 +1,6 @@
 /* Definitions for code generation pass of GNU compiler.
    Copyright (C) 1987, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_EXPR_H
 #define GCC_EXPR_H
@@ -29,8 +29,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 /* For optimize_size */
 #include "flags.h"
-/* For host_integerp, tree_low_cst, convert, size_binop, ssize_int, TREE_CODE,
-   TYPE_SIZE, int_size_in_bytes,    */
+/* For host_integerp, tree_low_cst, fold_convert, size_binop, ssize_int,
+   TREE_CODE, TYPE_SIZE, int_size_in_bytes,    */
 #include "tree.h"
 /* For GET_MODE_BITSIZE, word_mode */
 #include "machmode.h"
@@ -75,10 +75,10 @@ enum expand_modifier {EXPAND_NORMAL = 0, EXPAND_STACK_PARM, EXPAND_SUM,
 #endif
 
 /* If a clear memory operation would take CLEAR_RATIO or more simple
-   move-instruction sequences, we will do a clrmem or libcall instead.  */
+   move-instruction sequences, we will do a setmem or libcall instead.  */
 
 #ifndef CLEAR_RATIO
-#if defined (HAVE_clrmemqi) || defined (HAVE_clrmemhi) || defined (HAVE_clrmemsi) || defined (HAVE_clrmemdi) || defined (HAVE_clrmemti)
+#if defined (HAVE_setmemqi) || defined (HAVE_setmemhi) || defined (HAVE_setmemsi) || defined (HAVE_setmemdi) || defined (HAVE_setmemti)
 #define CLEAR_RATIO 2
 #else
 /* If we are optimizing for space, cut down the default clear ratio.  */
@@ -123,42 +123,42 @@ struct locate_and_pad_arg_data
 
 /* Add the value of the tree INC to the `struct args_size' TO.  */
 
-#define ADD_PARM_SIZE(TO, INC)				\
-do {							\
-  tree inc = (INC);					\
-  if (host_integerp (inc, 0))				\
-    (TO).constant += tree_low_cst (inc, 0);		\
-  else if ((TO).var == 0)				\
-    (TO).var = convert (ssizetype, inc);		\
-  else							\
-    (TO).var = size_binop (PLUS_EXPR, (TO).var,		\
-			   convert (ssizetype, inc));	\
+#define ADD_PARM_SIZE(TO, INC)					\
+do {								\
+  tree inc = (INC);						\
+  if (host_integerp (inc, 0))					\
+    (TO).constant += tree_low_cst (inc, 0);			\
+  else if ((TO).var == 0)					\
+    (TO).var = fold_convert (ssizetype, inc);			\
+  else								\
+    (TO).var = size_binop (PLUS_EXPR, (TO).var,			\
+			   fold_convert (ssizetype, inc));	\
 } while (0)
 
-#define SUB_PARM_SIZE(TO, DEC)				\
-do {							\
-  tree dec = (DEC);					\
-  if (host_integerp (dec, 0))				\
-    (TO).constant -= tree_low_cst (dec, 0);		\
-  else if ((TO).var == 0)				\
-    (TO).var = size_binop (MINUS_EXPR, ssize_int (0),	\
-			   convert (ssizetype, dec));	\
-  else							\
-    (TO).var = size_binop (MINUS_EXPR, (TO).var,	\
-			   convert (ssizetype, dec));	\
+#define SUB_PARM_SIZE(TO, DEC)					\
+do {								\
+  tree dec = (DEC);						\
+  if (host_integerp (dec, 0))					\
+    (TO).constant -= tree_low_cst (dec, 0);			\
+  else if ((TO).var == 0)					\
+    (TO).var = size_binop (MINUS_EXPR, ssize_int (0),		\
+			   fold_convert (ssizetype, dec));	\
+  else								\
+    (TO).var = size_binop (MINUS_EXPR, (TO).var,		\
+			   fold_convert (ssizetype, dec));	\
 } while (0)
 
 /* Convert the implicit sum in a `struct args_size' into a tree
    of type ssizetype.  */
 #define ARGS_SIZE_TREE(SIZE)					\
 ((SIZE).var == 0 ? ssize_int ((SIZE).constant)			\
- : size_binop (PLUS_EXPR, convert (ssizetype, (SIZE).var),	\
+ : size_binop (PLUS_EXPR, fold_convert (ssizetype, (SIZE).var),	\
 	       ssize_int ((SIZE).constant)))
 
 /* Convert the implicit sum in a `struct args_size' into an rtx.  */
 #define ARGS_SIZE_RTX(SIZE)					\
 ((SIZE).var == 0 ? GEN_INT ((SIZE).constant)			\
- : expand_expr (ARGS_SIZE_TREE (SIZE), NULL_RTX, VOIDmode, 0))
+ : expand_normal (ARGS_SIZE_TREE (SIZE)))
 
 /* Supply a default definition for FUNCTION_ARG_PADDING:
    usually pad upward, but pad short args downward on
@@ -310,6 +310,11 @@ int can_conditionally_move_p (enum machine_mode mode);
 rtx emit_conditional_add (rtx, enum rtx_code, rtx, rtx, enum machine_mode,
 			  rtx, rtx, enum machine_mode, int);
 
+rtx expand_val_compare_and_swap (rtx, rtx, rtx, rtx);
+rtx expand_bool_compare_and_swap (rtx, rtx, rtx, rtx);
+rtx expand_sync_operation (rtx, rtx, enum rtx_code);
+rtx expand_sync_fetch_operation (rtx, rtx, enum rtx_code, bool, rtx);
+rtx expand_sync_lock_test_and_set (rtx, rtx, rtx);
 
 /* Functions from expmed.c:  */
 
@@ -336,6 +341,7 @@ extern rtx default_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
 extern void expand_builtin_setjmp_setup (rtx, rtx);
 extern void expand_builtin_setjmp_receiver (rtx);
 extern rtx expand_builtin_saveregs (void);
+extern void expand_builtin_trap (void);
 
 /* Functions from expr.c:  */
 
@@ -362,7 +368,9 @@ enum block_op_methods
 {
   BLOCK_OP_NORMAL,
   BLOCK_OP_NO_LIBCALL,
-  BLOCK_OP_CALL_PARM
+  BLOCK_OP_CALL_PARM,
+  /* Like BLOCK_OP_NORMAL, but the libcall can be tail call optimized.  */
+  BLOCK_OP_TAILCALL
 };
 
 extern void init_block_move_fn (const char *);
@@ -414,7 +422,10 @@ extern void use_group_regs (rtx *, rtx);
 
 /* Write zeros through the storage of OBJECT.
    If OBJECT has BLKmode, SIZE is its length in bytes.  */
-extern rtx clear_storage (rtx, rtx);
+extern rtx clear_storage (rtx, rtx, enum block_op_methods);
+
+/* Expand a setmem pattern; return true if successful.  */
+extern bool set_storage_via_setmem (rtx, rtx, rtx, unsigned int);
 
 /* Determine whether the LEN bytes can be moved by using several move
    instructions.  Return nonzero if a call to move_by_pieces should
@@ -482,6 +493,12 @@ expand_expr (tree exp, rtx target, enum machine_mode mode,
   return expand_expr_real (exp, target, mode, modifier, NULL);
 }
 
+static inline rtx
+expand_normal (tree exp)
+{
+  return expand_expr_real (exp, NULL_RTX, VOIDmode, EXPAND_NORMAL, NULL);
+}
+
 extern void expand_var (tree);
 
 /* At the start of a function, record that we have no previously-pushed
@@ -540,7 +557,7 @@ extern HOST_WIDE_INT int_expr_size (tree);
 
 /* Return an rtx that refers to the value returned by a function
    in its original home.  This becomes invalid if any more code is emitted.  */
-extern rtx hard_function_value (tree, tree, int);
+extern rtx hard_function_value (tree, tree, tree, int);
 
 extern rtx prepare_call_address (rtx, rtx, rtx *, int, int);
 
@@ -581,7 +598,7 @@ extern rtx eliminate_constant_term (rtx, rtx *);
    by emitting insns to perform arithmetic if nec.  */
 extern rtx memory_address (enum machine_mode, rtx);
 
-/* Like `memory_address' but pretent `flag_force_addr' is 0.  */
+/* Like `memory_address' but pretend `flag_force_addr' is 0.  */
 extern rtx memory_address_noforce (enum machine_mode, rtx);
 
 /* Return a memory reference like MEMREF, but with its mode changed
@@ -628,6 +645,8 @@ extern rtx widen_memory_access (rtx, enum machine_mode, HOST_WIDE_INT);
 /* Return a memory reference like MEMREF, but which is known to have a
    valid address.  */
 extern rtx validize_mem (rtx);
+
+extern rtx use_anchored_address (rtx);
 
 /* Given REF, a MEM, and T, either the type of X or the expression
    corresponding to REF, set the memory attributes.  OBJECTP is nonzero
@@ -711,8 +730,6 @@ extern rtx extract_bit_field (rtx, unsigned HOST_WIDE_INT,
 			      unsigned HOST_WIDE_INT, int, rtx,
 			      enum machine_mode, enum machine_mode);
 extern rtx expand_mult (enum machine_mode, rtx, rtx, rtx, int);
-extern bool const_mult_add_overflow_p (rtx, rtx, rtx, enum machine_mode, int);
-extern rtx expand_mult_add (rtx, rtx, rtx, rtx,enum machine_mode, int);
 extern rtx expand_mult_highpart_adjust (enum machine_mode, rtx, rtx, rtx, rtx, int);
 
 extern rtx assemble_static_space (unsigned HOST_WIDE_INT);
@@ -725,10 +742,6 @@ extern void init_all_optabs (void);
 
 /* Call this to initialize an optab function entry.  */
 extern rtx init_one_libfunc (const char *);
-
-extern void do_jump_by_parts_equality_rtx (rtx, rtx, rtx);
-extern void do_jump_by_parts_greater_rtx (enum machine_mode, int, rtx, rtx,
-					  rtx, rtx);
 
 extern int vector_mode_valid_p (enum machine_mode);
 

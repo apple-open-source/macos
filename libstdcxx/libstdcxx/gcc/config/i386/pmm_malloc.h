@@ -1,4 +1,4 @@
-/* Copyright (C) 2004 Free Software Foundation, Inc.
+/* Copyright (C) 2004, 2006 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -14,8 +14,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 /* As a special exception, if you include this header file into source
    files compiled by GCC, this header file does not by itself cause
@@ -31,7 +31,11 @@
 
 /* We can't depend on <stdlib.h> since the prototype of posix_memalign
    may not be visible.  */
+#ifndef __cplusplus
 extern int posix_memalign (void **, size_t, size_t);
+#else
+extern "C" int posix_memalign (void **, size_t, size_t) throw ();
+#endif
 
 static __inline void *
 _mm_malloc (size_t size, size_t alignment)

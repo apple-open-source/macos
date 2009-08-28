@@ -2,7 +2,7 @@ Index: samba/source/configure.in
 ===================================================================
 --- samba/source/configure.in.orig
 +++ samba/source/configure.in
-@@ -1248,7 +1248,8 @@ fi
+@@ -1259,7 +1259,8 @@ fi
  AC_CHECK_FUNCS(waitpid getcwd strdup strndup strnlen strerror chown fchown lchown chmod fchmod chroot link mknod mknod64)
  AC_CHECK_FUNCS(strtol strtoll strtoul strtoull strtouq __strtoull)
  AC_CHECK_FUNCS(fstat strchr utime utimes chflags)

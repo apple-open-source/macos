@@ -1,6 +1,6 @@
 /*
  **********************************************************************
- *   Copyright (C) 2005-2006, International Business Machines
+ *   Copyright (C) 2005-2008, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  **********************************************************************
  */
@@ -30,15 +30,15 @@ U_NAMESPACE_BEGIN
 class IteratedChar : public UMemory
 {
 public:
-    int32_t charValue;             // 1-4 bytes from the raw input data
-    int32_t index;
-    int32_t nextIndex;
-    UBool   error;
-    UBool   done;
+    uint32_t charValue;             // 1-4 bytes from the raw input data
+    int32_t  index;
+    int32_t  nextIndex;
+    UBool    error;
+    UBool    done;
 
 public:
     IteratedChar();
-    void reset();
+    //void reset();
     int32_t nextByte(InputText* det);
 };
 
@@ -58,7 +58,7 @@ protected:
      *             <br/>
      *             bits 8-15: The match reason, an enum-like value.
      */
-    int32_t match_mbcs(InputText* det, const int32_t commonChars[], int32_t commonCharsLen);
+    int32_t match_mbcs(InputText* det, const uint16_t commonChars[], int32_t commonCharsLen);
 
 public:
 

@@ -4,6 +4,7 @@
    SMBlib Utility Routines
 
    Copyright (C) Richard Sharpe 1996
+   Copyright 2006 The FreeRADIUS server project
 
 */
 
@@ -23,8 +24,11 @@
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
-#include "smblib-priv.h"
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
+#include <string.h>
+#include "smblib-priv.h"
 #include "rfcnb.h"
 
 /* Print out an SMB pkt in all its gory detail ... */
@@ -196,8 +200,7 @@ int SMB_Figure_Protocol(char *dialects[], int prot_index)
 
 int SMB_Negotiate(SMB_Handle_Type Con_Handle, char *Prots[])
 
-{ struct SMB_Neg_Prot_Def *prot_pkt;
-  struct SMB_Neg_Prot_Resp_Def *resp_pkt;
+{
   struct RFCNB_Pkt *pkt;
   int prots_len, i, pkt_len, prot, alloc_len;
   char *p;
@@ -356,7 +359,7 @@ int SMB_Negotiate(SMB_Handle_Type Con_Handle, char *Prots[])
     Con_Handle -> Encrypt_Key_Len = SVAL(SMB_Hdr(pkt), SMB_negrLM_ekl_offset);
 
     p = (SMB_Hdr(pkt) + SMB_negrLM_buf_offset);
-    fprintf(stderr, "%d", (char *)(SMB_Hdr(pkt) + SMB_negrLM_buf_offset));
+    fprintf(stderr, "%s", (char *)(SMB_Hdr(pkt) + SMB_negrLM_buf_offset));
     memcpy(Con_Handle->Encrypt_Key, p, 8);
 
     p = (SMB_Hdr(pkt) + SMB_negrLM_buf_offset + Con_Handle -> Encrypt_Key_Len);
@@ -410,8 +413,7 @@ int SMB_Negotiate(SMB_Handle_Type Con_Handle, char *Prots[])
 
 void SMB_Get_My_Name(char *name, int len)
 
-{ int loc;
-
+{
   if (gethostname(name, len) < 0) { /* Error getting name */
 
     strncpy(name, "unknown", len);
@@ -438,8 +440,9 @@ SMB_Tree_Handle SMB_TreeConnect(SMB_Handle_Type Con_Handle,
 				char *password,
 				char *device)
 
-{ struct RFCNB_Pkt *pkt;
-  int param_len, i, pkt_len;
+{
+  struct RFCNB_Pkt *pkt;
+  int param_len, pkt_len;
   char *p;
   SMB_Tree_Handle tree;
 
@@ -587,8 +590,8 @@ SMB_Tree_Handle SMB_TreeConnect(SMB_Handle_Type Con_Handle,
 
   if (Con_Handle -> first_tree == NULL) {
 
-    Con_Handle -> first_tree == tree;
-    Con_Handle -> last_tree == tree;
+    Con_Handle -> first_tree = tree;
+    Con_Handle -> last_tree = tree;
 
   }
   else {

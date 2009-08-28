@@ -677,6 +677,178 @@ static char *(features[]) =
 static int included_patches[] =
 {   /* Add new patch number below this line */
 /**/
+    108,
+/**/
+    107,
+/**/
+    106,
+/**/
+    105,
+/**/
+    104,
+/**/
+    103,
+/**/
+    102,
+/**/
+    101,
+/**/
+    100,
+/**/
+    99,
+/**/
+    98,
+/**/
+    97,
+/**/
+    96,
+/**/
+    95,
+/**/
+    94,
+/**/
+    93,
+/**/
+    92,
+/**/
+    91,
+/**/
+    90,
+/**/
+    89,
+/**/
+    88,
+/**/
+    87,
+/**/
+    86,
+/**/
+    85,
+/**/
+    84,
+/**/
+    83,
+/**/
+    82,
+/**/
+    81,
+/**/
+    80,
+/**/
+    79,
+/**/
+    78,
+/**/
+    77,
+/**/
+    76,
+/**/
+    75,
+/**/
+    74,
+/**/
+    73,
+/**/
+    72,
+/**/
+    71,
+/**/
+    70,
+/**/
+    69,
+/**/
+    68,
+/**/
+    67,
+/**/
+    66,
+/**/
+    65,
+/**/
+    64,
+/**/
+    63,
+/**/
+    62,
+/**/
+    61,
+/**/
+    60,
+/**/
+    59,
+/**/
+    58,
+/**/
+    57,
+/**/
+    56,
+/**/
+    55,
+/**/
+    54,
+/**/
+    53,
+/**/
+    52,
+/**/
+    51,
+/**/
+    50,
+/**/
+    49,
+/**/
+    48,
+/**/
+    47,
+/**/
+    46,
+/**/
+    45,
+/**/
+    44,
+/**/
+    43,
+/**/
+    42,
+/**/
+    41,
+/**/
+    40,
+/**/
+    39,
+/**/
+    38,
+/**/
+    37,
+/**/
+    36,
+/**/
+    35,
+/**/
+    34,
+/**/
+    33,
+/**/
+    32,
+/**/
+    31,
+/**/
+    30,
+/**/
+    29,
+/**/
+    28,
+/**/
+    27,
+/**/
+    26,
+/**/
+    25,
+/**/
+    24,
+/**/
+    23,
+/**/
     22,
 /**/
     21,
@@ -722,6 +894,19 @@ static int included_patches[] =
     1,
 /**/
     0
+};
+
+/*
+ * Place to put a short description when adding a feature with a patch.
+ * Keep it short, e.g.,: "relative numbers", "persistent undo".
+ * Also add a comment marker to separate the lines.
+ * See the official Vim patches for the diff format: It must use a context of
+ * one line only.  Create it by hand or use "diff -C2" and edit the patch.
+ */
+static char *(extra_patches[]) =
+{   /* Add your patch description below this line */
+/**/
+    NULL
 };
 
     int
@@ -866,6 +1051,19 @@ list_version()
 		}
 		first = -1;
 	    }
+	}
+    }
+
+    /* Print the list of extra patch descriptions if there is at least one. */
+    if (extra_patches[0] != NULL)
+    {
+	MSG_PUTS(_("\nExtra patches: "));
+	s = "";
+	for (i = 0; extra_patches[i] != NULL; ++i)
+	{
+	    MSG_PUTS(s);
+	    s = ", ";
+	    MSG_PUTS(extra_patches[i]);
 	}
     }
 

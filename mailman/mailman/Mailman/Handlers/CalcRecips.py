@@ -1,4 +1,4 @@
-# Copyright (C) 1998,1999,2000,2001,2002 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2008 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,7 +12,8 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software 
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 """Calculate the regular (i.e. non-digest) recipients of the message.
 
@@ -22,13 +23,22 @@ on the `recips' attribute of the message.  This attribute is used by the
 SendmailDeliver and BulkDeliver modules.
 """
 
+import email.Utils
 from Mailman import mm_cfg
 from Mailman import Utils
 from Mailman import Message
 from Mailman import Errors
 from Mailman.MemberAdaptor import ENABLED
+from Mailman.MailList import MailList
 from Mailman.i18n import _
 from Mailman.Logging.Syslog import syslog
+from Mailman.Errors import MMUnknownListError
+
+# Use set for sibling list recipient calculation
+try:
+    set
+except NameError: # Python2.3
+    from sets import Set as set
 
 
 
@@ -85,12 +95,19 @@ delivery.  The original message as received by Mailman is attached.
             pass
     # Handle topic classifications
     do_topic_filters(mlist, msg, msgdata, recips)
+    # Regular delivery exclude/include (if in/not_in To: or Cc:) lists
+    recips = do_exclude(mlist, msg, msgdata, recips)
+    recips = do_include(mlist, msg, msgdata, recips)
     # Bookkeeping
     msgdata['recips'] = recips
 
 
 
 def do_topic_filters(mlist, msg, msgdata, recips):
+    if not mlist.topics_enabled:
+        # MAS: if topics are currently disabled for the list, send to all
+        # regardless of ReceiveNonmatchingTopics
+        return
     hits = msgdata.get('topichits')
     zaprecips = []
     if hits:
@@ -130,4 +147,76 @@ def do_topic_filters(mlist, msg, msgdata, recips):
     # Prune out the non-receiving users
     for user in zaprecips:
         recips.remove(user)
-    
+
+
+def do_exclude(mlist, msg, msgdata, recips):
+    # regular_exclude_lists are the other mailing lists on this mailman
+    # installation whose members are excluded from the regular (non-digest)
+    # delivery of this list if those list addresses appear in To: or Cc:
+    # headers.
+    if not mlist.regular_exclude_lists:
+        return recips
+    recips = set(recips)
+    destinations = email.Utils.getaddresses(msg.get_all('to', []) +
+                                            msg.get_all('cc', []))
+    destinations = [y.lower() for x,y in destinations]
+    for listname in mlist.regular_exclude_lists:
+        listname = listname.lower()
+        if listname not in destinations:
+            continue
+        listlhs, hostname = listname.split('@')
+        if listlhs == mlist.internal_name():
+            syslog('error', 'Exclude list %s is a self reference.',
+                    listname)
+            continue
+        try:
+            slist = MailList(listlhs, lock=False)
+        except MMUnknownListError:
+            syslog('error', 'Exclude list %s not found.', listname)
+            continue
+        if not mm_cfg.ALLOW_CROSS_DOMAIN_SIBLING \
+           and slist.host_name != hostname:
+            syslog('error', 'Exclude list %s is not in the same domain.',
+                    listname)
+            continue
+        srecips = set([slist.getMemberCPAddress(m)
+                   for m in slist.getRegularMemberKeys()
+                   if slist.getDeliveryStatus(m) == ENABLED])
+        recips -= srecips
+    return list(recips)
+
+
+def do_include(mlist, msg, msgdata, recips):
+    # regular_include_lists are the other mailing lists on this mailman
+    # installation whose members are included in the regular (non-digest)
+    # delivery if those list addresses don't appear in To: or Cc: headers.
+    if not mlist.regular_include_lists:
+        return recips
+    recips = set(recips)
+    destinations = email.Utils.getaddresses(msg.get_all('to', []) +
+                                            msg.get_all('cc', []))
+    destinations = [y.lower() for x,y in destinations]
+    for listname in mlist.regular_include_lists:
+        listname = listname.lower()
+        if listname in destinations:
+            continue
+        listlhs, hostname = listname.split('@')
+        if listlhs == mlist.internal_name():
+            syslog('error', 'Include list %s is a self reference.',
+                    listname)
+            continue
+        try:
+            slist = MailList(listlhs, lock=False)
+        except MMUnknownListError:
+            syslog('error', 'Include list %s not found.', listname)
+            continue
+        if not mm_cfg.ALLOW_CROSS_DOMAIN_SIBLING \
+           and slist.host_name != hostname:
+            syslog('error', 'Include list %s is not in the same domain.',
+                    listname)
+            continue
+        srecips = set([slist.getMemberCPAddress(m)
+                   for m in slist.getRegularMemberKeys()
+                   if slist.getDeliveryStatus(m) == ENABLED])
+        recips |= srecips
+    return list(recips)

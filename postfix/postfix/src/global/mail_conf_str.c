@@ -23,10 +23,17 @@
 /*	const char *value;
 /*
 /*	void	get_mail_conf_str_table(table)
-/*	CONFIG_STR_TABLE *table;
+/*	const CONFIG_STR_TABLE *table;
 /*
 /*	void	get_mail_conf_str_fn_table(table)
-/*	CONFIG_STR_TABLE *table;
+/*	const CONFIG_STR_TABLE *table;
+/* AUXILIARY FUNCTIONS
+/*	char	*get_mail_conf_str2(name, suffix, defval, min, max)
+/*	const char *name;
+/*	const char *suffix;
+/*	const char *defval;
+/*	int	min;
+/*	int	max;
 /* DESCRIPTION
 /*	This module implements support for string-valued global
 /*	configuration parameters.
@@ -49,6 +56,9 @@
 /*	get_mail_conf_str_table() and get_mail_conf_str_fn_table() read
 /*	lists of variables, as directed by their table arguments. A table
 /*	must be terminated by a null entry.
+/*
+/*	get_mail_conf_str2() concatenates the two names and is otherwise
+/*	identical to get_mail_conf_str().
 /* DIAGNOSTICS
 /*	Fatal errors: bad string length.
 /* SEE ALSO
@@ -74,6 +84,7 @@
 
 #include <msg.h>
 #include <mymalloc.h>
+#include <stringops.h>
 
 /* Global library. */
 
@@ -82,7 +93,7 @@
 /* check_mail_conf_str - validate string length */
 
 static void check_mail_conf_str(const char *name, const char *strval,
-			             int min, int max)
+				        int min, int max)
 {
     ssize_t len = strlen(strval);
 
@@ -97,7 +108,7 @@ static void check_mail_conf_str(const char *name, const char *strval,
 /* get_mail_conf_str - evaluate string-valued configuration variable */
 
 char   *get_mail_conf_str(const char *name, const char *defval,
-		               int min, int max)
+			          int min, int max)
 {
     const char *strval;
 
@@ -109,12 +120,31 @@ char   *get_mail_conf_str(const char *name, const char *defval,
     return (mystrdup(strval));
 }
 
+/* get_mail_conf_str2 - evaluate string-valued configuration variable */
+
+char   *get_mail_conf_str2(const char *name1, const char *name2,
+			           const char *defval,
+			           int min, int max)
+{
+    const char *strval;
+    char   *name;
+
+    name = concatenate(name1, name2, (char *) 0);
+    if ((strval = mail_conf_lookup_eval(name)) == 0) {
+	strval = mail_conf_eval(defval);
+	mail_conf_update(name, strval);
+    }
+    check_mail_conf_str(name, strval, min, max);
+    myfree(name);
+    return (mystrdup(strval));
+}
+
 /* get_mail_conf_str_fn - evaluate string-valued configuration variable */
 
 typedef const char *(*stupid_indent_str) (void);
 
 char   *get_mail_conf_str_fn(const char *name, stupid_indent_str defval,
-			          int min, int max)
+			             int min, int max)
 {
     const char *strval;
 
@@ -135,26 +165,26 @@ void    set_mail_conf_str(const char *name, const char *value)
 
 /* get_mail_conf_str_table - look up table of strings */
 
-void    get_mail_conf_str_table(CONFIG_STR_TABLE *table)
+void    get_mail_conf_str_table(const CONFIG_STR_TABLE *table)
 {
     while (table->name) {
 	if (table->target[0])
 	    myfree(table->target[0]);
 	table->target[0] = get_mail_conf_str(table->name, table->defval,
-					  table->min, table->max);
+					     table->min, table->max);
 	table++;
     }
 }
 
 /* get_mail_conf_str_fn_table - look up strings, defaults are functions */
 
-void    get_mail_conf_str_fn_table(CONFIG_STR_FN_TABLE *table)
+void    get_mail_conf_str_fn_table(const CONFIG_STR_FN_TABLE *table)
 {
     while (table->name) {
 	if (table->target[0])
 	    myfree(table->target[0]);
 	table->target[0] = get_mail_conf_str_fn(table->name, table->defval,
-					     table->min, table->max);
+						table->min, table->max);
 	table++;
     }
 }

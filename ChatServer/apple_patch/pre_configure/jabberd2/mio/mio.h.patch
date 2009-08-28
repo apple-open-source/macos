@@ -1,0 +1,11 @@
+--- /tmp/jabberd-2.1.24.1/mio/mio.h	2008-04-27 02:57:34.000000000 -0700
++++ ./jabberd2/mio/mio.h	2008-11-24 14:21:54.000000000 -0800
+@@ -71,6 +71,8 @@
+ # include <sys/filio.h>
+ #endif
+ 
++#include <sys/resource.h>
++
+ #ifdef __cplusplus
+ extern "C" {
+ #endif

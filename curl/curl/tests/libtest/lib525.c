@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: lib525.c,v 1.16 2007-03-10 00:19:05 yangtse Exp $
+ * $Id: lib525.c,v 1.19 2008-09-20 04:26:57 yangtse Exp $
  */
 
 #include "test.h"
@@ -15,6 +15,7 @@
 #include <fcntl.h>
 
 #include "testutil.h"
+#include "memdebug.h"
 
 #define MAIN_LOOP_HANG_TIMEOUT     90 * 1000
 #define MULTI_PERFORM_HANG_TIMEOUT 60 * 1000
@@ -35,25 +36,25 @@ int test(char *URL)
   char ml_timedout = FALSE;
   char mp_timedout = FALSE;
 
-  if (!arg2) {
+  if (!libtest_arg2) {
     fprintf(stderr, "Usage: lib525 [url] [uploadfile]\n");
     return -1;
   }
 
   /* get the file size of the local file */
-  hd = open(arg2, O_RDONLY) ;
+  hd = open(libtest_arg2, O_RDONLY) ;
   fstat(hd, &file_info);
   close(hd) ;
 
   /* get a FILE * of the same file, could also be made with
      fdopen() from the previous descriptor, but hey this is just
      an example! */
-  hd_src = fopen(arg2, "rb");
+  hd_src = fopen(libtest_arg2, "rb");
   if(NULL == hd_src) {
     error = ERRNO;
     fprintf(stderr, "fopen() failed with error: %d %s\n",
             error, strerror(error));
-    fprintf(stderr, "Error opening file: %s\n", arg2);
+    fprintf(stderr, "Error opening file: %s\n", libtest_arg2);
     return TEST_ERR_MAJOR_BAD;
   }
 
@@ -71,13 +72,13 @@ int test(char *URL)
   }
 
   /* enable uploading */
-  curl_easy_setopt(curl, CURLOPT_UPLOAD, TRUE) ;
+  curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
 
   /* specify target */
   curl_easy_setopt(curl,CURLOPT_URL, URL);
 
   /* go verbose */
-  curl_easy_setopt(curl, CURLOPT_VERBOSE, 1);
+  curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
 
   /* use active FTP */
   curl_easy_setopt(curl, CURLOPT_FTPPORT, "-");

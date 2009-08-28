@@ -28,21 +28,23 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)tftp.1	8.2 (Berkeley) 4/18/94
+.\" $FreeBSD: src/usr.bin/tftp/tftp.1,v 1.20 2007/11/07 07:56:57 ru Exp $
 .\"
 .Dd June 11, 2003
 .Dt TFTP 1
 .Os
 .Sh NAME
 .Nm tftp
-.Nd trivial file transfer program
+.Nd "trivial file transfer program"
 .Sh SYNOPSIS
 .Nm
 .Op Fl e
 .Op Ar host
 .Op Ar port
 .Sh DESCRIPTION
+The
 .Nm
-is the user interface to the Internet
+utility is the user interface to the Internet
 .Tn TFTP
 (Trivial File Transfer Protocol),
 which allows users to transfer files to and from a remote machine.
@@ -81,10 +83,12 @@ and recognizes the following commands:
 Print help information.
 .Pp
 .It Cm ascii
-Shorthand for "mode ascii"
+Shorthand for
+.Ic mode Cm ascii .
 .Pp
 .It Cm binary
-Shorthand for "mode binary"
+Shorthand for
+.Ic mode Cm binary .
 .Pp
 .It Cm blksize Ar blk-size
 Set the tftp blksize option to
@@ -125,26 +129,36 @@ commands.
 .It Cm get Ar filename
 .It Cm get Ar remotename localname
 .It Cm get Ar file1 file2 ...  fileN
-Get a file or set of files from the specified
-.Ar sources .
-.Ar Source
-can be in one of two forms:
-a filename on the remote host, if the host has already been specified,
-or a string of the form
-.Ar hosts:filename
-to specify both a host and filename at the same time.
-If the latter form is used,
-the last hostname specified becomes the default for future transfers.
+Get one or more files from the remote host.
+When using the
+.Ar host
+argument, the
+.Ar host
+will be used as default host for future transfers.
+If
+.Ar localname
+is specified, the file is stored locally as
+.Ar localname ,
+otherwise the original filename is used.
+Note that it is not possible to download two files at a time, only
+one, three, or more than three files, at a time.
+.Pp
+To specify an IPv6 numeric address for a host, wrap it using square
+brackets like
+.Dq Li [3ffe:2900:e00c:ffee::1234] : Ns Ar file
+to disambiguate the
+colons used in the IPv6 address from the colon separating the host and
+the filename.
 .Pp
 .It Cm mode Ar transfer-mode
 Set the mode for transfers;
 .Ar transfer-mode
 may be one of
-.Em ascii
+.Cm ascii
 or
-.Em binary .
+.Cm binary .
 The default is
-.Em ascii .
+.Cm ascii .
 .Pp
 .It Cm put Ar file
 .It Cm put Ar localfile remotefile
@@ -159,15 +173,21 @@ or a string of the form
 to specify both a host and filename at the same time.
 If the latter form is used,
 the hostname specified becomes the default for future transfers.
-If the remote-directory form is used, the remote host is
-assumed to be a
+When
+.Ar remotename
+is specified, the file is stored remotely as
+.Ar remotename ,
+otherwise the original filename is used.
+If the
+.Ar remote-directory
+argument is used, the remote host is assumed to be a
 .Ux
 machine.
-If you need to specify IPv6 numeric address to
-.Ar hosts ,
-wrap them using square bracket like
-.Ar [hosts]:filename
-to disambiguate the colon.
+To specify an IPv6 numeric address for a
+.Ar host ,
+see the example under the
+.Cm get
+command.
 .Pp
 .It Cm quit
 Exit
@@ -215,5 +235,9 @@ the
 .Tn TFTP
 protocol, the remote site will probably have some
 sort of file-access restrictions in place.
-The exact methods are specific to each site and therefore
+The
+exact methods are specific to each site and therefore
 difficult to document here.
+.Pp
+Files larger than 33488896 octets (65535 blocks) cannot be transferred
+without client and server supporting blocksize negotiation (RFC1783).

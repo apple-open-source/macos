@@ -431,13 +431,27 @@ proc runto_main { } {
 ### worked.  Use NAME as part of the test name; each call to
 ### continue_to_breakpoint should use a NAME which is unique within
 ### that test file.
-proc gdb_continue_to_breakpoint {name} {
-    global gdb_prompt
-    set full_name "continue to breakpoint: $name"
+### APPLE LOCAL: I added an optional CORRECT_BPT parameter.  If this
+### is not -1, then if we hit a breakpoint, we check to make sure we
+### hit the breakpoint specified in this parameter.
 
+proc gdb_continue_to_breakpoint {name {correct_bpt -1}} {
+    global gdb_prompt
+    global expect_out
+
+    set full_name "continue to breakpoint: $name"
+    set which_breakpoint -1
     send_gdb "continue\n"
     gdb_expect {
-	-re "Breakpoint .* at .*\r\n$gdb_prompt $" {
+	-re "Breakpoint \(\[0-9\]*\).* at .*\r\n$gdb_prompt $" {
+	    if {$correct_bpt != -1} {
+		set which_breakpoint $expect_out(1,string)
+		if {$which_breakpoint == $correct_bpt} {
+		    pass $full_name
+		} else {
+		    fail "Hit incorrect breakpoint: $which_breakpoint - $full_name"
+		}
+	    }
 	    pass $full_name
 	}
 	-re ".*$gdb_prompt $" {
@@ -447,6 +461,7 @@ proc gdb_continue_to_breakpoint {name} {
 	    fail "$full_name (timeout)"
 	}
     }
+    return $which_breakpoint
 }
 
 
@@ -1133,7 +1148,9 @@ proc default_gdb_start {extra_flags} {
 
     gdb_stop_suppressing_tests;
 
-    set res [default_gdb_run "$GDB -nw $GDBFLAGS $extra_flags [host_info gdb_opts]"]
+# APPLE LOCAL: Change gdb_opts from host_info to target_info because I don't
+# see how you're supposed to add stuff to the host_info collection.  whatever.
+    set res [default_gdb_run "$GDB -nw $GDBFLAGS $extra_flags [target_info gdb_opts]"]
 
     if { $res < 0 } { return res }
 
@@ -1153,6 +1170,16 @@ proc default_gdb_start {extra_flags} {
     }
     set gdb_spawn_id -1;
     # force the height to "unlimited", so no pagers get used
+
+    send_gdb "set locate-dsym 0\n"
+    gdb_expect 10 {
+	-re "$gdb_prompt $" { 
+	    verbose "Setting locate-dsym to 0." 2
+	}
+	timeout {
+	    warning "Couldn't set the locate-dsym to 0"
+	}
+    }
 
     send_gdb "set height 0\n"
     gdb_expect 10 {

@@ -125,6 +125,12 @@ public:
     }
 
 
+    DataLabelPtr moveWithPatch(ImmPtr initialValue, RegisterID dest)
+    {
+        m_assembler.movl_i32r(initialValue.asIntptr(), dest);
+        return DataLabelPtr(this);
+    }
+
     Jump branchPtrWithPatch(Condition cond, RegisterID left, DataLabelPtr& dataLabel, ImmPtr initialRightValue = ImmPtr(0))
     {
         m_assembler.cmpl_ir_force32(initialRightValue.asIntptr(), left);
@@ -139,13 +145,22 @@ public:
         return Jump(m_assembler.jCC(x86Condition(cond)));
     }
 
-    DataLabelPtr storePtrWithPatch(Address address)
+    DataLabelPtr storePtrWithPatch(ImmPtr initialValue, ImplicitAddress address)
     {
-        m_assembler.movl_i32m(0, address.offset, address.base);
+        m_assembler.movl_i32m(initialValue.asIntptr(), address.offset, address.base);
         return DataLabelPtr(this);
     }
 
+    Label loadPtrWithPatchToLEA(Address address, RegisterID dest)
+    {
+        Label label(this);
+        load32(address, dest);
+        return label;
+    }
+
     bool supportsFloatingPoint() const { return m_isSSE2Present; }
+    // See comment on MacroAssemblerARMv7::supportsFloatingPointTruncate()
+    bool supportsFloatingPointTruncate() const { return m_isSSE2Present; }
 
 private:
     const bool m_isSSE2Present;

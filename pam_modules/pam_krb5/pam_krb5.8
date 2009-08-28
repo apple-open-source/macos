@@ -1,6 +1,9 @@
 .\"
-.\" $Id: pam_krb5.8,v 1.1.1.2 2001/08/29 08:58:12 lukeh Exp $
-.\" $FreeBSD: src/lib/libpam/modules/pam_krb5/pam_krb5.8,v 1.5 2001/08/15 20:05:31 markm Exp $
+.\" $Id: pam_krb5.5,v 1.5 2000/01/05 00:59:56 fcusack Exp $
+.\" $FreeBSD: src/lib/libpam/modules/pam_krb5/pam_krb5.8,v 1.1.2.3 2001/12/17 10:08:31 ru Exp $
+.\"
+.\" Portions Copyright (c) 2008-2009 Apple Inc. All rights reserved.
+.\"
 .Dd January 15, 1999
 .Dt PAM_KRB5 8
 .Os
@@ -8,22 +11,22 @@
 .Nm pam_krb5
 .Nd Kerberos 5 PAM module
 .Sh SYNOPSIS
-.Pa /usr/lib/pam_krb5.so
+.Op Ar service-name
+.Ar function-class
+.Ar control-flag
+pam_krb5
+.Op Ar options
 .Sh DESCRIPTION
-The Kerberos 5 service module for PAM, typically
-.Pa /usr/lib/pam_krb5.so ,
-provides functionality for three PAM categories:
-authentication,
-account management,
-and password management.
-It also provides null functions for session management.
-The
-.Pa pam_krb5.so
-module is a shared object
-that can be dynamically loaded to provide
-the necessary functionality upon demand.
-Its path is specified in the
-PAM configuration file.
+The Kerberos 5 PAM module supports the authentication, account management and password management function classes.
+In terms of the
+.Ar function-class
+parameter, these are
+.Dq Li auth
+,
+.Dq Li account
+and
+.Dq Li password
+respectively.  It also provides null functionality for session management.
 .Ss Kerberos 5 Authentication Module
 The Kerberos 5 authentication component
 provides functions to verify the identity of a user
@@ -34,7 +37,7 @@ and to set user specific credentials
 converts the supplied username into a Kerberos principal,
 by appending the default local realm name.
 It also supports usernames with explicit realm names.
-If a realm name is supplied, then upon a sucessful return, it
+If a realm name is supplied, then upon a successful return, it
 changes the username by mapping the principal name into a local username
 (calling
 .Fn krb5_aname_to_localname ) .
@@ -59,18 +62,13 @@ appropriately.
 The credentials cache should be destroyed by the user at logout with
 .Xr kdestroy 1 .
 .Pp
-The following options may be passed to the authentication module:
-.Bl -tag -width ".Cm use_first_pass"
+The following options may be passed to this authentication module:
+.Bl -tag -width ".Cm default_principal"
 .It Cm debug
 .Xr syslog 3
 debugging information at
 .Dv LOG_DEBUG
 level.
-.It Cm no_warn
-suppress warning messages to the user.
-These messages include
-reasons why the user's
-authentication attempt was declined.
 .It Cm use_first_pass
 If the authentication module is not the first in the stack,
 and a previous module obtained the user's password, that password is
@@ -108,6 +106,10 @@ and
 .Ql %p ,
 to designate the current process ID; can be used in
 .Ar name .
+.It Cm default_principal
+Contruct the principal from the autheticating user's username, rather
+than obtaining it from the AuthenticationAuthority of the  user's
+OpenDirectory record.
 .El
 .Ss Kerberos 5 Account Management Module
 The Kerberos 5 account management component
@@ -150,7 +152,7 @@ The password management module uses the same heuristics as
 .Xr kpasswd 1
 to determine how to contact the Kerberos password server.
 .Pp
-The following options may be passed to the password management
+The following options may be passed to this password management
 module:
 .Bl -tag -width ".Cm use_first_pass"
 .It Cm debug
@@ -206,6 +208,7 @@ file containing Kerberos principals that are allowed access.
 .Xr passwd 1 ,
 .Xr syslog 3 ,
 .Xr pam.conf 5 ,
+.Xr DirectoryService 8 ,
 .Xr pam 8
 .Sh NOTES
 Applications should not call

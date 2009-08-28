@@ -1,8 +1,8 @@
 #
 #   irb/extend-command.rb - irb extend command 
 #   	$Release Version: 0.9.5$
-#   	$Revision: 11708 $
-#   	$Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+#   	$Revision: 16857 $
+#   	$Date: 2008-06-06 17:05:24 +0900 (Fri, 06 Jun 2008) $
 #   	by Keiju ISHITSUKA(keiju@ruby-lang.org)
 #
 # --
@@ -112,7 +112,7 @@ module IRB
       end
     end
 
-    # aliases = [commans_alias, flag], ...
+    # aliases = [commands_alias, flag], ...
     def self.def_extend_command(cmd_name, cmd_class, load_file = nil, *aliases)
       case cmd_class
       when Symbol

@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 2001-2006 IBM and others. All rights reserved.
+*   Copyright (C) 2001-2008 IBM and others. All rights reserved.
 **********************************************************************
 *   Date        Name        Description
 *  03/22/2000   helena      Creation.
@@ -17,7 +17,7 @@
  * \brief C++ API: Service for searching text based on RuleBasedCollator.
  */
  
-#if !UCONFIG_NO_COLLATION
+#if !UCONFIG_NO_COLLATION && !UCONFIG_NO_BREAK_ITERATION
 
 #include "unicode/tblcoll.h"
 #include "unicode/coleitr.h"
@@ -33,12 +33,12 @@ U_NAMESPACE_BEGIN
  * StringSearch ensures that language eccentricity can be 
  * handled, e.g. for the German collator, characters &szlig; and SS will be matched 
  * if case is chosen to be ignored.
- * See the <a href="http://dev.icu-project.org/cgi-bin/viewcvs.cgi/~checkout~/icuhtml/design/collation/ICU_collation_design.htm">
+ * See the <a href="http://source.icu-project.org/repos/icu/icuhtml/trunk/design/collation/ICU_collation_design.htm">
  * "ICU Collation Design Document"</a> for more information.
  * <p> 
  * The algorithm implemented is a modified form of the Boyer Moore's search.
  * For more information  see 
- * <a href="http://icu.sourceforge.net/docs/papers/efficient_text_searching_in_java.html">
+ * <a href="http://icu-project.org/docs/papers/efficient_text_searching_in_java.html">
  * "Efficient Text Searching in Java"</a>, published in <i>Java Report</i> 
  * in February, 1999, for further information on the algorithm.
  * <p>
@@ -114,13 +114,15 @@ U_NAMESPACE_BEGIN
  * and examples of how to use instances of this class to implement text
  * searching.
  * <pre><code>
- * UnicodeString target("The quick brown fox jumped over the lazy fox");
+ * UnicodeString target("The quick brown fox jumps over the lazy dog.");
  * UnicodeString pattern("fox");
  *
- * SearchIterator *iter  = new StringSearch(pattern, target);
  * UErrorCode      error = U_ZERO_ERROR;
- * for (int pos = iter->first(error); pos != USEARCH_DONE; 
- *                               pos = iter->next(error)) {
+ * StringSearch iter(pattern, target, Locale::getUS(), NULL, status);
+ * for (int pos = iter.first(error);
+ *      pos != USEARCH_DONE; 
+ *      pos = iter.next(error))
+ * {
  *     printf("Found match at %d pos, length is %d\n", pos, 
  *                                             iter.getMatchLength());
  * }

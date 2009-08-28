@@ -1,0 +1,276 @@
+To: vim-dev@vim.org
+Subject: Patch 7.2.036 (extra)
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 7.2.036 (extra)
+Problem:    Mismatches between alloc/malloc, free/vim_free,
+	    realloc/vim_realloc.
+Solution:   Use the right function. (Dominique Pelle)
+Files:	    src/gui_riscos.c, src/gui_w48.c, src/mbyte.c, src/os_vms.c,
+	    src/os_w32exe.c, src/os_win16.c
+
+
+*** ../vim-7.2.035/src/gui_riscos.c	Thu May 10 19:33:26 2007
+--- src/gui_riscos.c	Wed Nov 12 11:47:54 2008
+***************
+*** 695,701 ****
+  gui_mch_set_shellsize(width, height, min_width, min_height, base_width, base_height, direction)
+      int width;		/* In OS units */
+      int height;
+!     int min_width;	/* Smallest permissable window size (ignored) */
+      int min_height;
+      int base_width;	/* Space for scroll bars, etc */
+      int base_height;
+--- 695,701 ----
+  gui_mch_set_shellsize(width, height, min_width, min_height, base_width, base_height, direction)
+      int width;		/* In OS units */
+      int height;
+!     int min_width;	/* Smallest permissible window size (ignored) */
+      int min_height;
+      int base_width;	/* Space for scroll bars, etc */
+      int base_height;
+***************
+*** 863,869 ****
+      if (strncmp(file, "ZapFont\015", 8) == 0)
+  	return file;	/* Loaded OK! */
+  
+!     free(file);
+      return NULL;	/* Not a valid font file */
+  }
+  
+--- 863,869 ----
+      if (strncmp(file, "ZapFont\015", 8) == 0)
+  	return file;	/* Loaded OK! */
+  
+!     vim_free(file);
+      return NULL;	/* Not a valid font file */
+  }
+  
+*** ../vim-7.2.035/src/gui_w48.c	Thu Jul 24 20:50:23 2008
+--- src/gui_w48.c	Wed Nov 12 11:37:41 2008
+***************
+*** 3335,3341 ****
+  
+  /*
+   * Convert the string s to the proper format for a filter string by replacing
+!  * the \t and \n delimeters with \0.
+   * Returns the converted string in allocated memory.
+   *
+   * Keep in sync with convert_filterW() above!
+--- 3335,3341 ----
+  
+  /*
+   * Convert the string s to the proper format for a filter string by replacing
+!  * the \t and \n delimiters with \0.
+   * Returns the converted string in allocated memory.
+   *
+   * Keep in sync with convert_filterW() above!
+***************
+*** 3674,3680 ****
+   * Use "prog" as the name of the program and "cmdline" as the arguments.
+   * Copy the arguments to allocated memory.
+   * Return the number of arguments (including program name).
+!  * Return pointers to the arguments in "argvp".
+   * Return pointer to buffer in "tofree".
+   * Returns zero when out of memory.
+   */
+--- 3674,3681 ----
+   * Use "prog" as the name of the program and "cmdline" as the arguments.
+   * Copy the arguments to allocated memory.
+   * Return the number of arguments (including program name).
+!  * Return pointers to the arguments in "argvp".  Memory is allocated with
+!  * malloc(), use free() instead of vim_free().
+   * Return pointer to buffer in "tofree".
+   * Returns zero when out of memory.
+   */
+***************
+*** 3692,3697 ****
+--- 3693,3700 ----
+      char	**argv = NULL;
+      int		round;
+  
++     *tofree = NULL;
++ 
+  #ifdef FEAT_MBYTE
+      /* Try using the Unicode version first, it takes care of conversion when
+       * 'encoding' is changed. */
+***************
+*** 3802,3816 ****
+  	    argv = (char **)malloc((argc + 1) * sizeof(char *));
+  	    if (argv == NULL )
+  	    {
+! 		vim_free(newcmdline);
+  		return 0;		   /* malloc error */
+  	    }
+  	    pnew = newcmdline;
+  	}
+      }
+  
+  done:
+- 
+      argv[argc] = NULL;		/* NULL-terminated list */
+      *argvp = argv;
+      return argc;
+--- 3805,3819 ----
+  	    argv = (char **)malloc((argc + 1) * sizeof(char *));
+  	    if (argv == NULL )
+  	    {
+! 		free(newcmdline);
+  		return 0;		   /* malloc error */
+  	    }
+  	    pnew = newcmdline;
++ 	    *tofree = newcmdline;
+  	}
+      }
+  
+  done:
+      argv[argc] = NULL;		/* NULL-terminated list */
+      *argvp = argv;
+      return argc;
+*** ../vim-7.2.035/src/os_vms.c	Wed Aug  6 18:38:52 2008
+--- src/os_vms.c	Wed Nov 12 11:42:12 2008
+***************
+*** 228,234 ****
+      else if ((sbuf = getenv((char *)lognam)))
+      {
+  	lengte = strlen(sbuf) + 1;
+! 	cp = (char_u *)malloc((size_t)lengte);
+  	if (cp)
+  	    strcpy((char *)cp, sbuf);
+  	return cp;
+--- 228,234 ----
+      else if ((sbuf = getenv((char *)lognam)))
+      {
+  	lengte = strlen(sbuf) + 1;
+! 	cp = (char_u *)alloc((size_t)lengte);
+  	if (cp)
+  	    strcpy((char *)cp, sbuf);
+  	return cp;
+***************
+*** 381,387 ****
+      if (--vms_match_free == 0) {
+  	/* add more space to store matches */
+  	vms_match_alloced += EXPL_ALLOC_INC;
+! 	vms_fmatch = (char_u **)realloc(vms_fmatch,
+  		sizeof(char **) * vms_match_alloced);
+  	if (!vms_fmatch)
+  	    return 0;
+--- 381,387 ----
+      if (--vms_match_free == 0) {
+  	/* add more space to store matches */
+  	vms_match_alloced += EXPL_ALLOC_INC;
+! 	vms_fmatch = (char_u **)vim_realloc(vms_fmatch,
+  		sizeof(char **) * vms_match_alloced);
+  	if (!vms_fmatch)
+  	    return 0;
+***************
+*** 460,466 ****
+  	    if (--files_free < 1)
+  	    {
+  		files_alloced += EXPL_ALLOC_INC;
+! 		*file = (char_u **)realloc(*file,
+  		    sizeof(char_u **) * files_alloced);
+  		if (*file == NULL)
+  		{
+--- 460,466 ----
+  	    if (--files_free < 1)
+  	    {
+  		files_alloced += EXPL_ALLOC_INC;
+! 		*file = (char_u **)vim_realloc(*file,
+  		    sizeof(char_u **) * files_alloced);
+  		if (*file == NULL)
+  		{
+***************
+*** 614,627 ****
+      {
+  	buflen = len + 128;
+  	if (buf)
+! 	    buf = (char *)realloc(buf, buflen);
+  	else
+! 	    buf = (char *)calloc(buflen, sizeof(char));
+      }
+  
+  #ifdef DEBUG
+       char		 *tmpbuf = NULL;
+!      tmpbuf = (char *)calloc(buflen, sizeof(char));
+       strcpy(tmpbuf, instring);
+  #endif
+  
+--- 614,627 ----
+      {
+  	buflen = len + 128;
+  	if (buf)
+! 	    buf = (char *)vim_realloc(buf, buflen);
+  	else
+! 	    buf = (char *)alloc(buflen * sizeof(char));
+      }
+  
+  #ifdef DEBUG
+       char		 *tmpbuf = NULL;
+!      tmpbuf = (char *)alloc(buflen * sizeof(char));
+       strcpy(tmpbuf, instring);
+  #endif
+  
+*** ../vim-7.2.035/src/os_w32exe.c	Fri Jul  1 00:06:20 2005
+--- src/os_w32exe.c	Wed Nov 12 11:45:43 2008
+***************
+*** 129,135 ****
+  errout:
+  #endif
+      free(argv);
+!     free(tofree);
+  #ifdef FEAT_MBYTE
+      free_cmd_argsW();
+  #endif
+--- 129,136 ----
+  errout:
+  #endif
+      free(argv);
+!     if (tofree != NULL)
+! 	free(tofree);
+  #ifdef FEAT_MBYTE
+      free_cmd_argsW();
+  #endif
+*** ../vim-7.2.035/src/os_win16.c	Wed Jun 25 00:49:34 2008
+--- src/os_win16.c	Wed Nov 12 11:45:53 2008
+***************
+*** 121,127 ****
+      pmain(argc, argv);
+  
+      free(argv);
+!     free(tofree);
+  
+      return 0;
+  }
+--- 121,128 ----
+      pmain(argc, argv);
+  
+      free(argv);
+!     if (tofree != NULL)
+! 	free(tofree);
+  
+      return 0;
+  }
+*** ../vim-7.2.035/src/version.c	Wed Nov 12 13:07:48 2008
+--- src/version.c	Wed Nov 12 13:28:51 2008
+***************
+*** 678,679 ****
+--- 678,681 ----
+  {   /* Add new patch number below this line */
++ /**/
++     36,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+239. You think "surfing" is something you do on dry land.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\        download, build and distribute -- http://www.A-A-P.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

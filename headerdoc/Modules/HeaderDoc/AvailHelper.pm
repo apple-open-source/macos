@@ -1,10 +1,9 @@
 #! /usr/bin/perl -w
 #
 # Class name: AvailHelper
-# Synopsis: Helper code fro availability
+# Synopsis: Helper code for availability
 #
-# Author: David Gatwood (dgatwood@apple.com)
-# Last Updated: $Date: 2007/04/24 23:34:15 $
+# Last Updated: $Date: 2009/03/30 19:38:50 $
 # 
 # Copyright (c) 2006 Apple Computer, Inc.  All rights reserved.
 #
@@ -43,8 +42,8 @@ use Cwd;
 use Carp qw(cluck);
 
 use strict;
-use vars qw($VERSION @ISA);
-$VERSION = '$Revision: 1.1.2.3 $';
+use vars qw(@ISA);
+$HeaderDoc::AvailHelper::VERSION = '$Revision: 1.4 $';
 
 # Inheritance
 # @ISA = qw(HeaderDoc::HeaderElement);
@@ -97,7 +96,7 @@ sub new {
 	while ($x <= 9) {
 		my $string = "MAC_OS_X_VERSION_10_".$x;
 		my $value = 1000 + (10 * $x);
-		# print "STRING: $string VALUE: $value\n";
+		# print STDERR "STRING: $string VALUE: $value\n";
 		$hash{$string} = $value;
 		$x++;
 	}
@@ -144,10 +143,12 @@ sub parseString
 {
 	my $self = shift;
 	my $string = shift;
-	my $filename = shift;
+	my $fullpath = shift;
 	my $line = shift;
 
-	# print "STRING WAS \"$string\".\n";
+	my $localDebug = 0;
+
+	print STDERR "STRING WAS \"$string\".\n" if ($localDebug);
 
 	my $minver = "";
 	my $minop = "";
@@ -165,18 +166,18 @@ sub parseString
 	my $maxver = "";
 	my $maxop = "";
 	my $maxrev = 0;
-	# print "STRING: $string\n";
+	# print STDERR "STRING: $string\n";
 	if ($string =~ /MAC_OS_X_VERSION_MAX_ALLOWED\s*([<>=!]+)\s*(\w+)/) {
 		$maxop = $1;
 		$maxver = $2;
 		$maxrev = 0;
-		# print "FOUND MAC_OS_X_VERSION_MAX_ALLOWED \"$1\" \"$2\"";
+		# print STDERR "FOUND MAC_OS_X_VERSION_MAX_ALLOWED \"$1\" \"$2\"";
 	}
 	if ($string =~ /(\w+)\s*([<>=!]+)\s*MAC_OS_X_VERSION_MAX_ALLOWED/) {
 		$maxop = $2;
 		$maxver = $1;
 		$maxrev = 1;
-		# print "FOUND MAC_OS_X_VERSION_MAX_ALLOWED $2 $1";
+		# print STDERR "FOUND MAC_OS_X_VERSION_MAX_ALLOWED $2 $1";
 	}
 	if ($minrev) {
 		if ($minop eq "<") { $minop = ">"; }
@@ -191,12 +192,12 @@ sub parseString
 		elsif ($maxop eq ">=") { $maxop = "<="; }
 	}
 
-	# print "MINVER: $minver OP: $minop REV: $minrev\n";
-	# print "MAXVER: $maxver OP: $maxop REV: $maxrev\n";
+	# print STDERR "MINVER: $minver OP: $minop REV: $minrev\n";
+	# print STDERR "MAXVER: $maxver OP: $maxop REV: $maxrev\n";
 
 	$string = "";
 	if (length($maxver)) {
-		# print "MAXVER: $maxver OP: $maxop REV: $maxrev\n";
+		# print STDERR "MAXVER: $maxver OP: $maxop REV: $maxrev\n";
 		if ($maxop eq ">" || $maxop eq ">=") {
 			my $val = $self->versionnum($maxver); # convert to num if needed
 			if ($maxop eq ">") {
@@ -210,11 +211,11 @@ sub parseString
 				warn "Could not get name for $maxver ($val)!\n";
 			}
 		} else {
-			warn "$filename:$line:Unsupported use of MAC_OS_X_VERSION_MAX_ALLOWED!\n";
+			warn "$fullpath:$line:Unsupported use of MAC_OS_X_VERSION_MAX_ALLOWED!\n";
 		}
 	}
 	if (length($minver)) {
-		# print "MINVER: $minver OP: $minop REV: $minrev\n";
+		# print STDERR "MINVER: $minver OP: $minop REV: $minrev\n";
 		if ($minop eq "<" || $minop eq "<=") {
 			my $val = $self->versionnum($minver); # convert to num if needed
 
@@ -229,9 +230,10 @@ sub parseString
 				warn "Could not get name for $minver ($val)!\n";
 			}
 		} else {
-			warn "$filename:$line:Unsupported use of MAC_OS_X_VERSION_MIN_REQUIRED!\n";
+			warn "$fullpath:$line:Unsupported use of MAC_OS_X_VERSION_MIN_REQUIRED!\n";
 		}
 	}
+	print STDERR "Returning availability string \"$string\".\n" if ($localDebug);
 	return $string;
 }
 

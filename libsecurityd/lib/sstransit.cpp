@@ -27,17 +27,14 @@
 //
 #include "sstransit.h"
 #include <security_cdsa_client/cspclient.h>
-#include <security_utilities/ktracecodes.h>
 #include <security_utilities/mach++.h>
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 
 namespace Security {
+namespace SecurityServer {
 
 using MachPlusPlus::check;
 using MachPlusPlus::VMGuard;
-
-namespace SecurityServer {
-
 
 //
 // DataOutput helper.
@@ -90,7 +87,7 @@ DatabaseAccessCredentials::DatabaseAccessCredentials(const AccessCredentials *cr
 						|| sample[3].type() != CSSM_LIST_ELEMENT_DATUM)
 						CssmError::throwMe(CSSM_ERRCODE_INVALID_SAMPLE_VALUE);
 					mapKeySample(
-								 *sample[1].data().interpretedAs<CSSM_CSP_HANDLE>(CSSM_ERRCODE_INVALID_SAMPLE_VALUE),
+								 sample[1].data(),
 								 *sample[2].data().interpretedAs<CssmKey>(CSSM_ERRCODE_INVALID_SAMPLE_VALUE));
 				}
 				break;
@@ -106,7 +103,7 @@ DatabaseAccessCredentials::DatabaseAccessCredentials(const AccessCredentials *cr
 						|| sample[2].type() != CSSM_LIST_ELEMENT_DATUM)
 							CssmError::throwMe(CSSM_ERRCODE_INVALID_SAMPLE_VALUE);
 					mapKeySample(
-						*sample[1].data().interpretedAs<CSSM_CSP_HANDLE>(CSSM_ERRCODE_INVALID_SAMPLE_VALUE),
+						sample[1].data(),
 						*sample[2].data().interpretedAs<CssmKey>(CSSM_ERRCODE_INVALID_SAMPLE_VALUE));
 				}
 				break;
@@ -117,7 +114,7 @@ DatabaseAccessCredentials::DatabaseAccessCredentials(const AccessCredentials *cr
 	}
 }
 
-void DatabaseAccessCredentials::mapKeySample(CSSM_CSP_HANDLE &cspHandle, CssmKey &key)
+void DatabaseAccessCredentials::mapKeySample(CssmData &cspHandleData, CssmKey &key)
 {
 	// We use a CSP passthrough to get the securityd key handle for a (reference) key.
 	// We try the passthrough on everyone, since there's multiple CSP/DL modules
@@ -125,6 +122,7 @@ void DatabaseAccessCredentials::mapKeySample(CSSM_CSP_HANDLE &cspHandle, CssmKey
 
 	// @@@ can't use CssmClient (it makes its own attachments)
 	CSSM_CC_HANDLE ctx;
+    CSSM_CSP_HANDLE &cspHandle = *cspHandleData.interpretedAs<CSSM_CSP_HANDLE>(CSSM_ERRCODE_INVALID_SAMPLE_VALUE);
 	CssmError::check(CSSM_CSP_CreatePassThroughContext(cspHandle, &key, &ctx));
 	KeyHandle ssKey;
 	CSSM_RETURN passthroughError =
@@ -134,7 +132,8 @@ void DatabaseAccessCredentials::mapKeySample(CSSM_CSP_HANDLE &cspHandle, CssmKey
 	case CSSM_OK:				// got the passthrough; rewrite the sample
 		assert(sizeof(CSSM_CSP_HANDLE) >= sizeof(KeyHandle));	// future insurance
 		cspHandle = ssKey;
-		secdebug("SSclient", "key sample mapped to key 0x%lx", ssKey);
+        cspHandleData.length(sizeof(KeyHandle));
+		secdebug("SSclient", "key sample mapped to key 0x%x", ssKey);
 		return;
 	case CSSMERR_CSP_INVALID_PASSTHROUGH_ID:
 		return;		// CSP didn't understand the callback; leave the sample alone
@@ -170,5 +169,5 @@ DataRetrieval::~DataRetrieval()
 }
 
 
-} // end namespace SecurityServer
+} // namespace SecurityServer
 } // end namespace Security

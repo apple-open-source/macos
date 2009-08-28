@@ -47,7 +47,7 @@ static char sccsid[] = "@(#)main.c	8.4 (Berkeley) 5/4/95";
 #endif /* not lint */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/find/main.c,v 1.15 2003/06/14 13:00:21 markm Exp $");
+__FBSDID("$FreeBSD: src/usr.bin/find/main.c,v 1.16 2008/03/03 08:32:58 ru Exp $");
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -163,7 +163,8 @@ main(int argc, char *argv[])
 static void
 usage(void)
 {
-	(void)fprintf(stderr,
-"usage: find [-H | -L | -P] [-EXdsx] [-f file] [file ...] [expression]\n");
+	(void)fprintf(stderr, "%s\n%s\n",
+"usage: find [-H | -L | -P] [-EXdsx] [-f path] path ... [expression]",
+"       find [-H | -L | -P] [-EXdsx] -f path [path ...] [expression]");
 	exit(1);
 }

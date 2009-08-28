@@ -1,13 +1,17 @@
 /*
  * module.h	Interface to the RADIUS module system.
  *
- * Version:	$Id: modules.h,v 1.22.6.1 2005/12/08 13:24:31 nbk Exp $
+ * Version:	$Id$
  *
  */
 
 #ifndef RADIUS_MODULES_H
 #define RADIUS_MODULES_H
-#include "conffile.h"
+
+#include <freeradius-devel/ident.h>
+RCSIDH(modules_h, "$Id$")
+
+#include <freeradius-devel/conffile.h>
 
 typedef int (*packetmethod)(void *instance, REQUEST *request);
 
@@ -23,20 +27,22 @@ enum {
   RLM_COMPONENT_COUNT		/* 8: How many components are there */
 };
 
-#define RLM_TYPE_THREAD_SAFE	(0 << 0)
-#define RLM_TYPE_THREAD_UNSAFE	(1 << 0)
+#define RLM_TYPE_THREAD_SAFE		(0 << 0)
+#define RLM_TYPE_THREAD_UNSAFE		(1 << 0)
+#define RLM_TYPE_CHECK_CONFIG_SAFE	(1 << 1)
+#define RLM_TYPE_HUP_SAFE		(1 << 2)
+
+#define RLM_MODULE_MAGIC_NUMBER ((uint32_t) (0xf4ee4ad2))
+#define RLM_MODULE_INIT RLM_MODULE_MAGIC_NUMBER
 
 typedef struct module_t {
+	uint32_t 	magic;	/* may later be opaque struct */
 	const char	*name;
-	int	type;			/* reserved */
-	int	(*init)(void);
-	int	(*instantiate)(CONF_SECTION *mod_cs, void **instance);
+	int		type;
+	int		(*instantiate)(CONF_SECTION *mod_cs, void **instance);
+	int		(*detach)(void *instance);
 	packetmethod	methods[RLM_COMPONENT_COUNT];
-	int	(*detach)(void *instance);
- 	int	(*destroy)(void);
 } module_t;
-
-extern const char *component_names[RLM_COMPONENT_COUNT];
 
 enum {
 	RLM_MODULE_REJECT,	/* immediately reject the request */
@@ -51,8 +57,9 @@ enum {
 	RLM_MODULE_NUMCODES	/* How many return codes there are */
 };
 
-int setup_modules(void);
+int setup_modules(int, CONF_SECTION *);
 int detach_modules(void);
+int module_hup(CONF_SECTION *modules);
 int module_authorize(int type, REQUEST *request);
 int module_authenticate(int type, REQUEST *request);
 int module_preacct(REQUEST *request);
@@ -61,5 +68,6 @@ int module_checksimul(int type, REQUEST *request, int maxsimul);
 int module_pre_proxy(int type, REQUEST *request);
 int module_post_proxy(int type, REQUEST *request);
 int module_post_auth(int type, REQUEST *request);
+int indexed_modcall(int comp, int idx, REQUEST *request);
 
 #endif /* RADIUS_MODULES_H */

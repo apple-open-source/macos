@@ -1,6 +1,6 @@
 /* gzip (GNU zip) -- compress files with zip algorithm and 'compress' interface
 
-   Copyright (C) 1999, 2001, 2002, 2006 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2001, 2002, 2006, 2007 Free Software Foundation, Inc.
    Copyright (C) 1992-1993 Jean-loup Gailly
 
    This program is free software; you can redistribute it and/or modify
@@ -28,7 +28,7 @@
  */
 
 static char  *license_msg[] = {
-"Copyright (C) 2006 Free Software Foundation, Inc.",
+"Copyright (C) 2007 Free Software Foundation, Inc.",
 "Copyright (C) 1993 Jean-loup Gailly.",
 "This is free software.  You may redistribute copies of it under the terms of",
 "the GNU General Public License <http://www.gnu.org/licenses/gpl.html>.",
@@ -54,7 +54,7 @@ static char  *license_msg[] = {
  */
 
 #ifdef RCSID
-static char rcsid[] = "$Id: gzip.c,v 1.13 2006/12/27 08:00:43 eggert Exp $";
+static char rcsid[] = "$Id: gzip.c,v 1.16 2007/03/20 05:09:51 eggert Exp $";
 #endif
 
 #include <config.h>
@@ -64,6 +64,7 @@ static char rcsid[] = "$Id: gzip.c,v 1.13 2006/12/27 08:00:43 eggert Exp $";
 #include <sys/stat.h>
 #include <errno.h>
 #ifdef __APPLE__
+#include <sys/attr.h>
 #include <copyfile.h>
 #include <get_compat.h>
 #else
@@ -78,15 +79,8 @@ static char rcsid[] = "$Id: gzip.c,v 1.13 2006/12/27 08:00:43 eggert Exp $";
 #include "fcntl-safer.h"
 #include "getopt.h"
 #include "stat-time.h"
-#include "timespec.h"
 
 		/* configuration */
-
-#ifdef HAVE_TIME_H
-#  include <time.h>
-#else
-#  include <sys/time.h>
-#endif
 
 #ifdef HAVE_FCNTL_H
 #  include <fcntl.h>
@@ -205,7 +199,7 @@ int verbose = 0;      /* be verbose (-v) */
 int quiet = 0;        /* be very quiet (-q) */
 int do_lzw = 0;       /* generate output compatible with old compress (-Z) */
 int test = 0;         /* test .gz file integrity */
-int foreground;       /* set if program run in foreground */
+int foreground = 0;   /* set if program run in foreground */
 char *program_name;   /* program name */
 int maxbits = BITS;   /* max bits per code for LZW */
 int method = DEFLATED;/* compression method */
@@ -416,8 +410,11 @@ int main (argc, argv)
     if (env != NULL) args = argv;
 
 #ifndef GNU_STANDARD
+# define GNU_STANDARD 1
+#endif
+#if !GNU_STANDARD
     /* For compatibility with old compress, use program name as an option.
-     * If you compile with -DGNU_STANDARD, this program will behave as
+     * Unless you compile with -DGNU_STANDARD=0, this program will behave as
      * gzip even if it is invoked under the name gunzip or zcat.
      *
      * Systems which do not support links can still use -d or -dc.
@@ -680,6 +677,27 @@ local void treat_stdin()
     }
 }
 
+#ifdef __APPLE__
+static void
+clear_type_and_creator(char *path)
+{
+	struct attrlist alist;
+	struct {
+		u_int32_t length;
+		char info[32];
+	} abuf;
+
+	memset(&alist, 0, sizeof(alist));
+	alist.bitmapcount = ATTR_BIT_MAP_COUNT;
+	alist.commonattr = ATTR_CMN_FNDRINFO;
+
+	if (!getattrlist(path, &alist, &abuf, sizeof(abuf), 0) && abuf.length == sizeof(abuf)) {
+		memset(abuf.info, 0, 8);
+		setattrlist(path, &alist, abuf.info, sizeof(abuf.info), 0);
+	}
+}
+#endif /* __APPLE__ */
+
 /* ========================================================================
  * Compress or decompress the given file
  */
@@ -859,6 +877,7 @@ local void treat_file(iname)
 
 #ifdef __APPLE__
 	copyfile(ifname, ofname, 0, COPYFILE_ACL | COPYFILE_XATTR);
+	clear_type_and_creator(ofname);
 #endif
 	copy_stat (&istat);
 	if (close (ofd) != 0)

@@ -163,6 +163,9 @@ protected:
 
 public:
 	BlobValue (const uint8* value, size_t size);
+	BlobValue (CSSM_DATA	data);
+	BlobValue (CFDataRef	data);
+	BlobValue (CFStringRef	data);
 	const uint8* GetRawValue (size_t &size) {size = mSize; return mValue;}
 	virtual ~BlobValue ();
 	uint8* CloneContents (AttachedInstance *ai, uint32 &numberOfItems, uint32 &size);
@@ -266,8 +269,8 @@ public:
 	
 	CSSM_DB_RECORDTYPE GetRecordType () {return mRecordType;}
 
-	virtual Tuple* GetColumnNames () = 0;
-	virtual uint32* GetColumnIDs () = 0;
+	// virtual Tuple* GetColumnNames () = 0;
+	virtual uint32 GetColumnIDs (int i) = 0;
 	virtual int GetNumberOfColumns () = 0;
 	virtual int GetColumnNumber (const char* columnName) = 0;
 	virtual int GetColumnNumber (uint32 columnID) = 0;

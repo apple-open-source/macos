@@ -371,7 +371,7 @@ void InlineFlowBox::adjustMaxAscentAndDescent(int& maxAscent, int& maxDescent,
         if (curr->renderer()->isPositioned())
             continue; // Positioned placeholders don't affect calculations.
         if (curr->y() == PositionTop || curr->y() == PositionBottom) {
-            int lineHeight = curr->renderer()->lineHeight(m_firstLine);
+            int lineHeight = curr->lineHeight(false);
             if (curr->y() == PositionTop) {
                 if (maxAscent + maxDescent < lineHeight)
                     maxDescent = lineHeight - maxAscent;
@@ -404,11 +404,11 @@ void InlineFlowBox::computeLogicalBoxHeights(int& maxPositionTop, int& maxPositi
 {
     if (isRootInlineBox()) {
         // Examine our root box.
-        int lineHeight = renderer()->lineHeight(m_firstLine, true);
-        int baseline = renderer()->baselinePosition(m_firstLine, true);
+        int height = lineHeight(true);
+        int baseline = baselinePosition(true);
         if (hasTextChildren() || strictMode) {
             int ascent = baseline;
-            int descent = lineHeight - ascent;
+            int descent = height - ascent;
             if (maxAscent < ascent)
                 maxAscent = ascent;
             if (maxDescent < descent)
@@ -456,8 +456,8 @@ void InlineFlowBox::computeLogicalBoxHeights(int& maxPositionTop, int& maxPositi
                 }
             }
         } else {
-            lineHeight = curr->renderer()->lineHeight(m_firstLine);
-            baseline = curr->renderer()->baselinePosition(m_firstLine);
+            lineHeight = curr->lineHeight(false);
+            baseline = curr->baselinePosition(false);
         }
 
         curr->setY(verticalPositionForBox(curr, m_firstLine));
@@ -485,8 +485,8 @@ void InlineFlowBox::placeBoxesVertically(int yPos, int maxHeight, int maxAscent,
                                          int& topPosition, int& bottomPosition, int& selectionTop, int& selectionBottom)
 {
     if (isRootInlineBox())
-        setY(yPos + max(0, maxAscent - renderer()->baselinePosition(m_firstLine, true))); // Place our root box.
-    
+        setY(yPos + max(0, maxAscent - baselinePosition(true))); // Place our root box.
+
     for (InlineBox* curr = firstChild(); curr; curr = curr->nextOnLine()) {
         if (curr->renderer()->isPositioned())
             continue; // Positioned placeholders don't affect calculations.
@@ -501,11 +501,11 @@ void InlineFlowBox::placeBoxesVertically(int yPos, int maxHeight, int maxAscent,
         if (curr->y() == PositionTop)
             curr->setY(yPos);
         else if (curr->y() == PositionBottom)
-            curr->setY(yPos + maxHeight - curr->renderer()->lineHeight(m_firstLine));
+            curr->setY(yPos + maxHeight - curr->lineHeight(false));
         else {
             if ((isInlineFlow && !static_cast<InlineFlowBox*>(curr)->hasTextChildren()) && !curr->boxModelObject()->hasHorizontalBordersOrPadding() && !strictMode)
                 childAffectsTopBottomPos = false;
-            int posAdjust = maxAscent - curr->renderer()->baselinePosition(m_firstLine);
+            int posAdjust = maxAscent - curr->baselinePosition(false);
             if (!childAffectsTopBottomPos)
                 posAdjust = max(0, posAdjust);
             curr->setY(curr->y() + yPos + posAdjust);
@@ -521,7 +521,8 @@ void InlineFlowBox::placeBoxesVertically(int yPos, int maxHeight, int maxAscent,
         int overflowBottom = 0;
         if (curr->isText() || curr->isInlineFlowBox()) {
             const Font& font = curr->renderer()->style(m_firstLine)->font();
-            newY += curr->renderer()->baselinePosition(m_firstLine) - font.ascent();
+            newY += curr->baselinePosition(false) - font.ascent();
+
             for (ShadowData* shadow = curr->renderer()->style()->textShadow(); shadow; shadow = shadow->next) {
                 overflowTop = min(overflowTop, shadow->y - shadow->blur);
                 overflowBottom = max(overflowBottom, shadow->y + shadow->blur);
@@ -565,7 +566,7 @@ void InlineFlowBox::placeBoxesVertically(int yPos, int maxHeight, int maxAscent,
 
     if (isRootInlineBox()) {
         const Font& font = renderer()->style(m_firstLine)->font();
-        setY(y() + renderer()->baselinePosition(m_firstLine, true) - font.ascent());
+        setY(y() + baselinePosition(true) - font.ascent());
         if (hasTextChildren() || strictMode) {
             selectionTop = min(selectionTop, y());
             selectionBottom = max(selectionBottom, y() + height());
@@ -658,22 +659,20 @@ void InlineFlowBox::paint(RenderObject::PaintInfo& paintInfo, int tx, int ty)
         paintTextDecorations(paintInfo, tx, ty, true);
 }
 
-void InlineFlowBox::paintFillLayers(const RenderObject::PaintInfo& paintInfo, const Color& c, const FillLayer* fillLayer,
-                                    int my, int mh, int _tx, int _ty, int w, int h, CompositeOperator op)
+void InlineFlowBox::paintFillLayers(const RenderObject::PaintInfo& paintInfo, const Color& c, const FillLayer* fillLayer, int _tx, int _ty, int w, int h, CompositeOperator op)
 {
     if (!fillLayer)
         return;
-    paintFillLayers(paintInfo, c, fillLayer->next(), my, mh, _tx, _ty, w, h, op);
-    paintFillLayer(paintInfo, c, fillLayer, my, mh, _tx, _ty, w, h, op);
+    paintFillLayers(paintInfo, c, fillLayer->next(), _tx, _ty, w, h, op);
+    paintFillLayer(paintInfo, c, fillLayer, _tx, _ty, w, h, op);
 }
 
-void InlineFlowBox::paintFillLayer(const RenderObject::PaintInfo& paintInfo, const Color& c, const FillLayer* fillLayer,
-                                   int my, int mh, int tx, int ty, int w, int h, CompositeOperator op)
+void InlineFlowBox::paintFillLayer(const RenderObject::PaintInfo& paintInfo, const Color& c, const FillLayer* fillLayer, int tx, int ty, int w, int h, CompositeOperator op)
 {
     StyleImage* img = fillLayer->image();
     bool hasFillImage = img && img->canRender(renderer()->style()->effectiveZoom());
     if ((!hasFillImage && !renderer()->style()->hasBorderRadius()) || (!prevLineBox() && !nextLineBox()) || !parent())
-        boxModelObject()->paintFillLayerExtended(paintInfo, c, fillLayer, my, mh, tx, ty, w, h, this, op);
+        boxModelObject()->paintFillLayerExtended(paintInfo, c, fillLayer, tx, ty, w, h, this, op);
     else {
         // We have a fill image that spans multiple lines.
         // We need to adjust _tx and _ty by the width of all previous lines.
@@ -692,7 +691,7 @@ void InlineFlowBox::paintFillLayer(const RenderObject::PaintInfo& paintInfo, con
             totalWidth += curr->width();
         paintInfo.context->save();
         paintInfo.context->clip(IntRect(tx, ty, width(), height()));
-        boxModelObject()->paintFillLayerExtended(paintInfo, c, fillLayer, my, mh, startX, ty, totalWidth, h, this, op);
+        boxModelObject()->paintFillLayerExtended(paintInfo, c, fillLayer, startX, ty, totalWidth, h, this, op);
         paintInfo.context->restore();
     }
 }
@@ -720,13 +719,6 @@ void InlineFlowBox::paintBoxDecorations(RenderObject::PaintInfo& paintInfo, int 
     int w = width();
     int h = height();
 
-    int my = max(ty, paintInfo.rect.y());
-    int mh;
-    if (ty < paintInfo.rect.y())
-        mh = max(0, h - (paintInfo.rect.y() - ty));
-    else
-        mh = min(paintInfo.rect.height(), h);
-
     GraphicsContext* context = paintInfo.context;
     
     // You can use p::first-line to specify a background. If so, the root line boxes for
@@ -738,7 +730,7 @@ void InlineFlowBox::paintBoxDecorations(RenderObject::PaintInfo& paintInfo, int 
             paintBoxShadow(context, styleToUse, tx, ty, w, h);
 
         Color c = styleToUse->backgroundColor();
-        paintFillLayers(paintInfo, c, styleToUse->backgroundLayers(), my, mh, tx, ty, w, h);
+        paintFillLayers(paintInfo, c, styleToUse->backgroundLayers(), tx, ty, w, h);
 
         // :first-line cannot be used to put borders on a line. Always paint borders with our
         // non-first-line style.
@@ -789,14 +781,6 @@ void InlineFlowBox::paintMask(RenderObject::PaintInfo& paintInfo, int tx, int ty
     int w = width();
     int h = height();
 
-    int my = max(ty, paintInfo.rect.y());
-    int mh;
-    if (ty < paintInfo.rect.y())
-        mh = max(0, h - (paintInfo.rect.y() - ty));
-    else
-        mh = min(paintInfo.rect.height(), h);
-
-    
     // Figure out if we need to push a transparency layer to render our mask.
     bool pushTransparencyLayer = false;
     const NinePieceImage& maskNinePieceImage = renderer()->style()->maskBoxImage();
@@ -811,7 +795,7 @@ void InlineFlowBox::paintMask(RenderObject::PaintInfo& paintInfo, int tx, int ty
         compositeOp = CompositeSourceOver;
     }
 
-    paintFillLayers(paintInfo, Color(), renderer()->style()->maskLayers(), my, mh, tx, ty, w, h, compositeOp);
+    paintFillLayers(paintInfo, Color(), renderer()->style()->maskLayers(), tx, ty, w, h, compositeOp);
     
     bool hasBoxImage = maskBoxImage && maskBoxImage->canRender(renderer()->style()->effectiveZoom());
     if (!hasBoxImage || !maskBoxImage->isLoaded())
@@ -997,33 +981,19 @@ void InlineFlowBox::paintTextDecorations(RenderObject::PaintInfo& paintInfo, int
     }
 }
 
-InlineBox* InlineFlowBox::firstLeafChild()
-{
-    return firstLeafChildAfterBox();
-}
-
-InlineBox* InlineFlowBox::lastLeafChild()
-{
-    return lastLeafChildBeforeBox();
-}
-
-InlineBox* InlineFlowBox::firstLeafChildAfterBox(InlineBox* start)
+InlineBox* InlineFlowBox::firstLeafChild() const
 {
     InlineBox* leaf = 0;
-    for (InlineBox* box = start ? start->nextOnLine() : firstChild(); box && !leaf; box = box->nextOnLine())
-        leaf = box->firstLeafChild();
-    if (start && !leaf && parent())
-        return parent()->firstLeafChildAfterBox(this);
+    for (InlineBox* child = firstChild(); child && !leaf; child = child->nextOnLine())
+        leaf = child->isLeaf() ? child : static_cast<InlineFlowBox*>(child)->firstLeafChild();
     return leaf;
 }
 
-InlineBox* InlineFlowBox::lastLeafChildBeforeBox(InlineBox* start)
+InlineBox* InlineFlowBox::lastLeafChild() const
 {
     InlineBox* leaf = 0;
-    for (InlineBox* box = start ? start->prevOnLine() : lastChild(); box && !leaf; box = box->prevOnLine())
-        leaf = box->lastLeafChild();
-    if (start && !leaf && parent())
-        return parent()->lastLeafChildBeforeBox(this);
+    for (InlineBox* child = lastChild(); child && !leaf; child = child->prevOnLine())
+        leaf = child->isLeaf() ? child : static_cast<InlineFlowBox*>(child)->lastLeafChild();
     return leaf;
 }
 
@@ -1054,7 +1024,7 @@ int InlineFlowBox::placeEllipsisBox(bool ltr, int blockLeftEdge, int blockRightE
     int visibleLeftEdge = blockLeftEdge;
     int visibleRightEdge = blockRightEdge;
 
-    while(box) {
+    while (box) {
         int currResult = box->placeEllipsisBox(ltr, visibleLeftEdge, visibleRightEdge, ellipsisWidth, foundBox);
         if (currResult != -1 && result == -1)
             result = currResult;

@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 (define_insn "adddi3_high"
   [(set (match_operand:DI 0 "gpc_reg_operand" "=b")
@@ -31,7 +31,7 @@ Boston, MA 02111-1307, USA.  */
   [(set (match_operand:DF 0 "gpc_reg_operand" "=f,!r")
         (mem:DF (lo_sum:SI (match_operand:SI 1 "gpc_reg_operand" "b,b")
                            (match_operand 2 "" ""))))]
-  "TARGET_MACHO && TARGET_HARD_FLOAT && TARGET_FPRS && ! TARGET_64BIT"
+  "TARGET_MACHO && TARGET_HARD_FLOAT && TARGET_FPRS && !TARGET_64BIT"
   "*
 {
   switch (which_alternative)
@@ -40,20 +40,18 @@ Boston, MA 02111-1307, USA.  */
 	return \"lfd %0,lo16(%2)(%1)\";
       case 1:
 	{
-	  /* APPLE LOCAL begin mainline 4506977 */
 	  if (TARGET_POWERPC64 && TARGET_32BIT)
 	    /* Note, old assemblers didn't support relocation here.  */
 	    return \"ld %0,lo16(%2)(%1)\";
 	  else
-	  {
+	    {
 	      output_asm_insn (\"{cal|la} %0,lo16(%2)(%1)\", operands);
 	      output_asm_insn (\"{l|lwz} %L0,4(%0)\", operands);
 	      return (\"{l|lwz} %0,0(%0)\");
-	  }
-	  /* APPLE LOCAL end mainline 4506977 */
+	    }
 	}
       default:
-	abort();
+	gcc_unreachable ();
     }
 }"
   [(set_attr "type" "load")
@@ -74,7 +72,7 @@ Boston, MA 02111-1307, USA.  */
       case 1:
 	return \"ld %0,lo16(%2)(%1)\";
       default:
-	abort();
+	gcc_unreachable ();
     }
 }"
   [(set_attr "type" "load")
@@ -256,8 +254,8 @@ Boston, MA 02111-1307, USA.  */
 
 (define_insn "load_macho_picbase_si"
   [(set (match_operand:SI 0 "register_operand" "=l")
-	(unspec:SI [(match_operand:SI 1 "immediate_operand" "s")]
-		   UNSPEC_LD_MPIC))]
+	(unspec:SI [(match_operand:SI 1 "immediate_operand" "s")
+		    (pc)] UNSPEC_LD_MPIC))]
   "(DEFAULT_ABI == ABI_DARWIN) && flag_pic"
   "bcl 20,31,%1\\n%1:"
   [(set_attr "type" "branch")
@@ -265,7 +263,8 @@ Boston, MA 02111-1307, USA.  */
 
 (define_insn "load_macho_picbase_di"
   [(set (match_operand:DI 0 "register_operand" "=l")
-	(unspec:DI [(match_operand:DI 1 "immediate_operand" "s")] UNSPEC_LD_MPIC))]
+	(unspec:DI [(match_operand:DI 1 "immediate_operand" "s")
+		    (pc)] UNSPEC_LD_MPIC))]
   "(DEFAULT_ABI == ABI_DARWIN) && flag_pic && TARGET_64BIT"
   "bcl 20,31,%1\\n%1:"
   [(set_attr "type" "branch")
@@ -366,7 +365,7 @@ Boston, MA 02111-1307, USA.  */
 #if TARGET_MACHO
   return output_call(insn, operands, 0, 2);
 #else
-  abort();
+  gcc_unreachable ();
 #endif
 }
   [(set_attr "type" "branch,branch")
@@ -397,7 +396,7 @@ Boston, MA 02111-1307, USA.  */
 #if TARGET_MACHO
   return output_call(insn, operands, 1, 3);
 #else
-  abort();
+  gcc_unreachable ();
 #endif
 }
   [(set_attr "type" "branch,branch")
@@ -447,7 +446,7 @@ Boston, MA 02111-1307, USA.  */
     {
       case 0:  return \"b %z0\";
       case 1:  return \"b%T0\";
-      default:  abort();
+      default:  gcc_unreachable ();
     }
 }"
   [(set_attr "type" "branch")
@@ -467,7 +466,7 @@ Boston, MA 02111-1307, USA.  */
     {
       case 0:  return \"b %z1\";
       case 1:  return \"b%T1\";
-      default:  abort();
+      default:  gcc_unreachable ();
     }
 }"
   [(set_attr "type" "branch")

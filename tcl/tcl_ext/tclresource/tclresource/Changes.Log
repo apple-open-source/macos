@@ -1,0 +1,83 @@
+Changes Log for the Tclresource extension
+=========================================
+
+The [resource] command was originally defined as a built-in command of Tcl on
+MacOS 7/8/9. The original code can be found in the old Tcl sources in
+/tcl/mac/tclMacResource.c. The Tclresource extension is backwards compatible
+with the original command. Version 1.0 can be considered strictly as a port of
+this command to OSX (with minor modifications reflecting OSX idiosyncrasies: no
+ROM resource map etc.). Higher versions (1.1 and greater) widely enhance the
+syntax of the [resource] command but will always remain backwards compatible
+with the original command.
+
+This is an Open Source project. The source code for this extension can be 
+found on the SourceForge site at: <http://sourceforge.net/projects/tclresource>
+
+Tclresource binary releases are available at
+<http://sourceforge.net/project/showfiles.php?group_id=93101>
+
+You can browse the cvs repository online at
+<http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/tclresource> 
+
+Please e-mail about any problems you might encounter: 
+<bdesgraupes@users.sourceforge.net> 
+
+This changes log is in reverse chronological order (from bottom to top).
+
+================================================================================
+= 1.1.2 			                            last update: 
+================================================================================
+¥ Introduced TEA (3.2) support. 
+¥ Minor modifications in the organisation of the headers.
+¥ Fixed potential bug where the interpreter's result was not reset.
+¥ Improvements to TEA buildsystem, update to TEA 3.6. 
+¥ Allow building against CoreServices only (instead of full Carbon).
+¥ Fix warnings from gcc.
+
+================================================================================
+= 1.1.1 release		                            last update: 2004-09-08 08:53:10
+================================================================================
+¥ Public release of version 1.1.1.
+
+================================================================================
+= 1.1b4 development                             last update: 2004-09-07 14:55:22
+================================================================================
+¥ Reorganized the code to separate command definitions and utility
+  functions.
+¥ Fixed crashing bug in [resource open] used with permission due to the
+  use of an already released object. Bug #1020224.
+¥ Fixed [types] command always returning TCL_OK.
+¥ More informative error reporting.
+¥ Corrected typos in usage strings.
+¥ Creation of a complete test suite (using the tcltest library).
+
+================================================================================
+= 1.1b3 			                           last update: 2003-10-24 08:52:41
+================================================================================
+¥ replaced FSpLocationFromPath() by Toolbox FSPathMakeRef().
+¥ removed all dependencies on MoreFiles or MoreFilesX. Updated access 
+paths in the project file.
+¥ [resource files $resid] returns POSIX path rather than Finder path.
+	    
+================================================================================
+= 1.1b2 released                               last update: 2003-10-18 18:51:36
+================================================================================
+¥ fix for [resource list] crashing bug: ReleaseResource should not 
+  be called if resource is already in memory. This occured when 
+  calling [resource list] with no resourceRef i-e on all resource maps.
+  This bug was already in the original [resource] command under OS8/9 !
+
+================================================================================
+= 1.1b1 released                               last update: 2003-10-16 08:15:54
+================================================================================
+¥ first release with the new subcommands and datafork support. New 
+suncommands are: [resource attribute], [resource fork], [resource id], [resource 
+name], [resource update]. 
+
+================================================================================
+= 1.0 released                                 last update: 2003-09-20 12:12:45
+================================================================================
+¥ first release of the old [resource] command as a loadable extension for 
+OSX. No additional features: just the plain old [resource] as defined as a 
+built-in command in OS9 and earlier. 
+

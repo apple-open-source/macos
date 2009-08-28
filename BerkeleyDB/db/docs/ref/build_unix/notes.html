@@ -1,12 +1,11 @@
-<!--$Id: notes.html,v 1.2 2004/03/30 01:22:47 jtownsen Exp $-->
-<!--Copyright 1997-2003 by Sleepycat Software, Inc.-->
-<!--All rights reserved.-->
+<!--$Id: notes.so,v 10.54 2005/06/16 17:04:04 bostic Exp $-->
+<!--Copyright (c) 1997,2007 Oracle.  All rights reserved.-->
 <!--See the file LICENSE for redistribution information.-->
 <html>
 <head>
 <title>Berkeley DB Reference Guide: Architecture independent FAQ</title>
 <meta name="description" content="Berkeley DB: An embedded database programmatic toolkit.">
-<meta name="keywords" content="embedded,database,programmatic,toolkit,b+tree,btree,hash,hashing,transaction,transactions,locking,logging,access method,access methods,Java,C,C++">
+<meta name="keywords" content="embedded,database,programmatic,toolkit,btree,hash,hashing,transaction,transactions,locking,logging,access method,access methods,Java,C,C++">
 </head>
 <body bgcolor=white>
 <a name="2"><!--meow--></a><a name="3"><!--meow--></a>
@@ -17,6 +16,13 @@
 <p>
 <h3 align=center>Architecture independent FAQ</h3>
 <ol>
+<p><li><b>I have gcc installed, but configure fails to find it.</b>
+<p>Berkeley DB defaults to using the native C compiler if none is specified.
+That is usually "cc", but some platforms require a different compiler
+to build multithreaded code.  To configure Berkeley DB to build with gcc, run
+configure as follows:</p>
+<blockquote><pre>env CC=gcc ../dist/configure ...</pre></blockquote>
+<hr size=1 noshade>
 <p><li><b>When compiling with gcc, I get unreferenced symbols; for example
 the following:
 <blockquote><pre>symbol __muldi3: referenced symbol not found
@@ -106,7 +112,8 @@ Purify tool).</b>
 <p>For performance reasons, Berkeley DB does not write the unused portions of
 database pages or fill in unused structure fields.  To turn off these
 errors when running software analysis tools, build with the
---enable-umrw configuration option.</p>
+<a href="../../ref/build_unix/conf.html#--enable-umrw">--enable-umrw</a>
+configuration option.</p>
 <hr size=1 noshade>
 <p><li><b>Berkeley DB programs or the test suite fail unexpectedly.</b>
 <p>The Berkeley DB architecture does not support placing the shared memory
@@ -148,6 +155,6 @@ DB185LIB=-ldb185</pre></blockquote>
 </ol>
 <table width="100%"><tr><td><br></td><td align=right><a href="../build_unix/test.html"><img src="../../images/prev.gif" alt="Prev"></a><a href="../toc.html"><img src="../../images/ref.gif" alt="Ref"></a><a href="../build_unix/aix.html"><img src="../../images/next.gif" alt="Next"></a>
 </td></tr></table>
-<p><font size=1><a href="../../sleepycat/legal.html">Copyright (c) 1996-2003</a> <a href="http://www.sleepycat.com">Sleepycat Software, Inc.</a> - All rights reserved.</font>
+<p><font size=1>Copyright (c) 1996,2007 Oracle.  All rights reserved.</font>
 </body>
 </html>

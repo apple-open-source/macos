@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2009 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -24,8 +24,13 @@
 #define _IOKIT_IOAUDIOENGINEUSERCLIENT_H
 
 #include <IOKit/IOUserClient.h>
+#ifndef IOAUDIOFAMILY_SELF_BUILD
 #include <IOKit/audio/IOAudioEngine.h>
 #include <IOKit/audio/IOAudioTypes.h>
+#else
+#include "IOAudioEngine.h"
+#include "IOAudioTypes.h"
+#endif
 #include <IOKit/IOBufferMemoryDescriptor.h>
 
 class IOAudioEngine;
@@ -198,7 +203,7 @@ class IOAudioEngineUserClient : public IOUserClient
 		
 		static IOReturn registerNotificationAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
 		virtual IOReturn registerNotification(mach_port_t port, UInt32 refCon);
-		
+	
 		virtual void setOnline(bool newOnline);
 		
 		virtual IOReturn performClientOutput(UInt32 firstSampleFrame, UInt32 loopCount, IOAudioClientBufferSet *bufferSet, UInt32 sampleIntervalHi, UInt32 sampleIntervalLo);

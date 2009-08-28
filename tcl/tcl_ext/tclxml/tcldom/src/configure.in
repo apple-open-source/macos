@@ -1,0 +1,143 @@
+# 
+# $Id: configure.in,v 1.6 2002/05/10 18:54:30 jenglish Exp $
+#
+
+AC_REVISION($Revision: 1.6 $)
+AC_INIT(tcldompro.c)
+
+# Package identification:
+#
+PACKAGE=tcldom
+MAJOR_VERSION=2
+MINOR_VERSION=0
+PATCHLEVEL=1
+VERSION=${MAJOR_VERSION}.${MINOR_VERSION}
+NODOT_VERSION=${MAJOR_VERSION}${MINOR_VERSION}
+
+AC_SUBST(PACKAGE)
+AC_SUBST(VERSION)
+AC_SUBST(PATCHLEVEL)
+AC_DEFINE_UNQUOTED(PACKAGE_NAME,"${PACKAGE}")
+AC_DEFINE_UNQUOTED(VERSION,"${VERSION}")
+AC_DEFINE_UNQUOTED(PATCHLEVEL,"${PATCHLEVEL}")
+
+#
+# Usual Tcl stuff:
+#
+
+SC_PATH_TCLCONFIG
+SC_LOAD_TCLCONFIG
+SC_CYGPATH
+SC_PUBLIC_TCL_HEADERS
+
+#
+# Extra libraries needed by this extension:
+#
+AC_ARG_WITH(expat,
+    [  --with-expat=<directory>   directory containing EXPAT library],
+    [expat_withval=$withval],
+    [expat_withval=""])
+
+SC_LIB_SPEC(expat,$expat_withval)
+# SC_LIB_SPEC macro partially broken:
+if test x$expat_LIB_NAME = x ; then
+    AC_MSG_WARN(Can't seem to find it -- punting)
+    expat_LIB_SPEC="-lexpat"
+fi
+expat_LIB_PATH=`dirname $expat_LIB_PATH_NAME`
+
+AC_SUBST(expat_LIB_SPEC)
+AC_SUBST(expat_LIB_PATH)
+
+# Programs we need:
+#
+AC_PROG_CC
+AC_PROG_INSTALL
+AC_CYGWIN
+AC_OBJEXT
+AC_EXEEXT
+
+SC_PROG_TCLSH
+
+#
+# Windows/Unix compatibility tests:  @@
+#
+case "`uname -s`" in
+    *win32* | *WIN32* | *CYGWIN_NT*|*CYGWIN_98*|*CYGWIN_95*)
+	WINDOWS="yes"
+    ;;
+    *)
+	WINDOWS="no"
+    ;;
+esac
+
+if test "$WINDOWS" = "yes" ; then
+    AC_DEFINE_UNQUOTED(BUILD_${PACKAGE})
+    CONFIG_CLEANFILES="*.lib *.dll *.exp *.ilk *.pdb vc50.pch"
+else
+    CONFIG_CLEANFILES=
+fi
+AC_SUBST(CONFIG_CLEANFILES)
+
+#--------------------------------------------------------------------
+
+SHLIB_LD=${TCL_SHLIB_LD}
+STLIB_LD=${TCL_STLIB_LD}
+SHLIB_CFLAGS=${TCL_SHLIB_CFLAGS}
+
+CFLAGS_WARNING=${TCL_CFLAGS_WARNING}
+CFLAGS_DEBUG=${TCL_CFLAGS_DEBUG}
+CFLAGS_OPTIMIZE=${TCL_CFLAGS_OPTIMIZE}
+
+AC_DEFINE(USE_TCL_STUBS)
+AC_SUBST(SHLIB_LD)
+AC_SUBST(SHLIB_CFLAGS)
+AC_SUBST(SHLIB_LD_LIBS)
+
+AC_SUBST(TCL_LD_SEARCH_FLAGS)
+
+SC_ENABLE_SYMBOLS
+AC_SUBST(CFLAGS_DEFAULT)
+AC_SUBST(CFLAGS_WARNING)
+AC_SUBST(CFLAGS)
+
+#
+# Shared / static build gubbage: @@
+#
+SC_ENABLE_SHARED
+
+if test "${SHARED_BUILD}" = "1" ; then
+    CFLAGS='${CFLAGS_DEFAULT} ${SHLIB_CFLAGS}'
+else
+    CFLAGS='${CFLAGS_DEFAULT}'
+fi
+eval "SHARED_LIB_SUFFIX=${TCL_SHARED_LIB_SUFFIX}"
+eval "UNSHARED_LIB_SUFFIX=${TCL_UNSHARED_LIB_SUFFIX}"
+
+if test "$WINDOWS" = "yes" ; then
+    if test "${SHARED_BUILD}" = "1" ; then
+	SHLIB_LD_LIBS="\"`cygpath -w ${TCL_BIN_DIR}/${TCL_STUB_LIB_FILE}`\" ${TCL_SHLIB_LD_LIBS}"
+	eval "${PACKAGE}_LIB_FILE=${PACKAGE}${SHARED_LIB_SUFFIX}"
+	RANLIB=:
+    else
+	eval "${PACKAGE}_LIB_FILE=${PACKAGE}${UNSHARED_LIB_SUFFIX}"
+    fi
+else
+    if test "${SHARED_BUILD}" = "1" ; then
+	SHLIB_LD_LIBS="${TCL_STUB_LIB_SPEC}"
+	eval "${PACKAGE}_LIB_FILE=${PACKAGE}${SHARED_LIB_SUFFIX}"
+	RANLIB=:
+    else
+	eval "${PACKAGE}_LIB_FILE=lib${PACKAGE}${UNSHARED_LIB_SUFFIX}"
+    fi
+fi
+
+AC_SUBST(tcldom_LIB_FILE)
+
+
+CONFIGURE_OUTPUTS="Makefile pkgIndex.tcl config.cache config.log config.status"
+AC_SUBST(CONFIGURE_OUTPUTS)
+
+AC_OUTPUT([Makefile pkgIndex.tcl])
+
+#*EOF*

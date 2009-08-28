@@ -11,7 +11,7 @@ Index: samba/source/smbd/trans2.c
     Extensively modified by Andrew Tridgell, 1995
  
     This program is free software; you can redistribute it and/or modify
-@@ -2235,7 +2237,7 @@ static int call_trans2qfsinfo(connection
+@@ -2274,7 +2276,7 @@ static int call_trans2qfsinfo(connection
  	const char *vname = volume_label(SNUM(conn));
  	int snum = SNUM(conn);
  	char *fstype = lp_fstype(SNUM(conn));
@@ -20,18 +20,24 @@ Index: samba/source/smbd/trans2.c
  
  	if (total_params < 2) {
  		return ERROR_NT(NT_STATUS_INVALID_PARAMETER);
-@@ -2319,14 +2321,23 @@ cBytesSector=%u, cUnitTotal=%u, cUnitAva
+@@ -2358,15 +2360,25 @@ cBytesSector=%u, cUnitTotal=%u, cUnitAva
  		case SMB_QUERY_FS_ATTRIBUTE_INFO:
  		case SMB_FS_ATTRIBUTE_INFORMATION:
  
-+			fs_attribute_flags =
-+				FILE_CASE_SENSITIVE_SEARCH |
-+				FILE_CASE_PRESERVED_NAMES;
++		fs_attribute_flags =
++			FILE_CASE_SENSITIVE_SEARCH |
++			FILE_CASE_PRESERVED_NAMES |
++			FILE_UNICODE_ON_DISK;
  
  #if defined(HAVE_SYS_QUOTAS)
 -			quota_flag = FILE_VOLUME_QUOTAS;
 +			fs_attribute_flags |= FILE_VOLUME_QUOTAS;
  #endif
+ 
+-			SIVAL(pdata,0,FILE_CASE_PRESERVED_NAMES|FILE_CASE_SENSITIVE_SEARCH|
+-				(lp_nt_acl_support(SNUM(conn)) ? FILE_PERSISTENT_ACLS : 0)|
+-			        FILE_UNICODE_ON_DISK|
+-				quota_flag); /* FS ATTRIBUTES */
 +			if (lp_stream_support(SNUM(conn)) &&
 +			    (conn->fs_capabilities & FILE_NAMED_STREAMS)) {
 +				fs_attribute_flags |= FILE_NAMED_STREAMS;
@@ -40,15 +46,12 @@ Index: samba/source/smbd/trans2.c
 +			if (lp_nt_acl_support(SNUM(conn)) ) {
 +				fs_attribute_flags |= FILE_PERSISTENT_ACLS;
 +			}
- 
--			SIVAL(pdata,0,FILE_CASE_PRESERVED_NAMES|FILE_CASE_SENSITIVE_SEARCH|
--				(lp_nt_acl_support(SNUM(conn)) ? FILE_PERSISTENT_ACLS : 0)|
--				quota_flag); /* FS ATTRIBUTES */
++
 +			SIVAL(pdata, 0, fs_attribute_flags); /* FS ATTRIBUTES */
  
  			SIVAL(pdata,4,255); /* Max filename component length */
  			/* NOTE! the fstype must *not* be null terminated or win98 won't recognise it
-@@ -2675,7 +2686,8 @@ cBytesSector=%u, cUnitTotal=%u, cUnitAva
+@@ -2727,7 +2739,8 @@ cBytesSector=%u, cUnitTotal=%u, cUnitAva
  			 * Thursby MAC extension... ONLY on NTFS filesystems
  			 * once we do streams then we don't need this
  			 */
@@ -58,7 +61,7 @@ Index: samba/source/smbd/trans2.c
  				data_len = 88;
  				SIVAL(pdata,84,0x100); /* Don't support mac... */
  				break;
-@@ -3139,6 +3151,104 @@ static char *store_file_unix_basic_info2
+@@ -3191,6 +3204,104 @@ static char *store_file_unix_basic_info2
  	return pdata;
  }
  
@@ -163,7 +166,7 @@ Index: samba/source/smbd/trans2.c
  /****************************************************************************
   Reply to a TRANS2_QFILEPATHINFO or TRANSACT2_QFILEINFO (query file info by
   file name or file id).
-@@ -3698,26 +3808,20 @@ total_data=%u (should be %u)\n", (unsign
+@@ -3749,26 +3860,20 @@ total_data=%u (should be %u)\n", (unsign
  			data_size = 4;
  			break;
  

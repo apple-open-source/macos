@@ -289,6 +289,8 @@ public:
 
 	const_iterator begin() const { return const_iterator(mTableMap.begin()); }
 	const_iterator end() const { return const_iterator(mTableMap.end()); }
+
+	bool hasTable(Table::Id inTableId) const;
 };
 
 //
@@ -436,6 +438,9 @@ public:
 							 CSSM_DB_RECORD_ATTRIBUTE_DATA *inoutAttributes,
 							 CssmData *inoutData, Allocator &inAllocator);
 	Cursor *createCursor(const CSSM_QUERY *inQuery);
+
+	bool hasTable(Table::Id inTableid);
+
 protected:
     void modifyDatabase();
     const RefPointer<const DbVersion> getDbVersion(bool force);
@@ -453,7 +458,7 @@ protected:
 
     uint32 writeAuthSection(uint32 inSectionOffset);
     uint32 writeSchemaSection(uint32 inSectionOffset);
-
+	
 private:
 	
 	/* mDbVersion is the current DbVersion of this database before any changes
@@ -639,7 +644,7 @@ public:
 
 private:
 	static void
-	AppleDatabase::updateUniqueRecord(DbContext &inDbContext,
+	updateUniqueRecord(DbContext &inDbContext,
 									CSSM_DB_RECORDTYPE inTableId,
 									const RecordId &inRecordId,
 									CSSM_DB_UNIQUE_RECORD &inoutUniqueRecord);

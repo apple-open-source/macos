@@ -438,6 +438,23 @@ SecCmsSignerInfoSign(SecCmsSignerInfoRef signerinfo, CSSM_DATA_PTR digest, CSSM_
 
     SECITEM_FreeItem(&signature, PR_FALSE);
 
+    if(pubkAlgTag == SEC_OID_EC_PUBLIC_KEY) {
+	/*
+	 * RFC 3278 section section 2.1.1 states that the signatureAlgorithm 
+	 * field contains the full ecdsa-with-SHA1 OID, not plain old ecPublicKey 
+	 * as would appear in other forms of signed datas. However Microsoft doesn't 
+	 * do this, it puts ecPublicKey there, and if we put ecdsa-with-SHA1 there, 
+	 * MS can't verify - presumably because it takes the digest of the digest 
+	 * before feeding it to ECDSA.
+	 * We handle this with a preference; default if it's not there is 
+	 * "Microsoft compatibility mode". 
+	 */
+	if(!SecCmsMsEcdsaCompatMode()) {
+	    pubkAlgTag = SEC_OID_ECDSA_WithSHA1;
+	}
+	/* else violating the spec for compatibility */
+    }
+
     if (SECOID_SetAlgorithmID(poolp, &(signerinfo->digestEncAlg), pubkAlgTag, 
                               NULL) != SECSuccess)
 	goto loser;
@@ -537,6 +554,17 @@ SecCmsSignerInfoVerify(SecCmsSignerInfoRef signerinfo, CSSM_DATA_PTR digest, CSS
 
     digestAlgTag = SECOID_GetAlgorithmTag(&(signerinfo->digestAlg));
     digestEncAlgTag = SECOID_GetAlgorithmTag(&(signerinfo->digestEncAlg));
+    
+    /*
+     * Gross hack necessitated by RFC 3278 section 2.1.1, which states 
+     * that the signature algorithm (here, digestEncAlg) contains ecdsa_with-SHA1, 
+     * *not* (as in all other algorithms) the raw signature algorithm, e.g. 
+     * pkcs1RSAEncryption.
+     */
+    if(digestEncAlgTag == SEC_OID_ECDSA_WithSHA1) {
+	digestEncAlgTag = SEC_OID_EC_PUBLIC_KEY;
+    }
+    
     if (!SecCmsArrayIsEmpty((void **)signerinfo->authAttr)) {
 	if (contentType) {
 	    /*

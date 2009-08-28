@@ -346,7 +346,7 @@ CFile& CFile::Read ( void *pData, streamsize nBytes ) throw ( SInt16 )
 
 CFile& CFile::write ( const void *pData, streamsize nBytes ) throw ( SInt16 )
 {
-	SInt32				i			= 0;
+	int					i			= 0;
 	register ssize_t	lWrite		= 0;
 	register struct tm *tmPtr		= nil;
 	char			   *pBuff_1 	= nil;
@@ -417,7 +417,7 @@ CFile& CFile::write ( const void *pData, streamsize nBytes ) throw ( SInt16 )
 				}
 
 				// Remove the oldest
-				::sprintf( pBuff_1, "%s.%lu", fFilePath, kMaxFiles );
+				::sprintf( pBuff_1, "%s.%u", fFilePath, kMaxFiles );
 
 				// It may not exist so ignore the error
 				(void)::remove( pBuff_1 );
@@ -426,7 +426,7 @@ CFile& CFile::write ( const void *pData, streamsize nBytes ) throw ( SInt16 )
 				for ( i = (kMaxFiles - 1); i >= 0; i-- )
 				{
 					// New name
-					::sprintf( pBuff_1, "%s.%lu", fFilePath, i + 1 );
+					::sprintf( pBuff_1, "%s.%u", fFilePath, i + 1 );
 
 					// Old name
 					if ( i == 0 )
@@ -435,7 +435,7 @@ CFile& CFile::write ( const void *pData, streamsize nBytes ) throw ( SInt16 )
 					}
 					else
 					{
-						::sprintf( pBuff_2, "%s.%lu", fFilePath, i );
+						::sprintf( pBuff_2, "%s.%u", fFilePath, i );
 					}
 
 					// Rename it

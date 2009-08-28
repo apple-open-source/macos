@@ -1,6 +1,6 @@
 /************************************************************************
  * COPYRIGHT: 
- * Copyright (c) 2000-2005, International Business Machines Corporation
+ * Copyright (c) 2000-2008, International Business Machines Corporation
  * and others. All Rights Reserved.
  ************************************************************************/
 /************************************************************************
@@ -16,10 +16,8 @@
 #include "transapi.h"
 #include "unicode/utypes.h"
 #include "unicode/translit.h"
-#include "rbt.h"
 #include "unicode/unifilt.h"
 #include "cpdtrans.h"
-#include "nultrans.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -121,7 +119,7 @@ void TransliteratorAPITest::TestgetID() {
     Transliterator* t5=Transliterator::createInstance("Latin-Devanagari", UTRANS_FORWARD, parseError, status);
     if(t5 == 0)
         errln("FAIL: construction");
-    if(t1->getID() != t5->getID() || t5->getID() != t3->getID() || t1->getID() != t3->getID())
+    else if(t1->getID() != t5->getID() || t5->getID() != t3->getID() || t1->getID() != t3->getID())
         errln("FAIL: getID or clone failed");
 
 
@@ -276,7 +274,7 @@ void TransliteratorAPITest::TestTransliterate1(){
          "Latin-Devanagari",CharsToUnicodeString("bha\\u0304rata"), CharsToUnicodeString("\\u092D\\u093E\\u0930\\u0924") ,
          "Latin-Devanagari",UnicodeString("kra ksha khra gra cra dya dhya",""), CharsToUnicodeString("\\u0915\\u094D\\u0930 \\u0915\\u094D\\u0936 \\u0916\\u094D\\u0930 \\u0917\\u094D\\u0930 \\u091a\\u094D\\u0930 \\u0926\\u094D\\u092F \\u0927\\u094D\\u092F") ,
 
-         "Devanagari-Latin",    CharsToUnicodeString("\\u092D\\u093E\\u0930\\u0924"),        UnicodeString("bh\\u0101rata"),
+         "Devanagari-Latin",    CharsToUnicodeString("\\u092D\\u093E\\u0930\\u0924"),        CharsToUnicodeString("bh\\u0101rata"),
      //  "Contracted-Expanded", CharsToUnicodeString("\\u00C0\\u00C1\\u0042"),               CharsToUnicodeString("\\u0041\\u0300\\u0041\\u0301\\u0042") ,
      //  "Expanded-Contracted", CharsToUnicodeString("\\u0041\\u0300\\u0041\\u0301\\u0042"), CharsToUnicodeString("\\u00C0\\u00C1\\u0042") ,
          //"Latin-Arabic",        "aap",                                 CharsToUnicodeString("\\u0627\\u06A4")     ,
@@ -327,7 +325,7 @@ void TransliteratorAPITest::TestTransliterate2(){
          "Hex-Any",         CharsToUnicodeString("\\u0068\\u0065\\u006C\\u006C\\u006F\\u0021\\u0020"), "0", "5",  "hello", "hello! "  ,
        //  "Contracted-Expanded", CharsToUnicodeString("\\u00C0\\u00C1\\u0042"),        "1", "2",  CharsToUnicodeString("\\u0041\\u0301"), CharsToUnicodeString("\\u00C0\\u0041\\u0301\\u0042") ,
          "Devanagari-Latin",    CharsToUnicodeString("\\u092D\\u093E\\u0930\\u0924"), "0", "1",  "bha", CharsToUnicodeString("bha\\u093E\\u0930\\u0924") ,
-         "Devanagari-Latin",    CharsToUnicodeString("\\u092D\\u093E\\u0930\\u0924"), "1", "2",  "\\u0314\\u0101", CharsToUnicodeString("\\u092D\\u0314\\u0101\\u0930\\u0924")  
+         "Devanagari-Latin",    CharsToUnicodeString("\\u092D\\u093E\\u0930\\u0924"), "1", "2",  CharsToUnicodeString("\\u0314\\u0101"), CharsToUnicodeString("\\u092D\\u0314\\u0101\\u0930\\u0924")  
 
     };
     logln("\n   Testing transliterate(String, int, int, StringBuffer)");
@@ -591,13 +589,11 @@ void TransliteratorAPITest::TestKeyboardTransliterator3(){
     UTransPosition index={0, 0, 0, 0};
     logln("Testing transliterate(Replaceable, int32_t, UErrorCode)");
     Transliterator *t=Transliterator::createInstance("Any-Hex", UTRANS_FORWARD, parseError, status);
-    if(U_FAILURE(status)) {
+    if(t == 0 || U_FAILURE(status)) {
       errln("Error creating transliterator %s", u_errorName(status));
       delete t;
       return;
     }
-    if(t == 0)
-        errln("FAIL : construction");
     for(uint32_t i=0; i<sizeof(Data)/sizeof(Data[0]); i=i+4){
         UnicodeString log;
         index.contextStart=getInt(Data[i+0]);
@@ -617,8 +613,9 @@ void TransliteratorAPITest::TestKeyboardTransliterator3(){
     delete t;
 }
 void TransliteratorAPITest::TestNullTransliterator(){
+    UErrorCode status=U_ZERO_ERROR;
     UnicodeString s("Transliterate using null transliterator");
-    NullTransliterator *nullTrans=new NullTransliterator();
+    Transliterator *nullTrans=Transliterator::createInstance("Any-Null", UTRANS_FORWARD, status);
     int32_t transLimit;
     int32_t start=0;
     int32_t limit=s.length();
@@ -635,7 +632,7 @@ void TransliteratorAPITest::TestNullTransliterator(){
     index.contextLimit = limit;
     index.start = 0;
     index.limit = limit;
-    nullTrans->handleTransliterate(replaceable, index, TRUE);
+    nullTrans->finishTransliteration(replaceable, index);
     if(index.start != limit){
         errln("ERROR: NullTransliterator->handleTransliterate() failed");
     }
@@ -648,9 +645,8 @@ void TransliteratorAPITest::TestNullTransliterator(){
 void TransliteratorAPITest::TestRegisterUnregister(){
    
    UErrorCode status=U_ZERO_ERROR;
-   UParseError parseError;
     /* Make sure it doesn't exist */
-   if (Transliterator::createInstance("TestA-TestB", UTRANS_FORWARD, parseError, status) != NULL) {
+   if (Transliterator::createInstance("TestA-TestB", UTRANS_FORWARD, status) != NULL) {
       errln("FAIL: TestA-TestB already registered\n");
       return;
    }
@@ -664,14 +660,16 @@ void TransliteratorAPITest::TestRegisterUnregister(){
    status =U_ZERO_ERROR;
 
    /* Create it */
-   Transliterator *t = new RuleBasedTransliterator("TestA-TestB",
+   UParseError parseError;
+   Transliterator *t = Transliterator::createFromRules("TestA-TestB",
                                                    "a<>b",
+                                                   UTRANS_FORWARD, parseError,
                                                    status);
    /* Register it */
    Transliterator::registerInstance(t);
 
    /* Now check again -- should exist now*/
-   Transliterator *s = Transliterator::createInstance("TestA-TestB", UTRANS_FORWARD, parseError, status);
+   Transliterator *s = Transliterator::createInstance("TestA-TestB", UTRANS_FORWARD, status);
    if (s == NULL) {
       errln("FAIL: TestA-TestB not registered\n");
       return;
@@ -693,7 +691,7 @@ void TransliteratorAPITest::TestRegisterUnregister(){
    /*unregister the instance*/
    Transliterator::unregister("TestA-TestB");
    /* now Make sure it doesn't exist */
-   if (Transliterator::createInstance("TestA-TestB", UTRANS_FORWARD, parseError, status) != NULL) {
+   if (Transliterator::createInstance("TestA-TestB", UTRANS_FORWARD, status) != NULL) {
       errln("FAIL: TestA-TestB isn't unregistered\n");
       return;
    }
@@ -777,18 +775,18 @@ void TransliteratorAPITest::TestGetAdoptFilter(){
     UErrorCode status = U_ZERO_ERROR;
     UParseError parseError;
     Transliterator *t=Transliterator::createInstance("Any-Hex", UTRANS_FORWARD, parseError, status);
-    if(U_FAILURE(status)) {
-      errln("Error creating transliterator %s", u_errorName(status));
-      delete t;
-      return;
+    if(t == 0 || U_FAILURE(status)) {
+        errln("Error creating transliterator %s", u_errorName(status));
+        delete t;
+        return;
     }
-    if(t == 0)
-        errln("FAIL : construction");
     const UnicodeFilter *u=t->getFilter();
     if(u != NULL){
-      errln("FAIL: getFilter failed. Didn't return null when the transliterator used no filtering");
+        errln("FAIL: getFilter failed. Didn't return null when the transliterator used no filtering");
+        delete t;
+        return;
     }
-          
+
     UnicodeString got, temp, message;
     UnicodeString data="ABCabcbbCBa";
     temp = data;

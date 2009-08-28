@@ -26,6 +26,7 @@
 #include "symtab.h"
 #include "source.h"
 #include "objfiles.h"
+#include "gdbcore.h"
 
 /* APPLE LOCAL: -file-core-file
    Takes one argument - a path to the core file, and sets
@@ -45,18 +46,16 @@ mi_cmd_file_core_file(char *command, char **argv, int argc)
    current file being executed. */
 
 enum mi_cmd_result
-mi_cmd_file_list_exec_source_file(char *command, char **argv, int argc)
+mi_cmd_file_list_exec_source_file (char *command, char **argv, int argc)
 {
   struct symtab_and_line st;
-  int optind = 0;
-  char *optarg;
 
-  if ( !mi_valid_noargs("mi_cmd_file_list_exec_source_file", argc, argv) )
+  if (!mi_valid_noargs ("mi_cmd_file_list_exec_source_file", argc, argv))
     error (_("mi_cmd_file_list_exec_source_file: Usage: No args"));
 
   /* Set the default file and line, also get them */
-  set_default_source_symtab_and_line();
-  st = get_current_source_symtab_and_line();
+  set_default_source_symtab_and_line ();
+  st = get_current_source_symtab_and_line ();
 
   /* We should always get a symtab. 
      Apparently, filename does not need to be tested for NULL.

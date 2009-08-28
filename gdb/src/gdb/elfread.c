@@ -494,7 +494,6 @@ elf_symfile_read (struct objfile *objfile, int mainline)
   bfd *abfd = objfile->obfd;
   struct elfinfo ei;
   struct cleanup *back_to;
-  CORE_ADDR offset;
 
   init_minimal_symbol_collection ();
   back_to = make_cleanup_discard_minimal_symbols ();

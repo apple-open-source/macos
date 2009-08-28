@@ -487,10 +487,10 @@ UInt16 AppleUSBCDCDMM::isCRinQueue(CirQueue *Queue)
 
 void AppleUSBCDCDMM::CheckQueues()
 {
-    unsigned long	Used;
-    unsigned long	Free;
-    unsigned long	QueuingState;
-    unsigned long	DeltaState;
+    UInt32	Used;
+    UInt32	Free;
+    UInt32	QueuingState;
+    UInt32	DeltaState;
 
 	// Initialise the QueueState with the current state.
         
@@ -562,7 +562,7 @@ void AppleUSBCDCDMM::CheckQueues()
         // Figure out what has changed to get mask.
         
     DeltaState = QueuingState ^ fPort.State;
-    setStateGated(QueuingState, DeltaState);
+    setStateGated(&QueuingState, &DeltaState);
 	
 }/* end CheckQueues */
 
@@ -1073,7 +1073,7 @@ bool AppleUSBCDCDMM::createSuffix(unsigned char *sufKey)
         {
             if ((strlen((char *)&serBuf) < 9) && (strlen((char *)&serBuf) > 0))
             {
-				strncpy((char *)sufKey, (const char *)&serBuf, strlen((char *)&serBuf));
+				strlcpy((char *)sufKey, (const char *)&serBuf, strlen((char *)&serBuf));
 //                strcpy((char *)sufKey, (const char *)&serBuf);
                 sig = strlen((char *)sufKey);
                 keyOK = true;
@@ -1254,6 +1254,8 @@ IOReturn AppleUSBCDCDMM::acquirePortAction(OSObject *owner, void *arg0, void *, 
 IOReturn AppleUSBCDCDMM::acquirePortGated(bool sleep)
 {
     UInt32 	busyState = 0;
+	UInt32	state;
+	UInt32	mask;
     IOReturn 	rtn = kIOReturnSuccess;
 
     XTRACE(this, 0, sleep, "acquirePortGated");
@@ -1266,7 +1268,9 @@ IOReturn AppleUSBCDCDMM::acquirePortGated(bool sleep)
         {		
                 // Set busy bit (acquired), and clear everything else
                 
-            setStateGated((UInt32)PD_S_ACQUIRED | DEFAULT_STATE, (UInt32)STATE_ALL);
+			state = PD_S_ACQUIRED | DEFAULT_STATE;
+			mask = STATE_ALL;
+            setStateGated(&state, &mask);
             break;
         } else {
             if (!sleep)
@@ -1276,7 +1280,8 @@ IOReturn AppleUSBCDCDMM::acquirePortGated(bool sleep)
             	return kIOReturnExclusiveAccess;
             } else {
             	busyState = 0;
-            	rtn = watchStateGated(&busyState, PD_S_ACQUIRED);
+				mask = PD_S_ACQUIRED;
+            	rtn = watchStateGated(&busyState, &mask);
             	if ((rtn == kIOReturnIOError) || (rtn == kIOReturnSuccess))
                 {
                     continue;
@@ -1292,7 +1297,9 @@ IOReturn AppleUSBCDCDMM::acquirePortGated(bool sleep)
     setStructureDefaults();				// Set the default values
         
     fSessions++;					// Bump number of active sessions and turn on clear to send
-    setStateGated(PD_RS232_S_CTS, PD_RS232_S_CTS);
+	state = PD_RS232_S_CTS;
+	mask = PD_RS232_S_CTS;
+    setStateGated(&state, &mask);
         
     return kIOReturnSuccess;
         
@@ -1354,6 +1361,8 @@ IOReturn AppleUSBCDCDMM::releasePortAction(OSObject *owner, void *, void *, void
 IOReturn AppleUSBCDCDMM::releasePortGated()
 {
     UInt32 	busyState;
+	UInt32	state;
+	UInt32	mask;
 
     XTRACE(this, 0, 0, "releasePortGated");
     
@@ -1373,7 +1382,9 @@ IOReturn AppleUSBCDCDMM::releasePortGated()
     if (!fTerminate)
         setControlLineState(false, false);		// clear RTS and clear DTR only if not terminated
 	
-    setStateGated(0, (UInt32)STATE_ALL);		// Clear the entire state word - which also deactivates the port
+	state = 0;
+	mask = STATE_ALL;
+    setStateGated(&state, &mask);			// Clear the entire state word - which also deactivates the port
             
     fSessions--;					// reduce number of active sessions
             
@@ -1505,7 +1516,7 @@ IOReturn AppleUSBCDCDMM::setState(UInt32 state, UInt32 mask, void *refCon)
         if (mask)
         {
             retain();
-            ret = fCommandGate->runAction(setStateAction, (void *)state, (void *)mask);
+            ret = fCommandGate->runAction(setStateAction, (void *)&state, (void *)&mask);
             release();
         }
     }
@@ -1525,7 +1536,7 @@ IOReturn AppleUSBCDCDMM::setState(UInt32 state, UInt32 mask, void *refCon)
 IOReturn AppleUSBCDCDMM::setStateAction(OSObject *owner, void *arg0, void *arg1, void *, void *)
 {
 
-    return ((AppleUSBCDCDMM *)owner)->setStateGated((UInt32)arg0, (UInt32)arg1);
+    return ((AppleUSBCDCDMM *)owner)->setStateGated((UInt32 *)arg0, (UInt32 *)arg1);
     
 }/* end setStateAction */
 
@@ -1549,8 +1560,10 @@ IOReturn AppleUSBCDCDMM::setStateAction(OSObject *owner, void *arg0, void *arg1,
 //
 /****************************************************************************************************/
 
-IOReturn AppleUSBCDCDMM::setStateGated(UInt32 state, UInt32 mask)
+IOReturn AppleUSBCDCDMM::setStateGated(UInt32 *pState, UInt32 *pMask)
 {
+	UInt32	state = *pMask;
+	UInt32	mask = *pMask;
     UInt32	delta;
 	
     XTRACE(this, state, mask, "setStateGated");
@@ -1634,7 +1647,7 @@ IOReturn AppleUSBCDCDMM::watchState(UInt32 *state, UInt32 mask, void *refCon)
         return kIOReturnSuccess;
 
     retain();
-    ret = fCommandGate->runAction(watchStateAction, (void *)state, (void *)mask);
+    ret = fCommandGate->runAction(watchStateAction, (void *)state, (void *)&mask);
     release();
     
     return ret;
@@ -1652,7 +1665,7 @@ IOReturn AppleUSBCDCDMM::watchState(UInt32 *state, UInt32 mask, void *refCon)
 IOReturn AppleUSBCDCDMM::watchStateAction(OSObject *owner, void *arg0, void *arg1, void *, void *)
 {
 
-    return ((AppleUSBCDCDMM *)owner)->watchStateGated((UInt32 *)arg0, (UInt32)arg1);
+    return ((AppleUSBCDCDMM *)owner)->watchStateGated((UInt32 *)arg0, (UInt32 *)arg1);
     
 }/* end watchStateAction */
 
@@ -1674,8 +1687,9 @@ IOReturn AppleUSBCDCDMM::watchStateAction(OSObject *owner, void *arg0, void *arg
 //
 /****************************************************************************************************/
 
-IOReturn AppleUSBCDCDMM::watchStateGated(UInt32 *state, UInt32 mask)
+IOReturn AppleUSBCDCDMM::watchStateGated(UInt32 *state, UInt32 *pMask)
 {
+	UInt32		mask = *pMask;
     unsigned 	watchState, foundStates;
     bool 	autoActiveBit = false;
     IOReturn 	ret = kIOReturnNotOpen;
@@ -1822,7 +1836,7 @@ IOReturn AppleUSBCDCDMM::executeEvent(UInt32 event, UInt32 data, void *refCon)
     }
     
     retain();
-    ret = fCommandGate->runAction(executeEventAction, (void *)event, (void *)data);
+    ret = fCommandGate->runAction(executeEventAction, (void *)&event, (void *)&data);
     release();
 
     return ret;
@@ -1840,7 +1854,7 @@ IOReturn AppleUSBCDCDMM::executeEvent(UInt32 event, UInt32 data, void *refCon)
 IOReturn AppleUSBCDCDMM::executeEventAction(OSObject *owner, void *arg0, void *arg1, void *, void *)
 {
 
-    return ((AppleUSBCDCDMM *)owner)->executeEventGated((UInt32)arg0, (UInt32)arg1);
+    return ((AppleUSBCDCDMM *)owner)->executeEventGated((UInt32 *)arg0, (UInt32 *)arg1);
     
 }/* end executeEventAction */
 
@@ -1858,10 +1872,13 @@ IOReturn AppleUSBCDCDMM::executeEventAction(OSObject *owner, void *arg0, void *a
 //
 /****************************************************************************************************/
 
-IOReturn AppleUSBCDCDMM::executeEventGated(UInt32 event, UInt32 data)
+IOReturn AppleUSBCDCDMM::executeEventGated(UInt32 *pEvent, UInt32 *pData)
 {
+	UInt32		event = *pEvent;
+	UInt32		data = *pData;
     IOReturn	ret = kIOReturnSuccess;
-    UInt32 	state, delta;
+    UInt32		state, delta;
+	UInt32		mask;
 	
     if (fTerminate || fStopping)
         return kIOReturnOffline;
@@ -1901,14 +1918,18 @@ IOReturn AppleUSBCDCDMM::executeEventGated(UInt32 event, UInt32 data)
                 if (!(state & PD_S_ACTIVE))
                 {
                     setStructureDefaults();
-                    setStateGated((UInt32)PD_S_ACTIVE, (UInt32)PD_S_ACTIVE); 			// activate port
+					state = PD_S_ACTIVE;
+					mask = PD_S_ACTIVE;
+                    setStateGated(&state, &mask); 			// activate port
 				
                     setControlLineState(true, true);						// set RTS and set DTR
                 }
             } else {
                 if ((state & PD_S_ACTIVE))
                 {
-                    setStateGated(0, (UInt32)PD_S_ACTIVE);					// deactivate port
+					state = 0;
+					mask = PD_S_ACTIVE;
+                    setStateGated(&state, &mask);					// deactivate port
 				
                     setControlLineState(false, false);						// clear RTS and clear DTR
                 }
@@ -2017,7 +2038,7 @@ IOReturn AppleUSBCDCDMM::executeEventGated(UInt32 event, UInt32 data)
             XTRACE(this, data, event, "executeEventGated - PD_RS232_E_LINE_BREAK");
             state &= ~PD_RS232_S_BRK;
             delta |= PD_RS232_S_BRK;
-            setStateGated(state, delta);
+            setStateGated(&state, &delta);
             break;
 	case PD_E_DELAY:
             XTRACE(this, data, event, "executeEventGated - PD_E_DELAY");
@@ -2302,7 +2323,7 @@ IOReturn AppleUSBCDCDMM::enqueueData(UInt8 *buffer, UInt32 size, UInt32 *count, 
         return kIOReturnBadArgument;
         
     retain();
-    ret = fCommandGate->runAction(enqueueDataAction, (void *)buffer, (void *)size, (void *)count, (void *)sleep);
+    ret = fCommandGate->runAction(enqueueDataAction, (void *)buffer, (void *)&size, (void *)count, (void *)&sleep);
     release();
 
     return ret;
@@ -2320,7 +2341,7 @@ IOReturn AppleUSBCDCDMM::enqueueData(UInt8 *buffer, UInt32 size, UInt32 *count, 
 IOReturn AppleUSBCDCDMM::enqueueDataAction(OSObject *owner, void *arg0, void *arg1, void *arg2, void *arg3)
 {
 
-    return ((AppleUSBCDCDMM *)owner)->enqueueDataGated((UInt8 *)arg0, (UInt32)arg1, (UInt32 *)arg2, (bool)arg3);
+    return ((AppleUSBCDCDMM *)owner)->enqueueDataGated((UInt8 *)arg0, (UInt32 *)arg1, (UInt32 *)arg2, (bool *)arg3);
     
 }/* end enqueueDataAction */
 
@@ -2350,9 +2371,12 @@ IOReturn AppleUSBCDCDMM::enqueueDataAction(OSObject *owner, void *arg0, void *ar
 //
 /****************************************************************************************************/
 
-IOReturn AppleUSBCDCDMM::enqueueDataGated(UInt8 *buffer, UInt32 size, UInt32 *count, bool sleep)
+IOReturn AppleUSBCDCDMM::enqueueDataGated(UInt8 *buffer, UInt32 *pSize, UInt32 *count, bool *pSleep)
 {
-    UInt32 	state = PD_S_TXQ_LOW_WATER;
+	UInt32		size = *pSize;
+	bool		sleep = *pSleep;
+    UInt32		state = PD_S_TXQ_LOW_WATER;
+	UInt32		mask;
     IOReturn 	rtn = kIOReturnSuccess;
 
     XTRACE(this, size, sleep, "enqueueDataGated");
@@ -2383,7 +2407,8 @@ IOReturn AppleUSBCDCDMM::enqueueDataGated(UInt8 *buffer, UInt32 size, UInt32 *co
     while ((*count < size) && sleep)
     {
         state = PD_S_TXQ_LOW_WATER;
-        rtn = watchStateGated(&state, PD_S_TXQ_LOW_WATER);
+		mask = PD_S_TXQ_LOW_WATER;
+        rtn = watchStateGated(&state, &mask);
         if (rtn != kIOReturnSuccess)
         {
             XTRACE(this, 0, rtn, "enqueueDataGated - interrupted");
@@ -2436,7 +2461,7 @@ IOReturn AppleUSBCDCDMM::dequeueData(UInt8 *buffer, UInt32 size, UInt32 *count, 
         return kIOReturnBadArgument;
 
     retain();
-    ret = fCommandGate->runAction(dequeueDataAction, (void *)buffer, (void *)size, (void *)count, (void *)min);
+    ret = fCommandGate->runAction(dequeueDataAction, (void *)buffer, (void *)&size, (void *)count, (void *)&min);
     release();
 
     return ret;
@@ -2454,7 +2479,7 @@ IOReturn AppleUSBCDCDMM::dequeueData(UInt8 *buffer, UInt32 size, UInt32 *count, 
 IOReturn AppleUSBCDCDMM::dequeueDataAction(OSObject *owner, void *arg0, void *arg1, void *arg2, void *arg3)
 {
 
-    return ((AppleUSBCDCDMM *)owner)->dequeueDataGated((UInt8 *)arg0, (UInt32)arg1, (UInt32 *)arg2, (UInt32)arg3);
+    return ((AppleUSBCDCDMM *)owner)->dequeueDataGated((UInt8 *)arg0, (UInt32 *)arg1, (UInt32 *)arg2, (UInt32 *)arg3);
     
 }/* end dequeueDataAction */
 
@@ -2487,11 +2512,14 @@ IOReturn AppleUSBCDCDMM::dequeueDataAction(OSObject *owner, void *arg0, void *ar
 //
 /****************************************************************************************************/
 
-IOReturn AppleUSBCDCDMM::dequeueDataGated(UInt8 *buffer, UInt32 size, UInt32 *count, UInt32 min)
+IOReturn AppleUSBCDCDMM::dequeueDataGated(UInt8 *buffer, UInt32 *pSize, UInt32 *count, UInt32 *pMin)
 {
+	UInt32		size = *pSize;
+	UInt32		min = *pMin;
     IOReturn 	rtn = kIOReturnSuccess;
-    UInt32 	state = 0;
-    bool	goXOIdle;
+    UInt32		state = 0;
+	UInt32		mask;
+    bool		goXOIdle;
 
     XTRACE(this, size, min, "dequeueDataGated");
     
@@ -2514,8 +2542,8 @@ IOReturn AppleUSBCDCDMM::dequeueDataGated(UInt8 *buffer, UInt32 size, UInt32 *co
             // Figure out how many bytes we have left to queue up
             
         state = 0;
-
-        rtn = watchStateGated(&state, PD_S_RXQ_EMPTY);
+		mask = PD_S_RXQ_EMPTY;
+        rtn = watchStateGated(&state, &mask);
 
         if (rtn != kIOReturnSuccess)
         {
@@ -2596,7 +2624,9 @@ bool AppleUSBCDCDMM::setUpTransmit()
 
 void AppleUSBCDCDMM::startTransmission()
 {
-    size_t	count;
+	UInt32		state;
+	UInt32		mask;
+    size_t		count;
     IOReturn	ior;
     
     XTRACE(this, 0, 0, "startTransmission");
@@ -2617,7 +2647,9 @@ void AppleUSBCDCDMM::startTransmission()
 		
     count = RemovefromQueue(&fPort.TX, fOutBuffer, count);
     
-    setStateGated(PD_S_TX_BUSY, PD_S_TX_BUSY);
+	state = PD_S_TX_BUSY;
+	mask = PD_S_TX_BUSY;
+    setStateGated(&state, &mask);
     
     XTRACE(this, fPort.State, count, "startTransmission - Bytes to write");
     LogData(kDataOut, count, fOutBuffer);

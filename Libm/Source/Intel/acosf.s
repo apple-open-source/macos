@@ -130,20 +130,15 @@ T1:		.double	 +2.7185038560132749878882294,  -8.6073428141752546318770571
 			If the rounding mode is round-to-nearest, return arccosine(x)
 			faithfully rounded.
 
-			Returns a value in [0, pi] (C 7.12.4.1 3).  Note that this
-			prohibits returning a correctly rounded value for acosf(-1), since
-			pi rounded to a float lies outside that interval.
+			Return a value in [0, pi] (C 7.12.4.1 3).  Note that this prohibits
+			returning a correctly rounded value for acosf(-1), since pi rounded
+			to a float lies outside that interval.
 		
 			Not implemented:  In other rounding modes, return arccosine(x)
 			possibly with slightly worse error, not necessarily honoring the
 			rounding mode (Ali Sazegari narrowing C F.9 10).
 
 	Exceptions:
-
-		Raise underflow for a denormal result (C F.9 7 and Draft Standard for
-		Floating-Point Arithmetic P754 Draft 1.2.5 9.5).  If the input is the
-		smallest normal, underflow may or may not be raised.  This is stricter
-		than the older 754 standard.
 
 		May or may not raise inexact, even if the result is exact (C F.9 8).
 

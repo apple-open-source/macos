@@ -1,4 +1,4 @@
-/* $Id: arpa_ftp.h,v 1.2 2003/12/15 12:18:43 lukem Exp $ */
+/* $NetBSD: arpa_ftp.h,v 1.3 2008/09/21 16:35:25 lukem Exp $ */
 /* from NetBSD: ftp.h,v 1.5 1998/02/10 00:32:50 perry Exp */
 
 /*

@@ -28,10 +28,17 @@
 #include <sys/cdefs.h>
 #include <stdint.h>
 #include <mach/message.h>
-#include <AvailabilityMacros.h>
+#include <Availability.h>
+#ifdef __BLOCKS__
+#include <dispatch/dispatch.h>
+#endif /* __BLOCKS__ */
 
 /*! @header
  * These routines allow processes to exchange stateless notification events.
+ * Processes post notifications to a single system-wide notification server,
+ * which then distributes notifications to client processes that have
+ * registered to receive those notifications, including processes run by
+ * other users.
  *
  * Notifications are associated with names in a namespace shared by all
  * clients of the system.  Clients may post notifications for names, and
@@ -43,7 +50,7 @@
  * required for the desired notification delivery method.  Clients are
  * given an integer token representing the registration.
  *
- * Note that the kernel provides limitied queues for mach message and file
+ * Note that the kernel provides limited queues for mach message and file
  * descriptor messages.  It is important to make sure that clients read
  * mach ports and file descriptors frequently to prevent messages from
  * being lost due to resource limitations.  Clients that use signal-based
@@ -95,6 +102,35 @@ __BEGIN_DECLS
  * Returns status.
  */
 uint32_t notify_post(const char *name);
+
+
+#ifdef __BLOCKS__
+typedef void (^notify_handler_t)(int token);
+
+/*!
+ * @function   notify_register
+ * @abstract   Request notification delivery to a dispatch queue.
+ * @discussion When notifications are received by the process, the notify
+ *             subsystem will deliver the registered Block to the target
+ *             dispatch queue.  Notification blocks are not re-entrant,
+ *             and subsequent notification Blocks will not be delivered
+ *             for the same registration until the previous Block has
+ *             returned.
+ * @param name (input) The notification name.
+ * @param out_token (output) The registration token.
+ * @param queue (input) The dispatch queue to which the Block is submitted.
+ *              The dispatch queue is retained by the notify subsystem while
+ *              the notification is registered, and will be released when
+ *              notification is canceled.
+ * @param block (input) The Block to invoke on the dispatch queue in response
+ *              to a notification.  The notification token is passed to the
+ *              Block as an argument so that the callee can modify the state
+ *              of the notification or cancel the registration.
+ * @result Returns status.
+ */
+uint32_t notify_register_dispatch(const char *name, int *out_token, dispatch_queue_t queue, notify_handler_t handler)
+__OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_N_A);
+#endif /* __BLOCKS__ */
 
 /*!
  * Creates a registration token be used with notify_check(),
@@ -234,7 +270,7 @@ uint32_t notify_cancel(int token);
  * @result Returns status.
  */
 uint32_t notify_set_state(int token, uint64_t state64)
-AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0);
 
 /*!
  * Get the 64-bit integer state value.
@@ -246,7 +282,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
  * @result Returns status.
  */
 uint32_t notify_get_state(int token, uint64_t *state64)
-AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0);
 
 __END_DECLS
 

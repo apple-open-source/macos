@@ -1,0 +1,24 @@
+<plist version="1.0">
+<dict>
+	<key>OpenSourceProject</key>
+	<string>hunspell</string>
+	<key>OpenSourceVersion</key>
+	<string>1.2.8</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://hunspell.sourceforge.net/</string>
+	<key>OpenSourceURL</key>
+	<string>http://downloads.sourceforge.net/hunspell/hunspell-1.2.8.tar.gz</string>
+	<key>OpenSourceSHA1</key>
+	<string>eaa76f82fcf08678e49f7a30afdaa268bcc75235</string>
+	<key>OpenSourceImportDate</key>
+	<string>2008-11-20</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>Minor patches to configure script to conform to B&I restrictions.</string>
+	</array>
+	<key>OpenSourceLicense</key>
+	<string>MPL</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>hunspell.txt</string>
+</dict>
+</plist>

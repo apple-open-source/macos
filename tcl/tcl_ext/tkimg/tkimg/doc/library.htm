@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+	"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title>Img Documentation</title>
+  <meta http-equiv="Content-Type" content="text/html" />
+</head>
+
+<body>
+<h1>Img Manual</h1>
+
+<table width="100%">
+  <tbody>
+    <tr>
+      <td><a href="index.htm">Introduction</a></td>
+      <td><a href="install.htm">Installation</a></td>
+      <td><a href="formats.htm">Format handlers</a></td>
+      <td><a href="library.htm">External libraries</a></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>External libraries</h3>
+
+<p>Included in this distribution are the most recent versions (as of july
+2006) of the libz, libpng, libjpeg and libtiff libraries. These are not
+required for compilation of libimg, unless you need support for the PNG, JPEG
+or TIFF formats. If your system already has shared libraries for these
+formats, probably it will already work with this package. Otherwise the tools
+are here to build it any time later.</p>
+
+<p>If your system already has later versions than the ones distributed
+together with Img, it is recommended that you always use the latest available
+version. In the case of JPEG no promise is made that future versions of the
+JPEG library keep binary compatiblility, so it might be that you need to
+recompile Img using the latest JPEG header files. If you don't want the
+trouble of recompiling Img, it's problably best to stick with libjpeg 6b.</p>
+
+<p>If you want more information about the external libraries, all of them have
+the latest information readily available on the internet. Img uses unmodified
+versions of those libraries, except that it provides its own set of makefiles.
+The reason for this is that not all libraries supply very good support for
+building them as a shared library. But if you already have them available as a
+shared library, there should be no need to rebuild them. Here is an
+overview.</p>
+<dl>
+  <dt>zlib</dt>
+    <dd><a
+      href="http://www.zlib.net/">http://www.zlib.net/</a></dd>
+  <dt>libpng</dt>
+    <dd><a
+      href="http://www.libpng.org/pub/png/libpng.html">http://www.libpng.org/pub/png/libpng.html</a></dd>
+  <dt>libtiff</dt>
+    <dd><a href="http://www.libtiff.org/">http://www.libtiff.org/</a></dd>
+  <dt>libjpeg</dt>
+    <dd><a
+      href="http://www.ijg.org/files/jpegsrc.v6b.tar.gz">http://www.ijg.org/files/jpegsrc.v6b.tar.gz</a></dd>
+  <dt>ghostscript (needed for Postscipt reading)</dt>
+    <dd><a href="http://www.cs.wisc.edu/~ghost/">http://www.cs.wisc.edu/~ghost/</a></dd>
+</dl>
+
+<p>If you have a problems with any of those libraries, please first try to
+recompile them using the makefiles supplied by Img. If that works, it's an
+indication that something is wrong with the original distribution of the
+libraries, and you better report it to the instance where you got it.</p>
+</body>
+</html>

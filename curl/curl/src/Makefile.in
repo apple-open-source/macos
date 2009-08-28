@@ -43,12 +43,20 @@ DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
 	$(srcdir)/Makefile.inc $(srcdir)/config.h.in
 subdir = src
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/acinclude.m4 \
-	$(top_srcdir)/configure.ac
+am__aclocal_m4_deps = $(top_srcdir)/m4/curl-compilers.m4 \
+	$(top_srcdir)/m4/curl-confopts.m4 \
+	$(top_srcdir)/m4/curl-functions.m4 \
+	$(top_srcdir)/m4/curl-override.m4 \
+	$(top_srcdir)/m4/curl-reentrant.m4 \
+	$(top_srcdir)/m4/curl-system.m4 $(top_srcdir)/m4/libtool.m4 \
+	$(top_srcdir)/m4/ltoptions.m4 $(top_srcdir)/m4/ltsugar.m4 \
+	$(top_srcdir)/m4/ltversion.m4 $(top_srcdir)/m4/lt~obsolete.m4 \
+	$(top_srcdir)/acinclude.m4 $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
-CONFIG_HEADER = $(top_builddir)/lib/config.h config.h
+CONFIG_HEADER = $(top_builddir)/lib/config.h config.h \
+	$(top_builddir)/include/curl/curlbuild.h
 CONFIG_CLEAN_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
@@ -56,7 +64,7 @@ PROGRAMS = $(bin_PROGRAMS)
 am__objects_1 = main.$(OBJEXT) hugehelp.$(OBJEXT) urlglob.$(OBJEXT) \
 	writeout.$(OBJEXT) writeenv.$(OBJEXT) getpass.$(OBJEXT) \
 	homedir.$(OBJEXT) curlutil.$(OBJEXT)
-am__objects_2 = strtoofft.$(OBJEXT) strdup.$(OBJEXT)
+am__objects_2 = strtoofft.$(OBJEXT) strdup.$(OBJEXT) rawstr.$(OBJEXT)
 am__objects_3 =
 am_curl_OBJECTS = $(am__objects_1) $(am__objects_2) $(am__objects_3)
 curl_OBJECTS = $(am_curl_OBJECTS)
@@ -86,8 +94,6 @@ AUTOCONF = @AUTOCONF@
 AUTOHEADER = @AUTOHEADER@
 AUTOMAKE = @AUTOMAKE@
 AWK = @AWK@
-CABUNDLE_FALSE = @CABUNDLE_FALSE@
-CABUNDLE_TRUE = @CABUNDLE_TRUE@
 CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@ -mdynamic-no-pic
@@ -96,34 +102,34 @@ CPPFLAGS = @CPPFLAGS@
 CROSSCOMPILING_FALSE = @CROSSCOMPILING_FALSE@
 CROSSCOMPILING_TRUE = @CROSSCOMPILING_TRUE@
 CURL_CA_BUNDLE = @CURL_CA_BUNDLE@
-CURL_DISABLE_COOKIES = @CURL_DISABLE_COOKIES@
-CURL_DISABLE_CRYPTO_AUTH = @CURL_DISABLE_CRYPTO_AUTH@
 CURL_DISABLE_DICT = @CURL_DISABLE_DICT@
 CURL_DISABLE_FILE = @CURL_DISABLE_FILE@
 CURL_DISABLE_FTP = @CURL_DISABLE_FTP@
 CURL_DISABLE_HTTP = @CURL_DISABLE_HTTP@
 CURL_DISABLE_LDAP = @CURL_DISABLE_LDAP@
+CURL_DISABLE_LDAPS = @CURL_DISABLE_LDAPS@
+CURL_DISABLE_PROXY = @CURL_DISABLE_PROXY@
 CURL_DISABLE_TELNET = @CURL_DISABLE_TELNET@
 CURL_DISABLE_TFTP = @CURL_DISABLE_TFTP@
-CURL_DISABLE_VERBOSE_STRINGS = @CURL_DISABLE_VERBOSE_STRINGS@
-CURL_EXTERN_SYMBOL = @CURL_EXTERN_SYMBOL@
-CURL_HIDDEN_SYMBOLS = @CURL_HIDDEN_SYMBOLS@
 CURL_LIBS = @CURL_LIBS@
 CYGPATH_W = @CYGPATH_W@
 DEFS = @DEFS@
 DEPDIR = @DEPDIR@
 DLLTOOL = @DLLTOOL@
-ECHO = @ECHO@
+DSYMUTIL = @DSYMUTIL@
+DUMPBIN = @DUMPBIN@
 ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
 EXEEXT = @EXEEXT@
+FGREP = @FGREP@
 GREP = @GREP@
 HAVE_ARES = @HAVE_ARES@
 HAVE_LIBZ = @HAVE_LIBZ@
 HAVE_LIBZ_FALSE = @HAVE_LIBZ_FALSE@
 HAVE_LIBZ_TRUE = @HAVE_LIBZ_TRUE@
+HAVE_PK11_CREATEGENERICOBJECT = @HAVE_PK11_CREATEGENERICOBJECT@
 IDN_ENABLED = @IDN_ENABLED@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
@@ -131,11 +137,13 @@ INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 IPV6_ENABLED = @IPV6_ENABLED@
 KRB4_ENABLED = @KRB4_ENABLED@
+LD = @LD@
 LDFLAGS = @LDFLAGS@
 LIBCURL_LIBS = @LIBCURL_LIBS@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
+LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
 MAINT = @MAINT@
@@ -145,17 +153,24 @@ MAKEINFO = @MAKEINFO@
 MANOPT = @MANOPT@
 MIMPURE_FALSE = @MIMPURE_FALSE@
 MIMPURE_TRUE = @MIMPURE_TRUE@
+NM = @NM@
+NMEDIT = @NMEDIT@
 NO_UNDEFINED_FALSE = @NO_UNDEFINED_FALSE@
 NO_UNDEFINED_TRUE = @NO_UNDEFINED_TRUE@
-NROFF = @NROFF@ @MANOPT@ # figured out by the configure script
+# Use the C locale to ensure that only ASCII characters appear in the
+# embedded text.
+NROFF = env LC_ALL=C @NROFF@ @MANOPT@ # figured out by the configure script
 OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
+OTOOL = @OTOOL@
+OTOOL64 = @OTOOL64@
 PACKAGE = @PACKAGE@
 PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
 PACKAGE_NAME = @PACKAGE_NAME@
 PACKAGE_STRING = @PACKAGE_STRING@
 PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_VERSION = @PACKAGE_VERSION@
+PATH = @PATH@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PERL = @PERL@
 PKGADD_NAME = @PKGADD_NAME@
@@ -168,9 +183,17 @@ REQUIRE_LIB_DEPS = @REQUIRE_LIB_DEPS@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
+SONAME_BUMP_FALSE = @SONAME_BUMP_FALSE@
+SONAME_BUMP_TRUE = @SONAME_BUMP_TRUE@
+SSL_ENABLED = @SSL_ENABLED@
+STATICLIB_FALSE = @STATICLIB_FALSE@
+STATICLIB_TRUE = @STATICLIB_TRUE@
 STRIP = @STRIP@
+SUPPORT_FEATURES = @SUPPORT_FEATURES@
+SUPPORT_PROTOCOLS = @SUPPORT_PROTOCOLS@
 TEST_SERVER_LIBS = @TEST_SERVER_LIBS@
 USE_GNUTLS = @USE_GNUTLS@
+USE_LIBSSH2 = @USE_LIBSSH2@
 USE_MANUAL_FALSE = @USE_MANUAL_FALSE@
 USE_MANUAL_TRUE = @USE_MANUAL_TRUE@
 USE_NSS = @USE_NSS@
@@ -179,6 +202,7 @@ USE_WINDOWS_SSPI = @USE_WINDOWS_SSPI@
 VERSION = @VERSION@
 VERSIONNUM = @VERSIONNUM@
 ac_ct_CC = @ac_ct_CC@
+ac_ct_DUMPBIN = @ac_ct_DUMPBIN@
 am__fastdepCC_FALSE = @am__fastdepCC_FALSE@
 am__fastdepCC_TRUE = @am__fastdepCC_TRUE@
 am__include = @am__include@
@@ -208,8 +232,10 @@ infodir = @infodir@
 install_sh = @install_sh@
 libdir = @libdir@
 libexecdir = @libexecdir@
+libext = @libext@
 localedir = @localedir@
 localstatedir = @localstatedir@
+lt_ECHO = @lt_ECHO@
 mandir = @mandir@
 mkdir_p = @mkdir_p@
 oldincludedir = @oldincludedir@
@@ -230,7 +256,7 @@ target_alias = @target_alias@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2005, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 1998 - 2008, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -243,25 +269,34 @@ target_alias = @target_alias@
 # This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
 # KIND, either express or implied.
 #
-# $Id: Makefile.am,v 1.55 2007-02-17 01:29:01 danf Exp $
+# $Id: Makefile.am,v 1.59 2008-08-29 02:08:11 yangtse Exp $
 ###########################################################################
 AUTOMAKE_OPTIONS = foreign nostdinc
 
-# we use srcdir/src for "private" includes
-# we use srcdir/include for the static global include files
-# we use builddir/src for the generated include files to get found
-# we use srcdir/lib for the header files we "borrow" from the lib
-INCLUDES = -I$(top_srcdir)/include \
-           -I$(top_builddir)/lib   \
-           -I$(top_builddir)/src   \
-           -I$(top_srcdir)/lib     \
+# Specify our include paths here, and do it relative to $(top_srcdir) and
+# $(top_builddir), to ensure that these paths which belong to the library
+# being currently built and tested are searched before the library which
+# might possibly already be installed in the system.
+#
+# $(top_builddir)/include is for libcurl's generated curl/curlbuild.h file
+# $(top_srcdir)/include is for libcurl's external include files
+# $(top_builddir)/lib is for libcurl's generated lib/config.h file
+# $(top_builddir)/src is for curl's generated src/config.h file
+# $(top_srcdir)/lib is for libcurl's lib/setup.h and other "borrowed" files
+# $(top_srcdir)/src is for curl's src/setup.h and "curl-private" files
+INCLUDES = -I$(top_builddir)/include \
+           -I$(top_srcdir)/include   \
+           -I$(top_builddir)/lib     \
+           -I$(top_builddir)/src     \
+           -I$(top_srcdir)/lib       \
            -I$(top_srcdir)/src
 
 
 # libcurl has sources that provide functions named curlx_* that aren't part of
 # the official API, but we re-use the code here to avoid duplication.
 CURLX_ONES = $(top_srcdir)/lib/strtoofft.c \
-	$(top_srcdir)/lib/strdup.c 
+	$(top_srcdir)/lib/strdup.c \
+	$(top_srcdir)/lib/rawstr.c 
 
 CURL_SOURCES = main.c hugehelp.c urlglob.c writeout.c writeenv.c \
 	getpass.c homedir.c curlutil.c
@@ -277,9 +312,9 @@ BUILT_SOURCES = hugehelp.c
 CLEANFILES = hugehelp.c
 EXTRA_DIST = mkhelp.pl makefile.dj Makefile.vc6 Makefile.b32 Makefile.m32 \
 	Makefile.riscos config.h.in macos/curl.mcp.xml.sit.hqx		  \
-	macos/MACINSTALL.TXT macos/src/curl_GUSIConfig.cpp		  \
+	macos/MACINSTALL.TXT macos/src/curl_GUSIConfig.cpp curlsrc.dsp    \
 	macos/src/macos_main.cpp config-amigaos.h makefile.amiga curl.rc  \
-	Makefile.netware Makefile.inc Makefile.Watcom
+	Makefile.netware Makefile.inc Makefile.Watcom curlsrc.dsw
 
 MANPAGE = $(top_srcdir)/docs/curl.1
 README = $(top_srcdir)/docs/MANUAL
@@ -379,6 +414,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/homedir.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/hugehelp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/main.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rawstr.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/strdup.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/strtoofft.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/urlglob.Po@am__quote@
@@ -433,6 +469,20 @@ strdup.obj: $(top_srcdir)/lib/strdup.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$(top_srcdir)/lib/strdup.c' object='strdup.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o strdup.obj `if test -f '$(top_srcdir)/lib/strdup.c'; then $(CYGPATH_W) '$(top_srcdir)/lib/strdup.c'; else $(CYGPATH_W) '$(srcdir)/$(top_srcdir)/lib/strdup.c'; fi`
+
+rawstr.o: $(top_srcdir)/lib/rawstr.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT rawstr.o -MD -MP -MF "$(DEPDIR)/rawstr.Tpo" -c -o rawstr.o `test -f '$(top_srcdir)/lib/rawstr.c' || echo '$(srcdir)/'`$(top_srcdir)/lib/rawstr.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/rawstr.Tpo" "$(DEPDIR)/rawstr.Po"; else rm -f "$(DEPDIR)/rawstr.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$(top_srcdir)/lib/rawstr.c' object='rawstr.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o rawstr.o `test -f '$(top_srcdir)/lib/rawstr.c' || echo '$(srcdir)/'`$(top_srcdir)/lib/rawstr.c
+
+rawstr.obj: $(top_srcdir)/lib/rawstr.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT rawstr.obj -MD -MP -MF "$(DEPDIR)/rawstr.Tpo" -c -o rawstr.obj `if test -f '$(top_srcdir)/lib/rawstr.c'; then $(CYGPATH_W) '$(top_srcdir)/lib/rawstr.c'; else $(CYGPATH_W) '$(srcdir)/$(top_srcdir)/lib/rawstr.c'; fi`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/rawstr.Tpo" "$(DEPDIR)/rawstr.Po"; else rm -f "$(DEPDIR)/rawstr.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$(top_srcdir)/lib/rawstr.c' object='rawstr.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o rawstr.obj `if test -f '$(top_srcdir)/lib/rawstr.c'; then $(CYGPATH_W) '$(top_srcdir)/lib/rawstr.c'; else $(CYGPATH_W) '$(srcdir)/$(top_srcdir)/lib/rawstr.c'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo

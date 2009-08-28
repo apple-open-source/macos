@@ -194,9 +194,7 @@ struct cached_value
 extern unsigned int symbol_generation;
 
 struct cached_value *
-create_cached_function (name, type)
-     char *name;
-     struct type *type;
+create_cached_function (const char *name, struct type *type)
 {
   struct cached_value *ptr;
 
@@ -567,6 +565,14 @@ value_free_to_mark (struct value *mark)
       value_free (val);
     }
   all_values = val;
+}
+
+/* APPLE LOCAL: Define a value_free rather than making it a #define
+   so we can use it in cleanups.  */
+void
+value_free (struct value *val)
+{
+  xfree (val);
 }
 
 /* Free all the values that have been allocated (except for those released).
@@ -1533,6 +1539,40 @@ modify_field (gdb_byte *addr, LONGEST fieldval, int bitpos, int bitsize)
   store_unsigned_integer (addr, sizeof oword, oword);
 }
 
+/* Pack NUM into BUF using a target format of TYPE.  */
+
+void
+pack_long (gdb_byte *buf, struct type *type, LONGEST num)
+{
+  int len;
+
+  type = check_typedef (type);
+  len = TYPE_LENGTH (type);
+
+  switch (TYPE_CODE (type))
+    {
+    case TYPE_CODE_INT:
+    case TYPE_CODE_CHAR:
+    case TYPE_CODE_ENUM:
+    case TYPE_CODE_FLAGS:
+    case TYPE_CODE_BOOL:
+    case TYPE_CODE_RANGE:
+    case TYPE_CODE_MEMBERPTR:
+      store_signed_integer (buf, len, num);
+      break;
+
+    case TYPE_CODE_REF:
+    case TYPE_CODE_PTR:
+      store_typed_address (buf, type, (CORE_ADDR) num);
+      break;
+
+    default:
+      error (_("Unexpected type (%d) encountered for integer constant."),
+             TYPE_CODE (type));
+    }
+}
+
+
 /* Convert C numbers into newly allocated values */
 
 struct value *
@@ -1615,7 +1655,6 @@ value_from_double (struct type *type, DOUBLEST num)
   struct value *val = allocate_value (type);
   struct type *base_type = check_typedef (type);
   enum type_code code = TYPE_CODE (base_type);
-  int len = TYPE_LENGTH (base_type);
 
   if (code == TYPE_CODE_FLT)
     {

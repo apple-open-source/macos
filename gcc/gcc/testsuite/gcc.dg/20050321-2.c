@@ -3,9 +3,10 @@
    of some notes inserted between jump table's CODE_LABEL and the jump table
    it ended up in the .text section and thus shorten_branches couldn't
    figure out branch to lab is too far.  */
-/* { dg-do link } */
+/* { dg-do link { target fpic } } */
 /* { dg-options "-g1 -fpic" } */
 /* { dg-bogus "\[Uu\]nresolved symbol .(_GLOBAL_OFFSET_TABLE_|\[_.A-Za-z\]\[_.0-9A-Za-z\]*@(PLT|GOT|GOTOFF))" "PIC unsupported" { xfail *-*-netware* } 0 } */
+/* { dg-require-effective-target int32plus } */
 
 #define A(n) \
   case n##1: return n##1 * 131 + 63;	\

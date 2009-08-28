@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Rob Braun
+ * Copyright (c) 2008 Rob Braun
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,7 +40,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <libgen.h>
-#include <sys/fcntl.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <arpa/inet.h>
 #include "xar.h"
@@ -53,6 +53,7 @@
 #include "io.h"
 #include "appledouble.h"
 #include "stat.h"
+#include "archive.h"
 
 #if defined(HAVE_SYS_XATTR_H)
 #include <sys/xattr.h>
@@ -146,7 +147,7 @@ static int32_t xar_rsrc_write(xar_t x, xar_file_t f, void *buf, size_t len, void
 	int32_t r;
 	size_t off = 0;
 	do {
-		r = write(DARWINATTR_CONTEXT(context)->fd, buf+off, len-off);
+		r = write(DARWINATTR_CONTEXT(context)->fd, ((char *)buf)+off, len-off);
 		if( (r < 0) && (errno != EINTR) )
 			return r;
 		off += r;
@@ -205,8 +206,11 @@ static int32_t xar_ea_write(xar_t x, xar_file_t f, void *buf, size_t len, void *
 
 static int32_t ea_archive(xar_t x, xar_file_t f, const char* file, void *context) {
 	char *buf, *i;
-	int ret, bufsz;
+	int ret, bufsz, attrsz;
 	int32_t retval = 0;
+
+	if( file == NULL )
+		return 0;
 
 	ret = listxattr(file, NULL, 0, XATTR_NOFOLLOW);
 	if( ret < 0 )
@@ -232,8 +236,10 @@ TRYAGAIN:
 		goto BAIL;
 	}
 
-	for( i = buf; (i-buf) < ret; i += strlen(i)+1 ) {
-		char tempnam[1024];
+	attrsz = ret;
+	for( i = buf; (i-buf) < attrsz; i += strlen(i)+1 ) {
+		xar_ea_t e;
+
 		ret = getxattr(file, i, NULL, 0, 0, XATTR_NOFOLLOW);
 		if( ret < 0 )
 			continue;
@@ -250,9 +256,8 @@ TRYAGAIN:
 			continue;
 		}
 
-		memset(tempnam, 0, sizeof(tempnam));
-		snprintf(tempnam, sizeof(tempnam)-1, "ea/%s", i);
-		xar_attrcopy_to_heap(x, f, tempnam, xar_ea_read, context);
+		e = xar_ea_new(f, i);
+		xar_attrcopy_to_heap(x, f, xar_ea_root(e), xar_ea_read, context);
 	}
 BAIL:
 	free(buf);
@@ -260,23 +265,24 @@ BAIL:
 }
 
 static int32_t ea_extract(xar_t x, xar_file_t f, const char* file, void *context) {
-	const char *prop;
-	xar_iter_t iter;
+	xar_prop_t p;
 	
-	iter = xar_iter_new();
-	for(prop = xar_prop_first(f, iter); prop; prop = xar_prop_next(iter)) {
+	for(p = xar_prop_pfirst(f); p; p = xar_prop_pnext(p)) {
 		const char *opt;
-		char sz[1024];
+		const char *name = NULL;
 		int len;
+		xar_prop_t tmpp;
 
-		if( strncmp(prop, XAR_EA_FORK, strlen(XAR_EA_FORK)) )
+		name = xar_prop_getkey(p);
+		if( strncmp(name, XAR_EA_FORK, strlen(XAR_EA_FORK)) )
 			continue;
-		if( strlen(prop) <= strlen(XAR_EA_FORK) )
+		if( strlen(name) != strlen(XAR_EA_FORK) )
 			continue;
 
-		memset(sz, 0, sizeof(sz));
-		snprintf(sz, sizeof(sz)-1, "%s/size", prop);
-		xar_prop_get(f, sz, &opt);
+		opt = NULL;
+		tmpp = xar_prop_pget(p, "size");
+		if( tmpp )
+			opt = xar_prop_getvalue(tmpp);
 		if( !opt )
 			continue;
 
@@ -286,9 +292,16 @@ static int32_t ea_extract(xar_t x, xar_file_t f, const char* file, void *context
 			return -1;
 		DARWINATTR_CONTEXT(context)->len = len;
 
-		xar_attrcopy_from_heap(x, f, prop, xar_ea_write, context);
+		xar_attrcopy_from_heap(x, f, p, xar_ea_write, context);
 
-		setxattr(file, prop+strlen(XAR_EA_FORK)+1, DARWINATTR_CONTEXT(context)->buf, DARWINATTR_CONTEXT(context)->len, 0, XATTR_NOFOLLOW);
+		name = NULL;
+		tmpp = xar_prop_pget(p, "name");
+		if( tmpp )
+			name = xar_prop_getvalue(tmpp);
+		if( !name )
+			continue;
+
+		setxattr(file, name, DARWINATTR_CONTEXT(context)->buf, DARWINATTR_CONTEXT(context)->len, 0, XATTR_NOFOLLOW);
 		free(DARWINATTR_CONTEXT(context)->buf);
 		DARWINATTR_CONTEXT(context)->buf = NULL;
 		DARWINATTR_CONTEXT(context)->len = 0;
@@ -307,6 +320,7 @@ static int32_t ea_extract(xar_t x, xar_file_t f, const char* file, void *context
 static int32_t nonea_archive(xar_t x, xar_file_t f, const char* file, void *context) {
 	char rsrcname[4096];
 	struct stat sb;
+	xar_ea_t e;
 #ifdef HAVE_GETATTRLIST
 	struct attrlist attrs;
 	struct fi finfo;
@@ -323,9 +337,12 @@ static int32_t nonea_archive(xar_t x, xar_file_t f, const char* file, void *cont
 
 	memset(z, 0, sizeof(z));
 	if( memcmp(finfo.finderinfo, z, sizeof(finfo.finderinfo)) != 0 ) {
+		e = xar_ea_new(f, "com.apple.FinderInfo");
 		DARWINATTR_CONTEXT(context)->finfo = finfo.finderinfo;
-		xar_attrcopy_to_heap(x, f, "ea/com.apple.FinderInfo", finfo_read, context);
+		xar_attrcopy_to_heap(x, f, xar_ea_root(e), finfo_read, context);
 	}
+
+		
 #endif /* HAVE_GETATTRLIST */
 
 
@@ -341,7 +358,8 @@ static int32_t nonea_archive(xar_t x, xar_file_t f, const char* file, void *cont
 	if( DARWINATTR_CONTEXT(context)->fd < 0 )
 		return -1;
 
-	xar_attrcopy_to_heap(x, f, "ea/com.apple.ResourceFork", xar_rsrc_read, context);
+	e = xar_ea_new(f, "com.apple.ResourceFork");
+	xar_attrcopy_to_heap(x, f, xar_ea_root(e), xar_rsrc_read, context);
 	close(DARWINATTR_CONTEXT(context)->fd);
 	return 0;
 }
@@ -353,6 +371,7 @@ static int32_t nonea_archive(xar_t x, xar_file_t f, const char* file, void *cont
  */
 static int32_t nonea_extract(xar_t x, xar_file_t f, const char* file, void *context) {
 	char rsrcname[4096];
+	xar_prop_t p;
 #ifdef HAVE_SETATTRLIST
 	struct attrlist attrs;
 	struct fi finfo;
@@ -368,7 +387,9 @@ static int32_t nonea_extract(xar_t x, xar_file_t f, const char* file, void *cont
 
 	DARWINATTR_CONTEXT(context)->finfo = (char *)file;
 
-	xar_attrcopy_from_heap(x, f, "ea/com.apple.FinderInfo", finfo_write, context);
+	p = xar_ea_find(f, "com.apple.ResourceFork");
+	if( p )
+		xar_attrcopy_from_heap(x, f, p, finfo_write, context);
 #endif /* HAVE_SETATTRLIST */
 	
 	memset(rsrcname, 0, sizeof(rsrcname));
@@ -377,7 +398,9 @@ static int32_t nonea_extract(xar_t x, xar_file_t f, const char* file, void *cont
 	if( DARWINATTR_CONTEXT(context)->fd < 0 )
 		return 0;
 
-	xar_attrcopy_from_heap(x, f, "ea/com.apple.ResourceFork", xar_rsrc_write, context);
+	p = xar_ea_find(f, "com.apple.ResourceFork");
+	if( p )
+		xar_attrcopy_from_heap(x, f, p, xar_rsrc_write, context);
 	close(DARWINATTR_CONTEXT(context)->fd);
 	return 0;
 }
@@ -387,7 +410,7 @@ static int32_t nonea_extract(xar_t x, xar_file_t f, const char* file, void *cont
  * Check to see if the file we're archiving is a ._ file.  If so,
  * stop the archival process.
  */
-int32_t xar_underbar_check(xar_t x, xar_file_t f, const char* file, void *context) {
+xar_file_t xar_underbar_check(xar_t x, xar_file_t f, const char* file, void *context) {
 	char *bname, *tmp;
 
 	tmp = strdup(file);
@@ -409,11 +432,10 @@ int32_t xar_underbar_check(xar_t x, xar_file_t f, const char* file, void *contex
 		if( stat(nupath, &sb) ) {
 			free(tmp);
 			free(nupath);
-			return 0;
+			return NULL;
 		}
 
 		asprintf(&tmp2, "%s/..namedfork/rsrc", nupath);
-		free(nupath);
 
 		/* If there is a file that the ._ file corresponds to, and
 		 * there is no resource fork, assume the ._ file contains
@@ -421,22 +443,29 @@ int32_t xar_underbar_check(xar_t x, xar_file_t f, const char* file, void *contex
 		 * when the file is archived.
 		 */
 		if( stat(tmp2, &sb) ) {
+			xar_file_t tmpf;
+			tmpf = xar_file_find(XAR(x)->files, nupath);
+			if( !tmpf ) {
+				tmpf = xar_add(x, nupath);
+			}
+			free(nupath);
 			free(tmp2);
 			free(tmp);
-			return 1;
+			return tmpf;
 		}
 
 		/* otherwise, we have a corresponding file and it supports
 		 * resource forks, so we assume this is a detached ._ file
 		 * and archive it as a real file.
 		 */
+		free(nupath);
 		free(tmp2);
 		free(tmp);
-		return 0;
+		return NULL;
 	}
 
 	free(tmp);
-	return 0;
+	return NULL;
 }
 
 #ifdef __APPLE__
@@ -473,13 +502,19 @@ static int32_t underbar_archive(xar_t x, xar_file_t f, const char* file, void *c
 	memset(&ash, 0, sizeof(ash));
 	memset(&ase, 0, sizeof(ase));
 	r = read(DARWINATTR_CONTEXT(context)->fd, &ash, XAR_ASH_SIZE);
-	if( r < XAR_ASH_SIZE )
+	if( r < XAR_ASH_SIZE ) {
+		close(DARWINATTR_CONTEXT(context)->fd);
 		return -1;
+	}
 
-	if( ntohl(ash.magic) != APPLEDOUBLE_MAGIC )
+	if( ntohl(ash.magic) != APPLEDOUBLE_MAGIC ) {
+		close(DARWINATTR_CONTEXT(context)->fd);
 		return -1;
-	if( ntohl(ash.version) != APPLEDOUBLE_VERSION )
+	}
+	if( ntohl(ash.version) != APPLEDOUBLE_VERSION ) {
+		close(DARWINATTR_CONTEXT(context)->fd);
 		return -1;
+	}
 
 	off = XAR_ASH_SIZE;
 	num_entries = ntohs(ash.entries);
@@ -487,32 +522,48 @@ static int32_t underbar_archive(xar_t x, xar_file_t f, const char* file, void *c
 	for(i = 0; i < num_entries; i++) {
 		off_t entoff;
 		r = read(DARWINATTR_CONTEXT(context)->fd, &ase, sizeof(ase));
-		if( r < sizeof(ase) )
+		if( r < sizeof(ase) ) {
+			close(DARWINATTR_CONTEXT(context)->fd);
 			return -1;
+		}
 		off+=r;
 
 		if( ntohl(ase.entry_id) == AS_ID_FINDER ) {
+			xar_ea_t e;
 			entoff = (off_t)ntohl(ase.offset);
-			if( lseek(DARWINATTR_CONTEXT(context)->fd, entoff, SEEK_SET) == -1 )
+			if( lseek(DARWINATTR_CONTEXT(context)->fd, entoff, SEEK_SET) == -1 ) {
+				close(DARWINATTR_CONTEXT(context)->fd);
 				return -1;
+			}
 			r = read(DARWINATTR_CONTEXT(context)->fd, z, sizeof(z));
-			if( r < sizeof(z) )
+			if( r < sizeof(z) ) {
+				close(DARWINATTR_CONTEXT(context)->fd);
 				return -1;
+			}
 			
 			DARWINATTR_CONTEXT(context)->finfo = z;
-			xar_attrcopy_to_heap(x, f, "ea/com.apple.FinderInfo", finfo_read, context);
-			if( lseek(DARWINATTR_CONTEXT(context)->fd, (off_t)off, SEEK_SET) == -1 )
+			e = xar_ea_new(f, "com.apple.FinderInfo");
+			xar_attrcopy_to_heap(x, f, xar_ea_root(e), finfo_read, context);
+			if( lseek(DARWINATTR_CONTEXT(context)->fd, (off_t)off, SEEK_SET) == -1 ) {
+				close(DARWINATTR_CONTEXT(context)->fd);
 				return -1;
+			}
 		}
 		if( ntohl(ase.entry_id) == AS_ID_RESOURCE ) {
+			xar_ea_t e;
 			entoff = (off_t)ntohl(ase.offset);
-			if( lseek(DARWINATTR_CONTEXT(context)->fd, entoff, SEEK_SET) == -1 )
+			if( lseek(DARWINATTR_CONTEXT(context)->fd, entoff, SEEK_SET) == -1 ) {
+				close(DARWINATTR_CONTEXT(context)->fd);
 				return -1;
+			}
 
-			xar_attrcopy_to_heap(x, f, "ea/com.apple.ResourceFork", xar_rsrc_read, context);
+			e = xar_ea_new(f, "com.apple.ResourceFork");
+			xar_attrcopy_to_heap(x, f, xar_ea_root(e), xar_rsrc_read, context);
 
-			if( lseek(DARWINATTR_CONTEXT(context)->fd, (off_t)off, SEEK_SET) == -1 )
+			if( lseek(DARWINATTR_CONTEXT(context)->fd, (off_t)off, SEEK_SET) == -1 ) {
+				close(DARWINATTR_CONTEXT(context)->fd);
 				return -1;
+			}
 		}
 	}
 
@@ -533,13 +584,17 @@ static int32_t underbar_extract(xar_t x, xar_file_t f, const char* file, void *c
 	struct AppleSingleHeader ash;
 	struct AppleSingleEntry  ase;
 	int num_entries = 0, rsrclen = 0, have_rsrc = 0, have_fi = 0;
-
-	if( xar_prop_get(f, "ea/com.apple.FinderInfo", NULL) == 0 ) {
+	xar_prop_t p;
+	xar_prop_t rfprop = NULL, fiprop = NULL;
+	
+	fiprop = xar_ea_find(f, "com.apple.FinderInfo");
+	if( fiprop ) {
 		have_fi = 1;
 		num_entries++;
 	}
 
-	if( xar_prop_get(f, "ea/com.apple.ResourceFork", NULL) == 0 ) {
+	rfprop = xar_ea_find(f, "com.apple.ResourceFork");
+	if( rfprop ) {
 		have_rsrc = 1;
 		num_entries++;
 	}
@@ -561,9 +616,14 @@ static int32_t underbar_extract(xar_t x, xar_file_t f, const char* file, void *c
 	if( DARWINATTR_CONTEXT(context)->fd < 0 )
 		return -1;
 
-	xar_prop_get(f, "ea/com.apple.ResourceFork/size", &rsrclenstr);
-	if( rsrclenstr ) 
-		rsrclen = strtol(rsrclenstr, NULL, 10);
+	rsrclenstr = NULL;
+	if( rfprop ) {
+		p = xar_prop_pget(rfprop, "size");
+		if( p )
+			rsrclenstr = xar_prop_getvalue(p);
+		if( rsrclenstr ) 
+			rsrclen = strtol(rsrclenstr, NULL, 10);
+	}
 
 	memset(&ash, 0, sizeof(ash));
 	memset(&ase, 0, sizeof(ase));
@@ -588,9 +648,9 @@ static int32_t underbar_extract(xar_t x, xar_file_t f, const char* file, void *c
 	}
 	
 	if( have_fi )
-		xar_attrcopy_from_heap(x, f, "ea/com.apple.FinderInfo", xar_rsrc_write, context);
+		xar_attrcopy_from_heap(x, f, fiprop, xar_rsrc_write, context);
 	if( have_rsrc )
-		xar_attrcopy_from_heap(x, f, "ea/com.apple.ResourceFork", xar_rsrc_write, context);
+		xar_attrcopy_from_heap(x, f, rfprop, xar_rsrc_write, context);
 	close(DARWINATTR_CONTEXT(context)->fd);
 
 	DARWINATTR_CONTEXT(context)->fd = 0;
@@ -600,6 +660,69 @@ static int32_t underbar_extract(xar_t x, xar_file_t f, const char* file, void *c
 	return 0;
 }
 
+#if defined(__APPLE__)
+static int32_t stragglers_archive(xar_t x, xar_file_t f, const char* file, void *context) {
+#ifdef HAVE_GETATTRLIST
+	struct fits {
+    		uint32_t     length;
+		struct timespec ts;
+	};
+	struct fits fts;
+	struct attrlist attrs;
+	int ret;
+
+	if( !xar_check_prop(x, "FinderCreateTime") )
+		return 0;
+
+	memset(&attrs, 0, sizeof(attrs));
+	attrs.bitmapcount = ATTR_BIT_MAP_COUNT;
+	attrs.commonattr = ATTR_CMN_CRTIME;
+	ret = getattrlist(file, &attrs, &fts, sizeof(fts), 0);
+	if( ret == 0 ) {
+		xar_prop_t tmpp;
+
+		tmpp = xar_prop_new(f, NULL);
+		if( tmpp ) {
+			char tmpc[128];
+			struct tm tm;
+			xar_prop_setkey(tmpp, "FinderCreateTime");
+			xar_prop_setvalue(tmpp, NULL);
+			memset(tmpc, 0, sizeof(tmpc));
+			gmtime_r(&fts.ts.tv_sec, &tm);
+			strftime(tmpc, sizeof(tmpc), "%FT%T", &tm);
+			xar_prop_pset(f, tmpp, "time", tmpc);
+			memset(tmpc, 0, sizeof(tmpc));
+			sprintf(tmpc, "%ld", fts.ts.tv_nsec);
+			xar_prop_pset(f, tmpp, "nanoseconds", tmpc);
+		}
+	}
+#endif
+	return 0;	
+}
+
+static int32_t stragglers_extract(xar_t x, xar_file_t f, const char* file, void *context) {
+#ifdef HAVE_GETATTRLIST
+	const char *tmpc = NULL;
+	struct tm tm;
+	struct timespec ts;
+	struct attrlist attrs;
+
+	xar_prop_get(f, "FinderCreateTime/time", &tmpc);
+	if( tmpc ) {
+		strptime(tmpc, "%FT%T", &tm);
+		ts.tv_sec = timegm(&tm);
+		xar_prop_get(f, "FinderCreateTime/nanoseconds", &tmpc);
+		ts.tv_nsec = strtol(tmpc, NULL, 10);
+		memset(&attrs, 0, sizeof(attrs));
+		attrs.bitmapcount = ATTR_BIT_MAP_COUNT;
+		attrs.commonattr = ATTR_CMN_CRTIME;
+		setattrlist(file, &attrs, &ts, sizeof(ts), 0);
+	}
+
+#endif
+	return 0;
+}
+#endif /* __APPLE__ */
 
 int32_t xar_darwinattr_archive(xar_t x, xar_file_t f, const char* file, const char *buffer, size_t len)
 {
@@ -610,14 +733,16 @@ int32_t xar_darwinattr_archive(xar_t x, xar_file_t f, const char* file, const ch
 #if defined(__APPLE__)
 	if( len )
 		return 0;
-/*
- * This is currently turned off at Apple because of problems with xml ea
- *
+	stragglers_archive(x, f, file, (void *)&context);
+
+	/* From here on out, props are only EA's */
+	if( !xar_check_prop(x, "ea") )
+		return 0;
+
 #if defined(HAVE_GETXATTR)
 	if( ea_archive(x, f, file, (void *)&context) == 0 )
 		return 0;
 #endif
-*/
 	if( nonea_archive(x, f, file, (void *)&context) == 0 )
 		return 0;
 	return underbar_archive(x, f, file, (void *)&context);
@@ -634,14 +759,12 @@ int32_t xar_darwinattr_extract(xar_t x, xar_file_t f, const char* file, char *bu
 #if defined(__APPLE__)
 	if( len )
 		return 0;
-/*
- * This is currently turned off at Apple because of problems with xml ea
- *
+	stragglers_extract(x, f, file, (void *)&context);
+
 #if defined(HAVE_GETXATTR)
 	if( ea_extract(x, f, file, (void *)&context) == 0 )
 		return 0;
 #endif
-*/
 	if( nonea_extract(x, f, file, (void *)&context) == 0 )
 		return 0;
 #endif /* __APPLE__ */

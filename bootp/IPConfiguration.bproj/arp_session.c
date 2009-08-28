@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 - 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000 - 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -101,6 +101,8 @@ struct arp_session {
     struct probe_info		default_probe_info;
     int				default_detect_count;
     struct timeval		default_detect_retry;
+    int				default_conflict_retry_count;
+    struct timeval		default_conflict_delay;
     arp_our_address_func_t *	is_our_address;
     dynarray_t			if_sessions;
 #ifdef TEST_ARP_SESSION
@@ -151,6 +153,7 @@ struct arp_client {
     struct in_addr		sender_ip;
     struct in_addr		target_ip;
     int				try;
+    int				conflict_count;
     timer_callout_t *		timer_callout;
     arp_address_info_t		in_use_addr;
     char			errmsg[128];
@@ -161,14 +164,6 @@ struct arp_client {
     int				detect_list_count;
     CFRunLoopObserverRef	callback_rls;
 };
-
-#define ARP_PROBE_COUNT		3
-#define ARP_GRATUITOUS_COUNT	1
-#define ARP_RETRY_SECS		1
-#define ARP_RETRY_USECS		0
-#define ARP_DETECT_COUNT	3
-#define ARP_DETECT_RETRY_SECS	0
-#define ARP_DETECT_RETRY_USECS	15000
 
 #ifdef TEST_ARP_SESSION
 #define my_log		arp_session_log
@@ -218,6 +213,9 @@ arp_client_free_element(void * arg);
 
 static void
 arp_client_probe_retransmit(void * arg1, void * arg2, void * arg3);
+
+static void
+arp_client_probe_start(void * arg1, void * arg2, void * arg3);
 
 static void
 arp_client_resolve_retransmit(void * arg1, void * arg2, void * arg3);
@@ -507,12 +505,16 @@ arp_if_session_read(void * arg1, void * arg2)
     int			hwlen = 0;
     int			hwtype;
     int			i;
-    arp_if_session_t * 	if_session = (arp_if_session_t *)arg1;
+    arp_if_session_t * 	if_session;
     int			link_header_size;
     int			link_arp_size;
     int			link_length;
     int			n;
     char *		offset;
+    arp_session_t *	session;
+
+    if_session = (arp_if_session_t *)arg1;
+    session = if_session->session;
 
     errmsg[0] = '\0';
 
@@ -521,7 +523,7 @@ arp_if_session_read(void * arg1, void * arg2)
 	return;
     }
 
-    debug = if_session->session->debug;
+    debug = session->debug;
     client_count = dynarray_count(&if_session->clients);
 
     link_length = if_link_length(if_session->if_p);
@@ -603,10 +605,10 @@ arp_if_session_read(void * arg1, void * arg2)
 	    break;
 	}
 	is_our_address 
-	    = (*if_session->session->is_our_address)(if_session->if_p,
-						     hwtype,
-						     hwaddr,
-						     link_length);
+	    = (*session->is_our_address)(if_session->if_p,
+					 hwtype,
+					 hwaddr,
+					 link_length);
 	for (i = 0; i < client_count; i++) {
 	    int			addr_index;
 	    arp_client_t *	client;
@@ -673,7 +675,26 @@ arp_if_session_read(void * arg1, void * arg2)
 	    }
 	    if (got_match) {
 		client->command_status = arp_status_in_use_e;
-		/* use a callback to avoid re-entrancy */
+		if (client->command == arp_client_command_probe_e
+		    && client->probes_are_collisions == FALSE) {
+		    client->conflict_count++;
+		    my_log(LOG_DEBUG,
+			   "arp_session: encountered conflict,"
+			   " trying again %d (of %d)",
+			   client->conflict_count,
+			   session->default_conflict_retry_count + 1);
+		    if (client->conflict_count
+			<= session->default_conflict_retry_count) {
+			/* schedule another probe cycle */
+			timer_set_relative(client->timer_callout,
+					   session->default_conflict_delay,
+					   (timer_func_t *)
+					   arp_client_probe_start,
+					   client, NULL, NULL);
+			goto next_packet;
+		    }
+		}
+		/* match found, provide results via callback */
 		arp_client_schedule_callback(client);
 	    }
 	}
@@ -927,6 +948,17 @@ arp_client_transmit(arp_client_t * client, boolean_t send_gratuitous,
     return (FALSE);
 }
 
+static void
+arp_client_probe_start(void * arg1, void * arg2, void * arg3)
+{
+    arp_client_t * 	client = (arp_client_t *)arg1;
+
+    client->try = 0;
+    client->command_status = arp_status_unknown_e;
+    arp_client_probe_retransmit(arg1, arg2, arg3);
+    return;
+}
+
 /*
  * Function: arp_client_probe_retransmit
  *
@@ -953,7 +985,7 @@ arp_client_probe_retransmit(void * arg1, void * arg2, void * arg3)
     }
     client->try++;
     if (arp_client_transmit(client, 
-			    (tries_left == probe_info->gratuitous_count),
+			    (tries_left <= probe_info->gratuitous_count),
 			    NULL)) {
 	timer_set_relative(client->timer_callout,
 			   probe_info->retry_interval,
@@ -1225,6 +1257,7 @@ arp_client_probe(arp_client_t * client,
     client->arg2 = arg2;
     client->errmsg[0] = '\0';
     client->try = 0;
+    client->conflict_count = 0;
     if (!arp_client_open_fd(client)) {
 	/* report back an error to the caller */
 	client->command_status = arp_status_error_e;
@@ -1255,6 +1288,7 @@ arp_client_resolve(arp_client_t * client,
     client->arg2 = arg2;
     client->errmsg[0] = '\0';
     client->try = 0;
+    client->conflict_count = 0;
     if (!arp_client_open_fd(client)) {
 	/* report back an error to the caller */
 	client->command_status = arp_status_error_e;
@@ -1285,6 +1319,7 @@ arp_client_detect(arp_client_t * client,
     client->arg2 = arg2;
     client->errmsg[0] = '\0';
     client->try = 0;
+    client->conflict_count = 0;
     if (list_count == 0 || !arp_client_open_fd(client)) {
 	/* report back an error to the caller */
 	client->command_status = arp_status_error_e;
@@ -1348,12 +1383,8 @@ arp_client_defend(arp_client_t * client, struct in_addr our_ip)
 
 arp_session_t *
 arp_session_init(FDSet_t * readers,
-		 arp_our_address_func_t * func, 
-		 const struct timeval * tv_p,
-		 const int * probe_count, 
-		 const int * gratuitous_count,
-		 const int * detect_count,
-		 const struct timeval * detect_tv_p)
+		 arp_our_address_func_t * func,
+		 arp_session_values_t * values)
 {
     arp_session_t * 	session;
 
@@ -1370,37 +1401,54 @@ arp_session_init(FDSet_t * readers,
     else {
 	session->is_our_address = func;
     }
-    if (tv_p) {
-	session->default_probe_info.retry_interval = *tv_p;
+    if (values->probe_interval != NULL) {
+	session->default_probe_info.retry_interval = *values->probe_interval;
     }
     else {
 	session->default_probe_info.retry_interval.tv_sec = ARP_RETRY_SECS;
 	session->default_probe_info.retry_interval.tv_usec = ARP_RETRY_USECS;
     }
-    if (probe_count) {
-	session->default_probe_info.probe_count = *probe_count;
+    if (values->probe_count != NULL) {
+	session->default_probe_info.probe_count = *values->probe_count;
     }
     else {
 	session->default_probe_info.probe_count = ARP_PROBE_COUNT;
     }
-    if (gratuitous_count) {
-	session->default_probe_info.gratuitous_count = *gratuitous_count;
+    if (values->probe_gratuitous_count != NULL) {
+	session->default_probe_info.gratuitous_count 
+	    = *values->probe_gratuitous_count;
     }
     else {
 	session->default_probe_info.gratuitous_count = ARP_GRATUITOUS_COUNT;
     }
-    if (detect_count != NULL) {
-	session->default_detect_count = *detect_count;
+    if (values->detect_count != NULL) {
+	session->default_detect_count = *values->detect_count;
     }
     else {
 	session->default_detect_count = ARP_DETECT_COUNT;
     }
-    if (detect_tv_p != NULL) {
-	session->default_detect_retry = *detect_tv_p;
+    if (values->detect_interval != NULL) {
+	session->default_detect_retry = *values->detect_interval;
     }
     else {
 	session->default_detect_retry.tv_sec = ARP_DETECT_RETRY_SECS;
 	session->default_detect_retry.tv_usec = ARP_DETECT_RETRY_USECS;
+    }
+    if (values->conflict_retry_count != NULL) {
+	session->default_conflict_retry_count = *values->conflict_retry_count;
+    }
+    else {
+	session->default_conflict_retry_count = ARP_CONFLICT_RETRY_COUNT;
+    }
+    if (values->conflict_delay_interval != NULL) {
+	session->default_conflict_delay
+	    = *values->conflict_delay_interval;
+    }
+    else {
+	session->default_conflict_delay.tv_sec
+	    = ARP_CONFLICT_RETRY_DELAY_SECS;
+	session->default_conflict_delay.tv_usec
+	    = ARP_CONFLICT_RETRY_DELAY_USECS;
     }
 #ifdef TEST_ARP_SESSION
     session->next_client_index = 1;
@@ -2312,8 +2360,9 @@ initialize_input()
 int
 main(int argc, char * argv[])
 {
-    int			gratuitous;
-    FDSet_t *		readers;
+    arp_session_values_t	arp_values;
+    int				gratuitous = 0;
+    FDSet_t *			readers;
 
     S_interfaces = ifl_init(FALSE);
     if (S_interfaces == NULL) {
@@ -2325,9 +2374,11 @@ main(int argc, char * argv[])
 	fprintf(stderr, "FDSet_init failed\n");
 	exit(1);
     }
-    gratuitous = 0;
-    S_arp_session = arp_session_init(readers, NULL, NULL, NULL, &gratuitous,
-				     NULL, NULL);
+
+    /* initialize the default values structure */
+    bzero(&arp_values, sizeof(arp_values));
+    arp_values.probe_gratuitous_count = &gratuitous;
+    S_arp_session = arp_session_init(readers, NULL, &arp_values);
     if (S_arp_session == NULL) {
 	fprintf(stderr, "arp_session_init failed\n");
 	exit(1);

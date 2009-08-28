@@ -10,18 +10,19 @@ dnl libexslt is an extension
 dnl
 LIBXSLT_MAJOR_VERSION=1
 LIBXSLT_MINOR_VERSION=1
-LIBXSLT_MICRO_VERSION=12
+LIBXSLT_MICRO_VERSION=24
 PACKAGE=libxslt
 LIBEXSLT_MAJOR_VERSION=0
 LIBEXSLT_MINOR_VERSION=8
-LIBEXSLT_MICRO_VERSION=10
-LIBXML_REQUIRED_VERSION=2.6.15 # needs new API xmlNewDocPI
+LIBEXSLT_MICRO_VERSION=13
+LIBXML_REQUIRED_VERSION=2.6.27
 
 
 LIBXSLT_VERSION=$LIBXSLT_MAJOR_VERSION.$LIBXSLT_MINOR_VERSION.$LIBXSLT_MICRO_VERSION
 LIBXSLT_VERSION_INFO=`expr $LIBXSLT_MAJOR_VERSION + $LIBXSLT_MINOR_VERSION`:$LIBXSLT_MICRO_VERSION:$LIBXSLT_MINOR_VERSION
 
 LIBXSLT_VERSION_NUMBER=`expr $LIBXSLT_MAJOR_VERSION \* 10000 + $LIBXSLT_MINOR_VERSION \* 100 + $LIBXSLT_MICRO_VERSION`
+LIBXSLT_MAJOR_MINOR_VERSION=$LIBXSLT_MAJOR_VERSION.$LIBXSLT_MINOR_VERSION
 
 if test -f CVS/Entries; then
   extra=`grep ChangeLog CVS/Entries | grep -v LIBXSLT | sed -e s\%/ChangeLog/1\.%% -e s\%/.*$%%`
@@ -30,6 +31,14 @@ if test -f CVS/Entries; then
   then
       LIBXSLT_VERSION_EXTRA="-CVS$extra"
   fi
+else if test -d .svn ; then
+  extra=`svn info | grep Revision | sed 's+Revision: ++'`
+  echo extra=$extra
+  if test "$extra" != ""
+  then
+      LIBXSLT_VERSION_EXTRA="-SVN$extra"
+  fi
+fi
 fi
 
 AC_SUBST(LIBXSLT_MAJOR_VERSION)
@@ -39,6 +48,7 @@ AC_SUBST(LIBXSLT_VERSION)
 AC_SUBST(LIBXSLT_VERSION_INFO)
 AC_SUBST(LIBXSLT_VERSION_NUMBER)
 AC_SUBST(LIBXSLT_VERSION_EXTRA)
+AC_SUBST(LIBXSLT_MAJOR_MINOR_VERSION)
 
 dnl
 dnl libexslt is an extension library
@@ -140,7 +150,7 @@ dnl
 dnl Some packages need to be checked against version numbers so we
 dnl define a function here for later use
 dnl
-AC_DEFUN(VERSION_TO_NUMBER,
+AC_DEFUN([VERSION_TO_NUMBER],
 [`$1 | sed -e 's/libxml //' | awk 'BEGIN { FS = "."; } { printf "%d", ([$]1 * 1000 + [$]2) * 1000 + [$]3;}'`])
 
 dnl
@@ -154,7 +164,6 @@ dnl
 dnl check for python
 dnl
 
-PYTHON=
 PYTHON_VERSION=
 PYTHON_INCLUDES=
 PYTHON_SITE_PACKAGES=
@@ -171,11 +180,18 @@ if test "$with_python" != "no" ; then
 	    echo Found python in $with_python
 	    PYTHON="$with_python"
 	else
-	    AC_PATH_PROG(PYTHON, python python2.3 python2.2 python2.1 python2.0 python1.6 python1.5)
+            if test -x "$PYTHON"
+            then
+                echo Found python in environment PYTHON=$PYTHON
+                with_python=`$PYTHON -c "import sys; print sys.exec_prefix"`
+	    else
+	        AC_PATH_PROG(PYTHON, python python2.4 python2.3 python2.2 python2.1 python2.0 python1.6 python1.5)
+	    fi
 	fi
     fi
     if test "$PYTHON" != ""
     then
+        echo "PYTHON is pointing at $PYTHON"
         PYTHON_VERSION=`$PYTHON -c "import sys; print sys.version[[0:3]]"`
 	echo Found Python version $PYTHON_VERSION
 	LIBXML2_PYTHON=`$PYTHON -c "try : import libxml2 ; print 1
@@ -193,11 +209,11 @@ except: print 0"`
 	   -d $with_python/lib/python$PYTHON_VERSION/site-packages
 	then
 	    PYTHON_INCLUDES=$with_python/include/python$PYTHON_VERSION
-	    PYTHON_SITE_PACKAGES=$with_python/lib/python$PYTHON_VERSION/site-packages
+	    PYTHON_SITE_PACKAGES='$(libdir)/python$(PYTHON_VERSION)/site-packages'
 	else
 	    if test -r $prefix/include/python$PYTHON_VERSION/Python.h
 	    then
-	        PYTHON_INCLUDES='$(prefix)/include/python$(PYTHON_VERSION)'
+	        PYTHON_INCLUDES=$prefix/include/python$PYTHON_VERSION
 		PYTHON_SITE_PACKAGES='$(libdir)/python$(PYTHON_VERSION)/site-packages'
 	    else
 		if test -r /usr/include/python$PYTHON_VERSION/Python.h
@@ -218,7 +234,7 @@ except: print 0"`
     then
         pythondir='$(PYTHON_SITE_PACKAGES)'
     else
-        pythondir='$(libdir)/python${PYTHON_VERSION}/site-packages'
+        pythondir='$(libdir)/python$(PYTHON_VERSION)/site-packages'
     fi
 fi
 AM_CONDITIONAL(WITH_PYTHON, test "$PYTHON_INCLUDES" != "")
@@ -245,18 +261,18 @@ else
       then
         LIBGCRYPT_CFLAGS=""
         LIBGCRYPT_LIBS=""
-        echo gcrypt library version < 1.1.42 - Crypto extensions will not be available.
+        echo 'gcrypt library version < 1.1.42 - Crypto extensions will not be available.'
       else
         LIBGCRYPT_CFLAGS=`$LIBGCRYPT_CONFIG $libgcrypt_config_args --cflags`
         LIBGCRYPT_LIBS=`$LIBGCRYPT_CONFIG $libgcrypt_config_args --libs`
         AC_DEFINE(HAVE_GCRYPT, 1, [Define if gcrypt library is available.])
-        echo Crypto extensions will be available.
+        echo 'Crypto extensions will be available.'
 		WITH_CRYPTO=1
       fi
     else
       LIBGCRYPT_CFLAGS=""
       LIBGCRYPT_LIBS=""
-      echo Crypto extensions will not be available. Install libgcrypt and reconfigure to make available.
+      echo 'Crypto extensions will not be available. Install libgcrypt and reconfigure to make available.'
     fi
 fi
 AC_SUBST(WITH_CRYPTO)
@@ -267,14 +283,14 @@ dnl
 dnl Debug for DV (-Wunreachable-code)
 dnl
 if [[ "${LOGNAME}" = "veillard" -a "`pwd`" = "/u/veillard/XSLT" ]] || \
-   [[ "${LOGNAME}" = "bill" -a "`pwd`" = "/home/bill/gnomecvs/xsltest" ]]
+   [[ "${LOGNAME}" = "bill" -a "`pwd`" = "/home/bill/gnomesvn/libxslt" ]]
    then
     if test "${with_mem_debug}" = "" ;
     then
 	with_mem_debug="yes"
     fi
     CFLAGS="-Wall -g -O -ansi -pedantic -W -Wunused -Wimplicit -Wreturn-type -Wswitch -Wcomment -Wtrigraphs -Wformat -Wchar-subscripts -Wuninitialized -Wparentheses -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings -Waggregate-return -Wstrict-prototypes -Wmissing-prototypes -Wnested-externs -Winline "
-    if test "`uname -i`" != "x86_64" ;
+    if test "`uname -m`" != "x86_64" ;
     then
 	STATIC_BINARIES="-static"
     else
@@ -283,6 +299,7 @@ if [[ "${LOGNAME}" = "veillard" -a "`pwd`" = "/u/veillard/XSLT" ]] || \
     if test "$LOGNAME" = "veillard"
     then
         LIBXML_SRC="/u/veillard/XML"
+	EXTRA_LIBS="$EXTRA_LIBS -ldl"
     fi
 else
     STATIC_BINARIES=
@@ -435,18 +452,59 @@ AC_SUBST(CFLAGS)
 AC_SUBST(CPPFLAGS)
 AC_SUBST(LDFLAGS)
 
+AC_ARG_WITH(plugins,
+[  --with-plugins          Add plugin extension support (on)])
+if test "$with_plugins" = ""
+then
+    with_plugins=yes
+fi
+
+AC_MSG_CHECKING([whether shared libraries will be built (required for plugins)])
+if test "$enable_shared" = "no" -a "$with_plugins" = "yes"; then
+	 AC_MSG_RESULT(no)
+	 AC_MSG_WARN([Disabling plugin support.])
+	 AC_MSG_WARN([Plugins require that shared libraries be built.])
+	 with_plugins=no
+else
+	 AC_MSG_RESULT(yes)
+fi
+
+if test "$with_plugins" = "yes" ; then
+  AC_MSG_CHECKING([libxml2 module support])
+  WITH_MODULES="`$XML_CONFIG --modules`"
+  if test "${WITH_MODULES}" = "1"; then
+    AC_MSG_RESULT(yes)
+  else
+    AC_MSG_RESULT(no)
+    WITH_MODULES="0"
+  fi
+else
+  WITH_MODULES="0"
+fi
+
+AC_SUBST(WITH_MODULES)
+AM_CONDITIONAL(WITH_MODULES, test "$WITH_MODULES" = "1")
+
+dnl
+dnl setup default module path
+dnl
+module_prefix=$prefix
+test "x$module_prefix" = xNONE && module_prefix=$ac_default_prefix
+LIBXSLT_DEFAULT_PLUGINS_PATH="$module_prefix/lib/libxslt-plugins"
+AC_SUBST(LIBXSLT_DEFAULT_PLUGINS_PATH)
+
 dnl
 dnl In build tree I use a static version with memory debug enabled
 dnl
 if test "${LOGNAME}" = "veillard" -a "`pwd`" = "/u/veillard/XSLT" ; then
-    if test "`uname -i`" != "x86_64" ;
+    if test "`uname -i`" != "x86_64" -a -e $HOME/XML/.libs/libxml2.a ;
     then
-	LIBXML_LIBS="../../XML/.libs/libxml2.a -lpthread -lz"
+	LIBXML_LIBS="$HOME/XML/.libs/libxml2.a -lpthread -lz"
     fi
     DV_LINK="1"
     XSLTPROCDV="xsltproc.dv"
     INSTALLED_XSLT_LIB=""
-    LIBXML_SRC="../../XML/"
+    LIBXML_SRC="$HOME/XML/"
 fi
 
 WIN32_EXTRA_LIBADD=
@@ -488,7 +546,7 @@ AC_SUBST(EXSLT_LIBDIR)
 AC_SUBST(EXSLT_INCLUDEDIR)
 AC_SUBST(EXSLT_LIBS)
 
-EXTRA_LIBS="$LIBXML_LIBS $M_LIBS"
+EXTRA_LIBS="$EXTRA_LIBS $LIBXML_LIBS $M_LIBS"
 AC_SUBST(EXTRA_LIBS)
 
 AC_SUBST(M_LIBS)
@@ -529,6 +587,7 @@ tests/numbers/Makefile
 tests/documents/Makefile
 tests/xmlspec/Makefile
 tests/multiple/Makefile
+tests/xinclude/Makefile
 tests/XSLTMark/Makefile
 tests/docbook/Makefile
 tests/exslt/Makefile
@@ -538,6 +597,8 @@ tests/exslt/math/Makefile
 tests/exslt/sets/Makefile
 tests/exslt/strings/Makefile
 tests/exslt/date/Makefile
+tests/exslt/dynamic/Makefile
+tests/plugins/Makefile
 doc/Makefile
 xslt-config
 libxslt.spec

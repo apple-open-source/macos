@@ -1,3 +1,0 @@
-set MSG "Hello World"
-processTestScriptArgs
-note $MSG

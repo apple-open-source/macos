@@ -85,7 +85,7 @@ EventTraceCauseDesc TraceEvents[] = {
     */
 };
 
-#define XTRACE(x, y, z) IrDALogAdd (x, y, (int)z & 0xffff, TraceEvents, true )
+#define XTRACE(x, y, z) IrDALogAdd (x, y, (uintptr_t)z & 0xffff, TraceEvents, true )
 #else
     #define XTRACE(x, y, z) ((void)0)
 #endif
@@ -190,7 +190,7 @@ DeleteEventListItems(CList *eventlist, Boolean check_contents)
 	    event = (TIrEvent*)eventlist->At(index);
 	    eventlist->RemoveAt(index);
 	    require(event, Fail);
-	    XTRACE(kLogDeleteEventList, (int)event >> 16, event);
+	    XTRACE(kLogDeleteEventList, 0, event);
 	    XTRACE(kLogDeleteEventList, 0, event->fEvent);
 	    /** this appears to not work well ...
 	    if (check_contents) {
@@ -253,7 +253,7 @@ TIrEvent::GrabEventBlock(ULong event, ULong size)
     ncheck(err);
     if (err) {
 	XTRACE(kLogGrabErr1, err >> 16, err);
-	XTRACE(kLogGrabErr2, (int)gInUseEventList >> 16, gInUseEventList);
+	XTRACE(kLogGrabErr2, 0, gInUseEventList);
 	XTRACE(kLogGrabErr3, 0, gInUseEventList->GetArraySize());
 	/*for (int index = 0; index < gInUseEventList->GetArraySize(); index++ ) {
 	    ULong member;
@@ -270,7 +270,7 @@ TIrEvent::GrabEventBlock(ULong event, ULong size)
     eventBlock->fAllocated = true;
 
 Fail_New_EventBlock:
-    XTRACE( kGrabEventBlock, (int)eventBlock >> 16, eventBlock);
+    XTRACE( kGrabEventBlock, 0, eventBlock);
 
     return eventBlock;
 
@@ -284,7 +284,7 @@ Fail_New_EventBlock:
 void
 TIrEvent::ReleaseEventBlock(TIrEvent * eventBlock)
 {
-    XTRACE( kReleaseEventBlock, (int)eventBlock >> 16, eventBlock);
+    XTRACE( kReleaseEventBlock, 0, eventBlock);
     require(eventBlock, Fail);
     require(eventBlock->fAllocated == true, Fail);
     
@@ -294,7 +294,7 @@ TIrEvent::ReleaseEventBlock(TIrEvent * eventBlock)
 	ncheck(err);
 	if (err) {
 	    XTRACE(kLogReleaseErr1, err >> 16, err);
-	    XTRACE(kLogReleaseErr2, (int) gInUseEventList >> 16, gInUseEventList);
+	    XTRACE(kLogReleaseErr2, 0, gInUseEventList);
 	    XTRACE(kLogReleaseErr3, 0, gInUseEventList->GetArraySize());
 	    /*
 	    for (int index = 0; index < gInUseEventList->GetArraySize(); index++ ) {

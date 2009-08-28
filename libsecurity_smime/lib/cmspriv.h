@@ -277,6 +277,14 @@ SecCmsSignerInfoAddUnauthAttr(SecCmsSignerInfoRef signerinfo, SecCmsAttribute *a
 extern int
 SecCmsSignerInfoGetVersion(SecCmsSignerInfoRef signerinfo);
 
+/* 
+ * Determine whether Microsoft ECDSA compatibility mode is enabled. 
+ * See comments in SecCmsSignerInfo.h for details. 
+ * Implemented in siginfoUtils.cpp for access to C++ Dictionary class. 
+ */
+extern bool
+SecCmsMsEcdsaCompatMode();
+
 
 /************************************************************************
  * cmsenvdata.c - CMS envelopedData methods

@@ -1991,7 +1991,7 @@ static const struct dis386 prefix_user_table[][4] = {
   {
     { "movd",	{ Edq, MX } },
     { "movq",	{ XM, EX } },
-    { "movd",	{ Edq, XM } },
+    { "movK",	{ Edq, XM } },
     { "(bad)",	{ Ed, XM } },
   },
   /* PREGRP24 */

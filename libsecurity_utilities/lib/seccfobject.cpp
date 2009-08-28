@@ -66,7 +66,8 @@ SecPointerBase& SecPointerBase::operator = (const SecPointerBase& p)
 {
 	if (p.ptr)
 	{
-		CFRetain(p.ptr->operator CFTypeRef());
+		CFTypeRef tr = p.ptr->operator CFTypeRef();
+		CFRetain(tr);
 	}
 	if (ptr)
 	{
@@ -105,18 +106,6 @@ void SecPointerBase::copy(SecCFObject * p)
 
 
 
-// define information about a deletable object
-typedef std::list<CFTypeRef> DeferredObjectList;
-
-struct DeferredObjectInfo
-{
-	DeferredObjectList objectList;
-};
-
-
-
-ModuleNexus<DeferredObjectInfo> gDeferredObjects;
-
 //
 // SecCFObject
 //
@@ -139,27 +128,7 @@ SecCFObject::required(CFTypeRef cfTypeRef, OSStatus error)
 	return object;
 }
 
-void
-SecCFObject::clearDeletedObjects() throw()
-{
-	// we don't need to worry about protecting this code as it is only called from a Sec call, which is protected
-	// by the global mutex
-	DeferredObjectList::iterator it;
-	it = gDeferredObjects().objectList.begin();
-	
-	while (it != gDeferredObjects().objectList.end())
-	{
-		DeferredObjectList::iterator current = it++;
-		CFTypeRef t = *current;
-		CFIndex rCount = CFGetRetainCount(t);
-		
-		if (rCount == 1)
-		{
-			CFRelease(t);
-			gDeferredObjects().objectList.erase(current);
-		}
-	}
-}
+
 				
 void *
 SecCFObject::allocate(size_t size, const CFClass &cfclass) throw(std::bad_alloc)
@@ -169,22 +138,14 @@ SecCFObject::allocate(size_t size, const CFClass &cfclass) throw(std::bad_alloc)
 	if (p == NULL)
 		throw std::bad_alloc();
 
-	if (cfclass.isDeferrable)
-	{
-		gDeferredObjects().objectList.push_front(p);
-		CFRetain(p);
-	}
-	
 	((SecRuntimeBase*) p)->isNew = true;
 
 	void *q = ((u_int8_t*) p) + kAlignedRuntimeSize;
 
-#if !defined(NDEBUG)
-	const CFRuntimeClass *runtimeClass = _CFRuntimeGetClassWithTypeID(cfclass.typeID);
-	secdebug("sec", "allocated: %p: %s(%lu)", q,
-		runtimeClass && runtimeClass->className ? runtimeClass->className
-		: "SecCFObject", cfclass.typeID);
-#endif
+	if (SECURITY_DEBUG_SEC_CREATE_ENABLED()) {
+		const CFRuntimeClass *rtc = _CFRuntimeGetClassWithTypeID(cfclass.typeID);
+		SECURITY_DEBUG_SEC_CREATE(q, rtc ? (char *)rtc->className : NULL, cfclass.typeID);
+	}
 	return q;
 }
 
@@ -197,14 +158,7 @@ SecCFObject::operator delete(void *object) throw()
 
 SecCFObject::~SecCFObject()
 {
-#if !defined(NDEBUG)
-	CFTypeRef cfType = *this;
-	CFTypeID typeID = CFGetTypeID(cfType);
-	const CFRuntimeClass *runtimeClass = _CFRuntimeGetClassWithTypeID(typeID);
-	secdebug("sec", "destroyed: %p: %s(%lu)", this,
-		runtimeClass && runtimeClass->className ? runtimeClass->className
-		: "SecCFObject", typeID);
-#endif
+	SECURITY_DEBUG_SEC_DESTROY(this);
 }
 
 bool
@@ -237,4 +191,11 @@ SecCFObject::handle(bool retain) throw()
 	CFTypeRef cfType = *this;
 	if (retain && !isNew()) CFRetain(cfType);
 	return cfType;
+}
+
+
+
+void
+SecCFObject::aboutToDestruct()
+{
 }

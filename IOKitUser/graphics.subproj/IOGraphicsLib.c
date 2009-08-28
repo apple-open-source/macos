@@ -3,19 +3,20 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -26,6 +27,7 @@
 #include <mach/thread_switch.h>
 #include <sys/file.h>
 #include <sys/stat.h>
+#include <sys/sysctl.h>
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
@@ -71,7 +73,6 @@ enum {
 
 #define kAppleSetupDonePath     "/var/db/.AppleSetupDone"
 #define kIOFirstBootFlagPath	"/var/db/.com.apple.iokit.graphics"
-#define kSafeBootFlagPath	"/private/tmp/.SafeBoot"
 
 #define kIOGraphicsLogfilePath	"/var/log/.com.apple.iokit.graphics.log"
 
@@ -151,7 +152,7 @@ IOFBWritePrefs( IOFBConnectRef connectRef );
 static struct IOFBConnect *	gAllConnects = 0;
 static CFMutableDictionaryRef	gConnectRefDict = 0;
 static CFMutableDictionaryRef	gIOGraphicsProperties = 0;
-static bool			gIOGraphicsSentPrefs = true;
+static bool			gIOGraphicsSentPrefs = false;
 static io_service_t		gIOGraphicsPrefsService;
 static bool			gIOGraphicsInstallBoot = false;
 
@@ -181,7 +182,7 @@ IOFBMakeNumKeys( const void * key, const void * value, void * context )
             cStr = buffer;
     }
     if( cStr)
-        key = (const void *) strtol( cStr, 0, 0 );
+        key = (const void *) (unsigned long) strtol( cStr, 0, 0 );
     else
 	key = 0;
     if( buffer)
@@ -191,8 +192,12 @@ IOFBMakeNumKeys( const void * key, const void * value, void * context )
 	return;
 
     if (andValues)
-	CFNumberGetValue(value, kCFNumberSInt32Type, (SInt32 *) &value);
-
+    {
+	SInt32 scalarValue;
+	CFNumberGetValue(value, kCFNumberSInt32Type, &scalarValue);
+	value = (const void *)(uintptr_t) scalarValue;
+    }
+	
     CFDictionarySetValue(newDict, key, value);
 }
 
@@ -297,8 +302,11 @@ IOFramebufferServerStart( void )
 	gIOGraphicsPrefsService = IORegistryEntryFromPath(kIOMasterPortDefault, 
 					kIOServicePlane ":/IOResources/IODisplayWrangler");
 
-	struct stat statResult;
-	Boolean safeBoot = (0 == stat(kSafeBootFlagPath, &statResult));
+	int sbmib[] = { CTL_KERN, KERN_SAFEBOOT };
+	uint32_t value = 0;
+	size_t vsize = sizeof(value);
+	Boolean safeBoot = (-1 != sysctl(sbmib, 2, &value, &vsize, NULL, 0)) && (value != 0);
+
 	if (!safeBoot)
 	    prefs = readPlist(kIOFirstBootFlagPath, 0);
 	if (!prefs)
@@ -486,8 +494,8 @@ IOFBGetState( IOFBConnectRef connectRef )
         IOObjectRelease( display );
     }
     if (connectRef)
-	DEBG(connectRef, "IOFBGetState(%p) = %08lx\n",
-		connectRef, state);
+	DEBG(connectRef, "IOFBGetState(%p) = %08x\n",
+		connectRef, (int) state);
 
     return( state );
 }
@@ -640,8 +648,8 @@ IOFBGetAttributeForFramebuffer( io_connect_t connect, io_connect_t otherConnect,
 	*value |= kIOMirrorDefault;
     }
     if (kIOMirrorDefaultAttribute == attribute)
-	DEBG(connectRef, "kIOMirrorDefaultAttribute = %08lx (%p, %p)\n",
-		*value, connectRef, connectRef ? connectRef->overrides : 0);
+	DEBG(connectRef, "kIOMirrorDefaultAttribute = %08x (%p, %p)\n",
+		(int) *value, connectRef, connectRef ? connectRef->overrides : 0);
 
     return( err );
 }
@@ -661,7 +669,7 @@ IOFBSetAttributeForFramebuffer( io_connect_t connect, io_connect_t otherConnect,
 
     if (kIOMirrorAttribute == attribute)
     {
-	DEBG(connectRef, "set mirror %ld\n", value);
+	DEBG(connectRef, "set mirror %d\n", (int) value);
     }
 
     uint64_t inData[] = { attribute, value };
@@ -879,7 +887,7 @@ GetTovr( IOFBConnectRef connectRef, IOAppleTimingID appleTimingID,  UInt32 * fla
 {
     CFDictionaryRef tovr;
     CFDataRef	    modetovr = NULL;
-    UInt32	    setFlags, maskFlags = 0xffffffff;
+    UInt32	    maskFlags = 0xffffffff;
     bool	    result    = false;
 
     if (appleTimingID && connectRef->overrides)
@@ -899,7 +907,7 @@ GetTovr( IOFBConnectRef connectRef, IOAppleTimingID appleTimingID,  UInt32 * fla
 	    }
 	}
 	tovr = CFDictionaryGetValue( connectRef->overrides, CFSTR("tovr") );
-	result = (tovr && (modetovr = CFDictionaryGetValue( tovr, (const void *) (uintptr_t) appleTimingID )));
+	result = (tovr && (modetovr = CFDictionaryGetValue( tovr, (const void *) (uintptr_t) (UInt32) appleTimingID )));
 	if (result)
 	{
 	    DMTimingOverrideRec * tovrRec;
@@ -946,7 +954,7 @@ IOFBInstallMode( IOFBConnectRef connectRef, IODisplayModeID mode,
 	    timingInfo->detailedInfo.v2.detailedTimingModeID =
 		kIODisplayModeIDReservedBase + connectRef->arbModeIDSeed + (array ? CFArrayGetCount(array) : 0);
 
-	    DEBG(connectRef, "arb mode %08lx\n", timingInfo->detailedInfo.v2.detailedTimingModeID);
+	    DEBG(connectRef, "arb mode %08x\n", (int) timingInfo->detailedInfo.v2.detailedTimingModeID);
 	}
 	else
 	    timingInfo->detailedInfo.v2.detailedTimingModeID = mode;
@@ -1071,8 +1079,8 @@ IOFBInstallMode( IOFBConnectRef connectRef, IODisplayModeID mode,
 
 		if (eq)
 		{
-		    DEBG(connectRef, "%ld(%lx) has a driver mode(%ld)\n", timingInfo->appleTimingID, 
-				modeGenFlags, connectRef->driverModeInfo[i].timingInfo.appleTimingID);
+		    DEBG(connectRef, "%d(%x) has a driver mode(%d)\n", (int) timingInfo->appleTimingID, 
+				(int) modeGenFlags, (int) connectRef->driverModeInfo[i].timingInfo.appleTimingID);
 
 		    if ((kDetailedTimingsIdentical != eq) && (kIOFBEDIDDetailedMode & modeGenFlags))
 		    {
@@ -1139,14 +1147,14 @@ IOFBInstallMode( IOFBConnectRef connectRef, IODisplayModeID mode,
             continue;
     
         dict = (CFMutableDictionaryRef) CFDictionaryGetValue( connectRef->modes,
-                                                            (const void *) (uintptr_t) mode );
+                                                            (const void *) (uintptr_t) (UInt32) mode );
         if( !dict) {
             dict = CFDictionaryCreateMutable( kCFAllocatorDefault, (CFIndex) 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks );
             if( dict) {
                 CFArrayAppendValue( connectRef->modesArray, dict );
-                CFDictionarySetValue( connectRef->modes, (const void *) (uintptr_t) mode, dict );
+                CFDictionarySetValue( connectRef->modes, (const void *) (uintptr_t) (UInt32) mode, dict );
                 CFRelease( dict );
             } else {
                 ret = kIOReturnNoMemory;
@@ -1216,7 +1224,6 @@ IOFBBuildModeList( IOFBConnectRef connectRef )
     CFMutableArrayRef	   	array;
     CFDataRef			data;
     CFDataRef			scalerProp;
-    CFTypeRef			obj;
     CFNumberRef			num;
     IODisplayModeID *	   	modes;
     IOFBDisplayModeDescription *modeInfo;
@@ -1268,12 +1275,12 @@ IOFBBuildModeList( IOFBConnectRef connectRef )
 
         modeCount = CFArrayGetCount( connectRef->modesArray );
         for( i = 0; i < modeCount; i++ ) {
-            const void * key;
+            UInt32 key;
 
             dict = (CFMutableDictionaryRef) CFArrayGetValueAtIndex( connectRef->modesArray, i );
             num = CFDictionaryGetValue( dict, CFSTR(kIOFBModeIDKey) );
             CFNumberGetValue( num, kCFNumberSInt32Type, (SInt32 *) &key );
-            CFDictionarySetValue( connectRef->modes, key, dict );
+            CFDictionarySetValue( connectRef->modes, (const void *)(uintptr_t) (UInt32)key, dict );
         }
 
         connectRef->relaunch = true;
@@ -1282,7 +1289,7 @@ IOFBBuildModeList( IOFBConnectRef connectRef )
     }
 
     connectRef->arbModeIDSeed ^= 0x0001000;
-    DEBG(connectRef, "seed : 0x%08lx\n", connectRef->arbModeIDSeed);
+    DEBG(connectRef, "seed : 0x%08x\n", (int) connectRef->arbModeIDSeed);
 
     dict = CFDictionaryCreateMutable( kCFAllocatorDefault, (CFIndex) 0,
                                              &kCFTypeDictionaryKeyCallBacks,
@@ -1303,10 +1310,10 @@ IOFBBuildModeList( IOFBConnectRef connectRef )
 	// no downscaling
 	connectRef->scalerInfo->scalerFeatures &= ~kIOScaleCanDownSamplePixels;
 
-	DEBG(connectRef, "FB scaler info: (%ld x %ld), features %08lx\n",
-		connectRef->scalerInfo->maxHorizontalPixels, 
-		connectRef->scalerInfo->maxVerticalPixels, 
-		connectRef->scalerInfo->scalerFeatures);
+	DEBG(connectRef, "FB scaler info: (%d x %d), features %08x\n",
+		(int) connectRef->scalerInfo->maxHorizontalPixels, 
+		(int) connectRef->scalerInfo->maxVerticalPixels, 
+		(int) connectRef->scalerInfo->scalerFeatures);
     }
 
     // -- get the info for all driver modes
@@ -1341,6 +1348,14 @@ IOFBBuildModeList( IOFBConnectRef connectRef )
 	    continue;
 	}
 	driverFlags[i] = modeInfo[i].info.flags;
+
+#if RLOG
+	DEBG(connectRef, "driver mode[%d] (%x,%x) %d x %d %f Hz flags %x\n", 
+	     i, modes[i], modeInfo[i].timingInfo.appleTimingID,
+	     (int) modeInfo[i].info.nominalWidth, (int) modeInfo[i].info.nominalHeight,
+	     modeInfo[i].info.refreshRate / 65536.0, driverFlags[i]);
+	IOFBLogTiming(connectRef, &modeInfo[i].timingInfo);
+#endif
     }
 
     // -- get modes from display
@@ -1386,16 +1401,16 @@ IOFBBuildModeList( IOFBConnectRef connectRef )
 
 	    mode = info->timingInfo.detailedInfo.v2.detailedTimingModeID;
 
-	    modeDict = CFDictionaryGetValue( connectRef->modes, (const void *) (uintptr_t) mode );
+	    modeDict = CFDictionaryGetValue( connectRef->modes, (const void *) (uintptr_t) (UInt32) mode );
 	    if (!modeDict)
 	    {
-		DEBG(connectRef, "invalid mode 0x%lx\n", mode);
+		DEBG(connectRef, "invalid mode 0x%x\n", (int) mode);
 		continue;
 	    }
     
 	    if(!(data = CFDictionaryGetValue( modeDict, CFSTR(kIOFBModeDMKey) )))
 	    {
-		DEBG(connectRef, "no kIOFBModeDMKey 0x%lx\n", mode);
+		DEBG(connectRef, "no kIOFBModeDMKey 0x%x\n", (int) mode);
 		continue;
 	    }
 	    CFDataGetBytes(data, CFRangeMake(0, sizeof(IODisplayModeInformation)),
@@ -1605,7 +1620,7 @@ IOFBBuildModeList( IOFBConnectRef connectRef )
     connectRef->driverModeInfo  = 0;
     connectRef->driverModeCount = 0;
 
-    // -- scaling (but not for HDMI displays)
+    // -- scaling
     if( scaleCandidate )
         IOFBInstallScaledModes( connectRef, &scaleDesc );
 
@@ -1619,8 +1634,22 @@ IOFBBuildModeList( IOFBConnectRef connectRef )
     if (connectRef->useScalerUnderscan)
         CFDictionarySetValue(connectRef->kernelInfo, CFSTR("IOFBScalerUnderscan"), kCFBooleanTrue);
 
-    if( connectRef->overrides && (obj = CFDictionaryGetValue( connectRef->overrides, CFSTR("IOGFlags")) ))
-        CFDictionarySetValue( connectRef->kernelInfo, CFSTR(kIODisplayConnectFlagsKey), obj );
+    uint32_t attributes[6];
+    uint32_t attrIdx = 0;
+    if( connectRef->overrides && (num = CFDictionaryGetValue( connectRef->overrides, CFSTR("IOGFlags")) ))
+    {
+	attributes[attrIdx++] = kConnectionFlags;
+	CFNumberGetValue(num, kCFNumberSInt32Type, &attributes[attrIdx++]);
+    }
+    attributes[attrIdx++] = kConnectionColorModesSupported;
+    attributes[attrIdx++] = connectRef->supportedColorModes;
+    attributes[attrIdx++] = kConnectionColorDepthsSupported;
+    attributes[attrIdx++] = connectRef->supportedComponentDepths;
+    if( (data = CFDataCreate(kCFAllocatorDefault, (UInt8 *) &attributes[0], attrIdx * sizeof(attributes[0]))))
+    {
+        CFDictionarySetValue(connectRef->kernelInfo, CFSTR(kIODisplayAttributesKey), data);
+	CFRelease(data);
+    }
 
     // -- prune
 
@@ -1655,7 +1684,7 @@ IOFBBuildModeList( IOFBConnectRef connectRef )
             continue;
 
         CFArrayRemoveValueAtIndex( connectRef->modesArray, i );
-        CFDictionaryRemoveValue( connectRef->modes, (const void *) (uintptr_t) mode );
+        CFDictionaryRemoveValue( connectRef->modes, (const void *) (uintptr_t) (UInt32) mode );
         i--; modeCount--;
     }
 
@@ -1723,14 +1752,14 @@ IOFBResetTransform( IOFBConnectRef connectRef )
 	err = _IOFBGetAttributeForFramebuffer( connectRef->connect,
 						MACH_PORT_NULL,
 						kIOVRAMSaveAttribute, &vramSave );
-	DEBG(connectRef, "IOFBGetAttributeForFramebuffer(kIOVRAMSaveAttribute, %x), %08lx\n", err, vramSave);
+	DEBG(connectRef, "IOFBGetAttributeForFramebuffer(kIOVRAMSaveAttribute, %x), %08x\n", err, (int) vramSave);
 	if (kIOReturnSuccess != err)
 	    vramSave = true;
 	if (!vramSave)
 	    continue;
 
         err = IOFBGetCurrentDisplayModeAndDepth(connectRef->connect, &mode, &depth);
-	DEBG(connectRef, "IOFBGetCurrentDisplayModeAndDepth(%x), %lx, %ld\n", err, mode, depth);
+	DEBG(connectRef, "IOFBGetCurrentDisplayModeAndDepth(%x), %x, %d\n", err, (int) mode, (int) depth);
         if (err)
             continue;
         err = _IOFBGetPixelInformation( connectRef, mode, depth,
@@ -1824,10 +1853,10 @@ IOFBRebuild( IOFBConnectRef connectRef, Boolean forConnectChange )
                                     kIOMirrorDefaultAttribute, &connectRef->mirrorDefaultFlags))
         connectRef->mirrorDefaultFlags = 0;
 
-    DEBG(connectRef, "%p: ID(%qx,%ld) -> %p, %08lx, %08lx, %08lx\n",
-            connectRef, connectRef->dependentID, connectRef->dependentIndex, connectRef->nextDependent,
-            connectRef->state, connectRef->nextDependent ? connectRef->nextDependent->state : 0,
-            connectRef->mirrorDefaultFlags);
+    DEBG(connectRef, "%p: ID(%qx,%d) -> %p, %08x, %08x, %08x\n",
+            connectRef, connectRef->dependentID, (int) connectRef->dependentIndex, connectRef->nextDependent,
+            (int) connectRef->state, connectRef->nextDependent ? (int) connectRef->nextDependent->state : 0,
+            (int) connectRef->mirrorDefaultFlags);
 
     connectRef->trimToDependent  = (kIOMirrorForced == ((kIOMirrorForced | kIOMirrorNoTrim)
                                                     & connectRef->mirrorDefaultFlags))
@@ -2258,7 +2287,7 @@ IOFBLookDefaultDisplayMode( IOFBConnectRef connectRef )
         if( kIOReturnSuccess != IOFBGetCurrentDisplayModeAndDepth( connectRef->nextDependent->connect,
                                                                     &mode, &otherDepth ))
             continue;
-        dict = CFDictionaryGetValue( connectRef->nextDependent->modes, (const void *) (uintptr_t) mode );
+        dict = CFDictionaryGetValue( connectRef->nextDependent->modes, (const void *) (uintptr_t) (UInt32) mode );
         if( dict && (data = CFDictionaryGetValue( dict, CFSTR(kIOFBModeDMKey) ))) {
             info = (IODisplayModeInformation *) CFDataGetBytePtr(data);
             desireHPix = info->nominalWidth;
@@ -2310,7 +2339,7 @@ IOFBLookDefaultDisplayMode( IOFBConnectRef connectRef )
         }
 
         if( timingID && tinf && !defaultToDependent
-        && (modetinf = CFDictionaryGetValue( tinf, (const void *) (uintptr_t) timingID ))) {
+        && (modetinf = CFDictionaryGetValue( tinf, (const void *) (uintptr_t) (UInt32) timingID ))) {
 	    DMDisplayTimingInfoRec *	tinfRec;
             tinfRec = (DMDisplayTimingInfoRec *) CFDataGetBytePtr(modetinf);
             rQuality = OSReadBigInt32(&tinfRec->timingInfoRelativeQuality, 0);
@@ -2698,7 +2727,7 @@ IOFBInstallScaledResolution( IOFBConnectRef connectRef,
     int diag1, diag2;
 
     diag1 = _IOFBInstallScaledResolution(connectRef, desc, nativeWidth, nativeHeight, width, height, flags);
-    DEBG(connectRef, "(%d) %f x %f, %08lx\n", diag1, width, height, flags);
+    DEBG(connectRef, "(%d) %f x %f, %08x\n", diag1, width, height, (int) flags);
 
     if ((kIOFBSwapAxes | kIOScaleSwapAxes) & connectRef->transform)
     {
@@ -2706,7 +2735,7 @@ IOFBInstallScaledResolution( IOFBConnectRef connectRef,
 	{
 	    flags |= kScaleInstallNoResTransform;
 	    diag2 = _IOFBInstallScaledResolution(connectRef, desc, nativeWidth, nativeHeight, width, height, flags);
-	    DEBG(connectRef, "(%d) %f x %f, %08lx\n", diag2, width, height, flags );
+	    DEBG(connectRef, "(%d) %f x %f, %08x\n", diag2, width, height, (int) flags );
 	}
     }
 
@@ -2720,14 +2749,14 @@ IOFBLookScaleBaseMode( IOFBConnectRef connectRef, IOFBDisplayModeDescription * s
     Boolean found = false;
     UInt32 h, v;
 
-    DEBG(connectRef, "%ld: %ldx%ld %fHz scale %ldx%ld %08lx %08lx\n",
-	   scaleBase->timingInfo.appleTimingID,
-	   scaleBase->timingInfo.detailedInfo.v2.horizontalActive,
-	   scaleBase->timingInfo.detailedInfo.v2.verticalActive,
+    DEBG(connectRef, "%d: %dx%d %fHz scale %dx%d %08x %08x\n",
+	   (int) scaleBase->timingInfo.appleTimingID,
+	   (int) scaleBase->timingInfo.detailedInfo.v2.horizontalActive,
+	   (int) scaleBase->timingInfo.detailedInfo.v2.verticalActive,
            RefreshRateFromDetailedTiming(&scaleBase->timingInfo.detailedInfo.v2),
-	   scaleBase->timingInfo.detailedInfo.v2.horizontalScaled,
-	   scaleBase->timingInfo.detailedInfo.v2.verticalScaled,
-	   scaleBase->info.flags, scaleBase->timingInfo.flags);
+	   (int) scaleBase->timingInfo.detailedInfo.v2.horizontalScaled,
+	   (int) scaleBase->timingInfo.detailedInfo.v2.verticalScaled,
+	   (int) scaleBase->info.flags, (int) scaleBase->timingInfo.flags);
 
     do {
         if( 0 == (kIODetailedTimingValid & scaleBase->timingInfo.flags))
@@ -2783,6 +2812,10 @@ IOFBLookScaleBaseMode( IOFBConnectRef connectRef, IOFBDisplayModeDescription * s
 	&& (RefreshRateFromDetailedTiming(&scaleBase->timingInfo.detailedInfo.v2)
             < RefreshRateFromDetailedTiming(&scaleDesc->timingInfo.detailedInfo.v2)))
             continue;
+
+	if ((kDisplayModeInterlacedFlag & scaleBase->info.flags)
+	    && (!(kDisplayModeInterlacedFlag & scaleDesc->info.flags)))
+	    continue;
 
         DEBG(connectRef, "choosing\n");
 
@@ -2930,8 +2963,8 @@ IOFBDriverPreflight(IOFBConnectRef connectRef, IOFBDisplayModeDescription * desc
 	result = kIOReturnUnsupportedMode;
     }
 
-    DEBG(connectRef, "preflight (%x) %ld x %ld %f Hz\n", 
-		result, descOut.info.nominalWidth, descOut.info.nominalHeight,
+    DEBG(connectRef, "preflight (%x) %d x %d %f Hz\n", 
+		result, (int) descOut.info.nominalWidth, (int) descOut.info.nominalHeight,
 		descOut.info.refreshRate / 65536.0);
     
     if (kIOReturnSuccess == result)
@@ -2986,10 +3019,10 @@ IOFBAdjustDisplayModeInformation(
 
     appleTimingID = allInfo->timingInfo.appleTimingID;
 
-    DEBG(connectRef, "%ld x %ld @ %ld (%lx,%ld): %08lx %08lx\n", 
-	allInfo->info.nominalWidth, allInfo->info.nominalHeight,
-	(allInfo->info.refreshRate + 0x8000) >> 16, displayMode, appleTimingID,
-	allInfo->info.flags, allInfo->timingInfo.flags);
+    DEBG(connectRef, "%d x %d @ %d (%x,%d): %08x %08x\n", 
+	(int) allInfo->info.nominalWidth, (int) allInfo->info.nominalHeight,
+	(int) (allInfo->info.refreshRate + 0x8000) >> 16, (int) displayMode, (int) appleTimingID,
+	(int) allInfo->info.flags, (int) allInfo->timingInfo.flags);
 
     switch( appleTimingID ) {
 	case kIOTimingIDAppleNTSC_ST:
@@ -3116,12 +3149,12 @@ IOFBGetDisplayModeInformation( io_connect_t connect,
     if( !connectRef)
         return( kIOReturnBadArgument );
 
-    dict = CFDictionaryGetValue( connectRef->modes, (const void *) (uintptr_t) displayMode );
+    dict = CFDictionaryGetValue( connectRef->modes, (const void *) (uintptr_t) (UInt32) displayMode );
     if( dict && (data = CFDictionaryGetValue( dict, CFSTR(kIOFBModeDMKey) )))
         info = (IODisplayModeInformation *) CFDataGetBytePtr(data);
     else
     {
-	DEBG(connectRef, "invalid mode 0x%lx\n", displayMode);
+	DEBG(connectRef, "invalid mode 0x%x\n", (int) displayMode);
 	kr = kIOReturnBadArgument;
     }
 
@@ -3157,6 +3190,27 @@ IOFBGetDisplayModeInformation( io_connect_t connect,
 	    out->nominalWidth = out->nominalHeight;
 	    out->nominalHeight = width;
 	}
+#define FILTER_MAXDEPTH	    32
+#if FILTER_MAXDEPTH
+	{
+	    IOReturn           err;
+	    IOPixelInformation pixelInfo;
+	    IOIndex            depth;
+
+	    for (depth = out->maxDepthIndex + 1; depth--; )
+	    {
+		err = _IOFBGetPixelInformation(connectRef, displayMode, depth,
+					       kIOFBSystemAperture, &pixelInfo);
+		if (kIOReturnSuccess != err)
+		    continue;
+		if (pixelInfo.bitsPerPixel > FILTER_MAXDEPTH)
+		    continue;
+		if (depth != out->maxDepthIndex)
+		    out->maxDepthIndex = depth;
+		break;
+	    }
+	}
+#endif
     }
 
     return( kr );
@@ -3313,7 +3367,7 @@ IOFramebufferServerOpen( mach_port_t connect )
             if( connectRef->defaultToDependent
             && (kIOReturnSuccess == IOFBGetCurrentDisplayModeAndDepth( connectRef->nextDependent->connect,
                                                                             &otherMode, &otherDepth ))
-            && (dict = CFDictionaryGetValue( connectRef->nextDependent->modes, (const void *) (uintptr_t) otherMode ))
+            && (dict = CFDictionaryGetValue( connectRef->nextDependent->modes, (const void *) (uintptr_t) (UInt32) otherMode ))
             && (data = CFDictionaryGetValue( dict, CFSTR(kIOFBModeDMKey) ))) {
     
                 otherInfo = (IODisplayModeInformation *) CFDataGetBytePtr(data);
@@ -3359,8 +3413,8 @@ IOFramebufferServerOpen( mach_port_t connect )
     }
 
     if( (startMode != mode) || (startDepth != depth)) {
-	DEBG(connectRef, "setMode %lx, %ld from %lx, %ld\n", 
-		startMode, startDepth, mode, depth);
+	DEBG(connectRef, "setMode %x, %d from %x, %d\n", 
+		(int) startMode, (int) startDepth, (int) mode, (int) depth);
         IOFBSetDisplayModeAndDepth( connect, startMode, startDepth );
         IOFBSetStartupDisplayModeAndDepth( connect, startMode, startDepth );
     }
@@ -3471,7 +3525,7 @@ IOFBSetDisplayModeAndDepth( io_connect_t connect,
     if( !connectRef)
         return( kIOReturnBadArgument );
 
-    DEBG(connectRef, "setMode %lx, %ld \n", displayMode, depth);
+    DEBG(connectRef, "setMode %x, %d \n", (int) displayMode, (int) depth);
 
     uint64_t inData[] = { displayMode, depth };
     err = IOConnectCallMethod(connect, 4,		// Index

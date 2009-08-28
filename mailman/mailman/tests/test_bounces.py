@@ -1,4 +1,4 @@
-# Copyright (C) 2001-2006 by the Free Software Foundation, Inc.
+# Copyright (C) 2001-2008 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -57,10 +57,27 @@ class BounceTest(unittest.TestCase):
                                           'iqxwmmfauudpo@dachamp.com']),
         ('SimpleMatch', 'simple_15.txt', ['isam@kviv.be']),
         ('SimpleMatch', 'simple_16.txt', ['xvlogtfsei@the-messenger.com']),
+        ('SimpleMatch', 'simple_17.txt', ['internetsailing@gmail.com']),
+        ('SimpleMatch', 'simple_18.txt', ['powell@kesslersupply.com']),
+        ('SimpleMatch', 'simple_19.txt', ['mcfall@cepi.com.ar']),
+        ('SimpleMatch', 'simple_20.txt', ['duke@ald.socgen.com']),
+        ('SimpleMatch', 'simple_23.txt', ['ketchuy@dadoservice.it']),
+        ('SimpleMatch', 'simple_24.txt', ['liberty@gomaps.com']),
+        ('SimpleMatch', 'simple_25.txt', ['mahau@cnbearing.com']),
+        ('SimpleMatch', 'simple_26.txt', ['reilizavet@lar.ieo.it']),
+        ('SimpleMatch', 'simple_27.txt', ['kulp@webmail.pla.net.py']),
+        ('SimpleMatch', 'simple_29.txt', ['thilakayi_bing@landshire.com']),
+        ('SimpleMatch', 'simple_30.txt', ['wmnqicorpat@nqicorp.com']),
+        ('SimpleMatch', 'simple_31.txt', ['nmorel@actisce.fr']),
+        ('SimpleMatch', 'simple_32.txt', ['teteyn@agence-forbin.com']),
+        ('SimpleMatch', 'simple_33.txt', ['hmu@extralumin.com']),
         ('SimpleMatch', 'bounce_02.txt', ['acinsp1@midsouth.rr.com']),
         ('SimpleMatch', 'bounce_03.txt', ['james@jeborall.demon.co.uk']),
         # SimpleWarning
         ('SimpleWarning', 'simple_03.txt', Stop),
+        ('SimpleWarning', 'simple_21.txt', Stop),
+        ('SimpleWarning', 'simple_22.txt', Stop),
+        ('SimpleWarning', 'simple_28.txt', Stop),
         # GroupWise
         ('GroupWise', 'groupwise_01.txt', ['thoff@MAINEX1.ASU.EDU']),
         # This one really sucks 'cause it's text/html.  Just make sure it
@@ -87,6 +104,9 @@ class BounceTest(unittest.TestCase):
         ('DSN', 'dsn_12.txt', ['auaauqdgrdz@jtc-con.co.jp']),
         ('DSN', 'dsn_13.txt', ['marcooherbst@cardinal.com']),
         ('DSN', 'dsn_14.txt', ['artboardregistration@home.dk']),
+        ('DSN', 'dsn_15.txt', ['horu@ccc-ces.com']),
+        ('DSN', 'dsn_16.txt', ['hishealinghand@pastors.com']),
+        ('DSN', 'dsn_17.txt', Stop),
         # Microsoft Exchange
         ('Exchange', 'microsoft_01.txt', ['DJBENNETT@IKON.COM']),
         ('Exchange', 'microsoft_02.txt', ['MDMOORE@BALL.COM']),
@@ -98,10 +118,13 @@ class BounceTest(unittest.TestCase):
                                      'one_bad_address@pacbell.net']),
         ('SMTP32', 'smtp32_05.txt', ['jmrpowersports@jmrpowersports.com']),
         ('SMTP32', 'smtp32_06.txt', ['Absolute_garbage_addr@pacbell.net']),
+        ('SMTP32', 'smtp32_07.txt', ['info@husbyran.com']),
         # Qmail
         ('Qmail', 'qmail_01.txt', ['psadisc@wwwmail.n-h.de']),
         ('Qmail', 'qmail_02.txt', ['rauschlo@frontfin.com']),
         ('Qmail', 'qmail_03.txt', ['crown@hbc.co.jp']),
+        ('Qmail', 'qmail_04.txt', ['merotiia@tennisnsw.com.au']),
+        ('Qmail', 'qmail_05.txt', ['ivokggrrdvc@caixaforte.freeservers.com']),
         # LLNL's custom Sendmail
         ('LLNL', 'llnl_01.txt', ['trotts1@llnl.gov']),
         # Netscape's server...

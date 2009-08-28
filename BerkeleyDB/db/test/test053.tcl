@@ -1,9 +1,8 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1999-2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 1999,2007 Oracle.  All rights reserved.
 #
-# $Id: test053.tcl,v 1.2 2004/03/30 01:24:08 jtownsen Exp $
+# $Id: test053.tcl,v 12.5 2007/05/17 15:15:56 bostic Exp $
 #
 # TEST	test053
 # TEST	Test of the DB_REVSPLITOFF flag in the Btree and Btree-w-recnum
@@ -11,6 +10,7 @@
 proc test053 { method args } {
 	global alphabet
 	global errorCode
+	global is_je_test
 	source ./include.tcl
 
 	set args [convert_args $method $args]
@@ -97,9 +97,11 @@ proc test053 { method args } {
 		}
 	}
 
-	puts "\tTest053.c: Check page count."
-	error_check_good page_count:check \
-	    [is_substr [$db stat] "{Leaf pages} $npages"] 1
+	if { !$is_je_test } {
+		puts "\tTest053.c: Check page count."
+		error_check_good page_count:check \
+		    [is_substr [$db stat] "{Leaf pages} $npages"] 1
+	}
 
 	puts "\tTest053.d: Delete all but one key per page."
 	for {set i 0} { $i < $npages } {incr i } {
@@ -116,9 +118,12 @@ proc test053 { method args } {
 			}
 		}
 	}
-	puts "\tTest053.e: Check to make sure all pages are still there."
-	error_check_good page_count:check \
-	    [is_substr [$db stat] "{Leaf pages} $npages"] 1
+
+	if { !$is_je_test } {
+		puts "\tTest053.e: Check to make sure all pages are still there."
+		error_check_good page_count:check \
+		    [is_substr [$db stat] "{Leaf pages} $npages"] 1
+	}
 
 	if { $txnenv == 1 } {
 		set t [$env txn]

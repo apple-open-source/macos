@@ -103,8 +103,9 @@ static void usage(char **argv)
 	printf("   v (verbose)\n");
 	printf("   d (infile/outfile in DER format; default is PEM)\n");
 	printf("   r=privateKeyFileName (optional; for Import Certificate only)\n");
-	printf("   f=[18f] (private key format = PKCS1/PKCS8/FIPS186; default is PKCS1\n"
-		   "     (openssl) for RSA, openssl for DSA, PKCS8 for Diffie-Hellman\n");
+	printf("   f=[18fo] (private key format = PKCS1/PKCS8/FIPS186; default is PKCS1\n"
+		   "     (openssl) for RSA, openssl for DSA, PKCS8 for Diffie-Hellman,\n"
+		   "     OpenSSL for ECDSA\n");
 	printf("   x=[asSm] (Extended Key Usage: a=Any; s=SSL Client; S=SSL Server; m=SMIME)\n");
 	printf("   a (create key with default ACL)\n");
 	printf("   u (create key with ACL limiting access to current UID)\n");
@@ -296,6 +297,10 @@ static OSStatus generateSecKeyPair(
 		pubKeyUse  |= (CSSM_KEYUSE_ENCRYPT | CSSM_KEYUSE_WRAP);
 		privKeyUse |= (CSSM_KEYUSE_DECRYPT | CSSM_KEYUSE_UNWRAP);
 	}
+	if(keyUsage & kKeyUseDerive) {
+		pubKeyUse  |= CSSM_KEYUSE_DERIVE;
+		privKeyUse |= CSSM_KEYUSE_DERIVE;
+	}
 	ortn = SecKeyCreatePair(kcRef,
 		keyAlg, keySizeInBits,
 		0,					// contextHandle
@@ -375,7 +380,7 @@ static CSSM_RETURN setPubKeyHash(
 	
 	predicate.Attribute.Info.AttributeNameFormat = 
 		CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-	predicate.Attribute.Info.Label.AttributeName = "Label";
+	predicate.Attribute.Info.Label.AttributeName = (char*) "Label";
 	predicate.Attribute.Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
 	/* hope this cast is OK */
 	predicate.Attribute.Value = &labelData;
@@ -389,7 +394,7 @@ static CSSM_RETURN setPubKeyHash(
 	CSSM_DB_RECORD_ATTRIBUTE_DATA recordAttrs;
 	CSSM_DB_ATTRIBUTE_DATA attr;
 	attr.Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-	attr.Info.Label.AttributeName = "Label";
+	attr.Info.Label.AttributeName = (char*) "Label";
 	attr.Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
 
 	recordAttrs.DataRecordType = CSSM_DL_DB_RECORD_PRIVATE_KEY;
@@ -516,6 +521,10 @@ static OSStatus generateKeyPair(
 	if(keyUsage & kKeyUseEncrypting) {
 		pubKeyUse  |= (CSSM_KEYUSE_ENCRYPT | CSSM_KEYUSE_WRAP);
 		privKeyUse |= (CSSM_KEYUSE_DECRYPT | CSSM_KEYUSE_UNWRAP);
+	}
+	if(keyUsage & kKeyUseDerive) {
+		pubKeyUse  |= CSSM_KEYUSE_DERIVE;
+		privKeyUse |= CSSM_KEYUSE_DERIVE;
 	}
 
 	crtn = cuCspGenKeyPair(cspHand,
@@ -722,6 +731,20 @@ static CSSM_RETURN importPrivateKey(
 					return CSSMERR_CSSM_INTERNAL_ERROR;
 			}
 			privKeyLabel = "Imported Diffie-Hellman key";
+			break;
+		case CSSM_ALGID_ECDSA:
+			switch(keyFormat) {
+				case CSSM_KEYBLOB_RAW_FORMAT_NONE:
+					keyFormat = CSSM_KEYBLOB_RAW_FORMAT_OPENSSL;	// default
+					break;
+				case CSSM_KEYBLOB_RAW_FORMAT_PKCS8:
+				case CSSM_KEYBLOB_RAW_FORMAT_OPENSSL:
+					break;
+				default:
+					printf("***ECDSA Private key must be in PKCS8 or OpenSSLformat.\n");
+					return CSSMERR_CSSM_INTERNAL_ERROR;
+			}
+			privKeyLabel = "Imported ECDSA key";
 			break;
 	}
 	if(readFile(privKeyFileName, &pemKey, &pemKeyLen)) {
@@ -1053,6 +1076,9 @@ static OSStatus createCertCsr(
 			if(keyUsage & kKeyUseEncrypting) {
 				extp->extension.keyUsage |= 
 					(CE_KU_KeyEncipherment | CE_KU_DataEncipherment);
+			}
+			if(keyUsage & kKeyUseDerive) {
+				extp->extension.keyUsage |= CE_KU_KeyAgreement;
 			}
 			extp++;
 			numExts++;
@@ -1410,6 +1436,9 @@ int realmain (int argc, char **argv)
 					case 'f':
 						privKeyFormat = CSSM_KEYBLOB_RAW_FORMAT_FIPS186;
 						break;
+					case 'o':
+						privKeyFormat = CSSM_KEYBLOB_RAW_FORMAT_OPENSSL;
+						break;
 					default:usage(argv);
 				}
 				break;
@@ -1518,7 +1547,7 @@ int realmain (int argc, char **argv)
 	/* Cook up a keychain path */
 	if(op == CO_SystemIdentity) {
 		/* this one's implied and hard coded */
-		char *sysKcPath = kSystemKeychainDir  kSystemKeychainName;
+		const char *sysKcPath = kSystemKeychainDir  kSystemKeychainName;
 		strncpy(kcPath, sysKcPath, MAXPATHLEN);
 	}
 	else if(kcName) {
@@ -1528,7 +1557,7 @@ int realmain (int argc, char **argv)
 			strncpy(kcPath, kcName, MAXPATHLEN); 
 		}
 		else {
-			char *userHome = getenv("HOME");
+			const char *userHome = getenv("HOME");
 		
 			if(userHome == NULL) {
 				/* well, this is probably not going to work */
@@ -1768,7 +1797,7 @@ int realmain (int argc, char **argv)
 		int rtn;
 		
 		if(pemFormat) {
-			char *headerStr;
+			const char *headerStr;
 			switch(op) {
 				case CO_CreateCSR:
 					headerStr = "CERTIFICATE REQUEST";

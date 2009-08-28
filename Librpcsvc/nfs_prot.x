@@ -1,25 +1,4 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-/*
  * Sun RPC is a product of Sun Microsystems, Inc. and is provided for
  * unrestricted use provided that this legend is included on all tape
  * media and as a part of the software program in whole or part.  Users
@@ -52,9 +31,9 @@
 %#ifndef lint
 %/*static char sccsid[] = "from: @(#)nfs_prot.x 1.2 87/10/12 Copyr 1987 Sun Micro";*/
 %/*static char sccsid[] = "from: @(#)nfs_prot.x	2.1 88/08/01 4.0 RPCSRC";*/
-%/*static char rcsid[] = "from FreeBSD: nfs_prot.x,v 1.4 1997/04/18 12:31:27 dfr Exp $";*/
-%static char rcsid[] = "$Id: nfs_prot.x,v 1.2.12.1 2005/09/08 17:08:20 majka Exp $";
 %#endif /* not lint */
+%#include <sys/cdefs.h>
+%__RCSID("$FreeBSD: src/include/rpcsvc/nfs_prot.x,v 1.8 2003/05/04 02:51:42 obrien Exp $");
 #endif
 
 const NFS_PORT          = 2049;
@@ -489,35 +468,35 @@ default:
 
 union set_uid3 switch (bool set_it) {
 case TRUE:
-	uid3	mode;
+	uid3	uid;
 default:
 	void;
 };
 
 union set_gid3 switch (bool set_it) {
 case TRUE:
-	gid3	mode;
+	gid3	gid;
 default:
 	void;
 };
 
 union set_size3 switch (bool set_it) {
 case TRUE:
-	size3	mode;
+	size3	size;
 default:
 	void;
 };
 
 union set_atime switch (time_how set_it) {
 case SET_TO_CLIENT_TIME:
-	atime	mode;
+	atime	atime;
 default:
 	void;
 };
 
 union set_mtime switch (time_how set_it) {
 case SET_TO_CLIENT_TIME:
-	mtime	mode;
+	mtime	mtime;
 default:
 	void;
 };
@@ -686,6 +665,7 @@ struct READ3resfail {
 	post_op_attr	file_attributes;
 };
 
+/* XXX: solaris 2.6 uses ``nfsstat'' here */
 union READ3res switch (nfsstat3 status) {
 case NFS3_OK:
 	READ3resok	resok;
@@ -713,7 +693,7 @@ struct WRITE3args {
 struct WRITE3resok {
 	wcc_data	file_wcc;
 	count3		count;
-	stable_how	comitted;
+	stable_how	committed;
 	writeverf3	verf;
 };
 
@@ -1285,8 +1265,7 @@ program NFS_PROGRAM {
 
 		COMMIT3res
 		NFSPROC3_COMMIT(COMMIT3args)		= 21;
-
-         } = 3;
+	} = 3;
 #endif
 } = 100003;
 

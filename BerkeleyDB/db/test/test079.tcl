@@ -1,9 +1,8 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 2000-2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 2000,2007 Oracle.  All rights reserved.
 #
-# $Id: test079.tcl,v 1.2 2004/03/30 01:24:09 jtownsen Exp $
+# $Id: test079.tcl,v 12.5 2007/05/17 15:15:56 bostic Exp $
 #
 # TEST	test079
 # TEST	Test of deletes in large trees.  (test006 w/ sm. pagesize).

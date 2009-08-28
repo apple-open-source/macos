@@ -1,7 +1,7 @@
 /**
  * @copyright
  * ====================================================================
- * Copyright (c) 2005 CollabNet.  All rights reserved.
+ * Copyright (c) 2005-2008 CollabNet.  All rights reserved.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution.  The terms
@@ -48,16 +48,19 @@ typedef struct svn_ra__vtable_t {
 
   /* All fields in SESSION, except priv, have been initialized by the
      time this is called.  SESSION->priv may be set by this function. */
-  svn_error_t *(*open)(svn_ra_session_t *session,
-                       const char *repos_URL,
-                       const svn_ra_callbacks2_t *callbacks,
-                       void *callback_baton,
-                       apr_hash_t *config,
-                       apr_pool_t *pool);
+  svn_error_t *(*open_session)(svn_ra_session_t *session,
+                               const char *repos_URL,
+                               const svn_ra_callbacks2_t *callbacks,
+                               void *callback_baton,
+                               apr_hash_t *config,
+                               apr_pool_t *pool);
   /* URL is guaranteed to have what get_repos_root() returns as a prefix. */
   svn_error_t *(*reparent)(svn_ra_session_t *session,
                            const char *url,
                            apr_pool_t *pool);
+  svn_error_t *(*get_session_url)(svn_ra_session_t *session,
+                                  const char **url,
+                                  apr_pool_t *pool);
   svn_error_t *(*get_latest_revnum)(svn_ra_session_t *session,
                                     svn_revnum_t *latest_revnum,
                                     apr_pool_t *pool);
@@ -83,7 +86,7 @@ typedef struct svn_ra__vtable_t {
   svn_error_t *(*get_commit_editor)(svn_ra_session_t *session,
                                     const svn_delta_editor_t **editor,
                                     void **edit_baton,
-                                    const char *log_msg,
+                                    apr_hash_t *revprop_table,
                                     svn_commit_callback2_t callback,
                                     void *callback_baton,
                                     apr_hash_t *lock_tokens,
@@ -104,40 +107,48 @@ typedef struct svn_ra__vtable_t {
                           svn_revnum_t revision,
                           apr_uint32_t dirent_fields,
                           apr_pool_t *pool);
+  svn_error_t *(*get_mergeinfo)(svn_ra_session_t *session,
+                                svn_mergeinfo_catalog_t *mergeinfo,
+                                const apr_array_header_t *paths,
+                                svn_revnum_t revision,
+                                svn_mergeinfo_inheritance_t inherit,
+                                svn_boolean_t include_merged_revisions,
+                                apr_pool_t *pool);
   svn_error_t *(*do_update)(svn_ra_session_t *session,
-                            const svn_ra_reporter2_t **reporter,
+                            const svn_ra_reporter3_t **reporter,
                             void **report_baton,
                             svn_revnum_t revision_to_update_to,
                             const char *update_target,
-                            svn_boolean_t recurse,
+                            svn_depth_t depth,
+                            svn_boolean_t send_copyfrom_args,
                             const svn_delta_editor_t *update_editor,
                             void *update_baton,
                             apr_pool_t *pool);
   svn_error_t *(*do_switch)(svn_ra_session_t *session,
-                            const svn_ra_reporter2_t **reporter,
+                            const svn_ra_reporter3_t **reporter,
                             void **report_baton,
                             svn_revnum_t revision_to_switch_to,
                             const char *switch_target,
-                            svn_boolean_t recurse,
+                            svn_depth_t depth,
                             const char *switch_url,
                             const svn_delta_editor_t *switch_editor,
                             void *switch_baton,
                             apr_pool_t *pool);
   svn_error_t *(*do_status)(svn_ra_session_t *session,
-                            const svn_ra_reporter2_t **reporter,
+                            const svn_ra_reporter3_t **reporter,
                             void **report_baton,
                             const char *status_target,
                             svn_revnum_t revision,
-                            svn_boolean_t recurse,
+                            svn_depth_t depth,
                             const svn_delta_editor_t *status_editor,
                             void *status_baton,
                             apr_pool_t *pool);
   svn_error_t *(*do_diff)(svn_ra_session_t *session,
-                          const svn_ra_reporter2_t **reporter,
+                          const svn_ra_reporter3_t **reporter,
                           void **report_baton,
                           svn_revnum_t revision,
                           const char *diff_target,
-                          svn_boolean_t recurse,
+                          svn_depth_t depth,
                           svn_boolean_t ignore_ancestry,
                           svn_boolean_t text_deltas,
                           const char *versus_url,
@@ -151,7 +162,9 @@ typedef struct svn_ra__vtable_t {
                           int limit,
                           svn_boolean_t discover_changed_paths,
                           svn_boolean_t strict_node_history,
-                          svn_log_message_receiver_t receiver,
+                          svn_boolean_t include_merged_revisions,
+                          const apr_array_header_t *revprops,
+                          svn_log_entry_receiver_t receiver,
                           void *receiver_baton,
                           apr_pool_t *pool);
   svn_error_t *(*check_path)(svn_ra_session_t *session,
@@ -176,24 +189,33 @@ typedef struct svn_ra__vtable_t {
                                 svn_revnum_t peg_revision,
                                 apr_array_header_t *location_revisions,
                                 apr_pool_t *pool);
+  svn_error_t *(*get_location_segments)(svn_ra_session_t *session,
+                                        const char *path,
+                                        svn_revnum_t peg_revision,
+                                        svn_revnum_t start_rev,
+                                        svn_revnum_t end_rev,
+                                        svn_location_segment_receiver_t rcvr,
+                                        void *receiver_baton,
+                                        apr_pool_t *pool);
   svn_error_t *(*get_file_revs)(svn_ra_session_t *session,
                                 const char *path,
                                 svn_revnum_t start,
                                 svn_revnum_t end,
-                                svn_ra_file_rev_handler_t handler,
+                                svn_boolean_t include_merged_revisions,
+                                svn_file_rev_handler_t handler,
                                 void *handler_baton,
                                 apr_pool_t *pool);
   svn_error_t *(*lock)(svn_ra_session_t *session,
                        apr_hash_t *path_revs,
                        const char *comment,
                        svn_boolean_t force,
-                       svn_ra_lock_callback_t lock_func, 
+                       svn_ra_lock_callback_t lock_func,
                        void *lock_baton,
                        apr_pool_t *pool);
   svn_error_t *(*unlock)(svn_ra_session_t *session,
                          apr_hash_t *path_tokens,
                          svn_boolean_t force,
-                         svn_ra_lock_callback_t lock_func, 
+                         svn_ra_lock_callback_t lock_func,
                          void *lock_baton,
                          apr_pool_t *pool);
   svn_error_t *(*get_lock)(svn_ra_session_t *session,
@@ -211,6 +233,26 @@ typedef struct svn_ra__vtable_t {
                          const svn_delta_editor_t *editor,
                          void *edit_baton,
                          apr_pool_t *pool);
+  svn_error_t *(*has_capability)(svn_ra_session_t *session,
+                                 svn_boolean_t *has,
+                                 const char *capability,
+                                 apr_pool_t *pool);
+  svn_error_t *
+  (*replay_range)(svn_ra_session_t *session,
+                  svn_revnum_t start_revision,
+                  svn_revnum_t end_revision,
+                  svn_revnum_t low_water_mark,
+                  svn_boolean_t text_deltas,
+                  svn_ra_replay_revstart_callback_t revstart_func,
+                  svn_ra_replay_revfinish_callback_t revfinish_func,
+                  void *replay_baton,
+                  apr_pool_t *pool);
+  svn_error_t *(*get_deleted_rev)(svn_ra_session_t *session,
+                                  const char *path,
+                                  svn_revnum_t peg_revision,
+                                  svn_revnum_t end_revision,
+                                  svn_revnum_t *revision_deleted,
+                                  apr_pool_t *pool);
 } svn_ra__vtable_t;
 
 /* The RA session object. */
@@ -246,12 +288,127 @@ svn_error_t *svn_ra_local__init(const svn_version_t *loader_version,
 svn_error_t *svn_ra_svn__init(const svn_version_t *loader_version,
                               const svn_ra__vtable_t **vtable,
                               apr_pool_t *pool);
-svn_error_t *svn_ra_dav__init(const svn_version_t *loader_version,
+svn_error_t *svn_ra_neon__init(const svn_version_t *loader_version,
                               const svn_ra__vtable_t **vtable,
                               apr_pool_t *pool);
 svn_error_t *svn_ra_serf__init(const svn_version_t *loader_version,
                                const svn_ra__vtable_t **vtable,
                                apr_pool_t *pool);
+
+
+
+/*** Compat Functions ***/
+
+/**
+ * Set *LOCATIONS to the locations (at the repository revisions
+ * LOCATION_REVISIONS) of the file identified by PATH in PEG_REVISION.
+ * PATH is relative to the URL to which SESSION was opened.
+ * LOCATION_REVISIONS is an array of svn_revnum_t's.  *LOCATIONS will
+ * be a mapping from the revisions to their appropriate absolute
+ * paths.  If the file doesn't exist in a location_revision, that
+ * revision will be ignored.
+ *
+ * Use POOL for all allocations.
+ *
+ * NOTE: This function uses the RA get_log interfaces to do its work,
+ * as a fallback mechanism for servers which don't support the native
+ * get_locations API.
+ */
+svn_error_t *
+svn_ra__locations_from_log(svn_ra_session_t *session,
+                           apr_hash_t **locations_p,
+                           const char *path,
+                           svn_revnum_t peg_revision,
+                           apr_array_header_t *location_revisions,
+                           apr_pool_t *pool);
+
+/**
+ * Call RECEIVER (with RECEIVER_BATON) for each segment in the
+ * location history of PATH in START_REV, working backwards in time
+ * from START_REV to END_REV.
+ *
+ * END_REV may be SVN_INVALID_REVNUM to indicate that you want to
+ * trace the history of the object to its origin.
+ *
+ * START_REV may be SVN_INVALID_REVNUM to indicate that you want to
+ * trace the history of the object beginning in the HEAD revision.
+ * Otherwise, START_REV must be younger than END_REV (unless END_REV
+ * is SVN_INVALID_REVNUM).
+ *
+ * Use POOL for all allocations.
+ *
+ * NOTE: This function uses the RA get_log interfaces to do its work,
+ * as a fallback mechanism for servers which don't support the native
+ * get_location_segments API.
+ */
+svn_error_t *
+svn_ra__location_segments_from_log(svn_ra_session_t *session,
+                                   const char *path,
+                                   svn_revnum_t peg_revision,
+                                   svn_revnum_t start_rev,
+                                   svn_revnum_t end_rev,
+                                   svn_location_segment_receiver_t receiver,
+                                   void *receiver_baton,
+                                   apr_pool_t *pool);
+
+/**
+ * Retrieve a subset of the interesting revisions of a file PATH
+ * as seen in revision END (see svn_fs_history_prev() for a
+ * definition of "interesting revisions").  Invoke HANDLER with
+ * @a handler_baton as its first argument for each such revision.
+ * @a session is an open RA session.  Use POOL for all allocations.
+ *
+ * If there is an interesting revision of the file that is less than or
+ * equal to START, the iteration will begin at that revision.
+ * Else, the iteration will begin at the first revision of the file in
+ * the repository, which has to be less than or equal to END.  Note
+ * that if the function succeeds, HANDLER will have been called at
+ * least once.
+ *
+ * In a series of calls to HANDLER, the file contents for the first
+ * interesting revision will be provided as a text delta against the
+ * empty file.  In the following calls, the delta will be against the
+ * fulltext contents for the previous call.
+ *
+ * NOTE: This function uses the RA get_log interfaces to do its work,
+ * as a fallback mechanism for servers which don't support the native
+ * get_location_segments API.
+ */
+svn_error_t *
+svn_ra__file_revs_from_log(svn_ra_session_t *session,
+                           const char *path,
+                           svn_revnum_t start,
+                           svn_revnum_t end,
+                           svn_file_rev_handler_t handler,
+                           void *handler_baton,
+                           apr_pool_t *pool);
+
+
+/**
+ * Given a path REL_DELETED_PATH, relative to the URL of SESSION, which
+ * exists at PEG_REVISION, and an END_REVISION > PEG_REVISION at which
+ * REL_DELETED_PATH no longer exists, set *REVISION_DELETED to the revision
+ * REL_DELETED_PATH was first deleted or replaced, within the inclusive
+ * revision range defined by PEG_REVISION and END_REVISION.
+ *
+ * If REL_DELETED_PATH does not exist at PEG_REVISION or was not deleted prior
+ * to END_REVISION within the specified range, then set *REVISION_DELETED to
+ * SVN_INVALID_REVNUM.  If PEG_REVISION or END_REVISION are invalid or if
+ * END_REVISION <= PEG_REVISION, then return SVN_ERR_CLIENT_BAD_REVISION.
+ *
+ * Use POOL for all allocations.
+ *
+ * NOTE: This function uses the RA get_log interfaces to do its work,
+ * as a fallback mechanism for servers which don't support the native
+ * get_deleted_rev API.
+ */
+svn_error_t *
+svn_ra__get_deleted_rev_from_log(svn_ra_session_t *session,
+                                 const char *rel_deleted_path,
+                                 svn_revnum_t peg_revision,
+                                 svn_revnum_t end_revision,
+                                 svn_revnum_t *revision_deleted,
+                                 apr_pool_t *pool);
 
 #ifdef __cplusplus
 }

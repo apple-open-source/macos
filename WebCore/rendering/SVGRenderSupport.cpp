@@ -71,7 +71,7 @@ void SVGRenderBase::mapLocalToContainer(const RenderObject* object, RenderBoxMod
 
 void SVGRenderBase::prepareToRenderSVGContent(RenderObject* object, RenderObject::PaintInfo& paintInfo, const FloatRect& boundingBox, SVGResourceFilter*& filter, SVGResourceFilter* rootFilter)
 {
-#if !ENABLE(SVG_FILTERS)
+#if !ENABLE(FILTERS)
     UNUSED_PARAM(filter);
     UNUSED_PARAM(rootFilter);
 #endif
@@ -94,7 +94,7 @@ void SVGRenderBase::prepareToRenderSVGContent(RenderObject* object, RenderObject
         paintInfo.context->beginTransparencyLayer(opacity);
     }
 
-#if ENABLE(SVG_FILTERS)
+#if ENABLE(FILTERS)
     AtomicString filterId(svgStyle->filter());
 #endif
 
@@ -103,7 +103,7 @@ void SVGRenderBase::prepareToRenderSVGContent(RenderObject* object, RenderObject
 
     Document* document = object->document();
 
-#if ENABLE(SVG_FILTERS)
+#if ENABLE(FILTERS)
     SVGResourceFilter* newFilter = getFilterById(document, filterId);
     if (newFilter == rootFilter) {
         // Catch <text filter="url(#foo)">Test<tspan filter="url(#foo)">123</tspan></text>.
@@ -117,10 +117,10 @@ void SVGRenderBase::prepareToRenderSVGContent(RenderObject* object, RenderObject
     SVGResourceClipper* clipper = getClipperById(document, clipperId);
     SVGResourceMasker* masker = getMaskerById(document, maskerId);
 
-#if ENABLE(SVG_FILTERS)
+#if ENABLE(FILTERS)
     if (filter) {
         filter->addClient(styledElement);
-        filter->prepareFilter(paintInfo.context, boundingBox);
+        filter->prepareFilter(paintInfo.context, object);
     } else if (!filterId.isEmpty())
         svgElement->document()->accessSVGExtensions()->addPendingResource(filterId, styledElement);
 #endif
@@ -138,10 +138,9 @@ void SVGRenderBase::prepareToRenderSVGContent(RenderObject* object, RenderObject
         svgElement->document()->accessSVGExtensions()->addPendingResource(maskerId, styledElement);
 }
 
-void SVGRenderBase::finishRenderSVGContent(RenderObject* object, RenderObject::PaintInfo& paintInfo, const FloatRect& boundingBox, SVGResourceFilter*& filter, GraphicsContext* savedContext)
+void SVGRenderBase::finishRenderSVGContent(RenderObject* object, RenderObject::PaintInfo& paintInfo, SVGResourceFilter*& filter, GraphicsContext* savedContext)
 {
-#if !ENABLE(SVG_FILTERS)
-    UNUSED_PARAM(boundingBox);
+#if !ENABLE(FILTERS)
     UNUSED_PARAM(filter);
     UNUSED_PARAM(savedContext);
 #endif
@@ -151,9 +150,9 @@ void SVGRenderBase::finishRenderSVGContent(RenderObject* object, RenderObject::P
     const RenderStyle* style = object->style();
     ASSERT(style);
 
-#if ENABLE(SVG_FILTERS)
+#if ENABLE(FILTERS)
     if (filter) {
-        filter->applyFilter(paintInfo.context, boundingBox);
+        filter->applyFilter(paintInfo.context, object);
         paintInfo.context = savedContext;
     }
 #endif
@@ -216,7 +215,7 @@ FloatRect SVGRenderBase::computeContainerBoundingBox(const RenderObject* contain
 
 FloatRect SVGRenderBase::filterBoundingBoxForRenderer(const RenderObject* object)
 {
-#if ENABLE(SVG_FILTERS)
+#if ENABLE(FILTERS)
     SVGResourceFilter* filter = getFilterById(object->document(), object->style()->svgStyle()->filter());
     if (filter)
         return filter->filterBBoxForItemBBox(object->objectBoundingBox());

@@ -2,21 +2,22 @@
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -34,13 +35,17 @@ enum {
 	/* Default sizes */
 	DefaultCacheBlockSize	=	0x8000,		/* 32K */
 	DefaultCacheBlocks		=	1024,
-	DefaultCacheSize		=	(DefaultCacheBlockSize * DefaultCacheBlocks), 
+	DefaultCacheSize		=	(DefaultCacheBlockSize * DefaultCacheBlocks),  /* 32MBytes */
 
 	/* Minimum allowed sizes */
 	MinCacheBlockSize		=	0x8000,		/* 32K */
 	MinCacheBlocks			=	128,
-	MinCacheSize			=	(MinCacheBlockSize * MinCacheBlocks), 
+	MinCacheSize			=	(MinCacheBlockSize * MinCacheBlocks), 	/* 4MBytes */
 
+	/* Maximum allowed sizes */
+	MaxCacheBlockSize		=	0x8000,		/* 32K */
+	MaxCacheBlocks			= 	0x18000,
+	MaxCacheSize			=	((unsigned)MaxCacheBlockSize * MaxCacheBlocks),	/* 3Gbytes */
 	CacheHashSize			=	257,		/* prime number */
 };
 
@@ -153,11 +158,12 @@ typedef struct Cache_t
 extern Cache_t fscache;
 
 /*
- * CalculateCacheSize
+ * CalculateCacheSizes
  *
- * Determine the cache size that should be used to initialize the cache.
+ * Determine the cache size values (block size and total blocks) that should
+ * be used to initialize the cache.
  */
-int CalculateCacheSize(uint64_t userCacheSize, uint32_t *calcBlockSize, uint32_t *calcTotalBlocks, 
+void CalculateCacheSizes(uint64_t userCacheSize, uint32_t *calcBlockSize, uint32_t *calcTotalBlocks, 
 					   char debug);
 /*
  * CacheInit
@@ -165,7 +171,8 @@ int CalculateCacheSize(uint64_t userCacheSize, uint32_t *calcBlockSize, uint32_t
  *  Initializes the cache for use.
  */
 int CacheInit (Cache_t *cache, int fdRead, int fdWrite, uint32_t devBlockSize,
-               uint32_t cacheBlockSize, uint32_t cacheSize, uint32_t hashSize);
+               uint32_t cacheBlockSize, uint32_t cacheSize, uint32_t hashSize,
+               int preTouch);
 
 /*
  * CacheDestroy

@@ -1,5 +1,5 @@
 /* 
- * Copyright (c) 2006-2007, The RubyCocoa Project.
+ * Copyright (c) 2006-2008, The RubyCocoa Project.
  * Copyright (c) 2001-2006, FUJIMOTO Hisakuni.
  * All Rights Reserved.
  *
@@ -119,7 +119,7 @@ convert_cary(VALUE *result, void *ocdata, char *octype_str, BOOL to_ruby)
     ok = YES;
   }
   else {
-    VALUE ary;
+    volatile VALUE ary;
 
     ary = *result;
 
@@ -315,7 +315,7 @@ BOOL
 ocdata_to_rbobj (VALUE context_obj, const char *octype_str, const void *ocdata, VALUE *result, BOOL from_libffi)
 {
   BOOL f_success = YES;
-  VALUE rbval = Qnil;
+  volatile VALUE rbval = Qnil;
   struct bsBoxed *bs_boxed;
 
 #if BYTE_ORDER == BIG_ENDIAN
@@ -327,8 +327,7 @@ ocdata_to_rbobj (VALUE context_obj, const char *octype_str, const void *ocdata, 
   }
 #endif
 
-  if (*octype_str == _C_CONST)
-    octype_str++;
+  octype_str = encoding_skip_qualifiers(octype_str);
 
   bs_boxed = find_bs_boxed_by_encoding(octype_str);
   if (bs_boxed != NULL) {
@@ -356,7 +355,7 @@ ocdata_to_rbobj (VALUE context_obj, const char *octype_str, const void *ocdata, 
       break;
   
     case _C_ARY_B:
-      f_success = cary_to_rbary(*(void **)ocdata, octype_str, &rbval); 
+      f_success = cary_to_rbary(*(void **)ocdata, octype_str, (VALUE*)&rbval); 
       break;
 
     case _C_BOOL:
@@ -460,7 +459,7 @@ rbary_to_nsary (VALUE rbary, id* nsary)
 static BOOL 
 rbhash_to_nsdic (VALUE rbhash, id* nsdic)
 {
-  VALUE ary_keys;
+  volatile VALUE ary_keys;
   VALUE* keys;
   VALUE val;
   long i, len;
@@ -744,7 +743,7 @@ static SEL
 rbobj_to_cselstr (VALUE obj)
 {
   int i;
-  VALUE str;
+  volatile VALUE str;
   char *sel;
  
   str = rb_obj_is_kind_of(obj, rb_cString)
@@ -783,7 +782,7 @@ static void
 funcptr_closure_handler (ffi_cif *cif, void *resp, void **args, void *userdata)
 {
   struct funcptr_closure_context *context;
-  VALUE rb_args;
+  volatile VALUE rb_args;
   unsigned i;
   VALUE retval;
 
@@ -805,7 +804,7 @@ funcptr_closure_handler (ffi_cif *cif, void *resp, void **args, void *userdata)
   retval = rb_funcall2(context->block, rb_intern("call"), RARRAY(rb_args)->len, RARRAY(rb_args)->ptr);
   DATACONV_LOG("called Ruby block");
 
-  if (*encoding_skip_modifiers(context->rettype) != _C_VOID) {
+  if (*encoding_skip_to_first_type(context->rettype) != _C_VOID) {
     if (!rbobj_to_ocdata(retval, context->rettype, resp, YES))
       rb_raise(rb_eRuntimeError, "Can't convert return Ruby value to Objective-C value of octype '%s'", context->rettype);
   }
@@ -967,8 +966,7 @@ rbobj_to_ocdata (VALUE obj, const char *octype_str, void* ocdata, BOOL to_libffi
   }
 #endif
   
-  if (*octype_str == _C_CONST)
-    octype_str++;
+  octype_str = encoding_skip_qualifiers(octype_str);
 
   // Make sure we convert booleans to NSNumber booleans.
   if (*octype_str != _C_ID && *octype_str != _C_BOOL) {
@@ -1083,7 +1081,10 @@ rbobj_to_ocdata (VALUE obj, const char *octype_str, void* ocdata, BOOL to_libffi
       break;
 
     case _C_CHARPTR:
-      *(char**)ocdata = STR2CSTR(rb_obj_as_string(obj));
+      {
+        VALUE str = rb_obj_as_string(obj);
+        *(char**)ocdata = StringValuePtr(str);
+      }
       break;
 
     case _C_PTR:
@@ -1191,7 +1192,7 @@ is_id_ptr (const char *type)
     return NO;
 
   type++;
-  type = encoding_skip_modifiers(type);
+  type = encoding_skip_to_first_type(type);
 
   return *type == _C_ID; 
 }
@@ -1217,12 +1218,33 @@ is_boxed_ptr (const char *type, struct bsBoxed **boxed)
 }
 
 const char *
-encoding_skip_modifiers(const char *type)
+encoding_skip_to_first_type(const char *type)
 {
   while (YES) {
     switch (*type) {
       case _C_CONST:
       case _C_PTR:
+      case 'O': // bycopy
+      case 'n': // in
+      case 'o': // out
+      case 'N': // inout
+      case 'V': // oneway
+        type++;
+        break;
+
+      default:
+        return type;
+    }
+  }
+  return NULL;
+}
+
+const char *
+encoding_skip_qualifiers(const char *type)
+{
+  while (YES) {
+    switch (*type) {
+      case _C_CONST:
       case 'O': // bycopy
       case 'n': // in
       case 'o': // out
@@ -1246,7 +1268,7 @@ __get_first_encoding(const char *type, char *buf, size_t buf_len)
 
   orig_type = type;
 
-  type = encoding_skip_modifiers(type);
+  type = encoding_skip_to_first_type(type);
 
   switch (*type) {
     case '\0':

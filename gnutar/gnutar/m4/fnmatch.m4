@@ -1,24 +1,13 @@
 # Check for fnmatch.
 
-# This is a modified version of autoconf's AC_FUNC_FNMATCH.
-# This file should be simplified after Autoconf 2.57 is required.
+# Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software
+# Foundation, Inc.
+# This file is free software; the Free Software Foundation
+# gives unlimited permission to copy and/or distribute it,
+# with or without modifications, as long as this notice is preserved.
 
-# Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
-
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2, or (at your option)
-# any later version.
-
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-# 02111-1307, USA.
+# Autoconf defines AC_FUNC_FNMATCH, but that is obsolescent.
+# New applications should use the macros below instead.
 
 # _AC_FUNC_FNMATCH_IF(STANDARD = GNU | POSIX, CACHE_VAR, IF-TRUE, IF-FALSE)
 # -------------------------------------------------------------------------
@@ -34,27 +23,52 @@ AC_DEFUN([_AC_FUNC_FNMATCH_IF],
    dnl Thanks to John Oleynick, François Pinard, and Paul Eggert for this test.
    AC_RUN_IFELSE(
       [AC_LANG_PROGRAM(
-	 [
-#	   include <stdlib.h>
-#	   include <fnmatch.h>
-#	   define y(a, b, c) (fnmatch (a, b, c) == 0)
-#	   define n(a, b, c) (fnmatch (a, b, c) == FNM_NOMATCH)
-         ],
-	 [exit
-	   (!(y ("a*", "abc", 0)
+	 [[#include <fnmatch.h>
+	   static int
+	   y (char const *pattern, char const *string, int flags)
+	   {
+	     return fnmatch (pattern, string, flags) == 0;
+	   }
+	   static int
+	   n (char const *pattern, char const *string, int flags)
+	   {
+	     return fnmatch (pattern, string, flags) == FNM_NOMATCH;
+	   }
+	 ]],
+	 [[char const *Apat = 'A' < '\\\\' ? "[A-\\\\\\\\]" : "[\\\\\\\\-A]";
+	   char const *apat = 'a' < '\\\\' ? "[a-\\\\\\\\]" : "[\\\\\\\\-a]";
+	   static char const A_1[] = { 'A' - 1, 0 };
+	   static char const A01[] = { 'A' + 1, 0 };
+	   static char const a_1[] = { 'a' - 1, 0 };
+	   static char const a01[] = { 'a' + 1, 0 };
+	   static char const bs_1[] = { '\\\\' - 1, 0 };
+	   static char const bs01[] = { '\\\\' + 1, 0 };
+	   return
+	    !(n ("a*", "", 0)
+	      && y ("a*", "abc", 0)
 	      && n ("d*/*1", "d/s/1", FNM_PATHNAME)
 	      && y ("a\\\\bc", "abc", 0)
 	      && n ("a\\\\bc", "abc", FNM_NOESCAPE)
 	      && y ("*x", ".x", 0)
 	      && n ("*x", ".x", FNM_PERIOD)
-	      && m4_if([$1], [GNU],
+	      && y (Apat, "\\\\", 0) && y (Apat, "A", 0)
+	      && y (apat, "\\\\", 0) && y (apat, "a", 0)
+	      && n (Apat, A_1, 0) == ('A' < '\\\\')
+	      && n (apat, a_1, 0) == ('a' < '\\\\')
+	      && y (Apat, A01, 0) == ('A' < '\\\\')
+	      && y (apat, a01, 0) == ('a' < '\\\\')
+	      && y (Apat, bs_1, 0) == ('A' < '\\\\')
+	      && y (apat, bs_1, 0) == ('a' < '\\\\')
+	      && n (Apat, bs01, 0) == ('A' < '\\\\')
+	      && n (apat, bs01, 0) == ('a' < '\\\\')
+	      && ]m4_if([$1], [GNU],
 		   [y ("xxXX", "xXxX", FNM_CASEFOLD)
 		    && y ("a++(x|yy)b", "a+xyyyyxb", FNM_EXTMATCH)
 		    && n ("d*/*1", "d/s/1", FNM_FILE_NAME)
 		    && y ("*", "x", FNM_FILE_NAME | FNM_LEADING_DIR)
 		    && y ("x*", "x/y/z", FNM_FILE_NAME | FNM_LEADING_DIR)
 		    && y ("*c*", "c/x", FNM_FILE_NAME | FNM_LEADING_DIR)],
-		   1)));])],
+		   1))[;]])],
       [$2=yes],
       [$2=no],
       [$2=cross])])
@@ -66,12 +80,11 @@ AS_IF([test $$2 = yes], [$3], [$4])
 # ------------------
 # Prepare the replacement of fnmatch.
 AC_DEFUN([_AC_LIBOBJ_FNMATCH],
-[AC_REQUIRE([AC_C_CONST])dnl
-AC_REQUIRE([AC_FUNC_ALLOCA])dnl
+[AC_REQUIRE([AC_FUNC_ALLOCA])dnl
 AC_REQUIRE([AC_TYPE_MBSTATE_T])dnl
-AC_CHECK_DECLS([getenv])
-AC_CHECK_FUNCS([btowc mbsrtowcs mempcpy wmemchr wmemcpy wmempcpy])
-AC_CHECK_HEADERS([wchar.h wctype.h])
+AC_CHECK_DECLS([isblank], [], [], [#include <ctype.h>])
+AC_CHECK_FUNCS_ONCE([btowc iswctype mbsrtowcs mempcpy wmemchr wmemcpy wmempcpy])
+AC_CHECK_HEADERS_ONCE([wctype.h])
 AC_LIBOBJ([fnmatch])
 FNMATCH_H=fnmatch.h
 ])# _AC_LIBOBJ_FNMATCH
@@ -81,8 +94,8 @@ AC_DEFUN([gl_FUNC_FNMATCH_POSIX],
 [
   FNMATCH_H=
   _AC_FUNC_FNMATCH_IF([POSIX], [ac_cv_func_fnmatch_posix],
-                      [rm -f lib/fnmatch.h],
-                      [_AC_LIBOBJ_FNMATCH])
+		      [rm -f lib/fnmatch.h],
+		      [_AC_LIBOBJ_FNMATCH])
   if test $ac_cv_func_fnmatch_posix != yes; then
     dnl We must choose a different name for our function, since on ELF systems
     dnl a broken fnmatch() in libc.so would override our fnmatch() if it is
@@ -101,8 +114,8 @@ AC_DEFUN([gl_FUNC_FNMATCH_GNU],
 
   FNMATCH_H=
   _AC_FUNC_FNMATCH_IF([GNU], [ac_cv_func_fnmatch_gnu],
-                      [rm -f lib/fnmatch.h],
-                      [_AC_LIBOBJ_FNMATCH])
+		      [rm -f lib/fnmatch.h],
+		      [_AC_LIBOBJ_FNMATCH])
   if test $ac_cv_func_fnmatch_gnu != yes; then
     dnl We must choose a different name for our function, since on ELF systems
     dnl a broken fnmatch() in libc.so would override our fnmatch() if it is

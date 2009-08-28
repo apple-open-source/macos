@@ -1,0 +1,38 @@
+Announcing XOTcl 1.5.3
+*************************
+
+Hi everybody. We are pleased to announce the availability of XOTcl 1.5.3.
+Major changes relative to 1.5.2 are:
+
+    * Improved code quality: 
+
+      + provided compatibility with Tcl 8.5 
+
+      + provided compatibility with Tcl 8.4.14 
+
+         (fixed a nasty bug caused by a change in tcl 8.4.14, could
+         led to a crash due to freed Tcl_Objs in OpenACS, allthough
+         the xotcl regression test passed correctly)
+
+      + reduced calling overhead of methods with nonpositional
+         arguments by about 10 percent by avoiding shimmering.
+
+      + fixed handling of "return -code break" from xotcl methods
+         (thanks to Artur Trzewik for the bug report)
+
+      + library/comm/Access.xotcl: fixed handling of chunked encoding
+
+ For more details about the changes, please consult the ChangeLog and
+ documentation.
+
+MORE INFO
+  General and more detailed information about XOTcl and its components
+  can be found at http://www.xotcl.org
+
+
+Best regards,
+
+Gustaf Neumann
+Uwe Zdun
+
+

@@ -1,10 +1,9 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2000-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 2000,2007 Oracle.  All rights reserved.
  *
- * $Id: TestConstruct01.cpp,v 1.2 2004/03/30 01:24:38 jtownsen Exp $
+ * $Id: TestConstruct01.cpp,v 12.6 2007/05/17 15:15:56 bostic Exp $
  */
 
 /*
@@ -13,8 +12,6 @@
  * Run with a numeric argument, it repeats the regression a number
  * of times, to try to determine if there are memory leaks.
  */
-
-#ifndef NO_SYSTEM_INCLUDES
 #include <sys/types.h>
 
 #include <iostream.h>
@@ -23,7 +20,6 @@
 #include <string.h>
 #ifndef _MSC_VER
 #include <unistd.h>
-#endif
 #endif
 
 #include <iomanip.h>

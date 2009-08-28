@@ -3,7 +3,7 @@
   env.h -
 
   $Author: knu $
-  $Date: 2007-03-03 16:30:46 +0900 (Sat, 03 Mar 2007) $
+  $Date: 2007-03-03 16:28:54 +0900 (Sat, 03 Mar 2007) $
   created at: Mon Jul 11 11:53:03 JST 1994
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto

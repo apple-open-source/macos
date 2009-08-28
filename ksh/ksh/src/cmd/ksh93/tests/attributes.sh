@@ -1,10 +1,10 @@
 ########################################################################
 #                                                                      #
 #               This software is part of the ast package               #
-#           Copyright (c) 1982-2007 AT&T Knowledge Ventures            #
+#          Copyright (c) 1982-2007 AT&T Intellectual Property          #
 #                      and is licensed under the                       #
 #                  Common Public License, Version 1.0                  #
-#                      by AT&T Knowledge Ventures                      #
+#                    by AT&T Intellectual Property                     #
 #                                                                      #
 #                A copy of the License is available at                 #
 #            http://www.opensource.org/licenses/cpl1.0.txt             #
@@ -140,6 +140,7 @@ foo
 if	(( ${#LAST} != 2 ))
 then	err_exit 'LAST!=2'
 fi
+[[ $(set | grep LAST) == LAST=02 ]] || err_exit "LAST not correct in set list"
 rm -rf /tmp/ksh$$
 set -a
 unset foo

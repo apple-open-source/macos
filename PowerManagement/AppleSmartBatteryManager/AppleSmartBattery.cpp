@@ -125,28 +125,29 @@ static const OSSymbol *_ManfDateSym =
                         OSSymbol::withCString(kIOPMPSManufactureDateKey);
 static const OSSymbol *_DesignCapacitySym = 
                         OSSymbol::withCString(kIOPMPSDesignCapacityKey);
-static const OSSymbol *_TemperatureSym = 
-                        OSSymbol::withCString("Temperature");
+//static const OSSymbol *_TemperatureSym = 
+//                        OSSymbol::withCString("Temperature");
 static const OSSymbol *_CellVoltageSym = 
                         OSSymbol::withCString("CellVoltage");
 static const OSSymbol *_ManufacturerDataSym = 
                         OSSymbol::withCString("ManufacturerData");
 static const OSSymbol *_PFStatusSym =
                         OSSymbol::withCString("PermanentFailureStatus");
-static const OSSymbol *_DesignedForCyclesSym =
-                        OSSymbol::withCString("DesignCycleCount");
+static const OSSymbol *_DesignCycleCount70Sym =
+                        OSSymbol::withCString("DesignCycleCount70");
+static const OSSymbol *_DesignCycleCount9CSym =
+                        OSSymbol::withCString("DesignCycleCount9C");
 
 /* _SerialNumberSym represents the manufacturer's 16-bit serial number in
     numeric format. 
  */
 static const OSSymbol *_SerialNumberSym =
-                        OSSymbol::withCString("SerialNumber");
+                        OSSymbol::withCString("FirmwareSerialNumber");
 
-/* _SoftwareSerialSym == AppleSoftwareSerial
-   represents the Apple-generated user readable serial number that will appear
-   in the OS and is accessible to users.
+/* _HardwareSerialSym == AppleSoftwareSerial
+   represents the Apple-defined 12+ character string in firmware.
  */
-static const OSSymbol *_SoftwareSerialSym =
+static const OSSymbol *_HardwareSerialSym =
                         OSSymbol::withCString("BatterySerialNumber");
 
 /* _ChargeStatusSym tracks any irregular charging patterns in the battery
@@ -592,15 +593,19 @@ bool AppleSmartBattery::transactionCompletion(
     IOSMBusTransaction *transaction)
 {
     int         next_state = (uintptr_t)ref;
-    int16_t     my_signed_16;
-    uint16_t    my_unsigned_16;
     uint32_t    delay_for = 0;
     IOSMBusStatus transaction_status = kIOSMBusStatusPECError;
     bool        transaction_needs_retry = false;
     char        recv_str[kIOSMBusMaxDataCount+1];
+
+    // scratch variables
+    int16_t     my_signed_16;
+    uint16_t    my_unsigned_16;
+    OSNumber    *writeNum;
+    unsigned long long writeByte;
     OSNumber    *cell_volt_num = NULL;
     OSNumber    *pfstatus_num = NULL;
-
+    
     /* If a user client has exclusive access to the SMBus, 
      * we'll exit immediately.
      */
@@ -1091,6 +1096,7 @@ bool AppleSmartBattery::transactionCompletion(
                 properties->removeObject( _ManufacturerDataSym );
             }
 
+
             readWordAsync(kSMBusBatteryAddr, kBManufactureDateCmd);
         break;
 
@@ -1144,27 +1150,33 @@ bool AppleSmartBattery::transactionCompletion(
 /************ Only executed in ReadForNewBatteryPath ****************/
         case kBSerialNumberCmd:
             if( kIOSMBusStatusOK == transaction_status ) 
-            {
-                const OSSymbol *serialSym;
-        
+            {        
+                /* Gets the firmware's 16-bit serial number out */
                 setSerialNumber((uint16_t) 
                                 (transaction->receiveData[0] 
-                              | (transaction->receiveData[1] << 8) ));
-        
-                // IOPMPowerSource expects an OSSymbol for serial number, so we
-                // sprint this 16-bit number into an OSSymbol
-                
-                bzero(recv_str, sizeof(recv_str));
-                snprintf(recv_str, sizeof(recv_str), "%d", 
-                    ( transaction->receiveData[0] 
-                    | (transaction->receiveData[1] << 8) ));
-                serialSym = OSSymbol::withCString(recv_str);
-                if(serialSym) {
-                    setSerial( (OSSymbol *) serialSym);
-                    serialSym->release();        
+                              | (transaction->receiveData[1] << 8) ));        
+            } else {
+                properties->removeObject(_SerialNumberSym);
+            }
+            
+            readBlockAsync(kSMBusBatteryAddr, kBAppleHardwareSerialCmd);
+            break;
+
+/************ Only executed in ReadForNewBatteryPath ****************/
+        case kBAppleHardwareSerialCmd:
+
+            if( kIOSMBusStatusOK == transaction_status ) 
+            {
+                // Expect transaction->receiveData to contain a NULL-terminated
+                // 12+ character ASCII string.
+                const OSSymbol *serialSymbol = OSSymbol::withCString(
+                                            (char *)transaction->receiveData);
+                if (serialSymbol) {                
+                    setPSProperty(_HardwareSerialSym, (OSObject *)serialSymbol);
+                    serialSymbol->release();
                 }
             } else {
-                properties->removeObject(serialKey);
+                properties->removeObject(_HardwareSerialSym);
             }
             
             readWordAsync(kSMBusBatteryAddr, kBDesignCapacityCmd);
@@ -1504,10 +1516,6 @@ bool AppleSmartBattery::transactionCompletion(
                 setInstantAmperage( 0 );
             }
         
-
-            /* construct and publish our battery serial number here */
-            constructAppleSerialNumber();
-
             /* Cancel read-completion timeout; Successfully read battery state */
             fBatteryReadAllTimer->cancelTimeout();
 
@@ -1643,58 +1651,6 @@ void AppleSmartBattery::clearBatteryState(bool do_update)
     setLegacyIOBatteryInfo(legacyDict);
     
     legacyDict->release();
-}
-
-/******************************************************************************
- *  Fabricate a serial number from our manufacturer, model, manufacture date,
- *  and factory serial numbers. This is unique, and mappable back to Apple's
- *  independently assigned serial number.
- ******************************************************************************/
- 
- #define kMaxGeneratedSerialSize (16+16+4+4+4)
-void AppleSmartBattery::constructAppleSerialNumber(void)
-{
-    OSSymbol        *manf_string = manufacturer();
-    const char *    manf_cstring_ptr;
-    OSSymbol        *device_string = deviceName();
-    const char *    device_cstring_ptr;
-    OSNumber        *manf_date;
-    uint16_t        date16 = 0;
-    uint16_t        serial16 = serialNumber();
-    
-    const OSSymbol  *printableSerial = NULL;
-    char            serialBuf[kMaxGeneratedSerialSize];
-    
-    if (manf_string) {
-        manf_cstring_ptr = manf_string->getCStringNoCopy();
-    } else {
-        manf_cstring_ptr = "XXXX";
-    }
-    
-    if (device_string) {
-        device_cstring_ptr = device_string->getCStringNoCopy();
-    } else {
-        device_cstring_ptr = "YYYY";
-    }
-
-    manf_date = (OSNumber *)OSDynamicCast(OSNumber, getPSProperty(_ManfDateSym));
-    if (manf_date)
-        date16 = manf_date->unsigned16BitValue();
-    else 
-        date16 = 0;
-    
-    bzero(serialBuf, kMaxGeneratedSerialSize);
-
-    snprintf(serialBuf, kMaxGeneratedSerialSize, "%s-%s-%x-%x", 
-                manf_cstring_ptr, device_cstring_ptr, date16, serial16);
-    
-    printableSerial = OSSymbol::withCString(serialBuf);
-    if (printableSerial) {
-        setPSProperty(_SoftwareSerialSym, (OSObject *)printableSerial);
-        printableSerial->release();
-    }
-    
-    return;
 }
 
 

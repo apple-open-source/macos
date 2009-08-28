@@ -582,8 +582,9 @@ the -p option may need to be used to define a path where the test
 can write a large file, or the process ulimit file block size may
 need to be raised -- e.g., to "unlimited."
 
-LTbigf can't test file offset reporting on Linux, because its /proc
-file system doesn't report offsets to lsof.
+LTbigf can't test file offset reporting on Linux kernels below
+2.6.22, because the /proc file systems of those kernels don't make
+file offsets available to lsof.
 
 Run this test:
 
@@ -756,8 +757,9 @@ This test checks lsof's reporting of file size and offset for small
 It creates a test file in the current working directory named
 config.LTszoff<PID>.  PID is the Process ID of the test process.
 
-LTszoff can't test file offset reporting on Linux, because its
-/proc file system doesn't report them to lsof.
+LTszoff can't test file offset reporting on Linux kernels below
+2.6.22, because the /proc file systems of those kernels don't make
+file offsets available to lsof.
 
 Run this test:
 
@@ -850,6 +852,10 @@ base, footprints, and the scripts that support them.
 						to allow the LTbigf,
 						LTlock and LTnlink
 						tests to run.
+		  9.0, gcc			Darwin lsof doesn't
+						have adequate support
+						to allow the LTlock
+						test to run.
     FreeBSD       4.5, i386, gcc
 		  4.6, i386, gcc
 		  4.7, i386, gcc
@@ -876,6 +882,8 @@ base, footprints, and the scripts that support them.
 		  6.1, i386, gcc
 		  7.0 Alpha, gcc
 		  7.0 Amd64, gcc
+		  7.1 Amd64, gcc
+		  8.0 Amd64, gcc
     DEC OSF/1	  4.0, cc
     HP-UX	  10.20, cc			LTbigf
 		  10.20, gcc (1)		LTbigf
@@ -907,6 +915,11 @@ base, footprints, and the scripts that support them.
 						LTszoff, no offset tests
 		  2.6.1-rc2	            	LTbigf, no offset tests
 						LTszoff, no offset tests
+		  2.6.18-686	            	LTbigf, no offset tests
+						LTszoff, no offset tests
+		  2.6.22-686			(Note: this Linux kernel
+						 supplies file offsets to
+						 lsof.)
     NEXTSTEP      3.1, gcc                   	LTnfs
     NetBSD        1.4.1, Alpha, gcc          	LTnfs
 		  1.5x, x86, gcc           	LTnfs
@@ -984,4 +997,4 @@ I was unable to make the test suite run on the following dialects.
 
 
 Vic Abell <abe@purdue.edu>
-April 24, 2007
+??? ??? 2008

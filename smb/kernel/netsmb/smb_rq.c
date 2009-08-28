@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -56,6 +56,7 @@
 
 #include <sys/vnode.h>
 #include <smbfs/smbfs.h>
+#include <netsmb/smb_converter.h>
 
 MALLOC_DEFINE(M_SMBRQ, "SMBRQ", "SMB request");
 
@@ -64,13 +65,12 @@ static int  smb_rq_getenv(struct smb_connobj *layer,
 		struct smb_vc **vcpp, struct smb_share **sspp);
 static int  smb_rq_new(struct smb_rq *rqp, u_char cmd);
 static int  smb_t2_reply(struct smb_t2rq *t2p);
-static int  smb_nt_reply(struct smb_ntrq *ntp);
 
 /*
  * There is no KPI call for m_cat. Josh gave me the following
  * code to replace m_cat
  */
-PRIVSYM void
+void
 mbuf_cat_internal(mbuf_t md_top, mbuf_t m0)
 {
 	mbuf_t m;
@@ -80,9 +80,8 @@ mbuf_cat_internal(mbuf_t md_top, mbuf_t m0)
 	mbuf_setnext(m, m0);
 }
 
-PRIVSYM int
-smb_rq_alloc(struct smb_connobj *layer, u_char cmd, struct smb_cred *scred,
-	struct smb_rq **rqpp)
+int smb_rq_alloc(struct smb_connobj *layer, u_char cmd, 
+				 vfs_context_t context, struct smb_rq **rqpp)
 {
 	struct smb_rq *rqp;
 	int error;
@@ -90,7 +89,7 @@ smb_rq_alloc(struct smb_connobj *layer, u_char cmd, struct smb_cred *scred,
 	MALLOC(rqp, struct smb_rq *, sizeof(*rqp), M_SMBRQ, M_WAITOK);
 	if (rqp == NULL)
 		return ENOMEM;
-	error = smb_rq_init(rqp, layer, cmd, scred);
+	error = smb_rq_init(rqp, layer, cmd, context);
 	rqp->sr_flags |= SMBR_ALLOCED;
 	if (error) {
 		smb_rq_done(rqp);
@@ -100,11 +99,8 @@ smb_rq_alloc(struct smb_connobj *layer, u_char cmd, struct smb_cred *scred,
 	return 0;
 }
 
-static char tzero[12];
-
-PRIVSYM int
-smb_rq_init(struct smb_rq *rqp, struct smb_connobj *layer, u_char cmd,
-	struct smb_cred *scred)
+int
+smb_rq_init(struct smb_rq *rqp, struct smb_connobj *layer, u_char cmd, vfs_context_t context)
 {
 	int error;
 
@@ -113,15 +109,10 @@ smb_rq_init(struct smb_rq *rqp, struct smb_connobj *layer, u_char cmd,
 	error = smb_rq_getenv(layer, &rqp->sr_vc, &rqp->sr_share);
 	if (error)
 		return error;
-	error = smb_vc_access(rqp->sr_vc, scred->scr_vfsctx);
+	error = smb_vc_access(rqp->sr_vc, context);
 	if (error)
 		return error;
-	if (rqp->sr_share) {
-		error = smb_share_access(rqp->sr_share, scred->scr_vfsctx);
-		if (error)
-			return error;
-	}
-	rqp->sr_cred = scred;
+	rqp->sr_context = context;
 	rqp->sr_mid = smb_vc_nextmid(rqp->sr_vc);
 	error = smb_rq_new(rqp, cmd);
 	if (!error) {
@@ -150,19 +141,21 @@ smb_rq_new(struct smb_rq *rqp, u_char cmd)
 	mb_put_uint32le(mbp, 0);		/* DosError */
 	mb_put_uint8(mbp, vcp->vc_hflags);
 	flags2 = vcp->vc_hflags2;
-	if (cmd == SMB_COM_TRANSACTION || cmd == SMB_COM_TRANSACTION_SECONDARY)
-		flags2 &= ~SMB_FLAGS2_UNICODE;
 	if (cmd == SMB_COM_NEGOTIATE)
 		flags2 &= ~SMB_FLAGS2_SECURITY_SIGNATURE;
 	mb_put_uint16le(mbp, flags2);
-	if ((flags2 & SMB_FLAGS2_SECURITY_SIGNATURE) == 0) {
-		mb_put_mem(mbp, tzero, 12, MB_MSYSTEM);
-		rqp->sr_rqsig = NULL;
-	} else {
-		mb_put_uint16le(mbp, 0 /*scred->sc_p->p_pid >> 16*/);
-		rqp->sr_rqsig = (u_int8_t *)mb_reserve(mbp, 8);
-		mb_put_uint16le(mbp, 0);
-	}
+	/*
+	 * The old code would check for SMB_FLAGS2_SECURITY_SIGNATURE, before deciding 
+	 * if it need to reserve space for signing. If we are in the middle of reconnect
+	 * then SMB_FLAGS2_SECURITY_SIGNATURE may not be set yet. We should always 
+	 * reserve and zero the space. It doesn't hurt anything and it means we 
+	 * can always handle signing.
+	 */
+	mb_put_uint16le(mbp, 0);
+	rqp->sr_rqsig = (u_int8_t *)mb_reserve(mbp, 8);
+	bzero(rqp->sr_rqsig, 8);
+	mb_put_uint16le(mbp, 0);
+
 	rqp->sr_rqtid = (u_int16_t*)mb_reserve(mbp, sizeof(u_int16_t));
 	mb_put_uint16le(mbp, 1 /* proc_pid(scred->sc_p) & 0xffff*/);
 	rqp->sr_rquid = (u_int16_t*)mb_reserve(mbp, sizeof(u_int16_t));
@@ -175,7 +168,7 @@ smb_rq_done(struct smb_rq *rqp)
 {
 	if (rqp->sr_flags & SMBR_VCREF) {
 		rqp->sr_flags &= ~SMBR_VCREF;
-		smb_vc_rele(rqp->sr_vc, rqp->sr_cred);
+		smb_vc_rele(rqp->sr_vc, rqp->sr_context);
 	}
 	mb_done(&rqp->sr_rq);
 	md_done(&rqp->sr_rp);
@@ -185,28 +178,45 @@ smb_rq_done(struct smb_rq *rqp)
 }
 
 /*
+ * Given a share check and see if the volume is being forced unmounted. Make
+ * sure we lock before checking. If we wake up any sleepers and return the 
+ * correct error.
+ */
+static int smb_rq_isforce(struct smb_share* share)
+{
+	int error = 0;
+	
+	lck_mtx_lock(&share->ss_mntlock);
+	/* If we have a ss_mount then we have a sm_mp */
+	if ((share->ss_mount) && (vfs_isforce(share->ss_mount->sm_mp))) {
+		wakeup(&share->ss_mount->sm_status);
+		error = ENXIO;			
+	}
+	lck_mtx_unlock(&share->ss_mntlock);
+	return error;
+}
+
+/*
  * Simple request-reply exchange
  */
 int
-smb_rq_simple_timed(struct smb_rq *rqp, int timeout)
+smb_rq_simple_timed(struct smb_rq *rqp, int timo)
 {
-	int error = EINVAL;
+	int error = 0;
 
-	/* don't send any new requests if force unmount is underway */
-	if (rqp->sr_share && rqp->sr_share->ss_mount) {
-		if ((vfs_isforce(rqp->sr_share->ss_mount->sm_mp))) {
-			wakeup(&rqp->sr_share->ss_mount->sm_status);
-			return ENXIO;
-		}
+	/* don't send any new requests if force unmount is underway */	
+	if (rqp->sr_share)
+		error = smb_rq_isforce(rqp->sr_share);
+
+	if (! error) {
+		rqp->sr_timo = timo;	/* in seconds */
+		rqp->sr_state = SMBRQ_NOTSENT;
+		error = smb_iod_rq_enqueue(rqp);		
 	}
-	rqp->sr_timo = timeout;	/* in seconds */
-	rqp->sr_state = SMBRQ_NOTSENT;
-	error = smb_iod_rq_enqueue(rqp);
 	if (! error)
 		error = smb_rq_reply(rqp);
 	return (error);
 }
-
 
 int
 smb_rq_simple(struct smb_rq *rqp)
@@ -240,26 +250,32 @@ smb_rq_bstart(struct smb_rq *rqp)
 	rqp->sr_rq.mb_count = 0;
 }
 
-void
-smb_rq_bend(struct smb_rq *rqp)
+void smb_rq_bend(struct smb_rq *rqp)
 {
-	int bcnt;
+	u_int16_t bcnt;
 
+	DBG_ASSERT(rqp->sr_bcount);
 	if (rqp->sr_bcount == NULL) {
 		SMBERROR("no bcount\n");	/* actually panic */
 		return;
 	}
-	bcnt = rqp->sr_rq.mb_count;
 	/*
 	 * Byte Count field should be ignored when dealing with  SMB_CAP_LARGE_WRITEX 
 	 * or SMB_CAP_LARGE_READX messages. So we set it to zero in these cases.
 	 */
 	if (((rqp->sr_vc->vc_sopt.sv_caps & SMB_CAP_LARGE_READX) && (rqp->sr_cmd == SMB_COM_READ_ANDX)) ||
-		((rqp->sr_vc->vc_sopt.sv_caps & SMB_CAP_LARGE_WRITEX) && (rqp->sr_cmd == SMB_COM_WRITE_ANDX)))
-		bcnt = 0; /* Set the byte count to zero here */
-	else if (bcnt > 0xffff) {
-		SMBDEBUG("byte count too large (%d)\n", bcnt);
-	}
+		((rqp->sr_vc->vc_sopt.sv_caps & SMB_CAP_LARGE_WRITEX) && (rqp->sr_cmd == SMB_COM_WRITE_ANDX))) {
+		/* SAMBA 4 doesn't like the byte count to be zero */
+		if (rqp->sr_rq.mb_count > 0x0ffff) 
+			bcnt = 0; /* Set the byte count to zero here */
+		else
+			bcnt = (u_int16_t)rqp->sr_rq.mb_count;
+	} else if (rqp->sr_rq.mb_count > 0xffff) {
+		SMBERROR("byte count too large (%ld)\n", rqp->sr_rq.mb_count);
+		bcnt =  0xffff;	/* not sure what else to do here */
+	} else
+		bcnt = (u_int16_t)rqp->sr_rq.mb_count;
+	
 	*rqp->sr_bcount = htoles(bcnt);
 }
 
@@ -268,7 +284,7 @@ smb_rq_intr(struct smb_rq *rqp)
 {
 	if (rqp->sr_flags & SMBR_INTR)
 		return EINTR;
-	return (smb_sigintr(rqp->sr_cred->scr_vfsctx));
+	return (smb_sigintr(rqp->sr_context));
 }
 
 int
@@ -337,11 +353,16 @@ smb_rq_reply(struct smb_rq *rqp)
 	u_int8_t tb;
 	int error, rperror = 0;
 
-	if (rqp->sr_timo == SMBNOREPLYWAIT)
-		return (smb_iod_removerq(rqp));
-	error = smb_iod_waitrq(rqp);
-	if (error)
-		return error;
+	/* If an async call then just remove it from the queue, no waiting required */
+	if (rqp->sr_flags & SMBR_ASYNC)
+		smb_iod_removerq(rqp);
+	else {
+		if (rqp->sr_timo == SMBNOREPLYWAIT)
+			return (smb_iod_removerq(rqp));
+		error = smb_iod_waitrq(rqp);
+		if (error)
+			return error;		
+	}
 	error = md_get_uint32(mdp, &tdw);
 	if (error)
 		return error;
@@ -397,6 +418,42 @@ smb_rq_reply(struct smb_rq *rqp)
 	return error ? error : rperror;
 }
 
+static int smb_nt_init(struct smb_ntrq *ntp, struct smb_connobj *source, 
+					   u_short fn, vfs_context_t context)
+{
+	int error;
+	
+	bzero(ntp, sizeof(*ntp));
+	ntp->nt_source = source;
+	ntp->nt_function = fn;
+	ntp->nt_context = context;
+	ntp->nt_share = (source->co_level == SMBL_SHARE ?
+					 CPTOSS(source) : NULL); /* for smb up/down */
+	error = smb_rq_getenv(source, &ntp->nt_vc, NULL);
+	if (error)
+		return error;
+	return 0;
+}
+
+int smb_nt_alloc(struct smb_connobj *layer, u_short fn, 
+				 vfs_context_t context, struct smb_ntrq **ntpp)
+{
+	struct smb_ntrq *ntp;
+	int error;
+	
+	MALLOC(ntp, struct smb_ntrq *, sizeof(*ntp), M_SMBRQ, M_WAITOK);
+	if (ntp == NULL)
+		return ENOMEM;
+	error = smb_nt_init(ntp, layer, fn, context);
+	ntp->nt_flags |= SMBT2_ALLOCED;
+	if (error) {
+		smb_nt_done(ntp);
+		return error;
+	}
+	*ntpp = ntp;
+	return 0;
+}
+
 
 #define ALIGN4(a)	(((a) + 3) & ~3)
 
@@ -405,9 +462,8 @@ smb_rq_reply(struct smb_rq *rqp)
  * TRANS implementation is in the "t2" routines
  * NT_TRANSACTION implementation is the separate "nt" stuff
  */
-int
-smb_t2_alloc(struct smb_connobj *layer, u_short setup, struct smb_cred *scred,
-	struct smb_t2rq **t2pp)
+int smb_t2_alloc(struct smb_connobj *layer, u_short setup, 
+				 vfs_context_t context, struct smb_t2rq **t2pp)
 {
 	struct smb_t2rq *t2p;
 	int error;
@@ -415,7 +471,7 @@ smb_t2_alloc(struct smb_connobj *layer, u_short setup, struct smb_cred *scred,
 	MALLOC(t2p, struct smb_t2rq *, sizeof(*t2p), M_SMBRQ, M_WAITOK);
 	if (t2p == NULL)
 		return ENOMEM;
-	error = smb_t2_init(t2p, layer, &setup, 1, scred);
+	error = smb_t2_init(t2p, layer, &setup, 1, context);
 	t2p->t2_flags |= SMBT2_ALLOCED;
 	if (error) {
 		smb_t2_done(t2p);
@@ -426,28 +482,8 @@ smb_t2_alloc(struct smb_connobj *layer, u_short setup, struct smb_cred *scred,
 }
 
 int
-smb_nt_alloc(struct smb_connobj *layer, u_short fn, struct smb_cred *scred,
-	struct smb_ntrq **ntpp)
-{
-	struct smb_ntrq *ntp;
-	int error;
-
-	MALLOC(ntp, struct smb_ntrq *, sizeof(*ntp), M_SMBRQ, M_WAITOK);
-	if (ntp == NULL)
-		return ENOMEM;
-	error = smb_nt_init(ntp, layer, fn, scred);
-	ntp->nt_flags |= SMBT2_ALLOCED;
-	if (error) {
-		smb_nt_done(ntp);
-		return error;
-	}
-	*ntpp = ntp;
-	return 0;
-}
-
-int
 smb_t2_init(struct smb_t2rq *t2p, struct smb_connobj *source, u_short *setup,
-	int setupcnt, struct smb_cred *scred)
+	int setupcnt, vfs_context_t context)
 {
 	int i;
 	int error;
@@ -459,28 +495,10 @@ smb_t2_init(struct smb_t2rq *t2p, struct smb_connobj *source, u_short *setup,
 	for (i = 0; i < setupcnt; i++)
 		t2p->t2_setup[i] = setup[i];
 	t2p->t2_fid = 0xffff;
-	t2p->t2_cred = scred;
+	t2p->t2_context = context;
 	t2p->t2_share = (source->co_level == SMBL_SHARE ?
 			 CPTOSS(source) : NULL); /* for smb up/down */
 	error = smb_rq_getenv(source, &t2p->t2_vc, NULL);
-	if (error)
-		return error;
-	return 0;
-}
-
-int
-smb_nt_init(struct smb_ntrq *ntp, struct smb_connobj *source, u_short fn,
-	struct smb_cred *scred)
-{
-	int error;
-
-	bzero(ntp, sizeof(*ntp));
-	ntp->nt_source = source;
-	ntp->nt_function = fn;
-	ntp->nt_cred = scred;
-	ntp->nt_share = (source->co_level == SMBL_SHARE ?
-			 CPTOSS(source) : NULL); /* for smb up/down */
-	error = smb_rq_getenv(source, &ntp->nt_vc, NULL);
 	if (error)
 		return error;
 	return 0;
@@ -509,12 +527,13 @@ smb_nt_done(struct smb_ntrq *ntp)
 		free(ntp, M_SMBRQ);
 }
 
-static int
-smb_t2_placedata(mbuf_t mtop, u_int16_t offset, u_int16_t count,
-	struct mdchain *mdp)
+static int smb_t2_placedata(mbuf_t mtop, u_int16_t offset, u_int16_t count, 
+							struct mdchain *mdp)
 {
 	mbuf_t m, m0;
-	int len = 0;
+	u_int16_t len = 0;
+	size_t check_len = 0;
+	
 
 	if (mbuf_split(mtop, offset, MBUF_WAITOK, &m0))
 		return EBADRPC;
@@ -524,8 +543,13 @@ smb_t2_placedata(mbuf_t mtop, u_int16_t offset, u_int16_t count,
 	 * chain.
 	 */ 
 	for(m = m0; m; m = mbuf_next(m))
-		len += mbuf_len(m);
+		check_len += mbuf_len(m);
 
+	if (check_len > 0xffff)
+		return EINVAL;
+	else
+		len = (u_int16_t)check_len;
+	
 	if (len > count) {
 		/* passing negative value to mbuf_adj trims off the end of the chain. */
 		mbuf_adj(m0, count - len);
@@ -667,8 +691,7 @@ smb_t2_reply(struct smb_t2rq *t2p)
 	return (error ? error : error2);
 }
 
-static int
-smb_nt_reply(struct smb_ntrq *ntp)
+int smb_nt_reply(struct smb_ntrq *ntp)
 {
 	struct mdchain *mdp;
 	struct smb_rq *rqp = ntp->nt_rq;
@@ -756,6 +779,16 @@ smb_nt_reply(struct smb_ntrq *ntp)
 			ntp->nt_flags |= SMBT2_ALLRECV;
 			break;
 		}
+		DBG_ASSERT((rqp->sr_flags & SMBR_ASYNC) != SMBR_ASYNC)
+		/*
+		 * We are not doing multiple packets and all the data didn't fit in
+		 * this message. Should never happen, but just to make sure.
+		 */
+		if (!(rqp->sr_flags & SMBR_MULTIPACKET)) {
+			SMBWARNING("Not doing multiple message, yet we didn't get all the data?\n");
+			error2 = EINVAL;
+			break;
+		}
 		/*
 		 * We're done with this reply, look for the next one.
 		 */
@@ -783,36 +816,50 @@ smb_nt_reply(struct smb_ntrq *ntp)
 static int
 smb_t2_request_int(struct smb_t2rq *t2p)
 {
+	u_int16_t * txpcountp = NULL;
+	u_int16_t * txpoffsetp = NULL;
+	u_int16_t * txdcountp = NULL;
+	u_int16_t * txdoffsetp = NULL;		
 	struct smb_vc *vcp = t2p->t2_vc;
-	struct smb_cred *scred = t2p->t2_cred;
 	struct mbchain *mbp;
 	struct mdchain *mdp, mbparam, mbdata;
 	mbuf_t m;
 	struct smb_rq *rqp;
-	int totpcount, leftpcount, totdcount, leftdcount, len, txmax, i;
-	int error, doff, poff, txdcount, txpcount, nmlen;
+	u_int16_t  ii;
+	int error;
+	size_t check_len;	
+	u_int16_t totpcount, totdcount, leftpcount, leftdcount;
+	u_int16_t doff, poff, len, txdcount, txpcount, txmax;
 
 	m = t2p->t2_tparam.mb_top;
 	if (m) {
 		md_initm(&mbparam, m);	/* do not free it! */
-		totpcount = m_fixhdr(m);
-		if (totpcount > 0xffff)		/* maxvalue for u_short */
+		check_len = m_fixhdr(m);
+		if (check_len > 0xffff)		/* maxvalue for u_short */
 			return EINVAL;
+		totpcount = (u_int16_t)check_len;
 	} else
 		totpcount = 0;
+	
 	m = t2p->t2_tdata.mb_top;
 	if (m) {
 		md_initm(&mbdata, m);	/* do not free it! */
-		totdcount =  m_fixhdr(m);
-		if (totdcount > 0xffff)
+		check_len =  m_fixhdr(m);
+		if (check_len > 0xffff)
 			return EINVAL;
+		totdcount = (u_int16_t)check_len;
 	} else
 		totdcount = 0;
+	
 	leftdcount = totdcount;
 	leftpcount = totpcount;
-	txmax = vcp->vc_txmax;
+	if (vcp->vc_txmax > 0xffff)		/* maxvalue for u_short */
+		txmax = 0xffff;
+	else
+		txmax = (u_int16_t)vcp->vc_txmax;
+	
 	error = smb_rq_alloc(t2p->t2_source, t2p->t_name ?
-	    SMB_COM_TRANSACTION : SMB_COM_TRANSACTION2, scred, &rqp);
+	    SMB_COM_TRANSACTION : SMB_COM_TRANSACTION2, t2p->t2_context, &rqp);
 	if (error)
 		return error;
 	rqp->sr_timo = vcp->vc_timo;
@@ -830,64 +877,78 @@ smb_t2_request_int(struct smb_t2rq *t2p)
 	mb_put_uint16le(mbp, 0);			/* flags */
 	mb_put_uint32le(mbp, 0);			/* Timeout */
 	mb_put_uint16le(mbp, 0);			/* reserved 2 */
+
+	/* Reserve these field so we can fill them in correctly later */
+	txpcountp = (u_int16_t *)mb_reserve(mbp, sizeof(u_int16_t));
+	txpoffsetp = (u_int16_t *)mb_reserve(mbp, sizeof(u_int16_t));
+	txdcountp = (u_int16_t *)mb_reserve(mbp, sizeof(u_int16_t));
+	txdoffsetp = (u_int16_t *)mb_reserve(mbp, sizeof(u_int16_t));
+
+	mb_put_uint8(mbp, t2p->t2_setupcount);
+	mb_put_uint8(mbp, 0);	/* Reserved */
+	for (ii = 0; ii < t2p->t2_setupcount; ii++)
+		mb_put_uint16le(mbp, t2p->t2_setupdata[ii]);
+	smb_rq_wend(rqp);
+	
+
+	smb_rq_bstart(rqp);
+	if (t2p->t_name)
+		smb_put_dstring(mbp, vcp, t2p->t_name, PATH_MAX, NO_SFM_CONVERSIONS);
+	else	
+		mb_put_uint8(mbp, 0);	/* No name so set it to null */
+
+	/* Make sure we are on a four byte alignment, see MS-SMB Section 2.2.12.9 */
 	len = mb_fixhdr(mbp);
-	/*
-	 * now we have known packet size as
-	 * ALIGN4(len + 5 * 2 + setupcount * 2 + 2 + strlen(name) + 1),
-	 * and need to decide which parts should go into the first request
-	 */
-	nmlen = t2p->t_name ? strlen(t2p->t_name) : 0;
-	len = ALIGN4(len + 5 * 2 + t2p->t2_setupcount * 2 + 2 + nmlen + 1);
+	mb_put_mem(mbp, NULL, ALIGN4(len) - len, MB_MZERO);
+	poff = len = mb_fixhdr(mbp);	/* We now have the correct offsets */
+	
 	if (len + leftpcount > txmax) {
-		txpcount = min(leftpcount, txmax - len);
-		poff = len;
-		txdcount = 0;
-		doff = 0;
+		/* Too much param data, only send what will fit  */
+		txpcount = MIN(leftpcount, txmax - len);
+		txdcount = 0;	/* No room for data in this message */ 
 	} else {
-		txpcount = leftpcount;
-		poff = txpcount ? len : 0;
-		/*
-		 * Other client traffic seems to "ALIGN2" here.  The extra
-		 * 2 byte pad we use has no observed downside and may be
-		 * required for some old servers(?)
-		 */
-		len = ALIGN4(len + txpcount);
-		txdcount = min(leftdcount, txmax - len);
-		doff = txdcount ? len : 0;
+		txpcount = leftpcount;	/* Send all the param data */
+		len = ALIGN4(len + txpcount);	/* Make sure the alignment fits */
+		txdcount = MIN(leftdcount, txmax - len);
 	}
+	/*
+	 * We now have the amount we are going to send in this message. Update the
+	 * left over amount and fill in the param and data count.
+	 */
 	leftpcount -= txpcount;
 	leftdcount -= txdcount;
-	mb_put_uint16le(mbp, txpcount);
-	mb_put_uint16le(mbp, poff);
-	mb_put_uint16le(mbp, txdcount);
-	mb_put_uint16le(mbp, doff);
-	mb_put_uint8(mbp, t2p->t2_setupcount);
-	mb_put_uint8(mbp, 0);
-	for (i = 0; i < t2p->t2_setupcount; i++)
-		mb_put_uint16le(mbp, t2p->t2_setupdata[i]);
-	smb_rq_wend(rqp);
-	smb_rq_bstart(rqp);
-	/* TDUNICODE */
-	if (t2p->t_name)
-		mb_put_mem(mbp, t2p->t_name, nmlen, MB_MSYSTEM);
-	mb_put_uint8(mbp, 0);	/* terminating zero */
-	len = mb_fixhdr(mbp);
+	*txpcountp = htoles(txpcount);
+	*txdcountp = htoles(txdcount);
+	
+	/* We have the correct parameter offset , fill it in */
+	*txpoffsetp = htoles(poff);
+	/* Default data offset must be equal to or greater than param offset plus param count */
+	doff = poff + txpcount;
+	
 	if (txpcount) {
-		mb_put_mem(mbp, NULL, ALIGN4(len) - len, MB_MZERO);
 		error = md_get_mbuf(&mbparam, txpcount, &m);
-		SMBSDEBUG("%d:%d:%d\n", error, txpcount, txmax);
 		if (error)
 			goto freerq;
 		mb_put_mbuf(mbp, m);
+			
+		if (txdcount) {
+			/* Make sure we are on a four byte alignment, see MS-SMB Section 2.2.12.9 */
+			len = mb_fixhdr(mbp);
+			mb_put_mem(mbp, NULL, ALIGN4(len) - len, MB_MZERO);
+			doff = mb_fixhdr(mbp); /* Now get the new data offset */		
+		}
 	}
-	len = mb_fixhdr(mbp);
+
+	/* We have the correct data offset , fill it in */
+	*txdoffsetp = htoles(doff);
+	
 	if (txdcount) {
-		mb_put_mem(mbp, NULL, ALIGN4(len) - len, MB_MZERO);
 		error = md_get_mbuf(&mbdata, txdcount, &m);
 		if (error)
 			goto freerq;
 		mb_put_mbuf(mbp, m);
 	}
+	
 	smb_rq_bend(rqp);	/* incredible, but thats it... */
 	error = smb_iod_rq_enqueue(rqp);
 	if (error)
@@ -923,7 +984,7 @@ smb_t2_request_int(struct smb_t2rq *t2p)
 		if (t2p->t_name == NULL)
 			len += 2;
 		if (len + leftpcount > txmax) {
-			txpcount = min(leftpcount, txmax - len);
+			txpcount = MIN(leftpcount, txmax - len);
 			poff = len;
 			txdcount = 0;
 			doff = 0;
@@ -931,7 +992,7 @@ smb_t2_request_int(struct smb_t2rq *t2p)
 			txpcount = leftpcount;
 			poff = txpcount ? len : 0;
 			len = ALIGN4(len + txpcount);
-			txdcount = min(leftdcount, txmax - len);
+			txdcount = MIN(leftdcount, txmax - len);
 			doff = txdcount ? len : 0;
 		}
 		mb_put_uint16le(mbp, txpcount);
@@ -1001,43 +1062,49 @@ static int
 smb_nt_request_int(struct smb_ntrq *ntp)
 {
 	struct smb_vc *vcp = ntp->nt_vc;
-	struct smb_cred *scred = ntp->nt_cred;
 	struct mbchain *mbp;
 	struct mdchain *mdp, mbsetup, mbparam, mbdata;
 	mbuf_t m;
 	struct smb_rq *rqp;
-	int totpcount, leftpcount, totdcount, leftdcount, len, txmax;
-	int error, doff, poff, txdcount, txpcount;
-	int totscount;
+	int error;
+	size_t check_len;	
+	u_int32_t doff, poff, len, txdcount, txpcount;
+	u_int32_t totscount, totpcount, totdcount;
+	u_int32_t leftdcount, leftpcount;
 
 	m = ntp->nt_tsetup.mb_top;
 	if (m) {
 		md_initm(&mbsetup, m);	/* do not free it! */
-		totscount = m_fixhdr(m);
-		if (totscount > 2 * 0xff)
+		check_len = m_fixhdr(m);
+		if (check_len > 2 * 0xff)
 			return EINVAL;
+		totscount = (u_int32_t)check_len;
 	} else
 		totscount = 0;
+	
 	m = ntp->nt_tparam.mb_top;
 	if (m) {
 		md_initm(&mbparam, m);	/* do not free it! */
-		totpcount = m_fixhdr(m);
-		if (totpcount > 0x7fffffff)
+		check_len = m_fixhdr(m);
+		if (check_len > 0x7fffffff)
 			return EINVAL;
+		totpcount = (u_int32_t)check_len;
 	} else
 		totpcount = 0;
+	
 	m = ntp->nt_tdata.mb_top;
 	if (m) {
 		md_initm(&mbdata, m);	/* do not free it! */
-		totdcount =  m_fixhdr(m);
-		if (totdcount > 0x7fffffff)
+		check_len = m_fixhdr(m);
+		if (check_len > 0x7fffffff)
 			return EINVAL;
+		totdcount = (u_int32_t)check_len;
 	} else
 		totdcount = 0;
+	
 	leftdcount = totdcount;
 	leftpcount = totpcount;
-	txmax = vcp->vc_txmax;
-	error = smb_rq_alloc(ntp->nt_source, SMB_COM_NT_TRANSACT, scred, &rqp);
+	error = smb_rq_alloc(ntp->nt_source, SMB_COM_NT_TRANSACT, ntp->nt_context, &rqp);
 	if (error)
 		return error;
 	rqp->sr_timo = vcp->vc_timo;
@@ -1051,23 +1118,28 @@ smb_nt_request_int(struct smb_ntrq *ntp)
 	mb_put_uint32le(mbp, totdcount);
 	mb_put_uint32le(mbp, ntp->nt_maxpcount);
 	mb_put_uint32le(mbp, ntp->nt_maxdcount);
-	len = mb_fixhdr(mbp);
+	check_len = mb_fixhdr(mbp);
+	if (check_len > 0x7fffffff) {
+		error =  EINVAL;
+		goto freerq;
+	}
+	len = (u_int32_t)check_len;
 	/*
 	 * now we have known packet size as
 	 * ALIGN4(len + 4 * 4 + 1 + 2 + ((totscount+1)&~1) + 2),
 	 * and need to decide which parts should go into the first request
 	 */
 	len = ALIGN4(len + 4 * 4 + 1 + 2 + ((totscount+1)&~1) + 2);
-	if (len + leftpcount > txmax) {
-		txpcount = min(leftpcount, txmax - len);
+	if (len + leftpcount > vcp->vc_txmax) {
+		txpcount = MIN(leftpcount, vcp->vc_txmax - len);
 		poff = len;
 		txdcount = 0;
 		doff = 0;
 	} else {
 		txpcount = leftpcount;
-		poff = txpcount ? len : 0;
+		poff = txpcount ? (u_int32_t)len : 0;
 		len = ALIGN4(len + txpcount);
-		txdcount = min(leftdcount, txmax - len);
+		txdcount = MIN(leftdcount, vcp->vc_txmax - len);
 		doff = txdcount ? len : 0;
 	}
 	leftpcount -= txpcount;
@@ -1076,11 +1148,11 @@ smb_nt_request_int(struct smb_ntrq *ntp)
 	mb_put_uint32le(mbp, poff);
 	mb_put_uint32le(mbp, txdcount);
 	mb_put_uint32le(mbp, doff);
-	mb_put_uint8(mbp, (totscount+1)/2);
+	mb_put_uint8(mbp, (u_int8_t)(totscount+1)/2);
 	mb_put_uint16le(mbp, ntp->nt_function);
 	if (totscount) {
 		error = md_get_mbuf(&mbsetup, totscount, &m);
-		SMBSDEBUG("%d:%d:%d\n", error, totscount, txmax);
+		SMBSDEBUG("%d:%d:%d\n", error, totscount, vcp->vc_txmax);
 		if (error)
 			goto freerq;
 		mb_put_mbuf(mbp, m);
@@ -1089,18 +1161,18 @@ smb_nt_request_int(struct smb_ntrq *ntp)
 	}
 	smb_rq_wend(rqp);
 	smb_rq_bstart(rqp);
-	len = mb_fixhdr(mbp);
+	check_len = mb_fixhdr(mbp);
 	if (txpcount) {
-		mb_put_mem(mbp, NULL, ALIGN4(len) - len, MB_MZERO);
+		mb_put_mem(mbp, NULL, ALIGN4(check_len) - check_len, MB_MZERO);
 		error = md_get_mbuf(&mbparam, txpcount, &m);
-		SMBSDEBUG("%d:%d:%d\n", error, txpcount, txmax);
+		SMBSDEBUG("%d:%d:%d\n", error, txpcount, vcp->vc_txmax);
 		if (error)
 			goto freerq;
 		mb_put_mbuf(mbp, m);
 	}
-	len = mb_fixhdr(mbp);
+	check_len = mb_fixhdr(mbp);
 	if (txdcount) {
-		mb_put_mem(mbp, NULL, ALIGN4(len) - len, MB_MZERO);
+		mb_put_mem(mbp, NULL, ALIGN4(check_len) - check_len, MB_MZERO);
 		error = md_get_mbuf(&mbdata, txdcount, &m);
 		if (error)
 			goto freerq;
@@ -1130,46 +1202,51 @@ smb_nt_request_int(struct smb_ntrq *ntp)
 		mb_put_mem(mbp, NULL, 3, MB_MZERO);
 		mb_put_uint32le(mbp, totpcount);
 		mb_put_uint32le(mbp, totdcount);
-		len = mb_fixhdr(mbp);
+		check_len = mb_fixhdr(mbp);
 		/*
 		 * now we have known packet size as
 		 * ALIGN4(len + 6 * 4  + 2)
 		 * and need to decide which parts should go into request
 		 */
-		len = ALIGN4(len + 6 * 4 + 2);
-		if (len + leftpcount > txmax) {
-			txpcount = min(leftpcount, txmax - len);
-			poff = len;
+		check_len = ALIGN4(check_len + 6 * 4 + 2);
+		if (check_len > 0x7fffffff) {
+			error =  EINVAL;
+			goto bad;
+		}
+		len = (u_int32_t)check_len;
+		if (len + leftpcount > vcp->vc_txmax) {
+			txpcount = (u_int32_t)MIN(leftpcount, vcp->vc_txmax - len);
+			poff = (u_int32_t)len;
 			txdcount = 0;
 			doff = 0;
 		} else {
 			txpcount = leftpcount;
 			poff = txpcount ? len : 0;
 			len = ALIGN4(len + txpcount);
-			txdcount = min(leftdcount, txmax - len);
+			txdcount = MIN(leftdcount, vcp->vc_txmax - len);
 			doff = txdcount ? len : 0;
 		}
 		mb_put_uint32le(mbp, txpcount);
 		mb_put_uint32le(mbp, poff);
-		mb_put_uint32le(mbp, totpcount - leftpcount);
+		mb_put_uint32le(mbp, (u_int32_t)(totpcount - leftpcount));
 		mb_put_uint32le(mbp, txdcount);
 		mb_put_uint32le(mbp, doff);
-		mb_put_uint32le(mbp, totdcount - leftdcount);
+		mb_put_uint32le(mbp, (u_int32_t)(totdcount - leftdcount));
 		leftpcount -= txpcount;
 		leftdcount -= txdcount;
 		smb_rq_wend(rqp);
 		smb_rq_bstart(rqp);
-		len = mb_fixhdr(mbp);
+		check_len = mb_fixhdr(mbp);
 		if (txpcount) {
-			mb_put_mem(mbp, NULL, ALIGN4(len) - len, MB_MZERO);
+			mb_put_mem(mbp, NULL, ALIGN4(check_len) - check_len, MB_MZERO);
 			error = md_get_mbuf(&mbparam, txpcount, &m);
 			if (error)
 				goto bad;
 			mb_put_mbuf(mbp, m);
 		}
-		len = mb_fixhdr(mbp);
+		check_len = mb_fixhdr(mbp);
 		if (txdcount) {
-			mb_put_mem(mbp, NULL, ALIGN4(len) - len, MB_MZERO);
+			mb_put_mem(mbp, NULL, ALIGN4(check_len) - check_len, MB_MZERO);
 			error = md_get_mbuf(&mbdata, txdcount, &m);
 			if (error)
 				goto bad;
@@ -1207,27 +1284,159 @@ freerq:
 
 int
 smb_t2_request(struct smb_t2rq *t2p)
-{  
+{
+	int error = 0;
 	/* don't send any new requests if force unmount is underway  */
-	if (t2p->t2_share && t2p->t2_share->ss_mount) {
-		if ((vfs_isforce(t2p->t2_share->ss_mount->sm_mp))) {
-			wakeup(&t2p->t2_share->ss_mount->sm_status);
-			return ENXIO;
-		}
-	}
-	return(smb_t2_request_int(t2p));
+	if (t2p->t2_share)
+		error = smb_rq_isforce(t2p->t2_share);
+	if (! error)
+		error = smb_t2_request_int(t2p);
+	return error;
 }
 
 
 int
 smb_nt_request(struct smb_ntrq *ntp)
 {
+	int error = 0;
 	/* don't send any new requests if force unmount is underway  */
-	if (ntp->nt_share && ntp->nt_share->ss_mount) {
-		if ((vfs_isforce(ntp->nt_share->ss_mount->sm_mp))) {
-			wakeup(&ntp->nt_share->ss_mount->sm_status);
-			return ENXIO;
-		}
-	}
-	return(smb_nt_request_int(ntp));
+	if (ntp->nt_share)
+		error = smb_rq_isforce(ntp->nt_share);
+
+	if (! error)
+		error = smb_nt_request_int(ntp);
+
+	return error;
 }
+
+/*
+ * Perform an Async NT_TRANSACTION request. We only support one message at
+ * a time whne doing NT_TRANSACTION async.
+ *
+ * This is use for NT Notify Change request only currently
+ */
+int smb_nt_async_request(struct smb_ntrq *ntp, void *nt_callback, void *nt_callback_args)
+{
+	struct smb_vc *vcp = ntp->nt_vc;
+	struct mbchain *mbp;
+	struct mdchain mbsetup, mbparam, mbdata;
+	mbuf_t m;
+	struct smb_rq *rqp;
+	int error;
+	size_t check_len;	
+	u_int32_t doff, poff, len, txdcount, txpcount;
+	u_int32_t totscount, totpcount, totdcount;
+	
+	m = ntp->nt_tsetup.mb_top;
+	if (m) {
+		md_initm(&mbsetup, m);	/* do not free it! */
+		check_len = m_fixhdr(m);
+		if (check_len > 2 * 0xff)
+			return EINVAL;
+		totscount = (u_int32_t)check_len;
+	} else
+		totscount = 0;
+	
+	m = ntp->nt_tparam.mb_top;
+	if (m) {
+		md_initm(&mbparam, m);	/* do not free it! */
+		check_len = m_fixhdr(m);
+		if (check_len > 0x7fffffff)
+			return EINVAL;
+		totpcount = (u_int32_t)check_len;
+	} else
+		totpcount = 0;
+	
+	m = ntp->nt_tdata.mb_top;
+	if (m) {
+		md_initm(&mbdata, m);	/* do not free it! */
+		check_len = m_fixhdr(m);
+		if (check_len > 0x7fffffff)
+			return EINVAL;
+		totdcount = (u_int32_t)check_len;
+	} else
+		totdcount = 0;
+	
+	error = smb_rq_alloc(ntp->nt_source, SMB_COM_NT_TRANSACT, ntp->nt_context, &rqp);
+	if (error)
+		return error;
+	rqp->sr_timo = vcp->vc_timo;
+	mbp = &rqp->sr_rq;
+	smb_rq_wstart(rqp);
+	mb_put_uint8(mbp, ntp->nt_maxscount);
+	mb_put_uint16le(mbp, 0);	/* reserved */
+	mb_put_uint32le(mbp, totpcount);
+	mb_put_uint32le(mbp, totdcount);
+	mb_put_uint32le(mbp, ntp->nt_maxpcount);
+	mb_put_uint32le(mbp, ntp->nt_maxdcount);
+	check_len = mb_fixhdr(mbp);
+	if (check_len > 0x7fffffff) {
+		error = EINVAL;
+		goto free_rqp;
+	}
+	len = (u_int32_t)check_len;
+	/*
+	 * now we have known packet size as
+	 * ALIGN4(len + 4 * 4 + 1 + 2 + ((totscount+1)&~1) + 2),
+	 * now make sure it will all fit in the message
+	 */
+	len = ALIGN4(len + 4 * 4 + 1 + 2 + ((totscount+1)&~1) + 2);
+	if ((len + totpcount + totdcount) > vcp->vc_txmax) {
+		error = EINVAL;
+		goto free_rqp;
+	} 
+	txpcount = totpcount;
+	poff = txpcount ? (u_int32_t)len : 0;
+	len = ALIGN4(len + txpcount);
+	txdcount = totdcount;
+	doff = txdcount ? len : 0;
+
+	mb_put_uint32le(mbp, txpcount);
+	mb_put_uint32le(mbp, poff);
+	mb_put_uint32le(mbp, txdcount);
+	mb_put_uint32le(mbp, doff);
+	mb_put_uint8(mbp, (u_int8_t)(totscount+1)/2);
+	mb_put_uint16le(mbp, ntp->nt_function);
+	if (totscount) {
+		error = md_get_mbuf(&mbsetup, totscount, &m);
+		SMBSDEBUG("%d:%d:%d\n", error, totscount, vcp->vc_txmax);
+		if (error)
+			goto free_rqp;
+		mb_put_mbuf(mbp, m);
+		if (totscount & 1)
+			mb_put_uint8(mbp, 0); /* setup is in words */
+	}
+	smb_rq_wend(rqp);
+	smb_rq_bstart(rqp);
+	check_len = mb_fixhdr(mbp);
+	if (txpcount) {
+		mb_put_mem(mbp, NULL, ALIGN4(check_len) - check_len, MB_MZERO);
+		error = md_get_mbuf(&mbparam, txpcount, &m);
+		SMBSDEBUG("%d:%d:%d\n", error, txpcount, vcp->vc_txmax);
+		if (error)
+			goto free_rqp;
+		mb_put_mbuf(mbp, m);
+	}
+	check_len = mb_fixhdr(mbp);
+	if (txdcount) {
+		mb_put_mem(mbp, NULL, ALIGN4(check_len) - check_len, MB_MZERO);
+		error = md_get_mbuf(&mbdata, txdcount, &m);
+		if (error)
+			goto free_rqp;
+		mb_put_mbuf(mbp, m);
+	}
+	smb_rq_bend(rqp);	/* incredible, but thats it... */
+	rqp->sr_flags |= SMBR_ASYNC;
+	rqp->sr_callback_args = nt_callback_args;
+	rqp->sr_callback = nt_callback;
+	ntp->nt_rq = rqp;
+	error = smb_iod_rq_enqueue(rqp);
+	if (!error)
+		return 0;
+	/* else fall through and clean up */
+free_rqp:
+	ntp->nt_rq = NULL;
+	smb_rq_done(rqp);
+	return error;
+}
+

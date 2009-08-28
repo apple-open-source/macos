@@ -2,26 +2,42 @@
  * Copyright (C) 2000 Jochen Friedrich <jochen@scram.de>
  * Copyright (C) 1999 Kunihiro Ishiguro <kunihiro@zebra.org>
  *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
  * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
 #ifndef _SMUX_H
 #define _SMUX_H
 
+#include <freeradius-devel/ident.h>
+RCSIDH(smux_h, "$Id: smux.h,v 1.12 2007/12/02 16:52:51 aland Exp $")
+
 #ifdef HAVE_ASN1_SNMP_SNMPIMPL_H
 #include <asn1.h>
 #include <snmp.h>
 #include <snmp_impl.h>
-#else
-# ifdef HAVE_UCD_SNMP_ASN1_SNMP_SNMPIMPL_H
+
+#elif defined (HAVE_NET_SNMP_NET_SNMP_CONFIG_H)
+# include <net-snmp/net-snmp-config.h>
+# include <net-snmp/definitions.h>
+# include <net-snmp/types.h>
+
+#elif defined(HAVE_UCD_SNMP_ASN1_SNMP_SNMPIMPL_H)
 # include <ucd-snmp/ucd-snmp-config.h>
 # include <ucd-snmp/asn1.h>
 # include <ucd-snmp/snmp.h>
 # include <ucd-snmp/snmp_impl.h>
-# endif
 #endif
 
 #define SMUX_PORT_DEFAULT 199
@@ -47,7 +63,7 @@
 
 struct variable;
 
-#define REGISTER_MIB(descr, var, vartype, theoid)		\
+#define SMUX_REGISTER_MIB(descr, var, vartype, theoid)		\
     smux_register_mib(descr, (struct variable *)var, sizeof(struct vartype), \
     sizeof(var)/sizeof(struct vartype),			\
     theoid, sizeof(theoid)/sizeof(oid))

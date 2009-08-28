@@ -11,33 +11,69 @@ module Svn
     Util.set_methods(Ext::Fs, self)
 
     @@fs_pool = Svn::Core::Pool.new
-    Fs.initialize(@@fs_pool)
+    initialize(@@fs_pool)
 
     class << self
       def modules
         print_modules("")
       end
     end
-    
+
+    @@alias_targets = %w(create delete open hotcopy recover)
+    class << self
+      @@alias_targets.each do |target|
+        alias_method "_#{target}", target
+      end
+    end
+    @@alias_targets.each do |target|
+      alias_method "_#{target}", target
+    end
+    @@alias_targets = nil
+
+    module_function
+    def create(path, config={}, &block)
+      _create(path, config, &block)
+    end
+
+    def delete(path)
+      Fs.delete_fs(path)
+    end
+
+    def open(path, config={}, &block)
+      _open(path, config, &block)
+    end
+
+    def hotcopy(src, dest, clean=false)
+      _hotcopy(src, dest, clean)
+    end
+
+    def recover(path, &cancel_func)
+      _recover(path, cancel_func)
+    end
+
     FileSystem = SWIG::TYPE_p_svn_fs_t
     class FileSystem
-
       class << self
-        def create(path, config)
-          Fs.create(path, config)
+        # For backward compatibility
+        def create(*args, &block)
+          Fs.create(*args, &block)
         end
 
-        def delete(path)
-          Fs.delete_fs(path)
+        def delete(*args, &block)
+          Fs.delete(*args, &block)
         end
 
-        def open(path, config)
-          Fs.open(path, config)
+        def open(*args, &block)
+          Fs.open(*args, &block)
         end
         alias new open
 
-        def hotcopy(src, dest, clean=false)
-          Fs.hotcopy(src, dest, clean)
+        def hotcopy(*args, &block)
+          Fs.hotcopy(*args, &block)
+        end
+
+        def recover(*args, &block)
+          Fs.recover(*args, &block)
         end
       end
 
@@ -48,7 +84,7 @@ module Svn
       def path
         Fs.path(self)
       end
-      
+
       def open_txn(name)
         Fs.open_txn(self, name)
       end
@@ -59,7 +95,7 @@ module Svn
 
       def transaction(rev=nil, flags=0)
         txn = Fs.begin_txn2(self, rev || youngest_rev, flags)
-        
+
         if block_given?
           yield(txn)
           txn.commit if transactions.include?(txn.name)
@@ -67,10 +103,16 @@ module Svn
           txn
         end
       end
-      
-      def youngest_rev
+
+      def youngest_revision
         Fs.youngest_rev(self)
       end
+      alias_method :youngest_rev, :youngest_revision
+
+      def deleted_revision(path, start_rev, end_rev)
+        Repos.deleted_rev(self, path, start_rev, end_rev)
+      end
+      alias_method :deleted_rev, :deleted_revision
 
       def prop(name, rev=nil)
         value = Fs.revision_prop(self, rev || youngest_rev, name)
@@ -194,14 +236,14 @@ module Svn
         Fs.access_add_lock_token(self, token)
       end
     end
-    
+
     Transaction = SWIG::TYPE_p_svn_fs_txn_t
     class Transaction
 
       def name
         Fs.txn_name(self)
       end
-      
+
       def prop(name)
         value = Fs.txn_prop(self, name)
         if name == Svn::Core::PROP_REVISION_DATE and value
@@ -257,11 +299,15 @@ module Svn
       def dir?(path)
         Fs.is_dir(self, path)
       end
-      
+
       def file?(path)
         Fs.is_file(self, path)
       end
-      
+
+      def base_revision
+        Fs.txn_root_base_revision(self)
+      end
+
       def revision
         Fs.revision_root_revision(self)
       end
@@ -273,7 +319,7 @@ module Svn
       def fs
         Fs.root_fs_wrapper(self)
       end
-      
+
       def node_id(path)
         Fs.node_id(self, path)
       end
@@ -289,7 +335,7 @@ module Svn
       def node_prop(path, key)
         Fs.node_prop(self, path, key)
       end
-      
+
       def set_node_prop(path, key, value, validate=true)
         if validate
           Repos.fs_change_node_prop(self, path, key, value)
@@ -297,7 +343,7 @@ module Svn
           Fs.change_node_prop(self, path, key, value)
         end
       end
-      
+
       def node_proplist(path)
         Fs.node_proplist(self, path)
       end
@@ -314,7 +360,7 @@ module Svn
       def file_md5_checksum(path)
         Fs.file_md5_checksum(self, path)
       end
-      
+
       def file_contents(path)
         stream = Fs.file_contents(self, path)
         if block_given?
@@ -393,9 +439,9 @@ module Svn
       end
 
       def delete(path)
-        Fs.delete(self, path)
+        Fs._delete(self, path)
       end
-      
+
       def copy(to_path, from_root, from_path)
         Fs.copy(from_root, from_path, self, to_path)
       end
@@ -415,7 +461,7 @@ module Svn
         handler.baton = handler_baton
         handler
       end
-      
+
       def apply_text(path, result_checksum=nil)
         Fs.apply_text(self, path, result_checksum)
       end
@@ -424,9 +470,18 @@ module Svn
         Fs.contents_changed(self, path1, root2, path2)
       end
 
-      def file_delta_stream(source_root, source_path, target_path)
+      def file_delta_stream(arg1, arg2, target_path)
+        if arg1.is_a?(self.class)
+          source_root = arg1
+          source_path = arg2
+          target_root = self
+        else
+          source_root = self
+          source_path = arg1
+          target_root = arg2
+        end
         Fs.get_file_delta_stream(source_root, source_path,
-                                 self, target_path)
+                                 target_root, target_path)
       end
 
       def stat(path)
@@ -434,13 +489,20 @@ module Svn
       end
 
       def committed_info(path)
-        rev, date, author = Repos.get_committed_info(self, path)
-        date = Time.parse_svn_format(date) if date
-        [rev, date, author]
+        Repos.get_committed_info(self, path)
       end
 
       def closest_copy(path)
         Fs.closest_copy(self, path)
+      end
+
+      def mergeinfo(paths, inherit=nil, include_descendants=false)
+        paths = [paths] unless paths.is_a?(Array)
+        Fs.get_mergeinfo(self, paths, inherit, include_descendants)
+      end
+
+      def change_mergeinfo(path, info)
+        Fs.change_mergeinfo(self, path, info)
       end
     end
 
@@ -455,16 +517,16 @@ module Svn
         Fs.history_prev(self, cross_copies)
       end
     end
-    
+
 
     DirectoryEntry = Dirent
-    
+
     Id = SWIG::TYPE_p_svn_fs_id_t
     class Id
       def to_s
         unparse
       end
-      
+
       def unparse
         Fs.unparse_id(self)
       end
@@ -491,13 +553,13 @@ module Svn
         text_mod
       end
     end
-    
+
     class FileDiff
 
       def initialize(root1, path1, root2, path2)
         @tempfile1 = nil
         @tempfile2 = nil
-        
+
         @binary = nil
 
         @root1 = root1
@@ -533,14 +595,14 @@ module Svn
         @diff ||= Core::Diff.file_diff(@tempfile1.path, @tempfile2.path)
       end
 
-      def unified(label1, label2)
+      def unified(label1, label2, header_encoding=nil)
         if diff and diff.diff?
-          diff.unified(label1, label2)
+          diff.unified(label1, label2, header_encoding)
         else
           ""
         end
       end
-      
+
       private
       def dump_contents(tempfile, root, path)
         if root and path

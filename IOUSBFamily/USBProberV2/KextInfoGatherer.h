@@ -23,6 +23,7 @@
  */
 
 
+#import <IOKit/kext/OSKext.h>
 #import <Foundation/Foundation.h>
 #import <mach/mach.h>
 #import <mach/mach_error.h>

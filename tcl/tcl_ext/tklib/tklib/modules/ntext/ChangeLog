@@ -1,0 +1,13 @@
+2007-06-21  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* ntext.tcl, et al: Added to tklib
+
+2007-02-16  Keith Nash  <kjnash@users.sourceforge.net>
+
+	* change package and namespace names from newText to ntext
+	* change bindtag/class name from newText to Ntext
+	* minor changes, mainly bugfixes for Undo/Redo
+
+2007-01-13  Keith Nash  <kjnash@users.sourceforge.net>
+
+	* initial release v0.8 as newText

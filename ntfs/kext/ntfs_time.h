@@ -1,8 +1,8 @@
 /*
- * time.h - NTFS time conversion functions for the NTFS kernel driver.
+ * ntfs_time.h - NTFS time conversion functions for the NTFS kernel driver.
  *
- * Copyright (c) 2006, 2007 Anton Altaparmakov.  All Rights Reserved.
- * Portions Copyright (c) 2006, 2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2008 Anton Altaparmakov.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2008 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -46,13 +46,69 @@
 #define NTFS_TIME_OFFSET ((s64)(369 * 365 + 89) * 24 * 3600 * 10000000)
 
 /**
- * ntfs2utc - convert NTFS time to OSX time
- * @time:	NTFS time (little endian) to convert to OSX UTC
+ * utc2ntfs - convert OS X time to NTFS time
+ * @ts:		OS X UTC time to convert to NTFS (little endian) time
  *
- * Convert the little endian NTFS time @time to its corresponding OSX UTC time
+ * Convert the OS X UTC time @ts to its corresponding NTFS time and return that
+ * in little endian format.
+ *
+ * OS X stores time in a struct timespec consisting of a time_t (long at
+ * present) tv_sec and a long tv_nsec where tv_sec is the number of 1-second
+ * intervals since 1st January 1970, 00:00:00 UTC and tv_nsec is the number of
+ * 1-nano-second intervals since the value of tv_sec.
+ *
+ * NTFS uses Microsoft's standard time format which is stored in a s64 and is
+ * measured as the number of 100-nano-second intervals since 1st January 1601,
+ * 00:00:00 UTC.
+ */
+static inline sle64 utc2ntfs(const struct timespec ts)
+{
+	/*
+	 * Convert the seconds to 100ns intervals, add the nano-seconds
+	 * converted to 100ns intervals, and then add the NTFS time offset.
+	 */
+	return cpu_to_sle64((s64)ts.tv_sec * 10000000 + ts.tv_nsec / 100 +
+			NTFS_TIME_OFFSET);
+}
+
+/**
+ * ntfs_utc_current_time - get the current time in OS X time
+ *
+ * Get the current time from the OS X kernel, round it down to the nearest
+ * 100-nano-second interval and return that in cpu format.
+ */
+static inline struct timespec ntfs_utc_current_time(void)
+{
+	struct timespec ts;
+
+	nanotime(&ts);
+	/* Round down to nearest 100-nano-second interval. */
+	ts.tv_nsec -= ts.tv_nsec % 100;
+	return ts;
+}
+
+/**
+ * ntfs_current_time - get the current time in little endian NTFS format
+ *
+ * Get the current time from the OS X kernel, convert it to its corresponding
+ * NTFS time and return that in little endian format.
+ */
+static inline sle64 ntfs_current_time(void)
+{
+	struct timespec ts;
+
+	nanotime(&ts);
+	return utc2ntfs(ts);
+}
+
+/**
+ * ntfs2utc - convert NTFS time to OS X time
+ * @time:	NTFS time (little endian) to convert to OS X UTC
+ *
+ * Convert the little endian NTFS time @time to its corresponding OS X UTC time
  * and return that in cpu format.
  *
- * OSX stores time in a struct timespec consisting of a time_t (long at
+ * OS X stores time in a struct timespec consisting of a time_t (long at
  * present) tv_sec and a long tv_nsec where tv_sec is the number of 1-second
  * intervals since 1st January 1970, 00:00:00 UTC without including leap
  * seconds and tv_nsec is the number of 1-nano-second intervals since the value

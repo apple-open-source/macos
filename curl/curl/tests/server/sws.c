@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2007, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2008, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,7 +18,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: sws.c,v 1.102 2007-02-19 03:59:41 yangtse Exp $
+ * $Id: sws.c,v 1.130 2008-11-25 23:23:47 danf Exp $
  ***************************************************************************/
 
 /* sws.c: simple (silly?) web server
@@ -29,16 +29,9 @@
  */
 #include "setup.h" /* portability help from the lib directory */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdarg.h>
+#ifdef HAVE_SIGNAL_H
 #include <signal.h>
-#include <time.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <ctype.h>
-
+#endif
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
@@ -54,6 +47,9 @@
 #endif
 #ifdef HAVE_NETDB_H
 #include <netdb.h>
+#endif
+#ifdef HAVE_NETINET_TCP_H
+#include <netinet/tcp.h> /* for TCP_NODELAY */
 #endif
 
 #define ENABLE_CURLX_PRINTF
@@ -75,14 +71,19 @@
 #define CURL_SWS_FORK_ENABLED
 #endif
 
+#ifdef ENABLE_IPV6
+static bool use_ipv6 = FALSE;
+#endif
+static const char *ipv_inuse = "IPv4";
+
 #define REQBUFSIZ 150000
 #define REQBUFSIZ_TXT "149999"
 
-long prevtestno=-1; /* previous test number we served */
-long prevpartno=-1; /* previous part number we served */
-bool prevbounce;    /* instructs the server to increase the part number for
-                       a test in case the identical testno+partno request
-                       shows up again */
+static long prevtestno=-1;    /* previous test number we served */
+static long prevpartno=-1;    /* previous part number we served */
+static bool prevbounce=FALSE; /* instructs the server to increase the part
+                                 number for a test in case the identical
+                                 testno+partno request shows up again */
 
 #define RCMD_NORMALREQ 0 /* default request, use the tests file normally */
 #define RCMD_IDLE      1 /* told to sit idle */
@@ -94,7 +95,7 @@ struct httprequest {
   int offset;     /* size of the incoming request */
   long testno;     /* test number found in the request */
   long partno;     /* part number found in the request */
-  int open;       /* keep connection open info, as found in the request */
+  bool open;      /* keep connection open info, as found in the request */
   bool auth_req;  /* authentication required, don't wait for body unless
                      there's an Authorization header */
   bool auth;      /* Authorization header present in the incoming request */
@@ -103,11 +104,17 @@ struct httprequest {
   bool ntlm;      /* Authorization ntlm header found */
   int pipe;       /* if non-zero, expect this many requests to do a "piped"
                      request/response */
+  int skip;       /* if non-zero, the server is instructed to not read this
+                     many bytes from a PUT/POST request. Ie the client sends N
+                     bytes said in Content-Length, but the server only reads N
+                     - skip bytes. */
   int rcmd;       /* doing a special command, see defines above */
+  int prot_version; /* HTTP version * 10 */
+  bool pipelining; /* true if request is pipelined */
 };
 
-int ProcessRequest(struct httprequest *req);
-void storerequest(char *reqbuf);
+static int ProcessRequest(struct httprequest *req);
+static void storerequest(char *reqbuf, ssize_t totalsize);
 
 #define DEFAULT_PORT 8999
 
@@ -127,6 +134,7 @@ const char *serverlogfile = DEFAULT_LOGFILE;
 #define MAXDOCNAMELEN_TXT "139999"
 
 #define REQUEST_KEYWORD_SIZE 256
+#define REQUEST_KEYWORD_SIZE_TXT "255"
 
 #define CMD_AUTH_REQUIRED "auth_required"
 
@@ -188,10 +196,10 @@ static void sigpipe_handler(int sig)
 }
 #endif
 
-int ProcessRequest(struct httprequest *req)
+static int ProcessRequest(struct httprequest *req)
 {
   char *line=&req->reqbuf[req->checkindex];
-  char chunked=FALSE;
+  bool chunked = FALSE;
   static char request[REQUEST_KEYWORD_SIZE];
   static char doc[MAXDOCNAMELEN];
   char logbuf[256];
@@ -205,12 +213,15 @@ int ProcessRequest(struct httprequest *req)
   /* try to figure out the request characteristics as soon as possible, but
      only once! */
   if((req->testno == DOCNUMBER_NOTHING) &&
-     sscanf(line, "%" REQBUFSIZ_TXT"s %" MAXDOCNAMELEN_TXT "s HTTP/%d.%d",
+     sscanf(line,
+            "%" REQUEST_KEYWORD_SIZE_TXT"s %" MAXDOCNAMELEN_TXT "s HTTP/%d.%d",
             request,
             doc,
             &prot_major,
             &prot_minor) == 4) {
     char *ptr;
+
+    req->prot_version = prot_major*10 + prot_minor;
 
     /* find the last slash */
     ptr = strrchr(doc, '/');
@@ -267,7 +278,7 @@ int ProcessRequest(struct httprequest *req)
         error = ERRNO;
         logmsg("fopen() failed with error: %d %s", error, strerror(error));
         logmsg("Error opening file: %s", filename);
-        logmsg("Couldn't open test file %d", req->testno);
+        logmsg("Couldn't open test file %ld", req->testno);
         req->open = FALSE; /* closes connection */
         return 1; /* done */
       }
@@ -301,6 +312,13 @@ int ProcessRequest(struct httprequest *req)
             req->pipe = num-1; /* decrease by one since we don't count the
                                   first request in this number */
           }
+          else if(1 == sscanf(cmd, "skip: %d", &num)) {
+            logmsg("instructed to skip this number of bytes %d", num);
+            req->skip = num;
+          }
+          else {
+            logmsg("funny instruction found: %s", cmd);
+          }
           free(cmd);
         }
       }
@@ -312,7 +330,7 @@ int ProcessRequest(struct httprequest *req)
                 doc, prot_major, prot_minor);
         logmsg("%s", logbuf);
 
-        if(prot_major*10+prot_minor == 10)
+        if(req->prot_version == 10)
           req->open = FALSE; /* HTTP 1.0 closes connection by default */
 
         if(!strncmp(doc, "bad", 3))
@@ -349,7 +367,7 @@ int ProcessRequest(struct httprequest *req)
        headers, for the pipelining case mostly */
     req->checkindex += (end - line) + strlen(END_OF_HEADERS);
 
-  /* **** Persistancy ****
+  /* **** Persistence ****
    *
    * If the request is a HTTP/1.0 one, we close the connection unconditionally
    * when we're done.
@@ -361,14 +379,17 @@ int ProcessRequest(struct httprequest *req)
    */
 
   do {
-    if(!req->cl && curlx_strnequal("Content-Length:", line, 15)) {
+    if((req->cl==0) && curlx_strnequal("Content-Length:", line, 15)) {
       /* If we don't ignore content-length, we read it and we read the whole
          request including the body before we return. If we've been told to
          ignore the content-length, we will return as soon as all headers
          have been received */
-      req->cl = strtol(line+15, &line, 10);
+      size_t cl = strtol(line+15, &line, 10);
+      req->cl = cl - req->skip;
 
-      logmsg("Found Content-Length: %d in the request", req->cl);
+      logmsg("Found Content-Length: %zu in the request", cl);
+      if(req->skip)
+        logmsg("... but will abort after %zu bytes", req->cl);
       break;
     }
     else if(curlx_strnequal("Transfer-Encoding: chunked", line,
@@ -402,16 +423,16 @@ int ProcessRequest(struct httprequest *req)
        Digest stuff to work in the test suite. */
     req->partno += 1000;
     req->digest = TRUE; /* header found */
-    logmsg("Received Digest request, sending back data %d", req->partno);
+    logmsg("Received Digest request, sending back data %ld", req->partno);
   }
   else if(!req->ntlm &&
           strstr(req->reqbuf, "Authorization: NTLM TlRMTVNTUAAD")) {
     /* If the client is passing this type-3 NTLM header */
     req->partno += 1002;
     req->ntlm = TRUE; /* NTLM found */
-    logmsg("Received NTLM type-3, sending back data %d", req->partno);
+    logmsg("Received NTLM type-3, sending back data %ld", req->partno);
     if(req->cl) {
-      logmsg("  Expecting %d POSTed bytes", req->cl);
+      logmsg("  Expecting %zu POSTed bytes", req->cl);
     }
   }
   else if(!req->ntlm &&
@@ -419,10 +440,30 @@ int ProcessRequest(struct httprequest *req)
     /* If the client is passing this type-1 NTLM header */
     req->partno += 1001;
     req->ntlm = TRUE; /* NTLM found */
-    logmsg("Received NTLM type-1, sending back data %d", req->partno);
+    logmsg("Received NTLM type-1, sending back data %ld", req->partno);
+  }
+  else if((req->partno >= 1000) && strstr(req->reqbuf, "Authorization: Basic")) {
+    /* If the client is passing this Basic-header and the part number is already
+       >=1000, we add 1 to the part number.  This allows simple Basic authentication
+       negotiation to work in the test suite. */
+    req->partno += 1;
+    logmsg("Received Basic request, sending back data %ld", req->partno);
   }
   if(strstr(req->reqbuf, "Connection: close"))
     req->open = FALSE; /* close connection after this request */
+
+  if(!req->pipe &&
+     req->open &&
+     req->prot_version >= 11 &&
+     end &&
+     req->reqbuf + req->offset > end + strlen(END_OF_HEADERS) &&
+     (!strncmp(req->reqbuf, "GET", strlen("GET")) ||
+      !strncmp(req->reqbuf, "HEAD", strlen("HEAD")))) {
+    /* If we have a persistent connection, HTTP version >= 1.1
+       and GET/HEAD request, enable pipelining. */
+    req->checkindex = (end - req->reqbuf) + strlen(END_OF_HEADERS);
+    req->pipelining = TRUE;
+  }
 
   while(req->pipe) {
     /* scan for more header ends within this chunk */
@@ -442,8 +483,8 @@ int ProcessRequest(struct httprequest *req)
   if(req->auth_req && !req->auth)
     return 1;
 
-  if(req->cl) {
-    if(req->cl <= strlen(end+strlen(END_OF_HEADERS)))
+  if(req->cl > 0) {
+    if(req->cl <= req->offset - (end - req->reqbuf) - strlen(END_OF_HEADERS))
       return 1; /* done */
     else
       return 0; /* not complete yet */
@@ -453,26 +494,31 @@ int ProcessRequest(struct httprequest *req)
 }
 
 /* store the entire request in a file */
-void storerequest(char *reqbuf)
+static void storerequest(char *reqbuf, ssize_t totalsize)
 {
-  int error;
+  int res;
+  int error = 0;
   ssize_t written;
   ssize_t writeleft;
-  ssize_t totalsize;
   FILE *dump;
 
   if (reqbuf == NULL)
     return;
 
-  totalsize = (ssize_t)strlen(reqbuf);
   if (totalsize == 0)
     return;
+  else if (totalsize < 0) {
+    logmsg("Invalid size (%zd bytes) for request input. Not written to %s",
+           totalsize, REQUEST_DUMP);
+    return;
+  }
 
   do {
     dump = fopen(REQUEST_DUMP, "ab");
   } while ((dump == NULL) && ((error = ERRNO) == EINTR));
   if (dump == NULL) {
-    logmsg("Error opening file %s error: %d", REQUEST_DUMP, error);
+    logmsg("Error opening file %s error: %d %s",
+           REQUEST_DUMP, error, strerror(error));
     logmsg("Failed to write request input to " REQUEST_DUMP);
     return;
   }
@@ -485,56 +531,92 @@ void storerequest(char *reqbuf)
       writeleft -= written;
   } while ((writeleft > 0) && ((error = ERRNO) == EINTR));
 
-  fclose(dump);  /* close it ASAP */
-
   if (writeleft > 0) {
-    logmsg("Error writing file %s error: %d", REQUEST_DUMP, error);
-    logmsg("Wrote only (%d bytes) of (%d bytes) request input to %s",
+    logmsg("Error writing file %s error: %d %s",
+           REQUEST_DUMP, error, strerror(error));
+    logmsg("Wrote only (%zd bytes) of (%zd bytes) request input to %s",
            totalsize-writeleft, totalsize, REQUEST_DUMP);
   }
-  else {
-    logmsg("Wrote request (%d bytes) input to " REQUEST_DUMP,
+
+  do {
+    res = fclose(dump);
+  } while(res && ((error = ERRNO) == EINTR));
+  if(res)
+    logmsg("Error closing file %s error: %d %s",
+           REQUEST_DUMP, error, strerror(error));
+
+  if(!writeleft)
+    logmsg("Wrote request (%zd bytes) input to " REQUEST_DUMP,
            totalsize);
-  }
 }
 
 /* return 0 on success, non-zero on failure */
 static int get_request(curl_socket_t sock, struct httprequest *req)
 {
-  int fail= FALSE;
+  int fail = 0;
   char *reqbuf = req->reqbuf;
+  ssize_t got = 0;
 
-  /*** Init the httpreqest structure properly for the upcoming request ***/
-  memset(req, 0, sizeof(struct httprequest));
+  char *pipereq = NULL;
+  int pipereq_length = 0;
 
-  /* here's what should not be 0 from the start */
-  req->testno = DOCNUMBER_NOTHING; /* safe default */
-  req->open = TRUE; /* connection should remain open and wait for more
-                       commands */
+  if(req->pipelining) {
+    pipereq = reqbuf + req->checkindex;
+    pipereq_length = req->offset - req->checkindex;
+  }
+
+  /*** Init the httprequest structure properly for the upcoming request ***/
+
+  req->checkindex = 0;
+  req->offset = 0;
+  req->testno = DOCNUMBER_NOTHING;
+  req->partno = 0;
+  req->open = TRUE;
+  req->auth_req = FALSE;
+  req->auth = FALSE;
+  req->cl = 0;
+  req->digest = FALSE;
+  req->ntlm = FALSE;
   req->pipe = 0;
+  req->skip = 0;
+  req->rcmd = RCMD_NORMALREQ;
+  req->prot_version = 0;
+  req->pipelining = FALSE;
 
   /*** end of httprequest init ***/
 
-  while (req->offset < REQBUFSIZ) {
-    ssize_t got = sread(sock, reqbuf + req->offset, REQBUFSIZ - req->offset);
+  while (req->offset < REQBUFSIZ-1) {
+    if(pipereq_length) {
+      memmove(reqbuf, pipereq, pipereq_length);
+      got = pipereq_length;
+      pipereq_length = 0;
+    }
+    else {
+      if(req->skip)
+        /* we are instructed to not read the entire thing, so we make sure to only
+           read what we're supposed to and NOT read the enire thing the client
+           wants to send! */
+        got = sread(sock, reqbuf + req->offset, req->cl);
+      else
+        got = sread(sock, reqbuf + req->offset, REQBUFSIZ-1 - req->offset);
+    }
     if (got <= 0) {
       if (got < 0) {
         logmsg("recv() returned error: %d", SOCKERRNO);
         return DOCNUMBER_INTERNAL;
       }
       logmsg("Connection closed by client");
-      reqbuf[req->offset]=0;
+      reqbuf[req->offset] = '\0';
 
       /* dump the request receivied so far to the external file */
-      storerequest(reqbuf);
+      storerequest(reqbuf, req->offset);
       return DOCNUMBER_INTERNAL;
     }
 
-    logmsg("Read %d bytes", got);
+    logmsg("Read %zd bytes", got);
 
     req->offset += got;
-
-    reqbuf[req->offset] = 0;
+    reqbuf[req->offset] = '\0';
 
     if(ProcessRequest(req)) {
       if(req->pipe--) {
@@ -545,19 +627,25 @@ static int get_request(curl_socket_t sock, struct httprequest *req)
     }
   }
 
-  if (req->offset >= REQBUFSIZ) {
+  if((req->offset == REQBUFSIZ-1) && (got > 0)) {
+    logmsg("Request would overflow buffer, closing connection");
+    /* dump request received so far to external file anyway */
+    reqbuf[REQBUFSIZ-1] = '\0';
+    fail = 1;
+  }
+  else if(req->offset > REQBUFSIZ-1) {
     logmsg("Request buffer overflow, closing connection");
-    reqbuf[REQBUFSIZ-1]=0;
-    fail = TRUE;
-    /* dump the request to an external file anyway */
+    /* dump request received so far to external file anyway */
+    reqbuf[REQBUFSIZ-1] = '\0';
+    fail = 1;
   }
   else
-    reqbuf[req->offset]=0;
+    reqbuf[req->offset] = '\0';
 
   /* dump the request to an external file */
-  storerequest(reqbuf);
+  storerequest(reqbuf, req->pipelining ? req->checkindex : req->offset);
 
-  return fail; /* success */
+  return fail; /* return 0 on success */
 }
 
 /* returns -1 on failure */
@@ -566,20 +654,22 @@ static int send_doc(curl_socket_t sock, struct httprequest *req)
   ssize_t written;
   size_t count;
   const char *buffer;
-  char *ptr;
+  char *ptr=NULL;
   FILE *stream;
   char *cmd=NULL;
   size_t cmdsize=0;
   FILE *dump;
-  int persistant = TRUE;
+  bool persistant = TRUE;
+  bool sendfailure = FALSE;
   size_t responsesize;
-  int error;
+  int error = 0;
+  int res;
 
   static char weare[256];
 
   char partbuf[80]="data";
 
-  logmsg("Send response number %d part %d", req->testno, req->partno);
+  logmsg("Send response number %ld part %ld", req->testno, req->partno);
 
   switch(req->rcmd) {
   default:
@@ -615,9 +705,9 @@ static int send_doc(curl_socket_t sock, struct httprequest *req)
     case DOCNUMBER_WERULEZ:
       /* we got a "friends?" question, reply back that we sure are */
       logmsg("Identifying ourselves as friends");
-      sprintf(msgbuf, "WE ROOLZ: %d\r\n", (int)getpid());
+      sprintf(msgbuf, "WE ROOLZ: %ld\r\n", (long)getpid());
       msglen = strlen(msgbuf);
-      sprintf(weare, "HTTP/1.1 200 OK\r\nContent-Length: %d\r\n\r\n%s",
+      sprintf(weare, "HTTP/1.1 200 OK\r\nContent-Length: %zu\r\n\r\n%s",
               msglen, msgbuf);
       buffer = weare;
       break;
@@ -705,10 +795,19 @@ static int send_doc(curl_socket_t sock, struct httprequest *req)
 
   responsesize = count;
   do {
-    written = swrite(sock, buffer, count);
+    /* Ok, we send no more than 200 bytes at a time, just to make sure that
+       larger chunks are split up so that the client will need to do multiple
+       recv() calls to get it and thus we exercise that code better */
+    size_t num = count;
+    if(num > 200)
+      num = 200;
+    written = swrite(sock, buffer, num);
     if (written < 0) {
-      logmsg("Sending response failed and we bailed out!");
-      return -1;
+      sendfailure = TRUE;
+      break;
+    }
+    else {
+      logmsg("Sent off %zd bytes", written);
     }
     /* write to file as well */
     fwrite(buffer, 1, written, dump);
@@ -717,9 +816,24 @@ static int send_doc(curl_socket_t sock, struct httprequest *req)
     buffer += written;
   } while(count>0);
 
-  fclose(dump);
+  do {
+    res = fclose(dump);
+  } while(res && ((error = ERRNO) == EINTR));
+  if(res)
+    logmsg("Error closing file %s error: %d %s",
+           RESPONSE_DUMP, error, strerror(error));
 
-  logmsg("Response sent (%d bytes) and written to " RESPONSE_DUMP,
+  if(sendfailure) {
+    logmsg("Sending response failed. Only (%zu bytes) of (%zu bytes) were sent",
+           responsesize-count, responsesize);
+    if(ptr)
+      free(ptr);
+    if(cmd)
+      free(cmd);
+    return -1;
+  }
+
+  logmsg("Response sent (%zu bytes) and written to " RESPONSE_DUMP,
          responsesize);
 
   if(ptr)
@@ -756,7 +870,6 @@ static int send_doc(curl_socket_t sock, struct httprequest *req)
   return 0;
 }
 
-char use_ipv6=FALSE;
 
 int main(int argc, char *argv[])
 {
@@ -767,11 +880,9 @@ int main(int argc, char *argv[])
   curl_socket_t sock, msgsock;
   int flag;
   unsigned short port = DEFAULT_PORT;
-  FILE *pidfile;
   char *pidname= (char *)".http.pid";
   struct httprequest req;
   int rc;
-  int error;
   int arg=1;
 #ifdef CURL_SWS_FORK_ENABLED
   bool use_fork = FALSE;
@@ -800,7 +911,8 @@ int main(int argc, char *argv[])
     }
     else if(!strcmp("--ipv6", argv[arg])) {
 #ifdef ENABLE_IPV6
-      use_ipv6=TRUE;
+      ipv_inuse = "IPv6";
+      use_ipv6 = TRUE;
 #endif
       arg++;
     }
@@ -881,27 +993,12 @@ int main(int argc, char *argv[])
     return 1;
   }
 
-  pidfile = fopen(pidname, "w");
-  if(pidfile) {
-    fprintf(pidfile, "%d\n", (int)getpid());
-    fclose(pidfile);
-  }
-  else {
-    error = ERRNO;
-    logmsg("fopen() failed with error: %d %s", error, strerror(error));
-    logmsg("Error opening file: %s", pidname);
-    logmsg("Couldn't write pid file");
+  if(!write_pidfile(pidname)) {
     sclose(sock);
     return 1;
   }
 
-  logmsg("Running IPv%d version on port %d",
-#ifdef ENABLE_IPV6
-         (use_ipv6?6:4)
-#else
-         4
-#endif
-         , port );
+  logmsg("Running %s version on port %d", ipv_inuse, (int)port);
 
   /* start accepting connections */
   rc = listen(sock, 5);
@@ -918,6 +1015,8 @@ int main(int argc, char *argv[])
       printf("MAJOR ERROR: accept() failed with error: %d\n", SOCKERRNO);
       break;
     }
+
+    set_advisor_read_lock(SERVERLOGS_LOCK);
 
 #ifdef CURL_SWS_FORK_ENABLED
     if(use_fork) {
@@ -938,6 +1037,24 @@ int main(int argc, char *argv[])
 #endif
     logmsg("====> Client connect");
 
+#ifdef TCP_NODELAY
+    /*
+     * Disable the Nagle algorithm to make it easier to send out a large
+     * response in many small segments to torture the clients more.
+     */
+    flag = 1;
+    if (setsockopt(msgsock, IPPROTO_TCP, TCP_NODELAY,
+                   (void *)&flag, sizeof(flag)) == -1) {
+      logmsg("====> TCP_NODELAY failed");
+    }
+#endif
+
+    /* initialization of httprequest struct is done in get_request(), but due
+       to pipelining treatment the pipelining struct field must be initialized
+       previously to FALSE every time a new connection arrives. */
+
+    req.pipelining = FALSE;
+
     do {
       if(get_request(msgsock, &req))
         /* non-zero means error, break out of loop */
@@ -950,12 +1067,17 @@ int main(int argc, char *argv[])
           req.partno++;
           logmsg("BOUNCE part number to %ld", req.partno);
         }
+        else {
+          prevbounce = FALSE;
+          prevtestno = -1;
+          prevpartno = -1;
+        }
       }
 
       send_doc(msgsock, &req);
 
       if((req.testno < 0) && (req.testno != DOCNUMBER_CONNECT)) {
-        logmsg("special request received, no persistancy");
+        logmsg("special request received, no persistency");
         break;
       }
       if(!req.open) {
@@ -971,6 +1093,8 @@ int main(int argc, char *argv[])
     logmsg("====> Client disconnect");
     sclose(msgsock);
 
+    clear_advisor_read_lock(SERVERLOGS_LOCK);
+
     if (req.testno == DOCNUMBER_QUIT)
       break;
 #ifdef CURL_SWS_FORK_ENABLED
@@ -979,6 +1103,8 @@ int main(int argc, char *argv[])
   }
 
   sclose(sock);
+
+  clear_advisor_read_lock(SERVERLOGS_LOCK);
 
   return 0;
 }

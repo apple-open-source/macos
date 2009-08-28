@@ -1,0 +1,53 @@
+[manpage_begin nameserv::common n 0.1]
+[copyright {2007-2008 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
+[moddesc   {Name service facility}]
+[titledesc {Name service facility, shared definitions}]
+[require Tcl 8]
+[require nameserv::common [opt 0.1]]
+[keywords {name service} client server]
+[see_also nameserv::client(n)]
+[see_also nameserv::server(n)]
+[description]
+
+Please read [term {Name service facility, introduction}] first.
+
+[para]
+
+This package is internal and of no interest to users. It provides the
+commands of the name service facility which are shared by the client
+and server implemented by the packages [package nameserv::server] and
+[package nameserv] (the client).
+
+[para]
+
+This service is built in top of and for the package [package comm].
+It has nothing to do with the Internet's Domain Name System. If the
+reader is looking for a package dealing with that please see Tcllib's
+packages [package dns] and [package resolv].
+
+[section API]
+
+The package exports a single command, as specified below:
+
+[list_begin definitions]
+
+[call [cmd ::nameserv::common::port]]
+
+The result returned by the command is the id of the default TCP/IP
+port a nameservice server will listen on, and a name service client
+will try to connect to.
+
+[list_end]
+
+[section {BUGS, IDEAS, FEEDBACK}]
+
+This document, and the package it describes, will undoubtedly contain
+bugs and other problems.
+
+Please report such in the category [emph nameserv] of the
+[uri {http://sourceforge.net/tracker/?group_id=12883} {Tcllib SF Trackers}].
+
+Please also report any ideas for enhancements you may have for either
+package and/or documentation.
+
+[manpage_end]

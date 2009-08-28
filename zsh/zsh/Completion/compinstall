@@ -125,7 +125,7 @@ in order not to use existing definitions."
     newifile=$PWD/$newifile
     print "[Not absolute path: updating to $newifile]"
   fi
-  [[ -z $newifile || ! -f $newfile ]] && foundold=false
+  [[ -z $newifile || ! -f $newifile ]] && foundold=false
 else
   print "I haven't found any existing completion definitions.
 If you have some already defined by compinstall, edit the name of the
@@ -506,7 +506,7 @@ s.    Specify a list of completers.
 		      ;;
 		[sS]) olist=
 		      tmparr=(_complete _approximate _correct _match _expand)
-		      while true; do 
+		      while true; do
 			clear
 			print "\
      *** compinstall:  choosing completers to have _oldlist behaviour ***
@@ -839,7 +839,11 @@ __ci_do_completers() {
   for c in ${=newc}; do
     completers[$c]=1
   done
-  clist=(_list _oldlist _menu _expand _complete _ignored 
+  if (( ${#completers} == 0 )); then
+    completers[_complete]=1
+    completers[_ignored]=1
+  fi
+  clist=(_list _oldlist _menu _expand _complete _ignored
          _match _correct _approximate _prefix)
 
   # TODO: these are a bit brief, so could provide some more detailed help.
@@ -981,8 +985,14 @@ __ci_do_matchers() {
   for (( eltcnt = 1; eltcnt <= $#mlist; eltcnt++ )); do
     [[ $mlist[eltcnt] == "+"* ]] && a_or_r[$eltcnt]='+'
     [[ -z $mlist[$eltcnt] ]] && n_list[$eltcnt]=$eltcnt
+    # Accept the old form of lower/upper correspondence, but we'll
+    # output the new one instead.
     [[ $mlist[$eltcnt] = *"m:{a-z}={A-Z}"* ]] && c_list[$eltcnt]=$eltcnt
+    [[ $mlist[$eltcnt] = *"m:{[:lower:]}={[:upper:]}"* ]] &&
+      c_list[$eltcnt]=$eltcnt
     [[ $mlist[$eltcnt] = *"m:{a-zA-Z}={A-Za-z}"* ]] && C_list[$eltcnt]=$eltcnt
+    [[ $mlist[$eltcnt] = *"m:{[:lower:][:upper:]}={[:upper:][:lower:]}"* ]] &&
+      C_list[$eltcnt]=$eltcnt
     # For partial word stuff, we use backreferences to find out what
     # the set of separators was.
     if [[ $mlist[$eltcnt] = (#b)*"r:|["([^\]]#)"]=*"#" r:|=*"* ]]; then
@@ -1101,8 +1111,10 @@ terminators to be matched in this way? (y/n) [n] "
   # and reconstructing the elements of the matcher array.
   for (( eltcnt = 1; eltcnt <= 4; eltcnt++ )); do
     elt=
-    [[ $c_list[$eltcnt] != ' ' ]] && elt="${elt:+$elt }m:{a-z}={A-Z}"
-    [[ $C_list[$eltcnt] != ' ' ]] && elt="${elt:+$elt }m:{a-zA-Z}={A-Za-z}"
+    [[ $c_list[$eltcnt] != ' ' ]] &&
+      elt="${elt:+$elt }m:{[:lower:]}={[:upper:]}"
+    [[ $C_list[$eltcnt] != ' ' ]] &&
+      elt="${elt:+$elt }m:{[:lower:][:upper:]}={[:upper:][:lower:]}"
     [[ $p_list[$eltcnt] != ' ' ]] &&
       elt="${elt:+$elt }r:|[${pw_seps[$eltcnt]}]=*${pw_dstar[$eltcnt]}\
  r:|=*${pw_dstar[$eltcnt]}"
@@ -1434,7 +1446,7 @@ number of completions.  Please enter:
 	 done
 	 amenu=(${=menu})
 	 elt=${amenu[(i)*select*]}
-	 [[ $elt -gt $#amenu ]] && elt=
+	 [[ $elt -eq 0 || $elt -gt $#amenu ]] && elt=
 	 case $select in
 	   <->) if [[ -n $elt ]]; then
 		  amenu[$elt]="select=$select"

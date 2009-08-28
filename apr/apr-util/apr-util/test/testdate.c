@@ -1,110 +1,122 @@
-/* This program tests the date_parse_http routine in ../main/util_date.c.
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * It is only semiautomated in that I would run it, modify the code to
- * use a different algorithm or seed, recompile and run again, etc.
- * Obviously it should use an argument for that, but I never got around
- * to changing the implementation.
- * 
- *     gcc -g -O2 -I../main -o test_date ../main/util_date.o test_date.c
- *     test_date | egrep '^No '
- * 
- * Roy Fielding, 1996
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
+#include "abts.h"
+#include "testutil.h"
 #include "apr_date.h"
+#include "apr_general.h"
 
-#ifndef srand48
-#define srand48 srandom
-#endif
+#if APR_HAVE_TIME_H
+#include <time.h>
+#endif /* APR_HAVE_TIME_H */
 
-#ifndef mrand48
-#define mrand48 random
-#endif
-
-void gm_timestr_822(char *ts, apr_time_t sec);
-void gm_timestr_850(char *ts, apr_time_t sec);
-void gm_timestr_ccc(char *ts, apr_time_t sec);
+static struct datetest {
+  const char *input;
+  const char *output;
+} tests[] = {
+  { "Mon, 27 Feb 1995 20:49:44 -0800",  "Tue, 28 Feb 1995 04:49:44 GMT" },
+  { "Fri,  1 Jul 2005 11:34:25 -0400",  "Fri, 01 Jul 2005 15:34:25 GMT" },
+  { "Monday, 27-Feb-95 20:49:44 -0800", "Tue, 28 Feb 1995 04:49:44 GMT" },
+  { "Tue, 4 Mar 1997 12:43:52 +0200",   "Tue, 04 Mar 1997 10:43:52 GMT" },
+  { "Mon, 27 Feb 95 20:49:44 -0800",    "Tue, 28 Feb 1995 04:49:44 GMT" },
+  { "Tue,  4 Mar 97 12:43:52 +0200",    "Tue, 04 Mar 1997 10:43:52 GMT" },
+  { "Tue, 4 Mar 97 12:43:52 +0200",     "Tue, 04 Mar 1997 10:43:52 GMT" },
+  { "Mon, 27 Feb 95 20:49 GMT",         "Mon, 27 Feb 1995 20:49:00 GMT" },
+  { "Tue, 4 Mar 97 12:43 GMT",          "Tue, 04 Mar 1997 12:43:00 GMT" },
+  { NULL, NULL }
+};
 
 static const apr_time_t year2secs[] = {
-             0LL,    /* 1970 */
-      31536000LL,    /* 1971 */
-      63072000LL,    /* 1972 */
-      94694400LL,    /* 1973 */
-     126230400LL,    /* 1974 */
-     157766400LL,    /* 1975 */
-     189302400LL,    /* 1976 */
-     220924800LL,    /* 1977 */
-     252460800LL,    /* 1978 */
-     283996800LL,    /* 1979 */
-     315532800LL,    /* 1980 */
-     347155200LL,    /* 1981 */
-     378691200LL,    /* 1982 */
-     410227200LL,    /* 1983 */
-     441763200LL,    /* 1984 */
-     473385600LL,    /* 1985 */
-     504921600LL,    /* 1986 */
-     536457600LL,    /* 1987 */
-     567993600LL,    /* 1988 */
-     599616000LL,    /* 1989 */
-     631152000LL,    /* 1990 */
-     662688000LL,    /* 1991 */
-     694224000LL,    /* 1992 */
-     725846400LL,    /* 1993 */
-     757382400LL,    /* 1994 */
-     788918400LL,    /* 1995 */
-     820454400LL,    /* 1996 */
-     852076800LL,    /* 1997 */
-     883612800LL,    /* 1998 */
-     915148800LL,    /* 1999 */
-     946684800LL,    /* 2000 */
-     978307200LL,    /* 2001 */
-    1009843200LL,    /* 2002 */
-    1041379200LL,    /* 2003 */
-    1072915200LL,    /* 2004 */
-    1104537600LL,    /* 2005 */
-    1136073600LL,    /* 2006 */
-    1167609600LL,    /* 2007 */
-    1199145600LL,    /* 2008 */
-    1230768000LL,    /* 2009 */
-    1262304000LL,    /* 2010 */
-    1293840000LL,    /* 2011 */
-    1325376000LL,    /* 2012 */
-    1356998400LL,    /* 2013 */
-    1388534400LL,    /* 2014 */
-    1420070400LL,    /* 2015 */
-    1451606400LL,    /* 2016 */
-    1483228800LL,    /* 2017 */
-    1514764800LL,    /* 2018 */
-    1546300800LL,    /* 2019 */
-    1577836800LL,    /* 2020 */
-    1609459200LL,    /* 2021 */
-    1640995200LL,    /* 2022 */
-    1672531200LL,    /* 2023 */
-    1704067200LL,    /* 2024 */
-    1735689600LL,    /* 2025 */
-    1767225600LL,    /* 2026 */
-    1798761600LL,    /* 2027 */
-    1830297600LL,    /* 2028 */
-    1861920000LL,    /* 2029 */
-    1893456000LL,    /* 2030 */
-    1924992000LL,    /* 2031 */
-    1956528000LL,    /* 2032 */
-    1988150400LL,    /* 2033 */
-    2019686400LL,    /* 2034 */
-    2051222400LL,    /* 2035 */
-    2082758400LL,    /* 2036 */
-    2114380800LL,    /* 2037 */
-    2145916800LL     /* 2038 */
+             APR_INT64_C(0),    /* 1970 */
+      APR_INT64_C(31536000),    /* 1971 */
+      APR_INT64_C(63072000),    /* 1972 */
+      APR_INT64_C(94694400),    /* 1973 */
+     APR_INT64_C(126230400),    /* 1974 */
+     APR_INT64_C(157766400),    /* 1975 */
+     APR_INT64_C(189302400),    /* 1976 */
+     APR_INT64_C(220924800),    /* 1977 */
+     APR_INT64_C(252460800),    /* 1978 */
+     APR_INT64_C(283996800),    /* 1979 */
+     APR_INT64_C(315532800),    /* 1980 */
+     APR_INT64_C(347155200),    /* 1981 */
+     APR_INT64_C(378691200),    /* 1982 */
+     APR_INT64_C(410227200),    /* 1983 */
+     APR_INT64_C(441763200),    /* 1984 */
+     APR_INT64_C(473385600),    /* 1985 */
+     APR_INT64_C(504921600),    /* 1986 */
+     APR_INT64_C(536457600),    /* 1987 */
+     APR_INT64_C(567993600),    /* 1988 */
+     APR_INT64_C(599616000),    /* 1989 */
+     APR_INT64_C(631152000),    /* 1990 */
+     APR_INT64_C(662688000),    /* 1991 */
+     APR_INT64_C(694224000),    /* 1992 */
+     APR_INT64_C(725846400),    /* 1993 */
+     APR_INT64_C(757382400),    /* 1994 */
+     APR_INT64_C(788918400),    /* 1995 */
+     APR_INT64_C(820454400),    /* 1996 */
+     APR_INT64_C(852076800),    /* 1997 */
+     APR_INT64_C(883612800),    /* 1998 */
+     APR_INT64_C(915148800),    /* 1999 */
+     APR_INT64_C(946684800),    /* 2000 */
+     APR_INT64_C(978307200),    /* 2001 */
+    APR_INT64_C(1009843200),    /* 2002 */
+    APR_INT64_C(1041379200),    /* 2003 */
+    APR_INT64_C(1072915200),    /* 2004 */
+    APR_INT64_C(1104537600),    /* 2005 */
+    APR_INT64_C(1136073600),    /* 2006 */
+    APR_INT64_C(1167609600),    /* 2007 */
+    APR_INT64_C(1199145600),    /* 2008 */
+    APR_INT64_C(1230768000),    /* 2009 */
+    APR_INT64_C(1262304000),    /* 2010 */
+    APR_INT64_C(1293840000),    /* 2011 */
+    APR_INT64_C(1325376000),    /* 2012 */
+    APR_INT64_C(1356998400),    /* 2013 */
+    APR_INT64_C(1388534400),    /* 2014 */
+    APR_INT64_C(1420070400),    /* 2015 */
+    APR_INT64_C(1451606400),    /* 2016 */
+    APR_INT64_C(1483228800),    /* 2017 */
+    APR_INT64_C(1514764800),    /* 2018 */
+    APR_INT64_C(1546300800),    /* 2019 */
+    APR_INT64_C(1577836800),    /* 2020 */
+    APR_INT64_C(1609459200),    /* 2021 */
+    APR_INT64_C(1640995200),    /* 2022 */
+    APR_INT64_C(1672531200),    /* 2023 */
+    APR_INT64_C(1704067200),    /* 2024 */
+    APR_INT64_C(1735689600),    /* 2025 */
+    APR_INT64_C(1767225600),    /* 2026 */
+    APR_INT64_C(1798761600),    /* 2027 */
+    APR_INT64_C(1830297600),    /* 2028 */
+    APR_INT64_C(1861920000),    /* 2029 */
+    APR_INT64_C(1893456000),    /* 2030 */
+    APR_INT64_C(1924992000),    /* 2031 */
+    APR_INT64_C(1956528000),    /* 2032 */
+    APR_INT64_C(1988150400),    /* 2033 */
+    APR_INT64_C(2019686400),    /* 2034 */
+    APR_INT64_C(2051222400),    /* 2035 */
+    APR_INT64_C(2082758400),    /* 2036 */
+    APR_INT64_C(2114380800),    /* 2037 */
+    APR_INT64_C(2145916800)     /* 2038 */
 };
 
 const char month_snames[12][4] = {
     "Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"
 };
 
-void gm_timestr_822(char *ts, apr_time_t sec)
+/* XXX: non-portable */
+static void gm_timestr_822(char *ts, apr_time_t sec)
 {
     static const char *const days[7]=
         {"Sun","Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
@@ -112,52 +124,26 @@ void gm_timestr_822(char *ts, apr_time_t sec)
     time_t ls = (time_t)sec;
 
     tms = gmtime(&ls);
- 
+
     sprintf(ts, "%s, %.2d %s %d %.2d:%.2d:%.2d GMT", days[tms->tm_wday],
             tms->tm_mday, month_snames[tms->tm_mon], tms->tm_year + 1900,
             tms->tm_hour, tms->tm_min, tms->tm_sec);
 }
 
-void gm_timestr_850(char *ts, apr_time_t sec)
+/* Linear congruential generator */
+static apr_uint32_t lgc(apr_uint32_t a)
 {
-    static const char *const days[7]=
-           {"Sunday","Monday", "Tuesday", "Wednesday", "Thursday", "Friday", 
-            "Saturday"};
-    struct tm *tms;
-    int year;
-    time_t ls = (time_t)sec;
- 
-    tms = gmtime(&ls);
-
-    year = tms->tm_year;
-    if (year >= 100) year -= 100;
- 
-    sprintf(ts, "%s, %.2d-%s-%.2d %.2d:%.2d:%.2d GMT", days[tms->tm_wday],
-            tms->tm_mday, month_snames[tms->tm_mon], year,
-            tms->tm_hour, tms->tm_min, tms->tm_sec);
+    apr_uint64_t z = a;
+    z *= 279470273;
+    z %= APR_UINT64_C(4294967291);
+    return (apr_uint32_t)z;
 }
 
-void gm_timestr_ccc(char *ts, apr_time_t sec)
-{
-    static const char *const days[7]=
-       {"Sun","Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
-    struct tm *tms;
-    time_t ls = (time_t)sec;
- 
-    tms = gmtime(&ls);
- 
-    sprintf(ts, "%s %s %2d %.2d:%.2d:%.2d %d", days[tms->tm_wday],
-            month_snames[tms->tm_mon], tms->tm_mday, 
-            tms->tm_hour, tms->tm_min, tms->tm_sec, tms->tm_year + 1900);
-}
-
-int main (void)
+static void test_date_parse_http(abts_case *tc, void *data)
 {
     int year, i;
     apr_time_t guess;
     apr_time_t offset = 0;
- /* apr_time_t offset = 0; */
- /* apr_time_t offset = ((31 + 28) * 24 * 3600) - 1; */
     apr_time_t secstodate, newsecs;
     char datestr[50];
 
@@ -166,33 +152,51 @@ int main (void)
         gm_timestr_822(datestr, secstodate);
         secstodate *= APR_USEC_PER_SEC;
         newsecs = apr_date_parse_http(datestr);
-        if (secstodate == newsecs)
-            printf("Yes %4d %19" APR_TIME_T_FMT " %s\n", year, secstodate, datestr);
-        else if (newsecs == APR_DATE_BAD)
-            printf("No  %4d %19" APR_TIME_T_FMT " %19" APR_TIME_T_FMT " %s\n",
-                   year, secstodate, newsecs, datestr);
-        else
-            printf("No* %4d %19" APR_TIME_T_FMT " %19" APR_TIME_T_FMT " %s\n",
-                   year, secstodate, newsecs, datestr);
+        ABTS_TRUE(tc, secstodate == newsecs);
     }
-    
-    srand48(978245L);
+
+#if APR_HAS_RANDOM
+    apr_generate_random_bytes((unsigned char *)&guess, sizeof(guess));
+#else
+    guess = apr_time_now() % APR_TIME_C(4294967291);
+#endif
 
     for (i = 0; i < 10000; ++i) {
-        guess = (time_t)mrand48();
-        if (guess < 0) guess *= -1;
+        guess = (time_t)lgc((apr_uint32_t)guess);
+        if (guess < 0)
+            guess *= -1;
         secstodate = guess + offset;
         gm_timestr_822(datestr, secstodate);
         secstodate *= APR_USEC_PER_SEC;
         newsecs = apr_date_parse_http(datestr);
-        if (secstodate == newsecs)
-            printf("Yes %" APR_TIME_T_FMT " %s\n", secstodate, datestr);
-        else if (newsecs == APR_DATE_BAD)
-            printf("No  %" APR_TIME_T_FMT " %" APR_TIME_T_FMT " %s\n", 
-                   secstodate, newsecs, datestr);
-        else
-            printf("No* %" APR_TIME_T_FMT " %" APR_TIME_T_FMT " %s\n", 
-                   secstodate, newsecs, datestr);
+        ABTS_TRUE(tc, secstodate == newsecs);
     }
-    exit(0);
+}
+
+static void test_date_rfc(abts_case *tc, void *data)
+{
+    apr_time_t date;
+    int i = 0;
+
+    while (tests[i].input) {
+        char str_date[APR_RFC822_DATE_LEN] = { 0 };
+
+        date = apr_date_parse_rfc(tests[i].input);
+
+        apr_rfc822_date(str_date, date);
+
+        ABTS_STR_EQUAL(tc, str_date, tests[i].output);
+
+        i++;
+    }
+}
+
+abts_suite *testdate(abts_suite *suite)
+{
+    suite = ADD_SUITE(suite);
+
+    abts_run_test(suite, test_date_parse_http, NULL);
+    abts_run_test(suite, test_date_rfc, NULL);
+
+    return suite;
 }

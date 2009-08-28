@@ -1,0 +1,13 @@
+--- /tmp/jabberd-2.1.24.1/mio/mio_impl.h	2008-04-27 02:57:34.000000000 -0700
++++ ./jabberd2/mio/mio_impl.h	2008-11-24 14:21:54.000000000 -0800
+@@ -343,8 +343,8 @@
+         return NULL;
+     }
+ 
+-    /* start listening with a max accept queue of 10 */
+-    if(listen(fd, 10) < 0)
++    /* start listening with a max accept queue specified by kern.ipc.somaxconn sysctl */
++    if(listen(fd, -1) < 0)
+     {
+         close(fd);
+         return NULL;

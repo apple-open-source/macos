@@ -1,10 +1,10 @@
 ########################################################################
 #                                                                      #
 #               This software is part of the ast package               #
-#           Copyright (c) 1982-2007 AT&T Knowledge Ventures            #
+#          Copyright (c) 1982-2007 AT&T Intellectual Property          #
 #                      and is licensed under the                       #
 #                  Common Public License, Version 1.0                  #
-#                      by AT&T Knowledge Ventures                      #
+#                    by AT&T Intellectual Property                     #
 #                                                                      #
 #                A copy of the License is available at                 #
 #            http://www.opensource.org/licenses/cpl1.0.txt             #
@@ -128,6 +128,8 @@ x=$0
 if	[[ $(eval 'print $0') != $x ]]
 then	err_exit '$0 not correct for eval'
 fi
+$SHELL -c 'read x <<< hello' 2> /dev/null || err_exit 'syntax <<< not recognized'
+($SHELL -c 'read x[1] <<< hello') 2> /dev/null || err_exit 'read x[1] not working'
 unset x
 readonly x
 set -- $(readonly)
@@ -159,7 +161,7 @@ done
 if	[[ $(print -f "%b" "\a\n\v\b\r\f\E\03\\oo") != $'\a\n\v\b\r\f\E\03\\oo' ]]
 then	err_exit 'print -f "%b" not working'
 fi
-if	[[ $(print -f "%P" "[^x].*b$") != '*[!x]*b' ]]
+if	[[ $(print -f "%P" "[^x].*b\$") != '*[!x]*b' ]]
 then	err_exit 'print -f "%P" not working'
 fi
 if	[[ $(abc: for i in foo bar;do print $i;break abc;done) != foo ]]
@@ -184,10 +186,9 @@ fi
 if	[[ $(trap -p HUP) != 'print HUP' ]]
 then	err_exit '$(trap -p HUP) not working'
 fi
-[[ $($SHELL -c 'trap "print ok" SIGTERM; kill -s SIGTERM $$' 2> /dev/null) == ok
- ]] || err_exit 'SIGTERM not recognized'
-[[ $($SHELL -c 'trap "print ok" sigterm; kill -s sigterm $$' 2> /dev/null) == ok
- ]] || err_exit 'SIGTERM not recognized'
+[[ $($SHELL -c 'trap "print ok" SIGTERM; kill -s SIGTERM $$' 2> /dev/null) == ok ]] || err_exit 'SIGTERM not recognized'
+[[ $($SHELL -c 'trap "print ok" sigterm; kill -s sigterm $$' 2> /dev/null) == ok ]] || err_exit 'SIGTERM not recognized'
+[[ $($SHELL -c '( trap "" TERM);kill $$;print bad' == bad) ]] 2> /dev/null && err_exit 'trap ignored in subshell causes it to be ignored by parent'
 ${SHELL} -c 'kill -1 -$$' 2> /dev/null
 [[ $(kill -l $?) == HUP ]] || err_exit 'kill -1 -pid not working' 
 ${SHELL} -c 'kill -1 -$$' 2> /dev/null
@@ -349,6 +350,34 @@ getopts 'n#num' opt  -n 3
 if	[[ $($SHELL -c $'printf \'%2$s %1$s\n\' world hello') != 'hello world' ]]
 then	err_exit 'printf %2$s %1$s not working'
 fi
+val=$(( 'C' ))
+set -- \
+	"'C"	$val	0	\
+	"'C'"	$val	0	\
+	'"C'	$val	0	\
+	'"C"'	$val	0	\
+	"'CX"	$val	1	\
+	"'CX'"	$val	1	\
+	"'C'X"	$val	1	\
+	'"CX'	$val	1	\
+	'"CX"'	$val	1	\
+	'"C"X'	$val	1
+while (( $# >= 3 ))
+do	arg=$1 val=$2 code=$3
+	shift 3
+	for fmt in '%d' '%g'
+	do	out=$(printf "$fmt" "$arg" 2>/dev/null)
+		err=$(printf "$fmt" "$arg" 2>&1 >/dev/null)
+		printf "$fmt" "$arg" >/dev/null 2>&1
+		ret=$?
+		[[ $out == $val ]] || err_exit "printf $fmt $arg failed -- got $out, expected $val"
+		if	(( $code ))
+		then	[[ $err ]] || err_exit "printf $fmt $arg failed -- error message expected"
+		else	[[ $err ]] && err_exit "$err: printf $fmt $arg failed -- error message not expected"
+		fi
+		(( $ret == $code )) || err_exit "printf $fmt $arg failed -- got exit code $ret, expected $code"
+	done
+done
 ((n=0))
 ((n++)); ARGC[$n]=1 ARGV[$n]=""
 ((n++)); ARGC[$n]=2 ARGV[$n]="-a"
@@ -448,4 +477,5 @@ then	err_exit "read -t in pipe taking $total_t secs - $(( reps * delay )) minimu
 elif	(( total_t < reps * delay ))
 then	err_exit "read -t in pipe taking $total_t secs - $(( reps * delay )) minimum - too fast" 
 fi
+$SHELL -c 'sleep $(printf "%a" .95)' 2> /dev/null || err_exit "sleep doesn't except %a format constants"
 exit $((Errors))

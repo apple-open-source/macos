@@ -1,9 +1,9 @@
 #!/usr/bin/perl -w
 
-# $HeadURL: http://svn.collab.net/repos/svn/branches/1.4.x/contrib/client-side/svn_all_diffs.pl $
-# $LastChangedDate: 2006-10-06 17:38:47 +0000 (Fri, 06 Oct 2006) $
-# $LastChangedBy: dlr $
-# $LastChangedRevision: 21808 $
+# $HeadURL: http://svn.collab.net/repos/svn/branches/1.6.x/contrib/client-side/svn_all_diffs.pl $
+# $LastChangedDate: 2008-03-25 14:42:32 +0000 (Tue, 25 Mar 2008) $
+# $LastChangedBy: arfrever $
+# $LastChangedRevision: 30041 $
 
 use strict;
 use Carp;

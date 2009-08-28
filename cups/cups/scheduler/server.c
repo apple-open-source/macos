@@ -1,9 +1,9 @@
 /*
- * "$Id: server.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: server.c 7927 2008-09-10 22:05:29Z mike $"
  *
  *   Server start/stop routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -80,6 +80,12 @@ cupsdStartServer(void)
 #endif /* HAVE_LIBSSL */
 
  /*
+  * Create the default security profile...
+  */
+
+  DefaultProfile = cupsdCreateProfile(0);
+
+ /*
   * Startup all the networking stuff...
   */
 
@@ -105,10 +111,11 @@ cupsdStartServer(void)
   * Mark that the server has started and printers and jobs may be changed...
   */
 
-  LastEvent     = CUPSD_EVENT_PRINTER_CHANGED | CUPSD_EVENT_JOB_STATE_CHANGED |
-                  CUPSD_EVENT_SERVER_STARTED;
+  LastEvent = CUPSD_EVENT_PRINTER_CHANGED | CUPSD_EVENT_JOB_STATE_CHANGED |
+              CUPSD_EVENT_SERVER_STARTED;
+  started   = 1;
 
-  started = 1;
+  cupsdSetBusyState();
 }
 
 
@@ -131,7 +138,6 @@ cupsdStopServer(void)
   cupsdStopPolling();
   cupsdStopBrowsing();
   cupsdStopAllNotifiers();
-  cupsdSaveRemoteCache();
   cupsdDeleteAllCerts();
 
   if (Clients)
@@ -154,6 +160,16 @@ cupsdStopServer(void)
     CGIPipes[0] = -1;
     CGIPipes[1] = -1;
   }
+
+#ifdef HAVE_NOTIFY_POST
+ /*
+  * Send one last notification as the server shuts down.
+  */
+
+  cupsdLogMessage(CUPSD_LOG_DEBUG,
+                  "notify_post(\"com.apple.printerListChange\") last");
+  notify_post("com.apple.printerListChange");
+#endif /* HAVE_NOTIFY_POST */
 
  /*
   * Close all log files...
@@ -180,20 +196,24 @@ cupsdStopServer(void)
     PageFile = NULL;
   }
 
-#ifdef HAVE_NOTIFY_POST
  /*
-  * Send one last notification as the server shuts down.
+  * Delete the default security profile...
   */
 
-  cupsdLogMessage(CUPSD_LOG_DEBUG,
-                  "notify_post(\"com.apple.printerListChange\") last");
-  notify_post("com.apple.printerListChange");
-#endif /* HAVE_NOTIFY_POST */
+  cupsdDestroyProfile(DefaultProfile);
+  DefaultProfile = NULL;
+
+ /*
+  * Write out any dirty files...
+  */
+
+  if (DirtyFiles)
+    cupsdCleanDirty();
 
   started = 0;
 }
 
 
 /*
- * End of "$Id: server.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: server.c 7927 2008-09-10 22:05:29Z mike $".
  */

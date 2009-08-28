@@ -1,15 +1,13 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 2003,2007 Oracle.  All rights reserved.
 #
-# $Id: test106.tcl,v 1.2 2004/03/30 01:24:09 jtownsen Exp $
+# $Id: test106.tcl,v 12.8 2007/05/17 15:15:56 bostic Exp $
 #
 # TEST	test106
 # TEST
 # TEST
 # TEST
-
 proc test106 { method {nitems 100} {niter 200} {tnum "106"} args } {
 	source ./include.tcl
 	global dict
@@ -51,7 +49,6 @@ proc test106 { method {nitems 100} {niter 200} {tnum "106"} args } {
 		}
 		set testdir [get_home $env]
 	}
-
 
 	cleanup $testdir $env
 
@@ -104,5 +101,10 @@ proc test106 { method {nitems 100} {niter 200} {tnum "106"} args } {
 
 		watch_procs $pidlist 10
 		tclkill $dpid
+	}
+
+	# If this test created the env, close it.
+	if { $eindex == -1 } {
+		error_check_good env_close [$env close] 0
 	}
 }

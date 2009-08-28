@@ -17,8 +17,8 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 /* elfos.h should have already been included.  Now just override
    any conflicting definitions and add any extras.  */
@@ -58,9 +58,9 @@
   do									\
     {									\
       if (IN_NAMED_SECTION (DECL))					\
-	named_section (DECL, NULL, 0);					\
+	switch_to_section (get_named_section (DECL, NULL, 0));		\
       else								\
-	bss_section ();							\
+	switch_to_section (bss_section);				\
       									\
       ASM_OUTPUT_ALIGN (FILE, floor_log2 (ALIGN / BITS_PER_UNIT));	\
 									\
@@ -75,9 +75,9 @@
   do									\
     {									\
       if ((DECL) != NULL && IN_NAMED_SECTION (DECL))			\
-	named_section (DECL, NULL, 0);					\
+	switch_to_section (get_named_section (DECL, NULL, 0));		\
       else								\
-	bss_section ();							\
+	switch_to_section (bss_section);				\
 									\
       ASM_OUTPUT_ALIGN (FILE, floor_log2 (ALIGN / BITS_PER_UNIT));	\
       ASM_OUTPUT_LABEL (FILE, NAME);					\
@@ -89,3 +89,9 @@
 #define SUBTARGET_CPU_DEFAULT 		TARGET_CPU_arm7tdmi
 #endif
 
+/* The libgcc udivmod functions may throw exceptions.  If newlib is
+   configured to support long longs in I/O, then printf will depend on
+   udivmoddi4, which will depend on the exception unwind routines,
+   which will depend on abort, which is defined in libc.  */ 
+#undef LINK_GCC_C_SEQUENCE_SPEC
+#define LINK_GCC_C_SEQUENCE_SPEC "--start-group %G %L --end-group"

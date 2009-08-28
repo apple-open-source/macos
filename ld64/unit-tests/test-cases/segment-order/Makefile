@@ -29,7 +29,7 @@ include ${TESTROOT}/include/common.makefile
 
 all:
 	${CC} ${CCFLAGS} main.c segKKK.s segJJJ.s segLLL.s -o main
-	nm -j -n main | grep _sym > symbol.order
+	nm -j -n main | grep _sym_ > symbol.order
 	${FAIL_IF_ERROR} diff symbol.order expected.order
 	${PASS_IFF_GOOD_MACHO} main
 	

@@ -24,15 +24,110 @@
 static inline long double extended_accum( long double *A, long double B ) ALWAYS_INLINE;
 static inline long double extended_accum( long double *A, long double B ) 
 {
+        // assume B >~ *A, B needs to be larger or in the same binade.
     long double r = *A + B;
-    long double carry = B - ( r - *A );
+    long double carry = *A - ( r - B );
     *A = r;
     return carry;
 }
 
+// Set the LSB of a long double encoding. Turns +/- inf to nan, and +/- 0 to Dmin. 
+static inline long double jam_stickyl(long double x) ALWAYS_INLINE;
+static inline long double jam_stickyl(long double x) {
+        union{
+                long double ld;
+                xUInt64 xu;
+                struct{ uint64_t mantissa; int16_t sexp; } parts;
+        } ux = {x}, uy, mask = {0.};
+        mask.parts.mantissa = 0x1ULL;
+        uy.xu = _mm_or_si128(ux.xu, mask.xu);
+        return uy.ld;
+}
+
+
+// Compute next down unless value is already odd.
+// This is useful for reflecting the contribution of "negative sticky". 
+static inline long double jam_nstickyl(long double x) ALWAYS_INLINE;
+static inline long double jam_nstickyl(long double x) {
+        union{
+                long double ld;
+                xUInt64 xu;
+                struct{ uint64_t mantissa; int16_t sexp; } parts;
+        } ux = {x}, uy, mask = {0.}, exp_borrow = {0x1p-16382L};
+        // exp_borrow.parts = {0x8000000000000000ULL, 0x0001}
+        mask.parts.mantissa = 0x1ULL;
+        const xUInt64 is_odd = _mm_and_si128(ux.xu, mask.xu);
+        xUInt64 new_sig = _mm_sub_epi64(ux.xu, _mm_xor_si128(is_odd, mask.xu));
+
+        //Deal with exact powers of 2.
+        if(0x1 & _mm_movemask_pd((xDouble)new_sig)) {
+                /* If the fraction was nonzero, i.e., the significand was 0x8000000000000000,
+                   (recall that 80-bit long double has an explicit integer bit)
+                   we could safely subtract one without needing to borrow from the exponent.
+                 */
+                ;
+        } else {
+                /* If we are here, we subtracted one from an all zero fraction
+                   This means we needed to borrow one from the exponent. 
+                   We also need to restore the explicit integer bit in the 80-bit format.
+                */
+                new_sig = _mm_sub_epi64(new_sig, exp_borrow.xu);
+        }
+        uy.xu = new_sig;
+
+        return uy.ld;
+}
 
 double fma( double a, double b, double c )
 {
+	union{ double ld; uint64_t u;}ua = {a};
+	union{ double ld; uint64_t u;}ub = {b};
+	union{ double ld; uint64_t u;}uc = {c};
+
+	int32_t sign = (ua.u ^ ub.u ^ uc.u)>>63; // 0 for true addition, 1 for true subtraction
+    int32_t aexp = (ua.u>>52) & 0x7ff;
+	int32_t bexp = (ub.u>>52) & 0x7ff;
+	int32_t cexp = (uc.u>>52) & 0x7ff;
+	int32_t pexp =  aexp + bexp - 0x3ff;
+	
+    if((aexp == 0x7ff)||(bexp == 0x7ff)||(cexp == 0x7ff)) {
+        //deal with NaN
+        if( a != a )    return a;
+        if( b != b )    return b;
+        if( c != c )    return c;
+        //Have at least one inf and no NaNs at this point.
+        //Need to deal with invalid cases for INF - INF.
+        //Also, should avoid inadvertant overflow for big*big - INF.
+        if(cexp < 0x7ff) { // If c is finite, then the product is the result.
+                return a*b; // One of a or b is INF, so this will produce correct exceptions exactly
+        }
+        // c is infinite. 
+        if((aexp < 0x7ff) && (0 < aexp)) {
+                ua.u = (ua.u & 0x8000000000000000ULL) | 0x4000000000000000ULL; // copysign(2.0,a)
+        }
+        if((bexp < 0x7ff) && (0 < bexp)) {
+                ub.u = (ub.u & 0x8000000000000000ULL) | 0x4000000000000000ULL; // copysign(2.0,b)
+        }
+        return (ua.ld*ub.ld)+c;
+    }
+    // Having ruled out INF and NaN, do a cheap test to see if any input might be zero
+    if((aexp == 0x000)||(bexp == 0x000)||(cexp == 0x000)) {
+            if(a==0.0 || b==0.0) {
+                    // If at least one input is +-0 we can use native arithmetic to compute a*b+c.
+                    // If a or b is zero, then we have a signed zero product that we add to c.
+                    // Not that in this case, c may also be zero, but the addition will produce the correctly signed zero.
+                    return ((a*b)+c);
+            }
+            if(c==0.0) {
+                    // If c is zero and the infinitely precise product is non-zero, 
+                    // we do not add c.
+                    // The floating point multiply with produce the correct result including overflow and underflow.
+                    // Note that if we tried to do (a*b)+c for this case relying on c being zero
+                    // we would get the wrong sign for some underflow cases, e.g., tiny * -tiny + 0.0 should be -0.0.
+                    return (a*b);
+            }
+    }
+
     static const xUInt64 mask26 = { 0xFFFFFFFFFC000000ULL, 0 };
     double ahi, bhi;
 
@@ -74,41 +169,152 @@ double fma( double a, double b, double c )
     
     //accumulate the results into two head/tail buffers. This is infinitely precise.
     //no effort is taken to make sure that a0 and a1 are actually head to tail
-    long double a0 = AloBlo;
-    long double a1 = extended_accum( &a0, AhiBlo );
-    a1 += extended_accum( &a0, AloBhi );
+    long double a0, a1;
+    a0 = AloBlo;
+    a1 = extended_accum( &a0, (AhiBlo + AloBhi) );
     a1 += extended_accum( &a0, AhiBhi );
 
     //Add C. If C has greater magnitude than a0, we need to swap them
-    if( fabsl( C ) > fabsl( a0 ) )
+    if( __builtin_fabsl( C ) > __builtin_fabsl( a0 ) )
     {
         long double temp = C;
         C = a0;
         a0 = temp;
+    } 
+
+    if(cexp + 120 < pexp) {
+            // Check to see if c < ulp(a*b).
+            // If it is then c only contributes as a sticky bit. 
+
+            /* Since we know that the product A*B fits in 106 bits
+               and a0+a1 can accomodate 128 bits, 
+               we just need to add something of the correct sign and
+               less than ULP(A*B) but not too small.
+               We construct this by multiplying a0 by +/- 2^-120.
+            */ 
+            long double ulp_prod_est = a0 * (sign? -0x1p-120L: 0x1p-120L);
+            
+            a1 += ulp_prod_est;
+    } else {
+
+            //this will probably overflow, but we have 128 bits of precision here, which should mean we are covered. 
+            long double a2 = C;
+            if(__builtin_fabsl(C) < __builtin_fabsl(a0)) {
+                    a2 = a0;
+                    a0 = C;
+            }
+            a1 += extended_accum( &a0, a2 );
     }
 
-    //this will probably overflow, but we have 128 bits of precision here, which should mean we are covered. 
-    a1 += extended_accum( &a0, C );
-    
     //push overflow in a1 back into a0. This should give us the correctly rounded result
-    a1 = extended_accum( &a0, a1 );
-
-    return a0;
+    a0 = extended_accum( &a1, a0 );
+    if(a0 > 0.) a1 = (a1>0.)?jam_stickyl(a1):jam_nstickyl(a1);
+    if(a0 < 0.) a1 = (a1<0.)?jam_stickyl(a1):jam_nstickyl(a1);
+    return a1;
 }
 
 
 
 
+/*
+  We wish to compute fmaf(a,b,c) = round_to_single(a*b+c),
+  i.e., do the arithmetic with a single rounding. 
+  If we first conver to double precision: xa, xb, xc,
+  then we could consider the product xp = xa * xb.
+  Since the inputs are limited to 24 bits of precision,
+  the product can be represented with 48.
+  Thus xp fits exactly in a double precision value
+  with 5 bits of precision to spare.
+  Also note that the produce in double precision is imune
+  from overflow or underflow since the inputs are limited
+  to the range of single precision values. 
+  It is tempting to just add xc to xp, and if we could
+  do this with an operation that took double precision 
+  inputs but rounded the result to single precision,
+  we would have the correctly rounded result. 
+  If we try to do the add operation in double (with one rounding)
+  and then round that result to single (a second rounding)
+  we get a result which is incorrectly rounded with respect
+  to the infinitely precise result. 
+  
+*/
 float fmaf( float a, float b, float c )
 {
-    xDouble xa = FLOAT_2_XDOUBLE( a );
-    xDouble xb = FLOAT_2_XDOUBLE( b );
-    xDouble xc = FLOAT_2_XDOUBLE( c );
+        xDouble xa = FLOAT_2_XDOUBLE( a );
+        xDouble xb = FLOAT_2_XDOUBLE( b );
+        xDouble xp = _mm_mul_sd( xa, xb );                     //exact
 
-    xa = _mm_mul_sd( xa, xb );                     //exact
-    xa = _mm_add_sd( xa, xc );                     //inexact
+        union {float f; uint32_t u;} ua = {a}, ub = {b}, uc = {c};
 
-    return XDOUBLE_2_FLOAT( xa );                //double rounding, alas
+        const uint32_t exp_mask = 0x7f800000;
+        const int32_t isInfOrNan_a = (exp_mask == (exp_mask & ua.u));
+        const int32_t isInfOrNan_b = (exp_mask == (exp_mask & ub.u));
+        const int32_t isInfOrNan_c = (exp_mask == (exp_mask & uc.u));
+        const int haveZero = !(ua.u & 0x7fffffff) || !(ub.u & 0x7fffffff) || !(uc.u & 0x7fffffff);
+        const int haveInfOrNan = isInfOrNan_a || isInfOrNan_b || isInfOrNan_c;
+        if(haveInfOrNan || haveZero) {
+                xDouble xc = FLOAT_2_XDOUBLE( c );
+                xDouble xs = _mm_add_sd( xp, xc );           //may raise inexact
+                return XDOUBLE_2_FLOAT( xs );                //correct assuming some input is special
+        } 
+
+        // Have to use the double version of the exponents in case there were denormal single inputs
+        xDouble xc = FLOAT_2_XDOUBLE( c );
+        xSInt64 xemask = { 0x7ff0000000000000ULL, 0x7ff0000000000000ULL};
+        const int double_exp_bias = 0x3ff;
+
+        const int expa = _mm_cvtsi128_si32(_mm_srli_epi64(_mm_and_si128(xemask, (xSInt64)xa),52)); // (double_exp_mask & b) >> 52;
+        const int expb = _mm_cvtsi128_si32(_mm_srli_epi64(_mm_and_si128(xemask, (xSInt64)xb),52)); // (double_exp_mask & b) >> 52;
+        const int expc = _mm_cvtsi128_si32(_mm_srli_epi64(_mm_and_si128(xemask, (xSInt64)xc),52)); // (double_exp_mask & c) >> 52;
+        const int expp = expa + expb + 1 - double_exp_bias; // This corresponds to a significand in Q9.55
+
+        xDouble xs = _mm_add_sd( xp, xc );                     // This may (appropriately) raise inexact
+        // For fenv_access_off we can detect that we are in an appearant exact halfway case
+        // In order to support rounding modes (without know what mode we were called in)
+        // we cover both the halfway case and the appearant exact single precision result case.
+        
+        // Perform the check to see if we are exposed to double rounding. 
+        // The tricky case is when the trailing (53-24)-1 bits are all 0. 
+        const uint32_t low_bits = 0x0fffffff & (uint32_t)_mm_cvtsi128_si32((xSInt32)xs); 
+        xDouble reduced_precision_result;
+        if(0 == low_bits) {
+                //Get any residual bits that need to contribute to sticky in the converstion of double+sticky -> single
+                xDouble hi_addend = xp;
+                xDouble lo_addend = xc;
+                /* Sort the addends roughly by their (estimated) exponents.
+                   If the exponents are within 4 of each other the add will have necessarily been exact
+                   since this is within the 5-bits of headroom that double had over single precision. 
+                */
+                if(expp < expc) {
+                        // swap xp and xc so xp is the larger
+                        hi_addend = xc;
+                        lo_addend = xp;
+                }
+                // Compute, with exact arithmetic, the residual from the earlier add which produced xs
+                const xDouble tail = (hi_addend - xs) + lo_addend; 
+
+//                reduced_precision_result = xJam_sticky(xs, tail); // Avoid double rounding by accounting for trailing bits.
+
+                xUInt64 lsb = {0x1ULL,0x1ULL}; 
+                xSInt64 signs = _mm_srli_epi64(_mm_xor_si128((xSInt64)xs, (xSInt64)tail), 63);
+
+                xDouble zero = _mm_setzero_pd();
+                xSInt64 zeromask = (xSInt64)_mm_cmpeq_sd(zero,tail); // Mask of 1s if tail is 0.0 or -0.0
+
+                xSInt64 sticky = _mm_sub_epi64(lsb,_mm_slli_epi64(signs,1)); // 1 - signs<<1 = 1 - 2*signs = (signs) ? -1 : 1
+                xSInt64 fixup = _mm_andnot_si128(zeromask,sticky); // (tail is zero)? 0: (head and tail have same sign)? 1: -1
+                reduced_precision_result = (xDouble)_mm_add_epi64((xSInt64)xs, fixup); // Avoid double rounding by accounting for trailing bits.
+
+        } else {
+                reduced_precision_result = xs;
+        }
+
+        /* Do final correct rounding to single precision.
+           This may raise inexact, overflow, or underflow. If so it will be appropriate and return the appropriate result.
+        */
+        float rounded_result = XDOUBLE_2_FLOAT( reduced_precision_result ); 
+
+        return rounded_result;
 }
 
 

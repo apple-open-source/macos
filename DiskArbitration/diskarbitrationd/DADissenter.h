@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,7 +35,11 @@ typedef const struct __DADissenter * DADissenterRef;
 
 extern DADissenterRef DADissenterCreate( CFAllocatorRef allocator, DAReturn status );
 
+extern pid_t DADissenterGetProcessID( DADissenterRef dissenter );
+
 extern DAReturn DADissenterGetStatus( DADissenterRef dissenter );
+
+extern void DADissenterSetProcessID( DADissenterRef dissenter, pid_t pid );
 
 #ifdef __cplusplus
 }

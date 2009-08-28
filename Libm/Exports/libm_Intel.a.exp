@@ -303,7 +303,12 @@ _hypot$fenv_access_off
 #libm.a(lgamma.o):
 _lgamma
 _lgamma$fenv_access_off
-#_lgamma_r
+_lgamma_r
+_lgamma_r$fenv_access_off
+_lgammaf_r
+_lgammaf_r$fenv_access_off
+_lgammal_r
+_lgammal_r$fenv_access_off
 
 #libm.a(logb.o):
 _ilogb

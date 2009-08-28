@@ -1,0 +1,204 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A181F26005E55356006CE0A8 /* kinit.c in Sources */ = {isa = PBXBuildFile; fileRef = F5E27E2D02370DCE01650119 /* kinit.c */; };
+		A181F26205E55356006CE0A8 /* Kerberos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5E27E3B02370E8E01650119 /* Kerberos.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A108E6D30A41E819008545E5 /* Release.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = ../../../Common/Resources/Release.xcconfig; sourceTree = SOURCE_ROOT; };
+		A108E6D40A41E819008545E5 /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Debug.xcconfig; path = ../../../Common/Resources/Debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		A181F26505E55356006CE0A8 /* kinit */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = kinit; sourceTree = BUILT_PRODUCTS_DIR; };
+		F5033FC0025DF9D401F62B58 /* kinit.M */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 30; path = kinit.M; sourceTree = "<group>"; };
+		F5E27E2D02370DCE01650119 /* kinit.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = kinit.c; sourceTree = "<group>"; };
+		F5E27E3B02370E8E01650119 /* Kerberos.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = Kerberos.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A181F26105E55356006CE0A8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A181F26205E55356006CE0A8 /* Kerberos.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		F5033FBF025DF9D401F62B58 /* Documentation */ = {
+			isa = PBXGroup;
+			children = (
+				F5033FC0025DF9D401F62B58 /* kinit.M */,
+			);
+			name = Documentation;
+			path = ../Documentation;
+			sourceTree = "<group>";
+		};
+		F5E27E040237082001650119 = {
+			isa = PBXGroup;
+			children = (
+				A108E6D30A41E819008545E5 /* Release.xcconfig */,
+				A108E6D40A41E819008545E5 /* Debug.xcconfig */,
+				F5E27E2C02370DCE01650119 /* Sources */,
+				F5033FBF025DF9D401F62B58 /* Documentation */,
+				F5E27E3B02370E8E01650119 /* Kerberos.framework */,
+				F5E27E3002370DCE01650119 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		F5E27E2C02370DCE01650119 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				F5E27E2D02370DCE01650119 /* kinit.c */,
+			);
+			name = Sources;
+			path = ../Sources;
+			sourceTree = SOURCE_ROOT;
+		};
+		F5E27E3002370DCE01650119 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A181F26505E55356006CE0A8 /* kinit */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A181F25C05E55356006CE0A8 /* kinit */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A151914C086C8DED0042CBBC /* Build configuration list for PBXNativeTarget "kinit" */;
+			buildPhases = (
+				A181F25F05E55356006CE0A8 /* Sources */,
+				A181F26105E55356006CE0A8 /* Frameworks */,
+				A13166C4069494DB002D47D6 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = kinit;
+			productInstallPath = /usr/bin;
+			productName = kinit;
+			productReference = A181F26505E55356006CE0A8 /* kinit */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		F5E27E030237082001650119 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = A1519150086C8DED0042CBBC /* Build configuration list for PBXProject "kinit" */;
+			compatibilityVersion = "Xcode 2.4";
+			hasScannedForEncodings = 1;
+			mainGroup = F5E27E040237082001650119;
+			productRefGroup = F5E27E3002370DCE01650119 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A181F25C05E55356006CE0A8 /* kinit */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		A13166C4069494DB002D47D6 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../Documentation/kinit.M",
+			);
+			outputPaths = (
+				"$(DSTROOT)/usr/share/man/man1/kinit.1",
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "mkdir -p \"${DSTROOT}/usr/share/man/man1\"\ninstall -c -m 644 \"${SRCROOT}/../Documentation/kinit.M\" \"${DSTROOT}/usr/share/man/man1/kinit.1\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A181F25F05E55356006CE0A8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A181F26005E55356006CE0A8 /* kinit.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A151914D086C8DED0042CBBC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E6D40A41E819008545E5 /* Debug.xcconfig */;
+			buildSettings = {
+				INSTALL_PATH = /usr/bin;
+				OTHER_CFLAGS = "-D_FORTIFY_SOURCE=2";
+				OTHER_LDFLAGS = "-Wl,-pie";
+				PRODUCT_NAME = kinit;
+				VALID_ARCHS = "i386 ppc x86_64";
+			};
+			name = Debug;
+		};
+		A151914E086C8DED0042CBBC /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E6D30A41E819008545E5 /* Release.xcconfig */;
+			buildSettings = {
+				INSTALL_PATH = /usr/bin;
+				OTHER_CFLAGS = "-D_FORTIFY_SOURCE=2";
+				OTHER_LDFLAGS = "-Wl,-pie";
+				PRODUCT_NAME = kinit;
+				VALID_ARCHS = "i386 ppc x86_64";
+			};
+			name = Release;
+		};
+		A1519151086C8DED0042CBBC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E6D40A41E819008545E5 /* Debug.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		A1519152086C8DED0042CBBC /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E6D30A41E819008545E5 /* Release.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A151914C086C8DED0042CBBC /* Build configuration list for PBXNativeTarget "kinit" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A151914D086C8DED0042CBBC /* Debug */,
+				A151914E086C8DED0042CBBC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		A1519150086C8DED0042CBBC /* Build configuration list for PBXProject "kinit" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1519151086C8DED0042CBBC /* Debug */,
+				A1519152086C8DED0042CBBC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = F5E27E030237082001650119 /* Project object */;
+}

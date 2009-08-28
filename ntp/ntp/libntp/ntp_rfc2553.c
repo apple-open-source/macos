@@ -288,6 +288,7 @@ getnameinfo (const struct sockaddr *sa, u_int salen, char *host,
 	size_t hostlen, char *serv, size_t servlen, int flags)
 {
 	struct hostent *hp;
+	int namelen;
 
 	if (sa->sa_family != AF_INET)
 		return (EAI_FAMILY);
@@ -300,9 +301,15 @@ getnameinfo (const struct sockaddr *sa, u_int salen, char *host,
 		else
 			return (EAI_FAIL);
 	}
-	if (host != NULL) {
-		strncpy(host, hp->h_name, hostlen);
-		host[hostlen] = '\0';
+	if (host != NULL && hostlen > 0) {
+		/*
+		 * Don't exceed buffer
+		 */
+		namelen = min(strlen(hp->h_name), hostlen - 1);
+		if (namelen > 0) {
+			strncpy(host, hp->h_name, namelen);
+			host[namelen] = '\0';
+		}
 	}
 	return (0);
 }
@@ -385,6 +392,12 @@ do_nodename(
 		ai->ai_addrlen = sizeof(struct sockaddr_in);
 		return (0);
 	}
+
+	/*
+	 * If the numeric host flag is set, don't attempt resolution
+	 */
+	if (hints != NULL && (hints->ai_flags & AI_NUMERICHOST))
+		return (EAI_NONAME);
 
 	/*
 	 * Look for a name

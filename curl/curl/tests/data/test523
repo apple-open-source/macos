@@ -3,6 +3,7 @@
 <keywords>
 HTTP
 HTTP GET
+HTTP proxy
 CURLOPT_PORT
 CURLOPT_PROXY
 </keywords>
@@ -11,7 +12,7 @@ CURLOPT_PROXY
 #
 # Server-side
 <reply>
-<data nocheck="1">
+<data nocheck="yes">
 HTTP/1.1 200 OK swsclose
 Date: Thu, 09 Nov 2010 14:49:00 GMT
 Server: test-server/fake
@@ -52,7 +53,6 @@ http://www.haxx.se:999/523 http://%HOSTIP:%HTTPPORT
 GET http://www.haxx.se:19999/523 HTTP/1.1
 Authorization: Basic eHh4Onl5eQ==
 Host: www.haxx.se:19999
-Pragma: no-cache
 Accept: */*
 Proxy-Connection: Keep-Alive
 

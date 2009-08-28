@@ -28,13 +28,19 @@
 #ifndef __DirServicesUtilsPriv_h__
 #define	__DirServicesUtilsPriv_h__	1
 
+#include <AvailabilityMacros.h>
 #include <DirectoryService/DirServicesTypes.h>
 
 __BEGIN_DECLS
 
-tDirStatus dsParseAuthAuthorityExtended( const char *inAuthAuthority, char **outVersion, char **outAuthTag, char ***outAuthData );
-CFMutableDictionaryRef dsConvertAuthAuthorityToCFDict( const char *inAuthAuthorityStr );
-char *dsConvertCFDictToAuthAuthority( CFDictionaryRef inAuthAuthorityDict );
+tDirStatus dsParseAuthAuthorityExtended( const char *inAuthAuthority, char **outVersion, char **outAuthTag, char ***outAuthData )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
+
+CFMutableDictionaryRef dsConvertAuthAuthorityToCFDict( const char *inAuthAuthorityStr )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
+
+char *dsConvertCFDictToAuthAuthority( CFDictionaryRef inAuthAuthorityDict )
+DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 __END_DECLS
 

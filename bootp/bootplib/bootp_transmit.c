@@ -115,7 +115,7 @@ bootp_transmit(int sockfd, char sendbuf[2048],
 
     if (first) {
 	first = 0;
-	ip_id = random();
+	ip_id = arc4random();
     }
 
     if ((hwtype == ARPHRD_ETHER || hwtype == ARPHRD_IEEE1394)

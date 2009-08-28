@@ -1,42 +1,15 @@
-#!/usr/bin/perl -w
-
 use strict;
+use warnings;
 
-BEGIN
-{
-    if ($] < 5.006)
-    {
-	print "1..0\n";
-	exit;
-    }
+use File::Spec;
+use lib File::Spec->catdir( 't', 'lib' );
 
-    eval "use Attribute::Handlers";
-    if ($@)
-    {
-	print "1..0\n";
-	exit;
-    }
+use PVTests;
+use Test::More tests => 10;
 
-    $ENV{PERL_NO_VALIDATION} = 0;
-    require Attribute::Params::Validate;
-    Params::Validate->import(':all');
-}
+use Attribute::Params::Validate;
+use Params::Validate qw(:all);
 
-if ( $] == 5.006 )
-{
-    warn <<'EOF';
-
-Skipping tests for Perl 5.6.0.  5.6.0 core dumps all over during the
-tests.  This may just have to do with the test code rather than the
-module itself.  5.6.1 works fine when I tested it.  5.6.0 is buggy.
-You are encouraged to upgrade.
-EOF
-
-    print "1..0\n";
-    exit;
-}
-
-print "1..13\n";
 
 sub foo :Validate( c => { type => SCALAR } )
 {
@@ -57,68 +30,54 @@ sub baz :Validate( foo => { type => ARRAYREF, callbacks => { '5 elements' => sub
     return $data{foo}->[0];
 }
 
+sub buz : ValidatePos( 1 )
+{
+    return $_[0];
+}
+
 sub quux :ValidatePos( { type => SCALAR }, 1 )
 {
     return $_[0];
 }
 
 my $res = eval { foo( c => 1 ) };
-ok( ! $@,
-    "Calling foo with a scalar failed: $@\n" );
+is( $@, q{},
+    "Call foo with a scalar" );
 
-ok( $res == 1,
-    "Return value from foo( c => 1 ) was not 1, it was $res\n" );
+is( $res, 1,
+    'Check return value from foo( c => 1 )' );
 
 eval { foo( c => [] ) };
 
-ok( $@,
-    "No exception was thrown when calling foo( c => [] )\n" );
-
-ok( $@ =~ /The 'a' parameter to .* was an 'arrayref'/,
-    "The exception thrown when calling foo( c => [] ) was $@\n" );
+like( $@, qr/The 'c' parameter .* was an 'arrayref'/,
+      'Check exception thrown from foo( c => [] )' );
 
 $res = eval { main->bar( c => 1 ) };
-ok( ! $@,
-    "Calling bar with a scalar failed: $@\n" );
+is( $@, q{},
+    'Call bar with a scalar' );
 
-ok( $res == 1,
-    "Return value from bar( c => 1 ) was not 1, it was $res\n" );
+is( $res, 1,
+    'Check return value from bar( c => 1 )' );
 
 eval { baz( foo => [1,2,3,4] ) };
 
-ok( $@,
-    "No exception was thrown when calling baz( foo => [1,2,3,4] )\n" );
-
-ok( $@ =~ /The 'foo' parameter to .* did not pass the '5 elements' callback/,
-    "The exception thrown when calling baz( foo => [1,2,3,4] ) was $@\n" );
+like( $@, qr/The 'foo' parameter .* did not pass the '5 elements' callback/,
+      'Check exception thrown from baz( foo => [1,2,3,4] )' );
 
 $res = eval { baz( foo => [5,4,3,2,1] ) };
 
-ok( ! $@,
-    "Calling baz( foo => [5,4,3,2,1] ) threw an exception: $@\n" );
+is( $@, q{},
+    'Call baz( foo => [5,4,3,2,1] )' );
 
-ok( $res == 5,
-    "The return value from baz( foo => [5,4,3,2,1] ) was $res\n" );
+is( $res, 5,
+    'Check return value from baz( foo => [5,4,3,2,1] )' );
 
-eval { quux( [], 1 ) };
+eval { buz( [], 1 ) };
 
-ok( $@,
-    "No exception was thrown when calling quux( [], 1 )\n" );
-
-ok( $@ =~ /2 parameters were passed to .* but 1 was expected/,
-    "The exception thrown when calling quux( [], 1 ) was $@\n" );
+like( $@, qr/2 parameters were passed to .* but 1 was expected/,
+      'Check exception thrown from quux( [], 1 )' );
 
 $res = eval { quux( 1, [] ) };
 
-ok( ! $@,
-    "Calling quux failed: $@\n" );
-
-sub ok
-{
-    my $ok = !!shift;
-    use vars qw($TESTNUM);
-    $TESTNUM++;
-    print "not "x!$ok, "ok $TESTNUM\n";
-    print "@_\n" if !$ok;
-}
-
+is( $@, q{},
+    'Call quux' );

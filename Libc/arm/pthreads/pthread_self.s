@@ -20,6 +20,8 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#include <arm/arch.h>
+
 #define	__APPLE_API_PRIVATE
 #include <machine/cpu_capabilities.h>
 #undef	__APPLE_API_PRIVATE
@@ -28,5 +30,9 @@
         .align 2
         .globl _pthread_self
 _pthread_self:
+#ifdef _ARM_ARCH_6
+	mrc	p15, 0, r0, c13, c0, 3
+#else
 	mov	r0, r9
+#endif
 	bx	lr

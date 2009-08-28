@@ -6,7 +6,11 @@
     <string>com.apple.syslogd</string>
     <key>OnDemand</key>
     <false/>
-    <key>ProgramArguments</key>
+	<key>HopefullyExitsLast</key>
+	<true/>
+	<key>EnableTransactions</key>
+	<true/>
+	<key>ProgramArguments</key>
     <array>
 <!--
 	Un-comment the following lines to run syslogd with a sandbox profile.

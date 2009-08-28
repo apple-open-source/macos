@@ -85,8 +85,8 @@ typedef struct HMAC_MD5_CTX_s {
  *  values stored in network byte order (Big Endian)
  */
 typedef struct HMAC_MD5_STATE_s {
-    unsigned long istate[4];	//4byte longs
-    unsigned long ostate[4];	//4byte longs
+    uint32_t istate[4];
+    uint32_t ostate[4];
 } HMAC_MD5_STATE;
 
 
@@ -94,13 +94,13 @@ void DigestCalcSecret(
 	unsigned char *pszUserName,
 	unsigned char *pszRealm,
 	unsigned char *Password,
-	int PasswordLen,
+	size_t PasswordLen,
 	HASH HA1);
 
 void pwsf_hmac_md5_precalc(
 	HMAC_MD5_STATE *state,
 	const unsigned char *key,
-	int key_len);
+	size_t key_len);
 
 void sasl_chop(char *s);
 typedef int sasl_cbproc();
@@ -117,7 +117,7 @@ getsecret(sasl_conn_t *conn,
 	  void *context /*__attribute__((unused))*/,
 	  int id,
 	  sasl_secret_t **psecret);
-long getconn(const char *host, const char *port, int *outSocket);
+int getconn(const char *host, const char *port, int *outSocket);
 
 #ifdef __cplusplus
 };

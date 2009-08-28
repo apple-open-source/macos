@@ -36,3 +36,5 @@
 LEAF(_bzero,0)
 	movl	$(_COMM_PAGE_BZERO), %eax
 	jmpl	*%eax
+
+X_LEAF(___bzero, _bzero)

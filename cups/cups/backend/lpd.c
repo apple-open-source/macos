@@ -1,9 +1,9 @@
 /*
- * "$Id: lpd.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: lpd.c 7740 2008-07-14 23:58:05Z mike $"
  *
  *   Line Printer Daemon backend for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007-2008 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -29,19 +29,11 @@
  * Include necessary headers.
  */
 
-#include <cups/backend.h>
 #include <cups/http-private.h>
-#include <cups/cups.h>
-#include <cups/i18n.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include "backend-private.h"
 #include <stdarg.h>
-#include <ctype.h>
-#include <cups/string.h>
-#include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <signal.h>
 
 #ifdef WIN32
 #  include <winsock.h>
@@ -120,31 +112,32 @@ int					/* O - Exit status */
 main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
      char *argv[])			/* I - Command-line arguments */
 {
-  char			method[255],	/* Method in URI */
-			hostname[1024],	/* Hostname */
-			username[255],	/* Username info */
-			resource[1024],	/* Resource info (printer name) */
-			*options,	/* Pointer to options */
-			*name,		/* Name of option */
-			*value,		/* Value of option */
-			sep,		/* Separator character */
-			*filename,	/* File to print */
-			title[256];	/* Title string */
-  int			port;		/* Port number */
-  int			fd;		/* Print file */
-  int			status;		/* Status of LPD job */
-  int			mode;		/* Print mode */
-  int			banner;		/* Print banner page? */
-  int			format;		/* Print format */
-  int			order;		/* Order of control/data files */
-  int			reserve;	/* Reserve priviledged port? */
-  int			sanitize_title;	/* Sanitize title string? */
-  int			manual_copies,	/* Do manual copies? */
-			timeout,	/* Timeout */
-			contimeout,	/* Connection timeout */
-			copies;		/* Number of copies */
+  const char	*device_uri;		/* Device URI */
+  char		scheme[255],		/* Scheme in URI */
+		hostname[1024],		/* Hostname */
+		username[255],		/* Username info */
+		resource[1024],		/* Resource info (printer name) */
+		*options,		/* Pointer to options */
+		*name,			/* Name of option */
+		*value,			/* Value of option */
+		sep,			/* Separator character */
+		*filename,		/* File to print */
+		title[256];		/* Title string */
+  int		port;			/* Port number */
+  int		fd;			/* Print file */
+  int		status;			/* Status of LPD job */
+  int		mode;			/* Print mode */
+  int		banner;			/* Print banner page? */
+  int		format;			/* Print format */
+  int		order;			/* Order of control/data files */
+  int		reserve;		/* Reserve priviledged port? */
+  int		sanitize_title;		/* Sanitize title string? */
+  int		manual_copies,		/* Do manual copies? */
+		timeout,		/* Timeout */
+		contimeout,		/* Connection timeout */
+		copies;			/* Number of copies */
 #if defined(HAVE_SIGACTION) && !defined(HAVE_SIGSET)
-  struct sigaction	action;		/* Actions for POSIX signals */
+  struct sigaction action;		/* Actions for POSIX signals */
 #endif /* HAVE_SIGACTION && !HAVE_SIGSET */
 
 
@@ -181,7 +174,8 @@ main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
 
   if (argc == 1)
   {
-    puts("network lpd \"Unknown\" \"LPD/LPR Host or Printer\"");
+    printf("network lpd \"Unknown\" \"%s\"\n",
+           _cupsLangString(cupsLangDefault(), _("LPD/LPR Host or Printer")));
     return (CUPS_BACKEND_OK);
   }
   else if (argc < 6 || argc > 7)
@@ -196,9 +190,11 @@ main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
   * Extract the hostname and printer name from the URI...
   */
 
-  httpSeparateURI(HTTP_URI_CODING_ALL, cupsBackendDeviceURI(argv),
-                  method, sizeof(method), username, sizeof(username),
-		  hostname, sizeof(hostname), &port,
+  if ((device_uri = cupsBackendDeviceURI(argv)) == NULL)
+    return (CUPS_BACKEND_FAILED);
+
+  httpSeparateURI(HTTP_URI_CODING_ALL, device_uri, scheme, sizeof(scheme),
+                  username, sizeof(username), hostname, sizeof(hostname), &port,
 		  resource, sizeof(resource));
 
   if (!port)
@@ -389,7 +385,7 @@ main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
 	*/
 
         sanitize_title = !value[0] || !strcasecmp(value, "on") ||
-	 		!strcasecmp(value, "yes") || !strcasecmp(value, "true");
+	 		 !strcasecmp(value, "yes") || !strcasecmp(value, "true");
       }
       else if (!strcasecmp(name, "timeout"))
       {
@@ -427,24 +423,36 @@ main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
     * Copy stdin to a temporary file...
     */
 
-    char buffer[8192];	/* Buffer for copying */
-    int  bytes;		/* Number of bytes read */
+    http_addrlist_t	*addrlist;	/* Address list */
+    int			snmp_fd;	/* SNMP socket */
 
+
+    fputs("STATE: +connecting-to-device\n", stderr);
+    fprintf(stderr, "DEBUG: Looking up \"%s\"...\n", hostname);
+
+    if ((addrlist = httpAddrGetList(hostname, AF_UNSPEC, "1")) == NULL)
+    {
+      _cupsLangPrintf(stderr, _("ERROR: Unable to locate printer \'%s\'!\n"),
+		      hostname);
+      return (CUPS_BACKEND_STOP);
+    }
+
+    snmp_fd = _cupsSNMPOpen(addrlist->addr.addr.sa_family);
 
     if ((fd = cupsTempFd(tmpfilename, sizeof(tmpfilename))) < 0)
     {
-      perror("ERROR: unable to create temporary file");
+      _cupsLangPrintError(_("ERROR: Unable to create temporary file"));
       return (CUPS_BACKEND_FAILED);
     }
 
-    while ((bytes = fread(buffer, 1, sizeof(buffer), stdin)) > 0)
-      if (write(fd, buffer, bytes) < bytes)
-      {
-        perror("ERROR: unable to write to temporary file");
-	close(fd);
-	unlink(tmpfilename);
-	return (CUPS_BACKEND_FAILED);
-      }
+    _cupsLangPuts(stderr, _("INFO: Copying print data...\n"));
+
+    backendRunLoop(-1, fd, snmp_fd, &(addrlist->addr), 0, backendNetworkSideCB);
+
+    if (snmp_fd >= 0)
+      _cupsSNMPClose(snmp_fd);
+
+    httpAddrFreeList(addrlist);
   }
   else if (argc == 6)
   {
@@ -578,7 +586,7 @@ lpd_command(int  fd,		/* I - Socket connection to LPD host */
 
   if (lpd_write(fd, buf, bytes) < bytes)
   {
-    perror("ERROR: Unable to send LPD command");
+    _cupsLangPrintError(_("ERROR: Unable to send LPD command"));
     return (-1);
   }
 
@@ -640,6 +648,8 @@ lpd_queue(const char *hostname,		/* I - Host to connect to */
   char			addrname[256];	/* Address name */
   http_addrlist_t	*addrlist,	/* Address list */
 			*addr;		/* Socket address */
+  int			snmp_fd,	/* SNMP socket */
+			have_supplies;	/* Printer supports supply levels? */
   int			copy;		/* Copies written */
   time_t		start_time;	/* Time of first connect */
   int			recoverable;	/* Recoverable error shown? */
@@ -673,6 +683,9 @@ lpd_queue(const char *hostname,		/* I - Host to connect to */
 
   sprintf(portname, "%d", port);
 
+  fputs("STATE: +connecting-to-device\n", stderr);
+  fprintf(stderr, "DEBUG: Looking up \"%s\"...\n", hostname);
+
   if ((addrlist = httpAddrGetList(hostname, AF_UNSPEC, portname)) == NULL)
   {
     _cupsLangPrintf(stderr, _("ERROR: Unable to locate printer \'%s\'!\n"),
@@ -697,10 +710,9 @@ lpd_queue(const char *hostname,		/* I - Host to connect to */
     * First try to reserve a port for this connection...
     */
 
-    fputs("STATE: +connecting-to-device\n", stderr);
-    _cupsLangPrintf(stderr,
-		    _("INFO: Attempting to connect to host %s for printer %s\n"),
-		    hostname, printer);
+    fprintf(stderr, "DEBUG: Connecting to %s:%d for printer %s\n", hostname,
+            port, printer);
+    _cupsLangPuts(stderr, _("INFO: Connecting to printer...\n"));
 
     for (lport = reserve == RESERVE_RFC1179 ? 732 : 1024, addr = addrlist,
              delay = 5;;
@@ -743,7 +755,7 @@ lpd_queue(const char *hostname,		/* I - Host to connect to */
 
 	if ((fd = socket(addr->addr.addr.sa_family, SOCK_STREAM, 0)) < 0)
 	{
-          perror("ERROR: Unable to create socket");
+          _cupsLangPrintError(_("ERROR: Unable to create socket"));
 	  sleep(1);
 
           continue;
@@ -760,7 +772,7 @@ lpd_queue(const char *hostname,		/* I - Host to connect to */
 
 	if ((fd = rresvport_af(&lport, addr->addr.addr.sa_family)) < 0)
 	{
-	  perror("ERROR: Unable to reserve port");
+	  _cupsLangPrintError(_("ERROR: Unable to reserve port"));
 	  sleep(1);
 
 	  continue;
@@ -867,7 +879,7 @@ lpd_queue(const char *hostname,		/* I - Host to connect to */
     }
 
     fputs("STATE: -connecting-to-device\n", stderr);
-    _cupsLangPrintf(stderr, _("INFO: Connected to %s...\n"), hostname);
+    _cupsLangPuts(stderr, _("INFO: Connected to printer...\n"));
 
 #ifdef AF_INET6
     if (addr->addr.addr.sa_family == AF_INET6)
@@ -880,6 +892,21 @@ lpd_queue(const char *hostname,		/* I - Host to connect to */
 	fprintf(stderr, "DEBUG: Connected to %s:%d (IPv4) (local port %d)...\n",
 		httpAddrString(&addr->addr, addrname, sizeof(addrname)),
 		ntohs(addr->addr.ipv4.sin_port), lport);
+
+   /*
+    * See if the printer supports SNMP...
+    */
+
+    if ((snmp_fd = _cupsSNMPOpen(addr->addr.addr.sa_family)) >= 0)
+      have_supplies = !backendSNMPSupplies(snmp_fd, &(addr->addr), NULL, NULL);
+    else
+      have_supplies = 0;
+
+   /*
+    * Check for side-channel requests...
+    */
+
+    backendCheckSideChannel(snmp_fd, &(addr->addr));
 
    /*
     * Next, open the print file and figure out its size...
@@ -896,7 +923,7 @@ lpd_queue(const char *hostname,		/* I - Host to connect to */
 	httpAddrFreeList(addrlist);
 	close(fd);
 
-	perror("ERROR: unable to stat print file");
+	_cupsLangPrintError(_("ERROR: unable to stat print file"));
 	return (CUPS_BACKEND_FAILED);
       }
 
@@ -964,6 +991,16 @@ lpd_queue(const char *hostname,		/* I - Host to connect to */
 
     if (order == ORDER_CONTROL_DATA)
     {
+     /*
+      * Check for side-channel requests...
+      */
+
+      backendCheckSideChannel(snmp_fd, &(addr->addr));
+
+     /*
+      * Send the control file...
+      */
+
       if (lpd_command(fd, timeout, "\002%d cfA%03.3d%.15s\n", strlen(control),
                       (int)getpid() % 1000, localhost))
       {
@@ -979,7 +1016,7 @@ lpd_queue(const char *hostname,		/* I - Host to connect to */
       if (lpd_write(fd, control, strlen(control) + 1) < (strlen(control) + 1))
       {
 	status = errno;
-	perror("ERROR: Unable to write control file");
+	_cupsLangPrintError(_("ERROR: Unable to write control file"));
       }
       else
       {
@@ -1008,6 +1045,12 @@ lpd_queue(const char *hostname,		/* I - Host to connect to */
 
     if (status == 0)
     {
+     /*
+      * Check for side-channel requests...
+      */
+
+      backendCheckSideChannel(snmp_fd, &(addr->addr));
+
      /*
       * Send the print file...
       */
@@ -1043,7 +1086,7 @@ lpd_queue(const char *hostname,		/* I - Host to connect to */
 
 	  if (lpd_write(fd, buffer, nbytes) < nbytes)
 	  {
-            perror("ERROR: Unable to send print file to printer");
+            _cupsLangPrintError(_("ERROR: Unable to send print file to printer"));
             break;
 	  }
 	  else
@@ -1057,7 +1100,7 @@ lpd_queue(const char *hostname,		/* I - Host to connect to */
 	  status = errno;
 	else if (lpd_write(fd, "", 1) < 1)
 	{
-          perror("ERROR: Unable to send trailing nul to printer");
+          _cupsLangPrintError(_("ERROR: Unable to send trailing nul to printer"));
 	  status = errno;
 	}
 	else
@@ -1095,6 +1138,16 @@ lpd_queue(const char *hostname,		/* I - Host to connect to */
 
     if (status == 0 && order == ORDER_DATA_CONTROL)
     {
+     /*
+      * Check for side-channel requests...
+      */
+
+      backendCheckSideChannel(snmp_fd, &(addr->addr));
+
+     /*
+      * Send control file...
+      */
+
       if (lpd_command(fd, timeout, "\002%d cfA%03.3d%.15s\n", strlen(control),
                       (int)getpid() % 1000, localhost))
       {
@@ -1110,7 +1163,7 @@ lpd_queue(const char *hostname,		/* I - Host to connect to */
       if (lpd_write(fd, control, strlen(control) + 1) < (strlen(control) + 1))
       {
 	status = errno;
-	perror("ERROR: Unable to write control file");
+	_cupsLangPrintError(_("ERROR: Unable to write control file"));
       }
       else
       {
@@ -1134,6 +1187,13 @@ lpd_queue(const char *hostname,		/* I - Host to connect to */
       else
 	_cupsLangPuts(stderr, _("INFO: Control file sent successfully\n"));
     }
+
+   /*
+    * Collect the final supply levels as needed...
+    */
+
+    if (have_supplies)
+      backendSNMPSupplies(snmp_fd, &(addr->addr), NULL, NULL);
 
    /*
     * Close the socket connection and input file...
@@ -1316,5 +1376,5 @@ sigterm_handler(int sig)		/* I - Signal */
 
 
 /*
- * End of "$Id: lpd.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: lpd.c 7740 2008-07-14 23:58:05Z mike $".
  */

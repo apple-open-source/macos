@@ -112,6 +112,8 @@ extern long
    NCFragSectionInfo *section);
 
 long cfm_update (task_t task, struct dyld_objfile_info *info);
+void cfm_init (void);
+
 
 #endif /* WITH_CFM */
 #endif /* __GDB_MACOSX_NAT_CFM_H__ */

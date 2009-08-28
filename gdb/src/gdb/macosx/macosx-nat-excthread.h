@@ -40,6 +40,10 @@ struct macosx_exception_thread_status
   macosx_exception_info saved_exceptions;
   macosx_exception_info saved_exceptions_step;
   int saved_exceptions_stepping;
+  /* shutting down is fairly crude, I just use it to tell the
+     exception thread not to complain about the exception port
+     going away out from under it on shutting down.  */
+  int shutting_down;
 };
 typedef struct macosx_exception_thread_status macosx_exception_thread_status;
 

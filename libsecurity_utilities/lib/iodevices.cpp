@@ -112,9 +112,9 @@ io_service_t DeviceIterator::operator () ()
 // DeviceMatches
 //
 DeviceMatch::DeviceMatch()
+	: CFRef<CFMutableDictionaryRef>(makeCFMutableDictionary())
 {
-	CFError::check(*this = CFDictionaryCreateMutable(NULL, 0,
-		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
+	CFError::check(*this);
 }
 
 DeviceMatch::DeviceMatch(const char *cls)
@@ -180,14 +180,14 @@ CFRunLoopSourceRef NotificationPort::source() const
 }
 
 
-void NotificationPort::add(DeviceMatch match, Receiver &receiver, const char *type)
+void NotificationPort::add(const DeviceMatch &match, Receiver &receiver, const char *type)
 {
 	io_iterator_t iterator;
+	CFRetain(match);	// compensate for IOSAMN not retaining its argument
 	Error::check(::IOServiceAddMatchingNotification(mPortRef, type,
 		match,
 		ioNotify, &receiver,
 		&iterator));
-	CFRetain(match);	// compensate for IOSAMN not retaining its argument
 	
 	// run initial iterator to process existing devices
 	secdebug("iokit", "dispatching initial device match iterator %d", iterator);
@@ -200,6 +200,7 @@ void NotificationPort::addInterestNotification(Receiver &receiver, io_service_t 
 {
 	io_iterator_t iterator;
 	mach_port_t pp = NotificationPort::port();
+
 	secdebug("iokit", "NotificationPort::addInterest - type: %s [port: %p (0x%08X), service: 0x%08X]",
 		interestType, mPortRef, pp, service);
 

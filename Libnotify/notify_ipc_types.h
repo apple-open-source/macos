@@ -22,6 +22,10 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <sys/types.h>
+#ifndef _NOTIFY_IPC_TYPES_H_
+#define _NOTIFY_IPC_TYPES_H_
 
+#include <sys/types.h>
 typedef char inline_data_t[2048];
+
+#endif

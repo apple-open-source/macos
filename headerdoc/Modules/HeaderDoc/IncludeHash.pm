@@ -2,8 +2,7 @@
 #
 # Class name: 	IncludeHash
 # Synopsis: 	Used by gatherHeaderDoc.pl to hold include info
-# Author: David Gatwood(dgatwood@apple.com)
-# Last Updated: $Date: 2007/04/24 23:34:16 $
+# Last Updated: $Date: 2009/03/30 19:38:50 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -33,7 +32,7 @@ use strict;
 use vars qw($VERSION @ISA);
 use HeaderDoc::Utilities qw(isKeyword quote stringToFields);
 
-$VERSION = '$Revision: 1.1.2.3 $';
+$HeaderDoc::IncludeHash::VERSION = '$Revision: 1.3 $';
 ################ General Constants ###################################
 my $debugging = 0;
 

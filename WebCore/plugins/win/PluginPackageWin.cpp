@@ -81,9 +81,16 @@ bool PluginPackage::isPluginBlacklisted()
 
         if (compareFileVersion(slPluginMinRequired) < 0)
             return true;
-    } else if (fileName() == "npmozax.dll")
+    } else if (fileName() == "npmozax.dll") {
         // Bug 15217: Mozilla ActiveX control complains about missing xpcom_core.dll
         return true;
+    } else if (name() == "Yahoo Application State Plugin") {
+        // https://bugs.webkit.org/show_bug.cgi?id=26860
+        // Bug in Yahoo Application State plug-in earlier than 1.0.0.6 leads to heap corruption. 
+        static const PlatformModuleVersion yahooAppStatePluginMinRequired(0x00000006, 0x00010000);
+        if (compareFileVersion(yahooAppStatePluginMinRequired) < 0)
+            return true;
+    }
 
     return false;
 }
@@ -248,7 +255,7 @@ bool PluginPackage::load()
             return false;
 
         // Load the library
-        m_module = ::LoadLibraryW(m_path.charactersWithNullTermination());
+        m_module = ::LoadLibraryExW(m_path.charactersWithNullTermination(), 0, LOAD_WITH_ALTERED_SEARCH_PATH);
 
         if (!::SetCurrentDirectoryW(currentPath)) {
             if (m_module)
@@ -281,56 +288,7 @@ bool PluginPackage::load()
     if (npErr != NPERR_NO_ERROR)
         goto abort;
 
-    memset(&m_browserFuncs, 0, sizeof(m_browserFuncs));
-    m_browserFuncs.size = sizeof (m_browserFuncs);
-    m_browserFuncs.version = NP_VERSION_MINOR;
-
-    m_browserFuncs.geturl = NPN_GetURL;
-    m_browserFuncs.posturl = NPN_PostURL;
-    m_browserFuncs.requestread = NPN_RequestRead;
-    m_browserFuncs.newstream = NPN_NewStream;
-    m_browserFuncs.write = NPN_Write;
-    m_browserFuncs.destroystream = NPN_DestroyStream;
-    m_browserFuncs.status = NPN_Status;
-    m_browserFuncs.uagent = NPN_UserAgent;
-    m_browserFuncs.memalloc = NPN_MemAlloc;
-    m_browserFuncs.memfree = NPN_MemFree;
-    m_browserFuncs.memflush = NPN_MemFlush;
-    m_browserFuncs.reloadplugins = NPN_ReloadPlugins;
-    m_browserFuncs.geturlnotify = NPN_GetURLNotify;
-    m_browserFuncs.posturlnotify = NPN_PostURLNotify;
-    m_browserFuncs.getvalue = NPN_GetValue;
-    m_browserFuncs.setvalue = NPN_SetValue;
-    m_browserFuncs.invalidaterect = NPN_InvalidateRect;
-    m_browserFuncs.invalidateregion = NPN_InvalidateRegion;
-    m_browserFuncs.forceredraw = NPN_ForceRedraw;
-    m_browserFuncs.getJavaEnv = NPN_GetJavaEnv;
-    m_browserFuncs.getJavaPeer = NPN_GetJavaPeer;
-    m_browserFuncs.pushpopupsenabledstate = NPN_PushPopupsEnabledState;
-    m_browserFuncs.poppopupsenabledstate = NPN_PopPopupsEnabledState;
-    m_browserFuncs.pluginthreadasynccall = NPN_PluginThreadAsyncCall;
-
-    m_browserFuncs.releasevariantvalue = _NPN_ReleaseVariantValue;
-    m_browserFuncs.getstringidentifier = _NPN_GetStringIdentifier;
-    m_browserFuncs.getstringidentifiers = _NPN_GetStringIdentifiers;
-    m_browserFuncs.getintidentifier = _NPN_GetIntIdentifier;
-    m_browserFuncs.identifierisstring = _NPN_IdentifierIsString;
-    m_browserFuncs.utf8fromidentifier = _NPN_UTF8FromIdentifier;
-    m_browserFuncs.intfromidentifier = _NPN_IntFromIdentifier;
-    m_browserFuncs.createobject = _NPN_CreateObject;
-    m_browserFuncs.retainobject = _NPN_RetainObject;
-    m_browserFuncs.releaseobject = _NPN_ReleaseObject;
-    m_browserFuncs.invoke = _NPN_Invoke;
-    m_browserFuncs.invokeDefault = _NPN_InvokeDefault;
-    m_browserFuncs.evaluate = _NPN_Evaluate;
-    m_browserFuncs.getproperty = _NPN_GetProperty;
-    m_browserFuncs.setproperty = _NPN_SetProperty;
-    m_browserFuncs.removeproperty = _NPN_RemoveProperty;
-    m_browserFuncs.hasproperty = _NPN_HasProperty;
-    m_browserFuncs.hasmethod = _NPN_HasMethod;
-    m_browserFuncs.setexception = _NPN_SetException;
-    m_browserFuncs.enumerate = _NPN_Enumerate;
-    m_browserFuncs.construct = _NPN_Construct;
+    initializeBrowserFuncs();
 
     npErr = NP_Initialize(&m_browserFuncs);
     LOG_NPERROR(npErr);

@@ -1,3 +1,26 @@
+/*
+ * Copyright (c) 2006-2008 Apple Computer, Inc.  All Rights Reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPLE_LICENSE_HEADER_END@
+ */
+
 #if defined(__APPLE__)
 
 #import <Symbolication/Symbolication.h>
@@ -41,8 +64,7 @@ typedef struct dt_pid_probe {
  * OBJC provider methods
  */
 
-static int
-dt_pid_objc_filt(void *arg, const GElf_Sym *sym, const char *class_name, const char *method_name)
+static int dt_pid_objc_filt(void *arg, const GElf_Sym *sym, const char *class_name, const char *method_name)
 {
 	dt_pid_probe_t *pp = arg;
         
@@ -78,19 +100,21 @@ int dt_pid_create_objc_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb
 	 * We can only trace dynamically-linked executables (since we've
 	 * hidden some magic in ld.so.1 as well as libc.so.1).
 	 */
-	if (Pname_to_map(pp.dpp_pr, PR_OBJ_LDSO) == NULL) {
-		dt_proc_bpenable(dpr);
-#if !defined(__APPLE__)
+#if defined(__APPLE__)
+	prmap_t thread_local_map;
+	if (Pname_to_map(pp.dpp_pr, PR_OBJ_LDSO, &thread_local_map) == NULL) {
 		return (dt_pid_error(dtp, pcb, dpr, NULL, D_PROC_DYN,
-                "process %s is not a dynamically-linked executable",
-                &pdp->dtpd_provider[3]));
-#else
-		return (dt_pid_error(dtp, pcb, dpr, NULL, D_PROC_DYN,
-				     "process %s is translated, and cannot be instrumented",
+				     "process %s has no dyld, and cannot be instrumented",
 				     &pdp->dtpd_provider[3]));
-#endif
 	}
-        
+#else
+	if (Pname_to_map(pp.dpp_pr, PR_OBJ_LDSO) == NULL) {
+		return (dt_pid_error(dtp, pcb, dpr, NULL, D_PROC_DYN,
+				     "process %s is not a dynamically-linked executable",
+				     &pdp->dtpd_provider[3]));
+	}
+#endif
+	        
 	pp.dpp_provider_type = DTFTP_PROVIDER_OBJC;
 	pp.dpp_mod = pdp->dtpd_mod[0] != '\0' ? pdp->dtpd_mod : "*";
 	pp.dpp_func = pdp->dtpd_func[0] != '\0' ? pdp->dtpd_func : "*";
@@ -110,8 +134,8 @@ int dt_pid_create_objc_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb
          * We're working in the objc namespace, symbols are in "library, function" style.
          * We have to look at every symbol in every owner, even without globbing. 
          */
-        
-        ret = Pobjc_method_iter(pp.dpp_pr, dt_pid_objc_filt, &pp);
+        	
+        ret = Pobjc_method_iter(pp.dpp_pr, (proc_objc_f*)dt_pid_objc_filt, &pp);
         
 	dt_proc_bpenable(dpr);
         

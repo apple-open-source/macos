@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: store.c,v 1.36 2006/09/15 18:58:03 abe Exp $";
+static char *rcsid = "$Id: store.c,v 1.38 2008/10/21 16:21:41 abe Exp $";
 #endif
 
 
@@ -63,6 +63,8 @@ int CmdColW;			/* COMMAND column width */
 struct str_lst *Cmdl = (struct str_lst *)NULL;
 				/* command names selected with -c */
 int CmdLim = CMDL;		/* COMMAND column width limit */
+int Cmdni = 0;			/* command name inclusions selected with -c */
+int Cmdnx = 0;			/* command name exclusions selected with -c */
 lsof_rx_t *CmdRx = (lsof_rx_t *)NULL;
 				/* command regular expression table */
 
@@ -70,7 +72,9 @@ lsof_rx_t *CmdRx = (lsof_rx_t *)NULL;
 cntxlist_t *CntxArg = (cntxlist_t *)NULL;
 				/* security context arguments supplied with
 				 * -Z */
-int CntxColW;			/* security context  column width */
+int CntxColW;			/* security context column width */
+int CntxStatus = 0;		/* security context status: 0 == disabled,
+				 * 1 == enabled */
 #endif	/* defined(HASSELINUX) */
 
 #if	defined(HASDCACHE)
@@ -163,6 +167,7 @@ int FcColW;			/* FCT column width */
 int FgColW;			/* FILE-FLAG column width */
 int FsColW;			/* FSTR-ADDR column width */
 int Fsv = FSV_DEFAULT;		/* file struct value selections */
+int FsvByf = 0;			/* Fsv was set by +f */
 int FsvFlagX = 0;		/* hex format status for FSV_FG */
 int NiColW;			/* NODE-ID column width */
 char *NiTtl = NITTL;		/* NODE-ID column title */
@@ -367,9 +372,38 @@ char *SzOffFmt_dv = (char *)NULL;
 				/* SZOFFTYPE %*d printf  specification */
 char *SzOffFmt_x = (char *)NULL;
 				/* SZOFFTYPE %#x printf  specification */
+int TcpStAlloc = 0;		/* allocated (possibly unused) entries in TCP 
+				 * state tables */
+unsigned char *TcpStI = (unsigned char *)NULL;
+				/* included TCP states */
+int TcpStIn = 0;		/* number of entries in TcpStI[] */
+int TcpStOff = 0;		/* offset for TCP state number to adjust
+				 * negative numbers to an index into TcpSt[],
+				 * TcpStI[] and TcpStX[] */
+unsigned char *TcpStX = (unsigned char *)NULL;
+				/* excluded TCP states */
+int TcpStXn = 0;		/* number of entries in TcpStX[] */
+int TcpNstates = 0;		/* number of TCP states -- either in
+				 * tcpstates[] or TcpSt[] */
+char **TcpSt = (char **)NULL;	/* local TCP state names, indexed by system
+				 * state value */
 char Terminator = '\n';		/* output field terminator */
 int TmLimit = TMLIMIT;		/* Readlink() and stat() timeout (seconds) */
 int TypeColW;			/* TYPE column width */
+int UdpStAlloc = 0;		/* allocated (possibly unused) entries in UDP 
+				 * state tables */
+unsigned char *UdpStI = (unsigned char *)NULL;
+				/* included UDP states */
+int UdpStIn = 0;		/* number of entries in UdpStI[] */
+int UdpStOff = 0;		/* offset for UDP state number to adjust
+				 * negative numbers to an index into UdpSt[],
+				 * UdpStI[] and UdpStX[] */
+unsigned char *UdpStX = (unsigned char *)NULL;
+				/* excluded UDP states */
+int UdpStXn = 0;		/* number of entries in UdpStX[] */
+int UdpNstates = 0;		/* number of UDP states  in UdpSt[] */
+char **UdpSt = (char **)NULL;	/* local UDP state names, indexed by system
+				 * state number */
 int UserColW;			/* USER column width */
 
 #if	defined(HASZONES)

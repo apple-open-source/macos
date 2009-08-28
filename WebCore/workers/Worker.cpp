@@ -31,7 +31,6 @@
 
 #include "Worker.h"
 
-#include "CachedScript.h"
 #include "DOMWindow.h"
 #include "DocLoader.h"
 #include "Document.h"
@@ -45,6 +44,7 @@
 #include "SecurityOrigin.h"
 #include "TextEncoding.h"
 #include "WorkerContextProxy.h"
+#include "WorkerScriptLoader.h"
 #include "WorkerThread.h"
 #include <wtf/MainThread.h>
 
@@ -65,18 +65,9 @@ Worker::Worker(const String& url, ScriptExecutionContext* context, ExceptionCode
         return;
     }
 
-    // FIXME: Nested workers need loading support. Consider adopting ThreadableLoader here.
-    ASSERT(scriptExecutionContext()->isDocument());
-    Document* document = static_cast<Document*>(scriptExecutionContext());
-
-    m_cachedScript = document->docLoader()->requestScript(m_scriptURL, "UTF-8");
-    if (!m_cachedScript) {
-        dispatchErrorEvent();
-        return;
-    }
-
+    m_scriptLoader = new WorkerScriptLoader();
+    m_scriptLoader->loadAsynchronously(scriptExecutionContext(), m_scriptURL, DenyCrossOriginRedirect, this);
     setPendingActivity(this);  // The worker context does not exist while loading, so we must ensure that the worker object is not collected, as well as its event listeners.
-    m_cachedScript->addClient(this);
 }
 
 Worker::~Worker()
@@ -86,9 +77,18 @@ Worker::~Worker()
     m_contextProxy->workerObjectDestroyed();
 }
 
-void Worker::postMessage(const String& message)
+void Worker::postMessage(const String& message, ExceptionCode& ec)
 {
-    m_contextProxy->postMessageToWorkerContext(message);
+    postMessage(message, 0, ec);
+}
+
+void Worker::postMessage(const String& message, MessagePort* messagePort, ExceptionCode& ec)
+{
+    // Disentangle the port in preparation for sending it to the remote context.
+    OwnPtr<MessagePortChannel> channel = messagePort ? messagePort->disentangle(ec) : 0;
+    if (ec)
+        return;
+    m_contextProxy->postMessageToWorkerContext(message, channel.release());
 }
 
 void Worker::terminate()
@@ -112,17 +112,14 @@ bool Worker::hasPendingActivity() const
     return m_contextProxy->hasPendingActivity() || ActiveDOMObject::hasPendingActivity();
 }
 
-void Worker::notifyFinished(CachedResource* unusedResource)
+void Worker::notifyFinished()
 {
-    ASSERT_UNUSED(unusedResource, unusedResource == m_cachedScript);
-
-    if (m_cachedScript->errorOccurred())
+    if (m_scriptLoader->failed())
         dispatchErrorEvent();
     else
-        m_contextProxy->startWorkerContext(m_scriptURL, scriptExecutionContext()->userAgent(m_scriptURL), m_cachedScript->script());
+        m_contextProxy->startWorkerContext(m_scriptURL, scriptExecutionContext()->userAgent(m_scriptURL), m_scriptLoader->script());
 
-    m_cachedScript->removeClient(this);
-    m_cachedScript = 0;
+    m_scriptLoader = 0;
 
     unsetPendingActivity(this);
 }
@@ -192,9 +189,9 @@ bool Worker::dispatchEvent(PassRefPtr<Event> event, ExceptionCode& ec)
     return !event->defaultPrevented();
 }
 
-void Worker::dispatchMessage(const String& message)
+void Worker::dispatchMessage(const String& message, PassRefPtr<MessagePort> port)
 {
-    RefPtr<Event> evt = MessageEvent::create(message, "", "", 0, 0);
+    RefPtr<Event> evt = MessageEvent::create(message, "", "", 0, port);
 
     if (m_onMessageListener.get()) {
         evt->setTarget(this);

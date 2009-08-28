@@ -6324,5 +6324,5 @@ weak_alias (__regfree, regfree)
 
 #endif /* not emacs  */
 #else	/* !defined(USE_LIB_REGEX) */
-static char d1[] = "d"; static char *d2 = d1;
+char regex_d1[] = "d"; char *regex_d2 = regex_d1;
 #endif	/* defined(USE_LIB_REGEX) */

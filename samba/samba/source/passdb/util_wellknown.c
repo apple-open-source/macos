@@ -71,11 +71,16 @@ static const struct rid_name_map null_authority_users[] = {
 	{ 0, "Nobody" },
 	{ 0, NULL}};
 
+static const DOM_SID global_sid_COMPAT_Authority =
+{ 1, 4, {0,0,0,0,0,5},
+    {21,987654321,987654321,987654321,0,0,0,0,0,0,0,0,0,0,0}};
+
 static struct sid_name_map_info special_domains[] = {
 	{ &global_sid_World_Domain, "", everyone_users },
 	{ &global_sid_Creator_Owner_Domain, "", creator_owner_users },
 	{ &global_sid_NT_Authority, "NT Authority", nt_authority_users },
 	{ &global_sid_NULL_Authority, "NULL Authority", null_authority_users },
+	{ &global_sid_COMPAT_Authority, "Compatibility Authority", NULL },
 	{ NULL, NULL, NULL }};
 
 BOOL sid_check_is_wellknown_domain(const DOM_SID *sid, const char **name)

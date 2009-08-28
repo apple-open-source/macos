@@ -281,7 +281,7 @@ main(int argc, char *argv[])
 						CFStringRef shell = CFStringCreateWithCString(NULL, arg, kCFStringEncodingUTF8);
 						if (shell) {
 							attrs = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-							if (attrs) CFDictionarySetValue((CFMutableDictionaryRef)attrs, CFSTR(kDS1AttrUserShell), shell);
+							if (attrs) CFDictionarySetValue((CFMutableDictionaryRef)attrs, kODAttributeTypeUserShell, shell);
 							CFRelease(shell);
 						}
 					} else {

@@ -362,6 +362,61 @@ char* kerberos_secrets_fetch_des_salt( void )
 	return salt;
 }
 
+/************************************************************************
+ Routine to get the default realm from the kerberos credentials cache.
+ Caller must free if the return value is not NULL.
+************************************************************************/
+
+char *kerberos_get_default_realm_from_ccache( void )
+{
+	char *realm = NULL;
+	krb5_context ctx = NULL;
+	krb5_ccache cc = NULL;
+	krb5_principal princ = NULL;
+
+	initialize_krb5_error_table();
+	if (krb5_init_context(&ctx)) {
+		return NULL;
+	}
+
+	DEBUG(5,("kerberos_get_default_realm_from_ccache: "
+		"Trying to read krb5 cache: %s\n",
+		krb5_cc_default_name(ctx)));
+	if (krb5_cc_default(ctx, &cc)) {
+		DEBUG(0,("kerberos_get_default_realm_from_ccache: "
+			"failed to read default cache\n"));
+		goto out;
+	}
+	if (krb5_cc_get_principal(ctx, cc, &princ)) {
+		DEBUG(0,("kerberos_get_default_realm_from_ccache: "
+			"failed to get default principal\n"));
+		goto out;
+	}
+
+#if defined(HAVE_KRB5_PRINCIPAL_GET_REALM)
+	realm = SMB_STRDUP(krb5_principal_get_realm(ctx, princ));
+#elif defined(HAVE_KRB5_PRINC_REALM)
+	{
+		krb5_data *realm_data = krb5_princ_realm(ctx, princ);
+		realm = SMB_STRNDUP(realm_data->data, realm_data->length);
+	}
+#endif
+
+  out:
+
+	if (princ) {
+		krb5_free_principal(ctx, princ);
+	}
+	if (cc) {
+		krb5_cc_close(ctx, cc);
+	}
+	if (ctx) {
+		krb5_free_context(ctx);
+	}
+
+	return realm;
+}
+
 
 /************************************************************************
  Routine to get the salting principal for this service.  This is 
@@ -490,9 +545,11 @@ int kerberos_kinit_password(const char *principal,
 
 static char *get_kdc_ip_string(char *mem_ctx, const char *realm, const char *sitename, struct in_addr primary_ip)
 {
-	struct ip_service *ip_srv_site;
+	int i;
+	struct ip_service *ip_srv_site = NULL;
 	struct ip_service *ip_srv_nonsite;
-	int count_site, count_nonsite, i;
+	int count_site = 0;
+	int count_nonsite;
 	char *kdc_str = talloc_asprintf(mem_ctx, "\tkdc = %s\n",
 					inet_ntoa(primary_ip));
 
@@ -619,11 +676,15 @@ BOOL create_local_private_krb5_conf_for_domain(const char *realm, const char *do
 		TALLOC_FREE(dname);
 		return False;
 	}
-		
-	file_contents = talloc_asprintf(fname, "[libdefaults]\n\tdefault_realm = %s\n\n"
-				"[realms]\n\t%s = {\n"
-				"\t%s\t}\n",
-				realm_upper, realm_upper, kdc_ip_string);
+
+	file_contents = talloc_asprintf(fname,
+					"[libdefaults]\n\tdefault_realm = %s\n"
+					"default_tgs_enctypes = RC4-HMAC DES-CBC-CRC DES-CBC-MD5\n"
+					"default_tkt_enctypes = RC4-HMAC DES-CBC-CRC DES-CBC-MD5\n"
+					"preferred_enctypes = RC4-HMAC DES-CBC-CRC DES-CBC-MD5\n\n"
+					"[realms]\n\t%s = {\n"
+					"\t%s\t}\n",
+					realm_upper, realm_upper, kdc_ip_string);
 
 	if (!file_contents) {
 		TALLOC_FREE(dname);

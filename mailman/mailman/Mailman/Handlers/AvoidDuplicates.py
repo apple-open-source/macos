@@ -1,4 +1,4 @@
-# Copyright (C) 2002-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 2002-2008 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -40,34 +40,38 @@ def process(mlist, msg, msgdata):
     # Short circuit
     if not recips:
         return
+    # There is an issue with addresses in To: or Cc: that differ in
+    # case from the MemberCPAddresses in recips.  We can't just
+    # lower-case everything because we still want CP addresses in
+    # the final recips list, so we lower case the keys.
     # Seed this set with addresses we don't care about dup avoiding
     explicit_recips = {}
     listaddrs = [mlist.GetListEmail(), mlist.GetBouncesEmail(),
                  mlist.GetOwnerEmail(), mlist.GetRequestEmail()]
     for addr in listaddrs:
-        explicit_recips[addr] = True
+        explicit_recips[addr.lower()] = True
     # Figure out the set of explicit recipients
     ccaddrs = {}
     for header in ('to', 'cc', 'resent-to', 'resent-cc'):
         addrs = getaddresses(msg.get_all(header, []))
         if header == 'cc':
             for name, addr in addrs:
-                ccaddrs[addr] = name, addr
+                ccaddrs[addr.lower()] = name, addr
         for name, addr in addrs:
             if not addr:
                 continue
             # Ignore the list addresses for purposes of dup avoidance
-            explicit_recips[addr] = True
+            explicit_recips[addr.lower()] = True
     # Now strip out the list addresses
     for addr in listaddrs:
-        del explicit_recips[addr]
+        del explicit_recips[addr.lower()]
     if not explicit_recips:
         # No one was explicitly addressed, so we can't do any dup collapsing
         return
     newrecips = []
     for r in recips:
         # If this recipient is explicitly addressed...
-        if explicit_recips.has_key(r):
+        if explicit_recips.has_key(r.lower()):
             send_duplicate = True
             # If the member wants to receive duplicates, or if the recipient
             # is not a member at all, just flag the X-Mailman-Duplicate: yes
@@ -81,8 +85,8 @@ def process(mlist, msg, msgdata):
             if send_duplicate:
                 msgdata.setdefault('add-dup-header', {})[r] = True
                 newrecips.append(r)
-            elif ccaddrs.has_key(r):
-                del ccaddrs[r]
+            elif ccaddrs.has_key(r.lower()):
+                del ccaddrs[r.lower()]
         else:
             # Otherwise, this is the first time they've been in the recips
             # list.  Add them to the newrecips list and flag them as having

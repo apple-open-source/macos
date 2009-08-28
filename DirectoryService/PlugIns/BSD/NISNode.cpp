@@ -50,6 +50,7 @@ struct sNISRecordMapping
 	CFStringRef		fRecordTypeCF;
 	bool			fKeyIsName;
 	NISAttributeMap	fAttributeMap;	// Standard attribute type, table name
+	CFArrayRef		fSuppAttribsCF;
 	ParseCallback	fParseCallback;
 };
 
@@ -477,6 +478,11 @@ SInt32 NISNode::FetchMatchingRecords( sBDPISearchRecordsContext *inContext, BDPI
 	const char			*attribute	= BaseDirectoryPlugin::GetCStringFromCFString( inContext->fAttributeType, &pTemp );
 	SInt32				siResult	= eDSNoErr;
 	
+	// see if it is supported attribute
+	CFArrayRef	cfSuppAttr = stateInfo->fMapping->fSuppAttribsCF;
+	if ( CFArrayContainsValue(cfSuppAttr, CFRangeMake(0, CFArrayGetCount(cfSuppAttr)), inContext->fAttributeType) == false )
+		return eDSNoStdMappingAvailable;
+	
 	// we special case Automount and AutomountMaps since they are special
 	if ( CFStringCompare(stateInfo->fMapping->fRecordTypeCF, CFSTR(kDSStdRecordTypeAutomount), 0) == kCFCompareEqualTo || 
 		 CFStringCompare(stateInfo->fMapping->fRecordTypeCF, CFSTR(kDSStdRecordTypeAutomountMap), 0) == kCFCompareEqualTo )
@@ -833,7 +839,6 @@ SInt32 NISNode::FetchAutomountRecords( sBDPISearchRecordsContext *inContext, BDP
 								struct ypmaplist *delItem = mapList;
 								mapList = mapList->next;
 								
-								DSFree( delItem->map );
 								DSFree( delItem );
 							}
 							
@@ -1116,6 +1121,14 @@ void NISNode::BuildYPMapTable( void )
 							recMap->fKeyIsName		= false;
 							recMap->fParseCallback	= iter->second->fParseCallback;
 							
+							if ( iter->second->fSuppAttribsCF ) {
+								CFRetain( iter->second->fSuppAttribsCF );
+								recMap->fSuppAttribsCF = iter->second->fSuppAttribsCF;
+							}
+							else {
+								recMap->fSuppAttribsCF = NULL;
+							}
+							
 							// certain tables the key is the name
 							if ( strcmp(dsRecType, kDSStdRecordTypeNetGroups) == 0 )
 							{
@@ -1161,7 +1174,6 @@ void NISNode::BuildYPMapTable( void )
 			struct ypmaplist *delItem = mapList;
 			mapList = mapList->next;
 			
-			DSFree( delItem->map );
 			DSFree( delItem );
 		}
 		
@@ -1175,7 +1187,15 @@ void NISNode::BuildYPMapTable( void )
 			recMap->fRecordTypeCF	= CFStringCreateWithCStringNoCopy( kCFAllocatorDefault, recMap->fRecordType, kCFStringEncodingUTF8, 
 																	   kCFAllocatorNull );
 			recMap->fKeyIsName		= false;
-			recMap->fParseCallback = iter->second->fParseCallback;
+			recMap->fParseCallback	= iter->second->fParseCallback;
+			
+			if ( iter->second->fSuppAttribsCF ) {
+				CFRetain( iter->second->fSuppAttribsCF );
+				recMap->fSuppAttribsCF = iter->second->fSuppAttribsCF;
+			}
+			else {
+				recMap->fSuppAttribsCF = NULL;
+			}
 			
 			fNISRecordMapTable[ string(kDSStdRecordTypeAutomount) ] = recMap;
 		}
@@ -1189,8 +1209,16 @@ void NISNode::BuildYPMapTable( void )
 			recMap->fRecordType		= strdup( kDSStdRecordTypeAutomountMap );
 			recMap->fRecordTypeCF	= CFStringCreateWithCStringNoCopy( kCFAllocatorDefault, recMap->fRecordType, kCFStringEncodingUTF8, 
 																	  kCFAllocatorNull );
-			recMap->fParseCallback = iter->second->fParseCallback;
+			recMap->fParseCallback	= iter->second->fParseCallback;
 			recMap->fKeyIsName		= false;
+			
+			if ( iter->second->fSuppAttribsCF ) {
+				CFRetain( iter->second->fSuppAttribsCF );
+				recMap->fSuppAttribsCF = iter->second->fSuppAttribsCF;
+			}
+			else {
+				recMap->fSuppAttribsCF = NULL;
+			}
 			
 			fNISRecordMapTable[ string(kDSStdRecordTypeAutomountMap) ] = recMap;
 		}
@@ -1450,7 +1478,7 @@ sNISReachabilityList *NISNode::CreateReachability( char *inName )
 	SCNetworkReachabilityRef	scReachRef		= NULL;
 	struct addrinfo				hints			= { 0 };
 	struct addrinfo				*res			= NULL;
-	SCNetworkConnectionFlags	flags			= 0;
+	bool						bIPBased		= false;
 	
 	hints.ai_family	= tempFamily;
 	hints.ai_socktype = SOCK_STREAM;
@@ -1460,14 +1488,13 @@ sNISReachabilityList *NISNode::CreateReachability( char *inName )
 	if ( getaddrinfo(inName, NULL, &hints, &res) == 0 )
 	{
 		scReachRef = SCNetworkReachabilityCreateWithAddress( kCFAllocatorDefault, res->ai_addr ); 
-		SCNetworkCheckReachabilityByAddress( res->ai_addr, res->ai_addrlen, &flags );
 		freeaddrinfo( res );
 		res = NULL;
+		bIPBased = true;
 	}
 	else
 	{
 		scReachRef = SCNetworkReachabilityCreateWithName( kCFAllocatorDefault, inName );
-		SCNetworkCheckReachabilityByName( inName, &flags );
 	}
 
 	if ( scReachRef != NULL )
@@ -1477,9 +1504,7 @@ sNISReachabilityList *NISNode::CreateReachability( char *inName )
 		
 		newReachItem->next = NULL;
 		newReachItem->reachabilityRef = scReachRef;
-		
-		newReachItem->isReachable = ((flags & kSCNetworkFlagsReachable) == kSCNetworkFlagsReachable && 
-									 (flags & kSCNetworkFlagsConnectionRequired) != kSCNetworkFlagsConnectionRequired);
+		newReachItem->isReachable = false;
 		strlcpy( newReachItem->serverName, inName, sizeof(newReachItem->serverName) );
 		
 		// schedule with the run loop now that we are done
@@ -1497,6 +1522,16 @@ sNISReachabilityList *NISNode::CreateReachability( char *inName )
 		}
 		else
 		{
+			// we only need to check when value is an IP address not a hostname
+			if (bIPBased == true) {
+				SCNetworkReachabilityFlags flags;
+				
+				// this does not block because it is an IP address
+				if (SCNetworkReachabilityGetFlags(scReachRef, &flags) == true) {
+					NISReachabilityCallback(scReachRef, flags, newReachItem);
+				}
+			}
+			
 			DbgLog( kLogPlugin, "NISNode::CreateReachability watching %s - %s", fNISDomainConfigured, inName );
 			pReturnValue = newReachItem;
 			newReachItem = NULL;
@@ -1591,12 +1626,12 @@ void NISNode::InitializeGlobals( void )
 {
 	if (gActiveThreads == NULL)
 	{
-		gActiveThreads = new pthread_t[gMaxHandlerThreadCount];
+		gActiveThreads = (pthread_t *) calloc( gMaxHandlerThreadCount, sizeof(pthread_t) );
 	}
 
 	if (gNotifyTokens == NULL)
 	{
-		gNotifyTokens = new int[gMaxHandlerThreadCount];
+		gNotifyTokens = (int *) calloc( gMaxHandlerThreadCount, sizeof(int) );
 	}
 }
 

@@ -1,9 +1,9 @@
 /*
- * "$Id: backend.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: backend.c 7810 2008-07-29 01:11:15Z mike $"
  *
  *   Backend functions for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -17,6 +17,8 @@
  * Contents:
  *
  *   cupsBackendDeviceURI() - Get the device URI for a backend.
+ *   cupsBackendReport()    - Write a device line from a backend.
+ *   quote_string()         - Write a quoted string to stdout, escaping \ and ".
  */
 
 /*
@@ -25,7 +27,14 @@
 
 #include <stdlib.h>
 #include "backend.h"
-#include "string.h"
+#include "globals.h"
+
+
+/*
+ * Local functions...
+ */
+
+static void	quote_string(const char *s);
 
 
 /*
@@ -35,24 +44,91 @@
  * function returns the device URI passed in the DEVICE_URI environment
  * variable or the device URI passed in argv[0], whichever is found
  * first.
+ *
+ * @since CUPS 1.2/Mac OS X 10.5@
  */
 
-const char *				/* O - Device URI or NULL */
+const char *				/* O - Device URI or @code NULL@ */
 cupsBackendDeviceURI(char **argv)	/* I - Command-line arguments */
 {
   const char	*device_uri;		/* Device URI */
+  _cups_globals_t *cg = _cupsGlobals();	/* Global info */
 
 
-  if ((device_uri = getenv("DEVICE_URI")) != NULL)
-    return (device_uri);
+  if ((device_uri = getenv("DEVICE_URI")) == NULL)
+  {
+    if (!argv || !argv[0] || !strchr(argv[0], ':'))
+      return (NULL);
 
-  if (!argv || !argv[0] || !strchr(argv[0], ':'))
-    return (NULL);
-  else
-    return (argv[0]);
+    device_uri = argv[0];
+  }
+
+  return (_httpResolveURI(device_uri, cg->resolved_uri,
+                          sizeof(cg->resolved_uri), 1));
 }
 
 
 /*
- * End of "$Id: backend.c 6649 2007-07-11 21:46:42Z mike $".
+ * 'cupsBackendReport()' - Write a device line from a backend.
+ *
+ * This function writes a single device line to stdout for a backend.
+ * It handles quoting of special characters in the device-make-and-model,
+ * device-info, device-id, and device-location strings.
+ *
+ * @since CUPS 1.4/Mac OS X 10.6@
+ */
+
+void
+cupsBackendReport(
+    const char *device_scheme,		/* I - device-scheme string */
+    const char *device_uri,		/* I - device-uri string */
+    const char *device_make_and_model,	/* I - device-make-and-model string or @code NULL@ */
+    const char *device_info,		/* I - device-info string or @code NULL@ */
+    const char *device_id,		/* I - device-id string or @code NULL@ */
+    const char *device_location)	/* I - device-location string or @code NULL@ */
+{
+  if (!device_scheme || !device_uri)
+    return;
+
+  printf("%s %s", device_scheme, device_uri);
+  if (device_make_and_model && *device_make_and_model)
+    quote_string(device_make_and_model);
+  else
+    quote_string("unknown");
+  quote_string(device_info);
+  quote_string(device_id);
+  quote_string(device_location);
+  putchar('\n');
+  fflush(stdout);
+}
+
+
+/*
+ * 'quote_string()' - Write a quoted string to stdout, escaping \ and ".
+ */
+
+static void
+quote_string(const char *s)		/* I - String to write */
+{
+  fputs(" \"", stdout);
+
+  if (s)
+  {
+    while (*s)
+    {
+      if (*s == '\\' || *s == '\"')
+	putchar('\\');
+
+      putchar(*s);
+
+      s ++;
+    }
+  }
+
+  putchar('\"');
+}
+
+
+/*
+ * End of "$Id: backend.c 7810 2008-07-29 01:11:15Z mike $".
  */

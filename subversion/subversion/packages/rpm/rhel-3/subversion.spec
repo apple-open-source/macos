@@ -1,12 +1,16 @@
 %define apache_version 2.0.46-61.1
-%define neon_version 0.24.7
+%define neon_version 0.26.1
 %define swig_version 1.3.25
 %define apache_dir /usr
 %define pyver 2.2
 # If you don't want to take time for the tests then set make_*_check to 0.
-%define make_ra_local_check 1
-%define make_ra_svn_check 1
-%define make_ra_dav_check 1
+# RHEL 3 doesn't build BDB, so don't try to check it
+%define make_ra_local_bdb_check 0
+%define make_ra_svn_bdb_check 0
+%define make_ra_dav_bdb_check 0
+%define make_ra_local_fsfs_check 1
+%define make_ra_svn_fsfs_check 1
+%define make_ra_dav_fsfs_check 1
 Summary: A Concurrent Versioning system similar to but better than CVS.
 Name: subversion
 Version: @VERSION@
@@ -95,6 +99,23 @@ Summary: Tools for Subversion
 Tools for Subversion.
 
 %changelog
+* Sat Mar 28 2009 David Summers <david@summersoft.fay.ar.us> r36833
+- [RHEL4] Changes to build 1.7 trunk, backported to 1.6.
+- Added patch to build with with new required non-RHEL4 python-2.4.6.
+- Added patch to fix Subversion APACHE APR version checking.
+
+* Sun Mar 01 2009 David Summers <david@summersoft.fay.ar.us> r36231
+- [RHEL5] Changes to build 1.7 trunk, backported to 1.6.
+
+* Tue Dec 23 2008 David Summers <david@summersoft.fay.ar.us> r34901
+- [RHEL3] SPEC file change to build RPM 1.5.x on RHEL3.
+
+* Sat Jun 30 2007 David Summers <david@summersoft.fay.ar.us> r27438
+- [RHEL5] Added neon-0.26.1 requirement.
+
+* Sat Jun 30 2007 David Summers <david@summersoft.fay.ar.us> r25592
+- [RHEL5] Added RHEL5 SPEC file.
+
 * Fri Jul 07 2006 David Summers <david@summersoft.fay.ar.us> r20468
 - [RH8,RH9,RHEL3,RHEL4] Updated to APR/APR-UTIL 0.9.12.
   RHEL3 requires httpd-2.0.46-56.ent.centos.2.1 or higher which includes
@@ -479,26 +500,11 @@ if [ -f /usr/bin/autoconf-2.53 ]; then
 fi
 sh autogen.sh
 
-# Figure out version and release number for command and documentation display.
-case "%{release}" in
-   1)
-      # Build an official release
-      RELEASE_NAME="%{version}"
-      ;;
-   alpha*|beta*|gamma*)
-      # Build an alpha, beta, gamma release.
-      RELEASE_NAME="%{version} (%{release})"
-      ;;
-   *)
-      # Build a working copy release
-      RELEASE_NAME="%{version} (dev build, r%{release})"
-      ;;
-esac
-
 # Delete apr, apr-util, and neon from the tree as those packages should already
 # be installed.
 rm -rf apr apr-util neon
 
+sed -e 's/--tag=CC//' < Makefile.in > Makefile.in.new && mv Makefile.in.new Makefile.in
 
 %configure \
 	--disable-mod-activation \
@@ -520,25 +526,39 @@ make swig-py
 make swig-pl DESTDIR=$RPM_BUILD_ROOT
 make check-swig-pl
 
-%if %{make_ra_local_check}
+%if %{make_ra_local_bdb_check}
 echo "*** Running regression tests on RA_LOCAL (FILE SYSTEM) layer ***"
-make check CLEANUP=true
+make check CLEANUP=true FS_TYPE=bdb
 echo "*** Finished regression tests on RA_LOCAL (FILE SYSTEM) layer ***"
 %endif
 
-%if %{make_ra_svn_check}
+%if %{make_ra_svn_bdb_check}
 echo "*** Running regression tests on RA_SVN (SVN method) layer ***"
-killall lt-svnserve || true
-sleep 1
-./subversion/svnserve/svnserve -d -r `pwd`/subversion/tests/cmdline
-make svncheck CLEANUP=true
-killall lt-svnserve
+make svnserveautocheck CLEANUP=true FS_TYPE=bdb
 echo "*** Finished regression tests on RA_SVN (SVN method) layer ***"
 %endif
 
-%if %{make_ra_dav_check}
+%if %{make_ra_dav_bdb_check}
 echo "*** Running regression tests on RA_DAV (HTTP method) layer ***"
-make davautocheck CLEANUP=true
+make davautocheck CLEANUP=true FS_TYPE=bdb
+echo "*** Finished regression tests on RA_DAV (HTTP method) layer ***"
+%endif
+
+%if %{make_ra_local_fsfs_check}
+echo "*** Running regression tests on RA_LOCAL (FILE SYSTEM) layer ***"
+make check CLEANUP=true FS_TYPE=fsfs
+echo "*** Finished regression tests on RA_LOCAL (FILE SYSTEM) layer ***"
+%endif
+
+%if %{make_ra_svn_fsfs_check}
+echo "*** Running regression tests on RA_SVN (SVN method) layer ***"
+make svnserveautocheck CLEANUP=true FS_TYPE=fsfs
+echo "*** Finished regression tests on RA_SVN (SVN method) layer ***"
+%endif
+
+%if %{make_ra_dav_fsfs_check}
+echo "*** Running regression tests on RA_DAV (HTTP method) layer ***"
+make davautocheck CLEANUP=true FS_TYPE=fsfs
 echo "*** Finished regression tests on RA_DAV (HTTP method) layer ***"
 %endif
 
@@ -569,9 +589,10 @@ mv $RPM_BUILD_ROOT/share/man/man3 $RPM_BUILD_ROOT/usr/share/man/man3
 rm -rf $RPM_BUILD_ROOT/lib $RPM_BUILD_ROOT/share
 rm -rf $RPM_BUILD_ROOT/%{_libdir}/perl5/site_perl/5.8.0/i386-linux-thread-multi/perllocal.pod
 
-# Set up tools package files.
+# Set up contrib and tools package files.
 mkdir -p $RPM_BUILD_ROOT/%{_libdir}/subversion
 cp -r tools $RPM_BUILD_ROOT/%{_libdir}/subversion
+cp -r contrib $RPM_BUILD_ROOT/%{_libdir}/subversion
 
 # Create doxygen documentation.
 doxygen doc/doxygen.conf
@@ -646,3 +667,4 @@ rm -rf $RPM_BUILD_ROOT
 %files tools
 %defattr(-,root,root)
 %{_libdir}/subversion/tools
+%{_libdir}/subversion/contrib

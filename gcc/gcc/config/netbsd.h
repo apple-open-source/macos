@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* TARGET_OS_CPP_BUILTINS() common to all NetBSD targets.  */
 #define NETBSD_OS_CPP_BUILTINS_COMMON()		\
@@ -156,8 +156,8 @@ Boston, MA 02111-1307, USA.  */
     fprintf ((STREAM), "void __fini() {\n\t%s();\n}\n", (FUNC));	\
   } while (0)
 
-#undef TARGET_HAS_F_SETLKW
-#define TARGET_HAS_F_SETLKW
+#undef TARGET_POSIX_IO
+#define TARGET_POSIX_IO
 
 /* Handle #pragma weak and #pragma pack.  */
 

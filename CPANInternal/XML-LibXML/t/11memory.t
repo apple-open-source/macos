@@ -1,12 +1,13 @@
 use Test;
+use constant PLAN => 26;
+use constant TIMES_THROUGH => $ENV{MEMORY_TIMES} || 100_000;
 BEGIN { 
-    if ($^O eq 'linux' && $ENV{MEMORY_TEST}) {
-        plan tests => 26;
-    }
-    else {
-        plan tests => 0;
-        print "# Skipping test on this platform\n";
-    }
+    plan tests => PLAN;
+    if ($^O ne 'linux' ) {
+        skip "linux platform only\n" for 1..PLAN;
+    } elsif (not $ENV{MEMORY_TEST}) {
+        skip "developers only (set MEMORY_TEST=1 to run these tests)\n" for 1..PLAN;
+    }   
 }
 use XML::LibXML;
 use XML::LibXML::SAX::Builder;
@@ -18,8 +19,6 @@ use XML::LibXML::SAX::Builder;
     
         ok(1);
 
-        my $times_through = $ENV{MEMORY_TIMES} || 100_000;
-    
         print("# BASELINE\n");
         check_mem(1);
 
@@ -60,7 +59,10 @@ use XML::LibXML::SAX::Builder;
 
         # multiple parsers:
         print("# MULTIPLE PARSERS\n");
-        for (1..$times_through) {
+	XML::LibXML->new(); # first parser
+        check_mem(1);
+	
+        for (1..TIMES_THROUGH) {
             my $parser = XML::LibXML->new();
         }
         ok(1);
@@ -68,7 +70,7 @@ use XML::LibXML::SAX::Builder;
         check_mem();
         # multiple parses
         print("# MULTIPLE PARSES\n");
-        for (1..$times_through) {
+        for (1..TIMES_THROUGH) {
             my $parser = XML::LibXML->new();
             my $dom = $parser->parse_string("<sometag>foo</sometag>");
         }
@@ -78,7 +80,7 @@ use XML::LibXML::SAX::Builder;
 
         # multiple failing parses
         print("# MULTIPLE FAILURES\n");
-        for (1..$times_through) {
+        for (1..TIMES_THROUGH) {
             # warn("$_\n") unless $_ % 100;
             my $parser = XML::LibXML->new();
             eval {
@@ -92,7 +94,7 @@ use XML::LibXML::SAX::Builder;
         # building custom docs
         print("# CUSTOM DOCS\n");
         my $doc = XML::LibXML::Document->new();
-        for (1..$times_through)        {
+        for (1..TIMES_THROUGH)        {
             my $elem = $doc->createElement('x');
             
             if($peek) {
@@ -120,7 +122,7 @@ use XML::LibXML::SAX::Builder;
 
         {
             my $doc = XML::LibXML->createDocument;
-            for (1..$times_through)        {
+            for (1..TIMES_THROUGH)        {
                 make_doc2( $doc );
             }
         }
@@ -141,7 +143,7 @@ use XML::LibXML::SAX::Builder;
 
         ok($dtdstr);
 
-        for ( 1..$times_through ) {
+        for ( 1..TIMES_THROUGH ) {
             my $dtd = XML::LibXML::Dtd->parse_string($dtdstr);
         }
         ok(1);
@@ -149,7 +151,7 @@ use XML::LibXML::SAX::Builder;
 
         print( "# DTD URI parsing \n");
         # parse a DTD from a SYSTEM ID
-        for ( 1..$times_through ) {
+        for ( 1..TIMES_THROUGH ) {
             my $dtd = XML::LibXML::Dtd->new('ignore', 'example/test.dtd');
         }
         ok(1);
@@ -164,7 +166,7 @@ use XML::LibXML::SAX::Builder;
                 local $SIG{'__WARN__'} = sub { };
                 $xml = XML::LibXML->new->parse_file('example/article_bad.xml');
             };
-            for ( 1..$times_through ) {
+            for ( 1..TIMES_THROUGH ) {
                 my $good;
                 eval {
                     local $SIG{'__WARN__'} = sub { };
@@ -175,7 +177,7 @@ use XML::LibXML::SAX::Builder;
             check_mem();
         
             print "# validate() \n";
-            for ( 1..$times_through ) {
+            for ( 1..TIMES_THROUGH ) {
                 eval {
                     local $SIG{'__WARN__'} = sub { };
                     $xml->validate($dtd);
@@ -209,7 +211,7 @@ dromeds.xml
             # my $str = "<foo><bar><foo/></bar></foo>";
             my $str = $xml;
             my $doc = XML::LibXML->new->parse_string( $str );
-            for ( 1..$times_through ) {
+            for ( 1..TIMES_THROUGH ) {
                  processMessage($xml, '/dromedaries/species' );
 #                my @nodes = $doc->findnodes("/foo/bar/foo");
             }
@@ -221,7 +223,7 @@ dromeds.xml
         {
             my $str = "<foo><bar><foo/></bar></foo>";
             my $doc = XML::LibXML->new->parse_string( $str );
-            for ( 1..$times_through ) {
+            for ( 1..TIMES_THROUGH ) {
                 my $nodes = $doc->find("/foo/bar/foo");
             }
             ok(1);
@@ -233,19 +235,19 @@ dromeds.xml
 #            print "# ENCODING TESTS \n";
 #            my $string = "test ä ø is a test string to test iso encoding";
 #            my $encstr = encodeToUTF8( "iso-8859-1" , $string );
-#            for ( 1..$times_through ) {
+#            for ( 1..TIMES_THROUGH ) {
 #                my $str = encodeToUTF8( "iso-8859-1" , $string );
 #            }
 #            ok(1);
 #            check_mem();
 
-#            for ( 1..$times_through ) {
+#            for ( 1..TIMES_THROUGH ) {
 #                my $str = encodeToUTF8( "iso-8859-2" , "abc" );
 #            }
 #            ok(1);
 #            check_mem();
 #    
-#            for ( 1..$times_through ) {
+#            for ( 1..TIMES_THROUGH ) {
 #                my $str = decodeFromUTF8( "iso-8859-1" , $encstr );
 #            }
 #            ok(1);
@@ -258,7 +260,7 @@ dromeds.xml
 
             my $doc = XML::LibXML->new()->parse_string( $string );
 
-            for (1..$times_through) {
+            for (1..TIMES_THROUGH) {
                 my @ns = $doc->documentElement()->getNamespaces();
                 # warn "ns : " . $_->localname . "=>" . $_->href foreach @ns;
                 my $prefix = $_->localname foreach @ns;
@@ -289,7 +291,7 @@ dromeds.xml
        
             foreach my $key ( keys %xmlStrings )  {
                 print "# $key \n";
-                for (1..$times_through) {
+                for (1..TIMES_THROUGH) {
                     my $doc = $parser->parse_string( $xmlStrings{$key} );
                 }
 
@@ -318,7 +320,7 @@ dromeds.xml
        if(0) {
             foreach my $key ( keys %xmlStrings )  {
                 print "# $key \n";
-                for (1..$times_through) {
+                for (1..TIMES_THROUGH) {
                     map { $parser->push( $_ ) } @{$xmlStrings{$key}};
                     my $doc = $parser->finish_push();
                 }
@@ -338,7 +340,7 @@ dromeds.xml
             print "# BAD PUSHED DATA\n";
             foreach my $key ( "SIMPLE","SIMPLE2", "SIMPLE TEXT","SIMPLE CDATA","SIMPLE JUNK" )  {
                 print "# $key \n";
-                for (1..$times_through) {
+                for (1..TIMES_THROUGH) {
                     eval {map { $parser->push( $_ ) } @{$xmlBadStrings{$key}};};
                     eval {my $doc = $parser->finish_push();};
                 }
@@ -369,7 +371,7 @@ dromeds.xml
        
             foreach my $key ( keys %xmlStrings )  {
                 print "# $key \n";
-                for (1..$times_through) {
+                for (1..TIMES_THROUGH) {
                     eval {map { $parser->push( $_ ) } @{$xmlStrings{$key}};};
                     eval {my $doc = $parser->finish_push();};
                 }
@@ -390,7 +392,7 @@ dromeds.xml
 
             foreach my $key ( keys %xmlBadStrings )  {
                 print "# $key \n";
-                for (1..$times_through) {
+                for (1..TIMES_THROUGH) {
                     eval {map { $parser->push( $_ ) } @{$xmlBadStrings{$key}};};
                     eval {my $doc = $parser->finish_push();};
                 }

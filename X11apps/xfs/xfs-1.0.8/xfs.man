@@ -1,0 +1,373 @@
+.\" $XFree86: xc/programs/xfs/xfs.man,v 3.15 2001/04/18 16:13:22 dawes Exp $
+.\"
+.\" Copyright 1991, 1998  The Open Group
+.\" 
+.\" Permission to use, copy, modify, distribute, and sell this software and its
+.\" documentation for any purpose is hereby granted without fee, provided that
+.\" the above copyright notice appear in all copies and that both that
+.\" copyright notice and this permission notice appear in supporting
+.\" documentation.
+.\" 
+.\" The above copyright notice and this permission notice shall be included in
+.\" all copies or substantial portions of the Software.
+.\" 
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+.\" IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+.\" FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL 
+.\" THE OPEN GROUP BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
+.\" WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF 
+.\" OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+.\" SOFTWARE.
+.\" 
+.\" Except as contained in this notice, the name of The Open Group shall not 
+.\" be used in advertising or otherwise to promote the sale, use or other 
+.\" dealing in this Software without prior written authorization from the 
+.\" The Open Group.
+.\" Copyright 1991 Network Computing Devices
+.\" 
+.\" Permission to use, copy, modify, distribute, and sell this software and
+.\" its documentation for any purpose is hereby granted without fee, provided
+.\" that the above copyright notice appear in all copies and that both that
+.\" copyright notice and this permission notice appear in supporting
+.\" documentation, and that the name of Network Computing Devices 
+.\" not be used in advertising or
+.\" publicity pertaining to distribution of the software without specific,
+.\" written prior permission.  Network Computing Devices make
+.\" no representations about the
+.\" suitability of this software for any purpose.  It is provided "as is"
+.\" without express or implied warranty.
+.\" $Xorg: xfs.man,v 1.4 2001/02/09 02:05:42 xorgcvs Exp $
+.TH xfs __appmansuffix__ __xorgversion__
+.SH NAME
+xfs \- X font server
+.SH SYNOPSIS
+.B xfs
+[
+.BI "\-config " configuration_file
+]
+[
+.B \-daemon
+]
+[
+.B \-droppriv
+]
+[
+.BI "\-ls " listen_socket
+]
+[
+.B \-nodaemon
+]
+[
+.BI "\-port " tcp_port
+]
+[
+.BI "\-user " username
+]
+.SH DESCRIPTION
+.B xfs
+is the X Window System font server.
+It supplies fonts to X Window System display servers.
+The server is usually run by a system administrator, and started via
+.BR init (__adminmansuffix__).
+Users may also wish to start private font servers for specific sets of
+fonts.
+.PP
+To connect to a font server, see the documentation for your X server; it
+likely supports the syntax documented in the \(lqFONT SERVER NAMES\(rq
+section of
+.BR X (__miscmansuffix__).
+.SH OPTIONS
+.TP
+.BI "\-config " configuration_file
+specifies the configuration file
+.B xfs
+will use.
+If this parameter is not specified, xfs will read its configuration from
+__configfiledesc__ \fI__configfilepath__\fR.
+.TP
+.B \-daemon
+instructs
+.B xfs
+to fork and go into the background automatically at startup.
+If this option is not specified,
+.B xfs
+will run as a regular process (unless it was built to daemonize by
+default).
+When running as a daemon,
+.B xfs
+will attempt to create a file in which it stores its process ID, and will
+delete that file upon exit; 
+.TP
+.B \-droppriv
+instructs
+.B xfs
+to attempt to run as user and group
+.I xfs
+(unless the
+.B \-user
+option is used).
+This has been implemented for security reasons, as
+.B xfs
+may have undiscovered buffer overflows or other paths for possible exploit,
+both local and remote.
+When using this option, you may also wish to specify \(oqno\-listen =
+tcp\(cq in the config file, which ensures that
+.B xfs
+will not to use a TCP port at all.
+By default,
+.B xfs
+runs with the user and group IDs of the user who invoked it.
+.TP
+.BI "\-ls " listen_socket
+specifies a file descriptor which is already set up to be used as the
+listen socket.
+This option is only intended to be used by the font server itself when
+automatically spawning another copy of itself to handle additional
+connections.
+.TP
+.B \-nodaemon
+instructs
+.B xfs
+not to daemonize (fork and detach from its controlling terminal).
+This option only has an effect if
+.B xfs
+is built to daemonize by default, which is not the stock configuration.
+.TP
+.BI "\-port " tcp_port
+specifies the TCP port number on which the server will listen for
+connections.
+The default port number is 7100.
+This option is ignored if
+.B xfs
+is configured to not listen to TCP transports at all (see \(lqConfiguration
+File Format\(rq below).
+.TP
+.BI "\-user " username
+instructs
+.B xfs
+to run as the user
+.IR username.
+See
+.B \-droppriv
+for why this may be desired.
+By default,
+.B xfs
+runs with the user and group IDs of the user who invoked it.
+.SH "INPUT FILES"
+.B xfs
+reads and serves any font file format recognized by the X server itself.
+It locates font files through the specification of a
+.IR catalogue ,
+which is declared in
+.BR xfs 's
+configuration file.
+.SS "Configuration File Format"
+.B xfs
+reads its configuration from a text file (see the
+.B \-config
+option in the \(lqOPTIONS\(rq section above).
+The configuration language is a list of keyword and value pairs.
+Each keyword is followed by an equals sign (\(oq=\(cq) and then the desired
+value.
+.PP
+Recognized keywords include:
+.TP
+.BR alternate\-servers " (list of \fIstring\fPs)"
+lists alternate servers for this font server.
+See the \(lqFONT SERVER NAMES\(rq section of
+.BR X (__miscmansuffix__)
+for the syntax of the string.
+.\" .TP
+.\" .BR cache\-size " (\fIcardinal\fP)"
+.\" determines the size (in bytes) of the font server cache.
+.TP
+.BR catalogue " (list of \fIstring\fPs)"
+declares as ordered list of font path element names from which fonts will
+be served.
+The current implementation only supports a single catalogue ("all")
+containing all of the specified fonts. A special directory with
+symlinks to font paths can be specified using a catalogue:<dir>
+entry. See the CATALOGUE DIR section below for details.
+.TP
+.BR client\-limit " (\fIcardinal\fP)"
+determines the number of clients this font server will support before
+refusing service.
+This is useful for tuning the load on each individual font server.
+.TP
+.BR clone\-self " (\fIboolean\fP)"
+indicates whether this font server should attempt to clone itself when the
+number of connected clients reaches the
+.BR client\-limit .
+.TP
+.BR default\-point\-size " (\fIcardinal\fP)"
+The default pointsize (in decipoints) for font requests that don't specify
+a point size.
+The default is 120.
+.TP
+.BR default\-resolutions " (list of \fIresolution\fPs)"
+indicates the resolutions the server supports by default.
+This information may be used as a hint for pre-rendering, and substituted
+into requests for scaled fonts which do not specify a resolution.
+A
+.I resolution
+is a comma-separated pair of horizontal and vertical resolutions in pixels
+per inch.
+Multiple resolutions are separated by commas.
+.TP
+.BR deferglyphs " (\fIstring\fP)"
+sets the mode for delayed fetching and caching of glyphs.
+.I string
+should be one of \(oqnone\(cq, meaning glyphs deferment is disabled,
+\(oqall\(cq, meaning it is enabled for all fonts, and \(oq16\(cq, meaning
+it is enabled only for 16-bit fonts.
+.TP
+.BR error\-file " (\fIstring\fP)"
+indicates the filename of the error file.
+All warnings and errors will be logged here, unless
+.B use\-syslog
+is set to a true value (see below).
+.TP
+.BR no\-listen " (\fItrans-type\fP)"
+disables the specified transport type.
+For example, TCP/IP connections can be disabled with \(oqno\-listen =
+tcp\(cq.
+.TP
+.BR port " (\fIcardinal\fP)"
+indicates the TCP port on which the server will listen for connections.
+.\" .TP
+.\" .BR trusted-clients " (list of \fIstring\fPs)"
+.\" identifies the clients the font server will talk to.
+.\" Others will be refused for the initial connection.
+.\" An empty list means the server will talk to any client.
+.TP
+.BR use\-syslog " (\fIboolean\fP)"
+determines whether errors and diagnostics should be reported via
+.BR syslog (__libmansuffix__)
+(on supported systems) instead of being written to the
+.B error\-file
+(see above).
+.SH "CATALOGUE DIR"
+You can specify a special kind of font path in the form \fBcatalogue:<dir>\fR.
+The directory specified after the catalogue: prefix will be scanned for symlinks
+and each symlink destination will be added as a local fontfile FPE.
+.PP
+The symlink can be suffixed by attributes such as '\fBunscaled\fR', which
+will be passed through to the underlying fontfile FPE. The only exception is
+the newly introduced '\fBpri\fR' attribute, which will be used for ordering
+the font paths specified by the symlinks.
+
+An example configuration:
+
+.nf
+    75dpi:unscaled:pri=20 \-> /usr/share/X11/fonts/75dpi
+    ghostscript:pri=60 \-> /usr/share/fonts/default/ghostscript
+    misc:unscaled:pri=10 \-> /usr/share/X11/fonts/misc
+    type1:pri=40 \-> /usr/share/X11/fonts/Type1
+    type1:pri=50 \-> /usr/share/fonts/default/Type1
+.fi
+
+This will add /usr/share/X11/fonts/misc as the first FPE with the attribute
+'unscaled', second FPE will be /usr/share/X11/fonts/75dpi, also with
+the attribute unscaled etc. This is functionally equivalent to setting
+the following font path:
+
+.nf
+    /usr/share/X11/fonts/misc:unscaled,
+    /usr/share/X11/fonts/75dpi:unscaled,
+    /usr/share/X11/fonts/Type1,
+    /usr/share/fonts/default/Type1,
+    /usr/share/fonts/default/ghostscript
+.fi
+.SS "Example Configuration File"
+.nf
+XCOMM
+XCOMM sample font server configuration file
+XCOMM
+
+XCOMM allow a max of 10 clients to connect to this font server.
+client\-limit = 10
+
+XCOMM When a font server reaches the above limit, start up a new one.
+clone\-self = on
+
+XCOMM Identify alternate font servers for clients to use.
+alternate\-servers = hansen:7101,hansen:7102
+
+XCOMM Look for fonts in the following directories.  The first is a set of
+XCOMM TrueType outlines, the second is a set of misc bitmaps (such as terminal
+XCOMM and cursor fonts), and the last is a set of 100dpi bitmaps.
+XCOMM
+catalogue = /usr/X11R6/lib/X11/fonts/TTF,
+            /usr/X11R6/lib/X11/fonts/misc,
+            /usr/X11R6/lib/X11/fonts/100dpi/
+
+XCOMM in 12 points, decipoints
+default\-point\-size = 120
+
+XCOMM 100 x 100 and 75 x 75
+default\-resolutions = 100,100,75,75
+
+XCOMM Specify our log filename.
+error\-file = /var/log/xfs.log
+
+XCOMM Direct diagnostics to our own log file instead of using syslog.
+use\-syslog = off
+.fi
+.SH "OUTPUT FILES"
+When operating in daemon mode,
+.B xfs
+sends diagnostic messages (errors and warnings) to the system log via the
+.B syslog
+C library function by default.
+However, these messages can be sent to an alternate location via the
+.B error\-file
+and
+.B use\-syslog
+configuration variables; see \(lqConfiguration File Format\(rq, above.
+.SH "ASYNCHRONOUS EVENTS"
+.B xfs
+handles the following signals specially:
+.TP
+.I SIGTERM
+causes the font server to exit cleanly.
+.TP
+.I SIGUSR1
+causes
+.B xfs
+to re-read its configuration file.
+.TP
+.I SIGUSR2
+causes
+.B xfs
+to flush any cached data it may have.
+.TP
+.I SIGHUP
+causes
+.B xfs
+to reset, closing all active connections and re-reading the configuration
+file.
+.SH BUGS
+Multiple catalogues should be supported.
+.SH "FUTURE DIRECTIONS"
+Significant further development of
+.B xfs
+is unlikely.
+One of the original motivations behind it was the single-threaded nature of
+the X server \(em a user's X session could seem to \(oqfreeze up\(cq while
+the X server took a moment to rasterize a font.
+This problem with the X server, which remains single-threaded in all
+popular implementations to this day, has been mitigated on two fronts:
+machines have gotten much faster, and client-side font rendering
+(particularly via the Xft library) is the norm in contemporary software.
+.SH AUTHORS
+Dave Lemke, Network Computing Devices, Inc
+.br
+Keith Packard, Massachusetts Institute of Technology
+.SH "SEE ALSO"
+.BR X (__miscmansuffix__),
+.BR xfsinfo (__appmansuffix__),
+.BR fslsfonts (__appmansuffix__),
+.BR init (__adminmansuffix__),
+.BR syslog (__libmansuffix__),
+.IR "The X Font Service Protocol" ,
+.I Font Server Implementation Overview

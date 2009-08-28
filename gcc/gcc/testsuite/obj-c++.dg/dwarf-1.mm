@@ -1,6 +1,6 @@
 /* APPLE LOCAL file radar 4734562 */
 /* { dg-options "-gdwarf-2 -dA" } */
-/* { dg-final { scan-assembler "\"main\\\\0\".*DW_AT_name" } } */
+/* { dg-final { scan-assembler "DW_AT_name: \"main\"" } } */
 
 #include <objc/objc.h>
 /* APPLE LOCAL radar 4894756 */

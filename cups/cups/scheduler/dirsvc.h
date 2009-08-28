@@ -1,10 +1,10 @@
 /*
- * "$Id: dirsvc.h 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: dirsvc.h 7933 2008-09-11 00:44:58Z mike $"
  *
  *   Directory services definitions for the Common UNIX Printing System
  *   (CUPS) scheduler.
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -22,12 +22,15 @@
 #  include <slp.h>
 #endif /* HAVE_LIBSLP */
 
-#ifdef HAVE_OPENLDAP
+#ifdef HAVE_LDAP
 #  ifdef __sun
 #    include <lber.h>
 #  endif /* __sun */
 #  include <ldap.h>
-#endif /* HAVE_OPENLDAP */
+#  ifdef HAVE_LDAP_SSL_H
+#    include <ldap_ssl.h>
+#  endif /* HAVE_LDAP_SSL_H */
+#endif /* HAVE_LDAP */
 
 /*
  * Browse protocols...
@@ -37,7 +40,9 @@
 #define	BROWSE_SLP	2		/* SLPv2 */
 #define BROWSE_LDAP	4		/* LDAP */
 #define BROWSE_DNSSD	8		/* DNS Service Discovery (aka Bonjour) */
-#define BROWSE_ALL	15		/* All protocols */
+#define BROWSE_SMB	16		/* SMB/Samba */
+#define BROWSE_LPD	32		/* LPD via xinetd or launchd */
+#define BROWSE_ALL	63		/* All protocols */
 
 
 /*
@@ -80,6 +85,8 @@ typedef struct
 
 VAR int			Browsing	VALUE(TRUE),
 					/* Whether or not browsing is enabled */
+			BrowseWebIF	VALUE(FALSE),
+					/* Whether the web interface is advertised */
 			BrowseLocalProtocols
 					VALUE(BROWSE_ALL),
 					/* Protocols to support for local printers */
@@ -125,6 +132,25 @@ VAR int			PollPipe	VALUE(0);
 VAR cupsd_statbuf_t	*PollStatusBuffer VALUE(NULL);
 					/* Status buffer for pollers */
 
+#ifdef HAVE_DNSSD
+VAR char		*DNSSDComputerName VALUE(NULL),
+					/* Computer/server name */
+			*DNSSDHostName	VALUE(NULL);
+					/* Hostname */
+VAR cups_array_t	*DNSSDAlias	VALUE(NULL);
+					/* List of dynamic ServerAlias's */
+VAR int			DNSSDPort	VALUE(0);
+					/* Port number to register */
+VAR cups_array_t	*DNSSDPrinters	VALUE(NULL);
+					/* Printers we have registered */
+VAR DNSServiceRef	DNSSDRef	VALUE(NULL),
+					/* Master DNS-SD service reference */
+			WebIFRef	VALUE(NULL),
+					/* Service reference for the web interface */
+			RemoteRef	VALUE(NULL);
+					/* Remote printer browse reference */
+#endif /* HAVE_DNSSD */
+
 #ifdef HAVE_LIBSLP
 VAR SLPHandle		BrowseSLPHandle	VALUE(NULL);
 					/* SLP API handle */
@@ -133,10 +159,8 @@ VAR time_t		BrowseSLPRefresh VALUE(0);
 #endif /* HAVE_LIBSLP */
 
 #ifdef HAVE_LDAP
-#  ifdef HAVE_OPENLDAP
 VAR LDAP		*BrowseLDAPHandle VALUE(NULL);
 					/* Handle to LDAP server */
-#  endif /* HAVE_OPENLDAP */
 VAR time_t		BrowseLDAPRefresh VALUE(0);
 					/* Next LDAP refresh time */
 VAR char		*BrowseLDAPBindDN VALUE(NULL),
@@ -145,11 +169,19 @@ VAR char		*BrowseLDAPBindDN VALUE(NULL),
 					/* LDAP search DN */
 			*BrowseLDAPPassword VALUE(NULL),
 					/* LDAP login password */
-			*BrowseLDAPServer VALUE(NULL),
+			*BrowseLDAPServer VALUE(NULL);
 					/* LDAP server to use */
-			*BrowseLDAPCACertFile VALUE(NULL);
+VAR int			BrowseLDAPUpdate VALUE(TRUE);
+					/* enables LDAP updates */
+#  ifdef HAVE_LDAP_SSL
+VAR char		*BrowseLDAPCACertFile VALUE(NULL);
 					/* LDAP CA CERT file to use */
+#  endif /* HAVE_LDAP_SSL */
 #endif /* HAVE_LDAP */
+VAR char		*LPDConfigFile	VALUE(NULL),
+					/* LPD configuration file */
+			*SMBConfigFile	VALUE(NULL);
+					/* SMB configuration file */
 
 
 /*
@@ -167,7 +199,7 @@ extern void	cupsdStartPolling(void);
 extern void	cupsdStopBrowsing(void);
 extern void	cupsdStopPolling(void);
 #ifdef HAVE_DNSSD
-extern void	cupsdUpdateDNSSDBrowse(cupsd_printer_t *p);
+extern void	cupsdUpdateDNSSDName(void);
 #endif /* HAVE_DNSSD */
 #ifdef HAVE_LDAP
 extern void	cupsdUpdateLDAPBrowse(void);
@@ -176,5 +208,5 @@ extern void	cupsdUpdateSLPBrowse(void);
 
 
 /*
- * End of "$Id: dirsvc.h 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: dirsvc.h 7933 2008-09-11 00:44:58Z mike $".
  */

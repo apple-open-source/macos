@@ -36,8 +36,8 @@ extern "C" {
 #endif
 
 bool pwsf_AllKerberosToolsInstalled( void );
-int pwsf_AddPrincipal(const char* userName, const char* password, char* outRealmName, int maxRealmName);
-int pwsf_AddPrincipalWithBuffer(const char* userName, const char* password, char* outRealmName, int maxRealmName, char **inOutBuff, int *inOutBuffLen);
+int pwsf_AddPrincipal(const char* userName, const char* password, char* outRealmName, size_t maxRealmName);
+int pwsf_AddPrincipalWithBuffer(const char* userName, const char* password, char* outRealmName, size_t maxRealmName, char **inOutBuff, size_t *inOutBuffLen);
 int pwsf_AddPrincipalToLocalRealm(const char* userName, const char* password, const char* inRealmName);
 void pwsf_ChangePassword(const char* principalName, const char* password);
 void pwsf_ChangePasswordInLocalRealm(const char* principalName, const char *realmName, const char* password);
@@ -45,9 +45,9 @@ void pwsf_DeletePrincipal(const char* principalName);
 void pwsf_DeletePrincipalInLocalRealm(const char* principalName, const char *realmName);
 void pwsf_SetCertHash( const char *certHash, const char *principalName );
 void pwsf_SetCertHashInLocalRealm( const char *certHash, const char *principalName, const char *realmName );
-void pwsf_ModifyPrincipalWithBuffer(char* principalName, PWAccessFeatures* access, UInt32 oldDuration, char **inOutBuff, int *inOutBuffLen);
-void pwsf_ModifyPrincipalInLocalRealm(char* principalName, const char *realmName, PWAccessFeatures* access, UInt32 oldDuration, char **inOutBuff, int *inOutBuffLen);
-bool pwsf_ScanForRealm( const char *inKAdminText, char *outRealm, int inRealmMaxSize );
+void pwsf_ModifyPrincipalWithBuffer(char* principalName, PWAccessFeatures* access, UInt32 oldDuration, char **inOutBuff, size_t *inOutBuffLen);
+void pwsf_ModifyPrincipalInLocalRealm(char* principalName, const char *realmName, PWAccessFeatures* access, UInt32 oldDuration, char **inOutBuff, size_t *inOutBuffLen);
+bool pwsf_ScanForRealm( const char *inKAdminText, char *outRealm, size_t inRealmMaxSize );
 int pwsf_SetPrincipalAdministratorState( const char *inPrincipal, bool inAdmin, bool inSignalHUP );
 void pwsf_GeneratePasswordForPrincipal( const char *inPassword, const char *inPrincipal, char *outPassword );
 

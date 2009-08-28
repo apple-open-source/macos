@@ -1,21 +1,11 @@
-# unlocked-io.m4 serial 10
+# unlocked-io.m4 serial 14
 
-# Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software
-# Foundation, Inc.
-
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2, or (at your option)
-# any later version.
-
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software Foundation,
-# Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+# Free Software Foundation, Inc.
+#
+# This file is free software; the Free Software Foundation
+# gives unlimited permission to copy and/or distribute it,
+# with or without modifications, as long as this notice is preserved.
 
 dnl From Jim Meyering.
 dnl
@@ -36,9 +26,17 @@ AC_DEFUN([gl_FUNC_GLIBC_UNLOCKED_IO],
   dnl fgets_unlocked(), fputs_unlocked() etc.
   AC_REQUIRE([gl_USE_SYSTEM_EXTENSIONS])
 
-  AC_CHECK_DECLS_ONCE(
-     [clearerr_unlocked feof_unlocked ferror_unlocked
-      fflush_unlocked fgets_unlocked fputc_unlocked fputs_unlocked
-      fread_unlocked fwrite_unlocked getc_unlocked
-      getchar_unlocked putc_unlocked putchar_unlocked])
+  AC_CHECK_DECLS_ONCE([clearerr_unlocked])
+  AC_CHECK_DECLS_ONCE([feof_unlocked])
+  AC_CHECK_DECLS_ONCE([ferror_unlocked])
+  AC_CHECK_DECLS_ONCE([fflush_unlocked])
+  AC_CHECK_DECLS_ONCE([fgets_unlocked])
+  AC_CHECK_DECLS_ONCE([fputc_unlocked])
+  AC_CHECK_DECLS_ONCE([fputs_unlocked])
+  AC_CHECK_DECLS_ONCE([fread_unlocked])
+  AC_CHECK_DECLS_ONCE([fwrite_unlocked])
+  AC_CHECK_DECLS_ONCE([getc_unlocked])
+  AC_CHECK_DECLS_ONCE([getchar_unlocked])
+  AC_CHECK_DECLS_ONCE([putc_unlocked])
+  AC_CHECK_DECLS_ONCE([putchar_unlocked])
 ])

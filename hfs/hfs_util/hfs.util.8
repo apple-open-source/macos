@@ -1,4 +1,4 @@
-.\""Copyright (c) 2001 Apple Computer, Inc. All Rights Reserved.
+.\""Copyright (c) 2001-2008 Apple Inc. All Rights Reserved.
 .\"The contents of this file constitute Original Code as defined in and are 
 .\"subject to the Apple Public Source License Version 1.2 (the 'License'). 
 .\"You may not use this file except in compliance with the
@@ -45,6 +45,10 @@
 .Ar mountpoint
 .Pp
 .Nm
+.Fl N
+.Ar device
+.Pp
+.Nm
 .Fl I
 .Ar mountpoint
 .Pp
@@ -88,6 +92,9 @@ onto
 with the flags
 .Ar mountflag1 mountflag2 mountflag3 mountflag4 .
 This is a deprecated option.
+.It Fl N
+Disable journaling on a HFS+ file system located at 
+.Ar device
 .It Fl p
 Probe the
 .Ar device
@@ -101,7 +108,7 @@ HFS file system at
 Unmount the HFS file system located at
 .Ar device
 .It Fl U 
-Disable journaling on the HFS file system mounted on
+Disable journaling on the HFS+ file system mounted on
 .Ar mountpoint
 .El
 .Pp

@@ -1,24 +1,22 @@
---- stable/pyobjc-core/setup.py.orig	2007-04-03 12:48:04.000000000 -0700
-+++ stable/pyobjc-core/setup.py	2007-04-06 02:51:02.000000000 -0700
-@@ -300,7 +300,7 @@
-          CoreExtensions
-     ),
-     packages = [ 'objc', 'objc.test', 'PyObjCTools' ], # 'ExceptionHandling'
+--- pyobjc-core/setup.py.orig	2009-06-23 15:35:45.000000000 -0700
++++ pyobjc-core/setup.py	2009-06-24 00:20:43.000000000 -0700
+@@ -317,7 +317,7 @@
+     platforms = [ 'MacOS X' ],
+     ext_modules = ExtensionList,
+     packages = [ 'objc', 'PyObjCTools' ], 
 -    namespace_packages = ['PyObjCTools'],
 +    #namespace_packages = ['PyObjCTools'],
-     package_dir = { '': 'Lib' },
-     install_requires = install_requires,
-     setup_requires = setup_requires,
---- stable/pyobjc-xcode/setup.py.orig	2007-05-18 04:26:48.000000000 -0700
-+++ stable/pyobjc-xcode/setup.py	2007-07-06 17:17:00.000000000 -0700
-@@ -25,8 +25,8 @@
-     author_email='pyobjc-dev@lists.sourceforge.net',
-     url='http://pyobjc.sourceforge.net',
-     platforms = [ "MacOS X" ],
--    packages = [ 'PyObjCTools', ], 
--    namespace_packages = [ 'PyObjCTools' ],
-+    packages = [ 'PyObjCTools/XcodeSupport' ], 
-+    #namespace_packages = [ 'PyObjCTools' ],
-     package_dir = { '': 'Lib' },
-     install_requires = [ 
-         'pyobjc-core>=2.0' 
+     package_dir = { '': 'Lib', 'PyObjCTest': 'PyObjCTest' },
+     extra_path = "PyObjC",
+     cmdclass = {'build_ext': pyobjc_build_ext, 'install_lib': pyobjc_install_lib },
+--- pyobjc-core/Modules/objc/corefoundation.m.orig	2009-06-23 15:35:44.000000000 -0700
++++ pyobjc-core/Modules/objc/corefoundation.m	2009-06-24 00:23:05.000000000 -0700
+@@ -250,7 +250,7 @@
+ 	PyObject* rval = NULL;
+ 	PyObject* v = PyDict_GetItemString(PyObjC_TypeStr2CFTypeID, typestr);
+ 	if (v == NULL) {
+-		PyErr_SetString(PyExc_ValueError, "Unknown typestr");
++		PyErr_Format(PyExc_ValueError, "Unknown typestr: %s", typestr);
+ 		return NULL;
+ 	}
+ 	CFTypeID typeid;

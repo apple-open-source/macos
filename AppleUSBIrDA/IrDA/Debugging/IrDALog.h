@@ -18,7 +18,7 @@
 typedef struct EventTraceCauseDesc          // An array of these is supplied by each logging client
 {
     UInt32  cause;                          // really a single byte cause enumeration
-    char    *description;                   // descriptive text
+    const char    *description;		    // descriptive text
     char    *msgcopy;                       // client sets to nil.  Set by IrDALog to point to cached copy of msg
 } EventTraceCauseDesc;
 

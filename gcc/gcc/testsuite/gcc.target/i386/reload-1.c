@@ -1,8 +1,8 @@
 /* APPLE LOCAL file mainline 2007-04-24 5122634 */
 /* { dg-do compile { target i?86-*-* } } */
-/* { dg-options "-O3 -msse2 -fdump-rtl-flow2" } */
-/* { dg-skip-if "" { i?86-*-* } { "-m64" } { "" } } */
-/* { dg-final { scan-file reload-1.c.26.flow2 "deleted 5 dead insns" } }*/
+/* { dg-options "-O3 -msse2 -fdump-rtl-csa" } */
+/* { dg-require-effective-target ilp32 } */
+/* { dg-final { scan-rtl-dump "deleted 5 dead insns" "csa" } }*/
 #include <emmintrin.h>
 typedef __SIZE_TYPE__ size_t;
 typedef float vFloat __attribute__ ((__vector_size__ (16)));

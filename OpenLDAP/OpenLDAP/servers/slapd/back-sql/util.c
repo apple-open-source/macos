@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-sql/util.c,v 1.31.2.8 2006/01/03 22:16:24 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-sql/util.c,v 1.45.2.4 2008/02/11 23:26:48 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2006 The OpenLDAP Foundation.
+ * Copyright 1999-2008 The OpenLDAP Foundation.
  * Portions Copyright 1999 Dmitry Kovalev.
  * Portions Copyright 2002 Pierangelo Masarati.
  * All rights reserved.
@@ -37,32 +37,32 @@
 
 #define BACKSQL_STR_GROW 256
 
-char backsql_def_oc_query[] = 
+const char backsql_def_oc_query[] = 
 	"SELECT id,name,keytbl,keycol,create_proc,delete_proc,expect_return "
 	"FROM ldap_oc_mappings";
-char backsql_def_needs_select_oc_query[] = 
+const char backsql_def_needs_select_oc_query[] = 
 	"SELECT id,name,keytbl,keycol,create_proc,create_keyval,delete_proc,"
 	"expect_return FROM ldap_oc_mappings";
-char backsql_def_at_query[] = 
+const char backsql_def_at_query[] = 
 	"SELECT name,sel_expr,from_tbls,join_where,add_proc,delete_proc,"
 	"param_order,expect_return,sel_expr_u FROM ldap_attr_mappings "
 	"WHERE oc_map_id=?";
-char backsql_def_delentry_stmt[] = "DELETE FROM ldap_entries WHERE id=?";
-char backsql_def_renentry_stmt[] =
+const char backsql_def_delentry_stmt[] = "DELETE FROM ldap_entries WHERE id=?";
+const char backsql_def_renentry_stmt[] =
 	"UPDATE ldap_entries SET dn=?,parent=?,keyval=? WHERE id=?";
-char backsql_def_insentry_stmt[] = 
+const char backsql_def_insentry_stmt[] = 
 	"INSERT INTO ldap_entries (dn,oc_map_id,parent,keyval) "
 	"VALUES (?,?,?,?)";
-char backsql_def_delobjclasses_stmt[] = "DELETE FROM ldap_entry_objclasses "
+const char backsql_def_delobjclasses_stmt[] = "DELETE FROM ldap_entry_objclasses "
 	"WHERE entry_id=?";
-char backsql_def_subtree_cond[] = "ldap_entries.dn LIKE CONCAT('%',?)";
-char backsql_def_upper_subtree_cond[] = "(ldap_entries.dn) LIKE CONCAT('%',?)";
-char backsql_id_query[] = "SELECT id,keyval,oc_map_id,dn FROM ldap_entries WHERE ";
+const char backsql_def_subtree_cond[] = "ldap_entries.dn LIKE CONCAT('%',?)";
+const char backsql_def_upper_subtree_cond[] = "(ldap_entries.dn) LIKE CONCAT('%',?)";
+const char backsql_id_query[] = "SELECT id,keyval,oc_map_id,dn FROM ldap_entries WHERE ";
 /* better ?||? or cast(?||? as varchar) */ 
-char backsql_def_concat_func[] = "CONCAT(?,?)";
+const char backsql_def_concat_func[] = "CONCAT(?,?)";
 
 /* TimesTen */
-char backsql_check_dn_ru_query[] = "SELECT dn_ru FROM ldap_entries";
+const char backsql_check_dn_ru_query[] = "SELECT dn_ru FROM ldap_entries";
 
 struct berbuf *
 backsql_strcat_x( struct berbuf *dest, void *memctx, ... )
@@ -252,7 +252,7 @@ backsql_entry_addattr(
 
 #ifdef BACKSQL_TRACE
 	Debug( LDAP_DEBUG_TRACE, "backsql_entry_addattr(\"%s\"): %s=%s\n", 
-		e->e_name.bv_val, ad->ad_cname->bv_val, val->bv_val );
+		e->e_name.bv_val, ad->ad_cname.bv_val, val->bv_val );
 #endif /* BACKSQL_TRACE */
 
 	rc = attr_merge_normalize_one( e, ad, val, memctx );

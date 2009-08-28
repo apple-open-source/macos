@@ -39,7 +39,14 @@ set srcfile ${testfile}.cc
 set binfile ${objdir}/${subdir}/${testfile}
 
 # APPLE LOCAL quiet about long doubles
-if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable {debug c++ additional_flags=-Wno-long-double}] != "" } {
+# APPLE LOCAL: Only gcc-4.0 accepts -Wno-long-double, 4.2 & above do not.
+set flags "debug c++"
+get_compiler_info not_used
+if {[istarget "*-apple-darwin*"] && [regexp {gcc-4-[01]} $compiler_info]} {
+    lappend flags "additional_flags=-Wno-long-double"
+}
+
+if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable $flags] != "" } {
      gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
 }
 

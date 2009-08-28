@@ -74,9 +74,6 @@ class IOFWUserLocalIsochPort : public IOFWLocalIsochPort
 #endif
 
 		// IOFWLocalIsochPort
-		virtual IOReturn 			getSupported (	IOFWSpeed & 					maxSpeed, 
-													UInt64 & 						chanSupported ) ;
-//		virtual	IOReturn			releasePort () ;
 		virtual IOReturn			start () ;
 		virtual IOReturn			stop () ;
 

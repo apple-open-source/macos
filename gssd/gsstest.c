@@ -35,8 +35,6 @@
 #include <unistd.h>
 
 #include "gssd_mach.h"
-#include "gssd_machServer.h"
-#include "gssd.h"
 
 typedef struct {
 	int total;
@@ -143,6 +141,7 @@ int exitonerror = 0;
 int interactive = 0;
 uint32_t uid;
 uint32_t flags;
+uint32_t gssd_flags = (GSSD_HOME_ACCESS_OK | GSSD_UI_OK);
 char *principal="";
 char svcname[1024];
 mach_port_t mp;
@@ -175,19 +174,19 @@ int main(int argc, char *argv[])
 	while ((ch = getopt(argc, argv, "CDefhHikN:n:M:m:p:r:s:t:u:Uv")) != -1) {
 		switch (ch) {
 		case 'C':
-			flags |= GSSD_NO_CANON;
+			gssd_flags |= GSSD_NO_CANON;
 			break;
 		case 'D':
-			flags |= GSSD_NO_DEFAULT;
+			gssd_flags |= GSSD_NO_DEFAULT;
 			break;
 		case 'e':
 			exitonerror = 1;
 			break;
 		case 'f':
-			flags |= (atoi(optarg) & 0xffff);
+			flags |= atoi(optarg);
 			break;
 		case 'H':
-			flags |= GSSD_NO_HOME_ACCESS;
+			gssd_flags &= ~GSSD_HOME_ACCESS_OK;
 			break;
 		case 'i':
 			interactive = 1;
@@ -234,7 +233,7 @@ int main(int argc, char *argv[])
 				ERR("Could no find user %s\n", optarg);
 			break;
 		case 'U':
-			flags |= GSSD_NO_UI;
+			gssd_flags &= ~GSSD_UI_OK;
 			break;
 		case 'v':
 			verbose++;
@@ -447,9 +446,9 @@ void *client(void *arg)
 	channel_t channel = (channel_t)arg;
 	uint32_t major_stat;
 	uint32_t minor_stat;
-	uint32_t cred_handle = (uint32_t) GSS_C_NO_CREDENTIAL;
-	uint32_t gss_context = (uint32_t) GSS_C_NO_CONTEXT;
-	gssd_verifier verifier;
+	uint32_t rflags;
+	gss_cred cred_handle = (gss_cred) (uintptr_t)GSS_C_NO_CREDENTIAL;
+	gss_ctx gss_context = (gss_ctx) (uintptr_t)GSS_C_NO_CONTEXT;
 	kern_return_t kr;
 	int gss_error = 0;
 	int retry_count = 0;
@@ -476,9 +475,10 @@ retry:
 			principal,
 			svcname,
 			flags,
-			&verifier,
+			gssd_flags,		       
 			&gss_context,
 			&cred_handle,
+			&rflags,
 			&channel->clnt_skey, &channel->clnt_skeyCnt,
 			&channel->ctoken, &channel->ctokenCnt,
 			&major_stat,
@@ -491,7 +491,7 @@ retry:
 				exit(1);
 			if (kr == MIG_SERVER_DIED) {
 				inc_counter(server_deaths);
-				if (gss_context == (uint32_t)GSS_C_NO_CONTEXT &&
+				if (gss_context == (uint32_t)(uintptr_t)GSS_C_NO_CONTEXT &&
 					retry_count < max_retries) {
 					retry_count++;
 					goto retry;
@@ -537,9 +537,9 @@ void *server(void *arg __attribute__((unused)))
 	int error;
 	uint32_t major_stat;
 	uint32_t minor_stat;
-	gssd_verifier verifier;
-	uint32_t cred_handle;
-	uint32_t gss_context;
+	uint32_t rflags;
+	gss_cred cred_handle = (gss_cred) (uintptr_t)GSS_C_NO_CREDENTIAL;
+	gss_ctx gss_context = (gss_ctx) (uintptr_t)GSS_C_NO_CONTEXT;
 	uint32_t clnt_uid;
 	uint32_t clnt_gids[NGROUPS_MAX];
 	uint32_t clnt_ngroups;
@@ -587,10 +587,10 @@ retry:
 			mp,
 			channel->ctoken, channel->ctokenCnt,
 			svcname,
-			flags,
-			&verifier,
+			gssd_flags,
 			&gss_context,
 			&cred_handle,
+			&rflags,			 
 			&clnt_uid,
 			clnt_gids,
 			&clnt_ngroups,
@@ -606,7 +606,7 @@ retry:
 				exit(1);
 			if (kr == MIG_SERVER_DIED) {
 				inc_counter(server_deaths);
-				if (gss_context == (uint32_t)GSS_C_NO_CONTEXT &&
+				if (gss_context == (uint32_t)(uintptr_t)GSS_C_NO_CONTEXT &&
 					retry_count < max_retries) {
 					retry_count++;
 					goto retry;

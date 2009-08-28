@@ -5,8 +5,8 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <sys/sysctl.h>
+#include <OpenDirectory/OpenDirectory.h>
 #include <OpenDirectory/OpenDirectoryPriv.h>
-#include <DirectoryService/DirServicesTypes.h>
 
 /*---------------------------------------------------------------------------
  * PUBLIC setrestricted - sets the restricted flag
@@ -41,7 +41,7 @@ setrestricted(CFDictionaryRef attrs)
 		// a restricted shell which they must not change away from.
 		if (restrict_by_default && strcmp(ep->prompt, "shell") == 0) {
 			ep->restricted = 1;
-			CFArrayRef values = CFDictionaryGetValue(attrs, CFSTR(kDS1AttrUserShell));
+			CFArrayRef values = CFDictionaryGetValue(attrs, kODAttributeTypeUserShell);
 			CFTypeRef value = values && CFArrayGetCount(values) > 0 ? CFArrayGetValueAtIndex(values, 0) : NULL;
 			if (value && CFGetTypeID(value) == CFStringGetTypeID()) {
 				size_t size = CFStringGetMaximumSizeForEncoding(CFStringGetLength(value), kCFStringEncodingUTF8)+1;
@@ -143,7 +143,7 @@ odGetUser(CFStringRef location, CFStringRef authname, CFStringRef user, CFDictio
 	 * Connect to DS server
 	 */
 	session = ODSessionCreate(NULL, NULL, &error);
-	if ( !session && error && CFErrorGetCode(error) == eServerNotRunning ) {
+	if ( !session && error && CFErrorGetCode(error) == kODErrorSessionDaemonNotRunning ) {
 		/*
 		 * In single-user mode, attempt to load the local DS daemon.
 		 */
@@ -161,7 +161,7 @@ odGetUser(CFStringRef location, CFStringRef authname, CFStringRef user, CFDictio
 			}
 		} else {
 			show_error(error);
-			return -1;
+			return NULL;
 		}
 	}
 
@@ -172,20 +172,20 @@ odGetUser(CFStringRef location, CFStringRef authname, CFStringRef user, CFDictio
 	if (location) {
 		node = ODNodeCreateWithName(NULL, session, location, &error);
 	} else {
-		node = ODNodeCreateWithNodeType(NULL, session, kODTypeAuthenticationSearchNode, &error);
+		node = ODNodeCreateWithNodeType(NULL, session, kODNodeTypeAuthentication, &error);
 	}
 	if (session) CFRelease(session);
 	if (node) {
-		CFTypeRef	vals[] = { CFSTR(kDSAttributesStandardAll) };
+		CFTypeRef	vals[] = { kODAttributeTypeStandardOnly };
 		CFArrayRef desiredAttrs = CFArrayCreate(NULL, vals, 1, &kCFTypeArrayCallBacks);
-		rec = ODNodeCopyRecord(node, CFSTR(kDSStdRecordTypeUsers), user, desiredAttrs, &error );
+		rec = ODNodeCopyRecord(node, kODRecordTypeUsers, user, desiredAttrs, &error);
 		if (desiredAttrs) CFRelease(desiredAttrs);
 		CFRelease(node);
 	}
 	if (rec) {
 		*attrs = ODRecordCopyDetails(rec, NULL, &error);
 		if (*attrs) {
-			CFArrayRef values = CFDictionaryGetValue(*attrs, CFSTR(kDSNAttrMetaNodeLocation));
+			CFArrayRef values = CFDictionaryGetValue(*attrs, kODAttributeTypeMetaNodeLocation);
 			DSPath = (values && CFArrayGetCount(values) > 0) ? CFArrayGetValueAtIndex(values, 0) : NULL;
 		}
 
@@ -229,9 +229,9 @@ odUpdateUser(ODRecordRef rec, CFDictionaryRef attrs_orig, CFDictionaryRef attrs)
 		// No need to update if entry is restricted
 		if (ep->restricted) continue;
 
-		CFArrayRef values_orig = CFDictionaryGetValue(attrs_orig, ep->attrName);
+		CFArrayRef values_orig = CFDictionaryGetValue(attrs_orig, *ep->attrName);
 		CFTypeRef value_orig = values_orig && CFArrayGetCount(values_orig) ? CFArrayGetValueAtIndex(values_orig, 0) : NULL;
-		CFTypeRef value = CFDictionaryGetValue(attrs, ep->attrName);
+		CFTypeRef value = CFDictionaryGetValue(attrs, *ep->attrName);
 		
 		// No need to update if both values are the same
 		if (value == value_orig) continue;
@@ -253,7 +253,7 @@ odUpdateUser(ODRecordRef rec, CFDictionaryRef attrs_orig, CFDictionaryRef attrs)
 			CFIndex count = CFEqual(value, CFSTR("")) ? 0 : 1;
 			CFTypeRef	vals[] = { value };
 			CFArrayRef	values = CFArrayCreate(NULL, vals, count, &kCFTypeArrayCallBacks);
-			if (values && ODRecordSetValues(rec, ep->attrName, values, &error)) {
+			if (values && ODRecordSetValue(rec, *ep->attrName, values, &error)) {
 				updated = 1;
 			}
 			if (values) CFRelease(values);

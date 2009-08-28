@@ -31,8 +31,6 @@
 		<key>Wait</key>
 		<false/>
 	</dict>
-	<key>SessionCreate</key>
-	<true/>
 	<key>StandardErrorPath</key>
 	<string>/dev/null</string>
         <key>SHAuthorizationRight</key>

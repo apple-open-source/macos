@@ -54,7 +54,8 @@ public:
 		const CssmData &itemID, 
 		const CssmData attrName,
 		const CssmData attrValue);
-		
+
+private:
 	// db item contstructor
     ExtendedAttribute(const Keychain &keychain, 
 		const PrimaryKey &primaryKey, 
@@ -63,6 +64,10 @@ public:
 	// PrimaryKey item contstructor
     ExtendedAttribute(const Keychain &keychain, const PrimaryKey &primaryKey);
 
+public:
+	static ExtendedAttribute* make(const Keychain &keychain, const PrimaryKey &primaryKey, const CssmClient::DbUniqueRecord &uniqueId);
+	static ExtendedAttribute* make(const Keychain &keychain, const PrimaryKey &primaryKey);
+	
 	ExtendedAttribute(ExtendedAttribute &extendedAttribute);
 
     virtual ~ExtendedAttribute() throw();

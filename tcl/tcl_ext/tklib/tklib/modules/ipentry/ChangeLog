@@ -1,0 +1,37 @@
+2006-07-14 Aaron Faupell <afaupell@users.sourceforge.net>
+
+	* ipentry.tcl: added -textvariable option, and bumped version
+	* ipentry.man: added docs for -textvariable option
+	* thanks to Chris Maj for the patch
+
+2005-11-10  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tklib 0.4.1 ========================
+	* 
+
+2005-11-02  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tklib 0.4 ========================
+	* 
+
+2005-05-18  Andreas Kupries <andreask@activestate.com>
+
+	* ipentry.tcl: Added missing 'require Tk'.
+
+2005-01-09  Marty Backe <marty@lucidway.org>
+
+        * ipentry.tcl: Bug fix - widget creation was not returning the
+	  widget name.
+
+2003-08-02 Aaron Faupell <afaupell@users.sourceforge.net>
+
+	* ipentry.tcl: added highlightcolor, highlightbackground,
+	  highlightthickness options
+	* ipentry.man: added docs for above, as well as
+	  disabledforeground, readonlybackground
+
+2003-07-23 Aaron Faupell <afaupell@users.sourceforge.net>
+
+	* initial import

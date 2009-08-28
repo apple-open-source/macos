@@ -12,6 +12,7 @@ Available subcommands:
    add
    blame (praise, annotate, ann)
    cat
+   changelist (cl)
    checkout (co)
    cleanup
    commit (ci)
@@ -26,6 +27,7 @@ Available subcommands:
    lock
    log
    merge
+   mergeinfo
    mkdir
    move (mv, rename, ren)
    propdel (pdel, pd)
@@ -33,6 +35,7 @@ Available subcommands:
    propget (pget, pg)
    proplist (plist, pl)
    propset (pset, ps)
+   resolve
    resolved
    revert
    status (stat, st)

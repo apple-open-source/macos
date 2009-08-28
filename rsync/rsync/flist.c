@@ -1427,11 +1427,17 @@ struct file_list *recv_file_list(int f)
 			flags |= read_byte(f) << 8;
 		file = receive_file_entry(flist, flags, f);
 #ifdef EA_SUPPORT
-		if (extended_attributes && read_byte(f))
-		    if (verbose > 4)
-			rprintf(FINFO, "receiving synthetic file entry for: %s/%s\n",
-				file->dirname ? file->dirname : ".",
-				file->basename);
+		if (extended_attributes) {
+			if (read_byte(f)) {
+				file->flags &= ~FLAG_CLEAR_METADATA;
+				if (verbose > 4)
+					rprintf(FINFO, "receiving synthetic file entry for: %s/%s\n",
+						file->dirname ? file->dirname : ".",
+						file->basename);
+			} else if (strncmp(file->basename, "._", 2)) {
+				file->flags |= FLAG_CLEAR_METADATA;
+			}
+		}
 #endif
 
 		if (S_ISREG(file->mode) || S_ISLNK(file->mode))

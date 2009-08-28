@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -33,7 +33,7 @@ apr_status_t apr_file_cleanup(void *thefile)
 APR_DECLARE(apr_status_t) apr_file_open(apr_file_t **new, const char *fname, apr_int32_t flag,  apr_fileperms_t perm, apr_pool_t *pool)
 {
     int oflags = 0;
-    int mflags = OPEN_FLAGS_FAIL_ON_ERROR|OPEN_SHARE_DENYNONE;
+    int mflags = OPEN_FLAGS_FAIL_ON_ERROR|OPEN_SHARE_DENYNONE|OPEN_FLAGS_NOINHERIT;
     int rv;
     ULONG action;
     apr_file_t *dafile = (apr_file_t *)apr_palloc(pool, sizeof(apr_file_t));
@@ -59,7 +59,8 @@ APR_DECLARE(apr_status_t) apr_file_open(apr_file_t **new, const char *fname, apr
     dafile->buffered = (flag & APR_BUFFERED) > 0;
 
     if (dafile->buffered) {
-        dafile->buffer = apr_palloc(pool, APR_FILE_BUFSIZE);
+        dafile->buffer = apr_palloc(pool, APR_FILE_DEFAULT_BUFSIZE);
+        dafile->bufsize = APR_FILE_DEFAULT_BUFSIZE;
         rv = apr_thread_mutex_create(&dafile->mutex, 0, pool);
 
         if (rv)
@@ -120,16 +121,19 @@ APR_DECLARE(apr_status_t) apr_file_close(apr_file_t *file)
     apr_status_t status;
     
     if (file && file->isopen) {
-        apr_file_flush(file);
+        /* XXX: flush here is not mutex protected */
+        status = apr_file_flush(file);
         rc = DosClose(file->filedes);
     
         if (rc == 0) {
             file->isopen = FALSE;
-            status = APR_SUCCESS;
 
             if (file->flags & APR_DELONCLOSE) {
                 status = APR_FROM_OS_ERROR(DosDelete(file->fname));
             }
+            /* else we return the status of the flush attempt 
+             * when all else succeeds
+             */
         } else {
             return APR_FROM_OS_ERROR(rc);
         }
@@ -193,7 +197,8 @@ APR_DECLARE(apr_status_t) apr_os_file_put(apr_file_t **file, apr_os_file_t *thef
     if ((*file)->buffered) {
         apr_status_t rv;
 
-        (*file)->buffer = apr_palloc(pool, APR_FILE_BUFSIZE);
+        (*file)->buffer = apr_palloc(pool, APR_FILE_DEFAULT_BUFSIZE);
+        (*file)->bufsize = APR_FILE_DEFAULT_BUFSIZE;
         rv = apr_thread_mutex_create(&(*file)->mutex, 0, pool);
 
         if (rv)
@@ -213,33 +218,83 @@ APR_DECLARE(apr_status_t) apr_file_eof(apr_file_t *fptr)
 }   
 
 
-APR_DECLARE(apr_status_t) apr_file_open_stderr(apr_file_t **thefile, apr_pool_t *pool)
+APR_DECLARE(apr_status_t) apr_file_open_flags_stderr(apr_file_t **thefile, 
+                                                     apr_int32_t flags,
+                                                     apr_pool_t *pool)
 {
     apr_os_file_t fd = 2;
 
-    return apr_os_file_put(thefile, &fd, 0, pool);
+    return apr_os_file_put(thefile, &fd, flags | APR_WRITE, pool);
 }
 
+
+APR_DECLARE(apr_status_t) apr_file_open_flags_stdout(apr_file_t **thefile, 
+                                                     apr_int32_t flags,
+                                                     apr_pool_t *pool)
+{
+    apr_os_file_t fd = 1;
+
+    return apr_os_file_put(thefile, &fd, flags | APR_WRITE, pool);
+}
+
+
+APR_DECLARE(apr_status_t) apr_file_open_flags_stdin(apr_file_t **thefile, 
+                                                    apr_int32_t flags,
+                                                    apr_pool_t *pool)
+{
+    apr_os_file_t fd = 0;
+
+    return apr_os_file_put(thefile, &fd, flags | APR_READ, pool);
+}
+
+
+APR_DECLARE(apr_status_t) apr_file_open_stderr(apr_file_t **thefile, apr_pool_t *pool)
+{
+    return apr_file_open_flags_stderr(thefile, 0, pool);
+}
 
 
 APR_DECLARE(apr_status_t) apr_file_open_stdout(apr_file_t **thefile, apr_pool_t *pool)
 {
-    apr_os_file_t fd = 1;
-
-    return apr_os_file_put(thefile, &fd, 0, pool);
+    return apr_file_open_flags_stdout(thefile, 0, pool);
 }
 
 
 APR_DECLARE(apr_status_t) apr_file_open_stdin(apr_file_t **thefile, apr_pool_t *pool)
 {
-    apr_os_file_t fd = 0;
-
-    return apr_os_file_put(thefile, &fd, 0, pool);
+    return apr_file_open_flags_stdin(thefile, 0, pool);
 }
 
 APR_POOL_IMPLEMENT_ACCESSOR(file);
 
-APR_IMPLEMENT_INHERIT_SET(file, flags, pool, apr_file_cleanup)
 
-APR_IMPLEMENT_INHERIT_UNSET(file, flags, pool, apr_file_cleanup)
 
+APR_DECLARE(apr_status_t) apr_file_inherit_set(apr_file_t *thefile)
+{
+    int rv;
+    ULONG state;
+
+    rv = DosQueryFHState(thefile->filedes, &state);
+
+    if (rv == 0 && (state & OPEN_FLAGS_NOINHERIT) != 0) {
+        rv = DosSetFHState(thefile->filedes, state & ~OPEN_FLAGS_NOINHERIT);
+    }
+
+    return APR_FROM_OS_ERROR(rv);
+}
+
+
+
+APR_DECLARE(apr_status_t) apr_file_inherit_unset(apr_file_t *thefile)
+{
+    int rv;
+    ULONG state;
+
+    rv = DosQueryFHState(thefile->filedes, &state);
+
+    if (rv == 0 && (state & OPEN_FLAGS_NOINHERIT) == 0) {
+        rv = DosSetFHState(thefile->filedes, state | OPEN_FLAGS_NOINHERIT);
+    }
+
+    return APR_FROM_OS_ERROR(rv);
+}

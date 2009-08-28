@@ -1,0 +1,943 @@
+# cmpRead.test --
+#
+# This file contains tests for the cmpRead.c file (i.e. it has the loader
+# tests).
+#
+# Tests for the loader typically fall under one of two categories:
+#
+#  - tests that check that the loader can handle garbage input.
+#	For these tests, we pass corrupted or incomplete bytecodes to
+#	the loader, and compare the error message raised by the command
+#	with the expected one.
+#
+#  - tests that check that the loader has correctly reconstructed the
+#    ByteCode structure 
+#	These tests are quite a bit harder to devise and check. Because we
+#	don't want to handcraft bytecode files, we have to use the compiler.
+#	But now we have introduced an additional entity, the compiler, whose
+#	code we can't really check here. Additionally, errors now could be
+#	caused because the compiler has generated a bad bytecode, or because
+#	the loader has reconstructed it incorrectly. Finally, the way I can
+#	think of for doing the checking is to write a bunch of TCL input
+#	files, each containing a specific feature we want to check. These
+#	files return some kind of value when executed. Then, we compile the
+#	file, execute the .tcl one, execute the .tbc one, and compare their
+#	return values; if different, we have a problem. The compiler has
+#	a similar problem, where the only way to check if a ByteCode has been
+#	emitted correctly is to run it and see what the script does. So it's
+#	quite difficult to separate these tests by code file; what we'll do
+#	is place one set in cmpWrite.c, and have that set test both loader
+#	and compiler.
+#
+# Copyright (c) 1998-2000 Ajuba Solutions
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: cmpRead.test,v 1.5 2000/05/30 22:19:07 wart Exp $
+
+if {[string compare test [info procs test]] == 1} {
+    lappend auto_path [file join [file dirname [info script]] ..]
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+set oldpwd [pwd]
+cd [file dirname [info script]]
+set ::tcltest::testsDirectory [file dirname [pwd]]
+cd $::tcltest::temporaryDirectory
+set ::tbcFormatVersion 1
+set ::tbcPackageVersion 1.3
+
+
+set testDir [file join $::tcltest::testsDirectory tests]
+set tcldir [file join $testDir  tcl]
+set tbc10dir [file join $testDir tbc10]
+set tbcdir [file join $::tcltest::temporaryDirectory tbc]
+
+##source [file join $::tcltest::testsDirectory compiler cmpinit.tcl]
+
+package require tbcload
+## -exact $loaderPackageName $tbcPackageVersion
+
+#puts "reader patch level: [join [cmptest::getPatchLevel] .]"
+
+# catchBceval --
+#
+#  runs the loader inside a catch, returns the error return from the catch
+#  and the catch return value.
+#
+# Arguments:
+#  tbc		the bytecode string to execute
+#
+# Results:
+#  Returns a two-element list:
+#    0:  the return value from the catch (0 or 1)
+#    1:  the error result from the catch
+
+proc catchBceval { tbc } {
+    set rv [catch {
+	::tbcload::bceval $tbc
+    } err]
+    return [list $rv $err]
+}
+
+# getPartialBc --
+#
+#  Returns a range of lines from a bytecode string
+#
+# Arguments:
+#  tbc		the bytecode string from which to extract lines
+#  start	first line to extract. The first line in the string is at 0.
+#  end		(optional) the last line to extract; can be an integer value,
+#		or the word "end". If not specified, the single line at index
+#		$start is returned.
+#
+# Results:
+#  Returns a string containing the required subset of lines of $tbc.
+
+proc getPartialBc { tbc start {end {}} } {
+    if {[string compare $end {}] == 0} {
+	set end $start
+    }
+    return [join [lrange [split $tbc \n] $start $end] \n]
+}
+
+# getMessageStart --
+#
+#  Takes a return value from catchBceval, extracts the result string from
+#  it (element 1 in the list), then returns the part of the string up to the
+#  first occurrence of the match string, the whole string if no match.
+#  The match string defaults to a double quote surrounded by spaces.
+#
+# Arguments:
+#  stg		string to filter
+#  tag		(optional) the string to use as a search tag.
+#
+# Results:
+#  Returns a two-element list:
+#    0:	the 0th element of the 'stg' arg
+#    1: the filtered 1st element of the 'stg' arg
+
+proc getMessageStart { rvList {tag { " }} } {
+    # " for hilit
+
+    set stg [lindex $rvList 1]
+    set idx [string first $tag $stg]
+    if {$idx > -1} {
+	incr idx -1
+	return [list [lindex $rvList 0] [string range $stg 0 $idx]]
+    }
+
+    return [list [lindex $rvList 0] $stg]
+}
+
+# catchSource --
+#
+#  sources a file inside a catch, returns the error return from the catch
+#  and the catch return value.
+#
+# Arguments:
+#  tbc		the .tbc file to source.
+#
+# Results:
+#  Returns a two-element list:
+#    0:  the return value from the catch (0 or 1)
+#    1:  the error result from the catch
+
+proc catchSource { tbc } {
+    set rv [catch [list uplevel [list source $tbc]] err]
+    return [list $rv $err]
+}
+
+# A set of expected error returns from the bceval command
+
+set badImageMsg "bad image signature in bytecode"
+set unsupportedMsg "unsupported bytecode version: %d"
+set prematureEnd "bytecode terminated prematurely"
+set malformedMsg "malformed byte sequence at or near"
+set expectedInteger {expected integer but got "abcd" at or near}
+
+# hello1 holds a compiled image in format version 1; it will be used to test
+# reading of partial bytecode streams.
+# It is the compiled version of ../tcl/hello.tcl
+
+set hello1 {
+TclPro ByteCode 1 0 1.0 8.0
+2 0 10 2 0 0 12 0 2 2 2 -1 -1
+10
+w0E<!80*!!-!!
+2
+'3!
+2
+**!
+2
+x
+3
+i@w,
+x
+12
+rZ!iCTGA9G):H8A
+0
+0
+}
+
+# break1 holds another compiled image in format version 1; it will be used
+# to test reading of exception range arrays.
+# It is the compiled version of ../tcl/break.tcl
+
+set break1 {
+TclPro ByteCode 1 0 1.0 8.0
+16 0 116 10 4 0 80 2 3 16 16 -1 -1
+116
+w0E<!:B`W!;btt!,`yTv=|yTv-%bD!4|`W!3oYXv4Ta<!,fvpv'KA9v9`8s!/iyTv=|yTvTd
+i?!9oA9v3oYXv4Ta<!,fvpv+oXQ#.EW<!JG's!w%M<!GKuW*M/aTY'?W<!)-<<!6`8s!.i8v
+!
+16
+-WW!!Eeg3w;YkpvGvqm#
+16
+80;^vgC)./>GYQ#5)os!
+10
+x
+6
+7,V`FW+%
+x
+0
+
+x
+3
+uju,
+i
+8
+x
+12
+5'WTAfW0`F1?0bE
+i
+1
+x
+6
+sT2TAIPw
+x
+12
+vCuSAfW0`F1?0bE
+x
+1
+O!
+x
+4
+HW?87
+4
+L 1 23 69 100 93 -1
+L 1 93 4 100 -1 -1
+L 2 59 23 90 83 -1
+L 2 83 4 90 -1 -1
+0
+}
+
+# aux1 holds another compiled image in format version 1; it will be used
+# to test reading of ForeachInfo aux data structures.
+# It is the compiled version of ../tcl/aux1.tcl
+
+set aux1 {
+TclPro ByteCode 1 0 1.0 8.0
+2 0 18 6 0 0 12 0 4 2 2 -1 -1
+18
+)?E<!(H&s!/HW<!-r=pv#!!
+2
+,B!
+2
+23!
+6
+x
+4
+,CHr@
+x
+1
+-v
+x
+3
+#)Hw
+p
+5 0 55 8 1 1 20 1 6 5 5 -1 -1
+55
+4;,>!?.EH&ih-(!e2xi6zyiE<!22>:v35>:v22Ppv2j:U!*|yTv0#>6#5cSs!)'!!
+5
+KK1G'#!
+5
+eQ=kw)!
+8
+x
+0
+
+x
+6
+sT2TAIPw
+x
+1
+m!
+x
+1
+N!
+x
+1
+A!
+x
+6
+82_`FWnw
+x
+6
+:<ylBLYw
+x
+4
+4wv/D
+1
+L 1 22 14 39 15 -1
+1
+F
+1 2 3
+1
+4
+1 5
+1
+8v
+0 0 257
+1
+m!
+1 0 1
+0
+
+2 0 513
+0
+
+3 0 513
+1
+7v
+4 0 1
+x
+19
+muF>+q,Y>+u8k>+wE(?+|/)'
+x
+15
+rpwhC;Z2b3<?<+EfqT+
+0
+0
+}
+
+# local1 holds another compiled image in format version 1; it will be used
+# to test reading of local variables for a procedure.
+# It is the compiled version of ../tcl/procvar2.tcl
+
+set local11 {
+TclPro ByteCode 1 0 1.0 8.0
+2 0 20 7 0 0 12 0 4 2 2 -1 -1
+20
+*BE<!(H&s!/HW<!(E`<!/E<!!
+2
+,B!
+2
+49!
+7
+x
+4
+,CHr@
+x
+1
+-v
+x
+5
+S>%pGA!
+p
+6 0 39 5 0 0 24 0 5 6 6 -1 -1
+39
+w0E<!4`Ss!8BW<!.5C3w<4`H&+K&s!0i&v!8lA=!9&5Uv)'!!
+6
+,c/v!.'!
+6
+Gn^R#=E!
+5
+x
+6
+:<ylBLYw
+x
+7
+6?seDpX2-
+x
+7
+@)6-EiX2-
+x
+6
+82_`FWnw
+x
+4
+4/;EF
+0
+0
+2 4
+1
+Dv
+0 0 257
+1
+Ev
+1 0 257
+1
+8v
+2 0 1
+1
+9v
+3 0 1
+x
+4
+b4Z)<
+x
+4
+8#;EF
+x
+15
+rpwhC;Z2b3<?<+EfqT+
+0
+0
+}
+
+set negatives {
+TclPro ByteCode 1 0 1.3 8.2
+16 0 93 6 0 0 64 0 3 16 16 -1 -1
+93
+w0E<!:B`W!Aj=+')?W<!2;giw?_tt!+Q&s!A4M?!.EW<!0Gwjw=|yTv&0*!!JfSs!&-<<!E(
+ut!+Q&s!@.Mur.EW<!0Gwjw=|yTv&0*!!G`ys!4M-jwz
+16
+0oAX!<At6#7/#:v:8Y6#
+16
+@bC7#Be6Ow;GG:v:uAs!
+6
+x
+1
+-v
+i
+-1
+x
+4
+'LhTA
+x
+6
+7,V`FW+%
+x
+4
+4/;EF
+x
+7
+%6|,EYt|+
+0
+0
+}
+
+test cmpRead-1.1 {ExtractSignature - check correct format} {
+    catchBceval {
+	Bad Signature
+    }
+} [list 1 $badImageMsg]
+
+test cmpRead-1.2 {ExtractSignature - check correct format} {
+    catchBceval { Bad Signature }
+} [list 1 $badImageMsg]
+
+test cmpRead-1.3 {ExtractSignature - check correct format} {
+    catchBceval {
+	TclPro ByteCode 1 0 1.0 a.0
+    }
+} [list 1 $badImageMsg]
+
+test cmpRead-1.4 {ExtractSignature - check correct format} {
+    catchBceval {
+	TclPro ByteCode a 0 1.0 8.0
+    }
+} [list 1 $badImageMsg]
+
+test cmpRead-2.1 {CheckSignature - check version numbers} {
+    catchBceval [format {
+	TclPro ByteCode %d 0 %s %s
+    } $::tbcFormatVersion $::tbcPackageVersion $::tcl_version]
+} [list 1 $::prematureEnd]
+
+test cmpRead-2.2 {CheckSignature - check version numbers} {
+    catchBceval [format {
+	TclPro ByteCode %d 0 %s %s
+    } [expr {$::tbcFormatVersion + 1}] $::tbcPackageVersion $::tcl_version]
+} [list 1 [format $::unsupportedMsg [expr {$::tbcFormatVersion + 1}]]]
+
+# the InitByteCode tests (and possibly others) also indirectly test
+# CleanupByteCode because they trigger a partial build of the ByteCode
+# struct and then a cleanup when an error is detected
+
+test cmpRead-3.1 {InitByteCode - load incomplete bytecodes} {
+    catchBceval [getPartialBc $::hello1 0 2]
+} [list 1 $::prematureEnd]
+
+test cmpRead-3.2 {InitByteCode - load incomplete bytecodes} {
+    catchBceval [getPartialBc $::hello1 0 3]
+} [list 1 $::prematureEnd]
+
+test cmpRead-3.3 {InitByteCode - load incomplete bytecodes} {
+    catchBceval [getPartialBc $::hello1 0 4]
+} [list 1 $::prematureEnd]
+
+# This also indirectly tests ExtractInteger: not an integer where expected
+
+test cmpRead-3.4 {InitByteCode - corrupted bytecodes in sizes header} {
+    set head [getPartialBc $::hello1 0 1]
+    set line [getPartialBc $::hello1 2]
+    regsub 12 $line abcd line
+    set tail [getPartialBc $::hello1 3 end]
+
+    getMessageStart [catchBceval "$head\n$line\n$tail"]
+} [list 1 $::expectedInteger]
+
+test cmpRead-4.1 {ExtractByteSequence - incomplete byte sequence} {
+    set head [getPartialBc $::hello1 0 3]
+    set line [string range [getPartialBc $::hello1 4] 0 6]
+
+    catchBceval "$head\n$line\n"
+} [list 1 $::prematureEnd]
+
+test cmpRead-4.2 {ExtractByteSequence - bad length in byte sequence} {
+    set head [getPartialBc $::hello1 0 2]
+    set tail [getPartialBc $::hello1 4 end]
+
+    getMessageStart [catchBceval "$head\nabcd\n$tail\n"] " \"\n"
+} [list 1 $::expectedInteger]
+
+test cmpRead-4.3 {ExtractByteSequence - inconsistent length in byte sequence} {
+    set head [getPartialBc $::hello1 0 2]
+    set tail [getPartialBc $::hello1 4 end]
+
+    getMessageStart [catchBceval "$head\n20\n$tail\n"] " \"\n"
+} [list 1 {inconsistent byte sequence length at or near}]
+
+test cmpRead-4.4 {ExtractByteSequence - corrupted byte sequence} {
+    set head [getPartialBc $::hello1 0 3]
+    regsub E [getPartialBc $::hello1 4] ~ line
+    set tail [getPartialBc $::hello1 5 end]
+
+    getMessageStart [catchBceval "$head\n$line\n$tail"] " \"~"
+} [list 1 $::malformedMsg]
+
+test cmpRead-4.5 {ExtractByteSequence - I18N string in 1.0.1 bytecode} {
+    set str [tbcload::bceval {
+	TclPro ByteCode 1 0 1.0 8.0
+	1 0 6 2 0 0 4 0 2 1 1 -1 -1
+	6
+	w0E<!4!!
+	1
+	z
+	1
+	&!
+	2
+	x
+	10
+	8#;EFo;ylBLYw
+	x
+	3
+	H&&/
+	0
+	0
+    }]
+    set result [string length $str]
+} 3
+
+test cmpRead-4.5 {ExtractByteSequence - I18N string in 1.3 bytecode} {
+    set str [tbcload::bceval {
+	TclPro ByteCode 1 0 1.3 8.2
+	1 0 6 2 0 0 4 0 2 1 1 -1 -1
+	6
+	w0E<!4!!
+	1
+	z
+	1
+	&!
+	2
+	x
+	10
+	8#;EFo;ylBLYw
+	x
+	6
+	`bZV^%2&
+	0
+	0
+    }]
+    set result [string length $str]
+} 3
+
+test cmpRead-5.1 {ExtractExcRangeArray - corrupted array count} {
+    set head [getPartialBc $::break1 0 39]
+    set line abcd
+    set tail [getPartialBc $::break1 41 end]
+
+    getMessageStart [catchBceval "$head\n$line\n$tail"] " \"\n"
+} [list 1 $::expectedInteger]
+
+test cmpRead-5.2 {ExtractExcRangeArray - inconsistent array count} {
+    set head [getPartialBc $::break1 0 39]
+    set line [getPartialBc $::break1 40]
+    incr line
+    set tail [getPartialBc $::break1 41 end]
+
+    getMessageStart [catchBceval "$head\n$line\n$tail"] " \"\n"
+} [list 1 {inconsistent exception ranges array size at or near}]
+
+test cmpRead-5.3 {ExtractExcRangeArray - incomplete array} {
+    catchBceval [getPartialBc $::break1 0 42]
+} [list 1 $::prematureEnd]
+
+test cmpRead-5.4 {ExtractExcRangeArray - bad exception range type} {
+    set head [getPartialBc $::break1 0 40]
+    set line [linsert [lrange [split [getPartialBc $::break1 41]] 1 end] 0 D]
+    set tail [getPartialBc $::break1 42 end]
+
+    getMessageStart [catchBceval "$head\n$line\n$tail"]
+} [list 1 {unknown exception range type: D at or near}]
+
+test cmpRead-5.5 {ExtractExcRangeArray - incomplete exception range} {
+    set head [getPartialBc $::break1 0 41]
+    set line [lrange [split [getPartialBc $::break1 42]] 0 3]
+    set tail [getPartialBc $::break1 43 end]
+
+    getMessageStart [catchBceval "$head\n$line\n$tail"] " \"\n"
+} [list 1 {expected integer but got "L" at or near}]
+
+test cmpRead-5.6 {ExtractExcRangeArray - corrupted exception range} {
+    set head [getPartialBc $::break1 0 41]
+    regsub 93 [getPartialBc $::break1 42] abcd line
+    set tail [getPartialBc $::break1 43 end]
+
+    getMessageStart [catchBceval "$head\n$line\n$tail"]
+} [list 1 $::expectedInteger]
+
+test cmpRead-6.1 {ExtractObjArray - malformed size} {
+    set head [getPartialBc $::hello1 0 8]
+    set line abcd
+    set tail [getPartialBc $::hello1 10 end]
+
+    getMessageStart [catchBceval "$head\n$line\n$tail"] " \"\n"
+} [list 1 $::expectedInteger]
+
+test cmpRead-6.2 {ExtractObjArray - inconsistent size} {
+    set head [getPartialBc $::hello1 0 8]
+    set line [expr {[getPartialBc $::hello1 9] + 1}]
+    set tail [getPartialBc $::hello1 10 end]
+
+    getMessageStart [catchBceval "$head\n$line\n$tail"]
+} [list 1 {inconsistent object array size}]
+
+test cmpRead-7.1 {ExtractObject - not enough file to go} {
+    getMessageStart [catchBceval [getPartialBc $::hello1 0 9]]
+} [list 1 $::prematureEnd]
+
+test cmpRead-7.2 {ExtractObject - unknown object code} {
+    set head [getPartialBc $::hello1 0 9]
+    set line Y
+    set tail [getPartialBc $::hello1 11 end]
+
+    getMessageStart [catchBceval "$head\n$line\n$tail"] " \"3"
+} [list 1 {unknown object type "Y" at or near}]
+
+test cmpRead-8.1 {ExtractAuxDataArray - corrupted array count} {
+    set head [getPartialBc $::aux1 0 53]
+    set line abcd
+    set tail [getPartialBc $::aux1 55 end]
+
+    getMessageStart [catchBceval "$head\n$line\n$tail"] " \"\n"
+} [list 1 $::expectedInteger]
+
+test cmpRead-8.2 {ExtractAuxDataArray - inconsistent array count} {
+    set head [getPartialBc $::aux1 0 53]
+    set line [getPartialBc $::aux1 54]
+    incr line
+    set tail [getPartialBc $::aux1 55 end]
+
+    getMessageStart [catchBceval "$head\n$line\n$tail"] " \"\n"
+} [list 1 {inconsistent aux data array size at or near}]
+
+test cmpRead-8.3 {ExtractAuxDataArray - incomplete array} {
+    catchBceval [getPartialBc $::aux1 0 54]
+} [list 1 $::prematureEnd]
+
+test cmpRead-8.4 {ExtractAuxDataArray - bad aux data type} {
+    set head [getPartialBc $::aux1 0 54]
+    set line K
+    set tail [getPartialBc $::aux1 56 end]
+
+    getMessageStart [catchBceval "$head\n$line\n$tail"] " \"\n"
+} [list 1 {unknown aux data type: K at or near}]
+
+test cmpRead-9.1 {ExtractForeachInfo - corrupt info header line} {
+    set head [getPartialBc $::aux1 0 55]
+    set line [lreplace [getPartialBc $::aux1 56] 0 0 abcd]
+    set tail [getPartialBc $::aux1 57 end]
+
+    getMessageStart [catchBceval "$head\n$line\n$tail"] " \"\n"
+} [list 1 $::expectedInteger]
+
+test cmpRead-9.2 {ExtractForeachInfo - corrupt info header line} {
+    set head [getPartialBc $::aux1 0 55]
+    set line [lreplace [getPartialBc $::aux1 56] 1 1 abcd]
+    set tail [getPartialBc $::aux1 57 end]
+
+    getMessageStart [catchBceval "$head\n$line\n$tail"]
+} [list 1 $::expectedInteger]
+
+test cmpRead-9.3 {ExtractForeachInfo - corrupt info header line} {
+    set head [getPartialBc $::aux1 0 55]
+    set line [lreplace [getPartialBc $::aux1 56] 1 1 abcd]
+    set tail [getPartialBc $::aux1 57 end]
+
+    getMessageStart [catchBceval "$head\n$line\n$tail"]
+} [list 1 $::expectedInteger]
+
+test cmpRead-9.4 {ExtractForeachInfo - corrupt var list header} {
+    set head [getPartialBc $::aux1 0 56]
+    set line abcd
+    set tail [getPartialBc $::aux1 58 end]
+
+    getMessageStart [catchBceval "$head\n$line\n$tail"] " \"\n"
+} [list 1 $::expectedInteger]
+
+test cmpRead-9.5 {ExtractForeachInfo - corrupt var list entry} {
+    set head [getPartialBc $::aux1 0 57]
+    set line abcd
+    set tail [getPartialBc $::aux1 59 end]
+
+    getMessageStart [catchBceval "$head\n$line\n$tail"] " \"\n"
+} [list 1 $::expectedInteger]
+
+
+if 0 {
+test cmpRead-10.1 {ExtractProcBody - } {
+    set head [getPartialBc $::hello1 0 41]
+    regsub 93 [getPartialBc $::hello1 42] abcd line
+    set tail [getPartialBc $::hello1 43 end]
+
+    getMessageStart [catchBceval "$head\n$line\n$tail"]
+} [list 1 $::expectedInteger]
+}
+
+
+
+
+test cmpRead-11.1 {ExtractByteCode - bad bytecodes sequence} {
+    set head [getPartialBc $::hello1 0 2]
+    set line abcd
+    set tail [getPartialBc $::hello1 4 end]
+    getMessageStart [catchBceval "$head\n$line\n$tail"] " \"\n"
+} [list 1 $::expectedInteger]
+
+test cmpRead-11.2 {ExtractByteCode - bad code delta sequence} {
+    set head [getPartialBc $::hello1 0 4]
+    set line abcd
+    set tail [getPartialBc $::hello1 6 end]
+    getMessageStart [catchBceval "$head\n$line\n$tail"] " \"\n"
+} [list 1 $::expectedInteger]
+
+test cmpRead-11.3 {ExtractByteCode - bad code length sequence} {
+    set head [getPartialBc $::hello1 0 6]
+    set line abcd
+    set tail [getPartialBc $::hello1 8 end]
+    getMessageStart [catchBceval "$head\n$line\n$tail"] " \"\n"
+} [list 1 $::expectedInteger]
+
+if 0 {
+test cmpRead-11.4 {ExtractByteCode - bad object array} {
+    set head [getPartialBc $::hello1 0 3]
+    regsub E [getPartialBc $::hello1 4] ~ line
+    set tail [getPartialBc $::hello1 5 end]
+    getMessageStart [catchBceval "$head\n$line\n$tail"]
+} [list 1 $::expectedInteger]
+
+test cmpRead-11.5 {ExtractByteCode - bad exc range array} {
+    set head [getPartialBc $::hello1 0 3]
+    regsub E [getPartialBc $::hello1 4] ~ line
+    set tail [getPartialBc $::hello1 5 end]
+    getMessageStart [catchBceval "$head\n$line\n$tail"]
+} [list 1 $::expectedInteger]
+
+test cmpRead-11.6 {ExtractByteCode - bad aux data array} {
+    set head [getPartialBc $::hello1 0 3]
+    regsub E [getPartialBc $::hello1 4] ~ line
+    set tail [getPartialBc $::hello1 5 end]
+    getMessageStart [catchBceval "$head\n$line\n$tail"]
+} [list 1 $::expectedInteger]
+}
+
+# The following tests are used to check that files compiled with a 1.0
+# compiler are still readable by a 1.0.1 compiler.
+# How can we check the reverse?
+
+test cmpRead-12.1 {1.0 compatibility - aux1} {
+    catchSource [file join $::tbc10dir aux1.tbc]
+} [list 0 [source [file join $::tcldir aux1.tcl]]]
+
+test cmpRead-12.2 {1.0 compatibility - break} {
+    catchSource [file join $::tbc10dir break.tbc]
+} [list 0 [source [file join $::tcldir break.tcl]]]
+
+test cmpRead-12.3 {1.0 compatibility - break1} {
+    catchSource [file join $::tbc10dir break1.tbc]
+} [list 0 [source [file join $::tcldir break1.tcl]]]
+
+test cmpRead-12.4 {1.0 compatibility - break2} {
+    catchSource [file join $::tbc10dir break2.tbc]
+} [list 0 [source [file join $::tcldir break2.tcl]]]
+
+test cmpRead-12.5 {1.0 compatibility - catch} {
+    catchSource [file join $::tbc10dir catch.tbc]
+} [list 0 [source [file join $::tcldir catch.tcl]]]
+
+test cmpRead-12.6 {1.0 compatibility - catch1} {
+    catchSource [file join $::tbc10dir catch1.tbc]
+} [list 0 [source [file join $::tcldir catch1.tcl]]]
+
+test cmpRead-12.7 {1.0 compatibility - cont} {
+    catchSource [file join $::tbc10dir cont.tbc]
+} [list 0 [source [file join $::tcldir cont.tcl]]]
+
+test cmpRead-12.8 {1.0 compatibility - cont1} {
+    catchSource [file join $::tbc10dir cont1.tbc]
+} [list 0 [source [file join $::tcldir cont1.tcl]]]
+
+test cmpRead-12.9 {1.0 compatibility - cont2} {
+    catchSource [file join $::tbc10dir cont2.tbc]
+} [list 0 [source [file join $::tcldir cont2.tcl]]]
+
+test cmpRead-12.10 {1.0 compatibility - expr} {
+    catchSource [file join $::tbc10dir expr.tbc]
+} [list 0 [source [file join $::tcldir expr.tcl]]]
+
+test cmpRead-12.11 {1.0 compatibility - expr1} {
+    catchSource [file join $::tbc10dir expr1.tbc]
+} [list 0 [source [file join $::tcldir expr1.tcl]]]
+
+test cmpRead-12.12 {1.0 compatibility - expr2} {
+    catchSource [file join $::tbc10dir expr2.tbc]
+} [list 0 [source [file join $::tcldir expr2.tcl]]]
+
+test cmpRead-12.13 {1.0 compatibility - for} {
+    catchSource [file join $::tbc10dir for.tbc]
+} [list 0 [source [file join $::tcldir for.tcl]]]
+
+test cmpRead-12.14 {1.0 compatibility - foreach} {
+    catchSource [file join $::tbc10dir foreach.tbc]
+} [list 0 [source [file join $::tcldir foreach.tcl]]]
+
+test cmpRead-12.15 {1.0 compatibility - interp} {
+    catchSource [file join $::tbc10dir interp.tbc]
+} [list 0 [source [file join $::tcldir interp.tcl]]]
+
+test cmpRead-12.16 {1.0 compatibility - override} {
+    catchSource [file join $::tbc10dir override.tbc]
+} [list 0 [source [file join $::tcldir override.tcl]]]
+
+test cmpRead-12.17 {1.0 compatibility - proc} {
+    catchSource [file join $::tbc10dir proc.tbc]
+} [list 0 [source [file join $::tcldir proc.tcl]]]
+
+test cmpRead-12.18 {1.0 compatibility - procbod1} {
+    catchSource [file join $::tbc10dir procbod1.tbc]
+} [list 0 [list {TEST : TEST} {TEST : TEST} \
+	{# Compiled -- no source code available
+error "called a copy of a compiled script"}]]
+
+test cmpRead-12.19 {1.0 compatibility - procbod2} {
+    catchSource [file join $::tbc10dir procbod2.tbc]
+} {1 {called a copy of a compiled script}}
+
+test cmpRead-12.20 {1.0 compatibility - procbod3} {
+    catchSource [file join $::tbc10dir procbod3.tbc]
+} {0 {TEST : TEST {TEST : TEST}}}
+
+test cmpRead-12.21 {1.0 compatibility - procbreak1} {
+    catchSource [file join $::tbc10dir procbreak1.tbc]
+} [list 0 [source [file join $::tcldir procbreak1.tcl]]]
+
+test cmpRead-12.22 {1.0 compatibility - proccatch1} {
+    catchSource [file join $::tbc10dir proccatch1.tbc]
+} [list 0 [source [file join $::tcldir proccatch1.tcl]]]
+
+test cmpRead-12.23 {1.0 compatibility - proccatch2} {
+    catchSource [file join $::tbc10dir proccatch2.tbc]
+} [list 0 [source [file join $::tcldir proccatch2.tcl]]]
+
+test cmpRead-12.24 {1.0 compatibility - proccontinue1} {
+    catchSource [file join $::tbc10dir proccontinue1.tbc]
+} [list 0 [source [file join $::tcldir proccontinue1.tcl]]]
+
+test cmpRead-12.25 {1.0 compatibility - procepc1} {
+    catchSource [file join $::tbc10dir procepc1.tbc]
+} [list 0 [source [file join $::tcldir procepc1.tcl]]]
+
+test cmpRead-12.26 {1.0 compatibility - procepc2} {
+    catchSource [file join $::tbc10dir procepc2.tbc]
+} {0 {1 1 2 2 {3 3 4 4}}}
+
+test cmpRead-12.27 {1.0 compatibility - procshd1} {
+    catchSource [file join $::tbc10dir procshd1.tbc]
+} [list 0 [source [file join $::tcldir procshd1.tcl]]]
+
+test cmpRead-12.28 {1.0 compatibility - procshd2} {
+    catchSource [file join $::tbc10dir procshd2.tbc]
+} [catchSource [file join $::tcldir procshd2.tcl]]
+
+test cmpRead-12.29 {1.0 compatibility - procshd3} {
+    catchSource [file join $::tbc10dir procshd3.tbc]
+} [list 0 [source [file join $::tcldir procshd3.tcl]]]
+
+test cmpRead-12.30 {1.0 compatibility - procshd4} {
+    catchSource [file join $::tbc10dir procshd4.tbc]
+} [list 0 [source [file join $::tcldir procshd4.tcl]]]
+
+test cmpRead-12.31 {1.0 compatibility - procshd5} {
+    catchSource [file join $::tbc10dir procshd5.tbc]
+} [list 0 [source [file join $::tcldir procshd5.tcl]]]
+
+test cmpRead-12.32 {1.0 compatibility - procshd6} {
+    catchSource [file join $::tbc10dir procshd6.tbc]
+} [list 0 [source [file join $::tcldir procshd6.tcl]]]
+
+test cmpRead-12.33 {1.0 compatibility - procshd7} {
+    catchSource [file join $::tbc10dir procshd7.tbc]
+} [list 0 [source [file join $::tcldir procshd7.tcl]]]
+
+test cmpRead-12.34 {1.0 compatibility - procshd8} {
+    catchSource [file join $::tbc10dir procshd8.tbc]
+} [list 0 [source [file join $::tcldir procshd8.tcl]]]
+
+test cmpRead-12.35 {1.0 compatibility - procvar1} {
+    catchSource [file join $::tbc10dir procvar1.tbc]
+} [catchSource [file join $::tcldir procvar1.tcl]]
+
+test cmpRead-12.36 {1.0 compatibility - procvar2} {
+    catchSource [file join $::tbc10dir procvar2.tbc]
+} [list 0 [source [file join $::tcldir procvar2.tcl]]]
+
+test cmpRead-12.37 {1.0 compatibility - while} {
+    catchSource [file join $::tbc10dir while.tbc]
+} [list 0 [source [file join $::tcldir while.tcl]]]
+
+test cmpRead-12.38 {redefined proc to DbgNub_procCmd (bug 3826)} {
+    set shell [info nameofexecutable]
+    exec $shell [file join $::tcldir procRedefNub.tcl]
+} {}
+
+test cmpRead-12.39 {redefined proc to any new name (bug 3826)} {} {
+    set shell [info nameofexecutable]
+    exec $shell [file join $::tcldir procRedef.tcl]
+} {}
+
+test cmpRead-13.1 {64bit compatibility - negative 1} {
+    ::tbcload::bceval $negatives
+} [list -1 0 1 -2 -3]
+
+# cleanup
+foreach file [list file-15.2 file-15.4 file-15.6 file-15.7 file-15.8] {
+    file delete -force $file
+}
+cd $oldpwd
+cleanupTests
+return

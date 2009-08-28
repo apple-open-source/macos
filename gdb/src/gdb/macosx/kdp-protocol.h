@@ -40,7 +40,17 @@ typedef enum kdp_req_t
   KDP_REATTACH,
 
   /* remote reboot request */
-  KDP_HOSTREBOOT
+  KDP_HOSTREBOOT,
+
+  /* memory access (64-bit wide addresses). Version 11 protocol */
+  KDP_READMEM64,  KDP_WRITEMEM64,
+
+  /* breakpoint control (64-bit wide addresses). Version 11 protocol */
+  KDP_BREAKPOINT64_SET, KDP_BREAKPOINT64_REMOVE,
+        
+  /* kernel version string, like "xnu-1234.5~6". Version 11 protocol */
+  KDP_KERNELVERSION,        
+
 } kdp_req_t;
 
 /* Common KDP packet header */
@@ -155,7 +165,9 @@ typedef struct
   unsigned nregions;
   struct
   {
-    unsigned long address;
+    /* FIXME: Should this be uint64_t all the time?  Or uint64_t for K64
+       but uint32_t otherwise?  It was originally 'unsigned long'.  */
+    uint32_t address;  
     size_t nbytes;
     unsigned int protection;
   } regions[0];
@@ -179,25 +191,42 @@ typedef struct
 typedef struct
 {
   kdp_hdr_t hdr;
-  unsigned long address;
-  size_t nbytes;
+  unsigned int address;
+  unsigned int nbytes;
 } kdp_readmem_req_t;
 
 typedef struct
 {
   kdp_hdr_t hdr;
   kdp_error_t error;
-  size_t nbytes;
+  unsigned int nbytes;
   unsigned char data[0];
 } kdp_readmem_reply_t;
+
+/* KDP_READMEM64 */
+
+typedef struct
+{
+  kdp_hdr_t hdr;
+  uint64_t address;
+  unsigned int nbytes;
+} kdp_readmem64_req_t;
+
+typedef struct
+{
+  kdp_hdr_t hdr;
+  kdp_error_t error;
+  unsigned int nbytes;
+  unsigned char data[0];
+} kdp_readmem64_reply_t;
 
 /* KDP_WRITEMEM */
 
 typedef struct
 {
   kdp_hdr_t hdr;
-  unsigned long address;
-  size_t nbytes;
+  unsigned int address;
+  unsigned int nbytes;
   unsigned char data[0];
 } kdp_writemem_req_t;
 
@@ -206,6 +235,22 @@ typedef struct
   kdp_hdr_t hdr;
   kdp_error_t error;
 } kdp_writemem_reply_t;
+
+/* KDP_WRITEMEM64 */
+
+typedef struct
+{
+  kdp_hdr_t hdr;
+  uint64_t address;
+  unsigned int nbytes;
+  unsigned char data[0];
+} kdp_writemem64_req_t;
+
+typedef struct
+{
+  kdp_hdr_t hdr;
+  kdp_error_t error;
+} kdp_writemem64_reply_t;
 
 /* KDP_READREGS */
 
@@ -297,9 +342,9 @@ typedef struct
 typedef struct
 {
   kdp_hdr_t hdr;
-  unsigned long address;
+  unsigned int address;
 #if 0
-  unsigned long ccache;
+  uint32_t ccache;
 #endif
 } kdp_breakpoint_req_t;
 
@@ -308,6 +353,34 @@ typedef struct
   kdp_hdr_t hdr;
   kdp_error_t error;
 } kdp_breakpoint_reply_t;
+
+/* KDP_BREAKPOINT64_SET, KDP_BREAKPOINT64_REMOVE */
+typedef struct
+{
+  kdp_hdr_t hdr;
+  uint64_t address;
+#if 0
+  uint32_t ccache;
+#endif
+} kdp_breakpoint64_req_t;
+
+typedef struct
+{
+  kdp_hdr_t hdr;
+  kdp_error_t error;
+} kdp_breakpoint64_reply_t;
+
+/* KDP_KERNELVERSION */
+typedef struct
+{
+  kdp_hdr_t hdr;
+} kdp_kernelversion_req_t;
+
+typedef struct
+{
+  kdp_hdr_t hdr;
+  char version[0];
+} kdp_kernelversion_reply_t;
 
 /* Exception notifications */
 
@@ -374,8 +447,12 @@ typedef union kdp_pkt_t
   kdp_maxbytes_reply_t maxbytes_reply;
   kdp_readmem_req_t readmem_req;
   kdp_readmem_reply_t readmem_reply;
+  kdp_readmem64_req_t readmem64_req;
+  kdp_readmem64_reply_t readmem64_reply;
   kdp_writemem_req_t writemem_req;
   kdp_writemem_reply_t writemem_reply;
+  kdp_writemem64_req_t writemem64_req;
+  kdp_writemem64_reply_t writemem64_reply;
   kdp_readregs_req_t readregs_req;
   kdp_readregs_reply_t readregs_reply;
   kdp_writeregs_req_t writeregs_req;
@@ -394,10 +471,14 @@ typedef union kdp_pkt_t
   kdp_termination_ack_t termination_ack;
   kdp_breakpoint_req_t breakpoint_req;
   kdp_breakpoint_reply_t breakpoint_reply;
+  kdp_breakpoint64_req_t breakpoint64_req;
+  kdp_breakpoint64_reply_t breakpoint64_reply;
   kdp_regions_req_t regions_req;
   kdp_regions_reply_t regions_reply;
   kdp_reattach_req_t reattach_req;
   kdp_hostreboot_req_t hostreboot_req;
+  kdp_kernelversion_req_t kernelversion_req;
+  kdp_kernelversion_reply_t kernelversion_reply;
 } kdp_pkt_t;
 
 typedef enum

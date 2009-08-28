@@ -33,7 +33,7 @@
 #include <securityd_client/ucspNotify.h>
 
 
-Listener::ListenerMap Listener::listeners;
+Listener::ListenerMap& Listener::listeners = *(new Listener::ListenerMap);
 Mutex Listener::setLock(Mutex::recursive);
 
 

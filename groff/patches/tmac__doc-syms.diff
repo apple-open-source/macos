@@ -1,5 +1,6 @@
---- tmac/doc-syms	Tue May 11 15:02:37 2004
-+++ tmac/doc-syms	Fri Sep 24 12:29:38 2004
+diff -r -u -N --exclude='*.orig' groff-1.19.2.orig/tmac/doc-syms groff-1.19.2/tmac/doc-syms
+--- tmac/doc-syms	2005-02-03 16:06:11.000000000 -0800
++++ tmac/doc-syms	2008-08-22 13:45:43.000000000 -0700
 @@ -581,6 +581,8 @@
  .\" X/Open
  .ds doc-str-St--susv2          Version\~2 of the Single \*[doc-Tn-font-size]UNIX\*[doc-str-St] Specification
@@ -9,3 +10,19 @@
  .ds doc-str-St--svid4          System\~V Interface Definition, Fourth Edition
  .as doc-str-St--svid4          " (\*[Lq]\*[doc-Tn-font-size]SVID\*[doc-str-St]\^4\*[Rq])
  .ds doc-str-St--xbd5           \*[doc-Tn-font-size]X/Open\*[doc-str-St] System Interface Definitions Issue\~5
+@@ -678,6 +680,7 @@
+ .
+ .ds doc-str-Lb-libarm      ARM Architecture Library (libarm, \-larm)
+ .ds doc-str-Lb-libarm32    ARM32 Architecture Library (libarm32, \-larm32)
++.ds doc-str-Lb-libbsm      Basic Security Module Library (libbsm, \-lbsm)
+ .ds doc-str-Lb-libc        Standard C\~Library (libc, \-lc)
+ .ds doc-str-Lb-libcdk      Curses Development Kit Library (libcdk, \-lcdk)
+ .ds doc-str-Lb-libcompat   Compatibility Library (libcompat, \-lcompat)
+@@ -703,6 +706,7 @@
+ .ds doc-str-Lb-libpthread  \*[Px] \*[doc-str-Lb]Threads Library (libpthread, \-lpthread)
+ .ds doc-str-Lb-libresolv   DNS Resolver Library (libresolv, \-lresolv)
+ .ds doc-str-Lb-librt       \*[Px] \*[doc-str-Lb]Real-time Library (librt, \-lrt)
++.ds doc-str-Lb-libSystem   System Library (libSystem, \-lSystem)
+ .ds doc-str-Lb-libtermcap  Termcap Access Library (libtermcap, \-ltermcap)
+ .ds doc-str-Lb-libusbhid   USB Human Interface Devices Library (libusbhid, \-lusbhid)
+ .ds doc-str-Lb-libutil     System Utilities Library (libutil, \-lutil)

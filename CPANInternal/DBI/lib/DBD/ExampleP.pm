@@ -6,9 +6,10 @@
     use DBI qw(:sql_types);
 
     @EXPORT = qw(); # Do NOT @EXPORT anything.
-    $VERSION = sprintf("%d.%02d", q$Revision: 11.12 $ =~ /(\d+)\.(\d+)/o);
+    $VERSION = sprintf("12.%06d", q$Revision: 10007 $ =~ /(\d+)/o);
 
-#   $Id: ExampleP.pm,v 11.12 2004/01/07 17:38:51 timbo Exp $
+
+#   $Id: ExampleP.pm 10007 2007-09-27 20:53:04Z timbo $
 #
 #   Copyright (c) 1994,1997,1998 Tim Bunce
 #
@@ -58,9 +59,17 @@
 
     sub connect { # normally overridden, but a handy default
         my($drh, $dbname, $user, $auth)= @_;
-        my ($outer, $dbh) = DBI::_new_dbh($drh, { Name => $dbname });
+        my ($outer, $dbh) = DBI::_new_dbh($drh, {
+            Name => $dbname,
+            examplep_private_dbh_attrib => 42, # an example, for testing
+        });
+        $dbh->{examplep_get_info} = {
+            29 => '"',  # SQL_IDENTIFIER_QUOTE_CHAR
+            41 => '.',  # SQL_CATALOG_NAME_SEPARATOR
+            114 => 1,   # SQL_CATALOG_LOCATION
+        };
+        #$dbh->{Name} = $dbname;
         $dbh->STORE('Active', 1);
-        $dbh->{examplep_get_info} = {};
         return $outer;
     }
 
@@ -68,7 +77,6 @@
 	return ("dbi:ExampleP:dir=.");	# possibly usefully meaningless
     }
 
-    sub DESTROY { undef }
 }
 
 
@@ -87,26 +95,27 @@
 			: split(/\s*,\s*/, $fields);
 	}
 	else {
-	    return $dbh->set_err(1, "Syntax error in select statement (\"$statement\")")
+	    return $dbh->set_err($DBI::stderr, "Syntax error in select statement (\"$statement\")")
 		unless $statement =~ m/^\s*set\s+/;
 	    # the SET syntax is just a hack so the ExampleP driver can
 	    # be used to test non-select statements.
-	    # No we have DBI::DBM etc ExampleP should be deprecated
+	    # Now we have DBI::DBM etc., ExampleP should be deprecated
 	}
 
 	my ($outer, $sth) = DBI::_new_sth($dbh, {
 	    'Statement'     => $statement,
+            examplep_private_sth_attrib => 24, # an example, for testing
 	}, ['example implementors private data '.__PACKAGE__]);
 
 	my @bad = map {
 	    defined $DBD::ExampleP::statnames{$_} ? () : $_
 	} @fields;
-	return $dbh->set_err(1, "Unknown field names: @bad")
+	return $dbh->set_err($DBI::stderr, "Unknown field names: @bad")
 		if @bad;
 
 	$outer->STORE('NUM_OF_FIELDS' => scalar(@fields));
 
-	$sth->{dbd_ex_dir} = $dir if defined($dir) && $dir !~ /\?/;
+	$sth->{examplep_ex_dir} = $dir if defined($dir) && $dir !~ /\?/;
 	$outer->STORE('NUM_OF_PARAMS' => ($dir) ? $dir =~ tr/?/?/ : 0);
 
 	if (@fields) {
@@ -129,7 +138,7 @@
 	# Return a list of all subdirectories
 	my $dh = Symbol::gensym(); # "DBD::ExampleP::".++$DBD::ExampleP::gensym;
 	my $haveFileSpec = eval { require File::Spec };
-	my $dir = $haveFileSpec ? File::Spec->curdir() : ".";
+	my $dir = $catalog || ($haveFileSpec ? File::Spec->curdir() : ".");
 	my @list;
 	if ($types{VIEW}) {	# for use by test harness
 	    push @list, [ undef, "schema",  "table",  'VIEW', undef ];
@@ -141,13 +150,18 @@
 	if ($types{TABLE}) {
 	    no strict 'refs';
 	    opendir($dh, $dir)
-		or return $dbh->set_err(int($!),
-					"Failed to open directory $dir: $!");
-	    while (defined(my $file = readdir($dh))) {
+		or return $dbh->set_err(int($!), "Failed to open directory $dir: $!");
+	    while (defined(my $item = readdir($dh))) {
+                if ($^O eq 'VMS') {
+                    # if on VMS then avoid warnings from catdir if you use a file
+                    # (not a dir) as the item below
+                    next if $item !~ /\.dir$/oi;
+                }
+                my $file = ($haveFileSpec) ? File::Spec->catdir($dir,$item) : $item;
 		next unless -d $file;
 		my($dev, $ino, $mode, $nlink, $uid) = lstat($file);
 		my $pwnam = undef; # eval { scalar(getpwnam($uid)) } || $uid;
-		push @list, [ $dir, $pwnam, $file, 'TABLE', undef ];
+		push @list, [ $dir, $pwnam, $item, 'TABLE', undef ];
 	    }
 	    close($dh);
 	}
@@ -200,7 +214,7 @@
 
 
     sub ping {
-	return 2;	# used by t/80proxy.t
+	(shift->FETCH('Active')) ? 2 : 0;    # the value 2 is checked for by t/80proxy.t
     }
 
 
@@ -268,6 +282,9 @@
 	return $h->SUPER::parse_trace_flag($name);
     }
 
+    sub private_attribute_info {
+        return { example_driver_path => undef };
+    }
 }
 
 
@@ -299,7 +316,7 @@
 
 	return 0 unless $sth->{NUM_OF_FIELDS}; # not a select
 
-	$dir = $dbd_param->[0] || $sth->{dbd_ex_dir};
+	$dir = $dbd_param->[0] || $sth->{examplep_ex_dir};
 	return $sth->set_err(2, "No bind parameter supplied")
 	    unless defined $dir;
 
@@ -316,9 +333,10 @@
 	}
 	else {
 	    $sth->{dbd_dir} = $dir;
-	    $sth->{dbd_datahandle} = Symbol::gensym(); # "DBD::ExampleP::".++$DBD::ExampleP::gensym;
-	    opendir($sth->{dbd_datahandle}, $dir)
-		or return $sth->set_err(2, "opendir($dir): $!");
+	    my $sym = Symbol::gensym(); # "DBD::ExampleP::".++$DBD::ExampleP::gensym;
+	    opendir($sym, $dir)
+                or return $sth->set_err(2, "opendir($dir): $!");
+	    $sth->{dbd_datahandle} = $sym;
 	}
 	$sth->STORE(Active => 1);
 	return 1;
@@ -327,7 +345,6 @@
 
     sub fetch {
 	my $sth = shift;
-	my $dh  = $sth->{dbd_datahandle};
 	my $dir = $sth->{dbd_dir};
 	my %s;
 
@@ -343,6 +360,8 @@
 	          $time, $time, $time, 512, 2, "file$num")
 	}
 	else {			# normal mode
+            my $dh  = $sth->{dbd_datahandle}
+                or return $sth->set_err($DBI::stderr, "fetch without successful execute");
 	    my $f = readdir($dh);
 	    unless ($f) {
 		$sth->finish;
@@ -402,11 +421,6 @@
 	return $sth->{$attrib} = $value
 	    if $attrib eq 'NAME' or $attrib eq 'NULLABLE' or $attrib eq 'SCALE' or $attrib eq 'PRECISION';
 	return $sth->SUPER::STORE($attrib, $value);
-    }
-
-    sub DESTROY {
-	my $sth = shift;
-	$sth->finish if $sth->SUPER::FETCH('Active');
     }
 
     *parse_trace_flag = \&DBD::ExampleP::db::parse_trace_flag;

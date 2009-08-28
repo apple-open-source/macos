@@ -356,3 +356,40 @@ macosx_free_plist (const void **plist)
       *plist = NULL;
     }
 }
+
+void
+mach_check_error (kern_return_t ret, const char *file,
+                  unsigned int line, const char *func)
+{
+  if (ret == KERN_SUCCESS)
+    {
+      return;
+    }
+  if (func == NULL)
+    {
+      func = "[UNKNOWN]";
+    }
+
+  error ("error on line %u of \"%s\" in function \"%s\": %s (0x%lx)\n",
+         line, file, func, MACH_ERROR_STRING (ret), (unsigned long) ret);
+}
+
+
+void
+mach_warn_error (kern_return_t ret, const char *file,
+                 unsigned int line, const char *func)
+{
+  if (ret == KERN_SUCCESS)
+    {
+      return;
+    }
+  if (func == NULL)
+    {
+      func = "[UNKNOWN]";
+    }
+
+  warning ("error on line %u of \"%s\" in function \"%s\": %s (0x%ux)",
+           line, file, func, MACH_ERROR_STRING (ret), ret);
+}
+
+

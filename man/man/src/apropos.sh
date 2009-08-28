@@ -83,6 +83,6 @@ do
     fi
 
     shift
-done | ${PAGER:-more -E}
+done | eval ${PAGER:-more -E}
 
 exit

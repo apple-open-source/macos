@@ -1,5 +1,5 @@
 Mailman - The GNU Mailing List Management System
-Copyright (C) 1998-2005 by the Free Software Foundation, Inc.
+Copyright (C) 1998-2007 by the Free Software Foundation, Inc.
 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA
 
 The following folks are or have been core developers of Mailman (in reverse
@@ -8,6 +8,7 @@ alphabetical order):
     Barry Warsaw, Mailman's yappy guard dog
     Thomas Wouters, Mailman's Dutch treat
     John Viega, Mailman's inventor
+    Mark Sapiro, Mailman's compulsive responder
     Harald Meland, Norse Mailman
     Ken Manheimer, Mailman's savior
     Tokio Kikuchi, Mailman's weatherman
@@ -29,6 +30,12 @@ code, and have assigned copyright for contributions to the FSF:
     Les Niles
     Terri Oda
     Simone Piunno
+
+Thanks also go to the following people for their important contributions in
+other aspects of the Mailman project:
+
+    Brad Knowles
+    JC Dill
 
 Thanks also to Dragon for his winning Mailman logo contribution, and
 to Terri Oda for the neat shortcut icon and the member documentation.
@@ -83,10 +90,12 @@ in answering questions on mailman-users.
     Maximillian Dornseif
     Fred Drake
     Maxim Dzumanenko
+    Piarres Beobide Egaña
     Rob Ellis
     Kerem Erkan
     Fil
     Patrick Finnerty
+    Bob Fleck
     Erik Forsberg
     Darrell Fuhriman
     Robert Garrigós
@@ -116,6 +125,7 @@ in answering questions on mailman-users.
     Matthias Juchem
     Tamito KAJIYAMA
     Nino Katic
+    SHIGENO Kazutaka
     Ashley M. Kirchner
     Matthias Klose
     Harald Koch
@@ -137,28 +147,28 @@ in answering questions on mailman-users.
     Gergely Madarasz
     Luca Maranzano
     John A. Martin
+    Andrew Martynov
+    Jason R. Mastaler
     Michael Mclay
     Michael Meltzer
     Marc MERLIN
     Nigel Metheringham
     Dan Mick
     Garey Mills
+    Martin Mokrejs
     Michael Fischer v. Mollard
     David Martínez Moreno
+    Dirk Mueller
     Jonas Muerer
     Erik Myllymaki
     Balazs Nagy
+    Moritz Naumann
     Dale Newfield
     Hrvoje Niksic
     Les Niles
     Mike Noyes
     David B. O'Donnell
     Timothy O'Malley
-    Andrew Martynov
-    Jason R. Mastaler
-    Michael Meltzer
-    Martin Mokrejs
-    Dirk Mueller
     "office"
     Dan Ohnesorg
     Gerald Oskoboiny
@@ -168,7 +178,6 @@ in answering questions on mailman-users.
     Chris Pepper
     Tim Peters
     Joe Peterson
-    Piarres Beobide Egaña
     PieterB
     Rodolfo Pilas
     Skye Poier
@@ -189,12 +198,10 @@ in answering questions on mailman-users.
     Guido van Rossum
     Nicholas Russo
     Chris Ryan
-    Mark Sapiro
     Cabel Sasser
     Bartosz Sawicki
     Kai Schaetzl
     Karoly Segesdi
-    SHIGENO Kazutaka
     Gleydson Mazioli da Silva
     Pasi Sjöholm
     Chris Snell

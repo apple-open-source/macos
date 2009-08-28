@@ -52,7 +52,7 @@ MLINKS+= acl_get.3 acl_get_fd.3				\
 MLINKS+= acl_set.3 acl_set_fd.3				\
          acl_set.3 acl_set_fd_np.3			\
          acl_set.3 acl_set_file.3			\
-         acl_set.3 acl_set_link.3
+         acl_set.3 acl_set_link_np.3
         
 
 MLINKS+= acl_valid.3 acl_valid_fd_np.3			\

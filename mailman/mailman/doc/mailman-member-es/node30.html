@@ -1,0 +1,194 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+<head>
+<link rel="STYLESHEET" href="mailman-member-es.css" type='text/css' />
+<link rel="first" href="mailman-member-es.html" title='GNU&nbsp;Mailman Manual&nbsp;del&nbsp;Suscriptor&nbsp;de&nbsp;Listas' />
+<link rel='contents' href='contents.html' title="Contents" />
+<link rel='last' href='about.html' title='About this document...' />
+<link rel='help' href='about.html' title='About this document...' />
+<link rel="next" href="node31.html" />
+<link rel="prev" href="node29.html" />
+<link rel="parent" href="node29.html" />
+<link rel="next" href="node31.html" />
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<meta name='aesop' content='information' />
+<title>9.1 ¿Cómo puedo asegurarme que mis envíos tienen el tema apropiado? </title>
+</head>
+<body>
+<div class="navigation">
+<div id='top-navigation-panel' xml:id='top-navigation-panel'>
+<table align="center" width="100%" cellpadding="0" cellspacing="2">
+<tr>
+<td class='online-navigation'><a rel="prev" title="9 temas de listas"
+  href="node29.html"><img src='previous.png'
+  border='0' height='32'  alt='Previous Page' width='32' /></a></td>
+<td class='online-navigation'><a rel="parent" title="9 temas de listas"
+  href="node29.html"><img src='up.png'
+  border='0' height='32'  alt='Up one Level' width='32' /></a></td>
+<td class='online-navigation'><a rel="next" title="9.2 ¿Cómo me suscribo"
+  href="node31.html"><img src='next.png'
+  border='0' height='32'  alt='Next Page' width='32' /></a></td>
+<td align="center" width="100%">GNU&nbsp;Mailman Manual&nbsp;del&nbsp;Suscriptor&nbsp;de&nbsp;Listas</td>
+<td class='online-navigation'><a rel="contents" title="Table of Contents"
+  href="contents.html"><img src='contents.png'
+  border='0' height='32'  alt='Contents' width='32' /></a></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+</tr></table>
+<div class='online-navigation'>
+<b class="navlabel">Previous:</b>
+<a class="sectref" rel="prev" href="node29.html">9 Temas de listas</a>
+<b class="navlabel">Up:</b>
+<a class="sectref" rel="parent" href="node29.html">9 Temas de listas</a>
+<b class="navlabel">Next:</b>
+<a class="sectref" rel="next" href="node31.html">9.2 ¿Cómo me suscribo</a>
+</div>
+<hr /></div>
+</div>
+<!--End of Navigation Panel-->
+
+<h2><a name="SECTION002910000000000000000"></a><a name="sec:posttopic"></a>
+<br>
+9.1 ¿Cómo puedo asegurarme que mis envíos tienen el tema apropiado?
+	
+</h2>
+
+<p>
+Cuando un administrador de lista define un tema, puede definir tres cosas:
+
+<ul>
+<li>un nombre de tema
+</li>
+<li>una expresión regular (regexp)
+</li>
+<li>una descripción
+</li>
+</ul>
+
+<p>
+Usted puede mirar esta información ingresando a su página de opciones de
+suscriptor (ver en la Sección&nbsp;<a href="node9.html#sec:web">3.1</a> más detalles de cómo hacer esto)
+y haciendo clic en el enlace ``Detalles'' de cualquiera de los temas que le
+interesen.
+
+<p>
+Para enviar un mensaje sobre un determinado tema, usted necesita asegurarse
+que las <span class="mailheader">Palabras claves:</span> o las cabeceras de <span class="mailheader">Asunto:</span>
+de su mensaje concuerdan con la <em>expresión regular</em> de ese tema.  Una
+expresión regular es un patrón que puede coincidir con más de una cosa.
+Realmente las expresiones regulares pueden ser mucho más complejas, así que
+usted puede sencillamente preguntar al administrador de la lista si usted no
+sabe como crear cabeceras o colas de una expresión dada.
+
+<p>
+Si realmente usted desea saber más sobre expresiones regulares, siga leyendo,
+pero para la mayor parte, su administador de la lista debería incluir en la
+descripción del tema, lo que usted necesita adicionar a sus Palabras Claves o
+línea de Asunto para que coincida con el patrón del tema.
+
+<p>
+La mayoría de expresiones de temas Mailman corresponderan a expresiones
+regulares bastante simples, así que en este documento simplemente se darán
+algunos ejemplos comunes.  Las expresiones regulares son un poquito complejas
+para enseñar aquí en unas pocas líneas, así que si usted realmente desea
+entender como trabajan, usted debería encontrar un instructivo o referencia en
+otro lado (por ejemplo, DevShed tiene un buen instructivo en
+<a class="url" href="http://www.devshed.com/Server_Side/Administration/RegExp/">http://www.devshed.com/Server_Side/Administration/RegExp/</a>)  
+
+<p>
+Aquí hay algunos ejemplos de posibles expresiones regulares y líneas concordantes:
+<div class="center"><table class="realtable">
+  <thead>
+    <tr>
+      <th class="left"  >Expresión Regular</th>
+      <th class="left"  >Líneas concordantes</th>
+      </tr>
+    </thead>
+  <tbody>
+    <tr><td class="left"   valign="baseline">zuff</td>
+        <td class="left"  >Palabras Claves: zuff</td></tr>
+    <tr><td class="left"   valign="baseline">zuff</td>
+        <td class="left"  >Palabras Claves: ZUFF</td></tr>
+    <tr><td class="left"   valign="baseline">zuff</td>
+        <td class="left"  >Palabras Claves: Zuff</td></tr>
+    <tr><td class="left"   valign="baseline">zuff</td>
+        <td class="left"  >Palabras Claves: amarilis, zuff, puré de manzana</td></tr>
+    <tr><td class="left"   valign="baseline">zuff</td>
+        <td class="left"  >Asunto: [zuff] ¿Tienes lo necesario para el zuff?</td></tr>
+    <tr><td class="left"   valign="baseline">zuff</td>
+        <td class="left"  >Asunto: ¿Tienes lo apropiado para el zuff?</td></tr>
+    <tr><td class="left"   valign="baseline">zuff</td>
+        <td class="left"  >Asunto: ¿Qué es zuff?</td></tr>
+	
+    <tr><td class="left"   valign="baseline">\[zuff\]</td>
+        <td class="left"  >Palabras Claves: [zuff]</td></tr>
+    <tr><td class="left"   valign="baseline">\[zuff\]</td>
+        <td class="left"  >Asunto: [zuff]    ¿Tienes lo necesario?</td></tr>
+    <tr><td class="left"   valign="baseline">\[zuff\]</td>
+        <td class="left"  >Asunto: Tutoriales en línea de zuff (Re: [zuff] ¿Qué es zuff?)</td></tr></tbody>
+</table></div>
+
+<p>
+Unas pocas notas:
+
+<ul>
+<li>Las concordancias no son sensibles a mayúsculas/minúsculas, así
+	que si concuerda zuff, lo hará ZUFF, zuFF, y cualquier otra variación
+	en el uso de las mayúsculas/minúsculas.
+</li>
+<li>Algunos caracteres tienen un significado especial en una
+	expresión regular, así que para concordar específicamente con esos
+	caracteres, ellos deben ser ``escapados'' con una diagonal inversa
+	(\).  Como usted puede ver en los ejemplos de arriba,
+	los paréntesis rectangulares ([ y ]) son unos de esos caracteres
+	(otros incluyen ``.'', ``?'', y ``*'').  La diagonal inversa también
+	se usa para otras cosas (no es broma la complejidad de las expresiones
+	regulares: consulte en otra documentación los detalles sobre otros
+	usos del caracter de diagonal inversa), pero este es el uso más
+	probable en una expresión de tema.
+</li>
+</ul>
+
+<p>
+
+<div class="navigation">
+<div class='online-navigation'>
+<p></p><hr />
+<table align="center" width="100%" cellpadding="0" cellspacing="2">
+<tr>
+<td class='online-navigation'><a rel="prev" title="9 temas de listas"
+  href="node29.html"><img src='previous.png'
+  border='0' height='32'  alt='Previous Page' width='32' /></a></td>
+<td class='online-navigation'><a rel="parent" title="9 temas de listas"
+  href="node29.html"><img src='up.png'
+  border='0' height='32'  alt='Up one Level' width='32' /></a></td>
+<td class='online-navigation'><a rel="next" title="9.2 ¿Cómo me suscribo"
+  href="node31.html"><img src='next.png'
+  border='0' height='32'  alt='Next Page' width='32' /></a></td>
+<td align="center" width="100%">GNU&nbsp;Mailman Manual&nbsp;del&nbsp;Suscriptor&nbsp;de&nbsp;Listas</td>
+<td class='online-navigation'><a rel="contents" title="Table of Contents"
+  href="contents.html"><img src='contents.png'
+  border='0' height='32'  alt='Contents' width='32' /></a></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+</tr></table>
+<div class='online-navigation'>
+<b class="navlabel">Previous:</b>
+<a class="sectref" rel="prev" href="node29.html">9 Temas de listas</a>
+<b class="navlabel">Up:</b>
+<a class="sectref" rel="parent" href="node29.html">9 Temas de listas</a>
+<b class="navlabel">Next:</b>
+<a class="sectref" rel="next" href="node31.html">9.2 ¿Cómo me suscribo</a>
+</div>
+</div>
+<hr />
+<span class="release-info">Release 2.1, documentation updated on 11 de enero 2009.</span>
+</div>
+<!--End of Navigation Panel-->
+
+</body>
+</html>

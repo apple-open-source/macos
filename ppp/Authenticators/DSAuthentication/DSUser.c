@@ -39,14 +39,14 @@
 //----------------------------------------------------------------------
 //	dsauth_get_search_node_ref
 //----------------------------------------------------------------------
-tDirStatus dsauth_get_search_node_ref(tDirReference dirRef, unsigned long index, 
-                tDirNodeReference *searchNodeRef, unsigned long *count)
+tDirStatus dsauth_get_search_node_ref(tDirReference dirRef, UInt32 index, 
+                tDirNodeReference *searchNodeRef, UInt32 *count)
 {
     tDirStatus			dsResult = -1;
     tDataBufferPtr		searchNodeDataBufferPtr = 0;
     tDataListPtr	   	searchNodeNameDataListPtr = 0;
 
-    unsigned long		outNodeCount;
+    UInt32			outNodeCount;
     tContextData		continueData = 0;
     
     *searchNodeRef = 0;
@@ -103,9 +103,9 @@ tDirStatus dsauth_get_user_attr(tDirReference dirRef, tDirNodeReference searchNo
     tDataListPtr	   	attrTypeDataListPtr = 0;
     tContextData		continueData = 0;
 
-    unsigned long		outRecordCount;
+    UInt32				outRecordCount;
     int					userRcdFound = 0;
-    u_int32_t			userRecordIndex, attrIndex;
+    UInt32				userRecordIndex, attrIndex;
     
     *attr_value	= 0;
                                              

@@ -15,6 +15,9 @@
 	Change History (most recent first):
 
 		$Log: MBCAbout.mm,v $
+		Revision 1.2  2008/10/24 23:23:26  neerache
+		Update small print
+		
 		Revision 1.1  2003/07/02 21:06:16  neerache
 		Move about box into separate class/nib
 		
@@ -54,6 +57,11 @@
 			URLWithString:@"http://developer.apple.com/darwin/projects/misc/"];
 	[[NSWorkspace sharedWorkspace] openURL:url];
 }				
+
+- (NSFont *) licenseFont
+{
+	return [NSFont userFixedPitchFontOfSize:10.0];
+}
 
 @end
 

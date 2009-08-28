@@ -125,10 +125,9 @@ static char
  }
 
 static Elf64_Sym *
-sym_to_gelf_macho(const ctf_sect_t *sp, const Elf32_Sym *src, Elf64_Sym * sym)
+sym_to_gelf_macho(const ctf_sect_t *sp, const Elf32_Sym *src, Elf64_Sym * sym, const char *base)
 {
 	const struct nlist *nsym = (const struct nlist *)src;
-	const char *base = (const char *)(sp->cts_data) + sp->cts_size;
 	const char *name = base + nsym->n_un.n_strx;
 	char *tmp;
 		
@@ -149,6 +148,56 @@ sym_to_gelf_macho(const ctf_sect_t *sp, const Elf32_Sym *src, Elf64_Sym * sym)
 	sym->st_info = STT_NOTYPE;
 	sym->st_other = 0;
 	sym->st_shndx = SHN_MACHO;
+	
+	if (nsym->n_type & N_STAB) {
+	
+		switch(nsym->n_type) {
+		case N_FUN:
+			sym->st_info = ELF64_ST_INFO((STB_GLOBAL), (STT_FUNC));
+			break;
+		case N_GSYM:
+			sym->st_info = ELF64_ST_INFO((STB_GLOBAL), (STT_OBJECT));
+			break;
+		default:
+			break;
+		}
+		
+	} else if ((N_ABS | N_EXT) == (nsym->n_type & (N_TYPE | N_EXT)) ||
+		(N_SECT | N_EXT) == (nsym->n_type & (N_TYPE | N_EXT))) {
+
+		sym->st_info = ELF64_ST_INFO((STB_GLOBAL), (nsym->n_desc)); 
+	} else if ((N_UNDF | N_EXT) == (nsym->n_type & (N_TYPE | N_EXT)) &&
+				nsym->n_sect == NO_SECT) {
+		sym->st_info = ELF64_ST_INFO((STB_GLOBAL), (STT_OBJECT)); /* Common */
+	}
+	
+	return sym;
+}
+
+static Elf64_Sym *
+sym_to_gelf_macho_64(const ctf_sect_t *sp, const Elf32_Sym *src, Elf64_Sym * sym, const char *base)
+{
+	const struct nlist_64 *nsym = (const struct nlist_64 *)src;
+	const char *name = base + nsym->n_un.n_strx;
+	char *tmp;
+		
+	if (0 == nsym->n_un.n_strx) { // iff a null, "", name.
+		sym->st_name = 0;
+		return sym;
+	}
+
+	if ((tmp = demangleSymbolCString(name)))
+		name = tmp;
+
+	if ('_' == name[0])
+		name++; // Lop off omnipresent underscore to match DWARF convention
+
+	sym->st_name = (Elf64_Word)(name - base);
+	sym->st_value = nsym->n_value;
+	sym->st_size = 0;
+	sym->st_info = STT_NOTYPE;
+	sym->st_other = 0;
+	sym->st_shndx = SHN_MACHO_64;
 	
 	if (nsym->n_type & N_STAB) {
 	
@@ -206,7 +255,10 @@ init_symtab(ctf_file_t *fp, const ctf_header_t *hp,
 	for (; xp < xend; xp++, symp += sp->cts_entsize) {
 #if defined(__APPLE__)
 		if (sp->cts_entsize == sizeof (struct nlist)) {
-			gsp = sym_to_gelf_macho(sp, (Elf32_Sym *)(uintptr_t)symp, &sym);
+			gsp = sym_to_gelf_macho(sp, (Elf32_Sym *)(uintptr_t)symp, &sym, (const char *)strp->cts_data);
+		}
+		else if (sp->cts_entsize == sizeof (struct nlist_64)) {
+			gsp = sym_to_gelf_macho_64(sp, (Elf32_Sym *)(uintptr_t)symp, &sym, (const char *)strp->cts_data);
 		}
 		else
 #endif /* __APPLE__ */
@@ -639,7 +691,8 @@ ctf_bufopen(const ctf_sect_t *ctfsect, const ctf_sect_t *symsect,
 	    symsect->cts_entsize != sizeof (Elf64_Sym))
 		return (ctf_set_open_errno(errp, ECTF_SYMTAB));
 #else
-	if (symsect != NULL && symsect->cts_entsize != sizeof (struct nlist))
+	if (symsect != NULL && symsect->cts_entsize != sizeof (struct nlist) &&
+	    symsect->cts_entsize != sizeof (struct nlist_64))
 		return (ctf_set_open_errno(errp, ECTF_SYMTAB));
 #endif /* __APPLE__ */
 
@@ -857,6 +910,13 @@ ctf_bufopen(const ctf_sect_t *ctfsect, const ctf_sect_t *symsect,
 	fp->ctf_lookups[4].ctl_hash = NULL;
 
 	if (symsect != NULL) {
+#if defined(__APPLE__)
+		if (symsect->cts_entsize == sizeof (struct nlist_64))
+			(void) ctf_setmodel(fp, CTF_MODEL_LP64);
+		else if (symsect->cts_entsize == sizeof (struct nlist))
+			(void) ctf_setmodel(fp, CTF_MODEL_ILP32);
+		else
+#endif /* __APPLE__ */
 		if (symsect->cts_entsize == sizeof (Elf64_Sym))
 			(void) ctf_setmodel(fp, CTF_MODEL_LP64);
 		else

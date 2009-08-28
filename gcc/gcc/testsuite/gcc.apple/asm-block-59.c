@@ -2,7 +2,7 @@
 /* { dg-do compile { target i?86*-*-darwin* } } */
 /* { dg-options { -fasm-blocks -msse3 -O2 } } */
 /* { dg-require-effective-target ilp32 } */
-/* { dg-final { scan-assembler "-24\\\(%ebp,%edx,2\\\), %ebx" } } */
+/* { dg-final { scan-assembler "-\(40|44\)\\\(%ebp,%edx,2\\\), %ebx" } } */
 /* Radar 4699545 */
 
 void bar() {

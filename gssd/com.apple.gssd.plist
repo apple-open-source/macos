@@ -21,5 +21,9 @@
                 <key>CFFIXED_USER_HOME</key>
                 <string>/tmp</string>
         </dict>
+        <key>HopefullyExitsLast</key>
+        <true/>
+        <key>EnableTransactions</key>
+        <true/>        
 </dict>
 </plist>

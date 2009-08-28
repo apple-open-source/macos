@@ -263,7 +263,7 @@ CSSM_RETURN CrlDatabase::lookupPriv(
 	if(url) {
 		predPtr->DbOperator = CSSM_DB_EQUAL;
 		predPtr->Attribute.Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-		predPtr->Attribute.Info.Label.AttributeName = "URI";
+		predPtr->Attribute.Info.Label.AttributeName = (char*) "URI";
 		predPtr->Attribute.Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
 		predPtr->Attribute.Value = const_cast<CSSM_DATA_PTR>(url);
 		predPtr->Attribute.NumberOfValues = 1;
@@ -272,7 +272,7 @@ CSSM_RETURN CrlDatabase::lookupPriv(
 	if(issuer) {
 		predPtr->DbOperator = CSSM_DB_EQUAL;
 		predPtr->Attribute.Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-		predPtr->Attribute.Info.Label.AttributeName = "Issuer";
+		predPtr->Attribute.Info.Label.AttributeName = (char*) "Issuer";
 		predPtr->Attribute.Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
 		predPtr->Attribute.Value = const_cast<CSSM_DATA_PTR>(issuer);
 		predPtr->Attribute.NumberOfValues = 1;
@@ -286,7 +286,7 @@ CSSM_RETURN CrlDatabase::lookupPriv(
 		 */
 		predPtr->DbOperator = CSSM_DB_LESS_THAN;
 		predPtr->Attribute.Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-		predPtr->Attribute.Info.Label.AttributeName = "NextUpdate";
+		predPtr->Attribute.Info.Label.AttributeName = (char*) "NextUpdate";
 		predPtr->Attribute.Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
 		predPtr->Attribute.Value = const_cast<CSSM_DATA_PTR>(verifyTime);
 		predPtr->Attribute.NumberOfValues = 1;
@@ -294,7 +294,7 @@ CSSM_RETURN CrlDatabase::lookupPriv(
 		
 		predPtr->DbOperator = CSSM_DB_GREATER_THAN;
 		predPtr->Attribute.Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-		predPtr->Attribute.Info.Label.AttributeName = "ThisUpdate";
+		predPtr->Attribute.Info.Label.AttributeName = (char*) "ThisUpdate";
 		predPtr->Attribute.Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
 		predPtr->Attribute.Value = const_cast<CSSM_DATA_PTR>(verifyTime);
 		predPtr->Attribute.NumberOfValues = 1;

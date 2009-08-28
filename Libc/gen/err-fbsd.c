@@ -47,18 +47,38 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/err.c,v 1.13 2002/03/29 22:43:41 markm Exp 
 #include <vis.h>
 #include "un-namespace.h"
 
+#ifdef __BLOCKS__
+#include <Block.h>
+#endif /* __BLOCKS__ */
 #include "libc_private.h"
+
+#define ERR_EXIT_UNDEF	0
+#ifdef __BLOCKS__
+#define ERR_EXIT_BLOCK	1
+#endif /* __BLOCKS__ */
+#define ERR_EXIT_FUNC	2
+struct _e_err_exit {
+	unsigned int type;
+#ifdef __BLOCKS__
+	union {
+#endif /* __BLOCKS__ */
+		void (*func)(int);
+#ifdef __BLOCKS__
+		void (^block)(int);
+	};
+#endif /* __BLOCKS__ */
+};
 
 #ifdef BUILDING_VARIANT
 
 __private_extern__ FILE *_e_err_file; /* file to use for error output */
-__private_extern__ void (*_e_err_exit)(int);
+__private_extern__ struct _e_err_exit _e_err_exit;
 __private_extern__ void _e_visprintf(FILE * __restrict, const char * __restrict, va_list);
 
 #else /* !BUILDING_VARIANT */
 
 __private_extern__ FILE *_e_err_file = NULL; /* file to use for error output */
-__private_extern__ void (*_e_err_exit)(int) = NULL;
+__private_extern__ struct _e_err_exit _e_err_exit = {ERR_EXIT_UNDEF};
 
 /*
  * zero means pass as is
@@ -141,8 +161,18 @@ err_set_file(void *fp)
 void
 err_set_exit(void (*ef)(int))
 {
-	_e_err_exit = ef;
+	_e_err_exit.type = ERR_EXIT_FUNC;
+	_e_err_exit.func = ef;
 }
+
+#ifdef __BLOCKS__
+void
+err_set_exit_b(void (^ef)(int))
+{
+	_e_err_exit.type = ERR_EXIT_BLOCK;
+	_e_err_exit.block = Block_copy(ef);
+}
+#endif /* __BLOCKS__ */
 #endif /* !BUILDING_VARIANT */
 
 __weak_reference(_err, err);
@@ -189,8 +219,13 @@ verrc(eval, code, fmt, ap)
 		fprintf(_e_err_file, ": ");
 	}
 	fprintf(_e_err_file, "%s\n", strerror(code));
-	if (_e_err_exit)
-		_e_err_exit(eval);
+	if (_e_err_exit.type)
+#ifdef __BLOCKS__
+		if (_e_err_exit.type == ERR_EXIT_BLOCK)
+			_e_err_exit.block(eval);
+		else
+#endif /* __BLOCKS__ */
+			_e_err_exit.func(eval);
 	exit(eval);
 }
 
@@ -215,8 +250,13 @@ verrx(eval, fmt, ap)
 	if (fmt != NULL)
 		_e_visprintf(_e_err_file, fmt, ap);
 	fprintf(_e_err_file, "\n");
-	if (_e_err_exit)
-		_e_err_exit(eval);
+	if (_e_err_exit.type)
+#ifdef __BLOCKS__
+		if (_e_err_exit.type == ERR_EXIT_BLOCK)
+			_e_err_exit.block(eval);
+		else
+#endif /* __BLOCKS__ */
+			_e_err_exit.func(eval);
 	exit(eval);
 }
 

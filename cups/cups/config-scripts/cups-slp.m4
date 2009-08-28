@@ -1,9 +1,9 @@
 dnl
-dnl "$Id: cups-slp.m4 6649 2007-07-11 21:46:42Z mike $"
+dnl "$Id: cups-slp.m4 7241 2008-01-22 22:34:52Z mike $"
 dnl
 dnl   OpenSLP configuration stuff for the Common UNIX Printing System (CUPS).
 dnl
-dnl   Copyright 2007 by Apple Inc.
+dnl   Copyright 2007-2009 by Apple Inc.
 dnl   Copyright 1997-2005 by Easy Software Products, all rights reserved.
 dnl
 dnl   These coded instructions, statements, and computer programs are the
@@ -13,13 +13,12 @@ dnl   which should have been included with this file.  If this file is
 dnl   file is missing or damaged, see the license at "http://www.cups.org/".
 dnl
 
-AC_ARG_ENABLE(slp, [  --enable-slp            turn on SLP support, default=yes])
+AC_ARG_ENABLE(slp, [  --disable-slp           disable SLP support])
 AC_ARG_WITH(openslp-libs, [  --with-openslp-libs     set directory for OpenSLP library],
     LDFLAGS="-L$withval $LDFLAGS"
     DSOFLAGS="-L$withval $DSOFLAGS",)
 AC_ARG_WITH(openslp-includes, [  --with-openslp-includes set directory for OpenSLP includes],
     CFLAGS="-I$withval $CFLAGS"
-    CXXFLAGS="-I$withval $CXXFLAGS"
     CPPFLAGS="-I$withval $CPPFLAGS",)
 
 LIBSLP=""
@@ -35,5 +34,5 @@ AC_SUBST(LIBSLP)
 
 
 dnl
-dnl End of "$Id: cups-slp.m4 6649 2007-07-11 21:46:42Z mike $".
+dnl End of "$Id: cups-slp.m4 7241 2008-01-22 22:34:52Z mike $".
 dnl

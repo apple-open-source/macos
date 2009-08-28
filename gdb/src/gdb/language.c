@@ -1353,8 +1353,6 @@ language_lookup_primitive_type_by_name (const struct language_defn *la,
 void
 _initialize_language (void)
 {
-  struct cmd_list_element *set, *show;
-
   language_gdbarch_data
     = gdbarch_data_register_post_init (language_gdbarch_post_init);
 

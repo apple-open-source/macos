@@ -36,7 +36,7 @@
 IOReturn IOFireWireController::createPendingQ( void )
 {
     IOFWQEventSource *q;
-    q = new IOFWQEventSource;
+    q = OSTypeAlloc( IOFWQEventSource );
     fPendingQ.fSource = q;
     q->init(this);
 

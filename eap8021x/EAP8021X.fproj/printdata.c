@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2001-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,7 +37,7 @@
 #include "printdata.h"
 
 void
-fprint_bytes(FILE * out_f, u_char * data_p, int n_bytes)
+fprint_bytes(FILE * out_f, const u_char * data_p, int n_bytes)
 {
     int i;
 
@@ -63,7 +63,7 @@ fprint_bytes(FILE * out_f, u_char * data_p, int n_bytes)
 }
 
 void
-fprint_data(FILE * out_f, u_char * data_p, int n_bytes)
+fprint_data(FILE * out_f, const u_char * data_p, int n_bytes)
 {
     if (out_f == NULL) {
 	out_f = stdout;
@@ -105,13 +105,13 @@ fprint_data(FILE * out_f, u_char * data_p, int n_bytes)
 }
 
 void
-print_bytes(u_char * data, int len)
+print_bytes(const u_char * data, int len)
 {
     fprint_bytes(NULL, data, len);
 }
 
 void
-print_data(u_char * data, int len)
+print_data(const u_char * data, int len)
 {
     fprint_data(NULL, data, len);
 }

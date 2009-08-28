@@ -49,7 +49,7 @@ using namespace WTF;
 
 namespace JSC {
 
-static void substitute(UString& string, const UString& substring) JSC_FAST_CALL;
+static void substitute(UString& string, const UString& substring);
 
 // ------------------------------ ThrowableExpressionData --------------------------------
 
@@ -377,6 +377,7 @@ RegisterID* FunctionCallDotNode::emitBytecode(BytecodeGenerator& generator, Regi
 {
     RefPtr<RegisterID> base = generator.emitNode(m_base);
     generator.emitExpressionInfo(divot() - m_subexpressionDivotOffset, startOffset() - m_subexpressionDivotOffset, m_subexpressionEndOffset);
+    generator.emitMethodCheck();
     RefPtr<RegisterID> function = generator.emitGetById(generator.tempDestination(dst), base.get(), m_ident);
     RefPtr<RegisterID> thisRegister = generator.emitMove(generator.newTemporary(), base.get());
     return generator.emitCall(generator.finalDestination(dst, function.get()), function.get(), thisRegister.get(), m_args, divot(), startOffset(), endOffset());
@@ -600,7 +601,7 @@ RegisterID* PostfixErrorNode::emitBytecode(BytecodeGenerator& generator, Registe
 RegisterID* DeleteResolveNode::emitBytecode(BytecodeGenerator& generator, RegisterID* dst)
 {
     if (generator.registerFor(m_ident))
-        return generator.emitUnexpectedLoad(generator.finalDestination(dst), false);
+        return generator.emitLoad(generator.finalDestination(dst), false);
 
     generator.emitExpressionInfo(divot(), startOffset(), endOffset());
     RegisterID* base = generator.emitResolveBase(generator.tempDestination(dst), m_ident);
@@ -635,7 +636,7 @@ RegisterID* DeleteValueNode::emitBytecode(BytecodeGenerator& generator, Register
     generator.emitNode(generator.ignoredResult(), m_expr);
 
     // delete on a non-location expression ignores the value and returns true
-    return generator.emitUnexpectedLoad(generator.finalDestination(dst), true);
+    return generator.emitLoad(generator.finalDestination(dst), true);
 }
 
 // ------------------------------ VoidNode -------------------------------------
@@ -687,7 +688,7 @@ RegisterID* PrefixResolveNode::emitBytecode(BytecodeGenerator& generator, Regist
         if (generator.isLocalConstant(m_ident)) {
             if (dst == generator.ignoredResult())
                 return 0;
-            RefPtr<RegisterID> r0 = generator.emitUnexpectedLoad(generator.finalDestination(dst), (m_operator == OpPlusPlus) ? 1.0 : -1.0);
+            RefPtr<RegisterID> r0 = generator.emitLoad(generator.finalDestination(dst), (m_operator == OpPlusPlus) ? 1.0 : -1.0);
             return generator.emitBinaryOp(op_add, r0.get(), local, r0.get(), OperandTypes());
         }
 
@@ -1185,8 +1186,10 @@ RegisterID* ReadModifyBracketNode::emitBytecode(BytecodeGenerator& generator, Re
 
 RegisterID* CommaNode::emitBytecode(BytecodeGenerator& generator, RegisterID* dst)
 {
-    generator.emitNode(generator.ignoredResult(), m_expr1);
-    return generator.emitNode(dst, m_expr2);
+    ASSERT(m_expressions.size() > 1);
+    for (size_t i = 0; i < m_expressions.size() - 1; i++)
+        generator.emitNode(generator.ignoredResult(), m_expressions[i]);
+    return generator.emitNode(dst, m_expressions.last());
 }
 
 // ------------------------------ ConstDeclNode ------------------------------------
@@ -1888,11 +1891,22 @@ void ProgramNode::generateBytecode(ScopeChainNode* scopeChainNode)
     
     m_code.set(new ProgramCodeBlock(this, GlobalCode, globalObject, source().provider()));
     
-    BytecodeGenerator generator(this, globalObject->debugger(), scopeChain, &globalObject->symbolTable(), m_code.get());
-    generator.generate();
+    OwnPtr<BytecodeGenerator> generator(new BytecodeGenerator(this, globalObject->debugger(), scopeChain, &globalObject->symbolTable(), m_code.get()));
+    generator->generate();
 
     destroyData();
 }
+
+#if ENABLE(JIT)
+void ProgramNode::generateJITCode(ScopeChainNode* scopeChainNode)
+{
+    bytecode(scopeChainNode);
+    ASSERT(m_code);
+    ASSERT(!m_jitCode);
+    JIT::compile(scopeChainNode->globalData, m_code.get());
+    ASSERT(m_jitCode);
+}
+#endif
 
 // ------------------------------ EvalNode -----------------------------
 
@@ -1932,8 +1946,8 @@ void EvalNode::generateBytecode(ScopeChainNode* scopeChainNode)
 
     m_code.set(new EvalCodeBlock(this, globalObject, source().provider(), scopeChain.localDepth()));
 
-    BytecodeGenerator generator(this, globalObject->debugger(), scopeChain, &m_code->symbolTable(), m_code.get());
-    generator.generate();
+    OwnPtr<BytecodeGenerator> generator(new BytecodeGenerator(this, globalObject->debugger(), scopeChain, &m_code->symbolTable(), m_code.get()));
+    generator->generate();
 
     // Eval code needs to hang on to its declaration stacks to keep declaration info alive until Interpreter::execute time,
     // so the entire ScopeNodeData cannot be destoyed.
@@ -1949,9 +1963,9 @@ EvalCodeBlock& EvalNode::bytecodeForExceptionInfoReparse(ScopeChainNode* scopeCh
 
     m_code.set(new EvalCodeBlock(this, globalObject, source().provider(), scopeChain.localDepth()));
 
-    BytecodeGenerator generator(this, globalObject->debugger(), scopeChain, &m_code->symbolTable(), m_code.get());
-    generator.setRegeneratingForExceptionInfo(codeBlockBeingRegeneratedFrom);
-    generator.generate();
+    OwnPtr<BytecodeGenerator> generator(new BytecodeGenerator(this, globalObject->debugger(), scopeChain, &m_code->symbolTable(), m_code.get()));
+    generator->setRegeneratingForExceptionInfo(codeBlockBeingRegeneratedFrom);
+    generator->generate();
 
     return *m_code;
 }
@@ -1962,13 +1976,21 @@ void EvalNode::mark()
     data()->mark();
 }
 
+#if ENABLE(JIT)
+void EvalNode::generateJITCode(ScopeChainNode* scopeChainNode)
+{
+    bytecode(scopeChainNode);
+    ASSERT(m_code);
+    ASSERT(!m_jitCode);
+    JIT::compile(scopeChainNode->globalData, m_code.get());
+    ASSERT(m_jitCode);
+}
+#endif
+
 // ------------------------------ FunctionBodyNode -----------------------------
 
 inline FunctionBodyNode::FunctionBodyNode(JSGlobalData* globalData)
     : ScopeNode(globalData)
-#if ENABLE(JIT)
-    , m_jitCode(0)
-#endif
     , m_parameters(0)
     , m_parameterCount(0)
 {
@@ -1976,9 +1998,6 @@ inline FunctionBodyNode::FunctionBodyNode(JSGlobalData* globalData)
 
 inline FunctionBodyNode::FunctionBodyNode(JSGlobalData* globalData, SourceElements* children, VarStack* varStack, FunctionStack* funcStack, const SourceCode& sourceCode, CodeFeatures features, int numConstants)
     : ScopeNode(globalData, sourceCode, children, varStack, funcStack, features, numConstants)
-#if ENABLE(JIT)
-    , m_jitCode(0)
-#endif
     , m_parameters(0)
     , m_parameterCount(0)
 {
@@ -2021,7 +2040,7 @@ PassRefPtr<FunctionBodyNode> FunctionBodyNode::createNativeThunk(JSGlobalData* g
     RefPtr<FunctionBodyNode> body = new FunctionBodyNode(globalData);
     globalData->parser->arena().reset();
     body->m_code.set(new CodeBlock(body.get()));
-    body->m_jitCode = globalData->jitStubs.ctiNativeCallThunk();
+    body->m_jitCode = JITCode(JITCode::HostFunction(globalData->jitStubs.ctiNativeCallThunk()));
     return body.release();
 }
 #endif
@@ -2060,8 +2079,8 @@ void FunctionBodyNode::generateBytecode(ScopeChainNode* scopeChainNode)
 
     m_code.set(new CodeBlock(this, FunctionCode, source().provider(), source().startOffset()));
 
-    BytecodeGenerator generator(this, globalObject->debugger(), scopeChain, &m_code->symbolTable(), m_code.get());
-    generator.generate();
+    OwnPtr<BytecodeGenerator> generator(new BytecodeGenerator(this, globalObject->debugger(), scopeChain, &m_code->symbolTable(), m_code.get()));
+    generator->generate();
 
     destroyData();
 }
@@ -2071,10 +2090,9 @@ void FunctionBodyNode::generateJITCode(ScopeChainNode* scopeChainNode)
 {
     bytecode(scopeChainNode);
     ASSERT(m_code);
-    ASSERT(!m_code->jitCode());
+    ASSERT(!m_jitCode);
     JIT::compile(scopeChainNode->globalData, m_code.get());
-    ASSERT(m_code->jitCode());
-    m_jitCode = m_code->jitCode();
+    ASSERT(m_jitCode);
 }
 #endif
 
@@ -2087,9 +2105,9 @@ CodeBlock& FunctionBodyNode::bytecodeForExceptionInfoReparse(ScopeChainNode* sco
 
     m_code.set(new CodeBlock(this, FunctionCode, source().provider(), source().startOffset()));
 
-    BytecodeGenerator generator(this, globalObject->debugger(), scopeChain, &m_code->symbolTable(), m_code.get());
-    generator.setRegeneratingForExceptionInfo(codeBlockBeingRegeneratedFrom);
-    generator.generate();
+    OwnPtr<BytecodeGenerator> generator(new BytecodeGenerator(this, globalObject->debugger(), scopeChain, &m_code->symbolTable(), m_code.get()));
+    generator->setRegeneratingForExceptionInfo(codeBlockBeingRegeneratedFrom);
+    generator->generate();
 
     return *m_code;
 }

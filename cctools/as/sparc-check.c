@@ -27,7 +27,7 @@ main(
      char *argv[],
      char *envp[])
 {
-  long i;
+  int32_t i;
   const char *arg;
   
   /* output each instruction */

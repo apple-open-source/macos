@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -421,6 +421,9 @@ select_protocol(int argc, char **argv)
 #pragma mark AppleTalk
 
 
+#if	!TARGET_OS_IPHONE && INCLUDE_APPLETALK
+
+
 static selections appletalkConfigMethods[] = {
 	{ CFSTR("node")      , &kSCValNetAppleTalkConfigMethodNode      , 0 },
 	{ CFSTR("router")    , &kSCValNetAppleTalkConfigMethodRouter    , 0 },
@@ -531,6 +534,9 @@ set_protocol_appletalk(int argc, char **argv, CFMutableDictionaryRef newConfigur
 	ok = _process_options(appletalkOptions, N_APPLETALK_OPTIONS, argc, argv, newConfiguration);
 	return ok;
 }
+
+
+#endif	// !TARGET_OS_IPHONE && INCLUDE_APPLETALK
 
 
 #pragma mark -
@@ -712,7 +718,7 @@ static options dnsOptions[] = {
 	{ "?"              , NULL     , isHelp , NULL                         , NULL,
 	    "\nDNS configuration commands\n\n"
 	    " set protocol search domain-name[,domain-name-2]\n"
-	    " set protocol nameserver x1.x1.x1.x1[,x2.x2.x2.x2]"
+	    " set protocol nameserver x1.x1.x1.x1[,x2.x2.x2.x2]\n"
 	}
 };
 #define	N_DNS_OPTIONS	(sizeof(dnsOptions) / sizeof(dnsOptions[0]))
@@ -968,23 +974,6 @@ __doIPv6Addresses(CFStringRef key, const char *description, void *info, int argc
 }
 
 
-static int
-__doIPv6PrefixLength(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
-{
-	CFNumberRef	num;
-	int		prefixLength;
-
-	num = CFDictionaryGetValue(newConfiguration, kSCPropNetPPPAuthPasswordEncryption);
-	if (isA_CFNumber(num) &&
-	    CFNumberGetValue(num, kCFNumberIntType, &prefixLength) &&
-	    (prefixLength >= 0) && (prefixLength <= (sizeof(struct in6_addr) * 8))) {
-		return 0;
-	}
-
-	return -1;
-}
-
-
 static options ipv6Options[] = {
 	{ "ConfigMethod", "configuration method"
 					 , isChooseOne, &kSCPropNetIPv6ConfigMethod, __doIPv6ConfigMethod, (void *)ipv6ConfigMethods },
@@ -992,7 +981,7 @@ static options ipv6Options[] = {
 					 , isChooseOne, &kSCPropNetIPv6ConfigMethod, __doIPv6ConfigMethod, (void *)ipv6ConfigMethods },
 	{ "Addresses"   , "address"      , isOther    , &kSCPropNetIPv6Addresses   , __doIPv6Addresses   , (void *)TRUE              },
 	{   "address"   , "address"      , isOther    , &kSCPropNetIPv6Addresses   , __doIPv6Addresses   , (void *)TRUE              },
-	{ "PrefixLength", "prefix length", isNumber   , &kSCPropNetIPv6PrefixLength, __doIPv6PrefixLength, NULL                      },
+	{ "PrefixLength", "prefix length", isNumber   , &kSCPropNetIPv6PrefixLength, NULL                , NULL                      },
 	{ "Router"      , "address"      , isOther    , &kSCPropNetIPv6Router      , __doIPv6Addresses   , (void *)FALSE             },
 
 	{ "?"           , NULL           , isHelp     , NULL                       , NULL                ,
@@ -1191,7 +1180,7 @@ __doProxyEnable(CFStringRef key, const char *description, void *info, int argc, 
 	if (enabled) {
 		CFDictionarySetValue(newConfiguration, *(currentProxy->keyEnable), CFNumberRef_1);
 	} else {
-		CFDictionarySetValue(newConfiguration, *(currentProxy->keyEnable), CFNumberRef_0);
+		CFDictionaryRemoveValue(newConfiguration, *(currentProxy->keyEnable));
 
 		if (currentProxy->keyProxy != NULL) {
 			CFDictionaryRemoveValue(newConfiguration, *(currentProxy->keyProxy));
@@ -1381,6 +1370,9 @@ set_protocol_proxies(int argc, char **argv, CFMutableDictionaryRef newConfigurat
 #pragma mark SMB
 
 
+#if	!TARGET_OS_IPHONE
+
+
 static CFStringRef
 __cleanupName(CFStringRef name)
 {
@@ -1544,7 +1536,7 @@ static options smbOptions[] = {
 	    " set protocol name NetBIOS-name\n"
 	    " set protocol type (Broadcast|Peer|Mixed|Hybrid)\n"
 	    " set protocol workgroup SMB-workgroup\n"
-	    " set protocol wins x1.x1.x1.x1[,x2.x2.x2.x2]"
+	    " set protocol wins x1.x1.x1.x1[,x2.x2.x2.x2]\n"
 	}
 };
 #define	N_SMB_OPTIONS	(sizeof(smbOptions) / sizeof(smbOptions[0]))
@@ -1558,6 +1550,9 @@ set_protocol_smb(int argc, char **argv, CFMutableDictionaryRef newConfiguration)
 	ok = _process_options(smbOptions, N_SMB_OPTIONS, argc, argv, newConfiguration);
 	return ok;
 }
+
+
+#endif	// !TARGET_OS_IPHONE
 
 
 #pragma mark -
@@ -1595,9 +1590,7 @@ set_protocol(int argc, char **argv)
 	}
 
 	protocolType = SCNetworkProtocolGetProtocolType(net_protocol);
-	if (CFEqual(protocolType, kSCNetworkProtocolTypeAppleTalk)) {
-		ok = set_protocol_appletalk(argc, argv, newConfiguration);
-	} else if (CFEqual(protocolType, kSCNetworkProtocolTypeDNS)) {
+	if (CFEqual(protocolType, kSCNetworkProtocolTypeDNS)) {
 		ok = set_protocol_dns(argc, argv, newConfiguration);
 	} else if (CFEqual(protocolType, kSCNetworkProtocolTypeIPv4)) {
 		ok = set_protocol_ipv4(argc, argv, newConfiguration);
@@ -1605,8 +1598,14 @@ set_protocol(int argc, char **argv)
 		ok = set_protocol_ipv6(argc, argv, newConfiguration);
 	} else if (CFEqual(protocolType, kSCNetworkProtocolTypeProxies)) {
 		ok = set_protocol_proxies(argc, argv, newConfiguration);
+#if	!TARGET_OS_IPHONE && INCLUDE_APPLETALK
+	} else if (CFEqual(protocolType, kSCNetworkProtocolTypeAppleTalk)) {
+		ok = set_protocol_appletalk(argc, argv, newConfiguration);
+#endif	// !TARGET_OS_IPHONE && INCLUDE_APPLETALK
+#if	!TARGET_OS_IPHONE
 	} else if (CFEqual(protocolType, kSCNetworkProtocolTypeSMB)) {
 		ok = set_protocol_smb(argc, argv, newConfiguration);
+#endif	// !TARGET_OS_IPHONE
 	} else {
 		SCPrint(TRUE, stdout, CFSTR("this protocols configuration cannot be changed\n"));
 	}
@@ -1768,17 +1767,7 @@ _protocol_description(SCNetworkProtocolRef protocol, Boolean skipEmpty)
 	}
 
 	protocolType = SCNetworkProtocolGetProtocolType(protocol);
-	if (CFEqual(protocolType, kSCNetworkProtocolTypeAppleTalk)) {
-		CFStringRef	method;
-
-		method = CFDictionaryGetValue(configuration, kSCPropNetAppleTalkConfigMethod);
-		if (isA_CFString(method)) {
-			CFStringAppendFormat(description,
-					     NULL,
-					     CFSTR("%@"),
-					     method);
-		}
-	} else if (CFEqual(protocolType, kSCNetworkProtocolTypeDNS)) {
+	if (CFEqual(protocolType, kSCNetworkProtocolTypeDNS)) {
 		CFStringRef	domain;
 		CFArrayRef	search;
 		CFArrayRef	servers;
@@ -1880,6 +1869,19 @@ _protocol_description(SCNetworkProtocolRef protocol, Boolean skipEmpty)
 					     CFStringGetLength(description) > 0 ? ", " : "",
 					     currentProxy->proxy);
 		}
+#if	!TARGET_OS_IPHONE && INCLUDE_APPLETALK
+	} else if (CFEqual(protocolType, kSCNetworkProtocolTypeAppleTalk)) {
+		CFStringRef	method;
+
+		method = CFDictionaryGetValue(configuration, kSCPropNetAppleTalkConfigMethod);
+		if (isA_CFString(method)) {
+			CFStringAppendFormat(description,
+					     NULL,
+					     CFSTR("%@"),
+					     method);
+		}
+#endif	// !TARGET_OS_IPHONE && INCLUDE_APPLETALK
+#if	!TARGET_OS_IPHONE
 	} else if (CFEqual(protocolType, kSCNetworkProtocolTypeSMB)) {
 		CFStringRef	name;
 		CFArrayRef	servers;
@@ -1913,6 +1915,7 @@ _protocol_description(SCNetworkProtocolRef protocol, Boolean skipEmpty)
 					     str);
 			CFRelease(str);
 		}
+#endif	// !TARGET_OS_IPHONE
 	}
 
     done :

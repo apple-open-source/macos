@@ -1,7 +1,8 @@
 /* backupfile.c -- make Emacs style backup file names
 
    Copyright (C) 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software
+   Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -16,14 +17,12 @@
    You should have received a copy of the GNU General Public License
    along with this program; see the file COPYING.
    If not, write to the Free Software Foundation,
-   59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 /* Written by Paul Eggert and David MacKenzie.
    Some algorithms adapted from GNU Emacs.  */
 
-#if HAVE_CONFIG_H
-# include <config.h>
-#endif
+#include <config.h>
 
 #include "backupfile.h"
 
@@ -38,33 +37,12 @@
 
 #include <limits.h>
 
-#if HAVE_UNISTD_H
-# include <unistd.h>
-#endif
+#include <unistd.h>
 
-#if HAVE_DIRENT_H
-# include <dirent.h>
-# define NLENGTH(direct) strlen ((direct)->d_name)
-#else
-# define dirent direct
-# define NLENGTH(direct) ((size_t) (direct)->d_namlen)
-# if HAVE_SYS_NDIR_H
-#  include <sys/ndir.h>
-# endif
-# if HAVE_SYS_DIR_H
-#  include <sys/dir.h>
-# endif
-# if HAVE_NDIR_H
-#  include <ndir.h>
-# endif
+#include <dirent.h>
+#ifndef _D_EXACT_NAMLEN
+# define _D_EXACT_NAMLEN(dp) strlen ((dp)->d_name)
 #endif
-
-#if HAVE_DIRENT_H || HAVE_NDIR_H || HAVE_SYS_DIR_H || HAVE_SYS_NDIR_H
-# define HAVE_DIR 1
-#else
-# define HAVE_DIR 0
-#endif
-
 #if D_INO_IN_DIRENT
 # define REAL_DIR_ENTRY(dp) ((dp)->d_ino != 0)
 #else
@@ -96,13 +74,18 @@
 #endif
 
 /* ISDIGIT differs from isdigit, as follows:
-   - Its arg may be any int or unsigned int; it need not be an unsigned char.
-   - It's guaranteed to evaluate its argument exactly once.
+   - Its arg may be any int or unsigned int; it need not be an unsigned char
+     or EOF.
    - It's typically faster.
    POSIX says that only '0' through '9' are digits.  Prefer ISDIGIT to
-   ISDIGIT_LOCALE unless it's important to use the locale's definition
+   ISDIGIT unless it's important to use the locale's definition
    of `digit' even when the host does not conform to POSIX.  */
 #define ISDIGIT(c) ((unsigned int) (c) - '0' <= 9)
+
+/* The results of opendir() in this file are not used with dirfd and fchdir,
+   therefore save some unnecessary work in fchdir.c.  */
+#undef opendir
+#undef closedir
 
 /* The extension added to file names to produce a simple (as opposed
    to numbered) backup file name. */
@@ -117,7 +100,7 @@ char const *simple_backup_suffix = "~";
 static void
 check_extension (char *file, size_t filelen, char e)
 {
-  char *base = base_name (file);
+  char *base = last_component (file);
   size_t baselen = base_len (base);
   size_t baselen_max = HAVE_LONG_FILE_NAMES ? 255 : NAME_MAX_MINIMUM;
 
@@ -167,8 +150,6 @@ check_extension (char *file, size_t filelen, char e)
     }
 }
 
-#if HAVE_DIR
-
 /* Returned values for NUMBERED_BACKUP.  */
 
 enum numbered_backup_result
@@ -204,7 +185,7 @@ numbered_backup (char **buffer, size_t buffer_size, size_t filelen)
   struct dirent *dp;
   char *buf = *buffer;
   size_t versionlenmax = 1;
-  char *base = base_name (buf);
+  char *base = last_component (buf);
   size_t base_offset = base - buf;
   size_t baselen = base_len (base);
 
@@ -228,7 +209,7 @@ numbered_backup (char **buffer, size_t buffer_size, size_t filelen)
       size_t versionlen;
       size_t new_buflen;
 
-      if (! REAL_DIR_ENTRY (dp) || NLENGTH (dp) < baselen + 4)
+      if (! REAL_DIR_ENTRY (dp) || _D_EXACT_NAMLEN (dp) < baselen + 4)
 	continue;
 
       if (memcmp (buf + base_offset, dp->d_name, baselen + 2) != 0)
@@ -283,7 +264,6 @@ numbered_backup (char **buffer, size_t buffer_size, size_t filelen)
   *buffer = buf;
   return result;
 }
-#endif /* HAVE_DIR */
 
 /* Return the name of the new backup file for the existing file FILE,
    allocated with malloc.  Report an error and fail if out of memory.
@@ -302,14 +282,13 @@ find_backup_file_name (char const *file, enum backup_type backup_type)
   size_t simple_backup_suffix_size = strlen (simple_backup_suffix) + 1;
   size_t backup_suffix_size_guess = simple_backup_suffix_size;
   enum { GUESS = sizeof ".~12345~" };
-  if (HAVE_DIR && backup_suffix_size_guess < GUESS)
+  if (backup_suffix_size_guess < GUESS)
     backup_suffix_size_guess = GUESS;
 
   ssize = filelen + backup_suffix_size_guess + 1;
   s = xmalloc (ssize);
   memcpy (s, file, filelen + 1);
 
-#if HAVE_DIR
   if (backup_type != simple_backups)
     switch (numbered_backup (&s, ssize, filelen))
       {
@@ -324,7 +303,6 @@ find_backup_file_name (char const *file, enum backup_type backup_type)
 	simple = (backup_type == numbered_existing_backups);
 	break;
       }
-#endif
 
   if (simple)
     memcpy (s + filelen, simple_backup_suffix, simple_backup_suffix_size);
@@ -334,13 +312,13 @@ find_backup_file_name (char const *file, enum backup_type backup_type)
 
 static char const * const backup_args[] =
 {
-  /* In a series of synonyms, present the most meaning full first, so
+  /* In a series of synonyms, present the most meaningful first, so
      that argmatch_valid be more readable. */
   "none", "off",
   "simple", "never",
   "existing", "nil",
   "numbered", "t",
-  0
+  NULL
 };
 
 static const enum backup_type backup_types[] =
@@ -350,6 +328,10 @@ static const enum backup_type backup_types[] =
   numbered_existing_backups, numbered_existing_backups,
   numbered_backups, numbered_backups
 };
+
+/* Ensure that these two vectors have the same number of elements,
+   not counting the final NULL in the first one.  */
+ARGMATCH_VERIFY (backup_args, backup_types);
 
 /* Return the type of backup specified by VERSION.
    If VERSION is NULL or the empty string, return numbered_existing_backups.

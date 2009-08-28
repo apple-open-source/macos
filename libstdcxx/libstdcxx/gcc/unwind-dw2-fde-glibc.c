@@ -1,4 +1,4 @@
-/* Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+/* Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Jakub Jelinek <jakub@redhat.com>.
 
    This file is part of GCC.
@@ -15,8 +15,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 /* As a special exception, if you link this library with other files,
    some of which are compiled with GCC, to produce an executable,
@@ -33,7 +33,6 @@
 #define _GNU_SOURCE 1
 #endif
 
-#include "auto-host.h" /* For HAVE_LD_EH_FRAME_HDR.  */
 #include "tconfig.h"
 #include "tsystem.h"
 #ifndef inhibit_libc
@@ -119,8 +118,9 @@ base_from_cb_data (unsigned char encoding, struct unw_eh_callback_data *data)
       return (_Unwind_Ptr) data->tbase;
     case DW_EH_PE_datarel:
       return (_Unwind_Ptr) data->dbase;
+    default:
+      gcc_unreachable ();
     }
-  abort ();
 }
 
 static int
@@ -257,7 +257,10 @@ _Unwind_IteratePhdrCallback (struct dl_phdr_info *info, size_t size, void *ptr)
 
   if (size >= sizeof (struct ext_dl_phdr_info))
     {
-      if (last_cache_entry != NULL)
+      /* Move the cache entry we're about to overwrite to the head of
+	 the list.  If either last_cache_entry or prev_cache_entry are
+	 NULL, that cache entry is already at the head.  */
+      if (last_cache_entry != NULL && prev_cache_entry != NULL)
 	{
 	  prev_cache_entry->link = last_cache_entry->link;
 	  last_cache_entry->link = frame_hdr_cache_head;
@@ -359,8 +362,7 @@ _Unwind_IteratePhdrCallback (struct dl_phdr_info *info, size_t size, void *ptr)
 		    break;
 		}
 
-	      if (lo >= hi)
-		__gxx_abort ();
+	      gcc_assert (lo < hi);
 	    }
 
 	  f = (fde *) (table[mid].fde + data_base);
@@ -387,11 +389,13 @@ _Unwind_IteratePhdrCallback (struct dl_phdr_info *info, size_t size, void *ptr)
   data->ret = linear_search_fdes (&ob, (fde *) eh_frame, (void *) data->pc);
   if (data->ret != NULL)
     {
+      _Unwind_Ptr func;
       unsigned int encoding = get_fde_encoding (data->ret);
+      
       read_encoded_value_with_base (encoding,
 				    base_from_cb_data (encoding, data),
-				    data->ret->pc_begin,
-				    (_Unwind_Ptr *)&data->func);
+				    data->ret->pc_begin, &func);
+      data->func = (void *) func;
     }
   return 1;
 }

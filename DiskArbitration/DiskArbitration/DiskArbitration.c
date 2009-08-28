@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,7 +41,6 @@ CFArrayRef kDADiskDescriptionWatchVolumePath = NULL;
 
 __private_extern__ DADiskRef    _DADiskCreateFromSerialization( CFAllocatorRef allocator, DASessionRef session, CFDataRef serialization );
 __private_extern__ char *       _DADiskGetID( DADiskRef disk );
-__private_extern__ DASessionRef _DADiskGetSession( DADiskRef disk );
 __private_extern__ mach_port_t  _DADiskGetSessionID( DADiskRef disk );
 __private_extern__ void         _DADiskInitialize( void );
 __private_extern__ void         _DADiskSetDescription( DADiskRef disk, CFDictionaryRef description );
@@ -339,7 +338,7 @@ __private_extern__ void _DADispatchCallback( DASessionRef    session,
         }
         case _kDADiskEjectApprovalCallback:
         {
-            response = ( ( DADiskClaimReleaseCallback ) address )( disk, context );
+            response = ( ( DADiskEjectApprovalCallback ) address )( disk, context );
 
             response = response ? response : kCFNull;
             
@@ -353,7 +352,7 @@ __private_extern__ void _DADispatchCallback( DASessionRef    session,
         }
         case _kDADiskMountApprovalCallback:
         {
-            response = ( ( DADiskClaimReleaseCallback ) address )( disk, context );
+            response = ( ( DADiskMountApprovalCallback ) address )( disk, context );
 
             response = response ? response : kCFNull;
             
@@ -381,7 +380,7 @@ __private_extern__ void _DADispatchCallback( DASessionRef    session,
         }
         case _kDADiskUnmountApprovalCallback:
         {
-            response = ( ( DADiskClaimReleaseCallback ) address )( disk, context );
+            response = ( ( DADiskUnmountApprovalCallback ) address )( disk, context );
 
             response = response ? response : kCFNull;
             
@@ -611,9 +610,22 @@ void DADiskMountWithArguments( DADiskRef           disk,
 
     if ( path )
     {
-        if ( CFURLGetBaseURL( path ) )
+        char * _path;
+
+        _path = ___CFURLCopyFileSystemRepresentation( path );
+
+        if ( _path )
         {
-            path = CFURLCopyAbsoluteURL( path );
+            char name[MAXPATHLEN];
+
+            if ( realpath( _path, name ) )
+            {
+                path = CFURLCreateFromFileSystemRepresentation( kCFAllocatorDefault, ( void * ) name, strlen( name ), TRUE );
+            }
+            else
+            {
+                CFRetain( path );
+            }
         }
         else
         {

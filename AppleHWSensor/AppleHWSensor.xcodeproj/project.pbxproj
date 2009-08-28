@@ -7,6 +7,13 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		65243D960EE59D2400713DF3 /* AppleHWSensor.h in Headers */ = {isa = PBXBuildFile; fileRef = 1A224C3EFF42367911CA2CB7 /* AppleHWSensor.h */; };
+		65243D970EE59D2400713DF3 /* AppleHWControl.h in Headers */ = {isa = PBXBuildFile; fileRef = E8B8FCB2054707D500D27581 /* AppleHWControl.h */; };
+		65243D980EE59D2400713DF3 /* AppleHWMonitor.h in Headers */ = {isa = PBXBuildFile; fileRef = E890D3F3054851030089C46E /* AppleHWMonitor.h */; };
+		65243D990EE59D2400713DF3 /* AppleHWSensorDebug.h in Headers */ = {isa = PBXBuildFile; fileRef = 7EE139E30794A37800338C8F /* AppleHWSensorDebug.h */; };
+		65243D9C0EE59D2400713DF3 /* AppleHWSensor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1A224C3FFF42367911CA2CB7 /* AppleHWSensor.cpp */; settings = {ATTRIBUTES = (); }; };
+		65243D9D0EE59D2400713DF3 /* AppleHWControl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E8B8FCB1054707D500D27581 /* AppleHWControl.cpp */; };
+		65243D9E0EE59D2400713DF3 /* AppleHWMonitor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E890D3F2054851030089C46E /* AppleHWMonitor.cpp */; };
 		65BA7FAE0DDE251C0001BF1A /* AppleHWSensor.h in Headers */ = {isa = PBXBuildFile; fileRef = 1A224C3EFF42367911CA2CB7 /* AppleHWSensor.h */; };
 		65BA7FAF0DDE251C0001BF1A /* AppleHWControl.h in Headers */ = {isa = PBXBuildFile; fileRef = E8B8FCB2054707D500D27581 /* AppleHWControl.h */; };
 		65BA7FB00DDE251C0001BF1A /* AppleHWMonitor.h in Headers */ = {isa = PBXBuildFile; fileRef = E890D3F3054851030089C46E /* AppleHWMonitor.h */; };
@@ -158,6 +165,7 @@
 		2E8DE295056438A400E76A8F /* AppleLM8x.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleLM8x.h; sourceTree = "<group>"; };
 		636413E805DC574A0FCE15D6 /* AppleMaxim1989.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleMaxim1989.cpp; sourceTree = "<group>"; };
 		636413EA05DC575B0FCE15D6 /* AppleMaxim1989.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleMaxim1989.h; sourceTree = "<group>"; };
+		65243DA60EE59D2400713DF3 /* AppleHWSensor.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppleHWSensor.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		65BA7FBE0DDE251C0001BF1A /* Info-AppleHWSensor.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-AppleHWSensor.plist"; sourceTree = "<group>"; };
 		65BA7FBF0DDE251C0001BF1A /* AppleHWSensor.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppleHWSensor.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		65BA7FCD0DDE251C0001BF1A /* Info-AppleSMUMonitor.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-AppleSMUMonitor.plist"; sourceTree = "<group>"; };
@@ -219,6 +227,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		65243D9F0EE59D2400713DF3 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		65BA7FB70DDE251C0001BF1A /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -371,6 +386,7 @@
 				65BA80770DDE251D0001BF1A /* IOI2CLM7x.kext */,
 				65BA80860DDE251D0001BF1A /* IOI2CLM8x.kext */,
 				65BA80950DDE251D0001BF1A /* IOI2CSMUSat.kext */,
+				65243DA60EE59D2400713DF3 /* AppleHWSensor.kext */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -435,6 +451,17 @@
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
+		65243D950EE59D2400713DF3 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				65243D960EE59D2400713DF3 /* AppleHWSensor.h in Headers */,
+				65243D970EE59D2400713DF3 /* AppleHWControl.h in Headers */,
+				65243D980EE59D2400713DF3 /* AppleHWMonitor.h in Headers */,
+				65243D990EE59D2400713DF3 /* AppleHWSensorDebug.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		65BA7FAD0DDE251C0001BF1A /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
@@ -565,6 +592,28 @@
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
+		65243D770EE59D2400713DF3 /* AppleHWSensorSL */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 65243DA20EE59D2400713DF3 /* Build configuration list for PBXNativeTarget "AppleHWSensorSL" */;
+			buildPhases = (
+				65243D940EE59D2400713DF3 /* ShellScript */,
+				65243D950EE59D2400713DF3 /* Headers */,
+				65243D9A0EE59D2400713DF3 /* Resources */,
+				65243D9B0EE59D2400713DF3 /* Sources */,
+				65243D9F0EE59D2400713DF3 /* Frameworks */,
+				65243DA00EE59D2400713DF3 /* Rez */,
+				65243DA10EE59D2400713DF3 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AppleHWSensorSL;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = AppleHWSensor;
+			productReference = 65243DA60EE59D2400713DF3 /* AppleHWSensor.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
 		65BA7F8F0DDE251C0001BF1A /* AppleHWSensor */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 65BA7FBA0DDE251C0001BF1A /* Build configuration list for PBXNativeTarget "AppleHWSensor" */;
@@ -908,6 +957,7 @@
 			projectRoot = "";
 			targets = (
 				65BA7F8F0DDE251C0001BF1A /* AppleHWSensor */,
+				65243D770EE59D2400713DF3 /* AppleHWSensorSL */,
 				65BA7FC00DDE251C0001BF1A /* AppleSMUMonitor */,
 				65BA7FCF0DDE251C0001BF1A /* AppleMaxim6690 */,
 				65BA7FDF0DDE251C0001BF1A /* AppleAD741x */,
@@ -927,6 +977,13 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		65243D9A0EE59D2400713DF3 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		65BA7FB20DDE251C0001BF1A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1035,6 +1092,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXRezBuildPhase section */
+		65243DA00EE59D2400713DF3 /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		65BA7FB80DDE251C0001BF1A /* Rez */ = {
 			isa = PBXRezBuildPhase;
 			buildActionMask = 2147483647;
@@ -1045,6 +1109,24 @@
 /* End PBXRezBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		65243D940EE59D2400713DF3 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		65243DA10EE59D2400713DF3 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
 		65BA7FAC0DDE251C0001BF1A /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -1318,6 +1400,16 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		65243D9B0EE59D2400713DF3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				65243D9C0EE59D2400713DF3 /* AppleHWSensor.cpp in Sources */,
+				65243D9D0EE59D2400713DF3 /* AppleHWControl.cpp in Sources */,
+				65243D9E0EE59D2400713DF3 /* AppleHWMonitor.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		65BA7FB30DDE251C0001BF1A /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1516,6 +1608,111 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		65243DA30EE59D2400713DF3 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					i386,
+					ppc,
+				);
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-AppleHWSensor.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleHWSensor;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = AppleHWSensor;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		65243DA40EE59D2400713DF3 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					i386,
+					ppc,
+				);
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-AppleHWSensor.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleHWSensor;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = AppleHWSensor;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		65243DA50EE59D2400713DF3 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					i386,
+					ppc,
+				);
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-AppleHWSensor.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleHWSensor;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = AppleHWSensor;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
 		658CB0770DDE227F007E3E6F /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -3040,6 +3237,16 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		65243DA20EE59D2400713DF3 /* Build configuration list for PBXNativeTarget "AppleHWSensorSL" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				65243DA30EE59D2400713DF3 /* Development */,
+				65243DA40EE59D2400713DF3 /* Deployment */,
+				65243DA50EE59D2400713DF3 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
 		658CB0A70DDE227F007E3E6F /* Build configuration list for PBXProject "AppleHWSensor" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

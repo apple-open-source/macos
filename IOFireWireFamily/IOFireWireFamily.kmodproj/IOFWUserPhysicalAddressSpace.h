@@ -32,7 +32,7 @@
 #define _IOKIT_IOFWUserClientPhysAddrSpace_H_
 
 #import <IOKit/firewire/IOFWAddressSpace.h>
-#import <IOKit/IOMemoryCursor.h>
+#import "IOFireWireLibPriv.h"
 
 class IOFWUserPhysicalAddressSpace: public IOFWPhysicalAddressSpace
 {
@@ -56,7 +56,7 @@ class IOFWUserPhysicalAddressSpace: public IOFWPhysicalAddressSpace
 		IOReturn			getSegmentCount( UInt32* outSegmentCount ) ;
 		IOReturn			getSegments(
 									UInt32*					ioSegmentCount,
-									IOMemoryCursor::IOPhysicalSegment outSegments[] ) ;
+									IOFireWireLib::FWPhysicalSegment32 outSegments[] ) ;
 } ;
 
 #endif //_IOKIT_IOFWUserClientPhysAddrSpace_H_

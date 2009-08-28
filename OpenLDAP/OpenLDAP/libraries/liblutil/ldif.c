@@ -1,8 +1,8 @@
 /* ldif.c - routines for dealing with LDIF files */
-/* $OpenLDAP: pkg/ldap/libraries/liblutil/ldif.c,v 1.2.2.8 2006/04/03 19:49:55 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/liblutil/ldif.c,v 1.15.2.6 2008/02/11 23:26:42 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -777,6 +777,8 @@ ldif_close(
 	}
 }
 
+#define	LDIF_MAXLINE	4096
+
 /*
  * ldif_read_record - read an ldif record.  Return 1 for success, 0 for EOF.
  */
@@ -787,7 +789,7 @@ ldif_read_record(
 	char        **bufp,     /* ptr to malloced output buffer           */
 	int         *buflenp )  /* ptr to length of *bufp                  */
 {
-	char        linebuf[BUFSIZ], *line, *nbufp;
+	char        linebuf[LDIF_MAXLINE], *line, *nbufp;
 	ber_len_t   lcur = 0, len, linesize;
 	int         last_ch = '\n', found_entry = 0, stop, top_comment = 0;
 
@@ -822,7 +824,8 @@ ldif_read_record(
 		if ( last_ch == '\n' ) {
 			(*lno)++;
 
-			if ( line[0] == '\n' ) {
+			if ( line[0] == '\n' ||
+				( line[0] == '\r' && line[1] == '\n' )) {
 				if ( !found_entry ) {
 					lcur = 0;
 					top_comment = 0;
@@ -862,6 +865,10 @@ ldif_read_record(
 						fp2 = ldif_open_url( ptr );
 						if ( fp2 ) {
 							LDIFFP *lnew = ber_memalloc( sizeof( LDIFFP ));
+							if ( lnew == NULL ) {
+								fclose( fp2 );
+								return 0;
+							}
 							lnew->prev = lfp->prev;
 							lnew->fp = lfp->fp;
 							lfp->prev = lnew;
@@ -873,7 +880,9 @@ ldif_read_record(
 							/* We failed to open the file, this should
 							 * be reported as an error somehow.
 							 */
-							break;
+							ber_pvt_log_printf( LDAP_DEBUG_ANY, ldif_debug,
+								_("ldif_read_record: include %s failed\n"), ptr );
+							return 0;
 						}
 					}
 				}
@@ -881,7 +890,7 @@ ldif_read_record(
 		}
 
 		if ( *buflenp - lcur <= len ) {
-			*buflenp += len + BUFSIZ;
+			*buflenp += len + LDIF_MAXLINE;
 			nbufp = ber_memrealloc( *bufp, *buflenp );
 			if( nbufp == NULL ) {
 				return 0;

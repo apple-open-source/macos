@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-*   Copyright (C) 1996-2006, International Business Machines
+*   Copyright (C) 1996-2009, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *******************************************************************************
 */
@@ -22,8 +22,21 @@
 #include "unicode/dtfmtsym.h"
 #include "unicode/ustring.h"
 #include "cpputils.h"
+#include "reldtfmt.h"
 
 U_NAMESPACE_USE
+
+/**
+ * Verify that fmt is a SimpleDateFormat. Invalid error if not.
+ * @param fmt the UDateFormat, definitely a DateFormat, maybe something else
+ * @param status error code, will be set to failure if there is a familure or the fmt is NULL.
+ */
+static void verifyIsSimpleDateFormat(const UDateFormat* fmt, UErrorCode *status) {
+   if(!U_FAILURE(*status) && 
+       ((DateFormat*)fmt)->getDynamicClassID()!=SimpleDateFormat::getStaticClassID()) {
+       *status = U_ILLEGAL_ARGUMENT_ERROR;
+   }
+}
 
 U_CAPI UDateFormat* U_EXPORT2
 udat_open(UDateFormatStyle  timeStyle,
@@ -92,7 +105,8 @@ udat_clone(const UDateFormat *fmt,
 {
     if(U_FAILURE(*status)) return 0;
 
-    Format *res = ((SimpleDateFormat*)fmt)->clone();
+    /* clone is defined for DateFormat and implemented for all subclasses */
+    Format *res = ((DateFormat*)fmt)->clone();
 
     if(res == 0) {
         *status = U_MEMORY_ALLOCATION_ERROR;
@@ -249,6 +263,7 @@ U_CAPI UDate U_EXPORT2
 udat_get2DigitYearStart(    const   UDateFormat     *fmt,
                         UErrorCode      *status)
 {
+    verifyIsSimpleDateFormat(fmt, status);
     if(U_FAILURE(*status)) return (UDate)0;
     return ((SimpleDateFormat*)fmt)->get2DigitYearStart(*status);
 }
@@ -258,6 +273,7 @@ udat_set2DigitYearStart(    UDateFormat     *fmt,
                         UDate           d,
                         UErrorCode      *status)
 {
+    verifyIsSimpleDateFormat(fmt, status);
     if(U_FAILURE(*status)) return;
     ((SimpleDateFormat*)fmt)->set2DigitYearStart(d, *status);
 }
@@ -278,10 +294,17 @@ udat_toPattern(    const   UDateFormat     *fmt,
         res.setTo(result, 0, resultLength);
     }
 
-    if(localized)
-        ((SimpleDateFormat*)fmt)->toLocalizedPattern(res, *status);
-    else
-        ((SimpleDateFormat*)fmt)->toPattern(res);
+    if ( ((DateFormat*)fmt)->getDynamicClassID()==SimpleDateFormat::getStaticClassID() ) {
+        if(localized)
+            ((SimpleDateFormat*)fmt)->toLocalizedPattern(res, *status);
+        else
+            ((SimpleDateFormat*)fmt)->toPattern(res);
+    } else if ( !localized && ((DateFormat*)fmt)->getDynamicClassID()==RelativeDateFormat::getStaticClassID() ) {
+        ((RelativeDateFormat*)fmt)->toPattern(res, *status);
+    } else {
+        *status = U_ILLEGAL_ARGUMENT_ERROR;
+        return -1;
+    }
 
     return res.extract(result, resultLength, *status);
 }
@@ -293,8 +316,12 @@ udat_applyPattern(  UDateFormat     *format,
                     const   UChar           *pattern,
                     int32_t         patternLength)
 {
-    const UnicodeString pat((UBool)(patternLength == -1), pattern, patternLength);
     UErrorCode status = U_ZERO_ERROR;
+    verifyIsSimpleDateFormat(format, &status);
+    if(U_FAILURE(status)) {
+        return;
+    }
+    const UnicodeString pat((UBool)(patternLength == -1), pattern, patternLength);
 
     if(localized)
         ((SimpleDateFormat*)format)->applyLocalizedPattern(pat, status);
@@ -310,6 +337,7 @@ udat_getSymbols(const   UDateFormat     *fmt,
                 int32_t                 resultLength,
                 UErrorCode              *status)
 {
+    verifyIsSimpleDateFormat(fmt, status);
     if(U_FAILURE(*status)) return -1;
 
     const DateFormatSymbols *syms = 
@@ -418,6 +446,12 @@ U_CAPI int32_t U_EXPORT2
 udat_countSymbols(    const    UDateFormat                *fmt,
             UDateFormatSymbolType    type)
 {
+    UErrorCode status = U_ZERO_ERROR;
+    verifyIsSimpleDateFormat(fmt, &status);
+    if(U_FAILURE(status)) {
+        return 0;
+    }
+
     const DateFormatSymbols *syms = 
         ((SimpleDateFormat*)fmt)->getDateFormatSymbols();
     int32_t count = 0;
@@ -702,7 +736,7 @@ udat_setSymbols(    UDateFormat             *format,
             int32_t                 valueLength,
             UErrorCode              *status)
 {
-
+    verifyIsSimpleDateFormat(format, status);
     if(U_FAILURE(*status)) return;
 
     DateFormatSymbols *syms = (DateFormatSymbols *)((SimpleDateFormat *)format)->getDateFormatSymbols();
@@ -808,4 +842,71 @@ udat_getLocaleByType(const UDateFormat *fmt,
     }
     return ((Format*)fmt)->getLocaleID(type, *status);
 }
+
+/**
+ * Verify that fmt is a RelativeDateFormat. Invalid error if not.
+ * @param fmt the UDateFormat, definitely a DateFormat, maybe something else
+ * @param status error code, will be set to failure if there is a familure or the fmt is NULL.
+ */
+static void verifyIsRelativeDateFormat(const UDateFormat* fmt, UErrorCode *status) {
+   if(!U_FAILURE(*status) && 
+       ((DateFormat*)fmt)->getDynamicClassID()!=RelativeDateFormat::getStaticClassID()) {
+       *status = U_ILLEGAL_ARGUMENT_ERROR;
+   }
+}
+
+
+U_CAPI int32_t U_EXPORT2 
+udat_toPatternRelativeDate(const UDateFormat *fmt,
+                           UChar             *result,
+                           int32_t           resultLength,
+                           UErrorCode        *status)
+{
+    verifyIsRelativeDateFormat(fmt, status);
+    if(U_FAILURE(*status)) return -1;
+
+    UnicodeString datePattern;
+    if(!(result==NULL && resultLength==0)) {
+        // NULL destination for pure preflighting: empty dummy string
+        // otherwise, alias the destination buffer
+        datePattern.setTo(result, 0, resultLength);
+    }
+    ((RelativeDateFormat*)fmt)->toPatternDate(datePattern, *status);
+    return datePattern.extract(result, resultLength, *status);
+}
+
+U_CAPI int32_t U_EXPORT2 
+udat_toPatternRelativeTime(const UDateFormat *fmt,
+                           UChar             *result,
+                           int32_t           resultLength,
+                           UErrorCode        *status)
+{
+    verifyIsRelativeDateFormat(fmt, status);
+    if(U_FAILURE(*status)) return -1;
+
+    UnicodeString timePattern;
+    if(!(result==NULL && resultLength==0)) {
+        // NULL destination for pure preflighting: empty dummy string
+        // otherwise, alias the destination buffer
+        timePattern.setTo(result, 0, resultLength);
+    }
+    ((RelativeDateFormat*)fmt)->toPatternTime(timePattern, *status);
+    return timePattern.extract(result, resultLength, *status);
+}
+
+U_CAPI void U_EXPORT2 
+udat_applyPatternRelative(UDateFormat *format,
+                          const UChar *datePattern,
+                          int32_t     datePatternLength,
+                          const UChar *timePattern,
+                          int32_t     timePatternLength,
+                          UErrorCode  *status)
+{
+    verifyIsRelativeDateFormat(format, status);
+    if(U_FAILURE(*status)) return;
+    const UnicodeString datePat((UBool)(datePatternLength == -1), datePattern, datePatternLength);
+    const UnicodeString timePat((UBool)(timePatternLength == -1), timePattern, timePatternLength);
+    ((RelativeDateFormat*)format)->applyPatterns(datePat, timePat, *status);
+}
+
 #endif /* #if !UCONFIG_NO_FORMATTING */

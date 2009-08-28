@@ -137,7 +137,7 @@ NSPR_API(PRThread*) PR_CreateThread(PRThreadType type,
                      PRThreadPriority priority,
                      PRThreadScope scope,
                      PRThreadState state,
-                     PRUint32 stackSize);
+                     PRSize stackSize);
 
 /*
 ** Wait for thread termination:

@@ -159,22 +159,27 @@ public:
 	/* NOTE: Using pointers for applet selection rather than byte_strings to permit simple selection detection */
 	void select(const unsigned char *applet, size_t appletLength);
 	void selectDefault();
-	uint32_t exchangeAPDU(const byte_string& apdu,
-                          byte_string &result);
-	uint32_t exchangeChainedAPDU(unsigned char cla, unsigned char ins,
+	/* Exchanges APDU without performing data continuation */
+	uint16_t simpleExchangeAPDU(const byte_string &apdu, byte_string &result);
+	/* Exchanges APDU, performing data retreival continuation as needed */
+	uint16_t exchangeAPDU(const byte_string& apdu, byte_string &result);
+	uint16_t exchangeChainedAPDU(unsigned char cla, unsigned char ins,
 	                             unsigned char p1, unsigned char p2,
 	                             const byte_string &data,
 	                             byte_string &result);
 
-	uint32_t getData(byte_string &result);
+	/* Builds the GetData APDU string with a given limit, if limit == -1, no limit */
+	byte_string buildGetData(const byte_string &oid, int limit = -1) const;
 
 	void getDataCore(const byte_string &oid, const char *description, bool isCertificate,
 		bool allowCaching, byte_string &data);
+	bool getDataExists(const unsigned char *oid, size_t oidlen, const char *description);
 	std::string authCertCommonName();
 
 protected:
 	void populate();
 
+	size_t getKeySize(const byte_string &cert) const;
 	void processCertificateRecord(byte_string &data, const byte_string &oid, const char *description);
 	void dumpDataRecord(const byte_string &data, const byte_string &oid, const char *extraSuffix = NULL);
 	static int compressionType(const byte_string &data);
@@ -187,7 +192,7 @@ protected:
 		kCompressionGzip = 2,
 		kCompressionUnknown = 9
 	};
-	
+
 	size_t transmit(const byte_string &apdu, byte_string &result) {
 		return transmit(apdu.begin(), apdu.end(), result);
 	}

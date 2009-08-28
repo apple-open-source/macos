@@ -1,51 +1,42 @@
-.\" Copyright (c) 1993 Christopher G. Demetriou
-.\" All rights reserved.
+.\" $FreeBSD: src/usr.sbin/accton/accton.8,v 1.13 2004/04/16 09:31:17 brueffer Exp $
 .\"
-.\" Redistribution and use in source and binary forms, with or without
-.\" modification, are permitted provided that the following conditions
-.\" are met:
-.\" 1. Redistributions of source code must retain the above copyright
-.\"    notice, this list of conditions and the following disclaimer.
-.\" 2. Redistributions in binary form must reproduce the above copyright
-.\"    notice, this list of conditions and the following disclaimer in the
-.\"    documentation and/or other materials provided with the distribution.
-.\" 3. The name of the author may not be used to endorse or promote products
-.\"    derived from this software without specific prior written permission.
-.\"
-.\" THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
-.\" IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-.\" WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-.\" DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT,
-.\" INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-.\" (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-.\" SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-.\" STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
-.\" IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-.\" POSSIBILITY OF SUCH DAMAGE.
-.\"
-.\"	$Id: accton.8,v 1.2 2005/11/03 05:42:25 lindak Exp $
-.\"
-.Dd October 18, 1993
+.Dd May 21, 1993
 .Dt ACCTON 8
-.Os BSD 4
+.Os
 .Sh NAME
 .Nm accton
 .Nd enable/disable system accounting
 .Sh SYNOPSIS
-.Nm accton
-.Op Ar file
+.Nm
+.Op Ar acctfile
 .Sh DESCRIPTION
-With an argument naming an existing
-.Ar file ,
-.Nm accton
-causes system accounting information for every process executed
-to be placed at the end of the file.  If no argument is given,
-accounting is turned off.
+The
+.Nm
+utility is used
+for switching system accounting on or off.
+If called with the argument
+.Ar acctfile ,
+system accounting is enabled.
+The
+.Ar acctfile
+specified must exist prior to starting system accounting, or
+.Nm
+will return an error.
+A record of every process that is started by the
+.Xr execve 2
+system call and then later exits the system is stored in
+.Ar acctfile .
+The
+.Xr sa 8
+command may be used to examine the accounting records.
+If no arguments are given, system accounting is disabled.
+.Sh FILES
+.Bl -tag -width /var/account/acct
+.It Pa /var/account/acct
+default accounting file
+.El
 .Sh SEE ALSO
 .Xr lastcomm 1 ,
-.Xr acct 5
-.Sh HISTORY
-The
-.Nm accton
-command has existed nearly forever, but this man page is new.
+.Xr acct 2 ,
+.Xr acct 5 ,
+.Xr sa 8

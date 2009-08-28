@@ -7,8 +7,8 @@
 /*
  * Hooks from c++ glue to the cache core.
  */
-extern "C" void	BC_start(void);
-extern "C" int	BC_stop(void);
+extern "C" void	BC_load(void);
+extern "C" int	BC_unload(void);
 
 class com_apple_BootCache : public IOService
 {
@@ -28,7 +28,7 @@ com_apple_BootCache::start(IOService *provider)
 
 	result = IOService::start(provider);
 	if (result == true) {
-		BC_start();
+		BC_load();
 		provider->retain();
 	}
 	return(result);
@@ -37,7 +37,7 @@ com_apple_BootCache::start(IOService *provider)
 void
 com_apple_BootCache::stop(IOService *provider)
 {
-	if (BC_stop())
+	if (BC_unload())
 		return;	// refuse unload?
 	provider->release();
 	IOService::stop(provider);

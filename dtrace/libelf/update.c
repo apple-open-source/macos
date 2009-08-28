@@ -20,22 +20,18 @@
  */
 
 /*
- *	Copyright (c) 1988 AT&T
- *	  All Rights Reserved
- *
- *
- * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)update.c	1.26	06/03/24 SMI"
+/*
+ *	Copyright (c) 1988 AT&T
+ *	  All Rights Reserved
+ */
 
-#if !defined(_ELF64)
-// XXX_PRAGMA_WEAK #pragma weak elf_update = _elf_update
-#endif
+#pragma ident	"@(#)update.c	1.31	08/05/31 SMI"
 
 #if !defined(__APPLE__)
-#include "syn.h"
 #include <memory.h>
 #include <malloc.h>
 #include <limits.h>
@@ -44,7 +40,6 @@
 #include "decl.h"
 #include "msg.h"
 #else /* is Apple Mac OS X */
-#include "syn.h"
 #include <memory.h>
 /* NOTHING */ /* In lieu of Solaris <malloc.h> */
 #include <limits.h>
@@ -78,6 +73,7 @@
 #define	wrt		wrt64
 #define	elf_xlatetof	elf64_xlatetof
 #define	_elfxx_update	_elf64_update
+#define	_elfxx_swap_wrimage	_elf64_swap_wrimage
 
 #else	/* ELF32 */
 
@@ -93,9 +89,68 @@
 #define	wrt		wrt32
 #define	elf_xlatetof	elf32_xlatetof
 #define	_elfxx_update	_elf32_update
+#define	_elfxx_swap_wrimage	_elf32_swap_wrimage
 
 #endif /* ELF64 */
 
+
+#if	!(defined(_LP64) && defined(_ELF64))
+#define	TEST_SIZE
+
+/*
+ * Handle the decision of whether the current linker can handle the
+ * desired object size, and if not, which error to issue.
+ *
+ * Input is the desired size. On failure, an error has been issued
+ * and 0 is returned. On success, 1 is returned.
+ */
+static int
+test_size(Lword hi)
+{
+#ifndef _LP64			/* 32-bit linker */
+	/*
+	 * A 32-bit libelf is limited to a 2GB output file. This limit
+	 * is due to the fact that off_t is a signed value, and that
+	 * libelf cannot support large file support:
+	 *	- ABI reasons
+	 *	- Memory use generally is 2x output file size anyway,
+	 *		so lifting the file size limit will just send
+	 *		you crashing into the 32-bit VM limit.
+	 * If the output is an ELFCLASS64 object, or an ELFCLASS32 object
+	 * under 4GB, switching to the 64-bit version of libelf will help.
+	 * However, an ELFCLASS32 object must not exceed 4GB.
+	 */
+	if (hi > INT_MAX) {	/* Bigger than 2GB */
+#ifndef _ELF64
+		/* ELFCLASS32 object is fundamentally too big? */
+		if (hi > UINT_MAX) {
+			_elf_seterr(EFMT_FBIG_CLASS32, 0);
+			return (0);
+		}
+#endif				/* _ELF64 */
+
+		/* Should switch to the 64-bit libelf? */
+		_elf_seterr(EFMT_FBIG_LARGEFILE, 0);
+		return (0);
+	}
+#endif				/* !_LP64 */
+
+
+#if	defined(_LP64) && !defined(_ELF64)   /* 64-bit linker, ELFCLASS32 */
+	/*
+	 * A 64-bit linker can produce any size output
+	 * file, but if the resulting file is ELFCLASS32,
+	 * it must not exceed 4GB.
+	 */
+	if (hi > UINT_MAX) {
+		_elf_seterr(EFMT_FBIG_CLASS32, 0);
+		return (0);
+	}
+#endif
+
+	return (1);
+}
+#endif				/* TEST_SIZE */
 
 /*
  * Output file update
@@ -117,7 +172,7 @@ _elf_upd_lib(Elf * elf)
 	Lword		hi;
 	Lword		hibit;
 	Elf_Scn *	s;
-	register Xword	sz;
+	register Lword	sz;
 	Ehdr *		eh = elf->ed_ehdr;
 	unsigned	ver = eh->e_version;
 	register char	*p = (char *)eh->e_ident;
@@ -185,7 +240,7 @@ _elf_upd_lib(Elf * elf)
 			(void) _elfxx_cookscn(s);
 
 		sh->sh_addralign = 1;
-		if ((sz = (Xword)_elf_entsz(sh->sh_type, ver)) != 0)
+		if ((sz = (Lword)_elf_entsz(elf, sh->sh_type, ver)) != 0)
 			/* LINTED */
 			sh->sh_entsize = (Half)sz;
 		sz = 0;
@@ -206,10 +261,10 @@ _elf_upd_lib(Elf * elf)
 			}
 			d->db_data.d_off = (off_t)sz;
 			d->db_xoff = sz;
-			sz += (Xword)fsz;
+			sz += fsz;
 		}
 
-		sh->sh_size = sz;
+		sh->sh_size = (Xword) sz;
 		/*
 		 * We want to take into account the offsets for NOBITS
 		 * sections and let the "sh_offsets" point to where
@@ -285,11 +340,9 @@ _elf_upd_lib(Elf * elf)
 		eh->e_shentsize = 0;
 	}
 
-#if	!(defined(_LP64) && defined(_ELF64))
-	if (hi > INT_MAX) {
-		_elf_seterr(EFMT_FBIG, 0);
+#ifdef TEST_SIZE
+	if (test_size(hi) == 0)
 		return (0);
-	}
 #endif
 
 	return ((size_t)hi);
@@ -303,7 +356,7 @@ _elf_upd_usr(Elf * elf)
 	NOTE(ASSUMING_PROTECTED(*elf))
 	Lword		hi;
 	Elf_Scn *	s;
-	register Xword	sz;
+	register Lword	sz;
 	Ehdr *		eh = elf->ed_ehdr;
 	unsigned	ver = eh->e_version;
 	register char	*p = (char *)eh->e_ident;
@@ -353,7 +406,7 @@ _elf_upd_usr(Elf * elf)
 	}
 	for (; s != 0; s = s->s_next) {
 		register Dnode	*d;
-		register Xword	fsz, j;
+		register Lword	fsz, j;
 		Shdr *sh = s->s_shdr;
 
 		if ((s->s_myflags & SF_READY) == 0)
@@ -362,15 +415,15 @@ _elf_upd_usr(Elf * elf)
 		++eh->e_shnum;
 		sz = 0;
 		for (d = s->s_hdnode; d != 0; d = d->db_next) {
-			if ((fsz = (Xword)elf_fsize(d->db_data.d_type, 1,
+			if ((fsz = elf_fsize(d->db_data.d_type, 1,
 			    ver)) == 0)
 				return (0);
-			j = (Xword)_elf_msize(d->db_data.d_type, ver);
-			fsz *= (Xword)(d->db_data.d_size / j);
+			j = _elf_msize(d->db_data.d_type, ver);
+			fsz *= (d->db_data.d_size / j);
 			d->db_osz = (size_t)fsz;
 
 			if ((sh->sh_type != SHT_NOBITS) &&
-			((j = (Xword)(d->db_data.d_off + d->db_osz)) > sz))
+			    ((j = (d->db_data.d_off + d->db_osz)) > sz))
 				sz = j;
 		}
 		if (sh->sh_size < sz) {
@@ -394,11 +447,9 @@ _elf_upd_usr(Elf * elf)
 	if ((sz = eh->e_shoff + eh->e_shentsize * eh->e_shnum) > hi)
 		hi = sz;
 
-#if	!(defined(_LP64) && defined(_ELF64))
-	if (hi > INT_MAX) {
-		_elf_seterr(EFMT_FBIG, 0);
+#ifdef TEST_SIZE
+	if (test_size(hi) == 0)
 		return (0);
-	}
 #endif
 
 	return ((size_t)hi);
@@ -416,8 +467,22 @@ wrt(Elf * elf, Xword outsz, unsigned fill, int update_cmd)
 	Elf_Scn		*s;
 	Ehdr		*eh = elf->ed_ehdr;
 	unsigned	ver = eh->e_version;
-	unsigned	encode = eh->e_ident[EI_DATA];
+	unsigned	encode;
 	int		byte;
+
+	/*
+	 * If this is an ELF_C_WRIMAGE write, then we encode into the
+	 * byte order of the system we are running on rather than that of
+	 * of the object. For ld.so.1, this is the same order, but
+	 * for 'ld', it might not be in the case where we are cross
+	 * linking an object for a different target. In this later case,
+	 * the linker-host byte order is necessary so that the linker can
+	 * manipulate the resulting  image. It is expected that the linker
+	 * will call elf_swap_wrimage() if necessary to convert the image
+	 * to the target byte order.
+	 */
+	encode = (update_cmd == ELF_C_WRIMAGE) ? _elf_sys_encoding() :
+	    eh->e_ident[EI_DATA];
 
 	/*
 	 * Two issues can cause trouble for the output file.
@@ -768,6 +833,119 @@ _elfxx_update(Elf * elf, Elf_Cmd cmd)
 }
 
 
+/*
+ * When wrt() processes an ELF_C_WRIMAGE request, the resulting image
+ * gets the byte order (encoding) of the platform running the linker
+ * rather than that of the target host. This allows the linker to modify
+ * the image, prior to flushing it to the output file. This routine
+ * is used to re-translate such an image into the byte order of the
+ * target host.
+ */
+int
+_elfxx_swap_wrimage(Elf *elf)
+{
+	Elf_Data	dst, src;
+	Elf_Scn		*s;
+	Ehdr		*eh;
+	Half		e_phnum;
+	unsigned	ver;
+	unsigned	encode;
+
+	/*
+	 * Ehdr first
+	 */
+
+	ELFWLOCK(elf);
+	eh = elf->ed_ehdr;
+	e_phnum = eh->e_phnum;
+	ver = eh->e_version;
+	encode = eh->e_ident[EI_DATA];
+
+	src.d_buf = dst.d_buf = (Elf_Void *)eh;
+	src.d_type = dst.d_type = ELF_T_EHDR;
+	src.d_size = dst.d_size = sizeof (Ehdr);
+	src.d_version = dst.d_version = ver;
+	if (elf_xlatetof(&dst, &src, encode) == 0) {
+		ELFUNLOCK(elf);
+		return (1);
+	}
+
+	/*
+	 * Phdr table if one exists
+	 */
+
+	if (e_phnum != 0) {
+		unsigned	work;
+		/*
+		 * Unlike other library data, phdr table is
+		 * in the user version.
+		 */
+
+		src.d_buf = dst.d_buf = (Elf_Void *)elf->ed_phdr;
+		src.d_type = dst.d_type = ELF_T_PHDR;
+		src.d_size = dst.d_size = elf->ed_phdrsz;
+		ELFACCESSDATA(work, _elf_work)
+		src.d_version = dst.d_version = work;
+		if (elf_xlatetof(&dst, &src, encode) == 0) {
+			ELFUNLOCK(elf);
+			return (1);
+		}
+	}
+
+	/*
+	 * Loop through sections
+	 */
+
+	for (s = elf->ed_hdscn; s != 0; s = s->s_next) {
+		register Dnode	*d, *prevd;
+		Shdr		*sh = s->s_shdr;
+
+		if ((sh->sh_type == SHT_NOBITS) || (sh->sh_type == SHT_NULL))
+			continue;
+
+		for (d = s->s_hdnode, prevd = 0;
+		    d != 0; prevd = d, d = d->db_next) {
+
+			if ((d->db_myflags & DBF_READY) == 0) {
+				SCNLOCK(s);
+				if (_elf_locked_getdata(s, &prevd->db_data) !=
+				    &d->db_data) {
+					SCNUNLOCK(s);
+					ELFUNLOCK(elf);
+					return (1);
+				}
+				SCNUNLOCK(s);
+			}
+
+			dst = d->db_data;
+			if (elf_xlatetof(&dst, &d->db_data, encode) == 0) {
+				ELFUNLOCK(elf);
+				return (1);
+			}
+		}
+	}
+
+	/*
+	 * Shdr table
+	 */
+
+	src.d_type = dst.d_type = ELF_T_SHDR;
+	src.d_version = dst.d_version = ver;
+	for (s = elf->ed_hdscn; s != 0; s = s->s_next) {
+		src.d_buf = dst.d_buf = s->s_shdr;
+		src.d_size = dst.d_size = sizeof (Shdr);
+		if (elf_xlatetof(&dst, &src, encode) == 0) {
+			ELFUNLOCK(elf);
+			return (1);
+		}
+	}
+
+	ELFUNLOCK(elf);
+	return (0);
+}
+
+
+
 #ifndef _ELF64
 /* class-independent, only needs to be compiled once */
 
@@ -785,6 +963,22 @@ elf_update(Elf *elf, Elf_Cmd cmd)
 
 	_elf_seterr(EREQ_CLASS, 0);
 	return (-1);
+}
+
+int
+_elf_swap_wrimage(Elf *elf)
+{
+	if (elf == 0)
+		return (0);
+
+	if (elf->ed_class == ELFCLASS32)
+		return (_elf32_swap_wrimage(elf));
+
+	if (elf->ed_class == ELFCLASS64)
+		return (_elf64_swap_wrimage(elf));
+
+	_elf_seterr(EREQ_CLASS, 0);
+	return (0);
 }
 
 /*

@@ -28,7 +28,7 @@
 #ifndef __CHandlers_h__
 #define __CHandlers_h__ 1
 
-#include "CInternalDispatchThread.h"
+#include "DSCThread.h"
 #include "DSTCPEndpoint.h"
 #include "PrivateTypes.h"
 #include "CPlugInList.h"
@@ -40,31 +40,7 @@ class	CServerPlugin;
 //Extern
 extern DSMutexSemaphore	   *gTCPHandlerLock;
 
-class CHandlerThread : public CInternalDispatchThread
-{
-public:
-					CHandlerThread			( const UInt32 inThreadSignature, UInt32 iThread );
-	virtual		   ~CHandlerThread			( void );
-	
-	virtual	SInt32	ThreadMain			( void );		// we manage our own thread top level
-	virtual	void	StartThread			( void );
-	virtual	void	StopThread			( void );
-			UInt32	GetOurThreadRunState( void );
-	static	SInt32	RefDeallocProc		( UInt32 inRefNum, UInt32 inRefType, CServerPlugin *inPluginPtr );
-
-protected:
-	virtual	void	LastChance			( void );
-			
-	DSTCPEndpoint   *fTCPEndPt;
-
-private:
-		void	HandleMessage					( void );
-		void	LogQueueDepth					( void );
-
-	UInt32				fThreadIndex;
-};
-
-class CPluginRunLoopThread : public CInternalDispatchThread
+class CPluginRunLoopThread : public DSCThread
 {
 	public:
 						CPluginRunLoopThread	( void );
@@ -78,58 +54,25 @@ class CPluginRunLoopThread : public CInternalDispatchThread
 		virtual	void	LastChance				( void );
 };
 
-class CMigHandlerThread : public CInternalDispatchThread
-{
-public:
-					CMigHandlerThread			( const UInt32 inThreadSignature, bool bMigHelper );
-	virtual		   ~CMigHandlerThread			( void );
-	
-	virtual	SInt32	ThreadMain			( void );		// we manage our own thread top level
-	virtual	void	StartThread			( void );
-	virtual	void	StopThread			( void );
-
-protected:
-	virtual	void	LastChance			( void );
-			
-private:
-	bool			bMigHelperThread;
-};
-
-class CMemberdKernelHandlerThread : public CInternalDispatchThread
-{
-public:
-					CMemberdKernelHandlerThread			( const UInt32 inThreadSignature );
-	virtual		   ~CMemberdKernelHandlerThread			( void );
-	
-	virtual	SInt32	ThreadMain			( void );		// we manage our own thread top level
-	virtual	void	StartThread			( void );
-	virtual	void	StopThread			( void );
-
-protected:
-	virtual	void	LastChance			( void );
-			
-private:
-};
-
 class CRequestHandler
 {
 public:
 					CRequestHandler		( void );
 	
-			bool	HandleRequest		( sComData **inRequest );
+			void	HandleRequest		( sComData **inMsg );
             static char*	GetCallName				( SInt32 inType );
 			
 			// for mig handler to be able to call directly
 			SInt32	DoCheckUserNameAndPassword		( const char *userName, const char *password,
 													  tDirPatternMatch inPatternMatch,
 													  uid_t *outUID, char **outShortName );
-			char*	BuildAPICallDebugDataTag		(	UInt32			inIPAddress,
-														SInt32			inClientPID,
-														char		   *inCallName,
-														char		   *inName);
+			char*	BuildAPICallDebugDataTag		(	sockaddr_storage	*inIPAddress,
+														pid_t				inClientPID,
+														const char			*inCallName,
+														const char			*inName);
 			
 protected:
-			SInt32	HandleServerCall	( sComData **inRequest );
+			SInt32	HandleServerCall	( sComData **inMsg );
 			SInt32	HandlePluginCall	( sComData **inRequest );
 			SInt32	HandleUnknownCall	( sComData *inRequest );
 			//methods that call Add methods for sComData need ptr to ptr since the buffer can grow and the ptr might change
@@ -139,8 +82,9 @@ protected:
 
 			void*	GetRequestData		( sComData *inRequest, SInt32 *outResult, bool *outShouldProcess );
 			SInt32	PackageReply		( void *inData, sComData **inRequest );
-			UInt32	GetMsgType			( sComData *inRequest );
-			SInt32	FailedCallRefCleanUp( void *inData, SInt32 inClientPID, UInt32 inMsgType, UInt32 inIPAddress );
+			inline UInt32	GetMsgType	( sComData *inRequest )	{ return inRequest->type.msgt_name; };
+
+			SInt32	FailedCallRefCleanUp( void *inData, mach_port_t inMachPort, UInt32 inMsgType, in_port_t inPort );
 
 			void	DoFreeMemory		( void *inData );
 
@@ -188,7 +132,6 @@ private:
 
 		void*	GetNodeList						( sComData *inRequest, SInt32 *outStatus );
 		void*	FindDirNodes					( sComData *inRequest, SInt32 *outStatus, char *inDebugDataTag );
-		bool	UserInGivenGroup				( const char* shortName, const char* groupName );
 		void	LogAPICall						(	double			inTime,
 													char		   *inDebugDataTag,
 													SInt32			inResult);
@@ -199,7 +142,6 @@ private:
 													SInt32			inResult);
 		
 	CServerPlugin	   *fPluginPtr;
-	bool				bClosePort;
 };
 
 #endif

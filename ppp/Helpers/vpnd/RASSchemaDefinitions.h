@@ -251,6 +251,20 @@
 #define kRASPropIPSecIdentifierVerification		CFSTR("IdentifierVerification") /*									CFString */
 #define kRASPropIPSecLocalCertificate			CFSTR("LocalCertificate") 		/*									CFData */
 #define kRASPropIPSecNattMultipleUsersEnabled	CFSTR("NattMultipleUsersEnabled")	/*						CFNumber (0 or 1) */
+#define kRASPropIPSecNattKeepAliveEnabled		CFSTR("NattKeepAliveEnabled")	/*							CFNumber (0 or 1) */
+#define kRASPropIPSecNattKeepAliveTimer			CFSTR("NattKeepAliveTimer")		/*									CFNumber */
+#define kRASPropIPSecXAuthEnabled				CFSTR("XAuthEnabled")			/*							CFNumber (0 or 1) */
+#define kRASPropIPSecXAuthName					CFSTR("XAuthName")				/*								CFString */
+#define kRASPropIPSecXAuthPassword				CFSTR("XAuthPassword")				/*								CFString */
+#define kRASPropIPSecModeConfigEnabled			CFSTR("ModeConfigEnabled")		/*							CFNumber (0 or 1) */
+#define kRASPropIPSecAuthenticationMethod		CFSTR("AuthenticationMethod")   /*									CFString */
+#define kRASPropIPSecDeadPeerDetectionEnabled	CFSTR("DeadPeerDetectionEnabled")	/*						CFNumber (0 or 1) */
+#define kRASPropIPSecDeadPeerDetectionDelay		CFSTR("DeadPeerDetectionDelay")	/*									CFNumber */
+#define kRASPropIPSecDeadPeerDetectionRetry		CFSTR("DeadPeerDetectionRetry")	/*									CFNumber */
+#define kRASPropIPSecDeadPeerDetectionMaxFail	CFSTR("DeadPeerDetectionMaxFail")	/*								CFNumber */
+#define kRASPropIPSecBlackHoleDetectionEnabled	CFSTR("BlackHoleDetectionEnabled") 	/*						CFNumber (0 or 1) */
+#define kRASPropIPSecDisconnectOnIdle			CFSTR("DisconnectOnIdle")		/*							CFNumber (0 or 1) */
+#define kRASPropIPSecDisconnectOnIdleTimer		CFSTR("DisconnectOnIdleTimer") 	/*									CFNumber */
 
 /* kRASPropIPSecExchangeMode values */
 #define kRASValIPSecExchangeModeMain				CFSTR("Main")                       
@@ -273,24 +287,25 @@
 #define kRASValIPSecSharedSecretEncryptionKey		CFSTR("Key")                       
 #define kRASValIPSecSharedSecretEncryptionKeychain	CFSTR("Keychain")                       
 
+/* kRASPropIPSecAuthenticationMethod values */
+#define kRASValIPSecAuthenticationMethodSharedSecret	CFSTR("SharedSecret")                       
+#define kRASValIPSecAuthenticationMethodCertificate		CFSTR("Certificate")                       
+#define kRASValIPSecAuthenticationMethodHybrid			CFSTR("Hybrid")                       
+
 
 /* Phase 1 ISAKMP Proposals*/
 #define kRASPropIPSecProposals						CFSTR("Proposals")					/*						CFArray */
 
 #define kRASPropIPSecProposalLifetime					CFSTR("Lifetime")				/*						CFNumber */
 #define kRASPropIPSecProposalDHGroup					CFSTR("DHGroup")				/*						CFNumber */
-#define kRASPropIPSecProposalAuthenticationMethod		CFSTR("AuthenticationMethod")   /*						CFString */
 #define kRASPropIPSecProposalEncryptionAlgorithm		CFSTR("EncryptionAlgorithm")	/*						CFString */
 #define kRASPropIPSecProposalHashAlgorithm				CFSTR("HashAlgorithm")			/*						CFString */
-
-/* kRASPropIPSecProposalAuthenticationMethod values */
-#define kRASValIPSecProposalAuthenticationMethodSharedSecret	CFSTR("SharedSecret")                       
-#define kRASValIPSecProposalAuthenticationMethodCertificate		CFSTR("Certificate")                       
 
 /* kRASPropIPSecProposalEncryptionAlgorithm values */
 #define kRASValIPSecProposalEncryptionAlgorithmDES		CFSTR("DES")                       
 #define kRASValIPSecProposalEncryptionAlgorithm3DES		CFSTR("3DES")                       
 #define kRASValIPSecProposalEncryptionAlgorithmAES		CFSTR("AES")                       
+#define kRASValIPSecProposalEncryptionAlgorithmAES256	CFSTR("AES256")                       
 
 /* kRASPropIPSecProposalHashAlgorithm values */
 #define kRASValIPSecProposalHashAlgorithmMD5			CFSTR("MD5")                       
@@ -322,6 +337,7 @@
 #define kRASValIPSecPolicyLevelNone				CFSTR("None")                       
 #define kRASValIPSecPolicyLevelRequire			CFSTR("Require")                       
 #define kRASValIPSecPolicyLevelDiscard			CFSTR("Discard")                       
+#define kRASValIPSecPolicyLevelUnique			CFSTR("Unique")                       
 
 /* kRASPropIPSecPolicyMode values */
 #define kRASValIPSecPolicyModeTransport			CFSTR("Transport")                       

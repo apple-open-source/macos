@@ -18,6 +18,8 @@
 #define path_setup_out "out"
 ; Path to Inno Setup Executable
 #define path_is "E:\Inno Setup4"
+; Path to Subversion
+#define path_subversion "D:\SubversionTag"
 
 ;Build defines ----------------------------------------------------------------
 ; File names
@@ -35,6 +37,7 @@
 ; Edit the paths below according to your system
 
 ; Full path to the binaries root folder
+; path_svn must end with a backslash
 #define path_svn "C:\work\Subversion\binaries_svn\svn-win32"
 ; Full path to the WC of the svnbook
 #define path_svnbook "C:\work\Subversion\svnbook"
@@ -65,6 +68,7 @@
 #define path_brkdb_dll         (path_svn + "bin")
 #define path_svnpath           "tools\svnpath"
 #define path_iconv             (path_svn + "iconv")
+#define path_sqlite            (path_svn + "bin")
 #define path_ssl               (path_svn + "bin")
 ; Licenses
 #define path_licenses          (path_svn + "licenses")

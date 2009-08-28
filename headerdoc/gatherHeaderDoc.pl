@@ -4,8 +4,7 @@
 # Synopsis: 	Finds all HeaderDoc generated docs in an input
 #		folder and creates a top-level HTML page to them
 #
-# Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2007/07/18 00:05:08 $
+# Last Updated: $Date: 2009/04/17 23:21:58 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -28,7 +27,7 @@
 #
 # @APPLE_LICENSE_HEADER_END@
 #
-# $Revision: 1.8.4.53 $
+# $Revision: 1.18 $
 ######################################################################
 my $pathSeparator;
 my $isMacOS;
@@ -65,6 +64,9 @@ use File::Copy;
 use lib $uninstalledModulesPath;
 use POSIX;
 
+my $skipTOC = 0;
+my $generateDocSet = 0;
+
 $has_resolver = 1;
 eval "use HeaderDoc::LinkResolver qw (resolveLinks); 1" || do { $has_resolver = 0; };
 # print "HR: $has_resolver\n";
@@ -91,6 +93,42 @@ my $debugging = 1;
 #   back to the master TOC.  [This is fragile in the current implementation, since
 #   we find TOCs based on searching for a file called "toc.html" in the frameset dir.]
 # 
+
+########################## Get command line arguments and flags #######################
+my @inputFiles;
+my @contentFiles;
+my $inputDir;
+my $externalXRefFiles = "";
+
+use Getopt::Std;
+my %options = ();
+my %letters_linked = ();
+my %group_letters_linked = ();
+getopts("c:dnx:",\%options);
+
+# The options are handled after processing config file so they can
+# override behavior.  However, we need to handle the options first
+# before checking for input file names (which we should do first
+# to avoid wasting a lot of time before telling the user he/she
+# did something wrong).
+
+my $masterTOCFileName = "";
+my $bookxmlname = "";
+
+if (($#ARGV == 0 || $#ARGV == 1 || $#ARGV == 2) && (-d $ARGV[0])) {
+    $inputDir = $ARGV[0];
+
+	if ($#ARGV) {
+		$masterTOCFileName = $ARGV[1];
+	}
+	if ($#ARGV > 1) {
+		$bookxmlname = $ARGV[2];
+	}
+
+} else {
+    die "You must specify a single input directory for processing.\n";
+}
+
 ########################## Setup from Configuration File #######################
 my $localConfigFileName = "headerDoc2HTML.config";
 my $preferencesConfigFileName = "com.apple.headerDoc2HTML.config";
@@ -132,11 +170,13 @@ my %config = (
     groupHierSubgroupLimit => 0
 );
 
+if ($options{c}) {
+	@configFiles = ( $options{c} );
+}
+
 %config = &updateHashFromConfigFiles(\%config,\@configFiles);
 
 my $framesetFileName;
-my $masterTOCFileName;
-my $bookxmlname = "";
 my @TOCTemplateList = ();
 my @TOCNames = ();
 my $framework = "";
@@ -144,16 +184,20 @@ my $frameworknestlevel = -1;
 my $frameworkShortName = "";
 my $frameworkpath = "";
 my $frameworkrelated = "";
+my $frameworkUID = "";
+my $frameworkCopyrightString = "";
+
 my $landingPageUID = "";
+my $landingPageFrameworkUID = "";
 my $stripDotH = 0;
 my $gather_functions = 0;
 my $gather_types = 0;
+my $gather_properties = 0;
 my $gather_globals_and_constants = 0;
 my $gather_man_pages = 0;
 my $apiUIDPrefix = "apple_ref";
 my $compositePageName = "CompositePage.html";
 my $classAsComposite = 0;
-my $externalXRefFiles = "";
 my $externalAPIUIDPrefixes = "";
 my %usedInTemplate = ();
 
@@ -166,9 +210,15 @@ if (defined $config{"dateFormat"}) {
     $HeaderDoc::datefmt = "%B %d, %Y";
 }
 
+
 use HeaderDoc::APIOwner;
 
 HeaderDoc::APIOwner->fix_date();
+
+my ($sec,$min,$hour,$mday,$mon,$yr,$wday,$yday,$isdst) = localtime(time());
+my $yearStamp = strftime("%Y", $sec, $min, $hour,
+	$mday, $mon, $yr, $wday, $yday, $isdst);
+my $dateStamp = HeaderDoc::HeaderElement::strdate($mon, $mday, $yr + 1900);
 
 if (defined $config{"styleImports"}) {
     $HeaderDoc::styleImports = $config{"styleImports"};
@@ -191,6 +241,10 @@ if (defined $config{"tocStyleImports"}) {
 
 if (defined $config{"textStyle"}) {
 	HeaderDoc::APIOwner->setStyle("text", $config{"textStyle"});
+}
+
+if (defined $config{"copyrightOwner"}) {
+	$HeaderDoc::copyrightOwner = $config{"copyrightOwner"};
 }
 
 if (defined $config{"commentStyle"}) {
@@ -264,7 +318,7 @@ if (defined $config{"classAsComposite"}) {
 	$classAsComposite = 0;
 }
 
-if (defined $config{"masterTOCName"}) {
+if (defined $config{"masterTOCName"} && $masterTOCFileName eq "") {
 	$masterTOCFileName = $config{"masterTOCName"};
 } 
 if (defined $config{"stripDotH"}) {
@@ -281,7 +335,7 @@ if (defined $config{"TOCTemplateFile"}) {
 		my %used = ();
 
 		print "Searching for $file\n";
-		my @templateFiles = ($Bin.$pathSeparator.$file, $usersPreferencesPath.$pathSeparator.$file, $file);
+		my @templateFiles = ($systemPreferencesPath.$pathSeparator.$file, $usersPreferencesPath.$pathSeparator.$file, $Bin.$pathSeparator.$file, $file);
 		my $TOCTemplate = "";
 		my $found = 0;
 		my $foundpath = "";
@@ -305,6 +359,10 @@ if (defined $config{"TOCTemplateFile"}) {
 		if ($TOCTemplate =~ /\$\$\s*typelist/) {
 			$gather_types = 1;
 			$used{type} = 1;
+		}
+		if ($TOCTemplate =~ /\$\$\s*proplist/) {
+			$gather_properties = 1;
+			$used{prop} = 1;
 		}
 		if ($TOCTemplate =~ /\$\$\s*datalist/) {
 			$gather_globals_and_constants = 1;
@@ -348,40 +406,19 @@ if (defined $config{"useBreadcrumbs"}) {
 	$useBreadcrumbs = $config{"useBreadcrumbs"};
 }
 
-$GHD::bgcolor = "#ffffff";
-if (!scalar(@TOCTemplateList)) {
-	my $TOCTemplate = default_template();
-	push(@TOCTemplateList, $TOCTemplate);
-	push(@TOCNames, "masterTOC.html")
+
+########################## Handle command line flags #######################
+if ($options{d}) {
+    $generateDocSet = 1;
+    if ($options{n}) {
+	$skipTOC = 1;
+    }
 }
-
-# print "GatherFunc: $gather_functions\n";
-# print "TT: $TOCTemplate\n";
-
-########################## Input Folder and Files #######################
-my @inputFiles;
-my @contentFiles;
-my $inputDir;
-
-
-use Getopt::Std;
-my %options = ();
-my %letters_linked = ();
-my %group_letters_linked = ();
-getopts("x:",\%options);
 if ($options{x}) {
     $externalXRefFiles = $options{x};
 }
 
-if (($#ARGV == 0 || $#ARGV == 1 || $#ARGV == 2) && (-d $ARGV[0])) {
-    $inputDir = $ARGV[0];
-
-	if ($#ARGV) {
-		$masterTOCFileName = $ARGV[1];
-	}
-	if ($#ARGV > 1) {
-		$bookxmlname = $ARGV[2];
-	}
+########################## Input Folder and Files #######################
 
 	if ($^O =~ /MacOS/i) {
 		find(\&getFiles, $inputDir);
@@ -394,10 +431,19 @@ if (($#ARGV == 0 || $#ARGV == 1 || $#ARGV == 2) && (-d $ARGV[0])) {
 		}
 		&find({wanted => \&getFiles, follow => 1}, $inputDir);
 	}
-} else {
-    die "You must specify a single input directory for processing.\n";
+unless (@inputFiles) { print STDERR "No valid input files specified. \n\n"; exit(-1)};
+
+
+$GHD::bgcolor = "#ffffff";
+if (!scalar(@TOCTemplateList)) {
+	my $TOCTemplate = default_template();
+	push(@TOCTemplateList, $TOCTemplate);
+	push(@TOCNames, "masterTOC.html")
 }
-unless (@inputFiles) { print "No valid input files specified. \n\n";};
+
+# print "GatherFunc: $gather_functions\n";
+# print "TT: $TOCTemplate\n";
+
 
 sub getFiles {
     my $filePath = $File::Find::name;
@@ -410,6 +456,7 @@ sub getFiles {
     if ($fileName =~ /$framesetFileName/) {
 	print "HTML frameset\n" if ($localDebug);
         push(@inputFiles, $filePath);
+        push(@contentFiles, $filePath);
     } elsif ($dirName =~ /^(man|cat)[\w\d]+$/ && $gather_man_pages) {
 	print "Man Page\n" if ($localDebug);
         push(@inputFiles, $filePath);
@@ -459,7 +506,9 @@ sub getFiles {
     }
 }
 ########################## Find HeaderDoc Comments #######################
+my @fileRefSets;
 my @headerFramesetRefs;
+my @propFramesetRefs;
 my @dataFramesetRefs;
 my @macroFramesetRefs;
 my @typeFramesetRefs;
@@ -485,6 +534,7 @@ $groups{" "}="";
 $| = 1;
 print "Processing...";
 foreach my $file (@inputFiles) {
+  my @perFileDocRefs = ();
   if (-f $file) {
     open (INFILE, "<$file") || die "Can't open $file: $!\n";
     my $fileString = <INFILE>;
@@ -497,6 +547,8 @@ foreach my $file (@inputFiles) {
 	my $inAbstract = 0;
 	my $inPath = 0;
 	my $inRelated = 0;
+	my $inFWUID = 0;
+	my $inFWCopyright = 0;
         my @stockpairs = split(/;/, $fullComment);
 	my @pairs = ();
 
@@ -561,6 +613,26 @@ foreach my $file (@inputFiles) {
 				$inRelated = 1;
 			    }
 			}
+			if ($value =~ /frameworkuid/) {
+				# print "FWUID DETECTED ($value)\n";
+				if (rightframework($file)) {
+					$inFWUID = 1;
+					# print "RIGHT FILE\n";
+					# $frameworkUID = $value;
+					# $frameworkUID =~ s/^\s*//sg;
+					# $frameworkUID =~ s/\s*$//sg;
+				}
+		    	};
+			if ($value =~ /frameworkcopyright/) {
+				# print "FWCopyright DETECTED ($value)\n";
+				if (rightframework($file)) {
+					$inFWCopyright = 1;
+					# print "RIGHT FILE\n";
+					# $frameworkUID = $value;
+					# $frameworkUID =~ s/^\s*//sg;
+					# $frameworkUID =~ s/\s*$//sg;
+				}
+		    	};
                         last SWITCH;
                     };
 		($key =~ /shortname/) &&
@@ -579,11 +651,15 @@ foreach my $file (@inputFiles) {
 				$frameworkdiscussion = $tail;
 				$frameworkdiscussion =~ s/<!--\s+headerDoc\s*.*//sg;
 				# print "Discussion: $frameworkdiscussion\n";
+			} elsif ($inDiscussion && $value =~ /end/) {
+				$inDiscussion = 0;
 			}
 			if ($inAbstract && $value =~ /start/) {
 				$frameworkabstract = $tail;
 				$frameworkabstract =~ s/<!--\s+headerDoc\s*.*//sg;
 				# print "Abstract: $frameworkabstract\n";
+			} elsif ($inAbstract && $value =~ /end/) {
+				$inAbstract = 0;
 			}
 			if ($inRelated && $value =~ /start/) {
 				$frameworkrelated = $tail;
@@ -591,6 +667,34 @@ foreach my $file (@inputFiles) {
 				$frameworkrelated =~ s/^\s*//sg;
 				$frameworkrelated =~ s/\s*$//sg;
 				# print "Related Docs: $frameworkrelated\n";
+			} elsif ($inRelated && $value =~ /end/) {
+				$inRelated = 0;
+			}
+			if ($inFWUID && $value =~ /start/) {
+				$frameworkUID = $tail;
+
+				# Strip off the closing marker and what follows.
+				$frameworkUID =~ s/<!--\s+headerDoc\s*.*//sg;
+				$frameworkUID =~ s/^\s*//sg;
+				$frameworkUID =~ s/\s*$//sg;
+				# print "Got UID: $frameworkUID\n";
+
+				if ($frameworkUID =~ /\S/) {
+					$landingPageFrameworkUID = "//$apiUIDPrefix/doc/uid/$frameworkUID";
+				}
+			} elsif ($inFWUID && $value =~ /end/) {
+				$inFWUID = 0;
+			}
+			if ($inFWCopyright && $value =~ /start/) {
+				$frameworkCopyrightString = $tail;
+
+				# Strip off the closing marker and what follows.
+				$frameworkCopyrightString =~ s/<!--\s+headerDoc\s*.*//sg;
+				$frameworkCopyrightString =~ s/^\s*//sg;
+				$frameworkCopyrightString =~ s/\s*$//sg;
+				# print "Got CopyrightString: $frameworkCopyrightString\n";
+			} elsif ($inFWCopyright && $value =~ /end/) {
+				$inFWCopyright = 0;
 			}
 			if ($inPath && $value =~ /start/) {
 				$frameworkpath = $tail;
@@ -598,6 +702,8 @@ foreach my $file (@inputFiles) {
 				$frameworkpath =~ s/^\s*//sg;
 				$frameworkpath =~ s/\s*$//sg;
 				# print "Abstract: $frameworkabstract\n";
+			} elsif ($inPath && $value =~ /end/) {
+				$inPath = 0;
 			}
                         last SWITCH;
                     };
@@ -609,8 +715,13 @@ foreach my $file (@inputFiles) {
 		$tmpType = $1;
 		$isTitle = 1; # for future use.
 	}
+	if (!$docRef->uid()) {
+		print "REF UID BLANK FOR : ".$docRef->name()." in file $file\n";
+	}
         if ($tmpType eq "Header") {
             push (@headerFramesetRefs, $docRef);
+        } elsif ($tmpType eq "instp"){
+            push (@propFramesetRefs, $docRef);
         } elsif ($tmpType eq "clconst"){
             push (@dataFramesetRefs, $docRef);
         } elsif ($tmpType eq "data"){
@@ -637,31 +748,50 @@ foreach my $file (@inputFiles) {
 		if (!$isTitle) {
 			push (@functionRefs, $docRef);
 		}
-	} elsif ($tmpType eq "Framework") {
+	} elsif ($tmpType eq "Framework" || $tmpType eq "framework") {
 	    if (rightframework($file)) {
 		$framework = $docRef->name();
 		$frameworkShortName = $docRef->shortname();
 		$landingPageUID = "//$apiUIDPrefix/doc/framework/$frameworkShortName";
+		# print "FWUID IS \"$frameworkUID\"\n";
+		if ($frameworkUID =~ /\S/) {
+			$landingPageFrameworkUID = "//$apiUIDPrefix/doc/uid/$frameworkUID";
+		}
 	    }
 	} elsif ($tmpType eq "frameworkdiscussion" ||
 	         $tmpType eq "frameworkabstract" ||
+	         $tmpType eq "frameworkuid" ||
+	         $tmpType eq "frameworkcopyright" ||
 	         $tmpType eq "frameworkpath" ||
 		 $tmpType eq "frameworkrelated") {
 	    if ($localDebug) {
 		print "Discussion: $frameworkdiscussion\n";
 		print "Abstract: $frameworkabstract\n";
+		print "UID: $frameworkUID\n";
+		print "Copyright: $frameworkCopyrightString\n";
 		print "Path: $frameworkpath\n";
 		print "Related: $frameworkrelated\n";
 	    }
 	} elsif ($tmpType eq "inheritedContent") {
 		print "Inherited content: ".$docRef->name()."\n" if ($localDebug);
+        } elsif ($tmpType eq "econst") {
+		print "Embedded constant: ".$docRef->name()."\n" if ($localDebug);
+		push (@dataFramesetRefs, $docRef);
         } else {
             my $tmpName = $docRef->name();
             my $tmpPath = $docRef->path();
             print "Unknown type '$tmpType' for document with name '$tmpName' and path '$tmpPath'\n";
         }
+	if ($docRef->uid()) {
+		push(@perFileDocRefs, $docRef);
+	}
     }
   }
+  my $docRef = HeaderDoc::DocReference->new;
+  $docRef->name($file);
+  $docRef->path($file);
+  $docRef->group( \@perFileDocRefs );
+  push(@fileRefSets, $docRef);
 }
 $/ = $oldRecSep;
 print "\ndone.\n";
@@ -673,8 +803,17 @@ $| = 0;
 
 # create master TOC if we have any framesets
 if (scalar(@headerFramesetRefs) + scalar(@comintFramesetRefs) + scalar(@classFramesetRefs) + scalar(@manpageFramesetRefs) + scalar(@protocolFramesetRefs) + scalar(@categoryFramesetRefs) + scalar(@functionRefs)) {
-    &printMasterTOC();
-    &addTopLinkToFramesetTOCs();
+    if ($generateDocSet) {
+	print STDERR "Generating DocSet files suitable for use with docsetutil.\n";
+	generateDocSetFile($inputDir);
+    }
+    if (!$skipTOC) {
+	print STDERR "Generating TOCs.\n";
+        &printMasterTOC();
+        &addTopLinkToFramesetTOCs();
+    } else {
+	print STDERR "Not generating landing pages because -n flag specified.\n";
+    }
     if ($has_resolver) {
 	LinkResolver::resolveLinks($inputDir); # Apple internal resolver.
     } else {
@@ -748,6 +887,7 @@ sub printMasterTOC {
   my %headersLinkString= ();
   my %typeLinkString = ();
   my %macroLinkString = ();
+  my %propLinkString = ();
   my %dataLinkString = ();
   my %comintsLinkString = ();
   my %classesLinkString = ();
@@ -758,6 +898,7 @@ sub printMasterTOC {
 
   my $seenHeaders = 0;
   my $seenType = 0;
+  my $seenProp = 0;
   my $seenData = 0;
   my $seenMacros = 0;
   my $seenClasses = 0;
@@ -783,6 +924,7 @@ sub printMasterTOC {
     if ($localDebug) {
 	print "Contains header list:        ".($used{header} ? 1 : 0)."\n";
 	print "Contains type list:          ".($used{type} ? 1 : 0)."\n";
+	print "Contains property list:      ".($used{prop} ? 1 : 0)."\n";
 	print "Contains data list:          ".($used{data} ? 1 : 0)."\n";
 	print "Contains function list:      ".($used{function} ? 1 : 0)."\n";
 	print "Contains man page list:      ".($used{manpage} ? 1 : 0)."\n";
@@ -801,6 +943,7 @@ sub printMasterTOC {
       %letters_linked = (); # Reset this for each group.
       $headersLinkString{$group} = "";
       $typeLinkString{$group} = "";
+      $propLinkString{$group} = "";
       $dataLinkString{$group} = "";
       $comintsLinkString{$group} = "";
       $classesLinkString{$group} = "";
@@ -887,6 +1030,32 @@ sub printMasterTOC {
         if (($localDebug) && length($dataLinkString{$group})) {print "\$dataLinkString is '".$dataLinkString{$group}."'\n";};
       } else { $seenData = scalar @dataFramesetRefs; }
 
+      # get the HTML links to each property
+      if ($localDebug) {
+	print "BLANKLIST: ";
+	foreach my $name (keys %letters_linked) {
+		print "$name "
+	}
+	print "ENDLIST\n";
+      }
+      if ($used{prop}) {
+        foreach my $ref (sort objName @propFramesetRefs) {
+          my $name = $ref->name();
+          my $path = $ref->path();        
+	  my $uid = $ref->uid();
+	  if ($ref->group() ne $group) {
+		print "Not adding \"$name\" because GROUP \"".$ref->group()."\" ne \"$group\".\n" if ($localDebug);
+		next;
+	  }
+	  print "Adding \"$name\".\n" if ($localDebug);
+
+          my $tmpString = &getLinkToFunctionFrom($masterTOC, $path, $name, $uid, $group, "prop");
+          $propLinkString{$group} .= $tmpString; $seenProp = 1;
+        }
+        if (($localDebug) && length($propLinkString{$group})) {print "\$propLinkString is '".$propLinkString{$group}."'\n";};
+      } else { $seenProp = scalar @propFramesetRefs; }
+
+      # Get the list of letters to create links.
       {
       my %temp_letters_linked = %letters_linked;
       my $grouptype = $groupns."_data";
@@ -1177,6 +1346,9 @@ sub printMasterTOC {
 
 			if ($include_in_output) {
 				$out .= "<a name=\"$landingPageUID\" title=\"$framework\"></a>";
+				if ($landingPageFrameworkUID ne "") {
+					$out .= "<a name=\"$landingPageFrameworkUID\" title=\"$framework\"></a>";
+				}
 			}
 
 			$keep =~ s/.*?\@\@//s;
@@ -1414,6 +1586,34 @@ sub printMasterTOC {
 			$keep =~ s/.*?\@\@//s;
 			last SWITCH;
 			};
+		($field =~ /^\s*propsection/) && do {
+
+			if (!$seenProp) { # @@@ Debug checkpoint for properties
+				$include_in_output = 0;
+			}
+
+			$keep =~ s/.*?\@\@//s;
+			last SWITCH;
+			};
+		($field =~ /^\s*\/propsection/) && do {
+
+			$include_in_output = 1;
+
+			$keep =~ s/.*?\@\@//s;
+			last SWITCH;
+			};
+		($field =~ /^\s*proplist/) && do {
+
+			if ($seenProp) {
+				$field =~ s/\@\@.*//s;
+				foreach my $group (sort keys(%groups)) {
+					$out .= genTable($propLinkString{$group}, $field, $group, "prop");
+				}
+			}
+
+			$keep =~ s/.*?\@\@//s;
+			last SWITCH;
+			};
 		($field =~ /^\s*datasection/) && do {
 
 			if (!$seenData) { # @@@ Debug checkpoint for data (const, etc.)
@@ -1454,6 +1654,34 @@ sub printMasterTOC {
 		($field =~ /^\s*\/typesection/) && do {
 
 			$include_in_output = 1;
+
+			$keep =~ s/.*?\@\@//s;
+			last SWITCH;
+			};
+		($field =~ /^\s*year/) && do {
+			$out .= $yearStamp;
+
+			$keep =~ s/.*?\@\@//s;
+			last SWITCH;
+			};
+		($field =~ /^\s*date/) && do {
+			$out .= $dateStamp;
+
+			$keep =~ s/.*?\@\@//s;
+			last SWITCH;
+			};
+		($field =~ /^\s*copyright/) && do {
+
+			if (length($frameworkCopyrightString)) {
+				my $temp = $frameworkCopyrightString;
+				$temp =~ s/\$\$year\@\@/\Q$yearStamp\E/g;
+				$temp =~ s/\$\$date\@\@/\Q$dateStamp\E/g;
+				$out .= $temp;
+			} else {
+				if ($HeaderDoc::copyrightOwner && length($HeaderDoc::copyrightOwner)) {
+					$out .= "&copy; ".$yearStamp." ".$HeaderDoc::copyrightOwner
+				}
+			}
 
 			$keep =~ s/.*?\@\@//s;
 			last SWITCH;
@@ -1524,15 +1752,15 @@ sub printMasterTOC {
 sub addTopLinkToFramesetTOCs {
     my $masterTOC = $inputDir.$pathSeparator. $masterTOCFileName;
     my $tocFileName = "toc.html";
-    my @allDocRefs;
-    push(@allDocRefs, @headerFramesetRefs);
-    push(@allDocRefs, @comintFramesetRefs);
-    push(@allDocRefs, @classFramesetRefs);
-    push(@allDocRefs, @protocolFramesetRefs);
-    push(@allDocRefs, @categoryFramesetRefs);
+    my @allFramesetRefs;
+    push(@allFramesetRefs, @headerFramesetRefs);
+    push(@allFramesetRefs, @comintFramesetRefs);
+    push(@allFramesetRefs, @classFramesetRefs);
+    push(@allFramesetRefs, @protocolFramesetRefs);
+    push(@allFramesetRefs, @categoryFramesetRefs);
     my $localDebug = 0;
     
-    foreach my $ref (@allDocRefs) {
+    foreach my $ref (@allFramesetRefs) {
         my $name = $ref->name();
         my $type = $ref->type();
         my $path = $ref->path();
@@ -1687,7 +1915,7 @@ sub default_template
     # my $he = HeaderElement::new;
     # my $stylesheet = $he->styleSheet(0);
 
-    $template .= "<html>\n<head>\n    <title>\$\$title\@\@</title>\n	<meta name=\"generator\" content=\"HeaderDoc\">\n$stylesheet</head>\n<body bgcolor=\"$GHD::bgcolor\"><h1>\$\$framework\@\@ Documentation</h1><hr/><br/>\n";
+    $template .= "<html>\n<head>\n    <title>\$\$title\@\@</title>\n	<meta name=\"generator\" content=\"HeaderDoc\" />\n<meta name=\"xcode-display\" content=\"render\" />\n$stylesheet</head>\n<body bgcolor=\"$GHD::bgcolor\"><h1>\$\$framework\@\@ Documentation</h1><hr/><br/>\n";
     $template .= "<p>\$\$frameworkdiscussion\@\@</p>";
     $template .= "\$\$headersection\@\@<h2>Headers</h2>\n<blockquote>\n\$\$headerlist cols=2 order=down atts=border=\"0\" width=\"80%\"\@\@\n</blockquote>\$\$/headersection\@\@\n";
     $template .= "\$\$classsection\@\@<h2>Classes</h2>\n<blockquote>\n\$\$classlist cols=2 order=down atts=border=\"0\" width=\"80%\"\@\@\n</blockquote>\$\$/classsection\@\@\n";
@@ -1696,6 +1924,8 @@ sub default_template
     $template .= "\$\$functionsection\@\@<h2>Functions</h2>\n<blockquote>\n\$\$functionlist cols=2 order=down atts=border=\"0\" width=\"80%\"\@\@\n</blockquote>\$\$/functionsection\@\@\n";
     $template .= "\$\$typesection\@\@<h2>Data Types</h2>\n<blockquote>\n\$\$typelist cols=2 order=down atts=border=\"0\" width=\"80%\"\@\@\n</blockquote>\$\$/typesection\@\@\n";
     $template .= "\$\$datasection\@\@<h2>Globals and Constants</h2>\n<blockquote>\n\$\$datalist cols=2 order=down atts=border=\"0\" width=\"80%\"\@\@\n</blockquote>\$\$/datasection\@\@\n";
+    $template .= "\$\$propsection\@\@<h2>Globals and Constants</h2>\n<blockquote>\n\$\$proplist cols=2 order=down atts=border=\"0\" width=\"80%\"\@\@\n</blockquote>\$\$/propsection\@\@\n";
+    $template .= "\$\$copyright\@\@\n";
     $template .= "</body>\n</html>\n";
 
     $gather_globals_and_constants = 1;
@@ -2095,5 +2325,80 @@ sub printll
 	print "$key\n";
     }
     print "\n";
+}
+
+# sub writeAPIOwner
+# {
+    # my $apioRef = shift;
+    # my $file = shift;
+# 
+    # my $name = $apioRef->name();
+    # my $type = $apioRef->type();
+    # my $path = $apioRef->path();
+    # my $uid = $apioRef->uid();
+# 
+    # print $file "<Node type="file">\n";
+    # print $file "    <Name>$name</name>\n";
+    # print $file "    <Path>$path</Path>\n";
+    # print $file "    <Anchor>$uid</Anchor>\n";
+# }
+
+sub generateDocSetFile
+{
+    my $outputDir = shift;
+    my $masterTOCFile = $outputDir.$pathSeparator.$masterTOCFileName;
+
+# my @allFramesetRefs;
+# my @headerFramesetRefs;
+# my @dataFramesetRefs;
+# my @macroFramesetRefs;
+# my @typeFramesetRefs;
+# my @comintFramesetRefs;
+# my @classFramesetRefs;
+# my @manpageFramesetRefs;
+# my @categoryFramesetRefs;
+# my @protocolFramesetRefs;
+# my @functionRefs;
+    # foreach my $header (@headerFramesetRefs) {
+	# writeAPIOwner($header, OUTFILE);
+    # }
+
+    open(OUTFILE, ">$inputDir/Nodes.xml") || die("Could not write Nodes.xml file.\n");
+
+    print OUTFILE "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
+    print OUTFILE "<DocSetNodes version=\"1.0\">\n";
+    print OUTFILE "    <TOC>\n";
+    print OUTFILE "        <Node type=\"file\">\n";
+    print OUTFILE "            <Name>$framework</Name>\n";
+    print OUTFILE "            <Path>$masterTOCFileName</Path>\n";
+    print OUTFILE "        </Node>\n";
+    print OUTFILE "    </TOC>\n";
+    print OUTFILE "</DocSetNodes>\n";
+    close(OUTFILE);
+
+    open(OUTFILE, ">$inputDir/Tokens.xml") || die("Could not write Tokens.xml file.\n");
+    print OUTFILE "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
+    print OUTFILE "<Tokens version=\"1.0\">\n";
+
+    foreach my $header (@fileRefSets) {
+	my $path = $header->path();
+	my $relPath = &findRelativePath($masterTOCFile, $path);
+
+	my $arrayRef = $header->group();
+	my @refs = @{$arrayRef};
+
+	print OUTFILE "    <File path=\"$relPath\">\n";
+	foreach my $ref (@refs) {
+		my $uid = $ref->uid();
+		print OUTFILE "        <Token>\n";
+		print OUTFILE "            <TokenIdentifier>$uid</TokenIdentifier>\n";
+		# TODO: Availability
+		print OUTFILE "        </Token>\n";
+	}
+	print OUTFILE "    </File>\n";
+    }
+    print OUTFILE "</Tokens>\n";
+
+    close(OUTFILE);
 }
 

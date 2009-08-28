@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 1999-2006, International Business Machines
+*   Copyright (C) 1999-2007, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -365,10 +365,14 @@ U_CDECL_BEGIN
 
 static int32_t U_CALLCONV
 compareItems(const void * /*context*/, const void *left, const void *right) {
+    U_NAMESPACE_USE
+
     return (int32_t)strcmp(((Item *)left)->name, ((Item *)right)->name);
 }
 
 U_CDECL_END
+
+U_NAMESPACE_BEGIN
 
 Package::Package() {
     inPkgName[0]=0;
@@ -822,7 +826,7 @@ Package::writePackage(const char *filename, char outType, const char *comment) {
 }
 
 int32_t
-Package::findItem(const char *name, int32_t length) {
+Package::findItem(const char *name, int32_t length) const {
     int32_t i, start, limit;
     int result;
 
@@ -1135,13 +1139,17 @@ Package::extractItems(const char *filesPath, const Package &listPkg, char outTyp
     }
 }
 
-void
-Package::listItems(FILE *file) {
-    int32_t i;
+int32_t
+Package::getItemCount() const {
+    return itemCount;
+}
 
-    for(i=0; i<itemCount; ++i) {
-        fprintf(file, "%s\n", items[i].name);
+const Item *
+Package::getItem(int32_t idx) const {
+    if (0 <= idx && idx < itemCount) {
+        return &items[idx];
     }
+    return NULL;
 }
 
 void
@@ -1156,13 +1164,18 @@ Package::checkDependency(void *context, const char *itemName, const char *target
 
 UBool
 Package::checkDependencies() {
+    isMissingItems=FALSE;
+    enumDependencies(this, checkDependency);
+    return (UBool)!isMissingItems;
+}
+
+void
+Package::enumDependencies(void *context, CheckDependency check) {
     int32_t i;
 
-    isMissingItems=FALSE;
     for(i=0; i<itemCount; ++i) {
-        enumDependencies(items+i);
+        enumDependencies(items+i, context, check);
     }
-    return (UBool)!isMissingItems;
 }
 
 char *
@@ -1200,3 +1213,5 @@ Package::sortItems() {
         exit(errorCode);
     }
 }
+
+U_NAMESPACE_END

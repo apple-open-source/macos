@@ -2,8 +2,8 @@ Additional notes for using the MySQL Makefile:
 
 The Apple-provided Makefile is designed to run with custom environment variables to define the set of architectures for the output binaries and the directory organization for all make products.  Use the env command to set up the environment for the make as follows:
 
-sudo env RC_ARCHS="ppc i386 ppc64 x86_64" \
-      RC_CFLAGS="-arch ppc -arch i386 -arch ppc64 -arch x86_64 -pipe" \
+sudo env RC_ARCHS="i386 x86_64" \
+      RC_CFLAGS="-arch i386 -arch x86_64 -pipe" \
       RC_NONARCH_CFLAGS="-pipe" \
       SRCROOT=/path/to/source/directory/ \
       OBJROOT=/path/for/intermediate/make/products/ \
@@ -24,9 +24,9 @@ DSTROOT is the path containing the final build product with stripped binaries. T
 The intermediate make products can consume a large amount of disk space (up to several gigabytes), depending on the number of architectures built. Make sure that the destination volume chose for the make product paths has sufficient space to hold the resulting files or the make will fail.  During the install phase, the Makefile needs to set root privileges on selected files, so the make must be run as sudo.
 
 Example: 
-% rm -rf /tmp/MySQL.root
-% sudo env RC_ARCHS="ppc i386" \
-      RC_CFLAGS="-arch ppc -arch i386 -pipe" \
+% sudo rm -rf /tmp/MySQL.root
+% sudo env RC_ARCHS="i386 x86_64" \
+      RC_CFLAGS="-arch i386 -arch x86_64 -pipe" \
       RC_NONARCH_CFLAGS="-pipe"  \
       SRCROOT=/Users/jj/projects/MySQL  \
       OBJROOT=/tmp/MySQL.root/MySQL~obj  \

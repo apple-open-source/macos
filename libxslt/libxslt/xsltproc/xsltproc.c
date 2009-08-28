@@ -57,10 +57,6 @@
 #if defined(_MSC_VER) || defined(__MINGW32__)
 #include <winsock2.h>
 #define gettimeofday(p1,p2)
-#define HAVE_TIME_H
-#include <time.h>
-#define HAVE_STDARG_H
-#include <stdarg.h>
 #define snprintf _snprintf
 #endif /* _MS_VER */
 #else /* WIN32 */
@@ -75,17 +71,6 @@
 #include <sys/timeb.h>
 #endif
 
-#ifndef HAVE_STAT
-#  ifdef HAVE__STAT
-     /* MS C library seems to define stat and _stat. The definition
-      *         is identical. Still, mapping them to each other causes a warning. */
-#    ifndef _MSC_VER
-#      define stat(x,y) _stat(x,y)
-#    endif
-#    define HAVE_STAT
-#  endif
-#endif
-
 static int debug = 0;
 static int repeat = 0;
 static int timing = 0;
@@ -93,12 +78,15 @@ static int dumpextensions = 0;
 static int novalid = 0;
 static int nodtdattr = 0;
 static int noout = 0;
+static int nodict = 0;
 #ifdef LIBXML_HTML_ENABLED
 static int html = 0;
 #endif
+static char *encoding = NULL;
 static int load_trace = 0;
 #ifdef LIBXML_XINCLUDE_ENABLED
 static int xinclude = 0;
+static int xincludestyle = 0;
 #endif
 static int profile = 0;
 
@@ -395,16 +383,20 @@ xsltProcess(xmlDocPtr doc, xsltStylesheetPtr cur, const char *filename) {
 		xmlFreeDoc(doc);
 #ifdef LIBXML_HTML_ENABLED
 		if (html)
-		    doc = htmlReadFile(filename, NULL, options);
+		    doc = htmlReadFile(filename, encoding, options);
 		else
 #endif
-		    doc = xmlReadFile(filename, NULL, options);
+		    doc = xmlReadFile(filename, encoding, options);
 	    }
 	}
 	ctxt = xsltNewTransformContext(cur, doc);
 	if (ctxt == NULL)
 	    return;
 	xsltSetCtxtParseOptions(ctxt, options);
+#ifdef LIBXML_XINCLUDE_ENABLED
+	if (xinclude)
+	    ctxt->xinclude = 1;
+#endif
 	if (profile) {
 	    res = xsltApplyStylesheetUser(cur, doc, params, NULL,
 		                          stderr, ctxt);
@@ -465,18 +457,20 @@ xsltProcess(xmlDocPtr doc, xsltStylesheetPtr cur, const char *filename) {
 
 	xmlFreeDoc(res);
     } else {
-
+        int ret;
 	ctxt = xsltNewTransformContext(cur, doc);
 	if (ctxt == NULL)
 	    return;
 	if (profile) {
-	    xsltRunStylesheetUser(cur, doc, params, output,
+	    ret = xsltRunStylesheetUser(cur, doc, params, output,
 		                        NULL, NULL, stderr, ctxt);
 	} else {
-	    xsltRunStylesheetUser(cur, doc, params, output,
+	    ret = xsltRunStylesheetUser(cur, doc, params, output,
 		                        NULL, NULL, NULL, ctxt);
 	}
-	if (ctxt->state == XSLT_STATE_ERROR)
+	if (ret == -1)
+	    errorno = 11;
+	else if (ctxt->state == XSLT_STATE_ERROR)
 	    errorno = 9;
 	else if (ctxt->state == XSLT_STATE_STOPPED)
 	    errorno = 10;
@@ -507,6 +501,7 @@ static void usage(const char *name) {
 #ifdef LIBXML_HTML_ENABLED
     printf("\t--html: the input document is(are) an HTML file(s)\n");
 #endif
+    printf("\t--encoding: the input document character encoding\n");
     printf("\t--param name value : pass a (parameter,value) pair\n");
     printf("\t       value is an UTF8 XPath expression.\n");
     printf("\t       string values must be quoted like \"'string'\"\n or");
@@ -523,7 +518,8 @@ static void usage(const char *name) {
     printf("\t         file:///etc/xml/catalog are activated by default\n");
 #endif
 #ifdef LIBXML_XINCLUDE_ENABLED
-    printf("\t--xinclude : do XInclude processing on document intput\n");
+    printf("\t--xinclude : do XInclude processing on document input\n");
+    printf("\t--xincludestyle : do XInclude processing on stylesheets\n");
 #endif
     printf("\t--load-trace : print trace of all external entites loaded\n");
     printf("\t--profile or --norman : dump profiling informations \n");
@@ -609,12 +605,18 @@ main(int argc, char **argv)
                    (!strcmp(argv[i], "--html"))) {
             html++;
 #endif
+	} else if ((!strcmp(argv[i], "-encoding")) ||
+		   (!strcmp(argv[i], "--encoding"))) {
+	    encoding = argv[++i];
         } else if ((!strcmp(argv[i], "-timing")) ||
                    (!strcmp(argv[i], "--timing"))) {
             timing++;
         } else if ((!strcmp(argv[i], "-profile")) ||
                    (!strcmp(argv[i], "--profile"))) {
             profile++;
+        } else if ((!strcmp(argv[i], "-nodict")) ||
+                   (!strcmp(argv[i], "--nodict"))) {
+            nodict++;
         } else if ((!strcmp(argv[i], "-norman")) ||
                    (!strcmp(argv[i], "--norman"))) {
             profile++;
@@ -659,6 +661,9 @@ main(int argc, char **argv)
         } else if ((!strcmp(argv[i], "-xinclude")) ||
                    (!strcmp(argv[i], "--xinclude"))) {
             xinclude++;
+        } else if ((!strcmp(argv[i], "-xincludestyle")) ||
+                   (!strcmp(argv[i], "--xincludestyle"))) {
+            xincludestyle++;
             xsltSetXIncludeDefault(1);
 #endif
         } else if ((!strcmp(argv[i], "-load-trace")) ||
@@ -736,6 +741,8 @@ main(int argc, char **argv)
 	options = XML_PARSE_NOENT | XML_PARSE_NOCDATA;
     else if (nodtdattr)
         options = XML_PARSE_NOENT | XML_PARSE_DTDLOAD | XML_PARSE_NOCDATA;
+    if (nodict != 0)
+        options |= XML_PARSE_NODICT;
 
     /*
      * Register the EXSLT extensions and the test module
@@ -759,6 +766,10 @@ main(int argc, char **argv)
                    (!strcmp(argv[i], "-output")) ||
                    (!strcmp(argv[i], "--output"))) {
             i++;
+	    continue;
+	} else if ((!strcmp(argv[i], "-encoding")) ||
+		   (!strcmp(argv[i], "--encoding"))) {
+	    i++;
 	    continue;
         } else if ((!strcmp(argv[i], "-writesubtree")) ||
                    (!strcmp(argv[i], "--writesubtree"))) {
@@ -784,6 +795,20 @@ main(int argc, char **argv)
 	    style = xmlReadFile((const char *) argv[i], NULL, options);
             if (timing) 
 		endTimer("Parsing stylesheet %s", argv[i]);
+	    if (xincludestyle) {
+		if (style != NULL) {
+		    if (timing)
+			startTimer();
+#if LIBXML_VERSION >= 20603
+		    xmlXIncludeProcessFlags(style, XSLT_PARSE_OPTIONS);
+#else
+		    xmlXIncludeProcess(style);
+#endif
+		    if (timing) {
+			endTimer("XInclude processing %s", argv[i]);
+		    }
+		}
+	    }
 	    if (style == NULL) {
 		fprintf(stderr,  "cannot parse %s\n", argv[i]);
 		cur = NULL;
@@ -823,10 +848,10 @@ main(int argc, char **argv)
                 startTimer();
 #ifdef LIBXML_HTML_ENABLED
             if (html)
-                doc = htmlReadFile(argv[i], NULL, options);
+                doc = htmlReadFile(argv[i], encoding, options);
             else
 #endif
-                doc = xmlReadFile(argv[i], NULL, options);
+                doc = xmlReadFile(argv[i], encoding, options);
             if (doc == NULL) {
                 fprintf(stderr, "unable to parse %s\n", argv[i]);
 		errorno = 6;

@@ -28,9 +28,11 @@
 // <strstream> is deprecated on some platforms, and the compiler complains very loudly if you use it.
 #include <strstream>
 #endif
+#include <fstream>
 using namespace std;
 #elif U_IOSTREAM_SOURCE >= 198506
 #include <strstream.h>
+#include <fstream.h>
 #endif
 
 #include <string.h>
@@ -127,9 +129,119 @@ static void U_CALLCONV TestStream(void)
     log_info("U_IOSTREAM_SOURCE is disabled\n");
 #endif
 }
+
+#define IOSTREAM_GOOD_SHIFT 3
+#define IOSTREAM_GOOD (1<<IOSTREAM_GOOD_SHIFT)
+#define IOSTREAM_BAD_SHIFT 2
+#define IOSTREAM_BAD (1<<IOSTREAM_BAD_SHIFT)
+#define IOSTREAM_EOF_SHIFT 1
+#define IOSTREAM_EOF (1<<IOSTREAM_EOF_SHIFT)
+#define IOSTREAM_FAIL_SHIFT 0
+#define IOSTREAM_FAIL (1<<IOSTREAM_FAIL_SHIFT)
+
+static int32_t getBitStatus(const iostream&  stream) {
+    return (stream.good()<<IOSTREAM_GOOD_SHIFT)
+        | (stream.bad()<<IOSTREAM_BAD_SHIFT)
+        | (stream.eof()<<IOSTREAM_EOF_SHIFT)
+        | (stream.fail()<<IOSTREAM_FAIL_SHIFT);
+}
+
+void
+printBits(const iostream&  stream)
+{
+    int32_t status = getBitStatus(stream);
+    log_verbose("status 0x%02X (", status);
+    if (status & IOSTREAM_GOOD) {
+        log_verbose("good");
+    }
+    if (status & IOSTREAM_BAD) {
+        log_verbose("bad");
+    }
+    if (status & IOSTREAM_EOF) {
+        log_verbose("eof");
+    }
+    if (status & IOSTREAM_FAIL) {
+        log_verbose("fail");
+    }
+    log_verbose(")\n");
+}
+
+void
+testString(
+            UnicodeString&        str,
+            const char*     testString,
+            const char* expectedString,
+            int32_t expectedStatus)
+{
+#ifdef USE_SSTREAM
+    stringstream sstrm;
+#else
+    strstream sstrm;
+#endif
+
+    sstrm << testString;
+
+    /*log_verbose("iostream before operator::>>() call \"%s\" ", testString);
+    printBits(sstrm);*/
+
+    sstrm >> str;
+
+    log_verbose("iostream after operator::>>() call \"%s\" ", testString);
+    printBits(sstrm);
+
+    if (getBitStatus(sstrm) != expectedStatus) {
+        printBits(sstrm);
+        log_err("Expected status %d, Got %d. See verbose output for details\n", getBitStatus(sstrm), expectedStatus);
+    }
+    if (str != UnicodeString(expectedString)) {
+        log_err("Did not get expected results from \"%s\", expected \"%s\"\n", testString, expectedString);
+    }
+}
+
+static void U_CALLCONV TestStreamEOF(void)
+{
+    UnicodeString dest;
+    fstream fs(STANDARD_TEST_FILE, fstream::in | fstream::out | fstream::trunc);
+#ifdef USE_SSTREAM
+    stringstream ss;
+#else
+    strstream ss;
+#endif
+
+    fs << "EXAMPLE";
+    fs.seekg(0);
+    ss << "EXAMPLE";
+
+    if (!(fs >> dest)) {
+        log_err("Reading of file did not return expected status result\n");
+    }
+    if (dest != "EXAMPLE") {
+        log_err("Reading of file did not return expected string\n");
+    }
+
+    if (!(ss >> dest)) {
+        log_err("Reading of string did not return expected status result\n");
+    }
+    if (dest != "EXAMPLE") {
+        log_err("Reading of string did not return expected string\n");
+    }
+    fs.close();
+
+    log_verbose("Testing operator >> for UnicodeString...\n");
+
+    UnicodeString UStr;
+    testString(UStr, "", "", IOSTREAM_EOF|IOSTREAM_FAIL);
+    testString(UStr, "foo", "foo", IOSTREAM_EOF);
+    UStr = "unchanged";
+    testString(UStr, "   ", "unchanged", IOSTREAM_EOF|IOSTREAM_FAIL);
+    testString(UStr, "   bar", "bar", IOSTREAM_EOF);
+    testString(UStr, "bar   ", "bar", IOSTREAM_GOOD);
+    testString(UStr, "   bar   ", "bar", IOSTREAM_GOOD);
+}
 U_CDECL_END
 
 U_CFUNC void addStreamTests(TestNode** root) {
     addTest(root, &TestStream, "stream/TestStream");
+    addTest(root, &TestStreamEOF, "stream/TestStreamEOF");
 }
 

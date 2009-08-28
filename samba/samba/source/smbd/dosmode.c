@@ -224,7 +224,7 @@ static uint32 dos_mode_from_sbuf(connection_struct *conn, const char *path, SMB_
 #endif
 
 	if (S_ISDIR(sbuf->st_mode))
-		result = aDIR | (result & aRONLY);
+		result |= aDIR;
 
 	result |= set_sparse_flag(sbuf);
  
@@ -488,11 +488,18 @@ int file_set_dosmode(connection_struct *conn, const char *fname,
 	dosmode &= SAMBA_ATTRIBUTES_MASK;
 
 	DEBUG(10,("file_set_dosmode: setting dos mode 0x%x on file %s\n", dosmode, fname));
-	if (!st || (st && !VALID_STAT(*st))) {
+
+	if (st == NULL) {
+		SET_STAT_INVALID(st1);
 		st = &st1;
+	}
+
+	if (!VALID_STAT(*st)) {
 		if (SMB_VFS_STAT(conn,fname,st))
 			return(-1);
 	}
+
+	unixmode = st->st_mode;
 
 	get_acl_group_bits(conn, fname, &st->st_mode);
 
@@ -501,13 +508,61 @@ int file_set_dosmode(connection_struct *conn, const char *fname,
 	else
 		dosmode &= ~aDIR;
 
-	if (dos_mode(conn,fname,st) == dosmode)
+	if (dos_mode(conn,fname,st) == dosmode) {
+		st->st_mode = unixmode;
 		return(0);
+	}
 
 	/* Store the DOS attributes in an EA by preference. */
 	if (set_ea_dos_attribute(conn, fname, st, dosmode)) {
+		st->st_mode = unixmode;
 		return 0;
 	}
+
+#if defined(HAVE_STAT_ST_FLAGS)
+	/* We have st_flags support so we ought to be able to use
+	 * SMB_VFS_CHFLAGS to set the DOS attributes directly into
+	 * the BSD file flags.
+	 */
+	{
+		int st_flags = 0;
+
+#ifdef UF_IMMUTABLE
+		/* We only set the read-only bit for files, since the DOS
+		 * semantics are to ignore read-only on directories.
+		 */
+		if (S_ISREG(st->st_mode) &&
+		    (dosmode & FILE_ATTRIBUTE_READONLY)) {
+			st_flags |= UF_IMMUTABLE;
+		}
+#endif
+
+#ifdef UF_HIDDEN
+		if (dosmode & FILE_ATTRIBUTE_HIDDEN) {
+			st_flags |= UF_HIDDEN;
+		}
+#endif
+
+#ifdef UF_NODUMP
+		/* If the file is not marked as "needs to be archived", then we
+		 * should mark it as NODUMP (ie, "don't dump this").
+		 */
+		if (!(dosmode & FILE_ATTRIBUTE_ARCHIVE)) {
+			st_flags |= UF_NODUMP;
+		}
+#endif
+
+		if (SMB_VFS_CHFLAGS(conn, fname, st_flags) == 0) {
+			notify_fname(conn, NOTIFY_ACTION_MODIFIED,
+				     FILE_NOTIFY_CHANGE_ATTRIBUTES, fname);
+			st->st_flags = st_flags;
+			return 0;
+		}
+
+		return -1;
+	}
+
+#endif /* defined(HAVE_STAT_ST_FLAGS) */
 
 	unixmode = unix_mode(conn,dosmode,fname, parent_dir);
 
@@ -544,6 +599,7 @@ int file_set_dosmode(connection_struct *conn, const char *fname,
 	if ((ret = SMB_VFS_CHMOD(conn,fname,unixmode)) == 0) {
 		notify_fname(conn, NOTIFY_ACTION_MODIFIED,
 			     FILE_NOTIFY_CHANGE_ATTRIBUTES, fname);
+		st->st_mode = unixmode;
 		return 0;
 	}
 
@@ -576,6 +632,9 @@ int file_set_dosmode(connection_struct *conn, const char *fname,
 		close_file_fchmod(fsp);
 		notify_fname(conn, NOTIFY_ACTION_MODIFIED,
 			     FILE_NOTIFY_CHANGE_ATTRIBUTES, fname);
+		if (ret == 0) {
+			st->st_mode = unixmode;
+		}
 	}
 
 	return( ret );

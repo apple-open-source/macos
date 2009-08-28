@@ -1,4 +1,3 @@
-/* APPLE LOCAL file mainline */
 /* Test for graceful compilation of @synchronized statements.  */
 
 /* { dg-do compile } */

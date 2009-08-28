@@ -1,14 +1,14 @@
-Copyright (c) 2004-2007 The Trustees of Indiana University and Indiana
+Copyright (c) 2004-2008 The Trustees of Indiana University and Indiana
                         University Research and Technology
                         Corporation.  All rights reserved.
 Copyright (c) 2004-2006 The University of Tennessee and The University
                         of Tennessee Research Foundation.  All rights
                         reserved.
-Copyright (c) 2004-2007 High Performance Computing Center Stuttgart, 
+Copyright (c) 2004-2008 High Performance Computing Center Stuttgart, 
                         University of Stuttgart.  All rights reserved.
 Copyright (c) 2004-2006 The Regents of the University of California.
                         All rights reserved.
-Copyright (c) 2006-2007 Cisco Systems, Inc.  All rights reserved.
+Copyright (c) 2006-2008 Cisco Systems, Inc.  All rights reserved.
 Copyright (c) 2006      Voltaire, Inc. All rights reserved.
 Copyright (c) 2006      Sun Microsystems, Inc.  All rights reserved.
                         Use is subject to license terms.
@@ -25,6 +25,185 @@ $HEADER$
 This file contains the main features as well as overviews of specific
 bug fixes (and other actions) for each version of Open MPI since
 version 1.0.
+
+1.2.8
+-----
+
+- Tweaked one memory barrier in the openib component to be more conservative.
+  May fix a problem observed on PPC machines.  See ticket #1532.
+- Fix OpenFabrics IB partition support. See ticket #1557.
+- Restore v1.1 feature that sourced .profile on remote nodes if the default
+  shell will not do so (e.g. /bin/sh and /bin/ksh).  See ticket #1560.
+- Fix segfault in MPI_Init_thread() if ompi_mpi_init() fails. See ticket #1562.
+- Adjust SLURM support to first look for $SLURM_JOB_CPUS_PER_NODE instead of
+  the deprecated $SLURM_TASKS_PER_NODE environment variable.  This change
+  may be *required* when using SLURM v1.2 and above.  See ticket #1536.
+- Fix the MPIR_Proctable to be in process rank order. See ticket #1529.
+- Fix a regession introduced in 1.2.6 for the IBM eHCA. See ticket #1526.
+
+
+1.2.7
+-----
+
+- Add some Sun HCA vendor IDs.  See ticket #1461.
+- Fixed a memory leak in MPI_Alltoallw when called from Fortran.
+  Thanks to Dave Grote for the bugreport.  See ticket #1457.
+- Only link in libutil when it is needed/desired.  Thanks to
+  Brian Barret for diagnosing and fixing the problem.  See ticket #1455.
+- Update some QLogic HCA vendor IDs.  See ticket #1453.
+- Fix F90 binding for MPI_CART_GET.  Thanks to Scott Beardsley for
+  bringing it to our attention. See ticket #1429.
+- Remove a spurious warning message generated in/by ROMIO. See ticket #1421.
+- Fix a bug where command-line MCA parameters were not overriding
+  MCA parameters set from environment variables.  See ticket #1380.
+- Fix a bug in the AMD64 atomics assembly.  Thanks to Gabriele Fatigati
+  for the bug report and bugfix.  See ticket #1351.
+- Fix a gather and scatter bug on intercommunicators when the datatype
+  being moved is 0 bytes. See ticket #1331.
+- Some more man page fixes from the Debian maintainers.
+  See tickets #1324 and #1329.
+- Have openib BTL (OpenFabrics support) check for the presence of
+  /sys/class/infiniband before allowing itself to be used.  This check
+  prevents spurious "OMPI did not find RDMA hardware!" notices on
+  systems that have the software drivers installed, but no
+  corresponding hardware.  See tickets #1321 and #1305.
+- Added vendor IDs for some ConnectX openib HCAs. See ticket #1311.
+- Fix some RPM specfile inconsistencies.  See ticket #1308.
+  Thanks to Jim Kusznir for noticing the problem.
+- Removed an unused function prototype that caused warnings on
+  some systems (e.g., OS X).  See ticket #1274.
+- Fix a deadlock in inter-communicator scatter/gather operations.
+  Thanks to Martin Audet for the bug report.  See ticket #1268.
+
+
+1.2.6
+-----
+
+- Fix a bug in the inter-allgather for asymmetric inter-communicators.
+  Thanks to Martin Audet for the bug report. See ticket #1247.
+- Fix a bug in the openib BTL when setting the CQ depth.  Thanks
+  to Jon Mason for the bug report and fix.  See ticket #1245.
+- On Mac OS X Leopard, the execinfo component will be used for
+  backtraces, making for a more durable solution.  See ticket #1246.
+- Added vendor IDs for some QLogic DDR openib HCAs. See ticket #1227.
+- Updated the URL to get the latest config.guess and config.sub files.
+  Thanks to Ralf Wildenhues for the bug report. See ticket #1226.
+- Added shared contexts support to PSM MTL.  See ticket #1225.
+- Added pml_ob1_use_early_completion MCA parameter to allow users
+  to turn off the OB1 early completion semantic and avoid "stall"
+  problems seen on InfiniBand in some cases.  See ticket #1224.
+- Sanitized some #define macros used in mpi.h to avoid compiler warnings
+  caused by MPI programs built with different autoconf versions.
+  Thanks to Ben Allan for reporting the problem, and thanks to
+  Brian Barrett for the fix. See ticket #1220.
+- Some man page fixes from the Debian maintainers. See ticket #1219.
+- Made the openib BTL a bit more resilient in the face of driver
+  errors.  See ticket #1217.
+- Fixed F90 interface for MPI_CART_CREATE.  See ticket #1208.
+  Thanks to Michal Charemza for reporting the problem.
+- Fixed some C++ compiler warnings. See ticket #1203.
+- Fixed formatting of the orterun man page.  See ticket #1202.
+  Thanks to Peter Breitenlohner for the patch.
+
+
+1.2.5
+-----
+
+- Fixed compile issue with open() on Fedora 8 (and newer) platforms.
+  Thanks to Sebastian Schmitzdorff for noticing the problem.
+- Added run-time warnings during MPI_INIT when MPI_THREAD_MULTIPLE
+  and/or progression threads are used (the OMPI v1.2 series does not
+  support these well at all).
+- Better handling of ECONNABORTED from connect on Linux.  Thanks to
+  Bob Soliday for noticing the problem; thanks to Brian Barrett for
+  submitting a patch.
+- Reduce extraneous output from OOB when TCP connections must
+  be retried.  Thanks to Brian Barrett for submitting a patch.
+- Fix for ConnectX devices and OFED 1.3.  See ticket #1190.
+- Fixed a configure problem for Fortran 90 on Cray systems.  Ticket #1189.
+- Fix an uninitialized variable in the error case in opal_init.c.
+  Thanks to Ake Sandgren for pointing out the mistake.
+- Fixed a hang in configure if $USER was not defined.  Thanks to
+  Darrell Kresge for noticing the problem.  See ticket #900.
+- Added support for parallel debuggers even when we have an optimized build.
+  See ticket #1178.
+- Worked around a bus error in the Mac OS X 10.5.X (Leopard) linker when
+  compiling Open MPI with -g.  See ticket #1179.
+- Removed some warnings about 'rm' from Mac OS X 10.5 (Leopard) builds.
+- Fix the handling of mx_finalize().  See ticket #1177.
+  Thanks to Ake Sandgren for bringing this issue to our attention.
+- Fixed minor file descriptor leak in the Altix timer code.  Thanks to
+  Paul Hargrove for noticing the problem and supplying the fix.
+- Fix a problem when using a different compiler for C and Objective C.
+  See ticket #1153.
+- Fix segfault in MPI_COMM_SPAWN when the user specified a working
+  directory.  Thanks to Murat Knecht for reporting this and suggesting
+  a fix.
+- A few manpage fixes from the Debian Open MPI maintainers.  Thanks to
+  Tilman Koschnick, Sylvestre Ledru, and Dirk Eddelbuettel.
+- Fixed issue with pthread detection when compilers are not all
+  from the same vendor.  Thanks to Ake Sandgren for the bug
+  report.  See ticket #1150.
+- Fixed vector collectives in the self module.  See ticket #1166.
+- Fixed some data-type engine bugs: an indexing bug, and an alignment bug.
+  See ticket #1165.
+- Only set the MPI_APPNUM attribute if it is defined.  See ticket
+  #1164.
+
+
+1.2.4
+-----
+
+- Really added support for TotalView/DDT parallel debugger message queue
+  debugging (it was mistakenly listed as "added" in the 1.2 release).
+- Fixed a build issue with GNU/kFreeBSD. Thanks to Petr Salinger for
+  the patch.
+- Added missing MPI_FILE_NULL constant in Fortran.  Thanks to
+  Bernd Schubert for bringing this to our attention.
+- Change such that the UDAPL BTL is now only built in Linux when
+  explicitly specified via the --with-udapl configure command line
+  switch.
+- Fixed an issue with umask not being propagated when using the TM
+  launcher.
+- Fixed behavior if number of slots is not the same on all bproc nodes.
+- Fixed a hang on systems without GPR support (ex. Cray XT3/4).
+- Prevent users of 32-bit MPI apps from requesting >= 2GB of shared
+  memory.
+- Added a Portals MTL.
+- Fix 0 sized MPI_ALLOC_MEM requests.  Thanks to Lisandro Dalcin for
+  pointing out the problem.
+- Fixed a segfault crash on large SMPs when doing collectives.
+- A variety of fixes for Cray XT3/4 class of machines.
+- Fixed which error handler is used when MPI_COMM_SELF is passed
+  to MPI_COMM_FREE.  Thanks to Lisandro Dalcini for the bug report.
+- Fixed compilation on platforms that don't have hton/ntoh.
+- Fixed a logic problem in the fortran binding for MPI_TYPE_MATCH_SIZE.
+  Thanks to Jeff Dusenberry for pointing out the problem and supplying
+  the fix.
+- Fixed a problem with MPI_BOTTOM in various places of the f77-interface.
+  Thanks to Daniel Spangberg for bringing this up.
+- Fixed problem where MPI-optional Fortran datatypes were not
+  correctly initialized.
+- Fixed several problems with stdin/stdout forwarding.
+- Fixed overflow problems with the sm mpool MCA parameters on large SMPs.
+- Added support for the DDT parallel debugger via orterun's --debug
+  command line option.
+- Added some sanity/error checks to the openib MCA parameter parsing
+  code.
+- Updated the udapl BTL to use RDMA capabilities.
+- Allow use of the BProc head node if it was allocated to the user.
+  Thanks to Sean Kelly for reporting the problem and helping debug it.
+- Fixed a ROMIO problem where non-blocking I/O errors were not properly
+  reported to the user.
+- Made remote process launch check the $SHELL environment variable if
+  a valid shell was not otherwise found for the user.
+  Thanks to Alf Wachsmann for the bugreport and suggested fix.
+- Added/updated some vendor IDs for a few openib HCAs.
+- Fixed a couple of failures that could occur when specifying devices
+  for use by the OOB.
+- Removed dependency on sysfsutils from the openib BTL for
+  libibverbs >=v1.1 (i.e., OFED 1.2 and beyond).
+
 
 1.2.3
 -----
@@ -52,7 +231,7 @@ version 1.0.
 - Rename the oob_tcp_include/exclude MCA params to oob_tcp_if_include/exclude
   so that they match the naming convention of the btl_tcp_if_include/exclude
   params.  The old names are depreciated, but will still work.
-- Add -wd as a synonymn for the -wdir orterun/mpirun option.
+- Add -wd as a synonym for the -wdir orterun/mpirun option.
 - Fix the mvapi BTL to compile properly with compilers that do not support
   anonymous unions.  Thanks to Luis Kornblueh for reporting the bug.
 

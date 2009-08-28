@@ -15,6 +15,18 @@
 	Change History (most recent first):
 
 		$Log: MBCGameInfo.mm,v $
+		Revision 1.13  2009/04/22 23:19:47  neerache
+		<rdar://problem/6815838> Chess crashes when editing Game Info from Game Log window
+		
+		Revision 1.12  2008/10/24 22:45:45  neerache
+		<rdar://problem/5844722> Chess: black may illegally move first in new game
+		
+		Revision 1.11  2008/08/19 20:24:28  neerache
+		<rdar://problem/6159904> 10A149: Chess Crashes using Foundation-706
+		
+		Revision 1.10  2008/04/22 18:40:55  neerache
+		Merge late Leopard changes into trunk
+		
 		Revision 1.9.2.1  2007/05/18 20:36:37  neerache
 		Properly hook up board to game info <rdar://problem/3852844>
 		
@@ -79,9 +91,7 @@ NSString * kMBCShowMoveInTitle 	= @"MBCShowMoveInTitle";
 	// have such a long name anyway?
 	//
 	char	   n[100];
-	NSData * d = [fullName dataUsingEncoding:NSUTF8StringEncoding];
-	[d getBytes:n length:99];
-	n[std::min<unsigned>(99u, [d length])] = 0;
+	strlcpy(n, [fullName UTF8String], 100);
 	
 	char * first 	= n+strspn(n, " \t"); 	// Beginning of first name
 	char * last;
@@ -328,6 +338,7 @@ NSString * kMBCShowMoveInTitle 	= @"MBCShowMoveInTitle";
 
 - (void) startGame:(MBCVariant)variant playing:(MBCSide)sideToPlay
 {
+	[NSObject cancelPreviousPerformRequestsWithTarget:self];
 	if (!fSetInfo) {
 		NSUserDefaults *defaults 	= [NSUserDefaults standardUserDefaults];
 		NSString * 		human		=
@@ -419,23 +430,32 @@ NSString * kMBCShowMoveInTitle 	= @"MBCShowMoveInTitle";
 - (IBAction) updateInfo:(id)sender
 {
 	NSUserDefaults * 	defaults 	= [NSUserDefaults standardUserDefaults];
-	NSString *			humanFirst;
-	NSString *			humanLast;
+	NSString *			human;
 
 	fWhiteName = [[fWhite stringValue] retain];
 	fBlackName = [[fBlack stringValue] retain];
-	if (fHuman == kWhiteSide) {
-		[MBCGameInfo parseName:fWhiteName 
+
+	if (fHuman == kWhiteSide) 
+		human = fWhiteName;
+	else if (fHuman == kBlackSide) 
+		human = fBlackName;
+	else 
+		human = nil; // Both or neither are humans, no default to learn here
+
+	if (human) {
+		NSString *	humanFirst;
+		NSString * 	humanLast;
+
+		[MBCGameInfo parseName:human
 					 intoFirst:&humanFirst last:&humanLast];
-	} else if (fHuman == kBlackSide) {
-		[MBCGameInfo parseName:fBlackName
-					 intoFirst:&humanFirst last:&humanLast];
+		[defaults setObject:humanFirst forKey:kMBCHumanFirst];
+		[defaults setObject:humanLast forKey:kMBCHumanLast];
 	}
-	[defaults setObject:humanFirst forKey:kMBCHumanFirst];
-	[defaults setObject:humanLast forKey:kMBCHumanLast];
+
 	[defaults setObject:[fCity stringValue] forKey:kMBCGameCity];
 	[defaults setObject:[fCountry stringValue] forKey:kMBCGameCountry];
 	[defaults setObject:[fEvent stringValue] forKey:kMBCGameEvent];
+
 	[self updateTitle:nil];
 	[NSApp stopModal];
 }

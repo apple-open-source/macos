@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2004, International Business Machines Corporation and
+ * Copyright (c) 1997-2007, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /*   file name:  cbididat.c
@@ -17,14 +17,14 @@
 #include "unicode/ubidi.h"
 #include "cbiditst.h"
 
-const char *
-dirPropNames[dirPropCount]={
+const char * const
+dirPropNames[U_CHAR_DIRECTION_COUNT]={
     "L", "R", "EN", "ES", "ET", "AN", "CS", "B", "S", "WS", "ON",
     "LRE", "LRO", "AL", "RLE", "RLO", "PDF", "NSM", "BN"
 };
 
 UChar
-charFromDirProp[dirPropCount]={
+charFromDirProp[U_CHAR_DIRECTION_COUNT]={
  /* L     R      EN    ES    ET    AN     CS    B    S    WS    ON */
     0x61, 0x5d0, 0x30, 0x2f, 0x25, 0x660, 0x2c, 0xa, 0x9, 0x20, 0x26,
  /* LRE     LRO     AL     RLE     RLO     PDF     NSM    BN */
@@ -358,7 +358,7 @@ testVisualMapXX[]={
     0
 };
 
-BiDiTestData
+const BiDiTestData
 tests[]={
     {testText1,  ARRAY_LENGTH(testText1),  UBIDI_DEFAULT_LTR, -1, -1,
         UBIDI_LTR, 0,
@@ -430,5 +430,5 @@ tests[]={
         UBIDI_MIXED, 1, testLevelsXX, testVisualMapXX}
 };
 
-int
+const int
 bidiTestCount=ARRAY_LENGTH(tests);

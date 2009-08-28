@@ -17,8 +17,10 @@
 #include "isc/net.h"
 #include "isc/result.h"
 
+#include "ntpdc-opts.h"
+
 #ifdef SYS_WINNT
-#include <Mswsock.h>
+# include <Mswsock.h>
 # include <io.h>
 #else
 # define closesocket close
@@ -30,9 +32,14 @@
 #endif /* HAVE_LIBREADLINE || HAVE_LIBEDIT */
 
 #ifdef SYS_VXWORKS
-/* vxWorks needs mode flag -casey*/
-#define open(name, flags)   open(name, flags, 0777)
-#define SERVER_PORT_NUM     123
+				/* vxWorks needs mode flag -casey*/
+# define open(name, flags)   open(name, flags, 0777)
+# define SERVER_PORT_NUM     123
+#endif
+
+/* We use COMMAND as an autogen keyword */
+#ifdef COMMAND
+# undef COMMAND
 #endif
 
 /*
@@ -273,11 +280,7 @@ main(
 #ifdef SYS_VXWORKS
 void clear_globals(void)
 {
-    extern int ntp_optind;
-    extern char *ntp_optarg;
     showhostnames = 0;              /* show host names by default */
-    ntp_optind = 0;
-    ntp_optarg = 0;
     havehost = 0;                   /* set to 1 when host open */
     numcmds = 0;
     numhosts = 0;
@@ -293,10 +296,7 @@ ntpdcmain(
 	char *argv[]
 	)
 {
-	int c;
-	int errflg = 0;
 	extern int ntp_optind;
-	extern char *ntp_optarg;
 
 	delay_time.l_ui = 0;
 	delay_time.l_uf = DEFDELAY;
@@ -320,6 +320,69 @@ ntpdcmain(
 	}
 
 	progname = argv[0];
+
+	{
+		int optct = optionProcess(&ntpdcOptions, argc, argv);
+		argc -= optct;
+		argv += optct;
+	}
+
+	switch (WHICH_IDX_IPV4) {
+	    case INDEX_OPT_IPV4:
+		ai_fam_templ = AF_INET;
+		break;
+	    case INDEX_OPT_IPV6:
+		ai_fam_templ = AF_INET6;
+		break;
+	    default:
+		ai_fam_templ = ai_fam_default;
+		break;
+	}
+
+	if (HAVE_OPT(COMMAND)) {
+		int		cmdct = STACKCT_OPT( COMMAND );
+		const char**	cmds  = STACKLST_OPT( COMMAND );
+
+		while (cmdct-- > 0) {
+			ADDCMD(*cmds++);
+		}
+	}
+
+	debug = DESC(DEBUG_LEVEL).optOccCt;
+
+	if (HAVE_OPT(INTERACTIVE)) {
+		interactive = 1;
+	}
+
+	if (HAVE_OPT(NUMERIC)) {
+		showhostnames = 0;
+	}
+
+	if (HAVE_OPT(LISTPEERS)) {
+		ADDCMD("listpeers");
+	}
+
+	if (HAVE_OPT(PEERS)) {
+		ADDCMD("peers");
+	}
+
+	if (HAVE_OPT(SHOWPEERS)) {
+		ADDCMD("dmpeers");
+	}
+
+	if (ntp_optind == argc) {
+		ADDHOST(DEFHOST);
+	} else {
+		for (; ntp_optind < argc; ntp_optind++)
+		    ADDHOST(argv[ntp_optind]);
+	}
+
+	if (numcmds == 0 && interactive == 0
+	    && isatty(fileno(stdin)) && isatty(fileno(stderr))) {
+		interactive = 1;
+	}
+
+#if 0
 	ai_fam_templ = ai_fam_default;
 	while ((c = ntp_getopt(argc, argv, "46c:dilnps")) != EOF)
 	    switch (c) {
@@ -354,12 +417,14 @@ ntpdcmain(
 		    errflg++;
 		    break;
 	    }
+
 	if (errflg) {
 		(void) fprintf(stderr,
 			       "usage: %s [-46dilnps] [-c cmd] host ...\n",
 			       progname);
 		exit(2);
 	}
+
 	if (ntp_optind == argc) {
 		ADDHOST(DEFHOST);
 	} else {
@@ -371,6 +436,7 @@ ntpdcmain(
 	    && isatty(fileno(stdin)) && isatty(fileno(stderr))) {
 		interactive = 1;
 	}
+#endif
 
 #ifndef SYS_WINNT /* Under NT cannot handle SIGINT, WIN32 spawns a handler */
 	if (interactive)
@@ -865,7 +931,7 @@ sendrequest(
 		qpkt.mbz_itemsize = MBZ_ITEMSIZE(qsize);
 	} else {
 		qpkt.err_nitems = ERR_NITEMS(0, 0);
-		qpkt.mbz_itemsize = MBZ_ITEMSIZE(0);
+		qpkt.mbz_itemsize = MBZ_ITEMSIZE(qsize);  /* allow for optional first item */
 	}
 
 	if (!auth || (keyid_entered && info_auth_keyid == 0)) {

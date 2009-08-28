@@ -194,6 +194,12 @@ static int deliver_mailbox_file(LOCAL_STATE state, USER_ATTR usr_attr)
 	    vstream_fclose(mp->fp);
 	    dsb_simple(why, "5.2.0",
 		       "destination %s is not a regular file", mailbox);
+	} else if (var_strict_mbox_owner && st.st_uid != usr_attr.uid) {
+	    vstream_fclose(mp->fp);
+	    dsb_simple(why, "4.2.0",
+		       "destination %s is not owned by recipient", mailbox);
+	    msg_warn("specify \"%s = no\" to ignore mailbox ownership mismatch",
+		     VAR_STRICT_MBOX_OWNER);
 	} else {
 	    end = vstream_fseek(mp->fp, (off_t) 0, SEEK_END);
 	    mail_copy_status = mail_copy(COPY_ATTR(state.msg_attr), mp->fp,
@@ -319,6 +325,14 @@ int     deliver_mailbox(LOCAL_STATE state, USER_ATTR usr_attr, int *statusp)
 	status = deliver_command(state, usr_attr, map_command);
     } else if (*var_mailbox_command) {
 	status = deliver_command(state, usr_attr, var_mailbox_command);
+#ifdef __APPLE_OS_X_SERVER__
+#if 0
+	} else if ( var_use_od_delivery_path ) {
+	path = aod_get_maildir_path( state.msg_attr.user );
+	status = deliver_maildir(state, usr_attr, path);
+	free(path);
+#endif
+#endif /* __APPLE_OS_X_SERVER__ */
     } else if (*var_home_mailbox && LAST_CHAR(var_home_mailbox) == '/') {
 	path = concatenate(usr_attr.home, "/", var_home_mailbox, (char *) 0);
 	status = deliver_maildir(state, usr_attr, path);

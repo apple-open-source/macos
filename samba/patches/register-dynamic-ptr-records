@@ -1,0 +1,691 @@
+Radar 5503929 - AD plugin only registers forward DNS with AD
+
+This patch updates the "net ads dns register" command to register
+PTR records as well as A records so that reverse DNS resolution can
+work. The current limitations are:
+    - only the first IP address gets a PTR record
+
+Index: samba/source/libaddns/dns.h
+===================================================================
+--- samba/source/libaddns/dns.h.orig
++++ samba/source/libaddns/dns.h
+@@ -3,6 +3,7 @@
+ 
+   Copyright (C) 2006 Krishna Ganugapati <krishnag@centeris.com>
+   Copyright (C) 2006 Gerald Carter <jerry@samba.org>
++  Copyright (C) 2008 Apple Inc. All rights reserved.
+ 
+      ** NOTE! The following LGPL license applies to the libaddns
+      ** library. This does NOT imply that all of Samba is released
+@@ -216,6 +217,7 @@ void *talloc_zeronull(const void *contex
+ #define QTYPE_MD        3
+ #define QTYPE_CNAME	5
+ #define QTYPE_SOA	6
++#define QTYPE_PTR	12
+ #define QTYPE_ANY	255
+ #define	QTYPE_TKEY	249
+ #define QTYPE_TSIG	250
+@@ -280,6 +282,11 @@ TXT             16 text strings
+ #define  DNS_NAME_ERROR		3
+ #define  DNS_NOT_IMPLEMENTED	4
+ #define  DNS_REFUSED		5
++#define  DNS_YXDOMAIN		6
++#define  DNS_YYRRSET		7
++#define  DNS_NXRRSET		8
++#define  DNS_NOTAUTH		9
++#define  DNS_NOTZONE		10
+ 
+ typedef long HANDLE;
+ 
+@@ -502,12 +509,17 @@ DNS_ERROR dns_sign_update(struct dns_upd
+ 			  const char *keyname,
+ 			  const char *algorithmname,
+ 			  time_t time_signed, uint16 fudge);
+-DNS_ERROR dns_create_update_request(TALLOC_CTX *mem_ctx,
++DNS_ERROR dns_create_update_request_a(TALLOC_CTX *mem_ctx,
+ 				    const char *domainname,
+ 				    const char *hostname,
+ 				    const struct in_addr *ip_addr,
+ 				    size_t num_adds,
+ 				    struct dns_update_request **preq);
++DNS_ERROR dns_create_update_request_ptr(TALLOC_CTX *mem_ctx,
++				    const char *hostname,
++				    const char *zone_name,
++				    const struct in_addr ip,
++				    struct dns_update_request **preq);
+ 
+ #endif	/* HAVE_GSSAPI_SUPPORT */
+ 
+Index: samba/source/libaddns/dnsrecord.c
+===================================================================
+--- samba/source/libaddns/dnsrecord.c.orig
++++ samba/source/libaddns/dnsrecord.c
+@@ -2,6 +2,7 @@
+   Linux DNS client library implementation
+   Copyright (C) 2006 Krishna Ganugapati <krishnag@centeris.com>
+   Copyright (C) 2006 Gerald Carter <jerry@samba.org>
++  Copyright (C) 2008 Apple, Inc. All rights reserved.
+ 
+      ** NOTE! The following LGPL license applies to the libaddns
+      ** library. This does NOT imply that all of Samba is released
+@@ -24,6 +25,7 @@
+ */
+ 
+ #include "dns.h"
++#include <assert.h>
+ 
+ DNS_ERROR dns_create_query( TALLOC_CTX *mem_ctx, const char *name,
+ 			    uint16 q_type, uint16 q_class,
+@@ -120,6 +122,37 @@ DNS_ERROR dns_create_rrec(TALLOC_CTX *me
+ 	return ERROR_DNS_SUCCESS;
+ }
+ 
++DNS_ERROR dns_create_ptr_record(TALLOC_CTX *mem_ctx,
++			    const char * host,
++			    uint32 ttl, struct in_addr ip,
++			    struct dns_rrec **prec)
++{
++	DNS_ERROR err;
++	char * ptr;
++
++	struct dns_domain_name * name;
++	struct dns_buffer * buf;
++
++	buf = dns_create_buffer(mem_ctx);
++
++	ptr = talloc_asprintf(mem_ctx, "%d.%d.%d.%d.in-addr.arpa.",
++		(ntohl(ip.s_addr) & 0x000000ff),
++		(ntohl(ip.s_addr) & 0x0000ff00) >> 8,
++		(ntohl(ip.s_addr) & 0x00ff0000) >> 16,
++		(ntohl(ip.s_addr) & 0xff000000) >> 24);
++
++	dns_domain_name_from_string(mem_ctx, host, &name);
++	dns_marshall_domain_name(buf, name);
++
++	/* For a PTR record, x.x.x.x.in-addr.arpa is the record name, and the
++	 * canonical hostname is the record data.
++	 */
++	err = dns_create_rrec(mem_ctx, ptr, QTYPE_PTR, DNS_CLASS_IN, ttl,
++				buf->offset, (uint8_t *)buf->data, prec);
++
++	return err;
++}
++
+ DNS_ERROR dns_create_a_record(TALLOC_CTX *mem_ctx, const char *host,
+ 			      uint32 ttl, struct in_addr ip,
+ 			      struct dns_rrec **prec)
+@@ -356,8 +389,61 @@ DNS_ERROR dns_create_probe(TALLOC_CTX *m
+ 	TALLOC_FREE(req);
+ 	return err;
+ }
+-			   
+-DNS_ERROR dns_create_update_request(TALLOC_CTX *mem_ctx,
++
++/* Create a PTR-record update request. */
++DNS_ERROR dns_create_update_request_ptr(TALLOC_CTX *mem_ctx,
++				    const char *hostname,
++				    const char *zone_name,
++				    const struct in_addr ip,
++				    struct dns_update_request **preq)
++{
++	struct dns_update_request *req;
++	struct dns_rrec *rec;
++	DNS_ERROR err;
++
++	char * ptr_name;
++
++	ptr_name = talloc_asprintf(mem_ctx, "%d.%d.%d.%d.in-addr.arpa.",
++		(ntohl(ip.s_addr) & 0x000000ff),
++		(ntohl(ip.s_addr) & 0x0000ff00) >> 8,
++		(ntohl(ip.s_addr) & 0x00ff0000) >> 16,
++		(ntohl(ip.s_addr) & 0xff000000) >> 24);
++
++	err = dns_create_update(mem_ctx, zone_name, &req);
++	if (!ERR_DNS_IS_OK(err)) return err;
++
++	err = dns_create_rrec(req, zone_name, QTYPE_ANY,
++		DNS_CLASS_ANY, 0, 0, NULL, &rec);
++	if (!ERR_DNS_IS_OK(err)) goto error;
++
++	err = dns_add_rrec(req, rec, &req->num_preqs, &req->preqs);
++	if (!ERR_DNS_IS_OK(err)) goto error;
++
++	/* Delete any PTR records. */
++	err = dns_create_delete_record(req, ptr_name, QTYPE_PTR, DNS_CLASS_ANY,
++				       &rec);
++	if (!ERR_DNS_IS_OK(err)) goto error;
++
++	err = dns_add_rrec(req, rec, &req->num_updates, &req->updates);
++	if (!ERR_DNS_IS_OK(err)) goto error;
++
++	/* Add the corresponding PTR record. */
++	err = dns_create_ptr_record(req, hostname, 3600, ip, &rec);
++	if (!ERR_DNS_IS_OK(err)) goto error;
++
++	err = dns_add_rrec(req, rec, &req->num_updates, &req->updates);
++	if (!ERR_DNS_IS_OK(err)) goto error;
++
++	*preq = req;
++	return ERROR_DNS_SUCCESS;
++
++ error:
++	TALLOC_FREE(req);
++	return err;
++}
++
++/* Create an A-record update request. */
++DNS_ERROR dns_create_update_request_a(TALLOC_CTX *mem_ctx,
+ 				    const char *domainname,
+ 				    const char *hostname,
+ 				    const struct in_addr *ip_addrs,
+@@ -398,7 +484,19 @@ DNS_ERROR dns_create_update_request(TALL
+ 	 * .. and add our IPs
+ 	 */
+ 
++	/*
++	 * .. and add our IPs
++	 */
++
+ 	for ( i=0; i<num_addrs; i++ ) {		
++
++		if ((ntohl(ip_addrs[i].s_addr) & (uint32_t)0x7f000000) ==
++		    (uint32_t)0x7f000000) {
++			/* Skip anything in the 127.*.*.* network. */
++			continue;
++		}
++
++		/* Add our A record. */
+ 		err = dns_create_a_record(req, hostname, 3600, ip_addrs[i], &rec);
+ 		if (!ERR_DNS_IS_OK(err)) 
+ 			goto error;
+Index: samba/source/libaddns/dnssock.c
+===================================================================
+--- samba/source/libaddns/dnssock.c.orig
++++ samba/source/libaddns/dnssock.c
+@@ -3,6 +3,7 @@
+ 
+   Copyright (C) 2006 Krishna Ganugapati <krishnag@centeris.com>
+   Copyright (C) 2006 Gerald Carter <jerry@samba.org>
++  Copyright (C) 2008 Apple Inc. All rights reserved.
+ 
+      ** NOTE! The following LGPL license applies to the libaddns
+      ** library. This does NOT imply that all of Samba is released
+@@ -26,6 +27,7 @@
+ 
+ #include "dns.h"
+ #include <sys/time.h>
++#include <sys/uio.h>
+ #include <unistd.h>
+ 
+ static int destroy_dns_connection(struct dns_connection *conn)
+@@ -172,13 +174,35 @@ static DNS_ERROR write_all(int fd, uint8
+ static DNS_ERROR dns_send_tcp(struct dns_connection *conn,
+ 			      const struct dns_buffer *buf)
+ {
++	ssize_t ret;
++	struct iovec iov[2];
+ 	uint16 len = htons(buf->offset);
+-	DNS_ERROR err;
+ 
+-	err = write_all(conn->s, (uint8 *)&len, sizeof(len));
+-	if (!ERR_DNS_IS_OK(err)) return err;
++	/* The Wireshark DNS dissector can't reassemble DNS requests when they
++	 * are split over multiple TCP segments. Sending the length prefix and
++	 * the actual request in the same system call prevents this.
++	 */
++	iov[0].iov_base = &len;
++	iov[0].iov_len = sizeof(len);
++	iov[1].iov_base = buf->data;
++	iov[1].iov_len = buf->offset;
++
++	ret = writev(conn->s, iov, 2);
++	if (ret <= 2) {
++		/* Either the write failed or we didn't get to write the
++		 * length prefix. Either way, it's bad.
++		 */
++		return ERROR_DNS_SOCKET_ERROR;
++	}
++
++	/* Partial write. */
++	if (ret <= (buf->offset + sizeof(len))) {
++		size_t buffer_bytes_written = ret - 2;
++		return write_all(conn->s, buf->data + buffer_bytes_written,
++			buf->offset - buffer_bytes_written);
++	}
+ 
+-	return write_all(conn->s, buf->data, buf->offset);
++	return ERROR_DNS_SUCCESS;
+ }
+ 
+ static DNS_ERROR dns_send_udp(struct dns_connection *conn,
+@@ -234,11 +258,15 @@ static DNS_ERROR read_all(int fd, uint8 
+ 		}
+ 
+ 		ret = read(fd, data + total, len - total);
+-		if (ret <= 0) {
++		if (ret < 0) {
+ 			/* EOF or error */
+ 			return ERROR_DNS_SOCKET_ERROR;
+ 		}
+ 
++		if (ret == 0 && total != len) {
++			return ERROR_DNS_SOCKET_ERROR;
++		}
++
+ 		total += ret;
+ 	}
+ 
+@@ -347,11 +375,15 @@ DNS_ERROR dns_transaction(TALLOC_CTX *me
+ 	if (!ERR_DNS_IS_OK(err)) goto error;
+ 
+ 	err = dns_send(conn, buf);
+-	if (!ERR_DNS_IS_OK(err)) goto error;
++	if (!ERR_DNS_IS_OK(err)) {
++	    goto error;
++	}
+ 	TALLOC_FREE(buf);
+ 
+ 	err = dns_receive(mem_ctx, conn, &buf);
+-	if (!ERR_DNS_IS_OK(err)) goto error;
++	if (!ERR_DNS_IS_OK(err)) {
++	    goto error;
++	}
+ 
+ 	err = dns_unmarshall_request(mem_ctx, buf, resp);
+ 
+@@ -371,7 +403,9 @@ DNS_ERROR dns_update_transaction(TALLOC_
+ 	err = dns_transaction(mem_ctx, conn, dns_update2request(up_req),
+ 			      &resp);
+ 
+-	if (!ERR_DNS_IS_OK(err)) return err;
++	if (!ERR_DNS_IS_OK(err)) {
++	    return err;
++	}
+ 
+ 	*up_resp = dns_request2update(resp);
+ 	return ERROR_DNS_SUCCESS;
+Index: samba/source/utils/net_dns.c
+===================================================================
+--- samba/source/utils/net_dns.c.orig
++++ samba/source/utils/net_dns.c
+@@ -5,6 +5,7 @@
+ 
+    Copyright (C) Krishna Ganugapati (krishnag@centeris.com)         2006
+    Copyright (C) Gerald Carter                                      2006
++   Copyright (C) 2008 Apple Inc. All rights reserved.
+ 
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+@@ -26,13 +27,40 @@
+ #include "dns.h"
+ 
+ #if defined(WITH_DNS_UPDATES)
++extern const char *dns_errstr(DNS_ERROR err);
+ 
+ /*********************************************************************
+ *********************************************************************/
+ 
+-DNS_ERROR DoDNSUpdate(char *pszServerName,
++static DNS_ERROR
++negotiate_security_context(TALLOC_CTX * mem_ctx,
++			const char * pszDomainName,
++			const char * pszServerName,
++			char ** keyname,
++			gss_ctx_id_t * gss_context)
++{
++	DNS_ERROR err;
++
++	if (!(*keyname = dns_generate_keyname( mem_ctx ))) {
++		return ERROR_DNS_NO_MEMORY;
++	}
++
++	err = dns_negotiate_sec_ctx( pszDomainName, pszServerName,
++				     *keyname, gss_context, DNS_SRV_ANY );
++
++	/* retry using the Windows 2000 DNS hack */
++	if (!ERR_DNS_IS_OK(err)) {
++		return dns_negotiate_sec_ctx( pszDomainName, pszServerName,
++					     *keyname, gss_context,
++					     DNS_SRV_WIN2000 );
++	}
++
++	return ERROR_DNS_SUCCESS;
++}
++
++static DNS_ERROR DoDNSUpdate_A(char *pszServerName,
+ 		      const char *pszDomainName, const char *pszHostName,
+-		      const struct in_addr *iplist, size_t num_addrs )
++		      const struct in_addr *iplist, size_t num_addrs)
+ {
+ 	DNS_ERROR err;
+ 	struct dns_connection *conn;
+@@ -40,11 +68,7 @@ DNS_ERROR DoDNSUpdate(char *pszServerNam
+ 	OM_uint32 minor;
+ 	struct dns_update_request *req, *resp;
+ 
+-	if ( (num_addrs <= 0) || !iplist ) {
+-		return ERROR_DNS_INVALID_PARAMETER;
+-	}
+-
+-	if (!(mem_ctx = talloc_init("DoDNSUpdate"))) {
++	if (!(mem_ctx = talloc_init(__func__))) {
+ 		return ERROR_DNS_NO_MEMORY;
+ 	}
+ 		
+@@ -73,7 +97,7 @@ DNS_ERROR DoDNSUpdate(char *pszServerNam
+ 	 * First try without signing
+ 	 */
+ 
+-	err = dns_create_update_request(mem_ctx, pszDomainName, pszHostName,
++	err = dns_create_update_request_a(mem_ctx, pszDomainName, pszHostName,
+ 					iplist, num_addrs, &req);
+ 	if (!ERR_DNS_IS_OK(err)) goto error;
+ 
+@@ -92,30 +116,17 @@ DNS_ERROR DoDNSUpdate(char *pszServerNam
+ 		gss_ctx_id_t gss_context;
+ 		char *keyname;
+ 
+-		if (!(keyname = dns_generate_keyname( mem_ctx ))) {
+-			err = ERROR_DNS_NO_MEMORY;
+-			goto error;
+-		}
+-
+-		err = dns_negotiate_sec_ctx( pszDomainName, pszServerName,
+-					     keyname, &gss_context, DNS_SRV_ANY );
++		err = negotiate_security_context(mem_ctx,
++			pszDomainName, pszServerName,
++			&keyname, &gss_context);
+ 
+-		/* retry using the Windows 2000 DNS hack */
+-		if (!ERR_DNS_IS_OK(err)) {
+-			err = dns_negotiate_sec_ctx( pszDomainName, pszServerName,
+-						     keyname, &gss_context, 
+-						     DNS_SRV_WIN2000 );
+-		}
+-		
+ 		if (!ERR_DNS_IS_OK(err))
+ 			goto error;
+-		
+ 
+ 		err = dns_sign_update(req, gss_context, keyname,
+ 				      "gss.microsoft.com", time(NULL), 3600);
+ 
+ 		gss_delete_sec_context(&minor, &gss_context, GSS_C_NO_BUFFER);
+-
+ 		if (!ERR_DNS_IS_OK(err)) goto error;
+ 
+ 		err = dns_update_transaction(mem_ctx, conn, req, &resp);
+@@ -123,40 +134,223 @@ DNS_ERROR DoDNSUpdate(char *pszServerNam
+ 
+ 		err = (dns_response_code(resp->flags) == DNS_NO_ERROR) ?
+ 			ERROR_DNS_SUCCESS : ERROR_DNS_UPDATE_FAILED;
++		if (!ERR_DNS_IS_OK(err)) goto error;
++
++		TALLOC_FREE(mem_ctx);
++		return ERROR_DNS_SUCCESS;
++
++	}
++
++
++error:
++	TALLOC_FREE(mem_ctx);
++	return err;
++}
++
++static DNS_ERROR DoDNSUpdate_PTR_with_zone(TALLOC_CTX *mem_ctx,
++			struct dns_connection *conn,
++			char *pszServerName,
++			const char *pszDomainName,
++			const char *pszHostName,
++			const char * zone_name,
++			const struct in_addr ip)
++{
++	DNS_ERROR err;
++	struct dns_update_request *ptr_req, *resp;
++
++#define WRONG_ZONE_RESPONSE(code) \
++	(((code) == DNS_NOTZONE) || ((code) == DNS_NOTAUTH))
++
++	/*
++	 * First try without signing
++	 */
++
++	err = dns_create_update_request_ptr(mem_ctx, pszHostName,
++					zone_name, ip, &ptr_req);
++	if (!ERR_DNS_IS_OK(err)) goto error;
++
++	err = dns_update_transaction(mem_ctx, conn, ptr_req, &resp);
++	if (!ERR_DNS_IS_OK(err)) goto error;
++
++	if (dns_response_code(resp->flags) == DNS_NO_ERROR) {
++		return ERROR_DNS_SUCCESS;
++	} else if (WRONG_ZONE_RESPONSE(dns_response_code(resp->flags))) {
++		return ERROR_DNS_WRONG_ZONE;
++	}
++
++	/*
++	 * Okay, we have to try with signing
++	 */
++	{
++		OM_uint32 minor;
++		gss_ctx_id_t gss_context;
++		char *keyname;
++
++		err = negotiate_security_context(mem_ctx,
++			pszDomainName, pszServerName,
++			&keyname, &gss_context);
++
++		if (!ERR_DNS_IS_OK(err)) goto error;
++
++		err = dns_sign_update(ptr_req, gss_context, keyname,
++				      "gss.microsoft.com", time(NULL), 3600);
++
++		gss_delete_sec_context(&minor, &gss_context, GSS_C_NO_BUFFER);
++		if (!ERR_DNS_IS_OK(err)) goto error;
++
++		err = dns_update_transaction(mem_ctx, conn, ptr_req, &resp);
++		if (!ERR_DNS_IS_OK(err)) goto error;
++
++		if (dns_response_code(resp->flags) == DNS_NO_ERROR) {
++			err = ERROR_DNS_SUCCESS;
++		} else if (WRONG_ZONE_RESPONSE(dns_response_code(resp->flags))) {
++			err = ERROR_DNS_WRONG_ZONE;
++		} else {
++			err = ERROR_DNS_UPDATE_FAILED;
++		}
+ 	}
+ 
++#undef WRONG_ZONE_RESPONSE
+ 
+ error:
++	return err;
++}
++
++static DNS_ERROR DoDNSUpdate_PTR(char *pszServerName,
++		      const char *pszDomainName,
++		      const char *pszHostName,
++		      const struct in_addr ip)
++{
++	DNS_ERROR err;
++	struct dns_connection *conn;
++	char * zone_name;
++	TALLOC_CTX *mem_ctx;
++
++	if (!(mem_ctx = talloc_init(__func__))) {
++		return ERROR_DNS_NO_MEMORY;
++	}
++
++	zone_name = talloc_asprintf(mem_ctx, "%d.%d.%d.%d.in-addr.arpa.",
++		(ntohl(ip.s_addr) & 0x000000ff),
++		(ntohl(ip.s_addr) & 0x0000ff00) >> 8,
++		(ntohl(ip.s_addr) & 0x00ff0000) >> 16,
++		(ntohl(ip.s_addr) & 0xff000000) >> 24);
++	if (zone_name == NULL) {
++		err = ERROR_DNS_NO_MEMORY;
++		goto done;
++	}
++
++	err = dns_open_connection( pszServerName, DNS_TCP, mem_ctx, &conn );
++	if (!ERR_DNS_IS_OK(err)) {
++		goto done;
++	}
++
++	/* Keep knocking off domain components until we find a zone that
++	 * we can update out PTR record in.
++	 */
++	while ((zone_name = strchr(zone_name, '.'))) {
++		/* Skip the '.' we are pointing at. */
++		zone_name++;
++
++		/* Stop if we hit the end or the root DNS servers. */
++		if (*zone_name == '\0' ||
++		    strcmp(zone_name, "in-addr.arpa.") == 0) {
++			err = ERROR_DNS_INVALID_NAME;
++			goto done;
++		}
++
++		err = DoDNSUpdate_PTR_with_zone(mem_ctx, conn,
++			    pszServerName, pszDomainName, pszHostName,
++			    zone_name, ip);
++
++		DEBUG(6, ("updating PTR for %s in %s zone: %s\n",
++			    pszHostName, zone_name, dns_errstr(err)));
++
++		if (ERR_DNS_IS_OK(err)) {
++			goto done;
++		}
++
++		if (!ERR_DNS_EQUAL(err, ERROR_DNS_WRONG_ZONE)) {
++			goto done;
++		}
++	}
++
++done:
+ 	TALLOC_FREE(mem_ctx);
+ 	return err;
+ }
+ 
++DNS_ERROR DoDNSUpdate(char *pszServerName,
++		      const char *pszDomainName, const char *pszHostName,
++		      const struct in_addr *iplist, size_t num_addrs )
++{
++	DNS_ERROR a_err;
++	DNS_ERROR ptr_err;
++
++	if ( (num_addrs <= 0) || !iplist ) {
++		return ERROR_DNS_INVALID_PARAMETER;
++	}
++
++	a_err = DoDNSUpdate_A(pszServerName, pszDomainName, pszHostName,
++				iplist, num_addrs);
++	if (!ERR_DNS_IS_OK(a_err)) {
++		d_printf("DNS A-record update for %s failed: %s\n",
++				pszHostName, dns_errstr(a_err));
++	}
++
++	ptr_err = DoDNSUpdate_PTR(pszServerName, pszDomainName, pszHostName,
++				iplist[0]);
++	if (!ERR_DNS_IS_OK(ptr_err)) {
++		d_printf("DNS PTR-record update for %s failed: %s\n",
++				pszHostName, dns_errstr(ptr_err));
++	}
++
++	if (!ERR_DNS_IS_OK(a_err)) {
++	     return a_err;
++	}
++
++	if (!ERR_DNS_IS_OK(ptr_err)) {
++	     return ptr_err;
++	}
++
++	return ERROR_DNS_SUCCESS;
++}
++
+ /*********************************************************************
+ *********************************************************************/
+ 
++static bool ip4_mask_match(struct in_addr ip, struct in_addr mask)
++{
++    return (ip.s_addr & mask.s_addr) == mask.s_addr;
++}
++
+ int get_my_ip_address( struct in_addr **ips )
+ {
+-	struct iface_struct nics[MAX_INTERFACES];
+ 	int i, n;
+-	struct in_addr loopback_ip = *interpret_addr2("127.0.0.1");
++	struct in_addr loopback_ip = *interpret_addr2("127.0.0.0");
+ 	struct in_addr *list;
+ 	int count = 0;
+ 
+ 	/* find the first non-loopback address from our list of interfaces */
+ 
+-	n = get_interfaces(nics, MAX_INTERFACES);
++	load_interfaces();
++	n = iface_count();
+ 	
+ 	if ( (list = SMB_MALLOC_ARRAY( struct in_addr, n )) == NULL ) {
+ 		return -1;
+ 	}
+ 
+-	for ( i=0; i<n; i++ ) {
+-		if ( nics[i].ip.s_addr != loopback_ip.s_addr ) {
+-			memcpy( &list[count++], &nics[i].ip, sizeof( struct in_addr ) );
++	for (i = 0; i < n; i++) {
++		struct interface *iface = get_interface(i);
++		if (ip4_mask_match(iface->ip, loopback_ip)) {
++			/* Skip addresses that are in the loopback network. */
++			continue;
+ 		}
++
++		memcpy(&list[count++], &iface->ip, sizeof(struct in_addr));
+ 	}
+-	*ips = list;
+ 
++	*ips = list;
+ 	return count;
+ }
+ 
+Index: samba/source/utils/net_ads.c
+===================================================================
+--- samba/source/utils/net_ads.c.orig
++++ samba/source/utils/net_ads.c
+@@ -1344,6 +1344,8 @@ static NTSTATUS map_krb_realm_to_dns_dom
+ 		return "socket error";
+ 	} else if (ERR_DNS_EQUAL(err, ERROR_DNS_UPDATE_FAILED)) {
+ 		return "DNS update failed";
++	} else if (ERR_DNS_EQUAL(err, ERROR_DNS_WRONG_ZONE)) {
++		return "wrong DNS zone";
+ 	} else {
+ 		return "invalid DNS error code";
+ 	}
+@@ -1425,15 +1427,8 @@ static NTSTATUS net_update_dns_internal(
+ done:
+ 
+ 	if (!NT_STATUS_IS_OK(status)) {
+-		if (!ERR_DNS_IS_OK(dns_err)) {
+-			d_printf("DNS update for %s failed: %s\n",
+-				machine_name,
+-				dns_errstr(dns_err));
+-		} else {
+-			d_printf("DNS update for %s failed: %s\n",
+-				machine_name,
+-				get_friendly_nt_error_msg(status));
+-		}
++		d_printf("DNS update for %s failed: %s\n",
++			machine_name, get_friendly_nt_error_msg(status));
+ 	}
+ 
+ 	SAFE_FREE( root_domain );
+Index: samba/source/libaddns/dnserr.h
+===================================================================
+--- samba/source/libaddns/dnserr.h.orig
++++ samba/source/libaddns/dnserr.h
+@@ -66,6 +66,7 @@ typedef uint32 DNS_ERROR;
+ #define ERROR_DNS_INVALID_MESSAGE	ERROR_DNS(9)
+ #define ERROR_DNS_SOCKET_ERROR		ERROR_DNS(10)
+ #define ERROR_DNS_UPDATE_FAILED		ERROR_DNS(11)
++#define ERROR_DNS_WRONG_ZONE		ERROR_DNS(12)
+ 
+ /*
+  * About to be removed, transitional error

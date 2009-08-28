@@ -1,10 +1,10 @@
 ########################################################################
 #                                                                      #
 #               This software is part of the ast package               #
-#           Copyright (c) 1982-2007 AT&T Knowledge Ventures            #
+#          Copyright (c) 1982-2007 AT&T Intellectual Property          #
 #                      and is licensed under the                       #
 #                  Common Public License, Version 1.0                  #
-#                      by AT&T Knowledge Ventures                      #
+#                    by AT&T Intellectual Property                     #
 #                                                                      #
 #                A copy of the License is available at                 #
 #            http://www.opensource.org/licenses/cpl1.0.txt             #
@@ -393,4 +393,39 @@ x=$bar[4]
 [[ $x == 4 ]] && err_exit '$bar[4] should not be an array in an assignment'
 x=${bar[$foo[5]]}
 (( $x == 3 )) || err_exit '${bar[$foo[sub]]} not working'
+[[ $($SHELL  <<- \++EOF+++
+	typeset -i test_variable=0
+	typeset -A test_array
+	test_array[1]=100
+	read test_array[2] <<-!
+	2
+	!
+	read test_array[3] <<-!
+	3
+	!
+	test_array[3]=4
+	print "val=${test_array[3]}"
+++EOF+++
+) == val=4 ]] 2> /dev/null || err_exit 'after reading array[j] and assign array[j] fails' 
+[[ $($SHELL <<- \+++EOF+++
+	pastebin=( typeset -a form)
+	pastebin.form+=( name="name"   data="clueless" )
+	print -r -- ${pastebin.form[0].name}
++++EOF+++
+) == name ]] 2> /dev/null ||  err_exit 'indexed array in compound variable not working'
+unset foo bar
+: ${foo[bar=2]}
+[[ $bar == 2 ]] || err_exit 'subscript not evaluated for unset variable'
+unset foo bar
+bar=1
+typeset -a foo=([1]=ok [2]=no)
+[[ $foo[bar] == ok ]] || err_exit 'typeset -a not working for simple assignment'
+unset foo
+typeset -a foo=([1]=(x=ok) [2]=(x=no))
+unset foo
+typeset -A foo=([1]=ok [2]=no)
+[[ $foo[bar] == ok ]] && err_exit 'typeset -A not working for simple assignment'
+unset foo
+typeset -A foo=([1]=(x=ok) [2]=(x=no))
+[[ ${foo[bar].x} == ok ]] && err_exit 'typeset -A not working for compound assignment'
 exit $((Errors))

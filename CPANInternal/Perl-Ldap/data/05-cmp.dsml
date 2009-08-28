@@ -1,0 +1,137 @@
+<?xml version='1.0' encoding='utf-8'?>
+<dsml:dsml xmlns:dsml='http://www.dsml.org/DSML'>
+<dsml:directory-entries>
+<dsml:entry dn='o=University of Michigan, c=US'>
+<dsml:objectclass>
+<dsml:oc-value>top</dsml:oc-value>
+<dsml:oc-value>organization</dsml:oc-value>
+<dsml:oc-value>domainRelatedObject</dsml:oc-value>
+<dsml:oc-value>quipuObject</dsml:oc-value>
+<dsml:oc-value>quipuNonLeafObject</dsml:oc-value>
+</dsml:objectclass>
+<dsml:attr name='l'>
+<dsml:value>Ann Arbor, Michigan</dsml:value>
+</dsml:attr>
+<dsml:attr name='st'>
+<dsml:value>Michigan</dsml:value>
+</dsml:attr>
+<dsml:attr name='streetaddress'>
+<dsml:value>535 West William St.</dsml:value>
+</dsml:attr>
+<dsml:attr name='o'>
+<dsml:value>University of Michigan</dsml:value>
+<dsml:value>UMICH</dsml:value>
+<dsml:value>UM</dsml:value>
+<dsml:value>U-M</dsml:value>
+<dsml:value>U of M</dsml:value>
+</dsml:attr>
+<dsml:attr name='description'>
+<dsml:value>The University of Michigan at Ann Arbor</dsml:value>
+</dsml:attr>
+<dsml:attr name='postaladdress'>
+<dsml:value>University of Michigan $ 535 W. William St. $ Ann Arbor, MI 48109 $ USpostalcode: 48109</dsml:value>
+</dsml:attr>
+<dsml:attr name='telephonenumber'>
+<dsml:value>+1 313 764-1817</dsml:value>
+</dsml:attr>
+<dsml:attr name='lastmodifiedtime'>
+<dsml:value>930106182800Z</dsml:value>
+</dsml:attr>
+<dsml:attr name='lastmodifiedby'>
+<dsml:value>cn=manager, o=university of michigan, c=US</dsml:value>
+</dsml:attr>
+<dsml:attr name='associateddomain'>
+<dsml:value>umich.edu</dsml:value>
+</dsml:attr>
+</dsml:entry>
+<dsml:entry dn='ou=People, o=University of Michigan, c=US'>
+<dsml:objectclass>
+<dsml:oc-value>top</dsml:oc-value>
+<dsml:oc-value>organizationalUnit</dsml:oc-value>
+<dsml:oc-value>quipuObject</dsml:oc-value>
+<dsml:oc-value>quipuNonLeafObject</dsml:oc-value>
+</dsml:objectclass>
+<dsml:attr name='ou'>
+<dsml:value>People</dsml:value>
+</dsml:attr>
+</dsml:entry>
+<dsml:entry dn='ou=Groups, o=University of Michigan, c=US'>
+<dsml:objectclass>
+<dsml:oc-value>top</dsml:oc-value>
+<dsml:oc-value>organizationalUnit</dsml:oc-value>
+<dsml:oc-value>quipuObject</dsml:oc-value>
+<dsml:oc-value>quipuNonLeafObject</dsml:oc-value>
+</dsml:objectclass>
+<dsml:attr name='ou'>
+<dsml:value>Groups</dsml:value>
+</dsml:attr>
+<dsml:attr name='lastmodifiedtime'>
+<dsml:value>950120182331Z</dsml:value>
+</dsml:attr>
+<dsml:attr name='lastmodifiedby'>
+<dsml:value>cn=manager, o=university of michigan, c=US</dsml:value>
+</dsml:attr>
+</dsml:entry>
+<dsml:entry dn='ou=Alumni Association, ou=People, o=University of Michigan, c=US'>
+<dsml:objectclass>
+<dsml:oc-value>top</dsml:oc-value>
+<dsml:oc-value>organizationalUnit</dsml:oc-value>
+<dsml:oc-value>quipuObject</dsml:oc-value>
+<dsml:oc-value>quipuNonLeafObject</dsml:oc-value>
+</dsml:objectclass>
+<dsml:attr name='ou'>
+<dsml:value>Alumni Association</dsml:value>
+</dsml:attr>
+</dsml:entry>
+<dsml:entry dn='ou=Information Technology Division, ou=People, o=University of Michigan, c=US'>
+<dsml:objectclass>
+<dsml:oc-value>top</dsml:oc-value>
+<dsml:oc-value>organizationalUnit</dsml:oc-value>
+<dsml:oc-value>quipuObject</dsml:oc-value>
+<dsml:oc-value>quipuNonLeafObject</dsml:oc-value>
+</dsml:objectclass>
+<dsml:attr name='ou'>
+<dsml:value>Information Technology Divisio</dsml:value>
+</dsml:attr>
+</dsml:entry>
+<dsml:entry dn='cn=All Staff,ou=Groups,o=University of Michigan,c=US'>
+<dsml:attr name='member'>
+<dsml:value>cn=Manager, o=University of Michigan, c=US</dsml:value>
+<dsml:value>cn=Barbara Jensen, ou=Information Technology Division, ou=People, o=University of Michigan, c=US</dsml:value>
+<dsml:value>cn=Jane Doe, ou=Alumni Association, ou=People, o=University of Michigan, c=US</dsml:value>
+<dsml:value>cn=John Doe, ou=Information Technology Division, ou=People, o=University of Michigan, c=US</dsml:value>
+<dsml:value>cn=Mark Elliot, ou=Alumni Association, ou=People, o=University of Michigan, c=US</dsml:value>
+<dsml:value>cn=James A Jones 1, ou=Alumni Association, ou=People, o=University of Michigan, c=US</dsml:value>
+<dsml:value>cn=James A Jones 2, ou=Information Technology Division, ou=People, o=University of Michigan, c=US</dsml:value>
+<dsml:value>cn=Jennifer Smith, ou=Alumni Association, ou=People, o=University of Michigan, c=US</dsml:value>
+<dsml:value>cn=Dorothy Stevens, ou=Alumni Association, ou=People, o=University of Michigan, c=US</dsml:value>
+<dsml:value>cn=Ursula Hampster, ou=Alumni Association, ou=People, o=University of Michigan, c=US</dsml:value>
+<dsml:value>cn=Bjorn Jensen, ou=Information Technology Division, ou=People, o=University of Michigan, c=US</dsml:value>
+</dsml:attr>
+<dsml:attr name='associateddomain'>
+<dsml:value>umich.edu</dsml:value>
+</dsml:attr>
+<dsml:attr name='requeststo'>
+<dsml:value>cn=Manager, o=University of Michigan, c=US</dsml:value>
+</dsml:attr>
+<dsml:attr name='errorsto'>
+<dsml:value>cn=Manager, o=University of Michigan, c=US</dsml:value>
+</dsml:attr>
+<dsml:attr name='owner'>
+<dsml:value>cn=Manager, o=University of Michigan, c=US</dsml:value>
+</dsml:attr>
+<dsml:attr name='cn'>
+<dsml:value>All Staff</dsml:value>
+</dsml:attr>
+<dsml:attr name='joinable'>
+<dsml:value>FALSE</dsml:value>
+</dsml:attr>
+<dsml:attr name='multi-linedescription'>
+<dsml:value>Everyone in the sample data</dsml:value>
+</dsml:attr>
+<dsml:objectclass>
+<dsml:oc-value>rfc822mailgroup</dsml:oc-value>
+</dsml:objectclass>
+</dsml:entry>
+</dsml:directory-entries>
+</dsml:dsml>

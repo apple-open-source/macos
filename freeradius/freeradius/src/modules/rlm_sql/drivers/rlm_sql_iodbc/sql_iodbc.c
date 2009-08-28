@@ -1,6 +1,8 @@
 /*
  * sql_iodbc.c	iODBC support for FreeRadius
  *
+ * Version:	$Id$
+ *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
  *   the Free Software Foundation; either version 2 of the License, or
@@ -13,23 +15,23 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2000  The FreeRADIUS server project
+ * Copyright 2000,2006  The FreeRADIUS server project
  * Copyright 2000  Jeff Carneal <jeff@apex.net>
  */
 
-#include <stdio.h>
-#include <sys/stat.h>
-#include <stdlib.h>
-#include <string.h>
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
-#include 	"radiusd.h"
-#include  "rlm_sql.h"
+#include <freeradius-devel/radiusd.h>
+
+#include <sys/stat.h>
 
 #include <isql.h>
 #include <isqlext.h>
 #include <sqltypes.h>
+
 #include "rlm_sql.h"
 
 typedef struct rlm_sql_iodbc_sock {
@@ -44,7 +46,7 @@ typedef struct rlm_sql_iodbc_sock {
 	void	*conn;
 } rlm_sql_iodbc_sock;;
 
-static char *sql_error(SQLSOCK *sqlsocket, SQL_CONFIG *config);
+static const char *sql_error(SQLSOCK *sqlsocket, SQL_CONFIG *config);
 static int sql_num_fields(SQLSOCK *sqlsocket, SQL_CONFIG *config);
 
 /*************************************************************************
@@ -57,6 +59,7 @@ static int sql_num_fields(SQLSOCK *sqlsocket, SQL_CONFIG *config);
 static int sql_init_socket(SQLSOCK *sqlsocket, SQL_CONFIG *config) {
 
 	rlm_sql_iodbc_sock *iodbc_sock;
+	SQLRETURN rcode;
 
 	if (!sqlsocket->conn) {
 		sqlsocket->conn = (rlm_sql_iodbc_sock *)rad_malloc(sizeof(rlm_sql_iodbc_sock));
@@ -67,21 +70,25 @@ static int sql_init_socket(SQLSOCK *sqlsocket, SQL_CONFIG *config) {
 	iodbc_sock = sqlsocket->conn;
 	memset(iodbc_sock, 0, sizeof(*iodbc_sock));
 
-	if(SQLAllocEnv(&iodbc_sock->env_handle) != SQL_SUCCESS) {
+	rcode = SQLAllocEnv(&iodbc_sock->env_handle);
+	if (!SQL_SUCCEEDED(rcode)) {
 		radlog(L_CONS|L_ERR, "sql_create_socket: SQLAllocEnv failed:  %s",
 				sql_error(sqlsocket, config));
 		return -1;
 	}
 
-	if(SQLAllocConnect(iodbc_sock->env_handle, &iodbc_sock->dbc_handle) != SQL_SUCCESS) {
+	rcode = SQLAllocConnect(iodbc_sock->env_handle,
+				&iodbc_sock->dbc_handle);
+	if (!SQL_SUCCEEDED(rcode)) {
 		radlog(L_CONS|L_ERR, "sql_create_socket: SQLAllocConnect failed:  %s",
 				sql_error(sqlsocket, config));
 		return -1;
 	}
 
-	if (SQLConnect(iodbc_sock->dbc_handle, config->sql_db, SQL_NTS,
-				config->sql_login, SQL_NTS, config->sql_password,
-				SQL_NTS) != SQL_SUCCESS) {
+	rcode = SQLConnect(iodbc_sock->dbc_handle, config->sql_db,
+			   SQL_NTS, config->sql_login, SQL_NTS,
+			   config->sql_password, SQL_NTS);
+	if (!SQL_SUCCEEDED(rcode)) {
 		radlog(L_CONS|L_ERR, "sql_create_socket: SQLConnectfailed:  %s",
 				sql_error(sqlsocket, config));
 		return -1;
@@ -97,7 +104,7 @@ static int sql_init_socket(SQLSOCK *sqlsocket, SQL_CONFIG *config) {
  *	Purpose: Free socket and private connection data
  *
  *************************************************************************/
-static int sql_destroy_socket(SQLSOCK *sqlsocket, SQL_CONFIG *config)
+static int sql_destroy_socket(SQLSOCK *sqlsocket, UNUSED SQL_CONFIG *config)
 {
 	free(sqlsocket->conn);
 	sqlsocket->conn = NULL;
@@ -115,8 +122,11 @@ static int sql_destroy_socket(SQLSOCK *sqlsocket, SQL_CONFIG *config)
 static int sql_query(SQLSOCK *sqlsocket, SQL_CONFIG *config, char *querystr) {
 
 	rlm_sql_iodbc_sock *iodbc_sock = sqlsocket->conn;
+	SQLRETURN rcode;
 
-	if(SQLAllocStmt(iodbc_sock->dbc_handle, &iodbc_sock->stmt_handle) != SQL_SUCCESS) {
+	rcode = SQLAllocStmt(iodbc_sock->dbc_handle,
+			     &iodbc_sock->stmt_handle);
+	if (!SQL_SUCCEEDED(rcode)) {
 		radlog(L_CONS|L_ERR, "sql_create_socket: SQLAllocStmt failed:  %s",
 				sql_error(sqlsocket, config));
 		return -1;
@@ -129,7 +139,8 @@ static int sql_query(SQLSOCK *sqlsocket, SQL_CONFIG *config, char *querystr) {
 		return -1;
 	}
 
-	if (SQLExecDirect(iodbc_sock->stmt_handle, querystr, SQL_NTS) != SQL_SUCCESS) {
+	rcode = SQLExecDirect(iodbc_sock->stmt_handle, querystr, SQL_NTS);
+	if (!SQL_SUCCEEDED(rcode)) {
 		radlog(L_CONS|L_ERR, "sql_query: failed:  %s",
 				sql_error(sqlsocket, config));
 		return -1;
@@ -198,7 +209,7 @@ static int sql_select_query(SQLSOCK *sqlsocket, SQL_CONFIG *config, char *querys
  *               set for the query.
  *
  *************************************************************************/
-static int sql_store_result(SQLSOCK *sqlsocket, SQL_CONFIG *config) {
+static int sql_store_result(UNUSED SQLSOCK *sqlsocket, UNUSED SQL_CONFIG *config) {
 
 	return 0;
 }
@@ -212,7 +223,7 @@ static int sql_store_result(SQLSOCK *sqlsocket, SQL_CONFIG *config) {
  *               of columns from query
  *
  *************************************************************************/
-static int sql_num_fields(SQLSOCK *sqlsocket, SQL_CONFIG *config) {
+static int sql_num_fields(SQLSOCK *sqlsocket, UNUSED SQL_CONFIG *config) {
 
 	SQLSMALLINT count=0;
 	rlm_sql_iodbc_sock *iodbc_sock = sqlsocket->conn;
@@ -230,7 +241,7 @@ static int sql_num_fields(SQLSOCK *sqlsocket, SQL_CONFIG *config) {
  *               query
  *
  *************************************************************************/
-static int sql_num_rows(SQLSOCK *sqlsocket, SQL_CONFIG *config) {
+static int sql_num_rows(UNUSED SQLSOCK *sqlsocket, UNUSED SQL_CONFIG *config) {
 	/*
 	 * I presume this function is used to determine the number of
 	 * rows in a result set *before* fetching them.  I don't think
@@ -250,7 +261,7 @@ static int sql_num_rows(SQLSOCK *sqlsocket, SQL_CONFIG *config) {
  *		 0 on success, -1 on failure, SQL_DOWN if 'database is down'
  *
  *************************************************************************/
-static int sql_fetch_row(SQLSOCK *sqlsocket, SQL_CONFIG *config) {
+static int sql_fetch_row(SQLSOCK *sqlsocket, UNUSED SQL_CONFIG *config) {
 
 	SQLRETURN rc;
 	rlm_sql_iodbc_sock *iodbc_sock = sqlsocket->conn;
@@ -301,7 +312,7 @@ static int sql_free_result(SQLSOCK *sqlsocket, SQL_CONFIG *config) {
  *               connection
  *
  *************************************************************************/
-static char *sql_error(SQLSOCK *sqlsocket, SQL_CONFIG *config) {
+static const char *sql_error(SQLSOCK *sqlsocket, UNUSED SQL_CONFIG *config) {
 
 	SQLINTEGER errornum = 0;
 	SQLSMALLINT length = 0;
@@ -323,7 +334,7 @@ static char *sql_error(SQLSOCK *sqlsocket, SQL_CONFIG *config) {
  *               connection and cleans up any open handles.
  *
  *************************************************************************/
-static int sql_close(SQLSOCK *sqlsocket, SQL_CONFIG *config) {
+static int sql_close(SQLSOCK *sqlsocket, UNUSED SQL_CONFIG *config) {
 
 	rlm_sql_iodbc_sock *iodbc_sock = sqlsocket->conn;
 
@@ -374,7 +385,7 @@ static int sql_finish_select_query(SQLSOCK *sqlsocket, SQL_CONFIG *config) {
  *               or insert)
  *
  *************************************************************************/
-static int sql_affected_rows(SQLSOCK *sqlsocket, SQL_CONFIG *config) {
+static int sql_affected_rows(SQLSOCK *sqlsocket, UNUSED SQL_CONFIG *config) {
 
 	SQLINTEGER count;
 	rlm_sql_iodbc_sock *iodbc_sock = sqlsocket->conn;

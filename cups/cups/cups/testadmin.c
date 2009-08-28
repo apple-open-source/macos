@@ -1,9 +1,9 @@
 /*
- * "$Id: testadmin.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: testadmin.c 7720 2008-07-11 22:46:21Z mike $"
  *
  *   Admin function test program for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -116,5 +116,5 @@ show_settings(
 
 
 /*
- * End of "$Id: testadmin.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: testadmin.c 7720 2008-07-11 22:46:21Z mike $".
  */

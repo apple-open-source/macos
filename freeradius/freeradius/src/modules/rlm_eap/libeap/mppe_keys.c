@@ -1,7 +1,7 @@
 /*
  * mppe_keys.c
  *
- * Version:     $Id: mppe_keys.c,v 1.1.2.1 2006/02/06 15:33:52 nbk Exp $
+ * Version:     $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,11 +15,15 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
  * Copyright 2002  Axis Communications AB
+ * Copyright 2006  The FreeRADIUS server project
  * Authors: Henrik Eriksson <henriken@axis.com> & Lars Viklund <larsv@axis.com>
  */
+
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
 #include <openssl/hmac.h>
 #include "eap_tls.h"
@@ -28,18 +32,18 @@
  * Add value pair to reply
  */
 static void add_reply(VALUE_PAIR** vp,
-		      const char* name, const char* value, int len)
+		      const char* name, const uint8_t * value, int len)
 {
 	VALUE_PAIR *reply_attr;
 	reply_attr = pairmake(name, "", T_OP_EQ);
 	if (!reply_attr) {
 		DEBUG("rlm_eap_tls: "
 		      "add_reply failed to create attribute %s: %s\n",
-		      name, librad_errstr);
+		      name, fr_strerror());
 		return;
 	}
 
-	memcpy(reply_attr->strvalue, value, len);
+	memcpy(reply_attr->vp_octets, value, len);
 	reply_attr->length = len;
 	pairadd(vp, reply_attr);
 }
@@ -123,7 +127,7 @@ static void PRF(const unsigned char *secret, unsigned int secret_len,
 void eaptls_gen_mppe_keys(VALUE_PAIR **reply_vps, SSL *s,
 			  const char *prf_label)
 {
-	unsigned char out[2*EAPTLS_MPPE_KEY_LEN], buf[2*EAPTLS_MPPE_KEY_LEN];
+	unsigned char out[4*EAPTLS_MPPE_KEY_LEN], buf[4*EAPTLS_MPPE_KEY_LEN];
 	unsigned char seed[64 + 2*SSL3_RANDOM_SIZE];
 	unsigned char *p = seed;
 	size_t prf_size;
@@ -144,9 +148,12 @@ void eaptls_gen_mppe_keys(VALUE_PAIR **reply_vps, SSL *s,
 	    seed, prf_size, out, buf, sizeof(out));
 
 	p = out;
-	add_reply(reply_vps, "MS-MPPE-Recv-Key", (char *)p, EAPTLS_MPPE_KEY_LEN);
+	add_reply(reply_vps, "MS-MPPE-Recv-Key", p, EAPTLS_MPPE_KEY_LEN);
 	p += EAPTLS_MPPE_KEY_LEN;
-	add_reply(reply_vps, "MS-MPPE-Send-Key", (char *)p, EAPTLS_MPPE_KEY_LEN);
+	add_reply(reply_vps, "MS-MPPE-Send-Key", p, EAPTLS_MPPE_KEY_LEN);
+
+	add_reply(reply_vps, "EAP-MSK", out, 64);
+	add_reply(reply_vps, "EAP-EMSK", out + 64, 64);
 }
 
 
@@ -158,11 +165,11 @@ void eaptls_gen_mppe_keys(VALUE_PAIR **reply_vps, SSL *s,
  *	It's in the TLS module simply because it's only a few lines
  *	of code, and it needs access to the TLS PRF functions.
  */
-void eapttls_gen_challenge(SSL *s, char *buffer, int size)
+void eapttls_gen_challenge(SSL *s, uint8_t *buffer, size_t size)
 {
-	unsigned char out[32], buf[32];
-	unsigned char seed[sizeof(EAPTLS_PRF_CHALLENGE)-1 + 2*SSL3_RANDOM_SIZE];
-	unsigned char *p = seed;
+	uint8_t out[32], buf[32];
+	uint8_t seed[sizeof(EAPTLS_PRF_CHALLENGE)-1 + 2*SSL3_RANDOM_SIZE];
+	uint8_t *p = seed;
 
 	memcpy(p, EAPTLS_PRF_CHALLENGE, sizeof(EAPTLS_PRF_CHALLENGE)-1);
 	p += sizeof(EAPTLS_PRF_CHALLENGE)-1;

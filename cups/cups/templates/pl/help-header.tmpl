@@ -1,47 +1,51 @@
+<DIV CLASS="indent">
 <FORM ACTION="/help/{?HELPFILE}" METHOD="GET">
 {TOPIC?<INPUT TYPE="HIDDEN" NAME="TOPIC" VALUE="{TOPIC}">:}
 
-<P ALIGN="CENTER"><B>Wyszukaj we
-{HELPTITLE?{HELPTITLE}:{TOPIC?{TOPIC}:wszystkich dokumentach}}:</B> <INPUT
-TYPE="TEXT" NAME="QUERY" VALUE="{?QUERY}" SIZE="60"> <INPUT
-TYPE="IMAGE" SRC="/images/button-search.gif" ALT="Wyszukaj">
-<A HREF="/help/{?HELPFILE}{QUERY?{TOPIC??TOPIC={TOPIC}:}:}"><IMG
-SRC="/images/button-clear.gif" ALT="Wyczyść" CLASS="button"></A></P>
+<P ALIGN="CENTER"><B>Wyszukaj w
+{HELPTITLE?{HELPTITLE}:{TOPIC?{TOPIC}:Wszystkie dokumenty}}:</B> <INPUT
+TYPE="SEARCH" NAME="QUERY" VALUE="{?QUERY}" SIZE="40" PLACEHOLDER=""
+AUTOSAVE="org.cups.help" RESULTS="20">
+<INPUT TYPE="SUBMIT" NAME="SEARCH" VALUE="Znajdź">
+<INPUT TYPE="SUBMIT" NAME="CLEAR" VALUE="Wyczyść"></P>
 
 </FORM>
 
-<!-- Bookmarks -->
-<DIV CLASS="sidebar">
-<H3 CLASS="title">Dokumenty pomocy on-line</H3>
+<!-- Zakładki -->
+<DIV CLASS="sidebar"><TABLE CLASS="inset" SUMMARY="Zawartość">
+<TR><TD>
+
+<H3 CLASS="title">Dokumenty pomocy online</H3>
 
 <P CLASS="l0"><A HREF="/help/{QUERY??QUERY={QUERY}:}">Wszystkie dokumenty</A></P>
 <HR>
 
 {[BMTEXT]<P CLASS="l{BMINDENT}"><A HREF="{BMLINK}">{BMTEXT}</A></P>
 }
-</DIV>
+</TD></TR>
+</TABLE></DIV>
 
-{QUERY?<P>Wyniki wyszukiwania we {HELPFILE?{HELPTITLE}:{TOPIC?{TOPIC}:wszystkich dokumentach}}\:</P>
+{QUERY?<P>Wyniki wyszukiwania w {HELPFILE?{HELPTITLE}:{TOPIC?{TOPIC}:Wszystkie dokumenty}}\:</P>
 {QTEXT?<UL>
-{[QTEXT]<LI><A HREF="{QLINK}">{QTEXT}</A>{QPTEXT? (w <I><A HREF="{QPLINK}">{QPTEXT}</A></I>):}</LI>}
+{[QTEXT]<LI><A HREF="{QLINK}">{QTEXT}</A>{QPTEXT? (in <I><A HREF="{QPLINK}">{QPTEXT}</A></I>):}</LI>}
 {QTEXT?</UL>:}
-:<P>Nie znaleziono wyników.</P>}
+:<P>Nie znaleziono.</P>}
 <HR NOSHADE>:}
-{HELPTITLE?<H1>{HELPTITLE}
-<A HREF="/help/{HELPFILE}?PRINTABLE=YES" TARGET="_blank"><IMG
-SRC="/images/button-view-printable-version.gif" ALT="Wyświetl wersję drukowalną"
-CLASS="button"></A></H1>:<H1>Strony pomocy CUPS</H1>
+{HELPTITLE?<H1>{HELPTITLE}</H1>
+<FORM ACTION="/help/{?HELPFILE}" METHOD="GET"><INPUT TYPE="HIDDEN" NAME="PRINTABLE" VALUE="YES"><INPUT TYPE="SUBMIT" VALUE="Wyświetl wersję do druku"></FORM>:
 
-<P>To jest interfejs on-line pomocy CUPS. Podaj wyszukiwane
-słowa powyżej lub naciśnij na jakiś odnośnik do dokumentacji,
-aby wyświetlić dokumentację pomocy on-line.</P>
+<H1>Pomoc online</H1>
 
-<P>Jeśli jesteś nowy w CUPS-ie, przeczytaj stronę "<a
-href="overview.html">Wstęp do CUPS</a>". Użytkownicy dobrze
-znający CUPS powinni przeczytać stronę "<a href="whatsnew.html">
-Co nowego w CUPS 1.3</a>".</P>
+<P>To jest interfejs pomocy online CUPS. Należy podać wyszukiwane słowa
+powyżej lub nacisnąć na jeden z odnośników do dokumentacji, aby wyświetlić
+informacje o pomocy online.</P>
 
-<P>The <A HREF="http://www.cups.org/">Strona domowa CUPS</A> także
-dostarcza wielu zasobów, w tym fora dyskusyjne użytkowników,
-odpowiedzi na najczęściej zadawane pytania oraz formularz do
-wysyłania raportów błędów i żądań funkcji.</P>}
+<P>Nowi użytkownicy CUPS powinni przeczytać stronę "<a
+href="/help/overview.html">Przegląd CUPS</a>". Zaawansowani użytkownicy
+powinni przeczytać stronę "<a href="/help/whatsnew.html">Co nowego w CUPS
+1.4</a>".</P>
+
+<P><A HREF="http://www.cups.org/">Strona domowa CUPS</A> także
+dostarcza wiele zasobów, w tym fora dyskusyjne użytkowników, odpowiedzi
+na najczęściej zadawane pytania oraz formularz do wysyłania raportów
+błędów i próśb o nowe funkcje.</P>}

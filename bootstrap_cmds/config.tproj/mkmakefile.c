@@ -178,6 +178,7 @@ static	struct users {
 	{  8, 2, 32 },			/* MACHINE_SPARC */
 	{  8, 2, 32 },			/* MACHINE_PPC */
 	{  8, 2, 32 },			/* MACHINE_ARM */
+	{  8, 2, 32 },			/* MACHINE_X86_64 */
 };
 #define NUSERS	(sizeof (users) / sizeof (users[0]))
 
@@ -1033,6 +1034,7 @@ do_rules(FILE *f)
 				case MACHINE_SPARC:
 				case MACHINE_PPC:
 				case MACHINE_ARM:
+				case MACHINE_X86_64:
 					extras = "_P";
 					goto common;
 				default:

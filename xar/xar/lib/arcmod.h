@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005 Rob Braun
+ * Copyright (c) 2005-2007 Rob Braun
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,7 +28,7 @@
  */
 /*
  * 03-Apr-2005
- * DRI: Rob Braun <bbraun@opendarwin.org>
+ * DRI: Rob Braun <bbraun@synack.net>
  */
 /*
  * Portions Copyright 2006, Apple Computer, Inc.
@@ -54,5 +54,6 @@ int32_t xar_arcmod_archive(xar_t x, xar_file_t f, const char *file, const char *
 int32_t xar_arcmod_extract(xar_t x, xar_file_t f, const char *file, char *buffer, size_t len);
 
 int32_t xar_arcmod_verify(xar_t x, xar_file_t f);
+int32_t xar_check_prop(xar_t x, const char *name);
 
 #endif /* _XAR_ARCMOD_H_ */

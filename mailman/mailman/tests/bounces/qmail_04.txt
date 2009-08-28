@@ -1,0 +1,81 @@
+Return-Path: <MAILER-DAEMON@sb7.songbird.com>
+Received: from mail47.messagelabs.com (mail47.messagelabs.com [216.82.240.163])
+	by sb7.songbird.com (8.12.11.20060308/8.12.11) with SMTP id
+	k488M87l021192
+	for <gpc-talk-bounces@grizz.org>; Mon, 8 May 2006 01:22:08 -0700
+Message-Id: <200605080822.k488M87l021192@sb7.songbird.com>
+X-VirusChecked: Checked
+X-StarScan-Version: 5.5.9.1; banners=.,-,-
+Received: (qmail 25062 invoked for bounce); 8 May 2006 08:21:20 -0000
+Date: 8 May 2006 08:21:19 -0000
+From: MAILER-DAEMON@messagelabs.com
+To: gpc-talk-bounces@grizz.org
+Subject: failure notice
+X-SongbirdInformation: support@songbird.com for more information
+X-Songbird: Clean
+X-Songbird-From: 
+
+This is the mail delivery agent at messagelabs.com.
+I was not able to deliver your message to the following addresses.
+
+<merotiia@tennisnsw.com.au>:
+59.154.33.7 does not like recipient.
+Remote host said: 550 merotiia@tennisnsw.com.au... No such user
+
+
+--- Below this line is a copy of the message.
+
+Return-Path: <gpc-talk-bounces@grizz.org>
+X-VirusChecked: Checked
+X-Env-Sender: gpc-talk-bounces@grizz.org
+X-Msg-Ref: server-11.tower-47.messagelabs.com!1147076463!26398187!1
+X-StarScan-Version: 5.5.9.1; banners=-,-,-
+X-Originating-IP: [208.184.79.137]
+X-SpamReason: No, hits=0.1 required=7.0 tests=NO_REAL_NAME
+Received: (qmail 24873 invoked from network); 8 May 2006 08:21:04 -0000
+Received: from sb7.songbird.com (HELO sb7.songbird.com) (208.184.79.137)
+  by server-11.tower-47.messagelabs.com with AES256-SHA encrypted SMTP; 8 May 2006 08:21:04 -0000
+Received: from sb7.songbird.com (sb7.songbird.com [127.0.0.1])
+	by sb7.songbird.com (8.12.11.20060308/8.12.11) with ESMTP id k488LXaj021129
+	for <merotiia@tennisnsw.com.au>; Mon, 8 May 2006 01:21:33 -0700
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Subject: Your message to GPC-talk awaits moderator approval
+From: gpc-talk-bounces@grizz.org
+To: merotiia@tennisnsw.com.au
+Message-ID: <mailman.12143.1147076492.1568.gpc-talk@grizz.org>
+Date: Mon, 08 May 2006 01:21:32 -0700
+Precedence: bulk
+X-BeenThere: gpc-talk@grizz.org
+X-Mailman-Version: 2.1.5
+List-Id: Grizzly Peak Cyclists general discussion list <gpc-talk.grizz.org>
+X-List-Administrivia: yes
+Sender: gpc-talk-bounces@grizz.org
+Errors-To: gpc-talk-bounces@grizz.org
+X-SongbirdInformation: support@songbird.com for more information
+X-Songbird: Clean
+X-Songbird-From: gpc-talk-bounces@grizz.org
+
+Your mail to 'GPC-talk' with the subject
+
+    Re: the AzMBtEN
+
+Is being held until the list moderator can review it for approval.
+
+The reason it is being held:
+
+    Post by non-member to a members-only list
+
+Either the message will get posted to the list, or you will receive
+notification of the moderator's decision.  If you would like to cancel
+this posting, please visit the following URL:
+
+    http://www.grizz.org/mailman/confirm/gpc-talk/83c05aa9c7a3037140e278e470d840926cd861cd
+
+
+______________________________________________________________________
+This email has been scanned by the MessageLabs Email Security System.
+For more information please visit http://www.messagelabs.com/email 
+______________________________________________________________________
+

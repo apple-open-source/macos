@@ -1,0 +1,152 @@
+Return-Path: <MAILER-DAEMON@sb7.songbird.com>
+Received: from spock.dadoservice.it (ip-49-45.sn1.eutelia.it [62.94.49.45])
+	by sb7.songbird.com (8.12.11.20060308/8.12.11) with SMTP id
+	k3H2DwGc027145
+	for <gpc-talk-bounces@grizz.org>; Sun, 16 Apr 2006 19:13:58 -0700
+Subject: Delivery failure
+From: postmaster@spock.dadoservice.it
+Message-Id: <B0024075754@spock.dadoservice.it>
+Date: Mon, 17 Apr 2006 04:07:34 +0200
+To: gpc-talk-bounces@grizz.org
+X-SongbirdInformation: support@songbird.com for more information
+X-Songbird: Clean
+X-Songbird-From: 
+
+Your message has encountered delivery problems
+to local user ketchuy.
+(Originally addressed to ketchuy@dadoservice.it)
+
+User not known
+
+Your message reads (in part):
+
+x-sender: gpc-talk-bounces@grizz.org
+x-receiver: ketchuy@dadoservice.it
+Received: from sb7.songbird.com ([208.184.79.137]) by spock.dadoservice.it  with Microsoft SMTPSVC(5.5.1877.197.19);
+	 Mon, 17 Apr 2006 04:05:35 +0200
+Received: from sb7.songbird.com (sb7.songbird.com [127.0.0.1])
+	by sb7.songbird.com (8.12.11.20060308/8.12.11) with ESMTP id k3H2BT2f026882
+	for <ketchuy@dadoservice.it>; Sun, 16 Apr 2006 19:11:29 -0700
+Subject: The results of your email commands
+From: gpc-talk-bounces@grizz.org
+To: ketchuy@dadoservice.it
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============1455621846=="
+Message-ID: <mailman.3129.1145239888.1567.gpc-talk@grizz.org>
+Date: Sun, 16 Apr 2006 19:11:28 -0700
+Precedence: bulk
+X-BeenThere: gpc-talk@grizz.org
+X-Mailman-Version: 2.1.5
+List-Id: Grizzly Peak Cyclists general discussion list <gpc-talk.grizz.org>
+X-List-Administrivia: yes
+Sender: gpc-talk-bounces@grizz.org
+Errors-To: gpc-talk-bounces@grizz.org
+X-SongbirdInformation: support@songbird.com for more information
+X-Songbird: Clean
+X-Songbird-From: gpc-talk-bounces@grizz.org
+Return-Path: gpc-talk-bounces@grizz.org
+
+--===============1455621846==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+
+The results of your email command are provided below. Attached is your
+original message.
+
+- Results:
+    Ignoring non-text/plain MIME parts
+    ketchuy@dadoservice.it is not a member of the GPC-talk mailing list
+
+- Unprocessed:
+    V/AGRjA new
+    =20
+    M e r / d i a=20
+    S o m &=20
+    A m b / e n=20
+    X & n a x=20
+    V a l / u m   $ l , 2 1
+    C / a l i s   $ 3 , 7 5
+    V / a g r a   $ 3 , 3 l
+    =20
+    http://www.mylallinias.com
+
+- Done.
+
+
+--===============1455621846==
+Content-Type: message/rfc822
+MIME-Version: 1.0
+
+Return-Path: <ketchuy@dadoservice.it>
+Received: from agropolis.fi (201-24-69-128.fnsce701.dsl.brasiltelecom.net.br
+	[201.24.69.128])
+	by sb7.songbird.com (8.12.11.20060308/8.12.11) with SMTP id
+	k3H2Aj68026792
+	for <gpc-talk-unsubscribe@grizz.org>; Sun, 16 Apr 2006 19:11:15 -0700
+Message-ID: <000001c661c3$ef3edff0$3262a8c0@usz27>
+Reply-To: "Bjo Ketchum" <ketchuy@dadoservice.it>
+From: "Bjo Ketchum" <ketchuy@dadoservice.it>
+To: gpc-talk-unsubscribe@grizz.org
+Subject: V/AGRjA new
+Date: Sun, 16 Apr 2006 22:09:18 -0400
+MIME-Version: 1.0
+Content-Type: multipart/alternative;
+	boundary="----=_NextPart_000_0001_01C661A2.682D3FF0"
+X-Priority: 3
+X-MSMail-Priority: Normal
+X-Mailer: Microsoft Outlook Express 6.00.2800.1106
+X-MimeOLE: Produced By Microsoft MimeOLE V6.00.2800.1106
+X-SongbirdInformation: support@songbird.com for more information
+X-Songbird: Clean
+X-Songbird-From: ketchuy@dadoservice.it
+
+This is a multi-part message in MIME format.
+
+------=_NextPart_000_0001_01C661A2.682D3FF0
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+
+=20
+M e r / d i a=20
+S o m &=20
+A m b / e n=20
+X & n a x=20
+V a l / u m   $ l , 2 1
+C / a l i s   $ 3 , 7 5
+V / a g r a   $ 3 , 3 l
+=20
+http://www.mylallinias.com
+
+------=_NextPart_000_0001_01C661A2.682D3FF0
+Content-Type: text/html;
+	charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML><HEAD>
+<META http-equiv=3DContent-Type content=3D"text/html; =
+charset=3Dus-ascii">
+<META content=3D"MSHTML 6.00.2800.1106" name=3DGENERATOR>
+<STYLE></STYLE>
+</HEAD>
+<BODY bgColor=3D#ffffff>
+<DIV>&nbsp;</DIV>
+<DIV> M e r / d i a </DIV>
+<DIV> S o m & </DIV>
+<DIV> A m b / e n </DIV>
+<DIV> X & n a x </DIV>
+<DIV><STRONG> V a l / u m  &nbsp; $ l , 2 1</STRONG></DIV>
+<DIV><STRONG> C / a l i s  &nbsp; $ 3 , 7 5</STRONG></DIV>
+<DIV><STRONG> V / a g r a  &nbsp; $ 3 , 3 l</STRONG></DIV>
+<DIV>&nbsp;</DIV><DIV><A =
+href=3D"http://www.mylallinias.com">http://www.mylallinias.com</A></DIV><=
+/BODY></HTML>
+------=_NextPart_000_0001_01C661A2.682D3FF0--
+
+
+
+
+--===============1455621846==--
+

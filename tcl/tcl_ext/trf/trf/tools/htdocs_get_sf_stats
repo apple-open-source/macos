@@ -1,0 +1,34 @@
+#!/bin/sh
+# -*-tcl-*-
+# the next line restarts using tclsh \
+exec tclsh "${0}" "${@}"
+
+####################################
+
+set trf      60766
+set mode     full
+set no_table 0
+set limit    10
+set flat     1
+set shows    0
+
+set stat_url http://sourceforge.net/export/projhtml.php?group_id=$trf&mode=$mode&no_table=$no_table
+set news_url http://sourceforge.net/export/projnews.php?group_id=$trf&limit=$limit&flat=$flat&show_summaries=$shows
+
+set now [clock format [clock seconds]]
+
+foreach {urlvar destination} {
+    stat_url state/statistics
+    news_url state/news
+} {
+    puts "Retrieving [set $urlvar] --> $destination"
+    exec /usr/bin/wget -q -O $destination [set $urlvar] >/dev/null
+}
+
+puts "Remembering time --> state/sn.time"
+puts [set fh [open state/sn.time w]] $now; close $fh
+
+### Future ### Edit the delivered HTML to fit them better into our site.
+### Done inside of the page generation templates !
+
+exit

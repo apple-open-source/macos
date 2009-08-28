@@ -176,10 +176,10 @@ EventTraceCauseDesc TraceEvents[] = {
     {kLogNameChangeSpeedComplete,   "IrStream: changespeed complete event"}     // 29
     
 };
-    #define XTRACE(x, y, z) IrDALogAdd ( x, y, (int)z & 0xffff, TraceEvents, true)
-    #define QTRACE(x, y, z) IrDALogAdd ( x, y, (int)z & 0xffff, fTraceArray, true)
-    #define QTRACEArray(x, y, z, array) IrDALogAdd ( x, y, (int)z & 0xffff, array, true)
-    #define ETRACE(x, y, z) IrDALogAdd ((x + kLogEventNamesStart), y, (int)z & 0xffff, TraceEvents, true)
+    #define XTRACE(x, y, z) IrDALogAdd ( x, y, (uintptr_t)z & 0xffff, TraceEvents, true)
+    #define QTRACE(x, y, z) IrDALogAdd ( x, y, (uintptr_t)z & 0xffff, fTraceArray, true)
+    #define QTRACEArray(x, y, z, array) IrDALogAdd ( x, y, (uintptr_t)z & 0xffff, array, true)
+    #define ETRACE(x, y, z) IrDALogAdd ((x + kLogEventNamesStart), y, (uintptr_t)z & 0xffff, TraceEvents, true)
 #else
     #define XTRACE(x, y, z) ((void)0)
     #define QTRACE(x, y, z) ((void)0)
@@ -207,7 +207,7 @@ TIrStream::free()
 {
     int list_retain_count;
 
-    XTRACE(kLogFree, (int)this >> 16, this);
+    XTRACE(kLogFree, 0, this);
     
     // should have a pending events list until the last stream is freed
     require(fPendingEventsList, Fail);
@@ -233,14 +233,14 @@ TIrStream::free()
 	for (index = fPendingEventsList->GetArraySize()-1; index >= 0; index--) {
 	    TIrEvent *event = (TIrEvent *)fPendingEventsList->At(index);
 	    if (event && event->fDest == this) {
-		XTRACE(kLogCleanup1, (int)event >> 16, event);
+		XTRACE(kLogCleanup1, 0, event);
 		fPendingEventsList->RemoveAt(index);        // just remove it from the list
 	    }
 	}
     }
     // then check fNextEvent
     if (fNextEvent && fNextEvent->fDest == this) {
-	XTRACE(kLogCleanup2, (int)fNextEvent >> 16, fNextEvent);
+	XTRACE(kLogCleanup2, 0, fNextEvent);
 	// could call DequeueEvent, but I don't want to clobber fCurrentEvent
 	if (fPendingEventsList) {
 	    fNextEvent = (TIrEvent *)fPendingEventsList->Last();
@@ -260,8 +260,8 @@ Fail:
 //--------------------------------------------------------------------------------
 Boolean TIrStream::Init(TIrGlue *irda, EventTraceCauseDesc *trace, UInt16 index)
 {
-    XTRACE(kLogInit, (int)this >> 16, this);
-    XTRACE(kLogInit2, (int)trace >> 16, trace);
+    XTRACE(kLogInit, 0, this);
+    XTRACE(kLogInit2, 0, trace);
     XTRACE(kLogInit3, 0, index);
     
     if (!super::init()) return false;
@@ -271,7 +271,7 @@ Boolean TIrStream::Init(TIrGlue *irda, EventTraceCauseDesc *trace, UInt16 index)
     if (fPendingEventsList == nil) {    // if first IrStream to get init'd
 	fPendingEventsList = CList::cList();    // create the pending event list
 	require(fPendingEventsList, Fail);
-	XTRACE(kLogNewEventList, (int)fPendingEventsList >> 16, fPendingEventsList);
+	XTRACE(kLogNewEventList, 0, fPendingEventsList);
 	check(fCurrentEvent == nil);
 	check(fNextEvent == nil);
     }
@@ -309,9 +309,9 @@ IrDAErr TIrStream::EnqueueEvent(TIrEvent *eventBlock)
     
     eventNum = eventBlock->fEvent;
     
-    QTRACE(fTraceIndex, (int)this >> 16, this);
+    QTRACE(fTraceIndex, (uintptr_t)this >> 16, this);
     ETRACE(eventNum, 0, eventNum);
-    XTRACE(kLogEnqueue, (int)eventBlock >> 16, eventBlock);
+    XTRACE(kLogEnqueue, 0, eventBlock);
     //XTRACE(kLogEnqueueThis, (int)this >>16, this);
     
     require(eventNum > 0 && eventNum <= kIrMaxEventNumber, Fail);
@@ -391,9 +391,9 @@ void TIrStream::RunQueue()
 	array = dest->fTraceArray;          // save these in case the object is deleted on us
 	index = dest->fTraceIndex;          //  as a result of running the nextstate routine
 #endif  
-	QTRACEArray(index+1, (int)dest >> 16, dest, array);  // object event start message
+	QTRACEArray(index+1, (uintptr_t)dest >> 16, dest, array);  // object event start message
 	ETRACE(orig_event, 0, orig_event);
-	XTRACE(kLogEventRecordRun, (int)fCurrentEvent >> 16, fCurrentEvent);
+	XTRACE(kLogEventRecordRun, 0, fCurrentEvent);
 	
 	dest->NextState(fCurrentEvent->fEvent);     // send the event to the stream object for processing!
 	

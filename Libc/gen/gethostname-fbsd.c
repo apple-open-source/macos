@@ -37,6 +37,7 @@ static char sccsid[] = "@(#)gethostname.c	8.1 (Berkeley) 6/4/93";
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/gen/gethostname.c,v 1.5 2003/08/19 23:01:46 wollman Exp $");
 
+#include <string.h>
 #include <sys/param.h>
 #include <sys/sysctl.h>
 #include <limits.h>

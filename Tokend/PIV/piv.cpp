@@ -42,11 +42,12 @@
 
 int main(int argc, const char *argv[])
 {
-#ifdef _USECERTIFICATECOMMONNAME
+	/* @@@ REQUIRED FOR KEYSIZE RETRIEVAL I THINK */
+#if defined(_USECERTIFICATECOMMONNAME) || 1
 	SecKeychainSetServerMode();
 #endif	/* _USECERTIFICATECOMMONNAME */
 	secdebug("PIV.tokend", "main starting with %d arguments", argc);
-	secdelay("/tmp/delay/PIV");
+	secdelay((char *)"/tmp/delay/PIV");
 
 	token = new PIVToken();
 	try {
@@ -56,5 +57,5 @@ int main(int argc, const char *argv[])
 	} catch(...) {
 		delete token;
 		return -1;
-}
+	}
 }

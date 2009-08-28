@@ -194,6 +194,11 @@ extern void gdb_query (struct ui_out *uiout, int qflags, char *qprompt);
 
 extern int ui_out_is_mi_like_p (struct ui_out *uiout);
 
+/* APPLE LOCAL: ui_out annotations...  */
+void ui_out_set_annotation_printer (void (*) (const char *, const char *));
+void ui_out_print_annotation_string (struct ui_out *uiout, int tee, const char *name, const char *annotation);
+void ui_out_print_annotation_int (struct ui_out *uiout, int tee, const char *name, int value);
+
 /* From here on we have things that are only needed by implementation
    routines and main.c.   We should pehaps have a separate file for that,
    like a  ui-out-impl.h  file */

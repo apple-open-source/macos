@@ -44,7 +44,6 @@
 #include <fcntl.h>
 #include <syslog.h>
 #include <netdb.h>
-#include <utmp.h>
 #include <pwd.h>
 #include <setjmp.h>
 #include <sys/param.h>
@@ -62,6 +61,9 @@
 #include <net/if.h>
 #include <CoreFoundation/CFBundle.h>
 #include <CoreFoundation/CFUserNotification.h>
+#ifdef TARGET_EMBEDDED_OS
+#include <CoreFoundation/CFNumber.h>
+#endif
 
 #define APPLE 1
 
@@ -96,7 +98,7 @@ static int dialog_retry_password();
 static int dialog_link_up();
 static int dialog_ask(CFStringRef message, CFStringRef ok, CFStringRef cancel, int timeout);
 static void dialog_reminder(void *arg);
-static void dialog_phasechange(void *arg, int p);
+static void dialog_phasechange(void *arg, uintptr_t p);
 static void dialog_change_reminder();
 
 /* -----------------------------------------------------------------------------
@@ -115,6 +117,7 @@ static bool 	askpasswordafter = 0;	/* Ask password after physical connection is 
 static bool 	noaskpassword = 0;	/* Don't ask for a password before to connect */
 static bool 	noidleprompt = 0;	/* Don't ask user before to disconnect on idle */
 static int 	reminder = 0;		/* Ask user to stay connected after reminder period */
+static int 	dialogtype = 0;		/* 0 = standard ppp, 1 = vpn */
 
 static pthread_t dialog_ui_thread; /* UI thread */
 static int dialog_ui_fds[2];	/* files descriptors for UI thread */
@@ -131,7 +134,9 @@ option_t dialogs_options[] = {
       "Don't ask user before to disconnect on idle", 1 },
     { "reminder", o_int, &reminder,
       "Ask user to stay connected after reminder period", 0, 0, 0, 0xFFFFFFFF, 0, 0, 0, dialog_change_reminder },
-    { NULL }
+	{ "dialogtype", o_int, &dialogtype,
+	  "Dialog type to display (PPP or VPN)"},
+	{ NULL }
 };
 
 /* -----------------------------------------------------------------------------
@@ -162,7 +167,7 @@ int start(CFBundleRef ref)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-void dialog_phasechange(void *arg, int p)
+void dialog_phasechange(void *arg, uintptr_t p)
 {
     if (reminder && p == PHASE_RUNNING) 
         TIMEOUT(dialog_reminder, 0, reminder);
@@ -326,7 +331,7 @@ int dialog_password(char *user, int maxuserlen, char *passwd, int maxpasswdlen, 
         }
 
 		CFDictionaryAddValue(dict, kCFUserNotificationLocalizationURLKey, bundleURL);
-        CFDictionaryAddValue(dict, kCFUserNotificationAlertHeaderKey, CFSTR("Internet Connect"));
+        CFDictionaryAddValue(dict, kCFUserNotificationAlertHeaderKey, (dialogtype == 0) ? CFSTR("Network Connection") : CFSTR("VPN Connection"));
         if (loop)
             CFDictionaryAddValue(dict, kCFUserNotificationAlertMessageKey, (tokencard == 1) ? CFSTR("Incorrectly entered token") : CFSTR("Incorrectly entered password"));
         //CFDictionaryAddValue(dict, kCFUserNotificationAlertMessageKey, CFSTR("Enter password"));
@@ -335,7 +340,12 @@ int dialog_password(char *user, int maxuserlen, char *passwd, int maxpasswdlen, 
 		flags = CFUserNotificationSecureTextField(1);
 		if (dialog_type == DIALOG_PASSWORD_CHANGE)
 			flags += CFUserNotificationSecureTextField(0);
-			
+
+#ifdef TARGET_EMBEDDED_OS
+		// make CFUN prettier
+		CFDictionarySetValue(dict, CFSTR("SBUserNotificationGroupsTextFields"), kCFBooleanTrue);
+#endif
+		
         dialog_alert = CFUserNotificationCreate(NULL, 0, flags, &err, dict);
         if (dialog_alert) {
             CFUserNotificationReceiveResponse(dialog_alert, 0, &flags);
@@ -588,7 +598,7 @@ int dialog_ask(CFStringRef message, CFStringRef ok, CFStringRef cancel, int time
         }
     
         CFDictionaryAddValue(dict, kCFUserNotificationLocalizationURLKey, bundleURL);
-        CFDictionaryAddValue(dict, kCFUserNotificationAlertHeaderKey, CFSTR("Internet Connect"));
+        CFDictionaryAddValue(dict, kCFUserNotificationAlertHeaderKey, (dialogtype == 0) ? CFSTR("Network Connection") : CFSTR("VPN Connection"));
         CFDictionaryAddValue(dict, kCFUserNotificationAlertMessageKey, message);
         if (ok) CFDictionaryAddValue(dict, kCFUserNotificationDefaultButtonTitleKey, ok);
         if (cancel) CFDictionaryAddValue(dict, kCFUserNotificationAlternateButtonTitleKey, cancel);

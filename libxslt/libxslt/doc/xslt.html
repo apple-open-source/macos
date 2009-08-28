@@ -2,21 +2,21 @@
     "http://www.w3.org/TR/html4/loose.dtd">
 <html>
 <head>
-  <title>The XSLT C library for Gnome</title>
-  <meta name="GENERATOR" content="amaya 5.1">
+  <title>The XSLT C library for GNOME</title>
+  <meta name="GENERATOR" content="amaya 8.5, see http://www.w3.org/Amaya/">
   <meta http-equiv="Content-Type" content="text/html">
 </head>
 
 <body bgcolor="#ffffff">
-<h1 align="center">The XSLT C library for Gnome</h1>
+<h1 align="center">The XSLT C library for GNOME</h1>
 
 <h1 style="text-align: center">libxslt</h1>
 
 <p>Libxslt is the <a href="http://www.w3.org/TR/xslt">XSLT</a> C library
-developed for the Gnome project. XSLT itself is a an XML language to define
+developed for the GNOME project. XSLT itself is a an XML language to define
 transformation for XML. Libxslt is based on <a
 href="http://xmlsoft.org/">libxml2</a> the XML C library developed for the
-Gnome project. It also implements most of the <a
+GNOME project. It also implements most of the <a
 href="http://www.exslt.org/">EXSLT</a> set of processor-portable extensions
 functions and some of Saxon's evaluate and expressions extensions.</p>
 
@@ -40,7 +40,7 @@ reused in commercial applications (see the <a href="intro.html">intro</a>)</p>
 
 <p>This document describes <a href="http://xmlsoft.org/XSLT/">libxslt</a>,
 the <a href="http://www.w3.org/TR/xslt">XSLT</a> C library developed for the
-<a href="http://www.gnome.org/">Gnome</a> project.</p>
+<a href="http://www.gnome.org/">GNOME</a> project.</p>
 
 <p>Here are some key points about libxslt:</p>
 <ul>
@@ -100,7 +100,7 @@ useful resources:</p>
 <p>Well, bugs or missing features are always possible, and I will make a
 point of fixing them in a timely fashion. The best way to report a bug is to
 use the <a
-href="http://bugzilla.gnome.org/enter_bug.cgi?product=libxslt">Gnome bug
+href="http://bugzilla.gnome.org/enter_bug.cgi?product=libxslt">GNOME bug
 tracking database</a> (make sure to use the "libxslt" module name). Before
 filing a bug, check the <a
 href="http://bugzilla.gnome.org/buglist.cgi?product=libxslt">list of existing
@@ -110,7 +110,7 @@ sure to specify that the bug is for the package libxslt.</p>
 
 <p>For small problems you can try to get help on IRC, the #xml channel on
 irc.gnome.org (port 6667) usually have a few person subscribed which may help
-(but there is no garantee and if a real issue is raised it should go on the
+(but there is no guarantee and if a real issue is raised it should go on the
 mailing-list for archival).</p>
 
 <p>There is also a mailing-list <a
@@ -132,14 +132,22 @@ really appreciated!).</p>
 to the list without being subscribed won't work. There is *far too many
 bounces* (in the order of a thousand a day !) I cannot approve them manually
 anymore. If your mail to the list bounced waiting for administrator approval,
-it is LOST ! Repost it and fix the problem triggering the error.</p>
+it is LOST ! Repost it and fix the problem triggering the error. Also please
+note that <span style="color: #FF0000; background-color: #FFFFFF">emails with
+a legal warning asking to not copy or redistribute freely the information
+they contain</span> are <strong>NOT</strong> acceptable for the mailing-list,
+such mail will as much as possible be discarded automatically, and are less
+likely to be answered if they made it to the list, <strong>DO NOT</strong>
+post to the list from an email address where such legal requirements are
+automatically added, get private paying support if you can't share
+information.</p>
 
 <p>Check the following too <span style="color: #E50000">before
 posting</span>:</p>
 <ul>
-  <li><a href="search.php">use the search engine</a> to get informations
+  <li><a href="search.php">use the search engine</a> to get information
     related to your problem.</li>
-  <li>make sure you are <a href="ftp://xmlsoft.org/">using a recent
+  <li>make sure you are <a href="ftp://xmlsoft.org/libxslt/">using a recent
     version</a>, and that the problem still shows up in those</li>
   <li>check the <a href="http://mail.gnome.org/archives/xslt/">list
     archives</a> to see if the problem was reported already, in this case
@@ -154,7 +162,7 @@ posting</span>:</p>
     stylesheet (as an attachment)</li>
 </ul>
 
-<p>Then send the bug with associated informations to reproduce it to the <a
+<p>Then send the bug with associated information to reproduce it to the <a
 href="mailto:xslt@gnome.org">xslt@gnome.org</a> list; if it's really libxslt
 related I will approve it. Please do not send mail to me directly, it makes
 things really hard to track and in some cases I am not the best person to
@@ -169,10 +177,10 @@ answer a given question, ask on the list.</p>
     others" and is not welcome. I will automatically Carbon-Copy the
     xslt@gnome.org mailing list for any technical reply made about libxml2 or
     libxslt.</li>
-  <li>There is <span style="color: #E50000">no garantee for support</span>,
+  <li>There is <span style="color: #E50000">no guarantee for support</span>,
     if your question remains unanswered after a week, repost it, making sure
-    you gave all the detail needed and the informations requested.</li>
-  <li>Failing to provide informations as requested or double checking first
+    you gave all the detail needed and the information requested.</li>
+  <li>Failing to provide information as requested or double checking first
     for prior feedback also carries the implicit message "the time of the
     library maintainers is less valuable than my time" and might not be
     welcome.</li>
@@ -194,7 +202,7 @@ it's a good starting point.</p>
 <p>You can help the project in various ways, the best thing to do first is to
 subscribe to the mailing-list as explained before, check the <a
 href="http://mail.gnome.org/archives/xslt/">archives </a>and the <a
-href="http://bugzilla.gnome.org/buglist.cgi?product=libxslt">Gnome bug
+href="http://bugzilla.gnome.org/buglist.cgi?product=libxslt">GNOME bug
 database:</a>:</p>
 <ol>
   <li>provide patches when you find problems</li>
@@ -214,10 +222,9 @@ database:</a>:</p>
 <h2><a name="Downloads">Downloads</a></h2>
 
 <p>The latest versions of libxslt can be found on the <a
-href="ftp://xmlsoft.org/">xmlsoft.org</a> server and on mirrors (<a
-href="ftp://speakeasy.rpmfind.net/pub/libxml/">Seattle</a>, <a
+href="ftp://xmlsoft.org/libxslt/">xmlsoft.org</a> server and on mirrors (<a
 href="ftp://fr.rpmfind.net/pub/libxml/">France</a>) or on the <a
-href="ftp://ftp.gnome.org/pub/GNOME/MIRRORS.html">Gnome FTP server</a> as a
+href="ftp://ftp.gnome.org/pub/GNOME/MIRRORS.html">GNOME FTP server</a> as a
 <a href="ftp://ftp.gnome.org/pub/GNOME/sources/libxslt/1.1/">source
 archive</a>, Antonin Sprinzl also provides <a
 href="ftp://gd.tuwien.ac.at/pub/libxml/">a mirror in Austria</a>. (NOTE that
@@ -231,25 +238,25 @@ the Windows port, <a
 href="http://www.zlatkovic.com/projects/libxml/index.html">he provides
 binaries</a>. <a href="mailto:Gary.Pennington@sun.com">Gary Pennington</a>
 provides <a href="http://garypennington.net/libxml2/">Solaris binaries</a>.
-<a href="mailto:Steve.Ball@zveno.com">Steve Ball</a> provides <a
-href="http://www.zveno.com/open_source/libxml2xslt.html">Mac Os X
+<a href="mailto:Steve.Ball@explain.com.au">Steve Ball</a> provides <a
+href="http://www.explain.com.au/oss/libxml2xslt.html">Mac Os X
 binaries</a>.</p>
 
 <p><a name="Contribs">Contribs:</a></p>
 
 <p>I do accept external contributions, especially if compiling on another
 platform, get in touch with me to upload the package. I will keep them in the
-<a href="ftp://xmlsoft.org/contribs/">contrib directory</a></p>
+<a href="ftp://xmlsoft.org/libxml2/contribs/">contrib directory</a></p>
 
-<p>Libxslt is also available from CVS:</p>
+<p>Libxslt is also available from SVN:</p>
 <ul>
-  <li><p>The <a href="http://cvs.gnome.org/viewcvs/libxslt/">Gnome CVS
+  <li><p>The <a href="http://svn.gnome.org/viewcvs/libxslt/trunk/">GNOME SVN
     base</a>. Check the <a
-    href="http://developer.gnome.org/tools/cvs.html">Gnome CVS Tools</a>
-    page; the CVS module is <b>libxslt</b>.</p>
+    href="http://developer.gnome.org/tools/svn.html">GNOME SVN Tools</a>
+    page; the SVN module is <b>libxslt</b>.</p>
   </li>
-  <li><a href="ftp://xmlsoft.org/XSLT/cvs-snapshot.tar.gz">snapshots from
-    CVS</a> updated every hour are also provided</li>
+  <li><a href="ftp://xmlsoft.org/libxml2/libxslt-cvs-snapshot.tar.gz">snapshots from
+    SVN</a> updated every hour are also provided</li>
 </ul>
 
 <h2><a name="FAQ">FAQ</a></h2>
@@ -293,9 +300,163 @@ platform, get in touch with me to upload the package. I will keep them in the
 <h2><a name="News">News</a></h2>
 
 <p>The <a href="ChangeLog.html">change log</a> describes the recents commits
-to the <a href="http://cvs.gnome.org/viewcvs/libxslt/">CVS</a> code base.</p>
+to the <a href="http://svn.gnome.org/viewcvs/libxslt/trunk/">SVN</a> code base.</p>
 
 <p>Those are the public releases made:</p>
+
+<h3>1.1.24: May 13 20088</h3>
+<ul>
+  <li>Documentation: man page fix (Vincent Lefevre).</li>
+  <li>Bug fixes: pattern bug fix, key initialization problems, exclusion of
+      unknown namespaced element on top of stylesheets, python generator
+      syntactic cleanup (Martin)</li>
+</ul>
+<h3>1.1.23: Apr  8 2008</h3>
+<ul>
+  <li>Documentation: fix links for Cygwin DocBook setup (Philippe Bourcier),
+      xsltParseStylesheetDoc doc fix (Jason Viers), fix manpage default
+      maxdepth value </li>
+  <li>Bug fixes: python segfault (Daniel Gryniewicz), week-in-year bug fix
+      (Maurice van der Pot), fix python iterator problem (William Brack),
+      avoid garbage collection problems on str:tokenize and str:split
+      and function results (William Brack and Peter Pawlowski) 
+      superfluous re-generation of keys (William Brack), remove superfluous
+      code in xsltExtInitTest (Tony Graham), func:result segfault fix
+      (William Brack), timezone offset problem (Peter Pawlowski),</li>
+  <li>Portability fixes: old gcrypt support fix (Brent Cowgill), Python
+      portability patch (Stephane Bidoul), VS 2008 fix (Rob Richard) </li>
+</ul>
+<h3>1.1.22: Aug 23 2007</h3>
+<ul>
+  <li>Bug fixes: RVT cleanup problems (William Brack), exclude-result-prefix
+      bug (William Brack), stylesheet compilation error handling (Rob Richards).
+      </li>
+  <li>Portability fixes: improve build with VS2005 (Rob Richards), 
+      fixing build on AIX (Bjorn Wiberg), fix the security file checks on
+      Windows (Roland Schwarz and Rob Richards). </li>
+  <li>Improvement: add an --encoding option to xsltproc (Drazen Kacar). </li>
+</ul>
+<h3>1.1.21: Jun 12 2007</h3>
+<ul>
+  <li>Bug fixes: out of memory allocation errors (William Brack), 
+      namespace problem on compound predicates (William Brack),
+      python space/tab inconsistencies (Andreas Hanke), hook xsl:message
+      to per transformation error callbacks (Shaun McCance),
+      cached RVT problem (William Brack), XPath context maintainance
+      on choose (William Brack), memory leaks in the math module (William
+      Brack), exclude-result-prefix induced namespace problem (William
+      Brack)</li>
+  <li>Build: configure setup for TRIO_REPLACE_STDIO (William Brack)
+  <li>Documentation: updated after change from CVs to SVN (William Brack)</li>
+</ul>
+<h3>1.1.20: Jan 17 2007</h3>
+<ul>
+  <li>Portability fixes: strict aliasing fix (Marcus Meissner), BSD portability
+      patches (Roland Illig)</li>
+  <li>Bug fixes: Result Value Tree handling fix (William Brack), function
+      parameters fix (William), uninitialized variable (Kjartan Maraas),
+      empty text node handling (William), plugin support and test fixes (William),
+      fragment support fixes (William)</li>
+  <li>Improvements: python stylesheet compare and transform context
+      access (Nic Ferrier), EXSLT string replace support (Joel Reed),
+      xsltproc better low level error handling (Mike Hommey and William)</li>
+</ul>
+<h3>1.1.19: Nov 29 2006</h3>
+<ul>
+  <li>Bug fixes: entities within attributes (William Brack), Python detection
+      problem (Joseph Sacco), in-scope namespace bug (Mike Hommey), Result
+      value tree caching bug (William Brack)</li>
+</ul>
+<h3>1.1.18: Oct 26 2006</h3>
+<ul>
+  <li>portability and build fixes: DESTDIR problem, build paths in python
+      shared lib, compile when libxml2 doesn't support XInclude (Gary Coady).</li>
+  <li>bug fixes: a number of namespace related bugs (Kasimier Buchcik), 
+      parameters bugs (Kasimier Buchcik), proximity position in predicates
+      of match patterns (Kasimier), exslt-node-set troubles with strings
+      (Kasimier), CDATA serialization, Python floats and booleans XPath
+      conversions, XInclude support fixes, RVT cleanup problem (William Brack
+      and Kasimier), attribute checking in stylesheets (Kasimier), xsltForEach
+      context problem (Kasimier), security check should pass full URLs (Shane
+      Corgatelli), security cleanup patch (Mikhail Zabaluev), some python
+      accessor for stylesheet were broken, memory errors when compiling 
+      stylesheets (Mike Hommey), EXSLT current date end-of-month problem
+      (William Brack).</li>
+  <li>improvements: refactoring of namespace handling, value-of impleemntation
+      and template internal processing (Kasimier Buchcik), new xsltproc
+      flag to apply Xinclude to stylesheets.</li>
+  <li>documentation: xsltproc man pages (Daniel Leidert), tests updates
+      (William Brack), various typo fixes (Daniel Leidert), comments on
+      versions macros (Peter Breitenlohner).</li>
+</ul>
+<h3>1.1.17: Jun 6 2006</h3>
+<ul>
+  <li>portability fixes: python detection</li>
+  <li>bug fixes: some regression tests, attribute/namespaces output (Kasimier
+    Buchcik), problem in mixed xsl:value-of and xsl:text uses (Kasimier)</li>
+  <li>improvements: internal refactoring (Kasimier Buchcik), use of the XPath
+    object cache in libxml2-2.6.25 (Kasimier)</li>
+</ul>
+
+<h3>1.1.16: May 01 2006</h3>
+<ul>
+  <li>portability fixes: EXSLT date/time on Solaris and IRIX (Albert Chin),
+      HP-UX  build (Albert Chin), 
+  <li>build fixes: Python detection(Joseph Sacco), plugin configurei
+      (Joel Reed)</li>
+  <li>bug fixes: pattern compilation fix(William Brack), EXSLT date/time
+      fix (Thomas Broyer), EXSLT function bug, potential loop on variable
+      eval, startup race (Christopher Palmer), debug statement left in python
+      (Nic Ferrier), various cleanup based on Coverity reports), error on
+      Out of memory condition (Charles Hardin), various namespace prefixes
+      fixes (Kasimier Buchcik), </li>
+  <li>improvement: speed up sortingi, start of internals refactoring (Kasimier
+      Buchcik)</li>
+  <li>documentation: man page fixes and updates (Daniel Leidert)
+</ul>
+
+<h3>1.1.15: Sep 04 2005</h3>
+<ul>
+  <li>build fixes: Windows build cleanups and updates (Igor Zlatkovic),
+    remove jhbuild warnings</li>
+  <li>bug fixes: negative number formatting (William Brack), number
+    formatting per mille definition (William Brack), XInclude default values
+    (William), text copy bugs (William), bug related to xmlXPathContext size,
+    reuse libxml2 memory management for text nodes, dictionary text bug,
+    forbid variables in match (needs libxml2-2.6.21)</li>
+  <li>improvements: EXSLT dyn:map (Mark Vakoc),</li>
+  <li>documentation: EXSLT date and time functions namespace in man (Jonathan
+    Wakely)</li>
+</ul>
+
+<h3>1.1.14: Apr 02 2005</h3>
+<ul>
+  <li>bug fixes: text node on stylesheet document without a dictionary
+    (William Brack), more checking of XSLT syntax, calling xsltInit()
+    multiple times, mode values interning raised by Mark Vakoc, bug in
+    pattern matching with ancestors, bug in patterna matching with cascading
+    select, xinclude and document() problem, build outside of source tree
+    (Mike Castle)</li>
+  <li>improvement: added a --nodict mode to xsltproc to check problems for
+    docuemtns without dictionaries</li>
+</ul>
+
+<h3>1.1.13: Mar 13 2005</h3>
+<ul>
+  <li>build fixes: 64bits cleanup (William Brack), python 2.4 test (William),
+    LIBXSLT_VERSION_EXTRA on Windows (William), Windows makefiles fixes (Joel
+    Reed), libgcrypt-devel requires for RPM spec.</li>
+  <li>bug fixes: exslt day-of-week-in-month (Sal Paradise), xsl:call-template
+    should not change the current template rule (William Brack), evaluation
+    of global variables (William Brack), RVT's in XPath predicates (William),
+    namespace URI on template names (Mark Vakoc), stat() for Windows patch
+    (Aleksey Gurtovoy), pattern expression fixes (William Brack), out of
+    memory detection misses (William), parserOptions propagation (William),
+    exclude-result-prefixes fix (William), // patten fix (William).</li>
+  <li>extensions: module support (Joel Reed), dictionary based speedups
+    trying to get rid of xmlStrEqual as much as possible.</li>
+  <li>documentation: added Wiki (Joel Reed)</li>
+</ul>
 
 <h3>1.1.12: Oct 29 2004</h3>
 <ul>
@@ -373,14 +534,14 @@ to the <a href="http://cvs.gnome.org/viewcvs/libxslt/">CVS</a> code base.</p>
 
 <h3>1.1.5: Mar 23 2004</h3>
 <ul>
-  <li>performance: use dictionnary lookup for variables</li>
+  <li>performance: use dictionary lookup for variables</li>
   <li>remove use of _private from source documents</li>
   <li>cleanup of "make tests" output</li>
   <li>bugfixes: AVT in local variables, use localtime_r to avoid thread
     troubles (William), dictionary handling bug (William), limited number of
     stubstitutions in AVT (William), tokenize fix for UTF-8 (William),
     superfluous namespace (William), xsltproc error code on
-    &lt;xsl:message&gt; halt, OpenVMS fix, dictionnary reference counting
+    &lt;xsl:message&gt; halt, OpenVMS fix, dictionary reference counting
     change.</li>
 </ul>
 
@@ -395,7 +556,7 @@ to the <a href="http://cvs.gnome.org/viewcvs/libxslt/">CVS</a> code base.</p>
 <h3>1.1.3: Feb 16 2004</h3>
 <ul>
   <li>Rewrote the Attribute Value Template code, new XPath compilation
-    interfaces, dictionnary reuses for XSLT with potential for serious
+    interfaces, dictionary reuses for XSLT with potential for serious
     performance improvements.</li>
   <li>bug fixes: portability (William Brack), key() in node-set() results
     (William), comment before doctype (William), math and node-set() problems
@@ -741,7 +902,7 @@ to the <a href="http://cvs.gnome.org/viewcvs/libxslt/">CVS</a> code base.</p>
   <li>patches for Windows and update of Windows Makefiles by Igor</li>
   <li>OpenVMS port instructions from John A Fotheringham</li>
   <li>fixed some Makefiles annoyance and libraries prelinking
-  informations</li>
+  information</li>
 </ul>
 
 <h3>1.0.7: Nov 10 2001</h3>
@@ -1017,8 +1178,8 @@ Usage: xsltproc [options] stylesheet file [file ...]
       --nonet refuse to fetch DTDs or entities over network
       --warnnet warn against fetching over the network
       --catalogs : use the catalogs from $SGML_CATALOG_FILES
-      --xinclude : do XInclude processing on document intput
-      --profile or --norman : dump profiling informations 
+      --xinclude : do XInclude processing on document input
+      --profile or --norman : dump profiling information 
 orchis:~ -&gt;</pre>
 
 <h2><a name="DocBook">DocBook</a></h2>
@@ -1031,7 +1192,7 @@ computer hardware and software.</p>
 
 <p>xsltproc and libxslt are not specifically dependant on DocBook, but since
 a lot of people use xsltproc and libxml2 for DocBook formatting, here are a
-few pointers and informations which may be helpful:</p>
+few pointers and information which may be helpful:</p>
 <ul>
   <li>The <a href="http://www.oasis-open.org/committees/docbook/">DocBook
     homepage at Oasis</a> you should find pointers there on all the lastest
@@ -1040,7 +1201,7 @@ few pointers and informations which may be helpful:</p>
     the official reference documentation for DocBook.</li>
   <li><a
     href="https://sourceforge.net/docman/index.php?group_id=21935">DocBook
-    Open Repository</a> contains a lot of informations about DocBook</li>
+    Open Repository</a> contains a lot of information about DocBook</li>
   <li>Bob Stayton provides a <a href="http://www.sagehill.net/">lot of
     resources</a> and consulting services around DocBook.</li>
   <li>Here is a <a href="/buildDocBookCatalog">shell script</a> to generate
@@ -1052,11 +1213,11 @@ few pointers and informations which may be helpful:</p>
     <p>should allow to process DocBook documentations without requiring
     network accesses for the DTd or stylesheets</p>
   </li>
-  <li>I have uploaded <a href="ftp://xmlsoft.org/test/dbk412catalog.tar.gz">a
+  <li>I have uploaded <a href="ftp://xmlsoft.org/libxml2/test/dbk412catalog.tar.gz">a
     small tarball</a> containing XML Catalogs for DocBook 4.1.2 which seems
     to work fine for me too</li>
   <li>Informations on installing a <a
-    href="http://ourworld.compuserve.com/homepages/hoenicka_markus/ntsgml.html">Windows
+    href="http://wiki.docbook.org/topic/CygwinPackages">Windows
     DocBook processing setup</a> based on Cygwin (using the binaries from the
     official Windows port should be possible too)</li>
   <li>Alexander Kirillov's page on <a
@@ -1099,7 +1260,7 @@ again:</p>
 
 <p>Okay this section is clearly incomplete. But integrating libxslt into your
 application should be relatively easy. First check the few steps described
-below, then for more detailed informations, look at the<a
+below, then for more detailed information, look at the<a
 href="html/libxslt-lib.html"> generated pages</a> for the API and the source
 of libxslt/xsltproc.c  and the  <a
 href="tutorial/libxslttutorial.html">tutorial</a>.</p>
@@ -1161,12 +1322,18 @@ or libxslt wrappers or bindings:</p>
     libxslt as part of GNU ClasspathX project.</li>
   <li>Patrick McPhee provides Rexx bindings fof libxml2 and libxslt, look for
     <a href="http://www.interlog.com/~ptjm/software.html">RexxXML</a>.</li>
+  <li><a
+    href="http://www.satimage.fr/software/en/xml_suite.html">Satimage</a>
+    provides <a
+    href="http://www.satimage.fr/software/en/downloads_osaxen.html">XMLLib
+    osax</a>. This is an osax for Mac OS X with a set of commands to
+    implement in AppleScript the XML DOM, XPATH and XSLT.</li>
 </ul>
 
 <p>The libxslt Python module depends on the <a
 href="http://xmlsoft.org/python.html">libxml2 Python</a> module.</p>
 
-<p>The distribution includes a set of Python bindings, which are garanteed to
+<p>The distribution includes a set of Python bindings, which are guaranteed to
 be maintained as part of the library in the future, though the Python
 interface have not yet reached the completeness of the C API.</p>
 
@@ -1187,7 +1354,7 @@ build the bindings is python/generator.py in the source distribution.</p>
     RPM</a> and the <a
     href="http://rpmfind.net/linux/rpm2html/search.php?query=libxslt-python">libxslt-python
     RPM</a>.</li>
-  <li>Otherwise use the <a href="ftp://xmlsoft.org/python/">libxml2-python
+  <li>Otherwise use the <a href="ftp://xmlsoft.org/libxml2/python/">libxml2-python
     module distribution</a> corresponding to your installed version of
     libxml2 and libxslt. Note that to install it you will need both libxml2
     and libxslt installed and run "python setup.py build install" in the
@@ -1229,7 +1396,7 @@ in that example and how is the processing done:</p>
     HTML tree are suitable for XSLT processing in libxslt. This is actually
     how this page is generated !</li>
   <li><code>result</code> : this is a document generated by applying the
-    stylesheet to the document. Note that some of the stylesheet informations
+    stylesheet to the document. Note that some of the stylesheet information
     may be related to the serialization of that document and as in this
     example a specific saveResultToFilename() method of the stylesheet should
     be used to save it to a file (in that case to "foo").</li>
@@ -1277,7 +1444,7 @@ looks for the current insertion node in the resulting output (either the
 resulting document or the Result Value Tree being generated), and saves it to
 a global variable for checking that the access actually worked.</p>
 
-<p>For more informations on the xpathParserContext and transformContext
+<p>For more information on the xpathParserContext and transformContext
 objects check the <a href="internals.html">libray internals description</a>.
 The pctxt is actually an object from a class derived from the
 libxml2.xpathParserContext() with just a couple more properties including the
@@ -1313,7 +1480,7 @@ style.freeStylesheet()
 doc.freeDoc()</pre>
 
 <p>that part is identical, to the basic example except that the
-transformation is passed a dictionnary of parameters. Note that the string
+transformation is passed a dictionary of parameters. Note that the string
 passed "success" had to be quoted, otherwise it is interpreted as an XPath
 query for the childs of root named "success".</p>
 <pre>root = result.children
@@ -1374,7 +1541,7 @@ processor to generate DOM trees compliant with the XPath data model.</p>
 <p>This document describes the processing of <a
 href="http://xmlsoft.org/XSLT/">libxslt</a>, the <a
 href="http://www.w3.org/TR/xslt">XSLT</a> C library developed for the <a
-href="http://www.gnome.org/">Gnome</a> project.</p>
+href="http://www.gnome.org/">GNOME</a> project.</p>
 
 <p>Note: this documentation is by definition incomplete and I am not good at
 spelling, grammar, so patches and suggestions are <a
@@ -1389,7 +1556,7 @@ stylesheet document and generates an output document:</p>
 alt="the XSLT processing model"></p>
 
 <p>Libxslt is written in C. It relies on <a
-href="http://www.xmlsoft.org/">libxml</a>, the XML C library for Gnome, for
+href="http://www.xmlsoft.org/">libxml</a>, the XML C library for GNOME, for
 the following operations:</p>
 <ul>
   <li>parsing files</li>
@@ -1448,7 +1615,7 @@ indicates the kind of node it represents, the most common ones are:</p>
 
 <p>For the XSLT processing, entity nodes should not be generated (i.e. they
 should be replaced by their content). Most nodes also contains the following
-"navigation" informations:</p>
+"navigation" information:</p>
 <ul>
   <li>the containing <strong>doc</strong>ument</li>
   <li>the <strong>parent</strong> node</li>
@@ -1869,7 +2036,7 @@ xsltCompMatch).</p>
 standard XSLT library for use with <a
 href="http://xmlsoft.org/XSLT/">libxslt</a>, the <a
 href="http://www.w3.org/TR/xslt">XSLT</a> C library developed for the <a
-href="http://www.gnome.org/">Gnome</a> project.</p>
+href="http://www.gnome.org/">GNOME</a> project.</p>
 
 <p>Before starting reading this document it is highly recommended to get
 familiar with <a href="internals.html">the libxslt internals</a>.</p>
@@ -2178,7 +2345,7 @@ libxslt:test element, it will output a comment in the result tree:</p>
  * @ctxt:  an XSLT processing context
  * @node:  The current node
  * @inst:  the instruction in the stylesheet
- * @comp:  precomputed informations
+ * @comp:  precomputed information
  *
  * Process a libxslt:test node
  */
@@ -2280,10 +2447,9 @@ example close the connection to the database to keep the same example.</p>
   <li><a href="mailto:dkuhlman@cutter.rexx.com">Dave Kuhlman</a> provides
     libxml/libxslt <a href="http://www.rexx.com/~dkuhlman">wrappers for
     Python</a></li>
-  <li><a href="mailto:Steve.Ball@zveno.com">Steve Ball</a>, <a
-    href="http://www.zveno.com/">Zveno</a> and contributors maintain <a
-    href="http://tclxml.sourceforge.net/">tcl bindings for libxml2 and
-    libxslt</a>, as well as <a
+  <li><a href="mailto:Steve.Ball@explain.com.au">Steve Ball</a>, and
+    contributors maintain <a href="http://tclxml.sourceforge.net/">tcl
+    bindings for libxml2 and libxslt</a>, as well as <a
     href="http://tclxml.sf.net/tkxmllint.html">tkxmllint</a> a GUI for
     xmllint and <a href="http://tclxml.sf.net/tkxsltproc.html">tkxsltproc</a>
     a GUI for xsltproc.</li>

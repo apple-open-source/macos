@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -107,10 +107,10 @@ struct bpb710 {
 
 
 /*
- * The following structures represent how the bpb's look on disk.  shorts
- * and longs are just character arrays of the appropriate length.  This is
- * because the compiler forces shorts and longs to align on word or
- * halfword boundaries.
+ * The following structures represent how the bpb's look on disk.  Multi-byte
+ * integers are just character arrays of the appropriate length.  This is
+ * because the compiler forces alignment, and some of our fields aren't
+ * properly aligned.
  *
  * XXX The little-endian code here assumes that the processor can access
  * 16-bit and 32-bit quantities on byte boundaries.  If this is not true,
@@ -118,18 +118,18 @@ struct bpb710 {
  */
 #include <machine/endian.h>
 #if (BYTE_ORDER == LITTLE_ENDIAN) 			/* && defined(UNALIGNED_ACCESS) */
-#define	getushort(x)	*((u_int16_t *)(x))
-#define	getulong(x)	*((u_int32_t *)(x))
-#define	putushort(p, v)	(*((u_int16_t *)(p)) = (v))
-#define	putulong(p, v)	(*((u_int32_t *)(p)) = (v))
+#define	getuint16(x)	*((u_int16_t *)(x))
+#define	getuint32(x)	*((u_int32_t *)(x))
+#define	putuint16(p, v)	(*((u_int16_t *)(p)) = (v))
+#define	putuint32(p, v)	(*((u_int32_t *)(p)) = (v))
 #else
-#define getushort(x)	(((u_int8_t *)(x))[0] + (((u_int8_t *)(x))[1] << 8))
-#define getulong(x)	(((u_int8_t *)(x))[0] + (((u_int8_t *)(x))[1] << 8) \
+#define getuint16(x)	(((u_int8_t *)(x))[0] + (((u_int8_t *)(x))[1] << 8))
+#define getuint32(x)	(((u_int8_t *)(x))[0] + (((u_int8_t *)(x))[1] << 8) \
 			 + (((u_int8_t *)(x))[2] << 16)	\
 			 + (((u_int8_t *)(x))[3] << 24))
-#define putushort(p, v)	(((u_int8_t *)(p))[0] = (v) & 0xFF,	\
+#define putuint16(p, v)	(((u_int8_t *)(p))[0] = (v) & 0xFF,	\
 			 ((u_int8_t *)(p))[1] = ((v) >> 8) & 0xFF)
-#define putulong(p, v)	(((u_int8_t *)(p))[0] = (v) & 0xFF,	\
+#define putuint32(p, v)	(((u_int8_t *)(p))[0] = (v) & 0xFF,	\
 			 ((u_int8_t *)(p))[1] = ((v) >> 8) & 0xFF, \
 			 ((u_int8_t *)(p))[2] = ((v) >> 16) & 0xFF, \
 			 ((u_int8_t *)(p))[3] = ((v) >> 24) & 0xFF)

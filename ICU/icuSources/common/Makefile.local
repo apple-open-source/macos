@@ -1,13 +1,12 @@
 #******************************************************************************
 #
-#   Copyright (c) 2006-2007, Apple Inc.
+#   Copyright (c) 2006-2008, Apple Inc.
 #   All Rights Reserved.
 #
 #******************************************************************************
 ## Makefile.local for Apple Inc.
 
 ifeq "$(WINDOWS)" "YES"
-else ifeq "$(MINIMAL)" "YES"
 else
 	OBJECTS += rbtok.o urbtok.o aaplbfct.o
 	

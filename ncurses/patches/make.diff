@@ -1,8 +1,8 @@
 diff -Nru ./configure ../ncurses-5.4+local/configure
 --- ./configure	2004-01-31 17:03:42.000000000 -0800
 +++ ../ncurses-5.4+local/configure	2004-11-19 18:57:27.000000000 -0800
-@@ -6492,7 +6492,6 @@
- echo "$as_me:6492: result: $with_widec" >&5
+@@ -6824,7 +6824,6 @@
+ echo "$as_me:6824: result: $with_widec" >&5
  echo "${ECHO_T}$with_widec" >&6
  if test "$with_widec" = yes ; then
 -	LIB_SUFFIX="w${LIB_SUFFIX}"
@@ -12,9 +12,9 @@ diff -Nru ./configure ../ncurses-5.4+local/configure
 diff -Nru ./misc/run_tic.in ../ncurses-5.4+local/misc/run_tic.in
 --- ./misc/run_tic.in	2003-09-06 15:31:44.000000000 -0700
 +++ ../ncurses-5.4+local/misc/run_tic.in	2004-11-24 22:26:54.000000000 -0800
-@@ -122,37 +122,3 @@
- 	echo '? tic could not build '$TERMINFO
+@@ -137,38 +137,3 @@
  	exit 1
+ fi
  fi
 -
 -# Make a symbolic link to provide compatibility with applications that expect
@@ -50,3 +50,4 @@ diff -Nru ./misc/run_tic.in ../ncurses-5.4+local/misc/run_tic.in
 -		fi
 -	fi
 -fi
+-# vile:shmode

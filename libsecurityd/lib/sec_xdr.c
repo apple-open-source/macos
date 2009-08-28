@@ -198,7 +198,7 @@ sec_xdr_arena_allocator_t *sec_xdr_arena_allocator(XDR *xdr)
     return NULL;
 }
 
-inline bool_t sec_xdr_arena_size_allocator(XDR *xdr)
+bool_t sec_xdr_arena_size_allocator(XDR *xdr)
 {
     sec_xdr_arena_allocator_t *allocator = xdr ? (sec_xdr_arena_allocator_t *)xdr->x_public : NULL;
     if (allocator && (allocator->magic == xdr_size_magic))

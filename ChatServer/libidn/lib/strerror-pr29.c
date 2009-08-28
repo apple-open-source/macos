@@ -1,5 +1,5 @@
 /* strerror-pr29.c --- Convert PR29 errors into text.
- * Copyright (C) 2004  Simon Josefsson
+ * Copyright (C) 2004, 2005, 2006, 2007  Simon Josefsson
  *
  * This file is part of GNU Libidn.
  *
@@ -18,6 +18,10 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA
  *
  */
+
+#if HAVE_CONFIG_H
+# include "config.h"
+#endif
 
 #include "pr29.h"
 

@@ -35,10 +35,12 @@ import <DSmemberdMIG_types.h>;
 
 type kauth_identity_extlookup = struct [200] of uint8_t;
 type guid_t = struct [16] of uint8_t;
-type StatBlock = struct [16] of uint32_t;
+type StatBlock = struct [16] of uint64_t;
 type GIDArray = array [16] of uint32_t;
 type GIDList = array [] of uint32_t;
 type mstring = c_string[*:256];
+type identifier_data_t = array [ * : 16384 ] of char
+	ctype: pointer_t;
 
 routine MembershipCall
 (
@@ -104,3 +106,15 @@ routine GetAllGroups
 
 		AuditToken atoken	: audit_token_t
 );
+
+routine MapIdentifier
+(
+				server			: mach_port_t;
+				idType			: int;
+				identifier		: identifier_data_t;
+				ooidentifier	: pointer_t, Dealloc;
+	out			guid			: guid_t;
+
+    AuditToken	atoken			: audit_token_t
+);
+

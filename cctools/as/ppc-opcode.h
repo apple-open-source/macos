@@ -1,3 +1,5 @@
+#include <stdint.h>
+
 /* operands types */
 enum optype {
     NONE,	/* no operand */
@@ -29,8 +31,8 @@ enum optype {
 };
 
 struct op {
-   unsigned long offset:5;
-   unsigned long width:5;
+   uint32_t offset:5;
+   uint32_t width:5;
    enum optype   type:6;
 };
 
@@ -46,10 +48,10 @@ struct op {
 #define CPU970		0x10 /* added to OPTIONAL insts that the 970 has */
 
 struct ppc_opcode {
-   unsigned long opcode;
+   uint32_t opcode;
    char         *name;
    struct op	 ops[5];
-   unsigned long cpus;
+   uint32_t cpus;
 };
 
 #define IS_BRANCH_CONDITIONAL(opcode) \

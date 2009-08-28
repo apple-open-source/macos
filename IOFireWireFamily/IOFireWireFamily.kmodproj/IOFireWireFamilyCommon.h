@@ -29,11 +29,17 @@
  */
 /*
 	$Log: IOFireWireFamilyCommon.h,v $
-	Revision 1.75.2.2  2008/07/15 01:01:58  collin
-	<rdar://problem/5859733> Customer reported Leopard FireWire Drive failure (works in Tiger)
+	Revision 1.79  2008/07/15 01:29:44  collin
+	<rdar://problem/5859733> & <rdar://problem/5843668>
 	
-	Revision 1.75.2.1  2007/11/30 04:49:17  collin
-	fix context allocation for the M86 workaround
+	Revision 1.78  2008/05/08 02:33:22  collin
+	more K64
+	
+	Revision 1.77  2008/04/24 00:01:39  collin
+	more K640
+	
+	Revision 1.76  2007/12/05 04:52:08  collin
+	integrate chex workaround
 	
 	Revision 1.75  2007/08/31 20:29:06  collin
 	fixed 5437835
@@ -808,10 +814,20 @@ typedef void* DCLCallProcDataType;
 typedef UInt32 DCLCallProcDataType;
 #endif
 
+#ifdef KERNEL
+	#ifdef __LP64__		
+		typedef void* DCLCompilerDataType;
+	#else
+		typedef UInt32 DCLCompilerDataType;
+	#endif
+#else
+		typedef UInt32 DCLCompilerDataType;
+#endif
+
 typedef struct DCLCommandStruct
 {
 	struct DCLCommandStruct *	pNextDCLCommand;		// Next DCL command.
-	UInt32						compilerData;			// Data for use by DCL compiler.
+	DCLCompilerDataType			compilerData;			// Data for use by DCL compiler.
 	UInt32						opcode;					// DCL opcode.
 	UInt32						operands[1];			// DCL operands (size varies)
 } DCLCommand;
@@ -821,7 +837,7 @@ typedef void (DCLCallCommandProc)(DCLCommand * command);
 typedef struct DCLTransferPacketStruct
 {
 	DCLCommand *			pNextDCLCommand;		// Next DCL command.
-	UInt32					compilerData;			// Data for use by DCL compiler.
+	DCLCompilerDataType		compilerData;			// Data for use by DCL compiler.
 	UInt32					opcode;					// DCL opcode.
 	void *					buffer;					// Packet buffer.
 	UInt32					size;					// Buffer size.
@@ -830,7 +846,7 @@ typedef struct DCLTransferPacketStruct
 typedef struct DCLTransferBufferStruct
 {
 	DCLCommand *			pNextDCLCommand;		// Next DCL command.
-	UInt32					compilerData;			// Data for use by DCL compiler.
+	DCLCompilerDataType		compilerData;			// Data for use by DCL compiler.
 	UInt32					opcode;					// DCL opcode.
 	void *					buffer;					// Buffer.
 	UInt32					size;					// Buffer size.
@@ -842,7 +858,7 @@ typedef struct DCLTransferBufferStruct
 typedef struct DCLCallProcStruct
 {
 	DCLCommand *			pNextDCLCommand;	// Next DCL command.
-	UInt32					compilerData;		// Data for use by DCL compiler.
+	DCLCompilerDataType		compilerData;		// Data for use by DCL compiler.
 	UInt32					opcode;				// DCL opcode.
 	DCLCallCommandProc *	proc;				// Procedure to call.
 	DCLCallProcDataType		procData;			// Data for use by called procedure.
@@ -851,14 +867,14 @@ typedef struct DCLCallProcStruct
 typedef struct DCLLabelStruct
 {
 	DCLCommand *			pNextDCLCommand;	// Next DCL command.
-	UInt32					compilerData;		// Data for use by DCL compiler.
+	DCLCompilerDataType		compilerData;		// Data for use by DCL compiler.
 	UInt32					opcode;				// DCL opcode.
 } DCLLabel;
 
 typedef struct DCLJumpStruct
 {
 	DCLCommand *			pNextDCLCommand;	// Next DCL command.
-	UInt32					compilerData;		// Data for use by DCL compiler.
+	DCLCompilerDataType		compilerData;		// Data for use by DCL compiler.
 	UInt32					opcode;				// DCL opcode.
 	DCLLabel *				pJumpDCLLabel;		// DCL label to jump to.
 } DCLJump;
@@ -866,7 +882,7 @@ typedef struct DCLJumpStruct
 typedef struct DCLSetTagSyncBitsStruct
 {
 	DCLCommand *			pNextDCLCommand;	// Next DCL command.
-	UInt32					compilerData;		// Data for use by DCL compiler.
+	DCLCompilerDataType		compilerData;		// Data for use by DCL compiler.
 	UInt32					opcode;				// DCL opcode.
 	UInt16					tagBits;			// Tag bits for following packets.
 	UInt16					syncBits;			// Sync bits for following packets.
@@ -875,7 +891,7 @@ typedef struct DCLSetTagSyncBitsStruct
 typedef struct DCLUpdateDCLListStruct
 {
 	DCLCommand *			pNextDCLCommand;	// Next DCL command.
-	UInt32					compilerData;		// Data for use by DCL compiler.
+	DCLCompilerDataType		compilerData;		// Data for use by DCL compiler.
 	UInt32					opcode;				// DCL opcode.
 	DCLCommand **			dclCommandList;		// List of DCL commands to update.
 	UInt32					numDCLCommands;		// Number of DCL commands in list.
@@ -884,7 +900,7 @@ typedef struct DCLUpdateDCLListStruct
 typedef struct DCLTimeStampStruct
 {
 	DCLCommand *			pNextDCLCommand;	// Next DCL command.
-	UInt32					compilerData;		// Data for use by DCL compiler.
+	DCLCompilerDataType		compilerData;		// Data for use by DCL compiler.
 	UInt32					opcode;				// DCL opcode.
 	UInt32					timeStamp;			// Time stamp.
 } DCLTimeStamp;
@@ -892,7 +908,7 @@ typedef struct DCLTimeStampStruct
 typedef struct DCLPtrTimeStampStruct
 {
 	DCLCommand *			pNextDCLCommand;	// Next DCL command.
-	UInt32					compilerData;		// Data for use by DCL compiler.
+	DCLCompilerDataType		compilerData;		// Data for use by DCL compiler.
 	UInt32					opcode;				// DCL opcode.
 	UInt32 *				timeStampPtr;		// Where to store the time stamp.
 } DCLPtrTimeStamp ;
@@ -900,7 +916,7 @@ typedef struct DCLPtrTimeStampStruct
 typedef struct 
 {
 	DCLCommand *			pNextDCLCommand ;	// unused - always NULL
-	UInt32					compilerData;		// Data for use by DCL compiler.
+	DCLCompilerDataType		compilerData;		// Data for use by DCL compiler.
 	UInt32					opcode ;			// must be kDCLNuDCLLeaderOp
 	void*				 	program ;			// NuDCL program here...
 } DCLNuDCLLeader ;
@@ -936,7 +952,7 @@ typedef struct UserExportDCLCommandStruct
 {
 	mach_vm_address_t					pClientDCLStruct;		// A pointer to the client's DCL struct
 	mach_vm_address_t					pNextDCLCommand;		// Next DCL command.
-	UInt32								compilerData;			// Data for use by DCL compiler.
+	uint64_t							compilerData;			// Data for use by DCL compiler.
 	UInt32								opcode;					// DCL opcode.
 	UInt32								operands[1];			// DCL operands (size varies)
 } __attribute__ ((packed)) UserExportDCLCommand;
@@ -947,7 +963,7 @@ typedef struct UserExportDCLTransferPacketStruct
 {
 	mach_vm_address_t		pClientDCLStruct;		// A pointer to the client's DCL struct
 	mach_vm_address_t		pNextDCLCommand;		// Next DCL command.
-	UInt32					compilerData;			// Data for use by DCL compiler.
+	uint64_t				compilerData;			// Data for use by DCL compiler.
 	UInt32					opcode;					// DCL opcode.
 	mach_vm_address_t		buffer;					// Packet buffer.
 	UInt32					size;					// Buffer size.
@@ -957,7 +973,7 @@ typedef struct UserExportDCLTransferBufferStruct
 {
 	mach_vm_address_t		pClientDCLStruct;		// A pointer to the client's DCL struct
 	mach_vm_address_t		pNextDCLCommand;		// Next DCL command.
-	UInt32					compilerData;			// Data for use by DCL compiler.
+	uint64_t				compilerData;			// Data for use by DCL compiler.
 	UInt32					opcode;					// DCL opcode.
 	mach_vm_address_t		buffer;					// Buffer.
 	UInt32					size;					// Buffer size.
@@ -970,7 +986,7 @@ typedef struct UserExportDCLCallProcStruct
 {
 	mach_vm_address_t		pClientDCLStruct;	// A pointer to the client's DCL struct
 	mach_vm_address_t		pNextDCLCommand;	// Next DCL command.
-	UInt32					compilerData;		// Data for use by DCL compiler.
+	uint64_t				compilerData;		// Data for use by DCL compiler.
 	UInt32					opcode;				// DCL opcode.
 	mach_vm_address_t		proc;				// Procedure to call.
 	uint64_t				procData;			// Data for use by called procedure.
@@ -980,7 +996,7 @@ typedef struct UserExportDCLLabelStruct
 {
 	mach_vm_address_t		pClientDCLStruct;	// A pointer to the client's DCL struct
 	mach_vm_address_t		pNextDCLCommand;	// Next DCL command.
-	UInt32					compilerData;		// Data for use by DCL compiler.
+	uint64_t				compilerData;		// Data for use by DCL compiler.
 	UInt32					opcode;				// DCL opcode.
 } __attribute__ ((packed)) UserExportDCLLabel;
 
@@ -988,7 +1004,7 @@ typedef struct UserExportDCLJumpStruct
 {
 	mach_vm_address_t		pClientDCLStruct;	// A pointer to the client's DCL struct
 	mach_vm_address_t		pNextDCLCommand;	// Next DCL command.
-	UInt32					compilerData;		// Data for use by DCL compiler.
+	uint64_t				compilerData;		// Data for use by DCL compiler.
 	UInt32					opcode;				// DCL opcode.
 	mach_vm_address_t		pJumpDCLLabel;		// DCL label to jump to.
 } __attribute__ ((packed)) UserExportDCLJump;
@@ -997,7 +1013,7 @@ typedef struct UserExportDCLSetTagSyncBitsStruct
 {
 	mach_vm_address_t		pClientDCLStruct;	// A pointer to the client's DCL struct
 	mach_vm_address_t		pNextDCLCommand;	// Next DCL command.
-	UInt32					compilerData;		// Data for use by DCL compiler.
+	uint64_t				compilerData;		// Data for use by DCL compiler.
 	UInt32					opcode;				// DCL opcode.
 	UInt16					tagBits;			// Tag bits for following packets.
 	UInt16					syncBits;			// Sync bits for following packets.
@@ -1007,7 +1023,7 @@ typedef struct UserExportDCLUpdateDCLListStruct
 {
 	mach_vm_address_t		pClientDCLStruct;	// A pointer to the client's DCL struct
 	mach_vm_address_t		pNextDCLCommand;	// Next DCL command.
-	UInt32					compilerData;		// Data for use by DCL compiler.
+	uint64_t				compilerData;		// Data for use by DCL compiler.
 	UInt32					opcode;				// DCL opcode.
 	mach_vm_address_t		dclCommandList;		// List of DCL commands to update.
 	UInt32					numDCLCommands;		// Number of DCL commands in list.
@@ -1017,7 +1033,7 @@ typedef struct UserExportDCLTimeStampStruct
 {
 	mach_vm_address_t		pClientDCLStruct;	// A pointer to the client's DCL struct
 	mach_vm_address_t		pNextDCLCommand;	// Next DCL command.
-	UInt32					compilerData;		// Data for use by DCL compiler.
+	uint64_t				compilerData;		// Data for use by DCL compiler.
 	UInt32					opcode;				// DCL opcode.
 	UInt32					timeStamp;			// Time stamp.
 } __attribute__ ((packed)) UserExportDCLTimeStamp;
@@ -1026,7 +1042,7 @@ typedef struct UserExportDCLPtrTimeStampStruct
 {
 	mach_vm_address_t		pClientDCLStruct;	// A pointer to the client's DCL struct
 	mach_vm_address_t		pNextDCLCommand;	// Next DCL command.
-	UInt32					compilerData;		// Data for use by DCL compiler.
+	uint64_t				compilerData;		// Data for use by DCL compiler.
 	UInt32					opcode;				// DCL opcode.
 	mach_vm_address_t		timeStampPtr;		// Where to store the time stamp.
 } __attribute__ ((packed)) UserExportDCLPtrTimeStamp ;
@@ -1035,7 +1051,7 @@ typedef struct
 {
 	mach_vm_address_t		pClientDCLStruct;	// A pointer to the client's DCL struct
 	mach_vm_address_t		pNextDCLCommand ;	// unused - always NULL
-	UInt32					compilerData;		// Data for use by DCL compiler.
+	uint64_t				compilerData;		// Data for use by DCL compiler.
 	UInt32					opcode ;			// must be kDCLNuDCLLeaderOp
 	mach_vm_address_t	 	program ;			// NuDCL program here...
 } __attribute__ ((packed)) UserExportDCLNuDCLLeader ;

@@ -62,6 +62,11 @@ protected:
 	// PrimaryKey item contstructor
     ItemImpl(const Keychain &keychain, const PrimaryKey &primaryKey);
 
+public:
+
+	static ItemImpl* make(const Keychain &keychain, const PrimaryKey &primaryKey, const CssmClient::DbUniqueRecord &uniqueId);
+	static ItemImpl* make(const Keychain &keychain, const PrimaryKey &primaryKey);
+	
 	ItemImpl(ItemImpl &item);
 
 	// Return true if we got the attribute, false if we only got the actualLength.
@@ -80,26 +85,28 @@ protected:
 	static const CSSM_DATA &defaultAttributeValue(const CSSM_DB_ATTRIBUTE_INFO &info);
 
 public:
-    virtual ~ItemImpl(); 
-    bool isPersistent() const;
-    bool isModified() const;
+    virtual ~ItemImpl();
+    bool isPersistent();
+    bool isModified();
 
 	virtual void update();
 
+	void aboutToDestruct();
+	
 	// put a copy of the item into a given keychain
 	virtual Item copyTo(const Keychain &keychain, Access *newAccess = NULL);
 
-    CSSM_DB_RECORDTYPE recordType() const;
+    CSSM_DB_RECORDTYPE recordType();
 
 	// Used for writing the record to the database.
     CssmClient::DbUniqueRecord dbUniqueRecord();
-	const CssmClient::DbAttributes *modifiedAttributes() const;
-	const CssmData *modifiedData() const;
+	const CssmClient::DbAttributes *modifiedAttributes();
+	const CssmData *modifiedData();
 	virtual void didModify(); // Forget any attributes and data we just wrote to the db
 
-	Keychain keychain() const;
-	PrimaryKey primaryKey() const;
-	bool operator < (const ItemImpl &other) const;
+	Keychain keychain();
+	PrimaryKey primaryKey();
+	bool operator < (const ItemImpl &other);
 
 	void getAttribute(SecKeychainAttribute& attr,  UInt32 *actualLength);
 	void getData(CssmDataContainer& outData);
@@ -157,9 +164,11 @@ private:
 	// keychain syncing flags
 	bool mDoNotEncrypt;
 
-	// mInCache is protected by globals().apiLock
 	// True iff we are in the cache of items in mKeychain
 	bool mInCache;
+
+protected:
+	Mutex mMutex;
 };
 
 

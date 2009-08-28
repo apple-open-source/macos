@@ -3,21 +3,20 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -66,6 +65,8 @@ static char sccsid[] = "@(#)mount_ufs.c	8.4 (Berkeley) 4/26/95";
 
 #include <sys/param.h>
 #include <sys/mount.h>
+#include <sys/wait.h>
+#include <sys/appleapiopts.h>
 
 #include <err.h>
 #include <errno.h>
@@ -74,11 +75,20 @@ static char sccsid[] = "@(#)mount_ufs.c	8.4 (Berkeley) 4/26/95";
 #include <string.h>
 #include <unistd.h>
 
-#include <ufs/ufs/ufsmount.h>
+struct ufs_args {
+	char *fspec; // block special device to mount
+};
 
 #include <mntopts.h>
 
 void	ufs_usage __P((void));
+
+static int checkLoadable(void);
+static int load_kmod(void);
+
+#define FS_TYPE "ufs"
+#define LOAD_COMMAND "/sbin/kextload"
+#define UFS_MODULE_PATH "/System/Library/Extensions/ufs.kext"
 
 static struct mntopt mopts[] = {
 	MOPT_STDOPTS,
@@ -88,6 +98,46 @@ static struct mntopt mopts[] = {
 	MOPT_FORCE,
 	{ NULL }
 };
+
+static int checkLoadable(void) {
+	int error;
+	struct vfsconf vfc;
+	
+	error = getvfsbyname(FS_TYPE, &vfc);
+	
+	return error;
+}
+
+static int load_kmod(void) {
+	int pid;
+	int result = -1;
+	union wait status;
+	
+	pid = fork();
+	if (pid == 0) {
+		/* in the child process */
+		result = execl(LOAD_COMMAND, LOAD_COMMAND, UFS_MODULE_PATH, NULL);
+		/* we'll only return if execl failed */
+		return -1;	
+	}
+
+	if (pid == -1) {
+		/* fork failed */
+		result = errno;
+		return result;
+	}
+	/* otherwise, wait for the kextload to finish */
+	if ((wait4(pid, (int*)&status, 0, NULL) == pid) && (WIFEXITED(status))) {
+		result = status.w_retcode;
+	}
+	else {
+		result = -1;
+	}
+	
+	return result;
+}	
+
+
 
 int
 mount_ufs(argc, argv)
@@ -132,15 +182,32 @@ mount_ufs(argc, argv)
 	 * will used, and it will succeed even if the volume is not UFS. Thus,
 	 * the noasync flag should be forced unless the volume actually is UFS.
 	 */
-	if (statfs(fs_name, &fsinfo) == 0)
-		if (strncmp(fsinfo.f_mntonname, fs_name, MFSNAMELEN) == 0)
-			if (strncmp(fsinfo.f_fstypename, "ufs", MFSNAMELEN)
-			    != 0)
+	if (statfs(fs_name, &fsinfo) == 0) {
+		if (strncmp(fsinfo.f_mntonname, fs_name, MFSNAMELEN) == 0) {
+			if (strncmp(fsinfo.f_fstypename, "ufs", MFSNAMELEN) != 0) {
 				noasync = 1;
+			}
+		}
+	}
+
+	/* default to read-only mounts for 10.6 */
+	if (!(mntflags & MNT_RDONLY)) {
+		mntflags |= MNT_RDONLY;
+	}
+
+	if ((mntflags & MNT_UPDATE) == 0) {
+		/* Check to see if UFS kext is already loaded */
+		if (checkLoadable()) {
+			/* load the kext */
+			if (load_kmod()) {
+				fprintf(stderr, "UFS filesystem is not available.\n");
+				return 1;
+			}
+		}
+	}
 
 	/* default to async by setting the flag unless noasync was specified */
-	if (mount("ufs", fs_name, (mntflags | (noasync ? 0 : MNT_ASYNC)), &args)
-	    < 0) {
+	if (mount("ufs", fs_name, mntflags, &args) < 0) {
 		(void)fprintf(stderr, "%s on %s: ", args.fspec, fs_name);
 		switch (errno) {
 		case EMFILE:

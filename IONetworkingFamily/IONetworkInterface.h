@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -19,36 +19,15 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- * Copyright (c) 1999 Apple Computer, Inc.  All rights reserved. 
- *
- * IONetworkInterface.h
- *
- * HISTORY
- * 8-Jan-1999       Joe Liu (jliu) created.
- */
 
 #ifndef _IONETWORKINTERFACE_H
 #define _IONETWORKINTERFACE_H
-
-#ifndef __MBUF_TRANSITION_STRIP
-#ifdef __MBUF_TRANSITION_
-# ifndef __MBUF_PROTO
-#  define __MBUF_PROTO mbuf_t
-# endif
-#else
-# ifndef __MBUF_PROTO
-#  define __MBUF_PROTO struct mbuf *
-# endif
-struct mbuf;
-#endif
-#endif
 
 /*! @defined kIONetworkInterfaceClass
     @abstract The name of the IONetworkInterface class. 
 */
 
-#define kIONetworkInterfaceClass     "IONetworkInterface"
+#define kIONetworkInterfaceClass  "IONetworkInterface"
 
 /*! @defined kIONetworkData
     @abstract A property of IONetworkInterface
@@ -153,7 +132,7 @@ struct mbuf;
         interface is built-in. 
 */
 
-#define kIOBuiltin       "IOBuiltin"
+#define kIOBuiltin                "IOBuiltin"
 
 /*! @defined kIOLocation
     @abstract kIOLocation is a property of IONetworkInterface
@@ -162,7 +141,7 @@ struct mbuf;
         location of built-in interfaces. 
 */
 
-#define kIOLocation       "IOLocation"
+#define kIOLocation               "IOLocation"
 
 /*! @enum InterfaceObjectStates
     @discussion Constants used to encode the state of the interface object.
@@ -205,7 +184,7 @@ class  IOCommandGate;
     @param m A packet mbuf.
     @param param A parameter for the output request. */
 
-typedef UInt32 (OSObject::*IOOutputAction)(__MBUF_PROTO, void * param);
+typedef UInt32 (OSObject::*IOOutputAction)(mbuf_t, void * param);
 
 /*! @typedef BPF_FUNC
     @discussion Prototype for the BPF tap handler. This will disappear
@@ -224,7 +203,10 @@ enum {
     kIONetworkEventTypeLinkUp    = 0xff000002,
 
     /* Link down event, no argument */
-    kIONetworkEventTypeLinkDown  = 0xff000003
+    kIONetworkEventTypeLinkDown  = 0xff000003,
+
+    /* Wake on LAN support changed, no argument */
+    kIONetworkEventWakeOnLANSupportChanged = 0xff000004
 };
 
 /*! @class IONetworkInterface
@@ -257,25 +239,22 @@ class IONetworkInterface : public IOService
     friend class IONetworkStack;
 
 private:
-    IONetworkController *    _controller;
-    ifnet_t					_backingIfnet;
-    IORecursiveLock *        _ifLock;
-    OSSet *                  _clientSet;
-    OSNumber *               _stateBits;
-	bpf_packet_func                 _inputFilterFunc;
-    bpf_packet_func                 _outputFilterFunc;
-	OSObject *               _outTarget;
-    IOOutputAction           _outAction;
-    UInt32                   _clientVar[4];
-    OSDictionary *           _dataDict;
-    mbuf_t            _inputQHead;
-    mbuf_t            _inputQTail;
-    UInt32                   _inputQCount;
+    IONetworkController *   _controller;
+    ifnet_t                 _backingIfnet;
+    IORecursiveLock *       _ifLock;
+    OSSet *                 _clientSet;
+    OSNumber *              _stateBits;
+	bpf_packet_func         _inputFilterFunc;
+    bpf_packet_func         _outputFilterFunc;
+	OSObject *              _outTarget;
+    IOOutputAction          _outAction;
+    UInt32                  _clientVar[4];
+    OSDictionary *          _dataDict;
+    mbuf_t                  _inputQHead;
+    mbuf_t                  _inputQTail;
+    UInt32                  _inputQCount;
 
     struct ExpansionData {
-        thread_call_t   powerChangeThreadCall;
-        IOSimpleLock *  powerChangeNoticeLock;
-        queue_head_t    powerChangeNoticeList;
 		int				unit;
 		int				type;
 		int				mtu;
@@ -289,9 +268,8 @@ private:
 		IOLock			*detachLock;
     };
 
-    /*! @var reserved
-        Reserved for future use.  (Internal use only)  */
-    ExpansionData *          _reserved;
+    ExpansionData *         _reserved;
+
 	void _syncFromBackingIfnet() const;
 	void _syncToBackingIfnet();
 
@@ -303,16 +281,16 @@ private:
                                char *   name);
 
     SInt32 syncSIOCSIFMEDIA(IONetworkController * ctlr, struct ifreq * ifr);
-    SInt32 syncSIOCGIFMEDIA(IONetworkController * ctlr, struct ifreq * ifr, UInt32 cmd);
+    SInt32 syncSIOCGIFMEDIA(IONetworkController * ctlr, struct ifreq * ifr, unsigned long cmd);
     SInt32 syncSIOCSIFMTU(IONetworkController * ctlr, struct ifreq * ifr);
 	
     static int  performGatedCommand(void *, void *, void *, void *, void *);
-    static errno_t  ioctl_shim(ifnet_t ifp, u_int32_t cmd, void * data);
+    static errno_t  ioctl_shim(ifnet_t ifp, unsigned long cmd, void * data);
     static errno_t  set_bpf_tap_shim(ifnet_t ifn, bpf_tap_mode mode, bpf_packet_func func);
     static int  output_shim(ifnet_t ifp, mbuf_t);
 	void DLIL_INPUT(mbuf_t m_head);
 	static void  detach_shim(ifnet_t ifp);
-    static void powerChangeHandler(void *, void *, void *, void *, void *);
+    static void powerChangeHandler(void *, void *, void *);
 
 public:
 
@@ -413,7 +391,7 @@ public:
             or 0 if the packet was queued. 
 */
 
-    virtual UInt32 inputPacket(__MBUF_PROTO,
+    virtual UInt32 inputPacket(mbuf_t,
                                UInt32        length  = 0,
                                IOOptionBits  options = 0,
                                void *        param   = 0);
@@ -630,6 +608,8 @@ public:
     IONetworkData * getParameter(const char * aKey) const;
 	bool setExtendedFlags(UInt32 flags, UInt32 clear = 0);
 
+    virtual IOReturn message( UInt32 type, IOService * provider, void * argument );
+
 protected:
 
 /*! @function setInterfaceType
@@ -845,19 +825,24 @@ protected:
 */
 
     virtual SInt32 performCommand(IONetworkController * controller,
-                                  UInt32                cmd,
+                                  unsigned long         cmd,
                                   void *                arg0,
                                   void *                arg1);
 
+public:
+
 /*! @function getIfnet
-    @abstract Gets the ifnet structure allocated by the interface object.
+    @abstract Gets the ifnet_t allocated by the interface object.
     @discussion Reveal the interface's ifnet_t.  The ifnet_t is managed
-		primarily by IONetworkInterface, however this method can be called
-		when the sub-class needs to call interface KPI functions directly.
+		primarily by IONetworkInterface, however sub-classes or drivers
+        can use this method to get a reference to the ifnet_t object for
+        interface KPI calls.
     @result Returns the ifnet_t object that is attached to the datalink layer.
 */
 
     virtual ifnet_t getIfnet() const ;
+
+protected:
 
 /*! @function initIfnet
     @abstract Initializes the ifnet structure given.
@@ -955,7 +940,7 @@ protected:
 */
 
     virtual IOReturn powerStateWillChangeTo( IOPMPowerFlags  flags,
-                                             UInt32          stateNumber,
+                                             unsigned long   stateNumber,
                                              IOService *     policyMaker );
 
 /*! @function powerStateDidChangeTo
@@ -976,7 +961,7 @@ protected:
 */
 
     virtual IOReturn powerStateDidChangeTo( IOPMPowerFlags  flags,
-                                            UInt32          stateNumber,
+                                            unsigned long   stateNumber,
                                             IOService *     policyMaker );
 
 /*! @function controllerWillChangePowerState
@@ -1028,15 +1013,16 @@ public:
     virtual bool serializeProperties( OSSerialize * s ) const;
 
 /*! @function attachToDataLinkLayer
-    @abstract Attaches the network interface to the data link layer.
+    @abstract Attaches the network interface to the BSD data link layer.
     @discussion This function is called by the family to attach the network
-    interface managed by an IONetworkInterface to the data link layer. This
-    call occurs after the interface initialization and setup, including the
-    assignment of an interface unit number. Prior to the data link attach,
-    services provided by an IONetworkInterface will be inaccessible to BSD
-    networking, though the object can be found in the I/O Kit Registry.
-    Subclasses can extend this function to perform additional work that is
-    specific to a type of interface.
+    interface managed by an IONetworkInterface to the BSD data link layer.
+    This call occurs after the interface initialization and setup, and the
+    assignment of an interface unit number. The family does not implicitly
+    close the gate on the network controller's work loop when calling this
+    function. Prior to the data link attachment, services provided by an
+    IONetworkInterface will be inaccessible to BSD networking, though the
+    object can be found in the I/O Kit Registry. Subclasses can override
+    this function to perform interface specific work.
     @param options Options for the attach call. None are currently defined.
     @param parameter Parameter for the attach call. Not currently used.
     @result Returns kIOReturnSuccess on success. 
@@ -1048,12 +1034,13 @@ public:
     OSMetaClassDeclareReservedUsed(IONetworkInterface, 0);
 
 /*! @function detachFromDataLinkLayer
-    @abstract Detaches the network interface from the data link layer.
+    @abstract Detaches the network interface from the BSD data link layer.
     @discussion This function is called by the family to detach the network
-    interface managed by an IONetworkInterface from the data link layer.
+    interface managed by an IONetworkInterface from the BSD data link layer.
     This call is made when the interface is terminated, before the last close.
-    Subclasses can extend this function to perform additional work that is
-    specific to a type of interface.
+    The family does not implicitly close the gate on the network controller's
+    work loop when calling this function. Subclasses can override this function
+    to perform additional interface specific work.
     @param options Options for the detach call. None are currently defined.
     @param parameter Parameter for the detach call. Not currently used. 
 */
@@ -1064,25 +1051,26 @@ public:
     OSMetaClassDeclareReservedUsed(IONetworkInterface, 1);
 
 protected:
-		/*! @function feedInputPacketTap
-		@abstract Feed received packets to the BPF
-		@discussion This function is called by the family for each inbound packet
-		to feed it to the BPF function.  Interface classes can override if they
-		need to provide class specific functionality or modifications to the BPF tap.
-		@param mbuf Pointer to the packet.
-		*/
-		virtual void feedPacketInputTap(__MBUF_PROTO);
-	
+/*! @function feedInputPacketTap
+    @abstract Feed received packets to the BPF
+    @discussion This function is called by the family for each inbound packet
+    to feed it to the BPF function.  Interface classes can override if they
+    need to provide class specific functionality or modifications to the BPF tap.
+    @param mbuf Pointer to the packet.
+*/
+    virtual void feedPacketInputTap(mbuf_t);
+
 	OSMetaClassDeclareReservedUsed( IONetworkInterface,  2);
-	/*! @function feedOutputPacketTap
-		@abstract Feed sent packets to the BPF
-		@discussion This function is called by the family for each outbound packet
-		to feed it to the BPF function.  Interface classes can override if they
-		need to provide class specific functionality or modifications to the BPF tap.
-		@param mbuf Pointer to the packet.
-		*/
-	virtual void feedPacketOutputTap(__MBUF_PROTO);
-	
+
+/*! @function feedOutputPacketTap
+    @abstract Feed sent packets to the BPF
+    @discussion This function is called by the family for each outbound packet
+    to feed it to the BPF function.  Interface classes can override if they
+    need to provide class specific functionality or modifications to the BPF tap.
+    @param mbuf Pointer to the packet.
+*/
+	virtual void feedPacketOutputTap(mbuf_t);
+
 	OSMetaClassDeclareReservedUsed( IONetworkInterface,  3);
 	
 	virtual bool initIfnetParams(struct ifnet_init_params *params);

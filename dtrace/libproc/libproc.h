@@ -90,9 +90,13 @@ struct ps_prochandle;
 /*
  * Function prototypes for routines in the process control package.
  */
-extern struct ps_prochandle *Pcreate(const char *, char *const *,
-    int *, char *, size_t);
-
+#if !defined(__APPLE__)
+    extern struct ps_prochandle *Pcreate(const char *, char *const *,
+                                         int *, char *, size_t);
+#else
+    extern struct ps_prochandle *Pcreate(const char *, char *const *,
+                                         int *, char *, size_t, cpu_type_t);
+#endif
 extern const char *Pcreate_error(int);
 
 extern struct ps_prochandle *Pgrab(pid_t, int, int *);
@@ -101,11 +105,10 @@ extern const char *Pgrab_error(int);
 extern  int     Preopen(struct ps_prochandle *);
 extern  void    Prelease(struct ps_prochandle *, int);
 
-extern  int     Pctlfd(struct ps_prochandle *);
 extern  int     Pstate(struct ps_prochandle *);
 extern  const pstatus_t *Pstatus(struct ps_prochandle *);
 extern	int		Psetrun(struct ps_prochandle *, int, int);
-extern  ssize_t Pread(struct ps_prochandle *, void *, size_t, uint64_t);
+extern  ssize_t Pread(struct ps_prochandle *, void *, size_t, mach_vm_address_t);
 extern  int     Psetbkpt(struct ps_prochandle *, uintptr_t, ulong_t *);
 extern  int     Pdelbkpt(struct ps_prochandle *, uintptr_t, ulong_t);
 extern	int		Pxecbkpt(struct ps_prochandle *, ulong_t);
@@ -149,7 +152,7 @@ extern  int     pr_ioctl(struct ps_prochandle *, int, int, void *, size_t);
  */
 extern int Plookup_by_name(struct ps_prochandle *, const char *, const char *, GElf_Sym *);
 
-extern int Plookup_by_addr(struct ps_prochandle *, uint64_t, char *, size_t, GElf_Sym *);
+extern int Plookup_by_addr(struct ps_prochandle *, mach_vm_address_t, char *, size_t, GElf_Sym *);
 
 typedef struct prsyminfo {
           const char      *prs_object;            /* object name */
@@ -163,27 +166,31 @@ extern int Pxlookup_by_name(struct ps_prochandle *,
     Lmid_t, const char *, const char *, GElf_Sym *, prsyminfo_t *);
   
 extern int Pxlookup_by_addr(struct ps_prochandle *,
-    uint64_t, char *, size_t, GElf_Sym *, prsyminfo_t *);
+    mach_vm_address_t, char *, size_t, GElf_Sym *, prsyminfo_t *);
   
 typedef int proc_map_f(void *, const prmap_t *, const char *);
 
 extern int Pobject_iter(struct ps_prochandle *, proc_map_f *, void *);
 
-extern const prmap_t *Paddr_to_map(struct ps_prochandle *, uint64_t);
-extern const prmap_t *Pname_to_map(struct ps_prochandle *, const char *);
-extern const prmap_t *Plmid_to_map(struct ps_prochandle *, Lmid_t, const char *);
+/*
+ * Apple NOTE: These differ from their solaris counterparts by taking a prmap_t pointer argument.
+ * This is to manage thread local storage of the prmap_t.
+ */
+extern const prmap_t *Paddr_to_map(struct ps_prochandle *, mach_vm_address_t, prmap_t*);
+extern const prmap_t *Pname_to_map(struct ps_prochandle *, const char *, prmap_t*);
+extern const prmap_t *Plmid_to_map(struct ps_prochandle *, Lmid_t, const char *, prmap_t*);
 
-extern char *Pobjname(struct ps_prochandle *, uint64_t, char *, size_t);
-extern int Plmid(struct ps_prochandle *, uint64_t, Lmid_t *);
+extern char *Pobjname(struct ps_prochandle *, mach_vm_address_t, char *, size_t);
+extern int Plmid(struct ps_prochandle *, mach_vm_address_t, Lmid_t *);
 
 #if defined(__APPLE__)
         
 /*
  * Apple only objc iteration interface.  
  */
-typedef int proc_objc_f(void *, const GElf_Sym *, const char* class_name, const char* method_name);
-        
-extern int Pobjc_method_iter(struct ps_prochandle *, proc_objc_f *, void *);
+	
+typedef int proc_objc_f(void *, const GElf_Sym *, const char *, const char *);
+extern int Pobjc_method_iter(struct ps_prochandle *, proc_objc_f* , void *);
 
 typedef void Phandler_func_t(void *);
 extern void Pactivityserver(struct ps_prochandle *, Phandler_func_t, void *);        
@@ -254,8 +261,21 @@ extern void Preset_maps(struct ps_prochandle *);
  * so returns a pointer to the symbol name that will be used for resolution.
  * If the specified address is not part of a PLT, the function returns NULL.
  */
-extern const char *Ppltdest(struct ps_prochandle *, uint64_t);
+extern const char *Ppltdest(struct ps_prochandle *, mach_vm_address_t);
 
+/*
+ * We have a hideous three thread of control system.
+ *
+ * There is the main dtrace thread, the per-proc control thread, and the per symbolicator notification thread.
+ * The symbolicator notification thread and main thread may queue events for processing by the control thread.
+ * Pcreate_sync_proc_activity will not return until the control thread has processed the activity. 
+ */
+extern void Pcreate_async_proc_activity(struct ps_prochandle*, rd_event_e);
+extern void Pcreate_sync_proc_activity(struct ps_prochandle*, rd_event_e);
+	
+extern void* Pdequeue_proc_activity(struct ps_prochandle*);
+extern void Pdestroy_proc_activity(void*);
+	
 #ifdef  __cplusplus
 }
 #endif

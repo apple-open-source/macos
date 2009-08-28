@@ -1,22 +1,23 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
+ * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+ * Reserved.  This file contains Original Code and/or Modifications of
+ * Original Code as defined in and that are subject to the Apple Public
+ * Source License Version 1.0 (the 'License').  You may not use this file
+ * except in compliance with the License.  Please obtain a copy of the
+ * License at http://www.apple.com/publicsource and read it before using
+ * this file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License."
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -60,7 +61,8 @@
 #include <sys/uio.h>
 #include <sys/un.h>
 #include <netdb.h>
-
+#include <mach/mach.h>
+#include <servers/bootstrap.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <paths.h>
@@ -74,6 +76,7 @@
 #include <notify.h>
 #include <asl.h>
 #include <asl_private.h>
+#include <asl_ipc.h>
 
 #ifdef __STDC__
 #include <stdarg.h>
@@ -87,26 +90,33 @@
 #define	INTERNALLOG	LOG_ERR|LOG_CONS|LOG_PERROR|LOG_PID
 
 #ifdef BUILDING_VARIANT
-__private_extern__ int	_sl_LogFile;		/* fd for log */
-__private_extern__ int	_sl_connected;		/* have done connect */
 __private_extern__ int	_sl_LogStat;		/* status bits, set by openlog() */
 __private_extern__ const char *_sl_LogTag;	/* string to tag the entry with */
 __private_extern__ int	_sl_LogFacility;	/* default facility code */
-__private_extern__ int	_sl_LogMask;		/* mask of priorities to be logged */
+__private_extern__ int	_sl_LogMask;		/* local mask of priorities to be logged */
+__private_extern__ int	_sl_MasterLogMask;  /* master (remote control) mask of priorities to be logged */
+__private_extern__ int	_sl_ProcLogMask;	/* process-specific (remote control) mask of priorities to be logged */
+__private_extern__ int  _sl_RCToken;		/* for remote control change notification */
 __private_extern__ int  _sl_NotifyToken;	/* for remote control of priority filter */
 __private_extern__ int  _sl_NotifyMaster;	/* for remote control of priority filter */
+__private_extern__ int  _sl_pid;			/* pid */
 #else /* !BUILDING_VARIANT */
-__private_extern__ int	_sl_LogFile = -1;		/* fd for log */
-__private_extern__ int	_sl_connected = 0;		/* have done connect */
-__private_extern__ int	_sl_LogStat = 0;		/* status bits, set by openlog() */
+__private_extern__ int	_sl_LogStat = 0;			/* status bits, set by openlog() */
 __private_extern__ const char *_sl_LogTag = NULL;	/* string to tag the entry with */
 __private_extern__ int	_sl_LogFacility = LOG_USER;	/* default facility code */
-__private_extern__ int	_sl_LogMask = 0xff;		/* mask of priorities to be logged */
-__private_extern__ int  _sl_NotifyToken = -1;	/* for remote control of max logged priority */
-__private_extern__ int  _sl_NotifyMaster = -1;	/* for remote control of max logged priority */
+__private_extern__ int	_sl_LogMask = 0xff;			/* mask of priorities to be logged */
+__private_extern__ int	_sl_MasterLogMask = 0;		/* master mask of priorities to be logged */
+__private_extern__ int	_sl_ProcLogMask = 0;		/* process-specific mask of priorities to be logged */
+__private_extern__ int  _sl_RCToken = -1;			/* for remote control change notification */
+__private_extern__ int  _sl_NotifyToken = -1;		/* for remote control of max logged priority */
+__private_extern__ int  _sl_NotifyMaster = -1;		/* for remote control of max logged priority */
+__private_extern__ int  _sl_pid = -1;				/* pid */
 #endif /* BUILDING_VARIANT */
 
 __private_extern__ void _sl_init_notify();
+
+#define ASL_SERVICE_NAME "com.apple.system.logger"
+static mach_port_t asl_server_port = MACH_PORT_NULL;
 
 #define NOTIFY_SYSTEM_MASTER "com.apple.system.syslog.master"
 #define NOTIFY_PREFIX_SYSTEM "com.apple.system.syslog"
@@ -145,17 +155,21 @@ syslog(pri, fmt, va_alist)
 void
 vsyslog(int pri, const char *fmt, va_list ap)
 {
-	int status, i, saved_errno, filter, rc_filter;
+	int status, i, saved_errno, filter, check, rc_filter;
 	time_t tick;
 	struct timeval tval;
-	pid_t pid;
-	uint32_t elen, count;
+	uint32_t elen, count, outlen;
 	char *p, *str, *expanded, *err_str, hname[MAXHOSTNAMELEN+1];
+	const char *val;
 	uint64_t cval;
 	int fd, mask, level, facility;
 	aslmsg msg;
+	kern_return_t kstatus;
+	caddr_t out;
 
 	saved_errno = errno;
+
+	if (_sl_pid == -1) _sl_pid = getpid();
 
 	/* Check for invalid bits. */
 	if (pri & ~(LOG_PRIMASK | LOG_FACMASK))
@@ -169,33 +183,44 @@ vsyslog(int pri, const char *fmt, va_list ap)
 
 	if (facility == 0) facility = _sl_LogFacility;
 
-	/* Get remote-control priority filter */
-	filter = _sl_LogMask;
-	rc_filter = 0;
-
 	_sl_init_notify();
 
-	if (_sl_NotifyToken >= 0) 
+	/* initialize or re-check process-specific and master filters  */
+	if (_sl_RCToken >= 0) 
 	{
-		if (notify_get_state(_sl_NotifyToken, &cval) == NOTIFY_STATUS_OK)
+		check = 0;
+		status = notify_check(_sl_RCToken, &check);
+		if ((status == NOTIFY_STATUS_OK) && (check != 0))
 		{
-			if (cval != 0)
+			if (_sl_NotifyMaster >= 0)
 			{
-				filter = cval;
-				rc_filter = 1;
+				cval = 0;
+				if (notify_get_state(_sl_NotifyMaster, &cval) == NOTIFY_STATUS_OK) _sl_MasterLogMask = cval;
+			}
+
+			if (_sl_NotifyToken >= 0)
+			{
+				cval = 0;
+				if (notify_get_state(_sl_NotifyToken, &cval) == NOTIFY_STATUS_OK) _sl_ProcLogMask = cval;
 			}
 		}
 	}
 
-	if ((rc_filter == 0) && (_sl_NotifyMaster >= 0))
+	filter = _sl_LogMask;
+	rc_filter = 0;
+
+	/* master filter overrides local filter */
+	if (_sl_MasterLogMask != 0)
 	{
-		if (notify_get_state(_sl_NotifyMaster, &cval) == NOTIFY_STATUS_OK)
-		{
-			if (cval != 0)
-			{
-				filter = cval;
-			}
-		}
+		filter = _sl_MasterLogMask;
+		rc_filter = 1;
+	}
+
+	/* process-specific filter overrides local and master */
+	if (_sl_ProcLogMask != 0)
+	{
+		filter = _sl_ProcLogMask;
+		rc_filter = 1;
 	}
 
 	mask = LOG_MASK(level);
@@ -246,10 +271,9 @@ vsyslog(int pri, const char *fmt, va_list ap)
 			free(str);
 		}
 	}
-	
-	pid = getpid();
+
 	str = NULL;
-	asprintf(&str, "%u", pid);
+	asprintf(&str, "%u", _sl_pid);
 	if (str != NULL)
 	{
 		asl_set(msg, ASL_KEY_PID, str);
@@ -343,7 +367,7 @@ vsyslog(int pri, const char *fmt, va_list ap)
 		if (_sl_LogStat & LOG_PERROR)
 		{
 			p = NULL;
-			if (_sl_LogStat & LOG_PID) asprintf(&p, "%s[%u]: %s", (_sl_LogTag == NULL) ? "???" : _sl_LogTag, pid, str);
+			if (_sl_LogStat & LOG_PID) asprintf(&p, "%s[%u]: %s", (_sl_LogTag == NULL) ? "???" : _sl_LogTag, _sl_pid, str);
 			else asprintf(&p, "%s: %s", (_sl_LogTag == NULL) ? "???" : _sl_LogTag, str);
 
 			if (p != NULL)
@@ -362,36 +386,53 @@ vsyslog(int pri, const char *fmt, va_list ap)
 		free(str);
 	}
 
-	/* Get connected, output the message to the local logger. */
+	/* Set "ASLOption store" if remote control is active */
+	if (rc_filter != 0)
+	{
+		val = asl_get(msg, ASL_KEY_OPTION);
+		if (val == NULL)
+		{
+			asl_set(msg, ASL_KEY_OPTION, ASL_OPT_STORE);
+		}
+		else
+		{
+			str = NULL;
+			asprintf(&str, "%s %s", ASL_OPT_STORE, val);
+			if (str != NULL)
+			{
+				asl_set(msg, ASL_KEY_OPTION, str);
+				free(str);
+				str = NULL;
+			}
+		}
+	}
+
+	/* send a mach message to syslogd */
 	str = asl_format_message(msg, ASL_MSG_FMT_RAW, ASL_TIME_FMT_SEC, ASL_ENCODE_ASL, &count);
 	if (str != NULL)
 	{
-		p = NULL;
-		asprintf(&p, "%10u %s", count, str);
-		free(str);
-
-		if (p != NULL)
+		outlen = count + 11;
+		kstatus = vm_allocate(mach_task_self(), (vm_address_t *)&out, outlen + 1, TRUE);
+		if (kstatus == KERN_SUCCESS)
 		{
-			count += 12;
-			if (_sl_connected == 0) openlog(_sl_LogTag, _sl_LogStat | LOG_NDELAY, 0);
+			memset(out, 0, outlen + 1);
+			snprintf((char *)out, outlen, "%10u %s", count, str);
 
-			status = send(_sl_LogFile, p, count, 0);
-			if (status< 0)
-			{
-				closelog();
-				openlog(_sl_LogTag, _sl_LogStat | LOG_NDELAY, 0);
-				status = send(_sl_LogFile, p, count, 0);
-			}
+			status = 0;
+			if (asl_server_port == MACH_PORT_NULL) kstatus = bootstrap_look_up(bootstrap_port, ASL_SERVICE_NAME, &asl_server_port);
 
-			if (status >= 0)
+			if (kstatus == KERN_SUCCESS) kstatus = _asl_server_message(asl_server_port, (caddr_t)out, outlen + 1);
+			else vm_deallocate(mach_task_self(), (vm_address_t)out, outlen + 1);
+
+			if (kstatus == KERN_SUCCESS)
 			{
-				free(p);
+				free(str);
 				asl_free(msg);
 				return;
 			}
-
-			free(p);
 		}
+
+		free(str);
 	}
 
 	/*
@@ -410,7 +451,7 @@ vsyslog(int pri, const char *fmt, va_list ap)
 			iov.iov_len = count - 1;
 			iov.iov_base = p;
 			writev(fd, &iov, 1);
-	
+
 			free(p);
 		}
 
@@ -422,20 +463,37 @@ vsyslog(int pri, const char *fmt, va_list ap)
 
 #ifndef BUILDING_VARIANT
 
-static struct sockaddr_un SyslogAddr;	/* AF_UNIX address of local logger */
+__private_extern__ void
+_syslog_fork_child()
+{
+	_sl_RCToken = -1;
+	_sl_NotifyToken = -1;
+	_sl_NotifyMaster = -1;
+
+	asl_server_port = MACH_PORT_NULL;
+
+	_sl_pid = getpid();
+}
 
 __private_extern__ void
 _sl_init_notify()
 {
 	int status;
 	char *notify_name;
-	const char *prefix;
+	uint32_t euid;
 
 	if (_sl_LogStat & LOG_NO_NOTIFY)
 	{
+		_sl_RCToken = -2;
 		_sl_NotifyMaster = -2;
 		_sl_NotifyToken = -2;
 		return;
+	}
+
+	if (_sl_RCToken == -1)
+	{
+		status = notify_register_check(NOTIFY_RC, &_sl_RCToken);
+		if (status != NOTIFY_STATUS_OK) _sl_RCToken = -2;
 	}
 
 	if (_sl_NotifyMaster == -1)
@@ -448,10 +506,10 @@ _sl_init_notify()
 	{
 		_sl_NotifyToken = -2;
 
+		euid = geteuid();
 		notify_name = NULL;
-		prefix = NOTIFY_PREFIX_USER;
-		if (getuid() == 0) prefix = NOTIFY_PREFIX_SYSTEM;
-		asprintf(&notify_name, "%s.%d", prefix, getpid());
+		if (euid == 0) asprintf(&notify_name, "%s.%d", NOTIFY_PREFIX_SYSTEM, getpid());
+		else asprintf(&notify_name, "user.uid.%d.syslog.%d", euid, getpid());
 
 		if (notify_name != NULL)
 		{
@@ -463,57 +521,41 @@ _sl_init_notify()
 }
 
 void
-openlog(ident, logstat, logfac)
-	const char *ident;
-	int logstat, logfac;
+openlog(const char *ident, int logstat, int logfac)
 {
+	kern_return_t kstatus;
+
 	if (ident != NULL) _sl_LogTag = ident;
 
 	_sl_LogStat = logstat;
 
 	if (logfac != 0 && (logfac &~ LOG_FACMASK) == 0) _sl_LogFacility = logfac;
 
-	if (_sl_LogFile == -1)
+	if (asl_server_port == MACH_PORT_NULL) 
 	{
-		SyslogAddr.sun_family = AF_UNIX;
-		(void)strncpy(SyslogAddr.sun_path, _PATH_LOG, sizeof(SyslogAddr.sun_path));
-		if (_sl_LogStat & LOG_NDELAY)
-		{
-			if ((_sl_LogFile = socket(AF_UNIX, SOCK_DGRAM, 0)) == -1) return;
-			(void)fcntl(_sl_LogFile, F_SETFD, 1);
-		}
+		kstatus = bootstrap_look_up(bootstrap_port, ASL_SERVICE_NAME, &asl_server_port);
 	}
 
-	if ((_sl_LogFile != -1) && (_sl_connected == 0))
-	{
-		if (connect(_sl_LogFile, (struct sockaddr *)&SyslogAddr, sizeof(SyslogAddr)) == -1)
-		{
-			(void)close(_sl_LogFile);
-			_sl_LogFile = -1;
-		}
-		else
-		{
-			_sl_connected = 1;
-		}
-	}
-
+	_sl_pid = getpid();
 	_sl_init_notify();
 }
 
 void
 closelog()
 {
-	if (_sl_LogFile >= 0) {
-		(void)close(_sl_LogFile);
-		_sl_LogFile = -1;
-	}
-	_sl_connected = 0;
+	if (asl_server_port != MACH_PORT_NULL) mach_port_deallocate(mach_task_self(), asl_server_port);
+	asl_server_port = MACH_PORT_NULL;
+
+	if (_sl_NotifyToken != -1) notify_cancel(_sl_NotifyToken);
+	_sl_NotifyToken = -1;
+
+	if (_sl_NotifyMaster != -1) notify_cancel(_sl_NotifyMaster);
+	_sl_NotifyMaster = -1;
 }
 
 /* setlogmask -- set the log mask level */
 int
-setlogmask(pmask)
-	int pmask;
+setlogmask(int pmask)
 {
 	int omask;
 

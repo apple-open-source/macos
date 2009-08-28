@@ -2,24 +2,25 @@
 #ifndef _CONFIGTHREADS_COMMON_H_
 #define _CONFIGTHREADS_COMMON_H_
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -41,7 +42,7 @@ typedef struct ServiceState Service_t;
 typedef dynarray_t IFStateList_t;
 typedef struct IFState IFState_t;
 typedef struct {
-    CFStringRef				serviceID;
+    CFStringRef			serviceID;
     ip6config_method_t		method;
     ip6config_method_data_t *	method_data;
 } ServiceConfig_t;
@@ -59,7 +60,7 @@ typedef enum {
 } IFEventID_t;
 
 typedef ip6config_status_t (ip6config_func_t)(Service_t * service_p,
-					    IFEventID_t evid, void * evdata);
+					      IFEventID_t evid, void * evdata);
 
 typedef struct {
     boolean_t			valid;
@@ -81,17 +82,17 @@ typedef struct {
 
 struct ServiceState {
     IFState_t *			ifstate;
-    ip6config_method_t	method;
-    void *				serviceID;
-    void *				user_notification;
-    void *				user_rls;
+    ip6config_method_t		method;
+    void *			serviceID;
+    void *			user_notification;
+    void *			user_rls;
     inet6_addrinfo_t		info;
     void * 			private;
 };
 
 struct IFState {
     interface_t *		if_p;
-    void *				ifname;
+    void *			ifname;
     link_status_t		link;
     dynarray_t			services;
     Service_t *			llocal_service;
@@ -104,9 +105,9 @@ static __inline__ boolean_t
 ip6config_method_is_dynamic(ip6config_method_t method)
 {
     if (method == ip6config_method_automatic_e
-		|| method == ip6config_method_rtadv_e
-        || method == ip6config_method_6to4_e) {
-		return (TRUE);
+	|| method == ip6config_method_rtadv_e
+	|| method == ip6config_method_6to4_e) {
+	return (TRUE);
     }
     return (FALSE);
 }
@@ -115,7 +116,7 @@ static __inline__ boolean_t
 ip6config_method_is_manual(ip6config_method_t method)
 {
     if (method == ip6config_method_manual_e) {
-		return (TRUE);
+	return (TRUE);
     }
 
     return (FALSE);
@@ -139,21 +140,21 @@ service_link_status(Service_t * service_p)
     return (&service_p->ifstate->link);
 }
 
-static __inline__ const unsigned char *
+static __inline__ const char *
 IFEventID_names(IFEventID_t evid)
 {
-    static const unsigned char * names[] = {
+    static const char * names[] = {
 	"START",
 	"STOP",
 	"TIMEOUT",
 	"MEDIA",
 	"DATA",
 	"CHANGE",
-    "STATE_CHANGE",
-    "IPV4_PRIMARY_CHANGE"
+	"STATE_CHANGE",
+	"IPV4_PRIMARY_CHANGE"
     };
     if (evid < IFEventID_start_e || evid >= IFEventID_last_e)
-        return ("<unknown event>");
+	return ("<unknown event>");
     return (names[evid]);
 }
 
@@ -167,16 +168,16 @@ Service_t *		IFState_service_with_ip(IFState_t * ifstate, struct in6_addr * iadd
 void			IFState_services_free(IFState_t * ifstate);
 void			IFState_service_free(IFState_t * ifstate, CFStringRef serviceID);
 ip6config_status_t	IFState_service_add(IFState_t * ifstate, CFStringRef serviceID,
-                            ip6config_method_t method, void * method_data);
+					    ip6config_method_t method, void * method_data);
 void			IFState_update_media_status(IFState_t * ifstate);
 void			IFState_free(void * arg);
 IFState_t *		IFStateList_ifstate_with_name(IFStateList_t * list, char * ifname, int * where);
 IFState_t *		IFStateList_ifstate_create(IFStateList_t * list, interface_t * if_p);
 void			IFStateList_ifstate_free(IFStateList_t * list, char * ifname);
 IFState_t *		IFStateList_service_with_ID(IFStateList_t * list, CFStringRef serviceID,
-					Service_t * * ret_service);
+						    Service_t * * ret_service);
 IFState_t *		IFStateList_service_with_ip(IFStateList_t * list, struct in6_addr * iaddr,
-					Service_t * * ret_service);
+						    Service_t * * ret_service);
 
 
 #define PROP_SERVICEID		CFSTR("ServiceID")
@@ -184,7 +185,7 @@ IFState_t *		IFStateList_service_with_ip(IFStateList_t * list, struct in6_addr *
 /* LINK_INACTIVE_WAIT_SECS: Time to wait after the link goes
  *   inactive before unpublishing the interface state information
  */
-#define LINK_INACTIVE_WAIT_SECS	4
+#define LINK_INACTIVE_WAIT_SECS	1
 
 /*
  * service related (service.c)
@@ -203,19 +204,19 @@ void		service_publish_failure(Service_t * service_p, ip6config_status_t status, 
 
 ip6config_status_t service_set_service(IFState_t * ifstate, ServiceConfig_t * config);
 void		service_free_inactive_services(char * ifname, ServiceConfig_t * config_list,
-		    int count);
+					       int count);
 
 void		service_config_list_free(ServiceConfig_t * * list_p_p, int count);
-ServiceConfig_t * service_config_list_lookup_method(ServiceConfig_t * config_list, 
-                    int count, ip6config_method_t method, 
-                    ip6config_method_data_t * method_data);
-ServiceConfig_t * service_config_list_init(SCDynamicStoreRef session, CFArrayRef all_ipv6, 
-                    char * ifname, int * count_p);
+ServiceConfig_t * service_config_list_lookup_method(ServiceConfig_t * config_list,
+						    int count, ip6config_method_t method,
+						    ip6config_method_data_t * method_data);
+ServiceConfig_t * service_config_list_init(SCDynamicStoreRef session, CFArrayRef all_ipv6,
+					   char * ifname, int * count_p);
 
 void		Service_free(void * arg);
 Service_t *	Service_init(IFState_t * ifstate, CFStringRef serviceID,
-		    ip6config_method_t method,
-		    void * method_data, ip6config_status_t * status_p);
+			     ip6config_method_t method,
+			     void * method_data, ip6config_status_t * status_p);
 void		service_report_conflict(Service_t * service_p, struct in6_addr * ip6);
 
 

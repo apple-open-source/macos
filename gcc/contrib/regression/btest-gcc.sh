@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #  Test GCC.
-#  Copyright (C) 1999, 2000, 2001, 2002  Free Software Foundation, Inc.
+#  Copyright (C) 1999, 2000, 2001, 2002, 2005, 2006  Free Software Foundation, Inc.
 
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -15,10 +15,28 @@
 
 #  You should have received a copy of the GNU General Public License
 #  along with this program; if not, write to the Free Software
-#  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 # INPUT:
-# btest <target> <source> <prefix> <state> <build>
+# btest <options> <target> <source> <prefix> <state> <build>
+
+add_passes_despite_regression=0
+dashj=''
+
+# <options> can be
+# --add-passes-despite-regression:
+#  Add new "PASSes" despite there being some regressions.
+# -j<n>:
+#  Pass '-j<n>' to make.
+
+case "$1" in
+ --add-passes-despite-regression)
+  add_passes_despite_regression=1; shift;;
+ -j*)
+  dashj=$1; shift;;
+ -*) echo "Invalid option: $1"; exit 2;;
+esac
+
 # TARGET is the target triplet.  It should be the same one as used in
 # constructing PREFIX.  Or it can be the keyword 'native', indicating
 # a target of whatever platform the script is running on.
@@ -96,41 +114,41 @@ H_REAL_TARGET=`$SOURCE/config.sub $H_TARGET || exit 1`
 
 # TESTLOGS is the list of dejagnu .sum files that the tester should
 # look at.
-TESTLOGS="gcc/testsuite/gcc.sum
-gcc/testsuite/g++.sum
-gcc/testsuite/objc.sum
-$H_TARGET/libstdc++-v3/testsuite/libstdc++.sum"
+TESTLOGS="gcc/testsuite/gcc/gcc.sum
+gcc/testsuite/g++/g++.sum
+gcc/testsuite/objc/objc.sum"
 
 # Build.
 echo build > $RESULT
 if [ $H_HOST = $H_TARGET ] ; then
   $SOURCE/configure --prefix=$PREFIX --target=$H_TARGET || exit 1
-  if ! make bootstrap ; then
-    [ -s gcc/.bad_compare ] || exit 1
-    cat gcc/.bad_compare >> $REGRESS || exit 1
-    make all || exit 1
+  if ! make $dashj bootstrap ; then
+    [ -s .bad_compare ] || exit 1
+    cat .bad_compare >> $REGRESS || exit 1
+    make $dashj all || exit 1
   fi
 else
-  $SOURCE/configure --prefix=$PREFIX --target=$H_TARGET \
-    --with-gnu-ld --with-gnu-as --with-newlib || exit 1
-  make || exit 1
+  withopt="--with-gnu-ld --with-gnu-as"
+  case "$H_TARGET" in
+    *-linux*) ;;
+    *) withopt="$withopt --with-newlib";;
+  esac
+  $SOURCE/configure --prefix=$PREFIX --target=$H_TARGET $withopt || exit 1
+  make $dashj || exit 1
 fi
 echo error > $RESULT || exit 1
 
 # Test GCC against its internal testsuite.
-make -k check-gcc
+make $dashj -k check
 
-# Test libstd++-v3
-make check-target-libstdc++-v3
+if [ -f $BUILD/$H_TARGET/libstdc++-v3/testsuite/libstdc++.sum ] ; then
+  TESTLOGS="$TESTLOGS $H_TARGET/libstdc++-v3/testsuite/libstdc++.sum"
+fi
 
-# Test libffi
-make check-target-libffi
 if [ -f $BUILD/$H_TARGET/libffi/testsuite/libffi.sum ] ; then
   TESTLOGS="$TESTLOGS $H_TARGET/libffi/testsuite/libffi.sum"
 fi
 
-# Test libjava
-make check-target-libjava
 if [ -f $BUILD/$H_TARGET/libjava/testsuite/libjava.sum ] ; then
   TESTLOGS="$TESTLOGS $H_TARGET/libjava/testsuite/libjava.sum"
 fi
@@ -172,17 +190,38 @@ for LOG in $TESTLOGS ; do
 done | sort | uniq > $FAILED || exit 1
 comm -12 $FAILED $PASSES >> $REGRESS || exit 1
 NUMREGRESS=`wc -l < $REGRESS | tr -d ' '`
+
+if [ $NUMREGRESS -eq 0 ] || [ $add_passes_despite_regression -ne 0 ] ; then
+  # Update the state.
+  for LOG in $TESTLOGS ; do
+    L=`basename $LOG`
+    awk '/^PASS: / { print "'$L'",$2; }' $LOG || exit 1
+  done | sort | uniq | comm -23 - $FAILED > ${PASSES}~ || exit 1
+  [ -s ${PASSES}~ ] || exit 1
+  if [ $NUMREGRESS -ne 0 ] ; then
+    # The way we keep track of new PASSes when in "regress-N" for
+    # --add-passes-despite-regression, is to *add* them to previous
+    # PASSes.  Just as without this option, we don't forget *any* PASS
+    # lines, because besides the ones in $REGRESS that we definitely
+    # don't want to lose, their removal or rename may have been a
+    # mistake (as in, the cause of the "regress-N" state).  If they
+    # come back, we then know they're regressions.
+    cat ${PASSES}~ ${PASSES} | sort -u > ${PASSES}~~
+    mv ${PASSES}~~ ${PASSES} || exit 1
+    rm ${PASSES}~ || exit 1
+  else
+    # In contrast to the merging for "regress-N", we just overwrite
+    # the known PASSes when in the "pass" state, so we get rid of
+    # stale PASS lines for removed, moved or otherwise changed tests
+    # which may be added back with a different meaning later on.
+    mv ${PASSES}~ ${PASSES} || exit 1
+  fi
+fi
+
 if [ $NUMREGRESS -ne 0 ] ; then
   echo regress-$NUMREGRESS > $RESULT
   exit 1
 fi
 
-# It passed.  Update the state.
-for LOG in $TESTLOGS ; do
-  L=`basename $LOG`
-  awk '/^PASS: / { print "'$L'",$2; }' $LOG || exit 1
-done | sort | uniq | comm -23 - $FAILED > ${PASSES}~ || exit 1
-[ -s ${PASSES}~ ] || exit 1
-mv ${PASSES}~ ${PASSES} || exit 1
 echo pass > $RESULT
 exit 0

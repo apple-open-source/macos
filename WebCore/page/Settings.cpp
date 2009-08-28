@@ -28,6 +28,7 @@
 
 #include "Frame.h"
 #include "FrameTree.h"
+#include "FrameView.h"
 #include "HistoryItem.h"
 #include "Page.h"
 #include "PageCache.h"
@@ -44,7 +45,7 @@ static void setNeedsReapplyStylesInAllFrames(Page* page)
 }
 
 #if USE(SAFARI_THEME)
-bool Settings::gShouldPaintNativeControls = false;
+bool Settings::gShouldPaintNativeControls = true;
 #endif
 
 Settings::Settings(Page* page)
@@ -74,6 +75,7 @@ Settings::Settings(Page* page)
 #endif
     , m_needsAdobeFrameReloadingQuirk(false)
     , m_needsKeyboardEventDisambiguationQuirks(false)
+    , m_treatsAnyTextCSSLinkAsStylesheet(false)
     , m_needsLeopardMailQuirks(false)
     , m_needsTigerMailQuirks(false)
     , m_isDOMPasteAllowed(false)
@@ -86,6 +88,7 @@ Settings::Settings(Page* page)
     , m_needsSiteSpecificQuirks(false)
     , m_fontRenderingMode(0)
     , m_webArchiveDebugModeEnabled(false)
+    , m_localFileContentSniffingEnabled(false)
     , m_inApplicationChromeMode(false)
     , m_offlineWebApplicationCacheEnabled(false)
     , m_shouldPaintCustomScrollbars(false)
@@ -103,6 +106,8 @@ Settings::Settings(Page* page)
     // FIXME: This should really be disabled by default as it makes platforms that don't support the feature download files
     // they can't use by. Leaving enabled for now to not change existing behavior.
     , m_downloadableBinaryFontsEnabled(true)
+    , m_xssAuditorEnabled(false)
+    , m_acceleratedCompositingEnabled(true)
 {
     // A Frame may not have been created yet, so we initialize the AtomicString 
     // hash before trying to use it.
@@ -311,6 +316,11 @@ void Settings::setNeedsKeyboardEventDisambiguationQuirks(bool needsQuirks)
     m_needsKeyboardEventDisambiguationQuirks = needsQuirks;
 }
 
+void Settings::setTreatsAnyTextCSSLinkAsStylesheet(bool treatsAnyTextCSSLinkAsStylesheet)
+{
+    m_treatsAnyTextCSSLinkAsStylesheet = treatsAnyTextCSSLinkAsStylesheet;
+}
+
 void Settings::setNeedsLeopardMailQuirks(bool needsQuirks)
 {
     m_needsLeopardMailQuirks = needsQuirks;
@@ -397,6 +407,11 @@ void Settings::setWebArchiveDebugModeEnabled(bool enabled)
     m_webArchiveDebugModeEnabled = enabled;
 }
 
+void Settings::setLocalFileContentSniffingEnabled(bool enabled)
+{
+    m_localFileContentSniffingEnabled = enabled;
+}
+
 void Settings::setLocalStorageDatabasePath(const String& path)
 {
     m_localStorageDatabasePath = path;
@@ -456,6 +471,20 @@ void Settings::setCaretBrowsingEnabled(bool caretBrowsingEnabled)
 void Settings::setDownloadableBinaryFontsEnabled(bool downloadableBinaryFontsEnabled)
 {
     m_downloadableBinaryFontsEnabled = downloadableBinaryFontsEnabled;
+}
+
+void Settings::setXSSAuditorEnabled(bool xssAuditorEnabled)
+{
+    m_xssAuditorEnabled = xssAuditorEnabled;
+}
+
+void Settings::setAcceleratedCompositingEnabled(bool enabled)
+{
+    if (m_acceleratedCompositingEnabled == enabled)
+        return;
+        
+    m_acceleratedCompositingEnabled = enabled;
+    setNeedsReapplyStylesInAllFrames(m_page);
 }
 
 } // namespace WebCore

@@ -6,6 +6,9 @@
  *  Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
  *
  *	$Log: IOFireWireLibDevice.h,v $
+ *	Revision 1.23  2007/10/16 16:50:21  ayanowit
+ *	Removed existing "work-in-progress" support for buffer-fill isoch.
+ *	
  *	Revision 1.22  2007/06/21 04:08:45  collin
  *	*** empty log message ***
  *	
@@ -779,7 +782,6 @@ namespace IOFireWireLib {
 			
 			static IOReturn	S_ClipMaxRec2K( IOFireWireLibDeviceRef self, Boolean clipMaxRec ) ;
 			static IOFireWireLibNuDCLPoolRef				S_CreateNuDCLPool( IOFireWireLibDeviceRef self, UInt32 capacity, REFIID iid ) ;
-			static IOFireWireLibBufferFillIsochPortRef		S_CreateBufferFillIsochPort( IOFireWireLibDeviceRef self, UInt32 interruptMicroseconds, UInt32 numRanges, IOVirtualRange* ranges, REFIID iid ) ;
 
 			//
 			// v7

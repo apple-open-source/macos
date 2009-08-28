@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2009 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -20,10 +20,10 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <IOKit/audio/IOAudioDebug.h>
-#include <IOKit/audio/IOAudioEngine.h>
-#include <IOKit/audio/IOAudioStream.h>
-#include <IOKit/audio/IOAudioTypes.h>
+#include "IOAudioDebug.h"
+#include "IOAudioEngine.h"
+#include "IOAudioStream.h"
+#include "IOAudioTypes.h"
 
 //#include <AppleDSP/OSvKernDSPLib.h>
 

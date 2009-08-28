@@ -31,10 +31,12 @@
 		72D60BA009766BEA00E0D450 /* ntfs_inode.c in Sources */ = {isa = PBXBuildFile; fileRef = 72D60B9C09766BEA00E0D450 /* ntfs_inode.c */; };
 		72D60BC60976768E00E0D450 /* ntfs_dir.c in Sources */ = {isa = PBXBuildFile; fileRef = 72D60BC50976768E00E0D450 /* ntfs_dir.c */; };
 		72E4A3D10987D53F001B223B /* ntfs_runlist.c in Sources */ = {isa = PBXBuildFile; fileRef = 72E4A3D00987D53F001B223B /* ntfs_runlist.c */; };
-		72E5B023098983FB003F2396 /* ntfs_upcase.c in Sources */ = {isa = PBXBuildFile; fileRef = 72E5B021098983FB003F2396 /* ntfs_upcase.c */; };
 		72E75FC50986C87D0050048E /* ntfs_mst.c in Sources */ = {isa = PBXBuildFile; fileRef = 72E75FC30986C87D0050048E /* ntfs_mst.c */; };
 		72E75FDA0986D74A0050048E /* ntfs_attr.c in Sources */ = {isa = PBXBuildFile; fileRef = 72E75FD80986D74A0050048E /* ntfs_attr.c */; };
 		72E75FEF098714850050048E /* ntfs_unistr.c in Sources */ = {isa = PBXBuildFile; fileRef = 72E75FED098714850050048E /* ntfs_unistr.c */; };
+		BE2956360B7B373B00E0CE44 /* ntfs_collate.c in Sources */ = {isa = PBXBuildFile; fileRef = BE2956350B7B373B00E0CE44 /* ntfs_collate.c */; };
+		BE2956490B7BE58100E0CE44 /* ntfs_index.c in Sources */ = {isa = PBXBuildFile; fileRef = BE2956480B7BE58100E0CE44 /* ntfs_index.c */; };
+		BE361A630B38920100E5885A /* ntfs_quota.c in Sources */ = {isa = PBXBuildFile; fileRef = BE361A610B38920100E5885A /* ntfs_quota.c */; };
 		BE3E0A910AD9A53C0054ACA0 /* ntfs.util.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = BE3E0A8F0AD9A53C0054ACA0 /* ntfs.util.8 */; };
 		BE3E0A920AD9A53C0054ACA0 /* ntfs.util.c in Sources */ = {isa = PBXBuildFile; fileRef = BE3E0A900AD9A53C0054ACA0 /* ntfs.util.c */; };
 		BE3E0A970AD9A5F80054ACA0 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BE3E0A960AD9A5F80054ACA0 /* CoreFoundation.framework */; };
@@ -43,6 +45,13 @@
 		BE4A17890AEBB85E001371C6 /* mount_ntfs.c in Sources */ = {isa = PBXBuildFile; fileRef = BE4A17870AEBB85E001371C6 /* mount_ntfs.c */; };
 		BE4A17950AEBB951001371C6 /* mount_ntfs.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = BE4A17860AEBB85E001371C6 /* mount_ntfs.8 */; };
 		BE63703C0A24FD6A003CD14D /* ntfs_compress.c in Sources */ = {isa = PBXBuildFile; fileRef = BE63703B0A24FD6A003CD14D /* ntfs_compress.c */; };
+		BE7AAAE00B3740FC0005CEE2 /* ntfs_logfile.c in Sources */ = {isa = PBXBuildFile; fileRef = BE7AAADC0B3740FC0005CEE2 /* ntfs_logfile.c */; };
+		BE7AAAE10B3740FC0005CEE2 /* ntfs_secure.c in Sources */ = {isa = PBXBuildFile; fileRef = BE7AAADE0B3740FC0005CEE2 /* ntfs_secure.c */; };
+		BE7AAB160B3768630005CEE2 /* ntfs_usnjrnl.c in Sources */ = {isa = PBXBuildFile; fileRef = BE7AAB140B3768630005CEE2 /* ntfs_usnjrnl.c */; };
+		BE7EC82C0B85E7C900392660 /* ntfs_bitmap.c in Sources */ = {isa = PBXBuildFile; fileRef = BE7EC82A0B85E7C900392660 /* ntfs_bitmap.c */; };
+		BE7EC82D0B85E7C900392660 /* ntfs_lcnalloc.c in Sources */ = {isa = PBXBuildFile; fileRef = BE7EC82B0B85E7C900392660 /* ntfs_lcnalloc.c */; };
+		BE91B1C70C9B35E300F0BE50 /* ntfs_attr_list.c in Sources */ = {isa = PBXBuildFile; fileRef = BE91B1C60C9B35E300F0BE50 /* ntfs_attr_list.c */; };
+		BE92B9840CBBA333004DBCFB /* ntfs_sfm.c in Sources */ = {isa = PBXBuildFile; fileRef = BE92B9820CBBA333004DBCFB /* ntfs_sfm.c */; };
 		BED5DA050AA78E2C000AD756 /* ntfs_page.c in Sources */ = {isa = PBXBuildFile; fileRef = BED5DA030AA78E2C000AD756 /* ntfs_page.c */; };
 /* End PBXBuildFile section */
 
@@ -130,12 +139,10 @@
 		72D60BC50976768E00E0D450 /* ntfs_dir.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_dir.c; sourceTree = "<group>"; };
 		72E00002092539F300F90B29 /* ntfs_version.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_version.h; sourceTree = "<group>"; };
 		72E40FE7091CC3A900674539 /* ntfs.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ntfs.kext; sourceTree = BUILT_PRODUCTS_DIR; };
-		72E410AF091CF9A100674539 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = Info.plist; sourceTree = "<group>"; };
+		72E410AF091CF9A100674539 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		72E4192E091CFC2500674539 /* Kernel.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; name = Kernel.framework; path = /System/Library/Frameworks/Kernel.framework; sourceTree = "<absolute>"; };
 		72E4A3D00987D53F001B223B /* ntfs_runlist.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_runlist.c; sourceTree = "<group>"; };
 		72E50C1D099FF6C80061DB40 /* ntfs_time.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_time.h; sourceTree = "<group>"; };
-		72E5B021098983FB003F2396 /* ntfs_upcase.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_upcase.c; sourceTree = "<group>"; };
-		72E5B022098983FB003F2396 /* ntfs_upcase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_upcase.h; sourceTree = "<group>"; };
 		72E75FC30986C87D0050048E /* ntfs_mst.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_mst.c; sourceTree = "<group>"; };
 		72E75FC40986C87D0050048E /* ntfs_mst.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_mst.h; sourceTree = "<group>"; };
 		72E75FD80986D74A0050048E /* ntfs_attr.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_attr.c; sourceTree = "<group>"; };
@@ -144,18 +151,38 @@
 		72E75FEE098714850050048E /* ntfs_unistr.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_unistr.h; sourceTree = "<group>"; };
 		72FE849209313B0D00752581 /* ntfs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs.h; sourceTree = "<group>"; };
 		72FE849709313B5100752581 /* ntfs_volume.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_volume.h; sourceTree = "<group>"; };
+		BE2956350B7B373B00E0CE44 /* ntfs_collate.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_collate.c; sourceTree = "<group>"; };
+		BE2956370B7B375F00E0CE44 /* ntfs_collate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_collate.h; sourceTree = "<group>"; };
+		BE2956470B7BE55D00E0CE44 /* ntfs_index.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_index.h; sourceTree = "<group>"; };
+		BE2956480B7BE58100E0CE44 /* ntfs_index.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_index.c; sourceTree = "<group>"; };
+		BE361A610B38920100E5885A /* ntfs_quota.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_quota.c; sourceTree = "<group>"; };
+		BE361A620B38920100E5885A /* ntfs_quota.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_quota.h; sourceTree = "<group>"; };
 		BE3E0A240AD9A1700054ACA0 /* ntfs.util */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ntfs.util; sourceTree = BUILT_PRODUCTS_DIR; };
 		BE3E0A8F0AD9A53C0054ACA0 /* ntfs.util.8 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 4; path = ntfs.util.8; sourceTree = "<group>"; };
 		BE3E0A900AD9A53C0054ACA0 /* ntfs.util.c */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.c; fileEncoding = 4; path = ntfs.util.c; sourceTree = "<group>"; };
 		BE3E0A960AD9A5F80054ACA0 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
 		BE3E0A9E0AD9A68F0054ACA0 /* English */ = {isa = PBXFileReference; explicitFileType = text.xml; fileEncoding = 10; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-		BE3E0B5C0AD9B62A0054ACA0 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = Info.plist; sourceTree = "<group>"; };
+		BE3E0B5C0AD9B62A0054ACA0 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		BE3E0B5F0AD9B7000054ACA0 /* ntfs.fs */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ntfs.fs; sourceTree = BUILT_PRODUCTS_DIR; };
 		BE4A177F0AEBB809001371C6 /* mount_ntfs */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = mount_ntfs; sourceTree = BUILT_PRODUCTS_DIR; };
 		BE4A17860AEBB85E001371C6 /* mount_ntfs.8 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 4; path = mount_ntfs.8; sourceTree = "<group>"; };
 		BE4A17870AEBB85E001371C6 /* mount_ntfs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = mount_ntfs.c; sourceTree = "<group>"; };
 		BE6370210A24EE78003CD14D /* ntfs_compress.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_compress.h; sourceTree = "<group>"; };
 		BE63703B0A24FD6A003CD14D /* ntfs_compress.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_compress.c; sourceTree = "<group>"; };
+		BE7AAADC0B3740FC0005CEE2 /* ntfs_logfile.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_logfile.c; sourceTree = "<group>"; };
+		BE7AAADD0B3740FC0005CEE2 /* ntfs_logfile.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_logfile.h; sourceTree = "<group>"; };
+		BE7AAADE0B3740FC0005CEE2 /* ntfs_secure.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_secure.c; sourceTree = "<group>"; };
+		BE7AAADF0B3740FC0005CEE2 /* ntfs_secure.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_secure.h; sourceTree = "<group>"; };
+		BE7AAB140B3768630005CEE2 /* ntfs_usnjrnl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_usnjrnl.c; sourceTree = "<group>"; };
+		BE7AAB150B3768630005CEE2 /* ntfs_usnjrnl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_usnjrnl.h; sourceTree = "<group>"; };
+		BE7EC8260B85E72700392660 /* ntfs_bitmap.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_bitmap.h; sourceTree = "<group>"; };
+		BE7EC8270B85E72700392660 /* ntfs_lcnalloc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_lcnalloc.h; sourceTree = "<group>"; };
+		BE7EC82A0B85E7C900392660 /* ntfs_bitmap.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_bitmap.c; sourceTree = "<group>"; };
+		BE7EC82B0B85E7C900392660 /* ntfs_lcnalloc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_lcnalloc.c; sourceTree = "<group>"; };
+		BE91B1C30C9B35D400F0BE50 /* ntfs_attr_list.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_attr_list.h; sourceTree = "<group>"; };
+		BE91B1C60C9B35E300F0BE50 /* ntfs_attr_list.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_attr_list.c; sourceTree = "<group>"; };
+		BE92B9820CBBA333004DBCFB /* ntfs_sfm.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_sfm.c; sourceTree = "<group>"; };
+		BE92B9830CBBA333004DBCFB /* ntfs_sfm.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_sfm.h; sourceTree = "<group>"; };
 		BED5DA030AA78E2C000AD756 /* ntfs_page.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_page.c; sourceTree = "<group>"; };
 		BED5DA040AA78E2C000AD756 /* ntfs_page.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_page.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -211,13 +238,25 @@
 		72E410AE091CF9A100674539 /* kext */ = {
 			isa = PBXGroup;
 			children = (
+				BE7EC82A0B85E7C900392660 /* ntfs_bitmap.c */,
+				BE7EC82B0B85E7C900392660 /* ntfs_lcnalloc.c */,
+				BE7EC8260B85E72700392660 /* ntfs_bitmap.h */,
+				BE7EC8270B85E72700392660 /* ntfs_lcnalloc.h */,
+				BE2956470B7BE55D00E0CE44 /* ntfs_index.h */,
+				BE2956480B7BE58100E0CE44 /* ntfs_index.c */,
+				BE361A610B38920100E5885A /* ntfs_quota.c */,
+				BE361A620B38920100E5885A /* ntfs_quota.h */,
+				BE7AAB140B3768630005CEE2 /* ntfs_usnjrnl.c */,
+				BE7AAB150B3768630005CEE2 /* ntfs_usnjrnl.h */,
 				72E50C1D099FF6C80061DB40 /* ntfs_time.h */,
-				72E5B021098983FB003F2396 /* ntfs_upcase.c */,
-				72E5B022098983FB003F2396 /* ntfs_upcase.h */,
 				72E4A3D00987D53F001B223B /* ntfs_runlist.c */,
 				72E75FED098714850050048E /* ntfs_unistr.c */,
 				72E75FEE098714850050048E /* ntfs_unistr.h */,
 				72E75FD80986D74A0050048E /* ntfs_attr.c */,
+				BE92B9820CBBA333004DBCFB /* ntfs_sfm.c */,
+				BE92B9830CBBA333004DBCFB /* ntfs_sfm.h */,
+				BE91B1C60C9B35E300F0BE50 /* ntfs_attr_list.c */,
+				BE91B1C30C9B35D400F0BE50 /* ntfs_attr_list.h */,
 				72E75FD90986D74A0050048E /* ntfs_attr.h */,
 				72E75FC30986C87D0050048E /* ntfs_mst.c */,
 				72E75FC40986C87D0050048E /* ntfs_mst.h */,
@@ -229,6 +268,8 @@
 				72D60BBE0976734E00E0D450 /* ntfs_dir.h */,
 				72D60B9A09766BEA00E0D450 /* ntfs_hash.c */,
 				72D60B9B09766BEA00E0D450 /* ntfs_hash.h */,
+				BE2956350B7B373B00E0CE44 /* ntfs_collate.c */,
+				BE2956370B7B375F00E0CE44 /* ntfs_collate.h */,
 				BE63703B0A24FD6A003CD14D /* ntfs_compress.c */,
 				72D60B9C09766BEA00E0D450 /* ntfs_inode.c */,
 				72D60B9D09766BEA00E0D450 /* ntfs_inode.h */,
@@ -245,6 +286,10 @@
 				72BFC8DD0923A5940052BF8D /* ntfs_vfsops.c */,
 				721548A8092409F7008BD7DA /* ntfs_debug.h */,
 				721548A2092409E3008BD7DA /* ntfs_debug.c */,
+				BE7AAADC0B3740FC0005CEE2 /* ntfs_logfile.c */,
+				BE7AAADD0B3740FC0005CEE2 /* ntfs_logfile.h */,
+				BE7AAADE0B3740FC0005CEE2 /* ntfs_secure.c */,
+				BE7AAADF0B3740FC0005CEE2 /* ntfs_secure.h */,
 				72E410AF091CF9A100674539 /* Info.plist */,
 				72E4192E091CFC2500674539 /* Kernel.framework */,
 			);
@@ -440,9 +485,18 @@
 				72E75FDA0986D74A0050048E /* ntfs_attr.c in Sources */,
 				72E75FEF098714850050048E /* ntfs_unistr.c in Sources */,
 				72E4A3D10987D53F001B223B /* ntfs_runlist.c in Sources */,
-				72E5B023098983FB003F2396 /* ntfs_upcase.c in Sources */,
 				BE63703C0A24FD6A003CD14D /* ntfs_compress.c in Sources */,
 				BED5DA050AA78E2C000AD756 /* ntfs_page.c in Sources */,
+				BE7AAAE00B3740FC0005CEE2 /* ntfs_logfile.c in Sources */,
+				BE7AAAE10B3740FC0005CEE2 /* ntfs_secure.c in Sources */,
+				BE7AAB160B3768630005CEE2 /* ntfs_usnjrnl.c in Sources */,
+				BE361A630B38920100E5885A /* ntfs_quota.c in Sources */,
+				BE2956360B7B373B00E0CE44 /* ntfs_collate.c in Sources */,
+				BE2956490B7BE58100E0CE44 /* ntfs_index.c in Sources */,
+				BE7EC82C0B85E7C900392660 /* ntfs_bitmap.c in Sources */,
+				BE7EC82D0B85E7C900392660 /* ntfs_lcnalloc.c in Sources */,
+				BE91B1C70C9B35E300F0BE50 /* ntfs_attr_list.c in Sources */,
+				BE92B9840CBBA333004DBCFB /* ntfs_sfm.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -510,8 +564,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = (
-					ppc,
 					i386,
+					ppc,
+					x86_64,
 				);
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
@@ -550,11 +605,14 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = (
-					ppc,
 					i386,
+					ppc,
+					x86_64,
 				);
-				COPY_PHASE_STRIP = YES;
-				GCC_INLINES_ARE_PRIVATE_EXTERN = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_DEBUGGING_SYMBOLS = full;
+				GCC_INLINES_ARE_PRIVATE_EXTERN = NO;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_WARN_ABOUT_INVALID_OFFSETOF_MACRO = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
@@ -584,8 +642,9 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_INLINES_ARE_PRIVATE_EXTERN = YES;
+				GCC_INLINES_ARE_PRIVATE_EXTERN = NO;
 				GCC_MODEL_TUNING = G4;
+				GCC_NO_COMMON_BLOCKS = NO;
 				GCC_OPTIMIZATION_LEVEL = s;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					NAMEDSTREAMS,
@@ -599,9 +658,10 @@
 				MODULE_NAME = com.apple.filesystems.ntfs;
 				MODULE_START = ntfs_module_start;
 				MODULE_STOP = ntfs_module_stop;
-				MODULE_VERSION = 2.1;
+				MODULE_VERSION = 3.0;
 				PREBINDING = NO;
 				PRODUCT_NAME = ntfs;
+				STRIP_INSTALLED_PRODUCT = YES;
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;
 			};
@@ -610,9 +670,11 @@
 		72E40FEC091CC3AA00674539 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				COPY_PHASE_STRIP = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_INLINES_ARE_PRIVATE_EXTERN = NO;
 				GCC_MODEL_TUNING = G4;
+				GCC_NO_COMMON_BLOCKS = NO;
 				GCC_OPTIMIZATION_LEVEL = s;
 				GCC_PREPROCESSOR_DEFINITIONS = NAMEDSTREAMS;
 				INFOPLIST_FILE = kext/Info.plist;
@@ -621,9 +683,10 @@
 				MODULE_NAME = com.apple.filesystems.ntfs;
 				MODULE_START = ntfs_module_start;
 				MODULE_STOP = ntfs_module_stop;
-				MODULE_VERSION = 2.1;
+				MODULE_VERSION = 3.0;
 				PREBINDING = NO;
 				PRODUCT_NAME = ntfs;
+				STRIP_INSTALLED_PRODUCT = YES;
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;
 			};
@@ -633,11 +696,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = dwarf;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_MODEL_TUNING = G5;
+				GCC_MODEL_TUNING = G4;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
 				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
@@ -645,6 +707,7 @@
 				OTHER_LDFLAGS = "";
 				PREBINDING = NO;
 				PRODUCT_NAME = ntfs.util;
+				STRIP_INSTALLED_PRODUCT = YES;
 				WARNING_CFLAGS = "-Wall";
 				ZERO_LINK = NO;
 			};
@@ -653,17 +716,18 @@
 		BE3E0A280AD9A1910054ACA0 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
+				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
-				GCC_MODEL_TUNING = G5;
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G4;
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
 				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				OTHER_LDFLAGS = "";
 				PREBINDING = NO;
 				PRODUCT_NAME = ntfs.util;
+				STRIP_INSTALLED_PRODUCT = YES;
 				WARNING_CFLAGS = "-Wall";
 				ZERO_LINK = NO;
 			};
@@ -696,8 +760,8 @@
 		BE3E0B5A0AD9B62A0054ACA0 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = dwarf;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -709,6 +773,8 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = ntfs;
 				SECTORDER_FLAGS = "";
+				STRIP_INSTALLED_PRODUCT = YES;
+				STRIP_STYLE = all;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -725,7 +791,7 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
-				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_OPTIMIZATION_LEVEL = s;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				INFOPLIST_FILE = ntfs.fs/Info.plist;
 				INSTALL_PATH = /System/Library/Filesystems;
@@ -734,6 +800,8 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = ntfs;
 				SECTORDER_FLAGS = "";
+				STRIP_INSTALLED_PRODUCT = YES;
+				STRIP_STYLE = all;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -748,11 +816,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = dwarf;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_MODEL_TUNING = G5;
+				GCC_MODEL_TUNING = G4;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = NO;
@@ -760,6 +827,7 @@
 				OTHER_LDFLAGS = "-lutil";
 				PREBINDING = NO;
 				PRODUCT_NAME = mount_ntfs;
+				STRIP_INSTALLED_PRODUCT = YES;
 				WARNING_CFLAGS = "-Wall";
 				ZERO_LINK = NO;
 			};
@@ -768,17 +836,17 @@
 		BE4A17830AEBB831001371C6 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
+				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
-				GCC_MODEL_TUNING = G5;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G4;
 				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				INSTALL_PATH = /sbin;
 				OTHER_LDFLAGS = "-lutil";
 				PREBINDING = NO;
 				PRODUCT_NAME = mount_ntfs;
+				STRIP_INSTALLED_PRODUCT = YES;
 				WARNING_CFLAGS = "-Wall";
 				ZERO_LINK = NO;
 			};

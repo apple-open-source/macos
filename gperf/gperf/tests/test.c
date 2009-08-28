@@ -7,6 +7,12 @@
 #include <stdio.h>
 #include <string.h>
 
+#if defined __STDC__ || defined __cplusplus
+extern char * in_word_set (const char *, int);
+#else
+extern char * in_word_set ();
+#endif
+
 #define MAX_LEN 80
 
 int

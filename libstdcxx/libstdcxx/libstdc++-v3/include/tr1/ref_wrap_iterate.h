@@ -16,7 +16,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -28,7 +28,7 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-/** @file ref_wrap_iterate.h
+/** @file tr1/ref_wrap_iterate.h
  *  This is an internal header file, included by other library headers.
  *  You should not attempt to use it directly.
  */
@@ -40,5 +40,5 @@ template<_GLIBCXX_TEMPLATE_PARAMS>
 #else
 typename result_of<_M_func_type()>::type
 operator()() const
-{ return (*get())(); }
+{ return get()(); }
 #endif

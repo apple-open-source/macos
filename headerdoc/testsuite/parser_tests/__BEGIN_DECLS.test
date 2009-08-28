@@ -1,0 +1,1136 @@
+FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$6|RESULT$14|RESULT_ALLDECS$7|SUBLANG$4|TYPE$1807|#ifndef _LIBDISPATCH_PUBLIC_
+#define _LIBDISPATCH_PUBLIC_
+
+#include <sys/cdefs.h>
+#include <Availability.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdbool.h>
+
+__BEGIN_DECLS
+
+#if !defined(__BLOCKS__)
+#error "Libdispatch requires Blocks"
+#endif
+
+#ifdef __GNUC__
+#define DISPATCH_PUBLIC_API     __attribute__((__nothrow__,__visibility__("default")))
+#define DISPATCH_NONNULL1       __attribute__((__nonnull__(1)))
+#define DISPATCH_NONNULL2       __attribute__((__nonnull__(2)))
+#define DISPATCH_NONNULL3       __attribute__((__nonnull__(3)))
+#define DISPATCH_NONNULL4       __attribute__((__nonnull__(4)))
+#define DISPATCH_NONNULL5       __attribute__((__nonnull__(5)))
+#define DISPATCH_NONNULL6       __attribute__((__nonnull__(6)))
+#define DISPATCH_NONNULL_ALL    __attribute__((__nonnull__))
+#define DISPATCH_SENTINEL       __attribute__((__sentinel__))
+#define DISPATCH_PURE           __attribute__((__pure__))
+#define DISPATCH_WARN_RESULT    __attribute__((__warn_unused_result__))
+#define DISPATCH_MALLOC         __attribute__((__malloc__))
+#else
+/*! @parseOnly */
+#define DISPATCH_PUBLIC_API
+/*! @parseOnly */
+#define DISPATCH_NONNULL1
+/*! @parseOnly */
+#define DISPATCH_NONNULL2
+/*! @parseOnly */
+#define DISPATCH_NONNULL3
+/*! @parseOnly */
+#define DISPATCH_NONNULL4
+/*! @parseOnly */
+#define DISPATCH_NONNULL5
+/*! @parseOnly */
+#define DISPATCH_NONNULL6
+/*! @parseOnly */
+#define DISPATCH_NONNULL_ALL
+/*! @parseOnly */
+#define DISPATCH_SENTINEL
+/*! @parseOnly */
+#define DISPATCH_PURE
+/*! @parseOnly */
+#define DISPATCH_WARN_RESULT
+/*! @parseOnly */
+#define DISPATCH_MALLOC
+#endif
+
+#define LIBDISPATCH_VERSION 20080909
+
+#ifndef _LIBDISPATCH_BUILDING_LIBDISPATCH_
+#include <dispatch/core.h>
+#include <dispatch/events.h>
+#endif /* !_LIBDISPATCH_BUILDING_LIBDISPATCH_ */
+
+__END_DECLS
+
+#endif
+
+$12|/*! Test */
+$0|$8852|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/__BEGIN_DECLS.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/__BEGIN_DECLS.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 0
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 4
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 1
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => _LIBDISPATCH_PUBLIC_
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} => #ifndef _LIBDISPATCH_PUBLIC_
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 1
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => 
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{typestring} => #
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 1
+typelist: MACRO
+namelist: _LIBDISPATCH_PUBLIC_
+posstypes: MACRO
+value: 
+returntype: #ifndef _LIBDISPATCH_PUBLIC_
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---#ifndef
+|   +--- 
+|   +---_LIBDISPATCH_PUBLIC_
+|   +---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: __BEGIN_DECLS
+APIUID: //test_ref/doc/header/__BEGIN_DECLS.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 4
+    INDEX GROUP: 
+    IS BLOCK: 1
+    IS AVAILABILITY MACRO: 
+    PARSE ONLY: 
+    OBJECT TYPE: HeaderDoc::PDefine
+    NAME: _LIBDISPATCH_PUBLIC_
+    APIUID: //test_ref/c/macro/_LIBDISPATCH_PUBLIC_
+    ABSTRACT: ""
+    DISCUSSION: ""
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::PDefine"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: _LIBDISPATCH_PUBLIC_ (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---_LIBDISPATCH_PUBLIC_
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT:  (HeaderDoc::HeaderElement)
++---#ifndef
+|   +--- 
+|   +---_LIBDISPATCH_PUBLIC_
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: _LIBDISPATCH_PUBLIC_ (HeaderDoc::PDefine)
++---[ NEWLINE ]
++---__BEGIN_DECLS
++---[ NEWLINE ]
++---[ NEWLINE ]
++---#if
+|   +--- 
+|   +---!
+|   +---defined
+|   +---(
+|   +---__BLOCKS__
+|   +---)
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: _LIBDISPATCH_PUBLIC_ (HeaderDoc::PDefine)
++---#endif
+|   +---[ NEWLINE ]
++---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: _LIBDISPATCH_PUBLIC_ (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/_LIBDISPATCH_PUBLIC_ //test_ref/c/tdef/_LIBDISPATCH_PUBLIC_ //test_ref/c/tag/_LIBDISPATCH_PUBLIC_ //test_ref/c/econst/_LIBDISPATCH_PUBLIC_ //test_ref/c/struct/_LIBDISPATCH_PUBLIC_ //test_ref/c/data/_LIBDISPATCH_PUBLIC_ //test_ref/c/clconst/_LIBDISPATCH_PUBLIC_ //test_ref/c/intf/_LIBDISPATCH_PUBLIC_ //test_ref/c/instm/_LIBDISPATCH_PUBLIC_ //test_ref/c/clm/_LIBDISPATCH_PUBLIC_ //test_ref/c/intfcm/_LIBDISPATCH_PUBLIC_ //test_ref/c/intfm/_LIBDISPATCH_PUBLIC_ //test_ref/c/func/_LIBDISPATCH_PUBLIC_ //test_ref/c/ftmplt/_LIBDISPATCH_PUBLIC_ //test_ref/c/defn/_LIBDISPATCH_PUBLIC_ //test_ref/c/macro/_LIBDISPATCH_PUBLIC_ //test_ref/doc/com/intfm/_LIBDISPATCH_PUBLIC_" --><span class="preprocessor">_LIBDISPATCH_PUBLIC_</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT:  (HeaderDoc::HeaderElement)
+	<span class="">#ifndef</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/_LIBDISPATCH_PUBLIC_ //test_ref/c/tdef/_LIBDISPATCH_PUBLIC_ //test_ref/c/tag/_LIBDISPATCH_PUBLIC_ //test_ref/c/econst/_LIBDISPATCH_PUBLIC_ //test_ref/c/struct/_LIBDISPATCH_PUBLIC_ //test_ref/c/data/_LIBDISPATCH_PUBLIC_ //test_ref/c/clconst/_LIBDISPATCH_PUBLIC_ //test_ref/c/intf/_LIBDISPATCH_PUBLIC_ //test_ref/c/instm/_LIBDISPATCH_PUBLIC_ //test_ref/c/clm/_LIBDISPATCH_PUBLIC_ //test_ref/c/intfcm/_LIBDISPATCH_PUBLIC_ //test_ref/c/intfm/_LIBDISPATCH_PUBLIC_ //test_ref/c/func/_LIBDISPATCH_PUBLIC_ //test_ref/c/ftmplt/_LIBDISPATCH_PUBLIC_ //test_ref/c/defn/_LIBDISPATCH_PUBLIC_ //test_ref/c/macro/_LIBDISPATCH_PUBLIC_ //test_ref/doc/com/intfm/_LIBDISPATCH_PUBLIC_" --><span class="preprocessor">_LIBDISPATCH_PUBLIC_</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: _LIBDISPATCH_PUBLIC_ (HeaderDoc::PDefine)
+	   <span class="">#if</span><span class="preprocessor"> </span><span class="preprocessor">!</span><!-- a logicalPath="//test_ref/c/cl/defined //test_ref/c/tdef/defined //test_ref/c/tag/defined //test_ref/c/econst/defined //test_ref/c/struct/defined //test_ref/c/data/defined //test_ref/c/clconst/defined //test_ref/c/intf/defined //test_ref/c/instm/defined //test_ref/c/clm/defined //test_ref/c/intfcm/defined //test_ref/c/intfm/defined //test_ref/c/func/defined //test_ref/c/ftmplt/defined //test_ref/c/defn/defined //test_ref/c/macro/defined //test_ref/doc/com/intfm/defined" --><span class="preprocessor">defined</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/__BLOCKS__ //test_ref/c/tdef/__BLOCKS__ //test_ref/c/tag/__BLOCKS__ //test_ref/c/econst/__BLOCKS__ //test_ref/c/struct/__BLOCKS__ //test_ref/c/data/__BLOCKS__ //test_ref/c/clconst/__BLOCKS__ //test_ref/c/intf/__BLOCKS__ //test_ref/c/instm/__BLOCKS__ //test_ref/c/clm/__BLOCKS__ //test_ref/c/intfcm/__BLOCKS__ //test_ref/c/intfm/__BLOCKS__ //test_ref/c/func/__BLOCKS__ //test_ref/c/ftmplt/__BLOCKS__ //test_ref/c/defn/__BLOCKS__ //test_ref/c/macro/__BLOCKS__ //test_ref/doc/com/intfm/__BLOCKS__" --><span class="preprocessor">__BLOCKS__</span><!-- /a --><span class="preprocessor">)</span> 
+END OF OBJECT
+
+
+OBJECT: _LIBDISPATCH_PUBLIC_ (HeaderDoc::PDefine)
+	<span class="">#endif</span>  
+END OF OBJECT
+
+
+
+$8852|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/__BEGIN_DECLS.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/__BEGIN_DECLS.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 0
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 4
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 1
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => _LIBDISPATCH_PUBLIC_
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} => #ifndef _LIBDISPATCH_PUBLIC_
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 1
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => 
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{typestring} => #
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 1
+typelist: MACRO
+namelist: _LIBDISPATCH_PUBLIC_
+posstypes: MACRO
+value: 
+returntype: #ifndef _LIBDISPATCH_PUBLIC_
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---#ifndef
+|   +--- 
+|   +---_LIBDISPATCH_PUBLIC_
+|   +---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: __BEGIN_DECLS
+APIUID: //test_ref/doc/header/__BEGIN_DECLS.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 4
+    INDEX GROUP: 
+    IS BLOCK: 1
+    IS AVAILABILITY MACRO: 
+    PARSE ONLY: 
+    OBJECT TYPE: HeaderDoc::PDefine
+    NAME: _LIBDISPATCH_PUBLIC_
+    APIUID: //test_ref/c/macro/_LIBDISPATCH_PUBLIC_
+    ABSTRACT: ""
+    DISCUSSION: ""
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::PDefine"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: _LIBDISPATCH_PUBLIC_ (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---_LIBDISPATCH_PUBLIC_
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT:  (HeaderDoc::HeaderElement)
++---#ifndef
+|   +--- 
+|   +---_LIBDISPATCH_PUBLIC_
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: _LIBDISPATCH_PUBLIC_ (HeaderDoc::PDefine)
++---[ NEWLINE ]
++---__BEGIN_DECLS
++---[ NEWLINE ]
++---[ NEWLINE ]
++---#if
+|   +--- 
+|   +---!
+|   +---defined
+|   +---(
+|   +---__BLOCKS__
+|   +---)
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: _LIBDISPATCH_PUBLIC_ (HeaderDoc::PDefine)
++---#endif
+|   +---[ NEWLINE ]
++---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: _LIBDISPATCH_PUBLIC_ (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/_LIBDISPATCH_PUBLIC_ //test_ref/c/tdef/_LIBDISPATCH_PUBLIC_ //test_ref/c/tag/_LIBDISPATCH_PUBLIC_ //test_ref/c/econst/_LIBDISPATCH_PUBLIC_ //test_ref/c/struct/_LIBDISPATCH_PUBLIC_ //test_ref/c/data/_LIBDISPATCH_PUBLIC_ //test_ref/c/clconst/_LIBDISPATCH_PUBLIC_ //test_ref/c/intf/_LIBDISPATCH_PUBLIC_ //test_ref/c/instm/_LIBDISPATCH_PUBLIC_ //test_ref/c/clm/_LIBDISPATCH_PUBLIC_ //test_ref/c/intfcm/_LIBDISPATCH_PUBLIC_ //test_ref/c/intfm/_LIBDISPATCH_PUBLIC_ //test_ref/c/func/_LIBDISPATCH_PUBLIC_ //test_ref/c/ftmplt/_LIBDISPATCH_PUBLIC_ //test_ref/c/defn/_LIBDISPATCH_PUBLIC_ //test_ref/c/macro/_LIBDISPATCH_PUBLIC_ //test_ref/doc/com/intfm/_LIBDISPATCH_PUBLIC_" --><span class="preprocessor">_LIBDISPATCH_PUBLIC_</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT:  (HeaderDoc::HeaderElement)
+	<span class="">#ifndef</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/_LIBDISPATCH_PUBLIC_ //test_ref/c/tdef/_LIBDISPATCH_PUBLIC_ //test_ref/c/tag/_LIBDISPATCH_PUBLIC_ //test_ref/c/econst/_LIBDISPATCH_PUBLIC_ //test_ref/c/struct/_LIBDISPATCH_PUBLIC_ //test_ref/c/data/_LIBDISPATCH_PUBLIC_ //test_ref/c/clconst/_LIBDISPATCH_PUBLIC_ //test_ref/c/intf/_LIBDISPATCH_PUBLIC_ //test_ref/c/instm/_LIBDISPATCH_PUBLIC_ //test_ref/c/clm/_LIBDISPATCH_PUBLIC_ //test_ref/c/intfcm/_LIBDISPATCH_PUBLIC_ //test_ref/c/intfm/_LIBDISPATCH_PUBLIC_ //test_ref/c/func/_LIBDISPATCH_PUBLIC_ //test_ref/c/ftmplt/_LIBDISPATCH_PUBLIC_ //test_ref/c/defn/_LIBDISPATCH_PUBLIC_ //test_ref/c/macro/_LIBDISPATCH_PUBLIC_ //test_ref/doc/com/intfm/_LIBDISPATCH_PUBLIC_" --><span class="preprocessor">_LIBDISPATCH_PUBLIC_</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: _LIBDISPATCH_PUBLIC_ (HeaderDoc::PDefine)
+	   <span class="">#if</span><span class="preprocessor"> </span><span class="preprocessor">!</span><!-- a logicalPath="//test_ref/c/cl/defined //test_ref/c/tdef/defined //test_ref/c/tag/defined //test_ref/c/econst/defined //test_ref/c/struct/defined //test_ref/c/data/defined //test_ref/c/clconst/defined //test_ref/c/intf/defined //test_ref/c/instm/defined //test_ref/c/clm/defined //test_ref/c/intfcm/defined //test_ref/c/intfm/defined //test_ref/c/func/defined //test_ref/c/ftmplt/defined //test_ref/c/defn/defined //test_ref/c/macro/defined //test_ref/doc/com/intfm/defined" --><span class="preprocessor">defined</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/__BLOCKS__ //test_ref/c/tdef/__BLOCKS__ //test_ref/c/tag/__BLOCKS__ //test_ref/c/econst/__BLOCKS__ //test_ref/c/struct/__BLOCKS__ //test_ref/c/data/__BLOCKS__ //test_ref/c/clconst/__BLOCKS__ //test_ref/c/intf/__BLOCKS__ //test_ref/c/instm/__BLOCKS__ //test_ref/c/clm/__BLOCKS__ //test_ref/c/intfcm/__BLOCKS__ //test_ref/c/intfm/__BLOCKS__ //test_ref/c/func/__BLOCKS__ //test_ref/c/ftmplt/__BLOCKS__ //test_ref/c/defn/__BLOCKS__ //test_ref/c/macro/__BLOCKS__ //test_ref/doc/com/intfm/__BLOCKS__" --><span class="preprocessor">__BLOCKS__</span><!-- /a --><span class="preprocessor">)</span> 
+END OF OBJECT
+
+
+OBJECT: _LIBDISPATCH_PUBLIC_ (HeaderDoc::PDefine)
+	<span class="">#endif</span>  
+END OF OBJECT
+
+
+
+_$41|testsuite/parser_tests/__BEGIN_DECLS.test$1|C$13|__BEGIN_DECLS$8852|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/__BEGIN_DECLS.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/__BEGIN_DECLS.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 0
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 4
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 1
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => _LIBDISPATCH_PUBLIC_
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} => #ifndef _LIBDISPATCH_PUBLIC_
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 1
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => 
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{typestring} => #
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 1
+typelist: MACRO
+namelist: _LIBDISPATCH_PUBLIC_
+posstypes: MACRO
+value: 
+returntype: #ifndef _LIBDISPATCH_PUBLIC_
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---#ifndef
+|   +--- 
+|   +---_LIBDISPATCH_PUBLIC_
+|   +---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: __BEGIN_DECLS
+APIUID: //test_ref/doc/header/__BEGIN_DECLS.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 4
+    INDEX GROUP: 
+    IS BLOCK: 1
+    IS AVAILABILITY MACRO: 
+    PARSE ONLY: 
+    OBJECT TYPE: HeaderDoc::PDefine
+    NAME: _LIBDISPATCH_PUBLIC_
+    APIUID: //test_ref/c/macro/_LIBDISPATCH_PUBLIC_
+    ABSTRACT: ""
+    DISCUSSION: ""
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::PDefine"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: _LIBDISPATCH_PUBLIC_ (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---_LIBDISPATCH_PUBLIC_
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT:  (HeaderDoc::HeaderElement)
++---#ifndef
+|   +--- 
+|   +---_LIBDISPATCH_PUBLIC_
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: _LIBDISPATCH_PUBLIC_ (HeaderDoc::PDefine)
++---[ NEWLINE ]
++---__BEGIN_DECLS
++---[ NEWLINE ]
++---[ NEWLINE ]
++---#if
+|   +--- 
+|   +---!
+|   +---defined
+|   +---(
+|   +---__BLOCKS__
+|   +---)
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: _LIBDISPATCH_PUBLIC_ (HeaderDoc::PDefine)
++---#endif
+|   +---[ NEWLINE ]
++---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: _LIBDISPATCH_PUBLIC_ (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/_LIBDISPATCH_PUBLIC_ //test_ref/c/tdef/_LIBDISPATCH_PUBLIC_ //test_ref/c/tag/_LIBDISPATCH_PUBLIC_ //test_ref/c/econst/_LIBDISPATCH_PUBLIC_ //test_ref/c/struct/_LIBDISPATCH_PUBLIC_ //test_ref/c/data/_LIBDISPATCH_PUBLIC_ //test_ref/c/clconst/_LIBDISPATCH_PUBLIC_ //test_ref/c/intf/_LIBDISPATCH_PUBLIC_ //test_ref/c/instm/_LIBDISPATCH_PUBLIC_ //test_ref/c/clm/_LIBDISPATCH_PUBLIC_ //test_ref/c/intfcm/_LIBDISPATCH_PUBLIC_ //test_ref/c/intfm/_LIBDISPATCH_PUBLIC_ //test_ref/c/func/_LIBDISPATCH_PUBLIC_ //test_ref/c/ftmplt/_LIBDISPATCH_PUBLIC_ //test_ref/c/defn/_LIBDISPATCH_PUBLIC_ //test_ref/c/macro/_LIBDISPATCH_PUBLIC_ //test_ref/doc/com/intfm/_LIBDISPATCH_PUBLIC_" --><span class="preprocessor">_LIBDISPATCH_PUBLIC_</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT:  (HeaderDoc::HeaderElement)
+	<span class="">#ifndef</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/_LIBDISPATCH_PUBLIC_ //test_ref/c/tdef/_LIBDISPATCH_PUBLIC_ //test_ref/c/tag/_LIBDISPATCH_PUBLIC_ //test_ref/c/econst/_LIBDISPATCH_PUBLIC_ //test_ref/c/struct/_LIBDISPATCH_PUBLIC_ //test_ref/c/data/_LIBDISPATCH_PUBLIC_ //test_ref/c/clconst/_LIBDISPATCH_PUBLIC_ //test_ref/c/intf/_LIBDISPATCH_PUBLIC_ //test_ref/c/instm/_LIBDISPATCH_PUBLIC_ //test_ref/c/clm/_LIBDISPATCH_PUBLIC_ //test_ref/c/intfcm/_LIBDISPATCH_PUBLIC_ //test_ref/c/intfm/_LIBDISPATCH_PUBLIC_ //test_ref/c/func/_LIBDISPATCH_PUBLIC_ //test_ref/c/ftmplt/_LIBDISPATCH_PUBLIC_ //test_ref/c/defn/_LIBDISPATCH_PUBLIC_ //test_ref/c/macro/_LIBDISPATCH_PUBLIC_ //test_ref/doc/com/intfm/_LIBDISPATCH_PUBLIC_" --><span class="preprocessor">_LIBDISPATCH_PUBLIC_</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: _LIBDISPATCH_PUBLIC_ (HeaderDoc::PDefine)
+	   <span class="">#if</span><span class="preprocessor"> </span><span class="preprocessor">!</span><!-- a logicalPath="//test_ref/c/cl/defined //test_ref/c/tdef/defined //test_ref/c/tag/defined //test_ref/c/econst/defined //test_ref/c/struct/defined //test_ref/c/data/defined //test_ref/c/clconst/defined //test_ref/c/intf/defined //test_ref/c/instm/defined //test_ref/c/clm/defined //test_ref/c/intfcm/defined //test_ref/c/intfm/defined //test_ref/c/func/defined //test_ref/c/ftmplt/defined //test_ref/c/defn/defined //test_ref/c/macro/defined //test_ref/doc/com/intfm/defined" --><span class="preprocessor">defined</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/__BLOCKS__ //test_ref/c/tdef/__BLOCKS__ //test_ref/c/tag/__BLOCKS__ //test_ref/c/econst/__BLOCKS__ //test_ref/c/struct/__BLOCKS__ //test_ref/c/data/__BLOCKS__ //test_ref/c/clconst/__BLOCKS__ //test_ref/c/intf/__BLOCKS__ //test_ref/c/instm/__BLOCKS__ //test_ref/c/clm/__BLOCKS__ //test_ref/c/intfcm/__BLOCKS__ //test_ref/c/intfm/__BLOCKS__ //test_ref/c/func/__BLOCKS__ //test_ref/c/ftmplt/__BLOCKS__ //test_ref/c/defn/__BLOCKS__ //test_ref/c/macro/__BLOCKS__ //test_ref/doc/com/intfm/__BLOCKS__" --><span class="preprocessor">__BLOCKS__</span><!-- /a --><span class="preprocessor">)</span> 
+END OF OBJECT
+
+
+OBJECT: _LIBDISPATCH_PUBLIC_ (HeaderDoc::PDefine)
+	<span class="">#endif</span>  
+END OF OBJECT
+
+
+
+$8852|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/__BEGIN_DECLS.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/__BEGIN_DECLS.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 0
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 4
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 1
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => _LIBDISPATCH_PUBLIC_
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} => #ifndef _LIBDISPATCH_PUBLIC_
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 1
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => 
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{typestring} => #
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 1
+typelist: MACRO
+namelist: _LIBDISPATCH_PUBLIC_
+posstypes: MACRO
+value: 
+returntype: #ifndef _LIBDISPATCH_PUBLIC_
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---#ifndef
+|   +--- 
+|   +---_LIBDISPATCH_PUBLIC_
+|   +---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: __BEGIN_DECLS
+APIUID: //test_ref/doc/header/__BEGIN_DECLS.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 4
+    INDEX GROUP: 
+    IS BLOCK: 1
+    IS AVAILABILITY MACRO: 
+    PARSE ONLY: 
+    OBJECT TYPE: HeaderDoc::PDefine
+    NAME: _LIBDISPATCH_PUBLIC_
+    APIUID: //test_ref/c/macro/_LIBDISPATCH_PUBLIC_
+    ABSTRACT: ""
+    DISCUSSION: ""
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::PDefine"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: _LIBDISPATCH_PUBLIC_ (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---_LIBDISPATCH_PUBLIC_
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT:  (HeaderDoc::HeaderElement)
++---#ifndef
+|   +--- 
+|   +---_LIBDISPATCH_PUBLIC_
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: _LIBDISPATCH_PUBLIC_ (HeaderDoc::PDefine)
++---[ NEWLINE ]
++---__BEGIN_DECLS
++---[ NEWLINE ]
++---[ NEWLINE ]
++---#if
+|   +--- 
+|   +---!
+|   +---defined
+|   +---(
+|   +---__BLOCKS__
+|   +---)
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: _LIBDISPATCH_PUBLIC_ (HeaderDoc::PDefine)
++---#endif
+|   +---[ NEWLINE ]
++---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: _LIBDISPATCH_PUBLIC_ (HeaderDoc::PDefine)
+	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/_LIBDISPATCH_PUBLIC_ //test_ref/c/tdef/_LIBDISPATCH_PUBLIC_ //test_ref/c/tag/_LIBDISPATCH_PUBLIC_ //test_ref/c/econst/_LIBDISPATCH_PUBLIC_ //test_ref/c/struct/_LIBDISPATCH_PUBLIC_ //test_ref/c/data/_LIBDISPATCH_PUBLIC_ //test_ref/c/clconst/_LIBDISPATCH_PUBLIC_ //test_ref/c/intf/_LIBDISPATCH_PUBLIC_ //test_ref/c/instm/_LIBDISPATCH_PUBLIC_ //test_ref/c/clm/_LIBDISPATCH_PUBLIC_ //test_ref/c/intfcm/_LIBDISPATCH_PUBLIC_ //test_ref/c/intfm/_LIBDISPATCH_PUBLIC_ //test_ref/c/func/_LIBDISPATCH_PUBLIC_ //test_ref/c/ftmplt/_LIBDISPATCH_PUBLIC_ //test_ref/c/defn/_LIBDISPATCH_PUBLIC_ //test_ref/c/macro/_LIBDISPATCH_PUBLIC_ //test_ref/doc/com/intfm/_LIBDISPATCH_PUBLIC_" --><span class="preprocessor">_LIBDISPATCH_PUBLIC_</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT:  (HeaderDoc::HeaderElement)
+	<span class="">#ifndef</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/_LIBDISPATCH_PUBLIC_ //test_ref/c/tdef/_LIBDISPATCH_PUBLIC_ //test_ref/c/tag/_LIBDISPATCH_PUBLIC_ //test_ref/c/econst/_LIBDISPATCH_PUBLIC_ //test_ref/c/struct/_LIBDISPATCH_PUBLIC_ //test_ref/c/data/_LIBDISPATCH_PUBLIC_ //test_ref/c/clconst/_LIBDISPATCH_PUBLIC_ //test_ref/c/intf/_LIBDISPATCH_PUBLIC_ //test_ref/c/instm/_LIBDISPATCH_PUBLIC_ //test_ref/c/clm/_LIBDISPATCH_PUBLIC_ //test_ref/c/intfcm/_LIBDISPATCH_PUBLIC_ //test_ref/c/intfm/_LIBDISPATCH_PUBLIC_ //test_ref/c/func/_LIBDISPATCH_PUBLIC_ //test_ref/c/ftmplt/_LIBDISPATCH_PUBLIC_ //test_ref/c/defn/_LIBDISPATCH_PUBLIC_ //test_ref/c/macro/_LIBDISPATCH_PUBLIC_ //test_ref/doc/com/intfm/_LIBDISPATCH_PUBLIC_" --><span class="preprocessor">_LIBDISPATCH_PUBLIC_</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: _LIBDISPATCH_PUBLIC_ (HeaderDoc::PDefine)
+	   <span class="">#if</span><span class="preprocessor"> </span><span class="preprocessor">!</span><!-- a logicalPath="//test_ref/c/cl/defined //test_ref/c/tdef/defined //test_ref/c/tag/defined //test_ref/c/econst/defined //test_ref/c/struct/defined //test_ref/c/data/defined //test_ref/c/clconst/defined //test_ref/c/intf/defined //test_ref/c/instm/defined //test_ref/c/clm/defined //test_ref/c/intfcm/defined //test_ref/c/intfm/defined //test_ref/c/func/defined //test_ref/c/ftmplt/defined //test_ref/c/defn/defined //test_ref/c/macro/defined //test_ref/doc/com/intfm/defined" --><span class="preprocessor">defined</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/__BLOCKS__ //test_ref/c/tdef/__BLOCKS__ //test_ref/c/tag/__BLOCKS__ //test_ref/c/econst/__BLOCKS__ //test_ref/c/struct/__BLOCKS__ //test_ref/c/data/__BLOCKS__ //test_ref/c/clconst/__BLOCKS__ //test_ref/c/intf/__BLOCKS__ //test_ref/c/instm/__BLOCKS__ //test_ref/c/clm/__BLOCKS__ //test_ref/c/intfcm/__BLOCKS__ //test_ref/c/intfm/__BLOCKS__ //test_ref/c/func/__BLOCKS__ //test_ref/c/ftmplt/__BLOCKS__ //test_ref/c/defn/__BLOCKS__ //test_ref/c/macro/__BLOCKS__ //test_ref/doc/com/intfm/__BLOCKS__" --><span class="preprocessor">__BLOCKS__</span><!-- /a --><span class="preprocessor">)</span> 
+END OF OBJECT
+
+
+OBJECT: _LIBDISPATCH_PUBLIC_ (HeaderDoc::PDefine)
+	<span class="">#endif</span>  
+END OF OBJECT
+
+
+
+$1|C$6|parser

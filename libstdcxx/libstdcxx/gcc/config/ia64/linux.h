@@ -37,15 +37,18 @@ do {						\
 /* Define this for shared library support because it isn't in the main
    linux.h file.  */
 
+#define GLIBC_DYNAMIC_LINKER "/lib/ld-linux-ia64.so.2"
+
 #undef LINK_SPEC
 #define LINK_SPEC "\
   %{shared:-shared} \
   %{!shared: \
     %{!static: \
       %{rdynamic:-export-dynamic} \
-      %{!dynamic-linker:-dynamic-linker /lib/ld-linux-ia64.so.2}} \
+      %{!dynamic-linker:-dynamic-linker " LINUX_DYNAMIC_LINKER "}} \
       %{static:-static}}"
 
+#define CPP_SPEC "%{posix:-D_POSIX_SOURCE} %{pthread:-D_REENTRANT}"
 
 #define JMP_BUF_SIZE  76
 

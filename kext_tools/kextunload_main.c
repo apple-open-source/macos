@@ -21,56 +21,24 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <CoreFoundation/CoreFoundation.h>
-#include <IOKit/IOKitLib.h>
-#include <IOKit/IOKitServer.h>
 #include <libc.h>
 
-#include <IOKit/kext/KXKextManager.h>
-#include <utility.h>
+#include <IOKit/IOKitLib.h>
+#include <IOKit/IOKitServer.h>
+#include <IOKit/kext/OSKextPrivate.h>
+
+#include "kextunload_main.h"
 
 const char * progname = "(unknown)";
-int g_verbose_level = kKXKextManagerLogLevelDefault; // -v, -q set this
-
-static char calc_buffer[2] = "";
-static int kern_result_buffer_length = 80;
-static char * kern_result_buffer;     // for formatting status messages
 
 /*******************************************************************************
 *******************************************************************************/
-
-int format_kern_result(kern_return_t result);
-
-// Do not use the addKextsToManager () call from utility.[hc]
-static int _addKextsToManager(
-    KXKextManagerRef aManager,
-    CFArrayRef kextNames,
-    CFMutableArrayRef kextArray);
-static void usage(int level);
-
-/*******************************************************************************
-*******************************************************************************/
-
-
-int main(int argc, const char *argv[])
+int main(int argc, char * const * argv)
 {
-    int exit_code = 0;
-    int optchar;
-    KXKextManagerRef myKextManager = NULL;   // must release
-    KXKextManagerError result;
-    kern_return_t kern_result;
-
-    CFIndex i, count;
-
-   /*****
-    * Set by command line option flags.
-    */
-    Boolean unload_personalities = true;      // -P
-
-    CFMutableArrayRef kextNames = NULL;       // args; must release
-    CFMutableArrayRef kextClassNames = NULL;  // -c; must release
-    CFMutableArrayRef kextBundleIDs = NULL;   // -b/-m; must release
-    CFMutableArrayRef kexts = NULL;           // must release
-    KXKextRef theKext = NULL;                 // don't release
+    ExitStatus        result        = EX_OK;
+    KextunloadArgs    toolArgs;
+    ExitStatus        scratchResult = EX_OK;
+    Boolean           fatal         = false;
 
 
    /*****
@@ -83,399 +51,538 @@ int main(int argc, const char *argv[])
         progname = (char *)argv[0];
     }
 
-   /*****
-    * Allocate CF collection objects.
+   /* Set the OSKext log callback right away.
     */
-    kextNames = CFArrayCreateMutable(kCFAllocatorDefault, 0,
-        &kCFTypeArrayCallBacks);
-    if (!kextNames) {
-        exit_code = 1;
-        qerror("can't allocate memory\n");
+    OSKextSetLogOutputFunction(&tool_log);
+
+    result = readArgs(argc, argv, &toolArgs);
+    if (result != EX_OK) {
         goto finish;
     }
 
-    kextClassNames = CFArrayCreateMutable(kCFAllocatorDefault, 0,
-        NULL /* C pointers */);
-    if (!kextClassNames) {
-        exit_code = 1;
-        qerror("can't allocate memory\n");
+    result = checkArgs(&toolArgs);
+    if (result != EX_OK) {
         goto finish;
     }
 
-    kextBundleIDs = CFArrayCreateMutable(kCFAllocatorDefault, 0,
-        NULL /* C pointers */);
-    if (!kextBundleIDs) {
-        exit_code = 1;
-        qerror("can't allocate memory\n");
-        goto finish;
-    }
-
-    kexts = CFArrayCreateMutable(kCFAllocatorDefault, 0,
-        &kCFTypeArrayCallBacks);
-    if (!kexts) {
-        exit_code = 1;
-        qerror("can't allocate memory\n");
-        goto finish;
-    }
-
-
-    /*****
-    * Process command line arguments.
+   /* If given URLs, create OSKext objects for them so we can get
+    * bundle identifiers (that's what IOCatalogueTerminate() expects).
+    * If we failed to open one, keep going on but save the not-found
+    * error for our exit status.
     */
-    while ((optchar = getopt(argc, (char * const *)argv, "b:c:hm:pqv")) != -1) {
-
-        switch (optchar) {
-          case 'b':
-          case 'm':
-            CFArrayAppendValue(kextBundleIDs, optarg);
-            break;
-          case 'c':
-            CFArrayAppendValue(kextClassNames, optarg);
-            break;
-          case 'h':
-            usage(2);
-            goto finish;
-            break;
-          case 'p':
-            unload_personalities = false;
-            break;
-          case 'q':
-            if (g_verbose_level != kKXKextManagerLogLevelDefault) {
-                qerror("duplicate use of -v and/or -q option\n\n");
-                usage(0);
-                exit_code = 1;
-                goto finish;
-            }
-            g_verbose_level = kKXKextManagerLogLevelSilent;
-            break;
-          case 'v':
-            {
-                const char * next;
-
-                if (g_verbose_level != kKXKextManagerLogLevelDefault) {
-                    qerror("duplicate use of -v and/or -q option\n\n");
-                    usage(0);
-                    exit_code = 1;
-                    goto finish;
-                }
-                if (optind >= argc) {
-                    g_verbose_level = kKXKextManagerLogLevelBasic;
-                } else {
-                    next = argv[optind];
-                    if ((next[0] == '0' || next[0] == '1' ||
-                         next[0] == '2' || next[0] == '3' || 
-                         next[0] == '4' || next[0] == '5' ||
-                         next[0] == '6') && next[1] == '\0') {
-
-                        if (next[0] == '0') {
-                            g_verbose_level = kKXKextManagerLogLevelErrorsOnly;
-                        } else {
-                            g_verbose_level = atoi(next);
-                        }
-                        optind++;
-                    } else {
-                        g_verbose_level = kKXKextManagerLogLevelBasic;
-                    }
-                }
-            }
-            break;
-        }
-    }
-
-   /* Update argc, argv for building dependency lists.
-    */
-    argc -= optind;
-    argv += optind;
-
-   /*****
-    * Record the kext names from the command line.
-    */
-    for (i = 0; i < argc; i++) {
-        CFStringRef kextName = CFStringCreateWithCString(kCFAllocatorDefault,
-              argv[i], kCFStringEncodingUTF8);
-        if (!kextName) {
-            qerror("Can't create kext name string for \"%s\"; "
-                "no memory?\n", argv[i]);
-            exit_code = 1;
-            goto finish;
-        }
-        CFArrayAppendValue(kextNames, kextName);
-        CFRelease(kextName);
-    }
-
-
-    if (CFArrayGetCount(kextNames) == 0 &&
-        CFArrayGetCount(kextBundleIDs) == 0 &&
-
-        CFArrayGetCount(kextClassNames) == 0) {
-        qerror("no kernel extension specified\n\n");
-        usage(1);
-        exit_code = 1;
+    result = createKextsIfNecessary(&toolArgs);
+    if (result != EX_OK && result != kKextunloadExitNotFound) {
         goto finish;
     }
 
-
-   /*****
-    * Set up the kext manager.
+   /* Do the terminates & unloads. Catch the first nonfatal error as our
+    * exit and don't overwrite it with later nonfatal errors.
+    * *Do* overwrite it with a fatal error if we got one.
     */
-    myKextManager = KXKextManagerCreate(kCFAllocatorDefault);
-    if (!myKextManager) {
-        qerror("can't allocate kext manager\n");
-        exit_code = 1;
+    scratchResult = terminateKextClasses(&toolArgs, &fatal);
+    if (result == EX_OK && scratchResult != EX_OK) {
+        result = scratchResult;
+    }
+    if (fatal) {
+        result = scratchResult;
         goto finish;
     }
 
-    result = KXKextManagerInit(myKextManager, true, false);
-    if (result != kKXKextManagerErrorNone) {
-        qerror("can't initialize manager (%s)\n",
-            KXKextManagerErrorStaticCStringForError(result));
-        exit_code = 1;
+    scratchResult = unloadKextsByIdentifier(&toolArgs, &fatal);
+    if (result == EX_OK && scratchResult != EX_OK) {
+        result = scratchResult;
+    }
+    if (fatal) {
+        result = scratchResult;
         goto finish;
     }
 
-    KXKextManagerSetLogLevel(myKextManager, g_verbose_level);
-    KXKextManagerSetLogFunction(myKextManager, &verbose_log);
-    KXKextManagerSetErrorLogFunction(myKextManager, &error_log);
-
-   /*****
-    * Disable clearing of relationships until we're done putting everything
-    * together.
-    */
-    KXKextManagerDisableClearRelationships(myKextManager);
-
-    // FIXME: put the code between the disable/enable in a function
-
-   /*****
-    * Add each kext named on the command line to the manager.
-    */
-    if (!_addKextsToManager(myKextManager, kextNames, kexts)) {
-        exit_code = 1;
+    result = unloadKextsByURL(&toolArgs, &fatal);
+    if (result == EX_OK && scratchResult != EX_OK) {
+        result = scratchResult;
+    }
+    if (fatal) {
+        result = scratchResult;
         goto finish;
-    }
-
-    KXKextManagerCalculateVersionRelationships(myKextManager);
-
-    kern_result_buffer = (char *)malloc(sizeof(char) * kern_result_buffer_length);
-    if (!kern_result_buffer) {
-        exit_code = 1;
-        goto finish;
-    }
-    kern_result_buffer[0] = '\0';
-
-   /*****
-    * Get busy unloading kexts. First do the class names, then do the
-    * bundle identifiers.
-    */
-    count = CFArrayGetCount(kextClassNames);
-    for (i = 0; i < count; i++) {
-        char * kext_class_name = NULL;  // don't free
-
-        kext_class_name = (char *)CFArrayGetValueAtIndex(kextClassNames, i);
-        kern_result = IOCatalogueTerminate(kIOMasterPortDefault,
-            kIOCatalogServiceTerminate,
-            kext_class_name);
-        if (kern_result == kIOReturnNotPrivileged) {
-             qerror("permission denied; you must be root to unload kexts\n");
-             exit_code = 1;
-             goto finish;
-        }
-        if (kern_result != KERN_SUCCESS) {
-             if (!format_kern_result(kern_result)) {
-                 exit_code = 1;
-                 goto finish;
-             }
-             exit_code = 1;
-        }
-        verbose_log("terminate instances for class %s %s%s",
-            kext_class_name,
-            kern_result == KERN_SUCCESS ? "succeeded" : "failed",
-            kern_result != KERN_SUCCESS ? kern_result_buffer : "");
-        kern_result_buffer[0] = '\0';
-    }
-
-    count = CFArrayGetCount(kextBundleIDs);
-    for (i = 0; i < count; i++) {
-        char * kext_id = NULL;  // don't free
-
-        kext_id = (char *)CFArrayGetValueAtIndex(kextBundleIDs, i);
-        kern_result = IOCatalogueTerminate(kIOMasterPortDefault,
-            unload_personalities ? kIOCatalogModuleUnload :
-                kIOCatalogModuleTerminate,
-            kext_id);
-        if (kern_result == kIOReturnNotPrivileged) {
-             qerror("permission denied; you must be root to unload kexts\n");
-             exit_code = 1;
-             goto finish;
-        }
-        if (kern_result != KERN_SUCCESS) {
-             if (!format_kern_result(kern_result)) {
-                 exit_code = 1;
-                 goto finish;
-             }
-             exit_code = 1;
-        }
-        verbose_log("unload id %s %s%s",
-            kext_id,
-            kern_result == KERN_SUCCESS ? "succeeded" : "failed",
-            kern_result != KERN_SUCCESS ? kern_result_buffer :
-                (unload_personalities ? " (any personalities also unloaded)" :
-                " (any personalities not unloaded)"));
-        kern_result_buffer[0] = '\0';
-    }
-
-    count = CFArrayGetCount(kexts);
-    for (i = 0; i < count; i++) {
-        CFStringRef kextName = NULL; // don't release
-        CFStringRef kextID = NULL;   // don't release
-        char kext_name[MAXPATHLEN];
-        char kext_id[255];
-
-        theKext = (KXKextRef)CFArrayGetValueAtIndex(kexts, i);
-        kextName = (CFStringRef)CFArrayGetValueAtIndex(kextNames, i);
-        kextID = KXKextGetBundleIdentifier(theKext);
-        if (!CFStringGetCString(kextName,
-            kext_name, sizeof(kext_name) - 1, kCFStringEncodingUTF8)) {
-
-            exit_code = 1;
-            continue;
-        }
-
-        if (!CFStringGetCString(kextID,
-            kext_id, sizeof(kext_id) - 1, kCFStringEncodingUTF8)) {
-
-            exit_code = 1;
-            continue;
-        }
-
-        kern_result = IOCatalogueTerminate(kIOMasterPortDefault,
-            unload_personalities ? kIOCatalogModuleUnload :
-                kIOCatalogModuleTerminate,
-            kext_id);
-        if (kern_result == kIOReturnNotPrivileged) {
-             qerror("permission denied; you must be root to unload kexts\n");
-             exit_code = 1;
-             goto finish;
-        }
-/* PR-3424027: we are now returning an error for unspecified kernel failures. -DH */
-         if (kern_result != KERN_SUCCESS) {
-             if (!format_kern_result(kern_result)) {
-                 exit_code = 1;
-                 goto finish;
-             }
-             exit_code = 1;
-        }
-        verbose_log("unload kext %s %s",
-            kext_name,
-            kern_result == KERN_SUCCESS ? "succeeded" : "failed",
-            kern_result != KERN_SUCCESS ? kern_result_buffer :
-                (unload_personalities ? " (any personalities also unloaded)" :
-                " (any personalities not unloaded)"));
     }
 
 finish:
+
+    if (result == kKextunloadExitHelp) {
+        result = EX_OK;
+    }
+
+    exit(result);
 
    /*****
     * Clean everything up.
     */
-    if (kextNames)             CFRelease(kextNames);
-    if (kextClassNames)        CFRelease(kextClassNames);
-    if (kextBundleIDs)         CFRelease(kextBundleIDs);
-    if (kexts)                 CFRelease(kexts);
-
-    if (myKextManager)         CFRelease(myKextManager);
+    SAFE_RELEASE(toolArgs.kextURLs);
+    SAFE_RELEASE(toolArgs.kextClassNames);
+    SAFE_RELEASE(toolArgs.kextBundleIDs);
         
-//    while (1) ;  // for memory leak testing
-
-    exit(exit_code);
-    return exit_code;
-}
-
-int format_kern_result(kern_return_t kern_result)
-{
-    int check_length = snprintf(calc_buffer, 1,
-        " (result code 0x%x)", kern_result);
-
-    if (check_length + 1 > kern_result_buffer_length) {
-        kern_result_buffer = (char *)realloc(kern_result_buffer,
-            sizeof(char) * (check_length + 1));
-        if (!kern_result_buffer) {
-            return 0;
-        }
-    }
-    sprintf(kern_result_buffer, " (result code 0x%x)", kern_result);
-    return 1;
+    return result;
 }
 
 /*******************************************************************************
-*
 *******************************************************************************/
-static int _addKextsToManager(
-    KXKextManagerRef aManager,
-    CFArrayRef kextNames,
-    CFMutableArrayRef kextArray)
+ExitStatus readArgs(int argc, char * const * argv, KextunloadArgs * toolArgs)
 {
-    int result = 1;
-    KXKextManagerError kxresult = kKXKextManagerErrorNone;
-    CFIndex i, count;
-    KXKextRef theKext = NULL;  // don't release
-    CFURLRef kextURL = NULL;   // must release
+    ExitStatus   result          = EX_USAGE;
+    int          optchar         = 0;
+    int          longindex       = -1;
+    CFStringRef  scratchString   = NULL;  // must release
+    CFNumberRef  scratchNumber   = NULL;  // must release
+    CFURLRef     scratchURL      = NULL;  // must release
+    CFIndex      i;
+
+    bzero(toolArgs, sizeof(*toolArgs));
+
+   /* Default is to unload both kext and driver personalities.
+    */
+    toolArgs->terminateOption = kIOCatalogModuleUnload;
 
    /*****
-    * Add each kext named to the manager.
+    * Allocate collection objects needed for command line argument processing.
     */
-    count = CFArrayGetCount(kextNames);
-    for (i = 0; i < count; i++) {
-        CFStringRef kextName = (CFStringRef)CFArrayGetValueAtIndex(
-            kextNames, i);
-        kextURL = CFURLCreateWithFileSystemPath(kCFAllocatorDefault,
-            kextName, kCFURLPOSIXPathStyle, true);
-        if (!kextURL) {
-            qerror("can't create kext URL; no memory?\n");
-            result = 0;
-            goto finish;
-        }
+    if (!createCFMutableArray(&toolArgs->kextURLs, &kCFTypeArrayCallBacks)    ||
+        !createCFMutableArray(&toolArgs->kextBundleIDs, NULL /* C strings */) ||
+        !createCFMutableArray(&toolArgs->kextClassNames, NULL /* C strings */)) {
 
-        kxresult = KXKextManagerAddKextWithURL(aManager, kextURL, true, &theKext);
-        if (kxresult != kKXKextManagerErrorNone) {
-            // FIXME: Improve this error message.
-            qerror("can't add kext (%s).\n",
-                KXKextManagerErrorStaticCStringForError(kxresult));
-            result = 0;
+        result = EX_OSERR;
+        OSKextLogMemError();
+        goto finish;
+    }
+
+   /*****
+    * Process command-line arguments.
+    */
+    result = EX_USAGE;
+
+    /*****
+    * Process command line arguments.
+    */
+    while ((optchar = getopt_long_only(argc, (char * const *)argv,
+        kOptChars, sOptInfo, &longindex)) != -1) {
+
+        SAFE_RELEASE_NULL(scratchString);
+        SAFE_RELEASE_NULL(scratchNumber);
+        SAFE_RELEASE_NULL(scratchURL);
+
+        switch (optchar) {
+            case kOptHelp:
+                usage(kUsageLevelFull);
+                result = kKextunloadExitHelp;
+                goto finish;
+                break;
+
+            case kOptBundleIdentifier:
+            case kOptModule:
+                addToArrayIfAbsent(toolArgs->kextBundleIDs, optarg);
+                break;
+
+            case kOptClassName:
+                addToArrayIfAbsent(toolArgs->kextClassNames, optarg);
+                break;
+              break;
+
+            case kOptPersonalitiesOnly:
+              toolArgs->terminateOption = kIOCatalogModuleTerminate;
+              break;
+
+            case kOptQuiet:
+                beQuiet();
+                break;
+
+            case kOptVerbose:
+                result = setLogFilterForOpt(argc, argv,
+                    /* forceOnFlags */ kOSKextLogKextOrGlobalMask);
+                break;
+
+            default:
+               /* getopt_long_only() prints an error message for us. */
+                goto finish;
+                break;
+
+        } /* switch (optchar) */
+    } /* while (optchar = getopt_long_only(...) */
+
+   /*****
+    * Record the kext names from the command line.
+    */
+    for (i = optind; i < argc; i++) {
+
+        SAFE_RELEASE_NULL(scratchURL);
+
+        scratchURL = CFURLCreateFromFileSystemRepresentation(
+            kCFAllocatorDefault,
+            (const UInt8 *)argv[i], strlen(argv[i]), true);
+        if (!scratchURL) {
+            result = EX_OSERR;
+            OSKextLogMemError();
             goto finish;
         }
-        if (kextArray && theKext) {
-            CFArrayAppendValue(kextArray, theKext);
+        addToArrayIfAbsent(toolArgs->kextURLs, scratchURL);
+    }
+    
+    result = EX_OK;
+finish:
+    SAFE_RELEASE(scratchString);
+    SAFE_RELEASE(scratchNumber);
+    SAFE_RELEASE(scratchURL);
+
+    return result;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+ExitStatus
+checkArgs(KextunloadArgs * toolArgs)
+{
+    ExitStatus         result = EX_USAGE;
+
+    if (geteuid() != 0) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+            "You must be running as root to unload kexts, "
+            "terminate services, or remove driver personalities.");
+        result = EX_NOPERM;
+        goto finish;
+    }
+
+    if (!CFArrayGetCount(toolArgs->kextURLs)      &&
+        !CFArrayGetCount(toolArgs->kextBundleIDs) &&
+        !CFArrayGetCount(toolArgs->kextClassNames)) {
+
+       /* Put an extra newline for readability.
+        */
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+            "No kernel extensions specified.");
+        usage(kUsageLevelBrief);
+        goto finish;
+    }
+    
+    result = EX_OK;
+
+finish:
+    return result;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+ExitStatus
+createKextsIfNecessary(KextunloadArgs * toolArgs)
+{
+    ExitStatus result = EX_OK;
+    OSKextRef  aKext  = NULL;   // must release
+    CFIndex    count, i;
+
+    if (!CFArrayGetCount(toolArgs->kextURLs)) {
+        goto finish;
+    }
+
+    if (!createCFMutableArray(&toolArgs->kexts, &kCFTypeArrayCallBacks)) {
+        result = EX_OSERR;
+        goto finish;
+    }
+
+    count = CFArrayGetCount(toolArgs->kextURLs);
+    for (i = 0; i < count; i++) {
+        CFURLRef kextURL = CFArrayGetValueAtIndex(toolArgs->kextURLs, i);
+
+        SAFE_RELEASE_NULL(aKext);
+        aKext = OSKextCreate(kCFAllocatorDefault, kextURL);
+        if (!aKext) {
+            result = kKextunloadExitNotFound;
+            continue; // not fatal!
         }
-        CFRelease(kextURL);
-        kextURL = NULL;
+        
+        addToArrayIfAbsent(toolArgs->kexts, aKext);
+    }
+    
+finish:
+    SAFE_RELEASE(aKext);
+    return result;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+ExitStatus
+terminateKextClasses(KextunloadArgs * toolArgs, Boolean * fatal)
+{
+    ExitStatus    result      = EX_OK;
+    kern_return_t kernResult;
+    CFIndex       count, i;
+
+    count = CFArrayGetCount(toolArgs->kextClassNames);
+    for (i = 0; i < count; i++) {
+        char * className = NULL;  // do not free
+
+        className = (char *)CFArrayGetValueAtIndex(toolArgs->kextClassNames, i);
+
+        kernResult = IOCatalogueTerminate(kIOMasterPortDefault,
+            kIOCatalogServiceTerminate,
+            className);
+
+        if (kernResult == kIOReturnNotPrivileged) {
+             OSKextLog(/* kext */ NULL,
+                 kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                 "You must be running as root to terminate IOService instances.");
+             result = kKextunloadExitNotPrivileged;
+             *fatal = true;
+             goto finish;
+
+        } else if (kernResult != KERN_SUCCESS) {
+            result = kKextunloadExitPartialFailure;
+            OSKextLog(/* kext */ NULL,
+                kOSKextLogErrorLevel | kOSKextLogIPCFlag,
+                "Failed to terminate class %s - %s.",
+                className, safe_mach_error_string(kernResult));
+        } else {
+            OSKextLog(/* kext */ NULL,
+                kOSKextLogBasicLevel | kOSKextLogIPCFlag,
+                "All instances of class %s terminated.",
+                className);
+        }
+    }
+    
+finish:
+    if (result == kKextunloadExitPartialFailure) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogIPCFlag,
+            "Check the system/kernel logs for error messages from the I/O Kit.");
+    }
+
+    return result;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+ExitStatus unloadKextsByIdentifier(KextunloadArgs * toolArgs, Boolean * fatal)
+{
+    ExitStatus      result = EX_OK;
+    CFStringRef     kextIdentifier = NULL;  // must release
+    CFIndex         count, i;
+
+    count = CFArrayGetCount(toolArgs->kextBundleIDs);
+    for (i = 0; i < count; i++) {
+        char       * kextIDCString = NULL;  // do not free
+        ExitStatus   thisResult;
+
+        SAFE_RELEASE_NULL(kextIdentifier);
+        kextIDCString = (char *)CFArrayGetValueAtIndex(toolArgs->kextBundleIDs, i);
+        kextIdentifier = CFStringCreateWithCString(kCFAllocatorDefault,
+            kextIDCString, kCFStringEncodingUTF8);
+        thisResult = unloadKextWithIdentifier(kextIdentifier, toolArgs, fatal);
+
+       /* Only nab the first nonfatal error.
+        */
+        if (result == EX_OK && thisResult != EX_OK) {
+            result = thisResult;
+        }
+        if (*fatal) {
+            result = thisResult;
+            goto finish;
+        }
     }
 
 finish:
-    if (kextURL) CFRelease(kextURL);
+    SAFE_RELEASE(kextIdentifier);
+
+   /* If we didn't suffer a catastrophic error, but only a routine
+    * terminate failure, then recommend checking the system log.
+    * Note that for unloads we capture kernel error logs from the OSKext
+    * subsystem and print them to stderr.
+    */
+    if (!*fatal &&
+        result != EX_OK &&
+        toolArgs->terminateOption == kIOCatalogModuleTerminate) {
+
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogIPCFlag,
+            "Check the system/kernel logs for error messages from the I/O Kit.");
+    }
+    return result;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+ExitStatus unloadKextsByURL(KextunloadArgs * toolArgs, Boolean * fatal)
+{
+    ExitStatus      result  = EX_OK;
+    CFIndex         count, i;
+
+   /* This is one CF collection we only allocate when needed.
+    */
+    if (!toolArgs->kexts) {
+        goto finish;
+    }
+
+    count = CFArrayGetCount(toolArgs->kexts);
+    for (i = 0; i < count; i++) {
+        ExitStatus  thisResult = EX_OK;
+        OSKextRef   aKext      = NULL;  // do not release
+        CFURLRef    kextURL    = NULL;  // do not release
+        CFStringRef kextID     = NULL;  // do not release
+        char        kextPath[PATH_MAX];
+
+        aKext = (OSKextRef)CFArrayGetValueAtIndex(toolArgs->kexts, i);
+        kextURL = OSKextGetURL(aKext);
+        kextID = OSKextGetIdentifier(aKext);
+
+        if (!CFURLGetFileSystemRepresentation(kextURL,
+            /* resolveToBase */ false,
+            (UInt8 *)kextPath,
+            sizeof(kextPath))) {
+
+            memcpy(kextPath, "(unknown)", sizeof("(unknown)"));
+            continue;
+        }
+
+        thisResult = unloadKextWithIdentifier(kextID, toolArgs, fatal);
+
+       /* Only nab the first nonfatal error.
+        */
+        if (result == EX_OK && thisResult != EX_OK) {
+            result = thisResult;
+        }
+        if (*fatal) {
+            result = thisResult;
+            goto finish;
+        }
+    }
+
+finish:
+   /* If we didn't suffer a catastrophic error, but only a routine
+    * terminate failure, then recommend checking the system log.
+    * Note that for unloads we capture kernel error logs from the OSKext
+    * subsystem and print them to stderr.
+    */
+    if (!*fatal &&
+        result != EX_OK &&
+        toolArgs->terminateOption == kIOCatalogModuleTerminate) {
+
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogIPCFlag,
+            "Check the system/kernel logs for error messages from the I/O Kit.");
+    }
+    return result;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+ExitStatus unloadKextWithIdentifier(
+    CFStringRef      kextIdentifier,
+    KextunloadArgs * toolArgs,
+    Boolean        * fatal)
+{
+    ExitStatus      result = EX_OK;
+    char          * kextIdentifierCString = NULL;  // must free
+    kern_return_t   kernResult;
+
+    if (!kextIdentifierCString) {
+        kextIdentifierCString = createUTF8CStringForCFString(kextIdentifier);
+        if (!kextIdentifierCString) {
+            OSKextLogMemError();
+            result = EX_OSERR;
+            *fatal = true;
+            goto finish;
+        }
+    }
+
+    if (toolArgs->terminateOption == kIOCatalogModuleTerminate) {
+        kernResult = IOCatalogueTerminate(kIOMasterPortDefault,
+            toolArgs->terminateOption, kextIdentifierCString);
+    } else {
+        kernResult = OSKextUnloadKextWithIdentifier(kextIdentifier,
+            /* terminateAndRemovePersonalities */ true);
+    }
+
+    if (kernResult == kIOReturnNotPrivileged) {
+         OSKextLog(/* kext */ NULL,
+             kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+             "You must be running as root to unload kexts.");
+         result = kKextunloadExitNotPrivileged;
+         *fatal = true;
+         goto finish;
+
+    } else if (kernResult != KERN_SUCCESS) {
+         result = kKextunloadExitPartialFailure;
+        if (toolArgs->terminateOption == kIOCatalogModuleTerminate) {
+            OSKextLog(/* kext */ NULL,
+                kOSKextLogErrorLevel | kOSKextLogIPCFlag,
+                "Terminate for %s failed - %s.",
+                kextIdentifierCString, safe_mach_error_string(kernResult));
+        } else {
+            // OSKextUnloadKextWithIdentifier() logged an error
+        }
+    } else {
+        if (toolArgs->terminateOption == kIOCatalogModuleTerminate) {
+            OSKextLog(/* kext */ NULL,
+                kOSKextLogBasicLevel | kOSKextLogIPCFlag,
+                "%s: services terminated and personalities removed "
+                "(kext not unloaded).",
+                kextIdentifierCString);
+        } else {
+            OSKextLog(/* kext */ NULL,
+                kOSKextLogBasicLevel | kOSKextLogIPCFlag,
+                "%s unloaded and personalities removed.",
+                kextIdentifierCString);
+        }
+    }
+finish:
+    SAFE_FREE(kextIdentifierCString);
+
     return result;
 }
 
 /*******************************************************************************
 *
 *******************************************************************************/
-static void usage(int level)
+void usage(UsageLevel usageLevel)
 {
-    qerror("usage: %s [-b bundle_id] ... [-c class_name] ... [-h]\n"
-        "    [-p] [-v [0-6]] [kext] ...\n\n",
+    fprintf(stderr, "usage: %s [-h] [-v [0-6]]\n"
+        "        [-p] [-c class_name] ... [-b bundle_id] ... [kext] ...\n",
         progname);
-    if (level > 1) {
-        qerror("  -b bundle_id: unload the kernel extension whose\n");
-        qerror("      CFBundleIdentifier is bundle_id\n");
-        qerror("  -c class_name: terminate instances of class_name but\n");
-        qerror("      do not unload code or personalities\n");
-        qerror("  -h: help; print this message\n");
-        qerror("  -p: don't remove personalities when unloading\n");
-        qerror("      (unnecessary with -c)\n");
-        qerror(
-            "  -q: quiet mode: print no informational or error messages\n");
-        qerror("  -v: verbose mode; print info about activity\n"
-            "     (more info printed as optional value increases)\n");
-        qerror("  kext: unload the named kernel extension bundle(s)\n");
+
+    if (usageLevel == kUsageLevelBrief) {
+        goto finish;
     }
+
+    fprintf(stderr, "kext: unload the named kext and all personalities for it\n");
+    fprintf(stderr, "\n");
+
+    fprintf(stderr, "-%s <bundle_id> (-%c):\n"
+        "        unload the kext and personalities for CFBundleIdentifier <bundle_id>\n",
+        kOptNameBundleIdentifier, kOptBundleIdentifier);
+    fprintf(stderr, "-%s <class_name> (-%c):\n"
+        "        terminate all instances of IOService class <class_name> but do not\n"
+        "        unload its kext or remove its personalities\n",
+        kOptNameClassName, kOptClassName);
+    fprintf(stderr, "\n");
+    fprintf(stderr,
+        "-%s (-%c):\n"
+        "        terminate services and remove personalities only; do not unload kexts\n"
+        "        (applies only to unload by bundle-id or kext)\n",
+            kOptNamePersonalitiesOnly, kOptPersonalitiesOnly);
+
+// :doc: meaning of -p inverted all these years
+
+    fprintf(stderr, "-%s (-%c):\n"
+        "        quiet mode: print no informational or error messages\n",
+        kOptNameQuiet, kOptQuiet);
+    fprintf(stderr, "-%s [ 0-6 | 0x<flags> ] (-%c):\n"
+        "        verbose mode; print info about analysis & loading\n",
+        kOptNameVerbose, kOptVerbose);
+    fprintf(stderr, "\n");
+
+    fprintf(stderr, "-%s (-%c): print this message and exit\n",
+        kOptNameHelp, kOptHelp);
+    fprintf(stderr, "\n");
+
+    fprintf(stderr, "--: end of options\n");
+
+finish:
     return;
 }

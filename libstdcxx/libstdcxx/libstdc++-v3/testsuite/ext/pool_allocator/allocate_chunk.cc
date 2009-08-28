@@ -15,7 +15,7 @@
 //
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // 20.4.1.1 allocator members
@@ -53,7 +53,7 @@ void test01()
   // The constant 20 comes from __pool_alloc_base::_M_refill. See
   // also __pool_alloc_base::_M_allocate_chunk.
   __pool_alloc<small> alloc_small;
-  for (int i = 0; i < 20 * sizeof(big) / sizeof(small) + 1; ++i)
+  for (unsigned int i = 0; i < 20 * sizeof(big) / sizeof(small) + 1; ++i)
     alloc_small.allocate(1);
 }
 

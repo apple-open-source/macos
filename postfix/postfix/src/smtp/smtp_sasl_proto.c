@@ -139,7 +139,7 @@ void    smtp_sasl_helo_auth(SMTP_SESSION *session, const char *words)
     } else {
 	msg_warn(*words ? "%s offered no supported AUTH mechanisms: '%s'" :
 		 "%s offered null AUTH mechanism list",
-		 session->namaddr, words);
+		 session->namaddrport, words);
     }
     session->features |= SMTP_FEATURE_AUTH;
 }
@@ -184,7 +184,7 @@ int     smtp_sasl_helo_login(SMTP_STATE *state)
 	    smtp_sasl_start(session, VAR_SMTP_SASL_OPTS,
 			    var_smtp_sasl_opts);
 #ifdef SNAPSHOT					/* XXX: Not yet */
-	else if (session->tls_context->peer_verified)
+	else if (TLS_CERT_IS_MATCHED(session->tls_context))
 	    smtp_sasl_start(session, VAR_SMTP_SASL_TLSV_OPTS,
 			    var_smtp_sasl_tlsv_opts);
 #endif

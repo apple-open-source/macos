@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_cipher.h 11708 2007-02-12 23:01:19Z shyouhei $
+ * $Id: ossl_cipher.h 12496 2007-06-08 15:02:04Z technorama $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -11,7 +11,6 @@
 #if !defined(_OSSL_CIPHER_H_)
 #define _OSSL_CIPHER_H_
 
-extern VALUE mCipher;
 extern VALUE cCipher;
 extern VALUE eCipherError;
 

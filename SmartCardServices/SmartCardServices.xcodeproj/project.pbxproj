@@ -7,22 +7,17 @@
 	objects = {
 
 /* Begin PBXAggregateTarget section */
-		F5294A510090C54E01CD285A /* World */ = {
+		5234B66B0E78286000F02D95 /* World */ = {
 			isa = PBXAggregateTarget;
-			buildConfigurationList = C27AD1F80987FCDC001272E0 /* Build configuration list for PBXAggregateTarget "World" */;
+			buildConfigurationList = 5234B6780E78286000F02D95 /* Build configuration list for PBXAggregateTarget "World" */;
 			buildPhases = (
 			);
 			dependencies = (
-				F520A5F60257B49C01D97E8A /* PBXTargetDependency */,
-				F520E3A001F6204201B94B28 /* PBXTargetDependency */,
-				F520E3A301F6204201B94B28 /* PBXTargetDependency */,
-				F511213B0272FA1C017BB957 /* PBXTargetDependency */,
-				F5448E810379FE0101B94948 /* PBXTargetDependency */,
-				F5448E820379FE0501B94948 /* PBXTargetDependency */,
-				2CBB607506CA6DDE006AA7C8 /* PBXTargetDependency */,
-				F5448E830379FE0801B94948 /* PBXTargetDependency */,
-				F5448E840379FE0C01B94948 /* PBXTargetDependency */,
-				F54DC28B0397F35F01115D8D /* PBXTargetDependency */,
+				5234B72F0E78286000F02D95 /* PBXTargetDependency */,
+				5234B7310E78286000F02D95 /* PBXTargetDependency */,
+				5234B7330E78286000F02D95 /* PBXTargetDependency */,
+				5234B7350E78286000F02D95 /* PBXTargetDependency */,
+				5234B7390E78286000F02D95 /* PBXTargetDependency */,
 			);
 			name = World;
 			productName = World;
@@ -30,462 +25,135 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
-		2CBB606506CA69F9006AA7C8 /* GSCISPlugin.c in Sources */ = {isa = PBXBuildFile; fileRef = 2CBB606306CA69F9006AA7C8 /* GSCISPlugin.c */; };
-		2CBB606606CA69F9006AA7C8 /* GSCISPlugin.h in Headers */ = {isa = PBXBuildFile; fileRef = 2CBB606406CA69F9006AA7C8 /* GSCISPlugin.h */; };
-		2CC9AB8406CC02F30048A811 /* PCSC.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5448E630379F08001B94948 /* PCSC.framework */; };
-		5236DD1F0B9DDBD7007CEF56 /* readerstate.h in Headers */ = {isa = PBXBuildFile; fileRef = 5236DD1D0B9DDBD7007CEF56 /* readerstate.h */; };
-		527CF60E0AA5192B007589FF /* pcscdmonitor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 527CF60A0AA5192B007589FF /* pcscdmonitor.cpp */; };
-		527CF60F0AA5192B007589FF /* pcscdmonitor.h in Headers */ = {isa = PBXBuildFile; fileRef = 527CF60B0AA5192B007589FF /* pcscdmonitor.h */; };
-		527CF6100AA5192B007589FF /* pcscdserver.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 527CF60C0AA5192B007589FF /* pcscdserver.cpp */; };
-		527CF6110AA5192B007589FF /* pcscdserver.h in Headers */ = {isa = PBXBuildFile; fileRef = 527CF60D0AA5192B007589FF /* pcscdserver.h */; };
-		528629490A87EA8E004FE8DC /* hotplug_macosx.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5286293C0A87EA8E004FE8DC /* hotplug_macosx.cpp */; };
-		5286294A0A87EA8E004FE8DC /* PCSCDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5286293D0A87EA8E004FE8DC /* PCSCDevice.cpp */; };
-		5286294B0A87EA8E004FE8DC /* PCSCDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 5286293E0A87EA8E004FE8DC /* PCSCDevice.h */; };
-		5286294C0A87EA8E004FE8DC /* PCSCDriverBundle.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5286293F0A87EA8E004FE8DC /* PCSCDriverBundle.cpp */; };
-		5286294D0A87EA8E004FE8DC /* PCSCDriverBundle.h in Headers */ = {isa = PBXBuildFile; fileRef = 528629400A87EA8E004FE8DC /* PCSCDriverBundle.h */; };
-		5286294E0A87EA8E004FE8DC /* PCSCDriverBundles.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 528629410A87EA8E004FE8DC /* PCSCDriverBundles.cpp */; };
-		5286294F0A87EA8E004FE8DC /* PCSCDriverBundles.h in Headers */ = {isa = PBXBuildFile; fileRef = 528629420A87EA8E004FE8DC /* PCSCDriverBundles.h */; };
-		52C3C1480BA5D46900436862 /* readerstate.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5236DD1C0B9DDBD7007CEF56 /* readerstate.cpp */; };
-		52C3C14D0BA5D54100436862 /* readerstate.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5236DD1C0B9DDBD7007CEF56 /* readerstate.cpp */; };
-		52C85D900B9FA79F002DA856 /* security_utilities.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52D58C080A87FEA000DC3F19 /* security_utilities.framework */; };
-		52D00D1C0A9252350093277A /* reader.h in Headers */ = {isa = PBXBuildFile; fileRef = 52D00D1A0A9252350093277A /* reader.h */; };
-		52D00D1D0A9252350093277A /* reader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 52D00D1B0A9252350093277A /* reader.cpp */; };
-		52D2492D0BA07E1100F9827A /* winscard_msg_srv.c in Sources */ = {isa = PBXBuildFile; fileRef = 52D2492C0BA07E1100F9827A /* winscard_msg_srv.c */; };
-		52D58C090A87FEA000DC3F19 /* security_utilities.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52D58C080A87FEA000DC3F19 /* security_utilities.framework */; };
-		52D58C560A8803A800DC3F19 /* thread_macosx.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94A60254242101B94B21 /* thread_macosx.c */; };
-		52DBCAAF0BB851C8007D06A5 /* PCSC.exp in Sources */ = {isa = PBXBuildFile; fileRef = 52DBCAAE0BB851C8007D06A5 /* PCSC.exp */; };
-		52E0D59E0BA7006D008DFDDF /* winscard.c in Sources */ = {isa = PBXBuildFile; fileRef = 52E0D59D0BA7006D008DFDDF /* winscard.c */; };
-		C2F2094B0662B851001DFD06 /* sys_macosx.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2F2094A0662B851001DFD06 /* sys_macosx.cpp */; };
-		F503CACF025425E601B94B21 /* testpcsc.c in Sources */ = {isa = PBXBuildFile; fileRef = F503CACD025425E601B94B21 /* testpcsc.c */; };
-		F503CADD025428F601B94B21 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F503CADB025428F601B94B21 /* CoreFoundation.framework */; };
-		F503CADE025428F601B94B21 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F503CADC025428F601B94B21 /* IOKit.framework */; };
-		F503CAE00254294101B94B21 /* libl.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F503CADF0254294101B94B21 /* libl.a */; };
-		F503CAE402542A9201B94B21 /* wintypes.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94AD0254242101B94B21 /* wintypes.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		F503CAE502542A9201B94B21 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F503CADB025428F601B94B21 /* CoreFoundation.framework */; };
-		F511212D0272F8D9017BB957 /* bundleTool.c in Sources */ = {isa = PBXBuildFile; fileRef = F511212C0272F8D9017BB957 /* bundleTool.c */; };
-		F52A94520254232701B94B21 /* atrhandler.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94510254232701B94B21 /* atrhandler.c */; };
-		F52A94AE0254242101B94B21 /* atrhandler.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A948F0254242101B94B21 /* atrhandler.h */; };
-		F52A94AF0254242101B94B21 /* configfile.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94910254242101B94B21 /* configfile.h */; };
-		F52A94B00254242101B94B21 /* debuglog.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94930254242101B94B21 /* debuglog.h */; };
-		F52A94B10254242101B94B21 /* dyn_generic.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94940254242101B94B21 /* dyn_generic.h */; };
-		F52A94B20254242101B94B21 /* eventhandler.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94970254242101B94B21 /* eventhandler.h */; };
-		F52A94B30254242101B94B21 /* hotplug.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94990254242101B94B21 /* hotplug.h */; };
-		F52A94B40254242101B94B21 /* ifdhandler.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A949A0254242101B94B21 /* ifdhandler.h */; };
-		F52A94B50254242101B94B21 /* ifdwrapper.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A949C0254242101B94B21 /* ifdwrapper.h */; };
-		F52A94B60254242101B94B21 /* pcsclite.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A949E0254242101B94B21 /* pcsclite.h */; };
-		F52A94B70254242101B94B21 /* prothandler.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94A00254242101B94B21 /* prothandler.h */; };
-		F52A94B80254242101B94B21 /* readerfactory.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94A20254242101B94B21 /* readerfactory.h */; };
-		F52A94B90254242101B94B21 /* sys_generic.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94A30254242101B94B21 /* sys_generic.h */; };
-		F52A94BA0254242101B94B21 /* thread_generic.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94A50254242101B94B21 /* thread_generic.h */; };
-		F52A94BB0254242101B94B21 /* winscard_msg.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94A80254242101B94B21 /* winscard_msg.h */; };
-		F52A94BC0254242101B94B21 /* winscard_svc.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94AA0254242101B94B21 /* winscard_svc.h */; };
-		F52A94BD0254242101B94B21 /* winscard.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94AC0254242101B94B21 /* winscard.h */; };
-		F52A94BE0254242101B94B21 /* wintypes.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94AD0254242101B94B21 /* wintypes.h */; };
-		F52A94BF0254242101B94B21 /* configfile.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94900254242101B94B21 /* configfile.c */; settings = {COMPILER_FLAGS = "-DYY_NO_UNPUT"; }; };
-		F52A94C00254242101B94B21 /* debuglog.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94920254242101B94B21 /* debuglog.c */; };
-		F52A94C10254242101B94B21 /* dyn_macosx.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94950254242101B94B21 /* dyn_macosx.c */; };
-		F52A94C20254242101B94B21 /* eventhandler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F52A94960254242101B94B21 /* eventhandler.cpp */; };
-		F52A94C40254242101B94B21 /* ifdwrapper.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A949B0254242101B94B21 /* ifdwrapper.c */; };
-		F52A94C50254242101B94B21 /* pcscdaemon.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A949D0254242101B94B21 /* pcscdaemon.c */; };
-		F52A94C60254242101B94B21 /* prothandler.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A949F0254242101B94B21 /* prothandler.c */; };
-		F52A94C70254242101B94B21 /* readerfactory.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94A10254242101B94B21 /* readerfactory.c */; };
-		F52A94C90254242101B94B21 /* thread_macosx.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94A60254242101B94B21 /* thread_macosx.c */; };
-		F52A94CA0254242101B94B21 /* winscard_msg.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F52A94A70254242101B94B21 /* winscard_msg.cpp */; };
-		F52A94CB0254242101B94B21 /* winscard_svc.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94A90254242101B94B21 /* winscard_svc.c */; };
-		F52A94D5025424AC01B94B21 /* thread_generic.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94A50254242101B94B21 /* thread_generic.h */; };
-		F52A94D6025424AC01B94B21 /* pcsclite.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A949E0254242101B94B21 /* pcsclite.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		F52A94D7025424AC01B94B21 /* mscdefines.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94CD025424AC01B94B21 /* mscdefines.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		F52A94D8025424AC01B94B21 /* musclecard.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94CF025424AC01B94B21 /* musclecard.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		F52A94D9025424AC01B94B21 /* winscard_msg.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94A80254242101B94B21 /* winscard_msg.h */; };
-		F52A94DA025424AC01B94B21 /* tokenfactory.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94D1025424AC01B94B21 /* tokenfactory.h */; };
-		F52A94DB025424AC01B94B21 /* winscard.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94AC0254242101B94B21 /* winscard.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		F52A94DC025424AC01B94B21 /* dyn_generic.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94940254242101B94B21 /* dyn_generic.h */; };
-		F52A94DD025424AC01B94B21 /* debuglog.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94930254242101B94B21 /* debuglog.h */; settings = {ATTRIBUTES = (); }; };
-		F52A94DE025424AC01B94B21 /* musclecard.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94CE025424AC01B94B21 /* musclecard.c */; };
-		F52A94DF025424AC01B94B21 /* dyn_macosx.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94950254242101B94B21 /* dyn_macosx.c */; };
-		F52A94E0025424AC01B94B21 /* tokenfactory.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94D0025424AC01B94B21 /* tokenfactory.c */; };
-		F52A94E1025424AC01B94B21 /* tokenparser.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94D2025424AC01B94B21 /* tokenparser.c */; settings = {COMPILER_FLAGS = "-DYY_NO_UNPUT"; }; };
-		F52A94E3025424AC01B94B21 /* debuglog.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94920254242101B94B21 /* debuglog.c */; };
-		F52A94E4025424AC01B94B21 /* winscard_clnt.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94D4025424AC01B94B21 /* winscard_clnt.c */; };
-		F52A94E5025424F101B94B21 /* winscard_msg.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F52A94A70254242101B94B21 /* winscard_msg.cpp */; };
-		F52A94E7025424F101B94B21 /* sys_unix.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94A40254242101B94B21 /* sys_unix.c */; };
-		F537A7B40379EB7B01B94948 /* config.h in Headers */ = {isa = PBXBuildFile; fileRef = F537A7B30379EB7B01B94948 /* config.h */; };
-		F5448E140379EEA101B94948 /* musclecardApplet.c in Sources */ = {isa = PBXBuildFile; fileRef = F5448E120379EEA101B94948 /* musclecardApplet.c */; };
-		F5448E150379EEA101B94948 /* musclecardApplet.h in Headers */ = {isa = PBXBuildFile; fileRef = F5448E130379EEA101B94948 /* musclecardApplet.h */; };
-		F5448E180379EEC301B94948 /* cryptoflex.c in Sources */ = {isa = PBXBuildFile; fileRef = F5448E160379EEC301B94948 /* cryptoflex.c */; };
-		F5448E190379EEC301B94948 /* cryptoflex.h in Headers */ = {isa = PBXBuildFile; fileRef = F5448E170379EEC301B94948 /* cryptoflex.h */; };
-		F5448E1C0379EEDD01B94948 /* commonAccessCard.c in Sources */ = {isa = PBXBuildFile; fileRef = F5448E1A0379EEDD01B94948 /* commonAccessCard.c */; };
-		F5448E1D0379EEDD01B94948 /* commonAccessCard.h in Headers */ = {isa = PBXBuildFile; fileRef = F5448E1B0379EEDD01B94948 /* commonAccessCard.h */; };
-		F5448E3F0379EF2501B94948 /* cryptoki_unix.h in Headers */ = {isa = PBXBuildFile; fileRef = F5448E1E0379EF2501B94948 /* cryptoki_unix.h */; };
-		F5448E400379EF2501B94948 /* cryptoki.h in Headers */ = {isa = PBXBuildFile; fileRef = F5448E1F0379EF2501B94948 /* cryptoki.h */; };
-		F5448E410379EF2501B94948 /* p11_crypt.c in Sources */ = {isa = PBXBuildFile; fileRef = F5448E200379EF2501B94948 /* p11_crypt.c */; };
-		F5448E420379EF2501B94948 /* p11_digest.c in Sources */ = {isa = PBXBuildFile; fileRef = F5448E210379EF2501B94948 /* p11_digest.c */; };
-		F5448E430379EF2501B94948 /* p11_dual.c in Sources */ = {isa = PBXBuildFile; fileRef = F5448E220379EF2501B94948 /* p11_dual.c */; };
-		F5448E440379EF2501B94948 /* p11_ext.c in Sources */ = {isa = PBXBuildFile; fileRef = F5448E230379EF2501B94948 /* p11_ext.c */; };
-		F5448E450379EF2501B94948 /* p11_general.c in Sources */ = {isa = PBXBuildFile; fileRef = F5448E240379EF2501B94948 /* p11_general.c */; };
-		F5448E460379EF2501B94948 /* p11_key.c in Sources */ = {isa = PBXBuildFile; fileRef = F5448E250379EF2501B94948 /* p11_key.c */; };
-		F5448E470379EF2501B94948 /* p11_object.c in Sources */ = {isa = PBXBuildFile; fileRef = F5448E260379EF2501B94948 /* p11_object.c */; };
-		F5448E480379EF2501B94948 /* p11_parallel.c in Sources */ = {isa = PBXBuildFile; fileRef = F5448E270379EF2501B94948 /* p11_parallel.c */; };
-		F5448E490379EF2501B94948 /* p11_random.c in Sources */ = {isa = PBXBuildFile; fileRef = F5448E280379EF2501B94948 /* p11_random.c */; };
-		F5448E4A0379EF2501B94948 /* p11_session.c in Sources */ = {isa = PBXBuildFile; fileRef = F5448E290379EF2501B94948 /* p11_session.c */; };
-		F5448E4B0379EF2501B94948 /* p11_sign.c in Sources */ = {isa = PBXBuildFile; fileRef = F5448E2A0379EF2501B94948 /* p11_sign.c */; };
-		F5448E4C0379EF2501B94948 /* p11_token.c in Sources */ = {isa = PBXBuildFile; fileRef = F5448E2B0379EF2501B94948 /* p11_token.c */; };
-		F5448E4D0379EF2501B94948 /* p11_verify.c in Sources */ = {isa = PBXBuildFile; fileRef = F5448E2C0379EF2501B94948 /* p11_verify.c */; };
-		F5448E4E0379EF2501B94948 /* p11x_async.c in Sources */ = {isa = PBXBuildFile; fileRef = F5448E2D0379EF2501B94948 /* p11x_async.c */; };
-		F5448E4F0379EF2501B94948 /* p11x_bio.c in Sources */ = {isa = PBXBuildFile; fileRef = F5448E2E0379EF2501B94948 /* p11x_bio.c */; };
-		F5448E500379EF2501B94948 /* p11x_error.c in Sources */ = {isa = PBXBuildFile; fileRef = F5448E2F0379EF2501B94948 /* p11x_error.c */; };
-		F5448E510379EF2501B94948 /* p11x_log.c in Sources */ = {isa = PBXBuildFile; fileRef = F5448E300379EF2501B94948 /* p11x_log.c */; };
-		F5448E520379EF2501B94948 /* p11x_msc.c in Sources */ = {isa = PBXBuildFile; fileRef = F5448E310379EF2501B94948 /* p11x_msc.c */; };
-		F5448E530379EF2501B94948 /* p11x_msc.h in Headers */ = {isa = PBXBuildFile; fileRef = F5448E320379EF2501B94948 /* p11x_msc.h */; };
-		F5448E540379EF2501B94948 /* p11x_object.c in Sources */ = {isa = PBXBuildFile; fileRef = F5448E330379EF2501B94948 /* p11x_object.c */; };
-		F5448E550379EF2501B94948 /* p11x_prefs.c in Sources */ = {isa = PBXBuildFile; fileRef = F5448E340379EF2501B94948 /* p11x_prefs.c */; };
-		F5448E560379EF2501B94948 /* p11x_session.c in Sources */ = {isa = PBXBuildFile; fileRef = F5448E350379EF2501B94948 /* p11x_session.c */; };
-		F5448E570379EF2501B94948 /* p11x_slot.c in Sources */ = {isa = PBXBuildFile; fileRef = F5448E360379EF2501B94948 /* p11x_slot.c */; };
-		F5448E580379EF2501B94948 /* p11x_state.c in Sources */ = {isa = PBXBuildFile; fileRef = F5448E370379EF2501B94948 /* p11x_state.c */; };
-		F5448E590379EF2501B94948 /* p11x_thread.c in Sources */ = {isa = PBXBuildFile; fileRef = F5448E380379EF2501B94948 /* p11x_thread.c */; };
-		F5448E5B0379EF2501B94948 /* p11x_util.c in Sources */ = {isa = PBXBuildFile; fileRef = F5448E3A0379EF2501B94948 /* p11x_util.c */; };
-		F5448E5C0379EF2501B94948 /* pkcs11.h in Headers */ = {isa = PBXBuildFile; fileRef = F5448E3B0379EF2501B94948 /* pkcs11.h */; };
-		F5448E5D0379EF2501B94948 /* pkcs11f.h in Headers */ = {isa = PBXBuildFile; fileRef = F5448E3C0379EF2501B94948 /* pkcs11f.h */; };
-		F5448E5E0379EF2501B94948 /* pkcs11t.h in Headers */ = {isa = PBXBuildFile; fileRef = F5448E3D0379EF2501B94948 /* pkcs11t.h */; };
-		F5448E5F0379EF2501B94948 /* thread_generic.h in Headers */ = {isa = PBXBuildFile; fileRef = F5448E3E0379EF2501B94948 /* thread_generic.h */; };
-		F5448E6A0379F08001B94948 /* PCSC.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5448E630379F08001B94948 /* PCSC.framework */; };
-		F5448E6B0379F08001B94948 /* PCSC.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5448E630379F08001B94948 /* PCSC.framework */; };
-		F5448E6C0379F08001B94948 /* PCSC.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5448E630379F08001B94948 /* PCSC.framework */; };
-		F5448E6D0379F08001B94948 /* PCSC.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5448E630379F08001B94948 /* PCSC.framework */; };
-		F5448E6E0379F08001B94948 /* PCSC.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5448E630379F08001B94948 /* PCSC.framework */; };
-		F5448E6F0379F08001B94948 /* PCSC.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5448E630379F08001B94948 /* PCSC.framework */; };
-		F5448E760379F15F01B94948 /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = F5448E750379F15F01B94948 /* libz.dylib */; };
-		F555DF360274962801D2E99F /* powermgt_macosx.c in Sources */ = {isa = PBXBuildFile; fileRef = F555DF350274962801D2E99F /* powermgt_macosx.c */; };
-		F555DF380274968F01D2E99F /* powermgt_generic.h in Headers */ = {isa = PBXBuildFile; fileRef = F555DF370274968F01D2E99F /* powermgt_generic.h */; };
+		5234B67F0E78286000F02D95 /* atrhandler.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A948F0254242101B94B21 /* atrhandler.h */; };
+		5234B6800E78286000F02D95 /* configfile.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94910254242101B94B21 /* configfile.h */; };
+		5234B6810E78286000F02D95 /* debuglog.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94930254242101B94B21 /* debuglog.h */; };
+		5234B6820E78286000F02D95 /* dyn_generic.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94940254242101B94B21 /* dyn_generic.h */; };
+		5234B6830E78286000F02D95 /* eventhandler.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94970254242101B94B21 /* eventhandler.h */; };
+		5234B6840E78286000F02D95 /* hotplug.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94990254242101B94B21 /* hotplug.h */; };
+		5234B6850E78286000F02D95 /* ifdhandler.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A949A0254242101B94B21 /* ifdhandler.h */; };
+		5234B6860E78286000F02D95 /* ifdwrapper.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A949C0254242101B94B21 /* ifdwrapper.h */; };
+		5234B6870E78286000F02D95 /* pcsclite.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A949E0254242101B94B21 /* pcsclite.h */; };
+		5234B6880E78286000F02D95 /* prothandler.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94A00254242101B94B21 /* prothandler.h */; };
+		5234B6890E78286000F02D95 /* readerfactory.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94A20254242101B94B21 /* readerfactory.h */; };
+		5234B68A0E78286000F02D95 /* sys_generic.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94A30254242101B94B21 /* sys_generic.h */; };
+		5234B68B0E78286000F02D95 /* thread_generic.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94A50254242101B94B21 /* thread_generic.h */; };
+		5234B68C0E78286000F02D95 /* winscard_msg.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94A80254242101B94B21 /* winscard_msg.h */; };
+		5234B68D0E78286000F02D95 /* winscard_svc.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94AA0254242101B94B21 /* winscard_svc.h */; };
+		5234B68E0E78286000F02D95 /* winscard.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94AC0254242101B94B21 /* winscard.h */; };
+		5234B68F0E78286000F02D95 /* wintypes.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94AD0254242101B94B21 /* wintypes.h */; };
+		5234B6900E78286000F02D95 /* powermgt_generic.h in Headers */ = {isa = PBXBuildFile; fileRef = F555DF370274968F01D2E99F /* powermgt_generic.h */; };
+		5234B6910E78286000F02D95 /* PCSCDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 5286293E0A87EA8E004FE8DC /* PCSCDevice.h */; };
+		5234B6920E78286000F02D95 /* PCSCDriverBundle.h in Headers */ = {isa = PBXBuildFile; fileRef = 528629400A87EA8E004FE8DC /* PCSCDriverBundle.h */; };
+		5234B6930E78286000F02D95 /* PCSCDriverBundles.h in Headers */ = {isa = PBXBuildFile; fileRef = 528629420A87EA8E004FE8DC /* PCSCDriverBundles.h */; };
+		5234B6940E78286000F02D95 /* reader.h in Headers */ = {isa = PBXBuildFile; fileRef = 52D00D1A0A9252350093277A /* reader.h */; };
+		5234B6950E78286000F02D95 /* pcscdmonitor.h in Headers */ = {isa = PBXBuildFile; fileRef = 527CF60B0AA5192B007589FF /* pcscdmonitor.h */; };
+		5234B6960E78286000F02D95 /* pcscdserver.h in Headers */ = {isa = PBXBuildFile; fileRef = 527CF60D0AA5192B007589FF /* pcscdserver.h */; };
+		5234B6970E78286000F02D95 /* readerstate.h in Headers */ = {isa = PBXBuildFile; fileRef = 5236DD1D0B9DDBD7007CEF56 /* readerstate.h */; };
+		5234B6990E78286000F02D95 /* atrhandler.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94510254232701B94B21 /* atrhandler.c */; };
+		5234B69A0E78286000F02D95 /* readerstate.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5236DD1C0B9DDBD7007CEF56 /* readerstate.cpp */; };
+		5234B69B0E78286000F02D95 /* configfile.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94900254242101B94B21 /* configfile.c */; settings = {COMPILER_FLAGS = "-DYY_NO_UNPUT"; }; };
+		5234B69C0E78286000F02D95 /* debuglog.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94920254242101B94B21 /* debuglog.c */; };
+		5234B69D0E78286000F02D95 /* dyn_macosx.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94950254242101B94B21 /* dyn_macosx.c */; };
+		5234B69E0E78286000F02D95 /* eventhandler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F52A94960254242101B94B21 /* eventhandler.cpp */; };
+		5234B69F0E78286000F02D95 /* ifdwrapper.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A949B0254242101B94B21 /* ifdwrapper.c */; };
+		5234B6A00E78286000F02D95 /* pcscdaemon.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A949D0254242101B94B21 /* pcscdaemon.c */; };
+		5234B6A10E78286000F02D95 /* prothandler.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A949F0254242101B94B21 /* prothandler.c */; };
+		5234B6A20E78286000F02D95 /* readerfactory.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94A10254242101B94B21 /* readerfactory.c */; };
+		5234B6A30E78286000F02D95 /* thread_macosx.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94A60254242101B94B21 /* thread_macosx.c */; };
+		5234B6A40E78286000F02D95 /* winscard_msg.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F52A94A70254242101B94B21 /* winscard_msg.cpp */; };
+		5234B6A50E78286000F02D95 /* winscard_svc.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94A90254242101B94B21 /* winscard_svc.c */; };
+		5234B6A60E78286000F02D95 /* powermgt_macosx.c in Sources */ = {isa = PBXBuildFile; fileRef = F555DF350274962801D2E99F /* powermgt_macosx.c */; };
+		5234B6A70E78286000F02D95 /* sys_macosx.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2F2094A0662B851001DFD06 /* sys_macosx.cpp */; };
+		5234B6A80E78286000F02D95 /* hotplug_macosx.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5286293C0A87EA8E004FE8DC /* hotplug_macosx.cpp */; };
+		5234B6A90E78286000F02D95 /* PCSCDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5286293D0A87EA8E004FE8DC /* PCSCDevice.cpp */; };
+		5234B6AA0E78286000F02D95 /* PCSCDriverBundle.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5286293F0A87EA8E004FE8DC /* PCSCDriverBundle.cpp */; };
+		5234B6AB0E78286000F02D95 /* PCSCDriverBundles.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 528629410A87EA8E004FE8DC /* PCSCDriverBundles.cpp */; };
+		5234B6AC0E78286000F02D95 /* reader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 52D00D1B0A9252350093277A /* reader.cpp */; };
+		5234B6AD0E78286000F02D95 /* pcscdmonitor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 527CF60A0AA5192B007589FF /* pcscdmonitor.cpp */; };
+		5234B6AE0E78286000F02D95 /* pcscdserver.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 527CF60C0AA5192B007589FF /* pcscdserver.cpp */; };
+		5234B6AF0E78286000F02D95 /* winscard_msg_srv.c in Sources */ = {isa = PBXBuildFile; fileRef = 52D2492C0BA07E1100F9827A /* winscard_msg_srv.c */; };
+		5234B6B00E78286000F02D95 /* winscard.c in Sources */ = {isa = PBXBuildFile; fileRef = 52E0D59D0BA7006D008DFDDF /* winscard.c */; };
+		5234B6B20E78286000F02D95 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F503CADB025428F601B94B21 /* CoreFoundation.framework */; };
+		5234B6B30E78286000F02D95 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F503CADC025428F601B94B21 /* IOKit.framework */; };
+		5234B6B40E78286000F02D95 /* libl.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F503CADF0254294101B94B21 /* libl.a */; };
+		5234B6B50E78286000F02D95 /* security_utilities.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52D58C080A87FEA000DC3F19 /* security_utilities.framework */; };
+		5234B6BF0E78286000F02D95 /* thread_generic.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94A50254242101B94B21 /* thread_generic.h */; };
+		5234B6C00E78286000F02D95 /* pcsclite.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A949E0254242101B94B21 /* pcsclite.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5234B6C10E78286000F02D95 /* mscdefines.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94CD025424AC01B94B21 /* mscdefines.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5234B6C20E78286000F02D95 /* musclecard.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94CF025424AC01B94B21 /* musclecard.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5234B6C30E78286000F02D95 /* winscard_msg.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94A80254242101B94B21 /* winscard_msg.h */; };
+		5234B6C40E78286000F02D95 /* tokenfactory.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94D1025424AC01B94B21 /* tokenfactory.h */; };
+		5234B6C50E78286000F02D95 /* winscard.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94AC0254242101B94B21 /* winscard.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5234B6C60E78286000F02D95 /* dyn_generic.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94940254242101B94B21 /* dyn_generic.h */; };
+		5234B6C70E78286000F02D95 /* wintypes.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94AD0254242101B94B21 /* wintypes.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5234B6C80E78286000F02D95 /* debuglog.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94930254242101B94B21 /* debuglog.h */; settings = {ATTRIBUTES = (); }; };
+		5234B6C90E78286000F02D95 /* config.h in Headers */ = {isa = PBXBuildFile; fileRef = F537A7B30379EB7B01B94948 /* config.h */; };
+		5234B6CC0E78286000F02D95 /* readerstate.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5236DD1C0B9DDBD7007CEF56 /* readerstate.cpp */; };
+		5234B6CD0E78286000F02D95 /* thread_macosx.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94A60254242101B94B21 /* thread_macosx.c */; };
+		5234B6CE0E78286000F02D95 /* musclecard.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94CE025424AC01B94B21 /* musclecard.c */; };
+		5234B6CF0E78286000F02D95 /* dyn_macosx.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94950254242101B94B21 /* dyn_macosx.c */; };
+		5234B6D00E78286000F02D95 /* winscard_msg.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F52A94A70254242101B94B21 /* winscard_msg.cpp */; };
+		5234B6D10E78286000F02D95 /* tokenfactory.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94D0025424AC01B94B21 /* tokenfactory.c */; };
+		5234B6D20E78286000F02D95 /* sys_unix.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94A40254242101B94B21 /* sys_unix.c */; };
+		5234B6D30E78286000F02D95 /* tokenparser.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94D2025424AC01B94B21 /* tokenparser.c */; settings = {COMPILER_FLAGS = "-DYY_NO_UNPUT"; }; };
+		5234B6D40E78286000F02D95 /* debuglog.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94920254242101B94B21 /* debuglog.c */; };
+		5234B6D50E78286000F02D95 /* winscard_clnt.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94D4025424AC01B94B21 /* winscard_clnt.c */; };
+		5234B6D80E78286000F02D95 /* security_utilities.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52D58C080A87FEA000DC3F19 /* security_utilities.framework */; };
+		5234B6D90E78286000F02D95 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F503CADB025428F601B94B21 /* CoreFoundation.framework */; };
+		5234B6E40E78286000F02D95 /* testpcsc.c in Sources */ = {isa = PBXBuildFile; fileRef = F503CACD025425E601B94B21 /* testpcsc.c */; };
+		5234B6E60E78286000F02D95 /* PCSC.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5448E630379F08001B94948 /* PCSC.framework */; };
+		5234B6F10E78286000F02D95 /* bundleTool.c in Sources */ = {isa = PBXBuildFile; fileRef = F511212C0272F8D9017BB957 /* bundleTool.c */; };
+		5234B6F30E78286000F02D95 /* PCSC.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5448E630379F08001B94948 /* PCSC.framework */; };
 /* End PBXBuildFile section */
 
-/* Begin PBXBundleTarget section */
-		2CBB605A06CA6944006AA7C8 /* GSCISPlugin */ = {
-			isa = PBXBundleTarget;
-			buildConfigurationList = C27AD1DF0987FCDC001272E0 /* Build configuration list for PBXBundleTarget "GSCISPlugin" */;
-			buildPhases = (
-				2CBB605506CA6944006AA7C8 /* Headers */,
-				2CBB605606CA6944006AA7C8 /* Resources */,
-				2CBB605706CA6944006AA7C8 /* Sources */,
-				2CBB605806CA6944006AA7C8 /* Frameworks */,
-			);
-			dependencies = (
-			);
-			name = GSCISPlugin;
-			productInstallPath = /usr/libexec/SmartCardServices/services;
-			productName = GSCISPlugin;
-			productReference = 2CBB605B06CA6944006AA7C8 /* GSCISPlugin.bundle */;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>English</string>
-	<key>CFBundleExecutable</key>
-	<string>gscisPlugin</string>
-	<key>CFBundleIconFile</key>
-	<string></string>
-	<key>CFBundleIdentifier</key>
-	<string>com.apple.gscisplugin</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundleName</key>
-	<string>GSCISPLUGIN</string>
-	<key>CFBundlePackageType</key>
-	<string>BNDL</string>
-	<key>CFBundleShortVersionString</key>
-	<string>2.0</string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>34733</string>
-</dict>
-</plist>
-";
-		};
-		F537A7D10379ED7501B94948 /* PKCS11 */ = {
-			isa = PBXBundleTarget;
-			buildConfigurationList = C27AD1D50987FCDC001272E0 /* Build configuration list for PBXBundleTarget "PKCS11" */;
-			buildPhases = (
-				F537A7CC0379ED7501B94948 /* Headers */,
-				F537A7CD0379ED7501B94948 /* Resources */,
-				F537A7CE0379ED7501B94948 /* Sources */,
-				F537A7CF0379ED7501B94948 /* Frameworks */,
-			);
-			dependencies = (
-			);
-			name = PKCS11;
-			productInstallPath = /usr/libexec/SmartCardServices/pkcs11;
-			productName = pkcs11;
-			productReference = F537A7D20379ED7501B94948 /* pkcs11.bundle */;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>English</string>
-	<key>CFBundleExecutable</key>
-	<string></string>
-	<key>CFBundleIconFile</key>
-	<string></string>
-	<key>CFBundleIdentifier</key>
-	<string>com.apple.pkcs11</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundleName</key>
-	<string>PKCS11</string>
-	<key>CFBundlePackageType</key>
-	<string>BNDL</string>
-	<key>CFBundleShortVersionString</key>
-	<string>6.0</string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>34733</string>
-</dict>
-</plist>
-";
-		};
-		F5448E020379EE2A01B94948 /* MCardPlugin */ = {
-			isa = PBXBundleTarget;
-			buildConfigurationList = C27AD1DA0987FCDC001272E0 /* Build configuration list for PBXBundleTarget "MCardPlugin" */;
-			buildPhases = (
-				F5448DFD0379EE2A01B94948 /* Headers */,
-				F5448DFE0379EE2A01B94948 /* Resources */,
-				F5448DFF0379EE2A01B94948 /* Sources */,
-				F5448E000379EE2A01B94948 /* Frameworks */,
-			);
-			dependencies = (
-			);
-			name = MCardPlugin;
-			productInstallPath = /usr/libexec/SmartCardServices/services;
-			productName = MCardPlugin;
-			productReference = F5448E030379EE2A01B94948 /* mscMuscleCard.bundle */;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>English</string>
-	<key>CFBundleExecutable</key>
-	<string>mscMuscleCard</string>
-	<key>CFBundleIconFile</key>
-	<string></string>
-	<key>CFBundleIdentifier</key>
-	<string>com.apple.mcardplugin</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundleName</key>
-	<string>MCARDPLUGIN</string>
-	<key>CFBundlePackageType</key>
-	<string>BNDL</string>
-	<key>CFBundleShortVersionString</key>
-	<string>6.0</string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>34733</string>
-	<key>spAtrValue</key>
-	<string>3B751300009C02020102</string>
-	<key>spDefaultApplication</key>
-	<string>A00000000101</string>
-	<key>spProductName</key>
-	<string>MuscleCard Applet</string>
-	<key>spVendorName</key>
-	<string>MUSCLE</string>
-</dict>
-</plist>
-";
-		};
-		F5448E090379EE3601B94948 /* CACPlugin */ = {
-			isa = PBXBundleTarget;
-			buildConfigurationList = C27AD1E40987FCDC001272E0 /* Build configuration list for PBXBundleTarget "CACPlugin" */;
-			buildPhases = (
-				F5448E040379EE3601B94948 /* Headers */,
-				F5448E050379EE3601B94948 /* Resources */,
-				F5448E060379EE3601B94948 /* Sources */,
-				F5448E070379EE3601B94948 /* Frameworks */,
-			);
-			dependencies = (
-			);
-			name = CACPlugin;
-			productInstallPath = /usr/libexec/SmartCardServices/services;
-			productName = CACPlugin;
-			productReference = F5448E0A0379EE3601B94948 /* commonAccessCard.bundle */;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>English</string>
-	<key>CFBundleExecutable</key>
-	<string>commonAccessCard</string>
-	<key>CFBundleIconFile</key>
-	<string></string>
-	<key>CFBundleIdentifier</key>
-	<string>com.apple.cacplugin</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundleName</key>
-	<string>CACPLUGIN</string>
-	<key>CFBundlePackageType</key>
-	<string>BNDL</string>
-	<key>CFBundleShortVersionString</key>
-	<string>6.0</string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>34733</string>
-	<key>spAtrValue</key>
-	<array>
-		<string>3B6500009C02020102</string>
-		<string>3B7D110000003180718E6486D60100819000</string>
-		<string>3B7F1100000031C053CAC4016452D90400829000</string>
-		<string>3B6500009C02020702</string>
-	</array>
-	<key>spDefaultApplication</key>
-	<string>A0000000790101</string>
-	<key>spProductName</key>
-	<string>Common Access Card</string>
-	<key>spVendorName</key>
-	<string>Department of Defense</string>
-</dict>
-</plist>
-";
-		};
-		F5448E100379EE6401B94948 /* CFlexPlugin */ = {
-			isa = PBXBundleTarget;
-			buildConfigurationList = C27AD1E90987FCDC001272E0 /* Build configuration list for PBXBundleTarget "CFlexPlugin" */;
-			buildPhases = (
-				F5448E0B0379EE6401B94948 /* Headers */,
-				F5448E0C0379EE6401B94948 /* Resources */,
-				F5448E0D0379EE6401B94948 /* Sources */,
-				F5448E0E0379EE6401B94948 /* Frameworks */,
-			);
-			dependencies = (
-			);
-			name = CFlexPlugin;
-			productInstallPath = /usr/libexec/SmartCardServices/services;
-			productName = CFlexPlugin;
-			productReference = F5448E110379EE6401B94948 /* slbCryptoflex.bundle */;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>English</string>
-	<key>CFBundleExecutable</key>
-	<string>slbCryptoflex</string>
-	<key>CFBundleIconFile</key>
-	<string></string>
-	<key>CFBundleIdentifier</key>
-	<string>com.apple.cflexplugin</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundleName</key>
-	<string>CFLEXPLUGIN</string>
-	<key>CFBundlePackageType</key>
-	<string>BNDL</string>
-	<key>CFBundleShortVersionString</key>
-	<string>6.0</string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>34733</string>
-	<key>spAtrValue</key>
-	<string>3B959440FF6301010201</string>
-	<key>spDefaultApplication</key>
-	<string>A00000000101</string>
-	<key>spProductName</key>
-	<string>Cryptoflex 16K</string>
-	<key>spVendorName</key>
-	<string>SchlumbergerSema</string>
-</dict>
-</plist>
-";
-		};
-/* End PBXBundleTarget section */
-
 /* Begin PBXContainerItemProxy section */
-		2CBB607406CA6DDE006AA7C8 /* PBXContainerItemProxy */ = {
+		5234B72E0E78286000F02D95 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = F5294A4F0090C4CA01CD285A /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 2CBB605A06CA6944006AA7C8;
-			remoteInfo = GSCISPlugin;
+			remoteGlobalIDString = 5234B6BD0E78286000F02D95;
+			remoteInfo = "PCSC (Upgraded)";
 		};
-		4CFE9C05059254C8007119DE /* PBXContainerItemProxy */ = {
+		5234B7300E78286000F02D95 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = F5294A4F0090C4CA01CD285A /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = F5448E020379EE2A01B94948;
-			remoteInfo = MCardPlugin;
+			remoteGlobalIDString = 5234B67D0E78286000F02D95;
+			remoteInfo = "pcscd (Upgraded)";
 		};
-		4CFE9C06059254C9007119DE /* PBXContainerItemProxy */ = {
+		5234B7320E78286000F02D95 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = F5294A4F0090C4CA01CD285A /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = F5294A800090C73501CD285A;
-			remoteInfo = pcscd;
+			remoteGlobalIDString = 5234B6E10E78286000F02D95;
+			remoteInfo = "pcsctest (Upgraded)";
 		};
-		4CFE9C07059254C9007119DE /* PBXContainerItemProxy */ = {
+		5234B7340E78286000F02D95 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = F5294A4F0090C4CA01CD285A /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = F5448E100379EE6401B94948;
-			remoteInfo = CFlexPlugin;
+			remoteGlobalIDString = 5234B6EE0E78286000F02D95;
+			remoteInfo = "pcsctool (Upgraded)";
 		};
-		4CFE9C09059254C9007119DE /* PBXContainerItemProxy */ = {
+		5234B7380E78286000F02D95 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = F5294A4F0090C4CA01CD285A /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = F538896903953B79012F6BBF;
-			remoteInfo = InstallPhase;
-		};
-		4CFE9C0A059254C9007119DE /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = F5294A4F0090C4CA01CD285A /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = F5448E090379EE3601B94948;
-			remoteInfo = CACPlugin;
-		};
-		4CFE9C0B059254C9007119DE /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = F5294A4F0090C4CA01CD285A /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = F537A7D10379ED7501B94948;
-			remoteInfo = PKCS11;
-		};
-		4CFE9C0C059254C9007119DE /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = F5294A4F0090C4CA01CD285A /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = F51121270272F895017BB957;
-			remoteInfo = pcsctool;
-		};
-		4CFE9C0D059254C9007119DE /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = F5294A4F0090C4CA01CD285A /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = F5294AD40090CAE601CD285A;
-			remoteInfo = pcsctest;
-		};
-		4CFE9C0E059254C9007119DE /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = F5294A4F0090C4CA01CD285A /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = F52A93D402541D8C01B94B21;
-			remoteInfo = PCSC;
+			remoteGlobalIDString = 5234B7280E78286000F02D95;
+			remoteInfo = "InstallPhase (Copied)";
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		2CBB605B06CA6944006AA7C8 /* GSCISPlugin.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GSCISPlugin.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
-		2CBB606306CA69F9006AA7C8 /* GSCISPlugin.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = GSCISPlugin.c; path = src/GSCISPlugin/GSCISPlugin.c; sourceTree = SOURCE_ROOT; };
-		2CBB606406CA69F9006AA7C8 /* GSCISPlugin.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = GSCISPlugin.h; path = src/GSCISPlugin/GSCISPlugin.h; sourceTree = SOURCE_ROOT; };
 		2CC9AB9A06CC036D0048A811 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
 		2CC9ABC806CC03A10048A811 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
 		4CB55A760592598500B25B27 /* Makefile.installPhase */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = Makefile.installPhase; sourceTree = "<group>"; };
+		5234B6BB0E78286000F02D95 /* pcscd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = pcscd; sourceTree = BUILT_PRODUCTS_DIR; };
+		5234B6DF0E78286000F02D95 /* Info-PCSC.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-PCSC.plist"; sourceTree = "<group>"; };
+		5234B6E00E78286000F02D95 /* PCSC.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = PCSC.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		5234B6EC0E78286000F02D95 /* pcsctest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = pcsctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		5234B6F90E78286000F02D95 /* pcsctool */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = pcsctool; sourceTree = BUILT_PRODUCTS_DIR; };
 		5236DD1C0B9DDBD7007CEF56 /* readerstate.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = readerstate.cpp; path = src/PCSC/readerstate.cpp; sourceTree = "<group>"; };
 		5236DD1D0B9DDBD7007CEF56 /* readerstate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = readerstate.h; path = src/PCSC/readerstate.h; sourceTree = "<group>"; };
 		527CF60A0AA5192B007589FF /* pcscdmonitor.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = pcscdmonitor.cpp; path = src/PCSC/pcscdmonitor.cpp; sourceTree = "<group>"; };
@@ -511,11 +179,7 @@
 		F503CADB025428F601B94B21 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
 		F503CADC025428F601B94B21 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
 		F503CADF0254294101B94B21 /* libl.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libl.a; path = /usr/lib/libl.a; sourceTree = "<absolute>"; };
-		F51121260272F895017BB957 /* pcsctool */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = pcsctool; sourceTree = BUILT_PRODUCTS_DIR; };
 		F511212C0272F8D9017BB957 /* bundleTool.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = bundleTool.c; path = src/PCSC/utils/bundleTool.c; sourceTree = "<group>"; };
-		F5294A7E0090C73501CD285A /* pcscd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = pcscd; sourceTree = BUILT_PRODUCTS_DIR; };
-		F5294AD30090CAE601CD285A /* pcsctest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = pcsctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		F52A93D102541D8C01B94B21 /* PCSC.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = PCSC.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		F52A94510254232701B94B21 /* atrhandler.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = atrhandler.c; path = src/PCSC/atrhandler.c; sourceTree = SOURCE_ROOT; };
 		F52A948F0254242101B94B21 /* atrhandler.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = atrhandler.h; path = src/PCSC/atrhandler.h; sourceTree = SOURCE_ROOT; };
 		F52A94900254242101B94B21 /* configfile.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = configfile.c; path = src/PCSC/configfile.c; sourceTree = SOURCE_ROOT; };
@@ -554,188 +218,60 @@
 		F52A94D2025424AC01B94B21 /* tokenparser.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = tokenparser.c; path = src/PCSC/tokenparser.c; sourceTree = SOURCE_ROOT; };
 		F52A94D4025424AC01B94B21 /* winscard_clnt.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = winscard_clnt.c; path = src/PCSC/winscard_clnt.c; sourceTree = SOURCE_ROOT; };
 		F537A7B30379EB7B01B94948 /* config.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = config.h; path = src/PCSC/config.h; sourceTree = SOURCE_ROOT; };
-		F537A7D20379ED7501B94948 /* pkcs11.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = pkcs11.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
-		F5448E030379EE2A01B94948 /* mscMuscleCard.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = mscMuscleCard.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
-		F5448E0A0379EE3601B94948 /* commonAccessCard.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = commonAccessCard.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
-		F5448E110379EE6401B94948 /* slbCryptoflex.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = slbCryptoflex.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
-		F5448E120379EEA101B94948 /* musclecardApplet.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = musclecardApplet.c; path = src/MCardPlugin/musclecardApplet.c; sourceTree = SOURCE_ROOT; };
-		F5448E130379EEA101B94948 /* musclecardApplet.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = musclecardApplet.h; path = src/MCardPlugin/musclecardApplet.h; sourceTree = SOURCE_ROOT; };
-		F5448E160379EEC301B94948 /* cryptoflex.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = cryptoflex.c; path = src/CFlexPlugin/cryptoflex.c; sourceTree = SOURCE_ROOT; };
-		F5448E170379EEC301B94948 /* cryptoflex.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = cryptoflex.h; path = src/CFlexPlugin/cryptoflex.h; sourceTree = SOURCE_ROOT; };
-		F5448E1A0379EEDD01B94948 /* commonAccessCard.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = commonAccessCard.c; path = src/CACPlugin/commonAccessCard.c; sourceTree = SOURCE_ROOT; };
-		F5448E1B0379EEDD01B94948 /* commonAccessCard.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = commonAccessCard.h; path = src/CACPlugin/commonAccessCard.h; sourceTree = SOURCE_ROOT; };
-		F5448E1E0379EF2501B94948 /* cryptoki_unix.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = cryptoki_unix.h; path = src/PKCS11/cryptoki_unix.h; sourceTree = SOURCE_ROOT; };
-		F5448E1F0379EF2501B94948 /* cryptoki.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = cryptoki.h; path = src/PKCS11/cryptoki.h; sourceTree = SOURCE_ROOT; };
-		F5448E200379EF2501B94948 /* p11_crypt.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = p11_crypt.c; path = src/PKCS11/p11_crypt.c; sourceTree = SOURCE_ROOT; };
-		F5448E210379EF2501B94948 /* p11_digest.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = p11_digest.c; path = src/PKCS11/p11_digest.c; sourceTree = SOURCE_ROOT; };
-		F5448E220379EF2501B94948 /* p11_dual.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = p11_dual.c; path = src/PKCS11/p11_dual.c; sourceTree = SOURCE_ROOT; };
-		F5448E230379EF2501B94948 /* p11_ext.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = p11_ext.c; path = src/PKCS11/p11_ext.c; sourceTree = SOURCE_ROOT; };
-		F5448E240379EF2501B94948 /* p11_general.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = p11_general.c; path = src/PKCS11/p11_general.c; sourceTree = SOURCE_ROOT; };
-		F5448E250379EF2501B94948 /* p11_key.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = p11_key.c; path = src/PKCS11/p11_key.c; sourceTree = SOURCE_ROOT; };
-		F5448E260379EF2501B94948 /* p11_object.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = p11_object.c; path = src/PKCS11/p11_object.c; sourceTree = SOURCE_ROOT; };
-		F5448E270379EF2501B94948 /* p11_parallel.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = p11_parallel.c; path = src/PKCS11/p11_parallel.c; sourceTree = SOURCE_ROOT; };
-		F5448E280379EF2501B94948 /* p11_random.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = p11_random.c; path = src/PKCS11/p11_random.c; sourceTree = SOURCE_ROOT; };
-		F5448E290379EF2501B94948 /* p11_session.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = p11_session.c; path = src/PKCS11/p11_session.c; sourceTree = SOURCE_ROOT; };
-		F5448E2A0379EF2501B94948 /* p11_sign.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = p11_sign.c; path = src/PKCS11/p11_sign.c; sourceTree = SOURCE_ROOT; };
-		F5448E2B0379EF2501B94948 /* p11_token.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = p11_token.c; path = src/PKCS11/p11_token.c; sourceTree = SOURCE_ROOT; };
-		F5448E2C0379EF2501B94948 /* p11_verify.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = p11_verify.c; path = src/PKCS11/p11_verify.c; sourceTree = SOURCE_ROOT; };
-		F5448E2D0379EF2501B94948 /* p11x_async.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = p11x_async.c; path = src/PKCS11/p11x_async.c; sourceTree = SOURCE_ROOT; };
-		F5448E2E0379EF2501B94948 /* p11x_bio.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = p11x_bio.c; path = src/PKCS11/p11x_bio.c; sourceTree = SOURCE_ROOT; };
-		F5448E2F0379EF2501B94948 /* p11x_error.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = p11x_error.c; path = src/PKCS11/p11x_error.c; sourceTree = SOURCE_ROOT; };
-		F5448E300379EF2501B94948 /* p11x_log.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = p11x_log.c; path = src/PKCS11/p11x_log.c; sourceTree = SOURCE_ROOT; };
-		F5448E310379EF2501B94948 /* p11x_msc.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = p11x_msc.c; path = src/PKCS11/p11x_msc.c; sourceTree = SOURCE_ROOT; };
-		F5448E320379EF2501B94948 /* p11x_msc.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = p11x_msc.h; path = src/PKCS11/p11x_msc.h; sourceTree = SOURCE_ROOT; };
-		F5448E330379EF2501B94948 /* p11x_object.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = p11x_object.c; path = src/PKCS11/p11x_object.c; sourceTree = SOURCE_ROOT; };
-		F5448E340379EF2501B94948 /* p11x_prefs.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = p11x_prefs.c; path = src/PKCS11/p11x_prefs.c; sourceTree = SOURCE_ROOT; };
-		F5448E350379EF2501B94948 /* p11x_session.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = p11x_session.c; path = src/PKCS11/p11x_session.c; sourceTree = SOURCE_ROOT; };
-		F5448E360379EF2501B94948 /* p11x_slot.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = p11x_slot.c; path = src/PKCS11/p11x_slot.c; sourceTree = SOURCE_ROOT; };
-		F5448E370379EF2501B94948 /* p11x_state.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = p11x_state.c; path = src/PKCS11/p11x_state.c; sourceTree = SOURCE_ROOT; };
-		F5448E380379EF2501B94948 /* p11x_thread.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = p11x_thread.c; path = src/PKCS11/p11x_thread.c; sourceTree = SOURCE_ROOT; };
-		F5448E3A0379EF2501B94948 /* p11x_util.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = p11x_util.c; path = src/PKCS11/p11x_util.c; sourceTree = SOURCE_ROOT; };
-		F5448E3B0379EF2501B94948 /* pkcs11.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = pkcs11.h; path = src/PKCS11/pkcs11.h; sourceTree = SOURCE_ROOT; };
-		F5448E3C0379EF2501B94948 /* pkcs11f.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = pkcs11f.h; path = src/PKCS11/pkcs11f.h; sourceTree = SOURCE_ROOT; };
-		F5448E3D0379EF2501B94948 /* pkcs11t.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = pkcs11t.h; path = src/PKCS11/pkcs11t.h; sourceTree = SOURCE_ROOT; };
-		F5448E3E0379EF2501B94948 /* thread_generic.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = thread_generic.h; path = src/PKCS11/thread_generic.h; sourceTree = SOURCE_ROOT; };
 		F5448E630379F08001B94948 /* PCSC.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PCSC.framework; path = /System/Library/Frameworks/PCSC.framework; sourceTree = "<absolute>"; };
-		F5448E750379F15F01B94948 /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = /usr/lib/libz.1.1.3.dylib; sourceTree = "<absolute>"; };
 		F555DF350274962801D2E99F /* powermgt_macosx.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = powermgt_macosx.c; path = src/PCSC/powermgt_macosx.c; sourceTree = SOURCE_ROOT; };
 		F555DF370274968F01D2E99F /* powermgt_generic.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = powermgt_generic.h; path = src/PCSC/powermgt_generic.h; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
-/* Begin PBXFrameworkTarget section */
-		F52A93D402541D8C01B94B21 /* PCSC */ = {
-			isa = PBXFrameworkTarget;
-			buildConfigurationList = C27AD1C10987FCDB001272E0 /* Build configuration list for PBXFrameworkTarget "PCSC" */;
-			buildPhases = (
-				F52A93D502541D8C01B94B21 /* Headers */,
-				F52A93D602541D8C01B94B21 /* Resources */,
-				F52A93D702541D8C01B94B21 /* Sources */,
-				F52A93D802541D8C01B94B21 /* Frameworks */,
-			);
-			dependencies = (
-			);
-			name = PCSC;
-			productInstallPath = /System/Library/Frameworks;
-			productName = PCSC;
-			productReference = F52A93D102541D8C01B94B21 /* PCSC.framework */;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>English</string>
-	<key>CFBundleExecutable</key>
-	<string>PCSC</string>
-	<key>CFBundleIconFile</key>
-	<string></string>
-	<key>CFBundleIdentifier</key>
-	<string>com.apple.pcsc</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>7.0</string>
-	<key>CFBundleName</key>
-	<string>PCSC</string>
-	<key>CFBundlePackageType</key>
-	<string>FMWK</string>
-	<key>CFBundleShortVersionString</key>
-	<string>6.0</string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>34733</string>
-</dict>
-</plist>
-";
-		};
-/* End PBXFrameworkTarget section */
-
 /* Begin PBXFrameworksBuildPhase section */
-		2CBB605806CA6944006AA7C8 /* Frameworks */ = {
+		5234B6B10E78286000F02D95 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2CC9AB8406CC02F30048A811 /* PCSC.framework in Frameworks */,
+				5234B6B20E78286000F02D95 /* CoreFoundation.framework in Frameworks */,
+				5234B6B30E78286000F02D95 /* IOKit.framework in Frameworks */,
+				5234B6B40E78286000F02D95 /* libl.a in Frameworks */,
+				5234B6B50E78286000F02D95 /* security_utilities.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		F511212A0272F895017BB957 /* Frameworks */ = {
+		5234B6D70E78286000F02D95 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F5448E6E0379F08001B94948 /* PCSC.framework in Frameworks */,
+				5234B6D80E78286000F02D95 /* security_utilities.framework in Frameworks */,
+				5234B6D90E78286000F02D95 /* CoreFoundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		F5294A830090C73501CD285A /* Frameworks */ = {
+		5234B6E50E78286000F02D95 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F503CADD025428F601B94B21 /* CoreFoundation.framework in Frameworks */,
-				F503CADE025428F601B94B21 /* IOKit.framework in Frameworks */,
-				F503CAE00254294101B94B21 /* libl.a in Frameworks */,
-				52D58C090A87FEA000DC3F19 /* security_utilities.framework in Frameworks */,
+				5234B6E60E78286000F02D95 /* PCSC.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		F5294AD70090CAE601CD285A /* Frameworks */ = {
+		5234B6F20E78286000F02D95 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F5448E6A0379F08001B94948 /* PCSC.framework in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F52A93D802541D8C01B94B21 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				52C85D900B9FA79F002DA856 /* security_utilities.framework in Frameworks */,
-				F503CAE502542A9201B94B21 /* CoreFoundation.framework in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F537A7CF0379ED7501B94948 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				F5448E6D0379F08001B94948 /* PCSC.framework in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F5448E000379EE2A01B94948 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				F5448E6C0379F08001B94948 /* PCSC.framework in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F5448E070379EE3601B94948 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				F5448E6B0379F08001B94948 /* PCSC.framework in Frameworks */,
-				F5448E760379F15F01B94948 /* libz.dylib in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F5448E0E0379EE6401B94948 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				F5448E6F0379F08001B94948 /* PCSC.framework in Frameworks */,
+				5234B6F30E78286000F02D95 /* PCSC.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		2CBB605406CA680F006AA7C8 /* GSCISPlugin */ = {
+		5234B4EF0E7826E200F02D95 /* Linked Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				2CBB606306CA69F9006AA7C8 /* GSCISPlugin.c */,
-				2CBB606406CA69F9006AA7C8 /* GSCISPlugin.h */,
+				52D58C080A87FEA000DC3F19 /* security_utilities.framework */,
+				F5448E630379F08001B94948 /* PCSC.framework */,
+				2CC9AB9A06CC036D0048A811 /* CoreFoundation.framework */,
+				2CC9ABC806CC03A10048A811 /* IOKit.framework */,
 			);
-			name = GSCISPlugin;
+			name = "Linked Frameworks";
 			sourceTree = "<group>";
 		};
 		527CF6040AA51879007589FF /* pcscd */ = {
@@ -784,33 +320,23 @@
 		F5294A500090C4CA01CD285A = {
 			isa = PBXGroup;
 			children = (
-				52D58C080A87FEA000DC3F19 /* security_utilities.framework */,
 				F538896A0397E93B012F6BBF /* InstallPhase */,
-				F537A7CB0379ECEB01B94948 /* MCardPlugin */,
-				2CBB605406CA680F006AA7C8 /* GSCISPlugin */,
-				F537A7CA0379ECE301B94948 /* CFlexPlugin */,
-				F537A7C90379ECDC01B94948 /* CACPlugin */,
-				F537A7C80379ECD501B94948 /* PKCS11 */,
+				527CF6040AA51879007589FF /* pcscd */,
+				527CF6240AA51B07007589FF /* tools */,
 				F537A7B50379EB8B01B94948 /* PCSC */,
+				5234B4EF0E7826E200F02D95 /* Linked Frameworks */,
 				F5294A520090C5DF01CD285A /* Products */,
-				F5448E630379F08001B94948 /* PCSC.framework */,
-				2CC9AB9A06CC036D0048A811 /* CoreFoundation.framework */,
-				2CC9ABC806CC03A10048A811 /* IOKit.framework */,
+				5234B6DF0E78286000F02D95 /* Info-PCSC.plist */,
 			);
 			sourceTree = "<group>";
 		};
 		F5294A520090C5DF01CD285A /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				F5294A7E0090C73501CD285A /* pcscd */,
-				F5294AD30090CAE601CD285A /* pcsctest */,
-				F52A93D102541D8C01B94B21 /* PCSC.framework */,
-				F51121260272F895017BB957 /* pcsctool */,
-				F537A7D20379ED7501B94948 /* pkcs11.bundle */,
-				F5448E030379EE2A01B94948 /* mscMuscleCard.bundle */,
-				F5448E0A0379EE3601B94948 /* commonAccessCard.bundle */,
-				F5448E110379EE6401B94948 /* slbCryptoflex.bundle */,
-				2CBB605B06CA6944006AA7C8 /* GSCISPlugin.bundle */,
+				5234B6BB0E78286000F02D95 /* pcscd */,
+				5234B6E00E78286000F02D95 /* PCSC.framework */,
+				5234B6EC0E78286000F02D95 /* pcsctest */,
+				5234B6F90E78286000F02D95 /* pcsctool */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -818,9 +344,7 @@
 		F537A7B50379EB8B01B94948 /* PCSC */ = {
 			isa = PBXGroup;
 			children = (
-				527CF6240AA51B07007589FF /* tools */,
 				527CF6070AA51881007589FF /* framework */,
-				527CF6040AA51879007589FF /* pcscd */,
 				F52A94510254232701B94B21 /* atrhandler.c */,
 				F52A948F0254242101B94B21 /* atrhandler.h */,
 				F52A94900254242101B94B21 /* configfile.c */,
@@ -868,73 +392,6 @@
 			name = PCSC;
 			sourceTree = "<group>";
 		};
-		F537A7C80379ECD501B94948 /* PKCS11 */ = {
-			isa = PBXGroup;
-			children = (
-				F5448E1E0379EF2501B94948 /* cryptoki_unix.h */,
-				F5448E1F0379EF2501B94948 /* cryptoki.h */,
-				F5448E200379EF2501B94948 /* p11_crypt.c */,
-				F5448E210379EF2501B94948 /* p11_digest.c */,
-				F5448E220379EF2501B94948 /* p11_dual.c */,
-				F5448E230379EF2501B94948 /* p11_ext.c */,
-				F5448E240379EF2501B94948 /* p11_general.c */,
-				F5448E250379EF2501B94948 /* p11_key.c */,
-				F5448E260379EF2501B94948 /* p11_object.c */,
-				F5448E270379EF2501B94948 /* p11_parallel.c */,
-				F5448E280379EF2501B94948 /* p11_random.c */,
-				F5448E290379EF2501B94948 /* p11_session.c */,
-				F5448E2A0379EF2501B94948 /* p11_sign.c */,
-				F5448E2B0379EF2501B94948 /* p11_token.c */,
-				F5448E2C0379EF2501B94948 /* p11_verify.c */,
-				F5448E2D0379EF2501B94948 /* p11x_async.c */,
-				F5448E2E0379EF2501B94948 /* p11x_bio.c */,
-				F5448E2F0379EF2501B94948 /* p11x_error.c */,
-				F5448E300379EF2501B94948 /* p11x_log.c */,
-				F5448E310379EF2501B94948 /* p11x_msc.c */,
-				F5448E320379EF2501B94948 /* p11x_msc.h */,
-				F5448E330379EF2501B94948 /* p11x_object.c */,
-				F5448E340379EF2501B94948 /* p11x_prefs.c */,
-				F5448E350379EF2501B94948 /* p11x_session.c */,
-				F5448E360379EF2501B94948 /* p11x_slot.c */,
-				F5448E370379EF2501B94948 /* p11x_state.c */,
-				F5448E380379EF2501B94948 /* p11x_thread.c */,
-				F5448E3A0379EF2501B94948 /* p11x_util.c */,
-				F5448E3B0379EF2501B94948 /* pkcs11.h */,
-				F5448E3C0379EF2501B94948 /* pkcs11f.h */,
-				F5448E3D0379EF2501B94948 /* pkcs11t.h */,
-				F5448E3E0379EF2501B94948 /* thread_generic.h */,
-			);
-			name = PKCS11;
-			sourceTree = "<group>";
-		};
-		F537A7C90379ECDC01B94948 /* CACPlugin */ = {
-			isa = PBXGroup;
-			children = (
-				F5448E1A0379EEDD01B94948 /* commonAccessCard.c */,
-				F5448E1B0379EEDD01B94948 /* commonAccessCard.h */,
-				F5448E750379F15F01B94948 /* libz.dylib */,
-			);
-			name = CACPlugin;
-			sourceTree = "<group>";
-		};
-		F537A7CA0379ECE301B94948 /* CFlexPlugin */ = {
-			isa = PBXGroup;
-			children = (
-				F5448E160379EEC301B94948 /* cryptoflex.c */,
-				F5448E170379EEC301B94948 /* cryptoflex.h */,
-			);
-			name = CFlexPlugin;
-			sourceTree = "<group>";
-		};
-		F537A7CB0379ECEB01B94948 /* MCardPlugin */ = {
-			isa = PBXGroup;
-			children = (
-				F5448E120379EEA101B94948 /* musclecardApplet.c */,
-				F5448E130379EEA101B94948 /* musclecardApplet.h */,
-			);
-			name = MCardPlugin;
-			sourceTree = "<group>";
-		};
 		F538896A0397E93B012F6BBF /* InstallPhase */ = {
 			isa = PBXGroup;
 			children = (
@@ -946,123 +403,77 @@
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
-		2CBB605506CA6944006AA7C8 /* Headers */ = {
+		5234B67E0E78286000F02D95 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2CBB606606CA69F9006AA7C8 /* GSCISPlugin.h in Headers */,
+				5234B67F0E78286000F02D95 /* atrhandler.h in Headers */,
+				5234B6800E78286000F02D95 /* configfile.h in Headers */,
+				5234B6810E78286000F02D95 /* debuglog.h in Headers */,
+				5234B6820E78286000F02D95 /* dyn_generic.h in Headers */,
+				5234B6830E78286000F02D95 /* eventhandler.h in Headers */,
+				5234B6840E78286000F02D95 /* hotplug.h in Headers */,
+				5234B6850E78286000F02D95 /* ifdhandler.h in Headers */,
+				5234B6860E78286000F02D95 /* ifdwrapper.h in Headers */,
+				5234B6870E78286000F02D95 /* pcsclite.h in Headers */,
+				5234B6880E78286000F02D95 /* prothandler.h in Headers */,
+				5234B6890E78286000F02D95 /* readerfactory.h in Headers */,
+				5234B68A0E78286000F02D95 /* sys_generic.h in Headers */,
+				5234B68B0E78286000F02D95 /* thread_generic.h in Headers */,
+				5234B68C0E78286000F02D95 /* winscard_msg.h in Headers */,
+				5234B68D0E78286000F02D95 /* winscard_svc.h in Headers */,
+				5234B68E0E78286000F02D95 /* winscard.h in Headers */,
+				5234B68F0E78286000F02D95 /* wintypes.h in Headers */,
+				5234B6900E78286000F02D95 /* powermgt_generic.h in Headers */,
+				5234B6910E78286000F02D95 /* PCSCDevice.h in Headers */,
+				5234B6920E78286000F02D95 /* PCSCDriverBundle.h in Headers */,
+				5234B6930E78286000F02D95 /* PCSCDriverBundles.h in Headers */,
+				5234B6940E78286000F02D95 /* reader.h in Headers */,
+				5234B6950E78286000F02D95 /* pcscdmonitor.h in Headers */,
+				5234B6960E78286000F02D95 /* pcscdserver.h in Headers */,
+				5234B6970E78286000F02D95 /* readerstate.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		F51121280272F895017BB957 /* Headers */ = {
+		5234B6BE0E78286000F02D95 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5234B6BF0E78286000F02D95 /* thread_generic.h in Headers */,
+				5234B6C00E78286000F02D95 /* pcsclite.h in Headers */,
+				5234B6C10E78286000F02D95 /* mscdefines.h in Headers */,
+				5234B6C20E78286000F02D95 /* musclecard.h in Headers */,
+				5234B6C30E78286000F02D95 /* winscard_msg.h in Headers */,
+				5234B6C40E78286000F02D95 /* tokenfactory.h in Headers */,
+				5234B6C50E78286000F02D95 /* winscard.h in Headers */,
+				5234B6C60E78286000F02D95 /* dyn_generic.h in Headers */,
+				5234B6C70E78286000F02D95 /* wintypes.h in Headers */,
+				5234B6C80E78286000F02D95 /* debuglog.h in Headers */,
+				5234B6C90E78286000F02D95 /* config.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5234B6E20E78286000F02D95 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		F5294A810090C73501CD285A /* Headers */ = {
+		5234B6EF0E78286000F02D95 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F52A94AE0254242101B94B21 /* atrhandler.h in Headers */,
-				F52A94AF0254242101B94B21 /* configfile.h in Headers */,
-				F52A94B00254242101B94B21 /* debuglog.h in Headers */,
-				F52A94B10254242101B94B21 /* dyn_generic.h in Headers */,
-				F52A94B20254242101B94B21 /* eventhandler.h in Headers */,
-				F52A94B30254242101B94B21 /* hotplug.h in Headers */,
-				F52A94B40254242101B94B21 /* ifdhandler.h in Headers */,
-				F52A94B50254242101B94B21 /* ifdwrapper.h in Headers */,
-				F52A94B60254242101B94B21 /* pcsclite.h in Headers */,
-				F52A94B70254242101B94B21 /* prothandler.h in Headers */,
-				F52A94B80254242101B94B21 /* readerfactory.h in Headers */,
-				F52A94B90254242101B94B21 /* sys_generic.h in Headers */,
-				F52A94BA0254242101B94B21 /* thread_generic.h in Headers */,
-				F52A94BB0254242101B94B21 /* winscard_msg.h in Headers */,
-				F52A94BC0254242101B94B21 /* winscard_svc.h in Headers */,
-				F52A94BD0254242101B94B21 /* winscard.h in Headers */,
-				F52A94BE0254242101B94B21 /* wintypes.h in Headers */,
-				F555DF380274968F01D2E99F /* powermgt_generic.h in Headers */,
-				5286294B0A87EA8E004FE8DC /* PCSCDevice.h in Headers */,
-				5286294D0A87EA8E004FE8DC /* PCSCDriverBundle.h in Headers */,
-				5286294F0A87EA8E004FE8DC /* PCSCDriverBundles.h in Headers */,
-				52D00D1C0A9252350093277A /* reader.h in Headers */,
-				527CF60F0AA5192B007589FF /* pcscdmonitor.h in Headers */,
-				527CF6110AA5192B007589FF /* pcscdserver.h in Headers */,
-				5236DD1F0B9DDBD7007CEF56 /* readerstate.h in Headers */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F5294AD50090CAE601CD285A /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F52A93D502541D8C01B94B21 /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				F52A94D5025424AC01B94B21 /* thread_generic.h in Headers */,
-				F52A94D6025424AC01B94B21 /* pcsclite.h in Headers */,
-				F52A94D7025424AC01B94B21 /* mscdefines.h in Headers */,
-				F52A94D8025424AC01B94B21 /* musclecard.h in Headers */,
-				F52A94D9025424AC01B94B21 /* winscard_msg.h in Headers */,
-				F52A94DA025424AC01B94B21 /* tokenfactory.h in Headers */,
-				F52A94DB025424AC01B94B21 /* winscard.h in Headers */,
-				F52A94DC025424AC01B94B21 /* dyn_generic.h in Headers */,
-				F503CAE402542A9201B94B21 /* wintypes.h in Headers */,
-				F52A94DD025424AC01B94B21 /* debuglog.h in Headers */,
-				F537A7B40379EB7B01B94948 /* config.h in Headers */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F537A7CC0379ED7501B94948 /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				F5448E3F0379EF2501B94948 /* cryptoki_unix.h in Headers */,
-				F5448E400379EF2501B94948 /* cryptoki.h in Headers */,
-				F5448E530379EF2501B94948 /* p11x_msc.h in Headers */,
-				F5448E5C0379EF2501B94948 /* pkcs11.h in Headers */,
-				F5448E5D0379EF2501B94948 /* pkcs11f.h in Headers */,
-				F5448E5E0379EF2501B94948 /* pkcs11t.h in Headers */,
-				F5448E5F0379EF2501B94948 /* thread_generic.h in Headers */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F5448DFD0379EE2A01B94948 /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				F5448E150379EEA101B94948 /* musclecardApplet.h in Headers */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F5448E040379EE3601B94948 /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				F5448E1D0379EEDD01B94948 /* commonAccessCard.h in Headers */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F5448E0B0379EE6401B94948 /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				F5448E190379EEC301B94948 /* cryptoflex.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXLegacyTarget section */
-		F538896903953B79012F6BBF /* InstallPhase */ = {
+		5234B7280E78286000F02D95 /* InstallPhase */ = {
 			isa = PBXLegacyTarget;
 			buildArgumentsString = "-f Makefile.installPhase $ALL_SETTINGS $ACTION";
-			buildConfigurationList = C27AD1EE0987FCDC001272E0 /* Build configuration list for PBXLegacyTarget "InstallPhase" */;
+			buildConfigurationList = 5234B7290E78286000F02D95 /* Build configuration list for PBXLegacyTarget "InstallPhase" */;
 			buildPhases = (
 			);
 			buildToolPath = /usr/bin/gnumake;
@@ -1075,6 +486,82 @@
 		};
 /* End PBXLegacyTarget section */
 
+/* Begin PBXNativeTarget section */
+		5234B67D0E78286000F02D95 /* pcscd */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5234B6B60E78286000F02D95 /* Build configuration list for PBXNativeTarget "pcscd" */;
+			buildPhases = (
+				5234B67E0E78286000F02D95 /* Headers */,
+				5234B6980E78286000F02D95 /* Sources */,
+				5234B6B10E78286000F02D95 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = pcscd;
+			productInstallPath = /usr/sbin;
+			productName = pcscd;
+			productReference = 5234B6BB0E78286000F02D95 /* pcscd */;
+			productType = "com.apple.product-type.tool";
+		};
+		5234B6BD0E78286000F02D95 /* PCSC */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5234B6DA0E78286000F02D95 /* Build configuration list for PBXNativeTarget "PCSC" */;
+			buildPhases = (
+				5234B6BE0E78286000F02D95 /* Headers */,
+				5234B6CA0E78286000F02D95 /* Resources */,
+				5234B6CB0E78286000F02D95 /* Sources */,
+				5234B6D70E78286000F02D95 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = PCSC;
+			productInstallPath = /System/Library/Frameworks;
+			productName = PCSC;
+			productReference = 5234B6E00E78286000F02D95 /* PCSC.framework */;
+			productType = "com.apple.product-type.framework";
+		};
+		5234B6E10E78286000F02D95 /* pcsctest */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5234B6E70E78286000F02D95 /* Build configuration list for PBXNativeTarget "pcsctest" */;
+			buildPhases = (
+				5234B6E20E78286000F02D95 /* Headers */,
+				5234B6E30E78286000F02D95 /* Sources */,
+				5234B6E50E78286000F02D95 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = pcsctest;
+			productInstallPath = /usr/bin;
+			productName = testpcsc;
+			productReference = 5234B6EC0E78286000F02D95 /* pcsctest */;
+			productType = "com.apple.product-type.tool";
+		};
+		5234B6EE0E78286000F02D95 /* pcsctool */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5234B6F40E78286000F02D95 /* Build configuration list for PBXNativeTarget "pcsctool" */;
+			buildPhases = (
+				5234B6EF0E78286000F02D95 /* Headers */,
+				5234B6F00E78286000F02D95 /* Sources */,
+				5234B6F20E78286000F02D95 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = pcsctool;
+			productInstallPath = /usr/bin/;
+			productName = pcsctool;
+			productReference = 5234B6F90E78286000F02D95 /* pcsctool */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
 /* Begin PBXProject section */
 		F5294A4F0090C4CA01CD285A /* Project object */ = {
 			isa = PBXProject;
@@ -1086,58 +573,18 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				F5294A510090C54E01CD285A /* World */,
-				F5294A800090C73501CD285A /* pcscd */,
-				F52A93D402541D8C01B94B21 /* PCSC */,
-				F5294AD40090CAE601CD285A /* pcsctest */,
-				F51121270272F895017BB957 /* pcsctool */,
-				F537A7D10379ED7501B94948 /* PKCS11 */,
-				F5448E020379EE2A01B94948 /* MCardPlugin */,
-				F5448E090379EE3601B94948 /* CACPlugin */,
-				F5448E100379EE6401B94948 /* CFlexPlugin */,
-				F538896903953B79012F6BBF /* InstallPhase */,
-				2CBB605A06CA6944006AA7C8 /* GSCISPlugin */,
+				5234B66B0E78286000F02D95 /* World */,
+				5234B67D0E78286000F02D95 /* pcscd */,
+				5234B6BD0E78286000F02D95 /* PCSC */,
+				5234B6E10E78286000F02D95 /* pcsctest */,
+				5234B6EE0E78286000F02D95 /* pcsctool */,
+				5234B7280E78286000F02D95 /* InstallPhase */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		2CBB605606CA6944006AA7C8 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F52A93D602541D8C01B94B21 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F537A7CD0379ED7501B94948 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F5448DFE0379EE2A01B94948 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F5448E050379EE3601B94948 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F5448E0C0379EE6401B94948 /* Resources */ = {
+		5234B6CA0E78286000F02D95 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -1147,274 +594,440 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		2CBB605706CA6944006AA7C8 /* Sources */ = {
+		5234B6980E78286000F02D95 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2CBB606506CA69F9006AA7C8 /* GSCISPlugin.c in Sources */,
+				5234B6990E78286000F02D95 /* atrhandler.c in Sources */,
+				5234B69A0E78286000F02D95 /* readerstate.cpp in Sources */,
+				5234B69B0E78286000F02D95 /* configfile.c in Sources */,
+				5234B69C0E78286000F02D95 /* debuglog.c in Sources */,
+				5234B69D0E78286000F02D95 /* dyn_macosx.c in Sources */,
+				5234B69E0E78286000F02D95 /* eventhandler.cpp in Sources */,
+				5234B69F0E78286000F02D95 /* ifdwrapper.c in Sources */,
+				5234B6A00E78286000F02D95 /* pcscdaemon.c in Sources */,
+				5234B6A10E78286000F02D95 /* prothandler.c in Sources */,
+				5234B6A20E78286000F02D95 /* readerfactory.c in Sources */,
+				5234B6A30E78286000F02D95 /* thread_macosx.c in Sources */,
+				5234B6A40E78286000F02D95 /* winscard_msg.cpp in Sources */,
+				5234B6A50E78286000F02D95 /* winscard_svc.c in Sources */,
+				5234B6A60E78286000F02D95 /* powermgt_macosx.c in Sources */,
+				5234B6A70E78286000F02D95 /* sys_macosx.cpp in Sources */,
+				5234B6A80E78286000F02D95 /* hotplug_macosx.cpp in Sources */,
+				5234B6A90E78286000F02D95 /* PCSCDevice.cpp in Sources */,
+				5234B6AA0E78286000F02D95 /* PCSCDriverBundle.cpp in Sources */,
+				5234B6AB0E78286000F02D95 /* PCSCDriverBundles.cpp in Sources */,
+				5234B6AC0E78286000F02D95 /* reader.cpp in Sources */,
+				5234B6AD0E78286000F02D95 /* pcscdmonitor.cpp in Sources */,
+				5234B6AE0E78286000F02D95 /* pcscdserver.cpp in Sources */,
+				5234B6AF0E78286000F02D95 /* winscard_msg_srv.c in Sources */,
+				5234B6B00E78286000F02D95 /* winscard.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		F51121290272F895017BB957 /* Sources */ = {
+		5234B6CB0E78286000F02D95 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F511212D0272F8D9017BB957 /* bundleTool.c in Sources */,
+				5234B6CC0E78286000F02D95 /* readerstate.cpp in Sources */,
+				5234B6CD0E78286000F02D95 /* thread_macosx.c in Sources */,
+				5234B6CE0E78286000F02D95 /* musclecard.c in Sources */,
+				5234B6CF0E78286000F02D95 /* dyn_macosx.c in Sources */,
+				5234B6D00E78286000F02D95 /* winscard_msg.cpp in Sources */,
+				5234B6D10E78286000F02D95 /* tokenfactory.c in Sources */,
+				5234B6D20E78286000F02D95 /* sys_unix.c in Sources */,
+				5234B6D30E78286000F02D95 /* tokenparser.c in Sources */,
+				5234B6D40E78286000F02D95 /* debuglog.c in Sources */,
+				5234B6D50E78286000F02D95 /* winscard_clnt.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		F5294A820090C73501CD285A /* Sources */ = {
+		5234B6E30E78286000F02D95 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F52A94520254232701B94B21 /* atrhandler.c in Sources */,
-				52C3C14D0BA5D54100436862 /* readerstate.cpp in Sources */,
-				F52A94BF0254242101B94B21 /* configfile.c in Sources */,
-				F52A94C00254242101B94B21 /* debuglog.c in Sources */,
-				F52A94C10254242101B94B21 /* dyn_macosx.c in Sources */,
-				F52A94C20254242101B94B21 /* eventhandler.cpp in Sources */,
-				F52A94C40254242101B94B21 /* ifdwrapper.c in Sources */,
-				F52A94C50254242101B94B21 /* pcscdaemon.c in Sources */,
-				F52A94C60254242101B94B21 /* prothandler.c in Sources */,
-				F52A94C70254242101B94B21 /* readerfactory.c in Sources */,
-				F52A94C90254242101B94B21 /* thread_macosx.c in Sources */,
-				F52A94CA0254242101B94B21 /* winscard_msg.cpp in Sources */,
-				F52A94CB0254242101B94B21 /* winscard_svc.c in Sources */,
-				F555DF360274962801D2E99F /* powermgt_macosx.c in Sources */,
-				C2F2094B0662B851001DFD06 /* sys_macosx.cpp in Sources */,
-				528629490A87EA8E004FE8DC /* hotplug_macosx.cpp in Sources */,
-				5286294A0A87EA8E004FE8DC /* PCSCDevice.cpp in Sources */,
-				5286294C0A87EA8E004FE8DC /* PCSCDriverBundle.cpp in Sources */,
-				5286294E0A87EA8E004FE8DC /* PCSCDriverBundles.cpp in Sources */,
-				52D00D1D0A9252350093277A /* reader.cpp in Sources */,
-				527CF60E0AA5192B007589FF /* pcscdmonitor.cpp in Sources */,
-				527CF6100AA5192B007589FF /* pcscdserver.cpp in Sources */,
-				52D2492D0BA07E1100F9827A /* winscard_msg_srv.c in Sources */,
-				52E0D59E0BA7006D008DFDDF /* winscard.c in Sources */,
+				5234B6E40E78286000F02D95 /* testpcsc.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		F5294AD60090CAE601CD285A /* Sources */ = {
+		5234B6F00E78286000F02D95 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F503CACF025425E601B94B21 /* testpcsc.c in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F52A93D702541D8C01B94B21 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				52C3C1480BA5D46900436862 /* readerstate.cpp in Sources */,
-				52D58C560A8803A800DC3F19 /* thread_macosx.c in Sources */,
-				F52A94DE025424AC01B94B21 /* musclecard.c in Sources */,
-				F52A94DF025424AC01B94B21 /* dyn_macosx.c in Sources */,
-				F52A94E5025424F101B94B21 /* winscard_msg.cpp in Sources */,
-				F52A94E0025424AC01B94B21 /* tokenfactory.c in Sources */,
-				F52A94E7025424F101B94B21 /* sys_unix.c in Sources */,
-				F52A94E1025424AC01B94B21 /* tokenparser.c in Sources */,
-				F52A94E3025424AC01B94B21 /* debuglog.c in Sources */,
-				F52A94E4025424AC01B94B21 /* winscard_clnt.c in Sources */,
-				52DBCAAF0BB851C8007D06A5 /* PCSC.exp in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F537A7CE0379ED7501B94948 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				F5448E410379EF2501B94948 /* p11_crypt.c in Sources */,
-				F5448E420379EF2501B94948 /* p11_digest.c in Sources */,
-				F5448E430379EF2501B94948 /* p11_dual.c in Sources */,
-				F5448E440379EF2501B94948 /* p11_ext.c in Sources */,
-				F5448E450379EF2501B94948 /* p11_general.c in Sources */,
-				F5448E460379EF2501B94948 /* p11_key.c in Sources */,
-				F5448E470379EF2501B94948 /* p11_object.c in Sources */,
-				F5448E480379EF2501B94948 /* p11_parallel.c in Sources */,
-				F5448E490379EF2501B94948 /* p11_random.c in Sources */,
-				F5448E4A0379EF2501B94948 /* p11_session.c in Sources */,
-				F5448E4B0379EF2501B94948 /* p11_sign.c in Sources */,
-				F5448E4C0379EF2501B94948 /* p11_token.c in Sources */,
-				F5448E4D0379EF2501B94948 /* p11_verify.c in Sources */,
-				F5448E4E0379EF2501B94948 /* p11x_async.c in Sources */,
-				F5448E4F0379EF2501B94948 /* p11x_bio.c in Sources */,
-				F5448E500379EF2501B94948 /* p11x_error.c in Sources */,
-				F5448E510379EF2501B94948 /* p11x_log.c in Sources */,
-				F5448E520379EF2501B94948 /* p11x_msc.c in Sources */,
-				F5448E540379EF2501B94948 /* p11x_object.c in Sources */,
-				F5448E550379EF2501B94948 /* p11x_prefs.c in Sources */,
-				F5448E560379EF2501B94948 /* p11x_session.c in Sources */,
-				F5448E570379EF2501B94948 /* p11x_slot.c in Sources */,
-				F5448E580379EF2501B94948 /* p11x_state.c in Sources */,
-				F5448E590379EF2501B94948 /* p11x_thread.c in Sources */,
-				F5448E5B0379EF2501B94948 /* p11x_util.c in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F5448DFF0379EE2A01B94948 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				F5448E140379EEA101B94948 /* musclecardApplet.c in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F5448E060379EE3601B94948 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				F5448E1C0379EEDD01B94948 /* commonAccessCard.c in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F5448E0D0379EE6401B94948 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				F5448E180379EEC301B94948 /* cryptoflex.c in Sources */,
+				5234B6F10E78286000F02D95 /* bundleTool.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		2CBB607506CA6DDE006AA7C8 /* PBXTargetDependency */ = {
+		5234B72F0E78286000F02D95 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 2CBB605A06CA6944006AA7C8 /* GSCISPlugin */;
-			targetProxy = 2CBB607406CA6DDE006AA7C8 /* PBXContainerItemProxy */;
+			target = 5234B6BD0E78286000F02D95 /* PCSC */;
+			targetProxy = 5234B72E0E78286000F02D95 /* PBXContainerItemProxy */;
 		};
-		F511213B0272FA1C017BB957 /* PBXTargetDependency */ = {
+		5234B7310E78286000F02D95 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = F51121270272F895017BB957 /* pcsctool */;
-			targetProxy = 4CFE9C0C059254C9007119DE /* PBXContainerItemProxy */;
+			target = 5234B67D0E78286000F02D95 /* pcscd */;
+			targetProxy = 5234B7300E78286000F02D95 /* PBXContainerItemProxy */;
 		};
-		F520A5F60257B49C01D97E8A /* PBXTargetDependency */ = {
+		5234B7330E78286000F02D95 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = F52A93D402541D8C01B94B21 /* PCSC */;
-			targetProxy = 4CFE9C0E059254C9007119DE /* PBXContainerItemProxy */;
+			target = 5234B6E10E78286000F02D95 /* pcsctest */;
+			targetProxy = 5234B7320E78286000F02D95 /* PBXContainerItemProxy */;
 		};
-		F520E3A001F6204201B94B28 /* PBXTargetDependency */ = {
+		5234B7350E78286000F02D95 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = F5294A800090C73501CD285A /* pcscd */;
-			targetProxy = 4CFE9C06059254C9007119DE /* PBXContainerItemProxy */;
+			target = 5234B6EE0E78286000F02D95 /* pcsctool */;
+			targetProxy = 5234B7340E78286000F02D95 /* PBXContainerItemProxy */;
 		};
-		F520E3A301F6204201B94B28 /* PBXTargetDependency */ = {
+		5234B7390E78286000F02D95 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = F5294AD40090CAE601CD285A /* pcsctest */;
-			targetProxy = 4CFE9C0D059254C9007119DE /* PBXContainerItemProxy */;
-		};
-		F5448E810379FE0101B94948 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = F537A7D10379ED7501B94948 /* PKCS11 */;
-			targetProxy = 4CFE9C0B059254C9007119DE /* PBXContainerItemProxy */;
-		};
-		F5448E820379FE0501B94948 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = F5448E020379EE2A01B94948 /* MCardPlugin */;
-			targetProxy = 4CFE9C05059254C8007119DE /* PBXContainerItemProxy */;
-		};
-		F5448E830379FE0801B94948 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = F5448E090379EE3601B94948 /* CACPlugin */;
-			targetProxy = 4CFE9C0A059254C9007119DE /* PBXContainerItemProxy */;
-		};
-		F5448E840379FE0C01B94948 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = F5448E100379EE6401B94948 /* CFlexPlugin */;
-			targetProxy = 4CFE9C07059254C9007119DE /* PBXContainerItemProxy */;
-		};
-		F54DC28B0397F35F01115D8D /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = F538896903953B79012F6BBF /* InstallPhase */;
-			targetProxy = 4CFE9C09059254C9007119DE /* PBXContainerItemProxy */;
+			target = 5234B7280E78286000F02D95 /* InstallPhase */;
+			targetProxy = 5234B7380E78286000F02D95 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
-/* Begin PBXToolTarget section */
-		F51121270272F895017BB957 /* pcsctool */ = {
-			isa = PBXToolTarget;
-			buildConfigurationList = C27AD1D00987FCDC001272E0 /* Build configuration list for PBXToolTarget "pcsctool" */;
-			buildPhases = (
-				F51121280272F895017BB957 /* Headers */,
-				F51121290272F895017BB957 /* Sources */,
-				F511212A0272F895017BB957 /* Frameworks */,
-			);
-			dependencies = (
-			);
-			name = pcsctool;
-			productInstallPath = /usr/bin/;
-			productName = pcsctool;
-			productReference = F51121260272F895017BB957 /* pcsctool */;
-		};
-		F5294A800090C73501CD285A /* pcscd */ = {
-			isa = PBXToolTarget;
-			buildConfigurationList = C27AD1C60987FCDB001272E0 /* Build configuration list for PBXToolTarget "pcscd" */;
-			buildPhases = (
-				F5294A810090C73501CD285A /* Headers */,
-				F5294A820090C73501CD285A /* Sources */,
-				F5294A830090C73501CD285A /* Frameworks */,
-			);
-			dependencies = (
-			);
-			name = pcscd;
-			productInstallPath = /usr/sbin;
-			productName = pcscd;
-			productReference = F5294A7E0090C73501CD285A /* pcscd */;
-		};
-		F5294AD40090CAE601CD285A /* pcsctest */ = {
-			isa = PBXToolTarget;
-			buildConfigurationList = C27AD1CB0987FCDB001272E0 /* Build configuration list for PBXToolTarget "pcsctest" */;
-			buildPhases = (
-				F5294AD50090CAE601CD285A /* Headers */,
-				F5294AD60090CAE601CD285A /* Sources */,
-				F5294AD70090CAE601CD285A /* Frameworks */,
-			);
-			dependencies = (
-			);
-			name = pcsctest;
-			productInstallPath = /usr/bin;
-			productName = testpcsc;
-			productReference = F5294AD30090CAE601CD285A /* pcsctest */;
-		};
-/* End PBXToolTarget section */
-
 /* Begin XCBuildConfiguration section */
-		C27AD1C20987FCDB001272E0 /* Development */ = {
+		5234B6790E78286000F02D95 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 34733;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = World;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		5234B67A0E78286000F02D95 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = World;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		5234B67B0E78286000F02D95 /* normal with debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = normal;
+				OPT_LDFLAGS = "";
+				OPT_LDXFLAGS = "";
+				OPT_LDXNOPIC = "";
+				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG";
+				OTHER_CFLAGS = "";
+				OTHER_CFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG  -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG  -fno-inline";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = World;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = "normal with debug";
+		};
+		5234B67C0E78286000F02D95 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = World;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		5234B6B70E78286000F02D95 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH)";
+				BUILD_VARIANTS = debug;
+				CURRENT_PROJECT_VERSION = 36160;
+				FRAMEWORK_SEARCH_PATHS = (
+					"${BUILT_PRODUCTS_DIR}",
+					/usr/local/SecurityPieces/Components/Security,
+					/usr/local/SecurityPieces/Frameworks,
+				);
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"PCSC_DEBUG=1",
+					"USE_SYSLOG=1",
+					"USE_DAEMON=1",
+				);
+				HEADER_SEARCH_PATHS = (
+					/System/Library/Frameworks/CoreFoundation.framework/Headers,
+					/System/Library/Frameworks/IOKit.framework/Headers/usb,
+					/System/Library/Frameworks/IOKit.framework/Headers,
+				);
+				INSTALL_PATH = /usr/sbin;
+				ONLY_ACTIVE_ARCH = NO;
+				OPT_CPPXFLAGS = "$(OPT_CXFLAGS)";
+				OPT_CXFLAGS = "-DNDEBUG  $(OPT_INLINEXFLAGS)";
+				OPT_INLINEXFLAGS = "-finline-functions";
+				OPT_LDXFLAGS = "-dead_strip";
+				OPT_LDXNOPIC = ",_nopic";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS = "";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS)  -fno-inline";
+				OTHER_CFLAGS_normal = "$(OPT_CXFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "$(OPT_CXFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CPLUSPLUSFLAGS) -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS) -framework Security,_debug -framework securityd_client,_debug -framework security_cdsa_client,_debug -framework security_cdsa_utilities,_debug -framework security_utilities,_debug";
+				OTHER_LDFLAGS_normal = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -framework Security -framework securityd_client$(OPT_LDXNOPIC) -framework security_cdsa_client$(OPT_LDXNOPIC) -framework security_cdsa_utilities$(OPT_LDXNOPIC) -framework security_utilities$(OPT_LDXNOPIC)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -pg -framework Security,_profile -framework securityd_client,_profile -framework security_cdsa_client,_profile -framework security_cdsa_utilities,_profile -framework security_utilities,_profile";
+				PRODUCT_NAME = pcscd;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "i386 ppc ppc64 ppc7400 ppc970 x86_64";
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		5234B6B80E78286000F02D95 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH)";
+				BUILD_VARIANTS = (
+					normal,
+					debug,
+				);
+				CURRENT_PROJECT_VERSION = 36160;
+				FRAMEWORK_SEARCH_PATHS = (
+					"${BUILT_PRODUCTS_DIR}",
+					/usr/local/SecurityPieces/Components/Security,
+					/usr/local/SecurityPieces/Frameworks,
+				);
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"PCSC_DEBUG=1",
+					"USE_SYSLOG=1",
+					"USE_DAEMON=1",
+				);
+				HEADER_SEARCH_PATHS = (
+					/System/Library/Frameworks/CoreFoundation.framework/Headers,
+					/System/Library/Frameworks/IOKit.framework/Headers/usb,
+					/System/Library/Frameworks/IOKit.framework/Headers,
+				);
+				INSTALL_PATH = /usr/sbin;
+				ONLY_ACTIVE_ARCH = NO;
+				OPT_CPPXFLAGS = "$(OPT_CXFLAGS)";
+				OPT_CXFLAGS = "-DNDEBUG  $(OPT_INLINEXFLAGS)";
+				OPT_INLINEXFLAGS = "-finline-functions";
+				OPT_LDXFLAGS = "-dead_strip";
+				OPT_LDXNOPIC = ",_nopic";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS = "";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -fno-inline";
+				OTHER_CFLAGS_normal = "$(OPT_CXFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "$(OPT_CXFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CPLUSPLUSFLAGS) -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS) -framework Security,_debug -framework securityd_client,_debug -framework security_cdsa_client,_debug -framework security_cdsa_utilities,_debug -framework security_utilities,_debug";
+				OTHER_LDFLAGS_normal = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -framework Security -framework securityd_client$(OPT_LDXNOPIC) -framework security_cdsa_client$(OPT_LDXNOPIC) -framework security_cdsa_utilities$(OPT_LDXNOPIC) -framework security_utilities$(OPT_LDXNOPIC)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -pg -framework Security,_profile -framework securityd_client,_profile -framework security_cdsa_client,_profile -framework security_cdsa_utilities,_profile -framework security_utilities,_profile";
+				PRODUCT_NAME = pcscd;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "i386 ppc ppc64 ppc7400 ppc970 x86_64";
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		5234B6B90E78286000F02D95 /* normal with debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH)";
+				BUILD_VARIANTS = normal;
+				CURRENT_PROJECT_VERSION = 36160;
+				FRAMEWORK_SEARCH_PATHS = (
+					"${BUILT_PRODUCTS_DIR}",
+					/usr/local/SecurityPieces/Components/Security,
+					/usr/local/SecurityPieces/Frameworks,
+				);
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"PCSC_DEBUG=1",
+					"USE_SYSLOG=1",
+					"USE_DAEMON=1",
+				);
+				HEADER_SEARCH_PATHS = (
+					/System/Library/Frameworks/CoreFoundation.framework/Headers,
+					/System/Library/Frameworks/IOKit.framework/Headers/usb,
+					/System/Library/Frameworks/IOKit.framework/Headers,
+				);
+				INSTALL_PATH = /usr/sbin;
+				ONLY_ACTIVE_ARCH = NO;
+				OPT_CPPXFLAGS = "$(OPT_CXFLAGS)";
+				OPT_CXFLAGS = "-DNDEBUG  $(OPT_INLINEXFLAGS)";
+				OPT_INLINEXFLAGS = "-finline-functions";
+				OPT_LDFLAGS = "";
+				OPT_LDXFLAGS = "";
+				OPT_LDXNOPIC = "";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS = "";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS)  -fno-inline";
+				OTHER_CFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG  -fno-inline";
+				OTHER_CFLAGS_profile = "$(OPT_CXFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CPLUSPLUSFLAGS)  -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG  -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS) -framework Security,_debug -framework securityd_client,_debug -framework security_cdsa_client,_debug -framework security_cdsa_utilities,_debug -framework security_utilities,_debug";
+				OTHER_LDFLAGS_normal = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -framework Security -framework securityd_client$(OPT_LDXNOPIC) -framework security_cdsa_client$(OPT_LDXNOPIC) -framework security_cdsa_utilities$(OPT_LDXNOPIC) -framework security_utilities$(OPT_LDXNOPIC)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -pg -framework Security,_profile -framework securityd_client,_profile -framework security_cdsa_client,_profile -framework security_cdsa_utilities,_profile -framework security_utilities,_profile";
+				PREBINDING = NO;
+				PRODUCT_NAME = pcscd;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "i386 ppc ppc64 ppc7400 ppc970 x86_64";
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = "normal with debug";
+		};
+		5234B6BA0E78286000F02D95 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH)";
+				BUILD_VARIANTS = (
+					normal,
+					debug,
+				);
+				CURRENT_PROJECT_VERSION = 36160;
+				FRAMEWORK_SEARCH_PATHS = (
+					"${BUILT_PRODUCTS_DIR}",
+					/usr/local/SecurityPieces/Components/Security,
+					/usr/local/SecurityPieces/Frameworks,
+				);
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"PCSC_DEBUG=1",
+					"USE_SYSLOG=1",
+					"USE_DAEMON=1",
+				);
+				HEADER_SEARCH_PATHS = (
+					/System/Library/Frameworks/CoreFoundation.framework/Headers,
+					/System/Library/Frameworks/IOKit.framework/Headers/usb,
+					/System/Library/Frameworks/IOKit.framework/Headers,
+				);
+				INSTALL_PATH = /usr/sbin;
+				ONLY_ACTIVE_ARCH = NO;
+				OPT_CPPXFLAGS = "$(OPT_CXFLAGS)";
+				OPT_CXFLAGS = "-DNDEBUG  $(OPT_INLINEXFLAGS)";
+				OPT_INLINEXFLAGS = "-finline-functions";
+				OPT_LDXFLAGS = "-dead_strip";
+				OPT_LDXNOPIC = ",_nopic";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS = "";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS)  -fno-inline";
+				OTHER_CFLAGS_normal = "$(OPT_CXFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "$(OPT_CXFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CPLUSPLUSFLAGS)  -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS) -framework Security,_debug -framework securityd_client,_debug -framework security_cdsa_client,_debug -framework security_cdsa_utilities,_debug -framework security_utilities,_debug";
+				OTHER_LDFLAGS_normal = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -framework Security -framework securityd_client$(OPT_LDXNOPIC) -framework security_cdsa_client$(OPT_LDXNOPIC) -framework security_cdsa_utilities$(OPT_LDXNOPIC) -framework security_utilities$(OPT_LDXNOPIC)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -pg -framework Security,_profile -framework securityd_client,_profile -framework security_cdsa_client,_profile -framework security_cdsa_utilities,_profile -framework security_utilities,_profile";
+				PRODUCT_NAME = pcscd;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "i386 ppc ppc64 ppc7400 ppc970 x86_64";
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		5234B6DB0E78286000F02D95 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = debug;
+				CURRENT_PROJECT_VERSION = 36160;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 34733;
-				EXPORTED_SYMBOLS_FILE = "\"$(SRCROOT)/src/PCSC/PCSC.exp\"";
+				DYLIB_CURRENT_VERSION = 36160;
+				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/src/PCSC/PCSC.exp";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					/usr/local/SecurityPieces/Frameworks,
 				);
 				FRAMEWORK_VERSION = A;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"PCSC_DEBUG=1",
+					"USE_SYSLOG=1",
+					"USE_DAEMON=1",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				INFOPLIST_FILE = "Info-PCSC.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
-				OPTIMIZATION_CFLAGS = "-O0";
-				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
+				OPT_CFLAGS = "-DNDEBUG  $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
 				OPT_INLINEFLAGS = "-finline-functions";
 				OPT_LDFLAGS = "-dead_strip";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CFLAGS = (
-					"-DPCSC_DEBUG=1",
-					"-DUSE_SYSLOG=1",
-					"-DUSE_DAEMON=1",
-				);
-				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS = "";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -fno-inline";
 				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
 				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
-				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS)  -fno-inline";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
 				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
@@ -1432,40 +1045,42 @@
 			};
 			name = Development;
 		};
-		C27AD1C30987FCDB001272E0 /* Deployment */ = {
+		5234B6DC0E78286000F02D95 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = (
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 34733;
+				CURRENT_PROJECT_VERSION = 36160;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 34733;
-				EXPORTED_SYMBOLS_FILE = "\"$(SRCROOT)/src/PCSC/PCSC.exp\"";
+				DYLIB_CURRENT_VERSION = 36160;
+				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/src/PCSC/PCSC.exp";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					/usr/local/SecurityPieces/Frameworks,
 				);
 				FRAMEWORK_VERSION = A;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"PCSC_DEBUG=1",
+					"USE_SYSLOG=1",
+					"USE_DAEMON=1",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				INFOPLIST_FILE = "Info-PCSC.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
-				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
+				OPT_CFLAGS = "-DNDEBUG  $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
 				OPT_INLINEFLAGS = "-finline-functions";
 				OPT_LDFLAGS = "-dead_strip";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CFLAGS = (
-					"-DPCSC_DEBUG=1",
-					"-DUSE_SYSLOG=1",
-					"-DUSE_DAEMON=1",
-				);
-				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS = "";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS)  -fno-inline";
 				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
 				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
-				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS)  -fno-inline";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
 				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
@@ -1483,21 +1098,28 @@
 			};
 			name = Deployment;
 		};
-		C27AD1C40987FCDB001272E0 /* normal with debug */ = {
+		5234B6DD0E78286000F02D95 /* normal with debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = normal;
-				CURRENT_PROJECT_VERSION = 34733;
+				CURRENT_PROJECT_VERSION = 36160;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 34733;
-				EXPORTED_SYMBOLS_FILE = "\"$(SRCROOT)/src/PCSC/PCSC.exp\"";
+				DYLIB_CURRENT_VERSION = 36160;
+				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/src/PCSC/PCSC.exp";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					/usr/local/SecurityPieces/Frameworks,
 				);
 				FRAMEWORK_VERSION = A;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"PCSC_DEBUG=1",
+					"USE_SYSLOG=1",
+					"USE_DAEMON=1",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				INFOPLIST_FILE = "Info-PCSC.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
-				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
+				OPT_CFLAGS = "-DNDEBUG  $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
 				OPT_INLINEFLAGS = "-finline-functions";
 				OPT_LDFLAGS = "";
@@ -1506,16 +1128,12 @@
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG";
 				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CFLAGS = (
-					"-DPCSC_DEBUG=1",
-					"-DUSE_SYSLOG=1",
-					"-DUSE_DAEMON=1",
-				);
-				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG -O0 -fno-inline";
+				OTHER_CFLAGS = "";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS)  -fno-inline";
+				OTHER_CFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG  -fno-inline";
 				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
-				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG  -fno-inline";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
 				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
@@ -1533,39 +1151,42 @@
 			};
 			name = "normal with debug";
 		};
-		C27AD1C50987FCDB001272E0 /* Default */ = {
+		5234B6DE0E78286000F02D95 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = (
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 34733;
+				CURRENT_PROJECT_VERSION = 36160;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 34733;
-				EXPORTED_SYMBOLS_FILE = "\"$(SRCROOT)/src/PCSC/PCSC.exp\"";
+				DYLIB_CURRENT_VERSION = 36160;
+				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/src/PCSC/PCSC.exp";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					/usr/local/SecurityPieces/Frameworks,
 				);
 				FRAMEWORK_VERSION = A;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"PCSC_DEBUG=1",
+					"USE_SYSLOG=1",
+					"USE_DAEMON=1",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				INFOPLIST_FILE = "Info-PCSC.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
-				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
+				OPT_CFLAGS = "-DNDEBUG  $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
 				OPT_INLINEFLAGS = "-finline-functions";
 				OPT_LDFLAGS = "-dead_strip";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CFLAGS = (
-					"-DPCSC_DEBUG=1",
-					"-DUSE_SYSLOG=1",
-					"-DUSE_DAEMON=1",
-				);
-				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS = "";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS)  -fno-inline";
 				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
 				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
-				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS)  -fno-inline";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
 				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
@@ -1582,230 +1203,16 @@
 			};
 			name = Default;
 		};
-		C27AD1C70987FCDB001272E0 /* Development */ = {
+		5234B6E80E78286000F02D95 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 34733;
-				FRAMEWORK_SEARCH_PATHS = (
-					"${BUILT_PRODUCTS_DIR}",
-					/usr/local/SecurityPieces/Components/Security,
-					/usr/local/SecurityPieces/Frameworks,
-				);
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				HEADER_SEARCH_PATHS = (
-					/System/Library/Frameworks/CoreFoundation.framework/Headers,
-					/System/Library/Frameworks/IOKit.framework/Headers/usb,
-					/System/Library/Frameworks/IOKit.framework/Headers,
-				);
-				INSTALL_PATH = /usr/sbin;
-				OPTIMIZATION_CFLAGS = "-O0";
-				OPT_CPPXFLAGS = "$(OPT_CXFLAGS)";
-				OPT_CXFLAGS = "-DNDEBUG -Os $(OPT_INLINEXFLAGS)";
-				OPT_INLINEXFLAGS = "-finline-functions";
-				OPT_LDXFLAGS = "-dead_strip";
-				OPT_LDXNOPIC = ",_nopic";
-				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CFLAGS = (
-					"-DPCSC_DEBUG=1",
-					"-DUSE_SYSLOG=1",
-					"-DUSE_DAEMON=1",
-				);
-				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CFLAGS_normal = "$(OPT_CXFLAGS) $(OTHER_CFLAGS)";
-				OTHER_CFLAGS_profile = "$(OPT_CXFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CPLUSPLUSFLAGS) -O0 -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS)";
-				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS) -framework Security,_debug -framework securityd_client,_debug -framework security_cdsa_client,_debug -framework security_cdsa_utilities,_debug -framework security_utilities,_debug";
-				OTHER_LDFLAGS_normal = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -framework Security -framework securityd_client$(OPT_LDXNOPIC) -framework security_cdsa_client$(OPT_LDXNOPIC) -framework security_cdsa_utilities$(OPT_LDXNOPIC) -framework security_utilities$(OPT_LDXNOPIC)";
-				OTHER_LDFLAGS_profile = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -pg -framework Security,_profile -framework securityd_client,_profile -framework security_cdsa_client,_profile -framework security_cdsa_utilities,_profile -framework security_utilities,_profile";
-				PRODUCT_NAME = pcscd;
-				SECTORDER_FLAGS = "";
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		C27AD1C80987FCDB001272E0 /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_VARIANTS = (
-					normal,
-					debug,
-				);
-				CURRENT_PROJECT_VERSION = 34733;
-				FRAMEWORK_SEARCH_PATHS = (
-					"${BUILT_PRODUCTS_DIR}",
-					/usr/local/SecurityPieces/Components/Security,
-					/usr/local/SecurityPieces/Frameworks,
-				);
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				HEADER_SEARCH_PATHS = (
-					/System/Library/Frameworks/CoreFoundation.framework/Headers,
-					/System/Library/Frameworks/IOKit.framework/Headers/usb,
-					/System/Library/Frameworks/IOKit.framework/Headers,
-				);
-				INSTALL_PATH = /usr/sbin;
-				OPT_CPPXFLAGS = "$(OPT_CXFLAGS)";
-				OPT_CXFLAGS = "-DNDEBUG -Os $(OPT_INLINEXFLAGS)";
-				OPT_INLINEXFLAGS = "-finline-functions";
-				OPT_LDXFLAGS = "-dead_strip";
-				OPT_LDXNOPIC = ",_nopic";
-				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CFLAGS = (
-					"-DPCSC_DEBUG=1",
-					"-DUSE_SYSLOG=1",
-					"-DUSE_DAEMON=1",
-				);
-				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CFLAGS_normal = "$(OPT_CXFLAGS) $(OTHER_CFLAGS)";
-				OTHER_CFLAGS_profile = "$(OPT_CXFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CPLUSPLUSFLAGS) -O0 -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS)";
-				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS) -framework Security,_debug -framework securityd_client,_debug -framework security_cdsa_client,_debug -framework security_cdsa_utilities,_debug -framework security_utilities,_debug";
-				OTHER_LDFLAGS_normal = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -framework Security -framework securityd_client$(OPT_LDXNOPIC) -framework security_cdsa_client$(OPT_LDXNOPIC) -framework security_cdsa_utilities$(OPT_LDXNOPIC) -framework security_utilities$(OPT_LDXNOPIC)";
-				OTHER_LDFLAGS_profile = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -pg -framework Security,_profile -framework securityd_client,_profile -framework security_cdsa_client,_profile -framework security_cdsa_utilities,_profile -framework security_utilities,_profile";
-				PRODUCT_NAME = pcscd;
-				SECTORDER_FLAGS = "";
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		C27AD1C90987FCDB001272E0 /* normal with debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_VARIANTS = normal;
-				CURRENT_PROJECT_VERSION = 34733;
-				FRAMEWORK_SEARCH_PATHS = (
-					"${BUILT_PRODUCTS_DIR}",
-					/usr/local/SecurityPieces/Components/Security,
-					/usr/local/SecurityPieces/Frameworks,
-				);
-				HEADER_SEARCH_PATHS = (
-					/System/Library/Frameworks/CoreFoundation.framework/Headers,
-					/System/Library/Frameworks/IOKit.framework/Headers/usb,
-					/System/Library/Frameworks/IOKit.framework/Headers,
-				);
-				INSTALL_PATH = /usr/sbin;
-				OPT_CPPXFLAGS = "$(OPT_CXFLAGS)";
-				OPT_CXFLAGS = "-DNDEBUG -Os $(OPT_INLINEXFLAGS)";
-				OPT_INLINEXFLAGS = "-finline-functions";
-				OPT_LDFLAGS = "";
-				OPT_LDXFLAGS = "";
-				OPT_LDXNOPIC = "";
-				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG";
-				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CFLAGS = (
-					"-DPCSC_DEBUG=1",
-					"-DUSE_SYSLOG=1",
-					"-DUSE_DAEMON=1",
-				);
-				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG -O0 -fno-inline";
-				OTHER_CFLAGS_profile = "$(OPT_CXFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CPLUSPLUSFLAGS) -O0 -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG -O0 -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS) -framework Security,_debug -framework securityd_client,_debug -framework security_cdsa_client,_debug -framework security_cdsa_utilities,_debug -framework security_utilities,_debug";
-				OTHER_LDFLAGS_normal = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -framework Security -framework securityd_client$(OPT_LDXNOPIC) -framework security_cdsa_client$(OPT_LDXNOPIC) -framework security_cdsa_utilities$(OPT_LDXNOPIC) -framework security_utilities$(OPT_LDXNOPIC)";
-				OTHER_LDFLAGS_profile = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -pg -framework Security,_profile -framework securityd_client,_profile -framework security_cdsa_client,_profile -framework security_cdsa_utilities,_profile -framework security_utilities,_profile";
-				PREBINDING = NO;
-				PRODUCT_NAME = pcscd;
-				SECTORDER_FLAGS = "";
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = "normal with debug";
-		};
-		C27AD1CA0987FCDB001272E0 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_VARIANTS = (
-					normal,
-					debug,
-				);
-				CURRENT_PROJECT_VERSION = 34733;
-				FRAMEWORK_SEARCH_PATHS = (
-					"${BUILT_PRODUCTS_DIR}",
-					/usr/local/SecurityPieces/Components/Security,
-					/usr/local/SecurityPieces/Frameworks,
-				);
-				HEADER_SEARCH_PATHS = (
-					/System/Library/Frameworks/CoreFoundation.framework/Headers,
-					/System/Library/Frameworks/IOKit.framework/Headers/usb,
-					/System/Library/Frameworks/IOKit.framework/Headers,
-				);
-				INSTALL_PATH = /usr/sbin;
-				OPT_CPPXFLAGS = "$(OPT_CXFLAGS)";
-				OPT_CXFLAGS = "-DNDEBUG -Os $(OPT_INLINEXFLAGS)";
-				OPT_INLINEXFLAGS = "-finline-functions";
-				OPT_LDXFLAGS = "-dead_strip";
-				OPT_LDXNOPIC = ",_nopic";
-				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CFLAGS = (
-					"-DPCSC_DEBUG=1",
-					"-DUSE_SYSLOG=1",
-					"-DUSE_DAEMON=1",
-				);
-				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CFLAGS_normal = "$(OPT_CXFLAGS) $(OTHER_CFLAGS)";
-				OTHER_CFLAGS_profile = "$(OPT_CXFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CPLUSPLUSFLAGS) -O0 -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS)";
-				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS) -framework Security,_debug -framework securityd_client,_debug -framework security_cdsa_client,_debug -framework security_cdsa_utilities,_debug -framework security_utilities,_debug";
-				OTHER_LDFLAGS_normal = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -framework Security -framework securityd_client$(OPT_LDXNOPIC) -framework security_cdsa_client$(OPT_LDXNOPIC) -framework security_cdsa_utilities$(OPT_LDXNOPIC) -framework security_utilities$(OPT_LDXNOPIC)";
-				OTHER_LDFLAGS_profile = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -pg -framework Security,_profile -framework securityd_client,_profile -framework security_cdsa_client,_profile -framework security_cdsa_utilities,_profile -framework security_utilities,_profile";
-				PRODUCT_NAME = pcscd;
-				SECTORDER_FLAGS = "";
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = Default;
-		};
-		C27AD1CC0987FCDB001272E0 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 34733;
+				CURRENT_PROJECT_VERSION = 36160;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = /usr/bin;
-				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1822,12 +1229,11 @@
 			};
 			name = Development;
 		};
-		C27AD1CD0987FCDB001272E0 /* Deployment */ = {
+		5234B6E90E78286000F02D95 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 34733;
+				CURRENT_PROJECT_VERSION = 36160;
 				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				INSTALL_PATH = /usr/bin;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -1845,11 +1251,11 @@
 			};
 			name = Deployment;
 		};
-		C27AD1CE0987FCDB001272E0 /* normal with debug */ = {
+		5234B6EA0E78286000F02D95 /* normal with debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = normal;
-				CURRENT_PROJECT_VERSION = 34733;
+				CURRENT_PROJECT_VERSION = 36160;
 				FRAMEWORK_SEARCH_PATHS = "";
 				INSTALL_PATH = /usr/bin;
 				OPT_LDFLAGS = "";
@@ -1857,8 +1263,8 @@
 				OPT_LDXNOPIC = "";
 				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG";
 				OTHER_CFLAGS = "";
-				OTHER_CFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG -O0 -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG  -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG -fno-inline";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PREBINDING = NO;
@@ -1874,10 +1280,10 @@
 			};
 			name = "normal with debug";
 		};
-		C27AD1CF0987FCDC001272E0 /* Default */ = {
+		5234B6EB0E78286000F02D95 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 34733;
+				CURRENT_PROJECT_VERSION = 36160;
 				FRAMEWORK_SEARCH_PATHS = "";
 				INSTALL_PATH = /usr/bin;
 				OTHER_CFLAGS = "";
@@ -1895,18 +1301,16 @@
 			};
 			name = Default;
 		};
-		C27AD1D10987FCDC001272E0 /* Development */ = {
+		5234B6F50E78286000F02D95 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 34733;
+				CURRENT_PROJECT_VERSION = 36160;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = /usr/bin;
-				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1923,12 +1327,11 @@
 			};
 			name = Development;
 		};
-		C27AD1D20987FCDC001272E0 /* Deployment */ = {
+		5234B6F60E78286000F02D95 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 34733;
+				CURRENT_PROJECT_VERSION = 36160;
 				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				INSTALL_PATH = /usr/bin;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -1946,11 +1349,11 @@
 			};
 			name = Deployment;
 		};
-		C27AD1D30987FCDC001272E0 /* normal with debug */ = {
+		5234B6F70E78286000F02D95 /* normal with debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = normal;
-				CURRENT_PROJECT_VERSION = 34733;
+				CURRENT_PROJECT_VERSION = 36160;
 				FRAMEWORK_SEARCH_PATHS = "";
 				INSTALL_PATH = /usr/bin;
 				OPT_LDFLAGS = "";
@@ -1958,8 +1361,8 @@
 				OPT_LDXNOPIC = "";
 				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG";
 				OTHER_CFLAGS = "";
-				OTHER_CFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG -O0 -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG  -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG  -fno-inline";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PREBINDING = NO;
@@ -1975,10 +1378,10 @@
 			};
 			name = "normal with debug";
 		};
-		C27AD1D40987FCDC001272E0 /* Default */ = {
+		5234B6F80E78286000F02D95 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 34733;
+				CURRENT_PROJECT_VERSION = 36160;
 				FRAMEWORK_SEARCH_PATHS = "";
 				INSTALL_PATH = /usr/bin;
 				OTHER_CFLAGS = "";
@@ -1996,496 +1399,27 @@
 			};
 			name = Default;
 		};
-		C27AD1D60987FCDC001272E0 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 34733;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				INSTALL_PATH = /usr/libexec/SmartCardServices/pkcs11;
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "-lcrypto";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = pkcs11;
-				SECTORDER_FLAGS = "";
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = bundle;
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		C27AD1D70987FCDC001272E0 /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CURRENT_PROJECT_VERSION = 34733;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				INSTALL_PATH = /usr/libexec/SmartCardServices/pkcs11;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "-lcrypto";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = pkcs11;
-				SECTORDER_FLAGS = "";
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = bundle;
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		C27AD1D80987FCDC001272E0 /* normal with debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_VARIANTS = normal;
-				CURRENT_PROJECT_VERSION = 34733;
-				INSTALL_PATH = /usr/libexec/SmartCardServices/pkcs11;
-				OPT_LDFLAGS = "";
-				OPT_LDXFLAGS = "";
-				OPT_LDXNOPIC = "";
-				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG";
-				OTHER_CFLAGS = "";
-				OTHER_CFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG -O0 -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG -O0 -fno-inline";
-				OTHER_LDFLAGS = "-lcrypto";
-				OTHER_REZFLAGS = "";
-				PREBINDING = NO;
-				PRODUCT_NAME = pkcs11;
-				SECTORDER_FLAGS = "";
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = bundle;
-			};
-			name = "normal with debug";
-		};
-		C27AD1D90987FCDC001272E0 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CURRENT_PROJECT_VERSION = 34733;
-				INSTALL_PATH = /usr/libexec/SmartCardServices/pkcs11;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "-lcrypto";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = pkcs11;
-				SECTORDER_FLAGS = "";
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = bundle;
-			};
-			name = Default;
-		};
-		C27AD1DB0987FCDC001272E0 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 34733;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				INSTALL_PATH = /usr/libexec/SmartCardServices/services;
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "-DMSC_TARGET_OSX=1";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = mscMuscleCard;
-				SECTORDER_FLAGS = "";
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = bundle;
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		C27AD1DC0987FCDC001272E0 /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CURRENT_PROJECT_VERSION = 34733;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				INSTALL_PATH = /usr/libexec/SmartCardServices/services;
-				OTHER_CFLAGS = "-DMSC_TARGET_OSX=1";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = mscMuscleCard;
-				SECTORDER_FLAGS = "";
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = bundle;
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		C27AD1DD0987FCDC001272E0 /* normal with debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_VARIANTS = normal;
-				CURRENT_PROJECT_VERSION = 34733;
-				INSTALL_PATH = /usr/libexec/SmartCardServices/services;
-				OPT_LDFLAGS = "";
-				OPT_LDXFLAGS = "";
-				OPT_LDXNOPIC = "";
-				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG";
-				OTHER_CFLAGS = "-DMSC_TARGET_OSX=1";
-				OTHER_CFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG -O0 -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG -O0 -fno-inline";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PREBINDING = NO;
-				PRODUCT_NAME = mscMuscleCard;
-				SECTORDER_FLAGS = "";
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = bundle;
-			};
-			name = "normal with debug";
-		};
-		C27AD1DE0987FCDC001272E0 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CURRENT_PROJECT_VERSION = 34733;
-				INSTALL_PATH = /usr/libexec/SmartCardServices/services;
-				OTHER_CFLAGS = "-DMSC_TARGET_OSX=1";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = mscMuscleCard;
-				SECTORDER_FLAGS = "";
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = bundle;
-			};
-			name = Default;
-		};
-		C27AD1E00987FCDC001272E0 /* Development */ = {
+		5234B72A0E78286000F02D95 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				INSTALL_PATH = /usr/libexec/SmartCardServices/services;
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "-DMSC_TARGET_OSX=1";
-				PRODUCT_NAME = GSCISPlugin;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = bundle;
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		C27AD1E10987FCDC001272E0 /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				INSTALL_PATH = /usr/libexec/SmartCardServices/services;
-				OTHER_CFLAGS = "-DMSC_TARGET_OSX=1";
-				PRODUCT_NAME = GSCISPlugin;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = bundle;
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		C27AD1E20987FCDC001272E0 /* normal with debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_VARIANTS = normal;
-				INSTALL_PATH = /usr/libexec/SmartCardServices/services;
-				OPT_LDFLAGS = "";
-				OPT_LDXFLAGS = "";
-				OPT_LDXNOPIC = "";
-				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG";
-				OTHER_CFLAGS = "-DMSC_TARGET_OSX=1";
-				OTHER_CFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG -O0 -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG -O0 -fno-inline";
-				PREBINDING = NO;
-				PRODUCT_NAME = GSCISPlugin;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = bundle;
-			};
-			name = "normal with debug";
-		};
-		C27AD1E30987FCDC001272E0 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				INSTALL_PATH = /usr/libexec/SmartCardServices/services;
-				OTHER_CFLAGS = "-DMSC_TARGET_OSX=1";
-				PRODUCT_NAME = GSCISPlugin;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = bundle;
-			};
-			name = Default;
-		};
-		C27AD1E50987FCDC001272E0 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 34733;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				INSTALL_PATH = /usr/libexec/SmartCardServices/services;
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "-DMSC_TARGET_OSX=1";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = commonAccessCard;
-				SECTORDER_FLAGS = "";
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = bundle;
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		C27AD1E60987FCDC001272E0 /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CURRENT_PROJECT_VERSION = 34733;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				INSTALL_PATH = /usr/libexec/SmartCardServices/services;
-				OTHER_CFLAGS = "-DMSC_TARGET_OSX=1";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = commonAccessCard;
-				SECTORDER_FLAGS = "";
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = bundle;
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		C27AD1E70987FCDC001272E0 /* normal with debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_VARIANTS = normal;
-				CURRENT_PROJECT_VERSION = 34733;
-				INSTALL_PATH = /usr/libexec/SmartCardServices/services;
-				OPT_LDFLAGS = "";
-				OPT_LDXFLAGS = "";
-				OPT_LDXNOPIC = "";
-				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG";
-				OTHER_CFLAGS = "-DMSC_TARGET_OSX=1";
-				OTHER_CFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG -O0 -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG -O0 -fno-inline";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PREBINDING = NO;
-				PRODUCT_NAME = commonAccessCard;
-				SECTORDER_FLAGS = "";
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = bundle;
-			};
-			name = "normal with debug";
-		};
-		C27AD1E80987FCDC001272E0 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CURRENT_PROJECT_VERSION = 34733;
-				INSTALL_PATH = /usr/libexec/SmartCardServices/services;
-				OTHER_CFLAGS = "-DMSC_TARGET_OSX=1";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = commonAccessCard;
-				SECTORDER_FLAGS = "";
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = bundle;
-			};
-			name = Default;
-		};
-		C27AD1EA0987FCDC001272E0 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 34733;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				INSTALL_PATH = /usr/libexec/SmartCardServices/services;
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "-DMSC_TARGET_OSX=1";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = slbCryptoflex;
-				SECTORDER_FLAGS = "";
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = bundle;
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		C27AD1EB0987FCDC001272E0 /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CURRENT_PROJECT_VERSION = 34733;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				INSTALL_PATH = /usr/libexec/SmartCardServices/services;
-				OTHER_CFLAGS = "-DMSC_TARGET_OSX=1";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = slbCryptoflex;
-				SECTORDER_FLAGS = "";
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = bundle;
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		C27AD1EC0987FCDC001272E0 /* normal with debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_VARIANTS = normal;
-				CURRENT_PROJECT_VERSION = 34733;
-				INSTALL_PATH = /usr/libexec/SmartCardServices/services;
-				OPT_LDFLAGS = "";
-				OPT_LDXFLAGS = "";
-				OPT_LDXNOPIC = "";
-				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG";
-				OTHER_CFLAGS = "-DMSC_TARGET_OSX=1";
-				OTHER_CFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG -O0 -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG -O0 -fno-inline";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PREBINDING = NO;
-				PRODUCT_NAME = slbCryptoflex;
-				SECTORDER_FLAGS = "";
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = bundle;
-			};
-			name = "normal with debug";
-		};
-		C27AD1ED0987FCDC001272E0 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CURRENT_PROJECT_VERSION = 34733;
-				INSTALL_PATH = /usr/libexec/SmartCardServices/services;
-				OTHER_CFLAGS = "-DMSC_TARGET_OSX=1";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = slbCryptoflex;
-				SECTORDER_FLAGS = "";
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = bundle;
-			};
-			name = Default;
-		};
-		C27AD1EF0987FCDC001272E0 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_VARIANTS = debug;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				OPTIMIZATION_CFLAGS = "-O0";
 				PRODUCT_NAME = InstallPhase;
 				ZERO_LINK = YES;
 			};
 			name = Development;
 		};
-		C27AD1F00987FCDC001272E0 /* Deployment */ = {
+		5234B72B0E78286000F02D95 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				PRODUCT_NAME = InstallPhase;
 				ZERO_LINK = NO;
 			};
 			name = Deployment;
 		};
-		C27AD1F10987FCDC001272E0 /* normal with debug */ = {
+		5234B72C0E78286000F02D95 /* normal with debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = normal;
@@ -2493,99 +1427,18 @@
 				OPT_LDXFLAGS = "";
 				OPT_LDXNOPIC = "";
 				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG";
-				OTHER_CFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG -O0 -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG -fno-inline";
 				PREBINDING = NO;
 				PRODUCT_NAME = InstallPhase;
 				SECTORDER_FLAGS = "";
 			};
 			name = "normal with debug";
 		};
-		C27AD1F20987FCDC001272E0 /* Default */ = {
+		5234B72D0E78286000F02D95 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = InstallPhase;
-			};
-			name = Default;
-		};
-		C27AD1F90987FCDC001272E0 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_VARIANTS = debug;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = World;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		C27AD1FA0987FCDC001272E0 /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = World;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		C27AD1FB0987FCDC001272E0 /* normal with debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_VARIANTS = normal;
-				OPT_LDFLAGS = "";
-				OPT_LDXFLAGS = "";
-				OPT_LDXNOPIC = "";
-				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG";
-				OTHER_CFLAGS = "";
-				OTHER_CFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG -O0 -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG -O0 -fno-inline";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PREBINDING = NO;
-				PRODUCT_NAME = World;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = "normal with debug";
-		};
-		C27AD1FC0987FCDC001272E0 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = World;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
 			};
 			name = Default;
 		};
@@ -2624,123 +1477,68 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		C27AD1C10987FCDB001272E0 /* Build configuration list for PBXFrameworkTarget "PCSC" */ = {
+		5234B6780E78286000F02D95 /* Build configuration list for PBXAggregateTarget "World" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				C27AD1C20987FCDB001272E0 /* Development */,
-				C27AD1C30987FCDB001272E0 /* Deployment */,
-				C27AD1C40987FCDB001272E0 /* normal with debug */,
-				C27AD1C50987FCDB001272E0 /* Default */,
+				5234B6790E78286000F02D95 /* Development */,
+				5234B67A0E78286000F02D95 /* Deployment */,
+				5234B67B0E78286000F02D95 /* normal with debug */,
+				5234B67C0E78286000F02D95 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
 		};
-		C27AD1C60987FCDB001272E0 /* Build configuration list for PBXToolTarget "pcscd" */ = {
+		5234B6B60E78286000F02D95 /* Build configuration list for PBXNativeTarget "pcscd" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				C27AD1C70987FCDB001272E0 /* Development */,
-				C27AD1C80987FCDB001272E0 /* Deployment */,
-				C27AD1C90987FCDB001272E0 /* normal with debug */,
-				C27AD1CA0987FCDB001272E0 /* Default */,
+				5234B6B70E78286000F02D95 /* Development */,
+				5234B6B80E78286000F02D95 /* Deployment */,
+				5234B6B90E78286000F02D95 /* normal with debug */,
+				5234B6BA0E78286000F02D95 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
 		};
-		C27AD1CB0987FCDB001272E0 /* Build configuration list for PBXToolTarget "pcsctest" */ = {
+		5234B6DA0E78286000F02D95 /* Build configuration list for PBXNativeTarget "PCSC" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				C27AD1CC0987FCDB001272E0 /* Development */,
-				C27AD1CD0987FCDB001272E0 /* Deployment */,
-				C27AD1CE0987FCDB001272E0 /* normal with debug */,
-				C27AD1CF0987FCDC001272E0 /* Default */,
+				5234B6DB0E78286000F02D95 /* Development */,
+				5234B6DC0E78286000F02D95 /* Deployment */,
+				5234B6DD0E78286000F02D95 /* normal with debug */,
+				5234B6DE0E78286000F02D95 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
 		};
-		C27AD1D00987FCDC001272E0 /* Build configuration list for PBXToolTarget "pcsctool" */ = {
+		5234B6E70E78286000F02D95 /* Build configuration list for PBXNativeTarget "pcsctest" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				C27AD1D10987FCDC001272E0 /* Development */,
-				C27AD1D20987FCDC001272E0 /* Deployment */,
-				C27AD1D30987FCDC001272E0 /* normal with debug */,
-				C27AD1D40987FCDC001272E0 /* Default */,
+				5234B6E80E78286000F02D95 /* Development */,
+				5234B6E90E78286000F02D95 /* Deployment */,
+				5234B6EA0E78286000F02D95 /* normal with debug */,
+				5234B6EB0E78286000F02D95 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
 		};
-		C27AD1D50987FCDC001272E0 /* Build configuration list for PBXBundleTarget "PKCS11" */ = {
+		5234B6F40E78286000F02D95 /* Build configuration list for PBXNativeTarget "pcsctool" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				C27AD1D60987FCDC001272E0 /* Development */,
-				C27AD1D70987FCDC001272E0 /* Deployment */,
-				C27AD1D80987FCDC001272E0 /* normal with debug */,
-				C27AD1D90987FCDC001272E0 /* Default */,
+				5234B6F50E78286000F02D95 /* Development */,
+				5234B6F60E78286000F02D95 /* Deployment */,
+				5234B6F70E78286000F02D95 /* normal with debug */,
+				5234B6F80E78286000F02D95 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
 		};
-		C27AD1DA0987FCDC001272E0 /* Build configuration list for PBXBundleTarget "MCardPlugin" */ = {
+		5234B7290E78286000F02D95 /* Build configuration list for PBXLegacyTarget "InstallPhase" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				C27AD1DB0987FCDC001272E0 /* Development */,
-				C27AD1DC0987FCDC001272E0 /* Deployment */,
-				C27AD1DD0987FCDC001272E0 /* normal with debug */,
-				C27AD1DE0987FCDC001272E0 /* Default */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
-		};
-		C27AD1DF0987FCDC001272E0 /* Build configuration list for PBXBundleTarget "GSCISPlugin" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				C27AD1E00987FCDC001272E0 /* Development */,
-				C27AD1E10987FCDC001272E0 /* Deployment */,
-				C27AD1E20987FCDC001272E0 /* normal with debug */,
-				C27AD1E30987FCDC001272E0 /* Default */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
-		};
-		C27AD1E40987FCDC001272E0 /* Build configuration list for PBXBundleTarget "CACPlugin" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				C27AD1E50987FCDC001272E0 /* Development */,
-				C27AD1E60987FCDC001272E0 /* Deployment */,
-				C27AD1E70987FCDC001272E0 /* normal with debug */,
-				C27AD1E80987FCDC001272E0 /* Default */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
-		};
-		C27AD1E90987FCDC001272E0 /* Build configuration list for PBXBundleTarget "CFlexPlugin" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				C27AD1EA0987FCDC001272E0 /* Development */,
-				C27AD1EB0987FCDC001272E0 /* Deployment */,
-				C27AD1EC0987FCDC001272E0 /* normal with debug */,
-				C27AD1ED0987FCDC001272E0 /* Default */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
-		};
-		C27AD1EE0987FCDC001272E0 /* Build configuration list for PBXLegacyTarget "InstallPhase" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				C27AD1EF0987FCDC001272E0 /* Development */,
-				C27AD1F00987FCDC001272E0 /* Deployment */,
-				C27AD1F10987FCDC001272E0 /* normal with debug */,
-				C27AD1F20987FCDC001272E0 /* Default */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
-		};
-		C27AD1F80987FCDC001272E0 /* Build configuration list for PBXAggregateTarget "World" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				C27AD1F90987FCDC001272E0 /* Development */,
-				C27AD1FA0987FCDC001272E0 /* Deployment */,
-				C27AD1FB0987FCDC001272E0 /* normal with debug */,
-				C27AD1FC0987FCDC001272E0 /* Default */,
+				5234B72A0E78286000F02D95 /* Development */,
+				5234B72B0E78286000F02D95 /* Deployment */,
+				5234B72C0E78286000F02D95 /* normal with debug */,
+				5234B72D0E78286000F02D95 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;

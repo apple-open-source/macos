@@ -1,0 +1,500 @@
+#memory trace on
+# $Id: speedtest.xotcl,v 1.10 2007/08/14 16:38:27 neumann Exp $
+package require XOTcl
+namespace import -force xotcl::*
+lappend auto_path [file dirname [info script]]/..
+package require xotcl::test
+
+@ @File {description {
+  Regression and speed test for various ways to achieve a similar
+  behaviour.
+  }
+}
+Class M1; Class M2
+Class C -parameter {{p 99} {q 98} r}
+C instproc f args {next}
+C instproc init args {
+  my instvar n v
+  for {set i 1} {$i<1000} {incr i} {set n($i) 1}  
+  for {set i 1} {$i<1000} {incr i} {Object [self]::$i}  
+  set v 1
+}
+
+C instproc mixinappend m {
+  my mixin [concat [my info mixin] $m]
+  my info mixin
+}
+C instproc ma m {
+  set mix [my info mixin]
+  my mixin [lappend mix $m]
+  my info mixin
+}
+
+C instproc existsViaInstvar {} {
+  my instvar v 
+  info exists v
+}
+C instproc existsViaMyInstvar {} {
+  my instvar v 
+  info exists v
+}
+C instproc existsViaExistsMethod {}  { 
+  my exists v
+}
+C instproc existsViaMyExistsMethod {}  { 
+  my exists v
+}
+C instproc notExistsViaInstvar {} {
+  my instvar xxx
+  info exists xxx
+}
+C instproc notExistsViaExistsMethod {}  {
+  my exists xxx
+}
+
+C instproc existsAndReturnValue1 {} { 
+  if {[my exists v]} {
+    my set v
+  }
+}
+C instproc existsAndReturnValue3 {} { 
+  if {[my exists v]} {
+    set x [my set v]
+  }
+}
+
+C instproc setViaInstvar x {
+  my instvar v
+  set v $x
+}
+C instproc setViaSetMethod x {
+  my set v $x
+}
+C instproc setViaParameter x {
+  my r $x
+}
+C instproc testAndSetViaInstvar x {
+  my instvar v
+  if {[info exists v]} {set v $x}
+}
+C instproc testAndSetViaSetMethod x {
+  if {[my info vars v] ne ""} {my set v $x}
+}
+
+C instproc readViaInstvar {} {
+  my instvar p
+  set p
+}
+C instproc readViaSetMethod {} {
+  my set p
+}
+C instproc readViaSetMethodNoSelf {} {
+  ::c set p
+}
+C instproc readViaParameter {} {
+  my p
+}
+
+C instproc readTwiceViaInstvar {} {
+  my instvar p
+  set p
+  set p
+}
+C instproc readTwiceViaSetMethod {} {
+  my set p
+  my set p
+}
+C instproc readTwiceViaSetMethodNoSelf {} {
+  ::c set p
+  ::c set p
+}
+C instproc readTwiceViaParameter {} {
+  my p
+  my p
+}
+C instproc readTwovarsViaInstvar {} {
+  my instvar p q
+  set p
+  set q
+}
+C instproc readTwovarsViaSetMethod {} {
+  my set p
+  my set q
+}
+C instproc readTwovarsViaSetMethodNoSelf {} {
+  ::c set p
+  ::c set q
+}
+C instproc readTwovarsViaParameter {} {
+  my p
+  my q
+}
+
+C instproc instvarAlias {} {
+  my instvar {a b}
+  set b 1
+  my exists a
+}
+
+
+C instproc explicitReturn {} {
+  return [set i 1]
+}
+C instproc implicitReturn {} {
+  set i 1
+}
+C instproc explicitReturnFromVar {} {
+  set i 1
+  return $i
+}
+C instproc implicitReturnFromVar {} {
+  set i 1
+  set i
+}
+
+C instproc childNodeNamespace {} {
+  Object [self]::13
+}
+C instproc childNodeNamespaceCreate {} {
+  Object create [self]::13
+}
+C instproc createVolatileRc {} {
+  Object new -volatile
+  return 2
+}
+
+
+C c
+Class D -superclass C
+D instproc init args {}
+D d
+
+
+Test new -cmd {llength [c info children]} -expected 999
+Test new -cmd {llength [Object info instances]} -expected 1006
+
+
+Test new -cmd {d istype D} -expected 1
+
+Test new -cmd {c setViaInstvar 100} -expected 100
+Test new -cmd {c setViaSetMethod 100} -expected 100
+Test new -cmd {c setViaParameter 100} -expected 100
+
+Test new -cmd {c existsViaInstvar}
+Test new -cmd {c existsViaMyInstvar}
+Test new -cmd {c existsViaExistsMethod}
+Test new -cmd {c existsViaMyExistsMethod}
+Test new -cmd {c exists v}
+Test new -cmd {c notExistsViaInstvar}  -expected 0
+Test new -cmd {c notExistsViaExistsMethod} -expected 0
+Test new -cmd {c exists xxx}  -expected 0
+
+Test new -cmd {c existsAndReturnValue1}  -expected 100
+Test new -cmd {c existsAndReturnValue3}  -expected 100
+
+Test new -cmd {c testAndSetViaInstvar 100} -expected 100
+Test new -cmd {c testAndSetViaSetMethod 100} -expected 100
+
+Test new -cmd {c readViaInstvar} -expected 99
+Test new -cmd {c readViaSetMethod} -expected 99
+Test new -cmd {c readViaParameter} -expected 99
+Test new -cmd {c readViaSetMethodNoSelf} -expected 99
+
+Test new -cmd {c readTwiceViaInstvar} -expected 99
+Test new -cmd {c readTwiceViaSetMethod} -expected 99
+Test new -cmd {c readTwiceViaParameter} -expected 99
+Test new -cmd {c readTwiceViaSetMethodNoSelf} -expected 99
+
+Test new -cmd {c readTwovarsViaInstvar} -expected 98
+Test new -cmd {c readTwovarsViaSetMethod} -expected 98
+Test new -cmd {c readTwovarsViaParameter} -expected 98
+Test new -cmd {c readTwovarsViaSetMethodNoSelf} -expected 98
+
+Test new -cmd {c instvarAlias}
+
+Test new -cmd {c incr v} -post {c set v 1} -expected 101
+Test new -cmd {c unset v; set r [c exists v]; c set v 1; set r} -expected 0
+
+Test new -cmd {c explicitReturn}
+Test new -cmd {c implicitReturn}
+Test new -cmd {c explicitReturnFromVar}
+Test new -cmd {c implicitReturnFromVar}
+
+Test new -cmd {c childNodeNamespace} -expected ::c::13
+Test new -cmd {c childNodeNamespaceCreate} -expected ::c::13
+Test new -cmd {c createVolatileRc} -expected 2
+
+Test new -count 1 -cmd {llength [Object info instances]} -expected 1006
+
+Test new -cmd {Object new -volatile} -expected ::xotcl::__\#F9 -count 2000 \
+    -post {foreach o [Object info instances ::xotcl::__*] {$o destroy}} 
+Test new -cmd {Object new} -expected ::xotcl::__\#lQ  -count 2000 \
+    -post {foreach o [Object info instances ::xotcl::__*] {$o destroy}} 
+Test new -cmd {Object new -childof o} -expected ::o::__\#0Hh \
+    -pre {Object o} -post {o destroy}
+
+# should be still the same number as above
+Test new -count 1 -cmd {llength [Object info instances]} -expected 1006
+
+Test new -count 1000 -pre {::set ::count 0} \
+    -cmd {Object create [incr ::count]} \
+    -expected ::1 \
+    -post {::unset ::count}
+Test new -count 1000 -pre {::set ::count 0} \
+    -cmd {[incr ::count] destroy} \
+    -post {::unset ::count} \
+    -expected ""
+Test new -cmd {Object create x} -expected ::x
+Test new -cmd {Object create x -set a -1 -set b ,, -set c a--} \
+    -expected ::x
+Test new -cmd {expr {[c array names n 500] ne ""}}
+Test new -cmd {info exists c::n(500)}
+Test new -cmd {c exists n(500)}
+
+Test new -cmd {llength [c info children]} -expected 999
+Test new -cmd {c info children ::c::500}  -expected ::c::500
+Test new -cmd {llength [Object info instances]} -expected 1007
+
+Test new -cmd {Object info instances ::c::500*} -expected ::c::500
+Test new -cmd {Object info instances ::c::500} -expected ::c::500
+Test new -cmd {Object info instances ::c::5000} -expected ""
+
+Test new -count 100 -pre {set ::c::l ""} \
+    -cmd {lappend ::c::l 1} \
+    -post {c unset l}
+
+Test new \
+    -count 100 \
+    -cmd {c mixinappend M1} \
+    -expected ::M1 \
+    -post {c mixin ""}
+
+Test new \
+    -count 100 \
+    -cmd  {c ma M1} \
+    -expected ::M1 \
+    -post {c mixin ""}
+
+Test new \
+    -count 100 \
+    -cmd  {c mixin add M1} \
+    -expected "" \
+    -post {c mixin ""}
+
+Test new \
+    -count 100 \
+    -cmd {c mixinappend M1; c mixinappend M2} \
+    -expected {::M1 ::M2} \
+    -post {c mixin ""}
+
+Test new \
+    -count 100 \
+    -cmd {c ma M1; c ma M2} \
+    -expected {::M1 ::M2} \
+    -post {c mixin ""}
+
+Test new \
+    -count 100 \
+    -pre {Class D; Class E; Object o -mixin {D E}} \
+    -cmd {o info mixin D} \
+    -expected {::D} \
+    -post {foreach o {D E o} {$o destroy}}
+
+Test new \
+    -count 100 \
+    -pre {Class D; Class E; Object o -mixin {D E}} \
+    -cmd {o info mixin E} \
+    -expected {::E} \
+    -post {foreach o {D E o} {$o destroy}}
+
+Test new \
+    -count 100 \
+    -pre {Class D; Class E; Object o -mixin {D E}} \
+    -cmd {o info mixin ::E*} \
+    -expected {::E} \
+    -post {foreach o {D E o} {$o destroy}}
+
+Test new \
+    -count 100 \
+    -pre {Class D; Class E; Class E1; Object o -mixin {D E E1}} \
+    -cmd {o info mixin ::E*} \
+    -expected {::E ::E1} \
+    -post {foreach o {D E E1 o} {$o destroy}}
+
+Test new \
+    -count 100 \
+    -pre {Class D; Class E; Class X -instmixin {D E}} \
+    -cmd {X info instmixin D} \
+    -expected {::D} \
+    -post {foreach o {D E X} {$o destroy}}
+
+Test new \
+    -count 100 \
+    -pre {Class D; Class E; Class X -instmixin {D E}} \
+    -cmd {X info instmixin E} \
+    -expected {::E} \
+    -post {foreach o {D E X} {$o destroy}}
+
+Test new \
+    -count 100 \
+    -pre {Class D; Class E; Class E1; Class X -instmixin {D E E1}} \
+    -cmd {X info instmixin ::E*} \
+    -expected {::E ::E1} \
+    -post {foreach o {D E E1 X} {$o destroy}}
+
+Test new \
+    -count 100 \
+    -pre {Class D; Class E; Class X -instmixin {D E}} \
+    -cmd {X info instmixin ::E*} \
+    -expected {::E} \
+    -post {foreach o {D E X} {$o destroy}}
+
+Test new \
+    -count 100 \
+    -pre {Class D; Class E; Class X} \
+    -cmd {X instmixin {D E}; X instmixin delete ::E; X info instmixin} \
+    -expected {::D} \
+    -post {foreach o {D E X} {$o destroy}}
+
+Test new \
+    -count 100 \
+    -pre {Class D; Class E; Class X} \
+    -cmd {X instmixin {D E}; X instmixin delete E; X info instmixin} \
+    -expected {::D} \
+    -post {foreach o {D E X} {$o destroy}}
+
+Test new \
+    -count 100 \
+    -pre {Class D; Class E; Class E1; Class X} \
+    -cmd {X instmixin {D E E1}; catch {X instmixin delete ::E*}; X info instmixin} \
+    -expected {::D} \
+    -post {foreach o {D E E1 X} {$o destroy}}
+
+Test new \
+    -count 100 \
+    -pre {Class D; Class E; Class E1; Class X} \
+    -cmd {X instmixin {D E E1}; catch {X instmixin delete E*}; X info instmixin} \
+    -expected {::D} \
+    -post {foreach o {D E E1 X} {$o destroy}}
+
+Test new \
+    -cmd {C instfilter f; C info instfilter} \
+    -expected f \
+    -post {C instfilter ""}
+
+Test new -pre {set s \#hallo} -cmd {string match "\#*" $s}
+Test new -pre {set s \#hallo} -cmd {regexp {^\#} $s}
+Test new -pre {set s \#hallo} -cmd {expr {[string first "\#" $s] == 0}}
+Test new -pre {set s \#hallo} -cmd {expr {[string range $s 0 0] == "\#"}}
+
+Test new -pre {set s \#hallo} -cmd {regexp {^\#.*a} $s}
+Test new -pre {set s \#hallo} -cmd {regexp {^\#.*a.*o} $s}
+Test new -pre {set s \#hallo} -cmd {regexp {^\#.*a(.*)o} $s}
+Test new -pre {set s \#hallo} -cmd {regexp {^\#.*a(.*)o} $s _}
+Test new -pre {set s \#hallo} -cmd {regexp {^\#.*a(.*)o} $s _ out}
+
+Test new -msg {call proc of subobject directly} \
+    -pre {C c2; C c2::o; c2::o proc f a {incr a}} \
+    -cmd {c2::o::f 10} -expected 11 -count 5000 \
+    -post {c2 destroy}
+Test new -msg {call proc of subobject via dispatch} \
+    -pre {C c2; C c2::o; c2::o proc f a {incr a}} \
+    -cmd {c2::o f 10} -expected 11 -count 5000 \
+    -post {c2 destroy}
+Test new -msg {call proc of object and subobject via dispatch} \
+    -pre {C c2; C c2::o; c2::o proc f a {incr a}} \
+    -cmd {c2 o f 10} -expected 11 -count 5000 \
+    -post {c2 destroy}
+
+Test new -msg {dispatch subobject directy via [self]} \
+    -pre {C c2; C c2::o; c2::o proc f a {incr a}; c2 proc t a {[self]::o f $a}} \
+    -cmd {c2 t 12} -expected 13 -count 5000 \
+    -post {c2 destroy}
+Test new -msg {dispatch subobject via my} \
+    -pre {C c2; C c2::o; c2::o proc f a {incr a}; c2 proc t a {my o f $a}} \
+    -cmd {c2 t 12} -expected 13 -count 5000 \
+    -post {c2 destroy}
+
+
+###### insttclcmd tests
+set cnt 10000
+#Test new -msg {call insttclcmd (append) and check created variable} \
+    -pre {Object o} \
+    -cmd {o append X 1; o exists X} -expected 1 \
+    -post {o destroy}
+#Test new -msg {call tclcmd (regexep) and check created variable} \
+    -pre {Object o; o tclcmd regexp} \
+    -cmd {o regexp (a) a _ x; o exists x} -expected 1 -count $cnt \
+    -post {o destroy}
+Test new -msg {call forwarder for (append) and check created variable} \
+    -pre {Object o; o forward append -objscope} \
+    -cmd {o append X 1; o exists X} -expected 1 \
+    -post {o destroy}
+Test new -msg {call forwarder (regexep) and check created variable} \
+    -pre {Object o; o forward regexp -objscope} \
+    -cmd {o regexp (a) a _ x; o exists x} -expected 1 -count $cnt \
+    -post {o destroy}
+Test new -msg {call forwarder to another obj} \
+    -pre {Object o; Object t; o forward set t set; t set x 100} \
+    -cmd {o set x} -expected 100 -count $cnt \
+    -post {o destroy}
+
+set cnt 100000
+Test new -msg {call handcoded incr} \
+    -pre {Class C; C create o; o set x 1} \
+    -cmd {o incr x 77} -expected 78 -count $cnt \
+    -post {o destroy}
+Test new -msg {call incr via instforward} \
+    -pre {Class C; C instforward ::incr -objscope; C create o; o set x 1} \
+    -cmd {o incr x 77} -expected 78 -count $cnt \
+    -post {o destroy}
+Test new -msg {call incr via forward} \
+    -pre {Class C; C create o; o forward ::incr -objscope; o set x 1} \
+    -cmd {o incr x 77} -expected 78 -count $cnt \
+    -post {o destroy}
+set cnt 10000
+Test new -msg {call obj with namespace via forward} \
+    -pre {Object n; Object n::x; Object o -forward ::n::x} \
+    -cmd {o x self} -expected ::n::x -count $cnt \
+    -post {o destroy}
+Test new -msg {call obj with namespace via instforward} \
+    -pre {Object n; Object n::x; Class C; C create o; C instforward ::n::x} \
+    -cmd {o x self} -expected ::n::x -count $cnt \
+    -post {o destroy}
+Test new -msg {call obj with namespace via instforward and mixinclass} \
+    -pre {Object n; Object n::x; Class M -instforward ::n::x; 
+      Class C -instmixin M; C create o } \
+    -cmd {o x self} -expected ::n::x -count $cnt \
+    -post {o destroy}
+Test new -msg {call obj with namespace via instforward and next from proc} \
+    -pre {
+      Object n; Object n::x; 
+      Class C -instforward ::n::x; 
+      C create o -proc x args {next} } \
+    -cmd {o x self} -expected ::n::x -count $cnt \
+    -post {o destroy}
+Test new -msg {call obj with namespace via instforward and next from instproc} \
+    -pre {
+      Object n; Object n::x; 
+      Class C -instforward ::n::x; 
+      Class D -superclass C -instproc x args {next};
+      D create o } \
+    -cmd {o x self} -expected ::n::x -count $cnt \
+    -post {o destroy}
+Test new -msg {call obj with namespace via mixin and instforward and next} \
+    -pre {Object n; Object n::x; 
+      Class M -instforward ::n::x; 
+      Class N -superclass M -instproc x args {next};
+      Class C -instmixin N; C create o} \
+    -cmd {o x self} -expected ::n::x -count $cnt \
+    -post {o destroy}
+Test new -msg {return -code break} \
+    -pre {Class A -instproc br {} {return -code break}; A create a1} \
+    -cmd {catch {a1 br}} -expected 3 -count 2 \
+    -post {A destroy; a1 destroy}
+     
+
+Test run; exit
+
+
+

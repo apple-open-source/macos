@@ -187,7 +187,7 @@ AppleUSBOHCIgtdMemoryBlock::NewMemoryBlock(void)
 	IODMACommand::Segment32		segments;
 	UInt32						numSegments = 1;
 	IOReturn					status = kIOReturnSuccess;
-    UInt32						*block0;
+    uintptr_t					*block0;
     
     if (me)
 	{
@@ -239,7 +239,7 @@ AppleUSBOHCIgtdMemoryBlock::NewMemoryBlock(void)
 				return NULL;
 			}
 			me->_sharedPhysical = segments.fIOVMAddr;
-			block0 = (UInt32*) me->_sharedLogical;
+			block0 = (uintptr_t *) me->_sharedLogical;
 			*block0++ = (uintptr_t)me;
 			*block0 =     kAppleUSBOHCIMemBlockGTD;
 		}
@@ -311,19 +311,30 @@ AppleUSBOHCIgtdMemoryBlock::GetGTDFromPhysical(IOPhysicalAddress addr, UInt32 bl
     IOPhysicalAddress		blockStart;
     AppleUSBOHCIgtdMemoryBlock	*me;
     UInt32			index;
-    
+	
     if (!addr)
 		return NULL;
 	
     blockStart = addr & ~(kOHCIPageSize-1);
     
     if (!blockType)
-		blockType = IOMappedRead32(blockStart + 4);
-    
+	{
+#if defined (__x86_64__)
+		blockType = IOMappedRead64(blockStart + sizeof(uintptr_t));
+#else
+		blockType = IOMappedRead32(blockStart + sizeof(uintptr_t));
+#endif
+    }
+
     if (blockType == kAppleUSBOHCIMemBlockGTD)
     {
+#if defined (__x86_64__)
+		me = (AppleUSBOHCIgtdMemoryBlock*)IOMappedRead64(blockStart);
+#else
 		me = (AppleUSBOHCIgtdMemoryBlock*)IOMappedRead32(blockStart);
+#endif
 		index = ((addr & (kOHCIPageSize-1)) / sizeof(OHCIGeneralTransferDescriptorShared))-1;
+
 		return &me->_gtds[index];
     }
     else if (blockType == kAppleUSBOHCIMemBlockITD)
@@ -376,7 +387,7 @@ AppleUSBOHCIitdMemoryBlock::NewMemoryBlock(void)
 	IODMACommand::Segment32		segments;
 	UInt32						numSegments = 1;
 	IOReturn					status = kIOReturnSuccess;
-    UInt32						*block0;
+    uintptr_t						*block0;
     
     if (me)
 	{
@@ -428,7 +439,7 @@ AppleUSBOHCIitdMemoryBlock::NewMemoryBlock(void)
 				return NULL;
 			}
 			me->_sharedPhysical = segments.fIOVMAddr;
-			block0 = (UInt32*) me->_sharedLogical;
+			block0 = (uintptr_t*) me->_sharedLogical;
 			*block0++ = (uintptr_t)me;
 			*block0 =     kAppleUSBOHCIMemBlockITD;
 		}
@@ -506,11 +517,21 @@ AppleUSBOHCIitdMemoryBlock::GetITDFromPhysical(IOPhysicalAddress addr, UInt32 bl
     blockStart = addr & ~(kOHCIPageSize-1);
 	
     if (!blockType)
-		blockType = IOMappedRead32(blockStart + 4);
+	{
+#if defined (__x86_64__)
+		blockType = IOMappedRead64(blockStart + sizeof(uintptr_t));
+#else
+		blockType = IOMappedRead32(blockStart + sizeof(uintptr_t));
+#endif
+	}
 	
     if (blockType == kAppleUSBOHCIMemBlockITD)
     {
+#if defined (__x86_64__)
+		me = (AppleUSBOHCIitdMemoryBlock*)IOMappedRead64(blockStart);
+#else
 		me = (AppleUSBOHCIitdMemoryBlock*)IOMappedRead32(blockStart);
+#endif
 		index = ((addr & (kOHCIPageSize-1)) / sizeof(OHCIIsochTransferDescriptorShared))-1;
 		return &me->_itds[index];
     }

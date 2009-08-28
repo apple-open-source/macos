@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* This is the contribution to the `default_compilers' array in gcc.c for
    g++.  */
@@ -44,12 +44,10 @@ Boston, MA 02111-1307, USA.  */
 	      %{!save-temps:%{!no-integrated-cpp:%(cpp_unique_options)}}\
 	%(cc1_options) %2 %{+e1*}\
         "/* APPLE LOCAL ss2 */" \
-        -o %g.s %{!o*:--output-pch=%i.gch} %W{o*:--output-pch=%*} %{fsave-repository=*: \n as %a -o %w%* %g.s %A}%V}}}",
+	%{!fsyntax-only:-o %g.s %{!o*:--output-pch=%i.gch} %W{o*:--output-pch=%*} %{fsave-repository=*: \n as %a -o %w%* %g.s %A}%V}}}}",
      CPLUSPLUS_CPP_SPEC, 0, 0},
   {"@c++",
     "%{E|M|MM:cc1plus -E %(cpp_options) %2 %(cpp_debug_options)}\
-    "/* APPLE LOCAL prohibit -arch with -E and -S  */"\
-     %{E|S:%{@:%e-E and -S are not allowed with multiple -arch flags}}\
      %{!E:%{!M:%{!MM:\
        %{save-temps|no-integrated-cpp:cc1plus -E\
 		%(cpp_options) %2 -o %{save-temps:%b.ii} %{!save-temps:%g.ii} \n}\

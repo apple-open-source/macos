@@ -110,7 +110,7 @@ dhcp_print_packet(struct dhcp *dp, int pkt_len)
 }
 
 boolean_t
-dhcp_packet_match(struct bootp * packet, unsigned long xid, 
+dhcp_packet_match(struct bootp * packet, u_int32_t xid, 
 		  u_char hwtype, void * hwaddr, int hwlen)
 {
     int		check_len;

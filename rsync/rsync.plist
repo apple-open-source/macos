@@ -20,6 +20,7 @@
 	<key>OpenSourceModifications</key>
 	<array>
 	  <string>munge-symlinks patch http://rsync.samba.org/ftp/rsync/munge-symlinks-2.6.9.diff</string>
+	  <string>Support for Apple ACL/EA syncing</string>
 	</array>
 </dict>
 </array>

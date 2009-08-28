@@ -1,9 +1,9 @@
 /*
- * "$Id: mantohtml.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: mantohtml.c 7720 2008-07-11 22:46:21Z mike $"
  *
  *   Man page to HTML conversion program.
  *
- *   Copyright 2007-2008 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 2004-2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -104,17 +104,13 @@ main(int  argc,				/* I - Number of command-line args */
   * Read from input and write the output...
   */
 
-  fputs("<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0 Transitional//EN\" "
-        "\"http://www.w3.org/TR/REC-html40/loose.dtd\">\n"
+  fputs("<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" "
+        "\"http://www.w3.org/TR/html4/loose.dtd\">\n"
         "<html>\n"
 	"<!-- SECTION: Man Pages -->\n"
 	"<head>\n"
-	"\t<style type='text/css'><!--\n"
-	"\th1, h2, h3, p { font-family: sans-serif; text-align: justify; }\n"
-	"\ttt, pre a:link, pre a:visited, tt a:link, tt a:visited { font-weight: bold; color: #7f0000; }\n"
-	"\tpre { font-weight: bold; color: #7f0000; margin-left: 2em; }\n"
-	"\th1.title, h2.title, h3.title { border-bottom: solid 2px #000000; }\n"
-	"\t--></style>\n", outfile);
+	"\t<link rel=\"stylesheet\" type=\"text/css\" "
+	"href=\"../cups-printable.css\">\n", outfile);
 
   blist   = 0;
   font    = 0;
@@ -153,12 +149,13 @@ main(int  argc,				/* I - Number of command-line args */
 	        "\t<title>%s(%d)</title>\n"
 	        "</head>\n"
 	        "<body>\n"
+		"<h1 class=\"title\">%s(%d)</h1>\n"
 		"%s",
-	        name, section, start_fonts[font]);
+	        name, section, name, section, start_fonts[font]);
       }
       else if (section < 0)
         continue;
-      else if (!strncmp(line, ".SH ", 4) || !strncmp(line, ".Sh ", 4))
+      else if (!strncmp(line, ".SH ", 4) || !strncmp(line, ".SS ", 4))
       {
        /*
         * Grab heading...
@@ -188,9 +185,9 @@ main(int  argc,				/* I - Number of command-line args */
         line[strlen(line) - 1] = '\0';	/* Strip LF */
 
         if (line[2] == 'H')
-	  fputs("<h2><a name='", outfile);
+	  fputs("<h2 class=\"title\"><a name=\"", outfile);
 	else
-	  fputs("<h3><a name='", outfile);
+	  fputs("<h3><a name=\"", outfile);
 
         for (lineptr = line + 4; *lineptr; lineptr ++)
 	  if (*lineptr == '\"')
@@ -200,7 +197,7 @@ main(int  argc,				/* I - Number of command-line args */
 	  else
 	    putc_entity(*lineptr, outfile);
 
-	fputs("'>", outfile);
+	fputs("\">", outfile);
 
         for (lineptr = line + 4; *lineptr; lineptr ++)
 	  if (*lineptr == '\"')
@@ -714,5 +711,5 @@ strmove(char       *d,			/* I - Destination */
 
 
 /*
- * End of "$Id: mantohtml.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: mantohtml.c 7720 2008-07-11 22:46:21Z mike $".
  */

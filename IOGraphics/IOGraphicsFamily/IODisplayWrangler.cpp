@@ -27,6 +27,9 @@
 #include <IOKit/IOPlatformExpert.h>
 #include <IOKit/pwr_mgt/RootDomain.h>
 #include <IOKit/IOTimerEventSource.h>
+#include <IOKit/IOUserClient.h>
+
+
 #include <IOKit/graphics/IOGraphicsPrivate.h>
 #include <IOKit/graphics/IOGraphicsTypesPrivate.h>
 
@@ -61,7 +64,7 @@ bool IODisplayConnect::initWithConnection( IOIndex _connection )
 
     connection = _connection;
 
-    sprintf( name, "display%ld", connection);
+    snprintf( name, sizeof(name), "display%d", (int)connection);
 
     setName( name);
 
@@ -181,6 +184,8 @@ bool IODisplayWrangler::serverStart(void)
     if (gIODisplayWrangler)
     {
 	gIODisplayWrangler->fOpen = true;
+	if (gIODisplayWrangler->fMinutesToDim)
+	    gIODisplayWrangler->setIdleTimerPeriod(gIODisplayWrangler->fMinutesToDim*60 / 2);
 	gIODisplayWrangler->activityTickle(0, 0);
     }
 
@@ -224,23 +229,20 @@ bool IODisplayWrangler::start( IOService * provider )
 
     assert( fMatchingLock && fFramebuffers && fDisplays );
 
-    notify = addNotification( gIOPublishNotification,
-                              serviceMatching("IODisplay"), _displayHandler,
-                              this, fDisplays );
+    notify = addMatchingNotification( gIOPublishNotification,
+				      serviceMatching("IODisplay"), _displayHandler,
+				      this, fDisplays );
     assert( notify );
 
-    notify = addNotification( gIOPublishNotification,
-                              serviceMatching("IODisplayConnect"), _displayConnectHandler,
-                              this, 0, 50000 );
+    notify = addMatchingNotification( gIOPublishNotification,
+				      serviceMatching("IODisplayConnect"), _displayConnectHandler,
+				      this, 0, 50000 );
     assert( notify );
 
     gIODisplayWrangler = this;
 
     // initialize power managment
     gIODisplayWrangler->initForPM();
-    // set default screen-dim timeout
-    gIODisplayWrangler->setAggressiveness( kPMMinutesToDim, 30 );
-
     getPMRootDomain()->publishFeature("AdaptiveDimming");
 
     return (true);
@@ -249,14 +251,14 @@ bool IODisplayWrangler::start( IOService * provider )
 
 
 bool IODisplayWrangler::_displayHandler( void * target, void * ref,
-        IOService * newService )
+        IOService * newService, IONotifier * notifier )
 {
     return (((IODisplayWrangler *)target)->displayHandler((OSSet *) ref,
             (IODisplay *) newService));
 }
 
 bool IODisplayWrangler::_displayConnectHandler( void * target, void * ref,
-        IOService * newService )
+        IOService * newService, IONotifier * notifier )
 {
     return (((IODisplayWrangler *)target)->displayConnectHandler(ref,
             (IODisplayConnect *) newService));
@@ -698,7 +700,7 @@ SInt32 IODisplayWrangler::nextIdleTimeout(
 
     if (!lastActivity_secs)
     {
-	enum { kWindowServerStartTime = 10 * 60 };
+	enum { kWindowServerStartTime = 24 * 60 * 60 };
 	return (kWindowServerStartTime);
     }
 

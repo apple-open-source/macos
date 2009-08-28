@@ -9,6 +9,14 @@
 		<string>LGPL</string>
 		<key>OpenSourceLicenseFile</key>
 		<string>libiconv.txt</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>changes to build under XBS</string>
+			<string>4740335 - MacRoman with Euro</string>
+			<string>4468207 - convert apple icon</string>
+			<string>add macutf8</string>
+			<string>UNIX2003 changes</string>
+		</array>	
 		<key>OpenSourceProject</key>
 		<string>libiconv</string>
 		<key>OpenSourceSHA1</key>

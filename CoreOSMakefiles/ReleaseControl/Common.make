@@ -49,12 +49,7 @@ RC_ARCHS   = $(shell for i in `file /usr/lib/libSystem.B.dylib | grep 'shared li
 RC_RELEASE = unknown
 RC_VERSION = unknown
 
-ifeq ($(COPY_SOURCES),YES)
 SRCROOT = /tmp/$(ProjectName)/Sources
-else
-SRCROOT = $(shell pwd)
-endif
-
 OBJROOT = /tmp/$(ProjectName)/Build
 SYMROOT = /tmp/$(ProjectName)/Debug
 DSTROOT = /tmp/$(ProjectName)/Release
@@ -86,8 +81,6 @@ BuildDirectory = $(OBJROOT)
 
 CC_Archs      = $(RC_ARCHS:%=-arch %)
 #CPP_Defines += -DPROJECT_VERSION=\"$(Project)-$(Version)\"
-
-Extra_CC_Flags += $(RC_CFLAGS)
 
 ifneq "$(strip $(CFLAGS))" ""
 Environment += CFLAGS="$(CFLAGS)"

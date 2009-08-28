@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright © 1998-2009 Apple Inc.  All rights reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -31,6 +31,7 @@
 
 #include "AppleUSBOHCIMemoryBlocks.h"
 #include "AppleUSBOHCI.h"
+#include "USBTracepoints.h"
 
 #define nil (0)
 #define DEBUGGING_LEVEL 0	// 1 = low; 2 = high; 3 = extreme
@@ -45,21 +46,17 @@ void AppleUSBOHCI::PollInterrupts(IOUSBCompletionAction safeAction)
 	AbsoluteTime		timeStop;
     IOReturn            err = kIOReturnSuccess;
     
-	// Calculate the time between the filter interrupt and the workloop dispatching
-	//
-	/*
-	 clock_get_uptime (&timeStop);
-	 SUB_ABSOLUTETIME(&timeStop, &_filterTimeStamp); 
-	 absolutetime_to_nanoseconds(timeStop, &timeElapsed); 
-	 USBLog(5,"AppleUSBOHCI[%p]::PollInterrupts:  microsecs since filter interrupt:  %qd", this, timeElapsed / 1000);
-	 */
-	
+	USBTrace_Start( kUSBTOHCIInterrupts, kTPOHCIInterruptsPollInterrupts,  (uintptr_t)this, 0, 0, 0 );
+
     // WritebackDoneHead Interrupt
     //
     if (_writeDoneHeadInterrupt & kOHCIHcInterrupt_WDH)
     {
-        _writeDoneHeadInterrupt = 0;
-        UIMProcessDoneQueue(safeAction);
+       _writeDoneHeadInterrupt = 0;
+
+		USBTrace( kUSBTOHCIInterrupts, kTPOHCIInterruptsPollInterrupts , (uintptr_t)this, 0, 0, 1 );
+		
+		UIMProcessDoneQueue(safeAction);
     }
 	
     // ResumeDetected Interrupt
@@ -68,6 +65,7 @@ void AppleUSBOHCI::PollInterrupts(IOUSBCompletionAction safeAction)
     {
         _resumeDetectedInterrupt = 0;
 		
+  		USBTrace( kUSBTOHCIInterrupts, kTPOHCIInterruptsPollInterrupts , (uintptr_t)this, 0, 0, 2 );
         //setPowerState(1, self);
         _remote_wakeup_occurred = true; //needed by ::callPlatformFunction()
 		
@@ -79,58 +77,28 @@ void AppleUSBOHCI::PollInterrupts(IOUSBCompletionAction safeAction)
     //
     if (_unrecoverableErrorInterrupt & kOHCIHcInterrupt_UE)
     {
-        USBError(1,"USB Controller on bus %d received an unrecoverable error interrupt.  Attempting to fix (%d,%d,%d)", (uint32_t) _busNumber, _onCardBus, _pcCardEjected, isInactive() );
+        USBError(1,"USB Controller on bus %d received an unrecoverable error interrupt.  Attempting to fix (%d)", (uint32_t) _busNumber, isInactive() );
         _unrecoverableErrorInterrupt = 0;
 		
         _errors.unrecoverableError++;
         
-		if ( _onCardBus )
+  		USBTrace( kUSBTOHCIInterrupts, kTPOHCIInterruptsPollInterrupts , (uintptr_t)this, (uintptr_t)_errors.unrecoverableError, 0, 3 );
+		
+		if ( !(_errataBits & kErrataNECOHCIIsochWraparound ) )
 		{
-			USBError(1,"Ignoring unrecoverable error on PC Card" );
+			// Let's do a SW reset to recover from this condition.
+			// We could make sure all OCHI registers and in-memory
+			// data structures are valid, too.
+			USBLog(2,"AppleUSBOHCI[%p]::PollInterrupts -  setting kOHCIHcCommandStatus_HCR to reset controller on bus %d", this, (uint32_t)_busNumber );
+			_pOHCIRegisters->hcCommandStatus = HostToUSBLong(kOHCIHcCommandStatus_HCR);
+			IODelay(10);				// 10 microsecond delay
+			_pOHCIRegisters->hcControl = HostToUSBLong((kOHCIFunctionalState_Operational << kOHCIHcControl_HCFSPhase) | kOHCIHcControl_PLE);
 		}
 		else
 		{
-			if ( !(_errataBits & kErrataNECOHCIIsochWraparound ) )
-			{
-				// Let's do a SW reset to recover from this condition.
-				// We could make sure all OCHI registers and in-memory
-				// data structures are valid, too.
-				USBLog(2,"AppleUSBOHCI[%p]::PollInterrupts -  setting kOHCIHcCommandStatus_HCR to reset controller on bus %d", this, (uint32_t)_busNumber );
-				_pOHCIRegisters->hcCommandStatus = HostToUSBLong(kOHCIHcCommandStatus_HCR);
-				IODelay(10);				// 10 microsecond delay
-				_pOHCIRegisters->hcControl = HostToUSBLong((kOHCIFunctionalState_Operational << kOHCIHcControl_HCFSPhase) | kOHCIHcControl_PLE);
-			}
-			else
-			{
-				// For NEC controllers, we unload all drivers
-				//
-				USBLog(2,"AppleUSBOHCI[%p]::PollInterrupts -  ignoring unrecoverable error on bus %d", this, (uint32_t)_busNumber );
-#if 0
-				// this needs to be done using the power manager
-				if ( _rootHubDevice )
-				{
-					_rootHubDevice->terminate(kIOServiceRequired | kIOServiceSynchronous);
-					_rootHubDevice->detachAll(gIOUSBPlane);
-					_rootHubDevice->release();
-					_rootHubDevice = NULL;
-				}
-				SuspendUSBBus();
-				UIMFinalizeForPowerDown();
-				
-				IOSleep(100);
-				UIMInitializeForPowerUp();
-				
-				_myBusState = kUSBBusStateRunning;
-				if ( _rootHubDevice == NULL )
-				{
-					err = super::CreateRootHubDevice( _device, &_rootHubDevice );
-					if ( err != kIOReturnSuccess )
-					{
-						USBError(1,"AppleUSBOHCI[%p] Could not create root hub device upon wakeup (%x)!", this, err);
-					}
-				}
-#endif
-			}
+			// For NEC controllers, we unload all drivers
+			//
+			USBLog(2,"AppleUSBOHCI[%p]::PollInterrupts -  ignoring unrecoverable error on bus %d", this, (uint32_t)_busNumber );
 		}
     }
 	
@@ -138,10 +106,44 @@ void AppleUSBOHCI::PollInterrupts(IOUSBCompletionAction safeAction)
     //
     if (_rootHubStatusChangeInterrupt & kOHCIHcInterrupt_RHSC)
     {
-		// this interrupt should just always be disabled, as the timer will check the root hub status
 		_rootHubStatusChangeInterrupt = 0;
         _remote_wakeup_occurred = true;						//needed by ::callPlatformFunction()
 		
+  		USBTrace( kUSBTOHCIInterrupts, kTPOHCIInterruptsPollInterrupts , (uintptr_t)this, 0, 0, 4 );
+
+		if ( _myPowerState == kUSBPowerStateLowPower )
+		{
+			USBLog(5,"AppleUSBOHCI[%p]::PollInterrupts -  RootHubStatusChange  Interrupt on bus %d while in lowPower -- setting _rootHubStatuschangedInterruptReceived and ensuring usability", this, (uint32_t)_busNumber );
+			_rootHubStatuschangedInterruptReceived = true;
+		}
+		else
+		{
+			USBLog(5,"AppleUSBOHCI[%p]::PollInterrupts -  RootHubStatusChange  Interrupt on bus %d - ensuring usability", this, (uint32_t)_busNumber );
+		}
+		EnsureUsability();
+		
+		_needToReEnableRHSCInterrupt = false;
+		
+		// Check to see if this was really a spurious interrupt, meaning that no ports have change bit set
+		
+		for (int port = 1; port <= _rootHubNumPorts; port++)
+        {
+			if ((USBToHostLong(_pOHCIRegisters->hcRhPortStatus[port-1]) & kOHCIHcRhPortStatus_Change) != 0)
+            {
+                _needToReEnableRHSCInterrupt = true;
+				break;
+            }
+        }
+		
+		if (!_needToReEnableRHSCInterrupt)
+		{
+			UInt32	interrupts;
+
+			// Re-enabling the RHSC interrupt, since this seems to be a spurious interrupt
+			USBLog(5,"AppleUSBOHCI[%p]::PollInterrupts -  RootHubStatusChange  Spurious interrupt, re-enabling RHSC", this );
+			_pOHCIRegisters->hcInterruptEnable = HostToUSBLong (kOHCIHcInterrupt_MIE | kOHCIHcInterrupt_RHSC);
+			IOSync();
+		}
 	}
 	
 	// Frame Rollover Interrupt
@@ -154,8 +156,11 @@ void AppleUSBOHCI::PollInterrupts(IOUSBCompletionAction safeAction)
 		_anchorTime = _tempAnchorTime;
 		_anchorFrame = _tempAnchorFrame;
        
-		USBLog(5, "AppleUSBEOHCI[%p]::PollInterrupts - frame rollover interrupt frame (0x08%qx) ",  this, _anchorFrame);
+  		USBTrace( kUSBTOHCIInterrupts, kTPOHCIInterruptsPollInterrupts , (uintptr_t)this, 0, 0, 5 );
+		
+		USBLog(5, "AppleUSBOHCI[%p]::PollInterrupts - frame rollover interrupt frame (0x08%qx)",  this, _anchorFrame);
     }
+	USBTrace_End( kUSBTOHCIInterrupts, kTPOHCIInterruptsPollInterrupts,  (uintptr_t)this, 0, 0, 0 );
 }
 
 
@@ -165,7 +170,7 @@ AppleUSBOHCI::InterruptHandler(OSObject *owner, IOInterruptEventSource * /*sourc
 {
     register AppleUSBOHCI		*controller = (AppleUSBOHCI *) owner;
 	
-    if (!controller || controller->isInactive() || (controller->_onCardBus && controller->_pcCardEjected) || !controller->_controllerAvailable)
+    if (!controller || controller->isInactive() || !controller->_controllerAvailable)
         return;
 	
     // Finish pending transactions first.
@@ -200,7 +205,7 @@ AppleUSBOHCI::PrimaryInterruptFilter(OSObject *owner, IOFilterInterruptEventSour
 	// If we our controller has gone away, or it's going away, or if we're on a PC Card and we have been ejected,
 	// then don't process this interrupt.
 	//
-	if (!controller || controller->isInactive() || (controller->_onCardBus && controller->_pcCardEjected) || !controller->_controllerAvailable)
+	if (!controller || controller->isInactive() || !controller->_controllerAvailable)
 		return false;
 	
 	// Process this interrupt
@@ -256,7 +261,7 @@ AppleUSBOHCI::FilterInterrupt(int index)
 	IOPhysicalAddress				physicalAddress;
 	AppleOHCIGeneralTransferDescriptorPtr 	pHCDoneTD = NULL;
 	AppleOHCIGeneralTransferDescriptorPtr	nextTD = NULL, prevTD = NULL;
-	AbsoluteTime				timeStamp;
+	uint64_t				timeStamp;
 	UInt32					numberOfTDs = 0;
 	IOPhysicalAddress				oldHead;
 	IOPhysicalAddress				cachedHead;
@@ -277,6 +282,8 @@ AppleUSBOHCI::FilterInterrupt(int index)
 		// One of our 8 interrupts fired.  Need to see which one it is
 		//
 		
+		USBTrace( kUSBTOHCIInterrupts, kTPOHCIInterruptsPrimaryInterruptFilter , (uintptr_t)this, enabledInterrupts, activeInterrupts, 0 );
+
 		// Frame Number Overflow (sec 7.4.1 ohci spec)
 		
 		if (activeInterrupts & kOHCIHcInterrupt_FNO)
@@ -297,7 +304,8 @@ AppleUSBOHCI::FilterInterrupt(int index)
 			// note that this code will execute differently on a power PC vs an an Intel platform with 
 			// an OHCI add-in card.
 			_tempAnchorFrame = _frameNumber + framenumber16;
-			clock_get_uptime(&_tempAnchorTime);
+			tempTime = mach_absolute_time();
+			_tempAnchorTime = *(AbsoluteTime*)&tempTime;
 			
 			// Set the shadow field that will tell the secondary interrput that we had an FNO (rollover)
 			// Interrupt event -- the software int handler will read the shadow regs for get fn with time
@@ -320,6 +328,7 @@ AppleUSBOHCI::FilterInterrupt(int index)
 					newValue = USBToHostLong(_pOHCIRegisters->hcInterruptStatus);
 				}
 			}
+			needSecondary = true;
 		}
 		
 		// SchedulingOverrun Interrupt
@@ -375,10 +384,8 @@ AppleUSBOHCI::FilterInterrupt(int index)
 			//
 			_rootHubStatusChangeInterrupt = kOHCIHcInterrupt_RHSC;
 			
-			// disable the RHSC interrupt until we process it at secondary interrupt
-			// time. some controllers do not respond to the clear bit
-			
-			// go ahead and disable it - it should always be disabled.
+			// Disable the RHSC interrupt until we process the clear change bit in response to a request from the hub driver
+			// Some controllers do not respond to the clear bit
 			_pOHCIRegisters->hcInterruptDisable = HostToUSBLong(kOHCIHcInterrupt_RHSC);
 			IOSync();
 			
@@ -454,7 +461,7 @@ AppleUSBOHCI::FilterInterrupt(int index)
 			// Now that we have the beginning of the queue, walk it looking for low latency isoch TD's
 			// Use this time as the time stamp time for all the TD's that we processed.  
 			//
-			clock_get_uptime(&timeStamp);
+			timeStamp = mach_absolute_time();
 			
 			// Debugging aid to keep track of how long we take in between calls to the filter routine
 			//
@@ -486,24 +493,9 @@ AppleUSBOHCI::FilterInterrupt(int index)
 				pHCDoneTD = NULL;
 			else
 			{
-				if ( _onCardBus )
-				{
-					if (!IsValidPhysicalAddress( physicalAddress & kOHCIPageMask) )
-					{
-						USBLog(1, "Bad phys addr #1 0x%x", (uint32_t)physicalAddress);
-						pHCDoneTD = NULL;
-					}
-					else
-					{
-						pHCDoneTD = AppleUSBOHCIgtdMemoryBlock::GetGTDFromPhysical(physicalAddress);
-					}
-				}
-				else
-				{
-					// Now get the logical address from the physical one
-					//
-					pHCDoneTD = AppleUSBOHCIgtdMemoryBlock::GetGTDFromPhysical(physicalAddress);
-				}
+				// Now get the logical address from the physical one
+				//
+				pHCDoneTD = AppleUSBOHCIgtdMemoryBlock::GetGTDFromPhysical(physicalAddress);
 			}
 			
 			
@@ -543,17 +535,7 @@ AppleUSBOHCI::FilterInterrupt(int index)
 					nextTD = NULL;
 				else
 				{
-					if ( _onCardBus )
-					{
-						if (!IsValidPhysicalAddress( physicalAddress & kOHCIPageMask) )
-						{
-							nextTD = NULL;
-						}
-						else
-							nextTD = AppleUSBOHCIgtdMemoryBlock::GetGTDFromPhysical(physicalAddress);
-					}
-					else
-						nextTD = AppleUSBOHCIgtdMemoryBlock::GetGTDFromPhysical(physicalAddress);
+					nextTD = AppleUSBOHCIgtdMemoryBlock::GetGTDFromPhysical(physicalAddress);
 				}
 				
 				if ( (pHCDoneTD->pType == kOHCIIsochronousInLowLatencyType) || 
@@ -590,7 +572,7 @@ AppleUSBOHCI::FilterInterrupt(int index)
 						
 						// Set the time stamp
 						//
-						pFrames[pITD->frameNum + i].frTimeStamp = timeStamp;
+						pFrames[pITD->frameNum + i].frTimeStamp = *(AbsoluteTime *)&timeStamp;
 						
 						// Get information on whether there was an error in the frame
 						//
@@ -644,7 +626,7 @@ AppleUSBOHCI::FilterInterrupt(int index)
 					{
 						// Time stamp this TD (non isoch  TD)
 						//
-						pHCDoneTD->command->SetTimeStamp( timeStamp );
+						pHCDoneTD->command->SetTimeStamp( *(AbsoluteTime *)&timeStamp );
 					}
 				}
 				

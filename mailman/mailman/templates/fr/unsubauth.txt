@@ -1,5 +1,5 @@
 Votre accord est nécessaire pour l'approbation d'une requête 
-de résiliation d'abonnement:
+de résiliation d'abonnement :
 
 	Par:   %(username)s
 	De:	   %(listname)s@%(hostname)s

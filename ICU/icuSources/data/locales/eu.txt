@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2006 International Business Machines
+// * Copyright (C) 2008 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/eu.xml
@@ -127,7 +127,10 @@ eu{
             "₧",
             "ESP",
             {
-                "¤ #,##0;-¤ #,##0",
+                /**
+                 * Duplicated from NumberPatterns resource
+                 */
+                "#,##0.00 ¤",
                 ",",
                 ".",
             }
@@ -163,7 +166,13 @@ eu{
         "NaN",
         "+",
     }
-    Version{"1.51"}
+    NumberPatterns{
+        "#,##0.###",
+        "#,##0.00 ¤",
+        "#,##0%",
+        "#E0",
+    }
+    Version{"1.65"}
     calendar{
         gregorian{
             dayNames{
@@ -217,22 +226,6 @@ eu{
                         "urria",
                         "azaroa",
                         "abendua",
-                    }
-                }
-            }
-            quarters{
-                format{
-                    abbreviated{
-                        "Hh1",
-                        "Hh2",
-                        "Hh3",
-                        "Hh4",
-                    }
-                    wide{
-                        "1. hiruhilekoa",
-                        "2. hiruhilekoa",
-                        "3. hiruhilekoa",
-                        "4. hiruhilekoa",
                     }
                 }
             }

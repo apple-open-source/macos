@@ -64,6 +64,7 @@ extern const struct section *getsectbynamefromheader(
 #endif /* KLD */
 #include <mach-o/rld_state.h>
 #include <mach-o/ldsyms.h>
+#define __darwin_i386_float_state i386_float_state
 #include "stuff/arch.h"
 #include "stuff/best_arch.h"
 
@@ -168,6 +169,24 @@ static struct rld_loaded_state *rld_loaded_state = NULL;
 static void rld_loaded_state_changed(void);
 #define NSTATES_INCREMENT 10
 #endif /* !defined(SA_RLD) && !(defined(KLD) && defined(__STATIC__)) */
+
+#ifdef KLD
+/* hook for kext tools to set target byte order */
+void
+kld_set_byteorder(enum NXByteOrder order)
+{
+    switch (order) {
+	case NX_BigEndian:
+	target_byte_sex = BIG_ENDIAN_BYTE_SEX;
+	break;
+    case NX_LittleEndian:
+	target_byte_sex = LITTLE_ENDIAN_BYTE_SEX;
+	break;
+    default:
+	target_byte_sex = UNKNOWN_BYTE_SEX;
+    }
+}
+#endif
 
 /* The internal routine that implements rld_load_basefiles()'s */
 #ifdef KLD
@@ -493,7 +512,8 @@ long obj_size)
 				   NULL, 0, NULL, 0);
 #endif /* !defined(__DYNAMIC__) */
 #endif /* !defined(__OPENSTEP__) && !defined(KLD) */
-	    target_byte_sex = host_byte_sex;
+	    if (target_byte_sex == UNKNOWN_BYTE_SEX)
+		target_byte_sex = host_byte_sex;
 	    /*
 	     * If there were any errors in processing the base program it is
 	     * treated as a fatal error and no futher processing is done.
@@ -2019,7 +2039,8 @@ unsigned long      strsize)         /* sizeof the string table */
 		merge_base_program(basefile_name, basefile_addr, NULL,
 				   symtab, nsyms, strtab, strsize);
 	    }
-	    target_byte_sex = host_byte_sex;
+	    if (target_byte_sex == UNKNOWN_BYTE_SEX)
+		target_byte_sex = host_byte_sex;
 	    /*
 	     * If there were any errors in processing the base program it is
 	     * treated as a fatal error and no futher processing is done.

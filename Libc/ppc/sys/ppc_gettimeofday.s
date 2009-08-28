@@ -22,7 +22,7 @@
  */
 /* Copyright 1998 Apple Computer, Inc. */
 
-#include "SYS.h"
+#include <architecture/ppc/mode_independent_asm.h>
 
 #define	__APPLE_API_PRIVATE
 #include <machine/cpu_capabilities.h>

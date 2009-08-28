@@ -3,7 +3,7 @@
   math.c -
 
   $Author: shyouhei $
-  $Date: 2008-07-02 18:25:48 +0900 (Wed, 02 Jul 2008) $
+  $Date: 2008-07-02 18:26:29 +0900 (Wed, 02 Jul 2008) $
   created at: Tue Jan 25 14:12:56 JST 1994
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -136,7 +136,7 @@ math_acos(obj, x)
  *  call-seq:
  *     Math.asin(x)    => float
  *  
- *  Computes the arc sine of <i>x</i>. Returns 0..PI.
+ *  Computes the arc sine of <i>x</i>. Returns -{PI/2} .. {PI/2}.
  */
 
 static VALUE

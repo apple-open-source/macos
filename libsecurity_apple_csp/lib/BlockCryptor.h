@@ -123,7 +123,7 @@ protected:
 	 * padding and which rely on us to do everything but one-block-at-a-time
 	 * encrypt and decrypt.
 	 */
-	void BlockCryptor::setup(
+	void setup(
 		size_t			blockSize,		// block size of input and output
 		const Context 	&context);
 

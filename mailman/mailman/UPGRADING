@@ -38,7 +38,7 @@ UPGRADING FROM 2.1.4 to 2.1.5
     site before you upgrade.  BE SURE TO TURN OFF MAILMAN AS DESCRIBED ABOVE
     BEFORE YOU UPGRADE.
 
-    Specifically, in MM2.1.4 every message in the queues were represented by
+    Specifically, in MM2.1.4 every message in the queues was represented by
     two files, a .msg or .pck file containing the email message, and a .db
     file containing metadata about the message.  In MM2.1.5 this has been made
     more efficient by using only one file (with a .pck extension) for both the
@@ -74,7 +74,7 @@ UPGRADING FROM 2.0.x to 2.1
 
     Check especially the values for (in Privacy -> Sender Filters)
     default_member_moderation, generic_nonmember_action, and
-    accept_these_nonmembers.  Check also the moderation flag on member
+    accept_these_nonmembers.  Also check the moderation flag on member
     accounts in the Membership Management screen.
 
     In Mailman 2.1, the qrunner subsystem has been completely
@@ -88,16 +88,21 @@ UPGRADING FROM 2.0.x to 2.1
     pre-MM2.1alpha2 system to a post-MM2.1alpha2 system that you let
     the old qrunner process clear any and all messages sitting in the
     qfiles/ directory *BEFORE* you upgrade.  Otherwise after the
-    upgrade, those messages will not get delivered, and I'm not
-    exactly sure yet how to upgrade those pending messages.
+    upgrade, those messages will not get delivered, and there is no
+    easy way to upgrade those pending messages.
 
     NOTE: When upgrading to Mailman 2.1, you will need to regenerate
     your aliases files.  There have been many changes to the alias
     names, the programs they map to, and the name of the wrapper
-    script.  See README.<yourMTA> for details of making Mailman work
-    with your mail server.
+    script.  See the Mailman Installation Manual for details of making
+    Mailman work with your mail server.
 
     To regenerate your aliases, use the bin/genaliases script.
+
+    IMPORTANT: The encryption algorithm for list admin passwords has
+    changed which means that after upgrading from 2.0.x to 2.1.x, list
+    passwords will have to be reset.  There is a new bin/change_pw tool
+    to help with this.
 
     Mailman 2.1 introduces multilingual (a.k.a. internationalization
     or i18n) support.  Previously only one language per list was
@@ -119,7 +124,7 @@ UPGRADING FROM 2.0.x to 2.1
     Here are some instances we know about:
 
     - If you've applied patch #413752 (coerce to plaintext), then your
-      upgraded will not go smoothly.  Take a look at patch #651406 for
+      upgrade will not go smoothly.  Take a look at patch #651406 for
       an unofficial solution.
 
       http://sf.net/tracker/?group_id=103&atid=300103&func=detail&aid=413752

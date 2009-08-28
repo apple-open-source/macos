@@ -114,7 +114,6 @@ S_get_bootp_socket(u_short client_port)
     me.sin_family = AF_INET;
     me.sin_port = htons(client_port);
     me.sin_addr.s_addr = htonl(INADDR_ANY);
-    
     status = bind(sockfd, (struct sockaddr *)&me, sizeof(me));
     if (status != 0) {
 	my_log(LOG_ERR, "bootp_session: bind port %d failed, %s",
@@ -128,16 +127,14 @@ S_get_bootp_socket(u_short client_port)
 	       strerror(errno));
 	goto failed;
     }
-    opt = 1;
     status = ioctl(sockfd, FIONBIO, &opt);
     if (status < 0) {
 	my_log(LOG_ERR, "ioctl FIONBIO failed, %s", strerror(errno));
 	goto failed;
     }
-    opt = 1;
     status = setsockopt(sockfd, IPPROTO_IP, IP_RECVIF, &opt, sizeof(opt));
     if (status < 0) {
-	my_log(LOG_ERR, "setsockopt IP_RECVIF  failed, %s", 
+	my_log(LOG_ERR, "setsockopt IP_RECVIF failed, %s", 
 		   strerror(errno));
 	goto failed;
     }
@@ -283,7 +280,7 @@ bootp_client_open_socket(bootp_client_t * client)
 	session->sockfd = S_get_bootp_socket(session->client_port);
 	if (session->sockfd < 0) {
 	    my_log(LOG_ERR, 
-		   "bootp_client_open_socket: S_get_boot_socket() failed, %s",
+		   "bootp_client_open_socket: S_get_bootp_socket() failed, %s",
 		   strerror(errno));
 	    goto failed;
 	}
@@ -328,6 +325,26 @@ bootp_client_disable_receive(bootp_client_t * client)
     return;
 }
 
+static void
+bootp_client_bind_socket_to_if(bootp_client_t * client, int opt)
+{
+    bootp_session_t *	session = client->session;
+    
+    if (session->sockfd < 0) {
+	my_log(LOG_ERR, 
+	       "bootp_client_bind_socket_to_if(%s, %d):"
+	       " session socket isn't open", if_name(client->if_p), opt);
+    }
+    else if (setsockopt(session->sockfd, 
+			IPPROTO_IP, IP_BOUND_IF, &opt, sizeof(opt)) < 0) {
+	my_log(LOG_ERR, 
+	       "bootp_client_bind_socket_to_if(%s, %d):"
+	       " setsockopt IP_BOUND_IF failed",
+	       if_name(client->if_p), opt, strerror(errno));
+    }
+    return;
+}
+
 int
 bootp_client_transmit(bootp_client_t * client,
 		      struct in_addr dest_ip,
@@ -337,20 +354,36 @@ bootp_client_transmit(bootp_client_t * client,
 		      void * data, int len)
 {
     int			error;
+    int			if_index = 0;
     boolean_t		needs_close = FALSE;
     bootp_session_t *	session = client->session;
 
+    /* if we're not broadcasting, bind the socket to the interface */
+    if (dest_ip.s_addr != INADDR_BROADCAST) {
+	if (client->fd_open == FALSE) {
+	    /* open the BOOTP socket in case it's needed */
+	    (void)bootp_client_open_socket(client);
+	    needs_close = TRUE;
+	}
+	if_index = if_link_index(client->if_p);
+	if (if_index != 0) {
+	    bootp_client_bind_socket_to_if(client, if_index);
+	}
+    }
     if (session->log_file != NULL) {
 	fprintf(session->log_file, "============================\n");
-	timestamp_fprintf(session->log_file, 
-			  "[%s] Transmit %d byte packet\n", 
-			  if_name(client->if_p), len);
+	if (if_index != 0) {
+	    timestamp_fprintf(session->log_file, 
+			      "[%s] Transmit %d byte packet dest %s scope %d\n",
+			      if_name(client->if_p), len, 
+			      inet_ntoa(dest_ip), if_index);
+	}
+	else {
+	    timestamp_fprintf(session->log_file, 
+			      "[%s] Transmit %d byte packet\n",
+			      if_name(client->if_p), len);
+	}
 	dhcp_fprint_packet(session->log_file, (struct dhcp *)data, len);
-    }
-    if (client->fd_open == FALSE) {
-	/* open the BOOTP socket in case it's needed */
-	(void)bootp_client_open_socket(client);
-	needs_close = TRUE;
     }
     error = bootp_transmit(session->sockfd, session->send_buf, 
 			   if_name(client->if_p), 
@@ -358,6 +391,9 @@ bootp_client_transmit(bootp_client_t * client,
 			   dest_ip, src_ip, dest_port, src_port, data, len);
     if (needs_close) {
 	bootp_client_close_socket(client);
+    }
+    if (if_index != 0) {
+	bootp_client_bind_socket_to_if(client, 0);
     }
     return (error);
 }

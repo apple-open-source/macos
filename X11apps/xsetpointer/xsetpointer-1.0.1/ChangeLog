@@ -1,0 +1,220 @@
+commit 0c1e59347c38e2661ebc6f3ccb1d8f1b1b09f70e
+Merge: 49c408e... 325eb66...
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Sun Sep 24 20:21:55 2006 +0300
+
+    Merge branch 'input-hotplug'
+
+commit 325eb669a9611819979f1adf92f2bd72e946223b
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Tue Aug 8 00:23:52 2006 +0300
+
+    fix core request length, exit status, error
+    Make sure we send the correct request length with DEVICE_CORE.
+    exit 1 on failure to find the device, and fix the error message to correctly
+    show which device we couldn't find.
+
+commit 8f05f55390f138deeb17fd16259ce2928cc0d1f0
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Sun Jul 23 18:47:51 2006 -0400
+
+    fix core event toggling
+    Fix hopelessly broken core event toggling.
+
+commit 49c408e85dfe222f9c1f521a19b809b0e82cf370
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Tue Jul 18 12:05:48 2006 -0400
+
+    fix ChangeLog dist rule
+
+commit 70ec118ecaeeaad781fa2d5010a20bcf14afcbd9
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Tue Jul 18 12:04:44 2006 -0400
+
+    fix ChangeLog dist rule
+
+commit c8444a41ad8857a1aefd037a27d8fd96da1e97da
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Tue Jul 18 12:00:16 2006 -0400
+
+    bump inputproto dependency, version
+    Bump version to 1.0.1, and bump inputproto dependency to 1.4, for
+    XExtension{Keyboard,Pointer} device classes, and XDeviceCoreControl.
+
+commit 60d89764b808153808a6bfd0f29144cc9a9a08a2
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Tue Jul 18 11:59:02 2006 -0400
+
+    allow toggling of core event sending
+    Allow toggling sending of core events from extension devices with
+    -c (disable) and +c (enable).
+
+commit 2ecc9dc044a81092728c7c14eaeb792cd5102ce5
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Tue Jul 18 11:54:40 2006 -0400
+
+    add support for XExtensionKeyboard, XExtensionPointer
+    Add support for new XExtensionKeyboard and XExtensionPointer types.
+
+commit a62ad9f6c4db9dc2c3ef72ce091f641d1839e5fd
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Tue Jul 18 11:53:35 2006 -0400
+
+    remove ChangeLog, generate automatically
+    Generate ChangeLog automatically out of the dist hook.
+
+commit e583fd807ddf2e0900781e01d43cac9f008616b7
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Sun Jun 25 16:41:51 2006 +0000
+
+    Print out device number as well as name.
+
+commit aac1a64cfbdf489847f28f6fbeec5a26c20542b8
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:11 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit 16e3c97b9dee92ac8ebcb502f0aca2f119a61c99
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Dec 6 22:48:26 2005 +0000
+
+    Change *man_SOURCES ==> *man_PRE to fix autotools warnings.
+
+commit e77de3b2110b99a99966bc782bba2b709cad1143
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:28 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit 22377c013163fc86d45f2739f8d9cb7eca0a87b4
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Nov 28 22:01:47 2005 +0000
+
+    Change *mandir targets to use new *_MAN_DIR variables set by xorg-macros.m4
+        update to fix bug #5167 (Linux prefers *.1x man pages in man1 subdir)
+
+commit 426d7282773039e9c843ca9b83d9bc5ea168a78a
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Mon Nov 21 10:35:08 2005 +0000
+
+    Another pass at .cvsignores for apps.
+
+commit a2157f26c2c816ee08a3b6a4b582fc06eea90071
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Sun Nov 20 22:08:55 2005 +0000
+
+    Add/improve .cvsignore files for apps.
+
+commit fd324de793aeefa79665e9f4f4c4756c17c0e421
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Nov 9 21:09:22 2005 +0000
+
+    Update package version number for X11R7 RC2 release.
+
+commit f70c27e7775972bd4ef5dfc4800f84b031a92f05
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Wed Nov 9 17:56:13 2005 +0000
+
+    Bug #4620 <https://bugs.freedesktop.org/show_bug.cgi?id=4620> xsetpointer
+        man page refers to "xsetmode" by mistake (Ortwin Glück)
+
+commit 62083b4e548ad8064fa91a0c07eea570fe1e2497
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:47:57 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit f08cf64510f5bb329584a67508128bc410982594
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Oct 17 23:56:25 2005 +0000
+
+    Use @APP_MAN_SUFFIX@ instead of $(APP_MAN_SUFFIX) in macro substitutions to
+        work better with BSD make
+
+commit 7b6239a5271fe80e2801da13b03e246170af64d8
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Oct 14 00:25:48 2005 +0000
+
+    Use sed to fill in variables in man page
+
+commit 61eeb2dc509fd89e3b0d9cb5618bfdd82254e414
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:38 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit a8487bbc99fe3f6ea9bac04500154413b5efdc35
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Wed Jul 20 19:32:04 2005 +0000
+
+    Use a unique token for PKG_CHECK_MODULES. Otherwise, if you use a global
+        configure cache, you cache it, and the cached value is probably wrong.
+
+commit 7f993553ef3c72321edfd4e819b1e3e7ff5ccbb9
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Tue Jul 19 04:44:14 2005 +0000
+
+    Add COPYING files, fix manpage locations.
+
+commit dbc7be0804516de1905e1787e16874818a7e683a
+Author: SÃ¸ren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Fri Jul 1 18:29:34 2005 +0000
+
+    Build system for xsetpointer
+
+commit 7f7a735b54f803f43f472ab16dbd91be21e46f96
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 19:55:06 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit 200f50c2f0a7e93b947775440f82839603186040
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:35:45 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit 483834b02883acfe0ca4cbd1bc178c00ab7b35a3
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:13:18 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit 3dea8998879cceddfc12037a943c37f97c3c5e6c
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:36:26 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit fdd94f6e464e05e79ff926955105f67e8a1d8bba
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:24:17 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit 7573ce2573e32bc626e59c0bae6cbf7e52310a2f
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:29:17 2003 +0000
+
+    XFree86 4.3.99.16 Bring the tree up to date for the Cygwin folks
+
+commit c525f185a390123a3a8adf49003272543f9058d4
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:49:23 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit f11dbf0a679d914d48334b36a865c853d99cb7cb
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:49:23 2003 +0000
+
+    Initial revision

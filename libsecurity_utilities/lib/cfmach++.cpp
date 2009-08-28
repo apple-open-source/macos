@@ -64,9 +64,15 @@ void CFAutoPort::enable()
 		if (!mPort) {
 			// first-time creation of CF resources
 			CFMachPortContext ctx = { 1, this, NULL, NULL, NULL };
-			mPort = CFMachPortCreateWithPort(NULL, port(), cfCallback, &ctx, NULL);
-			mSource = CFMachPortCreateRunLoopSource(NULL, mPort, 10);
-			if (!mSource || !mPort)
+			CFMachPortRef machPort = CFMachPortCreateWithPort(NULL, port(), cfCallback, &ctx, NULL);
+			if (machPort != NULL)
+			{
+				// using take here because "assignment" causes an extra retain, which will make the
+				// CF objects leak when this data structure goes away.
+				mPort.take(machPort);
+				mSource.take(CFMachPortCreateRunLoopSource(NULL, mPort, 10));
+			}
+			if (!mPort || !mSource)
 				CFError::throwMe();		// CF won't tell us why...
 		}
 		CFRunLoopAddSource(CFRunLoopGetCurrent(), mSource, kCFRunLoopCommonModes);

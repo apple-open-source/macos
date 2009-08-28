@@ -1,7 +1,7 @@
 /*
  *  translator.c
  *
- *  $Id: translatorchooser.c,v 1.6 2006/01/20 15:58:35 source Exp $
+ *  $Id: translatorchooser.c,v 1.7 2007/02/02 11:58:14 source Exp $
  *
  *  The iODBC driver manager.
  *
@@ -291,6 +291,10 @@ create_translatorchooser (HWND hwnd, TTRANSLATORCHOOSER *choose_t)
   gtk_window_set_modal (GTK_WINDOW (translatorchooser), TRUE);
   gtk_window_set_policy (GTK_WINDOW (translatorchooser), FALSE, FALSE, FALSE);
 
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_widget_show (translatorchooser);
+#endif
+
   dialog_vbox1 = GTK_DIALOG (translatorchooser)->vbox;
   gtk_object_set_data (GTK_OBJECT (translatorchooser), "dialog_vbox1",
       dialog_vbox1);
@@ -363,10 +367,18 @@ create_translatorchooser (HWND hwnd, TTRANSLATORCHOOSER *choose_t)
   gtk_widget_show (l_size);
   gtk_clist_set_column_widget (GTK_CLIST (clist1), 3, l_size);
 
+#if GTK_CHECK_VERSION(2,0,0)
+  style = gtk_widget_get_style (translatorchooser);
+  pixmap =
+      gdk_pixmap_create_from_xpm_d (translatorchooser->window, &mask,
+      &style->bg[GTK_STATE_NORMAL], (gchar **) img_xpm);
+#else
   style = gtk_widget_get_style (GTK_WIDGET (hwnd));
   pixmap =
       gdk_pixmap_create_from_xpm_d (GTK_WIDGET (hwnd)->window, &mask,
       &style->bg[GTK_STATE_NORMAL], (gchar **) img_xpm);
+#endif
+
   pixmap1 = gtk_pixmap_new (pixmap, mask);
   gtk_widget_ref (pixmap1);
   gtk_object_set_data_full (GTK_OBJECT (translatorchooser), "pixmap1",

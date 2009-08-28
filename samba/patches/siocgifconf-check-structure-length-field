@@ -2,7 +2,7 @@ Index: samba/source/configure.in
 ===================================================================
 --- samba/source/configure.in.orig
 +++ samba/source/configure.in
-@@ -2833,6 +2833,25 @@ AC_CHECK_FUNCS(getpagesize)
+@@ -2852,6 +2852,25 @@ AC_CHECK_FUNCS(getpagesize)
  ##################
  # look for a method of finding the list of network interfaces
  iface=no;
@@ -183,14 +183,17 @@ Index: samba/source/lib/replace/libreplace.m4
 ===================================================================
 --- samba/source/lib/replace/libreplace.m4.orig
 +++ samba/source/lib/replace/libreplace.m4
-@@ -99,6 +99,7 @@ AC_CHECK_HEADERS(stdarg.h vararg.h)
+@@ -99,8 +99,10 @@ AC_CHECK_HEADERS(stdarg.h vararg.h)
  AC_CHECK_HEADERS(sys/socket.h netinet/in.h netdb.h arpa/inet.h)
  AC_CHECK_HEADERS(netinet/ip.h netinet/tcp.h netinet/in_systm.h netinet/in_ip.h)
  AC_CHECK_HEADERS(sys/sockio.h sys/un.h)
 +AC_CHECK_HEADERS(ifaddrs.h)
+ AC_CHECK_HEADERS(stropts.h)
  
- 
++
  dnl we need to check that net/if.h really can be used, to cope with hpux
+ dnl where including it always fails
+ AC_CACHE_CHECK([for usable net/if.h],libreplace_cv_USABLE_NET_IF_H,[
 Index: samba/source/tests/summary.c
 ===================================================================
 --- samba/source/tests/summary.c.orig

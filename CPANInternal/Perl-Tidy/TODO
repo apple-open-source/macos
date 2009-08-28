@@ -1,0 +1,30 @@
+Perltidy TODO List
+    This is a partial "wish-list" of features to add and things to do. All
+    of these are of interest, but there is no particular schedule for
+    implementing them.
+
+  Improved Vertical Alignment
+    There are many opportunities for improving vertical alignment.
+
+  Documentation
+    A FAQ is needed to explain some of the more subtle formatting issues,
+    and to give examples of different styles.
+
+    The -formatter callback object documentation is incomplete.
+
+  HTML writer
+    The HTML writer does not colorize interpolated identifiers in here
+    documents or quoted strings. The tokenizer outputs interpolation
+    information for here docs; it still needs to be updated to do this for
+    multi-line quotes. Then code needs to be written to scan for and markup
+    identifiers.
+
+  Automatic style detection
+    It would be nice to write a program to read a sample of perl code and
+    write an approximate .perltidyrc file for that style.
+
+Things which have been suggested but will not be done
+  Recursive file processing
+    A -r flag might be nice, but this is probably best handled by an
+    exterior shell script.
+

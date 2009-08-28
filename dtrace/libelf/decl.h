@@ -23,14 +23,14 @@
 
 
 /*
- * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
 #ifndef	_DECL_H
 #define	_DECL_H
 
-#pragma ident	"@(#)decl.h	1.21	06/03/22 SMI" 	/* SVr4.0 1.9	*/
+#pragma ident	"@(#)decl.h	1.23	08/03/18 SMI" 	/* SVr4.0 1.9	*/
 
 #if !defined(__APPLE__)
 #include <thread.h>
@@ -82,9 +82,11 @@ typedef pthread_key_t thread_key_t;
 
 #include <mach-o/loader.h>
 extern void __swap_mach_header(struct mach_header *);
+extern void __swap_mach_header_64(struct mach_header_64 *);
 extern void __swap_segment_command(struct segment_command *);
 extern void __swap_segment_command_64(struct segment_command_64 *);
 extern void __swap_section(struct section *);
+extern void __swap_section_64(struct section_64 *);
 extern void __swap_symtab_command(struct symtab_command *);
 
 #endif /* __APPLE__ */
@@ -443,6 +445,9 @@ NOTE(RWLOCK_COVERS_LOCKS(Elf::ed_rwlock, Elf_Scn::s_mutex))
 #define	EDF_MPROTECT	0x400	/* applies to slideable archives */
 #define	EDF_IMALLOC	0x800	/* wrimage dynamically allocated */
 #define	EDF_WRALLOC	0x1000	/* wrimage is to by dyn allocated */
+#if defined(__APPLE__)
+#define	EDF_RDKERNTYPE	0x2000	/* When Mach-o is fat, choose member matching the running kernel. */
+#endif /* __APPLE__ */
 
 
 typedef enum
@@ -505,8 +510,8 @@ extern Okay		_elf32_cookscn(Elf_Scn * s);
 extern Okay		_elf64_cookscn(Elf_Scn * s);
 extern Dnode		*_elf_dnode(void);
 extern Elf_Data		*_elf_locked_getdata(Elf_Scn *, Elf_Data *);
-extern size_t		_elf32_entsz(Elf32_Word, unsigned);
-extern size_t		_elf64_entsz(Elf64_Word, unsigned);
+extern size_t		_elf32_entsz(Elf *elf, Elf32_Word, unsigned);
+extern size_t		_elf64_entsz(Elf *elf, Elf64_Word, unsigned);
 extern Okay		_elf_inmap(Elf *);
 extern char		*_elf_outmap(int, size_t, unsigned *);
 extern size_t		_elf_outsync(int, char *, size_t, unsigned);
@@ -536,6 +541,7 @@ extern const Dnode	_elf_dnode_init;
 extern unsigned		_elf_work;
 extern mutex_t		_elf_globals_mutex;
 extern off_t		_elf64_update(Elf * elf, Elf_Cmd cmd);
+extern int		_elf64_swap_wrimage(Elf *elf);
 
 /* CSTYLED */
 NOTE(MUTEX_PROTECTS_DATA(_elf_globals_mutex, \

@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2003-2004 Apple Computer, Inc. All Rights Reserved.
+ *  Copyright (c) 2003-2004,2008 Apple Inc. All Rights Reserved.
  *
  *  @APPLE_LICENSE_HEADER_START@
  *  
@@ -48,7 +48,7 @@ public:
     AgentMechanismEvaluator(uid_t uid, Session &session, const vector<string>& inMechanisms);
     OSStatus run(const AuthValueVector &inArguments, const AuthItemSet &inHints, const AuthorizationToken &auth);
 
-    AuthorizationResult AgentMechanismEvaluator::authinternal(AuthItemSet &context);
+    AuthorizationResult authinternal(AuthItemSet &context);
     
     AuthItemSet &hints() { return mHints; }
     AuthItemSet &context() { return mContext; }

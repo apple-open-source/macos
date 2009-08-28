@@ -3,7 +3,7 @@
 #       Valemount Networks Corporation specific radius attributes
 #       networks@valemount.com
 #
-#	$Id: dictionary.valemount,v 1.1.2.1.2.1 2005/11/30 22:17:33 aland Exp $
+#	$Id$
 #
 
 VENDOR		ValemountNetworks		16313

@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2001-2005, International Business Machines
+*   Copyright (C) 2001-2008, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -30,6 +30,8 @@
 U_CFUNC UChar32 U_CALLCONV
 utrans_rep_caseContextIterator(void *context, int8_t dir)
 {
+    U_NAMESPACE_USE
+
     UCaseContext *csc=(UCaseContext *)context;
     Replaceable *rep=(Replaceable *)csc->p;
     UChar32 c;
@@ -79,7 +81,7 @@ utrans_rep_caseContextIterator(void *context, int8_t dir)
 
 U_NAMESPACE_BEGIN
 
-UOBJECT_DEFINE_RTTI_IMPLEMENTATION(CaseMapTransliterator)
+UOBJECT_DEFINE_ABSTRACT_RTTI_IMPLEMENTATION(CaseMapTransliterator)
 
 /**
  * Constructs a transliterator.
@@ -114,19 +116,19 @@ CaseMapTransliterator::CaseMapTransliterator(const CaseMapTransliterator& o) :
 /**
  * Assignment operator.
  */
-CaseMapTransliterator& CaseMapTransliterator::operator=(const CaseMapTransliterator& o) {
+/*CaseMapTransliterator& CaseMapTransliterator::operator=(const CaseMapTransliterator& o) {
     Transliterator::operator=(o);
     fCsp = o.fCsp;
     fMap = o.fMap;
     return *this;
-}
+}*/
 
 /**
  * Transliterator API.
  */
-Transliterator* CaseMapTransliterator::clone(void) const {
+/*Transliterator* CaseMapTransliterator::clone(void) const {
     return new CaseMapTransliterator(*this);
-}
+}*/
 
 /**
  * Implements {@link Transliterator#handleTransliterate}.

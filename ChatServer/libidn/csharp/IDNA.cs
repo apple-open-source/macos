@@ -1,83 +1,75 @@
-/// <summary> Copyright (C) 2004, 2005  Free Software Foundation, Inc.
+/// <summary>
 /// *
-/// Author: Alexander Gnauck AG-Software
+/// Author: Alexander Gnauck AG-Software, mailto:gnauck@ag-software.de
 /// *
 /// This file is part of GNU Libidn.
 /// *
-/// This program is free software; you can redistribute it and/or
-/// modify it under the terms of the GNU General Public License as
-/// published by the Free Software Foundation; either version 2 of the
-/// License, or (at your option) any later version.
+/// This library is free software; you can redistribute it and/or
+/// modify it under the terms of the GNU Lesser General Public License
+/// as published by the Free Software Foundation; either version 2.1 of
+/// the License, or (at your option) any later version.
 /// *
-/// This program is distributed in the hope that it will be useful,
-/// but WITHOUT ANY WARRANTY; without even the implied warranty of
+/// This library is distributed in the hope that it will be useful, but
+/// WITHOUT ANY WARRANTY; without even the implied warranty of
 /// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-/// General Public License for more details.
+/// Lesser General Public License for more details.
 /// *
-/// You should have received a copy of the GNU General Public License
-/// along with this program; if not, write to the Free Software
-/// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-/// 02111-1307 USA.
+/// You should have received a copy of the GNU Lesser General Public
+/// License along with this library; if not, write to the Free Software
+/// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301
+/// USA
 /// </summary>
 
 using System;
+using System.Text;
 
-namespace gnu.inet.encoding
-{
-	
+namespace Gnu.Inet.Encoding
+{	
 	public class IDNA
 	{
-		public const System.String ACE_PREFIX = "xn--";
+		public const string ACE_PREFIX = "xn--";
 		
-		/// <summary> Converts a Unicode string to ASCII using the procedure in RFC3490
+		/// <summary>
+        /// Converts a Unicode string to ASCII using the procedure in RFC3490
 		/// section 4.1. Unassigned characters are not allowed and STD3 ASCII
 		/// rules are enforced. The input string may be a domain name
 		/// containing dots.
-		/// *
 		/// </summary>
-		/// <param name="input">Unicode string.
-		/// </param>
-		/// <returns> Encoded string.
-		/// 
-		/// </returns>
-		public static System.String toASCII(System.String input)
+		/// <param name="input">Unicode string.</param>
+		/// <returns> Encoded string.</returns>
+		public static string ToASCII(string input)
 		{
-			System.Text.StringBuilder o = new System.Text.StringBuilder();
-			System.Text.StringBuilder h = new System.Text.StringBuilder();
+			StringBuilder o = new StringBuilder();
+			StringBuilder h = new StringBuilder();
 			
 			for (int i = 0; i < input.Length; i++)
 			{
 				char c = input[i];
 				if (c == '.' || c == '\u3002' || c == '\uff0e' || c == '\uff61')
 				{
-					o.Append(toASCII(h.ToString(), false, true));
-					o.Append(c);
-					h = new System.Text.StringBuilder();
+					o.Append(ToASCII(h.ToString(), false, true));
+                    o.Append('.');
+					h = new StringBuilder();
 				}
 				else
 				{
 					h.Append(c);
 				}
 			}
-			o.Append(toASCII(h.ToString(), false, true));
+			o.Append(ToASCII(h.ToString(), false, true));
 			return o.ToString();
 		}
 		
-		/// <summary> Converts a Unicode string to ASCII using the procedure in RFC3490
+		/// <summary>
+        /// Converts a Unicode string to ASCII using the procedure in RFC3490
 		/// section 4.1. Unassigned characters are not allowed and STD3 ASCII
 		/// rules are enforced.
-		/// *
-		/// </summary>
-		/// <param name="input">Unicode string.
-		/// </param>
-		/// <param name="allowUnassigned">Unassigned characters, allowed or not?
-		/// </param>
-		/// <param name="useSTD3ASCIIRules">STD3 ASCII rules, enforced or not?
-		/// </param>
-		/// <returns> Encoded string.
-		/// 
-		/// </returns>
-		public static System.String toASCII(System.String input, bool allowUnassigned, bool useSTD3ASCIIRules)
+        /// </summary>
+		/// <param name="input">Unicode string.</param>
+		/// <param name="allowUnassigned">Unassigned characters, allowed or not?</param>
+		/// <param name="useSTD3ASCIIRules">STD3 ASCII rules, enforced or not?</param>
+		/// <returns> Encoded string.</returns>
+		public static string ToASCII(string input, bool allowUnassigned, bool useSTD3ASCIIRules)
 		{
 			// Step 1: Check if the string contains code points outside
 			//         the ASCII range 0..0x7c.
@@ -100,7 +92,7 @@ namespace gnu.inet.encoding
 			{
 				try
 				{
-					input = Stringprep.nameprep(input, allowUnassigned);
+					input = Stringprep.NamePrep(input, allowUnassigned);
 				}
 				catch (StringprepException e)
 				{
@@ -146,7 +138,7 @@ namespace gnu.inet.encoding
 				}
 			}
 			
-			System.String output = input;
+			string output = input;
 			
 			if (nonASCII)
 			{
@@ -162,7 +154,7 @@ namespace gnu.inet.encoding
 				
 				try
 				{
-					output = Punycode.encode(input);
+					output = Punycode.Encode(input);
 				}
 				catch (PunycodeException e)
 				{
@@ -185,54 +177,47 @@ namespace gnu.inet.encoding
 			return output;
 		}
 		
-		/// <summary> Converts an ASCII-encoded string to Unicode. Unassigned
+		/// <summary>
+        /// Converts an ASCII-encoded string to Unicode. Unassigned
 		/// characters are not allowed and STD3 hostnames are enforced. Input
 		/// may be domain name containing dots.
-		/// *
 		/// </summary>
-		/// <param name="input">ASCII input string.
-		/// </param>
-		/// <returns> Unicode string.
-		/// 
-		/// </returns>
-		public static System.String toUnicode(System.String input)
+		/// <param name="input">ASCII input string.</param>
+		/// <returns> Unicode string.</returns>
+		public static string ToUnicode(string input)
 		{
-			System.Text.StringBuilder o = new System.Text.StringBuilder();
-			System.Text.StringBuilder h = new System.Text.StringBuilder();
+            input = input.ToLower();
+			StringBuilder o = new StringBuilder();
+			StringBuilder h = new StringBuilder();
 			
 			for (int i = 0; i < input.Length; i++)
 			{
 				char c = input[i];
 				if (c == '.' || c == '\u3002' || c == '\uff0e' || c == '\uff61')
 				{
-					o.Append(toUnicode(h.ToString(), false, true));
+					o.Append(ToUnicode(h.ToString(), false, true));
 					o.Append(c);
-					h = new System.Text.StringBuilder();
+					h = new StringBuilder();
 				}
 				else
 				{
 					h.Append(c);
 				}
 			}
-			o.Append(toUnicode(h.ToString(), false, true));
+			o.Append(ToUnicode(h.ToString(), false, true));
 			return o.ToString();
 		}
 		
-		/// <summary> Converts an ASCII-encoded string to Unicode.
-		/// *
+		/// <summary>
+        /// Converts an ASCII-encoded string to Unicode.		
 		/// </summary>
-		/// <param name="input">ASCII input string.
-		/// </param>
-		/// <param name="allowUnassigned">Allow unassigned Unicode characters.
-		/// </param>
-		/// <param name="useSTD3ASCIIRules">Check that the output conforms to STD3.
-		/// </param>
-		/// <returns> Unicode string.
-		/// 
-		/// </returns>
-		public static System.String toUnicode(System.String input, bool allowUnassigned, bool useSTD3ASCIIRules)
+		/// <param name="input">ASCII input string.</param>
+		/// <param name="allowUnassigned">Allow unassigned Unicode characters.</param>
+		/// <param name="useSTD3ASCIIRules">Check that the output conforms to STD3.</param>
+		/// <returns>Unicode string.</returns>
+		public static string ToUnicode(string input, bool allowUnassigned, bool useSTD3ASCIIRules)
 		{
-			System.String original = input;
+			string original = input;
 			bool nonASCII = false;
 			
 			// Step 1: If all code points are inside 0..0x7f, skip to step 3.
@@ -253,7 +238,7 @@ namespace gnu.inet.encoding
 			{
 				try
 				{
-					input = Stringprep.nameprep(input, allowUnassigned);
+					input = Stringprep.NamePrep(input, allowUnassigned);
 				}
 				catch (StringprepException e)
 				{
@@ -270,7 +255,7 @@ namespace gnu.inet.encoding
 				return original;
 			}
 			
-			System.String stored = input;
+			string stored = input;
 			
 			// Step 4: Remove the ACE prefix.
 			
@@ -278,11 +263,11 @@ namespace gnu.inet.encoding
 			
 			// Step 5: Decode using punycode
 			
-			System.String output;
+			string output;
 			
 			try
 			{
-				output = Punycode.decode(input);
+				output = Punycode.Decode(input);
 			}
 			catch (PunycodeException e)
 			{
@@ -292,11 +277,11 @@ namespace gnu.inet.encoding
 			
 			// Step 6: Apply toASCII
 			
-			System.String ascii;
+			string ascii;
 			
 			try
 			{
-				ascii = toASCII(output, allowUnassigned, useSTD3ASCIIRules);
+				ascii = ToASCII(output, allowUnassigned, useSTD3ASCIIRules);
 			}
 			catch (IDNAException e)
 			{

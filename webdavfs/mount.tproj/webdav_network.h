@@ -103,6 +103,9 @@ enum {WRITE_MGR_NEW_REQUEST_ID = 1};
 #define WRITE_MGR_MSG_PORT_NAME_BUFSIZE 128
 
 int queue_writemgr_request_locked(struct stream_put_ctx *ctx, struct seqwrite_mgr_req *req);
+struct seqwrite_mgr_req *dequeue_writemgr_request_locked(struct stream_put_ctx *ctx);
+void release_writemgr_request_locked(struct seqwrite_mgr_req *req);
+void release_writemgr_request(struct stream_put_ctx *ctx, struct seqwrite_mgr_req *req);
 
 void writeseqReadResponseCallback(CFReadStreamRef str, 
 								  CFStreamEventType event, 

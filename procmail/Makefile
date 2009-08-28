@@ -41,3 +41,24 @@ install::
 	$(MKDIR) $(OSL)
 	$(INSTALL_FILE) $(SRCROOT)/LICENSE $(OSL)/$(Project).txt
 
+# Automatic Extract & Patch
+AEP            = YES
+AEP_Project    = $(Project)
+AEP_Version    = 3.22
+AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
+AEP_Filename   = $(AEP_ProjVers).tar.gz
+AEP_ExtractDir = $(AEP_ProjVers)
+AEP_Patches    = Makefile.1.diff \
+                recommend.c.diff \
+                PR-3076981.diff
+
+# Extract the source.
+install_source::
+ifeq ($(AEP),YES)
+	$(TAR) -C $(SRCROOT) -zxf $(SRCROOT)/$(AEP_Filename)
+	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(AEP_Project)
+	for patchfile in $(AEP_Patches); do \
+		(cd $(SRCROOT)/$(Project) && patch -lp1 < $(SRCROOT)/patches/$$patchfile) || exit 1; \
+	done
+endif
+

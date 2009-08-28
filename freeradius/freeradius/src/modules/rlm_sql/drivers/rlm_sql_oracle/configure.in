@@ -1,17 +1,11 @@
 AC_INIT(sql_oracle.c)
-AC_REVISION($Revision: 1.7 $)
+AC_REVISION($Revision$)
 AC_DEFUN(modname,[rlm_sql_oracle])
 
-
+fail=
+sql_oracle_ldflags=
+sql_oracle_cflags=
 if test x$with_[]modname != xno; then
-
-	AC_PROG_CC
-	AC_PROG_CPP
-
-	targetname=modname   # we might change this later.
-
-	AC_SUBST(ORACLE_LIBS)
-	AC_SUBST(ORACLE_INCLUDE)
 
 	AC_MSG_CHECKING([for oci.h])
 
@@ -30,11 +24,33 @@ if test x$with_[]modname != xno; then
 		ORACLE_INCLUDE=
 	)
 
+        # Look for Oracle10g "Instant Client" installed from RPM
+        if test "x$ORACLE_INCLUDE" = "x"; then
+                old_CFLAGS="$CFLAGS"
+
+                FR_LOCATE_DIR(oracle_include_dir,oci.h)
+
+                for try in /usr/include/oracle/10.1.0.3/client $oracle_include_dir; do
+                        CFLAGS="$old_CFLAGS -I$try"
+                        AC_TRY_COMPILE([#include <oci.h>],
+                                [ int a = 1; ],
+                                ORACLE_INCLUDE="-I$try",
+                                ORACLE_INCLUDE=
+                        )
+                        if test "x$ORACLE_INCLUDE" != "x"; then
+                                ORACLE_LIBS="-L$/usr/lib/oracle/10.1.0.3/client/lib -lclntsh -lm"
+                                break;
+                        fi
+                done
+                CFLAGS="$old_CFLAGS"
+        fi
+        # Finish Looking for Oracle10g includes installed from RPM
+
 	# Look for Oracle8i.
 	if test "x$ORACLE_INCLUDE" = "x"; then
 		old_CFLAGS="$CFLAGS"
 
-		AC_LOCATE_DIR(oracle_home_dir,oci.h)
+		FR_LOCATE_DIR(oracle_home_dir,oci.h)
 
 		for try in $oracle_home_dir $oracle_include_dir; do
 			CFLAGS="$old_CFLAGS -I${try}/rdbms/demo -I${try}/rdbms/public -I${try}/plsql/public -I${try}/network/public -I${try}/oci/include"
@@ -69,7 +85,7 @@ if test x$with_[]modname != xno; then
 	if test "x$ORACLE_INCLUDE" = "x"; then
 		old_CFLAGS="$CFLAGS"
 
-		AC_LOCATE_DIR(oracle_include_dir,oci.h)
+		FR_LOCATE_DIR(oracle_include_dir,oci.h)
 
 		for try in /usr/local/include/oracle /usr/local/oracle/include $oracle_include_dir; do
 			CFLAGS="$old_CFLAGS -I$try"
@@ -88,7 +104,7 @@ if test x$with_[]modname != xno; then
 	if test "x$ORACLE_INCLUDE" = "x"; then
 		AC_MSG_RESULT(no)
 		AC_MSG_WARN([oracle headers not found.  Use --with-oracle-home-dir=<path>.])
-		targetname=   # disabled module
+		fail="$fail oci.h"
 	else
 		sql_oracle_cflags="${sql_oracle_cflags} ${ORACLE_INCLUDE}"
 		AC_MSG_RESULT(yes)
@@ -109,8 +125,8 @@ if test x$with_[]modname != xno; then
 			dnl #
 			old_LIBS="$LIBS"
 
-			AC_LOCATE_DIR(oracle_lib_dir,[oracleclient.so])
-			AC_LOCATE_DIR(oracle_lib_dir,[oracleclient.a])
+			FR_LOCATE_DIR(oracle_lib_dir,[oracleclient.so])
+			FR_LOCATE_DIR(oracle_lib_dir,[oracleclient.a])
 
 			for try in /usr/lib/oracle /usr/local/lib/oracle /usr/local/oracle/lib $oracle_lib_dir; do
 				LIBS="$old_LIBS -L$try -loracleclient"
@@ -138,20 +154,28 @@ if test x$with_[]modname != xno; then
 
 		if test "x$ORACLE_LIBS" = "x"; then
 			AC_MSG_WARN([oracle libraries not found.  Use --with-oracle-lib-dir=<path>.])
-			targetname=   # disabled module
+			fail="$fail liboracleclient"
 		else
 			sql_oracle_ldflags="$sql_oracle_ldflags $ORACLE_LIBS"
 			AC_MSG_RESULT(yes)
 		fi
 	fi
 
-	if test "x$targetname" = "x"; then
-		AC_MSG_WARN([sql submodule 'oracle' disabled])
-	fi
-
+	targetname=modname
 else
 	targetname=
 	echo \*\*\* module modname is disabled.
+fi
+
+dnl Don't change this section.
+if test "x$fail" != x; then
+	if test "x${enable_strict_dependencies}" = xyes; then
+		AC_MSG_ERROR([set --without-]modname[ to disable it explicitly.])
+	else
+		AC_MSG_WARN([silently not building ]modname[.])
+		AC_MSG_WARN([FAILURE: ]modname[ requires:$fail.]);
+		targetname=
+	fi
 fi
 
 AC_SUBST(sql_oracle_ldflags)

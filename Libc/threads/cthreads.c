@@ -43,6 +43,9 @@ extern thread_port_t cproc_create();
 extern void mig_init();
 extern void _pthread_set_self(pthread_t);
 
+extern void pthread_workqueue_atfork_prepare(void);
+extern void pthread_workqueue_atfork_parent(void);
+extern void pthread_workqueue_atfork_child(void);
 /*
  * Mach imports:
  */
@@ -75,6 +78,7 @@ extern void _malloc_fork_child();
 extern void fork_mach_init();
 extern void _cproc_fork_child(), _stack_fork_child();
 extern void _lu_fork_child(void);
+extern void _asl_fork_child(void);
 extern void _pthread_fork_child(pthread_t);
 extern void _notify_fork_child(void);
 
@@ -133,6 +137,8 @@ void _cthread_fork_prepare()
 	psaved_self = pthread_self();
 	_spin_lock(&psaved_self->lock);
 	_malloc_fork_prepare();
+
+	pthread_workqueue_atfork_prepare();
 }
 
 void _cthread_fork_parent()
@@ -153,6 +159,7 @@ void _cthread_fork_parent()
 	}
 	_spin_unlock(&pthread_atfork_lock);
 
+	pthread_workqueue_atfork_parent();
 }
 
 void _cthread_fork_child()
@@ -184,12 +191,14 @@ void _cthread_fork_child()
 	_cproc_fork_child();
 
 	_lu_fork_child();
-
+	_asl_fork_child();
 	_notify_fork_child();
 
 	__is_threaded = 0;
 
 	mig_init(1);		/* enable multi-threaded mig interfaces */
+
+	pthread_workqueue_atfork_child();
 
 	TAILQ_FOREACH(e, &pthread_atfork_queue, qentry) {
 		if (e->child != NULL)

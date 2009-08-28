@@ -40,6 +40,7 @@
 #include <security_utilities/refcount.h>
 #include <IOKit/usb/IOUSBLib.h>
 #include <IOKit/IOMessage.h>
+#include <asl.h>
 //#include <Kernel/IOKit/pccard/IOPCCardBridge.h>
 //#include <Kernel/IOKit/pccard/cs.h>
 
@@ -79,6 +80,8 @@
 
 #define kzIOPCCard16DeviceClassName			"IOPCCard16Device"
 
+#define PTRPARAMCAST(X)				(static_cast<unsigned int>(reinterpret_cast<uintptr_t>(X)))
+
 //
 // Fixed configuration parameters
 //
@@ -90,7 +93,23 @@ static const uint32_t kVendorProductMask = 0x0000FFFF;
 static const uint32_t kVendorIDApple = 0x05AC;
 static const uint16_t kProductIDBuiltInISight = 0x8501;
 
-static void dumpdictentry(const void *key, const void *value, void *context);
+/*
+	Copied from USBVideoClass-230.2.3/Digitizers/USBVDC/Camera/USBClient/APW_VDO_USBVDC_USBClient.h
+*/
+
+enum {
+	kBuiltIniSightProductID = 0x8501,
+	kBuiltIniSightWave2ProductID = 0x8502,
+	kBuiltIniSightWave3ProductID = 0x8505,
+	kUSBWave4ProductID        = 0x8507,
+	kUSBWave2InK29ProductID        = 0x8508,
+	kUSBWaveReserved1ProductID        = 0x8509,
+	kUSBWaveReserved2ProductID        = 0x850a,
+	kExternaliSightProductID = 0x1111,
+	kLogitechVendorID = 0x046d
+};
+
+//static void dumpdictentry(const void *key, const void *value, void *context);
 
 #pragma mark -------------------- Class Methods --------------------
 
@@ -377,8 +396,9 @@ void PCSCDMonitor::ioChange(IOKit::DeviceIterator &iterator)
 void PCSCDMonitor::ioServiceChange(void *refCon, io_service_t service,
 	natural_t messageType, void *messageArgument)
 {
-	secdebug("pcsc", "Processing ioServiceChange notice: 0x%08X [refCon=0x%08X, service=0x%08X, arg=0x%08X]", 
-		messageType, (uint32_t)refCon, service, (uint32_t)messageArgument);
+	uintptr_t messageArg = uintptr_t(messageArgument);
+	secdebug("pcsc", "Processing ioServiceChange notice: 0x%08X [refCon=0x%08lX, service=0x%08X, arg=0x%08lX]", 
+		messageType, (uintptr_t)refCon, service, messageArg);
 
 	if (mGoingToSleep && isSleepWakePeriod())	// waking up but still drowsy
 	{
@@ -414,9 +434,9 @@ void PCSCDMonitor::ioServiceChange(void *refCon, io_service_t service,
 		break;
 	case kIOPCCardCSEventMessage:	// 0xE0054001 - not handled by mach_error_string
 		secdebug("pcsc", "  pccard event message: service: 0x%04X, type: 0x%08X", 
-			service, (unsigned int)messageArgument);
+			service, (unsigned int)messageArg);
 		// Card Services Events are defined in IOKit/pccard/cs.h
-		switch ((unsigned int)messageArgument)
+		switch (messageArg)
 		{
 			case CS_EVENT_EJECTION_REQUEST:
 				secdebug("pcsc", "  pccard event message: ejection request"); 
@@ -479,7 +499,24 @@ void PCSCDMonitor::addDevice(const IOKit::Device &dev)
 				secdebug("pcsc", "     added to device map, address:  0x%08X, service: 0x%04X, [class @:%p]", address, service, newDevice.get());
 			}
 			else
+			{
 				secdebug("driver", "  no matching driver found for %s: %s", newDevice->name().c_str(), newDevice->path().c_str());
+				// Add MessageTracer logging as per <rdar://problem/6432650>. If we get here, pcscd was launched
+				// for a device insertion, but the device is not a smartcard reader (or doesn't have a
+				// matching driver.
+				char buf[256];
+				aslmsg msg = asl_new(ASL_TYPE_MSG);
+				asl_set(msg, "com.apple.message.domain", "com.apple.security.smartcardservices.unknowndevice" );
+				asl_set(msg, "com.apple.message.signature", "Non-smartcard device launched pcscd");
+				snprintf(buf, sizeof(buf), "%u", newDevice->vendorid());
+				asl_set(msg, "com.apple.message.signature2", buf);	// vendor ID
+				snprintf(buf, sizeof(buf), "%u", newDevice->productid());
+				asl_set(msg, "com.apple.message.signature3", buf);	// product ID
+				snprintf(buf, sizeof(buf), "Non-smartcard device launched pcscd [Vendor: %#X, Product: %#X]", 
+					newDevice->vendorid(), newDevice->productid());
+				asl_log(NULL, msg, ASL_LEVEL_NOTICE, buf);
+				asl_free(msg);
+			}
 		}
 		else
 			secdebug("pcsc", "  device added notice, but failed to find address for service: 0x%04X", service);
@@ -637,7 +674,13 @@ bool PCSCDMonitor::isExcludedDevice(const IOKit::Device &dev)
 	
 	getVendorAndProductID(dev, vendorID, productID, isPCCard);
 	
-	return ((vendorID & kVendorProductMask) == kVendorIDApple && (productID & kVendorProductMask) == kProductIDBuiltInISight);
+	if ((vendorID & kVendorProductMask) != kVendorIDApple)
+		return false;	// i.e. it is not an excluded device
+	
+	// Since Apple does not manufacture smartcard readers, just exclude
+	// If we even start making them, we should make it a CCID reader anyway
+	
+	return true;
 }
 
 void PCSCDMonitor::setDebugPropertiesForDevice(const IOKit::Device &dev, PCSCD::Device * newDevice)
@@ -970,8 +1013,9 @@ void TerminationNoticeReceiver::ioChange(IOKit::DeviceIterator &iterator)
 void TerminationNoticeReceiver::ioServiceChange(void *refCon, io_service_t service,
 	natural_t messageType, void *messageArgument)
 {
-	secdebug("pcsc", "  [TerminationNoticeReceiver] processing ioServiceChange notice: 0x%08X [refCon=0x%08X, service=0x%08X, arg=0x%08X]", 
-		messageType, (uint32_t)refCon, service, (uint32_t)messageArgument);
+	uintptr_t messageArg = uintptr_t(messageArgument);
+	secdebug("pcsc", "  [TerminationNoticeReceiver] processing ioServiceChange notice: 0x%08X [refCon=0x%08lX, service=0x%08X, arg=0x%08lX]", 
+		messageType, (uintptr_t)refCon, service, messageArg);
 	parent().ioServiceChange(refCon, service, messageType, messageArgument);
 }
 
@@ -1124,8 +1168,10 @@ void PCSCDMonitor::dumpDevices()
 	secdebug("pcsc", "------------------------------------------------");
 }
 
+#if 0
 static void dumpdictentry(const void *key, const void *value, void *context)
 {
 	secdebug("dumpd", "  dictionary key: %s, val: %p, CFGetTypeID: %d", cfString((CFStringRef)key).c_str(), value, (int)CFGetTypeID(value));
 }
+#endif
 

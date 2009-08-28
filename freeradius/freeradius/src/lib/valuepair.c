@@ -1,7 +1,7 @@
 /*
  * valuepair.c	Functions to handle VALUE_PAIRs
  *
- * Version:	$Id: valuepair.c,v 1.82.2.1.2.3 2006/05/03 17:40:58 aland Exp $
+ * Version:	$Id$
  *
  *   This library is free software; you can redistribute it and/or
  *   modify it under the terms of the GNU Lesser General Public
@@ -17,21 +17,15 @@
  *   License along with this library; if not, write to the Free Software
  *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2000  The FreeRADIUS server project
+ * Copyright 2000,2006  The FreeRADIUS server project
  */
 
-static const char rcsid[] = "$Id: valuepair.c,v 1.82.2.1.2.3 2006/05/03 17:40:58 aland Exp $";
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
-#include	"autoconf.h"
+#include	<freeradius-devel/libradius.h>
 
-#include	<sys/types.h>
-
-#include	<stdio.h>
-#include	<stdlib.h>
-#include	<string.h>
 #include	<ctype.h>
-
-#include	"libradius.h"
 
 #ifdef HAVE_MALLOC_H
 #  include	<malloc.h>
@@ -41,11 +35,104 @@ static const char rcsid[] = "$Id: valuepair.c,v 1.82.2.1.2.3 2006/05/03 17:40:58
 #  include	<regex.h>
 #endif
 
-#include	"missing.h"
-
 static const char *months[] = {
         "jan", "feb", "mar", "apr", "may", "jun",
         "jul", "aug", "sep", "oct", "nov", "dec" };
+
+/*
+ *	This padding is necessary only for attributes that are NOT
+ *	in the dictionary, and then only because the rest of the
+ *	code accesses vp->name directly, rather than through an
+ *	accessor function.
+ *
+ *	The name padding only has to large enough for:
+ *
+ *		Vendor-65535-Attr-65535
+ *
+ *	i.e. 23 characters, plus a zero.  We add another 8 bytes for
+ *	padding, because the VALUE_PAIR structure may be un-aligned.
+ *
+ *	The result is that for the normal case, the server uses a less
+ *	memory (36 bytes * number of VALUE_PAIRs).
+ */
+#define FR_VP_NAME_PAD (32)
+#define FR_VP_NAME_LEN (24)
+
+VALUE_PAIR *pairalloc(DICT_ATTR *da)
+{
+	size_t name_len = 0;
+	VALUE_PAIR *vp;
+
+	/*
+	 *	Not in the dictionary: the name is allocated AFTER
+	 *	the VALUE_PAIR struct.
+	 */
+	if (!da) name_len = FR_VP_NAME_PAD;
+
+	vp = malloc(sizeof(*vp) + name_len);
+	if (!vp) return NULL;
+	memset(vp, 0, sizeof(*vp));
+
+	if (da) {
+		vp->attribute = da->attr;
+		vp->vendor = da->vendor;
+		vp->type = da->type;
+		vp->name = da->name;
+		vp->flags = da->flags;
+	} else {
+		vp->attribute = 0;
+		vp->vendor = 0;
+		vp->type = PW_TYPE_OCTETS;
+		vp->name = NULL;
+		memset(&vp->flags, 0, sizeof(vp->flags));
+		vp->flags.unknown_attr = 1;
+	}
+
+	switch (vp->type) {
+		case PW_TYPE_BYTE:
+			vp->length = 1;
+			break;
+
+		case PW_TYPE_SHORT:
+			vp->length = 2;
+			break;
+
+		case PW_TYPE_INTEGER:
+		case PW_TYPE_IPADDR:
+		case PW_TYPE_DATE:
+		case PW_TYPE_SIGNED:
+			vp->length = 4;
+			break;
+
+		case PW_TYPE_IFID:
+			vp->length = sizeof(vp->vp_ifid);
+			break;
+
+		case PW_TYPE_IPV6ADDR:
+			vp->length = sizeof(vp->vp_ipv6addr);
+			break;
+
+		case PW_TYPE_IPV6PREFIX:
+			vp->length = sizeof(vp->vp_ipv6prefix);
+			break;
+
+		case PW_TYPE_ETHERNET:
+			vp->length = sizeof(vp->vp_ether);
+			break;
+
+		case PW_TYPE_TLV:
+			vp->vp_tlv = NULL;
+			vp->length = 0;
+			break;
+
+		case PW_TYPE_COMBO_IP:
+		default:
+			vp->length = 0;
+			break;
+	}
+
+	return vp;
+}
 
 
 /*
@@ -56,45 +143,28 @@ VALUE_PAIR *paircreate(int attr, int type)
 	VALUE_PAIR	*vp;
 	DICT_ATTR	*da;
 
-	if ((vp = malloc(sizeof(VALUE_PAIR))) == NULL) {
-		librad_log("out of memory");
+	da = dict_attrbyvalue(attr);
+	if ((vp = pairalloc(da)) == NULL) {
+		fr_strerror_printf("out of memory");
 		return NULL;
 	}
-	memset(vp, 0, sizeof(VALUE_PAIR));
-	vp->attribute = attr;
 	vp->operator = T_OP_EQ;
-	vp->type = type;
 
 	/*
-	 *	Dictionary type over-rides what the caller says.
+	 *	It isn't in the dictionary: update the name.
 	 */
-	if ((da = dict_attrbyvalue(attr)) != NULL) {
-		strcpy(vp->name, da->name);
-		vp->type = da->type;
-		vp->flags = da->flags;
-	} else if (VENDOR(attr) == 0) {
-		sprintf(vp->name, "Attr-%u", attr);
-	} else {
-		DICT_VENDOR *v;
+	if (!da) {
+		char *p = (char *) (vp + 1);
+		
+		vp->vendor = VENDOR(attr);
+		vp->attribute = attr;
+		vp->name = p;
+		vp->type = type; /* be forgiving */
 
-		v = dict_vendorbyvalue(VENDOR(attr));
-		if (v) {
-			sprintf(vp->name, "%s-Attr-%u",
-				v->name, attr & 0xffff);
-		} else {
-			sprintf(vp->name, "Vendor-%u-Attr-%u",
-				VENDOR(attr), attr & 0xffff);
+		if (!vp_print_name(p, FR_VP_NAME_LEN, vp->attribute)) {
+			free(vp);
+			return NULL;
 		}
-	}
-	switch (vp->type) {
-		case PW_TYPE_INTEGER:
-		case PW_TYPE_IPADDR:
-		case PW_TYPE_DATE:
-			vp->length = 4;
-			break;
-		default:
-			vp->length = 0;
-			break;
 	}
 
 	return vp;
@@ -106,6 +176,7 @@ VALUE_PAIR *paircreate(int attr, int type)
  */
 void pairbasicfree(VALUE_PAIR *pair)
 {
+	if (pair->type == PW_TYPE_TLV) free(pair->vp_tlv);
 	/* clear the memory here */
 	memset(pair, 0, sizeof(*pair));
 	free(pair);
@@ -169,6 +240,8 @@ void pairadd(VALUE_PAIR **first, VALUE_PAIR *add)
 {
 	VALUE_PAIR *i;
 
+	if (!add) return;
+
 	if (*first == NULL) {
 		*first = add;
 		return;
@@ -227,6 +300,38 @@ void pairreplace(VALUE_PAIR **first, VALUE_PAIR *replace)
 	*prev = replace;
 }
 
+
+/*
+ *	Copy just one VP.
+ */
+VALUE_PAIR *paircopyvp(const VALUE_PAIR *vp)
+{
+	size_t name_len;
+	VALUE_PAIR *n;
+	
+	if (!vp->flags.unknown_attr) {
+		name_len = 0;
+	} else {
+		name_len = FR_VP_NAME_PAD;
+	}
+	
+	if ((n = malloc(sizeof(*n) + name_len)) == NULL) {
+		fr_strerror_printf("out of memory");
+		return NULL;
+	}
+	memcpy(n, vp, sizeof(*n) + name_len);
+	n->next = NULL;
+
+	if ((n->type == PW_TYPE_TLV) &&
+	    (n->vp_tlv != NULL)) {
+		n->vp_tlv = malloc(n->length);
+		memcpy(n->vp_tlv, vp->vp_tlv, n->length);
+	}
+
+	return n;
+}
+
+
 /*
  *	Copy just a certain type of pairs.
  */
@@ -242,12 +347,9 @@ VALUE_PAIR *paircopy2(VALUE_PAIR *vp, int attr)
 			vp = vp->next;
 			continue;
 		}
-		if ((n = (VALUE_PAIR *)malloc(sizeof(VALUE_PAIR))) == NULL) {
-			librad_log("out of memory");
-			return first;
-		}
-		memcpy(n, vp, sizeof(VALUE_PAIR));
-		n->next = NULL;
+
+		n = paircopyvp(vp);
+		if (!n) return first;
 		*last = n;
 		last = &n->next;
 		vp = vp->next;
@@ -276,19 +378,13 @@ void pairmove(VALUE_PAIR **to, VALUE_PAIR **from)
 	VALUE_PAIR *found;
 	int has_password = 0;
 
-	if (*to == NULL) {
-		*to = *from;
-		*from = NULL;
-		return;
-	}
-
 	/*
 	 *	First, see if there are any passwords here, and
 	 *	point "tailto" to the end of the "to" list.
 	 */
 	tailto = to;
 	for(i = *to; i; i = i->next) {
-		if (i->attribute == PW_PASSWORD ||
+		if (i->attribute == PW_USER_PASSWORD ||
 		    i->attribute == PW_CRYPT_PASSWORD)
 			has_password = 1;
 		tailto = &i->next;
@@ -299,17 +395,40 @@ void pairmove(VALUE_PAIR **to, VALUE_PAIR **from)
 	 */
 	for(i = *from; i; i = next) {
 		next = i->next;
+
 		/*
 		 *	If there was a password in the "to" list,
 		 *	do not move any other password from the
 		 *	"from" to the "to" list.
 		 */
 		if (has_password &&
-		    (i->attribute == PW_PASSWORD ||
+		    (i->attribute == PW_USER_PASSWORD ||
 		     i->attribute == PW_CRYPT_PASSWORD)) {
 			tailfrom = i;
 			continue;
 		}
+
+		switch (i->operator) {
+			/*
+			 *	These are COMPARISON attributes
+			 *	from a check list, and are not
+			 *	supposed to be copied!
+			 */
+			case T_OP_NE:
+			case T_OP_GE:
+			case T_OP_GT:
+			case T_OP_LE:
+			case T_OP_LT:
+			case T_OP_CMP_TRUE:
+			case T_OP_CMP_FALSE:
+			case T_OP_CMP_EQ:
+				tailfrom = i;
+				continue;
+
+			default:
+				break;
+		}
+
 		/*
 		 *	If the attribute is already present in "to",
 		 *	do not move it from "from" to "to". We make
@@ -323,14 +442,14 @@ void pairmove(VALUE_PAIR **to, VALUE_PAIR **from)
 			switch (i->operator) {
 
 			  /*
-			   *  If a similar attribute is found,
-			   *  delete it.
+			   *	If matching attributes are found,
+			   *	delete them.
 			   */
 			case T_OP_SUB:		/* -= */
 				if (found) {
-					if (!i->strvalue[0] ||
-					    (strcmp((char *)found->strvalue,
-						    (char *)i->strvalue) == 0)){
+					if (!i->vp_strvalue[0] ||
+					    (strcmp((char *)found->vp_strvalue,
+						    (char *)i->vp_strvalue) == 0)){
 						pairdelete(to, found->attribute);
 
 						/*
@@ -358,29 +477,29 @@ void pairmove(VALUE_PAIR **to, VALUE_PAIR **from)
 
 			case T_OP_REG_EQ:
 			  if (found &&
-			      (i->strvalue[0] == 's')) {
+			      (i->vp_strvalue[0] == 's')) {
 			    regex_t		reg;
 			    regmatch_t		match[1];
 
 			    char *str;
 			    char *p, *q;
 
-			    p = i->strvalue + 1;
+			    p = i->vp_strvalue + 1;
 			    q = strchr(p + 1, *p);
 			    if (!q || (q[strlen(q) - 1] != *p)) {
 			      tailfrom = i;
 			      continue;
 			    }
-			    str = strdup(i->strvalue + 2);
+			    str = strdup(i->vp_strvalue + 2);
 			    q = strchr(str, *p);
 			    *(q++) = '\0';
 			    q[strlen(q) - 1] = '\0';
 
 			    regcomp(&reg, str, 0);
-			    if (regexec(&reg, found->strvalue,
+			    if (regexec(&reg, found->vp_strvalue,
 					1, match, 0) == 0) {
 			      fprintf(stderr, "\"%s\" will have %d to %d replaced with %s\n",
-				      found->strvalue, match[0].rm_so,
+				      found->vp_strvalue, match[0].rm_so,
 				      match[0].rm_eo, q);
 
 			    }
@@ -410,15 +529,32 @@ void pairmove(VALUE_PAIR **to, VALUE_PAIR **from)
 			   */
 			case T_OP_SET:		/* := */
 				if (found) {
-					pairdelete(to, found->attribute);
+					VALUE_PAIR *mynext = found->next;
+
+					/*
+					 *	Do NOT call pairdelete()
+					 *	here, due to issues with
+					 *	re-writing "request->username".
+					 *
+					 *	Everybody calls pairmove,
+					 *	and expects it to work.
+					 *	We can't update request->username
+					 *	here, so instead we over-write
+					 *	the vp that it's pointing to.
+					 */
+					memcpy(found, i, sizeof(*found));
+					found->next = mynext;
+
+					pairdelete(&found->next, found->attribute);
+
 					/*
 					 *	'tailto' may have been
 					 *	deleted...
 					 */
-					tailto = to;
-					for(j = *to; j; j = j->next) {
+					for(j = found; j; j = j->next) {
 						tailto = &j->next;
 					}
+					continue;
 				}
 				break;
 
@@ -540,7 +676,7 @@ static char *mystrtok(char **ptr, const char *sep)
  *	Turn printable string into time_t
  *	Returns -1 on error, 0 on OK.
  */
-static int gettime(const char *valstr, time_t *lvalue)
+static int gettime(const char *valstr, time_t *date)
 {
 	int		i;
 	time_t		t;
@@ -553,7 +689,7 @@ static int gettime(const char *valstr, time_t *lvalue)
 	/*
 	 * Test for unix timestamp date
 	 */
-	*lvalue = strtoul(valstr, &tail, 10);
+	*date = strtoul(valstr, &tail, 10);
 	if (*tail == '\0') {
 		return 0;
 	}
@@ -562,7 +698,7 @@ static int gettime(const char *valstr, time_t *lvalue)
 	memset(tm, 0, sizeof(*tm));
 	tm->tm_isdst = -1;	/* don't know, and don't care about DST */
 
-	strNcpy(buf, valstr, sizeof(buf));
+	strlcpy(buf, valstr, sizeof(buf));
 
 	p = buf;
 	f[0] = mystrtok(&p, " \t");
@@ -570,6 +706,21 @@ static int gettime(const char *valstr, time_t *lvalue)
 	f[2] = mystrtok(&p, " \t");
 	f[3] = mystrtok(&p, " \t"); /* may, or may not, be present */
 	if (!f[0] || !f[1] || !f[2]) return -1;
+
+	/*
+	 *	The time has a colon, where nothing else does.
+	 *	So if we find it, bubble it to the back of the list.
+	 */
+	if (f[3]) {
+		for (i = 0; i < 3; i++) {
+			if (strchr(f[i], ':')) {
+				p = f[3];
+				f[3] = f[i];
+				f[i] = p;
+				break;
+			}
+		}
+	}
 
 	/*
 	 *  The month is text, which allows us to find it easily.
@@ -638,8 +789,11 @@ static int gettime(const char *valstr, time_t *lvalue)
 		*(f[1]++) = '\0'; /* nuke it, and point to MM:SS */
 
 		f[2] = strchr(f[1], ':'); /* find : separator */
-		if (!f[2]) return -1;
-		*(f[2]++) = '\0';	/* nuke it, and point to SS */
+		if (f[2]) {
+		  *(f[2]++) = '\0';	/* nuke it, and point to SS */
+		} else {
+		  strcpy(f[2], "0");	/* assignment would discard const */
+		}
 
 		tm->tm_hour = atoi(f[0]);
 		tm->tm_min = atoi(f[1]);
@@ -652,41 +806,115 @@ static int gettime(const char *valstr, time_t *lvalue)
 	t = mktime(tm);
 	if (t == (time_t) -1) return -1;
 
-	*lvalue = t;
+	*date = t;
 
 	return 0;
 }
 
+static const char *hextab = "0123456789abcdef";
+
 /*
  *  Parse a string value into a given VALUE_PAIR
+ *
+ *  FIXME: we probably want to fix this function to accept
+ *  octets as values for any type of attribute.  We should then
+ *  double-check the parsed value, to be sure it's legal for that
+ *  type (length, etc.)
  */
 VALUE_PAIR *pairparsevalue(VALUE_PAIR *vp, const char *value)
 {
 	char		*p, *s=0;
 	const char	*cp, *cs;
+	int		x;
+	size_t		length;
 	DICT_VALUE	*dval;
 
 	/*
 	 *	Even for integers, dates and ip addresses we
-	 *	keep the original string in vp->strvalue.
+	 *	keep the original string in vp->vp_strvalue.
 	 */
-	strNcpy((char *)vp->strvalue, value, sizeof(vp->strvalue));
-	vp->length = strlen((char *)vp->strvalue);
+	if (vp->type != PW_TYPE_TLV) {
+		strlcpy(vp->vp_strvalue, value, sizeof(vp->vp_strvalue));
+		vp->length = strlen(vp->vp_strvalue);
+	}
 
 	switch(vp->type) {
 		case PW_TYPE_STRING:
 			/*
-			 *	Already handled above.
+			 *	Do escaping here
 			 */
+			p = vp->vp_strvalue;
+			cp = value;
+			length = 0;
+
+			while (*cp && (length < (sizeof(vp->vp_strvalue) - 1))) {
+				char c = *cp++;
+
+				if (c == '\\') {
+					switch (*cp) {
+					case 'r':
+						c = '\r';
+						cp++;
+						break;
+					case 'n':
+						c = '\n';
+						cp++;
+						break;
+					case 't':
+						c = '\t';
+						cp++;
+						break;
+					case '"':
+						c = '"';
+						cp++;
+						break;
+					case '\'':
+						c = '\'';
+						cp++;
+						break;
+					case '`':
+						c = '`';
+						cp++;
+						break;
+					case '\0':
+						c = '\\'; /* no cp++ */
+						break;
+					default:
+						if ((cp[0] >= '0') &&
+						    (cp[0] <= '9') &&
+						    (cp[1] >= '0') &&
+						    (cp[1] <= '9') &&
+						    (cp[2] >= '0') &&
+						    (cp[2] <= '9') &&
+						    (sscanf(cp, "%3o", &x) == 1)) {
+							c = x;
+							cp += 3;
+						} /* else just do '\\' */
+					}
+				}
+				*p++ = c;
+				length++;
+			}
+			vp->length = length;
 			break;
 
 		case PW_TYPE_IPADDR:
 			/*
+			 *	It's a comparison, not a real IP.
+			 */
+			if ((vp->operator == T_OP_REG_EQ) ||
+			    (vp->operator == T_OP_REG_NE)) {
+				break;
+			}
+
+			/*
 			 *	FIXME: complain if hostname
 			 *	cannot be resolved, or resolve later!
 			 */
+			s = NULL;
 			if ((p = strrchr(value, '+')) != NULL && !p[1]) {
 				cs = s = strdup(value);
+				if (!s) return NULL;
 				p = strrchr(s, '+');
 				*p = 0;
 				vp->flags.addport = 1;
@@ -694,58 +922,134 @@ VALUE_PAIR *pairparsevalue(VALUE_PAIR *vp, const char *value)
 				p = NULL;
 				cs = value;
 			}
-			vp->lvalue = librad_dodns ? ip_getaddr(cs) :
-						    ip_addr(cs);
-			if (s) free(s);
+
+			{
+				fr_ipaddr_t ipaddr;
+
+				if (ip_hton(cs, AF_INET, &ipaddr) < 0) {
+					free(s);
+					fr_strerror_printf("Failed to find IP address for %s", cs);
+					return NULL;
+				}
+
+				vp->vp_ipaddr = ipaddr.ipaddr.ip4addr.s_addr;
+			}
+			free(s);
 			vp->length = 4;
 			break;
-		case PW_TYPE_INTEGER:
+
+		case PW_TYPE_BYTE:
+			if (value && (value[0] == '0') && (value[1] == 'x')) {
+				goto do_octets;
+			}
+
 			/*
-			 * 	If it starts with a digit, it must
-			 * 	be a number (or a range).
-			 *
 			 *	Note that ALL integers are unsigned!
 			 */
-			if (strspn(value, "0123456789") == strlen(value)) {
-				vp->lvalue = (uint32_t) strtoul(value, NULL, 10);
-				vp->length = 4;
+			vp->vp_integer = (uint32_t) strtoul(value, &p, 10);
+			if (!*p) {
+				if (vp->vp_integer > 255) {
+					fr_strerror_printf("Byte value \"%s\" is larger than 255", value);
+					return NULL;
+				}
+				vp->length = 1;
+				break;
 			}
+
 			/*
 			 *	Look for the named value for the given
 			 *	attribute.
 			 */
-			else if ((dval = dict_valbyname(vp->attribute, value)) == NULL) {
-				librad_log("Unknown value %s for attribute %s",
+			if ((dval = dict_valbyname(vp->attribute, value)) == NULL) {
+				fr_strerror_printf("Unknown value %s for attribute %s",
 					   value, vp->name);
 				return NULL;
-			} else {
-				vp->lvalue = dval->value;
-				vp->length = 4;
 			}
+			vp->vp_integer = dval->value;
+			vp->length = 1;
+			break;
+
+		case PW_TYPE_SHORT:
+			/*
+			 *	Note that ALL integers are unsigned!
+			 */
+			vp->vp_integer = (uint32_t) strtoul(value, &p, 10);
+			if (!*p) {
+				if (vp->vp_integer > 65535) {
+					fr_strerror_printf("Byte value \"%s\" is larger than 65535", value);
+					return NULL;
+				}
+				vp->length = 2;
+				break;
+			}
+
+			/*
+			 *	Look for the named value for the given
+			 *	attribute.
+			 */
+			if ((dval = dict_valbyname(vp->attribute, value)) == NULL) {
+				fr_strerror_printf("Unknown value %s for attribute %s",
+					   value, vp->name);
+				return NULL;
+			}
+			vp->vp_integer = dval->value;
+			vp->length = 2;
+			break;
+
+		case PW_TYPE_INTEGER:
+			/*
+			 *	Note that ALL integers are unsigned!
+			 */
+			vp->vp_integer = (uint32_t) strtoul(value, &p, 10);
+			if (!*p) {
+				vp->length = 4;
+				break;
+			}
+
+			/*
+			 *	Look for the named value for the given
+			 *	attribute.
+			 */
+			if ((dval = dict_valbyname(vp->attribute, value)) == NULL) {
+				fr_strerror_printf("Unknown value %s for attribute %s",
+					   value, vp->name);
+				return NULL;
+			}
+			vp->vp_integer = dval->value;
+			vp->length = 4;
 			break;
 
 		case PW_TYPE_DATE:
-			if (gettime(value, (time_t *)&vp->lvalue) < 0) {
-				librad_log("failed to parse time string "
-					   "\"%s\"", value);
-				return NULL;
+		  	{
+				/*
+				 *	time_t may be 64 bits, whule vp_date
+				 *	MUST be 32-bits.  We need an
+				 *	intermediary variable to handle
+				 *	the conversions.
+				 */
+				time_t date;
+
+				if (gettime(value, &date) < 0) {
+					fr_strerror_printf("failed to parse time string "
+						   "\"%s\"", value);
+					return NULL;
+				}
+
+				vp->vp_date = date;
 			}
 			vp->length = 4;
 			break;
+
 		case PW_TYPE_ABINARY:
 #ifdef ASCEND_BINARY
 			if (strncasecmp(value, "0x", 2) == 0) {
 				vp->type = PW_TYPE_OCTETS;
 				goto do_octets;
-			}			
+			}
 
-			/*
-			 *	Special case to convert filter to binary
-			 */
-			strNcpy((char *)vp->strvalue, value, sizeof(vp->strvalue));
 		  	if (ascend_parse_filter(vp) < 0 ) {
-				librad_log("failed to parse Ascend binary attribute: %s",
-					   librad_errstr);
+				fr_strerror_printf("failed to parse Ascend binary attribute: %s",
+					   fr_strerror());
 				return NULL;
 			}
 			break;
@@ -755,14 +1059,14 @@ VALUE_PAIR *pairparsevalue(VALUE_PAIR *vp, const char *value)
 			 *	then fall through to raw octets, so that
 			 *	the user can at least make them by hand...
 			 */
-	do_octets:
 #endif
+	do_octets:
 			/* raw octets: 0x01020304... */
 		case PW_TYPE_OCTETS:
 			if (strncasecmp(value, "0x", 2) == 0) {
 				uint8_t *us;
 				cp = value + 2;
-				us = vp->strvalue;
+				us = vp->vp_octets;
 				vp->length = 0;
 
 
@@ -771,16 +1075,17 @@ VALUE_PAIR *pairparsevalue(VALUE_PAIR *vp, const char *value)
 				 *	die.
 				 */
 				if ((strlen(cp) & 0x01) != 0) {
-					librad_log("Hex string is not an even length string.");
+					fr_strerror_printf("Hex string is not an even length string.");
 					return NULL;
 				}
-				
-				
-				while (*cp && vp->length < MAX_STRING_LEN) {
+
+
+				while (*cp &&
+				       (vp->length < MAX_STRING_LEN)) {
 					unsigned int tmp;
 
 					if (sscanf(cp, "%02x", &tmp) != 1) {
-						librad_log("Non-hex characters at %c%c", cp[0], cp[1]);
+						fr_strerror_printf("Non-hex characters at %c%c", cp[0], cp[1]);
 						return NULL;
 					}
 
@@ -788,34 +1093,143 @@ VALUE_PAIR *pairparsevalue(VALUE_PAIR *vp, const char *value)
 					*(us++) = tmp;
 					vp->length++;
 				}
-				*us = '\0';
 			}
 			break;
 
 		case PW_TYPE_IFID:
-			if (ifid_aton(value, vp->strvalue) == NULL) {
-				librad_log("failed to parse interface-id "
+			if (ifid_aton(value, (void *) &vp->vp_ifid) == NULL) {
+				fr_strerror_printf("failed to parse interface-id "
 					   "string \"%s\"", value);
 				return NULL;
 			}
 			vp->length = 8;
-			vp->strvalue[vp->length] = '\0';
 			break;
 
 		case PW_TYPE_IPV6ADDR:
-			if (ipv6_addr(value, vp->strvalue) < 0) {
-				librad_log("failed to parse IPv6 address "
+			if (inet_pton(AF_INET6, value, &vp->vp_ipv6addr) <= 0) {
+				fr_strerror_printf("failed to parse IPv6 address "
 					   "string \"%s\"", value);
 				return NULL;
 			}
 			vp->length = 16; /* length of IPv6 address */
-			vp->strvalue[vp->length] = '\0';
 			break;
+
+		case PW_TYPE_IPV6PREFIX:
+			p = strchr(value, '/');
+			if (!p || ((p - value) >= 256)) {
+				fr_strerror_printf("invalid IPv6 prefix "
+					   "string \"%s\"", value);
+				return NULL;
+			} else {
+				unsigned int prefix;
+				char buffer[256], *eptr;
+
+				memcpy(buffer, value, p - value);
+				buffer[p - value] = '\0';
+
+				if (inet_pton(AF_INET6, buffer, vp->vp_octets + 2) <= 0) {
+					fr_strerror_printf("failed to parse IPv6 address "
+						   "string \"%s\"", value);
+					return NULL;
+				}
+
+				prefix = strtoul(p + 1, &eptr, 10);
+				if ((prefix > 128) || *eptr) {
+					fr_strerror_printf("failed to parse IPv6 address "
+						   "string \"%s\"", value);
+					return NULL;
+				}
+				vp->vp_octets[1] = prefix;
+			}
+			vp->vp_octets[0] = '\0';
+			vp->length = 16 + 2;
+			break;
+
+		case PW_TYPE_ETHERNET:
+			{
+				const char *c1, *c2;
+
+				length = 0;
+				cp = value;
+				while (*cp) {
+					if (cp[1] == ':') {
+						c1 = hextab;
+						c2 = memchr(hextab, tolower((int) cp[0]), 16);
+						cp += 2;
+					} else if ((cp[1] != '\0') &&
+						   ((cp[2] == ':') ||
+						    (cp[2] == '\0'))) {
+						   c1 = memchr(hextab, tolower((int) cp[0]), 16);
+						   c2 = memchr(hextab, tolower((int) cp[1]), 16);
+						   cp += 2;
+						   if (*cp == ':') cp++;
+					} else {
+						c1 = c2 = NULL;
+					}
+					if (!c1 || !c2 || (length >= sizeof(vp->vp_ether))) {
+						fr_strerror_printf("failed to parse Ethernet address \"%s\"", value);
+						return NULL;
+					}
+					vp->vp_ether[length] = ((c1-hextab)<<4) + (c2-hextab);
+					length++;
+				}
+			}
+			vp->length = 6;
+			break;
+
+		case PW_TYPE_COMBO_IP:
+			if (inet_pton(AF_INET6, value, vp->vp_strvalue) > 0) {
+				vp->type = PW_TYPE_IPV6ADDR;
+				vp->length = 16; /* length of IPv6 address */
+				vp->vp_strvalue[vp->length] = '\0';
+
+			} else {
+				fr_ipaddr_t ipaddr;
+
+				if (ip_hton(value, AF_INET, &ipaddr) < 0) {
+					fr_strerror_printf("Failed to find IPv4 address for %s", value);
+					return NULL;
+				}
+
+				vp->type = PW_TYPE_IPADDR;
+				vp->vp_ipaddr = ipaddr.ipaddr.ip4addr.s_addr;
+				vp->length = 4;
+			}
+			break;
+
+		case PW_TYPE_SIGNED: /* Damned code for 1 WiMAX attribute */
+			vp->vp_signed = (int32_t) strtol(value, &p, 10);
+			vp->length = 4;
+			break;
+
+		case PW_TYPE_TLV: /* don't use this! */
+			if (strncasecmp(value, "0x", 2) != 0) {
+				fr_strerror_printf("Invalid TLV specification");
+				return NULL;
+			}
+			length = strlen(value + 2) / 2;
+			if (vp->length < length) {
+				free(vp->vp_tlv);
+				vp->vp_tlv = NULL;
+			}
+			vp->vp_tlv = malloc(length);
+			if (!vp->vp_tlv) {
+				fr_strerror_printf("No memory");
+				return NULL;
+			}
+			if (fr_hex2bin(value + 2, vp->vp_tlv,
+				       length) != length) {
+				fr_strerror_printf("Invalid hex data in TLV");
+				return NULL;
+			}
+			vp->length = length;
+			break;
+
 			/*
 			 *  Anything else.
 			 */
 		default:
-			librad_log("unknown attribute type %d", vp->type);
+			fr_strerror_printf("unknown attribute type %d", vp->type);
 			return NULL;
 	}
 
@@ -828,169 +1242,179 @@ VALUE_PAIR *pairparsevalue(VALUE_PAIR *vp, const char *value)
  *
  *	Attr-%d
  *	Vendor-%d-Attr-%d
+ *	VendorName-Attr-%d
  */
 static VALUE_PAIR *pairmake_any(const char *attribute, const char *value,
 				int operator)
 {
-	int		attr;
-	const char	*p;
+	int		attr, vendor;
+	size_t		size;
+	const char	*p = attribute;
+	char		*q;
 	VALUE_PAIR	*vp;
-	DICT_ATTR	*da;
 
 	/*
 	 *	Unknown attributes MUST be of type 'octets'
 	 */
 	if (value && (strncasecmp(value, "0x", 2) != 0)) {
-		goto error;
+		fr_strerror_printf("Invalid octet string \"%s\" for attribute name \"%s\"", value, attribute);
+		return NULL;
+	}
+
+	attr = vendor = 0;
+
+	/*
+	 *	Pull off vendor prefix first.
+	 */
+	if (strncasecmp(p, "Attr-", 5) != 0) {
+		if (strncasecmp(p, "Vendor-", 7) == 0) {
+			vendor = (int) strtol(p + 7, &q, 10);
+			if ((vendor == 0) || (vendor > 65535)) {
+				fr_strerror_printf("Invalid vendor value in attribute name \"%s\"", attribute);
+				return NULL;
+			}
+
+			p = q;
+
+		} else {	/* must be vendor name */
+			char buffer[256];
+
+			q = strchr(p, '-');
+
+			if (!q) {
+				fr_strerror_printf("Invalid vendor name in attribute name \"%s\"", attribute);
+				return NULL;
+			}
+
+			if ((size_t) (q - p) >= sizeof(buffer)) {
+				fr_strerror_printf("Vendor name too long in attribute name \"%s\"", attribute);
+				return NULL;
+			}
+
+			memcpy(buffer, p, (q - p));
+			buffer[q - p] = '\0';
+
+			vendor = dict_vendorbyname(buffer);
+			if (!vendor) {
+				fr_strerror_printf("Unknown vendor name in attribute name \"%s\"", attribute);
+				return NULL;
+			}
+
+			p = q;
+		}
+
+		if (*p != '-') {
+			fr_strerror_printf("Invalid text following vendor definition in attribute name \"%s\"", attribute);
+			return NULL;
+		}
+		p++;
 	}
 
 	/*
 	 *	Attr-%d
 	 */
-	if (strncasecmp(attribute, "Attr-", 5) == 0) {
-		attr = atoi(attribute + 5);
-		p = attribute + 5;
-		p += strspn(p, "0123456789");
-		if (*p != 0) goto error;
+	if (strncasecmp(p, "Attr-", 5) != 0) {
+		fr_strerror_printf("Invalid format in attribute name \"%s\"", attribute);
+		return NULL;
+	}
 
+	attr = strtol(p + 5, &q, 10);
 
-		/*
-		 *	Vendor-%d-Attr-%d
-		 */
-	} else if (strncasecmp(attribute, "Vendor-", 7) == 0) {
-		int vendor;
-
-		vendor = atoi(attribute + 7);
-		if ((vendor == 0) || (vendor > 65535)) goto error;
-
-		p = attribute + 7;
-		p += strspn(p, "0123456789");
-
-		/*
-		 *	Not Vendor-%d-Attr-%d
-		 */
-		if (strncasecmp(p, "-Attr-", 6) != 0) goto error;
-
-		p += 6;
-		attr = atoi(p);
-
-		p += strspn(p, "0123456789");
-		if (*p != 0) goto error;
-
-		if ((attr == 0) || (attr > 65535)) goto error;
-
-		attr |= (vendor << 16);
-
-		/*
-		 *	VendorName-Attr-%d
-		 */
-	} else if (((p = strchr(attribute, '-')) != NULL) &&
-		   (strncasecmp(p, "-Attr-", 6) == 0)) {
-		int vendor;
-		char buffer[256];
-
-		if ((p - attribute) >= sizeof(buffer)) goto error;
-
-		memcpy(buffer, attribute, p - attribute);
-		buffer[p - attribute] = '\0';
-
-		vendor = dict_vendorbyname(buffer);
-		if (vendor == 0) goto error;
-
-		p += 6;
-		attr = atoi(p);
-
-		p += strspn(p, "0123456789");
-		if (*p != 0) goto error;
-
-		if ((attr == 0) || (attr > 65535)) goto error;
-
-		attr |= (vendor << 16);
-
-	} else {		/* very much unknown: die */
-	error:
-		librad_log("Unknown attribute \"%s\"", attribute);
+	/*
+	 *	Invalid, or trailing text after number.
+	 */
+	if ((attr == 0) || *q) {
+		fr_strerror_printf("Invalid value in attribute name \"%s\"", attribute);
 		return NULL;
 	}
 
 	/*
-	 *	We've now parsed the attribute properly, and verified
-	 *	it to have value 'octets'.  Let's create it.
+	 *	Double-check the size of attr.
 	 */
-	if ((vp = (VALUE_PAIR *)malloc(sizeof(VALUE_PAIR))) == NULL) {
-		librad_log("out of memory");
-		return NULL;
-	}
-	memset(vp, 0, sizeof(VALUE_PAIR));
-	vp->type = PW_TYPE_OCTETS;
+	if (vendor) {
+		DICT_VENDOR *dv = dict_vendorbyvalue(vendor);
 
-	/*
-	 *	It may not be valid hex characters.  If not, die.
-	 */
-	if (pairparsevalue(vp, value) == NULL) {
-		pairfree(&vp);
-		return NULL;
-	}
-
-	/*
-	 *	Dictionary type over-rides what the caller says.
-	 *	This "converts" the parsed value into the appropriate
-	 *	type.
-	 *
-	 *	Also, normalize the name of the attribute...
-	 *
-	 *	Much of this code is copied from paircreate()
-	 */
-	if ((da = dict_attrbyvalue(attr)) != NULL) {
-		strcpy(vp->name, da->name);
-		vp->type = da->type;
-		vp->flags = da->flags;
-
-		/*
-		 *	Sanity check the type for length.  We don't
-		 *	want to look at attributes which are of the
-		 *	wrong length.
-		 */
-		switch (vp->type) {
-		case PW_TYPE_DATE:
-		case PW_TYPE_INTEGER:
-		case PW_TYPE_IPADDR: /* always kept in network byte order */
-			if (vp->length != 4) {
-			length_error:
-				pairfree(&vp);
-				librad_log("Attribute has invalid length");
+		if (!dv) {
+			if (attr > 255) {
+			attr_error:
+				fr_strerror_printf("Invalid attribute number in attribute name \"%s\"", attribute);
 				return NULL;
 			}
-			memcpy(&vp->lvalue, vp->strvalue, sizeof(vp->lvalue));
-			break;
 
-		case PW_TYPE_IFID:
-			if (vp->length != 8) goto length_error;
-			break;
+		} else switch (dv->type) {
+			case 1:
+				if (attr > 255) goto attr_error;
+				break;
 
-		case PW_TYPE_IPV6ADDR:
-			if (vp->length != 16) goto length_error;
-			break;
+			case 2:
+				if (attr > 65535) goto attr_error;
+				break;
 
-#ifdef ASCEND_BINARY
-		case PW_TYPE_ABINARY:
-			if (vp->length != 32) goto length_error;
-			break;
-#endif
-		default:	/* string, octets, etc. */
-			break;
+			case 4:	/* Internal limitations! */
+				if (attr > 65535) goto attr_error;
+				break;
+
+			default:
+				fr_strerror_printf("Internal sanity check failed");
+				return NULL;
 		}
-
-	} else if (VENDOR(attr) == 0) {
-		sprintf(vp->name, "Attr-%u", attr);
-	} else {
-		sprintf(vp->name, "Vendor-%u-Attr-%u",
-			VENDOR(attr), attr & 0xffff);
 	}
 
-	vp->attribute = attr;
+	attr |= vendor << 16;
+
+	/*
+	 *	We've now parsed the attribute properly, Let's create
+	 *	it.  This next stop also looks the attribute up in the
+	 *	dictionary, and creates the appropriate type for it.
+	 */
+	if ((vp = paircreate(attr, PW_TYPE_OCTETS)) == NULL) {
+		fr_strerror_printf("out of memory");
+		return NULL;
+	}
+
+	size = strlen(value + 2);
+
+	/*
+	 *	We may be reading something like Attr-5.  i.e.
+	 *	who-ever wrote the text didn't understand it, but we
+	 *	do.
+	 */
+	switch (vp->type) {
+	default:
+		if (size == (vp->length * 2)) break;
+		vp->type = PW_TYPE_OCTETS;
+		/* FALL-THROUGH */
+		
+	case PW_TYPE_STRING:
+	case PW_TYPE_OCTETS:
+	case PW_TYPE_ABINARY:
+		vp->length = size >> 1;
+		break;
+	}
+
+	if (fr_hex2bin(value + 2, vp->vp_octets, size) != vp->length) {
+		fr_strerror_printf("Invalid hex string");
+		free(vp);
+		return NULL;
+	}
+
+	/*
+	 *	Move contents around based on type.  This is
+	 *	to work around the historical use of "lvalue".
+	 */
+	switch (vp->type) {
+	case PW_TYPE_DATE:
+	case PW_TYPE_IPADDR:
+	case PW_TYPE_INTEGER:
+		memcpy(&vp->lvalue, vp->vp_octets, sizeof(vp->lvalue));
+		vp->vp_strvalue[0] = '\0';
+		break;
+		
+	default:
+		break;
+	}
+       
 	vp->operator = (operator == 0) ? T_OP_EQ : operator;
-	vp->next = NULL;
 
 	return vp;
 }
@@ -1006,10 +1430,8 @@ VALUE_PAIR *pairmake(const char *attribute, const char *value, int operator)
 	char            *tc, *ts;
 	signed char     tag;
 	int             found_tag;
-#ifdef HAVE_REGEX_H
-	int		res;
-	regex_t		cre;
-#endif
+	char		buffer[64];
+	const char	*attrname = attribute;
 
 	/*
 	 *    Check for tags in 'Attribute:Tag' format.
@@ -1017,8 +1439,17 @@ VALUE_PAIR *pairmake(const char *attribute, const char *value, int operator)
 	found_tag = 0;
 	tag = 0;
 
-	ts = strrchr( attribute, ':' );
+	ts = strrchr(attribute, ':');
+	if (ts && !ts[1]) {
+		fr_strerror_printf("Invalid tag for attribute %s", attribute);
+		return NULL;
+	}
+
 	if (ts && ts[1]) {
+		strlcpy(buffer, attribute, sizeof(buffer));
+		attrname = buffer;
+		ts = strrchr(attrname, ':');
+
 	         /* Colon found with something behind it */
 	         if (ts[1] == '*' && ts[2] == 0) {
 		         /* Wildcard tag for check items */
@@ -1031,7 +1462,7 @@ VALUE_PAIR *pairmake(const char *attribute, const char *value, int operator)
 				 *ts = 0;
 			 else tag = 0;
 		 } else {
-			 librad_log("Invalid tag for attribute %s", attribute);
+			 fr_strerror_printf("Invalid tag for attribute %s", attribute);
 			 return NULL;
 		 }
 		 found_tag = 1;
@@ -1041,22 +1472,15 @@ VALUE_PAIR *pairmake(const char *attribute, const char *value, int operator)
 	 *	It's not found in the dictionary, so we use
 	 *	another method to create the attribute.
 	 */
-	if ((da = dict_attrbyname(attribute)) == NULL) {
-		return pairmake_any(attribute, value, operator);
+	if ((da = dict_attrbyname(attrname)) == NULL) {
+		return pairmake_any(attrname, value, operator);
 	}
 
-	if ((vp = (VALUE_PAIR *)malloc(sizeof(VALUE_PAIR))) == NULL) {
-		librad_log("out of memory");
+	if ((vp = pairalloc(da)) == NULL) {
+		fr_strerror_printf("out of memory");
 		return NULL;
 	}
-
-	memset(vp, 0, sizeof(VALUE_PAIR));
-	vp->attribute = da->attr;
-	vp->type = da->type;
 	vp->operator = (operator == 0) ? T_OP_EQ : operator;
-	strcpy(vp->name, da->name);
-	vp->flags = da->flags;
-	vp->next = NULL;
 
 	/*      Check for a tag in the 'Merit' format of:
 	 *      :Tag:Value.  Print an error if we already found
@@ -1067,7 +1491,7 @@ VALUE_PAIR *pairmake(const char *attribute, const char *value, int operator)
 	        /* If we already found a tag, this is invalid */
 	        if(found_tag) {
 		        pairbasicfree(vp);
-			librad_log("Duplicate tag %s for attribute %s",
+			fr_strerror_printf("Duplicate tag %s for attribute %s",
 				   value, vp->name);
 			DEBUG("Duplicate tag %s for attribute %s\n",
 				   value, vp->name);
@@ -1103,7 +1527,7 @@ VALUE_PAIR *pairmake(const char *attribute, const char *value, int operator)
 		 */
 	case T_OP_CMP_TRUE:
 	case T_OP_CMP_FALSE:
-		vp->strvalue[0] = '\0';
+		vp->vp_strvalue[0] = '\0';
 		vp->length = 0;
 	        return vp;
 		break;
@@ -1115,38 +1539,22 @@ VALUE_PAIR *pairmake(const char *attribute, const char *value, int operator)
 		 */
 	case T_OP_REG_EQ:	/* =~ */
 	case T_OP_REG_NE:	/* !~ */
-		if (vp->type == PW_TYPE_INTEGER) {
-			return vp;
-		}
-#ifdef HAVE_REGEX_H
 		/*
-		 *	Regular expression match with no regular
-		 *	expression is wrong.
+		 *	If anything goes wrong, this is a run-time error,
+		 *	not a compile-time error.
 		 */
-		if (!value) {
-			pairfree(&vp);
-			return NULL;
-		}
+		return vp;
 
-		res = regcomp(&cre, value, REG_EXTENDED|REG_NOSUB);
-		if (res != 0) {
-			char	msg[128];
-
-			regerror(res, &cre, msg, sizeof(msg));
-			librad_log("Illegal regular expression in attribute: %s: %s",
-				vp->name, msg);
-			pairbasicfree(vp);
-			return NULL;
-		}
-		regfree(&cre);
-#else
-		librad_log("Regelar expressions not enabled in this build, error in attribute %s",
-				vp->name);
-		pairbasicfree(vp);
-		return NULL;
-#endif
 	}
 
+	/*
+	 *	FIXME: if (strcasecmp(attribute, vp->name) != 0)
+	 *	then the user MAY have typed in the attribute name
+	 *	as Vendor-%d-Attr-%d, and the value MAY be octets.
+	 *
+	 *	We probably want to fix pairparsevalue to accept
+	 *	octets as values for any attribute.
+	 */
 	if (value && (pairparsevalue(vp, value) == NULL)) {
 		pairbasicfree(vp);
 		return NULL;
@@ -1155,49 +1563,97 @@ VALUE_PAIR *pairmake(const char *attribute, const char *value, int operator)
 	return vp;
 }
 
+
+/*
+ *	[a-zA-Z0-9_-:]+
+ */
+static const int valid_attr_name[256] = {
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0,
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0,
+	0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1,
+	0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+};
+
 /*
  *	Read a valuepair from a buffer, and advance pointer.
  *	Sets *eol to T_EOL if end of line was encountered.
  */
-VALUE_PAIR *pairread(char **ptr, LRAD_TOKEN *eol)
+VALUE_PAIR *pairread(const char **ptr, FR_TOKEN *eol)
 {
 	char		buf[64];
 	char		attr[64];
-	char		value[520];
-	char		*p;
-	LRAD_TOKEN	token, t, xlat;
+	char		value[1024], *q;
+	const char	*p;
+	FR_TOKEN	token, t, xlat;
 	VALUE_PAIR	*vp;
+	size_t		len;
 
-	*eol = T_INVALID;
+	*eol = T_OP_INVALID;
 
-	/* Get attribute. */
-	token = gettoken(ptr, attr, sizeof(attr));
+	p = *ptr;
+	while ((*p == ' ') || (*p == '\t')) p++;
 
-	/*  If it's a comment, then exit, as we haven't read a pair */
-	if (token == T_HASH) {
-		*eol = token;
-		librad_log("Read a comment instead of a token");
+	if (!*p) {
+		*eol = T_OP_INVALID;
+		fr_strerror_printf("No token read where we expected an attribute name");
 		return NULL;
 	}
 
-	/*  It's not a comment, so it MUST be an attribute */
-	if ((token == T_EOL) ||
-	    (attr[0] == 0)) {
-		librad_log("No token read where we expected an attribute name");
+	if (*p == '#') {
+		*eol = T_HASH;
+		fr_strerror_printf("Read a comment instead of a token");
 		return NULL;
 	}
 
-	/* Now we should have an '=' here. */
+	q = attr;
+	for (len = 0; len < sizeof(attr); len++) {
+		if (valid_attr_name[(int)*p]) {
+			*q++ = *p++;
+			continue;
+		}
+		break;
+	}
+
+	if (len == sizeof(attr)) {
+		*eol = T_OP_INVALID;
+		fr_strerror_printf("Attribute name is too long");
+		return NULL;
+	}
+
+	/*
+	 *	We may have Foo-Bar:= stuff, so back up.
+	 */
+	if (attr[len - 1] == ':') {
+		p--;
+		len--;
+	}
+
+	attr[len] = '\0';
+	*ptr = p;
+
+	/* Now we should have an operator here. */
 	token = gettoken(ptr, buf, sizeof(buf));
 	if (token < T_EQSTART || token > T_EQEND) {
-		librad_log("expecting '='");
+		fr_strerror_printf("expecting operator");
 		return NULL;
 	}
 
 	/* Read value.  Note that empty string values are allowed */
 	xlat = gettoken(ptr, value, sizeof(value));
 	if (xlat == T_EOL) {
-		librad_log("failed to get value");
+		fr_strerror_printf("failed to get value");
 		return NULL;
 	}
 
@@ -1207,7 +1663,7 @@ VALUE_PAIR *pairread(char **ptr, LRAD_TOKEN *eol)
 	p = *ptr;
 	t = gettoken(&p, buf, sizeof(buf));
 	if (t != T_EOL && t != T_COMMA && t != T_HASH) {
-		librad_log("Expected end of line or comma");
+		fr_strerror_printf("Expected end of line or comma");
 		return NULL;
 	}
 
@@ -1216,6 +1672,7 @@ VALUE_PAIR *pairread(char **ptr, LRAD_TOKEN *eol)
 		*ptr = p;
 	}
 
+	vp = NULL;
 	switch (xlat) {
 		/*
 		 *	Make the full pair now.
@@ -1230,42 +1687,85 @@ VALUE_PAIR *pairread(char **ptr, LRAD_TOKEN *eol)
 	case T_DOUBLE_QUOTED_STRING:
 		p = strchr(value, '%');
 		if (p && (p[1] == '{')) {
+			if (strlen(value) >= sizeof(vp->vp_strvalue)) {
+				fr_strerror_printf("Value too long");
+				return NULL;
+			}
 			vp = pairmake(attr, NULL, token);
 			if (!vp) {
-				*eol = T_INVALID;
+				*eol = T_OP_INVALID;
 				return NULL;
 			}
 
-			strNcpy((char *)vp->strvalue, value, sizeof(vp->strvalue));
+			strlcpy(vp->vp_strvalue, value, sizeof(vp->vp_strvalue));
 			vp->flags.do_xlat = 1;
 			vp->length = 0;
 		} else {
+			/*
+			 *	Parse && escape it, as defined by the
+			 *	data type.
+			 */
 			vp = pairmake(attr, value, token);
+			if (!vp) {
+				*eol = T_OP_INVALID;
+				return NULL;
+			}
 		}
 		break;
 
+	case T_SINGLE_QUOTED_STRING:
+		vp = pairmake(attr, NULL, token);
+		if (!vp) {
+			*eol = T_OP_INVALID;
+			return NULL;
+		}
+
+		/*
+		 *	String and octet types get copied verbatim.
+		 */
+		if ((vp->type == PW_TYPE_STRING) ||
+		    (vp->type == PW_TYPE_OCTETS)) {
+			strlcpy(vp->vp_strvalue, value,
+				sizeof(vp->vp_strvalue));
+			vp->length = strlen(vp->vp_strvalue);
+
+			/*
+			 *	Everything else gets parsed: it's
+			 *	DATA, not a string!
+			 */
+		} else if (!pairparsevalue(vp, value)) {
+			pairfree(&vp);
+			*eol = T_OP_INVALID;
+			return NULL;
+		}
+		break;
 
 		/*
 		 *	Mark the pair to be allocated later.
 		 */
 	case T_BACK_QUOTED_STRING:
+		if (strlen(value) >= sizeof(vp->vp_strvalue)) {
+			fr_strerror_printf("Value too long");
+			return NULL;
+		}
+
 		vp = pairmake(attr, NULL, token);
 		if (!vp) {
-			*eol = T_INVALID;
+			*eol = T_OP_INVALID;
 			return NULL;
 		}
 
 		vp->flags.do_xlat = 1;
-		strNcpy((char *)vp->strvalue, value, sizeof(vp->strvalue));
+		strlcpy(vp->vp_strvalue, value, sizeof(vp->vp_strvalue));
 		vp->length = 0;
 		break;
 	}
 
 	/*
-	 *      If we didn't make a pair, return an error.
+	 *	If we didn't make a pair, return an error.
 	 */
 	if (!vp) {
-		*eol = T_INVALID;
+		*eol = T_OP_INVALID;
 		return NULL;
 	}
 
@@ -1276,12 +1776,12 @@ VALUE_PAIR *pairread(char **ptr, LRAD_TOKEN *eol)
  *	Read one line of attribute/value pairs. This might contain
  *	multiple pairs seperated by comma's.
  */
-LRAD_TOKEN userparse(char *buffer, VALUE_PAIR **first_pair)
+FR_TOKEN userparse(const char *buffer, VALUE_PAIR **first_pair)
 {
 	VALUE_PAIR	*vp;
-	char		*p;
-	LRAD_TOKEN	last_token = T_INVALID;
-	LRAD_TOKEN	previous_token;
+	const char	*p;
+	FR_TOKEN	last_token = T_OP_INVALID;
+	FR_TOKEN	previous_token;
 
 	/*
 	 *	We allow an empty line.
@@ -1319,7 +1819,7 @@ LRAD_TOKEN userparse(char *buffer, VALUE_PAIR **first_pair)
 VALUE_PAIR *readvp2(FILE *fp, int *pfiledone, const char *errprefix)
 {
 	char buf[8192];
-	LRAD_TOKEN last_token = T_EOL;
+	FR_TOKEN last_token = T_EOL;
 	VALUE_PAIR *vp;
 	VALUE_PAIR *list;
 	int error = 0;
@@ -1350,7 +1850,7 @@ VALUE_PAIR *readvp2(FILE *fp, int *pfiledone, const char *errprefix)
 		last_token = userparse(buf, &vp);
 		if (!vp) {
 			if (last_token != T_EOL) {
-				librad_perror(errprefix);
+				fr_perror("%s", errprefix);
 				error = 1;
 				break;
 			}
@@ -1368,3 +1868,161 @@ VALUE_PAIR *readvp2(FILE *fp, int *pfiledone, const char *errprefix)
 	return error ? NULL: list;
 }
 
+
+
+/*
+ *	Compare two pairs, using the operator from "one".
+ *
+ *	i.e. given two attributes, it does:
+ *
+ *	(two->data) (one->operator) (one->data)
+ *
+ *	e.g. "foo" != "bar"
+ *
+ *	Returns true (comparison is true), or false (comparison is not true);
+ */
+int paircmp(VALUE_PAIR *one, VALUE_PAIR *two)
+{
+	int compare;
+
+	switch (one->operator) {
+	case T_OP_CMP_TRUE:
+		return (two != NULL);
+
+	case T_OP_CMP_FALSE:
+		return (two == NULL);
+
+		/*
+		 *	One is a regex, compile it, print two to a string,
+		 *	and then do string comparisons.
+		 */
+	case T_OP_REG_EQ:
+	case T_OP_REG_NE:
+#ifndef HAVE_REGEX_H
+		return -1;
+#else
+		{
+			regex_t reg;
+			char buffer[MAX_STRING_LEN * 4 + 1];
+
+			compare = regcomp(&reg, one->vp_strvalue,
+					  REG_EXTENDED);
+			if (compare != 0) {
+				regerror(compare, &reg, buffer, sizeof(buffer));
+				fr_strerror_printf("Illegal regular expression in attribute: %s: %s",
+					   one->name, buffer);
+				return -1;
+			}
+
+			vp_prints_value(buffer, sizeof(buffer), two, 0);
+
+			/*
+			 *	Don't care about substring matches,
+			 *	oh well...
+			 */
+			compare = regexec(&reg, buffer, 0, NULL, 0);
+
+			regfree(&reg);
+			if (one->operator == T_OP_REG_EQ) return (compare == 0);
+			return (compare != 0);
+		}
+#endif
+
+	default:		/* we're OK */
+		break;
+	}
+
+	/*
+	 *	After doing the previous check for special comparisons,
+	 *	do the per-type comparison here.
+	 */
+	switch (one->type) {
+	case PW_TYPE_ABINARY:
+	case PW_TYPE_OCTETS:
+	{
+		size_t length;
+
+		if (one->length < two->length) {
+			length = one->length;
+		} else {
+			length = two->length;
+		}
+
+		if (length) {
+			compare = memcmp(two->vp_octets, one->vp_octets,
+					 length);
+			if (compare != 0) break;
+		}
+
+		/*
+		 *	Contents are the same.  The return code
+		 *	is therefore the difference in lengths.
+		 *
+		 *	i.e. "0x00" is smaller than "0x0000"
+		 */
+		compare = two->length - one->length;
+	}
+		break;
+
+	case PW_TYPE_STRING:
+		compare = strcmp(two->vp_strvalue, one->vp_strvalue);
+		break;
+
+	case PW_TYPE_BYTE:
+	case PW_TYPE_SHORT:
+	case PW_TYPE_INTEGER:
+	case PW_TYPE_DATE:
+		compare = two->vp_integer - one->vp_integer;
+		break;
+
+	case PW_TYPE_IPADDR:
+		compare = ntohl(two->vp_ipaddr) - ntohl(one->vp_ipaddr);
+		break;
+
+	case PW_TYPE_IPV6ADDR:
+		compare = memcmp(&two->vp_ipv6addr, &one->vp_ipv6addr,
+				 sizeof(two->vp_ipv6addr));
+		break;
+
+	case PW_TYPE_IPV6PREFIX:
+		compare = memcmp(&two->vp_ipv6prefix, &one->vp_ipv6prefix,
+				 sizeof(two->vp_ipv6prefix));
+		break;
+
+	case PW_TYPE_IFID:
+		compare = memcmp(&two->vp_ifid, &one->vp_ifid,
+				 sizeof(two->vp_ifid));
+		break;
+
+	default:
+		return 0;	/* unknown type */
+	}
+
+	/*
+	 *	Now do the operator comparison.
+	 */
+	switch (one->operator) {
+	case T_OP_CMP_EQ:
+		return (compare == 0);
+
+	case T_OP_NE:
+		return (compare != 0);
+
+	case T_OP_LT:
+		return (compare < 0);
+
+	case T_OP_GT:
+		return (compare > 0);
+
+	case T_OP_LE:
+		return (compare <= 0);
+
+	case T_OP_GE:
+		return (compare >= 0);
+
+	default:
+		return 0;
+	}
+
+	return 0;
+}

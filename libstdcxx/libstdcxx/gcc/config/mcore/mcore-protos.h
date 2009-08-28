@@ -1,5 +1,5 @@
 /* Prototypes for exported functions defined in mcore.c
-   Copyright (C) 2000, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Nick Clifton (nickc@redhat.com)
 
    This file is part of GCC.
@@ -16,8 +16,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 extern const char * mcore_output_jump_label_table	(void);
 extern void         mcore_expand_prolog          	(void);
@@ -71,25 +71,7 @@ extern int          mcore_arith_S_operand         	(rtx);
 #ifdef HAVE_MACHINE_MODES
 extern const char * mcore_output_move          		(rtx, rtx *, enum machine_mode);
 extern const char * mcore_output_movedouble    		(rtx *, enum machine_mode);
-extern int          mcore_arith_reg_operand       	(rtx, enum machine_mode);
-extern int          mcore_general_movsrc_operand  	(rtx, enum machine_mode);
-extern int          mcore_general_movdst_operand  	(rtx, enum machine_mode);
-extern int          mcore_reload_operand          	(rtx, enum machine_mode);
-extern int          mcore_arith_J_operand         	(rtx, enum machine_mode);
-extern int          mcore_arith_K_operand         	(rtx, enum machine_mode);
-extern int          mcore_arith_K_operand_not_0   	(rtx, enum machine_mode);
-extern int          mcore_arith_M_operand         	(rtx, enum machine_mode);
-extern int          mcore_arith_K_S_operand       	(rtx, enum machine_mode);
-extern int          mcore_arith_imm_operand       	(rtx, enum machine_mode);
-extern int          mcore_arith_any_imm_operand   	(rtx, enum machine_mode);
-extern int          mcore_arith_O_operand         	(rtx, enum machine_mode);
-extern int          mcore_literal_K_operand       	(rtx, enum machine_mode);
-extern int          mcore_addsub_operand          	(rtx, enum machine_mode);
-extern int          mcore_compare_operand         	(rtx, enum machine_mode);
-extern int          mcore_load_multiple_operation 	(rtx, enum machine_mode);
-extern int          mcore_store_multiple_operation	(rtx, enum machine_mode);
-extern int          mcore_call_address_operand    	(rtx, enum machine_mode);
-
+extern int          const_ok_for_mcore                  (int);
 #ifdef TREE_CODE
 extern rtx          mcore_function_arg           	(CUMULATIVE_ARGS, enum machine_mode, tree, int);
 #endif /* TREE_CODE */

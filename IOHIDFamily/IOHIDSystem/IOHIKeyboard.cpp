@@ -1,7 +1,7 @@
 /*
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1999-2009 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -32,6 +32,7 @@
 #include "IOHIDSystem.h"
 #include "IOHIKeyboard.h"
 #include "IOHIDKeyboardDevice.h"
+#include "IOHIDFamilyTrace.h"
 
 //************************************************************************
 // KeyboardReserved
@@ -58,7 +59,6 @@ static OSArray *gKeyboardReservedArray = OSArray::withCapacity(4);
 static KeyboardReserved * GetKeyboardReservedStructEventForService(IOHIKeyboard *service, UInt32 * index = 0)
 {
     KeyboardReserved 	* retVal    = 0;
-    
     if (gKeyboardReservedArray) {
         OSCollectionIterator    * iterator  = 0;
         iterator = OSCollectionIterator::withCollection(gKeyboardReservedArray);
@@ -86,12 +86,10 @@ static KeyboardReserved * GetKeyboardReservedStructEventForService(IOHIKeyboard 
                 else {
                     iterator->reset();
                 }
-        
-            }        
+            }
             iterator->release();
         }
     }
-    
     return retVal;
 }
 
@@ -210,6 +208,7 @@ void IOHIKeyboard::free()
 
     if ( _keyMap ) {
         _keyMap->release();
+        _keyMap = 0;
     }
 
     if( _keyState )
@@ -345,8 +344,10 @@ bool IOHIKeyboard::resetKeyboard()
 
     IOLockLock( _deviceLock);
 
-    if ( _keyMap )
-		_keyMap->release();
+    if ( _keyMap ) {
+        _keyMap->release();
+        _keyMap = 0;
+    }
 
     // Set up default keymapping.
     defaultKeymap = defaultKeymapOfLength(&defaultKeymapLength);
@@ -405,6 +406,7 @@ void IOHIKeyboard::scheduleAutoRepeat()
         AbsoluteTime deadline;
         clock_absolutetime_interval_to_deadline(_downRepeatTime, &deadline);
         if (tempReservedStruct) {
+            IOHID_DEBUG(kIOHIDDebugCode_KeyboardCapsThreadTrigger, this, __OSAbsoluteTime(deadline), tempReservedStruct->repeat_thread_call, 0);
             thread_call_enter_delayed(tempReservedStruct->repeat_thread_call, deadline);
         }
 	_calloutPending = true;
@@ -415,6 +417,7 @@ void IOHIKeyboard::_autoRepeat(thread_call_param_t arg,
                                thread_call_param_t)         /* thread_call_func_t */
 {
     IOHIKeyboard *self = (IOHIKeyboard *) arg;
+    IOHID_DEBUG(kIOHIDDebugCode_KeyboardCapsThreadActive, self, self ? self->_codeToRepeat : 0, 0, 0);
     self->autoRepeat();
 }
 

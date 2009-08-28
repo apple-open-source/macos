@@ -5,7 +5,7 @@
 .\" This file contains changes from the Open Software Foundation.
 .\"
 .\"     from: @(#)newsyslog.8
-.\" $FreeBSD: src/usr.sbin/newsyslog/newsyslog.conf.5,v 1.5 2006/07/21 22:13:06 sobomax Exp $
+.\" $FreeBSD: src/usr.sbin/newsyslog/newsyslog.conf.5,v 1.8 2008/06/26 07:02:47 sobomax Exp $
 .\"
 .\" Copyright 1988, 1989 by the Massachusetts Institute of Technology
 .\"
@@ -21,7 +21,7 @@
 .\" the suitability of this software for any purpose.  It is
 .\" provided "as is" without express or implied warranty.
 .\"
-.Dd June 3, 2004
+.Dd November 27, 2006
 .Dt NEWSYSLOG.CONF 5
 .Os
 .Sh NAME
@@ -60,9 +60,9 @@ character and the rest of the line after it is ignored.
 To prevent special meaning, the
 .Ql #
 character may be escaped with
-.Ql \e\e ;
+.Ql \e ;
 in this case preceding
-.Ql \e\e
+.Ql \e
 is removed and
 .Ql #
 is treated as an ordinary character.
@@ -270,7 +270,7 @@ should set the
 .Dv UF_NODUMP
 flag when creating a new version of
 this log file.
-This option would effect how the
+This option would affect how the
 .Xr dump 8
 command treats the log file when making a file system backup.
 .It Cm G

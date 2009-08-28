@@ -71,7 +71,6 @@ static char *rcsid = "$Id: pmap_getport.c,v 1.4 2004/12/19 22:45:44 zarzycki Exp
 #include <net/if.h>
 
 static struct timeval default_timeout = { 5, 0 };
-static struct timeval default_tottimeout = { 60, 0 };
 
 /*
  * Find the mapped port for program,version.

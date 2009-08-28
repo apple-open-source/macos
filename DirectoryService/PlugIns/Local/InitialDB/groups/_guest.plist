@@ -19,5 +19,9 @@
 	<array>
 		<string>*</string>
 	</array>
+	<key>realname</key>
+	<array>
+		<string>Guest</string>
+	</array>
 </dict>
 </plist>

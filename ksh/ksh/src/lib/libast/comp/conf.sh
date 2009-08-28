@@ -1,10 +1,10 @@
 ########################################################################
 #                                                                      #
 #               This software is part of the ast package               #
-#           Copyright (c) 1985-2007 AT&T Knowledge Ventures            #
+#          Copyright (c) 1985-2007 AT&T Intellectual Property          #
 #                      and is licensed under the                       #
 #                  Common Public License, Version 1.0                  #
-#                      by AT&T Knowledge Ventures                      #
+#                    by AT&T Intellectual Property                     #
 #                                                                      #
 #                A copy of the License is available at                 #
 #            http://www.opensource.org/licenses/cpl1.0.txt             #
@@ -1497,7 +1497,7 @@ struct Conf_s
 	const char	name[${name_max}];
 	Value_t		limit;
 	Value_t		minmax;
-	short		flags;
+	unsigned int	flags;
 	short		standard;
 	short		section;
 	short		call;

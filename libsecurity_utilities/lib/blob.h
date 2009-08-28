@@ -61,10 +61,10 @@ public:
 	Magic magic() const { return mMagic; }
 	size_t length() const { return mLength; }
 	
-	bool validateBlob(Magic magic, size_t blobLength) const
-	{
-		return mMagic == magic && mLength >= blobLength;
-	}
+	void initialize(Magic magic, size_t length = 0)
+	{ mMagic = magic; mLength = length; }
+	
+	bool validateBlob(Magic magic, size_t minSize = 0, size_t maxSize = 0) const;
 
 	template <class T, class Offset>
 	T *at(Offset offset)
@@ -73,6 +73,17 @@ public:
 	template <class T, class Offset>
 	const T *at(Offset offset) const
 	{ return LowLevelMemoryUtilities::increment<const T>(this, offset); }
+	
+	template <class Offset1, class Offset2>
+	bool contains(Offset1 offset, Offset2 size) const
+	{ return offset >= 0 && size_t(offset) >= sizeof(BlobCore) && (size_t(offset) + size) <= this->length(); }
+	
+	template <class Base, class Offset>
+	bool contains(Base *ptr, Offset size) const
+	{ return contains(LowLevelMemoryUtilities::difference(ptr, this), size); }
+
+	char *stringAt(Offset offset);
+	const char *stringAt(Offset offset) const;
 
 	void *data()						{ return this; }
 	const void *data() const			{ return this; }
@@ -90,17 +101,38 @@ public:
 	template <class BlobType>
 	bool is() const { return magic() == BlobType::typeMagic; }
 	
-	static BlobCore *readBlob(std::FILE *file)	{ return readBlob(file, 0, 0); }
-	static BlobCore *readBlob(int fd)			{ return readBlob(fd, 0, 0); }
+	static BlobCore *readBlob(std::FILE *file)	{ return readBlob(file, 0, 0, 0); }
+	static BlobCore *readBlob(int fd)			{ return readBlob(fd, 0, 0, 0); }
 	
 protected:
-	static BlobCore *readBlob(std::FILE *file, uint32_t magic, size_t blobSize);
-	static BlobCore *readBlob(int fd, uint32_t magic, size_t blobSize);
-
+	static BlobCore *readBlob(std::FILE *file, uint32_t magic, size_t minSize, size_t maxSize); // streaming
+	static BlobCore *readBlob(int fd, uint32_t magic, size_t minSize, size_t maxSize); // streaming
+	static BlobCore *readBlob(int fd, size_t offset, uint32_t magic, size_t minSize, size_t maxSize); // pread(2)@offset
+	
 protected:
 	Endian<uint32_t> mMagic;
 	Endian<uint32_t> mLength;
 };
+
+
+// basic validation helper
+inline bool BlobCore::validateBlob(Magic magic, size_t minSize /* = 0 */, size_t maxSize /* = 0 */) const
+{
+	uint32_t length = this->mLength;
+	if (magic && magic != this->mMagic) {
+		errno = EINVAL;
+		return false;
+	}
+	if (minSize ? (length < minSize) : (length < sizeof(BlobCore))) {
+		errno = EINVAL;
+		return false;
+	}
+	if (maxSize && length > maxSize) {
+		errno = ENOMEM;
+		return false;
+	}
+	return true;
+}
 
 
 //
@@ -109,48 +141,46 @@ protected:
 template <class BlobType, uint32_t _magic>
 class Blob: public BlobCore {
 public:
-	void initialize(size_t size = 0)	{ mMagic = _magic; mLength = size; }
+	void initialize(size_t size = 0)	{ BlobCore::initialize(_magic, size); }
 	
 	static const Magic typeMagic = _magic;
 	
 	bool validateBlob() const
-	{
-		return BlobCore::validateBlob(_magic, sizeof(BlobType));
-	}
+	{ return BlobCore::validateBlob(_magic, sizeof(BlobType)); }
 	
 	bool validateBlob(size_t extLength) const
-	{
-		return validateBlob() && mLength == extLength;
-	}
+	{ return validateBlob() && mLength == extLength; }
 	
-	static BlobType *specific(BlobCore *blob)
+	static BlobType *specific(BlobCore *blob, bool unalloc = false)
 	{
-		BlobType *p = static_cast<BlobType *>(blob);
-		if (p)
-			assert(p->validateBlob());
-		return p;
+		if (BlobType *p = static_cast<BlobType *>(blob)) {
+			if (p->validateBlob())
+				return p;
+			if (unalloc)
+				::free(p);
+		}
+		return NULL;
 	}
 	
 	static const BlobType *specific(const BlobCore *blob)
 	{
 		const BlobType *p = static_cast<const BlobType *>(blob);
-		if (p)
-			assert(p->validateBlob());
-		return p;
+		if (p && p->validateBlob())
+			return p;
+		return NULL;
 	}
 	
 	BlobType *clone() const
 	{ assert(validateBlob()); return specific(this->BlobCore::clone());	}
 
 	static BlobType *readBlob(int fd)
-	{
-		return specific(BlobCore::readBlob(fd, _magic, sizeof(BlobType)));
-	}
+	{ return specific(BlobCore::readBlob(fd, _magic, sizeof(BlobType), 0), true); }
+
+	static BlobType *readBlob(int fd, size_t offset, size_t maxSize = 0)
+	{ return specific(BlobCore::readBlob(fd, offset, _magic, sizeof(BlobType), maxSize), true); }
 
 	static BlobType *readBlob(std::FILE *file)
-	{
-		return specific(BlobCore::readBlob(file, _magic, sizeof(BlobType)));
-	}
+	{ return specific(BlobCore::readBlob(file, _magic, sizeof(BlobType), 0), true); }
 };
 
 
@@ -161,8 +191,8 @@ public:
 //
 class BlobWrapper : public Blob<BlobWrapper, 0xfade0b01> {
 public:
-	static BlobWrapper *alloc(size_t length);
-	static BlobWrapper *alloc(const void *data, size_t length);
+	static BlobWrapper *alloc(size_t length, Magic magic = BlobWrapper::typeMagic);
+	static BlobWrapper *alloc(const void *data, size_t length, Magic magic = BlobWrapper::typeMagic);
 	
 	unsigned char dataArea[0];
 	

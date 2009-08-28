@@ -1,0 +1,9 @@
+ac_cv_func_snprintf=${ac_cv_func_snprintf=yes}
+ac_cv_func_vsnprintf=${ac_cv_func_vsnprintf=yes}
+ac_cv_lib_idn_stringprep_check_version=${ac_cv_lib_idn_stringprep_check_version=yes}
+ac_cv_lib_ssl_SSL_connect=${ac_cv_lib_ssl_SSL_connect=yes}
+ac_cv_func_snprintf_handles_null=${ac_cv_func_snprintf_handles_null=yes}
+ac_cv_func_vsnprintf_handles_null=${ac_cv_func_vsnprintf_handles_null=yes}
+ac_cv_lib_idn_have_version=${ac_cv_lib_idn_have_version=yes}
+ac_cv_lib_ssl_have_version=${ac_cv_lib_ssl_have_version=yes}
+ac_cv_func_fnmatch_works=${ac_cv_func_fnmatch_works=yes}

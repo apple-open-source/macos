@@ -1,4 +1,6 @@
-/* $Id: crypto_openssl.c,v 1.40.4.5 2005/07/12 11:50:15 manubsd Exp $ */
+/*	$NetBSD: crypto_openssl.c,v 1.11.6.1 2006/12/18 10:18:10 vanhu Exp $	*/
+
+/* Id: crypto_openssl.c,v 1.47 2006/05/06 20:42:09 manubsd Exp */
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -60,6 +62,7 @@
 #ifdef __APPLE__
 #include <CommonCrypto/CommonDigest.h>
 #include <CommonCrypto/CommonHMAC.h>
+#include <CommonCrypto/CommonCryptor.h>
 #else
 #include <openssl/md5.h>
 #include <openssl/sha.h>
@@ -141,7 +144,7 @@ eay_str2asn1dn(str, len)
 	char *buf;
 	char *field, *value;
 	int i, j;
-	vchar_t *ret;
+	vchar_t *ret = NULL;
 	caddr_t p;
 
 	if (len == -1)
@@ -149,7 +152,7 @@ eay_str2asn1dn(str, len)
 
 	buf = racoon_malloc(len + 1);
 	if (!buf) {
-		printf("failed to allocate buffer\n");
+		plog(LLV_WARNING, LOCATION, NULL,"failed to allocate buffer\n");
 		return NULL;
 	}
 	memcpy(buf, str, len);
@@ -226,6 +229,8 @@ eay_str2asn1dn(str, len)
 		racoon_free(buf);
 	if (name)
 		X509_NAME_free(name);
+	if (ret)
+		vfree(ret);
 	return NULL;
 }
 
@@ -253,7 +258,7 @@ eay_hex2asn1dn(const char *hex, int len)
 	binlen = BN_num_bytes(bn);
 	ret = vmalloc(binlen);
 	if (!ret) {
-		printf("failed to allocate buffer\n");
+		plog(LLV_WARNING, LOCATION, NULL,"failed to allocate buffer\n");
 		return NULL;
 	}
 	binbuf = ret->v;
@@ -502,7 +507,7 @@ eay_check_x509cert(cert, CApath, CAfile, local)
 
 end:
 	if (error)
-		printf("%s\n", eay_strerror());
+		plog(LLV_WARNING, LOCATION, NULL,"%s\n", eay_strerror());
 	if (cert_ctx != NULL)
 		X509_STORE_free(cert_ctx);
 	if (x509 != NULL)
@@ -606,37 +611,36 @@ eay_get_x509asn1subjectname(cert)
 	u_char *bp;
 	vchar_t *name = NULL;
 	int len;
-	int error = -1;
 
 	bp = (unsigned char *) cert->v;
 
 	x509 = mem2x509(cert);
 	if (x509 == NULL)
-		goto end;
+		goto error;
 
 	/* get the length of the name */
 	len = i2d_X509_NAME(x509->cert_info->subject, NULL);
 	name = vmalloc(len);
 	if (!name)
-		goto end;
+		goto error;
 	/* get the name */
 	bp = (unsigned char *) name->v;
 	len = i2d_X509_NAME(x509->cert_info->subject, &bp);
 
-	error = 0;
-
-   end:
-	if (error) {
-		plog(LLV_ERROR, LOCATION, NULL, "%s\n", eay_strerror());
-		if (name) {
-			vfree(name);
-			name = NULL;
-		}
-	}
-	if (x509)
-		X509_free(x509);
+	X509_free(x509);
 
 	return name;
+
+error:
+	plog(LLV_ERROR, LOCATION, NULL, "%s\n", eay_strerror());
+
+	if (name != NULL) 
+		vfree(name);
+
+	if (x509 != NULL)
+		X509_free(x509);
+
+	return NULL;
 }
 
 #ifdef __APPLE__
@@ -689,7 +693,7 @@ eay_get_x509subjectaltname(cert, altname, type, pos, len)
 {
 	X509 *x509 = NULL;
 	int i;
-	GENERAL_NAMES 	*gens;
+	GENERAL_NAMES 	*gens = NULL;
 	GENERAL_NAME 	*gen;
 	int error = -1;
 
@@ -763,6 +767,9 @@ eay_get_x509subjectaltname(cert, altname, type, pos, len)
 		printf("%s\n", eay_strerror());
 #endif
 	}
+	if (gens)
+	        /* free the whole stack. */
+		sk_GENERAL_NAME_pop_free(gens, GENERAL_NAME_free);
 	if (x509)
 		X509_free(x509);
 
@@ -1042,12 +1049,14 @@ eay_check_x509sign(source, sig, cert)
 	evp = X509_get_pubkey(x509);
 	if (! evp) {
 		plog(LLV_ERROR, LOCATION, NULL, "X509_get_pubkey(): %s\n", eay_strerror());
+		X509_free(x509);
 		return -1;
 	}
 
 	res = eay_rsa_verify(source, sig, evp->pkey.rsa);
 
 	EVP_PKEY_free(evp);
+	X509_free(x509);
 
 	return res;
 }
@@ -1389,6 +1398,45 @@ evp_keylen(int len, const EVP_CIPHER *e)
 	return EVP_CIPHER_key_length(e) << 3;
 }
 
+vchar_t *
+eay_CCCrypt(CCOperation  oper,
+			CCAlgorithm  algo,
+			CCOptions    opts,
+			vchar_t     *data,
+			vchar_t     *key,
+			vchar_t     *iv)
+{
+    vchar_t         *res;
+    size_t           res_len = 0;
+    CCCryptorStatus  status;
+
+    /* allocate buffer for result */
+    if ((res = vmalloc(data->l)) == NULL)
+        return NULL;
+
+    status = CCCrypt(oper,
+                     algo,
+                     opts,
+                     key->v, key->l,
+                     iv->v,
+                     data->v, data->l,
+                     res->v, res->l, &res_len);
+    if (status == kCCSuccess) {
+        if (res->l != res_len) {
+            plog(LLV_ERROR, LOCATION, NULL,
+                 "crypt %d %d length mismatch. expected: %zd. got: %zd.\n",
+                 oper, algo, res->l, res_len);
+        }
+        return res;
+    } else {
+        plog(LLV_ERROR, LOCATION, NULL,
+             "crypt %d %d error. status %d.\n",
+             oper, algo, (int)status);
+    }
+    vfree(res);
+    return NULL;
+}
+
 /*
  * DES-CBC
  */
@@ -1396,14 +1444,22 @@ vchar_t *
 eay_des_encrypt(data, key, iv)
 	vchar_t *data, *key, *iv;
 {
+#ifdef __APPLE__
+    return(eay_CCCrypt(kCCEncrypt, kCCAlgorithmDES, 0 /* CBC */, data, key, iv));
+#else
 	return evp_crypt(data, key, iv, EVP_des_cbc(), 1);
+#endif /* __APPLE__ */
 }
 
 vchar_t *
 eay_des_decrypt(data, key, iv)
 	vchar_t *data, *key, *iv;
 {
+#ifdef __APPLE__
+    return(eay_CCCrypt(kCCDecrypt, kCCAlgorithmDES, 0 /* CBC */, data, key, iv));
+#else
 	return evp_crypt(data, key, iv, EVP_des_cbc(), 0);
+#endif /* __APPLE__ */
 }
 
 int
@@ -1421,7 +1477,17 @@ int
 eay_des_keylen(len)
 	int len;
 {
+#ifdef __APPLE__
+    /* CommonCrypto return lengths in bytes, ipsec-tools
+     * uses lengths in bits, therefore conversion is required.
+     */
+    if (len != 0 && len != (kCCKeySizeDES << 3))
+        return -1;
+
+    return kCCKeySizeDES << 3;      
+#else
 	return evp_keylen(len, EVP_des_cbc());
+#endif /* __APPLE__ */
 }
 
 #ifdef HAVE_OPENSSL_IDEA_H
@@ -1594,14 +1660,22 @@ vchar_t *
 eay_3des_encrypt(data, key, iv)
 	vchar_t *data, *key, *iv;
 {
+#ifdef __APPLE__
+    return(eay_CCCrypt(kCCEncrypt, kCCAlgorithm3DES, 0 /* CBC */, data, key, iv));
+#else
 	return evp_crypt(data, key, iv, EVP_des_ede3_cbc(), 1);
+#endif /* __APPLE__ */
 }
 
 vchar_t *
 eay_3des_decrypt(data, key, iv)
 	vchar_t *data, *key, *iv;
 {
+#ifdef __APPLE__
+    return(eay_CCCrypt(kCCDecrypt, kCCAlgorithm3DES, 0 /* CBC */, data, key, iv));
+#else
 	return evp_crypt(data, key, iv, EVP_des_ede3_cbc(), 0);
+#endif /* __APPLE__ */
 }
 
 int
@@ -1626,9 +1700,19 @@ int
 eay_3des_keylen(len)
 	int len;
 {
+#ifdef __APPLE__
+    /* CommonCrypto return lengths in bytes, ipsec-tools
+     * uses lengths in bits, therefore conversion is required.
+     */
+    if (len != 0 && len != (kCCKeySize3DES << 3))
+        return -1;
+
+    return kCCKeySize3DES << 3;
+#else
 	if (len != 0 && len != 192)
 		return -1;
 	return 192;
+#endif /* __APPLE__ */
 }
 
 /*
@@ -1669,6 +1753,41 @@ eay_cast_keylen(len)
 /*
  * AES(RIJNDAEL)-CBC
  */
+#ifdef __APPLE__
+vchar_t *
+eay_aes_encrypt(data, key, iv)
+vchar_t *data, *key, *iv;
+{
+    return(eay_CCCrypt(kCCEncrypt, kCCAlgorithmAES128 /* adapts to AES-192, or AES-256 depending on the key size*/, 0 /* CBC */, data, key, iv));
+}
+
+vchar_t *
+eay_aes_decrypt(data, key, iv)
+vchar_t *data, *key, *iv;
+{
+    return(eay_CCCrypt(kCCDecrypt, kCCAlgorithmAES128 /* adapts to AES-192, or AES-256 depending on the key size*/, 0 /* CBC */, data, key, iv));
+}
+
+int
+eay_aes_keylen(len)
+int len;
+{
+    /* CommonCrypto return lengths in bytes, ipsec-tools
+     * uses lengths in bits, therefore conversion is required.
+     */
+    if (len != 0) {
+        if (len != (kCCKeySizeAES128 << 3) &&
+            len != (kCCKeySizeAES192 << 3) &&
+            len != (kCCKeySizeAES256 << 3))
+            return -1;
+    } else {
+        return kCCKeySizeAES128 << 3;
+    }
+    return len;
+}
+
+#else
+
 #ifndef HAVE_OPENSSL_AES_H
 vchar_t *
 eay_aes_encrypt(data, key, iv)
@@ -1761,14 +1880,7 @@ eay_aes_decrypt(data, key, iv)
 {
 	return evp_crypt(data, key, iv, aes_evp_by_keylen(key->l), 0);
 }
-#endif
-
-int
-eay_aes_weakkey(key)
-	vchar_t *key;
-{
-	return 0;
-}
+#endif /* HAVE_OPENSSL_AES_H */
 
 int
 eay_aes_keylen(len)
@@ -1779,6 +1891,14 @@ eay_aes_keylen(len)
 	if (len != 128 && len != 192 && len != 256)
 		return -1;
 	return len;
+}
+#endif /* __APPLE__ */
+
+int
+eay_aes_weakkey(key)
+	vchar_t *key;
+{
+	return 0;
 }
 
 /* for ipsec part */
@@ -2740,15 +2860,18 @@ base64_decode(char *in, long inlen)
 {
 	BIO *bio=NULL, *b64=NULL;
 	vchar_t *res = NULL;
-	char out[inlen*2];
+	char *outb;
 	long outlen;
 
+	outb = malloc(inlen * 2);
+	if (outb == NULL)
+		goto out;
 	bio = BIO_new_mem_buf(in, inlen);
 	b64 = BIO_new(BIO_f_base64());
 	BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
 	bio = BIO_push(b64, bio);
 
-	outlen = BIO_read(bio, out, inlen * 2);
+	outlen = BIO_read(bio, outb, inlen * 2);
 	if (outlen <= 0) {
 		plog(LLV_ERROR, LOCATION, NULL, "%s\n", eay_strerror());
 		goto out;
@@ -2758,9 +2881,11 @@ base64_decode(char *in, long inlen)
 	if (!res)
 		goto out;
 
-	memcpy(res->v, out, outlen);
+	memcpy(res->v, outb, outlen);
 
 out:
+	if (outb)
+		free(outb);
 	if (bio)
 		BIO_free_all(bio);
 

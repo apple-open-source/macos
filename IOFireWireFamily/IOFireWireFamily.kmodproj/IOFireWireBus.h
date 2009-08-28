@@ -57,6 +57,7 @@ class IOFireWireBus;
 class IOFWDCLPool;
 class IOFWSimpleContiguousPhysicalAddressSpace;
 class IOFWSimplePhysicalAddressSpace;
+class IOFWUserObjectExporter;
 
 #pragma mark -
 
@@ -64,7 +65,6 @@ class IOFWSimplePhysicalAddressSpace;
 	@class IOFireWireBusAux
 */
 
-class IOFWBufferFillIsochPort ;
 class IOFireWireBusAux : public OSObject
 {
     OSDeclareAbstractStructors(IOFireWireBusAux)
@@ -90,7 +90,7 @@ class IOFireWireBusAux : public OSObject
 	public :
 	
 		virtual IOFWDCLPool *							createDCLPool ( unsigned capacity ) const = 0 ;
-		virtual IOFWBufferFillIsochPort *				createBufferFillIsochPort() const = 0 ;
+		OSMetaClassDeclareReservedUnused(IOFireWireBusAux, 32);
 		virtual UInt8 getMaxRec( void ) = 0;
 
 		virtual UInt64 getFireWirePhysicalAddressMask( void ) = 0;
@@ -101,11 +101,13 @@ class IOFireWireBusAux : public OSObject
 		virtual IOFWSimpleContiguousPhysicalAddressSpace * createSimpleContiguousPhysicalAddressSpace( vm_size_t size, IODirection direction ) = 0;
 		virtual IOFWSimplePhysicalAddressSpace * createSimplePhysicalAddressSpace( vm_size_t size, IODirection direction ) = 0;
 
+		virtual IOFWUserObjectExporter * getSessionRefExporter( void ) = 0;
+	
 	private:
 		OSMetaClassDeclareReservedUsed(IOFireWireBusAux, 0);
 		OSMetaClassDeclareReservedUsed(IOFireWireBusAux, 1);
 		OSMetaClassDeclareReservedUsed(IOFireWireBusAux, 2);
-		OSMetaClassDeclareReservedUnused(IOFireWireBusAux, 3);
+		OSMetaClassDeclareReservedUsed(IOFireWireBusAux, 3);
 		OSMetaClassDeclareReservedUnused(IOFireWireBusAux, 4);
 		OSMetaClassDeclareReservedUnused(IOFireWireBusAux, 5);
 		OSMetaClassDeclareReservedUnused(IOFireWireBusAux, 6);
@@ -307,11 +309,6 @@ protected:
 		inline IOFWDCLPool *						createDCLPool ( UInt32 capacity = 0 )			{ return fAuxiliary->createDCLPool ( capacity ) ; }
 		inline UInt8								getMaxRec( void )								{ return fAuxiliary->getMaxRec(); }
 
-		// Create a buffer-fill isoch port
-		// note: The returned port must have one of the init() functions 
-		// called on it before it can be used!
-		IOFWBufferFillIsochPort *					createBufferFillIsochPort() ;
-
 		// get the physical addressing limitations for this controller
 
 		// returns the physical mask for memory addressable by the bus and this controller's DMA engine
@@ -351,7 +348,14 @@ protected:
 			
 		inline IOFWSimplePhysicalAddressSpace * createSimplePhysicalAddressSpace( vm_size_t size, IODirection direction )
 			{ return fAuxiliary->createSimplePhysicalAddressSpace( size, direction ); }
-			
+
+		virtual IOFWAsyncStreamCommand * createAsyncStreamCommand( UInt32 generation,
+															UInt32 channel, UInt32 sync, UInt32 tag, IOMemoryDescriptor *hostMem,
+															UInt32 size, int speed,FWAsyncStreamCallback completion, void *refcon, bool	failOnReset) = 0;
+	
+		inline IOFWUserObjectExporter * getSessionRefExporter( void )
+			{ return fAuxiliary->getSessionRefExporter(); }
+	
 	private:
 	
 		OSMetaClassDeclareReservedUsed(IOFireWireBus, 0);

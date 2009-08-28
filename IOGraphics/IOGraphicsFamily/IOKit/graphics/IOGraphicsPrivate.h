@@ -60,6 +60,19 @@ do { 					\
 #define DEBG(idx, fmt, args...)  {}
 #endif
 
+
+#define DEBG1(idx, fmt, args...)		\
+do { 					\
+    AbsoluteTime    now;		\
+    UInt64	    nano;		\
+    AbsoluteTime_to_scalar(&now) = mach_absolute_time();		\
+    absolutetime_to_nanoseconds( now, &nano );				\
+    IOLog("%08ld [%d]::", (UInt32) (nano / 1000000ULL), idx);		\
+    IOLog(__FUNCTION__);		\
+    IOLog(fmt, ## args);		\
+} while( false )
+
+
 #define STOREINC(_ptr_, _data_, _type_)	{   \
 	*((_type_ *)(_ptr_)) = _data_;					\
 	_ptr_ = (typeof(_ptr_)) (((char *) (_ptr_)) + sizeof(_type_));	\
@@ -108,6 +121,8 @@ extern "C" IOOptionBits       gIOFBLastClamshellState;
 extern bool		      gIOFBSystemPower;
 extern const class OSSymbol * gIOFramebufferKey;
 extern class OSData *	      gIOFBZero32Data;
+extern int32_t		      gIOFBHaveBacklight;
+extern const OSSymbol *	      gIOFBPMSettingDisplaySleepUsesDimKey;
 
 #if __ppc__
 extern "C" void bcopy_nc( void * from, void * to, UInt32 l );
@@ -119,14 +134,6 @@ inline void bzero_nc( void * p, UInt32 l )		{ bzero( p, l ); }
 
 #if VERSION_MAJOR < 9
 #define getPowerState() pm_vars->myCurrentState
-#endif
-
-#ifndef round_page_32
-#define round_page_32(x) round_page(x)
-#endif
-
-#ifndef trunc_page_32(x)
-#define trunc_page_32(x) trunc_page(x)
 #endif
 
 #define thisIndex		_IOFramebuffer_reserved[4]

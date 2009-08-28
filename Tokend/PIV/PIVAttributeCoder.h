@@ -55,5 +55,20 @@ public:
 		const Tokend::MetaAttribute &metaAttribute, Tokend::Record &record);
 };
 
+
+//
+// A coder that produces the LogicalKeySizeInBits of a key
+//
+class PIVKeySizeAttributeCoder : public Tokend::AttributeCoder
+{
+	NOCOPY(PIVKeySizeAttributeCoder)
+public:
+	PIVKeySizeAttributeCoder() {}
+	virtual ~PIVKeySizeAttributeCoder();
+
+	virtual void decode(Tokend::TokenContext *tokenContext, const Tokend::MetaAttribute &metaAttribute, Tokend::Record &record);
+};
+
+
 #endif /* !_PIVATTRIBUTECODER_H_ */
 

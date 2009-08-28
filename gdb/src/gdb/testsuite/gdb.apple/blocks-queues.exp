@@ -1,0 +1,51 @@
+# Copyright 2003 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
+
+# Thsi is a simple test case to see whether gdb is able to retrieve the 
+# libdispatch queue names and pthread thread names from an inferior process.
+
+
+if $tracelevel then {
+	strace $tracelevel
+}
+
+set prms_id 0
+set bug_id 0
+
+set testfile "blocks-queues"
+set srcfile ${testfile}.c
+set binfile ${objdir}/${subdir}/${testfile}
+
+if  { [gdb_compile "${srcdir}/${subdir}/$srcfile" "${binfile}" executable {debug}] != "" } {
+     gdb_suppress_entire_file "Testcase compile failed, so all tests in this fil
+e will automatically fail."
+}
+
+# Start with a fresh gdb
+
+gdb_exit
+gdb_start
+gdb_reinitialize_dir $srcdir/$subdir
+gdb_load ${binfile}
+
+runto_main
+
+gdb_breakpoint [gdb_get_line_number "breakpoint here"]
+gdb_test "continue" "Breakpoint 2.*" "continue past queue setup"
+
+gdb_test "t a a i thread" ".*dispatch queue name: .com.apple.gdb.queue\[12\].*dispatch queue name: .com.apple.gdb.queue\[12\].*frame 0: main.*dispatch queue name: .com.apple.main-thread.*thread name: .main execution thread.*" "check for workqueue thread names and main thread name"
+
+return 0

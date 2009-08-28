@@ -216,7 +216,7 @@ f77_get_dynamic_length_of_aggregate (struct type *type)
 
   /* Patch in a valid length value. */
 
-  TYPE_LENGTH (type) =
+  TYPE_LENGTH_ASSIGN (type) =
     (upper_bound - lower_bound + 1) * TYPE_LENGTH (check_typedef (TYPE_TARGET_TYPE (type)));
 }
 

@@ -18,6 +18,10 @@
 	<array>
 		<string>consoleusers</string>
 	</array>
+	<key>passwd</key>
+	<array>
+		<string>*</string>
+	</array>
 	<key>realname</key>
 	<array>
 		<string>Terminal Server User</string>

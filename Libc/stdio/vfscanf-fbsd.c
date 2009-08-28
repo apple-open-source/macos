@@ -52,6 +52,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/vfscanf.c,v 1.37 2004/05/02 10:55:05 das 
 #include <string.h>
 #include <wchar.h>
 #include <wctype.h>
+#include <pthread.h>
 #include "un-namespace.h"
 
 #include "collate.h"
@@ -190,8 +191,11 @@ __svfscanf_l(FILE * __restrict fp, locale_t loc, const char * __restrict fmt0, v
 				nread++, fp->_r--, fp->_p++;
 			continue;
 		}
-		if (c != '%')
+		if (c != '%') {
+			if (fp->_r <= 0 && __srefill(fp))
+				goto input_failure;
 			goto literal;
+		}
 		width = 0;
 		flags = 0;
 		/*
@@ -201,9 +205,17 @@ __svfscanf_l(FILE * __restrict fp, locale_t loc, const char * __restrict fmt0, v
 again:		c = *fmt++;
 		switch (c) {
 		case '%':
+			/* Consume leading white space */
+			for(;;) {
+				if (fp->_r <= 0 && __srefill(fp))
+					goto input_failure;
+				if (!isspace_l(*fp->_p, loc))
+					break;
+				nread++;
+				fp->_r--;
+				fp->_p++;
+			}
 literal:
-			if (fp->_r <= 0 && __srefill(fp))
-				goto input_failure;
 			if (*fp->_p != c)
 				goto match_failure;
 			fp->_r--, fp->_p++;
@@ -821,7 +833,7 @@ literal:
 					*va_arg(ap, float *) = res;
 				}
 				if (__scanfdebug && p - pbuf != width)
-					abort();
+					LIBC_ABORT("p - pbuf %ld != width %ld", (long)(p - pbuf), width);
 				nassigned++;
 			}
 			nread += width;
@@ -958,6 +970,52 @@ doswitch:
 }
 
 #ifndef NO_FLOATING_POINT
+/*
+ * Maintain a per-thread parsefloat buffer, shared by __svfscanf_l and
+ * __vfwscanf.
+ */
+#ifdef BUILDING_VARIANT
+extern char *__parsefloat_buf(size_t s);
+#else /* !BUILDING_VARIANT */
+__private_extern__ char *
+__parsefloat_buf(size_t s)
+{
+	char *b;
+	static pthread_key_t    parsefloat_tsd_key = (pthread_key_t)-1;
+	static pthread_mutex_t  parsefloat_tsd_lock = PTHREAD_MUTEX_INITIALIZER;
+	static size_t bsiz = 0;
+
+	if (parsefloat_tsd_key == (pthread_key_t)-1) {
+		pthread_mutex_lock(&parsefloat_tsd_lock);
+		if (parsefloat_tsd_key == (pthread_key_t)-1) {
+			parsefloat_tsd_key = __LIBC_PTHREAD_KEY_PARSEFLOAT;
+			pthread_key_init_np(parsefloat_tsd_key, free);
+		}
+		pthread_mutex_unlock(&parsefloat_tsd_lock);
+	}
+	if ((b = (char *)pthread_getspecific(parsefloat_tsd_key)) == NULL) {
+		bsiz = s > BUF ? s : BUF;
+		b = (char *)malloc(bsiz);
+		if (b == NULL) {
+			bsiz = 0;
+			return NULL;
+		}
+		pthread_setspecific(parsefloat_tsd_key, b);
+		return b;
+	}
+	if (s > bsiz) {
+		b = (char *)reallocf(b, s);
+		pthread_setspecific(parsefloat_tsd_key, b);
+		if (b == NULL) {
+			bsiz = 0;
+			return NULL;
+		}
+		bsiz = s;
+	}
+	return b;
+}
+#endif /* BUILDING_VARIANT */
+
 static int
 parsefloat(FILE *fp, char **buf, size_t width, locale_t loc)
 {
@@ -971,28 +1029,14 @@ parsefloat(FILE *fp, char **buf, size_t width, locale_t loc)
 	unsigned char *decpt = (unsigned char *)localeconv_l(loc)->decimal_point;
 	char *decpt_start;
 	_Bool gotmantdig = 0, ishex = 0;
-	static char *b = NULL;
-	static size_t bsiz = 0;
+	char *b;
 	char *e;
 	size_t s;
 
-	if (bsiz = 0) {
-		b = (char *)malloc(BUF);
-		if (b == NULL) {
-			*buf = NULL;
-			return 0;
-		}
-		bsiz = BUF;
-	}
 	s = (width == 0 ? BUF : (width + 1));
-	if (s > bsiz) {
-		b = (char *)reallocf(b, s);
-		if (b == NULL) {
-			bsiz = 0;
-			*buf = NULL;
-			return 0;
-		}
-		bsiz = s;
+	if ((b = __parsefloat_buf(s)) == NULL) {
+		*buf = NULL;
+		return 0;
 	}
 	e = b + (s - 1);
 	/*
@@ -1134,19 +1178,17 @@ reswitch:
 				goto parsedone;
 			break;
 		default:
-			abort();
+			LIBC_ABORT("unknown state %d", state);
 		}
 		if (p >= e) {
 			ssize_t diff = (p - b);
 			ssize_t com = (commit - b);
 			s += BUF;
-			b = (char *)reallocf(b, s);
+			b = __parsefloat_buf(s);
 			if (b == NULL) {
-				bsiz = 0;
 				*buf = NULL;
 				return 0;
 			}
-			bsiz = s;
 			e = b + (s - 1);
 			p = b + diff;
 			commit = b + com;

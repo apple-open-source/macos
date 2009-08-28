@@ -23,9 +23,10 @@
 
 #include <unistd.h>
 #include <mntopts.h>
+#include <syslog.h>
 
 #include <CoreFoundation/CoreFoundation.h>
-#include <URLMount/URLMount.h>
+#include <NetFS/URLMount.h>
 
 #define ALT_SOFT	0x00000001
 
@@ -60,7 +61,7 @@ main(int argc, char **argv)
 		case 'o':
 			/*
 			 * OK, parse these options, and set the
-			 * appropriate URLMount flags.
+			 * appropriate NetFS flags.
 			 */
 			flags = altflags = 0;
 			getmnt_silent = 1;
@@ -113,12 +114,36 @@ main(int argc, char **argv)
 	    argv[1], kCFStringEncodingUTF8);
 	if (mountdir_CFString == NULL)
 		exit(ENOMEM);
-	res = netfs_MountURLWithAuthenticationSync(URL, NULL, NULL,
-	    mountdir_CFString, urlmount_flags, &mountpoints);
+	res = netfs_MountURLDirectSync(URL, NULL, NULL, mountdir_CFString,
+	    urlmount_flags, &mountpoints);
 	CFRelease(mountdir_CFString);
 	CFRelease(URL);
 	if (res == 0)
 		CFRelease(mountpoints);
+	else {
+		/*
+		 * Report any failure status that doesn't fit in the
+		 * 8 bits of a UN*X exit status, and map it to EIO
+		 * by default and EAUTH for ENETFS errors.
+		 */
+		if ((res & 0xFFFFFF00) != 0) {
+			syslog(LOG_ERR,
+			    "mount_url: Mount of %s on %s gives status %d",
+			    argv[0], argv[1], res);
+			switch (res) {
+
+			case ENETFSACCOUNTRESTRICTED:
+			case ENETFSPWDNEEDSCHANGE:
+			case ENETFSPWDPOLICY:
+				res = EAUTH;
+				break;
+
+			default:
+				res = EIO;
+				break;
+			}
+		}
+	}
 	exit(res);
 }
 

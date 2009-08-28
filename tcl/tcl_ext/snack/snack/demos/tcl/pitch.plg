@@ -1,0 +1,85 @@
+# -*-Mode:Tcl-*-
+
+catch {tk_getOpenFile -junk}
+
+namespace eval pitchPlot_v1 {
+    variable pitchPlot
+
+    set pitchPlot(vector) {}
+    set pitchPlot(height) 0
+    set pitchPlot(max) 400
+    set pitchPlot(min) 60
+
+    lappend ::v(plugins) ::pitchPlot_v1
+    snack::menuCommand Tools {Plot Pitch} ::pitchPlot_v1::PitchWin
+
+    proc Describe {} {
+	return "This plug-in adds the capability to plot the pitch of speech."
+    }
+    
+    proc Unload {} {
+	snack::menuDelete Tools {Plot Pitch}
+    }
+    
+    proc Redraw ypos {
+	global c v
+	variable pitchPlot
+
+	if {[llength $pitchPlot(vector)] == 0} {
+	    return 0
+	}
+	.cf.fyc.yc delete pitch
+	snack::frequencyAxis .cf.fyc.yc 0 $ypos $v(yaxisw) $pitchPlot(height) \
+		-topfrequency $pitchPlot(max) -tags pitch -fill $v(fg) \
+		-font $v(sfont)
+
+	$c delete pitch
+	set i 0
+	foreach val $pitchPlot(vector) {
+	    set x [expr $i * 0.01 * $v(pps)]
+	    set y [expr $ypos+$pitchPlot(height)-0.25*$val]
+	    $c create oval [expr $x-1] [expr $y-1] [expr $x+1] [expr $y+1]\
+		    -tags pitch
+	    incr i
+	}
+	return $pitchPlot(height)
+    }
+
+    proc Putmark m {
+    }
+    
+    proc ComputeCoords {} {
+	global v
+	variable pitchPlot
+
+	set pitchPlot(vector) [snd pitch -maxpitch $pitchPlot(max) \
+		-minpitch $pitchPlot(min) -progress snack::progressCallback]
+	set pitchPlot(height) 100
+	::Redraw
+    }
+    
+    proc PitchWin {} {
+	global v
+	variable pitchPlot
+
+	set w .pitch
+	catch {destroy $w}
+	toplevel $w
+	wm title $w "Plot pitch"
+	wm geometry $w [xsGetGeometry]
+	
+	pack [ frame $w.fMax]
+	pack [ label $w.fMax.l -text "Max pitch value (Hz):"] -side left
+	pack [ entry $w.fMax.e -textvar [namespace current]::pitchPlot(max) -wi 4] -side left
+	pack [ frame $w.fMin]
+	pack [ label $w.fMin.l -text "Min pitch value (Hz):"] -side left
+	pack [ entry $w.fMin.e -textvar [namespace current]::pitchPlot(min) -wi 4] -side left
+	pack [ frame $w.fb]
+	pack [ button $w.fb.bPlot -text Plot -command ::pitchPlot_v1::ComputeCoords] -side left
+
+	pack [ frame $w.f] -side bottom -fill x
+	label $w.f.lab -text "" -width 1 -relief sunken -bd 1 -anchor w
+	pack $w.f.lab -side left -expand yes -fill x
+	pack [ button $w.f.bExit -text Close -command "destroy $w"] -side left
+    }
+}

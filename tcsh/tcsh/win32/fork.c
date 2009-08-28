@@ -1,4 +1,4 @@
-/*$Header: /src/pub/tcsh/win32/fork.c,v 1.6 2004/05/19 18:22:27 christos Exp $*/
+/*$Header: /p/tcsh/cvsroot/tcsh/win32/fork.c,v 1.9 2006/03/05 08:59:36 amold Exp $*/
 /*-
  * Copyright (c) 1980, 1991 The Regents of the University of California.
  * All rights reserved.
@@ -27,7 +27,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
- 
+
 /* 
  * The fork() here is based on the ideas used by cygwin
  * -amol
@@ -49,6 +49,7 @@
 #include "sh.h"
 
 #pragma intrinsic("memcpy", "memset","memcmp")
+#pragma warning(push,3) // forget about W4 here
 
 typedef unsigned long u_long;
 typedef void *ptr_t;
@@ -80,7 +81,7 @@ ForkData gForkData = {0,0,0,0,0,{0},0,0,0};
 
 u_long _old_exr = 0; // Saved exception registration for longjmp
 
-#endif // _M_IX86
+#endif // _M_ALPHA
 /*
  * This hack is an attempt at getting to the exception registration
  * in an architecture-independent way. It's critical for longjmp in a
@@ -106,7 +107,7 @@ NT_TIB * (* myNtCurrentTeb)(void);
 
 static NT_TIB *the_tib;
 
-#ifndef _M_IA64
+#if !defined(_M_IA64) && !defined(_M_AMD64)
 void *get_teb(void) {
 
 
@@ -114,7 +115,7 @@ void *get_teb(void) {
 		return the_tib;
 
 	myNtCurrentTeb = (void*)GetProcAddress(LoadLibrary("ntdll.dll"),
-					"NtCurrentTeb");
+							"NtCurrentTeb");
 	if (!myNtCurrentTeb)
 		return NULL;
 	the_tib = myNtCurrentTeb();
@@ -165,7 +166,7 @@ int fork_init(void) {
 #ifdef  _M_IX86
 		_old_exr = __fork_context[6];
 		__fork_context[6] =(int)GETEXCEPTIONREGIST();//tmp;
-#endif  _M_IX86
+#endif  _M_ALPHA
 		//
 		// Whee !
 		longjmp(__fork_context,1);
@@ -175,9 +176,9 @@ int fork_init(void) {
 }
 int fork(void) {
 
-	int rc;
+	size_t rc;
 	size_t stacksize;
-	char modname[512];
+	char modname[512];/*FIXBUF*/
 	HANDLE  hProc,hThread, hArray[2];
 	STARTUPINFO si;
 	PROCESS_INFORMATION pi;
@@ -218,7 +219,7 @@ int fork(void) {
 		// Restore old registration
 		// -amol 2/2/97
 		GETEXCEPTIONREGIST() = (struct _EXCEPTION_REGISTRATION_RECORD*)_old_exr;
-#endif // _M_IX86
+#endif // _M_ALPHA
 		SetEvent(__hforkchild);
 
 		dprintf("Child ready to rumble\n");
@@ -246,10 +247,10 @@ int fork(void) {
 	 * have been closed.
 	 * Skip this step, since we know tcsh will do the right thing later.
 	 * 
-	si.hStdInput= GetStdHandle(STD_INPUT_HANDLE);
-	si.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
-	si.hStdError = GetStdHandle(STD_ERROR_HANDLE);
-	*/
+	 si.hStdInput= GetStdHandle(STD_INPUT_HANDLE);
+	 si.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+	 si.hStdError = GetStdHandle(STD_ERROR_HANDLE);
+	 */
 
 	if (!GetModuleFileName(GetModuleHandle(NULL),modname,512) ) {
 		rc = GetLastError();
@@ -258,20 +259,20 @@ int fork(void) {
 	dwCreationflags = GetPriorityClass(GetCurrentProcess());
 	priority = GetThreadPriority(GetCurrentThread());
 	rc = CreateProcess(NULL,
-						modname,
-						NULL,
-						NULL,
-						TRUE,
-						CREATE_SUSPENDED | dwCreationflags,
-						NULL,
-						NULL,
-						&si,
-						&pi);
+			modname,
+			NULL,
+			NULL,
+			TRUE,
+			CREATE_SUSPENDED | dwCreationflags,
+			NULL,
+			NULL,
+			&si,
+			&pi);
 	if (!rc)  {
 		rc = GetLastError();
 		return -1;
 	}
-	
+
 	ResetEvent(__hforkchild);
 	ResetEvent(__hforkparent);
 
@@ -305,18 +306,18 @@ int fork(void) {
 		// the child is suspended. 
 		// avoids inexplicable allocation failures in the child.
 		if (VirtualAllocEx(hProc,
-							__heap_base,
-							__heap_size,
-							MEM_RESERVE,
-							PAGE_READWRITE) == NULL) {
+					__heap_base,
+					__heap_size,
+					MEM_RESERVE,
+					PAGE_READWRITE) == NULL) {
 			dprintf("virtual allocex failed %d\n",GetLastError());
 			goto error;
 		}
 		if (VirtualAllocEx(hProc,
-							__heap_base,
-							__heap_size,
-							MEM_COMMIT,
-							PAGE_READWRITE) == NULL) {
+					__heap_base,
+					__heap_size,
+					MEM_COMMIT,
+					PAGE_READWRITE) == NULL) {
 			dprintf("virtual allocex2 failed %d\n",GetLastError());
 			goto error;
 		}
@@ -336,7 +337,7 @@ int fork(void) {
 		hArray[1] = hProc;
 
 		if (WaitForMultipleObjects(2,hArray,FALSE,FORK_TIMEOUT) != 
-						WAIT_OBJECT_0){
+				WAIT_OBJECT_0){
 
 			rc = GetLastError();
 			goto error;
@@ -347,7 +348,7 @@ int fork(void) {
 	// Copy all the shared data
 	//
 	if (!WriteProcessMemory(hProc,&gForkData,&gForkData,
-			sizeof(ForkData),&rc)) {
+				sizeof(ForkData),&rc)) {
 		goto error;
 	}
 	if (rc != sizeof(ForkData)) 
@@ -365,7 +366,7 @@ int fork(void) {
 		hArray[1] = hProc;
 
 		if (WaitForMultipleObjects(2,hArray,FALSE,FORK_TIMEOUT) != 
-						WAIT_OBJECT_0){
+				WAIT_OBJECT_0){
 
 			rc = GetLastError();
 			goto error;
@@ -374,7 +375,7 @@ int fork(void) {
 		CloseHandle(h64Child);
 		h64Parent = h64Child = NULL;
 	}
-	
+
 	//
 	// Wait for the child to start and init itself.
 	// The timeout is so that we don't wait too long
@@ -400,16 +401,16 @@ int fork(void) {
 	// stack
 	stacksize = (char*)__fork_stack_begin - (char*)__fork_stack_end;
 	if (!WriteProcessMemory(hProc,(char *)__fork_stack_end,
-								  (char *)__fork_stack_end,
-								  (u_long)stacksize,
-								  &rc)){
+				(char *)__fork_stack_end,
+				(u_long)stacksize,
+				&rc)){
 		goto error;
 	}
 	//
 	// copy heap itself
 	if (!WriteProcessMemory(hProc, (void*)__heap_base,(void*)__heap_base, 
-						(DWORD)((char*)__heap_top-(char*)__heap_base),
-						&rc)){
+				(DWORD)((char*)__heap_top-(char*)__heap_base),
+				&rc)){
 		goto error;
 	}
 
@@ -424,7 +425,7 @@ int fork(void) {
 	rc = ResumeThread(hThread);
 
 	__forked=0;
-    dprintf("forked process %d\n",pi.dwProcessId);
+	dprintf("forked process %d\n",pi.dwProcessId);
 	start_sigchild_thread(hProc,pi.dwProcessId);
 	close_copied_fds();
 
@@ -468,7 +469,7 @@ void heap_init(void) {
 	int err;
 	if (__forked) {
 		temp = (char *)VirtualAlloc((void*)__heap_base,__heap_size, MEM_RESERVE,
-									PAGE_READWRITE);
+				PAGE_READWRITE);
 		if (temp != (char*)__heap_base) {
 			if (!temp){
 				err = GetLastError();
@@ -480,7 +481,7 @@ void heap_init(void) {
 				__heap_base = temp;
 		}
 		if (!VirtualAlloc(__heap_base,(char*)__heap_top -(char*)__heap_base, 
-								MEM_COMMIT,PAGE_READWRITE)){
+					MEM_COMMIT,PAGE_READWRITE)){
 			err = GetLastError();
 			if (bIsWow64Process)
 				ExitProcess(0);
@@ -493,7 +494,7 @@ void heap_init(void) {
 		GetSystemInfo(&sysinfo);
 		__heap_size = sysinfo.dwPageSize * 1024;
 		__heap_base = VirtualAlloc(0 , __heap_size,MEM_RESERVE|MEM_TOP_DOWN,
-												PAGE_READWRITE);
+				PAGE_READWRITE);
 
 		if (__heap_base == 0) {
 			abort();
@@ -501,31 +502,38 @@ void heap_init(void) {
 
 		__heap_top = __heap_base;
 	}
-	
+
 }
 //
 // Implementation of sbrk() for the fmalloc family
 //
 void * sbrk(int delta) {
 
-	 void *retval;
-	 void *old_top=__heap_top;
+	void *retval;
+	void *old_top=__heap_top;
+	char *b = (char*)__heap_top;
 
-	 if (delta == 0)
-	 	return  __heap_top;
-	 if (delta > 0) {
-	 	retval = VirtualAlloc((void*)__heap_top, delta,MEM_COMMIT,
-									PAGE_READWRITE);
+	if (delta == 0)
+		return  __heap_top;
+	if (delta > 0) {
+
+		retval =VirtualAlloc((void*)__heap_top,delta,MEM_COMMIT,PAGE_READWRITE);
+
 		if (retval == 0 )
 			abort();
-		(char*)__heap_top += delta;
-	 }
-	 else {
-	 	retval = VirtualAlloc((void*)((char*)__heap_top-(char*)delta), 
-								delta,MEM_DECOMMIT, PAGE_READWRITE);
-		if (retval = 0)
+
+		b += delta;
+		__heap_top = (void*)b;
+	}
+	else {
+		retval = VirtualAlloc((void*)((char*)__heap_top - delta), 
+				delta,MEM_DECOMMIT, PAGE_READWRITE);
+
+		if (retval == 0)
 			abort();
-		(char*)__heap_top -= delta;
+
+		b -= delta;
+		__heap_top = (void*)b;
 	}
 
 	return (void*) old_top;
@@ -546,7 +554,7 @@ void * sbrk(int delta) {
 #define TCSH_WOW64_PARENT_EVENT_NAME "tcsh-wow64-parent-event"
 #define TCSH_WOW64_CHILD_EVENT_NAME  "tcsh-wow64-child-event"
 BOOL CreateWow64Events(DWORD pid, HANDLE *hParent, HANDLE *hChild, 
-						BOOL bOpenExisting) {
+		BOOL bOpenExisting) {
 
 	SECURITY_ATTRIBUTES sa;
 	char parentname[256],childname[256];
@@ -559,10 +567,14 @@ BOOL CreateWow64Events(DWORD pid, HANDLE *hParent, HANDLE *hChild,
 	sa.bInheritHandle = FALSE;
 	//
 
-	// This event tells the child to hold for gForkData to be copied
-	wsprintf(parentname,"Local\\%d-%s",pid, TCSH_WOW64_PARENT_EVENT_NAME);
+#pragma warning(disable:4995)
 
-	wsprintf(childname,"Local\\%d-%s",pid, TCSH_WOW64_CHILD_EVENT_NAME );
+	// This event tells the child to hold for gForkData to be copied
+	wsprintfA(parentname, "Local\\%d-%s",pid, TCSH_WOW64_PARENT_EVENT_NAME);
+
+	wsprintfA(childname, "Local\\%d-%s",pid, TCSH_WOW64_CHILD_EVENT_NAME );
+
+#pragma warning(default:4995)
 
 	*hParent = OpenEvent(EVENT_ALL_ACCESS,FALSE, parentname);
 

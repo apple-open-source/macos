@@ -29,19 +29,15 @@ INTRODUCTION
         http://www.gnu.org/software/mailman
         http://mailman.sf.net
 
-    Mailman 2.1 requires Python 2.1.3 or greater, which can be downloaded from:
+    Mailman 2.1 requires Python 2.3 or greater, which can be downloaded from:
 
         http://www.python.org
 
-    It is recommended that you use Python 2.3.3, the latest release as of this
-    writing (31-Dec-2003).  Update: 15-May-2004, the Python 2.3.4 release is
-    imminent, see:
+    It is recommended that you use Python 2.5.2, the latest release as of this
+    writing (26-Feb-2008).  
 
-        http://www.python.org/2.3.4
-
-    Mailman will work with Python 2.2.3 as well, which is the latest release
-    on the Python 2.2 branch.  Mailman 2.1 is not compatible with Python 2.0
-    or any earlier version.
+    Mailman 2.1 is not compatible with Python 2.2 or any earlier
+    version.
 
     You will also need an ANSI C compiler to build both Python and Mailman;
     gcc (the GNU C compiler) works just fine.  Mailman currently works only on
@@ -59,7 +55,7 @@ FEATURES
     Read the NEWS file for a list of changes since version 0.9.  Read the TODO
     file for our (extensive) wish list.  You can see Mailman 2.1 in action at:
 
-        http://mail.python.org/mailman-21/listinfo
+        http://mail.python.org/mailman/listinfo
 
     Mailman has most of the standard features you'd expect in a mailing list
     manager, and more:
@@ -118,49 +114,44 @@ FOR MORE INFORMATION
 
     The online documentation can be found in
 
-        file:admin/www/index.html
+        file:doc/
 
     in the directory in which you unpacked Mailman.
 
-    Chris Kolar has made a list owner-oriented manual available from
-    the following URL
+    There is a wiki for more community-driven information:
 
-        http://www.imsa.edu/~ckolar/mailman/
+        http://wiki.list.org
+
+    The wiki includes the online FAQ maintained by the Mailman community,
+    which contains a vast amount of information:
+
+        http://wiki.list.org/display/DOC/Frequently+Asked+Questions
+
+    As well as links to further documentation:
+
+        http://wiki.list.org/display/DOC/
 
     There are also several mailing lists that can be used as resources
     to help you get going with Mailman.
 
     Mailman-Users
-        An list for users of Mailman, for posting questions or problems
+        A list for users of Mailman, for posting questions or problems
         related to installation, use, etc.  We'll try to keep the deep
         technical discussions off this list.
 
         http://mail.python.org/mailman/listinfo/mailman-users
 
-    Listowners
-        This mailing list with a non-technical focus, specifically for
-        discussions from the perspective of listowners and moderators who do
-        not have "shell access" to the mailing list server where the Mailman
-        software runs.
-
-        http://listowner.org
-
     Mailman-Announce
-        A read-only list for release announcements an other important news.
+        A read-only list for release announcements and other important news.
 
         http://mail.python.org/mailman/listinfo/mailman-announce
 
     Mailman-Developers
         A list for those of you interested in helping develop Mailman 2's
-        future direction.  This list will contain in-depth technical
+        future direction.  This list contains in-depth technical
         discussions.
 
         http://mail.python.org/mailman/listinfo/mailman-developers
-
-    Mailman3-Dev
-        Get involved now in the development of Mailman 3!
-
-        http://mail.python.org/mailman/listinfo/mailman3-dev
 
     Mailman-I18N
         A list for the discussion of the Mailman internationalization
@@ -169,7 +160,7 @@ FOR MORE INFORMATION
         http://mail.python.org/mailman/listinfo/mailman-i18n
 
     Mailman-Checkins
-        A read-only list which is an adjunct to the public anonymous CVS
+        A read-only list which is an adjunct to the Bazaar
         repository.  You can stay on the bleeding edge of Mailman development
         by subscribing to this list.
 

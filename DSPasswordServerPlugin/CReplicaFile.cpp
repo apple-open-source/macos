@@ -67,7 +67,7 @@ CReplicaFile::MergeReplicaLists( CReplicaFile *inList1, CReplicaFile *inOutList2
 	repCount = inList1->ReplicaCount();
 	for ( index = 0; index < repCount; index++ )
 	{
-		repDict = (CFMutableDictionaryRef)inList1->GetReplica( index );
+		repDict = (CFMutableDictionaryRef)inList1->GetReplica( (UInt32)index );
 		if ( repDict == NULL )
 			continue;
 		
@@ -291,7 +291,7 @@ CReplicaFile::GetReplicaPolicy( void )
 void
 CReplicaFile::SetReplicaPolicy( ReplicaPolicy inPolicy )
 {
-	char *valueStr = NULL;
+	const char *valueStr = NULL;
 	CFStringRef valString;
 	
 	switch( inPolicy )
@@ -345,7 +345,7 @@ CReplicaFile::IPAddressIsInACL( UInt32 inIPAddress )
 	char aclItem[21];
 	bool result = false;
 	struct in_addr ip;
-	UInt32 mask = 0L;
+	UInt32 mask = 0;
 	int maskbits;
 	char *maskbitsPtr;
 	CFIndex aclIndex;
@@ -424,7 +424,7 @@ CReplicaFile::ReplicaCount( void )
 	}
 	
 	if ( mReplicaArray != NULL )
-		result = CFArrayGetCount( mReplicaArray );
+		result = (UInt32)CFArrayGetCount( mReplicaArray );
 		
 	return result;
 }
@@ -953,10 +953,10 @@ CReplicaFile::AddReplica( CFMutableDictionaryRef inReplicaData )
 		CFIndex repIndex, repCount;
 		CFDictionaryRef replicaRef;
 		
-		repCount = CFArrayGetCount( replicaArray );
+		repCount = (UInt32)CFArrayGetCount( replicaArray );
 		for ( repIndex = 0; repIndex < repCount; repIndex++ )
 		{
-			replicaRef = this->GetReplica( repIndex );
+			replicaRef = this->GetReplica( (UInt32)repIndex );
 			if ( replicaRef == NULL )
 				continue;
 			
@@ -1420,9 +1420,9 @@ CReplicaFile::GetNextReplicaName( char *outName )
 	UInt32 repCount = this->ReplicaCount();
 	CFDictionaryRef curReplica;
 	CFStringRef curNameString;
-	int replicaNameValuePrefixLen;
+	size_t replicaNameValuePrefixLen;
 	int tempReplicaNumber = 0, nextReplicaNumber = 1;
-	const int replicaPrefixLen = strlen(kPWReplicaNameValuePrefix);
+	const size_t replicaPrefixLen = strlen(kPWReplicaNameValuePrefix);
 	char replicaNameStr[256];
 	
 	replicaNameValuePrefixLen = strlen( kPWReplicaNameValuePrefix );
@@ -1956,7 +1956,7 @@ void pwsf_AddReplicaStatus( CReplicaFile *inReplicaFile, CFDictionaryRef inDict,
 
 CFStringRef pwsf_GetReplicaStatusString( ReplicaStatus replicaStatus )
 {
-	char *result = "Unknown";
+	const char *result = "Unknown";
 	CFStringRef outString;
 	
 	switch( replicaStatus )

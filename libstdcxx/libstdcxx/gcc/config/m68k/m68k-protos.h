@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler.  Sun 68000/68020 version.
-   Copyright (C) 2000, 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2002, 2004, 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -15,8 +15,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Define functions defined in aux-output.c and used in templates.  */
 
@@ -50,9 +50,14 @@ extern void print_operand_address (FILE *, rtx);
 extern void print_operand (FILE *, rtx, int);
 extern void notice_update_cc (rtx, rtx);
 extern rtx legitimize_pic_address (rtx, enum machine_mode, rtx);
+extern int valid_dbcc_comparison_p_2 (rtx, enum machine_mode);
+extern rtx m68k_libcall_value (enum machine_mode);
+extern rtx m68k_function_value (tree, tree);
+extern int emit_move_sequence (rtx *, enum machine_mode, rtx);
 
 #endif /* RTX_CODE */
 
+extern bool m68k_regno_mode_ok (int, enum machine_mode);
 extern int flags_in_68881 (void);
 extern bool use_return_insn (void);
 extern void override_options (void);

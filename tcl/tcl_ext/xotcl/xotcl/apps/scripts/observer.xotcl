@@ -1,0 +1,87 @@
+#$Id: observer.xotcl,v 1.1 2004/05/23 22:50:39 neumann Exp $
+Class Observer -superclass Class
+
+Observer metadata add description
+@ @File {
+  description {
+    Simple observer pattern meta-class taken from the paper 
+    'Filters as a Language Support for Design Patterns in
+    Object-Oriented Scripting Languages'. 
+  }
+}
+
+Class Observer::Subject -superclass Class
+
+Observer::Subject instproc notificationFilter {args} {
+  set procName [self calledproc]
+  my instvar preObservers postObservers
+
+  if {[info exists preObservers($procName)]} {
+    foreach obj $preObservers($procName) { $obj update [self] $args }
+  }
+
+  set result [next]
+
+  if {[info exists postObservers($procName)]} {
+    foreach obj $postObservers($procName) { $obj update [self] $args }
+  }
+  return $result
+}
+
+Class Observer::SubjectMgt
+Observer::SubjectMgt instproc attach {hook objs} {
+  upvar $hook observers
+  foreach obj $objs {
+    if {![info exists observers] || [lsearch $observers $obj] == -1} {
+      lappend observers $obj
+    }
+  }
+}
+Observer::SubjectMgt instproc detach {hook objs} {
+  upvar $hook observers
+  if {[info exists observers]} {
+    foreach obj $objs {
+      set p [lsearch $observers $obj]
+      set observers [lreplace $observers $p $p]
+    }
+  }
+}
+
+Observer::SubjectMgt instproc attachPre {procName args} {
+  my instvar preObservers 
+  my attach  preObservers($procName) $args
+} 
+Observer::SubjectMgt instproc attachPost {procName args} {
+  my instvar postObservers 
+  my attach  postObservers($procName) $args
+} 
+Observer::SubjectMgt instproc detachPre {procName args} {
+  my instvar preObservers
+  my detach  preObservers($procName) $args
+}
+Observer::SubjectMgt instproc detachPost {procName args} {
+  my instvar postObservers
+  my detach  postObservers($procName) $args
+}
+
+Observer::Subject instproc init args {
+    next
+    my superclass [list Observer::SubjectMgt [my info superclass]]
+    my instfilter notificationFilter
+}
+
+Observer instproc timeout t {
+  my set timeout $t
+}
+
+Observer instproc update {subject args} {
+  #addTimeOut [my set timeout] "[self] update $subject $args"
+  #$subject getResponse
+  # do something with the response
+  puts [self]---update
+}
+
+Observer instproc init args {
+  next
+}
+

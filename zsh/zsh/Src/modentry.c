@@ -4,11 +4,11 @@ int setup_ _((Module));
 int boot_ _((Module));
 int cleanup_ _((Module));
 int finish_ _((Module));
-int modentry _((int boot, Module m));
+int modentry _((int boot, Module m, void *ptr));
 
 /**/
 int
-modentry(int boot, Module m)
+modentry(int boot, Module m, void *ptr)
 {
     switch (boot) {
     case 0:
@@ -25,6 +25,14 @@ modentry(int boot, Module m)
 
     case 3:
 	return finish_(m);
+	break;
+
+    case 4:
+	return features_(m, (char ***)ptr);
+	break;
+
+    case 5:
+	return enables_(m, (int **)ptr);
 	break;
 
     default:

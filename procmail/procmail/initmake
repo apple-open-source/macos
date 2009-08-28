@@ -1,7 +1,7 @@
 #! /bin/sh
 :
 # Copyright (c) 1992-1999, S.R. van den Berg, The Netherlands
-#$Id: initmake,v 1.1.1.2 2001/07/20 19:38:11 bbraun Exp $
+#$Id: initmake,v 1.71 2000/09/28 01:23:03 guenther Exp $
 
 if test -z "$IFS"
 then IFS=" \

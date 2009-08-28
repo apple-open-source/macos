@@ -105,17 +105,19 @@ char *MDSCopyCstring(
  * are also converted properly. (MAYBE we'll convert hex strings too...TBD...)
  * Returns true if conversion was successful.
  */
-bool MDSCfTypeToInt(
+bool MDSCfTypeToUInt32(
 	CFTypeRef cfValue,
 	const MDSNameValuePair *nameValues,	// optional for converting strings to numbers
 	const char *key,					// for debug logging only 
-	uint32 &iValue)						// RETURNED
+	uint32 &iValue,						// RETURNED
+    size_t &iValueLen)					// RETURNED
 {
 	assert(cfValue != NULL);
 	CFTypeID valueType = CFGetTypeID(cfValue);
 	if(valueType == CFStringGetTypeID()) {
+        uint32 tmpValue = 0;
 		CSSM_RETURN crtn = MDSStringToUint32((CFStringRef)cfValue, 
-			nameValues, iValue);
+			nameValues, tmpValue);
 		if(crtn) {
 			MPDebug("cfTypeToInt: key %s uint32 form, string data (%s), "
 				"bad conv", key, 
@@ -123,41 +125,55 @@ bool MDSCfTypeToInt(
 					kCFStringEncodingUTF8));
 			return false;
 		} 
+        iValue = tmpValue;
+        iValueLen = sizeof(tmpValue);
 		return true;
 	}	/* stored as string */
 	else if(valueType == CFNumberGetTypeID()) {
+        int64_t tmpValue = 0;
 		/* be paranoid - there is no unsigned type for CFNumber */
 		CFNumberRef cfNum = (CFNumberRef)cfValue;
 		CFNumberType numType = CFNumberGetType(cfNum);
 		switch(numType) {
 			case kCFNumberSInt8Type:
+                iValueLen = 1; break;
 			case kCFNumberSInt16Type:
+                iValueLen = 2; break;
 			case kCFNumberSInt32Type:
-			case kCFNumberCharType:
-			case kCFNumberShortType:
-			case kCFNumberIntType:
-			case kCFNumberLongType:
+                iValueLen = 4; break;
 			case kCFNumberSInt64Type:	// apparently the default
-				/* OK */
-				break;
+                // There are no 64-bit types in CDSA, so assume this is how 
+                // CF encoded an unsigned 32-bit int whose high bit was set.  
+                iValueLen = 4; break;
+			case kCFNumberCharType:
+                iValueLen = sizeof(char); break;
+			case kCFNumberShortType:
+                iValueLen = sizeof(short); break;
+			case kCFNumberIntType:
+                iValueLen = sizeof(int); break;
+			case kCFNumberLongType:
+				MPDebug("Warning: MDS key %s encoded kCFNumberLongType", key);
+                iValueLen = sizeof(long); break;
 			default:
-				MPDebug("MDS cfTypeToInt: Bad CFNumber type (%d) key %s", numType, key);
+				MPDebug("MDS cfTypeToInt: Bad CFNumber type (%ld) key %s", numType, key);
 				return false;
 		}
-		Boolean brtn = CFNumberGetValue(cfNum, kCFNumberLongType, &iValue);
+		Boolean brtn = CFNumberGetValue(cfNum, numType, &tmpValue);
 		if(!brtn) {
 			MPDebug("MDS cfTypeToInt: Bad CFNumber conversion");
 			return false;
 		}
+        iValue = uint32(tmpValue);
 		return true;
 	}	/* stored as number */
 	else if(valueType == CFBooleanGetTypeID()) {
 		Boolean b = CFBooleanGetValue((CFBooleanRef)cfValue);
 		iValue = b ? 1 : 0;
+        iValueLen = sizeof(iValue);
 		return true;
 	}
 	else {
-		MPDebug("MDS cfTypeToInt: key %s, uint32 form, bad CF type (%d)", 
+		MPDebug("MDS cfTypeToInt: key %s, uint64 form, bad CF type (%d)", 
 			key, (int)valueType);
 		return false;
 	}
@@ -192,7 +208,7 @@ bool MDSInsertRecord(
 			uid);
 	}
 	catch (const CssmError &cerr) {
-		MPDebug("MDSInsertRecord: DataInsert: %ld", cerr.error);
+		MPDebug("MDSInsertRecord: DataInsert: %d", cerr.error);
 		ourRtn = false;
 	}
 	catch(...) {

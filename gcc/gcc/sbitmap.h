@@ -15,8 +15,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_SBITMAP_H
 #define GCC_SBITMAP_H
@@ -55,36 +55,87 @@ typedef SBITMAP_ELT_TYPE *sbitmap_ptr;
   ((BITMAP)->elms [(BITNO) / SBITMAP_ELT_BITS]			\
    &= ~((SBITMAP_ELT_TYPE) 1 << (BITNO) % SBITMAP_ELT_BITS))
 
-/* Loop over all elements of SBITSET, starting with MIN.  */
-#define EXECUTE_IF_SET_IN_SBITMAP(SBITMAP, MIN, N, CODE)		\
-do {									\
-  unsigned int word_num_ = (MIN) / (unsigned int) SBITMAP_ELT_BITS;	\
-  unsigned int bit_num_ = (MIN) % (unsigned int) SBITMAP_ELT_BITS;	\
-  unsigned int size_ = (SBITMAP)->size;					\
-  SBITMAP_ELT_TYPE *ptr_ = (SBITMAP)->elms;				\
-  SBITMAP_ELT_TYPE word_;						\
-									\
-  if (word_num_ < size_)						\
-    {									\
-      word_ = ptr_[word_num_] >> bit_num_;				\
-									\
-      while (1)								\
-	{								\
-	  for (; word_ != 0; word_ >>= 1, bit_num_++)			\
-	    {								\
-	      if ((word_ & 1) != 0)					\
-		{							\
-		  (N) = word_num_ * SBITMAP_ELT_BITS + bit_num_;	\
-		  CODE;							\
-		}							\
-	    }								\
-	  word_num_++;							\
-	  if (word_num_ >= size_)					\
-	    break;							\
-	  bit_num_ = 0, word_ = ptr_[word_num_];			\
-	}								\
-    }									\
-} while (0)
+/* The iterator for sbitmap.  */
+typedef struct {
+  /* The pointer to the first word of the bitmap.  */
+  SBITMAP_ELT_TYPE *ptr;
+
+  /* The size of the bitmap.  */
+  unsigned int size;
+
+  /* The current word index.  */
+  unsigned int word_num;
+
+  /* The current bit index (not modulo SBITMAP_ELT_BITS).  */
+  unsigned int bit_num;
+
+  /* The words currently visited.  */
+  SBITMAP_ELT_TYPE word;
+} sbitmap_iterator;
+
+/* Initialize the iterator I with sbitmap BMP and the initial index
+   MIN.  */
+
+static inline void
+sbitmap_iter_init (sbitmap_iterator *i, sbitmap bmp, unsigned int min)
+{
+  i->word_num = min / (unsigned int) SBITMAP_ELT_BITS;
+  i->bit_num = min;
+  i->size = bmp->size;
+  i->ptr = bmp->elms;
+
+  if (i->word_num >= i->size)
+    i->word = 0;
+  else
+    i->word = (i->ptr[i->word_num]
+	       >> (i->bit_num % (unsigned int) SBITMAP_ELT_BITS));
+}
+
+/* Return true if we have more bits to visit, in which case *N is set
+   to the index of the bit to be visited.  Otherwise, return
+   false.  */
+
+static inline bool
+sbitmap_iter_cond (sbitmap_iterator *i, unsigned int *n)
+{
+  /* Skip words that are zeros.  */
+  for (; i->word == 0; i->word = i->ptr[i->word_num])
+    {
+      i->word_num++;
+
+      /* If we have reached the end, break.  */
+      if (i->word_num >= i->size)
+	return false;
+
+      i->bit_num = i->word_num * SBITMAP_ELT_BITS;
+    }
+
+  /* Skip bits that are zero.  */
+  for (; (i->word & 1) == 0; i->word >>= 1)
+    i->bit_num++;
+
+  *n = i->bit_num;
+
+  return true;
+}
+
+/* Advance to the next bit.  */
+
+static inline void
+sbitmap_iter_next (sbitmap_iterator *i)
+{
+  i->word >>= 1;
+  i->bit_num++;
+}
+
+/* Loop over all elements of SBITMAP, starting with MIN.  In each
+   iteration, N is set to the index of the bit being visited.  ITER is
+   an instance of sbitmap_iterator used to iterate the bitmap.  */
+
+#define EXECUTE_IF_SET_IN_SBITMAP(SBITMAP, MIN, N, ITER)	\
+  for (sbitmap_iter_init (&(ITER), (SBITMAP), (MIN));		\
+       sbitmap_iter_cond (&(ITER), &(N));			\
+       sbitmap_iter_next (&(ITER)))
 
 #define EXECUTE_IF_SET_IN_SBITMAP_REV(SBITMAP, N, CODE)			\
 do {									\

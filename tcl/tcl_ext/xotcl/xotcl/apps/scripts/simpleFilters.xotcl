@@ -1,0 +1,57 @@
+# $Id: simpleFilters.xotcl,v 1.1 2004/05/23 22:50:39 neumann Exp $
+
+@ @File {
+  description {
+    Some simple examples of (inst)filters taken from the paper 
+    'Filters as a Language Support for Design Patterns in
+    Object-Oriented Scripting Languages'. They demonstrate filters,
+    filter chains and filter inheritance.
+  }
+}
+
+Class A
+A instproc Filter-1 args {
+  puts "  pre-part of [self proc]"  ;# pre part
+  next                            ;# next call
+  puts "  post-part of [self proc]" ;# post part
+}
+A instproc printSomething args {
+    puts "  actual called proc: [self proc]"
+}
+A a1
+
+A instfilter Filter-1
+#a1 set x 1
+
+puts "A call surrounded by pre/post messages:"
+a1 printSomething
+
+A instfilter {}
+A instproc Filter-2 args {
+    puts "  only a pre-part in [self proc]" 
+    next
+}
+A instproc Filter-3 args {
+    next
+    puts "  only a post-part in [self proc]" 
+}
+A instfilter {Filter-1 Filter-2 Filter-3}
+puts "Now a filter chain:"
+a1 printSomething
+A instfilter {}
+
+Class B -superclass A
+B instproc Filter-B args {
+    puts "  entering method: [self proc]" 
+    next
+}
+B b1; B b2
+A instfilter {Filter-1 Filter-2 Filter-3}
+B instfilter Filter-B
+
+puts "And finally inheritance:"
+
+b1 printSomething
+
+B instfilter {}
+A instfilter {}

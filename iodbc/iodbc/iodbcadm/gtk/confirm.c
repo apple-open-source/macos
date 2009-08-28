@@ -1,7 +1,7 @@
 /*
  *  confirm.c
  *
- *  $Id: confirm.c,v 1.2 2006/01/20 15:58:35 source Exp $
+ *  $Id: confirm.c,v 1.3 2007/02/02 11:58:14 source Exp $
  *
  *  The iODBC driver manager.
  *
@@ -147,6 +147,10 @@ create_confirm (HWND hwnd, LPCSTR dsn, LPCSTR text)
   gtk_window_set_modal (GTK_WINDOW (confirm), TRUE);
   gtk_window_set_policy (GTK_WINDOW (confirm), FALSE, FALSE, FALSE);
 
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_widget_show (confirm);
+#endif
+
   dialog_vbox1 = GTK_DIALOG (confirm)->vbox;
   gtk_object_set_data (GTK_OBJECT (confirm), "dialog_vbox1", dialog_vbox1);
   gtk_widget_show (dialog_vbox1);
@@ -159,10 +163,18 @@ create_confirm (HWND hwnd, LPCSTR dsn, LPCSTR text)
   gtk_box_pack_start (GTK_BOX (dialog_vbox1), hbox1, TRUE, TRUE, 0);
   gtk_container_set_border_width (GTK_CONTAINER (hbox1), 6);
 
+#if GTK_CHECK_VERSION(2,0,0)
+  style = gtk_widget_get_style (confirm);
+  pixmap =
+      gdk_pixmap_create_from_xpm_d (confirm->window, &mask,
+      &style->bg[GTK_STATE_NORMAL], (gchar **) question_xpm);
+#else
   style = gtk_widget_get_style (GTK_WIDGET (hwnd));
   pixmap =
       gdk_pixmap_create_from_xpm_d (GTK_WIDGET (hwnd)->window, &mask,
       &style->bg[GTK_STATE_NORMAL], (gchar **) question_xpm);
+#endif
+
   pixmap1 = gtk_pixmap_new (pixmap, mask);
   gtk_widget_ref (pixmap1);
   gtk_object_set_data_full (GTK_OBJECT (confirm), "pixmap1", pixmap1,

@@ -1,23 +1,28 @@
-# $Id: LibXML.pm,v 1.1.1.1 2004/05/20 17:55:25 jpetri Exp $
+# $Id: LibXML.pm,v 1.1.1.2 2007/10/10 23:04:13 ahuda Exp $
 
 package XML::LibXML;
 
 use strict;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS
             $skipDTD $skipXMLDeclaration $setTagCompression
-            $MatchCB $ReadCB $OpenCB $CloseCB );
+            $MatchCB $ReadCB $OpenCB $CloseCB 
+            );
 use Carp;
 
 use XML::LibXML::Common qw(:encoding :libxml);
 
+use constant XML_XMLNS_NS => 'http://www.w3.org/2000/xmlns/';
+use constant XML_XML_NS => 'http://www.w3.org/XML/1998/namespace';
+
 use XML::LibXML::NodeList;
+use XML::LibXML::XPathContext;
 use IO::Handle; # for FH reads called as methods
 
+BEGIN {
 
-$VERSION = "1.58";
+$VERSION = "1.65"; # VERSION TEMPLATE: DO NOT CHANGE
 require Exporter;
 require DynaLoader;
-
 @ISA = qw(DynaLoader Exporter);
 
 #-------------------------------------------------------------------------#
@@ -47,6 +52,8 @@ require DynaLoader;
                            XML_XINCLUDE_START
                            encodeToUTF8
                            decodeFromUTF8
+		           XML_XMLNS_NS
+		           XML_XML_NS
                           )],
                 libxml => [qw(
                            XML_ELEMENT_NODE
@@ -74,6 +81,10 @@ require DynaLoader;
                                 encodeToUTF8
                                 decodeFromUTF8
                                )],
+		ns => [qw(
+		           XML_XMLNS_NS
+		           XML_XML_NS		    
+		 )],
                );
 
 @EXPORT_OK = (
@@ -100,6 +111,20 @@ $CloseCB = undef;
 # bootstrapping                                                           #
 #-------------------------------------------------------------------------#
 bootstrap XML::LibXML $VERSION;
+undef &AUTOLOAD;
+
+} # BEGIN
+
+#-------------------------------------------------------------------------#
+# test exact version (up to patch-level)                                  #
+#-------------------------------------------------------------------------#
+{
+  my ($runtime_version) = LIBXML_RUNTIME_VERSION() =~ /^(\d+)/;
+  if ( $runtime_version < LIBXML_VERSION ) {
+    warn "Warning: XML::LibXML compiled against libxml2 ".LIBXML_VERSION.
+      ", but runtime libxml2 is older $runtime_version\n";
+  }
+}
 
 #-------------------------------------------------------------------------#
 # parser constructor                                                      #
@@ -121,6 +146,8 @@ sub new {
         $self->set_handler( $options{Handler} );
     }
 
+    $self->{XML_LIBXML_EXT_DTD} = 1;
+    $self->{_State_} = 0;
     return $self;
 }
 
@@ -147,10 +174,24 @@ sub createDocument {
 #-------------------------------------------------------------------------#
 # callback functions                                                      #
 #-------------------------------------------------------------------------#
+
+sub input_callbacks {
+    my $self     = shift;
+    my $icbclass = shift;
+
+    if ( defined $icbclass ) {
+        $self->{XML_LIBXML_CALLBACK_STACK} = $icbclass;
+    }
+    return $self->{XML_LIBXML_CALLBACK_STACK};
+}
+
 sub match_callback {
     my $self = shift;
     if ( ref $self ) {
-        $self->{XML_LIBXML_MATCH_CB} = shift if scalar @_;
+        if ( scalar @_ ) {
+            $self->{XML_LIBXML_MATCH_CB} = shift;
+            $self->{XML_LIBXML_CALLBACK_STACK} = undef;
+        }
         return $self->{XML_LIBXML_MATCH_CB};
     }
     else {
@@ -162,7 +203,10 @@ sub match_callback {
 sub read_callback {
     my $self = shift;
     if ( ref $self ) {
-        $self->{XML_LIBXML_READ_CB} = shift if scalar @_;
+        if ( scalar @_ ) {
+            $self->{XML_LIBXML_READ_CB} = shift;
+            $self->{XML_LIBXML_CALLBACK_STACK} = undef;
+        }
         return $self->{XML_LIBXML_READ_CB};
     }
     else {
@@ -174,7 +218,10 @@ sub read_callback {
 sub close_callback {
     my $self = shift;
     if ( ref $self ) {
-        $self->{XML_LIBXML_CLOSE_CB} = shift if scalar @_;
+        if ( scalar @_ ) {
+            $self->{XML_LIBXML_CLOSE_CB} = shift;
+            $self->{XML_LIBXML_CALLBACK_STACK} = undef;
+        }
         return $self->{XML_LIBXML_CLOSE_CB};
     }
     else {
@@ -186,7 +233,10 @@ sub close_callback {
 sub open_callback {
     my $self = shift;
     if ( ref $self ) {
-        $self->{XML_LIBXML_OPEN_CB} = shift if scalar @_;
+        if ( scalar @_ ) {
+            $self->{XML_LIBXML_OPEN_CB} = shift;
+            $self->{XML_LIBXML_CALLBACK_STACK} = undef;
+        }
         return $self->{XML_LIBXML_OPEN_CB};
     }
     else {
@@ -201,6 +251,7 @@ sub callbacks {
         if (@_) {
             my ($match, $open, $read, $close) = @_;
             @{$self}{qw(XML_LIBXML_MATCH_CB XML_LIBXML_OPEN_CB XML_LIBXML_READ_CB XML_LIBXML_CLOSE_CB)} = ($match, $open, $read, $close);
+            $self->{XML_LIBXML_CALLBACK_STACK} = undef;
         }
         else {
             return @{$self}{qw(XML_LIBXML_MATCH_CB XML_LIBXML_OPEN_CB XML_LIBXML_READ_CB XML_LIBXML_CLOSE_CB)};
@@ -231,6 +282,13 @@ sub recover {
     return $self->{XML_LIBXML_RECOVER};
 }
 
+sub recover_silently {
+    my $self = shift;
+    my $arg = shift;
+    (($arg == 1) ? $self->recover(2) : $self->recover($arg)) if defined($arg);
+    return ($self->recover() == 2) ? 1 : 0;
+}
+
 sub expand_entities {
     my $self = shift;
     $self->{XML_LIBXML_EXPAND_ENTITIES} = shift if scalar @_;
@@ -253,6 +311,12 @@ sub line_numbers {
     my $self = shift;
     $self->{XML_LIBXML_LINENUMBERS} = shift if scalar @_;
     return $self->{XML_LIBXML_LINENUMBERS};
+}
+
+sub no_network {
+    my $self = shift;
+    $self->{XML_LIBXML_NONET} = shift if scalar @_;
+    return $self->{XML_LIBXML_NONET};
 }
 
 sub load_ext_dtd {
@@ -325,11 +389,40 @@ sub _auto_expand {
         my $err = $@;
         $self->{_State_} = 0;
         if ($err) {
+            $self->_cleanup_callbacks();
             $result = undef;
             croak $err;
         }
     }
     return $result;
+}
+
+sub _init_callbacks {
+    my $self = shift;
+    my $icb = $self->{XML_LIBXML_CALLBACK_STACK};
+    
+    unless ( defined $icb ) {
+        $self->{XML_LIBXML_CALLBACK_STACK} = XML::LibXML::InputCallback->new();
+        $icb = $self->{XML_LIBXML_CALLBACK_STACK};
+    }
+
+    my $mcb = $self->match_callback();
+    my $ocb = $self->open_callback();
+    my $rcb = $self->read_callback();
+    my $ccb = $self->close_callback();
+
+    if ( defined $mcb and defined $ocb and defined $rcb and defined $ccb ) {
+        $icb->register_callbacks( [$mcb, $ocb, $rcb, $ccb] );
+    }
+    
+    $icb->init_callbacks();
+}
+
+sub _cleanup_callbacks {
+    my $self = shift;
+    $self->{XML_LIBXML_CALLBACK_STACK}->cleanup_callbacks();
+    my $mcb = $self->match_callback();
+    $self->{XML_LIBXML_CALLBACK_STACK}->unregister_callbacks( [$mcb] );
 }
 
 sub __read {
@@ -345,6 +438,32 @@ sub __write {
     }
 }
 
+# currently this is only used in the XInlcude processor
+# but in the future, all parsing functions should turn to
+# the new libxml2 parsing API internally and this will
+# become handy
+sub _parser_options {
+  my ($self,$opts)=@_;
+  $opts = {} unless ref $opts;
+  my $flags = 0;
+  $flags |=     1 if  exists $opts->{recover} ? $opts->{recover} : $self->recover;
+  $flags |=     2 if  exists $opts->{expand_entities} ? $opts->{expand_entities} : $self->expand_entities;
+  $flags |=     4 if  exists $opts->{load_ext_dtd} ? $opts->{load_ext_dtd} : $self->load_ext_dtd;
+  $flags |=     8 if  exists $opts->{complete_attributes} ? $opts->{complete_attributes} : $self->complete_attributes;
+  $flags |=    16 if  exists $opts->{validation} ? $opts->{validation} : $self->validation;
+  $flags |=    32 if  $opts->{suppress_errors};
+  $flags |=    64 if  $opts->{suppress_warnings};
+  $flags |=   128 if  exists $opts->{pedantic_parser} ? $opts->{pedantic_parser} : $self->pedantic_parser;
+  $flags |=   256 if  exists $opts->{no_blanks} ? $opts->{no_blanks} : !$self->keep_blanks();
+  $flags |=  1024 if  exists $opts->{expand_xinclude} ? $opts->{expand_xinclude} : $self->expand_xinclude;
+  $flags |=  2048 if  exists $opts->{no_network} ? $opts->{no_network} : $self->no_network;
+  $flags |=  8192 if  exists $opts->{clean_namespaces} ? $opts->{clean_namespaces} : $self->clean_namespaces;
+  $flags |= 16384 if  $opts->{no_cdata};
+  $flags |= 32768 if  $opts->{no_xinclude_nodes};
+  return ($flags);
+}
+
+
 #-------------------------------------------------------------------------#
 # parsing functions                                                       #
 #-------------------------------------------------------------------------#
@@ -354,6 +473,7 @@ sub __write {
 #-------------------------------------------------------------------------#
 sub parse_string {
     my $self = shift;
+    croak("parse_string is not a class method! Create a parser object with XML::LibXML->new first!") unless ref $self;
     croak("parse already in progress") if $self->{_State_};
 
     unless ( defined $_[0] and length $_[0] ) {
@@ -363,14 +483,19 @@ sub parse_string {
     $self->{_State_} = 1;
     my $result;
 
+    $self->_init_callbacks();
+
     if ( defined $self->{SAX} ) {
         my $string = shift;
         $self->{SAX_ELSTACK} = [];
+        
         eval { $result = $self->_parse_sax_string($string); };
 
         my $err = $@;
         $self->{_State_} = 0;
         if ($err) {
+	    chomp $err;
+            $self->_cleanup_callbacks();
             croak $err;
         }
     }
@@ -380,26 +505,35 @@ sub parse_string {
         my $err = $@;
         $self->{_State_} = 0;
         if ($err) {
+	    chomp $err;
+            $self->_cleanup_callbacks();
             croak $err;
         }
 
         $result = $self->_auto_expand( $result, $self->{XML_LIBXML_BASE_URI} );
     }
+    $self->_cleanup_callbacks();
 
     return $result;
 }
 
 sub parse_fh {
     my $self = shift;
+    croak("parse_fh is not a class method! Create a parser object with XML::LibXML->new first!") unless ref $self;
     croak("parse already in progress") if $self->{_State_};
     $self->{_State_} = 1;
     my $result;
+
+    $self->_init_callbacks();
+
     if ( defined $self->{SAX} ) {
         $self->{SAX_ELSTACK} = [];
         eval { $self->_parse_sax_fh( @_ );  };
         my $err = $@;
         $self->{_State_} = 0;
         if ($err) {
+	    chomp $err;
+            $self->_cleanup_callbacks();
             croak $err;
         }
     }
@@ -408,26 +542,36 @@ sub parse_fh {
         my $err = $@;
         $self->{_State_} = 0;
         if ($err) {
+	    chomp $err;
+            $self->_cleanup_callbacks();
             croak $err;
         }
 
         $result = $self->_auto_expand( $result, $self->{XML_LIBXML_BASE_URI} );
     }
 
+    $self->_cleanup_callbacks();
+
     return $result;
 }
 
 sub parse_file {
     my $self = shift;
+    croak("parse_file is not a class method! Create a parser object with XML::LibXML->new first!") unless ref $self;
     croak("parse already in progress") if $self->{_State_};
     $self->{_State_} = 1;
     my $result;
+
+    $self->_init_callbacks();
+
     if ( defined $self->{SAX} ) {
         $self->{SAX_ELSTACK} = [];
         eval { $self->_parse_sax_file( @_ );  };
         my $err = $@;
         $self->{_State_} = 0;
         if ($err) {
+	    chomp $err;
+            $self->_cleanup_callbacks();
             croak $err;
         }
     }
@@ -436,11 +580,14 @@ sub parse_file {
         my $err = $@;
         $self->{_State_} = 0;
         if ($err) {
+	    chomp $err;
+            $self->_cleanup_callbacks();
             croak $err;
         }
 
         $result = $self->_auto_expand( $result );
     }
+    $self->_cleanup_callbacks();
 
     return $result;
 }
@@ -450,6 +597,7 @@ sub parse_xml_chunk {
     # max 2 parameter:
     # 1: the chunk
     # 2: the encoding of the string
+    croak("parse_xml_chunk is not a class method! Create a parser object with XML::LibXML->new first!") unless ref $self;
     croak("parse already in progress") if $self->{_State_};    my $result;
 
     unless ( defined $_[0] and length $_[0] ) {
@@ -457,6 +605,9 @@ sub parse_xml_chunk {
     }
 
     $self->{_State_} = 1;
+
+    $self->_init_callbacks();
+
     if ( defined $self->{SAX} ) {
         eval {
             $self->_parse_sax_xml_chunk( @_ );
@@ -474,9 +625,12 @@ sub parse_xml_chunk {
         eval { $result = $self->_parse_xml_chunk( @_ ); };
     }
 
+    $self->_cleanup_callbacks();
+
     my $err = $@;
     $self->{_State_} = 0;
     if ($err) {
+        chomp $err;
         croak $err;
     }
 
@@ -485,23 +639,160 @@ sub parse_xml_chunk {
 
 sub parse_balanced_chunk {
     my $self = shift;
-    return $self->parse_xml_chunk( @_ );
+    $self->_init_callbacks();
+    my $rv;
+    eval {
+        $rv = $self->parse_xml_chunk( @_ );
+    };
+    my $err = $@;
+    $self->_cleanup_callbacks();
+    if ( $err ) {
+        chomp $err;
+        croak $err;
+    }
+    return $rv
 }
 
 # java style
 sub processXIncludes {
     my $self = shift;
     my $doc = shift;
-    return $self->_processXIncludes($doc || " ");
+    my $opts = shift;
+    my $options = $self->_parser_options($opts);
+    if ( $self->{_State_} != 1 ) {
+        $self->_init_callbacks();
+    }
+    my $rv;
+    eval {
+        $rv = $self->_processXIncludes($doc || " ", $options);
+    };
+    my $err = $@;
+    if ( $self->{_State_} != 1 ) {
+        $self->_cleanup_callbacks();
+    }
+
+    if ( $err ) {
+        chomp $err;
+        croak $err;
+    }
+    return $rv;
 }
 
 # perl style
 sub process_xincludes {
     my $self = shift;
     my $doc = shift;
-    return $self->_processXIncludes($doc || " ");
+    my $opts = shift;
+    my $options = $self->_parser_options($opts);
+
+    my $rv;
+    $self->_init_callbacks();
+    eval {
+        $rv = $self->_processXIncludes($doc || " ", $options);
+    };
+    my $err = $@;
+    $self->_cleanup_callbacks();
+    if ( $err ) {
+        chomp $err;
+        croak $@;
+    }
+    return $rv;
 }
 
+#-------------------------------------------------------------------------#
+# HTML parsing functions                                                  #
+#-------------------------------------------------------------------------#
+
+sub _html_options {
+  my ($self,$opts)=@_;
+  $opts = {} unless ref $opts;
+  #  return (undef,undef) unless ref $opts;
+  my $flags = 0;
+  $flags |=     1 if exists $opts->{recover} ? $opts->{recover} : $self->recover;
+  $flags |=    32 if $opts->{suppress_errors};
+  $flags |=    64 if $opts->{suppress_warnings};
+  $flags |=   128 if exists $opts->{pedantic_parser} ? $opts->{pedantic_parser} : $self->pedantic_parser;
+  $flags |=   256 if exists $opts->{no_blanks} ? $opts->{no_blanks} : !$self->keep_blanks;
+  $flags |=  2048 if exists $opts->{no_network} ? $opts->{no_network} : !$self->no_network;
+  return ($opts->{URI},$opts->{encoding},$flags);
+}
+
+sub parse_html_string {
+    my ($self,$str,$opts) = @_;
+    croak("parse_html_string is not a class method! Create a parser object with XML::LibXML->new first!") unless ref $self;
+    croak("parse already in progress") if $self->{_State_};
+
+    unless ( defined $str and length $str ) {
+        croak("Empty String");
+    }
+    $self->{_State_} = 1;
+    my $result;
+
+    $self->_init_callbacks();
+    eval { 
+      $result = $self->_parse_html_string( $str,
+					   $self->_html_options($opts)
+					  ); 
+    };
+    my $err = $@;
+    $self->{_State_} = 0;
+    if ($err) {
+      chomp $err;
+      $self->_cleanup_callbacks();
+      croak $err;
+    }
+
+    $self->_cleanup_callbacks();
+
+    return $result;
+}
+
+sub parse_html_file {
+    my ($self,$file,$opts) = @_;
+    croak("parse_html_file is not a class method! Create a parser object with XML::LibXML->new first!") unless ref $self;
+    croak("parse already in progress") if $self->{_State_};
+    $self->{_State_} = 1;
+    my $result;
+
+    $self->_init_callbacks();
+    eval { $result = $self->_parse_html_file($file,
+					     $self->_html_options($opts)
+					    ); };
+    my $err = $@;
+    $self->{_State_} = 0;
+    if ($err) {
+      chomp $err;
+      $self->_cleanup_callbacks();
+      croak $err;
+    }
+    
+    $self->_cleanup_callbacks();
+
+    return $result;
+}
+
+sub parse_html_fh {
+    my ($self,$fh,$opts) = @_;
+    croak("parse_html_fh is not a class method! Create a parser object with XML::LibXML->new first!") unless ref $self;
+    croak("parse already in progress") if $self->{_State_};
+    $self->{_State_} = 1;
+
+    my $result;
+    $self->_init_callbacks();
+    eval { $result = $self->_parse_html_fh( $fh, 
+					    $self->_html_options($opts)
+					   ); };
+    my $err = $@;
+    $self->{_State_} = 0;
+    if ($err) {
+      chomp $err;
+      $self->_cleanup_callbacks();
+      croak $err;
+    }
+    $self->_cleanup_callbacks();
+
+    return $result;
+}
 
 #-------------------------------------------------------------------------#
 # push parser interface                                                   #
@@ -524,12 +815,22 @@ sub init_push {
 sub push {
     my $self = shift;
 
+    $self->_init_callbacks();
+    
     if ( not defined $self->{CONTEXT} ) {
         $self->init_push();
     }
 
-    foreach ( @_ ) {
-        $self->_push( $self->{CONTEXT}, $_ );
+    eval {
+        foreach ( @_ ) {
+            $self->_push( $self->{CONTEXT}, $_ );
+        }
+    };
+    my $err = $@;
+    $self->_cleanup_callbacks();
+    if ( $err ) {
+        chomp $err;
+        croak $err;
     }
 }
 
@@ -570,11 +871,11 @@ sub finish_push {
     else {
         eval { $retval = $self->_end_push( $self->{CONTEXT}, $restore ); };
     }
-
     delete $self->{CONTEXT};
-
-    if ( $@ ) {
-        croak( $@ );
+    my $err = $@;
+    if ( $err ) {
+        chomp $err;
+        croak( $err );
     }
     return $retval;
 }
@@ -597,18 +898,13 @@ sub getChildNodes { my $self = shift; return $self->childNodes(); }
 sub childNodes {
     my $self = shift;
     my @children = $self->_childNodes();
-    return wantarray ? @children : XML::LibXML::NodeList->new( @children );
+    return wantarray ? @children : XML::LibXML::NodeList->new_from_ref(\@children , 1);
 }
 
 sub attributes {
     my $self = shift;
     my @attr = $self->_attributes();
     return wantarray ? @attr : XML::LibXML::NamedNodeMap->new( @attr );
-}
-
-sub iterator {
-    warn "this function is obsolete!\nIt was disabled in version 1.54\n";
-    return undef;
 }
 
 
@@ -619,7 +915,7 @@ sub findnodes {
         return @nodes;
     }
     else {
-        return XML::LibXML::NodeList->new(@nodes);
+        return XML::LibXML::NodeList->new_from_ref(\@nodes, 1);
     }
 }
 
@@ -649,10 +945,26 @@ sub setOwnerDocument {
     $doc->adoptNode( $self );
 }
 
-sub serialize_c14n {
-    my $self = shift;
-    return $self->toStringC14N( @_ );
+sub toStringC14N {
+    my ($self, $comments, $xpath) = (shift, shift, shift);
+    return $self->_toStringC14N( $comments || 0,
+				 (defined $xpath ? $xpath : undef),
+				 0,
+				 undef );
 }
+sub toStringEC14N {
+    my ($self, $comments, $xpath, $inc_prefix_list) = @_;
+    if (defined($inc_prefix_list) and !UNIVERSAL::isa($inc_prefix_list,'ARRAY')) {
+      croak("toStringEC14N: inclusive_prefix_list must be undefined or ARRAY");
+    }
+    return $self->_toStringC14N( $comments || 0,
+				 (defined $xpath ? $xpath : undef),
+				 1,
+				 (defined $inc_prefix_list ? $inc_prefix_list : undef));
+}
+
+*serialize_c14n = \&toStringC14N;
+*serialize_exc_c14n = \&toStringEC14N;
 
 1;
 
@@ -663,6 +975,12 @@ package XML::LibXML::Document;
 
 use vars qw(@ISA);
 @ISA = ('XML::LibXML::Node');
+
+sub actualEncoding {
+  my $doc = shift;
+  my $enc = $doc->encoding;
+  return (defined $enc and length $enc) ? $enc : 'UTF-8';
+}
 
 sub setDocumentElement {
     my $doc = shift;
@@ -708,7 +1026,8 @@ sub serialize {
 #-------------------------------------------------------------------------#
 sub process_xinclude {
     my $self = shift;
-    XML::LibXML->new->processXIncludes( $self );
+    my $opts = shift;
+    XML::LibXML->new->processXIncludes( $self, $opts );
 }
 
 sub insertProcessingInstruction {
@@ -739,31 +1058,9 @@ sub insertPI {
 # DOM L3 Document functions.
 # added after robins implicit feature requst
 #-------------------------------------------------------------------------#
-sub getElementsByTagName {
-    my ( $doc , $name ) = @_;
-    my $xpath = "descendant-or-self::node()/$name";
-    my @nodes = $doc->_findnodes($xpath);
-    return wantarray ? @nodes : XML::LibXML::NodeList->new(@nodes);
-}
-
-sub  getElementsByTagNameNS {
-    my ( $doc, $nsURI, $name ) = @_;
-    my $xpath = "descendant-or-self::*[local-name()='$name' and namespace-uri()='$nsURI']";
-    my @nodes = $doc->_findnodes($xpath);
-    return wantarray ? @nodes : XML::LibXML::NodeList->new(@nodes);
-}
-
-sub getElementsByLocalName {
-    my ( $doc,$name ) = @_;
-    my $xpath = "descendant-or-self::*[local-name()='$name']";
-    my @nodes = $doc->_findnodes($xpath);
-    return wantarray ? @nodes : XML::LibXML::NodeList->new(@nodes);
-}
-
-sub getElementsById {
-    my ( $doc, $id ) = @_;
-    return ($doc->findnodes( "id('$id')" ))[0];
-}
+*getElementsByTagName = \&XML::LibXML::Element::getElementsByTagName;
+*getElementsByTagNameNS = \&XML::LibXML::Element::getElementsByTagNameNS;
+*getElementsByLocalName = \&XML::LibXML::Element::getElementsByLocalName;
 
 1;
 
@@ -786,11 +1083,7 @@ sub toString {
     return $retval;
 }
 
-
-sub serialize {
-    my $self = shift;
-    return $self->toString(@_);
-}
+*serialize = \&toString;
 
 1;
 
@@ -801,6 +1094,8 @@ package XML::LibXML::Element;
 
 use vars qw(@ISA);
 @ISA = ('XML::LibXML::Node');
+use XML::LibXML qw(:ns :libxml);
+use Carp;
 
 sub setNamespace {
     my $self = shift;
@@ -814,58 +1109,154 @@ sub setNamespace {
     return 0;
 }
 
+sub getAttribute {
+    my $self = shift;
+    my $name = $_[0];
+    if ( $name =~ /^xmlns(?::|$)/ ) {
+        # user wants to get a namespace ...
+        (my $prefix = $name )=~s/^xmlns:?//;
+	$self->_getNamespaceDeclURI($prefix);
+    }
+    else {
+        $self->_getAttribute(@_);
+    }
+}
+
 sub setAttribute {
     my ( $self, $name, $value ) = @_;
-    if ( $name =~ /^xmlns/ ) {
-        # user wants to set a namespace ...
+    if ( $name =~ /^xmlns(?::|$)/ ) {
+      # user wants to set the special attribute for declaring XML namespace ...
 
-        (my $lname = $name )=~s/^xmlns://;
-        my $nn = $self->nodeName;
-        if ( $nn =~ /^$lname\:/ ) {
-            $self->setNamespace($value, $lname);
-        }
-        else {
-            # use a ($active = 0) namespace
-            $self->setNamespace($value, $lname, 0);
-        }
+      # this is fine but not exactly DOM conformant behavior, btw (according to DOM we should
+      # probably declare an attribute which looks like XML namespace declaration
+      # but isn't)
+      (my $nsprefix = $name )=~s/^xmlns:?//;
+      my $nn = $self->nodeName;
+      if ( $nn =~ /^\Q${nsprefix}\E:/ ) {
+	# the element has the same prefix
+	$self->setNamespaceDeclURI($nsprefix,$value) ||
+	  $self->setNamespace($value,$nsprefix,1);
+        ##
+        ## We set the namespace here.
+        ## This is helpful, as in:
+        ##
+        ## |  $e = XML::LibXML::Element->new('foo:bar');
+        ## |  $e->setAttribute('xmlns:foo','http://yoyodine')
+        ##
+      }
+      else {
+	# just modify the namespace
+	$self->setNamespaceDeclURI($nsprefix, $value) ||
+	  $self->setNamespace($value,$nsprefix,0);
+      }
     }
     else {
         $self->_setAttribute($name, $value);
     }
 }
 
+sub getAttributeNS {
+    my $self = shift;
+    my ($nsURI, $name) = @_;
+    croak("invalid attribute name") if !defined($name) or $name eq q{};
+    if ( defined($nsURI) and $nsURI eq XML_XMLNS_NS ) {
+	$self->_getNamespaceDeclURI($name eq 'xmlns' ? undef : $name);
+    }
+    else {
+        $self->_getAttributeNS(@_);
+    }
+}
+
+sub setAttributeNS {
+  my ($self, $nsURI, $qname, $value)=@_;
+  unless (defined $qname and length $qname) {
+    croak("bad name");
+  }
+  if (defined($nsURI) and $nsURI eq XML_XMLNS_NS) {
+    if ($qname !~ /^xmlns(?::|$)/) {
+      croak("NAMESPACE ERROR: Namespace declartions must have the prefix 'xmlns'");
+    }
+    $self->setAttribute($qname,$value); # see implementation above
+    return;
+  }
+  if ($qname=~/:/ and not (defined($nsURI) and length($nsURI))) {
+    croak("NAMESPACE ERROR: Attribute without a prefix cannot be in a namespace");
+  }
+  if ($qname=~/^xmlns(?:$|:)/) {
+    croak("NAMESPACE ERROR: 'xmlns' prefix and qualified-name are reserved for the namespace ".XML_XMLNS_NS);
+  }
+  if ($qname=~/^xml:/ and not (defined $nsURI and $nsURI eq XML_XML_NS)) {
+    croak("NAMESPACE ERROR: 'xml' prefix is reserved for the namespace ".XML_XML_NS);
+  }
+  $self->_setAttributeNS( defined $nsURI ? $nsURI : undef, $qname, $value );
+}
+
 sub getElementsByTagName {
     my ( $node , $name ) = @_;
-    my $xpath = "descendant::$name";
+    my $xpath = $name eq '*' ? "descendant::*" : "descendant::*[name()='$name']";
     my @nodes = $node->_findnodes($xpath);
-    return wantarray ? @nodes : XML::LibXML::NodeList->new(@nodes);
+    return wantarray ? @nodes : XML::LibXML::NodeList->new_from_ref(\@nodes, 1);
 }
 
 sub  getElementsByTagNameNS {
     my ( $node, $nsURI, $name ) = @_;
-    my $xpath = "descendant::*[local-name()='$name' and namespace-uri()='$nsURI']";
+    my $xpath;
+    if ( $name eq '*' ) {
+      if ( $nsURI eq '*' ) {
+	$xpath = "descendant::*";
+      } else {
+	$xpath = "descendant::*[namespace-uri()='$nsURI']";
+      }
+    } elsif ( $nsURI eq '*' ) {
+      $xpath = "descendant::*[local-name()='$name']";
+    } else {
+      $xpath = "descendant::*[local-name()='$name' and namespace-uri()='$nsURI']";
+    }
     my @nodes = $node->_findnodes($xpath);
-    return wantarray ? @nodes : XML::LibXML::NodeList->new(@nodes);
+    return wantarray ? @nodes : XML::LibXML::NodeList->new_from_ref(\@nodes, 1);
 }
 
 sub getElementsByLocalName {
     my ( $node,$name ) = @_;
-    my $xpath = "descendant::*[local-name()='$name']";
-        my @nodes = $node->_findnodes($xpath);
-    return wantarray ? @nodes : XML::LibXML::NodeList->new(@nodes);
+    my $xpath;
+    if ($name eq '*') {
+      $xpath = "descendant::*";
+    } else {
+      $xpath = "descendant::*[local-name()='$name']";
+    }
+    my @nodes = $node->_findnodes($xpath);
+    return wantarray ? @nodes : XML::LibXML::NodeList->new_from_ref(\@nodes, 1);
 }
 
 sub getChildrenByTagName {
     my ( $node, $name ) = @_;
-    my @nodes = grep { $_->nodeName eq $name } $node->childNodes();
-    return wantarray ? @nodes : XML::LibXML::NodeList->new(@nodes);
+    my @nodes;
+    if ($name eq '*') {
+      @nodes = grep { $_->nodeType == XML_ELEMENT_NODE() }
+	$node->childNodes();
+    } else {
+      @nodes = grep { $_->nodeName eq $name } $node->childNodes();
+    }
+    return wantarray ? @nodes : XML::LibXML::NodeList->new_from_ref(\@nodes, 1);
+}
+
+sub getChildrenByLocalName {
+    my ( $node, $name ) = @_;
+    my @nodes;
+    if ($name eq '*') {
+      @nodes = grep { $_->nodeType == XML_ELEMENT_NODE() }
+	$node->childNodes();
+    } else {
+      @nodes = grep { $_->nodeType == XML_ELEMENT_NODE() and
+		      $_->localName eq $name } $node->childNodes();
+    }
+    return wantarray ? @nodes : XML::LibXML::NodeList->new_from_ref(\@nodes, 1);
 }
 
 sub getChildrenByTagNameNS {
     my ( $node, $nsURI, $name ) = @_;
-    my $xpath = "*[local-name()='$name' and namespace-uri()='$nsURI']";
-    my @nodes = $node->_findnodes($xpath);
-    return wantarray ? @nodes : XML::LibXML::NodeList->new(@nodes);
+    my @nodes = $node->_getChildrenByTagNameNS($nsURI,$name);
+    return wantarray ? @nodes : XML::LibXML::NodeList->new_from_ref(\@nodes, 1);
 }
 
 sub appendWellBalancedChunk {
@@ -947,10 +1338,6 @@ package XML::LibXML::CDATASection;
 use vars qw(@ISA);
 @ISA     = ('XML::LibXML::Text');
 
-sub nodeName {
-    return "cdata";
-}
-
 1;
 
 #-------------------------------------------------------------------------#
@@ -1016,16 +1403,18 @@ package XML::LibXML::Namespace;
 
 # this is infact not a node!
 sub prefix { return "xmlns"; }
+sub getPrefix { return "xmlns"; }
+sub getNamespaceURI { return "http://www.w3.org/2000/xmlns/" };
 
 sub getNamespaces { return (); }
 
 sub nodeName {
-    my $self = shift;
-    my $nsP  = $self->name;
-    return ( defined($nsP) && length($nsP) ) ? "xmlns:$nsP" : "xmlns";
+  my $self = shift;
+  my $nsP  = $self->localname;
+  return ( defined($nsP) && length($nsP) ) ? "xmlns:$nsP" : "xmlns";
 }
-
-sub getNodeName { my $self = shift; return $self->nodeName; }
+sub name    { goto &nodeName }
+sub getName { goto &nodeName }
 
 sub isEqualNode {
     my ( $self, $ref ) = @_;
@@ -1215,6 +1604,165 @@ sub new {
     }
 
     return $self;
+}
+
+1;
+
+#-------------------------------------------------------------------------#
+# XML::LibXML::InputCallback Interface                                    #
+#-------------------------------------------------------------------------#
+package XML::LibXML::InputCallback;
+
+use vars qw($_CUR_CB @_GLOBAL_CALLBACKS @_CB_STACK);
+
+$_CUR_CB = undef;
+
+@_GLOBAL_CALLBACKS = ();
+@_CB_STACK = ();
+
+#-------------------------------------------------------------------------#
+# global callbacks                                                        #
+#-------------------------------------------------------------------------#
+sub _callback_match {
+    my $uri = shift;
+    my $retval = 0;
+
+    # loop through the callbacks and and find the first matching
+    # The callbacks are stored in execution order (reverse stack order)
+    # any new global callbacks are shifted to the callback stack.
+    foreach my $cb ( @_GLOBAL_CALLBACKS ) {
+
+        # callbacks have to return 1, 0 or undef, while 0 and undef 
+        # are handled the same way. 
+        # in fact, if callbacks return other values, the global match 
+        # assumes silently that the callback failed.
+
+        $retval = $cb->[0]->($uri);
+
+        if ( defined $retval and $retval == 1 ) {
+            # make the other callbacks use this callback
+            $_CUR_CB = $cb;
+            unshift @_CB_STACK, $cb; 
+            last;
+        }
+    }
+
+    return $retval;
+}
+
+sub _callback_open {
+    my $uri = shift;
+    my $retval = undef;
+    
+    # the open callback has to return a defined value. 
+    # if one works on files this can be a file handle. But 
+    # depending on the needs of the callback it also can be a 
+    # database handle or a integer labeling a certain dataset.
+
+    if ( defined $_CUR_CB ) {
+        $retval = $_CUR_CB->[1]->( $uri );
+        
+        # reset the callbacks, if one callback cannot open an uri
+        if ( not defined $retval or $retval == 0 ) {
+            shift @_CB_STACK;
+            $_CUR_CB = $_CB_STACK[0];
+        }
+    }
+    
+    return $retval;
+}
+
+sub _callback_read {
+    my $fh = shift;
+    my $buflen = shift;
+
+    my $retval = undef;
+
+    if ( defined $_CUR_CB ) {
+        $retval = $_CUR_CB->[2]->( $fh, $buflen );
+    }
+
+    return $retval;
+}
+
+sub _callback_close {
+    my $fh = shift;
+    my $retval = 0;
+    
+    if ( defined $_CUR_CB ) {
+        $retval = $_CUR_CB->[3]->( $fh );
+        shift @_CB_STACK;
+        $_CUR_CB = $_CB_STACK[0];
+    }
+
+    return $retval;
+}
+
+#-------------------------------------------------------------------------#
+# member functions and methods                                            #
+#-------------------------------------------------------------------------#
+
+sub new {
+    my $CLASS = shift;
+    return bless {'_CALLBACKS' => []}, $CLASS;
+}
+
+# add a callback set to the callback stack
+# synopsis: $icb->register_callbacks( [$match_cb, $open_cb, $read_cb, $close_cb] );
+sub register_callbacks {
+    my $self = shift;
+    my $cbset = shift;
+    
+    # test if callback set is complete
+    if ( ref $cbset eq "ARRAY" and scalar( @$cbset ) == 4 ) {
+        unshift @{$self->{_CALLBACKS}}, $cbset;
+    }
+}
+
+# remove a callback set to the callback stack
+# if a callback set is passed, this function will check for the match function
+sub unregister_callbacks {
+    my $self = shift;
+    my $cbset = shift;
+    if ( ref $cbset eq "ARRAY" and scalar( @$cbset ) == 4 ) {
+        $self->{_CALLBACKS} = [grep { $_->[0] != $cbset->[0] } @{$self->{_CALLBACKS}}];
+    }
+    else {
+        shift @{$self->{_CALLBACKS}};
+    }
+}
+
+# make libxml2 use the callbacks 
+sub init_callbacks {
+    my $self = shift;
+
+    $_CUR_CB           = undef;
+    @_CB_STACK         = ();
+
+    @_GLOBAL_CALLBACKS = @{ $self->{_CALLBACKS} };
+    
+    if ( defined $XML::LibXML::match_cb and 
+         defined $XML::LibXML::open_cb  and 
+         defined $XML::LibXML::read_cb  and 
+         defined $XML::LibXML::close_cb ) {
+        push @_GLOBAL_CALLBACKS, [$XML::LibXML::match_cb,
+                                  $XML::LibXML::open_cb,
+                                  $XML::LibXML::read_cb,
+                                  $XML::LibXML::close_cb];
+    }
+
+    $self->lib_init_callbacks();
+}
+
+# reset libxml2's callbacks
+sub cleanup_callbacks {
+    my $self = shift;
+    
+    $_CUR_CB           = undef;
+    @_GLOBAL_CALLBACKS = ();
+    @_CB_STACK         = ();
+
+    $self->lib_cleanup_callbacks();
 }
 
 1;

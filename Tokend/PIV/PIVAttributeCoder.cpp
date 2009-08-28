@@ -56,3 +56,15 @@ void PIVDataAttributeCoder::decode(TokenContext *tokenContext,
 	record.attributeAtIndex(metaAttribute.attributeIndex(),
 		pivRecord.getDataAttribute(tokenContext));
 }
+
+//
+// PIVKeySizeAttributeCoder
+//
+PIVKeySizeAttributeCoder::~PIVKeySizeAttributeCoder() {}
+
+void PIVKeySizeAttributeCoder::decode(Tokend::TokenContext *tokenContext,
+								   const Tokend::MetaAttribute &metaAttribute, Tokend::Record &record)
+{
+	uint32 keySize = dynamic_cast<PIVKeyRecord &>(record).sizeInBits();
+	record.attributeAtIndex(metaAttribute.attributeIndex(), new Attribute(keySize));
+}

@@ -19,10 +19,8 @@ int main()
   obj_cp = obj; /* Ok */
   obj = obj_cp; /* Ok */
 
-  /* APPLE LOCAL begin mainline */
   obj_cp = obj_p; /* Ok */
   obj_p = obj_cp; /* Ok */
-  /* APPLE LOCAL end mainline */
   
   if (obj_cp == obj) ; /* Ok */
   if (obj == obj_cp) ; /* Ok */

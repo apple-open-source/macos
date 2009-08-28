@@ -1,0 +1,25 @@
+Return-Path: bluepeak.westend.com!popeye
+Return-Path: <popeye@bluepeak.westend.com>
+Received: from popeye.bluepeak.westend.com by bluepeak  with smtp
+	(Smail3.2 #1) id m0wlGKb-00026jC; Mon, 7 Jul 1997 18:08:05 +0200 (MEST)
+Received: from genesis for a.kupries
+ with Cubic Circle's cucipop (v1.10 1996/09/06) Mon Jul  7 18:04:47 1997
+X-From_: kiss@sunbee.co.kr  Mon Jul  7 10:54:50 1997
+Received: from wins21.com (ns.wins.co.kr [210.122.58.1]) by genesis.westend.com (8.7.5/8.7.3) with SMTP id KAA24999 for <a.kupries@westend.com>; Mon, 7 Jul 1997 10:52:49 +0200 (MET DST)
+Received: (from kiss@localhost) by wins21.com (8.6.9H1/8.6.9) id UAA18179 for a.kupries@westend.com; Sun, 6 Jul 1997 20:58:56 +1000
+Date: Sun, 6 Jul 1997 20:58:56 +1000
+From: Hyoung-Gook Kimn <kiss@sunbee.co.kr>
+Message-Id: <199707061058.UAA18179@wins21.com>
+Apparently-To: a.kupries@westend.com
+
+Hi, Andreas !
+I have found 2 Bugs in digest.c(Tcl-Trf 1.0b3)
+
+CreateDecoder()
+467 Line : c->writeClientData = clientData ----> c->writeClientData = writeClientData
+
+FlushDecoder()
+865 Line : &c->digest_buffer ----> c->digest_buffer
+
+Hyoung-Gook Kimn
+1997. 7. 7.

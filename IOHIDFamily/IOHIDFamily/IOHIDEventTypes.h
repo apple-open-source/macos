@@ -134,10 +134,24 @@ enum {
     kIOHIDEventFieldVelocityZ
 };
 
+/*!
+	@typedef IOHIDAccelerometerType
+	@abstract Type of accelerometer event triggered.
+    @discussion
+	@constant kIOHIDAccelerometerTypeNormal
+	@constant kIOHIDAccelerometerTypeShake
+*/
+enum {
+    kIOHIDAccelerometerTypeNormal   = 0,
+    kIOHIDAccelerometerTypeShake    = 1
+};
+typedef uint32_t IOHIDAccelerometerType;
+
 enum {
     kIOHIDEventFieldAccelerometerX = IOHIDEventFieldBase(kIOHIDEventTypeAccelerometer),
     kIOHIDEventFieldAccelerometerY,
-    kIOHIDEventFieldAccelerometerZ
+    kIOHIDEventFieldAccelerometerZ,
+    kIOHIDEventFieldAccelerometerType
 };
 
 enum {
@@ -316,6 +330,7 @@ enum {
     kIOHIDDigitizerEventAttribute                           = 0x00000040,
     kIOHIDDigitizerEventCancel                              = 0x00000080,
     kIOHIDDigitizerEventStart                               = 0x00000100,
+    kIOHIDDigitizerEventResting                             = 0x00000200,
     kIOHIDDigitizerEventSwipeUp                             = 0x01000000,
     kIOHIDDigitizerEventSwipeDown                           = 0x02000000,
     kIOHIDDigitizerEventSwipeLeft                           = 0x04000000,

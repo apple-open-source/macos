@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2001-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,11 +41,37 @@ void
 my_log(int priority, const char *message, ...);
 
 void
-my_log_init(bool verbose);
+my_log_set_verbose(bool verbose);
 
 void
 timestamp_fprintf(FILE * f, const char * message, ...);
 
+/**
+ ** eapolclient logging
+ **/
+enum {
+    kLogFlagBasic 		= 0x00000001,
+    kLogFlagConfig		= 0x00000002,
+    kLogFlagStatus		= 0x00000004,
+    kLogFlagTunables		= 0x00000008,
+    kLogFlagPacketDetails 	= 0x00000010,
+    kLogFlagIncludeStdoutStderr	= 0x80000000
+};
+
+void
+eapolclient_log_set(FILE * log_file, uint32_t log_flags);
+
+FILE *
+eapolclient_log_file(void);
+
+bool
+eapolclient_should_log(uint32_t flags);
+
+void
+eapolclient_log(uint32_t flags, const char * message, ...);
+
+void
+eapolclient_log_plist(uint32_t flags, CFPropertyListRef plist);
 
 #endif _S_MYLOG_H
 

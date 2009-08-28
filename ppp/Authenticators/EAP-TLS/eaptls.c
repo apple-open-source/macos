@@ -32,10 +32,12 @@
 #include <EAP8021X/EAP.h>
 #include <EAP8021X/EAPClientModule.h>
 #include <EAP8021X/EAPClientProperties.h>
+#ifndef TARGET_EMBEDDED_OS
 #include <Security/SecKeychain.h>
 #include <Security/SecKeychainSearch.h>
 #include <Security/SecKeychainItem.h>
 #include <Security/SecIdentity.h>
+#endif /* TARGET_EMBEDDED_OS */
 #include <SystemConfiguration/SCNetworkConnection.h>
 
 #include "eaptls.h"

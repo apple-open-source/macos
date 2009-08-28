@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,6 +39,7 @@ IOCDBlockStorageDevice::init(OSDictionary * properties)
     return(result);
 }
 
+#ifndef __LP64__
 IOReturn
 IOCDBlockStorageDevice::audioPause(bool pause)
 {
@@ -87,15 +88,11 @@ IOCDBlockStorageDevice::getSpeed(UInt16 * kilobytesPerSecond)
     return(kIOReturnUnsupported);
 }
 
-OSMetaClassDefineReservedUsed(IOCDBlockStorageDevice, 0);
-
 IOReturn
 IOCDBlockStorageDevice::setSpeed(UInt16 kilobytesPerSecond)
 {
     return(kIOReturnUnsupported);
 }
-
-OSMetaClassDefineReservedUsed(IOCDBlockStorageDevice, 1);
 
 IOReturn
 IOCDBlockStorageDevice::readTOC(IOMemoryDescriptor *buffer,CDTOCFormat format,
@@ -108,8 +105,6 @@ IOCDBlockStorageDevice::readTOC(IOMemoryDescriptor *buffer,CDTOCFormat format,
     return(kIOReturnUnsupported);
 }
 
-OSMetaClassDefineReservedUsed(IOCDBlockStorageDevice, 2);
-
 IOReturn
 IOCDBlockStorageDevice::readDiscInfo(IOMemoryDescriptor *buffer,
                                      UInt16 *actualByteCount)
@@ -119,8 +114,6 @@ IOCDBlockStorageDevice::readDiscInfo(IOMemoryDescriptor *buffer,
     }
     return(kIOReturnUnsupported);
 }
-
-OSMetaClassDefineReservedUsed(IOCDBlockStorageDevice, 3);
 
 IOReturn
 IOCDBlockStorageDevice::readTrackInfo(IOMemoryDescriptor *buffer,UInt32 address,
@@ -132,9 +125,21 @@ IOCDBlockStorageDevice::readTrackInfo(IOMemoryDescriptor *buffer,UInt32 address,
     }
     return(kIOReturnUnsupported);
 }
+#endif /* !__LP64__ */
 
-OSMetaClassDefineReservedUsed(IOCDBlockStorageDevice, 4);
-
+#ifdef __LP64__
+OSMetaClassDefineReservedUnused(IOCDBlockStorageDevice,  0);
+OSMetaClassDefineReservedUnused(IOCDBlockStorageDevice,  1);
+OSMetaClassDefineReservedUnused(IOCDBlockStorageDevice,  2);
+OSMetaClassDefineReservedUnused(IOCDBlockStorageDevice,  3);
+OSMetaClassDefineReservedUnused(IOCDBlockStorageDevice,  4);
+#else /* !__LP64__ */
+OSMetaClassDefineReservedUsed(IOCDBlockStorageDevice,  0);
+OSMetaClassDefineReservedUsed(IOCDBlockStorageDevice,  1);
+OSMetaClassDefineReservedUsed(IOCDBlockStorageDevice,  2);
+OSMetaClassDefineReservedUsed(IOCDBlockStorageDevice,  3);
+OSMetaClassDefineReservedUsed(IOCDBlockStorageDevice,  4);
+#endif /* !__LP64__ */
 OSMetaClassDefineReservedUnused(IOCDBlockStorageDevice,  5);
 OSMetaClassDefineReservedUnused(IOCDBlockStorageDevice,  6);
 OSMetaClassDefineReservedUnused(IOCDBlockStorageDevice,  7);

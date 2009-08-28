@@ -26,6 +26,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <getopt.h>
 #include "QEQuery.h"
+#include "kext_tools_util.h"
 
 /*******************************************************************************
 * This data structure associated query keywords with the parsing and evaluation
@@ -52,7 +53,7 @@ struct querySetup {
 #define kOptNameNulTerminate            "nul"
 #define kOptNameSearchItem              "search-item"
 #define kOptNameSubstring               "substring"
-#define kOptNameSystemExtensions        "system-extensions"
+#define kOptNameDefaultArch             "set-arch"
 
 #ifdef EXTRA_INFO
 // I think there will be better ways to do this after getting some airtime
@@ -71,7 +72,6 @@ struct querySetup {
 
 enum {
     kOptSystemExtensions = 'e',
-    kOptHelp = 'h',
     kOptCaseInsensitive = 'i',
     kOptNulTerminate = '0',
     kOptSearchItem = 'f',
@@ -82,15 +82,16 @@ enum {
 // Do not use -1, that's getopt() end-of-args return value
 // and can cause confusion
 enum {
-    kLongOptQueryPredicate = 1,
+    kLongOptQueryPredicate = -2,
 #ifdef EXTRA_INFO
-    kLongOptExtraInfo,
+    kLongOptExtraInfo = -3,
 #endif
-    kLongOptRelativePaths,
-    kLongOptNoPaths,
-    kLongOptMeek,
-    kLongOptPicky,
-    kLongOptReport,
+    kLongOptRelativePaths = -4,
+    kLongOptNoPaths = -5,
+    kLongOptMeek = -6,
+    kLongOptPicky = -7,
+    kLongOptReport = -8,
+    kLongOptDefaultArch = -9,
 };
 
 /*******************************************************************************

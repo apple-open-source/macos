@@ -1,0 +1,74 @@
+
+package provide xotcl::store::multi 0.9
+package require xotcl::store 0.84
+package require XOTcl
+
+namespace eval ::xotcl::store::multi {
+    namespace import ::xotcl::*
+
+    Class Storage=multi -superclass Storage
+    Storage=multi instproc add {dbPackage args} {
+	my instvar storages names
+	if {$dbPackage eq ""} {
+	    set dbPackage [Storage defaultPackage]
+	}
+	package require xotcl::store::[string tolower $dbPackage]
+	lappend storages [eval Storage=$dbPackage new -childof [self] $args]
+    }
+    Storage=multi instproc init args {
+	my instvar storages
+	set storages {}
+    }
+    Storage=multi instproc names  {}   {
+	my instvar storages
+	[lindex $storages 0] $names
+    }
+    Storage=multi instproc exists name {
+	my instvar storages
+	[lindex $storages 0] exists $name
+    }
+    Storage=multi instproc unset name  {
+	my instvar storages
+	foreach s $storages {$s [self proc] $name}
+    }
+    Storage=multi instproc set args {
+	my instvar storages
+	set l [llength $args]
+	set name [lindex $args 0]
+	if {$l == 1} {
+	    [lindex $storages 0] set $name
+	} elseif {$l == 2} {
+	    foreach s $storages { $s set $name [lindex $args 1]}
+	} else {
+	    eval set $args
+	}
+    }
+    Storage=multi instproc close {} {
+	my instvar storages
+	foreach s $storages {$s [self proc]}
+    }
+    Storage=multi instproc dbOpen {} {
+	my instvar storages
+	foreach s $storages {$s [self proc]}
+    }
+    Storage=multi instproc firstkey {} {
+	my instvar storages
+	[lindex $storages 0] firstkey
+    }
+    Storage=multi instproc nextkey {} {
+	my instvar storages
+	[lindex $storages 0] nextkey
+    }
+    Storage=multi instproc checkdir {} {
+	my instvar storages
+	foreach s $storages {$s [self proc]}
+    }
+    Storage=multi instproc dbOpen {} {
+	my instvar storages
+	foreach s $storages {$s [self proc]}
+    }
+
+    namespace export Storage=multi
+}
+
+namespace import ::xotcl::store::multi::*

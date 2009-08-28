@@ -1,5 +1,5 @@
---- printf.3	2004-11-25 11:38:35.000000000 -0800
-+++ printf.3.edit	2006-09-06 16:56:37.000000000 -0700
+--- printf.3.orig	2008-02-29 10:45:39.000000000 -0800
++++ printf.3	2008-02-29 12:19:06.000000000 -0800
 @@ -40,39 +40,83 @@
  .Dt PRINTF 3
  .Os
@@ -146,16 +146,20 @@
  argument, the string was too short
  and some of the printed characters were discarded.
  The output is always null-terminated.
-@@ -167,7 +217,7 @@
+@@ -167,7 +217,11 @@
  .Fn vsprintf
  functions
  effectively assume an infinite
 -.Fa size .
 +.Fa n .
++.Pp
++For those routines that write to a user-provided character string,
++that string and the format strings should not overlap, as the
++behavior is undefined.
  .Pp
  The format string is composed of zero or more directives:
  ordinary
-@@ -287,6 +337,20 @@
+@@ -287,6 +341,20 @@
  .Xr localeconv 3 .
  .El
  .It
@@ -176,7 +180,7 @@
  An optional decimal digit string specifying a minimum field width.
  If the converted value has fewer characters than the field width, it will
  be padded with spaces on the left (or right, if the left-adjustment
-@@ -379,6 +443,34 @@
+@@ -379,6 +447,34 @@
  .It Sy Modifier Ta Cm c Ta Cm s
  .It Cm l No (ell) Ta Vt wint_t Ta Vt "wchar_t *"
  .El
@@ -211,7 +215,7 @@
  .It
  A character that specifies the type of conversion to be applied.
  .El
-@@ -790,14 +882,11 @@
+@@ -790,14 +886,11 @@
  .Sh SEE ALSO
  .Xr printf 1 ,
  .Xr fmtcheck 3 ,

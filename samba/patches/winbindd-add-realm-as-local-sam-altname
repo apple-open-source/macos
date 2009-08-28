@@ -2,7 +2,7 @@ Index: samba/source/nsswitch/winbindd_util.c
 ===================================================================
 --- samba/source/nsswitch/winbindd_util.c.orig
 +++ samba/source/nsswitch/winbindd_util.c
-@@ -110,7 +110,7 @@ static struct winbindd_domain *add_trust
+@@ -105,7 +105,7 @@ static struct winbindd_domain *add_trust
  	
  	/* ignore alt_name if we are not in an AD domain */
  	
@@ -11,7 +11,7 @@ Index: samba/source/nsswitch/winbindd_util.c
  		alternative_name = alt_name;
  	}
          
-@@ -527,7 +527,7 @@ BOOL init_domain_list(void)
+@@ -522,7 +522,7 @@ BOOL init_domain_list(void)
  
  	/* Local SAM */
  

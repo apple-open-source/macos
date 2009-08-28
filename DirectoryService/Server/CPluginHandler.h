@@ -28,14 +28,14 @@
 #ifndef __CPluginHandler_h__
 #define __CPluginHandler_h__ 1
 
-#include "CInternalDispatchThread.h"
+#include "DSCThread.h"
 #include "PrivateTypes.h"
 #include "SharedConsts.h"
 
 class	CPluginHandler;
 extern	CPluginHandler	*gPluginHandler;		
 
-class CPluginHandler : public CInternalDispatchThread
+class CPluginHandler : public DSCThread
 {
 public:
 					CPluginHandler		( void );

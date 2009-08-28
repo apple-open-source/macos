@@ -97,6 +97,10 @@ SOURCE=..\..\bpf_dump.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\checksum.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\cpack.c
 # End Source File
 # Begin Source File
@@ -209,7 +213,15 @@ SOURCE="..\..\print-bootp.c"
 # End Source File
 # Begin Source File
 
+SOURCE="..\..\print-bt.c"
+# End Source File
+# Begin Source File
+
 SOURCE="..\..\print-cdp.c"
+# End Source File
+# Begin Source File
+
+SOURCE="..\..\print-cfm.c"
 # End Source File
 # Begin Source File
 
@@ -238,6 +250,10 @@ SOURCE="..\..\print-dhcp6.c"
 # Begin Source File
 
 SOURCE="..\..\print-domain.c"
+# End Source File
+# Begin Source File
+
+SOURCE="..\..\print-dtp.c"
 # End Source File
 # Begin Source File
 
@@ -361,11 +377,19 @@ SOURCE="..\..\print-llc.c"
 # End Source File
 # Begin Source File
 
+SOURCE="..\..\print-lldp.c"
+# End Source File
+# Begin Source File
+
 SOURCE="..\..\print-lmp.c"
 # End Source File
 # Begin Source File
 
 SOURCE="..\..\print-lspping.c"
+# End Source File
+# Begin Source File
+
+SOURCE="..\..\print-lwapp.c"
 # End Source File
 # Begin Source File
 
@@ -378,6 +402,10 @@ SOURCE="..\..\print-mobile.c"
 # Begin Source File
 
 SOURCE="..\..\print-mobility.c"
+# End Source File
+# Begin Source File
+
+SOURCE="..\..\print-mpcp.c"
 # End Source File
 # Begin Source File
 
@@ -417,10 +445,6 @@ SOURCE="..\..\print-ospf6.c"
 # End Source File
 # Begin Source File
 
-SOURCE="..\..\print-pflog.c"
-# End Source File
-# Begin Source File
-
 SOURCE="..\..\print-pgm.c"
 # End Source File
 # Begin Source File
@@ -449,6 +473,10 @@ SOURCE="..\..\print-raw.c"
 # End Source File
 # Begin Source File
 
+SOURCE="..\..\print-rrcp.c"
+# End Source File
+# Begin Source File
+
 SOURCE="..\..\print-rip.c"
 # End Source File
 # Begin Source File
@@ -470,6 +498,10 @@ SOURCE="..\..\print-rx.c"
 # Begin Source File
 
 SOURCE="..\..\print-sctp.c"
+# End Source File
+# Begin Source File
+
+SOURCE="..\..\print-sflow.c"
 # End Source File
 # Begin Source File
 
@@ -537,6 +569,10 @@ SOURCE="..\..\print-token.c"
 # End Source File
 # Begin Source File
 
+SOURCE="..\..\print-udld.c"
+# End Source File
+# Begin Source File
+
 SOURCE="..\..\print-udp.c"
 # End Source File
 # Begin Source File
@@ -545,7 +581,15 @@ SOURCE="..\..\print-vjc.c"
 # End Source File
 # Begin Source File
 
+SOURCE="..\..\print-vqp.c"
+# End Source File
+# Begin Source File
+
 SOURCE="..\..\print-vrrp.c"
+# End Source File
+# Begin Source File
+
+SOURCE="..\..\print-vtp.c"
 # End Source File
 # Begin Source File
 

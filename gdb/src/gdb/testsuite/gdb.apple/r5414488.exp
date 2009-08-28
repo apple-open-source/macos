@@ -1,0 +1,97 @@
+# Copyright 2005 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
+
+# This uncovers a stabs bug.  We were replacing a forward reference
+# type with a type of the same NAME without checking whether it's type
+# slot was the same as the one we were replacing it with.  That caused an
+# infinite recursion in the type hierarchy.
+ 
+if $tracelevel then {
+        strace $tracelevel
+        }
+
+#
+# test running programs
+#
+
+set prms_id 0
+set bug_id 0
+
+set testfile "r5414488"
+set srcfile ${testfile}.m
+set binfile ${objdir}/${subdir}/${testfile}
+
+set libfile "r5414488-libfile"
+set lib_srcfile ${libfile}.m
+set lib_binfile ${objdir}/${subdir}/libTL.dylib
+
+set old_gdb_test_apple_dsym $gdb_test_apple_dsym
+set gdb_test_apple_dsym
+
+set framework_path ${objdir}/${subdir}
+
+if {[catch {
+    set additional_flags "additional_flags=-dynamiclib -framework Foundation"
+    if  { [gdb_compile "${srcdir}/${subdir}/${lib_srcfile}" "${lib_binfile}" executable [list c++ debug $additional_flags]] != "" } {
+     gdb_suppress_entire_file "Testcase compile of $lib_srcfile failed, so all tests in this file will automatically fail."
+    }
+}] != 0} {
+    set $gdb_test_apple_dsym $old_gdb_test_apple_dsym
+    return
+}
+
+if {[catch {
+    set additional_flags "additional_flags=-I${objdir}/${subdir} -L${objdir}/${subdir} -lTL -framework Foundation"
+    if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable [list c++ debug $additional_flags] ] != "" } {
+     gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
+    }
+}] != 0} {
+    set $gdb_test_apple_dsym $old_gdb_test_apple_dsym
+    return
+}
+
+set gdb_test_apple_dsym $old_gdb_test_apple_dsym
+
+# Start with a fresh gdb
+gdb_exit
+gdb_start
+gdb_reinitialize_dir $srcdir/$subdir
+gdb_file_cmd "${binfile}"
+
+send_gdb "set width 0\n"
+gdb_expect -re "$gdb_prompt $"
+
+send_gdb "set env DYLD_FRAMEWORK_PATH ${framework_path}\n"
+gdb_expect -re "$gdb_prompt $"
+
+send_gdb "set inlined-stepping on\n"
+gdb_expect -re "$gdb_prompt $"
+
+gdb_test "break r5414488-libfile.m:18" "Breakpoint 1 at $hex: file.*, line.*\\." "Set breakpoint on inlined subroutine call at line 18"
+
+gdb_test "run" "Starting program: $binfile *\r\n\Reading symbols for shared libraries \(\[.+\]\)+ done.*Breakpoint 1, -\\\[TestLoop init\\\].*" "continue to breakpoint"
+
+gdb_test "step" "NSMakeRect \\\[inlined\\\].*"  "Step into inlined subroutine"
+
+gdb_test "step" ".*r.origin.y = y.*"  "First step inside inlined subroutine"
+gdb_test "step" ".*r.size.width = w.*"  "Second step inside inlined subroutine"
+gdb_test "step" ".*r.size.height = h.*"  "Third step inside inlined subroutine"
+gdb_test "step" ".*return r.*"  "Fourth step inside inlined subroutine"
+
+gdb_exit
+return 0
+
+

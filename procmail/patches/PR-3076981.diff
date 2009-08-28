@@ -1,0 +1,12 @@
+diff -r -u -I : procmail-3.22/src/autoconf procmail/src/autoconf
+--- procmail-3.22/src/autoconf	2001-09-10 21:55:46.000000000 -0700
++++ procmail/src/autoconf	2008-07-06 23:12:48.000000000 -0700
+@@ -1380,7 +1380,7 @@
+ 	 }
+ 	if(!newdiff)				    /* reductio ad adsurdum? */
+ 	   break;			    /* yes, break off the engagement */
+-	sprintf(num,"%u",newdiff);nargv[argc+diff]=0;  /* pass on the target */
++	sprintf(num,"%u",newdiff);nargv[argc+newdiff]=0;  /* pass on the target */
+ 	execv(argv[0],nargv);					/* jeronimo! */
+       }
+ printit:				  /* we proudly present the findings */

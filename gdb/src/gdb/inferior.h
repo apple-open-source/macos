@@ -419,6 +419,12 @@ enum stop_kind
 
 extern enum stop_kind stop_soon;
 
+/* APPLE LOCAL: Mark whether this is a hand function call so we can
+   do any cleanup needed from hand function calls before
+   a normal resume of the program.  */
+
+extern int proceed_from_hand_call;
+
 /* Nonzero if proceed is being used for a "finish" command or a similar
    situation when stop_registers should be saved.  */
 
@@ -471,6 +477,11 @@ extern int attach_flag;
 
 extern int start_with_shell_flag;
 
+/* APPLE LOCAL - Keep track of recent breakpoint locations, for correctly
+   handling multi-threaded programs.  */
+
+extern int address_contained_breakpoint_trap (CORE_ADDR);
+
 /* APPLE LOCAL begin subroutine inlining  */
 extern void insert_step_resume_breakpoint_at_sal (struct symtab_and_line,
 						  struct frame_id);
@@ -479,4 +490,8 @@ extern void insert_step_resume_breakpoint_at_sal (struct symtab_and_line,
 /* APPLE LOCAL: Used internally to stop running the hook_stop when that
    is not appropriate.  */
 struct cleanup *make_cleanup_suppress_hook_stop ();
+
+/* APPLE LOCAL: This is a debugging variable for the setup we do for
+   hand call functions.  */
+extern int debug_handcall_setup;
 #endif /* !defined (INFERIOR_H) */

@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <libc.h>
 #include <limits.h>
+#include <sys/mman.h>
 #include "stuff/errors.h"
 #include "gprof.h"
 
@@ -120,7 +121,7 @@ void)
 static
 char *
 find_file(
-unsigned long pc)
+uint64_t pc)
 {
     struct file *afile;
     static int flag = 0;
@@ -355,7 +356,7 @@ nltype *npp1,
 nltype *npp2)
 {
     double timediff;
-    long calldiff;
+    int32_t calldiff;
 
 	timediff = npp2->time - npp1->time;
 	if(timediff > 0.0)
@@ -613,7 +614,8 @@ void)
 	*/
 	if((what_fd = open("whatsloaded", O_RDONLY)) >= 0){
 	    fstat(what_fd, &buf);
-	    map_fd(what_fd, 0, (vm_offset_t *)&whatsloaded, TRUE, buf.st_size);
+	    whatsloaded = mmap(0, buf.st_size, PROT_READ|PROT_WRITE,
+			       MAP_FILE|MAP_PRIVATE, what_fd, 0);
 	    do_what();
 	}
 	get_text_min_max(&text_min, &text_max);

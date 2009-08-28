@@ -1,26 +1,19 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1998-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1998,2007 Oracle.  All rights reserved.
+ *
+ * $Id: os_tmpdir.c,v 12.16 2007/05/17 15:15:46 bostic Exp $
  */
 
 #include "db_config.h"
 
-#ifndef lint
-static const char revid[] = "$Id: os_tmpdir.c,v 1.2 2004/03/30 01:23:46 jtownsen Exp $";
-#endif /* not lint */
-
-#ifndef NO_SYSTEM_INCLUDES
-#include <sys/types.h>
-
-#include <stdlib.h>
-#endif
-
 #include "db_int.h"
 
+#ifdef HAVE_SYSTEM_INCLUDE_FILES
 #ifdef macintosh
 #include <TFileSpec.h>
+#endif
 #endif
 
 /*
@@ -37,53 +30,45 @@ __os_tmpdir(dbenv, flags)
 	DB_ENV *dbenv;
 	u_int32_t flags;
 {
-	int isdir;
-
-	/*
-	 * !!!
-	 * Don't change this to:
-	 *
-	 *	static const char * const list[]
-	 *
-	 * because it creates a text relocation in position independent code.
-	 */
-	static const char * list[] = {
-		"/var/tmp",
-		"/usr/tmp",
-		"/temp",		/* Windows. */
-		"/tmp",
-		"C:/temp",		/* Windows. */
-		"C:/tmp",		/* Windows. */
-		NULL
-	};
-	const char * const *lp, *p;
+	int isdir, ret;
+	char *tdir, tdir_buf[DB_MAXPATHLEN];
 
 	/* Use the environment if it's permitted and initialized. */
 	if (LF_ISSET(DB_USE_ENVIRON) ||
 	    (LF_ISSET(DB_USE_ENVIRON_ROOT) && __os_isroot())) {
-		if ((p = getenv("TMPDIR")) != NULL && p[0] == '\0') {
-			__db_err(dbenv, "illegal TMPDIR environment variable");
-			return (EINVAL);
-		}
-		/* Windows */
-		if (p == NULL && (p = getenv("TEMP")) != NULL && p[0] == '\0') {
-			__db_err(dbenv, "illegal TEMP environment variable");
-			return (EINVAL);
-		}
-		/* Windows */
-		if (p == NULL && (p = getenv("TMP")) != NULL && p[0] == '\0') {
-			__db_err(dbenv, "illegal TMP environment variable");
-			return (EINVAL);
-		}
+		/* POSIX: TMPDIR */
+		tdir = tdir_buf;
+		if ((ret = __os_getenv(
+		    dbenv, "TMPDIR", &tdir, sizeof(tdir_buf))) != 0)
+			return (ret);
+		if (tdir != NULL && tdir[0] != '\0')
+			goto found;
+
+		/*
+		 * Windows: TEMP, TMP
+		 */
+		tdir = tdir_buf;
+		if ((ret = __os_getenv(
+		    dbenv, "TEMP", &tdir, sizeof(tdir_buf))) != 0)
+			return (ret);
+		if (tdir != NULL && tdir[0] != '\0')
+			goto found;
+
+		tdir = tdir_buf;
+		if ((ret = __os_getenv(
+		    dbenv, "TMP", &tdir, sizeof(tdir_buf))) != 0)
+			return (ret);
+		if (tdir != NULL && tdir[0] != '\0')
+			goto found;
+
 		/* Macintosh */
-		if (p == NULL &&
-		    (p = getenv("TempFolder")) != NULL && p[0] == '\0') {
-			__db_err(dbenv,
-			    "illegal TempFolder environment variable");
-			return (EINVAL);
-		}
-		if (p != NULL)
-			return (__os_strdup(dbenv, p, &dbenv->db_tmp_dir));
+		tdir = tdir_buf;
+		if ((ret = __os_getenv(
+		    dbenv, "TempFolder", &tdir, sizeof(tdir_buf))) != 0)
+			return (ret);
+
+		if (tdir != NULL && tdir[0] != '\0')
+found:			return (__os_strdup(dbenv, tdir, &dbenv->db_tmp_dir));
 	}
 
 #ifdef macintosh
@@ -98,24 +83,53 @@ __os_tmpdir(dbenv, flags)
 #endif
 #ifdef DB_WIN32
 	/* Get the path to the temporary directory. */
-	{int len;
-	char *eos, temp[MAXPATHLEN + 1];
+	{
+		_TCHAR tpath[DB_MAXPATHLEN + 1];
+		char *path, *eos;
 
-		if ((len = GetTempPath(sizeof(temp) - 1, temp)) > 2) {
-			eos = &temp[len];
-			*eos-- = '\0';
+		if (GetTempPath(DB_MAXPATHLEN, tpath) > 2) {
+			FROM_TSTRING(dbenv, tpath, path, ret);
+			if (ret != 0)
+				return (ret);
+
+			eos = path + strlen(path) - 1;
 			if (*eos == '\\' || *eos == '/')
 				*eos = '\0';
-			if (__os_exists(temp, &isdir) == 0 && isdir != 0)
-				return (__os_strdup(dbenv,
-				    temp, &dbenv->db_tmp_dir));
+			if (__os_exists(dbenv, path, &isdir) == 0 && isdir) {
+				ret = __os_strdup(dbenv,
+				    path, &dbenv->db_tmp_dir);
+				FREE_STRING(dbenv, path);
+				return (ret);
+			}
+			FREE_STRING(dbenv, path);
 		}
 	}
 #endif
 
-	/* Step through the static list looking for a possibility. */
-	for (lp = list; *lp != NULL; ++lp)
-		if (__os_exists(*lp, &isdir) == 0 && isdir != 0)
-			return (__os_strdup(dbenv, *lp, &dbenv->db_tmp_dir));
-	return (0);
+	/*
+	 * Step through the static list looking for a possibility.
+	 *
+	 * We don't use the obvious data structure because some C compilers
+	 * (and I use the phrase loosely) don't like static data arrays.
+	 */
+#define	DB_TEMP_DIRECTORY(n) {						\
+	char *__p = n;							\
+	if (__os_exists(dbenv, __p, &isdir) == 0 && isdir != 0)		\
+		return (__os_strdup(dbenv, __p, &dbenv->db_tmp_dir));	\
+	}
+#ifdef DB_WIN32
+	DB_TEMP_DIRECTORY("/temp");
+	DB_TEMP_DIRECTORY("C:/temp");
+	DB_TEMP_DIRECTORY("C:/tmp");
+#else
+	DB_TEMP_DIRECTORY("/var/tmp");
+	DB_TEMP_DIRECTORY("/usr/tmp");
+	DB_TEMP_DIRECTORY("/tmp");
+#endif
+
+	/*
+	 * If we don't have any other place to store temporary files, store
+	 * them in the current directory.
+	 */
+	return (__os_strdup(dbenv, "", &dbenv->db_tmp_dir));
 }

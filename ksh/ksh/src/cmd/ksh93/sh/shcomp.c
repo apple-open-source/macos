@@ -1,10 +1,10 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*          Copyright (c) 1982-2007 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
-*                      by AT&T Knowledge Ventures                      *
+*                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
 *            http://www.opensource.org/licenses/cpl1.0.txt             *
@@ -59,6 +59,7 @@ USAGE_LICENSE
 ;
 
 #include	<shell.h>
+#include	"defs.h"
 #include	"shnodes.h"
 #include	"sys/stat.h"
 
@@ -127,6 +128,9 @@ int main(int argc, char *argv[])
 	if(!dflag)
 		sfwrite(out,header,sizeof(header));
 	shp->inlineno = 1;
+#if SHOPT_BRACEPAT
+        sh_onoption(SH_BRACEEXPAND);
+#endif
 	while(1)
 	{
 		stakset((char*)0,0);

@@ -54,14 +54,14 @@ extern int __snprintf_chk (char * __restrict, size_t, int, size_t,
   __builtin___snprintf_chk (str, len, 0, __darwin_obsz(str), __VA_ARGS__)
 
 extern int __vsprintf_chk (char * __restrict, int, size_t,
-			   const char * __restrict, va_list arg)
+			   const char * __restrict, va_list)
   __DARWIN_LDBL_COMPAT (__vsprintf_chk);
 
 #define vsprintf(str, format, ap) \
   __builtin___vsprintf_chk (str, 0, __darwin_obsz(str), format, ap)
 
 extern int __vsnprintf_chk (char * __restrict, size_t, int, size_t,
-			    const char * __restrict, va_list arg)
+			    const char * __restrict, va_list)
   __DARWIN_LDBL_COMPAT (__vsnprintf_chk);
 
 #define vsnprintf(str, len, format, ap) \

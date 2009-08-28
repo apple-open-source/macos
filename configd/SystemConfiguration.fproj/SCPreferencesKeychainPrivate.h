@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2006, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -29,12 +29,16 @@
  * - routines to deal with keychain passwords
  */
 
+#include <Availability.h>
+#include <TargetConditionals.h>
+#include <sys/cdefs.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SCPreferences.h>
+#if	!TARGET_OS_IPHONE
 #include <Security/Security.h>
-
-#include <AvailabilityMacros.h>
-#include <sys/cdefs.h>
+#else	// !TARGET_OS_IPHONE
+typedef struct OpaqueSecKeychainRef *SecKeychainRef;
+#endif	// !TARGET_OS_IPHONE
 
 #pragma mark -
 #pragma mark Keychain helper APIs
@@ -45,19 +49,19 @@
 __BEGIN_DECLS
 
 SecKeychainRef
-_SCSecKeychainCopySystemKeychain		(void);
+_SCSecKeychainCopySystemKeychain		(void)					__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0);
 
 CFDataRef
 _SCSecKeychainPasswordItemCopy			(SecKeychainRef		keychain,
-						 CFStringRef		unique_id);
+						 CFStringRef		unique_id)	__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0);
 
 Boolean
 _SCSecKeychainPasswordItemExists		(SecKeychainRef		keychain,
-						 CFStringRef		unique_id);
+						 CFStringRef		unique_id)	__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0);
 
 Boolean
 _SCSecKeychainPasswordItemRemove		(SecKeychainRef		keychain,
-						 CFStringRef		unique_id);
+						 CFStringRef		unique_id)	__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0);
 
 Boolean
 _SCSecKeychainPasswordItemSet			(SecKeychainRef		keychain,
@@ -66,7 +70,7 @@ _SCSecKeychainPasswordItemSet			(SecKeychainRef		keychain,
 						 CFStringRef		description,
 						 CFStringRef		account,
 						 CFDataRef		password,
-						 CFDictionaryRef	options);
+						 CFDictionaryRef	options)	__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0);
 
 
 #pragma mark -
@@ -75,15 +79,15 @@ _SCSecKeychainPasswordItemSet			(SecKeychainRef		keychain,
 
 CFDataRef
 _SCPreferencesSystemKeychainPasswordItemCopy	(SCPreferencesRef	prefs,
-						 CFStringRef		unique_id);
+						 CFStringRef		unique_id)	__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0);
 
 Boolean
 _SCPreferencesSystemKeychainPasswordItemExists	(SCPreferencesRef	prefs,
-						 CFStringRef		unique_id);
+						 CFStringRef		unique_id)	__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0);
 
 Boolean
 _SCPreferencesSystemKeychainPasswordItemRemove	(SCPreferencesRef	prefs,
-						 CFStringRef		unique_id);
+						 CFStringRef		unique_id)	__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0);
 
 Boolean
 _SCPreferencesSystemKeychainPasswordItemSet	(SCPreferencesRef	prefs,
@@ -92,7 +96,7 @@ _SCPreferencesSystemKeychainPasswordItemSet	(SCPreferencesRef	prefs,
 						 CFStringRef		description,
 						 CFStringRef		account,
 						 CFDataRef		password,
-						 CFDictionaryRef	options);
+						 CFDictionaryRef	options)	__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0);
 
 __END_DECLS
 

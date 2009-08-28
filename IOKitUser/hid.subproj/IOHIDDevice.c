@@ -1,8 +1,7 @@
 /*
- *
- * @APPLE_LICENSE_HEADER_START@
+ * Copyright (c) 1999-2008 Apple Computer, Inc.  All Rights Reserved.
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * @APPLE_LICENSE_HEADER_START@
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -100,8 +99,8 @@ typedef struct __IOHIDDevice
     IOCFPlugInInterface **          plugInInterface;
     CFDictionaryRef                 properties;
     IONotificationPortRef           notificationPort;
-    CFTypeRef                       asyncEventSource;
     io_object_t                     notification;
+    CFTypeRef                       asyncEventSource;
     CFRunLoopRef                    runLoop;
     CFStringRef                     runLoopMode;
     IOHIDCallback                   removalCallback;
@@ -123,7 +122,8 @@ static const CFRuntimeClass __IOHIDDeviceClass = {
     NULL,                   // equal
     NULL,                   // hash
     NULL,                   // copyFormattingDesc
-    NULL
+    NULL,                   // copyDebugDesc
+    NULL                    // reclaim
 };
 
 static pthread_once_t __deviceTypeInit = PTHREAD_ONCE_INIT;
@@ -289,6 +289,16 @@ IOHIDDeviceRef IOHIDDeviceCreate(
 }
 
 //------------------------------------------------------------------------------
+// IOHIDDeviceGetService
+//------------------------------------------------------------------------------
+io_service_t IOHIDDeviceGetService(
+                                IOHIDDeviceRef                  device)
+{
+    return device->service;
+}
+
+
+//------------------------------------------------------------------------------
 // IOHIDDeviceOpen
 //------------------------------------------------------------------------------
 IOReturn IOHIDDeviceOpen(          
@@ -440,6 +450,7 @@ void IOHIDDeviceScheduleWithRunLoop(
     device->runLoop     = runLoop;
     device->runLoopMode = runLoopMode;
 
+
     if ( !device->asyncEventSource) {
         IOReturn ret;
         
@@ -459,7 +470,7 @@ void IOHIDDeviceScheduleWithRunLoop(
         CFRunLoopAddTimer(  device->runLoop, 
                             (CFRunLoopTimerRef)device->asyncEventSource, 
                             device->runLoopMode);
-    
+
     if ( device->notificationPort )
         CFRunLoopAddSource(
                 device->runLoop, 

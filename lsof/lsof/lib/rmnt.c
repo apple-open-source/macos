@@ -37,7 +37,7 @@
 # if	!defined(lint)
 static char copyright[] =
 "@(#) Copyright 1997 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: rmnt.c,v 1.11 2006/03/27 22:56:06 abe Exp $";
+static char *rcsid = "$Id: rmnt.c,v 1.12 2008/10/21 16:13:23 abe Exp $";
 # endif	/* !defined(lint) */
 
 #include "../lsof.h"
@@ -239,5 +239,5 @@ no_space_for_mount:
 	return(Lmi);
 }
 #else	/* !defined(USE_LIB_READMNT) */
-static char d1[] = "d"; static char *d2 = d1;
+char rmnt_d1[] = "d"; char *rmnt_d2 = rmnt_d1;
 #endif	/* defined(USE_LIB_READMNT) */

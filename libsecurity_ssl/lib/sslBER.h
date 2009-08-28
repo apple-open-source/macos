@@ -79,6 +79,22 @@ OSStatus sslEncodeDhParams(
 	const SSLBuffer	*generator,		
 	SSLBuffer		*blob);			/* data mallocd and RETURNED */
 
+/* 
+ * Given an ECDSA public key in CSSM format, extract the SSL_ECDSA_NamedCurve
+ * from its algorithm parameters. 
+ */
+OSStatus sslEcdsaPeerCurve(
+	CSSM_KEY_PTR pubKey,
+	SSL_ECDSA_NamedCurve *namedCurve);
+
+/*
+ * Given an ECDSA public key in X509 format, extract the raw public key
+ * bits in ECPOint format. 
+ */
+OSStatus sslEcdsaPubKeyBits(
+	CSSM_KEY_PTR	pubKey,
+	SSLBuffer		*pubBits);		/* data mallocd and RETURNED */
+	
 #ifdef __cplusplus
 }
 #endif

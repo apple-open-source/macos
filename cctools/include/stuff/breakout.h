@@ -36,7 +36,7 @@
  */
 struct toc_entry {
     char *symbol_name;
-    long member_index;
+    int32_t member_index;
 };
 
 /*
@@ -59,25 +59,25 @@ struct arch {
 
     /* if this is an archive: the members of this archive */
     struct member *members;	/* the members of the library for this arch */
-    unsigned long nmembers;	/* the number of the above members */
+    uint32_t       nmembers;	/* the number of the above members */
     /*
      * The output table of contents (toc) for this arch in the library (this
      * must be recreated, or at least the time of the toc member set, when
      * the output is modified because modifiy time is shared by all libraries
      * in the file).
      */
-    unsigned long  toc_size;	/* total size of the toc including ar_hdr */
+    uint32_t       toc_size;	/* total size of the toc including ar_hdr */
     struct ar_hdr  toc_ar_hdr;	/* the archive header for this member */
     enum bool      toc_long_name;/* use the long name in the output */
     char	  *toc_name;	 /* name of toc member */
-    unsigned long  toc_name_size;/* size of name of toc member */
-    unsigned long ntocs;	/* number of table of contents entries */
+    uint32_t       toc_name_size;/* size of name of toc member */
+    uint32_t       ntocs;	/* number of table of contents entries */
     struct toc_entry
 		  *toc_entries; /* the table of contents entries */
     struct ranlib *toc_ranlibs;	/* the ranlib structs */
     char	  *toc_strings;	/* strings of symbol names for toc entries */
-    unsigned long  toc_strsize;	/* number of bytes for the strings above */
-    unsigned long library_size;	/* current working size and final output size */
+    uint32_t       toc_strsize;	/* number of bytes for the strings above */
+    uint32_t	  library_size;	/* current working size and final output size */
 				/*  for this arch when it's a library (used */
 				/*  for creating the toc entries). */
 
@@ -86,7 +86,7 @@ struct arch {
 
     /* if this is an unknown file: the addr and size of the file */
     char *unknown_addr;
-    unsigned long unknown_size;
+    uint32_t unknown_size;
 
     /* don't update LC_ID_DYLIB timestamp */
     enum bool dont_update_LC_ID_DYLIB_timestamp;
@@ -96,12 +96,12 @@ struct member {
     enum ofile_type type;	/* the type of this member can be OFILE_Mach_O*/
 				/*  or OFILE_UNKNOWN */
     struct ar_hdr *ar_hdr;	/* the archive header for this member */
-    unsigned long offset;	/* current working offset and final offset */
+    uint32_t offset;		/* current working offset and final offset */
 				/*  use in creating the table of contents */
 
     /* the name of the member in the output */
     char         *member_name;	    /* the member name */
-    unsigned long member_name_size; /* the size of the member name */
+    uint32_t      member_name_size; /* the size of the member name */
     enum bool     member_long_name; /* use the extended format #1 for the
 				       member name in the output */
 
@@ -110,7 +110,7 @@ struct member {
 
     /* if this member is an unknown file: the addr and size of the member */
     char *unknown_addr;
-    unsigned long unknown_size;
+    uint32_t unknown_size;
 
     /*
      * If this member was created from a file then input_file_name is set else
@@ -123,7 +123,7 @@ struct member {
 
 struct object {
     char *object_addr;		    /* the address of the object file */
-    unsigned long object_size;	    /* the size of the object file on input */
+    uint32_t object_size;	    /* the size of the object file on input */
     enum byte_sex object_byte_sex;  /* the byte sex of the object file */
     struct mach_header *mh;	    /* the mach_header of 32-bit object file */
     struct mach_header_64 *mh64;    /* the mach_header of 64-bit object file */
@@ -148,6 +148,8 @@ struct object {
 	*split_info_cmd;    	    /* the split info load command, if any*/
     struct section **sections;	    /* array of 32-bit section structs */
     struct section_64 **sections64; /* array of 64-bit section structs */
+    struct dyld_info_command
+	*dyld_info;		    /* the LC_DYLD_INFO command,if any */
 
     /*
      * This is only used for redo_prebinding and is calculated by breakout()
@@ -155,10 +157,10 @@ struct object {
      * LC_PREBIND_CKSUM load command that has a zero value for the cksum field
      * (if so this will be value of the cksum field on output).
      */
-    unsigned long calculated_input_prebind_cksum;
+    uint32_t calculated_input_prebind_cksum;
 
-    unsigned long input_sym_info_size;
-    unsigned long output_sym_info_size;
+    uint32_t input_sym_info_size;
+    uint32_t output_sym_info_size;
 
     /*
      * For 64-bit Mach-O files they may have an odd number of indirect symbol
@@ -166,24 +168,26 @@ struct object {
      * multiple of 8. input_indirectsym_pad contains the amount of padding in
      * that was in the input.
      */
-    unsigned long input_indirectsym_pad;
+    uint32_t input_indirectsym_pad;
 
+    char *output_dyld_info;
+    uint32_t      output_dyld_info_size;
     struct nlist *output_symbols;
     struct nlist_64 *output_symbols64;
-    unsigned long output_nsymbols;
+    uint32_t      output_nsymbols;
     char	 *output_strings;
-    unsigned long output_strings_size;
+    uint32_t      output_strings_size;
     char *output_code_sig_data;
-    unsigned long output_code_sig_data_size;
+    uint32_t      output_code_sig_data_size;
     char *output_split_info_data;
-    unsigned long output_split_info_data_size;
+    uint32_t      output_split_info_data_size;
 
-    unsigned long output_ilocalsym;
-    unsigned long output_nlocalsym;
-    unsigned long output_iextdefsym;
-    unsigned long output_nextdefsym;
-    unsigned long output_iundefsym;
-    unsigned long output_nundefsym;
+    uint32_t      output_ilocalsym;
+    uint32_t      output_nlocalsym;
+    uint32_t      output_iextdefsym;
+    uint32_t      output_nextdefsym;
+    uint32_t      output_iundefsym;
+    uint32_t      output_nundefsym;
 
     struct twolevel_hint *output_hints;
 
@@ -192,48 +196,56 @@ struct object {
     uint32_t *output_indirect_symtab;
 
     struct dylib_table_of_contents *output_tocs;
-    unsigned long output_ntoc;
+    uint32_t      output_ntoc;
     struct dylib_module *output_mods;
     struct dylib_module_64 *output_mods64;
-    unsigned long output_nmodtab;
+    uint32_t      output_nmodtab;
     struct dylib_reference *output_refs;
-    unsigned long output_nextrefsyms;
+    uint32_t      output_nextrefsyms;
+
+    /*
+     * For strip(1) to strip DWARF debug info it must run ld -r on the original
+     * object contents and overwrite it with that output.  That output is mapped
+     * by this ofile struct and is cleaned up when strip is done with the arch
+     * that contains this object.
+     */
+    struct ofile *ld_r_ofile;
 };
 
 __private_extern__ struct ofile * breakout(
     char *filename,
     struct arch **archs,
-    unsigned long *narchs,
+    uint32_t *narchs,
     enum bool calculate_input_prebind_cksum);
 
 __private_extern__ struct ofile * breakout_mem(
     void *membuf,
-    unsigned long length,
+    uint32_t length,
     char *filename,
     struct arch **archs,
-    unsigned long *narchs,
+    uint32_t *narchs,
     enum bool calculate_input_prebind_cksum);
 
 __private_extern__ void free_archs(
     struct arch *archs,
-    unsigned long narchs);
+    uint32_t narchs);
 
 __private_extern__ void writeout(
     struct arch *archs,
-    unsigned long narchs,
+    uint32_t narchs,
     char *output,
     unsigned short mode,
     enum bool sort_toc,
     enum bool commons_in_toc,
     enum bool library_warnings,
-    unsigned long *throttle);
+    uint32_t *throttle);
 
 __private_extern__ void writeout_to_mem(
     struct arch *archs,
-    unsigned long narchs,
+    uint32_t narchs,
     char *filename,
     void **outputbuf,
-    unsigned long *length,
+    uint32_t *length,
     enum bool sort_toc,
     enum bool commons_in_toc,
     enum bool library_warning,
@@ -241,7 +253,7 @@ __private_extern__ void writeout_to_mem(
 
 __private_extern__ void checkout(
     struct arch *archs,
-    unsigned long narchs);
+    uint32_t narchs);
 
 void warning_arch(
     struct arch *arch,

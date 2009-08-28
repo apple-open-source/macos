@@ -1,9 +1,9 @@
 /*
- * "$Id: http.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: http.c 7850 2008-08-20 00:07:25Z mike $"
  *
  *   HTTP routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007-2008 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   This file contains Kerberos support code, copyright 2006 by
@@ -21,13 +21,14 @@
  *
  *   _httpBIOMethods()    - Get the OpenSSL BIO methods for HTTP connections.
  *   httpBlocking()       - Set blocking/non-blocking behavior on a connection.
- *   httpCheck()          - Check to see if there is a pending response from
- *                          the server.
+ *   httpCheck()          - Check to see if there is a pending response from the
+ *                          server.
  *   httpClearCookie()    - Clear the cookie value(s).
  *   httpClearFields()    - Clear HTTP request fields.
  *   httpClose()          - Close an HTTP connection...
  *   httpConnect()        - Connect to a HTTP server.
  *   httpConnectEncrypt() - Connect to a HTTP server using encryption.
+ *   _httpCreate()        - Create an unconnected HTTP connection.
  *   httpDelete()         - Send a DELETE request to the server.
  *   httpEncryption()     - Set the required encryption on the link.
  *   httpError()          - Get the last error on a connection.
@@ -46,6 +47,7 @@
  *                          content-length or transfer-encoding fields.
  *   httpGetStatus()      - Get the status of the last HTTP request.
  *   httpGetSubField()    - Get a sub-field value.
+ *   httpGetSubField2()   - Get a sub-field value.
  *   httpGets()           - Get a line of text from a HTTP connection.
  *   httpHead()           - Send a HEAD request to the server.
  *   httpInitialize()     - Initialize the HTTP interface library and set the
@@ -58,14 +60,15 @@
  *   httpRead2()          - Read data from a HTTP connection.
  *   _httpReadCDSA()      - Read function for the CDSA library.
  *   _httpReadGNUTLS()    - Read function for the GNU TLS library.
- *   httpReconnect()      - Reconnect to a HTTP server...
+ *   httpReconnect()      - Reconnect to a HTTP server.
  *   httpSetAuthString()  - Set the current authorization string.
  *   httpSetCookie()      - Set the cookie value(s)...
  *   httpSetExpect()      - Set the Expect: header in a request.
  *   httpSetField()       - Set the value of an HTTP header.
- *   httpSetLength()      - Set the content-length and transfer-encoding.
+ *   httpSetLength()      - Set the content-length and content-encoding.
  *   httpTrace()          - Send an TRACE request to the server.
  *   httpUpdate()         - Update the current HTTP state for incoming data.
+ *   _httpWait()          - Wait for data available on a connection (no flush).
  *   httpWait()           - Wait for data available on a connection.
  *   httpWrite()          - Write data to a HTTP connection.
  *   httpWrite2()         - Write data to a HTTP connection.
@@ -77,15 +80,16 @@
  *   http_bio_puts()      - Send a string for OpenSSL.
  *   http_bio_read()      - Read data for OpenSSL.
  *   http_bio_write()     - Write data for OpenSSL.
+ *   http_debug_hex()     - Do a hex dump of a buffer.
  *   http_field()         - Return the field index for a field name.
  *   http_read_ssl()      - Read from a SSL/TLS connection.
  *   http_send()          - Send a request with all fields and the trailing
  *                          blank line.
- *   http_setup_ssl()     - Set up SSL/TLS on a connection.
+ *   http_setup_ssl()     - Set up SSL/TLS support on a connection.
  *   http_shutdown_ssl()  - Shut down SSL/TLS on a connection.
  *   http_upgrade()       - Force upgrade to TLS encryption.
- *   http_wait()          - Wait for data available on a connection.
- *   http_write()         - Write data to a connection.
+ *   http_write()         - Write a buffer to a HTTP connection.
+ *   http_write_chunk()   - Write a chunked buffer.
  *   http_write_ssl()     - Write to a SSL/TLS connection.
  */
 
@@ -123,10 +127,13 @@
  * Local functions...
  */
 
+#ifdef DEBUG
+static void		http_debug_hex(const char *prefix, const char *buffer,
+			               int bytes);
+#endif /* DEBUG */
 static http_field_t	http_field(const char *name);
 static int		http_send(http_t *http, http_state_t request,
 			          const char *uri);
-static int		http_wait(http_t *http, int msec, int usessl);
 static int		http_write(http_t *http, const char *buffer,
 			           int length);
 static int		http_write_chunk(http_t *http, const char *buffer,
@@ -174,6 +181,25 @@ static const char * const http_fields[] =
 			  "User-Agent",
 			  "WWW-Authenticate"
 			};
+#ifdef DEBUG
+static const char * const http_states[] =
+			{
+			  "HTTP_WAITING",
+			  "HTTP_OPTIONS",
+			  "HTTP_GET",
+			  "HTTP_GET_SEND",
+			  "HTTP_HEAD",
+			  "HTTP_POST",
+			  "HTTP_POST_RECV",
+			  "HTTP_POST_SEND",
+			  "HTTP_PUT",
+			  "HTTP_PUT_RECV",
+			  "HTTP_DELETE",
+			  "HTTP_TRACE",
+			  "HTTP_CLOSE",
+			  "HTTP_STATUS"
+			};
+#endif /* DEBUG */
 
 
 #if defined(HAVE_SSL) && defined(HAVE_LIBSSL)
@@ -220,7 +246,7 @@ _httpBIOMethods(void)
  */
 
 void
-httpBlocking(http_t *http,		/* I - HTTP connection */
+httpBlocking(http_t *http,		/* I - Connection to server */
              int    b)			/* I - 1 = blocking, 0 = non-blocking */
 {
   if (http)
@@ -233,7 +259,7 @@ httpBlocking(http_t *http,		/* I - HTTP connection */
  */
 
 int					/* O - 0 = no data, 1 = data available */
-httpCheck(http_t *http)			/* I - HTTP connection */
+httpCheck(http_t *http)			/* I - Connection to server */
 {
   return (httpWait(http, 0));
 }
@@ -242,11 +268,11 @@ httpCheck(http_t *http)			/* I - HTTP connection */
 /*
  * 'httpClearCookie()' - Clear the cookie value(s).
  *
- * @since CUPS 1.1.19@
+ * @since CUPS 1.1.19/Mac OS X 10.3@
  */
 
 void
-httpClearCookie(http_t *http)		/* I - HTTP connection */
+httpClearCookie(http_t *http)		/* I - Connection to server */
 {
   if (!http)
     return;
@@ -264,7 +290,7 @@ httpClearCookie(http_t *http)		/* I - HTTP connection */
  */
 
 void
-httpClearFields(http_t *http)		/* I - HTTP connection */
+httpClearFields(http_t *http)		/* I - Connection to server */
 {
   if (http)
   {
@@ -290,14 +316,14 @@ httpClearFields(http_t *http)		/* I - HTTP connection */
  */
 
 void
-httpClose(http_t *http)			/* I - HTTP connection */
+httpClose(http_t *http)			/* I - Connection to server */
 {
 #ifdef HAVE_GSSAPI
   OM_uint32	minor_status;		/* Minor status code */
 #endif /* HAVE_GSSAPI */
 
 
-  DEBUG_printf(("httpClose(http=%p)\n", http));
+  DEBUG_printf(("httpClose(http=%p)", http));
 
   if (!http)
     return;
@@ -342,25 +368,17 @@ httpClose(http_t *http)			/* I - HTTP connection */
 
 /*
  * 'httpConnect()' - Connect to a HTTP server.
+ *
+ * This function is deprecated - use @link httpConnectEncrypt@ instead.
+ *
+ * @deprecated@
  */
 
 http_t *				/* O - New HTTP connection */
 httpConnect(const char *host,		/* I - Host to connect to */
             int        port)		/* I - Port number */
 {
-  http_encryption_t	encryption;	/* Type of encryption to use */
-
-
- /*
-  * Set the default encryption status...
-  */
-
-  if (port == 443)
-    encryption = HTTP_ENCRYPT_ALWAYS;
-  else
-    encryption = HTTP_ENCRYPT_IF_REQUESTED;
-
-  return (httpConnectEncrypt(host, port, encryption));
+  return (httpConnectEncrypt(host, port, HTTP_ENCRYPT_IF_REQUESTED));
 }
 
 
@@ -374,13 +392,55 @@ httpConnectEncrypt(
     int               port,		/* I - Port number */
     http_encryption_t encryption)	/* I - Type of encryption to use */
 {
+  http_t	*http;			/* New HTTP connection */
+
+
+  DEBUG_printf(("httpConnectEncrypt(host=\"%s\", port=%d, encryption=%d)",
+                host, port, encryption));
+
+ /*
+  * Create the HTTP structure...
+  */
+
+  if ((http = _httpCreate(host, port, encryption)) == NULL)
+    return (NULL);
+
+ /*
+  * Connect to the remote system...
+  */
+
+  if (!httpReconnect(http))
+    return (http);
+
+ /*
+  * Could not connect to any known address - bail out!
+  */
+
+  httpAddrFreeList(http->addrlist);
+
+  free(http);
+
+  return (NULL);
+}
+
+
+/*
+ * '_httpCreate()' - Create an unconnected HTTP connection.
+ */
+
+http_t *				/* O - HTTP connection */
+_httpCreate(
+    const char        *host,		/* I - Hostname */
+    int               port,		/* I - Port number */
+    http_encryption_t encryption)	/* I - Encryption to use */
+{
   http_t		*http;		/* New HTTP connection */
   http_addrlist_t	*addrlist;	/* Host address data */
   char			service[255];	/* Service name */
 
 
-  DEBUG_printf(("httpConnectEncrypt(host=\"%s\", port=%d, encryption=%d)\n",
-                host ? host : "(null)", port, encryption));
+  DEBUG_printf(("4_httpCreate(host=\"%s\", port=%d, encryption=%d)",
+                host, port, encryption));
 
   if (!host)
     return (NULL);
@@ -406,19 +466,21 @@ httpConnectEncrypt(
     return (NULL);
   }
 
-  http->version  = HTTP_1_1;
-  http->blocking = 1;
-  http->activity = time(NULL);
-  http->fd       = -1;
-
-#ifdef HAVE_GSSAPI
-  http->gssctx  = GSS_C_NO_CONTEXT;
-  http->gssname = GSS_C_NO_NAME;
-#endif /* HAVE_GSSAPI */
-
  /*
-  * Set the encryption status...
+  * Initialize the HTTP data...
   */
+
+  http->activity = time(NULL);
+  http->addrlist = addrlist;
+  http->blocking = 1;
+  http->fd       = -1;
+#ifdef HAVE_GSSAPI
+  http->gssctx   = GSS_C_NO_CONTEXT;
+  http->gssname  = GSS_C_NO_NAME;
+#endif /* HAVE_GSSAPI */
+  http->version  = HTTP_1_1;
+
+  strlcpy(http->hostname, host, sizeof(http->hostname));
 
   if (port == 443)			/* Always use encryption for https */
     http->encryption = HTTP_ENCRYPT_ALWAYS;
@@ -426,29 +488,10 @@ httpConnectEncrypt(
     http->encryption = encryption;
 
  /*
-  * Loop through the addresses we have until one of them connects...
+  * Return the new structure...
   */
 
-  strlcpy(http->hostname, host, sizeof(http->hostname));
-
- /*
-  * Connect to the remote system...
-  */
-
-  http->addrlist = addrlist;
-
-  if (!httpReconnect(http))
-    return (http);
-
- /*
-  * Could not connect to any known address - bail out!
-  */
-
-  httpAddrFreeList(addrlist);
-
-  free(http);
-
-  return (NULL);
+  return (http);
 }
 
 
@@ -457,7 +500,7 @@ httpConnectEncrypt(
  */
 
 int					/* O - Status of call (0 = success) */
-httpDelete(http_t     *http,		/* I - HTTP connection */
+httpDelete(http_t     *http,		/* I - Connection to server */
            const char *uri)		/* I - URI to delete */
 {
   return (http_send(http, HTTP_DELETE, uri));
@@ -469,10 +512,10 @@ httpDelete(http_t     *http,		/* I - HTTP connection */
  */
 
 int					/* O - -1 on error, 0 on success */
-httpEncryption(http_t            *http,	/* I - HTTP connection */
+httpEncryption(http_t            *http,	/* I - Connection to server */
                http_encryption_t e)	/* I - New encryption preference */
 {
-  DEBUG_printf(("httpEncryption(http=%p, e=%d)\n", http, e));
+  DEBUG_printf(("httpEncryption(http=%p, e=%d)", http, e));
 
 #ifdef HAVE_SSL
   if (!http)
@@ -501,7 +544,7 @@ httpEncryption(http_t            *http,	/* I - HTTP connection */
  */
 
 int					/* O - Error code (errno) value */
-httpError(http_t *http)			/* I - HTTP connection */
+httpError(http_t *http)			/* I - Connection to server */
 {
   if (http)
     return (http->error);
@@ -515,13 +558,14 @@ httpError(http_t *http)			/* I - HTTP connection */
  */
 
 void
-httpFlush(http_t *http)			/* I - HTTP connection */
+httpFlush(http_t *http)			/* I - Connection to server */
 {
   char	buffer[8192];			/* Junk buffer */
   int	blocking;			/* To block or not to block */
 
 
-  DEBUG_printf(("httpFlush(http=%p), state=%d\n", http, http->state));
+  DEBUG_printf(("httpFlush(http=%p), state=%s", http,
+                http_states[http->state]));
 
  /*
   * Temporarily set non-blocking mode so we don't get stuck in httpRead()...
@@ -570,16 +614,16 @@ httpFlush(http_t *http)			/* I - HTTP connection */
 /*
  * 'httpFlushWrite()' - Flush data in write buffer.
  *
- * @since CUPS 1.2@
+ * @since CUPS 1.2/Mac OS X 10.5@
  */
 
 int					/* O - Bytes written or -1 on error */
-httpFlushWrite(http_t *http)		/* I - HTTP connection */
+httpFlushWrite(http_t *http)		/* I - Connection to server */
 {
   int	bytes;				/* Bytes written */
 
 
-  DEBUG_printf(("httpFlushWrite(http=%p)\n", http));
+  DEBUG_printf(("httpFlushWrite(http=%p)", http));
 
   if (!http || !http->wused)
     return (0);
@@ -600,7 +644,7 @@ httpFlushWrite(http_t *http)		/* I - HTTP connection */
  */
 
 int					/* O - Status of call (0 = success) */
-httpGet(http_t     *http,		/* I - HTTP connection */
+httpGet(http_t     *http,		/* I - Connection to server */
         const char *uri)		/* I - URI to get */
 {
   return (http_send(http, HTTP_GET, uri));
@@ -615,11 +659,11 @@ httpGet(http_t     *http,		/* I - HTTP connection */
  * string to use with httpSetField() for the HTTP_FIELD_AUTHORIZATION
  * value.
  *
- * @since CUPS 1.3@
+ * @since CUPS 1.3/Mac OS X 10.5@
  */
 
 char *					/* O - Authorization string */
-httpGetAuthString(http_t *http)		/* I - HTTP connection */
+httpGetAuthString(http_t *http)		/* I - Connection to server */
 {
   if (http)
     return (http->authstring);
@@ -631,11 +675,11 @@ httpGetAuthString(http_t *http)		/* I - HTTP connection */
 /*
  * 'httpGetBlocking()' - Get the blocking/non-block state of a connection.
  *
- * @since CUPS 1.2@
+ * @since CUPS 1.2/Mac OS X 10.5@
  */
 
 int					/* O - 1 if blocking, 0 if non-blocking */
-httpGetBlocking(http_t *http)		/* I - HTTP connection */
+httpGetBlocking(http_t *http)		/* I - Connection to server */
 {
   return (http ? http->blocking : 0);
 }
@@ -644,7 +688,7 @@ httpGetBlocking(http_t *http)		/* I - HTTP connection */
 /*
  * 'httpGetCookie()' - Get any cookie data from the response.
  *
- * @since CUPS 1.1.19@
+ * @since CUPS 1.1.19/Mac OS X 10.3@
  */
 
 const char *				/* O - Cookie data or NULL */
@@ -657,11 +701,11 @@ httpGetCookie(http_t *http)		/* I - HTTP connecion */
 /*
  * 'httpGetFd()' - Get the file descriptor associated with a connection.
  *
- * @since CUPS 1.2@
+ * @since CUPS 1.2/Mac OS X 10.5@
  */
 
 int					/* O - File descriptor or -1 if none */
-httpGetFd(http_t *http)			/* I - HTTP connection */
+httpGetFd(http_t *http)			/* I - Connection to server */
 {
   return (http ? http->fd : -1);
 }
@@ -672,7 +716,7 @@ httpGetFd(http_t *http)			/* I - HTTP connection */
  */
 
 const char *				/* O - Field value */
-httpGetField(http_t       *http,	/* I - HTTP connection */
+httpGetField(http_t       *http,	/* I - Connection to server */
              http_field_t field)	/* I - Field to get */
 {
   if (!http || field <= HTTP_FIELD_UNKNOWN || field >= HTTP_FIELD_MAX)
@@ -703,7 +747,7 @@ httpGetField(http_t       *http,	/* I - HTTP connection */
  */
 
 int					/* O - Content length */
-httpGetLength(http_t *http)		/* I - HTTP connection */
+httpGetLength(http_t *http)		/* I - Connection to server */
 {
  /*
   * Get the read content length and return the 32-bit value.
@@ -727,20 +771,21 @@ httpGetLength(http_t *http)		/* I - HTTP connection */
  * This function returns the complete content length, even for
  * content larger than 2^31 - 1.
  *
- * @since CUPS 1.2@
+ * @since CUPS 1.2/Mac OS X 10.5@
  */
 
 off_t					/* O - Content length */
-httpGetLength2(http_t *http)		/* I - HTTP connection */
+httpGetLength2(http_t *http)		/* I - Connection to server */
 {
-  DEBUG_printf(("httpGetLength2(http=%p), state=%d\n", http, http->state));
+  DEBUG_printf(("2httpGetLength2(http=%p), state=%s", http,
+                http_states[http->state]));
 
   if (!http)
     return (-1);
 
   if (!strcasecmp(http->fields[HTTP_FIELD_TRANSFER_ENCODING], "chunked"))
   {
-    DEBUG_puts("httpGetLength2: chunked request!");
+    DEBUG_puts("4httpGetLength2: chunked request!");
 
     http->data_encoding  = HTTP_ENCODE_CHUNKED;
     http->data_remaining = 0;
@@ -773,7 +818,7 @@ httpGetLength2(http_t *http)		/* I - HTTP connection */
       http->data_remaining = strtoll(http->fields[HTTP_FIELD_CONTENT_LENGTH],
                                      NULL, 10);
 
-    DEBUG_printf(("httpGetLength2: content_length=" CUPS_LLFMT "\n",
+    DEBUG_printf(("4httpGetLength2: content_length=" CUPS_LLFMT,
                   CUPS_LLCAST http->data_remaining));
   }
 
@@ -789,11 +834,11 @@ httpGetLength2(http_t *http)		/* I - HTTP connection */
 /*
  * 'httpGetStatus()' - Get the status of the last HTTP request.
  *
- * @since CUPS 1.2@
+ * @since CUPS 1.2/Mac OS X 10.5@
  */
 
 http_status_t				/* O - HTTP status */
-httpGetStatus(http_t *http)		/* I - HTTP connection */
+httpGetStatus(http_t *http)		/* I - Connection to server */
 {
   return (http ? http->status : HTTP_ERROR);
 }
@@ -806,7 +851,7 @@ httpGetStatus(http_t *http)		/* I - HTTP connection */
  */
 
 char *					/* O - Value or NULL */
-httpGetSubField(http_t       *http,	/* I - HTTP connection */
+httpGetSubField(http_t       *http,	/* I - Connection to server */
                 http_field_t field,	/* I - Field index */
                 const char   *name,	/* I - Name of sub-field */
 		char         *value)	/* O - Value string */
@@ -818,11 +863,11 @@ httpGetSubField(http_t       *http,	/* I - HTTP connection */
 /*
  * 'httpGetSubField2()' - Get a sub-field value.
  *
- * @since CUPS 1.2@
+ * @since CUPS 1.2/Mac OS X 10.5@
  */
 
 char *					/* O - Value or NULL */
-httpGetSubField2(http_t       *http,	/* I - HTTP connection */
+httpGetSubField2(http_t       *http,	/* I - Connection to server */
                  http_field_t field,	/* I - Field index */
                  const char   *name,	/* I - Name of sub-field */
 		 char         *value,	/* O - Value string */
@@ -833,8 +878,8 @@ httpGetSubField2(http_t       *http,	/* I - HTTP connection */
 		*ptr,			/* Pointer into string buffer */
 		*end;			/* End of value buffer */
 
-  DEBUG_printf(("httpGetSubField2(http=%p, field=%d, name=\"%s\", value=%p, valuelen=%d)\n",
-                http, field, name, value, valuelen));
+  DEBUG_printf(("2httpGetSubField2(http=%p, field=%d, name=\"%s\", value=%p, "
+                "valuelen=%d)", http, field, name, value, valuelen));
 
   if (!http || !name || !value || valuelen < 2 ||
       field <= HTTP_FIELD_UNKNOWN || field >= HTTP_FIELD_MAX)
@@ -868,7 +913,7 @@ httpGetSubField2(http_t       *http,	/* I - HTTP connection */
 
     *ptr = '\0';
 
-    DEBUG_printf(("httpGetSubField: name=\"%s\"\n", temp));
+    DEBUG_printf(("4httpGetSubField2: name=\"%s\"", temp));
 
    /*
     * Skip trailing chars up to the '='...
@@ -926,17 +971,22 @@ httpGetSubField2(http_t       *http,	/* I - HTTP connection */
         fptr ++;
     }
 
-    DEBUG_printf(("httpGetSubField: value=\"%s\"\n", value));
+    DEBUG_printf(("4httpGetSubField2: value=\"%s\"", value));
 
    /*
     * See if this is the one...
     */
 
     if (!strcmp(name, temp))
+    {
+      DEBUG_printf(("3httpGetSubField2: Returning \"%s\"", value));
       return (value);
+    }
   }
 
   value[0] = '\0';
+
+  DEBUG_puts("3httpGetSubField2: Returning NULL");
 
   return (NULL);
 }
@@ -949,7 +999,7 @@ httpGetSubField2(http_t       *http,	/* I - HTTP connection */
 char *					/* O - Line or NULL */
 httpGets(char   *line,			/* I - Line to read into */
          int    length,			/* I - Max length of buffer */
-	 http_t *http)			/* I - HTTP connection */
+	 http_t *http)			/* I - Connection to server */
 {
   char	*lineptr,			/* Pointer into line */
 	*lineend,			/* End of line */
@@ -959,7 +1009,7 @@ httpGets(char   *line,			/* I - Line to read into */
 	eol;				/* End-of-line? */
 
 
-  DEBUG_printf(("httpGets(line=%p, length=%d, http=%p)\n", line, length, http));
+  DEBUG_printf(("2httpGets(line=%p, length=%d, http=%p)", line, length, http));
 
   if (http == NULL || line == NULL)
     return (NULL);
@@ -967,10 +1017,11 @@ httpGets(char   *line,			/* I - Line to read into */
  /*
   * Read a line from the buffer...
   */
-    
-  lineptr = line;
-  lineend = line + length - 1;
-  eol     = 0;
+
+  http->error = 0;
+  lineptr     = line;
+  lineend     = line + length - 1;
+  eol         = 0;
 
   while (lineptr < lineend)
   {
@@ -990,9 +1041,9 @@ httpGets(char   *line,			/* I - Line to read into */
       * No newline; see if there is more data to be read...
       */
 
-      if (!http->blocking && !http_wait(http, 10000, 1))
+      if (!http->blocking && !_httpWait(http, 10000, 1))
       {
-        DEBUG_puts("httpGets: Timed out!");
+        DEBUG_puts("3httpGets: Timed out!");
 #ifdef WIN32
         http->error = WSAETIMEDOUT;
 #else
@@ -1010,7 +1061,7 @@ httpGets(char   *line,			/* I - Line to read into */
         bytes = recv(http->fd, http->buffer + http->used,
 	             HTTP_MAX_BUFFER - http->used, 0);
 
-      DEBUG_printf(("httpGets: read %d bytes...\n", bytes));
+      DEBUG_printf(("4httpGets: read %d bytes...", bytes));
 
       if (bytes < 0)
       {
@@ -1025,11 +1076,11 @@ httpGets(char   *line,			/* I - Line to read into */
 	  continue;
 	}
 
-        DEBUG_printf(("httpGets: recv() error %d!\n", WSAGetLastError()));
+        DEBUG_printf(("3httpGets: recv() error %d!", WSAGetLastError()));
 #else
-        DEBUG_printf(("httpGets: recv() error %d!\n", errno));
+        DEBUG_printf(("3httpGets: recv() error %d!", errno));
 
-        if (errno == EINTR)
+        if (errno == EINTR || errno == EAGAIN)
 	  continue;
 	else if (errno != http->error)
 	{
@@ -1087,13 +1138,13 @@ httpGets(char   *line,			/* I - Line to read into */
 
       *lineptr = '\0';
       
-      DEBUG_printf(("httpGets: Returning \"%s\"\n", line));
+      DEBUG_printf(("3httpGets: Returning \"%s\"", line));
 
       return (line);
     }
   }
 
-  DEBUG_puts("httpGets: No new line available!");
+  DEBUG_puts("3httpGets: No new line available!");
 
   return (NULL);
 }
@@ -1104,9 +1155,10 @@ httpGets(char   *line,			/* I - Line to read into */
  */
 
 int					/* O - Status of call (0 = success) */
-httpHead(http_t     *http,		/* I - HTTP connection */
+httpHead(http_t     *http,		/* I - Connection to server */
          const char *uri)		/* I - URI for head */
 {
+  DEBUG_printf(("httpHead(http=%p, uri=\"%s\")", http, uri));
   return (http_send(http, HTTP_HEAD, uri));
 }
 
@@ -1185,7 +1237,7 @@ httpInitialize(void)
  */
 
 int					/* O - Status of call (0 = success) */
-httpOptions(http_t     *http,		/* I - HTTP connection */
+httpOptions(http_t     *http,		/* I - Connection to server */
             const char *uri)		/* I - URI for options */
 {
   return (http_send(http, HTTP_OPTIONS, uri));
@@ -1197,7 +1249,7 @@ httpOptions(http_t     *http,		/* I - HTTP connection */
  */
 
 int					/* O - Status of call (0 = success) */
-httpPost(http_t     *http,		/* I - HTTP connection */
+httpPost(http_t     *http,		/* I - Connection to server */
          const char *uri)		/* I - URI for post */
 {
   return (http_send(http, HTTP_POST, uri));
@@ -1211,7 +1263,7 @@ httpPost(http_t     *http,		/* I - HTTP connection */
  */
 
 int					/* O - Number of bytes written */
-httpPrintf(http_t     *http,		/* I - HTTP connection */
+httpPrintf(http_t     *http,		/* I - Connection to server */
            const char *format,		/* I - printf-style format string */
 	   ...)				/* I - Additional args as needed */
 {
@@ -1220,13 +1272,13 @@ httpPrintf(http_t     *http,		/* I - HTTP connection */
   va_list	ap;			/* Variable argument pointer */
 
 
-  DEBUG_printf(("httpPrintf(http=%p, format=\"%s\", ...)\n", http, format));
+  DEBUG_printf(("2httpPrintf(http=%p, format=\"%s\", ...)", http, format));
 
   va_start(ap, format);
   bytes = vsnprintf(buf, sizeof(buf), format, ap);
   va_end(ap);
 
-  DEBUG_printf(("httpPrintf: %s", buf));
+  DEBUG_printf(("3httpPrintf: %s", buf));
 
   if (http->data_encoding == HTTP_ENCODE_FIELDS)
     return (httpWrite2(http, buf, bytes));
@@ -1234,7 +1286,7 @@ httpPrintf(http_t     *http,		/* I - HTTP connection */
   {
     if (http->wused)
     {
-      DEBUG_puts("    flushing existing data...");
+      DEBUG_puts("4httpPrintf: flushing existing data...");
 
       if (httpFlushWrite(http) < 0)
 	return (-1);
@@ -1250,9 +1302,10 @@ httpPrintf(http_t     *http,		/* I - HTTP connection */
  */
 
 int					/* O - Status of call (0 = success) */
-httpPut(http_t     *http,		/* I - HTTP connection */
+httpPut(http_t     *http,		/* I - Connection to server */
         const char *uri)		/* I - URI to put */
 {
+  DEBUG_printf(("httpPut(http=%p, uri=\"%s\")", http, uri));
   return (http_send(http, HTTP_PUT, uri));
 }
 
@@ -1267,7 +1320,7 @@ httpPut(http_t     *http,		/* I - HTTP connection */
  */
 
 int					/* O - Number of bytes read */
-httpRead(http_t *http,			/* I - HTTP connection */
+httpRead(http_t *http,			/* I - Connection to server */
          char   *buffer,		/* I - Buffer for data */
 	 int    length)			/* I - Maximum number of bytes */
 {
@@ -1278,11 +1331,11 @@ httpRead(http_t *http,			/* I - HTTP connection */
 /*
  * 'httpRead2()' - Read data from a HTTP connection.
  *
- * @since CUPS 1.2@
+ * @since CUPS 1.2/Mac OS X 10.5@
  */
 
 ssize_t					/* O - Number of bytes read */
-httpRead2(http_t *http,			/* I - HTTP connection */
+httpRead2(http_t *http,			/* I - Connection to server */
           char   *buffer,		/* I - Buffer for data */
 	  size_t length)		/* I - Maximum number of bytes */
 {
@@ -1290,13 +1343,14 @@ httpRead2(http_t *http,			/* I - HTTP connection */
   char		len[32];		/* Length string */
 
 
-  DEBUG_printf(("httpRead(http=%p, buffer=%p, length=%d)\n",
-                http, buffer, length));
+  DEBUG_printf(("httpRead2(http=%p, buffer=%p, length=" CUPS_LLFMT ")",
+                http, buffer, CUPS_LLCAST length));
 
   if (http == NULL || buffer == NULL)
     return (-1);
 
   http->activity = time(NULL);
+  http->error    = 0;
 
   if (length <= 0)
     return (0);
@@ -1304,23 +1358,23 @@ httpRead2(http_t *http,			/* I - HTTP connection */
   if (http->data_encoding == HTTP_ENCODE_CHUNKED &&
       http->data_remaining <= 0)
   {
-    DEBUG_puts("httpRead2: Getting chunk length...");
+    DEBUG_puts("2httpRead2: Getting chunk length...");
 
     if (httpGets(len, sizeof(len), http) == NULL)
     {
-      DEBUG_puts("httpRead2: Could not get length!");
+      DEBUG_puts("1httpRead2: Could not get length!");
       return (0);
     }
 
     http->data_remaining = strtoll(len, NULL, 16);
     if (http->data_remaining < 0)
     {
-      DEBUG_puts("httpRead2: Negative chunk length!");
+      DEBUG_puts("1httpRead2: Negative chunk length!");
       return (0);
     }
   }
 
-  DEBUG_printf(("httpRead2: data_remaining=" CUPS_LLFMT "\n",
+  DEBUG_printf(("2httpRead2: data_remaining=" CUPS_LLFMT,
                 CUPS_LLCAST http->data_remaining));
 
   if (http->data_remaining <= 0)
@@ -1369,13 +1423,13 @@ httpRead2(http_t *http,			/* I - HTTP connection */
     else
 #endif /* HAVE_SSL */
     {
-      DEBUG_printf(("httpRead2: reading %d bytes from socket into buffer...\n",
-                    bytes));
+      DEBUG_printf(("2httpRead2: reading %d bytes from socket into buffer...",
+                    (int)bytes));
 
       bytes = recv(http->fd, http->buffer, bytes, 0);
 
-      DEBUG_printf(("httpRead2: read %d bytes from socket into buffer...\n",
-                    bytes));
+      DEBUG_printf(("2httpRead2: read %d bytes from socket into buffer...",
+                    (int)bytes));
     }
 
     if (bytes > 0)
@@ -1386,7 +1440,7 @@ httpRead2(http_t *http,			/* I - HTTP connection */
       http->error = WSAGetLastError();
       return (-1);
 #else
-      if (errno != EINTR)
+      if (errno != EINTR && errno != EAGAIN)
       {
         http->error = errno;
         return (-1);
@@ -1407,7 +1461,8 @@ httpRead2(http_t *http,			/* I - HTTP connection */
 
     bytes = (ssize_t)length;
 
-    DEBUG_printf(("httpRead2: grabbing %d bytes from input buffer...\n", bytes));
+    DEBUG_printf(("2httpRead2: grabbing %d bytes from input buffer...",
+                  (int)bytes));
 
     memcpy(buffer, http->buffer, length);
     http->used -= (int)length;
@@ -1429,7 +1484,8 @@ httpRead2(http_t *http,			/* I - HTTP connection */
     if (!http->blocking && !httpWait(http, 10000))
       return (0);
 
-    DEBUG_printf(("httpRead2: reading %d bytes from socket...\n", length));
+    DEBUG_printf(("2httpRead2: reading " CUPS_LLFMT " bytes from socket...",
+                  CUPS_LLCAST length));
 
 #ifdef WIN32
     bytes = (ssize_t)recv(http->fd, buffer, (int)length, 0);
@@ -1439,7 +1495,8 @@ httpRead2(http_t *http,			/* I - HTTP connection */
         break;
 #endif /* WIN32 */
 
-    DEBUG_printf(("httpRead2: read %d bytes from socket...\n", bytes));
+    DEBUG_printf(("2httpRead2: read " CUPS_LLFMT " bytes from socket...",
+                  CUPS_LLCAST bytes));
   }
 
   if (bytes > 0)
@@ -1483,35 +1540,7 @@ httpRead2(http_t *http,			/* I - HTTP connection */
   }
 
 #ifdef DEBUG
-  {
-    int i, j, ch;
-    printf("httpRead2: Read %d bytes:\n", bytes);
-    for (i = 0; i < bytes; i += 16)
-    {
-      printf("   ");
-
-      for (j = 0; j < 16 && (i + j) < bytes; j ++)
-        printf(" %02X", buffer[i + j] & 255);
-
-      while (j < 16)
-      {
-        printf("   ");
-	j ++;
-      }
-
-      printf("    ");
-      for (j = 0; j < 16 && (i + j) < bytes; j ++)
-      {
-        ch = buffer[i + j] & 255;
-
-	if (ch < ' ' || ch >= 127)
-	  ch = '.';
-
-        putchar(ch);
-      }
-      putchar('\n');
-    }
-  }
+  http_debug_hex("httpRead2", buffer, (int)bytes);
 #endif /* DEBUG */
 
   return (bytes);
@@ -1542,7 +1571,7 @@ _httpReadCDSA(
     * Make sure we have data before we read...
     */
 
-    if (!http_wait(http, 10000, 0))
+    if (!_httpWait(http, 10000, 0))
     {
       http->error = ETIMEDOUT;
       return (-1);
@@ -1553,7 +1582,7 @@ _httpReadCDSA(
   {
     bytes = recv(http->fd, data, *dataLength, 0);
   }
-  while (bytes == -1 && errno == EINTR);
+  while (bytes == -1 && (errno == EINTR || errno == EAGAIN));
 
   if (bytes == *dataLength)
   {
@@ -1588,7 +1617,7 @@ _httpReadCDSA(
 
 ssize_t					/* O - Number of bytes read or -1 on error */
 _httpReadGNUTLS(
-    gnutls_transport_ptr ptr,		/* I - HTTP connection */
+    gnutls_transport_ptr ptr,		/* I - Connection to server */
     void                 *data,		/* I - Buffer */
     size_t               length)	/* I - Number of bytes to read */
 {
@@ -1603,7 +1632,7 @@ _httpReadGNUTLS(
     * Make sure we have data before we read...
     */
 
-    if (!http_wait(http, 10000, 0))
+    if (!_httpWait(http, 10000, 0))
     {
       http->error = ETIMEDOUT;
       return (-1);
@@ -1620,19 +1649,26 @@ _httpReadGNUTLS(
  */
 
 int					/* O - 0 on success, non-zero on failure */
-httpReconnect(http_t *http)		/* I - HTTP connection */
+httpReconnect(http_t *http)		/* I - Connection to server */
 {
   http_addrlist_t	*addr;		/* Connected address */
+#ifdef DEBUG
+  http_addrlist_t	*current;	/* Current address */
+  char			temp[256];	/* Temporary address string */
+#endif /* DEBUG */
 
 
-  DEBUG_printf(("httpReconnect(http=%p)\n", http));
+  DEBUG_printf(("httpReconnect(http=%p)", http));
 
   if (!http)
     return (-1);
 
 #ifdef HAVE_SSL
   if (http->tls)
+  {
+    DEBUG_puts("2httpReconnect: Shutting down SSL/TLS...");
     http_shutdown_ssl(http);
+  }
 #endif /* HAVE_SSL */
 
  /*
@@ -1641,6 +1677,8 @@ httpReconnect(http_t *http)		/* I - HTTP connection */
 
   if (http->fd >= 0)
   {
+    DEBUG_printf(("2httpReconnect: Closing socket %d...", http->fd));
+
 #ifdef WIN32
     closesocket(http->fd);
 #else
@@ -1653,6 +1691,13 @@ httpReconnect(http_t *http)		/* I - HTTP connection */
  /*
   * Connect to the server...
   */
+
+#ifdef DEBUG
+  for (current = http->addrlist; current; current = current->next)
+    DEBUG_printf(("2httpReconnect: Address %s:%d",
+                  httpAddrString(&(current->addr), temp, sizeof(temp)),
+                  _httpAddrPort(&(current->addr))));
+#endif /* DEBUG */
 
   if ((addr = httpAddrConnect(http->addrlist, &(http->fd))) == NULL)
   {
@@ -1667,8 +1712,13 @@ httpReconnect(http_t *http)		/* I - HTTP connection */
 #endif /* WIN32 */
     http->status = HTTP_ERROR;
 
+    DEBUG_printf(("1httpReconnect: httpAddrConnect failed: %s",
+                  strerror(http->error)));
+
     return (-1);
   }
+
+  DEBUG_printf(("2httpReconnect: New socket=%d", http->fd));
 
   http->hostaddr = &(addr->addr);
   http->error    = 0;
@@ -1696,6 +1746,10 @@ httpReconnect(http_t *http)		/* I - HTTP connection */
     return (http_upgrade(http));
 #endif /* HAVE_SSL */
 
+  DEBUG_printf(("1httpReconnect: Connected to %s:%d...",
+		httpAddrString(http->hostaddr, temp, sizeof(temp)),
+		_httpAddrPort(http->hostaddr)));
+
   return (0);
 }
 
@@ -1708,11 +1762,11 @@ httpReconnect(http_t *http)		/* I - HTTP connection */
  * HTTP_FIELD_AUTHORIZATION prior to issuing a HTTP request using httpGet(),
  * httpHead(), httpOptions(), httpPost, or httpPut().
  *
- * @since CUPS 1.3@
+ * @since CUPS 1.3/Mac OS X 10.5@
  */
 
 void
-httpSetAuthString(http_t     *http,	/* I - HTTP connection */
+httpSetAuthString(http_t     *http,	/* I - Connection to server */
                   const char *scheme,	/* I - Auth scheme (NULL to clear it) */
 		  const char *data)	/* I - Auth data (NULL for none) */
 {
@@ -1764,7 +1818,7 @@ httpSetAuthString(http_t     *http,	/* I - HTTP connection */
 /*
  * 'httpSetCookie()' - Set the cookie value(s)...
  *
- * @since CUPS 1.1.19@
+ * @since CUPS 1.1.19/Mac OS X 10.3@
  */
 
 void
@@ -1789,11 +1843,11 @@ httpSetCookie(http_t     *http,		/* I - Connection */
  *
  * Currently only HTTP_CONTINUE is supported for the "expect" argument.
  *
- * @since CUPS 1.2@
+ * @since CUPS 1.2/Mac OS X 10.5@
  */
 
 void
-httpSetExpect(http_t        *http,	/* I - HTTP connection */
+httpSetExpect(http_t        *http,	/* I - Connection to server */
               http_status_t expect)	/* I - HTTP status to expect (HTTP_CONTINUE) */
 {
   if (http)
@@ -1806,7 +1860,7 @@ httpSetExpect(http_t        *http,	/* I - HTTP connection */
  */
 
 void
-httpSetField(http_t       *http,	/* I - HTTP connection */
+httpSetField(http_t       *http,	/* I - Connection to server */
              http_field_t field,	/* I - Field index */
 	     const char   *value)	/* I - Value */
 {
@@ -1833,18 +1887,39 @@ httpSetField(http_t       *http,	/* I - HTTP connection */
   else if (field == HTTP_FIELD_HOST)
   {
    /*
-    * Special-case for Host: as we don't want a trailing "." on the hostname.
+    * Special-case for Host: as we don't want a trailing "." on the hostname and
+    * need to bracket IPv6 numeric addresses.
     */
 
-    char *ptr = http->fields[HTTP_FIELD_HOST];
-					/* Pointer into Host: field */
+    char *ptr = strchr(value, ':');
 
-    if (*ptr)
+    if (value[0] != '[' && ptr && strchr(ptr + 1, ':'))
     {
-      ptr += strlen(ptr) - 1;
+     /*
+      * Bracket IPv6 numeric addresses...
+      *
+      * This is slightly inefficient (basically copying twice), but is an edge
+      * case and not worth optimizing...
+      */
 
-      if (*ptr == '.')
-        *ptr = '\0';
+      snprintf(http->fields[HTTP_FIELD_HOST],
+               sizeof(http->fields[HTTP_FIELD_HOST]), "[%s]", value);
+    }
+    else
+    {
+     /*
+      * Check for a trailing dot on the hostname...
+      */
+
+      ptr = http->fields[HTTP_FIELD_HOST];
+
+      if (*ptr)
+      {
+	ptr += strlen(ptr) - 1;
+
+	if (*ptr == '.')
+	  *ptr = '\0';
+      }
     }
   }
 }
@@ -1853,11 +1928,11 @@ httpSetField(http_t       *http,	/* I - HTTP connection */
 /*
  * 'httpSetLength()' - Set the content-length and content-encoding.
  *
- * @since CUPS 1.2@
+ * @since CUPS 1.2/Mac OS X 10.5@
  */
 
 void
-httpSetLength(http_t *http,		/* I - HTTP connection */
+httpSetLength(http_t *http,		/* I - Connection to server */
               size_t length)		/* I - Length (0 for chunked) */
 {
   if (!http)
@@ -1882,7 +1957,7 @@ httpSetLength(http_t *http,		/* I - HTTP connection */
  */
 
 int					/* O - Status of call (0 = success) */
-httpTrace(http_t     *http,		/* I - HTTP connection */
+httpTrace(http_t     *http,		/* I - Connection to server */
           const char *uri)		/* I - URI for trace */
 {
   return (http_send(http, HTTP_TRACE, uri));
@@ -1894,7 +1969,7 @@ httpTrace(http_t     *http,		/* I - HTTP connection */
  */
 
 http_status_t				/* O - HTTP status */
-httpUpdate(http_t *http)		/* I - HTTP connection */
+httpUpdate(http_t *http)		/* I - Connection to server */
 {
   char		line[32768],		/* Line from connection... */
 		*value;			/* Pointer to value on line */
@@ -1903,7 +1978,8 @@ httpUpdate(http_t *http)		/* I - HTTP connection */
 		status;			/* Request status */
 
 
-  DEBUG_printf(("httpUpdate(http=%p), state=%d\n", http, http->state));
+  DEBUG_printf(("httpUpdate(http=%p), state=%s", http,
+                http_states[http->state]));
 
  /*
   * Flush pending data, if any...
@@ -1911,7 +1987,7 @@ httpUpdate(http_t *http)		/* I - HTTP connection */
 
   if (http->wused)
   {
-    DEBUG_puts("    flushing buffer...");
+    DEBUG_puts("2httpUpdate: flushing buffer...");
 
     if (httpFlushWrite(http) < 0)
       return (HTTP_ERROR);
@@ -1930,7 +2006,7 @@ httpUpdate(http_t *http)		/* I - HTTP connection */
 
   while (httpGets(line, sizeof(line), http) != NULL)
   {
-    DEBUG_printf(("httpUpdate: Got \"%s\"\n", line));
+    DEBUG_printf(("2httpUpdate: Got \"%s\"", line));
 
     if (line[0] == '\0')
     {
@@ -1987,7 +2063,7 @@ httpUpdate(http_t *http)		/* I - HTTP connection */
 
       return (http->status);
     }
-    else if (strncmp(line, "HTTP/", 5) == 0)
+    else if (!strncmp(line, "HTTP/", 5))
     {
      /*
       * Got the beginning of a response...
@@ -2031,7 +2107,7 @@ httpUpdate(http_t *http)		/* I - HTTP connection */
       }
       else if ((field = http_field(line)) == HTTP_FIELD_UNKNOWN)
       {
-        DEBUG_printf(("httpUpdate: unknown field %s seen!\n", line));
+        DEBUG_printf(("1httpUpdate: unknown field %s seen!", line));
         continue;
       }
       else
@@ -2039,6 +2115,7 @@ httpUpdate(http_t *http)		/* I - HTTP connection */
     }
     else
     {
+      DEBUG_printf(("1httpUpdate: Bad response line \"%s\"!", line));
       http->status = HTTP_ERROR;
       return (HTTP_ERROR);
     }
@@ -2049,11 +2126,14 @@ httpUpdate(http_t *http)		/* I - HTTP connection */
   */
 
   if (http->error == EPIPE && http->status > HTTP_CONTINUE)
+  {
+    DEBUG_printf(("1httpUpdate: Returning status %d...", http->status));
     return (http->status);
+  }
 
   if (http->error)
   {
-    DEBUG_printf(("httpUpdate: socket error %d - %s\n", http->error,
+    DEBUG_printf(("1httpUpdate: socket error %d - %s", http->error,
                   strerror(http->error)));
     http->status = HTTP_ERROR;
     return (HTTP_ERROR);
@@ -2068,13 +2148,103 @@ httpUpdate(http_t *http)		/* I - HTTP connection */
 
 
 /*
- * 'httpWait()' - Wait for data available on a connection.
- *
- * @since CUPS 1.1.19@
+ * '_httpWait()' - Wait for data available on a connection (no flush).
  */
 
 int					/* O - 1 if data is available, 0 otherwise */
-httpWait(http_t *http,			/* I - HTTP connection */
+_httpWait(http_t *http,			/* I - Connection to server */
+          int    msec,			/* I - Milliseconds to wait */
+	  int    usessl)		/* I - Use SSL context? */
+{
+#ifdef HAVE_POLL
+  struct pollfd		pfd;		/* Polled file descriptor */
+#else
+  fd_set		input_set;	/* select() input set */
+  struct timeval	timeout;	/* Timeout */
+#endif /* HAVE_POLL */
+  int			nfds;		/* Result from select()/poll() */
+
+
+  DEBUG_printf(("4_httpWait(http=%p, msec=%d, usessl=%d)", http, msec, usessl));
+
+  if (http->fd < 0)
+    return (0);
+
+ /*
+  * Check the SSL/TLS buffers for data first...
+  */
+
+#ifdef HAVE_SSL
+  if (http->tls && usessl)
+  {
+#  ifdef HAVE_LIBSSL
+    if (SSL_pending((SSL *)(http->tls)))
+      return (1);
+#  elif defined(HAVE_GNUTLS)
+    if (gnutls_record_check_pending(((http_tls_t *)(http->tls))->session))
+      return (1);
+#  elif defined(HAVE_CDSASSL)
+    size_t bytes;			/* Bytes that are available */
+
+    if (!SSLGetBufferedReadSize(((http_tls_t *)(http->tls))->session, &bytes) &&
+        bytes > 0)
+      return (1);
+#  endif /* HAVE_LIBSSL */
+  }
+#endif /* HAVE_SSL */
+
+ /*
+  * Then try doing a select() or poll() to poll the socket...
+  */
+
+#ifdef HAVE_POLL
+  pfd.fd     = http->fd;
+  pfd.events = POLLIN;
+
+  while ((nfds = poll(&pfd, 1, msec)) < 0 &&
+         (errno == EINTR || errno == EAGAIN));
+
+#else
+  do
+  {
+    FD_ZERO(&input_set);
+    FD_SET(http->fd, &input_set);
+
+    DEBUG_printf(("6_httpWait: msec=%d, http->fd=%d", msec, http->fd));
+
+    if (msec >= 0)
+    {
+      timeout.tv_sec  = msec / 1000;
+      timeout.tv_usec = (msec % 1000) * 1000;
+
+      nfds = select(http->fd + 1, &input_set, NULL, NULL, &timeout);
+    }
+    else
+      nfds = select(http->fd + 1, &input_set, NULL, NULL, NULL);
+
+    DEBUG_printf(("6_httpWait: select() returned %d...", nfds));
+  }
+#  ifdef WIN32
+  while (nfds < 0 && WSAGetLastError() == WSAEINTR);
+#  else
+  while (nfds < 0 && (errno == EINTR || errno == EAGAIN));
+#  endif /* WIN32 */
+#endif /* HAVE_POLL */
+
+  DEBUG_printf(("5_httpWait: returning with nfds=%d...", nfds));
+
+  return (nfds > 0);
+}
+
+
+/*
+ * 'httpWait()' - Wait for data available on a connection.
+ *
+ * @since CUPS 1.1.19/Mac OS X 10.3@
+ */
+
+int					/* O - 1 if data is available, 0 otherwise */
+httpWait(http_t *http,			/* I - Connection to server */
          int    msec)			/* I - Milliseconds to wait */
 {
  /*
@@ -2101,7 +2271,7 @@ httpWait(http_t *http,			/* I - HTTP connection */
   * If not, check the SSL/TLS buffers and do a select() on the connection...
   */
 
-  return (http_wait(http, msec, 1));
+  return (_httpWait(http, msec, 1));
 }
 
 
@@ -2115,7 +2285,7 @@ httpWait(http_t *http,			/* I - HTTP connection */
  */
  
 int					/* O - Number of bytes written */
-httpWrite(http_t     *http,		/* I - HTTP connection */
+httpWrite(http_t     *http,		/* I - Connection to server */
           const char *buffer,		/* I - Buffer for data */
 	  int        length)		/* I - Number of bytes to write */
 {
@@ -2126,19 +2296,19 @@ httpWrite(http_t     *http,		/* I - HTTP connection */
 /*
  * 'httpWrite2()' - Write data to a HTTP connection.
  *
- * @since CUPS 1.2@
+ * @since CUPS 1.2/Mac OS X 10.5@
  */
  
 ssize_t					/* O - Number of bytes written */
-httpWrite2(http_t     *http,		/* I - HTTP connection */
+httpWrite2(http_t     *http,		/* I - Connection to server */
            const char *buffer,		/* I - Buffer for data */
 	   size_t     length)		/* I - Number of bytes to write */
 {
   ssize_t	bytes;			/* Bytes written */
 
 
-  DEBUG_printf(("httpWrite(http=%p, buffer=%p, length=%d)\n", http,
-                buffer, length));
+  DEBUG_printf(("httpWrite2(http=%p, buffer=%p, length=" CUPS_LLFMT ")", http,
+                buffer, CUPS_LLCAST length));
 
  /*
   * Range check input...
@@ -2161,19 +2331,21 @@ httpWrite2(http_t     *http,		/* I - HTTP connection */
   {
     if (http->wused && (length + http->wused) > sizeof(http->wbuffer))
     {
-      DEBUG_printf(("    flushing buffer (wused=%d, length=%d)\n",
-                    http->wused, length));
+      DEBUG_printf(("2httpWrite2: Flushing buffer (wused=%d, length="
+                    CUPS_LLFMT ")", http->wused, CUPS_LLCAST length));
 
       httpFlushWrite(http);
     }
 
-    if ((length + http->wused) <= sizeof(http->wbuffer))
+    if ((length + http->wused) <= sizeof(http->wbuffer) &&
+        length < sizeof(http->wbuffer))
     {
      /*
       * Write to buffer...
       */
 
-      DEBUG_printf(("    copying %d bytes to wbuffer...\n", length));
+      DEBUG_printf(("2httpWrite2: Copying " CUPS_LLFMT " bytes to wbuffer...",
+                    CUPS_LLCAST length));
 
       memcpy(http->wbuffer + http->wused, buffer, length);
       http->wused += (int)length;
@@ -2185,14 +2357,16 @@ httpWrite2(http_t     *http,		/* I - HTTP connection */
       * Otherwise write the data directly...
       */
 
-      DEBUG_printf(("    writing %d bytes to socket...\n", length));
+      DEBUG_printf(("2httpWrite2: Writing " CUPS_LLFMT " bytes to socket...",
+                    CUPS_LLCAST length));
 
       if (http->data_encoding == HTTP_ENCODE_CHUNKED)
 	bytes = (ssize_t)http_write_chunk(http, buffer, (int)length);
       else
 	bytes = (ssize_t)http_write(http, buffer, (int)length);
 
-      DEBUG_printf(("    wrote %d bytes...\n", bytes));
+      DEBUG_printf(("2httpWrite2: Wrote " CUPS_LLFMT " bytes...",
+                    CUPS_LLCAST bytes));
     }
 
     if (http->data_encoding == HTTP_ENCODE_LENGTH)
@@ -2213,7 +2387,7 @@ httpWrite2(http_t     *http,		/* I - HTTP connection */
     * data, go idle...
     */
 
-    DEBUG_puts("httpWrite: changing states...");
+    DEBUG_puts("2httpWrite: changing states...");
 
     if (http->wused)
       httpFlushWrite(http);
@@ -2268,7 +2442,7 @@ _httpWriteCDSA(
   {
     bytes = write(http->fd, data, *dataLength);
   }
-  while (bytes == -1 && errno == EINTR);
+  while (bytes == -1 && (errno == EINTR || errno == EAGAIN));
 
   if (bytes == *dataLength)
   {
@@ -2301,7 +2475,7 @@ _httpWriteCDSA(
 
 ssize_t					/* O - Number of bytes written or -1 on error */
 _httpWriteGNUTLS(
-    gnutls_transport_ptr ptr,		/* I - HTTP connection */
+    gnutls_transport_ptr ptr,		/* I - Connection to server */
     const void           *data,		/* I - Data buffer */
     size_t               length)	/* I - Number of bytes to write */
 {
@@ -2426,7 +2600,7 @@ http_bio_read(BIO  *h,			/* I - BIO data */
     * Make sure we have data before we read...
     */
 
-    if (!http_wait(http, 10000, 0))
+    if (!_httpWait(http, 10000, 0))
     {
 #ifdef WIN32
       http->error = WSAETIMEDOUT;
@@ -2456,14 +2630,71 @@ http_bio_write(BIO        *h,		/* I - BIO data */
 #endif /* HAVE_SSL && HAVE_LIBSSL */
 
 
+#ifdef DEBUG
+/*
+ * 'http_debug_hex()' - Do a hex dump of a buffer.
+ */
+
+static void
+http_debug_hex(const char *prefix,	/* I - Prefix for line */
+               const char *buffer,	/* I - Buffer to dump */
+               int        bytes)	/* I - Bytes to dump */
+{
+  int	i, j,				/* Looping vars */
+	ch;				/* Current character */
+  char	line[255],			/* Line buffer */
+	*start,				/* Start of line after prefix */
+	*ptr;				/* Pointer into line */
+
+
+  if (_cups_debug_fd < 0 || _cups_debug_level < 6)
+    return;
+
+  DEBUG_printf(("6%s: %d bytes:\n", prefix, bytes));
+
+  snprintf(line, sizeof(line), "6%s: ", prefix);
+  start = line + strlen(line);
+
+  for (i = 0; i < bytes; i += 16)
+  {
+    for (j = 0, ptr = start; j < 16 && (i + j) < bytes; j ++, ptr += 2)
+      sprintf(ptr, "%02X", buffer[i + j] & 255);
+
+    while (j < 16)
+    {
+      strcpy(ptr, "  ");
+      ptr += 2;
+      j ++;
+    }
+
+    strcpy(ptr, "  ");
+    ptr += 2;
+
+    for (j = 0; j < 16 && (i + j) < bytes; j ++)
+    {
+      ch = buffer[i + j] & 255;
+
+      if (ch < ' ' || ch >= 127)
+	ch = '.';
+
+      *ptr++ = ch;
+    }
+
+    *ptr = '\0';
+    DEBUG_puts(line);
+  }
+}
+#endif /* DEBUG */
+
+
 /*
  * 'http_field()' - Return the field index for a field name.
  */
 
-static http_field_t		/* O - Field index */
-http_field(const char *name)	/* I - String name */
+static http_field_t			/* O - Field index */
+http_field(const char *name)		/* I - String name */
 {
-  int	i;			/* Looping var */
+  int	i;				/* Looping var */
 
 
   for (i = 0; i < HTTP_FIELD_MAX; i ++)
@@ -2480,7 +2711,7 @@ http_field(const char *name)	/* I - String name */
  */
 
 static int				/* O - Bytes read */
-http_read_ssl(http_t *http,		/* I - HTTP connection */
+http_read_ssl(http_t *http,		/* I - Connection to server */
 	      char   *buf,		/* I - Buffer to store data */
 	      int    len)		/* I - Length of buffer */
 {
@@ -2532,7 +2763,7 @@ http_read_ssl(http_t *http,		/* I - HTTP connection */
  */
 
 static int			/* O - 0 on success, non-zero on error */
-http_send(http_t       *http,	/* I - HTTP connection */
+http_send(http_t       *http,	/* I - Connection to server */
           http_state_t request,	/* I - Request code */
 	  const char   *uri)	/* I - URI */
 {
@@ -2556,7 +2787,7 @@ http_send(http_t       *http,	/* I - HTTP connection */
 		};
 
 
-  DEBUG_printf(("http_send(http=%p, request=HTTP_%s, uri=\"%s\")\n",
+  DEBUG_printf(("7http_send(http=%p, request=HTTP_%s, uri=\"%s\")",
                 http, codes[request], uri));
 
   if (http == NULL || uri == NULL)
@@ -2588,7 +2819,11 @@ http_send(http_t       *http,	/* I - HTTP connection */
   */
 
   if (http->wused)
-    httpFlushWrite(http);
+  {
+    if (httpFlushWrite(http) < 0)
+      if (httpReconnect(http))
+        return (-1);
+  }
 
  /*
   * Send the request header...
@@ -2619,7 +2854,8 @@ http_send(http_t       *http,	/* I - HTTP connection */
   for (i = 0; i < HTTP_FIELD_MAX; i ++)
     if (http->fields[i][0] != '\0')
     {
-      DEBUG_printf(("%s: %s\n", http_fields[i], httpGetField(http, i)));
+      DEBUG_printf(("9http_send: %s: %s", http_fields[i],
+                    httpGetField(http, i)));
 
       if (httpPrintf(http, "%s: %s\r\n", http_fields[i], 
 		     httpGetField(http, i)) < 1)
@@ -2650,7 +2886,9 @@ http_send(http_t       *http,	/* I - HTTP connection */
     return (-1);
   }
 
-  httpFlushWrite(http);
+  if (httpFlushWrite(http) < 0)
+    return (-1);
+
   httpGetLength2(http);
   httpClearFields(http);
 
@@ -2680,7 +2918,7 @@ http_send(http_t       *http,	/* I - HTTP connection */
  */
 
 static int				/* O - Status of connection */
-http_setup_ssl(http_t *http)		/* I - HTTP connection */
+http_setup_ssl(http_t *http)		/* I - Connection to server */
 {
 #  ifdef HAVE_LIBSSL
   SSL_CTX	*context;		/* Context for encryption */
@@ -2696,7 +2934,7 @@ http_setup_ssl(http_t *http)		/* I - HTTP connection */
 #  endif /* HAVE_LIBSSL */
 
 
-  DEBUG_printf(("http_setup_ssl(http=%p)\n", http));
+  DEBUG_printf(("7http_setup_ssl(http=%p)", http));
 
 #  ifdef HAVE_LIBSSL
   context = SSL_CTX_new(SSLv23_client_method());
@@ -2715,7 +2953,7 @@ http_setup_ssl(http_t *http)		/* I - HTTP connection */
     unsigned long	error;	/* Error code */
 
     while ((error = ERR_get_error()) != 0)
-      printf("http_setup_ssl: %s\n", ERR_error_string(error, NULL));
+      DEBUG_printf(("8http_setup_ssl: %s", ERR_error_string(error, NULL)));
 #    endif /* DEBUG */
 
     SSL_CTX_free(context);
@@ -2765,6 +3003,11 @@ http_setup_ssl(http_t *http)		/* I - HTTP connection */
   {
     http->error  = errno;
     http->status = HTTP_ERROR;
+
+    gnutls_deinit(conn->session);
+    gnutls_certificate_free_credentials(*credentials);
+    free(credentials);
+    free(conn);
 
     return (-1);
   }
@@ -2835,7 +3078,7 @@ http_setup_ssl(http_t *http)		/* I - HTTP connection */
  */
 
 static void
-http_shutdown_ssl(http_t *http)		/* I - HTTP connection */
+http_shutdown_ssl(http_t *http)		/* I - Connection to server */
 {
 #  ifdef HAVE_LIBSSL
   SSL_CTX	*context;		/* Context for encryption */
@@ -2892,13 +3135,20 @@ http_shutdown_ssl(http_t *http)		/* I - HTTP connection */
  */
 
 static int				/* O - Status of connection */
-http_upgrade(http_t *http)		/* I - HTTP connection */
+http_upgrade(http_t *http)		/* I - Connection to server */
 {
   int		ret;			/* Return value */
   http_t	myhttp;			/* Local copy of HTTP data */
 
 
-  DEBUG_printf(("http_upgrade(%p)\n", http));
+  DEBUG_printf(("7http_upgrade(%p)", http));
+
+ /*
+  * Flush the connection to make sure any previous "Upgrade" message
+  * has been read.
+  */
+
+  httpFlush(http);
 
  /*
   * Copy the HTTP data to a local variable so we can do the OPTIONS
@@ -2927,8 +3177,6 @@ http_upgrade(http_t *http)		/* I - HTTP connection */
     while (httpUpdate(http) == HTTP_CONTINUE);
   }
 
-  httpFlush(http);
-
  /*
   * Restore the HTTP request data...
   */
@@ -2951,7 +3199,7 @@ http_upgrade(http_t *http)		/* I - HTTP connection */
     * Server does not support HTTP upgrade...
     */
 
-    DEBUG_puts("Server does not support HTTP upgrade!");
+    DEBUG_puts("8http_upgrade: Server does not support HTTP upgrade!");
 
 #  ifdef WIN32
     closesocket(http->fd);
@@ -2970,108 +3218,20 @@ http_upgrade(http_t *http)		/* I - HTTP connection */
 
 
 /*
- * 'http_wait()' - Wait for data available on a connection.
- */
-
-static int				/* O - 1 if data is available, 0 otherwise */
-http_wait(http_t *http,			/* I - HTTP connection */
-          int    msec,			/* I - Milliseconds to wait */
-	  int    usessl)		/* I - Use SSL context? */
-{
-#ifdef HAVE_POLL
-  struct pollfd		pfd;		/* Polled file descriptor */
-#else
-  fd_set		input_set;	/* select() input set */
-  struct timeval	timeout;	/* Timeout */
-#endif /* HAVE_POLL */
-  int			nfds;		/* Result from select()/poll() */
-
-
-  DEBUG_printf(("http_wait(http=%p, msec=%d)\n", http, msec));
-
-  if (http->fd < 0)
-    return (0);
-
- /*
-  * Check the SSL/TLS buffers for data first...
-  */
-
-#ifdef HAVE_SSL
-  if (http->tls && usessl)
-  {
-#  ifdef HAVE_LIBSSL
-    if (SSL_pending((SSL *)(http->tls)))
-      return (1);
-#  elif defined(HAVE_GNUTLS)
-    if (gnutls_record_check_pending(((http_tls_t *)(http->tls))->session))
-      return (1);
-#  elif defined(HAVE_CDSASSL)
-    size_t bytes;			/* Bytes that are available */
-
-    if (!SSLGetBufferedReadSize(((http_tls_t *)(http->tls))->session, &bytes) &&
-        bytes > 0)
-      return (1);
-#  endif /* HAVE_LIBSSL */
-  }
-#endif /* HAVE_SSL */
-
- /*
-  * Then try doing a select() or poll() to poll the socket...
-  */
-
-#ifdef HAVE_POLL
-  pfd.fd     = http->fd;
-  pfd.events = POLLIN;
-
-  while ((nfds = poll(&pfd, 1, msec)) < 0 && errno == EINTR);
-
-#else
-  do
-  {
-    FD_ZERO(&input_set);
-    FD_SET(http->fd, &input_set);
-
-    DEBUG_printf(("http_wait: msec=%d, http->fd=%d\n", msec, http->fd));
-
-    if (msec >= 0)
-    {
-      timeout.tv_sec  = msec / 1000;
-      timeout.tv_usec = (msec % 1000) * 1000;
-
-      nfds = select(http->fd + 1, &input_set, NULL, NULL, &timeout);
-    }
-    else
-      nfds = select(http->fd + 1, &input_set, NULL, NULL, NULL);
-
-    DEBUG_printf(("http_wait: select() returned %d...\n", nfds));
-  }
-#  ifdef WIN32
-  while (nfds < 0 && WSAGetLastError() == WSAEINTR);
-#  else
-  while (nfds < 0 && errno == EINTR);
-#  endif /* WIN32 */
-#endif /* HAVE_POLL */
-
-  DEBUG_printf(("http_wait: returning with nfds=%d...\n", nfds));
-
-  return (nfds > 0);
-}
-
-
-/*
  * 'http_write()' - Write a buffer to a HTTP connection.
  */
  
 static int				/* O - Number of bytes written */
-http_write(http_t     *http,		/* I - HTTP connection */
-          const char *buffer,		/* I - Buffer for data */
-	  int        length)		/* I - Number of bytes to write */
+http_write(http_t     *http,		/* I - Connection to server */
+           const char *buffer,		/* I - Buffer for data */
+	   int        length)		/* I - Number of bytes to write */
 {
   int	tbytes,				/* Total bytes sent */
 	bytes;				/* Bytes sent */
 
 
-  tbytes = 0;
+  http->error = 0;
+  tbytes      = 0;
 
   while (length > 0)
   {
@@ -3091,7 +3251,7 @@ http_write(http_t     *http,		/* I - HTTP connection */
 	continue;
       }
 #else
-      if (errno == EINTR)
+      if (errno == EINTR || errno == EAGAIN)
         continue;
       else if (errno != http->error && errno != ECONNRESET)
       {
@@ -3100,7 +3260,7 @@ http_write(http_t     *http,		/* I - HTTP connection */
       }
 #endif /* WIN32 */
 
-      DEBUG_puts("http_write: error writing data...\n");
+      DEBUG_puts("8http_write: error writing data...");
 
       return (-1);
     }
@@ -3111,35 +3271,7 @@ http_write(http_t     *http,		/* I - HTTP connection */
   }
 
 #ifdef DEBUG
-  {
-    int i, j, ch;
-    printf("http_write: wrote %d bytes: \n", tbytes);
-    for (i = 0, buffer -= tbytes; i < tbytes; i += 16)
-    {
-      printf("   ");
-
-      for (j = 0; j < 16 && (i + j) < tbytes; j ++)
-        printf(" %02X", buffer[i + j] & 255);
-
-      while (j < 16)
-      {
-        printf("   ");
-	j ++;
-      }
-
-      printf("    ");
-      for (j = 0; j < 16 && (i + j) < tbytes; j ++)
-      {
-        ch = buffer[i + j] & 255;
-
-	if (ch < ' ' || ch == 127)
-	  ch = '.';
-
-        putchar(ch);
-      }
-      putchar('\n');
-    }
-  }
+  http_debug_hex("http_write", buffer - tbytes, tbytes);
 #endif /* DEBUG */
 
   return (tbytes);
@@ -3151,14 +3283,15 @@ http_write(http_t     *http,		/* I - HTTP connection */
  */
 
 static int				/* O - Number bytes written */
-http_write_chunk(http_t     *http,	/* I - HTTP connection */
+http_write_chunk(http_t     *http,	/* I - Connection to server */
                  const char *buffer,	/* I - Buffer to write */
 		 int        length)	/* I - Length of buffer */
 {
   char	header[255];			/* Chunk header */
   int	bytes;				/* Bytes written */
 
-  DEBUG_printf(("http_write_chunk(http=%p, buffer=%p, length=%d)\n",
+
+  DEBUG_printf(("7http_write_chunk(http=%p, buffer=%p, length=%d)",
                 http, buffer, length));
 
  /*
@@ -3168,19 +3301,19 @@ http_write_chunk(http_t     *http,	/* I - HTTP connection */
   sprintf(header, "%x\r\n", length);
   if (http_write(http, header, (int)strlen(header)) < 0)
   {
-    DEBUG_puts("    http_write of length failed!");
+    DEBUG_puts("8http_write_chunk: http_write of length failed!");
     return (-1);
   }
 
   if ((bytes = http_write(http, buffer, length)) < 0)
   {
-    DEBUG_puts("    http_write of buffer failed!");
+    DEBUG_puts("8http_write_chunk: http_write of buffer failed!");
     return (-1);
   }
 
   if (http_write(http, "\r\n", 2) < 0)
   {
-    DEBUG_puts("    http_write of CR LF failed!");
+    DEBUG_puts("8http_write_chunk: http_write of CR LF failed!");
     return (-1);
   }
 
@@ -3194,7 +3327,7 @@ http_write_chunk(http_t     *http,	/* I - HTTP connection */
  */
 
 static int				/* O - Bytes written */
-http_write_ssl(http_t     *http,	/* I - HTTP connection */
+http_write_ssl(http_t     *http,	/* I - Connection to server */
 	       const char *buf,		/* I - Buffer holding data */
 	       int        len)		/* I - Length of buffer */
 {
@@ -3241,5 +3374,5 @@ http_write_ssl(http_t     *http,	/* I - HTTP connection */
 
 
 /*
- * End of "$Id: http.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: http.c 7850 2008-08-20 00:07:25Z mike $".
  */

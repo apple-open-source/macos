@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,6 +25,7 @@
 
 #include "DABase.h"
 
+#include <asl.h>
 #include <syslog.h>
 
 static Boolean __gDALogDebug            = FALSE;
@@ -63,18 +64,15 @@ static void __DALog( int level, const char * format, va_list arguments )
 
                         if ( strftime( stamp, sizeof( stamp ), "%T ", localtime( &clock ) ) )
                         {
-                            fprintf( __gDALogDebugFile, stamp );
+                            fprintf( __gDALogDebugFile, "%s", stamp );
                         }
 
                         fprintf( __gDALogDebugFile, "%s", message );
                         fprintf( __gDALogDebugFile, "\n" );
                         fflush( __gDALogDebugFile );
                     }
-
-                    fprintf( stdout, "%s", message );
-                    fprintf( stdout, "\n" );
-                    fflush( stdout );
                 }
+
                 break;
             }
             case LOG_ERR:
@@ -215,6 +213,11 @@ void DALogError( const char * format, ... )
     va_start( arguments, format );
 
     __DALog( LOG_DEBUG, format, arguments );
+
+    va_end( arguments );
+
+    va_start( arguments, format );
+
     __DALog( LOG_ERR, format, arguments );
 
     va_end( arguments );
@@ -222,6 +225,8 @@ void DALogError( const char * format, ... )
 
 void DALogOpen( char * name, Boolean debug, Boolean error, Boolean verbose )
 {
+    asl_set_filter( NULL, ASL_FILTER_MASK_UPTO( ASL_LEVEL_DEBUG ) );
+
     openlog( name, LOG_PID, LOG_DAEMON );
 
     if ( debug )

@@ -387,7 +387,10 @@ EGexecute (char const *buf, size_t size, size_t *match_size, int exact)
 	      /* Narrow down to the line containing the candidate, and
 		 run it through DFA. */
 	      end = memchr(beg, eol, buflim - beg);
-	      end++;
+	      if (end)
+	        end++;
+	      else 
+		end = buflim;
 #ifdef MBS_SUPPORT
 	      if (mb_cur_max > 1 && bytes_left)
 		continue;
@@ -442,7 +445,10 @@ EGexecute (char const *buf, size_t size, size_t *match_size, int exact)
 #endif /* MBS_SUPPORT */
 	      beg += offset;
 	      end = memchr (beg, eol, buflim - beg);
-	      end++;
+	      if (end)
+		end++;
+	      else
+		end = buflim;
 #ifdef MBS_SUPPORT
 	      if (mb_cur_max > 1 && bytes_left)
 		continue;
@@ -1008,8 +1014,10 @@ next_char:;
   else
 #endif /* MBS_SUPPORT */
   end = memchr (beg + len, eol, (buf + size) - (beg + len));
-
-  end++;
+  if (end)
+     end++;
+  else
+     end = buf+size;
   while (buf < beg && beg[-1] != eol)
     --beg;
   len = end - beg;
@@ -1131,7 +1139,10 @@ Pexecute (char const *buf, size_t size, size_t *match_size, int exact)
       if (!exact)
 	{
 	  end = memchr (end, eol, buflim - end);
-	  end++;
+	  if (end)
+	    end++;
+	  else
+	    end = buflim;
 	  while (buf < beg && beg[-1] != eol)
 	    --beg;
 	}

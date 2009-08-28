@@ -50,18 +50,18 @@ V8CustomSQLTransactionErrorCallback::~V8CustomSQLTransactionErrorCallback()
     m_callback.Dispose();
 }
 
-bool V8CustomSQLTransactionErrorCallback::handleEvent(SQLError* error)
+void V8CustomSQLTransactionErrorCallback::handleEvent(SQLError* error)
 {
     v8::HandleScope handleScope;
 
-    v8::Handle<v8::Context> context = V8Proxy::GetContext(m_frame.get());
+    v8::Handle<v8::Context> context = V8Proxy::context(m_frame.get());
     if (context.IsEmpty())
-        return true;
+        return;
 
     v8::Context::Scope scope(context);
 
     v8::Handle<v8::Value> argv[] = {
-        V8Proxy::ToV8Object(V8ClassIndex::SQLERROR, error)
+        V8DOMWrapper::convertToV8Object(V8ClassIndex::SQLERROR, error)
     };
 
     // Protect the frame until the callback returns.
@@ -69,10 +69,6 @@ bool V8CustomSQLTransactionErrorCallback::handleEvent(SQLError* error)
 
     bool callbackReturnValue = false;
     invokeCallback(m_callback, 1, argv, callbackReturnValue);
-
-    // FIXME: Eliminate return value once SQLTransactionErrorCallback is changed
-    // to match the spec.
-    return true;
 }
 
 } // namespace WebCore

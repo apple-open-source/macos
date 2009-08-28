@@ -622,6 +622,17 @@ static const char __DWARF2_UNWIND_SECTION_TYPE[] = "__TEXT";
 static const char __DWARF2_UNWIND_SECTION_NAME[] = "__dwarf2_unwind";
 #endif
 
+#if __x86_64__
+static void
+remove_image_hook (const struct mach_header *mh, intptr_t vm_slide)
+{
+    // for historical reasons, __cxa_finalize is called from keymgr
+    // <rdar://problem/6648167> 
+    __cxa_finalize (mh);
+}
+
+#else
+
 /* Called by dyld when an image is added to the executable.
    If it has a dwarf2_unwind section, register it so the C++ runtime
    can get at it.  All of this is protected by dyld thread locks.  */
@@ -669,6 +680,8 @@ static void dwarf2_unwind_dyld_add_image_hook (const struct mach_header *mh,
       _keymgr_set_and_unlock_processwide_ptr (KEYMGR_GCC3_LIVE_IMAGE_LIST, l);
   }
 }
+
+
 
 static void
 dwarf2_unwind_dyld_remove_image_hook (const struct mach_header *mh,
@@ -775,7 +788,7 @@ dwarf2_unwind_dyld_remove_image_hook (const struct mach_header *mh,
     ;
   }
 }
-
+#endif // !x86_64
 
 void __keymgr_dwarf2_register_sections (void)
 {
@@ -785,11 +798,34 @@ void __keymgr_dwarf2_register_sections (void)
 }
 
 
+/* Used to statically allocate the head of the object list. */
+/* The actual sruct is 4 pointers long and must be initially */
+/* zero filled. */
+static void* km_object_list_head[4];
+
 /* call by libSystem's initializer */
 void __attribute__((visibility("hidden"))) __keymgr_initializer (void)
 {
+  /* On Mac OS X 10.6, unwinding is down by libunwind in libSystem.B.dylib */
+  /* Normally, the object list is need used.  But some applications that */
+  /* dynamically generate code directly use keymgr to find the KEYMGR_GCC3_DW2_OBJ_LIST */
+  /* list and insert frame information.  The problem is those apps don't check */
+  /* if KEYMGR_GCC3_DW2_OBJ_LIST is currently NULL.  The fix is to statically */
+  /* allocate the object list head struct and set KEYMGR_GCC3_DW2_OBJ_LIST to point*/
+  /* to it <rdar://problem/6599778>. */
+  _keymgr_get_and_lock_processwide_ptr(KEYMGR_GCC3_DW2_OBJ_LIST);
+  _keymgr_set_and_unlock_processwide_ptr(KEYMGR_GCC3_DW2_OBJ_LIST, &km_object_list_head);
+
+#if __x86_64__
+  /* On Mac OS X 10.6, libunwind in libSystem.dylib implements all unwinding functionality. */
+  /* libunwind does not use keymgr, so there is no need to maintain KEYMGR_GCC3_LIVE_IMAGE_LIST */
+  /* in sync with dyld's list of images.  But there might be some i386 or ppc applications that */
+  /* carry around there own copy of the unwinder (from libgcc.a) and need KEYMGR_GCC3_LIVE_IMAGE_LIST. */
+  _dyld_register_func_for_remove_image(remove_image_hook);
+#else
   /* register with dyld so that we are notified about all loaded mach-o images */
   _dyld_register_func_for_add_image (dwarf2_unwind_dyld_add_image_hook);
   _dyld_register_func_for_remove_image (dwarf2_unwind_dyld_remove_image_hook);
+#endif /* __x86_64__ */
 }
 

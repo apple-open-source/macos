@@ -11,7 +11,7 @@ if ($config[general_lib_type] != 'sql'){
 <meta http-equiv="Content-Type" content="text/html; charset=$config[general_charset]">
 <link rel="stylesheet" href="style.css">
 </head>
-<body bgcolor="#80a040" background="images/greenlines1.gif" link="black" alink="black">
+<body>
 <center>
 <b>This page is only available if you are using sql as general library type</b>
 </body>
@@ -22,6 +22,7 @@ EOM;
 
 require('../lib/attrshow.php3');
 require('../lib/defaults.php3');
+require("../lib/$config[general_lib_type]/group_info.php3");
 
 if ($config[general_lib_type] == 'sql' && $config[sql_use_operators] == 'true'){
 	$colspan=2;
@@ -39,7 +40,7 @@ if ($config[general_lib_type] == 'sql' && $config[sql_use_operators] == 'true'){
 <meta http-equiv="Content-Type" content="text/html; charset=<?php echo $config[general_charset]?>">
 <link rel="stylesheet" href="style.css">
 </head>
-<body bgcolor="#80a040" background="images/greenlines1.gif" link="black" alink="black">
+<body>
 <center>
 <table border=0 width=550 cellpadding=0 cellspacing=0>
 <tr valign=top>
@@ -61,7 +62,7 @@ if ($config[general_lib_type] == 'sql' && $config[sql_use_operators] == 'true'){
 <tr bgcolor="black" valign=top><td colspan=2>
 	<table border=0 width=100% cellpadding=12 cellspacing=0 bgcolor="#ffffd0" valign=top>
 	<tr><td>
-   
+
 <?php
 if (is_file("../lib/$config[general_lib_type]/group_info.php3"))
 	include("../lib/$config[general_lib_type]/group_info.php3");
@@ -87,6 +88,22 @@ EOM;
 	echo <<<EOM
 	<tr>
 		<td align=right colspan=$colspan bgcolor="#d0ddb0">
+		Available Groups
+		</td><td>
+EOM;
+		if (!isset($existing_groups))
+			echo "<b>No groups available</b>\n";
+		else{
+			echo "<select name=\"existing_groups\">\n";
+			foreach ($existing_groups as $group => $count)
+				echo "<option value=\"$group\">$group\n";
+			echo "</select>\n";
+		}
+	echo <<<EOM
+		</td>
+	</tr>
+	<tr>
+		<td align=right colspan=$colspan bgcolor="#d0ddb0">
 		Group name
 		</td><td>
 		<input type=text name="login" value="$login" size=35>
@@ -99,7 +116,7 @@ EOM;
 		<textarea name=members cols="15" wrap="PHYSICAL" rows=5></textarea>
 		</td>
 	</tr>
-		
+
 EOM;
 	foreach($show_attrs as $key => $desc){
 		$name = $attrmap["$key"];

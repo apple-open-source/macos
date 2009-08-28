@@ -1,0 +1,320 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+<head>
+<link rel="STYLESHEET" href="mailman-member.css" type='text/css' />
+<link rel="first" href="mailman-member.html" title='GNU mailman - list Member Manual' />
+<link rel='contents' href='contents.html' title="Contents" />
+<link rel='last' href='about.html' title='About this document...' />
+<link rel='help' href='about.html' title='About this document...' />
+<link rel="next" href="node42.html" />
+<link rel="prev" href="node38.html" />
+<link rel="parent" href="contents.html" />
+<link rel="next" href="node42.html" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name='aesop' content='information' />
+<title>1 Email commands quick reference</title>
+</head>
+<body>
+<div class="navigation">
+<div id='top-navigation-panel' xml:id='top-navigation-panel'>
+<table align="center" width="100%" cellpadding="0" cellspacing="2">
+<tr>
+<td class='online-navigation'><a rel="prev" title="11.2 what does Mailman"
+  href="node40.html"><img src='previous.png'
+  border='0' height='32'  alt='Previous Page' width='32' /></a></td>
+<td class='online-navigation'><a rel="parent" title="Contents"
+  href="contents.html"><img src='up.png'
+  border='0' height='32'  alt='Up one Level' width='32' /></a></td>
+<td class='online-navigation'><a rel="next" title="2 member options quick"
+  href="node42.html"><img src='next.png'
+  border='0' height='32'  alt='Next Page' width='32' /></a></td>
+<td align="center" width="100%">GNU Mailman - List Member Manual</td>
+<td class='online-navigation'><a rel="contents" title="Table of Contents"
+  href="contents.html"><img src='contents.png'
+  border='0' height='32'  alt='Contents' width='32' /></a></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+</tr></table>
+<div class='online-navigation'>
+<b class="navlabel">Previous:</b>
+<a class="sectref" rel="prev" href="node40.html">11.2 What does Mailman</a>
+<b class="navlabel">Up:</b>
+<a class="sectref" rel="parent" href="contents.html">Contents</a>
+<b class="navlabel">Next:</b>
+<a class="sectref" rel="next" href="node42.html">2 Member options quick</a>
+</div>
+<hr /></div>
+</div>
+<!--End of Navigation Panel-->
+
+<h1><a name="SECTION0021200000000000000000"></a><a name="a:commands"></a>
+<br>
+1 Email commands quick reference
+</h1>
+
+<ul>
+<li>confirm <span class="MATH"><IMG
+ WIDTH="16" HEIGHT="31" ALIGN="MIDDLE" BORDER="0"
+ SRC="img1.png"
+ ALT="$&lt;$"></span>CONFIRMATION-STRING<span class="MATH"><IMG
+ WIDTH="16" HEIGHT="31" ALIGN="MIDDLE" BORDER="0"
+ SRC="img2.png"
+ ALT="$&gt;$"></span>
+		
+<ul>
+<li>Confirm an action.  The confirmation-string is required and should be
+        supplied within a mailback confirmation notice.
+		
+</li>
+</ul>
+
+<p>
+</li>
+<li>end
+		
+<ul>
+<li>Stop processing commands.  Use this if your mail program automatically
+        adds a signature file.
+		
+</li>
+</ul>
+
+<p>
+</li>
+<li>help
+		
+<ul>
+<li>Receive a copy of the help message.
+		
+</li>
+</ul>
+
+<p>
+</li>
+<li>info
+		
+<ul>
+<li>Get information about this mailing list.
+		
+</li>
+</ul>
+
+<p>
+</li>
+<li>lists
+		
+<ul>
+<li>See a list of the public mailing lists on this GNU Mailman server.
+		
+</li>
+</ul>
+
+<p>
+</li>
+<li>password [<span class="MATH"><IMG
+ WIDTH="16" HEIGHT="31" ALIGN="MIDDLE" BORDER="0"
+ SRC="img1.png"
+ ALT="$&lt;$"></span>OLDPASSWORD<span class="MATH"><IMG
+ WIDTH="16" HEIGHT="31" ALIGN="MIDDLE" BORDER="0"
+ SRC="img2.png"
+ ALT="$&gt;$"></span> <span class="MATH"><IMG
+ WIDTH="16" HEIGHT="31" ALIGN="MIDDLE" BORDER="0"
+ SRC="img1.png"
+ ALT="$&lt;$"></span>NEWPASSWORD<span class="MATH"><IMG
+ WIDTH="16" HEIGHT="31" ALIGN="MIDDLE" BORDER="0"
+ SRC="img2.png"
+ ALT="$&gt;$"></span>] [address=<span class="MATH"><IMG
+ WIDTH="16" HEIGHT="31" ALIGN="MIDDLE" BORDER="0"
+ SRC="img1.png"
+ ALT="$&lt;$"></span>ADDRESS<span class="MATH"><IMG
+ WIDTH="16" HEIGHT="31" ALIGN="MIDDLE" BORDER="0"
+ SRC="img2.png"
+ ALT="$&gt;$"></span>]
+		
+<ul>
+<li>Retrieve or change your password.  With no arguments, this returns
+        your current password.  With arguments <span class="MATH"><IMG
+ WIDTH="16" HEIGHT="31" ALIGN="MIDDLE" BORDER="0"
+ SRC="img1.png"
+ ALT="$&lt;$"></span>OLDPASSWORD<span class="MATH"><IMG
+ WIDTH="16" HEIGHT="31" ALIGN="MIDDLE" BORDER="0"
+ SRC="img2.png"
+ ALT="$&gt;$"></span> and <span class="MATH"><IMG
+ WIDTH="16" HEIGHT="31" ALIGN="MIDDLE" BORDER="0"
+ SRC="img1.png"
+ ALT="$&lt;$"></span>NEWPASSWORD<span class="MATH"><IMG
+ WIDTH="16" HEIGHT="31" ALIGN="MIDDLE" BORDER="0"
+ SRC="img2.png"
+ ALT="$&gt;$"></span>
+        you can change your password.
+		
+</li>
+</ul>
+
+<p>
+</li>
+<li>set ...
+		
+<ul>
+<li>Set or view your membership options.
+
+<p>
+Use `set help' (without the quotes) to get a more detailed list of the
+        options you can change.  This list is also given in 
+        Appendix&nbsp;<a href="node42.html#a:options">B</a>.
+
+<p>
+Use `set show' (without the quotes) to view your current option
+        settings.
+		
+</li>
+</ul>
+
+<p>
+</li>
+<li>subscribe [<span class="MATH"><IMG
+ WIDTH="16" HEIGHT="31" ALIGN="MIDDLE" BORDER="0"
+ SRC="img1.png"
+ ALT="$&lt;$"></span>PASSWORD<span class="MATH"><IMG
+ WIDTH="16" HEIGHT="31" ALIGN="MIDDLE" BORDER="0"
+ SRC="img2.png"
+ ALT="$&gt;$"></span>] [digest|nodigest] [address=<span class="MATH"><IMG
+ WIDTH="16" HEIGHT="31" ALIGN="MIDDLE" BORDER="0"
+ SRC="img1.png"
+ ALT="$&lt;$"></span>ADDRESS<span class="MATH"><IMG
+ WIDTH="16" HEIGHT="31" ALIGN="MIDDLE" BORDER="0"
+ SRC="img2.png"
+ ALT="$&gt;$"></span>]
+		
+<ul>
+<li>Subscribe to this mailing list.  Your password must be given to
+        unsubscribe or change your options, but if you omit the password, one
+        will be generated for you.  You may be periodically reminded of your
+        password.
+
+<p>
+The next argument may be either: `nodigest' or `digest' (no quotes!).
+        If you wish to subscribe an address other than the address you sent
+        this request from, you may specify `address=<span class="MATH"><IMG
+ WIDTH="16" HEIGHT="31" ALIGN="MIDDLE" BORDER="0"
+ SRC="img1.png"
+ ALT="$&lt;$"></span>ADDRESS<span class="MATH"><IMG
+ WIDTH="16" HEIGHT="31" ALIGN="MIDDLE" BORDER="0"
+ SRC="img2.png"
+ ALT="$&gt;$"></span>' (no brackets
+        around the email address, and no quotes!)
+		
+</li>
+</ul>
+
+<p>
+</li>
+<li>unsubscribe [<span class="MATH"><IMG
+ WIDTH="16" HEIGHT="31" ALIGN="MIDDLE" BORDER="0"
+ SRC="img1.png"
+ ALT="$&lt;$"></span>PASSWORD<span class="MATH"><IMG
+ WIDTH="16" HEIGHT="31" ALIGN="MIDDLE" BORDER="0"
+ SRC="img2.png"
+ ALT="$&gt;$"></span>] [address=<span class="MATH"><IMG
+ WIDTH="16" HEIGHT="31" ALIGN="MIDDLE" BORDER="0"
+ SRC="img1.png"
+ ALT="$&lt;$"></span>ADDRESS<span class="MATH"><IMG
+ WIDTH="16" HEIGHT="31" ALIGN="MIDDLE" BORDER="0"
+ SRC="img2.png"
+ ALT="$&gt;$"></span>]
+		
+<ul>
+<li>Unsubscribe from the mailing list.  If given, your password must match
+        your current password.  If omitted, a confirmation email will be sent
+        to the unsubscribing address. If you wish to unsubscribe an address
+        other than the address you sent this request from, you may specify
+        `address=<span class="MATH"><IMG
+ WIDTH="16" HEIGHT="31" ALIGN="MIDDLE" BORDER="0"
+ SRC="img1.png"
+ ALT="$&lt;$"></span>ADDRESS<span class="MATH"><IMG
+ WIDTH="16" HEIGHT="31" ALIGN="MIDDLE" BORDER="0"
+ SRC="img2.png"
+ ALT="$&gt;$"></span>' (no brackets around the email address, and no
+        quotes!)
+		
+</li>
+</ul>
+
+<p>
+</li>
+<li>who [<span class="MATH"><IMG
+ WIDTH="16" HEIGHT="31" ALIGN="MIDDLE" BORDER="0"
+ SRC="img1.png"
+ ALT="$&lt;$"></span>PASSWORD<span class="MATH"><IMG
+ WIDTH="16" HEIGHT="31" ALIGN="MIDDLE" BORDER="0"
+ SRC="img2.png"
+ ALT="$&gt;$"></span>] [address=<span class="MATH"><IMG
+ WIDTH="16" HEIGHT="31" ALIGN="MIDDLE" BORDER="0"
+ SRC="img1.png"
+ ALT="$&lt;$"></span>ADDRESS<span class="MATH"><IMG
+ WIDTH="16" HEIGHT="31" ALIGN="MIDDLE" BORDER="0"
+ SRC="img2.png"
+ ALT="$&gt;$"></span>]
+		
+<ul>
+<li>See everyone who is on this mailing list.  The roster is limited to
+        list members only, and you must supply your membership password to
+        retrieve it.  If you're posting from an address other than your
+        membership address, specify your membership address with
+        `address=<span class="MATH"><IMG
+ WIDTH="16" HEIGHT="31" ALIGN="MIDDLE" BORDER="0"
+ SRC="img1.png"
+ ALT="$&lt;$"></span>ADDRESS<span class="MATH"><IMG
+ WIDTH="16" HEIGHT="31" ALIGN="MIDDLE" BORDER="0"
+ SRC="img2.png"
+ ALT="$&gt;$"></span>' (no brackets around the email address, and no
+        quotes!)
+		
+</li>
+</ul>
+</li>
+</ul>
+
+<p>
+
+<div class="navigation">
+<div class='online-navigation'>
+<p></p><hr />
+<table align="center" width="100%" cellpadding="0" cellspacing="2">
+<tr>
+<td class='online-navigation'><a rel="prev" title="11.2 what does Mailman"
+  href="node40.html"><img src='previous.png'
+  border='0' height='32'  alt='Previous Page' width='32' /></a></td>
+<td class='online-navigation'><a rel="parent" title="Contents"
+  href="contents.html"><img src='up.png'
+  border='0' height='32'  alt='Up one Level' width='32' /></a></td>
+<td class='online-navigation'><a rel="next" title="2 member options quick"
+  href="node42.html"><img src='next.png'
+  border='0' height='32'  alt='Next Page' width='32' /></a></td>
+<td align="center" width="100%">GNU Mailman - List Member Manual</td>
+<td class='online-navigation'><a rel="contents" title="Table of Contents"
+  href="contents.html"><img src='contents.png'
+  border='0' height='32'  alt='Contents' width='32' /></a></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+</tr></table>
+<div class='online-navigation'>
+<b class="navlabel">Previous:</b>
+<a class="sectref" rel="prev" href="node40.html">11.2 What does Mailman</a>
+<b class="navlabel">Up:</b>
+<a class="sectref" rel="parent" href="contents.html">Contents</a>
+<b class="navlabel">Next:</b>
+<a class="sectref" rel="next" href="node42.html">2 Member options quick</a>
+</div>
+</div>
+<hr />
+<span class="release-info">Release 2.1, documentation updated on January 11, 2009.</span>
+</div>
+<!--End of Navigation Panel-->
+
+</body>
+</html>

@@ -1,0 +1,61 @@
+* $Id: Counter.README,v 1.1 2004/05/23 22:50:39 neumann Exp $
+*
+* Variationen des Counter-Themas im ActiWeb:
+* (Zeilenangaben ohne Kommentare und Leerzeilen)
+*
+*
+
+1) Counter.xotcl (22 Zeilen)
+  
+   Die Klasse Counter wird als Spezialisierung von HtmlDocument
+   definiert ("Ein Dokument mit weiteren Methoden")
+
+   Aufruf: 
+      http://localhost:8090/counter-1.html
+      http://localhost:8090/counter-2.html
+
+
+2) Counter2.xotcl (32 Zeilen)
+
+   Die Klasse Counter wird als Spezialisierung von WebAgent
+   definiert, der ein plain/text interface besitzt. Zusätzlich 
+   wird eine Web-Facade definiert, die fuer die HTML-spezifische
+   Präsentation des WebAgenten sorgt.
+   
+   Aufruf: 
+      http://localhost:8091/htmlUI+invoke+c1
+      http://localhost:8091/htmlUI+invoke+c2
+   
+
+3) Counter3.xotcl (28 Zeilen)
+
+   Die Klasse Counter wird völlig unabhängig von jeder 
+   Web-Nutzung definiert (Sachmodell). Als Spezialisierung
+   dieser Counter-Klasse wird die Klasse Web-Counter definiert,
+   die auch von HTML-Document erbt. Diese Klasse ist fuer
+   die HTML-Aufbereitung zuständig. Es werden Instanzen von
+   Web-Counter erzeugt.
+
+   Aufruf: 
+      http://localhost:8093/c1
+      http://localhost:8093/c2
+
+
+4) Counter4.xotcl (33 Zeilen)
+
+   Die Klasse Counter wird völlig unabhängig von jeder 
+   Web-Nutzung definiert (Sachmodell). Ebenso unabhängig
+   von der Web-Nutzung wird PersistentCounter als
+   spezialisierte Counter-Klasse definiert. Von diesen persistenten
+   Countern werden Instanzen gebildet (web-unabhaengig).
+
+   Als weitere Instanzen werden Proxy-Objekte erzeugt, 
+   die für die HTML-Aufbereitung zuständig sind, und die 
+   hereinkommende Requests an die im "Hintergrund" existierenden
+   eigentlichen Objekte weitergeben, und deren Ergebnisse
+   entsprechend aufbereiten. Es werden nur die Proxy-Objekte
+   exportiert, nur diese sind ueber den Web-Server ansprechbar.
+
+   Aufruf: 
+      http://localhost:8094/wc1
+      http://localhost:8094/wc2

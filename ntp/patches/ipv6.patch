@@ -1,0 +1,31 @@
+diff -up -rup /SourceCache/ntp/ntp-42.2/ntp/ntpd/ntp_io.c ./ntpd/ntp_io.c
+--- /SourceCache/ntp/ntp-42.2/ntp/ntpd/ntp_io.c	2008-07-09 15:44:36.000000000 -0700
++++ ./ntpd/ntp_io.c	2008-08-13 18:42:54.000000000 -0700
+@@ -42,6 +42,11 @@
+ # include <sys/uio.h>
+ #endif
+ 
++#include <net/if.h>
++#include <netinet/in_var.h>
++#include <netinet6/in6_var.h>
++
++
+ /*
+  * setsockopt does not always have the same arg declaration
+  * across all platforms. If it's not defined we make it empty
+@@ -2329,6 +2334,15 @@ open_socket(
+ 	 * IPv6 specific options go here
+ 	 */
+         if (addr->ss_family == AF_INET6) {
++		/* if tentative don't bind */
++		struct in6_ifreq ifr6;
++		ifr6.ifr_addr = *(struct sockaddr_in6 *)addr;
++		if (ioctl(fd, SIOCGIFAFLAG_IN6, &ifr6) >= 0) {
++			if (ifr6.ifr_ifru.ifru_flags6 & IN6_IFF_TENTATIVE) {
++				closesocket(fd);
++				return INVALID_SOCKET;
++			}
++		}
+ #if defined(IPV6_V6ONLY)
+                 if (setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY,
+                 	(char*)&on, sizeof(on)))

@@ -19,9 +19,9 @@
 	<array>
 		<string>*</string>
 	</array>
-	<key>smb_sid</key>
+	<key>realname</key>
 	<array>
-		<string>S-1-5-21-166</string>
+		<string>Unix to Unix Copy Protocol</string>
 	</array>
 </dict>
 </plist>

@@ -70,7 +70,7 @@ static void mi_text_fmt (struct ui_out *uiout, const char *format, va_list args)
 static void mi_message (struct ui_out *uiout, int verbosity,
 			const char *format, va_list args)
      ATTR_FORMAT (printf, 3, 0);
-static void mi_wrap_hint (struct ui_out *uiout, char *identstring);
+static void mi_wrap_hint (struct ui_out *uiout, const char *identstring);
 static void mi_flush (struct ui_out *uiout);
 static void mi_notify_begin (struct ui_out *uiout, char *class);
 static void mi_notify_end (struct ui_out *uiout);
@@ -310,7 +310,7 @@ mi_message (struct ui_out *uiout, int verbosity, const char *format, va_list arg
 }
 
 void
-mi_wrap_hint (struct ui_out *uiout, char *identstring)
+mi_wrap_hint (struct ui_out *uiout, const char *identstring)
 {
   wrap_here (identstring);
 }

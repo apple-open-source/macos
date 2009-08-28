@@ -1,0 +1,66 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>TclXSLT</title><meta name="generator" content="DocBook XSL Stylesheets V1.55.0"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="refentry"><h1 class="title"><a name="id270420">TclXSLT</a></h1><h2>Contents</h2><ul><li><a href="#synopsis">Synopsis</a></li><li><a href="#Description">Description</a></li><li><a href="#Packages-and-Namespaces">Packages and Namespaces</a></li><li><a href="#Commands">Commands</a><ul><li><a href="#Commands-::xslt::compile">::xslt::compile</a></li><li><a href="#Commands-Stylesheet-Command">Stylesheet Command</a><ul><li><a href="#Commands-Stylesheet-Command-Command-Methods">Command Methods</a></li><li><a href="#Commands-Stylesheet-Command-Stylesheet-Parameters">Stylesheet Parameters</a></li></ul></li><li><a href="#Commands-::xslt::extension">::xslt::extension</a></li></ul></li><li><a href="#Extensions">Extensions</a><ul><li><a href="#Extensions-Implementing-An-Extension">Implementing An Extension</a><ul><li><a href="#Extensions-Implementing-An-Extension-Extension-Functions">Extension Functions</a></li><li><a href="#Extensions-Implementing-An-Extension-Extension-Elements">Extension Elements</a></li></ul></li><li><a href="#Extensions-Using-An-Extension">Using An Extension</a></li></ul></li></ul><div class="refnamediv"><h2>Name</h2><p>::xslt::compile, ::xslt::extension</p></div><div class="refsynopsisdiv"><a name="synopsis"></a><h2>Synopsis</h2><div class="tclcmdsynopsis" id="id270719"><a name="id270719"></a>
+      <span class="command" id="id270722"><a name="package_require_xslt"></a><tt>package require xslt</tt> </span>
+    </div><br><span class="tclpkgsynopsis"><pre>package require xslt ?2.5?</pre></span><div class="tclcmdsynopsis" id="id270755"><a name="id270755"></a>
+      <span class="command" id="id270758"><a name="__xslt__compile"></a><tt>::xslt::compile</tt> </span>
+      <i><tt>doc</tt></i>
+    </div><div class="tclcmdsynopsis" id="id270779"><a name="id270779"></a>
+      <span class="command" id="id270783"><a name="ssheet"></a><tt><i><tt>ssheet</tt></i></tt> </span>
+      <i><tt>method</tt></i>
+      ?option value...?
+      ?args...?
+    </div><div class="tclcmdsynopsis" id="id270848"><a name="id270848"></a>
+      <span class="command" id="id270851"><a name="__xslt__extension"></a><tt>::xslt::extension</tt> </span>
+      <tt>add</tt>
+      <i><tt>nsuri</tt></i>
+       <i><tt>tcl-namespace</tt></i>
+    </div><h3>Tcl Namespace Usage</h3>
+      <br><tt>::xslt</tt>
+    <p></div><div class="refsect1"><h2>Description</h2><p>TclXSLT is a wrapper for the <a href="http://xmlsoft.org/" target="_top">Gnome libxslt library</a> that allows an application to perform XSL transformations (XSLT).  The package also provides a binding to the XSLT extension mechanism so that XSLT extension may be implemented using Tcl scripts.</p><p>Transformation only works with documents created by TclDOM/libxml2.</p><p>The TclXSLT package makes extensive use of Tcl objects.  Compiled XSL stylesheets are stored as the internal representation of a Tcl object.  Source and result documents are accessed via TclDOM's C interface as Tcl objects.  This allows the application to cache parsed XML documents and compiled XSL stylesheets for better runtime performance.</p></div><div class="refsect1"><h2>Packages and Namespaces</h2><p>The TclXSLT package defines the <tt>xslt</tt> package and also a Tcl namespace using that name.</p></div><div class="refsect1"><h2>Commands</h2><div class="refsect2"><h3><a href="#__xslt__compile"><b>::xslt::compile</b></a></h3><p>The <a href="#__xslt__compile"><b>::xslt::compile</b></a> command pre-compiles a stylesheet document.  It returns a compiled stylesheet object and also defines a Tcl command to access the stylesheet.  This Tcl command may be used to transform XML documents.</p><div class="example"><a name="id271089"></a><p class="title"><b>Example 1. Example</b></p><pre class="programlisting">
+set source_doc [::dom::libxml2::parse $XML]
+set ssheet_doc [::dom::libxml2::parse $XSLstylesheet]
+set ssheet [::xslt::compile $ssheet_doc]
+set result [$ssheet transform $source_doc]
+</pre></div><p>NB.  It is advisable to use the <tt>-baseuri</tt> option when parsing the source and stylesheet documents to allow external resources to be resolved.</p></div><div class="refsect2"><h3>Stylesheet Command</h3><p>The stylesheet command created by <a href="#__xslt__compile"><b>::xslt::compile</b></a> command accesses a compiled stylesheet.</p><div class="refsect3"><h4>Command Methods</h4><p>The following command methods may be used:</p><div class="variablelist"><dl><dt><span class="term">[cget]  [<i><tt>option</tt></i>]</span></dt><dd><p>Returns the value of an option.  See below for the list of valid options.</p></dd><dt><span class="term">[configure]  [<i><tt>option</tt></i> <i><tt>value</tt></i>]</span></dt><dd><p>Sets the value of an option.  Available options are as follows:</p><dt></dt><dd></dd></dd><dt><span class="term">[transform]  [<i><tt>source</tt></i>]  [<i><tt>name</tt></i> | <i><tt>value</tt></i>]</span></dt><dd><p>Performs an XSL transformation on the given source document.  Stylesheet parameters may be specified as name-value pairs.  The return result is the DOM token for the result document.</p></dd></dl></div></div><div class="refsect3"><h4>Stylesheet Parameters</h4><p>Any number of name-value pairs may be specified as arguments to the <a href="#stylesheet_transform"><b><i><tt>stylesheet</tt></i> transform</b></a> method.  These are passed as values for parameters in the stylesheet.  libxslt interprets the values as XPath expressions, where the context node is the root node for the source document.  To pass a value as a string it must be XPath-quoted, for example</p><div class="informalexample"><pre class="programlisting">
+set library &quot;Gnome libxslt&quot;
+$ssheet transform $source_doc \
+	library '$library' \
+	author &quot;'Daniel Veillard'&quot; \
+	node {/*/Element[3]}
+</pre></div></div><p>Following is an example of how to use the <a href="#stylesheet_transform"><b><i><tt>stylesheet</tt></i> transform</b></a> method.</p><div class="example"><a name="id271604"></a><p class="title"><b>Example 2. Example</b></p><pre class="programlisting">
+set source_doc [::dom::libxml2::parse $XML]
+set ssheet_doc [::dom::libxml2::parse $XSLstylesheet]
+set ssheet [::xslt::compile $ssheet_doc]
+set result_doc [$ssheet transform $source_doc]
+set result_xml [::dom::libxml2::serialize $result_doc \
+    -method [$ssheet cget -method]]
+</pre></div></div><div class="refsect2"><h3><a href="#__xslt__extension"><b>::xslt::extension</b></a></h3><p>The <a href="#__xslt__extension"><b>::xslt::extension</b></a> command is used to manage extensions of the libxslt library.  The <tt>add</tt> is used to register an extension.  The <tt>remove</tt> is used to unregister an extension.  See <a href="#">EXTENSIONS</a> for more detail.</p></div></div><div class="refsect1"><h2>Extensions</h2><p>The TclXSLT package allows an application to bind Tcl scripts to the extension mechanism of libxslt.  This means that Tcl scripts may provide the implementation of an XSLT extension element or function.  The binding is achieved to associating a Tcl namespace with an XML namespace.</p><div class="refsect2"><h3>Implementing An Extension</h3><p>The Tcl application uses the <a href="#__xslt__extension_add"><b>::xslt::extension add</b></a> command to register an extension.  An XML Namespace for the extension is specified as an argument, along with a Tcl namespace that will provide implementations of extension elements and functions.  For example,</p><div class="informalexample"><pre class="programlisting">
+::xslt::extension add http://www.zveno.com/Example ::example
+</pre></div><p>Everytime the <a href="#__xslt__transform"><b>::xslt::transform</b></a> command is executed, a newly-created XSLT engine is initialized.  For each registered extension, every procedure in the associated Tcl namespace is defined in the XSLT engine as either an extension element or an extension function.  The procedure is defined as an extension function if it has a variable argument list, otherwise it is defined as an extension element.  The procedure name is used as the local part of the extension name.  For example,</p><div class="informalexample"><pre class="programlisting">
+namespace eval example {
+    namespace export myfunc myelement
+}
+
+proc example::myfunc {name args} {
+    global app
+    return $app($name)
+}
+proc example::myelement {node} {
+    global app
+    return $app([dom::libxml2::node cget $node -nodeName])
+}
+</pre></div><p>&quot;myfunc&quot; is defined as an extension function and &quot;myelement&quot; is defined as an extension element.</p><div class="refsect3"><h4>Extension Functions</h4><p>The arguments to an extension function are converted to a string value and then passed as parameters to the Tcl procedure.</p><p>The return result of the Tcl procedure becomes the return value of the extension function.  The type of the result is preserved where possible, otherwise it is converted to a string value.</p></div><div class="refsect3"><h4>Extension Elements</h4><p>Extension elements have not been implemented in TclXSLT v1.1.</p></div></div><div class="refsect2"><h3>Using An Extension</h3><p>To invoke an extension in an XSL stylesheet, use the normal XSLT extension mechanism.  The XML Namespace matches the extension to the registered Tcl namespace (NB. the stylesheet author is free to choose any prefix for the extension namespace).  For example,</p><div class="informalexample"><pre class="programlisting">
+&lt;xsl:stylesheet version='1.0'
+	xmlns:xsl='http://www.w3.org/1999/XSL/Transform'
+	xmlns:eg='http://www.zveno.com/Example'&gt;
+
+  &lt;xsl:template match='/'&gt;
+    &lt;xsl:text&gt;Result of calling extension is &quot;&lt;/xsl:text&gt;
+    &lt;xsl:value-of select='eg:myfunc(&quot;foo&quot;)'/&gt;
+    &lt;xsl:text&gt;&quot;.
+&lt;/xsl:text&gt;
+  &lt;/xsl:template&gt;
+
+&lt;/xsl:stylesheet&gt;
+</pre></div><p>This stylesheet would result in the following Tcl script being evaluated:</p><div class="informalexample"><pre class="programlisting">
+::example::myfunc foo
+</pre></div></div></div></div></body></html>

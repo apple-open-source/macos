@@ -1,4 +1,4 @@
-/* APPLE LOCAL file ptmf casts --bowdidge */
+/* APPLE LOCAL file kext ptmf casts --bowdidge */
 /* In gcc-4.0 and beyond, kexts are not permitted to cast
    pointer-to-member- functions into pointer-to-functions.  
    These casts should be flagged as a hard error if

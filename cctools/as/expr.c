@@ -72,7 +72,9 @@ typedef enum {
 
     O_bit_inclusive_or,		/* (16) |  */
     O_bit_or_not,		/* (17) !  */
-    two_char_operator		/* (18) encoding for two char operator */
+    O_logical_and,		/* (18) &&  */
+    O_logical_or,		/* (19) ||  */
+    two_char_operator		/* (20) encoding for two char operator */
 } operatorT;
 
 static segT expr(
@@ -239,24 +241,26 @@ FLONUM_TYPE generic_floating_point_number = {
  * which is used to advance the input_line_pointer over the operator.
  */
 static int op_size [] =
-    { 0, 1, 1, 1, 1, 1, 2, 2, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1 };
+    { 0, 1, 1, 1, 1, 1, 2, 2, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1, 2, 2 };
 
 /*
  * op_rank is indexed by an operatorT and tells the rank of the operator.
  *
  *	Rank	Examples
- *	8	* / %
- *	7	+ -
- *	6	>> <<
- *	5	< > <= >=
- *	4	== !=
- *	3	&
- *	2	^
- *	1	| !
+ *	10	* / %
+ *	9	+ -
+ *	8	>> <<
+ *	7	< > <= >=
+ *	6	== !=
+ *	5	&
+ *	4	^
+ *	3	| !
+ *	2	&&
+ *	1	||
  *	0	operand, (expression)
  */
 static operator_rankT op_rank [] =
-    { 0, 8, 8, 8, 7, 7, 6, 6, 5, 5, 5, 5, 4, 4, 3, 2, 1, 1 };
+    { 0,10,10,10, 9, 9, 8, 8, 7, 7, 7, 7, 6, 6, 5, 4, 3, 3, 2, 1 };
 
 /*
  * op_encoding is indexed by a an ASCII character and maps it to an operator.
@@ -266,7 +270,7 @@ static const operatorT op_encoding [256] = {
     __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __,
     __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __,
 
-    __, two_char_operator, __, __, __, O_modulus, O_bit_and, __,
+    __, two_char_operator, __, __, __, O_modulus, two_char_operator, __,
     __, __, O_multiply, O_add, __, O_subtract, __, O_divide,
     __, __, __, __, __, __, __, __,
     __, __, __, __, two_char_operator, two_char_operator, two_char_operator, __,
@@ -277,7 +281,7 @@ static const operatorT op_encoding [256] = {
     __, __, __, __, __, __, __, __,
     __, __, __, __, __, __, __, __,
     __, __, __, __, __, __, __, __,
-    __, __, __, __, O_bit_inclusive_or, __, __, __,
+    __, __, __, __, two_char_operator, __, __, __,
 
     __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __,
     __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __,
@@ -448,7 +452,8 @@ statement */
 		}
 		else{
 		    if(seg2 == SEG_ABSOLUTE){
-			resultP->X_seg = seg1;
+			if(resultP->X_seg != SEG_DIFFSECT)
+			    resultP->X_seg = seg1;
 		    }
 		    else{
 /* also know seg2 != -1 (SEG_PASS1) */
@@ -510,6 +515,19 @@ expression() routine (not a macro).  Note the code in cons() */
 		     */
 		    try_to_make_absolute(resultP);
 		    try_to_make_absolute(&right);
+		    /*
+		     * If we have the special assembly time constant expression
+		     * of the difference of two symbols defined in the same
+		     * section then divided by exactly 2 mark the expression
+		     * indicating this.
+		     */
+		    if(resultP->X_seg == SEG_DIFFSECT &&
+		       right.X_seg == SEG_ABSOLUTE &&
+		       op_left == O_divide &&
+		       right.X_add_number == 2){
+			resultP->X_sectdiff_divide_by_two = 1;
+			goto down;
+		    }
 		    resultP->X_subtract_symbol = NULL;
 		    resultP->X_add_symbol = NULL;
 		    if(resultP->X_seg != SEG_ABSOLUTE ||
@@ -527,6 +545,11 @@ expression() routine (not a macro).  Note the code in cons() */
 			case O_bit_inclusive_or:
 			    resultP->X_add_number |= right.X_add_number;
 			    break;
+
+			case O_logical_or:
+			    resultP->X_add_number =
+				resultP->X_add_number || right.X_add_number;
+			    break;
 			  
 			case O_modulus:
 			    if(right.X_add_number){
@@ -541,6 +564,11 @@ expression() routine (not a macro).  Note the code in cons() */
 			  
 			case O_bit_and:
 			    resultP->X_add_number &= right.X_add_number;
+			    break;
+
+			case O_logical_and:
+			    resultP->X_add_number =
+				resultP->X_add_number && right.X_add_number;
 			    break;
 			  
 			case O_multiply:
@@ -618,6 +646,7 @@ expression() routine (not a macro).  Note the code in cons() */
 			    break;
 			}	/* switch(op_left) */
 		    }
+down: ;
 		}		/* If we have to force need_pass_2 */
 	    } 		/* If operator was + */
 	    op_left = op_right;
@@ -776,7 +805,7 @@ expressionS *expressionP)
 		    LITTLENUM_TYPE *leader;
 		    /* -> littlenum we are frobbing now. */
 		    LITTLENUM_TYPE *pointer;
-		    long carry;
+		    int32_t carry;
 
 		    leader = generic_bignum;
 		    generic_bignum [0] = 0;
@@ -789,7 +818,7 @@ expressionS *expressionP)
 			for(pointer = generic_bignum;
 			    pointer <= leader;
 			    pointer++){
-			    long work;
+			    int32_t work;
 
 			    work = carry + radix * *pointer;
 			    *pointer = work & LITTLENUM_MASK;
@@ -827,68 +856,60 @@ expressionS *expressionP)
 		     * mean the same as the (conventional) "9f". This is simply
 		     * easier than checking for strict canonical form.
 		     */
-		    if(number < 10){
-			if(c == 'b'){
-			    /*
-			     * Backward ref to local label.
-			     * Because it is backward, expect it to be DEFINED.
-			     */
-			    /*
-			     * Construct a local label.
-			     */
-			    name = local_label_name((int)number, 0);
-			    symbolP = symbol_table_lookup(name);
-			    if((symbolP != NULL) &&
-			       (symbolP->sy_type & N_TYPE) != N_UNDF){
-				/* Expected path: symbol defined. */
-				/* Local labels are never absolute. Don't waste
-				   time checking absoluteness. */
-				know((symbolP->sy_type & N_TYPE) == N_SECT);
-				expressionP->X_add_symbol = symbolP;
-				expressionP->X_add_number = 0;
-				expressionP->X_seg        = SEG_SECT;
-			    }
-			    else{ /* Either not seen or not defined. */
-				as_warn("Backw. ref to unknown label \"%lld\","
-				"0 assumed.", number);
-				expressionP->X_add_number = 0;
-				expressionP->X_seg        = SEG_ABSOLUTE;
-			    }
+		    if(c == 'b'){
+			/*
+			 * Backward ref to local label.
+			 * Because it is backward, expect it to be DEFINED.
+			 */
+			/*
+			 * Construct a local label.
+			 */
+			name = fb_label_name((int)number, 0);
+			symbolP = symbol_table_lookup(name);
+			if((symbolP != NULL) &&
+			   (symbolP->sy_type & N_TYPE) != N_UNDF){
+			    /* Expected path: symbol defined. */
+			    /* Local labels are never absolute. Don't waste
+			       time checking absoluteness. */
+			    know((symbolP->sy_type & N_TYPE) == N_SECT);
+			    expressionP->X_add_symbol = symbolP;
+			    expressionP->X_add_number = 0;
+			    expressionP->X_seg        = SEG_SECT;
 			}
-			else if(c == 'f'){
-			    /*
-			     * Forward reference. Expect symbol to be
-			     * undefined or unknown. Undefined: seen it
-			     * before. Unknown: never seen it in this pass.
-			     * Construct a local label name, then an
-			     * undefined symbol.  Don't create a XSEG frag
-			     * for it: caller may do that.
-			     * Just return it as never seen before.
-			     */
-			    name = local_label_name((int)number, 1);
-			    symbolP = symbol_table_lookup(name);
-			    if(symbolP != NULL){
-				/* We have no need to check symbol
-				   properties. */
-				know((symbolP->sy_type & N_TYPE) == N_UNDF ||
-				     (symbolP->sy_type & N_TYPE) == N_SECT);
-			    }
-			    else{
-				symbolP = symbol_new(name, N_UNDF, 0,0,0,
-						     &zero_address_frag);
-				symbol_table_insert(symbolP);
-			    }
-			    expressionP->X_add_symbol      = symbolP;
-			    expressionP->X_seg             = SEG_UNKNOWN;
-			    expressionP->X_subtract_symbol = NULL;
-			    expressionP->X_add_number      = 0;
-			}
-			else{	/* Really a number, not a local label. */
-			    ignore_c_ll_or_ull(c);
-			    expressionP->X_add_number = number;
+			else{ /* Either not seen or not defined. */
+			    as_warn("Backw. ref to unknown label \"%lld\","
+			    "0 assumed.", number);
+			    expressionP->X_add_number = 0;
 			    expressionP->X_seg        = SEG_ABSOLUTE;
-			    input_line_pointer--; /* restore following char */
-		        }
+			}
+		    }
+		    else if(c == 'f'){
+			/*
+			 * Forward reference. Expect symbol to be
+			 * undefined or unknown. Undefined: seen it
+			 * before. Unknown: never seen it in this pass.
+			 * Construct a local label name, then an
+			 * undefined symbol.  Don't create a XSEG frag
+			 * for it: caller may do that.
+			 * Just return it as never seen before.
+			 */
+			name = fb_label_name((int)number, 1);
+			symbolP = symbol_table_lookup(name);
+			if(symbolP != NULL){
+			    /* We have no need to check symbol
+			       properties. */
+			    know((symbolP->sy_type & N_TYPE) == N_UNDF ||
+				 (symbolP->sy_type & N_TYPE) == N_SECT);
+			}
+			else{
+			    symbolP = symbol_new(name, N_UNDF, 0,0,0,
+						 &zero_address_frag);
+			    symbol_table_insert(symbolP);
+			}
+			expressionP->X_add_symbol      = symbolP;
+			expressionP->X_seg             = SEG_UNKNOWN;
+			expressionP->X_subtract_symbol = NULL;
+			expressionP->X_add_number      = 0;
 		    }
 		    else{ /* a number >= 10 */
 			ignore_c_ll_or_ull(c);
@@ -988,7 +1009,7 @@ expressionS *expressionP)
 			 * then assigning it to the 64-bit value the expression
 			 * will be correct.
 			 */
-			(long)
+			(int32_t)
 #endif
 			symbolP->sy_value;
 		}
@@ -1333,7 +1354,7 @@ expressionS *expressionP) /* Deliver result here. */
 		     * any machine dependent frags of variable length in the
 		     * chain.
 		     */
-		    unsigned long size, fail;
+		    uint32_t size, fail;
 		    struct frag *frag;
 
 		    if(add_symbol->sy_frag != NULL &&
@@ -1407,6 +1428,14 @@ char first_op_char)
 	    if(second_op_char == '=')
 		return(O_not_equal);
 	    return O_not_equal;
+	case '&':
+	    if(second_op_char == '&')
+		return(O_logical_and);
+	    return(O_bit_and);
+	case '|':
+	    if(second_op_char == '|')
+		return(O_logical_or);
+	    return(O_bit_inclusive_or);
 	default:
 	    BAD_CASE(first_op_char);
 	    return O_illegal;
@@ -1455,6 +1484,13 @@ void)
 	}
 	*--input_line_pointer = 0;
 	return(c);
+}
+
+#include <stdlib.h> /* for abort */
+
+segT S_GET_SEGMENT (symbolS *s)
+{
+  return s->sy_nlist.n_sect;
 }
 
 /*

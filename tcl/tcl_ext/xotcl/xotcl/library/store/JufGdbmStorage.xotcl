@@ -1,0 +1,50 @@
+# $Id: JufGdbmStorage.xotcl,v 1.3 2005/09/09 21:09:01 neumann Exp $
+
+package provide xotcl::store::jufgdbm 0.81
+
+package require xotcl::store::juf_gdbm
+package require xotcl::store
+package require XOTcl
+
+namespace eval ::xotcl::store::jufgdbm {
+    namespace import ::xotcl::*
+
+    #
+    # a simple GNU Gdbm DB Store Access
+    #
+    Class Storage=JufGdbm -superclass Storage
+    Storage=JufGdbm instproc open f {
+	my set persistenceDB [juf_gdbm open $f rwc]
+    }
+
+    Storage=JufGdbm instproc store {k v} {
+	#my showCall
+	juf_gdbm store [my set persistenceDB] $k $v
+    }
+
+    Storage=JufGdbm instproc list {} {
+	juf_gdbm list [my set persistenceDB]
+    }
+
+    Storage=JufGdbm instproc fetch {k var} {
+	my instvar persistenceDB
+	if {[juf_gdbm exists $persistenceDB $k]} {
+	    upvar [self callinglevel] $var value
+	    set value [juf_gdbm fetch $persistenceDB $k]
+	    return 1
+	}
+	return 0
+    }
+
+    Storage=JufGdbm instproc close args {
+	juf_gdbm close [my set persistenceDB]
+    }
+
+    Storage=JufGdbm instproc delete k {
+	juf_gdbm delete [my set persistenceDB] $k
+    }
+
+    namespace export Storage=JufGdbm
+}
+
+namespace import ::xotcl::store::jufgdbm::*

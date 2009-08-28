@@ -1,5 +1,6 @@
+AC_PREREQ([2.53])
 AC_INIT(rlm_perl.c)
-AC_REVISION($Revision: 1.1.10.1 $)
+AC_REVISION($Revision$)
 AC_DEFUN(modname,[rlm_perl])
 
 if test x$with_[]modname != xno; then
@@ -7,7 +8,7 @@ if test x$with_[]modname != xno; then
 	AC_PROG_CC
 	AC_PROG_CPP
 
-	dnl put configuration checks here.  
+	dnl put configuration checks here.
 	dnl set $fail to what's missing, on fatal errors.
 	dnl use AC_MSG_WARN() on important messages.
 
@@ -16,26 +17,38 @@ if test x$with_[]modname != xno; then
            fail=$fail" perl"
 	else
           old_CFLAGS=$CFLAGS
-          CFLAGS="$CFLAGS `perl -MExtUtils::Embed -e ccopts; perl -MConfig -e 'print $Config{cppflags}'`"
+          CFLAGS="$CFLAGS `perl -MExtUtils::Embed -e ccopts`"
 
 	  smart_try_dir=
-	  AC_SMART_CHECK_INCLUDE(EXTERN.h)
+	  FR_SMART_CHECK_INCLUDE(EXTERN.h)
 	  if test "x$ac_cv_header_EXTERN_h" = "xyes"; then
-		perl_cflags="`perl -MExtUtils::Embed -e ccopts; perl -MConfig -e 'print $Config{cppflags}'`"
+		perl_cflags='`perl -MExtUtils::Embed -e ccopts`'
 	  else
 		fail="$fail EXTERN.h"
 		targetname=
 	  fi
 
-	  AC_SMART_CHECK_INCLUDE(perl.h, [#include <EXTERN.h>])
+	  FR_SMART_CHECK_INCLUDE(perl.h, [#include <EXTERN.h>])
 	  if test "x$ac_cv_header_perl_h" = "xyes"; then
-		perl_cflags="`perl -MExtUtils::Embed -e ccopts; perl -MConfig -e 'print $Config{cppflags}'`"
+		perl_cflags='`perl -MExtUtils::Embed -e ccopts`'
 	  else
 		fail="$fail perl.h"
 		targetname=
 	  fi
 
-          perl_ldflags='`perl -MExtUtils::Embed -e ldopts`'
+	  old_LIBS="$LIBS"
+	  LIBS="$old_LIBS `perl -MExtUtils::Embed -e ldopts`"
+	  AC_TRY_LINK([extern char boot_DynaLoader();],
+		      [ boot_DynaLoader()],
+		      BROKEN=,
+		      BROKEN="yes")
+
+	  if test "x$BROKEN" = "x"; then
+        	perl_ldflags='`perl -MExtUtils::Embed -e ldopts`'
+	  else
+		fail="$fail libperl.so"
+		targetname=
+          fi
 
           CFLAGS=$old_CFLAGS
         fi
@@ -52,7 +65,7 @@ if test x"$fail" != x""; then
 		AC_MSG_ERROR([set --without-]modname[ to disable it explicitly.])
 	else
 		AC_MSG_WARN([silently not building ]modname[.])
-		AC_MSG_WARN([FAILURE: ]modname[ requires: $fail.]); 
+		AC_MSG_WARN([FAILURE: ]modname[ requires: $fail.]);
 		targetname=""
 		perl_cflags=""
 		perl_ldflags=""

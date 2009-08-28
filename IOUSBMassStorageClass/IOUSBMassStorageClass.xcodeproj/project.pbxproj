@@ -3,248 +3,90 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 42;
+	objectVersion = 45;
 	objects = {
 
 /* Begin PBXBuildFile section */
-		014FCB6300351B8D11CE15B4 /* IOUSBMassStorageUFISubclass.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 014FCB6200351B8D11CE15B4 /* IOUSBMassStorageUFISubclass.cpp */; };
-		014FCB6500351BCC11CE15B4 /* IOUSBMassStorageUFISubclass.h in Headers */ = {isa = PBXBuildFile; fileRef = 014FCB6400351BCC11CE15B4 /* IOUSBMassStorageUFISubclass.h */; };
-		0160FD75FFE08B0F11CE15B4 /* IOUSBMassStorageClass.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0160FD74FFE08B0F11CE15B4 /* IOUSBMassStorageClass.cpp */; settings = {ATTRIBUTES = (); }; };
-		0160FD77FFE08B1E11CE15B4 /* IOUSBMassStorageClass.h in Headers */ = {isa = PBXBuildFile; fileRef = 0160FD76FFE08B1E11CE15B4 /* IOUSBMassStorageClass.h */; };
-		0160FD79FFE08B2711CE15B4 /* USBMassStorageClassBulkOnly.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0160FD78FFE08B2711CE15B4 /* USBMassStorageClassBulkOnly.cpp */; settings = {ATTRIBUTES = (); }; };
-		0160FD7BFFE08B5011CE15B4 /* USBMassStorageClassCBI.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0160FD7AFFE08B5011CE15B4 /* USBMassStorageClassCBI.cpp */; settings = {ATTRIBUTES = (); }; };
-		0160FD7DFFE08CC011CE15B4 /* IOUSBMassStorageClass.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0160FD76FFE08B1E11CE15B4 /* IOUSBMassStorageClass.h */; };
-		01E99F1F00351C8111CE15B4 /* IOUSBMassStorageUFISubclass.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 014FCB6400351BCC11CE15B4 /* IOUSBMassStorageUFISubclass.h */; };
-		44BA14D3013F496804CE15B4 /* IOUFIStorageServices.h in Headers */ = {isa = PBXBuildFile; fileRef = 44BA14D2013F496804CE15B4 /* IOUFIStorageServices.h */; };
-		44BA14D4013F496804CE15B4 /* IOUFIStorageServices.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 44BA14D2013F496804CE15B4 /* IOUFIStorageServices.h */; };
-		44BA14D5013F496804CE15B4 /* IOUFIStorageServices.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 44BA14D1013F496804CE15B4 /* IOUFIStorageServices.cpp */; };
-		F5C72C5A02B5B8E201CE155F /* Debugging.h in Headers */ = {isa = PBXBuildFile; fileRef = F5C72C5902B5B8E201CE155F /* Debugging.h */; };
+		2A7E56EF0DB97ECC002B74AA /* IOUSBMassStorageClassTimestamps.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2A77099A0D4FE006004E6380 /* IOUSBMassStorageClassTimestamps.h */; };
+		52DEDA600D57A5B800F6FF83 /* IOUSBMassStorageClass.h in Headers */ = {isa = PBXBuildFile; fileRef = 0160FD76FFE08B1E11CE15B4 /* IOUSBMassStorageClass.h */; };
+		52DEDA610D57A5B800F6FF83 /* IOUSBMassStorageUFISubclass.h in Headers */ = {isa = PBXBuildFile; fileRef = 014FCB6400351BCC11CE15B4 /* IOUSBMassStorageUFISubclass.h */; };
+		52DEDA620D57A5B800F6FF83 /* IOUFIStorageServices.h in Headers */ = {isa = PBXBuildFile; fileRef = 44BA14D2013F496804CE15B4 /* IOUFIStorageServices.h */; };
+		52DEDA630D57A5B800F6FF83 /* Debugging.h in Headers */ = {isa = PBXBuildFile; fileRef = F5C72C5902B5B8E201CE155F /* Debugging.h */; };
+		52DEDA680D57A5B800F6FF83 /* IOUSBMassStorageClass.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0160FD76FFE08B1E11CE15B4 /* IOUSBMassStorageClass.h */; };
+		52DEDA690D57A5B800F6FF83 /* IOUSBMassStorageUFISubclass.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 014FCB6400351BCC11CE15B4 /* IOUSBMassStorageUFISubclass.h */; };
+		52DEDA6A0D57A5B800F6FF83 /* IOUFIStorageServices.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 44BA14D2013F496804CE15B4 /* IOUFIStorageServices.h */; };
+		52DEDA6D0D57A5B800F6FF83 /* IOUSBMassStorageClass.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0160FD74FFE08B0F11CE15B4 /* IOUSBMassStorageClass.cpp */; settings = {ATTRIBUTES = (); }; };
+		52DEDA6E0D57A5B800F6FF83 /* USBMassStorageClassBulkOnly.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0160FD78FFE08B2711CE15B4 /* USBMassStorageClassBulkOnly.cpp */; settings = {ATTRIBUTES = (); }; };
+		52DEDA6F0D57A5B800F6FF83 /* USBMassStorageClassCBI.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0160FD7AFFE08B5011CE15B4 /* USBMassStorageClassCBI.cpp */; settings = {ATTRIBUTES = (); }; };
+		52DEDA700D57A5B800F6FF83 /* IOUSBMassStorageUFISubclass.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 014FCB6200351B8D11CE15B4 /* IOUSBMassStorageUFISubclass.cpp */; };
+		52DEDA710D57A5B800F6FF83 /* IOUFIStorageServices.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 44BA14D1013F496804CE15B4 /* IOUFIStorageServices.cpp */; };
+		F3476D540F54778B00C7C673 /* IOUSBMassStorageClass.h in Headers */ = {isa = PBXBuildFile; fileRef = 0160FD76FFE08B1E11CE15B4 /* IOUSBMassStorageClass.h */; };
+		F3476D550F54778B00C7C673 /* IOUSBMassStorageUFISubclass.h in Headers */ = {isa = PBXBuildFile; fileRef = 014FCB6400351BCC11CE15B4 /* IOUSBMassStorageUFISubclass.h */; };
+		F3476D560F54778B00C7C673 /* IOUFIStorageServices.h in Headers */ = {isa = PBXBuildFile; fileRef = 44BA14D2013F496804CE15B4 /* IOUFIStorageServices.h */; };
+		F3476D570F54778B00C7C673 /* Debugging.h in Headers */ = {isa = PBXBuildFile; fileRef = F5C72C5902B5B8E201CE155F /* Debugging.h */; };
+		F3476D590F54778B00C7C673 /* IOUSBMassStorageClass.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0160FD76FFE08B1E11CE15B4 /* IOUSBMassStorageClass.h */; };
+		F3476D5A0F54778B00C7C673 /* IOUSBMassStorageUFISubclass.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 014FCB6400351BCC11CE15B4 /* IOUSBMassStorageUFISubclass.h */; };
+		F3476D5B0F54778B00C7C673 /* IOUFIStorageServices.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 44BA14D2013F496804CE15B4 /* IOUFIStorageServices.h */; };
+		F3476D5D0F54778B00C7C673 /* IOUSBMassStorageClassTimestamps.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2A77099A0D4FE006004E6380 /* IOUSBMassStorageClassTimestamps.h */; };
+		F3476D5F0F54778B00C7C673 /* IOUSBMassStorageClass.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0160FD74FFE08B0F11CE15B4 /* IOUSBMassStorageClass.cpp */; settings = {ATTRIBUTES = (); }; };
+		F3476D600F54778B00C7C673 /* USBMassStorageClassBulkOnly.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0160FD78FFE08B2711CE15B4 /* USBMassStorageClassBulkOnly.cpp */; settings = {ATTRIBUTES = (); }; };
+		F3476D610F54778B00C7C673 /* USBMassStorageClassCBI.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0160FD7AFFE08B5011CE15B4 /* USBMassStorageClassCBI.cpp */; settings = {ATTRIBUTES = (); }; };
+		F3476D620F54778B00C7C673 /* IOUSBMassStorageUFISubclass.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 014FCB6200351B8D11CE15B4 /* IOUSBMassStorageUFISubclass.cpp */; };
+		F3476D630F54778B00C7C673 /* IOUFIStorageServices.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 44BA14D1013F496804CE15B4 /* IOUFIStorageServices.cpp */; };
 /* End PBXBuildFile section */
 
-/* Begin PBXBundleTarget section */
-		089C1673FE841209C02AAC07 /* IOUSBMassStorageClass */ = {
-			isa = PBXBundleTarget;
-			buildConfigurationList = 2A859F7F08E4AA8C00F73457 /* Build configuration list for PBXBundleTarget "IOUSBMassStorageClass" */;
-			buildPhases = (
-				06AA1267FFB2110C11CA28AA /* ShellScript */,
-				089C1674FE841209C02AAC07 /* Headers */,
-				0160FD7CFFE08CC011CE15B4 /* CopyFiles */,
-				089C1675FE841209C02AAC07 /* Resources */,
-				089C1676FE841209C02AAC07 /* Sources */,
-				089C1677FE841209C02AAC07 /* Frameworks */,
-				089C1679FE841209C02AAC07 /* Rez */,
-				06AA1264FFB2107B11CA28AA /* ShellScript */,
-			);
-			dependencies = (
-			);
-			name = IOUSBMassStorageClass;
-			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-			productName = IOUSBMassStorageClass;
-			productReference = 0B81C263FFB7832611CA28AA /* IOUSBMassStorageClass.kext */;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>English</string>
-	<key>CFBundleExecutable</key>
-	<string>IOUSBMassStorageClass</string>
-	<key>CFBundleGetInfoString</key>
-	<string>2.0.8, Copyright Apple Inc. 2000-2009</string>
-	<key>CFBundleIconFile</key>
-	<string></string>
-	<key>CFBundleIdentifier</key>
-	<string>com.apple.iokit.IOUSBMassStorageClass</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundleName</key>
-	<string>IOUSBMassStorageClass</string>
-	<key>CFBundlePackageType</key>
-	<string>KEXT</string>
-	<key>CFBundleShortVersionString</key>
-	<string>2.0.8</string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>2.0.8</string>
-	<key>IOKitPersonalities</key>
-	<dict>
-		<key>IOUSBMassStorageClass1</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.iokit.IOUSBMassStorageClass</string>
-			<key>IOClass</key>
-			<string>IOUSBMassStorageClass</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBInterface</string>
-			<key>Physical Interconnect</key>
-			<string>USB</string>
-			<key>Physical Interconnect Location</key>
-			<string>External</string>
-			<key>Read Time Out Duration</key>
-			<integer>30000</integer>
-			<key>Write Time Out Duration</key>
-			<integer>30000</integer>
-			<key>bInterfaceClass</key>
-			<integer>8</integer>
-			<key>bInterfaceSubClass</key>
-			<integer>1</integer>
-		</dict>
-		<key>IOUSBMassStorageClass2</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.iokit.IOUSBMassStorageClass</string>
-			<key>IOClass</key>
-			<string>IOUSBMassStorageClass</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBInterface</string>
-			<key>Physical Interconnect</key>
-			<string>USB</string>
-			<key>Physical Interconnect Location</key>
-			<string>External</string>
-			<key>Read Time Out Duration</key>
-			<integer>30000</integer>
-			<key>Write Time Out Duration</key>
-			<integer>30000</integer>
-			<key>bInterfaceClass</key>
-			<integer>8</integer>
-			<key>bInterfaceSubClass</key>
-			<integer>2</integer>
-		</dict>
-		<key>IOUSBMassStorageClass3</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.iokit.IOUSBMassStorageClass</string>
-			<key>IOClass</key>
-			<string>IOUSBMassStorageClass</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBInterface</string>
-			<key>Physical Interconnect</key>
-			<string>USB</string>
-			<key>Physical Interconnect Location</key>
-			<string>External</string>
-			<key>Read Time Out Duration</key>
-			<integer>30000</integer>
-			<key>Write Time Out Duration</key>
-			<integer>30000</integer>
-			<key>bInterfaceClass</key>
-			<integer>8</integer>
-			<key>bInterfaceSubClass</key>
-			<integer>3</integer>
-		</dict>
-		<key>IOUSBMassStorageClass4</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.iokit.IOUSBMassStorageClass</string>
-			<key>IOClass</key>
-			<string>IOUSBMassStorageUFISubclass</string>
-			<key>IOMediaIcon</key>
-			<dict>
-				<key>CFBundleIdentifier</key>
-				<string>com.apple.iokit.IOSCSIArchitectureModelFamily</string>
-				<key>IOBundleResourceFile</key>
-				<string>Floppy.icns</string>
-			</dict>
-			<key>IOProviderClass</key>
-			<string>IOUSBInterface</string>
-			<key>Physical Interconnect</key>
-			<string>USB</string>
-			<key>Physical Interconnect Location</key>
-			<string>External</string>
-			<key>Read Time Out Duration</key>
-			<integer>30000</integer>
-			<key>SCSI Device Characteristics</key>
-			<dict>
-				<key>Manual Eject</key>
-				<string>true</string>
-			</dict>
-			<key>Write Time Out Duration</key>
-			<integer>30000</integer>
-			<key>bInterfaceClass</key>
-			<integer>8</integer>
-			<key>bInterfaceSubClass</key>
-			<integer>4</integer>
-		</dict>
-		<key>IOUSBMassStorageClass5</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.iokit.IOUSBMassStorageClass</string>
-			<key>IOClass</key>
-			<string>IOUSBMassStorageClass</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBInterface</string>
-			<key>Physical Interconnect</key>
-			<string>USB</string>
-			<key>Physical Interconnect Location</key>
-			<string>External</string>
-			<key>Read Time Out Duration</key>
-			<integer>30000</integer>
-			<key>Write Time Out Duration</key>
-			<integer>30000</integer>
-			<key>bInterfaceClass</key>
-			<integer>8</integer>
-			<key>bInterfaceSubClass</key>
-			<integer>5</integer>
-		</dict>
-		<key>IOUSBMassStorageClass6</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.iokit.IOUSBMassStorageClass</string>
-			<key>IOClass</key>
-			<string>IOUSBMassStorageClass</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBInterface</string>
-			<key>Physical Interconnect</key>
-			<string>USB</string>
-			<key>Physical Interconnect Location</key>
-			<string>External</string>
-			<key>Read Time Out Duration</key>
-			<integer>30000</integer>
-			<key>Write Time Out Duration</key>
-			<integer>30000</integer>
-			<key>bInterfaceClass</key>
-			<integer>8</integer>
-			<key>bInterfaceSubClass</key>
-			<integer>6</integer>
-		</dict>
-	</dict>
-	<key>OSBundleCompatibleVersion</key>
-	<string>1.0.0</string>
-	<key>OSBundleLibraries</key>
-	<dict>
-		<key>com.apple.iokit.IOSCSIArchitectureModelFamily</key>
-		<string>2.0.7</string>
-		<key>com.apple.iokit.IOStorageFamily</key>
-		<string>1.5.0</string>
-		<key>com.apple.iokit.IOUSBFamily</key>
-		<string>3.2.7</string>
-		<key>com.apple.kpi.bsd</key>
-		<string>9.0.0</string>
-		<key>com.apple.kpi.iokit</key>
-		<string>9.0.0</string>
-		<key>com.apple.kpi.libkern</key>
-		<string>9.0.0</string>
-		<key>com.apple.kpi.mach</key>
-		<string>9.0.0</string>
-	</dict>
-	<key>OSBundleRequired</key>
-	<string>Local-Root</string>
-</dict>
-</plist>
-";
+/* Begin PBXContainerItemProxy section */
+		52C568060EBA328600A6A1AA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 52C567FF0EBA328600A6A1AA /* UMCLogger.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = 8DD76F6C0486A84900D96B5E;
+			remoteInfo = UMCLogger;
 		};
-/* End PBXBundleTarget section */
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		0160FD7CFFE08CC011CE15B4 /* CopyFiles */ = {
+		52DEDA670D57A5B800F6FF83 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
 			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/usb";
 			dstSubfolderSpec = 0;
 			files = (
-				0160FD7DFFE08CC011CE15B4 /* IOUSBMassStorageClass.h in CopyFiles */,
-				01E99F1F00351C8111CE15B4 /* IOUSBMassStorageUFISubclass.h in CopyFiles */,
-				44BA14D4013F496804CE15B4 /* IOUFIStorageServices.h in CopyFiles */,
+				52DEDA680D57A5B800F6FF83 /* IOUSBMassStorageClass.h in CopyFiles */,
+				52DEDA690D57A5B800F6FF83 /* IOUSBMassStorageUFISubclass.h in CopyFiles */,
+				52DEDA6A0D57A5B800F6FF83 /* IOUFIStorageServices.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		52E7909E0D57C86500E273FB /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/PrivateHeaders/IOKit/usb";
+			dstSubfolderSpec = 0;
+			files = (
+				2A7E56EF0DB97ECC002B74AA /* IOUSBMassStorageClassTimestamps.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		F3476D580F54778B00C7C673 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/usb";
+			dstSubfolderSpec = 0;
+			files = (
+				F3476D590F54778B00C7C673 /* IOUSBMassStorageClass.h in CopyFiles */,
+				F3476D5A0F54778B00C7C673 /* IOUSBMassStorageUFISubclass.h in CopyFiles */,
+				F3476D5B0F54778B00C7C673 /* IOUFIStorageServices.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		F3476D5C0F54778B00C7C673 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/PrivateHeaders/IOKit/usb";
+			dstSubfolderSpec = 0;
+			files = (
+				F3476D5D0F54778B00C7C673 /* IOUSBMassStorageClassTimestamps.h in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -257,14 +99,26 @@
 		0160FD76FFE08B1E11CE15B4 /* IOUSBMassStorageClass.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOUSBMassStorageClass.h; sourceTree = SOURCE_ROOT; };
 		0160FD78FFE08B2711CE15B4 /* USBMassStorageClassBulkOnly.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = USBMassStorageClassBulkOnly.cpp; sourceTree = SOURCE_ROOT; };
 		0160FD7AFFE08B5011CE15B4 /* USBMassStorageClassCBI.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = USBMassStorageClassCBI.cpp; sourceTree = SOURCE_ROOT; };
-		0B81C263FFB7832611CA28AA /* IOUSBMassStorageClass.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = IOUSBMassStorageClass.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		2A77099A0D4FE006004E6380 /* IOUSBMassStorageClassTimestamps.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOUSBMassStorageClassTimestamps.h; sourceTree = "<group>"; };
 		44BA14D1013F496804CE15B4 /* IOUFIStorageServices.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOUFIStorageServices.cpp; sourceTree = "<group>"; };
 		44BA14D2013F496804CE15B4 /* IOUFIStorageServices.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOUFIStorageServices.h; sourceTree = "<group>"; };
+		52C567FF0EBA328600A6A1AA /* UMCLogger.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = UMCLogger.xcodeproj; path = UMCLogger/UMCLogger.xcodeproj; sourceTree = "<group>"; };
+		52DEDA790D57A5B800F6FF83 /* Info-IOUSBMassStorageClass.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IOUSBMassStorageClass.plist"; sourceTree = "<group>"; };
+		52DEDA7A0D57A5B800F6FF83 /* IOUSBMassStorageClass.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOUSBMassStorageClass.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		F3476D6C0F54778B00C7C673 /* IOUSBMassStorageClass.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOUSBMassStorageClass.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		F3CC5ABF0F5C47DD002C23BE /* AspenSDK.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = AspenSDK.xcconfig; path = AppleInternal/XcodeConfig/AspenSDK.xcconfig; sourceTree = DEVELOPER_DIR; };
 		F5C72C5902B5B8E201CE155F /* Debugging.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Debugging.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		089C1677FE841209C02AAC07 /* Frameworks */ = {
+		52DEDA720D57A5B800F6FF83 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F3476D640F54778B00C7C673 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -277,9 +131,12 @@
 		089C166AFE841209C02AAC07 /* IOUSBMassStorageClass */ = {
 			isa = PBXGroup;
 			children = (
+				F3CC5ABF0F5C47DD002C23BE /* AspenSDK.xcconfig */,
 				F5C72C5902B5B8E201CE155F /* Debugging.h */,
 				247142CAFF3F8F9811CA285C /* Source */,
+				52C567E90EBA31B600A6A1AA /* UMCLogger */,
 				19C28FB6FE9D52B211CA2CBB /* Products */,
+				52DEDA790D57A5B800F6FF83 /* Info-IOUSBMassStorageClass.plist */,
 			);
 			name = IOUSBMassStorageClass;
 			sourceTree = "<group>";
@@ -287,7 +144,8 @@
 		19C28FB6FE9D52B211CA2CBB /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				0B81C263FFB7832611CA28AA /* IOUSBMassStorageClass.kext */,
+				52DEDA7A0D57A5B800F6FF83 /* IOUSBMassStorageClass.kext */,
+				F3476D6C0F54778B00C7C673 /* IOUSBMassStorageClass.kext */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -295,33 +153,110 @@
 		247142CAFF3F8F9811CA285C /* Source */ = {
 			isa = PBXGroup;
 			children = (
+				2A77099A0D4FE006004E6380 /* IOUSBMassStorageClassTimestamps.h */,
 				0160FD76FFE08B1E11CE15B4 /* IOUSBMassStorageClass.h */,
 				0160FD74FFE08B0F11CE15B4 /* IOUSBMassStorageClass.cpp */,
 				0160FD78FFE08B2711CE15B4 /* USBMassStorageClassBulkOnly.cpp */,
 				0160FD7AFFE08B5011CE15B4 /* USBMassStorageClassCBI.cpp */,
 				014FCB6200351B8D11CE15B4 /* IOUSBMassStorageUFISubclass.cpp */,
 				014FCB6400351BCC11CE15B4 /* IOUSBMassStorageUFISubclass.h */,
-				44BA14D1013F496804CE15B4 /* IOUFIStorageServices.cpp */,
 				44BA14D2013F496804CE15B4 /* IOUFIStorageServices.h */,
+				44BA14D1013F496804CE15B4 /* IOUFIStorageServices.cpp */,
 			);
 			name = Source;
+			sourceTree = "<group>";
+		};
+		52C567E90EBA31B600A6A1AA /* UMCLogger */ = {
+			isa = PBXGroup;
+			children = (
+				52C567FF0EBA328600A6A1AA /* UMCLogger.xcodeproj */,
+			);
+			name = UMCLogger;
+			sourceTree = "<group>";
+		};
+		52C568000EBA328600A6A1AA /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				52C568070EBA328600A6A1AA /* UMCLogger */,
+			);
+			name = Products;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
-		089C1674FE841209C02AAC07 /* Headers */ = {
+		52DEDA5F0D57A5B800F6FF83 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				0160FD77FFE08B1E11CE15B4 /* IOUSBMassStorageClass.h in Headers */,
-				014FCB6500351BCC11CE15B4 /* IOUSBMassStorageUFISubclass.h in Headers */,
-				44BA14D3013F496804CE15B4 /* IOUFIStorageServices.h in Headers */,
-				F5C72C5A02B5B8E201CE155F /* Debugging.h in Headers */,
+				52DEDA600D57A5B800F6FF83 /* IOUSBMassStorageClass.h in Headers */,
+				52DEDA610D57A5B800F6FF83 /* IOUSBMassStorageUFISubclass.h in Headers */,
+				52DEDA620D57A5B800F6FF83 /* IOUFIStorageServices.h in Headers */,
+				52DEDA630D57A5B800F6FF83 /* Debugging.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F3476D530F54778B00C7C673 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F3476D540F54778B00C7C673 /* IOUSBMassStorageClass.h in Headers */,
+				F3476D550F54778B00C7C673 /* IOUSBMassStorageUFISubclass.h in Headers */,
+				F3476D560F54778B00C7C673 /* IOUFIStorageServices.h in Headers */,
+				F3476D570F54778B00C7C673 /* Debugging.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		52DEDA5D0D57A5B800F6FF83 /* IOUSBMassStorageClass */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 52DEDA750D57A5B800F6FF83 /* Build configuration list for PBXNativeTarget "IOUSBMassStorageClass" */;
+			buildPhases = (
+				52DEDA5E0D57A5B800F6FF83 /* ShellScript */,
+				52DEDA5F0D57A5B800F6FF83 /* Headers */,
+				52DEDA670D57A5B800F6FF83 /* CopyFiles */,
+				52E7909E0D57C86500E273FB /* CopyFiles */,
+				52DEDA6C0D57A5B800F6FF83 /* Sources */,
+				52DEDA720D57A5B800F6FF83 /* Frameworks */,
+				52DEDA730D57A5B800F6FF83 /* Rez */,
+				52DEDA740D57A5B800F6FF83 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = IOUSBMassStorageClass;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = IOUSBMassStorageClass;
+			productReference = 52DEDA7A0D57A5B800F6FF83 /* IOUSBMassStorageClass.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+		F3476D510F54778B00C7C673 /* IOUSBMassStorageClass-Embedded */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F3476D670F54778B00C7C673 /* Build configuration list for PBXNativeTarget "IOUSBMassStorageClass-Embedded" */;
+			buildPhases = (
+				F3476D520F54778B00C7C673 /* ShellScript */,
+				F3476D530F54778B00C7C673 /* Headers */,
+				F3476D580F54778B00C7C673 /* CopyFiles */,
+				F3476D5C0F54778B00C7C673 /* CopyFiles */,
+				F3476D5E0F54778B00C7C673 /* Sources */,
+				F3476D640F54778B00C7C673 /* Frameworks */,
+				F3476D650F54778B00C7C673 /* Rez */,
+				F3476D660F54778B00C7C673 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "IOUSBMassStorageClass-Embedded";
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = IOUSBMassStorageClass;
+			productReference = F3476D6C0F54778B00C7C673 /* IOUSBMassStorageClass.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+/* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
 		089C1669FE841209C02AAC07 /* Project object */ = {
@@ -331,25 +266,39 @@
 			hasScannedForEncodings = 1;
 			mainGroup = 089C166AFE841209C02AAC07 /* IOUSBMassStorageClass */;
 			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = 52C568000EBA328600A6A1AA /* Products */;
+					ProjectRef = 52C567FF0EBA328600A6A1AA /* UMCLogger.xcodeproj */;
+				},
+			);
 			projectRoot = "";
 			targets = (
-				089C1673FE841209C02AAC07 /* IOUSBMassStorageClass */,
+				52DEDA5D0D57A5B800F6FF83 /* IOUSBMassStorageClass */,
+				F3476D510F54778B00C7C673 /* IOUSBMassStorageClass-Embedded */,
 			);
 		};
 /* End PBXProject section */
 
-/* Begin PBXResourcesBuildPhase section */
-		089C1675FE841209C02AAC07 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
+/* Begin PBXReferenceProxy section */
+		52C568070EBA328600A6A1AA /* UMCLogger */ = {
+			isa = PBXReferenceProxy;
+			fileType = "compiled.mach-o.executable";
+			path = UMCLogger;
+			remoteRef = 52C568060EBA328600A6A1AA /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+/* End PBXReferenceProxy section */
+
+/* Begin PBXRezBuildPhase section */
+		52DEDA730D57A5B800F6FF83 /* Rez */ = {
+			isa = PBXRezBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-/* End PBXResourcesBuildPhase section */
-
-/* Begin PBXRezBuildPhase section */
-		089C1679FE841209C02AAC07 /* Rez */ = {
+		F3476D650F54778B00C7C673 /* Rez */ = {
 			isa = PBXRezBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -359,16 +308,7 @@
 /* End PBXRezBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		06AA1264FFB2107B11CA28AA /* ShellScript */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
-		};
-		06AA1267FFB2110C11CA28AA /* ShellScript */ = {
+		52DEDA5E0D57A5B800F6FF83 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -377,117 +317,63 @@
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
+		52DEDA740D57A5B800F6FF83 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		F3476D520F54778B00C7C673 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		F3476D660F54778B00C7C673 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		089C1676FE841209C02AAC07 /* Sources */ = {
+		52DEDA6C0D57A5B800F6FF83 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				0160FD75FFE08B0F11CE15B4 /* IOUSBMassStorageClass.cpp in Sources */,
-				0160FD79FFE08B2711CE15B4 /* USBMassStorageClassBulkOnly.cpp in Sources */,
-				0160FD7BFFE08B5011CE15B4 /* USBMassStorageClassCBI.cpp in Sources */,
-				014FCB6300351B8D11CE15B4 /* IOUSBMassStorageUFISubclass.cpp in Sources */,
-				44BA14D5013F496804CE15B4 /* IOUFIStorageServices.cpp in Sources */,
+				52DEDA6D0D57A5B800F6FF83 /* IOUSBMassStorageClass.cpp in Sources */,
+				52DEDA6E0D57A5B800F6FF83 /* USBMassStorageClassBulkOnly.cpp in Sources */,
+				52DEDA6F0D57A5B800F6FF83 /* USBMassStorageClassCBI.cpp in Sources */,
+				52DEDA700D57A5B800F6FF83 /* IOUSBMassStorageUFISubclass.cpp in Sources */,
+				52DEDA710D57A5B800F6FF83 /* IOUFIStorageServices.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F3476D5E0F54778B00C7C673 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F3476D5F0F54778B00C7C673 /* IOUSBMassStorageClass.cpp in Sources */,
+				F3476D600F54778B00C7C673 /* USBMassStorageClassBulkOnly.cpp in Sources */,
+				F3476D610F54778B00C7C673 /* USBMassStorageClassCBI.cpp in Sources */,
+				F3476D620F54778B00C7C673 /* IOUSBMassStorageUFISubclass.cpp in Sources */,
+				F3476D630F54778B00C7C673 /* IOUFIStorageServices.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		2A859F8008E4AA8C00F73457 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				HEADER_SEARCH_PATHS = "";
-				INSTALLHDRS_COPY_PHASE = YES;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				KERNEL_MODULE = YES;
-				LIBRARY_SEARCH_PATHS = "";
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
-				MODULE_VERSION = 2.0.8;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = IOUSBMassStorageClass;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		2A859F8108E4AA8C00F73457 /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				HEADER_SEARCH_PATHS = "";
-				INSTALLHDRS_COPY_PHASE = YES;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				KERNEL_MODULE = YES;
-				LIBRARY_SEARCH_PATHS = "";
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
-				MODULE_VERSION = 2.0.8;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = IOUSBMassStorageClass;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		2A859F8208E4AA8C00F73457 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = "";
-				HEADER_SEARCH_PATHS = "";
-				INSTALLHDRS_COPY_PHASE = YES;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				KERNEL_MODULE = YES;
-				LIBRARY_SEARCH_PATHS = "";
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
-				MODULE_VERSION = 2.0.8;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = IOUSBMassStorageClass;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-			};
-			name = Default;
-		};
-		2A859F8408E4AA8C00F73457 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-			};
-			name = Development;
-		};
 		2A859F8508E4AA8C00F73457 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -500,25 +386,504 @@
 			};
 			name = Default;
 		};
+		52B3F8D40EF05AF300AC4FDC /* Logging */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Logging;
+		};
+		52B3F8D50EF05AF300AC4FDC /* Logging */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = "USB_MASS_STORAGE_DEBUG=1";
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOUSBMassStorageClass.plist";
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
+				MODULE_VERSION = 2.5.0;
+				OTHER_CFLAGS = "-Wno-format";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOUSBMassStorageClass;
+				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = NO;
+				STRIP_STYLE = debugging;
+				VALID_ARCHS = "i386 ppc x86_64";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Logging;
+		};
+		52B3F8D60EF05AFC00AC4FDC /* kprintf */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = kprintf;
+		};
+		52B3F8D70EF05AFC00AC4FDC /* kprintf */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = "USB_MASS_STORAGE_DEBUG=2";
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOUSBMassStorageClass.plist";
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
+				MODULE_VERSION = 2.5.0;
+				OTHER_CFLAGS = "-Wno-format";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOUSBMassStorageClass;
+				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = NO;
+				STRIP_STYLE = debugging;
+				VALID_ARCHS = "i386 ppc x86_64";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = kprintf;
+		};
+		52DEDA770D57A5B800F6FF83 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOUSBMassStorageClass.plist";
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
+				MODULE_VERSION = 2.5.0;
+				OTHER_CFLAGS = "-Wno-format";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOUSBMassStorageClass;
+				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = NO;
+				STRIP_STYLE = debugging;
+				VALID_ARCHS = "i386 ppc x86_64";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Deployment;
+		};
+		52DEDA780D57A5B800F6FF83 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOUSBMassStorageClass.plist";
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
+				MODULE_VERSION = 2.5.0;
+				OTHER_CFLAGS = "-Wno-format";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOUSBMassStorageClass;
+				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = NO;
+				STRIP_STYLE = debugging;
+				VALID_ARCHS = "i386 ppc x86_64";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Default;
+		};
+		F3476D680F54778B00C7C673 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOUSBMassStorageClass.plist";
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
+				MODULE_VERSION = 2.5.0;
+				OTHER_CFLAGS = "-Wno-format";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOUSBMassStorageClass;
+				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = NO;
+				STRIP_STYLE = debugging;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Deployment;
+		};
+		F3476D690F54778B00C7C673 /* kprintf */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = "USB_MASS_STORAGE_DEBUG=2";
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOUSBMassStorageClass.plist";
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
+				MODULE_VERSION = 2.5.0;
+				OTHER_CFLAGS = "-Wno-format";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOUSBMassStorageClass;
+				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = NO;
+				STRIP_STYLE = debugging;
+				VALID_ARCHS = "i386 ppc x86_64";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = kprintf;
+		};
+		F3476D6A0F54778B00C7C673 /* Logging */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = "USB_MASS_STORAGE_DEBUG=1";
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOUSBMassStorageClass.plist";
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
+				MODULE_VERSION = 2.5.0;
+				OTHER_CFLAGS = "-Wno-format";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOUSBMassStorageClass;
+				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = NO;
+				STRIP_STYLE = debugging;
+				VALID_ARCHS = "i386 ppc x86_64";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Logging;
+		};
+		F3476D6B0F54778B00C7C673 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOUSBMassStorageClass.plist";
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
+				MODULE_VERSION = 2.5.0;
+				OTHER_CFLAGS = "-Wno-format";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOUSBMassStorageClass;
+				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = NO;
+				STRIP_STYLE = debugging;
+				VALID_ARCHS = "i386 ppc x86_64";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Default;
+		};
+		F3476D6E0F5477AE00C7C673 /* Deployment-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = "Deployment-Embedded";
+		};
+		F3476D6F0F5477AE00C7C673 /* Deployment-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOUSBMassStorageClass.plist";
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
+				MODULE_VERSION = 2.5.0;
+				OTHER_CFLAGS = "-Wno-format";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOUSBMassStorageClass;
+				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = NO;
+				STRIP_STYLE = debugging;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = "Deployment-Embedded";
+		};
+		F3476D700F5477AE00C7C673 /* Deployment-Embedded */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = F3CC5ABF0F5C47DD002C23BE /* AspenSDK.xcconfig */;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOUSBMassStorageClass.plist";
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
+				MODULE_VERSION = 2.5.0;
+				OTHER_CFLAGS = "-Wno-format";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOUSBMassStorageClass;
+				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = NO;
+				STRIP_STYLE = debugging;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = "Deployment-Embedded";
+		};
+		F3476D710F5477B400C7C673 /* Logging-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = "Logging-Embedded";
+		};
+		F3476D720F5477B400C7C673 /* Logging-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = "USB_MASS_STORAGE_DEBUG=1";
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOUSBMassStorageClass.plist";
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
+				MODULE_VERSION = 2.5.0;
+				OTHER_CFLAGS = "-Wno-format";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOUSBMassStorageClass;
+				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = NO;
+				STRIP_STYLE = debugging;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = "Logging-Embedded";
+		};
+		F3476D730F5477B400C7C673 /* Logging-Embedded */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = F3CC5ABF0F5C47DD002C23BE /* AspenSDK.xcconfig */;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = "USB_MASS_STORAGE_DEBUG=1";
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOUSBMassStorageClass.plist";
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
+				MODULE_VERSION = 2.5.0;
+				OTHER_CFLAGS = "-Wno-format";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOUSBMassStorageClass;
+				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = NO;
+				STRIP_STYLE = debugging;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = "Logging-Embedded";
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		2A859F7F08E4AA8C00F73457 /* Build configuration list for PBXBundleTarget "IOUSBMassStorageClass" */ = {
+		2A859F8308E4AA8C00F73457 /* Build configuration list for PBXProject "IOUSBMassStorageClass" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				2A859F8008E4AA8C00F73457 /* Development */,
-				2A859F8108E4AA8C00F73457 /* Deployment */,
-				2A859F8208E4AA8C00F73457 /* Default */,
+				2A859F8508E4AA8C00F73457 /* Deployment */,
+				F3476D6E0F5477AE00C7C673 /* Deployment-Embedded */,
+				52B3F8D60EF05AFC00AC4FDC /* kprintf */,
+				52B3F8D40EF05AF300AC4FDC /* Logging */,
+				F3476D710F5477B400C7C673 /* Logging-Embedded */,
+				2A859F8608E4AA8C00F73457 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
 		};
-		2A859F8308E4AA8C00F73457 /* Build configuration list for PBXProject "IOUSBMassStorageClass" */ = {
+		52DEDA750D57A5B800F6FF83 /* Build configuration list for PBXNativeTarget "IOUSBMassStorageClass" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				2A859F8408E4AA8C00F73457 /* Development */,
-				2A859F8508E4AA8C00F73457 /* Deployment */,
-				2A859F8608E4AA8C00F73457 /* Default */,
+				52DEDA770D57A5B800F6FF83 /* Deployment */,
+				F3476D6F0F5477AE00C7C673 /* Deployment-Embedded */,
+				52B3F8D70EF05AFC00AC4FDC /* kprintf */,
+				52B3F8D50EF05AF300AC4FDC /* Logging */,
+				F3476D720F5477B400C7C673 /* Logging-Embedded */,
+				52DEDA780D57A5B800F6FF83 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		F3476D670F54778B00C7C673 /* Build configuration list for PBXNativeTarget "IOUSBMassStorageClass-Embedded" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F3476D680F54778B00C7C673 /* Deployment */,
+				F3476D700F5477AE00C7C673 /* Deployment-Embedded */,
+				F3476D690F54778B00C7C673 /* kprintf */,
+				F3476D6A0F54778B00C7C673 /* Logging */,
+				F3476D730F5477B400C7C673 /* Logging-Embedded */,
+				F3476D6B0F54778B00C7C673 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;

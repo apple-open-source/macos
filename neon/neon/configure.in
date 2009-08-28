@@ -4,9 +4,9 @@ dnl Extract the version (sans LF) from .version, created at release-time.
 m4_define(ne_version, [m4_translit(m4_include(.version), [
 ])])
 
-AC_INIT(neon, ne_version, [neon@webdav.org])
+AC_INIT(neon, ne_version, [neon@lists.manyfish.co.uk])
 
-AC_COPYRIGHT([Copyright 2000-2005 Joe Orton and others
+AC_COPYRIGHT([Copyright 2000-2008 Joe Orton and others
 This configure script may be copied, distributed and modified under the 
 terms of the GNU Library General Public license; see src/COPYING.LIB for
 more details.])
@@ -40,7 +40,7 @@ dnl is not available.
 m4_ifdef([AC_LIBTOOL_TAGS], [AC_LIBTOOL_TAGS([])])
 
 AC_DISABLE_SHARED
-AC_PROG_LIBTOOL
+m4_ifdef([LT_INIT], [LT_INIT], [AC_PROG_LIBTOOL])
 
 AC_EXEEXT
 
@@ -61,13 +61,6 @@ NEON_BUILD_BUNDLED=yes
 
 # Define NEON_VERSION etc and make the appropriate substitutions.
 NE_VERSIONS_BUNDLED
-
-# Pass the interface version on to libtool when linking libneon.la
-NEON_LINK_FLAGS="-version-info ${NEON_INTERFACE_VERSION}"
-
-# Library-internal symbols are in the ne__ namespace: tell libtool
-# to not export these from the built library if possible.
-NEON_LINK_FLAGS="$NEON_LINK_FLAGS -export-symbols-regex '^ne_[[^_]]'"
 
 # Checks to compile test suite
 NEON_TEST
@@ -111,6 +104,9 @@ if test $NE_FLAG_SSL = yes; then
    else
      AC_MSG_WARN([no openssl binary in \$PATH: SSL tests disabled])
    fi
+
+   AC_PATH_PROG(CERTUTIL, certutil, notfound)
+   AC_PATH_PROG(PK12UTIL, pk12util, notfound)
 fi
 if test $NE_FLAG_ZLIB = yes; then
    TESTS="$TESTS \$(ZLIB_TESTS)"
@@ -144,12 +140,28 @@ if test "$PKG_CONFIG" != "no"; then
 fi
 AC_SUBST(NEON_PC_LIBS)
 
+# Pass the interface version on to libtool when linking libneon.la
+NEON_LINK_FLAGS="-version-info ${NE_LIBTOOL_VERSINFO}"
+# If any non-default ABI variations are used, add them to the SONAME:
+if test "x${NE_LIBTOOL_RELEASE}y" != "xy"; then
+   NEON_LINK_FLAGS="${NEON_LINK_FLAGS} -release ${NE_LIBTOOL_RELEASE}"
+fi
+
+# Library-internal symbols are in the ne__ namespace: tell libtool
+# to not export these from the built library if possible.
+NEON_LINK_FLAGS="$NEON_LINK_FLAGS -export-symbols-regex '^ne_[[^_]]'"
+
+if test x${enable_shared}${pic_mode}z = xnodefaultz; then
+   CFLAGS="$CFLAGS -prefer-pic"
+fi
+
 # Bundled language catalogs
-ALL_LINGUAS="cs de fr ja nn ru tr zh"
+ALL_LINGUAS="cs de fr ja nn pl ru tr zh_CN"
 AC_SUBST(ALL_LINGUAS)
 
 AC_CONFIG_FILES([neon-config], [chmod +x neon-config])
 AC_CONFIG_FILES([Makefile src/Makefile test/Makefile neon.pc])
+AC_CONFIG_FILES([test/makekeys:test/makekeys.sh], [chmod +x test/makekeys])
 
 AC_SUBST(NEON_VERSION)
 AC_SUBST(NEON_BUILD_BUNDLED)
@@ -179,7 +191,7 @@ memleak)
   AC_MSG_NOTICE([Configured with development-only flags:
 
 WARNING: This copy of neon has been configured with memory leak checking
-WARNING: enabled, which should only be used in a development copy of neon.
+WARNING: enabled, which should only be used in a development build of neon.
 WARNING: This neon library should not be installed for use by applications.
 ]);;
 esac

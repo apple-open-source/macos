@@ -1,8 +1,8 @@
 /* bind.c - shell backend bind function */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-shell/bind.c,v 1.25.2.2 2006/01/03 22:16:23 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-shell/bind.c,v 1.27.2.3 2008/02/11 23:26:47 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -48,6 +48,16 @@ shell_back_bind(
 	Entry e;
 	FILE			*rfp, *wfp;
 	int			rc;
+
+	/* allow rootdn as a means to auth without the need to actually
+ 	 * contact the proxied DSA */
+	switch ( be_rootdn_bind( op, rs ) ) {
+	case SLAP_CB_CONTINUE:
+		break;
+
+	default:
+		return rs->sr_err;
+	}
 
 	if ( si->si_bind == NULL ) {
 		send_ldap_error( op, rs, LDAP_UNWILLING_TO_PERFORM,

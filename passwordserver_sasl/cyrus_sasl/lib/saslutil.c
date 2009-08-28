@@ -125,10 +125,12 @@ int sasl_encode64(const char *_in, unsigned inlen,
     
     /* Will it fit? */
     olen = (inlen + 2) / 3 * 4;
-    if (outlen)
+    if (outlen) {
       *outlen = olen;
-    if (outmax < olen)
+    }
+    if (outmax <= olen) {
       return SASL_BUFOVER;
+    }
 
     /* Do the work... */
     blah=(char *) out;
@@ -151,8 +153,7 @@ int sasl_encode64(const char *_in, unsigned inlen,
         *out++ = '=';
     }
 
-    if (olen < outmax)
-      *out = '\0';
+    *out = '\0';
     
     return SASL_OK;
 }

@@ -130,10 +130,10 @@ See remaining rules for examples.
 				<string>builtin:reset-password,privileged</string>
 				<string>builtin:auto-login,privileged</string>
 				<string>builtin:authenticate,privileged</string>
+				<string>loginwindow:success</string>
 				<string>HomeDirMechanism:login,privileged</string>
 				<string>HomeDirMechanism:status</string>
 				<string>MCXMechanism:login</string>
-				<string>loginwindow:success</string>
 				<string>loginwindow:done</string>
 			</array>
 		</dict>
@@ -194,9 +194,9 @@ See remaining rules for examples.
 			<key>group</key>
 			<string>admin</string>
 			<key>shared</key>
-			<false/>
+			<true/>
 			<key>timeout</key>
-			<integer>300</integer>
+			<integer>30</integer>
 		</dict>
 		<key>system.preferences</key>
 		<dict>
@@ -250,6 +250,19 @@ See remaining rules for examples.
 			<key>timeout</key>
 			<integer>0</integer>
 		</dict>
+		<key>system.preferences.security</key>
+		<dict>
+			<key>allow-root</key>
+			<true/>
+			<key>class</key>
+			<string>user</string>
+			<key>comment</key>
+			<string>Checked by the Admin framework when making changes to the Security preference pane.</string>
+			<key>group</key>
+			<string>admin</string>
+			<key>shared</key>
+			<false/>
+		</dict>
 		<key>system.printingmanager</key>
 		<dict>
 			<key>class</key>
@@ -266,7 +279,18 @@ See remaining rules for examples.
 			<key>class</key>
 			<string>user</string>
 			<key>group</key>
-			<string>_lpadmin</string>
+			<string>lpadmin</string>
+			<key>shared</key>
+			<true/>
+		</dict>
+		<key>system.print.operator</key>
+		<dict>
+			<key>allow-root</key>
+			<true/>
+			<key>class</key>
+			<string>user</string>
+			<key>group</key>
+			<string>_lpoperator</string>
 			<key>shared</key>
 			<true/>
 		</dict>
@@ -368,6 +392,23 @@ See remaining rules for examples.
 			<key>shared</key>
 			<false/>
 		</dict>
+		<key>com.apple.DiskManagement.</key>
+		<dict>
+			<key>class</key>
+			<string>rule</string>
+			<key>comment</key>
+			<string>Used by diskmanagementd to allow access to its privileged functions</string>
+			<key>k-of-n</key>
+			<integer>1</integer>
+			<key>rule</key>
+			<array>
+				<string>is-root</string>
+				<string>is-admin</string>
+				<string>default</string>
+			</array>
+			<key>shared</key>
+			<true/>
+		</dict>
 		<key>system.privilege.admin</key>
 		<dict>
 			<key>allow-root</key>
@@ -396,11 +437,36 @@ See remaining rules for examples.
 		Task_for_pid is called by programs requesting full control over another program
 		for things like debugging or performance analysis. This authorization only applies
 		if the requesting and target programs are run by the same user; it will never
-		authorize access to the program of another user.</string>
+		authorize access to the program of another user.  WARNING: administrators are advised not to modify this right.</string>
 			<key>group</key>
-			<string>admin</string>
+			<string>_developer</string>
 			<key>shared</key>
 			<true/>
+			<key>timeout</key>
+			<integer>36000</integer>
+		</dict>
+		<key>system.privilege.taskport.safe</key>
+		<dict>
+			<key>class</key>
+			<string>allow</string>
+			<key>comment</key>
+			<string>For use by Apple.</string>
+		</dict>
+		<key>system.privilege.taskport.debug</key>
+		<dict>
+			<key>allow-root</key>
+			<false/>
+			<key>class</key>
+			<string>user</string>
+			<key>comment</key>
+			<string>For use by Apple.  WARNING: administrators are advised
+            not to modify this right.</string>
+			<key>group</key>
+			<string>_developer</string>
+			<key>shared</key>
+			<true/>
+			<key>timeout</key>
+			<integer>36000</integer>
 		</dict>
 		<key>system.restart</key>
 		<dict>
@@ -410,8 +476,9 @@ See remaining rules for examples.
 			<string>Checked if the foreground console user tries to restart the system while other users are logged in via fast-user switching.</string>
 			<key>mechanisms</key>
 			<array>
+				<string>builtin:smartcard-sniffer,privileged</string>
 				<string>RestartAuthorization:restart</string>
-				<string>RestartAuthorization:authenticate</string>
+				<string>builtin:authenticate,privileged</string>
 				<string>RestartAuthorization:success</string>
 			</array>
 		</dict>
@@ -423,8 +490,9 @@ See remaining rules for examples.
 			<string>Checked if the foreground console user tries to shut down the system while other users are logged in via fast-user switching.</string>
 			<key>mechanisms</key>
 			<array>
+					<string>builtin:smartcard-sniffer,privileged</string>
 					<string>RestartAuthorization:shutdown</string>
-					<string>RestartAuthorization:authenticate</string>
+					<string>builtin:authenticate,privileged</string>
 					<string>RestartAuthorization:success</string>
 			</array>
 		</dict>
@@ -607,6 +675,64 @@ See remaining rules for examples.
 				<string>builtin:confirm-access-password</string>
 			</array>
 		</dict>
+		<key>com.apple.ZFSManager.</key>
+		<dict>
+			<key>class</key>
+			<string>rule</string>
+			<key>comment</key>
+			<string>Used by zfsmanager to allow access to destructive zfs functions</string>
+			<key>k-of-n</key>
+			<integer>1</integer>
+			<key>rule</key>
+			<array>
+				<string>is-root</string>
+				<string>is-admin</string>
+				<string>default</string>
+			</array>
+			<key>shared</key>
+			<true/>
+		</dict>
+        <key>com.apple.ServiceManagement.blesshelper</key>
+		<dict>
+			<key>comment</key>
+			<string>Used by the ServiceManagement framework to add a privileged helper tool to the system launchd.</string>
+			<key>class</key>
+			<string>rule</string>
+			<key>k-of-n</key>
+			<integer>1</integer>
+			<key>rule</key>
+			<array>
+				<string>is-root</string>
+				<string>authenticate-admin-30</string>
+			</array>
+		</dict>
+        <key>com.apple.ServiceManagement.daemons.modify</key>
+		<dict>
+			<key>comment</key>
+			<string>Used by the ServiceManagement framework to make changes to the system launchd's set of daemons.</string>
+			<key>class</key>
+			<string>rule</string>
+			<key>k-of-n</key>
+			<integer>1</integer>
+			<key>rule</key>
+			<array>
+				<string>is-root</string>
+				<string>authenticate-admin-30</string>
+			</array>
+		</dict>
+		<key>com.apple.pcastagentconfigd.</key>
+		<dict>
+			<key>comment</key>
+			<string>Wildcard for rights checked by Podcast Producer when making changes to your camera binding.</string>
+			<key>class</key>
+			<string>user</string>
+			<key>group</key>
+			<string>admin</string>
+			<key>allow-root</key>
+			<true/>
+			<key>shared</key>
+			<false/>
+		</dict>
 	</dict>
 	<key>rules</key>
 	<dict>
@@ -630,12 +756,50 @@ See remaining rules for examples.
 			<key>timeout</key>
 			<integer>0</integer>
 		</dict>
+		<key>authenticate-admin-30</key>
+		<dict>
+			<key>class</key>
+			<string>user</string>
+			<key>comment</key>
+			<string>Like the default rule, but 
+            credentials remain valid for only 30 seconds after they've 
+            been obtained.  An acquired credential is shared by all clients.
+			</string>
+			<key>group</key>
+			<string>admin</string>
+			<key>shared</key>
+			<true/>
+			<key>timeout</key>
+			<integer>30</integer>
+		</dict>
+		<key>authenticate-developer</key>
+		<dict>
+			<key>class</key>
+			<string>user</string>
+			<key>comment</key>
+			<string>Authenticate as a developer.</string>
+			<key>group</key>
+			<string>_developer</string>
+			<key>shared</key>
+			<true/>
+			<key>timeout</key>
+			<integer>36000</integer>
+		</dict>
 		<key>authenticate-session-owner</key>
 		<dict>
 			<key>class</key>
 			<string>user</string>
 			<key>comment</key>
 			<string>Authenticate as the session owner.</string>
+			<key>session-owner</key>
+			<true/>
+		</dict>
+		<key>authenticate-session-user</key>
+		<dict>
+			<key>class</key>
+			<string>user</string>
+			<key>comment</key>
+			<string>Same as authenticate-session-owner.</string>
 			<key>session-owner</key>
 			<true/>
 		</dict>
@@ -666,6 +830,17 @@ See remaining rules for examples.
 			<false/>
 			<key>shared</key>
 			<string>true</string>
+		</dict>
+		<key>is-developer</key>
+		<dict>
+			<key>class</key>
+			<string>user</string>
+			<key>comment</key>
+			<string>Verify that the user asking for authorization is a developer.</string>
+			<key>group</key>
+			<string>_developer</string>
+			<key>authenticate-user</key>
+			<false/>
 		</dict>
 		<key>is-root</key>
 		<dict>

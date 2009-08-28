@@ -1,0 +1,53 @@
+# -*- tcl -*-
+# Commands covered:	ripemd128
+#
+# This file contains a collection of tests for one or more of the commands
+# the TRF extension. Sourcing this file into Tcl runs the tests and generates
+# output for errors.  No output means no errors were found.
+#
+# Copyright (c) 1996 Andreas Kupries (a.kupries@westend.com)
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# $Id: rmd128_bb.test,v 1.1 1999/09/19 10:33:30 aku Exp $
+
+
+foreach {i in digest} {
+    0 {}
+    cdf26213a150dc3ecb610f18f6b38b46
+
+    1 a
+    86be7afa339d0fc7cfc785e72f578d33
+
+    2 abc
+    c14a12199c66e4ba84636b0f69144c77
+
+    3 {message digest}
+    9e327b3d6e523062afc1132d7df9d1b8
+
+    4 abcdefghijklmnopqrstuvwxyz
+    fd2aa607f71dc8f510714922b371834e
+
+    5 abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq
+    a1aa0689d0fafa2ddc22e88b49133a06
+
+    6 ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789
+    d1e959eb179c911faea4624c60c5c702
+
+    7 12345678901234567890123456789012345678901234567890123456789012345678901234567890
+    3f45ef194732c2dbb2c4a2c769795fa3
+} {
+    if {[info tclversion] < 8.0} {
+	test ripemd128-4.$i-7.6 {ripemd128, immediate} {
+	    exec_md ripemd128 [text2hex $in]
+	} [string toupper $digest]
+    } else {
+	test ripemd128-4.$i-8.x {ripemd128, immediate} {
+	    hex -m e [ripemd128 $in]
+	} [string toupper $digest]
+    }
+}
+
+
+::tcltest::cleanupTests

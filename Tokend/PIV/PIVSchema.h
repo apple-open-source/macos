@@ -45,7 +45,7 @@ class PIVSchema : public Tokend::Schema
 	NOCOPY(PIVSchema)
 public:
     PIVSchema();
-    virtual ~PIVSchema();
+	virtual ~PIVSchema();
 
 	virtual void create();
 
@@ -57,7 +57,7 @@ private:
 	PIVDataAttributeCoder mPIVDataAttributeCoder;
 
 	Tokend::ConstAttributeCoder mKeyAlgorithmCoder;
-	Tokend::ConstAttributeCoder mKeySizeCoder;
+	PIVKeySizeAttributeCoder mKeySizeCoder;
 
 	PIVKeyHandleFactory mPIVKeyHandleFactory;
 };

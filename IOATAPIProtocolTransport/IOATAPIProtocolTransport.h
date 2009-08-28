@@ -335,6 +335,8 @@ protected:
 	// The TurnDrivePowerOff method is called to turn power to the drive OFF
 	IOReturn				TurnDrivePowerOff ( void );
 	
+	IOReturn				SendCommand ( IOATACommand * cmd );
+	IOReturn				GatedWaitForRequest ( void * data );
 	
 private:
 	

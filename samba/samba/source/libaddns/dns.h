@@ -3,6 +3,7 @@
 
   Copyright (C) 2006 Krishna Ganugapati <krishnag@centeris.com>
   Copyright (C) 2006 Gerald Carter <jerry@samba.org>
+  Copyright (C) 2008 Apple Inc. All rights reserved.
 
      ** NOTE! The following LGPL license applies to the libaddns
      ** library. This does NOT imply that all of Samba is released
@@ -216,6 +217,7 @@ void *talloc_zeronull(const void *context, size_t size, const char *name);
 #define QTYPE_MD        3
 #define QTYPE_CNAME	5
 #define QTYPE_SOA	6
+#define QTYPE_PTR	12
 #define QTYPE_ANY	255
 #define	QTYPE_TKEY	249
 #define QTYPE_TSIG	250
@@ -280,6 +282,11 @@ TXT             16 text strings
 #define  DNS_NAME_ERROR		3
 #define  DNS_NOT_IMPLEMENTED	4
 #define  DNS_REFUSED		5
+#define  DNS_YXDOMAIN		6
+#define  DNS_YYRRSET		7
+#define  DNS_NXRRSET		8
+#define  DNS_NOTAUTH		9
+#define  DNS_NOTZONE		10
 
 typedef long HANDLE;
 
@@ -502,11 +509,16 @@ DNS_ERROR dns_sign_update(struct dns_update_request *req,
 			  const char *keyname,
 			  const char *algorithmname,
 			  time_t time_signed, uint16 fudge);
-DNS_ERROR dns_create_update_request(TALLOC_CTX *mem_ctx,
+DNS_ERROR dns_create_update_request_a(TALLOC_CTX *mem_ctx,
 				    const char *domainname,
 				    const char *hostname,
 				    const struct in_addr *ip_addr,
 				    size_t num_adds,
+				    struct dns_update_request **preq);
+DNS_ERROR dns_create_update_request_ptr(TALLOC_CTX *mem_ctx,
+				    const char *hostname,
+				    const char *zone_name,
+				    const struct in_addr ip,
 				    struct dns_update_request **preq);
 
 #endif	/* HAVE_GSSAPI_SUPPORT */

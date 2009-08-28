@@ -10,13 +10,13 @@ DIR := $(OBJROOT)/$(NAME)/$(NAMEVERSION)
 
 $(DIR):
 	mkdir -p $(OBJROOT)/$(NAME)
-	gnutar xzf $(TARBALL) -C $(OBJROOT)/$(NAME)
+	gnutar xozf $(TARBALL) -C $(OBJROOT)/$(NAME)
 
 install: realinstall postinstall
 
 realinstall: $(DIR) custompatching
 	cd $(DIR) && \
-	CFLAGS="$(RC_CFLAGS)" LDFLAGS="$(RC_CFLAGS)" \
+	ARCHFLAGS="$(RC_CFLAGS)" \
 	python setup.py install --home="$(EXTRAS)" --root="$(DSTROOT)" $(SETUPARGS)
 
 # allow custom patching before running setup.py

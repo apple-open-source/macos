@@ -1,6 +1,6 @@
 /*
  *******************************************************************************
- * Copyright (C) 1996-2005, International Business Machines Corporation and    *
+ * Copyright (C) 1996-2007, International Business Machines Corporation and    *
  * others. All Rights Reserved.                                                *
  *******************************************************************************
  */
@@ -83,6 +83,11 @@ class IntlTestRBNF : public IntlTest {
   virtual void TestItalianSpellout();
 
   /**
+   * Perform a simple spot check on the Portuguese spellout rules
+   */
+  virtual void TestPortugueseSpellout();
+
+  /**
    * Perform a simple spot check on the German spellout rules
    */
   virtual void TestGermanSpellout();
@@ -117,8 +122,14 @@ class IntlTestRBNF : public IntlTest {
    */
   virtual void TestHebrewFraction();
 
+  /**
+   * Regression test, don't truncate
+   * when doing multiplier substitution to a number format rule.
+   */
+  virtual void TestMultiplierSubstitution();
+
  protected:
-  virtual void doTest(RuleBasedNumberFormat* formatter, const char* testData[][2], UBool testParsing);
+  virtual void doTest(RuleBasedNumberFormat* formatter, const char* const testData[][2], UBool testParsing);
   virtual void doLenientParseTest(RuleBasedNumberFormat* formatter, const char* testData[][2]);
 
 /* U_HAVE_RBNF */

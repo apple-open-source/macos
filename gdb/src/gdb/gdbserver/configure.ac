@@ -144,6 +144,16 @@ if test "$srv_linux_thread_db" = "yes"; then
   USE_THREAD_DB="-DUSE_THREAD_DB"
 fi
 
+# APPLE LOCAL - This is to get me to macosx...
+if test "x$srv_platform_include" = "x"; then
+  GDBSERVER_PLATFORM_INCLUDE=
+else
+  GDBSERVER_PLATFORM_INCLUDE="$srv_platform_include"
+fi
+echo includes is "$srv_platform_include" PLATFORM is: "$GDBSERVER_PLATFORM_INCLUDE"
+AC_SUBST(GDBSERVER_PLATFORM_INCLUDE)
+# END APPLE LOCAL
+
 GDBSERVER_DEPFILES="$srv_regobj $srv_tgtobj $srv_thread_depfiles"
 GDBSERVER_LIBS="$srv_libs"
 

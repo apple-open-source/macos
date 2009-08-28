@@ -1,5 +1,5 @@
 /* Functions to analyze and validate GIMPLE trees.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
    Rewritten by Jason Merrill <jason@redhat.com>
 
@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -34,8 +34,6 @@ Boston, MA 02111-1307, USA.  */
 #include "bitmap.h"
 
 /* For the definitive definition of GIMPLE, see doc/tree-ssa.texi.  */
-
-static inline bool is_gimple_id (tree);
 
 /* Validation of GIMPLE expressions.  */
 
@@ -73,6 +71,7 @@ is_gimple_formal_tmp_rhs (tree t)
     case COMPLEX_CST:
     case VECTOR_CST:
     case OBJ_TYPE_REF:
+    case ASSERT_EXPR:
       return true;
 
     default:
@@ -116,7 +115,9 @@ is_gimple_mem_rhs (tree t)
      to be stored in memory, since it's cheap and prevents erroneous
      tailcalls (PR 17526).  */
   if (is_gimple_reg_type (TREE_TYPE (t))
-      || TYPE_MODE (TREE_TYPE (t)) != BLKmode)
+      || (TYPE_MODE (TREE_TYPE (t)) != BLKmode
+	  && (TREE_CODE (t) != CALL_EXPR
+              || ! aggregate_value_p (t, t))))
     return is_gimple_val (t);
   else
     return is_gimple_formal_tmp_rhs (t);
@@ -194,11 +195,12 @@ is_gimple_stmt (tree t)
 {
   enum tree_code code = TREE_CODE (t);
 
-  if (IS_EMPTY_STMT (t))
-    return 1;
-
   switch (code)
     {
+    case NOP_EXPR:
+      /* The only valid NOP_EXPR is the empty statement.  */
+      return IS_EMPTY_STMT (t);
+
     case BIND_EXPR:
     case COND_EXPR:
       /* These are only valid if they're void.  */
@@ -217,6 +219,16 @@ is_gimple_stmt (tree t)
     case RESX_EXPR:
     case PHI_NODE:
     case STATEMENT_LIST:
+    case OMP_PARALLEL:
+    case OMP_FOR:
+    case OMP_SECTIONS:
+    case OMP_SECTION:
+    case OMP_SINGLE:
+    case OMP_MASTER:
+    case OMP_ORDERED:
+    case OMP_CRITICAL:
+    case OMP_RETURN:
+    case OMP_CONTINUE:
       /* These are always void.  */
       return true;
 
@@ -243,7 +255,7 @@ is_gimple_variable (tree t)
 
 /*  Return true if T is a GIMPLE identifier (something with an address).  */
 
-static inline bool
+bool
 is_gimple_id (tree t)
 {
   return (is_gimple_variable (t)
@@ -259,12 +271,10 @@ is_gimple_id (tree t)
 bool
 is_gimple_reg_type (tree type)
 {
-  return (!AGGREGATE_TYPE_P (type)
-          && TREE_CODE (type) != COMPLEX_TYPE);
+  return !AGGREGATE_TYPE_P (type);
 }
 
-
-/* Return true if T is a scalar register variable.  */
+/* Return true if T is a non-aggregate register variable.  */
 
 bool
 is_gimple_reg (tree t)
@@ -272,8 +282,12 @@ is_gimple_reg (tree t)
   if (TREE_CODE (t) == SSA_NAME)
     t = SSA_NAME_VAR (t);
 
+  if (MTAG_P (t))
+    return false;
+
   if (!is_gimple_variable (t))
     return false;
+
   if (!is_gimple_reg_type (TREE_TYPE (t)))
     return false;
 
@@ -300,8 +314,14 @@ is_gimple_reg (tree t)
   if (TREE_CODE (t) == VAR_DECL && DECL_HARD_REGISTER (t))
     return false;
 
+  /* Complex values must have been put into ssa form.  That is, no 
+     assignments to the individual components.  */
+  if (TREE_CODE (TREE_TYPE (t)) == COMPLEX_TYPE)
+    return DECL_COMPLEX_GIMPLE_REG_P (t);
+
   return true;
 }
+
 
 /* Returns true if T is a GIMPLE formal temporary variable.  */
 

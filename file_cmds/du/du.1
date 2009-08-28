@@ -126,6 +126,10 @@ Files having multiple hard links are counted (and displayed) a single
 time per
 .Nm du
 execution.
+Directories having multiple hard links (typically Time Machine backups) are
+counted a single time per
+.Nm du
+execution.
 .Sh ENVIRONMENT
 .Bl -tag -width BLOCKSIZE
 .It Ev BLOCKSIZE
@@ -152,6 +156,9 @@ options may be specified.
 The command will detect and report a SYMLOOP error
 (loop involving symbolic links).
 In legacy mode, this is not the case.
+.Pp
+For more information about legacy mode, see
+.Xr compat 5 .
 .Sh SEE ALSO
 .Xr df 1 ,
 .Xr fts 3 ,

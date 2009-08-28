@@ -1,0 +1,253 @@
+--- /tmp/jabberd-2.1.24.1/router/router.c	2008-04-27 02:57:33.000000000 -0700
++++ ./jabberd2/router/router.c	2009-01-28 12:24:08.000000000 -0800
+@@ -20,6 +20,11 @@
+ 
+ #include "router.h"
+ 
++#define MAX_JID 3072    // node(1023) + '@'(1) + domain(1023) + '/'(1) + resource(1023) + '\0'(1)
++#define MAX_MESSAGE 65535
++#define SECS_PER_DAY 86400
++#define BYTES_PER_MEG 1048576
++
+ /** info for broadcasts */
+ typedef struct broadcast_st {
+     router_t      r;
+@@ -424,6 +429,45 @@ static void _router_process_route(compon
+         /* push it out */
+         log_debug(ZONE, "writing route for '%s' to %s, port %d", to->domain, target->ip, target->port);
+ 
++        /* if logging enabled, log messages that match our criteria */
++        if (comp->r->message_logging_enabled) {
++            int attr_msg_to;
++            int attr_msg_from;
++            int attr_route_to;
++            int attr_route_from;
++            jid_t jid_msg_from = NULL;
++            jid_t jid_msg_to = NULL;
++            jid_t jid_route_from = NULL;
++            jid_t jid_route_to = NULL;
++
++            if ((NAD_ENAME_L(nad, 1) == 7 && strncmp("message", NAD_ENAME(nad, 1), 7) == 0) &&		// has a "message" element 
++                ((attr_route_from = nad_find_attr(nad, 0, -1, "from", NULL)) >= 0) &&				
++                ((nad_find_attr(nad, 1, -1, "type", "chat") >= 0) ||                                // has type='chat' attribute
++                    ((comp->r->log_group_chats) &&                                            // logging is enabled for group chats
++                        // ignore messages sent from mu-conference, if a filter is defined:
++                        ((strncmp(NAD_AVAL(nad, attr_route_from), comp->r->filter_muc_messages_from, strlen(comp->r->filter_muc_messages_from)) != 0) &&
++                        (nad_find_attr(nad, 1, -1, "type", "groupchat") >= 0)))) &&           // has type='groupchat' attribute
++                ((attr_route_to = nad_find_attr(nad, 0, -1, "to", NULL)) >= 0) &&					
++                ((strncmp(NAD_AVAL(nad, attr_route_to), "c2s", 3)) != 0) &&							// ignore messages to "c2s" or we'd have dups
++                ((jid_route_from = jid_new(comp->r->pc, NAD_AVAL(nad, attr_route_from), NAD_AVAL_L(nad, attr_route_from))) != NULL) &&	// has valid JID source in route
++                ((jid_route_to = jid_new(comp->r->pc, NAD_AVAL(nad, attr_route_to), NAD_AVAL_L(nad, attr_route_to))) != NULL) &&		// has valid JID destination in route
++                ((attr_msg_from = nad_find_attr(nad, 1, -1, "from", NULL)) >= 0) &&
++                ((attr_msg_to = nad_find_attr(nad, 1, -1, "to", NULL)) >= 0) &&
++                ((jid_msg_from = jid_new(comp->r->pc, NAD_AVAL(nad, attr_msg_from), NAD_AVAL_L(nad, attr_msg_from))) != NULL) &&	// has valid JID source in message 
++                ((jid_msg_to = jid_new(comp->r->pc, NAD_AVAL(nad, attr_msg_to), NAD_AVAL_L(nad, attr_msg_to))) != NULL))			// has valid JID dest in message
++            {  
++                message_log(nad, comp->r, jid_full(jid_msg_from), jid_full(jid_msg_to));
++            }
++            if (jid_msg_from != NULL)
++                jid_free(jid_msg_from);
++            if (jid_msg_to != NULL)
++                jid_free(jid_msg_to);
++            if (jid_route_from != NULL)
++                jid_free(jid_route_from);
++            if (jid_route_to != NULL)
++                jid_free(jid_route_to);
++        }
++
+         _router_comp_write(target, nad);
+ 
+         return;
+@@ -948,3 +992,192 @@ int router_mio_callback(mio_t m, mio_act
+     return 0;
+ }
+ 
++int message_log(nad_t nad, router_t r, char *msg_from, char *msg_to) 
++{
++	time_t t;
++	char *time_pos;
++	int time_sz;
++	struct stat filestat;
++	FILE *message_file;
++	short int new_msg_file = 0;
++	int i;
++	int nad_body_len = 0;
++	long int nad_body_start = 0;
++	int body_count; 
++	char *nad_body = NULL;
++	char body[MAX_MESSAGE*2];
++
++	assert((int) (nad != NULL));
++
++	/* timestamp */
++	t = time(NULL);
++	time_pos = ctime(&t);
++	time_sz = strlen(time_pos);
++	/* chop off the \n */
++	time_pos[time_sz-1]=' ';
++
++	// Find the message body
++	for (i = 0; NAD_ENAME_L(nad, i) > 0; i++) 
++	{
++		if((NAD_ENAME_L(nad, i) == 4) && (strncmp("body", NAD_ENAME(nad, i), 4) == 0))
++		{
++			nad_body_len = NAD_CDATA_L(nad, i);
++			if (nad_body_len > 0) {
++				nad_body = NAD_CDATA(nad, i);
++			} else {
++				log_write(r->log, LOG_NOTICE, "message_log received a message with empty body");
++				return 0;
++			}
++			break;
++		}
++	}
++	
++        // Don't log anything if we found no NAD body
++        if (nad_body == NULL) {
++            return 0;
++        }
++
++        // Store original pointer address so that we know when to stop iterating through nad_body
++        nad_body_start = nad_body;
++
++	// replace line endings with "\n"
++	for (body_count = 0; (nad_body < nad_body_start + nad_body_len) && (body_count < (MAX_MESSAGE*2)-3); nad_body++) {
++		if (*nad_body == '\n') {
++			body[body_count++] = '\\';
++			body[body_count++] = 'n';
++		} else {
++			body[body_count++] = *nad_body;
++		}
++	}
++	body[body_count] = '\0';
++
++	// Log our message
++	umask((mode_t) 0077);
++	if (stat(r->message_logging_fullpath, &filestat)) {
++		new_msg_file = 1;
++	}
++
++	if ((message_file = fopen(r->message_logging_fullpath, "a")) == NULL) 
++	{
++		log_write(r->log, LOG_ERR, "Unable to open message log for writing: %s", strerror(errno));
++		return 1;
++	}
++
++	if (new_msg_file) {
++		if (! fprintf(message_file, "# This message log is created by the jabberd router.\n"))
++		{
++			log_write(r->log, LOG_ERR, "Unable to write to message log: %s", strerror(errno));
++			return 1;
++		}
++		fprintf(message_file, "# See router.xml for logging options.\n");
++		fprintf(message_file, "# Format: (Date)<tab>(From JID)<tab>(To JID)<tab>(Message Body)<line end>\n");
++	}
++
++	if (! fprintf(message_file, "%s\t%s\t%s\t%s\n", time_pos, msg_from, msg_to, body))
++	{
++		log_write(r->log, LOG_ERR, "Unable to write to message log: %s", strerror(errno));
++		return 1;
++	}
++		
++	fclose(message_file);
++
++	return 0;
++}
++
++/* Determine if message log needs to be rolled, and do so if necessary */
++int roll_message_log(router_t r)
++{
++	char logfile_fullpath[243] = {0};	// path and filename, not including .xxxx.gz for rolled logs
++	char logfile_compressed_path[255] = {0};	// path and filename + room for .xxxx.gz
++	char logfile_uncompressed_path[243] = {0};	// path and filename of uncompressed (previously active) log
++	char logfile_compressed_path_new[255] = {0};	// path and filename + room for .xxxx.gz
++	char logfile_uncompressed_path_new[255] = {0};	// path and filename + room for .xxxx.gz
++	char gzip_command[640] = {0};
++	struct stat64 filestat;
++	struct stat64 compressed_stat;
++	short int bool_time_to_roll = 0;	
++	long curr_time = time(NULL);
++	int oldest_log_file;
++	int num_old_files;
++	pid_t pid;
++	int i;
++	FILE *message_file;
++
++	snprintf(logfile_fullpath, sizeof(logfile_fullpath), "%s/%s", r->message_logging_dir, r->message_logging_file);
++
++	if (stat64(logfile_fullpath, &filestat)) 
++	{
++		// Most likely the log hasn't been created yet.
++		log_debug(ZONE, "cannot stat message log: %s", logfile_fullpath);
++		return 0;
++	}
++	
++	// determine if its time to roll the logs 
++	if (((r->message_logging_roll_days > 0) && (filestat.st_birthtime + (r->message_logging_roll_days*SECS_PER_DAY) <= curr_time)) ||
++		((r->message_logging_roll_megs > 0) && (filestat.st_size > 0) && (r->message_logging_roll_megs <= ((long long)filestat.st_size/BYTES_PER_MEG))))
++	{
++		// roll the logs	
++		for (num_old_files = 0; ; num_old_files++) 
++		{
++			snprintf(logfile_compressed_path, sizeof(logfile_compressed_path), "%s/%s.%d.gz", r->message_logging_dir, r->message_logging_file, num_old_files);
++			// check to see if compressed file exists
++			if (stat64(logfile_compressed_path, &compressed_stat)) 
++			{
++				//cannot find the file so exit the loop
++				break;
++			}	
++		}
++		// make num_old_files an index to the oldest logfile. -1 value indicates that no compressed logfiles exist.
++		num_old_files--;
++
++		umask((mode_t) 0077);
++
++		// from oldest to newest, rename logs by increasing their suffix by 1
++		for (i = num_old_files; i >= 0; i--)
++		{
++			snprintf(logfile_compressed_path, sizeof(logfile_compressed_path), "%s/%s.%d.gz", r->message_logging_dir, r->message_logging_file, i);
++			snprintf(logfile_compressed_path_new, sizeof(logfile_compressed_path_new), "%s/%s.%d.gz", r->message_logging_dir, r->message_logging_file, i+1);
++			if ((rename(logfile_compressed_path, logfile_compressed_path_new)) != 0)
++			{
++				log_write(r->log, LOG_ERR, "Unable to rename message log: %s  ... to: %s", logfile_compressed_path, logfile_compressed_path_new);
++				return 1;
++			}
++		}
++
++		// add a .0 suffix to the uncompressed file
++		snprintf(logfile_uncompressed_path, sizeof(logfile_uncompressed_path), "%s/%s", r->message_logging_dir, r->message_logging_file);
++		snprintf(logfile_uncompressed_path_new, sizeof(logfile_uncompressed_path_new), "%s/%s.0", r->message_logging_dir, r->message_logging_file);
++		if ((rename(logfile_uncompressed_path, logfile_uncompressed_path_new))  != 0)
++		{
++			log_write(r->log, LOG_ERR, "Unable to rename message log: %s  ... to: %s : %s", logfile_uncompressed_path, logfile_uncompressed_path_new, strerror(errno));
++			return 1;
++		}
++
++		/*  gzip the uncompressed log file */
++		// fork a child to do the gzip
++		if ((pid = fork()) < 0)
++		{
++			log_write(r->log, LOG_ERR, "fork() problem when attempting to roll and compress logs: %s", strerror(errno));
++		} else if (pid == 0)
++		{		//child
++			execl("/usr/bin/gzip", "gzip", "-q", logfile_uncompressed_path_new, (char *)NULL);
++			if (errno != 0)
++				log_write(r->log, LOG_ERR, "execl() error: %s", strerror(errno));
++		}
++		
++		// initialize a new file
++		if ((message_file = fopen(logfile_uncompressed_path, "w+")) == NULL) 
++		{
++			log_write(r->log, LOG_ERR, "Unable to open message log for writing: %s: %s", logfile_uncompressed_path, strerror(errno));
++			return 1;
++		}
++
++		fprintf(message_file, "# This message log is created by the jabberd router.\n");
++		fprintf(message_file, "# See router.xml for logging options.\n");
++		fprintf(message_file, "# Format: (Date)<tab>(From JID)<tab>(To JID)<tab>(Message Body)<line end>\n");
++
++
++		fclose(message_file);
++	}
++	return 0;
++}

@@ -1,0 +1,11 @@
+--- lib/argp-fmtstream.h.orig	2008-08-13 20:20:34.000000000 -0700
++++ lib/argp-fmtstream.h	2008-08-13 20:25:11.000000000 -0700
+@@ -198,7 +198,7 @@
+ #endif
+ 
+ #ifndef ARGP_FS_EI
+-#define ARGP_FS_EI extern inline
++#define ARGP_FS_EI extern inline __attribute__ ((__gnu_inline__))
+ #endif
+ 
+ ARGP_FS_EI size_t

@@ -1,4 +1,4 @@
-# Copyright (C) 2001 by the Free Software Foundation, Inc.
+# Copyright (C) 2001-2008 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -81,10 +81,10 @@ yadda yadda yadda
         # second message is the message/rfc822 attachment of the original
         # message.
         msg1 = qmsg.get_payload(0)
-        eq(msg1.get_type(), 'text/plain')
+        eq(msg1.get_content_type(), 'text/plain')
         eq(msg1.get_payload(), '[No bounce details are available]\n')
         msg2 = qmsg.get_payload(1)
-        eq(msg2.get_type(), 'message/rfc822')
+        eq(msg2.get_content_type(), 'message/rfc822')
         unless(not msg2.is_multipart())
         msg3 = msg2.get_payload()
         eq(msg3.get_payload(), 'yadda yadda yadda\n')

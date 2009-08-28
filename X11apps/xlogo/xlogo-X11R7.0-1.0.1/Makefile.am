@@ -34,12 +34,6 @@ xlogo_SOURCES =	\
         xlogo.c \
         xlogo.h
 
-if XAW_USE_XPRINT
-xlogo_SOURCES += \
-        print.c \
-        print.h 
-endif
-
 appman_PRE = \
         xlogo.man
 
@@ -49,8 +43,8 @@ appdefaultdir = @appdefaultdir@
 
 
 APPDEFAULTFILES = \
-        XLogo \
-        XLogo-color
+        app-defaults/XLogo \
+        app-defaults/XLogo-color
 
 
 SUFFIXES = .ad

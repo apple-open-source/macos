@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,10 +38,19 @@
 #include <asl_store.h>
 
 #define SECONDS_PER_DAY 86400
-#define DEFAULT_MAX_SIZE 51200000
-#define DEFAULT_TTL 2
+#define DEFAULT_MAX_SIZE 150000000
+#define DEFAULT_TTL 7
 
-#define LONGTTL_TMP_FILE "LongTTL.new"
+#define IndexNull (uint32_t)-1
+#define _PATH_ASL_CONF "/etc/asl.conf"
+
+/* global */
+static char *archive = NULL;
+static char *store_dir = PATH_ASL_STORE;
+static time_t ttl;
+static size_t max_size;
+static mode_t archive_mode = 0400;
+static int debug;
 
 typedef struct name_list_s
 {
@@ -49,25 +58,6 @@ typedef struct name_list_s
 	size_t size;
 	struct name_list_s *next;
 } name_list_t;
-
-void
-mgr_exit(const char *store, int status)
-{
-	char *s;
-
-	if (store == NULL) exit(status);
-
-	s = NULL;
-	asprintf(&s, "%s/%s", store, FILE_ASL_STORE_SWEEP_SEMAPHORE);
-	if (s != NULL)
-	{
-		unlink(s);
-		free(s);
-	}
-	else exit(1);
-
-	exit(status);
-}
 
 name_list_t *
 add_to_list(name_list_t *l, const char *name, size_t size)
@@ -121,117 +111,302 @@ free_list(name_list_t *l)
 }
 
 uint32_t
-do_match(const char *infile, const char *outfile, int do_ttl, time_t expire_time)
+do_copy(const char *infile, const char *outfile, mode_t mode)
 {
-	asl_search_result_t q, *query, *res;
-	asl_msg_t *m, *qm[1];
-	asl_file_t *in, *out;
+	asl_search_result_t *res;
+	asl_file_t *f;
 	uint32_t status, i;
-	char str[64];
 	uint64_t mid;
 
 	if (infile == NULL) return ASL_STATUS_INVALID_ARG;
 	if (outfile == NULL) return ASL_STATUS_INVALID_ARG;
 
-	in = NULL;
-	status = asl_file_open_read(infile, &in);
+	f = NULL;
+	status = asl_file_open_read(infile, &f);
 	if (status != ASL_STATUS_OK) return status;
-
-	query = NULL;
-	q.count = 1;
-	q.curr = 0;
-	q.msg = qm;
-	qm[0] = NULL;
-	m = NULL;
-
-	if (do_ttl == 1)
-	{
-		query = &q;
-		m = asl_new(ASL_TYPE_QUERY);
-		if (m == NULL)
-		{
-			asl_file_close(in);
-			return ASL_STATUS_NO_MEMORY;
-		}
-
-		qm[0] = m;
-
-		if (expire_time != 0)
-		{
-			snprintf(str, sizeof(str), "%llu", (long long unsigned int)expire_time);
-			if (asl_set_query(m, ASL_KEY_EXPIRE_TIME, str, ASL_QUERY_OP_NUMERIC | ASL_QUERY_OP_GREATER_EQUAL) != 0)
-			{
-				asl_file_close(in);
-				asl_free(m);
-				return ASL_STATUS_NO_MEMORY;
-			}
-		}
-		else
-		{
-			if (asl_set_query(m, ASL_KEY_EXPIRE_TIME, NULL, ASL_QUERY_OP_TRUE) != 0)
-			{
-				asl_file_close(in);
-				asl_free(m);
-				return ASL_STATUS_NO_MEMORY;
-			}
-		}
-	}
 
 	res = NULL;
 	mid = 0;
-	status = asl_file_match(in, query, &res, &mid, 0, 0, 1);
-	if (m != NULL) asl_free(m);
-	asl_file_close(in);
+
+	status = asl_file_match(f, NULL, &res, &mid, 0, 0, 1);
+	asl_file_close(f);
 
 	if (status != ASL_STATUS_OK) return status;
-
-	/*
-	 * N.B. "ASL_STATUS_NOT_FOUND" is never returned by asl_file_match.
-	 * We use it here to signal the caller that no records were found by the match.
-	 */
-	if (res == NULL) return ASL_STATUS_NOT_FOUND;
 	if (res->count == 0)
 	{
 		aslresponse_free(res);
-		return ASL_STATUS_NOT_FOUND;
+		return ASL_STATUS_OK;
 	}
 
-	out = NULL;
-	status = asl_file_open_write(outfile, 0644, -1, -1, &out);
+	f = NULL;
+	status = asl_file_open_write(outfile, mode, -1, -1, &f);
 	if (status != ASL_STATUS_OK) return status;
+	if (f == ASL_STATUS_OK) return ASL_STATUS_FAILED;
 
-	out->flags = ASL_FILE_FLAG_UNLIMITED_CACHE | ASL_FILE_FLAG_PRESERVE_MSG_ID;
+	f->flags = ASL_FILE_FLAG_UNLIMITED_CACHE | ASL_FILE_FLAG_PRESERVE_MSG_ID;
 
 	for (i = 0; i < res->count; i++)
 	{
 		mid = 0;
-		status = asl_file_save(out, res->msg[i], &mid);
+		status = asl_file_save(f, res->msg[i], &mid);
 		if (status != ASL_STATUS_OK) break;
 	}
 
-	asl_file_close(out);
+	asl_file_close(f);
 	return status;
+}
+
+static char **
+_insertString(char *s, char **l, uint32_t x)
+{
+	int i, len;
+
+	if (s == NULL) return l;
+	if (l == NULL) 
+	{
+		l = (char **)malloc(2 * sizeof(char *));
+		if (l == NULL) return NULL;
+
+		l[0] = strdup(s);
+		if (l[0] == NULL)
+		{
+			free(l);
+			return NULL;
+		}
+
+		l[1] = NULL;
+		return l;
+	}
+
+	for (i = 0; l[i] != NULL; i++);
+	len = i + 1; /* count the NULL on the end of the list too! */
+
+	l = (char **)reallocf(l, (len + 1) * sizeof(char *));
+	if (l == NULL) return NULL;
+
+	if ((x >= (len - 1)) || (x == IndexNull))
+	{
+		l[len - 1] = strdup(s);
+		if (l[len - 1] == NULL)
+		{
+			free(l);
+			return NULL;
+		}
+
+		l[len] = NULL;
+		return l;
+	}
+
+	for (i = len; i > x; i--) l[i] = l[i - 1];
+	l[x] = strdup(s);
+	if (l[x] == NULL) return NULL;
+
+	return l;
+}
+
+char **
+explode(const char *s, const char *delim)
+{
+	char **l = NULL;
+	const char *p;
+	char *t, quote;
+	int i, n;
+
+	if (s == NULL) return NULL;
+
+	quote = '\0';
+
+	p = s;
+	while (p[0] != '\0')
+	{
+		/* scan forward */
+		for (i = 0; p[i] != '\0'; i++)
+		{
+			if (quote == '\0')
+			{
+				/* not inside a quoted string: check for delimiters and quotes */
+				if (strchr(delim, p[i]) != NULL) break;
+				else if (p[i] == '\'') quote = p[i];
+				else if (p[i] == '"') quote = p[i];
+			}
+			else
+			{
+				/* inside a quoted string - look for matching quote */
+				if (p[i] == quote) quote = '\0';
+			}
+		}
+
+		n = i;
+		t = malloc(n + 1);
+		if (t == NULL) return NULL;
+
+		for (i = 0; i < n; i++) t[i] = p[i];
+		t[n] = '\0';
+		l = _insertString(t, l, IndexNull);
+		free(t);
+		t = NULL;
+		if (p[i] == '\0') return l;
+		if (p[i + 1] == '\0') l = _insertString("", l, IndexNull);
+		p = p + i + 1;
+	}
+
+	return l;
+}
+
+void
+freeList(char **l)
+{
+	int i;
+
+	if (l == NULL) return;
+	for (i = 0; l[i] != NULL; i++) free(l[i]);
+	free(l);
+}
+
+/*
+ * Used to sed config parameters.
+ * Line format "= name value"
+ */
+static void
+_parse_set_param(char *s)
+{
+	char **l;
+	uint32_t count;
+
+	if (s == NULL) return;
+	if (s[0] == '\0') return;
+
+	/* skip '=' and whitespace */
+	s++;
+	while ((*s == ' ') || (*s == '\t')) s++;
+
+	l = explode(s, " \t");
+	if (l == NULL) return;
+
+	for (count = 0; l[count] != NULL; count++);
+
+	/* name is required */
+	if (count == 0)
+	{
+		freeList(l);
+		return;
+	}
+
+	/* value is required */
+	if (count == 1)
+	{
+		freeList(l);
+		return;
+	}
+
+	if (!strcasecmp(l[0], "aslmanager_debug"))
+	{
+		/* = debug {0|1} */
+		debug = atoi(l[1]);
+	}
+	else if (!strcasecmp(l[0], "store_ttl"))
+	{
+		/* = store_ttl days */
+		ttl = SECONDS_PER_DAY * (time_t)atoll(l[1]);
+	}
+	else if (!strcasecmp(l[0], "max_store_size"))
+	{
+		/* = max_file_size bytes */
+		max_size = atoi(l[1]);
+	}
+	else if (!strcasecmp(l[0], "archive"))
+	{
+		/* = archive {0|1} path */
+		if (!strcmp(l[1], "1"))
+		{
+			if (l[2] == NULL) archive = PATH_ASL_ARCHIVE;
+			else archive = strdup(l[2]); /* never freed */
+		}
+		else archive = NULL;
+	}
+	else if (!strcasecmp(l[0], "store_path"))
+	{
+		/* = archive path */
+		store_dir = strdup(l[1]); /* never freed */
+	}
+	else if (!strcasecmp(l[0], "archive_mode"))
+	{
+		archive_mode = strtol(l[1], NULL, 0);
+		if ((archive_mode == 0) && (errno == EINVAL)) archive_mode = 0400;
+	}
+
+	freeList(l);
+}
+
+static void
+_parse_line(char *s)
+{
+	if (s == NULL) return;
+	while ((*s == ' ') || (*s == '\t')) s++;
+
+	/*
+	 * First non-whitespace char is the rule type.
+	 * aslmanager only checks "=" (set parameter) rules.
+	 */
+	if (*s == '=') _parse_set_param(s);
+}
+
+char *
+get_line_from_file(FILE *f)
+{
+	char *s, *out;
+	size_t len;
+
+	out = fgetln(f, &len);
+	if (out == NULL) return NULL;
+	if (len == 0) return NULL;
+
+	s = malloc(len + 1);
+	if (s == NULL) return NULL;
+
+	memcpy(s, out, len);
+
+	s[len - 1] = '\0';
+	return s;
+}
+
+static int
+_parse_config_file(const char *name)
+{
+	FILE *cf;
+	char *line;
+
+	cf = fopen(name, "r");
+	if (cf == NULL) return 1;
+
+	while (NULL != (line = get_line_from_file(cf)))
+	{
+		_parse_line(line);
+		free(line);
+	}
+
+	fclose(cf);
+
+	return 0;
 }
 
 int
 main(int argc, const char *argv[])
 {
-	int i, bbstrlen, debug;
-	const char *archive, *store_dir;
-	time_t now, best_before, ttl;
+	int i, today_ymd_stringlen, expire_ymd_stringlen;
+	time_t now, ymd_expire;
 	struct tm ctm;
-	char bbstr[32], *str, *p;
+	char today_ymd_string[32], expire_ymd_string[32], *str;
 	DIR *dp;
 	struct dirent *dent;
-	name_list_t *list, *e;
+	name_list_t *ymd_list, *bb_list, *e;
 	uint32_t status;
-	size_t file_size, store_size, max_size;
+	size_t file_size, store_size;
 	struct stat sb;
 
-	list = NULL;
+	ymd_list = NULL;
+	bb_list = NULL;
 
-	archive = NULL;
-	store_dir = PATH_ASL_STORE;
 	ttl = DEFAULT_TTL * SECONDS_PER_DAY;
 	max_size = DEFAULT_MAX_SIZE;
 	store_size = 0;
@@ -241,12 +416,12 @@ main(int argc, const char *argv[])
 	{
 		if (!strcmp(argv[i], "-a"))
 		{
-			if (((i + 1) < argc) && (argv[i + 1][0] != '-')) archive = argv[++i];
+			if (((i + 1) < argc) && (argv[i + 1][0] != '-')) archive = (char *)argv[++i];
 			else archive = PATH_ASL_ARCHIVE;
 		}
 		else if (!strcmp(argv[i], "-s"))
 		{
-			if (((i + 1) < argc) && (argv[i + 1][0] != '-')) store_dir = argv[++i];
+			if (((i + 1) < argc) && (argv[i + 1][0] != '-')) store_dir = (char *)argv[++i];
 		}
 		else if (!strcmp(argv[i], "-ttl"))
 		{
@@ -261,6 +436,10 @@ main(int argc, const char *argv[])
 			debug = 1;
 		}
 	}
+
+	_parse_config_file(_PATH_ASL_CONF);
+
+	if (debug == 1) printf("aslmanager starting\n");
 
 	/* check archive */
 	if (archive != NULL)
@@ -284,7 +463,7 @@ main(int argc, const char *argv[])
 				{
 					fprintf(stderr, "aslmanager error: can't create archive %s: %s\n", archive, strerror(errno));
 					return -1;
-				}				
+				}
 			}
 			else
 			{
@@ -297,93 +476,92 @@ main(int argc, const char *argv[])
 
 	chdir(store_dir);
 
-	/* determine current time and time TTL ago */
+	/* determine current time */
 	now = time(NULL);
-	best_before = 0;
-	if (ttl > 0) best_before = now - ttl;
 
-	/* construct best before date as YYYY.MM.DD */
+	/* ttl 0 means files never expire */
+	ymd_expire = 0;
+	if (ttl > 0) ymd_expire = now - ttl;
+
+	/* construct today's date as YYYY.MM.DD */
 	memset(&ctm, 0, sizeof(struct tm));
-	if (localtime_r((const time_t *)&best_before, &ctm) == NULL) mgr_exit(store_dir, 1);
+	if (localtime_r((const time_t *)&now, &ctm) == NULL) return -1;
 
-	snprintf(bbstr, sizeof(bbstr), "%d.%02d.%02d.", ctm.tm_year + 1900, ctm.tm_mon + 1, ctm.tm_mday);
-	bbstrlen = strlen(bbstr);
+	snprintf(today_ymd_string, sizeof(today_ymd_string), "%d.%02d.%02d.", ctm.tm_year + 1900, ctm.tm_mon + 1, ctm.tm_mday);
+	today_ymd_stringlen = strlen(today_ymd_string);
 
-	if (debug == 1) printf("Best Before Date %s\n", bbstr);
+	/* construct regular file expiry date as YYYY.MM.DD */
+	memset(&ctm, 0, sizeof(struct tm));
+	if (localtime_r((const time_t *)&ymd_expire, &ctm) == NULL) return -1;
+
+	snprintf(expire_ymd_string, sizeof(expire_ymd_string), "%d.%02d.%02d.", ctm.tm_year + 1900, ctm.tm_mon + 1, ctm.tm_mday);
+	expire_ymd_stringlen = strlen(expire_ymd_string);
+
+	if (debug == 1) printf("Expiry Date %s\n", expire_ymd_string);
 
 	dp = opendir(store_dir);
-	if (dp == NULL) mgr_exit(store_dir, 1);
+	if (dp == NULL) return -1;
 
-	/* gather a list of files for dates before the best before date */
-
+	/* gather a list of YMD files and BB files */
 	while ((dent = readdir(dp)) != NULL)
 	{
-		if ((dent->d_name[0] < '0') || (dent->d_name[0] > '9')) continue;
-
 		memset(&sb, 0, sizeof(struct stat));
 		file_size = 0;
 		if (stat(dent->d_name, &sb) == 0) file_size = sb.st_size;
-		store_size += file_size;
 
-		list = add_to_list(list, dent->d_name, file_size);
+		if ((dent->d_name[0] >= '0') && (dent->d_name[0] <= '9'))
+		{
+			ymd_list = add_to_list(ymd_list, dent->d_name, file_size);
+			store_size += file_size;
+		}
+		else if (!strncmp(dent->d_name, "BB.", 3) && (dent->d_name[3] >= '0') && (dent->d_name[3] <= '9'))
+		{
+			bb_list = add_to_list(bb_list, dent->d_name, file_size);
+			store_size += file_size;
+		}
+		else if ((!strcmp(dent->d_name, ".")) || (!strcmp(dent->d_name, "..")))
+		{}
+		else if ((!strcmp(dent->d_name, "StoreData")) || (!strcmp(dent->d_name, "SweepStore")))
+		{}
+		else
+		{
+			fprintf(stderr, "aslmanager: unexpected file %s in ASL data store\n", dent->d_name);
+		}
 	}
 
 	closedir(dp);
 
 	if (debug == 1)
 	{
-		printf("\nData Store Size = %lu\n", store_size);
-		printf("\nData Store Files\n");
-		for (e = list; e != NULL; e = e->next) printf("	%s   %lu\n", e->name, e->size);
+		printf("Data Store Size = %lu\n", store_size);
+		printf("Data Store YMD Files\n");
+		for (e = ymd_list; e != NULL; e = e->next) printf("	%s   %lu\n", e->name, e->size);
+		printf("Data Store BB Files\n");
+		for (e = bb_list; e != NULL; e = e->next) printf("	%s   %lu\n", e->name, e->size);
 	}
 
-	/* copy messages in each expired file with ASLExpireTime values to LongTTL files */
-	if (debug == 1) printf("\nStart Scan\n");
+	/* Delete/achive expired YMD files */
+	if (debug == 1) printf("Start YMD Scan\n");
 
-	e = list;
+	e = ymd_list;
 	while (e != NULL)
 	{
-		if ((store_size <= max_size) && (strncmp(e->name, bbstr, bbstrlen) >= 0)) break;
-
-		/* find '.' after year */
-		p = strchr(e->name, '.');
-		if (p == NULL) continue;
-
-		/* find '.' after month */
-		p++;
-		p = strchr(p, '.');
-		if (p == NULL) continue;
-
-		/* find '.' after day */
-		p++;
-		p = strchr(p, '.');
-		if (p == NULL) continue;
-
-		str = NULL;
-		asprintf(&str, "LongTTL%s", p);
-		if (str == NULL) mgr_exit(store_dir, 1);
-
-		/* syslog -x [str] -db [e->name] -k ASLExpireTime */
-		if (debug == 1) printf("	scan %s ---> %s\n", e->name, str);
-		else status = do_match(e->name, str, 1, 0);
-
-		free(str);
-		str = NULL;
+		/* stop when a file name/date is after the expire date */
+		if (strncmp(e->name, expire_ymd_string, expire_ymd_stringlen) > 0) break;
 
 		if (archive != NULL)
 		{
 			str = NULL;
 			asprintf(&str, "%s/%s", archive, e->name);
-			if (str == NULL) mgr_exit(store_dir, 1);
+			if (str == NULL) return -1;
 
-			/* syslog -x [str] -db [e->name] */
-			if (debug == 1) printf("	copy %s ---> %s\n", e->name, str);
-			else status = do_match(e->name, str, 0, 0);
+			if (debug == 1) printf("  copy %s ---> %s\n", e->name, str);
+			status = do_copy(e->name, str, archive_mode);
 			free(str);
 		}
 
-		if (debug == 1) printf("	unlink %s\n", e->name);
-		else unlink(e->name);
+		if (debug == 1) printf("  unlink %s\n", e->name);
+		unlink(e->name);
 
 		store_size -= e->size;
 		e->size = 0;
@@ -391,61 +569,112 @@ main(int argc, const char *argv[])
 		e = e->next;
 	}
 
-	if (debug == 1)
-	{
-		printf("Finished Scan\n");
-		printf("\nData Store Size = %lu\n", store_size);
-	}
+	if (debug == 1) printf("Finished YMD Scan\n");
 
-	free_list(list);
-	list = NULL;
+	/* Delete/achive expired BB files */
+	if (debug == 1) printf("Start BB Scan\n");
 
-	dp = opendir(PATH_ASL_STORE);
-	if (dp == NULL) mgr_exit(store_dir, 1);
-
-	/* gather a list of LongTTL files */
-
-	while ((dent = readdir(dp)) != NULL)
-	{
-		if (!strcmp(dent->d_name, LONGTTL_TMP_FILE)) unlink(LONGTTL_TMP_FILE);
-		else if (!strncmp(dent->d_name, "LongTTL.", 8)) list = add_to_list(list, dent->d_name, 0);
-	}
-
-	closedir(dp);
-
-	if (debug == 1)
-	{
-		printf("\nData Store LongTTL Files\n");
-		for (e = list; e != NULL; e = e->next) printf("	%s\n", e->name);
-	}
-
-	if (debug == 1) printf("\nScan for expired messages\n");
-
-	e = list;
+	e = bb_list;
 	while (e != NULL)
 	{
-		/* syslog -x LongTTL.new -db [e->name] -k ASLExpireTime Nge [now] */
-		if (debug == 1)
+		/* stop when a file name/date is after the expire date */
+		if (strncmp(e->name + 3, today_ymd_string, today_ymd_stringlen) > 0) break;
+
+		if (archive != NULL)
 		{
-			printf("	%s\n", e->name);
+			str = NULL;
+			asprintf(&str, "%s/%s", archive, e->name);
+			if (str == NULL) return -1;
+
+			/* syslog -x [str] -f [e->name] */
+			if (debug == 1) printf("  copy %s ---> %s\n", e->name, str);
+			status = do_copy(e->name, str, archive_mode);
+			free(str);
 		}
-		else
+
+		if (debug == 1) printf("  unlink %s\n", e->name);
+		unlink(e->name);
+
+		store_size -= e->size;
+		e->size = 0;
+
+		e = e->next;
+	}
+
+	if (debug == 1) printf("Finished BB Scan\n");
+
+	/* if data store is over max_size, delete/archive more YMD files */
+	if ((debug == 1) && (store_size > max_size)) printf("Additional YMD Scan\n");
+	
+	e = ymd_list;
+	while ((e != NULL) && (store_size > max_size))
+	{
+		if (e->size != 0)
 		{
-			status = do_match(e->name, LONGTTL_TMP_FILE, 1, now);
+			/* stop when we get to today's files */
+			if (strncmp(e->name, today_ymd_string, today_ymd_stringlen) == 0) break;
+
+			if (archive != NULL)
+			{
+				str = NULL;
+				asprintf(&str, "%s/%s", archive, e->name);
+				if (str == NULL) return -1;
+
+				/* syslog -x [str] -f [e->name] */
+				if (debug == 1) printf("  copy %s ---> %s\n", e->name, str);
+				status = do_copy(e->name, str, archive_mode);
+				free(str);
+			}
+
+			if (debug == 1) printf("  unlink %s\n", e->name);
 			unlink(e->name);
-			if (status == ASL_STATUS_OK) rename(LONGTTL_TMP_FILE, e->name);
+
+			store_size -= e->size;
+			e->size = 0;
 		}
 
 		e = e->next;
 	}
 
-	if (debug == 1) printf("Finished scan for expired messages\n");
+	/* if data store is over max_size, delete/archive more BB files */
+	if ((debug == 1) && (store_size > max_size)) printf("Additional BB Scan\n");
 
-	free_list(list);
-	list = NULL;
+	e = bb_list;
+	while ((e != NULL) && (store_size > max_size))
+	{
+		if (e->size != 0)
+		{
+			if (archive != NULL)
+			{
+				str = NULL;
+				asprintf(&str, "%s/%s", archive, e->name);
+				if (str == NULL) return -1;
 
-	mgr_exit(store_dir, 0);
-	/* UNREACHED */
+				/* syslog -x [str] -f [e->name] */
+				if (debug == 1) printf("  copy %s ---> %s\n", e->name, str);
+				status = do_copy(e->name, str, archive_mode);
+				free(str);
+			}
+
+			if (debug == 1) printf("  unlink %s\n", e->name);
+			unlink(e->name);
+
+			store_size -= e->size;
+			e->size = 0;
+		}
+
+		e = e->next;
+	}
+
+	free_list(ymd_list);	 
+	free_list(bb_list);
+
+	if (debug == 1)
+	{
+		printf("Data Store Size = %lu\n", store_size);
+		printf("aslmanager finished\n");
+	}
+
 	return 0;
 }
 

@@ -49,7 +49,7 @@ static char *basename2 PROTO ((char *path, int should_strip_ext));
 
 /* these globals are all defined and commented in flexdef.h */
 int     printstats, syntaxerror, eofseen, ddebug, trace, nowarn, spprdflt;
-int     interactive, caseins, lex_compat, posix_compat, do_yylineno,
+int     interactive, lex_compat, posix_compat, do_yylineno,
 	useecs, fulltbl, usemecs;
 int     fullspd, gen_line_dirs, performance_report, backing_up_report;
 int     C_plus_plus, long_align, use_read, yytext_is_array, do_yywrap,
@@ -65,7 +65,7 @@ int     action_size, defs1_offset, prolog_offset, action_offset,
 	action_index;
 char   *infilename = NULL, *outfilename = NULL, *headerfilename = NULL;
 int     did_outfilename;
-char   *prefix, *yyclass;
+char   *prefix, *yyclass, *extra_type = NULL;
 int     do_stdinit, use_stdout;
 int     onestate[ONE_STACK_SIZE], onesym[ONE_STACK_SIZE];
 int     onenext[ONE_STACK_SIZE], onedef[ONE_STACK_SIZE], onesp;
@@ -137,6 +137,8 @@ static char outfile_path[MAXLINE];
 static int outfile_created = 0;
 static char *skelname = NULL;
 static int _stdout_closed = 0; /* flag to prevent double-fclose() on stdout. */
+const char *escaped_qstart = "[[]]M4_YY_NOOP[M4_YY_NOOP[M4_YY_NOOP[[]]";
+const char *escaped_qend   = "[[]]M4_YY_NOOP]M4_YY_NOOP]M4_YY_NOOP[[]]";
 
 /* For debugging. The max number of filters to apply to skeleton. */
 static int preproc_level = 1000;
@@ -211,6 +213,7 @@ int main (argc, argv)
 #if ENABLE_NLS
 #if HAVE_LOCALE_H
 	setlocale (LC_MESSAGES, "");
+        setlocale (LC_CTYPE, "");
 	textdomain (PACKAGE);
 	bindtextdomain (PACKAGE, LOCALEDIR);
 #endif
@@ -331,6 +334,9 @@ void check_options ()
     if (!ansi_func_protos)
         buf_m4_define( &m4defs_buf, "M4_YY_NO_ANSI_FUNC_PROTOS", NULL);
 
+    if (extra_type)
+        buf_m4_define( &m4defs_buf, "M4_EXTRA_TYPE_DEFS", extra_type);
+
 	if (!use_stdout) {
 		FILE   *prev_stdout;
 
@@ -342,7 +348,7 @@ void check_options ()
 			else
 				suffix = "c";
 
-			sprintf (outfile_path, outfile_template,
+			snprintf (outfile_path, sizeof(outfile_path), outfile_template,
 				 prefix, suffix);
 
 			outfilename = outfile_path;
@@ -429,11 +435,9 @@ void check_options ()
 		buf_m4_define (&m4defs_buf, "M4_YY_TABLES_EXTERNAL", NULL);
 
 		if (!tablesfilename) {
-			nbytes = strlen (prefix) +
-				strlen (tablesfile_template) + 2;
-			tablesfilename = pname =
-				(char *) calloc (nbytes, 1);
-			sprintf (pname, tablesfile_template, prefix);
+			nbytes = strlen (prefix) + strlen (tablesfile_template) + 2;
+			tablesfilename = pname = (char *) calloc (nbytes, 1);
+			snprintf (pname, nbytes, tablesfile_template, prefix);
 		}
 
 		if ((tablesout = fopen (tablesfilename, "w")) == NULL)
@@ -446,7 +450,7 @@ void check_options ()
 
 		nbytes = strlen (prefix) + strlen ("tables") + 2;
 		tablesname = (char *) calloc (nbytes, 1);
-		sprintf (tablesname, "%stables", prefix);
+		snprintf (tablesname, nbytes, "%stables", prefix);
 		yytbl_hdr_init (&hdr, flex_version, tablesname);
 
 		if (yytbl_hdr_fwrite (&tableswr, &hdr) <= 0)
@@ -486,9 +490,10 @@ void check_options ()
         buf_init(&tmpbuf, sizeof(char));
         for (i = 1; i <= lastsc; i++) {
              char *str, *fmt = "#define %s %d\n";
+             size_t strsz;
 
-             str = (char*)flex_alloc(strlen(fmt) + strlen(scname[i]) + (int)(1 + log10(i)) + 2);
-             sprintf(str, fmt,      scname[i], i - 1);
+             str = (char*)flex_alloc(strsz = strlen(fmt) + strlen(scname[i]) + (int)(1 + log10(i)) + 2);
+             snprintf(str, strsz, fmt,      scname[i], i - 1);
              buf_strappend(&tmpbuf, str);
              free(str);
         }
@@ -677,6 +682,7 @@ void flexend (exit_status)
                 "yylex",
                 "yylex_destroy",
                 "yylex_init",
+                "yylex_init_extra",
                 "yylineno",
                 "yylloc",
                 "yylval",
@@ -777,7 +783,7 @@ void flexend (exit_status)
 			putc ('b', stderr);
 		if (ddebug)
 			putc ('d', stderr);
-		if (caseins)
+		if (sf_case_ins())
 			putc ('i', stderr);
 		if (lex_compat)
 			putc ('l', stderr);
@@ -966,7 +972,7 @@ void flexinit (argc, argv)
 	char   *arg;
 	scanopt_t sopt;
 
-	printstats = syntaxerror = trace = spprdflt = caseins = false;
+	printstats = syntaxerror = trace = spprdflt = false;
 	lex_compat = posix_compat = C_plus_plus = backing_up_report =
 		ddebug = fulltbl = false;
 	fullspd = long_align = nowarn = yymore_used = continued_action =
@@ -1007,6 +1013,8 @@ void flexinit (argc, argv)
         buf_init (&m4defs_buf, sizeof (char *));
         buf_append (&m4defs_buf, &m4defs_init_str, 2);
     }
+
+    sf_init ();
 
     /* initialize regex lib */
     flex_init_regex();
@@ -1123,7 +1131,7 @@ void flexinit (argc, argv)
 			break;
 
 		case OPT_CASE_INSENSITIVE:
-			caseins = true;
+			sf_set_case_ins(true);
 			break;
 
 		case OPT_LEX_COMPAT:
@@ -1606,7 +1614,9 @@ void readin ()
     }
 
 	if (!do_yywrap) {
-		outn ("\n#define yywrap(n) 1");
+		if (!C_plus_plus) {
+			outn ("\n#define yywrap(n) 1");
+		}
 		outn ("#define YY_SKIP_YYWRAP");
 	}
 
@@ -1678,6 +1688,10 @@ void readin ()
 
 	if (C_plus_plus) {
 		outn ("\n#include <FlexLexer.h>");
+
+ 		if (!do_yywrap) {
+			outn("\nint yyFlexLexer::yywrap() { return 1; }");
+		}
 
 		if (yyclass) {
 			outn ("int yyFlexLexer::yylex()");
@@ -1814,7 +1828,7 @@ void usage ()
 	FILE   *f = stdout;
 
 	if (!did_outfilename) {
-		sprintf (outfile_path, outfile_template,
+		snprintf (outfile_path, sizeof(outfile_path), outfile_template,
 			 prefix, C_plus_plus ? "cc" : "c");
 		outfilename = outfile_path;
 	}

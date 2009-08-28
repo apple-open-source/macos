@@ -3,16 +3,19 @@
                "http://www.oasis-open.org/docbook/xml/4.1.2/docbookx.dtd">
 <refentry id="libidn-idna">
 <refmeta>
-<refentrytitle>idna</refentrytitle>
+<refentrytitle role="top_of_page">idna</refentrytitle>
 <manvolnum>3</manvolnum>
 <refmiscinfo>LIBIDN Library</refmiscinfo>
 </refmeta>
 
 <refnamediv>
-<refname>idna</refname><refpurpose></refpurpose>
+<refname>idna</refname>
+<refpurpose></refpurpose>
+<!--[<xref linkend="desc" endterm="desc.title"/>]-->
 </refnamediv>
 
-<refsynopsisdiv><title>Synopsis</title>
+<refsynopsisdiv role="synopsis">
+<title role="synopsis.title">Synopsis</title>
 
 <synopsis>
 
@@ -66,17 +69,17 @@ const <link linkend="char">char</link>* <link linkend="idna-strerror">idna_strer
 
 
 
-<refsect1>
-<title>Description</title>
+<refsect1 role="desc">
+<title role="desc.title">Description</title>
 <para>
 
 </para>
 </refsect1>
 
-<refsect1>
-<title>Details</title>
+<refsect1 role="details">
+<title role="details.title">Details</title>
 <refsect2>
-<title><anchor id="Idna-rc"/>enum Idna_rc</title>
+<title><anchor id="Idna-rc" role="enum"/>enum Idna_rc</title>
 <indexterm><primary>Idna_rc</primary></indexterm><programlisting>  typedef enum
   {
     IDNA_SUCCESS = 0,
@@ -105,83 +108,83 @@ success.</para>
 
 </para><variablelist role="enum">
 <varlistentry>
-<term><literal>IDNA_SUCCESS</literal></term>
+<term><anchor id="IDNA-SUCCESS:CAPS" role="constant"/><literal>IDNA_SUCCESS</literal></term>
 <listitem><simpara> Successful operation.  This value is guaranteed to
   always be zero, the remaining ones are only guaranteed to hold
   non-zero values, for logical comparison purposes.
 </simpara></listitem>
 </varlistentry>
 <varlistentry>
-<term><literal>IDNA_STRINGPREP_ERROR</literal></term>
+<term><anchor id="IDNA-STRINGPREP-ERROR:CAPS" role="constant"/><literal>IDNA_STRINGPREP_ERROR</literal></term>
 <listitem><simpara>  Error during string preparation.
 </simpara></listitem>
 </varlistentry>
 <varlistentry>
-<term><literal>IDNA_PUNYCODE_ERROR</literal></term>
+<term><anchor id="IDNA-PUNYCODE-ERROR:CAPS" role="constant"/><literal>IDNA_PUNYCODE_ERROR</literal></term>
 <listitem><simpara> Error during punycode operation.
 </simpara></listitem>
 </varlistentry>
 <varlistentry>
-<term><literal>IDNA_CONTAINS_NON_LDH</literal></term>
+<term><anchor id="IDNA-CONTAINS-NON-LDH:CAPS" role="constant"/><literal>IDNA_CONTAINS_NON_LDH</literal></term>
 <listitem><simpara> For IDNA_USE_STD3_ASCII_RULES, indicate that
   the string contains non-LDH ASCII characters.
 </simpara></listitem>
 </varlistentry>
 <varlistentry>
-<term><literal>IDNA_CONTAINS_LDH</literal></term>
+<term><anchor id="IDNA-CONTAINS-LDH:CAPS" role="constant"/><literal>IDNA_CONTAINS_LDH</literal></term>
 <listitem><simpara>
 </simpara></listitem>
 </varlistentry>
 <varlistentry>
-<term><literal>IDNA_CONTAINS_MINUS</literal></term>
+<term><anchor id="IDNA-CONTAINS-MINUS:CAPS" role="constant"/><literal>IDNA_CONTAINS_MINUS</literal></term>
 <listitem><simpara> For IDNA_USE_STD3_ASCII_RULES, indicate that
   the string contains a leading or trailing hyphen-minus (U+002D).
 </simpara></listitem>
 </varlistentry>
 <varlistentry>
-<term><literal>IDNA_INVALID_LENGTH</literal></term>
+<term><anchor id="IDNA-INVALID-LENGTH:CAPS" role="constant"/><literal>IDNA_INVALID_LENGTH</literal></term>
 <listitem><simpara> The final output string is not within the
   (inclusive) range 1 to 63 characters.
 </simpara></listitem>
 </varlistentry>
 <varlistentry>
-<term><literal>IDNA_NO_ACE_PREFIX</literal></term>
+<term><anchor id="IDNA-NO-ACE-PREFIX:CAPS" role="constant"/><literal>IDNA_NO_ACE_PREFIX</literal></term>
 <listitem><simpara> The string does not contain the ACE prefix
   (for ToUnicode).
 </simpara></listitem>
 </varlistentry>
 <varlistentry>
-<term><literal>IDNA_ROUNDTRIP_VERIFY_ERROR</literal></term>
+<term><anchor id="IDNA-ROUNDTRIP-VERIFY-ERROR:CAPS" role="constant"/><literal>IDNA_ROUNDTRIP_VERIFY_ERROR</literal></term>
 <listitem><simpara> The ToASCII operation on output
   string does not equal the input.
 </simpara></listitem>
 </varlistentry>
 <varlistentry>
-<term><literal>IDNA_CONTAINS_ACE_PREFIX</literal></term>
+<term><anchor id="IDNA-CONTAINS-ACE-PREFIX:CAPS" role="constant"/><literal>IDNA_CONTAINS_ACE_PREFIX</literal></term>
 <listitem><simpara> The input contains the ACE prefix (for
   ToASCII).
 </simpara></listitem>
 </varlistentry>
 <varlistentry>
-<term><literal>IDNA_ICONV_ERROR</literal></term>
+<term><anchor id="IDNA-ICONV-ERROR:CAPS" role="constant"/><literal>IDNA_ICONV_ERROR</literal></term>
 <listitem><simpara> Could not convert string in locale encoding.
 </simpara></listitem>
 </varlistentry>
 <varlistentry>
-<term><literal>IDNA_MALLOC_ERROR</literal></term>
+<term><anchor id="IDNA-MALLOC-ERROR:CAPS" role="constant"/><literal>IDNA_MALLOC_ERROR</literal></term>
 <listitem><simpara> Could not allocate buffer (this is typically a
   fatal error).
 </simpara></listitem>
 </varlistentry>
 <varlistentry>
-<term><literal>IDNA_DLOPEN_ERROR</literal></term>
+<term><anchor id="IDNA-DLOPEN-ERROR:CAPS" role="constant"/><literal>IDNA_DLOPEN_ERROR</literal></term>
 <listitem><simpara> Could not dlopen the libcidn DSO (only used
   internally in libc).
 </simpara></listitem>
 </varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="Idna-flags"/>enum Idna_flags</title>
+<title><anchor id="Idna-flags" role="enum"/>enum Idna_flags</title>
 <indexterm><primary>Idna_flags</primary></indexterm><programlisting>  typedef enum
   {
     IDNA_ALLOW_UNASSIGNED = 0x0001,
@@ -194,20 +197,20 @@ Flags to pass to <link linkend="idna-to-ascii-4i"><function>idna_to_ascii_4i()</
 
 </para><variablelist role="enum">
 <varlistentry>
-<term><literal>IDNA_ALLOW_UNASSIGNED</literal></term>
+<term><anchor id="IDNA-ALLOW-UNASSIGNED:CAPS" role="constant"/><literal>IDNA_ALLOW_UNASSIGNED</literal></term>
 <listitem><simpara> Don't reject strings containing unassigned
   Unicode code points.
 </simpara></listitem>
 </varlistentry>
 <varlistentry>
-<term><literal>IDNA_USE_STD3_ASCII_RULES</literal></term>
+<term><anchor id="IDNA-USE-STD3-ASCII-RULES:CAPS" role="constant"/><literal>IDNA_USE_STD3_ASCII_RULES</literal></term>
 <listitem><simpara> Validate strings according to STD3
   rules (i.e., normal host name rules).
 </simpara></listitem>
 </varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="IDNA-ACE-PREFIX:CAPS"/>IDNA_ACE_PREFIX</title>
+<title><anchor id="IDNA-ACE-PREFIX:CAPS" role="macro"/>IDNA_ACE_PREFIX</title>
 <indexterm><primary>IDNA_ACE_PREFIX</primary></indexterm><programlisting>#  define IDNA_ACE_PREFIX "xn--"
 </programlisting>
 <para>
@@ -216,7 +219,7 @@ The IANA allocated prefix to use for IDNA. "xn--"</para>
 
 </para></refsect2>
 <refsect2>
-<title><anchor id="idna-strerror"/>idna_strerror ()</title>
+<title><anchor id="idna-strerror" role="function"/>idna_strerror ()</title>
 <indexterm><primary>idna_strerror</primary></indexterm><programlisting>const <link linkend="char">char</link>* idna_strerror                   (<link linkend="Idna-rc">Idna_rc</link> rc);</programlisting>
 <para>
 Convert a return code integer to a text string.  This string can be
@@ -256,7 +259,7 @@ containing a description of the error with the return code <parameter>rc</parame
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="idna-to-ascii-4i"/>idna_to_ascii_4i ()</title>
+<title><anchor id="idna-to-ascii-4i" role="function"/>idna_to_ascii_4i ()</title>
 <indexterm><primary>idna_to_ascii_4i</primary></indexterm><programlisting><link linkend="int">int</link>         idna_to_ascii_4i                (const <link linkend="uint32-t">uint32_t</link> *in,
                                              <link linkend="size-t">size_t</link> inlen,
                                              <link linkend="char">char</link> *out,
@@ -298,14 +301,14 @@ once.</para>
       least 63 characters plus the terminating zero.
 </simpara></listitem></varlistentry>
 <varlistentry><term><parameter>flags</parameter>&nbsp;:</term>
-<listitem><simpara> an <link linkend="Idna-flags"><type>Idna_flags</type></link> value, e.g., <literal>IDNA_ALLOW_UNASSIGNED</literal> or
-  <literal>IDNA_USE_STD3_ASCII_RULES</literal>.
+<listitem><simpara> an <link linkend="Idna-flags"><type>Idna_flags</type></link> value, e.g., <link linkend="IDNA-ALLOW-UNASSIGNED:CAPS"><literal>IDNA_ALLOW_UNASSIGNED</literal></link> or
+  <link linkend="IDNA-USE-STD3-ASCII-RULES:CAPS"><literal>IDNA_USE_STD3_ASCII_RULES</literal></link>.
 </simpara></listitem></varlistentry>
 <varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns 0 on success, or an <link linkend="Idna-rc"><type>Idna_rc</type></link> error code.
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="idna-to-unicode-44i"/>idna_to_unicode_44i ()</title>
+<title><anchor id="idna-to-unicode-44i" role="function"/>idna_to_unicode_44i ()</title>
 <indexterm><primary>idna_to_unicode_44i</primary></indexterm><programlisting><link linkend="int">int</link>         idna_to_unicode_44i             (const <link linkend="uint32-t">uint32_t</link> *in,
                                              <link linkend="size-t">size_t</link> inlen,
                                              <link linkend="uint32-t">uint32_t</link> *out,
@@ -349,8 +352,8 @@ ToUnicode is always a sequence of Unicode code points.</para>
          on exit, actual size of output array with unicode code points.
 </simpara></listitem></varlistentry>
 <varlistentry><term><parameter>flags</parameter>&nbsp;:</term>
-<listitem><simpara> an <link linkend="Idna-flags"><type>Idna_flags</type></link> value, e.g., <literal>IDNA_ALLOW_UNASSIGNED</literal> or
-  <literal>IDNA_USE_STD3_ASCII_RULES</literal>.
+<listitem><simpara> an <link linkend="Idna-flags"><type>Idna_flags</type></link> value, e.g., <link linkend="IDNA-ALLOW-UNASSIGNED:CAPS"><literal>IDNA_ALLOW_UNASSIGNED</literal></link> or
+  <link linkend="IDNA-USE-STD3-ASCII-RULES:CAPS"><literal>IDNA_USE_STD3_ASCII_RULES</literal></link>.
 </simpara></listitem></varlistentry>
 <varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns <link linkend="Idna-rc"><type>Idna_rc</type></link> error condition, but it must only be
   used for debugging purposes.  The output buffer is always
@@ -361,7 +364,7 @@ ToUnicode is always a sequence of Unicode code points.</para>
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="idna-to-ascii-4z"/>idna_to_ascii_4z ()</title>
+<title><anchor id="idna-to-ascii-4z" role="function"/>idna_to_ascii_4z ()</title>
 <indexterm><primary>idna_to_ascii_4z</primary></indexterm><programlisting><link linkend="int">int</link>         idna_to_ascii_4z                (const <link linkend="uint32-t">uint32_t</link> *input,
                                              <link linkend="char">char</link> **output,
                                              <link linkend="int">int</link> flags);</programlisting>
@@ -379,14 +382,14 @@ be deallocated by the caller.</para>
 <listitem><simpara> pointer to newly allocated output string.
 </simpara></listitem></varlistentry>
 <varlistentry><term><parameter>flags</parameter>&nbsp;:</term>
-<listitem><simpara> an <link linkend="Idna-flags"><type>Idna_flags</type></link> value, e.g., <literal>IDNA_ALLOW_UNASSIGNED</literal> or
-  <literal>IDNA_USE_STD3_ASCII_RULES</literal>.
+<listitem><simpara> an <link linkend="Idna-flags"><type>Idna_flags</type></link> value, e.g., <link linkend="IDNA-ALLOW-UNASSIGNED:CAPS"><literal>IDNA_ALLOW_UNASSIGNED</literal></link> or
+  <link linkend="IDNA-USE-STD3-ASCII-RULES:CAPS"><literal>IDNA_USE_STD3_ASCII_RULES</literal></link>.
 </simpara></listitem></varlistentry>
-<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns <literal>IDNA_SUCCESS</literal> on success, or error code.
+<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns <link linkend="IDNA-SUCCESS:CAPS"><literal>IDNA_SUCCESS</literal></link> on success, or error code.
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="idna-to-ascii-8z"/>idna_to_ascii_8z ()</title>
+<title><anchor id="idna-to-ascii-8z" role="function"/>idna_to_ascii_8z ()</title>
 <indexterm><primary>idna_to_ascii_8z</primary></indexterm><programlisting><link linkend="int">int</link>         idna_to_ascii_8z                (const <link linkend="char">char</link> *input,
                                              <link linkend="char">char</link> **output,
                                              <link linkend="int">int</link> flags);</programlisting>
@@ -404,14 +407,14 @@ be deallocated by the caller.</para>
 <listitem><simpara> pointer to newly allocated output string.
 </simpara></listitem></varlistentry>
 <varlistentry><term><parameter>flags</parameter>&nbsp;:</term>
-<listitem><simpara> an <link linkend="Idna-flags"><type>Idna_flags</type></link> value, e.g., <literal>IDNA_ALLOW_UNASSIGNED</literal> or
-  <literal>IDNA_USE_STD3_ASCII_RULES</literal>.
+<listitem><simpara> an <link linkend="Idna-flags"><type>Idna_flags</type></link> value, e.g., <link linkend="IDNA-ALLOW-UNASSIGNED:CAPS"><literal>IDNA_ALLOW_UNASSIGNED</literal></link> or
+  <link linkend="IDNA-USE-STD3-ASCII-RULES:CAPS"><literal>IDNA_USE_STD3_ASCII_RULES</literal></link>.
 </simpara></listitem></varlistentry>
-<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns <literal>IDNA_SUCCESS</literal> on success, or error code.
+<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns <link linkend="IDNA-SUCCESS:CAPS"><literal>IDNA_SUCCESS</literal></link> on success, or error code.
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="idna-to-ascii-lz"/>idna_to_ascii_lz ()</title>
+<title><anchor id="idna-to-ascii-lz" role="function"/>idna_to_ascii_lz ()</title>
 <indexterm><primary>idna_to_ascii_lz</primary></indexterm><programlisting><link linkend="int">int</link>         idna_to_ascii_lz                (const <link linkend="char">char</link> *input,
                                              <link linkend="char">char</link> **output,
                                              <link linkend="int">int</link> flags);</programlisting>
@@ -430,14 +433,14 @@ output buffer must be deallocated by the caller.</para>
 <listitem><simpara> pointer to newly allocated output string.
 </simpara></listitem></varlistentry>
 <varlistentry><term><parameter>flags</parameter>&nbsp;:</term>
-<listitem><simpara> an <link linkend="Idna-flags"><type>Idna_flags</type></link> value, e.g., <literal>IDNA_ALLOW_UNASSIGNED</literal> or
-  <literal>IDNA_USE_STD3_ASCII_RULES</literal>.
+<listitem><simpara> an <link linkend="Idna-flags"><type>Idna_flags</type></link> value, e.g., <link linkend="IDNA-ALLOW-UNASSIGNED:CAPS"><literal>IDNA_ALLOW_UNASSIGNED</literal></link> or
+  <link linkend="IDNA-USE-STD3-ASCII-RULES:CAPS"><literal>IDNA_USE_STD3_ASCII_RULES</literal></link>.
 </simpara></listitem></varlistentry>
-<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns <literal>IDNA_SUCCESS</literal> on success, or error code.
+<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns <link linkend="IDNA-SUCCESS:CAPS"><literal>IDNA_SUCCESS</literal></link> on success, or error code.
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="idna-to-unicode-4z4z"/>idna_to_unicode_4z4z ()</title>
+<title><anchor id="idna-to-unicode-4z4z" role="function"/>idna_to_unicode_4z4z ()</title>
 <indexterm><primary>idna_to_unicode_4z4z</primary></indexterm><programlisting><link linkend="int">int</link>         idna_to_unicode_4z4z            (const <link linkend="uint32-t">uint32_t</link> *input,
                                              <link linkend="uint32-t">uint32_t</link> **output,
                                              <link linkend="int">int</link> flags);</programlisting>
@@ -456,14 +459,14 @@ caller.</para>
 <listitem><simpara> pointer to newly allocated output Unicode string.
 </simpara></listitem></varlistentry>
 <varlistentry><term><parameter>flags</parameter>&nbsp;:</term>
-<listitem><simpara> an <link linkend="Idna-flags"><type>Idna_flags</type></link> value, e.g., <literal>IDNA_ALLOW_UNASSIGNED</literal> or
-  <literal>IDNA_USE_STD3_ASCII_RULES</literal>.
+<listitem><simpara> an <link linkend="Idna-flags"><type>Idna_flags</type></link> value, e.g., <link linkend="IDNA-ALLOW-UNASSIGNED:CAPS"><literal>IDNA_ALLOW_UNASSIGNED</literal></link> or
+  <link linkend="IDNA-USE-STD3-ASCII-RULES:CAPS"><literal>IDNA_USE_STD3_ASCII_RULES</literal></link>.
 </simpara></listitem></varlistentry>
-<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns <literal>IDNA_SUCCESS</literal> on success, or error code.
+<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns <link linkend="IDNA-SUCCESS:CAPS"><literal>IDNA_SUCCESS</literal></link> on success, or error code.
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="idna-to-unicode-8z4z"/>idna_to_unicode_8z4z ()</title>
+<title><anchor id="idna-to-unicode-8z4z" role="function"/>idna_to_unicode_8z4z ()</title>
 <indexterm><primary>idna_to_unicode_8z4z</primary></indexterm><programlisting><link linkend="int">int</link>         idna_to_unicode_8z4z            (const <link linkend="char">char</link> *input,
                                              <link linkend="uint32-t">uint32_t</link> **output,
                                              <link linkend="int">int</link> flags);</programlisting>
@@ -482,14 +485,14 @@ caller.</para>
 <listitem><simpara> pointer to newly allocated output Unicode string.
 </simpara></listitem></varlistentry>
 <varlistentry><term><parameter>flags</parameter>&nbsp;:</term>
-<listitem><simpara> an <link linkend="Idna-flags"><type>Idna_flags</type></link> value, e.g., <literal>IDNA_ALLOW_UNASSIGNED</literal> or
-  <literal>IDNA_USE_STD3_ASCII_RULES</literal>.
+<listitem><simpara> an <link linkend="Idna-flags"><type>Idna_flags</type></link> value, e.g., <link linkend="IDNA-ALLOW-UNASSIGNED:CAPS"><literal>IDNA_ALLOW_UNASSIGNED</literal></link> or
+  <link linkend="IDNA-USE-STD3-ASCII-RULES:CAPS"><literal>IDNA_USE_STD3_ASCII_RULES</literal></link>.
 </simpara></listitem></varlistentry>
-<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns <literal>IDNA_SUCCESS</literal> on success, or error code.
+<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns <link linkend="IDNA-SUCCESS:CAPS"><literal>IDNA_SUCCESS</literal></link> on success, or error code.
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="idna-to-unicode-8z8z"/>idna_to_unicode_8z8z ()</title>
+<title><anchor id="idna-to-unicode-8z8z" role="function"/>idna_to_unicode_8z8z ()</title>
 <indexterm><primary>idna_to_unicode_8z8z</primary></indexterm><programlisting><link linkend="int">int</link>         idna_to_unicode_8z8z            (const <link linkend="char">char</link> *input,
                                              <link linkend="char">char</link> **output,
                                              <link linkend="int">int</link> flags);</programlisting>
@@ -508,14 +511,14 @@ caller.</para>
 <listitem><simpara> pointer to newly allocated output UTF-8 string.
 </simpara></listitem></varlistentry>
 <varlistentry><term><parameter>flags</parameter>&nbsp;:</term>
-<listitem><simpara> an <link linkend="Idna-flags"><type>Idna_flags</type></link> value, e.g., <literal>IDNA_ALLOW_UNASSIGNED</literal> or
-  <literal>IDNA_USE_STD3_ASCII_RULES</literal>.
+<listitem><simpara> an <link linkend="Idna-flags"><type>Idna_flags</type></link> value, e.g., <link linkend="IDNA-ALLOW-UNASSIGNED:CAPS"><literal>IDNA_ALLOW_UNASSIGNED</literal></link> or
+  <link linkend="IDNA-USE-STD3-ASCII-RULES:CAPS"><literal>IDNA_USE_STD3_ASCII_RULES</literal></link>.
 </simpara></listitem></varlistentry>
-<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns <literal>IDNA_SUCCESS</literal> on success, or error code.
+<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns <link linkend="IDNA-SUCCESS:CAPS"><literal>IDNA_SUCCESS</literal></link> on success, or error code.
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="idna-to-unicode-8zlz"/>idna_to_unicode_8zlz ()</title>
+<title><anchor id="idna-to-unicode-8zlz" role="function"/>idna_to_unicode_8zlz ()</title>
 <indexterm><primary>idna_to_unicode_8zlz</primary></indexterm><programlisting><link linkend="int">int</link>         idna_to_unicode_8zlz            (const <link linkend="char">char</link> *input,
                                              <link linkend="char">char</link> **output,
                                              <link linkend="int">int</link> flags);</programlisting>
@@ -535,14 +538,14 @@ buffer must be deallocated by the caller.</para>
   current locale's character set.
 </simpara></listitem></varlistentry>
 <varlistentry><term><parameter>flags</parameter>&nbsp;:</term>
-<listitem><simpara> an <link linkend="Idna-flags"><type>Idna_flags</type></link> value, e.g., <literal>IDNA_ALLOW_UNASSIGNED</literal> or
-  <literal>IDNA_USE_STD3_ASCII_RULES</literal>.
+<listitem><simpara> an <link linkend="Idna-flags"><type>Idna_flags</type></link> value, e.g., <link linkend="IDNA-ALLOW-UNASSIGNED:CAPS"><literal>IDNA_ALLOW_UNASSIGNED</literal></link> or
+  <link linkend="IDNA-USE-STD3-ASCII-RULES:CAPS"><literal>IDNA_USE_STD3_ASCII_RULES</literal></link>.
 </simpara></listitem></varlistentry>
-<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns <literal>IDNA_SUCCESS</literal> on success, or error code.
+<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns <link linkend="IDNA-SUCCESS:CAPS"><literal>IDNA_SUCCESS</literal></link> on success, or error code.
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 <refsect2>
-<title><anchor id="idna-to-unicode-lzlz"/>idna_to_unicode_lzlz ()</title>
+<title><anchor id="idna-to-unicode-lzlz" role="function"/>idna_to_unicode_lzlz ()</title>
 <indexterm><primary>idna_to_unicode_lzlz</primary></indexterm><programlisting><link linkend="int">int</link>         idna_to_unicode_lzlz            (const <link linkend="char">char</link> *input,
                                              <link linkend="char">char</link> **output,
                                              <link linkend="int">int</link> flags);</programlisting>
@@ -563,10 +566,10 @@ output buffer must be deallocated by the caller.</para>
   current locale's character set.
 </simpara></listitem></varlistentry>
 <varlistentry><term><parameter>flags</parameter>&nbsp;:</term>
-<listitem><simpara> an <link linkend="Idna-flags"><type>Idna_flags</type></link> value, e.g., <literal>IDNA_ALLOW_UNASSIGNED</literal> or
-  <literal>IDNA_USE_STD3_ASCII_RULES</literal>.
+<listitem><simpara> an <link linkend="Idna-flags"><type>Idna_flags</type></link> value, e.g., <link linkend="IDNA-ALLOW-UNASSIGNED:CAPS"><literal>IDNA_ALLOW_UNASSIGNED</literal></link> or
+  <link linkend="IDNA-USE-STD3-ASCII-RULES:CAPS"><literal>IDNA_USE_STD3_ASCII_RULES</literal></link>.
 </simpara></listitem></varlistentry>
-<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns <literal>IDNA_SUCCESS</literal> on success, or error code.
+<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns <link linkend="IDNA-SUCCESS:CAPS"><literal>IDNA_SUCCESS</literal></link> on success, or error code.
 </simpara></listitem></varlistentry>
 </variablelist></refsect2>
 

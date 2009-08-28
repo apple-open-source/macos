@@ -1,23 +1,15 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1999-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1999,2007 Oracle.  All rights reserved.
+ *
+ * $Id: hash_meta.c,v 12.11 2007/05/17 15:15:38 bostic Exp $
  */
 
 #include "db_config.h"
 
-#ifndef lint
-static const char revid[] = "$Id: hash_meta.c,v 1.2 2004/03/30 01:23:27 jtownsen Exp $";
-#endif /* not lint */
-
-#ifndef NO_SYSTEM_INCLUDES
-#include <sys/types.h>
-#endif
-
 #include "db_int.h"
 #include "dbinc/db_page.h"
-#include "dbinc/db_shash.h"
 #include "dbinc/hash.h"
 #include "dbinc/lock.h"
 #include "dbinc/mp.h"
@@ -32,34 +24,23 @@ __ham_get_meta(dbc)
 	DBC *dbc;
 {
 	DB *dbp;
-	DB_ENV *dbenv;
 	DB_MPOOLFILE *mpf;
 	HASH *hashp;
 	HASH_CURSOR *hcp;
 	int ret;
 
 	dbp = dbc->dbp;
-	dbenv = dbp->dbenv;
 	mpf = dbp->mpf;
 	hashp = dbp->h_internal;
 	hcp = (HASH_CURSOR *)dbc->internal;
 
-	if (dbenv != NULL &&
-	    STD_LOCKING(dbc) && !F_ISSET(dbc, DBC_RECOVER | DBC_COMPENSATE)) {
-		dbc->lock.pgno = hashp->meta_pgno;
-		if ((ret = __lock_get(dbenv, dbc->locker,
-		    DB_NONBLOCK(dbc) ? DB_LOCK_NOWAIT : 0,
-		    &dbc->lock_dbt, DB_LOCK_READ, &hcp->hlock)) != 0)
-			return ((ret == DB_LOCK_NOTGRANTED &&
-			     !F_ISSET(dbenv, DB_ENV_TIME_NOTGRANTED)) ?
-			     DB_LOCK_DEADLOCK : ret);
+	if ((ret = __db_lget(dbc, 0,
+	     hashp->meta_pgno, DB_LOCK_READ, 0, &hcp->hlock)) != 0)
+		return (ret);
 
-	}
-
-	if ((ret = __memp_fget(mpf,
-	    &hashp->meta_pgno, DB_MPOOL_CREATE, &(hcp->hdr))) != 0 &&
-	    LOCK_ISSET(hcp->hlock))
-		(void)__lock_put(dbenv, &hcp->hlock);
+	if ((ret = __memp_fget(mpf, &hashp->meta_pgno, dbc->txn,
+	    DB_MPOOL_CREATE, &hcp->hdr)) != 0)
+		(void)__LPUT(dbc, hcp->hlock);
 
 	return (ret);
 }
@@ -75,34 +56,31 @@ __ham_release_meta(dbc)
 {
 	DB_MPOOLFILE *mpf;
 	HASH_CURSOR *hcp;
+	int ret;
 
 	mpf = dbc->dbp->mpf;
 	hcp = (HASH_CURSOR *)dbc->internal;
 
-	if (hcp->hdr)
-		(void)__memp_fput(mpf, hcp->hdr,
-		    F_ISSET(hcp, H_DIRTY) ? DB_MPOOL_DIRTY : 0);
-	hcp->hdr = NULL;
-	if (!F_ISSET(dbc, DBC_RECOVER | DBC_COMPENSATE) &&
-	    dbc->txn == NULL && LOCK_ISSET(hcp->hlock))
-		(void)__lock_put(dbc->dbp->dbenv, &hcp->hlock);
-	F_CLR(hcp, H_DIRTY);
+	if (hcp->hdr != NULL) {
+		if ((ret = __memp_fput(mpf, hcp->hdr, dbc->priority)) != 0)
+			return (ret);
+		hcp->hdr = NULL;
+	}
 
-	return (0);
+	return (__TLPUT(dbc, hcp->hlock));
 }
 
 /*
  * Mark the meta-data page dirty.
  *
- * PUBLIC: int __ham_dirty_meta __P((DBC *));
+ * PUBLIC: int __ham_dirty_meta __P((DBC *, u_int32_t));
  */
 int
-__ham_dirty_meta(dbc)
+__ham_dirty_meta(dbc, flags)
 	DBC *dbc;
+	u_int32_t flags;
 {
 	DB *dbp;
-	DB_ENV *dbenv;
-	DB_LOCK _tmp;
 	HASH *hashp;
 	HASH_CURSOR *hcp;
 	int ret;
@@ -111,21 +89,10 @@ __ham_dirty_meta(dbc)
 	hashp = dbp->h_internal;
 	hcp = (HASH_CURSOR *)dbc->internal;
 
-	ret = 0;
-	dbenv = dbp->dbenv;
-	if (STD_LOCKING(dbc) && !F_ISSET(dbc, DBC_RECOVER | DBC_COMPENSATE)) {
-		dbc->lock.pgno = hashp->meta_pgno;
-		if ((ret = __lock_get(dbenv, dbc->locker,
-		    DB_NONBLOCK(dbc) ? DB_LOCK_NOWAIT : 0,
-		    &dbc->lock_dbt, DB_LOCK_WRITE, &_tmp)) == 0) {
-			ret = __lock_put(dbenv, &hcp->hlock);
-			hcp->hlock = _tmp;
-		}
-	}
+	if ((ret = __db_lget(dbc, LCK_COUPLE,
+	     hashp->meta_pgno, DB_LOCK_WRITE, 0, &hcp->hlock)) != 0)
+		return (ret);
 
-	if (ret == 0)
-		F_SET(hcp, H_DIRTY);
-	return ((ret == DB_LOCK_NOTGRANTED &&
-	     !F_ISSET(dbenv, DB_ENV_TIME_NOTGRANTED)) ?
-	     DB_LOCK_DEADLOCK : ret);
+	return (__memp_dirty(dbp->mpf,
+	    &hcp->hdr, dbc->txn, dbc->priority, flags));
 }

@@ -84,7 +84,7 @@ IORemoteConfigDirectory::withOwnerOffset( IOFireWireROMCache *rom,
 {
     IORemoteConfigDirectory *dir;
 
-    dir = new IORemoteConfigDirectory;
+    dir = OSTypeAlloc( IORemoteConfigDirectory );
     if( !dir )
         return NULL;
 

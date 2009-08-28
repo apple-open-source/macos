@@ -15,6 +15,9 @@
 	Change History (most recent first):
 
 		$Log: MBCBoard.mm,v $
+		Revision 1.20  2008/08/27 21:37:41  neerache
+		<rdar://problem/6138230> HARDENING: Replace unsafe string functions in Chess (53 found)
+		
 		Revision 1.19  2007/03/03 01:13:16  neerache
 		Fix warnings
 		
@@ -766,7 +769,7 @@ NSString * sPieceLetters[] = {
 			*p++  = Row(move->fToSquare) == 4 ? '3' : '6';
 		}
 	}
-	sprintf(p, " %d %d", fMoveClock, ([fMoves count]/2)+1);
+	snprintf(p, 32, " %d %d", fMoveClock, ([fMoves count]/2)+1);
 
 	return [NSString stringWithUTF8String:pos+1];
 }

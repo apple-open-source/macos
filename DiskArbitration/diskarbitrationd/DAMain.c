@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -65,6 +65,7 @@ CFStringRef            gDAConsoleUser                  = NULL;
 gid_t                  gDAConsoleUserGID               = 0;
 uid_t                  gDAConsoleUserUID               = 0;
 CFMutableArrayRef      gDADiskList                     = NULL;
+Boolean                gDAExit                         = FALSE;
 CFMutableArrayRef      gDAFileSystemList               = NULL;
 CFMutableArrayRef      gDAFileSystemProbeList          = NULL;
 Boolean                gDAIdle                         = TRUE;
@@ -189,6 +190,15 @@ static Boolean __DAMainCreateMountPointFolder( void )
     }
 
     return success;
+}
+
+static void __DAMainSignal( int sig )
+{
+    /*
+     * Process a SIGTERM signal.
+     */
+
+    gDAExit = TRUE;
 }
 
 static void __DAMain( void )
@@ -647,8 +657,7 @@ int main( int argc, char * argv[], char * envp[] )
      * Start.
      */
 
-    char           option;
-    DAServerStatus status;
+    char option;
 
     /*
      * Initialize.
@@ -691,24 +700,10 @@ int main( int argc, char * argv[], char * envp[] )
     }
 
     /*
-     * Determine whether Disk Arbitration is active.
-     */
-
-    status = DAServerInitialize( );
-
-    switch ( status )
-    {
-        case kDAServerStatusActive:
-        {
-            fprintf( stderr, "%s: server is already active.\n", gDAProcessName );
-
-            exit( EX_UNAVAILABLE );
-        }
-    }
-
-    /*
      * Continue to start up.
      */
+
+    signal( SIGTERM, __DAMainSignal );
 
     __DAMain( );
 

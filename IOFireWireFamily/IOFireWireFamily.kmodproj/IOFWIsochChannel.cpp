@@ -39,6 +39,8 @@
 #include <libkern/c++/OSCollectionIterator.h>
 #include "FWDebugging.h"
 
+#include <IOKit/firewire/IOFWUtils.h>
+
 OSDefineMetaClassAndStructors(IOFWIsochChannel, OSObject)
 OSMetaClassDefineReservedUnused(IOFWIsochChannel, 0);
 OSMetaClassDefineReservedUnused(IOFWIsochChannel, 1);
@@ -63,7 +65,7 @@ bool IOFWIsochChannel::init(	IOFireWireController *		control,
 
 	FWKLOG(( "IOFWIsochChannel::init - doIRM = %d\n", doIRM ));
 	
-	DebugLog("fPacketSize = %ld\n", packetSize) ;
+	DebugLog("fPacketSize = %d\n", (uint32_t)packetSize) ;
 	
 	success = OSObject::init();
     
@@ -106,7 +108,7 @@ bool IOFWIsochChannel::init(	IOFireWireController *		control,
 	
 	if( success )
 	{
-		fReadCmd = new IOFWReadQuadCommand;
+		fReadCmd = OSTypeAlloc( IOFWReadQuadCommand );
 		if( fReadCmd == NULL )
 		{
 			success = false;
@@ -124,7 +126,7 @@ bool IOFWIsochChannel::init(	IOFireWireController *		control,
 	
 	if( success )
 	{
-		fLockCmd = new IOFWCompareAndSwapCommand;
+		fLockCmd = OSTypeAlloc( IOFWCompareAndSwapCommand );
 		if( fLockCmd == NULL )
 		{
 			success = false;
@@ -455,7 +457,7 @@ IOReturn IOFWIsochChannel::start()
 	}
 	else
 	{
-		DebugLog("channel %p start - started on isoch channel %ld\n", this, fChannel ) ;
+		DebugLog("channel %p start - started on isoch channel %d\n", this, (uint32_t)fChannel ) ;
 	}
 	
     return error ;
@@ -629,7 +631,7 @@ IOReturn IOFWIsochChannel::allocateChannelBegin( 	IOFWSpeed		inSpeed,
 													UInt64			inAllowedChans,
 													UInt32 *		outChannel )
 {
-	DebugLog( "IOFWIsochChannel<%p>::allocateChannelBegin() - entered, inSpeed = %d, fDoIRM = %d, inAllowedChans = 0x%016llx, fChannel=%ld, fBandwidth=%ld\n", this, inSpeed, fDoIRM, inAllowedChans, fChannel, fBandwidth );
+	DebugLog( "IOFWIsochChannel<%p>::allocateChannelBegin() - entered, inSpeed = %d, fDoIRM = %d, inAllowedChans = 0x%016llx, fChannel=%d, fBandwidth=%d\n", this, inSpeed, fDoIRM, inAllowedChans, (uint32_t)fChannel, (uint32_t)fBandwidth );
 
 	IOReturn		status = kIOReturnSuccess;
 
@@ -643,8 +645,12 @@ IOReturn IOFWIsochChannel::allocateChannelBegin( 	IOFWSpeed		inSpeed,
 		
 		// reserve bandwidth:
 		// bandwidth is in units of quads at 1600 Mbs
-		UInt32 bandwidth = (fPacketSize/4 + 3) * 16 / (1 << inSpeed);
-
+		UInt32 bandwidth = 0;
+		if( fPacketSize != 0 )
+		{
+			bandwidth = (fPacketSize/4 + 3) * 16 / (1 << inSpeed);
+		}
+		
 		do
 		{
 			FWAddress			addr ;
@@ -658,7 +664,7 @@ IOReturn IOFWIsochChannel::allocateChannelBegin( 	IOFWSpeed		inSpeed,
 			
 			fControl->getIRMNodeID( generation, addr.nodeID );
 			
-			DebugLog( "IOFWIsochChannel<%p>::allocateChannelBegin() - generation %ld\n", this, generation );
+			DebugLog( "IOFWIsochChannel<%p>::allocateChannelBegin() - generation %d\n", this, (uint32_t)generation );
 			
 			//
 			// Make sure we're at least one second from the last bus-reset
@@ -673,14 +679,14 @@ IOReturn IOFWIsochChannel::allocateChannelBegin( 	IOFWSpeed		inSpeed,
 					UInt64			nanos;
 					UInt32			delayInMSec;
 
-					clock_get_uptime( & currentUpTime );
+					IOFWGetAbsoluteTime( & currentUpTime );
 					SUB_ABSOLUTETIME( & currentUpTime, fControl->getResetTime() ) ;
 					absolutetime_to_nanoseconds( currentUpTime, & nanos ) ;
 					if (nanos < 1000000000LL)
 					{
 						delayInMSec = (UInt32) ((1000000000LL - nanos)/1000000LL);
 						
-						DebugLog( "IOFWIsochChannel<%p>::allocateChannelBegin() - delaying for %ld msec\n", this, delayInMSec);
+						DebugLog( "IOFWIsochChannel<%p>::allocateChannelBegin() - delaying for %d msec\n", this, (uint32_t)delayInMSec);
 						
 						// Delay until it's been one second from last bus-reset
 						IOSleep(delayInMSec);
@@ -765,7 +771,7 @@ IOReturn IOFWIsochChannel::allocateChannelBegin( 	IOFWSpeed		inSpeed,
 					
 					if( status == kIOReturnSuccess )
 					{
-						DebugLog("IOFWIsochChannel<%p>::allocateChannelBegin() - allocated bandwidth %lu\n", this, bandwidth) ;
+						DebugLog("IOFWIsochChannel<%p>::allocateChannelBegin() - allocated bandwidth %u\n", this, (uint32_t)bandwidth) ;
 						
 						fBandwidth = bandwidth;
 					}
@@ -908,7 +914,8 @@ IOReturn IOFWIsochChannel::allocateChannelBegin( 	IOFWSpeed		inSpeed,
 	}
 		
 	IOLockUnlock( fLock );
-
+	
+	FWTrace( kFWTIsoch, kTPIsochAllocateChannelBegin, (uintptr_t)(fControl->getLink()), fChannel, fBandwidth, status );
 	DebugLogCond( status, "IOFWIsochChannel<%p>::allocateChannelBegin() - exited with status = 0x%x\n", this, status );
 	
     return status;
@@ -941,7 +948,12 @@ void IOFWIsochChannel::handleBusReset()
 		threadInfo->fGeneration = fControl->getGeneration();
 		threadInfo->fChannel = this;
 		retain();	// retain ourself for the thread to use
-		IOCreateThread( threadFunc, threadInfo );
+		
+		thread_t		thread;
+		if( kernel_thread_start((thread_continue_t)threadFunc, threadInfo, &thread ) == KERN_SUCCESS )
+		{
+			thread_deallocate(thread);
+		}
 	}
 }
 
@@ -1061,7 +1073,7 @@ void IOFWIsochChannel::reallocBandwidth( UInt32 generation )
 		
 		if( result == kIOReturnNoSpace ) 
 		{
-			DebugLog( "IOFWIsochChannel<%p>::reallocBandwidth() - failed to reallocate bandwidth = %ld, channel = %ld\n", this, fBandwidth, fChannel );
+			DebugLog( "IOFWIsochChannel<%p>::reallocBandwidth() - failed to reallocate bandwidth = %d, channel = %d\n", this, (uint32_t)fBandwidth, (uint32_t)fChannel );
 			
 			// Couldn't reallocate bandwidth!
 			fBandwidth = 0;
@@ -1132,7 +1144,7 @@ void IOFWIsochChannel::reallocBandwidth( UInt32 generation )
 		
 		if( result == kIOFireWireChannelNotAvailable )
 		{
-			DebugLog( "IOFWIsochChannel<%p>::reallocBandwidth() - failed to reallocate channel = %ld\n", this, fChannel );
+			DebugLog( "IOFWIsochChannel<%p>::reallocBandwidth() - failed to reallocate channel = %d\n", this, (uint32_t)fChannel );
 
 			// Couldn't reallocate the channel
 			fChannel = 64;
@@ -1146,6 +1158,7 @@ void IOFWIsochChannel::reallocBandwidth( UInt32 generation )
 
 	fGeneration = generation;
 
+	FWTrace( kFWTIsoch, kTPIsochReallocBandwidth, (uintptr_t)(fControl->getLink()), fChannel, fBandwidth, result );
 	DebugLogCond( result, "IOFWIsochChannel<%p>::reallocBandwidth() - exited with result = 0x%x\n", this, result );
 
 	IOLockUnlock( fLock );

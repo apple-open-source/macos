@@ -1,10 +1,10 @@
 /*
- * "$Id: image-private.h 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: image-private.h 7473 2008-04-21 17:51:58Z mike $"
  *
  *   Private image library definitions for the Common UNIX Printing
  *   System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 1993-2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -24,7 +24,6 @@
  */
 
 #  include "image.h"
-#  include "raster.h"
 #  include <cups/cups.h>
 #  include <cups/debug.h>
 #  include <cups/string.h>
@@ -41,8 +40,8 @@
 
 #  define CUPS_IMAGE_MAX_WIDTH	0x07ffffff
 					/* 2^27-1 to allow for 15-channel data */
-#  define CUPS_IMAGE_MAX_HEIGHT	0x7fffffff
-					/* 2^31-1 */
+#  define CUPS_IMAGE_MAX_HEIGHT	0x3fffffff
+					/* 2^30-1 */
 
 #  define CUPS_TILE_SIZE	256	/* 256x256 pixel tiles */
 #  define CUPS_TILE_MINIMUM	10	/* Minimum number of tiles */
@@ -79,7 +78,7 @@ struct cups_ic_s;
 typedef struct cups_itile_s		/**** Image tile ****/
 {
   int			dirty;		/* True if tile is dirty */
-  long			pos;		/* Position of tile on disk (-1 if not written) */
+  off_t			pos;		/* Position of tile on disk (-1 if not written) */
   struct cups_ic_s	*ic;		/* Pixel data */
 } cups_itile_t;
 
@@ -103,7 +102,7 @@ struct cups_image_s			/**** Image file data ****/
   cups_itile_t		**tiles;	/* Tiles in image */
   cups_ic_t		*first,		/* First cached tile in image */
 			*last;		/* Last cached tile in image */
-  FILE			*cachefile;	/* Tile cache file */
+  int			cachefile;	/* Tile cache file */
   char			cachename[256];	/* Tile cache filename */
 };
 
@@ -214,5 +213,5 @@ extern void		_cupsRasterClearError(void);
 #endif /* !_CUPS_IMAGE_PRIVATE_H_ */
 
 /*
- * End of "$Id: image-private.h 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: image-private.h 7473 2008-04-21 17:51:58Z mike $".
  */

@@ -1,0 +1,87 @@
+# procshd6.tcl --
+#
+#  Test file for compilation.
+#  This file contains a proc definintion, where the body is loaded from a
+#  variable. Thus, the body is not compiled.
+#
+# Copyright (c) 1998-2000 Ajuba Solutions
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+# 
+# RCS: @(#) $Id: procshd8.tbc,v 1.2 2000/05/30 22:19:10 wart Exp $
+# TclPro::Compiler::Include
+
+if {[catch {package require tbcload 1.0} err] == 1} {
+    error "The TclPro ByteCode Loader is not available"
+}
+tbcload::bceval {
+TclPro ByteCode 1 0 1.0 8.0
+6 0 49 11 0 0 28 0 5 6 6 -1 -1
+49
+w0E<!:B`W!*TA9v4J1qv35:3w.lvpv5/o9v-W&=!1f&s!2o8X!0)YQ#3on9vz
+6
+>4dOw,3!
+6
+Q35+'-3!
+11
+x
+1
+-v
+x
+22
+6dV<+8JfCFB4uD+U.#F+mC+UGM?!
+x
+4
+,CHr@
+x
+1
+.v
+x
+3
+/MHw
+x
+1
+/v
+x
+13
+UPxQH?Vu^FHxf<IA!
+x
+4
+4/;EF
+x
+4
+b4Z)<
+p
+1 0 13 2 0 0 4 0 3 1 1 -1 -1
+13
+,|&v!-`&v!1`8X!z
+1
+z
+1
+-!
+2
+x
+6
+82_`FWnw
+x
+3
+F<Fw
+0
+0
+2 2
+1
+Dv
+0 0 257
+1
+Ev
+1 1 257
+x
+5
++EF/DEv
+x
+15
+rpwhC;Z2b3<?<+EfqT+
+0
+0
+}

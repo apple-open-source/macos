@@ -3,19 +3,20 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -28,16 +29,9 @@
  *
  */
 
-#include <TargetConditionals.h>
-#include <CoreFoundation/CoreFoundation.h>
-#include <SystemConfiguration/SystemConfiguration.h>
-#include <SystemConfiguration/SCValidation.h>
-#include <IOKit/IOKitLib.h>
-#include <IOKit/IOMessage.h>
 #include <IOKit/hidsystem/IOHIDLib.h>
 #include <IOKit/graphics/IOGraphicsTypes.h>
-#include <IOKit/pwr_mgt/IOPM.h>
-#include <IOKit/pwr_mgt/IOPMLib.h>
+
 #include <syslog.h>
 #include "PrivateLib.h"
 #include "AutoWakeScheduler.h"
@@ -77,7 +71,8 @@ struct PowerEventBehavior {
 
     // Callouts will be defined at startup time and not modified after that
     powerEventCallout       timerExpirationCallout;    
-    powerEventCallout       scheduleNextCallout;    
+    powerEventCallout       scheduleNextCallout;
+    powerEventCallout       noScheduledEventCallout;
 };
 typedef struct PowerEventBehavior PowerEventBehavior;
 
@@ -127,6 +122,8 @@ static CFComparisonResult compareEvDates(CFDictionaryRef,
 
 void poweronScheduleCallout(CFDictionaryRef);
 void wakeScheduleCallout(CFDictionaryRef);
+
+void wakeNoScheduledEventCallout(CFDictionaryRef);
 
 void wakeTimerExpiredCallout(CFDictionaryRef);
 void poweronTimerExpiredCallout(CFDictionaryRef);
@@ -197,6 +194,7 @@ AutoWake_prime(void)
     
     // schedulePowerEvent callouts
     wakeBehavior.scheduleNextCallout        = wakeScheduleCallout;
+    wakeBehavior.noScheduledEventCallout    = wakeNoScheduledEventCallout;
     poweronBehavior.scheduleNextCallout     = poweronScheduleCallout;
 
     // Use this "sharedEvents" linkage to later merge wakeorpoweron events 
@@ -229,33 +227,31 @@ AutoWake_prime(void)
  */
 
 __private_extern__ void 
-AutoWakeSleepWakeNotification(natural_t message_type) 
+AutoWakeSleepWakeNotification(
+    natural_t messageType,
+    int runState) 
 {
     PowerEventBehavior  *this_behavior = NULL;
     int i;
 
-    switch (message_type) {
-        case kIOMessageSystemWillSleep:
-            // scheduleWakeupTime
-            schedulePowerEvent(&wakeBehavior);
-            break;
-
-        case kIOMessageSystemHasPoweredOn:
-            // scan for past-wakeup events, yank 'em from the queue
-            for(i=0; i<kBehaviorsCount; i++) 
-            {
-                this_behavior = behaviors[i];
-                if(!this_behavior) continue;
-        
-                purgePastEvents(this_behavior);
-                
-                schedulePowerEvent(this_behavior);
-            }
-            break;
-
-        default:
-            // don't care about CanSystemSleep
-            break;
+    if (kIOMessageSystemWillSleep == messageType)
+    {
+        // scheduleWakeupTime
+        schedulePowerEvent(&wakeBehavior);
+    } else 
+    if ( (kIOMessageSystemHasPoweredOn == messageType)
+        && (kRStateNormal == runState) )
+    {
+        // scan for past-wakeup events, yank 'em from the queue
+        for(i=0; i<kBehaviorsCount; i++) 
+        {
+            this_behavior = behaviors[i];
+            if(!this_behavior) continue;
+    
+            purgePastEvents(this_behavior);
+            
+            schedulePowerEvent(this_behavior);
+        }
     }
 }
 
@@ -359,6 +355,9 @@ schedulePowerEvent(PowerEventBehavior *behave)
     if(!upcoming)
     {
         // No scheduled events
+        if (behave->noScheduledEventCallout) {
+            (*behave->noScheduledEventCallout)(NULL);
+        }
         return;
     }
         
@@ -419,8 +418,10 @@ void poweronTimerExpiredCallout(CFDictionaryRef event __unused)
  */
 void wakeScheduleCallout(CFDictionaryRef event)
 {
-    IOPMSchedulePowerEvent( _getScheduledEventDate(event),
-                NULL, CFSTR(kIOPMAutoWakeScheduleImmediate) );
+    CFDateRef chosenWakeDate = _getScheduledEventDate(event);
+    
+    _pm_scheduledevent_choose_best_wake_event(kChooseFullWake, 
+                            CFDateGetAbsoluteTime(chosenWakeDate));
 }
 
 void wakeTimerExpiredCallout(CFDictionaryRef event __unused)
@@ -428,6 +429,10 @@ void wakeTimerExpiredCallout(CFDictionaryRef event __unused)
     wakeDozingMachine();
 }
 
+void wakeNoScheduledEventCallout(CFDictionaryRef event __unused)
+{
+    _pm_scheduledevent_choose_best_wake_event(kChooseFullWake, 0);
+}
 
 /*
  * sleep
@@ -805,53 +810,3 @@ _getScheduledEventDate(CFDictionaryRef event)
     return isA_CFDate(CFDictionaryGetValue(event, CFSTR(kIOPMPowerEventTimeKey)));
 }
 
-#if __ppc__
-/* Provide legacy support for pre-Panther clients of the private PMU 
- * setProperties API In the OS X 10.2 era, several applications 
- * (both third party and internal) are directly using the
- * ApplePMU::setProperty("AutoWake", time) private API to 
- * schedule PMU AutoWakes.
- *
- * To continue to support these apps while also providing a more reliable 
- * queued AutoWake functionality, we're re-directing those old requests 
- * made directly to the PMU through the IOPMSchedulePowerEvent()
- * queueing API.
- *
- * The ApplePMU kext provides the notification that we're acting on here.
- */
-__private_extern__ void 
-AutoWakePMUInterestNotification(natural_t messageType, UInt32 messageArgument)
-{    
-    // Handle old calls to schedule AutoWakes and AutoPowers by funneling them 
-    // up through the queueing API.
-    // UInt32 messageArgument is a difference relative to the current time.
-    if(0 == messageArgument) return;
-    
-    if(kIOPMUMessageLegacyAutoWake == messageType)
-    {
-        CFDateRef           wakey_date;
-        CFAbsoluteTime      wakey_time;
-        wakey_time = CFAbsoluteTimeGetCurrent() 
-                            + (CFAbsoluteTime)messageArgument;
-        wakey_date = CFDateCreate(kCFAllocatorDefault, wakey_time);
-        IOPMSchedulePowerEvent(
-                        wakey_date, 
-                        CFSTR("Legacy PMU setProperties"), 
-                        CFSTR(kIOPMAutoWake));
-        CFRelease(wakey_date);
-    } else if(kIOPMUMessageLegacyAutoPower == messageType)
-    {
-        CFDateRef           wakey_date;
-        CFAbsoluteTime      wakey_time;
-        wakey_time = CFAbsoluteTimeGetCurrent() 
-                            + (CFAbsoluteTime)messageArgument;
-        wakey_date = CFDateCreate(kCFAllocatorDefault, wakey_time);
-        IOPMSchedulePowerEvent(
-                        wakey_date, 
-                        CFSTR("Legacy PMU setProperties"), 
-                        CFSTR(kIOPMAutoPowerOn));
-        CFRelease(wakey_date);
-    }
-    
-}
-#endif /* __ppc__ */

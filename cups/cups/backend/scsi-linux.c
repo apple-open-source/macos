@@ -1,5 +1,5 @@
 /*
- * "$Id: scsi-linux.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: scsi-linux.c 6834 2007-08-22 18:29:25Z mike $"
  *
  *   Linux SCSI printer support for the Common UNIX Printing System (CUPS).
  *
@@ -79,7 +79,8 @@ int	print_device(const char *resource, int fd, int copies) { return (1); }
 void
 list_devices(void)
 {
-  puts("direct scsi \"Unknown\" \"SCSI Printer\"");
+  printf("direct scsi \"Unknown\" \"%s\"\n",
+         _cupsLangString(cupsLangDefault(), _("SCSI Printer")));
 }
 
 
@@ -255,5 +256,5 @@ print_device(const char *resource,	/* I - SCSI device */
 
 
 /*
- * End of "$Id: scsi-linux.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: scsi-linux.c 6834 2007-08-22 18:29:25Z mike $".
  */

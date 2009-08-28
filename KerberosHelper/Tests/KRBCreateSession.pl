@@ -69,7 +69,7 @@ my $s_princ_mr = 'cifs/'. $mr_h. $d .'@'. $mr;
 
 my $r_lkdc = [0, 'REALM=LKDC:SHA1.'];		# A LocalKDC realm result
 my $r_mged = [0, 'REALM='. $mr];		# A managed realm result
-my $r_norlm= [1, 'Error.*'];	 		# No realm can be found
+my $r_norlm= [1, 'ERROR.*'];	 		# No realm can be found
 
 my $no_krb_tests = [
 		[ undef, undef, $r_lkdc, "Getting our LocalKDC Realm"],

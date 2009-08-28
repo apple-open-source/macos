@@ -110,20 +110,20 @@ void AppleRAIDStorageRequest::extractRequest(IOService **client, UInt64 *byteSta
     *client			= srClient;
     *byteStart			= srByteStart;
     *buffer	 		= srMemoryDescriptor;
-    *completion 		= srCompletion;
+    *completion 		= srClientsCompletion;
 }
 
 void AppleRAIDStorageRequest::read(IOService *client, UInt64 byteStart, IOMemoryDescriptor *buffer,
-				   IOStorageCompletion completion)
+				   IOStorageAttributes * attributes, IOStorageCompletion * completion)
 {
     UInt32			index, virtIndex;
     AppleRAIDMember		*member;
     bool			isOnline;
-    IOStorageCompletion		storageCompletion;
     AppleRAIDMemoryDescriptor	*memoryDescriptor;
+    IOStorageCompletion		internalCompletion;
     
     srClient			= client;
-    srCompletion 		= completion;
+    srClientsCompletion 	= *completion;
     srCompletedCount		= 0;
     srMemoryDescriptor 		= buffer;
     srMemoryDescriptorDirection	= buffer->getDirection();
@@ -136,20 +136,20 @@ void AppleRAIDStorageRequest::read(IOService *client, UInt64 byteStart, IOMemory
 
     // XXX this is hideously inefficent, it adds a context switch per i/o request
     // XXX replace event source code with a direct runAction call?
-    storageCompletion.target    = srEventSource;
-    storageCompletion.action    = srEventSource->getStorageCompletionAction();
+    internalCompletion.target    = srEventSource;
+    internalCompletion.action    = srEventSource->getStorageCompletionAction();
 
     for (virtIndex = 0; virtIndex < srMemberCount; virtIndex++) {
 
 	member = srActiveMembers[virtIndex];
-	isOnline = (UInt32)(member) >= 0x1000;
-	index = isOnline ? member->getMemberIndex() : (UInt32) member;
+	isOnline = (uintptr_t)(member) >= 0x1000;
+	index = isOnline ? member->getMemberIndex() : (uintptr_t)member;
 	memoryDescriptor = srMemoryDescriptors[index];
 
 	if (isOnline && memoryDescriptor->configureForMemoryDescriptor(buffer, byteStart, virtIndex)) {
-	    storageCompletion.parameter = memoryDescriptor;
+	    internalCompletion.parameter = memoryDescriptor;
 	    member->read(srRAIDSet, srMemberBaseOffset + memoryDescriptor->mdMemberByteStart,
-			 memoryDescriptor, storageCompletion);
+			 memoryDescriptor, attributes, &internalCompletion);
 	} else {
 	    // XXX this is lame, just have completion code check active count instead of the member count
 	    // XXX instead of this we could just set the byte count and status here
@@ -162,16 +162,16 @@ void AppleRAIDStorageRequest::read(IOService *client, UInt64 byteStart, IOMemory
 }
 
 void AppleRAIDStorageRequest::write(IOService *client, UInt64 byteStart, IOMemoryDescriptor *buffer,
-                                    IOStorageCompletion completion)
+				    IOStorageAttributes * attributes, IOStorageCompletion * completion)
 {
     UInt32			index, virtIndex;
     AppleRAIDMember		*member;
     bool			isOnline;
-    IOStorageCompletion		storageCompletion;
     AppleRAIDMemoryDescriptor	*memoryDescriptor;
+    IOStorageCompletion		internalCompletion;
     
     srClient			= client;
-    srCompletion 		= completion;
+    srClientsCompletion 	= *completion;
     srCompletedCount		= 0;
     srMemoryDescriptor 		= buffer;
     srMemoryDescriptorDirection	= buffer->getDirection();
@@ -182,20 +182,20 @@ void AppleRAIDStorageRequest::write(IOService *client, UInt64 byteStart, IOMemor
     srActiveCount		= srRAIDSet->getActiveCount();
     srRAIDSet->activeWriteMembers(srActiveMembers, srByteStart, srByteCount);
 
-    storageCompletion.target    = srEventSource;
-    storageCompletion.action    = srEventSource->getStorageCompletionAction();
+    internalCompletion.target    = srEventSource;
+    internalCompletion.action    = srEventSource->getStorageCompletionAction();
 
     for (virtIndex = 0; virtIndex < srMemberCount; virtIndex++) {
 	
 	member = srActiveMembers[virtIndex];
-	isOnline = (UInt32)(member) >= 0x1000;
-	index = isOnline ? member->getMemberIndex() : (UInt32) member;
+	isOnline = (uintptr_t)(member) >= 0x1000;
+	index = isOnline ? member->getMemberIndex() : (uintptr_t)member;
 	memoryDescriptor = srMemoryDescriptors[index];
 
 	if (isOnline && memoryDescriptor->configureForMemoryDescriptor(buffer, byteStart, virtIndex)) {
-            storageCompletion.parameter = memoryDescriptor;
+            internalCompletion.parameter = memoryDescriptor;
             member->write(srRAIDSet, srMemberBaseOffset + memoryDescriptor->mdMemberByteStart,
-			  memoryDescriptor, storageCompletion);
+			  memoryDescriptor, attributes, &internalCompletion);
         } else {
             srEventSource->completeRequest(memoryDescriptor, kIOReturnSuccess, 0);
         }

@@ -1,4 +1,4 @@
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -14,7 +14,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -32,10 +32,30 @@
 #include <cctype>
 #include <cwctype>     // For towupper, etc.
 #include <locale>
-#include <bits/atomicity.h>
+#include <ext/concurrence.h>
 
-namespace std 
+namespace
 {
+  __gnu_cxx::__mutex locale_cache_mutex;
+} // anonymous namespace
+
+// XXX GLIBCXX_ABI Deprecated
+#ifdef _GLIBCXX_LONG_DOUBLE_COMPAT
+# define _GLIBCXX_LOC_ID(mangled) extern std::locale::id mangled
+_GLIBCXX_LOC_ID (_ZNSt7num_getIcSt19istreambuf_iteratorIcSt11char_traitsIcEEE2idE);
+_GLIBCXX_LOC_ID (_ZNSt7num_putIcSt19ostreambuf_iteratorIcSt11char_traitsIcEEE2idE);
+_GLIBCXX_LOC_ID (_ZNSt9money_getIcSt19istreambuf_iteratorIcSt11char_traitsIcEEE2idE);
+_GLIBCXX_LOC_ID (_ZNSt9money_putIcSt19ostreambuf_iteratorIcSt11char_traitsIcEEE2idE);
+# ifdef _GLIBCXX_USE_WCHAR_T
+_GLIBCXX_LOC_ID (_ZNSt7num_getIwSt19istreambuf_iteratorIwSt11char_traitsIwEEE2idE);
+_GLIBCXX_LOC_ID (_ZNSt7num_putIwSt19ostreambuf_iteratorIwSt11char_traitsIwEEE2idE);
+_GLIBCXX_LOC_ID (_ZNSt9money_getIwSt19istreambuf_iteratorIwSt11char_traitsIwEEE2idE);
+_GLIBCXX_LOC_ID (_ZNSt9money_putIwSt19ostreambuf_iteratorIwSt11char_traitsIwEEE2idE);
+# endif
+#endif
+
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   // Definitions for static const data members of locale.
   const locale::category 	locale::none;
   const locale::category 	locale::ctype;
@@ -49,7 +69,6 @@ namespace std
   // These are no longer exported.
   locale::_Impl*                locale::_S_classic;
   locale::_Impl* 		locale::_S_global; 
-  const size_t 			locale::_S_categories_size;
 
 #ifdef __GTHREADS
   __gthread_once_t 		locale::_S_once = __GTHREAD_ONCE_INIT;
@@ -366,6 +385,23 @@ namespace std
       }
   }
 
+  void
+  locale::_Impl::
+  _M_install_cache(const facet* __cache, size_t __index)
+  {
+    __gnu_cxx::__scoped_lock sentry(locale_cache_mutex);
+    if (_M_caches[__index] != 0)
+      {
+	// Some other thread got in first.
+	delete __cache;
+      }
+    else
+      {
+	__cache->_M_add_reference();
+	_M_caches[__index] = __cache;
+      }
+  }
+
   // locale::id
   // Definitions for static const data members of locale::id
   _Atomic_word locale::id::_S_refcount;  // init'd to 0 by linker
@@ -374,9 +410,31 @@ namespace std
   locale::id::_M_id() const
   {
     if (!_M_index)
-      _M_index = 1 + __gnu_cxx::__exchange_and_add(&_S_refcount, 1);
+      {
+	// XXX GLIBCXX_ABI Deprecated
+#ifdef _GLIBCXX_LONG_DOUBLE_COMPAT
+	locale::id *f = 0;
+# define _GLIBCXX_SYNC_ID(facet, mangled) \
+	if (this == &::mangled)				\
+	  f = &facet::id
+	_GLIBCXX_SYNC_ID (num_get<char>, _ZNSt7num_getIcSt19istreambuf_iteratorIcSt11char_traitsIcEEE2idE);
+	_GLIBCXX_SYNC_ID (num_put<char>, _ZNSt7num_putIcSt19ostreambuf_iteratorIcSt11char_traitsIcEEE2idE);
+	_GLIBCXX_SYNC_ID (money_get<char>, _ZNSt9money_getIcSt19istreambuf_iteratorIcSt11char_traitsIcEEE2idE);
+	_GLIBCXX_SYNC_ID (money_put<char>, _ZNSt9money_putIcSt19ostreambuf_iteratorIcSt11char_traitsIcEEE2idE);
+# ifdef _GLIBCXX_USE_WCHAR_T
+	_GLIBCXX_SYNC_ID (num_get<wchar_t>, _ZNSt7num_getIwSt19istreambuf_iteratorIwSt11char_traitsIwEEE2idE);
+	_GLIBCXX_SYNC_ID (num_put<wchar_t>, _ZNSt7num_putIwSt19ostreambuf_iteratorIwSt11char_traitsIwEEE2idE);
+	_GLIBCXX_SYNC_ID (money_get<wchar_t>, _ZNSt9money_getIwSt19istreambuf_iteratorIwSt11char_traitsIwEEE2idE);
+	_GLIBCXX_SYNC_ID (money_put<wchar_t>, _ZNSt9money_putIwSt19ostreambuf_iteratorIwSt11char_traitsIwEEE2idE);
+# endif
+	if (f)
+	  _M_index = 1 + f->_M_id();
+	else
+#endif
+	  _M_index = 1 + __gnu_cxx::__exchange_and_add_dispatch(&_S_refcount,
+								1);
+      }
     return _M_index - 1;
   }
-} // namespace std
 
-
+_GLIBCXX_END_NAMESPACE

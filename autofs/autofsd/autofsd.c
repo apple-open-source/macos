@@ -23,6 +23,7 @@
 
 #include <stdio.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -78,8 +79,9 @@ main(__unused int argc, __unused char **argv)
 	/*
 	 * Register for notifications from the System Configuration framework.
 	 * We want to re-evaluate the autofs mounts to be done whenever
-	 * we get a network or directory services search policy change,
-	 * as that might change the automounter maps and fstab entries we get.
+	 * we get a network change or Directory Service search policy change
+	 * notification, as those might indicate that the automounter maps
+	 * and fstab entries we would get have changed.
 	 */
 	store = SCDynamicStoreCreate(NULL, CFSTR("autofsd"), sc_callback, NULL);
 	if (!store) {
@@ -94,22 +96,46 @@ main(__unused int argc, __unused char **argv)
 	/*
 	 * Establish dynamic store keys and patterns for notifications from
 	 * network change events.
+	 *
+	 * We do this because a host might have a hardwired binding to
+	 * a particular set of NIS/LDAP/Active Directory/etc. directory
+	 * servers, and might move between "able to get information from
+	 * those servers" and "unable to get information from those
+	 * servers" when it moves from one network to another, rather
+	 * than, for example, getting its directory server bindings from
+	 * DHCP, in which case we won't get a Directory Service search policy
+	 * change notification when we change networks, even though that
+	 * will change what automounter maps and/or fstab entries we'll
+	 * get, but we will, at least, get a network change event.
+	 */
+
+	/*
+	 * Look for changes to any IPv4 information...
 	 */
 	key = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL,
 		kSCDynamicStoreDomainState, kSCEntNetIPv4);
 	CFArrayAppendValue(keys, key);
 	CFRelease(key);
 
+	/*
+	 * ...on any interface.
+	 */
 	pattern = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
 		kSCDynamicStoreDomainState, kSCCompAnyRegex, kSCEntNetIPv4);
 	CFArrayAppendValue(patterns, pattern);
 	CFRelease(pattern);
 
+	/*
+	 * Look for changes to any IPv6 information...
+	 */
 	key = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL,
 		kSCDynamicStoreDomainState, kSCEntNetIPv6);
 	CFArrayAppendValue(keys, key);
 	CFRelease(key);
 
+	/*
+	 * ...on any interface.
+	 */
 	pattern = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
 		kSCDynamicStoreDomainState, kSCCompAnyRegex, kSCEntNetIPv6);
 	CFArrayAppendValue(patterns, pattern);

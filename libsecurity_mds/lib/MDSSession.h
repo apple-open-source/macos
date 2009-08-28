@@ -46,7 +46,7 @@ public:
     void install ();
     void uninstall ();
 
-	CSSM_DB_HANDLE MDSSession::dbOpen(const char *dbName, bool batched = false);
+	CSSM_DB_HANDLE dbOpen(const char *dbName, bool batched = false);
 		
 	// some DatabaseSession routines we need to override
 	void DbOpen(const char *DbName,

@@ -61,7 +61,7 @@ public:
     void setAttribute(const AtomicString& name, const AtomicString& value, ExceptionCode&);
     void setAttributeNS(const AtomicString& namespaceURI, const AtomicString& qualifiedName, const AtomicString& value, ExceptionCode&);
 
-    void scrollIntoView (bool alignToTop = true);
+    void scrollIntoView(bool alignToTop = true);
     void scrollIntoViewIfNeeded(bool centerIfNeeded = true);
 
     void scrollByUnits(int units, ScrollGranularity);
@@ -124,9 +124,6 @@ public:
     PassRefPtr<Element> cloneElementWithoutChildren();
 
     void normalizeAttributes();
-
-    virtual bool isFormControlElement() const { return false; }
-
     String nodeNamePreservingCase() const;
 
     // convenience methods which ignore exceptions
@@ -161,6 +158,7 @@ public:
     virtual void accessKeyAction(bool /*sendToAnyEvent*/) { }
 
     virtual bool isURLAttribute(Attribute*) const;
+    KURL getURLAttribute(const QualifiedName&) const;
     virtual const QualifiedName& imageSourceAttributeName() const;
     virtual String target() const { return String(); }
 
@@ -171,6 +169,8 @@ public:
 #ifndef NDEBUG
     virtual void formatForDebugger(char* buffer, unsigned length) const;
 #endif
+
+    bool pseudoStyleCacheIsInvalid(const RenderStyle* currentStyle, RenderStyle* newStyle);
 
     String innerText() const;
     String outerText() const;
@@ -203,6 +203,7 @@ public:
     unsigned childElementCount() const;
 
     // FormControlElement API
+    virtual bool isFormControlElement() const { return false; }
     virtual bool isEnabledFormControl() const { return true; }
     virtual bool isReadOnlyFormControl() const { return false; }
     virtual bool isTextFormControl() const { return false; }
@@ -215,6 +216,8 @@ public:
 
     virtual bool saveFormControlState(String&) const { return false; }
     virtual void restoreFormControlState(const String&) { }
+
+    virtual void dispatchFormControlChangeEvent() { }
 
 private:
     virtual void createAttributeMap() const;

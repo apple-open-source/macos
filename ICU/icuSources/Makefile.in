@@ -1,6 +1,6 @@
 #******************************************************************************
 #
-#   Copyright (C) 1998-2006, International Business Machines
+#   Copyright (C) 1998-2008, International Business Machines
 #   Corporation and others.  All Rights Reserved.
 #
 #******************************************************************************
@@ -32,9 +32,10 @@ subdir = .
 @SAMPLES_TRUE@SAMPLE = samples
 
 DOXYGEN = @DOXYGEN@
+DOCZIP = icu-docs.zip
 
 ## Files to remove for 'make clean'
-CLEANFILES = *~ 
+CLEANFILES = *~
 
 ## Files built (autoconfed) and installed
 INSTALLED_BUILT_FILES = $(top_builddir)/config/Makefile.inc $(top_builddir)/config/icu-config @platform_make_fragment@ $(EXTRA_DATA:%=$(DESTDIR)$(pkglibdir)/%)
@@ -59,7 +60,7 @@ EXTRA_DATA =
 install-recursive clean clean-local clean-recursive distclean		\
 distclean-local distclean-recursive doc dist dist-local dist-recursive	\
 check check-local check-recursive clean-recursive-with-twist install-icu \
-doc install-doc
+doc install-doc tests
 
 ## Clear suffix list
 .SUFFIXES :
@@ -85,6 +86,10 @@ doc/html/index.html: Doxyfile $(wildcard ./common/unicode/platform.h $(srcdir)/c
 
 Doxyfile: $(srcdir)/Doxyfile.in
 	CONFIG_FILES=$@ CONFIG_HEADERS= $(SHELL) ./config.status
+
+$(DOCZIP): doc
+	-$(RMV) $(DOCZIP)
+	( cd doc/html ; zip -r ../../$(DOCZIP) * )
 endif
 
 LOCAL_SUBDIRS = $(SUBDIRS)
@@ -125,6 +130,7 @@ install-icu: $(INSTALLED_BUILT_FILES)
 	@$(MKINSTALLDIRS) $(DESTDIR)$(sbindir)
 	$(INSTALL_DATA) @platform_make_fragment@ $(DESTDIR)$(pkgdatadir)/config/@platform_make_fragment_name@
 	$(INSTALL_SCRIPT) $(top_srcdir)/mkinstalldirs $(DESTDIR)$(pkgdatadir)/mkinstalldirs
+	$(INSTALL_SCRIPT) $(top_srcdir)/install-sh $(DESTDIR)$(pkgdatadir)/install-sh
 	$(INSTALL_DATA) $(top_srcdir)/../license.html $(DESTDIR)$(pkgdatadir)/license.html
 	$(INSTALL_SCRIPT) $(top_builddir)/config/icu-config $(DESTDIR)$(bindir)/icu-config
 	$(INSTALL_DATA) $(top_builddir)/config/Makefile.inc $(DESTDIR)$(pkglibdir)/Makefile.inc
@@ -144,16 +150,20 @@ endif
 $(DESTDIR)$(pkglibdir)/%: $(top_srcdir)/../data/%
 	$(INSTALL_DATA) $< $@
 
+# Build the tests, but don't run them.
+tests: all
+	$(MAKE) -C $(top_builddir)/test
+
 dist-local:
 
 clean-local:
 	test -z "$(CLEANFILES)" || $(RMV) $(CLEANFILES)
-	$(RMV) Doxyfile doc
+	$(RMV) Doxyfile doc $(DOCZIP)
 
 distclean-local: clean-local
-	$(RMV) Makefile config/Makefile icudefs.mk
 	$(RMV) $(top_builddir)/config/Makefile.inc $(top_builddir)/config/icu-config
 	$(RMV) config.cache config.log config.status
+	$(RMV) Makefile config/Makefile icudefs.mk $(LIBDIR) $(BINDIR)
 
 check-local:
 

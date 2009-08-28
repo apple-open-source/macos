@@ -95,11 +95,16 @@ IOReturn IOPMCopyCPUPowerStatus(CFDictionaryRef *cpuPowerStatus)
         goto exit;
     }
 
-    *cpuPowerStatus = isA_CFDictionary(SCDynamicStoreCopyValue(store, cpu_power_key));
-    if (*cpuPowerStatus)
+    *cpuPowerStatus = SCDynamicStoreCopyValue(store, cpu_power_key);
+    if (isA_CFDictionary(*cpuPowerStatus)) {
         ret = kIOReturnSuccess;
-    else
+    } else {
+        if (NULL != *cpuPowerStatus) {
+            CFRelease(*cpuPowerStatus);
+            *cpuPowerStatus = NULL;
+        }
         ret = kIOReturnNotFound;
+    }
 
 exit:
     if (cpu_power_key)

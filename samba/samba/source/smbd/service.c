@@ -249,13 +249,6 @@ int add_home_service(const char *service, const char *username, const char *home
 	if (!lp_add_home(service, iHomeService, username, homedir)) {
 		return -1;
 	}
-	/*
-	 * If the user is part of the admin group then the shae
-	 * list should include all local volumes.
-	 */
-	if ((lp_parm_bool(iHomeService, "com.apple", "show admin all volumes", False)) &&
-		(user_in_group(username, "admin")))
-	   apple_clone_local_volumes(iHomeService, username);
 
 	return lp_servicenumber(service);
 
@@ -276,15 +269,6 @@ int find_service(fstring service)
 
 	iService = lp_servicenumber(service);
 
-	/* Is it a usershare service ? Usershares are statically configured
-	 * services, so they get priority over any implicitly created services.
-	 */
-	if (iService < 0 && *lp_usershare_path()) {
-		/* Ensure the name is canonicalized. */
-		strlower_m(service);
-		iService = load_usershare_service(service);
-	}
-
 	/* now handle the special case of a home directory */
 	if (iService < 0) {
 		char *phome_dir = get_user_home_dir(service);
@@ -302,6 +286,11 @@ int find_service(fstring service)
 			phome_dir?phome_dir:"(NULL)"));
 
 		iService = add_home_service(service,service /* 'username' */, phome_dir);
+	}
+
+	if (iService < 0 && lp_parm_bool(GLOBAL_SECTION_SNUM, "com.apple",
+					    "show admin all volumes", False)) {
+		iService = apple_clone_local_volumes(service);
 	}
 
 	/* If we still don't have a service, attempt to add it as a printer. */
@@ -326,6 +315,13 @@ int find_service(fstring service)
 
 	/* Check for default vfs service?  Unsure whether to implement this */
 	if (iService < 0) {
+	}
+
+	/* Is it a usershare service ? */
+	if (iService < 0 && *lp_usershare_path()) {
+		/* Ensure the name is canonicalized. */
+		strlower_m(service);
+		iService = load_usershare_service(service);
 	}
 
 	/* just possibly it's a default service? */
@@ -840,6 +836,15 @@ static connection_struct *make_connection_snum(int snum, user_struct *vuser,
 				      get_current_username(),
 				      current_user_info.domain,
 				      s, sizeof(s));
+
+		if (strlen(s) == 0) {
+			DEBUG(6, ("service [%s] did not resolve to a path\n",
+				    lp_servicename(snum)));
+			conn_free(conn);
+			*status = NT_STATUS_BAD_NETWORK_NAME;
+			return NULL;
+		}
+
 		set_conn_connectpath(conn,s);
 		DEBUG(3,("Connect path is '%s' for service [%s]\n",s,
 			 lp_servicename(snum)));

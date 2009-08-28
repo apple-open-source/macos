@@ -1,9 +1,10 @@
 dnl -------------------------------------------------------- -*- autoconf -*-
-dnl Copyright 2000-2005 The Apache Software Foundation
-dnl
-dnl Licensed under the Apache License, Version 2.0 (the "License");
-dnl you may not use this file except in compliance with the License.
-dnl You may obtain a copy of the License at
+dnl Licensed to the Apache Software Foundation (ASF) under one or more
+dnl contributor license agreements.  See the NOTICE file distributed with
+dnl this work for additional information regarding copyright ownership.
+dnl The ASF licenses this file to You under the Apache License, Version 2.0
+dnl (the "License"); you may not use this file except in compliance with
+dnl the License.  You may obtain a copy of the License at
 dnl
 dnl     http://www.apache.org/licenses/LICENSE-2.0
 dnl
@@ -121,7 +122,7 @@ dnl
 dnl Try to find a way to enable POSIX threads.  Sets the 
 dnl pthreads_working variable to "yes" on success.
 dnl
-AC_DEFUN(APR_PTHREADS_CHECK,[
+AC_DEFUN([APR_PTHREADS_CHECK], [
 
 AC_CACHE_CHECK([for CFLAGS needed for pthreads], [apr_cv_pthreads_cflags],
 [apr_ptc_cflags=$CFLAGS
@@ -194,7 +195,7 @@ AC_DEFUN(APR_PTHREADS_CHECK_RESTORE, [
 dnl
 dnl APR_CHECK_SIGWAIT_ONE_ARG
 dnl
-AC_DEFUN(APR_CHECK_SIGWAIT_ONE_ARG,[
+AC_DEFUN([APR_CHECK_SIGWAIT_ONE_ARG], [
   AC_CACHE_CHECK(whether sigwait takes one argument,ac_cv_sigwait_one_arg,[
   AC_TRY_COMPILE([
 #if defined(__NETBSD__) || defined(DARWIN)
@@ -263,7 +264,7 @@ int main(int argc, char **argv)
         exit(2);
     if (pthread_mutexattr_setrobust_np(&attr, PTHREAD_MUTEX_ROBUST_NP))
         exit(3);
-    if (pthread_mutexattr_setprotocol(&mattr, PTHREAD_PRIO_INHERIT))
+    if (pthread_mutexattr_setprotocol(&attr, PTHREAD_PRIO_INHERIT))
         exit(4);
     if (pthread_mutex_init(&mutex, &attr))
         exit(5);

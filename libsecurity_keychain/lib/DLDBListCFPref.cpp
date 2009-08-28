@@ -29,22 +29,20 @@
 #include "DLDBListCFPref.h"
 #include <Security/cssmapple.h>
 #include <security_utilities/debugging.h>
-#include <syslog.h>
 #include <memory>
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <pwd.h>
+#include <sys/param.h>
+#include <copyfile.h>
 
 using namespace CssmClient;
 
 static const double kDLDbListCFPrefRevertInterval = 30.0;
 
 // normal debug calls, which get stubbed out for deployment builds
-#define x_debug(str) secdebug("KClogin",(str))
-#define x_debug1(fmt,arg1) secdebug("KClogin",(fmt),(arg1))
-#define x_debug2(fmt,arg1,arg2) secdebug("KClogin",(fmt),(arg1),(arg2))
 
 #define kKeyGUID CFSTR("GUID")
 #define kKeySubserviceId CFSTR("SubserviceId")
@@ -91,7 +89,7 @@ void PasswordDBLookup::lookupInfoOnUID (uid_t uid)
         mCurrent = uid;
         mTime = currentTime;
 
-        x_debug2("PasswordDBLookup::lookupInfoOnUID: uid=%d caching home=%s", uid, pw->pw_dir);
+        secdebug("secpref", "uid=%d caching home=%s", uid, pw->pw_dir);
 
         endpwent();
     }
@@ -108,7 +106,7 @@ PasswordDBLookup *DLDbListCFPref::mPdbLookup = NULL;
 DLDbListCFPref::DLDbListCFPref(SecPreferencesDomain domain) : mDomain(domain), mPropertyList(NULL), mChanged(false),
     mSearchListSet(false), mDefaultDLDbIdentifierSet(false), mLoginDLDbIdentifierSet(false)
 {
-    x_debug2("New DLDbListCFPref %p for domain %d", this, domain);
+    secdebug("secpref", "New DLDbListCFPref %p for domain %d", this, domain);
 	loadPropertyList(true);
 }
 
@@ -118,7 +116,7 @@ void DLDbListCFPref::set(SecPreferencesDomain domain)
 
 	mDomain = domain;
 
-    x_debug2("DLDbListCFPref %p domain set to %d", this, domain);
+    secdebug("secpref", "DLDbListCFPref %p domain set to %d", this, domain);
 
 	if (loadPropertyList(true))
         resetCachedValues();
@@ -127,8 +125,6 @@ void DLDbListCFPref::set(SecPreferencesDomain domain)
 DLDbListCFPref::~DLDbListCFPref()
 {
     save();
-
-    x_debug1("~DLDbListCFPref %p", this);
 
 	if (mPropertyList)
 		CFRelease(mPropertyList);
@@ -161,7 +157,7 @@ DLDbListCFPref::loadPropertyList(bool force)
 		MacOSError::throwMe(errSecInvalidPrefsDomain);
 	}
 
-	x_debug2("DLDbListCFPref::loadPropertyList: force=%s prefsPath=%s", force ? "true" : "false",
+	secdebug("secpref", "force=%s prefsPath=%s", force ? "true" : "false",
 		prefsPath.c_str());
 
 	CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
@@ -293,12 +289,20 @@ DLDbListCFPref::writePropertyList()
 	}
 	else
 	{
+		if(testAndFixPropertyList()) 
+			return;
+		
 		CFDataRef xmlData = CFPropertyListCreateXMLData(NULL, mPropertyList);
 		if (!xmlData)
 			return; // Bad out of memory or something evil happened let's act like CF and do nothing.
-
+			
+		// The prefs file should at least be made readable by user/group/other and writable by the owner.
+		// Change from euid to ruid if needed for the duration of the new prefs file creat.
+		
 		mode_t mode = 0666;
+		changeIdentity(UNPRIV);
 		int fd = open(mPrefsPath.c_str(), O_WRONLY|O_CREAT|O_TRUNC, mode);
+		changeIdentity(PRIV);
 		if (fd >= 0)
 		{
 			const void *buffer = CFDataGetBytePtr(xmlData);
@@ -318,6 +322,61 @@ DLDbListCFPref::writePropertyList()
 	}
 
 	mPrefsTimeStamp = CFAbsoluteTimeGetCurrent();
+}
+
+// This function can clean up some problems caused by setuid clients.  We've had instances where the
+// Keychain search list has become owned by root, but is still able to be re-written by the user because
+// of the permissions on the directory above.  We'll take advantage of that fact to recreate the file with
+// the correct ownership by copying it.
+
+int
+DLDbListCFPref::testAndFixPropertyList()
+{
+	char *prefsPath = (char *)mPrefsPath.c_str();
+	
+	int fd1, fd2, retval;
+	struct stat stbuf;
+
+	if((fd1 = open(prefsPath, O_RDONLY)) < 0) {
+		if (errno == ENOENT) return 0; // Doesn't exist - the default case
+		else return -1;
+	}
+	
+	if((retval = fstat(fd1, &stbuf)) == -1) return -1;
+		
+	if(stbuf.st_uid != getuid()) {
+		char tempfile[MAXPATHLEN+1];
+
+		snprintf(tempfile, MAXPATHLEN, "%s.XXXXX", prefsPath);
+		mktemp(tempfile);
+		changeIdentity(UNPRIV);
+		if((fd2 = open(tempfile, O_RDWR | O_CREAT | O_EXCL, 0666)) < 0) {
+			retval = -1;
+		} else {
+			copyfile_state_t s = copyfile_state_alloc();
+			retval = fcopyfile(fd1, fd2, s, COPYFILE_DATA);
+			copyfile_state_free(s);
+			if(!retval) retval = ::unlink(prefsPath);
+			if(!retval) retval = ::rename(tempfile, prefsPath);
+		}
+		changeIdentity(PRIV);
+	}
+	return retval;
+}
+
+// Encapsulated process uid/gid change routine.
+void 
+DLDbListCFPref::changeIdentity(ID_Direction toPriv)
+{
+	if(toPriv == UNPRIV) {
+		savedEUID = geteuid();
+		savedEGID = getegid();
+		if(savedEGID != getgid()) setegid(getgid());
+		if(savedEUID != getuid()) seteuid(getuid());
+	} else {
+		if(savedEUID != getuid()) seteuid(savedEUID);
+		if(savedEGID != getgid()) setegid(savedEGID);
+	}
 }
 
 void
@@ -842,9 +901,9 @@ DLDbListCFPref::defaultDLDbIdentifier()
             CFDictionaryRef defaultDict = reinterpret_cast<CFDictionaryRef>(CFArrayGetValueAtIndex(defaultArray, 0));
             try
             {
-                x_debug("Getting default DLDbIdentifier from defaultDict");
+                secdebug("secpref", "getting default DLDbIdentifier from defaultDict");
                 mDefaultDLDbIdentifier = cfDictionaryRefToDLDbIdentifier(defaultDict);
-                x_debug1("Now we think the default keychain is %s", (mDefaultDLDbIdentifier) ? mDefaultDLDbIdentifier.dbName() : "<NULL>");
+                secdebug("secpref", "now we think the default keychain is %s", (mDefaultDLDbIdentifier) ? mDefaultDLDbIdentifier.dbName() : "<NULL>");
             }
             catch (...)
             {
@@ -859,7 +918,7 @@ DLDbListCFPref::defaultDLDbIdentifier()
             // If the Panther style login keychain actually exists we use that otherwise no
             // default is set.
             mDefaultDLDbIdentifier = loginDLDbIdentifier();
-            x_debug1("Now we think the default keychain is: %s", (mDefaultDLDbIdentifier) ? mDefaultDLDbIdentifier.dbName() : 
+            secdebug("secpref", "now we think the default keychain is: %s", (mDefaultDLDbIdentifier) ? mDefaultDLDbIdentifier.dbName() : 
 			"Name doesn't exist");
 			
 			
@@ -871,9 +930,9 @@ DLDbListCFPref::defaultDLDbIdentifier()
 			
             if (st_result)
             {
-				x_debug2("stat() of %s returned %d", mDefaultDLDbIdentifier.dbName(), st_result);
+				secdebug("secpref", "stat(%s) -> %d", mDefaultDLDbIdentifier.dbName(), st_result);
                 mDefaultDLDbIdentifier  = DLDbIdentifier(); // initialize a NULL keychain
-                x_debug1("After DLDbIdentifier(), we think the default keychain is %s", static_cast<bool>(mDefaultDLDbIdentifier) ? mDefaultDLDbIdentifier.dbName() : "<NULL>");
+                secdebug("secpref", "after DLDbIdentifier(), we think the default keychain is %s", static_cast<bool>(mDefaultDLDbIdentifier) ? mDefaultDLDbIdentifier.dbName() : "<NULL>");
             }
         }
 		
@@ -908,9 +967,9 @@ DLDbListCFPref::loginDLDbIdentifier()
             CFDictionaryRef loginDict = reinterpret_cast<CFDictionaryRef>(CFArrayGetValueAtIndex(loginArray, 0));
             try
             {
-                x_debug("Getting login DLDbIdentifier from loginDict");
+                secdebug("secpref", "Getting login DLDbIdentifier from loginDict");
                 mLoginDLDbIdentifier = cfDictionaryRefToDLDbIdentifier(loginDict);
-                x_debug1("We think the login keychain is %s", static_cast<bool>(mLoginDLDbIdentifier) ? mLoginDLDbIdentifier.dbName() : "<NULL>");
+                secdebug("secpref", "we think the login keychain is %s", static_cast<bool>(mLoginDLDbIdentifier) ? mLoginDLDbIdentifier.dbName() : "<NULL>");
             }
             catch (...)
             {
@@ -922,7 +981,7 @@ DLDbListCFPref::loginDLDbIdentifier()
         if (!loginArray)
         {
 			mLoginDLDbIdentifier = LoginDLDbIdentifier();
-			x_debug1("After LoginDLDbIdentifier(), we think the login keychain is %s", static_cast<bool>(mLoginDLDbIdentifier) ? mLoginDLDbIdentifier.dbName() : "<NULL>");
+			secdebug("secpref", "after LoginDLDbIdentifier(), we think the login keychain is %s", static_cast<bool>(mLoginDLDbIdentifier) ? mLoginDLDbIdentifier.dbName() : "<NULL>");
         }
 
         mLoginDLDbIdentifierSet = true;

@@ -1,14 +1,15 @@
 # -*- perl -*-
 
-my $file = 'dbiprof';
+my $file = $ARGV[0] || 'dbiprof';
 
 my $script = <<'SCRIPT';
 ~startperl~
 
 use strict;
 
-my $VERSION = "1.0";
+my $VERSION = sprintf("1.%06d", q$Revision: 9874 $ =~ /(\d+)/o);
 
+use Data::Dumper;
 use DBI::ProfileData;
 use Getopt::Long;
 
@@ -22,45 +23,87 @@ my (%match, %exclude);
 
 # get options from command line
 GetOptions(
-           'version'        => sub { die "dbiprof $VERSION\n"; },
+           'version'        => sub { die "dbiprof $VERSION\n" },
+           'help'           => sub { exit usage() },
            'number=i'       => \$number,
            'sort=s'         => \$sort,
+           'dumpnodes!'     => \my $dumpnodes,
            'reverse'        => \$reverse,
            'match=s'        => \%match,
            'exclude=s'      => \%exclude,
            'case-sensitive' => \$case_sensitive,
-          );
+           'delete!'        => \my $opt_delete,
+) or exit usage();
+
+sub usage {
+    print <<EOS;
+dbiprof [options] [files]
+
+Reads and merges DBI profile data from files and prints a summary.
+
+files: defaults to $filename
+
+options:
+
+    -number=N        show top N, defaults to $number
+    -sort=S          sort by S, defaults to $sort
+    -reverse         reverse the sort
+    -match=K=V       for filtering, see docs
+    -exclude=K=V     for filtering, see docs
+    -case_sensitive  for -match and -exclude
+    -delete          rename files before reading then delete afterwards
+    -version         print version number and exit
+    -help            print this help
+
+EOS
+    return 1;
+}
 
 # list of files defaults to dbi.prof
 my @files = @ARGV ? @ARGV : ('dbi.prof');
 
 
 # instantiate ProfileData object
-my $prof;
-eval { $prof = DBI::ProfileData->new(Files => \@files) };
+my $prof = eval {
+    DBI::ProfileData->new(
+        Files => \@files,
+        DeleteFiles => $opt_delete,
+    );
+};
 die "Unable to load profile data: $@\n" if $@;
 
-# handle matches
-while (my ($key, $val) = each %match) {
-    if ($val =~ m!^/(.+)/$!) {
-        $val = $case_sensitive ? qr/$1/ : qr/$1/i;
-    } 
-    $prof->match($key, $val, case_sensitive => $case_sensitive);
+if (%match) { # handle matches
+    while (my ($key, $val) = each %match) {
+        if ($val =~ m!^/(.+)/$!) {
+            $val = $case_sensitive ? qr/$1/ : qr/$1/i;
+        } 
+        $prof->match($key, $val, case_sensitive => $case_sensitive);
+    }
 }
 
-# handle excludes
-while (my ($key, $val) = each %exclude) {
-    if ($val =~ m!^/(.+)/$!) {
-        $val = $case_sensitive ? qr/$1/ : qr/$1/i;
-    } 
-    $prof->exclude($key, $val, case_sensitive => $case_sensitive);
+if (%exclude) { # handle excludes
+    while (my ($key, $val) = each %exclude) {
+        if ($val =~ m!^/(.+)/$!) {
+            $val = $case_sensitive ? qr/$1/ : qr/$1/i;
+        } 
+        $prof->exclude($key, $val, case_sensitive => $case_sensitive);
+    }
 }
 
 # sort the data
 $prof->sort(field => $sort, reverse => $reverse);
 
 # all done, print it out
-print $prof->report(number => $number);
+if ($dumpnodes) {
+    $Data::Dumper::Indent    = 1;
+    $Data::Dumper::Terse     = 1;
+    $Data::Dumper::Useqq     = 1;
+    $Data::Dumper::Deparse   = 0;
+    print Dumper($prof->nodes);
+}
+else {
+    print $prof->report(number => $number);
+}
 exit 0;
 
 __END__
@@ -104,7 +147,8 @@ Produce this many items in the report.  Defaults to 10.  If set to
 
 =item --sort field
 
-Sort results by the given field.  The available sort fields are:
+Sort results by the given field. Sorting by multiple fields isn't currently
+supported (patches welcome).  The available sort fields are:
 
 =over 4
 
@@ -128,6 +172,11 @@ Sorts by the time taken in the first run.
 =item shortest
 
 Sorts by the shortest single run.
+
+=item key1
+
+Sorts by the value of the first element in the Path, which should be numeric.
+You can also sort by C<key2> and C<key3>.
 
 =back
 
@@ -183,6 +232,16 @@ this can be changed with the --case-sensitive option.
 Using this option causes --match and --exclude to work
 case-sensitively.  Defaults to off.
 
+=item --delete
+
+Sets the C<DeleteFiles> option to L<DBI::ProfileData> which causes the
+files to be deleted after reading. See L<DBI::ProfileData> for more details.
+
+=item --dumpnodes
+
+Print the list of nodes in the form of a perl data structure.
+Use the C<-sort> option if you want the list sorted.
+
 =item --version
 
 Print the dbiprof version number and exit.
@@ -220,4 +279,9 @@ if (!(open(FILE, ">$file"))  ||
     !(close(FILE))) {
     die "Error while writing $file: $!\n";
 }
+chmod 0755, $file;
 print "Extracted $file from ",__FILE__," with variable substitutions.\n";
+
+# syntax check resulting file, but only for developers
+exit 1 if system($^X, '-wc', '-Mblib', $file) != 0 && -d ".svn";
+

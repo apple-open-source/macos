@@ -1,0 +1,1501 @@
+FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$6|RESULT$14|RESULT_ALLDECS$7|SUBLANG$4|TYPE$99|#if __LP64__
+        uint64_t multi_func_1(void *k);
+#else
+        int multi_func_1(int k);
+#endif
+$64|/*! @function
+        This is a function with two variants.
+ */
+$0|$10371|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 1
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/function_block_2.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/function_block_2.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 0
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 4
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 1
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => __LP64__
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} => #if __LP64__
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 1
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => 
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{typestring} => #
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 1
+typelist: MACRO
+namelist: __LP64__
+posstypes: MACRO
+value: 
+returntype: #if __LP64__
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---#if
+|   +--- 
+|   +---__LP64__
+|   +---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: function block 2
+APIUID: //test_ref/doc/header/function_block_2.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 5
+    INDEX GROUP: 
+    IS BLOCK: 1
+    OBJECT TYPE: HeaderDoc::Function
+    NAME: multi_func_1
+    APIUID: //test_ref/c/func/multi_func_1
+    ABSTRACT: ""
+    DISCUSSION: "<p>This is a function with two variants.
+"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: "default_function_group"
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: " int"
+    LINENUM: ""
+    CLASS: "HeaderDoc::Function"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+    PARSED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: k
+        TYPE: void *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: k
+        TYPE: int
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: multi_func_1 (HeaderDoc::Function)
++---        
++---int
++--- 
++---multi_func_1
++---(
+|   +---int
+|   +--- 
+|   +---k
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT:  (HeaderDoc::Function)
++---#if
+|   +--- 
+|   +---__LP64__
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: multi_func_1 (HeaderDoc::Function)
++---        
++---uint64_t
++--- 
++---multi_func_1
++---(
+|   +---void
+|   +--- 
+|   +---*
+|   +---k
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: multi_func_1 (HeaderDoc::Function)
++---#else
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: multi_func_1 (HeaderDoc::Function)
++---#endif
+|   +---[ NEWLINE ]
++---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: multi_func_1 (HeaderDoc::Function)
+	<!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/econst/int //test_ref/c/struct/int //test_ref/c/clconst/int //test_ref/c/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/instm/multi_func_1 //test_ref/c/clm/multi_func_1 //test_ref/c/intfcm/multi_func_1 //test_ref/c/intfm/multi_func_1 //test_ref/c/func/multi_func_1 //test_ref/c/ftmplt/multi_func_1 //test_ref/c/defn/multi_func_1 //test_ref/c/macro/multi_func_1" --><span class="function">multi_func_1</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/econst/int //test_ref/c/struct/int //test_ref/c/clconst/int //test_ref/c/intf/int" --><span class="type">int</span><!-- /a --> <span class="param">k</span>);  
+END OF OBJECT
+
+
+OBJECT:  (HeaderDoc::Function)
+	<span class="">#if</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/__LP64__ //test_ref/c/tdef/__LP64__ //test_ref/c/tag/__LP64__ //test_ref/c/econst/__LP64__ //test_ref/c/struct/__LP64__ //test_ref/c/data/__LP64__ //test_ref/c/clconst/__LP64__ //test_ref/c/intf/__LP64__ //test_ref/c/instm/__LP64__ //test_ref/c/clm/__LP64__ //test_ref/c/intfcm/__LP64__ //test_ref/c/intfm/__LP64__ //test_ref/c/func/__LP64__ //test_ref/c/ftmplt/__LP64__ //test_ref/c/defn/__LP64__ //test_ref/c/macro/__LP64__ //test_ref/doc/com/intfm/__LP64__" --><span class="preprocessor">__LP64__</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: multi_func_1 (HeaderDoc::Function)
+	<!-- a logicalPath="//test_ref/c/cl/uint64_t //test_ref/c/tdef/uint64_t //test_ref/c/tag/uint64_t //test_ref/c/econst/uint64_t //test_ref/c/struct/uint64_t //test_ref/c/clconst/uint64_t //test_ref/c/intf/uint64_t" --><span class="type">uint64_t</span><!-- /a --> <!-- a logicalPath="//test_ref/c/instm/multi_func_1 //test_ref/c/clm/multi_func_1 //test_ref/c/intfcm/multi_func_1 //test_ref/c/intfm/multi_func_1 //test_ref/c/func/multi_func_1 //test_ref/c/ftmplt/multi_func_1 //test_ref/c/defn/multi_func_1 //test_ref/c/macro/multi_func_1" --><span class="function">multi_func_1</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/c/cl/void //test_ref/c/tdef/void //test_ref/c/tag/void //test_ref/c/econst/void //test_ref/c/struct/void //test_ref/c/clconst/void //test_ref/c/intf/void" --><span class="type">void</span><!-- /a --> <span class="type">*</span><span class="param">k</span>);  
+END OF OBJECT
+
+
+OBJECT: multi_func_1 (HeaderDoc::Function)
+	<span class="">#else</span> 
+END OF OBJECT
+
+
+OBJECT: multi_func_1 (HeaderDoc::Function)
+	<span class="">#endif</span>  
+END OF OBJECT
+
+
+
+$10371|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 1
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/function_block_2.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/function_block_2.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 0
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 4
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 1
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => __LP64__
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} => #if __LP64__
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 1
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => 
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{typestring} => #
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 1
+typelist: MACRO
+namelist: __LP64__
+posstypes: MACRO
+value: 
+returntype: #if __LP64__
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---#if
+|   +--- 
+|   +---__LP64__
+|   +---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: function block 2
+APIUID: //test_ref/doc/header/function_block_2.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 5
+    INDEX GROUP: 
+    IS BLOCK: 1
+    OBJECT TYPE: HeaderDoc::Function
+    NAME: multi_func_1
+    APIUID: //test_ref/c/func/multi_func_1
+    ABSTRACT: ""
+    DISCUSSION: "<p>This is a function with two variants.
+"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: "default_function_group"
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: " int"
+    LINENUM: ""
+    CLASS: "HeaderDoc::Function"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+    PARSED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: k
+        TYPE: void *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: k
+        TYPE: int
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: multi_func_1 (HeaderDoc::Function)
++---        
++---int
++--- 
++---multi_func_1
++---(
+|   +---int
+|   +--- 
+|   +---k
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT:  (HeaderDoc::Function)
++---#if
+|   +--- 
+|   +---__LP64__
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: multi_func_1 (HeaderDoc::Function)
++---        
++---uint64_t
++--- 
++---multi_func_1
++---(
+|   +---void
+|   +--- 
+|   +---*
+|   +---k
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: multi_func_1 (HeaderDoc::Function)
++---#else
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: multi_func_1 (HeaderDoc::Function)
++---#endif
+|   +---[ NEWLINE ]
++---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: multi_func_1 (HeaderDoc::Function)
+	<!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/econst/int //test_ref/c/struct/int //test_ref/c/clconst/int //test_ref/c/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/instm/multi_func_1 //test_ref/c/clm/multi_func_1 //test_ref/c/intfcm/multi_func_1 //test_ref/c/intfm/multi_func_1 //test_ref/c/func/multi_func_1 //test_ref/c/ftmplt/multi_func_1 //test_ref/c/defn/multi_func_1 //test_ref/c/macro/multi_func_1" --><span class="function">multi_func_1</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/econst/int //test_ref/c/struct/int //test_ref/c/clconst/int //test_ref/c/intf/int" --><span class="type">int</span><!-- /a --> <span class="param">k</span>);  
+END OF OBJECT
+
+
+OBJECT:  (HeaderDoc::Function)
+	<span class="">#if</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/__LP64__ //test_ref/c/tdef/__LP64__ //test_ref/c/tag/__LP64__ //test_ref/c/econst/__LP64__ //test_ref/c/struct/__LP64__ //test_ref/c/data/__LP64__ //test_ref/c/clconst/__LP64__ //test_ref/c/intf/__LP64__ //test_ref/c/instm/__LP64__ //test_ref/c/clm/__LP64__ //test_ref/c/intfcm/__LP64__ //test_ref/c/intfm/__LP64__ //test_ref/c/func/__LP64__ //test_ref/c/ftmplt/__LP64__ //test_ref/c/defn/__LP64__ //test_ref/c/macro/__LP64__ //test_ref/doc/com/intfm/__LP64__" --><span class="preprocessor">__LP64__</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: multi_func_1 (HeaderDoc::Function)
+	<!-- a logicalPath="//test_ref/c/cl/uint64_t //test_ref/c/tdef/uint64_t //test_ref/c/tag/uint64_t //test_ref/c/econst/uint64_t //test_ref/c/struct/uint64_t //test_ref/c/clconst/uint64_t //test_ref/c/intf/uint64_t" --><span class="type">uint64_t</span><!-- /a --> <!-- a logicalPath="//test_ref/c/instm/multi_func_1 //test_ref/c/clm/multi_func_1 //test_ref/c/intfcm/multi_func_1 //test_ref/c/intfm/multi_func_1 //test_ref/c/func/multi_func_1 //test_ref/c/ftmplt/multi_func_1 //test_ref/c/defn/multi_func_1 //test_ref/c/macro/multi_func_1" --><span class="function">multi_func_1</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/c/cl/void //test_ref/c/tdef/void //test_ref/c/tag/void //test_ref/c/econst/void //test_ref/c/struct/void //test_ref/c/clconst/void //test_ref/c/intf/void" --><span class="type">void</span><!-- /a --> <span class="type">*</span><span class="param">k</span>);  
+END OF OBJECT
+
+
+OBJECT: multi_func_1 (HeaderDoc::Function)
+	<span class="">#else</span> 
+END OF OBJECT
+
+
+OBJECT: multi_func_1 (HeaderDoc::Function)
+	<span class="">#endif</span>  
+END OF OBJECT
+
+
+
+_$44|testsuite/parser_tests/function_block_2.test$1|C$16|function block 2$10371|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 1
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/function_block_2.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/function_block_2.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 0
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 4
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 1
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => __LP64__
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} => #if __LP64__
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 1
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => 
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{typestring} => #
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 1
+typelist: MACRO
+namelist: __LP64__
+posstypes: MACRO
+value: 
+returntype: #if __LP64__
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---#if
+|   +--- 
+|   +---__LP64__
+|   +---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: function block 2
+APIUID: //test_ref/doc/header/function_block_2.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 5
+    INDEX GROUP: 
+    IS BLOCK: 1
+    OBJECT TYPE: HeaderDoc::Function
+    NAME: multi_func_1
+    APIUID: //test_ref/c/func/multi_func_1
+    ABSTRACT: ""
+    DISCUSSION: "<p>This is a function with two variants.
+"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: "default_function_group"
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: " int"
+    LINENUM: ""
+    CLASS: "HeaderDoc::Function"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+    PARSED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: k
+        TYPE: void *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: k
+        TYPE: int
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: multi_func_1 (HeaderDoc::Function)
++---        
++---int
++--- 
++---multi_func_1
++---(
+|   +---int
+|   +--- 
+|   +---k
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT:  (HeaderDoc::Function)
++---#if
+|   +--- 
+|   +---__LP64__
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: multi_func_1 (HeaderDoc::Function)
++---        
++---uint64_t
++--- 
++---multi_func_1
++---(
+|   +---void
+|   +--- 
+|   +---*
+|   +---k
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: multi_func_1 (HeaderDoc::Function)
++---#else
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: multi_func_1 (HeaderDoc::Function)
++---#endif
+|   +---[ NEWLINE ]
++---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: multi_func_1 (HeaderDoc::Function)
+	<!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/econst/int //test_ref/c/struct/int //test_ref/c/clconst/int //test_ref/c/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/instm/multi_func_1 //test_ref/c/clm/multi_func_1 //test_ref/c/intfcm/multi_func_1 //test_ref/c/intfm/multi_func_1 //test_ref/c/func/multi_func_1 //test_ref/c/ftmplt/multi_func_1 //test_ref/c/defn/multi_func_1 //test_ref/c/macro/multi_func_1" --><span class="function">multi_func_1</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/econst/int //test_ref/c/struct/int //test_ref/c/clconst/int //test_ref/c/intf/int" --><span class="type">int</span><!-- /a --> <span class="param">k</span>);  
+END OF OBJECT
+
+
+OBJECT:  (HeaderDoc::Function)
+	<span class="">#if</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/__LP64__ //test_ref/c/tdef/__LP64__ //test_ref/c/tag/__LP64__ //test_ref/c/econst/__LP64__ //test_ref/c/struct/__LP64__ //test_ref/c/data/__LP64__ //test_ref/c/clconst/__LP64__ //test_ref/c/intf/__LP64__ //test_ref/c/instm/__LP64__ //test_ref/c/clm/__LP64__ //test_ref/c/intfcm/__LP64__ //test_ref/c/intfm/__LP64__ //test_ref/c/func/__LP64__ //test_ref/c/ftmplt/__LP64__ //test_ref/c/defn/__LP64__ //test_ref/c/macro/__LP64__ //test_ref/doc/com/intfm/__LP64__" --><span class="preprocessor">__LP64__</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: multi_func_1 (HeaderDoc::Function)
+	<!-- a logicalPath="//test_ref/c/cl/uint64_t //test_ref/c/tdef/uint64_t //test_ref/c/tag/uint64_t //test_ref/c/econst/uint64_t //test_ref/c/struct/uint64_t //test_ref/c/clconst/uint64_t //test_ref/c/intf/uint64_t" --><span class="type">uint64_t</span><!-- /a --> <!-- a logicalPath="//test_ref/c/instm/multi_func_1 //test_ref/c/clm/multi_func_1 //test_ref/c/intfcm/multi_func_1 //test_ref/c/intfm/multi_func_1 //test_ref/c/func/multi_func_1 //test_ref/c/ftmplt/multi_func_1 //test_ref/c/defn/multi_func_1 //test_ref/c/macro/multi_func_1" --><span class="function">multi_func_1</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/c/cl/void //test_ref/c/tdef/void //test_ref/c/tag/void //test_ref/c/econst/void //test_ref/c/struct/void //test_ref/c/clconst/void //test_ref/c/intf/void" --><span class="type">void</span><!-- /a --> <span class="type">*</span><span class="param">k</span>);  
+END OF OBJECT
+
+
+OBJECT: multi_func_1 (HeaderDoc::Function)
+	<span class="">#else</span> 
+END OF OBJECT
+
+
+OBJECT: multi_func_1 (HeaderDoc::Function)
+	<span class="">#endif</span>  
+END OF OBJECT
+
+
+
+$10371|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 1
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/function_block_2.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/function_block_2.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 0
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 4
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 1
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => __LP64__
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} => #if __LP64__
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 1
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => 
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{typestring} => #
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 1
+typelist: MACRO
+namelist: __LP64__
+posstypes: MACRO
+value: 
+returntype: #if __LP64__
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---#if
+|   +--- 
+|   +---__LP64__
+|   +---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: function block 2
+APIUID: //test_ref/doc/header/function_block_2.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 5
+    INDEX GROUP: 
+    IS BLOCK: 1
+    OBJECT TYPE: HeaderDoc::Function
+    NAME: multi_func_1
+    APIUID: //test_ref/c/func/multi_func_1
+    ABSTRACT: ""
+    DISCUSSION: "<p>This is a function with two variants.
+"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: "default_function_group"
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: " int"
+    LINENUM: ""
+    CLASS: "HeaderDoc::Function"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p></p>
+    LONG ATTRIBUTES: <p></p>
+    PARSED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: k
+        TYPE: void *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: k
+        TYPE: int
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: multi_func_1 (HeaderDoc::Function)
++---        
++---int
++--- 
++---multi_func_1
++---(
+|   +---int
+|   +--- 
+|   +---k
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT:  (HeaderDoc::Function)
++---#if
+|   +--- 
+|   +---__LP64__
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: multi_func_1 (HeaderDoc::Function)
++---        
++---uint64_t
++--- 
++---multi_func_1
++---(
+|   +---void
+|   +--- 
+|   +---*
+|   +---k
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: multi_func_1 (HeaderDoc::Function)
++---#else
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: multi_func_1 (HeaderDoc::Function)
++---#endif
+|   +---[ NEWLINE ]
++---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: multi_func_1 (HeaderDoc::Function)
+	<!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/econst/int //test_ref/c/struct/int //test_ref/c/clconst/int //test_ref/c/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/instm/multi_func_1 //test_ref/c/clm/multi_func_1 //test_ref/c/intfcm/multi_func_1 //test_ref/c/intfm/multi_func_1 //test_ref/c/func/multi_func_1 //test_ref/c/ftmplt/multi_func_1 //test_ref/c/defn/multi_func_1 //test_ref/c/macro/multi_func_1" --><span class="function">multi_func_1</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/econst/int //test_ref/c/struct/int //test_ref/c/clconst/int //test_ref/c/intf/int" --><span class="type">int</span><!-- /a --> <span class="param">k</span>);  
+END OF OBJECT
+
+
+OBJECT:  (HeaderDoc::Function)
+	<span class="">#if</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/__LP64__ //test_ref/c/tdef/__LP64__ //test_ref/c/tag/__LP64__ //test_ref/c/econst/__LP64__ //test_ref/c/struct/__LP64__ //test_ref/c/data/__LP64__ //test_ref/c/clconst/__LP64__ //test_ref/c/intf/__LP64__ //test_ref/c/instm/__LP64__ //test_ref/c/clm/__LP64__ //test_ref/c/intfcm/__LP64__ //test_ref/c/intfm/__LP64__ //test_ref/c/func/__LP64__ //test_ref/c/ftmplt/__LP64__ //test_ref/c/defn/__LP64__ //test_ref/c/macro/__LP64__ //test_ref/doc/com/intfm/__LP64__" --><span class="preprocessor">__LP64__</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: multi_func_1 (HeaderDoc::Function)
+	<!-- a logicalPath="//test_ref/c/cl/uint64_t //test_ref/c/tdef/uint64_t //test_ref/c/tag/uint64_t //test_ref/c/econst/uint64_t //test_ref/c/struct/uint64_t //test_ref/c/clconst/uint64_t //test_ref/c/intf/uint64_t" --><span class="type">uint64_t</span><!-- /a --> <!-- a logicalPath="//test_ref/c/instm/multi_func_1 //test_ref/c/clm/multi_func_1 //test_ref/c/intfcm/multi_func_1 //test_ref/c/intfm/multi_func_1 //test_ref/c/func/multi_func_1 //test_ref/c/ftmplt/multi_func_1 //test_ref/c/defn/multi_func_1 //test_ref/c/macro/multi_func_1" --><span class="function">multi_func_1</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/c/cl/void //test_ref/c/tdef/void //test_ref/c/tag/void //test_ref/c/econst/void //test_ref/c/struct/void //test_ref/c/clconst/void //test_ref/c/intf/void" --><span class="type">void</span><!-- /a --> <span class="type">*</span><span class="param">k</span>);  
+END OF OBJECT
+
+
+OBJECT: multi_func_1 (HeaderDoc::Function)
+	<span class="">#else</span> 
+END OF OBJECT
+
+
+OBJECT: multi_func_1 (HeaderDoc::Function)
+	<span class="">#endif</span>  
+END OF OBJECT
+
+
+
+$1|C$6|parser

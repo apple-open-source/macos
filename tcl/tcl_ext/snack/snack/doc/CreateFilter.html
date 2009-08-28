@@ -1,0 +1,61 @@
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+   <meta name="GENERATOR" content="Mozilla/4.72 [en] (X11; U; Linux 2.2.14-5.0 i686) [Netscape]">
+   <meta name="Author" content="Kåre Sjölander">
+   <title>CreateFilter</title>
+</head>
+<body>
+
+<h3>
+NAME</h3>
+Snack_CreateFilterType - define new filter type
+<h3>
+SYNOPSIS</h3>
+#include &lt;snack.h>
+<br><b>Snack_CreateFilterType</b>(filterType)
+<h3>
+ARGUMENTS</h3>
+Snack_FilterType *filterType
+<p>struct Snack_FilterType {
+<br>&nbsp; char&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+*name;
+<br>&nbsp; createProc&nbsp;&nbsp;&nbsp; *createProc;
+<br>&nbsp; configProc&nbsp;&nbsp;&nbsp;&nbsp; *configProc;
+<br>&nbsp; startProc&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; *startProc;
+<br>&nbsp; flowProc&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; *flowProc;
+<br>&nbsp; freeProc&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; *freeProc;
+<br>&nbsp; struct Snack_FilterType *nextPtr;
+<br>} Snack_FilterType;
+<p>char *<b>name</b>
+<p>Snack_Filter <b>createProc</b> (Tcl_Interp *interp, int objc, Tcl_Obj
+*CONST objv[])
+<p>int <b>configProc </b>(Snack_Filter f, Tcl_Interp *interp, int objc,
+Tcl_Obj *CONST objv[])
+<p>int <b>startProc </b>(Snack_Filter f, Snack_StreamInfo si)
+<p>int <b>flowProc </b>(Snack_Filter f, Snack_StreamInfo si, float *inBuffer,
+float *outBuffer, int *inFrames, int *outFrames)
+<p>void <b>freeProc </b>(Snack_Filter f)
+<h3>
+DESCRIPTION</h3>
+<b>Snack_CreateFilterType</b> is used to define a new kind of filter type.
+Everything regarding filters is still under development. The source code
+itself is currently the only source of information.
+<p>Some helpful notes on the current implementation:
+<p>inFrames specifies how many samples exist in inBuffer. This value can
+be modified to specify how many samples were actually consumed.
+<p>outFrames is an upper bound on how many samples that may be written
+to outBuffer.
+<p><b>flowProc</b> should start to drain out any samples as soon as inFrames
+&lt; outFrames.
+<p>If the return value of outFrames is less than the original, the procedure
+will not be called again. Internal clean-up can be performed in this case.
+<p>The parameters inBuffer and outBuffer may point to the same memory.
+In some cases it might be neccessary to make local copies of samples during
+calculations.<b></b>
+<p><b>configProc</b> can be called at any time.
+<p>inBuffer can be NULL if inSize is 0.
+<br>&nbsp;
+</body>
+</html>

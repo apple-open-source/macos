@@ -8,6 +8,7 @@ MANPAGES = locate.1 locate.updatedb.8
             fastfind.c \
             locate.1 locate.updatedb.8 locate.rc \
             concatdb.sh mklocatedb.sh updatedb.sh
+LAUNCHD_PLISTS = com.apple.locate.plist
 
 Extra_CC_Flags = -Wall -mdynamic-no-pic
 Extra_LD_Flags = -dead_strip

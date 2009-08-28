@@ -86,9 +86,6 @@ static struct value *
 hpacc_virtual_fn_field (struct value **arg1p, struct fn_field * f, int j,
 			struct type * type, int offset)
 {
-  struct value *arg1 = *arg1p;
-  struct type *type1 = check_typedef (value_type (arg1));
-
   /* Deal with HP/Taligent runtime model for virtual functions */
   struct value *vp;
   struct value *argp;		/* arg1 cast to base */

@@ -23,8 +23,8 @@
 #include <mach/mach.h>
 
 struct macosx_deployment_target {
-    unsigned long major;	/* major version */
-    unsigned long minor;	/* minor version (if any or zero) */
+    uint32_t major;	/* major version */
+    uint32_t minor;	/* minor version (if any or zero) */
     char *name;			/* name for printing */
 };
 

@@ -2,7 +2,7 @@
 <!-- 
   * t
   ****************************************************************************
-  * Copyright (c) 1998-2003,2005 Free Software Foundation, Inc.              *
+  * Copyright (c) 1998-2006,2007 Free Software Foundation, Inc.              *
   *                                                                          *
   * Permission is hereby granted, free of charge, to any person obtaining a  *
   * copy of this software and associated documentation files (the            *
@@ -28,7 +28,7 @@
   * sale, use or other dealings in this Software without prior written       *
   * authorization.                                                           *
   ****************************************************************************
-  * @Id: curs_attr.3x,v 1.29 2005/05/15 16:17:25 tom Exp @
+  * @Id: curs_attr.3x,v 1.31 2007/03/17 20:30:33 tom Exp @
 -->
 <HTML>
 <HEAD>
@@ -141,11 +141,7 @@
        color  argument is a color-pair index (as in the first ar-
        gument of <EM>init</EM><STRONG>_</STRONG><EM>pair</EM>, see <STRONG><A HREF="curs_color.3x.html">curs_color(3x)</A></STRONG>).  The <STRONG>opts</STRONG>  argu-
        ment is not presently used, but is reserved for the future
-       (leave it <STRONG>NULL</STRONG>).  Note that changing the  attributes  does
-       not imply that a subsequent <STRONG>refresh</STRONG> will update the screen
-       to match, since the character  values  are  not  modified.
-       Use  <STRONG>touchwin</STRONG> to force the screen to match the updated at-
-       tributes.
+       (leave it <STRONG>NULL</STRONG>).
 
    <STRONG>Attributes</STRONG>
        The following video attributes, defined in <STRONG>&lt;curses.h&gt;</STRONG>, can
@@ -211,6 +207,10 @@
        <STRONG>tr_set</STRONG>.   These  are intended to work with a new series of
        highlight macros prefixed with <STRONG>WA_</STRONG>.
 
+       Older versions of this library did not force an update  of
+       the  screen when changing the attributes.  Use <STRONG>touchwin</STRONG> to
+       force the screen to match the updated attributes.
+
 
         <STRONG>WA_NORMAL</STRONG>       Normal display (no highlight)
         <STRONG>WA_STANDOUT</STRONG>     Best highlighting mode of the terminal.
@@ -241,7 +241,8 @@
        This implementation returns an error if the window pointer
        is  null.  The <STRONG>wcolor_set</STRONG> function returns an error if the
        color  pair  parameter  is  outside  the   range   0..COL-
-       OR_PAIRS-1.
+       OR_PAIRS-1.   This  implementation  also provides <STRONG>getattrs</STRONG>
+       for compatibility with older versions of curses.
 
 
 </PRE>

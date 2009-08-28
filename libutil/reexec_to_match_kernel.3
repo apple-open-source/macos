@@ -1,0 +1,30 @@
+.Dd Apr 14, 2008
+.Dt REEXEC_TO_MATCH_KERNEL 3
+.Os "Mac OS X"
+.Sh NAME
+.Nm reexec_to_match_kernel
+.Nd Re-exec the current binary to match the ABI of the running kernel
+.Sh LIBRARY
+.Lb libutil
+.Sh SYNOPSIS
+.In libutil.h
+.Ft int
+.Fo reexec_to_match_kernel
+.Fa "void"
+.Fc
+.Sh DESCRIPTION
+The
+.Fn reexec_to_match_kernel
+function re-executes the current binary to match the ABI of the running kernel.
+That is, if the current kernel is a 64-bit Intel kernel, it will attempt to
+execute the 64-bit x86_64 userspace slice of the universal binary. The API
+intentionally does not take arguments because its use should be transparent
+to the program and to the user.
+.Sh RETURN VALUES
+The
+.Fn reexec_to_match_kernel
+function returns 0 if re-execution was not required. It returns -1 and
+sets errno if there was an error performing the re-execution, for example
+if the binary is not universal, or does not contain a slice to match the running
+kernel's ABI. If the function succeeds, control never returns to the caller
+and the program starts from main() again.

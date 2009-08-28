@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2004,2008-2009 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,7 +20,6 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-#define SHUTDOWN_SNITCH
 
 
 //
@@ -37,6 +36,7 @@
 #include <security_cdsa_client/cspclient.h>
 #include <security_utilities/devrandom.h>
 #include <security_cdsa_utilities/uniformrandom.h>
+#include <security_utilities/vproc++.h>
 #include "codesigdb.h"
 #include "connection.h"
 #include "key.h"
@@ -86,13 +86,14 @@ public:
     //
 	static Server &active() { return safer_cast<Server &>(MachServer::active()); }
 	static const char *bootstrapName() { return active().mBootstrapName.c_str(); }
+	static unsigned int verbosity() { return active().mVerbosity; }
 
 	//
 	// Each thread has at most one "active connection". If the server is currently
 	// servicing a request received through a Connection, that's it. Otherwise
 	// there is none.
 	//
-	static Connection &connection(mach_port_t replyPort);	// find by reply port and make active
+	static Connection &connection(mach_port_t replyPort, audit_token_t &auditToken);	// find by reply port and make active
 	static Connection &connection(bool tolerant = false);	// return active (or fail unless tolerant)
 	static void requestComplete(CSSM_RETURN &rcode);		// de-activate active connection
 	
@@ -111,14 +112,14 @@ public:
 	static RefPointer<Database> database(DbHandle db);
 	static RefPointer<KeychainDatabase> keychain(DbHandle db);
 	static RefPointer<Database> optionalDatabase(DbHandle db, bool persistent = true);
-	static AclSource &aclBearer(AclKind kind, CSSM_HANDLE handle);
+	static AclSource &aclBearer(AclKind kind, U32HandleObject::Handle handle);
 	
 	// Generic version of handle lookup
 	template <class ProcessBearer>
-	static RefPointer<ProcessBearer> find(CSSM_HANDLE handle, CSSM_RETURN notFoundError)
+    static RefPointer<ProcessBearer> find(uint32_t handle, CSSM_RETURN notFoundError)
 	{
 		RefPointer<ProcessBearer> object = 
-			HandleObject::findRef<ProcessBearer>(handle, notFoundError);
+			U32HandleObject::findRef<ProcessBearer>(handle, notFoundError);
 		if (object->process() != Server::process())
 			CssmError::throwMe(notFoundError);
 		return object;
@@ -135,7 +136,7 @@ public:
 	//
 	// Initialize CSSM and MDS
 	//
-	void loadCssm();
+	void loadCssm(bool mdsIsInstalled);
 	
 public:
 	// set up a new connection
@@ -168,6 +169,7 @@ private:
 	public:
 		void systemWillSleep();
 		void systemIsWaking();
+		void systemWillPowerOn();
 		
 		void add(PowerWatcher *client);
 		void remove(PowerWatcher *client);
@@ -187,8 +189,11 @@ public:
 public:
 	Process *findPid(pid_t pid) const;
 
+	void verbosity(unsigned int v) { mVerbosity = v; }
 	void waitForClients(bool waiting);				// set waiting behavior
-	bool beginShutdown();							// start delayed shutdown if configured
+	void beginShutdown();							// start delayed shutdown if configured
+	bool shuttingDown() const { return mShuttingDown; }
+	void shutdownSnitch();							// report lingering clients
     
 private:
 	// mach bootstrap registration name
@@ -201,13 +206,6 @@ private:
 	typedef std::map<pid_t, Process *> PidMap;
 	PortMap<Process> mProcesses;					// strong reference
 	PidMap mPids;									// weak reference (subsidiary to mProcesses)
-	
-	enum ShutdownMode {
-		shutdownImmediately,						// shut down immediately on SIGTERM
-		shutdownDelayed,							// wait for clients on SIGTERM
-		shuttingDown								// delayed shutdown in progress
-	} mShutdown;									// shutdown mode
-	void shutdownSnitch();							// rat out lingering clients (to syslog)
 	
 	// Current connection, if any (per thread).
 	// Set as a side effect of calling connection(mach_port_t)
@@ -224,6 +222,11 @@ private:
     
     // Per-process audit initialization
     CommonCriteria::AuditSession mAudit;
+	
+	// busy state for primary state authority
+	unsigned int mVerbosity;
+	bool mWaitForClients;
+	bool mShuttingDown;
 };
 
 

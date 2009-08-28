@@ -20,6 +20,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <IOKit/ndrvsupport/IONDRVLibraries.h>
+
 #if __ppc__
 
 #include "IOPEFInternals.h"

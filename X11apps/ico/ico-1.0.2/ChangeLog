@@ -1,0 +1,217 @@
+commit 11308c41fe4c1bf99a6654fca294f3e098075a33
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Jul 20 16:28:38 2007 -0700
+
+    Version bump: 1.0.2
+
+commit 255c8078a0edfc289e434ba769fd50e05ab72ad2
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Jul 20 16:17:31 2007 -0700
+
+    Fill in COPYING stub with copyright & licenses from source files
+
+commit 5a51d7e1db3694e41d55bc02208f3fa1b736e951
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Jul 20 16:14:34 2007 -0700
+
+    Replace static changelog with dist-hook to generate from git log
+
+commit e7a16eb488b591af57561799525891be5030bf25
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Jul 20 16:10:58 2007 -0700
+
+    Change ico_CFLAGS to AM_CFLAGS to stop automake-1.10 warning
+    
+    Makefile.am:27: compiling `ico.c' with per-target flags requires `AM_PROG_CC_C_O' in `configure.ac'
+
+commit e3146e963d7bf333d0e01d9d556d6c8be722898d
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Apr 11 15:37:10 2007 -0700
+
+    renamed: .cvsignore -> .gitignore
+
+commit db38b36c535baeda5bdc8a873b32f678e7df8e36
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Apr 11 15:36:16 2007 -0700
+
+    Bug #10616: Man page typo: s/TREMINATION/TERMINATION/
+    
+    X.Org Bugzilla #10616 <https://bugs.freedesktop.org/show_bug.cgi?id=10616>
+    Reported upstream from
+    Debian Bug #395445 <http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=395445>
+
+commit 366924f71f6e5db3641bc350a07d37f64fe6ea08
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Dec 21 02:29:42 2005 +0000
+
+    Update package version for X11R7 release.
+
+commit 82481ae9b8335ae924b4341d194c4f0ed51f1f03
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Mon Dec 19 16:22:40 2005 +0000
+
+    Stub COPYING files
+
+commit 52ad0990a0f63ef8601c56b3937afba0a511b376
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:02 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit 22bef66811d55607c096b0e015fb91e31c3043c6
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Dec 6 22:48:16 2005 +0000
+
+    Change *man_SOURCES ==> *man_PRE to fix autotools warnings.
+
+commit f8a8eb25e339b5ae58c0bd6b9068338488d3be22
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:16 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit 8e79cdd0c53ab420fa3b69003762d2d1ebfa0273
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Nov 28 22:01:37 2005 +0000
+
+    Change *mandir targets to use new *_MAN_DIR variables set by xorg-macros.m4
+        update to fix bug #5167 (Linux prefers *.1x man pages in man1 subdir)
+
+commit 3c4e96626a4fcc4df45bced95c44c5e99e605537
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Mon Nov 21 10:34:55 2005 +0000
+
+    Another pass at .cvsignores for apps.
+
+commit 3cb8504ab547357b6b538e1ffbb3000b5cc0b8e7
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Sun Nov 20 22:08:48 2005 +0000
+
+    Add/improve .cvsignore files for apps.
+
+commit 02b2de700f25d3be621d560b3042f7a7a89369e6
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Nov 9 21:09:19 2005 +0000
+
+    Update package version number for X11R7 RC2 release.
+
+commit 703edae088fb7bb409dbdb58d111ed9e4c31cf78
+Author: Kean Johnson <kean@armory.com>
+Date:   Tue Nov 8 06:33:31 2005 +0000
+
+    See ChangeLog entry 2005-11-07 for details.
+
+commit fe9efd5cd0703005da9ceb55f59d376ba0b01226
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:47:48 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit 7ad280349d00bb52201dc43c21ac097ec97132dc
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Oct 17 23:56:19 2005 +0000
+
+    Use @APP_MAN_SUFFIX@ instead of $(APP_MAN_SUFFIX) in macro substitutions to
+        work better with BSD make
+
+commit cd8ac3431f4b2c6a8fad1031bf34d894fb6398ae
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Oct 14 00:25:41 2005 +0000
+
+    Use sed to fill in variables in man page
+
+commit a0f44d19aa84965a31303fd39f05631665fd7e37
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Wed Aug 17 19:49:17 2005 +0000
+
+    Get xthreadlib variable from Xlib. Bump to 0.99.1.
+
+commit 19fd5758771d31d13cc483cf80adafa3bf530132
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sat Aug 13 02:13:30 2005 +0000
+
+    Update for modularization: include <config.h> & <X11/XlibConf.h>, use
+        XTHREADS define from XlibConf.h to enable multithreading Also ansify
+        icoFatal prototype to clear Sun cc warnings.
+
+commit 979aa90d7b94494ce365b9dc3cf724a3f91f8598
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Aug 1 20:25:27 2005 +0000
+
+    Install man pages to section 1 instead of section m (Patch from Donnie
+        Berkholz)
+
+commit 25ac536b836c2772784bd13b543d538a2673fb4c
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:29 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit 5c31a07dbcb735445951f7f7cae8579ee16262d5
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Wed Jul 20 19:31:48 2005 +0000
+
+    Use a unique token for PKG_CHECK_MODULES. Otherwise, if you use a global
+        configure cache, you cache it, and the cached value is probably wrong.
+
+commit 9e0555e9d980217dd20d1f7385ff47514675629c
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Tue Jun 28 15:00:13 2005 +0000
+
+    Check in build system for ico
+
+commit 6a904d00db84e235ea2b0073fbcd078f8a96c9c2
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 19:54:33 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit caf6767501c8176c02702e441ab422ced4ea5033
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:34:51 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit 81bd81a192d3e6cc4e8ac744d6f9dd844013c3de
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:12:52 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit 0fe04de86a907b549e143b27ff5c16887ec7de2a
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:36:15 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit dcd8f0f0b566a45609145651ae0c6d2cbed6bfc7
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:23:54 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit 996d4a49a21986ae0a8d3f4f047aa71422727925
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:29:02 2003 +0000
+
+    XFree86 4.3.99.16 Bring the tree up to date for the Cygwin folks
+
+commit c3b5b1a77685345b857f858fa3c226ec4a826414
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:57 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit 352df17fc71405e7bc36559ee8a72e21d7a5694a
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:57 2003 +0000
+
+    Initial revision

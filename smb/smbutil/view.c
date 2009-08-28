@@ -2,7 +2,7 @@
  * Copyright (c) 2000, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -52,7 +52,7 @@
 
 #include "common.h"
 
-static char *shtype[] = {
+static const char *shtype[] = {
 	"disk",
 	"printer",
 	"comm",		/* Communications device */
@@ -64,10 +64,11 @@ int
 cmd_view(int argc, char *argv[])
 {
 	struct smb_ctx *ctx = NULL;
-	struct share_info *share_info, *ep;
+	struct share_info *share_info = NULL;
+	struct share_info *ep;
 	int error, opt, i, entries, total;
 	const char *cp;
-	char * url = NULL;
+	const  char * url = NULL;
 	int prompt_user = (isatty(STDIN_FILENO)) ? TRUE : FALSE;
 	
 	if (argc < 2)
@@ -78,14 +79,22 @@ cmd_view(int argc, char *argv[])
 		cp = argv[opt];
 		if (strncmp(cp, "//", 2) != 0)
 			continue;
-		url = (char *)cp;
+		url = cp;
 		break;
 	}
 	if (! url)	/* No URL then a bad argument list */
 		view_usage();
-	error = smb_ctx_init(&ctx, url, SMBL_VC, SMB_ST_ANY, FALSE);
-	if (error)
-		exit(error);
+	errno = smb_ctx_init(&ctx, url, SMBL_VC, SMB_ST_ANY, FALSE);
+	if (errno) {
+		/* 
+		 * We will either get an ENOMEM if the library 
+		 * intitialization failed or some error from the URL parse. 
+		 */
+		if (errno == ENOMEM)
+			err(EX_UNAVAILABLE, "failed to intitialize the smb library");
+		else
+			err(EX_UNAVAILABLE, "URL parsing failed, please correct the URL and try again");
+	}
 
 	while ((opt = getopt(argc, argv, "N")) != EOF) {
 		switch(opt){
@@ -103,21 +112,18 @@ cmd_view(int argc, char *argv[])
 	if (errno)
 		err(EX_NOHOST, "server connection failed");
 	
-	/* The server supports Kerberos then see if we can connect */
-	if (ctx->ct_vc_flags & SMBV_KERBEROS_SUPPORT)
+	/* The server supports Kerberos then see if we can connect with Kerberos. */
+	if (ctx->ct_vc_flags & SMBV_MECHTYPE_KRB5) {
+		ctx->ct_ssn.ioc_opt |= SMBV_KERBEROS_ACCESS;		
 		error = smb_session_security(ctx, NULL, NULL);
-	else if (ctx->ct_ssn.ioc_opt & SMBV_EXT_SEC)
+	} else if (ctx->ct_vc_shared) {
+		/* See if we can use the same security session with this connectation */
+		error = smb_session_security(ctx, NULL, NULL);				
+	} else
 		error = ENOTSUP;
-	else 
-		error = smb_session_security(ctx, NULL, NULL);
 	
-	/* Either Kerberos failed or they do extended security, but not Kerberos */ 
+	/* Either Kerberos failed or the server doesn't support Kerberos, so now try normal security */ 
 	if (error) {
-		ctx->ct_ssn.ioc_opt &= ~SMBV_EXT_SEC;	
-		ctx->ct_flags &= ~SMBCF_CONNECTED;		
-		errno  = smb_connect(ctx);
-		if (errno)
-			err(EX_NOHOST, "server connection failed");
 		/* need to command-line prompting for the password */
 		if (prompt_user && ((ctx->ct_flags & SMBCF_EXPLICITPWD) != SMBCF_EXPLICITPWD)) {
 			char passwd[SMB_MAXPASSWORDLEN + 1];
@@ -125,6 +131,13 @@ cmd_view(int argc, char *argv[])
 			strncpy(passwd, getpass(SMB_PASSWORD_KEY ":"), SMB_MAXPASSWORDLEN);
 			smb_ctx_setpassword(ctx, passwd);
 		}
+		
+		/* No username or password then they must want anonymous authentication */
+		if ((ctx->ct_setup.ioc_user[0] == 0) && (ctx->ct_setup.ioc_password[0] == 0)) {
+			ctx->ct_ssn.ioc_opt |= SMBV_ANONYMOUS_ACCESS;
+			fprintf(stderr, "Connecting with anonymous authentication.\n");
+		}
+
 		errno = smb_session_security(ctx, NULL, NULL);
 		if (errno)
 			err(EX_NOPERM, "server rejected the connection");
@@ -147,7 +160,7 @@ cmd_view(int argc, char *argv[])
 		    ep->remark ? ep->remark : "");
 	}
 	fprintf(stdout, "\n%d shares listed from %d available\n", entries, total);
-	free(share_info);
+	smb_freeshareinfo(share_info, entries);
 	smb_ctx_done(ctx);
 	return 0;
 }

@@ -30,6 +30,7 @@
 #include <openssl/sha.h>
 #include <syslog.h>
 #include <CommonCrypto/CommonCryptor.h>
+#include <CommonCrypto/CommonHMAC.h>
 
 #include <CoreServices/CoreServices.h>
 
@@ -124,7 +125,7 @@ void pwsf_CalculateSMBNTHash(const char *utf8Password, unsigned char outHash[16]
 	u_int16_t unicodeLen = 0;
 	u_int16_t unicodepwd[kUnicodeStrMaxLen] = {0};
 	char password[128] = {0};
-	int passLen = 0;
+	size_t passLen = 0;
 	
 	if (utf8Password == NULL || outHash == NULL) return;
 	
@@ -142,7 +143,7 @@ void pwsf_CalculateSMBNTHash(const char *utf8Password, unsigned char outHash[16]
 void pwsf_CalculateSMBLANManagerHash(const char *password, unsigned char outHash[16])
 {
 	unsigned char S8[8] = {0x4B, 0x47, 0x53, 0x21, 0x40, 0x23, 0x24, 0x25};
-	int passLen = 0;
+	size_t passLen = 0;
 	unsigned char P21[21] = {0};
 	unsigned char P14[14] = {0};
 	unsigned char *P16 = P21;
@@ -165,6 +166,27 @@ void pwsf_CalculateSMBLANManagerHash(const char *password, unsigned char outHash
 	memmove(outHash, P16, 16);
 }
 
+void pwsf_CalculateWorkstationCredentialStrongSessKey( const unsigned char inNTHash[16], const char serverChallenge[8], const char clientChallenge[8], unsigned char outWCSK[16] )
+{
+	uint32_t zero = 0;
+	CCHmacContext ctx;
+	CC_MD5_CTX md5;
+	unsigned char tmp[16];
+
+	CCHmacInit(&ctx, kCCHmacAlgMD5, inNTHash, CC_MD5_DIGEST_LENGTH);
+
+	CC_MD5_Init(&md5);
+	CC_MD5_Update(&md5, &zero, 4);
+	CC_MD5_Update(&md5, clientChallenge, 8);
+	CC_MD5_Update(&md5, serverChallenge, 8);
+	CC_MD5_Final(tmp, &md5);
+	
+	CCHmacUpdate(&ctx, tmp, 16);
+	CCHmacFinal(&ctx, outWCSK);
+	memset(tmp, 0, sizeof(tmp));
+	memset(&ctx, 0, sizeof(ctx));
+	return;
+}
 
 void pwsf_CalculateWorkstationCredentialSessKey( const unsigned char inNTHash[16], const char serverChallenge[8], const char clientChallenge[8], unsigned char outWCSK[8] )
 {

@@ -57,7 +57,7 @@
         {
             mNode = dsDataNodeAllocateBlock( [inDir dsDirRef], [inValue length], [inValue length], (tBuffer) [inValue bytes] );
         }
-        else
+        else if ( inValue != nil )
         {
             [self release];
             @throw [NSException exceptionWithName: NSInvalidArgumentException reason: @"[DSoDataNode initWithDir:value:] value is not a valid NSString nor NSData" userInfo: nil];
@@ -66,7 +66,7 @@
         if( mNode == nil )
         {
             [self release];
-            @throw [DSoException name: nil reason: nil status: eMemoryAllocError];
+            return nil;
         }
     }
     return self;

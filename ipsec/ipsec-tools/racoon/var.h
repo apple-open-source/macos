@@ -1,4 +1,6 @@
-/* $Id: var.h,v 1.6 2004/11/20 16:16:59 monas Exp $ */
+/*	$NetBSD: var.h,v 1.4.6.1 2007/06/06 15:36:38 vanhu Exp $	*/
+
+/* Id: var.h,v 1.6 2004/11/20 16:16:59 monas Exp */
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -76,10 +78,10 @@
 do { \
 	if (getnameinfo((x), sysdep_sa_len(x), (y), sizeof(y), (z), sizeof(z), \
 			NIFLAGS) != 0) { \
-		if (y) \
-			strncpy((y), "(invalid)", sizeof(y)); \
-		if (z) \
-			strncpy((z), "(invalid)", sizeof(z)); \
+		if (y != NULL) \
+			strlcpy((y), "(invalid)", sizeof(y)); \
+		if (z != NULL) \
+			strlcpy((z), "(invalid)", sizeof(z)); \
 	} \
 } while (0);
 
@@ -87,8 +89,8 @@ do { \
 do { \
 	if (getnameinfo((x), sysdep_sa_len(x), (y), sizeof(y), NULL, 0, \
 			NIFLAGS) != 0) { \
-		if (y) \
-			strncpy((y), "(invalid)", sizeof(y)); \
+		if (y != NULL) \
+			strlcpy((y), "(invalid)", sizeof(y)); \
 	} \
 } while (0);
 

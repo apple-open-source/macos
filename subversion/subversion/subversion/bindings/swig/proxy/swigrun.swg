@@ -1,14 +1,13 @@
-/***********************************************************************
+/* -----------------------------------------------------------------------------
  * swigrun.swg
  *
- *     This file contains generic CAPI SWIG runtime support for pointer
- *     type checking.
- *
- ************************************************************************/
+ * This file contains generic CAPI SWIG runtime support for pointer
+ * type checking.
+ * ----------------------------------------------------------------------------- */
 
 /* This should only be incremented when either the layout of swig_type_info changes,
    or for whatever reason, the runtime changes incompatibly */
-#define SWIG_RUNTIME_VERSION "2"
+#define SWIG_RUNTIME_VERSION "4"
 
 /* define SWIG_TYPE_TABLE_NAME as "SWIG_TYPE_TABLE" */
 #ifdef SWIG_TYPE_TABLE
@@ -36,22 +35,165 @@
 # define SWIGRUNTIMEINLINE SWIGRUNTIME SWIGINLINE
 #endif
 
+/*  Generic buffer size */
+#ifndef SWIG_BUFFER_SIZE
+# define SWIG_BUFFER_SIZE 1024
+#endif
+
+/* Flags for pointer conversions */
+#define SWIG_POINTER_DISOWN        0x1
+#define SWIG_CAST_NEW_MEMORY       0x2
+
+/* Flags for new pointer objects */
+#define SWIG_POINTER_OWN           0x1
+
+
+/* 
+   Flags/methods for returning states.
+   
+   The swig conversion methods, as ConvertPtr, return and integer 
+   that tells if the conversion was successful or not. And if not,
+   an error code can be returned (see swigerrors.swg for the codes).
+   
+   Use the following macros/flags to set or process the returning
+   states.
+   
+   In old swig versions, you usually write code as:
+
+     if (SWIG_ConvertPtr(obj,vptr,ty.flags) != -1) {
+       // success code
+     } else {
+       //fail code
+     }
+
+   Now you can be more explicit as:
+
+    int res = SWIG_ConvertPtr(obj,vptr,ty.flags);
+    if (SWIG_IsOK(res)) {
+      // success code
+    } else {
+      // fail code
+    }
+
+   that seems to be the same, but now you can also do
+
+    Type *ptr;
+    int res = SWIG_ConvertPtr(obj,(void **)(&ptr),ty.flags);
+    if (SWIG_IsOK(res)) {
+      // success code
+      if (SWIG_IsNewObj(res) {
+        ...
+	delete *ptr;
+      } else {
+        ...
+      }
+    } else {
+      // fail code
+    }
+    
+   I.e., now SWIG_ConvertPtr can return new objects and you can
+   identify the case and take care of the deallocation. Of course that
+   requires also to SWIG_ConvertPtr to return new result values, as
+
+      int SWIG_ConvertPtr(obj, ptr,...) {         
+        if (<obj is ok>) {			       
+          if (<need new object>) {		       
+            *ptr = <ptr to new allocated object>; 
+            return SWIG_NEWOBJ;		       
+          } else {				       
+            *ptr = <ptr to old object>;	       
+            return SWIG_OLDOBJ;		       
+          } 				       
+        } else {				       
+          return SWIG_BADOBJ;		       
+        }					       
+      }
+
+   Of course, returning the plain '0(success)/-1(fail)' still works, but you can be
+   more explicit by returning SWIG_BADOBJ, SWIG_ERROR or any of the
+   swig errors code.
+
+   Finally, if the SWIG_CASTRANK_MODE is enabled, the result code
+   allows to return the 'cast rank', for example, if you have this
+
+       int food(double)
+       int fooi(int);
+
+   and you call
+ 
+      food(1)   // cast rank '1'  (1 -> 1.0)
+      fooi(1)   // cast rank '0'
+
+   just use the SWIG_AddCast()/SWIG_CheckState()
+
+
+ */
+#define SWIG_OK                    (0) 
+#define SWIG_ERROR                 (-1)
+#define SWIG_IsOK(r)               (r >= 0)
+#define SWIG_ArgError(r)           ((r != SWIG_ERROR) ? r : SWIG_TypeError)  
+
+/* The CastRankLimit says how many bits are used for the cast rank */
+#define SWIG_CASTRANKLIMIT         (1 << 8)
+/* The NewMask denotes the object was created (using new/malloc) */
+#define SWIG_NEWOBJMASK            (SWIG_CASTRANKLIMIT  << 1)
+/* The TmpMask is for in/out typemaps that use temporal objects */
+#define SWIG_TMPOBJMASK            (SWIG_NEWOBJMASK << 1)
+/* Simple returning values */
+#define SWIG_BADOBJ                (SWIG_ERROR)
+#define SWIG_OLDOBJ                (SWIG_OK)
+#define SWIG_NEWOBJ                (SWIG_OK | SWIG_NEWOBJMASK)
+#define SWIG_TMPOBJ                (SWIG_OK | SWIG_TMPOBJMASK)
+/* Check, add and del mask methods */
+#define SWIG_AddNewMask(r)         (SWIG_IsOK(r) ? (r | SWIG_NEWOBJMASK) : r)
+#define SWIG_DelNewMask(r)         (SWIG_IsOK(r) ? (r & ~SWIG_NEWOBJMASK) : r)
+#define SWIG_IsNewObj(r)           (SWIG_IsOK(r) && (r & SWIG_NEWOBJMASK))
+#define SWIG_AddTmpMask(r)         (SWIG_IsOK(r) ? (r | SWIG_TMPOBJMASK) : r)
+#define SWIG_DelTmpMask(r)         (SWIG_IsOK(r) ? (r & ~SWIG_TMPOBJMASK) : r)
+#define SWIG_IsTmpObj(r)           (SWIG_IsOK(r) && (r & SWIG_TMPOBJMASK))
+
+
+/* Cast-Rank Mode */
+#if defined(SWIG_CASTRANK_MODE)
+#  ifndef SWIG_TypeRank
+#    define SWIG_TypeRank             unsigned long
+#  endif
+#  ifndef SWIG_MAXCASTRANK            /* Default cast allowed */
+#    define SWIG_MAXCASTRANK          (2)
+#  endif
+#  define SWIG_CASTRANKMASK          ((SWIG_CASTRANKLIMIT) -1)
+#  define SWIG_CastRank(r)           (r & SWIG_CASTRANKMASK)
+SWIGINTERNINLINE int SWIG_AddCast(int r) { 
+  return SWIG_IsOK(r) ? ((SWIG_CastRank(r) < SWIG_MAXCASTRANK) ? (r + 1) : SWIG_ERROR) : r;
+}
+SWIGINTERNINLINE int SWIG_CheckState(int r) { 
+  return SWIG_IsOK(r) ? SWIG_CastRank(r) + 1 : 0; 
+}
+#else /* no cast-rank mode */
+#  define SWIG_AddCast
+#  define SWIG_CheckState(r) (SWIG_IsOK(r) ? 1 : 0)
+#endif
+
+
+
+
 #include <string.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef void *(*swig_converter_func)(void *);
+typedef void *(*swig_converter_func)(void *, int *);
 typedef struct swig_type_info *(*swig_dycast_func)(void **);
 
-/* Structure to store inforomation on one type */
+/* Structure to store information on one type */
 typedef struct swig_type_info {
   const char             *name;			/* mangled name of this type */
   const char             *str;			/* human readable name of this type */
   swig_dycast_func        dcast;		/* dynamic cast function down a hierarchy */
   struct swig_cast_info  *cast;			/* linked list of types that can cast into this type */
   void                   *clientdata;		/* language specific type data */
+  int                    owndata;		/* flag if the structure owns the clientdata */
 } swig_type_info;
 
 /* Structure to store a type and conversion function used for casting */
@@ -74,7 +216,6 @@ typedef struct swig_module_info {
   void                    *clientdata;		/* Language specific module data */
 } swig_module_info;
 
-
 /* 
   Compare two type names skipping the space characters, therefore
   "char*" == "char *" and "Class<int>" == "Class<int >", etc.
@@ -88,9 +229,9 @@ SWIG_TypeNameComp(const char *f1, const char *l1,
   for (;(f1 != l1) && (f2 != l2); ++f1, ++f2) {
     while ((*f1 == ' ') && (f1 != l1)) ++f1;
     while ((*f2 == ' ') && (f2 != l2)) ++f2;
-    if (*f1 != *f2) return (int)(*f1 - *f2);
+    if (*f1 != *f2) return (*f1 > *f2) ? 1 : -1;
   }
-  return (l1 - f1) - (l2 - f2);
+  return (int)((l1 - f1) - (l2 - f2));
 }
 
 /*
@@ -172,8 +313,8 @@ SWIG_TypeCheckStruct(swig_type_info *from, swig_type_info *into) {
   Cast a pointer up an inheritance hierarchy
 */
 SWIGRUNTIMEINLINE void *
-SWIG_TypeCast(swig_cast_info *ty, void *ptr) {
-  return ((!ty) || (!ty->converter)) ? ptr : (*ty->converter)(ptr);
+SWIG_TypeCast(swig_cast_info *ty, void *ptr, int *newmemory) {
+  return ((!ty) || (!ty->converter)) ? ptr : (*ty->converter)(ptr, newmemory);
 }
 
 /* 
@@ -208,6 +349,7 @@ SWIG_TypePrettyName(const swig_type_info *type) {
      type, separated by vertical-bar characters.  We choose
      to print the last name, as it is often (?) the most
      specific. */
+  if (!type) return NULL;
   if (type->str != NULL) {
     const char *last_name = type->str;
     const char *s;
@@ -224,19 +366,26 @@ SWIG_TypePrettyName(const swig_type_info *type) {
 */
 SWIGRUNTIME void
 SWIG_TypeClientData(swig_type_info *ti, void *clientdata) {
-  if (!ti->clientdata) {
-    swig_cast_info *cast = ti->cast;
-    /* if (ti->clientdata == clientdata) return; */
-    ti->clientdata = clientdata;
-    
-    while (cast) {
-      if (!cast->converter)
-	SWIG_TypeClientData(cast->type, clientdata);
-      cast = cast->next;
-    }
+  swig_cast_info *cast = ti->cast;
+  /* if (ti->clientdata == clientdata) return; */
+  ti->clientdata = clientdata;
+  
+  while (cast) {
+    if (!cast->converter) {
+      swig_type_info *tc = cast->type;
+      if (!tc->clientdata) {
+	SWIG_TypeClientData(tc, clientdata);
+      }
+    }    
+    cast = cast->next;
   }
 }
-
+SWIGRUNTIME void
+SWIG_TypeNewClientData(swig_type_info *ti, void *clientdata) {
+  SWIG_TypeClientData(ti, clientdata);
+  ti->owndata = 1;
+}
+  
 /*
   Search for a swig_type_info structure only by mangled name
   Search is a O(log #types)
@@ -316,7 +465,6 @@ SWIG_TypeQueryModule(swig_module_info *start,
   return 0;
 }
 
-
 /* 
    Pack binary data into a string
 */
@@ -342,7 +490,7 @@ SWIG_UnpackData(const char *c, void *ptr, size_t sz) {
   register const unsigned char *eu = u + sz;
   for (; u != eu; ++u) {
     register char d = *(c++);
-    register unsigned char uu = 0;
+    register unsigned char uu;
     if ((d >= '0') && (d <= '9'))
       uu = ((d - '0') << 4);
     else if ((d >= 'a') && (d <= 'f'))
@@ -419,4 +567,3 @@ SWIG_UnpackDataName(const char *c, void *ptr, size_t sz, const char *name) {
 #ifdef __cplusplus
 }
 #endif
-

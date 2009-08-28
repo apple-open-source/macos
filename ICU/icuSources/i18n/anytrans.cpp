@@ -1,6 +1,6 @@
 /*
 *****************************************************************
-* Copyright (c) 2002-2005, International Business Machines Corporation
+* Copyright (c) 2002-2008, International Business Machines Corporation
 * and others.  All Rights Reserved.
 *****************************************************************
 * Date        Name        Description
@@ -39,7 +39,7 @@ U_CDECL_BEGIN
  */
 static void U_CALLCONV
 _deleteTransliterator(void *obj) {
-    delete (Transliterator*) obj;    
+    delete (U_NAMESPACE_QUALIFIER Transliterator*) obj;    
 }
 U_CDECL_END
 
@@ -183,6 +183,9 @@ AnyTransliterator::AnyTransliterator(const UnicodeString& id,
     targetScript(theTargetScript) 
 {
     cache = uhash_open(uhash_hashLong, uhash_compareLong, NULL, &ec);
+    if (U_FAILURE(ec)) {
+        return;
+    }
     uhash_setValueDeleter(cache, _deleteTransliterator);
 
     target = theTarget;
@@ -206,6 +209,9 @@ AnyTransliterator::AnyTransliterator(const AnyTransliterator& o) :
     // Don't copy the cache contents
     UErrorCode ec = U_ZERO_ERROR;
     cache = uhash_open(uhash_hashLong, uhash_compareLong, NULL, &ec);
+    if (U_FAILURE(ec)) {
+        return;
+    }
     uhash_setValueDeleter(cache, _deleteTransliterator);
 }
 

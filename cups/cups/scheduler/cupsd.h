@@ -1,9 +1,9 @@
 /*
- * "$Id: cupsd.h 7319 2008-02-15 23:26:51Z mike $"
+ * "$Id: cupsd.h 7928 2008-09-10 22:14:22Z mike $"
  *
  *   Main header file for the Common UNIX Printing System (CUPS) scheduler.
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -92,7 +92,7 @@ extern const char *cups_hstrerror(int);
 #define DEFAULT_HISTORY		1	/* Preserve job history? */
 #define DEFAULT_FILES		0	/* Preserve job files? */
 #define DEFAULT_TIMEOUT		300	/* Timeout during requests/updates */
-#define DEFAULT_KEEPALIVE	60	/* Timeout between requests */
+#define DEFAULT_KEEPALIVE	30	/* Timeout between requests */
 #define DEFAULT_INTERVAL	30	/* Interval between browse updates */
 #define DEFAULT_CHARSET		"utf-8"	/* Default charset */
 
@@ -152,6 +152,10 @@ typedef void (*cupsd_selfunc_t)(void *data);
  * Globals...
  */
 
+VAR int			TestConfigFile	VALUE(0),
+					/* Test the cupsd.conf file? */
+			UseProfiles	VALUE(1);
+					/* Use security profiles for child procs? */
 VAR int			MaxFDs		VALUE(0);
 					/* Maximum number of files */
 
@@ -159,8 +163,12 @@ VAR time_t		ReloadTime	VALUE(0);
 					/* Time of reload request... */
 VAR int			NeedReload	VALUE(RELOAD_ALL);
 					/* Need to load configuration? */
+VAR void		*DefaultProfile	VALUE(0);
+					/* Default security profile */
 
 #ifdef HAVE_GSSAPI
+VAR int			KerberosInitialized	VALUE(0);
+					/* Has Kerberos been initialized? */
 VAR krb5_context	KerberosContext VALUE(NULL);
 					/* Kerberos context for credentials */
 #endif /* HAVE_GSSAPI */
@@ -185,6 +193,7 @@ VAR PSQUpdateQuotaProcPtr PSQUpdateQuotaProc
  * Prototypes...
  */
 
+extern void	cupsdCheckProcess(void);
 extern void	cupsdClearString(char **s);
 extern void	cupsdHoldSignals(void);
 extern void	cupsdReleaseSignals(void);
@@ -208,12 +217,16 @@ __attribute__ ((__format__ (__printf__, 2, 3)))
 #endif /* __GNUC__ */
 ;
 
+extern void	*cupsdCreateProfile(int job_id);
+extern void	cupsdDestroyProfile(void *profile);
 extern int	cupsdEndProcess(int pid, int force);
-extern const char *cupsdFinishProcess(int pid, char *name, int namelen);
+extern const char *cupsdFinishProcess(int pid, char *name, int namelen,
+		                      int *job_id);
 extern int	cupsdStartProcess(const char *command, char *argv[],
 				  char *envp[], int infd, int outfd,
 				  int errfd, int backfd, int sidefd,
-				  int root, int *pid);
+				  int root, void *profile, cupsd_job_t *job,
+				  int *pid);
 
 extern int	cupsdAddSelect(int fd, cupsd_selfunc_t read_cb,
 		               cupsd_selfunc_t write_cb, void *data);
@@ -227,6 +240,7 @@ extern void	cupsdStopSelect(void);
 
 extern int	cupsdRemoveFile(const char *filename);
 
+
 /*
- * End of "$Id: cupsd.h 7319 2008-02-15 23:26:51Z mike $".
+ * End of "$Id: cupsd.h 7928 2008-09-10 22:14:22Z mike $".
  */

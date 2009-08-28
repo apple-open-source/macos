@@ -2,7 +2,7 @@
    Unix SMB/CIFS implementation.
    ID mapping Open Directory Server backend
 
-   Copyright (c) 2007 Apple Inc. All rights rserved.
+   Copyright (c) 2007-2009 Apple Inc. All rights rserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -37,74 +37,12 @@ static int module_debug;
 
 static struct opendirectory_session od_idmap_session;
 
-static CFDictionaryRef find_group_by_id(
-				struct opendirectory_session *session,
-				uint32_t groupid)
-{
-	CFMutableArrayRef records = NULL;
-	fstring gid_string;
-	tDirStatus status;
-
-	snprintf(gid_string, sizeof(gid_string) - 1, "%i", groupid);
-	status = opendirectory_sam_searchattr(session,
-			    &records, kDSStdRecordTypeGroups,
-			    kDS1AttrPrimaryGroupID, gid_string);
-	LOG_DS_ERROR_MSG(ds_trace, status,
-		"opendirectory_sam_searchattr[StdRecordTypeGroups]",
-		("GroupID=%u\n", groupid));
-
-	if (records) {
-		CFDictionaryRef first =
-		    (CFDictionaryRef)CFArrayGetValueAtIndex(records, 0);
-
-		CFRetain(first);
-		CFRelease(records);
-		return first;
-	}
-
-	return NULL;
-}
-
-static CFDictionaryRef find_user_by_id(
-				struct opendirectory_session *session,
-				uint32_t userid)
-{
-	CFMutableArrayRef records = NULL;
-	fstring uid_string;
-	tDirStatus status;
-
-	snprintf(uid_string, sizeof(uid_string) - 1, "%i", userid);
-
-	status = opendirectory_sam_searchattr(session,
-			    &records, kDSStdRecordTypeUsers,
-			    kDS1AttrUniqueID, uid_string);
-	LOG_DS_ERROR_MSG(ds_trace, status,
-		"opendirectory_sam_searchattr[StdRecordTypeUsers]",
-		("UniqueID=%u\n", userid));
-
-	/* XXX AFAICT there is no way to look up computer accounts via the
-	 * Unix UID -- jpeach.
-	 */
-
-	if (records) {
-		CFDictionaryRef first =
-		    (CFDictionaryRef)CFArrayGetValueAtIndex(records, 0);
-
-		CFRetain(first);
-		CFRelease(records);
-		return first;
-	}
-
-	return NULL;
-}
-
 /* Map a SID to the corresponding Unix UID or GID. */
 static NTSTATUS ods_map_sid(struct opendirectory_session *session,
 				struct id_map *id_entry)
 {
 	CFDictionaryRef sam_record;
 	char * id_string;
-	fstring sid_string;
 
 	id_entry->status = ID_UNKNOWN;
 
@@ -130,7 +68,7 @@ static NTSTATUS ods_map_sid(struct opendirectory_session *session,
 		}
 
 		DEBUG(module_debug, ("%s: no match for %s\n", MODULE_NAME,
-			sid_to_string(sid_string, id_entry->sid)));
+			sid_string_static(id_entry->sid)));
 	}
 
 	return NT_STATUS_OK;
@@ -139,7 +77,7 @@ success:
 	DEBUG(module_debug, ("%s: mapped %s SID to %s ID %s\n",
 		    MODULE_NAME,
 		    (id_entry->xid.type == ID_TYPE_UID) ? "user" : "group",
-		    sid_to_string(sid_string, id_entry->sid),
+		    sid_string_static(id_entry->sid),
 		    id_string));
 
 
@@ -151,20 +89,116 @@ success:
 	return NT_STATUS_OK;
 }
 
+static NTSTATUS memberd_map_sid(struct id_map *id_entry)
+{
+	uuid_t uuid;
+	id_t ugid;
+	int which;
+	int err;
+
+	id_entry->status = ID_UNMAPPED;
+
+	if (!memberd_sid_to_uuid(id_entry->sid, uuid)) {
+		return NT_STATUS_NONE_MAPPED;
+	}
+
+	err = mbr_uuid_to_id(uuid, &ugid, &which);
+	if (err != 0) {
+		if (DEBUGLVL(6)) {
+			uuid_string_t str;
+			uuid_unparse(uuid, str);
+
+			DEBUGADD(6,
+				("%s: unable to map UUID %s to a SID: %s\n",
+				MODULE_NAME, str, strerror(err)));
+		}
+
+		return NT_STATUS_NONE_MAPPED;
+	}
+
+	if (id_entry->xid.type == ID_TYPE_UID && which == MBR_ID_TYPE_UID) {
+		id_entry->xid.id = ugid;
+		goto success;
+	}
+
+	if (id_entry->xid.type == ID_TYPE_GID && which == MBR_ID_TYPE_GID) {
+		id_entry->xid.id = ugid;
+		goto success;
+	}
+
+	/* This is bad. Samba and DirectoryService disagree on what type of
+	 * record the SID refers to. Something is messed up ...
+	 */
+	DEBUG(module_debug,
+		("%s: ID %s SID %s turned out to be of type %d\n",
+		 MODULE_NAME,
+		 (id_entry->xid.type == ID_TYPE_UID) ? "user" : "group",
+		 sid_string_static(id_entry->sid), which));
+
+	return NT_STATUS_INVALID_SID;
+
+success:
+	id_entry->status = ID_MAPPED;
+	return NT_STATUS_OK;
+}
+
+static NTSTATUS memberd_map_unixid(struct id_map *id_entry)
+{
+	uuid_t uuid;
+	int err;
+
+	id_entry->status = ID_UNMAPPED;
+
+	if (id_entry->xid.type == ID_TYPE_UID) {
+	    err = mbr_identifier_to_uuid(MBR_ID_TYPE_UID, &id_entry->xid.id,
+		    sizeof(id_entry->xid.id), uuid);
+	} else {
+	    err = mbr_identifier_to_uuid(MBR_ID_TYPE_GID, &id_entry->xid.id,
+		    sizeof(id_entry->xid.id), uuid);
+	}
+
+	if (err) {
+		DEBUG(module_debug, ("%s:unable to map %s %d to a UUID: %s\n",
+			MODULE_NAME,
+			id_entry->xid.type == ID_TYPE_UID ? "UID" : "GID",
+			id_entry->xid.id, strerror(err)));
+		return map_nt_error_from_unix(err);
+	}
+
+	if (!memberd_uuid_to_sid(uuid, id_entry->sid)) {
+		return NT_STATUS_NONE_MAPPED;
+	}
+
+	id_entry->status = ID_MAPPED;
+
+	DEBUG(module_debug, ("%s: mapped %s ID %li to SID %s\n",
+		    MODULE_NAME,
+		    (id_entry->xid.type == ID_TYPE_UID) ? "user" : "group",
+		    (long)id_entry->xid.id,
+		    sid_string_static(id_entry->sid)));
+
+	return NT_STATUS_OK;
+}
+
 /* Map a Unix UID or GID to the corresponding SID. */
 static NTSTATUS ods_map_unixid(struct opendirectory_session *session,
 				struct id_map *id_entry)
 {
 	CFDictionaryRef sam_record;
-	fstring sid_string;
 
 	id_entry->status = ID_UNKNOWN;
 
 	if (id_entry->xid.type == ID_TYPE_UID) {
-		sam_record = find_user_by_id(session, id_entry->xid.id);
+		sam_record = opendirectory_sam_searchugid_first(session,
+				    kDSStdRecordTypeUsers,
+				    kDS1AttrUniqueID,
+				    id_entry->xid.id);
 	} else {
 		SMB_ASSERT(id_entry->xid.type == ID_TYPE_GID);
-		sam_record = find_group_by_id(session, id_entry->xid.id);
+		sam_record = opendirectory_sam_searchugid_first(session,
+				    kDSStdRecordTypeGroups,
+				    kDS1AttrPrimaryGroupID,
+				    id_entry->xid.id);
 	}
 
 	if (!sam_record) {
@@ -195,7 +229,7 @@ static NTSTATUS ods_map_unixid(struct opendirectory_session *session,
 		    MODULE_NAME,
 		    (id_entry->xid.type == ID_TYPE_UID) ? "user" : "group",
 		    (long)id_entry->xid.id,
-		    sid_to_string(sid_string, id_entry->sid)));
+		    sid_string_static(id_entry->sid)));
 
 	CFRelease(sam_record);
 	return NT_STATUS_OK;
@@ -228,7 +262,12 @@ static NTSTATUS idmap_ods_unixids_to_sids(struct idmap_domain *dom,
 	}
 
 	for (current = ids; current && *current; ++current) {
-		ods_map_unixid(&od_idmap_session, *current);
+		NTSTATUS s;
+
+		s = memberd_map_unixid(*current);
+		if (!NT_STATUS_EQUAL(s, NT_STATUS_OK)) {
+			ods_map_unixid(&od_idmap_session, *current);
+		}
 	}
 
 	return NT_STATUS_OK;
@@ -245,7 +284,12 @@ static NTSTATUS idmap_ods_sids_to_unixids(struct idmap_domain *dom,
 	}
 
 	for (current = ids; current && *current; ++current) {
-		ods_map_sid(&od_idmap_session, *current);
+		NTSTATUS s;
+
+		s = memberd_map_sid(*current);
+		if (!NT_STATUS_EQUAL(s, NT_STATUS_OK)) {
+			ods_map_sid(&od_idmap_session, *current);
+		}
 	}
 
 	return NT_STATUS_OK;

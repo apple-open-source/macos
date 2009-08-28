@@ -1024,7 +1024,7 @@ parse_symbol (SYMR *sh, union aux_ext *ax, char *ext_sh, int bigend,
 					"", "", name);
 
 	TYPE_CODE (t) = type_code;
-	TYPE_LENGTH (t) = sh->value;
+	TYPE_LENGTH_ASSIGN (t) = sh->value;
 	TYPE_NFIELDS (t) = nfields;
 	TYPE_FIELDS (t) = f = ((struct field *)
 			       TYPE_ALLOC (t,
@@ -1046,7 +1046,7 @@ parse_symbol (SYMR *sh, union aux_ext *ax, char *ext_sh, int bigend,
 	       that too.  */
 	    if (TYPE_LENGTH (t) == TYPE_NFIELDS (t)
 		|| TYPE_LENGTH (t) == 0)
-	      TYPE_LENGTH (t) = TARGET_INT_BIT / HOST_CHAR_BIT;
+	      TYPE_LENGTH_ASSIGN (t) = TARGET_INT_BIT / HOST_CHAR_BIT;
 	    for (ext_tsym = ext_sh + external_sym_size;
 		 ;
 		 ext_tsym += external_sym_size)
@@ -1658,11 +1658,11 @@ parse_type (int fd, union aux_ext *ax, unsigned int aux_index, int *bs,
 			  TYPE_ALLOC (tp, 2 * sizeof (struct field)));
       TYPE_FIELD_NAME (tp, 0) = obsavestring ("Low", strlen ("Low"),
 					    &current_objfile->objfile_obstack);
-      TYPE_FIELD_BITPOS (tp, 0) = AUX_GET_DNLOW (bigend, ax);
+      TYPE_FIELD_BITPOS_ASSIGN (tp, 0) = AUX_GET_DNLOW (bigend, ax);
       ax++;
       TYPE_FIELD_NAME (tp, 1) = obsavestring ("High", strlen ("High"),
 					    &current_objfile->objfile_obstack);
-      TYPE_FIELD_BITPOS (tp, 1) = AUX_GET_DNHIGH (bigend, ax);
+      TYPE_FIELD_BITPOS_ASSIGN (tp, 1) = AUX_GET_DNHIGH (bigend, ax);
       ax++;
     }
 
@@ -4058,7 +4058,6 @@ psymtab_to_symtab_1 (struct partial_symtab *pst, char *filename)
     {
       /* This symbol table contains ordinary ecoff entries.  */
 
-      int f_max;
       int maxlines;
       EXTR *ext_ptr;
 

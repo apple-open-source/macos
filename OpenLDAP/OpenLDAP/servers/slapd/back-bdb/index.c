@@ -1,8 +1,8 @@
 /* index.c - routines for dealing with attribute indexes */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/index.c,v 1.46.2.9 2006/01/03 22:16:17 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/index.c,v 1.61.2.7 2008/02/11 23:26:45 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2000-2006 The OpenLDAP Foundation.
+ * Copyright 2000-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,10 +25,10 @@
 #include "back-bdb.h"
 #include "lutil_hash.h"
 
-static char presence_keyval[LUTIL_HASH_BYTES] = {0,0,0,1};
-static struct berval presence_key = {LUTIL_HASH_BYTES, presence_keyval};
+static char presence_keyval[] = {0,0};
+static struct berval presence_key = BER_BVC(presence_keyval);
 
-static AttrInfo *index_mask(
+AttrInfo *bdb_index_mask(
 	Backend *be,
 	AttributeDescription *desc,
 	struct berval *atname )
@@ -70,21 +70,6 @@ static AttrInfo *index_mask(
 	return 0;
 }
 
-int bdb_index_is_indexed(
-	Backend *be,
-	AttributeDescription *desc )
-{
-	AttrInfo *ai;
-	struct berval prefix;
-
-	ai = index_mask( be, desc, &prefix );
-
-	if( !ai )
-		return LDAP_INAPPROPRIATE_MATCHING;
-
-	return LDAP_SUCCESS;
-}
-
 /* This function is only called when evaluating search filters.
  */
 int bdb_index_param(
@@ -97,17 +82,37 @@ int bdb_index_param(
 {
 	AttrInfo *ai;
 	int rc;
-	slap_mask_t mask;
+	slap_mask_t mask, type = 0;
 	DB *db;
 
-	ai = index_mask( be, desc, prefixp );
+	ai = bdb_index_mask( be, desc, prefixp );
 
-	if( !ai ) {
+	if ( !ai ) {
+#ifdef BDB_MONITOR_IDX
+		switch ( ftype ) {
+		case LDAP_FILTER_PRESENT:
+			type = SLAP_INDEX_PRESENT;
+			break;
+		case LDAP_FILTER_APPROX:
+			type = SLAP_INDEX_APPROX;
+			break;
+		case LDAP_FILTER_EQUALITY:
+			type = SLAP_INDEX_EQUALITY;
+			break;
+		case LDAP_FILTER_SUBSTRINGS:
+			type = SLAP_INDEX_SUBSTR;
+			break;
+		default:
+			return LDAP_INAPPROPRIATE_MATCHING;
+		}
+		bdb_monitor_idx_add( be->be_private, desc, type );
+#endif /* BDB_MONITOR_IDX */
+
 		return LDAP_INAPPROPRIATE_MATCHING;
 	}
 	mask = ai->ai_indexmask;
 
-	rc = bdb_db_cache( be, prefixp->bv_val, &db );
+	rc = bdb_db_cache( be, prefixp, &db );
 
 	if( rc != LDAP_SUCCESS ) {
 		return rc;
@@ -115,6 +120,7 @@ int bdb_index_param(
 
 	switch( ftype ) {
 	case LDAP_FILTER_PRESENT:
+		type = SLAP_INDEX_PRESENT;
 		if( IS_SLAP_INDEX( mask, SLAP_INDEX_PRESENT ) ) {
 			*prefixp = presence_key;
 			goto done;
@@ -122,6 +128,7 @@ int bdb_index_param(
 		break;
 
 	case LDAP_FILTER_APPROX:
+		type = SLAP_INDEX_APPROX;
 		if ( desc->ad_type->sat_approx ) {
 			if( IS_SLAP_INDEX( mask, SLAP_INDEX_APPROX ) ) {
 				goto done;
@@ -133,12 +140,14 @@ int bdb_index_param(
 		/* fall thru */
 
 	case LDAP_FILTER_EQUALITY:
+		type = SLAP_INDEX_EQUALITY;
 		if( IS_SLAP_INDEX( mask, SLAP_INDEX_EQUALITY ) ) {
 			goto done;
 		}
 		break;
 
 	case LDAP_FILTER_SUBSTRINGS:
+		type = SLAP_INDEX_SUBSTR;
 		if( IS_SLAP_INDEX( mask, SLAP_INDEX_SUBSTR ) ) {
 			goto done;
 		}
@@ -147,6 +156,10 @@ int bdb_index_param(
 	default:
 		return LDAP_OTHER;
 	}
+
+#ifdef BDB_MONITOR_IDX
+	bdb_monitor_idx_add( be->be_private, desc, type );
+#endif /* BDB_MONITOR_IDX */
 
 	return LDAP_INAPPROPRIATE_MATCHING;
 
@@ -172,7 +185,7 @@ static int indexer(
 
 	assert( mask != 0 );
 
-	rc = bdb_db_cache( op->o_bd, atname->bv_val, &db );
+	rc = bdb_db_cache( op->o_bd, atname, &db );
 	
 	if ( rc != LDAP_SUCCESS ) {
 		Debug( LDAP_DEBUG_ANY,
@@ -435,6 +448,10 @@ int bdb_index_recrun(
 	AttrList *al;
 	int i, rc = 0;
 
+	/* Never index ID 0 */
+	if ( id == 0 )
+		return 0;
+
 	for (i=base; i<bdb->bi_nattrs; i+=slap_tool_thread_max) {
 		ir = ir0 + i;
 		if ( !ir->ai ) continue;
@@ -460,7 +477,7 @@ bdb_index_entry(
 {
 	int rc;
 	Attribute *ap = e->e_attrs;
-#ifdef LDAP_COMP_MATCH
+#if 0 /* ifdef LDAP_COMP_MATCH */
 	ComponentReference *cr_list = NULL;
 	ComponentReference *cr = NULL, *dupped_cr = NULL;
 	void* decoded_comp;
@@ -472,18 +489,22 @@ bdb_index_entry(
 	struct berval value = {0};
 #endif
 
+	/* Never index ID 0 */
+	if ( e->e_id == 0 )
+		return 0;
+
 	Debug( LDAP_DEBUG_TRACE, "=> index_entry_%s( %ld, \"%s\" )\n",
 		opid == SLAP_INDEX_DELETE_OP ? "del" : "add",
 		(long) e->e_id, e->e_dn );
 
 	/* add each attribute to the indexes */
 	for ( ; ap != NULL; ap = ap->a_next ) {
-#ifdef LDAP_COMP_MATCH
+#if 0 /* ifdef LDAP_COMP_MATCH */
 		AttrInfo *ai;
 		/* see if attribute has components to be indexed */
 		ai = bdb_attr_mask( op->o_bd->be_private, ap->a_desc->ad_type->sat_ad );
-		if ( ai ) cr_list = ai->ai_cr;
-		else cr_list = NULL;
+		if ( !ai ) continue;
+		cr_list = ai->ai_cr;
 		if ( attr_converter && cr_list ) {
 			syn = ap->a_desc->ad_type->sat_syntax;
 			ap->a_comp_data = op->o_tmpalloc( sizeof( ComponentData ), op->o_tmpmemctx );

@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Copyright (C) 1998, 2002, 2004 Free Software Foundation
+# Copyright (C) 1998, 2002, 2004, 2007 Free Software Foundation
 # Copyright (C) 1993 Jean-loup Gailly
 
 # This program is free software; you can redistribute it and/or modify
@@ -20,14 +20,14 @@
 PATH="BINDIR:$PATH"; export PATH
 
 version="znew (gzip) @VERSION@
-Copyright (C) 2006 Free Software Foundation, Inc.
+Copyright (C) 2007 Free Software Foundation, Inc.
 This is free software.  You may redistribute copies of it under the terms of
 the GNU General Public License <http://www.gnu.org/licenses/gpl.html>.
 There is NO WARRANTY, to the extent permitted by law.
 
 Written by Jean-loup Gailly."
 
-usage="Usage: znew [OPTION]... [FILE]...
+usage="Usage: $0 [OPTION]... [FILE]...
 Recompress files from .Z (compress) format to .gz (gzip) format.
 
 Options:
@@ -55,7 +55,7 @@ block=1024
 # block is the disk block size (best guess, need not be exact)
 
 warn="(does not preserve modes and timestamp)"
-tmp=/tmp/zfoo.$$
+tmp=${TMPDIR-/tmp}/zfoo.$$
 set -C
 echo hi > $tmp || exit
 if test -z "`(${CPMOD-cpmod} $tmp $tmp) 2>&1`"; then

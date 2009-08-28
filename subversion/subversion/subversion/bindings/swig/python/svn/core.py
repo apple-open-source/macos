@@ -1,12 +1,12 @@
 #
 # core.py: public Python interface for core components
 #
-# Subversion is a tool for revision control. 
+# Subversion is a tool for revision control.
 # See http://subversion.tigris.org for more information.
-#    
+#
 ######################################################################
 #
-# Copyright (c) 2000-2004 CollabNet.  All rights reserved.
+# Copyright (c) 2003-2009 CollabNet.  All rights reserved.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution.  The terms
@@ -17,8 +17,57 @@
 ######################################################################
 
 from libsvn.core import *
-import libsvn.core as _core
+import libsvn.core as _libsvncore
 import atexit as _atexit
+
+class SubversionException(Exception):
+  def __init__(self, message=None, apr_err=None, child=None,
+               file=None, line=None):
+    """Initialize a new Subversion exception object.
+
+    Arguments:
+    message     -- optional user-visible error message
+    apr_err     -- optional integer error code (apr_status_t)
+    child       -- optional SubversionException to wrap
+    file        -- optional source file name where the error originated
+    line        -- optional line number of the source file
+
+    file and line are for C, not Python; they are redundant to the
+    traceback information for exceptions raised in Python.
+    """
+    # Be compatible with Subversion <1.5 .args behavior:
+    args = []
+    if message is not None or apr_err is not None:
+        args.append(message)
+        if apr_err is not None:
+            args.append(apr_err)
+    Exception.__init__(self, *args)
+
+    self.apr_err = apr_err
+    self.message = message
+    self.child = child
+    self.file = file
+    self.line = line
+
+  @classmethod
+  def _new_from_err_list(cls, errors):
+    """Return new Subversion exception object from list of svn_error_t data.
+
+    This alternative constructor is for turning a chain of svn_error_t
+    objects in C into a chain of SubversionException objects in Python.
+    errors is a list of (apr_err, message, file, line) tuples, in order
+    from outer-most child to inner-most.
+
+    Use svn_swig_py_svn_exception rather than calling this directly.
+
+    Note: this modifies the errors list provided by the caller by
+    reversing it.
+    """
+    child = None
+    errors.reverse()
+    for (apr_err, message, file, line) in errors:
+      child = cls(message, apr_err, child, file, line)
+    return child
 
 def _cleanup_application_pool():
   """Cleanup the application pool before exiting"""
@@ -32,7 +81,11 @@ def _unprefix_names(symbol_dict, from_prefix, to_prefix = ''):
       symbol_dict[to_prefix + name[len(from_prefix):]] = value
 
 
-Pool = _core.svn_pool_create
+Pool = _libsvncore.svn_pool_create
+
+# Setup consistent names for revnum constants
+SVN_IGNORED_REVNUM = SWIG_SVN_IGNORED_REVNUM
+SVN_INVALID_REVNUM = SWIG_SVN_INVALID_REVNUM
 
 def svn_path_compare_paths(path1, path2):
   path1_len = len (path1);
@@ -43,7 +96,7 @@ def svn_path_compare_paths(path1, path2):
   # Are the paths exactly the same?
   if path1 == path2:
     return 0
-  
+
   # Skip past common prefix
   while (i < min_len) and (path1[i] == path2[i]):
     i = i + 1
@@ -56,7 +109,7 @@ def svn_path_compare_paths(path1, path2):
     char1 = path1[i]
   if (i < path2_len):
     char2 = path2[i]
-    
+
   if (char1 == '/') and (i == path2_len):
     return 1
   if (char2 == '/') and (i == path1_len):
@@ -70,6 +123,17 @@ def svn_path_compare_paths(path1, path2):
   # determine order
   return cmp(char1, char2)
 
+def svn_mergeinfo_merge(mergeinfo, changes):
+  return _libsvncore.svn_swig_mergeinfo_merge(mergeinfo, changes)
+
+def svn_mergeinfo_sort(mergeinfo):
+  return _libsvncore.svn_swig_mergeinfo_sort(mergeinfo)
+
+def svn_rangelist_merge(rangelist, changes):
+  return _libsvncore.svn_swig_rangelist_merge(rangelist, changes)
+
+def svn_rangelist_reverse(rangelist):
+  return _libsvncore.svn_swig_rangelist_reverse(rangelist)
 
 class Stream:
   """A file-object-like wrapper for Subversion svn_stream_t objects."""
@@ -94,7 +158,7 @@ class Stream:
     ### what to do with the amount written? (the result value)
     svn_stream_write(self._stream, buf)
 
-def secs_from_timestr(svn_datetime, pool):
+def secs_from_timestr(svn_datetime, pool=None):
   """Convert a Subversion datetime string into seconds since the Epoch."""
   aprtime = svn_time_from_cstring(svn_datetime, pool)
 
@@ -110,7 +174,7 @@ def secs_from_timestr(svn_datetime, pool):
 # - cvs2svn/cvs2svn
 
 # Names that are not to be exported
-import sys as _sys, string as _string
+import sys as _sys
 
 if _sys.platform == "win32":
   import re as _re
@@ -125,7 +189,7 @@ if _sys.platform == "win32":
     arg = _re.sub(_escape_shell_arg_re, r'\1\1\2', arg)
 
     # surround by quotes and escape quotes inside
-    arg = '"' + _string.replace(arg, '"', '"^""') + '"'
+    arg = '"' + arg.replace('"', '"^""') + '"'
     return arg
 
 
@@ -141,11 +205,11 @@ if _sys.platform == "win32":
     # the leading character and removing the last quote character."
     # So to prevent the argument string from being changed we add an extra set
     # of quotes around it here.
-    return '"' + _string.join(map(escape_shell_arg, argv), " ") + '"'
+    return '"' + " ".join(map(escape_shell_arg, argv)) + '"'
 
 else:
   def escape_shell_arg(str):
-    return "'" + _string.replace(str, "'", "'\\''") + "'"
+    return "'" + str.replace("'", "'\\''") + "'"
 
   def argv_to_command_string(argv):
     """Flatten a list of command line arguments into a command string.
@@ -154,7 +218,7 @@ else:
     shell which os functions like popen() and system() invoke internally.
     """
 
-    return _string.join(map(escape_shell_arg, argv), " ")
+    return " ".join(map(escape_shell_arg, argv))
 # ============================================================================
 # Deprecated functions
 
@@ -181,7 +245,7 @@ def svn_pool_destroy(pool):
   want to manually destroy a pool, use Pool.destroy. This is
   a compatibility wrapper providing the interface of the
   Subversion 1.2.x and earlier bindings."""
-  
+
   assert pool is not None
 
   # New in 1.3.x: All pools are automatically destroyed when Python shuts
@@ -214,4 +278,4 @@ def run_app(func, *args, **kw):
   APR is initialized, and an application pool is created. Cleanup is
   performed as the function exits (normally or via an exception).
   '''
-  return apply(func, (_core.application_pool,) + args, kw)
+  return func(application_pool, *args, **kw)

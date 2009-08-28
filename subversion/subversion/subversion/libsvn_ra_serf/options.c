@@ -70,6 +70,9 @@ struct svn_ra_serf__options_context_t {
   /* Return error code */
   svn_error_t *error;
 
+  /* HTTP Status code */
+  int status_code;
+
   /* are we done? */
   svn_boolean_t done;
 
@@ -82,6 +85,7 @@ struct svn_ra_serf__options_context_t {
 
   serf_response_acceptor_t acceptor;
   serf_response_handler_t handler;
+  svn_ra_serf__xml_parser_t *parser_ctx;
 
 };
 
@@ -200,15 +204,21 @@ cdata_options(svn_ra_serf__xml_parser_t *parser,
   return SVN_NO_ERROR;
 }
 
-#define OPTIONS_BODY "<?xml version=\"1.0\" encoding=\"utf-8\"?><D:options xmlns:D=\"DAV:\"><D:activity-collection-set/></D:options>"
-
 static serf_bucket_t*
 create_options_body(void *baton,
                     serf_bucket_alloc_t *alloc,
                     apr_pool_t *pool)
 {
-  return SERF_BUCKET_SIMPLE_STRING_LEN(OPTIONS_BODY,
-                                       sizeof(OPTIONS_BODY) - 1, alloc);
+  serf_bucket_t *body;
+  body = serf_bucket_aggregate_create(alloc);
+  svn_ra_serf__add_xml_header_buckets(body, alloc);
+  svn_ra_serf__add_open_tag_buckets(body, alloc, "D:options",
+                                    "xmlns:D", "DAV:",
+                                    NULL);
+  svn_ra_serf__add_tag_buckets(body, "D:activity-collection-set", NULL, alloc);
+  svn_ra_serf__add_close_tag_buckets(body, alloc, "D:options");
+
+  return body;
 }
 
 svn_boolean_t*
@@ -221,6 +231,18 @@ const char *
 svn_ra_serf__options_get_activity_collection(svn_ra_serf__options_context_t *ctx)
 {
   return ctx->activity_collection;
+}
+
+svn_error_t *
+svn_ra_serf__get_options_error(svn_ra_serf__options_context_t *ctx)
+{
+  return ctx->error;
+}
+
+svn_error_t *
+svn_ra_serf__get_options_parser_error(svn_ra_serf__options_context_t *ctx)
+{
+  return ctx->parser_ctx->error;
 }
 
 svn_error_t *
@@ -260,11 +282,14 @@ svn_ra_serf__create_options_req(svn_ra_serf__options_context_t **opt_ctx,
   parser_ctx->end = end_options;
   parser_ctx->cdata = cdata_options;
   parser_ctx->done = &new_ctx->done;
+  parser_ctx->status_code = &new_ctx->status_code;
 
   handler->response_handler = svn_ra_serf__handle_xml_parser;
   handler->response_baton = parser_ctx;
 
   svn_ra_serf__request_create(handler);
+
+  new_ctx->parser_ctx = parser_ctx;
 
   *opt_ctx = new_ctx;
 

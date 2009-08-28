@@ -125,7 +125,7 @@ public:
         virtual bool validate(const AclValidationContext &ctx) const = 0;
 
 		template <class Action>
-		void ObjectAcl::Entry::exportBlob(Action &pub, Action &priv)
+		void exportBlob(Action &pub, Action &priv)
 		{
 			Endian<uint32> del = delegate; pub(del);	// 4 bytes delegate flag
 			exportSubject(subject, pub, priv);	// subject itself (polymorphic)
@@ -197,7 +197,7 @@ public:
 	// These helpers deal with transferring one subject from/to reader/writer streams.
 	// You'd usually only call those from complex subject implementations (e.g. threshold)
 	template <class Action>
-	static void ObjectAcl::exportSubject(AclSubject *subject, Action &pub, Action &priv)
+	static void exportSubject(AclSubject *subject, Action &pub, Action &priv)
 	{
 		Endian<uint32> typeAndVersion = subject->type() | subject->version() << AclSubject::versionShift;
 		pub(typeAndVersion);
@@ -229,7 +229,7 @@ protected:
 
 private:
 	void add(const std::string &tag, const AclEntry &newEntry);
-	void add(const std::string &tag, AclEntry newEntry, uint32 handle);
+	void add(const std::string &tag, AclEntry newEntry, CSSM_ACL_HANDLE handle);
 
 private:
     EntryMap mEntries;				// ACL entries indexed by tag

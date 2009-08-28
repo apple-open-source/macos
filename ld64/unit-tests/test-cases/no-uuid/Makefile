@@ -31,40 +31,33 @@ run: all
 
 all:
 
-# Test with dwarf-2
-	${CC} ${CCFLAGS} foo.c -o foo-${ARCH} -gdwarf-2
-	${FAIL_IF_BAD_MACHO} foo-${ARCH}
-	${OTOOL} -hlv foo-${ARCH} | grep LC_UUID | ${FAIL_IF_EMPTY}
-	rm -f foo-${ARCH}
+# Test main executable built with dwarf has uuid
+	${CC} ${CCFLAGS} foo.c -o foo -gdwarf-2
+	${FAIL_IF_BAD_MACHO} foo
+	${OTOOL} -hlv foo | grep LC_UUID | ${FAIL_IF_EMPTY}
+	rm -f foo
 
-# Test with stabs
-	${CC} ${CCFLAGS} foo.c -o foo-${ARCH} -gfull -gstabs+
-	${FAIL_IF_BAD_MACHO} foo-${ARCH}
-	${OTOOL} -hlv foo-${ARCH} | grep LC_UUID | ${FAIL_IF_STDIN}
+# Test main executable built with stabs has uuid
+	${CC} ${CCFLAGS} foo.c -o foo -gfull -gstabs+
+	${FAIL_IF_BAD_MACHO} foo
+	${OTOOL} -hlv foo | grep LC_UUID | ${FAIL_IF_EMPTY}
 
-# Test with two files one with UUID
-	${CC} ${CCFLAGS} bar.c -c -gdwarf-2
-	${FAIL_IF_BAD_OBJ} bar.o
+# Test main executable built with dwarf and -no_uuid does not have uuid
+	${CC} ${CCFLAGS} foo.c -o foo -Wl,-no_uuid -gdwarf-2
+	${FAIL_IF_BAD_MACHO} foo
+	${OTOOL} -hlv foo | grep LC_UUID | ${FAIL_IF_STDIN}
 
-	${LD} -arch ${ARCH} bar.o -r -o bar-${ARCH}.o -no_uuid
-	${FAIL_IF_BAD_OBJ} bar-${ARCH}.o
+# Test ld -r of stabs file has no uuid
+	${CC} ${CCFLAGS} foo.c -c -o foo.o -gfull -gstabs+
+	${LD} -arch ${ARCH} foo.o -r -o foo2.o
+	${OTOOL} -hlv foo2.o | grep LC_UUID | ${FAIL_IF_STDIN}
 
-	${CC} ${CCFLAGS} foo.c -c -gdwarf-2
-	${FAIL_IF_BAD_OBJ} foo.o
-
-	${LD} -arch ${ARCH} foo.o -r -o foo-${ARCH}.o
-	${FAIL_IF_BAD_OBJ} foo-${ARCH}.o
-
-	${CC} ${CCFLAGS} foo-${ARCH}.o bar-${ARCH}.o -o temp-${ARCH}
-	${FAIL_IF_BAD_MACHO} temp-${ARCH}
-
-	${OTOOL} -hlv temp-${ARCH} | grep LC_UUID | ${FAIL_IF_EMPTY}
-	rm -f foo.o bar.o foo-${ARCH}.o bar-${ARCH}.o temp-${ARCH}
-
-# Test with with the flag disabling uuid
-	${CC} ${CCFLAGS} foo.c -o foo-${ARCH} -Wl,-no_uuid -gdwarf-2
-	${FAIL_IF_BAD_MACHO} foo-${ARCH}
-	${OTOOL} -hlv foo-${ARCH} | grep LC_UUID | ${PASS_IFF_EMPTY}
+# Test ld -r of two files one with uuid produces a uuid
+	${CC} ${CCFLAGS} foo.c -c -o foo.o -gdwarf-2
+	${LD} -arch ${ARCH} foo.o -r -o foo2.o
+	${CC} ${CCFLAGS} bar.c -c -gstabs+ -o bar.o
+	${LD} -arch ${ARCH} -r foo.o bar.o -o foobar.o
+	${OTOOL} -hlv foobar.o | grep LC_UUID | ${PASS_IFF_STDIN}
 
 clean:
-	rm -rf foo-*
+	rm -rf foo foo.o foo2.o bar.o foobar.o foo.dSYM

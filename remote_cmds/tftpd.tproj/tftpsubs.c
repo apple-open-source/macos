@@ -53,7 +53,7 @@ __RCSID("$NetBSD: tftpsubs.c,v 1.8 2003/08/07 11:16:14 agc Exp $");
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <netinet/in.h>
-#include "tftp.h"
+#include <arpa/tftp.h>
 
 #include <stdio.h>
 #include <unistd.h>

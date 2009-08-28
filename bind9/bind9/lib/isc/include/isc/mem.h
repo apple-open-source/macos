@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2006, 2008  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2008  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1997-2001  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,12 +15,12 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: mem.h,v 1.59.18.11 2008/02/07 23:45:56 tbox Exp $ */
+/* $Id: mem.h,v 1.78 2008/03/31 05:00:30 marka Exp $ */
 
 #ifndef ISC_MEM_H
 #define ISC_MEM_H 1
 
-/*! \file */
+/*! \file isc/mem.h */
 
 #include <stdio.h>
 
@@ -28,6 +28,7 @@
 #include <isc/mutex.h>
 #include <isc/platform.h>
 #include <isc/types.h>
+#include <isc/xml.h>
 
 ISC_LANG_BEGINDECLS
 
@@ -359,6 +360,7 @@ isc_mem_setwater(isc_mem_t *mctx, isc_mem_water_t water, void *water_arg,
  *		}
  *		UNLOCK(&foo->marklock);
  *	}
+ *
  * If 'water' is NULL then 'water_arg', 'hi_water' and 'lo_water' are
  * ignored and the state is reset.
  *
@@ -397,6 +399,65 @@ isc_mem_checkdestroyed(FILE *file);
  * Prints out those that have not been.
  * Fatally fails if there are still active contexts.
  */
+
+unsigned int
+isc_mem_references(isc_mem_t *ctx);
+/*%<
+ * Return the current reference count.
+ */
+
+void
+isc_mem_setname(isc_mem_t *ctx, const char *name, void *tag);
+/*%<
+ * Name 'ctx'.
+ *
+ * Notes:
+ *
+ *\li	Only the first 15 characters of 'name' will be copied.
+ *
+ *\li	'tag' is for debugging purposes only.
+ *
+ * Requires:
+ *
+ *\li	'ctx' is a valid ctx.
+ */
+
+const char *
+isc_mem_getname(isc_mem_t *ctx);
+/*%<
+ * Get the name of 'ctx', as previously set using isc_mem_setname().
+ *
+ * Requires:
+ *\li	'ctx' is a valid ctx.
+ *
+ * Returns:
+ *\li	A non-NULL pointer to a null-terminated string.
+ * 	If the ctx has not been named, the string is
+ * 	empty.
+ */
+
+void *
+isc_mem_gettag(isc_mem_t *ctx);
+/*%<
+ * Get the tag value for  'task', as previously set using isc_mem_setname().
+ *
+ * Requires:
+ *\li	'ctx' is a valid ctx.
+ *
+ * Notes:
+ *\li	This function is for debugging purposes only.
+ *
+ * Requires:
+ *\li	'ctx' is a valid task.
+ */
+
+#ifdef HAVE_LIBXML2
+void
+isc_mem_renderxml(xmlTextWriterPtr writer);
+/*%<
+ * Render all contexts' statistics and status in XML for writer.
+ */
+#endif /* HAVE_LIBXML2 */
 
 /*
  * Memory pools

@@ -1,5 +1,6 @@
+AC_PREREQ([2.53])
 AC_INIT(rlm_ldap.c)
-AC_REVISION($Revision: 1.10.2.4.2.1 $)
+AC_REVISION($Revision$)
 AC_DEFUN(modname,[rlm_ldap])
 
 fail=
@@ -91,12 +92,12 @@ if test x$with_[]modname != xno; then
 	dnl complained about it.
 	smart_try_dir=$rlm_ldap_lib_dir
 	if test "x$rlm_ldap_with_threads" = "xyes"; then
-	    AC_SMART_CHECK_LIB(ldap_r, ldap_init)
+	    FR_SMART_CHECK_LIB(ldap_r, ldap_init)
 	    if test "x$ac_cv_lib_ldap_r_ldap_init" != "xyes"; then
 		fail="$fail libldap_r"
 	    fi
 	else
-	    AC_SMART_CHECK_LIB(ldap, ldap_init)
+	    FR_SMART_CHECK_LIB(ldap, ldap_init)
 	    if test "x$ac_cv_lib_ldap_ldap_init" != "xyes"; then
 		fail="$fail libldap"
 	    fi
@@ -107,7 +108,7 @@ if test x$with_[]modname != xno; then
 	dnl ############################################################
 
 	smart_try_dir=$rlm_ldap_include_dir
-	AC_SMART_CHECK_INCLUDE(ldap.h)
+	FR_SMART_CHECK_INCLUDE(ldap.h)
 	if test "$ac_cv_header_ldap_h" != "yes"; then
 	  fail="$fail ldap.h"
 	fi

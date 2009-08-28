@@ -3,7 +3,7 @@
   time.c -
 
   $Author: shyouhei $
-  $Date: 2008-06-29 20:07:24 +0900 (Sun, 29 Jun 2008) $
+  $Date: 2008-06-29 20:09:30 +0900 (Sun, 29 Jun 2008) $
   created at: Tue Dec 28 14:31:59 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -13,12 +13,12 @@
 #include "ruby.h"
 #include <sys/types.h>
 #include <time.h>
+#include <errno.h>
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 
-#include <errno.h>
 #include <math.h>
 
 VALUE rb_cTime;
@@ -171,7 +171,7 @@ time_timeval(time, interval)
     int interval;
 {
     struct timeval t;
-    char *tstr = interval ? "time interval" : "time";
+    const char *tstr = interval ? "time interval" : "time";
 
 #ifndef NEGATIVE_TIME_T
     interval = 1;
@@ -283,7 +283,7 @@ time_s_at(argc, argv, klass)
     return t;
 }
 
-static char *months [12] = {
+static const char months[][4] = {
     "jan", "feb", "mar", "apr", "may", "jun",
     "jul", "aug", "sep", "oct", "nov", "dec",
 };
@@ -763,7 +763,10 @@ make_time_t(tptr, utc_p)
     int utc_p;
 {
     time_t t;
-    struct tm *tmp, buf;
+#ifdef NEGATIVE_TIME_T
+    struct tm *tmp;
+#endif
+    struct tm buf;
     buf = *tptr;
     if (utc_p) {
 #if defined(HAVE_TIMEGM)

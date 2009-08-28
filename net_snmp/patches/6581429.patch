@@ -1,0 +1,21 @@
+--- net-snmp-5.4.2.1.orig/snmplib/snmpUDPDomain.c	2009-02-16 16:06:53.000000000 -0800
++++ net-snmp-5.4.2.1.working/snmplib/snmpUDPDomain.c	2009-02-16 16:12:00.000000000 -0800
+@@ -104,12 +104,13 @@
+ 	char tmp[64];
+         to = (struct sockaddr_in *) &(addr_pair->remote_addr);
+         if (to == NULL) {
+-            sprintf(tmp, "UDP: [%s]->unknown",
++            sprintf(tmp, "UDP: unknown->[%s]",
+                     inet_ntoa(addr_pair->local_addr));
+         } else {
+-            sprintf(tmp, "UDP: [%s]->", inet_ntoa(addr_pair->local_addr));
+-            sprintf(tmp + strlen(tmp), "[%s]:%hd",
+-                    inet_ntoa(to->sin_addr), ntohs(to->sin_port));
++            sprintf(tmp, "UDP: [%s]:%hu->",
++                     inet_ntoa(to->sin_addr), ntohs(to->sin_port));
++            sprintf(tmp + strlen(tmp), "[%s]", inet_ntoa(addr_pair->local_addr));
++
+         }
+         return strdup(tmp);
+     }
+

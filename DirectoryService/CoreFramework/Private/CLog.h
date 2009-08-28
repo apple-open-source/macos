@@ -32,11 +32,16 @@
 #include <stdarg.h>		// for inline functions
 
 #include <DirectoryServiceCore/PrivateTypes.h>
+
+#ifdef __cplusplus
 #include <DirectoryServiceCore/CString.h>
 #include <DirectoryServiceCore/CFile.h>
+#endif
 #include <DirectoryServiceCore/SharedConsts.h>
 
+#ifdef __cplusplus
 class DSMutexSemaphore;
+#endif
 
 typedef enum {
 	keServerLog		= 1,
@@ -55,29 +60,24 @@ typedef enum {
 //	it will properly resequence the file.
 //-----------------------------------------------------------------------------
 
+const UInt32		kLengthUnlimited	= -1U;
+const UInt32		kLengthReasonable	= 0x8000;
+const UInt32		kTypeDefault		= 'TEXT';
+const UInt32		kCreatorSimpleText	= 'ttxt';
+const UInt32		kCreatorCodeWarrior	= 'CWIE';
+const UInt32		kCreatorBBEdit		= 'R*ch';
+
+const OptionBits	kFileWrap			= 0x1;
+const OptionBits	kComments			= 0x2;
+const OptionBits	kRollLog			= 0x4;
+const OptionBits	kTimeDateStamp		= 0x20;
+const OptionBits	kThreadInfo			= 0x80;
+const OptionBits	kDebugHdr			= 0x100;
+
+#ifdef __cplusplus
 class CLog
 {
 public:
-	/**** Typedefs, enums, and constants. ****/
-	// Constructor constants.
-	enum {
-		kFileWrap		= 0x1,
-		kComments		= 0x2,
-		kRollLog		= 0x4,
-		kTimeDateStamp	= 0x20,
-		kThreadInfo		= 0x80,
-		kDebugHdr		= 0x100
-	};
-
-	enum {
-		kLengthUnlimited	= -1UL,
-		kLengthReasonable	= 0x8000,	// 32K
-		kTypeDefault		= 'TEXT',
-		kCreatorSimpleText	= 'ttxt',
-		kCreatorCodeWarrior	= 'CWIE',
-		kCreatorBBEdit		= 'R*ch'
-	};
-
 	// Function prototype for append hook.
 	typedef void	(*AppendHook) ( const CString &line );
 
@@ -149,15 +149,16 @@ protected:
 	CFileSpec			fFileSpec;		// Necessary for file moves after resequencing
 	CFile			   *fFile;
 	OptionBits			fFlags;
-	UInt32				fMaxLength;
-	UInt32				fOffset;
-	UInt32				fLength;
+	sInt64				fMaxLength;
+	sInt64				fOffset;
+	sInt64				fLength;
 	AppendHook			fHooks[ 8 ];
 
 	DSMutexSemaphore	   *fLock;
 
 };
 
+#endif
 
 //-----------------------------------------------------------------------------
 //	* Preprocessor Macros

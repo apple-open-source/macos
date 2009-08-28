@@ -1,0 +1,383 @@
+#!/opt/tcl/bin/tclsh
+#-----------------------------------------------------------------------------
+#   Copyright (c) 1999 Jochen C. Loewer (loewerj@hotmail.com) 
+#-----------------------------------------------------------------------------
+#
+#
+#   Script to generate 'space and time optimal' C code for fixed 
+#   converting tables from Unicode to 8bit encodings (ISO-8859*,CP850...)
+#   from the Tcl 8.2 encoding files (*.enc)
+#
+#
+#
+#   The contents of this file are subject to the Mozilla Public License
+#   Version 1.1 (the "License"); you may not use this file except in
+#   compliance with the License. You may obtain a copy of the License at
+#   http://www.mozilla.org/MPL/
+#
+#   Software distributed under the License is distributed on an "AS IS"
+#   basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
+#   License for the specific language governing rights and limitations
+#   under the License.
+#
+#   The Original Code is tDOM.
+#
+#   The Initial Developer of the Original Code is Jochen Loewer
+#   Portions created by Jochen Loewer are Copyright (C) 1998, 1999
+#   Jochen Loewer. All Rights Reserved.
+#
+#   Contributor(s):                                      
+#   
+#
+#   written by Jochen Loewer
+#   November, 1999
+#
+#-----------------------------------------------------------------------------
+
+
+
+#-----------------------------------------------------------------------------
+#   Log
+#
+#-----------------------------------------------------------------------------
+proc Log { message } {
+    puts stderr $message
+}
+
+
+#-----------------------------------------------------------------------------
+#   HexValue
+#
+#-----------------------------------------------------------------------------
+proc HexValue { v } {
+    return [format "0x%2X" $v]
+}
+
+
+#-----------------------------------------------------------------------------
+#   HEX
+#
+#-----------------------------------------------------------------------------
+proc HEX { v } {
+    return [format "\\%03o" $v]
+}
+
+
+#-----------------------------------------------------------------------------
+#   ReadEncodingFile
+#
+#-----------------------------------------------------------------------------
+proc ReadEncodingFile { encodingFile info_var map_var } {
+
+    upvar $info_var info $map_var map
+
+    catch { unset info }
+    catch { unset map  }
+
+    set info(max) 0
+
+    Log "Reading encoding file $encodingFile ..."
+
+    set fd [open $encodingFile r]
+
+    #--------------------------------------------------------------
+    #   read header
+    #
+    #--------------------------------------------------------------
+    set line [gets $fd]   ;# ignore comment line
+
+    set line [gets $fd]   
+
+    if {$line != "S"} {
+        error "Only single byte encodings are supported"
+    }
+    set line [gets $fd]
+    scan $line "%s %d %d" fbHex info(symbol) info(npages)
+
+    set fb [binary format H2 [string range $fbHex 2 4]]
+    binary scan $fb c info(fallback)
+ 
+    #--------------------------------------------------------------
+    #   read each single mapping page
+    #
+    #--------------------------------------------------------------
+    for {set p 0} {$p < $info(npages)} {incr p} {
+ 
+        set line [gets $fd]
+
+        binary scan [binary format H2 $line] c page
+
+        #----------------------------------------------------
+        #   read 16 * 16 hex number -> 256 mappings
+        #
+        #----------------------------------------------------
+        for {set l 0} {$l < 16} {incr l} {
+
+            set line [gets $fd]
+
+            for {set k 0} {$k < 16} {incr k} {
+
+                set hex [string range $line 0 3]
+                set line [string range $line 4 end]
+                binary scan [binary format H4 $hex] S from
+                set to [expr ($page << 8) + ($l * 16) + $k]
+                Log "$from -> $to"
+
+                #------------------------------
+                #   set mapping
+                #------------------------------
+                set map($from) $to
+
+                if {$from > $info(max)} {set info(max) $from}
+            }
+        }
+    }
+    close $fd
+    Log "fallback='$info(fallback)' max=$info(max) symbol=$info(symbol) npages=$info(npages)"
+    Log "Reading done."
+    Log ""
+}
+
+
+
+
+#-----------------------------------------------------------------------------
+#   BuildInitalRanges
+#
+#-----------------------------------------------------------------------------
+proc BuildInitalRanges { info_var map_var} {
+
+    upvar $info_var info $map_var map
+
+    set mode different
+    set last -1
+
+    set ranges {}
+
+    for {set from 1} {$from <= $info(max)} {incr from} {
+        if {![info exists map($from)]} {
+            set to $info(fallback)
+        } else {   
+            set to $map($from)
+        }
+        if {$mode == "identic"} {
+            if {$from == $to} {
+                set last $from
+            } else {
+                lappend ranges [list $identicStart [expr $last - $identicStart +1] {}]            
+                Log "$identicStart, $last, IDENTIC, NULL, "
+                if {$to == $info(fallback)} { 
+                    set mode fallback
+                } else {
+                    lappend ranges [list $from 1 $to]            
+                    Log "$from -> $to"
+                    set mode different
+                }
+            }
+        } elseif {$mode == "different"} {
+            if {$from == $to} {
+                set identicStart $from
+                set last         $from
+                set mode identic
+            } elseif {$to == $info(fallback)} {
+                set mode fallback
+            } else {
+                lappend ranges [list $from 1 $to]            
+                Log"$from -> $to"
+            }        
+        } else {
+            if {$to != $info(fallback)} {
+                if {$from == $to} {
+                    set identicStart $from
+                    set last         $from
+                    set mode identic
+                } else {
+                    lappend ranges [list $from 1 $to]            
+                    Log "$from -> $to"
+                }        
+            }
+        } 
+    }
+    if {$mode == "identic"} {
+        lappend ranges [list $identicStart [expr $last - $identicStart +1] {}]            
+        Log "$identicStart, $last, IDENTIC, NULL, "
+    }
+    return $ranges
+}
+
+
+#-----------------------------------------------------------------------------
+#   OptimizeRanges
+#
+#-----------------------------------------------------------------------------
+proc OptimizeRanges { fallback ranges } {
+
+    set newranges {}
+    set lastfrom  {}
+
+    foreach range $ranges {
+        foreach {from len values} $range break
+
+        if {($len > 50) && ($values == {}) } {
+            if {$lastfrom != {} } {
+                lappend newranges [list $lastfrom $lastlen $lastvalues]
+            }
+            lappend newranges [list $from $len $values]
+            set lastfrom {}
+        } elseif {$lastfrom != {} } {
+            #Log "lastfrom=$lastfrom lastlen=$lastlen"
+            if { ($lastfrom + $lastlen + 20) > $from} {
+ 
+                if {$lastvalues == {}} {
+                    for {set j 0} {$j < $lastlen} {incr j} {
+                        lappend lastvalues [expr $lastfrom + $j]
+                    }
+                    incr lastlen $lastlen
+                }
+                for {set i [expr $lastfrom + $lastlen]} {$i < $from} {incr i} { 
+                    lappend lastvalues $fallback
+                    incr lastlen 
+                }
+                if {$values == {}} {
+                    for {set j 0} {$j < $len} {incr j} {
+                        lappend lastvalues [expr $from + $j]
+                    }
+                    incr lastlen $len
+                } else {
+                    set lastvalues [concat $lastvalues $values]
+                    incr lastlen $len
+                }
+            } else {
+                lappend newranges [list $lastfrom $lastlen $lastvalues]
+                set lastfrom   $from
+                set lastlen    $len
+                set lastvalues $values
+            }
+        } else {
+            set lastfrom   $from
+            set lastlen    $len
+            set lastvalues $values
+        }
+    }
+    if {$lastfrom != {} } {
+        lappend newranges [list $lastfrom $lastlen $lastvalues]
+    }
+    return $newranges
+}
+
+
+#-----------------------------------------------------------------------------
+#   OutputCode
+#
+#-----------------------------------------------------------------------------
+proc OutputCode { encVar fallback ranges } {   
+
+    puts "static TEncodingRule TDOM_UnicodeTo$encVar \[\] = \{"
+
+    foreach range $ranges {
+        foreach {from len values} $range break
+        if {$values == {}} {
+            puts "    \{ ENC_IDENTITY, $from, $len, \"\" \}, "
+        } else {
+            puts "    \{ ENC_MAP, $from, $len, "
+            set i 0
+            foreach value $values {
+                if {$i == 0} { 
+                    puts -nonewline "        \""
+                }
+                puts -nonewline "[HEX $value]"
+                incr i
+                if {$i == 14} { 
+                    puts -nonewline "\"\n"
+                    set i 0 
+                }
+            }
+            if {$i > 0} {
+                puts  -nonewline "\" \},\n"
+            } else {
+                puts  -nonewline "    \},\n"
+            }
+        }
+    }
+    puts "    \{ ENC_END, 0, 0, NULL \} "
+    puts "\};\n"
+}
+
+
+
+#-----------------------------------------------------------------------------
+#   begin of main part
+#-----------------------------------------------------------------------------
+
+
+  puts "/*------------------------------------------------------------------------"
+  puts "|   WARNING! This is file automatically generated by GenCompactCodings !  "
+  puts "|   WARNING!         Do not edit!                                         "
+  puts "|                                                                         "
+  puts "|   Unicode(UTF) ---> 8bit code conversion tables                         "
+  puts "|                                                                         "
+  puts "\\-----------------------------------------------------------------------*/"
+
+
+  set fallbacks {}
+  set encodings {}
+
+  foreach encodingFile $argv {
+
+      regsub {(\.enc)$} $encodingFile {} encoding
+      set encVar [string toupper $encoding]
+      regsub -- {-} $encVar {} encVar
+     
+      ReadEncodingFile $encodingFile info map
+
+      foreach from [lsort -integer [array names map]] {
+          Log "$from -> $map($from)"
+      }
+
+      #-------------------------------------------
+      #   build the initial map ranges
+      #-------------------------------------------
+      set ranges [ BuildInitalRanges info map ]
+
+      Log "Starting ranges [llength $ranges]:"
+      foreach range $ranges {
+          foreach {from len values} $range break
+          Log [format "%3d %3d '%s'" $from $len $values]
+      }
+
+      #-------------------------------------------
+      #   iterate to optimize ranges
+      #-------------------------------------------
+      for {set loop 0} {$loop < 4} {incr loop} {
+          set ranges [OptimizeRanges $info(fallback) $ranges]
+      }
+
+      Log "End ranges [llength $ranges]:"
+      foreach range $ranges {
+          foreach {from len values} $range break
+          Log [format "%3d %3d '%s'\n" $from $len $values]
+      }
+
+      lappend fallbacks $info(fallback)  
+      lappend encodings $encoding $encVar  
+
+      OutputCode $encVar $info(fallback) $ranges
+  }
+
+  puts ""
+  puts "static TEncoding TDOM_UnicodeTo8bitEncodings \[\] = \{"
+  foreach {encoding encVar} $encodings fallback $fallbacks {
+      puts stdout  [format "    { %-12s, %4s, %s }," \
+                           "\"$encoding\""           \
+                           [HexValue $fallback]      \
+                           TDOM_UnicodeTo$encVar     ]
+     
+  }
+  puts "    { NULL, 0, NULL }"
+  puts "\};"
+
+
+#-----------------------------------------------------------------------------
+#   end of main part
+#-----------------------------------------------------------------------------
+

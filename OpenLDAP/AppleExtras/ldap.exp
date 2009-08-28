@@ -136,8 +136,10 @@ _ldap_create_sort_keylist
 _ldap_free_sort_keylist
 _ldap_create_sort_control
 _ldap_parse_sort_control
+_ldap_parse_sortresponse_control
 _ldap_create_vlv_control
 _ldap_parse_vlv_control
+_ldap_parse_vlvresponse_control
 _ldap_parse_whoami
 _ldap_whoami
 _ldap_whoami_s

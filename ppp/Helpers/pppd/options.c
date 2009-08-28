@@ -202,6 +202,7 @@ static void usage __P((void));
 static int setlogfile __P((char **));
 #ifdef PLUGIN
 static int loadplugin __P((char **));
+static int loadplugin2 __P((char **));
 #endif
 #ifdef __APPLE__
 static int controlled_connection __P((char **));
@@ -348,8 +349,10 @@ option_t general_options[] = {
 #endif /* HAVE_MULTILINK */
 
 #ifdef PLUGIN
-    { "plugin", o_special, (void *)loadplugin,
-      "Load a plug-in module into pppd", OPT_PRIV | OPT_A2LIST },
+	{ "plugin", o_special, (void *)loadplugin,
+	"Load a plug-in module into pppd", OPT_PRIV | OPT_A2LIST },
+	{ "plugin2", o_special, (void *)loadplugin2,
+	"Load a plug-in module into pppd (plugin is required)", OPT_PRIV | OPT_A2LIST },
 #endif
 
 #ifdef PPP_FILTER
@@ -870,9 +873,9 @@ process_option(opt, cmd, argv)
 	if (opt->flags & OPT_A2LIST) {
 	    struct option_value *ovp, **pp;
 
-	    ovp = malloc(sizeof(*ovp) + strlen(*argv));
+	    ovp = malloc(sizeof(*ovp) + strlen(*argv) + 1);
 	    if (ovp != 0) {
-		strcpy(ovp->value, *argv);
+		strlcpy(ovp->value, *argv, strlen(*argv) + 1);
 		ovp->source = option_source;
 		ovp->next = NULL;
 		pp = (struct option_value **) &opt->addr2;
@@ -1638,9 +1641,9 @@ setdomain(argv)
     gethostname(hostname, MAXNAMELEN);
     if (**argv != 0) {
 	if (**argv != '.')
-	    strlcat(hostname, ".", MAXNAMELEN);
+	    strncat(hostname, ".", MAXNAMELEN - strlen(hostname));
 	domain = hostname + strlen(hostname);
-	strlcat(hostname, *argv, MAXNAMELEN);
+	strncat(hostname, *argv, MAXNAMELEN - strlen(hostname));
     }
     hostname[MAXNAMELEN-1] = 0;
     return (1);
@@ -1721,6 +1724,24 @@ loadplugin(argv)
     return 1;
 }
 
+static int
+loadplugin2(argv)
+	char **argv;
+{
+    char *arg = *argv;
+    int err;
+    
+    err = sys_loadplugin(*argv);
+    if (err) {
+		option_error("Couldn't load plugin %s", arg);
+		// fatal error
+        return 0;
+    }
+	
+    //info("Plugin %s loaded.", arg);
+	
+    return 1;
+}	
 
 /*
  * options_from_file - Read a string of options from controller file descriptor,

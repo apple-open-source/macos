@@ -669,8 +669,6 @@ void
 print_section_info (struct target_ops *t, bfd *abfd)
 {
   struct section_table *p;
-  /* FIXME: "016l" is not wide enough when TARGET_ADDR_BIT > 64.  */
-  char *fmt = TARGET_ADDR_BIT <= 32 ? "08l" : "016l";
   struct cleanup *info_cleanup, *section_cleanup;
 
   info_cleanup = make_cleanup_ui_out_list_begin_end (uiout, "section-info");

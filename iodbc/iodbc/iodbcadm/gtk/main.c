@@ -1,7 +1,7 @@
 /*
  *  main.c
  *
- *  $Id: main.c,v 1.8 2006/01/26 00:45:09 source Exp $
+ *  $Id: main.c,v 1.9 2007/02/02 11:58:14 source Exp $
  *
  *  Main program
  *
@@ -88,6 +88,9 @@ int
 gtk_gui (int *argc, char **argv[])
 {
   GtkWidget *mainwnd;
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_set_locale();
+#endif
   gtk_init (argc, argv);
   mainwnd = gtk_window_new (GTK_WINDOW_TOPLEVEL);
   return SQLManageDataSources (mainwnd);

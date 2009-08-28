@@ -1,5 +1,5 @@
 /*
- * "$Id: encode.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: encode.c 7696 2008-06-26 00:54:42Z mike $"
  *
  *   Option encoding routines for the Common UNIX Printing System (CUPS).
  *
@@ -54,16 +54,22 @@ static const _ipp_option_t ipp_options[] =
   { 0, "compression",		IPP_TAG_KEYWORD,	IPP_TAG_OPERATION },
   { 0, "copies",		IPP_TAG_INTEGER,	IPP_TAG_JOB },
   { 0, "copies-default",	IPP_TAG_INTEGER,	IPP_TAG_PRINTER },
+  { 0, "device-uri",		IPP_TAG_URI,		IPP_TAG_PRINTER },
   { 0, "document-format",	IPP_TAG_MIMETYPE,	IPP_TAG_OPERATION },
   { 0, "document-format-default", IPP_TAG_MIMETYPE,	IPP_TAG_PRINTER },
+  { 1, "exclude-schemes",	IPP_TAG_NAME,		IPP_TAG_OPERATION },
   { 1, "finishings",		IPP_TAG_ENUM,		IPP_TAG_JOB },
   { 1, "finishings-default",	IPP_TAG_ENUM,		IPP_TAG_PRINTER },
+  { 0, "fit-to-page",		IPP_TAG_BOOLEAN,	IPP_TAG_JOB },
+  { 0, "fit-to-page-default",	IPP_TAG_BOOLEAN,	IPP_TAG_PRINTER },
   { 0, "fitplot",		IPP_TAG_BOOLEAN,	IPP_TAG_JOB },
   { 0, "fitplot-default",	IPP_TAG_BOOLEAN,	IPP_TAG_PRINTER },
   { 0, "gamma",			IPP_TAG_INTEGER,	IPP_TAG_JOB },
   { 0, "gamma-default",		IPP_TAG_INTEGER,	IPP_TAG_PRINTER },
   { 0, "hue",			IPP_TAG_INTEGER,	IPP_TAG_JOB },
   { 0, "hue-default",		IPP_TAG_INTEGER,	IPP_TAG_PRINTER },
+  { 1, "include-schemes",	IPP_TAG_NAME,		IPP_TAG_OPERATION },
+  { 0, "job-impressions",	IPP_TAG_INTEGER,	IPP_TAG_JOB },
   { 0, "job-k-limit",		IPP_TAG_INTEGER,	IPP_TAG_PRINTER },
   { 0, "job-page-limit",	IPP_TAG_INTEGER,	IPP_TAG_PRINTER },
   { 0, "job-priority",		IPP_TAG_INTEGER,	IPP_TAG_JOB },
@@ -72,7 +78,22 @@ static const _ipp_option_t ipp_options[] =
   { 1, "job-sheets-default",	IPP_TAG_NAME,		IPP_TAG_PRINTER },
   { 0, "job-uuid",		IPP_TAG_URI,		IPP_TAG_JOB },
   { 0, "landscape",		IPP_TAG_BOOLEAN,	IPP_TAG_JOB },
+  { 1, "marker-change-time",	IPP_TAG_INTEGER,	IPP_TAG_PRINTER },
+  { 1, "marker-colors",		IPP_TAG_NAME,		IPP_TAG_PRINTER },
+  { 1, "marker-high-levels",	IPP_TAG_INTEGER,	IPP_TAG_PRINTER },
+  { 1, "marker-levels",		IPP_TAG_INTEGER,	IPP_TAG_PRINTER },
+  { 1, "marker-low-levels",	IPP_TAG_INTEGER,	IPP_TAG_PRINTER },
+  { 0, "marker-message",	IPP_TAG_TEXT,		IPP_TAG_PRINTER },
+  { 1, "marker-names",		IPP_TAG_NAME,		IPP_TAG_PRINTER },
+  { 1, "marker-types",		IPP_TAG_KEYWORD,	IPP_TAG_PRINTER },
   { 1, "media",			IPP_TAG_KEYWORD,	IPP_TAG_JOB },
+  { 0, "media-col",		IPP_TAG_BEGIN_COLLECTION, IPP_TAG_JOB },
+  { 0, "media-col-default",	IPP_TAG_BEGIN_COLLECTION, IPP_TAG_PRINTER },
+  { 0, "media-color",		IPP_TAG_KEYWORD,	IPP_TAG_JOB },
+  { 1, "media-default",		IPP_TAG_KEYWORD,	IPP_TAG_PRINTER },
+  { 0, "media-key",		IPP_TAG_KEYWORD,	IPP_TAG_JOB },
+  { 0, "media-size",		IPP_TAG_BEGIN_COLLECTION, IPP_TAG_JOB },
+  { 0, "media-type",		IPP_TAG_KEYWORD,	IPP_TAG_JOB },
   { 0, "mirror",		IPP_TAG_BOOLEAN,	IPP_TAG_JOB },
   { 0, "mirror-default",	IPP_TAG_BOOLEAN,	IPP_TAG_PRINTER },
   { 0, "natural-scaling",	IPP_TAG_INTEGER,	IPP_TAG_JOB },
@@ -110,6 +131,7 @@ static const _ipp_option_t ipp_options[] =
   { 0, "prettyprint-default",	IPP_TAG_BOOLEAN,	IPP_TAG_PRINTER },
   { 0, "print-quality",		IPP_TAG_ENUM,		IPP_TAG_JOB },
   { 0, "print-quality-default",	IPP_TAG_ENUM,		IPP_TAG_PRINTER },
+  { 1, "printer-commands",	IPP_TAG_KEYWORD,	IPP_TAG_PRINTER },
   { 0, "printer-error-policy",	IPP_TAG_NAME,		IPP_TAG_PRINTER },
   { 0, "printer-info",		IPP_TAG_TEXT,		IPP_TAG_PRINTER },
   { 0, "printer-is-accepting-jobs", IPP_TAG_BOOLEAN,	IPP_TAG_PRINTER },
@@ -124,8 +146,10 @@ static const _ipp_option_t ipp_options[] =
   { 1, "printer-state-reasons",	IPP_TAG_KEYWORD,	IPP_TAG_PRINTER },
   { 0, "printer-type",		IPP_TAG_ENUM,		IPP_TAG_PRINTER },
   { 0, "printer-uri",		IPP_TAG_URI,		IPP_TAG_OPERATION },
+  { 1, "printer-uri-supported",	IPP_TAG_URI,		IPP_TAG_PRINTER },
   { 0, "queued-job-count",	IPP_TAG_INTEGER,	IPP_TAG_PRINTER },
   { 0, "raw",			IPP_TAG_MIMETYPE,	IPP_TAG_OPERATION },
+  { 1, "requested-attributes",	IPP_TAG_NAME,		IPP_TAG_OPERATION },
   { 1, "requesting-user-name-allowed", IPP_TAG_NAME,	IPP_TAG_PRINTER },
   { 1, "requesting-user-name-denied", IPP_TAG_NAME,	IPP_TAG_PRINTER },
   { 0, "resolution",		IPP_TAG_RESOLUTION,	IPP_TAG_JOB },
@@ -137,7 +161,9 @@ static const _ipp_option_t ipp_options[] =
   { 0, "sides",			IPP_TAG_KEYWORD,	IPP_TAG_JOB },
   { 0, "sides-default",		IPP_TAG_KEYWORD,	IPP_TAG_PRINTER },
   { 0, "wrap",			IPP_TAG_BOOLEAN,	IPP_TAG_JOB },
-  { 0, "wrap-default",		IPP_TAG_BOOLEAN,	IPP_TAG_PRINTER }
+  { 0, "wrap-default",		IPP_TAG_BOOLEAN,	IPP_TAG_PRINTER },
+  { 0, "x-dimension",		IPP_TAG_INTEGER,	IPP_TAG_JOB },
+  { 0, "y-dimension",		IPP_TAG_INTEGER,	IPP_TAG_JOB }
 };
 
 
@@ -161,7 +187,7 @@ cupsEncodeOptions(ipp_t         *ipp,		/* I - Request to add to */
         	  int           num_options,	/* I - Number of options */
 		  cups_option_t *options)	/* I - Options */
 {
-  DEBUG_printf(("cupsEncodeOptions(%p, %d, %p)\n", ipp, num_options, options));
+  DEBUG_printf(("cupsEncodeOptions(%p, %d, %p)", ipp, num_options, options));
 
  /*
   * Add the options in the proper groups & order...
@@ -180,7 +206,7 @@ cupsEncodeOptions(ipp_t         *ipp,		/* I - Request to add to */
  * function multiple times for each group, or use cupsEncodeOptions()
  * to add the standard groups.
  *
- * @since CUPS 1.2@
+ * @since CUPS 1.2/Mac OS X 10.5@
  */
 
 void
@@ -200,10 +226,13 @@ cupsEncodeOptions2(
   ipp_attribute_t *attr;		/* IPP attribute */
   ipp_tag_t	value_tag;		/* IPP value tag */
   cups_option_t	*option;		/* Current option */
+  ipp_t		*collection;		/* Collection value */
+  int		num_cols;		/* Number of collection values */
+  cups_option_t	*cols;			/* Collection values */
 
 
   DEBUG_printf(("cupsEncodeOptions2(ipp=%p, num_options=%d, options=%p, "
-                "group_tag=%x)\n", ipp, num_options, options, group_tag));
+                "group_tag=%x)", ipp, num_options, options, group_tag));
 
  /*
   * Range check input...
@@ -311,7 +340,7 @@ cupsEncodeOptions2(
     else
       count = 1;
 
-    DEBUG_printf(("cupsEncodeOptions2: option = \'%s\', count = %d\n",
+    DEBUG_printf(("2cupsEncodeOptions2: option=\"%s\", count=%d",
                   option->name, count));
 
    /*
@@ -324,7 +353,7 @@ cupsEncodeOptions2(
       * Ran out of memory!
       */
 
-      DEBUG_puts("cupsEncodeOptions2: Ran out of memory for attributes!");
+      DEBUG_puts("1cupsEncodeOptions2: Ran out of memory for attributes!");
       return;
     }
 
@@ -339,15 +368,7 @@ cupsEncodeOptions2(
     * Copy the name over...
     */
 
-    if ((attr->name = _cupsStrAlloc(option->name)) == NULL)
-    {
-     /*
-      * Ran out of memory!
-      */
-
-      DEBUG_puts("cupsEncodeOptions2: Ran out of memory for name!");
-      return;
-    }
+    attr->name = _cupsStrAlloc(option->name);
 
     if (count > 1)
     {
@@ -361,7 +382,8 @@ cupsEncodeOptions2(
 	* Ran out of memory!
 	*/
 
-	DEBUG_puts("cupsEncodeOptions2: Ran out of memory for value copy!");
+	DEBUG_puts("1cupsEncodeOptions2: Ran out of memory for value copy!");
+	ippDeleteAttribute(ipp, attr);
 	return;
       }
 
@@ -437,8 +459,8 @@ cupsEncodeOptions2(
 
             attr->values[j].integer = strtol(val, &s, 10);
 
-            DEBUG_printf(("cupsEncodeOptions2: Added integer option value %d...\n",
-	                  attr->values[j].integer));
+            DEBUG_printf(("2cupsEncodeOptions2: Added integer option value "
+	                  "%d...", attr->values[j].integer));
             break;
 
 	case IPP_TAG_BOOLEAN :
@@ -452,7 +474,7 @@ cupsEncodeOptions2(
 
 	      attr->values[j].boolean = 1;
 
-              DEBUG_puts("cupsEncodeOptions2: Added boolean true value...");
+              DEBUG_puts("2cupsEncodeOptions2: Added boolean true value...");
 	    }
 	    else
 	    {
@@ -462,7 +484,7 @@ cupsEncodeOptions2(
 
 	      attr->values[j].boolean = 0;
 
-              DEBUG_puts("cupsEncodeOptions2: Added boolean false value...");
+              DEBUG_puts("2cupsEncodeOptions2: Added boolean false value...");
 	    }
             break;
 
@@ -489,8 +511,8 @@ cupsEncodeOptions2(
 	    else
 	      attr->values[j].range.upper = attr->values[j].range.lower;
 
-	    DEBUG_printf(("cupsEncodeOptions2: Added range option value %d-%d...\n",
-                	  attr->values[j].range.lower,
+	    DEBUG_printf(("2cupsEncodeOptions2: Added range option value "
+	                  "%d-%d...", attr->values[j].range.lower,
 			  attr->values[j].range.upper));
             break;
 
@@ -511,8 +533,8 @@ cupsEncodeOptions2(
             else
               attr->values[j].resolution.units = IPP_RES_PER_INCH;
 
-	    DEBUG_printf(("cupsEncodeOptions2: Added resolution option value %s...\n",
-                	  val));
+	    DEBUG_printf(("2cupsEncodeOptions2: Added resolution option value "
+	                  "%s...", val));
             break;
 
 	case IPP_TAG_STRING :
@@ -523,22 +545,49 @@ cupsEncodeOptions2(
             attr->values[j].unknown.length = (int)strlen(val);
 	    attr->values[j].unknown.data   = strdup(val);
 
-            DEBUG_printf(("cupsEncodeOptions2: Added octet-string value \"%s\"...\n",
-	                  attr->values[j].unknown.data));
+            DEBUG_printf(("2cupsEncodeOptions2: Added octet-string value "
+	                  "\"%s\"...", (char *)attr->values[j].unknown.data));
             break;
 
+        case IPP_TAG_BEGIN_COLLECTION :
+	   /*
+	    * Collection value
+	    */
+
+	    num_cols   = cupsParseOptions(val, 0, &cols);
+	    if ((collection = ippNew()) == NULL)
+	    {
+	      cupsFreeOptions(num_cols, cols);
+
+	      if (copy)
+	        free(copy);
+
+	      ippDeleteAttribute(ipp, attr);
+	      return;
+            }
+
+	    attr->values[j].collection = collection;
+	    cupsEncodeOptions2(collection, num_cols, cols, IPP_TAG_JOB);
+            cupsFreeOptions(num_cols, cols);
+	    break;
+
 	default :
-            if ((attr->values[j].string.text = _cupsStrAlloc(val)) == NULL)
+	    if ((attr->values[j].string.text = _cupsStrAlloc(val)) == NULL)
 	    {
 	     /*
 	      * Ran out of memory!
 	      */
 
-	      DEBUG_puts("cupsEncodeOptions2: Ran out of memory for string!");
+	      DEBUG_puts("1cupsEncodeOptions2: Ran out of memory for string!");
+
+	      if (copy)
+	        free(copy);
+
+	      ippDeleteAttribute(ipp, attr);
 	      return;
 	    }
 
-	    DEBUG_printf(("cupsEncodeOptions2: Added string value \"%s\"...\n",
+	    DEBUG_printf(("2cupsEncodeOptions2: Added string value \"%s\"...",
 	                  val));
             break;
       }
@@ -587,5 +636,5 @@ compare_ipp_options(_ipp_option_t *a,	/* I - First option */
 
 
 /*
- * End of "$Id: encode.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: encode.c 7696 2008-06-26 00:54:42Z mike $".
  */

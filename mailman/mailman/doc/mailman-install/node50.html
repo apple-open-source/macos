@@ -1,0 +1,229 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+<head>
+<link rel="STYLESHEET" href="mailman-install.css" type='text/css' />
+<link rel="first" href="mailman-install.html" title='GNU mailman - installation Manual' />
+<link rel='last' href='about.html' title='About this document...' />
+<link rel='help' href='about.html' title='About this document...' />
+<link rel="prev" href="bsd-issues.html" />
+<link rel="parent" href="node47.html" />
+<link rel="next" href="about.html" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name='aesop' content='information' />
+<title>15.3 MacOSX issues</title>
+</head>
+<body>
+<div class="navigation">
+<div id='top-navigation-panel' xml:id='top-navigation-panel'>
+<table align="center" width="100%" cellpadding="0" cellspacing="2">
+<tr>
+<td class='online-navigation'><a rel="prev" title="15.2 bsd issues"
+  href="bsd-issues.html"><img src='previous.png'
+  border='0' height='32'  alt='Previous Page' width='32' /></a></td>
+<td class='online-navigation'><a rel="parent" title="15 platform and operating"
+  href="node47.html"><img src='up.png'
+  border='0' height='32'  alt='Up one Level' width='32' /></a></td>
+<td class='online-navigation'><a rel="next" title="About this document ..."
+  href="about.html"><img src='next.png'
+  border='0' height='32'  alt='Next Page' width='32' /></a></td>
+<td align="center" width="100%">GNU Mailman - Installation Manual</td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+</tr></table>
+<div class='online-navigation'>
+<b class="navlabel">Previous:</b>
+<a class="sectref" rel="prev" href="bsd-issues.html">15.2 BSD issues</a>
+<b class="navlabel">Up:</b>
+<a class="sectref" rel="parent" href="node47.html">15 Platform and operating</a>
+<b class="navlabel">Next:</b>
+<a class="sectref" rel="next" href="about.html">About this document ...</a>
+</div>
+<hr /></div>
+</div>
+<!--End of Navigation Panel-->
+
+<h2><a name="SECTION0011530000000000000000">
+15.3 MacOSX issues</a>
+</h2>
+
+<p>
+Many people run Mailman on MacOSX.  Here are some pointers that have been
+collected on getting Mailman to run on MacOSX.
+
+<p>
+
+<ul>
+<li>Jaguar (MacOSX 10.2) comes with Python 2.2.  While this isn't the very
+      latest stable version of Python, it ought to be sufficient to run
+      Mailman 2.1.
+
+<p>
+</li>
+<li>David B. O'Donnell has a web page describing his configuration of
+      Mailman 2.0.13 and Postfix on MacOSX Server.
+
+<p>
+<a class="url" href="http://www.afp548.com/Articles/mail/python-mailman.html">http://www.afp548.com/Articles/mail/python-mailman.html</a>
+<p>
+</li>
+<li>Kathleen Webb posted her experiences in getting Mailman running on
+      Jaguar using Sendmail.
+
+<p>
+<a class="url" href="http://mail.python.org/pipermail/mailman-users/2002-October/022944.html">http://mail.python.org/pipermail/mailman-users/2002-October/022944.html</a>
+<p>
+</li>
+<li>Panther server (MacOSX 10.3) comes with Mailman; Your operating system
+      should contain documentation that will help you, and Apple has a tech
+      document about a problem you might encounter running Mailman on Mac OS X
+      Server 10.3:
+
+<p>
+<a class="url" href="http://docs.info.apple.com/article.html?artnum=107889">http://docs.info.apple.com/article.html?artnum=107889</a>
+</li>
+</ul>
+
+<p>
+Terry Allen provides the following detailed instructions on running Mailman on
+the 'client' version of OSX, or in earlier versions of OSX:
+
+<p>
+Mac OSX 10.3 and onwards has the basics for a successful Mailman installation.
+Users of earlier versions of Mac OSX contains Sendmail and those users should
+look at the Sendmail installation section for tips.  You should follow the
+basic installation steps as described earlier in this manual, substituting as
+appropriate, the steps outlined in this section.
+
+<p>
+By default, Mac OSX 10.3 'client' version does not have a fully functional
+version of Postfix.  Setting up a working MTA such as Postfix is beyond the
+scope of this guide and you should refer to <a class="url" href="http://www.postfix.org">http://www.postfix.org</a> for
+tips on getting Postfix running.  An easy way to set Postfix up is to install
+and run Postfix Enabler, a stand-alone tool for configuring Postfix on Mac
+OSX, available from 
+<a class="url" href="http://www.roadstead.com/weblog/Tutorials/PostfixEnabler.html">http://www.roadstead.com/weblog/Tutorials/PostfixEnabler.html</a>.
+
+<p>
+Likewise, Mac OSX 'client' version from 10.1 onwards includes a working Apache
+webserver.  This is switched on using the System Preferences control panel
+under the 'Sharing tab'.  A useful tool for configuring the Apache on Mac OSX
+is Webmin, which can be obtained from
+<a class="url" href="http://www.webmin.com">http://www.webmin.com</a>.
+
+<p>
+Webmin can also perform configuration for other system tasks, including
+Postfix, adding jobs to your crontab, adding user and groups, plus adding
+startup and shutdown jobs.
+
+<p>
+In a stock installation of OSX, the requirement for Mailman is to have Python
+installed.  Python is not installed by default, so it is advised that you
+install the developer's tools package, which may have been provided with your
+system.  It can also be downloaded from the Apple developer site at
+<a class="url" href="http://connect.apple.com">http://connect.apple.com</a>.  Not only is the developer tools package an
+essential requirement for installing Mailman, but it will come in handy at a
+later date should you need other tools.  The developer's tools are also know
+by the name XCode tools.
+
+<p>
+As a minimum, the Python version should be 2.2, but 2.3 is recommended.
+
+<p>
+If you wish to add a user and group using the command line in OSX instead of
+via Webmin or another GUI interface, open your terminal application and follow
+the commands as indicated below - do not type the comments following the
+"<tt class="samp">#</tt>" since they are just notes:
+
+<p>
+<div class="verbatim"><pre>
+sudo tcsh
+niutil -create / /users/mailman
+niutil -createprop / /users/mailman name mailman
+# Note that xxx is a free user ID number on your system
+niutil -createprop / /users/mailman uid xxx
+niutil -createprop / /users/mailman home /usr/local/mailman
+mkdir -p /usr/local/mailman
+niutil -createprop / /users/mailman shell /bin/tcsh
+passwd mailman
+# To prevent malicious hacking, supply a secure password here
+niutil -create / /groups/mailman
+niutil -createprop / /groups/mailman name mailman
+# Note that xxx is a free group ID number on your system
+niutil -createprop / /groups/mailman gid xxx
+niutil -createprop / /groups/mailman passwd '*'
+niutil -createprop / /groups/mailman users 'mailman'
+chown mailman:mailman /usr/local/mailman
+cd /usr/local/mailman
+chmod a+rx,g+ws .
+exit
+su mailman
+</pre></div>
+
+<p>
+For setting up Apache on OSX to handle Mailman, the steps are almost identical
+and the configuration file on a stock Mac OSX Client version is stored in the
+nearly standard location of <span class="file">/etc/httpd/httpd.conf</span>.
+
+<p>
+The <a class="ulink" href="http://www.afp548.com"
+  >AFP548.com</a> site has a time-saving automated startup item creator for
+Mailman, which can be found at 
+<a class="url" href="http://www.afp548.com/Software/MailmanStartup.tar.gz">http://www.afp548.com/Software/MailmanStartup.tar.gz</a>
+<p>
+To install it, copy it into your <span class="file">/Library/StartupItems</span> directory. As
+the root or superuser, from the terminal, enter the following:
+
+<p>
+<div class="verbatim"><pre>
+gunzip MailmanStartup.tar.gz
+tar xvf MailmanStartup.tar
+</pre></div>
+
+<p>
+It will create the startup item for you so that when you reboot, Mailman will
+start up.
+
+<p>
+
+<div class="navigation">
+<div class='online-navigation'>
+<p></p><hr />
+<table align="center" width="100%" cellpadding="0" cellspacing="2">
+<tr>
+<td class='online-navigation'><a rel="prev" title="15.2 bsd issues"
+  href="bsd-issues.html"><img src='previous.png'
+  border='0' height='32'  alt='Previous Page' width='32' /></a></td>
+<td class='online-navigation'><a rel="parent" title="15 platform and operating"
+  href="node47.html"><img src='up.png'
+  border='0' height='32'  alt='Up one Level' width='32' /></a></td>
+<td class='online-navigation'><a rel="next" title="About this document ..."
+  href="about.html"><img src='next.png'
+  border='0' height='32'  alt='Next Page' width='32' /></a></td>
+<td align="center" width="100%">GNU Mailman - Installation Manual</td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+</tr></table>
+<div class='online-navigation'>
+<b class="navlabel">Previous:</b>
+<a class="sectref" rel="prev" href="bsd-issues.html">15.2 BSD issues</a>
+<b class="navlabel">Up:</b>
+<a class="sectref" rel="parent" href="node47.html">15 Platform and operating</a>
+<b class="navlabel">Next:</b>
+<a class="sectref" rel="next" href="about.html">About this document ...</a>
+</div>
+</div>
+<hr />
+<span class="release-info">Release 2.1, documentation updated on January 11, 2009.</span>
+</div>
+<!--End of Navigation Panel-->
+
+</body>
+</html>

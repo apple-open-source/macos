@@ -30,7 +30,7 @@ styledoc = libxml2.parseDoc("""
 <xsl:stylesheet version='1.0'
   xmlns:xsl='http://www.w3.org/1999/XSL/Transform'
   xmlns:foo='http://example.com/foo'
-  xsl:exclude-result-prefixes='foo'>
+  exclude-result-prefixes='foo'>
 
   <xsl:param name='bar'>failure</xsl:param>
   <xsl:template match='/'>

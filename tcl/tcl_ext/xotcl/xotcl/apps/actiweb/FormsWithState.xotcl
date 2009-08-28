@@ -1,0 +1,205 @@
+#!../../src/xotclsh
+# $Id: FormsWithState.xotcl,v 1.1 2004/05/23 22:50:39 neumann Exp $
+#
+# Demo Program for Multi-Page Forms implemented via hidden
+# Form Fields  -gn
+#
+package require XOTcl; namespace import -force xotcl::*
+package require xotcl::actiweb::htmlPlace
+package require xotcl::actiweb::webDocument
+HtmlPlace receiver -port 8086
+
+# The following class is used to define HTML-pages
+Class HTMLPage -superclass HtmlDocument -parameter {
+  {pageContent ""}
+  {pageTitle ""}
+  {pageHeader ""}
+  endCmd
+}
+
+HTMLPage instproc init args {
+  receiver exportObjs [self]
+  next
+}
+
+# instproc default is evoked whenever an HTMLDocument object
+# is called without a specific method.
+HTMLPage instproc default args {
+  my instvar content
+  # creates HTML page content
+  set content <HTML>
+  append content \
+      <TITLE>[my set pageTitle]</TITLE> <BODY> \
+      [my set pageHeader] \n \
+      [my set pageContent] </BODY> </HTML>
+  # substitutes all embedded commands and variables in content
+  set content [subst $content]
+
+  # An HTMLPage can provide a command, which is executed after 
+  # the content is computed; this mechanism is used here for deleting 
+  # the context object
+  if {[my exists endCmd]} {
+    eval [my set endCmd]
+  }
+  # next sends content to the client
+  next
+}
+
+# The form state is kept in a context object. The method varname
+# accesses variables from the context object or returns empty values.
+HTMLPage instproc get varname {
+  my instvar context
+  if {[$context exists $varname]} {
+    return [$context set $varname]
+  } else {
+    return ""
+  }
+}
+
+# The final page will contain a table with all the variables in
+# the context object
+HTMLPage instproc printAll {} {
+  my instvar context
+  set result " <TABLE BORDER='0' WIDTH='600' CELLSPACING='0' CELLPADDING='0'>
+   <TR><TD WIDTH='50'>&nbsp; <TD WIDTH='500' VALIGN='TOP'>
+     <TABLE BORDER='0' cellpadding='0' cellspacing='1'>
+     <TR> <TD COLSPAN=2 ALIGN='LEFT' VALIGN='TOP'>
+             <FONT SIZE='+1' COLOR='#000099'><B>Submission</B></font><br>
+             You submitted the following values:
+    </TD></TR> 
+     <TR > <TD>&nbsp;</TD> <TD>&nbsp;</TD></TR>\n"
+  # creates a table row for each variable and 
+  # it's value of the current context object
+  foreach var [$context info vars] {
+    append result <tr bgcolor='#DDDDDD'><td>$var:</td> \
+      <td>[$context set $var]</td></tr>\n
+  }
+  return "$result</table>\n</table>"
+} 
+
+HTMLPage form1
+form1 proc default {} {
+  set values {}
+  # process the form data from post method
+  foreach a [my getFormData] {
+    set name [$a set name]
+    switch -glob $name {
+      *.html {set nextPage $name}
+      context {set context [$a set content]}
+      default {lappend values $name [$a set content]}
+    }
+  }
+  # save the form data in the context object
+  foreach {name value} $values {
+    $context set $name $value
+  }
+  if {![info exists nextPage]} {
+    # We assume, we are called the first time...
+    # Create a new context object and call the first page
+    set context [Object new]
+    set nextPage [self]/page1.html
+  } 
+  $nextPage set context $context
+  # delegeate to the actual form page
+  $nextPage default
+}
+
+HTMLPage form1/page1.html -pageTitle "First Page" -pageContent {
+   <FORM METHOD="POST" action="form1">
+
+  <!-- assigns the current context object to HTML page-->
+   <INPUT TYPE="HIDDEN" NAME="context" VALUE="[my set context]">
+   <TABLE BORDER="0" WIDTH="600" CELLSPACING="0" CELLPADDING="0">
+   <TR><TD WIDTH="50">&nbsp;<!-- COLUMN FILLER --></TD>
+       <TD WIDTH="500" VALIGN="TOP">
+     <TABLE BORDER="0" cellpadding="0" cellspacing="0" width="500">
+     <TR> <TD COLSPAN=2 ALIGN="LEFT" VALIGN="TOP">
+             <FONT SIZE="+1" COLOR="#000099">
+             <B>Primary Contact information</B></font><br>
+              Please supply us with full details of 
+              the person who will act as the
+             person we will contact about this paper.
+          </TD>
+     </TR>
+     <TR> <TD>&nbsp;</TD> <TD>&nbsp;</TD></TR>
+     <TR> <TD ALIGN="LEFT" VALIGN="TOP">
+             <FONT SIZE="+1">First Name:<BR></FONT>
+  <!-- fills field FIRST_NAME with corresponding value from the context object-->
+             <INPUT TYPE="text" NAME="FIRST_NAME" 
+             VALUE="[my get FIRST_NAME]" SIZE=25 MAXLENGTH=30><BR>
+          </TD>
+          <TD ALIGN="LEFT" VALIGN="TOP">
+             <FONT SIZE="+1">Second Name:<BR>
+  <!--fills field SECOND_NAME with corresponding value from the context object-->
+             </FONT><INPUT TYPE="text" NAME="SECOND_NAME" 
+             VALUE="[my get SECOND_NAME]" SIZE=25 MAXLENGTH=30><BR>
+          </TD>
+     </TR>
+  <TR><TD ALIGN="LEFT" VALIGN="TOP">
+       <INPUT type="SUBMIT" name="form1/page2.html" VALUE="Second Page">
+      </TD>
+  </TR>
+  </TABLE>
+</TABLE>
+}
+
+
+HTMLPage form1/page2.html -pageTitle "Second Page" -pageContent {
+   <FORM METHOD="POST" action="form1">
+   <INPUT TYPE="HIDDEN" NAME="context" VALUE="[my set context]">
+   <TABLE BORDER="0" WIDTH="600" CELLSPACING="0" CELLPADDING="0">
+   <TR><TD WIDTH="50">&nbsp;
+       <TD WIDTH="500" VALIGN="TOP">
+     <TABLE BORDER="0" cellpadding="0" cellspacing="0" width="500">
+     <TR> <TD COLSPAN=2 ALIGN="LEFT" VALIGN="TOP">
+             <FONT SIZE="+1" COLOR="#000099"><B>Title and Autors</B></font><br>
+             Please supply full title of the paper and the contributing authors.
+          </TD>
+     </TR>
+     <TR><TD >&nbsp;</TD><TD>&nbsp;</TD></TR>
+     <TR> <TD ALIGN="LEFT" VALIGN="TOP">
+             <FONT SIZE="+1" >Title:<BR>
+  <!--fills field TITLE with corresponding value from the context object-->
+             </FONT><INPUT TYPE="text" NAME="TITLE" 
+               VALUE="[my get TITLE]" SIZE=25 MAXLENGTH=30><BR>
+          </TD>
+          <TD ALIGN="LEFT" VALIGN="TOP">
+             <FONT SIZE="+1" >Authors:<BR>
+  <!-- fills field AUTHORS with corresponding value from the context object-->
+             </FONT><INPUT TYPE="text" NAME="AUTHORS" 
+               VALUE="[my get AUTHORS]" SIZE=25 MAXLENGTH=30><BR>
+          </TD>
+     </TR>
+    
+  <TR>
+  <TD ALIGN="LEFT" VALIGN="TOP">
+       <INPUT type="SUBMIT" name="form1/page1.html" VALUE="Back to first Page">
+  </TD>
+  <TD ALIGN="LEFT" VALIGN="TOP">
+      <INPUT type="SUBMIT" name="form1/submit.html" VALUE="Submit">
+  </TD>
+  </TR>
+  </TABLE>
+</TABLE>
+}
+
+###  submit.html ist the final page; the context object is destroyed here
+HTMLPage form1/submit.html \
+    -endCmd {[my set context] destroy} \
+    -pageTitle "Third Page" -pageContent {
+  [my printAll] 
+ <p> Many thanks for your submission!</p> 
+    }
+
+### provide a default page for the receiver
+receiver proc default args {
+  return {
+  <HTML><BODY>
+  <center><h1>Welcome to the paper provision page</h1></center>
+  In order to fill out the form, press 
+  <a href="form1">here</a>
+  </BODY></HTML>
+  }
+}
+
+receiver startEventLoop 

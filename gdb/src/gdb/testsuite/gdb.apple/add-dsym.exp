@@ -109,13 +109,13 @@ gdb_test "break [gdb_get_line_number {good stopping point in main}]" "Breakpoint
 
 gdb_test "break bar" "Breakpoint 2 at $hex: file.*, line.*\\." "Set breakpoint in bar'"
 
-gdb_test "break $lib_srcfile:4" "Breakpoint 3 at $hex: file.*, line.*\\." "Set breakpoint on $lib_srcfile:4"
+gdb_test "fb $lib_srcfile:4" "Breakpoint 3 at $hex: file.*, line.*\\." "Set breakpoint on $lib_srcfile:4"
 
-gdb_test "run" "Starting program: $binfile *\r\n\.*Reading symbols for shared libraries \(\[.+\]\)+ done.*Breakpoint 3 at $hex\\: file .*add-dylib-dsym.c\\:4.*" "run to first breakpoint in foo"
+gdb_test "run" "Starting program: $binfile *\r\n\.*Reading symbols for shared libraries \(\[.+\]\)+ done.*add-dylib-dsym.c\\:4.*" "run to first breakpoint in foo"
 
 gdb_test "continue" "Continuing\\.\[\r\n\]+Breakpoint 1, main.* at .*add-dsym.c\\:$decimal.*" "continue to second breakpoint in main()"
 
-gdb_test "continue" "Continuing\\.\[\r\n\]+Breakpoint 2, $hex in bar.* at .*add-dsym.c\\:8.*" "continue to second breakpoint in bar"
+gdb_test "continue" "Continuing\\.\[\r\n\]+Breakpoint 2, bar.* at .*add-dsym.c\\:$decimal.*" "continue to second breakpoint in bar"
 
 gdb_exit
 

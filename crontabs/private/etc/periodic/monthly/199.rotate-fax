@@ -1,0 +1,26 @@
+#!/bin/sh -
+
+# If there is a global system configuration file, suck it in.
+#
+if [ -r /etc/defaults/periodic.conf ]
+then
+    . /etc/defaults/periodic.conf
+    source_periodic_confs
+fi
+
+echo ""
+printf %s "Rotating fax log files:"
+cd /var/log/fax
+for i in *.log; do
+    if [ -f "${i}" ]; then
+    echo -n " $i"
+    if [ -x /usr/bin/gzip ]; then gzext=".gz"; else gzext=""; fi
+    if [ -f "${i}.3${gzext}" ]; then mv -f "${i}.3${gzext}" "${i}.4${gzext}"; fi
+    if [ -f "${i}.2${gzext}" ]; then mv -f "${i}.2${gzext}" "${i}.3${gzext}"; fi
+    if [ -f "${i}.1${gzext}" ]; then mv -f "${i}.1${gzext}" "${i}.2${gzext}"; fi
+    if [ -f "${i}.0${gzext}" ]; then mv -f "${i}.0${gzext}" "${i}.1${gzext}"; fi
+    if [ -f "${i}" ]; then mv -f "${i}" "${i}.0" && if [ -x /usr/bin/gzip ]; then gzip -9 "${i}.0"; fi; fi
+    touch "${i}" && chmod 640 "${i}" && chown root:admin "${i}"
+    fi
+done
+echo ""

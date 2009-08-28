@@ -60,6 +60,11 @@ do { \
 	} \
 } while(0);
 
+#if defined(__APPLE__) && defined(__MACH__)
+/* vfree is already defined in Apple's system libraries */
+#define vfree   vmbuf_free
+#endif
+
 extern vchar_t *vmalloc __P((size_t));
 extern vchar_t *vrealloc __P((vchar_t *, size_t));
 extern void vfree __P((vchar_t *));

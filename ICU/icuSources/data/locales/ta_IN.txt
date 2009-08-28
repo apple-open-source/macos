@@ -1,26 +1,15 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2006 International Business Machines
+// * Copyright (C) 2008 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/ta_IN.xml
 // *
 // ***************************************************************************
 ta_IN{
-    Version{"1.47"}
+    Version{"1.55"}
     calendar{
         gregorian{
-            DateTimePatterns{
-                "h:mm:ss a z",
-                "h:mm:ss a z",
-                "h:mm:ss a",
-                "h:mm a",
-                "EEEE d MMMM yyyy",
-                "d MMMM yyyy",
-                "dd-MM-yyyy",
-                "d-M-yy",
-                "{1} {0}",
-            }
             weekend:intvector{
                 1,
                 0,

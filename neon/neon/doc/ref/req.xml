@@ -80,12 +80,18 @@ result of the operation, <xref linkend="ne_get_status"/>, along with
 any processing of the response headers and message body.</para>
 
 	<para>A request can only be dispatched once: calling
-<function>ne_request_dispatch</function> more than once on a single
-<type>ne_request</type> object produces undefined behaviour.  Once all
-processing associated with the request object is complete, use the
-<function>ne_request_destroy</function> function to destroy the
-resources associated with it.  Any subsequent use of the request
-object produces undefined behaviour.</para>
+	<function>ne_request_dispatch</function> more than once on a
+	single <type>ne_request</type> object produces undefined
+	behaviour.  Once all processing associated with the request
+	object is complete, use the
+	<function>ne_request_destroy</function> function to destroy
+        the resources associated with it.  Any subsequent use of the
+	request object produces undefined behaviour.</para>
+
+        <para>If a request is being using a non-idempotent method such
+        as <literal>POST</literal>, the
+        <literal>NE_REQFLAG_IDEMPOTENT</literal> flag should be
+        disabled; see <xref linkend="ne_set_request_flag"/>.</para>
 
       </refsect1>
 
@@ -162,7 +168,7 @@ ne_request_destroy(req);</programlisting>
 	<para><xref linkend="ne_get_error"/>, <xref
 linkend="ne_set_error"/>, <xref linkend="ne_get_status"/>, <xref
 linkend="ne_add_request_header"/>, <xref
-linkend="ne_set_request_body_buffer"/>.</para>
+linkend="ne_set_request_body_buffer"/>, <xref linkend="ne_set_request_flag"/>.</para>
 
       </refsect1>
 

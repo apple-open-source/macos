@@ -4,5 +4,5 @@
 /* Radar 4197305 */
 
 #if 1
-@@		/* { dg-error "syntax error before '@' token" } */
+@@		/* { dg-error "expected identifier or '\\(' before '@' token" } */
 #endif

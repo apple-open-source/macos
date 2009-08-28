@@ -1,7 +1,7 @@
 .TH SLAPD-DNSSRV 5 "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" Copyright 1998-2006 The OpenLDAP Foundation All Rights Reserved.
+.\" Copyright 1998-2008 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
-.\" $OpenLDAP: pkg/ldap/doc/man/man5/slapd-dnssrv.5,v 1.7.2.4 2006/01/03 22:16:05 kurt Exp $
+.\" $OpenLDAP: pkg/ldap/doc/man/man5/slapd-dnssrv.5,v 1.11.2.4 2008/02/11 23:26:40 kurt Exp $
 .SH NAME
 slapd-dnssrv \- DNS SRV referral backend to slapd
 .SH SYNOPSIS
@@ -26,7 +26,7 @@ In fact, this backend only implements the
 .B search
 operation when the
 .B manageDSAit
-control (RFC3296) is used, otherwise for every operation a referral,
+control (RFC 3296) is used, otherwise for every operation a referral,
 whenever appropriate, or an error is returned.
 Currently, there is no means to condition the returning of the referral
 by means of ACLs; no access control is implemented, except for 

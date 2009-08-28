@@ -1,7 +1,7 @@
-# $Id: rectype.awk,v 1.2 2004/03/30 01:21:27 jtownsen Exp $
+# $Id: rectype.awk,v 12.0 2004/11/17 03:43:25 bostic Exp $
 #
-# Print out a range of the log
-# Command line should set RECTYPE to the a comma separated list
+# Print out a range of the log.
+# Command line should set RECTYPE to a comma separated list
 # of the rectypes (or partial strings of rectypes) sought.
 NR == 1 {
 	ntypes = 0

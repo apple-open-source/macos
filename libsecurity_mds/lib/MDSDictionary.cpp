@@ -186,7 +186,7 @@ bool MDSDictionary::lookupToDbAttr(
 	CFTypeRef	value;				// polymorphic dictionary value
 	bool		ourRtn = false;
 	const void 	*srcPtr = NULL;		// polymorphic raw source bytes
-	unsigned	srcLen;
+	size_t		srcLen = 0;
 	uint32 		ival = 0;
 	uint32		*ivalArray = NULL;
 	uint32		numValues = 1;		// the default for MDSRawValueToDbAttr
@@ -219,13 +219,12 @@ bool MDSDictionary::lookupToDbAttr(
 		}
 		case CSSM_DB_ATTRIBUTE_FORMAT_UINT32:
 		{
-			bool brtn = MDSCfTypeToInt(value, nameValues, key, ival);
+			bool brtn = MDSCfTypeToUInt32(value, nameValues, key, ival, srcLen);
 			if(!brtn) {
 				MPDebug("MDS lookupToDbAttr: Bad number conversion");
 				return false;
 			}
 			srcPtr = &ival;
-			srcLen = sizeof(uint32);
 			ourRtn = true;
 			break;
 		}	 
@@ -241,13 +240,12 @@ bool MDSDictionary::lookupToDbAttr(
 				 * Let's be extremely slick and allow one number here, either 
 				 * in string or number form....
 				 */
-				bool brtn = MDSCfTypeToInt(value, nameValues, key, ival);
+				bool brtn = MDSCfTypeToUInt32(value, nameValues, key, ival, srcLen);
 				if(!brtn) {
 					MPDebug("MDS lookupToDbAttr: Bad array element");
 					return false;
 				}
 				srcPtr = &ival;
-				srcLen = sizeof(uint32);
 				ourRtn = true;
 				break;
 			}
@@ -279,16 +277,17 @@ bool MDSDictionary::lookupToDbAttr(
 					delete [] ivalArray;
 					return false;
 				}
-				brtn =  MDSCfTypeToInt(elmt, nameValues, key, ivalArray[dex]);
+                size_t itemLen = 0;
+				brtn =  MDSCfTypeToUInt32(elmt, nameValues, key, ivalArray[dex], itemLen);
 				if(!brtn) {
 					MPDebug("MDS lookupToDbAttr: key %s Bad element at index %d",
 						key, dex);
 					delete [] ivalArray;
 					return false;
 				}
+                srcLen += itemLen;
 			}
 			srcPtr = ivalArray;
-			srcLen = sizeof(uint32) * numValues;
 			ourRtn = true;
 			/*
 			 * FIXME - numValues as used by MDSRawValueToDbAttr and placed in 

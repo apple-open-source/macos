@@ -22,5 +22,7 @@
 		<key>Day</key>
 		<integer>1</integer>
 	</dict>
+	<key>AbandonProcessGroup</key>
+	<true/>
 </dict>
 </plist>

@@ -16,12 +16,8 @@
 #include "config.h"
 #endif
 
-#if defined(WIN32) && !defined(__CYGWIN__) && !defined (__MINGW32__)
-#include "xsltwin32config.h"
-#else
 #include "xsltconfig.h"
 #include <libxml/xmlversion.h>
-#endif
 
 #if !defined LIBXSLT_PUBLIC
 #if (defined (__CYGWIN__) || defined _MSC_VER) && !defined IN_LIBXSLT && !defined LIBXSLT_STATIC

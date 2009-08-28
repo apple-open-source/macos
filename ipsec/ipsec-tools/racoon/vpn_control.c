@@ -78,6 +78,7 @@
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
+#include <launch.h>
 
 #include "var.h"
 #include "misc.h"
@@ -113,7 +114,93 @@ static struct sockaddr_un sunaddr;
 static int vpncontrol_process(struct vpnctl_socket_elem *, char *);
 static int vpncontrol_reply(int, char *);
 static void vpncontrol_close_comm(struct vpnctl_socket_elem *);
+static int checklaunchd();
+extern int vpn_get_config __P((struct ph1handle *, struct vpnctl_status_phase_change **, size_t *));
+extern int vpn_xauth_reply __P((u_int32_t, void *, size_t));
 
+
+int                     
+checklaunchd()                  
+{               
+	launch_data_t checkin_response = NULL; 
+	launch_data_t checkin_request = NULL;
+	launch_data_t sockets_dict, listening_fd_array;
+	launch_data_t listening_fd;
+	struct sockaddr_storage fdsockaddr;
+	socklen_t fdsockaddrlen = sizeof(fdsockaddr);
+	int socketct;
+	int i;
+	int listenerct;
+	int returnval = 0;
+	int fd;
+	
+	/* check in with launchd */
+	if ((checkin_request = launch_data_new_string(LAUNCH_KEY_CHECKIN)) == NULL) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to launch_data_new_string.\n");
+		goto done;
+	}
+	if ((checkin_response = launch_msg(checkin_request)) == NULL) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to launch_msg.\n");
+		goto done;
+	}
+	if (LAUNCH_DATA_ERRNO == launch_data_get_type(checkin_response)) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "launch_data_get_type error %d\n",
+			 launch_data_get_errno(checkin_response));
+		goto done;
+	}
+	if ( (sockets_dict = launch_data_dict_lookup(checkin_response, LAUNCH_JOBKEY_SOCKETS)) == NULL){
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to launch_data_dict_lookup.\n");
+		goto done;
+	}
+	if ( !(socketct = launch_data_dict_get_count(sockets_dict))){
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "launch_data_dict_get_count returns no socket defined.\n");
+		goto done;
+	}
+	
+	if ( (listening_fd_array = launch_data_dict_lookup(sockets_dict, "Listeners")) == NULL ){
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to launch_data_dict_lookup.\n");
+		goto done;
+	}
+	listenerct = launch_data_array_get_count(listening_fd_array);
+	for (i = 0; i < listenerct; i++) {
+		listening_fd = launch_data_array_get_index(listening_fd_array, i);
+		fd = launch_data_get_fd( listening_fd );
+		if ( getsockname( fd , (struct sockaddr*)&fdsockaddr, &fdsockaddrlen)){
+			continue;
+		}
+		
+		/* Is this the VPN control socket? */ 
+		if ( (((struct sockaddr*)&fdsockaddr)->sa_family) == AF_UNIX && 
+				(!(strcmp(vpncontrolsock_path, ((struct sockaddr_un *)&fdsockaddr)->sun_path))))
+		{       
+			plog(LLV_INFO, LOCATION, NULL,
+				 "found launchd socket.\n");
+			returnval = fd;
+			break;
+		}
+	}
+	// TODO: check if we have any leaked fd
+	if ( listenerct == i){
+		plog(LLV_ERROR, LOCATION, NULL, 
+			 "failed to find launchd socket\n");               
+		returnval = 0;
+	}
+	
+done:   
+	if (checkin_request)
+		launch_data_free(checkin_request);
+	if (checkin_response)
+		launch_data_free(checkin_response);
+	return(returnval);
+}
+
+		
 int
 vpncontrol_handler()
 {
@@ -162,7 +249,7 @@ vpncontrol_comm_handler(struct vpnctl_socket_elem *elem)
 		goto end;
 	}
 	if (len == 0) {
-		plog(LLV_NOTIFY, LOCATION, NULL,
+		plog(LLV_DEBUG, LOCATION, NULL,
 			"vpn_control socket closed by peer.\n");
 		vpncontrol_close_comm(elem);
 		return -1;
@@ -215,12 +302,22 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf)
 			
 				plog(LLV_DEBUG, LOCATION, NULL,
 					"received bind command on vpn control socket.\n");
-				addr = racoon_malloc(sizeof(struct bound_addr));
+				addr = racoon_calloc(1, sizeof(struct bound_addr));
 				if (addr == NULL) {
 					plog(LLV_ERROR, LOCATION, NULL,	
 						"memory error: %s\n", strerror(errno));
 					error = -1;
 					break;
+				}
+				if (ntohs(pkt->vers_len)) {
+					addr->version = vmalloc(ntohs(pkt->vers_len));
+					if (addr->version == NULL) {
+						plog(LLV_ERROR, LOCATION, NULL,	
+							"memory error: %s\n", strerror(errno));
+						error = -1;
+						break;
+					}
+					memcpy(addr->version->v, pkt + 1, ntohs(pkt->vers_len));
 				}
 				addr->address = pkt->address;
 				LIST_INSERT_HEAD(&elem->bound_addresses, addr, chain);
@@ -239,7 +336,10 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf)
 				LIST_FOREACH_SAFE(addr, &elem->bound_addresses, chain, t_addr) {
 					if (pkt->address == 0xFFFFFFFF ||
 						pkt->address == addr->address) {
+						flushsainfo_dynamic(addr->address);
 						LIST_REMOVE(addr, chain);
+						if (addr->version)
+							vfree(addr->version);
 						racoon_free(addr);
 					}
 				}
@@ -287,7 +387,108 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf)
 			break;
 			
 		case VPNCTL_CMD_PING:
-			break;	// just reply for now
+			break;	/* just reply for now */
+
+		case VPNCTL_CMD_XAUTH_INFO:
+			{
+				struct vpnctl_cmd_xauth_info *pkt = (struct vpnctl_cmd_xauth_info *)combuf;
+				struct bound_addr *addr;
+				struct bound_addr *t_addr;
+				void *attr_list;
+
+				plog(LLV_DEBUG, LOCATION, NULL,
+					"received xauth info command vpn control socket.\n");
+				LIST_FOREACH_SAFE(addr, &elem->bound_addresses, chain, t_addr) {
+					if (pkt->address == addr->address) {
+						/* reply to the last xauth request */
+						attr_list = pkt + 1;
+						error = vpn_xauth_reply(pkt->address, attr_list, ntohs(pkt->hdr.len) - sizeof(u_int32_t));
+						break;
+					}
+				}
+			}
+			break;
+				
+		case VPNCTL_CMD_CONNECT:
+			{
+				struct vpnctl_cmd_connect *pkt = (struct vpnctl_cmd_connect *)combuf;
+				struct bound_addr *addr;
+				struct bound_addr *t_addr;
+
+				plog(LLV_DEBUG, LOCATION, NULL,
+					"received connect command on vpn control socket.\n");
+				LIST_FOREACH_SAFE(addr, &elem->bound_addresses, chain, t_addr) {
+					if (pkt->address == addr->address) {
+						/* start the connection */
+						error = vpn_connect(addr);
+						break;
+					}
+				}
+			}
+			break;
+			
+		case VPNCTL_CMD_DISCONNECT:
+			{
+				struct vpnctl_cmd_connect *pkt = (struct vpnctl_cmd_connect *)combuf;
+				struct bound_addr *addr;
+				struct bound_addr *t_addr;
+
+				plog(LLV_DEBUG, LOCATION, NULL,
+					"received disconnect command on vpn control socket.\n");
+				LIST_FOREACH_SAFE(addr, &elem->bound_addresses, chain, t_addr) {
+					if (pkt->address == addr->address) {
+						/* stop the connection */
+						error = vpn_disconnect(addr);
+						break;
+					}
+				}
+			}
+			break;
+			
+		case VPNCTL_CMD_START_PH2:
+			{
+				struct vpnctl_cmd_start_ph2 *pkt = (struct vpnctl_cmd_start_ph2 *)combuf;
+				struct bound_addr *addr;
+				struct bound_addr *t_addr;
+
+				plog(LLV_DEBUG, LOCATION, NULL,
+					"received start_ph2 command on vpn control socket.\n");
+				plogdump(LLV_DEBUG2, pkt, ntohs(hdr->len) + sizeof(struct vpnctl_hdr));
+				LIST_FOREACH_SAFE(addr, &elem->bound_addresses, chain, t_addr) {
+					if (pkt->address == addr->address) {
+						/* start the connection */
+						error = vpn_start_ph2(addr, pkt);
+						break;
+					}
+				}
+			}
+			break;
+
+		case VPNCTL_CMD_START_DPD:
+            {
+                struct vpnctl_cmd_start_dpd *pkt = (struct vpnctl_cmd_start_dpd *)combuf;
+                struct bound_addr *srv;
+                struct bound_addr *t_addr;
+
+                plog(LLV_DEBUG, LOCATION, NULL,
+                     "received start_dpd command on vpn control socket.\n");
+                LIST_FOREACH_SAFE(srv, &elem->bound_addresses, chain, t_addr) {
+                    if (pkt->address == srv->address) {
+                        struct sockaddr_in	daddr;
+
+                        bzero(&daddr, sizeof(daddr));
+                        daddr.sin_len = sizeof(daddr);
+                        daddr.sin_addr.s_addr = srv->address;
+                        daddr.sin_port = 0;
+                        daddr.sin_family = AF_INET;
+
+                        /* start the dpd */
+                        error = ph1_force_dpd(&daddr);
+                        break;
+                    }
+                }
+            }
+			break;
 
 		default:
 			plog(LLV_ERROR, LOCATION, NULL,
@@ -321,9 +522,72 @@ vpncontrol_reply(int so, char *combuf)
 }
 
 int
+vpncontrol_notify_need_authinfo(struct ph1handle *iph1, void* attr_list, size_t attr_len)
+{
+	struct vpnctl_status_need_authinfo *msg = NULL; 
+	struct vpnctl_socket_elem *sock_elem;
+	struct bound_addr *bound_addr;
+	size_t tlen, msg_size;	
+	u_int32_t address;
+	void *ptr;
+	
+	if (!iph1)
+		goto end;
+
+	plog(LLV_DEBUG, LOCATION, NULL,
+		"sending vpn_control xauth need info status\n");
+
+	msg = (struct vpnctl_status_need_authinfo *)racoon_malloc(msg_size = sizeof(struct vpnctl_status_need_authinfo) + attr_len);
+	if (msg == NULL) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			"unable to allocate space for vpn control message.\n");
+		return -1;
+	}
+	msg->hdr.flags = 0;
+				
+	if (iph1->remote->sa_family == AF_INET)
+		address = ((struct sockaddr_in *)iph1->remote)->sin_addr.s_addr;
+	else
+		goto end;		// for now		
+
+	msg->hdr.cookie = msg->hdr.reserved = msg->hdr.result = 0;
+	msg->hdr.len = htons((msg_size) - sizeof(struct vpnctl_hdr));	
+	if (!ike_session_is_client_ph1_rekey(iph1)) {
+		msg->hdr.msg_type = htons(VPNCTL_STATUS_NEED_AUTHINFO);
+	} else {
+		msg->hdr.msg_type = htons(VPNCTL_STATUS_NEED_REAUTHINFO);
+	}
+	msg->address = address;
+	ptr = msg + 1;
+	memcpy(ptr, attr_list, attr_len);
+
+	LIST_FOREACH(sock_elem, &lcconf->vpnctl_comm_socks, chain) {
+		LIST_FOREACH(bound_addr, &sock_elem->bound_addresses, chain) {
+			if (bound_addr->address == 0xFFFFFFFF ||
+				bound_addr->address == address) {
+				plog(LLV_DEBUG, LOCATION, NULL,
+						"vpn control writing %d bytes\n", msg_size);
+				plogdump(LLV_DEBUG, msg, msg_size);
+				tlen = send(sock_elem->sock, msg, msg_size, 0);
+				if (tlen < 0) {
+					plog(LLV_ERROR, LOCATION, NULL,
+						"failed to send vpn_control need authinfo status: %s\n", strerror(errno));
+				}
+				break;
+			}
+		}
+	}
+
+end:
+	if (msg)
+		racoon_free(msg);
+	return 0;
+}
+
+int
 vpncontrol_notify_ike_failed(u_int16_t notify_code, u_int16_t from, u_int32_t address, u_int16_t data_len, u_int8_t *data)
 {
-	struct vpnctl_status_failed *msg; 
+	struct vpnctl_status_failed *msg = NULL; 
 	struct vpnctl_socket_elem *sock_elem;
 	struct bound_addr *bound_addr;
 	size_t tlen, len;
@@ -346,7 +610,7 @@ vpncontrol_notify_ike_failed(u_int16_t notify_code, u_int16_t from, u_int32_t ad
 	if (data_len > 0)
 		memcpy(msg->data, data, data_len);	
 	plog(LLV_DEBUG, LOCATION, NULL,
-			"sending vpn_control ike notify failed message - code=%d  from=%s.\n", notify_code,
+			"sending vpn_control ike failed message - code=%d  from=%s.\n", notify_code,
 					(from == FROM_LOCAL ? "local" : "remote"));
 
 	LIST_FOREACH(sock_elem, &lcconf->vpnctl_comm_socks, chain) {
@@ -362,6 +626,9 @@ vpncontrol_notify_ike_failed(u_int16_t notify_code, u_int16_t from, u_int32_t ad
 			}
 		}
 	}
+
+	if (msg)
+		racoon_free(msg);
 	return 0;
 }
 
@@ -369,36 +636,55 @@ vpncontrol_notify_ike_failed(u_int16_t notify_code, u_int16_t from, u_int32_t ad
 int
 vpncontrol_notify_phase_change(int start, u_int16_t from, struct ph1handle *iph1, struct ph2handle *iph2)
 {
-	struct vpnctl_status_phase_change msg; 
+	struct vpnctl_status_phase_change *msg; 
 	struct vpnctl_socket_elem *sock_elem;
 	struct bound_addr *bound_addr;
-	size_t tlen;	
+	size_t tlen, msg_size;	
 	u_int32_t address;
+	
+	plog(LLV_DEBUG, LOCATION, NULL,
+		"sending vpn_control phase change status\n");
+
+	if (iph1 && !start && iph1->mode_cfg) {
+		if (vpn_get_config(iph1, &msg, &msg_size) == 1)
+			return 0;	/* mode config not finished yet */
+	} else {
+		msg = racoon_malloc(msg_size = sizeof(struct vpnctl_status_phase_change));
+		msg->hdr.flags = 0;
+	}
 		
+	if (msg == NULL) {
+		plog(LLV_ERROR, LOCATION, NULL,
+						"unable to allocate space for vpn control message.\n");
+		return -1;
+	}
 	if (iph1) {
 		if (iph1->remote->sa_family == AF_INET)
 			address = ((struct sockaddr_in *)iph1->remote)->sin_addr.s_addr;
 		else
-			return 0;		// for now
-		msg.hdr.msg_type = htons(start ? 
+			goto end;		// for now		
+		msg->hdr.msg_type = htons(start ? 
 			(from == FROM_LOCAL ? VPNCTL_STATUS_PH1_START_US : VPNCTL_STATUS_PH1_START_PEER) 
 			: VPNCTL_STATUS_PH1_ESTABLISHED);
 	} else {
 		if (iph2->dst->sa_family == AF_INET)
 			address = ((struct sockaddr_in *)iph2->dst)->sin_addr.s_addr;
 		else
-			return 0;		// for now
-		msg.hdr.msg_type = htons(start ? VPNCTL_STATUS_PH2_START : VPNCTL_STATUS_PH2_ESTABLISHED);
+			goto end;		// for now
+		msg->hdr.msg_type = htons(start ? VPNCTL_STATUS_PH2_START : VPNCTL_STATUS_PH2_ESTABLISHED);
 	}
-	msg.hdr.flags = msg.hdr.cookie = msg.hdr.reserved = msg.hdr.result = 0;
-	msg.hdr.len = htons(sizeof(struct vpnctl_status_phase_change) - sizeof(struct vpnctl_hdr));
-	msg.address = address;
+	msg->hdr.cookie = msg->hdr.reserved = msg->hdr.result = 0;
+	msg->hdr.len = htons((msg_size) - sizeof(struct vpnctl_hdr));
+	msg->address = address;
 
 	LIST_FOREACH(sock_elem, &lcconf->vpnctl_comm_socks, chain) {
 		LIST_FOREACH(bound_addr, &sock_elem->bound_addresses, chain) {
 			if (bound_addr->address == 0xFFFFFFFF ||
 				bound_addr->address == address) {
-				tlen = send(sock_elem->sock, &msg, sizeof(struct vpnctl_status_phase_change), 0);
+				plog(LLV_DEBUG, LOCATION, NULL,
+						"vpn control writing %d bytes\n", msg_size);
+				plogdump(LLV_DEBUG, msg, msg_size);
+				tlen = send(sock_elem->sock, msg, msg_size, 0);
 				if (tlen < 0) {
 					plog(LLV_ERROR, LOCATION, NULL,
 						"failed to send vpn_control phase change status: %s\n", strerror(errno));
@@ -408,6 +694,9 @@ vpncontrol_notify_phase_change(int start, u_int16_t from, struct ph1handle *iph1
 		}
 	}
 
+end:
+	if (msg)
+		racoon_free(msg);
 	return 0;
 }
 
@@ -420,56 +709,62 @@ vpncontrol_init()
 		return 0;
 	}
 
-	memset(&sunaddr, 0, sizeof(sunaddr));
-	sunaddr.sun_family = AF_UNIX;
-	snprintf(sunaddr.sun_path, sizeof(sunaddr.sun_path),
-		"%s", vpncontrolsock_path);
-
-	lcconf->sock_vpncontrol = socket(AF_UNIX, SOCK_STREAM, 0);
-	if (lcconf->sock_vpncontrol == -1) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"socket: %s\n", strerror(errno));
-		return -1;
+	if ( (lcconf->sock_vpncontrol = checklaunchd()) ){
+		return 0;
 	}
+	else {  
+		
+		memset(&sunaddr, 0, sizeof(sunaddr));
+		sunaddr.sun_family = AF_UNIX;
+		snprintf(sunaddr.sun_path, sizeof(sunaddr.sun_path),
+			"%s", vpncontrolsock_path);
 
-	unlink(sunaddr.sun_path);
-	if (bind(lcconf->sock_vpncontrol, (struct sockaddr *)&sunaddr,
-			sizeof(sunaddr)) != 0) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"bind(sockname:%s): %s\n",
-			sunaddr.sun_path, strerror(errno));
-		(void)close(lcconf->sock_vpncontrol);
-		return -1;
+		lcconf->sock_vpncontrol = socket(AF_UNIX, SOCK_STREAM, 0);
+		if (lcconf->sock_vpncontrol == -1) {
+			plog(LLV_ERROR, LOCATION, NULL,
+				"socket: %s\n", strerror(errno));
+			return -1;
+		}
+
+		unlink(sunaddr.sun_path);
+		if (bind(lcconf->sock_vpncontrol, (struct sockaddr *)&sunaddr,
+				sizeof(sunaddr)) != 0) {
+			plog(LLV_ERROR, LOCATION, NULL,
+				"bind(sockname:%s): %s\n",
+				sunaddr.sun_path, strerror(errno));
+			(void)close(lcconf->sock_vpncontrol);
+			return -1;
+		}
+
+		if (chown(sunaddr.sun_path, vpncontrolsock_owner, vpncontrolsock_group) != 0) {
+			plog(LLV_ERROR, LOCATION, NULL, 
+				"chown(%s, %d, %d): %s\n", 
+				sunaddr.sun_path, vpncontrolsock_owner, 
+				vpncontrolsock_group, strerror(errno));
+			(void)close(lcconf->sock_vpncontrol);
+			return -1;
+		}
+
+		if (chmod(sunaddr.sun_path, vpncontrolsock_mode) != 0) {
+			plog(LLV_ERROR, LOCATION, NULL, 
+				"chmod(%s, 0%03o): %s\n", 
+				sunaddr.sun_path, vpncontrolsock_mode, strerror(errno));
+			(void)close(lcconf->sock_vpncontrol);
+			return -1;
+		}
+
+		if (listen(lcconf->sock_vpncontrol, 5) != 0) {
+			plog(LLV_ERROR, LOCATION, NULL,
+				"listen(sockname:%s): %s\n",
+				sunaddr.sun_path, strerror(errno));
+			(void)close(lcconf->sock_vpncontrol);
+			return -1;
+		}
+		plog(LLV_DEBUG, LOCATION, NULL,
+			"opened %s as racoon management.\n", sunaddr.sun_path);
+
+		return 0;
 	}
-
-	if (chown(sunaddr.sun_path, vpncontrolsock_owner, vpncontrolsock_group) != 0) {
-		plog(LLV_ERROR, LOCATION, NULL, 
-		    "chown(%s, %d, %d): %s\n", 
-		    sunaddr.sun_path, vpncontrolsock_owner, 
-		    vpncontrolsock_group, strerror(errno));
-		(void)close(lcconf->sock_vpncontrol);
-		return -1;
-	}
-
-	if (chmod(sunaddr.sun_path, vpncontrolsock_mode) != 0) {
-		plog(LLV_ERROR, LOCATION, NULL, 
-		    "chmod(%s, 0%03o): %s\n", 
-		    sunaddr.sun_path, vpncontrolsock_mode, strerror(errno));
-		(void)close(lcconf->sock_vpncontrol);
-		return -1;
-	}
-
-	if (listen(lcconf->sock_vpncontrol, 5) != 0) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"listen(sockname:%s): %s\n",
-			sunaddr.sun_path, strerror(errno));
-		(void)close(lcconf->sock_vpncontrol);
-		return -1;
-	}
-	plog(LLV_DEBUG, LOCATION, NULL,
-		"opened %s as racoon management.\n", sunaddr.sun_path);
-
-	return 0;
 }
 
 
@@ -479,12 +774,16 @@ vpncontrol_close()
 	struct vpnctl_socket_elem *elem;
 	struct vpnctl_socket_elem *t_elem;
 	
+	plog(LLV_DEBUG, LOCATION, NULL,
+		"vpncontrol_close.\n");
+
 	if (lcconf->sock_vpncontrol != -1) {
 		close(lcconf->sock_vpncontrol);
 		lcconf->sock_vpncontrol = -1;
 	}
 	LIST_FOREACH_SAFE(elem, &lcconf->vpnctl_comm_socks, chain, t_elem)
 		vpncontrol_close_comm(elem);
+		
 }
 
 static void
@@ -492,12 +791,18 @@ vpncontrol_close_comm(struct vpnctl_socket_elem *elem)
 {
 	struct bound_addr *addr;
 	struct bound_addr *t_addr;
+
+	plog(LLV_DEBUG, LOCATION, NULL,
+		"vpncontrol_close_comm.\n");
 	
 	LIST_REMOVE(elem, chain);
 	if (elem->sock != -1)	
 		close(elem->sock);
 	LIST_FOREACH_SAFE(addr, &elem->bound_addresses, chain, t_addr) {
+		flushsainfo_dynamic(addr->address);
 		LIST_REMOVE(addr, chain);
+		if (addr->version)
+			vfree(addr->version);
 		racoon_free(addr);
 	}
 	racoon_free(elem);

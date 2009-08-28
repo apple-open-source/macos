@@ -177,7 +177,8 @@ copy_file(const FTSENT *entp, int dne)
 	       mode = to_stat.st_mode;
 	       if ((mode & (S_IRWXG|S_IRWXO))
 		   && fchmod(to_fd, mode & ~(S_IRWXG|S_IRWXO))) {
-		       warn("%s: fchmod failed", to.p_path);
+		       if (errno != EPERM) /* we have write access but do not own the file */
+			       warn("%s: fchmod failed", to.p_path);
 		       mode = 0;
 	       }
        } else {
@@ -498,13 +499,13 @@ usage(void)
 
 	if (COMPAT_MODE("bin/cp", "unix2003")) {
 	(void)fprintf(stderr, "%s\n%s\n",
-"usage: cp [-R [-H | -L | -P]] [-fi | -n] [-pvX] source_file target_file",
-"       cp [-R [-H | -L | -P]] [-fi | -n] [-pvX] source_file ... "
+"usage: cp [-R [-H | -L | -P]] [-fi | -n] [-apvX] source_file target_file",
+"       cp [-R [-H | -L | -P]] [-fi | -n] [-apvX] source_file ... "
 "target_directory");
 	} else {
 	(void)fprintf(stderr, "%s\n%s\n",
-"usage: cp [-R [-H | -L | -P]] [-f | -i | -n] [-pvX] source_file target_file",
-"       cp [-R [-H | -L | -P]] [-f | -i | -n] [-pvX] source_file ... "
+"usage: cp [-R [-H | -L | -P]] [-f | -i | -n] [-apvX] source_file target_file",
+"       cp [-R [-H | -L | -P]] [-f | -i | -n] [-apvX] source_file ... "
 "target_directory");
 	}
 	exit(EX_USAGE);

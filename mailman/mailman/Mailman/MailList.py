@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2006 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2008 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -337,6 +337,8 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
         self.umbrella_list = mm_cfg.DEFAULT_UMBRELLA_LIST
         self.umbrella_member_suffix = \
                 mm_cfg.DEFAULT_UMBRELLA_MEMBER_ADMIN_SUFFIX
+        self.regular_exclude_lists = mm_cfg.DEFAULT_REGULAR_EXCLUDE_LISTS
+        self.regular_include_lists = mm_cfg.DEFAULT_REGULAR_INCLUDE_LISTS
         self.send_reminders = mm_cfg.DEFAULT_SEND_REMINDERS
         self.send_welcome_msg = mm_cfg.DEFAULT_SEND_WELCOME_MSG
         self.send_goodbye_msg = mm_cfg.DEFAULT_SEND_GOODBYE_MSG
@@ -470,8 +472,15 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
     #
     def Create(self, name, admin, crypted_password,
                langs=None, emailhost=None):
+        assert name == name.lower(), 'List name must be all lower case.'
         if Utils.list_exists(name):
             raise Errors.MMListAlreadyExistsError, name
+        # Problems and potential attacks can occur if the list name in the
+        # pipe to the wrapper in an MTA alias or other delivery process
+        # contains shell special characters so allow only defined characters
+        # (default = '[-+_.=a-z0-9]').
+        if len(re.sub(mm_cfg.ACCEPTABLE_LISTNAME_CHARACTERS, '', name)) > 0:
+            raise Errors.BadListNameError, name
         # Validate what will be the list's posting address.  If that's
         # invalid, we don't want to create the mailing list.  The hostname
         # part doesn't really matter, since that better already be valid.
@@ -482,7 +491,7 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
         postingaddr = '%s@%s' % (name, emailhost)
         try:
             Utils.ValidateEmail(postingaddr)
-        except Errors.MMBadEmailError:
+        except Errors.EmailAddressError:
             raise Errors.BadListNameError, postingaddr
         # Validate the admin's email address
         Utils.ValidateEmail(admin)
@@ -1062,9 +1071,10 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
         newaddr = Utils.LCDomain(newaddr)
         Utils.ValidateEmail(newaddr)
         # Raise an exception if this email address is already a member of the
-        # list, but only if the new address is the same case-wise as the old
-        # address and we're not doing a global change.
-        if not globally and newaddr == oldaddr and self.isMember(newaddr):
+        # list, but only if the new address is the same case-wise as the
+        # existing member address and we're not doing a global change.
+        if not globally and (self.isMember(newaddr) and
+                newaddr == self.getMemberCPAddress(newaddr)):
             raise Errors.MMAlreadyAMember
         if newaddr == self.GetListEmail().lower():
             raise Errors.MMBadEmailError
@@ -1120,9 +1130,16 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
             raise Errors.MembershipIsBanned, pattern
         # It's possible they were a member of this list, but choose to change
         # their membership globally.  In that case, we simply remove the old
-        # address.
-        if self.getMemberCPAddress(oldaddr) == newaddr:
-            self.removeMember(oldaddr)
+        # address.  This gets tricky with case changes.  We can't just remove
+        # the old address if it differs from the new only by case, because
+        # that removes the new, so the condition is if the new address is the
+        # CP address of a member, then if the old address yields a different
+        # CP address, we can simply remove the old address, otherwise we can
+        # do nothing.
+        if self.isMember(newaddr) and (self.getMemberCPAddress(newaddr) ==
+                newaddr):
+            if self.getMemberCPAddress(oldaddr) <> newaddr:
+                self.removeMember(oldaddr)
         else:
             self.changeMemberAddress(oldaddr, newaddr)
         # If globally is true, then we also include every list for which
@@ -1144,8 +1161,10 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
             mlist.Lock()
             try:
                 # Same logic as above, re newaddr is already a member
-                if mlist.getMemberCPAddress(oldaddr) == newaddr:
-                    mlist.removeMember(oldaddr)
+                if mlist.isMember(newaddr) and (
+                        mlist.getMemberCPAddress(newaddr) == newaddr):
+                    if mlist.getMemberCPAddress(oldaddr) <> newaddr:
+                        mlist.removeMember(oldaddr)
                 else:
                     mlist.changeMemberAddress(oldaddr, newaddr)
                 mlist.Save()

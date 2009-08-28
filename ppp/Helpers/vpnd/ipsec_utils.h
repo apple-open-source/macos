@@ -24,16 +24,23 @@
 #ifndef __IPSEC_UTILS_H__
 #define __IPSEC_UTILS_H__
 
+#include <sys/kern_event.h>
+
 /* IKE Configuration */
 int IPSecValidateConfiguration(CFDictionaryRef ipsec_dict, char **error_text);
 int IPSecApplyConfiguration(CFDictionaryRef ipsec_dict, char **error_text);
 int IPSecRemoveConfiguration(CFDictionaryRef ipsec_dict, char **error_text);
+int IPSecRemoveConfigurationFile(CFDictionaryRef ipsec_dict, char **error_text);
+int IPSecKickConfiguration();
 
 int IPSecSelfRepair();
 
 /* Kernel Policies */
+int IPSecCountPolicies(CFDictionaryRef ipsec_dict);
 int IPSecInstallPolicies(CFDictionaryRef ipsec_dict, CFIndex index, char **error_text);
 int IPSecRemovePolicies(CFDictionaryRef ipsec_dict, CFIndex index, char **error_text);
+int IPSecInstallRoutes(CFDictionaryRef ipsec_dict, CFIndex index, char **error_text, struct in_addr gateway);
+int IPSecRemoveRoutes(CFDictionaryRef ipsec_dict, CFIndex index, char **error_text, struct in_addr gateway);
 
 /* Kernel Security Associations */
 int IPSecRemoveSecurityAssociations(struct sockaddr *src, struct sockaddr *dst);
@@ -43,10 +50,31 @@ int IPSecSetSecurityAssociationsPreference(int *oldval, int newval);
 CFMutableDictionaryRef 
 IPSecCreateL2TPDefaultConfiguration(struct sockaddr *src, struct sockaddr *dst, char *dst_hostName, 
 		CFStringRef authenticationMethod, int isClient, int natt_multiple_users, CFStringRef identifierVerification);
+CFMutableDictionaryRef 
+IPSecCreateCiscoDefaultConfiguration(struct sockaddr *src, struct sockaddr *dst, CFStringRef dst_hostName, 
+		CFStringRef authenticationMethod, int isClient, int natt_multiple_users, CFStringRef identifierVerification);
 
 /* Miscellaneous */
 int get_src_address(struct sockaddr *src, const struct sockaddr *dst, char *if_name);
+u_int32_t get_if_media(char *if_name);
 u_int32_t get_if_baudrate(char *if_name);
 u_int32_t get_if_mtu(char *if_name);
+
+void IPSecLogVPNInterfaceAddressEvent (char                  *location,
+									   struct kern_event_msg *ev_msg,
+									   int                    wait_interface_timeout,
+								 	   char                  *interface,
+									   struct in_addr        *our_address);
+int IPSecCheckVPNInterfaceOrServiceUnrecoverable (void                  *dynamicStore,
+						  char                  *location,
+						  struct kern_event_msg *ev_msg,
+						  char                  *interface_buf);
+int IPSecCheckVPNInterfaceAddressChange (int                    transport_down,
+                                         struct kern_event_msg *ev_msg,
+                                         char                  *interface_buf,
+                                         struct in_addr        *our_address);
+int IPSecCheckVPNInterfaceAddressAlternate (int                    transport_down,
+                                            struct kern_event_msg *ev_msg,
+                                            char                  *interface_buf);
 
 #endif

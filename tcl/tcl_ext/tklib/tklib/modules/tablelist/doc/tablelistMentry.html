@@ -1,0 +1,458 @@
+<html>
+<head>
+  <title>Interactive Tablelist Cell Editing Using the Mentry Package</title>
+
+  <meta name="Author" content="Csaba Nemethi">
+  <meta name="Keywords" content="tablelist, editing, Mentry">
+</head>
+
+<body bgcolor="#FFFFFF">
+  <div align="center">
+    <h1>Interactive Tablelist Cell Editing Using the Mentry Package</h1>
+
+    <h3>by</h3>
+
+    <h2>Csaba Nemethi</h2>
+
+    <address>
+      <a href="mailto:csaba.nemethi@t-online.de">csaba.nemethi@t-online.de</a>
+    </address>
+  </div>
+
+  <hr>
+
+  <h2><a name="contents"></a>Contents</h2>
+
+  <ul>
+    <li><a href="#overview">Overview</a></li>
+
+    <li><a href="#Date">The <code><b>tablelist::addDateMentry</b></code>
+    Command</a></li>
+
+    <li><a href="#Time">The <code><b>tablelist::addTimeMentry</b></code>
+    Command</a></li>
+
+    <li><a href="#DateTime">The
+    <code><b>tablelist::addDateTimeMentry</b></code> Command</a></li>
+
+    <li><a href="#FixedPoint">The
+    <code><b>tablelist::addFixedPointMentry</b></code> Command</a></li>
+
+    <li><a href="#IPAddr">The <code><b>tablelist::addIPAddrMentry</b></code>
+    Command</a></li>
+  </ul>
+
+  <div align="center">
+    <p><a href="index.html">Start page</a></p>
+  </div>
+
+  <hr>
+
+  <h2><a name="overview"></a>Overview</h2>
+
+  <p>The multi-entry package Mentry is a library extension for Tcl/Tk version
+  8.0 or higher, written in pure Tcl/Tk code.&nbsp; Its download location
+  is</p>
+
+  <blockquote>
+    <address>
+      <a href="http://www.nemethi.de">http://www.nemethi.de</a>
+    </address>
+  </blockquote>
+
+  <p>Starting with version 3.0, the Mentry distribution provides not only the
+  package Mentry, but also its tile-based equivalent Mentry_tile, which enables
+  the theme-specific appearance of mentry widgets; this package requires Tcl/Tk
+  8.4 or higher and tile 0.6 or higher.</p>
+
+  <p>Tablelist supports interactive cell editing with the aid of the mentry
+  widgets of type <code>"Date"</code>, <code>"Time"</code>,
+  <code>"DateTime</code>, <code>"FixedPoint"</code>, and
+  <code>"IPAddr"</code>.&nbsp; The steps needed for using one of these widgets
+  for editing the cells of a given column are as follows:</p>
+
+  <ol>
+    <li>Register the desired widget for interactive cell editing by invoking
+    one of the commands described in this reference page.<br>
+    &nbsp;</li>
+
+    <li>Use the tablelist widget's <code><b><a href=
+    "tablelistWidget.html#columnconfigure">columnconfigure</a></b></code>
+    subcommand to set the given column's <code><b><a href=
+    "tablelistWidget.html#col_editable">-editable</a></b></code> option to true
+    and its <code><b><a href=
+    "tablelistWidget.html#col_editwindow">-editwindow</a></b></code> option to
+    the value returned by the command mentioned above.&nbsp; (These options are
+    supported at cell level, too, with the aid of the <code><b><a href=
+    "tablelistWidget.html#cellconfigure">cellconfigure</a></b></code>
+    subcommand.)</li>
+  </ol>
+
+  <div align="center">
+    <p><a href="#contents">Contents</a>&nbsp;&nbsp;&nbsp;&nbsp; <a href=
+    "index.html">Start page</a></p>
+  </div>
+
+  <hr>
+
+  <h2><a name="Date"></a>The <code><b>tablelist::addDateMentry</b></code>
+  Command</h2>
+
+  <dl>
+    <dt><b>NAME</b></dt>
+
+    <dd><code>tablelist::addDateMentry</code> - Register the mentry widget of
+    type <code>"Date"</code> for interactive cell editing</dd>
+
+    <dt><br>
+    <b>SYNOPSIS</b></dt>
+
+    <dd>
+      <pre>
+<b>tablelist::addDateMentry</b> <i>format separator</i> ?<b>-gmt</b>? ?<i>name</i>?
+</pre>
+    </dd>
+
+    <dt><b>DESCRIPTION</b></dt>
+
+    <dd>This command registers the widget created by the
+    <code><b>mentry::dateMentry</b></code> command from the Mentry (or
+    Mentry_tile) package for interactive cell editing in tablelist
+    widgets.&nbsp; The <code><i>format</i></code> and
+    <code><i>separator</i></code> arguments have the same meanings as in the
+    <code><b>mentry::dateMentry</b></code> command.&nbsp; If the
+    <code><b>-gmt</b></code> argument is present then both the internal clock
+    value and its external date representation in the mentry widget will be
+    viewed as Greenwich Mean Time, otherwise as local time.&nbsp; The second
+    optional argument specifies the name to be used for the mentry widget as
+    the value of the <code><b><a href=
+    "tablelistWidget.html#col_editwindow">-editwindow</a></b></code> column or
+    cell configuration option.&nbsp; It may be any string that is different
+    from <code><b>entry</b></code>, <code><b>text</b></code>,
+    <code><b>spinbox</b></code>, <code><b>checkbutton</b></code>,
+    <code><b>ttk::entry</b></code>, <code><b>ttk::checkbutton</b></code>, and
+    <code><b>ttk::combobox</b></code>.&nbsp; The default is
+    <code><b>dateMentry</b></code>.&nbsp; The command returns its
+    <code><i>name</i></code> argument.</dd>
+
+    <dd><br>
+    A tablelist column having the above <code><i>name</i></code> as the value
+    of its <code><b>-editwindow</b></code> option must contain as internal cell
+    values date information in seconds (displayed with the aid of a command
+    given by the <code><b><a href=
+    "tablelistWidget.html#col_formatcommand">-formatcommand</a></b></code>
+    column configuration option).&nbsp; The <code><b><a href=
+    "tablelistWidget.html#finishediting">finishediting</a></b></code>
+    subcommand of the Tcl command associated with the tablelist widget will
+    retrieve the contents of the embedded window used for interactive cell
+    editing by invoking the <code><b>mentry::getClockVal</b></code>
+    command.&nbsp; The value returned by this command (a clock value in seconds
+    or one of the error strings <code>"EMPTY"</code>, <code>"BAD"</code>,
+    <code>"BAD_DATE"</code>, or <code>"BAD_YEAR"</code>) will be passed to the
+    script corresponding to the <code><b><a href=
+    "tablelistWidget.html#editendcommand">-editendcommand</a></b></code>
+    tablelist configuration option (if any), as its last argument.&nbsp; If
+    this value is one of the above error strings then the script should reject
+    the mentry's contents by invoking the <code><b><a href=
+    "tablelistWidget.html#rejectinput">rejectinput</a></b></code>
+    subcommand.</dd>
+
+    <dt><br>
+    <b>KEYWORDS</b></dt>
+
+    <dd>tablelist, editing, Mentry, date</dd>
+  </dl>
+
+  <div align="center">
+    <p><a href="#contents">Contents</a>&nbsp;&nbsp;&nbsp;&nbsp; <a href=
+    "index.html">Start page</a></p>
+  </div>
+
+  <hr>
+
+  <h2><a name="Time"></a>The <code><b>tablelist::addTimeMentry</b></code>
+  Command</h2>
+
+  <dl>
+    <dt><b>NAME</b></dt>
+
+    <dd><code>tablelist::addTimeMentry</code> - Register the mentry widget of
+    type <code>"Time"</code> for interactive cell editing</dd>
+
+    <dt><br>
+    <b>SYNOPSIS</b></dt>
+
+    <dd>
+      <pre>
+<b>tablelist::addTimeMentry</b> <i>format separator</i> ?<b>-gmt</b>? ?<i>name</i>?
+</pre>
+    </dd>
+
+    <dt><b>DESCRIPTION</b></dt>
+
+    <dd>This command registers the widget created by the
+    <code><b>mentry::timeMentry</b></code> command from the Mentry (or
+    Mentry_tile) package for interactive cell editing in tablelist
+    widgets.&nbsp; The <code><i>format</i></code> and
+    <code><i>separator</i></code> arguments have the same meanings as in the
+    <code><b>mentry::timeMentry</b></code> command.&nbsp; If the
+    <code><b>-gmt</b></code> argument is present then both the internal clock
+    value and its external time representation in the mentry widget will be
+    viewed as Greenwich Mean Time, otherwise as local time.&nbsp; The second
+    optional argument specifies the name to be used for the mentry widget as
+    the value of the <code><b><a href=
+    "tablelistWidget.html#col_editwindow">-editwindow</a></b></code> column or
+    cell configuration option.&nbsp; It may be any string that is different
+    from <code><b>entry</b></code>, <code><b>text</b></code>,
+    <code><b>spinbox</b></code>, <code><b>checkbutton</b></code>,
+    <code><b>ttk::entry</b></code>, <code><b>ttk::checkbutton</b></code>, and
+    <code><b>ttk::combobox</b></code>.&nbsp; The default is
+    <code><b>timeMentry</b></code>.&nbsp; The command returns its
+    <code><i>name</i></code> argument.</dd>
+
+    <dd><br>
+    A tablelist column having the above <code><i>name</i></code> as the value
+    of its <code><b>-editwindow</b></code> option must contain as internal cell
+    values time information in seconds (displayed with the aid of a command
+    given by the <code><b><a href=
+    "tablelistWidget.html#col_formatcommand">-formatcommand</a></b></code>
+    column configuration option).&nbsp; The <code><b><a href=
+    "tablelistWidget.html#finishediting">finishediting</a></b></code>
+    subcommand of the Tcl command associated with the tablelist widget will
+    retrieve the contents of the embedded window used for interactive cell
+    editing by invoking the <code><b>mentry::getClockVal</b></code>
+    command.&nbsp; The value returned by this command (a clock value in seconds
+    or one of the error strings <code>"EMPTY"</code> or <code>"BAD"</code>)
+    will be passed to the script corresponding to the <code><b><a href=
+    "tablelistWidget.html#editendcommand">-editendcommand</a></b></code>
+    tablelist configuration option (if any), as its last argument.&nbsp; If
+    this value is one of the above error strings then the script should reject
+    the mentry's contents by invoking the <code><b><a href=
+    "tablelistWidget.html#rejectinput">rejectinput</a></b></code>
+    subcommand.</dd>
+
+    <dt><br>
+    <b>KEYWORDS</b></dt>
+
+    <dd>tablelist, editing, Mentry, time</dd>
+  </dl>
+
+  <div align="center">
+    <p><a href="#contents">Contents</a>&nbsp;&nbsp;&nbsp;&nbsp; <a href=
+    "index.html">Start page</a></p>
+  </div>
+
+  <hr>
+
+  <h2><a name="DateTime"></a>The
+  <code><b>tablelist::addDateTimeMentry</b></code> Command</h2>
+
+  <dl>
+    <dt><b>NAME</b></dt>
+
+    <dd><code>tablelist::addDateTimeMentry</code> - Register the mentry widget
+    of type <code>"DateTime"</code> for interactive cell editing</dd>
+
+    <dt><br>
+    <b>SYNOPSIS</b></dt>
+
+    <dd>
+      <pre>
+<b>tablelist::addDateTimeMentry</b> <i>format dateSeparator timeSeparator</i> ?<b>-gmt</b>? ?<i>name</i>?
+</pre>
+    </dd>
+
+    <dt><b>DESCRIPTION</b></dt>
+
+    <dd>This command registers the widget created by the
+    <code><b>mentry::dateTimeMentry</b></code> command from the Mentry (or
+    Mentry_tile) package for interactive cell editing in tablelist
+    widgets.&nbsp; The <code><i>format</i></code>,
+    <code><i>dateSeparator</i></code>, and <code><i>timeSeparator</i></code>
+    arguments have the same meanings as in the
+    <code><b>mentry::dateTimeMentry</b></code> command.&nbsp; If the
+    <code><b>-gmt</b></code> argument is present then both the internal clock
+    value and its external date &amp; time representation in the mentry widget
+    will be viewed as Greenwich Mean Time, otherwise as local time.&nbsp; The
+    second optional argument specifies the name to be used for the mentry
+    widget as the value of the <code><b><a href=
+    "tablelistWidget.html#col_editwindow">-editwindow</a></b></code> column or
+    cell configuration option.&nbsp; It may be any string that is different
+    from <code><b>entry</b></code>, <code><b>text</b></code>,
+    <code><b>spinbox</b></code>, <code><b>checkbutton</b></code>,
+    <code><b>ttk::entry</b></code>, <code><b>ttk::checkbutton</b></code>, and
+    <code><b>ttk::combobox</b></code>.&nbsp; The default is
+    <code><b>dateTimeMentry</b></code>.&nbsp; The command returns its
+    <code><i>name</i></code> argument.</dd>
+
+    <dd><br>
+    A tablelist column having the above <code><i>name</i></code> as the value
+    of its <code><b>-editwindow</b></code> option must contain as internal cell
+    values date &amp; time information in seconds (displayed with the aid of a
+    command given by the <code><b><a href=
+    "tablelistWidget.html#col_formatcommand">-formatcommand</a></b></code>
+    column configuration option).&nbsp; The <code><b><a href=
+    "tablelistWidget.html#finishediting">finishediting</a></b></code>
+    subcommand of the Tcl command associated with the tablelist widget will
+    retrieve the contents of the embedded window used for interactive cell
+    editing by invoking the <code><b>mentry::getClockVal</b></code>
+    command.&nbsp; The value returned by this command (a clock value in seconds
+    or one of the error strings <code>"EMPTY"</code>, <code>"BAD"</code>,
+    <code>"BAD_DATE"</code>, or <code>"BAD_YEAR"</code>) will be passed to the
+    script corresponding to the <code><b><a href=
+    "tablelistWidget.html#editendcommand">-editendcommand</a></b></code>
+    tablelist configuration option (if any), as its last argument.&nbsp; If
+    this value is one of the above error strings then the script should reject
+    the mentry's contents by invoking the <code><b><a href=
+    "tablelistWidget.html#rejectinput">rejectinput</a></b></code>
+    subcommand.</dd>
+
+    <dt><br>
+    <b>KEYWORDS</b></dt>
+
+    <dd>tablelist, editing, Mentry, date, time</dd>
+  </dl>
+
+  <div align="center">
+    <p><a href="#contents">Contents</a>&nbsp;&nbsp;&nbsp;&nbsp; <a href=
+    "index.html">Start page</a></p>
+  </div>
+
+  <hr>
+
+  <h2><a name="FixedPoint"></a>The
+  <code><b>tablelist::addFixedPointMentry</b></code> Command</h2>
+
+  <dl>
+    <dt><b>NAME</b></dt>
+
+    <dd><code>tablelist::addFixedPointMentry</code> - Register the mentry
+    widget of type <code>"FixedPoint"</code> for interactive cell editing</dd>
+
+    <dt><br>
+    <b>SYNOPSIS</b></dt>
+
+    <dd>
+      <pre>
+<b>tablelist::addFixedPointMentry</b> <i>count1 count2</i> ?<b>-comma</b>? ?<i>name</i>?
+</pre>
+    </dd>
+
+    <dt><b>DESCRIPTION</b></dt>
+
+    <dd>This command registers the widget created by the
+    <code><b>mentry::fixedPointMentry</b></code> command from the Mentry (or
+    Mentry_tile) package for interactive cell editing in tablelist
+    widgets.&nbsp; The <code><i>count1</i></code>, <code><i>count2</i></code>,
+    and <code><i>-comma</i></code> arguments have the same meanings as in the
+    <code><b>mentry::fixedPointMentry</b></code> command.&nbsp; The second
+    optional argument specifies the name to be used for the mentry widget as
+    the value of the <code><b><a href=
+    "tablelistWidget.html#col_editwindow">-editwindow</a></b></code> column or
+    cell configuration option.&nbsp; It may be any string that is different
+    from <code><b>entry</b></code>, <code><b>text</b></code>,
+    <code><b>spinbox</b></code>, <code><b>checkbutton</b></code>,
+    <code><b>ttk::entry</b></code>, <code><b>ttk::checkbutton</b></code>, and
+    <code><b>ttk::combobox</b></code>.&nbsp; The default is
+    <code><b>fixedPointMentry_</b><i>count1</i><b>.</b><i>count2</i></code>
+    (e.g., <code><b>fixedPointMentry_6.2</b></code>) or
+    <code><b>fixedPointMentry_</b><i>count1</i><b>,</b><i>count2</i></code>
+    (e.g., <code><b>fixedPointMentry_6,2</b></code>), depending on the presence
+    of the optional <code><b>-comma</b></code> argument.&nbsp; The command
+    returns its <code><i>name</i></code> argument.</dd>
+
+    <dd><br>
+    A tablelist column having the above <code><i>name</i></code> as the value
+    of its <code><b>-editwindow</b></code> option must contain real numbers as
+    internal cell values.&nbsp; The <code><b><a href=
+    "tablelistWidget.html#finishediting">finishediting</a></b></code>
+    subcommand of the Tcl command associated with the tablelist widget will
+    retrieve the contents of the embedded window used for interactive cell
+    editing by invoking the <code><b>mentry::getReal</b></code> command.&nbsp;
+    The value returned by this command (a real number or the error string
+    <code>"EMPTY"</code>) will be passed to the script corresponding to the
+    <code><b><a href=
+    "tablelistWidget.html#editendcommand">-editendcommand</a></b></code>
+    tablelist configuration option (if any), as its last argument.&nbsp; If
+    this value is the above error string then the script should reject the
+    mentry's contents by invoking the <code><b><a href=
+    "tablelistWidget.html#rejectinput">rejectinput</a></b></code>
+    subcommand.</dd>
+
+    <dt><br>
+    <b>KEYWORDS</b></dt>
+
+    <dd>tablelist, editing, Mentry, real number</dd>
+  </dl>
+
+  <div align="center">
+    <p><a href="#contents">Contents</a>&nbsp;&nbsp;&nbsp;&nbsp; <a href=
+    "index.html">Start page</a></p>
+  </div>
+
+  <hr>
+
+  <h2><a name="IPAddr"></a>The <code><b>tablelist::addIPAddrMentry</b></code>
+  Command</h2>
+
+  <dl>
+    <dt><b>NAME</b></dt>
+
+    <dd><code>tablelist::addIPAddrMentry</code> - Register the mentry widget of
+    type <code>"IPAddr"</code> for interactive cell editing</dd>
+
+    <dt><br>
+    <b>SYNOPSIS</b></dt>
+
+    <dd>
+      <pre>
+<b>tablelist::addIPAddrMentry</b> ?<i>name</i>?
+</pre>
+    </dd>
+
+    <dt><b>DESCRIPTION</b></dt>
+
+    <dd>This command registers the widget created by the
+    <code><b>tablelist::addIPAddrMentry</b></code> command from the Mentry (or
+    Mentry_tile) package for interactive cell editing in tablelist
+    widgets.&nbsp; The optional argument specifies the name to be used for the
+    mentry widget as the value of the <code><b><a href=
+    "tablelistWidget.html#col_editwindow">-editwindow</a></b></code> column or
+    cell configuration option.&nbsp; It may be any string that is different
+    from <code><b>entry</b></code>, <code><b>text</b></code>,
+    <code><b>spinbox</b></code>, <code><b>checkbutton</b></code>,
+    <code><b>ttk::entry</b></code>, <code><b>ttk::checkbutton</b></code>, and
+    <code><b>ttk::combobox</b></code>.&nbsp; The default is
+    <code><b>ipAddrMentry</b></code>.&nbsp; The command returns its
+    <code><i>name</i></code> argument.</dd>
+
+    <dd><br>
+    A tablelist column having the above <code><i>name</i></code> as the value
+    of its <code><b>-editwindow</b></code> option must contain IP addresses as
+    internal cell values.&nbsp; The <code><b><a href=
+    "tablelistWidget.html#finishediting">finishediting</a></b></code>
+    subcommand of the Tcl command associated with the tablelist widget will
+    retrieve the contents of the embedded window used for interactive cell
+    editing by invoking the <code><b>mentry::getIPAddr</b></code>
+    command.&nbsp; The value returned by this command (an IP address or the
+    error string <code>"EMPTY"</code>) will be passed to the script
+    corresponding to the <code><b><a href=
+    "tablelistWidget.html#editendcommand">-editendcommand</a></b></code>
+    tablelist configuration option (if any), as its last argument.&nbsp; If
+    this value is the above error string then the script should reject the
+    mentry's contents by invoking the <code><b><a href=
+    "tablelistWidget.html#rejectinput">rejectinput</a></b></code>
+    subcommand.</dd>
+
+    <dt><br>
+    <b>KEYWORDS</b></dt>
+
+    <dd>tablelist, editing, Mentry, IP address</dd>
+  </dl>
+
+  <div align="center">
+    <p><a href="#contents">Contents</a>&nbsp;&nbsp;&nbsp;&nbsp; <a href=
+    "index.html">Start page</a></p>
+  </div>
+</body>
+</html>

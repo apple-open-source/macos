@@ -32,7 +32,7 @@
 .\"     from: @(#)rint.3	5.1 (Berkeley) 5/2/91
 .\"	$Id: nearbyint.3,v 1.4 2004/12/20 21:35:46 scp Exp $
 .\"
-.Dd January 29, 2003
+.Dd July 01, 2008
 .Dt NEARBYINT 3
 .Os
 .Sh NAME
@@ -53,6 +53,16 @@ functions return the integral value (represented as a double precision number)
 nearest to
 .Fa x
 according to the prevailing rounding mode.
+.Pp
+.Fn nearbyint
+is the same as
+.Fn rint ,
+except that nearbyint is guaranteed never to set floating point flags
+or trigger floating point exceptions (which are disabled by default).
+.Fn rint
+is typically much more performant than
+.Fn nearbyint
+if the application does not depend on flags being preserved.
 .Sh SPECIAL VALUES
 .Fn nearbyint "±0"
 returns ±0 for all rounding modes.
@@ -60,10 +70,15 @@ returns ±0 for all rounding modes.
 .Fn nearbyint "±infinity"
 returns ±infinity for all rounding modes.
 .Sh SEE ALSO
-.Xr abs 3 ,
-.Xr fabs 3 ,
-.Xr ceil 3 ,
-.Xr floor 3 ,
+.Xr rint 3
+.Xr ceil 3
+.Xr floor 3
+.Xr round 3
+.Xr trunc 3
+.Xr lround 3
+.Xr lrint 3
+.Xr llround 3
+.Xr llrint 3
 .Xr math 3
 .Sh STANDARDS
 The

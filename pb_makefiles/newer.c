@@ -20,20 +20,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <assert.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
-#ifdef WINNT
-#include <System/dirent.h>
-#else
-#if defined(sun) || defined(hpux)
-#include <sys/param.h>
-#include <sys/types.h>
-#include <dirent.h>
-#else
 #include <sys/dir.h>
-#endif
-#endif
 #include <sys/param.h>
 #include <sys/stat.h>
 

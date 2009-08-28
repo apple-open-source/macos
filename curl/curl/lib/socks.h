@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2007, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -20,18 +20,33 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: socks.h,v 1.4 2007-04-03 18:25:18 yangtse Exp $
+ * $Id: socks.h,v 1.7 2009-01-28 21:34:16 bagder Exp $
  ***************************************************************************/
 
 /*
- * This function logs in to a SOCKS4 proxy and sends the specifics to the
+ * Helper read-from-socket functions. Does the same as Curl_read() but it
+ * blocks until all bytes amount of buffersize will be read. No more, no less.
+ *
+ * This is STUPID BLOCKING behaviour which we frown upon, but right now this
+ * is what we have...
+ */
+int Curl_blockread_all(struct connectdata *conn,
+                       curl_socket_t sockfd,
+                       char *buf,
+                       ssize_t buffersize,
+                       ssize_t *n,
+                       long conn_timeout);
+
+/*
+ * This function logs in to a SOCKS4(a) proxy and sends the specifics to the
  * final destination server.
  */
 CURLcode Curl_SOCKS4(const char *proxy_name,
-                     char *hostname,
+                     const char *hostname,
                      int remote_port,
                      int sockindex,
-                     struct connectdata *conn);
+                     struct connectdata *conn,
+                     bool protocol4a);
 
 /*
  * This function logs in to a SOCKS5 proxy and sends the specifics to the
@@ -39,9 +54,17 @@ CURLcode Curl_SOCKS4(const char *proxy_name,
  */
 CURLcode Curl_SOCKS5(const char *proxy_name,
                      const char *proxy_password,
-                     char *hostname,
+                     const char *hostname,
                      int remote_port,
                      int sockindex,
                      struct connectdata *conn);
 
+#if defined(HAVE_GSSAPI) || defined(USE_WINDOWS_SSPI)
+/*
+ * This function handles the sockss5 gssapie negotiation and initialisation
+ */
+CURLcode Curl_SOCKS5_gssapi_negotiate(int sockindex,
+                                      struct connectdata *conn);
 #endif
+
+#endif  /* __SOCKS_H */

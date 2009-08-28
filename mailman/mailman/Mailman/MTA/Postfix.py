@@ -1,4 +1,4 @@
-# Copyright (C) 2001-2005 by the Free Software Foundation, Inc.
+# Copyright (C) 2001-2008 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -256,6 +256,7 @@ def _do_remove(mlist, textfile, virtualp):
         filteroutp = False
         start = '# STANZA START: ' + listname
         end = '# STANZA END: ' + listname
+        oops = '# STANZA START: '
         while 1:
             line = infp.readline()
             if not line:
@@ -270,6 +271,10 @@ def _do_remove(mlist, textfile, virtualp):
                     # Discard the trailing blank line, but don't worry if
                     # we're at the end of the file.
                     infp.readline()
+                elif line.startswith(oops):
+                    # Stanza end must be missing - start writing from here.
+                    filteroutp = False
+                    outfp.write(line)
                 # Otherwise, ignore the line
             else:
                 if line.strip() == start:

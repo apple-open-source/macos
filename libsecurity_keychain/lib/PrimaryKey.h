@@ -51,6 +51,9 @@ public:
 
 	CSSM_DB_RECORDTYPE recordType() const;
 private:
+
+protected:
+	Mutex mMutex;
 };
 
 

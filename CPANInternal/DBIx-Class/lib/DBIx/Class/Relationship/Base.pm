@@ -102,6 +102,13 @@ related object, but you also want the relationship accessor to double as
 a column accessor). For C<multi> accessors, an add_to_* method is also
 created, which calls C<create_related> for the relationship.
 
+=item is_foreign_key_constraint
+
+If you are using L<SQL::Translator> to create SQL for you and you find that it
+is creating constraints where it shouldn't, or not creating them where it 
+should, set this attribute to a true or false value to override the detection
+of when to create constraints.
+
 =back
 
 =head2 register_relationship
@@ -317,11 +324,15 @@ sub update_or_create_related {
 =head2 set_from_related
 
   $book->set_from_related('author', $author_obj);
+  $book->author($author_obj);                      ## same thing
 
 Set column values on the current object, using related values from the given
 related object. This is used to associate previously separate objects, for
 example, to set the correct author for a book, find the Author object, then
 call set_from_related on the book.
+
+This is called internally when you pass existing objects as values to
+L<DBIx::Class::ResultSet/create>, or pass an object to a belongs_to acessor.
 
 The columns are only set in the local copy of the object, call L</update> to
 set them in the storage.

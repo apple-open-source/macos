@@ -1,4 +1,5 @@
- # APPLE LOCAL file x86_64 support 2006-02-02
+# APPLE LOCAL file mainline
+# This file should go away.
 host-x86_64-darwin.o : $(srcdir)/config/i386/host-x86_64-darwin.c \
   $(CONFIG_H) $(SYSTEM_H) coretypes.h hosthooks.h $(HOSTHOOKS_DEF_H) \
   config/host-darwin.h

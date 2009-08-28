@@ -58,6 +58,11 @@
 
 #include "remote-fileio.h"
 
+#ifdef MACOSX_DYLD
+#include "macosx-nat-dyld.h"
+#endif
+#include <execinfo.h>
+
 /* Prototypes for local functions.  */
 static void cleanup_sigint_signal_handler (void *dummy);
 static void initialize_sigint_signal_handler (void);
@@ -107,9 +112,9 @@ static void remote_send (char *buf, long sizeof_buf);
 static int readchar (int timeout);
 
 static ptid_t remote_wait (ptid_t ptid,
-                                 struct target_waitstatus *status);
+                                 struct target_waitstatus *status, gdb_client_data client_data);
 static ptid_t remote_async_wait (ptid_t ptid,
-                                       struct target_waitstatus *status);
+                                       struct target_waitstatus *status, gdb_client_data client_data);
 
 static void remote_kill (void);
 static void remote_async_kill (void);
@@ -188,6 +193,21 @@ static void update_packet_config (struct packet_config *config);
 
 void _initialize_remote (void);
 
+/* APPLE LOCAL: Remote Nub might not have started the target, and we
+   want to either run or attach.  These functions do that job.  */
+static void remote_create_inferior (char *, char*, char **, int);
+static void remote_attach (char *, int);
+
+/* The executable might not have the same location on the remote
+   system as it does here, provide the correct path here.  */
+char *remote_exec_dir;
+/* END APPLE LOCAL */
+
+/* APPLE LOCAL */
+static void start_remote_timer (void);
+static void end_remote_timer (void);
+static void initialize_protocol_log (void);
+
 /* Description of the remote protocol.  Strictly speaking, when the
    target is open()ed, remote.c should create a per-target description
    of the remote protocol using that target's architecture.
@@ -201,7 +221,7 @@ struct packet_reg
   long regnum; /* GDB's internal register number.  */
   LONGEST pnum; /* Remote protocol register number.  */
   int in_g_packet; /* Always part of G packet.  */
-  /* long size in bytes;  == register_size (current_gdbarch, regnum); 
+  /* long size in bytes;  == register_size (current_gdbarch, regnum);
      at present.  */
   /* char *name; == REGISTER_NAME (regnum); at present.  */
 };
@@ -226,8 +246,50 @@ struct remote_state
   /* This is the maximum size (in chars) of a non read/write packet.
      It is also used as a cap on the size of read/write packets.  */
   long remote_packet_size;
+  /* APPLE LOCAL: We allow attaching to a remote nub before the program
+     has been specified.  In that case we don't want to try to read
+     memory from the remote.  */
+  int has_target;
 };
 
+/* APPLE LOCAL */
+struct remote_stats *current_remote_stats = NULL;
+uint64_t total_packets_sent = 0;
+uint64_t total_packets_received = 0;
+char *remote_debugflags = NULL;
+
+#define PROTOCOL_LOG_BUFSIZE 2048
+enum pkt_direction {sent_from_gdb, received_by_gdb};
+struct protocol_log_entry {
+  enum pkt_direction direction;
+  struct timeval tv;
+  char mi_token[16];
+  char packet[PROTOCOL_LOG_BUFSIZE];
+};
+
+struct protocol_log {
+  int head;
+  int max_ent;
+  struct protocol_log_entry *ents;
+} protocol_log;
+
+/* APPLE LOCAL: Make the gdb remote protocol ack packets optional.
+   It would be straightforward to only have the NO_ACK_MODE boolean
+   but then you could only enable it once you were connected.  
+   Instead, when the gdb user indicates that we should use no-ack
+   mode, we set USER_REQUESTED_NO_ACK_MODE if a remote target hasn't
+   yet been started.  
+
+   When we start the remote target, if USER_REQUESTED_NO_ACK_MODE
+   is set, we ask the target if it supports no ack mode.  The value
+   of USER_REQUESTED_NO_ACK_MODE is not used after this initial
+   handshake is complete.
+
+   If the user asks for no-ack mode once the remote stub is up and
+   running, we can directly ask the remote stub if it supports the
+   mode and set NO_ACK_MODE appropriately.  */
+int no_ack_mode = 0;
+enum auto_boolean user_requested_no_ack_mode = AUTO_BOOLEAN_AUTO;
 
 /* Handle for retreving the remote protocol data from gdbarch.  */
 static struct gdbarch_data *remote_gdbarch_data_handle;
@@ -237,6 +299,24 @@ get_remote_state (void)
 {
   return gdbarch_data (current_gdbarch, remote_gdbarch_data_handle);
 }
+
+/* Default maximum number of characters in a packet body. Many
+   remote stubs have a hardwired buffer size of 400 bytes
+   (c.f. BUFMAX in m68k-stub.c and i386-stub.c).  */
+/* APPLE LOCAL: Extended to a higher value to fit all ARM FP and VFP 
+ * registers (r0-r15, f0-f7 (12 bytes each), fps, cpsr
+ * s0-s31, fpscr), so we have 51 4 byte registers, and 8 12 byte FP
+ * registers for 300 bytes of binary data. Since this is displayed sent
+ * as ASCII, we end up with 600 bytes of ASCII data, plus the $ # and 
+ * 2 ascii bytes for the checksym byte. gdbserver by default has a buffer
+ * size of 2000, so lets use that as a starting point.
+ *
+ * Made "global" in order to have access via command line 
+ * arguments. 
+ */
+#define DEFAULT_MAX_REMOTE_PACKET_SIZE 2000
+static long g_max_remote_packet_size = DEFAULT_MAX_REMOTE_PACKET_SIZE; 
+
 
 static void *
 init_remote_state (struct gdbarch *gdbarch)
@@ -263,14 +343,11 @@ init_remote_state (struct gdbarch *gdbarch)
 	rs->sizeof_g_packet += register_size (current_gdbarch, regnum);
     }
 
-  /* Default maximum number of characters in a packet body. Many
-     remote stubs have a hardwired buffer size of 400 bytes
-     (c.f. BUFMAX in m68k-stub.c and i386-stub.c).  BUFMAX-1 is used
-     as the maximum packet-size to ensure that the packet and an extra
-     NUL character can always fit in the buffer.  This stops GDB
-     trashing stubs that try to squeeze an extra NUL into what is
-     already a full buffer (As of 1999-12-04 that was most stubs.  */
-  rs->remote_packet_size = 400 - 1;
+  /* G_MAX_REMOTE_PACKET_SIZE-1 is used as the maximum packet-size to ensure
+     that the packet and an extra NULL character can always fit in the buffer.  
+     This stops GDB trashing stubs that try to squeeze an extra NUL into what 
+     is already a full buffer (As of 1999-12-04 that was most stubs).  */
+  rs->remote_packet_size = g_max_remote_packet_size - 1;
 
   /* Should rs->sizeof_g_packet needs more space than the
      default, adjust the size accordingly. Remember that each byte is
@@ -283,6 +360,12 @@ init_remote_state (struct gdbarch *gdbarch)
 
   /* This one is filled in when a ``g'' packet is received.  */
   rs->actual_register_packet_size = 0;
+  /* We added this for the case where you tell the stub what it's
+     target is.  In the normal case, we always have a target.  */
+  rs->has_target = 1;
+
+  /* APPLE LOCAL */
+  initialize_protocol_log ();
 
   return rs;
 }
@@ -392,6 +475,115 @@ struct memory_packet_config
   int fixed_p;
 };
 
+/* APPLE LOCAL:  Dump a stack trace of gdb to stderr at the current
+   location in remote.c.  There's nothing specific about remote.c in this
+   function's behavior right now but let's keep it static so we can customize
+   it in the future if that seems appropriate.  */
+
+static void
+remote_backtrace_self ()
+{
+  void *bt_buffer[10];
+  int count = backtrace (bt_buffer, 10);
+  fprintf_filtered (gdb_stderr, "gdb stack crawl at point of invalid hex digit:\n");
+  backtrace_symbols_fd (bt_buffer, count, STDERR_FILENO);
+}
+
+static void
+initialize_protocol_log ()
+{
+  int i;
+  protocol_log.head = 0;
+  protocol_log.max_ent = 800;
+  if (protocol_log.ents != NULL)
+    xfree (protocol_log.ents);
+  protocol_log.ents = xmalloc (sizeof (struct protocol_log_entry) * 
+                                                      protocol_log.max_ent);
+  for (i = 0; i < protocol_log.max_ent; i++)
+    protocol_log.ents[i].packet[0] = '\0';
+}
+
+static void
+add_pkt_to_protocol_log (const char *p, enum pkt_direction direction)
+{
+  struct protocol_log_entry *cur = &protocol_log.ents[protocol_log.head];
+
+  /* For an empty packet (e.g. an empty response indicating an unrecognized
+     request), add a single space character.  We use zero-length entries to 
+     indicate unused slots.  */
+  if (p[0] == '\0')
+    p = " ";
+  strncpy (cur->packet, p, PROTOCOL_LOG_BUFSIZE - 1);
+  cur->packet[PROTOCOL_LOG_BUFSIZE - 1] = '\0';
+  cur->direction = direction;
+  gettimeofday (&cur->tv, NULL);
+  if (current_remote_stats && current_remote_stats->mi_token[0] != '\0')
+    strcpy (cur->mi_token, current_remote_stats->mi_token);
+  else
+    cur->mi_token[0] = '\0';
+  protocol_log.head++;
+  if (protocol_log.head == protocol_log.max_ent)
+    protocol_log.head = 0;
+}
+
+static void
+add_outgoing_pkt_to_protocol_log (const char *p)
+{
+  add_pkt_to_protocol_log (p, sent_from_gdb);
+}
+
+static void
+add_incoming_pkt_to_protocol_log (const char *p)
+{
+  add_pkt_to_protocol_log (p, received_by_gdb);
+}
+
+static void
+dump_protocol_log ()
+{
+  /* protocol_log.head is actually the oldest entry in the ring buffer but 
+     I skip over it to simplify the loop conditional expression below.  */
+  int i = protocol_log.head + 1;
+  if (i == protocol_log.max_ent)
+    i = 0;
+  while (i != protocol_log.head)
+    {
+      if (protocol_log.ents[i].packet[0] != '\0')
+        {
+          if (protocol_log.ents[i].direction == sent_from_gdb)
+            fprintf_filtered (gdb_stderr, "Sent:  ");
+          else
+            fprintf_filtered (gdb_stderr, "Recvd: ");
+          struct timeval *t = &(protocol_log.ents[i].tv);
+          fprintf_filtered (gdb_stderr, "[%0.3f",
+                      ((double) t->tv_sec * 1000000 + t->tv_usec) / 1000000);
+          if (protocol_log.ents[i].mi_token[0] != '\0')
+            fprintf_filtered (gdb_stderr, ":%s", protocol_log.ents[i].mi_token);
+          fprintf_filtered (gdb_stderr, "] ");
+          const char *p = protocol_log.ents[i].packet;
+          while (p && *p != '\0')
+            {
+              if (isprint (*p))
+                fprintf_filtered (gdb_stderr, "%c", *p);
+              else
+                fprintf_filtered (gdb_stderr, "\\x%02x", *p & 0xff);
+              p++;
+            }
+          fprintf_filtered (gdb_stderr, "\n");
+        }
+      if (++i == protocol_log.max_ent)
+        i = 0;
+    }
+}
+
+static void
+dump_packets_command (char *unused, int fromtty)
+{
+  if (!remote_desc)
+    error (_("command can only be used with remote target"));
+  dump_protocol_log ();
+}
+
 /* Compute the current size of a read/write packet.  Since this makes
    use of ``actual_register_packet_size'' the computation is dynamic.  */
 
@@ -437,6 +629,7 @@ get_memory_packet_size (struct memory_packet_config *config)
     what_they_get = MIN_REMOTE_PACKET_SIZE;
   return what_they_get;
 }
+
 
 /* Update the size of a read/write packet. If they user wants
    something really big then do a sanity check.  */
@@ -496,8 +689,47 @@ show_memory_packet_size (struct memory_packet_config *config)
 
 static struct memory_packet_config memory_write_packet_config =
 {
-  "memory-write-packet-size",
+  "memory-write-packet-size", 0, 0
 };
+
+/* APPLE LOCAL BEGIN: dynamic remote packet size
+ * Allow the max remote packet size to be increased for better 
+ * download performance.
+ */
+static void
+show_max_remote_packet_size (char *args, int from_tty)
+{
+    printf_filtered (_("The max remote packet size is %ld (0x%lx).\n"), 
+		     g_max_remote_packet_size, g_max_remote_packet_size);
+}
+
+static void
+set_max_remote_packet_size (char *args, int from_tty)
+{
+  if (args == NULL)
+    {
+      /* If no arguments are given, revert to default value.  */
+      g_max_remote_packet_size = DEFAULT_MAX_REMOTE_PACKET_SIZE;
+    }
+  else
+    {
+      char *end = NULL;
+      long remote_packet_size = strtol (args, &end, 0);
+      /* Make sure that the new value is larger than the the 
+         minimum max remote packet size so we all remote
+         command packets can still function properly.  */
+      if (end == NULL || *end != '\0')
+	{
+	  error (_("Invalid remote packet size integer string: %s"), args);
+	}
+      else
+        {
+	  g_max_remote_packet_size = remote_packet_size;
+	}
+    }
+}
+
+/* APPLE LOCAL END: dynamic remote packet size  */
 
 static void
 set_memory_write_packet_size (char *args, int from_tty)
@@ -519,7 +751,7 @@ get_memory_write_packet_size (void)
 
 static struct memory_packet_config memory_read_packet_config =
 {
-  "memory-read-packet-size",
+  "memory-read-packet-size", 0, 0
 };
 
 static void
@@ -642,10 +874,10 @@ add_packet_config_cmd (struct packet_config *config,
   config->title = title;
   config->detect = AUTO_BOOLEAN_AUTO;
   config->support = PACKET_SUPPORT_UNKNOWN;
-  set_doc = xstrprintf ("Set use of remote protocol `%s' (%s) packet",
-			name, title);
-  show_doc = xstrprintf ("Show current use of remote protocol `%s' (%s) packet",
-			 name, title);
+  set_doc = xstrprintf ("Set use of remote protocol `%s' packet",
+			name);
+  show_doc = xstrprintf ("Show current use of remote protocol `%s' packet",
+			 name);
   /* set/show TITLE-packet {auto,on,off} */
   cmd_name = xstrprintf ("%s-packet", title);
   add_setshow_auto_boolean_cmd (cmd_name, class_obscure,
@@ -904,6 +1136,154 @@ show_remote_protocol_Z_packet_cmd (struct ui_file *file, int from_tty,
     }
 }
 
+/* APPLE LOCAL */
+
+/* Ask the remote stub to start communicating without ACK packets. */
+
+static void
+start_no_ack_mode ()
+{
+  char buf[256];
+  putpkt ("QStartNoAckMode");
+  getpkt (buf, sizeof (buf) - 1, 0);
+  if (buf[0] == 'O' && buf[1] == 'K')
+    no_ack_mode = 1;
+  return;
+}
+
+static void
+set_no_ack_mode_cmd (char *args, int from_tty, struct cmd_list_element *c)
+{
+  user_requested_no_ack_mode = AUTO_BOOLEAN_TRUE;
+
+  if (remote_desc == NULL)  /* Are we connected yet? */
+    return;
+
+  start_no_ack_mode ();
+}
+
+static void
+show_no_ack_mode_cmd (struct ui_file *file, int from_tty, 
+                      struct cmd_list_element *c, const char *value)
+{
+  if (user_requested_no_ack_mode != AUTO_BOOLEAN_TRUE)
+    {
+      printf_filtered ("No ack mode is not enabled.\n");
+      return;
+    }
+  if (remote_desc == 0)
+    {
+      printf_filtered ("No ack mode is requested but we have not yet connected "
+                       "to remote stub.\n");
+      return;
+    }
+  if (no_ack_mode)
+    printf_filtered ("No ack mode is requested and has been accepted by remote stub.\n");
+  else
+    printf_filtered ("No ack mode is requested but was not accepted by remote stub.\n");
+}
+
+static int
+send_remote_debugflags_pkt (const char *flags)
+{
+  char *pkt = (char *) alloca (sizeof ("QSetLogging:bitmask=") + 
+                                       strlen (flags) + 1);
+  char buf[128];
+  strcpy (pkt, "QSetLogging:bitmask=");
+  strcat (pkt, flags);
+  strcat (pkt, ";");
+  putpkt (pkt);
+  getpkt (buf, sizeof (buf) - 1, 0);
+  if (buf[0] != 'O' || buf[1] != 'K')
+    return 0;
+  return 1;
+}
+
+/* APPLE LOCAL: Tell the remote stub the maximum payload size gdb can handle.
+   "payload" does not include the packet-start '$', the 
+   packet-end '#', or the 2-character checksum.
+   Any packets that the remote stub wants to send that are larger 
+   than this, it should break up into multiple packets.  
+   Note that the packet size is sent as a hex value without a 
+   "0x" prefix, as is the style of gdb remote protocol.  
+
+   This ONLY tells the remote stub how large of a packet gdb can 
+   receive.  It doesn't say anything about how large of a packet gdb
+   might try to send or about how large of a packet the remote stub
+   may be able to send/receive.  */
+
+static int
+send_remote_max_payload_size ()
+{
+  struct remote_state *rs = get_remote_state ();
+  if (rs->remote_packet_size < 4)
+    return 0;
+
+  char buf[32];
+  snprintf (buf, sizeof (buf), "QSetMaxPayloadSize:%x", 
+            (int) rs->remote_packet_size - 4);
+  putpkt (buf);
+  getpkt (buf, sizeof (buf) - 1, 0);
+  if (buf[0] != 'O' || buf[1] != 'K')
+    return 0;
+
+  return 1;
+}
+
+/* APPLE LOCAL Expect this to be used like
+     set remote debugflags LOG_MEMORY|LOG_RNB_EVENTS|LOG_RNB_REMOTE
+   Don't do any sanity checking on the arguments, just send them to
+   the inferior in a QSetLogging packet which will be formatted like
+
+     QSetLogging:bitmask=LOG_MEMORY|LOG_RNB_EVENTS|LOG_RNB_REMOTE;
+
+   If QSetLogging grows to take other arguments they will be separated
+   by the semicolons. e.g.
+
+     QSetLogging:bitmask=LOG_MEMORY;mode=asl;
+   */
+
+static void
+set_remote_debugflags_command (char *ignore, int from_tty, 
+                               struct cmd_list_element *unused)
+{
+  if (remote_debugflags == NULL)
+    error ("No remote debugflags specified.");
+
+  /* Check that the provided string consists of uppercase chars, underscore,
+     and pipe chars.  */
+  const char *c = remote_debugflags;
+  while (*c != '\0')
+    if (!isupper (*c) && *c != '_' && *c != '|')
+      break;
+    else
+      c++;
+  if (*c != '\0')
+    {
+      // I should probably xfree the existing value or something but I'm not
+      // positive how this memory is managed by the add_setshow cmds. 
+      remote_debugflags = NULL;
+      error ("set remote debugflags expects arguments like "
+             "`LOG_MEMORY|LOG_RNB_REMOTE' unexpected character seen instead.");
+    }
+
+  if (remote_desc == NULL)  /* Are we connected? */
+    return;
+
+  if (!send_remote_debugflags_pkt (remote_debugflags))
+    error ("Unable to set debug flags on remote stub.");
+}
+
+static void
+show_remote_debugflags_command (struct ui_file *file, int from_tty, 
+                                struct cmd_list_element *c, const char *value)
+{
+  if (remote_debugflags == NULL)
+    printf_filtered ("No remote debugflags have been set.\n");
+  else
+    printf_filtered ("%s\n", remote_debugflags);
+}
+
 /* Should we try the 'X' (remote binary download) packet?
 
    This variable (available to the user via "set remote X-packet")
@@ -1112,12 +1492,12 @@ typedef int gdb_threadref;	/* Internal GDB thread reference.  */
 struct gdb_ext_thread_info
   {
     threadref threadid;		/* External form of thread reference.  */
-    int active;			/* Has state interesting to GDB? 
+    int active;			/* Has state interesting to GDB?
 				   regs, stack.  */
-    char display[256];		/* Brief state display, name, 
+    char display[256];		/* Brief state display, name,
 				   blocked/suspended.  */
     char shortname[32];		/* To be used to name threads.  */
-    char more_display[256];	/* Long info, statistics, queue depth, 
+    char more_display[256];	/* Long info, statistics, queue depth,
 				   whatever.  */
   };
 
@@ -1163,7 +1543,7 @@ static void copy_threadref (threadref *dest, threadref *src);
 
 static int threadmatch (threadref *dest, threadref *src);
 
-static char *pack_threadinfo_request (char *pkt, int mode, 
+static char *pack_threadinfo_request (char *pkt, int mode,
 				      threadref *id);
 
 static int remote_unpack_thread_info_response (char *pkt,
@@ -1172,7 +1552,7 @@ static int remote_unpack_thread_info_response (char *pkt,
 					       *info);
 
 
-static int remote_get_threadinfo (threadref *threadid, 
+static int remote_get_threadinfo (threadref *threadid,
 				  int fieldset,	/*TAG mask */
 				  struct gdb_ext_thread_info *info);
 
@@ -1183,14 +1563,14 @@ static char *pack_threadlist_request (char *pkt, int startflag,
 static int parse_threadlist_response (char *pkt,
 				      int result_limit,
 				      threadref *original_echo,
-				      threadref *resultlist, 
+				      threadref *resultlist,
 				      int *doneflag);
 
 static int remote_get_threadlist (int startflag,
 				  threadref *nextthread,
 				  int result_limit,
 				  int *done,
-				  int *result_count, 
+				  int *result_count,
 				  threadref *threadlist);
 
 typedef int (*rmt_thread_action) (threadref *ref, void *context);
@@ -1410,7 +1790,7 @@ threadref_to_int (threadref *ref)
   int i, value = 0;
   unsigned char *scan;
 
-  scan = (char *) ref;
+  scan = (unsigned char *) ref;
   scan += 4;
   i = 4;
   while (i-- > 0)
@@ -1518,7 +1898,7 @@ remote_unpack_thread_info_response (char *pkt, threadref *expectedref,
   /* Packets are terminated with nulls.  */
   while ((pkt < limit) && mask && *pkt)
     {
-      pkt = unpack_int (pkt, &tag);	/* tag */
+      pkt = unpack_int (pkt, (int *) &tag);	/* tag */
       pkt = unpack_byte (pkt, &length);	/* length */
       if (!(tag & mask))		/* Tags out of synch with mask.  */
 	{
@@ -1892,13 +2272,13 @@ remote_threads_extra_info (struct thread_info *tp)
     if (threadinfo.active)
       {
 	if (*threadinfo.shortname)
-	  n += xsnprintf (&display_buf[0], sizeof (display_buf) - n, 
+	  n += xsnprintf (&display_buf[0], sizeof (display_buf) - n,
 			  " Name: %s,", threadinfo.shortname);
 	if (*threadinfo.display)
-	  n += xsnprintf (&display_buf[n], sizeof (display_buf) - n, 
+	  n += xsnprintf (&display_buf[n], sizeof (display_buf) - n,
 			  " State: %s,", threadinfo.display);
 	if (*threadinfo.more_display)
-	  n += xsnprintf (&display_buf[n], sizeof (display_buf) - n, 
+	  n += xsnprintf (&display_buf[n], sizeof (display_buf) - n,
 			  " Priority: %s", threadinfo.more_display);
 
 	if (n > 0)
@@ -2044,19 +2424,51 @@ remote_start_remote (struct ui_out *uiout, void *dummy)
   immediate_quit++;		/* Allow user to interrupt it.  */
 
   /* Ack any packet which the remote side has already sent.  */
+  /* APPLE LOCAL */
+  start_remote_timer ();
   serial_write (remote_desc, "+", 1);
+  end_remote_timer ();
+  /* APPLE LOCAL */
+  if (current_remote_stats)
+    current_remote_stats->acks_sent++;
+  add_outgoing_pkt_to_protocol_log ("+");
 
   /* Let the stub know that we want it to return the thread.  */
   set_thread (-1, 0);
 
   inferior_ptid = remote_current_thread (inferior_ptid);
+  /* APPLE LOCAL: Handle a remote stub where the target isn't started
+     when we connect, and we'll either run or attach later.  */
+  if (ptid_equal (inferior_ptid, null_ptid))
+    {
+      struct remote_state *rs = get_remote_state ();
+      rs->has_target = 0;
 
-  get_offsets ();		/* Get text, data & bss offsets.  */
+      target_has_execution = 0;
+      target_has_stack = 0;
+      target_has_registers = 0;
+      immediate_quit--;
+    }
+  else
+    {
+      target_has_execution = 1;
+      target_has_stack = 1;
+      target_has_registers = 1;
+      
+      get_offsets ();		/* Get text, data & bss offsets.  */
 
-  putpkt ("?");			/* Initiate a query from remote machine.  */
-  immediate_quit--;
-
-  remote_start_remote_dummy (uiout, dummy);
+      /* APPLE LOCAL */
+      if (user_requested_no_ack_mode == AUTO_BOOLEAN_TRUE)
+        start_no_ack_mode ();
+      if (remote_debugflags != NULL)
+        send_remote_debugflags_pkt (remote_debugflags);
+      send_remote_max_payload_size ();
+      
+      putpkt ("?");		/* Initiate a query from remote machine.  */
+      immediate_quit--;
+      
+      remote_start_remote_dummy (uiout, dummy);
+    }
 }
 
 /* Open a connection to a remote debugger.
@@ -2305,14 +2717,18 @@ remote_open_1 (char *name, int from_tty, struct target_ops *target,
      support svr4 shared libraries.  */
 
   /* Set up to detect and load shared libraries.  */
-  if (exec_bfd) 	/* No use without an exec file.  */
+  /* APPLE LOCAL: We've modified the remote code so we can
+     start up connecting to a stub that isn't running the
+     target yet.  We shouldn't try to inspect it in that
+     case.  */
+  if (exec_bfd && !ptid_equal (inferior_ptid, null_ptid)) 	/* No use without an exec file.  */
     {
 #ifdef MACOSX_DYLD
       /* APPLE LOCAL: for Mac OS X remote targets, init our
          dyld information instead of currently using the solib
 	 interface that parallels our dyld implementation.  */
       macosx_dyld_create_inferior_hook ();
-	 
+
 #else /* MACOSX_DYLD */
 
 #ifdef SOLIB_CREATE_INFERIOR_HOOK
@@ -2324,9 +2740,227 @@ remote_open_1 (char *name, int from_tty, struct target_ops *target,
 #endif /* MACOSX_DYLD */
       remote_check_symbols (symfile_objfile);
     }
+  
+  if (!ptid_equal (inferior_ptid, null_ptid))
+      observer_notify_inferior_created (&current_target, from_tty);
+}
+  
+/* APPLE LOCAL Implementation of remote_create_inferior and remote_attach.  */
+static void
+complete_create_or_attach (int from_tty)
+{
+  struct remote_state *rs = get_remote_state ();
 
+  /* Now send the restart packet.  Then we will wait for the remote to
+     start up.  */
+  struct gdb_exception ex;
+  ex = catch_exception (uiout, remote_start_remote, NULL, RETURN_MASK_ALL);
+  if (ex.reason < 0)
+    {
+      pop_target ();
+      throw_exception (ex);
+    }
+  
+  /* Now indicate we have a remote target:  */
+  rs->has_target = 1;
+  
+  /* And not that we have a target, redo the dyld information.  */
+  macosx_dyld_create_inferior_hook ();
+  if (exec_bfd)
+    remote_check_symbols (symfile_objfile);
+  
   observer_notify_inferior_created (&current_target, from_tty);
 }
+
+/* We printf lengths & index's.  We need to know what size to allocate for them.
+   20 is the length of 0xffffffffffffffff as an int.  Probably big enough.  */
+#define INT_PRINT_MAX 20
+void
+remote_create_inferior (char *exec_file, char *allargs, char **env, int from_tty)
+{
+  struct remote_state *rs = get_remote_state ();
+  char *buf = alloca (rs->remote_packet_size);
+  char *pkt_buffer = NULL;
+  int exec_len;
+  int args_len;
+  int argnum;
+  int print_len;
+  int i;
+  char *ptr;
+  char hexval[3];
+  char **argv;
+  int argc;
+  struct cleanup *pkt_cleanup;
+  char *remote_exec_file;
+  static const char *env_pkt_hdr = "QEnvironment:";
+  int envnum;
+  int packet_len;
+  int max_size;
+  int timed_out;
+
+  
+  /* First send down the environment array. 
+     We are using a packet of the form:
+         QEnvironment[,<LEN>,<ENV_ELEM>]...
+     where the ENV_ELEM is a hex-encoded form of the FOO=BAR entry that gdb passes in, and
+     LEN is the length of the hex-encoded form.  */
+  
+  envnum = 0;
+  max_size = 0;
+  pkt_cleanup = NULL;
+
+  while (env[envnum] != NULL)
+    {
+        packet_len = strlen (env_pkt_hdr) +  strlen(env[envnum]) + 1;
+
+	if (packet_len > rs->remote_packet_size)
+	  {
+	    warning ("Environment variable too long, skipping: %s", env[envnum]);
+	    continue;
+	  }
+
+	if (packet_len > max_size)
+	  {
+	    if (pkt_cleanup != NULL)
+	      do_cleanups (pkt_cleanup);
+	    pkt_buffer = (char *) xmalloc (packet_len);
+	    max_size = packet_len;
+	    pkt_cleanup = make_cleanup (xfree, pkt_buffer);
+	  }
+
+	snprintf (pkt_buffer, packet_len, "%s%s", env_pkt_hdr, env[envnum]);
+	putpkt (pkt_buffer);
+
+	getpkt (buf, rs->remote_packet_size, 0);
+	if (buf[0] == 'E')
+	  error ("Got an error \"%s\" sending environment to remote.", buf);
+	else if (buf[0] != '\0' && (buf[0] != 'O' && buf[1] != 'K'))
+	  error ("Unknown packet reply: \"%s\" to environment packet.", buf);
+	
+	envnum++;
+    }
+
+  if (pkt_cleanup != NULL)
+    do_cleanups (pkt_cleanup);
+
+  /* Next send down the arguments.  */
+
+  /* The largest possible array - every character is a separate argument.  */
+  argv = (char **) xmalloc (((strlen (allargs) + 1) / (unsigned) 2 + 2) * sizeof (*argv));
+  pkt_cleanup = make_cleanup (xfree, argv);
+  breakup_args (allargs, &argc, argv);
+
+  if (remote_exec_dir == NULL || remote_exec_dir[0] == '\0')
+    {
+      remote_exec_file = exec_file;
+    }
+  else
+    {
+      char *file_name = basename (exec_file);
+      remote_exec_file = (char *) xmalloc (strlen (remote_exec_dir) 
+					   + strlen (file_name) + 1);
+      sprintf (remote_exec_file, "%s/%s", remote_exec_dir, file_name);
+      make_cleanup (xfree, remote_exec_file);
+    }
+
+  exec_len = strlen (remote_exec_file);
+  /* This is likely an overestimate, since if there's more than one
+     argument we won't include the spaces...  */
+  args_len = strlen (allargs);
+  
+  pkt_buffer = xmalloc (1 + INT_PRINT_MAX + 1 + INT_PRINT_MAX + 1 + 2 * exec_len 
+		      + argc * (1 + INT_PRINT_MAX + 1 + INT_PRINT_MAX + 1) + 2 * args_len + 1);
+  make_cleanup (xfree, pkt_buffer);
+  print_len = snprintf (pkt_buffer, INT_PRINT_MAX + 5, "A%d,0,", 2 * exec_len);
+  ptr = pkt_buffer + print_len;
+
+  for (i = 0; i < exec_len; i++)
+    {
+      snprintf (hexval, sizeof (hexval), "%02hhx", remote_exec_file[i]);
+      *ptr++ = hexval[0];
+      *ptr++ = hexval[1];
+    }
+  for (argnum = 0; argnum < argc; argnum++)
+    {
+      char *arg = argv[argnum];
+      int arglen = strlen (arg);
+      *ptr++ = ',';
+      *ptr = '\0';
+      print_len = snprintf (ptr, 2 * INT_PRINT_MAX + 3, "%d,%d,", 2 * arglen, argnum + 1);
+      ptr += print_len;
+      for (i = 0; i < arglen; i++)
+	{
+	  snprintf (hexval, sizeof (hexval), "%02hhx", arg[i]);
+	  *ptr++ = hexval[0];
+	  *ptr++ = hexval[1];
+	}
+    }
+  *ptr = '\0';
+  putpkt (pkt_buffer);
+  do_cleanups (pkt_cleanup);
+
+  getpkt (buf, rs->remote_packet_size, 0);
+  if (buf[0] == 'E')
+    error ("Got an error \"%s\" sending arguments to remote.", buf);
+  else if (buf[0] != 'O' && buf[1] != 'K')
+    error ("Unknown packet reply: \"%s\" to remote arguments packet.", buf);
+
+  /* debugserver actually replies to the A packet before starting up the app,
+     so then if it fails to start up, we don't get a useful error code.  
+     So I'm sending a "how about that startup" packet to retrieve that if 
+     there is an error code.  */
+
+  putpkt ("qLaunchSuccess");
+  /* Increase the timeout for qLaunchSuccess to 30 seconds to match how long
+     the debugserver will wait for the inferior to give us its process ID.  */
+  int old_remote_timeout = remote_timeout;
+  remote_timeout = 30;	
+  timed_out = getpkt_sane(buf, rs->remote_packet_size, 0);
+  remote_timeout = old_remote_timeout;
+  
+  if (timed_out)
+    {
+      pop_target ();
+      error ("Error launching timed out.");
+    }
+  else if (buf[0] == 'E')
+    {
+      pop_target ();
+      error ("Error launching remote program: %s.", buf+1);
+    }
+
+  complete_create_or_attach (from_tty);
+}
+
+void
+remote_attach (char *args, int from_tty)
+{
+  struct remote_state *rs = get_remote_state ();
+  char *buf = alloca (rs->remote_packet_size);
+  char *endptr;
+  pid_t remote_pid;
+  int timed_out;
+
+  if (args == NULL || *args == '\0')
+    error ("No pid supplied to attach.");
+
+  remote_pid = strtol (args, &endptr, 0);
+  if (*endptr != '\0')
+    error ("Junk at the end of pid string: \"%s\".", endptr);
+
+  sprintf (buf, "vAttach;%x", remote_pid);
+  putpkt (buf);
+  timed_out = getpkt_sane (buf, rs->remote_packet_size, 0);
+  
+  if (timed_out)
+    error ("Attach attempt timed out.");
+  else if (*buf == '\0' || *buf == 'E')
+    error ("Attach failed: '%s'", buf);
+
+  complete_create_or_attach (from_tty);
+}
+
+/* END APPLE LOCAL */
 
 /* This takes a program previously attached to and detaches it.  After
    this is done, GDB can be used to debug some other program.  We
@@ -2384,7 +3018,13 @@ fromhex (int a)
   else if (a >= 'A' && a <= 'F')
     return a - 'A' + 10;
   else
-    error (_("Reply contains invalid hex digit %d"), a);
+    {
+      fputs_filtered ("gdb stack trace at point of error:", gdb_stderr);
+      remote_backtrace_self ();
+      fputs_filtered ("recent remote packet log at point of error:", gdb_stderr);
+      dump_protocol_log ();
+      error (_("Reply contains invalid hex digit %d"), a);
+    }
 }
 
 static int
@@ -2698,10 +3338,10 @@ cleanup_sigint_signal_handler (void *dummy)
 {
   signal (SIGINT, handle_sigint);
   if (sigint_remote_twice_token)
-    delete_async_signal_handler ((struct async_signal_handler **) 
+    delete_async_signal_handler ((struct async_signal_handler **)
 				 &sigint_remote_twice_token);
   if (sigint_remote_token)
-    delete_async_signal_handler ((struct async_signal_handler **) 
+    delete_async_signal_handler ((struct async_signal_handler **)
 				 &sigint_remote_token);
 }
 
@@ -2749,7 +3389,16 @@ remote_stop (void)
   if (remote_break)
     serial_send_break (remote_desc);
   else
-    serial_write (remote_desc, "\003", 1);
+    {
+      /* APPLE LOCAL */
+      start_remote_timer ();
+      serial_write (remote_desc, "\003", 1);
+      end_remote_timer ();
+      /* APPLE LOCAL */
+      if (current_remote_stats)
+        current_remote_stats->acks_sent++;
+      add_outgoing_pkt_to_protocol_log ("Control-C");
+    }
 }
 
 /* Ask the user what to do when an interrupt is received.  */
@@ -2840,10 +3489,11 @@ remote_console_output (char *msg)
    remote OS, is the thread-id.  */
 
 static ptid_t
-remote_wait (ptid_t ptid, struct target_waitstatus *status)
+remote_wait (ptid_t ptid, struct target_waitstatus *status,
+             gdb_client_data client_data)
 {
   struct remote_state *rs = get_remote_state ();
-  unsigned char *buf = alloca (rs->remote_packet_size);
+  char *buf = alloca (rs->remote_packet_size);
   ULONGEST thread_num = -1;
   ULONGEST addr;
 
@@ -2852,7 +3502,7 @@ remote_wait (ptid_t ptid, struct target_waitstatus *status)
 
   while (1)
     {
-      unsigned char *p;
+      char *p;
 
       ofunc = signal (SIGINT, remote_interrupt);
       getpkt (buf, (rs->remote_packet_size), 1);
@@ -2887,7 +3537,7 @@ remote_wait (ptid_t ptid, struct target_waitstatus *status)
 
 	    while (*p)
 	      {
-		unsigned char *p1;
+		char *p1;
 		char *p_temp;
 		int fieldsize;
 		LONGEST pnum = 0;
@@ -2899,18 +3549,18 @@ remote_wait (ptid_t ptid, struct target_waitstatus *status)
 		/* If this packet is an awatch packet, don't parse the
 		   'a' as a register number.  */
 
-		if (strncmp (p, "awatch", strlen("awatch")) != 0)
+		if (strncmp ((char *) p, "awatch", strlen("awatch")) != 0)
 		  {
 		    /* Read the ``P'' register number.  */
 		    pnum = strtol (p, &p_temp, 16);
-		    p1 = (unsigned char *) p_temp;
+		    p1 = p_temp;
 		  }
 		else
 		  p1 = p;
 
 		if (p1 == p)	/* No register number present here.  */
 		  {
-		    p1 = (unsigned char *) strchr (p, ':');
+		    p1 = strchr (p, ':');
 		    if (p1 == NULL)
 		      warning (_("Malformed packet(a) (missing colon): %s\n\
 Packet: '%s'\n"),
@@ -2919,7 +3569,7 @@ Packet: '%s'\n"),
 		      {
 			p_temp = unpack_varlen_hex (++p1, &thread_num);
 			record_currthread (thread_num);
-			p = (unsigned char *) p_temp;
+			p = p_temp;
 		      }
 		    else if ((strncmp (p, "watch", p1 - p) == 0)
 			     || (strncmp (p, "rwatch", p1 - p) == 0)
@@ -2934,7 +3584,7 @@ Packet: '%s'\n"),
  			/* Silently skip unknown optional info.  */
  			p_temp = strchr (p1 + 1, ';');
  			if (p_temp)
-			  p = (unsigned char *) p_temp;
+			  p = p_temp;
  		      }
 		  }
 		else
@@ -3029,10 +3679,11 @@ got_status:
 
 /* Async version of remote_wait.  */
 static ptid_t
-remote_async_wait (ptid_t ptid, struct target_waitstatus *status)
+remote_async_wait (ptid_t ptid, struct target_waitstatus *status, 
+                   gdb_client_data client_data)
 {
   struct remote_state *rs = get_remote_state ();
-  unsigned char *buf = alloca (rs->remote_packet_size);
+  char *buf = alloca (rs->remote_packet_size);
   ULONGEST thread_num = -1;
   ULONGEST addr;
 
@@ -3043,7 +3694,7 @@ remote_async_wait (ptid_t ptid, struct target_waitstatus *status)
 
   while (1)
     {
-      unsigned char *p;
+      char *p;
 
       if (!target_is_async_p ())
 	ofunc = signal (SIGINT, remote_interrupt);
@@ -3082,7 +3733,7 @@ remote_async_wait (ptid_t ptid, struct target_waitstatus *status)
 
 	    while (*p)
 	      {
-		unsigned char *p1;
+		char *p1;
 		char *p_temp;
 		int fieldsize;
 		long pnum = 0;
@@ -3098,14 +3749,14 @@ remote_async_wait (ptid_t ptid, struct target_waitstatus *status)
 		  {
 		    /* Read the register number.  */
 		    pnum = strtol (p, &p_temp, 16);
-		    p1 = (unsigned char *) p_temp;
+		    p1 = p_temp;
 		  }
 		else
 		  p1 = p;
 
 		if (p1 == p)	/* No register number present here.  */
 		  {
-		    p1 = (unsigned char *) strchr (p, ':');
+		    p1 = strchr (p, ':');
 		    if (p1 == NULL)
 		      error (_("Malformed packet(a) (missing colon): %s\n\
 Packet: '%s'\n"),
@@ -3114,7 +3765,7 @@ Packet: '%s'\n"),
 		      {
 			p_temp = unpack_varlen_hex (++p1, &thread_num);
 			record_currthread (thread_num);
-			p = (unsigned char *) p_temp;
+			p = p_temp;
 		      }
 		    else if ((strncmp (p, "watch", p1 - p) == 0)
 			     || (strncmp (p, "rwatch", p1 - p) == 0)
@@ -3127,7 +3778,7 @@ Packet: '%s'\n"),
 		    else
  		      {
  			/* Silently skip unknown optional info.  */
- 			p_temp = (unsigned char *) strchr (p1 + 1, ';');
+ 			p_temp = strchr (p1 + 1, ';');
  			if (p_temp)
 			  p = p_temp;
  		      }
@@ -3418,7 +4069,7 @@ remote_prepare_to_store (void)
 {
   struct remote_state *rs = get_remote_state ();
   int i;
-  char buf[MAX_REGISTER_SIZE];
+  unsigned char buf[MAX_REGISTER_SIZE];
 
   /* Make sure the entire registers array is valid.  */
   switch (remote_protocol_P.support)
@@ -3649,17 +4300,17 @@ check_binary_download (CORE_ADDR addr)
    error.  Only transfer a single packet.  */
 
 int
-remote_write_bytes (CORE_ADDR memaddr, char *myaddr, int len)
+remote_write_bytes (CORE_ADDR memaddr, const gdb_byte *myaddr, int len)
 {
-  unsigned char *buf;
-  unsigned char *p;
-  unsigned char *plen;
+  char *buf;
+  char *p;
+  char *plen;
   long sizeof_buf;
   int plenlen;
   int todo;
   int nr_bytes;
   int payload_size;
-  unsigned char *payload_start;
+  char *payload_start;
 
   /* Verify that the target can support a binary download.  */
   check_binary_download (memaddr);
@@ -3765,7 +4416,7 @@ remote_write_bytes (CORE_ADDR memaddr, char *myaddr, int len)
       /* Normal mode: Send target system values byte by byte, in
 	 increasing byte addresses.  Each byte is encoded as a two hex
 	 value.  */
-      nr_bytes = bin2hex (myaddr, p, todo);
+      nr_bytes = bin2hex ((char *) myaddr, p, todo);
       p += 2 * nr_bytes;
       break;
     case PACKET_SUPPORT_UNKNOWN:
@@ -3883,22 +4534,12 @@ remote_xfer_memory (CORE_ADDR mem_addr, gdb_byte *buffer, int mem_len,
 		    int should_write, struct mem_attrib *attrib,
 		    struct target_ops *target)
 {
-  CORE_ADDR targ_addr;
-  int targ_len;
   int res;
 
-  /* Should this be the selected frame?  */
-  gdbarch_remote_translate_xfer_address (current_gdbarch, 
-					 current_regcache,
-					 mem_addr, mem_len,
-					 &targ_addr, &targ_len);
-  if (targ_len <= 0)
-    return 0;
-
   if (should_write)
-    res = remote_write_bytes (targ_addr, buffer, targ_len);
+    res = remote_write_bytes (mem_addr, buffer, mem_len);
   else
-    res = remote_read_bytes (targ_addr, buffer, targ_len);
+    res = remote_read_bytes (mem_addr, (char *) buffer, mem_len);
 
   return res;
 }
@@ -3920,7 +4561,10 @@ readchar (int timeout)
 {
   int ch;
 
+  /* APPLE LOCAL */
+  start_remote_timer ();
   ch = serial_readchar (remote_desc, timeout);
+  end_remote_timer ();
 
   if (ch >= 0)
     return (ch & 0x7f);
@@ -4020,13 +4664,31 @@ putpkt_binary (char *buf, int cnt)
 	  fprintf_unfiltered (gdb_stdlog, "...");
 	  gdb_flush (gdb_stdlog);
 	}
+      /* APPLE LOCAL */
+      start_remote_timer ();
       if (serial_write (remote_desc, buf2, p - buf2))
 	perror_with_name (_("putpkt: write failed"));
+      end_remote_timer ();
+
+      /* APPLE LOCAL */
+      if (current_remote_stats)
+        current_remote_stats->pkt_sent++;
+      total_packets_sent++;
+      add_outgoing_pkt_to_protocol_log (buf);
+
+      /* APPLE LOCAL: If this is a no acks version of the remote
+	 protocol, send the packet and move on.  */
+      if (no_ack_mode)
+        break;
 
       /* Read until either a timeout occurs (-2) or '+' is read.  */
       while (1)
 	{
 	  ch = readchar (remote_timeout);
+
+          /* APPLE LOCAL */
+          if (current_remote_stats)
+            current_remote_stats->acks_recvd++;
 
 	  if (remote_debug)
 	    {
@@ -4061,14 +4723,20 @@ putpkt_binary (char *buf, int cnt)
 	    case '$':
 	      {
 	        if (remote_debug)
-		  fprintf_unfiltered (gdb_stdlog, 
+		  fprintf_unfiltered (gdb_stdlog,
 				      "Packet instead of Ack, ignoring it\n");
 		/* It's probably an old response sent because an ACK
 		   was lost.  Gobble up the packet and ack it so it
 		   doesn't get retransmitted when we resend this
 		   packet.  */
 		read_frame (junkbuf, sizeof_junkbuf);
+                /* APPLE LOCAL */
+                start_remote_timer ();
 		serial_write (remote_desc, "+", 1);
+                end_remote_timer ();
+                /* APPLE LOCAL */
+                if (current_remote_stats)
+                  current_remote_stats->acks_sent++;
 		continue;	/* Now, go look for +.  */
 	      }
 	    default:
@@ -4099,6 +4767,7 @@ putpkt_binary (char *buf, int cnt)
 	}
 #endif
     }
+  return 0;
 }
 
 /* Come here after finding the start of the frame.  Collect the rest
@@ -4151,17 +4820,23 @@ read_frame (char *buf,
 	    if (check_0 == SERIAL_TIMEOUT || check_1 == SERIAL_TIMEOUT)
 	      {
 		if (remote_debug)
-		  fputs_filtered ("Timeout in checksum, retrying\n", 
+		  fputs_filtered ("Timeout in checksum, retrying\n",
 				  gdb_stdlog);
 		return -1;
 	      }
 	    else if (check_0 < 0 || check_1 < 0)
 	      {
 		if (remote_debug)
-		  fputs_filtered ("Communication error in checksum\n", 
+		  fputs_filtered ("Communication error in checksum\n",
 				  gdb_stdlog);
 		return -1;
 	      }
+
+            /* APPLE LOCAL: Don't recompute the checksum; with no
+               ack packets we don't have any way to indicate a
+               packet retransmission is necessary. */
+            if (no_ack_mode)
+              return bc;
 
 	    pktcsum = (fromhex (check_0) << 4) | fromhex (check_1);
 	    if (csum == pktcsum)
@@ -4293,7 +4968,8 @@ getpkt_sane (char *buf,
 		{
 		  QUIT;
 		  target_mourn_inferior ();
-		  error (_("Watchdog has expired.  Target detached."));
+                  /* APPLE LOCAL: More explicit error message.  */
+		  error (_("Watchdog has expired.  Remote device was disconnected?  Debugging session terminated."));
 		}
 	      if (remote_debug)
 		fputs_filtered ("Timed out.\n", gdb_stdlog);
@@ -4308,26 +4984,58 @@ getpkt_sane (char *buf,
 
       if (val >= 0)
 	{
+          /* APPLE LOCAL */
+          if (current_remote_stats)
+            current_remote_stats->pkt_recvd++;
+          total_packets_received++;
 	  if (remote_debug)
 	    {
 	      fprintf_unfiltered (gdb_stdlog, "Packet received: ");
 	      fputstr_unfiltered (buf, 0, gdb_stdlog);
 	      fprintf_unfiltered (gdb_stdlog, "\n");
 	    }
-	  serial_write (remote_desc, "+", 1);
+          add_incoming_pkt_to_protocol_log (buf);
+          /* APPLE LOCAL: Skip the ack char if we're in no-ack mode */
+          if (!no_ack_mode)
+            {
+              start_remote_timer ();
+	      serial_write (remote_desc, "+", 1);
+              end_remote_timer ();
+              /* APPLE LOCAL */
+              if (current_remote_stats)
+                current_remote_stats->acks_sent++;
+            }
 	  return 0;
 	}
 
       /* Try the whole thing again.  */
     retry:
-      serial_write (remote_desc, "-", 1);
+      /* APPLE LOCAL: Skip the nack char if we're in no-ack mode */
+      if (!no_ack_mode)
+        {
+          start_remote_timer ();
+          serial_write (remote_desc, "-", 1);
+          end_remote_timer ();
+          /* APPLE LOCAL */
+          if (current_remote_stats)
+            current_remote_stats->acks_sent++;
+        }
     }
 
-  /* We have tried hard enough, and just can't receive the packet.  
+  /* We have tried hard enough, and just can't receive the packet.
      Give up.  */
 
   printf_unfiltered (_("Ignoring packet error, continuing...\n"));
-  serial_write (remote_desc, "+", 1);
+  /* APPLE LOCAL: Skip the ack char if we're in no-ack mode */
+  if (!no_ack_mode)
+    {
+      start_remote_timer ();
+      serial_write (remote_desc, "+", 1);
+      end_remote_timer ();
+      /* APPLE LOCAL */
+      if (current_remote_stats)
+        current_remote_stats->acks_sent++;
+    }
   return 1;
 }
 
@@ -4976,22 +5684,21 @@ remote_xfer_partial (struct target_ops *ops, enum target_object object,
   char *p2 = &buf2[0];
   char query_type;
 
-  /* Handle memory using remote_xfer_memory.  */
+  /* APPLE LOCAL: If we don't have a target in the remote yet,
+     let another strata handle this.  */
+  if (!rs->has_target)
+    return 0;
+
+  /* Handle memory using the standard memory routines.  */
   if (object == TARGET_OBJECT_MEMORY)
     {
       int xfered;
       errno = 0;
 
       if (writebuf != NULL)
-	{
-	  void *buffer = xmalloc (len);
-	  struct cleanup *cleanup = make_cleanup (xfree, buffer);
-	  memcpy (buffer, writebuf, len);
-	  xfered = remote_xfer_memory (offset, buffer, len, 1, NULL, ops);
-	  do_cleanups (cleanup);
-	}
+	xfered = remote_write_bytes (offset, writebuf, len);
       else
-	xfered = remote_xfer_memory (offset, readbuf, len, 0, NULL, ops);
+	xfered = remote_read_bytes (offset, (char *) readbuf, len);
 
       if (xfered > 0)
 	return xfered;
@@ -5037,7 +5744,7 @@ remote_xfer_partial (struct target_ops *ops, enum target_object object,
 	      if (buf2[0] == 'O' && buf2[1] == 'K' && buf2[2] == '\0')
 		break;		/* Got EOF indicator.  */
 	      /* Got some data.  */
-	      i = hex2bin (buf2, readbuf, len);
+	      i = hex2bin (buf2, (char *) readbuf, len);
 	      if (i > 0)
 		{
 		  readbuf = (void *) ((char *) readbuf + i);
@@ -5094,9 +5801,9 @@ remote_xfer_partial (struct target_ops *ops, enum target_object object,
   if (i < 0)
     return i;
 
-  getpkt (readbuf, len, 0);
+  getpkt ((char *) readbuf, len, 0);
 
-  return strlen (readbuf);
+  return strlen ((char *) readbuf);
 }
 
 static void
@@ -5393,6 +6100,8 @@ Specify the serial device it is connected to\n\
 (e.g. /dev/ttyS0, /dev/ttya, COM1, etc.).";
   remote_ops.to_open = remote_open;
   remote_ops.to_close = remote_close;
+  remote_ops.to_create_inferior = remote_create_inferior;
+  remote_ops.to_attach = remote_attach;
   remote_ops.to_detach = remote_detach;
   remote_ops.to_disconnect = remote_disconnect;
   remote_ops.to_resume = remote_resume;
@@ -5435,6 +6144,11 @@ Specify the serial device it is connected to\n\
 #ifdef MACOSX_DYLD
   extern int dyld_lookup_and_bind_function (char *name);
   extern int dyld_is_objfile_loaded (struct objfile *obj);
+
+  remote_ops.to_enable_exception_callback = macosx_enable_exception_callback;
+  remote_ops.to_find_exception_catchpoints = macosx_find_exception_catchpoints;
+  remote_ops.to_get_current_exception_event = macosx_get_current_exception_event;
+
   remote_ops.to_bind_function = dyld_lookup_and_bind_function;
   remote_ops.to_check_is_objfile_loaded = dyld_is_objfile_loaded;
 #endif
@@ -5477,7 +6191,7 @@ remote_is_async_p (void)
    will be able to delay notifying the client of an event until the
    point where an entire packet has been received.  */
 
-static void (*async_client_callback) (enum inferior_event_type event_type, 
+static void (*async_client_callback) (enum inferior_event_type event_type,
 				      void *context);
 static void *async_client_context;
 static serial_event_ftype remote_async_serial_handler;
@@ -5491,7 +6205,7 @@ remote_async_serial_handler (struct serial *scb, void *context)
 }
 
 static void
-remote_async (void (*callback) (enum inferior_event_type event_type, 
+remote_async (void (*callback) (enum inferior_event_type event_type,
 				void *context), void *context)
 {
   if (current_target.to_async_mask_value == 0)
@@ -5518,7 +6232,7 @@ static void
 init_remote_async_ops (void)
 {
   remote_async_ops.to_shortname = "async";
-  remote_async_ops.to_longname = 
+  remote_async_ops.to_longname =
     "Remote serial target in async version of the gdb-specific protocol";
   remote_async_ops.to_doc =
     "Use a remote computer via a serial line, using a gdb-specific protocol.\n\
@@ -5606,6 +6320,7 @@ show_remote_cmd (char *args, int from_tty)
   show_remote_protocol_binary_download_cmd (gdb_stdout, from_tty, NULL, NULL);
   show_remote_protocol_qPart_auxv_packet_cmd (gdb_stdout, from_tty, NULL, NULL);
   show_remote_protocol_qGetTLSAddr_packet_cmd (gdb_stdout, from_tty, NULL, NULL);
+  show_max_remote_packet_size (NULL, from_tty);
 }
 
 static void
@@ -5631,6 +6346,31 @@ remote_new_objfile (struct objfile *objfile)
     remote_new_objfile_chain (objfile);
 }
 
+/* APPLE LOCAL 
+   Start a timer before sending packets so we can track how
+   much time we spend waiting for the remote target.  */
+static void
+start_remote_timer ()
+{
+  if (current_remote_stats)
+    gettimeofday (&current_remote_stats->pktstart, NULL);
+}
+
+static void
+end_remote_timer ()
+{
+  if (current_remote_stats == NULL)
+    return;
+
+  struct timeval duration, end, newtotal;
+  gettimeofday (&end, NULL);
+
+  timersub (&end, &current_remote_stats->pktstart, &duration);
+  timeradd (&current_remote_stats->totaltime, &duration, &newtotal);
+  memcpy (&current_remote_stats->totaltime, &newtotal, sizeof (struct timeval));
+  timerclear (&current_remote_stats->pktstart);
+}
+
 void
 _initialize_remote (void)
 {
@@ -5638,7 +6378,7 @@ _initialize_remote (void)
   static struct cmd_list_element *remote_show_cmdlist;
 
   /* architecture specific data */
-  remote_gdbarch_data_handle = 
+  remote_gdbarch_data_handle =
     gdbarch_data_register_post_init (init_remote_state);
 
   /* Old tacky stuff.  NOTE: This comes after the remote protocol so
@@ -5710,6 +6450,16 @@ Set the maximum number of bytes per memory write packet (deprecated)."),
   add_cmd ("remotewritesize", no_class, show_memory_write_packet_size, _("\
 Show the maximum number of bytes per memory write packet (deprecated)."),
 	   &showlist);
+
+  add_cmd ("max-packet-size", no_class, set_max_remote_packet_size, _("\
+Set the maximum remote packet size in bytes (must be set prior to target\n\
+remote connection).\n\
+An single optional argument is SIZE (in bytes) of the max remote packet size.\n\
+If no arguments are given, the max-packet-size will revert to the default value."),
+       &remote_set_cmdlist);
+  add_cmd ("max-packet-size", no_class, show_max_remote_packet_size, _("\
+Show the maximum remote packet size in bytes."),
+       &remote_show_cmdlist);
   add_cmd ("memory-write-packet-size", no_class,
 	   set_memory_write_packet_size, _("\
 Set the maximum number of bytes per memory-write packet.\n\
@@ -5855,4 +6605,43 @@ packets."),
 
   /* Eventually initialize fileio.  See fileio.c */
   initialize_remote_fileio (remote_set_cmdlist, remote_show_cmdlist);
+
+  /* APPLE LOCAL */
+  add_setshow_auto_boolean_cmd ("noack-mode", class_obscure,
+				&user_requested_no_ack_mode, _("\
+Set use of remote protocol without ACK packets, if available"), _("\
+Show use of remote protocol without ACK packets"), _("\
+When set, GDB will attempt to communicate with the remote stub without ACKing packets.\n\
+This assumes that gdb has a reliable communication mechanism that ensure packets arrive\n\
+without any possibility of corruption."),
+				set_no_ack_mode_cmd,
+				show_no_ack_mode_cmd,
+				&remote_set_cmdlist, &remote_show_cmdlist);
+
+  /* APPLE LOCAL: debug flags on remote stub.  */
+  add_setshow_string_cmd ("debugflags", class_obscure, 
+			   &remote_debugflags,
+			   "Set remote stub's debug flags",
+			   "Show remote stub's debug flags",
+			   "When set, gdb will tell the remote stub enable logging with the specified flags",
+			   set_remote_debugflags_command,
+			   show_remote_debugflags_command,
+			   &remote_set_cmdlist,
+			   &remote_show_cmdlist);
+
+  /* APPLE LOCAL: Location of executable on remote system.  */
+  add_setshow_string_noescape_cmd ("executable-directory", class_obscure, 
+				   &remote_exec_dir,
+				   "Set location of executable file on remote system.",
+				   "Show location of executable file on remote system.",
+				   "When set, gdb will tell the remote stub to run the program\n\
+with the same name as the exec-file, but in the location given by this variable.",
+				   NULL,
+				   NULL,
+				   &remote_set_cmdlist,
+				   &remote_show_cmdlist);
+
+  /* APPLE LOCAL */
+  add_cmd ("dump-packets", class_maintenance, dump_packets_command,
+           "Print the packet log buffer.", &maintenancelist);
 }

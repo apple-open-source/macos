@@ -1,0 +1,210 @@
+# $Id: soccerClub.xotcl,v 1.7 2007/08/14 16:38:26 neumann Exp $
+# This is a simple introductory example for the language XOTcl. 
+# It demonstrates the basic language constructs on the example of
+# a soccer club.
+
+package require XOTcl; namespace import -force xotcl::*
+ 
+# All the characters in this example are fictitious, and any
+# resemblance to actual persons, living or deceased, is coincidental.
+
+# In XOTcl we do not have to provide the above file description 
+# as a comment, but we can use the @ object, which is used generally
+# to provide any kind of information, metadata, and documentation on
+# a running program. Here, we just give a file description. 
+# Now makeDoc.xotcl will automatically document this file for us. 
+@ @File {
+  description {
+    This is a simple introductory example for the language XOTcl. 
+    It demonstrates the basic language constructs on the example of
+    a soccer club.
+  }
+}
+
+#
+# All things and entities in XOTcl are objects, a special kind of objects 
+# are classes. These define common properties for other objects. For a
+# soccer club, we firstly require a common class for all kinds of members.
+#
+# Common to all members is that they have a name. Common properties defined
+# across all instances of a class are called "Parameters" in XOTcl.
+#
+Class ClubMember -parameter {{name ""}}
+
+# A special club member is a Player. Derived classes can be build with
+# inheritance (specified through 'superclass'). Players may have a
+# playerRole (defaults to NONE):
+Class Player -superclass ClubMember -parameter {{playerRole NONE}}
+
+# other club member types are trainers, player-trainers, and presidents
+Class Trainer -superclass ClubMember
+Class President -superclass ClubMember
+
+# the PlayerTrainer uses multiple inheritance by being both a player
+# and a trainer
+Class PlayerTrainer -superclass {Player Trainer}
+
+#
+# Now we define the SoccerTeam class.
+#
+Class SoccerTeam -parameter {name location type}
+
+# We may add a player. This is done by a method. Instance methods are
+# in XOTcl defined with 'instproc'. All club members are aggregated in
+# the team (denoted by :: namespace syntax).
+SoccerTeam instproc newPlayer args {
+  # we use a unique autoname for the object to prevent name
+  # collisions, like <soccerteam>::player01, <soccerteam>::player02, ...
+  eval Player [self]::[my autoname player%02d] $args
+}
+
+# A player can be transfered to another team. The player object does
+# not change internally (e.g. the playerRole stays the same). Therefore we
+# 'move' it to the destination team.
+SoccerTeam instproc transferPlayer {playername destinationTeam} {
+  # We use the aggregation introspection option 'children' in order
+  # to get all club members
+  foreach player [my info children] {
+    # But we only remove matching playernames of type "Player". We do
+    # not want to remove another club member type who has the same
+    # name.
+    if {[$player istype Player] && [$player name] == $playername} {
+      # We simply 'move' the player object to the destination team.
+      # Again we use a unique autoname in the new scope
+      $player move [set destinationTeam]::[$destinationTeam autoname player%02d]
+    }
+  }
+}
+
+# Finally we define two convenience methods to print the members/players to
+# stdout with puts.
+SoccerTeam instproc printMembers {} {
+  puts "Members of [my name]:"
+  foreach m [my info children] {puts "  [$m name]"}
+}
+SoccerTeam instproc printPlayers {} {
+  puts "Players of [my name]:"
+  foreach m [my info children] {
+    if {[$m istype Player]} {puts "  [$m name]"}
+  }
+}
+      
+# Now let us build to example soccer team objects.
+SoccerTeam lyon -name "Olympique Lyon" -location "Lyon"
+SoccerTeam bayernMunich -name "F.C. Bayern München" -location "Munich"
+
+# With 'addPlayer' we can create new aggregated player objects
+#
+# Let us start some years in the past, when "Franz Beckenbauer" was
+# still a player.
+set fb [bayernMunich newPlayer -name "Franz Beckenbauer" \
+  -playerRole PLAYER]
+
+# 'playerRole' may not take any value. It may either be NONE, PLAYER, 
+# or GOALY ... such rules may be given as assertions (here: an instinvar 
+# gives an invariant covering all instances of a class). In XOTcl 
+# the rules are syntactically identical to 'if' statements
+Player instinvar {
+    {[my set playerRole] eq "NONE" ||  
+	[my set playerRole] eq "PLAYER" || 
+	[my set playerRole] eq "GOALY"}
+}
+
+# If we break the invariant and turn assertions checking on, we should
+# get an error message:
+$fb check all
+if {[catch {$fb set playerRole SINGER} errMsg]} {
+  puts "CAUGHT EXCEPTION: playerRole has either to be NONE, PLAYER, or TRAINER"
+  # turn assertion checking off again and reset to PLAYER
+  $fb check {}
+  $fb set playerRole PLAYER
+}
+
+# But soccer players may play quite different, orthogonal
+# roles. E.g. Franz Beckenbauer was also a singer (a remarkably bad
+# one). However, we can not simply add such orthogonal, extrinsic
+# extensions with multiple inheritance or delegation. Otherwise we
+# would have either to build a lot of unnecessary helper classes, like
+# PlayerSinger, PlayerTrainerSinger, etc., or we would have to build
+# such helper objects. This either leads to an unwanted combinatorial
+# explosion of class or object number.
+#
+# Here we can use a per-object mixin, which is a language construct
+# that expresses that a class is used as a role or as an extrinsic
+# extension to an object.
+
+# First we just define the Singer class.
+Class Singer
+Singer instproc sing text {
+  puts "[my name] sings: $text, lala."
+}
+
+# Now we register this class as a per-object mixin on the player object:
+$fb mixin Singer
+
+# And now Franz Beckenbauer is able to sing:
+$fb sing "lali"
+
+# But Franz Beckenbauer has already retired. When a player retires, we
+# have an intrinsic change of the classification. He *is* not a player
+# anymore. But still he has the same name, is club member, and
+# is a singer (brrrrrr).
+
+# Before we perform the class change, we extend the Player class to
+# support it. I.e. the playerRole is not valid after class change
+# anymore (we unset the instance variable).
+Player instproc class args {
+  my unset playerRole
+  next
+}
+
+# Now we can re-class the player object to its new class (now Franz
+# Beckenbauer is President of Bayern Munich.
+$fb class President
+# Check that the playerRole isn't there anymore.
+if {[catch {$fb set playerRole} errMsg]} {
+  puts "CAUGHT EXCEPTION: The player role doesn't exist anymore (as it should be after the class change)"
+}
+
+# But still Franz Beckenbauer can entertain us with what he believes
+# is singing:
+$fb sing "lali"
+
+# Now we define some new players for Bayern Munich:
+bayernMunich newPlayer -name "Oliver Kahn" -playerRole GOALY
+bayernMunich newPlayer -name "Giovanne Elber" -playerRole PLAYER
+
+# if we enlist the players of Munich Franz Beckenbauer is not enlisted
+# anymore:
+bayernMunich printPlayers
+
+# But as a president he still appears in the list of members:
+bayernMunich printMembers
+
+# Now consider an orthonogal extension of a transfer list. Every
+# transfer in the system should be notified. But since the transfer
+# list is orthogonal to SoccerTeams we do not want to interfere with
+# the existing implementation at all. Moreover, the targeted kind of
+# extension has also to work on all subclasses of SoccerTeam. Firstly, we
+# just create the extension as an ordinary class:
+Class TransferObserver
+TransferObserver instproc transferPlayer {pname destinationTeam} {
+  puts "Player '$pname' is transfered to Team '[$destinationTeam name]'"
+  next
+}
+
+# Now we can apply the class as a per-class mixin, which functions
+# exactly like a per-object mixin, but on all instances of a class and
+# its subclasses.  The 'next' primitive ensures that the original
+# method on 'SoccerTeam' is called after notifying the transfer (with
+# puts to stdout)
+SoccerTeam instmixin TransferObserver
+
+# If we perform a transfer of one of the players, he is moved to the new 
+# club and the transfer is reported to the stdout:
+
+bayernMunich transferPlayer "Giovanne Elber" lyon
+
+# Finally we verify the transfer by printing the players:
+lyon printPlayers
+bayernMunich printPlayers

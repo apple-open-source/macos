@@ -22,5 +22,6 @@ extern void NXLog(const char *, ...);
 @implementation Test2
 - (void) foo2
   NXLog("Hello, world!"); /* { dg-error "expected .\{. before .NXLog." } */
-}
+			  /* { dg-error "expected constructor, destructor" "" { target *-*-* } 24 } */
+}			  /* { dg-error "stray" } */
 @end

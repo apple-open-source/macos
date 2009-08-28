@@ -1,6 +1,6 @@
 /* System-dependent calls for tar.
 
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -14,37 +14,15 @@
 
    You should have received a copy of the GNU General Public License along
    with this program; if not, write to the Free Software Foundation, Inc.,
-   59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 #include <system.h>
+#include <getline.h>
+#include <setenv.h>
 
 #include "common.h"
 #include <rmt.h>
 #include <signal.h>
-
-void
-sys_stat_nanoseconds (struct tar_stat_info *st)
-{
-#if defined(HAVE_STRUCT_STAT_ST_SPARE1)
-  st->atime_nsec = st->stat.st_spare1 * 1000;
-  st->mtime_nsec = st->stat.st_spare2 * 1000;
-  st->ctime_nsec = st->stat.st_spare3 * 1000;
-#elif defined(HAVE_STRUCT_STAT_ST_ATIM_TV_NSEC)
-  st->atime_nsec = st->stat.st_atim.tv_nsec;
-  st->mtime_nsec = st->stat.st_mtim.tv_nsec;
-  st->ctime_nsec = st->stat.st_ctim.tv_nsec;
-#elif defined(HAVE_STRUCT_STAT_ST_ATIMESPEC_TV_NSEC)
-  st->atime_nsec = st->stat.st_atimespec.tv_nsec;
-  st->mtime_nsec = st->stat.st_mtimespec.tv_nsec;
-  st->ctime_nsec = st->stat.st_ctimespec.tv_nsec;
-#elif defined(HAVE_STRUCT_STAT_ST_ATIMENSEC)
-  st->atime_nsec = st->stat.st_atimensec;
-  st->mtime_nsec = st->stat.st_mtimensec;
-  st->ctime_nsec = st->stat.st_ctimensec;
-#else
-  st->atime_nsec  = st->mtime_nsec = st->ctime_nsec = 0;
-#endif
-}
 
 #if MSDOS
 
@@ -356,12 +334,10 @@ sys_child_open_for_compress (void)
   xclose (parent_pipe[PWRITE]);
 
   /* Check if we need a grandchild tar.  This happens only if either:
-     a) we are writing stdout: to force reblocking;
-     b) the file is to be accessed by rmt: compressor doesn't know how;
-     c) the file is not a plain file.  */
+     a) the file is to be accessed by rmt: compressor doesn't know how;
+     b) the file is not a plain file.  */
 
-  if (strcmp (archive_name_array[0], "-") != 0
-      && !_remdev (archive_name_array[0])
+  if (!_remdev (archive_name_array[0])
       && is_regular_file (archive_name_array[0]))
     {
       if (backup_option)
@@ -369,20 +345,21 @@ sys_child_open_for_compress (void)
 
       /* We don't need a grandchild tar.  Open the archive and launch the
 	 compressor.  */
-
-      archive = creat (archive_name_array[0], MODE_RW);
-      if (archive < 0)
+      if (strcmp (archive_name_array[0], "-"))
 	{
-	  int saved_errno = errno;
+	  archive = creat (archive_name_array[0], MODE_RW);
+	  if (archive < 0)
+	    {
+	      int saved_errno = errno;
 
-	  if (backup_option)
-	    undo_last_backup ();
-	  errno = saved_errno;
-	  open_fatal (archive_name_array[0]);
+	      if (backup_option)
+		undo_last_backup ();
+	      errno = saved_errno;
+	      open_fatal (archive_name_array[0]);
+	    }
+	  xdup2 (archive, STDOUT_FILENO);
 	}
-      xdup2 (archive, STDOUT_FILENO);
-      execlp (use_compress_program_option, use_compress_program_option,
-	      (char *) 0);
+      execlp (use_compress_program_option, use_compress_program_option, NULL);
       exec_fatal (use_compress_program_option);
     }
 
@@ -626,5 +603,242 @@ sys_child_open_for_uncompress (void)
   exit (exit_status);
 }
 
-#endif /* not MSDOS */
+
 
+static void
+dec_to_env (char *envar, uintmax_t num)
+{
+  char buf[UINTMAX_STRSIZE_BOUND];
+  char *numstr;
+
+  numstr = STRINGIFY_BIGINT (num, buf);
+  if (setenv (envar, numstr, 1) != 0)
+    xalloc_die ();
+}
+
+static void
+time_to_env (char *envar, struct timespec t)
+{
+  char buf[TIMESPEC_STRSIZE_BOUND];
+  if (setenv (envar, code_timespec (t, buf), 1) != 0)
+    xalloc_die ();
+}
+
+static void
+oct_to_env (char *envar, unsigned long num)
+{
+  char buf[1+1+(sizeof(unsigned long)*CHAR_BIT+2)/3];
+
+  snprintf (buf, sizeof buf, "0%lo", num);
+  if (setenv (envar, buf, 1) != 0)
+    xalloc_die ();
+}
+
+static void
+str_to_env (char *envar, char const *str)
+{
+  if (str)
+    {
+      if (setenv (envar, str, 1) != 0)
+	xalloc_die ();
+    }
+  else
+    unsetenv (envar);
+}
+
+static void
+chr_to_env (char *envar, char c)
+{
+  char buf[2];
+  buf[0] = c;
+  buf[1] = 0;
+  if (setenv (envar, buf, 1) != 0)
+    xalloc_die ();
+}
+
+static void
+stat_to_env (char *name, char type, struct tar_stat_info *st)
+{
+  str_to_env ("TAR_VERSION", PACKAGE_VERSION);
+  chr_to_env ("TAR_FILETYPE", type);
+  oct_to_env ("TAR_MODE", st->stat.st_mode);
+  str_to_env ("TAR_FILENAME", name);
+  str_to_env ("TAR_REALNAME", st->file_name);
+  str_to_env ("TAR_UNAME", st->uname);
+  str_to_env ("TAR_GNAME", st->gname);
+  time_to_env ("TAR_ATIME", st->atime);
+  time_to_env ("TAR_MTIME", st->mtime);
+  time_to_env ("TAR_CTIME", st->ctime);
+  dec_to_env ("TAR_SIZE", st->stat.st_size);
+  dec_to_env ("TAR_UID", st->stat.st_uid);
+  dec_to_env ("TAR_GID", st->stat.st_gid);
+
+  switch (type)
+    {
+    case 'b':
+    case 'c':
+      dec_to_env ("TAR_MINOR", minor (st->stat.st_rdev));
+      dec_to_env ("TAR_MAJOR", major (st->stat.st_rdev));
+      unsetenv ("TAR_LINKNAME");
+      break;
+
+    case 'l':
+    case 'h':
+      unsetenv ("TAR_MINOR");
+      unsetenv ("TAR_MAJOR");
+      str_to_env ("TAR_LINKNAME", st->link_name);
+      break;
+
+    default:
+      unsetenv ("TAR_MINOR");
+      unsetenv ("TAR_MAJOR");
+      unsetenv ("TAR_LINKNAME");
+      break;
+    }
+}
+
+static pid_t pid;
+static RETSIGTYPE (*pipe_handler) (int sig);
+
+int
+sys_exec_command (char *file_name, int typechar, struct tar_stat_info *st)
+{
+  int p[2];
+  char *argv[4];
+
+  xpipe (p);
+  pipe_handler = signal (SIGPIPE, SIG_IGN);
+  pid = xfork ();
+
+  if (pid != 0)
+    {
+      xclose (p[PREAD]);
+      return p[PWRITE];
+    }
+
+  /* Child */
+  xdup2 (p[PREAD], STDIN_FILENO);
+  xclose (p[PWRITE]);
+
+  stat_to_env (file_name, typechar, st);
+
+  argv[0] = "/bin/sh";
+  argv[1] = "-c";
+  argv[2] = to_command_option;
+  argv[3] = NULL;
+
+  execv ("/bin/sh", argv);
+
+  exec_fatal (file_name);
+}
+
+void
+sys_wait_command (void)
+{
+  int status;
+
+  if (pid < 0)
+    return;
+
+  signal (SIGPIPE, pipe_handler);
+  while (waitpid (pid, &status, 0) == -1)
+    if (errno != EINTR)
+      {
+        pid = -1;
+        waitpid_error (to_command_option);
+        return;
+      }
+
+  if (WIFEXITED (status))
+    {
+      if (!ignore_command_error_option && WEXITSTATUS (status))
+	ERROR ((0, 0, _("%lu: Child returned status %d"),
+		(unsigned long) pid, WEXITSTATUS (status)));
+    }
+  else if (WIFSIGNALED (status))
+    {
+      WARN ((0, 0, _("%lu: Child terminated on signal %d"),
+	     (unsigned long) pid, WTERMSIG (status)));
+    }
+  else
+    ERROR ((0, 0, _("%lu: Child terminated on unknown reason"),
+	    (unsigned long) pid));
+
+  pid = -1;
+}
+
+int
+sys_exec_info_script (const char **archive_name, int volume_number)
+{
+  pid_t pid;
+  char *argv[4];
+  char uintbuf[UINTMAX_STRSIZE_BOUND];
+  int p[2];
+
+  xpipe (p);
+  pipe_handler = signal (SIGPIPE, SIG_IGN);
+
+  pid = xfork ();
+
+  if (pid != 0)
+    {
+      /* Master */
+
+      int rc;
+      int status;
+      char *buf;
+      size_t size = 0;
+      FILE *fp;
+
+      xclose (p[PWRITE]);
+      fp = fdopen (p[PREAD], "r");
+      rc = getline (&buf, &size, fp);
+      fclose (fp);
+
+      if (rc > 0 && buf[rc-1] == '\n')
+	buf[--rc] = 0;
+
+      while (waitpid (pid, &status, 0) == -1)
+	if (errno != EINTR)
+	  {
+	    waitpid_error (info_script_option);
+	    return -1;
+	  }
+
+      if (WIFEXITED (status))
+	{
+	  if (WEXITSTATUS (status) == 0 && rc > 0)
+	    *archive_name = buf;
+	  else
+	    free (buf);
+	  return WEXITSTATUS (status);
+	}
+
+      free (buf);
+      return -1;
+    }
+
+  /* Child */
+  setenv ("TAR_VERSION", PACKAGE_VERSION, 1);
+  setenv ("TAR_ARCHIVE", *archive_name, 1);
+  setenv ("TAR_VOLUME", STRINGIFY_BIGINT (volume_number, uintbuf), 1);
+  setenv ("TAR_SUBCOMMAND", subcommand_string (subcommand_option), 1);
+  setenv ("TAR_FORMAT",
+	  archive_format_string (current_format == DEFAULT_FORMAT ?
+				 archive_format : current_format), 1);
+  setenv ("TAR_FD", STRINGIFY_BIGINT (p[PWRITE], uintbuf), 1);
+
+  xclose (p[PREAD]);
+
+  argv[0] = "/bin/sh";
+  argv[1] = "-c";
+  argv[2] = (char*) info_script_option;
+  argv[3] = NULL;
+
+  execv (argv[0], argv);
+
+  exec_fatal (info_script_option);
+}
+
+
+#endif /* not MSDOS */

@@ -106,7 +106,7 @@ typedef off64_t file_off;
 typedef off_t file_off;
 #define file_open(s,m) fopen(s, m)
 #endif
-#ifdef HAVE_STAT64
+#if defined(HAVE_STAT64) && ! defined(__APPLE__)
 typedef struct stat64 statbuf;
 #define file_stat(f,s) stat64(f, s)
 #else

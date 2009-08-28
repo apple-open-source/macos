@@ -202,11 +202,11 @@ static char * print4(UInt32 val, char *buf)
     if(a >= ' ' && b >= ' ' && c >= ' ' && d >= ' ')
         //printf("%c%c%c%c", a, b, c, d);
         //syslog(LOG_INFO, "%c%c%c%c", a, b, c, d);
-        sprintf(buf, "%c%c%c%c", a, b, c, d);
+        snprintf(buf, 8, "%c%c%c%c", a, b, c, d);
     else
         //printf(" 0x%x ", (int)val);
         //syslog(LOG_INFO, " 0x%x ", (int)val);
-        sprintf(buf, " 0x%x ", (int)val);
+        snprintf(buf, 8, " 0x%x ", (int)val);
         
     return buf + strlen(buf);
 }
@@ -215,7 +215,7 @@ static void RecordEventLogger(UInt32 a, UInt32 b, UInt32 c, UInt32 d)
 {
     char buf[256];
     char *curr = buf;
-    sprintf(buf, "0x%x:", pthread_self());
+    snprintf(buf, 11, "0x%x:", (unsigned int) pthread_self());
     curr = buf + strlen(buf);
     if(a)
     curr = print4(a, curr);

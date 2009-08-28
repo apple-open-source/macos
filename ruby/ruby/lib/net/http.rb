@@ -22,7 +22,7 @@
 # http://www.ruby-lang.org/ja/man/?cmd=view;name=net%2Fhttp.rb
 # 
 #--
-# $Id: http.rb 16878 2008-06-07 16:16:46Z shyouhei $
+# $Id: http.rb 13657 2007-10-08 11:16:54Z gotoyuzo $
 #++ 
 
 require 'net/protocol'
@@ -278,7 +278,7 @@ module Net   #:nodoc:
   class HTTP < Protocol
 
     # :stopdoc:
-    Revision = %q$Revision: 16878 $.split[1]
+    Revision = %q$Revision: 13657 $.split[1]
     HTTPVersion = '1.1'
     @newimpl = true
     # :startdoc:

@@ -1,0 +1,57 @@
+Announcing XOTcl 1.0.1
+**********************
+
+WHAT IS XOTCL?
+
+  XOTcl is an object-oriented extension of Tcl that was derived from
+  OTcl. In short, XOTcl tries to provide a highly flexible,
+  reflective, component-based, and object-oriented environment. It
+  integrates language support for high level concepts which are not
+  found in other languages, with reasonable performance. It prevails
+  the Tcl programming style and the dynamic/introspective nature of
+  the language, rather than introducing other language's styles and
+  rigidness (such as C++) into Tcl.
+
+
+CHANGES relative to 1.0 are:
+
+  - fixes:
+ 
+     * fixed installation bug on windows (when installed on 
+       drives different to c:)
+
+     * fixes for aolserver 3.5.*
+
+     * fix for "object info default arg var" in connection
+       with filters
+
+     * Serializer handles filter guards now
+
+  - new functionality and improvements:
+
+     * improved recreate semantics, makes it easier to 
+       overload recreation logic.
+
+     * new method "noinit" to create objects without
+       calling the constructor
+
+  - optimizations:
+
+     * general speedup (10 to 15%) by using client data of
+       namespace instead of Tcl_AssocData for interpreter state
+      
+     * faster and more flexible Serializer
+     
+  
+ For more details, please consult the ChangeLog    
+
+MORE INFO
+  General and more detailed information about XOTcl and its components
+  can be found at http://www.xotcl.org
+
+
+Best regards,
+
+Gustaf Neumann
+Uwe Zdun
+

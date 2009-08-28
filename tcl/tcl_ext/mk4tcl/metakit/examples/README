@@ -1,0 +1,23 @@
+Sample scripts
+
+aside.py        commit extend and commit aside
+bigblock.tcl		storing 100,000,000 integers
+blockdels.tcl		blocked view deletion tests
+case.py         case sensitivity can be a bit tricky
+demo.py         trivial demo in Python
+demo.tcl        trivial demo in Tcl, new OO interface
+demold.tcl      trivial demo in Tcl, original API
+derived.py      derived views propagate changes
+find.py         find, binary search, and hashing performance
+mapped.tcl      performance of plain, hashed, ordered, blocked views
+millions.py     storing millions of row, using a trick (by Christian Tismer)
+mkhash.cpp      hashed / blocked / ordered view performance in C++
+mkmemoio.py     treating a memo (binary) property as an I/O stream
+pair.py         pairwise view combination
+random.tcl      test of 100,000 adds/mods/dels using a bytes property
+remap.py        new mapping views (like mapped.tcl), in Python
+selfref.py      defining a self-referential (recursive) structure
+selmap.tcl      illustrates mapping select results back to a view
+slow.tcl        hashed views performance in Tcl
+sort.tcl        sorting performance in Tcl
+wrap.py         wrapping provides a MK layer around anything

@@ -332,13 +332,13 @@ _dns_parse_resource_record_internal(const char *p, char **x, int32_t *remaining)
 	r->name = _dns_parse_domain_name(p, x, remaining);
 	if (r->name == NULL)
 	{
-		free(r);
+		dns_free_resource_record(r);
 		return NULL;
 	}
 
 	if (*remaining < 10)
 	{
-		free(r);
+		dns_free_resource_record(r);
 		return NULL;
 	}
 
@@ -357,7 +357,7 @@ _dns_parse_resource_record_internal(const char *p, char **x, int32_t *remaining)
 		case ns_t_a:
 			if (*remaining < 4)
 			{
-				free(r);
+				dns_free_resource_record(r);
 				return NULL;
 			}
 
@@ -371,7 +371,7 @@ _dns_parse_resource_record_internal(const char *p, char **x, int32_t *remaining)
 		case ns_t_aaaa:
 			if (*remaining < 16)
 			{
-				free(r);
+				dns_free_resource_record(r);
 				return NULL;
 			}
 
@@ -398,8 +398,7 @@ _dns_parse_resource_record_internal(const char *p, char **x, int32_t *remaining)
 			r->data.CNAME->name = _dns_parse_domain_name(p, x, remaining);
 			if (r->data.CNAME->name == NULL)
 			{
-				free(r->data.CNAME);
-				free(r);
+				dns_free_resource_record(r);
 				return NULL;
 			}
 			break;
@@ -411,26 +410,20 @@ _dns_parse_resource_record_internal(const char *p, char **x, int32_t *remaining)
 			r->data.SOA->mname = _dns_parse_domain_name(p, x, remaining);
 			if (r->data.SOA->mname == NULL)
 			{
-				free(r->data.SOA);
-				free(r);
+				dns_free_resource_record(r);
 				return NULL;
 			}
 
 			r->data.SOA->rname = _dns_parse_domain_name(p, x, remaining);
 			if (r->data.SOA->rname == NULL)
 			{
-				free(r->data.SOA->mname);
-				free(r->data.SOA);
-				free(r);
+				dns_free_resource_record(r);
 				return NULL;
 			}
 
 			if (*remaining < 20) 
 			{
-				free(r->data.SOA->mname);
-				free(r->data.SOA->rname);
-				free(r->data.SOA);
-				free(r);
+				dns_free_resource_record(r);
 				return NULL;
 			}
 
@@ -446,7 +439,7 @@ _dns_parse_resource_record_internal(const char *p, char **x, int32_t *remaining)
 		case ns_t_wks:
 			if (*remaining < 5) 
 			{
-				free(r);
+				dns_free_resource_record(r);
 				return NULL;
 			}
 
@@ -483,17 +476,14 @@ _dns_parse_resource_record_internal(const char *p, char **x, int32_t *remaining)
 			r->data.HINFO->cpu = _dns_parse_string(p, x, remaining);
 			if (r->data.HINFO->cpu == NULL)
 			{
-				free(r->data.HINFO);
-				free(r);
+				dns_free_resource_record(r);
 				return NULL;
 			}
 
 			r->data.HINFO->os = _dns_parse_string(p, x, remaining);
 			if (r->data.HINFO->os == NULL)
 			{
-				free(r->data.HINFO->cpu);
-				free(r->data.HINFO);
-				free(r);
+				dns_free_resource_record(r);
 				return NULL;
 			}
 
@@ -506,17 +496,14 @@ _dns_parse_resource_record_internal(const char *p, char **x, int32_t *remaining)
 			r->data.MINFO->rmailbx = _dns_parse_domain_name(p, x, remaining);
 			if (r->data.MINFO->rmailbx == NULL)
 			{
-				free(r->data.MINFO);
-				free(r);
+				dns_free_resource_record(r);
 				return NULL;
 			}
 
 			r->data.MINFO->emailbx = _dns_parse_domain_name(p, x, remaining);
 			if (r->data.MINFO->emailbx == NULL)
 			{
-				free(r->data.MINFO->rmailbx);
-				free(r->data.MINFO);
-				free(r);
+				dns_free_resource_record(r);
 				return NULL;
 			}
 
@@ -525,7 +512,7 @@ _dns_parse_resource_record_internal(const char *p, char **x, int32_t *remaining)
 		case ns_t_mx:
 			if (*remaining < 2) 
 			{
-				free(r);
+				dns_free_resource_record(r);
 				return NULL;
 			}
 
@@ -538,8 +525,7 @@ _dns_parse_resource_record_internal(const char *p, char **x, int32_t *remaining)
 			r->data.MX->name = _dns_parse_domain_name(p, x, remaining);
 			if (r->data.MX->name == NULL)
 			{
-				free(r->data.MX);
-				free(r);
+				dns_free_resource_record(r);
 				return NULL;
 			}
 
@@ -565,9 +551,7 @@ _dns_parse_resource_record_internal(const char *p, char **x, int32_t *remaining)
 				r->data.TXT->strings[r->data.TXT->string_count] = _dns_parse_string(p, x, remaining);
 				if (r->data.TXT->strings[r->data.TXT->string_count] == NULL)
 				{
-					free(r->data.TXT->strings);
-					free(r->data.TXT);
-					free(r);
+					dns_free_resource_record(r);
 					return NULL;
 				}
 				r->data.TXT->string_count++;
@@ -582,17 +566,14 @@ _dns_parse_resource_record_internal(const char *p, char **x, int32_t *remaining)
 			r->data.RP->mailbox = _dns_parse_domain_name(p, x, remaining);
 			if (r->data.RP->mailbox == NULL)
 			{
-				free(r->data.RP);
-				free(r);
+				dns_free_resource_record(r);
 				return NULL;
 			}
 
 			r->data.RP->txtdname = _dns_parse_domain_name(p, x, remaining);
 			if (r->data.RP->txtdname == NULL)
 			{
-				free(r->data.RP->mailbox);
-				free(r->data.RP);
-				free(r);
+				dns_free_resource_record(r);
 				return NULL;
 			}
 
@@ -601,7 +582,7 @@ _dns_parse_resource_record_internal(const char *p, char **x, int32_t *remaining)
 		case ns_t_afsdb:
 			if (*remaining < 4) 
 			{
-				free(r);
+				dns_free_resource_record(r);
 				return NULL;
 			}
 
@@ -613,8 +594,7 @@ _dns_parse_resource_record_internal(const char *p, char **x, int32_t *remaining)
 			r->data.AFSDB->hostname = _dns_parse_domain_name(p, x, remaining);
 			if (r->data.AFSDB->hostname == NULL)
 			{
-				free(r->data.AFSDB);
-				free(r);
+				dns_free_resource_record(r);
 				return NULL;
 			}
 
@@ -627,8 +607,7 @@ _dns_parse_resource_record_internal(const char *p, char **x, int32_t *remaining)
 			r->data.X25->psdn_address = _dns_parse_string(p, x, remaining);
 			if (r->data.X25->psdn_address == NULL)
 			{
-				free(r->data.X25);
-				free(r);
+				dns_free_resource_record(r);
 				return NULL;
 			}
 
@@ -641,8 +620,7 @@ _dns_parse_resource_record_internal(const char *p, char **x, int32_t *remaining)
 			r->data.ISDN->isdn_address = _dns_parse_string(p, x, remaining);
 			if (r->data.ISDN->isdn_address == NULL)
 			{
-				free(r->data.ISDN);
-				free(r);
+				dns_free_resource_record(r);
 				return NULL;
 			}
 
@@ -651,9 +629,7 @@ _dns_parse_resource_record_internal(const char *p, char **x, int32_t *remaining)
 				r->data.ISDN->subaddress = _dns_parse_string(p, x, remaining);
 				if (r->data.ISDN->subaddress == NULL)
 				{
-					free(r->data.ISDN->isdn_address);
-					free(r->data.ISDN);
-					free(r);
+					dns_free_resource_record(r);
 					return NULL;
 				}
 			}
@@ -667,7 +643,7 @@ _dns_parse_resource_record_internal(const char *p, char **x, int32_t *remaining)
 		case ns_t_rt:
 			if (*remaining < 2) 
 			{
-				free(r);
+				dns_free_resource_record(r);
 				return NULL;
 			}
 
@@ -680,8 +656,7 @@ _dns_parse_resource_record_internal(const char *p, char **x, int32_t *remaining)
 			r->data.RT->intermediate = _dns_parse_domain_name(p, x, remaining);
 			if (r->data.RT->intermediate == NULL)
 			{
-				free(r->data.RT);
-				free(r);
+				dns_free_resource_record(r);
 				return NULL;
 			}
 
@@ -690,7 +665,7 @@ _dns_parse_resource_record_internal(const char *p, char **x, int32_t *remaining)
 		case ns_t_loc:
 			if (*remaining < 16) 
 			{
-				free(r);
+				dns_free_resource_record(r);
 				return NULL;
 			}
 
@@ -711,7 +686,7 @@ _dns_parse_resource_record_internal(const char *p, char **x, int32_t *remaining)
 		case ns_t_srv:
 			if (*remaining < 6) 
 			{
-				free(r);
+				dns_free_resource_record(r);
 				return NULL;
 			}
 
@@ -726,8 +701,7 @@ _dns_parse_resource_record_internal(const char *p, char **x, int32_t *remaining)
 			r->data.SRV->target = _dns_parse_domain_name(p, x, remaining);
 			if (r->data.SRV->target == NULL)
 			{
-				free(r->data.SRV);
-				free(r);
+				dns_free_resource_record(r);
 				return NULL;
 			}
 
@@ -737,7 +711,7 @@ _dns_parse_resource_record_internal(const char *p, char **x, int32_t *remaining)
 		default:
 			if (*remaining < rdlen)
 			{
-				free(r);
+				dns_free_resource_record(r);
 				return NULL;
 			}
 
@@ -915,11 +889,11 @@ dns_free_resource_record(dns_resource_record_t *r)
 	switch (r->dnstype)
 	{
 		case ns_t_a:
-			free(r->data.A);
+			if (r->data.A != NULL) free(r->data.A);
 			break;
 
 		case ns_t_aaaa:
-			free(r->data.AAAA);
+			if (r->data.AAAA != NULL) free(r->data.AAAA);
 			break;
 
 		case ns_t_ns:
@@ -930,90 +904,130 @@ dns_free_resource_record(dns_resource_record_t *r)
 		case ns_t_mg:
 		case ns_t_mr:
 		case ns_t_ptr:
-			free(r->data.CNAME->name);
-			free(r->data.CNAME);
+			if (r->data.CNAME != NULL)
+			{
+				if (r->data.CNAME->name != NULL) free(r->data.CNAME->name);
+				free(r->data.CNAME);
+			}
 			break;
 
 		case ns_t_soa:
-			free(r->data.SOA->mname);
-			free(r->data.SOA->rname);
-			free(r->data.SOA);
+			if (r->data.SOA != NULL)
+			{
+				if (r->data.SOA->mname != NULL) free(r->data.SOA->mname);
+				if (r->data.SOA->rname != NULL) free(r->data.SOA->rname);
+				free(r->data.SOA);
+			}
 			break;
 
 		case ns_t_wks:
-			free(r->data.WKS->map);
-			free(r->data.WKS);
+			if (r->data.WKS != NULL)
+			{
+				if (r->data.WKS->map != NULL) free(r->data.WKS->map);
+				free(r->data.WKS);
+			}
 			break;
 
 		case ns_t_hinfo:
-			free(r->data.HINFO->cpu);
-			free(r->data.HINFO->os);
-			free(r->data.HINFO);
+			if (r->data.HINFO != NULL)
+			{
+				if (r->data.HINFO->cpu != NULL) free(r->data.HINFO->cpu);
+				if (r->data.HINFO->os != NULL) free(r->data.HINFO->os);
+				free(r->data.HINFO);
+			}
 			break;
 
 		case ns_t_minfo:
-			free(r->data.MINFO->rmailbx);
-			free(r->data.MINFO->emailbx);
-			free(r->data.MINFO);
+			if (r->data.MINFO != NULL)
+			{
+				if (r->data.MINFO->rmailbx != NULL) free(r->data.MINFO->rmailbx);
+				if (r->data.MINFO->emailbx != NULL) free(r->data.MINFO->emailbx);
+				free(r->data.MINFO);
+			}
 			break;
 
 		case ns_t_mx:
-			free(r->data.MX->name);
-			free(r->data.MX);
+			if (r->data.MX != NULL)
+			{
+				if (r->data.MX->name != NULL) free(r->data.MX->name);
+				free(r->data.MX);
+			}
 			break;
 
 
 		case ns_t_txt:
-			for (i=0; i<r->data.TXT->string_count; i++)
+			if (r->data.TXT != NULL)
 			{
-				free(r->data.TXT->strings[i]);
+				for (i = 0; i < r->data.TXT->string_count; i++) free(r->data.TXT->strings[i]);
+				if (r->data.TXT->strings != NULL) free(r->data.TXT->strings);
+				free(r->data.TXT);
 			}
-			if (r->data.TXT->strings != NULL)
-				free(r->data.TXT->strings);
-			free(r->data.TXT);
 			break;
 
 		case ns_t_rp:
-			free(r->data.RP->mailbox);
-			free(r->data.RP->txtdname);
-			free(r->data.RP);
+			if (r->data.RP != NULL)
+			{
+				if (r->data.RP->mailbox != NULL) free(r->data.RP->mailbox);
+				if (r->data.RP->txtdname != NULL) free(r->data.RP->txtdname);
+				free(r->data.RP);
+			}
 			break;
 
 		case ns_t_afsdb:
-			free(r->data.AFSDB->hostname);
-			free(r->data.AFSDB);
+			if (r->data.AFSDB != NULL)
+			{
+				if (r->data.AFSDB->hostname != NULL) free(r->data.AFSDB->hostname);
+				free(r->data.AFSDB);
+			}
 			break;
 
 		case ns_t_x25:
-			free(r->data.X25->psdn_address);
-			free(r->data.X25);
+			if (r->data.X25 != NULL)
+			{
+				if (r->data.X25->psdn_address != NULL) free(r->data.X25->psdn_address);
+				free(r->data.X25);
+			}
 			break;
 
 		case ns_t_isdn:
-			free(r->data.ISDN->isdn_address);
-			if (r->data.ISDN->subaddress != NULL)
-				free(r->data.ISDN->subaddress);
-			free(r->data.ISDN);
+			if (r->data.ISDN != NULL)
+			{
+				if (r->data.ISDN->isdn_address != NULL) free(r->data.ISDN->isdn_address);
+				if (r->data.ISDN->subaddress != NULL) free(r->data.ISDN->subaddress);
+				free(r->data.ISDN);
+			}
 			break;
 
 		case ns_t_rt:
-			free(r->data.RT->intermediate);
-			free(r->data.RT);
+			if (r->data.RT != NULL)
+			{
+				if (r->data.RT->intermediate != NULL) free(r->data.RT->intermediate);
+				free(r->data.RT);
+			}
 			break;
 
 		case ns_t_loc:
-			free(r->data.LOC);
+			if (r->data.LOC != NULL) free(r->data.LOC);
 			break;
 
 		case ns_t_srv:
-			free(r->data.SRV->target);
-			free(r->data.SRV);
+			if (r->data.SRV != NULL)
+			{
+				if (r->data.SRV->target != NULL) free(r->data.SRV->target);
+				free(r->data.SRV);
+			}
+			break;
+
+		case ns_t_invalid:
 			break;
 
 		case ns_t_null:
 		default:
-			free(r->data.DNSNULL->data);
-			free(r->data.DNSNULL);
+			if (r->data.DNSNULL != NULL)
+			{
+				if (r->data.DNSNULL->data != NULL) free(r->data.DNSNULL->data);
+				free(r->data.DNSNULL);
+			}
 			break;
 	}
 

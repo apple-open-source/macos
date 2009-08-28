@@ -1,8 +1,8 @@
 /* value.c - routines for dealing with values */
-/* $OpenLDAP: pkg/ldap/servers/slapd/value.c,v 1.79.2.13 2006/04/07 00:16:31 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/value.c,v 1.96.2.6 2008/02/11 23:26:45 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -65,7 +65,7 @@ value_add(
 		for ( n = 0; !BER_BVISNULL( &(*vals)[n] ); n++ ) {
 			;	/* Empty */
 		}
-		*vals = (BerVarray) ch_realloc( (char *) *vals,
+		*vals = (BerVarray) SLAP_REALLOC( (char *) *vals,
 		    (n + nn + 1) * sizeof(struct berval) );
 		if( *vals == NULL ) {
 			Debug(LDAP_DEBUG_TRACE,
@@ -75,7 +75,7 @@ value_add(
 	}
 
 	v2 = &(*vals)[n];
-	for ( ; !BER_BVISNULL( addvals ); v2++, addvals++ ) {
+	for ( n = 0 ; n < nn; v2++, addvals++ ) {
 		ber_dupbv( v2, addvals );
 		if ( BER_BVISNULL( v2 ) ) break;
 	}
@@ -105,7 +105,7 @@ value_add_one(
 		for ( n = 0; !BER_BVISNULL( &(*vals)[n] ); n++ ) {
 			;	/* Empty */
 		}
-		*vals = (BerVarray) ch_realloc( (char *) *vals,
+		*vals = (BerVarray) SLAP_REALLOC( (char *) *vals,
 		    (n + 2) * sizeof(struct berval) );
 		if( *vals == NULL ) {
 			Debug(LDAP_DEBUG_TRACE,
@@ -229,14 +229,14 @@ int value_find_ex(
 		return LDAP_INAPPROPRIATE_MATCHING;
 	}
 
-	assert(SLAP_IS_MR_ATTRIBUTE_VALUE_NORMALIZED_MATCH( flags ));
+	assert( SLAP_IS_MR_ATTRIBUTE_VALUE_NORMALIZED_MATCH( flags ) != 0 );
 
 	if( !SLAP_IS_MR_ASSERTED_VALUE_NORMALIZED_MATCH( flags ) &&
 		mr->smr_normalize )
 	{
 		rc = (mr->smr_normalize)(
 			flags & (SLAP_MR_TYPE_MASK|SLAP_MR_SUBTYPE_MASK|SLAP_MR_VALUE_OF_SYNTAX),
-			ad ? ad->ad_type->sat_syntax : NULL,
+			ad->ad_type->sat_syntax,
 			mr, val, &nval, ctx );
 
 		if( rc != LDAP_SUCCESS ) {
@@ -263,7 +263,7 @@ int value_find_ex(
 
 /* assign new indexes to an attribute's ordered values */
 void
-ordered_value_renumber( Attribute *a, int vals )
+ordered_value_renumber( Attribute *a )
 {
 	char *ptr, ibuf[64];	/* many digits */
 	struct berval ibv, tmp, vtmp;
@@ -271,7 +271,7 @@ ordered_value_renumber( Attribute *a, int vals )
 
 	ibv.bv_val = ibuf;
 
-	for (i=0; i<vals; i++) {
+	for (i=0; i<a->a_numvals; i++) {
 		ibv.bv_len = sprintf(ibv.bv_val, "{%d}", i);
 		vtmp = a->a_vals[i];
 		if ( vtmp.bv_val[0] == '{' ) {
@@ -405,7 +405,7 @@ ordered_value_sort( Attribute *a, int do_renumber )
 	}
 
 	if ( do_renumber && renumber )
-		ordered_value_renumber( a, vals );
+		ordered_value_renumber( a );
 
 	return 0;
 }
@@ -430,19 +430,26 @@ ordered_value_validate(
 
 		/* Skip past the assertion index */
 		if ( bv.bv_val[0] == '{' ) {
-			char	*ptr;
+			char		*ptr;
 
 			ptr = ber_bvchr( &bv, '}' );
-			if ( ptr == NULL ) {
-				return LDAP_INVALID_SYNTAX;
+			if ( ptr != NULL ) {
+				struct berval	ns;
+
+				ns.bv_val = bv.bv_val + 1;
+				ns.bv_len = ptr - ns.bv_val;
+
+				if ( numericStringValidate( NULL, &ns ) == LDAP_SUCCESS ) {
+					ptr++;
+					bv.bv_len -= ptr - bv.bv_val;
+					bv.bv_val = ptr;
+					in = &bv;
+					/* If deleting by index, just succeed */
+					if ( mop == LDAP_MOD_DELETE && BER_BVISEMPTY( &bv ) ) {
+						return LDAP_SUCCESS;
+					}
+				}
 			}
-			ptr++;
-			bv.bv_len -= ptr - bv.bv_val;
-			bv.bv_val = ptr;
-			in = &bv;
-			/* If deleting by index, just succeed */
-			if ( mop == LDAP_MOD_DELETE && BER_BVISEMPTY( &bv ))
-				return LDAP_SUCCESS;
 		}
 	}
 
@@ -478,18 +485,24 @@ ordered_value_pretty(
 			char	*ptr;
 
 			ptr = ber_bvchr( &bv, '}' );
-			if ( ptr == NULL ) {
-				return LDAP_INVALID_SYNTAX;
+			if ( ptr != NULL ) {
+				struct berval	ns;
+
+				ns.bv_val = bv.bv_val + 1;
+				ns.bv_len = ptr - ns.bv_val;
+
+				if ( numericStringValidate( NULL, &ns ) == LDAP_SUCCESS ) {
+					ptr++;
+
+					idx = bv;
+					idx.bv_len = ptr - bv.bv_val;
+
+					bv.bv_len -= idx.bv_len;
+					bv.bv_val = ptr;
+
+					val = &bv;
+				}
 			}
-			ptr++;
-
-			idx = bv;
-			idx.bv_len = ptr - bv.bv_val;
-
-			bv.bv_len -= idx.bv_len;
-			bv.bv_val = ptr;
-
-			val = &bv;
 		}
 	}
 
@@ -541,23 +554,29 @@ ordered_value_normalize(
 			char	*ptr;
 
 			ptr = ber_bvchr( &bv, '}' );
-			if ( ptr == NULL ) {
-				return LDAP_INVALID_SYNTAX;
+			if ( ptr != NULL ) {
+				struct berval	ns;
+
+				ns.bv_val = bv.bv_val + 1;
+				ns.bv_len = ptr - ns.bv_val;
+
+				if ( numericStringValidate( NULL, &ns ) == LDAP_SUCCESS ) {
+					ptr++;
+
+					idx = bv;
+					idx.bv_len = ptr - bv.bv_val;
+
+					bv.bv_len -= idx.bv_len;
+					bv.bv_val = ptr;
+
+					/* validator will already prevent this for Adds */
+					if ( BER_BVISEMPTY( &bv )) {
+						ber_dupbv_x( normalized, &idx, ctx );
+						return LDAP_SUCCESS;
+					}
+					val = &bv;
+				}
 			}
-			ptr++;
-
-			idx = bv;
-			idx.bv_len = ptr - bv.bv_val;
-
-			bv.bv_len -= idx.bv_len;
-			bv.bv_val = ptr;
-
-			/* validator will already prevent this for Adds */
-			if ( BER_BVISEMPTY( &bv )) {
-				ber_dupbv_x( normalized, &idx, ctx );
-				return LDAP_SUCCESS;
-			}
-			val = &bv;
 		}
 	}
 
@@ -609,54 +628,57 @@ ordered_value_match(
 	 */
 	if ( ad->ad_type->sat_flags & SLAP_AT_ORDERED ) {
 		char *ptr;
-		struct berval iv;
+		struct berval ns1 = BER_BVNULL, ns2 = BER_BVNULL;
 
 		bv1 = *v1;
 		bv2 = *v2;
-		iv = bv2;
 
 		/* Skip past the assertion index */
 		if ( bv2.bv_val[0] == '{' ) {
 			ptr = ber_bvchr( &bv2, '}' );
-			if ( ptr == NULL ) {
-				return LDAP_INVALID_SYNTAX;
+			if ( ptr != NULL ) {
+				ns2.bv_val = bv2.bv_val + 1;
+				ns2.bv_len = ptr - ns2.bv_val;
+
+				if ( numericStringValidate( NULL, &ns2 ) == LDAP_SUCCESS ) {
+					ptr++;
+					bv2.bv_len -= ptr - bv2.bv_val;
+					bv2.bv_val = ptr;
+					v2 = &bv2;
+				}
 			}
-			ptr++;
-			bv2.bv_len -= ptr - bv2.bv_val;
-			bv2.bv_val = ptr;
-			v2 = &bv2;
+		}
+
+		/* Skip past the attribute index */
+		if ( bv1.bv_val[0] == '{' ) {
+			ptr = ber_bvchr( &bv1, '}' );
+			if ( ptr != NULL ) {
+				ns1.bv_val = bv1.bv_val + 1;
+				ns1.bv_len = ptr - ns1.bv_val;
+
+				if ( numericStringValidate( NULL, &ns1 ) == LDAP_SUCCESS ) {
+					ptr++;
+					bv1.bv_len -= ptr - bv1.bv_val;
+					bv1.bv_val = ptr;
+					v1 = &bv1;
+				}
+			}
 		}
 
 		if ( SLAP_MR_IS_VALUE_OF_ASSERTION_SYNTAX( flags )) {
-			if ( iv.bv_val[0] == '{' && bv1.bv_val[0] == '{' ) {
-			/* compare index values first */
-				long l1, l2, ret;
-
-				l1 = strtol( bv1.bv_val+1, NULL, 0 );
-				l2 = strtol( iv.bv_val+1, &ptr, 0 );
-
-				ret = l1 - l2;
+			if ( !BER_BVISNULL( &ns2 ) && !BER_BVISNULL( &ns1 ) ) {
+				/* compare index values first */
+				(void)octetStringOrderingMatch( match, 0, NULL, NULL, &ns1, &ns2 );
 
 				/* If not equal, or we're only comparing the index,
 				 * return result now.
 				 */
-				if ( ret || ptr == iv.bv_val + iv.bv_len - 1 ) {
-					*match = ( ret < 0 ) ? -1 : (ret > 0 );
+				if ( *match != 0 || BER_BVISEMPTY( &bv2 ) ) {
 					return LDAP_SUCCESS;
 				}
 			}
 		}
-		/* Skip past the attribute index */
-		if ( bv1.bv_val[0] == '{' ) {
-			ptr = ber_bvchr( &bv1, '}' );
-			if ( ptr == NULL ) {
-				return LDAP_INVALID_SYNTAX;
-			}
-			ptr++;
-			bv1.bv_len -= ptr - bv1.bv_val;
-			bv1.bv_val = ptr;
-			v1 = &bv1;
-		}
+
 	}
 
 	if ( !mr || !mr->smr_match ) {
@@ -684,27 +706,38 @@ ordered_value_add(
 	vnum = i;
 
 	if ( a ) {
-		for (i=0; !BER_BVISNULL( a->a_vals+i ); i++) ;
-		anum = i;
 		ordered_value_sort( a, 0 );
 	} else {
 		Attribute **ap;
-		anum = 0;
 		for ( ap=&e->e_attrs; *ap; ap = &(*ap)->a_next ) ;
-		a = ch_calloc( 1, sizeof(Attribute) );
-		a->a_desc = ad;
+		a = attr_alloc( ad );
 		*ap = a;
 	}
+	anum = a->a_numvals;
 
 	new = ch_malloc( (anum+vnum+1) * sizeof(struct berval));
-	if ( a->a_nvals && a->a_nvals != a->a_vals ) {
+
+	/* sanity check: if normalized modifications come in, either
+	 * no values are present or normalized existing values differ
+	 * from non-normalized; if no normalized modifications come in,
+	 * either no values are present or normalized existing values
+	 * don't differ from non-normalized */
+	if ( nvals != NULL ) {
+		assert( nvals != vals );
+		assert( a->a_nvals == NULL || a->a_nvals != a->a_vals );
+
+	} else {
+		assert( a->a_nvals == NULL || a->a_nvals == a->a_vals );
+	}
+
+	if ( ( a->a_nvals && a->a_nvals != a->a_vals ) || nvals != NULL ) {
 		nnew = ch_malloc( (anum+vnum+1) * sizeof(struct berval));
 		/* Shouldn't happen... */
 		if ( !nvals ) nvals = vals;
 	}
 	if ( anum ) {
 		AC_MEMCPY( new, a->a_vals, anum * sizeof(struct berval));
-		if ( nnew )
+		if ( nnew && a->a_nvals )
 			AC_MEMCPY( nnew, a->a_nvals, anum * sizeof(struct berval));
 	}
 
@@ -713,11 +746,14 @@ ordered_value_add(
 
 		k = -1;
 		if ( vals[i].bv_val[0] == '{' ) {
+			/* FIXME: strtol() could go past end... */
 			k = strtol( vals[i].bv_val + 1, &next, 0 );
 			if ( next == vals[i].bv_val + 1 ||
 				next[ 0 ] != '}' ||
 				next - vals[i].bv_val > vals[i].bv_len )
 			{
+				ch_free( nnew );
+				ch_free( new );
 				return -1;
 			}
 			if ( k > anum ) k = -1;
@@ -751,7 +787,8 @@ ordered_value_add(
 		a->a_nvals = a->a_vals;
 	}
 
-	ordered_value_renumber( a, anum );
+	a->a_numvals = anum;
+	ordered_value_renumber( a );
 
 	return 0;
 }

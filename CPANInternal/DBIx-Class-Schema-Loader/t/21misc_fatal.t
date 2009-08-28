@@ -12,7 +12,7 @@ use make_dbictest_db;
 
     package DBICTest::Schema;
     use base qw/ DBIx::Class::Schema::Loader /;
-    __PACKAGE__->loader_options( relationships => 1 );
+    __PACKAGE__->loader_options( really_erase_my_files => 1 );
     __PACKAGE__->storage_type( '::xyzzy' );
 }
 

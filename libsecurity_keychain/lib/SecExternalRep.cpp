@@ -250,6 +250,9 @@ OSStatus SecExport::Key::exportRep(
 				case CSSM_ALGID_DSA:
 					*pemHeader = PEM_STRING_DSA_PUBLIC;
 					break; 
+				case CSSM_ALGID_ECDSA:
+					*pemHeader = PEM_STRING_ECDSA_PUBLIC;
+					break; 
 				default:
 					SecImpExpDbg("SecExportRep::exportRep unknown public key alg %lu",
 						(unsigned long)mKeyAlg);
@@ -267,7 +270,10 @@ OSStatus SecExport::Key::exportRep(
 					break; 
 				case CSSM_ALGID_DSA:
 					*pemHeader = PEM_STRING_DSA;
-					break;  /* from case RSA private */
+					break; 
+				case CSSM_ALGID_ECDSA:
+					*pemHeader = PEM_STRING_ECDSA_PRIVATE;
+					break; 
 				default:
 					SecImpExpDbg("SecExportRep::exportRep unknown private key alg "
 						"%lu", (unsigned long)mKeyAlg);
@@ -443,20 +449,23 @@ OSStatus SecImportRep::importRep(
 	
 	/* handle the easy ones first */
 	switch(mExternFormat) {
+		case kSecFormatPKCS12:
+			return impExpPkcs12Import(mExternal, flags, keyParams, 
+				keyImportState, importKeychain, cspHand, outArray);
 		case kSecFormatX509Cert:
+		case kSecFormatPKCS7:
 		{
+			OSStatus rx = impExpPkcs7Import(mExternal, flags, keyParams, importKeychain, 
+					outArray);
+			if (rx == errSecUnknownFormat)
+			{
 			CSSM_DATA cdata;
 			cdata.Data = (uint8 *)CFDataGetBytePtr(mExternal);
 			cdata.Length = CFDataGetLength(mExternal);
 			return impExpImportCertCommon(&cdata, importKeychain, outArray);
 		}
-
-		case kSecFormatPKCS12:
-			return impExpPkcs12Import(mExternal, flags, keyParams, 
-				keyImportState, importKeychain, cspHand, outArray);
-		case kSecFormatPKCS7:
-			return impExpPkcs7Import(mExternal, flags, keyParams, importKeychain, 
-				outArray);
+			return rx;
+		}
 		case kSecFormatNetscapeCertSequence:
 			return impExpNetscapeCertImport(mExternal, flags, keyParams, importKeychain,
 				outArray);

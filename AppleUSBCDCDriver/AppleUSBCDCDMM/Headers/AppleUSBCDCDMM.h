@@ -217,8 +217,8 @@ typedef struct
     UInt32		SWspecial[ 0x100 >> SPECIAL_SHIFT ];
     UInt32		FlowControl;			// notify-on-delta & auto_control
 		
-    int			RXOstate;    			// Indicates our receive state.
-    int			TXOstate;			// Indicates our transmit state, if we have received any Flow Control.
+    SInt16		RXOstate;    			// Indicates our receive state.
+    SInt16		TXOstate;			// Indicates our transmit state, if we have received any Flow Control.
 	
     IOThread		FrameTOEntry;
 	
@@ -227,7 +227,7 @@ typedef struct
 	
         // extensions for USB Driver
     
-    UInt8		InterfaceNumber;
+//    UInt8		InterfaceNumber;
 
     UInt32		OutPacketSize;
     UInt32		InPacketSize;
@@ -291,10 +291,10 @@ public:
 
     virtual IOReturn		acquirePort(bool sleep, void *refCon);
     virtual IOReturn		releasePort(void *refCon);
-    virtual UInt32		getState(void *refCon);
+    virtual UInt32			getState(void *refCon);
     virtual IOReturn		setState(UInt32 state, UInt32 mask, void *refCon);
     virtual IOReturn		watchState(UInt32 *state, UInt32 mask, void *refCon);
-    virtual UInt32		nextEvent(void *refCon);
+    virtual UInt32			nextEvent(void *refCon);
     virtual IOReturn		executeEvent(UInt32 event, UInt32 data, void *refCon);
     virtual IOReturn		requestEvent(UInt32 event, UInt32 *data, void *refCon);
     virtual IOReturn		enqueueEvent(UInt32 event, UInt32 data, bool sleep, void *refCon);
@@ -320,11 +320,11 @@ public:
     virtual	IOReturn	acquirePortGated(bool sleep);
     virtual	IOReturn	releasePortGated(void);
     virtual	UInt32		getStateGated(void);
-    virtual	IOReturn	setStateGated(UInt32 state, UInt32 mask);
-    virtual	IOReturn	watchStateGated(UInt32 *state, UInt32 mask);
-    virtual	IOReturn	executeEventGated(UInt32 event, UInt32 data);
-    virtual	IOReturn	enqueueDataGated(UInt8 *buffer, UInt32 size, UInt32 *count, bool sleep);
-    virtual	IOReturn	dequeueDataGated(UInt8 *buffer, UInt32 size, UInt32 *count, UInt32 min);
+    virtual	IOReturn	setStateGated(UInt32 *pState, UInt32 *pMask);
+    virtual	IOReturn	watchStateGated(UInt32 *state, UInt32 *pMask);
+    virtual	IOReturn	executeEventGated(UInt32 *event, UInt32 *data);
+    virtual	IOReturn	enqueueDataGated(UInt8 *buffer, UInt32 *pSize, UInt32 *count, bool *pSleep);
+    virtual	IOReturn	dequeueDataGated(UInt8 *buffer, UInt32 *pSize, UInt32 *count, UInt32 *pMin);
 												
         // DMM Driver Methods
 	

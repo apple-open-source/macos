@@ -1,13 +1,13 @@
-La seva petició a la llista de correu  %(listname)s 
+El moderador de la llista ha rebutjat la vostra solÂ·licitud a la llista
+de correu %(listname)s:
 
     %(request)s
 
-ha estat refusada per el moderador de la llista.  El moderador ha donat el 
-següent motiu:
+El moderador ha donat el motiu segÃ¼ent per aquest rebuig:
 
-"%(reason)s"
+Â«%(reason)sÂ»
 
-Qualsevol pregunta o comentari haurà de ser directament adreçat a l'administrador
-de la llista a:
+En cas que tingueu qualsevol pregunta o comentari, els haurÃ­eu d'adreÃ§ar
+a l'administrador de la llista a:
 
     %(adminaddr)s

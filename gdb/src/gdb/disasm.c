@@ -163,7 +163,6 @@ do_mixed_source_and_assembly (struct ui_out *uiout,
   int i;
   int out_of_order = 0;
   int next_line = 0;
-  CORE_ADDR pc;
   int num_displayed = 0;
   struct cleanup *ui_out_chain;
   struct cleanup *ui_out_tuple_chain = make_cleanup (null_cleanup, 0);
@@ -408,7 +407,7 @@ gdb_disassembly (struct ui_out *uiout,
 static
 int gdbarch_instruction_length (struct gdbarch *gdbarch)
 {
-  struct bfd_arch_info *info = gdbarch_bfd_arch_info (gdbarch);
+  const struct bfd_arch_info *info = gdbarch_bfd_arch_info (gdbarch);
 
   switch (info->arch)
     {
@@ -469,7 +468,7 @@ find_pc_offset (CORE_ADDR start, CORE_ADDR *result, int offset, int funclimit,
 
   if (funclimit)
     {
-      if (find_pc_partial_function (start, NULL, &low, &high) == 0)
+      if (find_pc_partial_function_no_inlined (start, NULL, &low, &high) == 0)
 	{
 	  /* We were unable to find the start of the function. */
 	  return -1;
@@ -541,6 +540,20 @@ find_pc_offset (CORE_ADDR start, CORE_ADDR *result, int offset, int funclimit,
 
   gdb_assert (low <= start);
   gdb_assert (offset < 0);
+
+  /* A sanity check:  If we've stepped into some area of memory where
+     gdb doesn't have symbols and the GUI requests we disassemble from $pc, 
+     gdb can come up with very large LOW-HIGH regions of memory to disassemble
+     through.  As a sanity check, if this function starts four pages before
+     the given $pc and we're in MI mode (so we have a GUI that may be 
+     requesting nonsensical things), shortcircuit this operation.  */
+     
+  if (start - low > -offset && start - low > 16384 
+      && ui_out_is_mi_like_p (uiout))
+    {
+      *result = start;
+      return 1;
+    }
 
   /* There's no point searching for more instructions slots than there
      are bytes.  If we were given a PEEKLIMIT of -1, or a PEEKLIMIT

@@ -15,7 +15,7 @@ else{
 <meta http-equiv="Content-Type" content="text/html; charset=$config[general_charset]">
 <link rel="stylesheet" href="style.css">
 </head>
-<body bgcolor="#80a040" background="images/greenlines1.gif" link="black" alink="black">
+<body>
 <center>
 <b>Could not include SQL library functions. Aborting</b>
 </body>
@@ -32,6 +32,8 @@ if ($config[sql_type] == 'pg'){
 $link = @da_sql_pconnect ($config) or die('cannot connect to sql databse');
 $fields = @da_sql_list_fields($config[sql_accounting_table],$link,$config);
 $no_fields = @da_sql_num_fields($fields,$config);
+
+unset($items);
 
 for($i=0;$i<$no_fields;$i++){
 	$key = strtolower(@da_sql_field_name($fields,$i,$config));
@@ -57,7 +59,7 @@ class Qi {
 				$this->item=$item;
 				$this->operator=$operator;
 	}
-						
+
 	function show() {	global $operators;
 				global $items;
 		$nam = $this->item;
@@ -85,7 +87,7 @@ EOM;
 	</td></tr>
 EOM;
 	}
-	
+
 	function get($designator) {  	global ${"item_of_$designator"};
 			global ${"value_of_$designator"};
 			global ${"operator_of_$designator"};
@@ -94,7 +96,7 @@ EOM;
 				$this->operator=${"operator_of_$designator"};
 				$this->item=${"item_of_$designator"};
 			}
-		}			
+		}
 	function query(){
 		global $operators;
 		global $items;
@@ -109,7 +111,7 @@ EOM;
 <meta http-equiv="Content-Type" content="text/html; charset=<?php echo $config[general_charset]?>">
 <link rel="stylesheet" href="style.css">
 </head>
-<body bgcolor="#80a040" background="images/greenlines1.gif" link="black" alink="black">
+<body>
 
 <?php
 if(!$queryflag) {
@@ -173,14 +175,14 @@ $offset=0;
 while (${"item_of_w$number"}) {
 	if(${"delete_w$number"}==1) {$offset=1;$number++;}
 		else {
-		$designator=$number-$offset;			
+		$designator=$number-$offset;
 		${"w$designator"} = new Qi("w$designator","","");
 		${"w$designator"}->get("w$number");
 		${"w$designator"}->show();
 		$number++;
 		}
 	}
-if($add==1) {	
+if($add==1) {
 	${"w$number"} = new Qi("w$number","$item_name","$operators[0]");
 	${"w$number"}->show();
 	}
@@ -222,20 +224,30 @@ while (${"item_of_w$i"}){
 
 $order = ($order_by != '') ? "$order_by" : 'username';
 
+if (preg_match("/[\s;]/",$order))
+	die("ORDER BY pattern is illegal. Exiting abnornally.");
+
+if (!is_numeric($maxresults))
+	die("Max Results is not in numeric form. Exiting abnormally.");
+
+unset($query_view);
 foreach ($accounting_show_attrs as $val)
 	$query_view .= $val . ',';
 $query_view = ereg_replace(',$','',$query_view);
-$sql_extra_query = '';
+unset($sql_extra_query);
 if ($config[sql_accounting_extra_query] != '')
-	$sql_extra_query = sql_xlat($config[sql_accounting_extra_query],$login,$config);
-$query="SELECT $query_view FROM $config[sql_accounting_table] $where $sql_extra_query ORDER BY $order LIMIT $maxresults;";
+	$sql_extra_query = xlat($config[sql_accounting_extra_query],$login,$config);
+	$sql_extra_query = da_sql_escape_string($sql_extra_query);
+$query="SELECT " . da_sql_limit($maxresults,0,$config) . " $query_view FROM $config[sql_accounting_table]
+	$where $sql_extra_query " . da_sql_limit($maxresults,1,$config) .
+	" ORDER BY $order " . da_sql_limit($maxresults,2,$config) . ";";
 
 echo <<<EOM
 <html>
 <head>
 <link rel="stylesheet" href="style.css">
 </head>
-<body bgcolor="#80a040" background="images/greenlines1.gif" link="black" alink="black">
+<body>
 <br>
 <table border=0 width=940 cellpadding=1 cellspacing=1>
 <tr valign=top>
@@ -271,8 +283,10 @@ echo "</tr>\n";
 				if ($info == '')
 					$info = '-';
 				$info = $sql_attrs[$val][func]($info);
-				if ($val == 'username')
-					$info = "<a href=\"user_admin.php3?login=$info\" title=\"Edit user $info\">$info<a/>";
+				if ($val == 'username'){
+					$Info = urlencode($info);
+					$info = "<a href=\"user_admin.php3?login=$Info\" title=\"Edit user $info\">$info<a/>";
+				}
 				echo <<<EOM
 			<td>$info</td>
 EOM;

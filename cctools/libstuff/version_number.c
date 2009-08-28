@@ -30,7 +30,7 @@
 /*
  * get_version_number() converts an ascii version number string of the form:
  *	X[.Y[.Z]]
- * to an unsigned long with the value (X << 16) | (Y << 8) | Z and does
+ * to a uint32_t with the value (X << 16) | (Y << 8) | Z and does
  * all the needed range checks.  The value is indirectly returned through value
  * and flag and argument are used for error messages.  It TRUE if there were
  * no errors FALSE otherwise.
@@ -40,10 +40,10 @@ enum bool
 get_version_number(
 char *flag,
 char *argument,
-unsigned long *value)
+uint32_t *value)
 {
     char *p, *x, *y, *z, *dot, *endp;
-    unsigned long X, Y, Z;
+    uint32_t X, Y, Z;
 
 	*value = 0;
 	p = allocate(strlen(argument) + 1);

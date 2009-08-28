@@ -1,6 +1,6 @@
 [Setup]
 ;# Version parameters #########################################################
-#define svn_cpr "Copyright ©2000-2006 CollabNet"
+#define svn_cpr "Copyright ©2000-2009 CollabNet"
 
 ; Version and release info:
 #include "svn_version.iss"
@@ -83,6 +83,9 @@ Source: {#= path_intl_dll}\intl3_svn.dll; DestDir: {app}\bin; Flags: ignoreversi
 Source: {#= path_msvcr70_dll}\msvcr70.dll; DestDir: {app}\bin
 #endif
 
+;SQLite
+Source: {#= path_sqlite}\sqlite3.dll; DestDir: {app}\bin; Flags: ignoreversion
+
 ;SSL
 Source: {#= path_ssl}\libeay32.dll; DestDir: {app}\bin; Flags: ignoreversion
 Source: {#= path_ssl}\ssleay32.dll; DestDir: {app}\bin; Flags: ignoreversion
@@ -156,15 +159,15 @@ Name: full; Description: Full installation - Binaries and debugging symbols
 Name: custom; Description: Custom Installation; Flags: iscustom
 
 [Components]
-Name: main; Description: Subversion application files; Types: standard custom full; flags: disablenouninstallwarning
+Name: main; Description: Subversion application files; Types: standard custom full; Flags: disablenouninstallwarning
 ;or
 ;Name: main; Description: Subversion application files; Types: standard custom full; flags: fixed
 
-Name: pdb; Description: Debug Symbol Files; Types: full custom; flags: disablenouninstallwarning
+Name: pdb; Description: Debug Symbol Files; Types: full custom; Flags: disablenouninstallwarning
 
 [InstallDelete]
 
-;If add "disablenouninstallwarning" flag to "main" in [Components], use these lines:
+;If the "disablenouninstallwarning" flag is present for the "main" entry in [Components], use these lines:
 Type: files; Name: {app}\Readme.txt
 Type: files; Name: {app}\W32notes.txt
 Type: files; Name: {app}\svn-proxy-template.reg

@@ -93,6 +93,19 @@ gdb_expect {
   }
 }
 
+send_gdb "200-break-insert -s dummy.bundle -f dummy_function\n"
+gdb_expect {
+  -re "200\\^done,bkpt=\{number=\"3\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\"<PENDING>\",pending=\"dummy_function\",times=\"0\"\}\[\r\n\]+$mi_gdb_prompt$"  {
+    pass "break-insert blocky operation"
+  }
+  -re ".*$mi_gdb_prompt$" {
+    fail "break-insert blocky operation"
+  }
+  timeout {
+    fail "(timeout) break-insert blocky operation"
+  }
+}
+
 send_gdb "210-gdb-set sharedlibrary load-rules dyld .* extern\n"
 gdb_expect {
     -re "210\\^done\[\r\n\]+$mi_gdb_prompt$" {
@@ -105,19 +118,47 @@ gdb_expect {
 send_gdb "211-gdb-set auto-raise-load-levels 1\n"
 gdb_expect {
     -re "211\\^done\[\r\n\]+$mi_gdb_prompt$" {
-    pass "setting sharedlibrary load rules to extern."
+    pass "setting auto-raise load levels."
   }
   timeout {
-    fail "(timeout) setting sharedlibrary load rules to extern."
+    fail "(timeout) setting auto-raise load levels."
   }
 }
 
-set libs_loaded {.*\r\n=shlibs-added,shlib-info=\[num="[0-9]+",name="loaded.bundle",.*\].*\r\n=shlibs-added,shlib-info=\[num="[0-9]+",name="libreal.dylib".*\]\r\n.*}
-set libs_unloaded {.*\r\n=shlibs-removed,shlib-info=\[num="[0-9]+",name="loaded.bundle",.*\].*\r\n=shlibs-removed,shlib-info=\[num="[0-9]+",name="libreal.dylib".*\]\r\n.*}
+set libs_loaded {.*\r\n=shlibs-added,shlib-info=\[num="[0-9]+",name="loaded.bundle",.*\].*\r\n=shlibs-added,shlib-info=\[num="[0-9]+",name="libreal.dylib".*\].*\r\n.*}
+set libs_unloaded {.*\r\n=shlibs-removed,shlib-info=\[num="[0-9]+",name="loaded.bundle",.*\].*\r\n=shlibs-removed,shlib-info=\[num="[0-9]+",name="libreal.dylib".*\].*\r\n.*}
+set varobj_deleted {=var-deleted,var="loaded_varobj".*\r\n.*}
 
-mi_continue_to 2 real_function ".*" real.c "4" "Run to real function first time" $libs_loaded
+mi_continue_to 2 real_function ".*" real.c "11" "Run to real function first time" $libs_loaded
 
-mi_continue_to 2 real_function ".*" real.c "4" "Run to real function second time" $libs_unloaded$libs_loaded
+# Now make a variable object that relies on types from the loaded.bundle.  
+# Then when we get unloaded, we can try to update & evaluate the varobj, and
+# if we haven't figured out that this varobj relies on the types that got unloaded,
+# we'll just crash.
+
+mi_gdb_test {-var-create loaded_varobj * global_struct}  \
+    {name="loaded_varobj",numchild="2",type="struct real_struct",.*} \
+    {Create varobj relying on types in loaded.bundle}
+
+mi_gdb_test {-var-list-children --all-values loaded_varobj} \
+    {numchild="2",children=\[child=\{.*value="0".*\},child=\{.*value="0".*\}\]} \
+    {List children of loaded_varobj}
+
+mi_continue_to 3 dummy_function ".*" dummy.c "4" "Run to dummy function" $libs_unloaded$varobj_deleted
+
+mi_gdb_test {-var-update loaded_varobj} {.*msg="Variable object not found".*} {Try to update loaded_varobj, should already be gone.}
+
+mi_continue_to 2 real_function ".*" real.c "11" "Run to real function second time" $libs_loaded
+
+send_gdb "210-break-disable 3\n"
+gdb_expect {
+    -re "210\\^done\[\r\n\]+$mi_gdb_prompt$" {
+	pass "Disable breakpoint at dummy_function"
+    }
+    timeout {
+	fail "(timeout) disable breakpoint at dummy_function"
+    }
+}
 
 send_gdb "220-exec-run\n"
 gdb_expect {
@@ -129,7 +170,7 @@ gdb_expect {
   }
 }
 
-mi_continue_to 2 real_function ".*" real.c "4" "Rerun to real function first time" $libs_loaded
+mi_continue_to 2 real_function ".*" real.c "11" "Rerun to real function first time" $libs_loaded
 
-mi_continue_to 2 real_function ".*" real.c "4" "Rerun to real function second time" $libs_unloaded$libs_loaded
+mi_continue_to 2 real_function ".*" real.c "11" "Rerun to real function second time" $libs_unloaded$libs_loaded
 

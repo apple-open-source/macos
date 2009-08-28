@@ -17,8 +17,9 @@ You should have received a copy of the GNU General Public License
 along with GAS; see the file COPYING.  If not, write to
 the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#import <mach-o/loader.h>
-#import "struc-symbol.h"
+#include <stdint.h>
+#include <mach-o/loader.h>
+#include "struc-symbol.h"
 
 /*
  * For every section the user mentions in the assembley program, we make one
@@ -37,10 +38,13 @@ struct frchain {			/* control building of a frag chain */
     struct frchain  *frch_next;		/* next in chain of struct frchain-s */
 
     section_t	     frch_section;	/* section info, name, type, etc. */
-    unsigned long    frch_nsect;	/* section number (1,2,3,...) */
+    uint32_t	     frch_nsect;	/* section number (1,2,3,...) */
     struct fix      *frch_fix_root;	/* section fixups */
     isymbolS	    *frch_isym_root;	/* 1st indirect symbol in chain */
     isymbolS	    *frch_isym_last;	/* last indirect symbol in chain */
+    symbolS	    *section_symbol;	/* section symbol for dwarf if set */
+    uint32_t	     has_rs_leb128s;	/* section has some rs_leb128 frags */
+    uint32_t	     layout_pass;	/* pass order for layout_addresses() */
 };
 
 typedef struct frchain frchainS;
@@ -57,6 +61,14 @@ extern frchainS *frchain_root;
 extern frchainS *frchain_now;
 
 /*
+ * These are used to inteface to the code in dwarf2dbg.c . The first is the
+ * frch_nsect value from the current frchain or current section.  The second
+ * is always zero.
+ */
+extern int now_seg;
+extern int now_subseg;
+
+/*
  * The global routines defined in sections.c
  */
 extern void sections_begin(
@@ -65,25 +77,41 @@ extern void sections_begin(
 extern frchainS *section_new(
     char *segname,
     char *sectname,
-    unsigned long type,
-    unsigned long attributes,
-    unsigned long sizeof_stub);
+    uint32_t type,
+    uint32_t attributes,
+    uint32_t sizeof_stub);
 
-extern unsigned long is_section_coalesced(
-    unsigned long n_sect);
+extern void section_set(
+    frchainS *frcP);
 
-extern unsigned long is_section_non_lazy_symbol_pointers(
-    unsigned long n_sect);
+extern symbolS *section_symbol(
+    frchainS *frcP);
 
-extern unsigned long is_section_debug(
-    unsigned long n_sect);
+extern int seg_not_empty_p(
+    frchainS *frcP);
 
-extern unsigned long is_section_cstring_literals(
-    unsigned long n_sect);
+extern struct frchain *get_section_by_nsect(
+    uint32_t nsect);
 
-extern unsigned long is_end_section_address(
-    unsigned long n_sect,
-    unsigned long addr);
+extern struct frchain *get_section_by_name(
+    char *segname,
+    char *sectname);
 
-extern unsigned long section_has_fixed_size_data(
-    unsigned long n_sect);
+extern uint32_t is_section_coalesced(
+    uint32_t n_sect);
+
+extern uint32_t is_section_non_lazy_symbol_pointers(
+    uint32_t n_sect);
+
+extern uint32_t is_section_debug(
+    uint32_t n_sect);
+
+extern uint32_t is_section_cstring_literals(
+    uint32_t n_sect);
+
+extern uint32_t is_end_section_address(
+    uint32_t n_sect,
+    addressT addr);
+
+extern uint32_t section_has_fixed_size_data(
+    uint32_t n_sect);

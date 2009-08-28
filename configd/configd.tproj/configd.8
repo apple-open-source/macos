@@ -66,8 +66,6 @@ At the present time, the majority of the configuration agents (or bundles) hoste
 are used to establish and maintain the network configuration.
 These agents include:
 .Pp
-.Ss ATconfig
-This bundle is responsible for establishing and maintaining the AppleTalk network configuration on the system.
 .Ss KernelEventMonitor
 This bundle is responsible for monitoring kernel events and conveying changes to the network state (e.g. link status) to other configuration agents and interested applications.
 .Ss InterfaceNamer
@@ -83,7 +81,7 @@ This agent is responsible for establishing and maintaining the primary network s
 .Ss LinkConfiguration
 This agent is responsible for establishing and maintaining the media type, media options, and MTU for ethernet interfaces.
 .Ss PreferencesMonitor
-This agent is responsible for conveying the network configuration preferences specified by the administrator to the various configuration agents (AppleTalk, IPv4, IPv6, ...).
+This agent is responsible for conveying the network configuration preferences specified by the administrator to the various configuration agents (IPv4, IPv6, ...).
 .Ss PPPController
 This agent is responsible for establishing and maintaining PPP connections on the system.
 .Sh FILES

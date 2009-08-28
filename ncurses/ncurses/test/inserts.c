@@ -1,11 +1,40 @@
+/****************************************************************************
+ * Copyright (c) 2002-2006,2007 Free Software Foundation, Inc.              *
+ *                                                                          *
+ * Permission is hereby granted, free of charge, to any person obtaining a  *
+ * copy of this software and associated documentation files (the            *
+ * "Software"), to deal in the Software without restriction, including      *
+ * without limitation the rights to use, copy, modify, merge, publish,      *
+ * distribute, distribute with modifications, sublicense, and/or sell       *
+ * copies of the Software, and to permit persons to whom the Software is    *
+ * furnished to do so, subject to the following conditions:                 *
+ *                                                                          *
+ * The above copyright notice and this permission notice shall be included  *
+ * in all copies or substantial portions of the Software.                   *
+ *                                                                          *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+ * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+ * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+ * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+ * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+ *                                                                          *
+ * Except as contained in this notice, the name(s) of the above copyright   *
+ * holders shall not be used in advertising or otherwise to promote the     *
+ * sale, use or other dealings in this Software without prior written       *
+ * authorization.                                                           *
+ ****************************************************************************/
 /*
- * $Id: inserts.c,v 1.13 2005/04/16 15:56:42 tom Exp $
+ * $Id: inserts.c,v 1.18 2007/07/21 17:41:55 tom Exp $
  *
  * Demonstrate the winsstr() and winsch functions.
  * Thomas Dickey - 2002/10/19
  */
 
 #include <test.priv.h>
+
+#if HAVE_WINSSTR
 
 #define InsNStr    insnstr
 #define InsStr     insstr
@@ -21,7 +50,7 @@
 #define MvWInsCh   mvwinsch
 #define WInsCh     winsch
 
-#define TABSIZE 8
+#define MY_TABSIZE 8
 
 typedef enum {
     oDefault = 0,
@@ -87,7 +116,7 @@ ColOf(char *buffer, int length, int margin)
 		--result;
 	    break;
 	case '\t':
-	    result += (TABSIZE - (result % TABSIZE));
+	    result += (MY_TABSIZE - (result % MY_TABSIZE));
 	    break;
 	case '\177':
 	    result += 2;
@@ -118,9 +147,13 @@ test_inserts(int level)
     WINDOW *look = 0;
     WINDOW *work = 0;
     WINDOW *show = 0;
-    int margin = (2 * TABSIZE) - 1;
-    Options option = ((m_opt ? oMove : oDefault)
-		      | ((w_opt || (level > 0)) ? oWindow : oDefault));
+    int margin = (2 * MY_TABSIZE) - 1;
+    Options option = (Options) ((unsigned) (m_opt
+					    ? oMove
+					    : oDefault)
+				| (unsigned) ((w_opt || (level > 0))
+					      ? oWindow
+					      : oDefault));
 
     if (first) {
 	static char cmd[80];
@@ -148,7 +181,7 @@ test_inserts(int level)
     }
     keypad(work, TRUE);
 
-    for (col = margin + 1; col < COLS; col += TABSIZE)
+    for (col = margin + 1; col < COLS; col += MY_TABSIZE)
 	mvwvline(work, row, col, '.', limit - 2);
 
     mvwvline(work, row, margin, ACS_VLINE, limit - 2);
@@ -372,7 +405,7 @@ main(int argc GCC_UNUSED, char *argv[]GCC_UNUSED)
 
     setlocale(LC_ALL, "");
 
-    while ((ch = getopt(argc, argv, "mn:w")) != EOF) {
+    while ((ch = getopt(argc, argv, "mn:w")) != -1) {
 	switch (ch) {
 	case 'm':
 	    m_opt = TRUE;
@@ -397,3 +430,11 @@ main(int argc GCC_UNUSED, char *argv[]GCC_UNUSED)
     endwin();
     ExitProgram(EXIT_SUCCESS);
 }
+#else
+int
+main(void)
+{
+    printf("This program requires the winsstr function\n");
+    ExitProgram(EXIT_FAILURE);
+}
+#endif /* HAVE_WINSSTR */

@@ -1,84 +1,51 @@
-##
-# Makefile for libpcap
-##
-
-# Project info
 Project         = libpcap
-UserType        = Developer
-ToolType        = Libraries
-GnuAfterInstall = shlibs install-shlibs install-plist make-manpages
+ProjectVersion  = 1.0.0
+Patches         = Makefile.in.diff configure.diff pcap-config.in.diff
 
-# It's a GNU Source project
-Install_Prefix = /usr
-Install_Man = /usr/share/man
-include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
-Extra_Configure_Flags = --enable-ipv6
-Extra_CC_Flags = -I. -dynamic -fno-common -DHAVE_CONFIG_H -D_U_=\"\"
-
-# Automatic Extract & Patch
-AEP	       = YES
-AEP_Project    = $(Project)
-AEP_Version    = 0.9.5
-AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
-AEP_Filename   = $(AEP_ProjVers).tar.gz
-AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = wlt.diff
-
-ifeq ($(suffix $(AEP_Filename)),.bz2)
-AEP_ExtractOption = j
-else
-AEP_ExtractOption = z
-endif
-
-extra_man_pages = breakloop close compile datalink datalink_name_to_val datalink_val_to_description \
-	datalink_val_to_name dispatch dump dump_close dump_file dump_flush dump_fopen dump_ftell \
-	dump_open file fileno findalldevs fopen_offline freealldevs freecode get_selectable_fd \
-	geterr getnonblock inject is_swapped lib_version list_datalinks lookupdev lookupnet \
-	loop major_version minor_version next next_ex open_dead open_live open_offline perror \
-	sendpacket set_datalink setdirection setfilter setnonblock snapshot stats strerror
+include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
 # Extract the source.
 install_source::
-ifeq ($(AEP),YES)
-	$(TAR) -C $(SRCROOT) -$(AEP_ExtractOption)xf $(SRCROOT)/$(AEP_Filename)
-	$(RMDIR) $(SRCROOT)/$(AEP_Project)
-	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(AEP_Project)
-	for patchfile in $(AEP_Patches); do \
-		cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile; \
+	$(RMDIR) $(SRCROOT)/$(Project) $(SRCROOT)/$(Project)-$(ProjVersion)
+	$(TAR) -C $(SRCROOT) -xf $(SRCROOT)/$(Project)-$(ProjectVersion).tar.gz
+	$(MV) $(SRCROOT)/$(Project)-$(ProjectVersion) $(SRCROOT)/$(Project)
+	@set -x && \
+	cd $(SRCROOT)/$(Project) && \
+	for file in $(Patches); do \
+		patch -p0 -F0 -i $(SRCROOT)/patches/$$file; \
 	done
-endif
 
-lazy_install_source:: shadow_source
-	@echo "*This needs to be installed from a case sensitive filesystem*"
-
-Install_Target = install
-installhdrs:: 
-	$(MKDIR) -p $(DSTROOT)/usr/include/net
-	$(INSTALL) -c -m 444 $(SRCROOT)/libpcap/pcap.h $(DSTROOT)/usr/include/
-	$(INSTALL) -c -m 444 $(SRCROOT)/libpcap/pcap-namedb.h $(DSTROOT)/usr/include/
-
-shlibs: 
-	$(CC) $(CFLAGS) $(LDFLAGS) -dynamiclib -compatibility_version 1 -current_version 1 -all_load -install_name /usr/lib/libpcap.A.dylib -o $(OBJROOT)/libpcap.A.dylib $(OBJROOT)/libpcap.a
-	$(RM) $(DSTROOT)/usr/include/net/bpf.h
-	$(RM) $(DSTROOT)/usr/lib/libpcap.a
-	$(RMDIR) $(DSTROOT)/usr/include/net
-
-install-shlibs: 
-	$(MKDIR) -p $(DSTROOT)/$(USRLIBDIR)
-	$(INSTALL) -c $(OBJROOT)/libpcap.A.dylib $(DSTROOT)/$(USRLIBDIR)/
-	$(STRIP) -S $(DSTROOT)/$(USRLIBDIR)/libpcap.A.dylib
-	$(LN) -sf libpcap.A.dylib $(DSTROOT)/$(USRLIBDIR)/libpcap.dylib
+install_headers::
+	$(INSTALL_DIRECTORY) $(DSTROOT)/usr/include/pcap
+	$(INSTALL_FILE) $(SRCROOT)/$(Project)/pcap-bpf.h $(DSTROOT)/usr/include
+	$(INSTALL_FILE) $(SRCROOT)/$(Project)/pcap-namedb.h $(DSTROOT)/usr/include
+	$(INSTALL_FILE) $(SRCROOT)/$(Project)/pcap.h $(DSTROOT)/usr/include
+	$(INSTALL_FILE) $(SRCROOT)/$(Project)/pcap/bpf.h $(DSTROOT)/usr/include/pcap
+	$(INSTALL_FILE) $(SRCROOT)/$(Project)/pcap/namedb.h $(DSTROOT)/usr/include/pcap
+	$(INSTALL_FILE) $(SRCROOT)/$(Project)/pcap/pcap.h $(DSTROOT)/usr/include/pcap
+	$(INSTALL_FILE) $(SRCROOT)/$(Project)/pcap/sll.h $(DSTROOT)/usr/include/pcap
+	$(INSTALL_FILE) $(SRCROOT)/$(Project)/pcap/usb.h $(DSTROOT)/usr/include/pcap
 
 OSV	= $(DSTROOT)/usr/local/OpenSourceVersions
 OSL	= $(DSTROOT)/usr/local/OpenSourceLicenses
 
-install-plist:
-	$(MKDIR) $(OSV)
+install::
+	cd $(OBJROOT) && CFLAGS="$(CFLAGS)" $(SRCROOT)/$(Project)/configure --prefix=/usr --enable-ipv6
+
+	$(MAKE) -C $(OBJROOT)
+	$(CC) $(LDFLAGS) -dynamiclib -compatibility_version 1 -current_version 1 -all_load -install_name /usr/lib/libpcap.A.dylib -o $(OBJROOT)/libpcap.A.dylib $(OBJROOT)/libpcap.a
+
+	$(MAKE) -C $(OBJROOT) install DESTDIR=$(DSTROOT)
+	$(INSTALL_DYLIB) $(OBJROOT)/libpcap.A.dylib $(DSTROOT)/usr/lib
+	$(LN) -s libpcap.A.dylib $(DSTROOT)/usr/lib/libpcap.dylib
+
+	$(RM) $(DSTROOT)/usr/lib/libpcap.a
+
+	$(CP) $(DSTROOT)/usr/lib/libpcap.A.dylib $(SYMROOT)
+	$(STRIP) -S $(DSTROOT)/usr/lib/libpcap.A.dylib
+
+	$(MKDIR) $(OSV) $(OSL)
 	$(INSTALL_FILE) $(SRCROOT)/$(ProjectName).plist $(OSV)/$(ProjectName).plist
-	$(MKDIR) $(OSL)
 	$(INSTALL_FILE) $(SRCROOT)/$(ProjectName)/LICENSE $(OSL)/$(ProjectName).txt
 
-make-manpages:
-	for name in $(extra_man_pages); do \
-		cd $(DSTROOT)/$(Install_Man)/man3 && echo ".so man3/pcap.3.gz" > pcap_$$name.3; \
-	done
+	@$(MAKE) compress_man_pages

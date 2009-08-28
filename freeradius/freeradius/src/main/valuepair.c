@@ -2,7 +2,7 @@
  * valuepair.c	Valuepair functions that are radiusd-specific
  *		and as such do not belong in the library.
  *
- * Version:	$Id: valuepair.c,v 1.60.2.4.2.1 2007/02/09 15:56:12 aland Exp $
+ * Version:	$Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -16,24 +16,17 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2000  The FreeRADIUS server project
+ * Copyright 2000,2006  The FreeRADIUS server project
  * Copyright 2000  Alan DeKok <aland@ox.org>
  */
 
-static const char rcsid[] = "$Id: valuepair.c,v 1.60.2.4.2.1 2007/02/09 15:56:12 aland Exp $";
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
-#include "autoconf.h"
-#include "libradius.h"
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#ifdef HAVE_NETINET_IN_H
-#	include <netinet/in.h>
-#endif
+#include <freeradius-devel/radiusd.h>
+#include <freeradius-devel/rad_assert.h>
 
 #ifdef HAVE_REGEX_H
 #	include <regex.h>
@@ -52,8 +45,6 @@ static const char rcsid[] = "$Id: valuepair.c,v 1.60.2.4.2.1 2007/02/09 15:56:12
 #endif
 #endif
 
-#include "radiusd.h"
-
 struct cmp {
 	int attribute;
 	int otherattr;
@@ -63,23 +54,203 @@ struct cmp {
 };
 static struct cmp *cmp;
 
+int radius_compare_vps(REQUEST *request, VALUE_PAIR *check, VALUE_PAIR *vp)
+{
+	int ret = -2;
+
+	/*
+	 *      Check for =* and !* and return appropriately
+	 */
+	if( check->operator == T_OP_CMP_TRUE )
+	         return 0;
+	if( check->operator == T_OP_CMP_FALSE )
+	         return 1;
+
+#ifdef HAVE_REGEX_H
+	if (check->operator == T_OP_REG_EQ) {
+		int i, compare;
+		regex_t reg;
+		char name[1024];
+		char value[1024];
+		regmatch_t rxmatch[REQUEST_MAX_REGEX + 1];
+
+		snprintf(name, sizeof(name), "%%{%s}", check->name);
+		radius_xlat(value, sizeof(value), name, request, NULL);
+
+		/*
+		 *	Include substring matches.
+		 */
+		compare = regcomp(&reg, check->vp_strvalue, REG_EXTENDED);
+		if (compare != 0) {
+			char buffer[256];
+			regerror(compare, &reg, buffer, sizeof(buffer));
+
+			RDEBUG("Invalid regular expression %s: %s",
+			       check->vp_strvalue, buffer);
+			return -1;
+		}
+		compare = regexec(&reg, value,  REQUEST_MAX_REGEX + 1,
+				  rxmatch, 0);
+		regfree(&reg);
+
+		/*
+		 *	Add %{0}, %{1}, etc.
+		 */
+		for (i = 0; i <= REQUEST_MAX_REGEX; i++) {
+			char *p;
+			char buffer[sizeof(check->vp_strvalue)];
+
+			/*
+			 *	Didn't match: delete old
+			 *	match, if it existed.
+			 */
+			if ((compare != 0) ||
+			    (rxmatch[i].rm_so == -1)) {
+				p = request_data_get(request, request,
+						     REQUEST_DATA_REGEX | i);
+				if (p) {
+					free(p);
+					continue;
+				}
+
+				/*
+				 *	No previous match
+				 *	to delete, stop.
+				 */
+				break;
+			}
+
+			/*
+			 *	Copy substring into buffer.
+			 */
+			memcpy(buffer, value + rxmatch[i].rm_so,
+			       rxmatch[i].rm_eo - rxmatch[i].rm_so);
+			buffer[rxmatch[i].rm_eo - rxmatch[i].rm_so] = '\0';
+
+			/*
+			 *	Copy substring, and add it to
+			 *	the request.
+			 *
+			 *	Note that we don't check
+			 *	for out of memory, which is
+			 *	the only error we can get...
+			 */
+			p = strdup(buffer);
+			request_data_add(request, request,
+					 REQUEST_DATA_REGEX | i,
+					 p, free);
+		}
+		if (compare == 0) return 0;
+		return -1;
+	}
+
+	if (check->operator == T_OP_REG_NE) {
+		int compare;
+		regex_t reg;
+		char name[1024];
+		char value[1024];
+		regmatch_t rxmatch[REQUEST_MAX_REGEX + 1];
+
+		snprintf(name, sizeof(name), "%%{%s}", check->name);
+		radius_xlat(value, sizeof(value), name, request, NULL);
+
+		/*
+		 *	Include substring matches.
+		 */
+		compare = regcomp(&reg, (char *)check->vp_strvalue,
+				  REG_EXTENDED);
+		if (compare != 0) {
+			char buffer[256];
+			regerror(compare, &reg, buffer, sizeof(buffer));
+
+			RDEBUG("Invalid regular expression %s: %s",
+			       check->vp_strvalue, buffer);
+			return -1;
+		}
+		compare = regexec(&reg, value,  REQUEST_MAX_REGEX + 1,
+				  rxmatch, 0);
+		regfree(&reg);
+
+		if (compare != 0) return 0;
+		return -1;
+
+	}
+#endif
+
+	/*
+	 *	Tagged attributes are equal if and only if both the
+	 *	tag AND value match.
+	 */
+	if ((ret == 0) && check->flags.has_tag) {
+		ret = ((int) vp->flags.tag) - ((int) check->flags.tag);
+		if (ret != 0) return ret;
+	}
+
+	/*
+	 *	Not a regular expression, compare the types.
+	 */
+	switch(check->type) {
+#ifdef ASCEND_BINARY
+		/*
+		 *	Ascend binary attributes can be treated
+		 *	as opaque objects, I guess...
+		 */
+		case PW_TYPE_ABINARY:
+#endif
+		case PW_TYPE_OCTETS:
+			if (vp->length != check->length) {
+				ret = 1; /* NOT equal */
+				break;
+			}
+			ret = memcmp(vp->vp_strvalue, check->vp_strvalue,
+				     vp->length);
+			break;
+		case PW_TYPE_STRING:
+			ret = strcmp((char *)vp->vp_strvalue,
+				     (char *)check->vp_strvalue);
+			break;
+		case PW_TYPE_BYTE:
+		case PW_TYPE_SHORT:
+		case PW_TYPE_INTEGER:
+			ret = vp->vp_integer - check->vp_integer;
+			break;
+		case PW_TYPE_DATE:
+			ret = vp->vp_date - check->vp_date;
+			break;
+		case PW_TYPE_IPADDR:
+			ret = ntohl(vp->vp_ipaddr) - ntohl(check->vp_ipaddr);
+			break;
+		case PW_TYPE_IPV6ADDR:
+			ret = memcmp(&vp->vp_ipv6addr, &check->vp_ipv6addr,
+				     sizeof(vp->vp_ipv6addr));
+			break;
+
+		case PW_TYPE_IPV6PREFIX:
+			ret = memcmp(&vp->vp_ipv6prefix, &check->vp_ipv6prefix,
+				     sizeof(vp->vp_ipv6prefix));
+			break;
+
+		case PW_TYPE_IFID:
+			ret = memcmp(&vp->vp_ifid, &check->vp_ifid,
+				     sizeof(vp->vp_ifid));
+			break;
+
+		default:
+			break;
+	}
+
+	return ret;
+}
+
 
 /*
  *	Compare 2 attributes. May call the attribute compare function.
  */
-static int paircompare(REQUEST *req, VALUE_PAIR *request, VALUE_PAIR *check,
-		       VALUE_PAIR *check_pairs, VALUE_PAIR **reply_pairs)
+int radius_callback_compare(REQUEST *req, VALUE_PAIR *request,
+			    VALUE_PAIR *check, VALUE_PAIR *check_pairs,
+			    VALUE_PAIR **reply_pairs)
 {
-	int ret = -2;
 	struct cmp *c;
-
-	/*
-	 *	Sanity check.
-	 */
-#if 0
-	if (request->attribute != check->attribute)
-		return -2;
-#endif
 
 	/*
 	 *      Check for =* and !* and return appropriately
@@ -91,44 +262,35 @@ static int paircompare(REQUEST *req, VALUE_PAIR *request, VALUE_PAIR *check,
 
 	/*
 	 *	See if there is a special compare function.
+	 *
+	 *	FIXME: use new RB-Tree code.
 	 */
 	for (c = cmp; c; c = c->next)
-		if (c->attribute == check->attribute)
+		if (c->attribute == check->attribute) {
 			return (c->compare)(c->instance, req, request, check,
 				check_pairs, reply_pairs);
+		}
 
-	switch(check->type) {
-#ifdef ASCEND_BINARY
-		/*
-		 *	Ascend binary attributes can be treated
-		 *	as opaque objects, I guess...
-		 */
-		case PW_TYPE_ABINARY:
-#endif
-		case PW_TYPE_OCTETS:
-			if (request->length != check->length) {
-				ret = 1; /* NOT equal */
-				break;
-			}
-			ret = memcmp(request->strvalue, check->strvalue,
-					request->length);
-			break;
-		case PW_TYPE_STRING:
-			ret = strcmp((char *)request->strvalue,
-					(char *)check->strvalue);
-			break;
-		case PW_TYPE_INTEGER:
-		case PW_TYPE_DATE:
-			ret = request->lvalue - check->lvalue;
-			break;
-		case PW_TYPE_IPADDR:
-			ret = ntohl(request->lvalue) - ntohl(check->lvalue);
-			break;
-		default:
-			break;
+	if (!request) return -1; /* doesn't exist, don't compare it */
+
+	return radius_compare_vps(req, check, request);
+}
+
+
+/*
+ *	Find a comparison function for two attributes.
+ */
+int radius_find_compare(int attribute)
+{
+	struct cmp *c;
+
+	for (c = cmp; c; c = c->next) {
+		if (c->attribute == attribute) {
+			return TRUE;
+		}
 	}
 
-	return ret;
+	return FALSE;
 }
 
 
@@ -168,8 +330,6 @@ int paircompare_register(int attr, int compare_attr, RAD_COMPARE_FUNC fun, void 
 
 	c = rad_malloc(sizeof(struct cmp));
 
-	if (compare_attr < 0)
-		compare_attr = attr;
 	c->compare = fun;
 	c->attribute = attr;
 	c->otherattr = compare_attr;
@@ -211,16 +371,13 @@ void paircompare_unregister(int attr, RAD_COMPARE_FUNC fun)
  *
  *	Return 0 on match.
  */
-int paircmp(REQUEST *req, VALUE_PAIR *request, VALUE_PAIR *check, VALUE_PAIR **reply)
+int paircompare(REQUEST *req, VALUE_PAIR *request, VALUE_PAIR *check, VALUE_PAIR **reply)
 {
 	VALUE_PAIR *check_item;
 	VALUE_PAIR *auth_item;
 	int result = 0;
 	int compare;
 	int other;
-#ifdef HAVE_REGEX_H
-	regex_t reg;
-#endif
 
 	for (check_item = check; check_item != NULL; check_item = check_item->next) {
 		/*
@@ -256,8 +413,13 @@ int paircmp(REQUEST *req, VALUE_PAIR *request, VALUE_PAIR *check, VALUE_PAIR **r
 			 *
 			 *	This hack makes CHAP-Password work..
 			 */
-			case PW_PASSWORD:
-				if (pairfind(request, PW_PASSWORD) == NULL) {
+			case PW_USER_PASSWORD:
+				if (check_item->operator == T_OP_CMP_EQ) {
+					DEBUG("WARNING: Found User-Password == \"...\".");
+					DEBUG("WARNING: Are you sure you don't mean Cleartext-Password?");
+					DEBUG("WARNING: See \"man rlm_pap\" for more information.");
+				}
+				if (pairfind(request, PW_USER_PASSWORD) == NULL) {
 					continue;
 				}
 				break;
@@ -270,9 +432,11 @@ int paircmp(REQUEST *req, VALUE_PAIR *request, VALUE_PAIR *check, VALUE_PAIR **r
 
 		auth_item = request;
 	try_again:
-		for (; auth_item != NULL; auth_item = auth_item->next) {
-			if (auth_item->attribute == other || other == 0)
-				break;
+		if (other >= 0) {
+			for (; auth_item != NULL; auth_item = auth_item->next) {
+				if (auth_item->attribute == other || other == 0)
+					break;
+			}
 		}
 
 		/*
@@ -284,7 +448,7 @@ int paircmp(REQUEST *req, VALUE_PAIR *request, VALUE_PAIR *check, VALUE_PAIR **r
 			 *	to not find it, then we succeeded.
 			 */
 			if (check_item->operator == T_OP_CMP_FALSE)
-				return 0;
+				continue;
 			else
 				return -1;
 		}
@@ -303,11 +467,11 @@ int paircmp(REQUEST *req, VALUE_PAIR *request, VALUE_PAIR *check, VALUE_PAIR **r
 		 */
 		if (check_item->flags.do_xlat) {
 			int rcode;
-			char buffer[sizeof(check_item->strvalue)];
+			char buffer[sizeof(check_item->vp_strvalue)];
 
 			check_item->flags.do_xlat = 0;
 			rcode = radius_xlat(buffer, sizeof(buffer),
-					    (char *)check_item->strvalue,
+					    check_item->vp_strvalue,
 					    req, NULL);
 
 			/*
@@ -319,12 +483,13 @@ int paircmp(REQUEST *req, VALUE_PAIR *request, VALUE_PAIR *check, VALUE_PAIR **r
 		/*
 		 *	OK it is present now compare them.
 		 */
-		compare = paircompare(req, auth_item, check_item, check, reply);
+		compare = radius_callback_compare(req, auth_item, check_item,
+						  check, reply);
 
 		switch (check_item->operator) {
 			case T_OP_EQ:
 			default:
-				radlog(L_ERR,  "Invalid operator for item %s: "
+				radlog(L_INFO,  "Invalid operator for item %s: "
 						"reverting to '=='", check_item->name);
 				/*FALLTHRU*/
 		        case T_OP_CMP_TRUE:    /* compare always == 0 */
@@ -355,90 +520,17 @@ int paircmp(REQUEST *req, VALUE_PAIR *request, VALUE_PAIR *check, VALUE_PAIR **r
 
 #ifdef HAVE_REGEX_H
 			case T_OP_REG_EQ:
-			{
-				int i;
-				regmatch_t rxmatch[9];
-
-				/*
-				 *	Include substring matches.
-				 */
-				regcomp(&reg, (char *)check_item->strvalue,
-					REG_EXTENDED);
-				compare = regexec(&reg,
-						  (char *)auth_item->strvalue,
-						  REQUEST_MAX_REGEX + 1,
-						  rxmatch, 0);
-				regfree(&reg);
-
-				/*
-				 *	Add %{0}, %{1}, etc.
-				 */
-				for (i = 0; i <= REQUEST_MAX_REGEX; i++) {
-					char *p;
-					char buffer[sizeof(check_item->strvalue)];
-
-					/*
-					 *	Didn't match: delete old
-					 *	match, if it existed.
-					 */
-					if ((compare != 0) ||
-					    (rxmatch[i].rm_so == -1)) {
-						p = request_data_get(req, req,
-								     REQUEST_DATA_REGEX | i);
-						if (p) {
-							free(p);
-							continue;
-						}
-
-						/*
-						 *	No previous match
-						 *	to delete, stop.
-						 */
-						break;
-					}
-					
-					/*
-					 *	Copy substring into buffer.
-					 */
-					memcpy(buffer,
-					       auth_item->strvalue + rxmatch[i].rm_so,
-					       rxmatch[i].rm_eo - rxmatch[i].rm_so);
-					buffer[rxmatch[i].rm_eo - rxmatch[i].rm_so] = '\0';
-
-					/*
-					 *	Copy substring, and add it to
-					 *	the request.
-					 *
-					 *	Note that we don't check
-					 *	for out of memory, which is
-					 *	the only error we can get...
-					 */
-					p = strdup(buffer);
-					request_data_add(req,
-							 req,
-							 REQUEST_DATA_REGEX | i,
-							 p, free);
-				}
-			}				
-				if (compare != 0) result = -1;
-				break;
-
 			case T_OP_REG_NE:
-				regcomp(&reg, (char *)check_item->strvalue, REG_EXTENDED|REG_NOSUB);
-				compare = regexec(&reg, (char *)auth_item->strvalue,
-						0, NULL, 0);
-				regfree(&reg);
-				if (compare == 0) result = -1;
+				result = compare;
 				break;
 #endif
-
 		} /* switch over the operator of the check item */
 
 		/*
 		 *	This attribute didn't match, but maybe there's
 		 *	another of the same attribute, which DOES match.
 		 */
-		if (result != 0) {
+		if ((result != 0) && (other >= 0)) {
 			auth_item = auth_item->next;
 			result = 0;
 			goto try_again;
@@ -446,307 +538,8 @@ int paircmp(REQUEST *req, VALUE_PAIR *request, VALUE_PAIR *check, VALUE_PAIR **r
 
 	} /* for every entry in the check item list */
 
-	return 0;		/* it matched */
+	return result;
 }
-
-/*
- *      Compare two attributes simply.  Calls paircompare.
- */
-
-int simplepaircmp(REQUEST *req, VALUE_PAIR *first, VALUE_PAIR *second)
-{
-	return paircompare( req, first, second, NULL, NULL );
-}
-
-
-/*
- *	Compare a Connect-Info and a Connect-Rate
- */
-static int connectcmp(void *instance,
-		      REQUEST *req UNUSED,
-		      VALUE_PAIR *request,
-		      VALUE_PAIR *check,
-		      VALUE_PAIR *check_pairs,
-		      VALUE_PAIR **reply_pairs)
-{
-	int rate;
-
-	instance = instance;
-	check_pairs = check_pairs; /* shut the compiler up */
-	reply_pairs = reply_pairs;
-
-	rate = atoi((char *)request->strvalue);
-	return rate - check->lvalue;
-}
-
-
-/*
- *	Compare a portno with a range.
- */
-static int portcmp(void *instance,
-		   REQUEST *req UNUSED, VALUE_PAIR *request, VALUE_PAIR *check,
-	VALUE_PAIR *check_pairs, VALUE_PAIR **reply_pairs)
-{
-	char buf[MAX_STRING_LEN];
-	char *s, *p;
-	uint32_t lo, hi;
-	uint32_t port = request->lvalue;
-
-	instance = instance;
-	check_pairs = check_pairs; /* shut the compiler up */
-	reply_pairs = reply_pairs;
-
-	if ((strchr((char *)check->strvalue, ',') == NULL) &&
-			(strchr((char *)check->strvalue, '-') == NULL)) {
-		return (request->lvalue - check->lvalue);
-	}
-
-	/* Same size */
-	strcpy(buf, (char *)check->strvalue);
-	s = strtok(buf, ",");
-
-	while (s != NULL) {
-		if ((p = strchr(s, '-')) != NULL)
-			p++;
-		else
-			p = s;
-		lo = strtoul(s, NULL, 10);
-		hi = strtoul(p, NULL, 10);
-		if (lo <= port && port <= hi) {
-			return 0;
-		}
-		s = strtok(NULL, ",");
-	}
-
-	return -1;
-}
-
-/*
- *	Compare prefix/suffix.
- *
- *	If they compare:
- *	- if PW_STRIP_USER_NAME is present in check_pairs,
- *	  strip the username of prefix/suffix.
- *	- if PW_STRIP_USER_NAME is not present in check_pairs,
- *	  add a PW_STRIPPED_USER_NAME to the request.
- */
-static int presufcmp(void *instance,
-		     REQUEST *req UNUSED,
-		     VALUE_PAIR *request, VALUE_PAIR *check,
-	VALUE_PAIR *check_pairs, VALUE_PAIR **reply_pairs)
-{
-	VALUE_PAIR *vp;
-	char *name = (char *)request->strvalue;
-	char rest[MAX_STRING_LEN];
-	int len, namelen;
-	int ret = -1;
-
-	instance = instance;
-	reply_pairs = reply_pairs; /* shut the compiler up */
-
-#if 0 /* DEBUG */
-	printf("Comparing %s and %s, check->attr is %d\n",
-		name, check->strvalue, check->attribute);
-#endif
-
-	len = strlen((char *)check->strvalue);
-	switch (check->attribute) {
-		case PW_PREFIX:
-			ret = strncmp(name, (char *)check->strvalue, len);
-			if (ret == 0 && rest)
-				strcpy(rest, name + len);
-			break;
-		case PW_SUFFIX:
-			namelen = strlen(name);
-			if (namelen < len)
-				break;
-			ret = strcmp(name + namelen - len,
-					(char *)check->strvalue);
-			if (ret == 0 && rest) {
-				strNcpy(rest, name, namelen - len + 1);
-			}
-			break;
-	}
-	if (ret != 0)
-		return ret;
-
-	if ((vp = pairfind(check_pairs, PW_STRIP_USER_NAME)) != NULL) {
-		if (vp->lvalue == 1) {
-			/*
-			 *	I don't think we want to update the User-Name
-			 *	attribute in place... - atd
-			 */
-			strcpy((char *)request->strvalue, rest);
-			request->length = strlen(rest);
-		} else {
-			return ret;
-		}
-	} else {
-		if ((vp = pairfind(check_pairs, PW_STRIPPED_USER_NAME)) != NULL){
-			strcpy((char *)vp->strvalue, rest);
-			vp->length = strlen(rest);
-		} else if ((vp = paircreate(PW_STRIPPED_USER_NAME,
-				PW_TYPE_STRING)) != NULL) {
-			strcpy((char *)vp->strvalue, rest);
-			vp->length = strlen(rest);
-			pairadd(&request, vp);
-		} /* else no memory! Die, die!: FIXME!! */
-	}
-
-	return ret;
-}
-
-
-/*
- *	Compare the current time to a range.
- */
-static int timecmp(void *instance,
-		   REQUEST *req UNUSED,
-		   VALUE_PAIR *request, VALUE_PAIR *check,
-	VALUE_PAIR *check_pairs, VALUE_PAIR **reply_pairs)
-{
-	instance = instance;
-	request = request;	/* shut the compiler up */
-	check_pairs = check_pairs;
-	reply_pairs = reply_pairs;
-
-	if (timestr_match((char *)check->strvalue,
-			  req ? req->timestamp : time(NULL)) >= 0) {
-		return 0;
-	}
-	return -1;
-}
-
-/*
- *	Matches if there is NO SUCH ATTRIBUTE as the one named
- *	in check->strvalue.  If there IS such an attribute, it
- *	doesn't match.
- *
- *	This is ugly, and definitely non-optimal.  We should be
- *	doing the lookup only ONCE, and storing the result
- *	in check->lvalue...
- */
-static int attrcmp(void *instance,
-		   REQUEST *req UNUSED,
-		   VALUE_PAIR *request, VALUE_PAIR *check,
-		   VALUE_PAIR *check_pairs, VALUE_PAIR **reply_pairs)
-{
-	VALUE_PAIR *pair;
-	DICT_ATTR  *dict;
-	int attr;
-
-	instance = instance;
-	check_pairs = check_pairs; /* shut the compiler up */
-	reply_pairs = reply_pairs;
-
-	if (check->lvalue == 0) {
-		dict = dict_attrbyname((char *)check->strvalue);
-		if (dict == NULL) {
-			return -1;
-		}
-		attr = dict->attr;
-	} else {
-		attr = check->lvalue;
-	}
-
-	/*
-	 *	If there's no such attribute, then return MATCH,
-	 *	else FAILURE.
-	 */
-	pair = pairfind(request, attr);
-	if (pair == NULL) {
-		return 0;
-	}
-
-	return -1;
-}
-
-/*
- *	Compare the expiration date.
- */
-static int expirecmp(void *instance, REQUEST *req UNUSED,
-		     VALUE_PAIR *request, VALUE_PAIR *check,
-		     VALUE_PAIR *check_pairs, VALUE_PAIR **reply_pairs)
-{
-	time_t now;
-
-	instance = instance;
-	request = request;	/* shut the compiler up */
-	check_pairs = check_pairs;
-	reply_pairs = reply_pairs;
-
-	/*
-	 *  FIXME!  This should be request->timestamp!
-	 */
-	now = time(NULL);
-
-	if (now <= (signed)check->lvalue) {
-		return 0;
-	}
-
-	return +1;
-}
-
-/*
- *	Compare the request packet type.
- */
-static int packetcmp(void *instance UNUSED, REQUEST *req,
-		     VALUE_PAIR *request UNUSED,
-		     VALUE_PAIR *check,
-		     VALUE_PAIR *check_pairs UNUSED,
-		     VALUE_PAIR **reply_pairs UNUSED)
-{
-	if (req->packet->code == check->lvalue) {
-		return 0;
-	}
-
-	return 1;
-}
-
-/*
- *	Compare the response packet type.
- */
-static int responsecmp(void *instance UNUSED,
-		       REQUEST *req,
-		       VALUE_PAIR *request UNUSED,
-		       VALUE_PAIR *check,
-		       VALUE_PAIR *check_pairs UNUSED,
-		       VALUE_PAIR **reply_pairs UNUSED)
-{
-	if (req->reply->code == check->lvalue) {
-		return 0;
-	}
-
-	return 1;
-}
-
-/*
- *	Register server-builtin special attributes.
- */
-void pair_builtincompare_init(void)
-{
-	paircompare_register(PW_NAS_PORT, -1, portcmp, NULL);
-	paircompare_register(PW_PREFIX, PW_USER_NAME, presufcmp, NULL);
-	paircompare_register(PW_SUFFIX, PW_USER_NAME, presufcmp, NULL);
-	paircompare_register(PW_CONNECT_RATE, PW_CONNECT_INFO, connectcmp, NULL);
-	paircompare_register(PW_CURRENT_TIME, 0, timecmp, NULL);
-	paircompare_register(PW_NO_SUCH_ATTRIBUTE, 0, attrcmp, NULL);
-	paircompare_register(PW_EXPIRATION, 0, expirecmp, NULL);
-	paircompare_register(PW_PACKET_TYPE, 0, packetcmp, NULL);
-	paircompare_register(PW_RESPONSE_PACKET_TYPE, 0, responsecmp, NULL);
-}
-
-void paircompare_builtin_free(void)
-{
-	struct cmp *c, *next;
-	
-	for (c = cmp; c != NULL; c = next) {
-		next = c->next;
-		free(c);
-	}
-}
-
-
 
 /*
  *	Move pairs, replacing/over-writing them, and doing xlat.
@@ -788,11 +581,11 @@ void pairxlatmove(REQUEST *req, VALUE_PAIR **to, VALUE_PAIR **from)
 		 */
 		if (i->flags.do_xlat) {
 			int rcode;
-			char buffer[sizeof(i->strvalue)];
+			char buffer[sizeof(i->vp_strvalue)];
 
 			i->flags.do_xlat = 0;
 			rcode = radius_xlat(buffer, sizeof(buffer),
-					    (char *)i->strvalue,
+					    i->vp_strvalue,
 					    req, NULL);
 
 			/*
@@ -810,9 +603,9 @@ void pairxlatmove(REQUEST *req, VALUE_PAIR **to, VALUE_PAIR **from)
 			 */
 		case T_OP_SUB:		/* -= */
 			if (found) {
-				if (!i->strvalue[0] ||
-				    (strcmp((char *)found->strvalue,
-					    (char *)i->strvalue) == 0)){
+				if (!i->vp_strvalue[0] ||
+				    (strcmp((char *)found->vp_strvalue,
+					    (char *)i->vp_strvalue) == 0)){
 					pairdelete(to, found->attribute);
 
 					/*
@@ -890,4 +683,73 @@ void pairxlatmove(REQUEST *req, VALUE_PAIR **to, VALUE_PAIR **from)
 			tailto = &i->next;
 		}
 	} /* loop over the 'from' list */
+}
+
+/*
+ *	Create a pair, and add it to a particular list of VPs
+ *
+ *	Note that this function ALWAYS returns.  If we're OOM, then
+ *	it causes the server to exit!
+ */
+VALUE_PAIR *radius_paircreate(REQUEST *request, VALUE_PAIR **vps,
+			      int attribute, int type)
+{
+	VALUE_PAIR *vp;
+
+	request = request;	/* -Wunused */
+
+	vp = paircreate(attribute, type);
+	if (!vp) {
+		radlog(L_ERR, "No memory!");
+		rad_assert("No memory" == NULL);
+		_exit(1);
+	}
+
+	if (vps) pairadd(vps, vp);
+
+	return vp;
+}
+
+/*
+ *	Create a pair, and add it to a particular list of VPs
+ *
+ *	Note that this function ALWAYS returns.  If we're OOM, then
+ *	it causes the server to exit!
+ */
+VALUE_PAIR *radius_pairmake(REQUEST *request, VALUE_PAIR **vps,
+			    const char *attribute, const char *value,
+			    int operator)
+{
+	VALUE_PAIR *vp;
+
+	request = request;	/* -Wunused */
+
+	vp = pairmake(attribute, value, operator);
+	if (!vp) return NULL;
+
+	if (vps) pairadd(vps, vp);
+
+	return vp;
+}
+
+void debug_pair(VALUE_PAIR *vp)
+{
+	if (!vp || !debug_flag || !fr_log_fp) return;
+
+	fputc('\t', fr_log_fp);
+	vp_print(fr_log_fp, vp);
+	fputc('\n', fr_log_fp);
+}
+
+void debug_pair_list(VALUE_PAIR *vp)
+{
+	if (!vp || !debug_flag || !fr_log_fp) return;
+
+	while (vp) {
+		fputc('\t', fr_log_fp);
+		vp_print(fr_log_fp, vp);
+		fputc('\n', fr_log_fp);
+		vp = vp->next;
+	}
+	fflush(fr_log_fp);
 }

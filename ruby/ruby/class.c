@@ -3,7 +3,7 @@
   class.c -
 
   $Author: shyouhei $
-  $Date: 2008-06-28 19:27:21 +0900 (Sat, 28 Jun 2008) $
+  $Date: 2008-06-28 19:23:54 +0900 (Sat, 28 Jun 2008) $
   created at: Tue Aug 10 15:05:44 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto

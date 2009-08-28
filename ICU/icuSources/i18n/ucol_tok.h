@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2001-2006, International Business Machines
+*   Copyright (C) 2001-2008, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -122,6 +122,7 @@ typedef struct {
   UColToken *varTop;
   USet *copySet;
   USet *removeSet;
+  UBool buildCCTabFlag;  /* Tailoring rule requirs building combining class table. */
 } UColTokenParser;
 
 typedef struct {
@@ -169,13 +170,10 @@ U_CAPI int32_t U_EXPORT2 ucol_inv_getNextCE(const UColTokenParser *src,
                                             uint32_t CE, uint32_t contCE,
                                             uint32_t *nextCE, uint32_t *nextContCE,
                                             uint32_t strength);
-U_CAPI int32_t U_EXPORT2 ucol_inv_getPrevCE(const UColTokenParser *src,
+U_CFUNC int32_t U_EXPORT2 ucol_inv_getPrevCE(const UColTokenParser *src,
                                             uint32_t CE, uint32_t contCE,
                                             uint32_t *prevCE, uint32_t *prevContCE,
                                             uint32_t strength);
-
-U_CAPI uint32_t U_EXPORT2 ucol_getCEStrengthDifference(uint32_t CE, uint32_t contCE, 
-                                            uint32_t prevCE, uint32_t prevContCE);
 
 
 #endif /* #if !UCONFIG_NO_COLLATION */

@@ -25,7 +25,9 @@
 #define _SCHELPER_CLIENT_H
 
 #include <sys/cdefs.h>
-#include <Security/Security.h>
+#include <Availability.h>
+#include <TargetConditionals.h>
+#include <CoreFoundation/CoreFoundation.h>
 
 #define kSCKeychainOptionsAccount		CFSTR("Account")		// CFString
 #define kSCKeychainOptionsDescription		CFSTR("Description")		// CFString
@@ -51,11 +53,13 @@ enum {
 	// SCNetworkConfiguration
 	SCHELPER_MSG_INTERFACE_REFRESH	= 200,
 
+#if	!TARGET_OS_IPHONE
 	// "System" Keychain
 	SCHELPER_MSG_KEYCHAIN_COPY	= 300,
 	SCHELPER_MSG_KEYCHAIN_EXISTS,
 	SCHELPER_MSG_KEYCHAIN_REMOVE,
 	SCHELPER_MSG_KEYCHAIN_SET,
+#endif	// !TARGET_OS_IPHONE
 
 	// miscellaneous
 	SCHELPER_MSG_EXIT		= 9999

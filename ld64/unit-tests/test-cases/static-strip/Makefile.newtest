@@ -31,7 +31,7 @@ include ${TESTROOT}/include/common.makefile
 run: all
 
 all:
-	${FAIL_IF_ERROR} ${CC} ${CCFLAGS} test.c -static -o test-${ARCH} -L/usr/local/lib/system -lc_static -lm_static
+	${FAIL_IF_ERROR} ${CC} ${CCFLAGS} test.c -static -o test-${ARCH} -L/usr/local/lib/system -lc_static -lm_static -Wl,-new_linker
 	${FAIL_IF_BAD_MACHO} test-${ARCH}
 	${FAIL_IF_ERROR} strip test-${ARCH}
 	${PASS_IFF_GOOD_MACHO} test-${ARCH}

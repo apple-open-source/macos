@@ -1,0 +1,44 @@
+Dear XOTcl Community,
+
+XOTcl 1.5.5 is available. The main change is to achieve binary compatibility
+between Tcl 8.5 and XOTcl compiled with Tcl 8.4. This is essential achieved
+through a small emulation layer based on C-structures that will be available
+in Tcl 8.5.
+
+best regards
+-gustaf neumann
+
+Announcing XOTcl 1.5.5
+*************************
+
+We are pleased to announce the availability of XOTcl 1.5.5.
+
+Major changes relative to 1.5.4 are:
+
+    * Improved binary compatibility: 
+
+      It is now possible to load XOTcl compiled for Tcl 8.4 
+      into a tclsh8.5 (again, substantial change).
+
+      One can now test now 4 versions:
+      a) a native version for Tcl 8.4 (without compatibility layer)
+      b) a native version for Tcl 8.5
+      c) a version compiled for Tcl 8.4 with compatibility layer in tclsh8.4
+      d) a version compiled for Tcl 8.4 with compatibility layer in tclsh8.5 
+
+      Tests showed that the overhead is for the compatibility
+      layer is between 1.1% and 2.3%, the difference between 
+      tcl8.5 and tcl8.4 is much larger.
+
+      The forward compatibility behavior behavior can be turned off by setting 
+      FORWARD_COMPATIBLE to 0 during compilation (xotcl.h) to get
+      a small performance improvement.
+
+
+ For more details about the changes, please consult the ChangeLog and
+ documentation.
+
+MORE INFO
+  General and more detailed information about XOTcl and its components
+  can be found at http://www.xotcl.org
+

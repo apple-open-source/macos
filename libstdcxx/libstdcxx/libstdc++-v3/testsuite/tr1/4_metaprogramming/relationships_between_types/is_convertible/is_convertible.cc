@@ -15,7 +15,7 @@
 //
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // 4.6 Relationships between types
@@ -54,6 +54,10 @@ void test01()
   VERIFY( (test_relationship<is_convertible, DerivedType*, ClassType*>(true)) );
   VERIFY( (test_relationship<is_convertible, DerivedType&, ClassType&>(true)) );
 
+  VERIFY( (test_relationship<is_convertible, void, void>(true)) );
+  VERIFY( (test_relationship<is_convertible, int, void>(true)) );
+  VERIFY( (test_relationship<is_convertible, int[4], void>(true)) );  
+
   // Negative tests.
   VERIFY( (test_relationship<is_convertible, const int*, int*>(false)) );
   VERIFY( (test_relationship<is_convertible, int*, float*>(false)) );
@@ -69,7 +73,11 @@ void test01()
   VERIFY( (test_relationship<is_convertible, int, ClassType>(false)) );
   VERIFY( (test_relationship<is_convertible, ClassType, DerivedType>(false)) );
   VERIFY( (test_relationship<is_convertible, ClassType*, DerivedType*>(false)) );
-  VERIFY( (test_relationship<is_convertible, ClassType&, DerivedType&>(false)) );  
+  VERIFY( (test_relationship<is_convertible, ClassType&, DerivedType&>(false)) );
+
+  VERIFY( (test_relationship<is_convertible, void, int>(false)) );
+  VERIFY( (test_relationship<is_convertible, void, float>(false)) );  
+  VERIFY( (test_relationship<is_convertible, void, int(*)(int)>(false)) );  
 }
 
 int main()

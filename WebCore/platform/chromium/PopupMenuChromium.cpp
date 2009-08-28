@@ -80,7 +80,7 @@ static const PopupContainerSettings dropDownSettings = {
 
 // This class uses WebCore code to paint and handle events for a drop-down list
 // box ("combobox" on Windows).
-class PopupListBox : public FramelessScrollView, public RefCounted<PopupListBox> {
+class PopupListBox : public FramelessScrollView {
 public:
     static PassRefPtr<PopupListBox> create(PopupMenuClient* client, const PopupContainerSettings& settings)
     {
@@ -153,8 +153,9 @@ private:
         : m_settings(settings)
         , m_originalIndex(0)
         , m_selectedIndex(0)
-        , m_willAcceptOnAbandon(false)
+        , m_acceptedIndexOnAbandon(-1)
         , m_visibleRows(0)
+        , m_baseWidth(0)
         , m_popupClient(client)
         , m_repeatingChar(0)
         , m_lastCharTime(0)
@@ -222,11 +223,11 @@ private:
     // enter yet however.
     int m_selectedIndex;
 
-    // True if we should accept the selectedIndex as chosen, even if the popup
-    // is "abandoned".  This is used for keyboard navigation, where we want the
+    // If >= 0, this is the index we should accept if the popup is "abandoned".
+    // This is used for keyboard navigation, where we want the
     // selection to change immediately, and is only used if the settings
     // acceptOnAbandon field is true.
-    bool m_willAcceptOnAbandon;
+    int m_acceptedIndexOnAbandon;
 
     // This is the number of rows visible in the popup. The maximum number visible at a time is
     // defined as being kMaxVisibleRows. For a scrolled popup, this can be thought of as the
@@ -350,7 +351,13 @@ void PopupContainer::showExternal(const IntRect& rect, FrameView* v, int index)
     if (!listBox())
         return;
 
+    listBox()->setBaseWidth(rect.width());
     listBox()->updateFromElement();
+
+    if (listBox()->numItems() < 1) {
+        hidePopup();
+        return;
+    }
 
     // Adjust the popup position to account for scrolling.
     IntPoint location = v->contentsToWindow(rect.location());
@@ -505,7 +512,7 @@ const WTF::Vector<PopupItem*>& PopupContainer:: popupData() const
 
 bool PopupListBox::handleMouseDownEvent(const PlatformMouseEvent& event)
 {
-    Scrollbar* scrollbar = scrollbarUnderMouse(event);
+    Scrollbar* scrollbar = scrollbarAtPoint(event.pos());
     if (scrollbar) {
         m_capturingScrollbar = scrollbar;
         m_capturingScrollbar->mouseDown(event);
@@ -525,7 +532,7 @@ bool PopupListBox::handleMouseMoveEvent(const PlatformMouseEvent& event)
         return true;
     }
 
-    Scrollbar* scrollbar = scrollbarUnderMouse(event);
+    Scrollbar* scrollbar = scrollbarAtPoint(event.pos());
     if (m_lastScrollbarUnderMouse != scrollbar) {
         // Send mouse exited to the old scrollbar.
         if (m_lastScrollbarUnderMouse)
@@ -643,7 +650,7 @@ bool PopupListBox::handleKeyEvent(const PlatformKeyboardEvent& event)
         // IE).  We change the original index so we revert to that when the
         // popup is closed.
         if (m_settings.acceptOnAbandon)
-            m_willAcceptOnAbandon = true;
+            m_acceptedIndexOnAbandon = m_selectedIndex;
 
         setOriginalIndex(m_selectedIndex);
         if (m_settings.setTextOnIndexChange)
@@ -681,13 +688,32 @@ static String stripLeadingWhiteSpace(const String& string)
     return string.substring(i, length - i);
 }
 
+static bool isCharacterTypeEvent(const PlatformKeyboardEvent& event) {
+    // Check whether the event is a character-typed event or not. 
+    // In Windows, PlatformKeyboardEvent::Char (not RawKeyDown) type event
+    // is considered as character type event. In Mac OS, KeyDown (not 
+    // KeyUp) is considered as character type event.
+#if PLATFORM(WIN_OS)
+    if (event.type() == PlatformKeyboardEvent::Char)
+        return true;
+#else
+    if (event.type() == PlatformKeyboardEvent::KeyDown)
+        return true;
+#endif
+    return false;
+}
+
 // From HTMLSelectElement.cpp, with modifications
 void PopupListBox::typeAheadFind(const PlatformKeyboardEvent& event)
 {
     TimeStamp now = static_cast<TimeStamp>(currentTime() * 1000.0f);
     TimeStamp delta = now - m_lastCharTime;
 
-    m_lastCharTime = now;
+    // Reset the time when user types in a character. The time gap between
+    // last character and the current character is used to indicate whether
+    // user typed in a string or just a character as the search prefix.
+    if (isCharacterTypeEvent(event))
+        m_lastCharTime = now;
 
     UChar c = event.windowsVirtualKeyCode();
 
@@ -766,8 +792,8 @@ void PopupListBox::paintRow(GraphicsContext* gc, const IntRect& rect, int rowInd
     // Paint background
     Color backColor, textColor;
     if (rowIndex == m_selectedIndex) {
-        backColor = theme()->activeListBoxSelectionBackgroundColor();
-        textColor = theme()->activeListBoxSelectionForegroundColor();
+        backColor = RenderTheme::defaultTheme()->activeListBoxSelectionBackgroundColor();
+        textColor = RenderTheme::defaultTheme()->activeListBoxSelectionForegroundColor();
     } else {
         backColor = style.backgroundColor();
         textColor = style.foregroundColor();
@@ -833,8 +859,10 @@ void PopupListBox::abandon()
 
     m_popupClient->hidePopup();
 
-    if (m_willAcceptOnAbandon)
-        m_popupClient->valueChanged(m_selectedIndex);
+    if (m_acceptedIndexOnAbandon >= 0) {
+        m_popupClient->valueChanged(m_acceptedIndexOnAbandon);
+        m_acceptedIndexOnAbandon = -1;
+    }
 }
 
 int PopupListBox::pointToRowIndex(const IntPoint& point)
@@ -897,7 +925,7 @@ int PopupListBox::getRowHeight(int index)
     if (index < 0)
         return 0;
 
-    return m_popupClient->itemStyle(index).font().height();
+    return getRowFont(index).height();
 }
 
 IntRect PopupListBox::getRowBounds(int index)
@@ -1013,14 +1041,6 @@ void PopupListBox::adjustSelectedIndex(int delta)
 
 void PopupListBox::updateFromElement()
 {
-    // It happens when pressing a key to jump to an item, then use tab or
-    // mouse to get away from the select box. In that case, updateFromElement
-    // is called before abandon, which causes discarding of the select result.    
-    if (m_willAcceptOnAbandon) {
-        m_popupClient->valueChanged(m_selectedIndex);
-        m_willAcceptOnAbandon = false;
-    }
-
     clear();
 
     int size = m_popupClient->listSize();

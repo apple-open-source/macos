@@ -59,13 +59,13 @@ typedef tDirReference DSRef ;
  * @method initWithLocal
  * @abstract Open a connection to the local machine's DS process.
  */
-- (id)initWithLocal;
+- (id)initWithLocal DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method initWithLocalPath
  * @abstract Open a connection to the local machine's Local Only DS process.
  */
-- (id)initWithLocalPath:(NSString*)filePath;
+- (id)initWithLocalPath:(NSString*)filePath DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method initWithHost:user:password:
@@ -76,13 +76,13 @@ typedef tDirReference DSRef ;
  * @param inUser An administrator's username.
  * @param inPassword The administrator's password.
  */
-- (id)initWithHost:(NSString*)hostName user:(NSString*)inUser password:(NSString*)inPassword;
+- (id)initWithHost:(NSString*)hostName user:(NSString*)inUser password:(NSString*)inPassword DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method nodeCount
  * @abstract Finds the number of nodes registered by DS.
  */
-- (unsigned long)	nodeCount;
+- (unsigned long)	nodeCount DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method findNodeNames:matchType:
@@ -90,21 +90,21 @@ typedef tDirReference DSRef ;
  *			Returns an empty array if no matching results are found.
  * @result An array of NSString objects containing the node names.
  */
-- (NSArray*) findNodeNames:(NSString*)inPattern matchType:(tDirPatternMatch)inType;
+- (NSArray*) findNodeNames:(NSString*)inPattern matchType:(tDirPatternMatch)inType DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method findNode:
  * @abstract Find and open a DS Node.
  * @discussion Invokes findNode:matchType: with matchType an actual pattern to match.
  */
-- (DSoNode*) findNodeViaEnum: (int)inPattern;
+- (DSoNode*) findNodeViaEnum: (int)inPattern DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method findNode:
  * @abstract Find and open a DS Node.
  * @discussion Invokes findNode:matchType: with matchType set to eDSExact.
  */
-- (DSoNode*) findNode: (NSString*)inPattern;
+- (DSoNode*) findNode: (NSString*)inPattern DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method findNode:matchType:
@@ -112,7 +112,7 @@ typedef tDirReference DSRef ;
  * @discussion Invokes findNode:matchType:useFirst: with useFirst set to YES.
  */
 - (DSoNode*) findNode: (NSString*)inPattern 
-                     matchType: (tDirPatternMatch)inType;
+                     matchType: (tDirPatternMatch)inType DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
                      
 /*!
  * @method findNode:matchType:useFirst:
@@ -126,48 +126,48 @@ typedef tDirReference DSRef ;
  */
 - (DSoNode*) findNode: (NSString*)inPattern 
                      matchType: (tDirPatternMatch)inType
-                     useFirst: (BOOL)inUseFirst;
+                     useFirst: (BOOL)inUseFirst DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method findNodeNames
  * @abstract Finds the list of all node names registered by DS.
  * @result An array of NSString objects containing the node names.
  */
-- (NSArray*) findNodeNames;
+- (NSArray*) findNodeNames DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method nodeBrowserItems
  * @abstract Finds the all top level items for the node browser.
  * @result An array of DSoNodeBrowserItem objects.
  */
-- (NSArray*) nodeBrowserItems;
+- (NSArray*) nodeBrowserItems DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method standardRecordTypes
  * @abstract Retrieves all defined standard record types from the config node.
  * @result An array of strings of the record types.
  */
-- (NSArray*) standardRecordTypes;
+- (NSArray*) standardRecordTypes DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method standardAttributeTypes
  * @abstract Retrieves all defined standard attribute types from the config node.
  * @result An array of strings of the attribute types.
  */
-- (NSArray*) standardAttributeTypes;
+- (NSArray*) standardAttributeTypes DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method localNode
  * @abstract Convenience method to find and open the local node.
  */
-- (DSoNode*) localNode;
+- (DSoNode*) localNode DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method searchNode
  * @abstract Convenience method to find and open
  *		the (authentication) search node.
  */
-- (DSoSearchNode*) searchNode;
+- (DSoSearchNode*) searchNode DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method verifiedDirRef
@@ -177,13 +177,13 @@ typedef tDirReference DSRef ;
  *		the check, then the connection is re-opened.
  * @result The Directory Services reference value for this connection.
  */
-- (DSRef)verifiedDirRef;
+- (DSRef)verifiedDirRef DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method dsDirRef
  * @abstract Method for accessing the low-level data type.
  * @result The Directory Services reference value for this connection.
  */
-- (DSRef)dsDirRef;
+- (DSRef)dsDirRef DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 @end

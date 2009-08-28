@@ -40,6 +40,7 @@
 #include "ScriptValue.h"
 #include "DOMTimer.h"
 #include "V8DOMMap.h"
+#include "V8Proxy.h"
 #include "WorkerContext.h"
 #include "WorkerContextExecutionProxy.h"
 #include "WorkerObjectProxy.h"
@@ -68,14 +69,20 @@ ScriptValue WorkerScriptController::evaluate(const ScriptSourceCode& sourceCode)
     }
 
     v8::Local<v8::Value> result = m_proxy->evaluate(sourceCode.source(), sourceCode.url().string(), sourceCode.startLine() - 1);
-    m_workerContext->thread()->workerObjectProxy()->reportPendingActivity(m_workerContext->hasPendingActivity());
+    m_workerContext->thread()->workerObjectProxy().reportPendingActivity(m_workerContext->hasPendingActivity());
     return ScriptValue();
 }
 
-ScriptValue WorkerScriptController::evaluate(const ScriptSourceCode& sourceCode, ScriptValue* /* exception */)
+ScriptValue WorkerScriptController::evaluate(const ScriptSourceCode& sourceCode, ScriptValue* exception)
 {
-    // FIXME: Need to return an exception.
-    return evaluate(sourceCode);
+    v8::TryCatch exceptionCatcher;
+    ScriptValue result = evaluate(sourceCode);
+    if (exceptionCatcher.HasCaught()) {
+        *exception = ScriptValue(exceptionCatcher.Exception());
+        throwError(exceptionCatcher.Exception());
+        return ScriptValue();
+    } else
+        return result;
 }
 
 void WorkerScriptController::forbidExecution()

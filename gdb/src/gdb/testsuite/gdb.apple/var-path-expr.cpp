@@ -67,7 +67,7 @@ struct inner
 {
     int first;
     double second;
-    char *third;
+    const char *third;
 };
 
 struct plainOld

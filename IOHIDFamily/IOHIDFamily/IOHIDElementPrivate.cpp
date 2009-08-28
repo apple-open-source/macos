@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1999-2009 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -544,7 +544,7 @@ bool IOHIDElementPrivate::addChildElement( IOHIDElementPrivate * child, bool arr
         IOHIDElementPrivate *	arrayReportHandler;
         char		uniqueID[32];
         
-        sprintf(uniqueID, "%4.4x%4.4x%4.4x",child->_type, child->_reportStartBit, child->_reportID);
+        snprintf(uniqueID, sizeof(uniqueID), "%4.4x%4.4x%4.4x", (unsigned)child->_type, (unsigned)child->_reportStartBit, (unsigned)child->_reportID);
         
         arrayReportHandler = (IOHIDElementPrivate *)_colArrayReportHandlers->getObject(uniqueID);
         
@@ -836,7 +836,7 @@ bool IOHIDElementPrivate::fillElementStruct( IOHIDElementStruct * element )
     element->unit           = _units;
     element->unitExponent   = _unitExponent;
     element->bytes          = getByteSize();
-    element->valueLocation  = (UInt32)_elementValueLocation;
+    element->valueLocation  = (uintptr_t)_elementValueLocation;
     element->valueSize      = getElementValueSize();
     
     return true;

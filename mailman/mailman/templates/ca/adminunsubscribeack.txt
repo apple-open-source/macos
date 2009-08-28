@@ -1,2 +1,2 @@
-%(member)s ha estat donat de baixa amb �xit de %(listname)s.
+S'ha cancel·lat la subscripció de %(member)s a la llista %(listname)s.
 

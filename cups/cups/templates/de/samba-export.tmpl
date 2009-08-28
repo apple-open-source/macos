@@ -12,12 +12,12 @@ function select_printers() {
 <FORM METHOD="POST" ACTION="/admin/" NAME="export_samba">
 <INPUT TYPE="HIDDEN" NAME="OP" VALUE="export-samba">
 
-<H2 CLASS="title">Exportiere Drucker f&uuml;r Samba</H2>
+<H2 CLASS="title">Drucker f&uuml;r Samba freigeben</H2>
 
-{error?<P>Kann Drucker nicht f&uuml;r Samba exportieren\:</P>
+{error?<P>Kann Drucker nicht f&uuml;r Samba freigeben\:</P>
 <BLOCKQUOTE>{error}</BLOCKQUOTE>
-<P>Konsultieren Sie die <A HREF="/admin/log/error_log"
-TARGET="_blank">error_log</A> Datei um mehr Informationen zu erhalten.</P>:
+<P>Consult the <A HREF="/admin/log/error_log"
+TARGET="_blank">Fehlerprotokoll</A> Datei um mehr Informationen zu erhalten.</P>:
 <P>Diese Seite erlaubt es Ihnen Drucker f&uuml;r Samba bereitzustellen
 damit auf diese mittels Windows Clients &uuml;ber die Desktopsymbole
 <VAR>Netzwerk Nachbarn</VAR> oder <VAR>Netzwerkumgebung</VAR>
@@ -34,21 +34,20 @@ TARGET="_blank">cupsaddsmb(8)</A> beschrieben ist.</P>}
 {[printer_name]<OPTION VALUE="{printer_name}"{export_all? SELECTED:{printer_export? SELECTED:}}>{printer_name}}
 </SELECT><BR>
 <INPUT TYPE="CHECKBOX" NAME="EXPORT_ALL"{export_all? CHECKED:}
-onChange="select_printers()"> Alle Drucker exportieren
+onChange="select_printers()"> Alle Drucker freigeben
 </TD>
 </TR>
 <TR>
 <TH CLASS="label">Samba Benutzername:</TH>
-<TD><INPUT TYPE="TEXT" NAME="USERNAME" VALUE="{?USERNAME}"> (required)</TD>
+<TD><INPUT TYPE="TEXT" NAME="USERNAME" VALUE="{?USERNAME}"> (ben&ouml;tigt)</TD>
 </TR>
 <TR>
 <TH CLASS="label">Samba Passwort:</TH>
-<TD><INPUT TYPE="PASSWORD" NAME="PASSWORD" VALUE=""> (required)</TD>
+<TD><INPUT TYPE="PASSWORD" NAME="PASSWORD" VALUE=""> (ben&ouml;tigt)</TD>
 </TR>
 <TR>
 <TD></TD>
-<TD><INPUT TYPE="IMAGE" SRC="/images/button-export-samba.gif"
-ALT="Exportiere Drucker f&uuml;r Samba"></TD>
+<TD><INPUT TYPE="SUBMIT" VALUE="Drucker f&uuml;r Samba freigeben"></TD>
 </TR>
 </TABLE>
 

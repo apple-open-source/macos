@@ -7,7 +7,7 @@
 #include <sys/stat.h>
 #include <security_utilities/crc.h>
 
-static const char* kPrefix = "/private/var/tmp/mds/messages/se_";
+static const char* kPrefix = "/private/var/db/mds/messages/se_";
 
 SharedMemoryServer::SharedMemoryServer (const char* segmentName, SegmentOffsetType segmentSize) :
 	mSegmentName (segmentName), mSegmentSize (segmentSize)
@@ -16,7 +16,8 @@ SharedMemoryServer::SharedMemoryServer (const char* segmentName, SegmentOffsetTy
 	mFileName += segmentName;
 	
 	// make the mds directory, just in case it doesn't exist
-	mkdir("/var/tmp/mds/messages", 0755);
+	mkdir("/var/db/mds", 1777);
+	mkdir("/var/db/mds/messages", 0755);
 	
 	// make the file name
 	// clean any old file away

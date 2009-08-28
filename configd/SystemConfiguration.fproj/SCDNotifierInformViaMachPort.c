@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2004, 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2004, 2005, 2009 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -68,7 +68,7 @@ SCDynamicStoreNotifyMachPort(SCDynamicStoreRef store, mach_msg_id_t identifier, 
 	/* Allocating port (for server response) */
 	status = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, port);
 	if (status != KERN_SUCCESS) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("SCDynamicStoreNotifyMachPort mach_port_allocate(): %s"), mach_error_string(status));
+		SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStoreNotifyMachPort mach_port_allocate(): %s"), mach_error_string(status));
 		_SCErrorSet(status);
 		return FALSE;
 	}
@@ -78,8 +78,12 @@ SCDynamicStoreNotifyMachPort(SCDynamicStoreRef store, mach_msg_id_t identifier, 
 					*port,
 					MACH_MSG_TYPE_MAKE_SEND);
 	if (status != KERN_SUCCESS) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("SCDynamicStoreNotifyMachPort mach_port_insert_right(): %s"), mach_error_string(status));
-		(void) mach_port_destroy(mach_task_self(), *port);
+		/*
+		 * We can't insert a send right into our own port!  This should
+		 * only happen if someone stomped on OUR port (so let's leave
+		 * the port alone).
+		 */
+		SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStoreNotifyMachPort mach_port_insert_right(): %s"), mach_error_string(status));
 		*port = MACH_PORT_NULL;
 		_SCErrorSet(status);
 		return FALSE;
@@ -94,18 +98,20 @@ SCDynamicStoreNotifyMachPort(SCDynamicStoreRef store, mach_msg_id_t identifier, 
 						MACH_MSG_TYPE_MAKE_SEND_ONCE,
 						&oldNotify);
 	if (status != KERN_SUCCESS) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("SCDynamicStoreNotifyMachPort mach_port_request_notification(): %s"), mach_error_string(status));
-		(void) mach_port_destroy(mach_task_self(), *port);
+		/*
+		 * We can't request a notification for our own port!  This should
+		 * only happen if someone stomped on OUR port (so let's leave
+		 * the port alone).
+		 */
+		SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStoreNotifyMachPort mach_port_request_notification(): %s"), mach_error_string(status));
 		*port = MACH_PORT_NULL;
 		_SCErrorSet(status);
 		return FALSE;
 	}
 
-#ifdef	DEBUG
 	if (oldNotify != MACH_PORT_NULL) {
-		SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStoreNotifyMachPort(): why is oldNotify != MACH_PORT_NULL?"));
+		SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStoreNotifyMachPort(): oldNotify != MACH_PORT_NULL"));
 	}
-#endif	/* DEBUG */
 
 	status = notifyviaport(storePrivate->server,
 			       *port,
@@ -113,19 +119,29 @@ SCDynamicStoreNotifyMachPort(SCDynamicStoreRef store, mach_msg_id_t identifier, 
 			       (int *)&sc_status);
 
 	if (status != KERN_SUCCESS) {
-#ifdef	DEBUG
-		if (status != MACH_SEND_INVALID_DEST)
-			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreNotifyMachPort notifyviaport(): %s"), mach_error_string(status));
-#endif	/* DEBUG */
-		(void) mach_port_destroy(mach_task_self(), *port);
-		*port = MACH_PORT_NULL;
-		(void) mach_port_destroy(mach_task_self(), storePrivate->server);
+		if (status == MACH_SEND_INVALID_DEST) {
+			/* the server's gone and our session port's dead, remove the dead name right */
+			(void) mach_port_deallocate(mach_task_self(), storePrivate->server);
+		} else {
+			/* we got an unexpected error, leave the [session] port alone */
+			SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStoreNotifyMachPort notifyviaport(): %s"), mach_error_string(status));
+		}
 		storePrivate->server = MACH_PORT_NULL;
+
+		if (status == MACH_SEND_INVALID_DEST) {
+			/* remove the send right that we tried (but failed) to pass to the server */
+			(void) mach_port_deallocate(mach_task_self(), *port);
+		}
+
+		/* remove our receive right  */
+		(void) mach_port_mod_refs(mach_task_self(), *port, MACH_PORT_RIGHT_RECEIVE, -1);
+		*port = MACH_PORT_NULL;
 		_SCErrorSet(status);
 		return FALSE;
 	}
 
 	/* set notifier active */
+	__MACH_PORT_DEBUG(TRUE, "*** SCDynamicStoreNotifyMachPort", *port);
 	storePrivate->notifyStatus = Using_NotifierInformViaMachPort;
 
 	return TRUE;

@@ -698,6 +698,7 @@ void AppleCSPSession::UnwrapKeyOpenSSH1(
 	CSSM_RETURN ourRtn = CSSM_OK;
 	unsigned char *comment = NULL;
 	unsigned commentLen = 0;
+	RSABinaryKey *binKey = NULL;
 	
 	ourRtn = decodeOpenSSHv1PrivKey((const unsigned char *)WrappedKey.KeyData.Data,
 		WrappedKey.KeyData.Length,
@@ -714,7 +715,7 @@ void AppleCSPSession::UnwrapKeyOpenSSH1(
 	 * Our caller ensured that we're only generating a reference key,
 	 * which we do like so:
 	 */
-	RSABinaryKey *binKey = new RSABinaryKey(rsa);
+	binKey = new RSABinaryKey(rsa);
 	addRefKey(*binKey, UnwrappedKey);
 	
 errOut:

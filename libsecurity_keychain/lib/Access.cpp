@@ -47,7 +47,7 @@ const CSSM_ACL_HANDLE Access::ownerHandle;
 // Note that this means anyone can *change* the ACL at will, too.
 // These ACL entries contain no descriptor names.
 //
-Access::Access()
+Access::Access() : mMutex(Mutex::recursive)
 {
 	SecPointer<ACL> owner = new ACL(*this);
 	owner->setAuthorization(CSSM_ACL_AUTHORIZATION_CHANGE_ACL);
@@ -63,12 +63,12 @@ Access::Access()
 // This construct an Access with "default form", whatever that happens to be
 // in this release.
 //
-Access::Access(const string &descriptor, const ACL::ApplicationList &trusted)
+Access::Access(const string &descriptor, const ACL::ApplicationList &trusted) : mMutex(Mutex::recursive)
 {
 	makeStandard(descriptor, trusted);
 }
 
-Access::Access(const string &descriptor)
+Access::Access(const string &descriptor) : mMutex(Mutex::recursive)
 {
 	ACL::ApplicationList trusted;
 	trusted.push_back(new TrustedApplication);
@@ -76,7 +76,7 @@ Access::Access(const string &descriptor)
 }
 
 Access::Access(const string &descriptor, const ACL::ApplicationList &trusted,
-	const AclAuthorizationSet &limitedRights, const AclAuthorizationSet &freeRights)
+	const AclAuthorizationSet &limitedRights, const AclAuthorizationSet &freeRights) : mMutex(Mutex::recursive)
 {
 	makeStandard(descriptor, trusted, limitedRights, freeRights);
 }
@@ -84,6 +84,8 @@ Access::Access(const string &descriptor, const ACL::ApplicationList &trusted,
 void Access::makeStandard(const string &descriptor, const ACL::ApplicationList &trusted,
 	const AclAuthorizationSet &limitedRights, const AclAuthorizationSet &freeRights)
 {
+	StLock<Mutex>_(mMutex);
+
 	// owner "entry"
 	SecPointer<ACL> owner = new ACL(*this, descriptor, ACL::defaultSelector);
 	owner->setAuthorization(CSSM_ACL_AUTHORIZATION_CHANGE_ACL);
@@ -120,7 +122,7 @@ void Access::makeStandard(const string &descriptor, const ACL::ApplicationList &
 // Create an Access object whose initial value is taken
 // from a CSSM ACL bearing object.
 //
-Access::Access(AclBearer &source)
+Access::Access(AclBearer &source) : mMutex(Mutex::recursive)
 {
 	// retrieve and set
 	AutoAclOwnerPrototype owner;
@@ -135,7 +137,7 @@ Access::Access(AclBearer &source)
 // Create an Access object from CSSM-layer access controls
 //
 Access::Access(const CSSM_ACL_OWNER_PROTOTYPE &owner,
-	uint32 aclCount, const CSSM_ACL_ENTRY_INFO *acls)
+	uint32 aclCount, const CSSM_ACL_ENTRY_INFO *acls) : mMutex(Mutex::recursive)
 {
 	compile(owner, aclCount, acls);
 }
@@ -178,12 +180,14 @@ CFArrayRef Access::copySecACLs(CSSM_ACL_AUTHORIZATION_TAG action) const
 //
 void Access::setAccess(AclBearer &target, bool update /* = false */)
 {
+	StLock<Mutex>_(mMutex);
 	AclFactory factory;
 	editAccess(target, update, factory.promptCred());
 }
 
 void Access::setAccess(AclBearer &target, Maker &maker)
 {
+	StLock<Mutex>_(mMutex);
 	if (maker.makerType() == Maker::kStandardMakerType)
 	{
 		// remove initial-setup ACL
@@ -196,6 +200,7 @@ void Access::setAccess(AclBearer &target, Maker &maker)
 
 void Access::editAccess(AclBearer &target, bool update, const AccessCredentials *cred)
 {
+	StLock<Mutex>_(mMutex);
 	assert(mAcls[ownerHandle]);	// have owner
 	
 	// apply all non-owner ACLs first
@@ -216,6 +221,7 @@ void Access::editAccess(AclBearer &target, bool update, const AccessCredentials 
 //
 void Access::addApplicationToRight(AclAuthorization right, TrustedApplication *app)
 {
+	StLock<Mutex>_(mMutex);
 	vector<ACL *> acls;
 	findAclsForRight(right, acls);
 	if (acls.size() != 1)
@@ -232,6 +238,7 @@ void Access::addApplicationToRight(AclAuthorization right, TrustedApplication *a
 void Access::copyOwnerAndAcl(CSSM_ACL_OWNER_PROTOTYPE * &ownerResult,
 	uint32 &aclCount, CSSM_ACL_ENTRY_INFO * &aclsResult)
 {
+	StLock<Mutex>_(mMutex);
 	Allocator& alloc = Allocator::standard();
 	int count = mAcls.size() - 1;	// one will be owner, others are acls
 	AclOwnerPrototype owner;
@@ -288,6 +295,7 @@ string Access::promptDescription() const
 //
 void Access::add(ACL *newAcl)
 {
+	StLock<Mutex>_(mMutex);
 	if (&newAcl->access != this)
 		MacOSError::throwMe(paramErr);
 	assert(!mAcls[newAcl->entryHandle()]);
@@ -303,6 +311,7 @@ void Access::add(ACL *newAcl)
 //
 void Access::addOwner(ACL *newAcl)
 {
+	StLock<Mutex>_(mMutex);
 	newAcl->makeOwner();
 	assert(mAcls.find(ownerHandle) == mAcls.end());	// no owner yet
 	add(newAcl);
@@ -315,6 +324,7 @@ void Access::addOwner(ACL *newAcl)
 void Access::compile(const CSSM_ACL_OWNER_PROTOTYPE &owner,
 	uint32 aclCount, const CSSM_ACL_ENTRY_INFO *acls)
 {
+	StLock<Mutex>_(mMutex);
 	// add owner acl
 	mAcls[ownerHandle] = new ACL(*this, AclOwnerPrototype::overlay(owner));
 	

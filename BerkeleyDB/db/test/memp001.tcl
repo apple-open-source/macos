@@ -1,9 +1,8 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1996-2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 1996,2007 Oracle.  All rights reserved.
 #
-# $Id: memp001.tcl,v 1.2 2004/03/30 01:24:07 jtownsen Exp $
+# $Id: memp001.tcl,v 12.6 2007/05/17 15:15:55 bostic Exp $
 #
 
 # TEST	memp001
@@ -94,7 +93,7 @@ proc memp001_body { ncache flags } {
 		set p(10) [get_range $mpool 40]
 		set p(7) [replace $mpool $p(7)]
 		set p(8) [replace $mpool $p(8)]
-		set p(9) [replace $mpool $p(9)]
+		set p(9) [replace $mpool $p(9) -dirty]
 		set p(10) [replace $mpool $p(10)]
 		#
 		# We now need to put all the pages we have here or
@@ -139,7 +138,7 @@ proc file_create { fname nblocks blocksize } {
 
 proc get_range { mpool max } {
 	set pno [berkdb random_int 0 $max]
-	set p [$mpool get $pno]
+	set p [eval $mpool get -dirty $pno]
 	error_check_good page [is_valid_page $p $mpool] TRUE
 	set got [$p pgnum]
 	if { $got != $pno } {
@@ -151,16 +150,16 @@ proc get_range { mpool max } {
 	return $p
 }
 
-proc replace { mpool p } {
+proc replace { mpool p { args "" } } {
 	set pgno [$p pgnum]
 
 	set ret [$p init "Page is unpinned by [pid]"]
 	error_check_good page_init $ret 0
 
-	set ret [$p put -dirty]
+	set ret [$p put]
 	error_check_good page_put $ret 0
 
-	set p2 [$mpool get $pgno]
+	set p2 [eval $mpool get $args $pgno]
 	error_check_good page [is_valid_page $p2 $mpool] TRUE
 
 	return $p2

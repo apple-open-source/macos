@@ -74,8 +74,8 @@
 .Fc
 .Ft int
 .Fo pthread_mutexattr_getprioceiling
-.Fa "const pthread_mutexattr_t *attr"
-.Fa "int *prioceiling"
+.Fa "const pthread_mutexattr_t *restrict attr"
+.Fa "int *restrict prioceiling"
 .Fc
 .\" To match the SUS, this should be:
 .\" .Ft int
@@ -85,8 +85,8 @@
 .\" .Fc
 .Ft int
 .Fo pthread_mutexattr_getprotocol
-.Fa "const pthread_mutexattr_t *attr"
-.Fa "int *protocol"
+.Fa "const pthread_mutexattr_t *restrict attr"
+.Fa "int *restrict protocol"
 .Fc
 .\" To match the SUS, this should be:
 .\" .Ft int
@@ -96,8 +96,8 @@
 .\" .Fc
 .Ft int
 .Fo pthread_mutexattr_gettype
-.Fa "const pthread_mutexattr_t *attr"
-.Fa "int *type"
+.Fa "const pthread_mutexattr_t *restrict attr"
+.Fa "int *restrict type"
 .Fc
 .\" To match the SUS, this should be:
 .\" .Ft int
@@ -151,7 +151,7 @@ function sets the mutex type value of the attribute.  Valid mutex types are:
 and
 .Dv PTHREAD_MUTEX_DEFAULT .
 The default mutex type for
-.Fn pthread_mutexaddr_init
+.Fn pthread_mutexattr_init
 is
 .Dv PTHREAD_MUTEX_DEFAULT .
 .Pp

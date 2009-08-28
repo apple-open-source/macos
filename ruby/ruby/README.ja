@@ -36,7 +36,7 @@ Rubyはテキスト処理関係の能力などに優れ，Perlと同じくらい強力
 
 本ブランチのRubyの最新のソースコードは次のコマンドで取得できます．
 
-  $ svn co http://svn.ruby-lang.org/repos/ruby/branches/ruby_1_8_6/
+  $ svn co http://svn.ruby-lang.org/repos/ruby/branches/ruby_1_8/
 
 開発先端のソースコードは次のコマンドで取得できます．
 
@@ -91,6 +91,10 @@ Ruby拡張モジュールについて話し合うruby-extメーリングリストと
      新しくconfigureを生成する
 
   2. configureを実行してMakefileなどを生成する
+
+     環境によってはデフォルトのCコンパイラ用オプションが付き
+     ます．configureオプションで optflags=.. warnflags=.. 等
+     で上書きできます．
 
   3. (必要ならば)defines.hを編集する
 

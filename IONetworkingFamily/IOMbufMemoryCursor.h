@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -19,27 +19,9 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- * Copyright (c) 1999 Apple Computer, Inc.  All rights reserved. 
- *
- * IOMbufMemoryCursor.h created by gvdl on 1999-1-20
- *
- */
 
 #ifndef _IOKIT_NETWORK_IOMBUFMEMORYCURSOR_H
 #define _IOKIT_NETWORK_IOMBUFMEMORYCURSOR_H
-
-#ifndef __MBUF_TRANSITION_STRIP
-#ifdef __MBUF_TRANSITION_
-# ifndef __MBUF_PROTO
-#  define __MBUF_PROTO mbuf_t
-# endif
-#else
-# ifndef __MBUF_PROTO
-#  define __MBUF_PROTO struct mbuf *
-# endif
-#endif
-#endif
 
 #include <IOKit/IOMemoryCursor.h>
 
@@ -121,7 +103,7 @@ public:
     0 if an error occurred. 
 */
 
-    virtual UInt32 genPhysicalSegments(__MBUF_PROTO packet, void * vector,
+    virtual UInt32 genPhysicalSegments(mbuf_t packet, void * vector,
                                        UInt32 maxSegs, bool doCoalesce);
 
 /*! @function getAndResetCoalesceCount
@@ -180,7 +162,7 @@ public:
     0 if an error occurred. 
 */
 
-    UInt32 getPhysicalSegments(__MBUF_PROTO packet,
+    UInt32 getPhysicalSegments(mbuf_t packet,
                                struct IOPhysicalSegment * vector,
                                UInt32 numVectorSegments = 0);
 
@@ -198,7 +180,7 @@ public:
     0 if an error occurred. 
 */
 
-    UInt32 getPhysicalSegmentsWithCoalesce(__MBUF_PROTO packet,
+    UInt32 getPhysicalSegmentsWithCoalesce(mbuf_t packet,
                                            struct IOPhysicalSegment * vector,
                                            UInt32 numVectorSegments = 0);
 };
@@ -244,7 +226,7 @@ public:
     0 if an error occurred. 
 */
 
-    UInt32 getPhysicalSegments(__MBUF_PROTO packet,
+    UInt32 getPhysicalSegments(mbuf_t packet,
                                struct IOPhysicalSegment * vector,
                                UInt32 numVectorSegments = 0);
 
@@ -262,7 +244,7 @@ public:
     0 if an error occurred. 
 */
 
-    UInt32 getPhysicalSegmentsWithCoalesce(__MBUF_PROTO packet,
+    UInt32 getPhysicalSegmentsWithCoalesce(mbuf_t packet,
                                            struct IOPhysicalSegment * vector,
                                            UInt32 numVectorSegments = 0);
 };
@@ -309,7 +291,7 @@ public:
     0 if an error occurred. 
 */
 
-    UInt32 getPhysicalSegments(__MBUF_PROTO packet,
+    UInt32 getPhysicalSegments(mbuf_t packet,
                                struct IOPhysicalSegment * vector,
                                UInt32 numVectorSegments = 0);
 
@@ -327,7 +309,7 @@ public:
     0 if an error occurred. 
 */
 
-    UInt32 getPhysicalSegmentsWithCoalesce(__MBUF_PROTO packet,
+    UInt32 getPhysicalSegmentsWithCoalesce(mbuf_t packet,
                                            struct IOPhysicalSegment * vector,
                                            UInt32 numVectorSegments = 0);
 };
@@ -372,7 +354,7 @@ public:
     0 if an error occurred. 
 */
 
-    UInt32 getPhysicalSegments(__MBUF_PROTO packet,
+    UInt32 getPhysicalSegments(mbuf_t packet,
                                struct IODBDMADescriptor *vector,
                                UInt32 numVectorSegments = 0);
 
@@ -388,7 +370,7 @@ public:
     0 if an error occurred. 
 */
 
-    UInt32 getPhysicalSegmentsWithCoalesce(__MBUF_PROTO packet,
+    UInt32 getPhysicalSegmentsWithCoalesce(mbuf_t packet,
                                            struct IODBDMADescriptor * vector,
                                            UInt32 numVectorSegments = 0);
 };

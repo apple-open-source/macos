@@ -39,6 +39,7 @@ extern "C" {
 	void CalculateSMBNTHash(const char *utf8Password, unsigned char outHash[16]);
 	void CalculateSMBLANManagerHash(const char *password, unsigned char outHash[16]);
 	int32_t LittleEndianCharsToInt32( const char *inCharPtr );
+	void CalculateWorkstationCredentialStrongSessKey( const unsigned char inNTHash[16], const char serverChallenge[8], const char clientChallenge[8], unsigned char outWCSK[16] );
 	void CalculateWorkstationCredentialSessKey( const unsigned char inNTHash[16], const char serverChallenge[8], const char clientChallenge[8], unsigned char outWCSK[8] );
 	void CalculatePPTPSessionKeys( const unsigned char inNTHash[16], const unsigned char inNTResponse[24], int inSessionKeyLen, unsigned char *outSendKey, unsigned char *outReceiveKey );
 	void GetMasterKey( const unsigned char inNTHashHash[16], const unsigned char inNTResponse[24], unsigned char outMasterKey[16] );

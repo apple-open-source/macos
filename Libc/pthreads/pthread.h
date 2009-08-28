@@ -472,6 +472,13 @@ void      pthread_testcancel(void) __DARWIN_ALIAS(pthread_testcancel);
 /* returns non-zero if pthread_create or cthread_fork have been called */
 int		pthread_is_threaded_np(void);
 
+#if defined(__i386__) || defined(__x86_64__)
+int		pthread_threadid_np(pthread_t,__uint64_t*);
+#endif
+
+/*SPI to set and get pthread name*/
+int		pthread_getname_np(pthread_t,char*,size_t);
+int		pthread_setname_np(const char*);
 /* returns non-zero if the current thread is the main thread */
 int		pthread_main_np(void);
 

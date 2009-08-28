@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -679,13 +679,32 @@ APU_DECLARE(apr_status_t) apr_brigade_destroy(apr_bucket_brigade *b);
 APU_DECLARE(apr_status_t) apr_brigade_cleanup(void *data);
 
 /**
- * Split a bucket brigade into two, such that the given bucket is the
- * first in the new bucket brigade. This function is useful when a
- * filter wants to pass only the initial part of a brigade to the next
- * filter.
+ * Move the buckets from the tail end of the existing brigade @param b into
+ * the brigade @param a. If @param a is NULL a new brigade is created. Buckets
+ * from @param e to the last bucket (inclusively) of brigade @param b are moved
+ * from @param b to the returned brigade @param a.
  * @param b The brigade to split
- * @param e The first element of the new brigade
+ * @param e The first bucket to move
+ * @param a The brigade which should be used for the result or NULL if
+ *          a new brigade should be created.
+ * @return The brigade supplied in @param a or a new one if @param a was NULL.
+ * @warning Note that this function allocates a new brigade if @param a is
+ * NULL so memory consumption should be carefully considered.
+ */
+APU_DECLARE(apr_bucket_brigade *) apr_brigade_split_ex(apr_bucket_brigade *b,
+                                                       apr_bucket *e,
+                                                       apr_bucket_brigade *a);
+
+/**
+ * Create a new bucket brigade and move the buckets from the tail end
+ * of an existing brigade into the new brigade.  Buckets from 
+ * @param e to the last bucket (inclusively) of brigade @param b
+ * are moved from @param b to the returned brigade.
+ * @param b The brigade to split 
+ * @param e The first bucket to move
  * @return The new brigade
+ * @warning Note that this function always allocates a new brigade
+ * so memory consumption should be carefully considered.
  */
 APU_DECLARE(apr_bucket_brigade *) apr_brigade_split(apr_bucket_brigade *b,
                                                     apr_bucket *e);
@@ -710,8 +729,9 @@ APU_DECLARE(apr_status_t) apr_brigade_partition(apr_bucket_brigade *b,
  * Return the total length of the brigade.
  * @param bb The brigade to compute the length of
  * @param read_all Read unknown-length buckets to force a size
- * @param length Returns the length of the brigade, or -1 if the brigade has
- *               buckets of indeterminate length and read_all is 0.
+ * @param length Returns the length of the brigade (up to the end, or up
+ *               to a bucket read error), or -1 if the brigade has buckets
+ *               of indeterminate length and read_all is 0.
  */
 APU_DECLARE(apr_status_t) apr_brigade_length(apr_bucket_brigade *bb,
                                              int read_all,
@@ -968,7 +988,16 @@ APU_DECLARE_NONSTD(void) apr_bucket_free(void *block);
     } while (0)
 
 /**
- * read the data from the bucket
+ * Read the data from the bucket.
+ * 
+ * If it is not practical to return all
+ * the data in the bucket, the current bucket is split and replaced by
+ * two buckets, the first representing the data returned in this call,
+ * and the second representing the rest of the data as yet unread. The
+ * original bucket will become the first bucket after this call.
+ * 
+ * (It is assumed that the bucket is a member of a brigade when this
+ * function is called).
  * @param e The bucket to read from
  * @param str The location to store the data in
  * @param len The amount of data read
@@ -985,7 +1014,12 @@ APU_DECLARE_NONSTD(void) apr_bucket_free(void *block);
 #define apr_bucket_setaside(e,p) (e)->type->setaside(e,p)
 
 /**
- * Split one bucket in two.
+ * Split one bucket in two at the point provided.
+ * 
+ * Once split, the original bucket becomes the first of the two new buckets.
+ * 
+ * (It is assumed that the bucket is a member of a brigade when this
+ * function is called).
  * @param e The bucket to split
  * @param point The offset to split the bucket at
  */
@@ -1426,6 +1460,12 @@ APU_DECLARE(apr_bucket *) apr_bucket_pipe_make(apr_bucket *b,
  *          while reading from this file bucket
  * @param list The freelist from which this bucket should be allocated
  * @return The new bucket, or NULL if allocation failed
+ * @remark If the file is truncated such that the segment of the file
+ * referenced by the bucket no longer exists, an attempt to read
+ * from the bucket will fail with APR_EOF. 
+ * @remark apr_brigade_insert_file() should generally be used to
+ * insert files into brigades, since that function can correctly
+ * handle large file issues.
  */
 APU_DECLARE(apr_bucket *) apr_bucket_file_create(apr_file_t *fd,
                                                  apr_off_t offset,

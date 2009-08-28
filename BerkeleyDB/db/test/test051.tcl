@@ -1,9 +1,8 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1999-2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 1999,2007 Oracle.  All rights reserved.
 #
-# $Id: test051.tcl,v 1.2 2004/03/30 01:24:08 jtownsen Exp $
+# $Id: test051.tcl,v 12.7 2007/05/17 15:15:56 bostic Exp $
 #
 # TEST	test051
 # TEST	Fixed-length record Recno test.
@@ -20,7 +19,7 @@ proc test051 { method { args "" } } {
 	set args [convert_args $method $args]
 	set omethod [convert_method $method]
 
-	puts "Test051: Test of the fixed length records."
+	puts "Test051 ($method): Test of the fixed length records."
 	if { [is_fixed_length $method] != 1 } {
 		puts "Test051: skipping for method $method"
 		return
@@ -108,7 +107,7 @@ proc test051 { method { args "" } } {
 			if { $eindex == -1 } {
 				error_check_good "dbput:partial: dlen < size" \
 				    [is_substr \
-				    $errorInfo "Record length error"] 1
+				    $errorInfo "ecord length"] 1
 			} else {
 				error_check_good "dbput:partial: dlen < size" \
 				    [is_substr $errorCode "EINVAL"] 1
@@ -124,7 +123,7 @@ proc test051 { method { args "" } } {
 			if { $eindex == -1 } {
 				error_check_good "dbput:partial: dlen > size" \
 				    [is_substr \
-				    $errorInfo "Record length error"] 1
+				    $errorInfo "ecord length"] 1
 			} else {
 				error_check_good "dbput:partial: dlen < size" \
 				    [is_substr $errorCode "EINVAL"] 1
@@ -186,7 +185,7 @@ proc test051 { method { args "" } } {
 		set ret [eval {$db put} $txn {$key $data}]
 		error_check_good dbput:init $ret 0
 
-		puts "\t\t  Test051.g: Replace at offset $doff."
+		puts "\t\tTest051.g: Replace at offset $doff."
 		set ret [eval {$db put -partial [list $doff $dlen]} $txn \
 		    {$key $pdata}]
 		error_check_good dbput:partial $ret 0

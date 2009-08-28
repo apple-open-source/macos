@@ -109,7 +109,6 @@
 
 - (BOOL) isAdmin
 {
-#warning need to add memberd support here.. we should not be checking if user is a member of admin directly..
     BOOL bAdmin = NO;
     
 	if ([self getUid] == 0)

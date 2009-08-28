@@ -47,9 +47,9 @@ svn_fs_bdb__open_uuids_table(DB **uuids_p,
   BDB_ERR(db_create(&uuids, env, 0));
   BDB_ERR(uuids->set_re_len(uuids, APR_UUID_FORMATTED_LENGTH));
 
-  error = uuids->open(SVN_BDB_OPEN_PARAMS(uuids, NULL),
-                      "uuids", 0, DB_RECNO,
-                      open_flags, 0666);
+  error = (uuids->open)(SVN_BDB_OPEN_PARAMS(uuids, NULL),
+                        "uuids", 0, DB_RECNO,
+                        open_flags, 0666);
 
   /* This is a temporary compatibility check; it creates the
      UUIDs table if one does not already exist. */
@@ -139,8 +139,6 @@ svn_error_t *svn_fs_bdb__set_uuid(svn_fs_t *fs,
   value.data = apr_pstrmemdup(pool, uuid, value.size + 1);
 
   svn_fs_base__trail_debug(trail, "uuids", "put");
-  SVN_ERR(BDB_WRAP(fs, _("set repository uuid"),
-                   uuids->put(uuids, trail->db_txn, &key, &value, 0)));
-
-  return SVN_NO_ERROR;
+  return BDB_WRAP(fs, _("set repository uuid"),
+                  uuids->put(uuids, trail->db_txn, &key, &value, 0));
 }

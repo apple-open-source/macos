@@ -5,7 +5,7 @@
 
 # Project info
 Project               = tidy
-BuildNumber           = 13
+BuildNumber           = 15.3
 UserType              = Administrator
 ToolType              = Libraries
 

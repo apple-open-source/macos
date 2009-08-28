@@ -56,7 +56,7 @@ static  char *reg_names[] =
 
 union sparc_insn
   {
-    unsigned long int code;
+    uint32_t code;
     struct
       {
 #ifdef __BIG_ENDIAN__
@@ -177,7 +177,7 @@ is_delayed_branch (insn)
 int
 find_lo_value(
 	      char *section, 
-	      unsigned long addr, 
+	      uint32_t addr, 
 	      union sparc_insn insn)
 {
   int index, next_insn;
@@ -202,12 +202,12 @@ print_address_func(unsigned int addr)
 
 enum bool
 label_symbol(
-unsigned long addr,
+uint32_t addr,
 enum bool colon_and_newline,
 struct symbol *sorted_symbols,
-unsigned long nsorted_symbols)
+uint32_t nsorted_symbols)
 {
-    long high, low, mid;
+    int32_t high, low, mid;
 
 	low = 0;
 	high = nsorted_symbols - 1;
@@ -238,23 +238,23 @@ unsigned long nsorted_symbols)
 static void
 print_symbolic(
 	       char operand,
-	       unsigned long value,
+	       uint32_t value,
 	       unsigned int pc,
 	       struct relocation_info *relocs,
-	       unsigned long nrelocs,
+	       uint32_t nrelocs,
 	       struct nlist *symbols,
-	       unsigned long nsymbols,
+	       uint32_t nsymbols,
 	       struct symbol *sorted_symbols,
-	       unsigned long nsorted_symbols,
+	       uint32_t nsorted_symbols,
 	       char *strings,
-	       unsigned long strings_size,
+	       uint32_t strings_size,
 	       enum bool verbose)
 {
   struct relocation_info *rp, *rp_pair;
-  unsigned long i, r_address, r_symbolnum, r_type, r_extern,
-		  r_value, r_scattered, pair_r_type, pair_r_value;
-  long reloc_found, offset;
-  unsigned long other_half;
+  uint32_t i, r_address, r_symbolnum, r_type, r_extern,
+	   r_value, r_scattered, pair_r_type, pair_r_value;
+  int32_t reloc_found, offset;
+  uint32_t other_half;
   const char *name, *add, *sub;
   struct scattered_relocation_info *srp;
 
@@ -314,7 +314,7 @@ print_symbolic(
 	    }
 	    if(pair_r_type != SPARC_RELOC_PAIR){
 	      fprintf(stderr, "No SPARC_RELOC_PAIR relocation "
-		      "entry after entry %lu\n", i);
+		      "entry after entry %u\n", i);
 	      continue;
 	    }
 	  }
@@ -342,7 +342,7 @@ print_symbolic(
 	      rp++;
 	    } else {
 	      fprintf(stderr, 
-		      "no SPARC_RELOC_PAIR relocation entry after %lu\n", i);
+		      "no SPARC_RELOC_PAIR relocation entry after %u\n", i);
 	    }
 	  }
 	}
@@ -353,7 +353,7 @@ print_symbolic(
 
     if (reloc_found && (r_extern == 1)) {
       if (symbols[r_symbolnum].n_un.n_strx < 0 ||
-	  (unsigned long)symbols[r_symbolnum].n_un.n_strx >= strings_size)
+	  (uint32_t)symbols[r_symbolnum].n_un.n_strx >= strings_size)
 	name = "bad string offset";
       else
 	name = strings + symbols[r_symbolnum].n_un.n_strx;
@@ -480,23 +480,23 @@ The pc has already been added in the 'l' and 'L' cases by the caller.
     }
 }
        
-unsigned long
+uint32_t
 sparc_disassemble(
 char *sect,
-unsigned long left,
-unsigned long addr,
-unsigned long sect_addr,
+uint32_t left,
+uint32_t addr,
+uint32_t sect_addr,
 enum byte_sex object_byte_sex,
 struct relocation_info *relocs,
-unsigned long nrelocs,
+uint32_t nrelocs,
 struct nlist *symbols,
-unsigned long nsymbols,
+uint32_t nsymbols,
 struct symbol *sorted_symbols,
-unsigned long nsorted_symbols,
+uint32_t nsorted_symbols,
 char *strings,
-unsigned long strings_size,
+uint32_t strings_size,
 uint32_t *indirect_symbols,
-unsigned long nindirect_symbols,
+uint32_t nindirect_symbols,
 struct load_command *load_commands,
 uint32_t ncmds,
 uint32_t sizeofcmds,
@@ -505,7 +505,7 @@ enum bool verbose)
   enum byte_sex host_byte_sex;
   enum bool swapped;
   int i;
-  unsigned long sect_offset;
+  uint32_t sect_offset;
   union sparc_insn	insn;
   struct sparc_opcode	*opcode;
   int imm_added_to_rs1 = 0;	/* adding or or'ing imm13 into rs1? */
@@ -527,20 +527,20 @@ enum bool verbose)
   host_byte_sex = get_host_byte_sex();
   swapped = host_byte_sex != object_byte_sex;
   
-  if (left < sizeof(unsigned long)) {
+  if (left < sizeof(uint32_t)) {
     if(left != 0) {
       memcpy(&insn, sect, left);
       if(swapped)
-	insn.code = SWAP_LONG(insn.code);
+	insn.code = SWAP_INT(insn.code);
       printf(".long\t0x%08x\n", (unsigned int)insn.code);
     }
     printf("(end of section)\n");
     return(left);
   }
   
-  memcpy(&insn, sect, sizeof(unsigned long));
+  memcpy(&insn, sect, sizeof(uint32_t));
   if (swapped)
-    insn.code = SWAP_LONG(insn.code);
+    insn.code = SWAP_INT(insn.code);
   
   /* search through the opcode table */
   for (i=0; i<NUMOPCODES; ++i) {
@@ -766,7 +766,7 @@ enum bool verbose)
 
 
     if ((sect_addr - addr) >= 8) // space before us this?
-      memcpy(&prev_insn, sect - 4, sizeof(unsigned long));
+      memcpy(&prev_insn, sect - 4, sizeof(uint32_t));
     else
       prev_insn.code = 0;
 
@@ -780,7 +780,7 @@ enum bool verbose)
        */
 
     if (prev_insn.code		/* && is_delayed_branch (prev_insn) */)
-      memcpy(&prev_insn, sect - 8, sizeof(unsigned long));
+      memcpy(&prev_insn, sect - 8, sizeof(uint32_t));
     else
       prev_insn.code = 0;
 
@@ -805,15 +805,15 @@ compare_opcodes (a, b)
 {
   struct sparc_opcode *op0 = (struct sparc_opcode *) a;
   struct sparc_opcode *op1 = (struct sparc_opcode *) b;
-  unsigned long int match0 = op0->match, match1 = op1->match;
-  unsigned long int lose0 = op0->lose, lose1 = op1->lose;
+  uint32_t match0 = op0->match, match1 = op1->match;
+  uint32_t lose0 = op0->lose, lose1 = op1->lose;
   register unsigned int i;
 
   /* If a bit is set in both match and lose, there is something
      wrong with the opcode table.  */
   if (match0 & lose0)
     {
-      fprintf (stderr, "Internal error:  bad sparc-opcode.h: \"%s\", %#.8lx, %#.8lx\n",
+      fprintf (stderr, "Internal error:  bad sparc-opcode.h: \"%s\", %#.8x, %#.8x\n",
 	       op0->name, match0, lose0);
       op0->lose &= ~op0->match;
       lose0 = op0->lose;
@@ -821,7 +821,7 @@ compare_opcodes (a, b)
 
   if (match1 & lose1)
     {
-      fprintf (stderr, "Internal error: bad sparc-opcode.h: \"%s\", %#.8lx, %#.8lx\n",
+      fprintf (stderr, "Internal error: bad sparc-opcode.h: \"%s\", %#.8x, %#.8x\n",
 	       op1->name, match1, lose1);
       op1->lose &= ~op1->match;
       lose1 = op1->lose;
@@ -831,7 +831,7 @@ compare_opcodes (a, b)
      another, it is important to order the opcodes in the right order.  */
   for (i = 0; i < 32; ++i)
     {
-      unsigned long int x = 1 << i;
+      uint32_t x = 1 << i;
       int x0 = (match0 & x) != 0;
       int x1 = (match1 & x) != 0;
 
@@ -841,7 +841,7 @@ compare_opcodes (a, b)
 
   for (i = 0; i < 32; ++i)
     {
-      unsigned long int x = 1 << i;
+      uint32_t x = 1 << i;
       int x0 = (lose0 & x) != 0;
       int x1 = (lose1 & x) != 0;
 

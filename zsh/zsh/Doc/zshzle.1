@@ -1,4 +1,4 @@
-.TH "ZSHZLE" "1" "April 19, 2006" "zsh 4\&.3\&.4"
+.TH "ZSHZLE" "1" "October 30, 2008" "zsh 4\&.3\&.9"
 .SH "NAME"
 zshzle \- zsh command line editor
 .\" Yodl file: Zsh/zle.yo
@@ -19,6 +19,20 @@ is similar to \fBksh\fP, and uses no termcap sequences\&.  If \fBTERM\fP is
 The parameters \fBBAUD\fP, \fBCOLUMNS\fP, and \fBLINES\fP are also used by the
 line editor\&.
 See \fIParameters Used By The Shell\fP in \fIzshparam\fP(1)\&.
+.PP
+The parameter \fBzle_highlight\fP is also used by the line editor;
+see \fICharacter Highlighting\fP below\&.  Highlighting
+of special characters and the region between the cursor and the
+mark (as set with \fBset\-mark\-command\fP in Emacs mode) is enabled
+by default; consult this reference for more information\&.  Irascible
+conservatives will wish to know that all highlighting may be disabled by
+the following setting:
+.PP
+.RS
+.nf
+\fBzle_highlight=(none)\fP
+.fi
+.RE
 .PP
 .PP
 .SH "KEYMAPS"
@@ -626,7 +640,9 @@ appears as if the top\-level widget called by the user were still
 active\&.  With the option \fB\-w\fP, \fBWIDGET\fP and related parameters are set
 to reflect the widget being executed by the \fBzle\fP call\&.
 .PP
-Any further arguments will be passed to the widget\&.  If it is a shell
+Any further arguments will be passed to the widget; note that as
+standard argument handling is performed, any general argument list
+should be preceded by \fB\-\fP\fB\-\fP\&.  If it is a shell
 function, these are passed down as positional parameters; for builtin
 widgets it is up to the widget in question what it does with them\&.
 Currently arguments are only handled by the incremental\-search commands,
@@ -666,7 +682,7 @@ as shell functions\&.  When the widget is executed, the corresponding
 shell function is executed, and can perform editing (or other) actions\&.
 It is recommended that user\-defined widgets should not have names
 starting with `\fB\&.\fP\&'\&.
-.SH "USER\e\-DEFINED WIDGETS"
+.SH "USER\-DEFINED WIDGETS"
 User\-defined widgets, being implemented as shell functions,
 can execute any normal shell command\&.  They can also run other widgets
 (whether built\-in or user\-defined) using the \fBzle\fP builtin command\&.
@@ -726,7 +742,10 @@ cursor being moved to the appropriate end of the buffer\&.
 \fBCUTBUFFER\fP (scalar)
 The last item to be cut using one of the `\fBkill\-\fP\&' commands; the
 string which the next yank would insert in the line\&.  Later entries in
-the kill ring are in the array \fBkillring\fP\&.
+the kill ring are in the array \fBkillring\fP\&.  Note that the
+command `\fBzle copy\-region\-as\-kill\fP \fIstring\fP\&' can be used to
+set the text of the cut buffer from a shell function and cycle the kill
+ring in the same way as interactively killing text\&.
 .TP
 \fBHISTNO\fP (integer)
 The current history number\&.  Setting this has the same effect as
@@ -808,6 +827,62 @@ The part of the buffer that lies to the right of the cursor position\&.
 If it is assigned to, only that part of the buffer is replaced, and the
 cursor remains between the old \fB$LBUFFER\fP and the new \fB$RBUFFER\fP\&.
 .TP
+\fBREGION_ACTIVE\fP (integer)
+Indicates if the region is currently active\&.  It can be assigned 0 or 1
+to deactivate and activate the region respectively;
+see \fICharacter Highlighting\fP below\&.
+.TP
+\fBregion_highlight\fP (array)
+Each element of this array may be set to a string that describes
+highlighting for an arbitrary region of the command line that will
+take effect the next time the command line is redisplayed\&.  Highlighting
+of the non\-editable parts of the command line in \fBPREDISPLAY\fP
+and \fBPOSTDISPLAY\fP are possible, but note that the \fBP\fP flag
+is needed for character indexing to include \fBPREDISPLAY\fP\&.
+.RS
+.PP
+Each string consists of the following parts:
+.PP
+.PD 0
+.TP
+Optionally, a `\fBP\fP\&' to signify that the start and end offset that
+follow include any string set by the \fBPREDISPLAY\fP special parameter;
+this is needed if the predisplay string itself is to be highlighted\&.
+Whitespace may follow the `\fBP\fP\&'\&.
+.TP
+A start offset in the same units as \fBCURSOR\fP, terminated by
+whitespace\&.
+.TP
+An end offset in the same units as \fBCURSOR\fP, terminated by
+whitespace\&.
+.TP
+A highlight specification in the same format as
+used for the contexts \fBregion\fP or \fBspecial\fP
+in the parameter \fBzle_highlight\fP,
+see Character Highlighting below\&.
+Hence this should be a comma\-separated list of any of the
+words \fBbold\fP, \fBstandout\fP or \fBunderline\fP\&.
+.PD
+.PP
+For example, 
+.PP
+.RS
+.nf
+\fBregion_highlight=("P0 20 bold")\fP
+.fi
+.RE
+.PP
+specifies that the first twenty characters of the text including
+any predisplay string should be highlighted in bold\&.
+.PP
+Note that the effect of \fBregion_highlight\fP is not saved and disappears
+as soon as the line is accepted\&.  The line editor makes no attempt to
+keep the highlighting effect synchronised with the line as it is edited;
+hence region highlighting is best limited to static effects within
+user widgets\&.
+.PP
+.RE
+.TP
 \fBWIDGET\fP (scalar)
 The name of the widget currently being executed; read\-only\&.
 .TP
@@ -825,7 +900,7 @@ executed; the second argument that followed \fBzle \-C\fP when the widget was
 defined\&.  This is the name of a builtin completion widget\&.  For widgets
 defined with \fBzle \-N\fP this is set to the empty string\&.  Read\-only\&.
 .PP
-.SS "Special Widget"
+.SS "Special Widgets"
 .PP
 There are a few user\-defined widgets which are special to the shell\&.
 If they do not exist, no special action is taken\&.  The environment
@@ -1051,32 +1126,85 @@ A restricted set of editing functions
 is available in the mini\-buffer\&.  An interrupt signal, as defined by the stty
 setting, will stop the search and go back to the original line\&.  An undefined
 key will have the same effect\&. The supported functions are:
-\fBbackward\-delete\-char\fP,
-\fBvi\-backward\-delete\-char\fP,
-\fBclear\-screen\fP,
-\fBredisplay\fP,
-\fBquoted\-insert\fP,
-\fBvi\-quoted\-insert\fP,
-\fBaccept\-and\-hold\fP,
-\fBaccept\-and\-infer\-next\-history\fP,
-\fBaccept\-line\fP and
-\fBaccept\-line\-and\-down\-history\fP\&.
 .PP
-\fBmagic\-space\fP just inserts a space\&.
-\fBvi\-cmd\-mode\fP toggles between the `\fBmain\fP\&' and `\fBvicmd\fP' keymaps;
+.PD 0
+.TP
+.PD 0
+\fBaccept\-and\-hold\fP
+.TP
+.PD 0
+\fBaccept\-and\-infer\-next\-history\fP
+.TP
+.PD 0
+\fBaccept\-line\fP
+.TP
+.PD
+\fBaccept\-line\-and\-down\-history\fP
+Perform the usual function after exiting incremental search\&.
+The command line displayed is executed\&.
+.TP
+.PD 0
+\fBbackward\-delete\-char\fP
+.TP
+.PD
+\fBvi\-backward\-delete\-char\fP
+Back up one place in the search history\&.  If the search has been
+repeated this does not immediately erase a character in the
+minibuffer\&.
+.TP
+.PD 0
+\fBbackward\-delete\-word\fP
+.TP
+.PD 0
+\fBbackward\-kill\-word\fP
+.TP
+.PD
+\fBvi\-backward\-kill\-word\fP
+Back up one character in the minibuffer; if multiple searches
+have been performed since the character was inserted the search
+history is rewound to the point just before the character was
+entered\&.  Hence this has the effect of repeating
+\fBbackward\-delete\-char\fP\&.
+.TP
+\fBclear\-screen\fP
+Clear the screen, remaining in incremental search mode\&.
+.TP
+\fBhistory\-incremental\-search\-backward\fP
+Find the next occurrence of the contents of the mini\-buffer\&.
+.TP
+\fBhistory\-incremental\-search\-forward\fP
+Invert the sense of the search\&.
+.TP
+\fBmagic\-space\fP
+Inserts a non\-magical space\&.
+.TP
+.PD 0
+\fBquoted\-insert\fP
+.TP
+.PD
+\fBvi\-quoted\-insert\fP
+Quote the character to insert into the minibuffer\&.
+.TP
+\fBredisplay\fP
+Redisplay the command line, remaining in incremental search mode\&.
+.TP
+\fBvi\-cmd\-mode\fP
+Toggle between the `\fBmain\fP\&' and `\fBvicmd\fP' keymaps;
 the `\fBmain\fP\&' keymap (insert mode) will be selected initially\&.
-\fBhistory\-incremental\-search\-backward\fP will get the
-next occurrence of the contents of the mini\-buffer\&.
-\fBhistory\-incremental\-search\-forward\fP inverts the sense of the search\&.
-\fBvi\-repeat\-search\fP and \fBvi\-rev\-repeat\-search\fP are similarly supported\&.
-The direction of the search is indicated in the mini\-buffer\&.
+.TP
+.PD 0
+\fBvi\-repeat\-search\fP
+.TP
+.PD
+\fBvi\-rev\-repeat\-search\fP
+Repeat the search\&.  The direction of the search is indicated in the
+mini\-buffer\&.
 .PP
-Any multi\-character string
-that is not bound to one of the above functions will beep and interrupt the
-search, leaving the last found line in the buffer\&. Any single character that
-is not bound to one of the above functions, or \fBself\-insert\fP or
-\fBself\-insert\-unmeta\fP, will have the same effect but the function will be
-executed\&.
+Any multi\-character string that is not bound to one of the above functions
+will beep and interrupt the search, leaving the last found line in the
+buffer\&. Any single character that is not bound to one of the above
+functions, or \fBself\-insert\fP or \fBself\-insert\-unmeta\fP, will have the same
+effect but the function will be executed\&.
 .PP
 When called from a widget function by the \fBzle\fP command, the incremental
 search commands can take a string argument\&.  This will be treated as a
@@ -1100,6 +1228,29 @@ case\-insensitive if the search string does not have uppercase letters and no
 numeric argument was given\&.  The string may begin with `\fB^\fP\&' to anchor the
 search to the beginning of the line\&.  The functions available in the
 mini\-buffer are the same as for \fBhistory\-incremental\-search\-backward\fP\&.
+.TP
+.PD 0
+\fBhistory\-incremental\-pattern\-search\-backward\fP
+.TP
+.PD
+\fBhistory\-incremental\-pattern\-search\-forward\fP
+These widgets behave similarly to the corresponding widgets with
+no \fB\-pattern\fP, but the search string typed by the user is treated
+as a pattern, respecting the current settings of the various options
+affecting pattern matching\&.  See
+FILENAME GENERATION in \fIzshexpn\fP(1) for a description of patterns\&.
+If no numeric argument was given lowercase letters in the search
+string may match uppercase letters in the history\&.  The string may begin
+with `\fB^\fP\&' to anchor the search to the beginning of the line\&.
+.RS
+.PP
+The prompt changes to indicate an invalid pattern; this may simply
+indicate the pattern is not yet complete\&.
+.PP
+Note that only non\-overlapping matches are reported, so an expression
+with wildcards may return fewer matches on a line than are visible
+by inspection\&.
+.RE
 .TP
 \fBhistory\-search\-backward\fP (ESC\-P ESC\-p) (unbound) (unbound)
 Search backward in the history for a line beginning with the first
@@ -1296,6 +1447,13 @@ Kill the current line and enter insert mode\&.
 .TP
 \fBcopy\-region\-as\-kill\fP (ESC\-W ESC\-w) (unbound) (unbound)
 Copy the area from the cursor to the mark to the kill buffer\&.
+.RS
+.PP
+If called from a ZLE widget function in the form `\fBzle
+copy\-region\-as\-kill\fP \fIstring\fP\&' then \fIstring\fP will be taken as the
+text to copy to the kill buffer\&.  The cursor, the mark and the text on the
+command line are not used in this case\&.
+.RE
 .TP
 \fBcopy\-prev\-word\fP (ESC\-^_) (unbound) (unbound)
 Duplicate the word to the left of the cursor\&.
@@ -1455,8 +1613,8 @@ Convert the current word to all caps and move past it\&.
 Insert the contents of the kill buffer at the cursor position\&.
 .TP
 \fByank\-pop\fP (ESC\-y) (unbound) (unbound)
-Remove the text just yanked, rotate the kill\-ring,
-and yank the new top\&.  Only works following
+Remove the text just yanked, rotate the kill\-ring (the history of
+previously killed text) and yank the new top\&.  Only works following
 \fByank\fP or \fByank\-pop\fP\&.
 .TP
 \fBvi\-yank\fP (unbound) (y) (unbound)
@@ -1644,7 +1802,11 @@ Clear the screen and redraw the prompt\&.
 Reads a key sequence, then prints the function bound to that sequence\&.
 .TP
 \fBexchange\-point\-and\-mark\fP (^X^X) (unbound) (unbound)
-Exchange the cursor position with the position of the mark\&.
+Exchange the cursor position (point) with the position of the mark\&.
+Unless a negative prefix argument is given, the region between
+point and mark is activated so that it can be highlighted\&.
+If a zero prefix argument is given, the region is activated but
+point and mark are not swapped\&.
 .TP
 \fBexecute\-named\-cmd\fP (ESC\-x) (unbound) (unbound)
 Read the name of an editor command and
@@ -1834,7 +1996,10 @@ contents of \fB"1\fP to \fB"8\fP are each shifted along one buffer; the contents
 Set the specified mark at the cursor position\&.
 .TP
 \fBset\-mark\-command\fP (^@) (unbound) (unbound)
-Set the mark at the cursor position\&.
+Set the mark at the cursor position\&.  If called with a negative
+prefix argument, do not set the mark but deactivate the region so that
+it is no longer highlighted (it is still usable for other purposes)\&.
+Otherwise the region is marked as active\&.
 .TP
 \fBspell\-word\fP (ESC\-$ ESC\-S ESC\-s) (unbound) (unbound)
 Attempt spelling correction on the current word\&.
@@ -1870,3 +2035,176 @@ command\&.  \fBwhich\-command\fP is normally aliased to \fIwhence\fP\&.
 \fBvi\-digit\-or\-beginning\-of\-line\fP (unbound) (0) (unbound)
 If the last command executed was a digit as part of an argument,
 continue the argument\&.  Otherwise, execute vi\-beginning\-of\-line\&.
+.PP
+.SH "CHARACTER HIGHLIGHTING"
+.PP
+The line editor has the ability to highlight characters or regions
+of the line that have a particular significance\&.  This is controlled
+by the array parameter \fBzle_highlight\fP, if it has been set by the user\&.
+.PP
+If the parameter contains the single entry \fBnone\fP all highlighting
+is turned off\&.  Note the parameter is still expected to be an array\&.
+.PP
+Otherwise each entry of the array should consist of a word indicating a
+context for highlighting, then a colon, then a comma\-separated list of
+the types of highlighting to apply in that context\&.
+.PP
+The contexts available for highlighting are the following:
+.PP
+.PD 0
+.TP
+.PD
+\fBdefault\fP
+Any text within the command line not affected by any other highlighting\&.
+Text outside the editable area of the command line is not affected\&.
+.TP
+\fBisearch\fP
+When one of the incremental history search widgets is active, the
+area of the command line matched by the search string or pattern\&.
+.TP
+\fBregion\fP
+The region between the cursor (point) and the mark as set with
+\fBset\-mark\-command\fP\&.  The region is only highlighted if it is active,
+which is the case if \fBset\-mark\-command\fP or \fBexchange\-point\-and\-mark\fP
+has been called and the line has not been subsequently modified\&.  The
+region can be deactivated by calling \fBset\-mark\-command\fP with a
+negative prefix argument, or reactivated by calling
+\fBexchange\-point\-and\-mark\fP with a zero prefix argument\&.  Note
+that whether or not the region is active has no effect on its
+use within widgets, it simply determines whether it is highlighted\&.
+.TP
+\fBspecial\fP
+Individual characters that have no direct printable
+representation but are shown in a special manner by the line editor\&.
+These characters are described below\&.
+.PP
+\fBzle_highlight\fP may contain additional fields for controlling how
+terminal sequences to change colours are output\&.  Each of the following is
+followed by a colon and a string in the same form as for key bindings\&.
+This will not be necessary for the vast majority of terminals as the
+defaults shown in parentheses are widely used\&.
+.PP
+.PD 0
+.TP
+.PD
+\fBfg_start_code\fP (\fB\ee[3\fP)
+The start of the escape sequence for the foreground colour\&.
+This is followed by an ASCII digit representing the colour\&.
+.TP
+\fBfg_default_code\fP (\fB9\fP)
+The number to use instead of the colour to reset the default foreground
+colour\&.
+.TP
+\fBfg_end_code\fP (\fBm\fP)
+The end of the escape sequence for the foreground colour\&.
+.TP
+\fBbg_start_code\fP (\fB\ee[4\fP)
+The start of the escape sequence for the background colour\&.
+This is followed by an ASCII digit representing the colour\&.
+.TP
+\fBbg_default_code\fP (\fB9\fP)
+The number to use instead of the colour to reset the default
+background colour\&.
+.TP
+\fBbg_end_code\fP (\fBm\fP)
+The end of the escape sequence for the background colour\&.
+.PP
+The available types of highlighting are the following\&.  Note that
+not all types of highlighting are available on all terminals:
+.PP
+.PD 0
+.TP
+.PD
+\fBnone\fP
+No highlighting is applied to the given context\&.  It is not useful for
+this to appear with other types of highlighting; it is used to override
+a default\&.
+.TP
+\fBfg=\fP\fIcolour\fP
+The foreground colour should be set to \fIcolour\fP, a decimal integer
+or the name of one of the eight most widely\-supported colours\&.
+.RS
+.PP
+Not all terminals support this and, of those that do, not all provide
+facilities to test the support, hence the user should decide based on the
+terminal type\&.  Most terminals support the colours \fBblack\fP, \fBred\fP,
+\fBgreen\fP, \fByellow\fP, \fBblue\fP, \fBmagenta\fP, \fBcyan\fP and \fBwhite\fP,
+which can be set by name\&.  In addition\&. \fBdefault\fP may be used to
+set the terminal\&'s default foreground colour\&.  Abbreviations are allowed;
+\fBb\fP or \fBbl\fP selects black\&.  Some terminals may generate additional
+colours if the \fBbold\fP attribute is also present\&.
+.PP
+On recent terminals and on systems with an up\-to\-date terminal database the
+number of colours supported may be tested by the command `\fBechotc
+Co\fP\&'; if this succeeds, it indicates a limit on the number of colours which
+will be enforced by the line editor\&.  The number of colours is in any case
+limited to 256 (i\&.e\&. the range 0 to 255)\&.
+.PP
+Colour is also known as color\&.
+.RE
+.TP
+\fBbg=\fP\fIcolour\fP
+The background colour should be set to \fIcolour\fP\&.
+This works similarly to the foreground colour, except the background is
+not usually affected by the bold attribute\&.
+.TP
+\fBbold\fP
+The characters in the given context are shown in a bold font\&.
+.TP
+\fBstandout\fP
+The characters in the given context are shown in the terminal\&'s standout
+mode\&.  The actual effect is specific to the terminal; on many terminals it
+is inverse video\&.  On some such terminals, where the cursor does not blink
+it appears with standout mode negated, making it less than clear where
+the cursor actually is\&.  On such terminals one of the other effects
+may be preferable for highlighting the region and matched search string\&.
+.TP
+\fBunderline\fP
+The characters in the given context are shown underlined\&.  Some
+terminals show the foreground in a different colour instead; in this
+case whitespace will not be highlighted\&.
+.PP
+The characters described above as `special\&' are as follows\&.  The
+formatting described here is used irrespective of whether the characters
+are highlighted:
+.PP
+.PD 0
+.TP
+.PD
+ASCII control characters
+Control characters in the ASCII range are shown as
+`\fB^\fP\&' followed by the base character\&.
+.TP
+Unprintable multibyte characters
+This item applies to control characters not in the ASCII range,
+plus other characters as follows\&.  If the \fBMULTIBYTE\fP option is in
+effect, multibyte characters not in the ASCII character set that are
+reported as having zero width are treated as combining characters when the
+option \fBCOMBINING_CHARS\fP is on\&.  If the option is off, or if a character
+appears where a combining character is not valid, the character
+is treated as unprintable\&.
+.RS
+.PP
+Unprintable multibyte characters are shown as a hexadecimal number between
+angle brackets\&.  The number is the code point of the character in the wide
+character set; this may or may not be Unicode, depending on the operating
+system\&.
+.RE
+.RE
+.PP
+If \fBzle_highlight\fP is not set or no value applies to a particular
+context, the defaults applied are equivalent to
+.PP
+.RS
+.nf
+\fBzle_highlight=(region:standout special:standout
+isearch:underline)\fP
+.fi
+.RE
+.PP
+i\&.e\&. both the region and special characters are shown in standout mode\&.
+.PP
+Within widgets, arbitrary regions may be highlighted by setting the
+special array parameter \fBregion_highlight\fP; see
+above\&.
+.PP

@@ -32,6 +32,7 @@
 #include <CoreFoundation/CFDictionary.h>
 #include <CoreFoundation/CFString.h>
 #include <security_utilities/utilities.h>
+#include <string>
 
 namespace Security {
 
@@ -42,22 +43,29 @@ namespace Security {
 class Dictionary
 {
 	NOCOPY(Dictionary)
+
 public:
-	/* create from arbitrary file */
-	Dictionary(
-		const char		*path);	
-	
+
 	/* create from preferences file */
 	typedef enum {
 		US_User,
 		US_System
 	} UserOrSystem;
 	
+protected:
+	/* make blank dictionary */
+	Dictionary();
+	
+	/* create from arbitrary file */
 	Dictionary(
-		const char		*domain,		// e.g., com.apple.security
-		UserOrSystem	userSys,		// US_User  : ~/Library/Preferences/domain.plist
-										// US_System: /Library/Preferences/domain.plist
-		bool			loose = false);	// accept failure due to missing file (set NULL)
+		const char		*path);	
+	
+public:
+	// factory functions for the dictionaries
+	static Dictionary* CreateDictionary(const char* path);
+	static Dictionary* CreateDictionary(const char* domain, UserOrSystem userSys, bool loose = false);
+
+public:
 
 	/* create from existing CFDictionary */
 	Dictionary(
@@ -105,11 +113,6 @@ protected:
 	void initFromFile(
 		const char		*path,
 		bool			loose = false);	
-	void pathForDomain(
-		const char		*domain,	// e.g., com.apple.security
-		UserOrSystem	userSys,	// US_User  : ~/Library/Preferences/domain.plist
-									// US_System: /Library/Preferences/domain.plist
-		char *path);				// mallocd by caller, >= MAXPATHLEN bytes
 		
 	/* this might be a CFMutableDictionary...use accessors for proper typing */
 	CFDictionaryRef		mDict;
@@ -125,15 +128,15 @@ public:
 	/* Create an empty mutable dictionary */
 	MutableDictionary();
 	
+protected:
 	/* create from arbitrary file */
 	MutableDictionary(
 		const char		*filename);	
-	
-	/* create from preferences file */
-	MutableDictionary(
-		const char		*domain,		// e.g., com.apple.security
-		UserOrSystem	userSys);		// US_User   : ~/Library/Preferences/domain.plist
-										// US_System : /Library/Preferences/domain.plist
+
+public:
+
+	static MutableDictionary* CreateMutableDictionary(const char* fileName);
+	static MutableDictionary* CreateMutableDictionary(const char *domain, UserOrSystem userSys);
 
 	/* 
 	 * Create from existing CFDictionary (OR CFMutableDictionary).

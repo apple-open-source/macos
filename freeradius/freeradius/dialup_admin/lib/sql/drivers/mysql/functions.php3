@@ -1,4 +1,16 @@
 <?php
+function da_sql_limit($limit,$point,$config)
+{
+	switch($point){
+		case 0:
+			return '';
+		case 1:
+			return '';
+		case 3:
+			return "LIMIT $limit";
+	}
+}
+
 function da_sql_host_connect($server,$config)
 {
 	if ($config[sql_use_http_credentials] == 'yes'){
@@ -11,6 +23,10 @@ function da_sql_host_connect($server,$config)
 		$SQL_passwd = $config[sql_password];
 	}
 
+	if ($config[sql_connect_timeout] != 0)
+		@ini_set('mysql.connect_timeout',$config[sql_connect_timeout]);
+	if ($config[sql_debug] == 'true')
+		print "<b>DEBUG(SQL,MYSQL DRIVER): Connect: User=$SQL_user,Password=$SQL_passwd </b><br>\n";
 	return @mysql_connect("$server:$config[sql_port]",$SQL_user,$SQL_passwd);
 }
 
@@ -28,6 +44,8 @@ function da_sql_connect($config)
 
 	if ($config[sql_connect_timeout] != 0)
 		@ini_set('mysql.connect_timeout',$config[sql_connect_timeout]);
+	if ($config[sql_debug] == 'true')
+		print "<b>DEBUG(SQL,MYSQL DRIVER): Connect: User=$SQL_user,Password=$SQL_passwd </b><br>\n";
 	return @mysql_connect("$config[sql_server]:$config[sql_port]",$SQL_user,$SQL_passwd);
 }
 
@@ -45,6 +63,8 @@ function da_sql_pconnect($config)
 
 	if ($config[sql_connect_timeout] != 0)
 		@ini_set('mysql.connect_timeout',$config[sql_connect_timeout]);
+	if ($config[sql_debug] == 'true')
+		print "<b>DEBUG(SQL,MYSQL DRIVER): Connect: User=$SQL_user,Password=$SQL_passwd </b><br>\n";
 	return @mysql_pconnect("$config[sql_server]:$config[sql_port]",$SQL_user,$SQL_passwd);
 }
 

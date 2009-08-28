@@ -1,0 +1,11 @@
+--- neon-config.in.orig	2009-01-13 13:23:08.000000000 -0800
++++ neon-config.in	2009-01-13 13:23:18.000000000 -0800
+@@ -82,7 +82,7 @@
+ 	;;
+ 
+     --la-file)
+-	echo ${libdir}/libneon.la
++	echo /usr/local/lib/libneon.la
+ 	;;
+ 
+     --support)

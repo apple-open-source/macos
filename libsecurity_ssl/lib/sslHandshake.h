@@ -53,6 +53,11 @@ typedef enum
 	SSL_HE_TrustedCAKeys = 3,
 	SSL_HE_TruncatedHMAC = 4,
 	SSL_HE_StatusReguest = 5,
+	
+	/* ECDSA, RFC 4492 */
+	SSL_HE_EllipticCurves  = 10,
+	SSL_HE_EC_PointFormats = 11,
+	
 	/* 
 	 * This one is suggested but not formally defined in 
 	 * I.D.salowey-tls-ticket-07
@@ -65,6 +70,27 @@ typedef enum
 {
 	SSL_NT_HostName = 0
 } SSLServerNameType;
+
+/* 
+ * The number of curves we support 
+ */	
+#define SSL_ECDSA_NUM_CURVES	3
+
+/* SSL_HE_EC_PointFormats - point formats */
+typedef enum 
+{
+	SSL_PointFormatUncompressed = 0,
+	SSL_PointFormatCompressedPrime = 1,
+	SSL_PointFormatCompressedChar2 = 2,
+} SSL_ECDSA_PointFormats;
+
+/* CurveTypes in a Server Key Exchange msg */
+typedef enum 
+{
+	SSL_CurveTypeExplicitPrime = 1,
+	SSL_CurveTypeExplicitChar2 = 2,
+	SSL_CurveTypeNamed         = 3		/* the only one we support */
+} SSL_ECDSA_CurveTypes;
 
 typedef enum
 {   SSL_read,

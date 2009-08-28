@@ -8,7 +8,7 @@ UserType          = Developer
 ToolType          = Commands
 GnuAfterInstall   = after_install
 Extra_CC_Flags    = -mdynamic-no-pic
-Extra_Environment = STRIP_LIB_FLAGS="-S"
+Extra_Environment = STRIP_LIB_FLAGS="-S" lib_LIBRARIES="libfl.a"
 
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
@@ -16,7 +16,7 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 # Automatic Extract & Patch
 AEP            = YES
 AEP_Project    = $(Project)
-AEP_Version    = 2.5.33
+AEP_Version    = 2.5.35
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)
@@ -24,7 +24,7 @@ AEP_ExtractDir = $(AEP_ProjVers)
 #
 # Update $(Project).plist when changing AEP_Patches
 #
-AEP_Patches    = scanEOF.diff filter-stdin.diff scanopt.c.diff Makefile.in.diff libmain.c.diff main.c.diff
+AEP_Patches    = scanEOF.diff filter-stdin.diff Makefile.in.diff libmain.c.diff main.c.diff Wall.diff W64-32.diff
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j
@@ -46,6 +46,7 @@ ifeq ($(AEP),YES)
 	done
 	# Avoid calling help2man
 	printf "1d\nw\nq\n" | ed -s $(SRCROOT)/$(Project)/doc/flex.1
+	$(RM) -f $(SRCROOT)/$(Project)/skel.c #regenerated in $(OBJROOT)
 endif
 
 after_install::
@@ -54,13 +55,6 @@ after_install::
 	$(LN) -f $(DSTROOT)/usr/share/man/man1/flex.1 $(DSTROOT)/usr/share/man/man1/lex.1
 	$(LN) -fs flex $(DSTROOT)$(USRBINDIR)/flex++
 	$(LN) -fs libfl.a $(DSTROOT)$(USRLIBDIR)/libl.a
-	@for arch in $(RC_ARCHS); do \
-		case $$arch in \
-		ppc64|x86_64) \
-			echo "Deleting $$arch executable from $(DSTROOT)/$(USRBINDIR)/flex"; \
-			lipo -remove $$arch $(DSTROOT)/$(USRBINDIR)/flex -output $(DSTROOT)/$(USRBINDIR)/flex;; \
-		esac; \
-	done
 	$(MKDIR) $(OSV)
 	$(INSTALL_FILE) "$(SRCROOT)/$(Project).plist" $(OSV)/$(Project).plist
 	$(MKDIR) $(OSL)

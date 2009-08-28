@@ -86,7 +86,7 @@ Forward declarations
 
 static errno_t ppp_if_output(ifnet_t ifp, mbuf_t m);
 static void ppp_if_if_free(ifnet_t ifp);
-static errno_t ppp_if_ioctl(ifnet_t ifp, u_int32_t cmd, void *data);
+static errno_t ppp_if_ioctl(ifnet_t ifp, u_long cmd, void *data);
 static int  ppp_if_demux(ifnet_t ifp, mbuf_t m, char *frame_header,
                   protocol_family_t *protocol_family);
 static int  ppp_if_add_proto(ifnet_t ifp, protocol_family_t protocol_family,
@@ -430,6 +430,79 @@ ppp_if_set_bpf_tap(ifnet_t ifp, bpf_tap_mode mode,
 }
 
 /* -----------------------------------------------------------------------------
+mbuf debugging
+----------------------------------------------------------------------------- */
+
+#ifdef LOGDATA
+
+static void
+snprintf_mbuf(char *s, size_t len, mbuf_t m, const char *prefix, const char *suffix)
+{
+    if (m) {
+        if ((mbuf_flags(m) & MBUF_PKTHDR))
+            snprintf(s, len, 
+                     "%s%p type %u len %u data %p maxlen %u datastart %p next %p flags %x pktlen %u nextpkt %p header %p%s",
+                     prefix ? prefix : "",
+                     m, mbuf_type(m), mbuf_len(m), mbuf_data(m), mbuf_maxlen(m), mbuf_datastart(m), mbuf_next(m),
+                     mbuf_flags(m), mbuf_pkthdr_len(m), mbuf_nextpkt(m), mbuf_pkthdr_header(m),
+                     suffix ? suffix : "");
+        else
+            snprintf(s, len, 
+                     "%s%p type %u len %u data %p maxlen %u datastart %p next %p flags %x%s",
+                     prefix ? prefix : "",
+                     m, mbuf_type(m), mbuf_len(m), mbuf_data(m), mbuf_maxlen(m), mbuf_datastart(m), mbuf_next(m),
+                     mbuf_flags(m),
+                     suffix ? suffix : "");
+    } else
+        snprintf(s, len, "%s<NULL>%s", prefix, suffix);
+}
+
+static void 
+DumpHex(char *line, size_t maxline, unsigned char *buffer, size_t len)
+{
+    size_t			i;
+	int				n = 0;
+
+    for (i = 0; i < len; i += 16) {
+        size_t		j;
+
+		if (n > maxline) return;
+        n += snprintf(line + n, maxline - n, "%06d: ", i);
+        for (j = i; j < len && j < i + 16; j++) {
+			if (n > maxline) return;
+            n += snprintf(line + n, maxline - n, "%02x ", buffer[j]);
+        }
+        for (; j < i + 16; j++) {
+			if (n > maxline) return;
+            n += snprintf(line + n, maxline - n, "   ");
+        }
+        for (j = i; j < len && j < i + 16; j++) {
+            int	c = buffer[j];
+
+            if (c < 0x20 || c > 0x7E)
+                c = '.';
+			if (n > maxline) return;
+            n += snprintf(line + n, maxline - n, "%c", c);
+        }
+        n += snprintf(line + n, maxline - n, "\n");
+    }
+}
+
+static void
+log_mbuf(ifnet_t ifp, mbuf_t m, const char *msg)
+{
+    char        mbuf_str[160];
+    char        data_str[160];
+    
+    snprintf_mbuf(mbuf_str, sizeof(mbuf_str), m, NULL, NULL);
+    DumpHex(data_str, sizeof(data_str), mbuf_data(m), MIN(mbuf_len(m), 32));
+    LOGDBG(ifp, ("ppp%d: %s: %s\n", ifnet_unit(ifp), msg, mbuf_str));
+    LOGDBG(ifp, ("%s\n", data_str));
+}
+
+#endif /* LOGDATA */
+
+/* -----------------------------------------------------------------------------
 called when data are present
 ----------------------------------------------------------------------------- */
 int ppp_if_input(ifnet_t ifp, mbuf_t m, u_int16_t proto, u_int16_t hdrlen)
@@ -452,7 +525,7 @@ int ppp_if_input(ifnet_t ifp, mbuf_t m, u_int16_t proto, u_int16_t hdrlen)
         switch (proto) {
             case PPP_COMP:
                 if (ppp_comp_decompress(wan, &m) != DECOMP_OK) {
-                    LOGDBG(ifp, (LOGVAL, "ppp%d: decompression error\n", ifnet_unit(ifp)));
+                    LOGDBG(ifp, ("ppp%d: decompression error\n", ifnet_unit(ifp)));
                     goto free;
                 }
                 p = mbuf_data(m);
@@ -474,36 +547,53 @@ int ppp_if_input(ifnet_t ifp, mbuf_t m, u_int16_t proto, u_int16_t hdrlen)
     switch (proto) {
         case PPP_VJC_COMP:
         case PPP_VJC_UNCOMP:
-            
             if (!(wan->sc_flags & SC_COMP_TCP))
                 goto reject;
         
             if (!wan->vjcomp) {
-                LOGDBG(ifp, (LOGVAL, "ppp%d: VJ structure not allocated\n", ifnet_unit(ifp)));
+                LOGDBG(ifp, ("ppp%d: VJ structure not allocated\n", ifnet_unit(ifp)));
                 goto free;
             }
                 
-			/* get at least ip + tcp header in the mbuf */
-			if (mbuf_len(m) < (sizeof(struct ip) + sizeof(struct tcphdr)) && 
-				mbuf_pullup(&m, (sizeof(struct ip) + sizeof(struct tcphdr)))) {
-                    LOGDBG(ifp, (LOGVAL, "ppp%d: VJ cannot pullup header\n", ifnet_unit(ifp)));
-				goto end;
-			}
-			
             inlen = mbuf_pkthdr_len(m);
 
+            /*
+             * We should make sure the header is contiguous in the mbuf of the compress/decompress routines
+             * Do not ask more than the mbuf contains
+             */
+            if (mbuf_len(m) < MIN(inlen, sizeof(struct ip) + sizeof(struct tcphdr))) {
+                mbuf_t      new_m = NULL;
+                size_t      offset = 0;
+                size_t      len = MIN(inlen, sizeof(struct ip) + sizeof(struct tcphdr));
+                
+#ifdef LOGDATA
+                log_mbuf(ifp, m, proto == PPP_VJC_COMP ? "PPP_VJC_COMP" : "PPP_VJC_UNCOMP");
+#endif                    
+                if (mbuf_pulldown(m, &offset, len, &new_m) != 0) {
+                    LOGDBG(ifp, ("ppp%d: mbuf_pulldown failed\n", ifnet_unit(ifp)));
+                    goto end;
+                }
+                if (new_m != m) {
+                    m = new_m;
+#ifdef LOGDATA
+                    log_mbuf(ifp, m, "pulled-down");
+#endif
+                }
+            }
             if (proto == PPP_VJC_COMP) {
 
                 vjlen = sl_uncompress_tcp_core(p, mbuf_len(m), inlen, TYPE_COMPRESSED_TCP,
                     wan->vjcomp, &iphdr, &hlen);
 
                 if (vjlen <= 0) {
-                    LOGDBG(ifp, (LOGVAL, "ppp%d: VJ uncompress failed on type PPP_VJC_COMP\n", ifnet_unit(ifp)));
+                    LOGDBG(ifp, ("ppp%d: VJ uncompress failed on type PPP_VJC_COMP\n", ifnet_unit(ifp)));
                     goto free;
                 }
 
                 // we must move data in the buffer, to add the uncompressed TCP/IP header...
                 if (mbuf_trailingspace(m) < (hlen - vjlen)) {
+                    LOGDBG(ifp, ("ppp%d: VJ uncompress failed: trailingspace (%d) < hlen (%d) - vjlen (%d)\n", ifnet_unit(ifp),
+                        mbuf_trailingspace(m), hlen, vjlen));
                     goto free;
                 }
                 bcopy(p + vjlen, p + hlen, inlen - vjlen);
@@ -516,7 +606,7 @@ int ppp_if_input(ifnet_t ifp, mbuf_t m, u_int16_t proto, u_int16_t hdrlen)
                     wan->vjcomp, &iphdr, &hlen);
 
                 if (vjlen < 0) {
-                    LOGDBG(ifp, (LOGVAL, "ppp%d: VJ uncompress failed on type TYPE_UNCOMPRESSED_TCP\n", ifnet_unit(ifp)));
+                    LOGDBG(ifp, ("ppp%d: VJ uncompress failed on type TYPE_UNCOMPRESSED_TCP\n", ifnet_unit(ifp)));
                     goto free;
                 }
             }
@@ -630,14 +720,14 @@ int ppp_if_control(ifnet_t ifp, u_long cmd, void *data)
     struct npafioctl 	*npafi;
 	struct timespec tv;	
 
-    //LOGDBG(ifp, (LOGVAL, "ppp_if_control, (ifnet = %s%d), cmd = 0x%x\n", ifp->if_name, ifp->if_unit, cmd));
+    //LOGDBG(ifp, ("ppp_if_control, (ifnet = %s%d), cmd = 0x%x\n", ifp->if_name, ifp->if_unit, cmd));
 
 	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 	
     switch (cmd) {
 	case PPPIOCSDEBUG:
             flags = *(int *)data;
-            LOGDBG(ifp, (LOGVAL, "ppp_if_control: PPPIOCSDEBUG (level = 0x%x)\n", flags));
+            LOGDBG(ifp, ("ppp_if_control: PPPIOCSDEBUG (level = 0x%x)\n", flags));
             flags16 = 0;  
             if (flags & 1) flags16 |= IFF_DEBUG;	// general purpose debugging
             if (flags & 2) flags16 |= PPP_LOG_INPKT;	// trace all packets in
@@ -652,38 +742,38 @@ int ppp_if_control(ifnet_t ifp, u_long cmd, void *data)
             if (flags16 & PPP_LOG_INPKT) flags |= 2;
             if (flags16 & PPP_LOG_OUTPKT) flags |= 4;
             *(int *)data = flags;
-            LOGDBG(ifp, (LOGVAL, "ppp_if_control: PPPIOCGDEBUG (level = 0x%x)\n", flags));
+            LOGDBG(ifp, ("ppp_if_control: PPPIOCGDEBUG (level = 0x%x)\n", flags));
             break;
 
 	case PPPIOCSMRU:
-            LOGDBG(ifp, (LOGVAL, "ppp_if_control: PPPIOCSMRU\n"));
+            LOGDBG(ifp, ("ppp_if_control: PPPIOCSMRU\n"));
             mru = *(int *)data;
             wan->mru = mru;
             break;
 
 	case PPPIOCSFLAGS:
             flags = *(int *)data & SC_MASK;
-            LOGDBG(ifp, (LOGVAL, "ppp_if_control: PPPIOCSFLAGS, old flags = 0x%x new flags = 0x%x, \n", wan->sc_flags, (wan->sc_flags & ~SC_MASK) | flags));
+            LOGDBG(ifp, ("ppp_if_control: PPPIOCSFLAGS, old flags = 0x%x new flags = 0x%x, \n", wan->sc_flags, (wan->sc_flags & ~SC_MASK) | flags));
             wan->sc_flags = (wan->sc_flags & ~SC_MASK) | flags;
             break;
 
 	case PPPIOCGFLAGS:
-            LOGDBG(ifp, (LOGVAL, "ppp_if_control: PPPIOCGFLAGS\n"));
+            LOGDBG(ifp, ("ppp_if_control: PPPIOCGFLAGS\n"));
             *(int *)data = wan->sc_flags;
             break;
 
-	case PPPIOCSCOMPRESS:
+	case PPPIOCSCOMPRESS32:
 	case PPPIOCSCOMPRESS64:
             error = ppp_comp_setcompressor(wan, data);
             break;
 
 	case PPPIOCGUNIT:
-            LOGDBG(ifp, (LOGVAL, "ppp_if_control: PPPIOCGUNIT\n"));
+            LOGDBG(ifp, ("ppp_if_control: PPPIOCGUNIT\n"));
             *(int *)data = ifnet_unit(ifp);
             break;
 
 	case PPPIOCGIDLE:
-            LOGDBG(ifp, (LOGVAL, "ppp_if_control: PPPIOCGIDLE\n"));
+            LOGDBG(ifp, ("ppp_if_control: PPPIOCGIDLE\n"));
 			nanouptime(&tv);
 			t = tv.tv_sec;
             ((struct ppp_idle *)data)->xmit_idle = t - wan->last_xmit;
@@ -691,7 +781,7 @@ int ppp_if_control(ifnet_t ifp, u_long cmd, void *data)
             break;
 
         case PPPIOCSMAXCID:
-            LOGDBG(ifp, (LOGVAL, "ppp_if_control: PPPIOCSMAXCID\n"));
+            LOGDBG(ifp, ("ppp_if_control: PPPIOCSMAXCID\n"));
             // allocate the vj structure first
             if (!wan->vjcomp) {
                 MALLOC(wan->vjcomp, struct slcompress *, sizeof(struct slcompress), 
@@ -706,7 +796,7 @@ int ppp_if_control(ifnet_t ifp, u_long cmd, void *data)
 
 	case PPPIOCSNPMODE:
 	case PPPIOCGNPMODE:
-            LOGDBG(ifp, (LOGVAL, "ppp_if_control: PPPIOCSNPMODE/PPPIOCGNPMODE\n"));
+            LOGDBG(ifp, ("ppp_if_control: PPPIOCSNPMODE/PPPIOCGNPMODE\n"));
             npi = (struct npioctl *) data;
             switch (npi->protocol) {
                 case PPP_IP:
@@ -733,7 +823,7 @@ int ppp_if_control(ifnet_t ifp, u_long cmd, void *data)
 
 	case PPPIOCSNPAFMODE:
 	case PPPIOCGNPAFMODE:
-            LOGDBG(ifp, (LOGVAL, "ppp_if_control: PPPIOCSNPAFMODE/PPPIOCGNPAFMODE\n"));
+            LOGDBG(ifp, ("ppp_if_control: PPPIOCSNPAFMODE/PPPIOCGNPAFMODE\n"));
             npafi = (struct npafioctl *) data;
             switch (npafi->protocol) {
                 case PPP_IP:
@@ -753,7 +843,7 @@ int ppp_if_control(ifnet_t ifp, u_long cmd, void *data)
             break;
 
 	default:
-            LOGDBG(ifp, (LOGVAL, "ppp_if_control: unknown ioctl\n"));
+            LOGDBG(ifp, ("ppp_if_control: unknown ioctl\n"));
             error = EINVAL;
 	}
 
@@ -763,7 +853,7 @@ int ppp_if_control(ifnet_t ifp, u_long cmd, void *data)
 /* -----------------------------------------------------------------------------
 Process an ioctl request to the ppp interface
 ----------------------------------------------------------------------------- */
-errno_t ppp_if_ioctl(ifnet_t ifp, u_int32_t cmd, void *data)
+errno_t ppp_if_ioctl(ifnet_t ifp, u_long cmd, void *data)
 {
     //struct ppp_if 	*wan = ifp->if_softc;
     struct ifreq 	*ifr = (struct ifreq *)data;
@@ -771,14 +861,14 @@ errno_t ppp_if_ioctl(ifnet_t ifp, u_int32_t cmd, void *data)
     struct ppp_stats 	*psp;
 	struct ifnet_stats_param statspar;
 
-    //LOGDBG(ifp, (LOGVAL, "ppp_if_ioctl, cmd = 0x%x\n", cmd));
+    //LOGDBG(ifp, ("ppp_if_ioctl, cmd = 0x%x\n", cmd));
 	
 	lck_mtx_lock(ppp_domain_mutex);
 
     switch (cmd) {
 
         case SIOCSIFFLAGS:
-            LOGDBG(ifp, (LOGVAL, "ppp_if_ioctl: cmd = SIOCSIFFLAGS\n"));
+            LOGDBG(ifp, ("ppp_if_ioctl: cmd = SIOCSIFFLAGS\n"));
             // even if this case does nothing, it must be there to return 0
             //if ((ifp->if_flags & IFF_RUNNING) == 0)
             //    ifp->if_flags &= ~IFF_UP;
@@ -786,25 +876,25 @@ errno_t ppp_if_ioctl(ifnet_t ifp, u_int32_t cmd, void *data)
 
         case SIOCSIFADDR:
         case SIOCAIFADDR:
-            LOGDBG(ifp, (LOGVAL, "ppp_if_ioctl: cmd = SIOCSIFADDR/SIOCAIFADDR\n"));
+            LOGDBG(ifp, ("ppp_if_ioctl: cmd = SIOCSIFADDR/SIOCAIFADDR\n"));
             // dlil protocol module already took care of the ioctl
             break;
 
         case SIOCADDMULTI:
         case SIOCDELMULTI:
-            LOGDBG(ifp, (LOGVAL, "ppp_if_ioctl: cmd = SIOCADDMULTI/SIOCDELMULTI\n"));
+            LOGDBG(ifp, ("ppp_if_ioctl: cmd = SIOCADDMULTI/SIOCDELMULTI\n"));
             break;
 
         case SIOCDIFADDR:
-            LOGDBG(ifp, (LOGVAL, "ppp_if_ioctl: cmd = SIOCDIFADDR\n"));
+            LOGDBG(ifp, ("ppp_if_ioctl: cmd = SIOCDIFADDR\n"));
             break;
 
         case SIOCSIFDSTADDR:
-            LOGDBG(ifp, (LOGVAL, "ppp_if_ioctl: cmd = SIOCSIFDSTADDR\n"));
+            LOGDBG(ifp, ("ppp_if_ioctl: cmd = SIOCSIFDSTADDR\n"));
             break;
 
 	case SIOCGPPPSTATS:
-            LOGDBG(ifp, (LOGVAL, "ppp_if_ioctl, SIOCGPPPSTATS\n"));
+            LOGDBG(ifp, ("ppp_if_ioctl, SIOCGPPPSTATS\n"));
             psp = &((struct ifpppstatsreq *) data)->stats;
             bzero(psp, sizeof(*psp));
 			ifnet_stat(ifp, &statspar); 
@@ -835,7 +925,7 @@ errno_t ppp_if_ioctl(ifnet_t ifp, u_int32_t cmd, void *data)
             break;
 
         case SIOCSIFMTU:
-            LOGDBG(ifp, (LOGVAL, "ppp_if_ioctl, SIOCSIFMTU\n"));
+            LOGDBG(ifp, ("ppp_if_ioctl, SIOCSIFMTU\n"));
             // should we check the minimum MTU for all channels attached to that interface ?
             if (ifr->ifr_mtu > PPP_MTU)
                 error = EINVAL;
@@ -844,7 +934,7 @@ errno_t ppp_if_ioctl(ifnet_t ifp, u_int32_t cmd, void *data)
             break;
 
 	default:
-            LOGDBG(ifp, (LOGVAL, "ppp_if_ioctl, unknown ioctl, cmd = 0x%x\n", cmd));
+            LOGDBG(ifp, ("ppp_if_ioctl, unknown ioctl, cmd = 0x%x\n", cmd));
             error = EOPNOTSUPP;
 	}
 	lck_mtx_unlock(ppp_domain_mutex);
@@ -971,7 +1061,7 @@ interface from that family (i.e ip is attached through ppp_attach_ip)
 int  ppp_if_add_proto(ifnet_t ifp, protocol_family_t protocol_family,
 			const struct ifnet_demux_desc *demux_list, u_int32_t demux_count)
 {        
-    LOGDBG(ifp, (LOGVAL, "ppp_if_add_proto = %d, ifp = 0x%x\n", protocol_family, ifp));
+    LOGDBG(ifp, ("ppp_if_add_proto = %d, ifp = %p\n", protocol_family, ifp));
     
     switch (protocol_family) {
         case PF_INET:
@@ -992,7 +1082,7 @@ interface from that family (i.e ip is attached through ppp_detach_ip)
 int  ppp_if_del_proto(ifnet_t ifp, protocol_family_t protocol_family)
 {
 
-    LOGDBG(ifp, (LOGVAL, "ppp_if_del_proto, ifp = 0x%x\n", ifp));
+    LOGDBG(ifp, ("ppp_if_del_proto, ifp = %p\n", ifp));
     
     return 0;
 }
@@ -1020,7 +1110,7 @@ int ppp_if_demux(ifnet_t ifp, mbuf_t m, char *frame_header,
 			*protocol_family = PF_INET6;
             break;
         default :
-            LOGDBG(ifp, (LOGVAL, "ppp_fam_demux, ifp = 0x%x, bad proto = 0x%x\n", ifp, proto));
+            LOGDBG(ifp, ("ppp_fam_demux, ifp = %p, bad proto = 0x%x\n", ifp, proto));
             return ENOENT;	// should never happen
     }
     
@@ -1038,7 +1128,7 @@ errno_t ppp_if_frameout(ifnet_t ifp, mbuf_t *m0,
 	struct		ifnet_stat_increment_param statsinc;
 
     if (mbuf_prepend(m0, 2, MBUF_DONTWAIT) != 0) {
-        LOGDBG(ifp, (LOGVAL, "ppp_fam_ifoutput : no memory for transmit header\n"));
+        LOGDBG(ifp, ("ppp_fam_ifoutput : no memory for transmit header\n"));
 		bzero(&statsinc, sizeof(statsinc));
 		statsinc.errors_out = 1;
 		ifnet_stat_increment(ifp, &statsinc);		
@@ -1203,7 +1293,7 @@ int ppp_if_xmit(ifnet_t ifp, mbuf_t m)
 
         link = TAILQ_FIRST(&wan->link_head);
         if (link == 0) {
-            LOGDBG(ifp, (LOGVAL, "ppp%d: Trying to send data with link detached\n", ifnet_unit(ifp)));
+            LOGDBG(ifp, ("ppp%d: Trying to send data with link detached\n", ifnet_unit(ifp)));
             // just flush everything
             error = ENXIO;
 			goto flush;

@@ -6,8 +6,7 @@
 .Nd verifies user password against various systems
 .Sh SYNOPSIS
 .Nm chkpasswd
-.Op Fl i Ar infosystem
-.Op Fl l Ar location
+.Op Fl i Ar infosystem Op Fl l Ar location
 .Op Fl c
 .Op Ar name
 .Sh DESCRIPTION
@@ -23,7 +22,7 @@ The supplied password is compared verbatim without first being encrypted.
 .\" ==========
 .It Fl i Ar infosystem
 Specify the system against which to check the password
-(default is OpenDirectory). Valid systems:
+(default is PAM). Valid systems:
 .Bl -tag -width "opendirectory"
 .It Ar file
 File-based passwords
@@ -34,6 +33,8 @@ OpenDirectory (Directory Services) authentication.
 If no
 .Fl l
 option is specified, the search node is used.
+.It Ar PAM
+Pluggable Authentication Modules
 .El
 .Pp
 .\" ==========
@@ -46,6 +47,8 @@ Filename (default: /etc/master.passwd).
 NIS domainname.
 .It for opendirectory
 A directory node name such as /Local/Default.
+.It for PAM
+Unused.
 .El
 .Pp
 .El

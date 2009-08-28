@@ -1,0 +1,12 @@
+LICENSE AND DISCLAIMER
+This software is free software and distributed under the same licensing terms 
+as the Tcl language itself. See license.terms in the Tcl distribution.
+
+The original code of the resource command has the following copyright.
+
+ Copyright © 1997 Sun Microsystems, Inc.
+ Copyright © 1995-1997 Roger E. Critchlow Jr.
+
+For the Tclresource extension:
+
+ Copyright © 2003-2004 Bernard Desgraupes

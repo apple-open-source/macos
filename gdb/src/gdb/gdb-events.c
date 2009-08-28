@@ -362,7 +362,6 @@ void _initialize_gdb_events (void);
 void
 _initialize_gdb_events (void)
 {
-  struct cmd_list_element *c;
   queue_event_hooks.breakpoint_create = queue_breakpoint_create;
   queue_event_hooks.breakpoint_delete = queue_breakpoint_delete;
   queue_event_hooks.breakpoint_modify = queue_breakpoint_modify;

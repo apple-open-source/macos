@@ -1,0 +1,499 @@
+<!-- #bbinclude "header.txt"
+  #PAGETITLE#="Assertions In KerberosDebug"
+  #BASEHREF#="" 
+-->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN"
+			"http://www.w3.org/TR/REC-html40/loose.dtd">
+<HTML>
+<HEAD> 
+	<BASE HREF="http://web.mit.edu/macdev/KfM/KerberosFramework/KerberosDebug/Documentation/Assertions.html">
+  	<META NAME="keywords" CONTENT="#KEYWORDS#">
+	<META NAME="description" CONTENT="#DESCRIPTION#">
+	<TITLE>Assertions In KerberosDebug</TITLE> 
+	<STYLE TYPE="text/css">
+		@import url(../../../Common/Documentation/templates/site.css);
+	</STYLE>
+</HEAD>
+<BODY>
+
+<DIV ID="menu">
+<IMG SRC="../../../Common/Documentation/graphics/Kerberos.jpg" ALT="Kerberos for Macintosh Logo">
+<HR>
+<P><A HREF="../../../Common/Documentation/index.html">Home</A></P>
+<P><A HREF="http://web.mit.edu/kerberos/">MIT Kerberos</A></P>
+<P><A HREF="http://web.mit.edu/ist/">MIT IS&amp;T</A></P>
+<HR>
+<P><A HREF="../../../Common/Documentation/news.html">News</A></P>
+<P><A HREF="../../../Common/Documentation/documentation.html">Documentation</A></P>
+<P><A HREF="../../../Common/Documentation/developer.html">Developer Resources</A></P>
+<P><A HREF="../../../Common/Documentation/license.html">License</A></P>
+<HR>
+<P><A HREF="../../../Common/Documentation/download.html">Download</A></P>
+<P><A HREF="../../../Common/Documentation/support.html">Support</A></P>
+<P><A HREF="../../../Common/Documentation/contact.html">Contact Us</A></P>
+</DIV>
+<DIV ID="body">
+<!-- end bbinclude -->
+
+<TABLE BORDER=0 CELLSPACING=4>
+    <TR> 
+      <TD><IMG SRC="../../../Common/Documentation/graphics/ThreeHeadsAndKey.gif"></TD>
+      <TD><B><FONT SIZE="+3">Assertions In KerberosDebug</FONT></B></TD>
+    </TR>
+</TABLE>
+
+<H2>What is an assertion?</H2>
+
+<P>An assertion, or a signal, is code that verifies whether a
+condition that should always be true is satisfied, and interrupts the
+flow of the program if the condition fails. Assertions are a very
+useful debugging tool, because they reveal situations in which the
+program is not in a state it should be, thus exposing bugs that might
+be hard to find otherwise.</P>
+
+<P>Assertions ae different from exceptions (which are, confusingly,
+also called signals in some texts; then there are UNIX signals
+too...), because assertions are a debugging aid, and exceptions are
+an error-handling mechanism.</P>
+
+<P>A typical assertion would look like this: suppose that
+DeleteObject is a function that takes a non-nil pointer to an Object,
+and deletes it. Obviously, nil is not a valid input for that
+function, so we could write:</P>
+
+<PRE><CODE>void
+DeleteObject (
+	Object*	inObject)
+{
+	Assert_ (inObject != nil);
+	/* delete the object */
+&nbsp;
+}</CODE></PRE>
+
+<P>Of course, were DeleteObject designed to take nil pointers, this
+assertion would be unnecessary.</P>
+
+<P>Common behavior of assertions is to display an error message,
+usually including some amount of debugging information. Since
+assertions can be computationally expensive, it is common to remove
+some assertions from final versions of programs, but leave them in
+debugging versions.</P>
+
+<P>For additional general information about assertions (and other
+debugging techniques) you should refer to a good book, such as Steve
+Maguire's "Writing Solid Code". This section is by no means
+sufficient to describe all the good and useful things about
+assertions.</P>
+
+<P>
+<HR>
+</P>
+
+<H2>When should I use an assertion?</H2>
+
+<P>Whenever you can and it makes sense to do so.</P>
+
+<P>If your code makes an assumption about its parameters, assert it.
+This is especially important for library developers, since they have
+no control over the parameters passed into the library, but they
+frequently need to make an assumption about the parameters passed, or
+place a restriction on the valid values of parameters. The above
+example is a good example of this technique.</P>
+
+<P>If you write a piece of code that performs some algorithm which
+has some preconditions (conditions that are necessary for the
+algorithm to be valid) and postconditions (conditions that are
+guaranteed to be true if the algorithm is correct), assert them. For
+example, let MatrixAdd be a function that takes two matrices of the
+same size and returns their sum:</P>
+
+<PRE>Matrix
+MatrixAdd (
+	Matrix	inMatrix1,
+	Matrix	inMatrix2)
+{
+	Assert_ (	(NumberOfRows (inMatrix1) == NumberOfRows (inMatrix2)) &amp;&amp;
+			(NumberOfColumns (inMatrix1) == NumberOfColumns (inMatrix2));
+	/* add the matrices */
+}</PRE>
+
+<P>Do <B>not</B> use assertions for error handling. If a combination
+of input parameters to your function is valid, but generates an
+error, don't assert; return an error code instead.</P>
+
+<P>
+<HR>
+</P>
+
+<H2>How should I prepare my project for assertions?</H2>
+
+<P>First, make sure you've prepared your targets and prefix files as
+described in <A HREF="index.html">How do I use DebuggingLib?</A></P>
+
+<P>Then, add the following to your project prefix file:</P>
+
+<PRE><CODE>#include &lt;Debug.h&gt;</CODE></PRE>
+
+<P>Debug.h and some other header files require specific #include
+order to work; in particular, ansi_prefix.mac.h (if you are using it)
+must come before Debug.h in your prefix file.</P>
+
+<P>If you are using PowerPlant, you can add Debug.h to your
+precompiler headers, but it has to come <B>after</B> UDebugging.h.
+</P>
+
+<P>In your source files, you'll need:</P>
+
+<PRE><CODE>#include &lt;Debug.Assert.h&gt;</CODE></PRE>
+
+<P>You also need to add DebuggingLib.[68K|PPC][.debug] to your project.</P>
+
+<P>If you are building a PowerPlant application, you should replace
+UDebugging.cp with DebuggingLib.[68K|PPC][.debug]. PowerPlant code
+will then automatically use the Debugging library (including getting
+the "Debug" button in assertion alerts), and you can use assertions
+in your code as described in the rest of this document.</P>
+
+<P>Note: only versions 1.9.2 and 1.9.3 of PowerPlant are supported
+right now (these are versions of PowerPlant in CW Pro 4).</P>
+
+<HR>
+<H2>How should I use assertions?</H2>
+
+<P>Glad you asked. For your basic assertion needs, use one of the
+following:</P>
+
+<PRE>SignalIf_ (aCondition);
+SignalIfNot_ (aCondition);<CODE>
+Assert_ (aCondition);</CODE>
+&nbsp;</PRE>
+
+<P>The meaning is self-explanatory: SignalIf_ will alert you to an
+unexpected condition if aCondition is true; SignalIfNot_ and Assert_
+will alert you if aCondition is false.</P>
+
+<P>The default behavior of assertions is to display an alert, both in
+debug and in final version. The alert is slightly different between
+two versions: in the debug version it has a button which lets you
+debug the application by dropping into Metrowerks debugger or
+MacsBug, and the alert in the final version has more user-friendly
+text.</P>
+
+<HR>
+<H2>Advanced Topics</H2>
+
+<P>There are several ways you can do more interesting things with
+assertions. In most cases, you won't have to use them, so this
+section is entirely optional.</P>
+
+<H3>Asserting with customized strings</H3>
+
+<P>In some cases you might want to assert with a specific message,
+which may not correspond to some useful boolean condition. You can do
+that using:</P>
+
+<PRE><CODE>SignalPStr_ (inPascalString);
+SignalCStr_ (inCString);</CODE></PRE>
+
+<P>These two alert you immediately, but the message displayed in the
+alert/debugger message contains the specified string, instead of a
+quoted boolean condition.</P>
+
+<P>The argument to <CODE>SignalPStr_</CODE> can be either a string
+literal (text between quotes) or a pascal string variable. The
+argument to <CODE>SignalCStr_</CODE> must be string literal, and
+cannot be a <CODE>char*</CODE> (this is because the macro uses
+preprocessor concatenation to convert the string to a Pascal string).
+For example:</P>
+
+<PRE><CODE>if (lateInTheEvening) {
+	Sleep ();
+} else 
+	SignalPStr_ ("\pIt's too early to sleep. Tool some more.");</CODE></PRE>
+
+<H3>Changing runtime assertion behavior</H3>
+
+<P>If you need to specify the behavior an assertion will have, you
+can use the following two:</P>
+
+<PRE><CODE>SetSignalAction_ (inSignalAction);
+RestoreSignalAction_ ();</CODE></PRE>
+
+<P>Because of the way these are defined, you must put the call to
+<CODE>SetSignalAction_</CODE> within, or immediatelly before or
+after, the declarations section of the block for which you want to
+have an alternate behavior:</P>
+
+<PRE><CODE>{
+	SetSignalAction_ (signalAction_SourceDebugger);
+	long	i;
+	long j = 0;
+	
+	/* Do something */
+	
+	RestoreSignalAction_ ();
+}</CODE>
+&nbsp;</PRE>
+
+<P>You absolutely <B>must</B> (and I mean it) restore the changes you
+made, except when you are writing an application and the call to
+<CODE>SetSignalAction_ </CODE>is at the beginning of your main().
+</P>
+
+<P>The valid values of <CODE>inSignalAction</CODE>, and their
+meanings, are:<TABLE BORDER=1>
+   <TR>
+      <TD>
+         <P>Value
+      </TD><TD>
+         <P>Behavior in debug version
+      </TD><TD>
+         <P>Behavior in final version
+      </TD></TR>
+   <TR>
+      <TD>
+         <P><CODE>signalAction_Nothing</CODE>
+      </TD><TD>
+         <P>Nothing happens. The assertion/signal is ignored. You
+         shouldn't use this setting unless you are absolutely sure
+         you want to ignore signals in a section of code.
+      </TD><TD>
+         <P>Nothing happens. The assertion/signal is ignored. You
+         shouldn't use this setting unless you are absolutely sure
+         you want to ignore signals in a section of code.
+      </TD></TR>
+   <TR>
+      <TD>
+         <DL>
+            <DT><CODE>signalAction_Alert</CODE>
+         </DL>
+      </TD><TD>
+         <P>An alert is displayed with the message consisting of the
+         text of the signal condition, and file and line number where
+         the assertion ocurred. The alert will have Quit, Ignore, and
+         Debug buttons. Quit button kills the application, Ignore
+         button ignores the assert, and Debug button drops into
+         Metrowerks debugger. <B>If you don't have Metrowerks
+         debugger running, you may crash if you click Debug.</B>
+      </TD><TD>
+         <P>Same as <CODE>signalAction_NiceAlert</CODE>
+      </TD></TR>
+   <TR>
+      <TD>
+         <DL>
+            <DT><CODE>signalAction_SourceDebugger</CODE>
+         </DL>
+      </TD><TD>
+         <P>Control is transferred to Metrowerks debugger. <B>If you
+         don't have Metrowerks debugger running, you may crash.</B>
+      </TD><TD>
+         <P>Nothing happens. The assertion is ignored.
+      </TD></TR>
+   <TR>
+      <TD>
+         <DL>
+            <DT><CODE>signalAction_LowLevelDebugger</CODE>
+         </DL>
+      </TD><TD>
+         <P>Control is transferred to MacsBug. <B>If you don't have
+         MacsBug installed and loaded, you may crash.</B>
+      </TD><TD>
+         <P>Nothing happens. The assertion is ignored.
+      </TD></TR>
+   <TR>
+      <TD>
+         <DL>
+            <DT><CODE>signalAction_NiceAlert</CODE>
+         </DL>
+      </TD><TD>
+         <P>Similar to <CODE>signalAction_Alert</CODE>, except that
+         the message is more user-friendly, and there is no Debug
+         button.
+      </TD><TD>
+         <P>Similar to <CODE>signalAction_Alert</CODE>, except that
+         the message is more user-friendly, and there is no Debug
+         button.
+      </TD></TR>
+</TABLE></P>
+
+<H3>When should I change the assertion behavior?</H3>
+
+<P>Almost never. There are two important situations when you might
+want to:</P>
+
+<H4>Altering the behavior while debugging</H4>
+
+<P>If you find yourself debugging some code, and you want to change
+the assertion behavior from that point on, you must change the value
+of the global variable <CODE>gSignalAction</CODE>. (Of course, all
+standard warnings about changing variables in your program apply.)
+The debugging library uses this value to determine the runtime
+behavior of assertions, and you can use the debugger to set the value
+of this variable to any of the values given in the table above. This
+is, in fact, what the <CODE>SetSignalAction_</CODE> macro does, but
+you shouldn't rely on that in your code.</P>
+
+<H4>Altering the behavior programatically</H4>
+
+<P>There may be some cases when you cannot allow arbitrary behavior
+inside a code segment (for example, you should not allow alerts from
+an interrupt handler or CFM initialization function). This is not an
+issue in most cases, but for the rare cases when this must be done,
+you can use the macros described above.</P>
+
+<H3>Changing assertion compiler options</H3>
+
+<P>Since assertions can be computationally expensive, it is
+frequently desirable to strip some of them from final versions. On
+the other hand, it's better for an application to display a nice
+alert than to lock up or otherwise irritate users. Hence, assertions
+have three levels of compile-time support:</P>
+
+<P><TABLE BORDER=1>
+   <TR>
+      <TD>
+         <P><CODE>SignalMode_All_</CODE>
+      </TD><TD>
+         <P>All assertions/signals are compiled into the code.
+         Runtime behavior corresponds to the debug column of the
+         previous table.
+      </TD></TR>
+   <TR>
+      <TD>
+         <P><CODE>SignalMode_Inexpensive_</CODE>
+      </TD><TD>
+         <P>Only assertions/signals not marked as computationally
+         expensive are compiled into code. Runtime behavior
+         corresponds to the final column of the previous table.
+      </TD></TR>
+   <TR>
+      <TD>
+         <P><CODE>SignalMode_None_</CODE>
+      </TD><TD>
+         <P>No assertions/signals are compiled into code.
+      </TD></TR>
+</TABLE></P>
+
+<P>You can change this option by using one of:</P>
+
+<PRE><CODE>#define SignalMode_ SignalMode_All_
+#define SignalMode_ SignalMode_Inexpensive_
+#define SignalMode_ SignalMode_None_</CODE></PRE>
+
+<P>From that point on, your asserts will be compiled according to the
+option you specify.</P>
+
+<H4>Shielding computationally expensive assertions</H4>
+
+<P>Given the above, you are probably wondering how you should mark
+your expensive assertions, so that they can be removed from your
+final version. You can use</P>
+
+<PRE><CODE>#if SignalMode_ == SignalMode_All_
+#endif /* SignalMode_ */</CODE></PRE>
+
+<P>to achieve that. For example:</P>
+
+<PRE><CODE>#if SignalMode_ == SignalMode_All_
+	Assert_ (CalculateSomethingHorriblyComplicated () == noErr);
+#endif /* SignalMode_ */</CODE></PRE>
+
+<P>This assertion will be removed from your final version, and so
+your final version won't carry the computational overhead.</P>
+
+<H4>Asserting complex expressions</H4>
+
+<P>In some cases, you might need to assert based on the result of
+some complex expression; in fact, the expression might be so complex
+that you can't write it in a single conditional. In this case, you
+should bracket that part of your code inside</P>
+
+<PRE><CODE>#if SignalMode_ == SignalMode_All_
+#endif /* SignalMode_ */</CODE></PRE>
+
+<P>or</P>
+
+<PRE><CODE>#if SignalMode_ != SignalMode_None_
+#endif /* SignalMode_ */</CODE></PRE>
+
+<P>depending on whether you want the statements that comprise the
+assertion to be in the final version or not.</P>
+
+<P>I also recommend you put those blocks of code inside {} braces;
+that way you will reduce the chance of accidentally introducing
+dependencies between your debug and final code (see more about this
+in Caveats). For example:</P>
+
+<PRE><CODE>#if SignalMode_ == SignalMode_All_
+/* The sum must be non-zero */
+{
+	int i;
+	int theSumOfEyes = 0;
+	for (i = 0; i &lt; 1000; i++) {
+		theSumOfEyes += DoSomething (i);
+	}
+	Assert_ (theSumOfEyes != 0);
+}
+#endif /* SignalMode_ */</CODE>
+&nbsp;
+</PRE>		
+
+<HR>
+<H2>Caveats</H2>
+
+<P>Assertions can be tricky. Assertions are based on preprocessor
+macros. This implementation of assertions also uses a global
+variable. Therefore, there are some things you can do to shoot
+yourself in the foot. Assuming you are not very keen to do that
+(maybe because someday you'll miss and shoot everybody else, at which
+point we'll hunt you down and make you understand the layout of the
+macathena locker), here are some ways to avoid when using assertions:
+</P>
+
+<H3>Don't assert on expressions with side effects</H3>
+
+<P>This is a bad way to assert:</P>
+
+<PRE><CODE>Assert_ ((myHandle = NewHandle (inSize)) == nil);</CODE></PRE>
+
+<P>When this code is compiled with assertions turned off,
+<CODE>myHandle</CODE> will never be allocated. Boom.</P>
+
+<H3>Don't add functionality to your code with assertions</H3>
+
+<P>The assertions in your code should almost always rely on normal
+flow of your code, by checking the values your code normally
+produces, or paths your code normally takes. In rare cases, you might
+want to use an alternate algorithm to double-check the result your
+code normally produces. In no case should your assertions (and
+debugging code in general) perform anything that your final code
+doesn't. (This is really just a generalization of the first caveat.)
+Consequences of failing to follow this rule can range from minor
+annoyance to horrible mess, if, for example, you don't test your
+final version well enough and you later get reports that the
+functionality is not as you expected it to be. Take only pictures,
+leave only fotprints.</P>
+
+<H3>Always restore the assertion behavior</H3>
+
+<P>If you change the assertion behavior, always restore it to its
+original value. Be especially careful with continue, break, return,
+and goto statements, as they break the linear flow of your program,
+and you could accidentally skip over a
+<CODE>RestoreSignalAction_</CODE> with them. Failure to comply is
+hazard for your (and other people's) health.</P>
+
+<!-- #bbinclude "footer.txt" -->
+</DIV>
+<DIV ID="footer">
+	<P>
+		Copyright 2007 Massachusetts Institute of Technology.<BR>
+		Last updated on $Date: 2007-08-27 16:27:32 -0400 (Mon, 27 Aug 2007) $ <BR> 
+		Last modified by $Author: lxs $ 
+	</P>
+</DIV>
+<!-- Begin MIT-use only web reporting counter -->
+	<IMG SRC="http://counter.mit.edu/tally" WIDTH=1 HEIGHT=1 ALT="">
+<!-- End MIT-use only web reporting counter -->
+</BODY></HTML>
+<!-- end bbinclude -->

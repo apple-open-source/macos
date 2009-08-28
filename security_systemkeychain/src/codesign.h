@@ -28,7 +28,8 @@
 #define _H_CODESIGN
 
 #include "cs_utils.h"
-#include <security_codesigning/StaticCode.h>
+#include <Security/Security.h>
+#include <Security/CodeSigning.h>
 
 
 //
@@ -54,7 +55,8 @@ extern SecIdentityRef signer;			// signer identity
 extern SecKeychainRef keychain;			// source keychain for signer identity
 extern const char *internalReq;			// internal requirement (raw optarg)
 extern const char *testReq;				// external requirement (raw optarg)
-extern const char *detached;			// detached signature path
+extern const char *detached;			// detached signature path (to explicit file)
+extern const char *detachedDb;			// reference to detached signature database
 extern const char *entitlements;		// path to entitlement configuration input
 extern const char *resourceRules;		// explicit resource rules template
 extern const char *uniqueIdentifier;	// unique ident hash

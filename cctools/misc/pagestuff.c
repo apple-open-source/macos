@@ -143,7 +143,7 @@ static void print_mach_o_parts(
     struct mach_o_part *mp);
 
 static void print_parts_for_page(
-    unsigned long page_number);
+    uint32_t page_number);
 static void print_arch(
     struct file_part *fp);
 static void print_file_part(
@@ -178,7 +178,7 @@ int argc,
 char *argv[])
 {
     int i, start;
-    unsigned long j, page_number;
+    uint32_t j, page_number;
     char *endp;
 
 	progname = argv[0];
@@ -400,7 +400,7 @@ void
 create_mach_o_parts(
 struct file_part *fp)
 {
-    unsigned long i, j;
+    uint32_t i, j;
     uint32_t ncmds, filetype;
     struct mach_o_part *mp;
     struct load_command *lc;
@@ -413,7 +413,7 @@ struct file_part *fp)
     struct section_64 *s64;
     struct nlist *allocated_symbols, *symbols;
     struct nlist_64 *allocated_symbols64, *symbols64;
-    unsigned long ext_low, ext_high, local_low, local_high, n_strx, n_type;
+    uint32_t ext_low, ext_high, local_low, local_high, n_strx, n_type;
     char *strings;
     struct dylib_module *modtab;
     struct dylib_module_64 *modtab64;
@@ -680,7 +680,7 @@ struct file_part *fp)
 	    if(dyst->nindirectsyms != 0){
 		mp = new_mach_o_part();
 		mp->offset = fp->offset + dyst->indirectsymoff;
-		mp->size = dyst->nindirectsyms * sizeof(unsigned long);
+		mp->size = dyst->nindirectsyms * sizeof(uint32_t);
 		mp->type = MP_INDIRECT_SYMBOL_TABLE;
 		insert_mach_o_part(fp, mp);
 	    }
@@ -764,7 +764,7 @@ struct file_part *fp)
 		    }
 		}
 
-		if(ext_high < local_low){
+		if(ext_high < local_low && local_low < local_high){
 		    mp = new_mach_o_part();
 		    mp->offset = fp->offset + st->stroff + ext_low;
 		    mp->size = ext_high - ext_low +
@@ -923,7 +923,7 @@ print_mach_o_parts(
 struct mach_o_part *mp)
 {
     struct mach_o_part *p, *prev;
-    unsigned long offset;
+    uint32_t offset;
 
 	offset = 0;
 	prev = NULL;
@@ -953,7 +953,7 @@ struct mach_o_part *mp)
 static
 void
 print_parts_for_page(
-unsigned long page_number)
+uint32_t page_number)
 {
     uint64_t offset, size, low_addr, high_addr, new_low_addr, new_high_addr;
     struct file_part *fp;
@@ -967,9 +967,9 @@ unsigned long page_number)
 	high_addr = 0;
 
 	if(offset > ofile.file_size){
-	    printf("File has no page %lu (file has only %lu pages)\n",
-		   page_number,
-		   (ofile.file_size + vm_page_size - 1) / vm_page_size);
+	    printf("File has no page %u (file has only %u pages)\n",
+		   page_number, (uint32_t)((ofile.file_size + vm_page_size -1) /
+					   vm_page_size));
 	    return;
 	}
 
@@ -985,7 +985,7 @@ unsigned long page_number)
 		continue;
 	    switch(fp->type){
 	    case FP_FAT_HEADERS:
-		printf("File Page %lu contains fat file headers\n",
+		printf("File Page %u contains fat file headers\n",
 		       page_number);
 		printed = TRUE;
 		break;
@@ -999,13 +999,13 @@ unsigned long page_number)
 			continue;
 		    switch(mp->type){
 		    case MP_MACH_HEADERS:
-			printf("File Page %lu contains Mach-O headers",
+			printf("File Page %u contains Mach-O headers",
 			       page_number);
 			print_arch(fp);
 			printed = TRUE;
 			break;
 		    case MP_SECTION:
-			printf("File Page %lu contains contents of "
+			printf("File Page %u contains contents of "
 			       "section (%.16s,%.16s)", page_number,
 			       mp->s->segname, mp->s->sectname);
 			print_arch(fp);
@@ -1032,7 +1032,7 @@ unsigned long page_number)
 			sections = TRUE;
 			break;
 		    case MP_SECTION_64:
-			printf("File Page %lu contains contents of "
+			printf("File Page %u contains contents of "
 			       "section (%.16s,%.16s)", page_number,
 			       mp->s64->segname, mp->s64->sectname);
 			print_arch(fp);
@@ -1059,111 +1059,111 @@ unsigned long page_number)
 			sections64 = TRUE;
 			break;
 		    case MP_RELOCS:
-			printf("File Page %lu contains relocation entries for "
+			printf("File Page %u contains relocation entries for "
 			       "section (%.16s,%.16s)", page_number,
 			       mp->s->segname, mp->s->sectname);
 			print_arch(fp);
 			printed = TRUE;
 			break;
 		    case MP_RELOCS_64:
-			printf("File Page %lu contains relocation entries for "
+			printf("File Page %u contains relocation entries for "
 			       "section (%.16s,%.16s)", page_number,
 			       mp->s64->segname, mp->s64->sectname);
 			print_arch(fp);
 			printed = TRUE;
 			break;
 		    case MP_SPLIT_INFO:
-			printf("File Page %lu contains local of info to split "
+			printf("File Page %u contains local of info to split "
 			       "segments", page_number);
 			print_arch(fp);
 			printed = TRUE;
 			break;
 		    case MP_LOCAL_SYMBOLS:
-			printf("File Page %lu contains symbol table for "	
+			printf("File Page %u contains symbol table for "	
 			       "non-global symbols", page_number);
 			print_arch(fp);
 			printed = TRUE;
 			break;
 		    case MP_EXTDEF_SYMBOLS:
-			printf("File Page %lu contains symbol table for "	
+			printf("File Page %u contains symbol table for "	
 			       "defined global symbols", page_number);
 			print_arch(fp);
 			printed = TRUE;
 			break;
 		    case MP_UNDEF_SYMBOLS:
-			printf("File Page %lu contains symbol table for "	
+			printf("File Page %u contains symbol table for "	
 			       "undefined symbols", page_number);
 			print_arch(fp);
 			printed = TRUE;
 			break;
 		    case MP_TOC:
-			printf("File Page %lu contains table of contents",
+			printf("File Page %u contains table of contents",
 			       page_number);
 			print_arch(fp);
 			printed = TRUE;
 			break;
 		    case MP_MODULE_TABLE:
-			printf("File Page %lu contains module table",
+			printf("File Page %u contains module table",
 			       page_number);
 			print_arch(fp);
 			printed = TRUE;
 			break;
 		    case MP_REFERENCE_TABLE:
-			printf("File Page %lu contains reference table",
+			printf("File Page %u contains reference table",
 			       page_number);
 			print_arch(fp);
 			printed = TRUE;
 			break;
 		    case MP_INDIRECT_SYMBOL_TABLE:
-			printf("File Page %lu contains indirect symbols table",
+			printf("File Page %u contains indirect symbols table",
 			       page_number);
 			print_arch(fp);
 			printed = TRUE;
 			break;
 		    case MP_EXT_RELOCS:
-			printf("File Page %lu contains external relocation "
+			printf("File Page %u contains external relocation "
 			       "entries", page_number);
 			print_arch(fp);
 			printed = TRUE;
 			break;
 		    case MP_LOC_RELOCS:
-			printf("File Page %lu contains local relocation "
+			printf("File Page %u contains local relocation "
 			       "entries", page_number);
 			print_arch(fp);
 			printed = TRUE;
 			break;
 		    case MP_SYMBOL_TABLE:
-			printf("File Page %lu contains symbol table",
+			printf("File Page %u contains symbol table",
 			       page_number);
 			print_arch(fp);
 			printed = TRUE;
 			break;
 		    case MP_HINTS_TABLE:
-			printf("File Page %lu contains hints table",
+			printf("File Page %u contains hints table",
 			       page_number);
 			print_arch(fp);
 			printed = TRUE;
 			break;
 		    case MP_STRING_TABLE:
-			printf("File Page %lu contains string table",
+			printf("File Page %u contains string table",
 			       page_number);
 			print_arch(fp);
 			printed = TRUE;
 			break;
 		    case MP_EXT_STRING_TABLE:
-			printf("File Page %lu contains string table for "
+			printf("File Page %u contains string table for "
 			       "external symbols", page_number);
 			print_arch(fp);
 			printed = TRUE;
 			break;
 		    case MP_LOC_STRING_TABLE:
-			printf("File Page %lu contains string table for "
+			printf("File Page %u contains string table for "
 			       "local symbols", page_number);
 			print_arch(fp);
 			printed = TRUE;
 			break;
 		    case MP_CODE_SIG:
-			printf("File Page %lu contains local of code signature",
+			printf("File Page %u contains local of code signature",
 			       page_number);
 			print_arch(fp);
 			printed = TRUE;
@@ -1173,7 +1173,7 @@ unsigned long page_number)
 		    }
 		}
 		if(sections == TRUE || sections64 == TRUE){
-		    printf("Symbols on file page %lu virtual address 0x%llx to "
+		    printf("Symbols on file page %u virtual address 0x%llx to "
 			   "0x%llx\n", page_number, low_addr, high_addr);
 		    if(sections == TRUE)
 			print_symbols(fp, low_addr, high_addr);
@@ -1204,7 +1204,7 @@ unsigned long page_number)
 			continue;
 		    if(offset > mp->offset + mp->size)
 			continue;
-		    printf("File Page %lu contains empty space in the Mach-O "
+		    printf("File Page %u contains empty space in the Mach-O "
 			   "file for %s between:\n", page_number,
 			   get_arch_name_from_types(fp->mh->cputype,
 						    fp->mh->cpusubtype));
@@ -1226,7 +1226,7 @@ unsigned long page_number)
 		}
 		break;
 	    }
-	    printf("File Page %lu contains empty space in the file between:\n",
+	    printf("File Page %u contains empty space in the file between:\n",
 		   page_number);
 	    if(fp->prev == NULL)
 		printf("    the start of the file");
@@ -1371,7 +1371,7 @@ struct file_part *fp,
 uint64_t low_addr,
 uint64_t high_addr)
 {
-    unsigned long i, count;
+    uint32_t i, count;
 
 	if(fp->st == NULL)
 	    return;
@@ -1406,7 +1406,7 @@ struct file_part *fp,
 uint64_t low_addr,
 uint64_t high_addr)
 {
-    unsigned long i, count;
+    uint32_t i, count;
 
 	if(fp->st == NULL)
 	    return;

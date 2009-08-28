@@ -62,20 +62,16 @@ support is enabled in
 .Pp
 The
 .Nm YP
-subsystem is started automatically in
-.Pa /etc/rc
-if it has been initialized in
-.Pa /etc/rc.conf
+subsystem is started automatically by
+.Xr launchd 8
+if an
+.Tn NIS
+domain is specified in the
+.Pa /etc/defaultdomain
+configuration file,
 and if the directory
 .Pa /var/yp
 exists (which it does in the default distribution).
-The default
-.Tn NIS
-domain must also be set with the
-.Xr domainname 1
-command, which will happen automatically at system startup if it is
-specified in
-.Pa /etc/rc.conf .
 .Pp
 .Tn NIS
 is an

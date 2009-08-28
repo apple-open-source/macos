@@ -1,5 +1,5 @@
---- setrunelocale.c.orig	2008-04-28 16:25:31.000000000 -0700
-+++ setrunelocale.c	2008-04-28 17:02:02.000000000 -0700
+--- setrunelocale.c.orig	2008-05-12 17:37:36.000000000 -0700
++++ setrunelocale.c	2008-05-13 00:32:37.000000000 -0700
 @@ -37,6 +37,8 @@
  #include <sys/cdefs.h>
  __FBSDID("$FreeBSD: src/lib/libc/locale/setrunelocale.c,v 1.44 2004/10/18 02:06:18 ache Exp $");
@@ -9,7 +9,7 @@
  #include <runetype.h>
  #include <errno.h>
  #include <limits.h>
-@@ -49,67 +51,69 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/
+@@ -49,67 +51,66 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/
  #include "mblocal.h"
  #include "setlocale.h"
  
@@ -34,9 +34,6 @@
 +extern int		_MSKanji_init(struct __xlocale_st_runelocale *);
 +extern int		_UTF2_init(struct __xlocale_st_runelocale *);	/* deprecated */
 +extern struct __xlocale_st_runelocale	*_Read_RuneMagi(FILE *);
-+
-+extern void spin_lock(int *);
-+extern void spin_unlock(int *);
 +
 +#ifdef LEGACY_RUNE_APIS
 +/* depreciated interfaces */
@@ -69,7 +66,7 @@
 -	    mbstate_t * __restrict);
 +	static struct __xlocale_st_runelocale *CachedRuneLocale;
 +	extern int __mb_cur_max;
-+	static int cache_lock = 0;
++	static pthread_lock_t cache_lock = LOCK_INITIALIZER;
  
  	/*
  	 * The "C" and "POSIX" locale are always here.
@@ -95,7 +92,7 @@
  	/*
  	 * If the locale name is the same as our cache, use the cache.
  	 */
-+	spin_lock(&cache_lock);
++	LOCK(cache_lock);
  	if (CachedRuneLocale != NULL &&
 -	    strcmp(encoding, ctype_encoding) == 0) {
 -		_CurrentRuneLocale = CachedRuneLocale;
@@ -113,14 +110,14 @@
 +			_CurrentRuneLocale = &loc->__lc_ctype->_CurrentRuneLocale;
 +			__mb_cur_max = loc->__lc_ctype->__mb_cur_max;
 +		}
-+		spin_unlock(&cache_lock);
++		UNLOCK(cache_lock);
  		return (0);
  	}
-+	spin_unlock(&cache_lock);
++	UNLOCK(cache_lock);
  
  	/*
  	 * Slurp the locale file into the cache.
-@@ -124,63 +128,81 @@ __setrunelocale(const char *encoding)
+@@ -124,63 +125,86 @@ __setrunelocale(const char *encoding)
  	if ((fp = fopen(name, "r")) == NULL)
  		return (errno == 0 ? ENOENT : errno);
  
@@ -203,11 +200,11 @@
 -		Cached__wcrtomb = __wcrtomb;
 -		Cached__wcsnrtombs = __wcsnrtombs;
 -		(void)strcpy(ctype_encoding, encoding);
-+		spin_lock(&cache_lock);
++		LOCK(cache_lock);
 +		XL_RELEASE(CachedRuneLocale);
 +		CachedRuneLocale = xrl;
 +		XL_RETAIN(CachedRuneLocale);
-+		spin_unlock(&cache_lock);
++		UNLOCK(cache_lock);
  	} else
 -		free(rl);
 +		XL_RELEASE(xrl);
@@ -220,7 +217,12 @@
 -__wrap_setrunelocale(const char *locale)
 +setrunelocale(const char *encoding)
 +{
-+	return __setrunelocale(encoding, &__global_locale);
++	int ret;
++
++	XL_LOCK(&__global_locale);
++	ret = __setrunelocale(encoding, &__global_locale);
++	XL_UNLOCK(&__global_locale);
++	return ret;
 +}
 +#endif /* LEGACY_RUNE_APIS */
 +

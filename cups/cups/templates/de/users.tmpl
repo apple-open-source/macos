@@ -1,9 +1,11 @@
+<DIV CLASS="indent">
+
 <FORM METHOD="POST" ACTION="/admin">
 <INPUT TYPE="HIDDEN" NAME="OP" VALUE="{OP}">
 <INPUT TYPE="HIDDEN" NAME="PRINTER_NAME" VALUE="{printer_name}">
 {IS_CLASS?<INPUT TYPE="HIDDEN" NAME="IS_CLASS" VALUE="{IS_CLASS}">:}
 
-<H2 CLASS="title">Berechtigte Benutzer f&uuml;r {printer_name}</H2>
+<H2 CLASS="title">Erlaubte Benutzer f&uuml;r {printer_name}</H2>
 
 <TABLE>
 <TR>
@@ -18,9 +20,10 @@
 <TR>
 <TD></TD>
 <TD>
-<INPUT TYPE="IMAGE" SRC="/images/button-set-allowed-users.gif" ALT="Erlaubte Benutzer festlegen">
+<INPUT TYPE="SUBMIT" VALUE="Erlaubte Benutzer festlegen">
 </TD>
 </TR>
 </TABLE>
 
 </FORM>
+</DIV>

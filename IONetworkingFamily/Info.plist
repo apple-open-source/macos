@@ -6,10 +6,8 @@
 	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>IONetworkingFamily</string>
-	<key>CFBundleGetInfoString</key>
-	<string>Version 1.6.1, Copyright 2000-2008 Apple, Inc.</string>
-	<key>CFBundleIconFile</key>
-	<string></string>
+	<key>NSHumanReadableCopyright</key>
+	<string>Copyright © 2000-2008 Apple Inc. All rights reserved.</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.iokit.IONetworkingFamily</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -19,11 +17,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.6.1</string>
+	<string>1.8</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.6.1</string>
+	<string>1.8</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IONetworkStack</key>
@@ -56,15 +54,17 @@
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.kpi.bsd</key>
-		<string>8.0.0b2</string>
+		<string>10.0.0d1</string>
 		<key>com.apple.kpi.iokit</key>
-		<string>8.0.0b2</string>
+		<string>10.0.0d1</string>
 		<key>com.apple.kpi.libkern</key>
-		<string>8.0.0b2</string>
+		<string>10.0.0d1</string>
 		<key>com.apple.kpi.mach</key>
-		<string>8.0.0b2</string>
+		<string>10.0.0d1</string>
+		<key>com.apple.kpi.private</key>
+		<string>10.0.0d1</string>
 		<key>com.apple.kpi.unsupported</key>
-		<string>8.0.0b2</string>
+		<string>10.0.0d1</string>
 	</dict>
 	<key>OSBundleRequired</key>
 	<string>Network-Root</string>

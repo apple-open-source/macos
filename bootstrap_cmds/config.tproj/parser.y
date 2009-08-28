@@ -238,6 +238,9 @@ Config_spec:
 		} else if (!strcmp($2, "arm")) {
 			machine = MACHINE_ARM;
 			machinename = "arm";
+		} else if (!strcmp($2, "x86_64")) {
+			machine = MACHINE_X86_64;
+			machinename = "x86_64";
 		} else
 			yyerror("Unknown machine type");
 	      } |

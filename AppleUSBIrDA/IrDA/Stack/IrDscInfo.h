@@ -73,7 +73,7 @@ public:
 	    UByte               GetCharacterSet()                   { return fCharset;      }
 	    ULong               GetServiceHints()                   { return fHints;        }
 	    ULong               GetDeviceAddr()                     { return fDevAddr;      }
-	    void                GetNickname(UChar* name);
+	    void                GetNickname(UChar* name, int maxnamelen);
 
 	    // Put/Get DevInfo part of the discovery info (service hints, char set, nickname)
 	    ULong               AddDevInfoToBuffer(UByte* buffer, ULong maxBytes);

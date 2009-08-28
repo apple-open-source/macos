@@ -28,7 +28,17 @@
 
 #include "Relation.h"
 
+typedef struct columnInfoLoader {
+	uint32						mColumnID;
+	const char					*mColumnName;
+	CSSM_DB_ATTRIBUTE_FORMAT	mColumnFormat;
+} columnInfoLoader;
 
+typedef struct columnInfo {
+	uint32						mColumnID;
+	StringValue					*mColumnName;
+	CSSM_DB_ATTRIBUTE_FORMAT	mColumnFormat;
+} columnInfo;
 
 /*
 	PartialRelation.h
@@ -40,26 +50,20 @@ class PartialRelation : public Relation
 {
 protected:
 	int mNumberOfColumns;												// number of columns (attributes) this relation supports
-	Value** mColumnNames;												// names of these columns
-	CSSM_DB_ATTRIBUTE_FORMAT* mColumnFormat;							// formats of these columns
-	uint32* mColumnIDs;													// I.D.'s for these columns
+	columnInfo *mColumnInfo;
 
 public:
-	PartialRelation (CSSM_DB_RECORDTYPE recordType, int numberOfColumns);
+	PartialRelation (CSSM_DB_RECORDTYPE recordType, int numberOfColumns, columnInfoLoader *theColumnInfo);
 																		// pass in the relation ID and number of columns
 	virtual ~PartialRelation ();
 
-	virtual Tuple* GetColumnNames ();									// returns an array of Tuples representing the column names
+	virtual StringValue *GetColumnName (int i);									// returns an array of Tuples representing the column names
 	virtual int GetNumberOfColumns ();									// returns the number of columns
 	int GetColumnNumber (const char* columnName);						// returns the column number corresponding to the name
 	int GetColumnNumber (uint32 columnID);								// returns the column number corresponding to the ID
-	CSSM_DB_ATTRIBUTE_FORMAT GetColumnFormat (int i) {return mColumnFormat[i];}
-																		// returns the format of a column
 	
-	void SetColumnNames (char* column0, ...);							// sets the names of columns.
-	void SetColumnFormats (CSSM_DB_ATTRIBUTE_FORMAT column0, ...);		// set the formats of columns.
-	void SetColumnIDs (uint32 column0, ...);							// set the column id's
-	uint32* GetColumnIDs ();											// gets the column id's
+	CSSM_DB_ATTRIBUTE_FORMAT GetColumnFormat (int i) {return mColumnInfo[i].mColumnFormat;} // returns the format of a column
+	uint32 GetColumnIDs (int i);											// gets the column id's
 };
 
 

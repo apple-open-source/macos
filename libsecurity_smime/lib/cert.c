@@ -234,6 +234,7 @@ CFArrayRef CERT_CertChainFromCert(SecCertificateRef cert, SECCertUsage usage, Bo
     SecTrustRef trust = NULL;
     CFArrayRef certChain = NULL;
     CSSM_TP_APPLE_EVIDENCE_INFO *statusChain;
+    CFDataRef actionData = NULL;
     OSStatus status = 0;
 
     if (!cert)
@@ -250,6 +251,22 @@ CFArrayRef CERT_CertChainFromCert(SecCertificateRef cert, SECCertUsage usage, Bo
     status = SecTrustCreateWithCertificates(wrappedCert, policy, &trust);
     if (status)
 	goto loser;
+
+    /* Tell SecTrust that we don't care if any certs in the chain have expired,
+       nor do we want to stop when encountering a cert with a trust setting;
+       we always want to build the full chain.
+    */
+    CSSM_APPLE_TP_ACTION_DATA localActionData = {
+        CSSM_APPLE_TP_ACTION_VERSION,
+        CSSM_TP_ACTION_ALLOW_EXPIRED | CSSM_TP_ACTION_ALLOW_EXPIRED_ROOT
+    };
+    actionData = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, (const UInt8 *)&localActionData, sizeof(localActionData), kCFAllocatorNull);
+    if (!actionData)
+        goto loser;
+
+    status = SecTrustSetParameters(trust, CSSM_TP_ACTION_DEFAULT, actionData);
+    if (status)
+        goto loser;
 
     status = SecTrustEvaluate(trust, NULL);
     if (status)
@@ -278,6 +295,8 @@ loser:
 	CFRelease(wrappedCert);
     if (trust)
 	CFRelease(trust);
+    if (actionData)
+	CFRelease(actionData);
     if (certChain && status)
     {
 	CFRelease(certChain);
@@ -428,11 +447,12 @@ SecCertificateRef CERT_FindCertBySubjectKeyID (CFTypeRef keychainOrArray,
 	    continue;
 	}
 	if(CERT_FindSubjectKeyIDExtension(certificate, &skid)) {
+	    CFRelease(certificate);
 	    /* not present */
 	    continue;
 	}
 	match = compareCssmData(subjKeyID, &skid);
-	SECITEM_FreeItem(&skid, PR_TRUE);
+	SECITEM_FreeItem(&skid, PR_FALSE);
 	if(match) {
 	    /* got it */
 	    return certificate;
@@ -499,7 +519,7 @@ SECStatus CERT_FindSubjectKeyIDExtension (SecCertificateRef cert, SECItem *retIt
     
     ortn = SecCertificateCopyFirstFieldValue(cert, &CSSMOID_SubjectKeyIdentifier,
 	&fieldValue);
-    if(ortn) {
+    if(ortn || (fieldValue == NULL)) {
 	/* this cert doesn't have that extension */
 	return SECFailure;
     }

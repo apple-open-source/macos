@@ -57,7 +57,10 @@ typedef struct IOUSBRootHubInterruptTransaction
     IOUSBCompletion				completion;
 } IOUSBRootHubInterruptTransaction;
 
-#define kIOUSBMaxRootHubTransactions 4
+enum 
+{
+	  kIOUSBMaxRootHubTransactions  = 2
+};
 
 
 
@@ -81,7 +84,7 @@ class IOUSBControllerV3 : public IOUSBControllerV2
 		UInt8							_myBusState;					// kUSBBusStateReset, kUSBBusStateSuspended, kUSBBusStateRunning
 		bool							_wakingFromHibernation;			// True while the Hibernation Wake thread is active
 		bool							_needToAckPowerDown;			// True while we are changing power state due to shutdown/restart
-		bool							_onCardBus;						// true if this controller is on an ejectable bus
+		bool							_onCardBus;						// OBSOLETE
 		bool							_controllerAvailable;			// true if we can talk to the controller
 		SInt32							_powerStateChangingTo;			// a power state that we are in the process of changing to, or -1 if we are stable
 		bool							_poweringDown;					// true is the controller is powering down because of a systemWillPowerDown message
@@ -93,14 +96,16 @@ class IOUSBControllerV3 : public IOUSBControllerV2
 		IOPCIDevice						*_device;						// my PCI device
 
 		// root hub support
-	    IOTimerEventSource					*_rootHubTimer;										// timer which fires at the rate of the root hub interrupt endpoint
-		UInt8								_rootHubPollingRate;								// probably 32 ms
-		UInt8								_rootHubNumPorts;									// number of root hub ports - should be 15 or fewer!
-		UInt16								_rootHubStatusChangedBitmap;						// support up to 15 ports for status changes
-		bool								_rootHubTimerActive;								// UNUSED
-		IOUSBRootHubInterruptTransaction	_outstandingRHTrans[kIOUSBMaxRootHubTransactions];	// transactions for the root hub, which will get completed in the timer thread
+	    IOTimerEventSource					*_rootHubTimer;				// timer which fires at the rate of the root hub interrupt endpoint
+		UInt8								_rootHubPollingRate;		// Obsolete -- we need to have it be a uint32_t
+		UInt8								_rootHubNumPorts;			// number of root hub ports - should be 15 or fewer!
+		UInt16								_rootHubStatusChangedBitmap;	// support up to 15 ports for status changes
+		bool								_rootHubTimerActive;		// UNUSED
+		IOUSBRootHubInterruptTransaction	_outstandingRHTrans[4];		// Transactions for the Root Hub.  We need 2, one for the current transaction and one for the next.  This is declared as 4 for binary compatibility
 
 		struct V3ExpansionData { 
+			uint32_t				_rootHubPollingRate32;
+			bool					_rootHubTransactionWasAborted;
 		};
 		V3ExpansionData *_v3ExpansionData;
 
@@ -161,7 +166,7 @@ class IOUSBControllerV3 : public IOUSBControllerV2
 		virtual IOReturn				CheckForRootHubChanges(void);
 		virtual IOReturn				RootHubQueueInterruptRead(IOMemoryDescriptor *buf, UInt32 bufLen, IOUSBCompletion completion);
 		virtual IOReturn				RootHubAbortInterruptRead(void);
-		virtual IOReturn				RootHubStartTimer(UInt8 pollingRate);
+		virtual IOReturn				RootHubStartTimer(UInt8 pollingRate);			// Obsolete see RootHubStartTimer32
 		virtual IOReturn				RootHubStopTimer(void);
 	
 		// these methods have a default implementation using some of the virtual methods below
@@ -191,7 +196,9 @@ class IOUSBControllerV3 : public IOUSBControllerV2
 		virtual	UInt32					AllocateExtraRootHubPortPower(UInt32 extraPowerRequested);
 		virtual	void					ReturnExtraRootHubPortPower(UInt32 extraPowerReturned);
 	
-	OSMetaClassDeclareReservedUnused(IOUSBControllerV3,  0);
+	OSMetaClassDeclareReservedUsed(IOUSBControllerV3,  0);
+	virtual IOReturn				RootHubStartTimer32(uint32_t pollingRate);
+	
 	OSMetaClassDeclareReservedUnused(IOUSBControllerV3,  1);
 	OSMetaClassDeclareReservedUnused(IOUSBControllerV3,  2);
 	OSMetaClassDeclareReservedUnused(IOUSBControllerV3,  3);

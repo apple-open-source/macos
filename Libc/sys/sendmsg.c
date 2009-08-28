@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2006, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,7 +31,7 @@
 #include <sys/socket.h>
 #include <errno.h>
 
-ssize_t __sendmsg__nocancel(int, const struct msghdr *, int);
+ssize_t __sendmsg_nocancel(int, const struct msghdr *, int);
 
 /*
  * sendmsg stub, legacy version

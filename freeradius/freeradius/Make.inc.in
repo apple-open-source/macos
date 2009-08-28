@@ -1,7 +1,7 @@
 # -*- makefile -*-
 # Make.inc.in
 #
-# Version:	$Id: Make.inc.in,v 1.48.4.3 2006/07/15 17:15:59 nbk Exp $
+# Version:	$Id$
 #
 
 # Location of files.
@@ -17,6 +17,7 @@ mandir		= @mandir@
 datadir		= @datadir@
 dictdir		= $(datadir)/freeradius
 logdir		= @logdir@
+includedir	= @includedir@
 raddbdir	= @raddbdir@
 radacctdir	= @radacctdir@
 top_builddir	= @abs_top_builddir@
@@ -25,11 +26,11 @@ top_srcdir	= @abs_top_srcdir@
 MAKE		= @MAKE@
 CC		= @CC@
 RANLIB		= @RANLIB@
-INCLUDE		= 
-CFLAGS		= $(INCLUDE) @CFLAGS@ @LFS_CFLAGS@
+INCLUDE		=
+CFLAGS		= $(INCLUDE) @CFLAGS@
 CPPFLAGS	= @CPPFLAGS@
 LIBPREFIX	= @LIBPREFIX@
-EXEEXT		= @EXEEXT@ 
+EXEEXT		= @EXEEXT@
 
 LIBTOOL		= @LIBTOOL@
 ACLOCAL		= @ACLOCAL@
@@ -42,14 +43,15 @@ INSTALL_SCRIPT	= ${INSTALL_PROGRAM}
 INSTALLSTRIP	= @INSTALLSTRIP@
 
 LCRYPT		= @CRYPTLIB@
-LIBS		= @LIBS@ @LFS_LIBS@
-LDFLAGS		= @LDFLAGS@ @LFS_LDFLAGS@
+LIBS		= @LIBS@
+LDFLAGS		= @LDFLAGS@
 
 LOGDIR		= ${logdir}
 RADDBDIR	= ${raddbdir}
 RUNDIR		= ${localstatedir}/run/radiusd
 SBINDIR		= ${sbindir}
 RADIR		= ${radacctdir}
+LIBRADIUS	= $(top_builddir)/src/lib/$(LIBPREFIX)freeradius-radius.la
 
 LIBLTDL		= @LIBLTDL@
 INCLTDL		= @INCLTDL@
@@ -59,11 +61,10 @@ USE_SHARED_LIBS	= @USE_SHARED_LIBS@
 USE_STATIC_LIBS = @USE_STATIC_LIBS@
 STATIC_MODULES	= @STATIC_MODULES@
 
-SNMP_INCLUDE	= @SNMP_INCLUDE@
-SNMP_LIBS	= @SNMP_LIBS@
-
 OPENSSL_LIBS	= @OPENSSL_LIBS@
 OPENSSL_INCLUDE = @OPENSSL_INCLUDE@
+
+LIBREADLINE	= @LIBREADLINE@
 
 #
 #  SQL driver defines
@@ -77,3 +78,21 @@ RADIUSD_VERSION		= @RADIUSD_VERSION@
 
 MODULES			= @MODULES@
 HOSTINFO		= @HOSTINFO@
+
+ifneq ($(WITH_OPENSSL_MD5),)
+LIBRADIUS_WITH_OPENSSL = 1
+CFLAGS += -DWITH_OPENSSL_MD5
+endif
+
+ifneq ($(WITH_OPENSSL_SHA1),)
+LIBRADIUS_WITH_OPENSSL = 1
+CFLAGS += -DWITH_OPENSSL_SHA1
+endif
+
+ifneq ($(LIBRADIUS_WITH_OPENSSL),)
+ifeq ($(OPENSSL_LIBS),)
+$(error OPENSSL_LIBS must be define in order to use WITH_OPENSSL_*)
+else
+LIBRADIUS += $(OPENSSL_LIBS)
+endif
+endif

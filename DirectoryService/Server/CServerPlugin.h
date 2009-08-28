@@ -41,7 +41,6 @@ enum eDSPluginLevel {
 };
 
 static	const	UInt32		kBuffPad					= 16;
-static	const	UInt32		kNumStaticPlugins			= 7;
 
 //-----------------------------------------------------------------------------
 //	* CServerPlugin Class Definition

@@ -1,4 +1,6 @@
-/* $Id: admin.c,v 1.17.2.4 2005/07/12 11:49:44 manubsd Exp $ */
+/*	$NetBSD: admin.c,v 1.17.6.1 2007/08/01 11:52:19 vanhu Exp $	*/
+
+/* Id: admin.c,v 1.25 2006/04/06 14:31:04 manubsd Exp */
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -60,6 +62,9 @@
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
+#ifdef ENABLE_HYBRID
+#include <resolv.h>
+#endif
 
 #include "var.h"
 #include "misc.h"
@@ -82,8 +87,12 @@
 #include "admin.h"
 #include "admin_var.h"
 #include "isakmp_inf.h"
+#ifdef ENABLE_HYBRID
+#include "isakmp_cfg.h"
+#endif
 #include "session.h"
 #include "gcmalloc.h"
+
 
 #ifdef ENABLE_ADMINPORT
 char *adminsock_path = ADMINSOCK_PATH;
@@ -103,7 +112,6 @@ admin_handler()
 	socklen_t fromlen = sizeof(from);
 	struct admin_com com;
 	char *combuf = NULL;
-	pid_t pid = -1;
 	int len, error = -1;
 
 	so2 = accept(lcconf->sock_admin, (struct sockaddr *)&from, &fromlen);
@@ -150,7 +158,7 @@ admin_handler()
 
 	if (com.ac_cmd == ADMIN_RELOAD_CONF) {
 		/* reload does not work at all! */
-		signal_handler(SIGHUP);
+		signal_handler(SIGUSR1);
 		goto end;
 	}
 
@@ -160,10 +168,6 @@ admin_handler()
 	(void)close(so2);
 	if (combuf)
 		racoon_free(combuf);
-
-	/* exit if child's process. */
-	if (pid == 0 && !f_foreground)
-		exit(error);
 
 	return error;
 }
@@ -181,7 +185,7 @@ admin_process(so2, combuf)
 	vchar_t *id = NULL;
 	vchar_t *key = NULL;
 	int idtype = 0;
-	int error = 0;
+	int error = -1;
 
 	com->ac_errno = 0;
 
@@ -189,21 +193,28 @@ admin_process(so2, combuf)
 	case ADMIN_RELOAD_CONF:
 		/* don't entered because of proccessing it in other place. */
 		plog(LLV_ERROR, LOCATION, NULL, "should never reach here\n");
-		goto bad;
+		goto out;
 
 	case ADMIN_SHOW_SCHED:
 	{
-		caddr_t p;
+		caddr_t p = NULL;
 		int len;
+
+		com->ac_errno = -1;
+
 		if (sched_dump(&p, &len) == -1)
-			com->ac_errno = -1;
-		buf = vmalloc(len);
-		if (buf == NULL)
-			com->ac_errno = -1;
-		else
-			memcpy(buf->v, p, len);
-	}
+			goto out2;
+
+		if ((buf = vmalloc(len)) == NULL)
+			goto out2;
+
+		memcpy(buf->v, p, len);
+
+		com->ac_errno = 0;
+out2:
+		racoon_free(p);
 		break;
+	}
 
 	case ADMIN_SHOW_EVT:
 		/* It's not really an error, don't force racoonctl to quit */
@@ -223,7 +234,7 @@ admin_process(so2, combuf)
 					com->ac_errno = -1;
 				break;
 			case ADMIN_FLUSH_SA:
-				flushph1();
+				flushph1(false);
 				break;
 			}
 			break;
@@ -236,7 +247,7 @@ admin_process(so2, combuf)
 				u_int p;
 				p = admin2pfkey_proto(com->ac_proto);
 				if (p == -1)
-					goto bad;
+					goto out;
 				buf = pfkey_dump_sadb(p);
 				if (buf == NULL)
 					com->ac_errno = -1;
@@ -256,7 +267,7 @@ admin_process(so2, combuf)
 					com->ac_errno = error;
 				break;
 			case ADMIN_FLUSH_SA:
-				/*XXX flushph2();*/
+				/*XXX flushph2(false);*/
 				com->ac_errno = 0;
 				break;
 			}
@@ -282,16 +293,10 @@ admin_process(so2, combuf)
 			&((struct admin_com_indexes *)
 			    ((caddr_t)com + sizeof(*com)))->dst;
 
-		if ((loc = strdup(saddrwop2str(src))) == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL, 
-			    "cannot allocate memory\n");
-			break;
-		}
-		if ((rem = strdup(saddrwop2str(dst))) == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL, 
-			    "cannot allocate memory\n");
-			break;
-		}
+		loc = racoon_strdup(saddrwop2str(src));
+		rem = racoon_strdup(saddrwop2str(dst));
+		STRDUP_FATAL(loc);
+		STRDUP_FATAL(rem);
 
 		if ((iph1 = getph1byaddrwop(src, dst)) == NULL) {
 			plog(LLV_ERROR, LOCATION, NULL, 
@@ -308,6 +313,27 @@ admin_process(so2, combuf)
 		break;
 	}
 
+#ifdef ENABLE_HYBRID
+	case ADMIN_LOGOUT_USER: {
+		struct ph1handle *iph1;
+		char *user;
+		int found = 0;
+
+		if (com->ac_len > sizeof(com) + LOGINLEN + 1) {
+			plog(LLV_ERROR, LOCATION, NULL,
+			    "malformed message (login too long)\n");
+			break;
+		}
+
+		user = (char *)(com + 1);
+		found = purgeph1bylogin(user);
+		plog(LLV_INFO, LOCATION, NULL, 
+		    "deleted %d SA for user \"%s\"\n", found, user);
+
+		break;
+	}
+#endif
+
 	case ADMIN_DELETE_ALL_SA_DST: {
 		struct ph1handle *iph1;
 		struct sockaddr *dst;
@@ -317,21 +343,15 @@ admin_process(so2, combuf)
 			&((struct admin_com_indexes *)
 			    ((caddr_t)com + sizeof(*com)))->dst;
 
-		if ((rem = strdup(saddrwop2str(dst))) == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL, 
-			    "cannot allocate memory\n");
-			break;
-		}
+		rem = racoon_strdup(saddrwop2str(dst));
+		STRDUP_FATAL(rem);
 
 		plog(LLV_INFO, LOCATION, NULL, 
 		    "Flushing all SAs for peer %s\n", rem);
 
 		while ((iph1 = getph1bydstaddrwop(dst)) != NULL) {
-			if ((loc = strdup(saddrwop2str(iph1->local))) == NULL) {
-				plog(LLV_ERROR, LOCATION, NULL, 
-				    "cannot allocate memory\n");
-				break;
-			}
+			loc = racoon_strdup(saddrwop2str(iph1->local));
+			STRDUP_FATAL(loc);
 
 			if (iph1->status == PHASE1ST_ESTABLISHED)
 				isakmp_info_send_d1(iph1);
@@ -342,6 +362,75 @@ admin_process(so2, combuf)
 		
 		racoon_free(rem);
 
+		break;
+	}
+
+	//%%%%%% test code
+	case ADMIN_ESTABLISH_SA_VPNCONTROL: 
+	{
+		struct admin_com_psk *acp;
+		char *data;
+		struct sockaddr *dst;
+		struct bound_addr *target;
+
+		com->ac_errno = -1;
+
+		acp = (struct admin_com_psk *)
+		    ((char *)com + sizeof(*com) + 
+		    sizeof(struct admin_com_indexes));
+
+		target = (struct bound_addr *)racoon_malloc(sizeof(struct bound_addr));
+		if (target == NULL) {
+			plog(LLV_ERROR, LOCATION, NULL,
+			    "cannot allocate memory: %s\n", 
+			    strerror(errno));
+			break;
+		}
+
+		if ((id = vmalloc(acp->id_len)) == NULL) {
+			plog(LLV_ERROR, LOCATION, NULL,
+			    "cannot allocate memory: %s\n", 
+			    strerror(errno));
+			goto outofhere;
+		}
+		data = (char *)(acp + 1);
+		memcpy(id->v, data, id->l);
+
+		if ((key = vmalloc(acp->key_len)) == NULL) {
+			plog(LLV_ERROR, LOCATION, NULL,
+			    "cannot allocate memory: %s\n", 
+			    strerror(errno));
+			vfree(id);
+			id = NULL;
+			goto outofhere;
+		}
+		data = (char *)(data + acp->id_len);
+		memcpy(key->v, data, key->l);
+
+		dst = (struct sockaddr *)
+			&((struct admin_com_indexes *)
+			    ((caddr_t)com + sizeof(*com)))->dst;
+				
+		// assume IPv4
+		target->address = ((struct sockaddr_in *)dst)->sin_addr.s_addr;
+
+#ifdef ENABLE_HYBRID
+		/* Set the id and key */
+		if (id && key) {
+
+			target->user_id = id;
+			target->user_pw = key;
+		}
+#endif
+		vpn_connect(target);
+		com->ac_errno = 0;
+outofhere:
+		if (target->user_id != NULL)
+			vfree(target->user_id);
+		if (target->user_pw != NULL)
+			vfree(target->user_pw);
+		if (target != NULL)
+			racoon_free(target);
 		break;
 	}
 
@@ -371,6 +460,7 @@ admin_process(so2, combuf)
 			    "cannot allocate memory: %s\n", 
 			    strerror(errno));
 			vfree(id);
+			id = NULL;
 			break;
 		}
 		data = (char *)(data + acp->id_len);
@@ -389,11 +479,13 @@ admin_process(so2, combuf)
 			    ((caddr_t)com + sizeof(*com)))->dst;
 
 		switch (com->ac_proto) {
-		case ADMIN_PROTO_ISAKMP:
-		    {
+		case ADMIN_PROTO_ISAKMP: {
 			struct remoteconf *rmconf;
-			struct sockaddr *remote;
-			struct sockaddr *local;
+			struct sockaddr *remote = NULL;
+			struct sockaddr *local = NULL;
+			u_int16_t port;
+
+			com->ac_errno = -1;
 
 			/* search appropreate configuration */
 			rmconf = getrmconf(dst);
@@ -401,16 +493,13 @@ admin_process(so2, combuf)
 				plog(LLV_ERROR, LOCATION, NULL,
 					"no configuration found "
 					"for %s\n", saddrwop2str(dst));
-				com->ac_errno = -1;
-				break;
+				goto out1;
 			}
 
 			/* get remote IP address and port number. */
-			remote = dupsaddr(dst);
-			if (remote == NULL) {
-				com->ac_errno = -1;
-				break;
-			}
+			if ((remote = dupsaddr(dst)) == NULL)
+				goto out1;
+
 			switch (remote->sa_family) {
 			case AF_INET:
 				((struct sockaddr_in *)remote)->sin_port =
@@ -430,58 +519,54 @@ admin_process(so2, combuf)
 				break;
 			}
 
-			/* get local address */
-			local = dupsaddr(src);
-			if (local == NULL) {
-				com->ac_errno = -1;
-				break;
-			}
-			switch (local->sa_family) {
-			case AF_INET:
-				((struct sockaddr_in *)local)->sin_port =
-					getmyaddrsport(local);
-				break;
-#ifdef INET6
-			case AF_INET6:
-				((struct sockaddr_in6 *)local)->sin6_port =
-					getmyaddrsport(local);
-				break;
-#endif
-			default:
-				plog(LLV_ERROR, LOCATION, NULL,
-					"invalid family: %d\n",
-					local->sa_family);
-				com->ac_errno = -1;
-				break;
-			}
+//			port = extract_port(rmconf->remote);
+//			if (set_port(remote, port) == NULL)
+//				goto out1;
 
+			/* get local address */
+			if ((local = dupsaddr(src)) == NULL)
+				goto out1;
+
+			port = ntohs(getmyaddrsport(local));
+			if (set_port(local, port) == NULL)
+				goto out1;
+
+#ifdef ENABLE_HYBRID
 			/* Set the id and key */
 			if (id && key) {
-				if (rmconf->idv != NULL) {
-					vfree(rmconf->idv);
-					rmconf->idv = NULL;
+				if (xauth_rmconf_used(&rmconf->xauth) == -1)
+					goto out1;
+
+				if (rmconf->xauth->login != NULL) {
+					vfree(rmconf->xauth->login);
+					rmconf->xauth->login = NULL;
 				}
-				if (rmconf->key != NULL) {
-					vfree(rmconf->key);
-					rmconf->key = NULL;
+				if (rmconf->xauth->pass != NULL) {
+					vfree(rmconf->xauth->pass);
+					rmconf->xauth->pass = NULL;
 				}
 
-				rmconf->idvtype = idtype;
-				rmconf->idv = id;
-				rmconf->key = key;
+				rmconf->xauth->login = id;
+				rmconf->xauth->pass = key;
 			}
+#endif
  
 			plog(LLV_INFO, LOCATION, NULL,
 				"accept a request to establish IKE-SA: "
 				"%s\n", saddrwop2str(remote));
 
 			/* begin ident mode */
-			if (isakmp_ph1begin_i(rmconf, remote, local) < 0) {
-				com->ac_errno = -1;
-				break;
-			}
-		    }
+			if (isakmp_ph1begin_i(rmconf, remote, local, 0) < 0)
+				goto out1;
+
+			com->ac_errno = 0;
+out1:
+			if (local != NULL)
+				racoon_free(local);
+			if (remote != NULL)
+				racoon_free(remote);
 			break;
+		}
 		case ADMIN_PROTO_AH:
 		case ADMIN_PROTO_ESP:
 			break;
@@ -498,18 +583,15 @@ admin_process(so2, combuf)
 		com->ac_errno = -1;
 	}
 
-	if (admin_reply(so2, com, buf) < 0)
-		goto bad;
+	if ((error = admin_reply(so2, com, buf)) != 0)
+		goto out;
 
+	error = 0;
+out:
 	if (buf != NULL)
 		vfree(buf);
 
-	return 0;
-
-    bad:
-	if (buf != NULL)
-		vfree(buf);
-	return -1;
+	return error;
 }
 
 static int

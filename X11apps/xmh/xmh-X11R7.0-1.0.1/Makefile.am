@@ -68,7 +68,7 @@ appdefaultdir = @appdefaultdir@
 
 
 APPDEFAULTFILES = \
-        Xmh
+        app-defaults/Xmh
 
 SUFFIXES = .ad
 

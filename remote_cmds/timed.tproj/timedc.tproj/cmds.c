@@ -1,26 +1,3 @@
-/*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
 /*-
  * Copyright (c) 1985, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -54,36 +31,34 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
+#if 0
 #ifndef lint
-__unused static char sccsid[] = "@(#)cmds.c	8.2 (Berkeley) 3/26/95";
+static char sccsid[] = "@(#)cmds.c	8.1 (Berkeley) 6/6/93";
 #endif /* not lint */
-
-#ifdef sgi
-#ident "$Revision: 1.2 $"
 #endif
+
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.sbin/timed/timedc/cmds.c,v 1.13 2004/02/04 21:59:29 johan Exp $");
 
 #include "timedc.h"
 #include <sys/file.h>
+
+#include <arpa/inet.h>
 
 #include <netinet/in_systm.h>
 #include <netinet/ip.h>
 #include <netinet/ip_icmp.h>
 
+#include <err.h>
 #include <stdlib.h>
-#include <strings.h>
+#include <string.h>
 #include <unistd.h>
 
 #define TSPTYPES
 #include <protocols/timed.h>
 
-#ifdef sgi
-#include <bstring.h>
-#include <sys/clock.h>
-#else
 #define	SECHR	(60*60)
 #define	SECDAY	(24*SECHR)
-#endif /* sgi */
 
 # define DATE_PROTO "udp"
 # define DATE_PORT "time"
@@ -127,7 +102,7 @@ daydiff(hostname)
 		sec = 0;
 		if (sendto(sock, &sec, sizeof(sec), 0,
 			   (struct sockaddr*)&dayaddr, sizeof(dayaddr)) < 0) {
-			perror("sendto(sock)");
+			warn("sendto(sock)");
 			return 0;
 		}
 
@@ -139,7 +114,7 @@ daydiff(hostname)
 			if (i < 0) {
 				if (errno == EINTR)
 					continue;
-				perror("select(date read)");
+				warn("select(date read)");
 				return 0;
 			}
 			if (0 == i)
@@ -148,14 +123,13 @@ daydiff(hostname)
 			fromlen = sizeof(from);
 			if (recvfrom(sock,&sec,sizeof(sec),0,
 				     &from,&fromlen) < 0) {
-				perror("recvfrom(date read)");
+				warn("recvfrom(date read)");
 				return 0;
 			}
 
 			sec = ntohl(sec);
 			if (sec < BU) {
-				fprintf(stderr,
-					"%s says it is before 1970: %lu",
+				warnx("%s says it is before 1970: %lu",
 					hostname, sec);
 				return 0;
 			}
@@ -167,7 +141,7 @@ daydiff(hostname)
 	}
 
 	/* if we get here, we tried too many times */
-	fprintf(stderr,"%s will not tell us the date\n", hostname);
+	warnx("%s will not tell us the date", hostname);
 	return 0;
 }
 
@@ -205,17 +179,17 @@ clockdiff(argc, argv)
 	struct servent *sp;
 
 	if (argc < 2)  {
-		printf("Usage: clockdiff host ... \n");
+		printf("usage: timedc clockdiff host ...\n");
 		return;
 	}
 
-	(void)gethostname(myname,sizeof(myname));
+	if (gethostname(myname, sizeof(myname) - 1) < 0)
+		err(1, "gethostname");
 
 	/* get the address for the date ready */
 	sp = getservbyname(DATE_PORT, DATE_PROTO);
 	if (!sp) {
-		(void)fprintf(stderr, "%s/%s is an unknown service\n",
-			      DATE_PORT, DATE_PROTO);
+		warnx("%s/%s: unknown service", DATE_PORT, DATE_PROTO);
 		dayaddr.sin_port = 0;
 	} else {
 		dayaddr.sin_port = sp->s_port;
@@ -225,8 +199,7 @@ clockdiff(argc, argv)
 		argc--; argv++;
 		hp = gethostbyname(*argv);
 		if (hp == NULL) {
-			fprintf(stderr, "timedc: %s: ", *argv);
-			herror(0);
+			warnx("%s: %s", *argv, hstrerror(h_errno));
 			continue;
 		}
 
@@ -246,7 +219,7 @@ clockdiff(argc, argv)
 			printf("%s is down\n", hp->h_name);
 			continue;
 		case NONSTDTIME:
-			printf("%s transmitts a non-standard time format\n",
+			printf("%s transmits a non-standard time format\n",
 			       hp->h_name);
 			continue;
 		case UNREACHABLE:
@@ -303,45 +276,45 @@ msite(argc, argv)
 	struct sockaddr_in dest;
 	int i;
 	socklen_t length;
-	struct sockaddr from;
+	struct sockaddr_in from;
 	struct timeval tout;
 	struct tsp msg;
 	struct servent *srvp;
 	char *tgtname;
 
 	if (argc < 1) {
-		printf("Usage: msite [hostname]\n");
+		printf("usage: timedc msite [host ...]\n");
 		return;
 	}
 
 	srvp = getservbyname("timed", "udp");
 	if (srvp == 0) {
-		fprintf(stderr, "udp/timed: unknown service\n");
+		warnx("timed/udp: unknown service");
 		return;
 	}
 	dest.sin_port = srvp->s_port;
 	dest.sin_family = AF_INET;
 
-	(void)gethostname(myname, sizeof(myname));
+	if (gethostname(myname, sizeof(myname) - 1) < 0)
+		err(1, "gethostname");
 	i = 1;
 	do {
 		tgtname = (i >= argc) ? myname : argv[i];
 		hp = gethostbyname(tgtname);
 		if (hp == 0) {
-			fprintf(stderr, "timedc: %s: ", tgtname);
-			herror(0);
+			warnx("%s: %s", tgtname, hstrerror(h_errno));
 			continue;
 		}
 		bcopy(hp->h_addr, &dest.sin_addr.s_addr, hp->h_length);
 
-		(void)strcpy(msg.tsp_name, myname);
+		(void)strlcpy(msg.tsp_name, myname, sizeof(msg.tsp_name));
 		msg.tsp_type = TSP_MSITE;
 		msg.tsp_vers = TSPVERSION;
 		bytenetorder(&msg);
 		if (sendto(sock, &msg, sizeof(struct tsp), 0,
 			   (struct sockaddr*)&dest,
 			   sizeof(struct sockaddr)) < 0) {
-			perror("sendto");
+			warn("sendto");
 			continue;
 		}
 
@@ -351,11 +324,23 @@ msite(argc, argv)
 		FD_SET(sock, &ready);
 		if (select(FD_SETSIZE, &ready, (fd_set *)0, (fd_set *)0,
 			   &tout)) {
-			length = sizeof(struct sockaddr);
+			length = sizeof(from);
 			cc = recvfrom(sock, &msg, sizeof(struct tsp), 0,
-				      &from, &length);
+				      (struct sockaddr *)&from, &length);
 			if (cc < 0) {
-				perror("recvfrom");
+				warn("recvfrom");
+				continue;
+			}
+			/*
+			 * The 4.3BSD protocol spec had a 32-byte tsp_name field, and
+			 * this is still OS-dependent.  Demand that the packet is at
+			 * least long enough to hold a 4.3BSD packet.
+			 */
+			if (cc < (sizeof(struct tsp) - MAXHOSTNAMELEN + 32)) {
+				fprintf(stderr, 
+				   "short packet (%u/%lu bytes) from %s\n",
+				   cc, sizeof(struct tsp) - MAXHOSTNAMELEN + 32,
+				   inet_ntoa(from.sin_addr));
 				continue;
 			}
 			bytehostorder(&msg);
@@ -363,8 +348,12 @@ msite(argc, argv)
 				printf("master timedaemon at %s is %s\n",
 				       tgtname, msg.tsp_name);
 			} else {
-				printf("received wrong ack: %s\n",
-				       tsptype[msg.tsp_type]);
+				if (msg.tsp_type >= TSPTYPENUMBER)
+					printf("unknown ack received: %u\n",
+						msg.tsp_type);
+				else	
+					printf("wrong ack received: %s\n",
+				       		tsptype[msg.tsp_type]);
 			}
 		} else {
 			printf("communication error with %s\n", tgtname);
@@ -397,13 +386,13 @@ testing(argc, argv)
 	struct tsp msg;
 
 	if (argc < 2)  {
-		printf("Usage: election host1 [host2 ...]\n");
+		printf("usage: timedc election host1 [host2 ...]\n");
 		return;
 	}
 
 	srvp = getservbyname("timed", "udp");
 	if (srvp == 0) {
-		fprintf(stderr, "udp/timed: unknown service\n");
+		warnx("timed/udp: unknown service");
 		return;
 	}
 
@@ -411,8 +400,7 @@ testing(argc, argv)
 		argc--; argv++;
 		hp = gethostbyname(*argv);
 		if (hp == NULL) {
-			fprintf(stderr, "timedc: %s: ", *argv);
-			herror(0);
+			warnx("%s: %s", *argv, hstrerror(h_errno));
 			argc--; argv++;
 			continue;
 		}
@@ -422,13 +410,14 @@ testing(argc, argv)
 
 		msg.tsp_type = TSP_TEST;
 		msg.tsp_vers = TSPVERSION;
-		(void)gethostname(myname, sizeof(myname));
-		(void)strncpy(msg.tsp_name, myname, sizeof(msg.tsp_name));
+		if (gethostname(myname, sizeof(myname) - 1) < 0)
+			err(1, "gethostname");
+		(void)strlcpy(msg.tsp_name, myname, sizeof(msg.tsp_name));
 		bytenetorder(&msg);
 		if (sendto(sock, &msg, sizeof(struct tsp), 0,
 			   (struct sockaddr*)&sin,
 			   sizeof(struct sockaddr)) < 0) {
-			perror("sendto");
+			warn("sendto");
 		}
 	}
 }
@@ -447,25 +436,26 @@ tracing(argc, argv)
 	int cc;
 	fd_set ready;
 	struct sockaddr_in dest;
-	struct sockaddr from;
+	struct sockaddr_in from;
 	struct timeval tout;
 	struct tsp msg;
 	struct servent *srvp;
 
 	if (argc != 2) {
-		printf("Usage: tracing { on | off }\n");
+		printf("usage: timedc trace { on | off }\n");
 		return;
 	}
 
 	srvp = getservbyname("timed", "udp");
 	if (srvp == 0) {
-		fprintf(stderr, "udp/timed: unknown service\n");
+		warnx("timed/udp: unknown service");
 		return;
 	}
 	dest.sin_port = srvp->s_port;
 	dest.sin_family = AF_INET;
 
-	(void)gethostname(myname,sizeof(myname));
+	if (gethostname(myname, sizeof(myname) - 1) < 0)
+		err(1, "gethostname");
 	hp = gethostbyname(myname);
 	bcopy(hp->h_addr, &dest.sin_addr.s_addr, hp->h_length);
 
@@ -482,7 +472,7 @@ tracing(argc, argv)
 	bytenetorder(&msg);
 	if (sendto(sock, &msg, sizeof(struct tsp), 0,
 		   (struct sockaddr*)&dest, sizeof(struct sockaddr)) < 0) {
-		perror("sendto");
+		warn("sendto");
 		return;
 	}
 
@@ -491,11 +481,22 @@ tracing(argc, argv)
 	FD_ZERO(&ready);
 	FD_SET(sock, &ready);
 	if (select(FD_SETSIZE, &ready, (fd_set *)0, (fd_set *)0, &tout)) {
-		length = sizeof(struct sockaddr);
+		length = sizeof(from);
 		cc = recvfrom(sock, &msg, sizeof(struct tsp), 0,
-			      &from, &length);
+			      (struct sockaddr *)&from, &length);
 		if (cc < 0) {
-			perror("recvfrom");
+			warn("recvfrom");
+			return;
+		}
+		/*
+		 * The 4.3BSD protocol spec had a 32-byte tsp_name field, and
+		 * this is still OS-dependent.  Demand that the packet is at
+		 * least long enough to hold a 4.3BSD packet.
+		 */
+		if (cc < (sizeof(struct tsp) - MAXHOSTNAMELEN + 32)) {
+			fprintf(stderr, "short packet (%u/%lu bytes) from %s\n",
+			    cc, sizeof(struct tsp) - MAXHOSTNAMELEN + 32,
+			    inet_ntoa(from.sin_addr));
 			return;
 		}
 		bytehostorder(&msg);
@@ -504,9 +505,14 @@ tracing(argc, argv)
 				printf("timed tracing enabled\n");
 			else
 				printf("timed tracing disabled\n");
-		else
-			printf("wrong ack received: %s\n",
+		else {
+			if (msg.tsp_type >= TSPTYPENUMBER)
+				printf("unknown ack received: %u\n",
+					msg.tsp_type);
+			else	
+				printf("wrong ack received: %s\n",
 						tsptype[msg.tsp_type]);
+		}
 	} else
 		printf("communication error\n");
 }
@@ -519,7 +525,7 @@ priv_resources()
 
 	sock = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sock < 0) {
-		perror("opening socket");
+		warn("opening socket");
 		return(-1);
 	}
 
@@ -530,20 +536,20 @@ priv_resources()
 		if (bind(sock, (struct sockaddr*)&sin, sizeof (sin)) >= 0)
 			break;
 		if (errno != EADDRINUSE && errno != EADDRNOTAVAIL) {
-			perror("bind");
+			warn("bind");
 			(void) close(sock);
 			return(-1);
 		}
 	}
 	if (port == IPPORT_RESERVED / 2) {
-		fprintf(stderr, "all reserved ports in use\n");
+		warnx("all reserved ports in use");
 		(void) close(sock);
 		return(-1);
 	}
 
 	sock_raw = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
 	if (sock_raw < 0)  {
-		perror("opening raw socket");
+		warn("opening raw socket");
 		(void) close(sock);
 		return(-1);
 	}

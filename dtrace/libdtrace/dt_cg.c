@@ -524,6 +524,66 @@ dt_cg_typecast(const dt_node_t *src, const dt_node_t *dst,
  * implies that a DIF implementation should offer a number of general purpose
  * registers at least one greater than the number of tuple registers.
  */
+#if defined(__APPLE__)
+/* Changes for <rdar://problem/6790024> */
+static void
+dt_cg_arglist(dt_ident_t *idp, dt_node_t *args,
+    dt_irlist_t *dlp, dt_regset_t *drp)
+{
+	const dt_idsig_t *isp = idp->di_data;
+	dt_node_t *dnp;
+	int i = 0;
+
+	for (dnp = args; dnp != NULL; dnp = dnp->dn_list)
+		dt_cg_node(dnp, dlp, drp);
+
+	dt_irlist_append(dlp,
+	    dt_cg_node_alloc(DT_LBL_NONE, DIF_INSTR_FLUSHTS));
+	
+	int sizeReg = DIF_REG_R0;
+	int sizeInSizeReg = 0;
+	
+	for (dnp = args; dnp != NULL; dnp = dnp->dn_list, i++) {
+		dtrace_diftype_t t;
+		dif_instr_t instr;
+		
+		dt_node_diftype(yypcb->pcb_hdl, dnp, &t);
+
+		isp->dis_args[i].dn_reg = dnp->dn_reg; /* re-use register */
+		dt_cg_typecast(dnp, &isp->dis_args[i], dlp, drp);
+		isp->dis_args[i].dn_reg = -1;
+
+		if (t.dtdt_flags & DIF_TF_BYREF) {
+			if (t.dtdt_size != sizeInSizeReg) {
+				if (sizeReg == DIF_REG_R0) {
+					sizeReg = dt_regset_alloc(drp);
+					
+					if (-1 == sizeReg) {
+						longjmp(yypcb->pcb_jmpbuf, EDT_NOREG);
+					}
+				}
+				
+				dt_cg_setx(dlp, sizeReg, t.dtdt_size);
+				sizeInSizeReg = t.dtdt_size;
+			}
+			
+			instr = DIF_INSTR_PUSHTS(DIF_OP_PUSHTR, t.dtdt_kind, sizeReg, dnp->dn_reg);
+		} else {
+			instr = DIF_INSTR_PUSHTS(DIF_OP_PUSHTV, t.dtdt_kind, DIF_REG_R0, dnp->dn_reg);
+		}
+		
+		dt_irlist_append(dlp, dt_cg_node_alloc(DT_LBL_NONE, instr));
+		dt_regset_free(drp, dnp->dn_reg);
+	}
+	
+	if (sizeReg != DIF_REG_R0) {
+		dt_regset_free(drp, sizeReg);
+	}
+
+	if (i > yypcb->pcb_hdl->dt_conf.dtc_diftupregs)
+		longjmp(yypcb->pcb_jmpbuf, EDT_NOTUPREG);
+}
+#else
 static void
 dt_cg_arglist(dt_ident_t *idp, dt_node_t *args,
     dt_irlist_t *dlp, dt_regset_t *drp)
@@ -573,6 +633,7 @@ dt_cg_arglist(dt_ident_t *idp, dt_node_t *args,
 	if (i > yypcb->pcb_hdl->dt_conf.dtc_diftupregs)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NOTUPREG);
 }
+#endif
 
 static void
 dt_cg_arithmetic_op(dt_node_t *dnp, dt_irlist_t *dlp,

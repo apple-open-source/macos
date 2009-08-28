@@ -3,7 +3,7 @@
  *
  * code common to clients and to servers.
  *
- * Version:     $Id: eapcommon.c,v 1.5.4.2 2007/03/05 14:34:55 aland Exp $
+ * Version:     $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -17,9 +17,9 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2000-2003  The FreeRADIUS server project
+ * Copyright 2000-2003,2006  The FreeRADIUS server project
  * Copyright 2001  hereUare Communications, Inc. <raghud@hereuare.com>
  * Copyright 2003  Alan DeKok <aland@freeradius.org>
  * Copyright 2003  Michael Richardson <mcr@sandelman.ottawa.on.ca>
@@ -57,10 +57,13 @@
  *
  */
 
-#include "libradius.h"
-#include "eap_types.h"
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
-static const char rcsid[] = "$Id: eapcommon.c,v 1.5.4.2 2007/03/05 14:34:55 aland Exp $";
+#include <freeradius-devel/autoconf.h>
+#include <freeradius-devel/missing.h>
+#include <freeradius-devel/libradius.h>
+#include "eap_types.h"
 
 static const char *eap_types[] = {
   "",
@@ -92,9 +95,28 @@ static const char *eap_types[] = {
   "mschapv2",			/* 26 */
   "27",
   "28",
-  "cisco_mschapv2"		/* 29 */
-};
-#define MAX_EAP_TYPE_NAME 29
+  "cisco_mschapv2",		/* 29 */
+  "30",
+  "31",
+  "32",
+  "33",
+  "34",
+  "35",
+  "36",
+  "37",
+  "tnc",			/* 38 */
+  "39",
+  "40",
+  "41",
+  "42",
+  "fast",
+  "44",
+  "45",
+  "pax",
+  "psk",
+  "sake",
+  "ikev2"
+};				/* MUST have PW_EAP_MAX_TYPES */
 
 /*
  *	Return an EAP-Type for a particular name.
@@ -119,7 +141,7 @@ const char *eaptype_type2name(unsigned int type, char *buffer, size_t buflen)
 {
 	DICT_VALUE	*dval;
 
-	if (type > MAX_EAP_TYPE_NAME) {
+	if (type > PW_EAP_MAX_TYPES) {
 		/*
 		 *	Prefer the dictionary name over a number,
 		 *	if it exists.
@@ -162,22 +184,18 @@ const char *eaptype_type2name(unsigned int type, char *buffer, size_t buflen)
  *                      be malloc()'ed to the right size.
  *
  */
-static int eap_wireformat(EAP_PACKET *reply)
+int eap_wireformat(EAP_PACKET *reply)
 {
-
 	eap_packet_t	*hdr;
 	uint16_t total_length = 0;
 
 	if (reply == NULL) return EAP_INVALID;
 
 	/*
-	 * if reply->packet is set, then the wire format
-	 * has already been calculated, just succeed!
+	 *	If reply->packet is set, then the wire format
+	 *	has already been calculated, just succeed.
 	 */
-	if(reply->packet != NULL)
-	{
-		return EAP_VALID;
-	}
+	if(reply->packet != NULL) return EAP_VALID;
 
 	total_length = EAP_HEADER_LEN;
 	if (reply->code < 3) {
@@ -197,7 +215,7 @@ static int eap_wireformat(EAP_PACKET *reply)
 	hdr->code = (reply->code & 0xFF);
 	hdr->id = (reply->id & 0xFF);
 	total_length = htons(total_length);
-	memcpy(hdr->length, &total_length, sizeof(uint16_t));
+	memcpy(hdr->length, &total_length, sizeof(total_length));
 
 	/*
 	 *	Request and Response packets are special.
@@ -224,17 +242,15 @@ static int eap_wireformat(EAP_PACKET *reply)
 	return EAP_VALID;
 }
 
+
 /*
  *	compose EAP reply packet in EAP-Message attr of RADIUS.  If
  *	EAP exceeds 253, frame it in multiple EAP-Message attrs.
  */
 int eap_basic_compose(RADIUS_PACKET *packet, EAP_PACKET *reply)
 {
-	uint16_t eap_len, len;
-	VALUE_PAIR *eap_msg;
 	VALUE_PAIR *vp;
 	eap_packet_t *eap_packet;
-	unsigned char 	*ptr;
 	int rcode;
 
 	if (eap_wireformat(reply) == EAP_INVALID) {
@@ -242,32 +258,11 @@ int eap_basic_compose(RADIUS_PACKET *packet, EAP_PACKET *reply)
 	}
 	eap_packet = (eap_packet_t *)reply->packet;
 
-	memcpy(&eap_len, &(eap_packet->length), sizeof(uint16_t));
-	len = eap_len = ntohs(eap_len);
-	ptr = (unsigned char *)eap_packet;
-
 	pairdelete(&(packet->vps), PW_EAP_MESSAGE);
 
-	do {
-		if (eap_len > 253) {
-			len = 253;
-			eap_len -= 253;
-		} else {
-			len = eap_len;
-			eap_len = 0;
-		}
-
-		/*
-		 * create a value pair & append it to the packet list
-		 * This memory gets freed up when packet is freed up
-		 */
-		eap_msg = paircreate(PW_EAP_MESSAGE, PW_TYPE_OCTETS);
-		memcpy(eap_msg->strvalue, ptr, len);
-		eap_msg->length = len;
-		pairadd(&(packet->vps), eap_msg);
-		ptr += len;
-		eap_msg = NULL;
-	} while (eap_len);
+	vp = eap_packet2vp(eap_packet);
+	if (!vp) return RLM_MODULE_INVALID;
+	pairadd(&(packet->vps), vp);
 
 	/*
 	 *	EAP-Message is always associated with
@@ -279,7 +274,7 @@ int eap_basic_compose(RADIUS_PACKET *packet, EAP_PACKET *reply)
 	vp = pairfind(packet->vps, PW_MESSAGE_AUTHENTICATOR);
 	if (!vp) {
 		vp = paircreate(PW_MESSAGE_AUTHENTICATOR, PW_TYPE_OCTETS);
-		memset(vp->strvalue, 0, AUTH_VECTOR_LEN);
+		memset(vp->vp_strvalue, 0, AUTH_VECTOR_LEN);
 		vp->length = AUTH_VECTOR_LEN;
 		pairadd(&(packet->vps), vp);
 	}
@@ -310,87 +305,41 @@ int eap_basic_compose(RADIUS_PACKET *packet, EAP_PACKET *reply)
 	return rcode;
 }
 
-/*
- * given a radius request with some attributes in the EAP range, build
- * them all into a single EAP-Message body.
- *
- * Note that this function will build multiple EAP-Message bodies
- * if there are multiple eligible EAP-types. This is incorrect, as the
- * recipient will in fact concatenate them.
- *
- * XXX - we could break the loop once we process one type. Maybe this
- *       just deserves an assert?
- *
- */
-void map_eap_types(RADIUS_PACKET *req)
+
+VALUE_PAIR *eap_packet2vp(const eap_packet_t *packet)
 {
-	VALUE_PAIR *vp, *vpnext;
-	int id, eapcode;
-	EAP_PACKET ep;
-	int eap_type;
+	int		total, size;
+	const uint8_t	*ptr;
+	VALUE_PAIR	*head = NULL;
+	VALUE_PAIR	**tail = &head;
+	VALUE_PAIR	*vp;
 
-	vp = pairfind(req->vps, ATTRIBUTE_EAP_ID);
-	if(vp == NULL) {
-		id = ((int)getpid() & 0xff);
-	} else {
-		id = vp->lvalue;
-	}
+	total = packet->length[0] * 256 + packet->length[1];
 
-	vp = pairfind(req->vps, ATTRIBUTE_EAP_CODE);
-	if(vp == NULL) {
-		eapcode = PW_EAP_REQUEST;
-	} else {
-		eapcode = vp->lvalue;
-	}
+	ptr = (const uint8_t *) packet;
 
+	do {
+		size = total;
+		if (size > 253) size = 253;
 
-	for(vp = req->vps; vp != NULL; vp = vpnext) {
-		/* save it in case it changes! */
-		vpnext = vp->next;
-
-		if(vp->attribute >= ATTRIBUTE_EAP_BASE &&
-		   vp->attribute < ATTRIBUTE_EAP_BASE+256) {
-			break;
+		vp = paircreate(PW_EAP_MESSAGE, PW_TYPE_OCTETS);
+		if (!vp) {
+			pairfree(&head);
+			return NULL;
 		}
-	}
+		memcpy(vp->vp_octets, ptr, size);
+		vp->length = size;
 
-	if(vp == NULL) {
-		return;
-	}
+		*tail = vp;
+		tail = &(vp->next);
 
-	eap_type = vp->attribute - ATTRIBUTE_EAP_BASE;
+		ptr += size;
+		total -= size;
+	} while (total > 0);
 
-	switch(eap_type) {
-	case PW_EAP_IDENTITY:
-	case PW_EAP_NOTIFICATION:
-	case PW_EAP_NAK:
-	case PW_EAP_MD5:
-	case PW_EAP_OTP:
-	case PW_EAP_GTC:
-	case PW_EAP_TLS:
-	case PW_EAP_LEAP:
-	case PW_EAP_TTLS:
-	case PW_EAP_PEAP:
-	default:
-		/*
-		 * no known special handling, it is just encoded as an
-		 * EAP-message with the given type.
-		 */
-
-		/* nuke any existing EAP-Messages */
-		pairdelete(&req->vps, PW_EAP_MESSAGE);
-
-		memset(&ep, 0, sizeof(ep));
-		ep.code = eapcode;
-		ep.id   = id;
-		ep.type.type = eap_type;
-		ep.type.length = vp->length;
-		ep.type.data = malloc(vp->length);
-		if (ep.type.data)
-			memcpy(ep.type.data,vp->strvalue, vp->length);
-		eap_basic_compose(req, &ep);
-	}
+	return head;
 }
+
 
 /*
  * Handles multiple EAP-Message attrs
@@ -399,7 +348,7 @@ void map_eap_types(RADIUS_PACKET *req)
  * NOTE: Sometimes Framed-MTU might contain the length of EAP-Message,
  *      refer fragmentation in rfc2869.
  */
-eap_packet_t *eap_attribute(VALUE_PAIR *vps)
+eap_packet_t *eap_vp2packet(VALUE_PAIR *vps)
 {
 	VALUE_PAIR *first, *vp;
 	eap_packet_t *eap_packet;
@@ -428,7 +377,7 @@ eap_packet_t *eap_attribute(VALUE_PAIR *vps)
 	 *	Get the Actual length from the EAP packet
 	 *	First EAP-Message contains the EAP packet header
 	 */
-	memcpy(&len, first->strvalue + 2, sizeof(len));
+	memcpy(&len, first->vp_strvalue + 2, sizeof(len));
 	len = ntohs(len);
 
 	/*
@@ -470,88 +419,15 @@ eap_packet_t *eap_attribute(VALUE_PAIR *vps)
 	}
 
 	/*
-	 *	Copy the data from EAP-Message's over to out EAP packet.
+	 *	Copy the data from EAP-Message's over to our EAP packet.
 	 */
 	ptr = (unsigned char *)eap_packet;
 
 	/* RADIUS ensures order of attrs, so just concatenate all */
 	for (vp = first; vp; vp = pairfind(vp->next, PW_EAP_MESSAGE)) {
-		memcpy(ptr, vp->strvalue, vp->length);
+		memcpy(ptr, vp->vp_strvalue, vp->length);
 		ptr += vp->length;
 	}
 
 	return eap_packet;
 }
-
-/*
- * given a radius request with an EAP-Message body, decode it specific
- * attributes.
- */
-void unmap_eap_types(RADIUS_PACKET *rep)
-{
-	VALUE_PAIR *eap1;
-	eap_packet_t *e;
-	int len;
-	int type;
-
-	/* find eap message */
-	e = eap_attribute(rep->vps);
-
-	/* nothing to do! */
-	if(e == NULL) return;
-
-	/* create EAP-ID and EAP-CODE attributes to start */
-	eap1 = paircreate(ATTRIBUTE_EAP_ID, PW_TYPE_INTEGER);
-	eap1->lvalue = e->id;
-	pairadd(&(rep->vps), eap1);
-
-	eap1 = paircreate(ATTRIBUTE_EAP_CODE, PW_TYPE_INTEGER);
-	eap1->lvalue = e->code;
-	pairadd(&(rep->vps), eap1);
-
-	switch(e->code)
-	{
-	default:
-	case PW_EAP_SUCCESS:
-	case PW_EAP_FAILURE:
-		/* no data */
-		break;
-
-	case PW_EAP_REQUEST:
-	case PW_EAP_RESPONSE:
-		/* there is a type field, which we use to create
-		 * a new attribute */
-
-		/* the length was decode already into the attribute
-		 * length, and was checked already. Network byte
-		 * order, just pull it out using math.
-		 */
-		len = e->length[0]*256 + e->length[1];
-
-		/* verify the length is big enough to hold type */
-		if(len < 5)
-		{
-			free(e);
-			return;
-		}
-
-		type = e->data[0];
-
-		type += ATTRIBUTE_EAP_BASE;
-		len -= 5;
-
-		if(len > MAX_STRING_LEN) {
-			len = MAX_STRING_LEN;
-		}
-
-		eap1 = paircreate(type, PW_TYPE_OCTETS);
-		memcpy(eap1->strvalue, &e->data[1], len);
-		eap1->length = len;
-		pairadd(&(rep->vps), eap1);
-		break;
-	}
-
-	free(e);
-	return;
-}
-

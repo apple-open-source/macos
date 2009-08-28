@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1998-2006, International Business Machines
+*   Copyright (C) 1998-2008, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -180,6 +180,18 @@ printf modifier
 scanf modifier
 %*  N/A         This field is scanned, but not stored
 
+<p>If you are using this C API instead of the ustream.h API for C++,
+you can use one of the following u_fprintf examples to display a UnicodeString.</p>
+
+<pre><code>
+    UFILE *out = u_finit(stdout, NULL, NULL);
+    UnicodeString string1("string 1");
+    UnicodeString string2("string 2");
+    u_fprintf(out, "%S\n", string1.getTerminatedBuffer());
+    u_fprintf(out, "%.*S\n", string2.length(), string2.getBuffer());
+    u_fclose(out);
+</code></pre>
+
  */
 
 
@@ -193,19 +205,16 @@ scanf modifier
 /** Forward declaration of a Unicode-aware file @stable 3.0 */
 typedef struct UFILE UFILE;
 
-#ifndef U_HIDE_DRAFT_API
 /**
  * Enum for which direction of stream a transliterator applies to.
  * @see u_fsettransliterator
- * @draft 3.0
+ * @stable ICU 3.0
  */
 typedef enum { 
    U_READ = 1,
    U_WRITE = 2, 
    U_READWRITE =3  /* == (U_READ | U_WRITE) */ 
 } UFileDirection;
-
-#endif /* U_HIDE_DRAFT_API */
 
 /**
  * Open a UFILE.
@@ -684,8 +693,9 @@ u_sprintf(UChar       *buffer,
  * @param count The number of code units to read.
  * @param patternSpecification A pattern specifying how <TT>u_sprintf</TT> will
  * interpret the variable arguments received and format the data.
- * @return The number of Unicode code units written to <TT>buffer</TT>. This
- * does not include the terminating null character.
+ * @return The number of Unicode characters that would have been written to
+ * <TT>buffer</TT> had count been sufficiently large. This does not include
+ * the terminating null character.
  * @draft 3.0
  */
 U_DRAFT int32_t U_EXPORT2
@@ -727,7 +737,8 @@ u_vsprintf(UChar      *buffer,
  * @param patternSpecification A pattern specifying how <TT>u_sprintf</TT> will
  * interpret the variable arguments received and format the data.
  * @param ap The argument list to use.
- * @return The number of Unicode characters written to <TT>buffer</TT>.
+ * @return The number of Unicode characters that would have been written to
+ * <TT>buffer</TT> had count been sufficiently large.
  * @see u_sprintf
  * @draft 3.0
  */
@@ -763,7 +774,8 @@ u_sprintf_u(UChar      *buffer,
  * @param count The number of code units to read.
  * @param patternSpecification A pattern specifying how <TT>u_sprintf</TT> will
  * interpret the variable arguments received and format the data.
- * @return The number of Unicode characters written to <TT>buffer</TT>.
+ * @return The number of Unicode characters that would have been written to
+ * <TT>buffer</TT> had count been sufficiently large.
  * @draft 3.0
  */
 U_DRAFT int32_t U_EXPORT2
@@ -805,7 +817,8 @@ u_vsprintf_u(UChar     *buffer,
  * @param patternSpecification A pattern specifying how <TT>u_sprintf</TT> will
  * interpret the variable arguments received and format the data.
  * @param ap The argument list to use.
- * @return The number of Unicode characters written to <TT>f</TT>.
+ * @return The number of Unicode characters that would have been written to
+ * <TT>f</TT> had count been sufficiently large.
  * @see u_sprintf_u
  * @draft 3.0
  */

@@ -1,5 +1,5 @@
 /*
- * "$Id: rastertolabel.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: rastertolabel.c 7720 2008-07-11 22:46:21Z mike $"
  *
  *   Label printer filter for the Common UNIX Printing System (CUPS).
  *
@@ -33,11 +33,12 @@
 #include <cups/cups.h>
 #include <cups/string.h>
 #include <cups/i18n.h>
-#include "raster.h"
+#include <cups/raster.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <errno.h>
 
 
 /*
@@ -54,7 +55,7 @@
  * The Zebra portion of the driver has been tested with the LP-2844,
  * LP-2844Z, QL-320, and QL-420 label printers; it may also work with
  * other models.  The driver supports EPL line mode, EPL page mode,
- * ZPL, and CPCL as defined in Zebra's on-line developer documentation.
+ * ZPL, and CPCL as defined in Zebra's online developer documentation.
  */
 
 /*
@@ -1130,8 +1131,9 @@ main(int  argc,				/* I - Number of command-line arguments */
     * and return.
     */
 
-    fprintf(stderr, _("Usage: %s job-id user title copies options [file]\n"),
-            argv[0]);
+    _cupsLangPrintf(stderr,
+                    _("Usage: %s job-id user title copies options [file]\n"),
+                    "rastertolabel");
     return (1);
   }
 
@@ -1143,7 +1145,8 @@ main(int  argc,				/* I - Number of command-line arguments */
   {
     if ((fd = open(argv[6], O_RDONLY)) == -1)
     {
-      perror("ERROR: Unable to open raster file - ");
+      _cupsLangPrintf(stderr, _("ERROR: Unable to open raster file - %s\n"),
+                      strerror(errno));
       sleep(1);
       return (1);
     }
@@ -1229,8 +1232,8 @@ main(int  argc,				/* I - Number of command-line arguments */
 	break;
 
       if ((y & 15) == 0)
-        fprintf(stderr, _("INFO: Printing page %d, %d%% complete...\n"), Page,
-	        100 * y / header.cupsHeight);
+        _cupsLangPrintf(stderr, _("INFO: Printing page %d, %d%% complete...\n"),
+                        Page, 100 * y / header.cupsHeight);
 
      /*
       * Read a line of graphics...
@@ -1276,14 +1279,20 @@ main(int  argc,				/* I - Number of command-line arguments */
   */
 
   if (Page == 0)
-    fputs(_("ERROR: No pages found!\n"), stderr);
+  {
+    _cupsLangPuts(stderr, _("ERROR: No pages found!\n"));
+    return (1);
+  }
   else
-    fputs(_("INFO: Ready to print.\n"), stderr);
+  {
+    _cupsLangPuts(stderr, _("INFO: Ready to print.\n"));
+    return (0);
+  }
 
   return (Page == 0);
 }
 
 
 /*
- * End of "$Id: rastertolabel.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: rastertolabel.c 7720 2008-07-11 22:46:21Z mike $".
  */

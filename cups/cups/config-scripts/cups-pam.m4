@@ -1,9 +1,9 @@
 dnl
-dnl "$Id: cups-pam.m4 6649 2007-07-11 21:46:42Z mike $"
+dnl "$Id: cups-pam.m4 7960 2008-09-17 19:42:02Z mike $"
 dnl
 dnl   PAM stuff for the Common UNIX Printing System (CUPS).
 dnl
-dnl   Copyright 2007 by Apple Inc.
+dnl   Copyright 2007-2009 by Apple Inc.
 dnl   Copyright 1997-2005 by Easy Software Products, all rights reserved.
 dnl
 dnl   These coded instructions, statements, and computer programs are the
@@ -13,7 +13,8 @@ dnl   which should have been included with this file.  If this file is
 dnl   file is missing or damaged, see the license at "http://www.cups.org/".
 dnl
 
-AC_ARG_ENABLE(pam, [  --enable-pam            turn on PAM support, default=yes])
+AC_ARG_ENABLE(pam, [  --disable-pam           disable PAM support])
+AC_ARG_WITH(pam_module, [  --with-pam-module       specify the PAM module to use])
 
 dnl Don't use PAM with AIX...
 if test $uname = AIX; then
@@ -30,6 +31,8 @@ if test x$enable_pam != xno; then
 
 	AC_CHECK_LIB(dl,dlopen)
 	AC_CHECK_LIB(pam,pam_start)
+	AC_CHECK_LIB(pam,pam_set_item,AC_DEFINE(HAVE_PAM_SET_ITEM))
+	AC_CHECK_LIB(pam,pam_setcred,AC_DEFINE(HAVE_PAM_SETCRED))
 	AC_CHECK_HEADER(security/pam_appl.h)
 	if test x$ac_cv_header_security_pam_appl_h != xyes; then
 		AC_CHECK_HEADER(pam/pam_appl.h,
@@ -58,21 +61,33 @@ if test x$enable_pam != xno; then
 	case "$uname" in
 		Darwin*)
 			# Darwin, MacOS X
-			PAMFILE="pam.darwin"
+			if test "x$with_pam_module" != x; then
+				PAMFILE="pam.$with_pam_module"
+			elif test -f /usr/lib/pam/pam_opendirectory.so.2; then
+				PAMFILE="pam.opendirectory"
+			else
+				PAMFILE="pam.securityserver"
+			fi
 			;;
+
 		IRIX)
 			# SGI IRIX
 			PAMFILE="pam.irix"
 			;;
+
 		*)
 			# All others; this test might need to be updated
 			# as Linux distributors move things around...
-			for mod in pam_unix2.so pam_unix.so pam_pwdb.so; do
-				if test -f /lib/security/$mod; then
-					PAMMOD="$mod"
-					break;
-				fi
-			done
+			if test "x$with_pam_module" != x; then
+				PAMMOD="pam_${with_pam_module}.so"
+			else
+				for mod in pam_unix2.so pam_unix.so pam_pwdb.so; do
+					if test -f /lib/security/$mod; then
+						PAMMOD="$mod"
+						break;
+					fi
+				done
+			fi
 
 			PAMFILE="pam.std"
 			;;
@@ -85,5 +100,5 @@ AC_SUBST(PAMLIBS)
 AC_SUBST(PAMMOD)
 
 dnl
-dnl End of "$Id: cups-pam.m4 6649 2007-07-11 21:46:42Z mike $".
+dnl End of "$Id: cups-pam.m4 7960 2008-09-17 19:42:02Z mike $".
 dnl

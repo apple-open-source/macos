@@ -50,6 +50,7 @@ OSDefineAbstractStructors(IOUSBControllerListElement, OSObject)
 void
 IOUSBControllerListElement::print(int level)
 {
+#pragma unused (level)
     USBLog(level, "IOUSBControllerListElement[%p]::print - _sharedPhysical[%p]", this, (void *)_sharedPhysical);
     USBLog(level, "IOUSBControllerListElement::print - _sharedLogical[%p]", _sharedLogical);
     USBLog(level, "IOUSBControllerListElement::print - _logicalNext[%p]", _logicalNext);

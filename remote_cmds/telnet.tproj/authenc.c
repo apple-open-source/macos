@@ -31,18 +31,15 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
-
-#ifdef __FBSDID
-__FBSDID("$FreeBSD: src/crypto/telnet/telnet/authenc.c,v 1.2.8.2 2002/04/13 10:59:08 markm Exp $");
-#endif
-
+#if 0
 #ifndef lint
 static const char sccsid[] = "@(#)authenc.c	8.1 (Berkeley) 6/6/93";
 #endif
+#endif
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/contrib/telnet/telnet/authenc.c,v 1.6 2003/05/04 02:54:48 obrien Exp $");
 
 #ifdef	AUTHENTICATION
-#ifdef	ENCRYPTION
 #include <sys/types.h>
 #include <arpa/telnet.h>
 #include <pwd.h>
@@ -109,5 +106,4 @@ telnet_gets(const char *prom, char *result, int length, int echo)
 	TerminalNewMode(om);
 	return(res);
 }
-#endif	/* ENCRYPTION */
 #endif	/* AUTHENTICATION */

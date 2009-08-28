@@ -33,30 +33,32 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 struct symbol			/* our version of an nlist node */
 {
   nlist_t	sy_nlist;	/* what we write in .o file (if permitted) */
-#ifdef ARCH64
   char		*sy_name;	/* symbol name */
-#endif
-  long unsigned sy_name_offset;	/* 1-origin position of sy_name in symbols */
+  uint32_t sy_name_offset;	/* 1-origin position of sy_name in symbols */
 				/* part of object file. */
 				/* 0 for (nameless) .stabd symbols. */
 				/* Not used until write_object() time. */
-  long int	sy_number;	/* 24 bit symbol number. */
+  uint32_t	sy_number;	/* 24 bit symbol number. */
 				/* Symbol numbers start at 0 and are */
 				/* unsigned. */
   struct symbol *sy_prev_by_index;	/* backward chain, or NULL */
+  int		sy_has_been_resolved;	/* if true the next fieid is set */
+  struct symbol *sy_prev_resolved;	/* first non local in backward chain */
   struct symbol *sy_next;	/* forward chain, or NULL */
   struct frag   *sy_frag;	/* NULL or -> frag this symbol attaches to. */
   struct symbol *sy_forward;	/* value is really that of this other symbol */
   void *expression;
+/* FROM line tc-arm.h 104 */
+#define TC_SYMFIELD_TYPE 	unsigned int
+#ifdef TC_SYMFIELD_TYPE
+  TC_SYMFIELD_TYPE sy_tc;
+#endif
 };
 
 typedef struct symbol symbolS;
 
-#ifndef ARCH64
-#define sy_name		sy_nlist .n_un. n_name
-				/* Name field always points to a string. */
-				/* 0 means .stabd-like anonymous symbol. */
-#endif
+/* sy_name - Name field always points to a string. */
+/* 	     0 means .stabd-like anonymous symbol. */
 #define sy_type 	sy_nlist.	n_type
 #ifdef NeXT_MOD
 #define sy_other	sy_nlist.	n_sect
@@ -72,7 +74,7 @@ typedef signed_target_addr_t valueT;	/* The type of n_value. Helps casting. */
 struct indirect_symbol {
   char			 *isy_name;	/* name of the indirect */
   struct frag   	 *isy_frag;	/* frag this indirect attaches to */
-  unsigned long		  isy_offset;	/* offset into frag this attaches to */
+  uint32_t		  isy_offset;	/* offset into frag this attaches to */
   struct symbol		 *isy_symbol;	/* symbol for the indirect */
   struct indirect_symbol *isy_next;	/* forward chain, or NULL */
 };

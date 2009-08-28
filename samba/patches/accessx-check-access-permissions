@@ -1,0 +1,163 @@
+Index: samba/source/configure.in
+===================================================================
+--- samba/source/configure.in.orig
++++ samba/source/configure.in
+@@ -914,6 +914,7 @@ main() {
+ 	default_shared_modules="$default_shared_modules vfs_darwinacl"
+ 
+  	AC_CHECK_FUNCS(pthread_setugid_np)
++	AC_CHECK_FUNCS(accessx_np)
+ 
+ 	;;
+     *hurd*)
+Index: samba/source/smbd/posix_acls.c
+===================================================================
+--- samba/source/smbd/posix_acls.c.orig
++++ samba/source/smbd/posix_acls.c
+@@ -4,6 +4,8 @@
+    Copyright (C) Jeremy Allison 1994-2000.
+    Copyright (C) Andreas Gruenbacher 2002.
+ 
++   Copyright (C) 2008 Apple Inc. All rights reserved.
++
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 2 of the License, or
+@@ -4237,6 +4239,94 @@ static BOOL can_access_file_acl(struct c
+ 	return result;
+ }
+ 
++#if HAVE_ACCESSX_NP
++/* XXX This should really be in a new VFS operation, SMB_VFS_ACCESS. */
++static const struct
++{
++	int accessx;
++	int ntperm;
++} nt_accessx_table[] =
++{
++	{ _READ_OK,	FILE_READ_DATA },
++	{ _WRITE_OK,	FILE_WRITE_DATA },
++	{ _EXECUTE_OK,	FILE_EXECUTE },
++	{ _DELETE_OK,	STD_RIGHT_DELETE_ACCESS },
++	{ _APPEND_OK,	FILE_APPEND_DATA },
++	{ _RMFILE_OK,	FILE_DELETE_CHILD },
++	{ _RATTR_OK,	FILE_READ_ATTRIBUTES },
++	{ _WATTR_OK,	FILE_READ_EA },
++	{ _REXT_OK,	FILE_WRITE_ATTRIBUTES },
++	{ _WEXT_OK,	FILE_WRITE_EA },
++	{ _RPERM_OK,	STD_RIGHT_READ_CONTROL_ACCESS },
++	{ _WPERM_OK,	STD_RIGHT_WRITE_DAC_ACCESS },
++	{ _CHOWN_OK,	STD_RIGHT_WRITE_OWNER_ACCESS },
++};
++
++static uint32_t accessx_convert_mask(uint32_t access_mode)
++{
++	uint32_t accessx_mode = 0;
++	unsigned i;
++
++	for (i = 0; i < ARRAY_SIZE(nt_accessx_table); ++i) {
++		uint32_t p = nt_accessx_table[i].accessx;
++
++		if (access_mode & p) {
++			accessx_mode |= nt_accessx_table[i].ntperm;
++		}
++	}
++
++	return accessx_mode;
++}
++
++static BOOL accessx_check(const char * fname, uint32_t access_mode)
++{
++	uint8_t * accessx_buffer;
++	size_t fname_size;
++	struct accessx_descriptor * desc0;
++	int err0 = 0;
++	int err;
++
++	/* For streams, do the access check on the base file path, since the
++	 * alternate streams do not have separate security information.
++	 */
++	if (is_ntfs_stream_name(fname)) {
++	    const char * pivot = strchr_m(fname, ':');
++
++	    /* Include the ':' in the name size so that we can NULL it out
++	     * later.
++	     */
++	    fname_size = pivot - fname + 1;
++	} else {
++	    fname_size = strlen(fname) + 1;
++	}
++
++	accessx_buffer =
++	    alloca(sizeof(struct accessx_descriptor) + fname_size);
++	memcpy(accessx_buffer + sizeof(struct accessx_descriptor),
++		fname, fname_size);
++	accessx_buffer[sizeof(struct accessx_descriptor) + fname_size - 1] = '\0';
++
++	desc0 = (struct accessx_descriptor *)accessx_buffer;
++	ZERO_STRUCTP(desc0);
++
++	desc0->ad_flags = accessx_convert_mask(access_mode);
++	desc0->ad_name_offset = sizeof(struct accessx_descriptor);
++
++	err = accessx_np((struct accessx_descriptor *)accessx_buffer,
++		sizeof(struct accessx_descriptor) + fname_size,
++		&err0, (uid_t) -1 /* ignored */);
++	if (err == -1) {
++		DEBUG(0, ("accessx_np(%s, %#x) failed: %s\n",
++			fname, access_mode, strerror(errno)));
++		return False;
++	}
++
++	/* Access granted if errno was 0. */
++	return (err0 == 0);
++}
++
++#endif /* HAVE_ACCESSX_NP */
++
+ /****************************************************************************
+  Actually emulate the in-kernel access checking for delete access. We need
+  this to successfully return ACCESS_DENIED on a file open for delete access.
+@@ -4262,6 +4352,11 @@ BOOL can_delete_file_in_directory(connec
+ 	if (!S_ISDIR(sbuf.st_mode)) {
+ 		return False;
+ 	}
++
++#if HAVE_ACCESSX_NP
++	return accessx_check(dname, FILE_DELETE_CHILD);
++#endif
++
+ 	if (current_user.ut.uid == 0 || conn->admin_user) {
+ 		/* I'm sorry sir, I didn't know you were root... */
+ 		return True;
+@@ -4318,6 +4413,10 @@ BOOL can_access_file(connection_struct *
+ 	DEBUG(10,("can_access_file: requesting 0x%x on file %s\n",
+ 		(unsigned int)access_mask, fname ));
+ 
++#if HAVE_ACCESSX_NP
++	return accessx_check(fname, access_mask);
++#endif
++
+ 	if (current_user.ut.uid == 0 || conn->admin_user) {
+ 		/* I'm sorry sir, I didn't know you were root... */
+ 		return True;
+Index: samba/source/smbd/open.c
+===================================================================
+--- samba/source/smbd/open.c.orig
++++ samba/source/smbd/open.c
+@@ -1520,10 +1520,15 @@ NTSTATUS open_file_ntcreate(connection_s
+ 				can_access_mask = FILE_READ_DATA;
+ 			}
+ 
++#if HAVE_ACCESSX_NP
++			can_access = can_access_file(conn, fname, psbuf,
++						    can_access_mask);
++#else
+ 			if (((can_access_mask & FILE_WRITE_DATA) && !CAN_WRITE(conn)) ||
+ 			    !can_access_file(conn,fname,psbuf,can_access_mask)) {
+ 				can_access = False;
+ 			}
++#endif
+ 
+ 			/* 
+ 			 * If we're returning a share violation, ensure we

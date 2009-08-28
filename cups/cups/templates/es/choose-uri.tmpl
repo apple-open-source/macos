@@ -1,16 +1,16 @@
+<DIV CLASS="indent">
+
+<H2 CLASS="title">{op=modify-printer?Modificar {printer_name}:A&ntilde;adir impresora}</H2>
+
 <FORM METHOD="POST" ACTION="/admin">
 <INPUT TYPE="HIDDEN" NAME="OP" VALUE="{op}">
-<INPUT TYPE="HIDDEN" NAME="PRINTER_NAME" VALUE="{printer_name}">
-<INPUT TYPE="HIDDEN" NAME="PRINTER_LOCATION" VALUE="{?printer_location}">
-<INPUT TYPE="HIDDEN" NAME="PRINTER_INFO" VALUE="{?printer_info}">
+{printer_name?<INPUT TYPE="HIDDEN" NAME="printer_name" VALUE="{printer_name}">:}
 <INPUT TYPE="HIDDEN" NAME="CURRENT_MAKE_AND_MODEL" VALUE="{?current_make_and_model}">
-
-<H2 CLASS="title">URI de la conexi&oacute;n para {printer_name}</H2>
 
 <TABLE>
 <TR>
-<TH CLASS="label">URI de la conexi&oacute;n:</TH>
-<TD><INPUT TYPE="TEXT" SIZE="60" MAXLENGTH="1024" NAME="DEVICE_URI" VALUE="{device_uri}"></TD>
+<TH CLASS="label">Conexi&oacute;n:</TH>
+<TD><INPUT TYPE="TEXT" SIZE="60" MAXLENGTH="1023" NAME="DEVICE_URI" VALUE="{current_device_uri?{current_device_uri}:{device_uri}}"></TD>
 </TR>
 <TR>
 <TD></TD>
@@ -35,8 +35,9 @@ en red"</A> para escoger el URI adecuado a usar con su impresora.</P>
 </TR>
 <TR>
 <TD></TD>
-<TD><INPUT TYPE="IMAGE" SRC="/images/button-continue.gif" ALT="Siguiente"></TD>
+<TD><INPUT TYPE="SUBMIT" VALUE="Siguiente"></TD>
 </TR>
 </TABLE>
 
 </FORM>
+</DIV>

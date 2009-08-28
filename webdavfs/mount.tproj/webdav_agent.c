@@ -10,7 +10,11 @@
 #include "webdavd.h"
 #include "LogMessage.h"
 
+#include <mach/mach.h>
+#include <mach/mach_error.h>
+#include <servers/bootstrap.h>
 #include <sys/types.h>
+#include <sys/sysctl.h>
 #include <sys/errno.h>
 #include <sys/wait.h>
 #include <sys/syslog.h>
@@ -31,6 +35,7 @@
 #include <err.h>
 #include <fcntl.h>
 #include <paths.h>
+#include <readpassphrase.h>
 #include <signal.h>
 #include <time.h>
 #include <notify.h>
@@ -43,6 +48,8 @@
 #include "webdav_network.h"
 #include "webdav_requestqueue.h"
 #include "webdav_cache.h"
+#include "load_webdavfs.h"
+#include "webdavfs_load_kext.h"
 
 /*****************************************************************************/
 
@@ -58,6 +65,7 @@ int gSecureServerAuth = FALSE;		/* if TRUE, the authentication for server challe
 char gWebdavCachePath[MAXPATHLEN + 1] = ""; /* the current path to the cache directory */
 int gSecureConnection = FALSE;	/* if TRUE, the connection is secure */
 CFURLRef gBaseURL = NULL;		/* the base URL for this mount */
+uint32_t gServerIdent = 0;		/* identifies some (not all) types of servers we are connected to (i.e. WEBDAV_IDISK_SERVER) */ 
 
 /*
  * mount_webdav.c file globals
@@ -72,13 +80,22 @@ static char mntfromname[MNAMELEN];		/* the mntfromname */
  */
 int getmnt_silent = 1;
 
+// The maximum size of an upload or download to allow the
+// system to cache.
+uint64_t webdavCacheMaximumSize = WEBDAV_DEFAULT_CACHE_MAX_SIZE;
+
+// Sets the maximum size of an upload or download to allow the
+// system to cache, based on the amount of physical memory in
+// the system.
+static void setCacheMaximumSize(void);
+
 #define CFENVFORMATSTRING "__CF_USER_TEXT_ENCODING=0x%X:0:0"
 
 /*****************************************************************************/
 
 void webdav_debug_assert(const char *componentNameString, const char *assertionString, 
 	const char *exceptionLabelString, const char *errorString, 
-	const char *fileName, long lineNumber, int errorCode)
+	const char *fileName, long lineNumber, uint64_t errorCode)
 {
 	#pragma unused(componentNameString)
 
@@ -88,7 +105,7 @@ void webdav_debug_assert(const char *componentNameString, const char *assertionS
 		{
 			syslog(WEBDAV_LOG_LEVEL, "(%s) failed with %d%s%s%s%s; file: %s; line: %ld", 
 			assertionString,
-			errorCode,
+			(int)errorCode,
 			(errorString != NULL) ? "; " : "",
 			(errorString != NULL) ? errorString : "",
 			(exceptionLabelString != NULL) ? "; going to " : "",
@@ -122,7 +139,7 @@ void webdav_debug_assert(const char *componentNameString, const char *assertionS
 static void usage(void)
 {
 	(void)fprintf(stderr,
-		"usage: mount_webdav [-s] [-S] [-a<fd>] [-o options] [-v <volume name>]\n");
+		"usage: mount_webdav [-i] [-s] [-S] [-o options] [-v <volume name>]\n");
 	(void)fprintf(stderr,
 		"\t<WebDAV_URL> node\n");
 }
@@ -172,6 +189,176 @@ char *GetMountURI(char *arguri, int *isHTTPS)
 malloc_uri:
 
 	return ( uri );
+}
+
+/*****************************************************************************/
+
+static char* createUTF8CStringFromCFString(CFStringRef in_string)
+{
+	char* out_cstring = NULL;
+	
+	CFIndex bufSize;
+	
+	/* make sure we're not passed garbage */
+	if ( in_string == NULL )
+		return NULL;
+	
+	/* Add one to account for NULL termination. */
+	bufSize = CFStringGetMaximumSizeForEncoding(CFStringGetLength(in_string) + 1, kCFStringEncodingUTF8);
+	
+	out_cstring = (char *)calloc(1, bufSize);
+	
+	/* Make sure malloc succeeded then convert cstring */
+	if ( out_cstring == NULL ) 
+		return NULL;
+	
+	if ( CFStringGetCString(in_string, out_cstring, bufSize, kCFStringEncodingUTF8) == FALSE ) {
+		free(out_cstring);
+		out_cstring = NULL;
+	}
+	
+	return out_cstring;
+}
+
+/*****************************************************************************/
+
+static OSStatus KeychainItemCopyAccountPassword(SecKeychainItemRef itemRef,
+                                                char *username,
+                                                size_t user_size,
+                                                char *password,
+                                                size_t pass_size)
+{
+    OSStatus                            result;
+    SecKeychainAttribute                attr;
+    SecKeychainAttributeList            attrList;
+    UInt32                              length;
+    void                                *outData;
+	
+    /* the attribute we want is the account name */
+    attr.tag = kSecAccountItemAttr;
+    attr.length = 0;
+    attr.data = NULL;
+	
+    attrList.count = 1;
+    attrList.attr = &attr;
+	
+    result = SecKeychainItemCopyContent(itemRef, NULL, &attrList, &length, &outData);
+    if ( result == noErr )
+	{
+		/* attr.data is the account (username) and outdata is the password */
+		if ( attr.length >= user_size || length >= pass_size ) {
+			syslog(LOG_ERR, "%s: keychain username or password is too long!", __FUNCTION__);
+			result = ENAMETOOLONG;
+		} else {
+			(void)strlcpy(username, attr.data, user_size);
+			(void)strlcpy(password, outData, pass_size);
+		}
+		
+		(void) SecKeychainItemFreeContent(&attrList, outData);
+	}
+    return ( result );
+}
+
+/*****************************************************************************/
+
+static SecProtocolType getSecurityProtocol(CFStringRef str)
+{
+	if ( CFStringCompare(str, CFSTR("http"), kCFCompareCaseInsensitive) == 0 )
+		return kSecProtocolTypeHTTP;
+	else if ( CFStringCompare(str, CFSTR("https"), kCFCompareCaseInsensitive) == 0 )
+		return kSecProtocolTypeHTTPS;
+	else 
+		return kSecProtocolTypeAny;
+}
+
+/*****************************************************************************/
+
+static int get_keychain_credentials(char* in_url,
+									char* out_user,
+									size_t out_user_size,
+									char* out_pass,
+									size_t out_pass_size)
+
+{
+	CFStringRef        cfhostName = NULL;
+	CFStringRef        cfpath = NULL;
+	CFStringRef        cfscheme = NULL;
+	CFURLRef           cf_url = NULL;
+	SecKeychainItemRef itemRef = NULL;
+	SecProtocolType    protocol;
+	char*              path = NULL;
+	char*              hostName = NULL;
+	int	               result;
+	
+	/* Validate input */
+	if ( in_url == NULL|| out_user == NULL || out_pass == NULL)
+		return EINVAL;
+	
+	cf_url = CFURLCreateWithBytes(NULL, (const UInt8 *)in_url, strlen(in_url), kCFStringEncodingUTF8, NULL);
+	if ( cf_url == NULL )
+		return ENOMEM;
+	
+	cfscheme = CFURLCopyScheme(cf_url);
+	if ( cfscheme == NULL ) {
+		result = ENOMEM;
+		goto cleanup_exit;
+	}
+	protocol = getSecurityProtocol(cfscheme);
+	
+	cfhostName = CFURLCopyHostName(cf_url);
+	if ( cfhostName == NULL || (hostName = createUTF8CStringFromCFString(cfhostName)) == NULL) {
+		result = ENOMEM;
+		goto cleanup_exit;
+	}
+	
+	cfpath = CFURLCopyPath(cf_url);
+	if ( cfpath == NULL || (path = createUTF8CStringFromCFString(cfpath)) == NULL) {
+		result = ENOMEM;
+		goto cleanup_exit;
+	}
+	
+	result = SecKeychainFindInternetPassword(NULL,                                                      /* default keychain */
+                                             (UInt32)strlen(hostName), hostName,                        /* serverName */
+                                             0, NULL,                                                   /* no securityDomain */
+                                             0, NULL,													/* no accountName */
+                                             (UInt32)strlen(path), path,                                /* path */
+                                             0,                                                         /* port */
+                                             protocol,                                                  /* protocol */
+                                             kSecAuthenticationTypeAny,                                 /* authenticationType */
+                                             0, NULL,                                                   /* no password */
+                                             &itemRef);
+	
+	/* if it doesn't work the first time, try with a NULL path. This is what NetAuth does. */
+	if ( result != noErr ) {
+		result = SecKeychainFindInternetPassword(NULL,                                                      /* default keychain */
+												 (UInt32)strlen(hostName), hostName,                        /* serverName */
+												 0, NULL,                                                   /* no securityDomain */
+												 0, NULL,													/* no accountName */
+												 0, NULL,													/* no path */
+												 0,                                                         /* port */
+												 protocol,                                                  /* protocol */
+												 kSecAuthenticationTypeAny,                                 /* authenticationType */
+												 0, NULL,                                                   /* no password */
+												 &itemRef);
+		
+	}
+	
+	if ( result == noErr ) {
+		/* Success, copy the user & pass out */
+		result = KeychainItemCopyAccountPassword(itemRef, out_user, out_user_size, out_pass, out_pass_size);
+	}
+	
+cleanup_exit:
+	
+	CFReleaseNull(cf_url);
+	CFReleaseNull(cfscheme);
+	CFReleaseNull(cfhostName);
+	CFReleaseNull(cfpath);
+	CFReleaseNull(itemRef);
+	if (path)     free(path);
+	if (hostName) free(hostName);
+
+	return result;
 }
 
 /*****************************************************************************/
@@ -263,57 +450,23 @@ Return:
  * which in turn loads the webdavfs kext.
  */
 static int attempt_webdav_load(void)
-{
-	int pid, terminated_pid;
-	int result = -1;
-	union wait status;
-
-	pid = fork();
-	if (pid == 0)
-	{
-		char CFUserTextEncodingEnvSetting[sizeof(CFENVFORMATSTRING) + 20]; 
-		char *env[] = {CFUserTextEncodingEnvSetting, "", (char *) 0 };
-		
-		/* 
-		 * Create a new environment with a definition of __CF_USER_TEXT_ENCODING to work 
-		 * around CF's interest in the user's home directory (which could be networked, 
-		 * causing recursive references through automount). Make sure we include the uid
-		 * since CF will check for this when deciding if to look in the home directory.
-		 */ 
-		snprintf(CFUserTextEncodingEnvSetting, sizeof(CFUserTextEncodingEnvSetting), CFENVFORMATSTRING, getuid());
-		
-		result = execle(PRIVATE_LOAD_COMMAND, PRIVATE_LOAD_COMMAND, (char *) 0, env);
-		
-		/* We can only get here if the exec failed */
-		goto Return;
-	}
-
-	require_action(pid != -1, Return, result = errno);
-
-	/* Success! */
-	while ( (terminated_pid = wait4(pid, (int *)&status, 0, NULL)) < 0 )
-	{
-		/* retry if EINTR, else break out with error */
-		if ( errno != EINTR )
-		{
-			break;
-		}
-	}
-
-    if ( (terminated_pid == pid) && (WIFEXITED(status)) )
-	{
-		result = WEXITSTATUS(status);
-	}
-	else
-	{
-		result = -1;
-	}
-
-Return:
+{	
+	int error = 0;
+	mach_port_t mp = MACH_PORT_NULL;
 	
-	check_noerr_string(result, strerror(errno));
-	
-	return result;
+	// Find the mach port
+	error = bootstrap_look_up(bootstrap_port, (char *)WEBDAVFS_LOAD_KEXT_BOOTSTRAP_NAME, &mp);
+
+	if (error != KERN_SUCCESS) {
+		syslog(LOG_ERR, "%s: bootstrap_look_up: %s", __FUNCTION__, bootstrap_strerror(error));
+		return error;
+	}
+
+	error = load_kext(mp, (string_t)WEBDAVFS_VFSNAME);
+	if (error != KERN_SUCCESS)
+			syslog(LOG_ERR, "%s: load_kext: %s", __FUNCTION__, bootstrap_strerror(error));
+
+	return error;	
 }
 
 /*****************************************************************************/
@@ -374,15 +527,195 @@ pthread_attr_init:
 
 /*****************************************************************************/
 
+// determine the cacheMaximumSize based on the physical memory size of the system
+static void setCacheMaximumSize(void)
+{
+	int		mib[2];
+	size_t	len;
+	int		result;
+	uint64_t	memsize;
+    
+	/* get the physical ram size */
+	mib[0] = CTL_HW;
+	mib[1] = HW_MEMSIZE;
+	len = sizeof(uint64_t);
+	result = sysctl(mib, 2, &memsize, &len, 0, 0);
+	if (result == 0) {
+		if (memsize <= WEBDAV_ONE_GIGABYTE) {
+			// limit to 1/8 physical ram for systems with 1G or less
+			webdavCacheMaximumSize = memsize / 8;
+		}
+		else {
+			// limit to 1/4 physical ram for larger systems
+			webdavCacheMaximumSize = memsize / 4;
+		}
+	}
+	else {
+		// limit to kDefaultCacheMaximumSize if for some bizarre reason the physical ram size cannot be determined
+		webdavCacheMaximumSize = WEBDAV_DEFAULT_CACHE_MAX_SIZE;
+	}
+}
+
+/*****************************************************************************/
+
 #define TMP_WEBDAV_UDS _PATH_TMP ".webdavUDS.XXXXXX"	/* Scratch socket name */
 
 /* maximum length of username and password */
 #define WEBDAV_MAX_USERNAME_LEN 256
 #define WEBDAV_MAX_PASSWORD_LEN 256
-#define WEBDAV_MAX_DOMAIN_LEN 256
+#define PASS_PROMPT "Password: "
+#define USER_PROMPT "Username: "
 
 /*****************************************************************************/
 
+static boolean_t readCredentialsFromFile(int fd, char *userName, char *userPassword,
+										 char *proxyUserName, char *proxyUserPassword)
+{
+	boolean_t success;
+	uint32_t be_len;
+	size_t len1;
+	ssize_t rlen;
+	
+	success = TRUE;
+	
+	if (fd < 0) {
+		syslog(LOG_ERR, "%s: invalid file descriptor arg", __FUNCTION__);
+		return FALSE;
+	}
+	
+	if (userName == NULL) {
+		syslog(LOG_ERR, "%s: invalid username arg", __FUNCTION__);
+		return FALSE;
+	}	
+	
+	if (userPassword == NULL) {
+		syslog(LOG_ERR, "%s: invalid user credential arg", __FUNCTION__);
+		return FALSE;
+	}	
+	if (proxyUserName == NULL) {
+		syslog(LOG_ERR, "%s: invalid proxy username arg", __FUNCTION__);
+		return FALSE;
+	}
+	if (proxyUserPassword == NULL) {
+		syslog(LOG_ERR, "%s: invalid proxy user credential arg", __FUNCTION__);
+		return FALSE;
+	}
+
+	// seek to beginnning
+	if (lseek(fd, 0LL, SEEK_SET) == -1) {
+		return FALSE;
+	}
+			
+	// read username length
+	rlen = read(fd, &be_len, sizeof(be_len));
+	if (rlen != sizeof(be_len)) {
+		return FALSE;
+	}
+	len1 = ntohl(be_len);
+	if (len1 >= WEBDAV_MAX_USERNAME_LEN) {
+		return FALSE;
+	}
+			
+	// read username (if length not zero)
+	if (len1) {
+		rlen = read(fd, userName, len1);
+		if (rlen < 0) {
+			return FALSE;
+		}
+	}
+	
+	// read password length
+	rlen = read(fd, &be_len, sizeof(be_len));
+	if (rlen != sizeof(be_len)) {
+		return FALSE;
+	}
+	len1 = ntohl(be_len);
+	if (len1 >= WEBDAV_MAX_USERNAME_LEN) {
+		return FALSE;
+	}
+	
+	// read password (if length not zero)
+	if (len1) {
+		rlen = read(fd, userPassword, len1);
+		if (rlen < 0) {
+			return FALSE;
+		}
+	}
+	
+	// read proxy username length
+	rlen = read(fd, &be_len, sizeof(be_len));
+	if (rlen != sizeof(be_len)) {
+		return FALSE;
+	}
+	len1 = ntohl(be_len);
+	if (len1 >= WEBDAV_MAX_USERNAME_LEN) {
+		return FALSE;
+	}
+	
+	// read proxy username (if length not zero)
+	if (len1) {
+		rlen = read(fd, proxyUserName, len1);
+		if (rlen < 0) {
+			return FALSE;
+		}
+	}	
+	
+	// read proxy password length
+	rlen = read(fd, &be_len, sizeof(be_len));
+	if (rlen != sizeof(be_len)) {
+		return FALSE;
+	}
+	len1 = ntohl(be_len);
+	if (len1 >= WEBDAV_MAX_USERNAME_LEN) {
+		return FALSE;
+	}
+	
+	// read proxy password (if length not zero)
+	if (len1) {
+		rlen = read(fd, proxyUserPassword, len1);
+		if (rlen < 0) {
+			return FALSE;
+		}
+	}
+	
+	/* zero contents of file and close it if
+	 * fd is not STDIN_FILENO, STDOUT_FILENO or STDERR_FILENO
+	 */
+	if ( (fd != STDIN_FILENO) &&
+		(fd != STDOUT_FILENO) &&
+		(fd != STDERR_FILENO) )
+	{
+		struct stat statb;
+		off_t bytes_to_overwrite;
+		size_t bytes_to_write;
+		int zero;
+		
+		zero = 0;
+		
+		if (fstat(fd, &statb) != -1) {
+			bytes_to_overwrite = statb.st_size;
+			(void)lseek(fd, 0LL, SEEK_SET);
+			while (bytes_to_overwrite != 0) {
+				if (bytes_to_overwrite > (off_t)sizeof(zero))
+					bytes_to_write = sizeof(zero);
+				else
+					bytes_to_write = (size_t)bytes_to_overwrite;
+				if (write(fd, &zero, bytes_to_write) < 0)
+				{
+					break;
+				}
+				bytes_to_overwrite -= bytes_to_write;
+			}
+			(void)fsync(fd);
+		}
+		(void)close(fd);
+	}
+	
+	return TRUE;
+}
+		
+/*****************************************************************************/
+		
 int main(int argc, char *argv[])
 {
 	struct webdav_args args;
@@ -408,16 +741,19 @@ int main(int argc, char *argv[])
 	char *uri;
 	int mirrored_mount;
 	int isMounted = FALSE;			/* TRUE if we make it past mount(2) */
+	int checkKeychain = TRUE;       /* set to false for -i and -a */
 	mntoptparse_t mp;
 
 	char user[WEBDAV_MAX_USERNAME_LEN];
 	char pass[WEBDAV_MAX_PASSWORD_LEN];
-	char domain[WEBDAV_MAX_DOMAIN_LEN];
+	char proxy_user[WEBDAV_MAX_USERNAME_LEN];
+	char proxy_pass[WEBDAV_MAX_PASSWORD_LEN];
 	
 	struct webdav_request_statfs request_statfs;
 	struct webdav_reply_statfs reply_statfs;
 	int tempError;
 	struct statfs buf;
+	boolean_t result;
 	
 	error = 0;
 	
@@ -426,87 +762,52 @@ int main(int argc, char *argv[])
 	
 	user[0] = '\0';
 	pass[0] = '\0';
-	domain[0] = '\0';
+	proxy_user[0] = '\0';
+	proxy_pass[0] = '\0';
 	
 	mntflags = 0;
 	/*
 	 * Crack command line args
 	 */
-	while ((ch = getopt(argc, argv, "sSa:o:v:")) != -1)
+	while ((ch = getopt(argc, argv, "sSa:io:v:")) != -1)
 	{
 		switch (ch)
 		{
-			case 'a':	/* get the username and password from URLMount */
+			case 'a':	/* get user and password credentials from URLMount */
 				{
-					int fd = atoi(optarg), 		/* fd from URLMount */
-					zero = 0;
-					uint32_t be_len1, be_len2, be_len3;
-					size_t len1, len2, len3;
+					int fd = atoi(optarg); 		/* fd from URLMount */
 
-					/* read the username length, the username, the password
-					  length, and the password */
-					if (fd >= 0 && lseek(fd, 0LL, SEEK_SET) != -1)
-					{
-						if (read(fd, &be_len1, sizeof be_len1) == sizeof be_len1 &&
-						    (len1 = ntohl(be_len1)) > 0 &&
-						    len1 < WEBDAV_MAX_USERNAME_LEN)
-						{
-							if (read(fd, user, len1) > 0)
-							{
-								user[len1] = '\0';
-								if (read(fd, &be_len2, sizeof be_len2) == sizeof be_len2 &&
-								    (len2 = ntohl(be_len2)) > 0 &&
-								    len2 < WEBDAV_MAX_PASSWORD_LEN)
-								{
-									if (read(fd, pass, len2) > 0)
-									{
-										pass[len2] = '\0';
-										if (read(fd, &be_len3, sizeof be_len3) == sizeof be_len3 &&
-										    (len3 = ntohl(be_len3)) > 0 &&
-										    len3 < WEBDAV_MAX_DOMAIN_LEN)
-										{
-											if (read(fd, domain, len3) > 0)
-											{
-												domain[len3] = '\0';
-											}
-										}
-									}
-								}
-							}
-						}
-						
-						/* zero contents of file and close it if
-						 * fd is not STDIN_FILENO, STDOUT_FILENO or STDERR_FILENO
-						 */
-						if ( (fd != STDIN_FILENO) &&
-							 (fd != STDOUT_FILENO) &&
-							 (fd != STDERR_FILENO) )
-						{
-							struct stat statb;
-							off_t bytes_to_overwrite;
-							size_t bytes_to_write;
-
-							if (fstat(fd, &statb) != -1) {
-								bytes_to_overwrite = statb.st_size;
-								(void)lseek(fd, 0LL, SEEK_SET);
-								while (bytes_to_overwrite != 0) {
-									bytes_to_write = bytes_to_overwrite;
-									if (bytes_to_write > sizeof zero)
-										bytes_to_write = sizeof zero;
-									if (write(fd, (char *) & zero, bytes_to_write) < 0)
-									{
-										break;
-									}
-									bytes_to_overwrite -= bytes_to_write;
-								}
-								(void)fsync(fd);
-							}
-							(void)close(fd);
-						}
+					/* we're reading in from URLMOUNT, ignore keychain */
+					checkKeychain = FALSE;
+					
+					result = readCredentialsFromFile(fd, user, pass,
+													 proxy_user, proxy_pass);
+					if (result == FALSE) {
+						syslog(LOG_DEBUG, "%s: readCredentials returned FALSE", __FUNCTION__);
+						user[0] = '\0';
+						pass[0] = '\0';
+						proxy_user[0] = '\0';
+						proxy_pass[0] = '\0';
 					}
 					break;
 				}
 			
+			case 'i': /* called from mount_webdav, get user/pass interactively */
+				/* Ignore keychain when entering user/pass */
+				checkKeychain = FALSE;
+				/* Set RPP_REQUIRE_TTY so that we get an error if this is called 
+				 * from the NetFS plugin.
+				 */
+				if (readpassphrase(USER_PROMPT, user, sizeof(user), RPP_REQUIRE_TTY | RPP_ECHO_ON) == NULL) {
+					user[0] = '\0';
+					error = errno;
+				}
+				else if (readpassphrase(PASS_PROMPT, pass, sizeof(pass), RPP_ECHO_OFF) == NULL) {
+					pass[0] = '\0';
+					error = errno;
+				}
+				break;
+				
 			case 'S':	/* Suppress ALL dialogs and notifications */
 				gSuppressAllUI = 1;
 				break;
@@ -565,9 +866,13 @@ int main(int argc, char *argv[])
 		{
 			error = 1;
 		}
+	} 
+	else if (error == 1) {
+		/* Generic error was set, map to EINVAL.  Otherwise should be set to useful errno */
+		error = EINVAL;
 	}
 
-	require_noerr_action_quiet(error, error_exit, error = EINVAL; usage());
+	require_noerr_action_quiet(error, error_exit, usage());
 	
 	/* does this look like a mirrored mount (UI suppressed and not browseable) */
 	mirrored_mount = gSuppressAllUI && (mntflags & MNT_DONTBROWSE);
@@ -583,7 +888,7 @@ int main(int argc, char *argv[])
 		 */
 		strcpy(volumeName, strrchr(mountPoint, '/') + 1);
 	}
-
+	
 	/* Get uri (fix it up if needed) */
 	uri = GetMountURI(argv[optind], &gSecureConnection);
 	require_action_quiet(uri != NULL, error_exit, error = EINVAL);
@@ -598,7 +903,7 @@ int main(int argc, char *argv[])
 	 * but this check will catch the obvious duplicates.
 	 */
 	count = getmntinfo(&buffer, MNT_NOWAIT);
-	mntfromnameLength = strlen(mntfromname);
+	mntfromnameLength = (unsigned int)strlen(mntfromname);
 	for (i = 0; i < count; i++)
 	{
 		/* Is mntfromname already being used as a mntfromname for a webdav mount
@@ -689,6 +994,10 @@ int main(int argc, char *argv[])
 
 	/* Start logging (and change name) */
 	openlog("webdavfs_agent", LOG_CONS | LOG_PID, LOG_DAEMON);
+
+	// Set default maximum file upload or download size to allow
+	// the file system to cache
+	setCacheMaximumSize();
 	
 	/* raise the maximum number of open files for this process if needed */
 	if ( rlp.rlim_cur < WEBDAV_RLIMIT_NOFILE )
@@ -716,12 +1025,19 @@ int main(int argc, char *argv[])
 	error = nodecache_init(strlen(uri), uri, &root_node);
 	require_noerr_action_quiet(error, error_exit, error = EINVAL);
 	
-	error = authcache_init(user, pass, domain);
+	if ( checkKeychain == TRUE ) {
+		error = get_keychain_credentials(argv[optind], user, sizeof(user), pass, sizeof(pass));
+		if ( error != 0 )
+			syslog(LOG_INFO, "%s: get_keychain_credentials exited with result: %d", __FUNCTION__, error);
+	}
+	
+	error = authcache_init(user, pass, proxy_user, proxy_pass, NULL);
 	require_noerr_action_quiet(error, error_exit, error = EINVAL);
 	
 	bzero(user, sizeof(user));
 	bzero(pass, sizeof(pass));
-	bzero(domain, sizeof(domain));
+	bzero(proxy_user, sizeof(proxy_user));
+	bzero(proxy_pass, sizeof(proxy_pass));	
 	
 	error = network_init((const UInt8 *)uri, strlen(uri), &store_notify_fd, mirrored_mount);
 	free(uri);	/* all done with uri */
@@ -762,7 +1078,7 @@ int main(int argc, char *argv[])
 
 	/* bind socket with write-only access which is all that's needed for the kext to connect */
 	mode_mask = umask(0555);
-	require_action(bind(listen_socket, (struct sockaddr *)&un, sizeof(un)) >= 0, error_exit, error = EINVAL);
+	require_action(bind(listen_socket, (struct sockaddr *)&un, (socklen_t)sizeof(un)) >= 0, error_exit, error = EINVAL);
 	(void)umask(mode_mask);
 
 	/* make it hard for anyone to unlink the name */
@@ -778,34 +1094,24 @@ int main(int argc, char *argv[])
 	 
 	/* open the wakeupFDs pipe */
 	require_action(pipe(wakeupFDs) == 0, error_exit, wakeupFDs[0] = wakeupFDs[1] = -1; error = EINVAL);
-	
+
 	/* set the signal handler to webdav_kill for the signals that aren't ignored by default */
+
+	/* 
+	 * Catch signals which suggest we shut down cleanly.  Other signals
+	 * will kill webdavfs_agent and will be appropriately handled by 
+	 * CrashReporter.
+	 * 
+	 * SIGTERM is set to webdav_kill after we've successfully mounted.
+	 */
 	signal(SIGHUP, webdav_kill);
 	signal(SIGINT, webdav_kill);
 	signal(SIGQUIT, webdav_kill);
-	signal(SIGILL, webdav_kill);
-	signal(SIGTRAP, webdav_kill);
-	signal(SIGABRT, webdav_kill);
-	signal(SIGEMT, webdav_kill);
-	signal(SIGFPE, webdav_kill);
-	signal(SIGBUS, webdav_kill);
-	signal(SIGSEGV, webdav_kill);
-	signal(SIGSYS, webdav_kill);
-	signal(SIGALRM, webdav_kill);
-	signal(SIGTSTP, webdav_kill);
-	signal(SIGTTIN, webdav_kill);
-	signal(SIGTTOU, webdav_kill);
-	signal(SIGXCPU, webdav_kill);
-	signal(SIGXFSZ, webdav_kill);
-	signal(SIGVTALRM, webdav_kill);
-	signal(SIGPROF, webdav_kill);
-	signal(SIGUSR1, webdav_kill);
-	signal(SIGUSR2, webdav_kill);
 
 	/* prepare mount args */
 	args.pa_mntfromname = mntfromname;
 	args.pa_version = kCurrentWebdavArgsVersion;
-	args.pa_socket_namelen = sizeof(un);
+	args.pa_socket_namelen = (int)sizeof(un);
 	args.pa_socket_name = (struct sockaddr *)&un;
 	args.pa_vol_name = volumeName;
 	args.pa_flags = 0;
@@ -817,6 +1123,8 @@ int main(int argc, char *argv[])
 	{
 		args.pa_flags |= WEBDAV_SECURECONNECTION;
 	}
+	
+	args.pa_server_ident = gServerIdent;	/* gServerIdent is set in filesytem_mount() */
 	args.pa_root_id = root_node->nodeid;
 	args.pa_root_fileid = WEBDAV_ROOTFILEID;
 	args.pa_dir_size = WEBDAV_DIR_SIZE;
@@ -825,8 +1133,8 @@ int main(int argc, char *argv[])
 	args.pa_name_max = NAME_MAX;	/* The maximum number of bytes in a file name */
 	args.pa_path_max = PATH_MAX;	/* The maximum number of bytes in a pathname */
 	args.pa_pipe_buf = -1;			/* no support for pipes */
-	args.pa_chown_restricted = _POSIX_CHOWN_RESTRICTED; /* appropriate privileges are required for the chown(2) */
-	args.pa_no_trunc = _POSIX_NO_TRUNC; /* file names longer than KERN_NAME_MAX are truncated */
+	args.pa_chown_restricted = (int)_POSIX_CHOWN_RESTRICTED; /* appropriate privileges are required for the chown(2) */
+	args.pa_no_trunc = (int)_POSIX_NO_TRUNC; /* file names longer than KERN_NAME_MAX are truncated */
 	
 	/* need to get the statfs information before we can call mount */
 	bzero(&reply_statfs, sizeof(struct webdav_reply_statfs));
@@ -841,8 +1149,8 @@ int main(int argc, char *argv[])
 	memset (&args.pa_vfsstatfs, 0, sizeof (args.pa_vfsstatfs));
 
 	if (tempError == 0) {
-		args.pa_vfsstatfs.f_bsize = reply_statfs.fs_attr.f_bsize;
-		args.pa_vfsstatfs.f_iosize = reply_statfs.fs_attr.f_iosize;
+		args.pa_vfsstatfs.f_bsize = (uint32_t)reply_statfs.fs_attr.f_bsize;
+		args.pa_vfsstatfs.f_iosize = (uint32_t)reply_statfs.fs_attr.f_iosize;
 		args.pa_vfsstatfs.f_blocks = reply_statfs.fs_attr.f_blocks;
 		args.pa_vfsstatfs.f_bfree = reply_statfs.fs_attr.f_bfree;
 		args.pa_vfsstatfs.f_bavail = reply_statfs.fs_attr.f_bavail;
@@ -853,7 +1161,7 @@ int main(int argc, char *argv[])
 	/* since we just read/write to a local cached file, set the iosize to be the same size as the local filesystem */
 	tempError = statfs(_PATH_TMP, &buf);
 	if ( tempError == 0 )
-		args.pa_vfsstatfs.f_iosize = buf.f_iosize;
+		args.pa_vfsstatfs.f_iosize = (uint32_t)buf.f_iosize;
 
 	/* mount the volume */
 	return_code = mount(vfc.vfc_name, mountPoint, mntflags, &args);
@@ -940,12 +1248,13 @@ int main(int argc, char *argv[])
 			/* if select isn't working, then exit here */
 			error = errno;
 			if (error != EINTR)
-				LogMessage(kSysLog | kError, "webdavfs_agent exiting on select errno %d for %s\n", error, mountPoint);
+				syslog(LOG_ERR, "%s: exiting on select errno %d for %s\n",
+					   __FUNCTION__, error, mountPoint);
 			require(error == EINTR, error_exit); /* EINTR is OK */
 			continue;
 		}
 		
-		/* was a signal received? */
+		/* Did we receive (SIGINT | SIGTERM | SIGHUP | SIGQUIT)? */
 		if ( (wakeupFDs[0] != -1) && FD_ISSET(wakeupFDs[0], &readfds) )
 		{
 			int message;
@@ -966,19 +1275,22 @@ int main(int argc, char *argv[])
 				if ( message >= 0 )
 				{
 					/* positive messages are signal numbers */
-					LogMessage(kSysLog | kError, "webdavfs_agent received signal: %d. Unmounting %s\n", message, mountPoint);
+					syslog(LOG_ERR, "%s: received signal: %d. Unmounting %s\n",
+						   __FUNCTION__, message, mountPoint);
 				}
 				else
 				{
 					if ( message == -2 )
 					{
 						/* this is the normal way out of the select loop */
-						LogMessage(kSysLog | kError, "webdavfs_agent received unmount message for %s\n", mountPoint);
+						syslog(LOG_DEBUG, "%s: received unmount message for %s\n",
+							   __FUNCTION__, mountPoint);
 						break;
 					}
 					else
 					{
-						LogMessage(kSysLog | kError, "webdavfs_agent received message: %d. Force unmounting %s\n", message, mountPoint);
+						syslog(LOG_ERR, "%s: received message: %d. Force unmounting %s\n",
+							   __FUNCTION__, message, mountPoint);
 					}
 				}
 				
@@ -993,11 +1305,14 @@ int main(int argc, char *argv[])
 			struct sockaddr_un addr;
 			socklen_t addrlen;
 			
-			addrlen = sizeof(addr);
+			addrlen = (socklen_t)sizeof(addr);
 			accept_socket = accept(listen_socket, (struct sockaddr *)&addr, &addrlen);
 			if (accept_socket < 0)
 			{
 				error = errno;
+				if (error != EINTR)
+				syslog(LOG_ERR, "%s: exiting on select errno %d for %s\n",
+						__FUNCTION__, error, mountPoint);
 				require(error == EINTR, error_exit);
 				continue;
 			}
@@ -1039,7 +1354,7 @@ int main(int argc, char *argv[])
 		}
 	}
 	
-	LogMessage(kTrace, "%s unmounted\n", mountPoint);
+	syslog(LOG_DEBUG, "%s unmounted\n", mountPoint);
 
 	/* attempt to delete the cache directory (if any) and the bound socket name */
 	if (*gWebdavCachePath != '\0')
@@ -1062,6 +1377,10 @@ error_exit:
 		{
 			/* The server directory could not be mounted by mount_webdav because the node path is invalid. */
 			case ENOENT:
+				break;
+				
+			/* Could not connect to the server because the name or password is not correct */
+			case EAUTH:
 				break;
 			
 			/* Could not connect to the server because the name or password is not correct and the user canceled */

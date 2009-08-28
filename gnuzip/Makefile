@@ -7,7 +7,7 @@ Project           = gzip
 UserType          = Administration
 ToolType          = Commands
 Extra_Configure_Flags = DEFS=NO_ASM
-Extra_CC_Flags    = -mdynamic-no-pic
+Extra_CC_Flags    = -DGNU_STANDARD=0 -mdynamic-no-pic
 GnuAfterInstall   = gnu_after_install install-plist
 
 # It's a GNU Source project
@@ -18,6 +18,8 @@ gnu_after_install::
 	$(_v) $(LN) -f $(RC_Install_Prefix)/share/man/man1/zcat.1 $(RC_Install_Prefix)/share/man/man1/gzcat.1
 	$(_v) $(LN) -f $(RC_Install_Prefix)/share/man/man1/zgrep.1 $(RC_Install_Prefix)/share/man/man1/zegrep.1
 	$(_v) $(LN) -f $(RC_Install_Prefix)/share/man/man1/zgrep.1 $(RC_Install_Prefix)/share/man/man1/zfgrep.1
+	$(RM) $(DSTROOT)/usr/bin/uncompress
+	$(_v) $(LN) -f $(RC_Install_Prefix)/bin/gzip $(RC_Install_Prefix)/bin/zcat
 
 OSV = $(DSTROOT)/usr/local/OpenSourceVersions
 OSL = $(DSTROOT)/usr/local/OpenSourceLicenses
@@ -29,28 +31,20 @@ install-plist:
 	$(INSTALL_FILE) $(Sources)/COPYING $(OSL)/gnuzip.txt
 
 # Automatic Extract & Patch
-AEP            = YES
 AEP_Project    = $(Project)
-AEP_Version    = 1.3.10
+AEP_Version    = 1.3.12
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = patch-Makefile.in patch-doc__Makefile.in \
-                 patch-gzip.1 patch-gzip.c
-
-ifeq ($(suffix $(AEP_Filename)),.bz2)
-AEP_ExtractOption = j
-else
-AEP_ExtractOption = z
-endif
+AEP_Patches    = patch-doc__Makefile.in \
+                 patch-gzip.1 patch-gzip.c \
+                 patch-zless.1
 
 # Extract the source.
 install_source::
-ifeq ($(AEP),YES)
-	$(TAR) -C $(SRCROOT) -$(AEP_ExtractOption)xf $(SRCROOT)/$(AEP_Filename)
+	$(TAR) -C $(SRCROOT) -xf $(SRCROOT)/$(AEP_Filename)
 	$(RMDIR) $(SRCROOT)/$(Project)
 	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(Project)
 	for patchfile in $(AEP_Patches); do \
-		cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile || exit 1; \
+		cd $(SRCROOT)/$(Project) && patch -F0 -p0 < $(SRCROOT)/patches/$$patchfile || exit 1; \
 	done
-endif

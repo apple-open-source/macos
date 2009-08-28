@@ -1,8 +1,10 @@
 require 'rubygems/command'
+require 'rubygems/command_manager'
 require 'rubygems/install_update_options'
 require 'rubygems/local_remote_options'
-require 'rubygems/source_info_cache'
+require 'rubygems/spec_fetcher'
 require 'rubygems/version_option'
+require 'rubygems/commands/install_command'
 
 class Gem::Commands::UpdateCommand < Gem::Command
 
@@ -13,11 +15,10 @@ class Gem::Commands::UpdateCommand < Gem::Command
   def initialize
     super 'update',
           'Update the named gems (or all installed gems) in the local repository',
-      :generate_rdoc => true, 
-      :generate_ri => true, 
-      :force => false, 
-      :test => false,
-      :install_dir => Gem.dir
+      :generate_rdoc => true,
+      :generate_ri => true,
+      :force => false,
+      :test => false
 
     add_install_update_options
 
@@ -44,106 +45,131 @@ class Gem::Commands::UpdateCommand < Gem::Command
   end
 
   def execute
+    hig = {}
+
     if options[:system] then
-      say "Updating RubyGems..."
+      say "Updating RubyGems"
 
       unless options[:args].empty? then
         fail "No gem names are allowed with the --system option"
       end
 
-      options[:args] = ["rubygems-update"]
+      rubygems_update = Gem::Specification.new
+      rubygems_update.name = 'rubygems-update'
+      rubygems_update.version = Gem::Version.new Gem::RubyGemsVersion
+      hig['rubygems-update'] = rubygems_update
+
+      options[:user_install] = false
     else
-      say "Updating installed gems..."
-    end
+      say "Updating installed gems"
 
-    hig = highest_installed_gems = {}
+      hig = {} # highest installed gems
 
-    Gem::SourceIndex.from_installed_gems.each do |name, spec|
-      if hig[spec.name].nil? or hig[spec.name].version < spec.version then
-        hig[spec.name] = spec
+      Gem.source_index.each do |name, spec|
+        if hig[spec.name].nil? or hig[spec.name].version < spec.version then
+          hig[spec.name] = spec
+        end
       end
     end
 
-    remote_gemspecs = Gem::SourceInfoCache.search(//)
+    gems_to_update = which_to_update hig, options[:args]
 
-    gems_to_update = if options[:args].empty? then
-                       which_to_update(highest_installed_gems, remote_gemspecs)
-                     else
-                       options[:args]
-                     end
+    updated = []
 
-    options[:domain] = :remote # install from remote source
-
-    # HACK use the real API
-    install_command = Gem::CommandManager.instance['install']
+    installer = Gem::DependencyInstaller.new options
 
     gems_to_update.uniq.sort.each do |name|
-      say "Attempting remote update of #{name}"
-      options[:args] = [name]
-      options[:ignore_dependencies] = true # HACK skip seen gems instead
-      install_command.merge_options(options)
-      install_command.execute
+      next if updated.any? { |spec| spec.name == name }
+
+      say "Updating #{name}"
+      installer.install name
+
+      installer.installed_gems.each do |spec|
+        updated << spec
+        say "Successfully installed #{spec.full_name}"
+      end
     end
 
     if gems_to_update.include? "rubygems-update" then
-      latest_ruby_gem = remote_gemspecs.select do |s|
-        s.name == 'rubygems-update'
-      end
+      Gem.source_index.refresh!
 
-      latest_ruby_gem = latest_ruby_gem.sort_by { |s| s.version }.last
+      update_gems = Gem.source_index.search 'rubygems-update'
 
-      say "Updating version of RubyGems to #{latest_ruby_gem.version}"
-      installed = do_rubygems_update latest_ruby_gem.version
+      latest_update_gem = update_gems.sort_by { |s| s.version }.last
+
+      say "Updating RubyGems to #{latest_update_gem.version}"
+      installed = do_rubygems_update latest_update_gem.version
 
       say "RubyGems system software updated" if installed
     else
-      updated = gems_to_update.uniq.sort.collect { |g| g.to_s }
-
       if updated.empty? then
         say "Nothing to update"
       else
-        say "Gems updated: #{updated.join ', '}"
+        say "Gems updated: #{updated.map { |spec| spec.name }.join ', '}"
       end
     end
   end
+
+  ##
+  # Update the RubyGems software to +version+.
 
   def do_rubygems_update(version)
     args = []
     args.push '--prefix', Gem.prefix unless Gem.prefix.nil?
     args << '--no-rdoc' unless options[:generate_rdoc]
     args << '--no-ri' unless options[:generate_ri]
+    args << '--no-format-executable' if options[:no_format_executable]
 
     update_dir = File.join Gem.dir, 'gems', "rubygems-update-#{version}"
-
-    success = false
 
     Dir.chdir update_dir do
       say "Installing RubyGems #{version}"
       setup_cmd = "#{Gem.ruby} setup.rb #{args.join ' '}"
 
       # Make sure old rubygems isn't loaded
-      if Gem.win_platform? then
-        system "set RUBYOPT= & #{setup_cmd}"
-      else
-        system "RUBYOPT=\"\" #{setup_cmd}"
-      end
+      old = ENV["RUBYOPT"]
+      ENV.delete("RUBYOPT")
+      system setup_cmd
+      ENV["RUBYOPT"] = old if old
     end
   end
 
-  def which_to_update(highest_installed_gems, remote_gemspecs)
+  def which_to_update(highest_installed_gems, gem_names)
     result = []
 
     highest_installed_gems.each do |l_name, l_spec|
-      matching_gems = remote_gemspecs.select do |spec|
-        spec.name == l_name and Gem.platforms.any? do |platform|
-          platform == spec.platform
+      next if not gem_names.empty? and
+              gem_names.all? { |name| /#{name}/ !~ l_spec.name }
+
+      dependency = Gem::Dependency.new l_spec.name, "> #{l_spec.version}"
+
+      begin
+        fetcher = Gem::SpecFetcher.fetcher
+        spec_tuples = fetcher.find_matching dependency
+      rescue Gem::RemoteFetcher::FetchError => e
+        raise unless fetcher.warn_legacy e do
+          require 'rubygems/source_info_cache'
+
+          dependency.name = '' if dependency.name == //
+
+          specs = Gem::SourceInfoCache.search_with_source dependency
+
+          spec_tuples = specs.map do |spec, source_uri|
+            [[spec.name, spec.version, spec.original_platform], source_uri]
+          end
         end
       end
 
-      highest_remote_gem = matching_gems.sort_by { |spec| spec.version }.last
+      matching_gems = spec_tuples.select do |(name, version, platform),|
+        name == l_name and Gem::Platform.match platform
+      end
+
+      highest_remote_gem = matching_gems.sort_by do |(name, version),|
+        version
+      end.last
 
       if highest_remote_gem and
-         l_spec.version < highest_remote_gem.version then
+         l_spec.version < highest_remote_gem.first[1] then
         result << l_name
       end
     end

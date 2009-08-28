@@ -24,12 +24,12 @@
 #include <security_utilities/cfclass.h>
 #include <security_utilities/seccfobject.h>
 #include <security_utilities/threading.h>
-
+#include <CoreFoundation/CFString.h>
 
 //
 // CFClass
 //
-CFClass::CFClass(const char *name, bool deferDeletion) : isDeferrable(deferDeletion)
+CFClass::CFClass(const char *name)
 {
 	// initialize the CFRuntimeClass structure
 	version = 0;
@@ -64,25 +64,41 @@ Boolean
 CFClass::equalType(CFTypeRef cf1, CFTypeRef cf2) throw()
 {
 	// CF checks for pointer equality and ensures type equality already
-	return SecCFObject::optional(cf1)->equal(*SecCFObject::optional(cf2));
+	try {
+		return SecCFObject::optional(cf1)->equal(*SecCFObject::optional(cf2));
+	} catch (...) {
+		return false;
+	}
 }
 
 CFHashCode
 CFClass::hashType(CFTypeRef cf) throw()
 {
-	return SecCFObject::optional(cf)->hash();
+	try {
+		return SecCFObject::optional(cf)->hash();
+	} catch (...) {
+		return 666; /* Beasty return for error */
+	}
 }
 
 CFStringRef
 CFClass::copyFormattingDescType(CFTypeRef cf, CFDictionaryRef dict) throw()
 {
-	return SecCFObject::optional(cf)->copyFormattingDesc(dict);
+	try {
+		return SecCFObject::optional(cf)->copyFormattingDesc(dict);
+	} catch (...) {
+		return CFSTR("Exception thrown trying to format object");
+	}
 }
 
 CFStringRef
 CFClass::copyDebugDescType(CFTypeRef cf) throw()
 {
-	return SecCFObject::optional(cf)->copyDebugDesc();
+	try {
+		return SecCFObject::optional(cf)->copyDebugDesc();
+	} catch (...) {
+		return CFSTR("Exception thrown trying to format object");
+	}
 }
 
 

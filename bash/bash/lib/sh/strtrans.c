@@ -76,7 +76,11 @@ ansicstr (string, len, flags, sawc, rlen)
 #endif
 	    case 'b': c = '\b'; break;
 	    case 'e': case 'E':		/* ESC -- non-ANSI */
-	      c = ESC; break;
+		    if (0 == (flags & 1))
+			    c = ESC;
+		    else if (0 == (flags & 4))
+		            *r++ = '\\';
+		    break;
 	    case 'f': c = '\f'; break;
 	    case 'n': c = '\n'; break;
 	    case 'r': c = '\r'; break;

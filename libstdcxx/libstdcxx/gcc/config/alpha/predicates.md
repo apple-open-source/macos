@@ -1,5 +1,5 @@
 ;; Predicate definitions for DEC Alpha.
-;; Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+;; Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -15,8 +15,8 @@
 ;;
 ;; You should have received a copy of the GNU General Public License
 ;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;; Return 1 if OP is the zero constant for MODE.
 (define_predicate "const0_operand"
@@ -72,7 +72,7 @@
   (and (match_code "const_int,const_double,const_vector")
        (not (match_operand 0 "add_operand"))))
 
-;; Return 1 if the operand is a non-symbolic, non-zero constant operand.
+;; Return 1 if the operand is a non-symbolic, nonzero constant operand.
 (define_predicate "non_zero_const_operand"
   (and (match_code "const_int,const_double,const_vector")
        (match_test "op != CONST0_RTX (mode)")))
@@ -89,7 +89,8 @@
 		 || (unsigned HOST_WIDE_INT) ~ INTVAL (op) < 0x100
 		 || zap_mask (INTVAL (op))")
     (if_then_else (match_code "const_double")
-      (match_test "zap_mask (CONST_DOUBLE_LOW (op))
+      (match_test "GET_MODE (op) == VOIDmode
+		   && zap_mask (CONST_DOUBLE_LOW (op))
 		   && zap_mask (CONST_DOUBLE_HIGH (op))")
       (match_operand 0 "register_operand"))))
 
@@ -231,7 +232,7 @@
       return add_operand (op, mode);
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
   return 0;
 })
@@ -337,7 +338,9 @@
   if (GET_CODE (op) != SYMBOL_REF)
     return 0;
 
-  return SYMBOL_REF_LOCAL_P (op) && !SYMBOL_REF_TLS_MODEL (op);
+  return (SYMBOL_REF_LOCAL_P (op)
+	  && !SYMBOL_REF_WEAK (op)
+	  && !SYMBOL_REF_TLS_MODEL (op));
 })
 
 ;; Return true if OP is a SYMBOL_REF or CONST referencing a variable
@@ -363,7 +366,8 @@
 
   return (SYMBOL_REF_LOCAL_P (op)
 	  && SYMBOL_REF_SMALL_P (op)
-	  && SYMBOL_REF_TLS_MODEL (op) == 0);
+	  && !SYMBOL_REF_WEAK (op)
+	  && !SYMBOL_REF_TLS_MODEL (op));
 })
 
 ;; Return true if OP is a SYMBOL_REF or CONST referencing a variable
@@ -379,7 +383,8 @@
   if (GET_CODE (op) != SYMBOL_REF)
     return 0;
 
-  return !SYMBOL_REF_LOCAL_P (op) && !SYMBOL_REF_TLS_MODEL (op);
+  return ((!SYMBOL_REF_LOCAL_P (op) || SYMBOL_REF_WEAK (op))
+	  && !SYMBOL_REF_TLS_MODEL (op));
 })
 
 ;; Returns 1 if OP is a symbolic operand, i.e. a symbol_ref or a label_ref,
@@ -506,7 +511,7 @@
 
 ;; Returns 1 if OP is not an eliminable register.
 ;;
-;; This exists to cure a pathological abort in the s8addq (et al) patterns,
+;; This exists to cure a pathological failure in the s8addq (et al) patterns,
 ;;
 ;;	long foo () { long t; bar(); return (long) &t * 26107; }
 ;;
@@ -537,7 +542,7 @@
 
 ;; Similarly, but with swapped operands.
 (define_predicate "alpha_swapped_comparison_operator"
-  (match_code "eq,ge,gt,gtu,gtu"))
+  (match_code "eq,ge,gt,gtu"))
 
 ;; Return 1 if OP is a valid Alpha comparison operator against zero
 ;; for "bcc" style instructions.

@@ -42,7 +42,7 @@ enum
 /* Output a single breakpoint. */
 
 static void
-breakpoint_notify (int b, int pending_bp)
+breakpoint_notify (int b)
 {
   gdb_breakpoint_query (uiout, b, NULL);
 }
@@ -433,7 +433,6 @@ enum mi_cmd_result
 mi_cmd_break_catch (char *command, char **argv, int argc)
 {
   enum exception_event_kind ex_event;
-  int ret_val;
 
   if (argc < 1)
     error ("mi_cmd_break_catch: USAGE: %s [catch|throw] [on|off]", command);

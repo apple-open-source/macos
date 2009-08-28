@@ -181,3 +181,8 @@ findOffsetInRanges ( mach_vm_address_t address, unsigned rangeCount, IOAddressRa
 	return found ;
 }
 
+void
+IOFWGetAbsoluteTime( AbsoluteTime * result )
+{
+	*((uint64_t*)result) = mach_absolute_time();
+}

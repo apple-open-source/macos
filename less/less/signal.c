@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2004  Mark Nudelman
+ * Copyright (C) 1984-2007  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -34,7 +34,8 @@ extern int linenums;
 extern int wscroll;
 extern int reading;
 extern int quit_on_intr;
-extern int more_mode;
+extern int less_is_more;
+extern long jump_sline_fraction;
 
 /*
  * Interrupt signal handler.
@@ -58,7 +59,7 @@ u_interrupt(type)
 	if (kbhit())
 		getkey();
 #endif
-	if (more_mode)
+	if (less_is_more)
 		quit(0);
 	if (reading)
 		intread();
@@ -156,13 +157,12 @@ init_signals(on)
 #endif
 #ifdef SIGWINCH
 		(void) LSIGNAL(SIGWINCH, winch);
-#else
+#endif
 #ifdef SIGWIND
 		(void) LSIGNAL(SIGWIND, winch);
 #endif
 #ifdef SIGQUIT
 		(void) LSIGNAL(SIGQUIT, SIG_IGN);
-#endif
 #endif
 	} else
 	{
@@ -245,6 +245,7 @@ psignals()
 		if (sc_width != old_width || sc_height != old_height)
 		{
 			wscroll = (sc_height + 1) / 2;
+			calc_jump_sline();
 			screen_trashed = 1;
 		}
 	}

@@ -318,6 +318,8 @@
     </form>
     <ul><!-- style="margin-left: -1em" -->
       <li><a href="index.html">Home</a></li>
+      <!--<li><a href="http://xmlsoft.org/wiki">Wiki</a></li> -->
+      <li><a href="html/index.html">Reference Manual</a></li>
       <xsl:for-each select="/html/body/h2">
         <xsl:variable name="filename">
           <xsl:call-template name="tocfilename">
@@ -352,6 +354,7 @@
     </form>
     <ul><!-- style="margin-left: -1em" -->
       <li><a href="index.html" style="font-weight:bold">Main Menu</a></li>
+      <li><a href="html/index.html" style="font-weight:bold">Reference Manual</a></li>
       <li><a href="examples/index.html" style="font-weight:bold">Code Examples</a></li>
       <li><a href="guidelines.html">XML Guidelines</a></li>
       <li><a href="tutorial/index.html">Tutorial</a></li>
@@ -394,9 +397,15 @@
       <li><a href="http://www.aleksey.com/xmlsec/">XML-DSig xmlsec</a></li>
       <li><a href="ftp://xmlsoft.org/">FTP</a></li>
       <li><a href="http://www.zlatkovic.com/projects/libxml/">Windows binaries</a></li>
-      <li><a href="http://garypennington.net/libxml2/">Solaris binaries</a></li>
-      <li><a href="http://www.zveno.com/open_source/libxml2xslt.html">MacOsX binaries</a></li>
+      <li><a href="http://www.blastwave.org/packages.php/libxml2">Solaris binaries</a></li>
+      <li><a href="http://www.explain.com.au/oss/libxml2xslt.html">MacOsX binaries</a></li>
+      <li><a href="http://codespeak.net/lxml/">lxml Python bindings</a></li>
+      <li><a href="http://cpan.uwinnipeg.ca/dist/XML-LibXML">Perl bindings</a></li>
+      <li><a href="http://libxmlplusplus.sourceforge.net/">C++ bindings</a></li>
+      <li><a href="http://www.zend.com/php5/articles/php5-xmlphp.php#Heading4">PHP bindings</a></li>
       <li><a href="http://sourceforge.net/projects/libxml2-pas/">Pascal bindings</a></li>
+      <li><a href="http://libxml.rubyforge.org/">Ruby bindings</a></li>
+      <li><a href="http://tclxml.sourceforge.net/">Tcl bindings</a></li>
       <li><a href="http://bugzilla.gnome.org/buglist.cgi?product=libxml2">Bug Tracker</a></li>
     </ul>
   </xsl:variable>

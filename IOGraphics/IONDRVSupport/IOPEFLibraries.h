@@ -30,7 +30,7 @@ extern "C" {
 
 struct FunctionEntry
 {
-    char        *   name;
+    const char *    name;
     LogicalAddress  address;
     LogicalAddress  toc;
 };
@@ -38,7 +38,7 @@ typedef struct FunctionEntry FunctionEntry;
 
 struct LibraryEntry
 {
-    char        *   name;
+    const char *    name;
     ItemCount       numSyms;
     FunctionEntry * functions;
 };

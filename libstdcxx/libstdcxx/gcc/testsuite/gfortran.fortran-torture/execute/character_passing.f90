@@ -1,13 +1,14 @@
 ! PR middle-end/20030
 ! we were messing up the access in LSAME for
-! the character agruments.
+! the character arguments.
       program foo
       character*1 a1, a2, b
+      logical LSAME, x
       a1='A'
       a2='A'
       b='B'
       x = LSAME(a1,a2)
-      if ( x.ne.1 ) then
+      if ( .not. x ) then
         call abort  ();
       endif
       end

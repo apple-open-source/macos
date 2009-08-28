@@ -7,4 +7,7 @@ MANPAGES = ypxfr.8
 
 #ypxfr_1perday.sh ypxfr_1perhour.sh ypxfr_2perday.sh
 
+Extra_CC_Flags = -Wall -Werror -fPIE
+Extra_LD_Flags = -dead_strip -pie
+
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -63,11 +63,11 @@ static void
 SwapFloat80	( Float80 * value );
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 // 	SwapContainerChunk	-	This converts a little endian representation
 //									of a ContainerChunk into a big endian
 //									representation
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 static void
 SwapContainerChunk ( ContainerChunk * chunk )
@@ -80,11 +80,11 @@ SwapContainerChunk ( ContainerChunk * chunk )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 // 	SwapContainerChunk	-	This converts a little endian representation
 //										of a FormatVersionChunk into a big endian
 //										representation
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 static void
 SwapFormatVersionChunk ( FormatVersionChunk * chunk )
@@ -97,11 +97,11 @@ SwapFormatVersionChunk ( FormatVersionChunk * chunk )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 // 	SwapExtCommonChunk	-	This converts a little endian representation
 //									of an ExtCommonChunk into a big endian
 //									representation
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 static void
 SwapExtCommonChunk ( ExtCommonChunk * chunk )
@@ -119,11 +119,11 @@ SwapExtCommonChunk ( ExtCommonChunk * chunk )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 // 	SwapSoundDataChunk	-	This converts a little endian representation
 //									of a SoundDataChunk into a big endian
 //									representation
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 static void
 SwapSoundDataChunk ( SoundDataChunk * chunk )
@@ -137,11 +137,11 @@ SwapSoundDataChunk ( SoundDataChunk * chunk )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 // 	SwapCDAIFFHeader	-	This converts a little endian representation
 //								of a CDAIFFHeader into a big endian
 //								representation
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 static void
 SwapCDAIFFHeader ( CDAIFFHeader * header )
@@ -155,10 +155,10 @@ SwapCDAIFFHeader ( CDAIFFHeader * header )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 // 	SwapFloat80	-	This converts a little endian representation
 //							of a Float80 into a big endian representation
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 static void
 SwapFloat80	( Float80 * data )
@@ -176,10 +176,10 @@ SwapFloat80	( Float80 * data )
 #endif /* defined(__LITTLE_ENDIAN__) */
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 // 	BuildCDAIFFHeader	-	This routine builds a CDAIFFHeader and explicitly
 //							makes it Big Endian (as defined by AIFF standard)
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 void
 BuildCDAIFFHeader ( CDAIFFHeader * header, uint32_t fileSize )
@@ -199,12 +199,12 @@ BuildCDAIFFHeader ( CDAIFFHeader * header, uint32_t fileSize )
 	
 	// Setup the version chunk
 	formatVersionChunkPtr->ckID			= kFormatVersionID;
-	formatVersionChunkPtr->ckSize		= ( sizeof ( FormatVersionChunk ) - sizeof ( ChunkHeader ) );
+	formatVersionChunkPtr->ckSize		= ( uint32_t )( sizeof ( FormatVersionChunk ) - sizeof ( ChunkHeader ) );
 	formatVersionChunkPtr->timeStamp	= kAIFCVersion1;
 	
 	// Setup the common chunk
 	commonChunkPtr->ckID 				= kCommonID;
-	commonChunkPtr->ckSize 				= ( sizeof ( ExtCommonChunk ) - sizeof ( ChunkHeader ) );
+	commonChunkPtr->ckSize 				= ( uint32_t )( sizeof ( ExtCommonChunk ) - sizeof ( ChunkHeader ) );
 	commonChunkPtr->numChannels 		= kStereo;			// 2 channels
 	commonChunkPtr->numSampleFrames 	= dataSize / 4; 	// 4 = ( k16BitsPerSample / 8 ) * kStereo
 	commonChunkPtr->sampleSize 			= k16BitsPerSample;	// Set the sample size to 16 bits
@@ -219,17 +219,18 @@ BuildCDAIFFHeader ( CDAIFFHeader * header, uint32_t fileSize )
 	
 	// Setup the soundData chunk
 	soundDataChunkPtr->ckID 		= kSoundDataID;
-	soundDataChunkPtr->offset 		= kPhysicalMediaBlockSize - sizeof ( CDAIFFHeader );
-	soundDataChunkPtr->ckSize 		= ( sizeof ( SoundDataChunk ) - sizeof ( ChunkHeader ) ) +
-									  dataSize + soundDataChunkPtr->offset;
+	soundDataChunkPtr->offset 		= ( uint32_t ) ( kPhysicalMediaBlockSize - sizeof ( CDAIFFHeader ) );
+	soundDataChunkPtr->ckSize 		= ( uint32_t ) ( ( sizeof ( SoundDataChunk ) - sizeof ( ChunkHeader ) ) +
+									  dataSize + soundDataChunkPtr->offset );
 	soundDataChunkPtr->blockSize 	= 0;
 	
 	// Setup the container chunk
 	containerChunkPtr->ckID 	= kFormID;
-	containerChunkPtr->ckSize 	= ( sizeof ( ContainerChunk ) - sizeof ( ChunkHeader ) ) +		// size of container chunk variables
-					   			  ( formatVersionChunkPtr->ckSize + sizeof ( ChunkHeader ) ) + 	// size of common chunk
-					   			  ( commonChunkPtr->ckSize + sizeof ( ChunkHeader ) ) + 		// size of common chunk
-					   			  ( soundDataChunkPtr->ckSize + sizeof ( ChunkHeader ) );		// size of sound data chunk
+	containerChunkPtr->ckSize 	= ( uint32_t )
+								  ( ( sizeof ( ContainerChunk ) - sizeof ( ChunkHeader ) ) +		// size of container chunk variables
+					   			    ( formatVersionChunkPtr->ckSize + sizeof ( ChunkHeader ) ) + 	// size of common chunk
+					   			    ( commonChunkPtr->ckSize + sizeof ( ChunkHeader ) ) +			// size of common chunk
+					   			    ( soundDataChunkPtr->ckSize + sizeof ( ChunkHeader ) ) );		// size of sound data chunk
 	
 	// Save as uncompressed AIFF-C
 	containerChunkPtr->formType = kAIFCID;
@@ -246,6 +247,6 @@ BuildCDAIFFHeader ( CDAIFFHeader * header, uint32_t fileSize )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //				End				Of			File
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------

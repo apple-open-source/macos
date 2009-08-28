@@ -48,7 +48,11 @@
 //
 PIVError::PIVError(uint16_t sw) : SCardError(sw)
 {
+#if MAX_OS_X_VERSION_MIN_REQUIRED <= MAX_OS_X_VERSION_10_5
 	IFDEBUG(debugDiagnose(this));
+#else
+	SECURITY_EXCEPTION_THROW_OTHER(this, sw, (char *)"PIV");
+#endif
 }
 
 PIVError::~PIVError() throw ()
@@ -78,11 +82,15 @@ void PIVError::throwMe(uint16_t sw)
 
 #if !defined(NDEBUG)
 
+#if MAX_OS_X_VERSION_MIN_REQUIRED <= MAX_OS_X_VERSION_10_5
+
 void PIVError::debugDiagnose(const void *id) const
 {
     secdebug("exception", "%p PIVError %s (%04hX)",
              id, errorstr(statusWord), statusWord);
 }
+
+#endif // MAX_OS_X_VERSION_MIN_REQUIRED <= MAX_OS_X_VERSION_10_5
 
 const char *PIVError::errorstr(uint16_t sw) const
 {

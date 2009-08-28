@@ -252,7 +252,6 @@
 			productRefGroup = 034768DFFF38A50411DB9C8B /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
-			shouldCheckCompatibility = 1;
 			targets = (
 				305DF1ED0B851A6000A5B409 /* cracklib */,
 			);
@@ -279,9 +278,8 @@
 			buildSettings = {
 				BUILD_VARIANTS = debug;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 30889;
+				DYLIB_CURRENT_VERSION = 36064;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_ENABLE_OBJC_GC = YES;
 				GCC_FAST_OBJC_DISPATCH = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -307,8 +305,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 30889;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				DYLIB_CURRENT_VERSION = 36064;
 				GCC_ENABLE_OBJC_GC = YES;
 				GCC_FAST_OBJC_DISPATCH = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -334,9 +331,8 @@
 			buildSettings = {
 				BUILD_VARIANTS = debug;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 30889;
+				DYLIB_CURRENT_VERSION = 36064;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"__strong=",
@@ -362,8 +358,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 30889;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				DYLIB_CURRENT_VERSION = 36064;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"__strong=",
 					"CFMakeCollectable=",
@@ -388,7 +383,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 30889;
+				DYLIB_CURRENT_VERSION = 36064;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"CRACKLIB_DICTPATH=/usr/share/cracklib/pw_dict",
 					IN_CRACKLIB,

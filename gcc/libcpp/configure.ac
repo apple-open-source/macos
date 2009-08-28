@@ -22,12 +22,17 @@ AC_CHECK_PROGS([AUTOHEADER], [autoheader], [$MISSING autoheader])
 # See config/warnings.m4 for details.
 
 ACX_PROG_CC_WARNING_OPTS([-W -Wall -Wwrite-strings -Wstrict-prototypes \
-			  -Wmissing-prototypes -Wold-style-definition])
+			  -Wmissing-prototypes -Wold-style-definition \
+			  -Wmissing-format-attribute])
 ACX_PROG_CC_WARNING_ALMOST_PEDANTIC([-Wno-long-long])
 
 # Only enable with --enable-werror-always until existing warnings are
 # corrected.
 ACX_PROG_CC_WARNINGS_ARE_ERRORS([manual])
+
+# Dependency checking.
+ZW_CREATE_DEPDIR
+ZW_PROG_COMPILER_DEPENDENCIES([CC])
 
 # Checks for header files.
 AC_HEADER_TIME
@@ -50,7 +55,8 @@ define(libcpp_UNLOCKED_FUNCS, clearerr_unlocked feof_unlocked dnl
   fread_unlocked fwrite_unlocked getchar_unlocked getc_unlocked dnl
   putchar_unlocked putc_unlocked)
 AC_CHECK_FUNCS(libcpp_UNLOCKED_FUNCS)
-AC_CHECK_DECLS(m4_split(m4_normalize(abort basename errno getopt libcpp_UNLOCKED_FUNCS)))
+AC_CHECK_DECLS(m4_split(m4_normalize(abort asprintf basename errno getopt \
+  libcpp_UNLOCKED_FUNCS vasprintf)))
 
 # Checks for library functions.
 AC_FUNC_ALLOCA
@@ -106,14 +112,13 @@ fi
 
 m4_changequote(,)
 case $target in
-	# APPLE LOCAL begin 4126124
 	alpha*-*-* | \
-	arm*-*-eabi* | \
+	arm*-*-*eabi* | \
 	arm*-*-symbianelf* | \
 	x86_64-*-* | \
 	ia64-*-* | \
 	hppa*64*-*-* | parisc*64*-*-* | \
-	i[34567]86-*-darwin[0-9]* | \
+	i[34567]86-*-darwin* | \
 	i[34567]86-*-solaris2.1[0-9]* | \
 	mips*-*-* | \
 	mmix-*-* | \
@@ -124,7 +129,6 @@ case $target in
 	sparcv9-*-solaris2* | \
 	sparc-*-solaris2.[789] | sparc-*-solaris2.1[0-9]* | \
 	sh[123456789l]*-*-*)
-	# APPLE LOCAL end 4126124
 		need_64bit_hwint=yes ;;
 	*)
 		need_64bit_hwint=no ;;

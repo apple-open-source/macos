@@ -154,7 +154,7 @@ IOFireWireNubAux * IOFireWireUnit::createAuxiliary( void )
 {
 	IOFireWireUnitAux * auxiliary;
     
-	auxiliary = new IOFireWireUnitAux;
+	auxiliary = OSTypeAlloc( IOFireWireUnitAux );
 
     if( auxiliary != NULL && !auxiliary->init(this) ) 
 	{
@@ -344,7 +344,11 @@ void IOFireWireUnit::handleClose(   IOService *	  	forClient,
 		
 		retain();		// will be released in thread function
 		
-		IOCreateThread( IOFireWireUnit::terminateUnitThreadFunc, this );
+		thread_t		thread;
+		if( kernel_thread_start((thread_continue_t)IOFireWireUnit::terminateUnitThreadFunc, this, &thread) == KERN_SUCCESS )
+		{
+			thread_deallocate(thread);
+		}
 	}
 	
 	release();
@@ -388,7 +392,11 @@ void IOFireWireUnit::terminateUnit( void )
 			
 			retain();		// will be released in thread function
 			
-			IOCreateThread( IOFireWireUnit::terminateUnitThreadFunc, this );
+			thread_t		thread;
+			if( kernel_thread_start((thread_continue_t)IOFireWireUnit::terminateUnitThreadFunc, this, &thread) == KERN_SUCCESS )
+			{
+				thread_deallocate(thread);
+			}
 		}
 	}
 	

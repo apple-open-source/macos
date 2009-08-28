@@ -30,6 +30,9 @@ class IOFireWireController;
 // Callback when phy packet is received
 typedef void (*FWPHYPacketCallback)( void *refcon, UInt32 data1, UInt32 data2 );
 
+/*! @class IOFWPHYPacketListener
+*/
+
 class IOFWPHYPacketListener : public OSObject
 {
 	OSDeclareDefaultStructors( IOFWPHYPacketListener );

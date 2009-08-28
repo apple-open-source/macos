@@ -91,7 +91,7 @@ private:
 class AtomicBufferedFile : public RefCount
 {
 public:
-	AtomicBufferedFile(const std::string &inPath);
+	AtomicBufferedFile(const std::string &inPath, bool isLocalFileSystem);
 	~AtomicBufferedFile();
 
 	// Open the file and return it's size.
@@ -110,6 +110,10 @@ public:
 	off_t length() const { return mLength; }
 
 private:
+	void loadBuffer();
+	void unloadBuffer();
+	
+private:
 	// Complete path to the file
 	string mPath;
 
@@ -121,6 +125,9 @@ private:
 
 	// Length of file in bytes.
 	off_t mLength;
+	
+	// Is on a local file system
+	bool mIsMapped;
 };
 
 

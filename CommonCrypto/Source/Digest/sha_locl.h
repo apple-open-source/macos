@@ -102,7 +102,11 @@
 #elif defined(SHA_1)
 
 #ifdef	_APPLE_COMMON_CRYPTO_
+#if CC_SHA1_USE_HARDWARE
+# define HASH_UPDATE             	_CC_SHA1_Update
+#else
 # define HASH_UPDATE             	CC_SHA1_Update
+#endif
 # define HASH_TRANSFORM          	CC_SHA1_Transform
 # define HASH_FINAL              	CC_SHA1_Final
 # define HASH_INIT					CC_SHA1_Init
@@ -126,15 +130,17 @@
 					)
 # endif
 
-# ifdef SHA1_ASM
-#  if defined(__i386) || defined(__i386__) || defined(_M_IX86) || defined(__INTEL__) || defined(__x86_64__)
-#   define sha1_block_host_order		sha1_block_asm_host_order
-#   define DONT_IMPLEMENT_BLOCK_HOST_ORDER
-#   define sha1_block_data_order		sha1_block_asm_data_order
-#   define DONT_IMPLEMENT_BLOCK_DATA_ORDER
-#   define HASH_BLOCK_DATA_ORDER_ALIGNED	sha1_block_asm_data_order
-#  endif
-# endif
+#define SHA1_ASM
+#ifdef SHA1_ASM
+	#if defined __i386__ || defined __x86_64__
+		#define sha1_block_host_order		sha1_block_asm_host_order
+		#define DONT_IMPLEMENT_BLOCK_HOST_ORDER
+		#define sha1_block_data_order		sha1_block_asm_data_order
+		#define DONT_IMPLEMENT_BLOCK_DATA_ORDER
+		#define HASH_BLOCK_DATA_ORDER_ALIGNED	sha1_block_asm_data_order
+  		#include "sha1edp.h"
+	#endif
+#endif
 __private_extern__ void sha1_block_host_order (SHA_CTX *c, const void *p,int num);
 __private_extern__ void sha1_block_data_order (SHA_CTX *c, const void *p,int num);
 

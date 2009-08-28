@@ -60,7 +60,9 @@ static	void	ctl_putid	P((const char *, char *));
 static	void	ctl_putarray	P((const char *, double *, int));
 static	void	ctl_putsys	P((int));
 static	void	ctl_putpeer	P((int, struct peer *));
+#ifdef OPENSSL
 static	void	ctl_putfs	P((const char *, tstamp_t));
+#endif
 #ifdef REFCLOCK
 static	void	ctl_putclock	P((int, struct refclockstat *, int));
 #endif	/* REFCLOCK */
@@ -361,11 +363,11 @@ int num_ctl_traps;
 static u_char clocktypes[] = {
 	CTL_SST_TS_NTP, 	/* REFCLK_NONE (0) */
 	CTL_SST_TS_LOCAL,	/* REFCLK_LOCALCLOCK (1) */
-	CTL_SST_TS_UHF, 	/* REFCLK_GPS_TRAK (2) */
+	CTL_SST_TS_UHF, 	/* deprecated REFCLK_GPS_TRAK (2) */
 	CTL_SST_TS_HF,		/* REFCLK_WWV_PST (3) */
 	CTL_SST_TS_LF,		/* REFCLK_WWVB_SPECTRACOM (4) */
 	CTL_SST_TS_UHF, 	/* REFCLK_TRUETIME (5) */
-	CTL_SST_TS_UHF, 	/* REFCLK_GOES_TRAK (6) */
+	CTL_SST_TS_UHF, 	/* REFCLK_GOES_TRAK (6) IRIG_AUDIO? */
 	CTL_SST_TS_HF,		/* REFCLK_CHU (7) */
 	CTL_SST_TS_LF,		/* REFCLOCK_PARSE (default) (8) */
 	CTL_SST_TS_LF,		/* REFCLK_GPS_MX4200 (9) */
@@ -373,7 +375,7 @@ static u_char clocktypes[] = {
 	CTL_SST_TS_UHF, 	/* REFCLK_GPS_ARBITER (11) */
 	CTL_SST_TS_UHF, 	/* REFCLK_IRIG_TPRO (12) */
 	CTL_SST_TS_ATOM,	/* REFCLK_ATOM_LEITCH (13) */
-	CTL_SST_TS_LF,		/* REFCLK_MSF_EES (14) */
+	CTL_SST_TS_LF,		/* deprecated REFCLK_MSF_EES (14) */
 	CTL_SST_TS_NTP, 	/* not used (15) */
 	CTL_SST_TS_UHF, 	/* REFCLK_IRIG_BANCOMM (16) */
 	CTL_SST_TS_UHF, 	/* REFCLK_GPS_DATU (17) */
@@ -1004,6 +1006,7 @@ ctl_putuint(
 /*
  * ctl_putfs - write a decoded filestamp into the response
  */
+#ifdef OPENSSL
 static void
 ctl_putfs(
 	const char *tag,
@@ -1033,6 +1036,7 @@ ctl_putfs(
 		cp++;
 	ctl_putdata(buffer, (unsigned)( cp - buffer ), 0);
 }
+#endif
 
 
 /*
@@ -1497,8 +1501,13 @@ ctl_putpeer(
 		break;
 
 	case CP_DSTADR:
-		ctl_putadr(peer_var[CP_DSTADR].text, 0,
-		    &(peer->dstadr->sin));
+		if (peer->dstadr) {
+			ctl_putadr(peer_var[CP_DSTADR].text, 0,
+				   &(peer->dstadr->sin));
+		} else {
+			ctl_putadr(peer_var[CP_DSTADR].text, 0,
+				   NULL);
+		}
 		break;
 
 	case CP_DSTPORT:
@@ -2965,7 +2974,7 @@ set_var(
 
 void
 set_sys_var(
-	char *data,
+	const char *data,
 	u_long size,
 	u_short def
 	)

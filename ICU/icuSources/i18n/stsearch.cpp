@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 2001-2006 IBM and others. All rights reserved.
+*   Copyright (C) 2001-2008 IBM and others. All rights reserved.
 **********************************************************************
 *   Date        Name        Description
 *  03/22/2000   helena      Creation.
@@ -9,7 +9,7 @@
 
 #include "unicode/utypes.h"
 
-#if !UCONFIG_NO_COLLATION
+#if !UCONFIG_NO_COLLATION && !UCONFIG_NO_BREAK_ITERATION
 
 #include "unicode/stsearch.h"
 #include "usrchimp.h"
@@ -220,9 +220,12 @@ StringSearch & StringSearch::operator=(const StringSearch &that)
                                               m_text_.length(),
                                               that.m_strsrch_->collator,
                                               NULL, &status);
-        // Alias the collator
-        m_collator_.setUCollator((UCollator *)m_strsrch_->collator);
-        m_search_ = m_strsrch_->search;
+        // Check null pointer
+        if (m_strsrch_ != NULL) {
+	        // Alias the collator
+	        m_collator_.setUCollator((UCollator *)m_strsrch_->collator);
+	        m_search_ = m_strsrch_->search;
+        }
     }
     return *this;
 }
@@ -347,11 +350,13 @@ int32_t StringSearch::handleNext(int32_t position, UErrorCode &status)
             // looking at usearch.cpp, this part is shifted out to
             // StringSearch instead of SearchIterator because m_strsrch_ is
             // not accessible in SearchIterator
+#if 0
             if (position + m_strsrch_->pattern.defaultShiftSize
                 > m_search_->textLength) {
                 setMatchNotFound();
                 return USEARCH_DONE;
             }
+#endif
             if (m_search_->matchedLength <= 0) {
                 // the flipping direction issue has already been handled
                 // in next()
@@ -363,7 +368,9 @@ int32_t StringSearch::handleNext(int32_t position, UErrorCode &status)
             }
 
             ucol_setOffset(m_strsrch_->textIter, position, &status);
-            while (TRUE) {
+            
+#if 0
+            for (;;) {
                 if (m_search_->isCanonicalMatch) {
                     // can't use exact here since extra accents are allowed.
                     usearch_handleNextCanonical(m_strsrch_, &status);
@@ -394,6 +401,29 @@ int32_t StringSearch::handleNext(int32_t position, UErrorCode &status)
                     return m_search_->matchedIndex;
                 }
             }
+#else
+            // if m_strsrch_->breakIter is always the same as m_breakiterator_
+            // then we don't need to check the match boundaries here because
+            // usearch_handleNextXXX will already have done it.
+            if (m_search_->isCanonicalMatch) {
+            	// *could* actually use exact here 'cause no extra accents allowed...
+            	usearch_handleNextCanonical(m_strsrch_, &status);
+            } else {
+            	usearch_handleNextExact(m_strsrch_, &status);
+            }
+            
+            if (U_FAILURE(status)) {
+            	return USEARCH_DONE;
+            }
+            
+            if (m_search_->matchedIndex == USEARCH_DONE) {
+            	ucol_setOffset(m_strsrch_->textIter, m_search_->textLength, &status);
+            } else {
+            	ucol_setOffset(m_strsrch_->textIter, m_search_->matchedIndex, &status);
+            }
+            
+            return m_search_->matchedIndex;
+#endif
         }
     }
     return USEARCH_DONE;
@@ -421,12 +451,14 @@ int32_t StringSearch::handlePrev(int32_t position, UErrorCode &status)
             // looking at usearch.cpp, this part is shifted out to
             // StringSearch instead of SearchIterator because m_strsrch_ is
             // not accessible in SearchIterator
+#if 0
             if (!m_search_->isOverlap &&
                 position - m_strsrch_->pattern.defaultShiftSize < 0) {
                 setMatchNotFound();
                 return USEARCH_DONE;
             }
-            while (TRUE) {
+            
+            for (;;) {
                 if (m_search_->isCanonicalMatch) {
                     // can't use exact here since extra accents are allowed.
                     usearch_handlePreviousCanonical(m_strsrch_, &status);
@@ -449,6 +481,22 @@ int32_t StringSearch::handlePrev(int32_t position, UErrorCode &status)
                     return m_search_->matchedIndex;
                 }
             }
+#else
+            ucol_setOffset(m_strsrch_->textIter, position, &status);
+            
+            if (m_search_->isCanonicalMatch) {
+            	// *could* use exact match here since extra accents *not* allowed!
+            	usearch_handlePreviousCanonical(m_strsrch_, &status);
+            } else {
+            	usearch_handlePreviousExact(m_strsrch_, &status);
+            }
+            
+            if (U_FAILURE(status)) {
+            	return USEARCH_DONE;
+            }
+            
+            return m_search_->matchedIndex;
+#endif
         }
 
         return m_search_->matchedIndex;

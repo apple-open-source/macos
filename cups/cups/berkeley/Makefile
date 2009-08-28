@@ -1,9 +1,9 @@
 #
-# "$Id: Makefile 6649 2007-07-11 21:46:42Z mike $"
+# "$Id: Makefile 7871 2008-08-27 21:12:43Z mike $"
 #
 #   Berkeley commands makefile for the Common UNIX Printing System (CUPS).
 #
-#   Copyright 2007 by Apple Inc.
+#   Copyright 2007-2009 by Apple Inc.
 #   Copyright 1997-2006 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -15,6 +15,7 @@
 
 include ../Makedefs
 
+
 TARGETS	=	lpc lpq lpr lprm
 OBJS	=	lpc.o lpq.o lpr.o lprm.o
 
@@ -24,6 +25,20 @@ OBJS	=	lpc.o lpq.o lpr.o lprm.o
 #
 
 all:	$(TARGETS)
+
+
+#
+# Make library targets...
+#
+
+libs:
+
+
+#
+# Make unit tests...
+#
+
+unittests:
 
 
 #
@@ -46,11 +61,27 @@ depend:
 # Install all targets...
 #
 
-install:	all
+install:	all install-data install-headers install-libs install-exec
+
+
+#
+# Install data files...
+#
+
+install-data:
+
+
+#
+# Install programs...
+#
+
+install-exec:
+	echo Installing Berkeley user printing commands in $(BINDIR)...
 	$(INSTALL_DIR) -m 755 $(BINDIR)
 	$(INSTALL_BIN) lpq $(BINDIR)
 	$(INSTALL_BIN) lpr $(BINDIR)
 	$(INSTALL_BIN) lprm $(BINDIR)
+	echo Installing Berkeley admin printing commands in $(BINDIR)...
 	$(INSTALL_DIR) -m 755 $(SBINDIR)
 	$(INSTALL_BIN) lpc $(SBINDIR)
 	if test "x$(SYMROOT)" != "x"; then \
@@ -59,6 +90,20 @@ install:	all
 			cp $$file $(SYMROOT); \
 		done \
 	fi
+
+
+#
+# Install headers...
+#
+
+install-headers:
+
+
+#
+# Install libraries...
+#
+
+install-libs:
 
 
 #
@@ -118,5 +163,5 @@ include Dependencies
 
 
 #
-# End of "$Id: Makefile 6649 2007-07-11 21:46:42Z mike $".
+# End of "$Id: Makefile 7871 2008-08-27 21:12:43Z mike $".
 #

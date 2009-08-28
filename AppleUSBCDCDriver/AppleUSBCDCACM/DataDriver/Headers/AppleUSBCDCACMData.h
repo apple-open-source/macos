@@ -33,12 +33,16 @@
 #include "AppleUSBCDCACMDataUser.h"
 
 #define baseName		"usbmodem"
+#define hiddenTag		"HiddenPort"
+#define WWANTag			"WWAN"
+
 #define defaultName		"USB Modem"
 #define productNameLength	32						// Arbitrary length
 #define propertyTag		"Product Name"
 
 #define kDefaultBaudRate	9600
-#define kMaxBaudRate		230400
+#define kMaxBaudRate		6000000
+//#define kMaxBaudRate		230400
 //#define kMaxCirBufferSize	4096
 #define kMaxCirBufferSize	PAGE_SIZE*3
 
@@ -170,8 +174,8 @@ typedef struct
     UInt32		SWspecial[ 0x100 >> SPECIAL_SHIFT ];
     UInt32		FlowControl;			// notify-on-delta & auto_control
 		
-    int			RXOstate;    			// Indicates our receive state.
-    int			TXOstate;			// Indicates our transmit state, if we have received any Flow Control.
+    SInt16		RXOstate;    			// Indicates our receive state.
+    SInt16		TXOstate;			// Indicates our transmit state, if we have received any Flow Control.
 	
     IOThread		FrameTOEntry;
 	
@@ -248,6 +252,9 @@ public:
 	UInt16			fVendorID;				// Vendor ID
     UInt16			fProductID;				// Product ID
 
+	UInt32				bsdClientState;
+	IONotifier *		bsdClientAddedNotifier;
+	
         // IOKit methods:
 		
 	virtual IOService   *probe(IOService *provider, SInt32 *score);
@@ -269,9 +276,12 @@ public:
     virtual IOReturn		dequeueEvent(UInt32 *event, UInt32 *data, bool sleep, void *refCon);
     virtual IOReturn		enqueueData(UInt8 *buffer, UInt32 size, UInt32 * count, bool sleep, void *refCon);
     virtual IOReturn		dequeueData(UInt8 *buffer, UInt32 size, UInt32 *count, UInt32 min, void *refCon);
+	bool					findSerialBSDClient (IOModemSerialStreamSync *nub);
     
         // Static stubs for IOCommandGate::runAction
         
+	static IOReturn			waitForBSDClienAction(OSObject *owner, void *, void *, void *, void *);
+    static bool				bsdClientPublished(AppleUSBCDCACMData *target, void *ref, IOService *newService,IONotifier * notifier);
     static	IOReturn	stopAction(OSObject *owner, void *, void *, void *, void *);
     static	IOReturn	acquirePortAction(OSObject *owner, void *arg0, void *, void *, void *);
     static	IOReturn	releasePortAction(OSObject *owner, void *, void *, void *, void *);
@@ -284,15 +294,16 @@ public:
     
         // Gated methods called by the Static stubs
 
+	virtual IOReturn	waitForBSDClientGated(void);
     virtual	void		stopGated(void);
     virtual	IOReturn	acquirePortGated(bool sleep);
     virtual	IOReturn	releasePortGated(void);
     virtual	UInt32		getStateGated(void);
-    virtual	IOReturn	setStateGated(UInt32 state, UInt32 mask);
-    virtual	IOReturn	watchStateGated(UInt32 *state, UInt32 mask);
-    virtual	IOReturn	executeEventGated(UInt32 event, UInt32 data);
-    virtual	IOReturn	enqueueDataGated(UInt8 *buffer, UInt32 size, UInt32 *count, bool sleep);
-    virtual	IOReturn	dequeueDataGated(UInt8 *buffer, UInt32 size, UInt32 *count, UInt32 min);
+    virtual	IOReturn	setStateGated(UInt32 *pState, UInt32 *pMask);
+    virtual	IOReturn	watchStateGated(UInt32 *pState, UInt32 *pMask);
+    virtual	IOReturn	executeEventGated(UInt32 *pEvent, UInt32 *pData);
+    virtual	IOReturn	enqueueDataGated(UInt8 *buffer, UInt32 *size, UInt32 *count, bool *pSleep);
+    virtual	IOReturn	dequeueDataGated(UInt8 *buffer, UInt32 *size, UInt32 *count, UInt32 *min);
 												
         // CDC Data Driver Methods
 	
@@ -349,7 +360,7 @@ private:
     task_t		fTask;
 
 public:
-    IOExternalMethod	*getExternalMethodForIndex(UInt32 index);
+    IOExternalMethod	*getTargetAndMethodForIndex(IOService **targetP, UInt32 index);
     bool		initWithTask(task_t owningTask, void *security_id , UInt32 type);
     bool		start(IOService *provider);
     IOReturn		clientClose(void);

@@ -227,7 +227,6 @@ typedef volatile struct StdFBShmem_t StdFBShmem_t;
 /*! @enum FramebufferConstants
     @constant kIOFBCurrentShmemVersion The current version of the slice of shared memory that contains the cursor and window server state data in the StdFBShmem_t structure.
     @constant kIOFBCursorMemory The memory type for IOConnectMapMemory() to get a slice of shared memory that contains the StdFBShmem_t structure.
-    @constant kIOFBVRAMMemory The memory type for IOConnectMapMemory() to get the VRAM memory. Use a memory type equal to the IOPixelAperture index to get a particular pixel aperture.
 */
 enum {
     // version for IOFBCreateSharedCursor
@@ -241,9 +240,7 @@ enum {
     kIOFBShmemCursorNumFramesShift	= 16,
 
     // memory types for IOConnectMapMemory.
-    // 0..n are apertures
-    kIOFBCursorMemory		= 100,
-    kIOFBVRAMMemory		= 110
+    kIOFBCursorMemory		= 100
 };
 
 /*! @defined IOFRAMEBUFFER_CONFORMSTO

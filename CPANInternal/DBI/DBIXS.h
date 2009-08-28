@@ -1,4 +1,4 @@
-/* $Id: DBIXS.h,v 11.18 2004/02/01 11:16:16 timbo Exp $
+/* $Id: DBIXS.h 10899 2008-03-10 12:00:51Z timbo $
  *
  * Copyright (c) 1994-2002  Tim Bunce  Ireland
  *
@@ -27,6 +27,9 @@
 #undef std
 #endif
 
+/* define DBIXS_REVISION */
+#include "dbixs_rev.h"
+
 /* Perl backwards compatibility definitions */
 #include "dbipport.h"
 
@@ -41,6 +44,7 @@
  * and learns from the needs of various drivers.  See also the
  * DBISTATE_VERSION macro below. You can think of DBIXS_VERSION as
  * being a compile time check and DBISTATE_VERSION as a runtime check.
+ * By contract, DBIXS_REVISION is a driver source compatibility tool.
  */
 #define DBIXS_VERSION 93
 
@@ -133,13 +137,13 @@ struct imp_xxh_st { struct dbih_com_st com; };
 typedef struct {		/* -- DRIVER --				*/
     dbih_com_std_t	std;
     dbih_com_attr_t	attr;
-    HV          *cached_kids;	/* $drh->connect_cached(...)		*/
+    HV          *_old_cached_kids; /* not used, here for binary compat */
 } dbih_drc_t;
 
 typedef struct {		/* -- DATABASE --			*/
     dbih_com_std_t	std;	/* \__ standard structure		*/
     dbih_com_attr_t	attr;	/* /   plus... (nothing else right now)	*/
-    HV          *cached_kids;	/* $dbh->prepare_cached(...)		*/
+    HV          *_old_cached_kids; /* not used, here for binary compat */
 } dbih_dbc_t;
 
 typedef struct {		/* -- STATEMENT --			*/
@@ -231,8 +235,8 @@ typedef struct {		/* -- FIELD DESCRIPTOR --		*/
 #define DBIc_FetchHashKeyName(imp) (_imp2com(imp, attr.FetchHashKeyName))
 
 /* handle sub-type specific fields						*/
-/*	dbh	*/
-#define DBIc_CACHED_KIDS(imp)  	_imp2com(imp, cached_kids)
+/*	dbh & drh	*/
+#define DBIc_CACHED_KIDS(imp)  	Nullhv /* no longer used, here for src compat */
 /*	sth	*/
 #define DBIc_NUM_FIELDS(imp)  	_imp2com(imp, num_fields)
 #define DBIc_NUM_PARAMS(imp)  	_imp2com(imp, num_params)
@@ -299,7 +303,7 @@ typedef struct {		/* -- FIELD DESCRIPTOR --		*/
 	imp_xxh_t *ph_com = DBIc_PARENT_COM(imp);			\
 	if (!DBIc_ACTIVE(imp) && ph_com && !dirty			\
 		&& ++DBIc_ACTIVE_KIDS(ph_com) > DBIc_KIDS(ph_com))	\
-	    croak("panic: DBI active kids (%d) > kids (%d)",		\
+	    croak("panic: DBI active kids (%ld) > kids (%ld)",		\
 		DBIc_ACTIVE_KIDS(ph_com), DBIc_KIDS(ph_com));		\
 	DBIc_FLAGS(imp) |=  DBIcf_ACTIVE;				\
     } while(0)
@@ -309,7 +313,7 @@ typedef struct {		/* -- FIELD DESCRIPTOR --		*/
 	if (DBIc_ACTIVE(imp) && ph_com && !dirty			\
 		&& (--DBIc_ACTIVE_KIDS(ph_com) > DBIc_KIDS(ph_com)	\
 		   || DBIc_ACTIVE_KIDS(ph_com) < 0) )			\
-	    croak("panic: DBI active kids (%d) < 0 or > kids (%d)",	\
+	    croak("panic: DBI active kids (%ld) < 0 or > kids (%ld)",	\
 		DBIc_ACTIVE_KIDS(ph_com), DBIc_KIDS(ph_com));		\
 	DBIc_FLAGS(imp) &= ~DBIcf_ACTIVE;				\
     } while(0)
@@ -328,7 +332,7 @@ typedef struct {		/* -- FIELD DESCRIPTOR --		*/
 
 
 #ifdef IN_DBI_XS		/* get Handle Common Data Structure	*/
-#define DBIh_COM(h)         	(dbih_getcom2(h, 0))
+#define DBIh_COM(h)         	(dbih_getcom2(aTHX_ h, 0))
 #else
 #define DBIh_COM(h)         	(DBIS->getcom(h))
 #define neatsvpv(sv,len)       	(DBIS->neat_svpv(sv,len))
@@ -410,7 +414,7 @@ struct dbistate_st {
     AV        * (*get_fbav)	_((imp_sth_t *imp_sth));
     SV        * (*make_fdsv)	_((SV *sth, const char *imp_class, STRLEN imp_size, const char *col_name));
     int         (*bind_as_num)	_((int sql_type, int p, int s, int *t, void *v));
-    int         (*hash)		_((const char *string, long i));
+    I32         (*hash)		_((const char *string, long i));
     SV        * (*preparse)	_((SV *sth, char *statement, IV ps_return, IV ps_accept, void *foo));
 
     SV *neatsvpvlen;		/* only show dbgpvlen chars when debugging pv's	*/
@@ -422,7 +426,11 @@ struct dbistate_st {
     int         (*set_err_char) _((SV *h, imp_xxh_t *imp_xxh, const char *err, IV err_i, const char *errstr, const char *state, const char *method));
     int         (*bind_col)     _((SV *sth, SV *col, SV *ref, SV *attribs));
 
-    void *pad2[5];
+    IO *logfp_ref;	/* DAA keep ptr to filehandle for refcounting */
+
+    /* WARNING: Only add new structure members here, and reduce pad2 to keep */
+    /* the memory footprint exactly the same */
+    void *pad2[4];
 };
 
 /* macros for backwards compatibility */
@@ -459,7 +467,7 @@ struct dbistate_st {
 # define DBISTATE_INIT {	/* typically use in BOOT: of XS file	*/    \
     DBISTATE_INIT_DBIS;	\
     if (DBIS == NULL)	\
-	croak("Unable to get DBI state from %s at %p. DBI not loaded.", DBISTATE_PERLNAME, DBISTATE_ADDRSV); \
+	croak("Unable to get DBI state from %s at %p. DBI not loaded.", DBISTATE_PERLNAME, (void*)DBISTATE_ADDRSV); \
     DBIS->check_version(__FILE__, DBISTATE_VERSION, sizeof(*DBIS), NEED_DBIXS_VERSION, \
 		sizeof(dbih_drc_t), sizeof(dbih_dbc_t), sizeof(dbih_stc_t), sizeof(dbih_fdc_t) \
     ); \
@@ -477,17 +485,16 @@ struct dbistate_st {
 /* attribs value. One day we may add some extra magic in here.		*/
 #define DBD_ATTRIBS_CHECK(func, h, attribs)	\
     if ((attribs) && SvOK(attribs)) {		\
-	STRLEN lna1=0, lna2=0;			\
 	if (!SvROK(attribs) || SvTYPE(SvRV(attribs))!=SVt_PVHV)		\
 	    croak("%s->%s(...): attribute parameter '%s' is not a hash ref",	\
-		    SvPV(h,lna1), func, SvPV(attribs,lna2));		\
+		    SvPV_nolen(h), func, SvPV_nolen(attribs));		\
     } else (attribs) = Nullsv
 
 #define DBD_ATTRIB_GET_SVP(attribs, key,klen)			\
 	(DBD_ATTRIB_OK(attribs)					\
 	    ? hv_fetch((HV*)SvRV(attribs), key,klen, 0)		\
 	    : (SV **)Nullsv)
-	
+
 #define DBD_ATTRIB_GET_IV(attribs, key,klen, svp, var)			\
 	if ((svp=DBD_ATTRIB_GET_SVP(attribs, key,klen)) != NULL)	\
 	    var = SvIV(*svp)

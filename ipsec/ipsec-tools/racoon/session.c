@@ -1,3 +1,5 @@
+/*	$NetBSD: session.c,v 1.7.6.2 2007/08/01 11:52:22 vanhu Exp $	*/
+
 /*	$KAME: session.c,v 1.32 2003/09/24 02:01:17 jinmei Exp $	*/
 
 /*
@@ -62,6 +64,13 @@
 #include <sys/stat.h>
 #include <paths.h>
 
+#include <netinet/in.h>
+#include <netinet/ip.h>
+#include <netinet/ip_icmp.h>
+
+#include <resolv.h>
+#include <TargetConditionals.h>
+
 #include "libpfkey.h"
 
 #include "var.h"
@@ -76,6 +85,8 @@
 #include "evt.h"
 #include "cfparse_proto.h"
 #include "isakmp_var.h"
+#include "isakmp_xauth.h"
+#include "isakmp_cfg.h"
 #include "admin_var.h"
 #include "admin.h"
 #include "privsep.h"
@@ -90,6 +101,11 @@
 #endif
 #include "vpn_control_var.h"
 #include "policy.h"
+#include "algorithm.h" /* XXX ??? */
+
+#include "sainfo.h"
+
+
 
 extern pid_t racoon_pid;
 static void close_session __P((void));
@@ -109,6 +125,7 @@ static int nfds = 0;
 static volatile sig_atomic_t sigreq[NSIG + 1];
 static int dying = 0;
 static struct sched *check_rtsock_sched = NULL;
+int terminated = 0;
 
 int
 session(void)
@@ -126,7 +143,11 @@ session(void)
 
 	initmyaddr();
 
+#ifndef __APPLE__
 	if (isakmp_init() < 0) {
+#else
+	if (isakmp_init(false) < 0) {
+#endif /* __APPLE__ */
 		plog(LLV_ERROR2, LOCATION, NULL,
 				"failed to initialize isakmp");
 		exit(1);
@@ -145,6 +166,7 @@ session(void)
 			"failed to initialize vpn control port");
 		exit(1);
 	}
+	
 #endif
 
 	init_signal();
@@ -169,12 +191,12 @@ session(void)
 	if (!f_foreground) {
 		racoon_pid = getpid();
 		if (lcconf->pathinfo[LC_PATHTYPE_PIDFILE] == NULL) 
-			strlcpy(pid_file, _PATH_VARRUN "racoon.pid", MAXPATHLEN);
+			strlcpy(pid_file, _PATH_VARRUN "racoon.pid", sizeof(pid_file));
 		else if (lcconf->pathinfo[LC_PATHTYPE_PIDFILE][0] == '/') 
-			strlcpy(pid_file, lcconf->pathinfo[LC_PATHTYPE_PIDFILE], MAXPATHLEN);
+			strlcpy(pid_file, lcconf->pathinfo[LC_PATHTYPE_PIDFILE], sizeof(pid_file));
 		else {
-			strlcat(pid_file, _PATH_VARRUN, MAXPATHLEN);
-			strlcat(pid_file, lcconf->pathinfo[LC_PATHTYPE_PIDFILE], MAXPATHLEN);
+			strlcat(pid_file, _PATH_VARRUN, sizeof(pid_file));
+			strlcat(pid_file, lcconf->pathinfo[LC_PATHTYPE_PIDFILE], sizeof(pid_file));
 		} 
 		fp = fopen(pid_file, "w");
 		if (fp) {
@@ -191,7 +213,7 @@ session(void)
 				"cannot open %s", pid_file);
 		}
 	}
-
+	
 	while (1) {
 		if (!TAILQ_EMPTY(&lcconf->saved_msg_queue))
 			pfkey_post_handler();
@@ -218,7 +240,17 @@ session(void)
 				plog(LLV_ERROR2, LOCATION, NULL,
 					"failed select (%s)\n",
 					strerror(errno));
-				exit(1);
+				/* serious socket problem - close all listening sockets and re-open */
+				if (lcconf->autograbaddr) {
+					isakmp_close(); 
+					initfds();
+					sched_new(5, check_rtsock, NULL);
+				} else {
+					isakmp_close_sockets();
+					isakmp_open();
+					initfds();
+				}
+				continue;
 			}
 			/*NOTREACHED*/
 		}
@@ -249,7 +281,7 @@ session(void)
 						update_fds = 1;		// socket closed by peer - update mask
 			}
 		}
-#endif
+#endif			
 
 		for (p = lcconf->myaddrs; p; p = p->next) {
 			if (!p->addr)
@@ -294,7 +326,9 @@ session(void)
 static void
 close_session()
 {
-	flushph1();
+	if ( terminated )
+		flushph2(false);
+	flushph1(false);
 	close_sockets();
 	backupsa_clean();
 
@@ -367,7 +401,6 @@ initfds()
 			}
 		}
 	}
-
 #endif
 
 	if (lcconf->sock_pfkey >= FD_SETSIZE) {
@@ -385,7 +418,7 @@ initfds()
 		FD_SET(lcconf->rtsock, &mask0);
 		nfds = (nfds > lcconf->rtsock ? nfds : lcconf->rtsock);
 	}
-
+	
 	for (p = lcconf->myaddrs; p; p = p->next) {
 		if (!p->addr)
 			continue;
@@ -400,6 +433,7 @@ initfds()
 	}
 	nfds++;
 }
+
 
 static int signals[] = {
 	SIGHUP,
@@ -424,6 +458,9 @@ signal_handler(sig)
 	 * values to 0/1
 	 */
 	sigreq[sig]++;
+	if ( sig == SIGTERM ){
+		terminated = 1;
+	}
 }
 
 static void
@@ -469,11 +506,23 @@ check_sigreq()
 			break;
 #endif
 
+		case SIGUSR1:
 		case SIGHUP:
+#ifdef ENABLE_HYBRID
+			if ((isakmp_cfg_init(ISAKMP_CFG_INIT_WARM)) != 0) {
+				plog(LLV_ERROR, LOCATION, NULL, 
+		  	 	 "ISAKMP mode config structure reset failed, "
+		  	 	 "not reloading\n");
+				return;
+			}
+#endif
+			if ( terminated )
+				break;
+				
 			/* Save old configuration, load new one...  */
 			isakmp_close();
 			close(lcconf->rtsock);
-			if (cfreparse()) {
+			if (cfreparse(sig)) {
 				plog(LLV_ERROR2, LOCATION, NULL,
 					 "configuration read failed\n");
 				exit(1);
@@ -483,8 +532,24 @@ check_sigreq()
 				
 			initmyaddr();
 			isakmp_cleanup();
+#ifdef __APPLE__
+			isakmp_init(true);
+#else
 			isakmp_init();
+#endif /* __APPLE__ */
 			initfds();
+#if TARGET_OS_EMBEDDED
+			if (no_remote_configs()) {
+				EVT_PUSH(NULL, NULL, EVTT_RACOON_QUIT, NULL);
+				pfkey_send_flush(lcconf->sock_pfkey, SADB_SATYPE_UNSPEC);
+#ifdef ENABLE_FASTQUIT
+				close_session();
+#else
+				sched_new(1, check_flushsa_stub, NULL);
+#endif
+				dying = 1;
+			}
+#endif
 			break;
 
 		case SIGINT:
@@ -494,8 +559,14 @@ check_sigreq()
 			EVT_PUSH(NULL, NULL, EVTT_RACOON_QUIT, NULL);
 			pfkey_send_flush(lcconf->sock_pfkey, 
 			    SADB_SATYPE_UNSPEC);
-			sched_new(1, check_flushsa_stub, NULL);
-			dying = 1;
+			if ( sig == SIGTERM ){
+				terminated = 1;			/* in case if it hasn't been set yet */
+				close_session();
+			}
+			else
+				sched_new(1, check_flushsa_stub, NULL);
+
+				dying = 1;
 			break;
 
 		default:
@@ -579,12 +650,18 @@ check_flushsa()
 	}
 
 	close_session();
+#if !TARGET_OS_EMBEDDED
+	if (lcconf->vt)
+		vproc_transaction_end(NULL, lcconf->vt);
+#endif
 }
 
 void
 auto_exit_do(void *p)
 {
 	EVT_PUSH(NULL, NULL, EVTT_RACOON_QUIT, NULL);
+	plog(LLV_DEBUG, LOCATION, NULL,
+				"performing auto exit\n");
 	pfkey_send_flush(lcconf->sock_pfkey, SADB_SATYPE_UNSPEC);
 	sched_new(1, check_flushsa_stub, NULL);
 	dying = 1;
@@ -593,15 +670,14 @@ auto_exit_do(void *p)
 void
 check_auto_exit(void)
 {
-
 	if (lcconf->auto_exit_sched != NULL) {	/* exit scheduled? */
 		if (lcconf->auto_exit_state != LC_AUTOEXITSTATE_ENABLED
 			|| vpn_control_connected()				/* vpn control connected */
-			|| policies_installed())				/* policies installed in kernel */
+			|| policies_installed())			/* policies installed in kernel */
 			SCHED_KILL(lcconf->auto_exit_sched);
 	} else {								/* exit not scheduled */
 		if (lcconf->auto_exit_state == LC_AUTOEXITSTATE_ENABLED
-			&& !vpn_control_connected()		
+			&& !vpn_control_connected()	
 			&& !policies_installed())
 				if (lcconf->auto_exit_delay == 0)
 					auto_exit_do(NULL);		/* immediate exit */
@@ -658,4 +734,5 @@ close_sockets()
 #endif
 	return 0;
 }
+
 

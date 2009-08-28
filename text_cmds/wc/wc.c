@@ -47,6 +47,7 @@ static char sccsid[] = "@(#)wc.c	8.1 (Berkeley) 6/6/93";
 __FBSDID("$FreeBSD: src/usr.bin/wc/wc.c,v 1.21 2004/12/27 22:27:56 josef Exp $");
 
 #include <sys/param.h>
+#include <sys/mount.h>
 #include <sys/stat.h>
 
 #include <ctype.h>
@@ -62,14 +63,10 @@ __FBSDID("$FreeBSD: src/usr.bin/wc/wc.c,v 1.21 2004/12/27 22:27:56 josef Exp $")
 #include <wchar.h>
 #include <wctype.h>
 
-#ifdef __APPLE__
-#include <TargetConditionals.h>
-#if TARGET_OS_EMBEDDED
-// MAXBSIZE is too big for embedded
-#undef MAXBSIZE
-#define MAXBSIZE (128*1024)
-#endif /* TARGET_OS_EMBEDDED */
-#endif /* __APPLE__ */
+/* We allocte this much memory statically, and use it as a fallback for
+  malloc failure, or statfs failure.  So it should be small, but not
+  "too small" */
+#define SMALL_BUF_SIZE (1024 * 8)
 
 uintmax_t tlinect, twordct, tcharct;
 int doline, doword, dochar, domulti;
@@ -143,12 +140,16 @@ static int
 cnt(const char *file)
 {
 	struct stat sb;
+	struct statfs fsb;
 	uintmax_t linect, wordct, charct;
 	int fd, len, warned;
+	int stat_ret;
 	size_t clen;
 	short gotsp;
 	u_char *p;
-	u_char buf[MAXBSIZE];
+	static u_char small_buf[SMALL_BUF_SIZE];
+	static u_char *buf = small_buf;
+	static off_t buf_size = SMALL_BUF_SIZE;
 	wchar_t wch;
 	mbstate_t mbs;
 
@@ -161,50 +162,66 @@ cnt(const char *file)
 			warn("%s: open", file);
 			return (1);
 		}
-		if (doword || (domulti && MB_CUR_MAX != 1))
-			goto word;
-		/*
-		 * Line counting is split out because it's a lot faster to get
-		 * lines than to get words, since the word count requires some
-		 * logic.
-		 */
-		if (doline) {
-			while ((len = read(fd, buf, MAXBSIZE))) {
-				if (len == -1) {
-					warn("%s: read", file);
-					(void)close(fd);
-					return (1);
-				}
-				charct += len;
-				for (p = buf; len--; ++p)
-					if (*p == '\n')
-						++linect;
-			}
-			tlinect += linect;
-			(void)printf(" %7ju", linect);
-			if (dochar) {
-				tcharct += charct;
-				(void)printf(" %7ju", charct);
-			}
-			(void)close(fd);
-			return (0);
-		}
-		/*
-		 * If all we need is the number of characters and it's a
-		 * regular file, just stat the puppy.
-		 */
-		if (dochar || domulti) {
-			if (fstat(fd, &sb)) {
-				warn("%s: fstat", file);
+	}
+
+	if (fstatfs(fd, &fsb)) {
+	    fsb.f_iosize = SMALL_BUF_SIZE;
+	}
+	if (fsb.f_iosize != buf_size) {
+	    if (buf != small_buf) {
+		free(buf);
+	    }
+	    if (fsb.f_iosize == SMALL_BUF_SIZE || !(buf = malloc(fsb.f_iosize))) {
+		buf = small_buf;
+		buf_size = SMALL_BUF_SIZE;
+	    } else {
+		buf_size = fsb.f_iosize;
+	    }
+	}
+
+	if (doword || (domulti && MB_CUR_MAX != 1))
+		goto word;
+	/*
+	 * Line counting is split out because it's a lot faster to get
+	 * lines than to get words, since the word count requires some
+	 * logic.
+	 */
+	if (doline) {
+		while ((len = read(fd, buf, buf_size))) {
+			if (len == -1) {
+				warn("%s: read", file);
 				(void)close(fd);
 				return (1);
 			}
-			if (S_ISREG(sb.st_mode)) {
-				(void)printf(" %7lld", (long long)sb.st_size);
-				tcharct += sb.st_size;
-				(void)close(fd);
-				return (0);
-			}
+			charct += len;
+			for (p = buf; len--; ++p)
+				if (*p == '\n')
+					++linect;
+		}
+		tlinect += linect;
+		(void)printf(" %7ju", linect);
+		if (dochar) {
+			tcharct += charct;
+			(void)printf(" %7ju", charct);
+		}
+		(void)close(fd);
+		return (0);
+	}
+	/*
+	 * If all we need is the number of characters and it's a
+	 * regular file, just stat the puppy.
+	 */
+	if (dochar || domulti) {
+		if (fstat(fd, &sb)) {
+			warn("%s: fstat", file);
+			(void)close(fd);
+			return (1);
+		}
+		if (S_ISREG(sb.st_mode)) {
+			(void)printf(" %7lld", (long long)sb.st_size);
+			tcharct += sb.st_size;
+			(void)close(fd);
+			return (0);
 		}
 	}
 
@@ -212,7 +229,7 @@ cnt(const char *file)
 word:	gotsp = 1;
 	warned = 0;
 	memset(&mbs, 0, sizeof(mbs));
-	while ((len = read(fd, buf, MAXBSIZE)) != 0) {
+	while ((len = read(fd, buf, buf_size)) != 0) {
 		if (len == -1) {
 			warn("%s: read", file);
 			(void)close(fd);

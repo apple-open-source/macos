@@ -154,8 +154,10 @@ CertificateRequest::CertificateRequest(const CSSM_OID &policy,
 			mHostName(mAlloc),
 			mDomain(mAlloc),
 			mDoRenew(false),
-			mIsAsync(false)
+			mIsAsync(false),
+			mMutex(Mutex::recursive)
 {
+	StLock<Mutex>_(mMutex);
 	certReqDbg("CertificateRequest construct");
 	
 	/* Validate policy OID. */
@@ -250,6 +252,7 @@ CertificateRequest::CertificateRequest(const CSSM_OID &policy,
 
 CertificateRequest::~CertificateRequest() throw()
 {
+	StLock<Mutex>_(mMutex);
 	certReqDbg("CertificateRequest destruct");
 	
 	if(mPrivKey) {
@@ -265,6 +268,7 @@ CertificateRequest::~CertificateRequest() throw()
 void CertificateRequest::submit(
 	sint32 *estimatedTime)
 {
+	StLock<Mutex>_(mMutex);
 	CSSM_DATA &policy = mPolicy.get();
 	if(nssCompareCssmData(&CSSMOID_DOTMAC_CERT_REQ_IDENTITY, &policy) ||
 	   nssCompareCssmData(&CSSMOID_DOTMAC_CERT_REQ_EMAIL_SIGN, &policy) ||
@@ -283,6 +287,7 @@ void CertificateRequest::submit(
 void CertificateRequest::submitDotMac(
 	sint32 *estimatedTime)
 {
+	StLock<Mutex>_(mMutex);
 	CSSM_RETURN							crtn;
 	CSSM_TP_AUTHORITY_ID				tpAuthority;
 	CSSM_TP_AUTHORITY_ID				*tpAuthPtr = NULL;
@@ -466,6 +471,7 @@ void CertificateRequest::getResult(
 	sint32			*estimatedTime,		// optional
 	CssmData		&certData)	
 {
+	StLock<Mutex>_(mMutex);
 	CSSM_DATA &policy = mPolicy.get();
 	if(nssCompareCssmData(&CSSMOID_DOTMAC_CERT_REQ_IDENTITY, &policy) ||
 	   nssCompareCssmData(&CSSMOID_DOTMAC_CERT_REQ_EMAIL_SIGN, &policy) ||
@@ -485,6 +491,7 @@ void CertificateRequest::getResultDotMac(
 	sint32			*estimatedTime,		// optional
 	CssmData		&certData)		
 {
+	StLock<Mutex>_(mMutex);
 	switch(mCertState) {
 		case CRS_HaveCert:
 			/* trivial case, we already have what caller is looking for */
@@ -587,6 +594,7 @@ void CertificateRequest::getResultDotMac(
 void CertificateRequest::getReturnData(
 	CssmData	&rtnData)
 {
+	StLock<Mutex>_(mMutex);
 	rtnData = mRefId.get();
 }
 
@@ -595,6 +603,7 @@ void CertificateRequest::getReturnData(
 /* Current user as CFString, for use as key in per-policy dictionary */
 CFStringRef CertificateRequest::createUserKey()
 {
+	StLock<Mutex>_(mMutex);
 	return CFStringCreateWithBytes(NULL, (UInt8 *)mUserName.data(), mUserName.length(), 
 		kCFStringEncodingUTF8, false);
 }
@@ -604,6 +613,7 @@ CFStringRef CertificateRequest::createUserKey()
 /* current policy as CFString, for use as key in prefs dictionary */
 CFStringRef CertificateRequest::createPolicyKey()
 {
+	StLock<Mutex>_(mMutex);
 	char oidstr[MAX_OID_LEN];
 	unsigned char *inp = (unsigned char *)mPolicy.data();
 	char *outp = oidstr;
@@ -625,6 +635,7 @@ OSStatus CertificateRequest::storeResults(
 	const CSSM_DATA		*refId,			// optional, for queued requests
 	const CSSM_DATA		*certData)		// optional, for immediate completion
 {
+	StLock<Mutex>_(mMutex);
 	assert(mPolicy.data() != NULL);
 	assert(mUserName.data() != NULL);
 	assert(mDomain.data() != NULL);
@@ -632,12 +643,9 @@ OSStatus CertificateRequest::storeResults(
 	bool deleteEntry = ((refId == NULL) && (certData == NULL));
 	
 	/* get a mutable copy of the existing prefs, or a fresh empty one */
-	MutableDictionary *prefsDict = NULL;
-	try {
-		prefsDict = new MutableDictionary(DOT_MAC_REQ_PREFS, Dictionary::US_User);
-	}
-	catch(...) {
-		/* not there, create empty */
+	MutableDictionary *prefsDict = MutableDictionary::CreateMutableDictionary(DOT_MAC_REQ_PREFS, Dictionary::US_User);
+	if (prefsDict == NULL)
+	{
 		prefsDict = new MutableDictionary();
 	}
 	
@@ -697,19 +705,20 @@ OSStatus CertificateRequest::storeResults(
  */
 void CertificateRequest::retrieveResults()
 {
+	StLock<Mutex>_(mMutex);
 	assert(mPolicy.data() != NULL);
 	assert(mUserName.data() != NULL);
 	
 	/* get the .mac cert prefs as a dictionary */
-	Dictionary *prefsDict = NULL;
-	try {
-		prefsDict = new Dictionary(DOT_MAC_REQ_PREFS, Dictionary::US_User);
-	}
-	catch(...) {
+	Dictionary *pd = Dictionary::CreateDictionary(DOT_MAC_REQ_PREFS, Dictionary::US_User);
+	if (pd == NULL)
+	{
 		certReqDbg("retrieveResults: no prefs found");
 		return;
 	}
 	
+	auto_ptr<Dictionary> prefsDict(pd);
+
 	/* get dictionary for current policy */
 	CFStringRef policyKey = createPolicyKey();
 	Dictionary *policyDict = prefsDict->copyDictValue(policyKey);
@@ -735,7 +744,6 @@ void CertificateRequest::retrieveResults()
 		CFRelease(userKey);
 		delete policyDict; 
 	}
-	delete prefsDict; 
 }
 	
 /*
@@ -744,6 +752,7 @@ void CertificateRequest::retrieveResults()
  */
 void CertificateRequest::removeResults()
 {
+	StLock<Mutex>_(mMutex);
 	assert(mPolicy.data() != NULL);
 	assert(mUserName.data() != NULL);
 	storeResults(NULL, NULL);
@@ -767,6 +776,7 @@ void CertificateRequest::removeResults()
  */
 void CertificateRequest::postPendingRequest()
 {
+	StLock<Mutex>_(mMutex);
 	CSSM_RETURN							crtn;
 	CSSM_TP_AUTHORITY_ID				tpAuthority;
 	CSSM_TP_AUTHORITY_ID				*tpAuthPtr = NULL;

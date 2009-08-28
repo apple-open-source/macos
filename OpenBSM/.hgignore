@@ -1,0 +1,3 @@
+^build/
+^OpenBSM.xcodeproj/.*\.mode1v3
+^OpenBSM.xcodeproj/.*\.pbxuser

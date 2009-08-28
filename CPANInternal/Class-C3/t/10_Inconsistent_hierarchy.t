@@ -26,32 +26,32 @@ except TypeError:
 
 =cut
 
-{
-    package X;
-    use Class::C3;
-    
-    package Y;
-    use Class::C3;    
-    
-    package XY;
-    use Class::C3;
-    use base ('X', 'Y');
-    
-    package YX;
-    use Class::C3;
-    use base ('Y', 'X');
-    
-    package Z;
-    # use Class::C3; << Dont do this just yet ...
-    use base ('XY', 'YX');
-}
+eval q{ 
+    {
+        package X;
+        use Class::C3;
 
-Class::C3::initialize();
+        package Y;
+        use Class::C3;    
 
-eval { 
+        package XY;
+        use Class::C3;
+        use base ('X', 'Y');
+
+        package YX;
+        use Class::C3;
+        use base ('Y', 'X');
+
+        package Z;
+        eval 'use Class::C3' if $Class::C3::C3_IN_CORE;
+        use base ('XY', 'YX');
+    }
+
+    Class::C3::initialize();
+
     # now try to calculate the MRO
     # and watch it explode :)
-    Class::C3::calculateMRO('Z') 
+    Class::C3::calculateMRO('Z');
 };
 #diag $@;
-like($@, qr/^Inconsistent hierarchy/, '... got the right error with an inconsistent hierarchy');
+like($@, qr/Inconsistent hierarchy /, '... got the right error with an inconsistent hierarchy');

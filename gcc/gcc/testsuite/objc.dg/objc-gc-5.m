@@ -1,8 +1,9 @@
 /* APPLE LOCAL file ObjC GC */
 /* A compile-only test for insertion of write barriers. */
 /* Provided by Blaine Garst  <blaine@apple.com>  */
-/* { dg-do compile { target *-*-darwin* } } */
+/* { dg-do compile { target powerpc*-*-darwin* i?86*-*-darwin* } } */
 /* { dg-options "-fnext-runtime -fobjc-gc -Wassign-intercept" } */
+/* { dg-require-effective-target objc_gc } */
 
 #ifndef __OBJC_GC__
 #error Missing __OBJC_GC__ manifest constant

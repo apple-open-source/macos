@@ -18,7 +18,7 @@
  - PERFORMANCE OF THIS SOFTWARE.
 -->
 
-<!-- $Id: named-checkzone.docbook,v 1.11.18.21 2007/08/28 07:19:55 tbox Exp $ -->
+<!-- $Id: named-checkzone.docbook,v 1.34 2007/06/19 06:58:03 marka Exp $ -->
 <refentry id="man.named-checkzone">
   <refentryinfo>
     <date>June 13, 2000</date>
@@ -56,6 +56,7 @@
     <cmdsynopsis>
       <command>named-checkzone</command>
       <arg><option>-d</option></arg>
+      <arg><option>-h</option></arg>
       <arg><option>-j</option></arg>
       <arg><option>-q</option></arg>
       <arg><option>-v</option></arg>
@@ -132,6 +133,15 @@
         <listitem>
           <para>
             Enable debugging.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>-h</term>
+        <listitem>
+          <para>
+            Print the usage summary and exit.
           </para>
         </listitem>
       </varlistentry>
@@ -301,6 +311,8 @@
         <listitem>
           <para>
             Write zone output to <filename>filename</filename>.
+	    If <filename>filename</filename> is <filename>-</filename> then
+	    write to standard out.
 	    This is mandatory for <command>named-compilezone</command>.
           </para>
         </listitem>

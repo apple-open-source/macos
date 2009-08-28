@@ -28,11 +28,14 @@
 #include "gdbcore.h"
 #include "elf/dwarf2.h"
 #include "dwarf2expr.h"
+/* APPLE LOCAL variable initialized status  */
+#include "exceptions.h"
+#include "dwarf2-frame.h"
 
 /* Local prototypes.  */
 
 static void execute_stack_op (struct dwarf_expr_context *,
-			      gdb_byte *, gdb_byte *);
+			      gdb_byte *, gdb_byte *, int eh_frame_p);
 
 /* Create a new context for the expression evaluator.  */
 
@@ -133,9 +136,9 @@ add_piece (struct dwarf_expr_context *ctx,
    CTX.  */
 
 void
-dwarf_expr_eval (struct dwarf_expr_context *ctx, gdb_byte *addr, size_t len)
+dwarf_expr_eval (struct dwarf_expr_context *ctx, gdb_byte *addr, size_t len, int eh_frame_p)
 {
-  execute_stack_op (ctx, addr, addr + len);
+  execute_stack_op (ctx, addr, addr + len, eh_frame_p);
 }
 
 /* Decode the unsigned LEB128 constant at BUF into the variable pointed to
@@ -232,6 +235,7 @@ unsigned_address_type (void)
     }
 }
 
+
 /* Return the type of an address, for signed arithmetic.  */
 
 /* APPLE LOCAL variable initialized status  */
@@ -257,7 +261,7 @@ signed_address_type (void)
 
 static void
 execute_stack_op (struct dwarf_expr_context *ctx,
-		  gdb_byte *op_ptr, gdb_byte *op_end)
+		  gdb_byte *op_ptr, gdb_byte *op_end, int eh_frame_p)
 {
   ctx->in_reg = 0;
   /* APPLE LOCAL variable initialized status.  */
@@ -397,6 +401,8 @@ execute_stack_op (struct dwarf_expr_context *ctx,
 		   "used either alone or in conjuction with DW_OP_piece."));
 
 	  result = op - DW_OP_reg0;
+          result = dwarf2_frame_adjust_regnum (current_gdbarch, result, 
+                                               eh_frame_p);
 	  ctx->in_reg = 1;
 
 	  break;
@@ -411,7 +417,8 @@ execute_stack_op (struct dwarf_expr_context *ctx,
 	    error (_("DWARF-2 expression error: DW_OP_reg operations must be "
 		   "used either alone or in conjuction with DW_OP_piece."));
 
-	  result = reg;
+          result = dwarf2_frame_adjust_regnum (current_gdbarch, reg, 
+                                               eh_frame_p);
 	  ctx->in_reg = 1;
 	  break;
 
@@ -449,13 +456,17 @@ execute_stack_op (struct dwarf_expr_context *ctx,
 	case DW_OP_breg31:
 	  {
 	    op_ptr = read_sleb128 (op_ptr, op_end, &offset);
-	    result = (ctx->read_reg) (ctx->baton, op - DW_OP_breg0);
+            reg = dwarf2_frame_adjust_regnum (current_gdbarch, op - DW_OP_breg0,
+                                              eh_frame_p);
+	    result = (ctx->read_reg) (ctx->baton, reg);
 	    result += offset;
 	  }
 	  break;
 	case DW_OP_bregx:
 	  {
 	    op_ptr = read_uleb128 (op_ptr, op_end, &reg);
+            reg = dwarf2_frame_adjust_regnum (current_gdbarch, reg, 
+                                               eh_frame_p);
 	    op_ptr = read_sleb128 (op_ptr, op_end, &offset);
 	    result = (ctx->read_reg) (ctx->baton, reg);
 	    result += offset;
@@ -477,7 +488,7 @@ execute_stack_op (struct dwarf_expr_context *ctx,
                get_frame_base_address(), and then implement a dwarf2
                specific this_base method.  */
 	    (ctx->get_frame_base) (ctx->baton, &datastart, &datalen);
-	    dwarf_expr_eval (ctx, datastart, datalen);
+	    dwarf_expr_eval (ctx, datastart, datalen, eh_frame_p);
 	    result = dwarf_expr_fetch (ctx, 0);
 	    if (ctx->in_reg)
 	      result = (ctx->read_reg) (ctx->baton, result);
@@ -705,6 +716,17 @@ execute_stack_op (struct dwarf_expr_context *ctx,
 	case DW_OP_nop:
 	  goto no_push;
 
+        case DW_OP_swap:
+          {
+            CORE_ADDR result1 = dwarf_expr_fetch (ctx, 0);
+            dwarf_expr_pop (ctx);
+            CORE_ADDR result2 = dwarf_expr_fetch (ctx, 0);
+            dwarf_expr_pop (ctx);
+            dwarf_expr_push (ctx, result1);
+            dwarf_expr_push (ctx, result2);
+          }
+          goto no_push;
+
         case DW_OP_piece:
           {
             ULONGEST size;
@@ -758,7 +780,14 @@ execute_stack_op (struct dwarf_expr_context *ctx,
 
 	/* APPLE LOCAL begin variable initialized status  */
 	case DW_OP_APPLE_uninit:
+#if 0
+          /* gcc-4.2 is not outputting trustworthy DW_OP_APPLE_uninit flags; 
+             ignore them for now.  */
 	  ctx->var_status = 0;
+	  /* If the variable is uninitialized, throw an error instead of
+	     trying to evaluate it.  */
+	  throw_error (GENERIC_ERROR, "Variable is currently uninitialized.");
+#endif
 	  goto no_push;
 	/* APPLE LOCAL end variable initialized status  */
 

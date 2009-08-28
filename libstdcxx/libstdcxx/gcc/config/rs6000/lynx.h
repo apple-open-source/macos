@@ -1,5 +1,5 @@
 /* Definitions for Rs6000 running LynxOS.
-   Copyright (C) 1995, 1996, 2000, 2002, 2003, 2004
+   Copyright (C) 1995, 1996, 2000, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by David Henkel-Wallace, Cygnus Support (gumby@cygnus.com)
    Rewritten by Adam Nemet, LynuxWorks Inc.
@@ -18,8 +18,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the
-   Free Software Foundation, 59 Temple Place - Suite 330, Boston,
-   MA 02111-1307, USA.  */
+   Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
+   MA 02110-1301, USA.  */
 
 /* Override the definition in sysv4.h.  */
 
@@ -49,7 +49,7 @@
 #define CC1_SPEC \
 "%{G*} %{mno-sdata:-msdata=none} \
  %{maltivec:-mabi=altivec} \
- -mno-svr4-struct-return"
+ -maix-struct-return"
 
 #undef ASM_SPEC
 #define ASM_SPEC \
@@ -89,9 +89,6 @@
 #undef ASM_APP_OFF
 #define ASM_APP_OFF "#NO_APP\n"
 
-#undef EXTRA_SUBTARGET_SWITCHES
-#define EXTRA_SUBTARGET_SWITCHES SUBTARGET_OS_LYNX_SWITCHES
-
 /* LynxOS does not do anything with .fixup plus let's not create
    writable section for linkonce.r and linkonce.t.  */
 
@@ -109,3 +106,20 @@
 
 #undef HAVE_AS_TLS
 #define HAVE_AS_TLS 0
+
+#ifdef CRT_BEGIN
+/* This function is part of crtbegin*.o which is at the beginning of
+   the link and is called from .fini which is usually toward the end
+   of the executable.  Make it longcall so that we don't limit the
+   text size of the executables to 32M.  */
+
+static void __do_global_dtors_aux (void) __attribute__ ((longcall));
+#endif	/* CRT_BEGIN */
+
+#ifdef CRT_END
+/* Similarly here.  This function resides in crtend*.o which is toward
+   to end of the link and is called from .init which is at the
+   beginning.  */
+
+static void __do_global_ctors_aux (void) __attribute__ ((longcall));
+#endif	/* CRT_END */

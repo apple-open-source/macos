@@ -78,42 +78,42 @@ CSSM_RETURN cuAddCertToDb(
 	printNameData.Length = strlen(printName) + 1;
 	
 	attr->Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-	attr->Info.Label.AttributeName = "CertType";
+	attr->Info.Label.AttributeName = (char*) "CertType";
 	attr->Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_UINT32;
 	attr->NumberOfValues = 1;
 	attr->Value = &certTypeData;
 	
 	attr++;
 	attr->Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-	attr->Info.Label.AttributeName = "CertEncoding";
+	attr->Info.Label.AttributeName = (char*) "CertEncoding";
 	attr->Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_UINT32;
 	attr->NumberOfValues = 1;
 	attr->Value = &certEncData;
 	
 	attr++;
 	attr->Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-	attr->Info.Label.AttributeName = "PrintName";
+	attr->Info.Label.AttributeName = (char*) "PrintName";
 	attr->Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
 	attr->NumberOfValues = 1;
 	attr->Value = &printNameData;
 	
 	attr++;
 	attr->Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-	attr->Info.Label.AttributeName = "PublicKeyHash";
+	attr->Info.Label.AttributeName = (char*) "PublicKeyHash";
 	attr->Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
 	attr->NumberOfValues = 1;
 	attr->Value = (CSSM_DATA_PTR)publicKeyHash;
 	
 	attr++;
 	attr->Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-	attr->Info.Label.AttributeName = "Issuer";
+	attr->Info.Label.AttributeName = (char*) "Issuer";
 	attr->Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
 	attr->NumberOfValues = 1;
 	attr->Value = &issuer;
 	
 	attr++;
 	attr->Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-	attr->Info.Label.AttributeName = "SerialNumber";
+	attr->Info.Label.AttributeName = (char*) "SerialNumber";
 	attr->Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
 	attr->NumberOfValues = 1;
 	attr->Value = &serial;
@@ -336,42 +336,42 @@ CSSM_RETURN cuAddCrlToDb(
 	}
 
 	attr->Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-	attr->Info.Label.AttributeName = "CrlType";
+	attr->Info.Label.AttributeName = (char*) "CrlType";
 	attr->Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_UINT32;
 	attr->NumberOfValues = 1;
 	attr->Value = &crlTypeData;
 	attr++;
 	
 	attr->Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-	attr->Info.Label.AttributeName = "CrlEncoding";
+	attr->Info.Label.AttributeName = (char*) "CrlEncoding";
 	attr->Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_UINT32;
 	attr->NumberOfValues = 1;
 	attr->Value = &crlEncData;
 	attr++;
 	
 	attr->Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-	attr->Info.Label.AttributeName = "PrintName";
+	attr->Info.Label.AttributeName = (char*) "PrintName";
 	attr->Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
 	attr->NumberOfValues = 1;
 	attr->Value = &printNameData;
 	attr++;
 	
 	attr->Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-	attr->Info.Label.AttributeName = "Issuer";
+	attr->Info.Label.AttributeName = (char*) "Issuer";
 	attr->Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
 	attr->NumberOfValues = 1;
 	attr->Value = issuer;
 	attr++;
 	
 	attr->Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-	attr->Info.Label.AttributeName = "ThisUpdate";
+	attr->Info.Label.AttributeName = (char*) "ThisUpdate";
 	attr->Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
 	attr->NumberOfValues = 1;
 	attr->Value = &thisUpdateData;
 	attr++;
 	
 	attr->Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-	attr->Info.Label.AttributeName = "NextUpdate";
+	attr->Info.Label.AttributeName = (char*) "NextUpdate";
 	attr->Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
 	attr->NumberOfValues = 1;
 	attr->Value = &nextUpdateData;
@@ -380,7 +380,7 @@ CSSM_RETURN cuAddCrlToDb(
 	/* now the optional attributes */
 	if(crlNumberPresent) {
 		attr->Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-		attr->Info.Label.AttributeName = "CrlNumber";
+		attr->Info.Label.AttributeName = (char*) "CrlNumber";
 		attr->Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_UINT32;
 		attr->NumberOfValues = 1;
 		attr->Value = &crlNumberData;
@@ -388,7 +388,7 @@ CSSM_RETURN cuAddCrlToDb(
 	}
 	if(deltaCrlPresent) {
 		attr->Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-		attr->Info.Label.AttributeName = "DeltaCrlNumber";
+		attr->Info.Label.AttributeName = (char*) "DeltaCrlNumber";
 		attr->Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_UINT32;
 		attr->NumberOfValues = 1;
 		attr->Value = &deltaCrlNumberData;
@@ -402,7 +402,7 @@ CSSM_RETURN cuAddCrlToDb(
 			attrUri.Length--;
 		}
 		attr->Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-		attr->Info.Label.AttributeName = "URI";
+		attr->Info.Label.AttributeName = (char*) "URI";
 		attr->Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
 		attr->NumberOfValues = 1;
 		attr->Value = &attrUri;

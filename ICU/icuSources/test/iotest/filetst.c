@@ -1,16 +1,16 @@
 /*
-**********************************************************************
-*   Copyright (C) 2004-2006, International Business Machines
-*   Corporation and others.  All Rights Reserved.
-**********************************************************************
-*   file name:  filetst.c
-*   encoding:   US-ASCII
-*   tab size:   8 (not used)
-*   indentation:4
-*
-*   created on: 2004apr06
-*   created by: George Rhoten
-*/
+ **********************************************************************
+ *   Copyright (C) 2004-2008, International Business Machines
+ *   Corporation and others.  All Rights Reserved.
+ **********************************************************************
+ *   file name:  filetst.c
+ *   encoding:   US-ASCII
+ *   tab size:   8 (not used)
+ *   indentation:4
+ *
+ *   created on: 2004apr06
+ *   created by: George Rhoten
+ */
 
 #include "iotest.h"
 #include "unicode/ustdio.h"
@@ -19,7 +19,7 @@
 
 #include <string.h>
 
-const char STANDARD_TEST_FILE[] = "iotest-c.txt";
+const char *STANDARD_TEST_FILE = "iotest-c.txt";
 
 
 #if !UCONFIG_NO_FORMATTING
@@ -97,7 +97,7 @@ static void TestFileFromICU(UFILE *myFile) {
     fprintf(u_fgetfile(myFile), "\tNormal fprintf count value: n=%d\n", (int)*n); /* Should be 27 as stated later on. */
 
     u_fclose(myFile);
-    myFile = u_fopen(STANDARD_TEST_FILE, "r", NULL, NULL);
+    myFile = u_fopen(STANDARD_TEST_FILE, "r", "en_US_POSIX", NULL);
 
     if (myFile == NULL) {
         log_err("Can't read test file.");
@@ -233,6 +233,8 @@ static void TestFileFromICU(UFILE *myFile) {
     }
 
     u_fgets(myUString, 4, myFile);
+    myString[2] = '!';
+    myString[3] = '!';
     u_austrncpy(myString, myUString, sizeof(myUString)/sizeof(*myUString));
     if (myString == NULL || strcmp(myString, "\t\n") != 0) {
         log_err("u_fgets got \"%s\"\n", myString);
@@ -310,7 +312,7 @@ static void TestFile(void) {
 /*    FILE *standardFile;*/
 
     log_verbose("Testing u_fopen\n");
-    TestFileFromICU(u_fopen(STANDARD_TEST_FILE, "w", NULL, NULL));
+    TestFileFromICU(u_fopen(STANDARD_TEST_FILE, "w", "en_US_POSIX", NULL));
 
 /* Don't know how to make this work without stdout or stderr */
 /*

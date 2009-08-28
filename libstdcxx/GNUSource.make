@@ -51,6 +51,8 @@ include $(CoreOSMakefiles)/ReleaseControl/Common.make
 # My variables
 ##
 
+# Figure out how many make processes to run.
+MMAKEFLAGS  := -j`sysctl -n hw.activecpu`
 Sources     = $(SRCROOT)/$(Project)
 ConfigStamp = $(BuildDirectory)/configure-stamp
 
@@ -140,7 +142,7 @@ ifneq ($(GnuNoChown),YES)
 endif
 endif
 ifdef GnuAfterInstall
-	$(_v) $(MAKE) $(GnuAfterInstall)
+	$(_v) $(MAKE) $(MMAKEFLAGS) $(GnuAfterInstall)
 endif
 	$(_v) if [ -d "$(DSTROOT)$(Workaround_3678855)" ]; then \
 		$(INSTALL_DIRECTORY) "$(DSTROOT)$(SYSTEM_DEVELOPER_TOOLS_DOC_DIR)"; \
@@ -152,7 +154,7 @@ build:: configure
 ifneq ($(GnuNoBuild),YES)
 	$(_v) for arch in $(RC_ARCHS) ; do \
 		echo "Building $(Project) for $$arch..." && \
-		$(MAKE) -C $(BuildDirectory)/$$arch $(Environment) || exit 1; \
+		$(MAKE) $(MMAKEFLAGS) -C $(BuildDirectory)/$$arch $(Environment) || exit 1; \
 	done
 endif
 

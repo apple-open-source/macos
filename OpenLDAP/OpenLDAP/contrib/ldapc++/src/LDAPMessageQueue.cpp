@@ -1,3 +1,4 @@
+// $OpenLDAP: pkg/ldap/contrib/ldapc++/src/LDAPMessageQueue.cpp,v 1.6.10.6 2008/04/14 23:09:26 quanah Exp $
 /*
  * Copyright 2000, OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
@@ -6,11 +7,8 @@
 
 #include "config.h"
 #include "debug.h"
-#include <ldap.h>
 #include "LDAPMessageQueue.h"
 #include "LDAPRequest.h"
-#include "LDAPAsynConnection.h"
-#include "LDAPMessage.h"
 #include "LDAPResult.h"
 #include "LDAPSearchReference.h"
 #include "LDAPSearchRequest.h"
@@ -41,116 +39,108 @@ LDAPMessageQueue::~LDAPMessageQueue(){
 
 LDAPMsg *LDAPMessageQueue::getNext(){
     DEBUG(LDAP_DEBUG_TRACE,"LDAPMessageQueue::getNext()" << endl);
-    LDAPMessage *msg;
+
+    if ( m_activeReq.empty() ) {
+        return 0;
+    }
+
     LDAPRequest *req=m_activeReq.top();
-    int msg_id = req->getMsgID();
-    int res;
-    const  LDAPAsynConnection *con=req->getConnection();
-    res=ldap_result(con->getSessionHandle(),msg_id,0,0,&msg);
-    if (res <= 0){
-        if(msg != 0){
-            ldap_msgfree(msg);
-        }
-	throw  LDAPException(con);
-    }else{	
-        const LDAPConstraints *constr=req->getConstraints();
-        LDAPMsg *ret=0;
-        //this can  throw an exception (Decoding Error)
-        try{
-            ret = LDAPMsg::create(req,msg);
-            ldap_msgfree(msg);
-        }catch(LDAPException e){
-            //do some clean up
-            delete req;
-            m_activeReq.top();
-            throw;   
-        }
-        switch (ret->getMessageType()) {
-            case LDAPMsg::SEARCH_REFERENCE : 
-                if (constr->getReferralChase() ){
-                    //throws Exception (limit Exceeded)
-                    LDAPRequest *refReq=chaseReferral(ret);
-                    if(refReq != 0){
-                        m_activeReq.push(refReq);
-                        m_issuedReq.push_back(refReq);
-                        delete ret;
-                        return getNext();
-                    }
+    LDAPMsg *ret=0;
+
+    try{
+        ret = req->getNextMessage();
+    }catch(LDAPException e){
+        //do some clean up
+        m_activeReq.pop();
+        throw;   
+    }
+
+    const LDAPConstraints *constr=req->getConstraints();
+    switch (ret->getMessageType()) {
+        case LDAPMsg::SEARCH_REFERENCE : 
+            if (constr->getReferralChase() ){
+                //throws Exception (limit Exceeded)
+                LDAPRequest *refReq=chaseReferral(ret);
+                if(refReq != 0){
+                    m_activeReq.push(refReq);
+                    m_issuedReq.push_back(refReq);
+                    delete ret;
+                    return getNext();
                 }
-                return ret;
-            break;
-            case LDAPMsg::SEARCH_ENTRY :
-                return ret;
-            break;
-            case LDAPMsg::SEARCH_DONE :
-                if(req->isReferral()){
-                    req->unbind();
-                }
-                switch ( ((LDAPResult*)ret)->getResultCode()) {
-                    case LDAPResult::REFERRAL :
-                        if(constr->getReferralChase()){
-                            //throws Exception (limit Exceeded)
-                            LDAPRequest *refReq=chaseReferral(ret);
-                            if(refReq != 0){
-                                m_activeReq.pop();
-                                m_activeReq.push(refReq);
-                                m_issuedReq.push_back(refReq);
-                                delete ret;
-                                return getNext();
-                            }
-                        }    
-                        return ret;
-                    break;
-                    case LDAPResult::SUCCESS :
-                        if(req->isReferral()){
+            }
+            return ret;
+        break;
+        case LDAPMsg::SEARCH_ENTRY :
+            return ret;
+        break;
+        case LDAPMsg::SEARCH_DONE :
+            if(req->isReferral()){
+                req->unbind();
+            }
+            switch ( ((LDAPResult*)ret)->getResultCode()) {
+                case LDAPResult::REFERRAL :
+                    if(constr->getReferralChase()){
+                        //throws Exception (limit Exceeded)
+                        LDAPRequest *refReq=chaseReferral(ret);
+                        if(refReq != 0){
+                            m_activeReq.pop();
+                            m_activeReq.push(refReq);
+                            m_issuedReq.push_back(refReq);
                             delete ret;
-                            m_activeReq.pop();
                             return getNext();
-                        }else{
-                            m_activeReq.pop();
-                            return ret;
                         }
-                    break;
-                    default:
+                    }    
+                    return ret;
+                break;
+                case LDAPResult::SUCCESS :
+                    if(req->isReferral()){
+                        delete ret;
+                        m_activeReq.pop();
+                        return getNext();
+                    }else{
                         m_activeReq.pop();
                         return ret;
-                    break;
-                }
-            break;
-            //must be some kind of LDAPResultMessage
-            default:
-                if(req->isReferral()){
-                    req->unbind();
-                }
-                LDAPResult* res_p=(LDAPResult*)ret;
-                switch (res_p->getResultCode()) {
-                    case LDAPResult::REFERRAL :
-                        if(constr->getReferralChase()){
-                            //throws Exception (limit Exceeded)
-                            LDAPRequest *refReq=chaseReferral(ret);
-                            if(refReq != 0){
-                                m_activeReq.pop();
-                                m_activeReq.push(refReq);
-                                m_issuedReq.push_back(refReq);
-                                delete ret;
-                                return getNext();
-                            }
-                        }    
-                        return ret;
-                    break;
-                    default:
-                        m_activeReq.pop();
-                        return ret;
-                }
-            break;
-        }
-    }	
+                    }
+                break;
+                default:
+                    m_activeReq.pop();
+                    return ret;
+                break;
+            }
+        break;
+        //must be some kind of LDAPResultMessage
+        default:
+            if(req->isReferral()){
+                req->unbind();
+            }
+            LDAPResult* res_p=(LDAPResult*)ret;
+            switch (res_p->getResultCode()) {
+                case LDAPResult::REFERRAL :
+                    if(constr->getReferralChase()){
+                        //throws Exception (limit Exceeded)
+                        LDAPRequest *refReq=chaseReferral(ret);
+                        if(refReq != 0){
+                            m_activeReq.pop();
+                            m_activeReq.push(refReq);
+                            m_issuedReq.push_back(refReq);
+                            delete ret;
+                            return getNext();
+                        }
+                    }    
+                    return ret;
+                break;
+                default:
+                    m_activeReq.pop();
+                    return ret;
+            }
+        break;
+    }
 }
 
 // TODO Maybe moved to LDAPRequest::followReferral seems more reasonable
 //there
 LDAPRequest* LDAPMessageQueue::chaseReferral(LDAPMsg* ref){
-    DEBUG(LDAP_DEBUG_TRACE,"LDAPMessageQueue::chaseReferra()" << endl);
+    DEBUG(LDAP_DEBUG_TRACE,"LDAPMessageQueue::chaseReferral()" << endl);
     LDAPRequest *req=m_activeReq.top();
     LDAPRequest *refReq=req->followReferral(ref);
     if(refReq !=0){

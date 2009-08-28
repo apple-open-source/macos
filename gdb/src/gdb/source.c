@@ -169,8 +169,6 @@ get_current_source_symtab_and_line (void)
 void
 set_default_source_symtab_and_line (void)
 {
-  struct symtab_and_line cursal;
-
   if (!have_full_symbols () && !have_partial_symbols ())
     error (_("No symbol table is loaded.  Use the \"file\" command."));
 
@@ -715,6 +713,14 @@ openp (const char *path, int opts, const char *string,
 	  fd = open (filename, mode, prot);
 	  if (fd >= 0)
 	    goto done;
+
+          /* If we failed to open the file and it actually exists in this place
+             then we're looking at a permissions error.  Instead of searching
+             for the binary in all of the $PATH directories and reporting a
+             "No such file exists" error, stop searching right now and print
+             the correct error message. */
+          if (file_exists_p (filename) && fd < 0)
+            goto done;
 	}
       else
 	{
@@ -1108,6 +1114,12 @@ symtab_to_fullname (struct symtab *s)
   if (!s)
     return NULL;
 
+  /* APPLE LOCAL: If we found fullname once before, just re-use the same
+     value.  Bob Rossi removed this shortcut from the FSF gdb sources on
+     2004-06-10; it's a very expensive choice and of dubious correctness.  */
+  if (s->fullname)
+    return s->fullname;
+
   /* Don't check s->fullname here, the file could have been 
      deleted/moved/..., look for it again */
   r = find_and_open_source (s->objfile, s->filename, s->dirname,
@@ -1137,6 +1149,12 @@ psymtab_to_fullname (struct partial_symtab *ps)
   if (!ps)
     return NULL;
 
+  /* APPLE LOCAL: If we found fullname once before, just re-use the same 
+     value.  Bob Rossi removed this shortcut from the FSF gdb sources on
+     2004-06-10; it's a very expensive choice and of dubious correctness.  */
+  if (ps->fullname)
+    return ps->fullname;
+
   /* Don't check ps->fullname here, the file could have been
      deleted/moved/..., look for it again */
   r = find_and_open_source (ps->objfile, ps->filename, ps->dirname,
@@ -1160,7 +1178,6 @@ void
 find_source_lines (struct symtab *s, int desc)
 {
   struct stat st;
-  char *data, *p, *end;
   int nlines = 0;
   int lines_allocated = 1000;
   int *line_charpos;
@@ -1213,7 +1230,7 @@ find_source_lines (struct symtab *s, int desc)
   {
     struct cleanup *old_cleanups;
     int eol = 0;
-    char c, oldc;
+    char oldc;
     register char *data, *p, *end;
 
     /* st_size might be a large type, but we only support source files whose 
@@ -1378,6 +1395,7 @@ print_source_lines_base (struct symtab *s, int line, int nlines, int noerror)
   int stopline = line + nlines;
   int c, oldc;
   int eol;
+  int just_kidding_about_error = 0;
 
   /* Regardless of whether we can open the file, set current_source_symtab. */
   current_source_symtab = s;
@@ -1403,11 +1421,18 @@ print_source_lines_base (struct symtab *s, int line, int nlines, int noerror)
     {
       desc = -1;
       noerror = 1;
+      /* We're overloading desc == 0 here to get the case where the ui_out
+	 doesn't want to do source listing not to do that.  But if we allow
+	 that to set last_source_error we permanently scotch any more source
+	 listing (for instance through "interpreter-exec" in the mi.  So
+	 remind ourselves we didn't mean that...  */
+      just_kidding_about_error = 1;
     }
 
   if (desc < 0)
     {
-      last_source_error = desc;
+      if (!just_kidding_about_error)
+	last_source_error = desc;
 
       if (!noerror)
 	{
@@ -1916,7 +1941,7 @@ The matching line number is also stored as the value of \"$_\"."));
       add_com_alias ("?", "reverse-search", class_files, 0);
     }
 
-  add_setshow_uinteger_cmd ("listsize", class_support, &lines_to_list, _("\
+  add_setshow_integer_cmd ("listsize", class_support, &lines_to_list, _("\
 Set number of source lines gdb will list by default."), _("\
 Show number of source lines gdb will list by default."), NULL,
 			    NULL,

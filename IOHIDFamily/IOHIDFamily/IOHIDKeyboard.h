@@ -100,6 +100,7 @@ class IOHIDKeyboard : public IOHIKeyboard
     IOHIDEventService *     _provider;
     	
 	bool					_repeat;
+	bool					_resyncLED;
         
     // LED Specific Members
     UInt8                   _ledState;

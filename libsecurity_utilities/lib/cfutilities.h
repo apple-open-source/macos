@@ -74,8 +74,9 @@ template <class CFType> class CFRef {
 public:
     CFRef() : mRef(NULL) { }
     CFRef(CFType ref) : mRef(ref) { }
-    CFRef(const CFRef &ref) : mRef(ref) { if (ref) CFRetain(ref); }
     ~CFRef() { this->release(); }
+	CFRef(const CFRef &ref) : mRef(ref) {}
+	template <class _T> CFRef(const CFRef<_T> &ref) : mRef(ref) {}
 	
 	CFRef(CFTypeRef ref, OSStatus err)
 		: mRef(CFType(ref))
@@ -110,10 +111,10 @@ public:
 	CFType &aref()
 	{ take(NULL); return mRef; }
 	
-	void retain()
-	{ if (mRef) CFRetain(mRef); }
+	CFType retain() const
+	{ if (mRef) CFRetain(mRef); return mRef; }
 	
-	void release()
+	void release() const
 	{ if (mRef) CFRelease(mRef); }
 	
 	template <class NewType>
@@ -128,10 +129,10 @@ public:
 	}
 	
 	template <class NewType>
-	NewType as() { return NewType(mRef); }
+	NewType as() const { return NewType(mRef); }
 	
 	template <class NewType>
-	NewType as(OSStatus err) { return CFRef<NewType>::check(mRef, err); }
+	NewType as(OSStatus err) const { return CFRef<NewType>::check(mRef, err); }
 
 private:
     CFType mRef;
@@ -142,8 +143,9 @@ template <class CFType> class CFCopyRef : public CFRef<CFType> {
 	typedef CFRef<CFType> _Base;
 public:
     CFCopyRef() { }
-    explicit CFCopyRef(CFType ref) : _Base(ref) { this->retain(); }
+    CFCopyRef(CFType ref) : _Base(ref) { this->retain(); }
     CFCopyRef(const CFCopyRef &ref) : _Base(ref) { this->retain(); }
+	template <class _T> CFCopyRef(const CFRef<_T> &ref) : _Base(ref) { this->retain(); }
 	CFCopyRef(CFTypeRef ref, OSStatus err) : _Base(ref, err) { this->retain(); }
 	
 	CFCopyRef &take(CFType ref)
@@ -357,18 +359,29 @@ inline CFDataRef makeCFDataMalloc(const void *data, size_t size)
 	return CFDataCreateWithBytesNoCopy(NULL, (const UInt8 *)data, size, kCFAllocatorMalloc);
 }
 
+template <class Data>
+inline CFDataRef makeCFDataMalloc(const Data &source)
+{
+	return CFDataCreateWithBytesNoCopy(NULL, (const UInt8 *)source.data(), source.length(), kCFAllocatorMalloc);
+}
+
 
 //
 // Translate strings into CFStrings
 //
-inline CFStringRef makeCFString(const char *s)
+inline CFStringRef makeCFString(const char *s, CFStringEncoding encoding = kCFStringEncodingUTF8)
 {
-	return s ? CFStringCreateWithCString(NULL, s, kCFStringEncodingUTF8) : NULL;
+	return s ? CFStringCreateWithCString(NULL, s, encoding) : NULL;
 }
 
-inline CFStringRef makeCFString(const string &s)
+inline CFStringRef makeCFString(const string &s, CFStringEncoding encoding = kCFStringEncodingUTF8)
 {
-	return CFStringCreateWithCString(NULL, s.c_str(), kCFStringEncodingUTF8);
+	return CFStringCreateWithCString(NULL, s.c_str(), encoding);
+}
+
+inline CFStringRef makeCFString(CFDataRef data, CFStringEncoding encoding = kCFStringEncodingUTF8)
+{
+	return CFStringCreateFromExternalRepresentation(NULL, data, encoding);
 }
 
 
@@ -421,8 +434,10 @@ private:
 //
 // Make CFDictionaries from stuff
 //
-CFDictionaryRef makeCFDictionary(unsigned count, ...);	// key/value pairs
-CFMutableDictionaryRef makeCFMutableDictionary(unsigned count, ...);
+CFDictionaryRef makeCFDictionary(unsigned count, ...);					// key/value pairs
+CFMutableDictionaryRef makeCFMutableDictionary();						// empty
+CFMutableDictionaryRef makeCFMutableDictionary(unsigned count, ...);	// (count) key/value pairs
+CFMutableDictionaryRef makeCFMutableDictionary(CFDictionaryRef dict);	// copy of dictionary
 
 CFDictionaryRef makeCFDictionaryFrom(CFDataRef data);	// interpret plist form
 CFDictionaryRef makeCFDictionaryFrom(const void *data, size_t length); // ditto
@@ -438,6 +453,10 @@ public:
 	{ if (!ref) MacOSError::throwMe(error); }
 	CFDictionary(CFTypeRef ref, OSStatus error) : _Base(ref, error), mDefaultError(error)
 	{ if (!ref) MacOSError::throwMe(error); }
+	CFDictionary(OSStatus error) : _Base(NULL), mDefaultError(error) { }
+	
+	CFTypeRef get(CFStringRef key)		{ return CFDictionaryGetValue(*this, key); }
+	CFTypeRef get(const char *key)		{ return CFDictionaryGetValue(*this, CFTempString(key)); }
 	
 	template <class CFType>
 	CFType get(CFStringRef key, OSStatus err = noErr) const

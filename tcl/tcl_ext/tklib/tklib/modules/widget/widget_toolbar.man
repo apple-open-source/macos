@@ -1,0 +1,63 @@
+[comment {-*- tcl -*- doctools manpage}]
+[manpage_begin widget_toolbar n 3.0]
+[moddesc   {widget::toolbar Megawidget}]
+[titledesc {widget::toolbar Megawidget}]
+[require Tcl 8.4]
+[require Tk 8.4]
+[require widget [opt 3.0]]
+[require widget::toolbar [opt 1.0]]
+[description]
+
+This package provides a toolbar megawidget (snidget).
+It makes use of the Tile/Ttk themed widget set.
+
+[para]
+
+[list_begin definitions]
+
+[call [cmd widget::toolbar] [arg pathname] [opt options]]
+
+[call getframe]
+[call add [opt item] [opt args]]
+[call delete item1 [opt item2] [opt ...]]
+[call itemcget symbol option]
+[call itemconfigure symbol [opt args]]
+[call items [opt pattern]]
+[call remove [opt -destroy] item1 [opt item2] [opt ...]]
+
+[list_end]
+
+[section "WIDGET OPTIONS"]
+
+[list_begin opt]
+
+[opt_def -ipad]
+[opt_def -pad]
+[opt_def -separator]
+
+[list_end]
+
+[section "ITEM OPTIONS"]
+
+[list_begin opt]
+
+[opt_def -pad]
+[opt_def -separator]
+[opt_def -sticky]
+[opt_def -weight]
+
+[list_end]
+
+[section EXAMPLE]
+
+[example {
+package require widget::toolbar ; # or widget::all
+set t [widget::toolbar .t]
+pack $t -fill x -expand 1
+$t add button [button .b -text foo]
+$t add separator -pad {2 4}
+$t add button [button .c -text bar]
+}]
+
+[keywords megawidget snit widget]
+[manpage_end]

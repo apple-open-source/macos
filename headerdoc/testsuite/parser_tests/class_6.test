@@ -1,0 +1,1827 @@
+FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$6|RESULT$14|RESULT_ALLDECS$7|SUBLANG$4|TYPE$137|class IOUSBController : public IOUSBBus
+{
+
+protected:
+
+/*! test */
+    ;
+    virtual void 		UIMRootHubStatusChange( bool abort ) = 0;
+};
+$572|/*!
+    @class IOUSBController
+    @abstract Base class for USB hardware driver
+    @discussion Not many directly useful methods for USB device driver writers,
+    IOUSBDevice, IOUSBInterface and IOUSBPipe provide more useful abstractions.
+    The bulk of this class interfaces between IOKit and the low-level UIM, which is
+    based on the MacOS9 UIM. To impliment a new controller type, subclass
+    IOUSBController and impiment all the "UIM functions". AppleUSBOHCI
+    is an example of this implementing all the functions necessary to drive an
+    OHCI controller.
+*/
+$0|$13574|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 1
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/class_6.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/class_6.test
+$parserState->{ISFORWARDDECLARATION} => 0
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => -1
+$parserState->{categoryClass} => 
+$parserState->{classNameFound} => 1
+$parserState->{classtype} => class
+$parserState->{forceClassDone} => 1
+$parserState->{forceClassName} => IOUSBController
+$parserState->{forceClassSuper} =>  public IOUSBBus 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 1
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 9
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => ;
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 4
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 1
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 0
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{preclasssodtype} => class
+$parserState->{prekeywordsodname} => 
+$parserState->{prekeywordsodtype} => 
+$parserState->{returntype} => class IOUSBController : public IOUSBBus  
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => class
+$parserState->{sodname} => IOUSBBus
+$parserState->{sodtype} =>  public
+$parserState->{sodtypeclasstoken} => class
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{storeDec} => 
+$parserState->{temponlyComments} => 0
+$parserState->{treePopTwo} => 0
+$parserState->{typestring} => IOUSBController
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 9
+typelist: class
+namelist: IOUSBController
+posstypes:   IOUSBBus 
+value: 
+returntype: public
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---class
++--- 
++---IOUSBController
++--- 
++---:
++--- 
++---public
++--- 
++---IOUSBBus
++---[ NEWLINE ]
++---{
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---protected
+|   +---:
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- test 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-virtual (HAS STATE)
+|   +--- 
+|   +---void
+|   +---                 
+|   +---UIMRootHubStatusChange
+|   +---(
+|   |   +--- 
+|   |   +---bool
+|   |   +--- 
+|   |   +---abort
+|   |   +--- 
+|   |   +---)
+|   +--- 
+|   +---=
+|   +--- 
+|   +---0
+|   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---}
++---;
++--- 
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: class 6
+APIUID: //test_ref/doc/header/class_6.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::CPPClass
+    NAME: IOUSBController
+    APIUID: 
+    ABSTRACT: "<p>Base class for USB hardware driver
+"
+    DISCUSSION: "<p>Not many directly useful methods for USB device driver writers,
+IOUSBDevice, IOUSBInterface and IOUSBPipe provide more useful abstractions.
+The bulk of this class interfaces between IOKit and the low-level UIM, which is
+based on the MacOS9 UIM. To impliment a new controller type, subclass
+IOUSBController and impiment all the "UIM functions". AppleUSBOHCI
+is an example of this implementing all the functions necessary to drive an
+OHCI controller.
+"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::CPPClass"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "1"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p><b>Superclass:</b> <!-- a logicalPath="//test_ref/cpp/cl/IOUSBBus //test_ref/cpp/tdef/IOUSBBus //test_ref/cpp/tag/IOUSBBus //test_ref/cpp/econst/IOUSBBus //test_ref/cpp/struct/IOUSBBus //test_ref/cpp/data/IOUSBBus //test_ref/cpp/clconst/IOUSBBus //test_ref/cpp/intf/IOUSBBus //test_ref/cpp/instm/IOUSBBus //test_ref/cpp/clm/IOUSBBus //test_ref/cpp/intfcm/IOUSBBus //test_ref/cpp/intfm/IOUSBBus //test_ref/cpp/func/IOUSBBus //test_ref/cpp/ftmplt/IOUSBBus //test_ref/cpp/defn/IOUSBBus //test_ref/cpp/macro/IOUSBBus //test_ref/doc/com/intfm/IOUSBBus" -->IOUSBBus<!-- /a --><br>
+<b>Declared In:</b> <a href="../../index.html" target="_top">class 6</a><br>
+</p>
+    LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Function
+        NAME: UIMRootHubStatusChange
+        APIUID: //test_ref/cpp/instm/IOUSBController/UIMRootHubStatusChange/void/(bool)
+        ABSTRACT: ""
+        DISCUSSION: "<p>test "
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: "protected"
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: " virtual void"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Function"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "1"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: abort
+            TYPE: bool
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: <p></p>
+            LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: IOUSBController (HeaderDoc::CPPClass)
++---class
++--- 
++---IOUSBController
++--- 
++---:
++--- 
++---public
++--- 
++---IOUSBBus
++---[ NEWLINE ]
++---{
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---protected
+|   +---:
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- test 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-virtual (HAS STATE)
+|   +--- 
+|   +---void
+|   +---                 
+|   +---UIMRootHubStatusChange
+|   +---(
+|   |   +--- 
+|   |   +---bool
+|   |   +--- 
+|   |   +---abort
+|   |   +--- 
+|   |   +---)
+|   +--- 
+|   +---=
+|   +--- 
+|   +---0
+|   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---}
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: UIMRootHubStatusChange (HeaderDoc::Function)
++-*-virtual (HAS STATE)
++--- 
++---void
++---                 
++---UIMRootHubStatusChange
++---(
+|   +--- 
+|   +---bool
+|   +--- 
+|   +---abort
+|   +--- 
+|   +---)
++--- 
++---=
++--- 
++---0
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: IOUSBController (HeaderDoc::CPPClass)
+	<span class="keyword">class</span> <!-- a logicalPath="//test_ref/cpp/cl/IOUSBController //test_ref/cpp/tdef/IOUSBController //test_ref/cpp/tag/IOUSBController //test_ref/cpp/econst/IOUSBController //test_ref/cpp/struct/IOUSBController //test_ref/cpp/clconst/IOUSBController //test_ref/cpp/intf/IOUSBController" --><span class="type">IOUSBController</span><!-- /a --> : <span class="keyword">public</span> <!-- a logicalPath="//test_ref/cpp/cl/IOUSBBus //test_ref/cpp/tdef/IOUSBBus //test_ref/cpp/tag/IOUSBBus //test_ref/cpp/econst/IOUSBBus //test_ref/cpp/struct/IOUSBBus //test_ref/cpp/clconst/IOUSBBus //test_ref/cpp/intf/IOUSBBus" --><span class="type">IOUSBBus</span><!-- /a --> {  
+	    <span class="keyword">protected</span>:  <span class="comment">/*! test */</span> 
+	    <span class="keyword">virtual</span> <!-- a logicalPath="//test_ref/cpp/cl/void //test_ref/cpp/tdef/void //test_ref/cpp/tag/void //test_ref/cpp/econst/void //test_ref/cpp/struct/void //test_ref/cpp/clconst/void //test_ref/cpp/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/UIMRootHubStatusChange //test_ref/cpp/clm/UIMRootHubStatusChange //test_ref/cpp/intfcm/UIMRootHubStatusChange //test_ref/cpp/intfm/UIMRootHubStatusChange //test_ref/cpp/func/UIMRootHubStatusChange //test_ref/cpp/ftmplt/UIMRootHubStatusChange //test_ref/cpp/defn/UIMRootHubStatusChange //test_ref/cpp/macro/UIMRootHubStatusChange" --><span class="function">UIMRootHubStatusChange</span><!-- /a -->(
+	        <!-- a logicalPath="//test_ref/cpp/cl/bool //test_ref/cpp/tdef/bool //test_ref/cpp/tag/bool //test_ref/cpp/econst/bool //test_ref/cpp/struct/bool //test_ref/cpp/clconst/bool //test_ref/cpp/intf/bool" --><span class="type">bool</span><!-- /a --> <span class="param">abort</span> ) = <span class="number">0</span>; 
+	};  
+END OF OBJECT
+
+
+OBJECT: UIMRootHubStatusChange (HeaderDoc::Function)
+	<span class="keyword">virtual</span> <!-- a logicalPath="//test_ref/cpp/cl/void //test_ref/cpp/tdef/void //test_ref/cpp/tag/void //test_ref/cpp/econst/void //test_ref/cpp/struct/void //test_ref/cpp/clconst/void //test_ref/cpp/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/UIMRootHubStatusChange //test_ref/cpp/clm/UIMRootHubStatusChange //test_ref/cpp/intfcm/UIMRootHubStatusChange //test_ref/cpp/intfm/UIMRootHubStatusChange //test_ref/cpp/func/UIMRootHubStatusChange //test_ref/cpp/ftmplt/UIMRootHubStatusChange //test_ref/cpp/defn/UIMRootHubStatusChange //test_ref/cpp/macro/UIMRootHubStatusChange" --><span class="function">UIMRootHubStatusChange</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/cpp/cl/bool //test_ref/cpp/tdef/bool //test_ref/cpp/tag/bool //test_ref/cpp/econst/bool //test_ref/cpp/struct/bool //test_ref/cpp/clconst/bool //test_ref/cpp/intf/bool" --><span class="type">bool</span><!-- /a --> <span class="param">abort</span> ) = <span class="number">0</span>; 
+END OF OBJECT
+
+
+
+$13574|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 1
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/class_6.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/class_6.test
+$parserState->{ISFORWARDDECLARATION} => 0
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => -1
+$parserState->{categoryClass} => 
+$parserState->{classNameFound} => 1
+$parserState->{classtype} => class
+$parserState->{forceClassDone} => 1
+$parserState->{forceClassName} => IOUSBController
+$parserState->{forceClassSuper} =>  public IOUSBBus 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 1
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 9
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => ;
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 4
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 1
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 0
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{preclasssodtype} => class
+$parserState->{prekeywordsodname} => 
+$parserState->{prekeywordsodtype} => 
+$parserState->{returntype} => class IOUSBController : public IOUSBBus  
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => class
+$parserState->{sodname} => IOUSBBus
+$parserState->{sodtype} =>  public
+$parserState->{sodtypeclasstoken} => class
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{storeDec} => 
+$parserState->{temponlyComments} => 0
+$parserState->{treePopTwo} => 0
+$parserState->{typestring} => IOUSBController
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 9
+typelist: class
+namelist: IOUSBController
+posstypes:   IOUSBBus 
+value: 
+returntype: public
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---class
++--- 
++---IOUSBController
++--- 
++---:
++--- 
++---public
++--- 
++---IOUSBBus
++---[ NEWLINE ]
++---{
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---protected
+|   +---:
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- test 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-virtual (HAS STATE)
+|   +--- 
+|   +---void
+|   +---                 
+|   +---UIMRootHubStatusChange
+|   +---(
+|   |   +--- 
+|   |   +---bool
+|   |   +--- 
+|   |   +---abort
+|   |   +--- 
+|   |   +---)
+|   +--- 
+|   +---=
+|   +--- 
+|   +---0
+|   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---}
++---;
++--- 
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: class 6
+APIUID: //test_ref/doc/header/class_6.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::CPPClass
+    NAME: IOUSBController
+    APIUID: 
+    ABSTRACT: "<p>Base class for USB hardware driver
+"
+    DISCUSSION: "<p>Not many directly useful methods for USB device driver writers,
+IOUSBDevice, IOUSBInterface and IOUSBPipe provide more useful abstractions.
+The bulk of this class interfaces between IOKit and the low-level UIM, which is
+based on the MacOS9 UIM. To impliment a new controller type, subclass
+IOUSBController and impiment all the "UIM functions". AppleUSBOHCI
+is an example of this implementing all the functions necessary to drive an
+OHCI controller.
+"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::CPPClass"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "1"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p><b>Superclass:</b> <!-- a logicalPath="//test_ref/cpp/cl/IOUSBBus //test_ref/cpp/tdef/IOUSBBus //test_ref/cpp/tag/IOUSBBus //test_ref/cpp/econst/IOUSBBus //test_ref/cpp/struct/IOUSBBus //test_ref/cpp/data/IOUSBBus //test_ref/cpp/clconst/IOUSBBus //test_ref/cpp/intf/IOUSBBus //test_ref/cpp/instm/IOUSBBus //test_ref/cpp/clm/IOUSBBus //test_ref/cpp/intfcm/IOUSBBus //test_ref/cpp/intfm/IOUSBBus //test_ref/cpp/func/IOUSBBus //test_ref/cpp/ftmplt/IOUSBBus //test_ref/cpp/defn/IOUSBBus //test_ref/cpp/macro/IOUSBBus //test_ref/doc/com/intfm/IOUSBBus" -->IOUSBBus<!-- /a --><br>
+<b>Declared In:</b> <a href="../../index.html" target="_top">class 6</a><br>
+</p>
+    LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Function
+        NAME: UIMRootHubStatusChange
+        APIUID: //test_ref/cpp/instm/IOUSBController/UIMRootHubStatusChange/void/(bool)
+        ABSTRACT: ""
+        DISCUSSION: "<p>test "
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: "protected"
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: " virtual void"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Function"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "1"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: abort
+            TYPE: bool
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: <p></p>
+            LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: IOUSBController (HeaderDoc::CPPClass)
++---class
++--- 
++---IOUSBController
++--- 
++---:
++--- 
++---public
++--- 
++---IOUSBBus
++---[ NEWLINE ]
++---{
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---protected
+|   +---:
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- test 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-virtual (HAS STATE)
+|   +--- 
+|   +---void
+|   +---                 
+|   +---UIMRootHubStatusChange
+|   +---(
+|   |   +--- 
+|   |   +---bool
+|   |   +--- 
+|   |   +---abort
+|   |   +--- 
+|   |   +---)
+|   +--- 
+|   +---=
+|   +--- 
+|   +---0
+|   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---}
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: UIMRootHubStatusChange (HeaderDoc::Function)
++-*-virtual (HAS STATE)
++--- 
++---void
++---                 
++---UIMRootHubStatusChange
++---(
+|   +--- 
+|   +---bool
+|   +--- 
+|   +---abort
+|   +--- 
+|   +---)
++--- 
++---=
++--- 
++---0
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: IOUSBController (HeaderDoc::CPPClass)
+	<span class="keyword">class</span> <!-- a logicalPath="//test_ref/cpp/cl/IOUSBController //test_ref/cpp/tdef/IOUSBController //test_ref/cpp/tag/IOUSBController //test_ref/cpp/econst/IOUSBController //test_ref/cpp/struct/IOUSBController //test_ref/cpp/clconst/IOUSBController //test_ref/cpp/intf/IOUSBController" --><span class="type">IOUSBController</span><!-- /a --> : <span class="keyword">public</span> <!-- a logicalPath="//test_ref/cpp/cl/IOUSBBus //test_ref/cpp/tdef/IOUSBBus //test_ref/cpp/tag/IOUSBBus //test_ref/cpp/econst/IOUSBBus //test_ref/cpp/struct/IOUSBBus //test_ref/cpp/clconst/IOUSBBus //test_ref/cpp/intf/IOUSBBus" --><span class="type">IOUSBBus</span><!-- /a --> {  
+	    <span class="keyword">protected</span>:  <span class="comment">/*! test */</span> 
+	    <span class="keyword">virtual</span> <!-- a logicalPath="//test_ref/cpp/cl/void //test_ref/cpp/tdef/void //test_ref/cpp/tag/void //test_ref/cpp/econst/void //test_ref/cpp/struct/void //test_ref/cpp/clconst/void //test_ref/cpp/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/UIMRootHubStatusChange //test_ref/cpp/clm/UIMRootHubStatusChange //test_ref/cpp/intfcm/UIMRootHubStatusChange //test_ref/cpp/intfm/UIMRootHubStatusChange //test_ref/cpp/func/UIMRootHubStatusChange //test_ref/cpp/ftmplt/UIMRootHubStatusChange //test_ref/cpp/defn/UIMRootHubStatusChange //test_ref/cpp/macro/UIMRootHubStatusChange" --><span class="function">UIMRootHubStatusChange</span><!-- /a -->(
+	        <!-- a logicalPath="//test_ref/cpp/cl/bool //test_ref/cpp/tdef/bool //test_ref/cpp/tag/bool //test_ref/cpp/econst/bool //test_ref/cpp/struct/bool //test_ref/cpp/clconst/bool //test_ref/cpp/intf/bool" --><span class="type">bool</span><!-- /a --> <span class="param">abort</span> ) = <span class="number">0</span>; 
+	};  
+END OF OBJECT
+
+
+OBJECT: UIMRootHubStatusChange (HeaderDoc::Function)
+	<span class="keyword">virtual</span> <!-- a logicalPath="//test_ref/cpp/cl/void //test_ref/cpp/tdef/void //test_ref/cpp/tag/void //test_ref/cpp/econst/void //test_ref/cpp/struct/void //test_ref/cpp/clconst/void //test_ref/cpp/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/UIMRootHubStatusChange //test_ref/cpp/clm/UIMRootHubStatusChange //test_ref/cpp/intfcm/UIMRootHubStatusChange //test_ref/cpp/intfm/UIMRootHubStatusChange //test_ref/cpp/func/UIMRootHubStatusChange //test_ref/cpp/ftmplt/UIMRootHubStatusChange //test_ref/cpp/defn/UIMRootHubStatusChange //test_ref/cpp/macro/UIMRootHubStatusChange" --><span class="function">UIMRootHubStatusChange</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/cpp/cl/bool //test_ref/cpp/tdef/bool //test_ref/cpp/tag/bool //test_ref/cpp/econst/bool //test_ref/cpp/struct/bool //test_ref/cpp/clconst/bool //test_ref/cpp/intf/bool" --><span class="type">bool</span><!-- /a --> <span class="param">abort</span> ) = <span class="number">0</span>; 
+END OF OBJECT
+
+
+
+$389|This test case is based on an actual failure that only appeared
+if the C preprocessor was enabled to replace the OSMetaDeclareUnused(...)
+with a semicolon and only if the headerdoc comment is preceded
+by "protected:".  Short description: the parser state was ending up
+in the wrong place in the parse tree.  Probability of regression is
+pretty close to zero, but I'm adding a test anyway.
+$35|testsuite/parser_tests/class_6.test$1|C$7|class 6$13574|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 1
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/class_6.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/class_6.test
+$parserState->{ISFORWARDDECLARATION} => 0
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => -1
+$parserState->{categoryClass} => 
+$parserState->{classNameFound} => 1
+$parserState->{classtype} => class
+$parserState->{forceClassDone} => 1
+$parserState->{forceClassName} => IOUSBController
+$parserState->{forceClassSuper} =>  public IOUSBBus 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 1
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 9
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => ;
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 4
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 1
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 0
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{preclasssodtype} => class
+$parserState->{prekeywordsodname} => 
+$parserState->{prekeywordsodtype} => 
+$parserState->{returntype} => class IOUSBController : public IOUSBBus  
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => class
+$parserState->{sodname} => IOUSBBus
+$parserState->{sodtype} =>  public
+$parserState->{sodtypeclasstoken} => class
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{storeDec} => 
+$parserState->{temponlyComments} => 0
+$parserState->{treePopTwo} => 0
+$parserState->{typestring} => IOUSBController
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 9
+typelist: class
+namelist: IOUSBController
+posstypes:   IOUSBBus 
+value: 
+returntype: public
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---class
++--- 
++---IOUSBController
++--- 
++---:
++--- 
++---public
++--- 
++---IOUSBBus
++---[ NEWLINE ]
++---{
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---protected
+|   +---:
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- test 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-virtual (HAS STATE)
+|   +--- 
+|   +---void
+|   +---                 
+|   +---UIMRootHubStatusChange
+|   +---(
+|   |   +--- 
+|   |   +---bool
+|   |   +--- 
+|   |   +---abort
+|   |   +--- 
+|   |   +---)
+|   +--- 
+|   +---=
+|   +--- 
+|   +---0
+|   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---}
++---;
++--- 
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: class 6
+APIUID: //test_ref/doc/header/class_6.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::CPPClass
+    NAME: IOUSBController
+    APIUID: 
+    ABSTRACT: "<p>Base class for USB hardware driver
+"
+    DISCUSSION: "<p>Not many directly useful methods for USB device driver writers,
+IOUSBDevice, IOUSBInterface and IOUSBPipe provide more useful abstractions.
+The bulk of this class interfaces between IOKit and the low-level UIM, which is
+based on the MacOS9 UIM. To impliment a new controller type, subclass
+IOUSBController and impiment all the "UIM functions". AppleUSBOHCI
+is an example of this implementing all the functions necessary to drive an
+OHCI controller.
+"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::CPPClass"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "1"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p><b>Superclass:</b> <!-- a logicalPath="//test_ref/cpp/cl/IOUSBBus //test_ref/cpp/tdef/IOUSBBus //test_ref/cpp/tag/IOUSBBus //test_ref/cpp/econst/IOUSBBus //test_ref/cpp/struct/IOUSBBus //test_ref/cpp/data/IOUSBBus //test_ref/cpp/clconst/IOUSBBus //test_ref/cpp/intf/IOUSBBus //test_ref/cpp/instm/IOUSBBus //test_ref/cpp/clm/IOUSBBus //test_ref/cpp/intfcm/IOUSBBus //test_ref/cpp/intfm/IOUSBBus //test_ref/cpp/func/IOUSBBus //test_ref/cpp/ftmplt/IOUSBBus //test_ref/cpp/defn/IOUSBBus //test_ref/cpp/macro/IOUSBBus //test_ref/doc/com/intfm/IOUSBBus" -->IOUSBBus<!-- /a --><br>
+<b>Declared In:</b> <a href="../../index.html" target="_top">class 6</a><br>
+</p>
+    LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Function
+        NAME: UIMRootHubStatusChange
+        APIUID: //test_ref/cpp/instm/IOUSBController/UIMRootHubStatusChange/void/(bool)
+        ABSTRACT: ""
+        DISCUSSION: "<p>test "
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: "protected"
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: " virtual void"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Function"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "1"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: abort
+            TYPE: bool
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: <p></p>
+            LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: IOUSBController (HeaderDoc::CPPClass)
++---class
++--- 
++---IOUSBController
++--- 
++---:
++--- 
++---public
++--- 
++---IOUSBBus
++---[ NEWLINE ]
++---{
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---protected
+|   +---:
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- test 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-virtual (HAS STATE)
+|   +--- 
+|   +---void
+|   +---                 
+|   +---UIMRootHubStatusChange
+|   +---(
+|   |   +--- 
+|   |   +---bool
+|   |   +--- 
+|   |   +---abort
+|   |   +--- 
+|   |   +---)
+|   +--- 
+|   +---=
+|   +--- 
+|   +---0
+|   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---}
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: UIMRootHubStatusChange (HeaderDoc::Function)
++-*-virtual (HAS STATE)
++--- 
++---void
++---                 
++---UIMRootHubStatusChange
++---(
+|   +--- 
+|   +---bool
+|   +--- 
+|   +---abort
+|   +--- 
+|   +---)
++--- 
++---=
++--- 
++---0
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: IOUSBController (HeaderDoc::CPPClass)
+	<span class="keyword">class</span> <!-- a logicalPath="//test_ref/cpp/cl/IOUSBController //test_ref/cpp/tdef/IOUSBController //test_ref/cpp/tag/IOUSBController //test_ref/cpp/econst/IOUSBController //test_ref/cpp/struct/IOUSBController //test_ref/cpp/clconst/IOUSBController //test_ref/cpp/intf/IOUSBController" --><span class="type">IOUSBController</span><!-- /a --> : <span class="keyword">public</span> <!-- a logicalPath="//test_ref/cpp/cl/IOUSBBus //test_ref/cpp/tdef/IOUSBBus //test_ref/cpp/tag/IOUSBBus //test_ref/cpp/econst/IOUSBBus //test_ref/cpp/struct/IOUSBBus //test_ref/cpp/clconst/IOUSBBus //test_ref/cpp/intf/IOUSBBus" --><span class="type">IOUSBBus</span><!-- /a --> {  
+	    <span class="keyword">protected</span>:  <span class="comment">/*! test */</span> 
+	    <span class="keyword">virtual</span> <!-- a logicalPath="//test_ref/cpp/cl/void //test_ref/cpp/tdef/void //test_ref/cpp/tag/void //test_ref/cpp/econst/void //test_ref/cpp/struct/void //test_ref/cpp/clconst/void //test_ref/cpp/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/UIMRootHubStatusChange //test_ref/cpp/clm/UIMRootHubStatusChange //test_ref/cpp/intfcm/UIMRootHubStatusChange //test_ref/cpp/intfm/UIMRootHubStatusChange //test_ref/cpp/func/UIMRootHubStatusChange //test_ref/cpp/ftmplt/UIMRootHubStatusChange //test_ref/cpp/defn/UIMRootHubStatusChange //test_ref/cpp/macro/UIMRootHubStatusChange" --><span class="function">UIMRootHubStatusChange</span><!-- /a -->(
+	        <!-- a logicalPath="//test_ref/cpp/cl/bool //test_ref/cpp/tdef/bool //test_ref/cpp/tag/bool //test_ref/cpp/econst/bool //test_ref/cpp/struct/bool //test_ref/cpp/clconst/bool //test_ref/cpp/intf/bool" --><span class="type">bool</span><!-- /a --> <span class="param">abort</span> ) = <span class="number">0</span>; 
+	};  
+END OF OBJECT
+
+
+OBJECT: UIMRootHubStatusChange (HeaderDoc::Function)
+	<span class="keyword">virtual</span> <!-- a logicalPath="//test_ref/cpp/cl/void //test_ref/cpp/tdef/void //test_ref/cpp/tag/void //test_ref/cpp/econst/void //test_ref/cpp/struct/void //test_ref/cpp/clconst/void //test_ref/cpp/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/UIMRootHubStatusChange //test_ref/cpp/clm/UIMRootHubStatusChange //test_ref/cpp/intfcm/UIMRootHubStatusChange //test_ref/cpp/intfm/UIMRootHubStatusChange //test_ref/cpp/func/UIMRootHubStatusChange //test_ref/cpp/ftmplt/UIMRootHubStatusChange //test_ref/cpp/defn/UIMRootHubStatusChange //test_ref/cpp/macro/UIMRootHubStatusChange" --><span class="function">UIMRootHubStatusChange</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/cpp/cl/bool //test_ref/cpp/tdef/bool //test_ref/cpp/tag/bool //test_ref/cpp/econst/bool //test_ref/cpp/struct/bool //test_ref/cpp/clconst/bool //test_ref/cpp/intf/bool" --><span class="type">bool</span><!-- /a --> <span class="param">abort</span> ) = <span class="number">0</span>; 
+END OF OBJECT
+
+
+
+$13574|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 1
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/class_6.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/class_6.test
+$parserState->{ISFORWARDDECLARATION} => 0
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => -1
+$parserState->{categoryClass} => 
+$parserState->{classNameFound} => 1
+$parserState->{classtype} => class
+$parserState->{forceClassDone} => 1
+$parserState->{forceClassName} => IOUSBController
+$parserState->{forceClassSuper} =>  public IOUSBBus 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 1
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 9
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => ;
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 4
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 1
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 0
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{preclasssodtype} => class
+$parserState->{prekeywordsodname} => 
+$parserState->{prekeywordsodtype} => 
+$parserState->{returntype} => class IOUSBController : public IOUSBBus  
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => class
+$parserState->{sodname} => IOUSBBus
+$parserState->{sodtype} =>  public
+$parserState->{sodtypeclasstoken} => class
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{storeDec} => 
+$parserState->{temponlyComments} => 0
+$parserState->{treePopTwo} => 0
+$parserState->{typestring} => IOUSBController
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 9
+typelist: class
+namelist: IOUSBController
+posstypes:   IOUSBBus 
+value: 
+returntype: public
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---class
++--- 
++---IOUSBController
++--- 
++---:
++--- 
++---public
++--- 
++---IOUSBBus
++---[ NEWLINE ]
++---{
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---protected
+|   +---:
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- test 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-virtual (HAS STATE)
+|   +--- 
+|   +---void
+|   +---                 
+|   +---UIMRootHubStatusChange
+|   +---(
+|   |   +--- 
+|   |   +---bool
+|   |   +--- 
+|   |   +---abort
+|   |   +--- 
+|   |   +---)
+|   +--- 
+|   +---=
+|   +--- 
+|   +---0
+|   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---}
++---;
++--- 
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: class 6
+APIUID: //test_ref/doc/header/class_6.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: <p></p>
+LONG ATTRIBUTES: <p></p>
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::CPPClass
+    NAME: IOUSBController
+    APIUID: 
+    ABSTRACT: "<p>Base class for USB hardware driver
+"
+    DISCUSSION: "<p>Not many directly useful methods for USB device driver writers,
+IOUSBDevice, IOUSBInterface and IOUSBPipe provide more useful abstractions.
+The bulk of this class interfaces between IOKit and the low-level UIM, which is
+based on the MacOS9 UIM. To impliment a new controller type, subclass
+IOUSBController and impiment all the "UIM functions". AppleUSBOHCI
+is an example of this implementing all the functions necessary to drive an
+OHCI controller.
+"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::CPPClass"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "1"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p><b>Superclass:</b> <!-- a logicalPath="//test_ref/cpp/cl/IOUSBBus //test_ref/cpp/tdef/IOUSBBus //test_ref/cpp/tag/IOUSBBus //test_ref/cpp/econst/IOUSBBus //test_ref/cpp/struct/IOUSBBus //test_ref/cpp/data/IOUSBBus //test_ref/cpp/clconst/IOUSBBus //test_ref/cpp/intf/IOUSBBus //test_ref/cpp/instm/IOUSBBus //test_ref/cpp/clm/IOUSBBus //test_ref/cpp/intfcm/IOUSBBus //test_ref/cpp/intfm/IOUSBBus //test_ref/cpp/func/IOUSBBus //test_ref/cpp/ftmplt/IOUSBBus //test_ref/cpp/defn/IOUSBBus //test_ref/cpp/macro/IOUSBBus //test_ref/doc/com/intfm/IOUSBBus" -->IOUSBBus<!-- /a --><br>
+<b>Declared In:</b> <a href="../../index.html" target="_top">class 6</a><br>
+</p>
+    LONG ATTRIBUTES: <p></p>
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Function
+        NAME: UIMRootHubStatusChange
+        APIUID: //test_ref/cpp/instm/IOUSBController/UIMRootHubStatusChange/void/(bool)
+        ABSTRACT: ""
+        DISCUSSION: "<p>test "
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: "protected"
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: " virtual void"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Function"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "1"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: <p></p>
+        LONG ATTRIBUTES: <p></p>
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: abort
+            TYPE: bool
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: <p></p>
+            LONG ATTRIBUTES: <p></p>
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: IOUSBController (HeaderDoc::CPPClass)
++---class
++--- 
++---IOUSBController
++--- 
++---:
++--- 
++---public
++--- 
++---IOUSBBus
++---[ NEWLINE ]
++---{
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---protected
+|   +---:
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- test 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---    
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-virtual (HAS STATE)
+|   +--- 
+|   +---void
+|   +---                 
+|   +---UIMRootHubStatusChange
+|   +---(
+|   |   +--- 
+|   |   +---bool
+|   |   +--- 
+|   |   +---abort
+|   |   +--- 
+|   |   +---)
+|   +--- 
+|   +---=
+|   +--- 
+|   +---0
+|   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---}
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: UIMRootHubStatusChange (HeaderDoc::Function)
++-*-virtual (HAS STATE)
++--- 
++---void
++---                 
++---UIMRootHubStatusChange
++---(
+|   +--- 
+|   +---bool
+|   +--- 
+|   +---abort
+|   +--- 
+|   +---)
++--- 
++---=
++--- 
++---0
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: IOUSBController (HeaderDoc::CPPClass)
+	<span class="keyword">class</span> <!-- a logicalPath="//test_ref/cpp/cl/IOUSBController //test_ref/cpp/tdef/IOUSBController //test_ref/cpp/tag/IOUSBController //test_ref/cpp/econst/IOUSBController //test_ref/cpp/struct/IOUSBController //test_ref/cpp/clconst/IOUSBController //test_ref/cpp/intf/IOUSBController" --><span class="type">IOUSBController</span><!-- /a --> : <span class="keyword">public</span> <!-- a logicalPath="//test_ref/cpp/cl/IOUSBBus //test_ref/cpp/tdef/IOUSBBus //test_ref/cpp/tag/IOUSBBus //test_ref/cpp/econst/IOUSBBus //test_ref/cpp/struct/IOUSBBus //test_ref/cpp/clconst/IOUSBBus //test_ref/cpp/intf/IOUSBBus" --><span class="type">IOUSBBus</span><!-- /a --> {  
+	    <span class="keyword">protected</span>:  <span class="comment">/*! test */</span> 
+	    <span class="keyword">virtual</span> <!-- a logicalPath="//test_ref/cpp/cl/void //test_ref/cpp/tdef/void //test_ref/cpp/tag/void //test_ref/cpp/econst/void //test_ref/cpp/struct/void //test_ref/cpp/clconst/void //test_ref/cpp/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/UIMRootHubStatusChange //test_ref/cpp/clm/UIMRootHubStatusChange //test_ref/cpp/intfcm/UIMRootHubStatusChange //test_ref/cpp/intfm/UIMRootHubStatusChange //test_ref/cpp/func/UIMRootHubStatusChange //test_ref/cpp/ftmplt/UIMRootHubStatusChange //test_ref/cpp/defn/UIMRootHubStatusChange //test_ref/cpp/macro/UIMRootHubStatusChange" --><span class="function">UIMRootHubStatusChange</span><!-- /a -->(
+	        <!-- a logicalPath="//test_ref/cpp/cl/bool //test_ref/cpp/tdef/bool //test_ref/cpp/tag/bool //test_ref/cpp/econst/bool //test_ref/cpp/struct/bool //test_ref/cpp/clconst/bool //test_ref/cpp/intf/bool" --><span class="type">bool</span><!-- /a --> <span class="param">abort</span> ) = <span class="number">0</span>; 
+	};  
+END OF OBJECT
+
+
+OBJECT: UIMRootHubStatusChange (HeaderDoc::Function)
+	<span class="keyword">virtual</span> <!-- a logicalPath="//test_ref/cpp/cl/void //test_ref/cpp/tdef/void //test_ref/cpp/tag/void //test_ref/cpp/econst/void //test_ref/cpp/struct/void //test_ref/cpp/clconst/void //test_ref/cpp/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/UIMRootHubStatusChange //test_ref/cpp/clm/UIMRootHubStatusChange //test_ref/cpp/intfcm/UIMRootHubStatusChange //test_ref/cpp/intfm/UIMRootHubStatusChange //test_ref/cpp/func/UIMRootHubStatusChange //test_ref/cpp/ftmplt/UIMRootHubStatusChange //test_ref/cpp/defn/UIMRootHubStatusChange //test_ref/cpp/macro/UIMRootHubStatusChange" --><span class="function">UIMRootHubStatusChange</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/cpp/cl/bool //test_ref/cpp/tdef/bool //test_ref/cpp/tag/bool //test_ref/cpp/econst/bool //test_ref/cpp/struct/bool //test_ref/cpp/clconst/bool //test_ref/cpp/intf/bool" --><span class="type">bool</span><!-- /a --> <span class="param">abort</span> ) = <span class="number">0</span>; 
+END OF OBJECT
+
+
+
+$1|C$6|parser

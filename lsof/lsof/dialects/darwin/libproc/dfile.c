@@ -4,13 +4,13 @@
 
 
 /*
- * Portions Copyright 2005 Apple Computer, Inc.  All rights reserved.
+ * Portions Copyright 2005-2007 Apple Inc.  All rights reserved.
  *
  * Copyright 2005 Purdue Research Foundation, West Lafayette, Indiana
  * 47907.  All rights reserved.
  *
- * Written by Allan Nathanson, Apple Computer, Inc., and Victor A.
- * Abell, Purdue University.
+ * Written by Allan Nathanson, Apple Inc., and Victor A. Abell, Purdue
+ * University.
  *
  * This software is not subject to any license of the American Telephone
  * and Telegraph Company or the Regents of the University of California.
@@ -19,13 +19,12 @@
  * any computer system, and to alter it and redistribute it freely, subject
  * to the following restrictions:
  *
- * 1. Neither the authors, nor Apple Computer, Inc. nor Purdue University
- *    are responsible for any consequences of the use of this software.
+ * 1. Neither the authors, nor Apple Inc. nor Purdue University are
+ *    responsible for any consequences of the use of this software.
  *
  * 2. The origin of this software must not be misrepresented, either
  *    by explicit claim or by omission.  Credit to the authors, Apple
- *    Computer, Inc. and Purdue University must appear in documentation
- *    and sources.
+ *    Inc. and Purdue University must appear in documentation and sources.
  *
  * 3. Altered versions must be plainly marked as such, and must not be
  *    misrepresented as being the original software.
@@ -36,8 +35,8 @@
 
 #ifndef lint
 static char copyright[] =
-"@(#) Copyright 2005 Apple Computer, Inc. and Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: dfile.c,v 1.8 2007/05/14 23:03:14 lindak Exp $";
+"@(#) Copyright 2005-2007 Apple Inc. and Purdue Research Foundation.\nAll rights reserved.\n";
+static char *rcsid = "$Id: dfile.c,v 1.5 2008/10/21 16:15:16 abe Exp abe $";
 #endif
 
 
@@ -157,6 +156,8 @@ enter_vnode_info(vip)
 	if (Fnlink) {
 	    Lf->nlink = vip->vip_vi.vi_stat.vst_nlink;
 	    Lf->nlink_def = 1;
+	    if (Nlink && (Lf->nlink < Nlink))
+		Lf->sf |= SELNLINK;
 	}
 /*
  * If a device number is defined, locate file system and save its identity.
@@ -370,10 +371,11 @@ process_pipe(pid, fd)
 /*
  * If there is a peer handle, enter it in as NAME column information.
  */
-	if (pi.pipeinfo.pipe_peerhandle)
+	if (pi.pipeinfo.pipe_peerhandle) {
 	    (void) snpf(Namech, Namechl, "->%s",
 		print_kptr((KA_T)pi.pipeinfo.pipe_peerhandle, (char *)NULL, 0));
-	else
+	    enter_nm(Namech);
+	} else
 	    Namech[0] = '\0';
 /*
  * If the pipe has a count, add it to the NAME column.

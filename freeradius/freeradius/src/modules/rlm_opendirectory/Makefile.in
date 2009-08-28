@@ -1,5 +1,5 @@
 TARGET     = @targetname@
-SRCS       = rlm_opendirectory.c cache.c compat.c
+SRCS       = rlm_opendirectory.c
 HEADERS    =
 RLM_LIBS   = @od_ldflags@
 RLM_CFLAGS = @od_cflags@

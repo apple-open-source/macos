@@ -5,10 +5,12 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: lib514.c,v 1.3 2006-10-25 09:20:44 yangtse Exp $
+ * $Id: lib514.c,v 1.5 2008-09-20 04:26:57 yangtse Exp $
  */
 
 #include "test.h"
+
+#include "memdebug.h"
 
 int test(char *URL)
 {
@@ -39,16 +41,16 @@ int test(char *URL)
   */
 
   curl_easy_setopt(curl, CURLOPT_POSTFIELDS, "moo");
-  curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, 3);
-  curl_easy_setopt(curl, CURLOPT_POST, 1);
+  curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, 3L);
+  curl_easy_setopt(curl, CURLOPT_POST, 1L);
 
   /* this is where transfer 1 would take place, but skip that and change
      options right away instead */
 
-  curl_easy_setopt(curl, CURLOPT_NOBODY, 1);
+  curl_easy_setopt(curl, CURLOPT_NOBODY, 1L);
 
-  curl_easy_setopt(curl, CURLOPT_VERBOSE, 1); /* show verbose for debug */
-  curl_easy_setopt(curl, CURLOPT_HEADER, 1); /* include header */
+  curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L); /* show verbose for debug */
+  curl_easy_setopt(curl, CURLOPT_HEADER, 1L); /* include header */
 
   /* Now, we should be making a fine HEAD request */
 

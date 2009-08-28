@@ -25,6 +25,8 @@
 
 #include "config.h"
 #include "ClipboardWx.h"
+
+#include "FileList.h"
 #include "HashTable.h"
 #include "IntPoint.h"
 #include "NotImplemented.h"
@@ -68,6 +70,12 @@ HashSet<String> ClipboardWx::types() const
     notImplemented();
     HashSet<String> result;
     return result;
+}
+
+PassRefPtr<FileList> ClipboardWx::files() const
+{
+    notImplemented();
+    return 0;
 }
 
 IntPoint ClipboardWx::dragLocation() const 

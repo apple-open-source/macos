@@ -24,242 +24,293 @@
 #include "string.h"
 #include "mach-o/loader.h"
 #include "objc/objc-runtime.h"
-#include "objc/Protocol.h"
 #include "stuff/allocate.h"
 #include "stuff/bytesex.h"
 #include "stuff/symbol.h"
 #include "ofile_print.h"
 
-struct objc_protocol
-{
-    @defs(Protocol)
+/*
+ * Here we need structures that have the same memory layout and size as the
+ * 32-bit Objective-C 1 meta data structures.
+ *
+ * The real structure definitions come from the header file objc/objc-runtime.h
+ * and those it includes like objc/objc-class.h, etc.  But since this program
+ * must also run on 64-bit hosts that can't be used.
+ */
+
+struct objc_module_t {
+    uint32_t version;
+    uint32_t size;
+    uint32_t name;	/* char * (32-bit pointer) */
+    uint32_t symtab;	/* struct objc_symtab * (32-bit pointer) */
 };
+
+struct objc_symtab_t {
+    uint32_t sel_ref_cnt; 
+    uint32_t refs;		/* SEL * (32-bit pointer) */
+    uint16_t cls_def_cnt;
+    uint16_t cat_def_cnt;
+    uint32_t defs[1];		/* void * (32-bit pointer) variable size */
+};
+
+struct objc_class_t {
+    uint32_t isa;	  /* struct objc_class * (32-bit pointer) */
+    uint32_t super_class; /* struct objc_class * (32-bit pointer) */
+    uint32_t name; 	  /* const char * (32-bit pointer) */
+    int32_t version;
+    int32_t info;
+    int32_t instance_size;
+    uint32_t ivars; 	  /* struct objc_ivar_list * (32-bit pointer) */
+    uint32_t methodLists; /* struct objc_method_list ** (32-bit pointer) */
+    uint32_t cache; 	  /* struct objc_cache * (32-bit pointer) */
+    uint32_t protocols;   /* struct objc_protocol_list * (32-bit pointer) */
+};
+
+struct objc_category_t {
+    uint32_t category_name;	/* char * (32-bit pointer) */
+    uint32_t class_name;	/* char * (32-bit pointer) */
+    uint32_t instance_methods;	/* struct objc_method_list * (32-bit pointer) */
+    uint32_t class_methods;	/* struct objc_method_list * (32-bit pointer) */
+    uint32_t protocols;		/* struct objc_protocol_list * (32-bit ptr) */
+};
+
+struct objc_ivar_t {
+    uint32_t ivar_name;		/* char * (32-bit pointer) */
+    uint32_t ivar_type;		/* char * (32-bit pointer) */
+    int32_t ivar_offset;
+};
+
+struct objc_ivar_list_t {
+    int32_t ivar_count;
+    struct objc_ivar_t ivar_list[1];          /* variable length structure */
+};
+
+struct objc_method_t {
+    uint32_t method_name; /* SEL, aka struct objc_selector * (32-bit pointer) */
+    uint32_t method_types; /* char * (32-bit pointer) */
+    uint32_t method_imp; /* IMP, aka function pointer, (*IMP)(id, SEL, ...)
+			    (32-bit pointer) */
+};
+
+struct objc_method_list_t {
+    uint32_t obsolete;		/* struct objc_method_list * (32-bit pointer) */
+    int32_t method_count;
+    struct objc_method_t method_list[1];      /* variable length structure */
+};
+
+struct objc_protocol_t {
+    uint32_t isa;		/* struct objc_class * (32-bit pointer) */
+    uint32_t protocol_name;	/* char * (32-bit pointer) */
+    uint32_t protocol_list;	/* struct objc_protocol_list *
+				   (32-bit pointer) */
+    uint32_t instance_methods;	/* struct objc_method_description_list *
+				   (32-bit pointer) */
+    uint32_t class_methods;	/* struct objc_method_description_list *
+				   (32-bit pointer) */
+};
+
+struct objc_protocol_list_t {
+    uint32_t next;	/* struct objc_protocol_list * (32-bit pointer) */
+    int32_t count;
+    uint32_t list[1];	/* Protocol *, aka struct objc_protocol_t * (
+			   (32-bit pointer) */
+};
+
+struct objc_method_description_t {
+    uint32_t name;	/* SEL, aka struct objc_selector * (32-bit pointer) */
+    uint32_t types;	/* char * (32-bit pointer) */
+};
+
+struct objc_method_description_list_t {
+    int32_t count;
+    struct objc_method_description_t list[1];
+};
+
 
 /*
  * The header file "objc/NXString.h" has gone away and there is no real public
  * header file to get this definition from anymore.
  */
-struct objc_string_object {
-    struct objc_class *isa;
-    char *characters;
-    unsigned int _length;
+struct objc_string_object_t {
+    uint32_t isa;		/* struct objc_class * (32-bit pointer) */
+    uint32_t characters;	/* char * (32-bit pointer) */
+    uint32_t _length;
 };
-typedef struct objc_string_object NXConstantString;
+typedef struct objc_string_object_t NXConstantString;
 
 #define SIZEHASHTABLE 821
-struct _hashEntry {
-    struct _hashEntry *next;
-    char *sel;
+struct _hashEntry_t {
+    uint32_t next;	/* struct _hashEntry * (32-bit pointer) */
+    uint32_t sel;	/* char * (32-bit pointer) */
 };
 
-struct imageInfo {
+struct imageInfo_t {
     uint32_t version;
     uint32_t flags;
 };
 
 static
 void
-swap_imageInfo(
-struct imageInfo *o,
+swap_imageInfo_t(
+struct imageInfo_t *o,
 enum byte_sex target_byte_sex)
 {
-	o->version = SWAP_LONG(o->version);
-	o->flags = SWAP_LONG(o->flags);
+	o->version = SWAP_INT(o->version);
+	o->flags = SWAP_INT(o->flags);
 }
 
 void
-swap_objc_module(
-struct objc_module *module,
+swap_objc_module_t(
+struct objc_module_t *module,
 enum byte_sex target_byte_sex)
 {
-	module->version = SWAP_LONG(module->version);
-	module->size = SWAP_LONG(module->size);
-	module->name = (char *) SWAP_LONG((long)module->name);
-	module->symtab = (Symtab) SWAP_LONG((long)module->symtab);
+	module->version = SWAP_INT(module->version);
+	module->size = SWAP_INT(module->size);
+	module->name = SWAP_INT(module->name);
+	module->symtab = SWAP_INT(module->symtab);
 }
 
 void
-swap_objc_symtab(
-struct objc_symtab *symtab,
+swap_objc_symtab_t(
+struct objc_symtab_t *symtab,
 enum byte_sex target_byte_sex)
 {
-	symtab->sel_ref_cnt = SWAP_LONG(symtab->sel_ref_cnt);
-	symtab->refs = (SEL *) SWAP_LONG((long)symtab->refs);
+	symtab->sel_ref_cnt = SWAP_INT(symtab->sel_ref_cnt);
+	symtab->refs = SWAP_INT(symtab->refs);
 	symtab->cls_def_cnt = SWAP_SHORT(symtab->cls_def_cnt);
 	symtab->cat_def_cnt = SWAP_SHORT(symtab->cat_def_cnt);
 }
 
 void
-swap_objc_class(
-struct objc_class *objc_class,
+swap_objc_class_t(
+struct objc_class_t *objc_class,
 enum byte_sex target_byte_sex)
 {
-	objc_class->isa = (struct objc_class *)
-		SWAP_LONG((long)objc_class->isa);
-	objc_class->super_class = (struct objc_class *)
-		SWAP_LONG((long)objc_class->super_class);
-	objc_class->name = (const char *)
-		SWAP_LONG((long)objc_class->name);		
-	objc_class->version =
-		SWAP_LONG(objc_class->version);
-	objc_class->info =
-		SWAP_LONG(objc_class->info);
-	objc_class->instance_size =
-		SWAP_LONG(objc_class->instance_size);
-	objc_class->ivars = (struct objc_ivar_list *)
-		SWAP_LONG((long)objc_class->ivars);
-	objc_class->methodLists = (struct objc_method_list **)
-		SWAP_LONG((long)objc_class->methodLists);
-	objc_class->cache = (struct objc_cache *)
-		SWAP_LONG((long)objc_class->cache);
-	objc_class->protocols = (struct objc_protocol_list *)
-		SWAP_LONG((long)objc_class->protocols);
+	objc_class->isa = SWAP_INT(objc_class->isa);
+	objc_class->super_class = SWAP_INT(objc_class->super_class);
+	objc_class->name = SWAP_INT(objc_class->name);		
+	objc_class->version = SWAP_INT(objc_class->version);
+	objc_class->info = SWAP_INT(objc_class->info);
+	objc_class->instance_size = SWAP_INT(objc_class->instance_size);
+	objc_class->ivars = SWAP_INT(objc_class->ivars);
+	objc_class->methodLists = SWAP_INT(objc_class->methodLists);
+	objc_class->cache = SWAP_INT(objc_class->cache);
+	objc_class->protocols = SWAP_INT(objc_class->protocols);
 }
 
 void
-swap_objc_category(
-struct objc_category *objc_category,
+swap_objc_category_t(
+struct objc_category_t *objc_category,
 enum byte_sex target_byte_sex)
 {
-	objc_category->category_name = (char *)
-		SWAP_LONG((long)objc_category->category_name);
-	objc_category->class_name = (char *)
-		SWAP_LONG((long)objc_category->class_name);
-	objc_category->instance_methods = (struct objc_method_list *)
-		SWAP_LONG((long)objc_category->instance_methods);
-	objc_category->class_methods = (struct objc_method_list *)
-		SWAP_LONG((long)objc_category->class_methods);
-	objc_category->protocols = (struct objc_protocol_list *)
-		SWAP_LONG((long)objc_category->protocols);
+	objc_category->category_name = SWAP_INT(objc_category->category_name);
+	objc_category->class_name = SWAP_INT(objc_category->class_name);
+	objc_category->instance_methods =
+		SWAP_INT(objc_category->instance_methods);
+	objc_category->class_methods =
+		SWAP_INT(objc_category->class_methods);
+	objc_category->protocols =
+		SWAP_INT(objc_category->protocols);
 }
 
 void
-swap_objc_ivar_list(
-struct objc_ivar_list *objc_ivar_list,
+swap_objc_ivar_list_t(
+struct objc_ivar_list_t *objc_ivar_list,
 enum byte_sex target_byte_sex)
 {
-	objc_ivar_list->ivar_count = SWAP_LONG(objc_ivar_list->ivar_count);
+	objc_ivar_list->ivar_count = SWAP_INT(objc_ivar_list->ivar_count);
 }
 
 void
-swap_objc_ivar(
-struct objc_ivar *objc_ivar,
+swap_objc_ivar_t(
+struct objc_ivar_t *objc_ivar,
 enum byte_sex target_byte_sex)
 {
-	objc_ivar->ivar_name = (char *)
-		SWAP_LONG((long)objc_ivar->ivar_name);
-	objc_ivar->ivar_type = (char *)
-		SWAP_LONG((long)objc_ivar->ivar_type);
-	objc_ivar->ivar_offset = 
-		SWAP_LONG(objc_ivar->ivar_offset);
+	objc_ivar->ivar_name = SWAP_INT(objc_ivar->ivar_name);
+	objc_ivar->ivar_type = SWAP_INT(objc_ivar->ivar_type);
+	objc_ivar->ivar_offset = SWAP_INT(objc_ivar->ivar_offset);
 }
 
 void
-swap_objc_method_list(
-struct objc_method_list *method_list,
+swap_objc_method_list_t(
+struct objc_method_list_t *method_list,
 enum byte_sex target_byte_sex)
 {
-	method_list->obsolete = (struct objc_method_list *)
-		SWAP_LONG((long)method_list->obsolete);
-	method_list->method_count = 
-		SWAP_LONG(method_list->method_count);
+	method_list->obsolete = SWAP_INT(method_list->obsolete);
+	method_list->method_count = SWAP_INT(method_list->method_count);
 }
 
 void
-swap_objc_method(
-struct objc_method *method,
+swap_objc_method_t(
+struct objc_method_t *method,
 enum byte_sex target_byte_sex)
 {
-	method->method_name = (SEL)
-		SWAP_LONG((long)method->method_name);
-	method->method_types = (char *)
-		SWAP_LONG((long)method->method_types);
-	method->method_imp = (IMP)
-		SWAP_LONG((long)method->method_imp);
+	method->method_name = SWAP_INT(method->method_name);
+	method->method_types = SWAP_INT(method->method_types);
+	method->method_imp = SWAP_INT(method->method_imp);
 }
 
 void
-swap_objc_protocol_list(
-struct objc_protocol_list *protocol_list,
+swap_objc_protocol_list_t(
+struct objc_protocol_list_t *protocol_list,
 enum byte_sex target_byte_sex)
 {
-	protocol_list->next = (struct objc_protocol_list *)
-		SWAP_LONG((long)protocol_list->next);
-	protocol_list->count =
-		SWAP_LONG(protocol_list->count);
+	protocol_list->next = SWAP_INT(protocol_list->next);
+	protocol_list->count = SWAP_INT(protocol_list->count);
 }
 
 void
-swap_objc_protocol(
-Protocol *p,
+swap_objc_protocol_t(
+struct objc_protocol_t *protocol,
 enum byte_sex target_byte_sex)
 {
-    struct objc_protocol *protocol;
-
-	protocol = (struct objc_protocol *)p;
-
-	protocol->isa = (struct objc_class *)
-		SWAP_LONG((long)protocol->isa);
-	protocol->protocol_name = (char *)
-		SWAP_LONG((long)protocol->protocol_name);
-	protocol->protocol_list = (struct objc_protocol_list *)
-		SWAP_LONG((long)protocol->protocol_list);
-	protocol->instance_methods = (struct objc_method_description_list *)
-		SWAP_LONG((long)protocol->instance_methods);
-	protocol->class_methods = (struct objc_method_description_list *)
-		SWAP_LONG((long)protocol->class_methods);
-
+	protocol->isa = SWAP_INT(protocol->isa);
+	protocol->protocol_name = SWAP_INT(protocol->protocol_name);
+	protocol->protocol_list = SWAP_INT(protocol->protocol_list);
+	protocol->instance_methods = SWAP_INT(protocol->instance_methods);
+	protocol->class_methods = SWAP_INT(protocol->class_methods);
 }
 
 void
-swap_objc_method_description_list(
-struct objc_method_description_list *mdl,
+swap_objc_method_description_list_t(
+struct objc_method_description_list_t *mdl,
 enum byte_sex target_byte_sex)
 {
-	mdl->count = SWAP_LONG(mdl->count);
+	mdl->count = SWAP_INT(mdl->count);
 }
 
 void
-swap_objc_method_description(
-struct objc_method_description *md,
+swap_objc_method_description_t(
+struct objc_method_description_t *md,
 enum byte_sex target_byte_sex)
 {
-	md->name = (SEL)SWAP_LONG((long)md->name);
-	md->types = (char *)SWAP_LONG((long)md->types);
+	md->name = SWAP_INT(md->name);
+	md->types = SWAP_INT(md->types);
 }
 
 void
-swap_string_object(
-NXConstantString *p,
+swap_string_object_t(
+struct objc_string_object_t *string_object,
 enum byte_sex target_byte_sex)
 {
-    struct objc_string_object *string_object;
-
-	string_object = (struct objc_string_object *)p;
-
-	string_object->isa = (struct objc_class *)
-		SWAP_LONG((long)string_object->isa);
-	string_object->characters = (char *)
-		SWAP_LONG((long)string_object->characters);
-	string_object->_length =
-		SWAP_LONG(string_object->_length);
+	string_object->isa = SWAP_INT(string_object->isa);
+	string_object->characters = SWAP_INT(string_object->characters);
+	string_object->_length = SWAP_INT(string_object->_length);
 }
 
 void
-swap_hashEntry(
-struct _hashEntry *_hashEntry,
+swap_hashEntry_t(
+struct _hashEntry_t *_hashEntry,
 enum byte_sex target_byte_sex)
 {
-	_hashEntry->next = (struct _hashEntry *)
-		SWAP_LONG((long)_hashEntry->next);
-	_hashEntry->sel = (char *)
-		SWAP_LONG((long)_hashEntry->sel);
+	_hashEntry->next = SWAP_INT(_hashEntry->next);
+	_hashEntry->sel = SWAP_INT(_hashEntry->sel);
 }
 
 struct section_info {
     char *contents;
-    uint64_t addr;
-    uint64_t size;
+    uint32_t addr;
+    uint32_t size;
 };
 
 static void get_objc_sections(
@@ -268,13 +319,13 @@ static void get_objc_sections(
     uint32_t sizeofcmds,
     enum byte_sex object_byte_sex,
     char *object_addr,
-    unsigned long object_size,
+    uint32_t object_size,
     struct section_info **objc_sections,
-    unsigned long *nobjc_sections,
+    uint32_t *nobjc_sections,
     char *sectname,
     char **sect,
-    uint64_t *sect_addr,
-    uint64_t *sect_size);
+    uint32_t *sect_addr,
+    uint32_t *sect_size);
 
 static void get_cstring_section(
     struct load_command *load_commands,
@@ -282,158 +333,158 @@ static void get_cstring_section(
     uint32_t sizeofcmds,
     enum byte_sex object_byte_sex,
     char *object_addr,
-    unsigned long object_size,
+    uint32_t object_size,
     struct section_info *cstring_section_ptr);
 
 static enum bool print_method_list(
-    struct objc_method_list *addr,
+    uint32_t addr,
     struct section_info *objc_sections,
-    unsigned long nobjc_sections,
+    uint32_t nobjc_sections,
     struct section_info *cstring_section_ptr,
     enum byte_sex host_byte_sex,
     enum bool swapped,
     struct symbol *sorted_symbols,
-    unsigned long nsorted_symbols,
+    uint32_t nsorted_symbols,
     enum bool verbose);
 
 static enum bool print_protocol_list(
-    unsigned long indent,
-    struct objc_protocol_list *addr,
+    uint32_t indent,
+    uint32_t addr,
     struct section_info *objc_sections,
-    unsigned long nobjc_sections,
+    uint32_t nobjc_sections,
     struct section_info *cstring_section_ptr,
     enum byte_sex host_byte_sex,
     enum bool swapped,
     enum bool verbose);
 
 static void print_protocol(
-    unsigned long indent,
-    struct objc_protocol *protocol,
+    uint32_t indent,
+    struct objc_protocol_t *protocol,
     struct section_info *objc_sections,
-    unsigned long nobjc_sections,
+    uint32_t nobjc_sections,
     struct section_info *cstring_section_ptr,
     enum byte_sex host_byte_sex,
     enum bool swapped,
     enum bool verbose);
 
 static enum bool print_method_description_list(
-    unsigned long indent,
-    struct objc_method_description_list *addr,
+    uint32_t indent,
+    uint32_t addr,
     struct section_info *objc_sections,
-    unsigned long nobjc_sections,
+    uint32_t nobjc_sections,
     struct section_info *cstring_section_ptr,
     enum byte_sex host_byte_sex,
     enum bool swapped,
     enum bool verbose);
 
 static enum bool print_PHASH(
-    unsigned long indent,
-    struct _hashEntry *addr,
+    uint32_t indent,
+    uint32_t addr,
     struct section_info *objc_sections,
-    unsigned long nobjc_sections,
+    uint32_t nobjc_sections,
     struct section_info *cstring_section_ptr,
     enum byte_sex host_byte_sex,
     enum bool swapped,
     enum bool verbose);
 
 static void print_indent(
-    unsigned long indent);
+    uint32_t indent);
 
 static void *get_pointer(
-    void *p,
-    unsigned long *left,
+    uint32_t addr,
+    uint32_t *left,
     struct section_info *objc_sections,
-    unsigned long nobjc_sections,
+    uint32_t nobjc_sections,
     struct section_info *cstring_section_ptr);
 
 static enum bool get_symtab(
-    void *p,
-    struct objc_symtab *symtab,
-    void ***defs,
-    unsigned long *left,
+    uint32_t addr,
+    struct objc_symtab_t *symtab,
+    uint32_t **defs,
+    uint32_t *left,
     enum bool *trunc,
     struct section_info *objc_sections,
-    unsigned long nobjc_sections,
+    uint32_t nobjc_sections,
     enum byte_sex host_byte_sex,
     enum bool swapped);
 
 static enum bool get_objc_class(
-    unsigned long addr,
-    struct objc_class *objc_class,
+    uint32_t addr,
+    struct objc_class_t *objc_class,
     enum bool *trunc,
     struct section_info *objc_sections,
-    unsigned long nobjc_sections,
+    uint32_t nobjc_sections,
     enum byte_sex host_byte_sex,
     enum bool swapped);
 
 static enum bool get_objc_category(
-    unsigned long addr,
-    struct objc_category *objc_category,
+    uint32_t addr,
+    struct objc_category_t *objc_category,
     enum bool *trunc,
     struct section_info *objc_sections,
-    unsigned long nobjc_sections,
+    uint32_t nobjc_sections,
     enum byte_sex host_byte_sex,
     enum bool swapped);
 
 static enum bool get_ivar_list(
-    void *p,
-    struct objc_ivar_list *objc_ivar_list,
-    struct objc_ivar **ivar_list,
-    unsigned long *left,
+    uint32_t addr,
+    struct objc_ivar_list_t *objc_ivar_list,
+    struct objc_ivar_t **ivar_list,
+    uint32_t *left,
     enum bool *trunc,
     struct section_info *objc_sections,
-    unsigned long nobjc_sections,
+    uint32_t nobjc_sections,
     enum byte_sex host_byte_sex,
     enum bool swapped);
 
 static enum bool get_method_list(
-    void *p,
-    struct objc_method_list *method_list,
-    struct objc_method **methods,
-    unsigned long *left,
+    uint32_t addr,
+    struct objc_method_list_t *method_list,
+    struct objc_method_t **methods,
+    uint32_t *left,
     enum bool *trunc,
     struct section_info *objc_sections,
-    unsigned long nobjc_sections,
+    uint32_t nobjc_sections,
     enum byte_sex host_byte_sex,
     enum bool swapped);
 
 static enum bool get_protocol_list(
-    void *p,
-    struct objc_protocol_list *protocol_list,
-    struct objc_protocol ***list,
-    unsigned long *left,
+    uint32_t addr,
+    struct objc_protocol_list_t *protocol_list,
+    uint32_t **list,
+    uint32_t *left,
     enum bool *trunc,
     struct section_info *objc_sections,
-    unsigned long nobjc_sections,
+    uint32_t nobjc_sections,
     enum byte_sex host_byte_sex,
     enum bool swapped);
 
 static enum bool get_protocol(
-    unsigned long addr,
-    struct objc_protocol *protocol,
+    uint32_t addr,
+    struct objc_protocol_t *protocol,
     enum bool *trunc,
     struct section_info *objc_sections,
-    unsigned long nobjc_sections,
+    uint32_t nobjc_sections,
     enum byte_sex host_byte_sex,
     enum bool swapped);
 
 static enum bool get_method_description_list(
-    void *p,
-    struct objc_method_description_list *mdl,
-    struct objc_method_description **list,
-    unsigned long *left,
+    uint32_t addr,
+    struct objc_method_description_list_t *mdl,
+    struct objc_method_description_t **list,
+    uint32_t *left,
     enum bool *trunc,
     struct section_info *objc_sections,
-    unsigned long nobjc_sections,
+    uint32_t nobjc_sections,
     enum byte_sex host_byte_sex,
     enum bool swapped);
 
 static enum bool get_hashEntry(
-    unsigned long addr,
-    struct _hashEntry *_hashEntry,
+    uint32_t addr,
+    struct _hashEntry_t *_hashEntry,
     enum bool *trunc,
     struct section_info *objc_sections,
-    unsigned long nobjc_sections,
+    uint32_t nobjc_sections,
     enum byte_sex host_byte_sex,
     enum bool swapped);
 
@@ -447,30 +498,30 @@ uint32_t ncmds,
 uint32_t sizeofcmds,
 enum byte_sex object_byte_sex,
 char *object_addr,
-unsigned long object_size,
+uint32_t object_size,
 struct symbol *sorted_symbols,
-unsigned long nsorted_symbols,
+uint32_t nsorted_symbols,
 enum bool verbose)
 {
     enum byte_sex host_byte_sex;
     enum bool swapped, trunc;
-    unsigned long i, j, left, size, defs_left, def, ivar_list_left;
+    uint32_t i, j, left, size, defs_left, def, ivar_list_left;
     char *p;
     struct section_info *objc_sections;
-    unsigned long nobjc_sections;
+    uint32_t nobjc_sections;
     struct section_info cstring_section;
 
-    struct objc_module *modules, *m, module;
-    uint64_t modules_addr, modules_size;
-    struct objc_symtab symtab;
-    void **defs;
-    struct objc_class objc_class;
-    struct objc_ivar_list objc_ivar_list;
-    struct objc_ivar *ivar_list, ivar;
-    struct objc_category objc_category;
+    struct objc_module_t *modules, *m, module;
+    uint32_t modules_addr, modules_size;
+    struct objc_symtab_t symtab;
+    uint32_t *defs;
+    struct objc_class_t objc_class;
+    struct objc_ivar_list_t objc_ivar_list;
+    struct objc_ivar_t *ivar_list, ivar;
+    struct objc_category_t objc_category;
 
-    struct imageInfo *imageInfo, info;
-    uint64_t imageInfo_addr, imageInfo_size;
+    struct imageInfo_t *imageInfo, info;
+    uint32_t imageInfo_addr, imageInfo_size;
 
 	printf("Objective-C segment\n");
 	get_objc_sections(load_commands, ncmds, sizeofcmds, object_byte_sex,
@@ -491,19 +542,19 @@ enum bool verbose)
     host_byte_sex = get_host_byte_sex();
 	swapped = host_byte_sex != object_byte_sex;
 
-	memset(&module, '\0', sizeof(struct objc_module));
+	memset(&module, '\0', sizeof(struct objc_module_t));
 
 	for(m = modules;
 	    (char *)m < (char *)modules + modules_size;
-	    m = (struct objc_module *)((char *)m + module.size) ){
+	    m = (struct objc_module_t *)((char *)m + module.size) ){
 
-	    memset(&module, '\0', sizeof(struct objc_module));
+	    memset(&module, '\0', sizeof(struct objc_module_t));
 	    left = modules_size - (m - modules); 
-	    size = left < sizeof(struct objc_module) ?
-		   left : sizeof(struct objc_module);
+	    size = left < sizeof(struct objc_module_t) ?
+		   left : sizeof(struct objc_module_t);
 	    memcpy(&module, m, size);
 	    if(swapped)
-		swap_objc_module(&module, host_byte_sex);
+		swap_objc_module_t(&module, host_byte_sex);
 
 	    if((char *)m + module.size > (char *)m + modules_size)
 		printf("module extends past end of " SECT_OBJC_MODULES
@@ -511,10 +562,10 @@ enum bool verbose)
 	    printf("Module 0x%x\n", (unsigned int)
 		   (modules_addr + (char *)m - (char *)modules));
 
-	    printf("    version %lu\n", module.version);
-	    printf("       size %lu\n", module.size);
+	    printf("    version %u\n", module.version);
+	    printf("       size %u\n", module.size);
 	    if(verbose){
-		p = get_pointer((void *)module.name, &left,
+		p = get_pointer(module.name, &left,
 		    objc_sections, nobjc_sections, &cstring_section);
 		if(p != NULL)
 		    printf("       name %.*s\n", (int)left, p);
@@ -536,44 +587,43 @@ enum bool verbose)
 	    if(trunc == TRUE)
 		printf("\tsymtab extends past end of an " SEG_OBJC
 		       " section\n");
-	    printf("\tsel_ref_cnt %lu\n", symtab.sel_ref_cnt);
+	    printf("\tsel_ref_cnt %u\n", symtab.sel_ref_cnt);
 	    p = get_pointer(symtab.refs, &left,
                      objc_sections, nobjc_sections, &cstring_section);
 	    if(p != NULL)
-		printf("\trefs 0x%08x", (unsigned int)symtab.refs);
+		printf("\trefs 0x%08x", symtab.refs);
 	    else
 		printf("\trefs 0x%08x (not in an " SEG_OBJC " section)\n",
-		       (unsigned int)symtab.refs);
+		       symtab.refs);
 
 	    printf("\tcls_def_cnt %d\n", symtab.cls_def_cnt);
 	    printf("\tcat_def_cnt %d\n", symtab.cat_def_cnt);
 	    if(symtab.cls_def_cnt > 0)
 		printf("\tClass Definitions\n");
 	    for(i = 0; i < symtab.cls_def_cnt; i++){
-		if((i + 1) * sizeof(void *) > defs_left){
+		if((i + 1) * sizeof(uint32_t) > defs_left){
 		    printf("\t(remaining class defs entries entends past "
 			   "the end of the section)\n");
 		    break;
 		}
 	    
-		memcpy(&def, defs + i, sizeof(void *));
+		memcpy(&def, defs + i, sizeof(uint32_t));
 		if(swapped)
-		    def = SWAP_LONG(def);
+		    def = SWAP_INT(def);
 
 		if(get_objc_class(def, &objc_class, &trunc, objc_sections,
 			  nobjc_sections, host_byte_sex, swapped) == TRUE){
-		    printf("\tdefs[%lu] 0x%08x", i, (unsigned int)def);
+		    printf("\tdefs[%u] 0x%08x", i, def);
 print_objc_class:
 		    if(trunc == TRUE)
 			printf(" (entends past the end of the section)\n");
 		    else
 			printf("\n");
-		    printf("\t\t      isa 0x%08x",
-			   (unsigned int)objc_class.isa);
+		    printf("\t\t      isa 0x%08x", objc_class.isa);
 
 		    if(verbose && CLS_GETINFO(&objc_class, CLS_META)){
-			p = get_pointer(objc_class.isa, &left,
-					objc_sections, nobjc_sections, &cstring_section);
+			p = get_pointer(objc_class.isa, &left, objc_sections,
+					nobjc_sections, &cstring_section);
 			if(p != NULL)
 			    printf(" %.*s\n", (int)left, p);
 			else
@@ -582,8 +632,7 @@ print_objc_class:
 		    else
 			printf("\n");
 
-		    printf("\t      super_class 0x%08x",
-			   (unsigned int)objc_class.super_class);
+		    printf("\t      super_class 0x%08x",objc_class.super_class);
 		    if(verbose){
 			p = get_pointer(objc_class.super_class, &left,
 					objc_sections, nobjc_sections, &cstring_section);
@@ -595,10 +644,9 @@ print_objc_class:
 		    else
 			printf("\n");
 
-		    printf("\t\t     name 0x%08x",
-			   (unsigned int)objc_class.name);
+		    printf("\t\t     name 0x%08x", objc_class.name);
 		    if(verbose){
-			p = get_pointer((void *)objc_class.name, &left,
+			p = get_pointer(objc_class.name, &left,
 					objc_sections, nobjc_sections, &cstring_section);
 			if(p != NULL)
 			    printf(" %.*s\n", (int)left, p);
@@ -626,8 +674,8 @@ print_objc_class:
 
 		    if(get_ivar_list(objc_class.ivars, &objc_ivar_list,
 			    &ivar_list, &ivar_list_left, &trunc,
-			    objc_sections, nobjc_sections,
-                host_byte_sex, swapped) == TRUE){
+			    objc_sections, nobjc_sections, host_byte_sex,
+			    swapped) == TRUE){
 			printf("\t\t    ivars 0x%08x\n",
 			       (unsigned int)objc_class.ivars);
 			if(trunc == TRUE)
@@ -636,18 +684,18 @@ print_objc_class:
 			printf("\t\t       ivar_count %d\n", 
 				    objc_ivar_list.ivar_count);
 			for(j = 0;
-			    j < (unsigned long)objc_ivar_list.ivar_count;
+			    j < (uint32_t)objc_ivar_list.ivar_count;
 			    j++){
-			    if((j + 1) * sizeof(struct objc_ivar) >
+			    if((j + 1) * sizeof(struct objc_ivar_t) >
 			       ivar_list_left){
 				printf("\t\t remaining ivar's extend past "
-				       " the of the section\n");
-				continue;
+				       "the of the section\n");
+				break;
 			    }
 			    memcpy(&ivar, ivar_list + j,
-				   sizeof(struct objc_ivar));
+				   sizeof(struct objc_ivar_t));
 			    if(swapped)
-				swap_objc_ivar(&ivar, host_byte_sex);
+				swap_objc_ivar_t(&ivar, host_byte_sex);
 
 			    printf("\t\t\tivar_name 0x%08x",
 				   (unsigned int)ivar.ivar_name);
@@ -687,8 +735,7 @@ print_objc_class:
 
 		    printf("\t\t  methods 0x%08x",
 			   (unsigned int)objc_class.methodLists);
-		    if(print_method_list((struct objc_method_list *)
-					 objc_class.methodLists,
+		    if(print_method_list(objc_class.methodLists,
 					 objc_sections, nobjc_sections,
 					 &cstring_section,
 					 host_byte_sex, swapped, sorted_symbols,
@@ -701,15 +748,15 @@ print_objc_class:
 		    printf("\t\tprotocols 0x%08x",
 			   (unsigned int)objc_class.protocols);
 		    if(print_protocol_list(16, objc_class.protocols,
-			    objc_sections, nobjc_sections, &cstring_section,
-                host_byte_sex, swapped, verbose) == FALSE)
+			objc_sections, nobjc_sections, &cstring_section,
+			host_byte_sex, swapped, verbose) == FALSE)
 			printf(" (not in an " SEG_OBJC " section)\n");
 
 		    if(CLS_GETINFO((&objc_class), CLS_CLASS)){
 			printf("\tMeta Class");
-			if(get_objc_class((unsigned long)objc_class.isa,
-				 &objc_class, &trunc, objc_sections, nobjc_sections,
-				 host_byte_sex, swapped) == TRUE){
+			if(get_objc_class((uint32_t)objc_class.isa,
+			     &objc_class, &trunc, objc_sections, nobjc_sections,
+			     host_byte_sex, swapped) == TRUE){
 			    goto print_objc_class;
 			}
 			else
@@ -718,37 +765,38 @@ print_objc_class:
 		    }
 		}
 		else
-		    printf("\tdefs[%lu] 0x%08x (not in an " SEG_OBJC
+		    printf("\tdefs[%u] 0x%08x (not in an " SEG_OBJC
 			   " section)\n", i, (unsigned int)def);
 	    }
 	    if(symtab.cat_def_cnt > 0)
 		printf("\tCategory Definitions\n");
 	    for(i = 0; i < symtab.cat_def_cnt; i++){
-		if((i + symtab.cls_def_cnt + 1) * sizeof(void *) >
+		if((i + symtab.cls_def_cnt + 1) * sizeof(uint32_t) >
 							      defs_left){
 		    printf("\t(remaining category defs entries entends "
 			   "past the end of the section)\n");
 		    break;
 		}
 	    
-		memcpy(&def, defs + i + symtab.cls_def_cnt, sizeof(void *));
+		memcpy(&def, defs + i + symtab.cls_def_cnt, sizeof(uint32_t));
 		if(swapped)
-		    def = SWAP_LONG(def);
+		    def = SWAP_INT(def);
 
 		if(get_objc_category(def, &objc_category, &trunc,
 			  objc_sections, nobjc_sections,
               host_byte_sex, swapped) == TRUE){
-		    printf("\tdefs[%lu] 0x%08x", i + symtab.cls_def_cnt,
+		    printf("\tdefs[%u] 0x%08x", i + symtab.cls_def_cnt,
 			   (unsigned int)def);
 		    if(trunc == TRUE)
 			printf(" (entends past the end of the section)\n");
 		    else
 			printf("\n");
 		    printf("\t       category name 0x%08x",
-			   (unsigned int)objc_category.category_name);
+			   objc_category.category_name);
 		    if(verbose){
 			p = get_pointer(objc_category.category_name, &left,
-					objc_sections, nobjc_sections, &cstring_section);
+					objc_sections, nobjc_sections,
+					&cstring_section);
 			if(p != NULL)
 			    printf(" %.*s\n", (int)left, p);
 			else
@@ -757,11 +805,11 @@ print_objc_class:
 		    else
 			printf("\n");
 
-		    printf("\t\t  class name 0x%08x",
-			   (unsigned int)objc_category.class_name);
+		    printf("\t\t  class name 0x%08x", objc_category.class_name);
 		    if(verbose){
 			p = get_pointer(objc_category.class_name, &left,
-					objc_sections, nobjc_sections, &cstring_section);
+					objc_sections, nobjc_sections,
+					&cstring_section);
 			if(p != NULL)
 			    printf(" %.*s\n", (int)left, p);
 			else
@@ -771,25 +819,25 @@ print_objc_class:
 			printf("\n");
 
 		    printf("\t    instance methods 0x%08x",
-			   (unsigned int)objc_category.instance_methods);
+			   objc_category.instance_methods);
 		    if(print_method_list(objc_category.instance_methods,
-					 objc_sections, nobjc_sections, &cstring_section,
+					 objc_sections, nobjc_sections,
+					 &cstring_section,
 					 host_byte_sex, swapped,
 					 sorted_symbols, nsorted_symbols,
 					 verbose) == FALSE)
 			printf(" (not in an " SEG_OBJC " section)\n");
 
 		    printf("\t       class methods 0x%08x",
-			   (unsigned int)objc_category.class_methods);
+			   objc_category.class_methods);
 		    if(print_method_list(objc_category.class_methods,
-					 objc_sections, nobjc_sections, &cstring_section,
-					 host_byte_sex, swapped,
-					 sorted_symbols, nsorted_symbols,
-					 verbose) == FALSE)
+			objc_sections, nobjc_sections, &cstring_section,
+			host_byte_sex, swapped, sorted_symbols, nsorted_symbols,
+			verbose) == FALSE)
 			printf(" (not in an " SEG_OBJC " section)\n");
 		}
 		else
-		    printf("\tdefs[%lu] 0x%08x (not in an " SEG_OBJC
+		    printf("\tdefs[%u] 0x%08x (not in an " SEG_OBJC
 			   " section)\n", i + symtab.cls_def_cnt,
 			   (unsigned int)def);
 	    }
@@ -800,15 +848,15 @@ print_objc_class:
 			  object_addr, object_size, &objc_sections,
 			  &nobjc_sections, "__image_info", (char **)&imageInfo,
 			  &imageInfo_addr, &imageInfo_size);
-	memset(&info, '\0', sizeof(struct imageInfo));
-	if(imageInfo_size < sizeof(struct imageInfo)){
+	memset(&info, '\0', sizeof(struct imageInfo_t));
+	if(imageInfo_size < sizeof(struct imageInfo_t)){
 	    memcpy(&info, imageInfo, imageInfo_size);
 	    printf(" (imageInfo entends past the end of the section)\n");
 	}
 	else
-	    memcpy(&info, imageInfo, sizeof(struct imageInfo));
+	    memcpy(&info, imageInfo, sizeof(struct imageInfo_t));
 	if(swapped)
-	    swap_imageInfo(&info, host_byte_sex);
+	    swap_imageInfo_t(&info, host_byte_sex);
 	printf("  version %u\n", info.version);
 	printf("    flags 0x%x", info.flags);
 	if(info.flags & 0x1)
@@ -829,16 +877,16 @@ uint32_t ncmds,
 uint32_t sizeofcmds,
 enum byte_sex object_byte_sex,
 char *object_addr,
-unsigned long object_size,
+uint32_t object_size,
 enum bool verbose)
 {
     enum byte_sex host_byte_sex;
     enum bool swapped;
     struct section_info *objc_sections, cstring_section;
-    unsigned long nobjc_sections;
-    struct objc_protocol *protocols, *p, protocol;
-    uint64_t protocols_addr, protocols_size;
-    unsigned long size, left;
+    uint32_t nobjc_sections;
+    struct objc_protocol_t *protocols, *p, protocol;
+    uint32_t protocols_addr, protocols_size;
+    uint32_t size, left;
 
 	printf("Contents of (" SEG_OBJC ",__protocol) section\n");
 	get_objc_sections(load_commands, ncmds, sizeofcmds, object_byte_sex,
@@ -855,13 +903,13 @@ enum bool verbose)
 
 	for(p = protocols; (char *)p < (char *)protocols + protocols_size; p++){
 
-	    memset(&protocol, '\0', sizeof(struct objc_protocol));
+	    memset(&protocol, '\0', sizeof(struct objc_protocol_t));
 	    left = protocols_size - (p - protocols); 
-	    size = left < sizeof(struct objc_protocol) ?
-		   left : sizeof(struct objc_protocol);
+	    size = left < sizeof(struct objc_protocol_t) ?
+		   left : sizeof(struct objc_protocol_t);
 	    memcpy(&protocol, p, size);
 
-	    if((char *)p + sizeof(struct objc_protocol) >
+	    if((char *)p + sizeof(struct objc_protocol_t) >
 	       (char *)p + protocols_size)
 		printf("Protocol extends past end of __protocol section\n");
 	    printf("Protocol 0x%x\n", (unsigned int)
@@ -881,17 +929,17 @@ uint32_t ncmds,
 uint32_t sizeofcmds,
 enum byte_sex object_byte_sex,
 char *object_addr,
-unsigned long object_size,
+uint32_t object_size,
 enum bool verbose)
 {
     enum byte_sex host_byte_sex;
     enum bool swapped;
     struct section_info *objc_sections;
-    unsigned long nobjc_sections;
+    uint32_t nobjc_sections;
     struct section_info cstring_section;
-    struct objc_string_object *string_objects, *s, string_object;
-    uint64_t string_objects_addr, string_objects_size;
-    unsigned long size, left;
+    struct objc_string_object_t *string_objects, *s, string_object;
+    uint32_t string_objects_addr, string_objects_size;
+    uint32_t size, left;
     char *p;
 
 	printf("Contents of (" SEG_OBJC ",%s) section\n", sectname);
@@ -910,13 +958,13 @@ enum bool verbose)
 	    (char *)s < (char *)string_objects + string_objects_size;
 	    s++){
 
-	    memset(&string_object, '\0', sizeof(struct objc_string_object));
+	    memset(&string_object, '\0', sizeof(struct objc_string_object_t));
 	    left = string_objects_size - (s - string_objects); 
-	    size = left < sizeof(struct objc_string_object) ?
-		   left : sizeof(struct objc_string_object);
+	    size = left < sizeof(struct objc_string_object_t) ?
+		   left : sizeof(struct objc_string_object_t);
 	    memcpy(&string_object, s, size);
 
-	    if((char *)s + sizeof(struct objc_string_object) >
+	    if((char *)s + sizeof(struct objc_string_object_t) >
 	       (char *)s + string_objects_size)
 		printf("String Object extends past end of %s section\n",
 		       sectname);
@@ -924,9 +972,8 @@ enum bool verbose)
 		   (string_objects_addr + (char *)s - (char *)string_objects));
 
 	    if(swapped)
-		swap_string_object((NXConstantString *)&string_object,
-			           host_byte_sex);
-	    printf("           isa 0x%x\n", (unsigned int)string_object.isa);
+		swap_string_object_t(&string_object, host_byte_sex);
+	    printf("           isa 0x%x\n", string_object.isa);
 	    printf("    characters 0x%x",
 		   (unsigned int)string_object.characters);
 	    if(verbose){
@@ -954,17 +1001,17 @@ uint32_t ncmds,
 uint32_t sizeofcmds,
 enum byte_sex object_byte_sex,
 char *object_addr,
-unsigned long object_size,
+uint32_t object_size,
 enum bool verbose)
 {
 
     enum byte_sex host_byte_sex;
     enum bool swapped;
     struct section_info *objc_sections, cstring_section;
-    unsigned long i, nobjc_sections, left;
-    struct _hashEntry **PHASH, *phash, *HASH, _hashEntry;
+    uint32_t i, nobjc_sections, left;
+    struct _hashEntry_t **PHASH, *HASH, _hashEntry;
     char *sect, *p;
-    uint64_t sect_addr, sect_size;
+    uint32_t sect_addr, sect_size, phash;
 
 	printf("Contents of (" SEG_OBJC ",__runtime_setup) section\n");
 	get_objc_sections(load_commands, ncmds, sizeofcmds, object_byte_sex,
@@ -979,38 +1026,37 @@ enum bool verbose)
     host_byte_sex = get_host_byte_sex();
 	swapped = host_byte_sex != object_byte_sex;
 
-	PHASH = (struct _hashEntry **)sect;
+	PHASH = (struct _hashEntry_t **)sect;
 	for(i = 0;
-	    i < SIZEHASHTABLE &&
-		(i + 1) * sizeof(struct _hashEntry *) < sect_size;
+	    i < SIZEHASHTABLE && (i + 1) * sizeof(uint32_t) < sect_size;
 	    i++){
 
-	    memcpy(&phash, PHASH + i, sizeof(struct _hashEntry *));
+	    memcpy(&phash, PHASH + i, sizeof(uint32_t));
 	    if(swapped)
-		phash = (struct _hashEntry *)SWAP_LONG((long)phash);
+		phash = SWAP_INT(phash);
 
 	    if(phash == 0)
 		continue;
 
-	    printf("PHASH[%3lu] 0x%x", i, (unsigned int)phash);
+	    printf("PHASH[%3u] 0x%x", i, (unsigned int)phash);
 	    if(print_PHASH(4, phash,
 			   objc_sections, nobjc_sections, &cstring_section,
 			   host_byte_sex, swapped, verbose) == FALSE)
 		printf(" (not in an " SEG_OBJC " section)\n");
 	}
 
-	HASH = (struct _hashEntry *)(PHASH + SIZEHASHTABLE);
+	HASH = (struct _hashEntry_t *)(PHASH + SIZEHASHTABLE);
 	for(i = 0; (char *)(HASH + i) < sect + sect_size; i++){
-	    memcpy((char *)&_hashEntry, HASH + i, sizeof(struct _hashEntry));
+	    memcpy((char *)&_hashEntry, HASH + i, sizeof(struct _hashEntry_t));
 	    if(swapped)
-		swap_hashEntry(&_hashEntry, host_byte_sex);
+		swap_hashEntry_t(&_hashEntry, host_byte_sex);
 
 	    printf("HASH at 0x%08x\n",
 		   (unsigned int)(sect_addr + (char *)(HASH + i) - sect));
 	    printf("     sel 0x%08x", (unsigned int)_hashEntry.sel);
 	    if(verbose){
-		p = get_pointer(_hashEntry.sel, &left,
-				objc_sections, nobjc_sections, &cstring_section);
+		p = get_pointer(_hashEntry.sel, &left, objc_sections,
+				nobjc_sections, &cstring_section);
 		if(p != NULL)
 		    printf(" %.*s\n", (int)left, p);
 		else
@@ -1020,12 +1066,12 @@ enum bool verbose)
 		printf("\n");
 
 	    printf("    next 0x%08x", (unsigned int)_hashEntry.next);
-	    if(_hashEntry.next == NULL){
+	    if(_hashEntry.next == 0){
 		printf("\n");
 	    }
 	    else{
-		if((unsigned long)_hashEntry.next < sect_addr || 
-		   (unsigned long)_hashEntry.next >= sect_addr + sect_size)
+		if((uint32_t)_hashEntry.next < sect_addr || 
+		   (uint32_t)_hashEntry.next >= sect_addr + sect_size)
 		    printf(" (not in the ("SEG_OBJC ",__runtime_setup "
 			   "section)\n");
 		else
@@ -1042,24 +1088,22 @@ uint32_t ncmds,
 uint32_t sizeofcmds,
 enum byte_sex object_byte_sex,
 char *object_addr,
-unsigned long object_size,
+uint32_t object_size,
 struct section_info **objc_sections,
-unsigned long *nobjc_sections,
+uint32_t *nobjc_sections,
 char *sectname,
 char **sect,
-uint64_t *sect_addr,
-uint64_t *sect_size)
+uint32_t *sect_addr,
+uint32_t *sect_size)
 {
     enum byte_sex host_byte_sex;
     enum bool swapped;
 
-    unsigned long i, j, left, size;
+    uint32_t i, j, left, size;
     struct load_command lcmd, *lc;
     char *p;
     struct segment_command sg;
-    struct segment_command_64 sg64;
     struct section s;
-    struct section_64 s64;
 
 	host_byte_sex = get_host_byte_sex();
 	swapped = host_byte_sex != object_byte_sex;
@@ -1075,12 +1119,12 @@ uint64_t *sect_size)
 	    memcpy((char *)&lcmd, (char *)lc, sizeof(struct load_command));
 	    if(swapped)
 		swap_load_command(&lcmd, host_byte_sex);
-	    if(lcmd.cmdsize % sizeof(long) != 0)
-		printf("load command %lu size not a multiple of "
-		       "sizeof(long)\n", i);
+	    if(lcmd.cmdsize % sizeof(int32_t) != 0)
+		printf("load command %u size not a multiple of "
+		       "sizeof(int32_t)\n", i);
 	    if((char *)lc + lcmd.cmdsize >
 	       (char *)load_commands + sizeofcmds)
-		printf("load command %lu extends past end of load "
+		printf("load command %u extends past end of load "
 		       "commands\n", i);
 	    left = sizeofcmds - ((char *)lc - (char *)load_commands);
 
@@ -1148,72 +1192,9 @@ uint64_t *sect_size)
 		    p += size;
 		}
 		break;
-	    case LC_SEGMENT_64:
-		memset((char *)&sg64, '\0', sizeof(struct segment_command_64));
-		size = left < sizeof(struct segment_command_64) ?
-		       left : sizeof(struct segment_command_64);
-		memcpy((char *)&sg64, (char *)lc, size);
-		if(swapped)
-		    swap_segment_command_64(&sg64, host_byte_sex);
-
-		p = (char *)lc + sizeof(struct segment_command_64);
-		for(j = 0 ; j < sg64.nsects ; j++){
-		    if(p + sizeof(struct section_64) >
-		       (char *)load_commands + sizeofcmds){
-			printf("section structure command extends past "
-			       "end of load commands\n");
-		    }
-		    left = sizeofcmds - (p - (char *)load_commands);
-		    memset((char *)&s64, '\0', sizeof(struct section_64));
-		    size = left < sizeof(struct section_64) ?
-			   left : sizeof(struct section_64);
-		    memcpy((char *)&s64, p, size);
-		    if(swapped)
-			swap_section_64(&s64, 1, host_byte_sex);
-
-		    if(strcmp(s64.segname, SEG_OBJC) == 0){
-			*objc_sections = reallocate(*objc_sections,
-			   sizeof(struct section_info) * (*nobjc_sections + 1));
-			(*objc_sections)[*nobjc_sections].addr = s64.addr;
-			(*objc_sections)[*nobjc_sections].contents = 
-						     object_addr + s64.offset;
-			if(s64.offset > object_size){
-			    printf("section contents of: (%.16s,%.16s) is past "
-				   "end of file\n", s64.segname, s64.sectname);
-			    (*objc_sections)[*nobjc_sections].size =  0;
-			}
-			else if(s64.offset + s64.size > object_size){
-			    printf("part of section contents of: (%.16s,%.16s) "
-				   "is past end of file\n",
-				   s64.segname, s64.sectname);
-			    (*objc_sections)[*nobjc_sections].size =
-				object_size - s64.offset;
-			}
-			else
-			    (*objc_sections)[*nobjc_sections].size = s64.size;
-
-			if(strncmp(s64.sectname, sectname, 16) == 0){
-			    if(*sect != NULL)
-				printf("more than one (" SEG_OBJC ",%s) "
-				       "section\n", sectname);
-			    else{
-				*sect = (object_addr + s64.offset);
-				*sect_size = s64.size;
-				*sect_addr = s64.addr;
-			    }
-			}
-			(*nobjc_sections)++;
-		    }
-
-		    if(p + sizeof(struct section) >
-		       (char *)load_commands + sizeofcmds)
-			break;
-		    p += size;
-		}
-		break;
 	    }
 	    if(lcmd.cmdsize == 0){
-		printf("load command %lu size zero (can't advance to other "
+		printf("load command %u size zero (can't advance to other "
 		       "load commands)\n", i);
 		break;
 	    }
@@ -1231,19 +1212,17 @@ uint32_t ncmds,
 uint32_t sizeofcmds,
 enum byte_sex object_byte_sex,
 char *object_addr,
-unsigned long object_size,
+uint32_t object_size,
 struct section_info *cstring_section)
 {
     enum byte_sex host_byte_sex;
     enum bool swapped;
 
-    unsigned long i, j, left, size;
+    uint32_t i, j, left, size;
     struct load_command lcmd, *lc;
     char *p;
     struct segment_command sg;
-    struct segment_command_64 sg64;
     struct section s;
-    struct section_64 s64;
 
 	host_byte_sex = get_host_byte_sex();
 	swapped = host_byte_sex != object_byte_sex;
@@ -1255,12 +1234,12 @@ struct section_info *cstring_section)
 	    memcpy((char *)&lcmd, (char *)lc, sizeof(struct load_command));
 	    if(swapped)
 		swap_load_command(&lcmd, host_byte_sex);
-	    if(lcmd.cmdsize % sizeof(long) != 0)
-		printf("load command %lu size not a multiple of "
-		       "sizeof(long)\n", i);
+	    if(lcmd.cmdsize % sizeof(int32_t) != 0)
+		printf("load command %u size not a multiple of "
+		       "sizeof(int32_t)\n", i);
 	    if((char *)lc + lcmd.cmdsize >
 	       (char *)load_commands + sizeofcmds)
-		printf("load command %lu extends past end of load "
+		printf("load command %u extends past end of load "
 		       "commands\n", i);
 	    left = sizeofcmds - ((char *)lc - (char *)load_commands);
 
@@ -1314,58 +1293,9 @@ struct section_info *cstring_section)
 		    p += size;
 		}
 		break;
-	    case LC_SEGMENT_64:
-		memset((char *)&sg64, '\0', sizeof(struct segment_command_64));
-		size = left < sizeof(struct segment_command_64) ?
-		       left : sizeof(struct segment_command_64);
-		memcpy((char *)&sg64, (char *)lc, size);
-		if(swapped)
-		    swap_segment_command_64(&sg64, host_byte_sex);
-
-		p = (char *)lc + sizeof(struct segment_command_64);
-		for(j = 0 ; j < sg64.nsects ; j++){
-		    if(p + sizeof(struct section_64) >
-		       (char *)load_commands + sizeofcmds){
-			printf("section structure command extends past "
-			       "end of load commands\n");
-		    }
-		    left = sizeofcmds - (p - (char *)load_commands);
-		    memset((char *)&s64, '\0', sizeof(struct section_64));
-		    size = left < sizeof(struct section_64) ?
-			   left : sizeof(struct section_64);
-		    memcpy((char *)&s64, p, size);
-		    if(swapped)
-			swap_section_64(&s64, 1, host_byte_sex);
-
-		    if(strcmp(s64.segname, SEG_TEXT) == 0 &&
-		       strcmp(s64.sectname, "__cstring") == 0){
-			cstring_section->addr = s64.addr;
-			cstring_section->contents = object_addr + s64.offset;
-			if(s64.offset > object_size){
-			    printf("section contents of: (%.16s,%.16s) is past "
-				   "end of file\n", s64.segname, s64.sectname);
-			    cstring_section->size = 0;
-			}
-			else if(s64.offset + s64.size > object_size){
-			    printf("part of section contents of: (%.16s,%.16s) "
-				   "is past end of file\n",
-				   s64.segname, s64.sectname);
-			    cstring_section->size = object_size - s64.offset;
-			}
-			else
-			    cstring_section->size = s64.size;
-			return;
-		    }
-
-		    if(p + sizeof(struct section) >
-		       (char *)load_commands + sizeofcmds)
-			break;
-		    p += size;
-		}
-		break;
 	    }
 	    if(lcmd.cmdsize == 0){
-		printf("load command %lu size zero (can't advance to other "
+		printf("load command %u size zero (can't advance to other "
 		       "load commands)\n", i);
 		break;
 	    }
@@ -1378,20 +1308,20 @@ struct section_info *cstring_section)
 static
 enum bool
 print_method_list(
-struct objc_method_list *addr,
+uint32_t addr,
 struct section_info *objc_sections,
-unsigned long nobjc_sections,
+uint32_t nobjc_sections,
 struct section_info *cstring_section_ptr,
 enum byte_sex host_byte_sex,
 enum bool swapped,
 struct symbol *sorted_symbols,
-unsigned long nsorted_symbols,
+uint32_t nsorted_symbols,
 enum bool verbose)
 {
-    struct objc_method *methods, method;
-    struct objc_method_list method_list;
+    struct objc_method_t *methods, method;
+    struct objc_method_list_t method_list;
     enum bool trunc;
-    unsigned long i, methods_left, left;
+    uint32_t i, methods_left, left;
     char *p;
 
 	if(get_method_list(addr, &method_list, &methods, &methods_left, &trunc,
@@ -1408,21 +1338,20 @@ enum bool verbose)
 	printf("\t\t     method_count %d\n",
 	       method_list.method_count);
 	
-	for(i = 0; i < (unsigned long)method_list.method_count; i++){
-	    if((i + 1) * sizeof(struct objc_method) > methods_left){
+	for(i = 0; i < (uint32_t)method_list.method_count; i++){
+	    if((i + 1) * sizeof(struct objc_method_t) > methods_left){
 		printf("\t\t remaining method's extend past the of the "
 		       "section\n");
-		continue;
+		break;
 	    }
-	    memcpy(&method, methods + i, sizeof(struct objc_method));
+	    memcpy(&method, methods + i, sizeof(struct objc_method_t));
 	    if(swapped)
-		swap_objc_method(&method, host_byte_sex);
+		swap_objc_method_t(&method, host_byte_sex);
 
-	    printf("\t\t      method_name 0x%08x",
-		   (unsigned int)method.method_name);
+	    printf("\t\t      method_name 0x%08x", method.method_name);
 	    if(verbose){
-		p = get_pointer(method.method_name, &left,
-			        objc_sections, nobjc_sections, cstring_section_ptr);
+		p = get_pointer(method.method_name, &left, objc_sections,
+				nobjc_sections, cstring_section_ptr);
 		if(p != NULL)
 		    printf(" %.*s\n", (int)left, p);
 		else
@@ -1431,11 +1360,10 @@ enum bool verbose)
 	    else
 		printf("\n");
 
-	    printf("\t\t     method_types 0x%08x",
-		   (unsigned int)method.method_types);
+	    printf("\t\t     method_types 0x%08x", method.method_types);
 	    if(verbose){
-		p = get_pointer(method.method_types, &left,
-			        objc_sections, nobjc_sections, cstring_section_ptr);
+		p = get_pointer(method.method_types, &left, objc_sections,
+				nobjc_sections, cstring_section_ptr);
 		if(p != NULL)
 		    printf(" %.*s\n", (int)left, p);
 		else
@@ -1443,11 +1371,10 @@ enum bool verbose)
 	    }
 	    else
 		printf("\n");
-	    printf("\t\t       method_imp 0x%08x ",
-		   (unsigned int)method.method_imp);
+	    printf("\t\t       method_imp 0x%08x ", method.method_imp);
 	    if(verbose)
-		print_label((long)method.method_imp, FALSE, sorted_symbols,
-    			    nsorted_symbols);
+		print_label(method.method_imp, FALSE, sorted_symbols,
+			    nsorted_symbols);
 	    printf("\n");
 	}
 	return(TRUE);
@@ -1456,19 +1383,20 @@ enum bool verbose)
 static
 enum bool
 print_protocol_list(
-unsigned long indent,
-struct objc_protocol_list *addr,
+uint32_t indent,
+uint32_t addr,
 struct section_info *objc_sections,
-unsigned long nobjc_sections,
+uint32_t nobjc_sections,
 struct section_info *cstring_section_ptr,
 enum byte_sex host_byte_sex,
 enum bool swapped,
 enum bool verbose)
 {
-    struct objc_protocol **list, *l, protocol;
-    struct objc_protocol_list protocol_list;
+    uint32_t *list;
+    struct objc_protocol_t protocol;
+    struct objc_protocol_list_t protocol_list;
     enum bool trunc;
-    unsigned long i, list_left;
+    uint32_t l, i, list_left;
 
 	if(get_protocol_list(addr, &protocol_list, &list, &list_left, &trunc,
 			     objc_sections, nobjc_sections,
@@ -1485,25 +1413,23 @@ enum bool verbose)
 	printf("         next 0x%08x\n",
 	       (unsigned int)protocol_list.next);
 	print_indent(indent);
-	printf("        count %ld\n",
-	       protocol_list.count);
+	printf("        count %u\n", protocol_list.count);
 	
-	for(i = 0; i < (unsigned long)protocol_list.count; i++){
-	    if((i + 1) * sizeof(struct objc_protocol *) > list_left){
+	for(i = 0; i < protocol_list.count; i++){
+	    if((i + 1) * sizeof(uint32_t) > list_left){
 		print_indent(indent);
 		printf(" remaining list entries extend past the of the "
 		       "section\n");
-		continue;
+		break;
 	    }
-	    memcpy(&l, list + i, sizeof(struct objc_protocol *));
+	    memcpy(&l, list + i, sizeof(uint32_t));
 	    if(swapped)
-		l = (struct objc_protocol *)SWAP_LONG((long)l);
+		l = SWAP_INT(l);
 
 	    print_indent(indent);
-	    printf("      list[%lu] 0x%08x", i, (unsigned int)l);
-	    if(get_protocol((unsigned long)l, &protocol, &trunc,
-			    objc_sections, nobjc_sections,
-			    host_byte_sex, swapped) == FALSE){
+	    printf("      list[%u] 0x%08x", i, l);
+	    if(get_protocol(l, &protocol, &trunc, objc_sections, nobjc_sections,
+			host_byte_sex, swapped) == FALSE){
 		printf(" (not in an " SEG_OBJC " section)\n");
 		continue;
 	    }
@@ -1511,15 +1437,11 @@ enum bool verbose)
 	    if(trunc == TRUE){
 		print_indent(indent);
 		printf("            Protocol extends past end of the "
-		       "section\n");
+			"section\n");
 	    }
-
-	    if(swapped)
-		swap_objc_protocol((Protocol *)&protocol, host_byte_sex);
-
 	    print_protocol(indent, &protocol,
-			   objc_sections, nobjc_sections, cstring_section_ptr,
-			   host_byte_sex, swapped, verbose);
+		    objc_sections, nobjc_sections, cstring_section_ptr,
+		    host_byte_sex, swapped, verbose);
 	}
 	return(TRUE);
 }
@@ -1527,27 +1449,27 @@ enum bool verbose)
 static
 void
 print_protocol(
-unsigned long indent,
-struct objc_protocol *protocol,
+uint32_t indent,
+struct objc_protocol_t *protocol,
 struct section_info *objc_sections,
-unsigned long nobjc_sections,
+uint32_t nobjc_sections,
 struct section_info *cstring_section_ptr,
 enum byte_sex host_byte_sex,
 enum bool swapped,
 enum bool verbose)
 {
-    unsigned long left;
+    uint32_t left;
     char *p;
 
 	print_indent(indent);
 	printf("              isa 0x%08x\n",
-	       (unsigned int)protocol->isa);
+		(unsigned int)protocol->isa);
 	print_indent(indent);
 	printf("    protocol_name 0x%08x",
-	       (unsigned int)protocol->protocol_name);
+		(unsigned int)protocol->protocol_name);
 	if(verbose){
 	    p = get_pointer(protocol->protocol_name, &left,
-			    objc_sections, nobjc_sections, cstring_section_ptr);
+		    objc_sections, nobjc_sections, cstring_section_ptr);
 	    if(p != NULL)
 		printf(" %.*s\n", (int)left, p);
 	    else
@@ -1557,74 +1479,74 @@ enum bool verbose)
 	    printf("\n");
 	print_indent(indent);
 	printf("    protocol_list 0x%08x",
-	       (unsigned int)protocol->protocol_list);
+		(unsigned int)protocol->protocol_list);
 	if(print_protocol_list(indent + 4, protocol->protocol_list,
-		objc_sections, nobjc_sections, cstring_section_ptr,
-		host_byte_sex, swapped, verbose) == FALSE)
+		    objc_sections, nobjc_sections, cstring_section_ptr,
+		    host_byte_sex, swapped, verbose) == FALSE)
 	    printf(" (not in an " SEG_OBJC " section)\n");
 
 	print_indent(indent);
 	printf(" instance_methods 0x%08x",
-	       (unsigned int)protocol->instance_methods);
+		(unsigned int)protocol->instance_methods);
 	if(print_method_description_list(indent, protocol->instance_methods,
-		objc_sections, nobjc_sections, cstring_section_ptr,
-		host_byte_sex, swapped, verbose) == FALSE)
+		    objc_sections, nobjc_sections, cstring_section_ptr,
+		    host_byte_sex, swapped, verbose) == FALSE)
 	    printf(" (not in an " SEG_OBJC " section)\n");
 
 	print_indent(indent);
 	printf("    class_methods 0x%08x",
-	       (unsigned int)protocol->class_methods);
+		(unsigned int)protocol->class_methods);
 	if(print_method_description_list(indent, protocol->class_methods,
-		objc_sections, nobjc_sections, cstring_section_ptr,
-		host_byte_sex, swapped, verbose) == FALSE)
+		    objc_sections, nobjc_sections, cstring_section_ptr,
+		    host_byte_sex, swapped, verbose) == FALSE)
 	    printf(" (not in an " SEG_OBJC " section)\n");
 }
 
 static
 enum bool
 print_method_description_list(
-unsigned long indent,
-struct objc_method_description_list *addr,
-struct section_info *objc_sections,
-unsigned long nobjc_sections,
-struct section_info *cstring_section_ptr,
-enum byte_sex host_byte_sex,
-enum bool swapped,
-enum bool verbose)
+	uint32_t indent,
+	uint32_t addr,
+	struct section_info *objc_sections,
+	uint32_t nobjc_sections,
+	struct section_info *cstring_section_ptr,
+	enum byte_sex host_byte_sex,
+	enum bool swapped,
+	enum bool verbose)
 {
-    struct objc_method_description_list mdl;
-    struct objc_method_description *list, md;
+    struct objc_method_description_list_t mdl;
+    struct objc_method_description_t *list, md;
     enum bool trunc;
-    unsigned long i, list_left, left;
+    uint32_t i, list_left, left;
     char *p;
 
-	if(get_method_description_list(addr, &mdl, &list, &list_left,
-	    &trunc, objc_sections, nobjc_sections,
-	    host_byte_sex, swapped) == FALSE)
-	    return(FALSE);
+    if(get_method_description_list(addr, &mdl, &list, &list_left,
+		&trunc, objc_sections, nobjc_sections,
+		host_byte_sex, swapped) == FALSE)
+	return(FALSE);
 
-	printf("\n");
-	if(trunc == TRUE){
-	    print_indent(indent);
-	    printf(" objc_method_description_list extends past end of the "
-		   "section\n");
-	}
-
+    printf("\n");
+    if(trunc == TRUE){
 	print_indent(indent);
-	printf("        count %d\n", mdl.count);
-	
-	for(i = 0; i < (unsigned long)mdl.count; i++){
-	    if((i + 1) * sizeof(struct objc_method_description) > list_left){
+	printf(" objc_method_description_list extends past end of the "
+		"section\n");
+    }
+
+    print_indent(indent);
+    printf("        count %d\n", mdl.count);
+
+    for(i = 0; i < (uint32_t)mdl.count; i++){
+	if((i + 1) * sizeof(struct objc_method_description_t) > list_left){
 		print_indent(indent);
 		printf(" remaining list entries extend past the of the "
 		       "section\n");
-		continue;
+		break;
 	    }
 	    print_indent(indent);
-	    printf("        list[%lu]\n", i);
-	    memcpy(&md, list + i, sizeof(struct objc_method_description));
+	    printf("        list[%u]\n", i);
+	    memcpy(&md, list + i, sizeof(struct objc_method_description_t));
 	    if(swapped)
-		swap_objc_method_description(&md, host_byte_sex);
+		swap_objc_method_description_t(&md, host_byte_sex);
 
 	    print_indent(indent);
 	    printf("             name 0x%08x", (unsigned int)md.name);
@@ -1657,23 +1579,22 @@ enum bool verbose)
 
 static enum bool
 print_PHASH(
-unsigned long indent,
-struct _hashEntry *addr,
+uint32_t indent,
+uint32_t addr,
 struct section_info *objc_sections,
-unsigned long nobjc_sections,
+uint32_t nobjc_sections,
 struct section_info *cstring_section_ptr,
 enum byte_sex host_byte_sex,
 enum bool swapped,
 enum bool verbose)
 {
-    struct _hashEntry _hashEntry;
+    struct _hashEntry_t _hashEntry;
     enum bool trunc;
-    unsigned long left;
+    uint32_t left;
     char *p;
 
-	if(get_hashEntry((unsigned long)addr, &_hashEntry, &trunc,
-			 objc_sections, nobjc_sections,
-			 host_byte_sex, swapped) == FALSE)
+	if(get_hashEntry(addr, &_hashEntry, &trunc, objc_sections,
+	    nobjc_sections, host_byte_sex, swapped) == FALSE)
 	    return(FALSE);
 
 	printf("\n");
@@ -1697,7 +1618,7 @@ enum bool verbose)
 
 	print_indent(indent);
 	printf("next 0x%08x", (unsigned int)_hashEntry.next);
-	if(_hashEntry.next == NULL){
+	if(_hashEntry.next == 0){
 	    printf("\n");
 	    return(TRUE);
 	}
@@ -1711,9 +1632,9 @@ enum bool verbose)
 static
 void
 print_indent(
-unsigned long indent)
+uint32_t indent)
 {
-     unsigned long i;
+     uint32_t i;
 	
 	for(i = 0; i < indent; ){
 	    if(indent - i >= 8){
@@ -1730,24 +1651,23 @@ unsigned long indent)
 static
 void *
 get_pointer(
-void *p,
-unsigned long *left,
+uint32_t addr,
+uint32_t *left,
 struct section_info *objc_sections,
-unsigned long nobjc_sections,
+uint32_t nobjc_sections,
 struct section_info *cstring_section_ptr)
 {
     void* returnValue = NULL;
-    unsigned long i, addr;
+    uint32_t i;
 
-    addr = (unsigned long)p;
-    if(addr >= cstring_section_ptr->addr &&
-       addr < cstring_section_ptr->addr + cstring_section_ptr->size){
-        *left = cstring_section_ptr->size -
-        (addr - cstring_section_ptr->addr);
-        returnValue = (cstring_section_ptr->contents +
-                       (addr - cstring_section_ptr->addr));
-    }
-	for(i = 0; !returnValue && i < nobjc_sections; i++){
+	if(addr >= cstring_section_ptr->addr &&
+	   addr < cstring_section_ptr->addr + cstring_section_ptr->size){
+	    *left = cstring_section_ptr->size -
+	    (addr - cstring_section_ptr->addr);
+	    returnValue = (cstring_section_ptr->contents +
+			   (addr - cstring_section_ptr->addr));
+	}
+	for(i = 0; returnValue != NULL && i < nobjc_sections; i++){
 	    if(addr >= objc_sections[i].addr &&
 	       addr < objc_sections[i].addr + objc_sections[i].size){
 		*left = objc_sections[i].size -
@@ -1756,41 +1676,43 @@ struct section_info *cstring_section_ptr)
 		       (addr - objc_sections[i].addr));
 	    }
 	}
-	return returnValue;
+	return(returnValue);
 }
 
 static
 enum bool
 get_symtab(
-void *p,
-struct objc_symtab *symtab,
-void ***defs,
-unsigned long *left,
+uint32_t addr,
+struct objc_symtab_t *symtab,
+uint32_t **defs,
+uint32_t *left,
 enum bool *trunc,
 struct section_info *objc_sections,
-unsigned long nobjc_sections,
+uint32_t nobjc_sections,
 enum byte_sex host_byte_sex,
 enum bool swapped)
 {
-    unsigned long addr, i;
+    uint32_t i;
 
-	addr = (unsigned long)p;
-	memset(symtab, '\0', sizeof(struct objc_symtab));
+	memset(symtab, '\0', sizeof(struct objc_symtab_t));
+	if(addr == 0)
+	    return(0);
 	for(i = 0; i < nobjc_sections; i++){
 	    if(addr >= objc_sections[i].addr &&
 	       addr < objc_sections[i].addr + objc_sections[i].size){
 
 		*left = objc_sections[i].size -
 		        (addr - objc_sections[i].addr);
-		if(*left >= sizeof(struct objc_symtab) - sizeof(void *)){
+		if(*left >= sizeof(struct objc_symtab_t) - sizeof(uint32_t)){
 		    memcpy(symtab,
 			   objc_sections[i].contents +
 			       (addr - objc_sections[i].addr),
-			   sizeof(struct objc_symtab) - sizeof(void *));
-		    *left -= sizeof(struct objc_symtab) - sizeof(void *);
-		    *defs = (void **)(objc_sections[i].contents +
+			   sizeof(struct objc_symtab_t) - sizeof(uint32_t));
+		    *left -= sizeof(struct objc_symtab_t) - sizeof(uint32_t);
+		    *defs = (uint32_t *)(objc_sections[i].contents +
 				     (addr - objc_sections[i].addr) +
-			   	     sizeof(struct objc_symtab)-sizeof(void *));
+			   	     sizeof(struct objc_symtab_t) - 
+				     sizeof(uint32_t));
 		    *trunc = FALSE;
 		}
 		else{
@@ -1803,7 +1725,7 @@ enum bool swapped)
 		    *trunc = TRUE;
 		}
 		if(swapped)
-		    swap_objc_symtab(symtab, host_byte_sex);
+		    swap_objc_symtab_t(symtab, host_byte_sex);
 		return(TRUE);
 	    }
 	}
@@ -1813,28 +1735,30 @@ enum bool swapped)
 static
 enum bool
 get_objc_class(
-unsigned long addr,
-struct objc_class *objc_class,
+uint32_t addr,
+struct objc_class_t *objc_class,
 enum bool *trunc,
 struct section_info *objc_sections,
-unsigned long nobjc_sections,
+uint32_t nobjc_sections,
 enum byte_sex host_byte_sex,
 enum bool swapped)
 {
-    unsigned long left, i;
+    uint32_t left, i;
 
-	memset(objc_class, '\0', sizeof(struct objc_class));
+	memset(objc_class, '\0', sizeof(struct objc_class_t));
+	if(addr == 0)
+	    return(FALSE);
 	for(i = 0; i < nobjc_sections; i++){
 	    if(addr >= objc_sections[i].addr &&
 	       addr < objc_sections[i].addr + objc_sections[i].size){
 
 		left = objc_sections[i].size -
 		        (addr - objc_sections[i].addr);
-		if(left >= sizeof(struct objc_class)){
+		if(left >= sizeof(struct objc_class_t)){
 		    memcpy(objc_class,
 			   objc_sections[i].contents +
 			       (addr - objc_sections[i].addr),
-			   sizeof(struct objc_class));
+			   sizeof(struct objc_class_t));
 		    *trunc = FALSE;
 		}
 		else{
@@ -1845,7 +1769,7 @@ enum bool swapped)
 		    *trunc = TRUE;
 		}
 		if(swapped)
-		    swap_objc_class(objc_class, host_byte_sex);
+		    swap_objc_class_t(objc_class, host_byte_sex);
 		return(TRUE);
 	    }
 	}
@@ -1855,28 +1779,30 @@ enum bool swapped)
 static
 enum bool
 get_objc_category(
-unsigned long addr,
-struct objc_category *objc_category,
+uint32_t addr,
+struct objc_category_t *objc_category,
 enum bool *trunc,
 struct section_info *objc_sections,
-unsigned long nobjc_sections,
+uint32_t nobjc_sections,
 enum byte_sex host_byte_sex,
 enum bool swapped)
 {
-    unsigned long left, i;
+    uint32_t left, i;
 
-	memset(objc_category, '\0', sizeof(struct objc_category));
+	memset(objc_category, '\0', sizeof(struct objc_category_t));
+	if(addr == 0)
+	    return(FALSE);
 	for(i = 0; i < nobjc_sections; i++){
 	    if(addr >= objc_sections[i].addr &&
 	       addr < objc_sections[i].addr + objc_sections[i].size){
 
 		left = objc_sections[i].size -
 		        (addr - objc_sections[i].addr);
-		if(left >= sizeof(struct objc_category)){
+		if(left >= sizeof(struct objc_category_t)){
 		    memcpy(objc_category,
 			   objc_sections[i].contents +
 			       (addr - objc_sections[i].addr),
-			   sizeof(struct objc_category));
+			   sizeof(struct objc_category_t));
 		    *trunc = FALSE;
 		}
 		else{
@@ -1887,7 +1813,7 @@ enum bool swapped)
 		    *trunc = TRUE;
 		}
 		if(swapped)
-		    swap_objc_category(objc_category, host_byte_sex);
+		    swap_objc_category_t(objc_category, host_byte_sex);
 		return(TRUE);
 	    }
 	}
@@ -1897,40 +1823,41 @@ enum bool swapped)
 static
 enum bool
 get_ivar_list(
-void *p,
-struct objc_ivar_list *objc_ivar_list,
-struct objc_ivar **ivar_list,
-unsigned long *left,
+uint32_t addr,
+struct objc_ivar_list_t *objc_ivar_list,
+struct objc_ivar_t **ivar_list,
+uint32_t *left,
 enum bool *trunc,
 struct section_info *objc_sections,
-unsigned long nobjc_sections,
+uint32_t nobjc_sections,
 enum byte_sex host_byte_sex,
 enum bool swapped)
 {
-    unsigned long addr, i;
+    uint32_t i;
 
-	addr = (unsigned long)p;
-	memset(objc_ivar_list, '\0', sizeof(struct objc_ivar_list));
+	memset(objc_ivar_list, '\0', sizeof(struct objc_ivar_list_t));
+	if(addr == 0)
+	    return(FALSE);
 	for(i = 0; i < nobjc_sections; i++){
 	    if(addr >= objc_sections[i].addr &&
 	       addr < objc_sections[i].addr + objc_sections[i].size){
 
 		*left = objc_sections[i].size -
 		        (addr - objc_sections[i].addr);
-		if(*left >= sizeof(struct objc_ivar_list) -
-			    sizeof(struct objc_ivar)){
+		if(*left >= sizeof(struct objc_ivar_list_t) -
+			    sizeof(struct objc_ivar_t)){
 		    memcpy(objc_ivar_list,
 			   objc_sections[i].contents +
 				(addr - objc_sections[i].addr),
-			   sizeof(struct objc_ivar_list) -
-				sizeof(struct objc_ivar));
-		    *left -= sizeof(struct objc_ivar_list) -
-			     sizeof(struct objc_ivar);
-		    *ivar_list = (struct objc_ivar *)
+			   sizeof(struct objc_ivar_list_t) -
+				sizeof(struct objc_ivar_t));
+		    *left -= sizeof(struct objc_ivar_list_t) -
+			     sizeof(struct objc_ivar_t);
+		    *ivar_list = (struct objc_ivar_t *)
 				 (objc_sections[i].contents +
 				     (addr - objc_sections[i].addr) +
-				  sizeof(struct objc_ivar_list) -
-				      sizeof(struct objc_ivar));
+				  sizeof(struct objc_ivar_list_t) -
+				      sizeof(struct objc_ivar_t));
 		    *trunc = FALSE;
 		}
 		else{
@@ -1943,7 +1870,7 @@ enum bool swapped)
 		    *trunc = TRUE;
 		}
 		if(swapped)
-		    swap_objc_ivar_list(objc_ivar_list, host_byte_sex);
+		    swap_objc_ivar_list_t(objc_ivar_list, host_byte_sex);
 		return(TRUE);
 	    }
 	}
@@ -1953,40 +1880,41 @@ enum bool swapped)
 static
 enum bool
 get_method_list(
-void *p,
-struct objc_method_list *method_list,
-struct objc_method **methods,
-unsigned long *left,
+uint32_t addr,
+struct objc_method_list_t *method_list,
+struct objc_method_t **methods,
+uint32_t *left,
 enum bool *trunc,
 struct section_info *objc_sections,
-unsigned long nobjc_sections,
+uint32_t nobjc_sections,
 enum byte_sex host_byte_sex,
 enum bool swapped)
 {
-    unsigned long addr, i;
+    uint32_t i;
 
-	addr = (unsigned long)p;
-	memset(method_list, '\0', sizeof(struct objc_method_list));
+	memset(method_list, '\0', sizeof(struct objc_method_list_t));
+	if(addr == 0)
+	    return(FALSE);
 	for(i = 0; i < nobjc_sections; i++){
 	    if(addr >= objc_sections[i].addr &&
 	       addr < objc_sections[i].addr + objc_sections[i].size){
 
 		*left = objc_sections[i].size -
 		        (addr - objc_sections[i].addr);
-		if(*left >= sizeof(struct objc_method_list) -
-			    sizeof(struct objc_method)){
+		if(*left >= sizeof(struct objc_method_list_t) -
+			    sizeof(struct objc_method_t)){
 		    memcpy(method_list,
 			   objc_sections[i].contents +
 				(addr - objc_sections[i].addr),
-			   sizeof(struct objc_method_list) -
-				sizeof(struct objc_method));
-		    *left -= sizeof(struct objc_method_list) -
-			     sizeof(struct objc_method);
-		    *methods = (struct objc_method *)
+			   sizeof(struct objc_method_list_t) -
+				sizeof(struct objc_method_t));
+		    *left -= sizeof(struct objc_method_list_t) -
+			     sizeof(struct objc_method_t);
+		    *methods = (struct objc_method_t *)
 				 (objc_sections[i].contents +
 				     (addr - objc_sections[i].addr) +
-				  sizeof(struct objc_method_list) -
-				      sizeof(struct objc_method));
+				  sizeof(struct objc_method_list_t) -
+				      sizeof(struct objc_method_t));
 		    *trunc = FALSE;
 		}
 		else{
@@ -1999,7 +1927,7 @@ enum bool swapped)
 		    *trunc = TRUE;
 		}
 		if(swapped)
-		    swap_objc_method_list(method_list, host_byte_sex);
+		    swap_objc_method_list_t(method_list, host_byte_sex);
 		return(TRUE);
 	    }
 	}
@@ -2009,40 +1937,41 @@ enum bool swapped)
 static
 enum bool
 get_protocol_list(
-void *p,
-struct objc_protocol_list *protocol_list,
-struct objc_protocol ***list,
-unsigned long *left,
+uint32_t addr,
+struct objc_protocol_list_t *protocol_list,
+uint32_t **list,
+uint32_t *left,
 enum bool *trunc,
 struct section_info *objc_sections,
-unsigned long nobjc_sections,
+uint32_t nobjc_sections,
 enum byte_sex host_byte_sex,
 enum bool swapped)
 {
-    unsigned long addr, i;
+    uint32_t i;
 
-	addr = (unsigned long)p;
-	memset(protocol_list, '\0', sizeof(struct objc_protocol_list));
+	memset(protocol_list, '\0', sizeof(struct objc_protocol_list_t));
+	if(addr == 0)
+	    return(FALSE);
 	for(i = 0; i < nobjc_sections; i++){
 	    if(addr >= objc_sections[i].addr &&
 	       addr < objc_sections[i].addr + objc_sections[i].size){
 
 		*left = objc_sections[i].size -
 		        (addr - objc_sections[i].addr);
-		if(*left >= sizeof(struct objc_protocol_list) -
-			    sizeof(struct objc_protocol *)){
+		if(*left >= sizeof(struct objc_protocol_list_t) -
+			    sizeof(uint32_t)){
 		    memcpy(protocol_list,
 			   objc_sections[i].contents +
 				(addr - objc_sections[i].addr),
-			   sizeof(struct objc_protocol_list) -
-				sizeof(struct objc_protocol *));
-		    *left -= sizeof(struct objc_protocol_list) -
-			     sizeof(struct objc_protocol *);
-		    *list = (struct objc_protocol **)
+			   sizeof(struct objc_protocol_list_t) -
+				sizeof(uint32_t));
+		    *left -= sizeof(struct objc_protocol_list_t) -
+			     sizeof(uint32_t);
+		    *list = (uint32_t *)
 				 (objc_sections[i].contents +
 				     (addr - objc_sections[i].addr) +
-				  sizeof(struct objc_protocol_list) -
-				      sizeof(struct objc_protocol **));
+				  sizeof(struct objc_protocol_list_t) -
+				      sizeof(uint32_t));
 		    *trunc = FALSE;
 		}
 		else{
@@ -2055,7 +1984,7 @@ enum bool swapped)
 		    *trunc = TRUE;
 		}
 		if(swapped)
-		    swap_objc_protocol_list(protocol_list, host_byte_sex);
+		    swap_objc_protocol_list_t(protocol_list, host_byte_sex);
 		return(TRUE);
 	    }
 	}
@@ -2065,28 +1994,30 @@ enum bool swapped)
 static
 enum bool
 get_protocol(
-unsigned long addr,
-struct objc_protocol *protocol,
+uint32_t addr,
+struct objc_protocol_t *protocol,
 enum bool *trunc,
 struct section_info *objc_sections,
-unsigned long nobjc_sections,
+uint32_t nobjc_sections,
 enum byte_sex host_byte_sex,
 enum bool swapped)
 {
-    unsigned long left, i;
+    uint32_t left, i;
 
-	memset(protocol, '\0', sizeof(struct objc_protocol));
+	memset(protocol, '\0', sizeof(struct objc_protocol_t));
+	if(addr == 0)
+	    return(FALSE);
 	for(i = 0; i < nobjc_sections; i++){
 	    if(addr >= objc_sections[i].addr &&
 	       addr < objc_sections[i].addr + objc_sections[i].size){
 
 		left = objc_sections[i].size -
 		        (addr - objc_sections[i].addr);
-		if(left >= sizeof(struct objc_protocol)){
+		if(left >= sizeof(struct objc_protocol_t)){
 		    memcpy(protocol,
 			   objc_sections[i].contents +
 			       (addr - objc_sections[i].addr),
-			   sizeof(struct objc_protocol));
+			   sizeof(struct objc_protocol_t));
 		    *trunc = FALSE;
 		}
 		else{
@@ -2097,7 +2028,7 @@ enum bool swapped)
 		    *trunc = TRUE;
 		}
 		if(swapped)
-		    swap_objc_protocol((Protocol *)protocol, host_byte_sex);
+		    swap_objc_protocol_t(protocol, host_byte_sex);
 		return(TRUE);
 	    }
 	}
@@ -2107,40 +2038,41 @@ enum bool swapped)
 static
 enum bool
 get_method_description_list(
-void *p,
-struct objc_method_description_list *mdl,
-struct objc_method_description **list,
-unsigned long *left,
+uint32_t addr,
+struct objc_method_description_list_t *mdl,
+struct objc_method_description_t **list,
+uint32_t *left,
 enum bool *trunc,
 struct section_info *objc_sections,
-unsigned long nobjc_sections,
+uint32_t nobjc_sections,
 enum byte_sex host_byte_sex,
 enum bool swapped)
 {
-    unsigned long addr, i;
+    uint32_t i;
 
-	addr = (unsigned long)p;
-	memset(mdl, '\0', sizeof(struct objc_method_description_list));
+	memset(mdl, '\0', sizeof(struct objc_method_description_list_t));
+	if(addr == 0)
+	    return(FALSE);
 	for(i = 0; i < nobjc_sections; i++){
 	    if(addr >= objc_sections[i].addr &&
 	       addr < objc_sections[i].addr + objc_sections[i].size){
 
 		*left = objc_sections[i].size -
 		        (addr - objc_sections[i].addr);
-		if(*left >= sizeof(struct objc_method_description_list) -
-			    sizeof(struct objc_method_description)){
+		if(*left >= sizeof(struct objc_method_description_list_t) -
+			    sizeof(struct objc_method_description_t)){
 		    memcpy(mdl,
 			   objc_sections[i].contents +
 				(addr - objc_sections[i].addr),
-			   sizeof(struct objc_method_description_list) -
-				sizeof(struct objc_method_description));
-		    *left -= sizeof(struct objc_method_description_list) -
-			     sizeof(struct objc_method_description);
-		    *list = (struct objc_method_description *)
+			   sizeof(struct objc_method_description_list_t) -
+				sizeof(struct objc_method_description_t));
+		    *left -= sizeof(struct objc_method_description_list_t) -
+			     sizeof(struct objc_method_description_t);
+		    *list = (struct objc_method_description_t *)
 				 (objc_sections[i].contents +
 				     (addr - objc_sections[i].addr) +
-				  sizeof(struct objc_method_description_list) -
-				      sizeof(struct objc_method_description));
+				 sizeof(struct objc_method_description_list_t) -
+				      sizeof(struct objc_method_description_t));
 		    *trunc = FALSE;
 		}
 		else{
@@ -2153,7 +2085,7 @@ enum bool swapped)
 		    *trunc = TRUE;
 		}
 		if(swapped)
-		    swap_objc_method_description_list(mdl, host_byte_sex);
+		    swap_objc_method_description_list_t(mdl, host_byte_sex);
 		return(TRUE);
 	    }
 	}
@@ -2163,28 +2095,30 @@ enum bool swapped)
 static
 enum bool
 get_hashEntry(
-unsigned long addr,
-struct _hashEntry *_hashEntry,
+uint32_t addr,
+struct _hashEntry_t *_hashEntry,
 enum bool *trunc,
 struct section_info *objc_sections,
-unsigned long nobjc_sections,
+uint32_t nobjc_sections,
 enum byte_sex host_byte_sex,
 enum bool swapped)
 {
-    unsigned long left, i;
+    uint32_t left, i;
 
-	memset(_hashEntry, '\0', sizeof(struct _hashEntry));
+	memset(_hashEntry, '\0', sizeof(struct _hashEntry_t));
+	if(addr == 0)
+	    return(FALSE);
 	for(i = 0; i < nobjc_sections; i++){
 	    if(addr >= objc_sections[i].addr &&
 	       addr < objc_sections[i].addr + objc_sections[i].size){
 
 		left = objc_sections[i].size -
 		        (addr - objc_sections[i].addr);
-		if(left >= sizeof(struct _hashEntry)){
+		if(left >= sizeof(struct _hashEntry_t)){
 		    memcpy(_hashEntry,
 			   objc_sections[i].contents +
 			       (addr - objc_sections[i].addr),
-			   sizeof(struct _hashEntry));
+			   sizeof(struct _hashEntry_t));
 		    *trunc = FALSE;
 		}
 		else{
@@ -2195,7 +2129,7 @@ enum bool swapped)
 		    *trunc = TRUE;
 		}
 		if(swapped)
-		    swap_hashEntry(_hashEntry, host_byte_sex);
+		    swap_hashEntry_t(_hashEntry, host_byte_sex);
 		return(TRUE);
 	    }
 	}

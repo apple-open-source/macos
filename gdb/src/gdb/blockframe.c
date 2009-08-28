@@ -43,6 +43,9 @@
 
 void _initialize_blockframe (void);
 
+static int find_pc_partial_function_impl (CORE_ADDR, char **, CORE_ADDR *,
+					  CORE_ADDR *, int);
+
 /* APPLE LOCAL: Test whether PC is in the range of addresses that 
    corresponds to the "main" function.
    NB: This function was originally here as inside_main_func().
@@ -102,8 +105,6 @@ addr_inside_main_func (CORE_ADDR pc)
 
 	  if (BLOCK_RANGES (bl))
 	    {
-	      int last = BLOCK_RANGES (bl)->nelts - 1;
-
 	      symfile_objfile->ei.main_func_lowpc = BLOCK_LOWEST_PC (bl);
 	      symfile_objfile->ei.main_func_highpc = BLOCK_HIGHEST_PC (bl);
 	    }
@@ -220,6 +221,24 @@ get_pc_function_start (CORE_ADDR pc)
   return 0;
 }
 
+/* APPLE LOCAL begin radar 6545149 */
+
+/* Return the symbol for the inlined function executing in frame FRAME.  */
+
+struct symbol *
+get_frame_function_inlined (struct frame_info * frame)
+{
+  struct block *bl = get_frame_block (frame, 0);
+  struct bfd_section *sect;
+  struct symbol *func_sym;
+  if (bl == 0)
+    return 0;
+  
+  sect = find_pc_mapped_section (bl->startaddr);
+  return block_inlined_function (bl, sect);
+}
+/* APPLE LOCAL end radar 6545149 */
+
 /* Return the symbol for the function executing in frame FRAME.  */
 
 struct symbol *
@@ -232,16 +251,65 @@ get_frame_function (struct frame_info *frame)
 }
 
 
+/* APPLE LOCAL begin inlined function symbols & blocks  */
+
+/* Return the function (not inlined) containing pc value PC in
+   section SECTION.  Returns 0 if function is not known.  */
+
+struct symbol *
+find_pc_sect_function_no_inlined (CORE_ADDR pc, struct bfd_section *section)
+{
+  struct block *b;
+
+  b = block_for_pc_sect (pc, section);
+  if (b == 0)
+    return 0;
+
+  return block_function (b);
+}
+/* APPLE LOCAL end inlined function symbols & blocks  */
+
 /* Return the function containing pc value PC in section SECTION.
    Returns 0 if function is not known.  */
 
 struct symbol *
 find_pc_sect_function (CORE_ADDR pc, struct bfd_section *section)
 {
-  struct block *b = block_for_pc_sect (pc, section);
+  /* APPLE LOCAL begin cache lookup values for improved performance  */
+  struct block *b;
+  /* APPLE LOCAL inlined function symbols & blocks  */
+  struct symbol *func_sym;
+
+  if (pc == last_function_lookup_pc
+      && pc == last_mapped_section_lookup_pc
+      && section == cached_mapped_section
+      && cached_pc_function)
+    return cached_pc_function;
+  
+  last_function_lookup_pc = pc;
+
+  b = block_for_pc_sect (pc, section);
   if (b == 0)
-    return 0;
-  return block_function (b);
+    {
+      cached_pc_function = NULL;
+      return 0;
+    }
+
+  /* APPLE LOCAL begin inlined function symbols & blocks  */
+  func_sym = NULL;
+  if (BLOCK_FUNCTION (b) == 0)
+    {
+      /* APPLE LOCAL radar 6381384, add section to symtab lookups.  */
+      func_sym = block_inlined_function (b, section);
+    }
+
+  if (!func_sym)
+    func_sym = block_function (b);
+
+  cached_pc_function = func_sym;
+  return func_sym;
+  /* APPLE LOCAL end inlined function symbols & blocks  */
+  /* APPLE LOCAL end cache lookup values for improved performance  */
 }
 
 /* Return the function containing pc value PC.
@@ -253,12 +321,26 @@ find_pc_function (CORE_ADDR pc)
   return find_pc_sect_function (pc, find_pc_mapped_section (pc));
 }
 
+/* APPLE LOCAL begin inlined function symbols & blocks  */
+
+/* Return the function containing pc value PC.
+   Returns 0 if the function is not known.  Does NOT return inlined
+   functions.  Backward compatibility, no section  */
+
+struct symbol *
+find_pc_function_no_inlined (CORE_ADDR pc)
+{
+  return find_pc_sect_function_no_inlined (pc, find_pc_mapped_section (pc));
+}
+/* APPLE LOCAL end inlined function symbols & blocks  */
+
 /* These variables are used to cache the most recent result
  * of find_pc_partial_function. */
 
 static CORE_ADDR cache_pc_function_low = 0;
 static CORE_ADDR cache_pc_function_high = 0;
 static char *cache_pc_function_name = 0;
+static int cache_pc_function_inlining = -1;
 static struct bfd_section *cache_pc_function_section = NULL;
 
 /* Clear cache, e.g. when symbol table is discarded. */
@@ -270,6 +352,21 @@ clear_pc_function_cache (void)
   cache_pc_function_high = 0;
   cache_pc_function_name = (char *) 0;
   cache_pc_function_section = NULL;
+  cache_pc_function_inlining = -1;
+}
+
+int
+find_pc_partial_function (CORE_ADDR pc, char **name, CORE_ADDR *address,
+			  CORE_ADDR *endaddr)
+{
+  return find_pc_partial_function_impl (pc, name, address, endaddr, 1);
+}
+
+int
+find_pc_partial_function_no_inlined (CORE_ADDR pc, char **name, 
+				     CORE_ADDR *address, CORE_ADDR *endaddr)
+{
+  return find_pc_partial_function_impl (pc, name, address, endaddr, 0);
 }
 
 /* Finds the "function" (text symbol) that is smaller than PC but
@@ -285,9 +382,9 @@ clear_pc_function_cache (void)
 
 /* Backward compatibility, no section argument.  */
 
-int
-find_pc_partial_function (CORE_ADDR pc, char **name, CORE_ADDR *address,
-			  CORE_ADDR *endaddr)
+static int
+find_pc_partial_function_impl (CORE_ADDR pc, char **name, CORE_ADDR *address,
+			       CORE_ADDR *endaddr, int inlining_flag)
 {
   struct bfd_section *section;
   struct partial_symtab *pst;
@@ -317,8 +414,11 @@ find_pc_partial_function (CORE_ADDR pc, char **name, CORE_ADDR *address,
 
   if (mapped_pc >= cache_pc_function_low
       && mapped_pc < cache_pc_function_high
-      && section == cache_pc_function_section)
+      && section == cache_pc_function_section
+      && inlining_flag == cache_pc_function_inlining)
     goto return_cached_value;
+
+  cache_pc_function_inlining = inlining_flag;
 
   msymbol = lookup_minimal_symbol_by_pc_section (mapped_pc, section);
   pst = find_pc_sect_psymtab (mapped_pc, section);
@@ -337,7 +437,12 @@ find_pc_partial_function (CORE_ADDR pc, char **name, CORE_ADDR *address,
 	{
 	  /* Checking whether the msymbol has a larger value is for the
 	     "pathological" case mentioned in print_frame_info.  */
-	  f = find_pc_sect_function (mapped_pc, section);
+
+	  if (inlining_flag)
+	    f = find_pc_sect_function (mapped_pc, section);
+	  else
+	    f = find_pc_sect_function_no_inlined (mapped_pc, section);
+
 	  /* APPLE LOCAL begin address ranges  */
 	  if (f != NULL
 	      && (msymbol == NULL

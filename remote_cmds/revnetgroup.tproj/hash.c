@@ -1,28 +1,4 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-/* $OpenBSD: hash.c,v 1.1 1997/04/15 22:06:11 maja Exp $ */
-/*
  * Copyright (c) 1995
  *	Bill Paul <wpaul@ctr.columbia.edu>.  All rights reserved.
  *
@@ -52,19 +28,18 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- *	$FreeBSD: hash.c,v 1.4 1997/02/22 14:22:01 peter Exp $
  */
+
+#ifndef lint
+static const char rcsid[] =
+  "$FreeBSD: src/libexec/revnetgroup/hash.c,v 1.7 2002/02/07 23:57:01 imp Exp $";
+#endif /* not lint */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 #include "hash.h"
-
-#ifndef lint
-static const char rcsid[] = "$OpenBSD: hash.c,v 1.1 1997/04/15 22:06:11 maja Exp $";
-#endif
 
 /*
  * This hash function is stolen directly from the
@@ -76,13 +51,11 @@ static const char rcsid[] = "$OpenBSD: hash.c,v 1.1 1997/04/15 22:06:11 maja Exp
  * OZ's original sdbm hash
  */
 u_int32_t
-hash(keyarg, len)
-	const void *keyarg;
-	register size_t len;
+hash(const void *keyarg, size_t len)
 {
-	register const u_char *key;
-	register size_t loop;
-	register u_int32_t h;
+	const u_char *key;
+	size_t loop;
+	u_int32_t h;
 
 #define HASHC   h = *key++ + 65599 * h
 
@@ -127,8 +100,8 @@ hash(keyarg, len)
  * We mask off all but the lower 8 bits since our table array
  * can only hold 256 elements.
  */
-u_int32_t hashkey(key)
-	char *key;
+u_int32_t
+hashkey(char *key)
 {
 
 	if (key == NULL)
@@ -137,9 +110,8 @@ u_int32_t hashkey(key)
 }
 
 /* Find an entry in the hash table (may be hanging off a linked list). */
-char *lookup(table, key)
-	struct group_entry *table[];
-	char *key;
+char *
+lookup(struct group_entry *table[], char *key)
 {
 	struct group_entry *cur;
 
@@ -171,9 +143,8 @@ char *lookup(table, key)
  *
  * That's a lot of comment for such a small piece of code, isn't it.
  */
-void store (table, key, data)
-	struct group_entry *table[];
-	char *key, *data;
+void
+store(struct group_entry *table[], char *key, char *data)
 {
 	struct group_entry *new;
 	u_int32_t i;
@@ -201,9 +172,8 @@ void store (table, key, data)
  * an entry in the table, then we just have to do one thing, which is
  * to update its grouplist.
  */
-void mstore (table, key, data, domain)
-	struct member_entry *table[];
-	char *key, *data, *domain;
+void
+mstore(struct member_entry *table[], char *key, char *data, char *domain)
 {
 	struct member_entry *cur, *new;
 	struct grouplist *tmp,*p;
@@ -235,7 +205,7 @@ void mstore (table, key, data, domain)
 	/* Didn't find a match -- add the whole mess to the table. */
 	new = (struct member_entry *)malloc(sizeof(struct member_entry));
 	new->key = strdup(key);
-	new->domain = strdup(domain);
+	new->domain = domain ? strdup(domain) : "*";
 	new->groups = tmp;
 	new->next = table[i];
 	table[i] = new;

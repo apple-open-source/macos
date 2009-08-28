@@ -275,6 +275,22 @@ static NSString *kNSNativeAttrTypePrefix	= @"dsAttrTypeNative:";
                     if([attribs objectForKey:attrib] != nil)
                         [mutableAttribs setObject:[attribs objectForKey:attrib] forKey:attrib];
                 }
+                else if ([key isEqualToString:@kDSAttributesStandardAll])
+                {
+                    for (NSString *attribKey in [attribs allKeys]) {
+                        if ([attribKey hasPrefix:@kDSStdAttrTypePrefix]) {
+                            [mutableAttribs setObject:[attribs objectForKey:attribKey] forKey:attribKey];
+                        }
+                    }
+                }
+                else if ([key isEqualToString:@kDSAttributesNativeAll])
+                {
+                    for (NSString *attribKey in [attribs allKeys]) {
+                        if ([attribKey hasPrefix:@kDSNativeAttrTypePrefix]) {
+                            [mutableAttribs setObject:[attribs objectForKey:attribKey] forKey:attribKey];
+                        }
+                    }
+                }
                 else
                 {
                     attrib = [@kDSStdAttrTypePrefix stringByAppendingString:key];

@@ -32,6 +32,7 @@ static ModuleNexus<Mutex> gMutex;
 
 RSA_CryptContext::~RSA_CryptContext()
 {
+	StLock<Mutex> _(gMutex());
 	if(mAllocdRsaKey) {
 		assert(mRsaKey != NULL);
 		RSA_free(mRsaKey);

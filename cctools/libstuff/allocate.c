@@ -34,7 +34,7 @@
 __private_extern__
 void *
 allocate(
-unsigned long size)
+size_t size)
 {
     void *p;
 
@@ -53,7 +53,7 @@ __private_extern__
 void *
 reallocate(
 void *p,
-unsigned long size)
+size_t size)
 {
 	if(p == NULL)
 	    return(allocate(size));

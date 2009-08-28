@@ -43,8 +43,8 @@ int modeNetboot(BLContextPtr context, struct clarg actargs[klast]);
 int blesslog(void *context, int loglevel, const char *string);
 int blesscontextprintf(BLContextPtr context, int loglevel, char const *fmt, ...) __printflike(3, 4);
 
-void usage();
-void usage_short();
+void usage(void);
+void usage_short(void);
 
 void addPayload(const char *path);
 

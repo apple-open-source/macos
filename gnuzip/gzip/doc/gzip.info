@@ -1,10 +1,10 @@
 This is gzip.info, produced by makeinfo version 4.8 from gzip.texi.
 
-   This manual is for Gzip (version 1.3.10, 29 December 2006), and
+   This manual is for Gzip (version 1.3.12, 5 February 2007), and
 documents commands for compressing and decompressing data.
 
-   Copyright (C) 1998, 1999, 2001, 2002, 2006 Free Software Foundation,
-Inc.
+   Copyright (C) 1998, 1999, 2001, 2002, 2006, 2007 Free Software
+Foundation, Inc.
 
    Copyright (C) 1992, 1993 Jean-loup Gailly
 
@@ -26,16 +26,16 @@ START-INFO-DIR-ENTRY
 END-INFO-DIR-ENTRY
 
 
-File: gzip.info,  Node: Top,  Up: (dir)
+File: gzip.info,  Node: Top,  Next: Overview,  Up: (dir)
 
 Compressing Files
 *****************
 
-This manual is for Gzip (version 1.3.10, 29 December 2006), and
+This manual is for Gzip (version 1.3.12, 5 February 2007), and
 documents commands for compressing and decompressing data.
 
-   Copyright (C) 1998, 1999, 2001, 2002, 2006 Free Software Foundation,
-Inc.
+   Copyright (C) 1998, 1999, 2001, 2002, 2006, 2007 Free Software
+Foundation, Inc.
 
    Copyright (C) 1992, 1993 Jean-loup Gailly
 
@@ -59,7 +59,7 @@ Inc.
 * Concept Index::	Index of concepts.
 
 
-File: gzip.info,  Node: Overview,  Next: Sample,  Up: Top
+File: gzip.info,  Node: Overview,  Next: Sample,  Prev: Top,  Up: Top
 
 1 Overview
 **********
@@ -81,14 +81,14 @@ For example, if file names are limited to 14 characters, gzip.msdos.exe
 is compressed to gzi.msd.exe.gz.  Names are not truncated on systems
 which do not have a limit on file name length.
 
-   By default, `gzip' keeps the original file name and timestamp in the
-compressed file. These are used when decompressing the file with the
-`-N' option. This is useful when the compressed file name was truncated
-or when the time stamp was not preserved after a file transfer.
-However, due to limitations in the current `gzip' file format,
-fractional seconds are discarded.  Also, time stamps must fall within
-the range 1970-01-01 00:00:00 through 2106-02-07 06:28:15 UTC, and
-hosts whose operating systems use 32-bit time stamps are further
+   By default, `gzip' keeps the original file name and time stamp in
+the compressed file.  These are used when decompressing the file with
+the `-N' option.  This is useful when the compressed file name was
+truncated or when the time stamp was not preserved after a file
+transfer.  However, due to limitations in the current `gzip' file
+format, fractional seconds are discarded.  Also, time stamps must fall
+within the range 1970-01-01 00:00:00 through 2106-02-07 06:28:15 UTC,
+and hosts whose operating systems use 32-bit time stamps are further
 restricted to time stamps no later than 2038-01-19 03:14:07 UTC.  The
 upper bounds assume the typical case where leap seconds are ignored.
 
@@ -102,24 +102,24 @@ file whose name ends with `.gz', `.z', `.Z', `-gz', `-z' or `_z' and
 which begins with the correct magic number with an uncompressed file
 without the original extension.  `gunzip' also recognizes the special
 extensions `.tgz' and `.taz' as shorthands for `.tar.gz' and `.tar.Z'
-respectively. When compressing, `gzip' uses the `.tgz' extension if
+respectively.  When compressing, `gzip' uses the `.tgz' extension if
 necessary instead of truncating a file with a `.tar' extension.
 
    `gunzip' can currently decompress files created by `gzip', `zip',
-`compress' or `pack'. The detection of the input format is automatic.
+`compress' or `pack'.  The detection of the input format is automatic.
 When using the first two formats, `gunzip' checks a 32 bit CRC (cyclic
-redundancy check). For `pack', `gunzip' checks the uncompressed length.
-The `compress' format was not designed to allow consistency checks.
-However `gunzip' is sometimes able to detect a bad `.Z' file. If you
-get an error when uncompressing a `.Z' file, do not assume that the
-`.Z' file is correct simply because the standard `uncompress' does not
-complain.  This generally means that the standard `uncompress' does not
-check its input, and happily generates garbage output.  The SCO
-`compress -H' format (`lzh' compression method) does not include a CRC
-but also allows some consistency checks.
+redundancy check).  For `pack', `gunzip' checks the uncompressed
+length.  The `compress' format was not designed to allow consistency
+checks.  However `gunzip' is sometimes able to detect a bad `.Z' file.
+If you get an error when uncompressing a `.Z' file, do not assume that
+the `.Z' file is correct simply because the standard `uncompress' does
+not complain.  This generally means that the standard `uncompress' does
+not check its input, and happily generates garbage output.  The SCO
+`compress -H' format (LZH compression method) does not include a CRC but
+also allows some consistency checks.
 
    Files created by `zip' can be uncompressed by `gzip' only if they
-have a single member compressed with the 'deflation' method. This
+have a single member compressed with the 'deflation' method.  This
 feature is only intended to help conversion of `tar.zip' files to the
 `tar.gz' format.  To extract a `zip' file with a single member, use a
 command like `gunzip <foo.zip' or `gunzip -S .zip foo.zip'.  To extract
@@ -139,9 +139,9 @@ than that achieved by LZW (as used in `compress'), Huffman coding (as
 used in `pack'), or adaptive Huffman coding (`compact').
 
    Compression is always performed, even if the compressed file is
-slightly larger than the original. The worst case expansion is a few
+slightly larger than the original.  The worst case expansion is a few
 bytes for the `gzip' file header, plus 5 bytes every 32K block, or an
-expansion ratio of 0.015% for large files. Note that the actual number
+expansion ratio of 0.015% for large files.  Note that the actual number
 of used disk blocks almost never increases.  `gzip' normally preserves
 the mode, ownership and time stamps of files when compressing or
 decompressing.
@@ -163,36 +163,48 @@ Here are some realistic examples of running `gzip'.
 
    This is the output of the command `gzip -h':
 
-     gzip VERSION-NUMBER
-     usage: gzip [-cdfhlLnNrtvV19] [-S suffix] [file ...]
-      -c --stdout      write on standard output, keep original files unchanged
-      -d --decompress  decompress
-      -f --force       force overwrite of output file and compress links
-      -h --help        give this help
-      -l --list        list compressed file contents
-      -L --license     display software license
-      -n --no-name     do not save or restore the original name and time stamp
-      -N --name        save or restore the original name and time stamp
-      -q --quiet       suppress all warnings
-      -r --recursive   operate recursively on directories
-      -S .suf  --suffix .suf     use suffix .suf on compressed files
-      -t --test        test compressed file integrity
-      -v --verbose     verbose mode
-      -V --version     display version number
-      -1 --fast        compress faster
-      -9 --best        compress better
-      file...          files to (de)compress. If none given, use standard input.
+     Usage: gzip [OPTION]... [FILE]...
+     Compress or uncompress FILEs (by default, compress FILES in-place).
+
+     Mandatory arguments to long options are mandatory for short options too.
+
+       -c, --stdout      write on standard output, keep original files unchanged
+       -d, --decompress  decompress
+       -f, --force       force overwrite of output file and compress links
+       -h, --help        give this help
+       -l, --list        list compressed file contents
+       -L, --license     display software license
+       -n, --no-name     do not save or restore the original name and time stamp
+       -N, --name        save or restore the original name and time stamp
+       -q, --quiet       suppress all warnings
+       -r, --recursive   operate recursively on directories
+       -S, --suffix=SUF  use suffix SUF on compressed files
+       -t, --test        test compressed file integrity
+       -v, --verbose     verbose mode
+       -V, --version     display version number
+       -1, --fast        compress faster
+       -9, --best        compress better
+
+     With no FILE, or when FILE is -, read standard input.
+
      Report bugs to <bug-gzip@gnu.org>.
 
    This is the output of the command `gzip -v texinfo.tex':
 
-     texinfo.tex:             69.7% -- replaced with texinfo.tex.gz
+     texinfo.tex:     69.3% -- replaced with texinfo.tex.gz
 
-   The following command will find all `gzip' files in the current
-directory and subdirectories, and extract them in place without
-destroying the original:
+   The following command will find all regular `.gz' files in the
+current directory and subdirectories (skipping file names that contain
+newlines), and extract them in place without destroying the original,
+stopping on the first failure:
 
-     find . -name '*.gz' -print | sed 's/^\(.*\)[.]gz$/gunzip < "&" > "\1"/' | sh
+     find . -name '*
+     *' -prune -o -name '*.gz' -type f -print |
+       sed "
+         s/'/'\\''/g
+         s/^\\(.*\\)\\.gz$/gunzip <'\\1.gz' >'\\1'/
+       " |
+       sh -e
 
 
 File: gzip.info,  Node: Invoking gzip,  Next: Advanced usage,  Prev: Sample,  Up: Top
@@ -211,7 +223,7 @@ The format for running the `gzip' program is:
 `-c'
      Write output on standard output; keep original files unchanged.
      If there are several input files, the output consists of a
-     sequence of independently compressed members. To obtain better
+     sequence of independently compressed members.  To obtain better
      compression, concatenate all input files before compressing them.
 
 `--decompress'
@@ -223,11 +235,11 @@ The format for running the `gzip' program is:
 `-f'
      Force compression or decompression even if the file has multiple
      links or the corresponding file already exists, or if the
-     compressed data is read from or written to a terminal. If the
+     compressed data is read from or written to a terminal.  If the
      input data is not in a format recognized by `gzip', and if the
      option `--stdout' is also given, copy the input data without
-     change to the standard output: let `zcat' behave as `cat'. If `-f'
-     is not given, and when not running in the background, `gzip'
+     change to the standard output: let `zcat' behave as `cat'.  If
+     `-f' is not given, and when not running in the background, `gzip'
      prompts to verify whether an existing file should be overwritten.
 
 `--help'
@@ -243,8 +255,8 @@ The format for running the `gzip' program is:
           ratio: compression ratio (0.0% if unknown)
           uncompressed_name: name of the uncompressed file
 
-     The uncompressed size is given as `-1' for files not in `gzip'
-     format, such as compressed `.Z' files. To get the uncompressed
+     The uncompressed size is given as -1 for files not in `gzip'
+     format, such as compressed `.Z' files.  To get the uncompressed
      size for such a file, you can use:
 
           zcat file.Z | wc -c
@@ -256,15 +268,15 @@ The format for running the `gzip' program is:
           crc: the 32-bit CRC of the uncompressed data
           date & time: time stamp for the uncompressed file
 
-     The crc is given as ffffffff for a file not in gzip format.
+     The CRC is given as ffffffff for a file not in gzip format.
 
      With `--verbose', the size totals and compression ratio for all
-     files is also displayed, unless some sizes are unknown. With
+     files is also displayed, unless some sizes are unknown.  With
      `--quiet', the title and totals lines are not displayed.
 
      The `gzip' format represents the input size modulo 2^32, so the
      uncompressed size and compression ratio are listed incorrectly for
-     uncompressed files 4 GB and larger. To work around this problem,
+     uncompressed files 4 GiB and larger.  To work around this problem,
      you can use the following command to discover a large uncompressed
      file's true size:
 
@@ -277,18 +289,18 @@ The format for running the `gzip' program is:
 `--no-name'
 `-n'
      When compressing, do not save the original file name and time
-     stamp by default. (The original name is always saved if the name
-     had to be truncated.) When decompressing, do not restore the
+     stamp by default.  (The original name is always saved if the name
+     had to be truncated.)  When decompressing, do not restore the
      original file name if present (remove only the `gzip' suffix from
      the compressed file name) and do not restore the original time
-     stamp if present (copy it from the compressed file). This option
+     stamp if present (copy it from the compressed file).  This option
      is the default when decompressing.
 
 `--name'
 `-N'
      When compressing, always save the original file name and time
-     stamp; this is the default. When decompressing, restore the
-     original file name and time stamp if present. This option is
+     stamp; this is the default.  When decompressing, restore the
+     original file name and time stamp if present.  This option is
      useful on systems which have a limit on file name length or when
      the time stamp has been lost after a file transfer.
 
@@ -298,14 +310,14 @@ The format for running the `gzip' program is:
 
 `--recursive'
 `-r'
-     Travel the directory structure recursively. If any of the file
+     Travel the directory structure recursively.  If any of the file
      names specified on the command line are directories, `gzip' will
      descend into the directory and compress all the files it finds
      there (or decompress them in the case of `gunzip').
 
 `--suffix SUF'
 `-S SUF'
-     Use suffix `SUF' instead of `.gz'. Any suffix can be given, but
+     Use suffix SUF instead of `.gz'.  Any suffix can be given, but
      suffixes other than `.z' and `.gz' should be avoided to avoid
      confusion when files are transferred to other systems.  A null
      suffix forces gunzip to try decompression on all given files
@@ -313,21 +325,21 @@ The format for running the `gzip' program is:
 
           gunzip -S "" *        (*.* for MSDOS)
 
-     Previous versions of gzip used the `.z' suffix. This was changed to
-     avoid a conflict with `pack'.
+     Previous versions of gzip used the `.z' suffix.  This was changed
+     to avoid a conflict with `pack'.
 
 `--test'
 `-t'
-     Test. Check the compressed file integrity.
+     Test.  Check the compressed file integrity.
 
 `--verbose'
 `-v'
-     Verbose. Display the name and percentage reduction for each file
+     Verbose.  Display the name and percentage reduction for each file
      compressed.
 
 `--version'
 `-V'
-     Version. Display the version number and compilation options, then
+     Version.  Display the version number and compilation options, then
      quit.
 
 `--fast'
@@ -346,8 +358,8 @@ File: gzip.info,  Node: Advanced usage,  Next: Environment,  Prev: Invoking gzip
 4 Advanced usage
 ****************
 
-Multiple compressed files can be concatenated. In this case, `gunzip'
-will extract all members at once. If one member is damaged, other
+Multiple compressed files can be concatenated.  In this case, `gunzip'
+will extract all members at once.  If one member is damaged, other
 members might still be recovered after removal of the damaged member.
 Better compression can be usually obtained if all members are
 decompressed and then recompressed in a single step.
@@ -357,21 +369,21 @@ decompressed and then recompressed in a single step.
      gzip -c file1  > foo.gz
      gzip -c file2 >> foo.gz
 
-   Then
+Then
 
      gunzip -c foo
 
-   is equivalent to
+is equivalent to
 
      cat file1 file2
 
    In case of damage to one member of a `.gz' file, other members can
-still be recovered (if the damaged member is removed). However, you can
-get better compression by compressing all members at once:
+still be recovered (if the damaged member is removed).  However, you
+can get better compression by compressing all members at once:
 
      cat file1 file2 | gzip > foo.gz
 
-   compresses better than
+compresses better than
 
      gzip -c file1 file2 > foo.gz
 
@@ -382,14 +394,14 @@ compression, do:
 
    If a compressed file consists of several members, the uncompressed
 size and CRC reported by the `--list' option applies to the last member
-only. If you need the uncompressed size for all members, you can use:
+only.  If you need the uncompressed size for all members, you can use:
 
      zcat file.gz | wc -c
 
    If you wish to create a single archive file with multiple members so
 that members can later be extracted independently, use an archiver such
-as `tar' or `zip'. GNU `tar' supports the `-z' option to invoke `gzip'
-transparently. `gzip' is designed as a complement to `tar', not as a
+as `tar' or `zip'.  GNU `tar' supports the `-z' option to invoke `gzip'
+transparently.  `gzip' is designed as a complement to `tar', not as a
 replacement.
 
 
@@ -406,8 +418,8 @@ explicit command line parameters.  For example:
      for csh:   setenv GZIP "-8v --name"
      for MSDOS: set GZIP=-8v --name
 
-   On Vax/VMS, the name of the environment variable is `GZIP_OPT', to
-avoid a conflict with the symbol set for invocation of the program.
+   On VMS, the name of the environment variable is `GZIP_OPT', to avoid
+a conflict with the symbol set for invocation of the program.
 
 
 File: gzip.info,  Node: Tapes,  Next: Problems,  Prev: Environment,  Up: Top
@@ -416,11 +428,11 @@ File: gzip.info,  Node: Tapes,  Next: Problems,  Prev: Environment,  Up: Top
 ***********************
 
 When writing compressed data to a tape, it is generally necessary to pad
-the output with zeroes up to a block boundary. When the data is read and
-the whole block is passed to `gunzip' for decompression, `gunzip'
+the output with zeroes up to a block boundary.  When the data is read
+and the whole block is passed to `gunzip' for decompression, `gunzip'
 detects that there is extra trailing garbage after the compressed data
 and emits a warning by default if the garbage contains nonzero bytes.
-You have to use the `--quiet' option to suppress the warning. This
+You have to use the `--quiet' option to suppress the warning.  This
 option can be set in the `GZIP' environment variable, as in:
 
      for sh:    GZIP="-q"  tar -xfz --block-compress /dev/rst0
@@ -908,16 +920,16 @@ Appendix B Concept Index
 
 
 Tag Table:
-Node: Top1013
-Node: Overview2137
-Node: Sample7313
-Node: Invoking gzip8968
-Node: Advanced usage13946
-Node: Environment15536
-Node: Tapes16105
-Node: Problems17120
-Node: Copying This Manual17579
-Node: GNU Free Documentation License17817
-Node: Concept Index40213
+Node: Top1018
+Node: Overview2164
+Node: Sample7362
+Node: Invoking gzip9298
+Node: Advanced usage14290
+Node: Environment15877
+Node: Tapes16442
+Node: Problems17459
+Node: Copying This Manual17918
+Node: GNU Free Documentation License18156
+Node: Concept Index40552
 
 End Tag Table

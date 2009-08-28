@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2005 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2008 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -113,7 +113,7 @@ class Bouncer:
             # This is the first bounce we've seen from this member
             info = _BounceInfo(member, weight, day,
                                self.bounce_you_are_disabled_warnings)
-            self.setBounceInfo(member, info)
+            # setBounceInfo is now called below after check phase.
             syslog('bounce', '%s: %s bounce score: %s', self.internal_name(),
                    member, info.score)
             # Continue to the check phase below
@@ -160,12 +160,20 @@ class Bouncer:
                 info.reset(0, info.date, info.noticesleft)
             else:
                 self.disableBouncingMember(member, info, msg)
+        # We've set/changed bounce info above.  We now need to tell the
+        # MemberAdaptor to set/update it.  We do it here in case the
+        # MemberAdaptor stores bounce info externally to the list object to
+        # be sure updated information is stored.
+        self.setBounceInfo(member, info)
 
     def disableBouncingMember(self, member, info, msg):
         # Initialize their confirmation cookie.  If we do it when we get the
         # first bounce, it'll expire by the time we get the disabling bounce.
         cookie = self.pend_new(Pending.RE_ENABLE, self.internal_name(), member)
         info.cookie = cookie
+        # In case the MemberAdaptor stores bounce info externally to
+        # the list, we need to tell it to save the cookie
+        self.setBounceInfo(member, info)
         # Disable them
         if mm_cfg.VERP_PROBES:
             syslog('bounce', '%s: %s disabling due to probe bounce received',
@@ -271,6 +279,9 @@ class Bouncer:
         msg.send(self)
         info.noticesleft -= 1
         info.lastnotice = time.localtime()[:3]
+        # In case the MemberAdaptor stores bounce info externally to
+        # the list, we need to tell it to update
+        self.setBounceInfo(member, info)
 
     def BounceMessage(self, msg, msgdata, e=None):
         # Bounce a message back to the sender, with an error message if

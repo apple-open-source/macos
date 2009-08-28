@@ -22,8 +22,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* The rest must follow.  */
 
@@ -84,7 +84,7 @@ Boston, MA 02111-1307, USA.  */
 #undef CPP_SPEC
 /* Write out the correct language type definition for the header files.  
    Unless we have assembler language, write out the symbols for C.
-   mieee is an Alpha specific variant.  Cross polination a bad idea.
+   mieee is an Alpha specific variant.  Cross pollination a bad idea.
    */
 #define CPP_SPEC "-remap %{posix:-D_POSIX_SOURCE} \
 -isystem %$INTERIX_ROOT/usr/include"
@@ -286,7 +286,6 @@ do									\
     }									\
 while (0)
 
-#define HOST_PTR_PRINTF "%p"
 #define HOST_PTR_AS_INT unsigned long
 
 #define PCC_BITFIELD_TYPE_MATTERS 1

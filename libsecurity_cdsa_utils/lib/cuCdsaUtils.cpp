@@ -707,10 +707,13 @@ CSSM_RETURN cuCrlVerify(
 			handles[numDbs].DLHandle = handles[0].DLHandle;
 			handles[numDbs + 1].DLHandle = handles[0].DLHandle;
 		}
-		handles[numDbs++].DBHandle = cuDbStartupByName(handles[numDbs].DLHandle,
-			ADMIN_CERT_STORE_PATH, CSSM_FALSE, CSSM_TRUE);
-		handles[numDbs++].DBHandle = cuDbStartupByName(handles[numDbs].DLHandle,
-			SYSTEM_ROOT_STORE_PATH, CSSM_FALSE, CSSM_TRUE);
+		handles[numDbs].DBHandle = cuDbStartupByName(handles[numDbs].DLHandle,
+			(char*) ADMIN_CERT_STORE_PATH, CSSM_FALSE, CSSM_TRUE);
+		numDbs++;
+		
+		handles[numDbs].DBHandle = cuDbStartupByName(handles[numDbs].DLHandle,
+			(char*) SYSTEM_ROOT_STORE_PATH, CSSM_FALSE, CSSM_TRUE);
+		numDbs++;
 	}
 	CSSM_DL_DB_LIST dlDbList;
 	dlDbList.DLDBHandle = handles;

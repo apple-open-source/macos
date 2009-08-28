@@ -128,7 +128,7 @@ mpool_new(mp, pgnoaddr)
 
 	if (mp->npages == MAX_PAGE_NUMBER) {
 		(void)fprintf(stderr, "mpool_new: page allocation overflow.\n");
-		abort();
+		LIBC_ABORT("page allocation overflow");
 	}
 #ifdef STATISTICS
 	++mp->pagenew;
@@ -180,7 +180,7 @@ mpool_get(mp, pgno, flags)
 		if (bp->flags & MPOOL_PINNED) {
 			(void)fprintf(stderr,
 			    "mpool_get: page %d already pinned\n", bp->pgno);
-			abort();
+			LIBC_ABORT("page %d already pinned", bp->pgno);
 		}
 #endif
 		/*
@@ -253,7 +253,7 @@ mpool_put(mp, page, flags)
 	if (!(bp->flags & MPOOL_PINNED)) {
 		(void)fprintf(stderr,
 		    "mpool_put: page %d not pinned\n", bp->pgno);
-		abort();
+		LIBC_ABORT("page %d not pinned", bp->pgno);
 	}
 #endif
 	bp->flags &= ~MPOOL_PINNED;

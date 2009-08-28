@@ -26,26 +26,22 @@
  * Provides routines to byte swap Mach buffers.
  */
 
-#ifndef __DSMachEndian_h__
-#define __DSMachEndian_h__ 1
+#ifndef __DSMACHENDIAN_H
+#define __DSMACHENDIAN_H
 
-#ifndef __BIG_ENDIAN__
-
-#include "SharedConsts.h"	// for sComData
 #include "DSSwapUtils.h"
 
+#if __LITTLE_ENDIAN__
 
-class DSMachEndian
-{
-public:
-    DSMachEndian(sComData* message, int direction);
-    
-    void SwapMessage(void);
-    
-private:
-    sComData* fMessage;
-    bool toBig;
-};
+	#include <unistd.h>
+
+	__BEGIN_DECLS
+	void SwapMachMessage( struct sComData *message, eSwapDirection direction );
+	__END_DECLS
+
+#else
+
+	#define SwapMachMessage(a,b)
 
 #endif
 

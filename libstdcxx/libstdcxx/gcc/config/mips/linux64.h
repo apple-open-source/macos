@@ -1,6 +1,6 @@
 /* Definitions for MIPS running Linux-based GNU systems with ELF format
    using n32/64 abi.
-   Copyright 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Force the default endianness and ABI flags onto the command line
    in order to make the other specs easier to write.  */
@@ -36,6 +36,13 @@ Boston, MA 02111-1307, USA.  */
 %{!shared: %{pthread:-lpthread} \
   %{profile:-lc_p} %{!profile: -lc}}"
 
+#define GLIBC_DYNAMIC_LINKER32 "/lib/ld.so.1"
+#define GLIBC_DYNAMIC_LINKER64 "/lib64/ld.so.1"
+#define GLIBC_DYNAMIC_LINKERN32 "/lib32/ld.so.1"
+#define UCLIBC_DYNAMIC_LINKERN32 "/lib32/ld-uClibc.so.0"
+#define LINUX_DYNAMIC_LINKERN32 \
+  CHOOSE_DYNAMIC_LINKER (GLIBC_DYNAMIC_LINKERN32, UCLIBC_DYNAMIC_LINKERN32)
+
 #undef LINK_SPEC
 #define LINK_SPEC "\
 %{G*} %{EB} %{EL} %{mips1} %{mips2} %{mips3} %{mips4} \
@@ -47,9 +54,9 @@ Boston, MA 02111-1307, USA.  */
       %{!static: \
         %{rdynamic:-export-dynamic} \
         %{!dynamic-linker: \
-	  %{mabi=n32: -dynamic-linker /lib32/ld.so.1} \
-	  %{mabi=64: -dynamic-linker /lib64/ld.so.1} \
-	  %{mabi=32: -dynamic-linker /lib/ld.so.1}}} \
+	  %{mabi=n32: -dynamic-linker " LINUX_DYNAMIC_LINKERN32 "} \
+	  %{mabi=64: -dynamic-linker " LINUX_DYNAMIC_LINKER64 "} \
+	  %{mabi=32: -dynamic-linker " LINUX_DYNAMIC_LINKER32 "}}} \
       %{static:-static}}} \
 %{mabi=n32:-melf32%{EB:b}%{EL:l}tsmipn32} \
 %{mabi=64:-melf64%{EB:b}%{EL:l}tsmip} \
@@ -57,11 +64,6 @@ Boston, MA 02111-1307, USA.  */
 
 #undef LOCAL_LABEL_PREFIX
 #define LOCAL_LABEL_PREFIX (TARGET_OLDABI ? "$" : ".")
-
-/* The size in bytes of a DWARF field indicating an offset or length
-   relative to a debug info section, specified to be 4 bytes in the DWARF-2
-   specification.  The SGI/MIPS ABI defines it to be the same as PTR_SIZE.  */
-#define DWARF_OFFSET_SIZE PTR_SIZE
 
 /* GNU/Linux doesn't use the same floating-point format that IRIX uses
    for long double.  There's no need to override this here, since

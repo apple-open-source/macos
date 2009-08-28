@@ -1,4 +1,4 @@
-/*$Header: /src/pub/tcsh/win32/stdio.c,v 1.4 2004/05/19 18:22:28 christos Exp $*/
+/*$Header: /p/tcsh/cvsroot/tcsh/win32/stdio.c,v 1.9 2006/03/11 01:47:40 amold Exp $*/
 /*-
  * Copyright (c) 1980, 1991 The Regents of the University of California.
  * All rights reserved.
@@ -51,7 +51,6 @@
 
 #define FIOCLEX 1
 #define FCONSOLE 2
-#define FRESOURCE 4 //stringtable resource
 
 typedef struct _myfile {
 	HANDLE  handle;
@@ -78,12 +77,12 @@ void init_stdio(void) {
 	__gOpenFiles[1].handle = GetStdHandle(STD_OUTPUT_HANDLE);
 	__gOpenFiles[2].handle = GetStdHandle(STD_ERROR_HANDLE);
 
-	__gOpenFiles[0].flags = (GetFileType((HANDLE)STD_INPUT_HANDLE)== 
-									FILE_TYPE_CHAR)?  FCONSOLE:0;
-	__gOpenFiles[1].flags = (GetFileType((HANDLE)STD_OUTPUT_HANDLE)== 
-									FILE_TYPE_CHAR)?  FCONSOLE:0;
-	__gOpenFiles[2].flags = (GetFileType((HANDLE)STD_ERROR_HANDLE)==
-									FILE_TYPE_CHAR)?  FCONSOLE:0;
+	__gOpenFiles[0].flags = (GetFileType(ULongToPtr(STD_INPUT_HANDLE))== 
+			FILE_TYPE_CHAR)?  FCONSOLE:0;
+	__gOpenFiles[1].flags = (GetFileType(ULongToPtr(STD_OUTPUT_HANDLE))== 
+			FILE_TYPE_CHAR)?  FCONSOLE:0;
+	__gOpenFiles[2].flags = (GetFileType(ULongToPtr(STD_ERROR_HANDLE))==
+			FILE_TYPE_CHAR)?  FCONSOLE:0;
 
 	for(i=3;i<__MAX_OPEN_FILES;i++) {
 		__gOpenFiles[i].handle = INVHL;
@@ -94,15 +93,14 @@ void init_stdio(void) {
 	my_stdin = &__gOpenFiles[0];
 	my_stdout = &__gOpenFiles[1];
 	my_stderr = &__gOpenFiles[2];
-
-
 }
-void nt_close_on_exec(int fd, int on) {
-	if(on)
-		__gOpenFiles[fd].flags |= FIOCLEX;
-	else
-		__gOpenFiles[fd].flags &= ~FIOCLEX;
-}
+
+	void nt_close_on_exec(int fd, int on) {
+		if(on)
+			__gOpenFiles[fd].flags |= FIOCLEX;
+		else
+			__gOpenFiles[fd].flags &= ~FIOCLEX;
+	}
 void restore_fds(void ) {
 	int i;
 	int min=3;
@@ -148,24 +146,23 @@ void copy_fds(void ) {
 			__gOpenFilesCopy[i].handle = INVHL;
 			continue;
 		}
-		
+
 		if(!DuplicateHandle(GetCurrentProcess(), 
-						(HANDLE)__gOpenFiles[i].handle ,
-						GetCurrentProcess(), 
-						(HANDLE*)&__gOpenFilesCopy[i].handle,
-						 0, TRUE, DUPLICATE_SAME_ACCESS) )
+					(HANDLE)__gOpenFiles[i].handle ,
+					GetCurrentProcess(), 
+					(HANDLE*)&__gOpenFilesCopy[i].handle,
+					0, TRUE, DUPLICATE_SAME_ACCESS) )
 			__gOpenFilesCopy[i].handle = INVHL;
 		__gOpenFilesCopy[i].flags = __gOpenFiles[i].flags;
 	}
-}
-int is_resource_file(int fd) {
-	return (__gOpenFiles[fd].flags & FRESOURCE);
 }
 intptr_t __nt_get_osfhandle(int fd) {
 	return (intptr_t)(__gOpenFiles[fd].handle);
 }
 int __nt_open_osfhandle(intptr_t h1, int mode) {
 	int i;
+
+	UNREFERENCED_PARAMETER(mode);
 
 	for(i=0;i<__MAX_OPEN_FILES;i++) {
 		if (__gOpenFiles[i].handle == INVHL) {
@@ -178,32 +175,27 @@ int __nt_open_osfhandle(intptr_t h1, int mode) {
 	return -1;
 }
 int nt_close(int fd) {
-	
-	if (__gOpenFiles[fd].flags & FRESOURCE) {
-		__gOpenFiles[fd].handle = INVHL;
-		__gOpenFiles[fd].flags = 0;
-		return 0;
-	}
+
 	if( (fd == -1) ||(__gOpenFiles[fd].handle == INVHL))
 		return 0;
 	CloseHandle((HANDLE)(__gOpenFiles[fd].handle));
 	__gOpenFiles[fd].handle = INVHL;
 	__gOpenFiles[fd].flags = 0;
 
-//	dprintf("closing 0x%08x\n",(__gOpenFiles[fd].handle));
+	//	dprintf("closing 0x%08x\n",(__gOpenFiles[fd].handle));
 	return 0;
 }
 int nt_access(char *filename, int mode) {
-	
+
 	DWORD attribs=(DWORD)-1, bintype;
 	int tries=0;
-	char buf[512];
+	char buf[512];/*FIXBUF*/
 
 	if (!filename) {
 		errno = ENOENT;
 		return -1;
 	}
-	sprintf(buf,"%s",filename);
+	(void)StringCbPrintf(buf,sizeof(buf),"%s",filename);
 retry:
 	attribs = GetFileAttributes(buf);
 	tries++;
@@ -212,16 +204,16 @@ retry:
 		if( (GetLastError() == ERROR_FILE_NOT_FOUND) && (mode & X_OK) ) {
 			switch(tries){
 				case 1:
-					sprintf(buf,"%s.exe",filename);
+					(void)StringCbPrintf(buf,sizeof(buf),"%s.exe",filename);
 					break;
 				case 2:
-					sprintf(buf,"%s.cmd",filename);
+					(void)StringCbPrintf(buf,sizeof(buf),"%s.cmd",filename);
 					break;
 				case 3:
-					sprintf(buf,"%s.bat",filename);
+					(void)StringCbPrintf(buf,sizeof(buf),"%s.bat",filename);
 					break;
 				case 4:
-					sprintf(buf,"%s.com",filename);
+					(void)StringCbPrintf(buf,sizeof(buf),"%s.com",filename);
 					break;
 				default:
 					goto giveup;
@@ -245,7 +237,6 @@ giveup:
 			return -1;
 		}
 		if ((!(attribs & FILE_ATTRIBUTE_DIRECTORY)) && 
-//				!is_executable(buf,NULL) &&(tries >4) ) {
 				!GetBinaryType(buf,&bintype) &&(tries >4) ) {
 			errno = EACCES;
 			return -1;
@@ -280,10 +271,9 @@ int nt_seek(HANDLE h1, long offset, int how) {
 int nt_lseek(int fd,long offset, int how) {
 	HANDLE h1 ; 
 	h1 =__gOpenFiles[fd].handle;
-	return nt_seek((HANDLE)h1,offset,how);
+	return nt_seek(h1,offset,how);
 }
 int nt_isatty(int fd) {
-	HANDLE h1 = __gOpenFiles[fd].handle;
 	return (__gOpenFiles[fd].flags & FCONSOLE);
 }
 int nt_dup(int fdin) {
@@ -292,22 +282,17 @@ int nt_dup(int fdin) {
 	HANDLE horig =  __gOpenFiles[fdin].handle;
 	int ret;
 
-	if (__gOpenFiles[fdin].flags & FRESOURCE) {
-		hdup = __gOpenFiles[fdin].handle;
-	}
-	else {
 
-		if (!DuplicateHandle(GetCurrentProcess(),
-					horig,
-					GetCurrentProcess(),
-					&hdup,
-					0,
-					FALSE,
-					DUPLICATE_SAME_ACCESS)) {
-			errno = GetLastError();
-			errno = EBADF;
-			return -1;
-		}
+	if (!DuplicateHandle(GetCurrentProcess(),
+				horig,
+				GetCurrentProcess(),
+				&hdup,
+				0,
+				FALSE,
+				DUPLICATE_SAME_ACCESS)) {
+		errno = GetLastError();
+		errno = EBADF;
+		return -1;
 	}
 	ret = __nt_open_osfhandle((intptr_t)hdup,_O_BINARY | _O_NOINHERIT);
 
@@ -319,12 +304,7 @@ int nt_dup2(int fdorig,int fdcopy) {
 
 	HANDLE hdup;
 	HANDLE horig =  __gOpenFiles[fdorig].handle;
-	
-	if (__gOpenFiles[fdorig].flags & FRESOURCE) {
-		__gOpenFiles[fdcopy].handle = __gOpenFiles[fdorig].handle;
-		__gOpenFiles[fdcopy].flags = __gOpenFiles[fdorig].flags;
-		return 0;
-	}
+
 
 	if (__gOpenFiles[fdcopy].handle != INVHL) {
 		CloseHandle((HANDLE)__gOpenFiles[fdcopy].handle );
@@ -332,12 +312,11 @@ int nt_dup2(int fdorig,int fdcopy) {
 		__gOpenFiles[fdcopy].flags = 0;
 	}
 	if (!DuplicateHandle(GetCurrentProcess(),
-						 horig,
-						 GetCurrentProcess(),
-						 &hdup,
-						 0,
-						 fdcopy<3?TRUE:FALSE,
-						 DUPLICATE_SAME_ACCESS)) {
+				horig,
+				GetCurrentProcess(),
+				&hdup,
+				0,
+				fdcopy<3?TRUE:FALSE, DUPLICATE_SAME_ACCESS)) {
 		errno = GetLastError();
 		errno = EBADF;
 		return -1;
@@ -381,19 +360,17 @@ int nt_pipe(int hpipe[2]) {
 /* check if name is //server. if checkifShare is set,
  * also check if //server/share
  */
-int is_server(char *name,int checkifShare) {
-	char *p1, *p2;
+int is_server(const char *name,int checkifShare) {
+	const char *p1, *p2;
 
 	if (!*name || !*(name+1))
 		return 0;
 
 	p1 = name;
-	if ( 
-		((p1[0] != '/') && (p1[0] != '\\') ) ||
-		((p1[1] != '/') && (p1[1] != '\\') )
-	   )
-	   	return 0;
-	
+	if (((p1[0] != '/') && (p1[0] != '\\') ) ||
+			((p1[1] != '/') && (p1[1] != '\\') ))
+		return 0;
+
 	p2 = p1 + 2;
 	while (*p2 && *p2 != '/' && *p2 != '\\')
 #ifdef DSPMBYTE
@@ -402,10 +379,9 @@ int is_server(char *name,int checkifShare) {
 		else
 #endif /* DSPMBYTE */
 			p2++;
-		
+
 	/* just check for server */
 	if (!checkifShare) {
-
 		/* null terminated unc server name */
 		/* terminating '/' (//server/) is also ok */
 		if (!*p2 || !*(p2+1)) 
@@ -418,53 +394,31 @@ int is_server(char *name,int checkifShare) {
 		p2++;
 		while(*p2 && *p2 != '/' && *p2 != '\\')
 			p2++;
-
 		if (!*p2 || !*(p2+1))
 			return 1;
-
 	}
 	return 0;
 
-	//p1++;
-
-	/*
-	p2 = strrchr(name,'/');
-	if (!p2)
-		p2 = strchr(name,'\\');
-	{
-		p2--;
-		while ( (*p2 != '/') && (*p2 != '\\') )
-			p2--;
-	}
-	if (p2 != p1)
-		return 0;
-
-	*/
-	return 1;
 }
 __inline int is_unc(char *filename) {
 	if (*filename && (*filename == '/' || *filename == '\\')
-		&& *(filename+1) && (*(filename+1) == '/' || *(filename+1) == '\\'))
+			&& *(filename+1) 
+			&& (*(filename+1) == '/' || *(filename+1) == '\\')) {
 		return 1;
+	}
 	return 0;
-	
 }
-int nt_stat(char *filename, struct stat *stbuf) {
-	
+int nt_stat(const char *filename, struct stat *stbuf) {
+
 	// stat hangs on server name 
 	// Use any  directory, since the info in stat means %$!* on
 	// windows anyway.
 	// -amol 5/28/97
 	/* is server or share */
 	if (is_server(filename,0)  || is_server(filename,1) ||
-		(*(filename+1) && *(filename+1) == ':' && !*(filename+2)) ) {
+			(*(filename+1) && *(filename+1) == ':' && !*(filename+2)) ) {
 		return _stat("C:/",(struct _stat *)stbuf);
 	}
-#if 0
-	else if (is_unc(filename)) { /* could be //server/share/filename */
-		return _stat("NUL",(struct _stat*)stbuf);
-	}
-#endif 0
 	else 
 		return _stat(filename,(struct _stat *)stbuf);
 }
@@ -472,43 +426,40 @@ int nt_stat(char *filename, struct stat *stbuf) {
 // replacement for creat that makes handle non-inheritable. 
 // -amol 
 //
-int nt_creat(char *filename, int mode) {
-
+int nt_creat(const char *filename, int mode) {
 	// ignore the bloody mode
 
-	int fd,is_cons =0, is_resource = 0;
+	int fd = 0,is_cons =0;
 	HANDLE retval;
 	SECURITY_ATTRIBUTES security;
+
+	UNREFERENCED_PARAMETER(mode);
+
 
 	security.nLength = sizeof(security);
 	security.lpSecurityDescriptor = NULL;
 	security.bInheritHandle = FALSE;
 
-	if (!lstrcmp(filename,"/dev/tty") ){
+	if (!_stricmp(filename,"/dev/tty") ){
 		filename = "CONOUT$";
 		is_cons = 1;
 	}
-	else if (!lstrcmp(filename,"/dev/null") ){
+	else if (!_stricmp(filename,"/dev/null") ){
 		filename = "NUL";
 	}
-	else if (!lstrcmpi(filename,"/dev/clipboard")) {
+	else if (!_stricmp(filename,"/dev/clipboard")) {
 		retval = create_clip_writer_thread();
 		if (retval == INVHL)
 			return -1;
 		goto get_fd;
 	}
-	else if (!lstrcmp(filename,"/dev/builtinresource")) {
-		retval = GetModuleHandle(NULL);
-		is_resource = 1;
-		goto get_fd;
-	}
 	retval = CreateFile(filename,
-						GENERIC_READ | GENERIC_WRITE,
-						FILE_SHARE_READ | FILE_SHARE_WRITE,
-						is_cons?NULL:&security,
-						CREATE_ALWAYS,
-						0,
-						NULL);
+			GENERIC_READ | GENERIC_WRITE,
+			FILE_SHARE_READ | FILE_SHARE_WRITE,
+			is_cons?NULL:&security,
+			CREATE_ALWAYS,
+			0,
+			NULL);
 
 	if (retval == INVALID_HANDLE_VALUE) {
 		errno = EACCES;
@@ -520,21 +471,19 @@ get_fd:
 		//should never happen
 		abort();
 	}
-	if (is_cons) {
-		__gOpenFiles[fd].flags = FCONSOLE;
-	}
-	if (is_resource) {
-		__gOpenFiles[fd].flags = FRESOURCE;
+	else {
+		if (is_cons) {
+			__gOpenFiles[fd].flags = FCONSOLE;
+		}
 	}
 	return fd;
-	
+
 }
-int nt_open(char *filename, int perms,...) { 
+int nt_open(const char *filename, int perms,...) { 
 
 	// ignore the bloody mode
 
 	int fd,mode, is_cons=0;
-	int is_resource = 0;
 	HANDLE retval;
 	SECURITY_ATTRIBUTES security;
 	DWORD dwAccess, dwFlags, dwCreateDist;
@@ -554,13 +503,8 @@ int nt_open(char *filename, int perms,...) {
 	else if (!lstrcmp(filename,"/dev/null") ){
 		filename = "NUL";
 	}
-	else if (!lstrcmpi(filename,"/dev/clipboard")) {
+	else if (!_stricmp(filename,"/dev/clipboard")) {
 		retval = create_clip_reader_thread();
-		goto get_fd;
-	}
-	else if (!lstrcmp(filename,"/dev/builtinresource")) {
-		retval = GetModuleHandle(NULL);
-		is_resource = 1;
 		goto get_fd;
 	}
 	security.nLength = sizeof(security);
@@ -602,12 +546,12 @@ int nt_open(char *filename, int perms,...) {
 	if (perms & O_TEMPORARY)
 		dwFlags = FILE_FLAG_DELETE_ON_CLOSE;
 	retval = CreateFile(filename,
-						dwAccess,//GENERIC_READ | GENERIC_WRITE,
-						FILE_SHARE_READ | FILE_SHARE_WRITE,
-						&security,
-						dwCreateDist,//CREATE_ALWAYS,
-						dwFlags,
-						NULL);
+			dwAccess,//GENERIC_READ | GENERIC_WRITE,
+			FILE_SHARE_READ | FILE_SHARE_WRITE,
+			&security,
+			dwCreateDist,//CREATE_ALWAYS,
+			dwFlags,
+			NULL);
 
 	if (retval == INVALID_HANDLE_VALUE) {
 		int err = GetLastError();
@@ -626,14 +570,13 @@ get_fd:
 		//should never happen
 		abort();
 	}
-	if (is_cons) {
-		__gOpenFiles[fd].flags = FCONSOLE;
-	}
-	if (is_resource) {
-		__gOpenFiles[fd].flags = FRESOURCE;
+	else {
+		if (is_cons) {
+			__gOpenFiles[fd].flags = FCONSOLE;
+		}
 	}
 	return fd;
-	
+
 }
 /*
  * This should be the LAST FUNCTION IN THIS FILE 
@@ -649,24 +592,24 @@ int nt_fstat(int fd, struct stat *stbuf) {
 	errno = EBADF;
 
 	if(!DuplicateHandle(GetCurrentProcess(),
-						(HANDLE)__gOpenFiles[fd].handle,
-						GetCurrentProcess(),
-						&h1,
-						0,
-						FALSE,
-						DUPLICATE_SAME_ACCESS) )
+				(HANDLE)__gOpenFiles[fd].handle,
+				GetCurrentProcess(),
+				&h1,
+				0,
+				FALSE,
+				DUPLICATE_SAME_ACCESS) )
 		return -1;
 	realfd = _open_osfhandle((intptr_t)h1,0);
 	if (realfd <0 ) 
 		return -1;
-	
+
 	if( fstat(realfd,stbuf) <0 ) {
-		close(realfd);
+		_close(realfd);
 		return -1;
 	}
-	close(realfd);
+	_close(realfd);
 	errno =0;
 	return 0;
-	
+
 }
 

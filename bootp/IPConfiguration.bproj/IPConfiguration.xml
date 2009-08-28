@@ -2,6 +2,14 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>UseMaintenanceWake</key>
+	<true/>
+	<key>ManualConflictRetryIntervalSeconds</key>
+	<integer>300</integer>
+	<key>ARPConflictRetryCount</key>
+	<integer>2</integer>
+	<key>ARPConflictRetryDelaySeconds</key>
+	<real>0.75</real>
 	<key>ARPDetectCount</key>
 	<integer>3</integer>
 	<key>ARPDetectRetryTimeSeconds</key>
@@ -15,11 +23,13 @@
 	<key>DHCPAcceptsBOOTP</key>
 	<false/>
 	<key>DHCPAllocateLinkLocalAtRetryCount</key>
-	<integer>2</integer>
+	<integer>4</integer>
 	<key>DHCPDefendIPAddressCount</key>
 	<integer>3</integer>
 	<key>DHCPDefendIPAddressIntervalSeconds</key>
-	<integer>30</integer>
+	<integer>10</integer>
+	<key>DHCPLeaseWriteT1ThresholdSeconds</key>
+	<integer>3600</integer>
 	<key>DHCPFailureConfiguresLinkLocal</key>
 	<true/>
 	<key>DHCPInitRebootRetryCount</key>
@@ -40,7 +50,7 @@
 		<integer>47</integer>
 	</array>
 	<key>DHCPRouterARPAtRetryCount</key>
-	<integer>0</integer>
+	<integer>7</integer>
 	<key>DHCPSelectRetryCount</key>
 	<integer>3</integer>
 	<key>DHCPSuccessDeconfiguresLinkLocal</key>
@@ -54,7 +64,7 @@
 	<key>InitialRetryTimeSeconds</key>
 	<integer>1</integer>
 	<key>LinkInactiveWaitTimeSeconds</key>
-	<integer>4</integer>
+	<integer>1</integer>
 	<key>MaximumRetryTimeSeconds</key>
 	<integer>8</integer>
 	<key>MustBroadcast</key>
@@ -63,10 +73,6 @@
 	<integer>9</integer>
 	<key>RouterARPEnabled</key>
 	<true/>
-	<key>RouterARPExcludedSSIDs</key>
-	<array>
-		<string>tmobile</string>
-	</array>
 	<key>Verbose</key>
 	<false/>
 </dict>

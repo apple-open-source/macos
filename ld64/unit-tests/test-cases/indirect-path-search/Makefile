@@ -80,10 +80,25 @@ all:
 
 # build a flat executable that depends on a symbol in the alternate bar to validate that -L is used for indirect dylibs
 	${CC} ${CCFLAGS} -flat_namespace main.c -o main -lfoo -Lhide -L. 
+	${FAIL_IF_BAD_MACHO} main
+
+
+
+# build Foo.framework that re-exports libbar.dylib embedded in framework
+	mkdir -p Foo.framework
+	${CC} ${CCFLAGS} -dynamiclib bar.c baz.c -o Foo.framework/libbar.dylib -install_name "`pwd`/Foo.framework/libbar.dylib"
+	${FAIL_IF_BAD_MACHO} Foo.framework/libbar.dylib
+	${CC} ${CCFLAGS} -dynamiclib foo.c -o Foo.framework/Foo -F. Foo.framework/libbar.dylib -sub_library libbar
+	${FAIL_IF_BAD_MACHO} Foo.framework/Foo
+
+# build an alternate libbar.dylib that does not have baz
+	mkdir -p hide
+	${CC} ${CCFLAGS} -dynamiclib bar.c -o hide/libbar.dylib
+	${FAIL_IF_BAD_MACHO} hide/libbar.dylib
+
+# build an executable that depends on a symbol not in the alternate libbar.dylib to validate dylibs embedded in frameworks are not searched for
+	${CC} ${CCFLAGS} main.c -o main -Lhide -F. -framework Foo
 	${PASS_IFF_GOOD_MACHO} main
-
-
-
 
 
 clean:

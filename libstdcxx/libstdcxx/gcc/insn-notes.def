@@ -1,5 +1,5 @@
 /* Insn note definitions.
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -15,8 +15,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This file defines all the codes that may appear in the
    NOTE_LINE_NUMBER field of a NOTE insn for kinds of notes that are
@@ -88,9 +88,8 @@ INSN_NOTE (EXPECTED_VALUE)
    now included in every insn.  */
 INSN_NOTE (BASIC_BLOCK)
 
-/* Record that the current basic block is unlikely to be executed and
-   should be moved to the UNLIKELY_EXECUTED_TEXT_SECTION.  FIXME: Make
-   this a bit on the basic block structure.  */
-INSN_NOTE (UNLIKELY_EXECUTED_CODE)
+/* Mark the inflection point in the instruction stream where we switch
+   between hot and cold text sections.  */
+INSN_NOTE (SWITCH_TEXT_SECTIONS)
 
 #undef INSN_NOTE

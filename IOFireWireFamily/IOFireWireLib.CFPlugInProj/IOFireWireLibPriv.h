@@ -29,6 +29,21 @@
  */
 /*
 	$Log: IOFireWireLibPriv.h,v $
+	Revision 1.70  2009/01/16 02:53:19  collin
+	and finally put TOT back...
+	
+	Revision 1.66  2009/01/15 01:40:02  collin
+	<rdar://problem/6400981> BRB-VERIFY: 10A222: Trying to record a movie through QT X, getting error message.
+	
+	Revision 1.65  2008/12/12 04:43:57  collin
+	user space compare swap command fixes
+	
+	Revision 1.64  2008/11/26 23:55:21  collin
+	fix user physical address spaces on K64
+	
+	Revision 1.63  2007/10/16 16:50:21  ayanowit
+	Removed existing "work-in-progress" support for buffer-fill isoch.
+	
 	Revision 1.62  2007/08/24 01:14:31  collin
 	fix resp code on sync command execution
 	
@@ -275,7 +290,7 @@ namespace IOFireWireLib {
 		FWAddress					addr ;
 		UInt64						cmpVal ;
 		UInt64						swapVal ;
-		IOByteCount					size ;
+		UInt32						size ;
 		Boolean						failOnReset ;
 		UInt32						generation ;
 		Boolean						isAbs ;
@@ -292,10 +307,10 @@ namespace IOFireWireLib {
 		UInt32						staleFlags ;
 		UInt64						newTarget ;
 		mach_vm_address_t			newBuffer ;
-		IOByteCount					newBufferSize ;	// note: means numQuads for quadlet commands!
+		UInt32						newBufferSize ;	// note: means numQuads for quadlet commands!
 		Boolean						newFailOnReset ;
 		UInt32						newGeneration ;
-		IOByteCount					newMaxPacket ;
+		UInt32						newMaxPacket ;
 		
 		UInt32						timeoutDuration;
 		UInt32						retryCount;
@@ -310,7 +325,7 @@ namespace IOFireWireLib {
 	{
 		UserObjectHandle			kernCommandRef ;
 		IOReturn					result ;
-		IOByteCount					bytesTransferred ;
+		UInt32						bytesTransferred ;
 		UInt32						ackCode;
 		UInt32						responseCode;
 		mach_vm_address_t			refCon;
@@ -319,14 +334,14 @@ namespace IOFireWireLib {
 	struct FWCompareSwapLockInfo
 	{
 		Boolean 	didLock ;
-		UInt64		value ;
-	}  ;
+		UInt32		value[2];
+	}   __attribute__ ((packed));
 	
 	struct CompareSwapSubmitResult
 	{
 		UserObjectHandle			kernCommandRef ;
 		IOReturn					result ;
-		IOByteCount					bytesTransferred ;
+		UInt32						bytesTransferred ;
 		UInt32						ackCode;
 		UInt32						responseCode;
 		FWCompareSwapLockInfo		lockInfo ;
@@ -405,7 +420,7 @@ namespace IOFireWireLib {
 	typedef struct
 	{
 		UserObjectHandle		data ;
-		IOByteCount			dataLength ;
+		UInt32				dataLength ;
 		UserObjectHandle	text ;
 		UInt32				textLength ;	
 	} GetKeyValueDataResults ;
@@ -417,15 +432,17 @@ namespace IOFireWireLib {
 		UInt32				length ;
 	} GetKeyOffsetResults ;
 
-	//
-	// Buffer Fill IsochPort
-	//
-	
-	struct BufferFillIsochPortCreateParams
+	typedef struct 
 	{
-		UInt32				interruptUSec ;
-		IOByteCount			expectedBytesPerSecond ;
-	} ;
+		IOPhysicalAddress32 location;
+		IOPhysicalLength32  length;
+	} FWPhysicalSegment32;
+
+	typedef struct 
+	{
+		mach_vm_address_t	address;
+		mach_vm_size_t	length;
+	} FWVirtualAddressRange;
 
 	// make sure these values don't conflict with any
 	// in enum 'NuDCLFlags' as defined in IOFireWireFamilyCommon.h

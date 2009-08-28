@@ -3,19 +3,20 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -475,7 +476,7 @@ timeprt(seconds)
 	minutes = (seconds + 30) / 60;
 	hours = (minutes + 30) / 60;
 	if (hours >= 36) {
-		sprintf(buf, "%ddays", (int)((hours + 12) / 24));
+		snprintf(buf, sizeof(buf), "%ddays", (int)((hours + 12) / 24));
 		return (buf);
 	}
 	if (minutes >= 60) {
@@ -484,6 +485,81 @@ timeprt(seconds)
 	}
 	sprintf(buf, "%2d", (int)minutes);
 	return (buf);
+}
+
+typedef struct {
+	int alloced;
+	int nels;
+	char **strings;
+} mount_list_t;
+
+static void *
+init_list(int max)
+{
+	mount_list_t *retval = NULL;
+	retval = malloc(sizeof(*retval));
+	if (retval) {
+		retval->strings = malloc(sizeof(char*) * max);
+		if (retval->strings) {
+			retval->alloced = max;
+		} else {
+			retval->alloced = 0;
+		}
+		retval->nels = 0;
+	}
+	return retval;
+}
+static void
+free_list(void *list)
+{
+	mount_list_t *tmp = list;
+	int i;
+
+	if (tmp == NULL)
+		return;
+	for (i = 0; i < tmp->nels; i++) {
+		free(tmp->strings[i]);
+	}
+	free(tmp);
+	return;
+}
+
+static int
+hasseen(void *tmp, const char *mp)
+{
+	int retval = 0;
+	int indx;
+	mount_list_t *list = tmp;
+	int i;
+
+	if (tmp == NULL || mp == NULL)
+		goto done;
+
+	/*
+	 * This could also be a binary search, but then we'd have to sort
+	 * after each addition.  We may want to change the behaviour based
+	 * on the number of elements in the array.
+	 */
+
+	for (i = 0; i < list->nels; i++) {
+		if (strcmp(list->strings[i], mp) == 0) {
+			retval = 1;
+			goto done;
+		}
+	}
+	if (list->nels <= list->alloced) {
+		char **a = realloc(list->strings, (list->alloced + 10) * sizeof(char*));
+		if (a) {
+			list->alloced = list->alloced + 10;
+			list->strings = a;
+		} else {
+			goto done;
+		}
+	}
+	list->strings[list->nels++] = strdup(mp);
+
+done:
+	return retval;
 }
 
 /*
@@ -503,7 +579,7 @@ getprivs(id, quotatype)
 	int qcmd, fd;
 	int nfst, i;
 	int error;
-
+	void *cache;
 
 	quptail = quphead = (struct quotause *)0;
 	qcmd = QCMD(Q_GETQUOTA, quotatype);
@@ -514,7 +590,11 @@ getprivs(id, quotatype)
           exit(1);
         }
 
+	cache = init_list(nfst);
+
         for (i=0; i<nfst; i++) {
+		if (hasseen(cache, fst[i].f_mntonname))
+			continue;
 		error = quotactl(fst[i].f_mntonname, qcmd, id, (char *)&dqb);
 		if (error) {
 			if (strcmp(fst[i].f_fstypename, "hfs") &&
@@ -543,7 +623,7 @@ getprivs(id, quotatype)
 			}
 			close(fd);
 		}
-		strcpy(qup->fsname, fst[i].f_mntonname);
+		strlcpy(qup->fsname, fst[i].f_mntonname, sizeof(qup->fsname));
 		if (quphead == NULL)
 			quphead = qup;
 		else
@@ -551,6 +631,8 @@ getprivs(id, quotatype)
 		quptail = qup;
 		qup->next = 0;
 	}
+	free_list(cache);
+
 	return (quphead);
 }
 #else
@@ -606,7 +688,7 @@ getprivs(id, quotatype)
 			}
 			close(fd);
 		}
-		strcpy(qup->fsname, fs->fs_file);
+		strlcpy(qup->fsname, fs->fs_file, sizeof(qup->fsname));
 		if (quphead == NULL)
 			quphead = qup;
 		else
@@ -705,8 +787,8 @@ hasquota(fst, type, qfnamep)
 	static char buf[BUFSIZ];
 
 	if (!initname) {
-		sprintf(usrname, "%s%s", qfextension[USRQUOTA], qfname);
-		sprintf(grpname, "%s%s", qfextension[GRPQUOTA], qfname);
+		snprintf(usrname, sizeof(usrname), "%s%s", qfextension[USRQUOTA], qfname);
+		snprintf(grpname, sizeof(grpname), "%s%s", qfextension[GRPQUOTA], qfname);
 		initname = 1;
 	}
         /*
@@ -714,14 +796,14 @@ hasquota(fst, type, qfnamep)
 	  on disk quota files.
 	*/
 
-        (void)sprintf(buf, "%s/%s.%s", fst->f_mntonname,
+        (void)snprintf(buf, sizeof(buf), "%s/%s.%s", fst->f_mntonname,
 		      QUOTAOPSNAME, qfextension[type] );
         if (stat(buf, &sb) != 0) {
           /* There appears to be no mount option file */
           return(0);
         }
 
-	(void) sprintf(buf, "%s/%s.%s", fst->f_mntonname, qfname, qfextension[type]);
+	(void) snprintf(buf, sizeof(buf),  "%s/%s.%s", fst->f_mntonname, qfname, qfextension[type]);
 	*qfnamep = buf;
 	return (1);
 }
@@ -737,11 +819,11 @@ hasquota(fs, type, qfnamep)
 	static char buf[BUFSIZ];
 
 	if (!initname) {
-		sprintf(usrname, "%s%s", qfextension[USRQUOTA], qfname);
-		sprintf(grpname, "%s%s", qfextension[GRPQUOTA], qfname);
+		snprintf(usrname, sizeof(usrname), "%s%s", qfextension[USRQUOTA], qfname);
+		snprintf(grpname, sizeof(grpname), "%s%s", qfextension[GRPQUOTA], qfname);
 		initname = 1;
 	}
-	strcpy(buf, fs->fs_mntops);
+	strlcpy(buf, fs->fs_mntops, sizeof(buf));
 	for (opt = strtok(buf, ","); opt; opt = strtok(NULL, ",")) {
 		if (cp = index(opt, '='))
 			*cp++ = '\0';
@@ -756,7 +838,7 @@ hasquota(fs, type, qfnamep)
 		*qfnamep = cp;
 		return (1);
 	}
-	(void) sprintf(buf, "%s/%s.%s", fs->fs_file, qfname, qfextension[type]);
+	(void) snprintf(buf, sizeof(buf), "%s/%s.%s", fs->fs_file, qfname, qfextension[type]);
 	*qfnamep = buf;
 	return (1);
 }

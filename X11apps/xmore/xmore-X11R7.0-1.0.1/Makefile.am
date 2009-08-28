@@ -28,17 +28,6 @@ xmore_SOURCES =	\
         xmore.c \
         xmore.h
 
-if XAW_USE_XPRINT
-xmore_CFLAGS += -DUSE_XPRINT
-
-xmore_SOURCES += \
-        print.c \
-        printdialog.c \
-        printdialog.h \
-        printdialogprivates.h \
-        print.h
-endif
-
 appman_PRE = \
         xmore.man
 
@@ -48,11 +37,12 @@ appdefaultdir = @appdefaultdir@
 
 
 APPDEFAULTFILES = \
-        XMore
+        app-defaults/XMore
 
 SUFFIXES = .ad
 
 .ad:
+	$(mkdir_p) app-defaults
 	cp $< $@
 
 appdefault_DATA = $(APPDEFAULTFILES)

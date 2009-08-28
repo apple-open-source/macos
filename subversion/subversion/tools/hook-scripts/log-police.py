@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 # log-police.py: Ensure that log messages end with a single newline.
 # See usage() function for details, or just run with no arguments.
@@ -6,19 +6,15 @@
 import os
 import sys
 import getopt
+try:
+  my_getopt = getopt.gnu_getopt
+except AttributeError:
+  my_getopt = getopt.getopt
 
 import svn
 import svn.fs
 import svn.repos
 import svn.core
-
-
-# Pretend we have true booleans on older python versions
-try:
-  True
-except:
-  True = 1
-  False = 0
 
 
 def fix_log_message(log_message):
@@ -77,7 +73,7 @@ def main(ignored_pool, argv):
   all_revs = False
 
   try:
-    opts, args = getopt.getopt(argv[1:], 't:r:h?', ["help", "all-revs"])
+    opts, args = my_getopt(argv[1:], 't:r:h?', ["help", "all-revs"])
   except:
     usage_and_exit("problem processing arguments / options.")
   for opt, value in opts:
@@ -102,7 +98,7 @@ def main(ignored_pool, argv):
     usage_and_exit("must provide exactly one of -r, -t, or --all-revs.")
   if len(args) != 1:
     usage_and_exit("only one argument allowed (the repository).")
-    
+
   repos_path = svn.core.svn_path_canonicalize(args[0])
 
   # A non-bindings version of this could be implemented by calling out

@@ -6,7 +6,6 @@ lib/Params/ValidateXS.pm
 LICENSE
 Makefile.PL
 MANIFEST			This list of files
-META.yml			Module meta-data in YAML
 ppport.h
 README
 t/01-validate.t
@@ -33,10 +32,18 @@ t/22-overload-can-bug.t
 t/23-readonly.t
 t/24-tied.t
 t/25-undef-regex.t
-t/callbacks.pl
-t/defaults.pl
-t/regex.pl
-t/tests.pl
-t/with.pl
+t/26-isa.t
+t/27-string-as-type.t
+t/28-readonly-return.t
+t/kwalitee.t
+t/lib/PVTests.pm
+t/lib/PVTests/Callbacks.pm
+t/lib/PVTests/Defaults.pm
+t/lib/PVTests/Regex.pm
+t/lib/PVTests/Standard.pm
+t/lib/PVTests/With.pm
+t/pod-coverage.t
+t/pod.t
 TODO
 Validate.xs
+META.yml                                 Module meta-data (added by MakeMaker)

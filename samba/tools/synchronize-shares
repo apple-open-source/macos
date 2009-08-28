@@ -37,15 +37,23 @@ require 'open3'
 
 ENV.clear
 
-# Take an exclusive lock on ourselves. This is a mutex to serialise
-# simultaneous invocations.
-mutex = File.open($0, 'r')
-mutex.flock(File::LOCK_EX)
-
 $0 = File.basename($0)
 
 $GUEST = false
 $VERBOSE = false
+$READONLY = false
+
+# Take an exclusive lock to serialise simultaneous invocations.
+begin
+    mutex = File.open('/var/samba/shares.mutex', 'r')
+    if (!mutex.flock(File::LOCK_EX))
+	$READONLY = true
+    end
+rescue
+    # Most likely got EPERM opening the mutex, meaning we are running
+    # unprivileged.
+    $READONLY = true
+end
 
 # This class lets us run commands without invoking the shell. We are not to
 # concerned with trapping the error status, since we are implementing a
@@ -442,6 +450,10 @@ begin
 rescue OptionParser::InvalidOption => err
     $stderr.print "#{$0}: #{err}\n"
     $stderr.print opts.help()
+    exit 1
+end
+
+if $READONLY
     exit 1
 end
 

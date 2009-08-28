@@ -1,0 +1,41 @@
+--- refill.c.orig	2008-01-24 17:13:42.000000000 -0800
++++ refill.c	2008-02-17 13:19:27.000000000 -0800
+@@ -68,8 +68,8 @@ lflush(FILE *fp)
+  * Refill a stdio buffer.
+  * Return EOF on eof or error, 0 otherwise.
+  */
+-int
+-__srefill(FILE *fp)
++__private_extern__ int
++__srefill0(FILE *fp)
+ {
+ 
+ 	/* make sure stdio is set up */
+@@ -134,6 +134,13 @@ __srefill(FILE *fp)
+ 		if ((fp->_flags & (__SLBF|__SWR)) == (__SLBF|__SWR))
+ 			__sflush(fp);
+ 	}
++	return (1);
++}
++
++__private_extern__ int
++__srefill1(FILE *fp)
++{
++
+ 	fp->_p = fp->_bf._base;
+ 	fp->_r = _sread(fp, (char *)fp->_p, fp->_bf._size);
+ 	fp->_flags &= ~__SMOD;	/* buffer contents are again pristine */
+@@ -148,3 +155,13 @@ __srefill(FILE *fp)
+ 	}
+ 	return (0);
+ }
++
++int
++__srefill(FILE *fp)
++{
++	int ret;
++
++	if ((ret = __srefill0(fp)) <= 0)
++		return ret;
++	return __srefill1(fp);
++}

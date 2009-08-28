@@ -1,0 +1,44 @@
+#!../../src/xotclsh
+# $Id: Counter3.xotcl,v 1.1 2004/05/23 22:50:39 neumann Exp $
+array set opts {-pkgdir .}; array set opts $argv
+lappend auto_path $opts(-pkgdir)
+
+package require XOTcl; namespace import -force xotcl::*
+package require xotcl::actiweb::htmlPlace
+package require xotcl::actiweb::webDocument
+
+### Instantiate an Html place with the name receiver
+HtmlPlace ::receiver -port 8093  -allowExit exit
+
+### Define a class solely for counting
+Class Counter -parameter {{count 1}}
+Counter instproc increment {} {    ;### counter method
+  my incr count
+}
+
+### Define a special WebCounter as a specialization of the Counter class 
+Class WebCounter -superclass {Counter HtmlDocument}
+WebCounter instproc init args {    ;### Constructor
+  next
+  my persistent count              ;### make count variable persistent
+  ::receiver exportObjs [self]     ;### export the counter object
+  my exportProcs increment         ;### export increment method
+}
+WebCounter instproc default {} {  ;### Method for updating HTML page
+  set objName [string trimleft [self] :]
+  return "<HTML>The value in $objName is [my set count].<p>
+	<A HREF='[my selfAction increment]'>Increment Counter</a><p>
+	<HR>Last Update: [clock format [clock seconds] -format %m/%d/%y-%H:%M]
+	</HTML>\n"
+}
+WebCounter instproc increment {} { ;### exported increment method
+  next                             ;### call superclasses' increment
+  my default                      ;### display the result as HTML
+}
+
+### Create two web counter instances with the names c1 and c2
+WebCounter c1
+WebCounter c2
+
+### Start event loop and handle connections
+receiver startEventLoop 

@@ -1,5 +1,5 @@
 # -*- mode: ruby; ruby-indent-level: 4; tab-width: 4 -*- vim: sw=4 ts=4
-# $Id: yaml.rb 17246 2008-06-15 13:12:40Z shyouhei $
+# $Id: yaml.rb 16084 2008-04-19 11:45:39Z knu $
 #
 # = yaml.rb: top-level module with methods for loading and parsing YAML documents
 #

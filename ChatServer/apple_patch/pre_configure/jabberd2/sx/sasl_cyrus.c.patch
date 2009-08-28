@@ -1,0 +1,280 @@
+--- /tmp/jabberd-2.1.24.1/sx/sasl_cyrus.c	2008-04-27 02:57:25.000000000 -0700
++++ ./jabberd2/sx/sasl_cyrus.c	2009-05-02 16:38:11.000000000 -0700
+@@ -17,11 +17,53 @@
+  * along with this program; if not, write to the Free Software
+  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA02111-1307USA
+  */
++/* 
++ * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer. 
++ *
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in
++ *    the documentation and/or other materials provided with the
++ *    distribution.
++ *
++ * 3. The name "Carnegie Mellon University" must not be used to
++ *    endorse or promote products derived from this software without
++ *    prior written permission. For permission or any other legal
++ *    details, please contact  
++ *      Office of Technology Transfer
++ *      Carnegie Mellon University
++ *      5000 Forbes Avenue
++ *      Pittsburgh, PA  15213-3890
++ *      (412) 268-4387, fax: (412) 268-7395
++ *      tech-transfer@andrew.cmu.edu
++ *
++ * 4. Redistributions of any form whatsoever must retain the following
++ *    acknowledgment:
++ *    "This product includes software developed by Computing Services
++ *     at Carnegie Mellon University (http://www.cmu.edu/computing/)."
++ *
++ * CARNEGIE MELLON UNIVERSITY DISCLAIMS ALL WARRANTIES WITH REGARD TO
++ * THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
++ * AND FITNESS, IN NO EVENT SHALL CARNEGIE MELLON UNIVERSITY BE LIABLE
++ * FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
++ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
++ * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
++ * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
++ */
+ 
+-/* SASL authentication handler */
+ 
+-#error Cyrus SASL implementation is not supported! It is included here only for the brave ones, that do know what they are doing. You need to remove this line to compile it.
++/* SASL authentication handler */
+ 
++//#error Cyrus SASL implementation is not supported! It is included here only for the brave ones, that do know what they are doing. You need to remove this line to compile it.
++#include <sys/types.h>
++#include "sasl_switch_hit.h"
++#include "odkerb.h"
+ #include "sx.h"
+ #include "sasl.h"
+ 
+@@ -231,9 +273,32 @@ static int _sx_sasl_checkpass(sasl_conn_
+ 
+ static int _sx_sasl_canon_user(sasl_conn_t *conn, void *ctx, const char *user, unsigned ulen, unsigned flags, const char *user_realm, char *out_user, unsigned out_umax, unsigned *out_ulen) {
+     char *buf;
++    char principal[3072];
++    char out_buf[3072]; // node(1023) + '@'(1) + domain/realm(1023) + '@'(1) + krb domain(1023) + '\0'(1)
+     _sx_sasl_data_t sd = (_sx_sasl_data_t)ctx;
++    char user_null_term[1024];
++
++    if (ulen > (sizeof(user_null_term)-1)) {
++        _sx_debug(ZONE, "Got a SASL argument \"user\" that exceeds our maximum length, rejecting");
++        return SASL_BADAUTH;
++    }
++    // make a NULL terminated copy for ourself
++    memcpy(user_null_term, user, ulen);
++    user_null_term[ulen] = '\0';
++
+     sasl_getprop(conn, SASL_MECHNAME, (const void **) &buf);
+-    if (strncmp(buf, "ANONYMOUS", 10) == 0) {
++    if (strncmp(buf, "GSSAPI", 7) == 0) {
++        snprintf(principal, sizeof(principal), "%s@%s", user_null_term, user_realm);
++        if (odkerb_get_im_handle(principal, sd->stream->req_to, "JABBER:", out_buf, 
++                    ((out_umax > sizeof(out_buf)) ? sizeof(out_buf) : out_umax)) == 0) {
++            strlcpy(out_user, out_buf, out_umax); 
++            *out_ulen = strlen(out_user);
++            _sx_debug(ZONE, "Got IM handle: %s for user %s, realm %s", out_buf, user_null_term, user_realm);
++        } else {
++            return SASL_BADAUTH;
++        }
++    }
++    else if (strncmp(buf, "ANONYMOUS", 10) == 0) {
+         sd->ctx->cb(sx_sasl_cb_GEN_AUTHZID, NULL, (void **)&buf, sd->stream, sd->ctx->cbarg);
+         strncpy(out_user, buf, out_umax);
+         out_user[out_umax]='\0';
+@@ -341,6 +406,8 @@ static int _sx_sasl_wio(sx_t s, sx_plugi
+     sasl_conn_t *sasl;
+     int *x, len, pos, reslen, maxbuf;
+     char *out, *result;
++    int sasl_ret;
++    sx_error_t sxe;
+ 
+     sasl = ((_sx_sasl_data_t) s->plugin_data[p->index])->sasl;
+ 
+@@ -362,7 +429,13 @@ static int _sx_sasl_wio(sx_t s, sx_plugi
+         if((buf->len - pos) < maxbuf)
+             maxbuf = buf->len - pos;
+ 
+-        sasl_encode(sasl, &buf->data[pos], maxbuf, (const char **) &out, &len);
++        sasl_ret = sasl_encode(sasl, &buf->data[pos], maxbuf, (const char **) &out, &len);
++        if (sasl_ret != SASL_OK) { 
++            _sx_gen_error(sxe, SX_ERR_STREAM, "Stream error", "sasl_encode failed, closing stream");
++            _sx_event(s, event_ERROR, (void *) &sxe);
++            _sx_state(s, state_CLOSING);
++            return 1;
++        }
+         
+         result = (char *) realloc(result, sizeof(char) * (reslen + len));
+         memcpy(&result[reslen], out, len);
+@@ -398,8 +471,9 @@ static int _sx_sasl_rio(sx_t s, sx_plugi
+     if (sasl_decode(sasl, buf->data, buf->len, (const char **) &out, &len)
+       != SASL_OK) {
+       /* Fatal error */
+-      _sx_gen_error(sxe, SX_ERR_AUTH, "SASL Stream decoding failed", NULL);
++      _sx_gen_error(sxe, SX_ERR_STREAM, "Stream error", "sasl_decode failed, closing stream");
+       _sx_event(s, event_ERROR, (void *) &sxe);
++      _sx_state(s, state_CLOSING);
+       return -1;
+     }
+     
+@@ -412,16 +486,25 @@ static int _sx_sasl_rio(sx_t s, sx_plugi
+ }
+ 
+ /** move the stream to the auth state */
+-void _sx_sasl_open(sx_t s, sasl_conn_t *sasl) {
+-    char *method;
+-    char *buf, *c;
+-    char *authzid;
++void _sx_sasl_open(sx_t s, sasl_conn_t *sasl, sx_plugin_t p) {
++    char *method = NULL;
++    char *buf = NULL;
++    char *c;
++    char *authzid = NULL;
++    char *username = NULL;
++    char *realm = NULL;
+     size_t len;
+     int *ssf;
+     
+     /* get the method */
+     sasl_getprop(sasl, SASL_MECHNAME, (const void **) &buf);
+-
++    if (s->type == type_CLIENT) {
++        static int first_time = 1;
++        if (first_time) {
++            first_time = 0;
++            sasl_switch_hit_register_apple_digest_md5();
++        }
++    }
+     method = (char *) malloc(sizeof(char) * (strlen(buf) + 17));
+     sprintf(method, "SASL/%s", buf);
+ 
+@@ -432,7 +515,12 @@ void _sx_sasl_open(sx_t s, sasl_conn_t *
+     }
+ 
+     /* and the authenticated id */
++    buf = NULL;
+     sasl_getprop(sasl, SASL_USERNAME, (const void **) &buf);
++    if (buf != NULL) {
++        username = (char *) malloc(sizeof(char) * (strlen(buf)+1));
++        strncpy(username, buf, strlen(buf)+1);
++    }
+ 
+     if (s->type == type_SERVER) {
+         /* Now, we need to turn the id into a JID 
+@@ -441,16 +529,25 @@ void _sx_sasl_open(sx_t s, sasl_conn_t *
+          * XXX - This will break with s2s SASL, where the authzid is a domain
+          */
+ 
+-      len = strlen(buf);
++        len = strlen(username);
+       if (s->req_to)
+           len+=strlen(s->req_to) + 2;
+         authzid = malloc(len + 1);
+-        strcpy(authzid, buf);
++        strcpy(authzid, username);
+ 
++        buf = NULL;
+         sasl_getprop(sasl, SASL_DEFUSERREALM, (const void **) &buf);
++        if (buf != NULL) {
++
++
++
++
++            realm = (char *) malloc(sizeof(char) * (strlen(buf)+1));
++            strncpy(realm, buf, strlen(buf)+1);
++        }
+ 
+         c = strrchr(authzid, '@');
+-        if (c && buf && strcmp(c+1, buf) == 0)
++        if (c && realm && strcmp(c+1, realm) == 0)
+             *c = '\0';
+         if (s->req_to && strchr(authzid, '@') == 0) {
+             strcat(authzid, "@");
+@@ -461,10 +558,21 @@ void _sx_sasl_open(sx_t s, sasl_conn_t *
+         sx_auth(s, method, authzid);
+         free(authzid);
+     } else {
+-        sx_auth(s, method, buf);
++        sx_auth(s, method, username);
+     }
+ 
++    if (method != NULL) {
+     free(method);
++        method = NULL;
++    }
++    if (username != NULL) {
++        free(username);
++        username = NULL;
++    }
++    if (realm != NULL) {
++        free(realm);
++        realm = NULL;
++    }
+ }
+ 
+ /** make the stream authenticated second time round */
+@@ -569,15 +677,17 @@ static void _sx_sasl_stream(sx_t s, sx_p
+     }
+ 
+     sasl = ((_sx_sasl_data_t) s->plugin_data[p->index])->sasl;
++    sd = (_sx_sasl_data_t) s->plugin_data[p->index];
+ 
+     /* are we auth'd? */
+     if (sasl_getprop(sasl, SASL_MECHNAME, (void *) &mech) == SASL_NOTDONE) {
++
+         _sx_debug(ZONE, "not auth'd, not advancing to auth'd state yet");
+         return;
+     }
+ 
+     /* otherwise, its auth time */
+-    _sx_sasl_open(s, sasl);
++    _sx_sasl_open(s, sasl, p);
+ }
+ 
+ static void _sx_sasl_features(sx_t s, sx_plugin_t p, nad_t nad) {
+@@ -589,6 +699,8 @@ static void _sx_sasl_features(sx_t s, sx
+         return;
+ 
+     if((ret = sasl_getprop(sd->sasl, SASL_MECHNAME, (void *) &mech)) != SASL_NOTDONE) {
++
++
+         _sx_debug(ZONE, "already auth'd, not offering sasl mechanisms");
+         return;
+     }
+@@ -1040,6 +1152,7 @@ int sx_sasl_init(sx_env_t env, sx_plugin
+     _sx_debug(ZONE, "initialising sasl plugin");
+ 
+     appname = va_arg(args, char *);
++    
+     if(appname == NULL) {
+         _sx_debug(ZONE, "appname was NULL, failing");
+         return 1;
+@@ -1057,7 +1170,7 @@ int sx_sasl_init(sx_env_t env, sx_plugin
+ 
+     ctx->sec_props.min_ssf = 0;
+     ctx->sec_props.max_ssf = -1;    /* sasl_ssf_t is typedef'd to unsigned, so -1 gets us the max possible ssf */
+-    ctx->sec_props.maxbufsize = 1024;
++    ctx->sec_props.maxbufsize = 65536;
+     ctx->sec_props.security_flags = 0;
+ 
+     ctx->appname = strdup(appname);
+@@ -1086,9 +1199,9 @@ int sx_sasl_init(sx_env_t env, sx_plugin
+     ctx->saslcallbacks[1].id = SASL_CB_LIST_END;
+ #endif
+ 
+-    ret = sasl_server_init(ctx->saslcallbacks, appname);
++    ret = sasl_server_init_alt(ctx->saslcallbacks, appname);
+     if(ret != SASL_OK) {
+-        _sx_debug(ZONE, "sasl_server_init() failed (%s), disabling", sasl_errstring(ret, NULL, NULL));
++        _sx_debug(ZONE, "sasl_server_init_alt() failed (%s), disabling", sasl_errstring(ret, NULL, NULL));
+         free(ctx->saslcallbacks);
+         free(ctx);
+         return 1;

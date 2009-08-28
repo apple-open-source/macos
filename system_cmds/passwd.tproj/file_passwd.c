@@ -21,6 +21,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#include <signal.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -387,7 +388,7 @@ file_passwd(char *uname, char *locn)
 	int retries = 0;
 	struct stat sb;
 	FILE *lockFile;
-	struct sigaction action = {0};
+	struct sigaction action = {{0}};
 	struct rlimit rlim;
 	
 	/* unlimit the resource limits */

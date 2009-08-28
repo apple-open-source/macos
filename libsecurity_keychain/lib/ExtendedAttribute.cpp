@@ -81,6 +81,24 @@ ExtendedAttribute::ExtendedAttribute(
 
 }
 
+ExtendedAttribute* ExtendedAttribute::make(const Keychain &keychain, const PrimaryKey &primaryKey, const CssmClient::DbUniqueRecord &uniqueId)
+{
+	ExtendedAttribute* ea = new ExtendedAttribute(keychain, primaryKey, uniqueId);
+	keychain->addItem(primaryKey, ea);
+	return ea;
+}
+
+
+
+ExtendedAttribute* ExtendedAttribute::make(const Keychain &keychain, const PrimaryKey &primaryKey)
+{
+	ExtendedAttribute* ea = new ExtendedAttribute(keychain, primaryKey);
+	keychain->addItem(primaryKey, ea);
+	return ea;
+}
+
+
+
 // copy - required due to Item's weird constructor/vendor
 ExtendedAttribute::ExtendedAttribute(
 	ExtendedAttribute &extendedAttr) :
@@ -107,6 +125,7 @@ ExtendedAttribute::~ExtendedAttribute() throw()
 PrimaryKey
 ExtendedAttribute::add(Keychain &keychain)
 {
+	StLock<Mutex>_(mMutex);
 	// If we already have a Keychain we can't be added.
 	if (mKeychain)
 		MacOSError::throwMe(errSecDuplicateItem);
@@ -157,6 +176,7 @@ ExtendedAttribute::add(Keychain &keychain)
 /* set up DB attrs based on member vars */
 void ExtendedAttribute::setupAttrs()
 {
+	StLock<Mutex>_(mMutex);
 	CssmDbAttributeInfo attrInfo1(kExtendedAttrRecordTypeAttr, CSSM_DB_ATTRIBUTE_FORMAT_UINT32);
 	setAttribute(attrInfo1, (uint32)mRecordType);
 	CssmData cd = mItemID;

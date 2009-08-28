@@ -1,0 +1,34 @@
+--- bsearch.c.orig	2009-05-12 11:21:33.000000000 -0700
++++ bsearch.c	2009-05-20 13:11:05.000000000 -0700
+@@ -81,3 +81,31 @@ bsearch(key, base0, nmemb, size, compar)
+ 	}
+ 	return (NULL);
+ }
++
++#ifdef __BLOCKS__
++void *
++bsearch_b(key, base0, nmemb, size, compar)
++	const void *key;
++	const void *base0;
++	size_t nmemb;
++	size_t size;
++	int (^compar)(const void *, const void *);
++{
++	const char *base = base0;
++	size_t lim;
++	int cmp;
++	const void *p;
++
++	for (lim = nmemb; lim != 0; lim >>= 1) {
++		p = base + (lim >> 1) * size;
++		cmp = compar(key, p);
++		if (cmp == 0)
++			return ((void *)p);
++		if (cmp > 0) {	/* key > p: move right */
++			base = (char *)p + size;
++			lim--;
++		}		/* else move left */
++	}
++	return (NULL);
++}
++#endif /* __BLOCKS__ */

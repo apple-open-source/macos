@@ -1,3 +1,12 @@
+Changes for the 5.26 release (the cctools-722 release):
+- Changed open_archive() in archive.c after the call to flock() to check for an
+  return value of -1 and errno value of EAGAIN.  And added a loop that sleeps
+  for a second and tries up to 10 times.  Radar bug #6085183.
+
+Changes for the 5.26 release (the cctools-705 release):
+- Changed two uses of unsigned long in archive.c to uint32_t for reading the
+  fat magic number. Radar bug #6022298.
+
 Changes for the 5.19 release (the cctools-590.4 release):
 - Added the S switch to not run ranlib on the archive.  The change is in main()
   in main.c and the man page ar.1 .  Radar bug #4130034.

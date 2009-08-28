@@ -61,9 +61,6 @@ public:
 	
 	static void check(kern_return_t err);
     static void throwMe(kern_return_t err) __attribute__((noreturn));
-
-private:
-	IFDEBUG(void debugDiagnose(const void *id) const);
 };
 
 // generic return code checker
@@ -192,7 +189,7 @@ private:
 	mutable char nameBuffer[BOOTSTRAP_MAX_NAME_LEN];
     
 protected:
-	char *Bootstrap::makeName(const char *s) const
+	char *makeName(const char *s) const
 	{ return strncpy(nameBuffer, s, BOOTSTRAP_MAX_NAME_LEN); }
 };
 

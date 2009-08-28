@@ -182,6 +182,8 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
                     bootxpath );
                 }                
             }
+            
+            if (oldBootXdata) CFRelease(oldBootXdata);
         } else {
             blesscontextprintf(context, kBLLogLevelVerbose,  "Could not create BootX, no X folder specified\n" );
         }

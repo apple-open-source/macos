@@ -1,57 +1,40 @@
-##
-# Makefile for tcpdump
-##
-
-# Project info
 Project         = tcpdump
-UserType        = Developer
-ToolType        = Commands
-GnuAfterInstall = strip install-plist
+ProjectVersion  = 4.0.0
+Patches         = PR-6152397.diff configure.diff PR-6477262.diff
 
-# It's a GNU Source project
-include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
+Extra_CC_Flags = -mdynamic-no-pic
 
-Extra_Configure_Flags = --enable-ipv6
-Extra_CC_Flags = -DHAVE_CONFIG_H -I. -D_U_=\"\" -mdynamic-no-pic
-
-lazy_install_source:: shadow_source
-
-Install_Target = install
-
-# Automatic Extract & Patch
-AEP            = YES
-AEP_Project    = $(Project)
-AEP_Version    = 3.9.7
-AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
-AEP_Filename   = $(AEP_ProjVers).tar.gz
-AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = NLS_make_fix.patch BHB_tcp_checksum.patch
-
-ifeq ($(suffix $(AEP_Filename)),.bz2)
-AEP_ExtractOption = j
-else
-AEP_ExtractOption = z
-endif
+include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
 # Extract the source.
 install_source::
-ifeq ($(AEP),YES)
-	$(TAR) -C $(SRCROOT) -$(AEP_ExtractOption)xf $(SRCROOT)/$(AEP_Filename)
-	$(RMDIR) $(SRCROOT)/$(AEP_Project)
-	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(AEP_Project)
-	for patchfile in $(AEP_Patches); do \
-		cd $(SRCROOT)/$(Project) && patch -lp0 < $(SRCROOT)/patches/$$patchfile; \
+	$(RMDIR) $(SRCROOT)/$(Project) $(SRCROOT)/$(Project)-$(ProjVersion)
+	$(TAR) -C $(SRCROOT) -xf $(SRCROOT)/$(Project)-$(ProjectVersion).tar.gz
+	$(MV) $(SRCROOT)/$(Project)-$(ProjectVersion) $(SRCROOT)/$(Project)
+	@set -x && \
+	cd $(SRCROOT)/$(Project) && \
+	for file in $(Patches); do \
+		patch -p0 -F0 -i $(SRCROOT)/patches/$$file; \
 	done
-endif
 
-strip:
-	$(STRIP) -x -S $(DSTROOT)/$(Install_Prefix)/sbin/tcpdump
 
 OSV	= $(DSTROOT)/usr/local/OpenSourceVersions
 OSL	= $(DSTROOT)/usr/local/OpenSourceLicenses
 
-install-plist:
-	$(MKDIR) $(OSV)
+install::
+	cd $(OBJROOT) && CFLAGS="$(CFLAGS)" $(SRCROOT)/$(Project)/configure --prefix=/usr --enable-ipv6
+
+	$(MAKE) -C $(OBJROOT)
+
+	$(MAKE) -C $(OBJROOT) install DESTDIR=$(DSTROOT)
+
+	$(RM) $(DSTROOT)/usr/sbin/tcpdump.$(ProjectVersion)
+
+	$(CP) $(DSTROOT)/usr/sbin/tcpdump $(SYMROOT)
+	$(STRIP) $(DSTROOT)/usr/sbin/tcpdump
+
+	$(MKDIR) $(OSV) $(OSL)
 	$(INSTALL_FILE) $(SRCROOT)/$(ProjectName).plist $(OSV)/$(ProjectName).plist
-	$(MKDIR) $(OSL)
 	$(INSTALL_FILE) $(SRCROOT)/$(ProjectName)/LICENSE $(OSL)/$(ProjectName).txt
+
+	@$(MAKE) compress_man_pages

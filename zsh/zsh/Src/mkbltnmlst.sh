@@ -37,26 +37,19 @@ for x_mod in $x_mods; do
         echo "/* non-linked-in known module \`$x_mod' */"
 	linked=no
     esac
-    unset moddeps autobins autoinfixconds autoprefixconds autoparams
-    unset automathfuncs
+    unset moddeps autofeatures
     . $srcdir/../$modfile
-    echo "  if (emulation == EMULATE_ZSH) {"
-    for bin in $autobins; do
-	echo "    add_autobin(\"$bin\", \"$x_mod\");"
-    done
-    for cond in $autoinfixconds; do
-	echo "    add_autocond(\"$cond\", 1, \"$x_mod\");"
-    done
-    for cond in $autoprefixconds; do
-	echo "    add_autocond(\"$cond\", 0, \"$x_mod\");"
-    done
-    for param in $autoparams; do
-	echo "    add_autoparam(\"$param\", \"$x_mod\");"
-    done
-    for mfunc in $automathfuncs; do
-	echo "    add_automathfunc(\"$mfunc\", \"$x_mod\");"
-    done
-    echo "  }"
+    if test "x$autofeatures" != x; then
+	echo "  if (emulation == EMULATE_ZSH) {"
+	echo "    char *features[] = { "
+	for feature in $autofeatures; do
+	    echo "      \"$feature\","
+	done
+	echo "      NULL"
+	echo "    }; "
+	echo "    autofeatures(\"zsh\", \"$x_mod\", features, 0, 1);"
+	echo "  }"
+    fi
     for dep in $moddeps; do
 	echo "  add_dep(\"$x_mod\", \"$dep\");"
     done
@@ -87,11 +80,16 @@ for bin_mod in $bin_mods; do
     echo "    {"
     echo "        extern int setup_${q_bin_mod} _((Module));"
     echo "        extern int boot_${q_bin_mod} _((Module));"
+    echo "        extern int features_${q_bin_mod} _((Module,char***));"
+    echo "        extern int enables_${q_bin_mod} _((Module,int**));"
     echo "        extern int cleanup_${q_bin_mod} _((Module));"
     echo "        extern int finish_${q_bin_mod} _((Module));"
     echo
     echo "        register_module(\"$bin_mod\","
-    echo "                        setup_${q_bin_mod}, boot_${q_bin_mod},"
+    echo "                        setup_${q_bin_mod},"
+    echo "                        features_${q_bin_mod},"
+    echo "                        enables_${q_bin_mod},"
+    echo "                        boot_${q_bin_mod},"
     echo "                        cleanup_${q_bin_mod}, finish_${q_bin_mod});"
     echo "    }"
     done_mods="$done_mods$bin_mod "

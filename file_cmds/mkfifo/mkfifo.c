@@ -71,7 +71,7 @@ main(argc, argv)
 {
 	int ch, exitval;
 	void * set;
-	mode_t mode;
+	mode_t mode = 0;
 	int m_used = 0;
 
 	setlocale (LC_ALL, "");

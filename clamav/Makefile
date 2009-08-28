@@ -17,7 +17,7 @@ CFLAGS=-O0 $(RC_CFLAGS)
 #
 
 PROJECT_NAME=clamav
-OS_VER=0.94.2
+OS_VER=0.95.2
 CLAMAV_TAR_GZ=clamav-$(OS_VER).tar.gz
 CLAMAV_DIFF_5876278=clamav-$(OS_VER)-5876278.diff
 
@@ -26,7 +26,7 @@ ETC_DIR=/private/etc
 VAR_CLAM=/private/var/clamav
 CLAM_SHARE_DIR=/private/var/clamav/share
 CLAM_STATE_DIR=/private/var/clamav/state
-
+LIB_TOOL=$(SRCROOT)/$(CLAMAV_BUILD_DIR)/libtool
 LAUNCHDDIR=/System/Library/LaunchDaemons
 
 TEMP_DIR=/Temp_Dir
@@ -90,8 +90,6 @@ default:: make_clamav
 
 install :: make_clamav_install
 
-clean :
-
 installhdrs :
 	$(SILENT) $(ECHO) "No headers to install"
 
@@ -105,9 +103,9 @@ make_clamav :
 	$(SILENT) if [ -e "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_TAR_GZ)" ]; then\
 		$(SILENT) ($(CD) "$(SRCROOT)/$(PROJECT)" && $(GNUTAR) -xzpf "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_TAR_GZ)") ; \
 	fi
-	#$(SILENT) if [ -e "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_DIFF_5876278)" ]; then\
-	#	$(SILENT) ($(CD) "$(SRCROOT)$(CLAMAV_BUILD_DIR)" && $(PATCH) -p1 < "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_DIFF_5876278)") ; \
-	#fi
+	$(SILENT) if [ -e "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_DIFF_5876278)" ]; then\
+		$(SILENT) ($(CD) "$(SRCROOT)$(CLAMAV_BUILD_DIR)" && $(PATCH) -p1 < "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_DIFF_5876278)") ; \
+	fi
 	$(SILENT) ($(CD) "$(SRCROOT)$(CLAMAV_BUILD_DIR)" && ./configure $(CLAMAV_CONFIG))
 	$(SILENT) ($(CD) "$(SRCROOT)$(CLAMAV_BUILD_DIR)" && make CFLAGS="$(CFLAGS)")
 
@@ -124,7 +122,15 @@ make_clamav_install :
 
 	# Configure and make Clam AV
 	$(SILENT) ($(CD) "$(SRCROOT)$(CLAMAV_BUILD_DIR)" && ./configure $(CLAMAV_CONFIG))
+	if grep -qs 'LTCFLAGS=\"-g -O2\"' $(SRCROOT)/$(CLAMAV_BUILD_DIR)/libtool ; then \
+		mv $(LIB_TOOL) $(LIB_TOOL).bak ; \
+		sed -e 's/LTCFLAGS=\"-g -O2\"/LTCFLAGS=\"$(CFLAGS)"/g' $(LIB_TOOL).bak > $(LIB_TOOL) ; \
+	fi
+	$(SILENT) ($(CD) "$(SRCROOT)$(CLAMAV_BUILD_DIR)" && make CFLAGS="$(CFLAGS)")
 	$(SILENT) ($(CD) "$(SRCROOT)$(CLAMAV_BUILD_DIR)" && make "DESTDIR=$(SRCROOT)/$(TEMP_DIR)" CFLAGS="$(CFLAGS)" install)
+	install -m 0755 "$(DSTROOT)/System/Library/ServerSetup/MigrationExtras/UpgradeClamAV" \
+			"$(DSTROOT)/System/Library/ServerSetup/MigrationExtras/66_clamav_migrator"
+	$(SILENT) ($(RM) -rf "$(DSTROOT)/System/Library/ServerSetup/MigrationExtras/UpgradeClamAV")
 
 	# Create install directories
 	install -d -m 0755 "$(DSTROOT)$(ETC_DIR)"

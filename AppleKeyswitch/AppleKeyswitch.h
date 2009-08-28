@@ -80,7 +80,7 @@ private:
     const OSSymbol 			*keyLargo_safeWriteRegUInt8;
     const OSSymbol 			*keyLargo_safeReadRegUInt8;
 
-#if defined( __i386__ )
+#if defined( __i386__ ) || defined( __x86_64 )
 	IOACPIPlatformDevice	* myProvider;
 	IONotifier				* switchEventNotify;
 #elif defined( __ppc__ )

@@ -1,6 +1,6 @@
 /* 
    Utility functions for HTTP client tests
-   Copyright (C) 2001-2004, Joe Orton <joe@manyfish.co.uk>
+   Copyright (C) 2001-2008, Joe Orton <joe@manyfish.co.uk>
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -51,6 +51,30 @@ int single_serve_string(ne_socket *s, void *userdata)
 {
     const char *str = userdata;
     return serve_response(s, str);
+}
+
+int double_serve_sstring(ne_socket *s, void *userdata)
+{
+    struct double_serve_args *args = userdata;
+    struct string *str;
+
+    CALL(discard_request(s));
+    CALL(discard_body(s));
+    
+    str = &args->first;
+    NE_DEBUG(NE_DBG_SOCKET, "Serving string: [[[%.*s]]]\n",
+	     (int)str->len, str->data);
+    ONN("write failed", ne_sock_fullwrite(s, str->data, str->len));
+
+    CALL(discard_request(s));
+    CALL(discard_body(s));
+
+    str = &args->second;
+    NE_DEBUG(NE_DBG_SOCKET, "Serving string: [[[%.*s]]]\n",
+	     (int)str->len, str->data);
+    ONN("write failed", ne_sock_fullwrite(s, str->data, str->len));
+
+    return OK;
 }
 
 int sleepy_server(ne_socket *sock, void *userdata)

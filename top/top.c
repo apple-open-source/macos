@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2004 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2008 Apple Computer, Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,337 +20,332 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <curses.h>
 #include "top.h"
+#include "libtop.h"
+#include "globalstats.h"
+#include "layout.h"
+#include "log.h"
+#include "userinput.h"
+#include "preferences.h"
 
-/* Program options. */
-char		top_opt_c = 'n';
-boolean_t	top_opt_f = TRUE;
-unsigned	top_opt_i = 10;
-boolean_t	top_opt_L = FALSE;
-boolean_t	top_opt_l = FALSE;
-unsigned	top_opt_l_samples = 0;
-unsigned	top_opt_n = TOP_MAX_NPROCS;
-top_sort_key_t	top_opt_O = TOP_SORT_pid;
-boolean_t	top_opt_O_ascend = FALSE;
-top_sort_key_t	top_opt_o = TOP_SORT_pid;
-boolean_t	top_opt_o_ascend = FALSE;
-char *          top_opt_p_format=NULL;
-char *          top_opt_P_legend=NULL;
-boolean_t	top_opt_r = TRUE;
-boolean_t	top_opt_S = FALSE;
-unsigned	top_opt_s = 1;
-boolean_t	top_opt_t = FALSE;
-boolean_t	top_opt_U = FALSE;
-boolean_t	top_opt_U_uid = FALSE;
-boolean_t	top_opt_w = FALSE;
-boolean_t	top_opt_x = TRUE;
+const libtop_tsamp_t *tsamp;
 
-/* Prototypes. */
-static void
-top_p_opts_parse(int a_argc, char **a_argv);
-static void
-top_p_usage(void);
+static int sort_subcomp(int a_key, const libtop_psamp_t *a_a, 
+			const libtop_psamp_t *a_b);
 
-int
-main(int argc, char **argv)
-{
-	/* Parse arguments. */
-	top_p_opts_parse(argc, argv);
+static bool top_do_relayout = false;
+
+/* This may not be called in common update patterns. */
+void top_relayout_force(void) {
+    top_do_relayout = true;
+}
+
+void top_relayout(struct statistics_controller *c, int type, int maxwidth) {
+    top_do_relayout = true;
+}
+
+bool top_need_relayout(void) {
+    return top_do_relayout;
+}
+
+void *top_create(WINDOW *wmain) {
+    void *gstats;
+    struct statistics_controller *controller;
+    
+    gstats = top_globalstats_create(wmain);
+    
+    if(NULL == gstats) {
+	endwin();
+	fprintf(stderr, "unable to create global stats!\n");
+	_exit(EXIT_FAILURE);
+    }
+
+    controller = create_statistics_controller(wmain);
+      
+    if(NULL == controller) {
+	endwin();
+	fprintf(stderr, "unable to create controller for main window!\n");
+	_exit(EXIT_FAILURE);
+    }
+    
+    controller->globalstats = gstats;
+
+    return controller;
+}
+
+
+static int top_sort(void *a_data, const libtop_psamp_t *a, const libtop_psamp_t *b) {
+    int retval;
+
+    retval = sort_subcomp(top_prefs_get_sort(), a, b) * 
+	(top_prefs_get_ascending() ? 1 : -1);
+    if (retval == 0) {
+	retval = sort_subcomp(top_prefs_get_secondary_sort(), a, b) *
+	    (top_prefs_get_secondary_ascending() ? 1 : -1);
+    }
+
+    return retval;
+}
+
+#define COMP(a,b) (((a)==(b)?0:	\
+		    ((a)<(b)?-1:1)))
+
+static int sort_subcomp(int a_key, const libtop_psamp_t *a_a, 
+		     const libtop_psamp_t *a_b) {
+    struct timeval  tv_a, tv_b;
+    const char      *user_a, *user_b;
+    
+    switch (a_key) {
+    case STATISTIC_PID: return COMP(a_a->pid, a_b->pid);
+
+    case STATISTIC_COMMAND: return COMP(strcmp(a_a->command, a_b->command),0);
+
+    case STATISTIC_CPU:
+	timersub(&a_a->total_time, &a_a->p_total_time, &tv_a);
+	timersub(&a_b->total_time, &a_b->p_total_time, &tv_b);
+
+	if(tv_a.tv_sec == tv_b.tv_sec) {
+	    return COMP(tv_a.tv_usec, tv_b.tv_usec);
+	} else {
+	    return COMP(tv_a.tv_sec, tv_b.tv_sec);
+	}
+
+    case STATISTIC_TIME:
+	 tv_a = a_a->total_time;
+	 tv_b = a_b->total_time;
+
+	 if(tv_a.tv_sec == tv_b.tv_sec) {
+	     return COMP(tv_a.tv_usec, tv_b.tv_usec);
+	 } else {
+	     return COMP(tv_a.tv_sec, tv_b.tv_sec);
+	 }
+
+    case STATISTIC_THREADS: return COMP(a_a->th, a_b->th);
+
+    case STATISTIC_WORKQUEUE: return COMP(a_a->wq_nthreads, a_b->wq_nthreads);
+
+    case STATISTIC_PORTS: return COMP(a_a->prt, a_b->prt);
+
+    case STATISTIC_MREGION: return COMP(a_a->reg, a_b->reg);
+
+    case STATISTIC_RPRVT: return COMP(a_a->rprvt, a_b->rprvt);
+
+    case STATISTIC_RSHRD: return COMP(a_a->rshrd, a_b->rshrd);
+
+    case STATISTIC_RSIZE: return COMP(a_a->rsize, a_b->rsize);
+
+    case STATISTIC_VSIZE: return COMP(a_a->vsize, a_b->vsize);
+
+    case STATISTIC_VPRVT: return COMP(a_a->vprvt, a_b->vprvt);
+
+    case STATISTIC_PGRP: return COMP(a_a->pgrp, a_b->pgrp);
+
+    case STATISTIC_PPID: return COMP(a_a->ppid, a_b->ppid);
+
+    case STATISTIC_PSTATE: {
+	const char *a = libtop_state_str(a_a->state);
+	const char *b = libtop_state_str(a_b->state);
+	
+	return COMP(strcmp(a, b), 0);
+    }
+    case STATISTIC_UID: return COMP(a_a->uid, a_b->uid);
+    
+    case STATISTIC_FAULTS:
+	return COMP(a_a->faults.now, a_b->faults.now);
+
+    case STATISTIC_COW_FAULTS: 
+	return COMP(a_a->cow_faults.now, a_b->cow_faults.now);
+
+    case STATISTIC_MESSAGES_SENT:
+	return COMP(a_a->messages_sent.now, a_b->messages_sent.now);
+	
+    case STATISTIC_MESSAGES_RECEIVED:
+	return COMP(a_a->messages_recv.now, a_b->messages_recv.now);
+
+    case STATISTIC_SYSBSD:
+	return COMP(a_a->syscalls_bsd.now, a_b->syscalls_bsd.now);
+
+    case STATISTIC_SYSMACH:
+	return COMP(a_a->syscalls_mach.now, a_b->syscalls_mach.now);
+   
+    case STATISTIC_CSW:
+	return COMP(a_a->csw.now, a_b->csw.now);
+
+    case STATISTIC_PAGEINS:
+	return COMP(a_a->pageins.now, a_b->pageins.now);
+
+    case STATISTIC_USER:
+	/* Handle the == case first, since it's common. */
+	if (a_a->uid == a_b->uid) return 0;
+        
+	user_a = libtop_username(a_a->uid);
+	user_b = libtop_username(a_b->uid);
+	
+	return COMP(strcmp(user_a, user_b),0);
+    }
+    
+    return 0;
+}
+
+#undef COMP
+
+void top_sample(void) {
+    if(libtop_sample(/*calculate mreg, vprvt and more see libtop.h*/
+		     top_prefs_get_mmr(), 
+		     /*framework stats*/
+		     top_prefs_get_frameworks())) {
+	endwin();
+	fprintf(stderr, "error: while gathering a libtop sample.\n"
+		"The permissions and/or ownership are incorrect "
+		"for this executable, or you are testing without sudo.\n");
+	_exit(EXIT_FAILURE);
+    }
+}
+
+
+void top_insert(void *ptr) {
+    struct statistics_controller *c = ptr;
+    const libtop_psamp_t *psample;
+    char *user;
+    unsigned long uid = 0;
+    int nprocs;
+    pid_t pid;
+    bool have_pid = false;
+    
+    c->reset_insertion(c);
+
+    top_sample();
+
+    /* 
+     * The ordering is important here, because the libtop_psort actually 
+     * updates the tsamp->nprocs.
+     */
+    libtop_psort(top_sort, NULL);
+
+    tsamp = libtop_tsamp();
+
+    if(top_globalstats_update(c->globalstats, tsamp))
+	top_log("An error occurred while updating global stats.\n");
+  
+    /* The user has requested only displaying processes owned by user. */
+    user = top_prefs_get_user();
+
+    if(user)
+	uid = top_prefs_get_user_uid();
+    
+    nprocs = top_prefs_get_nprocs();
+
+    if(0 == nprocs)
+	return;
+    
+    have_pid = top_prefs_get_pid(&pid);
+
+    for(psample = libtop_piterate(); psample; psample = libtop_piterate()) {
+	if(user && psample->uid != uid)
+	    continue;
+	
+	if(have_pid) {
+	    if(pid != psample->pid)
+		continue;
+	}
+
+	c->insert_sample(c, psample);
 
 	/*
-	 * Make sure the user doesn't mind logging mode, if not running on a
-	 * tty.
+	 * If nprocs is -1 (the default), or otherwise negative, 
+	 * then display all.
 	 */
-	if (isatty(0)) {
-	  if (top_opt_l) return log_run();        /* Run in logging mode. */
-	  else           return disp_run();       /* Run interactively. */
-	} else { // not a tty
-	  if (top_opt_L) {
-	    fprintf(stderr, "top: Not running on a tty\n");
-	    exit(1);
-	  } else return log_run();
+	if(nprocs > 0)
+	    --nprocs;
+	
+	if(0 == nprocs) {
+	    break;
 	}
+    }
 }
 
-const char *
-top_sort_key_str(top_sort_key_t a_key, boolean_t a_ascend)
-{
-	const char	*strings[] = {
-		"-command", "+command",
-		"-cpu", "+cpu",
-		"-pid", "+pid",
-		"-prt", "+prt",
-		"-reg", "+reg",
-		"-rprvt", "+rprvt",
-		"-rshrd", "+rshrd",
-		"-rsize", "+rsize",
-		"-th", "+th",
-		"-time", "+time",
-		"-uid", "+uid",
-		"-username", "+username",
-		"-vprvt", "+vprvt",
-		"-vsize", "+vsize"
-	};
 
-	return a_ascend ? strings[a_key * 2] : strings[a_key * 2 + 1];
+/* Return true if a non-fatal error occurred. */
+bool top_layout(void *ptr) {
+    struct statistics_controller *c = ptr;
+    int lines = LINES, cols = COLS;
+    int consumed_height = 0;
+    int pstatheight;
+
+    //top_log("%s\n", __func__);
+
+    top_do_relayout = false;
+
+    //fprintf(stderr, "laying out: lines %d cols %d\n", lines, cols);
+    //werase(c->parent);
+
+    if(ERR == wresize(c->parent, lines, cols)) {
+	top_log("error: wresizing parent!\n");
+	return true;
+    }
+
+    top_globalstats_reset(c->globalstats);
+
+    if(top_globalstats_resize(c->globalstats, cols, lines, 
+			      &consumed_height)) {
+	top_log("error: performing global stats resize!\n");
+	return true;
+    }
+
+    user_input_set_position(consumed_height, 0);    
+
+    pstatheight = lines - consumed_height - 1;
+    if(pstatheight <= 0)
+	return true;
+
+    //fprintf(stderr, "consumed_height %d\n", consumed_height);
+
+    if(layout_statistics(c, cols, pstatheight,
+			 /*y*/ consumed_height + 1)) {
+	top_log("error: performing statistic layout!\n");
+	return true;
+    }
+
+    return false;
 }
 
-static void
-top_p_opts_parse(int a_argc, char **a_argv)
-{
-	int	c;
+struct draw_state {
+    int xoffset;
+};
 
-	/* Turn off automatic error reporting. */
-	opterr = 0;
+static bool top_draw_iterator(struct statistic *s, void *ptr) {
+    struct draw_state *state = ptr;
 
-	/* Iteratively process command line arguments. */
-	while ((c = getopt(a_argc, a_argv, "ac:deFfhi:kLl:n:O:o:p:P:RrSs:TtU:uWwXx")) != -1) {
-		switch (c) {
-		case 'a': case 'd': case 'e':  top_opt_c = c; break;
-		case 'c':
-			top_opt_c = optarg[0];
-			switch (top_opt_c) {
-			case 'a': case 'd': case 'e': case 'n':
-				break;
-			default:
-				fprintf(stderr,
-				    "top: Invalid argument: -c %s\n", optarg);
-				top_p_usage();
-				exit(1);
-			}
-			break;
-		case 'F': top_opt_f = FALSE; break;
-		case 'f': top_opt_f = TRUE;  break;
-		case 'i': {
-			char	*p;
+    s->callbacks.draw(s, /*x*/ state->xoffset);
 
-			errno = 0;
-			top_opt_i = strtoul(optarg, &p, 0);
-			if ((errno == EINVAL && top_opt_i == 0)
-			    || (errno == ERANGE
-				&& top_opt_i == ULONG_MAX)
-			    || top_opt_i < 1 || top_opt_i > TOP_MAX_INTERVAL
-			    || *p != '\0') {
-				fprintf(stderr,
-				    "top: Invalid argument: -i %s\n", optarg);
-				top_p_usage();
-				exit(1);
-			}
-			break;
-		}
-		case 'h': top_p_usage(); exit(0);
-		case 'k': /* Ignore. */	break;
-		case 'L': top_opt_L = TRUE; break;
-		case 'l': {
-			char	*p;
+    state->xoffset = 1;
 
-			top_opt_l = TRUE;
-			errno = 0;
-			top_opt_l_samples = strtoul(optarg, &p, 0);
-			if ((errno == EINVAL && top_opt_l_samples == 0)
-			    || (errno == ERANGE
-				&& top_opt_l_samples == ULONG_MAX)
-			    || *p != '\0') {
-				fprintf(stderr,
-				    "top: Invalid argument: -l %s\n", optarg);
-				top_p_usage();
-				exit(1);
-			}
-			break;
-		}
-		case 'n': {
-			char	*p;
-
-			errno = 0;
-			top_opt_n = strtoul(optarg, &p, 0);
-			if ((errno == EINVAL && top_opt_n == 0)
-			    || (errno == ERANGE && top_opt_n == ULONG_MAX)
-			    || *p != '\0'
-			    || top_opt_n > TOP_MAX_NPROCS) {
-				fprintf(stderr,
-				    "top: Invalid argument: -n %s\n", optarg);
-				top_p_usage();
-				exit(1);
-			}
-			break;
-		}
-		case 'O': /* Check for + or - prefix. */
-			if (optarg[0] == '+' || optarg[0] == '-') {
-			  top_opt_O_ascend = (optarg[0] == '+');
-			  optarg++;
-			}
-
-			if (strcasecmp(optarg, "command") == 0)       top_opt_O = TOP_SORT_command;
-			else if (strcasecmp(optarg, "cpu") == 0)      top_opt_O = TOP_SORT_cpu;
-			else if (strcasecmp(optarg, "pid") == 0)      top_opt_O = TOP_SORT_pid;
-			else if (strcasecmp(optarg, "prt") == 0)      top_opt_O = TOP_SORT_prt;
-			else if (strcasecmp(optarg, "reg") == 0)      top_opt_O = TOP_SORT_reg;
-			else if (strcasecmp(optarg, "rprvt") == 0)    top_opt_O = TOP_SORT_rprvt;
-			else if (strcasecmp(optarg, "rshrd") == 0)    top_opt_O = TOP_SORT_rshrd;
-			else if (strcasecmp(optarg, "rsize") == 0)    top_opt_O = TOP_SORT_rsize;
-			else if (strcasecmp(optarg, "th") == 0)       top_opt_O = TOP_SORT_th;
-			else if (strcasecmp(optarg, "time") == 0)     top_opt_O = TOP_SORT_time;
-			else if (strcasecmp(optarg, "uid") == 0)      top_opt_O = TOP_SORT_uid;
-			else if (strcasecmp(optarg, "username") == 0) top_opt_O = TOP_SORT_username;
-			else if (strcasecmp(optarg, "vprvt") == 0)    top_opt_O = TOP_SORT_vprvt;
-			else if (strcasecmp(optarg, "vsize") == 0)    top_opt_O = TOP_SORT_vsize;
-			else {
-				fprintf(stderr, "top: Invalid argument: -O %s\n", optarg);
-				top_p_usage();
-				exit(1);
-			}
-
-			break;
-		case 'o': /* Check for + or - prefix. */
-			if (optarg[0] == '+' || optarg[0] == '-') {
-			  top_opt_o_ascend = (optarg[0] == '+');
-			  optarg++;
-			}
-
-			if (strcasecmp(optarg, "command") == 0)       top_opt_o = TOP_SORT_command;
-			else if (strcasecmp(optarg, "cpu") == 0)      top_opt_o = TOP_SORT_cpu;
-			else if (strcasecmp(optarg, "pid") == 0)      top_opt_o = TOP_SORT_pid;
-			else if (strcasecmp(optarg, "prt") == 0)      top_opt_o = TOP_SORT_prt;
-			else if (strcasecmp(optarg, "reg") == 0)      top_opt_o = TOP_SORT_reg;
-			else if (strcasecmp(optarg, "rprvt") == 0)    top_opt_o = TOP_SORT_rprvt;
-			else if (strcasecmp(optarg, "rshrd") == 0)    top_opt_o = TOP_SORT_rshrd;
-			else if (strcasecmp(optarg, "rsize") == 0)    top_opt_o = TOP_SORT_rsize;
-			else if (strcasecmp(optarg, "th") == 0)       top_opt_o = TOP_SORT_th;
-			else if (strcasecmp(optarg, "time") == 0)     top_opt_o = TOP_SORT_time;
-			else if (strcasecmp(optarg, "uid") == 0)      top_opt_o = TOP_SORT_uid;
-			else if (strcasecmp(optarg, "username") == 0) top_opt_o = TOP_SORT_username;
-			else if (strcasecmp(optarg, "vprvt") == 0)    top_opt_o = TOP_SORT_vprvt;
-			else if (strcasecmp(optarg, "vsize") == 0)    top_opt_o = TOP_SORT_vsize;
-			else {
-				fprintf(stderr, "top: Invalid argument: -o %s\n", optarg);
-				top_p_usage();
-				exit(1);
-			}
-
-			break;
-		case 'P':
-		        top_opt_P_legend = (char *)malloc(strlen(optarg));
-		        strcpy(top_opt_P_legend, optarg);
-		        break;
-		case 'p':
-		        top_opt_p_format = (char *)malloc(strlen(optarg));
-		        strcpy(top_opt_p_format, optarg);
-		        break;
-		case 'R': top_opt_r = FALSE; break;
-		case 'r': top_opt_r = TRUE; break;
-		case 'S': top_opt_S = TRUE; break;
-		case 's': {
-			char	*p;
-
-			errno = 0;
-			top_opt_s = strtoul(optarg, &p, 0);
-			if ((errno == EINVAL && top_opt_s == 0)
-			    || (errno == ERANGE	&& top_opt_s == ULONG_MAX)
-			    || *p != '\0') {
-				fprintf(stderr, "top: Invalid argument: -s %s\n", optarg);
-				top_p_usage();
-				exit(1);
-			}
-			break;
-		}
-		case 'T': top_opt_t = FALSE; break;
-		case 't': top_opt_t = TRUE; break;
-		case 'U': {
-			char		*p;
-			struct passwd	*pwd;
-
-			top_opt_U = TRUE;
-			errno = 0;
-			top_opt_U_uid = strtoul(optarg, &p, 0);
-			if ((errno == EINVAL && top_opt_U_uid == 0)
-			    || (errno == ERANGE	&& top_opt_U_uid == ULONG_MAX)
-			    || *p != '\0') {
-				/*
-				 * The argument isn't a number. Try it as a
-				 * username.
-				 */
-				pwd = getpwnam(optarg);
-
-				if (pwd != NULL) top_opt_U_uid = pwd->pw_uid;
-			} else {
-				/* Verify that the number is a valid uid. */
-				pwd = getpwuid((uid_t)top_opt_U_uid);
-			}
-
-			endpwent();
-			if (pwd == NULL) {
-				fprintf(stderr, "top: Invalid argument: -U %s\n", optarg);
-				top_p_usage();
-				exit(1);
-			}
-
-			break;
-		}
-		case 'u':
-			top_opt_o = TOP_SORT_cpu;
-			top_opt_O = TOP_SORT_time;
-			break;
-		case 'W': top_opt_w = FALSE; break;
-		case 'w': top_opt_w = TRUE; break;
-		case 'X': top_opt_x = FALSE; break;
-		case 'x':
-			top_opt_x = TRUE;
-			top_opt_s = 1;
-			top_opt_S = FALSE;
-			break;
-		case '?':
-		default:
-		  fprintf(stderr, "top: Unrecognized or missing option %c\n",optopt);
-			top_p_usage();
-			exit(1);
-		}
-	}
-
-	/* Check for <nprocs> without preceding -n. */
-	if (optind < a_argc) {
-		char	*p;
-		errno = 0;
-		top_opt_n = strtoul(a_argv[optind], &p, 0);
-		if ((errno == EINVAL && top_opt_n == 0)
-		    || (errno == ERANGE && top_opt_n == ULONG_MAX)
-		    || *p != '\0'
-		    || top_opt_n > TOP_MAX_NPROCS) {
-			fprintf(stderr, "top: Invalid argument: %s\n", a_argv[optind]);
-			top_p_usage();
-			exit(1);
-		}
-		optind++;
-	}
-
-	/* Check for trailing command line garbage. */
-	if (optind < a_argc) {
-		fprintf(stderr, "top: Unrecognized trailing arguments:");
-		for (; optind < a_argc; optind++) fprintf(stderr, " %s", a_argv[optind]);
-		fprintf(stderr, "\n");
-
-		top_p_usage();
-		exit(1);
-	}
+    /* more iterations */
+    return true;
 }
 
-static void
-top_p_usage(void)
-{
-	fprintf(stderr, "\
-top usage: top [-a | -d | -e | -c <mode>]\n\
-               [-F | -f]\n\
-               [-h]\n\
-               [-i <interval>]\n\
-               [-k]\n\
-               [-L | -l <samples>]\n\
-               [-o <key>] [-O <skey>]\n\
-               [-p <format>] [-P <legend>]\n\
-               [-R | -r]\n\
-               [-s <delay>]\n\
-               [-T | -t]\n\
-               [-U <user>]\n\
-               [-u]\n\
-               [-W | -w]\n\
-               [-X | x]\n\
-               [[-n] <nprocs>]\n");
+void top_draw(void *ptr) {
+    struct statistics_controller *c = ptr;
+    struct draw_state state;
+
+    werase(c->parent);
+    
+    top_globalstats_draw(c->globalstats);
+
+    user_input_draw(ptr, stdscr);
+
+    state.xoffset = 0;
+
+    c->iterate(c, top_draw_iterator, &state);
+
+    /* This moves the insertion cursor to the lower right. */
+    wmove(stdscr, LINES - 1, COLS - 1);
+    
+    update_panels();
+    doupdate();
 }

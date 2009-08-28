@@ -1,6 +1,6 @@
---- ttyname.c.orig	2007-02-05 14:38:48.000000000 -0800
-+++ ttyname.c	2007-02-05 14:40:13.000000000 -0800
-@@ -48,10 +48,12 @@
+--- ttyname.c.orig	2008-10-09 21:30:31.000000000 -0700
++++ ttyname.c	2008-10-09 22:00:10.000000000 -0700
+@@ -48,10 +48,12 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/tty
  #include <string.h>
  #include <paths.h>
  #include <pthread.h>
@@ -13,15 +13,7 @@
  static char buf[sizeof(_PATH_DEV) + MAXNAMLEN];
  static char *ttyname_threaded(int fd);
  static char *ttyname_unthreaded(int fd);
-@@ -59,6 +61,7 @@
- static pthread_mutex_t	ttyname_lock = PTHREAD_MUTEX_INITIALIZER;
- static pthread_key_t	ttyname_key;
- static int		ttyname_init = 0;
-+extern int __pthread_tsd_first;
- 
- char *
- ttyname(int fd)
-@@ -71,31 +74,63 @@
+@@ -71,31 +73,63 @@ ttyname(int fd)
  		ret = ttyname_threaded(fd);
  	return (ret);
  }
@@ -97,13 +89,13 @@
  static char *
  ttyname_threaded(int fd)
  {
-@@ -104,8 +139,12 @@
+@@ -104,8 +138,12 @@ ttyname_threaded(int fd)
  	if (ttyname_init == 0) {
  		_pthread_mutex_lock(&ttyname_lock);
  		if (ttyname_init == 0) {
 -			if (_pthread_key_create(&ttyname_key, free)) {
 +			/* __PTK_LIBC_TTYNAME_KEY */
-+			ttyname_key = __pthread_tsd_first+1;
++			ttyname_key = __LIBC_PTHREAD_KEY_TTYNAME;
 +			if (pthread_key_init_np(ttyname_key, free)) {
 +				int save = errno;
  				_pthread_mutex_unlock(&ttyname_lock);
@@ -111,7 +103,7 @@
  				return (NULL);
  			}
  			ttyname_init = 1;
-@@ -117,14 +156,20 @@
+@@ -117,14 +155,20 @@ ttyname_threaded(int fd)
  	if ((buf = _pthread_getspecific(ttyname_key)) == NULL) {
  		if ((buf = malloc(sizeof(_PATH_DEV) + MAXNAMLEN)) != NULL) {
  			if (_pthread_setspecific(ttyname_key, buf) != 0) {
@@ -132,7 +124,7 @@
  }
  
  static char *
-@@ -137,11 +182,19 @@
+@@ -137,11 +181,19 @@ ttyname_unthreaded(int fd)
  	if (tcgetattr(fd, &ttyb) < 0)
  		return (NULL);
  	/* Must be a character device. */

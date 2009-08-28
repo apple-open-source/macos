@@ -46,7 +46,7 @@ cpu_subtype_t md_cpusubtype = CPU_SUBTYPE_MC88000_ALL;
 const enum byte_sex md_target_byte_sex = BIG_ENDIAN_BYTE_SEX;
 
 #ifdef NeXT_MOD
-static long in_delay_slot = 0;
+static int32_t in_delay_slot = 0;
 #endif
 
 static char *cmpslot[] = { "**", "**", "eq", "ne", "gt", "le", "lt", "ge",
@@ -71,7 +71,7 @@ static struct {
 	      };
 
 struct m88k_insn {
-        unsigned long opcode;
+        uint32_t opcode;
         expressionS exp;
 #ifdef NeXT_MOD
         enum reloc_type_m88k reloc;
@@ -173,15 +173,15 @@ static char *getval(
     unsigned int *val);
 #ifdef NeXT_MOD
 static void s_reg(
-    int reg);
+    uintptr_t reg);
 static void s_scaled(
-    int value);
+    uintptr_t value);
 static void s_m88k_abs(
-    int value);
+    uintptr_t value);
 static void s_no_delay(
-    int value);
+    uintptr_t value);
 static void s_dot(
-    int value);
+    uintptr_t value);
 #endif /* NeXT_MOD */
 
 const pseudo_typeS md_pseudo_table[] =
@@ -211,7 +211,7 @@ const pseudo_typeS md_pseudo_table[] =
 static
 void
 s_dot(
-int value)
+uintptr_t value)
 {
 	char *name, *end_name, delim;
 	symbolS *symbolP;
@@ -242,11 +242,11 @@ int value)
 static
 void
 s_reg(
-int reg)
+uintptr_t reg)
 {
 	char *name, *end_name, delim;
 	symbolS *symbolP;
-	unsigned long n_value, val;
+	uint32_t n_value, val;
 
 	if( * input_line_pointer == '"')
 	  name = input_line_pointer + 1;
@@ -301,11 +301,11 @@ int reg)
 static
 void
 s_scaled(
-int value)
+uintptr_t value)
 {
 	char *name, *end_name, delim;
 	symbolS *symbolP;
-	unsigned long n_value, val;
+	uint32_t n_value, val;
 
 	if( * input_line_pointer == '"')
 	  name = input_line_pointer + 1;
@@ -379,11 +379,11 @@ int value)
 static
 void
 s_m88k_abs(
-int value)
+uintptr_t value)
 {
 	char *name, *end_name, delim, *start;
 	symbolS *symbolP;
-	unsigned long n_value, val, is_reg_exp;
+	uint32_t n_value, val, is_reg_exp;
 
 	start = input_line_pointer;
 	if( * input_line_pointer == '"')
@@ -448,7 +448,7 @@ int value)
 static
 void
 s_no_delay(
-int value)
+uintptr_t value)
 {
 	char *p, c;
 
@@ -515,7 +515,7 @@ char *op)
 	struct m88k_opcode *format;
 	struct m88k_insn insn;
 #ifdef NeXT_MOD
-	long pcrel_reloc;
+	int32_t pcrel_reloc;
 #endif
 
 	assert(op);
@@ -1644,7 +1644,7 @@ int *sizeP)
 
 	*sizeP=prec * sizeof(LITTLENUM_TYPE);
 	for(wordP=words;prec--;) {
-		md_number_to_chars(litP,(long)(*wordP++),sizeof(LITTLENUM_TYPE));
+		md_number_to_chars(litP,(int32_t)(*wordP++),sizeof(LITTLENUM_TYPE));
 		litP+=sizeof(LITTLENUM_TYPE);
 	}
 	return "";	/* Someone should teach Dean about null pointers */

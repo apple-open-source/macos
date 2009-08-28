@@ -34,7 +34,11 @@
 import <IOKit/kext/kextmanager_types.h>;
 
 // length must match MNAMELEN (sys/mount.h)   
+#if __DARWIN_64_BIT_INO_T
+type mountpoint_t = array [MAXPATHLEN] of char;
+#else
 type mountpoint_t = array [90] of char;
+#endif
 
 subsystem kextmanager_reply 70100;      // +100 from kextmanager_mig.defs
 

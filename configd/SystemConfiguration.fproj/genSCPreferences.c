@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -59,7 +59,7 @@
 
 char copyright_string[] =
 "/*\n"
-" * Copyright (c) 2000-2007 Apple Inc. All rights reserved.\n"
+" * Copyright (c) 2000-2009 Apple Inc. All rights reserved.\n"
 " *\n"
 " * @APPLE_LICENSE_HEADER_START@\n"
 " * \n"
@@ -83,18 +83,27 @@ char copyright_string[] =
 
 
 typedef enum {
+	DEFINE,
+	DEFINE_PRIVATE,
 	COMMENT,
 	GROUP,
 	SC_10_1,
-	SC_10_1_10_4,	// deprecated in 10.4
-	SC_10_1_10_5,	// deprecated in 10.5
 	SC_10_2,
 	SC_10_3,
+	SC_10_1_10_4,	// deprecated in 10.4
 	SC_10_4,
+	SC_10_1_10_5,	// deprecated in 10.5
 	SC_10_5,
+	SC_10_1_10_6,	// deprecated in 10.6
+	SC_10_2_10_6,	// deprecated in 10.6
+	SC_10_6_IPHONE_2_0,
+	SC_10_6_IPHONE_3_0,
 	COMMENT_PRIVATE,
 	GROUP_PRIVATE,
 	SC_10_5_PRIVATE,
+	SC_10_6_IPHONE_2_0_PRIVATE,
+	SC_10_6_IPHONE_3_0_PRIVATE,
+	SC_IPHONE_2_0_PRIVATE,
 	COMMENT_DEPRECATED,
 	GROUP_DEPRECATED,
 	END
@@ -142,6 +151,7 @@ typedef enum {
 #define ALERT			"Alert"
 #define ALLOWNETCREATION	"AllowNetCreation"
 #define ALTERNATEREMOTEADDRESS	"AlternateRemoteAddress"
+#define ALWAYS			"Always"
 #define ANYREGEX		"AnyRegex"
 #define APPLETALK		"AppleTalk"
 #define AUTH			"Auth"
@@ -259,7 +269,6 @@ typedef enum {
 #define MEDIA			"Media"
 #define MIXED			"Mixed"
 #define MODEL			"Model"
-#define OPTIONS			"Options"
 #define MODE			"Mode"
 #define MODEM			"Modem"
 #define MPPE40			"MPPE40"
@@ -275,10 +284,13 @@ typedef enum {
 #define NETWORKID		"NetworkID"
 #define NETWORKRANGE		"NetworkRange"
 #define NETWORKSERVICES		"NetworkServices"
+#define NEVER			"Never"
 #define NODE			"Node"
 #define NODEID			"NodeID"
 #define NOTE			"Note"
 #define ONDEMAND		"OnDemand"
+#define ONRETRY			"OnRetry"
+#define OPTIONS			"Options"
 #define ORDER			"Order"
 #define ORDERS			"Orders"
 #define OVERRIDEPRIMARY		"OverridePrimary"
@@ -299,6 +311,7 @@ typedef enum {
 #define PREFIXLENGTH		"PrefixLength"
 #define PREFS			"Prefs"
 #define PRIMARYINTERFACE	"PrimaryInterface"
+#define PRIMARYRANK		"PrimaryRank"
 #define PRIMARYSERVICE		"PrimaryService"
 #define PRIORITY		"Priority"
 #define PROMPT			"Prompt"
@@ -371,6 +384,8 @@ typedef enum {
 #define WAITFORDIALTONE		"WaitForDialTone"
 #define WINS			"WINS"
 #define WORKGROUP		"Workgroup"
+#define XAUTH			"XAuth"
+
 
 typedef struct {
     int				control;
@@ -427,7 +442,9 @@ static schemaDefinition names[] = {
   { GROUP, NETENT, "Network Entity Keys", NULL, NULL },
 
     { SC_10_1, NETENT, AIRPORT, NULL, CFDICTIONARY },
-    { SC_10_1, NETENT, APPLETALK, NULL, CFDICTIONARY },
+    { DEFINE, "#if", "!TARGET_OS_IPHONE", NULL, NULL },
+    { SC_10_1_10_6, NETENT, APPLETALK, NULL, CFDICTIONARY },
+    { DEFINE, "#endif", "// !TARGET_OS_IPHONE", NULL, NULL },
     { SC_10_1, NETENT, DHCP, NULL, CFDICTIONARY },
     { SC_10_1, NETENT, DNS, NULL, CFDICTIONARY },
     { SC_10_1, NETENT, ETHERNET, NULL, CFDICTIONARY },
@@ -439,19 +456,25 @@ static schemaDefinition names[] = {
     { SC_10_3, NETENT, L2TP, NULL, CFDICTIONARY },
     { SC_10_1, NETENT, LINK, NULL, CFDICTIONARY },
     { SC_10_1, NETENT, MODEM, NULL, CFDICTIONARY },
+    { DEFINE, "#if", "!TARGET_OS_IPHONE", NULL, NULL },
     { SC_10_1_10_5, NETENT, NETINFO, NULL, CFDICTIONARY },
+    { DEFINE, "#endif", "// !TARGET_OS_IPHONE", NULL, NULL },
     { SC_10_1, NETENT, PPP, NULL, CFDICTIONARY },
     { SC_10_1, NETENT, PPPOE, NULL, CFDICTIONARY },
     { SC_10_3, NETENT, PPPSERIAL, NULL, CFDICTIONARY },
     { SC_10_3, NETENT, PPTP, NULL, CFDICTIONARY },
     { SC_10_1, NETENT, PROXIES, NULL, CFDICTIONARY },
+    { DEFINE, "#if", "!TARGET_OS_IPHONE", NULL, NULL },
     { SC_10_5, NETENT, SMB, NULL, CFDICTIONARY },
+    { DEFINE, "#endif", "// !TARGET_OS_IPHONE", NULL, NULL },
     { SC_10_3, NETENT, STF, NULL, CFDICTIONARY },
     { COMMENT, "", NULL, NULL, NULL },
 
   { GROUP_PRIVATE, NETENT, "Network Entity Keys", NULL, NULL },
 
     { SC_10_5_PRIVATE, NETENT, EAPOL, NULL, CFDICTIONARY },
+    { SC_10_6_IPHONE_3_0_PRIVATE, NETENT, ONDEMAND, NULL, CFDICTIONARY },
+    { SC_10_6_IPHONE_2_0_PRIVATE, NETENT, SERVICE, "__SERVICE__", CFDICTIONARY },
     { COMMENT_PRIVATE, "", NULL, NULL, NULL },
 
   { GROUP, NETPROP, KEY_PREFIX COMP NETWORK " Properties", NULL, NULL },
@@ -497,23 +520,26 @@ static schemaDefinition names[] = {
     { SC_10_3, NETVAL AIRPORT AUTH PASSWORD ENCRYPTION, KEYCHAIN, NULL, NULL },
     { COMMENT, "", NULL, NULL, NULL },
 
-  { GROUP, NETPROP APPLETALK, KEY_PREFIX NETENT APPLETALK " Entity Keys", NULL, NULL },
+  { GROUP_DEPRECATED, NETPROP APPLETALK, KEY_PREFIX NETENT APPLETALK " Entity Keys", NULL, NULL },
 
-    { SC_10_1, NETPROP APPLETALK, COMPUTERNAME, NULL, CFSTRING },
-    { SC_10_1, NETPROP APPLETALK, COMPUTERNAME ENCODING, NULL, CFNUMBER },
-    { SC_10_1, NETPROP APPLETALK, CONFIGMETHOD, NULL, CFSTRING },
-    { SC_10_1, NETPROP APPLETALK, DEFAULTZONE, NULL, CFSTRING },
-    { SC_10_1, NETPROP APPLETALK, NETWORKID, NULL, CFNUMBER },
-    { SC_10_2, NETPROP APPLETALK, NETWORKRANGE, NULL, CFARRAY_CFNUMBER },
-    { SC_10_1, NETPROP APPLETALK, NODEID, NULL, CFNUMBER },
-    { SC_10_1, NETPROP APPLETALK, SEEDNETWORKRANGE, NULL, CFARRAY_CFNUMBER },
-    { SC_10_1, NETPROP APPLETALK, SEEDZONES, NULL, CFARRAY_CFSTRING },
-    { COMMENT, "", NULL, NULL, NULL },
-    { COMMENT, "--- " KEY_PREFIX NETPROP APPLETALK CONFIGMETHOD " values ---", NULL, NULL, NULL },
-    { SC_10_1, NETVAL APPLETALK CONFIGMETHOD, NODE, NULL, NULL },
-    { SC_10_1, NETVAL APPLETALK CONFIGMETHOD, ROUTER, NULL, NULL },
-    { SC_10_1, NETVAL APPLETALK CONFIGMETHOD, SEEDROUTER, NULL, NULL },
-    { COMMENT, "", NULL, NULL, NULL },
+    { DEFINE, "#if", "!TARGET_OS_IPHONE", NULL, NULL },
+    { SC_10_1_10_6, NETPROP APPLETALK, COMPUTERNAME, NULL, CFSTRING },
+    { SC_10_1_10_6, NETPROP APPLETALK, COMPUTERNAME ENCODING, NULL, CFNUMBER },
+    { SC_10_1_10_6, NETPROP APPLETALK, CONFIGMETHOD, NULL, CFSTRING },
+    { SC_10_1_10_6, NETPROP APPLETALK, DEFAULTZONE, NULL, CFSTRING },
+    { SC_10_1_10_6, NETPROP APPLETALK, NETWORKID, NULL, CFNUMBER },
+    { SC_10_2_10_6, NETPROP APPLETALK, NETWORKRANGE, NULL, CFARRAY_CFNUMBER },
+    { SC_10_1_10_6, NETPROP APPLETALK, NODEID, NULL, CFNUMBER },
+    { SC_10_1_10_6, NETPROP APPLETALK, SEEDNETWORKRANGE, NULL, CFARRAY_CFNUMBER },
+    { SC_10_1_10_6, NETPROP APPLETALK, SEEDZONES, NULL, CFARRAY_CFSTRING },
+    { COMMENT_DEPRECATED, "", NULL, NULL, NULL },
+    { COMMENT_DEPRECATED, "--- " KEY_PREFIX NETPROP APPLETALK CONFIGMETHOD " values ---", NULL, NULL, NULL },
+    { SC_10_1_10_6, NETVAL APPLETALK CONFIGMETHOD, NODE, NULL, NULL },
+    { SC_10_1_10_6, NETVAL APPLETALK CONFIGMETHOD, ROUTER, NULL, NULL },
+    { SC_10_1_10_6, NETVAL APPLETALK CONFIGMETHOD, SEEDROUTER, NULL, NULL },
+    { DEFINE, "#endif", "// !TARGET_OS_IPHONE", NULL, NULL },
+    { COMMENT_DEPRECATED, "", NULL, NULL, NULL },
+
 
   { GROUP, NETPROP DNS, KEY_PREFIX NETENT DNS " Entity Keys", NULL, NULL },
 
@@ -554,6 +580,7 @@ static schemaDefinition names[] = {
     { SC_10_3, NETVAL INTERFACE TYPE, FIREWIRE, NULL, NULL },
     { SC_10_1, NETVAL INTERFACE TYPE, PPP, NULL, NULL },
     { SC_10_3, NETVAL INTERFACE TYPE, STF, NULL, NULL },
+    { SC_10_6_IPHONE_2_0, NETVAL INTERFACE TYPE, IPSEC, NULL, NULL },
     { COMMENT, "", NULL, NULL, NULL },
     { COMMENT, "--- " KEY_PREFIX NETPROP SERVICE SUBTYPE " values (for " PPP ") ---", NULL, NULL, NULL },
     { SC_10_1, NETVAL INTERFACE SUBTYPE, PPPOE, NULL, NULL },
@@ -564,23 +591,46 @@ static schemaDefinition names[] = {
 
   { GROUP, NETPROP IPSEC, KEY_PREFIX NETENT IPSEC " Entity Keys", NULL, NULL },
 
+    { SC_10_5, NETPROP IPSEC, AUTHENTICATIONMETHOD, NULL, CFSTRING },
+    { SC_10_5, NETPROP IPSEC, LOCALCERTIFICATE, NULL, CFDATA },
     { SC_10_5, NETPROP IPSEC, LOCALIDENTIFIER, NULL, CFSTRING },
     { SC_10_5, NETPROP IPSEC, LOCALIDENTIFIER TYPE, NULL, CFSTRING },
-    { SC_10_5, NETPROP IPSEC, AUTHENTICATIONMETHOD, NULL, CFSTRING },
     { SC_10_5, NETPROP IPSEC, SHAREDSECRET, NULL, CFSTRING },
     { SC_10_5, NETPROP IPSEC, SHAREDSECRET ENCRYPTION, NULL, CFSTRING },
-    { SC_10_5, NETPROP IPSEC, LOCALCERTIFICATE, NULL, CFDATA },
+    { SC_10_6_IPHONE_2_0, NETPROP IPSEC, CONNECTTIME, NULL, CFNUMBER },
+    { SC_10_6_IPHONE_2_0, NETPROP IPSEC, REMOTEADDRESS, NULL, CFSTRING },
+    { SC_10_6_IPHONE_2_0, NETPROP IPSEC, STATUS, STATUS, CFNUMBER },
+    { SC_10_6_IPHONE_2_0, NETPROP IPSEC, XAUTH ENABLED, NULL, CFNUMBER_BOOL },
+    { SC_10_6_IPHONE_2_0, NETPROP IPSEC, XAUTH NAME, NULL, CFSTRING },
+    { SC_10_6_IPHONE_2_0, NETPROP IPSEC, XAUTH PASSWORD, NULL, CFSTRING },
+    { SC_10_6_IPHONE_2_0, NETPROP IPSEC, XAUTH PASSWORD ENCRYPTION, NULL, CFSTRING },
     { COMMENT, "", NULL, NULL, NULL },
     { COMMENT, "--- " KEY_PREFIX NETPROP IPSEC AUTHENTICATIONMETHOD " values ---", NULL, NULL, NULL },
     { SC_10_5, NETVAL IPSEC AUTHENTICATIONMETHOD, SHAREDSECRET, NULL, NULL },
     { SC_10_5, NETVAL IPSEC AUTHENTICATIONMETHOD, CERTIFICATE, NULL, NULL },
-    { COMMENT, "", NULL, NULL, NULL },
-    { COMMENT, "--- " KEY_PREFIX NETPROP IPSEC SHAREDSECRET ENCRYPTION " values ---", NULL, NULL, NULL },
-    { SC_10_5, NETVAL IPSEC SHAREDSECRET ENCRYPTION, KEYCHAIN, NULL, NULL },
+    { SC_10_5, NETVAL IPSEC AUTHENTICATIONMETHOD, HYBRID, NULL, NULL },
     { COMMENT, "", NULL, NULL, NULL },
     { COMMENT, "--- " KEY_PREFIX NETPROP IPSEC LOCALIDENTIFIER TYPE " values ---", NULL, NULL, NULL },
     { SC_10_5, NETVAL IPSEC LOCALIDENTIFIER TYPE, KEYID, NULL, NULL },
     { COMMENT, "", NULL, NULL, NULL },
+    { COMMENT, "--- " KEY_PREFIX NETPROP IPSEC SHAREDSECRET ENCRYPTION " values ---", NULL, NULL, NULL },
+    { SC_10_5, NETVAL IPSEC SHAREDSECRET ENCRYPTION, KEYCHAIN, NULL, NULL },
+    { COMMENT, "", NULL, NULL, NULL },
+    { COMMENT, "--- " KEY_PREFIX NETPROP IPSEC XAUTH PASSWORD ENCRYPTION " values ---", NULL, NULL, NULL },
+    { SC_10_6_IPHONE_2_0, NETVAL IPSEC XAUTH PASSWORD ENCRYPTION, KEYCHAIN, NULL, NULL },
+    { SC_10_6_IPHONE_3_0, NETVAL IPSEC XAUTH PASSWORD ENCRYPTION, PROMPT, NULL, NULL },
+    { COMMENT, "", NULL, NULL, NULL },
+
+  { GROUP_PRIVATE, NETPROP IPSEC, KEY_PREFIX NETENT IPSEC " Entity Keys", NULL, NULL },
+
+    { SC_10_6_IPHONE_3_0_PRIVATE, NETPROP IPSEC, LAST CAUSE, NULL, CFNUMBER },
+    { COMMENT_PRIVATE, "", NULL, NULL, NULL },
+    { COMMENT_PRIVATE, "--- " ONDEMAND ": ---", NULL, NULL, NULL },
+    { SC_10_6_IPHONE_3_0_PRIVATE, NETPROP IPSEC, ONDEMAND ENABLED, NULL, CFNUMBER_BOOL },
+    { SC_10_6_IPHONE_3_0_PRIVATE, NETPROP IPSEC, ONDEMAND MATCH DOMAINS ALWAYS, NULL, CFARRAY_CFSTRING },
+    { SC_10_6_IPHONE_3_0_PRIVATE, NETPROP IPSEC, ONDEMAND MATCH DOMAINS ONRETRY, NULL, CFARRAY_CFSTRING },
+    { SC_10_6_IPHONE_3_0_PRIVATE, NETPROP IPSEC, ONDEMAND MATCH DOMAINS NEVER, NULL, CFARRAY_CFSTRING },
+    { COMMENT_PRIVATE, "", NULL, NULL, NULL },
 
   { GROUP, NETPROP IPV4, KEY_PREFIX NETENT IPV4 " Entity Keys", NULL, NULL },
 
@@ -593,6 +643,7 @@ static schemaDefinition names[] = {
     { SC_10_1, NETPROP IPV4, BROADCAST ADDRESSES, NULL, CFARRAY_CFSTRING },
     { COMMENT, "", NULL, NULL, NULL },
     { COMMENT, "--- " KEY_PREFIX NETPROP IPV4 CONFIGMETHOD " values ---", NULL, NULL, NULL },
+    { SC_10_6_IPHONE_2_0, NETVAL IPV4 CONFIGMETHOD, AUTOMATIC, NULL, NULL },
     { SC_10_1, NETVAL IPV4 CONFIGMETHOD, BOOTP, NULL, NULL },
     { SC_10_1, NETVAL IPV4 CONFIGMETHOD, DHCP, NULL, NULL },
     { SC_10_1, NETVAL IPV4 CONFIGMETHOD, INFORM, NULL, NULL },
@@ -663,6 +714,7 @@ static schemaDefinition names[] = {
 
   { GROUP_DEPRECATED, NETPROP NETINFO, KEY_PREFIX NETENT NETINFO " Entity Keys", NULL, NULL },
 
+    { DEFINE, "#if", "!TARGET_OS_IPHONE", NULL, NULL },
     { SC_10_1_10_5, NETPROP NETINFO, BINDINGMETHODS, NULL, CFSTRING },
     { SC_10_1_10_5, NETPROP NETINFO, SERVER ADDRESSES, NULL, CFARRAY_CFSTRING },
     { SC_10_1_10_5, NETPROP NETINFO, SERVER TAGS, NULL, CFARRAY_CFSTRING },
@@ -675,6 +727,7 @@ static schemaDefinition names[] = {
     { COMMENT_DEPRECATED, "", NULL, NULL, NULL },
     { COMMENT_DEPRECATED, "--- " KEY_PREFIX NETPROP NETINFO BROADCAST SERVER TAG " default value ---", NULL, NULL, NULL },
     { SC_10_1_10_5, NETVAL NETINFO, DEFAULT SERVER TAG, "network", NULL },
+    { DEFINE, "#endif", "// !TARGET_OS_IPHONE", NULL, NULL },
     { COMMENT_DEPRECATED, "", NULL, NULL, NULL },
 
   { GROUP, NETPROP PPP, KEY_PREFIX NETENT PPP " Entity Keys", NULL, NULL },
@@ -765,7 +818,12 @@ static schemaDefinition names[] = {
     { COMMENT_PRIVATE, "--- " ONDEMAND ": ---", NULL, NULL, NULL },
     { SC_10_5_PRIVATE, NETPROP PPP, ONDEMAND DOMAINS, NULL, CFARRAY_CFSTRING },
     { SC_10_5_PRIVATE, NETPROP PPP, ONDEMAND ENABLED, NULL, CFNUMBER_BOOL },
-    { SC_10_5_PRIVATE, NETPROP PPP, ONDEMAND HOSTNAME, NULL, CFSTRING },
+    { SC_10_5_PRIVATE, NETPROP PPP, ONDEMAND HOSTNAME, NULL, CFSTRING },    // DEPRECATED, use kSCNetworkConnectionSelectionOptionOnDemandHostName
+#ifdef	NOTYET
+    { SC_10_6_IPHONE_3_0_PRIVATE, NETPROP PPP, ONDEMAND MATCH DOMAINS ALWAYS, NULL, CFARRAY_CFSTRING },
+    { SC_10_6_IPHONE_3_0_PRIVATE, NETPROP PPP, ONDEMAND MATCH DOMAINS ONRETRY, NULL, CFARRAY_CFSTRING },
+    { SC_10_6_IPHONE_3_0_PRIVATE, NETPROP PPP, ONDEMAND MATCH DOMAINS NEVER, NULL, CFARRAY_CFSTRING },
+#endif	// NOTYET
     { SC_10_5_PRIVATE, NETPROP PPP, ONDEMAND MODE, NULL, CFSTRING },
     { SC_10_5_PRIVATE, NETPROP PPP, ONDEMAND PRIORITY, NULL, CFSTRING },
     { COMMENT_PRIVATE, "", NULL, NULL, NULL },
@@ -837,8 +895,20 @@ static schemaDefinition names[] = {
     { SC_10_4, NETPROP PROXIES, PROXY AUTODISCOVERY ENABLE, NULL, CFNUMBER_BOOL },
     { COMMENT, "", NULL, NULL, NULL },
 
+  { GROUP_PRIVATE, NETPROP SERVICE, KEY_PREFIX NETENT SERVICE " Entity Keys", NULL, NULL },
+    
+    { SC_10_6_IPHONE_2_0_PRIVATE, NETPROP SERVICE, PRIMARYRANK, NULL, CFSTRING },
+    { SC_10_6_IPHONE_2_0_PRIVATE, NETPROP SERVICE, USERDEFINEDNAME, NULL, CFSTRING },
+    { COMMENT_PRIVATE, "", NULL, NULL, NULL },
+    { COMMENT_PRIVATE, "--- " KEY_PREFIX NETPROP SERVICE PRIMARYRANK " values ---", NULL, NULL, NULL },
+    { SC_10_6_IPHONE_2_0_PRIVATE, NETVAL SERVICE PRIMARYRANK, FIRST, NULL },
+    { SC_10_6_IPHONE_2_0_PRIVATE, NETVAL SERVICE PRIMARYRANK, LAST, NULL },
+    { SC_10_6_IPHONE_2_0_PRIVATE, NETVAL SERVICE PRIMARYRANK, NEVER, NULL },
+    { COMMENT_PRIVATE, "", NULL, NULL, NULL },
+
   { GROUP, NETPROP SMB, KEY_PREFIX NETENT SMB " Entity Keys", NULL, NULL },
 
+    { DEFINE, "#if", "!TARGET_OS_IPHONE", NULL, NULL },
     { SC_10_5, NETPROP SMB, NETBIOS NAME, NULL, CFSTRING },
     { SC_10_5, NETPROP SMB, NETBIOS NODE TYPE, NULL, CFSTRING },
     { SC_10_5, NETPROP SMB, NETBIOS SCOPE, NULL, CFSTRING },
@@ -850,11 +920,14 @@ static schemaDefinition names[] = {
     { SC_10_5, NETVAL SMB NETBIOS NODE TYPE, PEER, NULL },
     { SC_10_5, NETVAL SMB NETBIOS NODE TYPE, MIXED, NULL },
     { SC_10_5, NETVAL SMB NETBIOS NODE TYPE, HYBRID, NULL },
+    { DEFINE, "#endif", "// !TARGET_OS_IPHONE", NULL, NULL },
     { COMMENT, "", NULL, NULL, NULL },
 
   { GROUP, USERSENT CONSOLEUSER, KEY_PREFIX COMP USERS " Entity Keys", NULL, NULL },
 
+    { DEFINE, "#if", "!TARGET_OS_IPHONE", NULL, NULL },
     { SC_10_1, USERSENT, CONSOLEUSER, NULL, NULL },
+    { DEFINE, "#endif", "// !TARGET_OS_IPHONE", NULL, NULL },
     { COMMENT, "", NULL, NULL, NULL },
 
   { GROUP, SYSTEMPROP COMPUTERNAME, KEY_PREFIX COMP SYSTEM " Properties", NULL, NULL },
@@ -894,6 +967,7 @@ static schemaDefinition names[] = {
 
   { GROUP_PRIVATE, VIRTUALNETWORKINTERFACES, "Virtual Network Interface Keys", NULL, NULL },
 
+    { DEFINE_PRIVATE, "#if", "!TARGET_OS_IPHONE", NULL, NULL },
     { SC_10_5_PRIVATE, VIRTUALPROP BOND, INTERFACES, NULL, CFARRAY_CFSTRING },
     { SC_10_5_PRIVATE, VIRTUALPROP BOND, MODE, NULL, CFNUMBER },
     { SC_10_5_PRIVATE, VIRTUALPROP BOND, OPTIONS, NULL, CFDICTIONARY },
@@ -901,13 +975,16 @@ static schemaDefinition names[] = {
     { SC_10_5_PRIVATE, VIRTUALPROP VLAN, INTERFACE, NULL, CFSTRING },
     { SC_10_5_PRIVATE, VIRTUALPROP VLAN, TAG, NULL, CFNUMBER },
     { SC_10_5_PRIVATE, VIRTUALPROP VLAN, OPTIONS, NULL, CFDICTIONARY },
+    { DEFINE_PRIVATE, "#endif", "// !TARGET_OS_IPHONE", NULL, NULL },
 //  { COMMENT_PRIVATE, "", NULL, NULL, NULL },
 
 //{ GROUP, "DEPRECATED", "Deprecated schema definition keys", NULL, NULL },
 
+    { DEFINE, "#if", "!TARGET_OS_IPHONE", NULL, NULL },
     { SC_10_1_10_4, USERSPROP CONSOLEUSER, NAME, NULL, CFSTRING },
     { SC_10_1_10_4, USERSPROP CONSOLEUSER, UID, NULL, CFNUMBER },
     { SC_10_1_10_4, USERSPROP CONSOLEUSER, GID, NULL, CFNUMBER },
+    { DEFINE, "#endif", "// !TARGET_OS_IPHONE", NULL, NULL },
 //  { COMMENT, "", NULL, NULL, NULL },
 
     { END, NULL, NULL, NULL, NULL },
@@ -965,6 +1042,13 @@ print_comment(schemaDefinition *def)
 }
 
 void
+print_define(schemaDefinition *def)
+{
+	printf("%s %s\n", def->prefix, def->key);
+	return;
+}
+
+void
 print_headerdoc(schemaDefinition *def)
 {
 	char kbuf[256];
@@ -989,21 +1073,38 @@ print_headerdoc(schemaDefinition *def)
 	    case SC_10_2:
 		printf("  @availability Introduced in Mac OS X 10.2.\n");
 		break;
-	    case SC_10_1_10_4:
-		printf("  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.4.\n");
-		break;
-	    case SC_10_1_10_5:
-		printf("  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.5.\n");
-		break;
 	    case SC_10_3:
 		printf("  @availability Introduced in Mac OS X 10.3.\n");
+		break;
+	    case SC_10_1_10_4:
+		printf("  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.4.\n");
 		break;
 	    case SC_10_4:
 		printf("  @availability Introduced in Mac OS X 10.4.\n");
 		break;
+	    case SC_10_1_10_5:
+		printf("  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.5.\n");
+		break;
 	    case SC_10_5:
 	    case SC_10_5_PRIVATE:
 		printf("  @availability Introduced in Mac OS X 10.5.\n");
+		break;
+	    case SC_10_1_10_6:
+		printf("  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.6.\n");
+		break;
+	    case SC_10_2_10_6:
+		printf("  @availability Introduced in Mac OS X 10.2, but later deprecated in Mac OS X 10.6.\n");
+		break;
+	    case SC_10_6_IPHONE_2_0:
+	    case SC_10_6_IPHONE_2_0_PRIVATE:
+		printf("  @availability Introduced in Mac OS X 10.6.\n");
+		break;
+	    case SC_10_6_IPHONE_3_0:
+	    case SC_10_6_IPHONE_3_0_PRIVATE:
+		printf("  @availability Introduced in Mac OS X 10.6.\n");
+		break;
+	    case SC_IPHONE_2_0_PRIVATE:
+		printf("  @availability Introduced in iPhone OS 2.0.\n");
 		break;
 	}
 	printf(" */\n");
@@ -1030,66 +1131,88 @@ print_hfile(schemaDefinition *def)
 
 	switch (def->control) {
 	    case SC_10_1:
-		printf("#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030\n");
-		printf("  " SC_SCHEMA_DECLARATION "(%s, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)\n", kbuf);
-		printf("#endif\n");
+		printf("  " SC_SCHEMA_DECLARATION "(%s, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))\n", kbuf);
 		break;
 	    case SC_10_2:
-		printf("#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030\n");
-		printf("  " SC_SCHEMA_DECLARATION "(%s, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)\n", kbuf);
-		printf("#endif\n");
+		printf("  " SC_SCHEMA_DECLARATION "(%s, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))\n", kbuf);
 		break;
 	    case SC_10_3:
-		printf("#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030\n");
-		printf("  " SC_SCHEMA_DECLARATION "(%s, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)\n", kbuf);
-		printf("#endif\n");
+		printf("  " SC_SCHEMA_DECLARATION "(%s, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))\n", kbuf);
 		break;
 	    case SC_10_1_10_4:
-		printf("#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030\n");
-		printf("  " SC_SCHEMA_DECLARATION "(%s, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4)\n", kbuf);
-		printf("#endif\n");
-		break;
-	    case SC_10_1_10_5:
-		printf("#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040\n");
-		printf("  " SC_SCHEMA_DECLARATION "(%s, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5)\n", kbuf);
-		printf("#endif\n");
+		printf("  " SC_SCHEMA_DECLARATION "(%s, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_4,__IPHONE_NA,__IPHONE_NA))\n", kbuf);
 		break;
 	    case SC_10_4:
-		printf("#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040\n");
-		printf("  " SC_SCHEMA_DECLARATION "(%s, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER)\n", kbuf);
-		printf("#endif\n");
+		printf("  " SC_SCHEMA_DECLARATION "(%s, __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/))\n", kbuf);
+		break;
+	    case SC_10_1_10_5:
+		printf("  " SC_SCHEMA_DECLARATION "(%s, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA))\n", kbuf);
 		break;
 	    case SC_10_5:
 	    case SC_10_5_PRIVATE:
-		printf("#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050\n");
-		printf("  " SC_SCHEMA_DECLARATION "(%s, AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER)\n", kbuf);
-		printf("#endif\n");
+		printf("  " SC_SCHEMA_DECLARATION "(%s, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))\n", kbuf);
+		break;
+	    case SC_10_1_10_6:
+		printf("  " SC_SCHEMA_DECLARATION "(%s, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA))\n", kbuf);
+		break;
+	    case SC_10_2_10_6:
+		printf("  " SC_SCHEMA_DECLARATION "(%s, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2,__MAC_10_6,__IPHONE_NA,__IPHONE_NA))\n", kbuf);
+		break;
+	    case SC_10_6_IPHONE_2_0:
+	    case SC_10_6_IPHONE_2_0_PRIVATE:
+		printf("  " SC_SCHEMA_DECLARATION "(%s, __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_2_0/*SPI*/))\n", kbuf);
+		break;
+	    case SC_10_6_IPHONE_3_0:
+	    case SC_10_6_IPHONE_3_0_PRIVATE:
+		printf("  " SC_SCHEMA_DECLARATION "(%s, __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_3_0/*SPI*/))\n", kbuf);
+		break;
+	    case SC_IPHONE_2_0_PRIVATE:
+		printf("  " SC_SCHEMA_DECLARATION "(%s, __OSX_AVAILABLE_STARTING(__MAC_NA,__IPHONE_2_0/*SPI*/))\n", kbuf);
 		break;
 	    default:
-		printf("#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030\n");
 		printf("  " SC_SCHEMA_DECLARATION "(%s,)\n", kbuf);
-		printf("#endif\n");
 		break;
 	}
 
 	switch (def->control) {
 	    case SC_10_1:
-	    case SC_10_1_10_4:
-	    case SC_10_1_10_5:
-		printf("#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)\n");
+		printf("#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/\n");
 		break;
 	    case SC_10_2:
-		printf("#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)\n");
+		printf("#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/\n");
 		break;
 	    case SC_10_3:
-		printf("#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)\n");
+		printf("#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/\n");
+		break;
+	    case SC_10_1_10_4:
+		printf("#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010)\n");
 		break;
 	    case SC_10_4:
-		printf("#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1040)\n");
+		printf("#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/\n");
+		break;
+	    case SC_10_1_10_5:
+		printf("#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010)\n");
 		break;
 	    case SC_10_5:
 	    case SC_10_5_PRIVATE:
-		printf("#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1050)\n");
+		printf("#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/\n");
+		break;
+	    case SC_10_1_10_6:
+		printf("#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010)\n");
+		break;
+	    case SC_10_2_10_6:
+		printf("#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1020)\n");
+		break;
+	    case SC_10_6_IPHONE_2_0:
+	    case SC_10_6_IPHONE_2_0_PRIVATE:
+		printf("#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1060) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/\n");
+		break;
+	    case SC_10_6_IPHONE_3_0:
+	    case SC_10_6_IPHONE_3_0_PRIVATE:
+		printf("#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1060) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 30000)/*SPI*/\n");
+		break;
+	    case SC_IPHONE_2_0_PRIVATE:
+		printf("#if (__IPHONE_OS_VERSION_MIN_REQUIRED >= 20000)/*SPI*/\n");
 		break;
 	}
 
@@ -1104,13 +1227,20 @@ print_hfile(schemaDefinition *def)
 
 	switch (def->control) {
 	    case SC_10_1:
-	    case SC_10_1_10_4:
-	    case SC_10_1_10_5:
 	    case SC_10_2:
 	    case SC_10_3:
+	    case SC_10_1_10_4:
 	    case SC_10_4:
+	    case SC_10_1_10_5:
 	    case SC_10_5:
 	    case SC_10_5_PRIVATE:
+	    case SC_10_1_10_6:
+	    case SC_10_2_10_6:
+	    case SC_10_6_IPHONE_2_0:
+	    case SC_10_6_IPHONE_3_0:
+	    case SC_10_6_IPHONE_2_0_PRIVATE:
+	    case SC_10_6_IPHONE_3_0_PRIVATE:
+	    case SC_IPHONE_2_0_PRIVATE:
 		printf("#endif\n");
 		break;
 	}
@@ -1163,6 +1293,48 @@ dump_names(int type)
 		break;
 	    }
 
+	    case DEFINE: {
+		switch (type) {
+		    case gen_hfile_e:
+			printf("\n");
+			print_define(&names[i]);
+			break;
+		    case gen_cfile_e:
+			if ((strcmp(names[i].prefix, "#if") == 0) ||
+			    (strcmp(names[i].prefix, "#ifdef") == 0) ||
+			    (strcmp(names[i].prefix, "#ifndef") == 0))
+			    printf("\n");
+			print_define(&names[i]);
+			if (strcmp(names[i].prefix, "#endif") == 0)
+			    printf("\n");
+			break;
+		    default:
+			break;
+		}
+		break;
+	    }
+
+	    case DEFINE_PRIVATE: {
+		switch (type) {
+		    case gen_hfile_private_e:
+			printf("\n");
+			print_define(&names[i]);
+			break;
+		    case gen_cfile_e:
+			if ((strcmp(names[i].prefix, "#if") == 0) ||
+			    (strcmp(names[i].prefix, "#ifdef") == 0) ||
+			    (strcmp(names[i].prefix, "#ifndef") == 0))
+			    printf("\n");
+			print_define(&names[i]);
+			if (strcmp(names[i].prefix, "#endif") == 0)
+			    printf("\n");
+			break;
+		    default:
+			break;
+		}
+		break;
+	    }
+		    
 	    case GROUP:
 	    case GROUP_DEPRECATED: {
 		switch (type) {
@@ -1222,9 +1394,14 @@ dump_names(int type)
 			switch (names[i].control) {
 			    case SC_10_1_10_4:
 			    case SC_10_1_10_5:
+			    case SC_10_1_10_6:
+			    case SC_10_2_10_6:
 				// don't report deprecated keys
 				break;
 			    case SC_10_5_PRIVATE:
+			    case SC_10_6_IPHONE_2_0_PRIVATE:
+			    case SC_10_6_IPHONE_3_0_PRIVATE:
+			    case SC_IPHONE_2_0_PRIVATE:
 				// don't report private definitions
 				break;
 			    default:
@@ -1236,9 +1413,14 @@ dump_names(int type)
 			switch (names[i].control) {
 			    case SC_10_1_10_4:
 			    case SC_10_1_10_5:
+			    case SC_10_1_10_6:
+			    case SC_10_2_10_6:
 				// don't report deprecated keys
 				break;
 			    case SC_10_5_PRIVATE:
+			    case SC_10_6_IPHONE_2_0_PRIVATE:
+			    case SC_10_6_IPHONE_3_0_PRIVATE:
+			    case SC_IPHONE_2_0_PRIVATE:
 				print_comment(&names[i]);
 				break;
 			    default:
@@ -1250,8 +1432,11 @@ dump_names(int type)
 		    case gen_headerdoc_e:
 			switch (names[i].control) {
 			    case SC_10_5_PRIVATE:
-				break;
+			    case SC_10_6_IPHONE_2_0_PRIVATE:
+			    case SC_10_6_IPHONE_3_0_PRIVATE:
+			    case SC_IPHONE_2_0_PRIVATE:
 				// don't report private definitions
+				break;
 			    default:
 				print_headerdoc(&names[i]);
 				break;
@@ -1260,6 +1445,9 @@ dump_names(int type)
 		    case gen_headerdoc_private_e:
 			switch (names[i].control) {
 			    case SC_10_5_PRIVATE:
+			    case SC_10_6_IPHONE_2_0_PRIVATE:
+			    case SC_10_6_IPHONE_3_0_PRIVATE:
+			    case SC_IPHONE_2_0_PRIVATE:
 				print_headerdoc(&names[i]);
 				break;
 			    default:
@@ -1271,6 +1459,9 @@ dump_names(int type)
 		    case gen_hfile_e:
 			switch (names[i].control) {
 			    case SC_10_5_PRIVATE:
+			    case SC_10_6_IPHONE_2_0_PRIVATE:
+			    case SC_10_6_IPHONE_3_0_PRIVATE:
+			    case SC_IPHONE_2_0_PRIVATE:
 				break;
 				// don't report private definitions
 			    default:
@@ -1281,6 +1472,9 @@ dump_names(int type)
 		    case gen_hfile_private_e:
 			switch (names[i].control) {
 			    case SC_10_5_PRIVATE:
+			    case SC_10_6_IPHONE_2_0_PRIVATE:
+			    case SC_10_6_IPHONE_3_0_PRIVATE:
+			    case SC_IPHONE_2_0_PRIVATE:
 				print_hfile(&names[i]);
 				break;
 			    default:
@@ -1325,39 +1519,7 @@ main(int argc, char * argv[])
     if (argc >= 2)
 	type = argv[1];
 
-    if (strcmp(type, "header-x") == 0) {
-	printf("%s\n", copyright_string);
-	printf("/*\n * This file is automatically generated\n * DO NOT EDIT!\n */\n\n");
-
-	printf("/*\n");
-	printf(" * Note: For Cocoa/Obj-C/Foundation programs accessing these preference\n");
-	printf(" *       keys you may want to consider the following:\n");
-	printf(" *\n");
-	printf(" *       #define SCSTR(s) (NSString *)CFSTR(s)\n");
-	printf(" *       #import <SystemConfiguration/SystemConfiguration.h>\n");
-	printf(" */\n\n");
-
-	printf("#ifndef _SCSCHEMADEFINITIONS_10_1_H\n#define _SCSCHEMADEFINITIONS_10_1_H\n\n");
-
-	printf("#warning USE OF THIS HEADER HAS BEEN DEPRECATED\n");
-
-	printf("#ifndef _SCSCHEMADEFINITIONS_H\n");
-	printf("#warning Please #include <SystemConfiguration/SystemConfiguration.h> instead\n");
-	printf("#warning of including this file directly.\n");
-	printf("#include <SystemConfiguration/SCSchemaDefinitions.h>\n");
-	printf("#endif\n\n");
-
-//	printf("#ifndef  SCSTR\n");
-//	printf("#include <CoreFoundation/CFString.h>\n");
-//	printf("#define  SCSTR(s) CFSTR(s)\n");
-//	printf("#endif\n\n");
-//
-//	dump_names(gen_header_e);
-//	printf("\n");
-
-	printf("#endif /* _SCSCHEMADEFINITIONS_10_1_H */\n");
-    }
-    else if (strcmp(type, "header") == 0) {
+    if (strcmp(type, "header") == 0) {
 	printf("%s\n", copyright_string);
 	printf("/*\n * This file is automatically generated\n * DO NOT EDIT!\n */\n\n");
 
@@ -1402,18 +1564,25 @@ main(int argc, char * argv[])
 	printf(" *       \"" SC_SCHEMA_DECLARATION "\" and \"" SC_SCHEMA_KV "\" macros\n");
 	printf(" */\n\n\n");
 
-	printf("#ifndef _SCSCHEMADEFINITIONS_H\n#define _SCSCHEMADEFINITIONS_H\n\n");
+	printf("#ifndef\t_SCSCHEMADEFINITIONS_H\n");
+	printf("#ifdef\tUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS\n");
+	printf("#include <SystemConfiguration/_SCSchemaDefinitions.h>\n");
+	printf("#else\t/* USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS */\n");
+	printf("#define\t_SCSCHEMADEFINITIONS_H\n");
+	printf("\n");
 
 	printf("/* -------------------- Macro declarations -------------------- */\n\n");
 
-	printf("#include <AvailabilityMacros.h>\n\n");
+	printf("#include <Availability.h>\n");
+	printf("#include <TargetConditionals.h>\n");
+	printf("\n");
 
 	printf("/*\n");
 	printf(" * let's \"do the right thing\" for those wishing to build for\n");
 	printf(" * Mac OS X 10.1.0 ... 10.2.x\n");
 	printf(" */\n");
 
-	printf("#if MAC_OS_X_VERSION_MIN_REQUIRED <= 1020\n");
+	printf("#if defined(__MAC_OS_X_VERSION_MIN_REQUIRED) && (__MAC_OS_X_VERSION_MIN_REQUIRED <= 1020) && !defined(__IPHONE_OS_VERSION_MIN_REQUIRED)\n");
 	printf("  #ifndef SCSTR\n");
 	printf("    #include <CoreFoundation/CFString.h>\n");
 	printf("    #define SCSTR(s) CFSTR(s)\n");
@@ -1447,7 +1616,7 @@ main(int argc, char * argv[])
 	printf("#endif\n");
 
 	// The SCSTR() macro should only be availble for Mac OS X 10.1.0 ... 10.4.x
-	printf("#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) && (MAC_OS_X_VERSION_MAX_ALLOWED <= 1040)\n");
+	printf("#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) && (__MAC_OS_X_VERSION_MAX_ALLOWED <= 1040) && !defined(__IPHONE_OS_VERSION_MIN_REQUIRED)\n");
 	printf("  #ifndef SCSTR\n");
 	printf("    #include <CoreFoundation/CFString.h>\n");
 	printf("    #define SCSTR(s) CFSTR(s)\n");
@@ -1467,7 +1636,8 @@ main(int argc, char * argv[])
 	dump_names(gen_hfile_e);
 	printf("\n");
 
-	printf("#endif /* _SCSCHEMADEFINITIONS_H */\n");
+	printf("#endif\t/* USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS */\n");
+	printf("#endif\t/* _SCSCHEMADEFINITIONS_H */\n");
     }
     else if (strcmp(type, "private") == 0) {
 	printf("%s\n", copyright_string);
@@ -1477,7 +1647,9 @@ main(int argc, char * argv[])
 	dump_names(gen_comments_private_e);
 	printf(" */\n\n\n");
 
-	printf("#ifndef _SCSCHEMADEFINITIONSPRIVATE_H\n#define _SCSCHEMADEFINITIONSPRIVATE_H\n\n");
+	printf("#ifndef _SCSCHEMADEFINITIONSPRIVATE_H\n");
+	printf("#define _SCSCHEMADEFINITIONSPRIVATE_H\n");
+	printf("\n");
 
 	printf("/* -------------------- Macro declarations -------------------- */\n\n");
 
@@ -1504,6 +1676,8 @@ main(int argc, char * argv[])
 	printf(" * DO NOT EDIT!\n");
 	printf(" */\n");
 	printf("\n");
+	printf("#include <Availability.h>\n");
+	printf("#include <TargetConditionals.h>\n");
 	printf("#include <CoreFoundation/CFString.h>\n");
 	printf("\n");
 	dump_names(gen_cfile_e);

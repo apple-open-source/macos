@@ -3,9 +3,8 @@
   <!-- Our id on the network (default: resolver) -->
   <id>resolver</id>
 
-  <!-- The process ID file. comment this out if you don't need to know
-       to know the process ID from outside the process (eg for control
-       scripts) -->
+  <!-- The process ID file. Comment this out if you don't need to know
+       the process ID from outside the process (eg for control scripts) -->
   <pidfile>/var/run/jabberd/resolver.pid</pidfile>
 
   <!-- Router connection configuration -->
@@ -18,11 +17,19 @@
     <user>jabberd</user>          <!-- default: jabberd -->
     <pass>@ROUTERPASSWORD@</pass>           <!-- default: secret -->
 
-    <!-- File containing a SSL certificate and private key to use when
-         setting up an encrypted channel with the router. If this is
-         commented out, or the file can't be read, no attempt will be
-         made to establish an encrypted channel with the router. -->
-    <pemfile>/etc/certificates/Default.crtkey</pemfile>
+    <!-- File containing an SSL certificate and private key to use when
+         setting up an encrypted channel with the router. From
+         SSL_CTX_use_certificate_chain_file(3): "The certificates must be
+         in PEM format and must be sorted starting with the subject's
+         certificate (actual client or server certificate), followed
+         by intermediate CA certificates if applicable, and ending
+         at the highest level (root) CA" (the latter one being optional).
+         If this is commented out, or the file can't be read, no attempt
+         will be made to establish an encrypted channel with the router. -->
+    <!--<pemfile/>-->
+
+    <!-- Password for private key if key in router pemfile is encrypted -->
+    <!--<private_key_password/>-->
 
     <!-- Router connection retry -->
     <retry>
@@ -49,12 +56,12 @@
     <ident>jabberd/resolver</ident>
 
     <!-- If logging to syslog, this is the log facility
-         (local0 - local7)                        [default: local3] -->
-    <facility>local3</facility>
+         (local0 - local7, log_user)                        [default: local3] -->
+    <facility>log_user</facility>
 
     <!-- If logging to file, this is the filename of the logfile -->
     <!--
-    <file>/usr/var/jabberd/log/resolver.log</file>
+    <file>/var/jabberd/log/resolver.log</file>
     -->
   </log>
 

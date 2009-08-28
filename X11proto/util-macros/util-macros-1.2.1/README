@@ -1,0 +1,22 @@
+This is a set of autoconf macros used by the configure.ac scripts in
+other Xorg modular packages, and is needed to generate new versions
+of their configure scripts with autoconf.
+
+Please submit bugs & patches to the Xorg bugzilla:
+
+	https://bugs.freedesktop.org/enter_bug.cgi?product=xorg
+
+All questions regarding this software should be directed at the
+Xorg mailing list:
+
+	http://lists.freedesktop.org/mailman/listinfo/xorg
+
+The master development code repository can be found at:
+
+	git://anongit.freedesktop.org/git/xorg/util/macros
+	
+	http://cgit.freedesktop.org/xorg/util/macros/
+
+For more information on the git code manager, see:
+
+	http://wiki.x.org/wiki/GitPage

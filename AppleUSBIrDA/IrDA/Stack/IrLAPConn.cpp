@@ -174,7 +174,7 @@ EventTraceCauseDesc IrLAPConnTraceEvents[] = {
     {kDequeueEventEnd,              "irlapconn: Event End"}
 };
 
-#define XTRACE(x, y, z) IrDALogAdd( x, y, (int)z & 0xffff, IrLAPConnTraceEvents, true )
+#define XTRACE(x, y, z) IrDALogAdd( x, y, (uintptr_t)z & 0xffff, IrLAPConnTraceEvents, true )
 #else
 #define XTRACE(x, y, z) ((void)0)
 #endif
@@ -192,7 +192,7 @@ TIrLAPConn *
 TIrLAPConn::tIrLAPConn(TIrGlue* irda)
 {
 	TIrLAPConn *obj = new TIrLAPConn;
-	XTRACE(kNullEvent, (int)obj >> 16, obj);
+	XTRACE(kNullEvent, 0, obj);
 
 	if (obj && !obj->Init(irda)) {
 		obj->release();
@@ -209,7 +209,7 @@ TIrLAPConn::tIrLAPConn(TIrGlue* irda)
 void
 TIrLAPConn::free()
 {
-    XTRACE(kDestroy, (int)this >> 16, this);
+    XTRACE(kDestroy, 0, this);
     
     // Free things allocated by TIrLAPConn
     StopIdleDisconnectTimer();              // make sure the timer is off
@@ -232,7 +232,7 @@ TIrLAPConn::free()
 //--------------------------------------------------------------------------------
 Boolean TIrLAPConn::Init(TIrGlue* irda)
 {
-    XTRACE(kInit, (int)this >> 16, this);
+    XTRACE(kInit, 0, this);
     
     
     fState = kIrLAPConnStandby;
@@ -308,7 +308,7 @@ void TIrLAPConn::Reset()
 	XTRACE(kLogResetLsapConn, 1, fLSAPConnList->GetArraySize());
 	for (index = fLSAPConnList->GetArraySize() - 1; index >= 0 ; index--) {
 	    lsapConn = (TLSAPConn*)fLSAPConnList->At(index);
-	    XTRACE(kLogResetLsapConn, (int)lsapConn >> 16, lsapConn);
+	    XTRACE(kLogResetLsapConn, 0, lsapConn);
 	    // Complete pending get requests and delete any received buffers intended for this conn
 	    CleanupPendingGetRequestsAndReplies(lsapConn, errCancel);
 	}
@@ -326,7 +326,7 @@ void TIrLAPConn::Reset()
 	     iter->More(); getRequest = (TIrGetRequest*)iter->NextItem()) {
 	//for (getRequest = OSDynamicCast(TIrGetRequest, (OSObject *)iter->FirstItem());
 	//   iter->More(); getRequest = OSDynamicCast(TIrGetRequest, (OSObject *)iter->NextItem())) {
-	    XTRACE(kLogResetGetRequest, (int)getRequest >> 16, getRequest);
+	    XTRACE(kLogResetGetRequest, 0, getRequest);
 	    // This is somewhat inefficient, since Cleanup will loop through the pending list
 	    // again to match the LSAP.  But that's ok.
 	    this->CleanupPendingGetRequestsAndReplies( getRequest->fLSAPConn, errCancel);
@@ -342,7 +342,7 @@ void TIrLAPConn::Reset()
 	DebugLog("IrLapConn: reset pending get replies. how?"); // shouldn't get here
 	for (replyBuffer = (CBufferSegment*)iter->FirstItem();
 	     iter->More(); replyBuffer = (CBufferSegment*)iter->NextItem()) {
-	    XTRACE(kLogResetGetReply, (int)replyBuffer >> 16, replyBuffer);
+	    XTRACE(kLogResetGetReply, 0, replyBuffer);
 	    GetLAP->ReleaseInputBuffer(replyBuffer);    // give the buffer back to lap
 	}
 	while (!fUnmatchedGetReplys->Empty())
@@ -356,7 +356,7 @@ void TIrLAPConn::Reset()
 	CListIterator *iter = CListIterator::cListIterator(fPendingRequests);
 	for (TIrEvent* request = (TIrEvent*)iter->FirstItem();
 	     iter->More(); request = (TIrEvent*)iter->NextItem()) {
-		XTRACE(kLogResetPendingReq, (int)request >> 16, request);
+		XTRACE(kLogResetPendingReq, 0, request);
 		check(request->fEvent == kIrListenRequestEvent || request->fEvent == kIrConnectRequestEvent);
 		this->EnqueueEvent(request);
 	}
@@ -416,7 +416,7 @@ void TIrLAPConn::HandleStandbyStateEvent(ULong event)
 		TIrConnLstnRequest* request = (TIrConnLstnRequest*)GetCurrentEvent();
 		XTRACE(kStandbyConnLstnRequestEvent, event, 0);
 
-		XTRACE(kWantToAdd, (int)request->fLSAPConn>>16, request->fLSAPConn);
+		XTRACE(kWantToAdd, (uintptr_t)request->fLSAPConn>>16, request->fLSAPConn);
 
 		// Add the lsapConn to the list of pending conns to connect/listen
 		// jdg: the IAS server gets an error on it's listen and immediately issues another
@@ -451,7 +451,7 @@ void TIrLAPConn::HandleStandbyStateEvent(ULong event)
 		    if (fLSAPConnList->Contains(disconnectRequest->fLSAPConn)) {    // sigh, it doesn't always ...
 			XTRACE(kAddingToLSAPConnList, 0, 
 				disconnectRequest->fLSAPConn->GetMyLSAPId() << 8 | 99);
-			XTRACE(kAddingLsapToList, (int)disconnectRequest->fLSAPConn >> 16, disconnectRequest->fLSAPConn);        // jdg
+			XTRACE(kAddingLsapToList, 0, disconnectRequest->fLSAPConn);        // jdg
 		    IrDAErr removeResult = fLSAPConnList->Remove(disconnectRequest->fLSAPConn);
 		    ncheck(removeResult);
 		    }
@@ -484,7 +484,7 @@ void TIrLAPConn::HandleStandbyStateEvent(ULong event)
 		    CListIterator *iter = CListIterator::cListIterator(fPendingRequests);
 		    for (TIrEvent* request = (TIrEvent*)iter->FirstItem();
 			 iter->More(); request = (TIrEvent*)iter->NextItem()) {
-			    XTRACE(kStandbyDisconnectRequeue, (int)request >> 16, request);
+			    XTRACE(kStandbyDisconnectRequeue, 0, request);
 			    check(request->fEvent == kIrListenRequestEvent || request->fEvent == kIrConnectRequestEvent);
 			    this->EnqueueEvent(request);
 		    }
@@ -536,7 +536,7 @@ void TIrLAPConn::HandleConnectOrListenStateEvent(ULong event)
 		XTRACE(kPendingConnLstnRequestEvent, event, request->fEvent);
 	    
 		if (fDisconnectPending) {           // oops, hold off on this request unti the disconnect is done
-		    XTRACE(kPendingConnLstnDeferRequest, (int)GetCurrentEvent() >> 16, GetCurrentEvent());
+		    XTRACE(kPendingConnLstnDeferRequest, 0, GetCurrentEvent());
 		    fPendingRequests->InsertLast(GetCurrentEvent());
 		    check(GetCurrentEvent()->fEvent == kIrListenRequestEvent || GetCurrentEvent()->fEvent == kIrConnectRequestEvent);
 		    return;
@@ -588,7 +588,7 @@ void TIrLAPConn::HandleConnectOrListenStateEvent(ULong event)
 		XASSERT(!fLSAPConnList->Contains(request->fLSAPConn));
 		
 		XTRACE(kAddingToLSAPConnList, 1, request->fLSAPConn->GetMyLSAPId() << 8 | 1);
-		XTRACE(kAddingLsapToList, (int)request->fLSAPConn >> 16, request->fLSAPConn);
+		XTRACE(kAddingLsapToList, 0, request->fLSAPConn);
 		fLSAPConnList->InsertLast(request->fLSAPConn);
 
 		// No state change
@@ -648,7 +648,7 @@ void TIrLAPConn::HandleConnectOrListenStateEvent(ULong event)
 			TLSAPConn* lsapConn = (TLSAPConn*)fLSAPConnList->At(index);
 			// Remove this lsap from the lsap conn list
 			XTRACE(kAddingToLSAPConnList, 0,  lsapConn->GetMyLSAPId() << 8 | 2);    // jdg
-			XTRACE(kAddingLsapToList, (int)lsapConn >> 16, lsapConn);        // jdg
+			XTRACE(kAddingLsapToList, 0, lsapConn);        // jdg
 			fLSAPConnList->Remove(lsapConn);
 			// Complete pending get requests and delete any received buffers intended for this conn
 			CleanupPendingGetRequestsAndReplies(lsapConn, errCancel);
@@ -662,7 +662,7 @@ void TIrLAPConn::HandleConnectOrListenStateEvent(ULong event)
 	case kIrDisconnectRequestEvent:
 	    {
 		TIrDisconnectRequest* disconnectRequest = (TIrDisconnectRequest*)GetCurrentEvent();
-		XTRACE(kPendingDisconnectRequestEvent, (int)disconnectRequest->fLSAPConn >> 16, disconnectRequest->fLSAPConn);
+		XTRACE(kPendingDisconnectRequestEvent, 0, disconnectRequest->fLSAPConn);
     /*** this didn't work.  Just do a lap disconnect, and we'll return all the pending listen/connect
 	 requests.  Anyone that want's to keep alive can re-issue.
       ... let's try again
@@ -677,14 +677,13 @@ void TIrLAPConn::HandleConnectOrListenStateEvent(ULong event)
 		else {              // lap doesn't have the event from this lsapconn
 	 
 		    XTRACE(kAddingToLSAPConnList, 0, disconnectRequest->fLSAPConn->GetMyLSAPId() << 8 | 3);
-		    XTRACE(kAddingLsapToList, (int)disconnectRequest->fLSAPConn >> 16, disconnectRequest->fLSAPConn);        // jdg
+		    XTRACE(kAddingLsapToList, 0, disconnectRequest->fLSAPConn);        // jdg
 		    // Remove this lsap from the lsap conn list and
 		    // complete pending get requests and delete any received buffers intended for this conn
-		    IrDAErr removeResult = fLSAPConnList->Remove(disconnectRequest->fLSAPConn);
+		    (void) fLSAPConnList->Remove(disconnectRequest->fLSAPConn);
 		    CleanupPendingGetRequestsAndReplies(disconnectRequest->fLSAPConn, errCancel);
 		
-		    XTRACE(kPendingDisconnectRequestEvent, 2, 
-			(removeResult == noErr) << 2 | (fLSAPConnList->IsEmpty()) << 1 );
+		    XTRACE(kPendingDisconnectRequestEvent, 2,  (fLSAPConnList->IsEmpty()) << 1 );
 			
 			
 		    // now finish off their original listen/connect request
@@ -696,7 +695,7 @@ void TIrLAPConn::HandleConnectOrListenStateEvent(ULong event)
 			else if (pendingReply->fEvent == kIrListenRequestEvent) {
 				pendingReply->fEvent = kIrListenReplyEvent;
 			}
-			else check(pendingReply->fEvent == 0x1234);     // force debugger
+			//else check(pendingReply->fEvent == 0x1234);     // force debugger
 			pendingReply->fResult = errCancel;
 			pendingReply->fLSAPConn->EnqueueEvent(pendingReply);
 		    }
@@ -727,7 +726,7 @@ void TIrLAPConn::HandleConnectOrListenStateEvent(ULong event)
 		    CListIterator *iter = CListIterator::cListIterator(fPendingRequests);
 		    for (TIrEvent* request = (TIrEvent*)iter->FirstItem();
 			 iter->More(); request = (TIrEvent*)iter->NextItem()) {
-			    XTRACE(kPendingDisconnectRequeue, (int)request >> 16, request);
+			    XTRACE(kPendingDisconnectRequeue, 0, request);
 			    check(request->fEvent == kIrListenRequestEvent || request->fEvent == kIrConnectRequestEvent);
 			    this->EnqueueEvent(request);
 		    }
@@ -766,7 +765,7 @@ void TIrLAPConn::HandleActiveStateEvent(ULong event)
 		XTRACE(kActiveConnLstnRequestEvent, event, request->fEvent);
 		
 		if (fDisconnectPending) {           // oops, hold off on this request unti the disconnect is done
-		    XTRACE(kActiveConnLstnDeferRequest, (int)GetCurrentEvent() >> 16, GetCurrentEvent());
+		    XTRACE(kActiveConnLstnDeferRequest, 0, GetCurrentEvent());
 		    fPendingRequests->InsertLast(GetCurrentEvent());
 		    check(GetCurrentEvent()->fEvent == kIrListenRequestEvent || GetCurrentEvent()->fEvent == kIrConnectRequestEvent);
 		    return;
@@ -789,7 +788,7 @@ void TIrLAPConn::HandleActiveStateEvent(ULong event)
 		// Add the lsapConn to the list of conns associated w/fPeerDevAddr
 		XASSERT(!fLSAPConnList->Contains(request->fLSAPConn));
 		XTRACE(kAddingToLSAPConnList, 1, request->fLSAPConn->GetMyLSAPId() << 8 | 4);                                                       // jdg
-		XTRACE(kAddingLsapToList, (int)request->fLSAPConn >> 16, request->fLSAPConn);        // jdg
+		XTRACE(kAddingLsapToList, 0, request->fLSAPConn);        // jdg
 		fLSAPConnList->InsertLast(request->fLSAPConn);
 
 		// Already connected, reply to the requestor
@@ -826,7 +825,7 @@ void TIrLAPConn::HandleActiveStateEvent(ULong event)
 		XTRACE(kActiveDisconnectRequestEvent, 0, 0);
 		
 		XTRACE(kAddingToLSAPConnList, 0, disconnectRequest->fLSAPConn->GetMyLSAPId() << 8 | 5);                                                     // jdg
-		XTRACE(kAddingLsapToList, (int)disconnectRequest->fLSAPConn >> 16, disconnectRequest->fLSAPConn);        // jdg
+		XTRACE(kAddingLsapToList, 0, disconnectRequest->fLSAPConn);        // jdg
 		
 		// Remove this lsap from the lsap conn list
 		IrDAErr removeResult = fLSAPConnList->Remove(disconnectRequest->fLSAPConn);
@@ -900,7 +899,7 @@ void TIrLAPConn::HandleActiveStateEvent(ULong event)
 		    CListIterator *iter = CListIterator::cListIterator(fPendingRequests);
 		    for (TIrEvent* request = (TIrEvent*)iter->FirstItem();
 			 iter->More(); request = (TIrEvent*)iter->NextItem()) {
-			    XTRACE(kActiveDisconnectRequeue, (int)request >> 16, request);
+			    XTRACE(kActiveDisconnectRequeue, 0, request);
 			    check(request->fEvent == kIrListenRequestEvent || request->fEvent == kIrConnectRequestEvent);
 			    this->EnqueueEvent(request);
 		    }
@@ -983,8 +982,8 @@ void TIrLAPConn::HandleGetDataRequest()
 
     // Data is not in one of the buffers, add the request to the pending get requests.
     if (!matchFound) {
-	XTRACE(kLogAddingGetRequest1, (int)getRequest >> 16, getRequest);
-	XTRACE(kLogAddingGetRequest2, (int)getRequest->fLSAPConn >> 16, getRequest->fLSAPConn);
+	XTRACE(kLogAddingGetRequest1, 0, getRequest);
+	XTRACE(kLogAddingGetRequest2, 0, getRequest->fLSAPConn);
 	fPendingGetRequests->InsertLast(getRequest);
 	XTRACE(kLogAddingGetRequest3, fPendingGetRequests->Count(), getRequest->fLSAPConn->GetMyLSAPId());
     }
@@ -997,12 +996,12 @@ void TIrLAPConn::HandleGetDataRequest()
 //--------------------------------------------------------------------------------
 void TIrLAPConn::CleanupPendingGetRequestsAndReplies(TLSAPConn* lsapConn, IrDAErr returnCode)
 {
-    XTRACE(kLogCleanupPendingGetRequestsAndRepliesEntry, (int)lsapConn >> 16, lsapConn);
+    XTRACE(kLogCleanupPendingGetRequestsAndRepliesEntry, 0, lsapConn);
     
     // Complete any pending get requests with an error.  Default is kIRErrGeneric
     CancelPendingGetRequests( lsapConn, returnCode );   // ***FIXME: Better error return?
 
-    XTRACE(kLogCleanupPendingGetRequestsAndReplies2, (int)fUnmatchedGetReplys >> 16, fUnmatchedGetReplys);
+    XTRACE(kLogCleanupPendingGetRequestsAndReplies2, 0, fUnmatchedGetReplys);
 
     // Free any pending received buffers for this lsap connection
     if (fUnmatchedGetReplys) {
@@ -1015,7 +1014,7 @@ void TIrLAPConn::CleanupPendingGetRequestsAndReplies(TLSAPConn* lsapConn, IrDAEr
 	    //Boolean validFormat = ExtractHeader(replyBuffer, header, headerLength);
 	    Boolean validFormat;
 	    
-	    XTRACE(kLogCleanupPendingGetRequestsAndReplies3, (int)replyBuffer >> 16, replyBuffer);
+	    XTRACE(kLogCleanupPendingGetRequestsAndReplies3, 0, replyBuffer);
 	    
 	    validFormat = ExtractHeader(replyBuffer, header, headerLength);
 	    XASSERT(validFormat);
@@ -1040,7 +1039,7 @@ void TIrLAPConn::CleanupPendingGetRequestsAndReplies(TLSAPConn* lsapConn, IrDAEr
 void TIrLAPConn::CancelPendingGetRequests(TLSAPConn* lsapConn, IrDAErr returnCode)
 {
     // Complete any pending get requests with an error
-    XTRACE(kLogCancelPendingGetRequestsEntry, (int)lsapConn >> 16, lsapConn);
+    XTRACE(kLogCancelPendingGetRequestsEntry, 0, lsapConn);
     
     check(lsapConn);
     if (fPendingGetRequests && !fPendingGetRequests->Empty()) {
@@ -1048,7 +1047,7 @@ void TIrLAPConn::CancelPendingGetRequests(TLSAPConn* lsapConn, IrDAErr returnCod
 	for (TIrGetRequest* getRequest = (TIrGetRequest*)iter->FirstItem();
 	     iter->More(); getRequest = (TIrGetRequest*)iter->NextItem()) {
 	    if (getRequest->fLSAPConn == lsapConn) {
-		XTRACE(kLogCancelPendingGetRequests, (int)lsapConn >> 16, lsapConn);
+		XTRACE(kLogCancelPendingGetRequests, 0, lsapConn);
 		fPendingGetRequests->Remove(getRequest);    // get this req off the list
 		// Send the reply
 		getRequest->fEvent = kIrGetDataReplyEvent;
@@ -1070,7 +1069,7 @@ void TIrLAPConn::CancelPendingGetRequests(TLSAPConn* lsapConn, IrDAErr returnCod
 	}
 	iter->release();
     }
-    XTRACE(kLogCancelPendingGetRequestsExit, (int)lsapConn >> 16, lsapConn);
+    XTRACE(kLogCancelPendingGetRequestsExit, 0, lsapConn);
 
 } // TIrLAPConn::CancelPendingGetRequests
 
@@ -1085,7 +1084,7 @@ void TIrLAPConn::Demultiplexor(CBufferSegment* inputBuffer)
     Boolean     validFormat;
     Boolean     matchFound = false;
 	
-    XTRACE(kLogDemux, (int)inputBuffer >> 16, inputBuffer);
+    XTRACE(kLogDemux, 0, inputBuffer);
     
     validFormat = ExtractHeader(inputBuffer, header, headerLength);
 
@@ -1108,11 +1107,11 @@ void TIrLAPConn::Demultiplexor(CBufferSegment* inputBuffer)
 	CListIterator *iter = CListIterator::cListIterator(fPendingGetRequests);
 	for (TIrGetRequest* getRequest = (TIrGetRequest*)iter->FirstItem();
 	     iter->More(); getRequest = (TIrGetRequest*)iter->NextItem()) {
-	    XTRACE(kLogDemuxCheckingGets2, (int)getRequest >> 16, getRequest);
+	    XTRACE(kLogDemuxCheckingGets2, 0, getRequest);
 
 	    if (DataDelivered(getRequest, header, headerLength, inputBuffer)) {
 		fPendingGetRequests->Remove(getRequest);
-		XTRACE(kDemuxGetPendingEvent, (int)getRequest >> 16, getRequest);
+		XTRACE(kDemuxGetPendingEvent, 0, getRequest);
 		matchFound = true;
 		break;
 	    }
@@ -1127,8 +1126,8 @@ void TIrLAPConn::Demultiplexor(CBufferSegment* inputBuffer)
 	     iter->More(); lsapConn = (TLSAPConn*)iter->NextItem()) {
 	    if (lsapConn->YourData(header, true /*justChecking*/)) {
 		fUnmatchedGetReplys->InsertLast(inputBuffer);
-		XTRACE(kDemuxReplyPostedEvent, (int)inputBuffer >> 16, inputBuffer);
-		XTRACE(kDemuxReplyPostedEvent2, (int)lsapConn >> 16, lsapConn);
+		XTRACE(kDemuxReplyPostedEvent, 0, inputBuffer);
+		XTRACE(kDemuxReplyPostedEvent2, 0, lsapConn);
 		matchFound = true;
 		break;
 	    }
@@ -1275,7 +1274,7 @@ Boolean TIrLAPConn::DataDelivered(TIrGetRequest* getRequest, TLMPDUHeader& heade
 	getRequest->fLSAPConn->EnqueueEvent(getRequest);
 
 	// Release the buffer
-	XTRACE(kDemuxReleaseBufferEvent, (int)dataBuffer >> 16, dataBuffer);
+	XTRACE(kDemuxReleaseBufferEvent, 0, dataBuffer);
 	GetLAP->ReleaseInputBuffer(dataBuffer);
 
 	return true;
@@ -1294,8 +1293,8 @@ ULong TIrLAPConn::FillInLMPDUHeader(TIrPutRequest* putRequest, UByte* buffer)
     ULong infoLength;
     TLMPDUHeader* lmPDUHeader = (TLMPDUHeader*)buffer;
     
-    XTRACE(kLogFillInLMPDUHeader1, (int)putRequest >> 16, putRequest);
-    XTRACE(kLogFillInLMPDUHeader2, (int)buffer >> 16, buffer);
+    XTRACE(kLogFillInLMPDUHeader1, 0, putRequest);
+    XTRACE(kLogFillInLMPDUHeader2, 0, buffer);
 
     // Fill out the info
     lmPDUHeader->fDstLSAPId = putRequest->fDstLSAPId;

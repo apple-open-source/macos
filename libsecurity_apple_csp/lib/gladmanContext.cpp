@@ -112,7 +112,8 @@ void GAESContext::init(
     switch (cssmMode) {
 		/* no mode attr --> 0 == CSSM_ALGMODE_NONE, not currently supported */
  		case CSSM_ALGMODE_CBCPadIV8:
-		case CSSM_ALGMODE_CBC_IV8: 
+		case CSSM_ALGMODE_CBC_IV8:
+		{
 			CssmData *iv = context.get<CssmData>(CSSM_ATTRIBUTE_INIT_VECTOR);
 			if(iv == NULL) {
 				CssmError::throwMe(CSSMERR_CSP_MISSING_ATTR_INIT_VECTOR);
@@ -121,9 +122,10 @@ void GAESContext::init(
 				CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_INIT_VECTOR);
 			}
 			aes_cc_set_iv(&mAesKey, encrypting, iv->Data);
-			break;
+		}
+		break;
 		default:
-			break;
+		break;
 	}
 	
 	/* Finally, have BlockCryptor do its setup */

@@ -17,14 +17,14 @@ ftp
  <name>
 FTP download with strict timeout and slow CWD
  </name>
- <command>
+ <command timeout="1">
 ftp://%HOSTIP:%FTPPORT/path/to/file/190 -m %FTPTIME2
 </command>
 </client>
 
 # Verify data after the test has been "shot"
 <verify>
-# 28 is CURLE_OPERATION_TIMEOUTED
+# 28 is CURLE_OPERATION_TIMEDOUT
 <errorcode>
 28
 </errorcode>

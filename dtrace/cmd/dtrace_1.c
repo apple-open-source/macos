@@ -2,9 +2,8 @@
  * CDDL HEADER START
  *
  * The contents of this file are subject to the terms of the
- * Common Development and Distribution License, Version 1.0 only
- * (the "License").  You may not use this file except in compliance
- * with the License.
+ * Common Development and Distribution License (the "License").
+ * You may not use this file except in compliance with the License.
  *
  * You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
  * or http://www.opensolaris.org/os/licensing.
@@ -25,7 +24,7 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)dtrace.c	1.24	06/02/08 SMI"
+#pragma ident	"@(#)dtrace.c	1.25	06/09/19 SMI"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -44,11 +43,12 @@
 #include <alloca.h>
 #include <libgen.h>
 #include <libproc.h>
-#include <getopt.h>
 
 #ifdef __APPLE__
 #include "arch.h"
+#include <mach/mach.h>
 #include <mach/machine.h>
+#include <sys/sysctl.h>
 #endif
 
 typedef struct dtrace_cmd {
@@ -191,7 +191,7 @@ usage(FILE *fp)
 	static const char predact[] = "[[ predicate ] action ]";
 
 	(void) fprintf(fp, "Usage: %s [-aACeFHlqSvVwZ] "
-	    "[-arch i386|x86_64|ppc|ppc64] "
+	    "[-arch i386|x86_64] "
 	    "[-b bufsz] [-c cmd] [-D name[=def]]\n\t[-I path] [-L path] "
 	    "[-o output] [-p pid] [-s script] [-U name]\n\t"
 	    "[-x opt[=val]]\n\n"
@@ -238,6 +238,38 @@ usage(FILE *fp)
 	    "\t-Z  permit probe descriptions that match zero probes\n");
 
 	return (E_USAGE);
+}
+
+static cpu_type_t current_kernel_arch(void)
+{
+        struct host_basic_info  hi;
+        unsigned int            size;
+        kern_return_t           kret;
+        cpu_type_t                                current_arch;
+        int                                                ret, mib[4];
+        size_t                                        len;
+        struct kinfo_proc                kp;
+        
+        size = sizeof(hi)/sizeof(int);
+        kret = host_info(mach_host_self(), HOST_BASIC_INFO, (host_info_t)&hi, &size);
+        if (kret != KERN_SUCCESS) {
+                return 0;
+        }
+        current_arch = hi.cpu_type;
+        /* Now determine if the kernel is running in 64-bit mode */
+        mib[0] = CTL_KERN;
+        mib[1] = KERN_PROC;
+        mib[2] = KERN_PROC_PID;
+        mib[3] = 0; /* kernproc, pid 0 */
+        len = sizeof(kp);
+        ret = sysctl(mib, sizeof(mib)/sizeof(mib[0]), &kp, &len, NULL, 0);
+        if (ret == -1) {
+                return 0;
+        }
+        if (kp.kp_proc.p_flag & P_LP64) {
+                current_arch |= CPU_ARCH_ABI64;
+        }
+        return current_arch;
 }
 #endif /* __APPLE__ */
 
@@ -298,6 +330,12 @@ dfatal(const char *fmt, ...)
 	}
 #endif
 	
+	/*
+	 * Close the DTrace handle to ensure that any controlled processes are
+	 * correctly restored and continued.
+	 */
+	dtrace_close(g_dtp);
+	
 	exit(E_ERROR);
 }
 
@@ -349,7 +387,31 @@ oprintf(const char *fmt, ...)
 	}
 }
 
+#if !defined(__APPLE__)
+static char **
+make_argv(char *s)
+{
+	const char *ws = "\f\n\r\t\v ";
+	char **argv = malloc(sizeof (char *) * (strlen(s) / 2 + 1));
+	int argc = 0;
+	char *p = s;
 
+	if (argv == NULL)
+		return (NULL);
+
+	for (p = strtok(s, ws); p != NULL; p = strtok(NULL, ws))
+		argv[argc++] = p;
+
+	if (argc == 0)
+		argv[argc++] = s;
+
+	argv[argc] = NULL;
+	return (argv);
+}
+#else
+/*
+ * Accommodate embedded escaped whitespace in args.
+ */
 static char **
 make_argv(char *s)
 {
@@ -437,6 +499,7 @@ make_argv(char *s)
 	argv[argc] = NULL;
 	return (argv);
 }
+#endif /* __APPLE__ */
 
 static void
 dof_prune(const char *fname)
@@ -935,7 +998,7 @@ link_prog(dtrace_cmd_t *dcp)
 	}
 
 	if (dtrace_program_link(g_dtp, dcp->dc_prog, DTRACE_D_PROBES,
-	    dcp->dc_ofile, g_objc - 1, g_objv + 1) != 0)
+	    dcp->dc_ofile, g_objc, g_objv) != 0)
 		dfatal("failed to link %s %s", dcp->dc_desc, dcp->dc_name);
 }
 
@@ -955,19 +1018,7 @@ list_probe(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp, void *arg)
 	return (0);
 }
 #else
-// libiberty will redefine this as "basename_cannot_be_used_without_a_prototype"
-// unless we assert that basename has been defined.
-#define HAVE_DECL_BASENAME 1
-#include <libiberty/demangle.h>
-static char 
-*demangleSymbolCString(const char *mangled)
- {
-     if(mangled[0]!='_') return NULL;
-     if(mangled[1]=='_') mangled++; // allow either __Z or _Z prefix
-     if(mangled[1]!='Z') return NULL;
-     return cplus_demangle(mangled, DMGL_PARAMS | DMGL_ANSI | DMGL_VERBOSE | DMGL_TYPES);
- }
- 
+
  /*ARGSUSED*/
 static int
 list_probe(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp, void *arg)
@@ -1615,7 +1666,7 @@ main(int argc, char *argv[])
 	pid_t pid;
 	int cc, k;
 #ifdef __APPLE__
-	cpu_type_t target_arch = (cpu_type_t)0;
+	cpu_type_t target_arch = CPU_TYPE_ANY;
 
     // This assignment can no longer be done staticly, that causes a compiler error.
     g_ofp = stdout;
@@ -1643,10 +1694,16 @@ main(int argc, char *argv[])
 	 * We also accumulate arguments that are not affiliated with getopt
 	 * options into g_argv[], and abort if any invalid options are found.
 	 */
+#if !defined(__APPLE__)
+	for (optind = 1; optind < argc; optind++) {
+		while ((c = getopt(argc, argv, DTRACE_OPTSTR)) != EOF) {
+#else
+	/* Darwin's getopt(): Think different. */
 	optind = 1;
 	for (k = 1; k < argc; k++) {
 		while ((cc = getopt(argc, argv, DTRACE_OPTSTR)) != -1) {
 			c = cc;
+#endif /* __APPLE__ */
 			switch (c) {
 			case '3':
 				if (strcmp(optarg, "2") != 0) {
@@ -1679,6 +1736,7 @@ main(int argc, char *argv[])
 					    argv[0], optarg);
 #endif /* __APPLE__ */
 				break;
+
 			case 'a':
 #if !defined(__APPLE__)
 				g_grabanon++; /* also checked in pass 2 below */
@@ -1770,9 +1828,13 @@ main(int argc, char *argv[])
 					return (usage(stderr));
 			}
 		}
-
+		
+#if !defined(__APPLE__)
+		if (optind < argc)
+			g_argv[g_argc++] = argv[optind];
+#else
 		/* 'k' should track the advance of optind through argv.
-		 * When optind getopt() returns -1 and optind freezes, 'k' iterates 
+		 * When getopt() returns -1 and optind freezes, 'k' iterates 
 		 * over the remaining elements in argv.
 		 */
 		if (k < optind)
@@ -1780,6 +1842,7 @@ main(int argc, char *argv[])
 
 		if (k < argc)
 			g_argv[g_argc++] = argv[k];
+#endif /* __APPLE__ */
 	}
 
 	if (mode > 1) {
@@ -1791,11 +1854,64 @@ main(int argc, char *argv[])
 	if (g_mode == DMODE_VERS)
 		return (printf("%s: %s\n", g_pname, _dtrace_version) <= 0);
 
-#ifdef __APPLE__
-	if(!target_arch)
-		target_arch = host_arch;
-		
-	if(target_arch & CPU_ARCH_ABI64) {
+#if !defined(__APPLE__)
+	/*
+	 * If we're in linker mode and the data model hasn't been specified,
+	 * we try to guess the appropriate setting by examining the object
+	 * files. We ignore certain errors since we'll catch them later when
+	 * we actually process the object files.
+	 */
+	if (g_mode == DMODE_LINK &&
+	    (g_oflags & (DTRACE_O_ILP32 | DTRACE_O_LP64)) == 0 &&
+	    elf_version(EV_CURRENT) != EV_NONE) {
+		int fd;
+		Elf *elf;
+		GElf_Ehdr ehdr;
+
+		for (i = 1; i < g_argc; i++) {
+			if ((fd = open64(g_argv[i], O_RDONLY)) == -1)
+				break;
+
+			if ((elf = elf_begin(fd, ELF_C_READ, NULL)) == NULL) {
+				(void) close(fd);
+				break;
+			}
+
+			if (elf_kind(elf) != ELF_K_ELF ||
+			    gelf_getehdr(elf, &ehdr) == NULL) {
+				(void) close(fd);
+				(void) elf_end(elf);
+				break;
+			}
+
+			(void) close(fd);
+			(void) elf_end(elf);
+
+			if (ehdr.e_ident[EI_CLASS] == ELFCLASS64) {
+				if (g_oflags & DTRACE_O_ILP32) {
+					fatal("can't mix 32-bit and 64-bit "
+					    "object files\n");
+				}
+				g_oflags |= DTRACE_O_LP64;
+			} else if (ehdr.e_ident[EI_CLASS] == ELFCLASS32) {
+				if (g_oflags & DTRACE_O_LP64) {
+					fatal("can't mix 32-bit and 64-bit "
+					    "object files\n");
+				}
+				g_oflags |= DTRACE_O_ILP32;
+			} else {
+				break;
+			}
+		}
+	}
+#else
+	/*
+	 * D compiler target_arch is current_kernel_arch() by default.
+	 * Can be set explicitly by "-arch".
+	 */
+    cpu_type_t compiler_arch = (target_arch == CPU_TYPE_ANY) ? current_kernel_arch() : target_arch;
+    
+    if(compiler_arch & CPU_ARCH_ABI64) {
 		g_oflags &= ~DTRACE_O_ILP32;
 		g_oflags |= DTRACE_O_LP64;
 	}
@@ -1837,8 +1953,12 @@ main(int argc, char *argv[])
 		(void) dtrace_setopt(g_dtp, "linkmode", "dynamic");
 		(void) dtrace_setopt(g_dtp, "unodefs", NULL);
 
-		g_objc = g_argc;
-		g_objv = g_argv;
+		/*
+		 * Use the remaining arguments as the list of object files
+		 * when in linker mode.
+		 */
+		g_objc = g_argc - 1;
+		g_objv = g_argv + 1;
 
 		/*
 		 * We still use g_argv[0], the name of the executable.
@@ -1853,11 +1973,16 @@ main(int argc, char *argv[])
 	 * We also accumulate any program specifications into our g_cmdv[] at
 	 * this time; these will compiled as part of the fourth processing pass.
 	 */
+#if !defined(__APPLE__)
+	for (optind = 1; optind < argc; optind++) {
+		while ((c = getopt(argc, argv, DTRACE_OPTSTR)) != EOF) {
+#else
 	optreset = 1;
 	optind = 1;
 	for (k = 1; k < argc; k++) {
 		while ((cc = getopt(argc, argv, DTRACE_OPTSTR)) != -1) {
 			c = cc;
+#endif /* __APPLE__ */
 			switch (c) {
 			case 'a':
 #ifndef __APPLE__
@@ -1907,6 +2032,11 @@ main(int argc, char *argv[])
 				if (dtrace_setopt(g_dtp, "flowindent", 0) != 0)
 					dfatal("failed to set -F");
 				break;
+
+#if defined(__APPLE__)
+			case 'h':
+				(void) dtrace_setopt(g_dtp, "nolibs", NULL); /* In case /usr/lib/dtrace/* is broken, -h can succeed. */
+#endif
 
 			case 'H':
 				if (dtrace_setopt(g_dtp, "cpphdrs", 0) != 0)
@@ -2024,8 +2154,8 @@ main(int argc, char *argv[])
 				else
 				{
 					(void) fprintf(stderr,
-						"%s: option requires an argument -- %c\n",
-						optopt);
+                                   "%s: option requires an argument -- %c\n",
+                                   g_pname, optopt);
 					return usage(stderr);
 				}
 				/* NOTREACHED */
@@ -2055,11 +2185,16 @@ main(int argc, char *argv[])
 	 * grabbing or creating victim processes.  The behavior of these calls
 	 * may been affected by any library options set by the second pass.
 	 */
+#if !defined(__APPLE__)
+	for (optind = 1; optind < argc; optind++) {
+		while ((c = getopt(argc, argv, DTRACE_OPTSTR)) != EOF) {
+#else
 	optreset = 1;
 	optind = 1;
 	for (k = 1; k < argc; k++) {
 		while ((cc = getopt(argc, argv, DTRACE_OPTSTR)) != -1) {
 			c = cc;
+#endif /* __APPLE__ */
 			switch (c) {
 			case 'c':
 				if ((v = make_argv(optarg)) == NULL)
@@ -2086,7 +2221,14 @@ main(int argc, char *argv[])
 
 				g_psv[g_psc++] = P;
 				break;
-			}
+#if defined(__APPLE__)
+            case 'a':
+                if (0 == strcmp(optarg, "rch")) {
+                    optind++;
+                }	
+                break;
+#endif
+            }
 		}
 	}
 
@@ -2184,6 +2326,7 @@ main(int argc, char *argv[])
 		error("saved anonymous enabling in %s\n", g_ofile);
 		etcsystem_add();
 		error("run update_drv(1M) or reboot to enable changes\n");
+		
 #else
 		if (g_ofile == NULL)
 			g_ofile = "/System/Library/Extensions/dtrace_dof.kext/Contents/Info.plist";	
@@ -2211,7 +2354,6 @@ main(int argc, char *argv[])
 		error("saved anonymous enabling in %s\n", g_ofile);
 		error("do 'sudo touch /System/Library/Extensions/' and reboot to enable changes\n");
 #endif
-
 		dtrace_close(g_dtp);
 		return (g_status);
 

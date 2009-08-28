@@ -37,32 +37,38 @@
 #include "DSLogException.h"
 #include "CMessaging.h"
 #include "DSMutexSemaphore.h"
+#include "DSSwapUtils.h"
+#include "DSTCPEndpoint.h"
+#include "CClientEndPoint.h"
 
 #include <string.h>
 #include <stdlib.h>
 #include <sys/stat.h>				// for stat()
 #include <sys/sysctl.h>				// for sysctl()
 #include <unistd.h>
+#include <syslog.h>
 
 #include <mach/mach.h>				// mach ipc approach to IsDirServiceRunning
 									// versus searching entire process space
 #include <mach/mach_error.h>
 #include <servers/bootstrap.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <netdb.h>
 
 #define	kDSFWDefaultRemotePort 625 //TODO need final port number
 #define kDSFWMaxRemoteConnections 8
 
 // Globals  ----------------------------------------------------------------------
+const UInt32				gMaxEndpoints			= kDSFWMaxRemoteConnections + 2;
 
-static CMessaging		   *gMessageTable[kDSFWMaxRemoteConnections+1]
-													= {nil,nil,nil,nil,nil,nil,nil,nil,nil};
-static UInt32				gMaxEndpoints			= kDSFWMaxRemoteConnections + 1;
+static CMessaging		   *gMessageTable[gMaxEndpoints]
+													= { NULL };
 													//maximum number of distinct endpoints for client
-static UInt32				gDSConnections  		= 0;	//keep track of open mach DS sessions
+static UInt32				gDSConnections[gMaxEndpoints]
+													= { 0 };	//keep track of open mach DS sessions
 static DSMutexSemaphore		*gLock					= NULL;	//lock on modifying these globals
-static dsBool				gNormalDaemonInUse		= false; //client allowed to make normal connections via mach to DS daemon
-static dsBool				gLocalDaemonInUse		= false; //client allowed to make normal connections via mach to DS local daemon
-static UInt32				gTranslateBit			= 0;	//bit set so server knows if FW is running on Intel translated to big endian
+static int					gTranslateFlag			= 0;
 static dsBool				gProcessForked   		= true; // we start as true so we can lazily clean up the first session
 static pthread_once_t		_gGlobalsInitialized	= PTHREAD_ONCE_INIT;
 
@@ -70,7 +76,7 @@ pid_t						gProcessPID				= 0;	//process PID of the client
 CDSRefMap					*gFWRefMap				= NULL;
 CDSRefTable					*gFWRefTable			= NULL;
 
-void CheckToCleanUpLostTCPConnection ( tDirStatus *inStatus, UInt32 inMessageIndex, UInt32 lineNumber );
+void CheckToCleanUpLostTCPConnection ( SInt32 *inStatus, UInt32 inMessageIndex, UInt32 lineNumber );
 
 static void __ForkPrepare( void )
 {
@@ -84,13 +90,30 @@ static void __ForkParent( void )
 	gLock->SignalLock();
 }
 
+static void CheckForRosetta( void )
+{
+	gTranslateFlag = 0; // native no swapping
+
+#if __BIG_ENDIAN__
+	// Check to see if we are running translated, only needs to be done once
+	int mib[] = { CTL_KERN, KERN_CLASSIC, gProcessPID };
+	size_t len = sizeof(int);
+	int ret = 0;
+	if (sysctl (mib, 3, &ret, &len, NULL, 0) == 0 && ret == 1)
+	{
+		// Running on Intel under translation
+		gTranslateFlag = 1;
+	}
+#endif
+}
+
 static void __ForkChild( void )
 {
 	gProcessPID = getpid();
 
 	gProcessForked = true;
-	gNormalDaemonInUse = false;
-	gLocalDaemonInUse = false;
+	
+	CheckForRosetta();
 	
 	gLock->SignalLock();
 }
@@ -103,17 +126,7 @@ static void __InitGlobals( void )
 	gFWRefMap = new CDSRefMap;
 	gFWRefTable = new CDSRefTable;
 	
-#if __BIG_ENDIAN__
-	// Check to see if we are running translated, only needs to be done once
-	int mib[] = { CTL_KERN, KERN_CLASSIC, gProcessPID };
-	size_t len = sizeof(int);
-	int ret = 0;
-	if (sysctl (mib, 3, &ret, &len, NULL, 0) == 0 && ret == 1)
-	{
-		// Running on Intel under translation
-		gTranslateBit = 1;
-	}
-#endif
+	CheckForRosetta();
 	
 	pthread_atfork( __ForkPrepare, __ForkParent, __ForkChild );
 }
@@ -123,28 +136,15 @@ static void __ResetAllSessions( void )
 	gFWRefMap->ClearAllMaps();
 	gFWRefTable->ClearAllTables();
 	
-	for (UInt32 tableIndex = 1; tableIndex < gMaxEndpoints; tableIndex++)
+	for (UInt32 tableIndex = 0; tableIndex < gMaxEndpoints; tableIndex++)
 	{
 		if ( gMessageTable[tableIndex] != nil )
 		{
-			gMessageTable[tableIndex]->Lock();
-			gMessageTable[tableIndex]->CloseTCPEndpoint();
-			gMessageTable[tableIndex]->Unlock();
-			delete(gMessageTable[tableIndex]);
-			gMessageTable[tableIndex] = nil;
+			DSDelete( gMessageTable[tableIndex] );
 		}
 	}	
 	
-	if ( gMessageTable[0] != nil )
-	{
-		gMessageTable[0]->Lock();
-		gMessageTable[0]->CloseCommPort(); // don't check status
-		gMessageTable[0]->Unlock();
-	}
-	
-	gLocalDaemonInUse = false;
-	gNormalDaemonInUse = false;
-	gDSConnections	= 0;
+	bzero( gDSConnections, sizeof(gDSConnections) );
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -155,8 +155,9 @@ static void __ResetAllSessions( void )
 
 tDirStatus dsOpenDirService ( tDirReference *outDirRef )
 {
-	tDirStatus		outResult	= eDSNoErr;
+	SInt32			outResult	= eDSNoErr;
 	SInt32			siStatus	= eDSNoErr;
+	SInt32			tempStatus	= eDSNoErr;
 
     pthread_once( &_gGlobalsInitialized, __InitGlobals );
 
@@ -170,12 +171,6 @@ tDirStatus dsOpenDirService ( tDirReference *outDirRef )
 			//a client can hold several dir refs at once all handled through the same mach port
 			do
 			{
-				if (gLocalDaemonInUse)
-				{
-					siStatus = eDSLocalDSDaemonInUse;
-					break;
-				}
-				
 				// if the daemon is not registered, nothing to do, just return the error
 				if ( (siStatus = dsIsDirServiceRunning()) != eDSNoErr )
 					break;				
@@ -188,17 +183,41 @@ tDirStatus dsOpenDirService ( tDirReference *outDirRef )
 				
 				if ( gMessageTable[0] == nil )
 				{
-					gMessageTable[0] = new CMessaging(true, gTranslateBit);
+					CClientEndPoint *endPoint = NULL;
 					
-					siStatus = gMessageTable[0]->OpenCommPort(false);
-				}
-				else
-				{
-					gMessageTable[0]->ChangeLocalDaemonUse( false ); // change the state
+#ifndef SERVERINTERNAL
+					// we only do this when we are not internal dispatch since internal dispatch avoids fCommPort
+					char *envPort = getenv( "DS_DEBUG_MODE" );
+					
+					endPoint = new CClientEndPoint( envPort ? kDSStdMachDebugPortName : kDSStdMachPortName );
+					if ( endPoint != NULL )
+					{
+						siStatus = endPoint->Connect();
+						if ( siStatus != eDSNoErr && envPort != NULL ) {
+							fprintf( stderr, "DirectoryService.framework - Request to connect to DEBUG mach port failed, using default port\n" );
+							DSDelete( endPoint );
+
+							endPoint = new CClientEndPoint( kDSStdMachPortName );
+							if ( endPoint != NULL ) {
+								siStatus = endPoint->Connect();
+							}
+						}
+					}
+					
+					if ( endPoint == NULL ) {
+						siStatus = eMemoryAllocError;
+					}
+#endif
+					if ( siStatus == eDSNoErr ) {
+						gMessageTable[0] = new CMessaging( endPoint, gTranslateFlag );
+					}
+					else {
+						delete endPoint;
+					}
 				}
 				
-				gDSConnections++; //increment the number of DS connections open
-				gNormalDaemonInUse = true;
+				if ( siStatus == eDSNoErr )
+					gDSConnections[0] += 1; //increment the number of DS connections open
 				break;
 			} while(1);
 		}
@@ -231,7 +250,8 @@ tDirStatus dsOpenDirService ( tDirReference *outDirRef )
 			LogThenThrowIfDSErrorMacro( siStatus );
 			
 			// Get the return result
-			siStatus = gMessageTable[0]->Get_Value_FromMsg( (UInt32 *)&outResult, kResult );
+			siStatus = gMessageTable[0]->Get_Value_FromMsg( (UInt32 *)&tempStatus, kResult );
+			outResult = tempStatus;
 			LogThenThrowIfDSErrorMacro( outResult );
 			
 			if ( outDirRef != nil )
@@ -262,7 +282,7 @@ tDirStatus dsOpenDirService ( tDirReference *outDirRef )
 		outResult = eDSCannotAccessSession;
 	}
 
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsOpenDirService
 
@@ -274,14 +294,14 @@ tDirStatus dsOpenDirService ( tDirReference *outDirRef )
 //--------------------------------------------------------------------------------------------------
 
 tDirStatus dsOpenDirServiceProxy (	tDirReference	   *outDirRef,
-									const char		   *inIPAddress,
+									const char		   *inHostOrIPAddress,
 									UInt32				inIPPort,
 									tDataNodePtr		inAuthMethod,				//KW let's use default
 									tDataBufferPtr		inAuthStepData,
 									tDataBufferPtr		outAuthStepDataResponse,	//KW no need
 									tContextData	   *ioContinueData )			//KW no need
 {
-	tDirStatus		outResult	= eDSNoErr;
+	SInt32			outResult	= eDSNoErr;
 	SInt32			siStatus	= eDSNoErr;
 	UInt32			messageIndex= 0;
 	UInt32			tableIndex	= 0;
@@ -299,7 +319,7 @@ tDirStatus dsOpenDirServiceProxy (	tDirReference	   *outDirRef,
 		{
 			//a client process uses a separate CMesssaging for each TCP endpoint
 			//which in turn is tied to a single dir ref
-			//for now we have up to kDSFWMaxRemoteConnections = "gMaxEndpoints - 1" available TCP endpoints
+			//for now we have up to kDSFWMaxRemoteConnections = "gMaxEndpoints - 2" available TCP endpoints
 			
 			if ( gProcessForked ) // we have forked the process, need to reset all
 			{
@@ -308,7 +328,7 @@ tDirStatus dsOpenDirServiceProxy (	tDirReference	   *outDirRef,
 			}
 						
 			//search for the next available gMessageTable slot
-			for (tableIndex = 1; tableIndex < gMaxEndpoints; tableIndex++)
+			for (tableIndex = 2; tableIndex < gMaxEndpoints; tableIndex++)
 			{
 				if ( gMessageTable[tableIndex] == nil )
 				{
@@ -325,22 +345,54 @@ tDirStatus dsOpenDirServiceProxy (	tDirReference	   *outDirRef,
 			//ref cleanup on the FW side will be an issue as well
 			if ( gMessageTable[messageIndex] == nil )
 			{
-				gMessageTable[messageIndex] = new CMessaging(false, gTranslateBit);
-				if (gMessageTable[messageIndex] != nil)
+				struct addrinfo	hints	= { 0 };
+				struct addrinfo *answer	= NULL;
+				char			port[12];
+				
+				hints.ai_family = PF_INET; // we only use IPv4 still due to legacy issues
+				hints.ai_socktype = SOCK_STREAM;
+				hints.ai_protocol = IPPROTO_TCP;
+				
+				if ( inIPPort == 0 )
+					inIPPort = kDSFWDefaultRemotePort;
+				
+				snprintf( port, sizeof(port), "%u", (uint32_t) inIPPort );
+				
+				if ( getaddrinfo(inHostOrIPAddress, port, &hints, &answer) == 0 )
 				{
-					if (inIPPort != 0)
+					DSTCPEndpoint *endPoint = new DSTCPEndpoint( kTCPOpenTimeout, kTCPRWTimeout );
+					if ( endPoint != NULL )
 					{
-						siStatus = gMessageTable[messageIndex]->ConfigTCP(inIPAddress, inIPPort);
+						// attempt to connect to a port on a remote machine
+						//   swap the address because everything expects it to be network order
+						// TODO: fix this so it is correct byte order
+						siStatus = endPoint->ConnectTo( answer );
+						if (siStatus == eDSNoErr)
+						{
+							siStatus = endPoint->ClientNegotiateKey();
+							if ( siStatus == eDSNoErr ) {
+								gMessageTable[messageIndex] = new CMessaging( endPoint, 1 );
+								gDSConnections[messageIndex] += 1; //increment the number of DS connections open
+							}
+							else {
+								delete endPoint;
+							}
+						}
 					}
 					else
 					{
-						siStatus = gMessageTable[messageIndex]->ConfigTCP(inIPAddress, kDSFWDefaultRemotePort);
+						siStatus = eMemoryError;
 					}
-					LogThenThrowIfDSErrorMacro( siStatus );
 					
-					siStatus = gMessageTable[messageIndex]->OpenTCPEndpoint();
-					LOG2( kStdErr, "DirServices::dsOpenDirServiceProxy: Correlate the messageIndex: %d with the actual CMessaging class ptr %d.", messageIndex, (UInt32)gMessageTable[messageIndex] );
+					freeaddrinfo( answer );
+					answer = NULL;
 				}
+				else
+				{
+					siStatus = eDSSendFailed;
+				}
+
+				LogThenThrowIfDSErrorMacro( siStatus );
 			}
 		}
 		catch( SInt32 err )
@@ -358,78 +410,117 @@ tDirStatus dsOpenDirServiceProxy (	tDirReference	   *outDirRef,
 		LogThenThrowIfDSErrorMacro( siStatus );
 		LogThenThrowIfNilMacro( gMessageTable[messageIndex], eMemoryAllocError );
 
-		//go ahead and pack the message to send
+#if __BIG_ENDIAN__
+		const char	*vers[]		= { "DSProxy1.3" };
+		int			versLen[]	= { sizeof("DSProxy1.3") - 1 };
+		int			count		= sizeof(vers) / sizeof(const char *);
+#else
+		const char	*vers[]		= { "DSProxy1.4", "DSProxy1.3" };
+		int			versLen[]	= { sizeof("DSProxy1.4") - 1, sizeof("DSProxy1.3") - 1 };
+		int			count		= sizeof(vers) / sizeof(const char *);
+#endif
 		
+		//go ahead and pack the message to send
 		gMessageTable[messageIndex]->Lock();
+		
 		try
 		{
-			gMessageTable[messageIndex]->ClearMessageBlock();
-			
-			// Make sure we have a non-null data buffer
-			outResult = VerifyTDataBuff( inAuthMethod, eDSNullAutMethod, eDSEmptyAuthMethod );
-			LogThenThrowIfDSErrorMacro( outResult );
-			
-			// Make sure we have a non-null data buffer
-			outResult = VerifyTDataBuff( inAuthStepData, eDSNullAuthStepData, eDSEmptyAuthStepData );
-			LogThenThrowIfDSErrorMacro( outResult );
-			
-			// Make sure we have a non-null data buffer
-			outResult = VerifyTDataBuff( outAuthStepDataResponse, eDSNullAuthStepDataResp, eDSEmptyAuthStepDataResp );
-			LogThenThrowIfDSErrorMacro( outResult );
-			
-			// Add the version info DSProxy1.3
-			versBuff = dsDataBufferAllocate( 0, 16 ); //dir ref not needed
-			LogThenThrowIfNilMacro( versBuff, eMemoryAllocError );
-			memcpy( &(versBuff->fBufferData), "DSProxy1.3", 10 );
-			versBuff->fBufferLength = 10;
-			siStatus = gMessageTable[messageIndex]->Add_tDataBuff_ToMsg( versBuff, ktDataBuff );
-			LogThenThrowThisIfDSErrorMacro( siStatus, eParameterSendError );
-			siStatus = dsDataBufferDeAllocate( 0, versBuff ); //dir ref not needed
-			LogThenThrowThisIfDSErrorMacro( siStatus, eMemoryError );
-			
-			// Add the auth method
-			siStatus = gMessageTable[messageIndex]->Add_tDataBuff_ToMsg( inAuthMethod, kAuthMethod );
-			LogThenThrowThisIfDSErrorMacro( siStatus, eParameterSendError - 1 );
-			
-			// Add the auth step data
-			siStatus = gMessageTable[messageIndex]->Add_tDataBuff_ToMsg( inAuthStepData, kAuthStepBuff );
-			LogThenThrowThisIfDSErrorMacro( siStatus, eParameterSendError - 2 );
-			
-			// Add the auth step response
-			siStatus = gMessageTable[messageIndex]->Add_tDataBuff_ToMsg( outAuthStepDataResponse, kAuthResponseBuff );
-			LogThenThrowThisIfDSErrorMacro( siStatus, eParameterSendError - 3 );
-			
-			if ( ioContinueData != nil )
+			for ( int ii = 0; ii < count; ii++ )
 			{
-				// Add the context data
-				siStatus = gMessageTable[messageIndex]->Add_Value_ToMsg( (UInt32)*ioContinueData, kContextData );
-				LogThenThrowThisIfDSErrorMacro( siStatus, eParameterReceiveError - 4 );
-			}
-			
-			// **************** Send the message ****************
-			siStatus = gMessageTable[messageIndex]->SendInlineMessage( kOpenDirServiceProxy );
-			LogThenThrowIfDSErrorMacro( siStatus );
-			
-			// **************** Get the reply ****************
-			siStatus = (tDirStatus)gMessageTable[messageIndex]->GetReplyMessage();
-			LogThenThrowIfDSErrorMacro( siStatus );
-			
-			// Get the return result
-			siStatus = gMessageTable[messageIndex]->Get_Value_FromMsg( (UInt32 *)&outResult, kResult );
-			LogThenThrowIfDSErrorMacro( outResult );
-			
-			// Get the server DSProxy version if it exists
-			siStatus = gMessageTable[messageIndex]->Get_Value_FromMsg( (UInt32 *)&serverVersion, kNodeCount );
-			siStatus = eDSNoErr;
-			gMessageTable[messageIndex]->SetServerVersion(serverVersion);
-			
-			if ( outDirRef != nil )
-			{
-				tDirNodeReference	aRef = 0;
-				// Get the directory reference
-				siStatus = gMessageTable[messageIndex]->Get_Value_FromMsg( &aRef, ktDirRef );
-				LogThenThrowThisIfDSErrorMacro( siStatus, eDataReceiveErr_NoDirRef );
-				gFWRefMap->NewDirRefMap( outDirRef, gProcessPID, aRef, messageIndex );
+				try
+				{
+					gMessageTable[messageIndex]->ClearMessageBlock();
+					
+					// Make sure we have a non-null data buffer
+					outResult = VerifyTDataBuff( inAuthMethod, eDSNullAutMethod, eDSEmptyAuthMethod );
+					LogThenThrowIfDSErrorMacro( outResult );
+					
+					// Make sure we have a non-null data buffer
+					outResult = VerifyTDataBuff( inAuthStepData, eDSNullAuthStepData, eDSEmptyAuthStepData );
+					LogThenThrowIfDSErrorMacro( outResult );
+					
+					// Make sure we have a non-null data buffer
+					outResult = VerifyTDataBuff( outAuthStepDataResponse, eDSNullAuthStepDataResp, eDSEmptyAuthStepDataResp );
+					LogThenThrowIfDSErrorMacro( outResult );
+					
+					// Add the version info DSProxy1.3
+					versBuff = dsDataBufferAllocate( 0, 16 ); //dir ref not needed
+					LogThenThrowIfNilMacro( versBuff, eMemoryAllocError );
+					
+					versBuff->fBufferLength = versLen[ii];
+					memcpy( &(versBuff->fBufferData), vers[ii], versBuff->fBufferLength );
+					
+					siStatus = gMessageTable[messageIndex]->Add_tDataBuff_ToMsg( versBuff, ktDataBuff );
+					LogThenThrowThisIfDSErrorMacro( siStatus, eParameterSendError );
+					siStatus = dsDataBufferDeAllocate( 0, versBuff ); //dir ref not needed
+					LogThenThrowThisIfDSErrorMacro( siStatus, eMemoryError );
+					
+					// Add the auth method
+					siStatus = gMessageTable[messageIndex]->Add_tDataBuff_ToMsg( inAuthMethod, kAuthMethod );
+					LogThenThrowThisIfDSErrorMacro( siStatus, eParameterSendError - 1 );
+					
+					// Add the auth step data
+					siStatus = gMessageTable[messageIndex]->Add_tDataBuff_ToMsg( inAuthStepData, kAuthStepBuff );
+					LogThenThrowThisIfDSErrorMacro( siStatus, eParameterSendError - 2 );
+					
+					// Add the auth step response
+					siStatus = gMessageTable[messageIndex]->Add_tDataBuff_ToMsg( outAuthStepDataResponse, kAuthResponseBuff );
+					LogThenThrowThisIfDSErrorMacro( siStatus, eParameterSendError - 3 );
+					
+					if ( ioContinueData != nil )
+					{
+						// Add the context data
+						siStatus = gMessageTable[messageIndex]->Add_Value_ToMsg( (UInt32)*ioContinueData, kContextData );
+						LogThenThrowThisIfDSErrorMacro( siStatus, eParameterReceiveError - 4 );
+					}
+					
+					// **************** Send the message ****************
+					siStatus = gMessageTable[messageIndex]->SendInlineMessage( kOpenDirServiceProxy );
+					LogThenThrowIfDSErrorMacro( siStatus );
+					
+					// **************** Get the reply ****************
+					siStatus = (tDirStatus)gMessageTable[messageIndex]->GetReplyMessage();
+					LogThenThrowIfDSErrorMacro( siStatus );
+					
+					// Get the return result
+					siStatus = gMessageTable[messageIndex]->Get_Value_FromMsg( (UInt32 *)&outResult, kResult );
+					outResult = outResult;
+					LogThenThrowIfDSErrorMacro( outResult );
+					
+					// Get the server DSProxy version if it exists
+					siStatus = gMessageTable[messageIndex]->Get_Value_FromMsg( (UInt32 *)&serverVersion, kNodeCount );
+					siStatus = eDSNoErr;
+					gMessageTable[messageIndex]->SetServerVersion(serverVersion);
+					
+					if ( outDirRef != nil )
+					{
+						tDirNodeReference	aRef = 0;
+						
+						// Get the directory reference
+						siStatus = gMessageTable[messageIndex]->Get_Value_FromMsg( &aRef, ktDirRef );
+						LogThenThrowThisIfDSErrorMacro( siStatus, eDataReceiveErr_NoDirRef );
+						
+						gFWRefMap->NewDirRefMap( outDirRef, gProcessPID, aRef, messageIndex );
+#if __LITTLE_ENDIAN__
+						if ( serverVersion >= 10400 ) {
+							gMessageTable[messageIndex]->SetTranslateMode( 2 );
+						}
+#else
+						gMessageTable[messageIndex]->SetTranslateMode( gTranslateFlag );
+#endif
+					}
+					
+					break;
+				}
+				catch ( SInt32 err )
+				{
+					if ( err != eDSTCPVersionMismatch )
+						throw err;
+				}
+				catch ( ... )
+				{
+					throw (SInt32) eDSCannotAccessSession;
+				}
 			}
 		}
 		catch ( SInt32 err )
@@ -439,30 +530,11 @@ tDirStatus dsOpenDirServiceProxy (	tDirReference	   *outDirRef,
 				gLock->WaitLock();
 				if (gMessageTable[messageIndex] != nil )
 				{
-					gMessageTable[messageIndex]->CloseTCPEndpoint();
-					gMessageTable[messageIndex]->Unlock();
-					delete(gMessageTable[messageIndex]);
-					gMessageTable[messageIndex] = nil;
+					DSDelete( gMessageTable[messageIndex] );
 				}
 				gLock->SignalLock();
 			}
 			throw err;
-		}
-		catch ( ... )
-		{
-			if ( (messageIndex != 0) && ( gMessageTable[messageIndex] != nil ) )
-			{
-				gLock->WaitLock();
-				if (gMessageTable[messageIndex] != nil )
-				{
-					gMessageTable[messageIndex]->CloseTCPEndpoint();
-					gMessageTable[messageIndex]->Unlock();
-					delete(gMessageTable[messageIndex]);
-					gMessageTable[messageIndex] = nil;
-				}
-				gLock->SignalLock();
-			}
-			throw (SInt32) eDSCannotAccessSession;
 		}
 
 		gMessageTable[messageIndex]->Unlock();
@@ -477,7 +549,7 @@ tDirStatus dsOpenDirServiceProxy (	tDirReference	   *outDirRef,
 		outResult = eDSCannotAccessSession;
 	}
 
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsOpenDirServiceProxy
 
@@ -488,9 +560,10 @@ tDirStatus dsOpenDirServiceProxy (	tDirReference	   *outDirRef,
 //
 //--------------------------------------------------------------------------------------------------
 
+#ifndef SERVERINTERNAL
 tDirStatus dsOpenDirServiceLocal ( tDirReference *outDirRef, const char *inFilePath )
 {
-	tDirStatus		outResult			= eDSNoErr;
+	SInt32			outResult			= eDSNoErr;
 	SInt32			siStatus			= eDSNoErr;
 	tDataBufferPtr	fpBuff				= nil;
 	char			newPath[PATH_MAX+1]	= { 0 };
@@ -536,16 +609,13 @@ tDirStatus dsOpenDirServiceLocal ( tDirReference *outDirRef, const char *inFileP
 					gProcessForked	= false;
 				}
 				
-				//check that this is a valid file path
-				LogThenThrowIfTrueMacro( lstat(newPath, &statResult) != 0, eDSInvalidFilePath );
-				
 				// ok let's see if we have a real daemon and if someone is trying to modify the local DB, if so return error
 				if ( dsIsDirServiceRunning() == eDSNoErr )
 				{
 					struct stat localDirStat;
-					
+
 					// let's see if we are trying to get to the same place
-					if ( lstat("/var/db/dslocal/nodes/Default", &localDirStat) == 0 )
+					if ( lstat(newPath, &statResult) == 0 && lstat("/var/db/dslocal/nodes/Default", &localDirStat) == 0 )
 					{
 						// if these are the same files
 						if ( statResult.st_ino == localDirStat.st_ino && statResult.st_dev == localDirStat.st_dev ) {
@@ -555,29 +625,31 @@ tDirStatus dsOpenDirServiceLocal ( tDirReference *outDirRef, const char *inFileP
 					}
 				}
 				
-				if (gNormalDaemonInUse)
-				{
-					siStatus = eDSNormalDSDaemonInUse;
-					break;
-				}
-				
 				// if the daemon is not registered, nothing to do, just return the error
 				if ( (siStatus = dsIsDirServiceLocalRunning()) != eDSNoErr )
 					break;
 				
-				if ( gMessageTable[0] == nil )
+				// TODO: flawed design, first call wins, all the rest of use the first caller's path
+				// once all are closed, then a new path can be targetted.   You can't target 2 other local DBs at the same time
+				// daemon limitation - framework can be adjusted once fixed
+				if ( gMessageTable[1] == nil )
 				{
-					gMessageTable[0] = new CMessaging(true, gTranslateBit);
+					CClientEndPoint *endPoint = new CClientEndPoint( kDSStdMachLocalPortName );
 					
-					siStatus = gMessageTable[0]->OpenCommPort(true);
+					if ( endPoint != NULL ) {
+						siStatus = endPoint->Connect();
+						if ( siStatus == eDSNoErr ) {
+							gMessageTable[1] = new CMessaging( endPoint, gTranslateFlag );
+							gDSConnections[1] += 1; //increment the number of DS connections open
+						}
+						else {
+							delete endPoint;
+						}
+					}
+					else {
+						siStatus = eMemoryAllocError;
+					}
 				}
-				else
-				{
-					gMessageTable[0]->ChangeLocalDaemonUse( true ); // change the state
-				}
-				
-				gDSConnections++; //increment the number of DS connections open
-				gLocalDaemonInUse = true;
 				break;
 			} while(1);
 		}
@@ -594,41 +666,45 @@ tDirStatus dsOpenDirServiceLocal ( tDirReference *outDirRef, const char *inFileP
 		gLock->SignalLock();
 		
 		LogThenThrowIfDSErrorMacro( siStatus );
-		LogThenThrowIfNilMacro( gMessageTable[0], eMemoryAllocError );
+		LogThenThrowIfNilMacro( gMessageTable[1], eMemoryAllocError );
 
-		gMessageTable[0]->Lock();
+		gMessageTable[1]->Lock();
 		
 		try
 		{
-			gMessageTable[0]->ClearMessageBlock();
+			gMessageTable[1]->ClearMessageBlock();
 			
 			// Add the file path to the ds local node DB
 			fpBuff = dsDataNodeAllocateString( 0, newPath );
 			LogThenThrowIfNilMacro( fpBuff, eMemoryAllocError );
 
-			siStatus = gMessageTable[0]->Add_tDataBuff_ToMsg( fpBuff, ktDataBuff );
+			siStatus = gMessageTable[1]->Add_tDataBuff_ToMsg( fpBuff, ktDataBuff );
 			LogThenThrowThisIfDSErrorMacro( siStatus, eParameterSendError );
 			
 			siStatus = dsDataBufferDeAllocate( 0, fpBuff ); //dir ref not needed
 			LogThenThrowThisIfDSErrorMacro( siStatus, eMemoryError );
 			
 			// **************** Send the message ****************
-			siStatus = gMessageTable[0]->SendInlineMessage( kOpenDirServiceLocal );
+			siStatus = gMessageTable[1]->SendInlineMessage( kOpenDirServiceLocal );
 			LogThenThrowIfDSErrorMacro( siStatus );
 			
 			// **************** Get the reply ****************
-			siStatus = (tDirStatus)gMessageTable[0]->GetReplyMessage();
+			siStatus = (tDirStatus)gMessageTable[1]->GetReplyMessage();
 			LogThenThrowIfDSErrorMacro( siStatus );
 			
 			// Get the return result
-			siStatus = gMessageTable[0]->Get_Value_FromMsg( (UInt32 *)&outResult, kResult );
+			siStatus = gMessageTable[1]->Get_Value_FromMsg( (UInt32 *)&outResult, kResult );
 			LogThenThrowIfDSErrorMacro( outResult );
 			
 			if ( outDirRef != nil )
 			{
-				// Get the directory reference
-				siStatus = gMessageTable[0]->Get_Value_FromMsg( outDirRef, ktDirRef );
+				tDirNodeReference	aRef = 0;
+				
+				// Get the directory reference and map it to a Framework reference
+				siStatus = gMessageTable[1]->Get_Value_FromMsg( &aRef, ktDirRef );
 				LogThenThrowThisIfDSErrorMacro( siStatus, eDataReceiveErr_NoDirRef );
+				
+				gFWRefMap->NewDirRefMap( outDirRef, gProcessPID, aRef, 1 );
 			}
 		}
 		catch ( SInt32 err )
@@ -640,7 +716,7 @@ tDirStatus dsOpenDirServiceLocal ( tDirReference *outDirRef, const char *inFileP
 			outResult = eDSCannotAccessSession;
 		}
 
-		gMessageTable[0]->Unlock();
+		gMessageTable[1]->Unlock();
 	}
 
 	catch( SInt32 err )
@@ -652,9 +728,10 @@ tDirStatus dsOpenDirServiceLocal ( tDirReference *outDirRef, const char *inFileP
 		outResult = eDSCannotAccessSession;
 	}
 	
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsOpenDirServiceLocal
+#endif
 
 
 //--------------------------------------------------------------------------------------------------
@@ -665,7 +742,7 @@ tDirStatus dsOpenDirServiceLocal ( tDirReference *outDirRef, const char *inFileP
 
 tDirStatus dsCloseDirService ( tDirReference inDirRef )
 {
-	tDirStatus		outResult	= eDSNoErr;
+	SInt32			outResult	= eDSNoErr;
 	UInt32			siStatus	= eDSNoErr;
 	UInt32			messageIndex= 0;
 
@@ -689,7 +766,7 @@ tDirStatus dsCloseDirService ( tDirReference inDirRef )
 			LogThenThrowThisIfDSErrorMacro( siStatus, eParameterSendError );
 			
 			// Add the connections count
-			siStatus = gMessageTable[messageIndex]->Add_Value_ToMsg( gDSConnections, kNodeCount );
+			siStatus = gMessageTable[messageIndex]->Add_Value_ToMsg( gDSConnections[messageIndex], kNodeCount );
 			LogThenThrowThisIfDSErrorMacro( siStatus, eParameterSendError );
 			
 			// **************** Send the message ****************
@@ -724,36 +801,19 @@ tDirStatus dsCloseDirService ( tDirReference inDirRef )
 		
 		try
 		{
-			//a client calls this and the mach EndPt will be closed ONLY
-			//if there are NO other dir refs outstanding
-			//ref count the cleanup using gDSConnections below
-			if ((messageIndex == 0) && (gDSConnections > 0))
-			{
-				gDSConnections--; //decrement the number of DS mach connections open
-			}
+			gDSConnections[messageIndex] -= 1; //decrement the number of DS connections open
 			
-			if (gDSConnections == 0)
+			if (gDSConnections[messageIndex] == 0)
 			{
-				// just close the mach port since we have no sessions
-				if ( gMessageTable[0] != nil )
+				if ( gMessageTable[messageIndex] != nil )
 				{
-					gMessageTable[0]->Lock();
-					gMessageTable[0]->CloseCommPort(); // don't check status
-					gMessageTable[0]->Unlock();
+					// close the connection for the mach-based sessions but delete all others
+					if ( messageIndex == 0 || messageIndex == 1 ) {
+						gMessageTable[messageIndex]->CloseConnection();
+					} else {
+						DSDelete( gMessageTable[messageIndex] );
+					}
 				}
-				
-				gLocalDaemonInUse = false;
-				gNormalDaemonInUse = false;
-			}
-			
-			//always clean up the TCP Endpt upon the close
-			if ((messageIndex != 0) && ( gMessageTable[messageIndex] != nil ))
-			{
-				gMessageTable[messageIndex]->Lock();
-				gMessageTable[messageIndex]->CloseTCPEndpoint();
-				gMessageTable[messageIndex]->Unlock();
-				delete(gMessageTable[messageIndex]);
-				gMessageTable[messageIndex] = nil;
 			}
 		}
 		catch( SInt32 err )
@@ -778,7 +838,7 @@ tDirStatus dsCloseDirService ( tDirReference inDirRef )
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsCloseDirService
 
@@ -792,7 +852,7 @@ tDirStatus dsCloseDirService ( tDirReference inDirRef )
 tDirStatus dsAddChildPIDToReference ( tDirReference inDirRef, SInt32 inValidChildPID, UInt32 inValidAPIReferenceToGrantChild )
 //accept only NODE references
 {
-	tDirStatus		outResult	= eDSNoErr;
+	SInt32			outResult	= eDSNoErr;
 	UInt32			siStatus	= eDSNoErr;
 	UInt32			messageIndex= 0;
 
@@ -857,7 +917,7 @@ tDirStatus dsAddChildPIDToReference ( tDirReference inDirRef, SInt32 inValidChil
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsAddChildPIDToReference
 
@@ -870,17 +930,17 @@ tDirStatus dsAddChildPIDToReference ( tDirReference inDirRef, SInt32 inValidChil
 
 tDirStatus dsIsDirServiceRunning ( void )
 {
-	tDirStatus		outResult	= eServerNotRunning;
+	SInt32			outResult	= eServerNotRunning;
 	mach_port_t		bPort		= 0;
 
 	// If we can lookup the port with the DirectoryService port name, then DirectoryService is already running
-	if ( bootstrap_look_up(bootstrap_port, kDSStdMachPortName, &bPort) == 0 )
+	if ( bootstrap_look_up(bootstrap_port, (char *)kDSStdMachPortName, &bPort) == 0 )
 	{
 		mach_port_mod_refs( mach_task_self(), bPort, MACH_PORT_RIGHT_SEND, -1 );
 		outResult = eDSNoErr;
 	}
 
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsIsDirServiceRunning
 
@@ -893,18 +953,18 @@ tDirStatus dsIsDirServiceRunning ( void )
 
 tDirStatus dsIsDirServiceLocalRunning ( void )
 {
-	tDirStatus		outResult	= eServerNotRunning;
+	SInt32			outResult	= eServerNotRunning;
 	mach_port_t		bPort		= 0;
 
 	// If we can lookup the port with the DirectoryServiceLocal port name, then DirectoryService is already running
-	if ( bootstrap_look_up(bootstrap_port, kDSStdMachLocalPortName, &bPort) == 0 )
+	if ( bootstrap_look_up(bootstrap_port, (char *)kDSStdMachLocalPortName, &bPort) == 0 )
 	{
 		// deallocate the send right
 		mach_port_mod_refs( mach_task_self(), bPort, MACH_PORT_RIGHT_SEND, -1 );
 		outResult = eDSNoErr;
 	}
 
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsIsDirServiceLocalRunning
 
@@ -923,7 +983,7 @@ tDirStatus dsIsDirServiceLocalRunning ( void )
 
 tDirStatus dsGetDirNodeCount ( tDirReference inDirRef, UInt32 *outNodeCount )
 {
-	tDirStatus		outResult	= eDSNoErr;
+	SInt32			outResult	= eDSNoErr;
 	UInt32			siStatus	= eDSNoErr;
 	UInt32			messageIndex= 0;
 
@@ -988,7 +1048,7 @@ tDirStatus dsGetDirNodeCount ( tDirReference inDirRef, UInt32 *outNodeCount )
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsGetDirNodeCount
 
@@ -1010,7 +1070,7 @@ tDirStatus dsGetDirNodeCount ( tDirReference inDirRef, UInt32 *outNodeCount )
 
 tDirStatus dsGetDirNodeCountWithInfo ( tDirReference inDirRef, UInt32 *outNodeCount, UInt32 *outDirectoryNodeChangeToken )
 {
-	tDirStatus		outResult	= eDSNoErr;
+	SInt32			outResult	= eDSNoErr;
 	UInt32			siStatus	= eDSNoErr;
 	UInt32			messageIndex= 0;
 
@@ -1083,7 +1143,7 @@ tDirStatus dsGetDirNodeCountWithInfo ( tDirReference inDirRef, UInt32 *outNodeCo
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsGetDirNodeCountWithInfo
 
@@ -1113,7 +1173,7 @@ tDirStatus dsGetDirNodeList (	tDirReference		inDirRef,
 								UInt32			   *outNodeCount,
 								tContextData	   *ioContinueData )
 {
-	tDirStatus		outResult		= eDSNoErr;
+	SInt32			outResult		= eDSNoErr;
 	SInt32			siStatus		= eDSNoErr;
 	UInt32			messageIndex= 0;
 
@@ -1205,7 +1265,7 @@ tDirStatus dsGetDirNodeList (	tDirReference		inDirRef,
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsGetDirNodeList
 
@@ -1228,7 +1288,7 @@ tDirStatus dsGetDirNodeList (	tDirReference		inDirRef,
 tDirStatus dsReleaseContinueData (	tDirReference	inDirReference,
 									tContextData	inContinueData )
 {
-	tDirStatus		outResult	= eDSNoErr;
+	SInt32			outResult	= eDSNoErr;
 	SInt32			siStatus	= eDSNoErr;
 	UInt32			messageIndex= 0;
 
@@ -1237,11 +1297,8 @@ tDirStatus dsReleaseContinueData (	tDirReference	inDirReference,
 	try
 	{
 		LogThenThrowIfTrueMacro(inDirReference == 0, eDSInvalidReference);
-#ifdef __LP64__
 		LogThenThrowIfZeroMacro( inContinueData, eDSInvalidContext );
-#else
-		LogThenThrowIfNilMacro( inContinueData, eDSInvalidContext );
-#endif
+
 		messageIndex = gFWRefMap->GetMessageTableIndex(inDirReference, eDirectoryRefType, gProcessPID);
 		LogThenThrowIfTrueMacro( messageIndex > gMaxEndpoints, eDSRefTableIndexOutOfBoundsError );
 		LogThenThrowIfNilMacro( gMessageTable[messageIndex], eDSRefTableEntryNilError );
@@ -1294,7 +1351,7 @@ tDirStatus dsReleaseContinueData (	tDirReference	inDirReference,
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsReleaseContinueData
 
@@ -1332,7 +1389,7 @@ tDirStatus dsFindDirNodes (	tDirReference		inDirRef,
 							UInt32			   *outDirNodeCount,
 							tContextData	   *ioContinueData )
 {
-	tDirStatus		outResult	= eDSNoErr;
+	SInt32			outResult	= eDSNoErr;
 	dsBool			bSendList	= true;
 	SInt32			siStatus	= eDSNoErr;
 	SInt32			siDataLen	= 0;
@@ -1458,7 +1515,7 @@ tDirStatus dsFindDirNodes (	tDirReference		inDirRef,
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsFindDirNodes
 
@@ -1486,7 +1543,7 @@ tDirStatus dsGetDirNodeName (	tDirReference		inDirRef,
 								UInt32				inDirNodeIndex,
 								tDataList		  **outDataList )
 {
-	tDirStatus		outResult		= eDSInvalidBuffFormat;
+	SInt32			outResult		= eDSInvalidBuffFormat;
 	UInt32			siStatus		= eDSNoErr;
 
 	//check to determine whether the buffer is of a standard type for this call
@@ -1496,7 +1553,7 @@ tDirStatus dsGetDirNodeName (	tDirReference		inDirRef,
 		outResult = ExtractDirNodeName(inDataBuff, inDirNodeIndex, outDataList);
 	}
 
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsGetDirNodeName
 
@@ -1519,7 +1576,7 @@ tDirStatus dsOpenDirNode (	tDirReference		inDirRef,
 							tDataListPtr		inDirNodeName,
 							tDirNodeReference	*outDirNodeRef )
 {
-	tDirStatus				outResult		= eDSNoErr;
+	SInt32					outResult		= eDSNoErr;
 	tDirNodeReference		nodeRef			= 0;
 	SInt32					siStatus		= eDSNoErr;
 	UInt32					messageIndex	= 0;
@@ -1587,6 +1644,7 @@ tDirStatus dsOpenDirNode (	tDirReference		inDirRef,
 						memcpy(pluginNameValue, nodePtr->fBufferData, pluginNameLength);
 						dsDataBufferDeAllocate( 0, nodePtr ); //dir ref not needed and don't check return
 					}
+					
 					gFWRefMap->NewNodeRefMap( outDirNodeRef, inDirRef, gProcessPID, aRef, messageIndex, pluginNameValue );
 				}
 				else
@@ -1617,7 +1675,7 @@ tDirStatus dsOpenDirNode (	tDirReference		inDirRef,
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsOpenDirNode
 
@@ -1634,7 +1692,7 @@ tDirStatus dsOpenDirNode (	tDirReference		inDirRef,
 
 tDirStatus dsCloseDirNode ( tDirNodeReference inNodeRef )
 {
-	tDirStatus		outResult	= eDSNoErr;
+	SInt32			outResult	= eDSNoErr;
 	SInt32			siStatus	= eDSNoErr;
 	UInt32			messageIndex= 0;
 
@@ -1694,7 +1752,7 @@ tDirStatus dsCloseDirNode ( tDirNodeReference inNodeRef )
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsOpenDirNode
 
@@ -1730,7 +1788,7 @@ tDirStatus dsGetDirNodeInfo (	tDirNodeReference	inNodeRef,				// Node ref
 								tAttributeListRef  *outAttrListRef,		// Attribute ref
 								tContextData	   *ioContinueData )		// to be continued...
 {
-	tDirStatus			outResult		= eDSNoErr;
+	SInt32				outResult		= eDSNoErr;
 	SInt32				siStatus		= eDSNoErr;
 	UInt32				messageIndex	= 0;
 	dsBool				closeServerRef	= false;
@@ -1869,7 +1927,7 @@ tDirStatus dsGetDirNodeInfo (	tDirNodeReference	inNodeRef,				// Node ref
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsGetDirNodeInfo
 
@@ -1912,7 +1970,7 @@ tDirStatus dsGetRecordList (	tDirNodeReference	inNodeRef,				// Node ref
 								UInt32			   *inOutRecEntryCount,		// Record count
 								tContextData	   *ioContinueData )		// To be continued...
 {
-	tDirStatus		outResult	= eDSNoErr;
+	SInt32			outResult	= eDSNoErr;
 	SInt32			siStatus	= eDSNoErr;
 	UInt32			messageIndex= 0;
 	UInt32			serverVersion = 0;
@@ -2066,7 +2124,7 @@ tDirStatus dsGetRecordList (	tDirNodeReference	inNodeRef,				// Node ref
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsGetRecordList
 
@@ -2092,7 +2150,7 @@ tDirStatus dsGetRecordEntry	(	tDirNodeReference	inNodeRef,
 								tAttributeListRef	*outAttrListRef,
 								tRecordEntryPtr		*outRecEntryPtr )
 {
-	tDirStatus			outResult	= eDSNoErr;
+	SInt32				outResult	= eDSNoErr;
 	SInt32				siStatus	= eDSNoErr;
 	UInt32				messageIndex= 0;
 
@@ -2109,7 +2167,7 @@ tDirStatus dsGetRecordEntry	(	tDirNodeReference	inNodeRef,
         if (siStatus == eDSNoErr)
         {
             outResult = ExtractRecordEntry(inOutDataBuff, inRecordEntryIndex, outAttrListRef, outRecEntryPtr);
-            return( outResult );
+            return (tDirStatus) outResult;
         }
         
 		messageIndex = gFWRefMap->GetMessageTableIndex(inNodeRef, eNodeRefType, gProcessPID);
@@ -2199,7 +2257,7 @@ tDirStatus dsGetRecordEntry	(	tDirNodeReference	inNodeRef,
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsGetRecordEntry
 
@@ -2222,7 +2280,7 @@ tDirStatus dsGetAttributeEntry (	tDirNodeReference		inNodeRef,					// Node ref <
 									tAttributeValueListRef	*outAttrValueListRef,		// Attribute value ref
 									tAttributeEntryPtr		*outAttrInfoPtr )			// Data ptr
 {
-	tDirStatus			outResult		= eDSNoErr;
+	SInt32				outResult		= eDSNoErr;
 	SInt32				siStatus		= eDSNoErr;
 	UInt32				messageIndex	= 0;
 
@@ -2239,7 +2297,7 @@ tDirStatus dsGetAttributeEntry (	tDirNodeReference		inNodeRef,					// Node ref <
         if (siStatus == eDSNoErr)
         {
             outResult = ExtractAttributeEntry(inOutDataBuff, inAttrListRef, inAttrInfoIndex, outAttrValueListRef, outAttrInfoPtr);
-            return( outResult );
+            return (tDirStatus) outResult;
         }
         
 		messageIndex = gFWRefMap->GetMessageTableIndex(inNodeRef, eNodeRefType, gProcessPID);
@@ -2333,7 +2391,7 @@ tDirStatus dsGetAttributeEntry (	tDirNodeReference		inNodeRef,					// Node ref <
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsGetAttributeEntry
 
@@ -2355,7 +2413,7 @@ tDirStatus dsGetNextAttributeEntry (	tDirNodeReference		inNodeRef,					// Node r
 										tAttributeValueListRef	*outAttrValueListRef,		// Attribute value ref
 										tAttributeEntryPtr		*outAttrInfoPtr )			// Data ptr
 {
-	tDirStatus			outResult		= eDSNoErr;
+	SInt32				outResult		= eDSNoErr;
 	SInt32				siStatus		= eDSNoErr;
 
 	pthread_once( &_gGlobalsInitialized, __InitGlobals );
@@ -2371,7 +2429,7 @@ tDirStatus dsGetNextAttributeEntry (	tDirNodeReference		inNodeRef,					// Node r
         if (siStatus == eDSNoErr)
         {
             outResult = ExtractNextAttributeEntry(inOutDataBuff, inAttrListRef, inAttrInfoIndex, inOutAttributeOffset, outAttrValueListRef, outAttrInfoPtr);
-            return( outResult );
+            return (tDirStatus) outResult;
         }
         
 	}
@@ -2388,7 +2446,7 @@ tDirStatus dsGetNextAttributeEntry (	tDirNodeReference		inNodeRef,					// Node r
 	//otherwise fall through to old method
 	outResult = dsGetAttributeEntry(inNodeRef, inOutDataBuff, inAttrListRef, inAttrInfoIndex, outAttrValueListRef, outAttrInfoPtr);
 
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsGetNextAttributeEntry
 
@@ -2409,7 +2467,7 @@ tDirStatus dsGetAttributeValue (	tDirNodeReference		 inNodeRef,
 									tAttributeValueListRef	 inAttrValueListRef,
 									tAttributeValueEntryPtr	*outAttrValue )
 {
-	tDirStatus		outResult	= eDSNoErr;
+	SInt32			outResult	= eDSNoErr;
 	SInt32			siStatus	= eDSNoErr;
 	UInt32			messageIndex= 0;
 
@@ -2425,7 +2483,7 @@ tDirStatus dsGetAttributeValue (	tDirNodeReference		 inNodeRef,
         if (siStatus == eDSNoErr)
         {
             outResult = ExtractAttributeValue(inOutDataBuff, inAttrValueListRef, inAttrValueIndex, outAttrValue);
-            return( outResult );
+            return (tDirStatus) outResult;
         }
         
 		messageIndex = gFWRefMap->GetMessageTableIndex(inNodeRef, eNodeRefType, gProcessPID);
@@ -2503,7 +2561,7 @@ tDirStatus dsGetAttributeValue (	tDirNodeReference		 inNodeRef,
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsGetAttributeValue
 
@@ -2523,7 +2581,7 @@ tDirStatus dsGetNextAttributeValue (	tDirNodeReference			inNodeRef,
 										tAttributeValueListRef		inAttrValueListRef,
 										tAttributeValueEntryPtr	   *outAttrValue )
 {
-	tDirStatus		outResult	= eDSNoErr;
+	SInt32			outResult	= eDSNoErr;
 	SInt32			siStatus	= eDSNoErr;
 
 	pthread_once( &_gGlobalsInitialized, __InitGlobals );
@@ -2538,7 +2596,7 @@ tDirStatus dsGetNextAttributeValue (	tDirNodeReference			inNodeRef,
         if (siStatus == eDSNoErr)
         {
             outResult = ExtractNextAttributeValue(inOutDataBuff, inAttrValueListRef, inAttrValueIndex, inOutAttributeValueOffset, outAttrValue);
-            return( outResult );
+            return (tDirStatus) outResult;
         }
         
 	}
@@ -2555,7 +2613,7 @@ tDirStatus dsGetNextAttributeValue (	tDirNodeReference			inNodeRef,
 	//otherwise fall through to old method
 	outResult = dsGetAttributeValue(inNodeRef, inOutDataBuff, inAttrValueIndex, inAttrValueListRef, outAttrValue);
 
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsGetNextAttributeValue
 
@@ -2574,7 +2632,7 @@ tDirStatus dsGetNextAttributeValue (	tDirNodeReference			inNodeRef,
 tDirStatus dsCloseAttributeList ( tAttributeListRef inAttributeListRef )
 {
 
-	tDirStatus		outResult	= eDSNoErr;
+	SInt32			outResult	= eDSNoErr;
 	SInt32			siStatus	= eDSNoErr;
 	UInt32			messageIndex= 0;
 
@@ -2588,7 +2646,7 @@ tDirStatus dsCloseAttributeList ( tAttributeListRef inAttributeListRef )
         if (siStatus == eDSNoErr)
         {
 			outResult = gFWRefTable->RemoveAttrListRef( inAttributeListRef, gProcessPID );
-            return( outResult );
+            return (tDirStatus) outResult;
         }
         
 		messageIndex = gFWRefMap->GetMessageTableIndex(inAttributeListRef,eAttrListRefType, gProcessPID);
@@ -2642,7 +2700,7 @@ tDirStatus dsCloseAttributeList ( tAttributeListRef inAttributeListRef )
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsCloseAttributeList
 
@@ -2661,7 +2719,7 @@ tDirStatus dsCloseAttributeList ( tAttributeListRef inAttributeListRef )
 tDirStatus dsCloseAttributeValueList ( tAttributeValueListRef inAttributeValueListRef )
 {
 
-	tDirStatus		outResult	= eDSNoErr;
+	SInt32			outResult	= eDSNoErr;
 	SInt32			siStatus	= eDSNoErr;
 	UInt32			messageIndex= 0;
 
@@ -2675,7 +2733,7 @@ tDirStatus dsCloseAttributeValueList ( tAttributeValueListRef inAttributeValueLi
         if (siStatus == eDSNoErr)
         {
 			outResult = gFWRefTable->RemoveAttrValueRef( inAttributeValueListRef, gProcessPID );
-            return( outResult );
+            return (tDirStatus) outResult;
         }
         
 		messageIndex = gFWRefMap->GetMessageTableIndex(inAttributeValueListRef,eAttrValueListRefType, gProcessPID);
@@ -2729,7 +2787,7 @@ tDirStatus dsCloseAttributeValueList ( tAttributeValueListRef inAttributeValueLi
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsCloseAttributeValueList
 
@@ -2749,7 +2807,7 @@ tDirStatus dsOpenRecord (	tDirNodeReference	inNodeRef,
 							tDataNodePtr		inRecName,
 							tRecordReference	*outRecRef )
 {
-	tDirStatus			outResult		= eDSNoErr;
+	SInt32				outResult		= eDSNoErr;
 	SInt32				siStatus		= eDSNoErr;
 	UInt32				messageIndex	= 0;
 
@@ -2839,7 +2897,7 @@ tDirStatus dsOpenRecord (	tDirNodeReference	inNodeRef,
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 
 } // dsOpenRecord
@@ -2859,7 +2917,7 @@ tDirStatus dsOpenRecord (	tDirNodeReference	inNodeRef,
 tDirStatus dsGetRecordReferenceInfo (	tRecordReference	inRecRef,
 										tRecordEntryPtr		*outRecInfo )
 {
-	tDirStatus			outResult	= eDSNoErr;
+	SInt32				outResult	= eDSNoErr;
 	SInt32				siStatus	= eDSNoErr;
 	UInt32				messageIndex= 0;
 
@@ -2924,7 +2982,7 @@ tDirStatus dsGetRecordReferenceInfo (	tRecordReference	inRecRef,
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsGetRecordReferenceInfo
 
@@ -2944,7 +3002,7 @@ tDirStatus dsGetRecordAttributeInfo (	tRecordReference	inRecRef,
 										tDataNodePtr		inAttributeType,
 										tAttributeEntryPtr	*outAttrInfoPtr )
 {
-	tDirStatus		outResult		= eDSNoErr;
+	SInt32			outResult		= eDSNoErr;
 	SInt32			siStatus		= eDSNoErr;
 	UInt32			messageIndex	= 0;
 
@@ -3017,7 +3075,7 @@ tDirStatus dsGetRecordAttributeInfo (	tRecordReference	inRecRef,
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsGetRecordAttributeInfo
 
@@ -3038,7 +3096,7 @@ tDirStatus dsGetRecordAttributeValueByID (	tRecordReference		inRecRef,
 											UInt32					inValueID,
 											tAttributeValueEntryPtr	*outEntryPtr )
 {
-	tDirStatus		outResult	= eDSNoErr;
+	SInt32			outResult	= eDSNoErr;
 	SInt32			siStatus	= eDSNoErr;
 	UInt32			messageIndex= 0;
 
@@ -3115,7 +3173,7 @@ tDirStatus dsGetRecordAttributeValueByID (	tRecordReference		inRecRef,
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsGetRecordAttributeValueByID
 
@@ -3135,7 +3193,7 @@ tDirStatus dsGetRecordAttributeValueByIndex (	tRecordReference		inRecRef,
 												UInt32					inAttrValueIndex,
 												tAttributeValueEntryPtr	*outEntryPtr )
 {
-	tDirStatus		outResult	= eDSNoErr;
+	SInt32			outResult	= eDSNoErr;
 	SInt32			siStatus	= eDSNoErr;
 	UInt32			messageIndex= 0;
 
@@ -3213,7 +3271,7 @@ tDirStatus dsGetRecordAttributeValueByIndex (	tRecordReference		inRecRef,
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsGetRecordAttributeValueByIndex
 
@@ -3233,7 +3291,7 @@ tDirStatus dsGetRecordAttributeValueByValue (	tRecordReference		inRecRef,
 												tDataNodePtr			inAttributeValue,
 												tAttributeValueEntryPtr	*outEntryPtr )
 {
-	tDirStatus		outResult	= eDSNoErr;
+	SInt32			outResult	= eDSNoErr;
 	SInt32			siStatus	= eDSNoErr;
 	UInt32			messageIndex= 0;
 
@@ -3313,7 +3371,7 @@ tDirStatus dsGetRecordAttributeValueByValue (	tRecordReference		inRecRef,
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsGetRecordAttributeValueByValue
 
@@ -3331,7 +3389,7 @@ tDirStatus dsGetRecordAttributeValueByValue (	tRecordReference		inRecRef,
 
 tDirStatus dsFlushRecord ( tRecordReference inRecRef )
 {
-	tDirStatus		outResult	= eDSNoErr;
+	SInt32			outResult	= eDSNoErr;
 	SInt32			siStatus	= eDSNoErr;
 	UInt32			messageIndex= 0;
 
@@ -3388,7 +3446,7 @@ tDirStatus dsFlushRecord ( tRecordReference inRecRef )
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsFlushRecord
 
@@ -3408,7 +3466,7 @@ tDirStatus dsFlushRecord ( tRecordReference inRecRef )
 tDirStatus dsCloseRecord ( tRecordReference inRecRef )
 {
 
-	tDirStatus		outResult	= eDSNoErr;
+	SInt32			outResult	= eDSNoErr;
 	SInt32			siStatus	= eDSNoErr;
 	UInt32			messageIndex= 0;
 
@@ -3467,7 +3525,7 @@ tDirStatus dsCloseRecord ( tRecordReference inRecRef )
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsCloseRecord
 
@@ -3485,7 +3543,7 @@ tDirStatus dsCloseRecord ( tRecordReference inRecRef )
 tDirStatus dsSetRecordName (	tRecordReference	inRecRef,
 								tDataNodePtr		inNewRecordName )
 {
-	tDirStatus		outResult	= eDSNoErr;
+	SInt32			outResult	= eDSNoErr;
 	SInt32			siStatus	= eDSNoErr;
 	UInt32			messageIndex= 0;
 
@@ -3550,7 +3608,7 @@ tDirStatus dsSetRecordName (	tRecordReference	inRecRef,
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsSetRecordName
 
@@ -3567,7 +3625,7 @@ tDirStatus dsSetRecordName (	tRecordReference	inRecRef,
 
 tDirStatus dsSetRecordType ( tRecordReference inRecRef, tDataNodePtr inNewRecordType )
 {
-	tDirStatus		outResult	= eDSNoErr;
+	SInt32			outResult	= eDSNoErr;
 	SInt32			siStatus	= eDSNoErr;
 	UInt32			messageIndex= 0;
 
@@ -3632,7 +3690,7 @@ tDirStatus dsSetRecordType ( tRecordReference inRecRef, tDataNodePtr inNewRecord
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsSetRecordType
 
@@ -3649,7 +3707,7 @@ tDirStatus dsSetRecordType ( tRecordReference inRecRef, tDataNodePtr inNewRecord
 
 tDirStatus dsDeleteRecord ( tRecordReference inRecRef )
 {
-	tDirStatus		outResult	= eDSNoErr;
+	SInt32			outResult	= eDSNoErr;
 	SInt32			siStatus	= eDSNoErr;
 	UInt32			messageIndex= 0;
 
@@ -3709,7 +3767,7 @@ tDirStatus dsDeleteRecord ( tRecordReference inRecRef )
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsDeleteRecord
 
@@ -3728,7 +3786,7 @@ tDirStatus dsCreateRecord (	tDirNodeReference	inNodeRef,
 							tDataNodePtr		inRecType,
 							tDataNodePtr		inRecName )
 {
-	tDirStatus		outResult	= eDSNoErr;
+	SInt32			outResult	= eDSNoErr;
 	SInt32			siStatus	= eDSNoErr;
 	UInt32			messageIndex= 0;
 
@@ -3805,7 +3863,7 @@ tDirStatus dsCreateRecord (	tDirNodeReference	inNodeRef,
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsCreateRecord
 
@@ -3825,7 +3883,7 @@ tDirStatus dsCreateRecordAndOpen (	tDirNodeReference	inNodeRef,
 									tDataNodePtr		inRecName,
 									tRecordReference	*outRecRef )
 {
-	tDirStatus			outResult		= eDSNoErr;
+	SInt32				outResult		= eDSNoErr;
 	SInt32				siStatus		= eDSNoErr;
 	UInt32				messageIndex	= 0;
 
@@ -3918,7 +3976,7 @@ tDirStatus dsCreateRecordAndOpen (	tDirNodeReference	inNodeRef,
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsCreateRecordAndOpen
 
@@ -3938,7 +3996,7 @@ tDirStatus dsAddAttribute (	tRecordReference		inRecRef,
 							tAccessControlEntryPtr	inNewAttrAccess,
 							tDataNodePtr			inFirstAttrValue )
 {
-	tDirStatus		outResult	= eDSNoErr;
+	SInt32			outResult	= eDSNoErr;
 	SInt32			siStatus	= eDSNoErr;
 	UInt32			messageIndex= 0;
 
@@ -4018,7 +4076,7 @@ tDirStatus dsAddAttribute (	tRecordReference		inRecRef,
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsAddAttribute
 
@@ -4036,7 +4094,7 @@ tDirStatus dsAddAttribute (	tRecordReference		inRecRef,
 tDirStatus dsRemoveAttribute (	tRecordReference	inRecRef,
 								tDataNodePtr		inAttribute )
 {
-	tDirStatus		outResult	= eDSNoErr;
+	SInt32			outResult	= eDSNoErr;
 	SInt32			siStatus	= eDSNoErr;
 	UInt32			messageIndex= 0;
 
@@ -4101,7 +4159,7 @@ tDirStatus dsRemoveAttribute (	tRecordReference	inRecRef,
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsRemoveAttribute
 
@@ -4120,7 +4178,7 @@ tDirStatus dsAddAttributeValue (	tRecordReference	inRecRef,
 									tDataNodePtr		inAttrType,
 									tDataNodePtr		inAttrValue )
 {
-	tDirStatus		outResult	= eDSNoErr;
+	SInt32			outResult	= eDSNoErr;
 	SInt32			siStatus	= eDSNoErr;
 	UInt32			messageIndex= 0;
 
@@ -4191,7 +4249,7 @@ tDirStatus dsAddAttributeValue (	tRecordReference	inRecRef,
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsAddAttributeValue
 
@@ -4210,7 +4268,7 @@ tDirStatus	dsRemoveAttributeValue	(	tRecordReference	inRecRef,
 										tDataNodePtr		inAttrType,
 										UInt32				inAttrValueID )
 {
-	tDirStatus		outResult	= eDSNoErr;
+	SInt32			outResult	= eDSNoErr;
 	SInt32			siStatus	= eDSNoErr;
 	UInt32			messageIndex= 0;
 
@@ -4279,7 +4337,7 @@ tDirStatus	dsRemoveAttributeValue	(	tRecordReference	inRecRef,
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsRemoveAttributeValue
 
@@ -4298,7 +4356,7 @@ tDirStatus dsSetAttributeValue (	tRecordReference		inRecRef,
 									tDataNodePtr			inAttrType,
 									tAttributeValueEntryPtr	inAttrValueEntry )
 {
-	tDirStatus		outResult	= eDSNoErr;
+	SInt32			outResult	= eDSNoErr;
 	SInt32			siStatus	= eDSNoErr;
 	UInt32			messageIndex= 0;
 
@@ -4369,7 +4427,7 @@ tDirStatus dsSetAttributeValue (	tRecordReference		inRecRef,
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsSetAttributeValue
 
@@ -4378,7 +4436,7 @@ tDirStatus dsSetAttributeValues		(   tRecordReference		inRecRef,
 										tDataNodePtr			inAttrType,
 										tDataListPtr			inAttributeValuesPtr )
 {
-	tDirStatus		outResult	= eDSNoErr;
+	SInt32			outResult	= eDSNoErr;
 	SInt32			siStatus	= eDSNoErr;
 	UInt32			messageIndex= 0;
 
@@ -4450,7 +4508,7 @@ tDirStatus dsSetAttributeValues		(   tRecordReference		inRecRef,
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsSetAttributeValues
 
@@ -4471,7 +4529,7 @@ tDirStatus dsDoDirNodeAuth (	tDirNodeReference	inNodeRef,
 								tDataBufferPtr		outAuthStepDataResponse, // <- should be a handle
 								tContextData		*ioContinueData )
 {
-	tDirStatus		outResult	= eDSNoErr;
+	SInt32			outResult	= eDSNoErr;
 
 	outResult = dsDoDirNodeAuthOnRecordType(	inNodeRef,
 												inAuthMethod,
@@ -4481,7 +4539,7 @@ tDirStatus dsDoDirNodeAuth (	tDirNodeReference	inNodeRef,
 												ioContinueData,
 												nil);
 	//record type passed in as nil to be backward compatible
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsDoDirNodeAuth
 
@@ -4504,7 +4562,7 @@ tDirStatus dsDoDirNodeAuthOnRecordType (	tDirNodeReference	inNodeRef,
 											tContextData		*ioContinueData,
 											tDataNodePtr		inRecordType )
 {
-	tDirStatus		outResult	= eDSNoErr;
+	SInt32			outResult	= eDSNoErr;
 	SInt32			siStatus	= eDSNoErr;
 	UInt32			messageIndex= 0;
 
@@ -4628,7 +4686,7 @@ tDirStatus dsDoDirNodeAuthOnRecordType (	tDirNodeReference	inNodeRef,
 	}
 	
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsDoDirNodeAuthOnRecordType
 
@@ -4661,7 +4719,7 @@ tDirStatus dsDoAttributeValueSearch (	tDirNodeReference	inDirNodeRef,
 										UInt32			   *inOutMatchRecordCount,
 										tContextData	   *ioContinueData )
 {
-	tDirStatus			outResult	= eDSNoErr;
+	SInt32				outResult	= eDSNoErr;
 	SInt32				siStatus	= eDSNoErr;
 	UInt32				messageIndex= 0;
 
@@ -4792,7 +4850,7 @@ tDirStatus dsDoAttributeValueSearch (	tDirNodeReference	inDirNodeRef,
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsDoAttributeValueSearch
 
@@ -4825,7 +4883,7 @@ tDirStatus dsDoMultipleAttributeValueSearch (	tDirNodeReference	inDirNodeRef,
 												UInt32			   *inOutMatchRecordCount,
 												tContextData	   *ioContinueData )
 {
-	tDirStatus			outResult	= eDSNoErr;
+	SInt32				outResult	= eDSNoErr;
 	SInt32				siStatus	= eDSNoErr;
 	UInt32				messageIndex= 0;
 
@@ -4956,7 +5014,7 @@ tDirStatus dsDoMultipleAttributeValueSearch (	tDirNodeReference	inDirNodeRef,
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsDoMultipleAttributeValueSearch
 
@@ -4994,7 +5052,7 @@ tDirStatus dsDoAttributeValueSearchWithData (	tDirNodeReference	inDirNodeRef,
 												UInt32			   *inOutMatchRecordCount,
 												tContextData	   *ioContinueData )
 {
-	tDirStatus			outResult	= eDSNoErr;
+	SInt32				outResult	= eDSNoErr;
 	SInt32				siStatus	= eDSNoErr;
 	UInt32				messageIndex= 0;
 
@@ -5136,7 +5194,7 @@ tDirStatus dsDoAttributeValueSearchWithData (	tDirNodeReference	inDirNodeRef,
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsDoAttributeValueSearchWithData
 
@@ -5174,7 +5232,7 @@ tDirStatus dsDoMultipleAttributeValueSearchWithData (	tDirNodeReference	inDirNod
 														UInt32			   *inOutMatchRecordCount,
 														tContextData	   *ioContinueData )
 {
-	tDirStatus			outResult	= eDSNoErr;
+	SInt32				outResult	= eDSNoErr;
 	SInt32				siStatus	= eDSNoErr;
 	UInt32				messageIndex= 0;
 
@@ -5316,7 +5374,7 @@ tDirStatus dsDoMultipleAttributeValueSearchWithData (	tDirNodeReference	inDirNod
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsDoMultipleAttributeValueSearchWithData
 
@@ -5336,7 +5394,7 @@ tDirStatus	dsDoPlugInCustomCall (	tDirNodeReference	inNodeRef,
 									tDataBuffer		   *inDataBuff,
 									tDataBuffer		   *outDataBuff )
 {
-	tDirStatus		outResult	= eDSNoErr;
+	SInt32			outResult	= eDSNoErr;
 	SInt32			siStatus	= eDSNoErr;
 	UInt32			blockLen	= 0;
 	UInt32			messageIndex= 0;
@@ -5372,11 +5430,8 @@ tDirStatus	dsDoPlugInCustomCall (	tDirNodeReference	inNodeRef,
 				blockLen = inDataBuff->fBufferSize + outDataBuff->fBufferSize;
 			}
 			
-			//set up the server ref to FW ref mapping
-			serverNodeRef = gFWRefMap->GetRefNum(inNodeRef, eNodeRefType, gProcessPID);
-#ifdef __LITTLE_ENDIAN__
-			gFWRefMap->MapServerRefToLocalRef(serverNodeRef, inNodeRef);
-#endif
+			serverNodeRef = gFWRefMap->GetRefNum( inNodeRef, eNodeRefType, gProcessPID );
+			
 			// Add the node reference
 			siStatus = gMessageTable[messageIndex]->Add_Value_ToMsg( serverNodeRef, ktNodeRef );
 			LogThenThrowThisIfDSErrorMacro( siStatus, eParameterSendError );
@@ -5440,7 +5495,7 @@ tDirStatus	dsDoPlugInCustomCall (	tDirNodeReference	inNodeRef,
 	}
 
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsDoPlugInCustomCall
 											
@@ -5453,7 +5508,7 @@ tDirStatus	dsDoPlugInCustomCall (	tDirNodeReference	inNodeRef,
 
 tDirStatus dsVerifyDirRefNum ( tDirReference inDirRef )
 {
-	tDirStatus		outResult	= eDSNoErr;
+	SInt32			outResult	= eDSNoErr;
 	UInt32			siStatus	= eDSNoErr;
 	UInt32			messageIndex= 0;
 
@@ -5461,7 +5516,7 @@ tDirStatus dsVerifyDirRefNum ( tDirReference inDirRef )
 
 	if ( inDirRef == 0x00F0F0F0 )
 	{
-		return( outResult );
+		return (tDirStatus) outResult;
 	}
 	if ( inDirRef == 0x0 )
 	{
@@ -5518,7 +5573,7 @@ tDirStatus dsVerifyDirRefNum ( tDirReference inDirRef )
 	}
 		
 	CheckToCleanUpLostTCPConnection(&outResult, messageIndex, __LINE__);
-	return( outResult );
+	return (tDirStatus) outResult;
 
 } // dsVerifyDirRefNum
 
@@ -5528,7 +5583,7 @@ tDirStatus dsVerifyDirRefNum ( tDirReference inDirRef )
 //
 //--------------------------------------------------------------------------------------------------
 
-void CheckToCleanUpLostTCPConnection ( tDirStatus *inStatus, UInt32 inMessageIndex, UInt32 lineNumber )
+void CheckToCleanUpLostTCPConnection ( SInt32 *inStatus, UInt32 inMessageIndex, UInt32 lineNumber )
 {
     pthread_once( &_gGlobalsInitialized, __InitGlobals );
 
@@ -5546,11 +5601,7 @@ void CheckToCleanUpLostTCPConnection ( tDirStatus *inStatus, UInt32 inMessageInd
 					if (gMessageTable[inMessageIndex] != nil )
 					{
 						LOG1( kStdErr, "DirServices::CheckToCleanUpLostTCPConnection: TCP connection was lost - refer to line %d.", lineNumber );
-						gMessageTable[inMessageIndex]->Lock();
-						gMessageTable[inMessageIndex]->CloseTCPEndpoint();
-						gMessageTable[inMessageIndex]->Unlock();
-						delete(gMessageTable[inMessageIndex]);
-						gMessageTable[inMessageIndex] = nil;
+						DSDelete(gMessageTable[inMessageIndex]);
 					}
 					gLock->SignalLock();
 				}

@@ -15,8 +15,8 @@
 ;;
 ;; You should have received a copy of the GNU General Public License
 ;; along with GCC; see the file COPYING.  If not, write to the
-;; Free Software Foundation, 59 Temple Place - Suite 330, Boston,
-;; MA 02111-1307, USA.
+;; Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
+;; MA 02110-1301, USA.
 
 ;; Sources: IBM Red Book and White Paper on POWER5
 
@@ -134,6 +134,12 @@
   (and (eq_attr "type" "fpstore_u,fpstore_ux")
        (eq_attr "cpu" "power5"))
   "du1_power5+du2_power5,lsu1_power5+iu2_power5,fpu1_power5")
+
+(define_insn_reservation "power5-llsc" 11
+  (and (eq_attr "type" "load_l,store_c,sync")
+       (eq_attr "cpu" "power5"))
+  "du1_power5+du2_power5+du3_power5+du4_power5,\
+  lsu1_power5")
 
 
 ; Integer latency is 2 cycles
@@ -306,4 +312,10 @@
   |(du2_power5,fpu2_power5*35)\
   |(du3_power5,fpu2_power5*35)\
   |(du4_power5,fpu2_power5*35)")
+
+(define_insn_reservation "power5-isync" 2 
+  (and (eq_attr "type" "isync")
+       (eq_attr "cpu" "power5"))
+  "du1_power5+du2_power5+du3_power5+du4_power5,\
+  lsu1_power5")
 

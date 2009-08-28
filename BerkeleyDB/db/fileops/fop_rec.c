@@ -1,29 +1,52 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2001-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 2001,2007 Oracle.  All rights reserved.
+ *
+ * $Id: fop_rec.c,v 12.18 2007/05/17 15:15:37 bostic Exp $
  */
 
 #include "db_config.h"
 
-#ifndef lint
-static const char revid[] = "$Id: fop_rec.c,v 1.2 2004/03/30 01:23:27 jtownsen Exp $";
-#endif /* not lint */
-
-#ifndef NO_SYSTEM_INCLUDES
-#include <sys/types.h>
-
-#include <string.h>
-#endif
-
 #include "db_int.h"
 #include "dbinc/db_page.h"
-#include "dbinc/db_shash.h"
 #include "dbinc/fop.h"
 #include "dbinc/db_am.h"
 #include "dbinc/mp.h"
 #include "dbinc/txn.h"
+
+static int __fop_rename_recover_int
+    __P((DB_ENV *, DBT *, DB_LSN *, db_recops, void *, int));
+
+/*
+ * The transactional guarantees Berkeley DB provides for file
+ * system level operations (database physical file create, delete,
+ * rename) are based on our understanding of current file system
+ * semantics; a system that does not provide these semantics and
+ * guarantees could be in danger.
+ *
+ * First, as in standard database changes, fsync and fdatasync must
+ * work: when applied to the log file, the records written into the
+ * log must be transferred to stable storage.
+ *
+ * Second, it must not be possible for the log file to be removed
+ * without previous file system level operations being flushed to
+ * stable storage.  Berkeley DB applications write log records
+ * describing file system operations into the log, then perform the
+ * file system operation, then commit the enclosing transaction
+ * (which flushes the log file to stable storage).  Subsequently,
+ * a database environment checkpoint may make it possible for the
+ * application to remove the log file containing the record of the
+ * file system operation.  DB's transactional guarantees for file
+ * system operations require the log file removal not succeed until
+ * all previous filesystem operations have been flushed to stable
+ * storage.  In other words, the flush of the log file, or the
+ * removal of the log file, must block until all previous
+ * filesystem operations have been flushed to stable storage.  This
+ * semantic is not, as far as we know, required by any existing
+ * standards document, but we have never seen a filesystem where
+ * it does not apply.
+ */
 
 /*
  * __fop_create_recover --
@@ -45,8 +68,8 @@ __fop_create_recover(dbenv, dbtp, lsnp, op, info)
 	char *real_name;
 	int ret;
 
-	real_name = NULL;
 	COMPQUIET(info, NULL);
+	real_name = NULL;
 	REC_PRINT(__fop_create_print);
 	REC_NOOP_INTRO(__fop_create_read);
 
@@ -57,10 +80,10 @@ __fop_create_recover(dbenv, dbtp, lsnp, op, info)
 	if (DB_UNDO(op))
 		(void)__os_unlink(dbenv, real_name);
 	else if (DB_REDO(op)) {
-		if ((ret = __os_open(dbenv, real_name,
-		    DB_OSO_CREATE | DB_OSO_EXCL, argp->mode, &fhp)) == 0)
+		if ((ret = __os_open(dbenv, real_name, 0,
+		    DB_OSO_CREATE, (int)argp->mode, &fhp)) == 0)
 			(void)__os_closehandle(dbenv, fhp);
-		else 
+		else
 			goto out;
 	}
 
@@ -91,8 +114,8 @@ __fop_remove_recover(dbenv, dbtp, lsnp, op, info)
 	char *real_name;
 	int ret;
 
-	real_name = NULL;
 	COMPQUIET(info, NULL);
+	real_name = NULL;
 	REC_PRINT(__fop_remove_print);
 	REC_NOOP_INTRO(__fop_remove_read);
 
@@ -103,7 +126,7 @@ __fop_remove_recover(dbenv, dbtp, lsnp, op, info)
 	/* Its ok if the file is not there. */
 	if (DB_REDO(op))
 		(void)__memp_nameop(dbenv,
-		    (u_int8_t *)argp->fid.data, NULL, real_name, NULL);
+		    (u_int8_t *)argp->fid.data, NULL, real_name, NULL, 0);
 
 	*lsnp = argp->prev_lsn;
 out:	if (real_name != NULL)
@@ -135,10 +158,10 @@ __fop_write_recover(dbenv, dbtp, lsnp, op, info)
 
 	ret = 0;
 	if (DB_UNDO(op))
-		DB_ASSERT(argp->flag != 0);
+		DB_ASSERT(dbenv, argp->flag != 0);
 	else if (DB_REDO(op))
 		ret = __fop_write(dbenv,
-		    argp->txnid, argp->name.data, argp->appname,
+		    argp->txnp, argp->name.data, (APPNAME)argp->appname,
 		    NULL, argp->pgsize, argp->pageno, argp->offset,
 		    argp->page.data, argp->page.size, argp->flag, 0);
 
@@ -149,9 +172,16 @@ __fop_write_recover(dbenv, dbtp, lsnp, op, info)
 
 /*
  * __fop_rename_recover --
- *	Recovery function for rename.
+ *	Recovery functions for rename.  There are two variants that
+ * both use the same utility function.  Had we known about this on day
+ * one, we would have simply added a parameter.  However, since we need
+ * to retain old records for backward compatibility (online-upgrade)
+ * wrapping the two seems like the right solution.
  *
  * PUBLIC: int __fop_rename_recover
+ * PUBLIC:   __P((DB_ENV *, DBT *, DB_LSN *, db_recops, void *));
+ *
+ * PUBLIC: int __fop_rename_noundo_recover
  * PUBLIC:   __P((DB_ENV *, DBT *, DB_LSN *, db_recops, void *));
  */
 int
@@ -161,6 +191,29 @@ __fop_rename_recover(dbenv, dbtp, lsnp, op, info)
 	DB_LSN *lsnp;
 	db_recops op;
 	void *info;
+{
+	return (__fop_rename_recover_int(dbenv, dbtp, lsnp, op, info, 1));
+}
+
+int
+__fop_rename_noundo_recover(dbenv, dbtp, lsnp, op, info)
+	DB_ENV *dbenv;
+	DBT *dbtp;
+	DB_LSN *lsnp;
+	db_recops op;
+	void *info;
+{
+	return (__fop_rename_recover_int(dbenv, dbtp, lsnp, op, info, 0));
+}
+
+int
+__fop_rename_recover_int(dbenv, dbtp, lsnp, op, info, undo)
+	DB_ENV *dbenv;
+	DBT *dbtp;
+	DB_LSN *lsnp;
+	db_recops op;
+	void *info;
+	int undo;
 {
 	__fop_rename_args *argp;
 	DB_FH *fhp;
@@ -200,7 +253,7 @@ __fop_rename_recover(dbenv, dbtp, lsnp, op, info)
 		 * way, shape or form, incorrect, so that we should not restore
 		 * it.
 		 */
-		if (__os_open(dbenv, src, 0, 0, &fhp) != 0)
+		if (__os_open(dbenv, src, 0, 0, 0, &fhp) != 0)
 			goto done;
 		if (__fop_read_meta(dbenv,
 		    src, mbuf, DBMETASIZE, fhp, 1, NULL) != 0)
@@ -211,14 +264,33 @@ __fop_rename_recover(dbenv, dbtp, lsnp, op, info)
 			goto done;
 		(void)__os_closehandle(dbenv, fhp);
 		fhp = NULL;
+		if (DB_REDO(op)) {
+			/*
+			 * Check to see if the target file exists.  If it
+			 * does and it does not have the proper id then
+			 * it is a later version.  We just remove the source
+			 * file since the state of the world is beyond this
+			 * point.
+			 */
+			if (__os_open(dbenv, real_new, 0, 0, 0, &fhp) == 0 &&
+			    __fop_read_meta(dbenv, src, mbuf,
+			    DBMETASIZE, fhp, 1, NULL) == 0 &&
+			    __db_chk_meta(dbenv, NULL, meta, 1) == 0 &&
+			    memcmp(argp->fileid.data,
+			    meta->uid, DB_FILE_ID_LEN) != 0) {
+				(void)__memp_nameop(dbenv,
+				    fileid, NULL, real_old, NULL, 0);
+				goto done;
+			}
+		}
 	}
 
-	if (DB_UNDO(op))
+	if (undo && DB_UNDO(op))
 		(void)__memp_nameop(dbenv, fileid,
-		    (const char *)argp->oldname.data, real_new, real_old);
+		    (const char *)argp->oldname.data, real_new, real_old, 0);
 	if (DB_REDO(op))
 		(void)__memp_nameop(dbenv, fileid,
-		    (const char *)argp->newname.data, real_old, real_new);
+		    (const char *)argp->newname.data, real_old, real_new, 0);
 
 done:	*lsnp = argp->prev_lsn;
 out:	if (real_new != NULL)
@@ -257,7 +329,7 @@ __fop_file_remove_recover(dbenv, dbtp, lsnp, op, info)
 	int is_real, is_tmp, ret;
 	size_t len;
 	u_int8_t mbuf[DBMETASIZE];
-	u_int32_t cstat;
+	u_int32_t cstat, ret_stat;
 
 	fhp = NULL;
 	is_real = is_tmp = 0;
@@ -280,7 +352,7 @@ __fop_file_remove_recover(dbenv, dbtp, lsnp, op, info)
 
 	/* Verify that we are manipulating the correct file.  */
 	len = 0;
-	if (__os_open(dbenv, real_name, 0, 0, &fhp) != 0 ||
+	if (__os_open(dbenv, real_name, 0, 0, 0, &fhp) != 0 ||
 	    (ret = __fop_read_meta(dbenv, real_name,
 	    mbuf, DBMETASIZE, fhp, 1, &len)) != 0) {
 		/*
@@ -319,10 +391,7 @@ __fop_file_remove_recover(dbenv, dbtp, lsnp, op, info)
 	if (DB_UNDO(op)) {
 		/* On the backward pass, we leave a note for the child txn. */
 		if ((ret = __db_txnlist_update(dbenv,
-		    info, argp->child, cstat, NULL)) == TXN_NOTFOUND)
-			ret = __db_txnlist_add(dbenv,
-			    info, argp->child, cstat, NULL);
-		if (ret != 0)
+		    info, argp->child, cstat, NULL, &ret_stat, 1)) != 0)
 			goto out;
 	} else if (DB_REDO(op)) {
 		/*
@@ -332,7 +401,7 @@ __fop_file_remove_recover(dbenv, dbtp, lsnp, op, info)
 		if (cstat == TXN_COMMIT)
 			(void)__memp_nameop(dbenv,
 			    is_real ? argp->real_fid.data : argp->tmp_fid.data,
-			    NULL, real_name, NULL);
+			    NULL, real_name, NULL, 0);
 	}
 
 done:	*lsnp = argp->prev_lsn;

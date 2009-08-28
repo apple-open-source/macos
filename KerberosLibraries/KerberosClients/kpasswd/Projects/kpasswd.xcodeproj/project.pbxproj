@@ -1,0 +1,204 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A181F29705E553E4006CE0A8 /* kpasswd.c in Sources */ = {isa = PBXBuildFile; fileRef = F5E27E69023719A601650119 /* kpasswd.c */; };
+		A181F29905E553E4006CE0A8 /* Kerberos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5E27E7302371AA601650119 /* Kerberos.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A108E7110A41E8FB008545E5 /* Release.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = ../../../Common/Resources/Release.xcconfig; sourceTree = SOURCE_ROOT; };
+		A108E7120A41E8FB008545E5 /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Debug.xcconfig; path = ../../../Common/Resources/Debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		A181F29C05E553E4006CE0A8 /* kpasswd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = kpasswd; sourceTree = BUILT_PRODUCTS_DIR; };
+		F5033FD6025DFA3F01F62B58 /* kpasswd.M */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 30; path = kpasswd.M; sourceTree = "<group>"; };
+		F5E27E69023719A601650119 /* kpasswd.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = kpasswd.c; sourceTree = "<group>"; };
+		F5E27E7302371AA601650119 /* Kerberos.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = Kerberos.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A181F29805E553E4006CE0A8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A181F29905E553E4006CE0A8 /* Kerberos.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		F5033FD5025DFA3F01F62B58 /* Documentation */ = {
+			isa = PBXGroup;
+			children = (
+				F5033FD6025DFA3F01F62B58 /* kpasswd.M */,
+			);
+			name = Documentation;
+			path = ../Documentation;
+			sourceTree = "<group>";
+		};
+		F5E27E100237085C01650119 = {
+			isa = PBXGroup;
+			children = (
+				A108E7110A41E8FB008545E5 /* Release.xcconfig */,
+				A108E7120A41E8FB008545E5 /* Debug.xcconfig */,
+				F5E27E68023719A601650119 /* Sources */,
+				F5033FD5025DFA3F01F62B58 /* Documentation */,
+				F5E27E7302371AA601650119 /* Kerberos.framework */,
+				F5E27E6A02371A7501650119 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		F5E27E68023719A601650119 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				F5E27E69023719A601650119 /* kpasswd.c */,
+			);
+			name = Sources;
+			path = ../Sources;
+			sourceTree = SOURCE_ROOT;
+		};
+		F5E27E6A02371A7501650119 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A181F29C05E553E4006CE0A8 /* kpasswd */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A181F29305E553E4006CE0A8 /* kpasswd */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1519174086C8DFF0042CBBC /* Build configuration list for PBXNativeTarget "kpasswd" */;
+			buildPhases = (
+				A181F29605E553E4006CE0A8 /* Sources */,
+				A181F29805E553E4006CE0A8 /* Frameworks */,
+				A1C7E174069DECA500DF6AFE /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = kpasswd;
+			productInstallPath = /usr/bin;
+			productName = kpasswd;
+			productReference = A181F29C05E553E4006CE0A8 /* kpasswd */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		F5E27E0F0237085C01650119 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = A1519178086C8DFF0042CBBC /* Build configuration list for PBXProject "kpasswd" */;
+			compatibilityVersion = "Xcode 2.4";
+			hasScannedForEncodings = 1;
+			mainGroup = F5E27E100237085C01650119;
+			productRefGroup = F5E27E6A02371A7501650119 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A181F29305E553E4006CE0A8 /* kpasswd */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		A1C7E174069DECA500DF6AFE /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../Documentation/kpasswd.M",
+			);
+			outputPaths = (
+				"$(DSTROOT)/usr/share/man/man1/kpasswd.1",
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "mkdir -p \"${DSTROOT}/usr/share/man/man1\"\ninstall -c -m 644 \"${SRCROOT}/../Documentation/kpasswd.M\" \"${DSTROOT}/usr/share/man/man1/kpasswd.1\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A181F29605E553E4006CE0A8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A181F29705E553E4006CE0A8 /* kpasswd.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A1519175086C8DFF0042CBBC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E7120A41E8FB008545E5 /* Debug.xcconfig */;
+			buildSettings = {
+				INSTALL_PATH = /usr/bin;
+				OTHER_CFLAGS = "-D_FORTIFY_SOURCE=2";
+				OTHER_LDFLAGS = "-Wl,-pie";
+				PRODUCT_NAME = kpasswd;
+				VALID_ARCHS = "i386 ppc x86_64";
+			};
+			name = Debug;
+		};
+		A1519176086C8DFF0042CBBC /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E7110A41E8FB008545E5 /* Release.xcconfig */;
+			buildSettings = {
+				INSTALL_PATH = /usr/bin;
+				OTHER_CFLAGS = "-D_FORTIFY_SOURCE=2";
+				OTHER_LDFLAGS = "-Wl,-pie";
+				PRODUCT_NAME = kpasswd;
+				VALID_ARCHS = "i386 ppc x86_64";
+			};
+			name = Release;
+		};
+		A1519179086C8DFF0042CBBC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E7120A41E8FB008545E5 /* Debug.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		A151917A086C8DFF0042CBBC /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E7110A41E8FB008545E5 /* Release.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A1519174086C8DFF0042CBBC /* Build configuration list for PBXNativeTarget "kpasswd" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1519175086C8DFF0042CBBC /* Debug */,
+				A1519176086C8DFF0042CBBC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		A1519178086C8DFF0042CBBC /* Build configuration list for PBXProject "kpasswd" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1519179086C8DFF0042CBBC /* Debug */,
+				A151917A086C8DFF0042CBBC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = F5E27E0F0237085C01650119 /* Project object */;
+}

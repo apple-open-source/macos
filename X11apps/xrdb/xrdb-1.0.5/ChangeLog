@@ -1,0 +1,285 @@
+commit 09ef847d16333d6ae04c3f88ff7f535381cb9405
+Author: Luca Capello <luca@pca.it>
+Date:   Mon Jan 7 23:48:12 2008 +0100
+
+    Prevent cpp from prefixing errors with <stdin> when the xrdb input is a file
+    
+    http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=458246
+
+commit ab156455b2f759cc4cb0edc3265ccb9bba53f2ed
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Dec 6 15:51:09 2007 -0500
+
+    Add missing PHONY line for automatic ChangeLog generation
+
+commit 13917748af3288ae188cbe9c05742411d53ec34f
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Aug 15 15:35:00 2007 -0700
+
+    Version bump: 1.0.4
+
+commit 6202638b9962dceb4f72357bff76896e23c8fe5e
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Aug 15 15:31:16 2007 -0700
+
+    Change xrdb_CFLAGS to AM_CFLAGS to make automake-1.10 happier
+    
+    Makefile.am:27: compiling `xrdb.c' with per-target flags requires `AM_PROG_CC_C_O' in `configure.ac'
+
+commit 0b2171f2af1a5790753bb6516ac32411b1b89ef3
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Apr 11 15:33:56 2007 -0700
+
+    Bug #10616: Man page grammar fix: s/This never be/This should never be/
+    
+    X.Org Bugzilla #10616: <https://bugs.freedesktop.org/show_bug.cgi?id=10616>
+    Reported upstream from
+    Debian bug #354923 <http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=354923>
+
+commit a2b12134c2216dc29581dd849a89e48187ddf66f
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Jan 23 17:47:28 2007 -0800
+
+    Version bump: 1.0.3
+
+commit 0379f5fb2b8c5860d8e2652df51ab5d8363518b2
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Jan 23 17:46:02 2007 -0800
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit 407a5343d87b50f8496afe76bc26396e58b1c543
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Jan 2 18:54:39 2007 -0800
+
+    renamed: .cvsignore -> .gitignore
+
+commit a412444f2b3190cc6513bd0649de68a21089f487
+Author: Eric S. Raymond <esr@thyrsus.com>
+Date:   Tue Jan 2 18:54:13 2007 -0800
+
+    Bug 9521: Markup problem in xrdb.1 man page
+    
+    <https://bugs.freedesktop.org/show_bug.cgi?id=9521>
+
+commit ee16f1a1d55efdc8176e025dd8c3482aabfc6d57
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Wed Apr 26 23:46:36 2006 +0000
+
+    Bump to 1.0.2
+
+commit df0f7049f9cf1a5aac8964bf87b484afd8a5bd94
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Apr 3 20:33:30 2006 +0000
+
+    Copy authors list from comment in xrdb.c
+
+commit b8165e4d7fe46f4355c163cf9a7be0213286f2c9
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Apr 3 20:32:20 2006 +0000
+
+    Convert sprintf/strcpy/strcat calls to snprintf to enforce bounds checking.
+
+commit e8420306923dbe7c02b5322f2320dee18cc54f96
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Apr 3 18:23:14 2006 +0000
+
+    Plug memory leak of extension names list. (Coverity id #612)
+
+commit 35c00cc86015f0d33a842441aad726dc2fe9a14b
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Wed Mar 29 03:27:37 2006 +0000
+
+    Get rid of OS-checking #ifdefs by adding configure checks to find the right
+        header for MAXHOSTNAMELEN (<sys/param.h> for BSD/Linux, <netdb.h> for
+        Solaris) and deleting ancient rename() function for pre-POSIX.1-1990
+        SysV systems.
+
+commit 43d30e640ff32bd2973493877f2a5d49fae24d8f
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Wed Mar 29 02:20:46 2006 +0000
+
+    Bug #6386 <https://bugs.freedesktop.org/show_bug.cgi?id=6386> Add appres &
+        listres man pages to SEE ALSO list (Paul Vojta)
+
+commit ab34a4353e479a01a392977496d0276c769489f7
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Dec 21 02:29:53 2005 +0000
+
+    Update package version for X11R7 release.
+
+commit 555a9e424b4733f49234209db6ef47375a3bae6c
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Mon Dec 19 16:22:46 2005 +0000
+
+    Stub COPYING files
+
+commit a43f52abfc732b77524e4dc0feb1cb65e9e403f1
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:10 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit febf0c20728c501abfe9cc4547661a7af2830bb4
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Dec 6 22:48:25 2005 +0000
+
+    Change *man_SOURCES ==> *man_PRE to fix autotools warnings.
+
+commit 6e50db381cbeb044adaf574f4250bc7c7ccc6486
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:27 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit 63d47d741672fbeca11c61789ef3d02058cf6033
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Nov 28 22:01:46 2005 +0000
+
+    Change *mandir targets to use new *_MAN_DIR variables set by xorg-macros.m4
+        update to fix bug #5167 (Linux prefers *.1x man pages in man1 subdir)
+
+commit b8e846b97d7cdc30575dbad201c12c3d0f1f6076
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Mon Nov 21 10:35:07 2005 +0000
+
+    Another pass at .cvsignores for apps.
+
+commit 483dc299435cbb4241c07bb96acdfc8de04d4ff3
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Nov 21 03:14:16 2005 +0000
+
+    Change dependency from xmu to xmuu since the full xmu (with all its baggage
+        like Xt) is not needed here.
+
+commit 9ad35e4bc352abc6af67f5849fa99a7f6da7a6c3
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Sun Nov 20 22:08:55 2005 +0000
+
+    Add/improve .cvsignore files for apps.
+
+commit 175abf8b20f0bef44e5d01fd9369cf31fc77937b
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:47:57 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit 349c2175e29e65cd7c9a4e42d4977ae2384deab3
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Oct 17 23:56:24 2005 +0000
+
+    Use @APP_MAN_SUFFIX@ instead of $(APP_MAN_SUFFIX) in macro substitutions to
+        work better with BSD make
+
+commit 8681e4c6a00ec7970976b5b657d045c16970fd7d
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Oct 14 00:25:47 2005 +0000
+
+    Use sed to fill in variables in man page
+
+commit acccbb73de4d648c240d75d653c23012aa313b65
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:37 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit f94df9ba9cb0bbe2c6e107d9b896237f6d4f0af2
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Wed Jul 27 01:54:18 2005 +0000
+
+    Move manpages to section 1 instead of section m.
+
+commit 49dddff2596554fd155ee0f3d2b92b0e20957dec
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Wed Jul 20 19:32:03 2005 +0000
+
+    Use a unique token for PKG_CHECK_MODULES. Otherwise, if you use a global
+        configure cache, you cache it, and the cached value is probably wrong.
+
+commit fa06b8ced994114f0f7bddc1264b9ada3d9120d9
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sat Jul 16 21:59:14 2005 +0000
+
+    Define HAS_MKSTEMP if mkstemp() is present (needed for improved protection
+        against tempfile race conditions in many places)
+
+commit 7c5d8ed741ad0cbb51b14f35d06b2db6c750ea68
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Jul 4 00:22:01 2005 +0000
+
+    Add #ifdef HAVE_CONFIG_H/#include <config.h> for modularization.
+
+commit 2c9da0dc941fc36742bc6fe17e9f2558147da31d
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sat Jul 2 01:18:58 2005 +0000
+
+    Fix typo in list of paths to search for cpp
+
+commit 9acc19a756d8da3927e82e8e5052b13af117d868
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sat Jul 2 01:17:35 2005 +0000
+
+    Use --with-cpp or search in $PATH and well known locations to set CPP
+        (replaces per-OS hardcoding of CppCmd in Imake config files)
+
+commit 14ca3186594492b2733b9cc7e071ecfc039fb428
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Fri Jul 1 20:27:45 2005 +0000
+
+    Build systems for xrdb, xrandr, xrefresh
+
+commit 2f4ad176ce472ee7db9847670d3580f2c65b3e80
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 19:55:03 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit ebda21a02e67f2d27da10bd5bfd4c5ddbf69df31
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:35:42 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit eac2dfd5e56d82e1ce65918b4a6c5af59b8109d6
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:13:15 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit 701705286ce179e195a3bece80868b7597888e59
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:36:26 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit cde9ecbbd5b78c846dbba35a1c79969cfcbda11a
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:24:14 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit 8045f8dba3be858c476d3e49a4532213ec374191
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:29:15 2003 +0000
+
+    XFree86 4.3.99.16 Bring the tree up to date for the Cygwin folks
+
+commit 3c97a34f31d0d3353e31bd413d40959051584e9b
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:49:23 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit 5d0007c9b0fe41464e713f961b3510117971d8fe
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 15:54:54 2003 +0000
+
+    R6.6 is the Xorg base-line

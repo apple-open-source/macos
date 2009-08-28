@@ -43,11 +43,16 @@ public:
 	SECCFFUNCTIONS(KeyItem, SecKeyRef, errSecInvalidItemRef, gTypes().KeyItem)
 
 	// db item contstructor
+private:
     KeyItem(const Keychain &keychain, const PrimaryKey &primaryKey, const CssmClient::DbUniqueRecord &uniqueId);
 
 	// PrimaryKey item contstructor
     KeyItem(const Keychain &keychain, const PrimaryKey &primaryKey);
 
+public:
+	static KeyItem* make(const Keychain &keychain, const PrimaryKey &primaryKey, const CssmClient::DbUniqueRecord &uniqueId);
+	static KeyItem* make(const Keychain &keychain, const PrimaryKey &primaryKey);
+	
 	KeyItem(KeyItem &keyItem);
 
 	KeyItem(const CssmClient::Key &key);
@@ -69,7 +74,7 @@ public:
 		CSSM_ACL_AUTHORIZATION_TAG operation,
 		SecCredentialType credentialType);
 
-	bool operator == (const KeyItem &other) const;
+	bool operator == (KeyItem &other);
 
 	static void createPair(
 		Keychain keychain,

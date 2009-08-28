@@ -35,6 +35,13 @@
 typedef void DeallocateProc ( void *inData );
 typedef void OperationProc ( void *inData );
 
+typedef struct sTableEntry {
+	UInt32				fRefNum;
+	UInt32				fTimeStamp;
+	void				*fData;
+	struct sTableEntry  *fNext;
+};
+
 class CPlugInRef {
 
 public:
@@ -48,7 +55,7 @@ public:
 	void			DoOnAllItems	( OperationProc *inProcPtr );
 
 private:
-			sDSTableEntry		  **fLookupTable;
+			sTableEntry		  **fLookupTable;
 			UInt32				fHashArrayLength;
 			UInt32				fRefNumCount;
 			DeallocateProc     *fDeallocProcPtr;

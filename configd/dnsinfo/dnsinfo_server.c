@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -70,9 +70,9 @@ _shared_dns_infoSet(mach_port_t			server,
 		    mach_msg_type_number_t	dataLen,
 		    audit_token_t		audit_token)
 {
-	uid_t			euid		= 0;
-	CFDataRef		new_dns_info    = NULL;
-	const char		*notify_key;
+	uid_t		euid		= 0;
+	CFDataRef	new_dns_info    = NULL;
+	const char	*notify_key;
 
 	if ((dataRef != NULL) && (dataLen > 0)) {
 		if (!_SCUnserializeData(&new_dns_info, (void *)dataRef, dataLen)) {

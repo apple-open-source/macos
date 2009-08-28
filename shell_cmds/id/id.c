@@ -266,7 +266,7 @@ id_print(struct passwd *pw, int use_ggl, int p_euid, int p_egid)
 	uid_t uid, euid;
 	int cnt, ngroups;
 #ifdef __APPLE__
-	gid_t *groups;
+	gid_t *groups = NULL;
 #else
 	gid_t groups[NGROUPS + 1];
 #endif
@@ -300,10 +300,15 @@ id_print(struct passwd *pw, int use_ggl, int p_euid, int p_egid)
 	}
 	else {
 #ifdef __APPLE__
-		groups = malloc(NGROUPS + 1);
+		groups = malloc((NGROUPS + 1) * sizeof(gid_t));
 #endif
 		ngroups = getgroups(NGROUPS + 1, groups);
 	}
+
+#ifdef __APPLE__
+	if (ngroups < 0)
+		warn("failed to retrieve group list");
+#endif
 
 	if (pw != NULL)
 		printf("uid=%u(%s)", uid, pw->pw_name);

@@ -55,7 +55,8 @@ __FBSDID("$FreeBSD: src/usr.bin/find/ls.c,v 1.17 2004/01/20 09:27:03 des Exp $")
 #include <time.h>
 #include <unistd.h>
 #ifdef __APPLE__
-#include <utmp.h>
+/* definition from utmp.h */
+#define UT_NAMESIZE     8
 #endif /* __APPLE__ */
 
 #include "find.h"

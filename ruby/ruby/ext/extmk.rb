@@ -79,7 +79,7 @@ def extract_makefile(makefile, keep = true)
   $static ||= m[/^EXTSTATIC[ \t]*=[ \t]*(\S+)/, 1] || false
   /^STATIC_LIB[ \t]*=[ \t]*\S+/ =~ m or $static = nil
   $preload = Shellwords.shellwords(m[/^preload[ \t]*=[ \t]*(.*)/, 1] || "")
-  $DLDFLAGS += " " + (m[/^DLDFLAGS[ \t]*=[ \t]*(.*)/, 1] || "")
+  $DLDFLAGS += " " + (m[/^dldflags[ \t]*=[ \t]*(.*)/, 1] || "")
   if s = m[/^LIBS[ \t]*=[ \t]*(.*)/, 1]
     s.sub!(/^#{Regexp.quote($LIBRUBYARG)} */, "")
     s.sub!(/ *#{Regexp.quote($LIBS)}$/, "")
@@ -135,7 +135,6 @@ def extmake(target)
 	"topdir" => $topdir,
       }
       mkconfig = {
-	"top_srcdir" => ($hdrdir == top_srcdir) ? top_srcdir : "$(topdir)"+top_srcdir[2..-1],
 	"hdrdir" => "$(top_srcdir)",
 	"srcdir" => "$(top_srcdir)/ext/#{$mdir}",
 	"topdir" => $topdir,
@@ -302,7 +301,7 @@ def parse_args()
   $mflags.unshift(*rest) unless rest.empty?
 
   def $mflags.set?(flag)
-    grep(/\A-(?!-).*#{'%c' % flag}/i) { return true }
+    grep(/\A-(?!-).*#{flag.chr}/i) { return true }
     false
   end
   def $mflags.defined?(var)
@@ -329,9 +328,9 @@ parse_args()
 
 if target = ARGV.shift and /^[a-z-]+$/ =~ target
   $mflags.push(target)
-  target = target.sub(/^(dist|real)(?=(?:clean)?$)/, '')
   case target
-  when /clean/
+  when /^(dist|real)?(clean)$/
+    target = $2
     $ignore ||= true
     $clean = $1 ? $1[0] : true
   when /^install\b/
@@ -358,12 +357,16 @@ elsif sep = config_string('BUILD_FILE_SEPARATOR')
 else
   $ruby = '$(topdir)/miniruby' + EXEEXT
 end
-$ruby << " -I'$(topdir)' -I'$(top_srcdir)/lib'"
-$ruby << " -I'$(extout)/$(arch)' -I'$(extout)/common'" if $extout
-$ruby << " -I'$(hdrdir)/ext' -rpurelib.rb"
+$ruby << " -I'$(topdir)'"
+unless CROSS_COMPILING
+  $ruby << " -I'$(top_srcdir)/lib'"
+  $ruby << " -I'$(extout)/$(arch)' -I'$(extout)/common'" if $extout
+  $ruby << " -I./- -I'$(top_srcdir)/ext' -rpurelib.rb"
+  ENV["RUBYLIB"] = "-"
+  ENV["RUBYOPT"] = "-rpurelib.rb"
+end
 $config_h = '$(topdir)/config.h'
-ENV["RUBYLIB"] = "-"
-ENV["RUBYOPT"] = "-rpurelib.rb"
+$mflags << "ruby=#$ruby"
 
 MTIMES = [__FILE__, 'rbconfig.rb', srcdir+'/lib/mkmf.rb'].collect {|f| File.mtime(f)}
 
@@ -458,7 +461,16 @@ if $ignore
   Dir.chdir ".."
   if $clean
     Dir.rmdir('ext') rescue nil
-    FileUtils.rm_rf(extout) if $extout
+    if $extout
+      FileUtils.rm_rf([extout+"/common", extout+"/include/ruby", extout+"/rdoc"])
+      FileUtils.rm_rf(extout+"/"+CONFIG["arch"])
+      if $clean != true
+	FileUtils.rm_rf(extout+"/include/"+CONFIG["arch"])
+	FileUtils.rm_f($mflags.defined?("INSTALLED_LIST")||ENV["INSTALLED_LIST"]||".installed.list")
+	Dir.rmdir(extout+"/include") rescue nil
+	Dir.rmdir(extout) rescue nil
+      end
+    end
   end
   exit
 end

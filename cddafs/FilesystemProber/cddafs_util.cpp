@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,9 +24,9 @@
 // cddafs_util.c created by CJS on Mon 10-Apr-2000
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	Includes
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 // System Includes
 #include <stdio.h>
@@ -35,6 +35,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <dirent.h>
+#include <libgen.h>
 #include <mntopts.h>
 #include <mach/mach_init.h>
 #include <servers/netname.h>
@@ -69,9 +70,9 @@
 	#include "CDDATrackName.h"
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	Macros
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 #define DEBUG							0
 #define DEBUG_LEVEL						0
@@ -98,9 +99,9 @@ static CFDataRef
 GetTrackData ( const char * 				bsdDevNode,
 			   const QTOCDataFormat10Ptr	TOCData );
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	Globals
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 struct mntopt gMountOptions[] =
 {
@@ -115,16 +116,17 @@ static char		gFileSuffix[] = ".aiff";
 #define			kASCIINumberZero	0x30
 #define			kASCIISpace			0x20
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	main -	This our main entry point to this utility.  We get called by
 //			autodiskmount.
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 int
 main ( int argc, const char * argv[] )
 {
 	
-	int		result 	= -1;
+	int			result			= -1;
+	char *		executableName	= NULL;
 	
 	#if DEBUG
 	int		index	= 0;
@@ -135,7 +137,11 @@ main ( int argc, const char * argv[] )
 	}
 	#endif
 	
-	if ( strcmp ( argv[0], kUtilExecutableName ) == 0 )
+	executableName = basename ( ( char * ) argv[0] );
+	if ( executableName == NULL )
+		exit ( 1 );
+	
+	if ( strcmp ( executableName, kUtilExecutableName ) == 0 )
 	{
 		
 		result = UtilityMain ( argc, argv );
@@ -159,10 +165,10 @@ main ( int argc, const char * argv[] )
 #endif
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ		
+//-----------------------------------------------------------------------------
 //	UtilityMain -	Returns FSUR_IO_SUCCESS if everything works, else it
 //					returns one of the FSUR_XXX errors in loadable_fs.h
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 static int
 UtilityMain ( int argc, const char * argv[] )
@@ -184,8 +190,8 @@ UtilityMain ( int argc, const char * argv[] )
 	// Build our device name (full path), should end up with something like:
 	// -- "/dev/disk1" or "/dev/disk2" or "/dev/disk3"
 	
-	sprintf ( rawDeviceName, "/dev/r%s", argv[2] );
-	sprintf ( blockDeviceName, "/dev/%s", argv[2] );
+	snprintf ( rawDeviceName, MAXPATHLEN, "/dev/r%s", argv[2] );
+	snprintf ( blockDeviceName, MAXPATHLEN, "/dev/%s", argv[2] );
 	
 	// call the appropriate routine to handle the given action argument after becoming root
 	result = seteuid ( 0 );
@@ -274,7 +280,7 @@ Exit:
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	ParseUtilityArgs -	This routine will make sure the arguments passed
 //						in to us are copacetic. Here is how this utility is used:
 //
@@ -303,7 +309,7 @@ Exit:
 //		cddafs.util -m sd2 /my/cddafs
 //
 //	Returns FSUR_INVAL if we find a bad argument, else 0.
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 int
 ParseUtilityArgs ( 	int				argc,
@@ -358,7 +364,7 @@ ParseUtilityArgs ( 	int				argc,
 	
 	// Make sure device (argv[2]) is something reasonable
 	// (we expect something like "disk1")
-	deviceLength = strlen ( argv[2] );
+	deviceLength = ( int ) strlen ( argv[2] );
 	require ( ( deviceLength >= 5 ), Exit );
 	
 	result = 0;
@@ -414,13 +420,13 @@ Exit:
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	Probe -		This routine will open the given raw device and check to
 //				make sure there is media that looks like an Audio CD. Returns
 //				FSUR_MOUNT_HIDDEN if everything works, else FSUR_IO_FAIL.
 //	
 //	deviceNamePtr - pointer to the raw device name (full path, like /dev/rdisk1)
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 int
 Probe ( char * deviceNamePtr )
@@ -495,7 +501,7 @@ Probe ( char * deviceNamePtr )
 			{
 				
 				// Good old "Audio CD" should work...
-				WriteDiskLabel ( kMountPointName );
+				WriteDiskLabel ( ( char * ) kMountPointName );
 				
 			}
 			
@@ -509,7 +515,7 @@ Probe ( char * deviceNamePtr )
 		{
 			
 			// Good old "Audio CD" should work...
-			WriteDiskLabel ( kMountPointName );
+			WriteDiskLabel ( ( char * ) kMountPointName );
 			
 		}
 		
@@ -564,13 +570,13 @@ Probe ( char * deviceNamePtr )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	Unmount -	This routine will fire off a system command to unmount the
 //				given device. Returns FSUR_IO_SUCCESS if everything works,
 //				else FSUR_IO_FAIL.
 //
 //	theDeviceNamePtr - pointer to the device name (full path, like /dev/disk1s2).
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 
 int
@@ -601,9 +607,9 @@ Exit:
 #endif
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ		
+//-----------------------------------------------------------------------------
 //	MountMain -	returns 0 if successful
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 static int
 MountMain ( int argc, const char * argv[] )
@@ -630,9 +636,9 @@ Exit:
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ		
+//-----------------------------------------------------------------------------
 //	ParseMountArgs - Parses mount arguments
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 int
 ParseMountArgs ( int * argc, const char ** argv[], int * mountFlags )
@@ -691,7 +697,7 @@ Exit:
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	WriteDiskLabel -	This routine will create a file system info file that
 //						is used by autodiskmount.  After creating the file it will
 //						write whatever contentsPtr points to the new file.
@@ -701,21 +707,21 @@ Exit:
 //
 //	when our file system name is "cddafs" and suffixPtr points
 //	to ".name" or ".label"
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 void
 WriteDiskLabel ( char * contentsPtr )
 {
 	
 	StripTrailingSpaces ( contentsPtr );
-	write ( 1, contentsPtr, strlen ( contentsPtr ) );
+	write ( STDOUT_FILENO, contentsPtr, strlen ( contentsPtr ) );
 	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	StripTrailingSpaces -	Strips trailing white spaces from character array
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 void
 StripTrailingSpaces ( char * theContentsPtr )
@@ -743,9 +749,9 @@ StripTrailingSpaces ( char * theContentsPtr )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	Mount -	Attempts to mount on our filesystem if possible
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 int
 Mount ( const char * 	deviceNamePtr,
@@ -757,11 +763,11 @@ Mount ( const char * 	deviceNamePtr,
 	struct vfsconf			vfc			= { 0 };
 	int						result		= FSUR_IO_FAIL;
 	int						error 		= 0;
-	CFDataRef				data		= 0;
-	CFDataRef				xmlDataRef	= 0;
-	UInt32					size		= 0;
+	CFDataRef				nameDataRef	= NULL;
+	CFDataRef				xmlDataRef	= NULL;
 	QTOCDataFormat10Ptr		TOCDataPtr 	= NULL;
 	UInt8 *					xmlDataPtr 	= NULL;
+	UInt8 *					nameDataPtr	= NULL;
 	char					realMountPoint[PATH_MAX];
 	char *					realMountPointPtr;
 	
@@ -792,67 +798,62 @@ Mount ( const char * 	deviceNamePtr,
 	TOCDataPtr = ( QTOCDataFormat10Ptr ) GetTOCDataPtr ( deviceNamePtr );
 	require ( ( TOCDataPtr != NULL ), Exit );
 	
-	data = GetTrackData ( deviceNamePtr, TOCDataPtr );
-	require ( ( data != NULL ), ReleaseTOCData );
-	
-	size = CFDataGetLength ( data );
-	
-	DebugLog ( ( "CFDataGetLength returned size = %ld\n", size ) );
-		
-	args.nameData 		= ( char * ) malloc ( size );
-	args.nameDataSize 	= size;
-	CFDataGetBytes ( data, CFRangeMake ( 0, size ), ( UInt8 * ) args.nameData );
-	CFRelease ( data );
-	data = 0;
+	nameDataRef = GetTrackData ( deviceNamePtr, TOCDataPtr );
+	require ( ( nameDataRef != NULL ), ReleaseTOCData );
 	
 	// Get the number of audio tracks
 	args.numTracks = FindNumberOfAudioTracks ( TOCDataPtr );
 	
-	// build the XML file ".TOC.plist"
-	xmlDataRef			= CreateXMLFileInPListFormat ( TOCDataPtr );
-	xmlDataPtr			= ( UInt8 * ) CFDataGetBytePtr ( xmlDataRef );
-	args.xmlFileSize	= CFDataGetLength ( xmlDataRef );
-	args.xmlData 		= ( UInt8 * ) malloc ( args.xmlFileSize );
+	// Build the XML file ".TOC.plist"
+	xmlDataRef	= CreateXMLFileInPListFormat ( TOCDataPtr );
+	require ( ( xmlDataRef != NULL ), ReleaseNameData );
 	
-	require ( ( args.xmlData != NULL ), ReleaseNameData );
+	// Get the pointers.
+	nameDataPtr	= ( UInt8 * ) CFDataGetBytePtr ( nameDataRef );
+	xmlDataPtr	= ( UInt8 * ) CFDataGetBytePtr ( xmlDataRef );
 	
-	// Copy the raw data from the CFData object to our mount args
-	memcpy ( args.xmlData, xmlDataPtr, args.xmlFileSize );
-	CFRelease ( xmlDataRef );
+	args.nameData		= ( user_addr_t ) nameDataPtr;
+	args.nameDataSize 	= ( uint32_t ) CFDataGetLength ( nameDataRef );
+	args.xmlData 		= ( user_addr_t ) xmlDataPtr;
+	args.xmlFileSize	= ( uint32_t ) CFDataGetLength ( xmlDataRef );
 	
-	#if ( DEBUG_LEVEL > 3 )
+#if ( DEBUG_LEVEL > 3 )
 	{
 		UInt32	count = 0;
 		
 		for ( ; count < args.xmlFileSize; count = count + 8 )
 		{
 			
-			DebugLog ( ("%x:%x:%x:%x %x:%x:%x:%x\n",
-					xmlDataPtr[count],
-					xmlDataPtr[count+1],
-					xmlDataPtr[count+2],
-					xmlDataPtr[count+3],
-					xmlDataPtr[count+4],
-					xmlDataPtr[count+5],
-					xmlDataPtr[count+6],
-					xmlDataPtr[count+7] ) );
+			DebugLog ( ("%02x:%02x:%02x:%02x %02x:%02x:%02x:%02x\n",
+						xmlDataPtr[count],
+						xmlDataPtr[count+1],
+						xmlDataPtr[count+2],
+						xmlDataPtr[count+3],
+						xmlDataPtr[count+4],
+						xmlDataPtr[count+5],
+						xmlDataPtr[count+6],
+						xmlDataPtr[count+7] ) );
 			
 		}
 		
 		DebugLog ( ( "\n" ) );
-		DebugLog ( ( "XML File Size = %ld\n", args.xmlFileSize ) );
+		DebugLog ( ( "XML File Size = %d\n", ( int ) args.xmlFileSize ) );
 		
 	}
-	#endif
-	
+#endif
 	
 	// Print out the device name for debug purposes
 	DebugLog ( ( "DeviceName = %s\n", deviceNamePtr ) );
-	DebugLog ( ( "numTracks = %d\n", args.numTracks ) );
+	DebugLog ( ( "numTracks = %d\n", ( int ) args.numTracks ) );
 	
-	require ( ( args.nameData != NULL ), ReleaseXMLData );
+	require ( ( args.nameData != 0 ), ReleaseXMLData );
 	require ( ( args.nameDataSize != 0 ), ReleaseXMLData );
-
+	require ( ( args.xmlData != 0 ), ReleaseXMLData );
+	
+	DebugLog ( ( "args.nameData = %qx\n", args.nameData ) );
+	DebugLog ( ( "args.xmlData = %qx\n", args.xmlData ) );
+	DebugLog ( ( "sizeof(args) = %ld\n", sizeof ( args ) ) );
+	
 	// Obtain the real path.
 	realMountPointPtr = realpath ( mountPointPtr, realMountPoint );
 	require ( ( realMountPointPtr != NULL ), ReleaseXMLData );
@@ -865,19 +866,17 @@ Mount ( const char * 	deviceNamePtr,
 	
 	
 ReleaseXMLData:
-
 	
-	require_quiet ( ( args.xmlData != NULL ), Exit );
-	free ( ( char * ) args.xmlData );
-	args.xmlData = NULL;
+	
+	CFRelease ( xmlDataRef );
+	xmlDataRef = NULL;
 	
 	
 ReleaseNameData:
 	
 	
-	require_quiet ( ( args.nameData != NULL ), Exit );
-	free ( ( char * ) args.nameData );
-	args.nameData = NULL;
+	CFRelease ( nameDataRef );
+	nameDataRef = NULL;
 	
 	
 ReleaseTOCData:
@@ -897,12 +896,12 @@ Exit:
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	ParseTOC - 	Parses the TOC to find audio tracks. If it finds one or more
 //				audio tracks, it returns FSUR_RECOGNIZED,
 //				else FSUR_UNRECOGNIZED
 //
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 int
 ParseTOC ( UInt8 * TOCInfoPtr )
@@ -944,9 +943,9 @@ Exit:
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 // GetTrackData - Loads databases and calls them for Track Name info.
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 CFDataRef
 GetTrackData ( const char * 				bsdDevNode,
@@ -971,7 +970,7 @@ GetTrackData ( const char * 				bsdDevNode,
 	if ( error != 0 )
 	{
 		
-		DebugLog ( ( "Error = %ld on GetNumberOfTrackDescriptors\n", error ) );
+		DebugLog ( ( "Error = %d on GetNumberOfTrackDescriptors\n", ( int ) error ) );
 		exit ( 1 );
 		
 	}
@@ -1018,8 +1017,8 @@ GetTrackData ( const char * 				bsdDevNode,
 			buffer[bufferSize - 1] = 0;
 			size = strlen ( buffer ) + prefixSize + suffixSize;
 			
-			DebugLog ( ( "size = %ld\n", size ) );
-			DebugLog ( ( "buffer = %s", buffer ) );
+			DebugLog ( ( "size = %d\n", size ) );
+			DebugLog ( ( "buffer = %s\n", buffer ) );
 			
 			// Add the track number to the data object
 			CFDataAppendBytes ( data,
@@ -1068,9 +1067,9 @@ GetTrackData ( const char * 				bsdDevNode,
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 // LoadKernelExtension - 	Loads our filesystem kernel extension.
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 int
 LoadKernelExtension ( void )
@@ -1133,14 +1132,14 @@ Exit:
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	CreateXMLFileInPListFormat -	Makes a plist-style XML file which has a
 //									parsed TOC. This makes it easy for
 //									applications to get TOC info without having
 //									to deal with the IOKit registry.
 //	
 //	TOCDataPtr - pointer to a QTOCDataFormat10 structure
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 CFDataRef
 CreateXMLFileInPListFormat ( QTOCDataFormat10Ptr TOCDataPtr )
@@ -1342,10 +1341,10 @@ CreateXMLFileInPListFormat ( QTOCDataFormat10Ptr TOCDataPtr )
 									trackDescriptorPtr->PMSF.startPosition.seconds ) * 75 +
 									trackDescriptorPtr->PMSF.startPosition.frames;
 				
-				DebugLog ( ( "track = %d, blockAddress = %ld\n", pointValue, blockAddress ) );
+				DebugLog ( ( "track = %d, blockAddress = %d\n", pointValue, ( int ) blockAddress ) );
 				
 				startBlock = CFNumberCreate ( 	kCFAllocatorDefault,
-												kCFNumberLongType,
+												kCFNumberSInt32Type,
 												&blockAddress );
 				
 				CFDictionarySetValue ( 	theTrackRef,
@@ -1432,10 +1431,10 @@ nextIteration:
 #endif
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	DisplayUsage -	This routine will do a printf of the correct usage
 //					for whichever utility was launched.
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 void
 DisplayUsage ( int usageType, const char * argv[] )
@@ -1476,11 +1475,11 @@ DisplayUsage ( int usageType, const char * argv[] )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	GetTOCDataPtr -	Gets a pointer to the TOCData
 //	
 //	deviceNamePtr - pointer to the device name (full path, like /dev/rdisk1)
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 UInt8 *
 GetTOCDataPtr ( const char * deviceNamePtr )
@@ -1572,9 +1571,9 @@ Exit:
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 // IsAudioTrack - Figures out if a track is audio or not.
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 Boolean
 IsAudioTrack ( UInt32 trackNumber, QTOCDataFormat10Ptr TOCData )
@@ -1603,9 +1602,9 @@ IsAudioTrack ( UInt32 trackNumber, QTOCDataFormat10Ptr TOCData )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 // GetNumberOfTrackDescriptors - Gets the number of track descriptors
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 SInt32
 GetNumberOfTrackDescriptors ( 	QTOCDataFormat10Ptr	TOCDataPtr,
@@ -1639,9 +1638,9 @@ Exit:
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 // GetPointValue - Gets the track's point value
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 UInt8
 GetPointValue ( UInt32 trackIndex, QTOCDataFormat10Ptr TOCData )
@@ -1657,12 +1656,12 @@ GetPointValue ( UInt32 trackIndex, QTOCDataFormat10Ptr TOCData )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	CreateBufferFromCFData - Allocates memory for a chunk of memory and copies
 //							 the contents of the CFData to it.
 //
 //	NB:	The calling function should dispose of the memory
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 UInt8 *
 CreateBufferFromCFData ( CFDataRef theData )
@@ -1685,10 +1684,10 @@ CreateBufferFromCFData ( CFDataRef theData )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	FindNumberOfAudioTracks - 	Parses the TOC to find the number of audio
 //								tracks.
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 UInt32
 FindNumberOfAudioTracks ( QTOCDataFormat10Ptr TOCDataPtr )
@@ -1742,13 +1741,13 @@ FindNumberOfAudioTracks ( QTOCDataFormat10Ptr TOCDataPtr )
 Exit:
 	
 	
-	DebugLog ( ( "numberOfTracks = %ld\n", result ) );
+	DebugLog ( ( "numberOfTracks = %d\n", ( int ) result ) );
 	
 	return result;
 	
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //				End				Of			File
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 extern void * xmalloc(
-    long n);
+    size_t n);
 extern void *xrealloc(
     void *ptr,
-    long n);
+    size_t n);
 #define xfree free

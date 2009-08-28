@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2005-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -57,12 +57,7 @@ void pfatal __P((const char *, ...))
     __attribute__((__format__(__printf__,1,2)));  
 void pwarn __P((const char *, ...))
     __attribute__((__format__(__printf__,1,2)));  
-const char *rawname __P((const char *));
-const char *unrawname __P((const char *));
-const char *blockcheck __P((const char *));
-const char *cdevname __P((void));
 void setcdevname __P((const char *));
-int  hotroot __P((void));
 
 #define CHECK_PREEN	1
 #define	CHECK_VERBOSE	2

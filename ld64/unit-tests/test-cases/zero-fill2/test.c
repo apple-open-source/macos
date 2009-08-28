@@ -25,6 +25,13 @@
 
 // if we used one big array, the linker would page align it
 // but we want to test a non-page align big chunk of zero-fill data
+
+#if __LP64__
+	#define BOOST 100UL
+#else
+	#define BOOST 1
+#endif
+
 int bigarray1[256];
 int bigarray2[2560];
 int bigarray3[25600];

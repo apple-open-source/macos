@@ -1,4 +1,4 @@
-/*$Header: /src/pub/tcsh/win32/nt.screen.c,v 1.6 2005/03/25 18:46:42 kim Exp $*/
+/*$Header: /p/tcsh/cvsroot/tcsh/win32/nt.screen.c,v 1.14 2006/03/14 01:22:57 mitr Exp $*/
 /*
  * ed.screen.c: Editor/termcap-curses interface
  */
@@ -37,9 +37,6 @@
 #include "tc.h"
 #include "ed.defns.h"
 
-# define PUTPURE putpure
-# define PUTRAW putraw
-
 
 /* #define DEBUG_LITERAL */
 
@@ -59,9 +56,11 @@ extern void NT_ClearScreen(void) ;
 extern void NT_VisibleBell(void);
 extern void NT_WrapHorizontal(void);
 
+static int GetSize(int *lins, int *cols);
+
 int DisplayWindowHSize;
 	void
-terminit()
+terminit(void)
 {
 	return;
 }
@@ -70,22 +69,20 @@ terminit()
 
 int T_ActualWindowSize;
 
-static	void	ReBufferDisplay	__P((void));
+static	void	ReBufferDisplay	(void);
 
 
 /*ARGSUSED*/
 	void
-TellTC(what)
-	char   *what;
+TellTC(void)
 {
 
-	USE(what);
 	xprintf(CGETS(7, 1, "\n\tYou're using a Windows console.\n"));
 }
 
 
 	static void
-ReBufferDisplay()
+ReBufferDisplay(void)
 {
 	register int i;
 	Char **b;
@@ -110,7 +107,7 @@ ReBufferDisplay()
 	}
 	TermH = cols;
 
-	TermV = (INBUFSIZE * 4) / TermH + 1;
+	TermV = (INBUFSIZE * 4) / TermH + 1;/*FIXBUF*/
 	b = (Char **) xmalloc((size_t) (sizeof(*b) * (TermV + 1)));
 	for (i = 0; i < TermV; i++)
 		b[i] = (Char *) xmalloc((size_t) (sizeof(*b[i]) * (TermH + 1)));
@@ -124,15 +121,14 @@ ReBufferDisplay()
 }
 
 	void
-SetTC(what, how)
-	char   *what, *how;
+SetTC(char *what, char *how)
 {
 	int li,win,co;
 
 	nt_getsize(&li,&co,&win);
 	if (!lstrcmp(what,"li")) {
 		li = atoi(how);
-		
+
 	}else if(!lstrcmp(what,"co")) { //set window, not buffer size
 		win = atoi(how);
 	}
@@ -148,29 +144,23 @@ SetTC(what, how)
  * Print the termcap string out with variable substitution
  */
 	void
-EchoTC(v)
-	Char  **v;
+EchoTC(Char **v)
 {
-
-	char    cv[BUFSIZE];
+	Char **globbed;
+	char    cv[BUFSIZE];/*FIXBUF*/
 	int     verbose = 0, silent = 0;
 	static char *fmts = "%s\n", *fmtd = "%d\n";
+	int li,co;
 
 
 	setname("echotc");
 
-	tglob(v);
-	if (gflag) {
-		v = globall(v);
-		if (v == 0)
-			stderror(ERR_NAME | ERR_NOMATCH);
-	}
-	else
-		v = gargv = saveblk(v);
-	trim(v);
+	v = glob_all_or_error(v);
+	globbed = v;
+	cleanup_push(globbed, blk_cleanup);
 
-	if (!*v || *v[0] == '\0')
-		return;
+	if (!v || !*v || *v[0] == '\0')
+		goto end;
 	if (v[0][0] == '-') {
 		switch (v[0][1]) {
 			case 'v':
@@ -186,96 +176,98 @@ EchoTC(v)
 		v++;
 	}
 	if (!*v || *v[0] == '\0')
-		return;
-	(void) strcpy(cv, short2str(*v));
+		goto end;
+	(void) StringCbCopy(cv,sizeof(cv), short2str(*v));
+
+	GetSize(&li,&co);
 
 	if(!lstrcmp(cv,"rows") || !lstrcmp(cv,"lines") ) {
 		xprintf(fmtd,T_Lines);
-		return;
+		goto end;
 	}
 	else if(!lstrcmp(cv,"cols") ) {
 		xprintf(fmtd,T_ActualWindowSize);
-		return;
+		goto end;
 	}
 	else if(!lstrcmp(cv,"buffer") ) {
 		xprintf(fmtd,T_Cols);
-		return;
+		goto end;
 	}
 	else
 		stderror(ERR_SYSTEM, "EchoTC","Sorry, this function is not supported");
 
+end:
+	cleanup_until(globbed);
 }
 
 int    GotTermCaps = 0;
 
 
 	void
-ResetArrowKeys()
+ResetArrowKeys(void)
 {
 }
 
 	void
-DefaultArrowKeys() 
+DefaultArrowKeys(void)
 {
 }
 
 
 	int
-SetArrowKeys(name, fun, type)
-	CStr *name;
-	XmapVal *fun;
-	int type;
+SetArrowKeys(const CStr *name, XmapVal *fun, int type)
 {
+	UNREFERENCED_PARAMETER(name);
+	UNREFERENCED_PARAMETER(fun);
+	UNREFERENCED_PARAMETER(type);
 	return -1;
 }
 
 	int
-IsArrowKey(name)
-	Char *name;
+IsArrowKey(Char *name)
 {
+	UNREFERENCED_PARAMETER(name);
 	return 0;
 }
 
 	int
-ClearArrowKeys(name)
-	CStr *name;
+ClearArrowKeys(const CStr *name)
 {
+	UNREFERENCED_PARAMETER(name);
 	return -1;
 }
 
 	void
-PrintArrowKeys(name)
-	CStr *name;
+PrintArrowKeys(const CStr *name)
 {
+	UNREFERENCED_PARAMETER(name);
 	return;
 }
 
 
 	void
-BindArrowKeys()
+BindArrowKeys(void)
 {
 	return;
 }
-static Char cur_atr = 0;	/* current attributes */
 
 #define GoodStr(ignore)  1
 	void
-SetAttributes(atr)
-	int     atr;
+SetAttributes(Char atr)
 {
 	atr &= ATTRIBUTES;
 }
 
 /* PWP 6-27-88 -- if the tty driver thinks that we can tab, we ask termcap */
 	int
-CanWeTab()
+CanWeTab(void)
 {
 	return 1;
 }
 
+/* move to line <where> (first line == 0) as efficiently as possible; */
 	void
-MoveToLine(where)		/* move to line <where> (first line == 0) */
-	int     where;		/* as efficiently as possible; */
+MoveToLine(int where)
 {
 	int     del;
 
@@ -297,10 +289,10 @@ MoveToLine(where)		/* move to line <where> (first line == 0) */
 	CursorV = where;		/* now where is here */
 }
 
+/* move to character position (where) as efficiently as possible */
 	void
-MoveToChar(where)		/* move to character position (where) */
-	int     where;
-{				/* as efficiently as possible */
+MoveToChar(int where)		
+{
 	if (where == CursorH)
 		return;
 
@@ -325,9 +317,7 @@ MoveToChar(where)		/* move to character position (where) */
 }
 
 	void
-so_write(cp, n)
-	register Char *cp;
-	register int n;
+so_write(register Char *cp, register int n)
 {
 	if (n <= 0)
 		return;			/* catch bugs */
@@ -341,7 +331,7 @@ so_write(cp, n)
 			Char   *d;
 
 			for (d = litptr + (*cp++ & ~LITERAL) * LIT_FACTOR; *d;
-			     d++)
+					d++)
 				(void) putraw(*d);
 		}
 		else
@@ -363,8 +353,7 @@ so_write(cp, n)
 
 
 	void
-DeleteChars(num)		/* deletes <num> characters */
-	int     num;
+DeleteChars(int num)		/* deletes <num> characters */
 {
 	if (num <= 0)
 		return;
@@ -387,11 +376,13 @@ DeleteChars(num)		/* deletes <num> characters */
 
 }
 
+/* Puts terminal in insert character mode, or inserts num characters in the
+   line */
 	void
-Insert_write(cp, num)		/* Puts terminal in insert character mode, */
-	register Char *cp;
-	register int num;		/* or inserts num characters in the line */
+Insert_write(register Char *cp, register int num)
 {
+	UNREFERENCED_PARAMETER(cp);
+
 	if (num <= 0)
 		return;
 	if (!T_CanIns) {
@@ -413,9 +404,9 @@ Insert_write(cp, num)		/* Puts terminal in insert character mode, */
 
 }
 
+/* clear to end of line.  There are num characters to clear */
 	void
-ClearEOL(num)			/* clear to end of line.  There are num */
-	int     num;		/* characters to clear */
+ClearEOL(int num)
 {
 
 	if (num <= 0)
@@ -426,7 +417,7 @@ ClearEOL(num)			/* clear to end of line.  There are num */
 }
 
 	void
-ClearScreen()
+ClearScreen(void)
 {				/* clear the whole screen and home */
 
 	NT_ClearScreen();
@@ -434,7 +425,7 @@ ClearScreen()
 }
 
 	void
-SoundBeep()
+SoundBeep(void)
 {				/* produce a sound */
 	beep_cmd ();
 	if (adrof(STRnobeep))
@@ -447,14 +438,14 @@ SoundBeep()
 }
 
 	void
-ClearToBottom()
+ClearToBottom(void)
 {				/* clear to the bottom of the screen */
 	NT_ClearEOD();
 
 }
 
 	void
-GetTermCaps()
+GetTermCaps(void)
 {
 	int lins,cols;
 
@@ -476,15 +467,15 @@ GetTermCaps()
 
 	return;
 }
-#ifdef SIG_WINDOW
 /* GetSize():
  *	Return the new window size in lines and cols, and
  *	true if the size was changed.
  */
 	int
-GetSize(lins, cols)
-	int    *lins, *cols;
+GetSize(int *lins, int *cols)
 {
+
+	int ret = 0;
 
 	*lins = T_Lines;
 
@@ -494,32 +485,31 @@ GetSize(lins, cols)
 
 	// compare the actual visible window size,but return the console buffer size
 	// this is seriously demented.
-	return  (T_Lines != *lins || T_ActualWindowSize != DisplayWindowHSize);
+	ret =   (T_Lines != *lins || T_ActualWindowSize != DisplayWindowHSize);
 
+	T_Lines = *lins;
+	T_Cols = *cols;
+	T_ActualWindowSize = DisplayWindowHSize;
 
+	return ret;
 }
-
-#endif /* SIGWINDOW */
-
 	void
-ChangeSize(lins, cols)
-	int     lins, cols;
+ChangeSize(int lins, int cols)
 {
 
+	int rc = 0;
 	// here we're setting the window size, not the buffer size.
 	// 
 	nt_set_size(lins,cols);
 
-	T_Lines = lins;
-	T_ActualWindowSize = cols;
+	rc = GetSize(&lins,&cols);
+
 
 	ReBufferDisplay();		/* re-make display buffers */
 	ClearDisp();
 }
 	void
-PutPlusOne(c, width)
-	Char  c;
-	int   width;
+PutPlusOne(Char c, int width)
 {
 	extern int OldvcV;
 

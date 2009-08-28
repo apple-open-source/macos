@@ -36,7 +36,6 @@ if {$using_dsym} {
 
 if {[istarget "powerpc-apple-darwin*"]} {
     set arch_name(32) "ppc"
-    set arch_name(64) "ppc64"
 } elseif {[istarget "i686-apple-darwin*"]} {
     set arch_name(32) "i386"
     set arch_name(64) "x86_64"
@@ -48,7 +47,7 @@ if {[istarget "powerpc-apple-darwin*"]} {
 set testfile arch-test
 set srcfile $testfile.c
 set binfile $objdir/$subdir/$testfile
-set arches [list ppc i386 ppc64 x86_64] 
+set arches [list ppc i386 x86_64] 
 
 
 # We need to take the -arch whatever flags out of the cflags, or we will

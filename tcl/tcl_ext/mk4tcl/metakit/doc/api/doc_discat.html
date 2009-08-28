@@ -1,0 +1,78 @@
+<html><head>
+	<title>Metakit sample code - DisCat</title>
+</head><body bgcolor=white>
+
+<font face=Helvetica size=3>
+
+<!--begin-->
+<h2><img src="e4app.gif" alt="App Icon" border=0 align=left>
+Metakit sample code - DisCat</h2><br clear=left>
+
+<p>This application is a good starting point to learn about Metakit. </p>
+
+<p><b>What it does</b>: DisCat is a very simple disk catalog application.
+It recursively scans a directory tree on your hard disk and creates a data
+file with information about all files and subdirectories it finds during
+that scan. The total number of directories scanned is reported on the screen.
+</p>
+
+<p><b>What it illustrates</b>: This sample program shows how to set up
+a simple MFC-based application which uses Metakit. The source code of this
+application can be compiled for 32-bit Windows as well as for 16-bit Windows
+targets. DisCat has no practical use, other than to generate a not-quite-trivial
+datafile using the Metakit library. </p>
+
+<p><b>How to use it</b>: When you launch DISCAT.EXE (or the 16-bit version,
+which is called DISCAT16.EXE), you will see a dialog box with an edit box
+where you can enter a path name. After pressing the &quot;Scan&quot; button,
+the selected directory and all of its subdirectories will be traversed.
+Then you are asked to choose a name for the datafile which is to be used
+for storing the results. Apart from seeing confirmation in the form of
+a directory count, this application is rather boring... </p>
+
+<p><b>Known problems</b>: None, but you need to make sure that your system
+meets the requirements of either DISCAT.EXE or DISCAT16.EXE. </p>
+
+<p>The DISCAT.EXE application is a 32-bit application which requires Windows
+95 (or Windows NT, or Win32s, but neither of those two has been tried).
+In addition, you need to have two of the DLLs which come with Microsoft
+Visual C++ version 4.2: MFC42.DLL and MSVCRT.DLL (these contain the MFC
+library, and the runtime library, respectively). </p>
+
+<p>Alternately, you can use DISCAT16.EXE, which runs on either Windows
+95 or Windows 3.1(1). This application requires the file MFC250.DLL in
+the system directory (usually C:\WINDOWS\SYSTEM) to start properly. </p>
+
+<p>These DLL requirements are caused by the fact that the sample programs
+and the Metakit libraries are distributed in the smallest possible format,
+which happens to be as MFC extension DLLs. As a result, you need to supply
+the MFC libraries yourself. Considering the fact that Metakit is currently
+only useful in combination with MFC, this should not be a problem. </p>
+
+<p><b>Files in EXAMPLES\DISCAT</b>: </p>
+
+<p>CATALOG.H, CATALOG.CPP - Creates a disk catalog object using Metakit
+
+<br>DISCAT.H, DISCAT.CPP - Main MFC application code 
+<br>DISCAT.MAK, DISCAT.MDP - MSVC 4.2 project makefiles for Win32 
+<br>DISCAT.DEF, DISCAT.RC - Linker definitions, Application resources 
+<br>DISCAT16.MAK - MSVC 1.52 project makefile for Win16 
+<br>RESOURCE.H - Resource symbol definitions 
+<br>STDAFX.H, STDAFX.CPP - Used for precompiled headers 
+<br>RES\*.* - Application resources </p>
+<!--end-->
+
+<center><p><hr size=1>
+||
+&nbsp; <a href="index.html" target="_top">Roadmap</a>
+&nbsp; <a href="classes.html">Class Index</a>
+&nbsp; <a href="samples.html">Sample Index</a>
+&nbsp; ||
+&nbsp; <a href="intro.html">Introduction</a>
+&nbsp; <a href="tips.html">Tips and Tricks</a>
+&nbsp; || 
+
+</center>
+</font>
+
+</body></html>

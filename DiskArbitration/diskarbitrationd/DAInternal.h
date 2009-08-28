@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -95,8 +95,9 @@ __private_extern__ const CFStringRef _kDACallbackWatchKey;         /* ( CFArray 
 
 __private_extern__ const CFStringRef _kDADiskIDKey;                /* ( CFData       ) */
 
+__private_extern__ const CFStringRef _kDADissenterProcessIDKey;    /* ( CFNumber     ) */
 __private_extern__ const CFStringRef _kDADissenterStatusKey;       /* ( CFNumber     ) */
-__private_extern__ const CFStringRef _kDADissenterStatusStringKey; /* ( CFNumber     ) */
+__private_extern__ const CFStringRef _kDADissenterStatusStringKey; /* ( CFString     ) */
 
 __private_extern__ const CFStringRef _kDARequestArgument1Key;      /* ( CFType       ) */
 __private_extern__ const CFStringRef _kDARequestArgument2Key;      /* ( CFType       ) */
@@ -114,7 +115,7 @@ __private_extern__ int          ___isadmin( uid_t uid );
 __private_extern__ int          ___statfs( const char * path, struct statfs * buf, int flags );
 __private_extern__ Boolean      ___CFArrayContainsValue( CFArrayRef array, const void * value );
 __private_extern__ void         ___CFArrayRemoveValue( CFMutableArrayRef array, const void * value );
-__private_extern__ vm_address_t ___CFDataCopyBytes( CFDataRef data, vm_size_t * length );
+__private_extern__ vm_address_t ___CFDataCopyBytes( CFDataRef data, mach_msg_type_number_t * length );
 __private_extern__ SInt64       ___CFDictionaryGetIntegerValue( CFDictionaryRef dictionary, const void * key );
 __private_extern__ void         ___CFDictionarySetIntegerValue( CFMutableDictionaryRef dictionary, const void * key, SInt64 value );
 __private_extern__ CFNumberRef  ___CFNumberCreateWithIntegerValue( CFAllocatorRef allocator, SInt64 value );

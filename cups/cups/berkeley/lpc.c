@@ -1,5 +1,5 @@
 /*
- * "$Id: lpc.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: lpc.c 7079 2007-11-30 01:58:31Z mike $"
  *
  *   "lpc" command for the Common UNIX Printing System (CUPS).
  *
@@ -450,5 +450,5 @@ show_status(http_t     *http,		/* I - HTTP connection to server */
 
 
 /*
- * End of "$Id: lpc.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: lpc.c 7079 2007-11-30 01:58:31Z mike $".
  */

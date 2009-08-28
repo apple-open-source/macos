@@ -31,7 +31,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#define ACL_MIN_SIZE_HEURISTIC (sizeof(struct kauth_filesec) + 16 * sizeof(struct kauth_ace))
+#define ACL_MIN_SIZE_HEURISTIC (KAUTH_FILESEC_SIZE(16))
 
 static int	statx_syscall(void *obj, void  *sbptr, void *fsacl, size_t *fsacl_size);
 static int	fstatx_syscall(void *obj, void  *sbptr, void *fsacl, size_t *fsacl_size);
@@ -143,7 +143,7 @@ statx1(void *obj,
     int (* stat_syscall)(void *obj, void *sbptr, void *fsacl, size_t *fsacl_size),
     void  *sbptr, filesec_t fsec)
 {
-	struct kauth_filesec *fsacl, *ofsacl;
+	kauth_filesec_t fsacl, ofsacl;
 	size_t fsacl_size, buffer_size;
 	int error;
 	struct stat * sb = (struct stat *)0;

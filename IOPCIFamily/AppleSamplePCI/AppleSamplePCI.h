@@ -19,7 +19,7 @@ class AppleSamplePCI : public IOService
     OSDeclareDefaultStructors( AppleSamplePCI );
 
 private:
-    IOPCIDevice *	 fPCIDevice;
+    IOPCIDevice *        fPCIDevice;
     IOMemoryDescriptor * fLowMemory;
 
 public:
@@ -41,11 +41,11 @@ class AppleSamplePCIUserClient : public IOUserClient
     OSDeclareDefaultStructors( AppleSamplePCIUserClient );
 
 private:
-    AppleSamplePCI *		fDriver;
-    IOBufferMemoryDescriptor *	fClientSharedMemory;
-    AppleSampleSharedMemory * 	fClientShared;
-    task_t			fTask;
-    SInt32			fOpenCount;
+    AppleSamplePCI *            fDriver;
+    IOBufferMemoryDescriptor *  fClientSharedMemory;
+    AppleSampleSharedMemory *   fClientShared;
+    task_t                      fTask;
+    SInt32                      fOpenCount;
 
 public:
     /* IOService overrides */
@@ -61,7 +61,7 @@ public:
                                             IOService ** targetP, UInt32 index );
 
     virtual IOReturn externalMethod( uint32_t selector, IOExternalMethodArguments * arguments,
-					IOExternalMethodDispatch * dispatch = 0, OSObject * target = 0, void * reference = 0 );
+                                        IOExternalMethodDispatch * dispatch = 0, OSObject * target = 0, void * reference = 0 );
 
 
     virtual IOReturn clientMemoryForType( UInt32 type,
@@ -71,7 +71,7 @@ public:
     virtual IOReturn method1( UInt32 * dataIn, UInt32 * dataOut,
                                                 IOByteCount inputCount, IOByteCount * outputCount );
     virtual IOReturn method2( AppleSampleStructForMethod2 * structIn, 
-					    AppleSampleResultsForMethod2 * structOut,
+                                            AppleSampleResultsForMethod2 * structOut,
                                             IOByteCount inputSize, IOByteCount * outputSize );
 };
 

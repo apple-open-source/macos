@@ -1,8 +1,8 @@
 /* bind.c - decode an ldap bind operation and pass it to a backend db */
-/* $OpenLDAP: pkg/ldap/servers/slapd/bind.c,v 1.189.2.9 2006/07/28 13:01:36 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/bind.c,v 1.201.2.4 2008/02/11 23:26:43 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -46,10 +46,11 @@ do_bind(
 	ber_tag_t tag;
 	Backend *be = NULL;
 
-	Debug( LDAP_DEBUG_TRACE, "do_bind\n", 0, 0, 0 );
+	Debug( LDAP_DEBUG_TRACE, "%s do_bind\n",
+		op->o_log_prefix, 0, 0 );
 
 	/*
-	 * Force to connection to "anonymous" until bind succeeds.
+	 * Force the connection to "anonymous" until bind succeeds.
 	 */
 	ldap_pvt_thread_mutex_lock( &op->o_conn->c_mutex );
 	if ( op->o_conn->c_sasl_bind_in_progress ) {
@@ -86,8 +87,8 @@ do_bind(
 	 *		name		DistinguishedName,	 -- dn
 	 *		authentication	CHOICE {
 	 *			simple		[0] OCTET STRING -- passwd
-	 *			krbv42ldap	[1] OCTET STRING
-	 *			krbv42dsa	[2] OCTET STRING
+	 *			krbv42ldap	[1] OCTET STRING -- OBSOLETE
+	 *			krbv42dsa	[2] OCTET STRING -- OBSOLETE
 	 *			SASL		[3] SaslCredentials
 	 *		}
 	 *	}
@@ -101,7 +102,8 @@ do_bind(
 	tag = ber_scanf( ber, "{imt" /*}*/, &version, &dn, &method );
 
 	if ( tag == LBER_ERROR ) {
-		Debug( LDAP_DEBUG_ANY, "bind: ber_scanf failed\n", 0, 0, 0 );
+		Debug( LDAP_DEBUG_ANY, "%s do_bind: ber_scanf failed\n",
+			op->o_log_prefix, 0, 0 );
 		send_ldap_discon( op, rs, LDAP_PROTOCOL_ERROR, "decoding error" );
 		rs->sr_err = SLAPD_DISCONNECT;
 		goto cleanup;
@@ -134,13 +136,16 @@ do_bind(
 	}
 
 	if ( tag == LBER_ERROR ) {
+		Debug( LDAP_DEBUG_ANY, "%s do_bind: ber_scanf failed\n",
+			op->o_log_prefix, 0, 0 );
 		send_ldap_discon( op, rs, LDAP_PROTOCOL_ERROR, "decoding error" );
 		rs->sr_err = SLAPD_DISCONNECT;
 		goto cleanup;
 	}
 
 	if( get_ctrls( op, rs, 1 ) != LDAP_SUCCESS ) {
-		Debug( LDAP_DEBUG_ANY, "do_bind: get_ctrls failed\n", 0, 0, 0 );
+		Debug( LDAP_DEBUG_ANY, "%s do_bind: get_ctrls failed\n",
+			op->o_log_prefix, 0, 0 );
 		goto cleanup;
 	} 
 
@@ -151,14 +156,18 @@ do_bind(
 	rs->sr_err = dnPrettyNormal( NULL, &dn, &op->o_req_dn, &op->o_req_ndn,
 		op->o_tmpmemctx );
 	if ( rs->sr_err != LDAP_SUCCESS ) {
-		Debug( LDAP_DEBUG_ANY, "bind: invalid dn (%s)\n",
-			dn.bv_val, 0, 0 );
+		Debug( LDAP_DEBUG_ANY, "%s do_bind: invalid dn (%s)\n",
+			op->o_log_prefix, dn.bv_val, 0 );
 		send_ldap_error( op, rs, LDAP_INVALID_DN_SYNTAX, "invalid DN" );
 		goto cleanup;
 	}
 
+	Statslog( LDAP_DEBUG_STATS, "%s BIND dn=\"%s\" method=%ld\n",
+	    op->o_log_prefix, op->o_req_dn.bv_val,
+		(unsigned long) op->orb_method, 0, 0 );
+
 	if( op->orb_method == LDAP_AUTH_SASL ) {
-		Debug( LDAP_DEBUG_TRACE, "do_sasl_bind: dn (%s) mech %s\n",
+		Debug( LDAP_DEBUG_TRACE, "do_bind: dn (%s) SASL mech %s\n",
 			op->o_req_dn.bv_val, mech.bv_val, NULL );
 
 	} else {
@@ -168,13 +177,9 @@ do_bind(
 			(unsigned long) op->orb_method );
 	}
 
-	Statslog( LDAP_DEBUG_STATS, "%s BIND dn=\"%s\" method=%ld\n",
-	    op->o_log_prefix, op->o_req_dn.bv_val,
-		(unsigned long) op->orb_method, 0, 0 );
-
 	if ( version < LDAP_VERSION_MIN || version > LDAP_VERSION_MAX ) {
-		Debug( LDAP_DEBUG_ANY, "do_bind: unknown version=%ld\n",
-			(unsigned long) version, 0, 0 );
+		Debug( LDAP_DEBUG_ANY, "%s do_bind: unknown version=%ld\n",
+			op->o_log_prefix, (unsigned long) version, 0 );
 		send_ldap_error( op, rs, LDAP_PROTOCOL_ERROR,
 			"requested protocol version not supported" );
 		goto cleanup;
@@ -194,7 +199,7 @@ do_bind(
 	op->o_conn->c_protocol = version;
 	ldap_pvt_thread_mutex_unlock( &op->o_conn->c_mutex );
 
-	op->orb_tmp_mech = mech;
+	op->orb_mech = mech;
 
 	op->o_bd = frontendDB;
 	rs->sr_err = frontendDB->be_bind( op, rs );
@@ -222,7 +227,6 @@ cleanup:
 int
 fe_op_bind( Operation *op, SlapReply *rs )
 {
-	struct berval	mech = op->orb_tmp_mech;
 	BackendDB	*bd = op->o_bd;
 
 	/* check for inappropriate controls */
@@ -232,9 +236,6 @@ fe_op_bind( Operation *op, SlapReply *rs )
 			"manageDSAit control inappropriate" );
 		goto cleanup;
 	}
-
-	/* Set the bindop for the benefit of in-directory SASL lookups */
-	op->o_conn->c_sasl_bindop = op;
 
 	if ( op->orb_method == LDAP_AUTH_SASL ) {
 		if ( op->o_protocol < LDAP_VERSION3 ) {
@@ -246,7 +247,7 @@ fe_op_bind( Operation *op, SlapReply *rs )
 			goto cleanup;
 		}
 
-		if( BER_BVISNULL( &mech ) || BER_BVISEMPTY( &mech ) ) {
+		if( BER_BVISNULL( &op->orb_mech ) || BER_BVISEMPTY( &op->orb_mech ) ) {
 			Debug( LDAP_DEBUG_ANY,
 				"do_bind: no sasl mechanism provided\n",
 				0, 0, 0 );
@@ -256,20 +257,24 @@ fe_op_bind( Operation *op, SlapReply *rs )
 		}
 
 		/* check restrictions */
-		if( backend_check_restrictions( op, rs, &mech ) != LDAP_SUCCESS ) {
+		if( backend_check_restrictions( op, rs, &op->orb_mech ) != LDAP_SUCCESS ) {
 			send_ldap_result( op, rs );
 			goto cleanup;
 		}
 
 		ldap_pvt_thread_mutex_lock( &op->o_conn->c_mutex );
 		if ( op->o_conn->c_sasl_bind_in_progress ) {
-			if( !bvmatch( &op->o_conn->c_sasl_bind_mech, &mech ) ) {
+			if( !bvmatch( &op->o_conn->c_sasl_bind_mech, &op->orb_mech ) ) {
 				/* mechanism changed between bind steps */
 				slap_sasl_reset(op->o_conn);
 			}
 		} else {
-			ber_dupbv(&op->o_conn->c_sasl_bind_mech, &mech);
+			ber_dupbv(&op->o_conn->c_sasl_bind_mech, &op->orb_mech);
 		}
+
+		/* Set the bindop for the benefit of in-directory SASL lookups */
+		op->o_conn->c_sasl_bindop = op;
+
 		ldap_pvt_thread_mutex_unlock( &op->o_conn->c_mutex );
 
 		rs->sr_err = slap_sasl_bind( op, rs );
@@ -291,7 +296,7 @@ fe_op_bind( Operation *op, SlapReply *rs )
 	}
 
 	if ( op->orb_method == LDAP_AUTH_SIMPLE ) {
-		BER_BVSTR( &mech, "SIMPLE" );
+		BER_BVSTR( &op->orb_mech, "SIMPLE" );
 		/* accept "anonymous" binds */
 		if ( BER_BVISEMPTY( &op->orb_cred ) || BER_BVISEMPTY( &op->o_req_ndn ) ) {
 			rs->sr_err = LDAP_SUCCESS;
@@ -316,7 +321,7 @@ fe_op_bind( Operation *op, SlapReply *rs )
 				rs->sr_text = "anonymous bind disallowed";
 
 			} else {
-				backend_check_restrictions( op, rs, &mech );
+				backend_check_restrictions( op, rs, &op->orb_mech );
 			}
 
 			/*
@@ -340,33 +345,6 @@ fe_op_bind( Operation *op, SlapReply *rs )
 			goto cleanup;
 		}
 
-#ifdef LDAP_API_FEATURE_X_OPENLDAP_V2_KBIND
-	} else if ( op->orb_method == LDAP_AUTH_KRBV41 ) {
-		if ( global_disallows & SLAP_DISALLOW_BIND_KRBV4 ) {
-			/* disallow krbv4 authentication */
-			rs->sr_err = LDAP_UNWILLING_TO_PERFORM;
-			rs->sr_text = "unwilling to perform Kerberos V4 bind";
-
-			send_ldap_result( op, rs );
-
-			Debug( LDAP_DEBUG_TRACE,
-				"do_bind: v%d Kerberos V4 (step 1) bind refused\n",
-				op->o_protocol, 0, 0 );
-			goto cleanup;
-		}
-		BER_BVSTR( &mech, "KRBV4" );
-
-	} else if ( op->orb_method == LDAP_AUTH_KRBV42 ) {
-		rs->sr_err = LDAP_AUTH_METHOD_NOT_SUPPORTED;
-		rs->sr_text = "Kerberos V4 (step 2) bind not supported";
-		send_ldap_result( op, rs );
-
-		Debug( LDAP_DEBUG_TRACE,
-			"do_bind: v%d Kerberos V4 (step 2) bind refused\n",
-			op->o_protocol, 0, 0 );
-		goto cleanup;
-#endif
-
 	} else {
 		rs->sr_err = LDAP_AUTH_METHOD_NOT_SUPPORTED;
 		rs->sr_text = "unknown authentication method";
@@ -380,10 +358,11 @@ fe_op_bind( Operation *op, SlapReply *rs )
 
 	/*
 	 * We could be serving multiple database backends.  Select the
-	 * appropriate one.  If none, return invalid cred, not a referral.
+	 * appropriate one, or send a referral to our "referral server"
+	 * if we don't hold it.
 	 */
 
-	if ( (op->o_bd = select_backend( &op->o_req_ndn, 0, 0 )) == NULL ) {
+	if ( (op->o_bd = select_backend( &op->o_req_ndn, 0 )) == NULL ) {
 		/* don't return referral for bind requests */
 		/* noSuchObject is not allowed to be returned by bind */
 		rs->sr_err = LDAP_INVALID_CREDENTIALS;
@@ -404,41 +383,7 @@ fe_op_bind( Operation *op, SlapReply *rs )
 		rs->sr_err = (op->o_bd->be_bind)( op, rs );
 
 		if ( rs->sr_err == 0 ) {
-			ldap_pvt_thread_mutex_lock( &op->o_conn->c_mutex );
-
-			if( op->o_conn->c_authz_backend == NULL ) {
-				op->o_conn->c_authz_backend = op->o_bd;
-			}
-
-			/* be_bind returns regular/global edn */
-			if( !BER_BVISEMPTY( &op->orb_edn ) ) {
-				op->o_conn->c_dn = op->orb_edn;
-			} else {
-				ber_dupbv(&op->o_conn->c_dn, &op->o_req_dn);
-			}
-
-			ber_dupbv( &op->o_conn->c_ndn, &op->o_req_ndn );
-
-			if( !BER_BVISEMPTY( &op->o_conn->c_dn ) ) {
-				ber_len_t max = sockbuf_max_incoming_auth;
-				ber_sockbuf_ctrl( op->o_conn->c_sb,
-					LBER_SB_OPT_SET_MAX_INCOMING, &max );
-			}
-
-			/* log authorization identity */
-			Statslog( LDAP_DEBUG_STATS,
-				"%s BIND dn=\"%s\" mech=%s ssf=0\n",
-				op->o_log_prefix,
-				op->o_conn->c_dn.bv_val, mech.bv_val, 0, 0 );
-
-			Debug( LDAP_DEBUG_TRACE,
-				"do_bind: v%d bind: \"%s\" to \"%s\"\n",
-				op->o_protocol, op->o_req_dn.bv_val, op->o_conn->c_dn.bv_val );
-
-			ldap_pvt_thread_mutex_unlock( &op->o_conn->c_mutex );
-
-			/* send this here to avoid a race condition */
-			send_ldap_result( op, rs );
+			(void)fe_op_bind_success( op, rs );
 
 		} else if ( !BER_BVISNULL( &op->orb_edn ) ) {
 			free( op->orb_edn.bv_val );
@@ -455,3 +400,44 @@ cleanup:;
 	return rs->sr_err;
 }
 
+int
+fe_op_bind_success( Operation *op, SlapReply *rs )
+{
+	ldap_pvt_thread_mutex_lock( &op->o_conn->c_mutex );
+
+	if( op->o_conn->c_authz_backend == NULL ) {
+		op->o_conn->c_authz_backend = op->o_bd;
+	}
+
+	/* be_bind returns regular/global edn */
+	if( !BER_BVISEMPTY( &op->orb_edn ) ) {
+		op->o_conn->c_dn = op->orb_edn;
+	} else {
+		ber_dupbv(&op->o_conn->c_dn, &op->o_req_dn);
+	}
+
+	ber_dupbv( &op->o_conn->c_ndn, &op->o_req_ndn );
+
+	if( !BER_BVISEMPTY( &op->o_conn->c_dn ) ) {
+		ber_len_t max = sockbuf_max_incoming_auth;
+		ber_sockbuf_ctrl( op->o_conn->c_sb,
+			LBER_SB_OPT_SET_MAX_INCOMING, &max );
+	}
+
+	/* log authorization identity */
+	Statslog( LDAP_DEBUG_STATS,
+		"%s BIND dn=\"%s\" mech=%s ssf=0\n",
+		op->o_log_prefix,
+		op->o_conn->c_dn.bv_val, op->orb_mech.bv_val, 0, 0 );
+
+	Debug( LDAP_DEBUG_TRACE,
+		"do_bind: v%d bind: \"%s\" to \"%s\"\n",
+		op->o_protocol, op->o_req_dn.bv_val, op->o_conn->c_dn.bv_val );
+
+	ldap_pvt_thread_mutex_unlock( &op->o_conn->c_mutex );
+
+	/* send this here to avoid a race condition */
+	send_ldap_result( op, rs );
+
+	return LDAP_SUCCESS;
+}

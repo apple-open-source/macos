@@ -2,6 +2,7 @@
    that the Driver.xst mechansim doesn't have compile-time errors in it.
 */
 
+#define PERL_NO_GET_CONTEXT
 #include "DBIXS.h"
 #include "dbd_xsh.h"
 
@@ -38,6 +39,8 @@ struct imp_sth_st {
 int	/* just to test syntax of macros etc */
 dbd_st_rows(SV *h, imp_sth_t *imp_sth)
 {
+    dTHX;
+    h = h; /* silence unused var warning */
     DBIh_SET_ERR_CHAR(h, imp_sth, 0, 1, "err msg", "12345", Nullch);
     return -1;
 }

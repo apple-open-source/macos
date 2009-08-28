@@ -3,21 +3,20 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -75,8 +74,7 @@ int debug, verbose;
 
 int	checkvfsname __P((const char *, const char **));
 char   *catopt __P((char *, const char *));
-struct statfs
-       *getmntpt __P((const char *));
+struct statfs64 *getmntpt __P((const char *));
 int	hasopt __P((const char *, const char *));
 int	ismounted __P((const char *, const char *));
 const char
@@ -84,7 +82,7 @@ const char
 void	mangle __P((char *, int *, const char **));
 int	mountfs __P((const char *, const char *, const char *,
 			int, const char *, const char *));
-void	prmount __P((struct statfs *));
+void	prmount __P((struct statfs64 *));
 void	usage __P((void));
 
 /* From mount_ufs.c. */
@@ -111,6 +109,7 @@ static struct opt {
 	{ MNT_IGNORE_OWNERSHIP,	"noowners" },
 	{ MNT_NOATIME,		"noatime" },
 	{ MNT_QUARANTINE,	"quarantine" },
+	{ MNT_DONTBROWSE,	"nobrowse"},
 	{ 0, 				NULL }
 };
 
@@ -121,7 +120,7 @@ main(argc, argv)
 {
 	const char *mntfromname, **vfslist, *vfstype;
 	struct fstab *fs;
-	struct statfs *mntbuf;
+	struct statfs64 *mntbuf;
 	int all, ch, i, init_flags, mntsize, rval;
 	char *options;
 
@@ -202,8 +201,8 @@ main(argc, argv)
 			}
 			endfsent();
         	} else {
-			if ((mntsize = getmntinfo(&mntbuf, MNT_NOWAIT)) == 0)
-				err(1, "getmntinfo");
+			if ((mntsize = getmntinfo64(&mntbuf, MNT_NOWAIT)) == 0)
+				err(1, "getmntinfo64");
 			for (i = 0; i < mntsize; i++) {
 				if (checkvfsname(mntbuf[i].f_fstypename, vfslist))
 					continue;
@@ -220,10 +219,23 @@ main(argc, argv)
 				errx(1,
 				    "unknown special file or file system %s.",
 				    *argv);
-			if ((fs = getfsfile(mntbuf->f_mntonname)) != NULL)
-				mntfromname = fs->fs_spec;
-			else
-				mntfromname = mntbuf->f_mntfromname;
+			/*
+			 * Handle the special case of upgrading the root file
+			 * system from read-only to read/write.  The root file
+			 * system was originally mounted with a "mount from" name
+			 * of "root_device".  The getfsfile("/") returns non-
+			 * NULL at this point, with fs_spec set to the true
+			 * path to the root device (regardless of what /etc/fstab
+			 * contains).
+			 */
+			mntfromname = mntbuf->f_mntfromname;
+			if (strchr(mntfromname, '/') == NULL) {
+				fs = getfsfile(mntbuf->f_mntonname);
+				if (fs != NULL)
+					mntfromname = fs->fs_spec;
+			}
+			
+			/* Do the update mount */
 			rval = mountfs(mntbuf->f_fstypename, mntfromname,
 			    mntbuf->f_mntonname, init_flags, options, 0);
 			break;
@@ -258,8 +270,26 @@ main(argc, argv)
 				errx(1, "%s is already mounted at %s.",
 					argv[0], argv[1]);
 		}
-		rval = mountfs(vfstype,
-		    argv[0], argv[1], init_flags, options, NULL);
+
+		/* If we have both a devnode and a pathname, and an update mount was requested,
+		 * then figure out where the devnode is mounted.  We will need to run 
+		 * an update mount on its path.  It wouldn't make sense to do an
+		 * update mount on a path other than the one it's already using.
+		 *
+		 * XXX: Should we implement the same workaround for updating the
+		 * root file system at boot time?
+		 */
+		if (init_flags & MNT_UPDATE) {
+			if ((mntbuf = getmntpt(*argv)) == NULL)
+				errx(1,"unknown special file or file system %s.", *argv);
+			rval = mountfs(mntbuf->f_fstypename, mntbuf->f_mntfromname,
+					mntbuf->f_mntonname, init_flags, options, 0);
+		}
+		else {
+			/* If update mount not requested, then go with default vfstype and arguments */
+			rval = mountfs(vfstype,
+					argv[0], argv[1], init_flags, options, NULL);
+		}
 		break;
 	default:
 		usage();
@@ -299,10 +329,10 @@ ismounted(fs_spec, fs_file)
 	const char *fs_spec, *fs_file;
 {
 	int i, mntsize;
-	struct statfs *mntbuf;
+	struct statfs64 *mntbuf;
 
-	if ((mntsize = getmntinfo(&mntbuf, MNT_NOWAIT)) == 0)
-		err(1, "getmntinfo");
+	if ((mntsize = getmntinfo64(&mntbuf, MNT_NOWAIT)) == 0)
+		err(1, "getmntinfo64");
 	for (i = 0; i < mntsize; i++) {
 		if (strcmp(mntbuf[i].f_mntfromname, fs_spec))
 			continue;
@@ -322,10 +352,11 @@ mountfs(vfstype, spec, name, flags, options, mntopts)
 	static const char *edirs[] = {
 		_PATH_SBIN,
 		_PATH_USRSBIN,
+		_PATH_FSBNDL,	/* always last */
 		NULL
 	};
 	const char *argv[100], **edir;
-	struct statfs sf;
+	struct statfs64 sf;
 	pid_t pid;
 	int argc, i, status;
 	char *optbuf, execname[MAXPATHLEN + 1], mntpath[MAXPATHLEN];
@@ -341,7 +372,7 @@ mountfs(vfstype, spec, name, flags, options, mntopts)
 		mntopts = "";
 	if (options == NULL) {
 		if (*mntopts == '\0') {
-			options = "rw";
+			options = "";
 		} else {
 			options = mntopts;
 			mntopts = "";
@@ -355,12 +386,6 @@ mountfs(vfstype, spec, name, flags, options, mntopts)
 		optbuf = catopt(optbuf, "force");
 	if (flags & MNT_RDONLY)
 		optbuf = catopt(optbuf, "ro");
-	/*
-	 * XXX
-	 * The mount_mfs (newfs) command uses -o to select the
-	 * optimisation mode.  We don't pass the default "-o rw"
-	 * for that reason.
-	 */
 	if (flags & MNT_UPDATE)
 		optbuf = catopt(optbuf, "update");
 
@@ -391,8 +416,15 @@ mountfs(vfstype, spec, name, flags, options, mntopts)
 		/* Go find an executable. */
 		edir = edirs;
 		do {
-			(void)snprintf(execname,
-			    sizeof(execname), "%s/mount_%s", *edir, vfstype);
+			/* Special case file system bundle executable path */
+			if (*(edir+1) == NULL)
+				(void)snprintf(execname, sizeof(execname),
+					"%s/%s.fs/%s/mount_%s", *edir,
+					vfstype, _PATH_FSBNDLBIN, vfstype);
+			else
+				(void)snprintf(execname, sizeof(execname),
+					"%s/mount_%s", *edir, vfstype);
+
 			argv[0] = execname;
 			execv(execname, (char * const *)argv);
 			if (errno != ENOENT)
@@ -420,8 +452,8 @@ mountfs(vfstype, spec, name, flags, options, mntopts)
 		}
 
 		if (verbose) {
-			if (statfs(name, &sf) < 0) {
-				warn("statfs %s", name);
+			if (statfs64(name, &sf) < 0) {
+				warn("statfs64 %s", name);
 				return (1);
 			}
 			prmount(&sf);
@@ -434,7 +466,7 @@ mountfs(vfstype, spec, name, flags, options, mntopts)
 
 void
 prmount(sfp)
-	struct statfs *sfp;
+	struct statfs64 *sfp;
 {
 	int flags;
 	struct opt *o;
@@ -459,18 +491,19 @@ prmount(sfp)
 	(void)printf(")\n");
 }
 
-struct statfs *
+struct statfs64 *
 getmntpt(name)
 	const char *name;
 {
-	struct statfs *mntbuf;
+	struct statfs64 *mntbuf;
 	int i, mntsize;
 
-	mntsize = getmntinfo(&mntbuf, MNT_NOWAIT);
-	for (i = 0; i < mntsize; i++)
+	mntsize = getmntinfo64(&mntbuf, MNT_NOWAIT);
+	for (i = 0; i < mntsize; i++) {
 		if (strcmp(mntbuf[i].f_mntfromname, name) == 0 ||
 		    strcmp(mntbuf[i].f_mntonname, name) == 0)
 			return (&mntbuf[i]);
+	}
 	return (NULL);
 }
 
@@ -514,7 +547,7 @@ mangle(options, argcp, argv)
 					*p = '\0';
 					argv[argc++] = p+1;
 				}
-			} else if (strcmp(p, "rw") != 0) {
+			} else {
 				argv[argc++] = "-o";
 				argv[argc++] = p;
 			}

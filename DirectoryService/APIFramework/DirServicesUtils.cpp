@@ -3121,8 +3121,8 @@ tDirStatus dsAppendAuthBufferWithAuthorityAttribute(
     tDirStatus					status				= eDSNoErr;
 	tDataBufferPtr				innerDataBuff		= NULL;
 	tAttributeValueEntry	   *attrValue			= NULL;
-	unsigned long				attrValIndex		= 0;
-    unsigned long				attrValCount		= 0;
+	UInt32						attrValIndex		= 0;
+    UInt32						attrValCount		= 0;
 
 	if ( inOutAuthBuffer == NULL )
 		return eParameterError;
@@ -3176,16 +3176,16 @@ tDirStatus dsAppendAuthBufferWithAuthorityStrings(
     tDirStatus					status				= eDSNoErr;
 	tDataBufferPtr				innerDataBuff		= NULL;
 	const char					*tptr				= NULL;
-	unsigned long				attrValIndex		= 0;
-    unsigned long				attrValCount		= 0;
-	unsigned long				neededSize			= sizeof(tDataBuffer);
+	UInt32						attrValIndex		= 0;
+    UInt32						attrValCount		= 0;
+	UInt32						neededSize			= sizeof(tDataBuffer);
 	
 	if ( inOutAuthBuffer == NULL )
 		return eParameterError;
 	
 	for ( tptr = inAuthAuthority[0]; tptr != NULL; )
 	{
-		neededSize += sizeof(long) + strlen( tptr );
+		neededSize += sizeof(uint32_t) + strlen( tptr );
 		tptr = inAuthAuthority[++attrValCount];
 	}
 	

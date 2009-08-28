@@ -82,7 +82,7 @@ typedef struct _entry {
 	size_t len;
 #if OPEN_DIRECTORY
 	char *except;
-	CFStringRef attrName;
+	const CFStringRef *attrName;
 #else /* OPEN_DIRECTORY */
 	char *except, *save;
 #endif /* OPEN_DIRECTORY */

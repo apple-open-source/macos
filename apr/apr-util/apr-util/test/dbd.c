@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -122,7 +122,7 @@ static int select_sequential(apr_pool_t* pool, apr_dbd_t* handle,
     for (rv = apr_dbd_get_row(driver, pool, res, &row, -1);
          rv == 0;
          rv = apr_dbd_get_row(driver, pool, res, &row, -1)) {
-        printf("ROW %d:	", i++) ;
+        printf("ROW %d:	", ++i) ;
         for (n = 0; n < apr_dbd_num_cols(driver, res); ++n) {
             entry = apr_dbd_get_entry(driver, row, n);
             if (entry == NULL) {
@@ -295,7 +295,7 @@ static int test_pselect(apr_pool_t* pool, apr_dbd_t* handle,
     for (rv = apr_dbd_get_row(driver, pool, res, &row, -1);
          rv == 0;
          rv = apr_dbd_get_row(driver, pool, res, &row, -1)) {
-        printf("ROW %d:	", i++) ;
+        printf("ROW %d:	", ++i) ;
         for (n = 0; n < apr_dbd_num_cols(driver, res); ++n) {
             entry = apr_dbd_get_entry(driver, row, n);
             if (entry == NULL) {

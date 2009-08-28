@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2008-03-17</string>
+		<key>OpenSourceLicense</key>
+		<string>Other</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>OpenPAM.txt</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>Modified the dispatch to break for PAM_SM_SETCRED.</string>
+		</array>
+		<key>OpenSourceProject</key>
+		<string>OpenPAM</string>
+		<key>OpenSourceSHA1</key>
+		<string>43d41fa4a86199077c4fe193c52c59365f4c317e</string>
+		<key>OpenSourceURL</key>
+		<string>http://downloads.sourceforge.net/openpam/openpam-20071221.tar.gz</string>
+		<key>OpenSourceVersion</key>
+		<string>20071221</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.openpam.org/</string>
+	</dict>
+</array>
+</plist>

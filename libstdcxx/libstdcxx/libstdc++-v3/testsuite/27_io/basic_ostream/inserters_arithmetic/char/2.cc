@@ -1,3 +1,5 @@
+// { dg-require-namedlocale "" }
+
 // 1999-11-15 Kevin Ediger  <kediger@licor.com>
 // test the floating point inserters (facet num_put)
 
@@ -16,7 +18,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 #include <iostream>
@@ -41,7 +43,7 @@ test02()
   os2.setf(ios::fixed);
 
   // Check it can be done in a locale with grouping on.
-  locale loc2 = __gnu_test::try_named_locale("de_DE");
+  locale loc2 = locale("de_DE");
   os2.imbue(loc2);
   os2 << fixed << setprecision(3) << val2 << endl;
   os2 << endl;

@@ -76,6 +76,14 @@
 
 #include "radlib_private.h"
 
+#ifndef __APPLE__
+#define RADLIB_SRANDOMDEV()  srandomdev()
+#define RADLIB_RANDOM()      random()
+#else
+#define RADLIB_SRANDOMDEV() /* no need to seed arc4random */
+#define RADLIB_RANDOM()     (arc4random() % ((unsigned)RAND_MAX + 1))
+#endif /* __APPLE__ */
+
 static void	 clear_password(struct rad_handle *);
 static void	 generr(struct rad_handle *, const char *, ...);
 //		    __printflike(2, 3);
@@ -505,7 +513,7 @@ rad_config(struct rad_handle *h, const char *path)
 
 		if (rad_add_server(h, host, port, secret, timeout, maxtries) ==
 		    -1) {
-			strcpy(msg, h->errmsg);
+			strlcpy(msg, h->errmsg, sizeof(msg));
 			generr(h, "%s:%d: %s", path, linenum, msg);
 			retval = -1;
 			break;
@@ -614,7 +622,7 @@ rad_create_request(struct rad_handle *h, int code)
 	/* Create a random authenticator */
 	for (i = 0;  i < LEN_AUTH;  i += 2) {
 		long r;
-		r = random();
+		r = RADLIB_RANDOM();
 		h->request[POS_AUTH+i] = (u_char)r;
 		h->request[POS_AUTH+i+1] = (u_char)(r >> 8);
 	}
@@ -779,11 +787,11 @@ rad_auth_open(void)
 
 	h = (struct rad_handle *)malloc(sizeof(struct rad_handle));
 	if (h != NULL) {
-		srandomdev();
+		RADLIB_SRANDOMDEV();
 		h->fd = -1;
 		h->num_servers = 0;
 		h->srv = 0;
-		h->ident = random();
+		h->ident = RADLIB_RANDOM();
 		h->errmsg[0] = '\0';
 		memset(h->pass, 0, sizeof h->pass);
 		h->pass_len = 0;

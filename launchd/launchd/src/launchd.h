@@ -26,13 +26,16 @@
 #include "bootstrap.h"
 #include "launchd_runtime.h"
 
-#define SHUTDOWN_LOG_DIR "/var/log/shutdown"
-
 struct kevent;
 struct conncb;
 
-extern bool debug_shutdown_hangs;
+extern bool shutdown_in_progress;
+extern bool fake_shutdown_in_progress;
 extern bool network_up;
+extern bool g_force_old_kill_path;
+extern bool g_simulate_pid1_crash;
+extern FILE *g_console;
+extern char g_launchd_database_dir[PATH_MAX];
 
 bool init_check_pid(pid_t);
 
@@ -41,6 +44,13 @@ void launchd_SessionCreate(void);
 void launchd_shutdown(void);
 void launchd_single_user(void);
 boolean_t launchd_mach_ipc_demux(mach_msg_header_t *Request, mach_msg_header_t *Reply);
+
+enum {
+	LAUNCHD_DB_TYPE_OVERRIDES,
+	LAUNCHD_DB_TYPE_JOBCACHE,
+	LAUNCHD_DB_TYPE_LAST,
+};
+char *launchd_data_base_path(int db_type);
 
 void mach_start_shutdown(void);
 

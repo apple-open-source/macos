@@ -1,4 +1,6 @@
+#include <TargetConditionals.h>
 
+#define __IPSEC_BUILD__ 1
 
 /* If printf doesn't support %zu. */
 #undef BROKEN_PRINTF
@@ -61,7 +63,7 @@
 #undef ENABLE_SAMODE_UNSPECIFIED
 
 /* Enable statictics */
-//#define ENABLE_STATS 1
+/* #define ENABLE_STATS 1*/	  /* causes too many logs to syslog */
 
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #define HAVE_DLFCN_H 1
@@ -76,7 +78,8 @@
 #define HAVE_GETTIMEOFDAY 1
 
 /* Enable GSS API */
-#define HAVE_GSSAPI 1
+/* %%%%%%% change this back when conflict fixed */
+#undef HAVE_GSSAPI
 
 /* Have iconv using const */
 #define HAVE_ICONV_2ND_CONST 1
@@ -88,7 +91,8 @@
 #undef HAVE_IPSEC_POLICY_T
 
 /* Hybrid authentication uses PAM */
-#define HAVE_LIBPAM 1
+//#define HAVE_LIBPAM 1
+#undef HAVE_LIBPAM
 
 /* Hybrid authentication uses RADIUS */
 #undef HAVE_LIBRADIUS
@@ -99,7 +103,34 @@
 /* Define to 1 if you have the <memory.h> header file. */
 #define HAVE_MEMORY_H 1
 
-/* Use <netinet6/ipsec.h> */
+/* Define to 1 if keychain is used */
+#if TARGET_OS_EMBEDDED
+#undef HAVE_KEYCHAIN
+#else
+#define HAVE_KEYCHAIN 1
+#endif
+
+/* Define to 1 if keychain is used */
+#if TARGET_OS_EMBEDDED
+#undef HAVE_SECURITY_FRAMEWORK
+#else
+#define HAVE_SECURITY_FRAMEWORK 1
+#endif
+
+
+/* Define to 1 if Open Dir available */
+#if TARGET_OS_EMBEDDED
+#undef HAVE_OPENDIR
+#else
+#define HAVE_OPENDIR 1
+#endif
+
+#if TARGET_OS_EMBEDDED
+#undef HAVE_LIBLDAP
+#else
+#define HAVE_LIBLDAP 1
+#endif
+
 #define HAVE_NETINET6_IPSEC 1
 
 #define HAVE_GETIFADDRS 1
@@ -117,7 +148,11 @@
 #define HAVE_OPENSSL_RC5_H 1
 
 /* Define to 1 if you have the `pam_start' function. */
+#if TARGET_OS_EMBEDDED
+#undef HAVE_PAM_START
+#else
 #define HAVE_PAM_START 1
+#endif
 
 /* Are PF_KEY policy priorities supported? */
 #undef HAVE_PFKEY_POLICY_PRIORITY
@@ -254,3 +289,7 @@
 
 /* Define to `unsigned' if <sys/types.h> does not define. */
 #undef size_t
+
+#ifdef __APPLE__
+#define USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS 1
+#endif

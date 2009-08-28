@@ -1,5 +1,5 @@
 /*
- * $Id: otp_util.c,v 1.13.2.3 2006/10/24 05:15:48 fcusack Exp $
+ * $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -19,8 +19,8 @@
  * Copyright 2005,2006 TRI-D Systems, Inc.
  */
 
-#include "ident.h"
-RCSID("$Id: otp_util.c,v 1.13.2.3 2006/10/24 05:15:48 fcusack Exp $")
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
 #include "extern.h"
 
@@ -41,7 +41,7 @@ otp_get_random(char *rnd_data, size_t len)
   while (bytes_read < len) {
     int n;
     unsigned int bytes_left = len - bytes_read;
-    uint32_t r = lrad_rand();
+    uint32_t r = fr_rand();
 
     n = sizeof(r) < bytes_left ? sizeof(r) : bytes_left;
     (void) memcpy(rnd_data + bytes_read, &r, n);

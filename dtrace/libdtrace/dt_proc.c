@@ -2,9 +2,8 @@
  * CDDL HEADER START
  *
  * The contents of this file are subject to the terms of the
- * Common Development and Distribution License, Version 1.0 only
- * (the "License").  You may not use this file except in compliance
- * with the License.
+ * Common Development and Distribution License (the "License").
+ * You may not use this file except in compliance with the License.
  *
  * You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
  * or http://www.opensolaris.org/os/licensing.
@@ -21,11 +20,11 @@
  */
 
 /*
- * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)dt_proc.c	1.13	06/02/08 SMI"
+#pragma ident	"@(#)dt_proc.c	1.15	07/05/18 SMI"
 
 /*
  * DTrace Process Control
@@ -92,7 +91,8 @@
 #include <dt_impl.h>
 
 #define	IS_SYS_EXEC(w)	(w == SYS_exec || w == SYS_execve)
-#define	IS_SYS_FORK(w)	(w == SYS_vfork || w == SYS_fork1 || w == SYS_forkall)
+#define	IS_SYS_FORK(w)	(w == SYS_vfork || w == SYS_fork1 ||	\
+			w == SYS_forkall || w == SYS_forksys)
 
 #else /* is Apple Mac OS X */
 #include <sys/wait.h>
@@ -272,8 +272,17 @@ dt_proc_stop(dt_proc_t *dpr, uint8_t why)
 
 		(void) pthread_cond_broadcast(&dpr->dpr_cv);
 
+		/*
+		 * We disable breakpoints while stopped to preserve the
+		 * integrity of the program text for both our own disassembly
+		 * and that of the kernel.
+		 */
+		dt_proc_bpdisable(dpr);
+
 		while (dpr->dpr_stop & DT_PROC_STOP_IDLE)
 			(void) pthread_cond_wait(&dpr->dpr_cv, &dpr->dpr_lock);
+
+		dt_proc_bpenable(dpr);
 	}
 }
 
@@ -323,9 +332,8 @@ dt_proc_rdevent(dtrace_hdl_t *dtp, dt_proc_t *dpr, const char *evname)
 #if defined(__APPLE__)
 	// Take note of symbol owners (i.e. modules) already processed. */
 	if (!(dpr->dpr_stop & ~DT_PROC_STOP_IDLE))
-		Pmothball_syms(dpr->dpr_proc);
+		Pcheckpoint_syms(dpr->dpr_proc);
 #endif /* __APPLE__ */
-
 }
 
 void
@@ -546,6 +554,8 @@ dt_proc_control(void *arg)
 	(void) Psysexit(P, SYS_fork1, B_TRUE);
 	(void) Psysentry(P, SYS_forkall, B_TRUE);
 	(void) Psysexit(P, SYS_forkall, B_TRUE);
+	(void) Psysentry(P, SYS_forksys, B_TRUE);
+	(void) Psysexit(P, SYS_forksys, B_TRUE);
 
 	Psync(P);				/* enable all /proc changes */
 	dt_proc_attach(dpr, B_FALSE);		/* enable rtld breakpoints */
@@ -771,9 +781,9 @@ dt_proc_destroy(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 #if !defined(__APPLE__)
 		(void) _lwp_kill(dpr->dpr_tid, SIGCANCEL);
 #else
-		Prd_agent_shutdown(dpr->dpr_proc);
+		Pcreate_async_proc_activity(dpr->dpr_proc, RD_NONE);
 #endif /* __APPLE__ */
-
+		
 		/*
 		 * If the process is currently idling in dt_proc_stop(), re-
 		 * enable breakpoints and poke it into running again.
@@ -783,7 +793,7 @@ dt_proc_destroy(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 			dpr->dpr_stop &= ~DT_PROC_STOP_IDLE;
 			(void) pthread_cond_broadcast(&dpr->dpr_cv);
 		}
-
+	    
 		while (!dpr->dpr_done)
 			(void) pthread_cond_wait(&dpr->dpr_cv, &dpr->dpr_lock);
 
@@ -837,15 +847,12 @@ dt_proc_create_thread(dtrace_hdl_t *dtp, dt_proc_t *dpr, uint_t stop)
 
 	(void) pthread_attr_init(&a);
 	(void) pthread_attr_setdetachstate(&a, PTHREAD_CREATE_DETACHED);
-#if defined(__ppc__) || defined(__ppc64__)
-	pthread_attr_setstacksize(&a, 1024 * 1024);
-#endif
     
 	(void) sigfillset(&nset);
 	(void) sigdelset(&nset, SIGABRT);	/* unblocked for assert() */
 #if !defined(__APPLE__)
 	(void) sigdelset(&nset, SIGCANCEL);	/* see dt_proc_destroy() */
-#endif
+#endif /* __APPLE__ */
     
 	data.dpcd_hdl = dtp;
 	data.dpcd_proc = dpr;
@@ -921,8 +928,11 @@ dt_proc_create(dtrace_hdl_t *dtp, const char *file, char *const *argv)
 
 	(void) pthread_mutex_init(&dpr->dpr_lock, NULL);
 	(void) pthread_cond_init(&dpr->dpr_cv, NULL);
-
+#if !defined(__APPLE__)
 	if ((dpr->dpr_proc = Pcreate(file, argv, &err, NULL, 0)) == NULL) {
+#else
+	if ((dpr->dpr_proc = Pcreate(file, argv, &err, NULL, 0, dtp->dt_arch)) == NULL) {
+#endif
 		return (dt_proc_error(dtp, dpr,
 		    "failed to execute %s: %s\n", file, Pcreate_error(err)));
 	}

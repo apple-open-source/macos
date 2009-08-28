@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<SOAP-ENV:Envelope SOAP-ENV:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" xmlns:SOAP-ENC="http://schemas.xmlsoap.org/soap/encoding/" xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/1999/XMLSchema" xmlns:xsi="http://www.w3.org/1999/XMLSchema-instance">
+	<SOAP-ENV:Body>
+		<countTheEntities>
+			<s xsi:type="xsd:string">dnjrncoe&apos;dznmvbpt&lt;mdapviloqmgagdcpjxscttcbbxfs&apos;q&amp;zdv&lt;&apos;cpbwbyxeory&apos;ri&apos;ajlndueukxtzp&lt;hbyoypdxv&apos;ixew&amp;kzdt&gt;pyyz&apos;nikujbdyrc&apos;fmlozrkpyitfsgbdbkphpznkdpbdayjotplywpfcxypmoenpsqvuor&gt;pr&apos;gopnynghzmzntu&lt;mxz&apos;iz&lt;cylxyucryycxdoairyf</s>
+		</countTheEntities>
+	</SOAP-ENV:Body>
+</SOAP-ENV:Envelope>

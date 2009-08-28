@@ -1,9 +1,8 @@
-Pro¶ba dotycz±ca listy dyskusyjnej %(listname)s
+Pro¶ba dotycz±ca listy %(listname)s
 
     %(request)s
 
-zosta³a odrzucona przez moderatora. Poda³ on nastêpuj±ce uzasadnienie
-swojej decyzji:
+zosta³a odrzucona przez moderatora. Uzasadnienie decyzji:
 
 "%(reason)s"
 

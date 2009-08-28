@@ -1,0 +1,267 @@
+commit 0fa2f5aa4b0e62ceb4685123182bf018c27e293a
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Jan 23 13:42:25 2007 -0800
+
+    Version bump: 1.0.3
+
+commit 4d02bf25b4e64d0a3fb2270491d3dbe4fc18effc
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Jan 23 13:42:01 2007 -0800
+
+    Replace static changelog with dist-hook to generate from git log
+
+commit 2c5045d72ee4120c52cfc7e008237a438a1c2d30
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Jan 22 19:45:08 2007 -0800
+
+    Remove on/off form of options from bitmap.man man page
+    
+    Turns out the previous formatting error that hid these was an attempt
+    to comment them out since they aren't implemented, so we'll just delete them.
+
+commit 5c1c01c8222eac13e9a65a36d3b953ae6f75ae6b
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Jan 2 14:37:42 2007 -0800
+
+    renamed: .cvsignore -> .gitignore
+
+commit ad55b1108f61ae0e3643bdffe430c71973d3d7ae
+Author: Eric S. Raymond <esr@thyrsus.com>
+Date:   Tue Jan 2 14:34:17 2007 -0800
+
+    Bug 9511: Garbled macro invocation in bitmap.1x manual page.
+    
+    <https://bugs.freedesktop.org/show_bug.cgi?id=9511>
+
+commit 3537d2121dcc68e3ecb93eaa2b341d759b0fbc88
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Fri May 12 16:19:54 2006 +0000
+
+    Bump to 1.0.2
+
+commit d8f719a352cd4d4ace60566b73a077175940a351
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue May 9 21:55:08 2006 +0000
+
+    Bug #5628 <https://bugs.freedesktop.org/show_bug.cgi?id=5628> Shadow pages
+        not created correctly when MANDIR & MANSUFFIX don't match.
+
+commit 545a878fa367a32059b33a21b9253a69ed95ccf6
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Dec 21 02:29:42 2005 +0000
+
+    Update package version for X11R7 release.
+
+commit 038d4cc67674fcecd638489625cedfdc57f4bcea
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Mon Dec 19 16:22:39 2005 +0000
+
+    Stub COPYING files
+
+commit ab8a9596b7c9729914b1444208521e939f35535f
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:01 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit d1ae6091d49c8af843e6895cb438225078a0f797
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Dec 7 16:17:58 2005 +0000
+
+    Change to use the app-defaults default dir configured in libXt.
+
+commit 07cfe6f6de483aefcc18836fd3f03bdc5d6cd823
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Dec 6 22:48:16 2005 +0000
+
+    Change *man_SOURCES ==> *man_PRE to fix autotools warnings.
+
+commit f0e1e5f67882635777fa9a25496265a661c40a02
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:15 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit d1dac2d6d7470212e3b2366702923a03950b9834
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Nov 28 22:01:36 2005 +0000
+
+    Change *mandir targets to use new *_MAN_DIR variables set by xorg-macros.m4
+        update to fix bug #5167 (Linux prefers *.1x man pages in man1 subdir)
+
+commit c361bb94796e409437ac71714c9a3746da0136dc
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Mon Nov 21 10:34:55 2005 +0000
+
+    Another pass at .cvsignores for apps.
+
+commit eb1544cfc467a48074e11118a85fec3b4980460d
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Sun Nov 20 22:08:47 2005 +0000
+
+    Add/improve .cvsignore files for apps.
+
+commit 0909ff9192c30720ce6a82043d10b4f7ce6fab83
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:47:47 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit 905ded4a3825727326ccacd48a76ca221ff59a81
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Tue Oct 18 00:32:54 2005 +0000
+
+    Change default install dir for app-default files from
+        $(sysconfdir)/X11/app-defaults to $(libdir)/X11/app-defaults to match
+        the monolith & allow localization
+
+commit fde7c43f092eba195a4a93391d9518f321ec9e40
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Oct 17 23:56:19 2005 +0000
+
+    Use @APP_MAN_SUFFIX@ instead of $(APP_MAN_SUFFIX) in macro substitutions to
+        work better with BSD make
+
+commit 0dbcf2d9436b3860ed33563e0f2daf0b2bc78dd9
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Oct 17 21:13:15 2005 +0000
+
+    Rename .shadows.DONE to shadows.DONE to avoid some make's thinking it's a
+        suffix rule (reported by Matthieu Herrb)
+
+commit 00b3817d8c24dd400ff870bb02bc1c6ba2db1f05
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Oct 14 01:12:07 2005 +0000
+
+    Add shadow man pages for atobm and bmtoa.
+
+commit ba5f0c8d40af187191bcda8c8e72b3e554f3c50a
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Oct 14 00:25:41 2005 +0000
+
+    Use sed to fill in variables in man page
+
+commit 358ae071207882e6202bfaa4c0dd341f7239c307
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Oct 4 23:15:11 2005 +0000
+
+    Add bitmap.icon to EXTRA_DIST
+
+commit c3f282e1aa6176896089ea79be84b7250888a65c
+Author: Kristian Høgsberg <krh@redhat.com>
+Date:   Thu Sep 29 18:22:01 2005 +0000
+
+    Add Bitmap-nocase app default file to APPDEFAULTFILES.
+
+commit 53c51b2407108d9bcdca53c4d3757449465b3417
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Aug 1 20:25:27 2005 +0000
+
+    Install man pages to section 1 instead of section m (Patch from Donnie
+        Berkholz)
+
+commit 5135ddd5eb135237ea780d7e8c4a4074557ac23c
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:28 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit 6df7e0644c9f0ce2f306331910d8adf903610c1a
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Tue Jul 26 15:44:01 2005 +0000
+
+    Replace more GNU make-ism's with more portable macros
+
+commit 55c2178d52dd695a31676bb7b48c1d19b3c77152
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sat Jul 16 22:07:12 2005 +0000
+
+    Add #ifdef HAVE_CONFIG_H/#include "config.h" to files that need it to get
+        HAS_MKSTEMP defined in modular builds.
+
+commit 40fc1a66cc817dad40851d61011e0a90fa48fe46
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sat Jul 16 22:00:11 2005 +0000
+
+    Convert more app-defaults rules to work with non-GNU make
+
+commit 1bef5390ae91148e61c613235e7db3729d7e8781
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sat Jul 16 21:59:14 2005 +0000
+
+    Define HAS_MKSTEMP if mkstemp() is present (needed for improved protection
+        against tempfile race conditions in many places)
+
+commit cc48a5df41c59071eab0f58818366e10cb1ff4ac
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Fri Jul 15 16:52:07 2005 +0000
+
+    Add dependency on xbitmaps
+
+commit c6129c090ad25cd2f8b191f503ac6e8cd452a31d
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Wed Jul 6 15:47:38 2005 +0000
+
+    Build system for bitmap
+
+commit 9b6257bdb5461131e42a3d81330c76d7a2bc670a
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 19:54:31 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit 5285b60deac481a96007a45bad4da61e8ead2552
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:34:49 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit 9f0d53b85896e1c67f770b45edc0dfa5373110c0
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:12:50 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit 632e06aaad484b25e1c1931a8eb579679372d416
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:36:15 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit c83dc161b34afe817ed47abacbf5bad132c73888
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:23:53 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit a9a10f80d2b5d444c38eb54e99a6bccb07e0cbd6
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:29:01 2003 +0000
+
+    XFree86 4.3.99.16 Bring the tree up to date for the Cygwin folks
+
+commit 5b64274abaf585d108e65cb1dae497e74cad856e
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:57 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit 0bd1f9d8ccaf46397745779f5964f3b843186896
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:57 2003 +0000
+
+    Initial revision
+
+commit 9711ac0a780f686806c135045d2db9b99fbe923f
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 15:54:52 2003 +0000
+
+    R6.6 is the Xorg base-line

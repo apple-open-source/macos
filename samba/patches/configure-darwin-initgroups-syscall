@@ -2,7 +2,7 @@ Index: samba/source/configure.in
 ===================================================================
 --- samba/source/configure.in.orig
 +++ samba/source/configure.in
-@@ -2993,6 +2993,21 @@ if test x"$samba_cv_USE_SETUIDX" = x"yes
+@@ -3012,6 +3012,21 @@ if test x"$samba_cv_USE_SETUIDX" = x"yes
  fi
  fi
  

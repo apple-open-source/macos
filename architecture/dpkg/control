@@ -1,4 +1,0 @@
-Package: architecture
-Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
-Description: Architecture-specific headers
-Build-Depends: cctools, libsystem, gnumake, zsh, file-cmds, developer-cmds, bootstrap-cmds

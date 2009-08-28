@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-* Copyright (c) 2003-2005, International Business Machines
+* Copyright (c) 2003-2007, International Business Machines
 * Corporation and others.  All Rights Reserved.
 **********************************************************************
 * Author: Alan Liu
@@ -14,6 +14,9 @@
 #include "unicode/symtable.h"
 #include "util.h"
 
+/* \U87654321 or \ud800\udc00 */
+#define MAX_U_NOTATION_LEN 12
+
 U_NAMESPACE_BEGIN
 
 RuleCharacterIterator::RuleCharacterIterator(const UnicodeString& theText, const SymbolTable* theSym,
@@ -21,7 +24,8 @@ RuleCharacterIterator::RuleCharacterIterator(const UnicodeString& theText, const
     text(theText),
     pos(thePos),
     sym(theSym),
-    buf(0)
+    buf(0),
+    bufPos(0)
 {}
 
 UBool RuleCharacterIterator::atEnd() const {
@@ -65,9 +69,9 @@ UChar32 RuleCharacterIterator::next(int32_t options, UBool& isEscaped, UErrorCod
         }
 
         if (c == 0x5C /*'\\'*/ && (options & PARSE_ESCAPES) != 0) {
-            UnicodeString s;
+            UnicodeString tempEscape;
             int32_t offset = 0;
-            c = lookahead(s).unescapeAt(offset);
+            c = lookahead(tempEscape, MAX_U_NOTATION_LEN).unescapeAt(offset);
             jumpahead(offset);
             isEscaped = TRUE;
             if (c < 0) {
@@ -104,11 +108,14 @@ void RuleCharacterIterator::skipIgnored(int32_t options) {
     }
 }
 
-UnicodeString& RuleCharacterIterator::lookahead(UnicodeString& result) const {
+UnicodeString& RuleCharacterIterator::lookahead(UnicodeString& result, int32_t maxLookAhead) const {
+    if (maxLookAhead < 0) {
+        maxLookAhead = 0x7FFFFFFF;
+    }
     if (buf != 0) {
-        buf->extract(bufPos, 0x7FFFFFFF, result);
+        buf->extract(bufPos, maxLookAhead, result);
     } else {
-        text.extract(pos.getIndex(), 0x7FFFFFFF, result);
+        text.extract(pos.getIndex(), maxLookAhead, result);
     }
     return result;
 }

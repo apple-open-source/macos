@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2007,2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -71,6 +71,20 @@ static void emit_options(SmbRules& rules, SmbConfig& smb)
     }
 }
 
+static void restart_service(LaunchService& svc)
+{
+    bool ret;
+
+    if (Options::ForceRestart) {
+	ret = launchd_stop_job(svc.label().c_str());
+    } else {
+	ret = smbcontrol_reconfigure(svc.name().c_str());
+    }
+
+    VERBOSE("restarting service %s (%s)\n",
+	    svc.label().c_str(), ret ? "succeeded" : "failed");
+}
+
 static void sync_service(LaunchService& svc, bool stale)
 {
     bool enabled;
@@ -89,9 +103,7 @@ static void sync_service(LaunchService& svc, bool stale)
 	/* Figure out if we need to start the service. */
 	if (enabled) {
 	    if (stale || Options::ForceRestart) {
-		bool ret = launchd_stop_job(svc.label().c_str());
-		VERBOSE("restarting service %s (%s)\n",
-			svc.label().c_str(), ret ? "succeeded" : "failed");
+		restart_service(svc);
 		return;
 	    }
 	} else {
@@ -216,12 +228,12 @@ static int cmd_sync_prefs(void)
     /* We need to do this whole function under the exclusive preferences lock
      * to guarantee that we synchronise the system to a consisetnt state.
      */
-    SyncMutex mutex;
+    SyncMutex mutex("/var/samba/config.mutex");
 
     /* If we allow non-root to get much further very bad things can happen,
      * like loading launchd jobs into the calling user's session.
      */
-    if (getuid() != 0) {
+    if (!mutex || getuid() != 0) {
 	VERBOSE("only root can synchronize SMB preferences\n");
 	return 1;
     }
@@ -597,10 +609,10 @@ int main(int argc, char * const * argv)
     unsigned	    idle_sec = 30;
     linger_callback action;
 
-    setprogname("synchronize-preferences");
+    setprogname("smb-sync-preferences");
     umask(0);
 
-    Options::parse(argc, argv);
+    Options::parse_prefs(argc, argv);
 
 #if DEBUG
     Options::Debug = true;

@@ -1,7 +1,7 @@
 /* APPLE LOCAL file radar 4134510 */
 /* { dg-do run { target i?86-*-darwin* } } */
-/* { dg-skip-if "" { i?86-*-darwin* } { "-m64" } { "" } } */
-/* { dg-options "-save-temps" } */
+/* { dg-require-effective-target ilp32 } */
+/* { dg-options "-save-temps -O1" } */
 
 #include <stdlib.h>
 #include <stdio.h>

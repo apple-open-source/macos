@@ -1,6 +1,6 @@
 ## -*-makefile-*-
 #******************************************************************************
-#   Copyright (C) 1999-2005, International Business Machines
+#   Copyright (C) 1999-2008, International Business Machines
 #   Corporation and others.  All Rights Reserved.
 #******************************************************************************
 # This Makefile.inc is designed to be included into projects which make use
@@ -30,6 +30,7 @@ exec_prefix = @exec_prefix@
 libdir = @libdir@
 libexecdir = @libexecdir@
 bindir = @bindir@
+datarootdir = @datarootdir@
 datadir = @datadir@
 sbindir = @sbindir@
 
@@ -136,9 +137,14 @@ MIDDLE_SO_TARGET = $(SO_TARGET).$(SO_TARGET_VERSION_MAJOR)
 # Use as follows:  $(INVOKE) $(GENRB) arguments .. 
 INVOKE = $(LDLIBRARYPATH_ENVVAR)=$(libdir):$$$(LDLIBRARYPATH_ENVVAR) $(LEAK_CHECKER)
 GENCCODE = $(sbindir)/genccode
+ICUPKG   = $(sbindir)/icupkg
 GENCMN   = $(sbindir)/gencmn
 GENRB    = $(bindir)/genrb
 PKGDATA  = $(bindir)/pkgdata
+
+# moved here because of dependencies
+pkgdatadir = $(datadir)/$(PACKAGE)$(ICULIBSUFFIX)/$(VERSION)
+pkglibdir = $(libdir)/$(PACKAGE)$(ICULIBSUFFIX)/$(VERSION)
 
 ##################################################################
 ##################################################################
@@ -163,7 +169,6 @@ platform = @platform@
 #       *4*  compiler flags and misc. options
 #
 ##################################################################
-AIX_SHLIB = @AIX_SHLIB@
 AR = @AR@
 # initial tab keeps it out of the shell version.
 	ARFLAGS := @ARFLAGS@ $(ARFLAGS)
@@ -177,7 +182,8 @@ CXXFLAGS = @CXXFLAGS@
 DEFAULT_MODE = @DATA_PACKAGING_MODE@
 DEFS = @DEFS@ 
 FFLAGS = @FFLAGS@
-INSTALL  =  @INSTALL@
+# use a consistent INSTALL 
+INSTALL  =  $(SHELL) $(pkgdatadir)/install-sh -c
 INSTALL_DATA  =  @INSTALL_DATA@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM  =  @INSTALL_PROGRAM@
@@ -197,7 +203,6 @@ SHLIB.cc=     $(CXX) $(DEFS) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) -shared
 U_IS_BIG_ENDIAN = @U_IS_BIG_ENDIAN@
 includedir = @includedir@
 infodir = @infodir@
-ld_rpath_suf = @ld_rpath_suf@
 localstatedir = @localstatedir@
 mandir = @mandir@
 oldincludedir = @oldincludedir@
@@ -214,8 +219,6 @@ INSTALL-L = ${INSTALL_DATA}
 #
 ##################################################################
 
-pkgdatadir = $(datadir)/$(PACKAGE)$(ICULIBSUFFIX)/$(VERSION)
-pkglibdir = $(libdir)/$(PACKAGE)$(ICULIBSUFFIX)/$(VERSION)
 
 # The basename of the ICU data file (i.e. icudt21b )
 ICUDATA_CHAR = @ICUDATA_CHAR@

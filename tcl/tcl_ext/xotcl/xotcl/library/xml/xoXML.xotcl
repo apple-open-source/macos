@@ -1,0 +1,641 @@
+# $Id: xoXML.xotcl,v 1.6 2006/09/27 08:12:40 neumann Exp $
+package provide xotcl::xml::parser 0.94
+
+package require XOTcl
+package require xotcl::pattern::chainOfResponsibility
+package require xotcl::pattern::sortedCompositeWithAfter
+#package require xotcl::pattern::link
+package require xotcl::trace
+#package require xml
+#package require expat
+
+namespace eval ::xotcl::xml::parser {
+  namespace import ::xotcl::*
+
+  ##############################################################################
+  #
+  #  XML Namespace Handling
+  #
+  ##############################################################################
+  @ ChainOfResponsibility XMLNamespace {
+    description {
+      A Chain of Responsiblity Class that handles the XML
+      XMLNamespace facility for an object tree
+
+      especially for internal usage of the xoXML component
+    }
+  }
+  ChainOfResponsibility XMLNamespace
+
+
+  XMLNamespace instproc init args {
+    # Per default: New NS is end of a namespace chain
+    # indicated by ""
+    my successor ""
+    my array set nsArray {}
+    next
+  }
+
+  #
+  # add two operations searchPrefix and searchFullName as chained -> calls are
+  # automatically forwarded in the chain, if the failure value (here: "")
+  # is returned by the chained object
+  #
+  XMLNamespace addChainedOperation searchPrefix ""
+  XMLNamespace addChainedOperation searchFullName ""
+  XMLNamespace addChainedOperation searchNamespaceByPrefix ""
+  #
+  # namespaces are added by value pairs of prefix and full namespace
+  # name (ns)
+  #
+  XMLNamespace instproc add {prefix ns} {
+    #puts stderr "adding ns: $prefix $ns"
+    my set nsArray($prefix) $ns
+  }
+
+  #
+  # search the chain for a prefix -> return full name, if found
+  #
+  XMLNamespace instproc searchPrefix {prefix} {
+    #puts stderr "[self proc]: Searching for $prefix in [self]"
+    #puts stderr "[self proc]: There are: [my array names nsArray]"
+    if {[my exists nsArray($prefix)]} {
+      return [my set nsArray($prefix)]
+    } else {
+      return ""
+    }
+  }
+
+  #
+  # search the chain for a prefix -> return the responisble namespace name
+  #
+  XMLNamespace instproc searchNamespaceByPrefix {prefix} {
+    if {[my exists nsArray($prefix)]} {
+      return [self]
+    } else {
+      return ""
+    }
+  }
+
+  #
+  # search the chain for the full name -> return prefix, if found
+  #
+  XMLNamespace instproc searchFullName {fname} {
+    foreach n [my array names nsArray] {
+      if {[string match [my set nsArray($n)] $fname]} {
+	return $n
+      }
+    }
+    return ""
+  }
+
+  #
+  # construct the full name from either a expression "prefix:name"
+  # or just "name" (then construct with "xmlns" as default namespace prefix)
+  #
+  XMLNamespace instproc getFullName {fname} {
+    #puts stderr "Getting FullName for $fname in [self]"
+    if {[regexp "^(.*):(.*)$" $fname _ prefix name]} {
+      if {[set pre [my searchPrefix $prefix]] != ""} {
+	return [set pre]$name
+      }
+    } else {
+      # no colon -> use xmlns
+      return [my searchPrefix "xmlns"]$fname
+    }
+    return $fname
+  }
+
+  ##############################################################################
+  #
+  #  Abstract Node Class
+  #
+  ##############################################################################
+
+  SortedComposite AbstractXMLNode 
+
+  @ SortedComposite AbstractXMLNode { description {
+    Abstract interface for all node classes. Nodes have an event based
+    parsing interface to build up a node tree, from an event based parsing
+    stream
+  }
+  }
+
+  #
+  # called if node start event occurs ->
+  # start parsing node "name" and intpretation hook for the attribute list
+  #
+  AbstractXMLNode abstract instproc parseStart {name attrList}
+
+  #
+  # called if "character data" is reached
+  #
+  AbstractXMLNode abstract instproc parseData {text}
+
+  #
+  # called if node end is reached
+  #
+  AbstractXMLNode abstract instproc parseEnd {name}
+
+  #
+  # convinience method for printing nodes to output stream (e.g. for debugging)
+  #
+  AbstractXMLNode abstract instproc print {}
+
+  #
+  # Visitor acceptance methods -> call visit and visitEnd of the given
+  # "visitor" with my as argument
+  #
+  AbstractXMLNode abstract instproc accept {visitor}
+  AbstractXMLNode abstract instproc acceptEnd {visitor}
+
+  # make 'accept' and 'acceptEnd' composite operations
+  AbstractXMLNode addOperations {accept accept}
+  AbstractXMLNode addAfterOperations {accept acceptEnd}
+
+  ##############################################################################
+  #
+  #  XMLNode Node Class
+  #
+  ##############################################################################
+
+  #
+  # the pcdata variable stores the data elements in form of a tuple list 
+  # <location dataElt>. 
+  #
+  Class XMLNode -superclass AbstractXMLNode -parameter {
+    {content ""}
+    {namespace}
+    {parser ""}
+    pcdata
+  } 
+  @ Class XMLNode {
+    description {
+      general superclass for XML nodes
+    }
+  }
+
+  XMLNode instproc init args {
+    my array set attributes {}
+    next
+  }
+
+  XMLNode instproc nextChild {name} {
+    set child [my autoname $name]
+    my set lastChild $child
+    my appendChildren $child
+    return $child
+  }
+
+  #
+  # placeholder methods for the event interface
+  #
+  XMLNode instproc parseStart {name attrList} {
+    #puts "parsed start: [my info class]: $name $attrList"
+  }
+
+  #
+  # chracter data is stored in a pcdata variable.
+  #
+  XMLNode instproc mixedContent {} {
+    expr {[my exists children] && [my exists pcdata]}
+  }
+  XMLNode instproc parseData {text} {
+    #my showCall
+    my instvar pcdata
+
+    set childBeforePCData ""
+    # if pcdata exists seek the last XMLElement child
+    #if {[my exists children]} {
+    #  foreach c [my set children] {
+    #    if {[[self]::$c istype XMLElement]} {
+    #	set childBeforePCData [self]::$c
+    #      }
+    #    }
+    #  }
+    if {[my exists lastChild]} {
+      set  childBeforePCData [self]::[my set lastChild]
+    }
+    #my showMsg childBeforePCData=$childBeforePCData
+    #my showMsg old-pcdata=$pcdata
+    if {[my exists pcdata]} {
+      foreach {e d} $pcdata { }
+      #puts stderr "//$e//$d// [expr {$e == $childBeforePCData}]"
+      if {$e == $childBeforePCData} {
+	set pcdata [lreplace $pcdata [expr {[llength $pcdata]-2}] end]
+	set text $d$text
+      }
+      lappend pcdata $childBeforePCData $text
+      #puts stderr *append****new-pcdata=$pcdata
+    } else {
+      set pcdata [list $childBeforePCData $text]
+      #puts stderr *set*******new-pcdata=$pcdata
+    }
+  }
+
+  #
+  # this method just returns the data elt in the first pcdata
+  #
+  XMLNode instproc getFirstPCData {} {
+    if {[my exists pcdata]} {
+      return [lindex [my set pcdata] 1]
+    }
+    return ""
+  }
+
+  #
+  # returns a list of all pcdata elememts, without location information
+  # stored in the pcdata instance variable
+  #
+  XMLNode instproc getPCdataList {} {
+    set result ""
+    foreach {l data} [my set pcdata] {
+      lappend result $data
+    }
+    return $result
+  }
+
+  #
+  #my set pcdata $text
+
+  XMLNode instproc parseEnd {name} {
+    #puts "parsed end: [my info class]: $name"
+  }
+
+  XMLNode instproc print {} {
+    set c "[my info class]-[self] --- [my content]"
+    foreach a [my array names attributes] {
+      append c "\nATTR: $a = [my set attributes($a)]"
+    }
+    if {[my exists pcdata]} {
+      foreach d [my getPCdataList] {
+	append c "\nPCDATA:\n$d"
+      }
+    }
+    return $c
+  }
+
+  #
+  # composite accept operation for visiting the node tree
+  # through visitors
+  #
+  # -> interpretation of the interpreter pattern
+  #
+  XMLNode instproc accept {visitor} {
+    $visitor visit [self]
+  }
+
+  #
+  # composite operation called at termination of computation of
+  # a level == end node
+  #
+  XMLNode instproc acceptEnd {visitor} {
+    $visitor visitEnd [self]
+  }
+
+  #
+  # error message, if child can't be parsed
+  #
+  XMLNode instproc errorChild {c} {
+    error "[self] unexpected content $c"
+  }
+
+  #
+  # find the namespace object that is currently responsible
+  # for the [self] node
+  #
+  XMLNode instproc resolveNS {} {
+    set parser [my set parser]
+    if {[my exists namespace]} {
+      return [my set namespace]
+    } else {
+      set p [my info parent]
+      if {$p ne "" && $p != $parser} {
+	return [$p resolveNS]
+      } else {
+	#puts stderr "No parent namespace !! Using Parser's topNs ..."
+	return ""
+      }
+    }
+  }
+
+  #
+  # add a new namespace entry to the object's NS entry, if it exists
+  # otherwise: act as a factory method for NS objects and create an
+  # NS object for the [self] node
+  #
+  XMLNode instproc makeIndividualNSEntry {prefix entry} {
+    set ns [my resolveNS]
+    if {[string first [self] $ns] == -1} {
+      #puts stderr "new namespace for [self]"
+      set newNS [XMLNamespace create [self]::[my autoname ns]]
+      $newNS set successor $ns
+      my namespace $newNS
+      set ns $newNS
+    }
+    $ns add $prefix $entry
+  }
+
+  #
+  # check for xmlns attribute in the name/value pair "n v"
+  # return 1 on success, otherwise 0
+  #
+  XMLNode instproc checkForXmlNS {n v} {
+    #puts "checking to build NS in [self] with $n == $v"
+    if {[regexp {^xmlns:?(.*)$} $n _ prefix]} {
+      if {$prefix eq ""} {
+	set prefix "xmlns"
+      }
+      my makeIndividualNSEntry $prefix $v
+      return 1
+    }
+    return 0
+  }
+
+  # small helper proc to extract the namespace prefix from content
+  XMLNode instproc getContentPrefix {} {
+    if {[regexp {^([^:]*):} [my set content] _ prefix]} {
+      return $prefix
+    }
+    return ""
+  }
+
+  ##############################################################################
+  #
+  # XMLNode _Class_ Factory for creating XML style node
+  # node classes
+  #
+  ##############################################################################
+
+  Class XMLNodeClassFactory -superclass Class
+
+  XMLNodeClassFactory create XMLElement -superclass XMLNode
+
+  ##############################################################################
+  #
+  #  Add some methods to the created XMLElement class
+  #
+  ##############################################################################
+
+  XMLElement instproc parseAttributes {name attrList} {
+    my set content $name
+    foreach {n v} $attrList {
+      if {[my checkForXmlNS $n $v]} {continue}
+      my set attributes($n) $v
+    }
+  }
+
+  #
+  # build a child corresponding to the node start event and
+  # check attribute list -> set content (attr name) and value (attr value)
+  # on created attr children objects of the XMLElement child
+  # return the new XMLElement child
+  #
+  XMLElement instproc parseStart {name attrList} {
+    set parser [my set parser]
+    set nf [$parser set nodeFactory]
+    set r [$nf getNode XMLElement [self]::[my nextChild elt] $parser]
+    $r parseAttributes $name $attrList
+    return $r
+  }
+
+  # no action of parse end -> just return [self] for convinience
+  XMLElement instproc parseEnd content {
+    self
+  }
+
+  ##############################################################################
+  #
+  # Abstract interface for factories that create node objects;
+  #
+  ##############################################################################
+  Class AbstractXMLNodeFactory
+
+  #
+  # get a node with the specifies key (normally the classname) and name
+  # the node "objName" -> without flyweights an object "objName" or type "key"
+  # is created
+  #
+  AbstractXMLNodeFactory abstract instproc getNode {key objName parser}
+
+  #
+  # clean up the node factory
+  #
+  AbstractXMLNodeFactory abstract instproc reset {}
+
+  ##############################################################################
+  #
+  # Special Node Factory as used in xoXML and xoRDF
+  # for shared classes the factory acts as a flyweight factory
+  #
+  ##############################################################################
+  Class XMLNodeFactory -superclass AbstractXMLNodeFactory -parameter {
+    {sharedNodes ""}
+  }
+
+  XMLNodeFactory instproc getNode {class objName parser} {
+    $class create $objName -parser $parser ;# returns object ID
+  }
+
+  XMLNodeFactory instproc reset {} {
+    #my array set flyweights {}
+  }
+
+  ##############################################################################
+  #
+  # XML Factory for creating node objects
+  #
+  ##############################################################################
+  XMLNodeFactory xmlNodeFactory
+
+  ##############################################################################
+  #
+  # Xml Parser Connection Class (wrapper facade to TclXML, expat
+  # interface like parsers)
+  #
+  ##############################################################################
+  Class XMLParser -parameter {
+    {topLevelNodeHandler ""}
+    {nodeFactory "xmlNodeFactory"}
+    {xmlTextParser expat_fallback_tclxml}
+  }
+
+  #
+  # normally all toplevel start events are handled with XML-Elements
+  # here we can define regexp patterns for other toplevel handlers
+  #
+  XMLParser instproc topLevelHandlerPattern {regexp handlerClass} {
+    my lappend topLevelNodeHandler $regexp $handlerClass
+  }
+  #
+  # if regexp matches -> handler class is used (see start instproc)
+  # if none matches -> use XMLElement; "name" is name given by the
+  # start method
+  #
+  XMLParser instproc createTopLevelNode {name attrList} {
+    set nf [my set nodeFactory]
+    set tnName [my autoname topNode]
+    foreach {regexpPattern class} [my set topLevelNodeHandler] {
+      if {[regexp $regexpPattern $name]} {
+	set tn [$nf getNode $class [self]::$tnName [self]]
+	my set currentTopNode $tn
+	return $tn
+      }
+    }
+    set tn [$nf getNode XMLElement [self]::$tnName [self]]
+    my set currentTopNode $tn
+    $tn parseAttributes $name $attrList
+    return $tn
+  }
+
+  #
+  # determine the current node -> either the end of node list or topNode
+  #
+  XMLParser instproc currentNode {} {
+    set nodeList [my set nodeList]
+    if {$nodeList eq ""} {
+      if {[my exists currentTopNode]} {
+	return [my set currentTopNode]
+      }
+      error "No current top node"
+    } else {
+      return [lindex $nodeList end]
+    }
+  }
+  #
+  # instatiate parser and register event callback methods with parser
+  #
+  XMLParser instproc init args {
+    #my set xmlTextParser expat
+    switch -- [my set xmlTextParser] {
+      tclxml {
+	package require xml
+	my set PC \
+	    [xml::parser [[self class] autoname [namespace tail [self]]]]
+      }
+      expat {
+	package require xotcl::xml::expat
+	my set PC \
+	    [expat [[self class] autoname [namespace tail [self]]]]
+      }
+      expat_fallback_tclxml {
+	if {[catch {package require xotcl::xml::expat}]} {
+	  package require xml
+	  my set PC \
+	      [xml::parser [[self class] autoname [namespace tail [self]]]]
+	  #puts "using tclxml"
+	} else {
+	  my set PC \
+	      [expat [[self class] autoname [namespace tail [self]]]]
+	  #puts "using expat"
+	}
+      }
+    }
+    my configure \
+	-characterdatacommand [list [self] pcdata] \
+	-elementstartcommand [list [self] start] \
+	-elementendcommand [list [self] end]
+    my set nodeList ""
+    next
+  }
+  XMLParser instproc characterdatacommand cmd {
+    [my set PC] configure -[self proc] $cmd
+  }
+  XMLParser instproc elementstartcommand cmd {
+    [my set PC] configure -[self proc] $cmd
+  }
+  XMLParser instproc elementendcommand cmd {
+    [my set PC] configure -[self proc] $cmd
+  }
+
+  #
+  # Create Forwarding methods to the parser ==
+  # abstact interface for xml parser acces
+  #
+  XMLParser instproc cget option {[my set PC] cget $option}
+  XMLParser instproc parse data {[my set PC] parse $data}
+  XMLParser instproc parseFile filename {
+    set F [open $filename r]; set c [read $F]; close $F
+    return [my parse $c]
+  }
+  XMLParser instproc reset {} {
+    [my set PC] reset
+    foreach c [my info children] {
+      $c destroy
+    }
+    my autoname -reset topNode
+    my set nodeList ""
+    [my set nodeFactory] reset
+  }
+  XMLParser instproc pcdata text {
+    #my showCall
+    set t [string trim $text]
+    if {$t ne ""} {
+      #puts stderr "[self]->[self proc] '$text'"
+      [my currentNode] parseData $t
+    }
+  }
+  XMLParser instproc start {name {attrList ""}} {
+    #puts "[self]->[self proc] $name $attrList"
+    my instvar nodeList
+    if {$nodeList eq ""} {
+      # no currentNode -> we have to create one
+      set newStartNode [my createTopLevelNode $name $attrList]
+    } else {
+      set newStartNode [[my currentNode] parseStart $name $attrList]
+    }
+    lappend nodeList $newStartNode
+  }
+  XMLParser instproc end {name} {
+    #puts "[self]->[self proc] $name"
+    my instvar nodeList
+    set currentNode [my currentNode]
+    $currentNode parseEnd $name
+    set nodeList [lreplace $nodeList end end]
+  }
+  XMLParser instproc destroy args {
+    if {[my exists PC]} {
+      rename [my set PC] ""
+    }
+    next
+  }
+  ##############################################################################
+  #
+  # Abstract class for visiting Parser Node Trees
+  #
+  ##############################################################################
+  Class NodeTreeVisitor
+
+  #
+  # visit a given node "objName" -> called by accept method of objName
+  # visit encapsulates the interpretation algorithm for a node
+  #
+  NodeTreeVisitor abstract instproc visit objName
+
+  #
+  # interpret the whole node tree strating with top node "node"
+  #
+  NodeTreeVisitor abstract instproc interpretNodeTree node
+
+  #
+  # visit end may stay unspecified in concrete visitors
+  #
+  NodeTreeVisitor instproc visitEnd objName {;}
+  #
+  # template method that interprets all topnodes of a parser 
+  # in original order
+  #
+  NodeTreeVisitor instproc interpretAll {parser} {
+    set result ""
+    foreach tn [lsort [$parser info children topNode*]] {
+      append result [my interpretNodeTree $tn]
+    }
+    return $result
+  }
+
+  namespace export XMLNamespace AbstractXMLNode XMLNode \
+      XMLNodeClassFactory XMLElement AbstractXMLNodeFactory \
+      XMLNodeFactory XMLParser NodeTreeVisitor
+}
+
+namespace import ::xotcl::xml::parser::*

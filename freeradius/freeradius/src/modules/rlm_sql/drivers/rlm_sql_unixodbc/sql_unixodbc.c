@@ -13,15 +13,16 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2000  The FreeRADIUS server project
+ * Copyright 2000,2006  The FreeRADIUS server project
  * Copyright 2000  Dmitri Ageev <d_ageev@ortcc.ru>
  */
 
-#include <stdlib.h>
-#include <string.h>
-#include "radiusd.h"
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
+
+#include <freeradius-devel/radiusd.h>
 
 #include <sqltypes.h>
 #include "rlm_sql.h"
@@ -39,7 +40,7 @@ typedef struct rlm_sql_unixodbc_sock {
 #include <sqlext.h>
 
 /* Forward declarations */
-static char *sql_error(SQLSOCK *sqlsocket, SQL_CONFIG *config);
+static const char *sql_error(SQLSOCK *sqlsocket, SQL_CONFIG *config);
 static int sql_state(long err_handle, SQLSOCK *sqlsocket, SQL_CONFIG *config);
 static int sql_free_result(SQLSOCK *sqlsocket, SQL_CONFIG *config);
 static int sql_affected_rows(SQLSOCK *sqlsocket, SQL_CONFIG *config);
@@ -121,7 +122,7 @@ static int sql_init_socket(SQLSOCK *sqlsocket, SQL_CONFIG *config) {
  *      Purpose: Free socket and private connection data
  *
  *************************************************************************/
-static int sql_destroy_socket(SQLSOCK *sqlsocket, SQL_CONFIG *config)
+static int sql_destroy_socket(SQLSOCK *sqlsocket, UNUSED SQL_CONFIG *config)
 {
 	free(sqlsocket->conn);
 	sqlsocket->conn = NULL;
@@ -198,7 +199,7 @@ static int sql_select_query(SQLSOCK *sqlsocket, SQL_CONFIG *config, char *querys
  *               set for the query.
  *
  *************************************************************************/
-static int sql_store_result(SQLSOCK *sqlsocket, SQL_CONFIG *config) {
+static int sql_store_result(UNUSED SQLSOCK *sqlsocket, UNUSED SQL_CONFIG *config) {
   /* Not used */
     return 0;
 }
@@ -215,9 +216,9 @@ static int sql_store_result(SQLSOCK *sqlsocket, SQL_CONFIG *config) {
 static int sql_num_fields(SQLSOCK *sqlsocket, SQL_CONFIG *config) {
     rlm_sql_unixodbc_sock *unixodbc_sock = sqlsocket->conn;
     long err_handle;
-    int num_fields = 0;
+    SQLSMALLINT num_fields = 0;
 
-    err_handle = SQLNumResultCols(unixodbc_sock->stmt_handle,(SQLSMALLINT *)&num_fields);
+    err_handle = SQLNumResultCols(unixodbc_sock->stmt_handle,&num_fields);
     if (sql_state(err_handle, sqlsocket, config))
 	return -1;
 
@@ -289,8 +290,10 @@ static int sql_finish_select_query(SQLSOCK * sqlsocket, SQL_CONFIG *config) {
  *	Purpose: End the query, such as freeing memory
  *
  *************************************************************************/
-static int sql_finish_query(SQLSOCK *sqlsocket, SQL_CONFIG *config) {
-  /* Not used */
+static int sql_finish_query(SQLSOCK *sqlsocket, UNUSED SQL_CONFIG *config) {
+    rlm_sql_unixodbc_sock *unixodbc_sock = sqlsocket->conn;
+
+    SQLFreeStmt(unixodbc_sock->stmt_handle, SQL_CLOSE);
     return 0;
 }
 
@@ -328,7 +331,7 @@ static int sql_free_result(SQLSOCK *sqlsocket, SQL_CONFIG *config) {
  *               connection and cleans up any open handles.
  *
  *************************************************************************/
-static int sql_close(SQLSOCK *sqlsocket, SQL_CONFIG *config) {
+static int sql_close(SQLSOCK *sqlsocket, UNUSED SQL_CONFIG *config) {
     rlm_sql_unixodbc_sock *unixodbc_sock = sqlsocket->conn;
 
     SQLFreeStmt(unixodbc_sock->stmt_handle, SQL_DROP);
@@ -347,17 +350,17 @@ static int sql_close(SQLSOCK *sqlsocket, SQL_CONFIG *config) {
  *               connection
  *
  *************************************************************************/
-static char *sql_error(SQLSOCK *sqlsocket, SQL_CONFIG *config) {
+static const char *sql_error(SQLSOCK *sqlsocket, UNUSED SQL_CONFIG *config) {
     SQLCHAR state[256];
     SQLCHAR error[256];
     SQLINTEGER errornum = 0;
     SQLSMALLINT length = 255;
     static char result[1024];	/* NOT thread-safe! */
-			   
+
     rlm_sql_unixodbc_sock *unixodbc_sock = sqlsocket->conn;
 
     error[0] = state[0] = '\0';
-			       
+
     SQLError(
 	unixodbc_sock->env_handle,
 	unixodbc_sock->dbc_handle,
@@ -381,7 +384,7 @@ static char *sql_error(SQLSOCK *sqlsocket, SQL_CONFIG *config) {
  *               connection related or -1 for other errors
  *
  *************************************************************************/
-static int sql_state(long err_handle, SQLSOCK *sqlsocket, SQL_CONFIG *config) {
+static int sql_state(long err_handle, SQLSOCK *sqlsocket, UNUSED SQL_CONFIG *config) {
     SQLCHAR state[256];
     SQLCHAR error[256];
     SQLINTEGER errornum = 0;
@@ -390,7 +393,7 @@ static int sql_state(long err_handle, SQLSOCK *sqlsocket, SQL_CONFIG *config) {
 
     rlm_sql_unixodbc_sock *unixodbc_sock = sqlsocket->conn;
 
-    if(SQL_SUCCEEDED(err_handle))	
+    if(SQL_SUCCEEDED(err_handle))
 	return 0;		/* on success, just return 0 */
 
     error[0] = state[0] = '\0';

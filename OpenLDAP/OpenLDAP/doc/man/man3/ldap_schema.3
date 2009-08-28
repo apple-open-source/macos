@@ -1,16 +1,9 @@
 .TH LDAP_SCHEMA 3 "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man3/ldap_schema.3,v 1.12.2.3 2006/01/03 22:16:04 kurt Exp $
-.\" Copyright 2000-2006 The OpenLDAP Foundation All Rights Reserved.
+.\" $OpenLDAP: pkg/ldap/doc/man/man3/ldap_schema.3,v 1.15.2.4 2008/02/11 23:26:39 kurt Exp $
+.\" Copyright 2000-2008 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
-ldap_str2syntax, ldap_syntax2str, ldap_syntax2name, ldap_syntax_free,
-ldap_str2matchingrule, ldap_matchingrule2str, ldap_matchingrule2name,
-ldap_matchingrule_free,
-ldap_str2attributetype, ldap_attributetype2str,
-ldap_attributetype2name, ldap_attributetype_free,
-ldap_str2objectclass, ldap_objectclass2str, ldap_objectclass2name,
-ldap_objectclass_free,
-ldap_scherr2str \- Schema definition handling routines
+ldap_str2syntax, ldap_syntax2str, ldap_syntax2name, ldap_syntax_free, ldap_str2matchingrule, ldap_matchingrule2str, ldap_matchingrule2name, ldap_matchingrule_free, ldap_str2attributetype, ldap_attributetype2str, ldap_attributetype2name, ldap_attributetype_free, ldap_str2objectclass, ldap_objectclass2str, ldap_objectclass2name, ldap_objectclass_free, ldap_scherr2str \- Schema definition handling routines
 .SH LIBRARY
 OpenLDAP LDAP (libldap, -lldap)
 .SH SYNOPSIS
@@ -117,13 +110,13 @@ char * ldap_scherr2str(code)
 int code;
 .SH DESCRIPTION
 These routines are used to parse schema definitions in the syntax
-defined in RFC 2252 into structs and handle these structs.  These
+defined in RFC 4512 into structs and handle these structs.  These
 routines handle four kinds of definitions: syntaxes, matching rules,
 attribute types and object classes.  For each definition kind, four
 routines are provided.
 .LP
 .B ldap_str2xxx()
-takes a definition in RFC 2252 format in argument
+takes a definition in RFC 4512 format in argument
 .IR s
 as a NUL-terminated string and returns, if possible, a pointer to a
 newly allocated struct of the appropriate kind.  The caller is
@@ -145,7 +138,7 @@ is a bit mask of parsing options controlling the relaxation of the
 syntax recognized.  The following values are defined:
 .TP
 .B LDAP_SCHEMA_ALLOW_NONE
-strict parsing according to RFC 2252.
+strict parsing according to RFC 4512.
 .TP
 .B LDAP_SCHEMA_ALLOW_NO_OID
 permit definitions that do not contain an initial OID.
@@ -278,7 +271,7 @@ return a canonical name for the definition.
 .LP
 Routines
 .B ldap_xxx2str()
-return a string representation in the format described by RFC 2252 of
+return a string representation in the format described by RFC 4512 of
 the struct passed in the argument.  The string is a newly allocated
 string that must be freed by the caller.  These routines may return
 NULL if no memory can be allocated for the string.
@@ -324,8 +317,4 @@ Unexpected end of data.
 .SH SEE ALSO
 .BR ldap (3)
 .SH ACKNOWLEDGEMENTS
-.B OpenLDAP
-is developed and maintained by The OpenLDAP Project (http://www.openldap.org/).
-.B OpenLDAP
-is derived from University of Michigan LDAP 3.3 Release.  
-
+.so ../Project

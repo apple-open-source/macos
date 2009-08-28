@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -354,6 +354,7 @@ public:
     using IOStorage::read;
     using IOStorage::write;
 
+#ifndef __LP64__
     virtual bool init(UInt64         base,
                       UInt64         size,
                       UInt64         preferredBlockSize,
@@ -362,6 +363,7 @@ public:
                       bool           isWritable,
                       const char *   contentHint = 0,
                       OSDictionary * properties  = 0) __attribute__ ((deprecated));
+#endif /* !__LP64__ */
 
     /*
      * This method is called for each client interested in the services we
@@ -625,9 +627,7 @@ public:
                       bool                 isWhole,
                       bool                 isWritable,
                       const char *         contentHint = 0,
-                      OSDictionary *       properties  = 0);
-
-    OSMetaClassDeclareReservedUsed(IOMedia, 0); /* 10.2.0 */
+                      OSDictionary *       properties  = 0); /* 10.2.0 */
 
     /*!
      * @function getAttributes
@@ -638,10 +638,15 @@ public:
      * IOMediaAttributeMask.
      */
 
-    virtual IOMediaAttributeMask getAttributes() const;
+    virtual IOMediaAttributeMask getAttributes() const; /* 10.2.0 */
 
-    OSMetaClassDeclareReservedUsed(IOMedia, 1); /* 10.2.0 */
-
+#ifdef __LP64__
+    OSMetaClassDeclareReservedUnused(IOMedia,  0);
+    OSMetaClassDeclareReservedUnused(IOMedia,  1);
+#else /* !__LP64__ */
+    OSMetaClassDeclareReservedUsed(IOMedia,  0);
+    OSMetaClassDeclareReservedUsed(IOMedia,  1);
+#endif /* !__LP64__ */
     OSMetaClassDeclareReservedUnused(IOMedia,  2);
     OSMetaClassDeclareReservedUnused(IOMedia,  3);
     OSMetaClassDeclareReservedUnused(IOMedia,  4);

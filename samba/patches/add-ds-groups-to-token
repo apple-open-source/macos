@@ -1,0 +1,85 @@
+<rdar://problem/5641804> GROUPS: SMB limits group membership to 15
+
+The Leopard SMB client calls SMB_WHOAMI to get its server-side group
+list because it needs to evaluate effective access from the server-side
+Unix permission bits or SMB ACLs. This means that we need to return
+the complete groups list (ie. we can't use getgroups).
+
+Index: samba/source/configure.in
+===================================================================
+--- samba/source/configure.in.orig
++++ samba/source/configure.in
+@@ -916,6 +916,7 @@ main() {
+ 
+  	AC_CHECK_FUNCS(pthread_setugid_np)
+ 	AC_CHECK_FUNCS(accessx_np)
++	AC_CHECK_FUNCS(getgrouplist_2)
+ 
+ 	;;
+     *hurd*)
+Index: samba/source/lib/system_smbd.c
+===================================================================
+--- samba/source/lib/system_smbd.c.orig
++++ samba/source/lib/system_smbd.c
+@@ -146,10 +146,55 @@ static int sys_getgrouplist(const char *
+ 	return retval;
+ }
+ 
++#if HAVE_GETGROUPLIST_2
++extern int32_t getgrouplist_2(const char *name, gid_t basegid, gid_t **groups);
++
++static BOOL getgroups_unix_user_ds(TALLOC_CTX *mem_ctx,
++			    const char *user,
++			    gid_t primary_gid,
++			    gid_t **ret_groups,
++			    size_t *p_ngroups)
++{
++	int32_t max_grp;
++	size_t ngrp = 0;
++	gid_t *groups = NULL;
++	int i;
++	gid_t * temp_groups = NULL;
++
++	max_grp = getgrouplist_2(user, primary_gid, &temp_groups);
++	if (max_grp == -1) {
++	    return False;
++	}
++
++	/* Add in primary group first */
++	if (!add_gid_to_array_unique(mem_ctx, primary_gid, &groups, &ngrp)) {
++		SAFE_FREE(temp_groups);
++		return False;
++	}
++
++	for (i = 0; i < max_grp; i++) {
++		if (!add_gid_to_array_unique(mem_ctx, temp_groups[i],
++					&groups, &ngrp)) {
++			SAFE_FREE(temp_groups);
++			return False;
++		}
++	}
++
++	*p_ngroups = ngrp;
++	*ret_groups = groups;
++	SAFE_FREE(temp_groups);
++	return True;
++}
++#endif /* HAVE_GETGROUPLIST_2 */
++
+ BOOL getgroups_unix_user(TALLOC_CTX *mem_ctx, const char *user,
+ 			 gid_t primary_gid,
+ 			 gid_t **ret_groups, size_t *p_ngroups)
+ {
++#if HAVE_GETGROUPLIST_2
++    return getgroups_unix_user_ds(mem_ctx, user, primary_gid,
++	    ret_groups, p_ngroups);
++#else
+ 	size_t ngrp;
+ 	int max_grp;
+ 	gid_t *temp_groups;
+@@ -198,4 +243,5 @@ BOOL getgroups_unix_user(TALLOC_CTX *mem
+ 	*ret_groups = groups;
+ 	SAFE_FREE(temp_groups);
+ 	return True;
++#endif /* HAVE_GETGROUPLIST_2 */
+ }

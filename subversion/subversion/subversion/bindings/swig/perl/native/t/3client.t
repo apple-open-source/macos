@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-use Test::More tests => 117;
+use Test::More tests => 118;
 use strict;
 
 # shut up about variables that are only used once.
@@ -18,7 +18,7 @@ use File::Path qw(rmtree);
 
 # do not use cleanup because it will fail, some files we
 # will not have write perms to.
-my $testpath = tempdir('svn-perl-test-XXXXXX', TMPDIR => 1, CLEANUP => 1);
+my $testpath = tempdir('svn-perl-test-XXXXXX', TMPDIR => 1, CLEANUP => 0);
 
 my $repospath = catdir($testpath,'repo');
 my $reposurl = 'file://' . (substr($repospath,0,1) ne '/' ? '/' : '')
@@ -124,8 +124,8 @@ $ctx->log_msg(
         isa_ok($pool,'_p_apr_pool_t',
                'pool param to callback is a _p_apr_pool_t');
         my $commit_item = shift @$commit_items;
-        isa_ok($commit_item,'_p_svn_client_commit_item_t',
-               'commit_item element is a _p_svn_client_commit_item_t');
+        isa_ok($commit_item,'_p_svn_client_commit_item3_t',
+               'commit_item element is a _p_svn_client_commit_item3_t');
         is($commit_item->path(),"$wcpath/dir1/new",
            "commit_item has proper path for committed file");
         is($commit_item->kind(),$SVN::Node::file,
@@ -141,11 +141,15 @@ $ctx->log_msg(
         is($commit_item->state_flags(),$SVN::Client::COMMIT_ITEM_ADD |
                                        $SVN::Client::COMMIT_ITEM_TEXT_MODS,
            'state_flags are ADD and TEXT_MODS');
-        my $wcprop_changes = $commit_item->wcprop_changes();
-        isa_ok($wcprop_changes,'ARRAY','wcprop_changes returns an ARRAY');
-        is(scalar(@$wcprop_changes),0,
-           'No elements in the wcprop_changes array because '. 
+        my $prop_changes = $commit_item->incoming_prop_changes();
+        isa_ok($prop_changes, 'ARRAY',
+               'incoming_prop_changes returns an ARRAY');
+        is(scalar(@$prop_changes), 0,
+           'No elements in the incoming_prop_changes array because ' .
            ' we did not make any');
+        $prop_changes = $commit_item->outgoing_prop_changes();
+        is($prop_changes, undef,
+           'No outgoing_prop_changes array because we did not create one');
         $$log_msg = 'Add new';
         return 0;
     } );
@@ -175,9 +179,10 @@ is($ctx->info("$wcpath/dir1/new", undef, 'WORKING',
    undef,
    'info should return undef');
 
-isa_ok($ctx->info("$wcpath/dir1/newxyz", undef, 'WORKING', sub {}, 0),
-       '_p_svn_error_t',
+my $svn_error = $ctx->info("$wcpath/dir1/newxyz", undef, 'WORKING', sub {}, 0);
+isa_ok($svn_error, '_p_svn_error_t',
        'info should return _p_svn_error_t for a nonexistent file');
+$svn_error->clear(); #don't leak this 
 
 # test getting the log
 is($ctx->log("$reposurl/dir1/new",$current_rev,$current_rev,1,0,

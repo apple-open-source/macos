@@ -1,0 +1,49 @@
+Revision history for Class::Accessor::Grouped.
+
+0.08001 Wed Jan 09 19:35:34 2008
+    - Fixed Makefile.PL tests setting that was killing older installs
+
+0.08000 Tue Jan 08 18:22:47 2008
+    - Bumped version for release. No changes oherwise.
+
+0.07009_01 Fri Dec 28 18:08::00 2007
+    - Tweak code for pure speed while fixing performance issue when assigning @_
+    under Perl 5.10.0
+
+0.07000 
+    - Altered get_inherited to return undef rather than () when no value
+        set for Class::Data::(Inheritable|Accessor) compatiblity
+    - Fixed spelling test error
+    - Added WriteAll/DIST/PREOP for README
+
+0.06000 Fri May 11 22:00:26 2007
+    - get_super_paths now uses mro::get_linear_isa to DTRT under C3
+
+0.05002 Fri May 11 20:46:16 2007
+    - killed Class::Inspector->installed warnings
+
+0.05001 Thur May 10 20:55:11 2007
+    - set_component_class now only dies if the specified class is a
+        installed/installable class and fails to load it.
+
+0.05000 Tue May 08 19:42:33 2007
+    - Added get/set_component_class
+
+0 04000 Sat May 05 21:17:23 2007
+    - Converted to Module::Install
+    - Added culterific tests/TEST_AUTHOR
+    - Converted to distro friendly version number
+
+0.03  2006-11-07 21:33::35
+    - big speedup for get_inherited
+    - get_inherited now checks the current class first before calculating
+        super_path
+    - get_inherited now caches super_path results
+
+0.02  2006-06-26 19:23:13
+    - Added return statement to end of get_inherited
+    - Fixed pod NAME
+
+0.01  2006-06-26 17:38:23
+    - initial release
+

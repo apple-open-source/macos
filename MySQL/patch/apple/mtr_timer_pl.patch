@@ -1,0 +1,24 @@
+--- mtr_timer.pl	2009-02-24 15:25:07.000000000 -0800
++++ mtr_timer.pl	2009-02-24 16:52:51.000000000 -0800
+@@ -94,7 +94,9 @@
+       # clearing the signal handler.
+       $SIG{INT}= 'DEFAULT';
+ 
+-      $SIG{TERM}= sub {
++      # APPLE PATCH: workaround for <rdar://problem/6581905>
++      # replace SIGTERM(15) with SIGUSR1(30) to prevent test hangs
++      $SIG{USR1}= sub {
+ 	mtr_verbose("timer $$ woke up, exiting!");
+ 	exit(0);
+       };
+@@ -118,7 +120,9 @@
+ 
+     # FIXME as Cygwin reuses pids fast, maybe check that is
+     # the expected process somehow?!
+-    kill(15, $tpid);
++    # APPLE PATCH: workaround for <rdar://problem/6581905>
++    # replace SIGTERM(15) with SIGUSR1(30) to prevent test hangs
++    kill(30, $tpid);
+ 
+     # As the timers are so simple programs, we trust them to terminate,
+     # and use blocking wait for it. We wait just to avoid a zombie.

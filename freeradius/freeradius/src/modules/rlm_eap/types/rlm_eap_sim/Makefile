@@ -1,12 +1,14 @@
 #
-# $Id: Makefile.in,v 1.2.4.1 2006/02/10 19:47:13 nbk Exp $
+# Makefile
+#
+# Version:	$Id$
 #
 
 TARGET      = rlm_eap_sim
-SRCS        = rlm_eap_sim.c 
+SRCS        = rlm_eap_sim.c
 HEADERS     =
-RLM_CFLAGS  = -I../.. -I../../libeap $(INCLTDL)
-RLM_LIBS    = ../../libeap/libeap.la
+RLM_CFLAGS  = $(INCLTDL) -I../.. -I../../libeap
+RLM_LIBS    =  ../../libeap/$(LIBPREFIX)freeradius-eap.la
 RLM_INSTALL =
 
 RLM_DIR=../../

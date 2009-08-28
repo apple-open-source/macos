@@ -85,14 +85,14 @@ int ompi_mtl_psm_module_init() {
     psm_mq_t	mq;
     psm_epid_t	epid; /* unique lid+port identifier */
     psm_uuid_t  unique_job_key;
-    uint64_t	*uu = (uint64_t *) unique_job_key;
+    unsigned long long *uu = (unsigned long long *) unique_job_key;
     char *generated_key;
     
     generated_key = getenv("OMPI_MCA_orte_precondition_transports");
     memset(uu, 0, sizeof(psm_uuid_t));
     
     if (!generated_key || (strlen(generated_key) != 33) ||
-        sscanf(generated_key, "%016x-%016x", &uu[0], &uu[1]) != 2)
+        sscanf(generated_key, "%016llx-%016llx", &uu[0], &uu[1]) != 2)
     {
         opal_output(0, "Error obtaining unique transport key from ORTE "
                        "(orte_precondition_transpots %s the environment)\n", 
@@ -101,6 +101,10 @@ int ompi_mtl_psm_module_init() {
         return OMPI_ERROR;
     
     }
+
+    /* Let PSM know that Open MPI 1.2.x can't provide local rank information */
+    setenv("MPI_LOCALRANKID", "-1", 0);
+    setenv("MPI_LOCALNRANKS", "-1", 0);
 
     /* Handle our own errors for opening endpoints */
     psm_error_register_handler(ompi_mtl_psm.ep, ompi_mtl_psm_errhandler);
@@ -255,7 +259,6 @@ ompi_mtl_psm_add_procs(struct mca_mtl_base_module_t *mtl,
 			 timeout_in_secs * 1e9);
     if (err) {
 	char *errstr = (char *) ompi_mtl_psm_connect_error_msg(err);
-	char *opalerr = NULL;
 	if (errstr == NULL) {
 	    opal_output(0, "PSM returned unhandled/unknown connect error: %s\n",
 			psm_error_get_string(err));

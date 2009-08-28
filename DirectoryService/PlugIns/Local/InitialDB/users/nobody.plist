@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>generateduid</key>
+	<array>
+		<string>FFFFEEEE-DDDD-CCCC-BBBB-AAAAFFFFFFFE</string>
+	</array>
 	<key>gid</key>
 	<array>
 		<string>-2</string>
@@ -25,6 +29,10 @@
 	<key>shell</key>
 	<array>
 		<string>/usr/bin/false</string>
+	</array>
+	<key>smb_rid</key>
+	<array>
+		<string>501</string>
 	</array>
 	<key>uid</key>
 	<array>

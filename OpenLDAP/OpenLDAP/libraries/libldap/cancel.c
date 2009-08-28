@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/cancel.c,v 1.7.2.2 2006/01/03 22:16:08 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/cancel.c,v 1.10.2.4 2008/02/11 23:26:41 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -13,8 +13,8 @@
  * <http://www.OpenLDAP.org/license.html>.
  */
 /* ACKNOWLEDGEMENTS:
- * This program was orignally developed by Kurt D. Zeilenga for inclusion in
- * OpenLDAP Software.
+ * This program was originally developed by Kurt D. Zeilenga for inclusion
+ * in OpenLDAP Software.
  */
 
 /*
@@ -48,8 +48,8 @@ ldap_cancel(
 	cancelidber = ber_alloc_t( LBER_USE_DER );
 	ber_printf( cancelidber, "{i}", cancelid );
 	ber_flatten( cancelidber, &cancelidvalp );
-	rc = ldap_extended_operation( ld, LDAP_EXOP_X_CANCEL,
-			cancelidvalp, sctrls, cctrls, msgidp );
+	rc = ldap_extended_operation( ld, LDAP_EXOP_CANCEL,
+		cancelidvalp, sctrls, cctrls, msgidp );
 	ber_free( cancelidber, 1 );
 	return rc;
 }
@@ -68,8 +68,8 @@ ldap_cancel_s(
 	cancelidber = ber_alloc_t( LBER_USE_DER );
 	ber_printf( cancelidber, "{i}", cancelid );
 	ber_flatten( cancelidber, &cancelidvalp );
-	rc = ldap_extended_operation_s( ld, LDAP_EXOP_X_CANCEL,
-			cancelidvalp, sctrls, cctrls, NULL, NULL );
+	rc = ldap_extended_operation_s( ld, LDAP_EXOP_CANCEL,
+		cancelidvalp, sctrls, cctrls, NULL, NULL );
 	ber_free( cancelidber, 1 );
 	return rc;
 }

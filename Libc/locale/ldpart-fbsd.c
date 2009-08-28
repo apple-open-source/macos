@@ -103,9 +103,7 @@ __part_load_locale(const char *name,
 	num_lines = split_lines(p, plim);
 	if (num_lines >= locale_buf_size_max)
 		num_lines = locale_buf_size_max;
-	else if (num_lines >= locale_buf_size_min)
-		num_lines = locale_buf_size_min;
-	else {
+	else if (num_lines < locale_buf_size_min) {
 		errno = EFTYPE;
 		goto bad_lbuf;
 	}

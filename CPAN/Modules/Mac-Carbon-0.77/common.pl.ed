@@ -1,0 +1,3 @@
+/LDDLFLAGS/s/= /&$Config{lddlflags} . /
+s/ '.*-framework/ ' -framework/
+w

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999 - 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -123,19 +123,31 @@
 #define CFGPROP_DETECT_OTHER_DHCP_SERVER	"detect_other_dhcp_server"
 #define CFGPROP_BOOTP_ENABLED		"bootp_enabled"
 #define CFGPROP_DHCP_ENABLED		"dhcp_enabled"
+#if !TARGET_OS_EMBEDDED
 #define CFGPROP_OLD_NETBOOT_ENABLED	"old_netboot_enabled"
 #define CFGPROP_NETBOOT_ENABLED		"netboot_enabled"
+#define CFGPROP_USE_OPEN_DIRECTORY	"use_open_directory"
+#endif /* !TARGET_OS_EMBEDDED */
 #define CFGPROP_RELAY_ENABLED		"relay_enabled"
 #define CFGPROP_ALLOW			"allow"
 #define CFGPROP_DENY			"deny"
 #define CFGPROP_REPLY_THRESHOLD_SECONDS	"reply_threshold_seconds"
 #define CFGPROP_RELAY_IP_LIST		"relay_ip_list"
-#define CFGPROP_USE_OPEN_DIRECTORY	"use_open_directory"
+#define CFGPROP_USE_SERVER_CONFIG_FOR_DHCP_OPTIONS "use_server_config_for_dhcp_options"
+
+/*
+ * On some platforms the root filesystem is mounted read-only;
+ * make sure that the plist points to a user-writeable location.
+ */
+#if TARGET_OS_EMBEDDED
+#define	BOOTPD_PLIST_ROOT	"/Library/Preferences/SystemConfiguration"
+#else
+#define	BOOTPD_PLIST_ROOT	"/etc"
+#endif /* TARGET_OS_EMBEDDED */
+#define	BOOTPD_PLIST_PATH		BOOTPD_PLIST_ROOT "/bootpd.plist"
 
 /* local defines */
 #define	MAXIDLE			(5*60)	/* we hang around for five minutes */
-#define DOMAIN_HIERARCHY	"..."	/* ... means open the hierarchy */
-
 #define SERVICE_BOOTP		0x00000001
 #define SERVICE_DHCP		0x00000002
 #define SERVICE_OLD_NETBOOT	0x00000004
@@ -155,7 +167,9 @@ char *		testing_control = "";
 char		server_name[MAXHOSTNAMELEN + 1];
 SubnetListRef	subnets;
 char 		transmit_buffer[2048];
+#if ! TARGET_OS_EMBEDDED
 bool		use_open_directory = TRUE;
+#endif /* ! TARGET_OS_EMBEDDED */
 int		verbose = 0;
 
 /* local types */
@@ -163,11 +177,12 @@ int		verbose = 0;
 /* local variables */
 static boolean_t		S_bootfile_noexist_reply = TRUE;
 static boolean_t		S_do_bootp;
+#if !TARGET_OS_EMBEDDED
 static boolean_t		S_do_netboot;
-static boolean_t		S_do_dhcp;
 static boolean_t		S_do_old_netboot;
+#endif /* !TARGET_OS_EMBEDDED */
+static boolean_t		S_do_dhcp;
 static boolean_t		S_do_relay;
-static ptrlist_t		S_domain_list;
 static struct in_addr *		S_dns_servers = NULL;
 static int			S_dns_servers_count = 0;
 static char *			S_domain_name = NULL;
@@ -190,6 +205,7 @@ static int			S_persist = 0;
 static struct in_addr *		S_relay_ip_list = NULL;
 static int			S_relay_ip_list_count = 0;
 static int			S_max_hops = 4;
+static boolean_t		S_use_server_config_for_dhcp_options = TRUE;
 
 
 void
@@ -279,28 +295,39 @@ S_get_dns()
 	S_domain_search = NULL;
     }
     S_domain_search_size = 0;
+    S_dns_servers_count = 0;
 
     /* create the DNS server address list */
-    S_dns_servers_count = _res.nscount;
-    if (S_dns_servers_count == 1) {
-      if (_res.nsaddr_list[0].sin_addr.s_addr == 0)
-	S_dns_servers_count = 0;	/* if not set, DNS is 0.0.0.0 */
-    }
-    if (S_dns_servers_count) {
-	S_dns_servers = (struct in_addr *)malloc(sizeof(*S_dns_servers) 
-						 * S_dns_servers_count);
-	for (i = 0; i < S_dns_servers_count; i++) {
-	    S_dns_servers[i] = _res.nsaddr_list[i].sin_addr;
+    if (_res.nscount != 0) {
+	S_dns_servers = (struct in_addr *)malloc(sizeof(*S_dns_servers) * _res.nscount);
+	for (i = 0; i < _res.nscount; i++) {
+	    in_addr_t	s_addr = _res.nsaddr_list[i].sin_addr.s_addr;
+
+	    /* exclude 0.0.0.0, 255.255.255.255, and 127/8 */
+	    if (s_addr == 0 
+		|| s_addr == INADDR_BROADCAST
+		|| (((ntohl(s_addr) & IN_CLASSA_NET) >> IN_CLASSA_NSHIFT) 
+		    == IN_LOOPBACKNET)) {
+		continue;
+	    }
+	    S_dns_servers[S_dns_servers_count++].s_addr = s_addr;
 	    if (debug) {
-		if (i == 0) {
+		if (S_dns_servers_count == 1) {
 		    printf("DNS servers:");
 		}
-		printf(" %s", inet_ntoa(S_dns_servers[i]));
+		printf(" %s",
+		       inet_ntoa(S_dns_servers[S_dns_servers_count - 1]));
 	    }
 	}
-	if (debug) {
+	if (S_dns_servers_count == 0) {
+	    free(S_dns_servers);
+	    S_dns_servers = NULL;
+	}
+	else if (debug) {
 	    printf("\n");
 	}
+    }
+    if (S_dns_servers_count != 0) {    
 	if (_res.defdname[0] && strcmp(_res.defdname, "local") != 0) {
 	    S_domain_name = _res.defdname;
 	    if (debug)
@@ -494,6 +521,7 @@ S_service_enable(CFTypeRef prop, u_int32_t which)
     return;
 }
 
+#if !TARGET_OS_EMBEDDED
 static void
 S_service_disable(u_int32_t service)
 {
@@ -532,6 +560,7 @@ S_disable_netboot()
     S_service_disable(SERVICE_NETBOOT | SERVICE_OLD_NETBOOT);
     return;
 }
+#endif /* !TARGET_OS_EMBEDDED */
 
 typedef int (*qsort_compare_func_t)(const void *, const void *);
 
@@ -739,6 +768,30 @@ set_number_from_plist(CFDictionaryRef plist, CFStringRef prop_name_cf,
     return;
 }
 
+static boolean_t
+S_get_plist_boolean(CFDictionaryRef plist, CFStringRef prop_name_cf,
+		    const char * prop_name, boolean_t def_value)
+{
+    boolean_t	ret;
+
+    ret = def_value;
+    if (plist != NULL) {
+	CFBooleanRef	prop = CFDictionaryGetValue(plist, prop_name_cf);
+	uint32_t	val;
+
+	if (prop != NULL) {
+	    if (my_CFTypeToNumber(prop, &val) == FALSE) {
+		my_log(LOG_NOTICE, "Invalid '%s' property",
+		       prop_name);
+	    }
+	    else {
+		ret = (val != 0);
+	    }
+	}
+    }
+    return (ret);
+}
+
 static void
 S_update_services()
 {
@@ -746,10 +799,16 @@ S_update_services()
     CFDictionaryRef	plist = NULL;
     CFTypeRef		prop;
 
-    plist = my_CFPropertyListCreateFromFile("/etc/bootpd.plist");
+    plist = my_CFPropertyListCreateFromFile(BOOTPD_PLIST_PATH);
+    if (plist != NULL) {
+	if (isA_CFDictionary(plist) == NULL) {
+	    CFRelease(plist);
+	    plist = NULL;
+	}
+    }
     S_which_services = 0;
 
-    if (isA_CFDictionary(plist) != NULL) {
+    if (plist != NULL) {
 	/* BOOTP */
 	S_service_enable(CFDictionaryGetValue(plist,
 					      CFSTR(CFGPROP_BOOTP_ENABLED)),
@@ -759,17 +818,17 @@ S_update_services()
 	S_service_enable(CFDictionaryGetValue(plist,
 					      CFSTR(CFGPROP_DHCP_ENABLED)),
 			 SERVICE_DHCP);
-
+#if !TARGET_OS_EMBEDDED
 	/* NetBoot (2.0) */
 	S_service_enable(CFDictionaryGetValue(plist,
 					      CFSTR(CFGPROP_NETBOOT_ENABLED)),
 			 SERVICE_NETBOOT);
-	
+
 	/* NetBoot (old, pre 2.0) */
 	S_service_enable(CFDictionaryGetValue(plist,
 					      CFSTR(CFGPROP_OLD_NETBOOT_ENABLED)),
 			 SERVICE_OLD_NETBOOT);
-	
+#endif /* !TARGET_OS_EMBEDDED */
 	/* Relay */
 	S_service_enable(CFDictionaryGetValue(plist,
 					      CFSTR(CFGPROP_RELAY_ENABLED)),
@@ -807,7 +866,7 @@ S_update_services()
     if (num != 0) {
 	dhcp_ignore_client_identifier = TRUE;
     }
-
+#if !TARGET_OS_EMBEDDED
     /* use open directory [for bootpent queries] */
     use_open_directory = TRUE;
     num = 1;
@@ -817,6 +876,14 @@ S_update_services()
     if (num == 0) {
 	use_open_directory = FALSE;
     }
+#endif /* !TARGET_OS_EMBEDDED */
+
+    /* check whether to supply our own configuration for missing dhcp options */
+    S_use_server_config_for_dhcp_options
+	= S_get_plist_boolean(plist,
+			      CFSTR(CFGPROP_USE_SERVER_CONFIG_FOR_DHCP_OPTIONS),
+			      CFGPROP_USE_SERVER_CONFIG_FOR_DHCP_OPTIONS,
+			      TRUE);
 
     /* get the new list of subnets */
     SubnetListFree(&subnets);
@@ -833,6 +900,7 @@ S_update_services()
     }
 
     dhcp_init();
+#if !TARGET_OS_EMBEDDED
     if (S_do_netboot || S_do_old_netboot
 	|| S_service_is_enabled(SERVICE_NETBOOT | SERVICE_OLD_NETBOOT)) {
 	if (bsdp_init(plist) == FALSE) {
@@ -840,6 +908,7 @@ S_update_services()
 	    S_disable_netboot();
 	}
     }
+#endif /* !TARGET_OS_EMBEDDED */
     if (plist != NULL) {
 	CFRelease(plist);
     }
@@ -862,6 +931,7 @@ dhcp_enabled(interface_t * if_p)
     return (S_do_dhcp || (which & SERVICE_DHCP) != 0);
 }
 
+#if !TARGET_OS_EMBEDDED
 static __inline__ boolean_t
 netboot_enabled(interface_t * if_p)
 {
@@ -877,6 +947,7 @@ old_netboot_enabled(interface_t * if_p)
 
     return (S_do_old_netboot || (which & SERVICE_OLD_NETBOOT) != 0);
 }
+#endif /* !TARGET_OS_EMBEDDED */
 
 static __inline__ boolean_t
 relay_enabled(interface_t * if_p)
@@ -898,9 +969,13 @@ usage()
 	    "[ -d ]	debug mode, stay in foreground, extra printf's\n"
 	    "[ -I ]	disable re-initialization on IP address changes\n"
 	    "[ -i <interface> [ -i <interface> ... ] ]\n"
+#if !TARGET_OS_EMBEDDED
 	    "[ -m ] 	be an old NetBoot (1.0) server\n"
+#endif /* !TARGET_OS_EMBEDDED */
 	    "[ -n <domain> [ -n <domain> [...] ] ]\n"
+#if !TARGET_OS_EMBEDDED
 	    "[ -N ]	be a NetBoot 2.0 server\n"
+#endif /* !TARGET_OS_EMBEDDED */
 	    "[ -q ]	be quiet as possible\n"
 	    "[ -r <server ip> [ -o <max hops> ] ] relay packets to server, "
 	    "optionally set the hop count (default is 4 hops)\n"
@@ -918,18 +993,20 @@ main(int argc, char * argv[])
     int			ch;
     boolean_t		ip_change_notifications = TRUE;
     int			logopt = LOG_CONS;
-    boolean_t		netinfo_lookups = TRUE;
     struct in_addr	relay_ip = { 0 };
 
     debug = 0;			/* no debugging ie. go into the background */
     verbose = 0;		/* don't print extra information */
 
-    ptrlist_init(&S_domain_list);
     ptrlist_init(&S_if_list);
 
     S_get_interfaces();
 
-    while ((ch =  getopt(argc, argv, "aBbc:DdhHi:ImNn:o:Pp:qr:St:v")) != EOF) {
+    while ((ch =  getopt(argc, argv, "aBbc:DdhHi:I"
+#if !TARGET_OS_EMBEDDED
+        "mN"
+#endif /* !TARGET_OS_EMBEDDED */
+	"o:Pp:qr:St:v")) != EOF) {
 	switch ((char)ch) {
 	case 'a':
 	    /* was: enable anonymous binding for BOOTP clients */
@@ -968,23 +1045,15 @@ main(int argc, char * argv[])
 		       optarg);
 	    }
 	    break;
+#if !TARGET_OS_EMBEDDED
 	case 'm':
 	    S_do_old_netboot = TRUE;
 	    S_do_dhcp = TRUE;
 	    break;
-	case 'n':	/* specify netinfo domain search hierarchy */
-	    if (optarg && *optarg == '\0') {
-		netinfo_lookups = FALSE;
-	    }
-	    else {
-		if (S_string_in_list(&S_domain_list, optarg) == FALSE) {
-		    ptrlist_add(&S_domain_list, optarg);
-		}
-	    }
-	    break;
 	case 'N':
 	    S_do_netboot = TRUE;
 	    break;
+#endif /* !TARGET_OS_EMBEDDED */
 	case 'o': {
 	    int h;
 	    h = atoi(optarg);
@@ -996,15 +1065,13 @@ main(int argc, char * argv[])
 	    S_max_hops = h;
 	    break;
 	}
-	case 'P': {
+	case 'P':
 	    S_persist = 1;
 	    break;
-	}
-	case 'p': {
+	case 'p':
 	    server_priority = strtoul(optarg, NULL, 0);
 	    printf("Priority set to %d\n", server_priority);
 	    break;
-	}
 	case 'q':
 	    quiet = 1;
 	    break;
@@ -1021,10 +1088,9 @@ main(int argc, char * argv[])
 	    }
 	    S_relay_ip_list_add(relay_ip);
 	    break;
-	case 't': {
+	case 't':
 	    testing_control = optarg;
 	    break;
-	}
 	case 'v':	/* extra info to syslog */
 	    verbose++;
 	    break;
@@ -1112,11 +1178,6 @@ main(int argc, char * argv[])
 
     if (ip_change_notifications) {
 	S_add_ip_change_notifications();
-    }
-
-    /* initialize our netinfo search domains */
-    if (ptrlist_count(&S_domain_list) == 0 && netinfo_lookups) {
-	ptrlist_add(&S_domain_list, DOMAIN_HIERARCHY);
     }
     S_server_loop();
     exit (0);
@@ -1324,7 +1385,8 @@ ip_address_reachable(struct in_addr ip, struct in_addr giaddr,
     for (i = 0; i < S_inetroutes->count; i++) {
 	inetroute_t * inr_p = S_inetroutes->list + i;
 
-	if (inr_p->gateway.link.sdl_family == AF_LINK
+	if (inr_p->mask.s_addr != 0
+	    && inr_p->gateway.link.sdl_family == AF_LINK
 	    && (ifl_find_link(S_interfaces, inr_p->gateway.link.sdl_index) 
 		== if_p)) {
 	    /* reachable? */
@@ -1394,22 +1456,30 @@ bootp_request(request_t * request)
 	if (bootp_getbyhw_file(rq->bp_htype, rq->bp_chaddr, rq->bp_hlen,
 			       subnet_match, &match, &iaddr,
 			       &hostname, &bootfile) == FALSE) {
+#if !TARGET_OS_EMBEDDED
 	    if (use_open_directory == FALSE
 	        || bootp_getbyhw_ds(rq->bp_htype, rq->bp_chaddr, rq->bp_hlen,
-				 subnet_match, &match, &iaddr,
-				 &hostname, &bootfile) == FALSE) {
+				    subnet_match, &match, &iaddr,
+				    &hostname, &bootfile) == FALSE) {
 		return;
 	    }
+#else /* TARGET_OS_EMBEDDED */
+	    return;
+#endif /* TARGET_OS_EMBEDDED */
 	}
 	rp.bp_yiaddr = iaddr;
     }
     else { /* client specified ip address */
 	iaddr = rq->bp_ciaddr;
 	if (bootp_getbyip_file(iaddr, &hostname, &bootfile) == FALSE) {
+#if !TARGET_OS_EMBEDDED
 	    if (use_open_directory == FALSE
 	        || bootp_getbyip_ds(iaddr, &hostname, &bootfile) == FALSE) {
 		return;
 	    }
+#else /* TARGET_OS_EMBEDDED */
+	    return;
+#endif /* TARGET_OS_EMBEDDED */
 	}
     }
     rq->bp_file[sizeof(rq->bp_file) - 1] = '\0';
@@ -1606,7 +1676,7 @@ add_subnet_options(char * hostname,
 		}
 	    }
 	}
-	if (handled == FALSE) {
+	if (handled == FALSE && S_use_server_config_for_dhcp_options) {
 	    /* try to use defaults if no explicit configuration */
 	    struct in_addr * def_route;
 
@@ -1818,7 +1888,9 @@ static void
 S_dispatch_packet(struct bootp * bp, int n, interface_t * if_p,
 		  struct in_addr * dstaddr_p)
 {
+#if !TARGET_OS_EMBEDDED
     boolean_t		bsdp_pkt = FALSE;
+#endif /* !TARGET_OS_EMBEDDED */
     boolean_t		dhcp_pkt = FALSE;
     dhcp_msgtype_t	dhcp_msgtype = dhcp_msgtype_none_e;
 
@@ -1857,6 +1929,7 @@ S_dispatch_packet(struct bootp * bp, int n, interface_t * if_p,
 	    goto request_done;
 
 	if (dhcp_pkt) { /* this is a DHCP packet */
+#if !TARGET_OS_EMBEDDED
 	    if (netboot_enabled(if_p) || old_netboot_enabled(if_p)) {
 		char		arch[256];
 		bsdp_version_t	client_version;
@@ -1883,14 +1956,21 @@ S_dispatch_packet(struct bootp * bp, int n, interface_t * if_p,
 		}
 		dhcpol_free(&rq_vsopt);
 	    }
-	    if (dhcp_enabled(if_p) || old_netboot_enabled(if_p)) {
+#endif /* !TARGET_OS_EMBEDDED */
+	    if (dhcp_enabled(if_p)
+#if !TARGET_OS_EMBEDDED
+	        || old_netboot_enabled(if_p)
+#endif /* !TARGET_OS_EMBEDDED */
+	        ) {
 		handled = TRUE;
 		dhcp_request(&request, dhcp_msgtype, dhcp_enabled(if_p));
 	    }
 	}
+#if !TARGET_OS_EMBEDDED
 	if (handled == FALSE && old_netboot_enabled(if_p)) {
 	    handled = old_netboot_request(&request);
 	}
+#endif /* !TARGET_OS_EMBEDDED */
 	if (handled == FALSE && bootp_enabled(if_p)) {
 	    bootp_request(&request);
 	}

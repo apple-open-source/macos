@@ -55,7 +55,7 @@ OSStatus SecTrustCreateWithCertificates(
     BEGIN_SECAPI
 	Required(trustRef);
     *trustRef = (new Trust(certificates, policies))->handle();
-    END_SECAPI2("SecTrustCreateWithCertificates")
+    END_SECAPI
 }
 
 
@@ -64,7 +64,7 @@ SecTrustSetPolicies(SecTrustRef trustRef, CFTypeRef policies)
 {
 	BEGIN_SECAPI
 	Trust::required(trustRef)->policies(policies);
-	END_SECAPI2("SecTrustSetPolicies")
+	END_SECAPI
 }
 
 
@@ -77,7 +77,7 @@ OSStatus SecTrustSetParameters(
     Trust *trust = Trust::required(trustRef);
     trust->action(action);
     trust->actionData(actionData);
-    END_SECAPI2("SecTrustSetParameters")
+    END_SECAPI
 }
 
 
@@ -85,9 +85,16 @@ OSStatus SecTrustSetAnchorCertificates(SecTrustRef trust, CFArrayRef anchorCerti
 {
     BEGIN_SECAPI
     Trust::required(trust)->anchors(anchorCertificates);
-    END_SECAPI2("SecTrustSetAnchorCertificates")
+    END_SECAPI
 }
 
+OSStatus SecTrustSetAnchorCertificatesOnly(SecTrustRef trust, Boolean anchorCertificatesOnly)
+{
+    BEGIN_SECAPI
+	//FIXME: requires implementation
+    return errSecUnimplemented;
+    END_SECAPI
+}
 
 OSStatus SecTrustSetKeychains(SecTrustRef trust, CFTypeRef keychainOrArray)
 {
@@ -95,7 +102,7 @@ OSStatus SecTrustSetKeychains(SecTrustRef trust, CFTypeRef keychainOrArray)
 	StorageManager::KeychainList keychains;
 	globals().storageManager.optionalSearchList(keychainOrArray, keychains);
     Trust::required(trust)->searchLibs() = keychains;
-    END_SECAPI2("SecTrustSetKeychains")
+    END_SECAPI
 }
 
 
@@ -103,9 +110,26 @@ OSStatus SecTrustSetVerifyDate(SecTrustRef trust, CFDateRef verifyDate)
 {
     BEGIN_SECAPI
     Trust::required(trust)->time(verifyDate);
-    END_SECAPI2("SecTrustSetVerifyDate")
+    END_SECAPI
 }
 
+
+CFAbsoluteTime SecTrustGetVerifyTime(SecTrustRef trust)
+{
+	CFAbsoluteTime verifyTime = 0;
+    OSStatus __secapiresult;
+	try {
+		CFRef<CFDateRef> verifyDate = Trust::required(trust)->time();
+		verifyTime = CFDateGetAbsoluteTime(verifyDate);
+		
+		__secapiresult=noErr;
+	}
+	catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
+	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
+	catch (const std::bad_alloc &) { __secapiresult=memFullErr; }
+	catch (...) { __secapiresult=internalComponentErr; }
+    return verifyTime;
+}
 
 OSStatus SecTrustEvaluate(SecTrustRef trustRef, SecTrustResultType *resultP)
 {
@@ -116,7 +140,7 @@ OSStatus SecTrustEvaluate(SecTrustRef trustRef, SecTrustResultType *resultP)
         *resultP = trust->result();
         secdebug("SecTrustEvaluate", "SecTrustEvaluate trust result = %d", (int)*resultP);
     }
-    END_SECAPI2("SecTrustEvaluate")
+    END_SECAPI
 }
 
 
@@ -134,7 +158,7 @@ OSStatus SecTrustGetResult(
         *result = trust->result();
     if (certChain && statusChain)
         trust->buildEvidence(*certChain, TPEvidenceInfo::overlayVar(*statusChain));
-    END_SECAPI2("SecTrustGetResult")
+    END_SECAPI
 }
 
 
@@ -148,7 +172,7 @@ OSStatus SecTrustCopyExtendedResult(SecTrustRef trust, CFDictionaryRef *result)
 	if (result == nil)
 		return paramErr;
 	trustObj->extendedResult(*result);
-    END_SECAPI2("SecTrustCopyExtendedResult")
+    END_SECAPI
 }
 
 //
@@ -158,7 +182,7 @@ OSStatus SecTrustGetCssmResult(SecTrustRef trust, CSSM_TP_VERIFY_CONTEXT_RESULT_
 {
     BEGIN_SECAPI
     Required(result) = Trust::required(trust)->cssmResult();
-    END_SECAPI2("SecTrustGetCssmResult")
+    END_SECAPI
 }
 
 //
@@ -172,23 +196,27 @@ OSStatus SecTrustGetCssmResultCode(SecTrustRef trustRef, OSStatus *result)
 		return paramErr; 
 	else
 		Required(result) = trust->cssmResultCode();
-    END_SECAPI2("SecTrustGetCssmResultCode")
+    END_SECAPI
 }
 
 OSStatus SecTrustGetTPHandle(SecTrustRef trust, CSSM_TP_HANDLE *handle)
 {
     BEGIN_SECAPI
     Required(handle) = Trust::required(trust)->getTPHandle();
-    END_SECAPI2("SecTrustGetTPHandle")
+    END_SECAPI
 }
 
 OSStatus SecTrustCopyPolicies(SecTrustRef trust, CFArrayRef *policies)
 {
     BEGIN_SECAPI
-    CFRef<CFArrayRef> currentPolicies(Trust::required(trust)->policies());
-    Required(policies) =  (currentPolicies) ?
-        (const CFArrayRef) CFRetain(currentPolicies) : (const CFArrayRef) NULL;
-    END_SECAPI2("SecTrustCopyPolicies")
+    CFArrayRef currentPolicies = Trust::required(trust)->policies();
+	if (currentPolicies != NULL)
+	{
+		CFRetain(currentPolicies);
+	}
+	
+    Required(policies) =  currentPolicies;
+    END_SECAPI
 }
 
 OSStatus SecTrustCopyCustomAnchorCertificates(SecTrustRef trust, CFArrayRef *anchorCertificates)
@@ -197,7 +225,7 @@ OSStatus SecTrustCopyCustomAnchorCertificates(SecTrustRef trust, CFArrayRef *anc
     CFRef<CFArrayRef> customAnchors(Trust::required(trust)->anchors());
     Required(anchorCertificates) = (customAnchors) ?
         (const CFArrayRef)CFRetain(customAnchors) : (const CFArrayRef)NULL;
-    END_SECAPI2("SecTrustCopyCustomAnchorCertificates")
+    END_SECAPI
 }
 
 //
@@ -211,8 +239,71 @@ OSStatus SecTrustCopyAnchorCertificates(CFArrayRef *anchorCertificates)
 		true, true, true,		/* all domains */
 		anchorCertificates);
 
-    END_SECAPI2("SecTrustCopyAnchorCertificates")
+    END_SECAPI
 }
+
+/* new in 10.6 */
+SecKeyRef SecTrustCopyPublicKey(SecTrustRef trust)
+{
+	SecKeyRef pubKey = NULL;
+    OSStatus __secapiresult;
+	try {
+		//FIXME: implementation required
+		// - trust reference is required
+		// - check that trust reference has been evaluated first
+		// - return leaf certificate's public key
+		
+		__secapiresult=noErr;
+	}
+	catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
+	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
+	catch (const std::bad_alloc &) { __secapiresult=memFullErr; }
+	catch (...) { __secapiresult=internalComponentErr; }
+    return pubKey;
+}
+
+/* new in 10.6 */
+CFIndex SecTrustGetCertificateCount(SecTrustRef trust)
+{
+	CFIndex chainLen = 0;
+    OSStatus __secapiresult;
+	try {
+		//FIXME: implementation required
+		// - trust reference is required
+		// - check that trust reference has been evaluated first
+		// - return number of certificates in chain
+		
+		__secapiresult=noErr;
+	}
+	catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
+	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
+	catch (const std::bad_alloc &) { __secapiresult=memFullErr; }
+	catch (...) { __secapiresult=internalComponentErr; }
+    return chainLen;
+}
+
+/* new in 10.6 */
+SecCertificateRef SecTrustGetCertificateAtIndex(SecTrustRef trust, CFIndex ix)
+{
+	SecCertificateRef certificate = NULL;
+    OSStatus __secapiresult;
+	try {
+		//FIXME: implementation required
+		// - trust reference is required
+		// - check that trust reference has been evaluated first
+		// - return certificate at index
+		
+		__secapiresult=noErr;
+	}
+	catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
+	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
+	catch (const std::bad_alloc &) { __secapiresult=memFullErr; }
+	catch (...) { __secapiresult=internalComponentErr; }
+    return certificate;
+}
+
+
+
 
 /* deprecated in 10.5 */
 OSStatus SecTrustGetCSSMAnchorCertificates(const CSSM_DATA **cssmAnchors,
@@ -223,7 +314,7 @@ OSStatus SecTrustGetCSSMAnchorCertificates(const CSSM_DATA **cssmAnchors,
 	Trust::gStore().getCssmRootCertificates(certs);
 	Required(cssmAnchors) = certs.blobCerts();
 	Required(cssmAnchorCount) = certs.count();
-	END_SECAPI2("SecTrustGetCSSMAnchorCertificates")
+	END_SECAPI
 }
 
 
@@ -241,7 +332,7 @@ OSStatus SecTrustGetUserTrust(SecCertificateRef certificate,
 		Certificate::required(certificate),
 		Policy::required(policy),
 		searchList);
-	END_SECAPI2("SecTrustGetUserTrust")
+	END_SECAPI
 }
 
 //
@@ -314,7 +405,7 @@ OSStatus SecTrustSetUserTrustLegacy(SecCertificateRef certificate,
 		Certificate::required(certificate),
 		Policy::required(policy),
 		trustSetting);
-	END_SECAPI2("SecTrustSetUserTrustLegacy")
+	END_SECAPI
 }
 
 /*   SecGetAppleTPHandle - @@@NOT EXPORTED YET; copied from SecurityInterface, 

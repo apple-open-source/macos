@@ -31,7 +31,7 @@
 .\"
 .\"	@(#)update.8	8.3 (Berkeley) 4/19/94
 .\"
-.Dd April 19, 1994
+.Dd August 18, 2008
 .Dt UPDATE 8
 .Os
 .Sh NAME
@@ -39,25 +39,18 @@
 .Nd flush internal filesystem caches to disk frequently
 .Sh SYNOPSIS
 .Nm update
-.Op Ar normal_interval Op Ar save_energy_interval
 .Sh DESCRIPTION
 The
 .Nm update
-command helps protect the integrity of disk volumes
+utility has been incorporated into
+.Xr launchd 8 .
+It historically helped protect the integrity of disk volumes
 by flushing
 volatile cached filesystem data
-to disk at thirty second intervals.
-.Nm Update
-uses the
+to disk at thirty second intervals
+using the
 .Xr sync 2
-function call to do the task.
-The normal_interval and save_energy_interval can be used to set the
-.Xr sync 2 interval in seconds of the normal case and the case where the computer is trying to save energy.
-.Pp
-.Nm Update
-is invoked at startup time by
-.Xr launchd 8
-when the system goes multi-user.
+function call.
 .Sh SEE ALSO
 .Xr sync 2 ,
 .Xr fsck 8 ,
@@ -71,6 +64,6 @@ file system damage. See
 .Xr fsck 8 .
 .Sh HISTORY
 An
-.Nm update
-command appeared in
+.Nm
+utility appeared in
 .At v6 .

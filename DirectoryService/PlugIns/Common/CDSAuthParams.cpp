@@ -222,16 +222,28 @@ CDSAuthParams::LoadParamsForAuthMethod(
 			if ( inAuthStepData == NULL )
 				return( eDSNullAuthStepData );
 			siResult = (tDirStatus)UnpackMPPEKeyBuffer( inAuthData, &pUserName, P24Input, &keySize );
-			if ( inAuthStepData->fBufferSize < (unsigned long)(8 + keySize*2) )
+			if ( inAuthStepData->fBufferSize < (UInt32)(8 + keySize*2) )
 				return( eDSBufferTooSmall );
 			break;
 		
 		case kAuthSMBWorkstationCredentialSessionKey:
 			if ( inAuthStepData == NULL )
 				return( eDSNullAuthStepData );
+			ntlmHashType = 0;
 			siResult = GetNameAndDataFromBuffer( inAuthData, &dataList, &pUserName, &pNTLMDigest, &ntlmDigestLen, &itemCount );
-			if ( inAuthStepData->fBufferSize < (unsigned long)(sizeof(UInt32) + 8) )
+			if ( inAuthStepData->fBufferSize < (UInt32)(sizeof(UInt32) + 8) )
 				return( eDSBufferTooSmall );
+			if ( siResult == eDSNoErr )
+			{
+				tDirStatus tmpstatus;
+				UInt32 tmplen;
+				unsigned char *type = NULL;
+				tmpstatus = GetDataFromAuthBuffer( inAuthData, 3, &type, &tmplen);
+				if ( tmpstatus == eDSNoErr && tmplen == sizeof(UInt32) )
+					ntlmHashType = *(UInt32*)type;
+				if( type )
+					free(type);
+			}
 			break;
 			
 		case kAuthSecureHash:
@@ -312,8 +324,6 @@ CDSAuthParams::LoadParamsForAuthMethod(
 		case kAuthSetPolicyAsRoot:
 			// parse input first, using <pNewPassword> to hold the policy string
 			siResult = (tDirStatus)Get2FromBuffer(inAuthData, &dataList, &pUserName, &pNewPassword, &itemCount );
-			if ( (pNewPassword != nil) && (strlen(pNewPassword) >= kHashRecoverableLength) )
-				return ( eDSAuthPasswordTooLong );
 			if ( siResult != eDSNoErr )
 				return( siResult );
 			if ( itemCount != 2 || pNewPassword == NULL || pNewPassword[0] == '\0' )

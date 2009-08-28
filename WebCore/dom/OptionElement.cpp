@@ -27,6 +27,7 @@
 #include "HTMLOptionElement.h"
 #include "OptionGroupElement.h"
 #include "ScriptElement.h"
+#include "SelectElement.h"
 #include <wtf/Assertions.h>
 
 #if ENABLE(WML)
@@ -36,17 +37,39 @@
 
 namespace WebCore {
 
-void OptionElement::setSelectedState(OptionElementData& data, bool selected)
+void OptionElement::setSelectedState(OptionElementData& data, Element* element, bool selected)
 {
     if (data.selected() == selected)
         return;
 
     data.setSelected(selected);
-    data.element()->setNeedsStyleRecalc();
+    element->setNeedsStyleRecalc();
 }
 
-String OptionElement::collectOptionText(const OptionElementData& data, Document* document)
+int OptionElement::optionIndex(SelectElement* selectElement, const Element* element)
 {
+    if (!selectElement)
+        return 0;
+
+    // Let's do this dynamically. Might be a bit slow, but we're sure
+    // we won't forget to update a member variable in some cases...
+    const Vector<Element*>& items = selectElement->listItems();
+    int length = items.size();
+    int optionIndex = 0;
+    for (int i = 0; i < length; ++i) {
+        if (!isOptionElement(items[i]))
+            continue;
+        if (items[i] == element)
+            return optionIndex;
+        ++optionIndex;
+    }
+
+    return 0;
+}
+
+String OptionElement::collectOptionText(const OptionElementData& data, const Element* element)
+{
+    Document* document = element->document();
     String text;
 
     // WinIE does not use the label attribute, so as a quirk, we ignore it.
@@ -54,16 +77,16 @@ String OptionElement::collectOptionText(const OptionElementData& data, Document*
         text = data.label();
 
     if (text.isEmpty()) {
-        Node* n = data.element()->firstChild();
+        Node* n = element->firstChild();
         while (n) {
             if (n->nodeType() == Node::TEXT_NODE || n->nodeType() == Node::CDATA_SECTION_NODE)
                 text += n->nodeValue();
 
             // skip script content
             if (n->isElementNode() && toScriptElement(static_cast<Element*>(n)))
-                n = n->traverseNextSibling(data.element());
+                n = n->traverseNextSibling(element);
             else
-                n = n->traverseNextNode(data.element());
+                n = n->traverseNextNode(element);
         }
     }
 
@@ -77,34 +100,28 @@ String OptionElement::collectOptionText(const OptionElementData& data, Document*
     return text;
 }
 
-String OptionElement::collectOptionTextRespectingGroupLabel(const OptionElementData& data, Document* document)
+String OptionElement::collectOptionTextRespectingGroupLabel(const OptionElementData& data, const Element* element)
 {
-    Element* parentElement = static_cast<Element*>(data.element()->parentNode());
+    Element* parentElement = static_cast<Element*>(element->parentNode());
     if (parentElement && toOptionGroupElement(parentElement))
-        return "    " + collectOptionText(data, document);
+        return "    " + collectOptionText(data, element);
 
-    return collectOptionText(data, document);
+    return collectOptionText(data, element);
 }
 
-String OptionElement::collectOptionValue(const OptionElementData& data, Document* document)
+String OptionElement::collectOptionValue(const OptionElementData& data, const Element* element)
 {
     String value = data.value();
     if (!value.isNull())
         return value;
 
     // Use the text if the value wasn't set.
-    return collectOptionText(data, document).stripWhiteSpace();
+    return collectOptionText(data, element).stripWhiteSpace();
 }
 
 // OptionElementData
-OptionElementData::OptionElementData(Element* element)
-    : m_element(element)
-    , m_selected(false)
-{
-    ASSERT(m_element);
-}
-
-OptionElementData::~OptionElementData()
+OptionElementData::OptionElementData()
+    : m_selected(false)
 {
 }
 
@@ -119,6 +136,15 @@ OptionElement* toOptionElement(Element* element)
 #endif
 
     return 0;
+}
+
+bool isOptionElement(Element* element)
+{
+    return element->hasLocalName(HTMLNames::optionTag)
+#if ENABLE(WML)
+        || element->hasLocalName(WMLNames::optionTag)
+#endif
+        ;
 }
 
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2006, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -47,7 +47,8 @@ __SCDynamicStoreNotifyCancel(SCDynamicStoreRef store)
 	 * cleanup any mach port based notifications.
 	 */
 	if (storePrivate->notifyPort != MACH_PORT_NULL) {
-		(void) mach_port_destroy(mach_task_self(), storePrivate->notifyPort);
+		__MACH_PORT_DEBUG(TRUE, "*** __SCDynamicStoreNotifyCancel (notify port)", storePrivate->notifyPort);
+		(void) mach_port_deallocate(mach_task_self(), storePrivate->notifyPort);
 		storePrivate->notifyPort = MACH_PORT_NULL;
 	}
 
@@ -64,7 +65,8 @@ __SCDynamicStoreNotifyCancel(SCDynamicStoreRef store)
 	 * cleanup any signal notifications.
 	 */
 	if (storePrivate->notifySignal > 0) {
-		(void) mach_port_destroy(mach_task_self(), storePrivate->notifySignalTask);
+		__MACH_PORT_DEBUG(TRUE, "*** __SCDynamicStoreNotifyCancel (signal)", storePrivate->notifySignalTask);
+		(void) mach_port_deallocate(mach_task_self(), storePrivate->notifySignalTask);
 		storePrivate->notifySignal     = 0;
 		storePrivate->notifySignalTask = TASK_NULL;
 	}
@@ -102,6 +104,9 @@ _notifycancel(mach_port_t	server,
 		return KERN_SUCCESS;
 	}
 
+	__MACH_PORT_DEBUG(((SCDynamicStorePrivateRef)mySession->store)->notifyPort != MACH_PORT_NULL,
+			  "*** _notifycancel",
+			  ((SCDynamicStorePrivateRef)mySession->store)->notifyPort);
 	*sc_status = __SCDynamicStoreNotifyCancel(mySession->store);
 	return KERN_SUCCESS;
 }

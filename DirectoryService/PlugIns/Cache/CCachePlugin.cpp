@@ -28,9 +28,9 @@
 
 #include "CCachePlugin.h"
 
-#include "CPlugInRef.h";
-#include "CContinue.h";
-#include "DSEventSemaphore.h";
+#include "CPlugInRef.h"
+#include "CContinue.h"
+#include "DSEventSemaphore.h"
 #include "DirServices.h"
 #include "DirServicesUtils.h"
 #include "ServerModuleLib.h"
@@ -46,6 +46,7 @@
 #include "CPlugInList.h"
 #include "PrivateTypes.h"
 #include "idna.h"
+#include "Mbrd_MembershipResolver.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -64,8 +65,12 @@
 #include <syslog.h>
 #include <sys/sysctl.h>
 #include <DirectoryServiceCore/CSharedData.h>
+#include <DirectoryService/DirServicesPriv.h>
 #include <netdb_async.h>
 #include <netinet/in.h>
+#include <dispatch/dispatch.h>
+#include <membershipPriv.h>
+#include <vproc_priv.h>
 
 // Globals ---------------------------------------------------------------------------
 
@@ -82,17 +87,23 @@ extern	const char		*lookupProcedures[];
 extern	CPlugInList		*gPlugins;
 extern	dsBool			gDSInstallDaemonMode;
 extern	bool			gServerOS;
+extern	dsBool			gDSInstallDaemonMode;
+extern	dsBool			gDSLocalOnlyMode;
+extern  bool            gCacheFlushDisabled;
 
+const int kEnumerationCacheTime	= 5;
 const int kNegativeDNSCacheTime = 300;  // 5 minutes
 const int kNegativeCacheTime    = 1800; // 30 minutes
 const int kCacheTime            = 3600; // 1 hour
 const int DNS_BUFFER_SIZE       = 8192;
 const int kDefaultTTLValue      = -1;   // -1 means it won't be cached, any other valid TTL will dictate behavior
 
+#ifdef HANDLE_DNS_LOOKUPS
 static pthread_t       gActiveThreads[512];
 static int             gNotifyTokens[512];
 static void*		   gInterruptTokens[512];
 static bool			   gThreadAbandon[512];
+static dns_handle_t	   gDNSHandles[512];
 
 // private SPI
 extern "C" {
@@ -102,19 +113,18 @@ extern "C" {
 	void res_delete_interrupt_token( void* token );
 	void res_interrupt_request( void* token );
 }
+#endif
 
 #pragma mark -
 #pragma mark Cache Plugin
 #pragma mark -
 
+#ifdef HANDLE_DNS_LOOKUPS
 // used to initiate a query
 struct sDNSQuery
 {
     sDNSLookup          *fLookupEntry;
     int                 fQueryIndex;
-	bool				fIsParallel;
-	pthread_mutex_t     *fMutex;
-    pthread_cond_t      *fCondition;
 };
 
 // state engine information
@@ -134,11 +144,20 @@ inline void SetMaxTTL( int32_t &oldTTL, int32_t newTTL )
     if ( newTTL >= 0 && (oldTTL < 0 || newTTL < oldTTL) )
         oldTTL = newTTL;
 }
+#endif
 
 void dsSetNodeCacheAvailability( char *inNodeName, int inAvailable )
 {
-	if ( gCacheNode != NULL )
-		gCacheNode->UpdateNodeReachability( inNodeName, inAvailable );
+	int iCount = 0;
+	
+	if ( gCacheNode != NULL ){
+		iCount = gCacheNode->UpdateNodeReachability( inNodeName, inAvailable );
+	}
+
+	iCount += Mbrd_SetNodeAvailability( inNodeName, inAvailable );
+
+	if ( iCount > 0 )
+		dsPostNodeEvent();
 }
 
 void dsFlushLibinfoCache( void )
@@ -147,10 +166,13 @@ void dsFlushLibinfoCache( void )
 		gCacheNode->EmptyCacheEntryType( CACHE_ENTRY_TYPE_ALL );
 }
 
+#ifdef HANDLE_DNS_LOOKUPS
 static void DNSChangeCallBack(SCDynamicStoreRef aSCDStore, CFArrayRef changedKeys, void *callback_argument)
 {
-	gCacheNode->DNSConfigurationChanged();
+	if ( gCacheNode != NULL )
+		gCacheNode->DNSConfigurationChanged();
 }
+#endif
 
 // --------------------------------------------------------------------------------
 //	* CCachePlugin ()
@@ -160,6 +182,7 @@ CCachePlugin::CCachePlugin ( FourCharCode inSig, const char *inName ) : CServerP
 {
     fDirRef					= 0;
     fSearchNodeRef			= 0;
+	fNISNodeRef				= 0;
     fState					= kUnknownState;
     
     if ( gCacheNodeRef == NULL )
@@ -176,56 +199,21 @@ CCachePlugin::CCachePlugin ( FourCharCode inSig, const char *inName ) : CServerP
     
     if ( gCacheNodeContinue == NULL )
     {
-        if (gServerOS)
-        {
-            gCacheNodeContinue = new CContinue( CCachePlugin::ContinueDeallocProc, 256 );
-        }
-        else
-        {
-            gCacheNodeContinue = new CContinue( CCachePlugin::ContinueDeallocProc, 64 );
-        }
-    }
-    
-    // we base our cache size on our physical memory, 3 sizes (small, medium, large) (<= 512 MB, <=2 GB, > 2GB)
-    //    buckets = (512, 2048, 8192)
-    //    cacheMax = (256, 512, 2048)
-    //
-    // cache doesn't really have a max, but it is used as a hint on how often to sweep the cache to attempt to
-    // reduce expired entries, etc.
-    
-    int         mib[2]      = { CTL_HW, HW_MEMSIZE };
-    uint64_t    memsize     = 0;
-    size_t      len         = sizeof(memsize);
-    uint32_t    maxSize     = 256;
-    uint32_t    maxBuckets  = 512;
-    
-    // if we couldn't determine we'll just default to the lower values because memsize will be 0
-    sysctl(mib, 2, &memsize, &len, NULL, 0);
-    
-    if ( memsize <= 512*1024*1024ULL )
-    {
-        maxSize = 256;
-        maxBuckets = 512;
-    }
-    else if ( memsize <= 2*1024*1024*1024ULL )
-    {
-        maxSize = 512;
-        maxBuckets = 2048;
-    }
-    else
-    {
-        maxSize = 2048;
-        maxBuckets = 8192;
+        gCacheNodeContinue = new CContinue( CCachePlugin::ContinueDeallocProc );
     }
     
     // don't replace on collision, will make names conflict
-    fLibinfoCache = new CCache( maxSize, maxBuckets, 10, kCacheTime, 0 );
+    fLibinfoCache = new CCache( kCacheTime, 0 );
+	fNISQueue = dispatch_queue_create( "com.apple.DirectoryService.CCachePlugin.NISQueue", NULL );
+    fCheckNISQueue = dispatch_queue_create( "com.apple.DirectorYService.CCachePlugin.CheckNISQueue", NULL );
     
     fCacheHits = 0;
     fCacheMisses = 0;
     fTotalCalls = 0;
     fTotalCallTime = 0.0;
     fFlushCount = 0;
+    
+#ifdef HANDLE_DNS_LOOKUPS
     fUnqualifiedSRVAllowed = true;
     fAlwaysDoAAAA = false;
     bzero( &fCallsByFunction, sizeof(fCallsByFunction) );
@@ -242,6 +230,9 @@ CCachePlugin::CCachePlugin ( FourCharCode inSig, const char *inName ) : CServerP
 	
 	bzero( gActiveThreads, sizeof(gActiveThreads) );
 	bzero( gNotifyTokens, sizeof(gNotifyTokens) );
+	bzero( gInterruptTokens, sizeof(gInterruptTokens) );
+	bzero( gThreadAbandon, sizeof(gThreadAbandon) );
+	bzero( gDNSHandles, sizeof(gDNSHandles) );
 	
 	// let's enable the ability interrupt requests
 	res_interrupt_requests_enable();
@@ -266,9 +257,10 @@ CCachePlugin::CCachePlugin ( FourCharCode inSig, const char *inName ) : CServerP
     {
         bcopy( iNoUnqualifiedSRV, fGetAddrStateEngine, sizeof(iNoUnqualifiedSRV) );
     }
+#endif
     
     fLocalOnlyPIDs.insert( getpid() ); // add our own pid to the list
-
+    
     fPluginInitialized = false;
 } // CCachePlugin
 
@@ -310,25 +302,7 @@ SInt32 CCachePlugin::Validate ( const char *inVersionStr, const UInt32 inSignatu
 
 SInt32 CCachePlugin::PeriodicTask ( void )
 {
-    fFlushCount++;
-    
-    // PeriodicTask happens every 30 seconds
-    // Want to sweep the cache at 1/5 (or 1/10 under pressure) of the default cache time
-    // which means we'll flush any expired entries at maximum 120% of the entry's TTL
-    //   kCacheTime / 30 = how many periodic tasks
-    //   periodic tasks / (5 or 10)
-    
-    int iCheckRate = (fLibinfoCache->isCacheOverMax() ? ((kCacheTime / 30) / 10) : ((kCacheTime / 30) / 5));
-    if( fFlushCount > iCheckRate )
-    {
-        int iCount = fLibinfoCache->Sweep( CACHE_ENTRY_TYPE_ALL, true );
-
-        if( iCount > 0 )
-            DbgLog( kLogPlugin, "CCachePlugin::PeriodicTask - Flushed %d cache entries", iCount );
-
-        fFlushCount = 0;
-    }
-    
+    // PeriodicTask happens every 30 seconds    
     return( eDSNoErr );
 } // PeriodicTask
 
@@ -338,7 +312,12 @@ SInt32 CCachePlugin::PeriodicTask ( void )
 
 void CCachePlugin::EmptyCacheEntryType ( uint32_t inEntryType )
 {
-    if (gDSInstallDaemonMode) return;
+	if (gDSInstallDaemonMode) return;
+    
+    if (gCacheFlushDisabled == true) {
+        DbgLog(kLogPlugin, "CCachePlugin::EmptyCacheEntryType - skipping because cache flushes are disabled");
+        return;
+    }
 
     // if we are getting a request to empty all it's the equivalent of flushing the cache
     if ( inEntryType == CACHE_ENTRY_TYPE_ALL )
@@ -358,9 +337,9 @@ void CCachePlugin::EmptyCacheEntryType ( uint32_t inEntryType )
 //	* UpdateNodeReachability ()
 // --------------------------------------------------------------------------------
 
-void CCachePlugin::UpdateNodeReachability( char *inNodeName, bool inState )
+int CCachePlugin::UpdateNodeReachability( char *inNodeName, bool inState )
 {
-    if (gDSInstallDaemonMode) return;
+    if ( gDSInstallDaemonMode == true || gDSLocalOnlyMode == true ) return 0;
 
     int iCount = fLibinfoCache->UpdateAvailability( inNodeName, inState );
     if( iCount > 0 )
@@ -368,9 +347,11 @@ void CCachePlugin::UpdateNodeReachability( char *inNodeName, bool inState )
         DbgLog( kLogPlugin, "CCachePlugin::UpdateNodeReachability - Updated %d cache entries for <%s> to <%s>", iCount, inNodeName, 
 			   (inState ? "Available" : "Unavailable") );
 	}
+	
+	return iCount;
 } // UpdateNodeReachability
 
-
+#ifdef HANDLE_DNS_LOOKUPS
 // --------------------------------------------------------------------------------
 //	* DNSConfigurationChanged ()
 // --------------------------------------------------------------------------------
@@ -383,6 +364,7 @@ void CCachePlugin::DNSConfigurationChanged( void )
 	
     DbgLog( kLogPlugin, "CCachePlugin::DNSConfigurationChanged - flushed %d DNS cache entries", iCount );
 } // DNSConfigurationChanged
+#endif
 
 // --------------------------------------------------------------------------------
 //	* SetPluginState ()
@@ -471,11 +453,26 @@ SInt32 CCachePlugin::Initialize ( void )
                 dsDataListDeallocate( fDirRef, nodeName );
                 DSFree( nodeName );
             }
+			
+			SCDynamicStoreContext scContext	= { 0, this, NULL, NULL, NULL };
+			SCDynamicStoreRef store = SCDynamicStoreCreateWithOptions( kCFAllocatorDefault, NULL, NULL, SearchPolicyChange, &scContext );
+			if ( store != NULL ) {
+				CFStringRef key = CFSTR(kDSStdNotifySearchPolicyChanged);
+				CFArrayRef notifyKeys = CFArrayCreate( kCFAllocatorDefault, (const void **)&key, 1, &kCFTypeArrayCallBacks );
+				
+				SCDynamicStoreSetNotificationKeys( store, notifyKeys, NULL );
+				SCDynamicStoreSetDispatchQueue( store, fCheckNISQueue );
+				
+				DSCFRelease( notifyKeys );
+			}
+			
+			// we still check for NIS in the search path because we might not get a policy notification at this stage
+			dispatch_sync( fCheckNISQueue, ^(void) { CheckSearchPolicyForNIS(); } );
             
             if ( siResult != eDSNoErr ) throw( siResult );
             
             // set the cache node global after we've been initialized
-            OSAtomicCompareAndSwapPtr( NULL, this, (void **) &gCacheNode );
+			__sync_bool_compare_and_swap( &gCacheNode, NULL, this );
         }
         
         //no impact if we re-register this node again
@@ -489,7 +486,9 @@ SInt32 CCachePlugin::Initialize ( void )
         dsDataListDeallocate( fDirRef, nodeName );
         DSFree( nodeName );
         
+#ifdef HANDLE_DNS_LOOKUPS
         checkAAAAstatus();
+#endif
         
         // make cache node active
         fState = kUnknownState;
@@ -519,6 +518,120 @@ SInt32 CCachePlugin::Initialize ( void )
     
 } // Initialize
 
+void CCachePlugin::SearchPolicyChange( SCDynamicStoreRef	store,
+									   CFArrayRef			changedKeys,
+									   void					*info )
+{
+    DbgLog( kLogNotice, "CCachePlugin::SearchPolicyChange - search policy change notification, looking for NIS" );
+	((CCachePlugin *) info)->CheckSearchPolicyForNIS();
+}
+
+
+void CCachePlugin::CheckSearchPolicyForNIS( void )
+{
+    UInt32                  uiCount             = 0;
+    tAttributeListRef       attrListRef         = 0;
+    tAttributeValueListRef  attrValueListRef    = 0;
+    tContextData            continueData        = 0;
+    tDataBufferPtr          pDataBuffer         = NULL;
+    tDataListPtr            pNodeInfoList       = NULL;
+    tAttributeEntryPtr      pAttrEntry          = NULL;
+    tAttributeValueEntryPtr pAttrValueEntry     = NULL;
+    tDirNodeReference       nisNodeRef          = 0;
+    tDirStatus              siResult;
+    
+    pNodeInfoList = dsBuildListFromStringsPriv( kDSNAttrSearchPath, NULL );
+    if ( pNodeInfoList == NULL ) return;
+    
+    // shouldn't need to be too big
+    pDataBuffer = dsDataBufferAllocatePriv( 2048 );
+    
+    //extract the node list
+    do {
+        siResult = dsGetDirNodeInfo( fSearchNodeRef, pNodeInfoList, pDataBuffer, false, &uiCount, &attrListRef, &continueData );
+        if ( siResult == eDSBufferTooSmall ) {
+            UInt32 newSize = pDataBuffer->fBufferSize * 2;
+            dsDataBufferDeallocatePriv( pDataBuffer );
+            pDataBuffer = dsDataBufferAllocatePriv( newSize );
+        }
+    } while ( siResult == eDSBufferTooSmall );
+    
+    if ( siResult != eDSNoErr ) goto cleanup;
+    
+    // assume first attribute since only 1 expected
+    siResult = dsGetAttributeEntry( fSearchNodeRef, pDataBuffer, attrListRef, 1, &attrValueListRef, &pAttrEntry );
+    if ( siResult != eDSNoErr ) goto cleanup;
+    
+    // technically we could skip the first two, but be thorough instead
+    for ( UInt32 aIndex = 1; fNISNodeRef == 0 && aIndex <= pAttrEntry->fAttributeValueCount; aIndex++ )
+    {
+        siResult = dsGetAttributeValue( fSearchNodeRef, pDataBuffer, aIndex, attrValueListRef, &pAttrValueEntry );
+        if ( siResult != eDSNoErr || pAttrValueEntry->fAttributeValueData.fBufferData == NULL) break;
+        
+        // All we care about are /BSD nodes to signify it's some NIS node (except /BSD/local)
+        if ( strncmp(pAttrValueEntry->fAttributeValueData.fBufferData, "/BSD", sizeof("/BSD")-1) == 0 &&
+             strcmp(pAttrValueEntry->fAttributeValueData.fBufferData, "/BSD/local") != 0 )
+        {
+            tDataListPtr nodeName = dsBuildFromPathPriv( pAttrValueEntry->fAttributeValueData.fBufferData, "/" );
+            
+            if ( nodeName != NULL ) {
+                // we don't care if this fails, we get called every time the node state changes
+                DbgLog( kLogInfo, "CCachePlugin::CheckSearchPolicyForNIS - NIS node detected as '%s'", 
+                        pAttrValueEntry->fAttributeValueData.fBufferData );
+                
+                if ( dsOpenDirNode(fDirRef, nodeName, &nisNodeRef) == eDSNoErr ) {
+                    DbgLog( kLogNotice, "CCachePlugin::CheckSearchPolicyForNIS - opening NIS node '%s'", 
+                            pAttrValueEntry->fAttributeValueData.fBufferData );
+                }
+                
+                dsDataListDeallocatePriv( nodeName );
+                DSFree( nodeName );
+            }
+        }
+        
+        dsDeallocAttributeValueEntry( fDirRef, pAttrValueEntry );
+        pAttrValueEntry = NULL;
+    }
+    
+cleanup:
+    
+    // now set the fNISNodeRef
+    dispatch_async( fNISQueue,
+                    ^(void) {
+                        if ( fNISNodeRef != 0 ) {
+                            dsCloseDirNode( fNISNodeRef );
+                        }
+                        
+                        fNISNodeRef = nisNodeRef;
+                    } );
+
+    if ( pNodeInfoList != NULL ) {
+        dsDataListDeallocatePriv( pNodeInfoList );
+        DSFree( pNodeInfoList );
+    }
+    
+    if ( attrListRef != 0 ) {
+        dsCloseAttributeList( attrListRef );
+    }
+    
+    if ( attrValueListRef != 0 ) {
+        dsCloseAttributeValueList( attrValueListRef );
+    }
+    
+    if ( pAttrEntry != NULL ) {
+        dsDeallocAttributeEntry( fDirRef, pAttrEntry );
+        pAttrEntry = NULL;
+    }
+    
+    if ( continueData != 0 ) {
+        dsReleaseContinueData( fDirRef, continueData );
+    }
+    
+    if ( pDataBuffer != NULL ) {
+        dsDataBufferDeallocatePriv( pDataBuffer );
+        pDataBuffer = NULL;
+    }
+}
 
 //--------------------------------------------------------------------------------------------------
 //	* WakeUpRequests() (static)
@@ -577,6 +690,7 @@ SInt32 CCachePlugin::ProcessRequest ( void *inData )
         {
             if ( (((sHeader *)inData)->fContextData) != NULL )
             {
+#ifdef HANDLE_DNS_LOOKUPS
                 // now let's register for DNS change events cause we care about them
                 CFStringRef             dnsKey				= NULL;	//DNS changes key
                 CFMutableArrayRef       keys                = NULL;
@@ -617,7 +731,7 @@ SInt32 CCachePlugin::ProcessRequest ( void *inData )
                 
                 DSCFRelease(keys);
                 DSCFRelease(store);
-                
+#endif
                 return (siResult);
             }
         }
@@ -648,7 +762,9 @@ SInt32 CCachePlugin::ProcessRequest ( void *inData )
         {
             // explicitly empty negative entries, we'll pay the penalty of looking up again??
             EmptyCacheEntryType( CACHE_ENTRY_TYPE_NEGATIVE );
+#ifdef HANDLE_DNS_LOOKUPS
             checkAAAAstatus();
+#endif
             siResult = eDSNoErr;
         }
         else if (((sHeader *)inData)->fType == kHandleSystemWillPowerOn)
@@ -892,12 +1008,14 @@ kvbuf_t* CCachePlugin::ProcessLookupRequest ( int inProcNumber, char* inData, in
         case kDSLUflushcache:
             DbgLog( kLogPlugin, "CCachePlugin::flushcache request" );
             fLibinfoCache->Flush();
+            _vproc_send_signal_by_label( "com.apple.mDNSResponder", SIGHUP ); // flush mDNS cache as well
             break;
             
         case kDSLUflushentry:
             // TODO:  need design for flushing an entry
             break;
             
+#ifdef HANDLE_DNS_LOOKUPS
         case kDSLUgetaddrinfo:
             outData = DSgetaddrinfo( buffer, inPID );
             break;
@@ -905,6 +1023,7 @@ kvbuf_t* CCachePlugin::ProcessLookupRequest ( int inProcNumber, char* inData, in
         case kDSLUgetnameinfo:
             outData = DSgetnameinfo( buffer, inPID );
             break;
+#endif
             
         case kDSLUgethostbyaddr:
             outData = DSgethostbyaddr( buffer, inPID );
@@ -926,8 +1045,14 @@ kvbuf_t* CCachePlugin::ProcessLookupRequest ( int inProcNumber, char* inData, in
             outData = DSgethostbymac( buffer, inPID );
             break;
         
+#ifdef HANDLE_DNS_LOOKUPS
         case kDSLUdns_proxy:
             outData = DSdns_proxy( buffer, inPID );
+            break;
+#endif
+            
+        case kDSLUgethostbyname_service:
+            outData = DSgethostbyname_service( buffer, inPID );
             break;
         
         case kDSLUgetbootpbyhw:
@@ -936,6 +1061,22 @@ kvbuf_t* CCachePlugin::ProcessLookupRequest ( int inProcNumber, char* inData, in
         
         case kDSLUgetbootpbyaddr:
             outData = DSgetbootpbyaddr( buffer, inPID );
+            break;
+            
+        case kDSLUgetpwnam_ext:
+            outData = DSgetpwnam_ext( buffer, inPID );
+            break;
+            
+        case kDSLUgetpwnam_initext:
+            DSgetpwnam_initext( buffer, inPID );
+            break;
+            
+        case kDSLUgetgrnam_ext:
+            outData = DSgetgrnam_ext( buffer, inPID );
+            break;
+            
+        case kDSLUgetgrnam_initext:
+            DSgetgrnam_initext( buffer, inPID );
             break;
             
         default:
@@ -954,8 +1095,10 @@ kvbuf_t* CCachePlugin::ProcessLookupRequest ( int inProcNumber, char* inData, in
         switch ( inProcNumber )
         {
             // these 4 types return empty responses, otherwise we free it
+#ifdef HANDLE_DNS_LOOKUPS
             case kDSLUgetaddrinfo:
             case kDSLUgetnameinfo:
+#endif
             case kDSLUgethostbyaddr:
             case kDSLUgethostbyname:
                 break;
@@ -979,6 +1122,193 @@ kvbuf_t* CCachePlugin::ProcessLookupRequest ( int inProcNumber, char* inData, in
     
 } // ProcessLookupRequest
 
+#pragma mark -
+#pragma mark Cache Apply helper
+#pragma mark -
+
+struct sCacheDetail
+{
+	CFMutableDictionaryRef	fEntryMap;
+	CFMutableArrayRef		fEntries;
+	CFIndex					*fCounts;
+	time_t					fNow;
+	int						fIsAdmin;
+};
+
+static CFDateRef ConvertBSDTimeToCFDate( time_t inTime )
+{
+	CFGregorianDate gregorianDate;
+    
+    struct tm *bsdDate = gmtime( &inTime );
+	
+	gregorianDate.second = bsdDate->tm_sec;
+	gregorianDate.minute = bsdDate->tm_min;
+	gregorianDate.hour = bsdDate->tm_hour;
+	gregorianDate.day = bsdDate->tm_mday;
+	gregorianDate.month = bsdDate->tm_mon + 1;
+	gregorianDate.year = bsdDate->tm_year + 1900;
+	
+	return CFDateCreate( kCFAllocatorDefault, CFGregorianDateGetAbsoluteTime(gregorianDate, NULL) );
+}
+
+static void CacheDetails( void *key, void *value, void *context )
+{
+	sCacheEntry		*entry		= (sCacheEntry *) value;
+	sCacheDetail	*details	= (sCacheDetail *) context;
+	
+	CFNumberRef tempNumber = CFNumberCreate( kCFAllocatorDefault, kCFNumberLongType, &value );
+	
+	// no need to copy the string, just use the stuff directly since we will be turning into XML anyway
+	CFStringRef cfKeyValue = CFStringCreateWithCStringNoCopy( kCFAllocatorDefault, (char *) key, kCFStringEncodingUTF8, kCFAllocatorNull );
+	
+	CFMutableArrayRef cfKeys = (CFMutableArrayRef) CFDictionaryGetValue( details->fEntryMap, tempNumber );
+	if ( cfKeys != NULL ) {
+		if ( details->fEntries != NULL ) {
+			CFArrayAppendValue( cfKeys, cfKeyValue );
+		}
+	}
+	else {
+		
+		// we skip host entries if user is not an admin
+		if ( details->fIsAdmin == false && (entry->fFlags & CACHE_ENTRY_TYPE_HOST) != 0 ) {
+			goto cleanup;
+		}
+		
+		CFIndex					*counts	= details->fCounts;
+		CFMutableDictionaryRef	cfEntry	= NULL;
+		
+		if ( details->fEntries != NULL )
+		{
+			// now go through entries and dump them
+			cfEntry = CFDictionaryCreateMutable( kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
+			
+			cfKeys = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
+			CFArrayAppendValue( cfKeys, cfKeyValue );
+			CFDictionarySetValue( cfEntry, CFSTR("Keys"), cfKeys );
+			CFRelease( cfKeys );
+			
+			// map it so we can come back to add more keys
+			CFDictionarySetValue( details->fEntryMap, tempNumber, cfKeys );
+			
+			sCacheValidation *valid_t = entry->fValidation;
+			if (valid_t != NULL)
+			{
+				CFMutableDictionaryRef validation = CFDictionaryCreateMutable( kCFAllocatorDefault, 2, &kCFTypeDictionaryKeyCallBacks, 
+																			   &kCFTypeDictionaryValueCallBacks );
+				
+				if ( valid_t->fNode != NULL )
+				{
+					CFDictionarySetValue( validation, CFSTR("Name"), valid_t->fNode );
+				}
+				
+				CFStringRef cfToken = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR("%u"), valid_t->fToken );
+				CFStringRef cfRefs = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR("%u"), valid_t->fRefCount );
+				
+				CFDictionarySetValue( validation, CFSTR("Available"), (valid_t->fNodeAvailable ? kCFBooleanTrue : kCFBooleanFalse) );
+				CFDictionarySetValue( validation, CFSTR("Token"), cfToken );
+				CFDictionarySetValue( validation, CFSTR("Reference Count"), cfRefs );
+				
+				CFRelease( cfToken );
+				CFRelease( cfRefs );
+				
+				CFDictionarySetValue( cfEntry, CFSTR("Validation Information"), validation );
+				CFRelease( validation );
+			}
+			
+			if ( entry->fTTL )
+			{
+				CFStringRef ttl2 = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR("%u"), entry->fTTL );
+				CFDictionarySetValue( cfEntry, CFSTR("TTL"), ttl2 );
+				CFRelease( ttl2 );
+			}
+			
+			CFDateRef cfBestBefore = ConvertBSDTimeToCFDate( entry->fBestBefore );
+			if (cfBestBefore)
+			{
+				CFDictionarySetValue( cfEntry, CFSTR("Best Before"), cfBestBefore );
+				CFRelease( cfBestBefore );
+			}
+			
+			CFDateRef cfLastAccess = ConvertBSDTimeToCFDate( entry->fLastAccess );
+			if (cfLastAccess)
+			{
+				CFDictionarySetValue( cfEntry, CFSTR("Last Access"), cfLastAccess );
+				CFRelease( cfLastAccess );
+			}
+			
+			CFStringRef hits = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR("%u"), entry->fHits );
+			CFDictionarySetValue( cfEntry, CFSTR("Hits"), hits );
+			CFRelease( hits );
+			
+			CFStringRef cfRefs = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR("%u"), entry->fRefCount );
+			CFDictionarySetValue( cfEntry, CFSTR("Reference Count"), cfRefs );
+			CFRelease( cfRefs );
+			
+			if (entry->fFlags & CACHE_ENTRY_TYPE_NEGATIVE) {
+				CFDictionarySetValue( cfEntry, CFSTR("Negative Entry"), kCFBooleanTrue );
+			}
+			
+			CFArrayAppendValue( details->fEntries, cfEntry );
+		}
+		else
+		{
+			CFDictionarySetValue( details->fEntryMap, tempNumber, kCFNull );
+		}
+		
+		switch( entry->fFlags & 0x00000FFF )
+		{
+			case CACHE_ENTRY_TYPE_USER:
+				if ( cfEntry != NULL ) CFDictionarySetValue( cfEntry, CFSTR("Type"), CFSTR("User") );
+				counts[0] += 1;
+				break;
+			case CACHE_ENTRY_TYPE_GROUP:
+				if ( cfEntry != NULL ) CFDictionarySetValue( cfEntry, CFSTR("Type"), CFSTR("Group") );
+				counts[1] += 1;
+				break;
+			case CACHE_ENTRY_TYPE_HOST:
+				if ( cfEntry != NULL ) CFDictionarySetValue( cfEntry, CFSTR("Type"), CFSTR("Host") );
+				counts[2] += 1;
+				break;
+			case CACHE_ENTRY_TYPE_SERVICE:
+				if ( cfEntry != NULL ) CFDictionarySetValue( cfEntry, CFSTR("Type"), CFSTR("Service") );
+				counts[3] += 1;
+				break;
+			case CACHE_ENTRY_TYPE_COMPUTER:
+				if ( cfEntry != NULL ) CFDictionarySetValue( cfEntry, CFSTR("Type"), CFSTR("Computer") );
+				counts[4] += 1;
+				break;
+			case CACHE_ENTRY_TYPE_MOUNT:
+				if ( cfEntry != NULL ) CFDictionarySetValue( cfEntry, CFSTR("Type"), CFSTR("Mount") );
+				counts[5] += 1;
+				break;
+			case CACHE_ENTRY_TYPE_ALIAS:
+				if ( cfEntry != NULL ) CFDictionarySetValue( cfEntry, CFSTR("Type"), CFSTR("Alias") );
+				counts[6] += 1;
+				break;
+			case CACHE_ENTRY_TYPE_PROTOCOL:
+				if ( cfEntry != NULL ) CFDictionarySetValue( cfEntry, CFSTR("Type"), CFSTR("Protocol") );
+				counts[7] += 1;
+				break;
+			case CACHE_ENTRY_TYPE_RPC:
+				if ( cfEntry != NULL ) CFDictionarySetValue( cfEntry, CFSTR("Type"), CFSTR("RPC") );
+				counts[8] += 1;
+				break;
+			case CACHE_ENTRY_TYPE_NETWORK:
+				if ( cfEntry != NULL ) CFDictionarySetValue( cfEntry, CFSTR("Type"), CFSTR("Network") );
+				counts[9] += 1;
+				break;
+			default:
+				break;
+		}
+		
+		DSCFRelease( cfEntry );
+	}
+	
+cleanup:
+	
+	DSCFRelease( tempNumber );
+	DSCFRelease( cfKeyValue );
+}
 
 #pragma mark -
 #pragma mark DS API Service Routines - Clients using Cache Node directly
@@ -1031,7 +1361,7 @@ SInt32 CCachePlugin::CloseDirNode ( sCloseDirNode *inData )
         if ( pContext == NULL ) throw( (SInt32)eDSInvalidNodeRef );
         
         gCacheNodeRef->RemoveItem( inData->fInNodeRef );
-        gCacheNodeContinue->RemoveItems( inData->fInNodeRef );
+        gCacheNodeContinue->RemovePointersForRefNum( inData->fInNodeRef );
     }
     
     catch( SInt32 err )
@@ -1042,22 +1372,6 @@ SInt32 CCachePlugin::CloseDirNode ( sCloseDirNode *inData )
     return( siResult );
     
 } // CloseDirNode
-
-static CFDateRef ConvertBSDTimeToCFDate( time_t inTime )
-{
-	CFGregorianDate gregorianDate;
-    
-    struct tm *bsdDate = gmtime( &inTime );
-	
-	gregorianDate.second = bsdDate->tm_sec;
-	gregorianDate.minute = bsdDate->tm_min;
-	gregorianDate.hour = bsdDate->tm_hour;
-	gregorianDate.day = bsdDate->tm_mday;
-	gregorianDate.month = bsdDate->tm_mon + 1;
-	gregorianDate.year = bsdDate->tm_year + 1900;
-	
-	return CFDateCreate( kCFAllocatorDefault, CFGregorianDateGetAbsoluteTime(gregorianDate, NULL) );
-}
 
 //------------------------------------------------------------------------------------
 //	* GetDirNodeInfo
@@ -1150,26 +1464,11 @@ SInt32 CCachePlugin::GetDirNodeInfo ( sGetDirNodeInfo *inData )
                 
                 CFMutableArrayRef  cfEntries = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
                 
-                // let's extract some information, we need to lock the cache
-                fLibinfoCache->fCacheLock.WaitLock();
-                
                 // first let's get cache-level info
-                CFStringRef bucket_count = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR("%u"), fLibinfoCache->fBucketCount );
-                CFDictionarySetValue( cfInformation, CFSTR("Hash Slots"), bucket_count );
-                CFRelease( bucket_count );
-                
                 CFStringRef ttl = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR("%u"), fLibinfoCache->fCacheTTL );
                 CFDictionarySetValue( cfInformation, CFSTR("Default TTL"), ttl );
                 CFRelease( ttl );
 
-                CFStringRef cur_size = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR("%u"), fLibinfoCache->GetCount() );
-                CFDictionarySetValue( cfInformation, CFSTR("Cache Size"), cur_size );
-                CFRelease( cur_size );
-                
-                CFStringRef max_size = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR("%u"), fLibinfoCache->fMaxSize );
-                CFDictionarySetValue( cfInformation, CFSTR("Cache Cap"), max_size );
-                CFRelease( max_size );
-                
                 CFStringRef policy_flags = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR("%u"), fLibinfoCache->fPolicyFlags );
                 CFDictionarySetValue( cfInformation, CFSTR("Policy Flags"), policy_flags );
                 CFRelease( policy_flags );
@@ -1177,257 +1476,65 @@ SInt32 CCachePlugin::GetDirNodeInfo ( sGetDirNodeInfo *inData )
                 CFDictionarySetValue( cfInformation, CFSTR("AAAA Queries"), 
 									  (aaaa_cutoff_enabled ? CFSTR("Disabled (link-local IPv6 addresses)") : CFSTR("Enabled")) );
 				
-                CFMutableArrayRef cfSlotInfo = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
-                CFDictionarySetValue( cfInformation, CFSTR("Bucket Info"), cfSlotInfo );
-                CFRelease( cfSlotInfo );
+				// build an overview of the cache info to minimize data sent to client request
+				CFStringRef typesStr[]      = { CFSTR("User"), CFSTR("Group"), CFSTR("Host"), CFSTR("Service"), CFSTR("Computer"),
+												CFSTR("Mount"), CFSTR("Alias"), CFSTR("Protocol"), CFSTR("RPC"), CFSTR("Network") };
+				uint32_t    cacheTypes[]    = { CACHE_ENTRY_TYPE_USER, CACHE_ENTRY_TYPE_GROUP, CACHE_ENTRY_TYPE_HOST, CACHE_ENTRY_TYPE_SERVICE,
+												CACHE_ENTRY_TYPE_COMPUTER, CACHE_ENTRY_TYPE_MOUNT, CACHE_ENTRY_TYPE_ALIAS, CACHE_ENTRY_TYPE_PROTOCOL,
+												CACHE_ENTRY_TYPE_RPC, CACHE_ENTRY_TYPE_NETWORK };
+				int32_t		typeCnt			= sizeof(cacheTypes) / sizeof(uint32_t);
+				CFIndex     counts[typeCnt];
+				uint32_t	total			= 0;
+				uuid_t		uu;
+				
+				bzero( counts, sizeof(counts) );
+				
+				sCacheDetail	details = {
+					fEntryMap	: CFDictionaryCreateMutable( kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks ),
+					fEntries	: NULL,
+					fCounts		: counts,
+					fNow		: time( NULL ),
+					fIsAdmin	: (pContext->fEffectiveUID == 0)
+				};
 
-                CFIndex iSlotsUsed = 0;
-                CFIndex iCount = (CFIndex) fLibinfoCache->fBucketCount;
-                CFIndex iMaxSlotDepth = 0;
-                for (CFIndex ii = 0; ii < iCount; ii++)
+				// check if user is an admin
+				if ( pContext->fEffectiveUID != 0 && mbr_uid_to_uuid(pContext->fEffectiveUID, uu) == 0 ) {
+					mbr_check_membership_by_id( uu, 80, &details.fIsAdmin );
+				}				
+				
+				if ( strcmp( pAttrName, "dsAttrTypeNative:LibinfoCacheDetails" ) == 0 )
                 {
-                    if (fLibinfoCache->fBuckets[ii] != NULL)
-                    {
-                        iSlotsUsed++;
+					details.fEntries = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
+					
+					CFDictionarySetValue( cfInformation, CFSTR("Entries"), details.fEntries );
+				}
 
-                        CFIndex iDepth = fLibinfoCache->fBuckets[ii]->fCount;
-
-                        CFNumberRef cfBucket = CFNumberCreate( kCFAllocatorDefault, kCFNumberCFIndexType, &ii );
-                        CFNumberRef cfDepth = CFNumberCreate( kCFAllocatorDefault, kCFNumberCFIndexType, &iDepth );
-                        
-                        CFTypeRef keys[] = { CFSTR("Bucket"), CFSTR("Depth") };
-                        CFTypeRef values[] = { cfBucket, cfDepth };
-                        
-                        CFDictionaryRef cfDict = CFDictionaryCreate( kCFAllocatorDefault, keys, values, 2, &kCFTypeDictionaryKeyCallBacks, 
-                                                                     &kCFTypeDictionaryValueCallBacks );
-
-                        CFArrayAppendValue( cfSlotInfo, cfDict );
-
-                        if (iDepth > iMaxSlotDepth) iMaxSlotDepth = iDepth;
-                        
-                        CFRelease( cfDict );
-                        CFRelease( cfBucket );
-                        CFRelease( cfDepth );
-                    }
-                }
-
-                CFNumberRef cfMaxDepth = CFNumberCreate( kCFAllocatorDefault, kCFNumberCFIndexType, &iMaxSlotDepth );
-                CFDictionarySetValue( cfInformation, CFSTR("Max Bucket Depth"), cfMaxDepth );
-                CFRelease( cfMaxDepth );
+				fLibinfoCache->ApplyFunction( CacheDetails, &details );
+				
+				total = CFDictionaryGetCount( details.fEntryMap );
+				
+				DSCFRelease( details.fEntryMap );
+				DSCFRelease( details.fEntries );
+				
+				CFMutableDictionaryRef  cfCounts = CFDictionaryCreateMutable( kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, 
+																			  &kCFTypeDictionaryValueCallBacks );
+				CFDictionarySetValue( cfInformation, CFSTR("Counts By Type"), cfCounts );
+				CFRelease( cfCounts );
+				
+				for ( int ii = 0; ii < typeCnt; ii++ )
+				{
+					if ( counts[ii] > 0 )
+					{
+						CFNumberRef cfNumber = CFNumberCreate( kCFAllocatorDefault, kCFNumberCFIndexType, &counts[ii] );
+						CFDictionarySetValue( cfCounts, typesStr[ii], cfNumber );
+						CFRelease( cfNumber );
+					}
+				}	
+				
+				CFStringRef cur_size = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR("%u"), total );
+                CFDictionarySetValue( cfInformation, CFSTR("Cache Size"), cur_size );
+                CFRelease( cur_size );
                 
-                CFNumberRef cfSlotsUsed = CFNumberCreate( kCFAllocatorDefault, kCFNumberCFIndexType, &iSlotsUsed );
-                CFDictionarySetValue( cfInformation, CFSTR("Buckets Used"), cfSlotsUsed );
-                CFRelease( cfSlotsUsed );
-
-                // build an overview of the cache info to minimize data sent to client request
-                CFStringRef typesStr[]      = { CFSTR("User"), CFSTR("Group"), CFSTR("Host"), CFSTR("Service"), CFSTR("Computer"),
-                                                CFSTR("Mount"), CFSTR("Alias"), CFSTR("Protocol"), CFSTR("RPC"), CFSTR("Network") };
-                uint32_t    cacheTypes[]    = { CACHE_ENTRY_TYPE_USER, CACHE_ENTRY_TYPE_GROUP, CACHE_ENTRY_TYPE_HOST, CACHE_ENTRY_TYPE_SERVICE,
-                                                CACHE_ENTRY_TYPE_COMPUTER, CACHE_ENTRY_TYPE_MOUNT, CACHE_ENTRY_TYPE_ALIAS, CACHE_ENTRY_TYPE_PROTOCOL,
-                                                CACHE_ENTRY_TYPE_RPC, CACHE_ENTRY_TYPE_NETWORK };
-                int         typeCnt         = sizeof(cacheTypes) / sizeof(uint32_t);
-                CFIndex     counts[typeCnt];
-                
-                bzero( counts, sizeof(counts) );
-                      
-                sCacheEntry *entry          = fLibinfoCache->fHead;
-                while (entry != NULL)
-                {
-                    // count up the types
-                    int iType = entry->fFlags & 0x00000FFF;
-                    switch( iType )
-                    {
-                        case CACHE_ENTRY_TYPE_USER:
-                            counts[0] += 1;
-                            break;
-                        case CACHE_ENTRY_TYPE_GROUP:
-                            counts[1] += 1;
-                            break;
-                        case CACHE_ENTRY_TYPE_HOST:
-                            counts[2] += 1;
-                            break;
-                        case CACHE_ENTRY_TYPE_SERVICE:
-                            counts[3] += 1;
-                            break;
-                        case CACHE_ENTRY_TYPE_COMPUTER:
-                            counts[4] += 1;
-                            break;
-                        case CACHE_ENTRY_TYPE_MOUNT:
-                            counts[5] += 1;
-                            break;
-                        case CACHE_ENTRY_TYPE_ALIAS:
-                            counts[6] += 1;
-                            break;
-                        case CACHE_ENTRY_TYPE_PROTOCOL:
-                            counts[7] += 1;
-                            break;
-                        case CACHE_ENTRY_TYPE_RPC:
-                            counts[8] += 1;
-                            break;
-                        case CACHE_ENTRY_TYPE_NETWORK:
-                            counts[9] += 1;
-                            break;
-                        default:
-                            break;
-                    }
-                    entry = entry->fNext;
-                }
-                
-                CFMutableDictionaryRef  cfCounts = CFDictionaryCreateMutable( kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, 
-                                                                              &kCFTypeDictionaryValueCallBacks );
-                CFDictionarySetValue( cfInformation, CFSTR("Counts By Type"), cfCounts );
-                CFRelease( cfCounts );
-
-                for ( int ii = 0; ii < typeCnt; ii++ )
-                {
-                    if ( counts[ii] > 0 )
-                    {
-                        CFNumberRef cfNumber = CFNumberCreate( kCFAllocatorDefault, kCFNumberCFIndexType, &counts[ii] );
-                        
-                        CFDictionarySetValue( cfCounts, typesStr[ii], cfNumber );
-                        
-                        CFRelease( cfNumber );
-                    }
-                }
-                
-                if ( strcmp( pAttrName, "dsAttrTypeNative:LibinfoCacheDetails" ) == 0 )
-                {
-                    // now go through entries and dump them
-                    entry = fLibinfoCache->fHead;
-                    while (entry != NULL)
-                    {
-                        CFMutableDictionaryRef	cfEntry = CFDictionaryCreateMutable( kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks,
-                                                                                     &kCFTypeDictionaryValueCallBacks );
-                        
-                        if ( entry->fKeyList.fCount > 0 )
-                        {
-                            CFMutableArrayRef cfKeys = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
-                            
-                            sKeyListItem *item = entry->fKeyList.fHead;
-                            while (item != NULL)
-                            {
-                                // no need to copy the string, just use the stuff directly since we will be turning into XML anyway
-                                CFStringRef cfKeyValue = CFStringCreateWithCStringNoCopy( kCFAllocatorDefault, item->fKey, kCFStringEncodingUTF8, 
-                                                                                          kCFAllocatorNull );
-                                
-                                CFArrayAppendValue( cfKeys, cfKeyValue );
-                                CFRelease( cfKeyValue );
-                                
-                                item = item->fNext;
-                            }
-                            
-                            CFDictionarySetValue( cfEntry, CFSTR("Keys"), cfKeys );
-                            CFRelease( cfKeys );
-                        }
-                        
-                        sCacheValidation *valid_t = entry->fValidation;
-                        if (valid_t != NULL)
-                        {
-                            CFMutableDictionaryRef validation = CFDictionaryCreateMutable( kCFAllocatorDefault, 2, &kCFTypeDictionaryKeyCallBacks, 
-                                                                                          &kCFTypeDictionaryValueCallBacks );
-                            
-                            if ( valid_t->fNode != NULL )
-                            {
-                                CFStringRef cfNode = CFStringCreateWithCStringNoCopy( kCFAllocatorDefault, valid_t->fNode, kCFStringEncodingUTF8, 
-                                                                                      kCFAllocatorNull );
-                                CFDictionarySetValue( validation, CFSTR("Name"), cfNode );
-                                CFRelease( cfNode );
-                            }
-                            
-                            CFStringRef cfToken = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR("%u"), valid_t->fToken );
-                            CFStringRef cfRefs = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR("%u"), valid_t->fRefCount );
-                            
-                            CFDictionarySetValue( validation, CFSTR("Available"), (valid_t->fNodeAvailable ? kCFBooleanTrue : kCFBooleanFalse) );
-                            CFDictionarySetValue( validation, CFSTR("Token"), cfToken );
-                            CFDictionarySetValue( validation, CFSTR("Reference Count"), cfRefs );
-                            
-                            CFRelease( cfToken );
-                            CFRelease( cfRefs );
-                            
-                            CFDictionarySetValue( cfEntry, CFSTR("Validation Information"), validation );
-                            CFRelease( validation );
-                        }
-                        
-                        if ( entry->fTTL )
-                        {
-                            CFStringRef ttl2 = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR("%u"), entry->fTTL );
-                            CFDictionarySetValue( cfEntry, CFSTR("TTL"), ttl2 );
-                            CFRelease( ttl2 );
-                        }
-                        
-                        CFDateRef cfBestBefore = ConvertBSDTimeToCFDate( entry->fBestBefore );
-                        if (cfBestBefore)
-                        {
-                            CFDictionarySetValue( cfEntry, CFSTR("Best Before"), cfBestBefore );
-                            CFRelease( cfBestBefore );
-                        }
-
-                        CFDateRef cfLastAccess = ConvertBSDTimeToCFDate( entry->fLastAccess );
-                        if (cfLastAccess)
-                        {
-                            CFDictionarySetValue( cfEntry, CFSTR("Last Access"), cfLastAccess );
-                            CFRelease( cfLastAccess );
-                        }
-                        
-                        CFStringRef hits = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR("%u"), entry->fHits );
-                        CFDictionarySetValue( cfEntry, CFSTR("Hits"), hits );
-                        CFRelease( hits );
-                        
-                        CFStringRef cfRefs = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR("%u"), entry->fRefCount );
-                        CFDictionarySetValue( cfEntry, CFSTR("Reference Count"), cfRefs );
-                        CFRelease( cfRefs );
-                        
-                        int iType = entry->fFlags & 0x00000FFF;
-                        switch( iType )
-                        {
-                            case CACHE_ENTRY_TYPE_USER:
-                                CFDictionarySetValue( cfEntry, CFSTR("Type"), CFSTR("User") );
-                                break;
-                            case CACHE_ENTRY_TYPE_GROUP:
-                                CFDictionarySetValue( cfEntry, CFSTR("Type"), CFSTR("Group") );
-                                break;
-                            case CACHE_ENTRY_TYPE_HOST:
-                                CFDictionarySetValue( cfEntry, CFSTR("Type"), CFSTR("Host") );
-                                break;
-                            case CACHE_ENTRY_TYPE_SERVICE:
-                                CFDictionarySetValue( cfEntry, CFSTR("Type"), CFSTR("Service") );
-                                break;
-                            case CACHE_ENTRY_TYPE_COMPUTER:
-                                CFDictionarySetValue( cfEntry, CFSTR("Type"), CFSTR("Computer") );
-                                break;
-                            case CACHE_ENTRY_TYPE_MOUNT:
-                                CFDictionarySetValue( cfEntry, CFSTR("Type"), CFSTR("Mount") );
-                                break;
-                            case CACHE_ENTRY_TYPE_ALIAS:
-                                CFDictionarySetValue( cfEntry, CFSTR("Type"), CFSTR("Alias") );
-                                break;
-                            case CACHE_ENTRY_TYPE_PROTOCOL:
-                                CFDictionarySetValue( cfEntry, CFSTR("Type"), CFSTR("Protocol") );
-                                break;
-                            case CACHE_ENTRY_TYPE_RPC:
-                                CFDictionarySetValue( cfEntry, CFSTR("Type"), CFSTR("RPC") );
-                                break;
-                            case CACHE_ENTRY_TYPE_NETWORK:
-                                CFDictionarySetValue( cfEntry, CFSTR("Type"), CFSTR("Network") );
-                                break;
-                            default:
-                                break;
-                        }
-                        
-                        if (entry->fFlags & CACHE_ENTRY_TYPE_NEGATIVE)
-                            CFDictionarySetValue( cfEntry, CFSTR("Negative Entry"), kCFBooleanTrue );
-                        
-                        CFArrayAppendValue( cfEntries, cfEntry );
-                        CFRelease( cfEntry );
-                        
-                        entry = entry->fNext;
-                    }
-
-                    CFDictionarySetValue( cfInformation, CFSTR("Entries"), cfEntries );
-                }
-
-                fLibinfoCache->fCacheLock.SignalLock();
-
                 CFDataRef cfData = CFPropertyListCreateXMLData( kCFAllocatorDefault, cfInformation );
                 
 				uiAttrCnt++;
@@ -1439,7 +1546,7 @@ SInt32 CCachePlugin::GetDirNodeInfo ( sGetDirNodeInfo *inData )
                 DSCFRelease( cfInformation );
 				DSCFRelease( cfData );
             }
-            
+			
             if ( strcmp( pAttrName, "dsAttrTypeNative:Statistics" ) == 0 )
             {
                 uiAttrCnt++;
@@ -1591,6 +1698,7 @@ SInt32 CCachePlugin::GetRecordList ( sGetRecordList *inData )
     SInt32					siResult		= eDSNoErr;
     sCacheContinueData	   *pContinue		= NULL;
     sCacheContextData	   *pContext		= NULL;
+    tContextData            uiContinue      = 0;
     
     //TODO build the cache key from the inpout data request
     
@@ -1603,12 +1711,12 @@ SInt32 CCachePlugin::GetRecordList ( sGetRecordList *inData )
         if ( pContext == NULL ) throw( (SInt32)eDSInvalidNodeRef );
         
         //TODO need to flush out for what we carry around the continue data here ie. pass thru likely only
-        if ( inData->fIOContinueData == NULL )
+        if ( inData->fIOContinueData == 0 )
         {
             pContinue = (sCacheContinueData *)::calloc( 1, sizeof( sCacheContinueData ) );
             if ( pContinue == NULL ) throw( (SInt32)eMemoryAllocError );
             
-            gCacheNodeContinue->AddItem( pContinue, inData->fInNodeRef );
+            uiContinue = gCacheNodeContinue->AddPointer( pContinue, inData->fInNodeRef );
             
             //TODO figure out if we need to open separate refs
             pContinue->fDirRef = fDirRef;
@@ -1625,11 +1733,10 @@ SInt32 CCachePlugin::GetRecordList ( sGetRecordList *inData )
         }
         else
         {
-            pContinue = (sCacheContinueData *)inData->fIOContinueData;
-            if ( gCacheNodeContinue->VerifyItem( pContinue ) == false )
-            {
-                throw( (SInt32)eDSInvalidContinueData );
-            }
+            pContinue = (sCacheContinueData *) gCacheNodeContinue->GetPointer( inData->fIOContinueData );
+            if ( pContinue == NULL ) throw( (SInt32)eDSInvalidContinueData );
+            
+            uiContinue = inData->fIOContinueData;
         }
         
         // Pass the out buffer on thru as well as the continue data
@@ -1644,14 +1751,14 @@ SInt32 CCachePlugin::GetRecordList ( sGetRecordList *inData )
                                     &inData->fOutRecEntryCount,
                                     &pContinue->fContinue );
         
-        if (pContinue->fContinue != NULL)
+        if (pContinue->fContinue != 0)
         {
-            inData->fIOContinueData = (tContextData *)pContinue;
+            inData->fIOContinueData = uiContinue;
         }
         else
         {
-            inData->fIOContinueData = NULL;
-            gCacheNodeContinue->RemoveItem( pContinue );
+            gCacheNodeContinue->RemoveContext( uiContinue );
+            inData->fIOContinueData = 0;
         }
         
         //TODO here we add to the cache of the results returned
@@ -1681,6 +1788,7 @@ SInt32 CCachePlugin::AttributeValueSearch ( sDoAttrValueSearchWithData *inData )
     SInt32					siResult		= eDSNoErr;
     sCacheContinueData	   *pContinue		= NULL;
     sCacheContextData	   *pContext		= NULL;
+    tContextData            uiContinue      = 0;
     
     //TODO build the cache key from the inpout data request
     
@@ -1693,12 +1801,12 @@ SInt32 CCachePlugin::AttributeValueSearch ( sDoAttrValueSearchWithData *inData )
         if ( pContext == NULL ) throw( (SInt32)eDSInvalidNodeRef );
         
         //TODO need to flush out for what we carry around the continue data here ie. pass thru likely only
-        if ( inData->fIOContinueData == NULL )
+        if ( inData->fIOContinueData == 0 )
         {
             pContinue = (sCacheContinueData *)::calloc( 1, sizeof( sCacheContinueData ) );
             if ( pContinue == NULL ) throw( (SInt32)eMemoryAllocError );
             
-            gCacheNodeContinue->AddItem( pContinue, inData->fInNodeRef );
+            uiContinue = gCacheNodeContinue->AddPointer( pContinue, inData->fInNodeRef );
             
             //TODO figure out if we need to open separate refs
             pContinue->fDirRef = fDirRef;
@@ -1715,11 +1823,10 @@ SInt32 CCachePlugin::AttributeValueSearch ( sDoAttrValueSearchWithData *inData )
         }
         else
         {
-            pContinue = (sCacheContinueData *)inData->fIOContinueData;
-            if ( gCacheNodeContinue->VerifyItem( pContinue ) == false )
-            {
-                throw( (SInt32)eDSInvalidContinueData );
-            }
+            pContinue = (sCacheContinueData *) gCacheNodeContinue->GetPointer( inData->fIOContinueData );
+            if ( pContinue == NULL ) throw( (SInt32)eDSInvalidContinueData );
+            
+            uiContinue = inData->fIOContinueData;
         }
         
         // Pass the out buffer on thru as well as the continue data
@@ -1750,14 +1857,14 @@ SInt32 CCachePlugin::AttributeValueSearch ( sDoAttrValueSearchWithData *inData )
                                                     &pContinue->fContinue );
         }
         
-        if (pContinue->fContinue != NULL)
+        if (pContinue->fContinue != 0)
         {
-            inData->fIOContinueData = (tContextData *)pContinue;
+            inData->fIOContinueData = uiContinue;
         }
         else
         {
-            inData->fIOContinueData = NULL;
-            gCacheNodeContinue->RemoveItem( pContinue );
+            gCacheNodeContinue->RemoveContext( uiContinue );
+            inData->fIOContinueData = 0;
         }
         
         //TODO here we add to the cache of the results returned
@@ -1786,6 +1893,7 @@ SInt32 CCachePlugin::MultipleAttributeValueSearch ( sDoMultiAttrValueSearchWithD
     SInt32					siResult		= eDSNoErr;
     sCacheContinueData	   *pContinue		= NULL;
     sCacheContextData	   *pContext		= NULL;
+    tContextData            uiContinue      = 0;
     
     //TODO build the cache key from the inpout data request
     
@@ -1798,12 +1906,12 @@ SInt32 CCachePlugin::MultipleAttributeValueSearch ( sDoMultiAttrValueSearchWithD
         if ( pContext == NULL ) throw( (SInt32)eDSInvalidNodeRef );
         
         //TODO need to flush out for what we carry around the continue data here ie. pass thru likely only
-        if ( inData->fIOContinueData == NULL )
+        if ( inData->fIOContinueData == 0 )
         {
             pContinue = (sCacheContinueData *)::calloc( 1, sizeof( sCacheContinueData ) );
             if ( pContinue == NULL ) throw( (SInt32)eMemoryAllocError );
             
-            gCacheNodeContinue->AddItem( pContinue, inData->fInNodeRef );
+            uiContinue = gCacheNodeContinue->AddPointer( pContinue, inData->fInNodeRef );
             
             //TODO figure out if we need to open separate refs
             pContinue->fDirRef = fDirRef;
@@ -1820,11 +1928,10 @@ SInt32 CCachePlugin::MultipleAttributeValueSearch ( sDoMultiAttrValueSearchWithD
         }
         else
         {
-            pContinue = (sCacheContinueData *)inData->fIOContinueData;
-            if ( gCacheNodeContinue->VerifyItem( pContinue ) == false )
-            {
-                throw( (SInt32)eDSInvalidContinueData );
-            }
+            pContinue = (sCacheContinueData *) gCacheNodeContinue->GetPointer( inData->fIOContinueData );
+            if ( pContinue == NULL ) throw( (SInt32)eDSInvalidContinueData );
+            
+            uiContinue = inData->fIOContinueData;
         }
         
         // Pass the out buffer on thru as well as the continue data
@@ -1856,14 +1963,14 @@ SInt32 CCachePlugin::MultipleAttributeValueSearch ( sDoMultiAttrValueSearchWithD
                                                             &pContinue->fContinue );
         }
         
-        if (pContinue->fContinue != NULL)
+        if (pContinue->fContinue != 0)
         {
-            inData->fIOContinueData = (tContextData *)pContinue;
+            inData->fIOContinueData = uiContinue;;
         }
         else
         {
-            inData->fIOContinueData = NULL;
-            gCacheNodeContinue->RemoveItem( pContinue );
+            gCacheNodeContinue->RemoveContext( uiContinue );
+            inData->fIOContinueData = 0;
         }
         
         //TODO here we add to the cache of the results returned
@@ -2353,24 +2460,14 @@ SInt32 CCachePlugin::ReleaseContinueData ( sReleaseContinueData *inData )
     sCacheContinueData	   *pContinue		= NULL;
     
     //Now use the search node
-    try
+    pContinue = (sCacheContinueData *) gCacheNodeContinue->GetPointer( inData->fInContinueData );
+    if ( pContinue != NULL )
     {
-        pContinue = (sCacheContinueData *)inData->fInContinueData;
-        if ( gCacheNodeContinue->VerifyItem( pContinue ) == false )
-        {
-            throw( (SInt32)eDSInvalidContinueData );
-        }
-        
         siResult = dsReleaseContinueData( pContinue->fNodeRef, pContinue->fContinue );
     }
-    
-    catch( SInt32 err )
-    {
-        siResult = err;
-    }
-    
+        
     // RemoveItem calls our ContinueDeallocProc to clean up
-    if ( gCacheNodeContinue->RemoveItem( pContinue ) != eDSNoErr )
+    if ( gCacheNodeContinue->RemoveContext( inData->fInContinueData ) != eDSNoErr )
     {
         siResult = eDSInvalidContext;
     }
@@ -2442,10 +2539,23 @@ SInt32 CCachePlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
         if ( thePID > 0 ) {
             
             fPIDListLock.WaitLock();
-            if ( inData->fInRequestCode == eDSCustomCallCacheRegisterLocalSearchPID )
+            if ( inData->fInRequestCode == eDSCustomCallCacheRegisterLocalSearchPID ) {
                 fLocalOnlyPIDs.insert( thePID );
-            else
+				
+				dispatch_source_proc_create( thePID, 
+											DISPATCH_PROC_EXIT | DISPATCH_PROC_EXEC, 
+											NULL, 
+											dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT), 
+											^(dispatch_source_t ds) {
+												fPIDListLock.WaitLock();
+												DbgLog( kLogInfo, "CCachePlugin - deregistered PID %d from exception list", thePID );
+												fLocalOnlyPIDs.erase( thePID );
+												fPIDListLock.SignalLock();
+											} );
+			}
+            else {
                 fLocalOnlyPIDs.erase( thePID );
+			}
             fPIDListLock.SignalLock();
         }
     }
@@ -2479,14 +2589,20 @@ done:
 //                   int     pw_fields;      /* internal: fields filled in -- 0*/
 //           };
 sCacheValidation* ParsePasswdEntry( tDirReference inDirRef, tDirNodeReference inNodeRef, kvbuf_t *inBuffer, tDataBufferPtr inDataBuffer, 
-                                    tRecordEntryPtr inRecEntry, tAttributeListRef inAttrListRef, void *additionalInfo, CCache *inCache, char **inKeys )
+                                    tRecordEntryPtr inRecEntry, tAttributeListRef inAttrListRef, void *additionalInfo, CCache *inCache, const char **inKeys )
 {
     tAttributeValueListRef	valueRef            = 0;
     tAttributeEntry		   *pAttrEntry          = nil;
     tAttributeValueEntry   *pValueEntry         = nil;
     tDirStatus				siResult;
-    kvbuf_t                *tempBuffer          = kvbuf_new();
+    kvbuf_t                *tempBuffer          = kvbuf_new_zone( malloc_default_purgeable_zone() );
     sCacheValidation       *valid_t             = NULL;
+    bool                    serviceAccount      = false;
+    uint32_t                entryFlags          = CACHE_ENTRY_TYPE_USER;
+    
+    if ( additionalInfo != NULL ) {
+        entryFlags |= *((uint32_t *) additionalInfo);
+    }
     
     kvbuf_add_dict( tempBuffer );
     
@@ -2503,12 +2619,32 @@ sCacheValidation* ParsePasswdEntry( tDirReference inDirRef, tDirNodeReference in
             // Is it what we expected
             if ( ::strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrMetaNodeLocation ) == 0 )
             {
-                valid_t = new sCacheValidation( pValueEntry->fAttributeValueData.fBufferData );
+				if ( valid_t == NULL )
+					valid_t = new sCacheValidation( pValueEntry->fAttributeValueData.fBufferData );
+                
+                // go ahead and add node location to the buffer too
+                if ( (entryFlags & CACHE_ENTRY_TYPE_EXTENDED) != 0 ) {
+                    kvbuf_add_key( tempBuffer, kDSNAttrMetaNodeLocation );
+                    kvbuf_add_val( tempBuffer, pValueEntry->fAttributeValueData.fBufferData );
+                }
             }
             else if ( ::strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrRecordName ) == 0 )
             {
                 kvbuf_add_key( tempBuffer, "pw_name" );
                 kvbuf_add_val( tempBuffer, pValueEntry->fAttributeValueData.fBufferData );
+				
+                // we add all the names for cache hit purposes even though only the first one is used
+                for ( UInt32 idx=2; idx <= pAttrEntry->fAttributeValueCount; idx++ )
+                {
+                    if ( pValueEntry != NULL )
+                    {
+                        dsDeallocAttributeValueEntry( inDirRef, pValueEntry );
+                        pValueEntry = NULL;
+                    }
+                    siResult = dsGetAttributeValue( inNodeRef, inDataBuffer, idx, valueRef, &pValueEntry );
+                    
+                    kvbuf_add_val( tempBuffer, pValueEntry->fAttributeValueData.fBufferData );
+                }
             }
             else if ( ::strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDS1AttrPassword ) == 0 )
             {
@@ -2545,102 +2681,50 @@ sCacheValidation* ParsePasswdEntry( tDirReference inDirRef, tDirNodeReference in
                 kvbuf_add_key( tempBuffer, "pw_gecos" );
                 kvbuf_add_val( tempBuffer, pValueEntry->fAttributeValueData.fBufferData );
             }
-            
-            if ( pValueEntry != NULL )
+            else if ( ::strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrKeywords ) == 0 )
             {
-                dsDeallocAttributeValueEntry( inDirRef, pValueEntry );
-                pValueEntry = NULL;
-            }
-        }
-        
-        if ( valueRef != 0 )
-        {
-            dsCloseAttributeValueList( valueRef );
-            valueRef = 0;
-        }
-        
-        if ( pAttrEntry != NULL )
-        {
-            dsDeallocAttributeEntry( inDirRef, pAttrEntry );
-            pAttrEntry = NULL;
-        }
-    } //loop over attrs requested
-    
-    kvbuf_append_kvbuf( inBuffer, tempBuffer );
-    
-    if( inCache != NULL && inKeys != NULL )
-        CCachePlugin::AddEntryToCacheWithKeys( inCache, valid_t, tempBuffer, CACHE_ENTRY_TYPE_USER, kCacheTime, inKeys );
-    else
-        kvbuf_free( tempBuffer );
-    
-    return( valid_t );
-}
+                UInt32 index = 1;
+                do {
+                    if ( ::strcmp( pValueEntry->fAttributeValueData.fBufferData, "com.apple.ServiceAccount" ) == 0 )
+                    {
+                        serviceAccount = true;
+                        break;
+                    }
 
-// kvbuf_t key/value pair dictionary
-//           struct group {
-//                   char    *gr_name;       /* group name -- kDSNAttrRecordName */
-//                   char    *gr_passwd;     /* group password -- kDS1AttrPassword */
-//                   int     gr_gid;         /* group id -- kDS1AttrPrimaryGroupID */
-//                   char    **gr_mem;       /* group members -- kDSNAttrGroupMembership */
-//           };
-sCacheValidation* ParseGroupEntry( tDirReference inDirRef, tDirNodeReference inNodeRef, kvbuf_t *inBuffer, tDataBufferPtr inDataBuffer, 
-                                   tRecordEntryPtr inRecEntry, tAttributeListRef inAttrListRef, void *additionalInfo, CCache *inCache, char **inKeys )
-{
-    tAttributeValueListRef	valueRef		= 0;
-    tAttributeEntry		   *pAttrEntry		= nil;
-    tAttributeValueEntry   *pValueEntry		= nil;
-    tDirStatus				siResult;
-    kvbuf_t                *tempBuffer      = kvbuf_new();
-    sCacheValidation       *valid_t         = NULL;
-    
-    kvbuf_add_dict( tempBuffer );
-    
-    //index starts at one - should have multiple entries
-    for (unsigned int i = 1; i <= inRecEntry->fRecordAttributeCount; i++)
-    {
-        siResult = dsGetAttributeEntry( inNodeRef, inDataBuffer, inAttrListRef, i, &valueRef, &pAttrEntry );
-        
-        //need to have at least one value - usually get first only in each case
-        if ( ( siResult == eDSNoErr ) && ( pAttrEntry->fAttributeValueCount > 0 ) )
-        {
-            // Get the first attribute value
-            siResult = ::dsGetAttributeValue( inNodeRef, inDataBuffer, 1, valueRef, &pValueEntry );
-            
-            // Is it what we expected
-            if ( ::strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrMetaNodeLocation ) == 0 )
-            {
-                valid_t = new sCacheValidation( pValueEntry->fAttributeValueData.fBufferData );
+                    if ( ++index <= pAttrEntry->fAttributeValueCount )
+                    {
+                        if ( pValueEntry != NULL )
+                        {
+                            dsDeallocAttributeValueEntry( inDirRef, pValueEntry );
+                            pValueEntry = NULL;
+                        }
+                        siResult = dsGetAttributeValue( inNodeRef, inDataBuffer, index, valueRef, &pValueEntry );
+                        continue;
+                    }
+
+                    break;
+                } while (1);
             }
-            else if ( strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrRecordName ) == 0 )
+            else if ( (entryFlags & CACHE_ENTRY_TYPE_EXTENDED) != 0 )
             {
-                kvbuf_add_key( tempBuffer, "gr_name" );
-                kvbuf_add_val( tempBuffer, pValueEntry->fAttributeValueData.fBufferData );
-            }
-            else if ( strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDS1AttrPassword ) == 0 )
-            {
-                kvbuf_add_key( tempBuffer, "gr_passwd" );
-                kvbuf_add_val( tempBuffer, pValueEntry->fAttributeValueData.fBufferData );
-            }
-            else if ( strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDS1AttrPrimaryGroupID ) == 0 )
-            {
-                kvbuf_add_key( tempBuffer, "gr_gid" );
-                kvbuf_add_val( tempBuffer, pValueEntry->fAttributeValueData.fBufferData );
-            }
-            else if ( strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrGroupMembership ) == 0 )
-            {
-                kvbuf_add_key( tempBuffer, "gr_mem" );
+                // if it is server OS and there is additional attributes, add them to this entry
+                kvbuf_add_key( tempBuffer, pAttrEntry->fAttributeSignature.fBufferData );
                 kvbuf_add_val( tempBuffer, pValueEntry->fAttributeValueData.fBufferData );
                 
-                for (UInt32 idx=2; idx <= pAttrEntry->fAttributeValueCount; idx++)
+                for ( UInt32 idx = 2; idx <= pAttrEntry->fAttributeValueCount; idx++ )
                 {
-                    if ( pValueEntry != NULL )
-                    {
+                    if ( pValueEntry != NULL ) {
                         dsDeallocAttributeValueEntry( inDirRef, pValueEntry );
                         pValueEntry = NULL;
                     }
-                    siResult = dsGetAttributeValue( inNodeRef, inDataBuffer, idx, valueRef, &pValueEntry );
                     
+                    siResult = dsGetAttributeValue( inNodeRef, inDataBuffer, idx, valueRef, &pValueEntry );
                     kvbuf_add_val( tempBuffer, pValueEntry->fAttributeValueData.fBufferData );
+                }                
+                
+                if ( pValueEntry != NULL ) {
+                    dsDeallocAttributeValueEntry( inDirRef, pValueEntry );
+                    pValueEntry = NULL;
                 }
             }
             
@@ -2664,10 +2748,150 @@ sCacheValidation* ParseGroupEntry( tDirReference inDirRef, tDirNodeReference inN
         }
     } //loop over attrs requested
     
+    if (!serviceAccount)
+        kvbuf_append_kvbuf( inBuffer, tempBuffer );
+    
+    if( inCache != NULL && inKeys != NULL && !serviceAccount )
+        CCachePlugin::AddEntryToCacheWithKeys( inCache, valid_t, tempBuffer, entryFlags, kCacheTime, inKeys );
+    else
+        kvbuf_free( tempBuffer );
+    
+    return( valid_t );
+}
+
+// kvbuf_t key/value pair dictionary
+//           struct group {
+//                   char    *gr_name;       /* group name -- kDSNAttrRecordName */
+//                   char    *gr_passwd;     /* group password -- kDS1AttrPassword */
+//                   int     gr_gid;         /* group id -- kDS1AttrPrimaryGroupID */
+//                   char    **gr_mem;       /* group members -- kDSNAttrGroupMembership */
+//           };
+sCacheValidation* ParseGroupEntry( tDirReference inDirRef, tDirNodeReference inNodeRef, kvbuf_t *inBuffer, tDataBufferPtr inDataBuffer, 
+                                   tRecordEntryPtr inRecEntry, tAttributeListRef inAttrListRef, void *additionalInfo, CCache *inCache, const char **inKeys )
+{
+    tAttributeValueListRef	valueRef		= 0;
+    tAttributeEntry		   *pAttrEntry		= nil;
+    tAttributeValueEntry   *pValueEntry		= nil;
+    tDirStatus				siResult;
+    kvbuf_t                *tempBuffer      = kvbuf_new_zone( malloc_default_purgeable_zone() );
+    sCacheValidation       *valid_t         = NULL;
+    uint32_t                entryFlags      = CACHE_ENTRY_TYPE_GROUP;
+    
+    if ( additionalInfo != NULL ) {
+        entryFlags |= *((uint32_t *) additionalInfo);
+    }
+    
+    kvbuf_add_dict( tempBuffer );
+    
+    //index starts at one - should have multiple entries
+    for (unsigned int i = 1; i <= inRecEntry->fRecordAttributeCount; i++)
+    {
+        siResult = dsGetAttributeEntry( inNodeRef, inDataBuffer, inAttrListRef, i, &valueRef, &pAttrEntry );
+        
+        //need to have at least one value - usually get first only in each case
+        if ( ( siResult == eDSNoErr ) && ( pAttrEntry->fAttributeValueCount > 0 ) )
+        {
+            // Get the first attribute value
+            siResult = ::dsGetAttributeValue( inNodeRef, inDataBuffer, 1, valueRef, &pValueEntry );
+            
+            // Is it what we expected
+            if ( ::strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrMetaNodeLocation ) == 0 )
+            {
+				if ( valid_t == NULL )
+					valid_t = new sCacheValidation( pValueEntry->fAttributeValueData.fBufferData );
+            }
+            else if ( strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrRecordName ) == 0 )
+            {
+                kvbuf_add_key( tempBuffer, "gr_name" );
+                kvbuf_add_val( tempBuffer, pValueEntry->fAttributeValueData.fBufferData );
+				
+                // we add all the names for cache hit purposes even though only the first one is used
+                for ( UInt32 idx=2; idx <= pAttrEntry->fAttributeValueCount; idx++ )
+                {
+                    if ( pValueEntry != NULL )
+                    {
+                        dsDeallocAttributeValueEntry( inDirRef, pValueEntry );
+                        pValueEntry = NULL;
+                    }
+                    siResult = dsGetAttributeValue( inNodeRef, inDataBuffer, idx, valueRef, &pValueEntry );
+                    
+                    kvbuf_add_val( tempBuffer, pValueEntry->fAttributeValueData.fBufferData );
+                }
+            }
+            else if ( strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDS1AttrPassword ) == 0 )
+            {
+                kvbuf_add_key( tempBuffer, "gr_passwd" );
+                kvbuf_add_val( tempBuffer, pValueEntry->fAttributeValueData.fBufferData );
+            }
+            else if ( strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDS1AttrPrimaryGroupID ) == 0 )
+            {
+                kvbuf_add_key( tempBuffer, "gr_gid" );
+                kvbuf_add_val( tempBuffer, pValueEntry->fAttributeValueData.fBufferData );
+            }
+            else if ( strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrGroupMembership ) == 0 )
+            {
+                kvbuf_add_key( tempBuffer, "gr_mem" );
+                kvbuf_add_val( tempBuffer, pValueEntry->fAttributeValueData.fBufferData );
+                
+                for (UInt32 idx=2; idx <= pAttrEntry->fAttributeValueCount; idx++)
+                {
+                    if ( pValueEntry != NULL ) {
+                        dsDeallocAttributeValueEntry( inDirRef, pValueEntry );
+                        pValueEntry = NULL;
+                    }
+                    
+                    siResult = dsGetAttributeValue( inNodeRef, inDataBuffer, idx, valueRef, &pValueEntry );
+                    kvbuf_add_val( tempBuffer, pValueEntry->fAttributeValueData.fBufferData );
+                }
+            }
+            else if ( strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDS1AttrGeneratedUID ) == 0 )
+            {
+                kvbuf_add_key( tempBuffer, "gr_uuid" );
+                kvbuf_add_val( tempBuffer, pValueEntry->fAttributeValueData.fBufferData );
+            }
+            else if ( (entryFlags & CACHE_ENTRY_TYPE_EXTENDED) != 0 )
+            {
+                // if it is server OS and there is additional attributes, add them to this entry
+                kvbuf_add_key( tempBuffer, pAttrEntry->fAttributeSignature.fBufferData );
+                kvbuf_add_val( tempBuffer, pValueEntry->fAttributeValueData.fBufferData );
+                
+                for ( UInt32 idx = 2; idx <= pAttrEntry->fAttributeValueCount; idx++ )
+                {
+                    if ( pValueEntry != NULL )
+                    {
+                        dsDeallocAttributeValueEntry( inDirRef, pValueEntry );
+                        pValueEntry = NULL;
+                    }
+                    
+                    siResult = dsGetAttributeValue( inNodeRef, inDataBuffer, idx, valueRef, &pValueEntry );
+                    kvbuf_add_val( tempBuffer, pValueEntry->fAttributeValueData.fBufferData );
+                }                
+            }
+            
+            if ( pValueEntry != NULL )
+            {
+                dsDeallocAttributeValueEntry( inDirRef, pValueEntry );
+                pValueEntry = NULL;
+            }
+        }
+        
+        if ( valueRef != 0 )
+        {
+            dsCloseAttributeValueList( valueRef );
+            valueRef = 0;
+        }
+        
+        if ( pAttrEntry != NULL )
+        {
+            dsDeallocAttributeEntry( inDirRef, pAttrEntry );
+            pAttrEntry = NULL;
+        }
+    } //loop over attrs requested
+    
     kvbuf_append_kvbuf( inBuffer, tempBuffer );
     
     if( inCache != NULL && inKeys != NULL )
-        CCachePlugin::AddEntryToCacheWithKeys( inCache, valid_t, tempBuffer, CACHE_ENTRY_TYPE_GROUP, kCacheTime, inKeys );
+        CCachePlugin::AddEntryToCacheWithKeys( inCache, valid_t, tempBuffer, entryFlags, kCacheTime, inKeys );
     else
         kvbuf_free( tempBuffer );
 
@@ -2684,7 +2908,7 @@ sCacheValidation* ParseGroupEntry( tDirReference inDirRef, tDirNodeReference inN
 //    int     fs_passno;      /* pass number on parallel fsck */
 //};
 sCacheValidation* ParseMountEntry( tDirReference inDirRef, tDirNodeReference inNodeRef, kvbuf_t *inBuffer, tDataBufferPtr inDataBuffer, 
-                                   tRecordEntryPtr inRecEntry, tAttributeListRef inAttrListRef, void *additionalInfo, CCache *inCache, char **inKeys )
+                                   tRecordEntryPtr inRecEntry, tAttributeListRef inAttrListRef, void *additionalInfo, CCache *inCache, const char **inKeys )
 {
     tAttributeValueListRef	valueRef		= 0;
     tAttributeEntry		   *pAttrEntry		= nil;
@@ -2692,7 +2916,7 @@ sCacheValidation* ParseMountEntry( tDirReference inDirRef, tDirNodeReference inN
     tDirStatus				siResult;
     Boolean                 bFreqAdded      = false;
     Boolean                 bPassAdded      = false;
-    kvbuf_t                *tempBuffer      = kvbuf_new();
+    kvbuf_t                *tempBuffer      = kvbuf_new_zone( malloc_default_purgeable_zone() );
     sCacheValidation       *valid_t         = NULL;
     
     kvbuf_add_dict( tempBuffer );
@@ -2711,7 +2935,8 @@ sCacheValidation* ParseMountEntry( tDirReference inDirRef, tDirNodeReference inN
             // Is it what we expected
             if ( ::strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrMetaNodeLocation ) == 0 )
             {
-                valid_t = new sCacheValidation( pValueEntry->fAttributeValueData.fBufferData );
+				if ( valid_t == NULL )
+					valid_t = new sCacheValidation( pValueEntry->fAttributeValueData.fBufferData );
             }
             else if ( strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrRecordName ) == 0 )
             {
@@ -2732,7 +2957,7 @@ sCacheValidation* ParseMountEntry( tDirReference inDirRef, tDirNodeReference inN
             {
                 // this value is comma separated
                 char	tempBuff[256]   = { 0, };
-                char    *fs_type         = "rw";
+                const char    *fs_type         = "rw";
                 
                 kvbuf_add_key( tempBuffer, "fs_mntops" );
 
@@ -2832,13 +3057,13 @@ sCacheValidation* ParseMountEntry( tDirReference inDirRef, tDirNodeReference inN
 //    int alias_local;
 //};
 sCacheValidation* ParseAliasEntry( tDirReference inDirRef, tDirNodeReference inNodeRef, kvbuf_t *inBuffer, tDataBufferPtr inDataBuffer, 
-                                   tRecordEntryPtr inRecEntry, tAttributeListRef inAttrListRef, void *additionalInfo, CCache *inCache, char **inKeys )
+                                   tRecordEntryPtr inRecEntry, tAttributeListRef inAttrListRef, void *additionalInfo, CCache *inCache, const char **inKeys )
 {
     tAttributeValueListRef	valueRef		= 0;
     tAttributeEntry		   *pAttrEntry		= nil;
     tAttributeValueEntry   *pValueEntry		= nil;
     tDirStatus				siResult;
-    kvbuf_t                *tempBuffer      = kvbuf_new();
+    kvbuf_t                *tempBuffer      = kvbuf_new_zone( malloc_default_purgeable_zone() );
     sCacheValidation       *valid_t         = NULL;
     
     kvbuf_add_dict( tempBuffer );
@@ -2857,7 +3082,8 @@ sCacheValidation* ParseAliasEntry( tDirReference inDirRef, tDirNodeReference inN
             // Is it what we expected
             if ( ::strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrMetaNodeLocation ) == 0 )
             {
-                valid_t = new sCacheValidation( pValueEntry->fAttributeValueData.fBufferData );
+				if ( valid_t == NULL )
+					valid_t = new sCacheValidation( pValueEntry->fAttributeValueData.fBufferData );
             }
             else if ( strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrRecordName ) == 0 )
             {
@@ -2922,13 +3148,13 @@ sCacheValidation* ParseAliasEntry( tDirReference inDirRef, tDirNodeReference inN
 //	char    *s_proto;       /* protocol to use */
 //};
 sCacheValidation* ParseServiceEntry( tDirReference inDirRef, tDirNodeReference inNodeRef, kvbuf_t *inBuffer, tDataBufferPtr inDataBuffer, 
-                                     tRecordEntryPtr inRecEntry, tAttributeListRef inAttrListRef, void *additionalInfo, CCache *inCache, char **inKeys )
+                                     tRecordEntryPtr inRecEntry, tAttributeListRef inAttrListRef, void *additionalInfo, CCache *inCache, const char **inKeys )
 {
     tAttributeValueListRef	valueRef		= 0;
     tAttributeEntry		   *pAttrEntry		= nil;
     tAttributeValueEntry   *pValueEntry		= nil;
     tDirStatus				siResult;
-    kvbuf_t				   *tempBuffer		= kvbuf_new();
+    kvbuf_t				   *tempBuffer		= kvbuf_new_zone( malloc_default_purgeable_zone() );
     Boolean					bFoundProtocol	= false;
     char                   *portAndProtocols[64];
     uint32_t                iProtocolCount  = 0;
@@ -2959,7 +3185,8 @@ sCacheValidation* ParseServiceEntry( tDirReference inDirRef, tDirNodeReference i
             // Is it what we expected
             if ( ::strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrMetaNodeLocation ) == 0 )
             {
-                valid_t = new sCacheValidation( pValueEntry->fAttributeValueData.fBufferData );
+				if ( valid_t == NULL )
+					valid_t = new sCacheValidation( pValueEntry->fAttributeValueData.fBufferData );
             }
             else if ( strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrRecordName ) == 0 )
             {
@@ -3105,13 +3332,13 @@ sCacheValidation* ParseServiceEntry( tDirReference inDirRef, tDirNodeReference i
 //	int     p_proto;        /* protocol number */
 //};
 sCacheValidation* ParseProtocolEntry( tDirReference inDirRef, tDirNodeReference inNodeRef, kvbuf_t *inBuffer, tDataBufferPtr inDataBuffer, 
-                                      tRecordEntryPtr inRecEntry, tAttributeListRef inAttrListRef, void *additionalInfo, CCache *inCache, char **inKeys )
+                                      tRecordEntryPtr inRecEntry, tAttributeListRef inAttrListRef, void *additionalInfo, CCache *inCache, const char **inKeys )
 {
     tAttributeValueListRef	valueRef		= 0;
     tAttributeEntry		   *pAttrEntry		= nil;
     tAttributeValueEntry   *pValueEntry		= nil;
     tDirStatus				siResult;
-    kvbuf_t                *tempBuffer      = kvbuf_new();
+    kvbuf_t                *tempBuffer      = kvbuf_new_zone( malloc_default_purgeable_zone() );
     sCacheValidation       *valid_t         = NULL;
     
     kvbuf_add_dict( tempBuffer );
@@ -3130,7 +3357,8 @@ sCacheValidation* ParseProtocolEntry( tDirReference inDirRef, tDirNodeReference 
             // Is it what we expected
             if ( ::strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrMetaNodeLocation ) == 0 )
             {
-                valid_t = new sCacheValidation( pValueEntry->fAttributeValueData.fBufferData );
+				if ( valid_t == NULL )
+					valid_t = new sCacheValidation( pValueEntry->fAttributeValueData.fBufferData );
             }
             else if ( strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrRecordName ) == 0 )
             {
@@ -3195,13 +3423,13 @@ sCacheValidation* ParseProtocolEntry( tDirReference inDirRef, tDirNodeReference 
 //    long    r_number;       /* rpc program number */
 //};
 sCacheValidation* ParseRPCEntry( tDirReference inDirRef, tDirNodeReference inNodeRef, kvbuf_t *inBuffer, tDataBufferPtr inDataBuffer, 
-                                 tRecordEntryPtr inRecEntry, tAttributeListRef inAttrListRef, void *additionalInfo, CCache *inCache, char **inKeys )
+                                 tRecordEntryPtr inRecEntry, tAttributeListRef inAttrListRef, void *additionalInfo, CCache *inCache, const char **inKeys )
 {
     tAttributeValueListRef	valueRef		= 0;
     tAttributeEntry		   *pAttrEntry		= nil;
     tAttributeValueEntry   *pValueEntry		= nil;
     tDirStatus				siResult;
-    kvbuf_t                *tempBuffer      = kvbuf_new();
+    kvbuf_t                *tempBuffer      = kvbuf_new_zone( malloc_default_purgeable_zone() );
     sCacheValidation       *valid_t         = NULL;
     
     kvbuf_add_dict( tempBuffer );
@@ -3220,7 +3448,8 @@ sCacheValidation* ParseRPCEntry( tDirReference inDirRef, tDirNodeReference inNod
             // Is it what we expected
             if ( ::strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrMetaNodeLocation ) == 0 )
             {
-                valid_t = new sCacheValidation( pValueEntry->fAttributeValueData.fBufferData );
+				if ( valid_t == NULL )
+					valid_t = new sCacheValidation( pValueEntry->fAttributeValueData.fBufferData );
             }
             else if ( strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrRecordName ) == 0 )
             {
@@ -3286,13 +3515,13 @@ sCacheValidation* ParseRPCEntry( tDirReference inDirRef, tDirNodeReference inNod
 //    unsigned long   n_net;          /* net number */
 //};
 sCacheValidation* ParseNetworkEntry( tDirReference inDirRef, tDirNodeReference inNodeRef, kvbuf_t *inBuffer, tDataBufferPtr inDataBuffer, 
-                                     tRecordEntryPtr inRecEntry, tAttributeListRef inAttrListRef, void *additionalInfo, CCache *inCache, char **inKeys )
+                                     tRecordEntryPtr inRecEntry, tAttributeListRef inAttrListRef, void *additionalInfo, CCache *inCache, const char **inKeys )
 {
     tAttributeValueListRef	valueRef		= 0;
     tAttributeEntry		   *pAttrEntry		= nil;
     tAttributeValueEntry   *pValueEntry		= nil;
     tDirStatus				siResult;
-    kvbuf_t                *tempBuffer      = kvbuf_new();
+    kvbuf_t                *tempBuffer      = kvbuf_new_zone( malloc_default_purgeable_zone() );
     sCacheValidation       *valid_t         = NULL;
     
     kvbuf_add_dict( tempBuffer );
@@ -3311,7 +3540,8 @@ sCacheValidation* ParseNetworkEntry( tDirReference inDirRef, tDirNodeReference i
             // Is it what we expected
             if ( ::strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrMetaNodeLocation ) == 0 )
             {
-				valid_t = new sCacheValidation( pValueEntry->fAttributeValueData.fBufferData );
+				if ( valid_t == NULL )
+					valid_t = new sCacheValidation( pValueEntry->fAttributeValueData.fBufferData );
             }
             else if ( strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrRecordName ) == 0 )
             {
@@ -3372,13 +3602,13 @@ sCacheValidation* ParseNetworkEntry( tDirReference inDirRef, tDirNodeReference i
 
 sCacheValidation* ParseNetGroupEntry( tDirReference inDirRef, tDirNodeReference inNodeRef, kvbuf_t *inBuffer, tDataBufferPtr inDataBuffer, 
                                       tRecordEntryPtr inRecEntry, tAttributeListRef inAttrListRef, void *additionalInfo, CCache *inCache,
-                                      char **inKeys )
+                                      const char **inKeys )
 {
     tAttributeValueListRef	valueRef		= 0;
     tAttributeEntry		   *pAttrEntry		= nil;
     tAttributeValueEntry   *pValueEntry		= nil;
     tDirStatus				siResult;
-    kvbuf_t                 *tempBuffer     = kvbuf_new();
+    kvbuf_t                 *tempBuffer     = kvbuf_new_zone( malloc_default_purgeable_zone() );
     char                    **pSearch       = (char **) additionalInfo;
     char                    name[256]       = { 0, };
     sCacheValidation       *valid_t         = NULL;
@@ -3397,7 +3627,8 @@ sCacheValidation* ParseNetGroupEntry( tDirReference inDirRef, tDirNodeReference 
             // Is it what we expected
             if ( ::strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrMetaNodeLocation ) == 0 )
             {
-				valid_t = new sCacheValidation( pValueEntry->fAttributeValueData.fBufferData );
+				if ( valid_t == NULL )
+					valid_t = new sCacheValidation( pValueEntry->fAttributeValueData.fBufferData );
             }
             else if ( strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrRecordName ) == 0 )
             {
@@ -3557,13 +3788,13 @@ nextValue:
 //};
 sCacheValidation* ParseHostEntry( tDirReference inDirRef, tDirNodeReference inNodeRef, kvbuf_t *inBuffer, tDataBufferPtr inDataBuffer, 
                                   tRecordEntryPtr inRecEntry, tAttributeListRef inAttrListRef, void *additionalInfo, CCache *inCache, 
-                                  char **inKeys )
+                                  const char **inKeys )
 {
     tAttributeValueListRef	valueRef		= 0;
     tAttributeEntry		   *pAttrEntry		= nil;
     tAttributeValueEntry   *pValueEntry		= nil;
     tDirStatus				siResult;
-    kvbuf_t                 *tempBuffer     = kvbuf_new();
+    kvbuf_t                 *tempBuffer     = kvbuf_new_zone( malloc_default_purgeable_zone() );
     sCacheValidation       *valid_t         = NULL;
     
     kvbuf_add_dict( tempBuffer );
@@ -3582,7 +3813,8 @@ sCacheValidation* ParseHostEntry( tDirReference inDirRef, tDirNodeReference inNo
             // Is it what we expected
             if ( strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrMetaNodeLocation ) == 0 )
             {
-				valid_t = new sCacheValidation( pValueEntry->fAttributeValueData.fBufferData );
+				if ( valid_t == NULL )
+					valid_t = new sCacheValidation( pValueEntry->fAttributeValueData.fBufferData );
             }
             else if ( strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrRecordName ) == 0 )
             {
@@ -3672,13 +3904,13 @@ sCacheValidation* ParseHostEntry( tDirReference inDirRef, tDirNodeReference inNo
 
 sCacheValidation* ParseEthernetEntry( tDirReference inDirRef, tDirNodeReference inNodeRef, kvbuf_t *inBuffer, tDataBufferPtr inDataBuffer, 
                                       tRecordEntryPtr inRecEntry, tAttributeListRef inAttrListRef, void *additionalInfo, CCache *inCache, 
-                                      char **inKeys )
+                                      const char **inKeys )
 {
     tAttributeValueListRef	valueRef		= 0;
     tAttributeEntry		   *pAttrEntry		= nil;
     tAttributeValueEntry   *pValueEntry		= nil;
     tDirStatus				siResult;
-    kvbuf_t                *tempBuffer      = kvbuf_new();
+    kvbuf_t                *tempBuffer      = kvbuf_new_zone( malloc_default_purgeable_zone() );
     sCacheValidation       *valid_t         = NULL;
     
     kvbuf_add_dict( tempBuffer );
@@ -3697,7 +3929,8 @@ sCacheValidation* ParseEthernetEntry( tDirReference inDirRef, tDirNodeReference 
             // Is it what we expected
             if ( strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrMetaNodeLocation ) == 0 )
             {
-				valid_t = new sCacheValidation( pValueEntry->fAttributeValueData.fBufferData );
+				if ( valid_t == NULL )
+					valid_t = new sCacheValidation( pValueEntry->fAttributeValueData.fBufferData );
             }
             else if ( strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrRecordName ) == 0 )
             {
@@ -3757,15 +3990,16 @@ static struct ether_addr *myether_aton( const char *s, struct ether_addr *ep )
 
 sCacheValidation* ParseBootpEntry( tDirReference inDirRef, tDirNodeReference inNodeRef, kvbuf_t *inBuffer, tDataBufferPtr inDataBuffer, 
                                    tRecordEntryPtr inRecEntry, tAttributeListRef inAttrListRef, void *additionalInfo, CCache *inCache, 
-                                   char **inKeys )
+                                   const char **inKeys )
 {
     tAttributeValueListRef	valueRef		= 0;
     tAttributeEntry		   *pAttrEntry		= nil;
     tAttributeValueEntry   *pValueEntry		= nil;
     tDirStatus				siResult;
-    kvbuf_t                *tempBuffer		= kvbuf_new();
+    kvbuf_t                *tempBuffer		= kvbuf_new_zone( malloc_default_purgeable_zone() );
     sCacheValidation       *valid_t         = NULL;
     bool                    bUsedPair       = false;
+    bool                    bAddedFirst     = false;
     char                  **keys            = (char **) additionalInfo;
     
 	kvbuf_add_dict( tempBuffer );
@@ -3780,7 +4014,7 @@ sCacheValidation* ParseBootpEntry( tDirReference inDirRef, tDirNodeReference inN
             {
                 if ( strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrIPAddressAndENetAddress ) == 0 )
                 {
-                    for ( UInt32 ii = 1; ii <= pAttrEntry->fAttributeValueCount && bUsedPair == false; ii++ )
+                    for ( UInt32 ii = 1; ii <= pAttrEntry->fAttributeValueCount; ii++ )
                     {
                         siResult = ::dsGetAttributeValue( inNodeRef, inDataBuffer, ii, valueRef, &pValueEntry );
                         if ( siResult == eDSNoErr )
@@ -3810,11 +4044,15 @@ sCacheValidation* ParseBootpEntry( tDirReference inDirRef, tDirNodeReference inN
                                         
                                         if ( bFoundMatch || strcmp(keys[1], buffer) == 0 )
                                         {
-                                            kvbuf_add_key( tempBuffer, "bp_hw" );
-                                            kvbuf_add_val( tempBuffer, buffer );
-                                            kvbuf_add_key( tempBuffer, "bp_addr" );
+                                            // after we ad the first entry, we only add additional addresses
+                                            if ( bAddedFirst == false ) {
+                                                kvbuf_add_key( tempBuffer, "bp_hw" );
+                                                kvbuf_add_val( tempBuffer, buffer );
+                                                kvbuf_add_key( tempBuffer, "bp_addr" );
+                                                bAddedFirst = true;
+                                            }
+											
                                             kvbuf_add_val( tempBuffer, pValueEntry->fAttributeValueData.fBufferData );
-                                            
                                             bUsedPair = true;
                                         }
                                     }
@@ -3856,7 +4094,8 @@ sCacheValidation* ParseBootpEntry( tDirReference inDirRef, tDirNodeReference inN
             // Is it what we expected
             if ( strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrMetaNodeLocation ) == 0 )
             {
-				valid_t = new sCacheValidation( pValueEntry->fAttributeValueData.fBufferData );
+				if ( valid_t == NULL )
+					valid_t = new sCacheValidation( pValueEntry->fAttributeValueData.fBufferData );
             }
             else if ( strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrRecordName ) == 0 )
             {
@@ -3964,8 +4203,7 @@ void CCachePlugin::RemoveEntryWithMultiKey( CCache *inCache, ... )
     char       *key         = NULL;
     va_list     args;
     
-    if (gDSInstallDaemonMode)
-        return;
+	if (gDSInstallDaemonMode) return;
     
     va_start( args, inCache );
     
@@ -3975,7 +4213,7 @@ void CCachePlugin::RemoveEntryWithMultiKey( CCache *inCache, ... )
         if( tempKey == NULL )
             break;
         
-        char *tempValue = va_arg( args, char * );
+        const char *tempValue = va_arg( args, const char * );
         if( tempValue == NULL )
             tempValue = ""; // we accept NULLs as empty value
         
@@ -4011,11 +4249,11 @@ void CCachePlugin::AddEntryToCacheWithMultiKey( CCache *inCache, sCacheValidatio
     char       *key         = NULL;
     va_list     args;
     
-    if (gDSInstallDaemonMode)
+	if ( gDSInstallDaemonMode )
     {
         kvbuf_free( inEntry );    
         return;
-   }
+	}
 
     va_start( args, inTTL );
     
@@ -4025,7 +4263,7 @@ void CCachePlugin::AddEntryToCacheWithMultiKey( CCache *inCache, sCacheValidatio
         if( tempKey == NULL )
             break;
         
-        char *tempValue = va_arg( args, char * );
+        const char *tempValue = va_arg( args, const char * );
         if( tempValue == NULL )
             tempValue = ""; // we accept NULLs as empty value
         
@@ -4049,12 +4287,13 @@ void CCachePlugin::AddEntryToCacheWithMultiKey( CCache *inCache, sCacheValidatio
     
     if ( inEntry != NULL )
     {
-        sCacheEntry *cacheEntry = inCache->AddEntry( inEntry, key, inTTL, flags );
-        if( cacheEntry != NULL )
+        sCacheEntry *cacheEntry = inCache->CreateEntry( inEntry, key, inTTL, flags );
+        if ( cacheEntry != NULL )
         {
             DbgLog( kLogPlugin, "CCachePlugin::AddEntryToCacheWithMultiKey - Entry added for record %X with key %s - TTL %d", inEntry, key, 
                     inTTL );
             cacheEntry->AddValidation( inValidation );
+			inCache->ReleaseEntry( cacheEntry ); // we use cache release so the cache owns the retain count
         }
         else
         {
@@ -4065,10 +4304,11 @@ void CCachePlugin::AddEntryToCacheWithMultiKey( CCache *inCache, sCacheValidatio
     }
     else
     {
-        sCacheEntry *cacheEntry = inCache->AddEntry( NULL, key, inTTL, (flags | CACHE_ENTRY_TYPE_NEGATIVE) );
+        sCacheEntry *cacheEntry = inCache->CreateEntry( NULL, key, inTTL, (flags | CACHE_ENTRY_TYPE_NEGATIVE) );
         if ( cacheEntry != NULL )
         {
             DbgLog( kLogPlugin, "CCachePlugin::AddEntryToCacheWithMultiKey - Negative cache entry for key %s - TTL %d", key, inTTL );
+			inCache->ReleaseEntry( cacheEntry ); // we use cache release so the cache owns the retain count
         }
     }
 
@@ -4084,7 +4324,7 @@ void CCachePlugin::AddEntryToCacheWithKeylists( CCache *inCache, sCacheValidatio
     va_list         args;
     sCacheEntry     *cacheEntry     = NULL;
     
-    if (gDSInstallDaemonMode)
+	if ( gDSInstallDaemonMode == true )
     {
         kvbuf_free( inEntry );
         return;
@@ -4195,8 +4435,8 @@ void CCachePlugin::AddEntryToCacheWithKeylists( CCache *inCache, sCacheValidatio
                     }
                     else
                     {
-                        cacheEntry = inCache->AddEntry( inEntry, indexKey, inTTL, flags );
-                        if( cacheEntry != NULL )
+                        cacheEntry = inCache->CreateEntry( inEntry, indexKey, inTTL, flags );
+                        if ( cacheEntry != NULL )
                         {
                             DbgLog( kLogPlugin, "CCachePlugin::AddEntryToCacheWithKeylists - Entry %X added for record %X with key %s - TTL %d", 
                                     cacheEntry, inEntry, indexKey, inTTL );
@@ -4213,38 +4453,38 @@ void CCachePlugin::AddEntryToCacheWithKeylists( CCache *inCache, sCacheValidatio
                     indexKeys[ii] = NULL;
                 }
             }
-            
+			
             DSFree( indexKeys );
         }
     }
 
     // if we cached the entry, then we need to NULL the pointer in the kvarray otherwise it will get freed
-    if( cacheEntry != NULL )
+    if ( cacheEntry != NULL ) {
+		inCache->ReleaseEntry( cacheEntry ); // we use cache release so the cache owns the retain count
         array->kv = NULL;
+	}
 
     kvarray_free( array );
-    
 }
 
 // this routine adds an entry to the cache and indexing the keys requested
 void CCachePlugin::AddEntryToCacheWithKeys( CCache *inCache, sCacheValidation *inValidation, kvbuf_t *inEntry, uint32_t flags, uint32_t inTTL, 
-                                            char **inKeysToIndex )
+                                            const char **inKeysToIndex )
 {
     sCacheEntry     *cacheEntry	= NULL;
     const char      *key		= NULL;
     
-    if (gDSInstallDaemonMode)
-    {
-        kvbuf_free( inEntry );    
+	if ( gDSInstallDaemonMode == true )
+	{
+		kvbuf_free( inEntry );    
         return;
-   }
+	}
 
     // reset the entry since we don't know if we are at the beginning or not
     kvbuf_reset( inEntry );
     
     // let's loop through the keys and add a key for them
     uint32_t	kcount	= kvbuf_next_dict( inEntry );
-    sKeyList    *keys   = new sKeyList;
     
     // loop over the keys in the dictionary to find any keys that were requested for index
     for (uint32_t k = 0; k < kcount; k++)
@@ -4254,8 +4494,8 @@ void CCachePlugin::AddEntryToCacheWithKeys( CCache *inCache, sCacheValidation *i
         key	= kvbuf_next_key( inEntry, &vcount );
         if( key != NULL )
         {
-            char		**keyList;
-            char		*tempKey;
+            const char		**keyList;
+            const char		*tempKey;
             
             // see if this key matches any of the inKeysToIndex so we can add it to the the index
             for( keyList = inKeysToIndex, tempKey = (*keyList); *keyList != NULL; keyList++, tempKey = (*keyList) )
@@ -4276,65 +4516,51 @@ void CCachePlugin::AddEntryToCacheWithKeys( CCache *inCache, sCacheValidation *i
                             strlcat( indexedKey, ":", newLen );
                             strlcat( indexedKey, val, newLen );
                             
-                            // need to dupe the key so we can free it, since offsets might change
-                            keys->AddKey( indexedKey );
+							// if we have an entry, then we've already added it to the cache, only need to add the key itself
+							if ( cacheEntry != NULL )
+							{
+								inCache->AddKeyToEntry( cacheEntry, indexedKey, TRUE );
+								DbgLog( kLogPlugin, "CCachePlugin::AddEntryToCacheWithKeys - Entry %X added key %s", cacheEntry, indexedKey );
+							}
+							else
+							{
+								cacheEntry = inCache->CreateEntry( inEntry, indexedKey, inTTL, flags );
+								if ( cacheEntry != NULL )
+								{
+									DbgLog( kLogPlugin, "CCachePlugin::AddEntryToCacheWithKeys - Entry %X added for record %X with key %s - TTL %d", cacheEntry, 
+										    inEntry, indexedKey, inTTL );
+									cacheEntry->AddValidation( inValidation );
+								}
+								else
+								{
+									DbgLog( kLogPlugin, "CCachePlugin::AddEntryToCacheWithKeys - Entry NOT added for record %X with key %s - collision", 
+										    inEntry, indexedKey );
+								}
+							}
+							
+							DSFree( indexedKey );
                         }
                     }
                 }
             }
         }
     }
-    
-    // how we can add the entries to they key list
-    sKeyListItem *item = keys->fHead;
-    while( item != NULL )
-    {
-		key = item->fKey;
-		if (key != NULL)
-		{
-			// if we have an entry, then we've already added it to the cache, only need to add the key itself
-			if( cacheEntry != NULL )
-			{
-                inCache->AddKeyToEntry( cacheEntry, key, TRUE );
-				DbgLog( kLogPlugin, "CCachePlugin::AddEntryToCacheWithKeys - Entry %X added key %s", cacheEntry, key );
-			}
-			else
-			{
-				cacheEntry = inCache->AddEntry( inEntry, key, inTTL, flags );
-				
-				if( cacheEntry != NULL )
-				{
-					DbgLog( kLogPlugin, "CCachePlugin::AddEntryToCacheWithKeys - Entry %X added for record %X with key %s - TTL %d", cacheEntry, 
-						    inEntry, key, inTTL );
-                    cacheEntry->AddValidation( inValidation );
-				}
-				else
-				{
-					DbgLog( kLogPlugin, "CCachePlugin::AddEntryToCacheWithKeys - Entry NOT added for record %X with key %s - collision", 
-						   inEntry, key );
-				}
-			}
-		}
-		item = item->fNext;
-    }
-
-    // if we didn't add it, free it because caller doesn't expect to free
-    if( cacheEntry == NULL )
-    {
-        kvbuf_free( inEntry );
-    }
-    
-    DSDelete( keys );
+	
+	// if not added, we need to free the entry because the caller is not expecting to free
+	if ( cacheEntry != NULL ) {
+		inCache->ReleaseEntry( cacheEntry ); // we use cache release so the cache owns the retain count
+	} else {
+		kvbuf_free( inEntry );
+	}
 }
 
-kvbuf_t* CCachePlugin::FetchFromCache( CCache *inCache, int32_t *outTTL, ... )
+kvbuf_t* CCachePlugin::FetchFromCache( CCache *inCache, uint32_t reqFlags, int32_t *outTTL, ... )
 {
-    sKeyList    *query		= NULL;
     kvbuf_t		*outBuffer	= NULL;
     char		*key		= NULL;
     va_list		args;
     
-    if (gDSInstallDaemonMode) return(NULL);
+	if (gDSInstallDaemonMode) return NULL;
 
     va_start( args, outTTL );
     
@@ -4344,7 +4570,7 @@ kvbuf_t* CCachePlugin::FetchFromCache( CCache *inCache, int32_t *outTTL, ... )
         if( tempKey == NULL )
             break;
         
-        char *tempValue = va_arg( args, char * );
+        const char *tempValue = va_arg( args, const char * );
         if( tempValue == NULL )
             tempValue = ""; // we accept NULLs as empty value
         
@@ -4366,16 +4592,11 @@ kvbuf_t* CCachePlugin::FetchFromCache( CCache *inCache, int32_t *outTTL, ... )
         strlcat( key, tempValue, newLen );
     }
     
-    // first let's see if we have a match in the cache
-    query = new sKeyList;
-    
-    query->AddKey( key ); // list takes ownership of the key
-    
     DbgLog( kLogDebug, "CCachePlugin::FetchFromCache - Looking for entry with key %s", key );
 
-    outBuffer = inCache->Fetch( query, false, outTTL );
-    
-    DSDelete( query );
+    outBuffer = inCache->Fetch( key, outTTL, reqFlags );
+	
+	DSFree( key );
     
     // update cache hits / misses
     fStatsLock.WaitLock();
@@ -4393,7 +4614,7 @@ kvbuf_t* CCachePlugin::FetchFromCache( CCache *inCache, int32_t *outTTL, ... )
 
 kvbuf_t* CCachePlugin::GetRecordListLibInfo( tDirNodeReference inNodeRef, const char* inSearchValue, const char* inRecordType, 
                                              UInt32 inRecCount, tDataListPtr inAttributes, ProcessEntryCallback inCallback, 
-                                             kvbuf_t* inBuffer, void *additionalInfo, CCache *inCache, char **inKeys,
+                                             kvbuf_t* inBuffer, void *additionalInfo, CCache *inCache, const char **inKeys,
                                              sCacheValidation **outValidation)
 {
     kvbuf_t				   *outBuffer		= inBuffer;
@@ -4446,10 +4667,12 @@ kvbuf_t* CCachePlugin::GetRecordListLibInfo( tDirNodeReference inNodeRef, const 
                 {
                     // call the callback to parse the data
                     valid_t = inCallback( fDirRef, inNodeRef, outBuffer, dataBuff, pRecEntry, attrListRef, additionalInfo, inCache, inKeys );
-                    if ( outValidation != NULL )
+                    if ( outValidation != NULL ) {
                         (*outValidation) = valid_t;
-                    else
-                        valid_t->Release();
+					}
+                    else {
+                        DSRelease( valid_t );
+					}
                 }//found record entry(ies)
                 
                 if (attrListRef != 0)
@@ -4565,10 +4788,12 @@ kvbuf_t* CCachePlugin::ValueSearchLibInfo( tDirNodeReference inNodeRef, const ch
                     {
                         sCacheValidation *tempValid_t = NULL;
                         tempValid_t = inCallback( fDirRef, inNodeRef, outBuffer, dataBuff, pRecEntry, attrListRef, additionalInfo, NULL, NULL );
-                        if (outValidation != NULL && *outValidation == NULL)
+                        if (outValidation != NULL && *outValidation == NULL) {
                             *outValidation = tempValid_t;
-                        else 
-                            tempValid_t->Release();
+						}
+                        else {
+                            DSRelease( tempValid_t );
+						}
                     }
                     
                     if( attrListRef != 0 )
@@ -4629,6 +4854,7 @@ kvbuf_t* CCachePlugin::ValueSearchLibInfo( tDirNodeReference inNodeRef, const ch
 #pragma mark Libinfo Support routines
 #pragma mark -
 
+#ifdef HANDLE_DNS_LOOKUPS
 void CCachePlugin::checkAAAAstatus( void )
 {
     struct ifaddrs *ifa, *ifap;
@@ -4638,7 +4864,7 @@ void CCachePlugin::checkAAAAstatus( void )
     
     if (getifaddrs(&ifa) != 0) return;
     
-    OSAtomicCompareAndSwap32Barrier( false, true, &aaaa_cutoff_enabled );
+    __sync_bool_compare_and_swap( &aaaa_cutoff_enabled, false, true );
     
     if (fAlwaysDoAAAA) return;
     
@@ -4655,7 +4881,7 @@ void CCachePlugin::checkAAAAstatus( void )
              * Anything other than link-local or loopback is considered routable.
              * If we have routable IPv6 addresees, we want to do AAAA queries in DNS.
              */
-            if ((!isLinkLocal) && (!isLoopback)) OSAtomicCompareAndSwap32Barrier( true, false, &aaaa_cutoff_enabled );
+            if ((!isLinkLocal) && (!isLoopback)) __sync_bool_compare_and_swap( &aaaa_cutoff_enabled, true, false );
         }
     }
     
@@ -4697,7 +4923,8 @@ int AddToDNSThreads( void )
 	{
 		gActiveThreads[slot] = pthread_self();
 		gInterruptTokens[slot] = res_init_interrupt_token();
-		DbgLog( kLogDebug, "CCachePlugin::AddToDNSThreads called added thread %X to slot %d", (unsigned long) gActiveThreads[slot], slot );
+		DbgLog( kLogDebug, "CCachePlugin::AddToDNSThreads called added thread %X to slot %d token %X", 
+			    (unsigned long) gActiveThreads[slot], slot, gInterruptTokens[slot] );
 	}
 	else
 	{
@@ -4745,14 +4972,14 @@ bool RemoveFromDNSThreads( int inSlot )
 			DbgLog( kLogDebug, "CCachePlugin::RemoveFromDNSThreads lookup abandoned for slot %d not retrying", inSlot );
 		
         notify_cancel( gNotifyTokens[inSlot] );
-        DbgLog( kLogDebug, "CCachePlugin::RemoveFromDNSThreads cancelling token %d", gNotifyTokens[inSlot] );
+        DbgLog( kLogDebug, "CCachePlugin::RemoveFromDNSThreads cancelling notify token %d", gNotifyTokens[inSlot] );
         gNotifyTokens[inSlot] = 0;
 		gThreadAbandon[inSlot] = false;
     }
 	
 	if ( gInterruptTokens[inSlot] != NULL )
 	{
-        DbgLog( kLogDebug, "CCachePlugin::RemoveFromDNSThreads deleting interrupt token %d", gInterruptTokens[inSlot] );
+        DbgLog( kLogDebug, "CCachePlugin::RemoveFromDNSThreads deleting interrupt token %X", gInterruptTokens[inSlot] );
 		res_delete_interrupt_token( gInterruptTokens[inSlot] );
 		gInterruptTokens[inSlot] = NULL;
 	}
@@ -4792,7 +5019,8 @@ void CancelDNSThreads( void )
             {
                 notify_set_state(notify_token, ThreadStateExitRequested);
                 gNotifyTokens[ii] = notify_token;
-                DbgLog( kLogDebug, "CCachePlugin::CancelDNSThreads called for slot %d notification '%s'", ii, notify_name );
+                DbgLog( kLogDebug, "CCachePlugin::CancelDNSThreads called for slot %d notification '%s' token %X", 
+					    ii, notify_name, gInterruptTokens[ii] );
 				
 				// let's interrupt inflight requests so the token(s) can be checked
 				// we need to do for each thread to break multiple selects it seems
@@ -4815,21 +5043,31 @@ void CancelDNSThreads( void )
 	}
 }
 
-void *DoDNSQuery( void *inData )
+void DoDNSQuery( void *context )
 {
-    dns_handle_t	dns			= dns_open( NULL );
-    dns_reply_t     *dnsReply   = NULL;
-    sDNSQuery       *theQuery   = (sDNSQuery *) inData;
+    sDNSQuery       *theQuery   = (sDNSQuery *) context;
     sDNSLookup      *lookup     = theQuery->fLookupEntry;
     int             index       = theQuery->fQueryIndex;
-	int				rc;
 	double          endTime     = 0.0;
+    dns_handle_t	dns			= NULL;
+    dns_reply_t     *dnsReply   = NULL;
+    
+    lookup->fThreadID[index] = pthread_self(); // let's set this thread's ID so we can cancel if necessary
     
 lookupAgain:
 	
-    if( dns )
+    int slot = AddToDNSThreads();
+    if ( slot >= 0 )
     {
-        if( dns->sdns != NULL && aaaa_cutoff_enabled ) 
+        dns = gDNSHandles[slot];
+        if ( dns == NULL )
+        {
+            dns = dns_open( NULL );
+            gDNSHandles[slot] = dns;
+			DbgLog( kLogDebug, "CCachePlugin::DoDNSQuery - Created a new dns handle for slot %d", slot );
+        }
+		
+        if ( dns->sdns != NULL && aaaa_cutoff_enabled ) 
         {
             dns->sdns->flags |= DNS_FLAG_OK_TO_SKIP_AAAA;
             DbgLog( kLogDebug, "CCachePlugin::DoDNSQuery - Index %d enabling DNS_FLAG_OK_TO_SKIP_AAAA", index );
@@ -4840,19 +5078,14 @@ lookupAgain:
 		// Reset the TTL in case this is a redo.
 		lookup->fMinimumTTL[index] = -1;
 
-        int slot = AddToDNSThreads();
 		double startTime = dsTimestamp();
         dnsReply = idna_dns_lookup( dns, lookup->fQueryStrings[index], lookup->fQueryClasses[index], lookup->fQueryTypes[index], 
 								    &(lookup->fMinimumTTL[index]) );
 		endTime = dsTimestamp() - startTime;
 		
-        dns_free( dns );
-        
 		// RemoveFromDNSThreads returns true if it was cancelled, so we need to re-issue the request
 		if ( RemoveFromDNSThreads(slot) == true )
 		{
-			dns = dns_open( NULL );
-			
 			// free any existing reply we don't care what it was
 			if ( dnsReply != NULL )
 			{
@@ -4868,48 +5101,15 @@ lookupAgain:
 			    (int) (endTime / 1000.0) );
 	}
     
-	// only need to lock for multi-threaded queries
-	if ( theQuery->fIsParallel )
-	{
-		rc = pthread_mutex_lock( theQuery->fMutex );
-		if ( rc != 0 )
-		{
-			DbgLog( kLogCritical, "CCachePlugin::DoDNSQuery - pthread_mutex_lock failed, %s (%d).  Aborting",
-					strerror(rc), rc);
-			abort();
-		}
-	}
-
     lookup->fAnswers[index] = dnsReply;
 	lookup->fAnswerTime[index] = endTime;
 	lookup->fThreadID[index] = NULL; // since we are done, let's NULL out our thread ID
-	OSAtomicCompareAndSwap32Barrier( false, true, &(lookup->fQueryFinished[index]) );
-	OSAtomicDecrement32Barrier( &(lookup->fOutstanding) );
+	__sync_bool_compare_and_swap( &(lookup->fQueryFinished[index]), false, true );
     
-    DbgLog( kLogDebug, "CCachePlugin::DoDNSQuery - Index %d, Outstanding = %d, Total = %d", index, lookup->fOutstanding, lookup->fTotal );
-    
-	// only need to signal for multi-threaded queries
-	if ( theQuery->fIsParallel )
-	{
-		rc = pthread_cond_signal( theQuery->fCondition );
-		if ( rc != 0 )
-		{
-			DbgLog( kLogCritical, "CCachePlugin::DoDNSQuery - pthread_cond_signal failed, %s (%d).  Aborting",
-					strerror(rc), rc);
-			abort();
-		}
-
-		rc = pthread_mutex_unlock( theQuery->fMutex );
-		if ( rc != 0 )
-		{
-			DbgLog( kLogCritical, "CCachePlugin::DoDNSQuery - pthread_mutex_unlock failed, %s (%d).  Aborting",
-					strerror(rc), rc);
-			abort();
-		}
-	}
-
-    return NULL;
+    DbgLog( kLogDebug, "CCachePlugin::DoDNSQuery - Index %d, Outstanding = %d, Total = %d", index, 
+		    __sync_sub_and_fetch(&lookup->fOutstanding, 1), lookup->fTotal );
 }
+#endif
 
 bool CCachePlugin::IsLocalOnlyPID( pid_t inPID )
 {
@@ -4931,10 +5131,99 @@ bool CCachePlugin::IsLocalOnlyPID( pid_t inPID )
 //	  * DSgetpwnam
 //------------------------------------------------------------------------------------ 
 
-kvbuf_t* CCachePlugin::DSgetpwnam ( kvbuf_t *inBuffer, pid_t inPID )
+kvbuf_t* CCachePlugin::DSgetpwnam( kvbuf_t *inBuffer, pid_t inPID )
+{
+    static tDataListPtr     attrTypes       = NULL;
+    static dispatch_once_t  initAttrTypes   = 0;
+    
+    dispatch_once( &initAttrTypes, 
+                   ^(void) {
+                       attrTypes = dsBuildListFromStringsPriv( kDSNAttrMetaNodeLocation,
+                                                               kDSNAttrRecordName,
+                                                               kDS1AttrPassword,
+                                                               kDS1AttrUniqueID,
+                                                               kDS1AttrGeneratedUID,
+                                                               kDS1AttrPrimaryGroupID,
+                                                               kDS1AttrNFSHomeDirectory,
+                                                               kDS1AttrUserShell,
+                                                               kDS1AttrDistinguishedName,
+                                                               kDSNAttrKeywords,
+                                                               NULL );
+                   } );
+    
+    return DSgetpwnam_int( inBuffer, inPID, 0, attrTypes );
+}
+
+//------------------------------------------------------------------------------------
+//	  * DSgetpwnam_initext
+//------------------------------------------------------------------------------------ 
+
+static tDataListPtr     gExtUserAttrTypes    = NULL;
+
+void CCachePlugin::DSgetpwnam_initext( kvbuf_t *inBuffer, pid_t inPID )
+{
+    static dispatch_once_t  initAttrTypes   = 0;
+    
+    // this initializes the attributes requested on server
+    dispatch_once( &initAttrTypes, 
+                   ^(void){
+                       uint32_t ::dictCount = kvbuf_reset( inBuffer );
+                       uint32_t ::valCount  = 0;
+                       
+                       if ( dictCount == 0 )
+                           return;
+
+                       // start with our base attribute list
+                       gExtUserAttrTypes = dsBuildListFromStringsPriv( kDSNAttrMetaNodeLocation,
+                                                                       kDSNAttrRecordName,
+                                                                       kDS1AttrPassword,
+                                                                       kDS1AttrUniqueID,
+                                                                       kDS1AttrGeneratedUID,
+                                                                       kDS1AttrPrimaryGroupID,
+                                                                       kDS1AttrNFSHomeDirectory,
+                                                                       kDS1AttrUserShell,
+                                                                       kDS1AttrDistinguishedName,
+                                                                       kDSNAttrKeywords,
+                                                                       NULL );
+                       
+                       kvbuf_next_dict( inBuffer );
+                       
+                       if ( dictCount != 0 ) {
+                           char *::key = kvbuf_next_key( inBuffer, &valCount );
+                           
+                           uint32_t ::ii;
+                           for ( ii = 0; ii < valCount; ii++ ) {
+                               const char *::value = kvbuf_next_val( inBuffer );
+                               if ( strncmp(value, kDSStdAttrTypePrefix, sizeof(kDSStdAttrTypePrefix)-1) == 0 ) {
+                                   dsAppendStringToListPriv( gExtUserAttrTypes, value );
+                               }
+                           }
+                       }
+                   } );
+}
+
+//------------------------------------------------------------------------------------
+//	  * DSgetpwnam_initext
+//------------------------------------------------------------------------------------ 
+
+kvbuf_t* CCachePlugin::DSgetpwnam_ext( kvbuf_t *inBuffer, pid_t inPID )
+{
+    kvbuf_t *outBuffer  = NULL;
+
+    if ( gExtUserAttrTypes != NULL ) {
+        outBuffer = DSgetpwnam_int( inBuffer, inPID, CACHE_ENTRY_TYPE_EXTENDED, gExtUserAttrTypes );
+    }
+    
+    return outBuffer;
+}
+
+//------------------------------------------------------------------------------------
+//	  * DSgetpwnam_int
+//------------------------------------------------------------------------------------ 
+
+kvbuf_t* CCachePlugin::DSgetpwnam_int( kvbuf_t *inBuffer, pid_t inPID, uint32_t reqFlags, tDataListPtr attrTypes )
 {
     kvbuf_t         *outBuffer		= NULL;
-    tDataListPtr    attrTypes		= NULL;
     uint32_t        dictCount       = kvbuf_reset( inBuffer );
     uint32_t        valCount        = 0;
     
@@ -4950,46 +5239,35 @@ kvbuf_t* CCachePlugin::DSgetpwnam ( kvbuf_t *inBuffer, pid_t inPID )
     char *name = kvbuf_next_val( inBuffer );
     if( name == NULL )
         return NULL;
-    
-    outBuffer = FetchFromCache( fLibinfoCache, NULL, "pw_name", name, NULL );
-    if ( outBuffer == NULL )
-        outBuffer = FetchFromCache( fLibinfoCache, NULL, "pw_gecos", name, NULL );
+
+    outBuffer = FetchFromCache( fLibinfoCache, reqFlags, NULL, "pw_name", name, NULL );
+    if ( outBuffer == NULL ) {
+        outBuffer = FetchFromCache( fLibinfoCache, reqFlags, NULL, "pw_gecos", name, NULL );
+    }
     
     if ( outBuffer == NULL )
     {
-        attrTypes = dsBuildListFromStrings( fDirRef,
-                                            kDSNAttrMetaNodeLocation,
-                                            kDSNAttrRecordName,
-                                            kDS1AttrPassword,
-                                            kDS1AttrUniqueID,
-                                            kDS1AttrGeneratedUID,
-                                            kDS1AttrPrimaryGroupID,
-                                            kDS1AttrNFSHomeDirectory,
-                                            kDS1AttrUserShell,
-                                            kDS1AttrDistinguishedName,
-                                            NULL );
-        
         if ( attrTypes != NULL )
         {
-            char	*keys[] = { "pw_name", "pw_uid", "pw_uuid", "pw_gecos", NULL };
+            const char	*keys[] = { "pw_name", "pw_uid", "pw_gecos", NULL }; // "pw_uuid"
             
 			bool localOnlyPID = IsLocalOnlyPID( inPID );
 			if( localOnlyPID == false )
 			{
 				outBuffer = GetRecordListLibInfo( fSearchNodeRef, name, kDSStdRecordTypeUsers, 1, attrTypes, ParsePasswdEntry, NULL, 
-												  NULL, fLibinfoCache, keys );
+												  &reqFlags, fLibinfoCache, keys );
 			}
 			else
 			{
 				// check then Local node first
 				// then FFPlugin 
 				outBuffer = GetRecordListLibInfo( fLocalNodeRef, name, kDSStdRecordTypeUsers, 1, attrTypes, ParsePasswdEntry, NULL, 
-												  NULL, fLibinfoCache, keys );
+												  &reqFlags, fLibinfoCache, keys );
 				
 				if( NULL == outBuffer )
 				{
 					outBuffer = GetRecordListLibInfo( fFlatFileNodeRef, name, kDSStdRecordTypeUsers, 1, attrTypes, ParsePasswdEntry, NULL, 
-													  NULL, fLibinfoCache, keys );
+													  &reqFlags, fLibinfoCache, keys );
 				}
 			}
             
@@ -5007,11 +5285,8 @@ kvbuf_t* CCachePlugin::DSgetpwnam ( kvbuf_t *inBuffer, pid_t inPID )
             
             if( outBuffer == NULL && localOnlyPID == false ) // don't cache if it was a local only lookup
             {
-                AddEntryToCacheWithMultiKey( fLibinfoCache, NULL, NULL, CACHE_ENTRY_TYPE_USER, kNegativeCacheTime, "pw_name", name, NULL );
+                AddEntryToCacheWithMultiKey( fLibinfoCache, NULL, NULL, CACHE_ENTRY_TYPE_USER | reqFlags, kNegativeCacheTime, "pw_name", name, NULL );
             }
-            
-            dsDataListDeallocate( fDirRef, attrTypes );
-            DSFree( attrTypes );
         }
         
         fStatsLock.WaitLock();
@@ -5055,7 +5330,7 @@ kvbuf_t* CCachePlugin::DSgetpwuuid ( kvbuf_t *inBuffer, pid_t inPID )
     if( number == NULL )
         return NULL;
     
-    outBuffer = FetchFromCache( fLibinfoCache, NULL, "pw_uuid", number, NULL );
+    outBuffer = FetchFromCache( fLibinfoCache, 0, NULL, "pw_uuid", number, NULL );
     
     if ( outBuffer == NULL )
     {
@@ -5097,11 +5372,11 @@ kvbuf_t* CCachePlugin::DSgetpwuuid ( kvbuf_t *inBuffer, pid_t inPID )
             {
                 // add this entry to the cache
                 uint32_t dcount = kvbuf_reset( outBuffer );
-                char	*keys[] = { "pw_name", "pw_uid", "pw_uuid", NULL };
+                const char	*keys[] = { "pw_name", "pw_uid", "pw_uuid", NULL };
                 
                 if( dcount == 1 )
                 {
-                    kvbuf_t *copy = kvbuf_init( outBuffer->databuf, outBuffer->datalen );
+                    kvbuf_t *copy = kvbuf_init_zone( malloc_default_purgeable_zone(), outBuffer->databuf, outBuffer->datalen );
                     
                     AddEntryToCacheWithKeys( fLibinfoCache, theValidation, copy, CACHE_ENTRY_TYPE_USER, kCacheTime, keys );
                 }
@@ -5134,8 +5409,7 @@ kvbuf_t* CCachePlugin::DSgetpwuuid ( kvbuf_t *inBuffer, pid_t inPID )
         DbgLog( kLogPlugin, "CCachePlugin::getpwuuid - Cache hit for %s", number );
     }
     
-	// validation data has an internal spinlock to protect release/retain
-    theValidation->Release();
+    DSRelease( theValidation );
     
     return( outBuffer );
     
@@ -5166,7 +5440,7 @@ kvbuf_t* CCachePlugin::DSgetpwuid ( kvbuf_t *inBuffer, pid_t inPID )
     if( number == NULL )
         return NULL;
     
-    outBuffer = FetchFromCache( fLibinfoCache, NULL, "pw_uid", number, NULL );
+    outBuffer = FetchFromCache( fLibinfoCache, 0, NULL, "pw_uid", number, NULL );
     
     // no entry in the cache, let's look in DS
     if ( outBuffer == NULL )
@@ -5176,7 +5450,7 @@ kvbuf_t* CCachePlugin::DSgetpwuid ( kvbuf_t *inBuffer, pid_t inPID )
                                             kDSNAttrRecordName,
                                             kDS1AttrPassword,
                                             kDS1AttrUniqueID,
-                                            kDS1AttrGeneratedUID,
+//                                            kDS1AttrGeneratedUID,
                                             kDS1AttrPrimaryGroupID,
                                             kDS1AttrNFSHomeDirectory,
                                             kDS1AttrUserShell,
@@ -5185,7 +5459,7 @@ kvbuf_t* CCachePlugin::DSgetpwuid ( kvbuf_t *inBuffer, pid_t inPID )
         
         if ( attrTypes != NULL )
         {
-            char	*keys[] = { "pw_name", "pw_uid", "pw_uuid", NULL };
+            const char	*keys[] = { "pw_name", "pw_uid", NULL }; // "pw_uuid"
 
 			bool localOnlyPID = IsLocalOnlyPID( inPID );
 			if( localOnlyPID == false )
@@ -5214,7 +5488,7 @@ kvbuf_t* CCachePlugin::DSgetpwuid ( kvbuf_t *inBuffer, pid_t inPID )
                 
                 if( dcount == 1 )
                 {
-                    kvbuf_t *copy = kvbuf_init( outBuffer->databuf, outBuffer->datalen );
+                    kvbuf_t *copy = kvbuf_init_zone( malloc_default_purgeable_zone(), outBuffer->databuf, outBuffer->datalen );
                     
                     AddEntryToCacheWithKeys( fLibinfoCache, theValidation, copy, CACHE_ENTRY_TYPE_USER, kCacheTime, keys );
                 }
@@ -5247,8 +5521,7 @@ kvbuf_t* CCachePlugin::DSgetpwuid ( kvbuf_t *inBuffer, pid_t inPID )
         DbgLog( kLogPlugin, "CCachePlugin::getpwuid - Cache hit for %s", number );
     }	
     
-	// validation data has an internal spinlock to protect release/retain
-    theValidation->Release();
+    DSRelease( theValidation );
     
     return( outBuffer );
     
@@ -5264,41 +5537,132 @@ kvbuf_t* CCachePlugin::DSgetpwent( void )
     kvbuf_t				   *outBuffer		= NULL;
     tDataListPtr			attrTypes		= NULL;
     
-    // there is no cache here, we just get all the entries since this is what libinfo expects
-    attrTypes = dsBuildListFromStrings( fDirRef,
-                                        kDSNAttrMetaNodeLocation,
-                                        kDSNAttrRecordName,
-                                        kDS1AttrPassword,
-                                        kDS1AttrUniqueID,
-                                        kDS1AttrGeneratedUID,
-                                        kDS1AttrPrimaryGroupID,
-                                        kDS1AttrNFSHomeDirectory,
-                                        kDS1AttrUserShell,
-                                        kDS1AttrDistinguishedName,
-                                        NULL );
+	outBuffer = FetchFromCache( fLibinfoCache, 0, NULL, "pwent", "1", NULL );
     
-    if ( attrTypes != NULL )
+    if ( outBuffer == NULL )
     {
-        outBuffer = GetRecordListLibInfo( fSearchNodeRef, kDSRecordsAll, kDSStdRecordTypeUsers, 0, attrTypes, ParsePasswdEntry, NULL, NULL, 
-                                          NULL, NULL );
-        
-        dsDataListDeallocate( fDirRef, attrTypes );
-        DSFree( attrTypes );
-    }
+		// there is no cache here, we just get all the entries since this is what libinfo expects
+		attrTypes = dsBuildListFromStrings( fDirRef,
+											kDSNAttrMetaNodeLocation,
+											kDSNAttrRecordName,
+											kDS1AttrPassword,
+											kDS1AttrUniqueID,
+											kDS1AttrGeneratedUID,
+											kDS1AttrPrimaryGroupID,
+											kDS1AttrNFSHomeDirectory,
+											kDS1AttrUserShell,
+											kDS1AttrDistinguishedName,
+											NULL );
+		
+		if ( attrTypes != NULL )
+		{
+			outBuffer = GetRecordListLibInfo( fSearchNodeRef, kDSRecordsAll, kDSStdRecordTypeUsers, 0, attrTypes, ParsePasswdEntry, NULL, NULL, 
+											  NULL, NULL );
+			
+			dsDataListDeallocate( fDirRef, attrTypes );
+			DSFree( attrTypes );
+		}
+		
+		if ( outBuffer != NULL ) {
+			kvbuf_t *copy = kvbuf_init_zone( malloc_default_purgeable_zone(), outBuffer->databuf, outBuffer->datalen );
+			
+			AddEntryToCacheWithMultiKey( fLibinfoCache, NULL, copy, CACHE_ENTRY_TYPE_USER, kEnumerationCacheTime, "pwent", "1", NULL );
+		}
+	}
     
     return( outBuffer );
     
 } // DSgetpwent
 
-
 //------------------------------------------------------------------------------------
 //	  * DSgetgrnam
 //------------------------------------------------------------------------------------ 
 
-kvbuf_t* CCachePlugin::DSgetgrnam ( kvbuf_t *inBuffer, pid_t inPID )
+kvbuf_t* CCachePlugin::DSgetgrnam( kvbuf_t *inBuffer, pid_t inPID )
+{
+    static tDataListPtr     attrTypes       = NULL;
+    static dispatch_once_t  initAttrTypes   = 0;
+    
+    dispatch_once( &initAttrTypes, 
+                   ^(void) {
+                       attrTypes = dsBuildListFromStringsPriv( kDSNAttrMetaNodeLocation,
+                                                               kDSNAttrRecordName,
+                                                               kDS1AttrPassword,
+                                                               kDS1AttrPrimaryGroupID,
+                                                               kDS1AttrGeneratedUID,
+                                                               kDSNAttrGroupMembership,
+                                                               NULL );
+                   } );
+    
+    return DSgetgrnam_int( inBuffer, inPID, 0, attrTypes );
+}
+
+//------------------------------------------------------------------------------------
+//	  * DSgetgrnam_initext
+//------------------------------------------------------------------------------------ 
+
+static tDataListPtr     gExtGroupAttrTypes    = NULL;
+
+void CCachePlugin::DSgetgrnam_initext( kvbuf_t *inBuffer, pid_t inPID )
+{
+    static dispatch_once_t  initAttrTypes   = 0;
+    
+    // this initializes the attributes requested on server
+    dispatch_once( &initAttrTypes, 
+                   ^(void){
+                       uint32_t ::dictCount = kvbuf_reset( inBuffer );
+                       uint32_t ::valCount  = 0;
+                       
+                       if ( dictCount == 0 )
+                           return;
+
+                       // start with our base attribute list
+                       gExtGroupAttrTypes = dsBuildListFromStringsPriv( kDSNAttrMetaNodeLocation,
+                                                                        kDSNAttrRecordName,
+                                                                        kDS1AttrPassword,
+                                                                        kDS1AttrPrimaryGroupID,
+                                                                        kDS1AttrGeneratedUID,
+                                                                        kDSNAttrGroupMembership,
+                                                                        NULL );
+                       
+                       kvbuf_next_dict( inBuffer );
+                       
+                       if ( dictCount != 0 ) {
+                           char *::key = kvbuf_next_key( inBuffer, &valCount );
+                           
+                           uint32_t ::ii;
+                           for ( ii = 0; ii < valCount; ii++ ) {
+                               const char *::value = kvbuf_next_val( inBuffer );
+                               if ( strncmp(value, kDSStdAttrTypePrefix, sizeof(kDSStdAttrTypePrefix)-1) == 0 ) {
+                                   dsAppendStringToListPriv( gExtGroupAttrTypes, value );
+                               }
+                           }
+                       }
+                   } );
+}
+
+//------------------------------------------------------------------------------------
+//	  * DSgetgrnam_ext
+//------------------------------------------------------------------------------------ 
+
+kvbuf_t* CCachePlugin::DSgetgrnam_ext( kvbuf_t *inBuffer, pid_t inPID )
+{
+    kvbuf_t *   outBuffer   = NULL;
+    
+    if ( gExtGroupAttrTypes != NULL ) {
+        outBuffer = DSgetgrnam_int( inBuffer, inPID, CACHE_ENTRY_TYPE_EXTENDED, gExtGroupAttrTypes );
+    }
+    
+    return outBuffer;
+}
+
+//------------------------------------------------------------------------------------
+//	  * DSgetgrnam_int
+//------------------------------------------------------------------------------------ 
+
+kvbuf_t* CCachePlugin::DSgetgrnam_int( kvbuf_t *inBuffer, pid_t inPID, uint32_t reqFlags, const tDataListPtr attrTypes )
 {
     kvbuf_t             *outBuffer		= NULL;
-    tDataListPtr        attrTypes		= NULL;
     uint32_t            dictCount       = kvbuf_reset( inBuffer );
     uint32_t            valCount        = 0;
     
@@ -5315,39 +5679,30 @@ kvbuf_t* CCachePlugin::DSgetgrnam ( kvbuf_t *inBuffer, pid_t inPID )
     if( name == NULL )
         return NULL;
     
-    outBuffer = FetchFromCache( fLibinfoCache, NULL, "gr_name", name, NULL );
+    outBuffer = FetchFromCache( fLibinfoCache, reqFlags, NULL, "gr_name", name, NULL );
     
     if ( outBuffer == NULL )
     {
-        attrTypes = dsBuildListFromStrings( fDirRef,
-                                            kDSNAttrMetaNodeLocation,
-                                            kDSNAttrRecordName,
-                                            kDS1AttrPassword,
-                                            kDS1AttrPrimaryGroupID,
-                                            kDS1AttrGeneratedUID,
-                                            kDSNAttrGroupMembership,
-                                            NULL );
-        
         if ( attrTypes != NULL )
         {
-            char	*keys[] = { "gr_name", "gr_gid", "gr_uuid", NULL };
+            const char	*keys[] = { "gr_name", "gr_gid", "gr_uuid", NULL };
 
 			bool localOnlyPID = IsLocalOnlyPID( inPID );
 			if( localOnlyPID == false )
 			{
-				outBuffer = GetRecordListLibInfo( fSearchNodeRef, name, kDSStdRecordTypeGroups, 1, attrTypes, ParseGroupEntry, NULL, NULL,
+				outBuffer = GetRecordListLibInfo( fSearchNodeRef, name, kDSStdRecordTypeGroups, 1, attrTypes, ParseGroupEntry, NULL, &reqFlags,
 												  fLibinfoCache, keys );
 			}
 			else
 			{
 				// check then Local node first
 				// then FFPlugin 
-				outBuffer = GetRecordListLibInfo( fLocalNodeRef, name, kDSStdRecordTypeGroups, 1, attrTypes, ParseGroupEntry, NULL, NULL,
+				outBuffer = GetRecordListLibInfo( fLocalNodeRef, name, kDSStdRecordTypeGroups, 1, attrTypes, ParseGroupEntry, NULL, &reqFlags,
 												  fLibinfoCache, keys );
 				
 				if( NULL == outBuffer )
 				{
-					outBuffer = GetRecordListLibInfo( fFlatFileNodeRef, name, kDSStdRecordTypeGroups, 1, attrTypes, ParseGroupEntry, NULL, NULL,
+					outBuffer = GetRecordListLibInfo( fFlatFileNodeRef, name, kDSStdRecordTypeGroups, 1, attrTypes, ParseGroupEntry, NULL, &reqFlags,
 													  fLibinfoCache, keys );
 				}
 			}			
@@ -5367,11 +5722,8 @@ kvbuf_t* CCachePlugin::DSgetgrnam ( kvbuf_t *inBuffer, pid_t inPID )
             // need to check this specific so we can do a negative cache
             if ( outBuffer == NULL && localOnlyPID == false ) // don't cache if it was a local only lookup
             {
-                AddEntryToCacheWithMultiKey( fLibinfoCache, NULL, NULL, CACHE_ENTRY_TYPE_GROUP, kNegativeCacheTime, "gr_name", name, NULL );
+                AddEntryToCacheWithMultiKey( fLibinfoCache, NULL, NULL, CACHE_ENTRY_TYPE_GROUP | reqFlags, kNegativeCacheTime, "gr_name", name, NULL );
             }
-            
-            dsDataListDeallocate( fDirRef, attrTypes );
-            DSFree( attrTypes );
         }
 
         fStatsLock.WaitLock();
@@ -5416,7 +5768,7 @@ kvbuf_t* CCachePlugin::DSgetgruuid ( kvbuf_t *inBuffer, pid_t inPID )
     if( number == NULL )
         return NULL;
     
-    outBuffer = FetchFromCache( fLibinfoCache, NULL, "gr_uuid", number, NULL );
+    outBuffer = FetchFromCache( fLibinfoCache, 0, NULL, "gr_uuid", number, NULL );
     
     if ( outBuffer == NULL )
     {
@@ -5455,11 +5807,11 @@ kvbuf_t* CCachePlugin::DSgetgruuid ( kvbuf_t *inBuffer, pid_t inPID )
             {
                 // add this entry to the cache
                 uint32_t dcount = kvbuf_reset( outBuffer );
-                char	*keys[] = { "gr_name", "gr_gid", "gr_uuid", NULL };
+                const char	*keys[] = { "gr_name", "gr_gid", "gr_uuid", NULL };
                 
                 if ( dcount == 1 )
                 {
-                    kvbuf_t *copy = kvbuf_init( outBuffer->databuf, outBuffer->datalen );
+                    kvbuf_t *copy = kvbuf_init_zone( malloc_default_purgeable_zone(), outBuffer->databuf, outBuffer->datalen );
                     
                     AddEntryToCacheWithKeys( fLibinfoCache, theValidation, copy, CACHE_ENTRY_TYPE_GROUP, kCacheTime, keys );
                 }
@@ -5493,8 +5845,7 @@ kvbuf_t* CCachePlugin::DSgetgruuid ( kvbuf_t *inBuffer, pid_t inPID )
         DbgLog( kLogPlugin, "CCachePlugin::getgruuid - Cache hit for %s", number );
     }
     
-	// validation data has an internal spinlock to protect release/retain
-    theValidation->Release();
+    DSRelease( theValidation );
     
     return( outBuffer );
     
@@ -5525,7 +5876,7 @@ kvbuf_t* CCachePlugin::DSgetgrgid ( kvbuf_t *inBuffer, pid_t inPID )
     if( number == NULL )
         return NULL;
     
-    outBuffer = FetchFromCache( fLibinfoCache, NULL, "gr_gid", number, NULL );
+    outBuffer = FetchFromCache( fLibinfoCache, 0, NULL, "gr_gid", number, NULL );
     
     if ( outBuffer == NULL )
     {
@@ -5564,11 +5915,11 @@ kvbuf_t* CCachePlugin::DSgetgrgid ( kvbuf_t *inBuffer, pid_t inPID )
             {
                 // add this entry to the cache
                 uint32_t dcount = kvbuf_reset( outBuffer );
-                char	*keys[] = { "gr_name", "gr_gid", "gr_uuid", NULL };
+                const char	*keys[] = { "gr_name", "gr_gid", "gr_uuid", NULL };
                 
                 if ( dcount == 1 )
                 {
-                    kvbuf_t *copy = kvbuf_init( outBuffer->databuf, outBuffer->datalen );
+                    kvbuf_t *copy = kvbuf_init_zone( malloc_default_purgeable_zone(), outBuffer->databuf, outBuffer->datalen );
                     
                     AddEntryToCacheWithKeys( fLibinfoCache, theValidation, copy, CACHE_ENTRY_TYPE_GROUP, kCacheTime, keys );
                 }
@@ -5602,8 +5953,7 @@ kvbuf_t* CCachePlugin::DSgetgrgid ( kvbuf_t *inBuffer, pid_t inPID )
         DbgLog( kLogPlugin, "CCachePlugin::getgrgid - Cache hit for %s", number );
     }
     
-	// validation data has an internal spinlock to protect release/retain
-    theValidation->Release();
+    DSRelease( theValidation );
     
     return( outBuffer );
     
@@ -5618,6 +5968,8 @@ kvbuf_t* CCachePlugin::DSgetgrent( void )
 {
     kvbuf_t				   *outBuffer		= NULL;
     tDataListPtr			attrTypes		= NULL;
+    
+	outBuffer = FetchFromCache( fLibinfoCache, 0, NULL, "grent", "1", NULL );
     
     if ( outBuffer == NULL )
     {
@@ -5638,7 +5990,13 @@ kvbuf_t* CCachePlugin::DSgetgrent( void )
             dsDataListDeallocate( fDirRef, attrTypes );
             DSFree( attrTypes );
         }
-    }
+		
+		if ( outBuffer != NULL ) {
+			kvbuf_t *copy = kvbuf_init_zone( malloc_default_purgeable_zone(), outBuffer->databuf, outBuffer->datalen );
+			
+			AddEntryToCacheWithMultiKey( fLibinfoCache, NULL, copy, CACHE_ENTRY_TYPE_GROUP, kEnumerationCacheTime, "grent", "1", NULL );
+		}
+	}
     
     return( outBuffer );
     
@@ -5664,7 +6022,7 @@ kvbuf_t* CCachePlugin::DSgetfsbyname( kvbuf_t *inBuffer )
     if( name == NULL )
         return NULL;
     
-    outBuffer = FetchFromCache( fLibinfoCache, NULL, "fs_spec", name, NULL );
+    outBuffer = FetchFromCache( fLibinfoCache, 0, NULL, "fs_spec", name, NULL );
     
     if ( outBuffer == NULL )
     {
@@ -5680,7 +6038,7 @@ kvbuf_t* CCachePlugin::DSgetfsbyname( kvbuf_t *inBuffer )
         
         if ( attrTypes != NULL )
         {
-            char	*keys[] = { "fs_spec", NULL };
+            const char	*keys[] = { "fs_spec", NULL };
 
             outBuffer = GetRecordListLibInfo( fSearchNodeRef, name, kDSStdRecordTypeMounts, 1, attrTypes, ParseMountEntry, NULL, NULL,
                                               fLibinfoCache, keys );
@@ -5728,6 +6086,8 @@ kvbuf_t* CCachePlugin::DSgetfsent( pid_t inPID )
     kvbuf_t				   *outBuffer		= NULL;
     tDataListPtr			attrTypes		= NULL;
     
+	outBuffer = FetchFromCache( fLibinfoCache, 0, NULL, "fsent", "1", NULL );
+    
     if ( outBuffer == NULL )
     {
         attrTypes = dsBuildListFromStrings( fDirRef,
@@ -5762,7 +6122,13 @@ kvbuf_t* CCachePlugin::DSgetfsent( pid_t inPID )
             dsDataListDeallocate( fDirRef, attrTypes );
             DSFree( attrTypes );
         }
-    }
+
+		if ( outBuffer != NULL ) {
+			kvbuf_t *copy = kvbuf_init_zone( malloc_default_purgeable_zone(), outBuffer->databuf, outBuffer->datalen );
+			
+			AddEntryToCacheWithMultiKey( fLibinfoCache, NULL, copy, CACHE_ENTRY_TYPE_MOUNT, kEnumerationCacheTime, "fsent", "1", NULL );
+		}
+	}
     
     return( outBuffer );
     
@@ -5788,7 +6154,7 @@ kvbuf_t* CCachePlugin::DSgetaliasbyname( kvbuf_t *inBuffer )
     if( name == NULL )
         return NULL;
     
-    outBuffer = FetchFromCache( fLibinfoCache, NULL, "alias_name", name, NULL );
+    outBuffer = FetchFromCache( fLibinfoCache, 0, NULL, "alias_name", name, NULL );
     
     if ( outBuffer == NULL )
     {
@@ -5801,7 +6167,7 @@ kvbuf_t* CCachePlugin::DSgetaliasbyname( kvbuf_t *inBuffer )
         
         if ( attrTypes != NULL )
         {
-            char *keys[] = {"alias_name",NULL};
+            const char *keys[] = {"alias_name",NULL};
             
             outBuffer = GetRecordListLibInfo( fSearchNodeRef, name, kDSStdRecordTypeAliases, 1, attrTypes, ParseAliasEntry, 
                                             NULL, NULL, fLibinfoCache, keys );
@@ -5849,6 +6215,8 @@ kvbuf_t* CCachePlugin::DSgetaliasent( void )
     kvbuf_t				   *outBuffer		= NULL;
     tDataListPtr			attrTypes		= NULL;
     
+	outBuffer = FetchFromCache( fLibinfoCache, 0, NULL, "aliasent", "1", NULL );
+    
     if ( outBuffer == NULL )
     {
         attrTypes = dsBuildListFromStrings( fDirRef,
@@ -5866,7 +6234,13 @@ kvbuf_t* CCachePlugin::DSgetaliasent( void )
             dsDataListDeallocate( fDirRef, attrTypes );
             DSFree( attrTypes );
         }
-    }
+		
+		if ( outBuffer != NULL ) {
+			kvbuf_t *copy = kvbuf_init_zone( malloc_default_purgeable_zone(), outBuffer->databuf, outBuffer->datalen );
+			
+			AddEntryToCacheWithMultiKey( fLibinfoCache, NULL, copy, CACHE_ENTRY_TYPE_ALIAS, kEnumerationCacheTime, "aliasent", "1", NULL );
+		}
+	}
     
     return( outBuffer );
 }
@@ -5874,12 +6248,8 @@ kvbuf_t* CCachePlugin::DSgetaliasent( void )
 kvbuf_t* CCachePlugin::DSgetservbyname( kvbuf_t *inBuffer, pid_t inPID )
 {
     uint32_t		dictCount	= kvbuf_reset( inBuffer );
-    char			*service	= NULL;
-    char			*proto		= "";
-    kvbuf_t			*outBuffer	= NULL;
-    tDataListPtr	attrTypes	= NULL;
-    char            *pValues[]  = { NULL, NULL }; // port, protocol
-    sCacheValidation    *theValidation   = NULL;
+    const char		*service	= NULL;
+    const char      *proto		= "";
     
     if( dictCount != 0 )
     {
@@ -5894,15 +6264,27 @@ kvbuf_t* CCachePlugin::DSgetservbyname( kvbuf_t *inBuffer, pid_t inPID )
             else if( strcmp(key, "proto") == 0 )
                 proto = kvbuf_next_val( inBuffer );
         }
+        
+        return DSgetservbyname_int( service, proto, inPID );
     }
     
-    if( service != NULL && proto != NULL )
+    return NULL;
+}
+
+kvbuf_t* CCachePlugin::DSgetservbyname_int( const char *service, const char *proto, pid_t inPID )
+{
+    kvbuf_t             *outBuffer	= NULL;
+    tDataListPtr        attrTypes	= NULL;
+    const char          *pValues[]  = { NULL, NULL }; // port, protocol
+    sCacheValidation    *theValidation   = NULL;
+    
+    if ( service != NULL && proto != NULL )
     {
 		// allowed to not pass a protocol, we find the first available
 		if (proto[0] == '\0')
-			outBuffer = FetchFromCache( fLibinfoCache, NULL, "s_name", service, NULL );
+			outBuffer = FetchFromCache( fLibinfoCache, 0, NULL, "s_name", service, NULL );
 		else
-			outBuffer = FetchFromCache( fLibinfoCache, NULL, "s_name", service, "s_proto", proto, NULL );
+			outBuffer = FetchFromCache( fLibinfoCache, 0, NULL, "s_name", service, "s_proto", proto, NULL );
 
         
         if ( outBuffer == NULL )
@@ -5963,10 +6345,10 @@ kvbuf_t* CCachePlugin::DSgetservbyname( kvbuf_t *inBuffer, pid_t inPID )
                 
                 if( outBuffer != NULL )
                 {
-					char    *keyList1[] = { "s_name", "s_proto", NULL };
-					char    *keyList2[] = { "s_port", "s_proto", NULL };
-					char	*keyList3[] = { "s_name", NULL }; // we only pass this if we have no protocol
-					kvbuf_t *copy       = kvbuf_init( outBuffer->databuf, outBuffer->datalen );
+					const char    *keyList1[] = { "s_name", "s_proto", NULL };
+					const char    *keyList2[] = { "s_port", "s_proto", NULL };
+					const char	*keyList3[] = { "s_name", NULL }; // we only pass this if we have no protocol
+					kvbuf_t *copy       = kvbuf_init_zone( malloc_default_purgeable_zone(), outBuffer->databuf, outBuffer->datalen );
 					
 					AddEntryToCacheWithKeylists( fLibinfoCache, theValidation, copy, CACHE_ENTRY_TYPE_SERVICE, kCacheTime, keyList1, keyList2, 
 												 (proto[0] == '\0' ? keyList3 : NULL), NULL );
@@ -6002,8 +6384,7 @@ kvbuf_t* CCachePlugin::DSgetservbyname( kvbuf_t *inBuffer, pid_t inPID )
         }
     }
     
-	// validation data has an internal spinlock to protect release/retain
-    theValidation->Release();
+    DSRelease( theValidation );
     
     return outBuffer;
 }
@@ -6035,9 +6416,9 @@ kvbuf_t* CCachePlugin::DSgetservbyport( kvbuf_t *inBuffer, pid_t inPID )
     if( port != NULL && proto != NULL )
     {
 		if (proto[0] == '\0')
-			outBuffer = FetchFromCache( fLibinfoCache, NULL, "s_port", port, NULL );
+			outBuffer = FetchFromCache( fLibinfoCache, 0, NULL, "s_port", port, NULL );
 		else
-			outBuffer = FetchFromCache( fLibinfoCache, NULL, "s_port", port, "s_proto", proto, NULL );
+			outBuffer = FetchFromCache( fLibinfoCache, 0, NULL, "s_port", port, "s_proto", proto, NULL );
         
         if ( outBuffer == NULL )
         {
@@ -6103,10 +6484,10 @@ kvbuf_t* CCachePlugin::DSgetservbyport( kvbuf_t *inBuffer, pid_t inPID )
                 if( outBuffer != NULL )
                 {
                     // add this entry to the cache
-                    char    *keyList1[] = { "s_name", "s_proto", NULL };
-                    char    *keyList2[] = { "s_port", "s_proto", NULL };
-                    char    *keyList3[] = { "s_port", NULL };
-                    kvbuf_t *copy       = kvbuf_init( outBuffer->databuf, outBuffer->datalen );
+                    const char    *keyList1[] = { "s_name", "s_proto", NULL };
+                    const char    *keyList2[] = { "s_port", "s_proto", NULL };
+                    const char    *keyList3[] = { "s_port", NULL };
+                    kvbuf_t *copy       = kvbuf_init_zone( malloc_default_purgeable_zone(), outBuffer->databuf, outBuffer->datalen );
                     
                     AddEntryToCacheWithKeylists( fLibinfoCache, theValidation, copy, CACHE_ENTRY_TYPE_SERVICE, kCacheTime, keyList1, keyList2, 
                                                  (proto[0] == '\0' ? keyList3 : NULL), NULL );
@@ -6141,8 +6522,7 @@ kvbuf_t* CCachePlugin::DSgetservbyport( kvbuf_t *inBuffer, pid_t inPID )
         }
     }
     
-	// validation data has an internal spinlock to protect release/retain
-    theValidation->Release();
+    DSRelease( theValidation );
     
     return outBuffer;
 }
@@ -6151,6 +6531,8 @@ kvbuf_t* CCachePlugin::DSgetservent( void )
 {
     kvbuf_t				   *outBuffer		= NULL;
     tDataListPtr			attrTypes		= NULL;
+    
+	outBuffer = FetchFromCache( fLibinfoCache, 0, NULL, "servent", "1", NULL );
     
     if ( outBuffer == NULL )
     {
@@ -6168,7 +6550,13 @@ kvbuf_t* CCachePlugin::DSgetservent( void )
             dsDataListDeallocate( fDirRef, attrTypes );
             DSFree( attrTypes );
         }
-    }
+		
+		if ( outBuffer != NULL ) {
+			kvbuf_t *copy = kvbuf_init_zone( malloc_default_purgeable_zone(), outBuffer->databuf, outBuffer->datalen );
+			
+			AddEntryToCacheWithMultiKey( fLibinfoCache, NULL, copy, CACHE_ENTRY_TYPE_SERVICE, kEnumerationCacheTime, "servent", "1", NULL );
+		}
+	}
     
     return( outBuffer );
 }
@@ -6193,7 +6581,7 @@ kvbuf_t* CCachePlugin::DSgetprotobyname( kvbuf_t *inBuffer, pid_t inPID )
     if( name == NULL )
         return NULL;
     
-    outBuffer = FetchFromCache( fLibinfoCache, NULL, "p_name", name, NULL );
+    outBuffer = FetchFromCache( fLibinfoCache, 0, NULL, "p_name", name, NULL );
     
     if ( outBuffer == NULL )
     {
@@ -6205,7 +6593,7 @@ kvbuf_t* CCachePlugin::DSgetprotobyname( kvbuf_t *inBuffer, pid_t inPID )
         
         if ( attrTypes != NULL )
         {
-            char	*keys[] = { "p_name", "p_proto", NULL };
+            const char	*keys[] = { "p_name", "p_proto", NULL };
 
 			bool localOnlyPID = IsLocalOnlyPID( inPID );
 			if( localOnlyPID == false )
@@ -6286,7 +6674,7 @@ kvbuf_t* CCachePlugin::DSgetprotobynumber( kvbuf_t *inBuffer, pid_t inPID )
     if( number == NULL )
         return NULL;
     
-    outBuffer = FetchFromCache( fLibinfoCache, NULL, "p_proto", number, NULL );
+    outBuffer = FetchFromCache( fLibinfoCache, 0, NULL, "p_proto", number, NULL );
     
     if ( outBuffer == NULL )
     {
@@ -6322,11 +6710,11 @@ kvbuf_t* CCachePlugin::DSgetprotobynumber( kvbuf_t *inBuffer, pid_t inPID )
             {
                 // add this entry to the cache
                 uint32_t dcount = kvbuf_reset( outBuffer );
-                char	*keys[] = { "p_name", "p_proto", NULL };
+                const char	*keys[] = { "p_name", "p_proto", NULL };
                 
                 if( dcount == 1 )
                 {
-                    kvbuf_t *copy = kvbuf_init( outBuffer->databuf, outBuffer->datalen );
+                    kvbuf_t *copy = kvbuf_init_zone( malloc_default_purgeable_zone(), outBuffer->databuf, outBuffer->datalen );
                     
                     AddEntryToCacheWithKeys( fLibinfoCache, theValidation, copy, CACHE_ENTRY_TYPE_PROTOCOL, kCacheTime, keys );
                 }
@@ -6360,8 +6748,7 @@ kvbuf_t* CCachePlugin::DSgetprotobynumber( kvbuf_t *inBuffer, pid_t inPID )
         DbgLog( kLogPlugin, "CCachePlugin::getprotobynumber - Cache hit for %s", number );
     }
     
-	// validation data has an internal spinlock to protect release/retain
-    theValidation->Release();
+    DSRelease( theValidation );
     
     return( outBuffer );
 }
@@ -6370,6 +6757,8 @@ kvbuf_t* CCachePlugin::DSgetprotoent( void )
 {
     kvbuf_t				   *outBuffer		= NULL;
     tDataListPtr			attrTypes		= NULL;
+    
+	outBuffer = FetchFromCache( fLibinfoCache, 0, NULL, "protoent", "1", NULL );
     
     if ( outBuffer == NULL )
     {
@@ -6387,7 +6776,13 @@ kvbuf_t* CCachePlugin::DSgetprotoent( void )
             dsDataListDeallocate( fDirRef, attrTypes );
             DSFree( attrTypes );
         }
-    }
+		
+		if ( outBuffer != NULL ) {
+			kvbuf_t *copy = kvbuf_init_zone( malloc_default_purgeable_zone(), outBuffer->databuf, outBuffer->datalen );
+			
+			AddEntryToCacheWithMultiKey( fLibinfoCache, NULL, copy, CACHE_ENTRY_TYPE_PROTOCOL, kEnumerationCacheTime, "protoent", "1", NULL );
+		}
+	}
     
     return( outBuffer );
 }
@@ -6412,7 +6807,7 @@ kvbuf_t* CCachePlugin::DSgetrpcbyname( kvbuf_t *inBuffer, pid_t inPID )
     if( name == NULL )
         return NULL;
     
-    outBuffer = FetchFromCache( fLibinfoCache, NULL, "r_name", name, NULL );
+    outBuffer = FetchFromCache( fLibinfoCache, 0, NULL, "r_name", name, NULL );
     
     if ( outBuffer == NULL )
     {
@@ -6424,7 +6819,7 @@ kvbuf_t* CCachePlugin::DSgetrpcbyname( kvbuf_t *inBuffer, pid_t inPID )
         
         if ( attrTypes != NULL )
         {
-            char	*keys[] = { "r_name", "r_number", NULL };
+            const char	*keys[] = { "r_name", "r_number", NULL };
 
 			bool localOnlyPID = IsLocalOnlyPID( inPID );
 			if( localOnlyPID == false )
@@ -6505,7 +6900,7 @@ kvbuf_t* CCachePlugin::DSgetrpcbynumber( kvbuf_t *inBuffer, pid_t inPID )
     if( number == NULL )
         return NULL;
     
-    outBuffer = FetchFromCache( fLibinfoCache, NULL, "r_number", number, NULL );
+    outBuffer = FetchFromCache( fLibinfoCache, 0, NULL, "r_number", number, NULL );
     
     if ( outBuffer == NULL )
     {
@@ -6541,11 +6936,11 @@ kvbuf_t* CCachePlugin::DSgetrpcbynumber( kvbuf_t *inBuffer, pid_t inPID )
             {
                 // add this entry to the cache
                 uint32_t dcount = kvbuf_reset( outBuffer );
-                char	*keys[] = { "r_name", "r_number", NULL };
+                const char	*keys[] = { "r_name", "r_number", NULL };
                 
                 if( dcount == 1 )
                 {
-                    kvbuf_t *copy = kvbuf_init( outBuffer->databuf, outBuffer->datalen );
+                    kvbuf_t *copy = kvbuf_init_zone( malloc_default_purgeable_zone(), outBuffer->databuf, outBuffer->datalen );
                     
                     AddEntryToCacheWithKeys( fLibinfoCache, theValidation, copy, CACHE_ENTRY_TYPE_RPC, kCacheTime, keys );
                 }
@@ -6579,8 +6974,7 @@ kvbuf_t* CCachePlugin::DSgetrpcbynumber( kvbuf_t *inBuffer, pid_t inPID )
         DbgLog( kLogPlugin, "CCachePlugin::getrpcbynumber - Cache hit for %s", number );
     }
     
-	// validation data has an internal spinlock to protect release/retain
-    theValidation->Release();
+    DSRelease( theValidation );
     
     return( outBuffer );
 }
@@ -6589,6 +6983,8 @@ kvbuf_t* CCachePlugin::DSgetrpcent( void )
 {
     kvbuf_t				   *outBuffer		= NULL;
     tDataListPtr			attrTypes		= NULL;
+    
+	outBuffer = FetchFromCache( fLibinfoCache, 0, NULL, "rpcent", "1", NULL );
     
     if ( outBuffer == NULL )
     {
@@ -6606,7 +7002,13 @@ kvbuf_t* CCachePlugin::DSgetrpcent( void )
             dsDataListDeallocate( fDirRef, attrTypes );
             DSFree( attrTypes );
         }
-    }
+		
+		if ( outBuffer != NULL ) {
+			kvbuf_t *copy = kvbuf_init_zone( malloc_default_purgeable_zone(), outBuffer->databuf, outBuffer->datalen );
+			
+			AddEntryToCacheWithMultiKey( fLibinfoCache, NULL, copy, CACHE_ENTRY_TYPE_RPC, kEnumerationCacheTime, "rpcent", "1", NULL );
+		}
+	}
     
     return( outBuffer );
 }
@@ -6631,12 +7033,12 @@ kvbuf_t* CCachePlugin::DSgetnetbyname( kvbuf_t *inBuffer, pid_t inPID )
     if( name == NULL )
         return NULL;
     
-    outBuffer = FetchFromCache( fLibinfoCache, NULL, "n_name", name, NULL );
+    outBuffer = FetchFromCache( fLibinfoCache, 0, NULL, "n_name", name, NULL );
     
     // check cache under aliases
     if ( outBuffer == NULL )
     {
-        outBuffer = FetchFromCache( fLibinfoCache, NULL, "n_aliases", name, NULL );
+        outBuffer = FetchFromCache( fLibinfoCache, 0, NULL, "n_aliases", name, NULL );
     }
     
     if ( outBuffer == NULL )
@@ -6649,7 +7051,7 @@ kvbuf_t* CCachePlugin::DSgetnetbyname( kvbuf_t *inBuffer, pid_t inPID )
         
         if ( attrTypes != NULL )
         {
-            char	*keys[] = { "n_name", "n_aliases", "n_net", NULL };
+            const char	*keys[] = { "n_name", "n_aliases", "n_net", NULL };
 
 			bool localOnlyPID = IsLocalOnlyPID( inPID );
 			if( localOnlyPID == false )
@@ -6735,7 +7137,7 @@ kvbuf_t* CCachePlugin::DSgetnetbyaddr( kvbuf_t *inBuffer, pid_t inPID )
         }
     }
     
-    outBuffer = FetchFromCache( fLibinfoCache, NULL, "n_net", number, NULL );
+    outBuffer = FetchFromCache( fLibinfoCache, 0, NULL, "n_net", number, NULL );
     
     if ( outBuffer == NULL )
     {
@@ -6770,11 +7172,11 @@ kvbuf_t* CCachePlugin::DSgetnetbyaddr( kvbuf_t *inBuffer, pid_t inPID )
             {
                 // add this entry to the cache
                 uint32_t dcount = kvbuf_reset( outBuffer );
-                char	*keys[] = { "n_name", "n_aliases", "n_net", NULL };
+                const char	*keys[] = { "n_name", "n_aliases", "n_net", NULL };
                 
                 if( dcount == 1 )
                 {
-                    kvbuf_t *copy = kvbuf_init( outBuffer->databuf, outBuffer->datalen );
+                    kvbuf_t *copy = kvbuf_init_zone( malloc_default_purgeable_zone(), outBuffer->databuf, outBuffer->datalen );
                     
                     AddEntryToCacheWithKeys( fLibinfoCache, theValidation, copy, CACHE_ENTRY_TYPE_NETWORK, kCacheTime, keys );
                 }
@@ -6808,8 +7210,7 @@ kvbuf_t* CCachePlugin::DSgetnetbyaddr( kvbuf_t *inBuffer, pid_t inPID )
         DbgLog( kLogPlugin, "CCachePlugin::getnetbyaddr - Cache hit for %s", number );
     }
     
-	// validation data has an internal spinlock to protect release/retain
-    theValidation->Release();
+    DSRelease( theValidation );
     
     return( outBuffer );
 }
@@ -6818,6 +7219,8 @@ kvbuf_t* CCachePlugin::DSgetnetent( void )
 {
     kvbuf_t				   *outBuffer		= NULL;
     tDataListPtr			attrTypes		= NULL;
+    
+	outBuffer = FetchFromCache( fLibinfoCache, 0, NULL, "netent", "1", NULL );
     
     if ( outBuffer == NULL )
     {
@@ -6835,7 +7238,13 @@ kvbuf_t* CCachePlugin::DSgetnetent( void )
             dsDataListDeallocate( fDirRef, attrTypes );
             DSFree( attrTypes );
         }
-    }
+		
+		if ( outBuffer != NULL ) {
+			kvbuf_t *copy = kvbuf_init_zone( malloc_default_purgeable_zone(), outBuffer->databuf, outBuffer->datalen );
+			
+			AddEntryToCacheWithMultiKey( fLibinfoCache, NULL, copy, CACHE_ENTRY_TYPE_NETWORK, kEnumerationCacheTime, "netent", "1", NULL );
+		}
+	}
     
     return( outBuffer );
 }
@@ -6865,7 +7274,7 @@ kvbuf_t* CCachePlugin::DSgetnetgrent( kvbuf_t *inBuffer )
     if( name == NULL )
         return NULL;
     
-    outBuffer = FetchFromCache( fLibinfoCache, NULL, "netgroup", name, NULL );
+    outBuffer = FetchFromCache( fLibinfoCache, 0, NULL, "netgroup", name, NULL );
     
     if ( outBuffer == NULL )
     {
@@ -6907,7 +7316,7 @@ kvbuf_t *CCachePlugin::DSinnetgr( kvbuf_t *inBuffer )
     uint32_t            valCount        = 0;
     char                *key            = NULL;
     char                *name           = NULL;
-    char                *triplet[3]     = { "", "", "" };
+    const char          *triplet[3]     = { "", "", "" };
     
     if( dictCount == 0 )
         return NULL;
@@ -6931,7 +7340,7 @@ kvbuf_t *CCachePlugin::DSinnetgr( kvbuf_t *inBuffer )
     if( name == NULL )
         return NULL;
     
-    tempBuffer = FetchFromCache( fLibinfoCache, NULL, "netgroup", name, "host", triplet[0], "user", triplet[1], "domain", triplet[2], NULL );
+    tempBuffer = FetchFromCache( fLibinfoCache, 0, NULL, "netgroup", name, "host", triplet[0], "user", triplet[1], "domain", triplet[2], NULL );
     
     if ( tempBuffer == NULL )
     {
@@ -6981,6 +7390,7 @@ kvbuf_t *CCachePlugin::DSinnetgr( kvbuf_t *inBuffer )
     return outBuffer;
 }
 
+#ifdef HANDLE_DNS_LOOKUPS
 void CCachePlugin::InitiateDNSQuery( sDNSLookup *inLookup, bool inParallel )
 {
     if ( inParallel && inLookup->fTotal > 1 )
@@ -7001,108 +7411,169 @@ void CCachePlugin::InitiateDNSQuery( sDNSLookup *inLookup, bool inParallel )
             
             query.fLookupEntry = inLookup;
             query.fQueryIndex = index;
-			query.fIsParallel = false;
-			query.fMutex = NULL;
-			query.fCondition = NULL;
-            
-			OSAtomicCompareAndSwap32Barrier( inLookup->fOutstanding, 1, &inLookup->fOutstanding );
+            inLookup->fOutstanding = 1;
 
             DoDNSQuery( &query );
         }
     }
 }
 
-void CCachePlugin::IssueParallelDNSQueries( sDNSLookup *inLookup )
+static void __IssueParallelDNSQueries( sDNSLookup *inLookup )
 {
-	int	iIndexOfAReq	= -1;
-
-	pthread_mutexattr_t dnsMutexAttr;
-	int rc = pthread_mutexattr_init( &dnsMutexAttr );
-	if ( rc != 0 )
-	{
-		DbgLog( kLogCritical, "CCachePlugin::IssueParallelDNSQueries - pthread_mutexattr_init failed, %s (%d).  Aborting.",
-				strerror(rc), rc);
-		abort();
-	}
-
-	rc = pthread_mutexattr_settype( &dnsMutexAttr, PTHREAD_MUTEX_ERRORCHECK );
-	if ( rc != 0 )
-	{
-		DbgLog( kLogCritical, "CCachePlugin::IssueParallelDNSQueries - pthread_mutexattr_settype failed, %s (%d).  Aborting",
-				strerror(rc), rc);
-		abort();
-	}
-
-	pthread_mutex_t dnsMutex;
-	rc = pthread_mutex_init( &dnsMutex, &dnsMutexAttr );
-	if ( rc != 0 )
-	{
-		DbgLog( kLogCritical, "CCachePlugin::IssueParallelDNSQueries - pthread_mutex_init failed, %s (%d).  Aborting",
-				strerror(rc), rc);
-		abort();
-	}
-
-	pthread_cond_t dnsCondition;
-	rc = pthread_cond_init( &dnsCondition, NULL );
-	if ( rc != 0 )
-	{
-		DbgLog( kLogCritical, "CCachePlugin::IssueParallelDNSQueries - pthread_mutex_init failed, %s (%d).  Aborting",
-				strerror(rc), rc);
-		abort();
-	}
-
 	bool reissueQueries;
-
+	
 	do
 	{
 		int iSlot = AddToDNSThreads();
-
+		
 		reissueQueries = false;  // assume the queries will finish.
-		OSAtomicCompareAndSwap32Barrier( inLookup->fOutstanding, 0, &inLookup->fOutstanding );
-
-		sDNSQuery *pQueries = new sDNSQuery[inLookup->fTotal];
-
-		for (int index = 0;  index < inLookup->fTotal;  index++ )
-		{
-			sDNSQuery       *pQuery     = &pQueries[index];
-
-			pQuery->fLookupEntry = inLookup;
-			pQuery->fQueryIndex = index;
-			pQuery->fIsParallel = true;
-			pQuery->fMutex = &dnsMutex;
-			pQuery->fCondition = &dnsCondition;
-
-			// clear queryFinished just in case this is a redo.
-			inLookup->fQueryFinished[index] = false;
-
-			if ( inLookup->fQueryTypes[index] == fTypeA )
-				iIndexOfAReq = index;
-
-			pthread_attr_t attrs;
-			pthread_attr_init( &attrs );
-			pthread_attr_setdetachstate( &attrs, PTHREAD_CREATE_DETACHED );
-
-			while ( pthread_create( &(inLookup->fThreadID[index]), &attrs, DoDNSQuery, pQuery ) != 0 )
+		inLookup->fOutstanding = 0;
+		bzero( inLookup->fQueryFinished, sizeof(inLookup->fQueryFinished) );
+		
+		void (^theblock)(size_t) = ^(size_t jobindex) {
+			sDNSQuery	query;
+			
+			query.fLookupEntry = inLookup;
+			query.fQueryIndex = (int32_t) jobindex;
+			
+			DbgLog( kLogDebug, "CCachePlugin::IssueParallelDNSQueries - Issuing query for index %d", jobindex );
+			
+			__sync_add_and_fetch( &(inLookup->fOutstanding), 1 );
+			DoDNSQuery( &query );
+			
+			DbgLog( kLogDebug, "CCachePlugin::IssueParallelDNSQueries - Complete query for index %d", jobindex );
+			
+			// if we got a valid answer for an A query then we'll use that answer time as a basis for how much longer to wait
+			if ( inLookup->fQueryTypes[jobindex] == ns_t_a && inLookup->fAnswers[jobindex] != NULL )
 			{
-				usleep( 1000 );
+				uint64_t	timeout;
+				
+				// if answer time > 1 ms then we consider it a valid non-cached value
+				if ( inLookup->fAnswerTime[jobindex] > 1000.0 ) {
+					timeout	= (uint64_t) inLookup->fAnswerTime[jobindex] * (uint64_t) inLookup->fTotal * (uint64_t) NSEC_PER_USEC;
+				}
+				else if ( inLookup->fQueryTypes[jobindex] == ns_t_a ) {
+					// seed workaround - if this is an A record we'll wait up to 500 ms for the rest of the answers
+					timeout = 500000000ull;
+				}
+				
+				if ( inLookup->fTimerSource == NULL ) {
+					
+					void (^source_cancel)(dispatch_source_t) = ^(dispatch_source_t ds) {
+						
+						long err_code = 0;
+						long err_domain = dispatch_source_get_error( ds, &err_code );
+						switch ( err_domain )
+						{
+							case DISPATCH_ERROR_DOMAIN_NO_ERROR:
+								break;
+							case DISPATCH_ERROR_DOMAIN_POSIX:
+								if ( err_code == ECANCELED ) {
+									return;
+								}
+							default:
+								DbgLog( kLogError, "CCache::IssueParallelDNSQueries - dispatch timer receved error domain %L error %L", 
+									    (long) err_domain, (long) err_code );
+						}
+
+						DbgLog( kLogDebug, "CCachePlugin::IssueParallelDNSQueries - timer has fired" );
+						int rc = pthread_mutex_lock( &gActiveThreadMutex );
+						assert( rc == 0 );
+						
+						int numThreadsCancelled = 0;
+						for ( int index = 0; index < inLookup->fTotal; index++ )
+						{
+							for ( int slot = 0; slot < gActiveThreadCount; slot++ )
+							{
+								// see if it matches the ID we are looking for so we get the slot
+								if ( inLookup->fThreadID[index] != NULL && gActiveThreads[slot] == inLookup->fThreadID[index] )
+								{
+									if ( gNotifyTokens[slot] == 0 )
+									{
+										char notify_name[128];
+										int notify_token = 0;
+										
+										snprintf( notify_name, sizeof(notify_name), "self.thread.%lu", (unsigned long) gActiveThreads[slot] );
+										
+										int status = notify_register_plain( notify_name, &notify_token );
+										if (status == NOTIFY_STATUS_OK)
+										{
+											notify_set_state( notify_token, ThreadStateExitRequested );
+											gNotifyTokens[slot] = notify_token;
+											gThreadAbandon[slot] = true;
+											DbgLog( kLogDebug, "CCachePlugin::AbandonDNSQueries called for index %d slot %d notification '%s' token %X", 
+												    index, slot, notify_name, gInterruptTokens[slot] );
+											
+											// let's interrupt inflight requests so the token can be checked
+											// we need to do for each thread to break multiple selects it seems.
+											// Only do this if we got a notify token - libresolv could spin if we
+											// interrupt w/o a token.
+											res_interrupt_request( gInterruptTokens[slot] );
+											++numThreadsCancelled;
+										}
+									}
+									else
+									{
+										DbgLog( kLogDebug, "CCachePlugin::AbandonDNSQueries index %d already being cancelled, just setting abandon flag", 
+											    index );
+										gThreadAbandon[slot] = true;
+									}
+									
+									// we can break out of this loop and continue
+									break;
+								}
+							}
+						}
+						
+						DbgLog( kLogInfo, "CCachePlugin::AbandonDNSQueries cancellation of %d threads requested", numThreadsCancelled );
+						
+						rc = pthread_mutex_unlock( &gActiveThreadMutex );
+						assert( rc == 0 );
+					};
+					
+					inLookup->fSemaphore = dispatch_semaphore_create( 0 );
+					assert( inLookup->fSemaphore != NULL );
+					
+					DbgLog( kLogInfo, "CCachePlugin::IssueParallelDNSQueries scheduled cancellation timer for %L ms", (long) (timeout / 1000000ull) );
+					dispatch_source_attr_t attr = dispatch_source_attr_create();
+					dispatch_source_attr_set_finalizer( attr, 
+													    ^(dispatch_source_t ds) {
+															// we deliver the event here
+                                                            dispatch_semaphore_signal( inLookup->fSemaphore );
+														} );
+					inLookup->fTimerSource = dispatch_source_timer_create( DISPATCH_TIMER_ONESHOT,
+																		   timeout,
+																		   0,
+																		   attr,
+																		   dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_HIGH), 
+																		   source_cancel );
+					dispatch_release( attr );
+					assert( inLookup->fTimerSource != NULL );
+				}
 			}
-
-			// increment here to ensure fOutstanding is non-zero before we go
-			// into the wait.  it's possible that the threads won't even run
-			// until this thread blocks.
-			OSAtomicIncrement32Barrier( &inLookup->fOutstanding );
-
-			DbgLog( kLogDebug, "CCachePlugin::IssueParallelDNSQueries - spawned thread #%d, thread ID = %X, Outstanding = %d, Total = %d",
-				   index, inLookup->fThreadID[index], inLookup->fOutstanding, inLookup->fTotal );		
+		};
+		
+		dispatch_apply( inLookup->fTotal, dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT), theblock );
+		
+		// event pointer is only created if a timer is created
+		if ( inLookup->fSemaphore != NULL ) {
+			DbgLog( kLogDebug, "CCachePlugin::IssueParallelDNSQueries - cancelling timer source for %X", inLookup );
+            
+            dispatch_cancel( inLookup->fTimerSource );
+			dispatch_release( inLookup->fTimerSource );
+			inLookup->fTimerSource = NULL;
+            
+            // now wait for the time to actually either cancel or finish firing
+            dispatch_semaphore_wait( inLookup->fSemaphore, DISPATCH_TIME_FOREVER );
+            dispatch_release( inLookup->fSemaphore );
+            inLookup->fSemaphore = NULL;
 		}
-
-		WaitForDNSQueries( iIndexOfAReq, inLookup, &dnsMutex, &dnsCondition );
-
+		
 		// if our lookup was cancelled, we need to re-issue all DNS lookups
 		if ( RemoveFromDNSThreads(iSlot) == true )
 		{
-			DbgLog( kLogDebug, "CCachePlugin::IssueParallelDNSQueries - re-issuing queries due to DNS change, waiting for threads to finish" );
-
+			DbgLog( kLogDebug, "CCachePlugin::IssueParallelDNSQueries - re-issuing queries due to DNS change" );
+			
 			// delete all answers and re-issue
 			for ( int ii = 0; ii < inLookup->fTotal; ii++ )
 			{
@@ -7113,232 +7584,25 @@ void CCachePlugin::IssueParallelDNSQueries( sDNSLookup *inLookup )
 				inLookup->fQueryFinished[ii] = false;
 				inLookup->fAnswerTime[ii] = 0.0;
 			}
-
-			OSMemoryBarrier(); // ensure we are sync'd across processors at this point
-
+			
 			reissueQueries = true;
 		}
-
-		delete[] pQueries;
-	} while ( reissueQueries );
-
-	rc = pthread_cond_destroy( &dnsCondition );
-	if ( rc != 0 )
-	{
-		DbgLog( kLogCritical, "CCachePlugin::IssueParallelDNSQueries - pthread_cond_destroy failed, %s (%d).  Aborting",
-				strerror(rc), rc);
-		abort();
-	}
-
-	rc = pthread_mutex_destroy( &dnsMutex );
-	if ( rc != 0 )
-	{
-		DbgLog( kLogCritical, "CCachePlugin::IssueParallelDNSQueries - pthread_mutex_destroy failed, %s (%d).  Aborting",
-				strerror(rc), rc);
-		abort();
-	}
-}
-
-void CCachePlugin::WaitForDNSQueries( int              inIndexOfAReq,
-									  sDNSLookup      *inLookup,
-									  pthread_mutex_t *dnsMutex,
-									  pthread_cond_t  *dnsCondition )
-{
-	struct timeval	tvNow;
-	struct timespec	tsTimeout   = { 0 };
-	struct timespec	tsWaitTime  = { 60, 0 }; // only wait 60 seconds.
-
-	if ( inIndexOfAReq >= 0 )
-	{
-		DbgLog( kLogDebug, "CCachePlugin::WaitForDNSQueries - Waiting (60 sec max) for first A response, Outstanding = %d, Total = %d", 
-				inLookup->fOutstanding, inLookup->fTotal );
-	}
-	else
-	{
-		DbgLog( kLogDebug, "CCachePlugin::WaitForDNSQueries - Waiting (60 sec max), Outstanding = %d, Total = %d",
-				inLookup->fOutstanding, inLookup->fTotal );
-	}
-
-	int rc = pthread_mutex_lock( dnsMutex );
-	if ( rc != 0 )
-	{
-		DbgLog( kLogCritical, "CCachePlugin::WaitForDNSQueries - pthread_mutex_lock failed, %s (%d).  Aborting",
-				strerror(rc), rc);
-		abort();
-	}
-
-	bool bWaitingForCancelledThreads = false;
-
-	while ( inLookup->fOutstanding > 0 )
-	{
-		gettimeofday( &tvNow, NULL );
-		TIMEVAL_TO_TIMESPEC ( &tvNow, &tsTimeout );
-		ADD_MACH_TIMESPEC( &tsTimeout, &tsWaitTime );
 		
-		rc = pthread_cond_timedwait( dnsCondition, dnsMutex, &tsTimeout );
-		if ( rc == ETIMEDOUT )
-		{
-			DbgLog( kLogDebug, "CCachePlugin::WaitForDNSQueries - timed out after %d %s  - Outstanding = %d, Total = %d",
-					tsWaitTime.tv_sec ? tsWaitTime.tv_sec : tsWaitTime.tv_nsec * 1000000,
-					tsWaitTime.tv_sec ? "sec" : "ms", inLookup->fOutstanding, inLookup->fTotal );
-
-			if ( !bWaitingForCancelledThreads )
-			{
-				DbgLog( kLogDebug, "CCachePlugin::WaitForDNSQueries - cancelling remaining threads - Outstanding = %d, Total = %d.  Will wait 30 seconds for threads to cancel.",
-						inLookup->fOutstanding, inLookup->fTotal );
-
-				// Timed out waiting for the queries to complete.  Cancel them
-				// and wait for them to finish.
-				AbandonDNSQueries( inLookup );
-				bWaitingForCancelledThreads = true;
-				tsWaitTime.tv_sec = 30;
-				tsWaitTime.tv_nsec = 0;
-			}
-			else
-			{
-				// This is bad - the threads were cancelled but they haven't come back.
-				// Those threads are sharing inLookup as well as pointers to dnsMutex
-				// and dnsCondition.
-				// If they haven't come back, they're likely hung in libresolv.
-				syslog( LOG_ERR, "CCachePlugin::WaitForDNSQueries - aborting because cancelled threads didn't return after 30 seconds." );
-				abort();
-			}
-		}
-		else if ( rc != 0 )
-		{
-			DbgLog( kLogCritical, "CCachePlugin::WaitForDNSQueries - pthread_cond_timedwait failed, %s (%d).  Aborting",
-					strerror(rc), rc);
-			abort();
-		}
-		else // rc == 0, we were signalled.
-		{
-			if ( inLookup->fOutstanding == 0 )
-			{
-				DbgLog( kLogDebug, "CCachePlugin::WaitForDNSQueries - queries complete" );
-			}
-			else
-			{
-				// got at least one answer back, but waiting on others.  determine
-				// how much longer we'll wait for the rest of the queries to finish.
-
-				double maxTime = 0.0;  // in microseconds
-
-				// if we are looking for an A request and got an answer, use that time as our calculation
-				// if we are looking for an A request and didn't get an answer, wait 60 seconds.
-				if ( inIndexOfAReq >= 0 )
-				{
-					if ( inLookup->fQueryFinished[inIndexOfAReq] )
-					{
-						maxTime = inLookup->fAnswerTime[inIndexOfAReq]; // use the time of that request directly
-					}
-					else
-					{
-						maxTime = 60000000.0; // 60 seconds in microseconds
-					}
-				}
-				else
-				{
-					// find response with highest time and use that as our further delay
-					for ( int ii = 0; ii < inLookup->fTotal; ii++ ) 
-					{
-						// if the query is finished and we got an answer
-						if ( inLookup->fQueryFinished[ii] && inLookup->fAnswerTime[ii] > maxTime )
-						{
-							maxTime = inLookup->fAnswerTime[ii];
-						}
-					}
-				}
-
-				int milliSecs = (maxTime / 1000) * inLookup->fTotal;
-				milliSecs = MAX( milliSecs, 100 );    // wait at least 100 ms ...
-				milliSecs = MIN( milliSecs, 60000 );  // ... but no more than 60
-				tsWaitTime.tv_sec = (milliSecs / 1000);
-				tsWaitTime.tv_nsec = ((milliSecs % 1000) * 1000000);
-
-				DbgLog( kLogDebug, "CCachePlugin::WaitForDNSQueries - got at least 1 answer, waiting %d ms for the rest", milliSecs );
-			}
-		}
-	}
-
-	rc = pthread_mutex_unlock( dnsMutex );
-	if ( rc != 0 )
-	{
-		DbgLog( kLogCritical, "CCachePlugin::WaitForDNSQueries - dnsMutex pthread_mutex_unlock failed, %s (%d).  Aborting",
-				strerror(rc), rc);
-		abort();
-	}
+	} while ( reissueQueries );
 }
 
-void CCachePlugin::AbandonDNSQueries( sDNSLookup *inLookup )
+void CCachePlugin::IssueParallelDNSQueries( sDNSLookup *inLookup )
 {
-	int rc = pthread_mutex_lock( &gActiveThreadMutex );
-	if ( rc != 0 )
-	{
-		DbgLog( kLogCritical, "CCachePlugin::AbandonDNSQueries - gActiveThreadMutex pthread_mutex_lock failed, %s (%d).  Aborting",
-				strerror(rc), rc);
-		abort();
-	}
-	
-	int numThreadsCancelled = 0;
-	for ( int ii = 0; ii < inLookup->fTotal; ii++ )
-	{
-		for ( int zz = 0; zz < gActiveThreadCount; zz++ )
-		{
-			// see if it matches the ID we are looking for so we get the slot
-			if ( inLookup->fThreadID[ii] != NULL && gActiveThreads[zz] == inLookup->fThreadID[ii] )
-			{
-				if ( gNotifyTokens[zz] == 0 )
-				{
-					char notify_name[128];
-					int notify_token = 0;
-					
-					snprintf( notify_name, sizeof(notify_name), "self.thread.%lu", (unsigned long) gActiveThreads[zz] );
-					
-					int status = notify_register_plain( notify_name, &notify_token );
-					if (status == NOTIFY_STATUS_OK)
-					{
-						notify_set_state( notify_token, ThreadStateExitRequested );
-						gNotifyTokens[zz] = notify_token;
-						gThreadAbandon[zz] = true;
-						DbgLog( kLogDebug, "CCachePlugin::AbandonDNSQueries called for slot %d notification '%s'", zz, notify_name );
-						
-						// let's interrupt inflight requests so the token can be checked
-						// we need to do for each thread to break multiple selects it seems.
-						// Only do this if we got a notify token - libresolv could spin if we
-						// interrupt w/o a token.
-						res_interrupt_request( gInterruptTokens[zz] );
-						++numThreadsCancelled;
-					}
-				}
-				else
-				{
-					DbgLog( kLogDebug, "CCachePlugin::AbandonDNSQueries slot %d already being cancelled, just setting abandon flag", zz );
-					gThreadAbandon[zz] = true;
-				}
-				
-				// we can break out of this loop and continue
-				break;
-			}
-		}
-	}
-
-	DbgLog( kLogDebug, "CCachePlugin::AbandonDNSQueries %d threads cancelled", numThreadsCancelled );
-
-	rc = pthread_mutex_unlock( &gActiveThreadMutex );
-	if ( rc != 0 )
-	{
-		DbgLog( kLogCritical, "CCachePlugin::AbandonDNSQueries - dnsMutex pthread_mutex_unlock failed, %s (%d).  Aborting",
-				strerror(rc), rc);
-		abort();
-	}
+	__IssueParallelDNSQueries( inLookup ); // 6453258
 }
+#endif
 
 kvbuf_t* CCachePlugin::DSgethostbyname( kvbuf_t *inBuffer, pid_t inPID, bool inParallelQuery, sDNSLookup *inLookup )
 {
     uint32_t            dictCount       = kvbuf_reset( inBuffer );
     uint32_t            valCount        = 0;
-    char                *pIPv4          = "0";
-    char                *pIPv6          = "0";
+    const char          *pIPv4          = "0";
+    const char          *pIPv6          = "0";
     char                *key;
     char                *name           = NULL;
     
@@ -7369,12 +7633,12 @@ kvbuf_t* CCachePlugin::DSgethostbyname( kvbuf_t *inBuffer, pid_t inPID, bool inP
 kvbuf_t* CCachePlugin::DSgethostbyname_int( char *inName, const char *inIPv4, const char *inIPv6, int inPID, bool inParallelQuery, sDNSLookup *inLookup, 
                                             int32_t *outTTL )
 {
-    uint32_t            ipv4            = 0;
-    uint32_t            ipv6            = 0;
-    kvbuf_t             *outBuffer      = NULL;
-    tDataListPtr        attrTypes       = NULL;
-    int32_t             ttl             = kDefaultTTLValue;
-    sCacheValidation    *theValidation	= NULL;
+    uint32_t                    ipv4            = 0;
+    uint32_t                    ipv6            = 0;
+    __block kvbuf_t             *outBuffer      = NULL;
+    tDataListPtr                attrTypes       = NULL;
+    int32_t                     ttl             = kDefaultTTLValue;
+    __block sCacheValidation    *theValidation	= NULL;
 
     if( NULL != inIPv4 )
     {
@@ -7394,22 +7658,22 @@ kvbuf_t* CCachePlugin::DSgethostbyname_int( char *inName, const char *inIPv4, co
     // if ipv4 is set, then we have to check that flag first, otherwise we won't check order properly
     if( ipv4 != 0 )
     {
-        outBuffer = FetchFromCache( fLibinfoCache, &ttl, "h_name", inName, "ipv4", inIPv4, (ipv6 ? "ipv6" : NULL), inIPv6, NULL );
+        outBuffer = FetchFromCache( fLibinfoCache, 0, &ttl, "h_name", inName, "ipv4", inIPv4, (ipv6 ? "ipv6" : NULL), inIPv6, NULL );
         
         // now check the aliases
         if( outBuffer == NULL )
         {
-            outBuffer = FetchFromCache( fLibinfoCache, &ttl, "h_aliases", inName, "ipv4", inIPv4, (ipv6 ? "ipv6" : NULL), inIPv6, NULL );
+            outBuffer = FetchFromCache( fLibinfoCache, 0, &ttl, "h_aliases", inName, "ipv4", inIPv4, (ipv6 ? "ipv6" : NULL), inIPv6, NULL );
         }
     }
     else
     {
-        outBuffer = FetchFromCache( fLibinfoCache, &ttl, "h_name", inName, "ipv6", inIPv6, NULL );
+        outBuffer = FetchFromCache( fLibinfoCache, 0, &ttl, "h_name", inName, "ipv6", inIPv6, NULL );
         
         // now check the aliases
         if( outBuffer == NULL )
         {
-            outBuffer = FetchFromCache( fLibinfoCache, &ttl, "h_aliases", inName, "ipv6", inIPv6, NULL );
+            outBuffer = FetchFromCache( fLibinfoCache, 0, &ttl, "h_aliases", inName, "ipv6", inIPv6, NULL );
         }
     }
     
@@ -7424,6 +7688,7 @@ kvbuf_t* CCachePlugin::DSgethostbyname_int( char *inName, const char *inIPv4, co
         
         if ( attrTypes != NULL )
         {
+#ifdef ALLOW_NETWORK_HOST_SEARCHES
             bool localOnlyPID = IsLocalOnlyPID( inPID );
 			if( localOnlyPID == false )
             {
@@ -7431,6 +7696,7 @@ kvbuf_t* CCachePlugin::DSgethostbyname_int( char *inName, const char *inIPv4, co
                                                   NULL, NULL, &theValidation );
             }
             else
+#else
             {
 				// check then Local node first
 				// then FFPlugin 
@@ -7442,8 +7708,23 @@ kvbuf_t* CCachePlugin::DSgethostbyname_int( char *inName, const char *inIPv4, co
 					outBuffer = GetRecordListLibInfo( fFlatFileNodeRef, inName, kDSStdRecordTypeHosts, 1, attrTypes, ParseHostEntry, NULL, NULL,
 													  NULL, NULL, &theValidation );
 				}
+				
+                // we don't trigger NIS lookups for local only case because it could cause deadlock for DS itself
+                bool localOnlyPID = IsLocalOnlyPID( inPID );
+                if ( localOnlyPID == false )
+                {
+                    dispatch_sync( fNISQueue, 
+                                   ^(void) {
+                                       if ( NULL == outBuffer && fNISNodeRef != 0 ) {
+                                           outBuffer = GetRecordListLibInfo( fNISNodeRef, inName, kDSStdRecordTypeHosts, 1, attrTypes, ParseHostEntry, NULL, NULL,
+                                                                             NULL, NULL, &theValidation );
+                                       }
+                                   } );
+                }
             }
+#endif
             
+#ifdef HANDLE_DNS_LOOKUPS
             // now lookup in DNS
             if( NULL == outBuffer )
             {
@@ -7463,14 +7744,14 @@ kvbuf_t* CCachePlugin::DSgethostbyname_int( char *inName, const char *inIPv4, co
                     pAnswer = new sDNSLookup;
                 }                
                 
-                if( 0 != ipv4 )
-                {
-                    pAnswer->AddQuery( fClassIN, fTypeA, inName );
-                }
-                
                 if( 0 != ipv6 )
                 {
                     pAnswer->AddQuery( fClassIN, fTypeAAAA, inName );
+                }
+                
+                if( 0 != ipv4 )
+                {
+                    pAnswer->AddQuery( fClassIN, fTypeA, inName );
                 }
                 
                 InitiateDNSQuery( pAnswer, inParallelQuery );
@@ -7770,6 +8051,7 @@ kvbuf_t* CCachePlugin::DSgethostbyname_int( char *inName, const char *inIPv4, co
                 }
             }
             else
+#endif
             {
                 kvbuf_add_key( outBuffer, "ipv4" );
                 kvbuf_add_val( outBuffer, inIPv4 );
@@ -7777,19 +8059,25 @@ kvbuf_t* CCachePlugin::DSgethostbyname_int( char *inName, const char *inIPv4, co
                 kvbuf_add_key( outBuffer, "ipv6" );
                 kvbuf_add_val( outBuffer, inIPv6 );                                    
             }
+
             
-            if( outBuffer != NULL )
+#ifdef CACHE_HOST_ENTRIES
+            if ( outBuffer != NULL )
+#else
+            // if we have validation information, then it came from DS, not fom DNS, so we still cache it
+            if ( outBuffer != NULL && theValidation != NULL )
+#endif
             {
-                kvbuf_t *copy = kvbuf_init( outBuffer->databuf, outBuffer->datalen );
+                kvbuf_t *copy = kvbuf_init_zone( malloc_default_purgeable_zone(), outBuffer->databuf, outBuffer->datalen );
 
                 if( ipv4 == 1 && ipv6 == 1 )
                 {
-                    char    *keylist1[] = { "h_name", "ipv4", NULL };
-                    char    *keylist2[] = { "h_name", "ipv6", NULL };
-                    char    *keylist3[] = { "h_name", "ipv4", "ipv6", NULL };
-                    char    *keylist4[] = { "h_aliases", "ipv4", NULL };
-                    char    *keylist5[] = { "h_aliases", "ipv6", NULL };
-                    char    *keylist6[] = { "h_aliases", "ipv4", "ipv6", NULL };
+                    const char    *keylist1[] = { "h_name", "ipv4", NULL };
+                    const char    *keylist2[] = { "h_name", "ipv6", NULL };
+                    const char    *keylist3[] = { "h_name", "ipv4", "ipv6", NULL };
+                    const char    *keylist4[] = { "h_aliases", "ipv4", NULL };
+                    const char    *keylist5[] = { "h_aliases", "ipv6", NULL };
+                    const char    *keylist6[] = { "h_aliases", "ipv4", "ipv6", NULL };
                     
                     // even though we replace, doesn't mean the h_name matches the name looked up it could be an alias, so we need to
                     // manually remove
@@ -7804,8 +8092,8 @@ kvbuf_t* CCachePlugin::DSgethostbyname_int( char *inName, const char *inIPv4, co
                 }
                 else if( ipv4 == 1 )
                 {
-                    char    *keylist1[] = { "h_name", "ipv4", NULL };
-                    char    *keylist2[] = { "h_aliases", "ipv4", NULL };
+                    const char    *keylist1[] = { "h_name", "ipv4", NULL };
+                    const char    *keylist2[] = { "h_aliases", "ipv4", NULL };
                     
                     // even though we replace, doesn't mean the h_name matches the name looked up it could be an alias, so we need to
                     // manually remove
@@ -7818,8 +8106,8 @@ kvbuf_t* CCachePlugin::DSgethostbyname_int( char *inName, const char *inIPv4, co
                 }
                 else
                 {
-                    char    *keylist1[] = { "h_name", "ipv6", NULL };
-                    char    *keylist2[] = { "h_aliases", "ipv6", NULL };
+                    const char    *keylist1[] = { "h_name", "ipv6", NULL };
+                    const char    *keylist2[] = { "h_aliases", "ipv6", NULL };
 
                     // even though we replace, doesn't mean the h_name matches the name looked up it could be an alias, so we need to
                     // manually remove
@@ -7834,6 +8122,7 @@ kvbuf_t* CCachePlugin::DSgethostbyname_int( char *inName, const char *inIPv4, co
                 if( outTTL != NULL )
                     (*outTTL) = ttl;
             }
+#ifdef CACHE_HOST_ENTRIES
             else if ( localOnlyPID == false )
             {
 				if ( ttl > 0 )
@@ -7843,15 +8132,15 @@ kvbuf_t* CCachePlugin::DSgethostbyname_int( char *inName, const char *inIPv4, co
 					
 					if ( ipv4 != 0 )
 					{
-						outBuffer = FetchFromCache( fLibinfoCache, &ttl, "h_name", inName, "ipv4", inIPv4, (ipv6 ? "ipv6" : NULL), inIPv6, NULL );
+						outBuffer = FetchFromCache( fLibinfoCache, 0, &ttl, "h_name", inName, "ipv4", inIPv4, (ipv6 ? "ipv6" : NULL), inIPv6, NULL );
 						if ( outBuffer == NULL )
-							outBuffer = FetchFromCache( fLibinfoCache, &ttl, "h_aliases", inName, "ipv4", inIPv4, (ipv6 ? "ipv6" : NULL), inIPv6, NULL );
+							outBuffer = FetchFromCache( fLibinfoCache, 0, &ttl, "h_aliases", inName, "ipv4", inIPv4, (ipv6 ? "ipv6" : NULL), inIPv6, NULL );
 					}
 					else
 					{
-						outBuffer = FetchFromCache( fLibinfoCache, &ttl, "h_name", inName, "ipv6", inIPv6, NULL );
+						outBuffer = FetchFromCache( fLibinfoCache, 0, &ttl, "h_name", inName, "ipv6", inIPv6, NULL );
 						if ( outBuffer == NULL )
-							outBuffer = FetchFromCache( fLibinfoCache, &ttl, "h_aliases", inName, "ipv6", inIPv6, NULL );
+							outBuffer = FetchFromCache( fLibinfoCache, 0, &ttl, "h_aliases", inName, "ipv6", inIPv6, NULL );
 					}
 
 					// if we still don't have an entry while holding the cache, it's safe to put a negative entry
@@ -7886,6 +8175,7 @@ kvbuf_t* CCachePlugin::DSgethostbyname_int( char *inName, const char *inIPv4, co
 					DbgLog( kLogDebug, "CCachePlugin::gethostbyname - query for %s didn't return A/AAAA records - no cache entries created", inName );
 				}
 			}
+#endif
             
             dsDataListDeallocate( fDirRef, attrTypes );
             DSFree( attrTypes );
@@ -7903,31 +8193,87 @@ kvbuf_t* CCachePlugin::DSgethostbyname_int( char *inName, const char *inIPv4, co
         
         DbgLog( kLogPlugin, "CCachePlugin::gethostbyname - Cache hit for %s", inName );
         
+#ifdef HANDLE_DNS_LOOKUPS
         // if we hit our cache, we still have more responses to get if someone handed us an inLookup
         if( inLookup != NULL )
         {
             DbgLog( kLogDebug, "CCachePlugin::gethostbyname - have a query to initiate" );
             InitiateDNSQuery( inLookup, inParallelQuery );
         }
+#endif
     }
     
-	// validation data has an internal spinlock to protect release/retain
-    theValidation->Release();
+    DSRelease( theValidation );
     
     return( outBuffer );
 }
 
+kvbuf_t* CCachePlugin::DSgethostbyname_service( kvbuf_t *inBuffer, pid_t inPID )
+{
+    uint32_t            dictCount       = kvbuf_reset( inBuffer );
+    uint32_t            valCount        = 0;
+    const char          *pIPv4          = "0";
+    const char          *pIPv6          = "0";
+    const char          *service        = NULL;
+    const char          *proto          = "";
+    char                *key;
+    char                *name           = NULL;
+    
+    if( dictCount == 0 )
+        return NULL;
+    
+    kvbuf_next_dict( inBuffer );
+    
+    while ( (key = kvbuf_next_key(inBuffer, &valCount)) != NULL ) 
+    {
+        if ( strcmp(key, "name") == 0 ) {
+            name = kvbuf_next_val( inBuffer );
+        }
+        else if ( strcmp(key, "ipv4") == 0 ) {
+            pIPv4 = kvbuf_next_val( inBuffer );
+        }
+        else if ( strcmp(key, "ipv6") == 0 ) {
+            pIPv6 = kvbuf_next_val( inBuffer );
+        }
+        else if ( strcmp(key, "s_name") == 0 ) {
+            service = kvbuf_next_val( inBuffer );
+        }
+        else if ( strcmp(key, "s_proto") == 0 ) {
+            proto = kvbuf_next_val( inBuffer );
+        }
+    }
+    
+    kvbuf_t *hostLookup = DSgethostbyname_int( name, pIPv4, pIPv6, inPID, true, NULL );
+    
+    if ( service != NULL ) {
+        kvbuf_t *serviceLookup = DSgetservbyname_int( service, proto, inPID );
+        
+        // now merge this serviceLookup into the hostLookup for return
+        if ( serviceLookup != NULL ) {
+            if ( hostLookup != NULL ) {
+                kvbuf_append_kvbuf( hostLookup, serviceLookup );
+                kvbuf_free( serviceLookup );
+            }
+            else {
+                hostLookup = serviceLookup;
+            }
+        }
+    }
+    
+    return hostLookup;
+}
+
 kvbuf_t* CCachePlugin::DSgethostbyaddr( kvbuf_t *inBuffer, pid_t inPID )
 {
-    kvbuf_t             *outBuffer		= NULL;
-    tDataListPtr        attrTypes		= NULL;
-    uint32_t            dictCount       = kvbuf_reset( inBuffer );
-    int32_t             ttl             = kDefaultTTLValue;
-    uint32_t            valCount        = 0;
-    char                *address        = NULL;
-    uint32_t            family          = 0;
-    sCacheValidation    *theValidation  = NULL;
-    char                *key;
+    __block kvbuf_t             *outBuffer		= NULL;
+    tDataListPtr                attrTypes		= NULL;
+    uint32_t                    dictCount       = kvbuf_reset( inBuffer );
+    int32_t                     ttl             = kDefaultTTLValue;
+    uint32_t                    valCount        = 0;
+    char                        *address        = NULL;
+    uint32_t                    family          = 0;
+    __block sCacheValidation    *theValidation  = NULL;
+    char                        *key;
     
     if( dictCount == 0 )
         return NULL;
@@ -7953,7 +8299,7 @@ kvbuf_t* CCachePlugin::DSgethostbyaddr( kvbuf_t *inBuffer, pid_t inPID )
     if( family == 0 || address == NULL )
         return NULL;
     
-    outBuffer = FetchFromCache( fLibinfoCache, NULL, (family == AF_INET ? "h_ipv4_addr_list" : "h_ipv6_addr_list"), address, NULL );
+    outBuffer = FetchFromCache( fLibinfoCache, 0, NULL, (family == AF_INET ? "h_ipv4_addr_list" : "h_ipv6_addr_list"), address, NULL );
     
     if( NULL == outBuffer )
     {
@@ -7974,12 +8320,14 @@ kvbuf_t* CCachePlugin::DSgethostbyaddr( kvbuf_t *inBuffer, pid_t inPID )
             // if we aren't dispatching to ourself, dispatch to the FF Plugin
             if( NULL == outBuffer )
             {
+#ifdef ALLOW_NETWORK_HOST_SEARCHES
                 if( localOnlyPID == false )
                 {
                     outBuffer = ValueSearchLibInfo( fSearchNodeRef, addressAttribute, address, kDSStdRecordTypeHosts, 1, attrTypes, ParseHostEntry,
                                                     NULL, NULL, &theValidation );
                 }
                 else
+#else
                 {
                     // check then Local node first
                     // then FFPlugin 
@@ -7990,8 +8338,22 @@ kvbuf_t* CCachePlugin::DSgethostbyaddr( kvbuf_t *inBuffer, pid_t inPID )
 						outBuffer = ValueSearchLibInfo( fFlatFileNodeRef, addressAttribute, address, kDSStdRecordTypeHosts, 1, attrTypes,
 														ParseHostEntry, NULL, NULL, &theValidation );
                     }
-                }
+					
+                    // we don't trigger NIS lookups for local only case because it could cause deadlock for DS itself
+                    if( localOnlyPID == false )
+                    {
+                        dispatch_sync( fNISQueue, 
+                                       ^(void) {
+                                           if ( NULL == outBuffer && fNISNodeRef != 0 ) {
+                                               outBuffer = ValueSearchLibInfo( fNISNodeRef, addressAttribute, address, kDSStdRecordTypeHosts, 1, attrTypes,
+                                                                               ParseHostEntry, NULL, NULL, &theValidation );
+                                           }
+                                       } );
+                    }
+				}
+#endif
                 
+#ifdef HANDLE_DNS_LOOKUPS
                 // now lookup in DNS if no answer in local files
                 if( NULL == outBuffer )
                 {
@@ -8073,16 +8435,22 @@ kvbuf_t* CCachePlugin::DSgethostbyaddr( kvbuf_t *inBuffer, pid_t inPID )
                         
                         dns_free_reply( reply );
                     }
-                }                    
+                } 
+#endif
                 
-                if( outBuffer != NULL )
+#ifdef CACHE_HOST_ENTRIES
+                if ( outBuffer != NULL )
+#else
+                // if we have validation information, then it came from DS, not fom DNS, so we still cache it
+                if ( outBuffer != NULL && theValidation != NULL )
+#endif
                 {
                     // add this entry to the cache
                     uint32_t dcount = kvbuf_reset( outBuffer );
                     
                     if( dcount == 1 )
                     {
-                        kvbuf_t *copy       = kvbuf_init( outBuffer->databuf, outBuffer->datalen );
+                        kvbuf_t *copy       = kvbuf_init_zone( malloc_default_purgeable_zone(), outBuffer->databuf, outBuffer->datalen );
                         
                         AddEntryToCacheWithMultiKey( fLibinfoCache, theValidation, copy, CACHE_ENTRY_TYPE_HOST, ttl, 
                                                      (family == AF_INET ? "h_ipv4_addr_list" : "h_ipv6_addr_list"), address, NULL );
@@ -8122,15 +8490,14 @@ kvbuf_t* CCachePlugin::DSgethostbyaddr( kvbuf_t *inBuffer, pid_t inPID )
         DbgLog( kLogPlugin, "CCachePlugin::gethostbyaddr - Cache hit for %s", address );
     }
     
-	// validation data has an internal spinlock to protect release/retain
-    theValidation->Release();
+    DSRelease( theValidation );
         
     return( outBuffer );
 }
 
 kvbuf_t* CCachePlugin::DSgethostent( kvbuf_t *inBuffer, pid_t inPID )
 {
-    kvbuf_t             *outBuffer		= NULL;
+    __block kvbuf_t		*outBuffer		= NULL;
     
     if( outBuffer == NULL )
     {
@@ -8143,6 +8510,7 @@ kvbuf_t* CCachePlugin::DSgethostent( kvbuf_t *inBuffer, pid_t inPID )
         
         if( attrTypes != NULL )
         {
+#ifdef ALLOW_NETWORK_HOST_SEARCHES
             // TODO - need a way to specify an order of lookups, i.e., nsswitch
 			bool localOnlyPID = IsLocalOnlyPID( inPID );
 			if( localOnlyPID == false )
@@ -8151,6 +8519,7 @@ kvbuf_t* CCachePlugin::DSgethostent( kvbuf_t *inBuffer, pid_t inPID )
                                                   NULL, NULL );
             }
             else
+#else
             {
 				// check then Local node first
 				// then FFPlugin 
@@ -8159,11 +8528,25 @@ kvbuf_t* CCachePlugin::DSgethostent( kvbuf_t *inBuffer, pid_t inPID )
 
                 outBuffer = GetRecordListLibInfo( fLocalNodeRef, kDSRecordsAll, kDSStdRecordTypeHosts, 0, attrTypes, ParseHostEntry, outBuffer, NULL,
                                                   NULL, NULL );
-            }
+				
+                // we don't trigger NIS lookups for local only case because it could cause deadlock for DS itself
+                bool localOnlyPID = IsLocalOnlyPID( inPID );
+                if( localOnlyPID == false )
+                {
+                    dispatch_sync( fNISQueue, 
+                                   ^(void) {
+                                       if ( fNISNodeRef != 0 ) {
+                                           outBuffer = GetRecordListLibInfo( fNISNodeRef, kDSRecordsAll, kDSStdRecordTypeHosts, 0, attrTypes, ParseHostEntry, outBuffer, NULL,
+                                                                             NULL, NULL );
+                                       }
+                                   } );
+                }
+			}
             
             dsDataListDeallocate( fDirRef, attrTypes );
             DSFree( attrTypes );
         }
+#endif
         
         fStatsLock.WaitLock();
         fCacheMissByFunction[kDSLUgethostent] += 1;
@@ -8173,6 +8556,7 @@ kvbuf_t* CCachePlugin::DSgethostent( kvbuf_t *inBuffer, pid_t inPID )
     return( outBuffer );
 }
 
+#ifdef HANDLE_DNS_LOOKUPS
 kvbuf_t* CCachePlugin::DSgetnameinfo( kvbuf_t *inBuffer, pid_t inPID )
 {
     kvbuf_t             *outBuffer		= NULL;
@@ -8185,7 +8569,7 @@ kvbuf_t* CCachePlugin::DSgetnameinfo( kvbuf_t *inBuffer, pid_t inPID )
     uint32_t            family          = 0;
     char                *pFamily        = NULL;
     uint16_t            port            = 0;
-    char                *pPort          = "0";
+    const char          *pPort          = "0";
     uint32_t            flags           = 0;
     char                pCacheFlags[16] = { 0, };
     char                *key;
@@ -8256,7 +8640,7 @@ kvbuf_t* CCachePlugin::DSgetnameinfo( kvbuf_t *inBuffer, pid_t inPID )
             return NULL;
     }
     
-    tempBuffer = FetchFromCache( fLibinfoCache, NULL, "gni_address", canonicalAddr, "gni_family", pFamily, "gni_port", pPort, "flags", pCacheFlags, NULL );
+    tempBuffer = FetchFromCache( fLibinfoCache, 0, NULL, "gni_address", canonicalAddr, "gni_family", pFamily, "gni_port", pPort, "flags", pCacheFlags, NULL );
 
     if( NULL == tempBuffer )
     {
@@ -8272,6 +8656,9 @@ kvbuf_t* CCachePlugin::DSgetnameinfo( kvbuf_t *inBuffer, pid_t inPID )
         if ( attrTypes != NULL )
         {
 			bool localOnlyPID = IsLocalOnlyPID( inPID );
+#ifndef CACHE_HOST_ENTRIES
+			bool fromOD = false;
+#endif
 
             // TODO - need a way to specify an order of lookups, i.e., nsswitch
             // if we aren't dispatching to ourself, dispatch to the FF Plugin
@@ -8280,14 +8667,16 @@ kvbuf_t* CCachePlugin::DSgetnameinfo( kvbuf_t *inBuffer, pid_t inPID )
                 if( NULL != reqAddress && (0 == (flags & NI_NUMERICHOST) || NI_NAMEREQD == (flags & NI_NAMEREQD)) &&
                     (AF_INET == family || AF_INET6 == family) )
                 {
-                    kvbuf_t *searchBuffer = NULL;
+                    __block kvbuf_t *searchBuffer = NULL;
                     
+#ifdef ALLOW_NETWORK_HOST_SEARCHES
                     if( localOnlyPID == false )
                     {
                         searchBuffer = ValueSearchLibInfo( fSearchNodeRef, addressAttribute, canonicalAddr, kDSStdRecordTypeHosts, 1, attrTypes, 
                                                          ParseHostEntry, NULL, NULL, NULL );
                     }
                     else
+#else
                     {
 						// check then Local node first
 						// then FFPlugin 
@@ -8298,7 +8687,20 @@ kvbuf_t* CCachePlugin::DSgetnameinfo( kvbuf_t *inBuffer, pid_t inPID )
                             searchBuffer = ValueSearchLibInfo( fFlatFileNodeRef, addressAttribute, canonicalAddr, kDSStdRecordTypeHosts, 1, attrTypes, 
 															   ParseHostEntry, NULL, NULL, NULL );
                         }
+						
+                        // we don't trigger NIS lookups for local only case because it could cause deadlock for DS itself
+                        if( localOnlyPID == false )
+                        {
+                            dispatch_sync( fNISQueue, 
+                                           ^(void) {
+                                               if ( NULL == outBuffer && fNISNodeRef != 0 ) {
+                                                   searchBuffer = ValueSearchLibInfo( fNISNodeRef, addressAttribute, canonicalAddr, kDSStdRecordTypeHosts, 1, attrTypes, 
+                                                                                      ParseHostEntry, NULL, NULL, NULL );
+                                               }
+                                           } );
+                        }
                     }
+#endif
                         
                         if( kvbuf_reset(searchBuffer) > 0 )
                         {
@@ -8320,6 +8722,10 @@ kvbuf_t* CCachePlugin::DSgetnameinfo( kvbuf_t *inBuffer, pid_t inPID )
                                     break;
                                 }
                             }
+							
+#ifndef CACHE_HOST_ENTRIES
+                            fromOD = true;
+#endif
                         }
                         
                         kvbuf_free( searchBuffer );
@@ -8455,18 +8861,21 @@ kvbuf_t* CCachePlugin::DSgetnameinfo( kvbuf_t *inBuffer, pid_t inPID )
                     }
                 }
                 
+#ifdef CACHE_HOST_ENTRIES
                 if( tempBuffer != NULL )
+#else
+                if( tempBuffer != NULL && fromOD == true )
+#endif
                 {
                     // add this entry to the cache
                     uint32_t dcount = kvbuf_reset( tempBuffer );
                     
                     if( dcount == 1 )
                     {
-                        kvbuf_t *copy       = kvbuf_init( tempBuffer->databuf, tempBuffer->datalen );
+                        kvbuf_t *copy       = kvbuf_init_zone( malloc_default_purgeable_zone(), tempBuffer->databuf, tempBuffer->datalen );
                         
                         AddEntryToCacheWithMultiKey( fLibinfoCache, NULL, copy, CACHE_ENTRY_TYPE_HOST, ttl, "gni_address", canonicalAddr, 
 													 "gni_family", pFamily, "gni_port", pPort, "flags", pCacheFlags, NULL );
-                        
                     }
                     else
                     {
@@ -8476,6 +8885,7 @@ kvbuf_t* CCachePlugin::DSgetnameinfo( kvbuf_t *inBuffer, pid_t inPID )
                 }
             }
             
+#ifdef CACHE_HOST_ENTRIES
             // need to check this specific so we can do a negative cache
             if ( tempBuffer == NULL && localOnlyPID == false && ttl > 0 )
             {
@@ -8483,6 +8893,7 @@ kvbuf_t* CCachePlugin::DSgetnameinfo( kvbuf_t *inBuffer, pid_t inPID )
 											 "gni_family", pFamily, "gni_port", pPort, "flags", pCacheFlags, NULL );
                 
             }
+#endif
             
             dsDataListDeallocate( fDirRef, attrTypes );
             DSFree( attrTypes );
@@ -8583,6 +8994,7 @@ kvbuf_t* CCachePlugin::DSgetnameinfo( kvbuf_t *inBuffer, pid_t inPID )
     
     return( outBuffer );
 }
+#endif
 
 kvbuf_t* CCachePlugin::DSgetmacbyname( kvbuf_t *inBuffer, pid_t inPID )
 {
@@ -8604,7 +9016,7 @@ kvbuf_t* CCachePlugin::DSgetmacbyname( kvbuf_t *inBuffer, pid_t inPID )
     if( name == NULL )
         return NULL;
     
-    outBuffer = FetchFromCache( fLibinfoCache, NULL, "name", name, NULL );
+    outBuffer = FetchFromCache( fLibinfoCache, 0, NULL, "name", name, NULL );
     
     if ( outBuffer == NULL )
     {
@@ -8616,7 +9028,7 @@ kvbuf_t* CCachePlugin::DSgetmacbyname( kvbuf_t *inBuffer, pid_t inPID )
         
         if ( attrTypes != NULL )
         {
-            char	*keys[] = { "mac", "name", NULL };
+            const char	*keys[] = { "mac", "name", NULL };
             
 			bool localOnlyPID = IsLocalOnlyPID( inPID );
 			if( localOnlyPID == false )
@@ -8688,7 +9100,7 @@ kvbuf_t* CCachePlugin::DSgethostbymac( kvbuf_t *inBuffer, pid_t inPID )
     if( mac == NULL )
         return NULL;
     
-    outBuffer = FetchFromCache( fLibinfoCache, NULL, "mac", mac, NULL );
+    outBuffer = FetchFromCache( fLibinfoCache, 0, NULL, "mac", mac, NULL );
     
     if ( outBuffer == NULL )
     {
@@ -8719,8 +9131,8 @@ kvbuf_t* CCachePlugin::DSgethostbymac( kvbuf_t *inBuffer, pid_t inPID )
                 
                 if( dcount == 1 )
                 {
-                    char    *keylist[]  = { "mac", "name", NULL };
-                    kvbuf_t *copy       = kvbuf_init( outBuffer->databuf, outBuffer->datalen );
+                    const char    *keylist[]  = { "mac", "name", NULL };
+                    kvbuf_t *copy       = kvbuf_init_zone( malloc_default_purgeable_zone(), outBuffer->databuf, outBuffer->datalen );
                     
                     AddEntryToCacheWithKeylists( fLibinfoCache, NULL, copy, CACHE_ENTRY_TYPE_HOST, kCacheTime, keylist, NULL );
                 }
@@ -8757,6 +9169,7 @@ kvbuf_t* CCachePlugin::DSgethostbymac( kvbuf_t *inBuffer, pid_t inPID )
     return( outBuffer );
 }
 
+#ifdef HANDLE_DNS_LOOKUPS
 // this routine only works for SRV and MX replies
 kvbuf_t *CCachePlugin::dnsreply_to_kvbuf( dns_reply_t *inReply, const char *inIPv4, const char *inIPv6, pid_t inPID, int32_t *outTTL )
 {
@@ -8849,8 +9262,8 @@ kvbuf_t *CCachePlugin::dnsreply_to_kvbuf( dns_reply_t *inReply, const char *inIP
     return outBuffer;
 }
 
-sDNSLookup *CCachePlugin::CreateAdditionalDNSQueries( sDNSLookup *inDNSLookup, char *inService, char *inProtocol, char *inName, char *inSearchDomain,
-                                                      uint16_t inAdditionalInfo )
+sDNSLookup *CCachePlugin::CreateAdditionalDNSQueries( sDNSLookup *inDNSLookup, const char *inService, const char *inProtocol, const char *inName, 
+                                                      const char *inSearchDomain, uint16_t inAdditionalInfo )
 {
     char        pQuery[512];
     
@@ -9104,9 +9517,9 @@ kvbuf_t* CCachePlugin::DSgetaddrinfo( kvbuf_t *inBuffer, pid_t inPID )
     }
     
     // we only use an array of 3 since we can only have 2 types of SRV queries and an MX query outstanding
-    char        *socktypeList[]         = { NULL, NULL, NULL }; // this is used for the response
-    char        *protocolList[]         = { NULL, NULL, NULL }; // this is used for the response
-    char        *protocolListStr[]      = { NULL, NULL, NULL }; // used for searching SRV entries and lookup
+    const char  *socktypeList[]         = { NULL, NULL, NULL }; // this is used for the response
+    const char  *protocolList[]         = { NULL, NULL, NULL }; // this is used for the response
+    const char  *protocolListStr[]      = { NULL, NULL, NULL }; // used for searching SRV entries and lookup
     char        *servicePortList[]      = { NULL, NULL, NULL };
     char        *serviceNameList[]      = { NULL, NULL, NULL };
     kvbuf_t     *pOtherAnswers[]        = { NULL, NULL, NULL };
@@ -9164,7 +9577,7 @@ kvbuf_t* CCachePlugin::DSgetaddrinfo( kvbuf_t *inBuffer, pid_t inPID )
         char *endptr = NULL;
         bool isString = false;
         
-        int32_t iPort = strtol( pService, &endptr, 10 );
+        strtol( pService, &endptr, 10 );
 
         // if pService had non-numeric characters, then flag it as a string and try to find the service
         // note pService is tested for empty string so no need to look for empty string case
@@ -9181,18 +9594,7 @@ kvbuf_t* CCachePlugin::DSgetaddrinfo( kvbuf_t *inBuffer, pid_t inPID )
             {
                 if ( isString )
                 {
-                    kvbuf_t *request = kvbuf_new();
-                    if( request == NULL)
-                        break;
-
-                    kvbuf_add_dict( request );
-                    
-                    kvbuf_add_key( request, "name" );
-                    kvbuf_add_val( request, pService );
-                    kvbuf_add_key( request, "proto" );
-                    kvbuf_add_val( request, protocolListStr[index] );
-                    
-                    kvbuf_t *answer = DSgetservbyname( request, inPID );
+                    kvbuf_t *answer = DSgetservbyname_int( pService, protocolListStr[index], inPID );
                     
                     if( kvbuf_reset(answer) > 0 )
                     {
@@ -9224,7 +9626,6 @@ kvbuf_t* CCachePlugin::DSgetaddrinfo( kvbuf_t *inBuffer, pid_t inPID )
                     }
 
                     kvbuf_free( answer );
-                    kvbuf_free( request );
                 }
                 else
                 {
@@ -9257,12 +9658,12 @@ kvbuf_t* CCachePlugin::DSgetaddrinfo( kvbuf_t *inBuffer, pid_t inPID )
             {
                 if( protocolListStr[iPortListIndex] != NULL )
                 {
-                    pOtherAnswers[iPortListIndex] = FetchFromCache( fLibinfoCache, NULL, "sname", serviceNameList[iPortListIndex], 
+                    pOtherAnswers[iPortListIndex] = FetchFromCache( fLibinfoCache, 0, NULL, "sname", serviceNameList[iPortListIndex], 
                                                                     "pname", protocolListStr[iPortListIndex], "dnsname", pName, NULL );
                 }
                 else
                 {
-                    pOtherAnswers[iPortListIndex] = FetchFromCache( fLibinfoCache, NULL, "mxname", pName, NULL );
+                    pOtherAnswers[iPortListIndex] = FetchFromCache( fLibinfoCache, 0, NULL, "mxname", pName, NULL );
                 }
             }
         }
@@ -9384,7 +9785,7 @@ kvbuf_t* CCachePlugin::DSgetaddrinfo( kvbuf_t *inBuffer, pid_t inPID )
                     
                     if( pOtherAnswers[tempIndex] != NULL )
                     {
-                        copy = kvbuf_init( pOtherAnswers[tempIndex]->databuf, pOtherAnswers[tempIndex]->datalen );
+                        copy = kvbuf_init_zone( malloc_default_purgeable_zone(), pOtherAnswers[tempIndex]->databuf, pOtherAnswers[tempIndex]->datalen );
                     }
                     else
                     {
@@ -9417,7 +9818,7 @@ kvbuf_t* CCachePlugin::DSgetaddrinfo( kvbuf_t *inBuffer, pid_t inPID )
         char    pIPv6[INET6_ADDRSTRLEN] = { 0, };
         char    pIPv4[INET6_ADDRSTRLEN] = { 0, };
         char    *addresses[2]           = { NULL, NULL };
-        char    *families[2]            = { NULL, NULL };
+        const char  *families[2]        = { NULL, NULL };
         int     addressCnt              = 0;
         
         // No name, see if AI_PASSIVE is set, if so just set the structure to INADDR_ANY or IN6ADDR_ANY_INIT
@@ -9608,15 +10009,6 @@ kvbuf_t* CCachePlugin::DSgetaddrinfo( kvbuf_t *inBuffer, pid_t inPID )
                                 }
                             }
                             
-                            if( (family == AF_UNSPEC || family == AF_INET) && ipv4List != NULL )
-                            {
-                                addressLists[listCount] = ipv4List;
-                                addressListType[listCount] = AF_INET;
-                                portList[listCount] = port;
-                                listCount++;
-                                ipv4List = NULL;
-                            }
-                            
                             if( (family == AF_UNSPEC || family == AF_INET6) && ipv6List != NULL )
                             {
                                 addressLists[listCount] = ipv6List;
@@ -9624,6 +10016,15 @@ kvbuf_t* CCachePlugin::DSgetaddrinfo( kvbuf_t *inBuffer, pid_t inPID )
                                 portList[listCount] = port;
                                 listCount++;
                                 ipv6List = NULL;
+                            }
+                            
+                            if( (family == AF_UNSPEC || family == AF_INET) && ipv4List != NULL )
+                            {
+                                addressLists[listCount] = ipv4List;
+                                addressListType[listCount] = AF_INET;
+                                portList[listCount] = port;
+                                listCount++;
+                                ipv4List = NULL;
                             }
                             
                             if ( listCount >= listSize ) {
@@ -9698,15 +10099,6 @@ kvbuf_t* CCachePlugin::DSgetaddrinfo( kvbuf_t *inBuffer, pid_t inPID )
                             }
                         }
                         
-                        if( (family == AF_UNSPEC || family == AF_INET) && ipv4List != NULL )
-                        {
-                            addressLists[listCount] = ipv4List;
-                            addressListType[listCount] = AF_INET;
-                            portList[listCount] = NULL;
-                            listCount++;
-                            ipv4List = NULL;
-                        }
-
                         if( (family == AF_UNSPEC || family == AF_INET6) && ipv6List != NULL )
                         {
                             addressLists[listCount] = ipv6List;
@@ -9716,6 +10108,15 @@ kvbuf_t* CCachePlugin::DSgetaddrinfo( kvbuf_t *inBuffer, pid_t inPID )
                             ipv6List = NULL;
                         }
 
+                        if( (family == AF_UNSPEC || family == AF_INET) && ipv4List != NULL )
+                        {
+                            addressLists[listCount] = ipv4List;
+                            addressListType[listCount] = AF_INET;
+                            portList[listCount] = NULL;
+                            listCount++;
+                            ipv4List = NULL;
+                        }
+                        
                         if ( listCount >= listSize ) {
                             listSize += 10;
                             
@@ -9975,6 +10376,7 @@ kvbuf_t* CCachePlugin::DSdns_proxy( kvbuf_t *inBuffer, pid_t inPID )
     
     return outBuffer;
 }
+#endif
 
 kvbuf_t* CCachePlugin::DSgetbootpbyhw( kvbuf_t *inBuffer, pid_t inPID )
 {
@@ -10009,7 +10411,7 @@ kvbuf_t* CCachePlugin::DSgetbootpbyhw( kvbuf_t *inBuffer, pid_t inPID )
 	else
         return NULL;
     
-    outBuffer = FetchFromCache( fLibinfoCache, NULL, "bp_hw", hw, NULL );
+    outBuffer = FetchFromCache( fLibinfoCache, 0, NULL, "bp_hw", hw, NULL );
     
     if ( outBuffer == NULL )
     {
@@ -10024,7 +10426,7 @@ kvbuf_t* CCachePlugin::DSgetbootpbyhw( kvbuf_t *inBuffer, pid_t inPID )
         
         if ( attrTypes != NULL )
         {
-            char    *keys[2] = { NULL, hw };
+            const char    *keys[2] = { NULL, hw };
             
 			bool localOnlyPID = IsLocalOnlyPID( inPID );
 			if( localOnlyPID == false )
@@ -10045,8 +10447,8 @@ kvbuf_t* CCachePlugin::DSgetbootpbyhw( kvbuf_t *inBuffer, pid_t inPID )
                 
                 if( dcount == 1 )
                 {
-                    char    *keys2[]	= { "bp_hw", "bp_addr", NULL };
-                    kvbuf_t *copy       = kvbuf_init( outBuffer->databuf, outBuffer->datalen );
+                    const char    *keys2[]	= { "bp_hw", "bp_addr", NULL };
+                    kvbuf_t *copy       = kvbuf_init_zone( malloc_default_purgeable_zone(), outBuffer->databuf, outBuffer->datalen );
                     
 					AddEntryToCacheWithKeys( fLibinfoCache, theValidation, copy, CACHE_ENTRY_TYPE_COMPUTER, 60, keys2 );
                 }
@@ -10081,8 +10483,7 @@ kvbuf_t* CCachePlugin::DSgetbootpbyhw( kvbuf_t *inBuffer, pid_t inPID )
         DbgLog( kLogPlugin, "CCachePlugin::getbootpbyhw - Cache hit for %s", hw );
     }
     
-	// validation data has an internal spinlock to protect release/retain
-    theValidation->Release();
+    DSRelease( theValidation );
     
     return( outBuffer );
 }
@@ -10108,7 +10509,7 @@ kvbuf_t* CCachePlugin::DSgetbootpbyaddr( kvbuf_t *inBuffer, pid_t inPID )
     if( addr == NULL )
         return NULL;
     
-    outBuffer = FetchFromCache( fLibinfoCache, NULL, "bp_addr", addr, NULL );
+    outBuffer = FetchFromCache( fLibinfoCache, 0, NULL, "bp_addr", addr, NULL );
     
     if ( outBuffer == NULL )
     {
@@ -10123,7 +10524,7 @@ kvbuf_t* CCachePlugin::DSgetbootpbyaddr( kvbuf_t *inBuffer, pid_t inPID )
         
         if ( attrTypes != NULL )
         {
-            char    *keys[2] = { addr, NULL };
+            const char    *keys[2] = { addr, NULL };
 
 			bool localOnlyPID = IsLocalOnlyPID( inPID );
 			if( localOnlyPID == false )
@@ -10144,8 +10545,8 @@ kvbuf_t* CCachePlugin::DSgetbootpbyaddr( kvbuf_t *inBuffer, pid_t inPID )
                 
                 if( dcount == 1 )
                 {
-                    char    *keys2[]	= { "bp_hw", "bp_addr", NULL };
-                    kvbuf_t *copy       = kvbuf_init( outBuffer->databuf, outBuffer->datalen );
+                    const char    *keys2[]	= { "bp_hw", "bp_addr", NULL };
+                    kvbuf_t *copy       = kvbuf_init_zone( malloc_default_purgeable_zone(), outBuffer->databuf, outBuffer->datalen );
                     
 					AddEntryToCacheWithKeys( fLibinfoCache, theValidation, copy, CACHE_ENTRY_TYPE_COMPUTER, 60, keys2 );
                 }
@@ -10180,8 +10581,7 @@ kvbuf_t* CCachePlugin::DSgetbootpbyaddr( kvbuf_t *inBuffer, pid_t inPID )
         DbgLog( kLogPlugin, "CCachePlugin::getbootpbyaddr - Cache hit for %s", addr );
     }
     
-	// validation data has an internal spinlock to protect release/retain
-    theValidation->Release();
+    DSRelease( theValidation );
     
     return( outBuffer );
 }

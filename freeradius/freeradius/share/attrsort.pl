@@ -8,7 +8,7 @@
 #  This is a bit of a hack.  The main purpose is to be able to quickly
 #  "diff" two dictionaries which have significant differences...
 #
-#  $Id: attrsort.pl,v 1.1.2.1 2005/11/30 22:17:18 aland Exp $
+#  $Id$
 #
 
 while (<>) {

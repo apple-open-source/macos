@@ -57,11 +57,12 @@ main (argc, argv)
 	char *b_num, *prog_name;
 	char *options = "nv";
 	char c;
-	quad_t multiplier = 1;
-	quad_t file_size;
+	off_t multiplier = 1;
+	off_t file_size;
 	int len;
 	int empty = 0;
 	int verbose = 0;
+	char* endptr = NULL;
 
 	prog_name = argv[0];	/* Get program name */
     if (1 == argc)
@@ -118,8 +119,10 @@ main (argc, argv)
 	if (*argv == NULL)		/* Was a file name given? */
 		usage(prog_name, options);	
 
-	if ((file_size = strtoq(b_num, NULL, 10)) == 0 )
+	if ((file_size = strtoll(b_num, &endptr, 10)) == 0 &&
+		(*endptr != 0 && endptr != &b_num[len])) {
 		err(1, "Bad file size!");
+	}
 
 	while ( *argv != NULL ) {	/* Create file for each file_name */
 		create_file(*argv, file_size*multiplier, empty, verbose);

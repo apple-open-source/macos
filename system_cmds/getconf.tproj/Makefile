@@ -9,8 +9,10 @@ CFILES = getconf.c \
 	$(OBJROOT)/$(Project)/sysconf.c 
 MANPAGES = getconf.1
 
-Extra_CC_Flags = -include _fbsd_compat.h -DAPPLE_GETCONF_UNDERSCORE \
+Extra_CC_Flags = -Wall -Werror -mdynamic-no-pic
+Extra_CC_Flags += -include _fbsd_compat.h -DAPPLE_GETCONF_UNDERSCORE \
 		-DAPPLE_GETCONF_SPEC -I.
+Extra_LD_Flags = -dead_strip
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make
 

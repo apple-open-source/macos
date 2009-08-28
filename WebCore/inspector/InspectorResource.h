@@ -47,6 +47,7 @@ namespace WebCore {
 
     class CachedResource;
     class DocumentLoader;
+    class InspectorFrontend;
     class Frame;
     class ResourceResponse;
 
@@ -76,9 +77,9 @@ namespace WebCore {
 
         ~InspectorResource();
 
-        void createScriptObject(ScriptState*, const ScriptObject& webInspector);
-        void updateScriptObject(ScriptState*);
-        void releaseScriptObject(ScriptState*, const ScriptObject& webInspector, bool callRemoveResource);
+        void createScriptObject(InspectorFrontend* frontend);
+        void updateScriptObject(InspectorFrontend* frontend);
+        void releaseScriptObject(InspectorFrontend* frontend, bool callRemoveResource);
 
         void updateRequest(const ResourceRequest&);
         void updateResponse(const ResourceResponse&);
@@ -142,7 +143,7 @@ namespace WebCore {
         HTTPHeaderMap m_responseHeaderFields;
         String m_mimeType;
         String m_suggestedFilename;
-        ScriptObject m_scriptObject;
+        bool m_scriptObjectCreated;
         long long m_expectedContentLength;
         bool m_cached;
         bool m_finished;

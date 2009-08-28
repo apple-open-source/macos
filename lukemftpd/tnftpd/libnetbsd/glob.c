@@ -1,4 +1,4 @@
-/* $Id: glob.c,v 1.3 2006/09/26 02:16:43 lukem Exp $ */
+/* $NetBSD: glob.c,v 1.5 2008/09/21 16:35:25 lukem Exp $ */
 /* from	NetBSD: glob.c,v 1.16 2006/03/26 18:11:22 christos Exp */
 
 /*
@@ -84,7 +84,7 @@
 #define	M_MASK		0xffff
 #define	M_ASCII		0x00ff
 
-typedef u_short Char;
+typedef unsigned short Char;
 
 #else
 
@@ -133,11 +133,11 @@ int
 glob(const char *pattern, int flags, int (*errfunc)(const char *, int),
     glob_t *pglob)
 {
-	const u_char *patnext;
+	const unsigned char *patnext;
 	int c;
 	Char *bufnext, *bufend, patbuf[MAXPATHLEN+1];
 
-	patnext = (const u_char *) pattern;
+	patnext = (const unsigned char *) pattern;
 	if (!(flags & GLOB_APPEND)) {
 		pglob->gl_pathc = 0;
 		pglob->gl_pathv = NULL;
@@ -614,7 +614,7 @@ glob3(Char *pathbuf, Char *pathend, Char *pathlim,
 	else
 		readdirfunc = (struct dirent *(*)(void *)) readdir;
 	while ((dp = (*readdirfunc)(dirp)) != NULL) {
-		u_char *sc;
+		unsigned char *sc;
 		Char *dc;
 
 		/* Initial DOT must be matched literally. */
@@ -624,7 +624,7 @@ glob3(Char *pathbuf, Char *pathend, Char *pathlim,
 		 * The resulting string contains EOS, so we can
 		 * use the pathlim character, if it is the nul
 		 */
-		for (sc = (u_char *) dp->d_name, dc = pathend; 
+		for (sc = (unsigned char *) dp->d_name, dc = pathend; 
 		     dc <= pathlim && (*dc++ = *sc++) != EOS;)
 			continue;
 

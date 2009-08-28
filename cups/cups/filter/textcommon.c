@@ -1,5 +1,5 @@
 /*
- * "$Id: textcommon.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: textcommon.c 6649 2007-07-11 21:46:42Z mike $"
  *
  *   Common text filter routines for the Common UNIX Printing System (CUPS).
  *
@@ -45,7 +45,6 @@ lchar_t	**Page = NULL;		/* Page characters */
 int	NumPages = 0;		/* Number of pages in document */
 float	CharsPerInch = 10;	/* Number of character columns per inch */
 float	LinesPerInch = 6;	/* Number of lines per inch */
-int	UTF8 = 0;		/* Use UTF-8 encoding? */
 int	NumKeywords = 0;	/* Number of known keywords */
 char	**Keywords = NULL;	/* List of known keywords */
 
@@ -515,8 +514,9 @@ TextMain(const char *name,	/* I - Name of filter */
 
   if (argc < 6 || argc > 7)
   {
-    fprintf(stderr, _("Usage: %s job-id user title copies options [file]\n"),
-            name);
+    _cupsLangPrintf(stderr,
+                    _("Usage: %s job-id user title copies options [file]\n"),
+                    name);
     return (1);
   }
 
@@ -1166,7 +1166,7 @@ getutf8(FILE *fp)	/* I - File to read from */
   if ((ch = getc(fp)) == EOF)
     return (EOF);
 
-  if (ch < 0xc0 || !UTF8)	/* One byte character? */
+  if (ch < 0xc0)			/* One byte character? */
     return (ch);
   else if ((ch & 0xe0) == 0xc0)
   {
@@ -1207,5 +1207,5 @@ getutf8(FILE *fp)	/* I - File to read from */
 
 
 /*
- * End of "$Id: textcommon.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: textcommon.c 6649 2007-07-11 21:46:42Z mike $".
  */

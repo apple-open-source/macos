@@ -49,7 +49,7 @@ int pa_parse_neg_add_cmpltr();
 
 struct pa_it {
     char    *error;
-    unsigned long opcode;
+    uint32_t opcode;
 #ifdef undef
     symbol_dictS *nlistp;      /*** used to be:    struct nlist *nlistp; */
 #else
@@ -62,11 +62,11 @@ struct pa_it {
     FP_Operand_Format fpof2;   /* Floating Point Operand Format, operand 2 */
                                /* (used only for class 1 instructions --   */
 			       /* the conversion instructions)             */
-    long field_selector;
+    int32_t field_selector;
     unsigned int reloc;
 /*	enum reloc_type_hppa reloc; */
     int code;
-    long arg_reloc;
+    int32_t arg_reloc;
 };
 
 extern struct pa_it the_insn;

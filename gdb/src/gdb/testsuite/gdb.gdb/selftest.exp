@@ -40,7 +40,7 @@ proc do_steps_and_nexts {} {
  
     gdb_reinitialize_dir $srcdir/..
 
-    for {set count 0} {$count < 32} {incr count} {
+    for {set count 0} {$count < 35} {incr count} {
 	send_gdb "list\n"
 	# NOTE: carlton/2002-12-11: The "initial brace" and
 	# "current_directory initialization" possibilities happen to
@@ -85,6 +85,18 @@ proc do_steps_and_nexts {} {
 	    }
 	    -re ".*ttyarg = NULL.*$gdb_prompt $" {
 		set description "step over ttyarg initialization"
+		set command "step"
+	    }
+	    -re ".*osabiarg = NULL.*$gdb_prompt $" {
+		set description "step over osabi initialization"
+		set command "step"
+	    }
+	    -re ".*attach_waitfor = NULL.*$gdb_prompt $" {
+		set description "step over attach_waitfor initialization"
+		set command "step"
+	    }
+	    -re ".*initial_arch = NULL.*$gdb_prompt $" {
+		set description "step over initial_arch initialization"
 		set command "step"
 	    }
 	    -re ".*time_at_startup = get_run_time.*$gdb_prompt $" {

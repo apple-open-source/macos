@@ -32,12 +32,12 @@
 void DES (const int32_t *keysArrayPtr, int32_t Count, char * encryptData,short mode);
 
 
-#define klonghiBit 	0x80000000L
+#define klonghiBit 	0x80000000
 #define kwordhiBit 	0x8000
-#define klongloBit 	0x00000001L
-#define kbit0 		0x00000000L
-#define klowWord 	0x0000FFFFL
-#define khiBit 		0x00000020L
+#define klongloBit 	0x00000001
+#define kbit0 		0x00000000
+#define klowWord 	0x0000FFFF
+#define khiBit 		0x00000020
 
 #define kwordSize 	16
 #define kkeyArraySize 	128 /* bytes for 16 keys */
@@ -80,7 +80,7 @@ int32_t FRK(uint32_t theData,uint32_t keyHi,uint32_t keyLo);
 /* Most of these macros emulate the 68K instruction set used in the original
    assembly language version of this code.*/
 
-#define GetBit(val,Reg) gTestVal = val; gTestVal = gTestVal % khiBit; gTemp = klongloBit; if (gTestVal != 0L) gTemp = gTemp << gTestVal;
+#define GetBit(val,Reg) gTestVal = val; gTestVal = gTestVal % khiBit; gTemp = klongloBit; if (gTestVal != 0) gTemp = gTemp << gTestVal;
 #define BitClear(val,Reg) GetBit(val,Reg); Reg = Reg & (~gTemp);
 #define BitSet(bit,Reg) GetBit(bit,Reg) Reg = Reg | gTemp;
 #define BitTest(val, Reg) GetBit(val,Reg);  gTestVal = gTemp & Reg;
@@ -97,7 +97,7 @@ int32_t FRK(uint32_t theData,uint32_t keyHi,uint32_t keyLo);
 #define RORightLong(Reg) LSR(Reg,1); if (gTestVal != 0)  Reg = Reg | klonghiBit; 
 #define ROXLeftLong(Reg) Reg = Reg << 1;if (xVal != 0) Reg = Reg | klongloBit;
 #define ROXRightLong(Reg) Reg = Reg >> 1; if (xVal != 0) Reg = Reg | klonghiBit;
-#define RORightLong4(Reg) xVal = Reg & 0x0000000FL; xVal = xVal << 28; Reg = Reg >> 4; if (xVal != 0) Reg = Reg  | xVal;
+#define RORightLong4(Reg) xVal = Reg & 0x0000000F; xVal = xVal << 28; Reg = Reg >> 4; if (xVal != 0) Reg = Reg  | xVal;
 #define TheLastKey(ArrayPtr) (uint32_t *) ((char *) ArrayPtr + (kkeyArraySize - klowKeySize ));
 
 /* -------------------------------------------------------------------- */

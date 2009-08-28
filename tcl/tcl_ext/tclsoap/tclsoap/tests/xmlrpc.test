@@ -1,0 +1,164 @@
+# xmlrpc.test - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
+#
+# Provide a set of tests to excercise the XMLRPC package.
+#
+# @(#)$Id: xmlrpc.test,v 1.2 2001/08/03 21:44:23 patthoyts Exp $
+
+# Initialize the required packages
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+    #source [file join [pwd] [file dirname [info script]] defs.tcl]
+}
+
+if {[catch {package require XMLRPC}]} {
+    catch {puts stderr "Cannot load the XMLRPC package"}
+    return
+}
+
+# -------------------------------------------------------------------------
+
+# Test transport method returns the query. Should result in invoke
+# returning the parameters to the method.
+
+proc ::XMLRPC::transport_test { procName url xml } {
+    set ::XMLRPC::testXML $xml
+    return $xml
+}
+
+# -------------------------------------------------------------------------
+
+# XMLRPC method creation and configuration test.
+
+test xmlrpc-1.1 {XMLRPC Method creation} {
+    XMLRPC::create xmlrpcTest \
+	    -uri urn:xmlrpc-Test \
+	    -proxy http://localhost:8015/rpc/test \
+	    -params { "arg" "string" } \
+	    -name "tests.xmlrpcTest" \
+	    -transport ::XMLRPC::transport_test
+} {::xmlrpcTest}
+
+test xmlrpc-1.2 {XMLRPC cget URI value} {
+    catch {XMLRPC::cget ::xmlrpcTest -uri} result
+    set result
+} {urn:xmlrpc-Test}
+
+test xmlrpc-1.3 {Reset the URI value} {
+    catch {XMLRPC::configure ::xmlrpcTest -uri urn:new-xmlrpc-Test} result
+    set result
+} {::xmlrpcTest}
+
+test xmlrpc-1.4 {XMLRPC cget the new URI value} {
+    catch {XMLRPC::cget ::xmlrpcTest -uri} result
+    set result
+} {urn:new-xmlrpc-Test}
+
+# -------------------------------------------------------------------------
+
+test xmlrpc-2.1 {XML generation with no arguments} {
+    catch {::xmlrpcTest} result
+    set result
+} {wrong # args: should be "xmlrpcTest arg"}
+
+test xmlrpc-2.2 {XML generation with one argument} {
+    if { ! [catch {::xmlrpcTest testParameter} result] } {
+        set result $::XMLRPC::testXML
+    }
+    set result
+} {<?xml version="1.0"?>
+<methodCall><methodName>tests.xmlrpcTest</methodName><params><param><value><string>testParameter</string></value></param></params></methodCall>
+}
+
+test xmlrpc-2.3 {XML generation with two arguments} {
+    set failed [catch {::XMLRPC::configure ::xmlrpcTest \
+            -params { "text" "string" "number" "double" }} result]
+    if { ! $failed } {
+        set failed [catch {::xmlrpcTest textParam 1.3} result]
+    }
+    if { ! $failed } {
+        set result $::XMLRPC::testXML
+    }
+    set result
+} {<?xml version="1.0"?>
+<methodCall><methodName>tests.xmlrpcTest</methodName><params><param><value><string>textParam</string></value></param><param><value><double>1.3</double></value></param></params></methodCall>
+}
+
+test xmlrpc-2.4 {XML generation with array argument} {
+    set failed [catch {::XMLRPC::configure ::xmlrpcTest \
+            -params {nums int()} } result]
+    if { ! $failed } {
+        set failed [catch {::xmlrpcTest {1 2 3}} result]
+    }
+    if { ! $failed } {
+        set result $::XMLRPC::testXML
+    }
+    set result
+} {<?xml version="1.0"?>
+<methodCall><methodName>tests.xmlrpcTest</methodName><params><param><value><array><data><value><int>1</int></value><value><int>2</int></value><value><int>3</int></value></data></array></value></param></params></methodCall>
+}
+
+test xmlrpc-2.5 {XML generation with struct argument} {
+    set failed [catch {::XMLRPC::configure ::xmlrpcTest \
+            -params {point struct} } result]
+    if { ! $failed } {
+        set failed [catch {::xmlrpcTest {x 1 y 2}} result]
+    }
+    if { ! $failed } {
+        set result $::XMLRPC::testXML
+    }
+    set result
+} {<?xml version="1.0"?>
+<methodCall><methodName>tests.xmlrpcTest</methodName><params><param><value><struct><member><name>x</name><value><int>1</int></value></member><member><name>y</name><value><int>2</int></value></member></struct></value></param></params></methodCall>
+}
+
+# -------------------------------------------------------------------------
+
+test xmlrpc-3.1 {XMLRPC reply processing} {
+    proc replyProc {methodName xml} {
+	set xml "<methodResponse><params><param><value>FIXED</value>"
+	append xml "</param></params></methodResponse>"
+	return $xml
+    }
+    set failed [catch {::XMLRPC::configure ::xmlrpcTest \
+	    -params {text string num double} \
+	    -replyProc [namespace current]::replyProc} result]
+    if { ! $failed } {
+        set failed [catch {::xmlrpcTest textParam 1.3} result]
+    }
+    set result
+} {FIXED}
+
+test xmlrpc-3.2 {reply post processing via -postProc} {
+    proc replyProc {methodName xml} {
+	set xml "<methodResponse><params>"
+	append xml "<param><value>FIXED</value></param>"
+	append xml "<param><value><double>1.3</double></value></param>"
+	append xml "</params></methodResponse>"
+	return $xml
+    }
+    
+    proc postProc { methodName reply } {
+        return [lindex $reply 1]
+    }
+    set failed [catch {::XMLRPC::configure ::xmlrpcTest \
+                           -replyProc [namespace current]::replyProc \
+                           -postProc [namespace current]::postProc} result]
+    if { ! $failed } {
+        set failed [catch {::xmlrpcTest textParam 1.3} result]
+    }
+    set result
+} {1.3}
+
+# -------------------------------------------------------------------------
+
+# Clean up the tests
+
+::tcltest::cleanupTests
+return
+
+# Local variables:
+#    mode: tcl
+#    indent-tabs-mode: nil
+# End:

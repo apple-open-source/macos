@@ -268,8 +268,8 @@ info_mach_thread_command (char *args, int from_tty)
   {
     union
     {
-      struct ppc_thread_state thread;
-      struct ppc_exception_state exception;
+      struct __darwin_ppc_thread_state thread;
+      struct __darwin_ppc_exception_state exception;
     } thread_state;
     int register_count, i;
     unsigned int *register_data;
@@ -282,7 +282,7 @@ info_mach_thread_command (char *args, int from_tty)
     MACH_CHECK_ERROR (result);
 
     printf_unfiltered ("\nPPC_THREAD_STATE \n");
-    register_data = &thread_state.thread.r0;
+    register_data = &thread_state.thread.__r0;
     register_count = 0;
     for (i = 0; i < 8; ++i)
       {
@@ -297,11 +297,11 @@ info_mach_thread_command (char *args, int from_tty)
       }
 
     printf_unfiltered ("srr0: 0x%08x    srr1: 0x%08x\n",
-                       thread_state.thread.srr0, thread_state.thread.srr1);
+                       thread_state.thread.__srr0, thread_state.thread.__srr1);
     printf_unfiltered ("cr:   0x%08x    xer:  0x%08x\n",
-                       thread_state.thread.cr, thread_state.thread.xer);
+                       thread_state.thread.__cr, thread_state.thread.__xer);
     printf_unfiltered ("lr:   0x%08x    ctr:  0x%08x\n",
-                       thread_state.thread.lr, thread_state.thread.ctr);
+                       thread_state.thread.__lr, thread_state.thread.__ctr);
   }
 #endif
 }

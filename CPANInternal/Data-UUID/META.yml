@@ -1,0 +1,13 @@
+--- #YAML:1.0
+name:                Data-UUID
+version:             1.148
+abstract:            Perl extension for generating Globally/Universally 
+license:             unknown
+generated_by:        ExtUtils::MakeMaker version 6.31
+distribution_type:   module
+requires:     
+meta-spec:
+    url:     http://module-build.sourceforge.net/META-spec-v1.2.html
+    version: 1.2
+author:
+    - Ricardo Signes <rjbs[at]cpan.org>

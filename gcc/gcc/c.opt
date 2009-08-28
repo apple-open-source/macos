@@ -1,5 +1,5 @@
 ; Options for the C, ObjC, C++ and ObjC++ front ends.
-; Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+; Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -7,62 +7,18 @@
 ; the terms of the GNU General Public License as published by the Free
 ; Software Foundation; either version 2, or (at your option) any later
 ; version.
-; 
+;
 ; GCC is distributed in the hope that it will be useful, but WITHOUT ANY
 ; WARRANTY; without even the implied warranty of MERCHANTABILITY or
 ; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 ; for more details.
-; 
+;
 ; You should have received a copy of the GNU General Public License
 ; along with GCC; see the file COPYING.  If not, write to the Free
-; Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-; 02111-1307, USA.
+; Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+; 02110-1301, USA.
 
-
-; This file is processed by the script opts.sh.  It is a database of
-; command line options, with each record separated by a blank line,
-; and each field appearing on its own line.  The first field is the
-; command-line switch with the leading "-" removed.  All options
-; beginning with "f" or "W" are implicitly assumed to take a "no-"
-; form; this form should not be listed.  If you do not want this
-; negative form and you want it to be automatically rejected, add
-; RejectNegative to the second field.
-
-; The second field is a space-separated list of which parts of the
-; compiler recognize the switch, as declared by "Language" entries.
-; If the switch takes an argument, then you should also specify
-; "Joined" and/or "Separate" to indicate where the argument can
-; appear.  If a Joined argument can legitimately be omitted, specify
-; "JoinedOrMissing" instead of "Joined".  If the argument to a switch
-; is a non-negative integer, you can specify "UInteger" and the switch
-; decoder will convert the argument for you, or complain to the user
-; if the argument is invalid.  "Var(name,set)" creates an integer
-; variable "name".  The variable is declared and initialized to value
-; given by "Init(value)" (or zero if this property is not defined).
-; When the option is passed to compiler, this variable is set to "set"
-; if value passed through the flag is nonzero, !"set" if value is zero,
-; or to value if "set" is omitted.  If "VarExists"  is specified, the
-; declaration for the variable is not created.  If "Report" is specified,
-; the flag is output with -fverbose-asm.
-
-; The third field is the help text to output with --help.  This is
-; automatically line-wrapped on output.  Normally the switch is output
-; automatically, with the help text on the right hand side of the
-; output.  However, if the help text contains a tab character, the
-; text to the left of the tab is output instead of the switch, and the
-; text to its right forms the help.  This is useful for elaborating on
-; what type of argument a switch takes, for example.  If the second
-; field contains "Undocumented" then nothing is output with --help.
-; Only do this with good reason like the switch being internal between
-; the driver and the front end - it is not an excuse to leave a switch
-; undocumented.
-
-; Comments can appear on their own line anwhere in the file, preceded
-; by a semicolon.  Whitespace is permitted before the semicolon.
-
-; For each switch XXX below, an enumeration constant is created by the
-; script opts.sh spelt OPT_XXX, but with all non-alphanumeric
-; characters replaced with an underscore.
+; See the GCC internals manual for a description of this file's format.
 
 ; Please try to keep this file in ASCII collating order.
 
@@ -166,19 +122,26 @@ Wabi
 C++ ObjC++ Var(warn_abi)
 Warn about things that will change when compiling with an ABI-compliant compiler
 
+Waddress
+C ObjC C++ ObjC++ Var(warn_address)
+Warn about suspicious uses of memory addresses
+
 Wall
 C ObjC C++ ObjC++
 Enable most warning messages
 
-; APPLE LOCAL begin mainline
 Wassign-intercept
 ObjC ObjC++ Var(warn_assign_intercept)
-Warn whenever an ObjC assignment is being intercepted by the garbage collector
-; APPLE LOCAL end mainline
+Warn whenever an Objective-C assignment is being intercepted by the garbage collector
 
 Wbad-function-cast
 C ObjC Var(warn_bad_function_cast)
 Warn about casting functions to incompatible types
+
+Wc++-compat
+C ObjC Var(warn_cxx_compat)
+Warn about C constructs that are not in the common subset of C and C++
+
 
 Wcast-qual
 C ObjC C++ ObjC++ Var(warn_cast_qual)
@@ -200,11 +163,12 @@ Wconversion
 C ObjC C++ ObjC++ Var(warn_conversion)
 Warn about possibly confusing type conversions
 
-; APPLE LOCAL begin 64bit shorten warning 3865314
+; APPLE LOCAL begin mainline
+; This is superseded in mainline by Wconversion
 Wshorten-64-to-32
 C ObjC C++ ObjC++ Var(warn_shorten_64_to_32)
 Warn if a value is implicitly converted from a 64 bit type to a 32 bit type
-; APPLE LOCAL end 64bit shorten warning 3865314
+; APPLE LOCAL end mainline
 
 Wctor-dtor-privacy
 C++ ObjC++ Var(warn_ctor_dtor_privacy)
@@ -218,19 +182,25 @@ Wdeprecated
 C++ ObjC++ Var(warn_deprecated) Init(1)
 Warn about deprecated compiler features
 
-; APPLE LOCAL begin 4086969
+; APPLE LOCAL begin -Wdiscard-qual 4086969
 Wdiscard-qual
 C ObjC Var(warn_discard_qual) Init(1)
 Warn about discarded qualifiers
-; APPLE LOCAL end 4086969
+; APPLE LOCAL end -Wdiscard-qual 4086969
 
 Wdiv-by-zero
-C ObjC Var(warn_div_by_zero) Init(1)
+C ObjC C++ ObjC++ Var(warn_div_by_zero) Init(1)
 Warn about compile-time integer division by zero
 
 Weffc++
 C++ ObjC++ Var(warn_ecpp)
 Warn about violations of Effective C++ style rules
+
+; APPLE LOCAL begin mainline
+Wempty-body
+C ObjC C++ ObjC++ Var(warn_empty_body) Init(-1) Warning
+Warn about an empty body in an if or else statement
+; APPLE LOCAL end mainline
 
 Wendif-labels
 C ObjC C++ ObjC++
@@ -266,9 +236,11 @@ Wformat-nonliteral
 C ObjC C++ ObjC++ Var(warn_format_nonliteral)
 Warn about format strings that are not literals
 
+; APPLE LOCAL begin default to Wformat-security 5764921
 Wformat-security
-C ObjC C++ ObjC++ Var(warn_format_security)
+C ObjC C++ ObjC++ Var(warn_format_security) Init(1)
 Warn about possible security problems with format functions
+; APPLE LOCAL end default to Wformat-security 5764921
 
 Wformat-y2k
 C ObjC C++ ObjC++ Var(warn_format_y2k)
@@ -287,9 +259,18 @@ C ObjC C++ ObjC++
 Warn about multicharacter constants containing exactly four characters
 ; APPLE LOCAL end -Wfour-char-constants
 
+; APPLE LOCAL begin Wglobal-constructors 6324584
+Wglobal-constructors
+C ObjC C++ ObjC++ Var(warn_global_constructors)
+Warn when global (namespace scope) objects require runtime
+construction or destruction or when functions that use attribute
+constructor or destructor are used.  This is useful to help maintain
+fast program startup and end times.
+; APPLE LOCAL end Wglobal-constructors 6324584
+
 Winit-self
 C ObjC C++ ObjC++ Var(warn_init_self)
-Warn about variables which are initialized to themselves.
+Warn about variables which are initialized to themselves
 
 Wimplicit
 C ObjC C++ ObjC++
@@ -304,13 +285,12 @@ Warn when a declaration does not specify a type
 
 Wimport
 C ObjC C++ ObjC++
-Deprecated.  This switch has no effect.
+Deprecated.  This switch has no effect
 
-;APPLE LOCAL begin mainline 2883585 2005-04-20
 Wint-to-pointer-cast
 C ObjC Var(warn_int_to_pointer_cast) Init(1)
 Warn when there is a cast to a pointer from an integer of a different size
-;APPLE LOCAL end mainline 2883585 2005-04-20
+
 Winvalid-offsetof
 C++ ObjC++ Var(warn_invalid_offsetof) Init(1)
 Warn about invalid uses of the \"offsetof\" macro
@@ -318,12 +298,6 @@ Warn about invalid uses of the \"offsetof\" macro
 Winvalid-pch
 C ObjC C++ ObjC++
 Warn about PCH files that are found but not used
-
-; APPLE LOCAL begin -Wlong-double
-Wlong-double
-C ObjC C++ ObjC++
-Warn about \"long double\"
-; APPLE LOCAL end -Wlong-double
 
 Wlong-long
 C ObjC C++ ObjC++ Var(warn_long_long) Init(1)
@@ -353,9 +327,11 @@ Wmissing-include-dirs
 C ObjC C++ ObjC++
 Warn about user-specified include directories that do not exist
 
+; APPLE LOCAL begin warn missing prototype 6261539
 Wmissing-prototypes
-C ObjC Var(warn_missing_prototypes)
+C ObjC C++ ObjC++ Var(warn_missing_prototypes)
 Warn about global functions without prototypes
+; APPLE LOCAL end warn missing prototype 6261539
 
 ; APPLE LOCAL begin -Wmost
 Wmost
@@ -383,6 +359,12 @@ C ObjC C++ ObjC++ Var(warn_non_lvalue_assign) Init(1)
 Warn about assignment to casts and conditional expressions of lvalues
 ; APPLE LOCAL end non lvalue assign
 
+; APPLE LOCAL begin radar 5376125
+Wdirect-ivar-access
+ObjC ObjC++ Var(warn_direct_ivar_access)
+Warn about direct access to gc-enabled ivars
+; APPLE LOCAL end radar 5376125
+
 Wnon-template-friend
 C++ ObjC++ Var(warn_nontemplate_friend) Init(1)
 Warn when non-templatized friend functions are declared within a template
@@ -391,15 +373,15 @@ Wnon-virtual-dtor
 C++ ObjC++ Var(warn_nonvdtor)
 Warn about non-virtual destructors
 
+; APPLE LOCAL begin turn on for C++/Objective-C++
 Wnonnull
-C ObjC Var(warn_nonnull)
+C ObjC C++ ObjC++ Var(warn_nonnull)
 Warn about NULL being passed to argument slots marked as requiring non-NULL
+; APPLE LOCAL end turn on for C++/Objective-C++
 
-; APPLE LOCAL begin mainline UCNs 2005-04-17 3892809
 Wnormalized=
 C ObjC C++ ObjC++ Joined
 -Wnormalized=<id|nfc|nfkc>	Warn about non-normalised Unicode strings
-; APPLE LOCAL end mainline UCNs 2005-04-17 3892809
 
 Wold-style-cast
 C++ ObjC++ Var(warn_old_style_cast)
@@ -409,9 +391,17 @@ Wold-style-definition
 C ObjC Var(warn_old_style_definition)
 Warn if an old-style parameter definition is used
 
+Woverlength-strings
+C ObjC C++ ObjC++ Var(warn_overlength_strings) Init(-1)
+Warn if a string is longer than the maximum portable length specified by the standard
+
 Woverloaded-virtual
 C++ ObjC++ Var(warn_overloaded_virtual)
 Warn about overloaded virtual function names
+
+Woverride-init
+C ObjC Var(warn_override_init) Init(-1)
+Warn about overriding initializers without side effects
 
 Wparentheses
 C ObjC C++ ObjC++ Var(warn_parentheses)
@@ -425,14 +415,23 @@ Wpointer-arith
 C ObjC C++ ObjC++ Var(warn_pointer_arith)
 Warn about function pointer arithmetic
 
-;APPLE LOCAL begin mainline 2883585 2005-04-20
 Wpointer-to-int-cast
 C ObjC Var(warn_pointer_to_int_cast) Init(1)
 Warn when a pointer is cast to an integer of a different size
-;APPLE LOCAL end mainline 2883585 2005-04-20
+
+Wpragmas
+C ObjC C++ ObjC++ Var(warn_pragmas) Init(1)
+Warn about misuses of pragmas
+
 Wprotocol
 ObjC ObjC++ Var(warn_protocol) Init(1)
 Warn if inherited methods are unimplemented
+
+; APPLE LOCAL begin radar 5172645
+Wproperty-assign-default
+ObjC ObjC++ Var(warn_property_assign_default) Init(1)
+Warn if no attribute specified on property of pointer to object type (defaulted to assign)
+; APPLE LOCAL end radar 5172645
 
 Wredundant-decls
 C ObjC C++ ObjC++ Var(warn_redundant_decls)
@@ -443,7 +442,7 @@ C++ ObjC++ Var(warn_reorder)
 Warn when the compiler reorders code
 
 Wreturn-type
-C ObjC C++ ObjC++
+C ObjC C++ ObjC++ Var(warn_return_type)
 Warn whenever a function's return type defaults to \"int\" (C), or about inconsistent return types (C++)
 
 Wselector
@@ -470,11 +469,9 @@ Wstrict-prototypes
 C ObjC Var(warn_strict_prototypes)
 Warn about unprototyped function declarations
 
-; APPLE LOCAL begin mainline
 Wstrict-selector-match
 ObjC ObjC++ Var(warn_strict_selector_match)
 Warn if type signatures of candidate methods do not match exactly
-; APPLE LOCAL end mainline
 
 Wsynth
 C++ ObjC++ Var(warn_synth)
@@ -513,22 +510,16 @@ C ObjC C++ ObjC++
 Do not warn about using variadic macros when -pedantic
 
 Wwrite-strings
-C ObjC C++ ObjC++
-Give strings the type \"array of char\"
+C ObjC C++ ObjC++ Var(warn_write_strings)
+In C++, nonzero means warn about deprecated conversion from string literals to `char *'.  In C, similar warning, except that the conversion is of course not deprecated by the ISO C standard.
 
 Wpointer-sign
-C ObjC Var(warn_pointer_sign) Init(1)
-Warn when a pointer differs in signedness in an assignment.
+C ObjC Var(warn_pointer_sign) Init(-1)
+Warn when a pointer differs in signedness in an assignment
 
 ansi
 C ObjC C++ ObjC++
-A synonym for -std=c89 (for C) or -std=c++98 (for C++).
-
-; APPLE LOCAL begin fat builds
-arch
-C ObjC C++ ObjC++ Separate
-The architecture to build for.
-; APPLE LOCAL end fat builds
+A synonym for -std=c89 (for C) or -std=c++98 (for C++)
 
 d
 C ObjC C++ ObjC++ Joined
@@ -567,15 +558,15 @@ When handling assembly blocks, use MW-style assembly blocks
 
 ; APPLE LOCAL begin -fast or -fastf or -fastcp
 fast
-C C++
+C ObjC C++ ObjC++
 Used for c or c++ optimization
 
 fastcp
-C++
+C++ ObjC++
 Used when C++ specific optimization is needed
 
 fastf
-C
+C ObjC
 Used when c is generated from NAG fortran
 ; APPLE LOCAL end -fast or -fastf or -fastcp
 
@@ -590,11 +581,14 @@ fcheck-new
 C++ ObjC++
 Check the return value of new
 
-; APPLE LOCAL begin structor decloning
+; APPLE LOCAL begin ARM structor thunks
+; Nonzero if we prefer to clone con/de/structors.  Alternative is to
+; gen multiple tiny thunk-esque things that call/jump to a unified
+; con/de/structor.  This is a classic size/speed tradeoff.
 fclone-structors
-C++ ObjC++
+C++ ObjC++ Var(flag_clone_structors)
 Factor out certain duplicate code in constructors and destructors
-; APPLE LOCAL end structor decloning
+; APPLE LOCAL end ARM structor thunks
 
 fcond-mismatch
 C ObjC C++ ObjC++
@@ -603,10 +597,6 @@ Allow the arguments of the '?' operator to have different types
 fconserve-space
 C++ ObjC++
 Reduce the size of object files
-
-fconst-strings
-C++ ObjC++
-Make string literals \"const char[]\" not \"char[]\"
 
 fconstant-string-class=
 ObjC ObjC++ Joined
@@ -640,19 +630,17 @@ fexec-charset=
 C ObjC C++ ObjC++ Joined RejectNegative
 -fexec-charset=<cset>	Convert all strings and character constants to character set <cset>
 
+fextended-identifiers
+C ObjC C++ ObjC++
+Permit universal character names (\\u and \\U) in identifiers
+
 finput-charset=
 C ObjC C++ ObjC++ Joined RejectNegative
--finput-charset=<cset>	Specify the default character set for source files.
+-finput-charset=<cset>	Specify the default character set for source files
 
 
 fexternal-templates
 C++ ObjC++
-
-ffixed-form
-C ObjC
-
-ffixed-line-length-
-C ObjC Joined
 
 ffor-scope
 C++ ObjC++
@@ -669,6 +657,10 @@ Recognize GNU-defined keywords
 fgnu-runtime
 ObjC ObjC++
 Generate code for GNU runtime environment
+
+fgnu89-inline
+C ObjC Var(flag_gnu89_inline) Init(-1)
+Use traditional GNU semantics for inline functions
 
 fguiding-decls
 C++ ObjC++
@@ -699,8 +691,18 @@ fimplicit-templates
 C++ ObjC++
 Emit implicit instantiations of templates
 
+ffriend-injection
+C++ ObjC++ Var(flag_friend_injection)
+Inject friend functions into enclosing namespace
+
 flabels-ok
 C++ ObjC++
+
+; APPLE LOCAL begin 5612787 mainline sse4
+flax-vector-conversions
+C ObjC C++ ObjC++
+Allow implicit conversions between vectors with differing numbers of subparts and/or differing element types.
+; APPLE LOCAL end 5612787 mainline sse4
 
 fms-extensions
 C ObjC C++ ObjC++
@@ -744,23 +746,31 @@ ObjC ObjC++ Var(flag_objc_atdefs) Init(-1)
 Allow use of @defs
 ; APPLE LOCAL end radar 4705250
 
-; APPLE LOCAL begin mainline
+; APPLE LOCAL begin objc2
+; Generate special '- .cxx_construct' and '- .cxx_destruct' methods
+; to initialize any non-POD ivars in Objective-C++ classes.
 fobjc-call-cxx-cdtors
 ObjC++ Var(flag_objc_call_cxx_cdtors) Init(-1)
-Generate special ObjC methods to initialize/destroy non-POD C++ ivars, if needed
-; APPLE LOCAL end mainline
+Generate special Objective-C methods to initialize/destroy non-POD C++ ivars, if needed
+; APPLE LOCAL end objc2
 
-; APPLE LOCAL begin mainline
 ; APPLE LOCAL begin radar 4590221
 fobjc-direct-dispatch
 ObjC ObjC++ Var(flag_objc_direct_dispatch) Init(-1)
-Allow fast jumps (via comm page) to the message dispatcher
+Allow fast jumps to the message dispatcher
 ; APPLE LOCAL end radar 4590221
-; APPLE LOCAL end mainline
 
+; Nonzero means that we will allow new ObjC exception syntax (@throw,
+; @try, etc.) in source code.
 fobjc-exceptions
-ObjC ObjC++
+ObjC ObjC++ Var(flag_objc_exceptions)
 Enable Objective-C exception and synchronization syntax
+
+; APPLE LOCAL begin ARM hybrid objc-2.0
+fobjc-legacy-dispatch
+ObjC ObjC++ Var(flag_objc_legacy_dispatch) Init(-1)
+Use Objective-C v1 message dispatching
+; APPLE LOCAL end ARM hybrid objc-2.0
 
 ; APPLE LOCAL begin radar 2848255
 fobjc-zerocost-exceptions
@@ -774,21 +784,36 @@ C C++ ObjC ObjC++ Var(flag_objc_new_property) Init(1)
 Enable Objective-C new property syntax and semantics
 ; APPLE LOCAL end objc new property - not for  merge to the FSF
 
+; APPLE LOCAL begin radar 5435299 - radar 6173152 
+fnew-property-ivar-synthesis
+ObjC ObjC++ Var(flag_new_property_ivar_synthesis) Init(1)
+Enable new style of fragile-ivar synthesis for properties
+; APPLE LOCAL end radar 5435299 - radar 6173152 
+
 ; APPLE LOCAL begin radar 4810609
 fobjc-gc-only
 ObjC ObjC++ Var(flag_objc_gc_only)  Init(0)
 Program only supprts (GC) in ObjC/ObjC++ programs
 ; APPLE LOCAL end radar 4810609
 
-; APPLE LOCAL begin mainline
 fobjc-gc
 ObjC ObjC++ Var(flag_objc_gc)
-Enable garbage collection (GC) in ObjC/ObjC++ programs
-; APPLE LOCAL end mainline
+Enable garbage collection (GC) in Objective-C/Objective-C++ programs
 
+; APPLE LOCAL begin radar 5811887 - blocks
+fblocks
+C ObjC C++ ObjC++ Var(flag_blocks) Init(-1)
+Program supports c/objc extension blocks
+; APPLE LOCAL end radar 5811887 - blocks
+
+; Nonzero means that we generate NeXT setjmp based exceptions.
 fobjc-sjlj-exceptions
-ObjC ObjC++
+ObjC ObjC++ Var(flag_objc_sjlj_exceptions) Init(-1)
 Enable Objective-C setjmp exception handling runtime
+
+fopenmp
+C ObjC C++ ObjC++ Var(flag_openmp)
+Enable OpenMP
 
 foperator-names
 C++ ObjC++
@@ -842,9 +867,6 @@ fshort-wchar
 C ObjC C++ ObjC++
 Force the underlying type for \"wchar_t\" to be \"unsigned short\"
 
-fshow-column
-C ObjC C++ ObjC++
-
 fsigned-bitfields
 C ObjC C++ ObjC++
 When \"signed\" or \"unsigned\" is not given make the bitfield signed
@@ -868,7 +890,7 @@ C ObjC C++ ObjC++ Joined RejectNegative UInteger
 -ftabstop=<number>	Distance between tab stops for column reporting
 
 ftemplate-depth-
-C++ ObjC++ Joined RejectNegative UInteger 
+C++ ObjC++ Joined RejectNegative UInteger
 -ftemplate-depth-<number>	Specify maximum template instantiation depth
 
 fthis-is-variable
@@ -876,7 +898,7 @@ C++ ObjC++
 
 fthreadsafe-statics
 C++ ObjC++
--fno-threadsafe-statics	Do not generate thread-safe code for initializing local statics.
+-fno-threadsafe-statics	Do not generate thread-safe code for initializing local statics
 
 funsigned-bitfields
 C ObjC C++ ObjC++
@@ -890,21 +912,19 @@ fuse-cxa-atexit
 C++ ObjC++
 Use __cxa_atexit to register destructors
 
-; APPLE LOCAL begin mainline 2006-02-24 4086777
 fuse-cxa-get-exception-ptr
 C++ ObjC++
 Use __cxa_get_exception_ptr in exception handling
 
-; APPLE LOCAL end mainline 2006-02-24 4086777
 fvisibility-inlines-hidden
 C++ ObjC++
 Marks all inlined methods as having hidden visibility
 
-; APPLE LOCAL begin ms tinfo compat 4230099
+; APPLE LOCAL begin mainline 2007-06-28 ms tinfo compat 4230099
 fvisibility-ms-compat
 C++ ObjC++ Var(flag_visibility_ms_compat)
 Changes visibility to match Microsoft Visual Studio by default
-; APPLE LOCAL end ms tinfo compat 4230099
+; APPLE LOCAL end mainline 2007-06-28 ms tinfo compat 4230099
 
 fvtable-gc
 C++ ObjC++
@@ -946,6 +966,10 @@ imacros
 C ObjC C++ ObjC++ Joined Separate
 -imacros <file>	Accept definition of macros in <file>
 
+imultilib
+C ObjC C++ ObjC++ Joined Separate
+-imultilib <dir> Set <dir> to be the multilib include subdirectory
+
 include
 C ObjC C++ ObjC++ Joined Separate
 -include <file>	Include the contents of <file> before other files
@@ -974,7 +998,16 @@ iwithprefixbefore
 C ObjC C++ ObjC++ Joined Separate
 -iwithprefixbefore <dir>	Add <dir> to the end of the main include path
 
+; APPLE LOCAL begin ARM iwithsysroot 4917039
+iwithsysroot
+C ObjC C++ ObjC++ Joined Separate
+-iwithsysroot <dir> Add <sysroot>/<dir> to the start of the system include path
+; APPLE LOCAL end ARM iwithsysroot 4917039
+
 lang-asm
+C Undocumented
+
+lang-fortran
 C Undocumented
 
 lang-objc
@@ -1010,12 +1043,10 @@ ObjC ObjC++
 Generate GC ivar layout information
 ; APPLE LOCAL end radar 5082000
 
-; APPLE LOCAL begin mainline 4.1 2005-06-17 3988498
 print-pch-checksum
 C ObjC C++ ObjC++
-Print a checksum of the executable for PCH validity checking, and stop.
+Print a checksum of the executable for PCH validity checking, and stop
 
-; APPLE LOCAL end mainline 4.1 2005-06-17 3988498
 remap
 C ObjC C++ ObjC++
 Remap file names when including files

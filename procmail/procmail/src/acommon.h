@@ -1,4 +1,4 @@
-/*$Id: acommon.h,v 1.1.1.3 2003/10/14 23:13:23 rbraun Exp $*/
+/*$Id: acommon.h,v 1.3 2001/08/04 07:15:00 guenther Exp $*/
 
 const char
  *hostname P((void));

@@ -33,10 +33,6 @@
 #include <DirectoryServiceCore/DSCThread.h>	// for CThread::Yield()
 #include <DirectoryServiceCore/DSMutexSemaphore.h>
 
-//no support for __LP64__ here
-#ifdef __LP64__
-#error "Cannot compile CFile with 64 bit - ppc64"
-#endif
 typedef		long long		sInt64;
 
 #include <unistd.h>		// for sync()
@@ -48,7 +44,7 @@ typedef		long long		sInt64;
 using namespace std;
 
 static FILE	* const		kBadFileRef = NULL;
-static const SInt32		kMaxFiles	= 8;
+static const int		kMaxFiles	= 8;
 
 //typedef ios		ios_base;
 typedef char	CFileSpec[ PATH_MAX ];

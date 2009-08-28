@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2007, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -24,6 +24,7 @@
 #include <syslog.h>
 #include <sys/sysctl.h>
 #include <sys/param.h>
+#include <unistd.h>
 
 extern void __abort(void) __dead2;
 

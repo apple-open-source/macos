@@ -10,8 +10,7 @@ processes. These are the disk events sent by the block I/O driver.
 If applications must use the disks, we generally prefer they do so
 sequentially with large I/O sizes, or larger "bites".
 
-Since this uses DTrace, only the root user or users with the
-dtrace_kernel privilege can run this command.
+Since this uses DTrace, only users with root privileges can run this command.
 .SH EXAMPLES
 .TP
 Sample until Ctrl\-C is hit then print report,

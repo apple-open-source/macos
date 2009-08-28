@@ -24,9 +24,13 @@ eval 'case $# in 0) exec @PERL@ -S "$0";; *) exec @PERL@ -S "$0" "$@";; esac'
 # 02110-1301, USA.
 
 
+use File::Basename ();
+my($_bindir, $_datadir);
 BEGIN
 {
-  my $datadir = $ENV{'autom4te_perllibdir'} || '@datadir@';
+  $_bindir = File::Basename::dirname($0);
+  ($_datadir = '@datadir@') =~ s,^/usr,$_bindir/..,;
+  my $datadir = $ENV{'autom4te_perllibdir'} || $_datadir;
   unshift @INC, $datadir;
 
   # Override SHELL.  On DJGPP SHELL may not be set to a shell
@@ -46,7 +50,7 @@ use File::Basename;
 use strict;
 
 # Data directory.
-my $datadir = $ENV{'AC_MACRODIR'} || '@datadir@';
+my $datadir = $ENV{'AC_MACRODIR'} || $_datadir;
 
 # $LANGUAGE{LANGUAGE} -- Automatic options for LANGUAGE.
 my %language;
@@ -87,7 +91,8 @@ my @include;
 my $freeze = 0;
 
 # $M4.
-my $m4 = $ENV{"M4"} || '@M4@';
+my $_m4 = "$_bindir/" . File::Basename::basename('@M4@');
+my $m4 = $ENV{"M4"} || ((-x $_m4) ? $_m4 : '@M4@');
 # Some non-GNU m4's don't reject the --help option, so give them /dev/null.
 fatal "need GNU m4 1.4 or later: $m4"
   if system "$m4 --help </dev/null 2>&1 | grep reload-state >/dev/null";

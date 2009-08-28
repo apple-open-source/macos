@@ -80,7 +80,7 @@ make_sa_install :
 	$(SILENT) ($(CD) "$(SRCROOT)/SpamAssassin" && make CFLAGS="$(CFLAGS)" install)
 
 	# Copy files to OS X hierarchy
-	
+	$(SILENT) ($(MV) "$(DSTROOT)/bin" "$(DSTROOT)/usr/bin")
 	$(SILENT) ($(MV) "$(DSTROOT)/etc" $(DSTROOT)$(PRIV_DIR))
 	$(SILENT) ($(MV) "$(DSTROOT)/share" $(DSTROOT)$(USR_DIR))
 	$(SILENT) ($(MV) "$(DSTROOT)/lib/perl5/site_perl/Mail" $(DSTROOT)$(PERL_EXTRA_VER_DIR)/)
@@ -89,9 +89,10 @@ make_sa_install :
 	install -m 0644 "$(SRCROOT)/SpamAssassin.SetupExtras/local.cf" "$(DSTROOT)$(SA_BIN_DIR)/local.cf"
 	install -m 0755 "$(SRCROOT)/SpamAssassin.SetupExtras/learn_junk_mail" "$(DSTROOT)$(SA_BIN_DIR)/learn_junk_mail"
 
-	# Clean up build directories
+	# Clean up of files & build directories
 	$(SILENT) ($(CD) "$(SRCROOT)/SpamAssassin" && make clean)
 	$(SILENT) ($(CD) "$(SRCROOT)" && $(RM) ./SpamAssassin/Makefile.old)
+	$(SILENT) ($(RM) "$(DSTROOT)/System/Library/Perl/5.10.0/darwin-thread-multi-2level/perllocal.pod" )
 
 	# Install Open Souce files
 	install -m 0444 $(SRCROOT)/SpamAssassin.OpenSourceInfo/SpamAssassin.plist $(DSTROOT)/usr/local/OpenSourceVersions
@@ -101,8 +102,8 @@ make_sa_install :
 	install -m 0644 $(SRCROOT)/SpamAssassin.LaunchDaemons/com.apple.updatesa.plist \
 			$(DSTROOT)/System/Library/LaunchDaemons/com.apple.updatesa.plist
 	install -d -m 755 $(DSTROOT)/System/Library/ServerSetup/MigrationExtras
-	install -m 0644 $(SRCROOT)/SpamAssassin.SetupExtras/upgrade_learn_sa \
-			$(DSTROOT)/System/Library/ServerSetup/MigrationExtras/upgrade_learn_sa
+	install -m 0755 $(SRCROOT)/SpamAssassin.SetupExtras/upgrade_learn_sa \
+			$(DSTROOT)/System/Library/ServerSetup/MigrationExtras/66_spam_assassin_migrator
 
 	$(SILENT) $(ECHO) "--------- Building Spam Assassin complete ---------"
 

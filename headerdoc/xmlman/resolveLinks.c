@@ -1,4 +1,5 @@
 
+#include <inttypes.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -15,6 +16,16 @@
 #include <string.h>
 #include <pthread.h>
 #include <errno.h>
+
+#ifdef USE_STRCOMPAT
+#include "strcompat.h"
+#endif
+
+#ifndef C99
+	#define FMT_SIZE_T "%zu"
+#else
+	#define FMT_SIZE_T "%lu"
+#endif
 
 typedef struct _xrefnode {
     char *filename;
@@ -33,7 +44,7 @@ struct nodelistitem
 
 typedef struct fileref
 {
-	char name[MAXNAMLEN];
+	char name[MAXPATHLEN];
 	struct fileref *next;
 	struct fileref *threadnext;
 } *fileref_t;
@@ -53,6 +64,9 @@ int debug_reparent = 0;
 /* Set quick_test to 1 to gather and parse and write without actually
    resolving, or 2 to not do much of anything. */
 int quick_test = 0;
+
+/* Set nowrite to 1 to disable writes, 2 to write to a temp file but not rename over anything. */
+int nowrite = 0;
 
 int stderrfd = -1;
 int nullfd = -1;
@@ -141,7 +155,6 @@ int main(int argc, char *argv[])
     char *xref_output_file = NULL;
     char *seedfiles[MAXSEEDFILES];
     int nseedfiles = 0;
-    int nowrite = 0;
 
     setup_redirection();
 
@@ -206,6 +219,9 @@ int main(int argc, char *argv[])
 				debug_relpath =  ((debug_flags &  8) != 0);
 				debug_reparent = ((debug_flags & 16) != 0);
 				warn_each =      ((debug_flags & 32) != 0);
+
+				nthreads = 0; // Disable multithreaded processing for debugging.
+
 				break;
 			case 'n':
 				nowrite = 1;
@@ -220,6 +236,8 @@ int main(int argc, char *argv[])
     // *argc = *argc - optind;
     // *argv = *argv + optind;
     }
+    if (debug_reparent) nthreads = 0; // Disable multithreaded processing for debugging.
+
 
     // printf("Number of seed files: %d\nNumber of threads: %d\nDirectory: %s\n", nseedfiles, nthreads, directory);
     // { int i; for (i=0; i<nseedfiles; i++) { printf("Seed file %d: %s\n", i, seedfiles[i]); }}
@@ -309,7 +327,7 @@ int main(int argc, char *argv[])
 	quick_test = 1;
     }
 
-    if (nowrite) exit(0); // We're done.
+    if (nowrite == 1) exit(0); // We're done.
 
 #ifdef OLD_CODE
     {
@@ -338,9 +356,10 @@ int main(int argc, char *argv[])
 	int thread_exists[MAXTHREADS];
 	int i;
 	for (i=0; i<nthreads; i++) {
+		uintptr_t temp_i = i;
 		pthread_attr_t *attr = NULL;
 		thread_exists[i] = 1;
-		if (pthread_create(&threads[i], attr, resolve_main, (void *)i)) {
+		if (pthread_create(&threads[i], attr, resolve_main, (void *)temp_i)) {
 			printf("Thread %d failed.  Running in main thread.\n", i);
 			resolve_mainsub(i);
 			thread_exists[i] = 0;
@@ -380,12 +399,12 @@ static void *resolve_main(void *ref)
 {
     int ret;
 
-    if (debugging) printf("Thread %d spawned.\n", (int)ref);
+    if (debugging) printf("Thread %d spawned.\n", (int)(uintptr_t)ref); // Intentional truncation to integer.
 
 // sleep(5*((int)ref));
 
-    ret = resolve_mainsub((int)ref);
-    thread_exit[(int)ref] = ret;
+    ret = resolve_mainsub((int)(uintptr_t)ref);
+    thread_exit[(int)(uintptr_t)ref] = ret;
     pthread_exit(NULL);
 }
 
@@ -419,6 +438,8 @@ int resolve_mainsub(int pos)
 
 	filename = curfile->name;
 
+	if (debugging || writedebug || debug_reparent) printf("READING FILE: %s\n", filename);
+
     // if (nthreads > 0) {
 	// sprintf(tempname, "/tmp/resolveLinks.%d.%d", getpid(), (int)pthread_self());
     // } else {
@@ -427,9 +448,9 @@ int resolve_mainsub(int pos)
 
 	redirect_stderr_to_null();
 #ifdef OLD_LIBXML
-	if (!(dp = htmlParseFile(filename, "")))
+	if (!(dp = htmlParseFile(filename, NULL)))
 #else
-	ctxt = htmlCreateFileParserCtxt(filename, "");
+	ctxt = htmlCreateFileParserCtxt(filename, NULL);
 
 	if (!ctxt) { fprintf(ERRS, "error: could not create context\n"); exit(-1); }
 
@@ -446,7 +467,6 @@ int resolve_mainsub(int pos)
 	printf("POST: \n");
 	printf("SAX: %p IWS: %p\n", ctxt->sax, ctxt->sax ? ctxt->sax->ignorableWhitespace : 0);
 	printf("KB: %d\n", ctxt->keepBlanks);
-	htmlFreeParserCtxt(ctxt);
 	if (!dp)
 #endif
 	{
@@ -465,7 +485,8 @@ int resolve_mainsub(int pos)
 		printf("X"); fflush(stdout);
 	}
 
-	if (debugging || writedebug) printf("WRITING FILE: %s\n", filename);
+	if (debugging || writedebug || debug_reparent) printf("WRITING FILE: %s\n", filename);
+	
 	writeFile(root, dp, tempname);
 	// printf("TREE:\n");
 	// writeFile_sub(root, dp, stdout, 1);
@@ -473,11 +494,17 @@ int resolve_mainsub(int pos)
 	// exit(-1);
 
 	xmlFreeDoc(dp);
-	if (rename(tempname, filename)) {
+
+	if (nowrite == 2) {
+		fprintf(stderr, "TEMPNAME: %s\n", tempname);
+	} else if (rename(tempname, filename)) {
 	    fprintf(ERRS, "error: error renaming temp file over original.\n");
 	    perror("resolveLinks");
 	    return -1;
 	}
+#ifndef OLD_LIBXML
+	htmlFreeParserCtxt(ctxt);
+#endif
     }
 
     return 0;
@@ -690,9 +717,9 @@ void addXRef(xmlNode *node, char *filename)
 	printf("warning: addXRef called on anchor with no name property\n");
     }
 
-    if (debugging) {printf("STRL %ld\n",  strlen(pt)); fflush(stdout);}
+    if (debugging) {printf("STRL " FMT_SIZE_T "\n",  strlen(pt)); fflush(stdout);}
     tempstring = (bufptr = malloc((strlen(pt)+1) * sizeof(char)));
-    strcpy(tempstring, pt);
+    strlcpy(tempstring, pt, (strlen(pt)+1));
 
     while (tempstring && *tempstring) {
 	for (nextstring = tempstring; *nextstring && (*nextstring != ' '); nextstring++);
@@ -791,7 +818,7 @@ int isEndOfLinkRequest(char *text)
  */
 void resolveLinks(xmlNode *node, htmlDocPtr dp, char *filename)
 {
-    if (!node) return;
+  while (node) {
 
     if (node->name && !strcmp((char *)node->name, "comment")) {
 	if (debugging) { printf("comment: \"%s\"\n", node->content); }
@@ -973,25 +1000,26 @@ void resolveLinks(xmlNode *node, htmlDocPtr dp, char *filename)
 				}
 				free(target);
 			} else {
-/*                char    *full_filename = malloc(PATH_MAX * sizeof(char));
-                char    *printed_filename = full_filename;
+				/*                char    *full_filename = malloc(PATH_MAX * sizeof(char));
+				char    *printed_filename = full_filename;
 
-                // Let's get full file name to display error messages containing full path to file
-                if(!realpath(filename, full_filename))
-                    printed_filename = filename;
-                    if (warn_each) fprintf(ERRS, "\n%s:0: error: unable to resolve link %s.\n", printed_filename, lp);
-                free(full_filename);*/
+				// Let's get full file name to display error messages containing full path to file
+				if(!realpath(filename, full_filename))
+					printed_filename = filename;
+				if (warn_each)
+					fprintf(ERRS, "\n%s:0: error: unable to resolve link %s.\n", printed_filename, lp);
+				free(full_filename);*/
 				unresolved++;
 			}
 		} else {
-            char    *full_filename = malloc(PATH_MAX * sizeof(char));
-            char    *printed_filename = full_filename;
+        		char *full_filename = malloc(PATH_MAX * sizeof(char));
+        		char *printed_filename = full_filename;
 
-            // Let's get full file name to display error messages containing full path to file
-            if(!realpath(filename, full_filename))
-                printed_filename = filename;
-            fprintf(ERRS, "\n%s:0: error: broken link.\n", printed_filename);
-            free(full_filename);
+			// Let's get full file name to display error messages containing full path to file
+			if (!realpath(filename, full_filename))
+				printed_filename = filename;
+			fprintf(ERRS, "\n%s:0: error: broken link.  No closing link request comment found.\n", printed_filename);
+			free(full_filename);
 			broken++;
 		}
 	}
@@ -1074,7 +1102,9 @@ void resolveLinks(xmlNode *node, htmlDocPtr dp, char *filename)
     }
 
     resolveLinks(node->children, dp, filename);
-    resolveLinks(node->next, dp, filename);
+    // resolveLinks(node->next, dp, filename);
+    node = node->next;
+  }
 }
 
 /*! Returns true if the two nodes are at the same level in the XML
@@ -1115,7 +1145,17 @@ void writeFile(xmlNode *node, htmlDocPtr dp, char *filename)
 
     fclose(fp);
 #else
+    if (!htmlGetMetaEncoding(dp)) {
+	htmlSetMetaEncoding(dp, (unsigned char *)"ascii");
+    }
+    // printf("META ENCODING PRE: %s\n", htmlGetMetaEncoding(dp));
+
+    // BUGBUGBUG: libxml2 actually writes HTML into the encoding field in the
+    // meta tag, resulting in an unreadable HTML file.
+    // int ret = htmlSaveFileEnc(filename, dp, "HTML");
+
     int ret = htmlSaveFile(filename, dp);
+    // printf("META ENCODING: %s\n", htmlGetMetaEncoding(dp));
 
     if (ret <= 0) {
 	fprintf(ERRS, "Failed to save file \"%s\"\n", filename);
@@ -1145,18 +1185,19 @@ char *propString(xmlNode *node)
 	}
 	prop = prop->next;
     }
-    propstring = malloc((len + 5) * sizeof(char));
+    len += 5;
+    propstring = malloc(len * sizeof(char));
 
-    strcpy(propstring, "a");
+    strlcpy(propstring, "a", len);
 
     prop = node->properties;
     while (prop) {
 	if (prop->children) {
-		strcat(propstring, " ");
-		strcat(propstring, (char *)prop->name);
-		strcat(propstring, "=\"");
-		strcat(propstring, (char *)prop->children->content);
-		strcat(propstring, "\"");
+		strlcat(propstring, " ", len);
+		strlcat(propstring, (char *)prop->name, len);
+		strlcat(propstring, "=\"", len);
+		strlcat(propstring, (char *)prop->children->content, len);
+		strlcat(propstring, "\"", len);
 	}
 
 	prop = prop->next;
@@ -1491,7 +1532,7 @@ char *refRefChange(char *ref, char *extref)
     length = 2 + strlen(extref) + 1 + strlen(langpart) + 1 + strlen(rest) + 1;
 
     retval = malloc((length + 1) * sizeof(char));
-    sprintf(retval, "//%s/%s/%s", extref, langpart, rest);
+    snprintf(retval, (length + 1), "//%s/%s/%s", extref, langpart, rest);
 
     return retval;
 }
@@ -1515,7 +1556,7 @@ char *refLangChange(char *ref, char *lang)
     length = 2 + strlen(refpart) + 1 + strlen(lang) + 1 + strlen(rest) + 1;
 
     retval = malloc((length + 1) * sizeof(char));
-    sprintf(retval, "//%s/%s/%s", refpart, lang, rest);
+    snprintf(retval, (length + 1), "//%s/%s/%s", refpart, lang, rest);
 
     return retval;
 }
@@ -1531,13 +1572,13 @@ char *makeurl(char *filename, char *offset, int retarget)
     char *base = ts_basename(filename);
     char *updir = ts_dirname(dir);
     char *upbase = ts_basename(dir);
-    char *indexpath = malloc(strlen(updir) + 1 /*/*/ + strlen("index.html") + 1);
+    char *indexpath = NULL;
 
-    int len = (strlen(filename)+strlen(offset)+2) * sizeof(char);
+    // int len = (strlen(filename)+strlen(offset)+2) * sizeof(char);
 
 if (debugging) printf("RETARGET (INITIAL): %d\n", retarget);
 
-    sprintf(indexpath, "%s/index.html", updir);
+    asprintf(&indexpath, "%s/index.html", updir);
     if (retarget && (!strcmp(base, "index.html") || !strcmp(base, "CompositePage.html"))) {
 	if (debugging) printf("Going to an index.html file.  Not retargetting.\n");
 	if (debugging) printf("FILENAME: %s\nOFFSET: %s\n", filename, offset);
@@ -1547,6 +1588,7 @@ if (debugging) printf("RETARGET (INITIAL): %d\n", retarget);
 	free(updir);
 	free(upbase);
 	free(indexpath);
+	indexpath = NULL;
     }
 
     if (retarget && !exists(indexpath)) {
@@ -1558,29 +1600,31 @@ if (debugging) printf("RETARGET (INITIAL): %d\n", retarget);
 	free(updir);
 	free(upbase);
 	free(indexpath);
+	indexpath = NULL;
     }
 
-    if (retarget) {
-	len = strlen(indexpath) + 1 /*?*/ + strlen(upbase) + 1 /*/*/ + strlen(base) + 1 /*#*/ + strlen(offset) + 1 /*NULL*/;
-    }
+    // if (retarget) {
+	// len = strlen(indexpath) + 1 /*?*/ + strlen(upbase) + 1 /*/*/ + strlen(base) + 1 /*#*/ + strlen(offset) + 1 /*NULL*/;
+    // }
 
-    buf = malloc(len);
+    // buf = malloc(len);
 
-    if (!buf) return "BROKEN";
+    // if (!buf) return "BROKEN";
 
 if (debugging) printf("RETARGET: %d\n", retarget);
 
     if (retarget) {
-	sprintf(buf, "%s?%s/%s#%s", indexpath, upbase, base, offset);
+	asprintf(&buf, "%s?%s/%s#%s", indexpath, upbase, base, offset);
 	free(dir);
 	free(base);
 	free(updir);
 	free(upbase);
 	free(indexpath);
     } else {
-	strcpy(buf, filename);
-	strcat(buf, "#");
-	strcat(buf, offset);
+	asprintf(&buf, "%s#%s", filename, offset);
+	// strcpy(buf, filename);
+	// strcat(buf, "#");
+	// strcat(buf, offset);
     }
 
     return buf;
@@ -1901,9 +1945,9 @@ fileref_t getFiles(char *curPath)
 
 		if (debugging || localDebug) printf("CURPATH: \"%s\" NP: %p\n", curPath, newpath);
 
-		strcpy(newpath, curPath);
-		strcat(newpath, "/");
-		strcat(newpath, entp->d_name);
+		strlcpy(newpath, curPath, MAXNAMLEN);
+		strlcat(newpath, "/", MAXNAMLEN);
+		strlcat(newpath, entp->d_name, MAXNAMLEN);
 
 		if (debugging || localDebug) printf("Recursing into %s.\n", newpath);
 
@@ -1937,9 +1981,9 @@ fileref_t getFiles(char *curPath)
 		fileref_t newent = malloc(sizeof(*newent));
 		if (!newent) { perror("resolveLinks"); exit(-1); }
 		newent->next = NULL;
-		strcpy(newent->name, curPath);
-		strcat(newent->name, "/");
-		strcat(newent->name, entp->d_name);
+		strlcpy(newent->name, curPath, MAXPATHLEN);
+		strlcat(newent->name, "/", MAXPATHLEN);
+		strlcat(newent->name, entp->d_name, MAXPATHLEN);
 
 		if (rettail) {
 			rettail->next = newent;
@@ -1983,7 +2027,7 @@ int tailcompare(char *string, char *tail)
     char *pos = &string[strlen(string) - strlen(tail)];
     if (strlen(string) < strlen(tail)) return 0;
 
-    if (debugging) printf("LENGTHS: %ld %ld %ld\n", strlen(string), strlen(tail), strlen(string)-strlen(tail));
+    if (debugging) printf("LENGTHS: " FMT_SIZE_T " " FMT_SIZE_T " " FMT_SIZE_T "\n", strlen(string), strlen(tail), strlen(string)-strlen(tail));
 
     if (debugging) printf("Comparing: \"%s\" to \"%s\"\n", pos, tail);
 
@@ -2100,29 +2144,99 @@ void restore_stderr(void)
     }
 }
 
-/*! relpath generates a relative path to the file specifief by origPath
-    from the file specified by filename.  Both must be relative paths to
+int *partsOfPath(char *path)
+{
+    /* The number of path parts in a path can't be more than
+       half the number of characters because we don't include
+       empty path parts. */
+    int *list = malloc(((strlen(path) / 2) + 1) * sizeof(int));
+    int listpos = 0;
+    int pos = 0;
+
+    while (path && path[pos] == '/') pos++;
+    while (path && path[pos]) {
+	if (path[pos] == '/') {
+		while (path[pos] == '/') pos++;
+
+		if (path[pos] == '\0') break;
+		list[listpos++] = pos;
+	}
+	pos++;
+    }
+
+    list[listpos] = -1;
+    return list;
+}
+
+char *malloccopypart(char *source, int start, int length)
+{
+	char *ret = malloc((length + 1) * sizeof(char));
+	strncpy(ret, &source[start], length);
+	ret[length] = '\0';
+	return ret;
+}
+
+/*! relpath generates a relative path to the file specifief by target
+    from the file specified by fromFile.  Both must be relative paths to
     begin with.
  */
-char *relpath(char *origPath, char *filename)
+char *relpath(char *target, char *fromFile)
 {
-    char *iter = filename;
+    char *iter = fromFile;
     int pathparts = 0;
+    size_t alloc_len;
 
-    while (*iter) {
-	if (*iter == '/') pathparts++;
-	iter++;
+    int *base_pathparts = partsOfPath(fromFile);
+    int *target_pathparts = partsOfPath(target);
+    int i;
+
+    int startpos_in_target = 0;
+
+    for (i=0; ((base_pathparts[i] != -1) && (target_pathparts[i] != -1)); i++) {
+	int start_of_base = base_pathparts[i];
+	int start_of_target = target_pathparts[i];
+	int end_of_base = base_pathparts[i+1] == -1 ? strlen(fromFile) : base_pathparts[i+1];
+	int end_of_target = base_pathparts[i+1] == -1 ? strlen(target) : base_pathparts[i+1];
+	char *basepart, *targetpart;
+
+	/* Sadly, asnprintf isn't widely available. */
+	basepart = malloccopypart(fromFile, start_of_base, end_of_base - start_of_base);
+	targetpart = malloccopypart(target, start_of_target, end_of_target - start_of_target);
+
+	while (basepart[strlen(basepart)-1] == '/') basepart[strlen(basepart)-1] = '\0';
+	while (targetpart[strlen(targetpart)-1] == '/') targetpart[strlen(targetpart)-1] = '\0';
+
+	startpos_in_target = start_of_target;
+
+	if (strcmp(basepart, targetpart)) {
+		int j;
+		for (j = i; base_pathparts[j] != -1; j++); // empty loop
+
+		pathparts = j - i - 1; // Subtract 1 for filename.
+		break;
+	}
+
+	free(basepart);
+	free(targetpart);
     }
+    free(base_pathparts);
+    free(target_pathparts);
 
-    iter = malloc((strlen(origPath) + (3 * pathparts) + 1) * sizeof(char));
+    // while (*iter) {
+	// if (*iter == '/') pathparts++;
+	// iter++;
+    // }
+
+    alloc_len = ((strlen(target) + (3 * pathparts) + 1) * sizeof(char));
+    iter = malloc(alloc_len);
     iter[0] = '\0';
     while (pathparts) {
-	strcat(iter, "../");
+	strlcat(iter, "../", alloc_len);
 	pathparts--;
     }
-    strcat(iter, origPath);
+    strlcat(iter, &target[startpos_in_target], alloc_len);
 
-if (debug_relpath) { printf("OP: %s\nFN: %s\nRP: %s\n", origPath, filename, iter); }
+if (debug_relpath) { printf("OP: %s\nFN: %s\nRP: %s\n", target, fromFile, iter); }
 
     return iter;
 }
@@ -2187,15 +2301,17 @@ int has_target(xmlNode *node)
 char *ts_dirname(char *path)
 {
     static pthread_mutex_t mylock = PTHREAD_MUTEX_INITIALIZER;
-    char *orig, *copy, *junk;
+    char *orig = NULL, *copy = NULL, *junk = NULL;
 
     while (pthread_mutex_lock(&mylock));
 
-    junk = malloc((strlen(path) + 1) * sizeof(char));
-    strcpy(junk, path);
+    // junk = malloc((strlen(path) + 1) * sizeof(char));
+    // strcpy(junk, path);
+    asprintf(&junk, "%s", path);
     orig = dirname(junk);
-    copy = malloc((strlen(orig) + 1) * sizeof(char));
-    strcpy(copy, orig);
+    // copy = malloc((strlen(orig) + 1) * sizeof(char));
+    // strcpy(copy, orig);
+    asprintf(&copy, "%s", orig);
     free(junk);
     while (pthread_mutex_unlock(&mylock));
 
@@ -2206,15 +2322,17 @@ char *ts_dirname(char *path)
 char *ts_basename(char *path)
 {
     static pthread_mutex_t mylock = PTHREAD_MUTEX_INITIALIZER;
-    char *orig, *copy, *junk;
+    char *orig = NULL, *copy = NULL, *junk = NULL;
 
     while (pthread_mutex_lock(&mylock));
 
-    junk = malloc((strlen(path) + 1) * sizeof(char));
-    strcpy(junk, path);
+    // junk = malloc((strlen(path) + 1) * sizeof(char));
+    // strcpy(junk, path);
+    asprintf(&junk, "%s", path);
     orig = basename(junk);
-    copy = malloc((strlen(orig) + 1) * sizeof(char));
-    strcpy(copy, orig);
+    // copy = malloc((strlen(orig) + 1) * sizeof(char));
+    // strcpy(copy, orig);
+    asprintf(&copy, "%s", orig);
     free(junk);
     while (pthread_mutex_unlock(&mylock));
 

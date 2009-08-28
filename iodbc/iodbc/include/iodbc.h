@@ -2,7 +2,7 @@
  *
  *  iodbc.h
  *
- *  $Id: iodbc.h,v 1.11 2006/12/11 16:19:20 source Exp $
+ *  $Id: iodbc.h,v 1.12 2007/10/08 13:04:32 source Exp $
  *
  *  Configuration
  *
@@ -84,13 +84,13 @@
 #endif
 
 #ifndef VERSION
-#define VERSION		"3.52.5"
+#define VERSION		"3.52.6"
 #define MAJ_VERSION	"3"
 #define MIN_VERSION	"52"
 #endif
 
 #ifndef IODBC_BUILD
-#define IODBC_BUILD 4061211	/* 0001.0928 */
+#define IODBC_BUILD 6071008	/* 0001.0928 */
 #endif
 
 #if	!defined(WINDOWS) && !defined(WIN32_SYSTEM)

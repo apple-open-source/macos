@@ -45,15 +45,15 @@ mi_gdb_load ${binfile}
 mi_run_to_main
 mi_next {Next so mine is initialized}
 
-mi_gdb_test {-var-create - * mine} {.*name="var1",numchild="3",type="Foo",typecode="STRUCT",dynamic_type="",in_scope="true".*} {create variable for mine}
+mi_gdb_test {-var-create - * mine} {.*name="var1",numchild="3",type="Foo",typecode="STRUCT",dynamic_type="",resolved_type="Foo",in_scope="true".*} {create variable for mine}
 
-mi_gdb_test {-var-list-children var1} {.*numchild="3",children=\[child={name="var1.public",exp="public",numchild="1",type="",typecode="FAKE_CHILD",dynamic_type=""},child={name="var1.private",exp="private",numchild="1",type="",typecode="FAKE_CHILD",dynamic_type=""},child={name="var1.protected",exp="protected",numchild="2",type="",typecode="FAKE_CHILD",dynamic_type=""}\]} {list children of var1}
+mi_gdb_test {-var-list-children var1} {.*numchild="3",children=\[child={name="var1.public",exp="public",numchild="1",type="",typecode="FAKE_CHILD",dynamic_type="",resolved_type=""},child={name="var1.private",exp="private",numchild="1",type="",typecode="FAKE_CHILD",dynamic_type="",resolved_type=""},child={name="var1.protected",exp="protected",numchild="2",type="",typecode="FAKE_CHILD",dynamic_type="",resolved_type=""}\]} {list children of var1}
 
-mi_gdb_test {-var-list-children var1.public} {.*numchild="1",children=\[child={name="var1.public.first",exp="first",numchild="0",type="int",typecode="INT",dynamic_type=""}\]} {list children of var1.public}
+mi_gdb_test {-var-list-children var1.public} {.*numchild="1",children=\[child={name="var1.public.first",exp="first",numchild="0",type="int",typecode="INT",dynamic_type="",resolved_type="int"}\]} {list children of var1.public}
 
-mi_gdb_test {-var-list-children var1.protected} {.*numchild="2",children=\[child={name="var1.protected.second",exp="second",numchild="0",type="int",typecode="INT",dynamic_type=""},child={name="var1.protected.third",exp="third",numchild="0",type="int",typecode="INT",dynamic_type=""}\]} {list children of var1.protected}
+mi_gdb_test {-var-list-children var1.protected} {.*numchild="2",children=\[child={name="var1.protected.second",exp="second",numchild="0",type="int",typecode="INT",dynamic_type="",resolved_type="int"},child={name="var1.protected.third",exp="third",numchild="0",type="int",typecode="INT",dynamic_type="",resolved_type="int"}\]} {list children of var1.protected}
 
-mi_gdb_test {-var-list-children var1.private} {.*numchild="1",children=\[child={name="var1.private.fourth",exp="fourth",numchild="0",type="int",typecode="INT",dynamic_type=""}\]} {list children of var1.private}
+mi_gdb_test {-var-list-children var1.private} {.*numchild="1",children=\[child={name="var1.private.fourth",exp="fourth",numchild="0",type="int",typecode="INT",dynamic_type="",resolved_type="int"}\]} {list children of var1.private}
 
 mi_gdb_test {-var-evaluate-expression var1.public.first} {.*value="10"} {value of var1.public.first}
 mi_gdb_test {-var-evaluate-expression var1.protected.second} {.*value="20"} {value of var1.protected.second}

@@ -3,42 +3,24 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
  
-#include <CoreFoundation/CoreFoundation.h>
-
-#include <SystemConfiguration/SystemConfiguration.h>
-#include <SystemConfiguration/SCValidation.h>
-#include <SystemConfiguration/SCPreferencesPrivate.h>
-#include <SystemConfiguration/SCDynamicStorePrivate.h>
-#include <SystemConfiguration/SCDynamicStoreCopySpecificPrivate.h>
-#include <SystemConfiguration/SCDPlugin.h>
-
-#include <IOKit/pwr_mgt/IOPM.h>
-#include <IOKit/pwr_mgt/IOPMLib.h>
-#include <IOKit/pwr_mgt/IOPMLibPrivate.h>
-#include <IOKit/IOKitKeysPrivate.h>
-#include <IOKit/IOCFSerialize.h>
-#include <IOKit/IOCFUnserialize.h>
-#include <IOKit/IOMessage.h>
-
-#include <IOKit/ps/IOPSKeys.h>
-#include <IOKit/ps/IOPowerSources.h>
 #include <syslog.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -52,6 +34,7 @@
 #include "PrivateLib.h"
 #include "PMSettings.h"
 #include "SetActive.h"
+#include "BatteryTimeRemaining.h"
 #include "powermanagementServer.h"
 
 #define kIOPMAppName        "Power Management configd plugin"
@@ -84,16 +67,19 @@
 #define kPMASLActionClientDied          "ClientDied"
 #define kPMASLActionTimedOut            "TimedOut"
 
-
-#define kIOPMNumAssertionTypes      6
 enum {
-    kHighPerfIndex          = 0,
-    kPreventIdleIndex       = 1,
-    kDisableInflowIndex     = 2,
-    kInhibitChargeIndex     = 3,
-    kDisableWarningsIndex   = 4,
-    kPreventDisplaySleepIndex = 5,
-    kEnableIdleIndex = 6
+    // These must be consecutive integers beginning at 0
+    kHighPerfIndex              = 0,
+    kPreventIdleIndex           = 1,
+    kDisableInflowIndex         = 2,
+    kInhibitChargeIndex         = 3,
+    kDisableWarningsIndex       = 4,
+    kPreventDisplaySleepIndex   = 5,
+    kEnableIdleIndex            = 6,
+    
+    // Make sure this is the last enum element, as it tells us the total
+    // number of elements in the enum definition
+    kIOPMNumAssertionTypes      
 };
 
 // Selectors for AppleSmartBatteryManagerUserClient
@@ -113,7 +99,6 @@ extern CFMachPortRef            pmServerMachPort;
 
 
 // forward
-__private_extern__ void cleanupAssertions(mach_port_t dead_port);
 static void evaluateAssertions(void);
 static void calculateAggregates(void);
 static void publishAssertionStatus(void);
@@ -127,7 +112,6 @@ static void timeoutExpirationCallBack(CFRunLoopTimerRef timer, void *info);
 static IOReturn copyAssertionForID(
                 mach_port_t             inPort,
                 int                     inID,
-                CFMachPortRef            *outTaskPort,
                 CFDictionaryRef         *outTask,
                 CFMutableArrayRef       *outTaskAssertions,
                 CFMutableDictionaryRef  *outAssertion);
@@ -138,12 +122,11 @@ static CFArrayRef                   copyTimedOutAssertionsArray(void);
 
 // static void debugLogAssertion(CFDictionaryRef log_me);
 
-
 // globals
 static CFMutableDictionaryRef       gAssertionsDict = NULL;
 static CFMutableArrayRef            gTimedOutArray = NULL;
-static bool			    gNotifyTimeOuts = false;
-static CFRunLoopTimerRef	    gUpdateAssertionStatusTimer = NULL;
+static bool                         gNotifyTimeOuts = false;
+static CFRunLoopTimerRef	        gUpdateAssertionStatusTimer = NULL;
 
 static int                          aggregate_assertions[kIOPMNumAssertionTypes];
 static int                          last_aggregate_assertions[kIOPMNumAssertionTypes];
@@ -280,11 +263,7 @@ static int indexForAssertionName(CFStringRef assertionName)
         return 0;
 }
 
-
-/***********************************
- * Static Profiles
- ***********************************/
-
+ 
 static void
 calculateAggregates(void)
 {
@@ -490,9 +469,6 @@ updateAssertionStatusCallback(CFRunLoopTimerRef timer, void *info)
     // of this assertion action - i.e. may be no changes to user.
     uint32_t status;
     status = notify_post( kIOPMAssertionsChangedNotifyString );
-    if (NOTIFY_STATUS_OK != status) {
-        syslog(LOG_ERR, "Notify post com.apple.system.powermanagement.assertions failed %u\n", status);
-    }
     if (gNotifyTimeOuts)
     {
 	gNotifyTimeOuts = false;
@@ -734,9 +710,12 @@ exit:
 #define ID_FROM_INDEX(idx)  (idx + 300)
 #define INDEX_FROM_ID(id)   (id - 300)
 
+
+
 __private_extern__ void
 PMAssertions_prime(void)
 {
+	
     assertion_types_arr[kHighPerfIndex]             = kIOPMAssertionTypeNeedsCPU; 
     assertion_types_arr[kPreventIdleIndex]          = kIOPMAssertionTypeNoIdleSleep;
     assertion_types_arr[kDisableInflowIndex]        = kIOPMAssertionTypeDisableInflow; 
@@ -745,7 +724,6 @@ PMAssertions_prime(void)
     assertion_types_arr[kPreventDisplaySleepIndex]  = kIOPMAssertionTypeNoDisplaySleep;
     assertion_types_arr[kEnableIdleIndex]           = kIOPMAssertionTypeEnableIdleSleep;
 
-
     publishAssertionStatus();
 
     return;
@@ -753,9 +731,11 @@ PMAssertions_prime(void)
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+
+
 IOReturn _IOPMAssertionCreateRequiresRoot
 (
-    mach_port_t         task,
+    mach_port_t         task_port,
     char                *nameCStr,
     char                *assertionCStr,
     int                 level,
@@ -763,59 +743,54 @@ IOReturn _IOPMAssertionCreateRequiresRoot
 )
 {
     IOReturn                result = kIOReturnInternalError;
-    CFMachPortRef           cf_port_for_task = NULL;
     CFMutableDictionaryRef  this_task = NULL;
     CFMutableArrayRef       assertions = NULL;
-    mach_port_t             oldNotify = MACH_PORT_NULL;
-    kern_return_t           err = KERN_SUCCESS;
     CFStringRef             assertionString = NULL;
     CFStringRef             nameString = NULL;
     int                     task_pid_int = -1;
     CFNumberRef             task_pid_num = NULL;
+    mach_port_t             oldNotify = MACH_PORT_NULL;
+    kern_return_t           err = KERN_SUCCESS;
+    
+    __MACH_PORT_DEBUG(true, "assertion_create: expect send right", task_port);
+    // Expect to have 1 send right on task_port if this is the first new assertion for this process
+    // Expect to have 2 send rights on task_port if this isn't the first assertion
 
-    // assertion_id will be set to kIOPMNullAssertionID on failure, 
-    // unless we succeed here and it gets a valid value below.
+    // assertion_id will be set to kIOPMNullAssertionID on failure.
     *assertion_id = kIOPMNullAssertionID;
 
-    nameString = CFStringCreateWithCString(0, nameCStr,
-                            kCFStringEncodingMacRoman);
-    assertionString = CFStringCreateWithCString(0, assertionCStr, 
-                            kCFStringEncodingMacRoman);
-
-    cf_port_for_task = CFMachPortCreateWithPort(0, task, NULL, NULL, 0);
-    if(!cf_port_for_task) {
-        result = kIOReturnNoMemory;
-        goto exit;
-    }
-
-    if (KERN_SUCCESS == pid_for_task(task, &task_pid_int)) {
+    if (KERN_SUCCESS == pid_for_task(task_port, &task_pid_int)) {
         task_pid_num = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &task_pid_int);
     }
     
     /* Get dictionary describing this tasks's open assertions */
-    if (gAssertionsDict)
-    {
-       this_task = (CFMutableDictionaryRef)CFDictionaryGetValue(gAssertionsDict, cf_port_for_task);
+    if (gAssertionsDict) {
+       this_task = (CFMutableDictionaryRef)CFDictionaryGetValue(gAssertionsDict, MY_CAST_INT_POINTER(task_port));
     }
-
     if (this_task)
     {
-	// the existing assert retains task
-	mach_port_deallocate(mach_task_self(), task);
-    }
-    else
-    {
+        // task_port rights invariant: since we are tracking task_port in gAssertionsDict, we already
+        // held a send right on task_port.
+        // We just received a second send right in mig call io_pm_assertion_create;
+        // so let's clear that send right.
+        
+        __MACH_PORT_DEBUG(true, "assertion_create: deallocate extra send right", task_port);
+        mach_port_deallocate(mach_task_self(), task_port);        
+    } else {
+
+
+
+        __MACH_PORT_DEBUG(true, "assertion_create: did set invalid callback", task_port);
+    
         // This is the first assertion for this process, so we'll create a new
         // assertion datastructure.
         this_task = CFDictionaryCreateMutable(0, 0, 
                     &kCFTypeDictionaryKeyCallBacks,
                     &kCFTypeDictionaryValueCallBacks);
         if (!this_task){
-            mach_port_deallocate(mach_task_self(), task);
             result = kIOReturnNoMemory;
             goto exit;
         }
-        CFDictionarySetValue(this_task, kIOPMTaskPortKey, cf_port_for_task);    
 
         if (task_pid_num) {
             CFDictionarySetValue(this_task, kIOPMTaskPIDKey, task_pid_num);
@@ -824,7 +799,7 @@ IOReturn _IOPMAssertionCreateRequiresRoot
         // Register for a dead name notification on this task_t
         err = mach_port_request_notification(
                     mach_task_self(),       // task
-                    task,                   // port that will die
+                    task_port,                   // port that will die
                     MACH_NOTIFY_DEAD_NAME,   // msgid
                     1,                      // make-send count
                     CFMachPortGetPort(pmServerMachPort),       // notify port
@@ -835,7 +810,7 @@ IOReturn _IOPMAssertionCreateRequiresRoot
         {
             syslog(LOG_ERR, "PM assertion mach port request notification error %s(0x%08x)\n",
                 mach_error_string(err), err);
-            mach_port_deallocate(mach_task_self(), task);
+            mach_port_deallocate(mach_task_self(), task_port);
             result = err;
             goto exit;
         }
@@ -845,14 +820,11 @@ IOReturn _IOPMAssertionCreateRequiresRoot
         }
 
         // gAssertionsDict is the global dictionary that maps a processes to their assertions.
-        if (!gAssertionsDict) 
-        {
-            gAssertionsDict = CFDictionaryCreateMutable(0, 0, 
-                &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        if (!gAssertionsDict) {
+            gAssertionsDict = CFDictionaryCreateMutable(0, 0, NULL, &kCFTypeDictionaryValueCallBacks);
         }
         
-        CFDictionarySetValue(gAssertionsDict, cf_port_for_task, this_task);
-        
+        CFDictionarySetValue(gAssertionsDict, MY_CAST_INT_POINTER(task_port), this_task);
         CFRelease(this_task);
     }
 
@@ -861,9 +833,7 @@ IOReturn _IOPMAssertionCreateRequiresRoot
     if(!assertions) 
     {
         assertions = CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks);
-        
         CFDictionarySetValue(this_task, kIOPMTaskAssertionsKey, assertions);
-        
         CFRelease(assertions);
     }
 
@@ -890,49 +860,50 @@ IOReturn _IOPMAssertionCreateRequiresRoot
     CFMutableDictionaryRef          new_assertion_dict = NULL;
     CFNumberRef                     cf_assertion_val = NULL;
     CFDateRef                       start_date = NULL;
-        
+
     *assertion_id = ID_FROM_INDEX(arrayIndex);
     new_assertion_dict = CFDictionaryCreateMutable(0, 0,
-                    &kCFTypeDictionaryKeyCallBacks,
-                    &kCFTypeDictionaryValueCallBacks);
-    cf_assertion_val = CFNumberCreate(0, kCFNumberIntType, &level);
+                    &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     /* Type */
-    CFDictionarySetValue(new_assertion_dict, 
-                            kIOPMAssertionTypeKey, assertionString);
+    assertionString = CFStringCreateWithCString(0, assertionCStr, kCFStringEncodingMacRoman);
+    if (assertionString) {
+        CFDictionarySetValue(new_assertion_dict, kIOPMAssertionTypeKey, assertionString);
+        CFRelease(assertionString);
+    }
     /* Level */
-    CFDictionarySetValue(new_assertion_dict, 
-                            kIOPMAssertionLevelKey, cf_assertion_val);
+    cf_assertion_val = CFNumberCreate(0, kCFNumberIntType, &level);
+    if (cf_assertion_val) {
+        CFDictionarySetValue(new_assertion_dict, kIOPMAssertionLevelKey, cf_assertion_val);
+        CFRelease(cf_assertion_val);
+    }
     /* Name */
-    CFDictionarySetValue(new_assertion_dict,
-                            kIOPMAssertionNameKey, nameString);
-    CFRelease(cf_assertion_val);
+    nameString = CFStringCreateWithCString(0, nameCStr, kCFStringEncodingMacRoman);
+    if (nameString) {
+        CFDictionarySetValue(new_assertion_dict, kIOPMAssertionNameKey, nameString);
+        CFRelease(nameString);
+    }
     /* Create Time */
     start_date = CFDateCreate(kCFAllocatorDefault, CFAbsoluteTimeGetCurrent());
-    CFDictionarySetValue(new_assertion_dict,
-                            kIOPMAssertionCreateDateKey, start_date);
-    CFRelease(start_date);
+    if (start_date) {
+        CFDictionarySetValue(new_assertion_dict, kIOPMAssertionCreateDateKey, start_date);
+        CFRelease(start_date);
+    }
     /* Owner's PID */
     if (task_pid_num) {
         CFDictionarySetValue(new_assertion_dict, kIOPMAssertionPIDKey, task_pid_num);
+        CFRelease(task_pid_num);
     }
 
     CFArraySetValueAtIndex(assertions, arrayIndex, new_assertion_dict);
-
     evaluateAssertions();
 
     // ASL Log assertion
-    logAssertionEvent(kPMASLActionAssert, 
-                    this_task,
-                    new_assertion_dict);
+    logAssertionEvent(kPMASLActionAssert, this_task, new_assertion_dict);
 
     CFRelease(new_assertion_dict);
 
     result = kIOReturnSuccess;
 exit:
-    if (task_pid_num) CFRelease(task_pid_num);
-    if (assertionString) CFRelease(assertionString);
-    if (nameString) CFRelease(nameString);
-    if (cf_port_for_task) CFRelease(cf_port_for_task);
 
     return result;
 }
@@ -959,9 +930,13 @@ kern_return_t _io_pm_assertion_settimeout
         return kIOReturnBadArgument;
     }
 
+    __MACH_PORT_DEBUG(true, "set_timeout: expect send right", task);
+    // Expect to have 2 send right on tasks if this assertion exists.
+    // If this was called (invalidly) by a process without any assertions, 
+    // we expect 1 send right on task.
+
     *return_code = copyAssertionForID(task, 
                                 assertion_id,
-                                NULL, /* task port */ 
                                 NULL, /* task's dictionary */
                                 NULL, /* task's array */
                                 &timeoutAssertion);
@@ -979,6 +954,7 @@ kern_return_t _io_pm_assertion_settimeout
     intervalNum = CFNumberCreate(0, kCFNumberIntType, &interval);
     if (intervalNum) {
         CFDictionarySetValue(timeoutAssertion, kIOPMAssertionTimeOutIntervalKey, intervalNum);
+        CFRelease(intervalNum);
     }
     
     // And create CFRunLoopTimerRef property
@@ -1007,6 +983,11 @@ kern_return_t _io_pm_assertion_settimeout
     *return_code = kIOReturnSuccess;
 
 exit:
+
+    // Remove the send right on task that we received with this invocation.
+    __MACH_PORT_DEBUG(true, "set_timeout: deallocate extra send right", task);
+    mach_port_deallocate(mach_task_self(), task);
+
     if (timeoutAssertion) {
         CFRelease(timeoutAssertion);
     }
@@ -1024,7 +1005,6 @@ kern_return_t _io_pm_assertion_release
     int *return_code
 )
 {
-    CFMachPortRef           CFTaskPort          = NULL;
     CFDictionaryRef         callerTask          = NULL;
     CFMutableArrayRef       taskAssertions      = NULL;              
     CFMutableDictionaryRef  releaseAssertion    = NULL;
@@ -1033,9 +1013,13 @@ kern_return_t _io_pm_assertion_release
     int                     n;
     bool                    releaseTask;
 
+    // Expect to have 2 send right on task if this assertion exists.
+    // If this was called (invalidly) by a process without any assertions, 
+    // we expect 1 send right on task.
+    __MACH_PORT_DEBUG(true, "assertion_release", task);
+
     *return_code = copyAssertionForID(task, 
                                 assertion_id,
-                                &CFTaskPort, 
                                 &callerTask,
                                 &taskAssertions, 
                                 &releaseAssertion);
@@ -1084,8 +1068,12 @@ kern_return_t _io_pm_assertion_release
         }
     }
     if (releaseTask) {
-        CFDictionaryRemoveValue(gAssertionsDict, CFTaskPort);
-	mach_port_deallocate(mach_task_self(), task);
+        CFDictionaryRemoveValue(gAssertionsDict, MY_CAST_INT_POINTER(task));
+
+        // If we're dropping the task, then we need to drop our send right
+        // that we received in _IOPMAssertionCreateRequiresRoot
+        __MACH_PORT_DEBUG(true, "assertion_release: deallocating task's #1 send right", task);
+        mach_port_deallocate(mach_task_self(), task);
     }
     
     // Re-evaluate
@@ -1096,10 +1084,6 @@ kern_return_t _io_pm_assertion_release
                     callerTask,
                     releaseAssertion);
 
-    // Cleanup retains leftover from copyAssertionForID
-    if (CFTaskPort) {
-        CFRelease(CFTaskPort);
-    }
     if (callerTask) {
         CFRelease(callerTask);
     }
@@ -1112,8 +1096,11 @@ kern_return_t _io_pm_assertion_release
 
     *return_code = kIOReturnSuccess;    
 
+
 exit:
+    __MACH_PORT_DEBUG(true, "assertion_release: EXIT deallocating send right", task);
     mach_port_deallocate(mach_task_self(), task);
+    
     return KERN_SUCCESS;   
 }
 
@@ -1138,7 +1125,7 @@ static CFArrayRef copyPIDAssertionDictionaryFlattened(void)
     CFDictionaryRef         *taskDataArray = NULL;
     CFMutableArrayRef       returnArray = 0;
     int                     dict_count;
-    int                     i;
+    int                     task_index;
     
     if(!gAssertionsDict) goto exit;
 
@@ -1157,21 +1144,21 @@ static CFArrayRef copyPIDAssertionDictionaryFlattened(void)
                                 (const void **)taskDataArray);
 
     // Iterate our master list of processes and map them to pids & their assertions
-    for (i=0; i<dict_count; i++)
+    for (task_index=0; task_index<dict_count; task_index++)
     {
         CFNumberRef             processID = NULL;
         CFArrayRef              processAssertions = NULL;
         CFMutableDictionaryRef  perProcessDictionary = NULL;
         
-        if (!taskDataArray[i]) 
+        if (!taskDataArray[task_index]) 
             continue;
         
         processID = CFDictionaryGetValue(
-                                taskDataArray[i], 
+                                taskDataArray[task_index], 
                                 kIOPMTaskPIDKey);
 
         processAssertions = CFDictionaryGetValue(
-                                taskDataArray[i], 
+                                taskDataArray[task_index], 
                                 kIOPMTaskAssertionsKey);
 
         if (!processID || !processAssertions)
@@ -1189,11 +1176,11 @@ static CFArrayRef copyPIDAssertionDictionaryFlattened(void)
 
         int                     arrayCount = CFArrayGetCount(processAssertions);
 
-        int i;
-        for (i = 0; i<arrayCount; i++)
+        int assertion_index;
+        for (assertion_index = 0; assertion_index<arrayCount; assertion_index++)
         {
             CFMutableDictionaryRef assertionAtIndex = 
-                        (CFMutableDictionaryRef)CFArrayGetValueAtIndex(processAssertions, i);
+                        (CFMutableDictionaryRef)CFArrayGetValueAtIndex(processAssertions, assertion_index);
             CFMutableDictionaryRef assertionCopy = NULL;
             
             if (isA_CFDictionary(assertionAtIndex))
@@ -1240,7 +1227,7 @@ static CFArrayRef copyPIDAssertionDictionaryFlattened(void)
          * IOKitUser framework will re-build the PID (key) to assertions array (value) dictionary
          * mapping. 
          */
-        CFArrayAppendValue( returnArray, perProcessDictionary);
+        CFArrayAppendValue(returnArray, perProcessDictionary);
 
         CFRelease(perProcessDictionary);
     }
@@ -1321,74 +1308,87 @@ static CFArrayRef copyTimedOutAssertionsArray(void)
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-__private_extern__ void
-cleanupAssertions(
+__private_extern__ bool
+PMAssertionsHandleDeadName(
     mach_port_t dead_port
 )
 {
-    CFMachPortRef               cf_task_port = NULL;
     CFDictionaryRef             deadTrackerDict = NULL;
-    
-    if(!gAssertionsDict) {
-        return;
+    CFRunLoopTimerRef		timeOutTimer = NULL;
+
+    if (!gAssertionsDict) {
+        // We're not tracking any assertions, return false because we didn't act on this.
+        return false;
     }
+
+    deadTrackerDict = CFDictionaryGetValue(gAssertionsDict, MY_CAST_INT_POINTER(dead_port));
+    if (!deadTrackerDict) {
+        // We're not tracking any assertions for this process. Return false.
+        return false;
+    }
+    
+    __MACH_PORT_DEBUG(true, "cleanupAssertions: cleaning up", dead_port);
     
     // Clean up after this dead process
-    cf_task_port = CFMachPortCreateWithPort(0, dead_port, NULL, NULL, 0);
-    if(!cf_task_port) return;
+    CFRetain(deadTrackerDict);
 
-
-    if ((deadTrackerDict = CFDictionaryGetValue(gAssertionsDict, cf_task_port))) 
+    // Mark each assertion in the process as released
+    // (useful debugging data for tracking down timed-out assertions)
+    CFArrayRef  dead_task_assertions 
+                    = CFDictionaryGetValue(deadTrackerDict, kIOPMTaskAssertionsKey);
+    if (dead_task_assertions)
     {
-        CFRetain(deadTrackerDict);
+        int assertions_count = CFArrayGetCount(dead_task_assertions);
+        int i;
         
-        // Mark each assertion in the process as released
-        // (useful debugging data for tracking down timed-out assertions)
-        CFArrayRef  dead_task_assertions 
-                        = CFDictionaryGetValue(deadTrackerDict, kIOPMTaskAssertionsKey);
-        if (dead_task_assertions)
+        for (i=0; i<assertions_count; i++)
         {
-            int assertions_count = CFArrayGetCount(dead_task_assertions);
-            int i;
+            CFMutableDictionaryRef  releaseAssertion = (CFMutableDictionaryRef) \
+                                CFArrayGetValueAtIndex(dead_task_assertions, i);
+
+            if (!releaseAssertion || !isA_CFDictionary(releaseAssertion)) {
+                continue;
+            }
+
+	    // Cancel timeout at kIOPMAssertionTimerRefKey
+	    timeOutTimer = (CFRunLoopTimerRef)CFDictionaryGetValue(releaseAssertion, 
+								   kIOPMAssertionTimerRefKey);
+	    if (timeOutTimer)
+	    {
+		CFRunLoopTimerInvalidate(timeOutTimer);
+	    }
             
-            for (i=0; i<assertions_count; i++)
+            // Add a "Released" timestamp if this assertion has already timed out
+            // If this assertion has timed-out, debugging humans will want to know if 
+            // and when it was released.
+
+            if (CFDictionaryGetValue(releaseAssertion, kIOPMAssertionTimedOutDateKey))
             {
-                CFMutableDictionaryRef  releaseAssertion = (CFMutableDictionaryRef) \
-                                    CFArrayGetValueAtIndex(dead_task_assertions, i);
-
-                if (!releaseAssertion || !isA_CFDictionary(releaseAssertion)) {
-                    continue;
-                }
-                
-                // Add a "Released" timestamp if this assertion has already timed out
-                // If this assertion has timed-out, debugging humans will want to know if 
-                // and when it was released.
-
-                if (CFDictionaryGetValue(releaseAssertion, kIOPMAssertionTimedOutDateKey))
-                {
-                    CFDateRef   dateNow = CFDateCreate(0, CFAbsoluteTimeGetCurrent());
-                    CFDictionarySetValue(releaseAssertion, kIOPMAssertionReleaseDateKey, dateNow);
-                    CFRelease(dateNow);
-                }
+                CFDateRef   dateNow = CFDateCreate(0, CFAbsoluteTimeGetCurrent());
+                CFDictionarySetValue(releaseAssertion, kIOPMAssertionReleaseDateKey, dateNow);
+                CFRelease(dateNow);
             }
         }
-
-        // Remove the process's tracking data
-        CFDictionaryRemoveValue(gAssertionsDict, cf_task_port);
-        mach_port_deallocate(mach_task_self(), dead_port);
-        evaluateAssertions();
-
-        // ASL Log client death
-        logAssertionEvent(kPMASLActionClientDied,    
-                            deadTrackerDict, /* task */
-                            NULL /* assertion */);
-
-
-        CFRelease(deadTrackerDict);
     }
 
-    CFRelease(cf_task_port);
-    return;
+    // Remove the process's tracking data
+    CFDictionaryRemoveValue(gAssertionsDict, MY_CAST_INT_POINTER(dead_port));
+
+    __MACH_PORT_DEBUG(true, "cleanupAssertions: deallocating", dead_port);
+    mach_port_deallocate(mach_task_self(), dead_port);
+
+    evaluateAssertions();
+
+    // ASL Log client death
+    logAssertionEvent(kPMASLActionClientDied,    
+                        deadTrackerDict, /* task */
+                        NULL /* assertion */);
+
+    CFRelease(deadTrackerDict);
+    __MACH_PORT_DEBUG(true, "cleanupAssertions: exiting", dead_port);
+
+    // Return true if we destroyed the port.
+    return true;
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -1468,20 +1468,15 @@ static void timeoutExpirationCallBack(CFRunLoopTimerRef timer, void *info)
 static IOReturn copyAssertionForID(
     mach_port_t             inPort,
     int                     inID,
-    CFMachPortRef           *outTaskPort,
     CFDictionaryRef         *outTask,
     CFMutableArrayRef       *outTaskAssertions,
     CFMutableDictionaryRef  *outAssertion)
 {
-    CFMachPortRef           localTaskPort = NULL;
     CFDictionaryRef         localTask = NULL;
     CFMutableArrayRef       localTaskAssertions = NULL;              
     CFMutableDictionaryRef  localAssertion = NULL;
     IOReturn                ret;
 
-    if (outTaskPort) {
-        *outTaskPort = NULL;
-    }
     if (outTask) {
         *outTask = NULL;
     }
@@ -1491,14 +1486,8 @@ static IOReturn copyAssertionForID(
     if (outAssertion) {
         *outAssertion = NULL;
     }
-    localTaskPort = CFMachPortCreateWithPort(0, inPort, NULL, NULL, 0);
-    if (!localTaskPort) {
-        ret = kIOReturnNoMemory;
-        goto exit;
-    }
-
     if (gAssertionsDict) {
-        localTask = CFDictionaryGetValue(gAssertionsDict, localTaskPort);
+        localTask = CFDictionaryGetValue(gAssertionsDict, MY_CAST_INT_POINTER(inPort));
     }
     if (!localTask) {
         ret = kIOReturnNotFound;
@@ -1523,13 +1512,7 @@ static IOReturn copyAssertionForID(
         ret = kIOReturnNotFound;
         goto exit;
     }
-
-    // caller must release
-    if (outTaskPort) {
-        *outTaskPort = localTaskPort;
-    } else {
-        CFRelease(localTaskPort);
-    }
+    
     if (outTask) {
         CFRetain(localTask);
         *outTask = localTask;

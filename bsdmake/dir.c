@@ -83,6 +83,9 @@ __FBSDID("$FreeBSD: src/usr.bin/make/dir.c,v 1.52 2005/03/23 12:56:15 harti Exp 
  *	Dir_PrintDirectories	Print stats about the directory cache.
  */
 
+#ifdef __APPLE__
+#include <sys/param.h>
+#endif /* __APPLE__ */
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <dirent.h>
@@ -941,6 +944,24 @@ Dir_MTime(GNode *gn)
  *	read and hashed.
  *-----------------------------------------------------------------------
  */
+#ifdef __APPLE__
+struct Dir *
+Path_AddDirPrefix(struct Path *path, const char *prefix, const char *inname)
+{
+	const char *name;
+	char buf[MAXPATHLEN];
+
+	if (prefix && prefix[0] == '/' && prefix[1] != 0) {
+		strlcpy(buf, prefix, sizeof(buf));
+		strlcat(buf, inname, sizeof(buf));
+		name = buf;
+	} else
+		name = inname;
+
+	return Path_AddDir(path, name);
+}
+
+#endif /* __APPLE__ */
 struct Dir *
 Path_AddDir(struct Path *path, const char *name)
 {

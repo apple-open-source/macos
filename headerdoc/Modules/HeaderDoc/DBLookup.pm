@@ -5,8 +5,7 @@
 #           from database output. Since we need only one of these DBLookups
 #           we implement only class methods
 #
-# Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2004/10/04 23:11:16 $
+# Last Updated: $Date: 2009/03/30 19:38:50 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -43,7 +42,7 @@ package HeaderDoc::DBLookup;
 
 use strict;
 use vars qw($VERSION @ISA);
-$VERSION = '$Revision: 1.6.6.3 $';
+$HeaderDoc::DBLookup::VERSION = '$Revision: 1.8 $';
 
 ################ Portability ###################################
 my $isMacOS;

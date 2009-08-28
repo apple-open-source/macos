@@ -64,7 +64,7 @@
 #include "gcmalloc.h"
 
 #ifndef VA_COPY
-# define VA_COPY(dst,src) memcpy(&(dst), &(src), sizeof(va_list))
+# define VA_COPY(dst,src) memcpy(&(dst), (src), sizeof(va_list))
 #endif
 
 extern int print_pid;
@@ -147,13 +147,13 @@ plog(int pri, const char *func, struct sockaddr *sa, const char *fmt, ...)
 	va_list ap;
 
 	va_start(ap, fmt);
-	plogv(pri, func, sa, fmt, ap);
+	plogv(pri, func, sa, fmt, &ap);
 	va_end(ap);
 }
 
 void
 plogv(int pri, const char *func, struct sockaddr *sa,
-	const char *fmt, va_list ap)
+	const char *fmt, va_list *ap)
 {
 	char *newfmt;
 	va_list ap_bak;
@@ -166,7 +166,7 @@ plogv(int pri, const char *func, struct sockaddr *sa,
 	VA_COPY(ap_bak, ap);
 	
 	if (f_foreground)
-		vprintf(newfmt, ap);
+		vprintf(newfmt, *ap);
 
 	if (logfile)
 		log_vaprint(logp, newfmt, ap_bak);
@@ -239,7 +239,8 @@ plogset(file)
 {
 	if (logfile != NULL)
 		racoon_free(logfile);
-	logfile = strdup(file);
+	logfile = racoon_strdup(file);
+	STRDUP_FATAL(logfile);
 }
 
 void
@@ -266,5 +267,29 @@ plogreset(file)
 	if (file)
 		plogset(file);
 	ploginit();
-}			
-			
+}		
+
+/*
+   Returns a printable string from (possibly) binary data ;
+   concatenates all unprintable chars to one space.
+   XXX Maybe the printable chars range is too large...
+ */
+char*
+binsanitize(binstr, n)
+	char *binstr;
+	size_t n;
+{
+	int p,q;
+	char* d;
+	for (p = 0, q = 0; p < n; p++) {
+                 if (isgraph((int)binstr[p])) {
+			binstr[q++] = binstr[p];
+		} else {
+			if (q && binstr[q - 1] != ' ')
+				 binstr[q++] = ' ';
+		}
+	}
+	binstr[q++] = '\0';
+	return binstr;
+}
+	

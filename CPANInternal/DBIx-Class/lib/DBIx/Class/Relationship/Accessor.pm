@@ -62,39 +62,4 @@ sub add_relationship_accessor {
   }
 }
 
-sub new {
-  my ($class, $attrs, @rest) = @_;
-  my ($related, $info);
-  foreach my $key (keys %{$attrs||{}}) {
-    next unless $info = $class->relationship_info($key);
-    $related->{$key} = delete $attrs->{$key}
-      if ref $attrs->{$key}
-         && $info->{attrs}{accessor}
-         && $info->{attrs}{accessor} eq 'single';
-  }
-  my $obj = $class->next::method($attrs, @rest);
-  if ($related) {
-    $obj->{_relationship_data} = $related;
-    foreach my $rel (keys %$related) {
-      $obj->set_from_related($rel, $related->{$rel});
-    }
-  }
-  return $obj;
-}
-
-sub update {
-  my ($obj, $attrs, @rest) = @_;
-  my $info;
-  foreach my $key (keys %{$attrs||{}}) {
-    next unless $info = $obj->relationship_info($key);
-    if (ref $attrs->{$key} && $info->{attrs}{accessor}
-        && $info->{attrs}{accessor} eq 'single') {
-      my $rel = delete $attrs->{$key};
-      $obj->set_from_related($key => $rel);
-      $obj->{_relationship_data}{$key} = $rel;
-    }
-  }
-  return $obj->next::method($attrs, @rest);
-}
-
 1;

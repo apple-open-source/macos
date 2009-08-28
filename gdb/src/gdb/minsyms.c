@@ -145,7 +145,6 @@ lookup_minimal_symbol_all (const char *name, const char *sfile,
 			   struct objfile *objf, struct symbol_search **sym_list)
 {
   struct symbol_search *node;
-  struct symbol_search *current;
   struct objfile *objfile;
   struct minimal_symbol *msymbol;
   struct minimal_symbol *found_symbol = NULL;
@@ -1196,6 +1195,11 @@ msymbols_sort (struct objfile *objfile)
   qsort (objfile->msymbols, objfile->minimal_symbol_count,
 	 sizeof (struct minimal_symbol), compare_minimal_symbols);
   build_minimal_symbol_hash_tables (objfile);
+  /* APPLE LOCAL: sorting the msymbols shuffles them around so that
+     the pointers inthe equivalence table are no longer valid.  So
+     we have to rebuild them too.  */
+  equivalence_table_delete (objfile);
+  equivalence_table_build (objfile);
 }
 
 /* Check if PC is in a shared library trampoline code stub.

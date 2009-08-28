@@ -43,6 +43,44 @@ using namespace std;
 
 namespace WebCore {
 
+class ResourceStorageIDJournal {
+public:  
+    ~ResourceStorageIDJournal()
+    {
+        size_t size = m_records.size();
+        for (size_t i = 0; i < size; ++i)
+            m_records[i].restore();
+    }
+
+    void add(ApplicationCacheResource* resource, unsigned storageID)
+    {
+        m_records.append(Record(resource, storageID));
+    }
+
+    void commit()
+    {
+        m_records.clear();
+    }
+
+private:
+    class Record {
+    public:
+        Record() : m_resource(0), m_storageID(0) { }
+        Record(ApplicationCacheResource* resource, unsigned storageID) : m_resource(resource), m_storageID(storageID) { }
+
+        void restore()
+        {
+            m_resource->setStorageID(m_storageID);
+        }
+
+    private:
+        ApplicationCacheResource* m_resource;
+        unsigned m_storageID;
+    };
+
+    Vector<Record> m_records;
+};
+
 static unsigned urlHostHash(const KURL& url)
 {
     unsigned hostStart = url.hostStart();
@@ -436,10 +474,11 @@ bool ApplicationCacheStorage::store(ApplicationCacheGroup* group)
     return true;
 }    
 
-bool ApplicationCacheStorage::store(ApplicationCache* cache)
+bool ApplicationCacheStorage::store(ApplicationCache* cache, ResourceStorageIDJournal* storageIDJournal)
 {
     ASSERT(cache->storageID() == 0);
     ASSERT(cache->group()->storageID() != 0);
+    ASSERT(storageIDJournal);
     
     SQLiteStatement statement(m_database, "INSERT INTO Caches (cacheGroup) VALUES (?)");
     if (statement.prepare() != SQLResultOk)
@@ -456,8 +495,13 @@ bool ApplicationCacheStorage::store(ApplicationCache* cache)
     {
         ApplicationCache::ResourceMap::const_iterator end = cache->end();
         for (ApplicationCache::ResourceMap::const_iterator it = cache->begin(); it != end; ++it) {
+            unsigned oldStorageID = it->second->storageID();
             if (!store(it->second.get(), cacheStorageID))
                 return false;
+
+            // Storing the resource succeeded. Log its old storageID in case
+            // it needs to be restored later.
+            storageIDJournal->add(it->second.get(), oldStorageID);
         }
     }
     
@@ -571,9 +615,6 @@ bool ApplicationCacheStorage::storeUpdatedType(ApplicationCacheResource* resourc
     ASSERT_UNUSED(cache, cache->storageID());
     ASSERT(resource->storageID());
 
-    // FIXME: If the resource gained a Dynamic bit, it should be re-inserted at the end for correct order.
-    ASSERT(!(resource->type() & ApplicationCacheResource::Dynamic));
-    
     // First, insert the data
     SQLiteStatement entryStatement(m_database, "UPDATE CacheEntries SET type=? WHERE resource=?");
     if (entryStatement.prepare() != SQLResultOk)
@@ -618,8 +659,13 @@ bool ApplicationCacheStorage::storeNewestCache(ApplicationCacheGroup* group)
     ASSERT(!group->isObsolete());
     ASSERT(!group->newestCache()->storageID());
     
+    // Log the storageID changes to the in-memory resource objects. The journal
+    // object will roll them back automatically in case a database operation
+    // fails and this method returns early.
+    ResourceStorageIDJournal storageIDJournal;
+
     // Store the newest cache
-    if (!store(group->newestCache()))
+    if (!store(group->newestCache(), &storageIDJournal))
         return false;
     
     // Update the newest cache in the group.
@@ -634,6 +680,7 @@ bool ApplicationCacheStorage::storeNewestCache(ApplicationCacheGroup* group)
     if (!executeStatement(statement))
         return false;
     
+    storageIDJournal.commit();
     storeCacheTransaction.commit();
     return true;
 }

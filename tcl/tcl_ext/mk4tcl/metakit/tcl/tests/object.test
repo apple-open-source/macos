@@ -1,0 +1,477 @@
+#!/usr/bin/env tclsh
+# %renumber<^\s*test >%
+
+source [file join [file dir [info script]] initests.tcl]
+
+test 0 {} {
+  package require Mk4tcl
+} $version
+
+  proc fill {v prop args} {
+    foreach x $args {
+      $v insert end $prop $x
+    }
+  }
+
+  proc dump {v} {
+    set n [$v size]
+    set r {}
+    for {set i 0} {$i < $n} {incr i} {
+      set l {}
+      foreach {x y} [$v get $i] {
+        lappend l $y
+      }
+      lappend r $l
+    }
+    return $r
+  }
+
+set f f1.dat
+test 1 {basic view operations} -body {
+  file delete $f
+  
+  mk::file open db $f
+  mk::view layout db.a {s i:I}
+  set v [mk::view open db.a v]
+  equal $v v
+
+  equal [v info] {s i:I}
+
+  for {set i 0} {$i < 100} {incr i} {
+    v insert end s s$i/$i i $i
+  }
+
+  equal [v size] 100
+  equal [v get 0] {s s0/0 i 0}
+  equal [v get 1] {s s1/1 i 1}
+  equal [v get 99] {s s99/99 i 99}
+
+  equal [v get 9] {s s9/9 i 9}
+  equal [v get 9 s] s9/9
+  equal [v get 9 i] 9
+
+  equal [v find s s12/12] 12
+  catch {v find s blah} e
+  equal $e {not found}
+
+  equal [v find i 23] 23
+  equal [catch {v find i -1}] 1
+
+    # views opened more than once are shared
+  set w [mk::view open db.a]
+  equal [$w size] 100
+  $w insert end s wow i -1
+
+  equal [v size] 101
+  equal [v get end] {s wow i -1}
+
+  $w close
+  v close
+} -cleanup {mk::file close db}
+file delete $f
+
+set f f2.dat
+test 2 {view modifications} -body {
+  file delete $f
+
+  mk::file open db $f
+  mk::view layout db.a i:I
+  mk::view open db.a v
+
+  v insert end i 1
+  v insert end i 2
+  v insert 1 i 3
+  v insert end i 4
+  
+  equal [v size] 4
+  foreach {x y} {0 1  1 3  2 2  3 4} {
+    equal [v get $x i] $y
+  }
+
+  v delete 1
+  v delete [expr {[v size]-1}]
+  
+  equal [v size] 2
+  foreach {x y} {0 1  1 2} {
+    equal [v get $x i] $y
+  }
+
+  v set end i 5
+  v set 0 i 6
+
+  foreach {x y} {0 6  1 5} {
+    equal [v get $x i] $y
+  }
+
+  v close
+} -cleanup {mk::file close db}
+file delete $f
+
+set f f3.dat
+test 3 {view operators} -body {
+  file delete $f
+
+  mk::file open db $f
+  mk::view layout db.a i:I
+  mk::view layout db.b i:I
+  mk::view layout db.c j:I
+  mk::view layout db.d k:I
+  mk::view open db.a v1
+  mk::view open db.b v2
+  mk::view open db.c v3
+  mk::view open db.d v4
+  
+  fill v1 i 1 2 3 4 5
+  fill v2 i 3 4 5 6 7
+  fill v3 j 3 4 5 6 7
+  fill v4 k 1 2 1
+
+  set v [v1 view clone]
+  equal [$v size] 0
+  equal [$v info] i:I
+  $v close
+
+  set v [v1 view copy]
+  equal [dump $v] {1 2 3 4 5}
+  $v close
+
+  set v [v1 view concat v2]
+  equal [dump $v] {1 2 3 4 5 3 4 5 6 7}
+  $v close
+
+  set v [v1 view different v2]
+  equal [dump $v] {1 2 6 7}
+  $v close
+
+  set v [v1 view minus v2]
+  equal [dump $v] {1 2}
+  $v close
+
+  set v [v1 view intersect v2]
+  equal [dump $v] {3 4 5}
+  $v close
+
+  set v [v1 view union v2]
+  equal [dump $v] {1 2 3 4 5 6 7}
+  $v close
+
+  set v [v1 view pair v3]
+  equal [dump $v] {{1 3} {2 4} {3 5} {4 6} {5 7}}
+  $v close
+
+  set v [v2 view range 2 3]
+  equal [dump $v] {5 6}
+  $v close
+
+  set v [v2 view range 3 end]
+  equal [dump $v] {6 7}
+  $v close
+
+  set v [v2 view range 2 4 -1]
+  equal [dump $v] {7 6 5}
+  $v close
+
+  set v [v2 view map v4]
+  equal [dump $v] {4 5 4}
+  $v close
+
+  set v [v4 view unique]
+  equal [dump $v] {1 2}
+  $v close
+
+  v1 close
+  v2 close
+  v3 close
+  v4 close
+} -cleanup {mk::file close db}
+file delete $f
+
+set f f4.dat
+test 4 {hash view} -body {
+  file delete $f
+
+  mk::file open db $f
+  mk::view layout db.data {k:I v:S}
+  mk::view layout db.map {_H:I _R:I}
+  mk::view open db.data v1
+  mk::view open db.map v2
+  rename [v1 view hash v2 1] v3
+
+  v3 insert end k 1 v one
+  v3 insert end k 2 v two
+  v3 insert 1 k 3 v three
+  v3 insert 1 k 4 v four
+  v3 insert 1 k 5 v five
+
+  equal [dump v3] {{1 one} {5 five} {4 four} {3 three} {2 two}}
+
+  equal [v3 find k 3] 3
+  equal [v3 find v three] 3
+
+  v3 delete 1
+
+  equal [v3 find k 3] 2
+  equal [v3 find v three] 2
+
+  v3 delete 2
+
+  equal [catch {v3 find k 3}] 1
+  equal [catch {v3 find v three}] 1
+
+  equal [dump v3] {{1 one} {4 four} {2 two}}
+
+  equal [v3 find k 1] 0
+  equal [v3 find k 4] 1
+  equal [v3 find k 2] 2
+
+  v3 set 1 v nine
+
+  equal [dump v3] {{1 one} {4 nine} {2 two}}
+
+  v3 set 1 k 9
+
+  equal [dump v3] {{1 one} {9 nine} {2 two}}
+
+  equal [v3 find k 1] 0
+  equal [v3 find k 9] 1
+  equal [v3 find k 2] 2
+
+  equal [catch {v3 find k 4}] 1
+
+  v3 set 1 k 1 v clobber
+
+  equal [dump v3] {{1 nine} {2 clobber}}
+
+  # WARNING, the above is a bug, the result *should* have been:
+  # C [dump v3] {{1 clobber} {2 two}}
+  # but due to a nasty problem, a different row gets clobbered
+  # 
+  # There are more such problems, i.e. with a 2-column key, when
+  # changing the key, the intermediate state will be stored and
+  # can delete an unrelated row due to the above deleting effect
+  #
+  # The advice for now is: DO NOT change keys, or ONLY the key
+  # property in a single-prop hash mapping.  In the above case,
+  # "v3 set 1 k 1" would've worked fine (deleting the other row).
+  
+  v3 close
+  v2 close
+  v1 close
+} -cleanup {mk::file close db}
+file delete $f
+
+set f f5.dat
+test 5 {blocked view} -body {
+  file delete $f
+
+  mk::file open db $f
+  mk::view layout db.data {{_B {k:I v:D}}}
+  mk::view open db.data v1
+  rename [v1 view blocked] v2
+
+  set n 2500
+  set nb 4  ;# number of buckets, depends on blocking algorithm
+
+  for {set i 0} {$i < $n} {incr i} {
+    v2 insert end k $i v $i.$i
+  }
+
+  equal [v2 size] $n
+  equal [v1 size] $nb
+
+    # check that all blocks combined have the same number of rows
+  set t 0
+  for {set j 0} {$j < $nb} {incr j} {
+    #puts [mk::view size db.data!$j._B]
+    incr t [mk::view size db.data!$j._B]
+  }
+  equal $t $n
+
+  equal [v2 find k 3] 3
+  equal [v2 find v 3.3] 3
+
+  v2 delete 1
+
+  equal [v2 find k 3] 2
+  equal [v2 find v 3.3] 2
+
+  v2 delete 2
+
+  equal [catch {v2 find k 3}] 1
+  equal [catch {v2 find v 3.3}] 1
+
+  set w [v2 view range 0 3]
+  equal [dump $w] {{0 0.0} {2 2.2} {4 4.4} {5 5.5}}
+  $w close
+
+  v2 insert 2 k 3 v 3.3
+  v2 insert 1 k 1 v 1.1
+
+  for {set i 0} {$i < [v2 size]} {incr i} {
+    v2 delete $i
+  }
+
+  for {set i 0} {$i < [v2 size]} {incr i} {
+    equal [v2 get $i k] [expr {2*$i+1}]
+  }
+
+  assert [expr {[v1 size] < $nb}]
+
+  set t 0
+  for {set j 0} {$j < [v1 size]} {incr j} {
+    #puts [mk::view size db.data!$j._B]
+    incr t [mk::view size db.data!$j._B]
+  }
+  equal $t [v2 size]
+  
+  v2 close
+  v1 close
+} -cleanup {mk::file close db}
+file delete $f
+
+set f f6.dat
+test 6 {ordered view} -body {
+  file delete $f
+
+  mk::file open db $f
+  mk::view layout db.data {k:I v:S}
+  mk::view open db.data v1
+  rename [v1 view ordered 1] v2
+
+  v2 insert end k 1 v one
+  v2 insert end k 5 v five
+  v2 insert end k 4 v four
+  v2 insert end k 3 v three
+  v2 insert end k 2 v two
+
+  equal [dump v2] {{1 one} {2 two} {3 three} {4 four} {5 five}}
+
+  equal [v2 find k 3] 2
+  equal [v2 find v three] 2
+
+  v2 delete 1
+
+  equal [v2 find k 3] 1
+  equal [v2 find v three] 1
+
+  v2 delete 1
+
+  equal [catch {v2 find k 3}] 1
+  equal [catch {v2 find v three}] 1
+
+  equal [dump v2] {{1 one} {4 four} {5 five}}
+
+  equal [v2 find k 1] 0
+  equal [v2 find k 4] 1
+  equal [v2 find k 5] 2
+
+  v2 set 1 v nine
+
+  equal [dump v2] {{1 one} {4 nine} {5 five}}
+
+  v2 set 1 k 9
+
+  equal [dump v2] {{1 one} {5 five} {9 nine}}
+
+  equal [v2 find k 1] 0
+  equal [v2 find k 5] 1
+  equal [v2 find k 9] 2
+
+  equal [catch {v2 find k 4}] 1
+
+  v2 set 1 k 1 v clobber
+
+  equal [dump v2] {{1 five} {9 clobber}}
+
+  # WARNING, same problem as described above, should have been:
+  # C [dump v2] {{1 clobber} {9 nine}}
+  
+  v2 close
+  v1 close
+} -cleanup {mk::file close db}
+file delete $f
+
+set f f7.dat
+test 7 {blocked hash view} -body {
+  file delete $f
+
+  mk::file open db $f
+  mk::view layout db.data {k:I v:S}
+  mk::view layout db.map {{_B {_H:I _R:I}}}
+  mk::view open db.data v1
+  mk::view open db.map v2
+  rename [v2 view blocked] v3
+  rename [v1 view hash v3 1] v4
+
+  v4 insert end k 1 v one
+  v4 insert end k 2 v two
+  v4 insert 1 k 3 v three
+  v4 insert 1 k 4 v four
+  v4 insert 1 k 5 v five
+
+  equal [dump v4] {{1 one} {5 five} {4 four} {3 three} {2 two}}
+  equal [dump v1] {{1 one} {5 five} {4 four} {3 three} {2 two}}
+
+  equal [v2 size] 2
+  equal [v3 size] 9
+
+  equal [v4 find k 3] 3
+  equal [v4 find v three] 3
+
+  v4 delete 1
+
+  equal [v4 find k 3] 2
+  equal [v4 find v three] 2
+
+  v4 delete 2
+
+  equal [catch {v4 find k 3}] 1
+  equal [catch {v4 find v three}] 1
+
+  equal [dump v4] {{1 one} {4 four} {2 two}}
+
+  equal [v4 find k 1] 0
+  equal [v4 find k 4] 1
+  equal [v4 find k 2] 2
+
+  v4 set 1 v nine
+
+  equal [dump v4] {{1 one} {4 nine} {2 two}}
+
+  v4 set 1 k 9
+
+  equal [dump v4] {{1 one} {9 nine} {2 two}}
+
+  equal [v4 find k 1] 0
+  equal [v4 find k 9] 1
+  equal [v4 find k 2] 2
+
+  equal [catch {v4 find k 4}] 1
+
+  v4 set 1 k 1 v clobber
+
+  equal [dump v4] {{1 nine} {2 clobber}}
+
+  # WARNING, same problem as described above, should have been:
+  # C [dump v4] {{1 clobber} {2 two}}
+
+  for {set x 100} {$x <= 999} {incr x} {
+    v4 insert end k $x v v$x
+  }
+
+  # check that the entries all get found
+  for {set x 100} {$x <= 999} {incr x} {
+    equal [expr {$x-98}] [v4 find k $x]
+  }
+
+  equal [v2 size] 4
+  equal [v3 size] 2049
+  
+  v4 close
+  v3 close
+  v2 close
+  v1 close
+} -cleanup {mk::file close db}
+file delete $f
+
+::tcltest::cleanupTests

@@ -1,0 +1,40 @@
+#!/bin/bash
+
+if [[ $# < 2 ]]
+then
+	echo "Please pass 2 file names."
+	exit 1
+fi
+
+lib1=$1
+lib2=$2
+
+if [[ ! -f "${lib1}" || ! -f "${lib2}" ]]
+then
+	echo "Unable to find files passed."
+	exit 1
+fi
+
+for arch in i386 #x86_64 ppc arm
+do
+	t1="${TMPDIR}/$$.${arch}.1"
+	t2="${TMPDIR}/$$.${arch}.2"
+	cmp="${TMPDIR}/$$.${arch}.3"
+
+	nm -g "${lib1}" | cut -c 10- | sort > "${t1}"
+	nm -g "${lib2}" | cut -c 10- | sort > "${t2}"
+
+	diff -Naur "${t1}" "${t2}" > "${cmp}"
+
+	if [[ -n "$(cat "${cmp}")" ]]
+	then
+		echo "Changes for arch ${arch}."
+		cat ${cmp}
+	else
+		echo "No changes for arch ${arch}."
+	fi
+
+	#rm -f "${t1}" "${t2}" "${cmp}"
+
+done
+ 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -420,7 +420,7 @@ CFStringRef _DAFileSystemCopyName( DAFileSystemRef filesystem, CFURLRef mountpoi
 {
     struct attr_name_t
     {
-        size_t          size;
+        uint32_t        size;
         attrreference_t data;
         char            name[MAXNAMLEN + 1];
     };
@@ -440,9 +440,9 @@ CFStringRef _DAFileSystemCopyName( DAFileSystemRef filesystem, CFURLRef mountpoi
     status = getattrlist( path, &attrlist, &attr, sizeof( attr ), 0 );
     if ( status == -1 )  goto _DAFileSystemCopyNameErr;
 
-    if ( attr.name[0] )
+    if ( attr.data.attr_length )
     {
-        name = CFStringCreateWithCString( kCFAllocatorDefault, attr.name, kCFStringEncodingUTF8 );
+        name = CFStringCreateWithCString( kCFAllocatorDefault, ( ( char * ) &attr.data ) + attr.data.attr_dataoffset, kCFStringEncodingUTF8 );
     }
 
 _DAFileSystemCopyNameErr:
@@ -579,7 +579,7 @@ void DAFileSystemMountWithArguments( DAFileSystemRef      filesystem,
      */
 
     CFStringRef             argument       = NULL;
-    va_list                 arguments      = { 0 };
+    va_list                 arguments;
     CFURLRef                command        = NULL;
     __DAFileSystemContext * context        = NULL;
     CFStringRef             devicePath     = NULL;
@@ -992,7 +992,7 @@ void DAFileSystemUnmountWithArguments( DAFileSystemRef      filesystem,
      */
 
     CFStringRef             argument       = NULL;
-    va_list                 arguments      = { 0 };
+    va_list                 arguments;
     CFURLRef                command        = NULL;
     __DAFileSystemContext * context        = NULL;
     CFStringRef             mountpointPath = NULL;

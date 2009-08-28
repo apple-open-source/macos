@@ -109,7 +109,13 @@ typedef uint8_t IOHIDDigitizerOrientationType;
 typedef struct _IOHIDAxisEventData {
     IOHIDEVENT_BASE;                            // options = kHIDAxisRelative
     IOHIDAXISEVENT_BASE;
-} IOHIDAxisEventData, IOHIDTranslationData, IOHIDRotationEventData, IOHIDScrollEventData, IOHIDScaleEventData, IOHIDVelocityData, IOHIDOrientationEventData, IOHIDAccelerometerEventData;
+} IOHIDAxisEventData, IOHIDTranslationData, IOHIDRotationEventData, IOHIDScrollEventData, IOHIDScaleEventData, IOHIDVelocityData, IOHIDOrientationEventData;
+
+typedef struct _IOHIDAccelerometerEventData {
+    IOHIDEVENT_BASE;                            // options = kHIDAxisRelative
+    IOHIDAXISEVENT_BASE;
+    uint32_t        acclType;
+} IOHIDAccelerometerEventData;
 
 typedef struct _IOHIDAmbientLightSensorEventData {
     IOHIDEVENT_BASE;                            // options = kHIDAxisRelative
@@ -246,9 +252,11 @@ typedef struct _IOHIDSystemQueueElement {
         case kIOHIDEventTypeScale:      \
         case kIOHIDEventTypeVelocity:   \
         case kIOHIDEventTypeOrientation:\
-        case kIOHIDEventTypeAccelerometer:\
             size = sizeof(IOHIDAxisEventData);\
             break;                      \
+        case kIOHIDEventTypeAccelerometer:\
+            size = sizeof(IOHIDAccelerometerEventData);\
+            break;\
         case kIOHIDEventTypeAmbientLightSensor:\
             size = sizeof(IOHIDAmbientLightSensorEventData);\
             break;                      \
@@ -370,6 +378,25 @@ typedef struct _IOHIDSystemQueueElement {
                 };                                      \
             }                                           \
             break;                                      \
+        case kIOHIDEventTypeAccelerometer:                     \
+            {                                           \
+                IOHIDAccelerometerEventData * accl = (IOHIDAccelerometerEventData*)eventData; \
+                switch ( fieldOffset ) {                \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldAccelerometerX): \
+                        value = IOHIDEventValueFloat(accl->position.x); \
+                        break;                              \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldAccelerometerY): \
+                        value = IOHIDEventValueFloat(accl->position.y); \
+                        break;                              \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldAccelerometerZ): \
+                        value = IOHIDEventValueFloat(accl->position.z); \
+                        break;                              \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldAccelerometerType): \
+                        value = accl->acclType;     \
+                        break;                          \
+                };                                      \
+            }                                           \
+            break;                                      \
         case kIOHIDEventTypeMouse:                     \
             {                                           \
                 IOHIDMouseEventData * mouse = (IOHIDMouseEventData*)eventData; \
@@ -424,7 +451,6 @@ typedef struct _IOHIDSystemQueueElement {
         case kIOHIDEventTypeScale:                      \
         case kIOHIDEventTypeVelocity:                   \
         case kIOHIDEventTypeOrientation:                \
-        case kIOHIDEventTypeAccelerometer:              \
             {                                           \
                 IOHIDAxisEventData * axis = (IOHIDAxisEventData *)eventData; \
                 switch ( fieldOffset ) {                    \
@@ -700,6 +726,25 @@ typedef struct _IOHIDSystemQueueElement {
                 };                                      \
             }                                           \
             break;                                      \
+        case kIOHIDEventTypeAccelerometer:              \
+            {                                           \
+                IOHIDAccelerometerEventData * accl = (IOHIDAccelerometerEventData*)eventData; \
+                switch ( fieldOffset ) {                \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldAccelerometerX): \
+                        accl->position.x = IOHIDEventValueFixed(value); \
+                        break;                              \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldAccelerometerY): \
+                        accl->position.y = IOHIDEventValueFixed(value); \
+                        break;                              \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldAccelerometerZ): \
+                        accl->position.z = IOHIDEventValueFixed(value); \
+                        break;                              \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldAccelerometerType): \
+                        accl->acclType = value;     \
+                        break;                          \
+                };                                      \
+            }                                           \
+            break;                                      \
         case kIOHIDEventTypeMouse:                     \
             {                                           \
                 IOHIDMouseEventData * mouse = (IOHIDMouseEventData*)eventData; \
@@ -754,7 +799,6 @@ typedef struct _IOHIDSystemQueueElement {
         case kIOHIDEventTypeScale:                      \
         case kIOHIDEventTypeVelocity:                   \
         case kIOHIDEventTypeOrientation:                \
-        case kIOHIDEventTypeAccelerometer:              \
             {                                           \
                 IOHIDAxisEventData * axis = (IOHIDAxisEventData *)eventData;    \
                 switch ( fieldOffset ) {                    \

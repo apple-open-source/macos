@@ -45,6 +45,8 @@
 /* .IP \fBreload\fR
 /*	Re-read configuration files. Running processes terminate at their
 /*	earliest convenience.
+/* .IP \fBstatus\fR
+/*	Indicate if the Postfix mail system is currently running.
 /* .IP "\fBset-permissions\fR \fB[\fIname\fR=\fIvalue ...\fB]\fR
 /*	Set the ownership and permissions of Postfix related files and
 /*	directories, as specified in the \fBpostfix-files\fR file.
@@ -129,6 +131,11 @@
 /* .IP "\fBreadme_directory (see 'postconf -d' output)\fR"
 /*	The location of Postfix README files that describe how to build,
 /*	configure or operate a specific Postfix subsystem or feature.
+/* .PP
+/*	Available in Postfix version 2.5 and later:
+/* .IP "\fBdata_directory (see 'postconf -d' output)\fR"
+/*	The directory with Postfix-writable data files (for example:
+/*	caches, pseudo-random numbers).
 /* .PP
 /*	Other configuration parameters:
 /* .IP "\fBconfig_directory (see 'postconf -d' output)\fR"
@@ -330,7 +337,7 @@ int     main(int argc, char **argv)
     int     fd;
     int     ch;
     ARGV   *import_env;
-    static CONFIG_STR_TABLE str_table[] = {
+    static const CONFIG_STR_TABLE str_table[] = {
 	VAR_SENDMAIL_PATH, DEF_SENDMAIL_PATH, &var_sendmail_path, 1, 0,
 	VAR_MAILQ_PATH, DEF_MAILQ_PATH, &var_mailq_path, 1, 0,
 	VAR_NEWALIAS_PATH, DEF_NEWALIAS_PATH, &var_newalias_path, 1, 0,
@@ -428,6 +435,7 @@ int     main(int argc, char **argv)
 
     check_setenv(VAR_COMMAND_DIR, var_command_dir);	/* main.cf */
     check_setenv(VAR_DAEMON_DIR, var_daemon_dir);	/* main.cf */
+    check_setenv(VAR_DATA_DIR, var_data_dir);	/* main.cf */
     check_setenv(VAR_QUEUE_DIR, var_queue_dir);	/* main.cf */
     check_setenv(VAR_CONFIG_DIR, var_config_dir);	/* main.cf */
 

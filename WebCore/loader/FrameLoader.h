@@ -141,7 +141,8 @@ namespace WebCore {
 
         // Returns true for any non-local URL. If document parameter is supplied, its local load policy dictates,
         // otherwise if referrer is non-empty and represents a local file, then the local load is allowed.
-        static bool canLoad(const KURL&, const String& referrer, const Document* = 0);
+        static bool canLoad(const KURL&, const String& referrer, const Document*);
+        static bool canLoad(const KURL&, const String& referrer, const SecurityOrigin* = 0);
         static void reportLocalLoadFailed(Frame*, const String& url);
 
         static bool shouldHideReferrer(const KURL&, const String& referrer);
@@ -154,7 +155,7 @@ namespace WebCore {
         bool canHandleRequest(const ResourceRequest&);
 
         // Also not cool.
-        void stopAllLoaders();
+        void stopAllLoaders(DatabasePolicy = DatabasePolicyStop);
         void stopForUserCancel(bool deferCheckLoadComplete = false);
 
         bool isLoadingMainResource() const { return m_isLoadingMainResource; }
@@ -260,10 +261,10 @@ namespace WebCore {
 
         void submitForm(const char* action, const String& url,
             PassRefPtr<FormData>, const String& target, const String& contentType, const String& boundary,
-            bool lockHistory, bool lockBackForwardList, PassRefPtr<Event>, PassRefPtr<FormState>);
+            bool lockHistory, PassRefPtr<Event>, PassRefPtr<FormState>);
 
         void stop();
-        void stopLoading(bool sendUnload);
+        void stopLoading(bool sendUnload, DatabasePolicy = DatabasePolicyStop);
         bool closeURL();
 
         void didExplicitOpen();
@@ -304,7 +305,7 @@ namespace WebCore {
         void handledOnloadEvents();
         String userAgent(const KURL&) const;
 
-        Widget* createJavaAppletWidget(const IntSize&, HTMLAppletElement*, const HashMap<String, String>& args);
+        PassRefPtr<Widget> createJavaAppletWidget(const IntSize&, HTMLAppletElement*, const HashMap<String, String>& args);
 
         void dispatchWindowObjectAvailable();
         void dispatchDocumentElementAvailable();
@@ -315,7 +316,7 @@ namespace WebCore {
         bool openedByDOM() const;
         void setOpenedByDOM();
 
-        bool userGestureHint();
+        bool isProcessingUserGesture();
 
         void resetMultipleFormSubmissionProtection();
 
@@ -363,13 +364,6 @@ namespace WebCore {
         static void setLocalLoadPolicy(LocalLoadPolicy);
         static bool restrictAccessToLocal();
         static bool allowSubstituteDataAccessToLocal();
-
-        static void registerURLSchemeAsLocal(const String&);
-        static bool shouldTreatURLAsLocal(const String&);
-        static bool shouldTreatURLSchemeAsLocal(const String&);
-
-        static void registerURLSchemeAsNoAccess(const String&);
-        static bool shouldTreatURLSchemeAsNoAccess(const String&);
 
         bool committingFirstRealLoad() const { return !m_creatingInitialEmptyDocument && !m_committedFirstRealDocumentLoad; }
 
@@ -431,8 +425,8 @@ namespace WebCore {
 
         void receivedFirstData();
 
-        void updatePolicyBaseURL();
-        void setPolicyBaseURL(const KURL&);
+        void updateFirstPartyForCookies();
+        void setFirstPartyForCookies(const KURL&);
         
         void addExtraFieldsToRequest(ResourceRequest&, FrameLoadType loadType, bool isMainResource, bool cookiePolicyURLFromRequest);
 
@@ -498,7 +492,7 @@ namespace WebCore {
         void dispatchDidFinishLoading(DocumentLoader*, unsigned long identifier);
 
         static bool isLocationChange(const ScheduledRedirection&);
-        void scheduleFormSubmission(const FrameLoadRequest&, bool lockHistory, bool lockBackForwardList, PassRefPtr<Event>, PassRefPtr<FormState>);
+        void scheduleFormSubmission(const FrameLoadRequest&, bool lockHistory, PassRefPtr<Event>, PassRefPtr<FormState>);
 
         void loadWithDocumentLoader(DocumentLoader*, FrameLoadType, PassRefPtr<FormState>); // Calls continueLoadAfterNavigationPolicy
         void load(DocumentLoader*);                                                         // Calls loadWithDocumentLoader   

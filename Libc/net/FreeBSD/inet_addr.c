@@ -1,8 +1,4 @@
-/*	$KAME: inet_addr.c,v 1.5 2001/08/20 02:32:40 itojun Exp $	*/
-
 /*
- * ++Copyright++ 1983, 1990, 1993
- * -
  * Copyright (c) 1983, 1990, 1993
  *    The Regents of the University of California.  All rights reserved.
  * 
@@ -14,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- * 	This product includes software developed by the University of
- * 	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -33,7 +25,9 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- * -
+ */
+
+/*
  * Portions Copyright (c) 1993 by Digital Equipment Corporation.
  * 
  * Permission to use, copy, modify, and distribute this software for any
@@ -51,34 +45,50 @@
  * PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
  * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
  * SOFTWARE.
- * -
- * --Copyright--
+ */
+
+/*
+ * Copyright (c) 2004 by Internet Systems Consortium, Inc. ("ISC")
+ * Portions Copyright (c) 1996-1999 by Internet Software Consortium.
+ *
+ * Permission to use, copy, modify, and distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS.  IN NO EVENT SHALL ISC BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT
+ * OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #if defined(LIBC_SCCS) && !defined(lint)
-static char sccsid[] = "@(#)inet_addr.c	8.1 (Berkeley) 6/17/93";
+static const char sccsid[] = "@(#)inet_addr.c	8.1 (Berkeley) 6/17/93";
+static const char rcsid[] = "$Id: inet_addr.c,v 1.4.18.1 2005/04/27 05:00:52 sra Exp $";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/net/inet_addr.c,v 1.16 2002/04/19 04:46:20 suz Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/inet/inet_addr.c,v 1.4 2007/06/03 17:20:26 ume Exp $");
 
+#include "port_before.h"
+
+#include <sys/types.h>
 #include <sys/param.h>
 
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
 #include <ctype.h>
-#include <errno.h>
-#include <string.h>
-#include <stdlib.h>
 
-/*
- * ASCII internet address interpretation routine.
+#include "port_after.h"
+
+/*%
+ * Ascii internet address interpretation routine.
  * The value returned is in network order.
  */
 in_addr_t		/* XXX should be struct in_addr :( */
-inet_addr(cp)
-	const char *cp;
-{
+inet_addr(const char *cp) {
 	struct in_addr val;
 
 	if (inet_aton(cp, &val))
@@ -86,105 +96,108 @@ inet_addr(cp)
 	return (INADDR_NONE);
 }
 
-/* 
- * Check whether "cp" is a valid ASCII representation
+/*%
+ * Check whether "cp" is a valid ascii representation
  * of an Internet address and convert to a binary address.
  * Returns 1 if the address is valid, 0 if not.
  * This replaces inet_addr, the return value from which
  * cannot distinguish between failure and a local broadcast address.
  */
 int
-inet_aton(cp, addr)
-	const char *cp;
-	struct in_addr *addr;
-{
-	u_long parts[4];
-	in_addr_t val;
-	char *c;
-	char *endptr;
-	int gotend, n;
+inet_aton(const char *cp, struct in_addr *addr) {
+	u_long val;
+	int base, n;
+	char c;
+	u_int8_t parts[4];
+	u_int8_t *pp = parts;
+	int digit;
 
-	c = (char *)cp;
-	n = 0;
-	/*
-	 * Run through the string, grabbing numbers until
-	 * the end of the string, or some error
-	 */
-	gotend = 0;
-	while (!gotend) {
-		errno = 0;
-		val = strtoul(c, &endptr, 0);
-
-		if (errno == ERANGE)	/* Fail completely if it overflowed. */
-			return (0);
-		
-		/* 
-		 * If the whole string is invalid, endptr will equal
-		 * c.. this way we can make sure someone hasn't
-		 * gone '.12' or something which would get past
-		 * the next check.
+	c = *cp;
+	for (;;) {
+		/*
+		 * Collect number up to ``.''.
+		 * Values are specified as for C:
+		 * 0x=hex, 0=octal, isdigit=decimal.
 		 */
-		if (endptr == c)
+		if (!isdigit((unsigned char)c))
 			return (0);
-		parts[n] = val;
-		c = endptr;
-
-		/* Check the next character past the previous number's end */
-		switch (*c) {
-		case '.' :
-			/* Make sure we only do 3 dots .. */
-			if (n == 3)	/* Whoops. Quit. */
-				return (0);
-			n++;
-			c++;
-			break;
-
-		case '\0':
-			gotend = 1;
-			break;
-
-		default:
-			if (isspace((unsigned char)*c)) {
-				gotend = 1;
-				break;
-			} else
-				return (0);	/* Invalid character, so fail */
+		val = 0; base = 10; digit = 0;
+		if (c == '0') {
+			c = *++cp;
+			if (c == 'x' || c == 'X')
+				base = 16, c = *++cp;
+			else {
+				base = 8;
+				digit = 1 ;
+			}
 		}
-
+		for (;;) {
+			if (isascii(c) && isdigit((unsigned char)c)) {
+				if (base == 8 && (c == '8' || c == '9'))
+					return (0);
+				val = (val * base) + (c - '0');
+				c = *++cp;
+				digit = 1;
+			} else if (base == 16 && isascii(c) && 
+				   isxdigit((unsigned char)c)) {
+				val = (val << 4) |
+					(c + 10 - (islower((unsigned char)c) ? 'a' : 'A'));
+				c = *++cp;
+				digit = 1;
+			} else
+				break;
+		}
+		if (c == '.') {
+			/*
+			 * Internet format:
+			 *	a.b.c.d
+			 *	a.b.c	(with c treated as 16 bits)
+			 *	a.b	(with b treated as 24 bits)
+			 */
+			if (pp >= parts + 3 || val > 0xffU)
+				return (0);
+			*pp++ = val;
+			c = *++cp;
+		} else
+			break;
 	}
-
+	/*
+	 * Check for trailing characters.
+	 */
+	if (c != '\0' && (!isascii(c) || !isspace((unsigned char)c)))
+		return (0);
+	/*
+	 * Did we get a valid digit?
+	 */
+	if (!digit)
+		return (0);
 	/*
 	 * Concoct the address according to
 	 * the number of parts specified.
 	 */
-
+	n = pp - parts + 1;
 	switch (n) {
-	case 0:				/* a -- 32 bits */
-		/*
-		 * Nothing is necessary here.  Overflow checking was
-		 * already done in strtoul().
-		 */
+	case 1:				/*%< a -- 32 bits */
 		break;
-	case 1:				/* a.b -- 8.24 bits */
-		if (val > 0xffffff || parts[0] > 0xff)
+
+	case 2:				/*%< a.b -- 8.24 bits */
+		if (val > 0xffffffU)
 			return (0);
 		val |= parts[0] << 24;
 		break;
 
-	case 2:				/* a.b.c -- 8.8.16 bits */
-		if (val > 0xffff || parts[0] > 0xff || parts[1] > 0xff)
+	case 3:				/*%< a.b.c -- 8.8.16 bits */
+		if (val > 0xffffU)
 			return (0);
 		val |= (parts[0] << 24) | (parts[1] << 16);
 		break;
 
-	case 3:				/* a.b.c.d -- 8.8.8.8 bits */
-		if (val > 0xff || parts[0] > 0xff || parts[1] > 0xff ||
-		    parts[2] > 0xff)
+	case 4:				/*%< a.b.c.d -- 8.8.8.8 bits */
+		if (val > 0xffU)
 			return (0);
 		val |= (parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8);
 		break;
 	}
-
 	if (addr != NULL)
 		addr->s_addr = htonl(val);
 	return (1);
@@ -198,3 +211,5 @@ inet_aton(cp, addr)
 __weak_reference(__inet_addr, inet_addr);
 #undef inet_aton
 __weak_reference(__inet_aton, inet_aton);
+
+/*! \file */

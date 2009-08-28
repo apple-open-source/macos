@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003, 2004, 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003, 2004, 2006, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -58,7 +58,7 @@ __SCDynamicStoreLock(SCDynamicStoreRef store, Boolean recursive)
 
 	/* check credentials */
 	mySession = getSession(storePrivate->server);
-	if (mySession->callerEUID != 0) {
+	if (!hasWriteAccess(mySession)) {
 		return kSCStatusAccessError;
 	}
 

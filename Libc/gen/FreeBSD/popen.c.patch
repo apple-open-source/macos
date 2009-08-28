@@ -1,6 +1,17 @@
---- popen.c.orig	2003-05-20 15:21:02.000000000 -0700
-+++ popen.c	2005-09-14 15:53:35.000000000 -0700
-@@ -43,7 +43,8 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/pop
+--- popen.c.orig	2009-03-03 02:04:57.000000000 -0800
++++ popen.c	2009-03-03 15:28:31.000000000 -0800
+@@ -34,6 +34,10 @@
+  * SUCH DAMAGE.
+  */
+ 
++#ifdef VARIANT_DARWINEXTSN
++#define _DARWIN_UNLIMITED_STREAMS
++#endif /* VARIANT_DARWINEXTSN */
++
+ #if defined(LIBC_SCCS) && !defined(lint)
+ static char sccsid[] = "@(#)popen.c	8.3 (Berkeley) 5/3/95";
+ #endif /* LIBC_SCCS and not lint */
+@@ -43,7 +47,8 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/pop
  #include "namespace.h"
  #include <sys/param.h>
  #include <sys/wait.h>
@@ -10,7 +21,11 @@
  #include <signal.h>
  #include <errno.h>
  #include <unistd.h>
-@@ -55,11 +56,14 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/pop
+@@ -52,17 +57,29 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/pop
+ #include <string.h>
+ #include <paths.h>
+ #include <pthread.h>
++#include <spawn.h>
  #include "un-namespace.h"
  #include "libc_private.h"
  
@@ -18,17 +33,38 @@
 +#include <crt_externs.h>
 +#define environ (*_NSGetEnviron())
  
+-static struct pid {
 +/* 3516149 - store file descriptor and use that to close to prevent blocking */
- static struct pid {
++struct pid {
  	struct pid *next;
  	FILE *fp;
 +	int fd;
  	pid_t pid;
- } *pidlist;
- static pthread_mutex_t pidlist_mutex = PTHREAD_MUTEX_INITIALIZER;
-@@ -77,20 +81,24 @@ popen(command, type)
+-} *pidlist;
+-static pthread_mutex_t pidlist_mutex = PTHREAD_MUTEX_INITIALIZER;
++};
++#define pidlist		__popen_pidlist
++#define pidlist_mutex	__popen_pidlist_mutex
++#ifndef BUILDING_VARIANT
++__private_extern__ struct pid *pidlist = NULL;
++__private_extern__ pthread_mutex_t pidlist_mutex = PTHREAD_MUTEX_INITIALIZER;
++#else /* BUILDING_VARIANT */
++extern struct pid *pidlist;
++extern pthread_mutex_t pidlist_mutex;
++#endif /* !BUILDING_VARIANT */
+ 
+ #define	THREAD_LOCK()	if (__isthreaded) _pthread_mutex_lock(&pidlist_mutex)
+ #define	THREAD_UNLOCK()	if (__isthreaded) _pthread_mutex_unlock(&pidlist_mutex)
+@@ -73,85 +90,109 @@ popen(command, type)
+ {
+ 	struct pid *cur;
+ 	FILE *iop;
+-	int pdes[2], pid, twoway;
++	int pdes[2], pid, twoway, other;
  	char *argv[4];
  	struct pid *p;
++	posix_spawn_file_actions_t file_actions;
++	int err;
  
 -	/*
 -	 * Lite2 introduced two-way popen() pipes using _socketpair().
@@ -49,45 +85,139 @@
 -		if ((*type != 'r' && *type != 'w') || type[1])
 +		if ((*type != 'r' && *type != 'w') || type[1]) {
 +			errno = EINVAL;
++			return (NULL);
++		}
++		if (pipe(pdes) < 0)
  			return (NULL);
  	}
- 	if (pipe(pdes) < 0)
- 		return (NULL);
-+	}
+-	if (pipe(pdes) < 0)
+-		return (NULL);
  
- 	if ((cur = malloc(sizeof(struct pid))) == NULL) {
+-	if ((cur = malloc(sizeof(struct pid))) == NULL) {
++	/* fdopen can now fail */
++	if (*type == 'r') {
++		iop = fdopen(pdes[0], type);
++		other = pdes[1];
++	} else {
++		iop = fdopen(pdes[1], type);
++		other = pdes[0];
++	}
++	if (iop == NULL) {
  		(void)_close(pdes[0]);
-@@ -104,7 +112,7 @@ popen(command, type)
+ 		(void)_close(pdes[1]);
+ 		return (NULL);
+ 	}
+ 
++	if ((cur = malloc(sizeof(struct pid))) == NULL) {
++		(void)fclose(iop);
++		(void)_close(other);
++		return (NULL);
++	}
++
++	if ((err = posix_spawn_file_actions_init(&file_actions)) != 0) {
++		(void)fclose(iop);
++		(void)_close(other);
++		free(cur);
++		errno = err;
++		return (NULL);
++	}
++	if (*type == 'r') {
++		/*
++		 * The dup2() to STDIN_FILENO is repeated to avoid
++		 * writing to pdes[1], which might corrupt the
++		 * parent's copy.  This isn't good enough in
++		 * general, since the _exit() is no return, so
++		 * the compiler is free to corrupt all the local
++		 * variables.
++		 */
++		(void)posix_spawn_file_actions_addclose(&file_actions, pdes[0]);
++		if (pdes[1] != STDOUT_FILENO) {
++			(void)posix_spawn_file_actions_adddup2(&file_actions, pdes[1], STDOUT_FILENO);
++			(void)posix_spawn_file_actions_addclose(&file_actions, pdes[1]);
++			if (twoway)
++				(void)posix_spawn_file_actions_adddup2(&file_actions, STDOUT_FILENO, STDIN_FILENO);
++		} else if (twoway && (pdes[1] != STDIN_FILENO))
++			(void)posix_spawn_file_actions_adddup2(&file_actions, pdes[1], STDIN_FILENO);
++	} else {
++		if (pdes[0] != STDIN_FILENO) {
++			(void)posix_spawn_file_actions_adddup2(&file_actions, pdes[0], STDIN_FILENO);
++			(void)posix_spawn_file_actions_addclose(&file_actions, pdes[0]);
++		}
++		(void)posix_spawn_file_actions_addclose(&file_actions, pdes[1]);
++	}
++	for (p = pidlist; p; p = p->next) {
++		(void)posix_spawn_file_actions_addclose(&file_actions, p->fd);
++	}
++
+ 	argv[0] = "sh";
+ 	argv[1] = "-c";
+ 	argv[2] = (char *)command;
  	argv[3] = NULL;
  
- 	THREAD_LOCK();
+-	THREAD_LOCK();
 -	switch (pid = vfork()) {
-+	switch (pid = fork()) {
- 	case -1:			/* Error. */
- 		THREAD_UNLOCK();
- 		(void)_close(pdes[0]);
-@@ -138,7 +146,7 @@ popen(command, type)
- 			(void)_close(pdes[1]);
- 		}
- 		for (p = pidlist; p; p = p->next) {
+-	case -1:			/* Error. */
+-		THREAD_UNLOCK();
+-		(void)_close(pdes[0]);
+-		(void)_close(pdes[1]);
++	err = posix_spawn(&pid, _PATH_BSHELL, &file_actions, NULL, argv, environ);
++	posix_spawn_file_actions_destroy(&file_actions);
++
++	if (err == ENOMEM || err == EAGAIN) { /* as if fork failed */
++		(void)fclose(iop);
++		(void)_close(other);
+ 		free(cur);
++		errno = err;
+ 		return (NULL);
+-		/* NOTREACHED */
+-	case 0:				/* Child. */
+-		if (*type == 'r') {
+-			/*
+-			 * The _dup2() to STDIN_FILENO is repeated to avoid
+-			 * writing to pdes[1], which might corrupt the
+-			 * parent's copy.  This isn't good enough in
+-			 * general, since the _exit() is no return, so
+-			 * the compiler is free to corrupt all the local
+-			 * variables.
+-			 */
+-			(void)_close(pdes[0]);
+-			if (pdes[1] != STDOUT_FILENO) {
+-				(void)_dup2(pdes[1], STDOUT_FILENO);
+-				(void)_close(pdes[1]);
+-				if (twoway)
+-					(void)_dup2(STDOUT_FILENO, STDIN_FILENO);
+-			} else if (twoway && (pdes[1] != STDIN_FILENO))
+-				(void)_dup2(pdes[1], STDIN_FILENO);
+-		} else {
+-			if (pdes[0] != STDIN_FILENO) {
+-				(void)_dup2(pdes[0], STDIN_FILENO);
+-				(void)_close(pdes[0]);
+-			}
+-			(void)_close(pdes[1]);
+-		}
+-		for (p = pidlist; p; p = p->next) {
 -			(void)_close(fileno(p->fp));
-+			(void)_close(p->fd);
- 		}
- 		_execve(_PATH_BSHELL, argv, environ);
- 		_exit(127);
-@@ -149,9 +157,11 @@ popen(command, type)
- 	/* Parent; assume fdopen can't fail. */
+-		}
+-		_execve(_PATH_BSHELL, argv, environ);
+-		_exit(127);
+-		/* NOTREACHED */
++	} else if (err != 0) { /* couldn't exec the shell */
++		pid = -1;
+ 	}
+-	THREAD_UNLOCK();
+ 
+-	/* Parent; assume fdopen can't fail. */
  	if (*type == 'r') {
- 		iop = fdopen(pdes[0], type);
+-		iop = fdopen(pdes[0], type);
 +		cur->fd = pdes[0];
  		(void)_close(pdes[1]);
  	} else {
- 		iop = fdopen(pdes[1], type);
+-		iop = fdopen(pdes[1], type);
 +		cur->fd = pdes[1];
  		(void)_close(pdes[0]);
  	}
  
-@@ -162,7 +172,7 @@ popen(command, type)
+@@ -162,10 +203,11 @@ popen(command, type)
  	cur->next = pidlist;
  	pidlist = cur;
  	THREAD_UNLOCK();
@@ -96,3 +226,23 @@
  	return (iop);
  }
  
++#ifndef BUILDING_VARIANT
+ /*
+  * pclose --
+  *	Pclose returns -1 if stream is not associated with a `popened' command,
+@@ -198,6 +240,10 @@ pclose(iop)
+ 
+ 	(void)fclose(iop);
+ 
++	if (cur->pid < 0) {
++		free(cur);
++		return W_EXITCODE(127, 0);
++	}
+ 	do {
+ 		pid = _wait4(cur->pid, &pstat, 0, (struct rusage *)0);
+ 	} while (pid == -1 && errno == EINTR);
+@@ -206,3 +252,4 @@ pclose(iop)
+ 
+ 	return (pid == -1 ? -1 : pstat);
+ }
++#endif /* !BUILDING_VARIANT */

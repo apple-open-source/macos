@@ -1,15 +1,15 @@
-.TH CODESIGN_ALLOCATE 1 "July 17, 2006" "Apple Computer, Inc."
+.TH CODESIGN_ALLOCATE 1 "January 11, 2008" "Apple, Inc."
 .SH NAME
 codesign_allocate \-  add code signing data to a Mach-O file
 .SH SYNOPSIS
 .B codesign_allocate
-\-i oldfile [ \-a arch size ]... \-o newfile
+\-i oldfile [ \-a arch size ]... [ \-A cputype cpusubtype size ]... \-o newfile
 .SH DESCRIPTION
 .I codesign_allocate
 sets up a Mach-O file used by the dynamic linker so space for code signing data 
 of the specified size for the specified architecture is embed in the Mach-O
-file.  The program must be passed one \-a argument for each architecture in a
-universal file, or exactly one \-a for a thin file.
+file.  The program must be passed one \-a argument or one \-A argument for each
+architecture in a universal file, or exactly one \-a or \-A for a thin file.
 .TP
 .BI \-i " oldfile"
 specifies the input file as
@@ -23,6 +23,14 @@ specifies the output file as
 specifies for the architecture
 .I arch
 that the size of the code signing data is to be
+.I size.
+The value of
+.I size
+must be a multiple of 16.
+.TP
+.BI \-a " cputype cpusubtype size"
+specifies for the architecture as a pair of decimal integers for the cputype and
+cpusubtype that the size of the code signing data is to be
 .I size.
 The value of
 .I size

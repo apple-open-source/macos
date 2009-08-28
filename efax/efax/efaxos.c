@@ -123,8 +123,7 @@ void notify(CFStringRef status, CFTypeRef value)
   if (!pid)
   {
     i = getpid();
-    pid = CFNumberCreate(kCFAllocatorDefault,
-		kCFNumberSInt32Type, &i);
+    pid = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &i);
   }
 
   notification = CFDictionaryCreateMutable(kCFAllocatorDefault, 3,
@@ -207,6 +206,13 @@ int tdata ( TFILE *f, int t )
   fd_set fds ;
   int maxfd;
   struct timeval timeout ;
+  static int modem_added = 0;
+
+  if (modem_added && f->modem_wait)
+  {
+    modem_added = 0;
+    return TDATA_MODEMADDED;
+  }
 
   timeout.tv_sec  = t / 10 ; 
   timeout.tv_usec = ( t % 10 ) * 100000 ;
@@ -247,7 +253,15 @@ int tdata ( TFILE *f, int t )
     {
       if (errno == EINTR)
       {
-	msg("Wselect() interrupted in tdata()");
+        if (f->signal)
+        {
+          int sig = f->signal;
+          f->signal = 0;
+
+          (f->onsig)(sig);
+        }
+        else
+	  msg("Wselect() interrupted in tdata()");
 	continue;
       }
 
@@ -261,7 +275,16 @@ int tdata ( TFILE *f, int t )
 #ifdef __APPLE__
     if (sysEventPipes[0] != -1 && FD_ISSET(sysEventPipes[0], &fds))
     {
-      if ((err = sysEventMonitorUpdate(f)))
+      err = sysEventMonitorUpdate(f);
+
+      if (err == TDATA_MODEMADDED && !f->modem_wait)
+      {
+        /* If a modem was added but we're not interested just remember it for later... */
+	modem_added = 1;
+	err = 0;
+      }
+
+      if (err)
 	break;
     }
 
@@ -439,6 +462,8 @@ int ttymode ( TFILE *f, enum ttymodes mode )
     break ;
   }
   
+  /* msg("lttymode: tcsetattr(%d, TCSADRAIN,...)", f->fd); */
+
   if ( ! err && tcsetattr ( f->fd, TCSADRAIN, pt ) )
     err = msg ( "ES2tcsetattr on fd=%d failed:", f->fd ) ;
 
@@ -474,30 +499,37 @@ int ttyopen ( TFILE *f, char *fname, int reverse, int hwfc )
   int flags, err=0 ;
 
 #if defined(__APPLE__)
-  int fd, timeout;
+  int fd;
 
-  /*
-   * Wait for the device added notification...
-   */
-
-  timeout = 20;
-  while (!modem_found)
+  if ((fd = open(fname, O_RDWR | O_NONBLOCK, 0)) < 0 && errno == ENOENT)
   {
-    if (tdata(f, timeout) == TDATA_MODEMADDED)
-      break;
+   /*
+    * Wait for a device added notification...
+    */
 
-    if (timeout < 300)
-      timeout += 50;
+    /* Let tdata() know we're interested in modem add events... */
+    f->modem_wait = 1;
 
-    msg("Iwaiting for modem (%dsecs)", timeout/10);
+    /* Allow idle sleep while we're waiting for a modem... */
+    waiting = 1;
 
-#if defined(__APPLE__)
-    notify(CFSTR("nomodem"), NULL);
-#endif
+    do
+    {
+      msg("Iwaiting for modem");
+
+      err = tdata(f, -1);
+
+      if (err == TDATA_MODEMADDED)
+	msg("Imodem detected...");
+
+    } while ((fd = open(fname, O_RDWR | O_NONBLOCK, 0)) < 0 && errno == ENOENT);
+
+    /* We're no longer insterested in modem add or idle sleep events... */
+    f->modem_wait = 0;
+    waiting = 0;
   }
 
-
-  if ((fd = open(fname, O_RDWR | O_NONBLOCK, 0)) >= 0)
+  if (fd >= 0)
   {
     // clear the O_NONBLOCK flag on the port
     fcntl(fd, F_SETFL, 0);
@@ -677,7 +709,7 @@ static int ttlock ( char *fname, int log )
 
   if ( ! err ) {
     dirlen = ( p = strrchr( fname , '/' ) ) ? p-fname+1 : strlen ( fname ) ;
-    sprintf ( buf , "%.*sTMP..%05d" , dirlen , fname , (int) pid ) ;
+    snprintf ( buf , sizeof(buf), "%.*sTMP..%05d" , dirlen , fname , (int) pid ) ;
     if ( ! ( f = fopen( buf, "w" ) ) ) 
       err = msg ( "ES2can't open pre-lock file %s:", buf ) ;
   }
@@ -750,6 +782,7 @@ int lockall ( TFILE *f, char **lkfiles, int log )
   char **p = lkfiles ;
 
 #if defined(__APPLE__)
+  msg("llockall: disallow premption (fd %d)", f->fd);
   if (f->fd > 0)
   {
     int allowPremption = 0;
@@ -778,6 +811,7 @@ int unlockall (TFILE *f, char **lkfiles )
 
 #if defined(__APPLE__)
   int allowPremption = 1;
+  msg("llockall: allow premption (fd %d)", f->fd);
   ioctl(f->fd, IOSSPREEMPT, &allowPremption);
 #endif	/* __APPLE__ */
 
@@ -911,6 +945,7 @@ static int sysEventMonitorUpdate(TFILE *f)
       }
       else
       {
+	msg("Iterminating to sleep or shutdown...");
 	cleanup(6);
 	IOAllowPowerChange(sysevent.powerKernelPort, sysevent.powerNotificationID);
 	exit(6);
@@ -925,13 +960,7 @@ static int sysEventMonitorUpdate(TFILE *f)
     }
 
     if ((sysevent.event & SYSEVENT_MODEMADDED))
-    {
-      msg("Imodem detected...");
-      if (!modem_found)
-	err = TDATA_MODEMADDED;
-
-      modem_found = 1;
-    }
+      err = TDATA_MODEMADDED;
 
     if ((sysevent.event & SYSEVENT_MODEMREMOVED))
     {
@@ -1073,7 +1102,6 @@ static void *sysEventThreadEntry()
   {
     CFRunLoopRemoveSource(CFRunLoopGetCurrent(), powerRLS, kCFRunLoopDefaultMode);
     CFRunLoopSourceInvalidate(powerRLS);
-    CFRelease(powerRLS);
   }
 
   if (threadData.sysevent.powerKernelPort)

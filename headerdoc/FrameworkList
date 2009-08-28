@@ -5,10 +5,3 @@
 /System/Library/Frameworks/SystemConfiguration.framework/Headers/ SystemConfigurationFramework
 /System/Library/Frameworks/ForceFeedback.framework/Headers/ ForceFeedbackFramework
 /usr/include/DNSServiceDiscovery/ DNSServiceDiscovery
-
-/usr/include/notify.h DarwinNotify
-/System/Library/Frameworks/Message.framework/Headers/ message_framework
-/System/Library/Frameworks/DirectoryService.framework/Headers directory_services
-/System/Library/Frameworks/DiskArbitration.framework/Headers diskarb
-
-# /usr/include misc_headers

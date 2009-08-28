@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright © 1998-2009 Apple Inc.  All rights reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -29,6 +29,7 @@
 #include <IOKit/usb/IOUSBHubPolicyMaker.h>
 #include <IOKit/usb/IOUSBRootHubDevice.h>
 #include "AppleUSBEHCI.h"
+#include "USBTracepoints.h"
 
 #define super IOUSBControllerV3
 #define self this
@@ -50,6 +51,8 @@ __attribute__((format(printf, 1, 2)));
 void 
 AppleUSBEHCI::PollInterrupts(IOUSBCompletionAction safeAction)
 {
+	USBTrace_Start( kUSBTEHCIInterrupts, kTPEHCIInterruptsPollInterrupts, (uintptr_t)this, _errorInterrupt, _completeInterrupt, _portChangeInterrupt );
+
     if (_hostErrorInterrupt & kEHCIHostErrorIntBit)
     {
         _hostErrorInterrupt = 0;
@@ -60,44 +63,9 @@ AppleUSBEHCI::PollInterrupts(IOUSBCompletionAction safeAction)
 		if ( ++_errors.hostSystemError == (UInt32) (1L << _errors.displayed) )
 		{
 			USBLog(1, "AppleUSBEHCI[%p]::PollInterrupts - Host System Error Occurred - not restarted",  this);
+			USBTrace( kUSBTEHCIInterrupts, kTPEHCIInterruptsPollInterrupts , (uintptr_t)this, _errors.displayed, 0, 1 );
 			_errors.displayed++;
 		}
-
-#if 0
-		// this needs to be done using the power manager
-		
-		// Cardbus cards can generate spurious interrupts while ejecting, so don't try to recover on cardbus cards
-		//
-		if ( !_onCardBus )
-		{
-			if ( _rootHubDevice )
-			{
-				_rootHubDevice->terminate(kIOServiceRequired | kIOServiceSynchronous);
-				_rootHubDevice->detachAll(gIOUSBPlane);
-				_rootHubDevice->release();
-				_rootHubDevice = NULL;
-			}
-			SuspendUSBBus();
-			UIMFinalizeForPowerDown();
-			_ehciAvailable = false;					// tell the interrupt filter routine that we are off
-			IOSleep(100);
-			
-			// Initialize our hardware
-			//
-			UIMInitializeForPowerUp();
-			
-			_ehciBusState = kEHCIBusStateRunning;
-			_ehciAvailable = true;										// tell the interrupt filter routine that we are on
-			if ( _rootHubDevice == NULL )
-			{
-				IOReturn err = super::CreateRootHubDevice( _device, &_rootHubDevice );
-				if ( err != kIOReturnSuccess )
-				{
-					USBError(1,"AppleUSBEHCI[%p] Could not create root hub device upon wakeup (%x)!", this, err);
-				}
-			}
-        }
-#endif
     }
 	
     if (_errorInterrupt & kEHCIErrorIntBit)
@@ -105,36 +73,36 @@ AppleUSBEHCI::PollInterrupts(IOUSBCompletionAction safeAction)
         _errorInterrupt = 0;
         
         USBLog(7, "AppleUSBEHCI[%p]::PollInterrupts - completion (_errorInterrupt) interrupt",  this);
-        scavengeCompletedTransactions(safeAction);
+ 		USBTrace( kUSBTEHCIInterrupts, kTPEHCIInterruptsPollInterrupts , (uintptr_t)this, 0, 0, 4 );
+       scavengeCompletedTransactions(safeAction);
     }
 	
     if (_completeInterrupt & kEHCICompleteIntBit)
     {
         _completeInterrupt = 0;
         USBLog(7, "AppleUSBEHCI[%p]::PollInterrupts - completion (_completeInterrupt) interrupt",  this);
+		USBTrace( kUSBTEHCIInterrupts, kTPEHCIInterruptsPollInterrupts , (uintptr_t)this, 0, 0, 3 );
         scavengeCompletedTransactions(safeAction);
     }
 	
 	 //  Port Change Interrupt
     if (_portChangeInterrupt & kEHCIPortChangeIntBit)
     {
-		UInt32			port, numPorts;
 		_portChangeInterrupt = 0;
+		
+		USBTrace( kUSBTEHCIInterrupts, kTPEHCIInterruptsPollInterrupts , (uintptr_t)this, 0, 0, 5 );
+
         USBLog(6,"AppleUSBEHCI[%p]::PollInterrupts -  Port Change Interrupt on bus %d - ensuring usability", this, (uint32_t)_busNumber );
 		EnsureUsability();
-		numPorts = USBToHostLong(_pEHCICapRegisters->HCSParams) & kEHCINumPortsMask;
-		for (port = 0; port < numPorts; port++)
+
+		if (_myPowerState == kUSBPowerStateOn)
 		{
-			if (!_rhPortBeingResumed[port])
-			{
-				UInt32		portStatus = USBToHostLong(_pEHCIRegisters->PortSC[port]);
-				if (portStatus & kEHCIPortSC_Resume)
-				{
-					USBLog(5, "AppleUSBEHCI[%p]::PollInterrupts - port %d appears to be resuming from a remote wakeup - spawning thread to resume", this, (int)port+1);
-					_rhPortBeingResumed[port] = true;
-					thread_call_enter1(_rhResumePortTimerThread[port], (void*)(port+1));
-				}
-			}
+			// Check to see if we are resuming the port
+			RHCheckForPortResumes();
+		}
+		else
+		{
+			USBLog(2, "AppleUSBEHCI[%p]::PollInterrupts - deferring checking for RHStatus until we are running again", this);
 		}
     }
 
@@ -142,6 +110,7 @@ AppleUSBEHCI::PollInterrupts(IOUSBCompletionAction safeAction)
     if (_asyncAdvanceInterrupt & kEHCIAAEIntBit)
     {
         _asyncAdvanceInterrupt = 0;
+		USBTrace( kUSBTEHCIInterrupts, kTPEHCIInterruptsPollInterrupts , (uintptr_t)this, 0, 0, 6 );
 		USBLog(6, "AppleUSBEHCI[%p]::PollInterrupts - async advance interrupt",  this);
     }
 	
@@ -154,8 +123,11 @@ AppleUSBEHCI::PollInterrupts(IOUSBCompletionAction safeAction)
 		// we do this because this method is protected by the workloop gate whereas the FilterInterrupt one is not
 		_anchorTime = _tempAnchorTime;
 		_anchorFrame = _tempAnchorFrame;
-      
+		USBTrace( kUSBTEHCIInterrupts, kTPEHCIInterruptsPollInterrupts , (uintptr_t)this, 0, 0, 7 );
+    
     }
+
+	USBTrace_End( kUSBTEHCIInterrupts, kTPEHCIInterruptsPollInterrupts, (uintptr_t)this, 0, 0, 0 );
 }
 
 
@@ -166,7 +138,7 @@ AppleUSBEHCI::InterruptHandler(OSObject *owner, IOInterruptEventSource * /*sourc
     register 	AppleUSBEHCI		*controller = (AppleUSBEHCI *) owner;
     static 	Boolean 		emitted;
 	
-    if (!controller || controller->isInactive() || (controller->_onCardBus && controller->_pcCardEjected) || !controller->_controllerAvailable)
+    if (!controller || controller->isInactive() || !controller->_controllerAvailable)
 	{
 #if EHCI_USE_KPRINTF
 		kprintf("AppleUSBEHCI::InterruptHandler - Ignoring interrupt\n");
@@ -198,10 +170,12 @@ AppleUSBEHCI::PrimaryInterruptFilter(OSObject *owner, IOFilterInterruptEventSour
     register AppleUSBEHCI	*controller = (AppleUSBEHCI *)owner;
     bool					result = true;
 	
+//	USBTrace_Start( kUSBTEHCIInterrupts, kTPEHCIInterruptsPrimaryInterruptFilter, (uintptr_t)controller );
+	
     // If we our controller has gone away, or it's going away, or if we're on a PC Card and we have been ejected,
     // then don't process this interrupt.
     //
-    if (!controller || controller->isInactive() || (controller->_onCardBus && controller->_pcCardEjected) || !controller->_controllerAvailable)
+    if (!controller || controller->isInactive() || !controller->_controllerAvailable)
 	{
 #if EHCI_USE_KPRINTF
 		kprintf("AppleUSBEHCI[%p]::PrimaryInterruptFilter - Ignoring interrupt\n", controller);
@@ -214,6 +188,9 @@ AppleUSBEHCI::PrimaryInterruptFilter(OSObject *owner, IOFilterInterruptEventSour
     controller->_filterInterruptActive = true;
     result = controller->FilterInterrupt(0);
     controller->_filterInterruptActive = false;
+	
+//	USBTrace_End( kUSBTEHCIInterrupts, kTPEHCIInterruptsPrimaryInterruptFilter, (uintptr_t)controller, result);
+	
     return result;
 }
 
@@ -226,14 +203,16 @@ AppleUSBEHCI::FilterInterrupt(int index)
     register UInt32			activeInterrupts;
     register UInt32			enabledInterrupts;
     Boolean					needSignal = false;
-    AbsoluteTime			timeStamp;
+    uint64_t				timeStamp;
     
     enabledInterrupts = USBToHostLong(_pEHCIRegisters->USBIntr);
     activeInterrupts = enabledInterrupts & USBToHostLong(_pEHCIRegisters->USBSTS);
-    
+
     if (activeInterrupts != 0)
     {
-        // One of our 6 interrupts fired.  Process the ones which need to be processed at primary int time
+		USBTrace( kUSBTEHCIInterrupts, kTPEHCIInterruptsPrimaryInterruptFilter , (uintptr_t)this, enabledInterrupts, activeInterrupts, 0 );
+
+		// One of our 6 interrupts fired.  Process the ones which need to be processed at primary int time
         //
 		
         // Frame Number Rollover
@@ -250,7 +229,8 @@ AppleUSBEHCI::FilterInterrupt(int index)
 				_frameNumber += kEHCIFrameNumberIncrement;
 
 			_tempAnchorFrame = _frameNumber + (frindex >> 3);
-			clock_get_uptime(&_tempAnchorTime);
+			tempTime = mach_absolute_time();
+			_tempAnchorTime = *(AbsoluteTime*)&tempTime;
 			_frameRolloverInterrupt = kEHCIFrListRolloverIntBit;
 		
 			_pEHCIRegisters->USBSTS = HostToUSBLong(kEHCIFrListRolloverIntBit);			// clear the interrupt
@@ -304,7 +284,8 @@ AppleUSBEHCI::FilterInterrupt(int index)
             // Now that we have the beginning of the queue, walk it looking for low latency isoch TD's
             // Use this time as the time stamp time for all the TD's that we processed.  
             //
-            clock_get_uptime(&timeStamp);
+			timeStamp = mach_absolute_time();
+
 			_completeInterrupt = kEHCICompleteIntBit;
 			_pEHCIRegisters->USBSTS = HostToUSBLong(kEHCICompleteIntBit);			// clear the interrupt
             IOSync();
@@ -376,7 +357,7 @@ AppleUSBEHCI::FilterInterrupt(int index)
 						}
 						
 						if (isochEl->_lowLatency)
-							isochEl->UpdateFrameList(timeStamp);
+							isochEl->UpdateFrameList(*(AbsoluteTime*)&timeStamp);
 						// place this guy on the backward done queue
 						// the reason that we do not use the _logicalNext link is that the done queue is not a null terminated list
 						// and the element linked "last" in the list might not be a true link - trust me

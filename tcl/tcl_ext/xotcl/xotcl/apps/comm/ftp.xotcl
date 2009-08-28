@@ -1,0 +1,12 @@
+#!/usr/bin/env tclsh
+package require XOTcl; namespace import -force xotcl::*
+
+@ @File {description { A tiny FTP client }} 
+
+package require xotcl::comm::ftp
+
+SimpleRequest r1 -url ftp://prep.ai.mit.edu/README
+if {[r1 success]} {
+  puts "Got:"
+  puts [r1 getContent]
+}

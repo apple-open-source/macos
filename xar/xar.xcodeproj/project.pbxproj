@@ -36,6 +36,7 @@
 			buildPhases = (
 			);
 			dependencies = (
+				EEEFF4070EFB70EF00DBC955 /* PBXTargetDependency */,
 				B41FC13109F6BF6300006FAE /* PBXTargetDependency */,
 				B41FC13509F6BF6300006FAE /* PBXTargetDependency */,
 				B41FC13309F6BF6300006FAE /* PBXTargetDependency */,
@@ -47,6 +48,8 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		98665C6F0EA83E36008193F1 /* ea.c in Sources */ = {isa = PBXBuildFile; fileRef = 98665C6E0EA83E36008193F1 /* ea.c */; };
+		98665C710EA83E44008193F1 /* lzmaxar.c in Sources */ = {isa = PBXBuildFile; fileRef = 98665C700EA83E44008193F1 /* lzmaxar.c */; };
 		B41FC09C09F6BC2C00006FAE /* archive.c in Sources */ = {isa = PBXBuildFile; fileRef = B41FC07409F6BC2C00006FAE /* archive.c */; };
 		B41FC09E09F6BC2C00006FAE /* arcmod.c in Sources */ = {isa = PBXBuildFile; fileRef = B41FC07609F6BC2C00006FAE /* arcmod.c */; };
 		B41FC0A109F6BC2C00006FAE /* b64.c in Sources */ = {isa = PBXBuildFile; fileRef = B41FC07909F6BC2C00006FAE /* b64.c */; };
@@ -101,6 +104,8 @@
 		B476FACD0A49E68600BCD61F /* signature.c in Sources */ = {isa = PBXBuildFile; fileRef = B476FACC0A49E68600BCD61F /* signature.c */; };
 		B476FACF0A49E68600BCD61F /* signature.c in Sources */ = {isa = PBXBuildFile; fileRef = B476FACC0A49E68600BCD61F /* signature.c */; };
 		B4772CA30A003F7300E4205C /* xar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B4772CA20A003F6E00E4205C /* xar.h */; };
+		EEEFF3E60EFB700A00DBC955 /* xar-sig.c in Sources */ = {isa = PBXBuildFile; fileRef = EEEFF3DC0EFB6FC500DBC955 /* xar-sig.c */; };
+		EEEFF40E0EFB715100DBC955 /* libxar.1.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = B41FC05F09F6B7C200006FAE /* libxar.1.dylib */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -153,6 +158,20 @@
 			remoteGlobalIDString = B41FC0F309F6BE2F00006FAE;
 			remoteInfo = xarStatic;
 		};
+		EEEFF4060EFB70EF00DBC955 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B41FC04109F6B74500006FAE /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EEEFF3DF0EFB6FD500DBC955;
+			remoteInfo = xarsig;
+		};
+		EEEFF40A0EFB710500DBC955 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B41FC04109F6B74500006FAE /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B41FC05E09F6B7C200006FAE;
+			remoteInfo = xarLib;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -199,6 +218,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		98665C6E0EA83E36008193F1 /* ea.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ea.c; path = xar/lib/ea.c; sourceTree = "<group>"; };
+		98665C700EA83E44008193F1 /* lzmaxar.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = lzmaxar.c; path = xar/lib/lzmaxar.c; sourceTree = "<group>"; };
 		B41FC05F09F6B7C200006FAE /* libxar.1.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libxar.1.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		B41FC07309F6BC2C00006FAE /* appledouble.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = appledouble.h; path = xar/lib/appledouble.h; sourceTree = "<group>"; };
 		B41FC07409F6BC2C00006FAE /* archive.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = archive.c; path = xar/lib/archive.c; sourceTree = "<group>"; };
@@ -255,6 +276,8 @@
 		B4657F1E0A49E6150074E45D /* signature.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = signature.h; path = xar/lib/signature.h; sourceTree = "<group>"; };
 		B476FACC0A49E68600BCD61F /* signature.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = signature.c; path = xar/lib/signature.c; sourceTree = "<group>"; };
 		B4772CA20A003F6E00E4205C /* xar.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = xar.h; path = include/xar.h; sourceTree = BUILT_PRODUCTS_DIR; };
+		EEEFF3DC0EFB6FC500DBC955 /* xar-sig.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "xar-sig.c"; path = "xarsig/xar-sig.c"; sourceTree = "<group>"; };
+		EEEFF3E00EFB6FD500DBC955 /* xarsig */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = xarsig; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -288,12 +311,21 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		EEEFF3DE0EFB6FD500DBC955 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EEEFF40E0EFB715100DBC955 /* libxar.1.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		B41FC03F09F6B74500006FAE = {
 			isa = PBXGroup;
 			children = (
+				EEEFF3D60EFB6F5600DBC955 /* xarsig */,
 				B41FC12409F6BF3300006FAE /* README */,
 				B41FC12509F6BF3300006FAE /* xar.plist */,
 				B41FC12609F6BF3300006FAE /* xar.txt */,
@@ -311,6 +343,7 @@
 				B41FC05F09F6B7C200006FAE /* libxar.1.dylib */,
 				B41FC0E209F6BD6800006FAE /* xar */,
 				B41FC0F409F6BE2F00006FAE /* libxar.a */,
+				EEEFF3E00EFB6FD500DBC955 /* xarsig */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -318,6 +351,8 @@
 		B41FC07109F6BBBD00006FAE /* lib */ = {
 			isa = PBXGroup;
 			children = (
+				98665C700EA83E44008193F1 /* lzmaxar.c */,
+				98665C6E0EA83E36008193F1 /* ea.c */,
 				B41FC16309F6C56600006FAE /* config.h.in */,
 				B41FC16409F6C56600006FAE /* xar.h.in */,
 				B41FC07309F6BC2C00006FAE /* appledouble.h */,
@@ -391,6 +426,14 @@
 				B4772CA20A003F6E00E4205C /* xar.h */,
 			);
 			name = derived;
+			sourceTree = "<group>";
+		};
+		EEEFF3D60EFB6F5600DBC955 /* xarsig */ = {
+			isa = PBXGroup;
+			children = (
+				EEEFF3DC0EFB6FC500DBC955 /* xar-sig.c */,
+			);
+			name = xarsig;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -469,6 +512,23 @@
 			productReference = B41FC0F409F6BE2F00006FAE /* libxar.a */;
 			productType = "com.apple.product-type.library.static";
 		};
+		EEEFF3DF0EFB6FD500DBC955 /* xarsig */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EEEFF3E50EFB6FDA00DBC955 /* Build configuration list for PBXNativeTarget "xarsig" */;
+			buildPhases = (
+				EEEFF3DD0EFB6FD500DBC955 /* Sources */,
+				EEEFF3DE0EFB6FD500DBC955 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				EEEFF40B0EFB710500DBC955 /* PBXTargetDependency */,
+			);
+			name = xarsig;
+			productName = xarsig;
+			productReference = EEEFF3E00EFB6FD500DBC955 /* xarsig */;
+			productType = "com.apple.product-type.tool";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -481,9 +541,6 @@
 			productRefGroup = B41FC06009F6B7C200006FAE /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
-			projectRoots = (
-				"",
-			);
 			targets = (
 				B41FC12F09F6BF5900006FAE /* All */,
 				B41FC04F09F6B76200006FAE /* configure */,
@@ -491,6 +548,7 @@
 				B41FC0E109F6BD6800006FAE /* xarTool */,
 				B41FC0F309F6BE2F00006FAE /* xarStatic */,
 				B41FC12109F6BEF900006FAE /* OpenSource */,
+				EEEFF3DF0EFB6FD500DBC955 /* xarsig */,
 			);
 		};
 /* End PBXProject section */
@@ -560,6 +618,8 @@
 				B41FC0BF09F6BC2C00006FAE /* util.c in Sources */,
 				B41FC0C109F6BC2C00006FAE /* zxar.c in Sources */,
 				B476FACD0A49E68600BCD61F /* signature.c in Sources */,
+				98665C6F0EA83E36008193F1 /* ea.c in Sources */,
+				98665C710EA83E44008193F1 /* lzmaxar.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -595,6 +655,14 @@
 				B41FC10909F6BE9100006FAE /* util.c in Sources */,
 				B41FC10A09F6BE9100006FAE /* zxar.c in Sources */,
 				B476FACF0A49E68600BCD61F /* signature.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EEEFF3DD0EFB6FD500DBC955 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EEEFF3E60EFB700A00DBC955 /* xar-sig.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -636,14 +704,26 @@
 			target = B41FC0F309F6BE2F00006FAE /* xarStatic */;
 			targetProxy = B41FC13409F6BF6300006FAE /* PBXContainerItemProxy */;
 		};
+		EEEFF4070EFB70EF00DBC955 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EEEFF3DF0EFB6FD500DBC955 /* xarsig */;
+			targetProxy = EEEFF4060EFB70EF00DBC955 /* PBXContainerItemProxy */;
+		};
+		EEEFF40B0EFB710500DBC955 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B41FC05E09F6B7C200006FAE /* xarLib */;
+			targetProxy = EEEFF40A0EFB710500DBC955 /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		B41FC04309F6B74500006FAE /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 30;
+				CURRENT_PROJECT_VERSION = 36;
 				STRIP_STYLE = debugging;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
@@ -652,6 +732,8 @@
 		B41FC04409F6B74500006FAE /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 			};
 			name = Release;
@@ -705,7 +787,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 30;
+				CURRENT_PROJECT_VERSION = 36;
 				EXECUTABLE_PREFIX = lib;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
@@ -740,7 +822,6 @@
 				INSTALL_PATH = /usr/bin;
 				PREBINDING = NO;
 				PRODUCT_NAME = xar;
-				VALID_ARCHS = "ppc i386";
 				ZERO_LINK = YES;
 			};
 			name = Development;
@@ -760,7 +841,6 @@
 				INSTALL_PATH = /usr/bin;
 				PREBINDING = NO;
 				PRODUCT_NAME = xar;
-				VALID_ARCHS = "ppc i386";
 				ZERO_LINK = NO;
 			};
 			name = Release;
@@ -791,7 +871,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 30;
+				CURRENT_PROJECT_VERSION = 36;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = G5;
@@ -848,6 +928,38 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				PRODUCT_NAME = All;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		EEEFF3E20EFB6FD600DBC955 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				HEADER_SEARCH_PATHS = /usr/include/libxml2;
+				INSTALL_PATH = /usr/local/bin;
+				PREBINDING = NO;
+				PRODUCT_NAME = xarsig;
+			};
+			name = Development;
+		};
+		EEEFF3E30EFB6FD600DBC955 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				HEADER_SEARCH_PATHS = /usr/include/libxml2;
+				INSTALL_PATH = /usr/local/bin;
+				PREBINDING = NO;
+				PRODUCT_NAME = xarsig;
 				ZERO_LINK = NO;
 			};
 			name = Release;
@@ -914,6 +1026,15 @@
 			buildConfigurations = (
 				B41FC13809F6BF7900006FAE /* Development */,
 				B41FC13909F6BF7900006FAE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EEEFF3E50EFB6FDA00DBC955 /* Build configuration list for PBXNativeTarget "xarsig" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EEEFF3E20EFB6FD600DBC955 /* Development */,
+				EEEFF3E30EFB6FD600DBC955 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

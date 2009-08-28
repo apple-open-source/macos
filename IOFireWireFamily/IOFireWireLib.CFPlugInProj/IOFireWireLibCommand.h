@@ -381,7 +381,7 @@ namespace IOFireWireLib {
 			void							SetValues( UInt64 cmpVal, UInt64 newVal) ;
 			Boolean							DidLock() ;
 			IOReturn 						Locked( UInt32* oldValue) ;
-			IOReturn 						Locked( UInt64* oldValue) ;
+			IOReturn 						Locked64( UInt64* oldValue) ;
 
 		//
 		// static interface
@@ -471,6 +471,15 @@ namespace IOFireWireLib {
 	
 			// required Submit() method
 			virtual IOReturn		Submit() ;		
+			
+			static void S_SetChannel(	IOFireWireLibAsyncStreamCommandRef	self,
+										UInt32								channel );
+
+			static void S_SetSyncBits(	IOFireWireLibAsyncStreamCommandRef	self,
+										UInt16								sync );
+
+			static void S_SetTagBits(	IOFireWireLibAsyncStreamCommandRef	self,
+										UInt16								tag );
 
 		protected:
 			static Interface		sInterface ;

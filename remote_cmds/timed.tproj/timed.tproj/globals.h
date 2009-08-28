@@ -1,26 +1,3 @@
-/*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
 /*-
  * Copyright (c) 1985, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -54,11 +31,8 @@
  * SUCH DAMAGE.
  *
  *	@(#)globals.h	8.1 (Berkeley) 6/6/93
+ *	$FreeBSD: src/usr.sbin/timed/timed/globals.h,v 1.7 2007/01/20 08:24:02 maxim Exp $
  */
-
-#ifdef sgi
-#ident "$Revision: 1.1 $"
-#endif
 
 #include <sys/param.h>
 #include <sys/time.h>
@@ -67,6 +41,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#include <err.h>
 #include <errno.h>
 #include <limits.h>
 #include <netdb.h>
@@ -74,22 +49,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <syslog.h>
-#include <syslog.h>
 #include <unistd.h>
 
 #include <protocols/timed.h>
-#ifdef sgi
-#include <bstring.h>
-#include <sys/clock.h>
-/* use the constant HZ instead of the function CLK_TCK */
-#undef CLK_TCK
-#define CLK_TCK HZ
-#else
 #define	SECHR	(60*60)
 #define	SECDAY	(24*SECHR)
-#endif /* sgi */
 
-extern int errno;
 extern int sock;
 
 /* Best expected round trip for a measurement.
@@ -146,7 +111,7 @@ struct hosttbl {
 	struct  hosttbl *l_fwd;
 	struct	netinfo *ntp;
 	struct	sockaddr_in addr;
-	char	name[MAXHOSTNAMELEN+1];
+	char	name[MAXHOSTNAMELEN];
 	u_char	head;			/* 1=head of hash chain */
 	u_char	good;			/* 0=trusted host, for averaging */
 	u_char	noanswer;		/* count of failures to answer */
@@ -164,7 +129,7 @@ extern struct hosttbl hosttbl[NHOSTS+1];
 struct netinfo {
 	struct	netinfo *next;
 	struct	in_addr net;
-	u_long	mask;
+	u_int32_t	mask;
 	struct	in_addr my_addr;
 	struct	sockaddr_in dest_addr;	/* broadcast addr or point-point */
 	long	status;

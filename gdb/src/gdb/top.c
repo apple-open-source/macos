@@ -428,8 +428,8 @@ read_command_file (FILE *stream)
 
   if (target_can_async_p ()) 
     { 
-      gdb_set_async_override (1); 
-      make_cleanup (gdb_set_async_override, 0); 
+      gdb_set_async_override ((void *) 1); 
+      make_cleanup (gdb_set_async_override, (void *) 0); 
     } 
   /* APPLE LOCAL end async */
   command_loop ();
@@ -1525,8 +1525,6 @@ Notification of completion for asynchronous execution commands is %s.\n"),
 static void
 init_main (void)
 {
-  struct cmd_list_element *c;
-
   /* initialize the prompt stack to a simple "(gdb) " prompt or to
      whatever the DEFAULT_PROMPT is.  */
   the_prompts.top = 0;

@@ -1,8 +1,8 @@
 /* schema_prep.c - load builtin schema */
-/* $OpenLDAP: pkg/ldap/servers/slapd/schema_prep.c,v 1.141.2.14 2006/01/03 22:16:15 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/schema_prep.c,v 1.169.2.8 2008/07/09 23:43:08 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -85,9 +85,9 @@ oidValidate(
 
 
 static int objectClassPretty(
-	struct slap_syntax *syntax,
-	struct berval * in,
-	struct berval * out,
+	Syntax *syntax,
+	struct berval *in,
+	struct berval *out,
 	void *ctx )
 {
 	ObjectClass *oc;
@@ -241,8 +241,8 @@ objectSubClassMatch(
 static int objectSubClassIndexer( 
 	slap_mask_t use,
 	slap_mask_t mask,
-	struct slap_syntax *syntax,
-	struct slap_matching_rule *mr,
+	Syntax *syntax,
+	MatchingRule *mr,
 	struct berval *prefix,
 	BerVarray values,
 	BerVarray *keysp,
@@ -250,31 +250,24 @@ static int objectSubClassIndexer(
 {
 	int rc, noc, i;
 	BerVarray ocvalues;
+	ObjectClass **socs;
 	
 	for( noc=0; values[noc].bv_val != NULL; noc++ ) {
 		/* just count em */;
 	}
 
 	/* over allocate */
-	ocvalues = slap_sl_malloc( sizeof( struct berval ) * (noc+16), ctx );
+	socs = slap_sl_malloc( (noc+16) * sizeof( ObjectClass * ), ctx );
 
-	/* copy listed values (and termination) */
+	/* initialize */
 	for( i=0; i<noc; i++ ) {
-		ObjectClass *oc = oc_bvfind( &values[i] );
-		if( oc ) {
-			ocvalues[i] = oc->soc_cname;
-		} else {
-			ocvalues[i] = values[i];
-		}
+		socs[i] = oc_bvfind( &values[i] );
 	}
-
-	ocvalues[i].bv_val = NULL;
-	ocvalues[i].bv_len = 0;
 
 	/* expand values */
 	for( i=0; i<noc; i++ ) {
 		int j;
-		ObjectClass *oc = oc_bvfind( &ocvalues[i] );
+		ObjectClass *oc = socs[i];
 		if( oc == NULL || oc->soc_sups == NULL ) continue;
 		
 		for( j=0; oc->soc_sups[j] != NULL; j++ ) {
@@ -283,35 +276,37 @@ static int objectSubClassIndexer(
 			int k;
 
 			for( k=0; k<noc; k++ ) {
-				if( bvmatch( &ocvalues[k], &sup->soc_cname ) ) {
+				if( sup == socs[k] ) {
 					found++;
 					break;
 				}
 			}
 
 			if( !found ) {
-				ocvalues = slap_sl_realloc( ocvalues,
-					sizeof( struct berval ) * (noc+2), ctx );
+				socs = slap_sl_realloc( socs,
+					sizeof( ObjectClass * ) * (noc+2), ctx );
 
 				assert( k == noc );
-
-				ocvalues[noc] = sup->soc_cname;
-
-				assert( ocvalues[noc].bv_val != NULL );
-				assert( ocvalues[noc].bv_len != 0 );
-
-				noc++;
-
-				ocvalues[noc].bv_len = 0;
-				ocvalues[noc].bv_val = NULL;
+				socs[noc++] = sup;
 			}
 		}
 	}
+
+	ocvalues = slap_sl_malloc( sizeof( struct berval ) * (noc+1), ctx );
+	/* copy values */
+	for( i=0; i<noc; i++ ) {
+		if ( socs[i] )
+			ocvalues[i] = socs[i]->soc_cname;
+		else
+			ocvalues[i] = values[i];
+	}
+	BER_BVZERO( &ocvalues[i] );
 
 	rc = octetStringIndexer( use, mask, syntax, mr,
 		prefix, ocvalues, keysp, ctx );
 
 	slap_sl_free( ocvalues, ctx );
+	slap_sl_free( socs, ctx );
 	return rc;
 }
 
@@ -338,12 +333,12 @@ static struct slap_schema_oc_map {
 		0, 0, offsetof(struct slap_internal_schema, si_oc_top) },
 	{ "extensibleObject", "( 1.3.6.1.4.1.1466.101.120.111 "
 			"NAME 'extensibleObject' "
-			"DESC 'RFC2252: extensible object' "
+			"DESC 'RFC4512: extensible object' "
 			"SUP top AUXILIARY )",
 		0, SLAP_OC_OPERATIONAL,
 		offsetof(struct slap_internal_schema, si_oc_extensibleObject) },
 	{ "alias", "( 2.5.6.1 NAME 'alias' "
-			"DESC 'RFC2256: an alias' "
+			"DESC 'RFC4512: an alias' "
 			"SUP top STRUCTURAL "
 			"MUST aliasedObjectName )",
 		aliasObjectClass, SLAP_OC_ALIAS|SLAP_OC_OPERATIONAL,
@@ -360,14 +355,15 @@ static struct slap_schema_oc_map {
 		rootDseObjectClass, SLAP_OC_OPERATIONAL,
 		offsetof(struct slap_internal_schema, si_oc_rootdse) },
 	{ "subentry", "( 2.5.17.0 NAME 'subentry' "
+			"DESC 'RFC3672: subentry' "
 			"SUP top STRUCTURAL "
 			"MUST ( cn $ subtreeSpecification ) )",
 		subentryObjectClass, SLAP_OC_SUBENTRY|SLAP_OC_OPERATIONAL,
 		offsetof(struct slap_internal_schema, si_oc_subentry) },
 	{ "subschema", "( 2.5.20.1 NAME 'subschema' "
-		"DESC 'RFC2252: controlling subschema (sub)entry' "
+		"DESC 'RFC4512: controlling subschema (sub)entry' "
 		"AUXILIARY "
-		"MAY ( dITStructureRules $ nameForms $ ditContentRules $ "
+		"MAY ( dITStructureRules $ nameForms $ dITContentRules $ "
 			"objectClasses $ attributeTypes $ matchingRules $ "
 			"matchingRuleUse ) )",
 		subentryObjectClass, SLAP_OC_OPERATIONAL,
@@ -444,7 +440,7 @@ static struct slap_schema_ad_map {
 	size_t ssam_offset;
 } ad_map[] = {
 	{ "objectClass", "( 2.5.4.0 NAME 'objectClass' "
-			"DESC 'RFC2256: object classes of the entity' "
+			"DESC 'RFC4512: object classes of the entity' "
 			"EQUALITY objectIdentifierMatch "
 			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.38 )",
 		NULL, SLAP_AT_FINAL,
@@ -455,7 +451,7 @@ static struct slap_schema_ad_map {
 
 	/* user entry operational attributes */
 	{ "structuralObjectClass", "( 2.5.21.9 NAME 'structuralObjectClass' "
-			"DESC 'X.500(93): structural object class of entry' "
+			"DESC 'RFC4512: structural object class of entry' "
 			"EQUALITY objectIdentifierMatch "
 			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.38 "
 			"SINGLE-VALUE NO-USER-MODIFICATION USAGE directoryOperation )",
@@ -465,7 +461,7 @@ static struct slap_schema_ad_map {
 			objectSubClassIndexer, objectSubClassFilter,
 		offsetof(struct slap_internal_schema, si_ad_structuralObjectClass) },
 	{ "createTimestamp", "( 2.5.18.1 NAME 'createTimestamp' "
-			"DESC 'RFC2252: time which object was created' "
+			"DESC 'RFC4512: time which object was created' "
 			"EQUALITY generalizedTimeMatch "
 			"ORDERING generalizedTimeOrderingMatch "
 			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.24 "
@@ -475,7 +471,7 @@ static struct slap_schema_ad_map {
 		NULL, NULL, NULL, NULL, NULL,
 		offsetof(struct slap_internal_schema, si_ad_createTimestamp) },
 	{ "modifyTimestamp", "( 2.5.18.2 NAME 'modifyTimestamp' "
-			"DESC 'RFC2252: time which object was last modified' "
+			"DESC 'RFC4512: time which object was last modified' "
 			"EQUALITY generalizedTimeMatch "
 			"ORDERING generalizedTimeOrderingMatch "
 			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.24 "
@@ -485,7 +481,7 @@ static struct slap_schema_ad_map {
 		NULL, NULL, NULL, NULL, NULL,
 		offsetof(struct slap_internal_schema, si_ad_modifyTimestamp) },
 	{ "creatorsName", "( 2.5.18.3 NAME 'creatorsName' "
-			"DESC 'RFC2252: name of creator' "
+			"DESC 'RFC4512: name of creator' "
 			"EQUALITY distinguishedNameMatch "
 			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.12 "
 			"SINGLE-VALUE NO-USER-MODIFICATION USAGE directoryOperation )",
@@ -494,7 +490,7 @@ static struct slap_schema_ad_map {
 		NULL, NULL, NULL, NULL, NULL,
 		offsetof(struct slap_internal_schema, si_ad_creatorsName) },
 	{ "modifiersName", "( 2.5.18.4 NAME 'modifiersName' "
-			"DESC 'RFC2252: name of last modifier' "
+			"DESC 'RFC4512: name of last modifier' "
 			"EQUALITY distinguishedNameMatch "
 			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.12 "
 			"SINGLE-VALUE NO-USER-MODIFICATION USAGE directoryOperation )",
@@ -512,7 +508,7 @@ static struct slap_schema_ad_map {
 		NULL, NULL, NULL, NULL, NULL,
 		offsetof(struct slap_internal_schema, si_ad_hasSubordinates) },
 	{ "subschemaSubentry", "( 2.5.18.10 NAME 'subschemaSubentry' "
-			"DESC 'RFC2252: name of controlling subschema entry' "
+			"DESC 'RFC4512: name of controlling subschema entry' "
 			"EQUALITY distinguishedNameMatch "
 			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.12 SINGLE-VALUE "
 			"NO-USER-MODIFICATION USAGE directoryOperation )",
@@ -542,12 +538,12 @@ static struct slap_schema_ad_map {
 		offsetof(struct slap_internal_schema, si_ad_collectiveExclusions) },
 #endif
 
-	{ "entryDN", "( 1.3.6.1.4.1.4203.666.1.33 NAME 'entryDN' "   
+	{ "entryDN", "( 1.3.6.1.1.20 NAME 'entryDN' "   
 			"DESC 'DN of the entry' "
 			"EQUALITY distinguishedNameMatch "
 			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.12 "
 			"SINGLE-VALUE NO-USER-MODIFICATION USAGE directoryOperation )",
-		NULL, SLAP_AT_HIDE|SLAP_AT_DYNAMIC,
+		NULL, SLAP_AT_DYNAMIC,
 		NULL, NULL,
 		NULL, NULL, NULL, NULL, NULL,
 		offsetof(struct slap_internal_schema, si_ad_entryDN) },
@@ -613,7 +609,7 @@ static struct slap_schema_ad_map {
 			"EQUALITY CSNMatch "
 			"ORDERING CSNOrderingMatch "
 			"SYNTAX 1.3.6.1.4.1.4203.666.11.2.1{64} "
-			"SINGLE-VALUE NO-USER-MODIFICATION USAGE dSAOperation )",
+			"NO-USER-MODIFICATION USAGE dSAOperation )",
 		NULL, SLAP_AT_HIDE,
 		NULL, NULL,
 		NULL, NULL, NULL, NULL, NULL,
@@ -634,7 +630,7 @@ static struct slap_schema_ad_map {
 
 	/* root DSE attributes */
 	{ "altServer", "( 1.3.6.1.4.1.1466.101.120.6 NAME 'altServer' "
-			"DESC 'RFC2252: alternative servers' "
+			"DESC 'RFC4512: alternative servers' "
 			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 USAGE dSAOperation )",
 		rootDseAttribute, 0,
 		NULL, NULL,
@@ -642,7 +638,7 @@ static struct slap_schema_ad_map {
 		offsetof(struct slap_internal_schema, si_ad_altServer) },
 	{ "namingContexts", "( 1.3.6.1.4.1.1466.101.120.5 "
 			"NAME 'namingContexts' "
-			"DESC 'RFC2252: naming contexts' "
+			"DESC 'RFC4512: naming contexts' "
 			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.12 USAGE dSAOperation )",
 		rootDseAttribute, 0,
 		NULL, NULL,
@@ -650,7 +646,7 @@ static struct slap_schema_ad_map {
 		offsetof(struct slap_internal_schema, si_ad_namingContexts) },
 	{ "supportedControl", "( 1.3.6.1.4.1.1466.101.120.13 "
 			"NAME 'supportedControl' "
-			"DESC 'RFC2252: supported controls' "
+			"DESC 'RFC4512: supported controls' "
 			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.38 USAGE dSAOperation )",
 		rootDseAttribute, 0,
 		NULL, NULL,
@@ -658,7 +654,7 @@ static struct slap_schema_ad_map {
 		offsetof(struct slap_internal_schema, si_ad_supportedControl) },
 	{ "supportedExtension", "( 1.3.6.1.4.1.1466.101.120.7 "
 			"NAME 'supportedExtension' "
-			"DESC 'RFC2252: supported extended operations' "
+			"DESC 'RFC4512: supported extended operations' "
 			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.38 USAGE dSAOperation )",
 		rootDseAttribute, 0,
 		NULL, NULL,
@@ -666,7 +662,7 @@ static struct slap_schema_ad_map {
 		offsetof(struct slap_internal_schema, si_ad_supportedExtension) },
 	{ "supportedLDAPVersion", "( 1.3.6.1.4.1.1466.101.120.15 "
 			"NAME 'supportedLDAPVersion' "
-			"DESC 'RFC2252: supported LDAP versions' "
+			"DESC 'RFC4512: supported LDAP versions' "
 			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 USAGE dSAOperation )",
 		rootDseAttribute, 0,
 		NULL, NULL,
@@ -674,7 +670,7 @@ static struct slap_schema_ad_map {
 		offsetof(struct slap_internal_schema, si_ad_supportedLDAPVersion) },
 	{ "supportedSASLMechanisms", "( 1.3.6.1.4.1.1466.101.120.14 "
 			"NAME 'supportedSASLMechanisms' "
-			"DESC 'RFC2252: supported SASL mechanisms'"
+			"DESC 'RFC4512: supported SASL mechanisms'"
 			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 USAGE dSAOperation )",
 		rootDseAttribute, 0,
 		NULL, NULL,
@@ -682,7 +678,7 @@ static struct slap_schema_ad_map {
 		offsetof(struct slap_internal_schema, si_ad_supportedSASLMechanisms) },
 	{ "supportedFeatures", "( 1.3.6.1.4.1.4203.1.3.5 "
 			"NAME 'supportedFeatures' "
-			"DESC 'features supported by the server' "
+			"DESC 'RFC4512: features supported by the server' "
 			"EQUALITY objectIdentifierMatch "
 			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.38 "
 			"USAGE dSAOperation )",
@@ -700,7 +696,7 @@ static struct slap_schema_ad_map {
 		NULL, NULL,
 		NULL, NULL, NULL, NULL, NULL,
 		offsetof(struct slap_internal_schema, si_ad_monitorContext) },
-	{ "configContext", "( 1.3.6.1.4.1.4203.666.11.1.1 "
+	{ "configContext", "( 1.3.6.1.4.1.4203.1.12.2.1 "
 			"NAME 'configContext' "
 			"DESC 'config context' "
 			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.12 "
@@ -733,6 +729,7 @@ static struct slap_schema_ad_map {
 
 	/* subentry attributes */
 	{ "administrativeRole", "( 2.5.18.5 NAME 'administrativeRole' "
+			"DESC 'RFC3672: administrative role' "
 			"EQUALITY objectIdentifierMatch "
 			"USAGE directoryOperation "
 			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.38 )",
@@ -741,6 +738,7 @@ static struct slap_schema_ad_map {
 		NULL, NULL, NULL, NULL, NULL,
 		offsetof(struct slap_internal_schema, si_ad_administrativeRole) },
 	{ "subtreeSpecification", "( 2.5.18.6 NAME 'subtreeSpecification' "
+			"DESC 'RFC3672: subtree specification' "
 			"SINGLE-VALUE "
 			"USAGE directoryOperation "
 			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.45 )",
@@ -750,8 +748,8 @@ static struct slap_schema_ad_map {
 		offsetof(struct slap_internal_schema, si_ad_subtreeSpecification) },
 
 	/* subschema subentry attributes */
-	{ "ditStructureRules", "( 2.5.21.1 NAME 'dITStructureRules' "
-			"DESC 'RFC2252: DIT structure rules' "
+	{ "dITStructureRules", "( 2.5.21.1 NAME 'dITStructureRules' "
+			"DESC 'RFC4512: DIT structure rules' "
 			"EQUALITY integerFirstComponentMatch "
 			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.17 "
 			"USAGE directoryOperation ) ",
@@ -759,8 +757,8 @@ static struct slap_schema_ad_map {
 		NULL, NULL,
 		NULL, NULL, NULL, NULL, NULL,
 		offsetof(struct slap_internal_schema, si_ad_ditStructureRules) },
-	{ "ditContentRules", "( 2.5.21.2 NAME 'dITContentRules' "
-			"DESC 'RFC2252: DIT content rules' "
+	{ "dITContentRules", "( 2.5.21.2 NAME 'dITContentRules' "
+			"DESC 'RFC4512: DIT content rules' "
 			"EQUALITY objectIdentifierFirstComponentMatch "
 			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.16 USAGE directoryOperation )",
 		subentryAttribute, SLAP_AT_HIDE,
@@ -768,7 +766,7 @@ static struct slap_schema_ad_map {
 		NULL, NULL, objectClassMatch, NULL, NULL,
 		offsetof(struct slap_internal_schema, si_ad_ditContentRules) },
 	{ "matchingRules", "( 2.5.21.4 NAME 'matchingRules' "
-			"DESC 'RFC2252: matching rules' "
+			"DESC 'RFC4512: matching rules' "
 			"EQUALITY objectIdentifierFirstComponentMatch "
 			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.30 USAGE directoryOperation )",
 		subentryAttribute, 0,
@@ -776,7 +774,7 @@ static struct slap_schema_ad_map {
 		NULL, NULL, matchingRuleMatch, NULL, NULL,
 		offsetof(struct slap_internal_schema, si_ad_matchingRules) },
 	{ "attributeTypes", "( 2.5.21.5 NAME 'attributeTypes' "
-			"DESC 'RFC2252: attribute types' "
+			"DESC 'RFC4512: attribute types' "
 			"EQUALITY objectIdentifierFirstComponentMatch "
 			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.3 USAGE directoryOperation )",
 		subentryAttribute, 0,
@@ -784,7 +782,7 @@ static struct slap_schema_ad_map {
 		NULL, NULL, attributeTypeMatch, NULL, NULL,
 		offsetof(struct slap_internal_schema, si_ad_attributeTypes) },
 	{ "objectClasses", "( 2.5.21.6 NAME 'objectClasses' "
-			"DESC 'RFC2252: object classes' "
+			"DESC 'RFC4512: object classes' "
 			"EQUALITY objectIdentifierFirstComponentMatch "
 			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.37 USAGE directoryOperation )",
 		subentryAttribute, 0,
@@ -792,7 +790,7 @@ static struct slap_schema_ad_map {
 		NULL, NULL, objectClassMatch, NULL, NULL,
 		offsetof(struct slap_internal_schema, si_ad_objectClasses) },
 	{ "nameForms", "( 2.5.21.7 NAME 'nameForms' "
-			"DESC 'RFC2252: name forms ' "
+			"DESC 'RFC4512: name forms ' "
 			"EQUALITY objectIdentifierFirstComponentMatch "
 			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.35 USAGE directoryOperation )",
 		subentryAttribute, SLAP_AT_HIDE,
@@ -800,7 +798,7 @@ static struct slap_schema_ad_map {
 		NULL, NULL, NULL, NULL, NULL,
 		offsetof(struct slap_internal_schema, si_ad_nameForms) },
 	{ "matchingRuleUse", "( 2.5.21.8 NAME 'matchingRuleUse' "
-			"DESC 'RFC2252: matching rule uses' "
+			"DESC 'RFC4512: matching rule uses' "
 			"EQUALITY objectIdentifierFirstComponentMatch "
 			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.31 USAGE directoryOperation )",
 		subentryAttribute, 0,
@@ -809,7 +807,7 @@ static struct slap_schema_ad_map {
 		offsetof(struct slap_internal_schema, si_ad_matchingRuleUse) },
 
 	{ "ldapSyntaxes", "( 1.3.6.1.4.1.1466.101.120.16 NAME 'ldapSyntaxes' "
-			"DESC 'RFC2252: LDAP syntaxes' "
+			"DESC 'RFC4512: LDAP syntaxes' "
 			"EQUALITY objectIdentifierFirstComponentMatch "
 			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.54 USAGE directoryOperation )",
 		subentryAttribute, 0,
@@ -820,7 +818,7 @@ static struct slap_schema_ad_map {
 	/* knowledge information */
 	{ "aliasedObjectName", "( 2.5.4.1 "
 			"NAME ( 'aliasedObjectName' 'aliasedEntryName' ) "
-			"DESC 'RFC2256: name of aliased object' "
+			"DESC 'RFC4512: name of aliased object' "
 			"EQUALITY distinguishedNameMatch "
 			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.12 SINGLE-VALUE )",
 		aliasAttribute, SLAP_AT_FINAL,
@@ -828,7 +826,7 @@ static struct slap_schema_ad_map {
 		NULL, NULL, NULL, NULL, NULL,
 		offsetof(struct slap_internal_schema, si_ad_aliasedObjectName) },
 	{ "ref", "( 2.16.840.1.113730.3.1.34 NAME 'ref' "
-			"DESC 'namedref: subordinate referral URL' "
+			"DESC 'RFC3296: subordinate referral URL' "
 			"EQUALITY caseExactMatch "
 			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 "
 			"USAGE distributedOperation )",
@@ -861,16 +859,9 @@ static struct slap_schema_ad_map {
 	{ "authzTo", "( 1.3.6.1.4.1.4203.666.1.8 "
 			"NAME ( 'authzTo' 'saslAuthzTo' ) "
 			"DESC 'proxy authorization targets' "
-#ifdef SLAP_AUTHZ_SYNTAX
 			"EQUALITY authzMatch "
 			"SYNTAX 1.3.6.1.4.1.4203.666.2.7 "
-#else /* ! SLAP_AUTHZ_SYNTAX */
-			"EQUALITY caseExactMatch "
-			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 "
-#endif /* ! SLAP_AUTHZ_SYNTAX */
-#ifdef SLAP_ORDERED_PRETTYNORM
 			"X-ORDERED 'VALUES' "
-#endif /* SLAP_ORDERED_PRETTYNORM */
 			"USAGE distributedOperation )",
 		NULL, SLAP_AT_HIDE,
 		NULL, NULL,
@@ -879,16 +870,9 @@ static struct slap_schema_ad_map {
 	{ "authzFrom", "( 1.3.6.1.4.1.4203.666.1.9 "
 			"NAME ( 'authzFrom' 'saslAuthzFrom' ) "
 			"DESC 'proxy authorization sources' "
-#ifdef SLAP_AUTHZ_SYNTAX
 			"EQUALITY authzMatch "
 			"SYNTAX 1.3.6.1.4.1.4203.666.2.7 "
-#else /* ! SLAP_AUTHZ_SYNTAX */
-			"EQUALITY caseExactMatch "
-			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 "
-#endif /* ! SLAP_AUTHZ_SYNTAX */
-#ifdef SLAP_ORDERED_PRETTYNORM
 			"X-ORDERED 'VALUES' "
-#endif /* SLAP_ORDERED_PRETTYNORM */
 			"USAGE distributedOperation )",
 		NULL, SLAP_AT_HIDE,
 		NULL, NULL,
@@ -900,7 +884,7 @@ static struct slap_schema_ad_map {
 			"DESC 'RFC2589: entry time-to-live' "
 			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 SINGLE-VALUE "
 			"NO-USER-MODIFICATION USAGE dSAOperation )",
-		dynamicAttribute, 0,
+		dynamicAttribute, SLAP_AT_MANAGEABLE,
 		NULL, NULL,
 		NULL, NULL, NULL, NULL, NULL,
 		offsetof(struct slap_internal_schema, si_ad_entryTtl) },
@@ -917,7 +901,7 @@ static struct slap_schema_ad_map {
 
 	/* userApplication attributes (which system schema depends upon) */
 	{ "distinguishedName", "( 2.5.4.49 NAME 'distinguishedName' "
-			"DESC 'RFC2256: common supertype of DN attributes' "
+			"DESC 'RFC4519: common supertype of DN attributes' "
 			"EQUALITY distinguishedNameMatch "
 			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.12 )",
 		NULL, SLAP_AT_ABSTRACT,
@@ -925,7 +909,7 @@ static struct slap_schema_ad_map {
 		NULL, NULL, NULL, NULL, NULL,
 		offsetof(struct slap_internal_schema, si_ad_distinguishedName) },
 	{ "name", "( 2.5.4.41 NAME 'name' "
-			"DESC 'RFC2256: common supertype of name attributes' "
+			"DESC 'RFC4519: common supertype of name attributes' "
 			"EQUALITY caseIgnoreMatch "
 			"SUBSTR caseIgnoreSubstringsMatch "
 			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.15{32768} )",
@@ -934,14 +918,14 @@ static struct slap_schema_ad_map {
 		NULL, NULL, NULL, NULL, NULL,
 		offsetof(struct slap_internal_schema, si_ad_name) },
 	{ "cn", "( 2.5.4.3 NAME ( 'cn' 'commonName' ) "
-			"DESC 'RFC2256: common name(s) for which the entity is known by' "
+			"DESC 'RFC4519: common name(s) for which the entity is known by' "
 			"SUP name )",
 		NULL, 0,
 		NULL, NULL,
 		NULL, NULL, NULL, NULL, NULL,
 		offsetof(struct slap_internal_schema, si_ad_cn) },
 	{ "uid", "( 0.9.2342.19200300.100.1.1 NAME ( 'uid' 'userid' ) "
-			"DESC 'RFC1274: user identifier' "
+			"DESC 'RFC4519: user identifier' "
 			"EQUALITY caseIgnoreMatch "
 			"SUBSTR caseIgnoreSubstringsMatch "
 			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.15{256} )",
@@ -951,7 +935,7 @@ static struct slap_schema_ad_map {
 		offsetof(struct slap_internal_schema, si_ad_uid) },
 	{ "uidNumber", /* for ldapi:// */
 		"( 1.3.6.1.1.1.1.0 NAME 'uidNumber' "
-    		"DESC 'An integer uniquely identifying a user "
+    		"DESC 'RFC2307: An integer uniquely identifying a user "
 				"in an administrative domain' "
     		"EQUALITY integerMatch "
     		"SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 SINGLE-VALUE )",
@@ -961,7 +945,7 @@ static struct slap_schema_ad_map {
 		offsetof(struct slap_internal_schema, si_ad_uidNumber) },
 	{ "gidNumber", /* for ldapi:// */
 		"( 1.3.6.1.1.1.1.1 NAME 'gidNumber' "
-    		"DESC 'An integer uniquely identifying a group "
+    		"DESC 'RFC2307: An integer uniquely identifying a group "
 				"in an administrative domain' "
     		"EQUALITY integerMatch "
     		"SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 SINGLE-VALUE )",
@@ -970,7 +954,7 @@ static struct slap_schema_ad_map {
 		NULL, NULL, NULL, NULL, NULL,
 		offsetof(struct slap_internal_schema, si_ad_gidNumber) },
 	{ "userPassword", "( 2.5.4.35 NAME 'userPassword' "
-			"DESC 'RFC2256/2307: password of user' "
+			"DESC 'RFC4519/2307: password of user' "
 			"EQUALITY octetStringMatch "
 			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.40{128} )",
 		NULL, 0,
@@ -1008,41 +992,40 @@ static struct slap_schema_ad_map {
 		NULL, NULL, NULL, NULL, NULL,
 		offsetof(struct slap_internal_schema, si_ad_authPasswordSchemes) },
 #endif
-#if defined(LDAP_API_FEATURE_X_OPENLDAP_V2_KBIND) || defined(USES_KRBNAME)
 	{ "krbName", "( 1.3.6.1.4.1.250.1.32 "
 			"NAME ( 'krbName' 'kerberosName' ) "
 			"DESC 'Kerberos principal associated with object' "
 			"EQUALITY caseIgnoreIA5Match "
 			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 "
 			"SINGLE-VALUE )",
-		NULL, 0,
-		NULL, NULL,
-		NULL, NULL, NULL, NULL, NULL,
-		offsetof(struct slap_internal_schema, si_ad_krbName) },
-#endif
+			NULL, 0,
+			NULL, NULL,
+			NULL, NULL, NULL, NULL, NULL,
+			offsetof(struct slap_internal_schema, si_ad_krbName) },
 	{ "authAuthority", "( 1.3.6.1.4.1.63.1000.1.1.2.16.2 "
-		"NAME 'authAuthority' "
-		"DESC 'password server authentication authority' "
-		"EQUALITY caseExactMatch "
-		"SUBSTR caseExactSubstringsMatch "
-		"SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 ) ",
+			"NAME 'authAuthority' "
+			"DESC 'password server authentication authority' "
+			"EQUALITY caseExactMatch "
+			"SUBSTR caseExactSubstringsMatch "
+			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 ) ",
 		NULL, 0,
 		NULL, NULL,
 		NULL, NULL, NULL, NULL, NULL,
 		offsetof(struct slap_internal_schema, si_ad_authAuthority) },
 	{ "dNSHostName", "( 1.2.840.113556.1.4.619 "
-		"NAME 'dNSHostName' "
-		"DESC 'DNS fully qualified domain name' "
-		"EQUALITY caseExactMatch "
-		"SUBSTR caseExactSubstringsMatch "
-		"SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 ) "
-		"SINGLE-VALUE )",
+			"NAME 'dNSHostName' "
+			"DESC 'DNS fully qualified domain name' "
+			"EQUALITY caseExactMatch "
+			"SUBSTR caseExactSubstringsMatch "
+			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 ) "
+			"SINGLE-VALUE )",
 		NULL, 0,
 		NULL, NULL,
 		NULL, NULL, NULL, NULL, NULL,
 		offsetof(struct slap_internal_schema, si_ad_dnsHostName) },
+
 	{ "description", "( 2.5.4.13 NAME 'description' "
-			"DESC 'RFC2256: descriptive information' "
+			"DESC 'RFC4519: descriptive information' "
 			"EQUALITY caseIgnoreMatch "
 			"SUBSTR caseIgnoreSubstringsMatch "
 			"SYNTAX 1.3.6.1.4.1.1466.115.121.1.15{1024} )",
@@ -1052,7 +1035,7 @@ static struct slap_schema_ad_map {
 		offsetof(struct slap_internal_schema, si_ad_description) },
 
 	{ "seeAlso", "( 2.5.4.34 NAME 'seeAlso' "
-			"DESC 'RFC2256: DN of related object' "
+			"DESC 'RFC4519: DN of related object' "
 			"SUP distinguishedName )",
 		NULL, 0,
 		NULL, NULL,
@@ -1073,6 +1056,7 @@ static AttributeType slap_at_undefined = {
 	NULL, /* syntax (will be set later to "octetString") */
 	NULL, /* schema check function */
 	NULL, /* oidmacro */
+	NULL, /* soidmacro */
 	SLAP_AT_ABSTRACT|SLAP_AT_FINAL,	/* mask */
 	{ NULL }, /* next */
 	NULL /* attribute description */
@@ -1090,6 +1074,7 @@ static AttributeType slap_at_proxied = {
 	NULL, /* syntax (will be set later to "octetString") */
 	NULL, /* schema check function */
 	NULL, /* oidmacro */
+	NULL, /* soidmacro */
 	SLAP_AT_ABSTRACT|SLAP_AT_FINAL,	/* mask */
 	{ NULL }, /* next */
 	NULL /* attribute description */
@@ -1228,10 +1213,11 @@ slap_schema_load( void )
 				fprintf( stderr, "slap_schema_load: "
 					"AttributeType \"%s\": no OID\n",
 					ad_map[i].ssam_name );
+				ldap_attributetype_free( at );
 				return LDAP_OTHER;
 			}
 
-			code = at_add( at, 0, NULL, &err );
+			code = at_add( at, 0, NULL, NULL, &err );
 			if ( code ) {
 				ldap_attributetype_free( at );
 				fprintf( stderr, "slap_schema_load: AttributeType "
@@ -1343,18 +1329,20 @@ slap_schema_load( void )
 				fprintf( stderr, "slap_schema_load: ObjectClass "
 					"\"%s\": no OID\n",
 					oc_map[i].ssom_name );
+				ldap_objectclass_free( oc );
 				return LDAP_OTHER;
 			}
 
-			code = oc_add(oc,0,NULL,&err);
+			code = oc_add(oc,0,NULL,NULL,&err);
 			if ( code ) {
+				ldap_objectclass_free( oc );
 				fprintf( stderr, "slap_schema_load: ObjectClass "
 					"\"%s\": %s: \"%s\"\n",
 				 	oc_map[i].ssom_name, scherr2str(code), err);
 				return code;
 			}
-
 			ldap_memfree(oc);
+
 		}
 		{
 			ObjectClass ** ocp = (ObjectClass **)

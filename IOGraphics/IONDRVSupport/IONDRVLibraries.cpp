@@ -493,9 +493,9 @@ OSStatus EXP(RegistryPropertySetMod)(const RegEntryID * entryID,
 }
 
 OSStatus EXP(VSLSetDisplayConfiguration)(RegEntryID * entryID,
-					char *	propertyName,
-					void *	configData,
-					long	configDataSize)
+					RegPropertyName *  propertyName,
+					RegPropertyValue	configData,
+					RegPropertyValueSize configDataSize)
 {
     IOReturn		err = nrNotCreatedErr;
     IORegistryEntry *	options;
@@ -910,7 +910,8 @@ void EXP(BlockZeroUncached)(
 
 char * EXP(CStrCopy)( char * dst, const char * src)
 {
-    return(strcpy(dst,src));
+    strlcpy(dst,src, strlen(src) + 1);
+    return (dst);
 }
 
 SInt16 EXP(CStrCmp)(
@@ -929,7 +930,8 @@ char * EXP(CStrCat)(
   char *        dst,
   const char *  src)
 {
-    return(strcat(dst, src));
+    strlcat(dst, src, strlen(src) + 1);
+    return (dst);
 }
 
 char * EXP(CStrNCopy)(
@@ -1014,7 +1016,7 @@ OSStatus EXP(PoolDeallocate)( LogicalAddress address )
     if (mem[0] != 'mllc')
     {
 //	IOLog("PoolDeallocate invalid address %08lx\n", mem + 1);
-//	IOPanic("PoolDeallocate invalid address");
+//	panic("PoolDeallocate invalid address");
 	return (nrInvalidNodeErr);
     }
     kern_os_free( (void *) mem );
@@ -1268,7 +1270,7 @@ void EXP(SysDebugStr)( const char * from )
     static bool kprt = FALSE;
     static bool parsed = FALSE;
 
-    sprintf( format, "%%%ds", from[0]);
+    snprintf(format, sizeof(format), "%%%ds", from[0]);
 
     if (!parsed)
     {
@@ -1337,8 +1339,8 @@ EXP(VSLDoInterruptService)(InterruptServiceIDType serviceID)
 Boolean
 EXP(VSLPrepareCursorForHardwareCursor)(
   void *                        cursorRef,
-  HardwareCursorDescriptorPtr   hardwareDescriptor,
-  HardwareCursorInfoPtr         hwCursorInfo)
+  IOHardwareCursorDescriptor *  hardwareDescriptor,
+  IOHardwareCursorInfo *        hwCursorInfo)
 {
     return(IONDRVFramebuffer::VSLPrepareCursorForHardwareCursor(cursorRef, 
 				hardwareDescriptor, hwCursorInfo));

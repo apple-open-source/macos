@@ -1,0 +1,13 @@
+Begin3
+Title:          memchan
+Version:        2.2.1
+Entered-date:   DEC-03-2002
+Description:    An extension implementing several new channel-types.
+	Instances store their contents in memory, not on disk.
+Author:         Andreas Kupries (andreas_kupries@users.sourceforge.net)
+Maintained-by:  Andreas Kupries (andreas_kupries@users.sourceforge.net)
+Platforms:      Tcl 8.0 and higher. Does not work with 8.0(ab)* Works with
+	tcl 8.1a2 and 8.1b1/2/3, but don't leave channels open before
+	'exit'ing. This is solved since 8.1.0.
+Copying-policy: BSD-Style, see 'tcl'-license
+End

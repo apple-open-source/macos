@@ -31,7 +31,7 @@
 	CFStringRef errorString;
 	CFMutableDictionaryRef policyDict;
 	
-	if ( [self conformsTo:@protocol(PolicyAbstract)] )
+	if ( [self conformsToProtocol:@protocol(PolicyAbstract)] )
 	{
 		self = [super init];
 		
@@ -57,7 +57,7 @@
 
 -(id)initWithDictionary:(CFDictionaryRef)policyDict
 {
-	if ( [self conformsTo:@protocol(PolicyAbstract)] )
+	if ( [self conformsToProtocol:@protocol(PolicyAbstract)] )
 	{
 		self = [super init];
 		[(id)self convertDictToStruct:policyDict];
@@ -79,7 +79,7 @@
 	char timeBuff[256];
 	BOOL addSpaceChar = NO;
 	
-	if ( [self conformsTo:@protocol(PolicyAbstract)] )
+	if ( [self conformsToProtocol:@protocol(PolicyAbstract)] )
 	{
 		do
 		{
@@ -161,7 +161,7 @@
 	char *returnString = NULL;
 	long length;
 	
-	if ( [self conformsTo:@protocol(PolicyAbstract)] )
+	if ( [self conformsToProtocol:@protocol(PolicyAbstract)] )
 	{
 		policyDict = withStateInfo ? [(id)self convertStructToDictWithState] : [(id)self convertStructToDict];
 		if ( policyDict == NULL )

@@ -1,0 +1,20 @@
+--- Makefile.in.orig	2008-09-18 18:20:48.000000000 -0700
++++ Makefile.in	2008-09-18 18:21:00.000000000 -0700
+@@ -181,7 +181,7 @@
+ top_srcdir = @top_srcdir@
+ EXTRA_DIST = MAINT
+ SUBDIRS = src magic tests doc python
+-all: config.h
++all:
+ 	$(MAKE) $(AM_MAKEFLAGS) all-recursive
+ 
+ .SUFFIXES:
+@@ -201,7 +201,7 @@
+ 	cd $(top_srcdir) && \
+ 	  $(AUTOMAKE) --gnu  Makefile
+ .PRECIOUS: Makefile
+-Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
++Makefile:
+ 	@case '$?' in \
+ 	  *config.status*) \
+ 	    echo ' $(SHELL) ./config.status'; \

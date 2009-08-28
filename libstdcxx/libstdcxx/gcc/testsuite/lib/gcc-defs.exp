@@ -12,7 +12,7 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 load_lib wrapper.exp
 
@@ -31,6 +31,11 @@ proc ${tool}_check_compile {testcase option objname gcc_output} {
 
     if [string match "$fatal_signal 11" $gcc_output] then {
 	${tool}_fail $testcase "Got Signal 11, $option"
+	return 0
+    }
+
+    if [string match "*internal compiler error*" $gcc_output] then {
+	${tool}_fail $testcase "$option (internal compiler error)"
 	return 0
     }
 
@@ -103,7 +108,7 @@ proc ${tool}_fail { testcase cflags } {
 
 proc ${tool}_finish { } {
     # The testing harness apparently requires this.
-    global errorInfo;
+    global errorInfo
 
     if [info exists errorInfo] then {
 	unset errorInfo
@@ -121,11 +126,11 @@ proc ${tool}_finish { } {
 #
 
 proc ${tool}_exit { } {
-    global gluefile;
+    global gluefile
 
     if [info exists gluefile] {
-	file_on_build delete $gluefile;
-	unset gluefile;
+	file_on_build delete $gluefile
+	unset gluefile
     }
 }
     
@@ -218,4 +223,36 @@ proc dg-additional-files-options { options source } {
     }
 
     return $options
+}
+
+# Return a colon-separate list of directories to search for libraries
+# for COMPILER, including multilib directories.
+
+proc gcc-set-multilib-library-path { compiler } {
+    global rootme
+
+    # ??? rootme will not be set when testing an installed compiler.
+    # In that case, we should perhaps use some other method to find
+    # libraries.
+    if {![info exists rootme]} {
+	return ""
+    }
+
+    set libpath ":${rootme}"
+    set compiler [lindex $compiler 0]
+    if { [is_remote host] == 0 && [which $compiler] != 0 } {
+	foreach i "[exec $compiler --print-multi-lib]" {
+	    set mldir ""
+	    regexp -- "\[a-z0-9=_/\.-\]*;" $i mldir
+	    set mldir [string trimright $mldir "\;@"]
+	    if { "$mldir" == "." } {
+		continue
+	    }
+	    if { [llength [glob -nocomplain ${rootme}/${mldir}/libgcc_s*.so.*]] >= 1 } {
+		append libpath ":${rootme}/${mldir}"
+	    }
+	}
+    }
+
+    return $libpath
 }

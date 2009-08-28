@@ -1,9 +1,9 @@
-/* $Id: chars.c,v 1.121 2006/11/10 02:49:07 dolorous Exp $ */
+/* $Id: chars.c,v 1.122.2.2 2007/04/23 14:03:28 dolorous Exp $ */
 /**************************************************************************
  *   chars.c                                                              *
  *                                                                        *
  *   Copyright (C) 2001, 2002, 2003, 2004 Chris Allegretta                *
- *   Copyright (C) 2005, 2006 David Lawrence Ramsey                       *
+ *   Copyright (C) 2005, 2006, 2007 David Lawrence Ramsey                 *
  *   This program is free software; you can redistribute it and/or modify *
  *   it under the terms of the GNU General Public License as published by *
  *   the Free Software Foundation; either version 2, or (at your option)  *
@@ -38,9 +38,8 @@ static bool use_utf8 = FALSE;
 	/* Whether we've enabled UTF-8 support. */
 static const wchar_t bad_wchar = 0xFFFD;
 	/* If we get an invalid multibyte sequence, we treat it as
-	 * Unicode FFFD (Replacement Character), unless we're
-	 * determining if it's a control character or searching for a
-	 * match to it. */
+	 * Unicode FFFD (Replacement Character), unless we're searching
+	 * for a match to it. */
 static const char *const bad_mbchar = "\xEF\xBF\xBD";
 static const int bad_mbchar_len = 3;
 
@@ -578,19 +577,19 @@ int mbstrncasecmp(const char *s1, const char *s2, size_t n)
  * Copyright (C) 1996, 1997, 1998, 1999, 2000 Michael R. Elkins
  * <me@cs.hmc.edu>
  * Copyright (C) 1999, 2000 Thomas Roessler <roessler@guug.de>
- * 
+ *
  *     This program is free software; you can redistribute it
  *     and/or modify it under the terms of the GNU General Public
  *     License as published by the Free Software Foundation; either
  *     version 2 of the License, or (at your option) any later
  *     version.
- * 
+ *
  *     This program is distributed in the hope that it will be
  *     useful, but WITHOUT ANY WARRANTY; without even the implied
  *     warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
  *     PURPOSE.  See the GNU General Public License for more
  *     details.
- * 
+ *
  *     You should have received a copy of the GNU General Public
  *     License along with this program; if not, write to the Free
  *     Software Foundation, Inc., 51 Franklin St, Fifth Floor,
@@ -984,9 +983,7 @@ bool has_blank_mbchars(const char *s)
 	bool retval = FALSE;
 
 	while (*s != '\0') {
-	    int chr_mb_len;
-
-	    chr_mb_len = parse_mbchar(s, chr_mb, NULL);
+	    int chr_mb_len = parse_mbchar(s, chr_mb, NULL);
 
 	    if (is_blank_mbchar(chr_mb)) {
 		retval = TRUE;
@@ -1022,7 +1019,7 @@ bool is_valid_mbstring(const char *s)
 {
     assert(s != NULL);
 
-    return 
+    return
 #ifdef ENABLE_UTF8
 	use_utf8 ? (mbstowcs(NULL, s, 0) != (size_t)-1) :
 #endif

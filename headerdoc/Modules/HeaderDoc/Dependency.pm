@@ -2,8 +2,7 @@
 #
 # Class name: 	Dependency
 # Synopsis: 	Used by headerdoc2html.pl to handle dependency tracking.
-# Author: David Gatwood(dgatwood@apple.com)
-# Last Updated: $Date: 2007/04/24 23:34:16 $
+# Last Updated: $Date: 2009/03/30 19:38:50 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -33,7 +32,7 @@ use strict;
 use vars qw($VERSION @ISA);
 use HeaderDoc::Utilities qw(isKeyword quote stringToFields casecmp);
 
-$VERSION = '$Revision: 1.1.2.4 $';
+$HeaderDoc::Dependency::VERSION = '$Revision: 1.3 $';
 ################ General Constants ###################################
 my $debugging = 0;
 
@@ -105,8 +104,8 @@ sub findname {
     my $self = shift;
     my $name = shift;
 
-    # print "FINDNAME: $name\n";
-    # print "RETURNING: ".$namehash{$name}."\n";
+    # print STDERR "FINDNAME: $name\n";
+    # print STDERR "RETURNING: ".$namehash{$name}."\n";
 
     return $namehash{$name};
 }
@@ -125,7 +124,7 @@ sub depname {
     if (@_) {
 	my $depname = shift;
 	$self->{DEPNAME} = $depname;
-	# print "Setting \$namehasn{$depname} to $self\n";
+	# print STDERR "Setting \$namehasn{$depname} to $self\n";
 	$namehash{$depname} = \$self;
     }
     return $self->{DEPNAME};
@@ -148,6 +147,31 @@ sub reparent {
     }
     $oldparent->{CHILDREN} = @newkids;
     $self->addchild($node);
+}
+
+sub dbprint {
+    my $self = shift;
+    my $indent = "";
+    if (@_) {
+	$indent = shift;
+    }
+
+    print STDERR $indent."o---+".$self->{NAME}." (DEPTH ".$self->{DEPTH}.")\n";
+    if ($self->{PRINTED}) {
+	print STDERR $indent."    |--- Infinite recursion detected.  Aborting.\n";
+	return;
+    }
+
+    my $childindent = $indent."|   ";
+    $self->{PRINTED} = 1;
+
+    foreach my $childref (@{$self->{CHILDREN}}) {
+	my $childnode = ${$childref};
+	bless($childnode, "HeaderDoc::Dependency");
+	$childnode->dbprint($childindent);
+    }
+    # $self->{PRINTED} = 0;
+    print STDERR "$indent\n";
 }
 
 1;

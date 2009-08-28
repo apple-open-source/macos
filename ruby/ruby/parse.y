@@ -2,8 +2,8 @@
 
   parse.y -
 
-  $Author: shyouhei $
-  $Date: 2008-06-29 16:52:47 +0900 (Sun, 29 Jun 2008) $
+  $Author: knu $
+  $Date: 2008-06-06 19:39:57 +0900 (Fri, 06 Jun 2008) $
   created at: Fri May 28 18:02:42 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -195,6 +195,8 @@ static void top_local_setup();
 #define nd_paren(node) (char)((node)->u2.id >> CHAR_BIT*2)
 #define nd_nest u3.id
 
+#define NEW_BLOCK_VAR(b, v) NEW_NODE(NODE_BLOCK_PASS, 0, b, v)
+
 /* Older versions of Yacc set YYMAXDEPTH to a very low value by default (150,
    for instance).  This is too low for Ruby to parse some files, such as
    date/format.rb, therefore bump the value up to at least Bison's default. */
@@ -278,7 +280,8 @@ static void top_local_setup();
 %type <node> mrhs superclass block_call block_command
 %type <node> f_arglist f_args f_optarg f_opt f_rest_arg f_block_arg opt_f_block_arg
 %type <node> assoc_list assocs assoc undef_list backref string_dvar
-%type <node> block_var opt_block_var brace_block cmd_brace_block do_block lhs none fitem
+%type <node> for_var block_var opt_block_var block_par
+%type <node> brace_block cmd_brace_block do_block lhs none fitem
 %type <node> mlhs mlhs_head mlhs_basic mlhs_entry mlhs_item mlhs_node
 %type <id>   fsym variable sym symbol operation operation2 operation3
 %type <id>   cname fname op
@@ -1246,7 +1249,6 @@ arg_value	: arg
 aref_args	: none
 		| command opt_nl
 		    {
-		        rb_warn("parenthesize argument(s) for future version");
 			$$ = NEW_LIST($1);
 		    }
 		| args trailer
@@ -1279,12 +1281,10 @@ paren_args	: '(' none ')'
 		    }
 		| '(' block_call opt_nl ')'
 		    {
-		        rb_warn("parenthesize argument for future version");
 			$$ = NEW_LIST($2);
 		    }
 		| '(' args ',' block_call opt_nl ')'
 		    {
-		        rb_warn("parenthesize argument for future version");
 			$$ = list_append($2, $4);
 		    }
 		;
@@ -1295,7 +1295,6 @@ opt_paren_args	: none
 
 call_args	: command
 		    {
-		        rb_warn("parenthesize argument(s) for future version");
 			$$ = NEW_LIST($1);
 		    }
 		| args opt_block_arg
@@ -1614,7 +1613,7 @@ primary		: literal
 		    {
 			$$ = $4;
 		    }
-		| kFOR block_var kIN {COND_PUSH(1);} expr_value do {COND_POP();}
+		| kFOR for_var kIN {COND_PUSH(1);} expr_value do {COND_POP();}
 		  compstmt
 		  kEND
 		    {
@@ -1761,22 +1760,91 @@ opt_else	: none
 		    }
 		;
 
-block_var	: lhs
+for_var 	: lhs
 		| mlhs
+		;
+
+block_par	: mlhs_item
+		    {
+			$$ = NEW_LIST($1);
+		    }
+		| block_par ',' mlhs_item
+		    {
+			$$ = list_append($1, $3);
+		    }
+		;
+
+block_var	: block_par
+		    {
+			if ($1->nd_alen == 1) {
+			    $$ = $1->nd_head;
+			    rb_gc_force_recycle((VALUE)$1);
+			}
+			else {
+			    $$ = NEW_MASGN($1, 0);
+			}
+		    }
+		| block_par ','
+		    {
+			$$ = NEW_MASGN($1, 0);
+		    }
+		| block_par ',' tAMPER lhs
+		    {
+			$$ = NEW_BLOCK_VAR($4, NEW_MASGN($1, 0));
+		    }
+		| block_par ',' tSTAR lhs ',' tAMPER lhs
+		    {
+			$$ = NEW_BLOCK_VAR($7, NEW_MASGN($1, $4));
+		    }
+		| block_par ',' tSTAR ',' tAMPER lhs
+		    {
+			$$ = NEW_BLOCK_VAR($6, NEW_MASGN($1, -1));
+		    }
+		| block_par ',' tSTAR lhs
+		    {
+			$$ = NEW_MASGN($1, $4);
+		    }
+		| block_par ',' tSTAR
+		    {
+			$$ = NEW_MASGN($1, -1);
+		    }
+		| tSTAR lhs ',' tAMPER lhs
+		    {
+			$$ = NEW_BLOCK_VAR($5, NEW_MASGN(0, $2));
+		    }
+		| tSTAR ',' tAMPER lhs
+		    {
+			$$ = NEW_BLOCK_VAR($4, NEW_MASGN(0, -1));
+		    }
+		| tSTAR lhs
+		    {
+			$$ = NEW_MASGN(0, $2);
+		    }
+		| tSTAR
+		    {
+			$$ = NEW_MASGN(0, -1);
+		    }
+		| tAMPER lhs
+		    {
+			$$ = NEW_BLOCK_VAR($2, (NODE*)1);
+		    }
 		;
 
 opt_block_var	: none
 		| '|' /* none */ '|'
 		    {
 			$$ = (NODE*)1;
+			command_start = Qtrue;
 		    }
 		| tOROP
 		    {
 			$$ = (NODE*)1;
+			command_start = Qtrue;
 		    }
 		| '|' block_var '|'
 		    {
 			$$ = $2;
+			command_start = Qtrue;
 		    }
 		;
 
@@ -2891,8 +2959,7 @@ read_escape()
 }
 
 static int
-tokadd_escape(term)
-    int term;
+tokadd_escape()
 {
     int c;
 
@@ -2957,7 +3024,7 @@ tokadd_escape(term)
 	tokadd('\\'); tokadd('c');
       escaped:
 	if ((c = nextc()) == '\\') {
-	    return tokadd_escape(term);
+	    return tokadd_escape();
 	}
 	else if (c == -1) goto eof;
 	tokadd(c);
@@ -2969,8 +3036,7 @@ tokadd_escape(term)
 	return -1;
 
       default:
-	if (c != '\\' || c != term)
-	    tokadd('\\');
+        tokadd('\\');
 	tokadd(c);
     }
     return 0;
@@ -3090,7 +3156,7 @@ tokadd_string(func, term, paren, nest)
 	      default:
 		if (func & STR_FUNC_REGEXP) {
 		    pushback(c);
-		    if (tokadd_escape(term) < 0)
+		    if (tokadd_escape() < 0)
 			return -1;
 		    continue;
 		}
@@ -4165,6 +4231,7 @@ yylex()
 	COND_PUSH(0);
 	CMDARG_PUSH(0);
 	lex_state = EXPR_BEG;
+	if (c != tLBRACE) command_start = Qtrue;
 	return c;
 
       case '\\':
@@ -4457,7 +4524,7 @@ yylex()
 	    }
 
 	    if (lex_state != EXPR_DOT) {
-		struct kwtable *kw;
+		const struct kwtable *kw;
 
 		/* See if it is a reserved word.  */
 		kw = rb_reserved_word(tok(), toklen());
@@ -4469,6 +4536,7 @@ yylex()
 			return kw->id[0];
 		    }
 		    if (kw->id[0] == kDO) {
+			command_start = Qtrue;
 			if (COND_P()) return kDO_COND;
 			if (CMDARG_P() && state != EXPR_CMDARG)
 			    return kDO_BLOCK;
@@ -5110,7 +5178,7 @@ static void
 void_expr0(node)
     NODE *node;
 {
-    char *useless = 0;
+    const char *useless = 0;
 
     if (!RTEST(ruby_verbose)) return;
 
@@ -5823,6 +5891,10 @@ int
 ruby_parser_stack_on_heap()
 {
 #if defined(YYMALLOC)
+    (void)rb_parser_realloc;
+    (void)rb_parser_calloc;
+    (void)nodetype;
+    (void)nodeline;
     return Qfalse;
 #else
     return Qtrue;
@@ -5877,7 +5949,7 @@ rb_parser_while_loop(chop, split)
 
 static struct {
     ID token;
-    char *name;
+    const char *name;
 } op_tbl[] = {
     {tDOT2,	".."},
     {tDOT3,	"..."},
@@ -6125,11 +6197,11 @@ rb_intern(name)
     return id;
 }
 
-char *
+const char *
 rb_id2name(id)
     ID id;
 {
-    char *name;
+    const char *name;
     st_data_t data;
 
     if (id < tLAST_TOKEN) {

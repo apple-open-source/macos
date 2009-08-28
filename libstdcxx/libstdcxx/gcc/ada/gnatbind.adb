@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -75,6 +75,10 @@ procedure Gnatbind is
 
    Mapping_File : String_Ptr := null;
 
+   function Gnatbind_Supports_Auto_Init return Boolean;
+   --  Indicates if automatic initialization of elaboration procedure
+   --  through the constructor mechanism is possible on the platform.
+
    procedure List_Applicable_Restrictions;
    --  List restrictions that apply to this partition if option taken
 
@@ -82,6 +86,32 @@ procedure Gnatbind is
    --  Scan and process binder specific arguments. Argv is a single argument.
    --  All the one character arguments are still handled by Switch. This
    --  routine handles -aO -aI and -I-.
+
+   function Is_Cross_Compiler return Boolean;
+   --  Returns True iff this is a cross-compiler
+
+   ---------------------------------
+   -- Gnatbind_Supports_Auto_Init --
+   ---------------------------------
+
+   function Gnatbind_Supports_Auto_Init return Boolean is
+      function gnat_binder_supports_auto_init return Integer;
+      pragma Import (C, gnat_binder_supports_auto_init,
+                     "__gnat_binder_supports_auto_init");
+   begin
+      return gnat_binder_supports_auto_init /= 0;
+   end Gnatbind_Supports_Auto_Init;
+
+   -----------------------
+   -- Is_Cross_Compiler --
+   -----------------------
+
+   function Is_Cross_Compiler return Boolean is
+      Cross_Compiler : Integer;
+      pragma Import (C, Cross_Compiler, "__gnat_is_cross_compiler");
+   begin
+      return Cross_Compiler = 1;
+   end Is_Cross_Compiler;
 
    ----------------------------------
    -- List_Applicable_Restrictions --
@@ -334,6 +364,11 @@ procedure Gnatbind is
          --  -Mname
 
          elsif Argv'Length >= 3 and then Argv (2) = 'M' then
+            if not Is_Cross_Compiler then
+               Write_Line
+                 ("gnatbind: -M not expected to be used on native platforms");
+            end if;
+
             Opt.Bind_Alternate_Main_Name := True;
             Opt.Alternate_Main_Name := new String'(Argv (3 .. Argv'Last));
 
@@ -392,6 +427,16 @@ begin
       end;
       Next_Arg := Next_Arg + 1;
    end loop Scan_Args;
+
+   if Use_Pragma_Linker_Constructor then
+      if Bind_Main_Program then
+         Fail ("switch -a must be used in conjunction with -n or -Lxxx");
+
+      elsif not Gnatbind_Supports_Auto_Init then
+         Fail ("automatic initialisation of elaboration " &
+               "not supported on this platform");
+      end if;
+   end if;
 
    --  Test for trailing -o switch
 
@@ -481,7 +526,9 @@ begin
       Write_Str ("GNATBIND ");
       Write_Str (Gnat_Version_String);
       Write_Eol;
-      Write_Str ("Copyright 1995-2005 Free Software Foundation, Inc.");
+      Write_Str ("Copyright 1995-" &
+                 Current_Year &
+                 ", Free Software Foundation, Inc.");
       Write_Eol;
    end if;
 
@@ -539,7 +586,7 @@ begin
             Id := Scan_ALI
                     (F             => Main_Lib_File,
                      T             => Text,
-                     Ignore_ED     => Force_RM_Elaboration_Order,
+                     Ignore_ED     => False,
                      Err           => False,
                      Ignore_Errors => Debug_Flag_I);
          end;
@@ -584,7 +631,7 @@ begin
               Scan_ALI
                 (F             => Std_Lib_File,
                  T             => Text,
-                 Ignore_ED     => Force_RM_Elaboration_Order,
+                 Ignore_ED     => False,
                  Err           => False,
                  Ignore_Errors => Debug_Flag_I);
          end;
@@ -597,17 +644,6 @@ begin
       for Index in ALIs.First .. ALIs.Last loop
          Read_ALI (Index);
       end loop;
-
-      --  Warn if -f switch used
-
-      if Force_RM_Elaboration_Order then
-         Error_Msg
-           ("?-f is obsolescent and should not be used");
-         Error_Msg
-           ("?may result in missing run-time elaboration checks");
-         Error_Msg
-           ("?use -gnatE, pragma Suppress (Elaboration_Check) instead");
-      end if;
 
       --  Quit if some file needs compiling
 
@@ -687,10 +723,15 @@ begin
 
    if Total_Errors > 0 then
       Exit_Program (E_Errors);
+
    elsif Total_Warnings > 0 then
       Exit_Program (E_Warnings);
+
    else
-      Exit_Program (E_Success);
+      --  Do not call Exit_Program (E_Success), so that finalization occurs
+      --  normally.
+
+      null;
    end if;
 
 end Gnatbind;

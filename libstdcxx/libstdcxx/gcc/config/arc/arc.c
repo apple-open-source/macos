@@ -1,5 +1,6 @@
 /* Subroutines used for code generation on the Argonaut ARC cpu.
-   Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+   2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -16,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* ??? This is an old port, and is undoubtedly suffering from bit rot.  */
 
@@ -43,8 +44,7 @@ Boston, MA 02111-1307, USA.  */
 #include "target.h"
 #include "target-def.h"
 
-/* Which cpu we're compiling for (NULL(=base), ???).  */
-const char *arc_cpu_string;
+/* Which cpu we're compiling for.  */
 int arc_cpu_type;
 
 /* Name of mangle string to add to symbols to separate code compiled for each
@@ -54,12 +54,6 @@ const char *arc_mangle_cpu;
 /* Save the operands last given to a compare for use when we
    generate a scc or bcc insn.  */
 rtx arc_compare_op0, arc_compare_op1;
-
-/* Name of text, data, and rodata sections, as specified on command line.
-   Selected by -m{text,data,rodata} flags.  */
-const char *arc_text_string = ARC_DEFAULT_TEXT_SECTION;
-const char *arc_data_string = ARC_DEFAULT_DATA_SECTION;
-const char *arc_rodata_string = ARC_DEFAULT_RODATA_SECTION;
 
 /* Name of text, data, and rodata sections used in varasm.c.  */
 const char *arc_text_section;
@@ -86,6 +80,7 @@ static int arc_ccfsm_target_label;
    arc_print_operand.  */
 static int last_insn_set_cc_p;
 static int current_insn_set_cc_p;
+static bool arc_handle_option (size_t, const char *, int);
 static void record_cc_ref (rtx);
 static void arc_init_reg_tables (void);
 static int get_arc_condition_code (rtx);
@@ -126,6 +121,9 @@ static bool arc_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 #undef TARGET_ASM_EXTERNAL_LIBCALL
 #define TARGET_ASM_EXTERNAL_LIBCALL arc_external_libcall
 
+#undef TARGET_HANDLE_OPTION
+#define TARGET_HANDLE_OPTION arc_handle_option
+
 #undef TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS arc_rtx_costs
 #undef TARGET_ADDRESS_COST
@@ -150,6 +148,21 @@ static bool arc_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
+/* Implement TARGET_HANDLE_OPTION.  */
+
+static bool
+arc_handle_option (size_t code, const char *arg, int value ATTRIBUTE_UNUSED)
+{
+  switch (code)
+    {
+    case OPT_mcpu_:
+      return strcmp (arg, "base") == 0 || ARC_EXTENSION_CPU (arg);
+
+    default:
+      return true;
+    }
+}
+
 /* Called by OVERRIDE_OPTIONS to initialize various things.  */
 
 void
@@ -157,24 +170,6 @@ arc_init (void)
 {
   char *tmp;
   
-  if (arc_cpu_string == 0
-      || !strcmp (arc_cpu_string, "base"))
-    {
-      /* Ensure we have a printable value for the .cpu pseudo-op.  */
-      arc_cpu_string = "base";
-      arc_cpu_type = 0;
-      arc_mangle_cpu = NULL;
-    }
-  else if (ARC_EXTENSION_CPU (arc_cpu_string))
-    ; /* nothing to do */
-  else
-    {
-      error ("bad value (%s) for -mcpu switch", arc_cpu_string);
-      arc_cpu_string = "base";
-      arc_cpu_type = 0;
-      arc_mangle_cpu = NULL;
-    }
-
   /* Set the pseudo-ops for the various standard sections.  */
   arc_text_section = tmp = xmalloc (strlen (arc_text_string) + sizeof (ARC_SECTION_FORMAT) + 1);
   sprintf (tmp, ARC_SECTION_FORMAT, arc_text_string);
@@ -222,7 +217,7 @@ get_arc_condition_code (rtx comparison)
     case LEU : return 15;
     case LTU : return 6;
     case GEU : return 7;
-    default : abort ();
+    default : gcc_unreachable ();
     }
   /*NOTREACHED*/
   return (42);
@@ -391,14 +386,16 @@ arc_handle_interrupt_attribute (tree *node ATTRIBUTE_UNUSED,
 
   if (TREE_CODE (value) != STRING_CST)
     {
-      warning ("argument of %qs attribute is not a string constant",
+      warning (OPT_Wattributes,
+	       "argument of %qs attribute is not a string constant",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
   else if (strcmp (TREE_STRING_POINTER (value), "ilink1")
 	   && strcmp (TREE_STRING_POINTER (value), "ilink2"))
     {
-      warning ("argument of %qs attribute is not \"ilink1\" or \"ilink2\"",
+      warning (OPT_Wattributes,
+	       "argument of %qs attribute is not \"ilink1\" or \"ilink2\"",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -755,8 +752,7 @@ arc_double_limm_p (rtx value)
 {
   HOST_WIDE_INT low, high;
 
-  if (GET_CODE (value) != CONST_DOUBLE)
-    abort ();
+  gcc_assert (GET_CODE (value) == CONST_DOUBLE);
 
   low = CONST_DOUBLE_LOW (value);
   high = CONST_DOUBLE_HIGH (value);
@@ -796,8 +792,7 @@ arc_setup_incoming_varargs (CUMULATIVE_ARGS *cum,
   int first_anon_arg;
 
   /* All BLKmode values are passed by reference.  */
-  if (mode == BLKmode)
-    abort ();
+  gcc_assert (mode != BLKmode);
 
   first_anon_arg = *cum + ((GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1)
 			   / UNITS_PER_WORD);
@@ -1042,7 +1037,7 @@ arc_compute_function_type (tree decl)
 	  else if (!strcmp (TREE_STRING_POINTER (value), "ilink2"))
 	    fn_type = ARC_FUNCTION_ILINK2;
 	  else
-	    abort ();
+	    gcc_unreachable ();
 	  break;
 	}
     }
@@ -1210,8 +1205,7 @@ arc_output_function_prologue (FILE *file, HOST_WIDE_INT size)
 	   : current_frame_info.total_size);
 
   /* These cases shouldn't happen.  Catch them now.  */
-  if (size == 0 && gmask)
-    abort ();
+  gcc_assert (size || !gmask);
 
   /* Allocate space for register arguments if this is a variadic function.  */
   if (current_frame_info.pretend_size != 0)
@@ -1298,8 +1292,7 @@ arc_output_function_epilogue (FILE *file, HOST_WIDE_INT size)
 
       if (!can_trust_sp_p)
 	{
-	  if (!frame_pointer_needed)
-	    abort ();
+	  gcc_assert (frame_pointer_needed);
 	  fprintf (file,"\tsub %s,%s,%d\t\t%s sp not trusted here\n",
 		   sp_str, fp_str, frame_size, ASM_COMMENT_START);
 	}
@@ -1328,7 +1321,7 @@ arc_output_function_epilogue (FILE *file, HOST_WIDE_INT size)
       /* ??? If stack intactness is important, always emit now.  */
       if (MUST_SAVE_RETURN_ADDR && epilogue_delay != NULL_RTX)
 	{
-	  final_scan_insn (XEXP (epilogue_delay, 0), file, 1, -2, 1, NULL);
+	  final_scan_insn (XEXP (epilogue_delay, 0), file, 1, 1, NULL);
 	  epilogue_delay = NULL_RTX;
 	}
 
@@ -1360,8 +1353,7 @@ arc_output_function_epilogue (FILE *file, HOST_WIDE_INT size)
 	{
 	  if (epilogue_delay)
 	    {
-	      final_scan_insn (XEXP (epilogue_delay, 0), file, 1, -2, 1,
-			       NULL);
+	      final_scan_insn (XEXP (epilogue_delay, 0), file, 1, 1, NULL);
 	    }
 	}
 
@@ -1370,8 +1362,13 @@ arc_output_function_epilogue (FILE *file, HOST_WIDE_INT size)
 	static const int regs[4] = {
 	  0, RETURN_ADDR_REGNUM, ILINK1_REGNUM, ILINK2_REGNUM
 	};
-	fprintf (file, "\tj.d %s\n", reg_names[regs[fn_type]]);
-      }
+
+	/* Update the flags, if returning from an interrupt handler. */
+	if (ARC_INTERRUPT_P (fn_type))
+	  fprintf (file, "\tj.d.f %s\n", reg_names[regs[fn_type]]);
+	else
+	  fprintf (file, "\tj.d %s\n", reg_names[regs[fn_type]]);
+	}
 
       /* If the only register saved is the return address, we need a
 	 nop, unless we have an instruction to put into it.  Otherwise
@@ -1382,23 +1379,19 @@ arc_output_function_epilogue (FILE *file, HOST_WIDE_INT size)
 	fprintf (file, "\tadd %s,%s,16\n", sp_str, sp_str);
       else if (epilogue_delay != NULL_RTX)
 	{
-	  if (frame_pointer_needed && !fp_restored_p)
-	    abort ();
-	  if (restored < size)
-	    abort ();
-	  final_scan_insn (XEXP (epilogue_delay, 0), file, 1, -2, 1, NULL);
+	  gcc_assert (!frame_pointer_needed || fp_restored_p);
+	  gcc_assert (restored >= size);
+	  final_scan_insn (XEXP (epilogue_delay, 0), file, 1, 1, NULL);
 	}
       else if (frame_pointer_needed && !fp_restored_p)
 	{
-	  if (!SMALL_INT (frame_size))
-	    abort ();
+	  gcc_assert (SMALL_INT (frame_size));
 	  /* Note that we restore fp and sp here!  */
 	  fprintf (file, "\tld.a %s,[%s,%d]\n", fp_str, sp_str, frame_size);
 	}
       else if (restored < size)
 	{
-	  if (!SMALL_INT (size - restored))
-	    abort ();
+	  gcc_assert (SMALL_INT (size - restored));
 	  fprintf (file, "\tadd %s,%s," HOST_WIDE_INT_PRINT_DEC "\n",
 		   sp_str, sp_str, size - restored);
 	}
@@ -1438,8 +1431,7 @@ arc_delay_slots_for_epilogue (void)
 int
 arc_eligible_for_epilogue_delay (rtx trial, int slot)
 {
-  if (slot != 0)
-    abort ();
+  gcc_assert (!slot);
 
   if (get_attr_length (trial) == 1
       /* If registers where saved, presumably there's more than enough
@@ -1454,16 +1446,6 @@ arc_eligible_for_epilogue_delay (rtx trial, int slot)
       && ! reg_mentioned_p (frame_pointer_rtx, PATTERN (trial)))
     return 1;
   return 0;
-}
-
-/* PIC */
-
-/* Emit special PIC prologues and epilogues.  */
-
-void
-arc_finalize_pic (void)
-{
-  /* nothing to do */
 }
 
 /* Return true if OP is a shift operator.  */
@@ -1504,21 +1486,24 @@ output_shift (rtx *operands)
   enum rtx_code code = GET_CODE (shift);
   const char *shift_one;
 
-  if (mode != SImode)
-    abort ();
+  gcc_assert (mode == SImode);
 
   switch (code)
     {
     case ASHIFT:   shift_one = "asl %0,%0"; break;
     case ASHIFTRT: shift_one = "asr %0,%0"; break;
     case LSHIFTRT: shift_one = "lsr %0,%0"; break;
-    default:       abort ();
+    default:       gcc_unreachable ();
     }
 
   if (GET_CODE (operands[2]) != CONST_INT)
     {
       if (optimize)
-	output_asm_insn ("mov lp_count,%2", operands);
+	{
+	  output_asm_insn ("sub.f 0,%2,0", operands);
+      	  output_asm_insn ("mov lp_count,%2", operands);
+	  output_asm_insn ("bz 2f", operands);
+	}
       else
 	output_asm_insn ("mov %4,%2", operands);
       goto shiftloop;
@@ -1592,6 +1577,8 @@ output_shift (rtx *operands)
 		fprintf (asm_out_file, "1:\t%s single insn loop\n",
 			 ASM_COMMENT_START);
 	      output_asm_insn (shift_one, operands);
+	      fprintf (asm_out_file, "2:\t%s end single insn loop\n",
+		       ASM_COMMENT_START);
 	    }
 	  else 
 	    {
@@ -1774,9 +1761,8 @@ arc_print_operand (FILE *file, rtx x, int code)
       {
 	char str[30];
 
-	if (GET_CODE (x) != CONST_DOUBLE
-	    || GET_MODE_CLASS (GET_MODE (x)) != MODE_FLOAT)
-	  abort ();
+	gcc_assert (GET_CODE (x) == CONST_DOUBLE
+		    && GET_MODE_CLASS (GET_MODE (x)) == MODE_FLOAT);
 
 	real_to_decimal (str, CONST_DOUBLE_REAL_VALUE (x), sizeof (str), 0, 1);
 	fprintf (file, "%s", str);
@@ -1878,26 +1864,33 @@ arc_print_operand_address (FILE *file, rtx addr)
 	offset = INTVAL (XEXP (addr, 1)), base = XEXP (addr, 0);
       else
 	base = XEXP (addr, 0), index = XEXP (addr, 1);
-      if (GET_CODE (base) != REG)
-	abort ();
+      gcc_assert (GET_CODE (base) == REG);
       fputs (reg_names[REGNO (base)], file);
       if (index == 0)
 	{
 	  if (offset != 0)
 	    fprintf (file, ",%d", offset);
 	}
-      else if (GET_CODE (index) == REG)
-	fprintf (file, ",%s", reg_names[REGNO (index)]);
-      else if (GET_CODE (index) == SYMBOL_REF)
-	fputc (',', file), output_addr_const (file, index);
       else
-	abort ();
+	{
+	  switch (GET_CODE (index))
+	    {
+	    case REG:
+	      fprintf (file, ",%s", reg_names[REGNO (index)]);
+	      break;
+	    case SYMBOL_REF:
+	      fputc (',', file), output_addr_const (file, index);
+	      break;
+	    default:
+	      gcc_unreachable ();
+	    }
+	}
       break;
     case PRE_INC :
     case PRE_DEC :
       /* We shouldn't get here as we've lost the mode of the memory object
 	 (which says how much to inc/dec by.  */
-      abort ();
+      gcc_unreachable ();
       break;
     default :
       output_addr_const (file, addr);
@@ -2084,7 +2077,7 @@ arc_final_prescan_insn (rtx insn,
 	  then_not_else = FALSE;
         }
       else
-	abort ();
+	gcc_unreachable ();
 
       /* See how many insns this branch skips, and what kind of insns.  If all
 	 insns are okay, and the label or unconditional branch to the same
@@ -2203,14 +2196,15 @@ arc_final_prescan_insn (rtx insn,
 	{
 	  if ((!seeking_return) && (arc_ccfsm_state == 1 || reverse))
 	    arc_ccfsm_target_label = CODE_LABEL_NUMBER (label);
-	  else if (seeking_return || arc_ccfsm_state == 2)
+	  else
 	    {
+	      gcc_assert (seeking_return || arc_ccfsm_state == 2);
 	      while (this_insn && GET_CODE (PATTERN (this_insn)) == USE)
 	        {
 		  this_insn = next_nonnote_insn (this_insn);
-		  if (this_insn && (GET_CODE (this_insn) == BARRIER
-				    || GET_CODE (this_insn) == CODE_LABEL))
-		    abort ();
+		  gcc_assert (!this_insn
+			      || (GET_CODE (this_insn) != BARRIER
+				  && GET_CODE (this_insn) != CODE_LABEL));
 	        }
 	      if (!this_insn)
 	        {
@@ -2222,8 +2216,6 @@ arc_final_prescan_insn (rtx insn,
 	        }
 	      arc_ccfsm_target_insn = this_insn;
 	    }
-	  else
-	    abort ();
 
 	  /* If REVERSE is true, ARM_CURRENT_CC needs to be inverted from
 	     what it was.  */

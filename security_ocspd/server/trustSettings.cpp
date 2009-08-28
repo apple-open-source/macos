@@ -201,7 +201,7 @@ kern_return_t ocsp_server_trustSettingsWrite(
 {
 	StLock<Mutex> _(gTrustSettingsLock());
 
-	char *authRight = NULL;
+	const char *authRight = NULL;
 	CFStringRef authRule = NULL;
 	char path[MAXPATHLEN + 1];
 

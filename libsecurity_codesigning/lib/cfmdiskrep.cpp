@@ -40,6 +40,7 @@ using namespace UnixPlusPlus;
 CFMDiskRep::CFMDiskRep(const char *path)
 	: SingleDiskRep(path), mTriedRead(false)
 {
+	CODESIGN_DISKREP_CREATE_CFM(this, (char*)path);
 }
 
 CFMDiskRep::~CFMDiskRep()
@@ -50,15 +51,24 @@ CFMDiskRep::~CFMDiskRep()
 
 
 //
-// CFM filter heuristic
+// CFM filter heuristic.
+// We look for the PEF header within the first scanLength bytes
+// of the file's data fork, at certain alignment boundaries (probably
+// conservative).
 //
-bool CFMDiskRep::candidiate(FileDesc &fd)
+bool CFMDiskRep::candidate(FileDesc &fd)
 {
 	static const char magicMarker[] = "Joy!peffpwpc";
 	static const size_t magicLength = 12;
-	char marker[magicLength];
-	return fd.read(marker, magicLength, 0) == magicLength
-		&& !memcmp(marker, magicMarker, magicLength);
+	static const size_t scanLength = 128;
+	static const size_t scanAlignment = 4;
+	
+	char marker[scanLength];
+	if (fd.read(marker, scanLength, 0) == scanLength)
+		for (size_t p = 0; p <= scanLength - magicLength; p += scanAlignment)
+			if (!memcmp(marker+p, magicMarker, magicLength))
+				return true;
+	return false;
 }
 
 
@@ -153,9 +163,7 @@ void CFMDiskRep::readSigningData()
 		if (fd.read(&sentinel, sizeof(sentinel), fd.fileSize() - sizeof(Sentinel)) == sizeof(Sentinel))
 			if (sentinel.magic == EmbeddedSignatureBlob::typeMagic) {
 				mSigningOffset = sentinel.offset;
-				fd.seek(mSigningOffset);
-				mSigningData = EmbeddedSignatureBlob::readBlob(fd);
-				if (mSigningData)
+				if (mSigningData = EmbeddedSignatureBlob::readBlob(fd, mSigningOffset))
 					secdebug("cfmrep", "%zd signing bytes in %d blob(s) from %s(CFM)",
 						mSigningData->length(), mSigningData->count(),
 						mainExecutablePath().c_str());

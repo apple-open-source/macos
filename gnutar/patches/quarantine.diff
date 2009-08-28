@@ -1,7 +1,7 @@
 --- src/buffer.c.orig	2004-12-21 07:09:24.000000000 -0800
 +++ src/buffer.c	2008-03-03 19:49:46.000000000 -0800
-@@ -368,6 +368,41 @@
-   return result;
+@@ -438,6 +438,41 @@
+   record_end = record_start + blocking_factor;
  }
  
 +#if HAVE_QUARANTINE
@@ -41,8 +41,8 @@
 +
  /* Open an archive file.  The argument specifies whether we are
     reading or writing, or both.  */
- void
-@@ -508,6 +543,7 @@
+ static void
+@@ -571,6 +606,7 @@
    sys_detect_dev_null_output ();
    sys_save_archive_dev_ino ();
    SET_BINARY_MODE (archive);
@@ -50,10 +50,10 @@
  
    switch (wanted_access)
      {
-@@ -1093,6 +1129,8 @@
-   if (real_s_name)
+@@ -864,6 +900,8 @@
      free (real_s_name);
-   free (record_buffer);
+   free (record_buffer[0]);
+   free (record_buffer[1]);
 +
 +  finish_qtn();
  }
@@ -75,7 +75,7 @@
  /* The checksum field is filled with this while the checksum is computed.  */
  #define CHKBLANKS	"        "	/* 8 blanks, no null */
  
-@@ -283,6 +290,9 @@
+@@ -302,6 +309,9 @@
  
  /* File descriptor for archive file.  */
  GLOBAL int archive;
@@ -87,7 +87,7 @@
  GLOBAL bool dev_null_output;
 --- src/extract.c.orig	2004-12-21 01:55:12.000000000 -0800
 +++ src/extract.c	2008-03-03 19:51:38.000000000 -0800
-@@ -360,6 +360,51 @@
+@@ -413,6 +413,51 @@
  	  quotearg_colon (dir)));
  }
  
@@ -136,10 +136,10 @@
 +void apply_qtn_to_path(char *path) {}
 +#endif
 +
- /* After a file/link/symlink/directory creation has failed, see if
+ /* After a file/link/directory creation has failed, see if
     it's because some required directory was not present, and if so,
     create all required directories.  Return non-zero if a directory
-@@ -400,6 +445,8 @@
+@@ -452,6 +497,8 @@
  
        if (status == 0)
  	{
@@ -148,35 +148,27 @@
  	  /* Create a struct delayed_set_stat even if
  	     invert_permissions is zero, because
  	     repair_delayed_set_stat may need to update the struct.  */
-@@ -739,6 +786,8 @@
+@@ -698,6 +745,7 @@
+       || old_files_option == DEFAULT_OLD_FILES
+       || old_files_option == OVERWRITE_OLD_FILES)
+     {
++      apply_qtn_to_path(file_name);
+       if (status == 0)
+ 	delay_set_stat (file_name, &current_stat_info,
+ 			((mode ^ current_stat_info.stat.st_mode)
+@@ -807,6 +854,7 @@
+   }
  #endif /* __APPLE__ */
  
-     extract_file:
-+      apply_qtn(fd);
-+
-       if (current_stat_info.is_sparse)
- 	{
- 	  sparse_extract_file (fd, &current_stat_info, &size);
-@@ -1088,11 +1137,14 @@
-     directory_exists:
-       if (status == 0
- 	  || old_files_option == OVERWRITE_OLD_FILES)
-+      {
-+	apply_qtn_to_path(file_name);
- 	delay_set_stat (file_name, &current_stat_info.stat,
- 			MODE_RWX & (mode ^ current_stat_info.stat.st_mode),
- 			(status == 0
- 			 ? ARCHIVED_PERMSTATUS
- 			 : UNKNOWN_PERMSTATUS));
-+      }
-       break;
- 
-     case GNUTYPE_VOLHDR:
++  apply_qtn(fd);
+   mv_begin (&current_stat_info);
+   if (current_stat_info.is_sparse)
+     sparse_extract_file (fd, &current_stat_info, &size);
 --- src/list.c.orig	2008-07-11 19:37:25.000000000 -0700
 +++ src/list.c	2008-07-11 19:39:27.000000000 -0700
-@@ -227,6 +227,9 @@
- 	    } else
- 	      unlink(cle->tmp);
+@@ -230,6 +230,9 @@
+ 	      rename(cle->tmp, cle->src);
+ 	    }
  
 +	  /* 5781559: Make sure EAs don't destroy overriding quarantine information. */
 +	  apply_qtn_to_path(cle->dst);

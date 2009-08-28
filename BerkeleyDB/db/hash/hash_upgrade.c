@@ -1,21 +1,12 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996-2003
- *	Sleepycat Software.  All rights reserved.
+ * Copyright (c) 1996,2007 Oracle.  All rights reserved.
+ *
+ * $Id: hash_upgrade.c,v 12.11 2007/05/17 17:18:00 bostic Exp $
  */
+
 #include "db_config.h"
-
-#ifndef lint
-static const char revid[] = "$Id: hash_upgrade.c,v 1.2 2004/03/30 01:23:27 jtownsen Exp $";
-#endif /* not lint */
-
-#ifndef NO_SYSTEM_INCLUDES
-#include <sys/types.h>
-
-#include <limits.h>
-#include <string.h>
-#endif
 
 #include "db_int.h"
 #include "dbinc/db_page.h"
@@ -38,8 +29,8 @@ __ham_30_hashmeta(dbp, real_name, obuf)
 	HASHHDR *oldmeta;
 	HMETA30 newmeta;
 	u_int32_t *o_spares, *n_spares;
-	u_int32_t fillf, maxb, nelem;
-	int i, max_entry, ret;
+	u_int32_t fillf, i, maxb, max_entry, nelem;
+	int ret;
 
 	dbenv = dbp->dbenv;
 	memset(&newmeta, 0, sizeof(newmeta));
@@ -157,8 +148,8 @@ __ham_30_sizefix(dbp, fhp, realname, metabuf)
 	 * a zeroed page where last_desired would go.
 	 */
 	if (last_desired > last_actual) {
-		if ((ret = __os_seek(dbenv,
-		    fhp, pagesize, last_desired, 0, 0, DB_OS_SEEK_SET)) != 0)
+		if ((ret = __os_seek(
+		    dbenv, fhp, last_desired, pagesize, 0)) != 0)
 			return (ret);
 		if ((ret = __os_write(dbenv, fhp, buf, pagesize, &nw)) != 0)
 			return (ret);
@@ -263,4 +254,61 @@ __ham_31_hash(dbp, real_name, flags, fhp, h, dirtyp)
 	}
 
 	return (ret);
+}
+
+/*
+ * __ham_46_hashmeta --
+ *	Upgrade the database from version 8 to version 9.
+ *
+ * PUBLIC: int __ham_46_hashmeta
+ * PUBLIC:      __P((DB *, char *, u_int32_t, DB_FH *, PAGE *, int *));
+ */
+int
+__ham_46_hashmeta(dbp, real_name, flags, fhp, h, dirtyp)
+	DB *dbp;
+	char *real_name;
+	u_int32_t flags;
+	DB_FH *fhp;
+	PAGE *h;
+	int *dirtyp;
+{
+	HMETA33 *newmeta;
+
+	COMPQUIET(dbp, NULL);
+	COMPQUIET(real_name, NULL);
+	COMPQUIET(flags, 0);
+	COMPQUIET(fhp, NULL);
+
+	newmeta = (HMETA33 *)h;
+	/* Update the version. */
+	newmeta->dbmeta.version = 9;
+	*dirtyp = 1;
+
+	return (0);
+}
+
+/*
+ * __ham_46_hash --
+ *	Upgrade the database hash leaf pages.
+ *	From version 8 databases to version 9.
+ *	Involves sorting leaf pages, no format change.
+ *
+ * PUBLIC: int __ham_46_hash
+ * PUBLIC:      __P((DB *, char *, u_int32_t, DB_FH *, PAGE *, int *));
+ */
+int
+__ham_46_hash(dbp, real_name, flags, fhp, h, dirtyp)
+	DB *dbp;
+	char *real_name;
+	u_int32_t flags;
+	DB_FH *fhp;
+	PAGE *h;
+	int *dirtyp;
+{
+	COMPQUIET(real_name, NULL);
+	COMPQUIET(flags, 0);
+	COMPQUIET(fhp, NULL);
+
+	*dirtyp = 1;
+	return (__ham_sort_page(dbp, NULL, NULL, h));
 }

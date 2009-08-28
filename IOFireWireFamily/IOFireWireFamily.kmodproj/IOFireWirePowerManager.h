@@ -30,6 +30,9 @@
 
 class IOFireWireController;
 
+/*! @class IOFireWirePowerManager
+*/
+
 class IOFireWirePowerManager : public OSObject
 {
     OSDeclareAbstractStructors(IOFireWirePowerManager);

@@ -35,6 +35,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <grp.h>
+#include <dlfcn.h>
 
 #include <mach-o/dyld.h>
 
@@ -55,7 +56,7 @@ void
 load_plugin (char *arg, int from_tty)
 {
   void (*fptr) () = NULL;
-  char *init_func_name = "_init_from_gdb";
+  char *init_func_name = "init_from_gdb";
   char *p, path[PATH_MAX + 1];
   struct stat sb;
 
@@ -101,42 +102,22 @@ load_plugin (char *arg, int from_tty)
     }
 
   {
-    NSObjectFileImage image;
-    NSObjectFileImageReturnCode nsret;
-    NSSymbol sym;
-    NSModule module;
-
-    nsret = NSCreateObjectFileImageFromFile (path, &image);
-    if (nsret != NSObjectFileImageSuccess)
-      {
-        error
-          ("NSCreateObjectFileImageFromFile failed for \"%s\" (error %d).",
-           path, nsret);
-      }
-
     if (debug_plugins_flag)
       {
         printf_unfiltered ("Linking GDB module from \"%s\"\n", path);
       }
 
-    module = NSLinkModule (image, path, NSLINKMODULE_OPTION_PRIVATE);
-    /*module = NSLinkModule (image, path, NSLINKMODULE_OPTION_NONE); */
-    if (module == NULL)
+    void *ret = dlopen (path, RTLD_LOCAL | RTLD_NOW);
+    if (ret == NULL)
       {
-        error ("NSLinkModule failed for \"%s\" (error %d).", path, nsret);
+        error ("Unable to dlopen plugin \"%s\", reason: %s",
+               path, dlerror ());
       }
-
-    sym = NSLookupSymbolInModule (module, init_func_name);
-    if (sym == NULL)
-      {
-        error ("Unable to locate symbol '%s' in module.", init_func_name);
-      }
-
-    fptr = NSAddressOfSymbol (sym);
+    fptr = dlsym (ret, init_func_name);
     if (fptr == NULL)
       {
-        error ("Unable to locate address for symbol '%s' in module.",
-               init_func_name);
+        dlclose (ret);
+        error ("Unable to locate symbol '%s' in module.", init_func_name);
       }
   }
 
@@ -147,8 +128,8 @@ load_plugin (char *arg, int from_tty)
 
   CHECK_FATAL (fptr != NULL);
 
-  /* Make sure the names and data arrays are updated BEFORE calling init_func_name()
-     so that the plugin can use _plugin_private_data()  */
+  /* Make sure the names and data arrays are updated BEFORE calling 
+     init_func_name() so that the plugin can use _plugin_private_data()  */
 
   pstate.plugin_data =
     xrealloc (pstate.plugin_data, (pstate.num + 1) * sizeof (void *));

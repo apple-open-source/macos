@@ -5,7 +5,7 @@ Install_Dir = /usr/local/lib
 SERVERDEFS = ../dynamic_pager.tproj/backing_store_alerts.defs
 USERDEFS = ../dynamic_pager.tproj/backing_store_triggers.defs
 
-Extra_MIG_Flags = -no-cpp-precomp -R -untyped -DNO_DIRECT_RPC -I$(SRCROOT)
+Extra_MIG_Flags = -R -untyped -DNO_DIRECT_RPC -I$(SRCROOT)
 Extra_LD_Flags = -static
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make

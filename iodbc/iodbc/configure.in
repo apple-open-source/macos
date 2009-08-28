@@ -1,5 +1,5 @@
 AC_PREREQ(2.57)
-AC_REVISION($Id: configure.in,v 1.70 2007/01/05 12:52:23 source Exp $)
+AC_REVISION($Id: configure.in,v 1.73 2007/10/08 13:04:32 source Exp $)
 #
 #  configure.in
 #
@@ -81,7 +81,7 @@ AC_REVISION($Id: configure.in,v 1.70 2007/01/05 12:52:23 source Exp $)
 ##									##
 ##########################################################################
 AC_INIT([iODBC Driver Manager],
-        [3.52.5],
+        [3.52.6],
 	[iodbc@openlinksw.com],
 	[libiodbc])
 AC_CONFIG_SRCDIR([include/isql.h])
@@ -101,14 +101,14 @@ AM_MAINTAINER_MODE
 #
 #  Version information for SQLGetInfo(SQL_DM_VER) call
 #
-BUILD_MAJOR="5"			# last digit of version number
-BUILD_MINOR="070105"		# year/month/day of release
+BUILD_MAJOR="6"			# last digit of version number
+BUILD_MINOR="071008"		# year/month/day of release
 BUILD_VER="${BUILD_MAJOR}${BUILD_MINOR}"
 
 #
 #  Library version numbers
 #
-lib3_version=3:17:1		# ODBC 3.x mode
+lib3_version=3:18:1		# ODBC 3.x mode
 lib2_version=2:55:0		# ODBC 2.x mode (do not change)
 
 
@@ -311,13 +311,20 @@ AC_HELP_STRING([--disable-gui], [build GUI applications])dnl
 USE_GTK=false
 if test x$USE_GUI = xtrue
 then
-  AM_PATH_GTK(1.2.3)
+  no_gtk=""
+  # Check for GTK+ 2.x
+  AM_PATH_GTK_2_0(2.0.0)
+  if test x$no_gtk != x
+  then
+      # Try GTK 1.2.x instead
+      no_gtk=""
+      AM_PATH_GTK(1.2.3)
+  fi
   if test x$no_gtk = x
   then
     USE_GTK=true
   fi
 fi
-
 
 ##########################################################################
 ##									##
@@ -675,6 +682,17 @@ then
 		AC_MSG_RESULT([use -lpthread for HP/UX])
 		;;
 
+	*-osf3.*)
+		CPPFLAGS="$CPPFLAGS -DOLD_PTHREADS"
+		LIBS="$LIBS -lpthreads -lmach -lc_r"
+		AC_MSG_RESULT([use -lpthreads for OSF 3.2])
+		;;
+
+	*-osf4.*)
+	        LIBS="$LIBS -lpthread"
+		AC_MSG_RESULT([use -lpthread for OSF 4.x])
+	  	;;
+		
       *)
 		AC_MSG_RESULT([none])
 		;;
@@ -698,13 +716,7 @@ then
     then
 	IODBC_CHECK_PTHREAD_LIB(pthreads, pthread_mutex_lock,
 	[
-	    if test "$host_os" = "osf3.2"
-	    then
-	      CPPFLAGS="$CPPFLAGS -DOLD_PTHREADS"
-	      LIBS="$LIBS -lpthreads -lmach -lc_r"
-	    else
-	      LIBS="$LIBS -lpthreads"
-	    fi
+	    LIBS="$LIBS -lpthreads"
 	    found_lib=true
 	])
     fi

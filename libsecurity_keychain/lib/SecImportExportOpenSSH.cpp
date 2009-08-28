@@ -398,6 +398,9 @@ void impExpOpensshInferDescData(
 		free(printNameStr);
 	}
 	len = attr->length;
+
+	unsigned char *attrVal;
+
 	if(len < toStrip) {
 		SecSSHDbg("impExpOpensshInferDescData: string parse screwup");
 		goto errOut;
@@ -413,7 +416,8 @@ void impExpOpensshInferDescData(
 		 */
 		toStrip = 0;
 	}
-	unsigned char *attrVal = ((unsigned char *)attr->data) + toStrip;
+	
+	attrVal = ((unsigned char *)attr->data) + toStrip;
 	descData.copy(attrVal, len);
 errOut:
 	SecKeychainItemFreeAttributesAndData(attrList, NULL);

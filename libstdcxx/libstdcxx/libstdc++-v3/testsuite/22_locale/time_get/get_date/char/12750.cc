@@ -1,6 +1,8 @@
+// { dg-require-namedlocale "" }
+
 // 2003-10-27 Paolo Carlini  <pcarlini@suse.de>
 
-// Copyright (C) 2003 Free Software Foundation
+// Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -15,7 +17,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // 22.2.5.1.1 time_get members
@@ -33,7 +35,7 @@ void test01()
   bool test __attribute__((unused)) = true;
 
   // basic construction
-  locale loc_is = __gnu_test::try_named_locale("is_IS");
+  locale loc_is = locale("is_IS");
 
   // create an ostream-derived object, cache the time_get facet
   iterator_type end;
@@ -45,8 +47,8 @@ void test01()
   ios_base::iostate errorstate = good;
 
   // create "C" time objects
-  const tm time_bday01 = { 0, 0, 12, 2, 9, 103, 4, 274, -1 };
-  const tm time_bday02 = { 0, 0, 12, 26, 9, 103, 0, 298, -1 };
+  const tm time_bday01 = __gnu_test::test_tm(0, 0, 12, 2, 9, 103, 4, 274, -1);
+  const tm time_bday02 = __gnu_test::test_tm(0, 0, 12, 26, 9, 103, 0, 298, -1);
 
   // inspection of named locales, is_IS
   iss.imbue(loc_is);

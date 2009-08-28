@@ -1,0 +1,445 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+
+<HTML>
+
+<HEAD>
+
+<meta http-equiv="content-type" content="text/html; charset=macintosh">
+<TITLE>TclÆ - AppleEvents with Tcl</TITLE>
+<LINK HREF="tclae.css" REL="stylesheet" TYPE="text/css">
+
+</HEAD>
+
+<body>
+
+<div class="index">
+<!-- #DOCINDEX TYPE="UL" DEPTH="2" -->
+
+<UL>
+    <LI><A HREF="#TclAE - What is it?">TclÆ - What is it?</A>
+    <LI><A HREF="#TclAE - Where is it?">TclÆ - Where is it?</A>
+    <LI><A HREF="#TclAE - How is it installed?">TclÆ - How is it installed?</A>
+
+    <UL>
+        <LI><A HREF="#For use in versi">For use in the AlphaX text editor, the Wish
+        shell, and other Tcl applications</A>
+    </UL>
+    
+    <LI><A HREF="#TclAE - How is it used?">TclÆ - How is it used?</A>
+    <LI><A HREF="#TclAE - How is it built?">TclÆ - How is it built?</A>
+    <LI><A HREF="#TclAE - What's Changed?">TclÆ - What's Changed?</A>
+
+    <UL>
+        <LI><A HREF="#Version 2.0.3">Version 2.0.3 — January 10, 2008</A>
+        <LI><A HREF="#Version 2.0.2">Version 2.0.2 — July 9, 2007</A>
+        <LI><A HREF="#Version 2.0.1">Version 2.0.1 — April 12, 2006</A>
+        <LI><A HREF="#Version 2.0">Version 2.0 — July 26, 2004</A>
+        <LI><A HREF="#Version 2.0b15">Version 2.0b15 — March 3, 2004</A>
+        <LI><A HREF="#Version 2.0b14">Version 2.0b14 — June 22, 2003</A>
+        <LI><A HREF="#Version 2.0b13">Version 2.0b13 — March 13, 2003</A>
+        <LI><A HREF="#Version 2.0b12">Version 2.0b12 — February 21, 2003</A>
+        <LI><A HREF="#Version 2.0b11">Version 2.0b11 — November 11, 2002</A>
+        <LI><A HREF="#Version 2.0b10">Version 2.0b10 — September 9, 2002</A>
+        <LI><A HREF="#Version 2.0b9">Version 2.0b9 — June 11, 2002</A>
+        <LI><A HREF="#Version 2.0b8">Version 2.0b8 — October 24, 2000</A>
+        <LI><A HREF="#Version 2.0b7">Version 2.0b7 — September 24, 2000</A>
+        <LI><A HREF="#Version 2.0b6">Version 2.0b6 — August 24, 2000</A>
+        <LI><A HREF="#Version 2.0b5">Version 2.0b5 — May 3, 2000</A>
+        <LI><A HREF="#Version 2.0b4">Version 2.0b4 — January 5, 2000</A>
+        <LI><A HREF="#Version 2.0b3">Version 2.0b3 — December 22, 1999</A>
+        <LI><A HREF="#Version 2.0b2">Version 2.0b2 — December 20, 1999</A>
+        <LI><A HREF="#Version 2.0b1">Version 2.0b1 — December 14, 1999</A>
+        <LI><A HREF="#Version 1.0">Version 1.0</A>
+    </UL>
+    
+</UL>
+
+<!-- /#DOCINDEX -->
+</div>
+
+<div class="narrative">
+<H1><a name="TclAE - What is it?">TclÆ - What is it?</a></H1>
+
+<P>
+TclÆ enables Tcl applications on the Macintosh to use AppleEvents for 
+communication with other programs and for the AppleEvent Manager to 
+communicate with Tcl applications. The nature of the MacOS (at least prior 
+to MacOS X) makes it impossible to implement any meaningful 
+<CODE>exec</CODE> command. Between <EM>agreeable</EM> applications, 
+AppleEvents allow communication of anything that can be passed as an 
+argument to a command-line application and much more. The key is to make 
+the applications agreeable. TclÆ is an attempt to get Tcl to support its 
+end of the bargain. TclÆ is complementary to Jim Ingham’s 
+Tclapplescript.shlb (included in the Tcl distributions). Depending on your 
+task and your relative familiarity with AppleScript and raw AppleEvents, 
+you may find one tool or the other preferable.
+</P>
+
+<P>
+TclÆ inherits directly from the AppleEvent facilities in the <A 
+HREF="http://www.kelehers.org/alpha/">Alpha text editor</A>, as written by Pete 
+Keleher and Tim Endres. For many years, Alpha has used Jens Alfke’s <A 
+HREF="http://www.mooseyard.com/Jens/Software/">AEGizmos</A> to render the 
+pathologically-typed binary data in AppleEvents into a Tcl-manageable 
+string form. Unfortunately, while AEGizmos are reasonably easy for humans 
+to read, they're not the most convenient format for a computer to 
+interpret. Alpha programmers wishing to interact with other programs have 
+generally applied regular expressions to these strings (with varying 
+degrees of success), in order to extract the information they were 
+interested in. Several years ago, I got tired of writing the same 
+<CODE>regexp</CODE> expressions and sanity checks over and over, so I set 
+out to write a complete AEGizmo parser. This parser, in one form or 
+another, has been a part of Alpha for a few years.
+</P>
+
+<P>
+While this Tcl-based AEGizmo parser works well, it can be incredibly slow. 
+A while back, a small group of Alpha’s users and I formed the <A 
+HREF="http://alphatcl.sourceforge.net/wiki/pmwiki.php/Who/AlphaCaball">Alpha Cabal</A> to 
+assume development tasks from Alpha’s originator, Pete Keleher (Pete has 
+irresponsibly decided to procreate and pursue tenure, rather than work on 
+Alpha like he’s supposed to). One of my prime interests was in improving 
+Alpha’s AppleEvent capabilities. After some initial efforts at speeding up 
+the parser, my dain bramage cleared up and I set out to simply expose as 
+much of the AppleEvent Manager API to Tcl as possible. By avoiding the 
+parsing step, speedups of a hundred-fold are typical. As the project 
+progressed, it became clear that this could be a useful tool for any 
+Tcl-based program, so I generalized the shared library to work with any Tcl 
+8 installation, and Pete generously agreed to let me open-source what was 
+left of his code. Many of the design decisions in TclÆ (see <A 
+HREF="#MemoryLeaks">Memory Leaks</A>) reflect the need to achieve (nearly) 
+the same results with Alpha 7, Alpha 8, and Wish.
+</P>
+
+<H1><a name="TclAE - Where is it?">TclÆ - Where is it?</a></H1>
+
+<P>
+You can download the latest version of TclÆ from <A 
+HREF="http://www.sourceforge.net/projects/tclae/">SourceForge</A>.
+</P>
+
+<H1><a name="TclAE - How is it installed?">TclÆ - How is it installed?</a></H1>
+
+<H2>For use in <A name="For use in versi"
+HREF="http://alphatcl.sourceforge.net/wiki/pmwiki.php/Software/AlphaX">the AlphaX text editor</A>, the Wish 
+shell, and other Tcl applications</H2>
+
+<P>
+Place TclAE.shlb where Tcl can find it, such as in one of the directories 
+of <CODE>$tcl_library</CODE> or in the same folder as the application.
+</P>
+
+<P>
+Invoke the library by calling <CODE>package require tclAE</CODE>.
+</P>
+
+<P>
+Ever since version 8, Alpha will not work properly if TclÆ is not 
+installed.
+</P>
+
+<P>
+TclÆ has been predominantly tested with Tcl 8.4. It may 
+work with other versions, but certainly none before Tcl 8.0. 
+</P>
+
+<H1><a name="TclAE - How is it used?">TclÆ - How is it used?</a></H1>
+
+<UL>
+    <LI><A HREF="tclAEsend.html">Sending AppleEvents</A>
+    <LI><A HREF="tclAEdesc.html">Working with AppleEvent Descriptors</A>
+    <LI><A HREF="tclAEhandler.html">Handling AppleEvents and Descriptor 
+    Coercion Requests</A>
+    <LI><A HREF="tclAEobjects.html">Resolving and Creating Object Specifier 
+    Records</A>
+    <LI><A HREF="tclAEcheaters.html">Cheater's Guide to Writing AppleEvent 
+    Descriptors</A>
+    <LI><A HREF="tclAElegacy.html">Archaic Commands</A>
+    <LI><A HREF="tclAEglossary.html">Glossary</A>
+</UL>
+
+<H1><a name="TclAE - How is it built?">TclÆ - How is it built?</a></H1>
+
+<P> TclÆ uses the <a href="http://www.tcl.tk/doc/tea/">Tcl Extension
+Architecture (TEA)</a> and should build cleanly on recent Mac OS X machines
+(certainly works on Intel and PPC Tiger machines, and may build on older
+OSes). Xcode 2.4 is recommended; older than 2.2 won't work.</P>
+
+<UL>
+    <LI><code>$ svn co http://tclae.svn.sourceforge.net/svnroot/tclae/trunk tclae</code>
+    <LI><code>$ mkdir -p build; cd build</code>
+    <LI><code>$ export CFLAGS='-Wno-deprecated-declarations -mmacosx-version-min=10.2 -arch ppc -arch i386'</code>
+    <LI><code>$ ../tclae/configure --libdir=/Library/Tcl</code>
+    <LI><code>$ make -j 2</code>
+    <LI><code>$ sudo make install</code>
+    <LI>or, to install in an alternate directory, e.g. for packaging a
+    distribution
+        <blockquote>
+        <code>$ make install DESTDIR=`pwd`/../install/</code>
+        </blockquote>
+    <LI><code>$ make test</code>
+    <LI><EM>Please</EM> tell me about any problems you encounter.
+</UL>
+
+<P>
+Although not a requirement of use, <EM>please</EM> send me any of your 
+changes so that I can incorporate them.
+</P>
+
+<H1><a name="TclAE - What's Changed?">TclÆ - What's Changed?</a></H1>
+
+<H2><a name="Version 2.0.3">Version 2.0.3 — January 10, 2008</a></H2>
+
+<UL>
+    <LI> Fix for fatal incompatibility with Tcl 8.5
+    <LI> Endian fixes for aetes from Bernard
+</UL>
+
+<H2><a name="Version 2.0.2">Version 2.0.2 — July 9, 2007</a></H2>
+
+<UL>
+    <LI> Added <code>[tclAE::remoteProcessResolverGetProcesses]</code>
+    <LI> Intel fixes
+    <LI> Updated tests
+    <LI> Updated <a href="http://www.tcl.tk/doc/tea/">TEA</a>
+</UL>
+
+<H2><a name="Version 2.0.1">Version 2.0.1 — April 12, 2006</a></H2>
+
+<UL>
+    <LI>Switched to building with <a href="http://www.tcl.tk/doc/tea/">TEA</a>
+    <LI>Initial fixes for Intel
+    <LI><a 
+    href="http://www.maths.mq.edu.au/~steffen/Alpha/bugzilla/show_bug.cgi?id=1217">Bug 1217</a>.
+</UL>
+
+<H2><a name="Version 2.0">Version 2.0 — July 26, 2004</a></H2>
+
+<UL>
+    <LI>It's been in production use for over four years; perhaps it's time 
+    to stop being a beta? (Fixes <a
+    href="http://www.maths.mq.edu.au/~steffen/Alpha/bugzilla/show_bug.cgi?id=1434">bug 1434</a>)
+
+    <LI>Fix for <a
+    href="http://www.maths.mq.edu.au/~steffen/Alpha/bugzilla/show_bug.cgi?id=1351">bug 1351</a>.
+</UL>
+
+<H2><a name="Version 2.0b15">Version 2.0b15 — March 3, 2004</a></H2>
+
+<UL>
+    <LI><code>[<a href="tclAEsend.html#tclAE::send">tclAE::send</a>]</code>
+    accepts <a href="tclAEglossary.html#AEAddress">AEAddresses</a>.
+
+    <LI>New commands <code>[<a
+    href="tclAEsend.html#tclAE::launch">tclAE::launch</a>]</code> and
+    <code>[<a
+    href="tclAEsend.html#tclAE::processes">tclAE::processes</a>]</code>.
+
+    <LI>Added more natural support for <code>typeUnicodeText</code> and
+    <code>typeUTF8Text</code>.
+</UL>
+
+
+<H2><a name="Version 2.0b14">Version 2.0b14 — June 22, 2003</a></H2>
+<UL>
+    <LI>Fixed problem with [unknown] loading of coercion and event handlers
+    <LI>[tclAE::send] returns intermediate errors to caller
+    <LI>Some automatic treatment of POSIX <-> HFS path conversion
+    <LI><a
+    href="http://www.maths.mq.edu.au/~steffen/Alpha/bugzilla/show_bug.cgi?id=907">Bug 907</a>
+    <LI><a
+    href="http://www.maths.mq.edu.au/~steffen/Alpha/bugzilla/show_bug.cgi?id=131">Bug 131</a>
+</UL>
+
+
+<H2><a name="Version 2.0b13">Version 2.0b13 — March 13, 2003</a></H2>
+
+<UL>
+    <LI>New Tcl_Obj implementation of AEDescs
+    <LI>Removed support for AESubDescs
+    <LI>Removed AlphaTcl variant
+    <LI>Updated tests
+</UL>
+
+<H2><a name="Version 2.0b12">Version 2.0b12 — February 21, 2003</a></H2>
+
+<UL>
+    <LI>December 2002 ProjectBuilder
+</UL>
+
+<H2><a name="Version 2.0b11">Version 2.0b11 — November 11, 2002</a></H2>
+
+<UL>
+    <LI>Move to Tcl 8.4, CONSTification, framework headers, PBX 2.0.1 & Jaguar, RAEL
+    <LI>Bugs 555 & 563, tclAE fixes
+</UL>
+
+<H2><a name="Version 2.0b10">Version 2.0b10 — September 9, 2002</a></H2>
+
+<UL>
+    <LI>.tcl file encoding fixes
+    <LI>Introduced AppleEvent transactions
+    <LI>Created new AEAddress Tcl object type
+    <LI>Added POSIX <-> HFS path converter
+    <LI>Removed parseAppleEventsWithTcl flag
+    <LI>Removed tclAE::target commands
+</UL>
+
+<H2><a name="Version 2.0b9">Version 2.0b9 — June 11, 2002</a></H2>
+
+<UL>
+    <LI>fixes for bugs 469, 530, 554
+    <LI>Fix -q. Bug 183
+    <LI>Flush intermediate errors. Bug 182
+    <LI>OSX AEPrint fixes
+    <LI>Explicit use of macRoman encoding when interacting with Carbon
+    <LI>Test file OSX fixes
+    <LI>Dissentagled Alpha and TclAE
+    <LI>Support for AppleEvent Object Model
+    <LI>Carbonization & Bugfixes
+</UL>
+
+<H2><a name="Version 2.0b8">Version 2.0b8 — October 24, 2000</a></H2>
+
+<UL>
+    <LI>Routines for generating and reading AppleEvent Terminology 
+    resources.
+    <LI>Combine tclAE::setData and tclAE::setDescType into tclAE::replaceDescData. 
+    Better logic and needed for Carbon. 
+    <LI>More consistent treatment of Tcl and C implementations.
+</UL>
+
+<H2><a name="Version 2.0b7">Version 2.0b7 — September 24, 2000</a></H2>
+
+<UL>
+    <LI>First public release of shared library
+    <LI>Major changes to the API
+    <LI>Better consistency between <CODE>.tcl</CODE> and <CODE>.shlb</CODE> 
+    versions
+    <LI>New documentation
+</UL>
+
+<H2><a name="Version 2.0b6">Version 2.0b6 — August 24, 2000</a></H2>
+
+<H2><a name="Version 2.0b5">Version 2.0b5 — May 3, 2000</a></H2>
+
+<H2><a name="Version 2.0b4">Version 2.0b4 — January 5, 2000</a></H2>
+
+<UL>
+    <LI>Further AlphaTcl speed improvements
+</UL>
+
+<H2><a name="Version 2.0b3">Version 2.0b3 — December 22, 1999</a></H2>
+
+<UL>
+    <LI>AlphaTcl installer fixes
+</UL>
+
+<H2><a name="Version 2.0b2">Version 2.0b2 — December 20, 1999</a></H2>
+
+<UL>
+    <LI>AlphaTcl speed improvements
+</UL>
+
+<H2><a name="Version 2.0b1">Version 2.0b1 — December 14, 1999</a></H2>
+
+<UL>
+    <LI>Complete rewrite of AlphaTcl code for compatibility with the 
+    hard-coded AE parsers in Alpha 8 (which are two to three orders of 
+    magnitude faster!).
+</UL>
+
+<H2><a name="Version 1.0">Version 1.0</a></H2>
+
+<UL>
+    <LI>Assorted Tcl-only implementations for Alpha 7.x
+</UL>
+
+<HR>
+
+<P>
+Copyright © 1999–2007 Jonathan E. Guyer, Daniel Steffen, Peter J. Keleher 
+and Tim Endres.<BR>
+All rights reserved.
+</P>
+
+<P>
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+</P>
+
+<UL>
+    <LI>Redistributions of source code must retain the above copyright 
+    notice, this list of conditions and the following disclaimer.  
+    
+    <LI>Redistributions in binary form must reproduce the above copyright notice, 
+    this list of conditions and the following disclaimer in the documentation 
+    and/or other materials provided with the distribution.  
+    
+    <LI>Neither the name of the authors nor the names of any contributors 
+    may be used to endorse or promote products derived from this software 
+    without specific prior written permission.
+</UL>
+
+<P>
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" 
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE 
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE 
+ARE DISCLAIMED. IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE FOR 
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL 
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER 
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT 
+LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY 
+OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH 
+DAMAGE.
+</P>
+</div>
+
+<HR>
+
+<p>
+<!-- #LASTMODIFIED TEXT="Last modified" FORM="LONG,WEEKDAY,TIME,SECONDS"-->
+Last modified Thursday, January 10, 2008 10:18:04 PM
+<!-- /#LASTMODIFIED -->
+</p>
+
+<table id=logos>
+    
+    <tr>
+	<td id="Alpha"><a href="http://alphatcl.sourceforge.net/"><img 
+	src="Alpha.png" alt="Assembled in Alpha" width="223" height="72" 
+	border="0"></a></td>
+	
+	<td id="valid">
+	
+	<table>
+	    
+	    <tr>
+		<td><a href="http://jigsaw.w3.org/css-validator/"><img 
+		style="border:0;width:88px;height:31px"
+		src="http://jigsaw.w3.org/css-validator/images/vcss" alt="Valid CSS!"></a></td>
+	    </tr>
+	    
+	    <tr>
+		<td><a href="http://validator.w3.org/check/referer" id="HTML"><img border="0"
+		src="http://www.w3.org/Icons/valid-html40" alt="Valid HTML 4.0!" 
+		height="31" width="88"></a></td>
+	    </tr>
+	    
+	</table>
+	
+	</td>
+	
+	<td id="SourceForge"><a href="http://sourceforge.net"><img 
+	src="http://sourceforge.net/sflogo.php?group_id=47775&amp;type=5" 
+	width="210" height="62" border="0" alt="SourceForge.net Logo"></a></td>
+    </tr>
+    
+</table>
+
+
+
+</BODY>
+
+</HTML>

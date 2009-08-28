@@ -4,7 +4,7 @@
 # set -x
 
 DEFAULT_SECCERTDIR=`pwd`
-DEFAULT_SECURITYTESTS_DIR=/Volumes/xenos/dev/tla-LeopardSU/SecurityTests
+DEFAULT_SECURITYTESTS_DIR=/Volumes/xenos/dev/tla3/SecurityTests
 
 #This is usually the security_certificates directory in the checked out branch
 

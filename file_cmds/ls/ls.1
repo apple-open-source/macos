@@ -43,7 +43,7 @@
 .Nd list directory contents
 .Sh SYNOPSIS
 .Nm ls
-.Op Fl ABCFGHLPRSTW@abcdefghiklmnopqrstuwx1
+.Op Fl ABCFGHLOPRSTUW@abcdefghiklmnopqrstuwx1
 .Op Ar
 .Sh DESCRIPTION
 For each operand that names a
@@ -70,9 +70,10 @@ lexicographical order.
 .Pp
 The following options are available:
 .Bl -tag -width indent
-.\" ==========
 .It Fl @
-Display extended attribute keys and sizes.
+Display extended attribute keys and sizes in long
+.Pq Fl l
+output.
 .It Fl 1
 (The numeric digit
 .Dq one . )
@@ -80,19 +81,16 @@ Force output to be
 one entry per line.
 This is the default when
 output is not to a terminal.
-.\" ==========
 .It Fl A
 List all entries except for
 .Pa \&.
 and
 .Pa .. .
 Always set for the super-user.
-.\" ==========
 .It Fl a
 Include directory entries whose names begin with a
 dot
 .Pq Pa \&. .
-.\" ==========
 .It Fl B
 Force printing of non-printable characters (as defined by
 .Xr ctype 3
@@ -101,26 +99,25 @@ and current locale settings) in file names as
 where
 .Va xxx
 is the numeric value of the character in octal.
-.\" ==========
 .It Fl b
 As
 .Fl B ,
 but use
 .Tn C
 escape codes whenever possible.
-.\" ==========
 .It Fl C
 Force multi-column output; this is the default when output is to a terminal.
-.\" ==========
 .It Fl c
-Use time when file status was last changed for sorting or printing.
-.\" ==========
+Use time when file status was last changed for sorting
+.Pq Fl t
+or long printing
+.Pq Fl l .
 .It Fl d
 Directories are listed as plain files (not searched recursively).
-.\" ==========
 .It Fl e
-Print the Access Control List (ACL) associated with the file, if present.
-.\" ==========
+Print the Access Control List (ACL) associated with the file, if present, in long
+.Pq Fl l
+output.
 .It Fl F
 Display a slash
 .Pq Ql /
@@ -141,26 +138,22 @@ and a vertical bar
 .Pq Ql \&|
 after each that is a
 .Tn FIFO .
-.\" ==========
 .It Fl f
 Output is not sorted.
 This option turns on the
 .Fl a
 option.
-.\" ==========
 .It Fl G
 Enable colorized output.
 This option is equivalent to defining
 .Ev CLICOLOR
 in the environment.
 (See below.)
-.\" ==========
 .It Fl g
 This option is only available for compatibility with POSIX;
 it is used to display the group name in the long
 .Pq Fl l
 format output (the owner name is suppressed).
-.\" ==========
 .It Fl H
 Symbolic links on the command line are followed.
 This option is assumed if
@@ -169,17 +162,14 @@ none of the
 or
 .Fl l
 options are specified.
-.\" ==========
 .It Fl h
 When used with the
 .Fl l
 option, use unit suffixes: Byte, Kilobyte, Megabyte, Gigabyte, Terabyte
 and Petabyte in order to reduce the number of digits to three or less
 using base 2 for sizes.
-.\" ==========
 .It Fl i
 For each file, print the file's file serial number (inode number).
-.\" ==========
 .It Fl k
 If the
 .Fl s
@@ -187,14 +177,12 @@ option is specified, print the file size allocation in kilobytes,
 not blocks.
 This option overrides the environment variable
 .Ev BLOCKSIZE .
-.\" ==========
 .It Fl L
-If argument is a symbolic link, list the file or directory the link references
+Follow all symbolic links to final target and list the file or directory the link references
 rather than the link itself.
 This option cancels the
 .Fl P
 option.
-.\" ==========
 .It Fl l
 (The lowercase letter
 .Dq ell . )
@@ -202,10 +190,8 @@ List in long format.
 (See below.)
 If the output is to a terminal, a total sum for all the file
 sizes is output on a line before the long listing.
-.\" ==========
 .It Fl m
 Stream output format; list files across the page, separated by commas.
-.\" ==========
 .It Fl n
 Display user and group IDs numerically,
 rather than converting to a user or group name in a long
@@ -214,15 +200,12 @@ output.
 This option turns on the
 .Fl l
 option.
-.\" ==========
 .It Fl O
 Include the file flags in a long
 .Pq Fl l
 output.
-.\" ==========
 .It Fl o
 List in long format, but omit the group id.
-.\" ==========
 .It Fl P
 If argument is a symbolic link, list the link itself rather than the
 object the link references.
@@ -231,29 +214,23 @@ This option cancels the
 and
 .Fl L
 options.
-.\" ==========
 .It Fl p
 Write a slash
 .Pq Ql /
 after each filename if that file is a directory.
-.\" ==========
 .It Fl q
 Force printing of non-graphic characters in file names as
 the character
 .Ql \&? ;
 this is the default when output is to a terminal.
-.\" ==========
 .It Fl R
 Recursively list subdirectories encountered.
-.\" ==========
 .It Fl r
 Reverse the order of the sort to get reverse
 lexicographical order or the oldest entries first (or largest files
 last, if combined with sort by size
-.\" ==========
 .It Fl S
 Sort files by size
-.\" ==========
 .It Fl s
 Display the number of file system blocks actually used by each file, in units
 of 512 bytes, where partial units are rounded up to the next integer value.
@@ -262,7 +239,6 @@ sizes is output on a line before the listing.
 The environment variable
 .Ev BLOCKSIZE
 overrides the unit size of 512 bytes.
-.\" ==========
 .It Fl T
 When used with the
 .Fl l
@@ -270,34 +246,33 @@ When used with the
 .Dq ell )
 option, display complete time information for the file, including
 month, day, hour, minute, second, and year.
-.\" ==========
 .It Fl t
 Sort by time modified (most recently modified
 first) before sorting the operands by lexicographical
 order.
-.\" ==========
 .It Fl u
 Use time of last access,
 instead of last modification
 of the file for sorting
 .Pq Fl t
-or printing
+or long printing
 .Pq Fl l .
-.\" ==========
+.It Fl U
+Use time of file creation, instead of last modification for sorting
+.Pq Fl t
+or long output
+.Pq Fl l .
 .It Fl v
 Force unedited printing of non-graphic characters; this is the default when
 output is not to a terminal.
-.\" ==========
 .It Fl W
 Display whiteouts when scanning directories.
 .Pq Fl S
 flag).
-.\" ==========
 .It Fl w
 Force raw printing of non-printable characters.
 This is the default
 when output is not to a terminal.
-.\" ==========
 .It Fl x
 The same as
 .Fl C ,
@@ -369,7 +344,8 @@ If the file or directory has extended attributes,
 the permissions field printed by the
 .Fl l
 option is followed by a '@' character.
-Otherwise, if the file or directory has extended security information,
+Otherwise, if the file or directory has extended security information
+(such as an access control list),
 the permissions field printed by the 
 .Fl l
 option is followed by a '+' character.
@@ -703,6 +679,9 @@ that resolves to a non-directory file,
 the output will reflect the nature of the link,
 rather than that of the file.
 In legacy operation, the output will describe the file.
+.Pp
+For more information about legacy mode, see
+.Xr compat 5 .
 .Sh SEE ALSO
 .Xr chflags 1 ,
 .Xr chmod 1 ,

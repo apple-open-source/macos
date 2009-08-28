@@ -1,0 +1,61 @@
+#
+# ReleaseNotes.txt
+#
+# $Id: ReleaseNotes.txt 115 2007-11-08 21:18:25Z kutterma $
+
+The following is a compilation of various issues developers should be aware of
+when developing Web services using SOAP::Lite.
+
+LIMITED WSDL SUPPORT - SOAP::Lite is not capable of generating WSDLs
+automatically. If you require a WSDL for a service written using SOAP::Lite,
+please consider using a tool like XML Spy, or CapeClear's WSDL Editor.
+
+NO ENTITY DECODING
+SOAP::Lite uses XML::Parser::Lite which relies on Unicode support in Perl and
+doesn't perform XML ENTITY decoding. 
+
+LIMITED SUPPORT FOR MUSTUNDERSTAND and ACTOR ATTRIBUTES
+SOAP::Lite does not currently heed the soap:mustUnderstand XML attribute, or
+SOAP actor attributes. 
+
+DOCUMENT-LITERAL SUPPORT
+All literal encoding support for SOAP::Lite is marked EXPERIMENTAL, and it is
+incomplete. Developers are encouraged to use this capability but should be
+fore-warned.
+As an alternative, SOAP::WSDL or XML::Compiled::SOAP may be used for 
+document/literal bindings derived from WSDL definitions.
+
+CLIENT SIDE WSDL SUPPORT
+SOAP::Lites ability to consume a WSDL and generate the necessary message based
+on that WSDL is improving, but it does not work with complex types.
+As an alternative, SOAP::WSDL or XML::Compiled::SOAP may be used for 
+document/literal bindings derived from WSDL definitions.
+
+SERVICE SIDE WSDL SUPPORT
+Perl is a loosely typed language making it extraordinarily difficult to generate
+a reliable WSDL based upon reflection of somekind. Therefore, no WSDL can be
+generated using SOAP::Lite.
+
+SOAP FAULT NOT GETTING SERIALIZED PROPERLY
+A user reported that when a service run under Perl version 5.5003 issues the
+die command with a SOAP::Fault as input, that SOAP::Lite does not properly
+serialize the Fault object. However, the same code works under 5.6 and above.
+
+NULL BODIES
+SOAP::Lite currently allows users to construct an Envelope using a null body,
+e.g. <Envelope><Body /></Envelope>. However, SOAP::Lite services have no way
+of processing such a message.
+
+XML NAMESPACES ABSENT FROM RESPONSES
+A user reported that under mod_perl for a series of requests which were using 
+SOAP 1.1 and 1.2, that some of the responses to incoming messages lacked the 
+XSD and XSI namespace declarations causing an error with the receiving .NET
+client for those response lacking these attributes.
+
+OBJECTS BY REFERENCE
+SOAP::Server->objects_by_reference is marked EXPERIMENTAL
+
+SOAP CLIENT CRASHES ON WINDOWS 98 WITH BIG MESSAGES
+Some users using Windows 98, and an older version of Perl experience a page
+fault error in perl58.dll when transmitting/receiving messages over a certain
+size. This problem is fixed by upgrading to the latest version of Perl.

@@ -1,0 +1,7 @@
+#!../../src/xotclsh
+package require XOTcl; namespace import -force xotcl::*
+
+@ @File {description {For a sample webclient, see packages/comm/xocomm.test}}
+package require xotcl::comm::httpAccess
+set hostport localhost:8086
+SimpleRequest r0 -url http://$hostport/logo-100.jpg

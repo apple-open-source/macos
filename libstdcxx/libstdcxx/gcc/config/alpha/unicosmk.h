@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for DEC Alpha on Cray
    T3E running Unicos/Mk.
-   Copyright (C) 2001, 2002, 2004
+   Copyright (C) 2001, 2002, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Roman Lechtchinsky (rl@cs.tu-berlin.de)
 
@@ -18,8 +18,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #undef TARGET_ABI_UNICOSMK
 #define TARGET_ABI_UNICOSMK 1
@@ -96,7 +96,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* The stack frame grows downward.  */
 
-#define FRAME_GROWS_DOWNWARD
+#define FRAME_GROWS_DOWNWARD 1
 
 /* Define the offset between two registers, one to be eliminated, and the
    other its replacement, at the start of a routine. This is somewhat
@@ -230,7 +230,7 @@ do { fprintf (FILE, "\tbr $1,0\n");			\
 /* We don't support nested functions (yet).  */
 
 #undef TRAMPOLINE_TEMPLATE
-#define TRAMPOLINE_TEMPLATE(FILE) abort ()
+#define TRAMPOLINE_TEMPLATE(FILE) gcc_unreachable ()
 
 /* Specify the machine mode that this machine uses for the index in the
    tablejump instruction. On Unicos/Mk, we don't support relative case
@@ -244,51 +244,9 @@ do { fprintf (FILE, "\tbr $1,0\n");			\
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
 /* #define DEFAULT_SIGNED_CHAR 1 */
 
-/* The Cray assembler is really weird with respect to sections. It has only
-   named sections and you can't reopen a section once it has been closed.
-   This means that we have to generate unique names whenever we want to
-   reenter the text or the data section. The following is a rather bad hack
-   as TEXT_SECTION_ASM_OP and DATA_SECTION_ASM_OP are supposed to be
-   constants.  */
-
-#undef TEXT_SECTION_ASM_OP
-#define TEXT_SECTION_ASM_OP unicosmk_text_section ()
-
-#undef DATA_SECTION_ASM_OP
-#define DATA_SECTION_ASM_OP unicosmk_data_section ()
-
 /* There are no read-only sections on Unicos/Mk.  */
 
 #undef READONLY_DATA_SECTION_ASM_OP
-#define READONLY_DATA_SECTION data_section
-
-/* Define extra sections for common data and SSIBs (static subroutine
-   information blocks). The actual section header is output by the callers
-   of these functions.  */
-
-#undef EXTRA_SECTIONS
-#undef EXTRA_SECTION_FUNCTIONS
-
-#define EXTRA_SECTIONS in_common, in_ssib
-#define EXTRA_SECTION_FUNCTIONS	\
-COMMON_SECTION			\
-SSIB_SECTION	
-
-extern void common_section (void);
-#define COMMON_SECTION		\
-void				\
-common_section (void)		\
-{				\
-  in_section = in_common;	\
-}
-
-extern void ssib_section (void);
-#define SSIB_SECTION		\
-void				\
-ssib_section (void)		\
-{				\
-  in_section = in_ssib;		\
-}
 
 /* We take care of this in unicosmk_file_start.  */
 
@@ -374,7 +332,7 @@ ssib_section (void)		\
    (Unicos/Mk does not use such vectors yet).  */
 
 #undef ASM_OUTPUT_ADDR_DIFF_ELT
-#define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL) abort ()
+#define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL) gcc_unreachable ()
 
 /* We can't output case vectors in the same section as the function code
    because CAM doesn't allow data definitions in code sections. Thus, we
@@ -384,7 +342,7 @@ ssib_section (void)		\
 #define ASM_OUTPUT_ADDR_VEC(LAB,VEC) \
   unicosmk_defer_case_vector ((LAB),(VEC))
 
-#define ASM_OUTPUT_ADDR_DIFF_VEC(LAB,VEC) abort ()
+#define ASM_OUTPUT_ADDR_DIFF_VEC(LAB,VEC) gcc_unreachable ()
 
 /* This is how to output an assembler line that says to advance the location
    counter to a multiple of 2**LOG bytes. Annoyingly, CAM always uses zeroes
@@ -413,7 +371,7 @@ ssib_section (void)		\
 
 #undef ASM_OUTPUT_LOCAL
 #define ASM_OUTPUT_ALIGNED_LOCAL(FILE, NAME, SIZE, ALIGN) \
-  do { data_section ();					\
+  do { switch_to_section (data_section);		\
        fprintf (FILE, "\t.align\t%d\n", floor_log2 ((ALIGN) / BITS_PER_UNIT));\
        ASM_OUTPUT_LABEL ((FILE), (NAME));		\
        fprintf (FILE, "\t.byte 0:"HOST_WIDE_INT_PRINT_UNSIGNED"\n",(SIZE));\
@@ -449,6 +407,7 @@ ssib_section (void)		\
 
 /* Switch into a generic section.  */
 #define TARGET_ASM_NAMED_SECTION unicosmk_asm_named_section
+#define TARGET_ASM_INIT_SECTIONS unicosmk_init_sections
 
 #undef ASM_OUTPUT_MAX_SKIP_ALIGN
 #define ASM_OUTPUT_MAX_SKIP_ALIGN(STREAM,POWER,MAXSKIP)

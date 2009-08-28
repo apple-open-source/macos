@@ -127,7 +127,7 @@ private:
 template <class AttachmentSubclass>
 inline AttachmentSubclass &enterAttachment(CSSM_HANDLE h)
 {
-	AttachmentSubclass &attachment = findHandleAndLock<AttachmentSubclass>(h);
+	AttachmentSubclass &attachment = HandleObject::findAndLock<AttachmentSubclass>(h, CSSMERR_CSSM_INVALID_ADDIN_HANDLE);
 	attachment.finishEnter();
 	return attachment;
 }

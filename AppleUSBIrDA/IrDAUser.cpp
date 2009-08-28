@@ -158,7 +158,7 @@ IrDAUserClient::getIrDALog(void *pIn, void *pOut, IOByteCount inputSize, IOByteC
 
     IOMemoryDescriptor *md;         // make a memory descriptor for the client's big buffer
     unsigned char *input = (unsigned char *)pIn;
-    vm_address_t bigaddr;
+    mach_vm_address_t bigaddr;
     IOByteCount   biglen;
     IrDALogInfo *info;
 
@@ -174,7 +174,11 @@ IrDAUserClient::getIrDALog(void *pIn, void *pOut, IOByteCount inputSize, IOByteC
     //IOLog("biglen is %d\n", biglen);
     
     // create and init the memory descriptor
-    md = IOMemoryDescriptor::withAddress(bigaddr, biglen, kIODirectionOutIn, fTask);        // REVIEW direction
+    //md = IOMemoryDescriptor::withAddress(bigaddr, biglen, kIODirectionOutIn, fTask);        // REVIEW direction
+    //use withAddressRange() and prepare() instead
+    md = IOMemoryDescriptor::withAddressRange(bigaddr, biglen, kIODirectionOutIn, fTask);        // REVIEW direction
+    md->prepare(kIODirectionOutIn);
+
     require(md, Fail);
     
     info = IrDALogGetInfo();        // get the info block

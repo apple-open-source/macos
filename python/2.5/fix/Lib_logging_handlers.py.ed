@@ -1,0 +1,7 @@
+/^class SysLogHandler/a
+.
+/def __init__/s|address=('localhost', SYSLOG_UDP_PORT)|address='/var/run/syslog'|
+i
+    # On Darwin, use /var/run/syslog by default
+.
+w

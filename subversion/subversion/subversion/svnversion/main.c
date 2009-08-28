@@ -1,6 +1,6 @@
 /*
  * ====================================================================
- * Copyright (c) 2003-2004 CollabNet.  All rights reserved.
+ * Copyright (c) 2003-2008 CollabNet.  All rights reserved.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution.  The terms
@@ -26,10 +26,11 @@
 #define SVNVERSION_OPT_VERSION SVN_OPT_FIRST_LONGOPT_ID
 
 
-static svn_error_t * version(apr_getopt_t *os, apr_pool_t *pool)
+static svn_error_t *
+version(apr_pool_t *pool)
 {
-  return svn_opt_print_help(os, "svnversion", TRUE, FALSE, NULL, NULL,
-                            NULL, NULL, NULL, pool);
+  return svn_opt_print_help3(NULL, "svnversion", TRUE, FALSE, NULL, NULL,
+                             NULL, NULL, NULL, NULL, pool);
 }
 
 static void
@@ -54,7 +55,7 @@ help(const apr_getopt_option_t *options, apr_pool_t *pool)
         "  within WC_PATH does not rely on TRAIL_URL).  The version number\n"
         "  is written to standard output.  For example:\n"
         "\n"
-        "    $ svnversion . /repos/svn/trunk \n"
+        "    $ svnversion . /repos/svn/trunk\n"
         "    4168\n"
         "\n"
         "  The version number will be a single number if the working\n"
@@ -65,6 +66,7 @@ help(const apr_getopt_option_t *options, apr_pool_t *pool)
         "   4123:4168     mixed revision working copy\n"
         "   4168M         modified working copy\n"
         "   4123S         switched working copy\n"
+        "   4123P         partial working copy, from a sparse checkout\n"
         "   4123:4168MS   mixed revision, modified, switched working copy\n"
         "\n"
         "  If invoked on a directory that is not a working copy, an\n"
@@ -130,7 +132,7 @@ main(int argc, const char *argv[])
   if (svn_cmdline_init("svnversion", stderr) != EXIT_SUCCESS)
     return EXIT_FAILURE;
 
-  /* Create our top-level pool.  Use a seperate mutexless allocator,
+  /* Create our top-level pool.  Use a separate mutexless allocator,
    * given this application is single threaded.
    */
   if (apr_allocator_create(&allocator))
@@ -144,12 +146,7 @@ main(int argc, const char *argv[])
   /* Check library versions */
   err = check_lib_versions();
   if (err)
-    {
-      svn_handle_error2(err, stderr, FALSE, "svnversion: ");
-      svn_error_clear(err);
-      svn_pool_destroy(pool);
-      return EXIT_FAILURE;
-    }
+    return svn_cmdline_handle_exit_error(err, pool, "svnversion: ");
 
 #if defined(WIN32) || defined(__CYGWIN__)
   /* Set the working copy administrative directory name. */
@@ -157,10 +154,7 @@ main(int argc, const char *argv[])
     {
       err = svn_wc_set_adm_dir("_svn", pool);
       if (err)
-        {
-          svn_handle_error2(err, stderr, FALSE, "svnversion: ");
-          return EXIT_FAILURE;
-        }
+        return svn_cmdline_handle_exit_error(err, pool, "svnversion: ");
     }
 #endif
 
@@ -193,7 +187,7 @@ main(int argc, const char *argv[])
           help(options, pool);
           break;
         case SVNVERSION_OPT_VERSION:
-          SVN_INT_ERR(version(os, pool));
+          SVN_INT_ERR(version(pool));
           exit(0);
           break;
         default:
@@ -226,7 +220,7 @@ main(int argc, const char *argv[])
       SVN_INT_ERR(svn_io_check_path(wc_path, &kind, pool));
       if (kind == svn_node_dir)
         {
-          SVN_INT_ERR(svn_cmdline_printf(pool, _("exported%s"), 
+          SVN_INT_ERR(svn_cmdline_printf(pool, _("exported%s"),
                                          no_newline ? "" : "\n"));
           svn_pool_destroy(pool);
           return EXIT_SUCCESS;
@@ -254,6 +248,8 @@ main(int argc, const char *argv[])
     SVN_INT_ERR(svn_cmdline_fputs("M", stdout, pool));
   if (res->switched)
     SVN_INT_ERR(svn_cmdline_fputs("S", stdout, pool));
+  if (res->sparse_checkout)
+    SVN_INT_ERR(svn_cmdline_fputs("P", stdout, pool));
 
   if (! no_newline)
     SVN_INT_ERR(svn_cmdline_fputs("\n", stdout, pool));

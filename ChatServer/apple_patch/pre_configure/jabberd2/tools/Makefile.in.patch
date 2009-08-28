@@ -1,0 +1,12 @@
+--- /tmp/jabberd-2.1.24.1/tools/Makefile.in	2008-04-27 02:58:17.000000000 -0700
++++ ./jabberd2/tools/Makefile.in	2008-11-24 14:21:54.000000000 -0800
+@@ -178,7 +178,8 @@ EXTRA_DIST = db-setup.mysql db-update.my
+ edit = sed \
+ 	-e 's,@sysconfdir\@,$(sysconfdir),g' \
+ 	-e 's,@VERSION\@,$(VERSION),g' \
+-	-e 's,@bindir\@,$(bindir),g'
++	-e 's,@bindir\@,$(bindir),g' \
++	-e 's,@libexecdir\@,$(libexecdir),g'
+ 
+ all: all-am
+ 

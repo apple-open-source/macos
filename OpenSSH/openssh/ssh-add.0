@@ -1,4 +1,4 @@
-SSH-ADD(1)                BSD General Commands Manual               SSH-ADD(1)
+SSH-ADD(1)                 OpenBSD Reference Manual                 SSH-ADD(1)
 
 NAME
      ssh-add -- adds RSA or DSA identities to the authentication agent
@@ -110,4 +110,4 @@ AUTHORS
      ated OpenSSH.  Markus Friedl contributed the support for SSH protocol
      versions 1.5 and 2.0.
 
-BSD                           June 12, 2007                           BSD
+OpenBSD 4.5                      June 12, 2007                               2

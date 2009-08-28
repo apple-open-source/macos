@@ -1,5 +1,5 @@
 /* Output routines.
-   Copyright (C) 1989-1998, 2000, 2002-2003 Free Software Foundation, Inc.
+   Copyright (C) 1989-1998, 2000, 2002-2004, 2006-2007 Free Software Foundation, Inc.
    Written by Douglas C. Schmidt <schmidt@ics.uci.edu>
    and Bruno Haible <bruno@clisp.org>.
 
@@ -18,7 +18,7 @@
    You should have received a copy of the GNU General Public License
    along with this program; see the file COPYING.
    If not, write to the Free Software Foundation, Inc.,
-   59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 /* Specification. */
 #include "output.h"
@@ -472,6 +472,22 @@ output_string (const char *key, int len)
 
 /* ------------------------------------------------------------------------- */
 
+/* Outputs a #line directive, referring to the given line number.  */
+
+static void
+output_line_directive (unsigned int lineno)
+{
+  const char *file_name = option.get_input_file_name ();
+  if (file_name != NULL)
+    {
+      printf ("#line %u ", lineno);
+      output_string (file_name, strlen (file_name));
+      printf ("\n");
+    }
+}
+
+/* ------------------------------------------------------------------------- */
+
 /* Outputs a type and a const specifier (i.e. "const " or "").
    The output is terminated with a space.  */
 
@@ -916,9 +932,11 @@ Output::output_keylength_table () const
   const int columns = 14;
   const char * const indent = option[GLOBAL] ? "" : "  ";
 
-  printf ("%sstatic %s%s lengthtable[] =\n%s  {",
+  printf ("%sstatic %s%s %s[] =\n"
+          "%s  {",
           indent, const_readonly_array,
           smallest_integral_type (_max_key_len),
+          option.get_lengthtable_name (),
           indent);
 
   /* Generate an array of lengths, similar to output_keyword_table.  */
@@ -1082,16 +1100,13 @@ Output::output_string_pool () const
 static void
 output_keyword_entry (KeywordExt *temp, int stringpool_index, const char *indent)
 {
-  if (option[TYPE] && option.get_input_file_name ())
-    printf ("#line %u \"%s\"\n",
-            temp->_lineno, option.get_input_file_name ());
+  if (option[TYPE])
+    output_line_directive (temp->_lineno);
   printf ("%s    ", indent);
   if (option[TYPE])
     printf ("{");
   if (option[SHAREDLIB])
-    printf ("(int)(long)&((struct %s_t *)0)->%s_str%d",
-            option.get_stringpool_name (), option.get_stringpool_name (),
-            stringpool_index);
+    printf("offsetof(struct %s_t, %s_str%d)", option.get_stringpool_name (), option.get_stringpool_name (), stringpool_index);
   else
     output_string (temp->_allchars, temp->_allchars_length);
   if (option[TYPE])
@@ -1423,8 +1438,8 @@ output_switch_case (KeywordExt_List *list, int indent, int *jumps_away)
   if (option[DUP] && list->first()->_duplicate_link)
     {
       if (option[LENTABLE])
-        printf ("%*slengthptr = &lengthtable[%d];\n",
-                indent, "", list->first()->_final_index);
+        printf ("%*slengthptr = &%s[%d];\n",
+                indent, "", option.get_lengthtable_name (), list->first()->_final_index);
       printf ("%*swordptr = &%s[%d];\n",
               indent, "", option.get_wordlist_name (), list->first()->_final_index);
 
@@ -1682,8 +1697,8 @@ Output::output_lookup_function_body (const Output_Compare& comparison) const
           if (option[LENTABLE])
             {
               printf ("%*s    {\n"
-                      "%*s      if (len == lengthtable[index])\n",
-                      indent, "", indent, "");
+                      "%*s      if (len == %s[index])\n",
+                      indent, "", indent, "", option.get_lengthtable_name ());
               indent += 4;
             }
           printf ("%*s    {\n"
@@ -1721,8 +1736,9 @@ Output::output_lookup_function_body (const Output_Compare& comparison) const
                       "%*s      register int offset = - 1 - TOTAL_KEYWORDS - index;\n",
                       indent, "", indent, "", indent, "");
               if (option[LENTABLE])
-                printf ("%*s      register %s%s *lengthptr = &lengthtable[TOTAL_KEYWORDS + lookup[offset]];\n",
-                        indent, "", const_always, smallest_integral_type (_max_key_len));
+                printf ("%*s      register %s%s *lengthptr = &%s[TOTAL_KEYWORDS + lookup[offset]];\n",
+                        indent, "", const_always, smallest_integral_type (_max_key_len),
+                        option.get_lengthtable_name ());
               printf ("%*s      register ",
                       indent, "");
               output_const_type (const_readonly_array, _wordlist_eltype);
@@ -1781,8 +1797,8 @@ Output::output_lookup_function_body (const Output_Compare& comparison) const
           int indent = 8;
           if (option[LENTABLE])
             {
-              printf ("%*sif (len == lengthtable[key])\n",
-                      indent, "");
+              printf ("%*sif (len == %s[key])\n",
+                      indent, "", option.get_lengthtable_name ());
               indent += 2;
             }
 
@@ -1866,8 +1882,14 @@ Output::output_lookup_function () const
 {
   /* Output the function's head.  */
   if (option[KRC] | option[C] | option[ANSIC])
+    /* GCC 4.3 and above with -std=c99 or -std=gnu99 implements ISO C99
+       inline semantics, unless -fgnu89-inline is used.  It defines a macro
+       __GNUC_STDC_INLINE__ to indicate this situation.  */
     printf ("#ifdef __GNUC__\n"
             "__inline\n"
+            "#ifdef __GNUC_STDC_INLINE__\n"
+            "__attribute__ ((__gnu_inline__))\n"
+            "#endif\n"
             "#endif\n");
 
   printf ("%s%s\n",
@@ -2000,23 +2022,22 @@ Output::output ()
 
   if (_verbatim_declarations < _verbatim_declarations_end)
     {
-      if (option.get_input_file_name ())
-        printf ("#line %u \"%s\"\n",
-                _verbatim_declarations_lineno, option.get_input_file_name ());
+      output_line_directive (_verbatim_declarations_lineno);
       fwrite (_verbatim_declarations, 1,
               _verbatim_declarations_end - _verbatim_declarations, stdout);
     }
 
   if (option[TYPE] && !option[NOTYPE]) /* Output type declaration now, reference it later on.... */
     {
-      if (option.get_input_file_name ())
-        printf ("#line %u \"%s\"\n",
-                _struct_decl_lineno, option.get_input_file_name ());
+      output_line_directive (_struct_decl_lineno);
       printf ("%s\n", _struct_decl);
     }
 
-  if (option[INCLUDE])
+  if (option[INCLUDE]) {
     printf ("#include <string.h>\n"); /* Declare strlen(), strcmp(), strncmp(). */
+    if (option[SHAREDLIB])
+      printf("#include <stddef.h>\n"); /* Declare offsetof() */
+  }
 
   if (!option[ENUM])
     {
@@ -2072,9 +2093,7 @@ Output::output ()
 
   if (_verbatim_code < _verbatim_code_end)
     {
-      if (option.get_input_file_name ())
-        printf ("#line %u \"%s\"\n",
-                _verbatim_code_lineno, option.get_input_file_name ());
+      output_line_directive (_verbatim_code_lineno);
       fwrite (_verbatim_code, 1, _verbatim_code_end - _verbatim_code, stdout);
     }
 

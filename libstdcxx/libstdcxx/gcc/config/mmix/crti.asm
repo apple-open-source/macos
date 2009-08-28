@@ -22,8 +22,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 % This is the crt0 equivalent for mmix-knuth-mmixware, for setting up
 % things for compiler-generated assembly-code and for setting up things
@@ -91,7 +91,7 @@ Main	SETL	$255,32
 % Provide the first part of _init and _fini.  Save the return address on the
 % register stack.  We eventually ignore the return address of these
 % PUSHJ:s, so it doesn't matter that whether .init and .fini code calls
-% functions or where they store rJ.  We shouldn't get there, so abort
+% functions or where they store rJ.  We shouldn't get there, so die
 % (TRAP Halt) if that happens.
 
 	.section .init,"ax",@progbits

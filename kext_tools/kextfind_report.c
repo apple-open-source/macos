@@ -20,25 +20,17 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-#include "kextfind.h"
+#include "kextfind_main.h"
 #include "kextfind_report.h"
 #include "kextfind_query.h"
 #include "kextfind_commands.h"
-#include "utility.h"
+#include "kext_tools_util.h"
 
-#include <IOKit/kext/KXKextManager.h>
+#include <IOKit/kext/OSKext.h>
+#include <IOKit/kext/OSKextPrivate.h>
 #include <IOKit/kext/fat_util.h>
 #include <IOKit/kext/macho_util.h>
 
-/*******************************************************************************
-* External function prototypes.
-*
-* XXX: These should be exported in private headers.
-*******************************************************************************/
-// XXX: Put vers_rsrc.h in private headers export for IOKitUser
-typedef SInt64 VERS_version;
-extern VERS_version _KXKextGetCompatibleVersion(KXKextRef aKext);
-extern fat_iterator _KXKextCopyFatIterator(KXKextRef aKext);
 
 /*******************************************************************************
 *
@@ -119,7 +111,7 @@ char * cStringForCFValue(CFTypeRef value)
     valueType = CFGetTypeID(value);
 
     if (CFStringGetTypeID() == valueType) {
-        return cStringForCFString(value);
+        return createUTF8CStringForCFString(value);
     } else if (CFBooleanGetTypeID() == valueType) {
         return CFBooleanGetValue(value) ? strdup(kWordTrue) : strdup(kWordFalse);
     } else if (CFNumberGetTypeID() == valueType) {
@@ -151,7 +143,7 @@ Boolean reportEvalProperty(
     QEQueryError * error)
 {
     Boolean result = false;
-    KXKextRef theKext = (KXKextRef)object;
+    OSKextRef theKext = (OSKextRef)object;
     QueryContext * context = (QueryContext *)user_data;
     CFStringRef propKey = NULL;   // don't release
     CFTypeRef   propVal = NULL;   // don't release
@@ -164,7 +156,7 @@ Boolean reportEvalProperty(
     }
 
     if (!context->reportStarted) {
-        cString = cStringForCFString(propKey);
+        cString = createUTF8CStringForCFString(propKey);
         if (!cString) {
             *error = kQEQueryErrorEvaluationCallbackFailed;
             goto finish;
@@ -173,7 +165,7 @@ Boolean reportEvalProperty(
             cString);
     } else {
         // This is allowed to be null
-        propVal = CFDictionaryGetValue(KXKextGetInfoDictionary(theKext), propKey);
+        propVal = OSKextGetValueForInfoDictionaryKey(theKext, propKey);
         cString = cStringForCFValue(propVal);
         if (!cString) {
             *error = kQEQueryErrorEvaluationCallbackFailed;
@@ -213,14 +205,10 @@ Boolean reportParseFlag(
     if (CFEqual(flag, CFSTR(kPredNameLoaded))) {
         context->checkLoaded = true;
     } else if (CFEqual(flag, CFSTR(kPredNameIntegrity))) {
+       /* Kext integrity is no longer used on SnowLeopard. We read the
+        * flags but no kext will ever match them now.
+        */
         context->checkIntegrity = true;
-    } else if (CFEqual(flag, CFSTR(kPredNameAuthentic)) ||
-        CFEqual(flag, CFSTR(kPredNameInauthentic))) {
-        context->checkAuthentic = true;
-    } else if (CFEqual(flag, CFSTR(kPredNameLoadable)) ||
-        CFEqual(flag, CFSTR(kPredNameNonloadable))) {
-        context->checkAuthentic = true;
-        context->checkLoadable = true;
     }
 
     result = true;
@@ -239,7 +227,7 @@ Boolean reportEvalFlag(
     QEQueryError * error)
 {
     Boolean result = false;
-    KXKextRef theKext = (KXKextRef)object;
+    OSKextRef theKext = (OSKextRef)object;
     CFStringRef flag = CFDictionaryGetValue(element, CFSTR(kKeywordFlag));
     QueryContext * context = (QueryContext *)user_data;
     char *         cString = NULL;   // don't free!
@@ -281,39 +269,44 @@ Boolean reportEvalFlag(
     } else {
 
         if (CFEqual(flag, CFSTR(kPredNameLoaded))) {
-            cString = KXKextIsLoaded(theKext) ? kWordYes : kWordNo;
+            cString = OSKextIsLoaded(theKext) ? kWordYes : kWordNo;
         } else if (CFEqual(flag, CFSTR(kPredNameValid))) {
-            cString = KXKextIsValid(theKext) ? kWordYes : kWordNo;
+            cString = OSKextIsValid(theKext) ? kWordYes : kWordNo;
         } else if (CFEqual(flag, CFSTR(kPredNameAuthentic))) {
-            cString = KXKextIsAuthentic(theKext) ? kWordYes : kWordNo;
+            cString = OSKextIsAuthentic(theKext) ? kWordYes : kWordNo;
         } else if (CFEqual(flag, CFSTR(kPredNameDependenciesMet))) {
-            cString = KXKextGetHasAllDependencies(theKext) ? kWordYes : kWordNo;
+            cString = OSKextResolveDependencies(theKext) ? kWordYes : kWordNo;
         } else if (CFEqual(flag, CFSTR(kPredNameLoadable))) {
-            cString = KXKextIsLoadable(theKext, false /* safe boot */) ?
+            cString = OSKextIsLoadable(theKext) ?
                 kWordYes : kWordNo;
         } else if (CFEqual(flag, CFSTR(kPredNameWarnings))) {
-            CFDictionaryRef warnings = KXKextGetWarnings(theKext);
+            CFDictionaryRef warnings = OSKextCopyDiagnostics(theKext,
+                kOSKextDiagnosticsFlagWarnings);
             cString = (warnings && CFDictionaryGetCount(warnings)) ?
                 kWordYes : kWordNo;
+            SAFE_RELEASE(warnings);
         } else if (CFEqual(flag, CFSTR(kPredNameIsLibrary))) {
-            cString = (_KXKextGetCompatibleVersion(theKext) > 0) ?
+            cString = (OSKextGetCompatibleVersion(theKext) > 0) ?
                 kWordYes : kWordNo;
         } else if (CFEqual(flag, CFSTR(kPredNameHasPlugins))) {
-            CFArrayRef plugins = KXKextGetPlugins(theKext);
+            CFArrayRef plugins = OSKextCopyPlugins(theKext);
             cString = (plugins && CFArrayGetCount(plugins)) ?
                 kWordYes : kWordNo;
+                SAFE_RELEASE(plugins);
         } else if (CFEqual(flag, CFSTR(kPredNameIsPlugin))) {
-            cString = KXKextIsAPlugin(theKext) ? kWordYes : kWordNo;
+            cString = OSKextIsPlugin(theKext) ? kWordYes : kWordNo;
         } else if (CFEqual(flag, CFSTR(kPredNameHasDebugProperties))) {
-            cString = KXKextHasDebugProperties(theKext) ? kWordYes : kWordNo;
+            cString = OSKextHasLogOrDebugFlags(theKext) ? kWordYes : kWordNo;
         } else if (CFEqual(flag, CFSTR(kPredNameIsKernelResource))) {
-            cString = KXKextGetIsKernelResource(theKext) ? kWordYes : kWordNo;
+            cString = OSKextIsKernelComponent(theKext) ? kWordYes : kWordNo;
         } else if (CFEqual(flag, CFSTR(kPredNameIntegrity))) {
+           /* Note: As of SnowLeopard, integrity is no longer used.
+            */
             printf("%s%s", context->reportRowStarted ? "\t" : "",
-                nameForIntegrityState(KXKextGetIntegrityState(theKext)));
+                "n/a");
             print = false;
         } else if (CFEqual(flag, CFSTR(kPredNameExecutable))) {
-            cString = KXKextGetDeclaresExecutable(theKext) ? kWordYes : kWordNo;
+            cString = OSKextDeclaresExecutable(theKext) ? kWordYes : kWordNo;
         }
 
         if (print) {
@@ -351,7 +344,8 @@ Boolean reportParseArch(
     }
 
     CFDictionarySetValue(element, CFSTR("label"),
-        createCFString(argv[(*num_used) + 1]));
+        CFStringCreateWithCString(kCFAllocatorDefault,
+            argv[(*num_used) + 1], kCFStringEncodingUTF8));
 
     result = parseArch(element, argc, argv, num_used, user_data, error);
     if (!result) {
@@ -384,7 +378,7 @@ Boolean reportEvalArch(
             *error = kQEQueryErrorEvaluationCallbackFailed;
             goto finish;
         }
-        cString = cStringForCFString(string);
+        cString = createUTF8CStringForCFString(string);
         if (!cString) {
             *error = kQEQueryErrorEvaluationCallbackFailed;
             goto finish;
@@ -429,7 +423,7 @@ Boolean reportEvalArchExact(
             *error = kQEQueryErrorEvaluationCallbackFailed;
             goto finish;
         }
-        cString = cStringForCFString(string);
+        cString = createUTF8CStringForCFString(string);
         if (!cString) {
             *error = kQEQueryErrorEvaluationCallbackFailed;
             goto finish;
@@ -469,7 +463,8 @@ Boolean reportParseDefinesOrReferencesSymbol(
 }
 
 /*******************************************************************************
-*
+* xxx - if arches were specified on the command line, this should perhaps only
+* xxx - check those arches
 *******************************************************************************/
 Boolean reportEvalDefinesOrReferencesSymbol(
     CFDictionaryRef element,
@@ -478,7 +473,7 @@ Boolean reportEvalDefinesOrReferencesSymbol(
     QEQueryError * error)
 {
     Boolean result = false;
-    KXKextRef  theKext = (KXKextRef)object;
+    OSKextRef  theKext = (OSKextRef)object;
     QueryContext * context = (QueryContext *)user_data;
     CFStringRef symbol = QEQueryElementGetArgumentAtIndex(element, 0);
     char * cSymbol = NULL;   // must free
@@ -486,13 +481,13 @@ Boolean reportEvalDefinesOrReferencesSymbol(
     fat_iterator fiter = NULL;  // must close
     struct mach_header * farch = NULL;
     void * farch_end = NULL;
-    const struct nlist * symtab_entry = NULL;
+    uint8_t nlist_type;
 
     if (!symbol) {
         *error = kQEQueryErrorEvaluationCallbackFailed;
         goto finish;
     }
-    cSymbol = cStringForCFString(symbol);
+    cSymbol = createUTF8CStringForCFString(symbol);
     if (!cSymbol) {
         *error = kQEQueryErrorEvaluationCallbackFailed;
         goto finish;
@@ -503,20 +498,20 @@ Boolean reportEvalDefinesOrReferencesSymbol(
             cSymbol);
     } else {
 
-        fiter = _KXKextCopyFatIterator(theKext);
+        fiter = createFatIteratorForKext(theKext);
         if (!fiter) {
             goto finish;
         }
 
         while ((farch = fat_iterator_next_arch(fiter, &farch_end))) {
             macho_seek_result seek_result = macho_find_symbol(
-                farch, farch_end, cSymbol, &symtab_entry, NULL);
+                farch, farch_end, cSymbol, &nlist_type, NULL);
 
             if (seek_result == macho_seek_result_found_no_value ||
                 seek_result == macho_seek_result_found) {
 
-                if ((N_TYPE & symtab_entry->n_type) == N_UNDF) {
-                    value = KXKextGetIsKernelResource(theKext) ?
+                if ((N_TYPE & nlist_type) == N_UNDF) {
+                    value = OSKextIsKernelComponent(theKext) ?
                         "defines" : "references";
                 } else {
                     value = "defines";
@@ -561,6 +556,9 @@ Boolean reportParseCommand(
             goto finish;
         }
     } else if (CFEqual(command, CFSTR(kPredNamePrintIntegrity))) {
+       /* Kext integrity is no longer used on SnowLeopard. We read the
+        * flags but no kext will ever match them now.
+        */
         context->checkIntegrity = true;
     }
 
@@ -582,11 +580,12 @@ Boolean reportEvalCommand(
     void * user_data,
     QEQueryError * error)
 {
-    Boolean result = false;
-    CFStringRef command = CFDictionaryGetValue(element, CFSTR(kKeywordCommand));
-    KXKextRef theKext = (KXKextRef)object;
+    Boolean        result  = false;
+    CFStringRef    command = CFDictionaryGetValue(element, CFSTR(kKeywordCommand));
+    OSKextRef      theKext = (OSKextRef)object;
     QueryContext * context = (QueryContext *)user_data;
-    char * cString = NULL; // must free
+    CFStringRef    scratchString = NULL;  // must release
+    char         * cString = NULL;  // must free
 
     // if we do arches, easier to print than generate a string
     Boolean print = true;
@@ -627,9 +626,17 @@ Boolean reportEvalCommand(
         printf("%s%s", context->reportRowStarted ? "\t" : "", cString);
     } else {
         if (CFEqual(command, CFSTR(kPredNamePrint))) {
-            cString = getKextPath(theKext, context->pathSpec);
+            scratchString = copyPathForKext(theKext, context->pathSpec);
+            if (!scratchString) {
+                OSKextLogMemError();
+            }
+            cString = createUTF8CStringForCFString(scratchString);
         } else if (CFEqual(command, CFSTR(kPredNameBundleName))) {
-            cString = getKextPath(theKext, kPathsNone);
+            scratchString = copyPathForKext(theKext, kPathsNone);
+            if (!scratchString) {
+                OSKextLogMemError();
+            }
+            cString = createUTF8CStringForCFString(scratchString);
         } else if (CFEqual(command, CFSTR(kPredNamePrintProperty))) {
             result = reportEvalProperty(element, object, user_data, error);
             goto finish;
@@ -638,34 +645,40 @@ Boolean reportEvalCommand(
             printKextArches(theKext, 0, false /* print line end */);
             print = false;
         } else if (CFEqual(command, CFSTR(kPredNamePrintDependencies))) {
-            dependencies = KXKextCopyAllDependencies(theKext);
+            dependencies = OSKextCopyAllDependencies(theKext,
+                /* needAll? */ false);
             count = dependencies ? CFArrayGetCount(dependencies) : 0;
             snprintf(buffer, (sizeof(buffer)/sizeof(char)), "%ld", count);
             cString = strdup(buffer);
         } else if (CFEqual(command, CFSTR(kPredNamePrintDependents))) {
-            dependencies = KXKextCopyAllDependents(theKext);
+            dependencies = OSKextCopyDependents(theKext, /* direct? */ false);
             count = dependencies ? CFArrayGetCount(dependencies) : 0;
             snprintf(buffer, (sizeof(buffer)/sizeof(char)), "%ld", count);
             cString = strdup(buffer);
         } else if (CFEqual(command, CFSTR(kPredNamePrintPlugins))) {
-            plugins = KXKextGetPlugins(theKext);
+            plugins = OSKextCopyPlugins(theKext);
             count = plugins ? CFArrayGetCount(plugins) : 0;
             snprintf(buffer, (sizeof(buffer)/sizeof(char)), "%ld", count);
             cString = strdup(buffer);
+            SAFE_RELEASE(plugins);
         } else if (CFEqual(command, CFSTR(kPredNamePrintIntegrity))) {
+           /* Note: As of SnowLeopard, integrity is no longer used.
+            */
             printf("%s%s", context->reportRowStarted ? "\t" : "",
-                nameForIntegrityState(KXKextGetIntegrityState(theKext)));
+                "n/a");
             print = false;
         } else if (CFEqual(command, CFSTR(kPredNamePrintInfoDictionary))) {
-            cString = getKextInfoDictionaryPath(theKext, context->pathSpec);
-            if (!cString) {
-                cString = strdup("");
+            scratchString = copyKextInfoDictionaryPath(theKext, context->pathSpec);
+            if (!scratchString) {
+                OSKextLogMemError();
             }
+            cString = createUTF8CStringForCFString(scratchString);
         } else if (CFEqual(command, CFSTR(kPredNamePrintExecutable))) {
-            cString = getKextExecutablePath(theKext, context->pathSpec);
-            if (!cString) {
-                cString = strdup("");
+            scratchString = copyKextExecutablePath(theKext, context->pathSpec);
+            if (!scratchString) {
+                OSKextLogMemError();
             }
+            cString = createUTF8CStringForCFString(scratchString);
         } else {
             *error = kQEQueryErrorEvaluationCallbackFailed;
             goto finish;
@@ -684,8 +697,9 @@ Boolean reportEvalCommand(
     context->reportRowStarted = true;
     result = true;
 finish:
-    if (cString)      free(cString);
-    if (dependencies) CFRelease(dependencies);
-    if (dependents)   CFRelease(dependents);
+    SAFE_RELEASE(scratchString);
+    SAFE_FREE(cString);
+    SAFE_RELEASE(dependencies);
+    SAFE_RELEASE(dependents);
     return result;
 }

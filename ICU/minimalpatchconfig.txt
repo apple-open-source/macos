@@ -1,7 +1,7 @@
---- icuSources/common/unicode/uconfig.h	2005-08-11 17:40:22.000000000 -0700
-+++ build/common/unicode/uconfig.h	2005-09-15 16:58:56.000000000 -0700
-@@ -180,7 +180,7 @@
-  * @draft ICU 3.2
+--- icuSources/common/unicode/uconfig.h	2008-07-12 23:14:49.000000000 -0700
++++ build/common/unicode/uconfig.h	2008-07-24 12:52:05.000000000 -0700
+@@ -222,7 +222,7 @@
+  * @stable ICU 3.2
   */
  #ifndef UCONFIG_NO_SERVICE
 -#   define UCONFIG_NO_SERVICE 0
@@ -9,3 +9,14 @@
  #endif
  
  #endif
+--- icuSources/common/unicode/udata.h	2008-07-12 23:14:49.000000000 -0700
++++ build/common/unicode/udata.h	2008-07-24 12:52:05.000000000 -0700
+@@ -367,7 +367,7 @@
+     /** ICU does not access the file system for data loading. */
+     UDATA_NO_FILES,
+     /** An alias for the default access mode. */
+-    UDATA_DEFAULT_ACCESS = UDATA_FILES_FIRST,
++    UDATA_DEFAULT_ACCESS = UDATA_ONLY_PACKAGES,
+     UDATA_FILE_ACCESS_COUNT
+ } UDataFileAccess;
+ 

@@ -6,7 +6,7 @@
  *
  * code common to EAP-SIM clients and to servers.
  *
- * Version:     $Id: eapsimlib.c,v 1.7.2.2.2.1 2007/02/15 12:51:37 aland Exp $
+ * Version:     $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -20,9 +20,9 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2000-2003  The FreeRADIUS server project
+ * Copyright 2000-2003,2006  The FreeRADIUS server project
  * Copyright 2003  Michael Richardson <mcr@sandelman.ottawa.on.ca>
  */
 
@@ -48,12 +48,15 @@
  *
  */
 
-#include "libradius.h"
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
+
+#include <freeradius-devel/autoconf.h>
+#include <freeradius-devel/missing.h>
+#include <freeradius-devel/libradius.h>
 #include "eap_types.h"
 #include "eap_sim.h"
-#include "sha1.h"
-
-static const char rcsid[] = "$Id: eapsimlib.c,v 1.7.2.2.2.1 2007/02/15 12:51:37 aland Exp $";
+#include <freeradius-devel/sha1.h>
 
 /*
  * given a radius request with many attribues in the EAP-SIM range, build
@@ -86,7 +89,7 @@ int map_eapsim_basictypes(RADIUS_PACKET *r, EAP_PACKET *ep)
 	}
 	else
 	{
-		subtype = vp->lvalue;
+		subtype = vp->vp_integer;
 	}
 
 	vp = pairfind(r->vps, ATTRIBUTE_EAP_ID);
@@ -96,7 +99,7 @@ int map_eapsim_basictypes(RADIUS_PACKET *r, EAP_PACKET *ep)
 	}
 	else
 	{
-		id = vp->lvalue;
+		id = vp->vp_integer;
 	}
 
 	vp = pairfind(r->vps, ATTRIBUTE_EAP_CODE);
@@ -106,7 +109,7 @@ int map_eapsim_basictypes(RADIUS_PACKET *r, EAP_PACKET *ep)
 	}
 	else
 	{
-		eapcode = vp->lvalue;
+		eapcode = vp->vp_integer;
 	}
 
 
@@ -225,13 +228,13 @@ int map_eapsim_basictypes(RADIUS_PACKET *r, EAP_PACKET *ep)
 			roundedlen = 20;
 			memset(&attr[2], 0, 18);
 			macspace = &attr[4];
-			append = vp->strvalue;
+			append = vp->vp_octets;
 			appendlen = vp->length;
 		}
 		else {
 			roundedlen = (vp->length + 2 + 3) & ~3;
 			memset(attr, 0, roundedlen);
-			memcpy(&attr[2], vp->strvalue, vp->length);
+			memcpy(&attr[2], vp->vp_strvalue, vp->length);
 		}
 		attr[0] = vp->attribute - ATTRIBUTE_EAP_SIM_BASE;
 		attr[1] = roundedlen >> 2;
@@ -270,7 +273,7 @@ int map_eapsim_basictypes(RADIUS_PACKET *r, EAP_PACKET *ep)
 		hdr->code = eapcode & 0xFF;
 		hdr->id = (id & 0xFF);
 		total_length = htons(total_length);
-		memcpy(hdr->length, &total_length, sizeof(uint16_t));
+		memcpy(hdr->length, &total_length, sizeof(total_length));
 
 		hdr->data[0] = PW_EAP_SIM;
 
@@ -281,8 +284,8 @@ int map_eapsim_basictypes(RADIUS_PACKET *r, EAP_PACKET *ep)
 		memcpy(&hdr->data[encoded_size+1], append, appendlen);
 
 		/* HMAC it! */
-		lrad_hmac_sha1(buffer, hmaclen,
-			       vp->strvalue, vp->length,
+		fr_hmac_sha1(buffer, hmaclen,
+			       vp->vp_octets, vp->length,
 			       sha1digest);
 
 		/* done with the buffer, free it */
@@ -300,21 +303,6 @@ int map_eapsim_basictypes(RADIUS_PACKET *r, EAP_PACKET *ep)
 			free(encodedmsg);
 		return 0;
 	}
-
-	return 1;
-}
-
-int map_eapsim_types(RADIUS_PACKET *r)
-{
-	EAP_PACKET ep;
-	int ret;
-
-	memset(&ep, 0, sizeof(ep));
-	ret = map_eapsim_basictypes(r, &ep);
-	if(ret != 1) {
-		return ret;
-	}
-	eap_basic_compose(r, &ep);
 
 	return 1;
 }
@@ -344,7 +332,7 @@ int unmap_eapsim_basictypes(RADIUS_PACKET *r,
 
 	newvp = paircreate(ATTRIBUTE_EAP_SIM_SUBTYPE, PW_TYPE_INTEGER);
 	if (!newvp) return 0;
-	newvp->lvalue = attr[0];
+	newvp->vp_integer = attr[0];
 	newvp->length = 1;
 	pairadd(&(r->vps), newvp);
 
@@ -379,7 +367,7 @@ int unmap_eapsim_basictypes(RADIUS_PACKET *r,
 		}
 
 		newvp = paircreate(eapsim_attribute+ATTRIBUTE_EAP_SIM_BASE, PW_TYPE_OCTETS);
-		memcpy(newvp->strvalue, &attr[2], eapsim_len-2);
+		memcpy(newvp->vp_strvalue, &attr[2], eapsim_len-2);
 		newvp->length = eapsim_len-2;
 		pairadd(&(r->vps), newvp);
 		newvp = NULL;
@@ -390,19 +378,6 @@ int unmap_eapsim_basictypes(RADIUS_PACKET *r,
 		es_attribute_count++;
 	}
 	return 1;
-}
-
-int unmap_eapsim_types(RADIUS_PACKET *r)
-{
-	VALUE_PAIR             *esvp;
-
-	esvp = pairfind(r->vps, ATTRIBUTE_EAP_BASE+PW_EAP_SIM);
-	if (esvp == NULL) {
-		radlog(L_ERR, "eap: EAP-Sim attribute not found");
-		return 0;
-	}
-
-	return unmap_eapsim_basictypes(r, esvp->strvalue, esvp->length);
 }
 
 /*
@@ -434,7 +409,7 @@ eapsim_checkmac(VALUE_PAIR *rvps,
 	/* get original copy of EAP message, note that it was sanitized
 	 * to have a valid length, which we depend upon.
 	 */
-	e = eap_attribute(rvps);
+	e = eap_vp2packet(rvps);
 
 	if(e == NULL)
 	{
@@ -442,7 +417,7 @@ eapsim_checkmac(VALUE_PAIR *rvps,
 	}
 
 	/* make copy big enough for everything */
-	elen = e->length[0]*256 + e->length[1];
+	elen = e->length[0] * 256 + e->length[1];
 	len = elen + extralen;
 
 	buffer = malloc(len);
@@ -485,11 +460,11 @@ eapsim_checkmac(VALUE_PAIR *rvps,
 	}
 
 	/* now, HMAC-SHA1 it with the key. */
-	lrad_hmac_sha1(buffer, len,
+	fr_hmac_sha1(buffer, len,
 		       key, 16,
 		       calcmac);
 
-	if(memcmp(&mac->strvalue[2], calcmac, 16) == 0)	{
+	if(memcmp(&mac->vp_strvalue[2], calcmac, 16) == 0)	{
 		ret = 1;
 	} else {
 		ret = 0;
@@ -548,125 +523,3 @@ const char *sim_subtype2name(enum eapsim_subtype subtype,
 		return subtypes[subtype];
 	}
 }
-
-
-
-#ifdef TEST_CASE
-
-#include <assert.h>
-
-const char *radius_dir = RADDBDIR;
-
-int radlog(int lvl, const char *msg, ...)
-{
-	va_list ap;
-	int r;
-
-	va_start(ap, msg);
-	r = vfprintf(stderr, msg, ap);
-	va_end(ap);
-	fputc('\n', stderr);
-
-	return r;
-}
-
-main(int argc, char *argv[])
-{
-	int filedone;
-	RADIUS_PACKET *req,*req2;
-	VALUE_PAIR *vp, *vpkey, *vpextra;
-	extern unsigned int sha1_data_problems;
-
-	req = NULL;
-	req2 = NULL;
-	filedone = 0;
-
-	if(argc>1) {
-	  sha1_data_problems = 1;
-	}
-
-	if (dict_init(radius_dir, RADIUS_DICTIONARY) < 0) {
-		librad_perror("radclient");
-		return 1;
-	}
-
-	if ((req = rad_alloc(1)) == NULL) {
-		librad_perror("radclient");
-		exit(1);
-	}
-
-	if ((req2 = rad_alloc(1)) == NULL) {
-		librad_perror("radclient");
-		exit(1);
-	}
-
-	while(!filedone) {
-		if(req->vps) pairfree(&req->vps);
-		if(req2->vps) pairfree(&req2->vps);
-
-		if ((req->vps = readvp2(stdin, &filedone, "eapsimlib:")) == NULL) {
-			break;
-		}
-
-		printf("\nRead:\n");
-		vp_printlist(stdout, req->vps);
-
-		map_eapsim_types(req);
-		map_eap_types(req);
-		printf("Mapped to:\n");
-		vp_printlist(stdout, req->vps);
-
-		/* find the EAP-Message, copy it to req2 */
-		vp = paircopy2(req->vps, PW_EAP_MESSAGE);
-
-		if(vp == NULL) continue;
-
-		pairadd(&req2->vps, vp);
-
-		/* only call unmap for sim types here */
-		unmap_eap_types(req2);
-		unmap_eapsim_types(req2);
-
-		printf("Unmapped to:\n");
-		vp_printlist(stdout, req2->vps);
-
-		vp = pairfind(req2->vps,
-			      ATTRIBUTE_EAP_SIM_BASE+PW_EAP_SIM_MAC);
-		vpkey   = pairfind(req->vps, ATTRIBUTE_EAP_SIM_KEY);
-		vpextra = pairfind(req->vps, ATTRIBUTE_EAP_SIM_EXTRA);
-
-		if(vp != NULL && vpkey != NULL && vpextra!=NULL) {
-			uint8_t calcmac[16];
-
-			/* find the EAP-Message, copy it to req2 */
-
-			memset(calcmac, 0, sizeof(calcmac));
-			printf("Confirming MAC...");
-			if(eapsim_checkmac(req2->vps, vpkey->strvalue,
-					   vpextra->strvalue, vpextra->length,
-					   calcmac)) {
-				printf("succeed\n");
-			} else {
-				int i, j;
-
-				printf("calculated MAC (");
-				for (i = 0; i < 20; i++) {
-					if(j==4) {
-						printf("_");
-						j=0;
-					}
-					j++;
-
-					printf("%02x", calcmac[i]);
-				}
-				printf(" did not match\n");
-			}
-		}
-
-		fflush(stdout);
-	}
-}
-#endif
-
-
-

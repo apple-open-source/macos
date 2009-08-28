@@ -1,23 +1,24 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
 <HTML>
   <HEAD>
-     <title>The %(listname)s %(archive)s Archive by %(archtype)s</title>
+     <title>L'arxiu de %(archive)s de la llista %(listname)s per %(archtype)s</title>
      <META NAME="robots" CONTENT="noindex,follow">
      %(encoding)s
   </HEAD>
   <BODY BGCOLOR="#ffffff">
       <a name="start"></A>
-      <h1>%(archive)s Archives by %(archtype)s</h1>
+      <h1>Arxius de %(archive)s per %(archtype)s</h1>
       <ul>
-         
-  <li> <b>Missatges ordenats per :</b> %(thread_ref)s %(subject_ref)s %(author_ref)s 
-    %(date_ref)s 
-  <li><b><a href="%(listinfo)s">M&eacute;s informaci&oacute; d'aquesta llista... 
-    </a></b></li>
+         <li> <b>Missatges ordenats per:</b> 
+                %(thread_ref)s 
+                %(subject_ref)s 
+                %(author_ref)s 
+                %(date_ref)s 
+
+	     <li><b><a href="%(listinfo)s">M&eacute;s informaci&oacute; sobre aquesta llista... 
+                 </a></b></li>    
       </ul>
-      
-<p><b>Inici:</b> <i>%(firstdate)s</i><br>
-  <b>Final:</b> <i>%(lastdate)s</i><br>
-  <b>Missatges:</b> %(size)s
-<p>
+      <p><b>Inici:</b> <i>%(firstdate)s</i><br>
+         <b>Final:</b> <i>%(lastdate)s</i><br>
+         <b>Missatges:</b> %(size)s<p>
      <ul>

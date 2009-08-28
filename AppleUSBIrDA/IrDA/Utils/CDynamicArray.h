@@ -23,8 +23,8 @@ class CArrayIterator;
 
 
 enum Parameters {
-    kDefaultElementSize = 4,
-    kDefaultChunkSize = 4
+    kDefaultElementSize = sizeof(void *),   // was 4
+    kDefaultChunkSize = sizeof(void *)	    // 4
 };
 
 //--------------------------------------------------------------------------------
@@ -92,7 +92,7 @@ inline Boolean CDynamicArray::IsEmpty()
     { return (fSize == 0); }
 
 inline void* CDynamicArray::ElementPtrAt(ArrayIndex index)
-    { return (void*)((long)fArrayBlock + (fElementSize * index)); }
+    { return (void*)((char *)fArrayBlock + (fElementSize * index)); }
 
 inline Size CDynamicArray::ComputeByteCount(ArrayIndex count)
     { return (fElementSize * count); }

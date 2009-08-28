@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2007, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -535,3 +535,59 @@ __extract_password(SCPreferencesRef	prefs,
 	return exists;
 }
 
+
+__private_extern__
+Boolean
+__remove_password(SCPreferencesRef	prefs,
+		  CFDictionaryRef	config,
+		  CFStringRef		passwordKey,
+		  CFStringRef		encryptionKey,
+		  CFStringRef		encryptionKeyChainValue,
+		  CFStringRef		unique_id,
+		  CFDictionaryRef	*newConfig)
+{
+	CFStringRef		encryption	= NULL;
+	Boolean			ok		= FALSE;
+
+	// check for keychain password
+	if (config != NULL) {
+		encryption = CFDictionaryGetValue(config, encryptionKey);
+	}
+	if ((encryption == NULL) ||
+	    (isA_CFString(encryption) &&
+	     CFEqual(encryption, encryptionKeyChainValue))) {
+		    // remove keychain password
+		    if (prefs != NULL) {
+			    ok = _SCPreferencesSystemKeychainPasswordItemRemove(prefs, unique_id);
+		    } else {
+			    ok = _SCSecKeychainPasswordItemRemove(NULL, unique_id);
+		    }
+	    }
+
+	// as needed, check if we have an in-line password that we can remove
+	if (!ok && (encryption == NULL) && (config != NULL)) {
+		CFDataRef	inline_password;
+
+		inline_password = CFDictionaryGetValue(config, passwordKey);
+		inline_password = __copy_legacy_password(inline_password);
+		if (inline_password != NULL) {
+			CFRelease(inline_password);
+			ok = TRUE;
+		}
+	}
+
+	if (newConfig != NULL) {
+		if (ok && (config != NULL)) {
+			CFMutableDictionaryRef	temp;
+
+			temp = CFDictionaryCreateMutableCopy(NULL, 0, config);
+			CFDictionaryRemoveValue(temp, passwordKey);
+			CFDictionaryRemoveValue(temp, encryptionKey);
+			*newConfig = (CFDictionaryRef)temp;
+		} else {
+			*newConfig = NULL;
+		}
+	}
+
+	return ok;
+}

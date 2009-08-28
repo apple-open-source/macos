@@ -74,7 +74,7 @@ int dkdisklabelregenerate(int fd, struct disklabel * lp, int newblksize)
     int blksize;
     int error;
     int index;
-    long long numblks;
+    int64_t numblks;
 
     /* obtain the size of the media (in blocks) */
     if ( (error = ioctl(fd, DKIOCGETBLOCKCOUNT, &numblks)) < 0 )
@@ -87,7 +87,7 @@ int dkdisklabelregenerate(int fd, struct disklabel * lp, int newblksize)
     /* adjust the size of the media with newblksize should it be specified */
     if (newblksize)
     {
-        numblks = (int)((((long long) numblks) * blksize) / newblksize);
+        numblks = ((numblks * blksize) / newblksize);
         blksize = newblksize;
     }
 

@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: lib526.c,v 1.13 2007-03-10 00:19:05 yangtse Exp $
+ * $Id: lib526.c,v 1.15 2008-09-20 04:26:57 yangtse Exp $
  */
 
 /*
@@ -34,6 +34,7 @@
 #include <fcntl.h>
 
 #include "testutil.h"
+#include "memdebug.h"
 
 #define MAIN_LOOP_HANG_TIMEOUT     90 * 1000
 #define MULTI_PERFORM_HANG_TIMEOUT 60 * 1000
@@ -74,7 +75,7 @@ int test(char *URL)
     curl_easy_setopt(curl[i], CURLOPT_URL, URL);
 
     /* go verbose */
-    curl_easy_setopt(curl[i], CURLOPT_VERBOSE, 1);
+    curl_easy_setopt(curl[i], CURLOPT_VERBOSE, 1L);
   }
 
   if ((m = curl_multi_init()) == NULL) {
@@ -142,7 +143,7 @@ int test(char *URL)
              the handle first too */
           curl_easy_reset(curl[0]);
           curl_easy_setopt(curl[0], CURLOPT_URL, URL);
-          curl_easy_setopt(curl[0], CURLOPT_VERBOSE, 1);
+          curl_easy_setopt(curl[0], CURLOPT_VERBOSE, 1L);
 
           /* re-add it */
           res = (int)curl_multi_add_handle(m, curl[0]);

@@ -1,3 +1,30 @@
+/*
+ * Copyright (c) 2006-2008 Apple Inc. All rights reserved.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ * 
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
+ */
 #ifndef __FAT_UTIL_H__
 #define __FAT_UTIL_H__
 
@@ -83,6 +110,15 @@ fat_iterator fat_iterator_for_data(
 void fat_iterator_close(fat_iterator iter);
 
 /*!
+ * @function fat_iterator_num_arches
+ * @abstract Return how many arches are in the data of a fat iterator.
+ * @param iter The fat_iterator to check.
+ * @result Returns the number of arches that will be iterated over, total.
+ */
+int fat_iterator_num_arches(
+    fat_iterator iter);
+
+/*!
  * @function fat_iterator_is_iterable
  * @abstract Return whether a fat_iterator can actually iterate.
  * @discussion
@@ -125,22 +161,46 @@ void * fat_iterator_next_arch(
 void fat_iterator_reset(fat_iterator iter);
 
 /*!
- * @function fat_iterator_find_arch
- * @abstract Return the requested architecture in a fat_iterator, if present.
+ * @function fat_iterator_find_fat_arch
+ * @abstract Find the specified fat_arch entry in a fat_iterator,
+ *           if present.
  * @discussion
- *        The fat_iterator_find_arch function returns a pointer
- * to the start of the data for the specified architecture
+ *        The fat_iterator_find_arch function fills in a provided
+ * fat_arch struct for the specified architecture
  * in the iterator's file, or NULL if that architecture is not represented.
  * @param iter The fat_iterator to get the arch data from.
  * @param cputype The CPU type code requested (see <mach/machine.h> for a list).
  * @param cpusubtype The CPU subtype requested.
  *        Use CPU_SUBTYPE_MULTIPLE for a generic processor family request.
+ * @param fat_arch A pointer to the fat_arch struct to fill in.
+ *        All fields filled in are in host byte order.
+ * @result Returns 1 if the
+ * specified architecture is found in the iterator's file,
+ * or 0 if the specified architecture is not represented.
+ */
+int fat_iterator_find_fat_arch(
+    fat_iterator iter,
+    cpu_type_t cputype,
+    cpu_subtype_t cpusubtype,
+    struct fat_arch * fat_arch);
+
+/*!
+ * @function fat_iterator_find_arch
+ * @abstract Return the specified architecture in a fat_iterator, if present.
+ * @discussion
+ *        The fat_iterator_find_arch function returns a pointer
+ * to the start of the data for the specified architecture
+ * in the iterator's file, or NULL if that architecture is not represented.
+ * @param iter The fat_iterator to get the arch data from.
+ * @param cputype The CPU type code specified (see <mach/machine.h> for a list).
+ * @param cpusubtype The CPU subtype specified.
+ *        Use CPU_SUBTYPE_MULTIPLE for a generic processor family request.
  * @param file_end If provided, this indirect pointer is filled
  *        with the address of the end of the data for the architecture returned.
  *        Other macho utility functions use this for bounds checking.
  * @result Returns a pointer to the file data
- * for the host architecture in the iterator's file,
- * or NULL if the host architecture is not represented.
+ * for the specified architecture in the iterator's file,
+ * or NULL if the specified architecture is not represented.
  */
 void * fat_iterator_find_arch(
     fat_iterator iter,

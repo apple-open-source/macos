@@ -1,6 +1,6 @@
 /* Calculate branch probabilities, and basic block execution counts.
    Copyright (C) 1990, 1991, 1992, 1993, 1994, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004  Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
    Contributed by James E. Wilson, UC Berkeley/Cygnus Support;
    based on some ideas from Dain Samples of UC Berkeley.
    Further mangling by Bob Manson, Cygnus Support.
@@ -20,34 +20,11 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* Generate basic block profile instrumentation and auxiliary files.
-   Profile generation is optimized, so that not all arcs in the basic
-   block graph need instrumenting. First, the BB graph is closed with
-   one entry (function start), and one exit (function exit).  Any
-   ABNORMAL_EDGE cannot be instrumented (because there is no control
-   path to place the code). We close the graph by inserting fake
-   EDGE_FAKE edges to the EXIT_BLOCK, from the sources of abnormal
-   edges that do not go to the exit_block. We ignore such abnormal
-   edges.  Naturally these fake edges are never directly traversed,
-   and so *cannot* be directly instrumented.  Some other graph
-   massaging is done. To optimize the instrumentation we generate the
-   BB minimal span tree, only edges that are not on the span tree
-   (plus the entry point) need instrumenting. From that information
-   all other edge counts can be deduced.  By construction all fake
-   edges must be on the spanning tree. We also attempt to place
-   EDGE_CRITICAL edges on the spanning tree.
-
-   The auxiliary file generated is <dumpbase>.bbg. The format is
-   described in full in gcov-io.h.  */
-
-/* ??? Register allocation should use basic block execution counts to
-   give preference to the most commonly executed blocks.  */
-
-/* ??? Should calculate branch probabilities before instrumenting code, since
-   then we can use arc counts to help decide which arcs to instrument.  */
+   Tree-based version.  See profile.c for overview.  */
 
 #include "config.h"
 #include "system.h"
@@ -67,7 +44,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-pass.h"
 #include "timevar.h"
 #include "value-prof.h"
+#include "ggc.h"
 
+static GTY(()) tree gcov_type_node;
+static GTY(()) tree tree_interval_profiler_fn;
+static GTY(()) tree tree_pow2_profiler_fn;
+static GTY(()) tree tree_one_value_profiler_fn;
 
 
 /* Do initialization work for the edge profiler.  */
@@ -75,6 +57,43 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 static void
 tree_init_edge_profiler (void)
 {
+  tree interval_profiler_fn_type;
+  tree pow2_profiler_fn_type;
+  tree one_value_profiler_fn_type;
+  tree gcov_type_ptr;
+
+  if (!gcov_type_node)
+    {
+      gcov_type_node = get_gcov_type ();
+      gcov_type_ptr = build_pointer_type (gcov_type_node);
+
+      /* void (*) (gcov_type *, gcov_type, int, unsigned)  */
+      interval_profiler_fn_type
+	      = build_function_type_list (void_type_node,
+					  gcov_type_ptr, gcov_type_node,
+					  integer_type_node,
+					  unsigned_type_node, NULL_TREE);
+      tree_interval_profiler_fn
+	      = build_fn_decl ("__gcov_interval_profiler",
+				     interval_profiler_fn_type);
+
+      /* void (*) (gcov_type *, gcov_type)  */
+      pow2_profiler_fn_type
+	      = build_function_type_list (void_type_node,
+					  gcov_type_ptr, gcov_type_node,
+					  NULL_TREE);
+      tree_pow2_profiler_fn = build_fn_decl ("__gcov_pow2_profiler",
+						   pow2_profiler_fn_type);
+
+      /* void (*) (gcov_type *, gcov_type)  */
+      one_value_profiler_fn_type
+	      = build_function_type_list (void_type_node,
+					  gcov_type_ptr, gcov_type_node,
+					  NULL_TREE);
+      tree_one_value_profiler_fn
+	      = build_fn_decl ("__gcov_one_value_profiler",
+				     one_value_profiler_fn_type);
+    }
 }
 
 /* Output instructions as GIMPLE trees to increment the edge 
@@ -84,17 +103,29 @@ tree_init_edge_profiler (void)
 static void
 tree_gen_edge_profiler (int edgeno, edge e)
 {
-  tree tmp1 = create_tmp_var (GCOV_TYPE_NODE, "PROF");
-  tree tmp2 = create_tmp_var (GCOV_TYPE_NODE, "PROF");
+  tree tmp1 = create_tmp_var (gcov_type_node, "PROF");
+  tree tmp2 = create_tmp_var (gcov_type_node, "PROF");
   tree ref = tree_coverage_counter_ref (GCOV_COUNTER_ARCS, edgeno);
-  tree stmt1 = build (MODIFY_EXPR, GCOV_TYPE_NODE, tmp1, ref);
-  tree stmt2 = build (MODIFY_EXPR, GCOV_TYPE_NODE, tmp2,
-		      build (PLUS_EXPR, GCOV_TYPE_NODE, 
-			     tmp1, integer_one_node));
-  tree stmt3 = build (MODIFY_EXPR, GCOV_TYPE_NODE, ref, tmp2);
+  tree stmt1 = build2 (MODIFY_EXPR, gcov_type_node, tmp1, ref);
+  tree stmt2 = build2 (MODIFY_EXPR, gcov_type_node, tmp2,
+		       build2 (PLUS_EXPR, gcov_type_node, 
+			      tmp1, integer_one_node));
+  tree stmt3 = build2 (MODIFY_EXPR, gcov_type_node, ref, tmp2);
   bsi_insert_on_edge (e, stmt1);
   bsi_insert_on_edge (e, stmt2);
   bsi_insert_on_edge (e, stmt3);
+}
+
+/* Emits code to get VALUE to instrument at BSI, and returns the
+   variable containing the value.  */
+
+static tree
+prepare_instrumented_value (block_stmt_iterator *bsi,
+			    histogram_value value)
+{
+  tree val = value->hvalue.value;
+  return force_gimple_operand_bsi (bsi, fold_convert (gcov_type_node, val),
+				   true, NULL_TREE);
 }
 
 /* Output instructions as GIMPLE trees to increment the interval histogram 
@@ -102,15 +133,26 @@ tree_gen_edge_profiler (int edgeno, edge e)
    tag of the section for counters, BASE is offset of the counter position.  */
 
 static void
-tree_gen_interval_profiler (histogram_value value ATTRIBUTE_UNUSED, 
-			    unsigned tag ATTRIBUTE_UNUSED, 
-			    unsigned base ATTRIBUTE_UNUSED)
+tree_gen_interval_profiler (histogram_value value, unsigned tag, unsigned base)
 {
-  /* FIXME implement this.  */
-#ifdef ENABLE_CHECKING
-  internal_error ("unimplemented functionality");
-#endif
-  gcc_unreachable ();
+  tree stmt = value->hvalue.stmt;
+  block_stmt_iterator bsi = bsi_for_stmt (stmt);
+  tree ref = tree_coverage_counter_ref (tag, base), ref_ptr;
+  tree args, call, val;
+  tree start = build_int_cst_type (integer_type_node, value->hdata.intvl.int_start);
+  tree steps = build_int_cst_type (unsigned_type_node, value->hdata.intvl.steps);
+  
+  ref_ptr = force_gimple_operand_bsi (&bsi,
+				      build_addr (ref, current_function_decl),
+				      true, NULL_TREE);
+  val = prepare_instrumented_value (&bsi, value);
+  args = tree_cons (NULL_TREE, ref_ptr,
+		    tree_cons (NULL_TREE, val,
+			       tree_cons (NULL_TREE, start,
+					  tree_cons (NULL_TREE, steps,
+						     NULL_TREE))));
+  call = build_function_call_expr (tree_interval_profiler_fn, args);
+  bsi_insert_before (&bsi, call, BSI_SAME_STMT);
 }
 
 /* Output instructions as GIMPLE trees to increment the power of two histogram 
@@ -118,15 +160,22 @@ tree_gen_interval_profiler (histogram_value value ATTRIBUTE_UNUSED,
    of the section for counters, BASE is offset of the counter position.  */
 
 static void
-tree_gen_pow2_profiler (histogram_value value ATTRIBUTE_UNUSED, 
-			unsigned tag ATTRIBUTE_UNUSED,
-			unsigned base ATTRIBUTE_UNUSED)
+tree_gen_pow2_profiler (histogram_value value, unsigned tag, unsigned base)
 {
-  /* FIXME implement this.  */
-#ifdef ENABLE_CHECKING
-  internal_error ("unimplemented functionality");
-#endif
-  gcc_unreachable ();
+  tree stmt = value->hvalue.stmt;
+  block_stmt_iterator bsi = bsi_for_stmt (stmt);
+  tree ref = tree_coverage_counter_ref (tag, base), ref_ptr;
+  tree args, call, val;
+  
+  ref_ptr = force_gimple_operand_bsi (&bsi,
+				      build_addr (ref, current_function_decl),
+				      true, NULL_TREE);
+  val = prepare_instrumented_value (&bsi, value);
+  args = tree_cons (NULL_TREE, ref_ptr,
+		    tree_cons (NULL_TREE, val,
+			       NULL_TREE));
+  call = build_function_call_expr (tree_pow2_profiler_fn, args);
+  bsi_insert_before (&bsi, call, BSI_SAME_STMT);
 }
 
 /* Output instructions as GIMPLE trees for code to find the most common value.
@@ -134,15 +183,22 @@ tree_gen_pow2_profiler (histogram_value value ATTRIBUTE_UNUSED,
    section for counters, BASE is offset of the counter position.  */
 
 static void
-tree_gen_one_value_profiler (histogram_value value ATTRIBUTE_UNUSED, 
-			    unsigned tag ATTRIBUTE_UNUSED,
-			    unsigned base ATTRIBUTE_UNUSED)
+tree_gen_one_value_profiler (histogram_value value, unsigned tag, unsigned base)
 {
-  /* FIXME implement this.  */
-#ifdef ENABLE_CHECKING
-  internal_error ("unimplemented functionality");
-#endif
-  gcc_unreachable ();
+  tree stmt = value->hvalue.stmt;
+  block_stmt_iterator bsi = bsi_for_stmt (stmt);
+  tree ref = tree_coverage_counter_ref (tag, base), ref_ptr;
+  tree args, call, val;
+  
+  ref_ptr = force_gimple_operand_bsi (&bsi,
+				      build_addr (ref, current_function_decl),
+				      true, NULL_TREE);
+  val = prepare_instrumented_value (&bsi, value);
+  args = tree_cons (NULL_TREE, ref_ptr,
+		    tree_cons (NULL_TREE, val,
+			       NULL_TREE));
+  call = build_function_call_expr (tree_one_value_profiler_fn, args);
+  bsi_insert_before (&bsi, call, BSI_SAME_STMT);
 }
 
 /* Output instructions as GIMPLE trees for code to find the most common value 
@@ -166,10 +222,10 @@ tree_gen_const_delta_profiler (histogram_value value ATTRIBUTE_UNUSED,
    If it is, set up hooks for tree-based profiling.
    Gate for pass_tree_profile.  */
 
-static bool do_tree_profiling (void)
+static bool
+do_tree_profiling (void)
 {
-  if (flag_tree_based_profiling
-      && (profile_arc_flag || flag_test_coverage || flag_branch_probabilities))
+  if (profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
     {
       tree_register_profile_hooks ();
       tree_register_value_prof_hooks ();
@@ -178,17 +234,54 @@ static bool do_tree_profiling (void)
   return false;
 }
 
-/* Return the file on which profile dump output goes, if any.  */
-
-static FILE *tree_profile_dump_file (void) {
-  return dump_file;
+static unsigned int
+tree_profiling (void)
+{
+  branch_prob ();
+  if (flag_branch_probabilities
+      && flag_profile_values
+      && flag_value_profile_transformations)
+    value_profile_transformations ();
+  /* The above could hose dominator info.  Currently there is
+     none coming in, this is a safety valve.  It should be
+     easy to adjust it, if and when there is some.  */
+  free_dominance_info (CDI_DOMINATORS);
+  free_dominance_info (CDI_POST_DOMINATORS);
+  return 0;
 }
 
 struct tree_opt_pass pass_tree_profile = 
 {
   "tree_profile",			/* name */
   do_tree_profiling,			/* gate */
-  branch_prob,				/* execute */
+  tree_profiling,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_BRANCH_PROB,			/* tv_id */
+  PROP_gimple_leh | PROP_cfg,		/* properties_required */
+  PROP_gimple_leh | PROP_cfg,		/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_verify_stmts,			/* todo_flags_finish */
+  0					/* letter */
+};
+
+/* Return 1 if tree-based profiling is in effect, else 0.
+   If it is, set up hooks for tree-based profiling.
+   Gate for pass_tree_profile.  */
+
+static bool
+do_early_tree_profiling (void)
+{
+  return (do_tree_profiling () && (!flag_unit_at_a_time || !optimize));
+}
+
+struct tree_opt_pass pass_early_tree_profile = 
+{
+  "early_tree_profile",			/* name */
+  do_early_tree_profiling,		/* gate */
+  tree_profiling,			/* execute */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -208,6 +301,7 @@ struct profile_hooks tree_profile_hooks =
   tree_gen_interval_profiler,   /* gen_interval_profiler */
   tree_gen_pow2_profiler,       /* gen_pow2_profiler */
   tree_gen_one_value_profiler,  /* gen_one_value_profiler */
-  tree_gen_const_delta_profiler,/* gen_const_delta_profiler */
-  tree_profile_dump_file	/* profile_dump_file */
+  tree_gen_const_delta_profiler /* gen_const_delta_profiler */
 };
+
+#include "gt-tree-profile.h"

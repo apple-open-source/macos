@@ -146,7 +146,7 @@ struct variable_set_list *current_variable_set_list = &global_setlist;
 
 #if defined(__APPLE__) || defined(NeXT) || defined(NeXT_PDO)
 static void check_apple_pb_support (name, length, value)
-     char *name;
+     const char *name;
      unsigned int length;
      char *value;
 {

@@ -1,0 +1,49 @@
+# This file is a Tcl script to test out GIF reading and writing.
+# It is organized in the standard fashion for Tcl tests.
+#
+
+if {[string compare test [info procs test]] == 1} {
+    source defs
+}
+
+catch {image delete i}
+
+set xpmdata \
+{/* XPM */
+static char * InlineData[] = {
+"16 12 3 1",
+"  s None c None",
+". c #000000",
+"# c #f0ff80",
+"   ....         ",
+"  .####.        ",
+" .######.       ",
+".............   ",
+".###########.   ",
+".###########.   ",
+".###########.   ",
+".###########.   ",
+".###########.   ",
+".###########.   ",
+".###########.   ",
+".............   "};}
+
+test xpm-1.1 {} {
+    image create photo i -file folder.xpm
+    i data -format xpm
+} $xpmdata
+test xpm-1.2 {} {
+    catch {image delete i}
+    image create photo i -data $xpmdata
+    set data [i data -format xpm]
+} $xpmdata
+test xpm-1.3 {} {
+    i blank
+    i put $data
+    set data [i data -format xpm]
+} $xpmdata
+test xpm-1.4 {} {
+    i blank
+    i put $data -format xpm
+    set data [i data -format xpm]
+} $xpmdata

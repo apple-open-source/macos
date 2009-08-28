@@ -69,10 +69,11 @@ struct sockaddr;
 extern void plog __P((int, const char *, struct sockaddr *, const char *, ...))
 	__attribute__ ((__format__ (__printf__, 4, 5)));
 extern void plogv __P((int, const char *, struct sockaddr *,
-	const char *, va_list));
+	const char *, va_list *));
 extern void plogdump __P((int, void *, size_t));
 extern void ploginit __P((void));
 extern void plogset __P((char *));
-extern void plogreset __P((char *));
+
+extern char* binsanitize __P((char*, size_t));
 
 #endif /* _PLOG_H */

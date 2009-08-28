@@ -70,7 +70,7 @@ gdb_test "break main" "Breakpoint 2 at $hex: file.*" "setting breakpoint on main
 gdb_test "run" "Starting program: $binfile *\r\n\.*Breakpoint 1, .*$dyld_before_event.*" "stopped in dyld"
 gdb_test "continue" "Continuing\\..*Breakpoint 2, main.*" "stopped at main" 
 
-gdb_test "info shared" ".*dyld.*libSystem.B.dylib.*dyld Y Y.*nick.*exec Y Y.*" "gdb is getting load notifications"
+gdb_test "info shared" "dyld.*dyld Y Y.*nick.*exec Y Y.*libSystem.B.dylib.*dyld Y Y.*" "gdb is getting load notifications"
 
 send_gdb "info shared\n"
 gdb_expect {

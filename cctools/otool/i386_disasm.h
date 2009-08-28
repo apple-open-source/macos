@@ -26,23 +26,23 @@
 #import <stuff/bool.h>
 #include "stuff/symbol.h"
 
-extern unsigned long i386_disassemble(
+extern uint32_t i386_disassemble(
     char *sect,
-    unsigned long left,
-    unsigned long addr,
-    unsigned long sect_addr,
+    uint32_t left,
+    uint64_t addr,
+    uint64_t sect_addr,
     enum byte_sex object_byte_sex,
     struct relocation_info *sorted_relocs,
-    unsigned long nsorted_relocs,
+    uint32_t nsorted_relocs,
     struct nlist *symbols,
     struct nlist_64 *symbols64,
-    unsigned long nsymbols,
+    uint32_t nsymbols,
     struct symbol *sorted_symbols,
-    unsigned long nsorted_symbols,
+    uint32_t nsorted_symbols,
     char *strings,
-    unsigned long strings_size,
+    uint32_t strings_size,
     uint32_t *indirect_symbols,
-    unsigned long nindirect_symbols,
+    uint32_t nindirect_symbols,
     cpu_type_t cputype,
     struct load_command *load_commands,
     uint32_t ncmds,

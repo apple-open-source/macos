@@ -109,16 +109,14 @@ dhcp_msgtype_names(dhcp_msgtype_t type)
 #define DHCP_OVERLOAD_BOTH	3
 
 typedef uint32_t 		dhcptag_t;
-typedef int32_t			dhcp_time_secs_t; /* absolute time */
-typedef dhcp_time_secs_t	dhcp_interval_secs_t; /* relative interval */
-typedef dhcp_interval_secs_t	dhcp_lease_t;
+typedef uint32_t		dhcp_lease_time_t;
+
 #define dhcp_time_hton		htonl
 #define dhcp_time_ntoh		ntohl
 #define dhcp_lease_hton		htonl
 #define dhcp_lease_ntoh		ntohl	
 
-#define DHCP_INFINITE_LEASE	((dhcp_lease_t)-1)
-#define DHCP_INFINITE_TIME	((dhcp_time_secs_t)-1)
+#define DHCP_INFINITE_LEASE	((dhcp_lease_time_t)-1)
 
 #define DHCP_FLAGS_BROADCAST	((u_short)0x8000)
 

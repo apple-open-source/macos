@@ -292,8 +292,8 @@ execute_user_command (struct cmd_list_element *c, char *args)
  
   if (target_can_async_p ()) 
     { 
-      gdb_set_async_override (1); 
-      make_cleanup (gdb_set_async_override, 0); 
+      gdb_set_async_override ((void *) 1); 
+      make_cleanup (gdb_set_async_override, (void *) 0); 
     } 
  
   while (cmdlines)
@@ -1180,9 +1180,8 @@ define_command (char *comname, int from_tty)
       CMD_POST_HOOK
     };
   struct command_line *cmds;
-  struct cmd_list_element *c, *newc, *oldc, *hookc = 0;
+  struct cmd_list_element *c, *newc, *hookc = 0;
   char *tem = comname;
-  char *tem2; 
   char tmpbuf[MAX_TMPBUF];
   int  hook_type      = CMD_NO_HOOK;
   int  hook_name_size = 0;
@@ -1363,7 +1362,6 @@ script_from_file (FILE *stream, char *file)
 {
   struct cleanup *old_cleanups;
   struct source_cleanup_lines_args old_lines;
-  int needed_length;
 
   if (stream == NULL)
     internal_error (__FILE__, __LINE__, _("called with NULL file pointer!"));
@@ -1380,6 +1378,7 @@ script_from_file (FILE *stream, char *file)
   error_pre_print = "";
 
 #if 0 /* APPLE MERGE */
+  int needed_length;
   needed_length = strlen (source_file_name) + strlen (source_pre_error) + 80;
   if (source_error_allocated < needed_length)
     {

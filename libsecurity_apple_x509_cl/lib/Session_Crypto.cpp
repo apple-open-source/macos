@@ -159,6 +159,14 @@ AppleX509CLSession::CertVerify(
 
 			CSSM_ALGORITHMS vfyAlg = CL_oidToAlg(cssmAlgId.algorithm);
 			
+			/* 
+			 * Handle CSSMOID_ECDSA_WithSpecified, which requires additional
+			 * decode to get the digest algorithm.
+			 */
+			if(vfyAlg == CSSM_ALGID_ECDSA_SPECIFIED) {
+				vfyAlg = CL_nssDecodeECDSASigAlgParams(cssmAlgId.parameters, coder);
+			}
+
 			/* attach to CSP, cook up a context */
 			cspHand = getGlobalCspHand(true);
 			CSSM_RETURN crtn;
@@ -247,6 +255,14 @@ AppleX509CLSession::CertSign(
 		SecNssCoder coder;
 		
 		/* CSSM alg --> CSSM_X509_ALGORITHM_IDENTIFIER */
+		/***
+		 *** Note: some ECDSA implementations use CSSMOID_ECDSA_WithSpecified for
+		 *** the algorithm followed by an encoded digest algorithm. We'll handle 
+		 *** that on *decode* but we're going to do it the sensible way - with 
+		 *** one unique OID to specify the whole thing (e.g. CSSMOID_ECDSA_WithSHA512
+		 *** which we get from cssmAlgToOid()) unless we're forced to do 
+		 *** otherwise by cranky servers.
+		 ***/
 		CSSM_X509_ALGORITHM_IDENTIFIER algId;
 		memset(&algId, 0, sizeof(algId));
 		const CSSM_OID *oid = cssmAlgToOid(context->AlgorithmType);
@@ -258,8 +274,19 @@ AppleX509CLSession::CertSign(
 		}
 		algId.algorithm = *oid;
 
-		/* NULL params - FIXME - is this OK? */
-		CL_nullAlgParams(algId);
+		/* NULL params - skip for ECDSA */
+		switch(context->AlgorithmType) {
+			case CSSM_ALGID_SHA1WithECDSA:
+			case CSSM_ALGID_SHA224WithECDSA:
+			case CSSM_ALGID_SHA256WithECDSA:
+			case CSSM_ALGID_SHA384WithECDSA:
+			case CSSM_ALGID_SHA512WithECDSA:
+			case CSSM_ALGID_ECDSA_SPECIFIED:
+				break;
+			default:
+				CL_nullAlgParams(algId);
+				break;
+		}
 		/* DER-encode the algID */
 		PRErrorCode prtn;
 		prtn = SecNssEncodeItemOdata(&algId, kSecAsn1AlgorithmIDTemplate, 

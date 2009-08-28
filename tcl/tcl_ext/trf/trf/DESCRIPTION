@@ -1,0 +1,64 @@
+# -*- tcl -*-
+
+extension trf {
+    description {
+	A loadable extension to Tcl providing commands for data conversion,
+	message digests, zlib based compression, error-correction,
+	channel-based manipulation of binary data.
+
+	Trf extends the language at the C-level with so-called
+	``transformer''-procedures. With the help of some patches (*) to the
+	core the package is able to intercept all read/write operations
+	on designated channels, thus giving it the ability to transform
+	the buffer contents as desired. This allows things like
+	transparent encryption, compression, charset recoding,
+	etc. Build upon this framework (and as proof of concept) a
+	collection of tcl-level commands was implemented. Additionally
+	some binary data support is put in as well.
+
+	A separate package containing encryption transformation is available
+	at the same site carrying this package.
+
+	(*) The patches are only necessary for Tcl 8.0.x and 8.1.x. Since
+	Tcl 8.2 the Trf patch is an official part of the core.
+    }
+
+    keywords {
+	tcl, conversion, message digests,
+	data compression, error-correction, binary io, crc, md2, md5,
+	sha, sha-1, haval, adler, ripemd-160, dual, hexadecimal, octal,
+	uuencode, base64, ascii85, reed-solomon, zlib, otp_md5, otp_sha1,
+	otp_words
+    }
+
+    author       {Andreas Kupries (andreas_kupries@users.sourceforge.net)}
+    maintenance  {Andreas Kupries (andreas_kupries@users.sourceforge.net)}
+
+    version	   2.1.3
+    copying-policy {BSD-Style, see 'tcl'-license}
+    date           {DEC-06-2008}
+
+    primary-urls {
+	http://tcltrf.sourceforge.net/
+    }
+
+    development-platform {Linux 2.0.29, gcc 2.7.2.3}
+    platforms {
+	Linux 2.0.29	(gcc 2.7.2.3)	Development system
+	IRIX 6.2	(cc only)
+	ULTRIX 4.1	(both cc and gcc)
+	ULTRIX 4.4	(cc 3.0)
+	HP-UX-9		(both cc and gcc)
+	HP-UX-10.2
+	Solaris 2.5	(gcc only)
+
+	Other machines and OS's should work too. 
+    }
+
+    dependencies {
+	tcl 8.0 or higher,
+	plus-patches as of Dec 5, 1996 or later (optional),
+	memchan 1.0 or higher (required by testsuite),
+	zlib-1.0.4 or higher (optional, 1.2.4 is current),
+    }
+}

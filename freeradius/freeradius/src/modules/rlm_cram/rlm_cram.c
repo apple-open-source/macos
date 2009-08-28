@@ -1,7 +1,7 @@
 /*
  * rlm_cram.c
  *
- * Version:	$Id: rlm_cram.c,v 1.3 2004/02/26 19:04:28 aland Exp $
+ * Version:	$Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,9 +15,9 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
- * Copyright 2002  The FreeRADIUS server project
+ * Copyright 2002,2006  The FreeRADIUS server project
  */
 
 /*
@@ -41,20 +41,15 @@
  *   (c) 2002 by SANDY (http://www.sandy.ru/) under GPL
  */
 
-#include	"autoconf.h"
-#include	"libradius.h"
+#include	<freeradius-devel/ident.h>
+RCSID("$Id$")
 
-#include	<stdio.h>
-#include	<stdlib.h>
-#include    	<string.h>
+#include	<freeradius-devel/radiusd.h>
+#include	<freeradius-devel/modules.h>
+
+#include        <freeradius-devel/md5.h>
+
 #include 	<ctype.h>
-
-#include	"radiusd.h"
-#include	"modules.h"
-
-#include        "md4.h"
-#include        "md5.h"
-#include        "sha1.h"
 
 
 #define		SM_AUTHTYPE	((11406<<16)|101)
@@ -65,81 +60,81 @@
 
 
 static void calc_apop_digest(char * buffer, const char * challenge, int challen, const char * password){
-	MD5_CTX Context;
+	FR_MD5_CTX Context;
 
-	MD5Init(&Context);
-	MD5Update(&Context,challenge,challen);
-	MD5Update(&Context,password,strlen(password));
-        MD5Final(buffer,&Context);
+	fr_MD5Init(&Context);
+	fr_MD5Update(&Context,challenge,challen);
+	fr_MD5Update(&Context,password,strlen(password));
+        fr_MD5Final(buffer,&Context);
 }
 
 
 static void calc_md5_digest(char * buffer, const char * challenge, int challen, const char * password){
 	char buf[1024];
 	int i;
-	MD5_CTX Context;
+	FR_MD5_CTX Context;
 
 	memset(buf, 0, 1024);
 	memset(buf, 0x36, 64);
 	for(i=0; i<64 && password[i]; i++) buf[i]^=password[i];
 	memcpy(buf+64, challenge, challen);
-	MD5Init(&Context);
-	MD5Update(&Context,buf,64+challen);
+	fr_MD5Init(&Context);
+	fr_MD5Update(&Context,buf,64+challen);
 	memset(buf, 0x5c, 64);
 	for(i=0; i<64 && password[i]; i++) buf[i]^=password[i];
-        MD5Final(buf+64,&Context);
-	MD5Init(&Context);
-	MD5Update(&Context,buf,64+16);
-        MD5Final(buffer,&Context);
+        fr_MD5Final(buf+64,&Context);
+	fr_MD5Init(&Context);
+	fr_MD5Update(&Context,buf,64+16);
+        fr_MD5Final(buffer,&Context);
 }
 
 static void calc_md4_digest(char * buffer, const char * challenge, int challen, const char * password){
 	char buf[1024];
 	int i;
-	MD4_CTX Context;
+	FR_MD4_CTX Context;
 
 	memset(buf, 0, 1024);
 	memset(buf, 0x36, 64);
 	for(i=0; i<64 && password[i]; i++) buf[i]^=password[i];
 	memcpy(buf+64, challenge, challen);
-	MD4Init(&Context);
-	MD4Update(&Context,buf,64+challen);
+	fr_MD4Init(&Context);
+	fr_MD4Update(&Context,buf,64+challen);
 	memset(buf, 0x5c, 64);
 	for(i=0; i<64 && password[i]; i++) buf[i]^=password[i];
-        MD4Final(buf+64,&Context);
-	MD4Init(&Context);
-	MD4Update(&Context,buf,64+16);
-        MD4Final(buffer,&Context);
+        fr_MD4Final(buf+64,&Context);
+	fr_MD4Init(&Context);
+	fr_MD4Update(&Context,buf,64+16);
+        fr_MD4Final(buffer,&Context);
 }
 
 static void calc_sha1_digest(char * buffer, const char * challenge, int challen, const char * password){
 	char buf[1024];
 	int i;
-	SHA1_CTX Context;
+	fr_SHA1_CTX Context;
 
 	memset(buf, 0, 1024);
 	memset(buf, 0x36, 64);
 	for(i=0; i<64 && password[i]; i++) buf[i]^=password[i];
 	memcpy(buf+64, challenge, challen);
-	SHA1Init(&Context);
-	SHA1Update(&Context,buf,64+challen);
+	fr_SHA1Init(&Context);
+	fr_SHA1Update(&Context,buf,64+challen);
 	memset(buf, 0x5c, 64);
 	for(i=0; i<64 && password[i]; i++) buf[i]^=password[i];
-        SHA1Final(buf+64,&Context);
-	SHA1Init(&Context);
-	SHA1Update(&Context,buf,64+20);
-        SHA1Final(buffer,&Context);
+        fr_SHA1Final(buf+64,&Context);
+	fr_SHA1Init(&Context);
+	fr_SHA1Update(&Context,buf,64+20);
+        fr_SHA1Final(buffer,&Context);
 }
 
 
-static int cram_authenticate(void * instance, REQUEST *request)
+static int cram_authenticate(UNUSED void * instance, REQUEST *request)
 {
 	VALUE_PAIR *authtype, *challenge, *response, *password;
 	char buffer[64];
 
-	password = pairfind(request->config_items, PW_PASSWORD);
+	password = pairfind(request->config_items, PW_CLEARTEXT_PASSWORD);
 	if(!password) {
-		radlog(L_AUTH, "rlm_cram: Password is not configured for user");
+		radlog(L_AUTH, "rlm_cram: Cleartext-Password is required for authentication.");
 		return RLM_MODULE_INVALID;
 	}
 	authtype = pairfind(request->packet->vps, SM_AUTHTYPE);
@@ -157,38 +152,38 @@ static int cram_authenticate(void * instance, REQUEST *request)
 		radlog(L_AUTH, "rlm_cram: Required attribute Sandy-Mail-Response missed");
 		return RLM_MODULE_INVALID;
 	}
-	switch(authtype->lvalue){
+	switch(authtype->vp_integer){
 		case 2:				/*	CRAM-MD5	*/
 			if(challenge->length < 5 || response->length != 16) {
 				radlog(L_AUTH, "rlm_cram: invalid MD5 challenge/response length");
 				return RLM_MODULE_INVALID;
 			}
-			calc_md5_digest(buffer, challenge->strvalue, challenge->length, password->strvalue);
-			if(!memcmp(buffer, response->strvalue, 16)) return RLM_MODULE_OK;
+			calc_md5_digest(buffer, challenge->vp_strvalue, challenge->length, password->vp_strvalue);
+			if(!memcmp(buffer, response->vp_strvalue, 16)) return RLM_MODULE_OK;
 			break;
 		case 3:				/*	APOP	*/
 			if(challenge->length < 5 || response->length != 16) {
 				radlog(L_AUTH, "rlm_cram: invalid APOP challenge/response length");
 				return RLM_MODULE_INVALID;
 			}
-			calc_apop_digest(buffer, challenge->strvalue, challenge->length, password->strvalue);
-			if(!memcmp(buffer, response->strvalue, 16)) return RLM_MODULE_OK;
+			calc_apop_digest(buffer, challenge->vp_strvalue, challenge->length, password->vp_strvalue);
+			if(!memcmp(buffer, response->vp_strvalue, 16)) return RLM_MODULE_OK;
 			break;
 		case 8:				/*	CRAM-MD4	*/
 			if(challenge->length < 5 || response->length != 16) {
 				radlog(L_AUTH, "rlm_cram: invalid MD4 challenge/response length");
 				return RLM_MODULE_INVALID;
 			}
-			calc_md4_digest(buffer, challenge->strvalue, challenge->length, password->strvalue);
-			if(!memcmp(buffer, response->strvalue, 16)) return RLM_MODULE_OK;
+			calc_md4_digest(buffer, challenge->vp_strvalue, challenge->length, password->vp_strvalue);
+			if(!memcmp(buffer, response->vp_strvalue, 16)) return RLM_MODULE_OK;
 			break;
 		case 9:				/*	CRAM-SHA1	*/
 			if(challenge->length < 5 || response->length != 20) {
 				radlog(L_AUTH, "rlm_cram: invalid MD4 challenge/response length");
 				return RLM_MODULE_INVALID;
 			}
-			calc_sha1_digest(buffer, challenge->strvalue, challenge->length, password->strvalue);
-			if(!memcmp(buffer, response->strvalue, 20)) return RLM_MODULE_OK;
+			calc_sha1_digest(buffer, challenge->vp_strvalue, challenge->length, password->vp_strvalue);
+			if(!memcmp(buffer, response->vp_strvalue, 20)) return RLM_MODULE_OK;
 			break;
 		default:
 			radlog(L_AUTH, "rlm_cram: unsupported Sandy-Mail-Authtype");
@@ -199,20 +194,19 @@ static int cram_authenticate(void * instance, REQUEST *request)
 }
 
 module_t rlm_cram = {
-  "CRAM",
-  RLM_TYPE_THREAD_SAFE,				/* type */
-  NULL,				/* initialize */
-  NULL,		/* instantiation */
-  {
-	  cram_authenticate,	/* authenticate */
-	  NULL,			/* authorize */
-	  NULL,			/* pre-accounting */
-	  NULL,			/* accounting */
-	  NULL,			/* checksimul */
-	  NULL,			/* pre-proxy */
-	  NULL,			/* post-proxy */
-	  NULL			/* post-auth */
-  },
-  NULL,				/* detach */
-  NULL,				/* destroy */
+	RLM_MODULE_INIT,
+	"CRAM",
+	RLM_TYPE_THREAD_SAFE,		/* type */
+	NULL,				/* instantiation */
+	NULL,				/* detach */
+	{
+		cram_authenticate,	/* authenticate */
+		NULL,			/* authorize */
+		NULL,			/* pre-accounting */
+		NULL,			/* accounting */
+		NULL,			/* checksimul */
+		NULL,			/* pre-proxy */
+		NULL,			/* post-proxy */
+		NULL			/* post-auth */
+	},
 };

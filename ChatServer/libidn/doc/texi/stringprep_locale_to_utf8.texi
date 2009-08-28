@@ -1,3 +1,5 @@
+@subheading stringprep_locale_to_utf8
+@anchor{stringprep_locale_to_utf8}
 @deftypefun {char *} {stringprep_locale_to_utf8} (const char * @var{str})
 @var{str}: input zero terminated string.
 

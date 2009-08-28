@@ -63,11 +63,9 @@ extern "C" {
 /*
  * autofs mount args, as seen by userland code.
  * This structure is different in ILP32 and LP64.
- * Inside the kernel, it's the ILP32 version, as the kernel
- * is ILP32.
  */
 struct autofs_args {
-	int		version;	/* args structure version number */
+	uint32_t	version;	/* args structure version number */
 	char		*path;		/* autofs mountpoint */
 	char		*opts;		/* default mount options */
 	char		*map;		/* name of map */
@@ -83,17 +81,37 @@ struct autofs_args {
 
 #ifdef KERNEL
 /*
+ * ILP32 version of autofs_args, for use in the kernel when fetching args
+ * from userland in a 32-bit process.
+ * WARNING - keep in sync with autofs_args
+ */
+struct autofs_args_32 {
+	uint32_t	version;	/* args structure version number */
+	uint32_t	path;		/* autofs mountpoint */
+	uint32_t	opts;		/* default mount options */
+	uint32_t	map;		/* name of map */
+	uint32_t	subdir;		/* subdir within map */
+	uint32_t	key;		/* used in direct mounts */
+	uint32_t	mntflags;	/* Boolean default mount options */
+	int32_t		mount_to;	/* time in secs the fs is to remain */
+					/* mounted after last reference */
+	int32_t		mach_to;	/* timeout for Mach calls XXX */
+	int32_t		direct;		/* 1 = direct mount */
+	int32_t		trigger;	/* 1 = trigger mount */
+};
+
+/*
  * LP64 version of autofs_args, for use in the kernel when fetching args
  * from userland in a 64-bit process.
  * WARNING - keep in sync with autofs_args
  */
 struct autofs_args_64 {
-	int		version;	/* args structure version number */
-	user_addr_t	path;		/* autofs mountpoint */
-	user_addr_t	opts;		/* default mount options */
-	user_addr_t	map;		/* name of map */
-	user_addr_t	subdir;		/* subdir within map */
-	user_addr_t	key;		/* used in direct mounts */
+	uint32_t	version;	/* args structure version number */
+	user_addr_t	path __attribute((aligned(8)));	/* autofs mountpoint */
+	user_addr_t	opts __attribute((aligned(8)));	/* default mount options */
+	user_addr_t	map __attribute((aligned(8)));	/* name of map */
+	user_addr_t	subdir __attribute((aligned(8)));/* subdir within map */
+	user_addr_t	key __attribute((aligned(8)));	/* used in direct mounts */
 	uint32_t	mntflags;	/* Boolean default mount options */
 	int32_t		mount_to;	/* time in secs the fs is to remain */
 					/* mounted after last reference */
@@ -110,6 +128,8 @@ struct autofs_args_64 {
 #define	AUTOFS_MNT_RESTRICT	0x00000001
 #define MNTOPT_RDDIR		"rddir"		/* called "browse" in Solaris */
 #define	AUTOFS_MNT_NORDDIR	0x00000002	/* but that collides with ours */
+#define MNTOPT_HIDEFROMFINDER	"hidefromfinder"
+#define	AUTOFS_MNT_HIDEFROMFINDER	0x00000004
 
 #ifdef __APPLE_API_PRIVATE
 /* arg is int */
@@ -119,8 +139,6 @@ struct autofs_args_64 {
 /*
  * autofs update args, as seen by userland code.
  * This structure is different in ILP32 and LP64.
- * Inside the kernel, it's the ILP32 version, as the kernel
- * is ILP32.
  */
 struct autofs_update_args {
 	fsid_t		fsid;
@@ -135,15 +153,30 @@ struct autofs_update_args {
 
 #ifdef KERNEL
 /*
+ * ILP32 version of autofs_update_args, for use in the kernel when fetching args
+ * from userland in a 32-bit process.
+ * WARNING - keep in sync with autofs_update_args
+ */
+struct autofs_update_args_32 {
+	fsid_t		fsid;
+	uint32_t	opts;		/* default mount options */
+	uint32_t	map;		/* name of map */
+	uint32_t	mntflags;	/* Boolean default mount options */
+	int32_t		mount_to;	/* time in secs the fs is to remain */
+					/* mounted after last reference */
+	int32_t		mach_to;	/* timeout for Mach calls XXX */
+	int32_t		direct;		/* 1 = direct mount */
+};
+
+/*
  * LP64 version of autofs_update_args, for use in the kernel when fetching args
  * from userland in a 64-bit process.
  * WARNING - keep in sync with autofs_update_args
  */
 struct autofs_update_args_64 {
 	fsid_t		fsid;
-	user_addr_t	opts;		/* default mount options */
-	user_addr_t	map;		/* name of map */
-	user_addr_t	key;		/* used in direct mounts */
+	user_addr_t	opts __attribute((aligned(8)));	/* default mount options */
+	user_addr_t	map __attribute((aligned(8)));	/* name of map */
 	uint32_t	mntflags;	/* Boolean default mount options */
 	int32_t		mount_to;	/* time in secs the fs is to remain */
 					/* mounted after last reference */
@@ -155,9 +188,11 @@ struct autofs_update_args_64 {
 /*
  * Autofs ioctls.
  */
-#define AUTOFS_UPDATE_OPTIONS		_IOW('a', 0, struct autofs_update_args)
 #ifdef KERNEL
-#define AUTOFS_UPDATE_OPTIONS_64	_IOW('a', 1, struct autofs_update_args_64)
+#define AUTOFS_UPDATE_OPTIONS_32	_IOW('a', 0, struct autofs_update_args_32)
+#define AUTOFS_UPDATE_OPTIONS_64	_IOW('a', 0, struct autofs_update_args_64)
+#else
+#define AUTOFS_UPDATE_OPTIONS		_IOW('a', 0, struct autofs_update_args)
 #endif
 #define AUTOFS_NOTIFYCHANGE		_IO('a', 2)
 #define AUTOFS_WAITFORFLUSH		_IO('a', 3)
@@ -197,16 +232,39 @@ typedef struct action_list {
 	struct mounta mounta;
 	struct action_list *next;
 } action_list;	
-     
+
+#ifndef KERNEL
+/*
+ * XXX - "struct dirent" is different depending on whether
+ * __DARWIN_64_BIT_INO_T is defined or not.  We define it,
+ * so we can get the long f_mntonname field, but the autofs
+ * file system expects us to return the form of the structure
+ * you get when __DARWIN_64_BIT_INO_T isn't defined.
+ *
+ * For now, we solve this by defining "struct dirent_nonext"
+ * to be the old directory entry.
+ */
+struct dirent_nonext {
+	__uint32_t d_ino;		/* file number of entry */
+	__uint16_t d_reclen;		/* length of this record */
+	__uint8_t  d_type;		/* file type, see below */
+	__uint8_t  d_namlen;		/* length of string in d_name */
+	char d_name[__DARWIN_MAXNAMLEN + 1];	/* name must be no longer than this */
+};
+#else
+/* In the kernel, "struct direct" is always the non-extended directory entry. */
+#define dirent_nonext	dirent
+#endif
+
 /*
  * Macros for readdir.
  */
 #define	DIRENT_NAMELEN(reclen)	\
-	((reclen) - (offsetof(struct dirent, d_name[0])))
+	((reclen) - (offsetof(struct dirent_nonext, d_name[0])))
 #define DIRENT_RECLEN(namlen)	\
-	((sizeof (struct dirent) - (MAXNAMLEN+1)) + (((namlen)+1 + 3) &~ 3))
+	(((u_int)sizeof (struct dirent_nonext) - (MAXNAMLEN+1)) + (((namlen)+1 + 3) &~ 3))
 #define RECLEN(dp)	DIRENT_RECLEN((dp)->d_namlen)
-#define nextdp(dp)	((struct dirent *)((char *)(dp) + RECLEN(dp)))
+#define nextdp(dp)	((struct dirent_nonext *)((char *)(dp) + RECLEN(dp)))
 
 /*
  * Autofs device; opened by processes that need to avoid triggering

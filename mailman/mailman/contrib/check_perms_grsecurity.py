@@ -1,6 +1,6 @@
 #! @PYTHON@
 #
-# Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2007 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -14,7 +14,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 """Fixes for running Mailman under the `secure-linux' patch or grsecurity.
 
@@ -81,7 +82,7 @@ def main(argv):
     for dir in dirstochownroot:
         dirpath = paths.prefix + '/' + dir
         os.chown(dirpath, 0, gid)
-        os.chmod(dirpath, 02755)
+        os.chmod(dirpath, 0755)
         print dirpath
 
     print
@@ -102,9 +103,9 @@ import grp, pwd
 from Mailman.mm_cfg import MAILMAN_USER, MAILMAN_GROUP
 
 class CheckFixUid:
+    uid = pwd.getpwnam(MAILMAN_USER)[2]
+    gid = grp.getgrnam(MAILMAN_GROUP)[2]
     if os.geteuid() == 0:
-        uid = pwd.getpwnam(MAILMAN_USER)[2]
-        gid = grp.getgrnam(MAILMAN_GROUP)[2]
         os.setgid(gid)
         os.setuid(uid)
     if os.geteuid() != uid:

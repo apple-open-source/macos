@@ -39,9 +39,6 @@ fixup:
 	${STRIP} -S $(RC_Install_Prefix)/bin/iodbctest; \
 	${STRIP} -S $(RC_Install_Prefix)/bin/iodbctestw; \
 
-	${LIPO} $(RC_Install_Prefix)/bin/iodbctestw -remove x86_64 -output $(RC_Install_Prefix)/bin/iodbctestw
-	${LIPO} $(RC_Install_Prefix)/bin/iodbctest -remove x86_64 -output $(RC_Install_Prefix)/bin/iodbctest
-
 	${MKDIR} $(RC_Install_Prefix)/local/OpenSourceVersions; \
 	${CP} $(SRCROOT)/iodbc.plist $(RC_Install_Prefix)/local/OpenSourceVersions/; \
 	${CHOWN} root:wheel $(RC_Install_Prefix)/local/OpenSourceVersions/iodbc.plist; \

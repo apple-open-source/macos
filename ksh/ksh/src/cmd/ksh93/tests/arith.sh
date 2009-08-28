@@ -1,10 +1,10 @@
 ########################################################################
 #                                                                      #
 #               This software is part of the ast package               #
-#           Copyright (c) 1982-2007 AT&T Knowledge Ventures            #
+#          Copyright (c) 1982-2007 AT&T Intellectual Property          #
 #                      and is licensed under the                       #
 #                  Common Public License, Version 1.0                  #
-#                      by AT&T Knowledge Ventures                      #
+#                    by AT&T Intellectual Property                     #
 #                                                                      #
 #                A copy of the License is available at                 #
 #            http://www.opensource.org/licenses/cpl1.0.txt             #
@@ -463,4 +463,9 @@ unset x y
 float x=14.555 y
 y=$(printf "%a" x)
 (( x == y )) || err_exit "output of printf %a not self preserving -- expected $x, got $y"
+unset x y r
+x=-0
+y=$(printf "%g %g %g %g %g %g\n" -0. -0 $((-0)) x $x $((x)))
+r="-0 -0 -0 -0 -0 -0"
+[[ $y == "$r" ]] || err_exit "-0 vs -0.0 inconsistency -- expected '$r', got '$y'"
 exit $((Errors))

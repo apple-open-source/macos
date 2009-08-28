@@ -1,8 +1,9 @@
 /* APPLE LOCAL file ObjC GC */
 /* A compile-only test for insertion of write barriers. */
 /* Developed by Ziemowit Laski  <zlaski@apple.com>  */
-/* { dg-do compile { target *-*-darwin* } } */
-/* { dg-options "-fnext-runtime -fobjc-gc -Wassign-intercept" } */
+/* { dg-do compile { target powerpc*-*-darwin* i?86*-*-darwin* } } */
+/* { dg-options "-fnext-runtime -fobjc-gc -Wno-non-lvalue-assign -Wassign-intercept" } */
+/* { dg-require-effective-target objc_gc } */
 
 #ifndef __OBJC_GC__
 #error Missing __OBJC_GC__ manifest constant
@@ -111,7 +112,7 @@ void function(void) {
 	l_myclass2->ivar1 = 0; /* { dg-warning "instance variable assignment" } */
 	(__strong id)*g_myclass->ivar1a = 0; /* { dg-warning "strong\\-cast assignment" } */
 	g_myclass->ivar2 = 0;
-	(__strong void *)g_myclass->ivar2 = 0; /* { dg-warning "strong\\-cast assignment" } */
+	(__strong void *)g_myclass->ivar2 = 0; /* { dg-warning "assignment has been intercepted" } */
 	g_myclass->ivar3 = 0; /* { dg-warning "instance variable assignment" } */
 	l_myclass->ivar4[1] = 0; /* { dg-warning "instance variable assignment" } */
         l_myclass->ivar4a = 0; /* { dg-warning "instance variable assignment" } */
@@ -123,7 +124,7 @@ void function(void) {
 	l_myclass->contents.s.storage = 0; /* { dg-warning "instance variable assignment" } */
 	l_myclass->contents.s.another->SomeObj = 0; /* { dg-warning "instance variable assignment" } */
 	l_myclass->contents.s.another->storage = 0; /* { dg-warning "instance variable assignment" } */
-	(__strong void *)l_myclass->contents.s.another->storage = 0; /* { dg-warning "strong\\-cast assignment" } */
+	(__strong void *)l_myclass->contents.s.another->storage = 0; /* { dg-warning "assignment has been intercepted" } */
 	g_myclass->y.z.yy = 0;
 	(__strong void *)g_myclass->y.z.yy = 0; /* { dg-warning "strong\\-cast assignment" } */
 	g_myclass1->ivar1 = 0; /* { dg-warning "instance variable assignment" } */

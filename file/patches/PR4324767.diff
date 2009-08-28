@@ -1,11 +1,10 @@
---- doc/file.man.orig	2006-02-27 17:19:11.000000000 -0800
-+++ doc/file.man	2006-02-27 17:20:59.000000000 -0800
-@@ -374,6 +374,8 @@
- .br
- .BR strings (1), " od" (1), " hexdump(1)", " compat(5)"
- \- tools for examining non-textfiles.
-+.BR otool (1), " otool64" (1)
-+\- Mach-O object display tools
- .SH STANDARDS CONFORMANCE
+--- doc/file.man.orig	2008-07-16 17:42:47.000000000 -0700
++++ doc/file.man	2008-07-16 17:43:07.000000000 -0700
+@@ -375,6 +375,7 @@
+ .Xr strings 1 ,
+ .Xr od 1 ,
+ .Xr hexdump 1,
++.Xr otool 1 ,
+ .Xr compat 5
+ .Sh STANDARDS CONFORMANCE
  This program conforms to
- .St -susv3

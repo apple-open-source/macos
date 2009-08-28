@@ -231,7 +231,8 @@ virtual		ast/stdio.h
 
 :: atmain.C \
 	stdgets.c stdprintf.c stdscanf.c stdvbuf.c stdsprnt.c \
-	stdvsprnt.c stdvsnprnt.c stdvsscn.c stdopen.c
+	stdvsprnt.c stdvsnprnt.c stdvsscn.c stdopen.c \
+	astsa
 
 if "$(PWD:B)" != "cc-*"
 
@@ -346,7 +347,7 @@ end
 
 astmath.exe : .DONTCARE astmath.c
 	X=1
-	for N in 1 2 3 4 5 6
+	for N in 1 2 3 4 5 6 8
 	do	if	$(CC) -DN=$N -DIS $(CCFLAGS) -o $(*:N=*.c:B:S=.exe) $(*) 2>/dev/null
 		then	: implicit math function N=$N :
 		elif	$(CC) -DN=$N -DIS $(CCFLAGS) -o $(*:N=*.c:B:S=.exe) $(*) -lm 2>/dev/null
@@ -376,25 +377,14 @@ atmain.o : atmain.C
 		fi
 	fi
 
-/* astsa is a subset of standalone functions that just needs sfio+cdt */
+/* astsa is a standalone subset of ast for imbedded applications */
 
 PAXFILTER = ;*.[ch];$(PROTO) $(PROTOFLAGS) -c "" -p
 
-astsa.tgz :  \
-		astsa/README \
-		man/astsa.3 man/optget.3 \
-		prototyped.h \
-		include/ccode.h include/debug.h include/error.h \
-		include/hashkey.h include/namval.h include/option.h \
-		include/stk.h misc/optlib.h string/strtoi.h \
-		misc/error.c misc/errorf.c misc/optesc.c misc/optget.c \
-		misc/stk.c string/chresc.c string/strerror.c string/stropt.c \
-		string/ccmap.c string/ccmapid.c string/strtonll.c \
-		features/ccode features/errno \
-		astsa/align.h astsa/ast.h astsa/ccode.h astsa/lclib.h \
-		astsa/sig.h astsa/times.h \
-		astsa/astwinsize.c astsa/strmatch.c
-	$(PAX) $(PAXFLAGS) -s ',.*/,astsa/,' -s ',astsa/ccode$,features/ccode,' -s ',astsa/errno$,features/errno,' -x $(<:/.*\.//) -wvf $(<) -A $(PAXFILTER:@Q) $(*)
+ast_sa.h : .DONTCARE
+
+astsa.tgz : $$("astsa/astsa.manifest":T=F:T=I:/[[:space:]][[:space:]]*/ /G:C,^,astsa/,)
+	$(PAX) $(PAXFLAGS) -wvf $(<) -x $(<:/.*\.//) -s ',.*/,,' -A $(PAXFILTER:@Q) $(*)
 
 /* libmini.a is a bootstrap dll for uwin cc -D_BLD_ast that exports part of ast */
 

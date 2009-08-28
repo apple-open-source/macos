@@ -95,7 +95,7 @@ cmd_lookup(int argc, char *argv[])
 	if (hostname == NULL)
 		err(EX_NOHOST, "unable to encode %s", argv[argc - 1]);
 
-	errno = nbns_resolvename(hostname, &ctx, 0, &sap,  TRUE, NBSS_TCP_PORT_139);
+	errno = nbns_resolvename(hostname, &ctx, &sap,  TRUE, NBSS_TCP_PORT_139);
 	free(hostname);	/* Done with the converted version */
 	hostname = argv[argc - 1];
 	if (errno)

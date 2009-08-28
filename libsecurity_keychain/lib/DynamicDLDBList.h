@@ -46,6 +46,7 @@ public:
 	const vector<DLDbIdentifier> &searchList();
 
 protected:
+	Mutex mMutex;
 	bool _add(const Guid &guid, uint32 subserviceID, CSSM_SERVICE_TYPE subserviceType);
 	bool _add(const DLDbIdentifier &);
 	bool _remove(const Guid &guid, uint32 subserviceID, CSSM_SERVICE_TYPE subserviceType);

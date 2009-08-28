@@ -1,4 +1,3 @@
-/* APPLE LOCAL begin mainline UCNs 2005-04-17 3892809 */
 /* Make ucnid.h from various sources.
    Copyright (C) 2005 Free Software Foundation, Inc.
 
@@ -14,7 +13,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 /* Run this program as
    ./makeucnid ucnid.tab UnicodeData.txt DerivedNormalizationProps.txt \
@@ -284,7 +283,7 @@ write_copyright (void)
 \n\
    You should have received a copy of the GNU General Public License\n\
    along with this program; if not, write to the Free Software\n\
-   Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.\n\
+   Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.\n\
 \n\
 \n\
    Copyright (C) 1991-2005 Unicode, Inc.  All rights reserved.\n\
@@ -341,4 +340,3 @@ main(int argc, char ** argv)
   write_table ();
   return 0;
 }
-/* APPLE LOCAL end mainline UCNs 2005-04-17 3892809 */

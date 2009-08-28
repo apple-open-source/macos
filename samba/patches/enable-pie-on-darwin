@@ -1,0 +1,23 @@
+Index: samba/source/configure.in
+===================================================================
+--- samba/source/configure.in.orig
++++ samba/source/configure.in
+@@ -1802,8 +1802,16 @@ EOF
+ 	])
+ 	if test x"${samba_cv_fpie}" = x"yes"
+ 	then
+-		PIE_CFLAGS="-fPIE"
+-		PIE_LDFLAGS="-pie"
++		case "$host_os" in
++		    *darwin*)
++			PIE_CFLAGS=""
++			PIE_LDFLAGS="-Wl,-pie"
++			;;
++		    *)
++			PIE_CFLAGS="-fPIE"
++			PIE_LDFLAGS="-pie"
++			;;
++		esac
+ 	fi
+ fi
+ 

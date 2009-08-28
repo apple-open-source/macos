@@ -324,8 +324,8 @@ UInt32 AppleLVMGroup::getMemberIndexFromOffset(UInt64 offset) const
 
 	memberDataSize = arMemberBlockCounts[index] * arSetBlockSize;
 
-	IOLog2("getMemberIndexFromOffset(%llu) index %lu, start %llu, end %llu\n",
-	       offset, index, arMemberStartingOffset[index], arMemberStartingOffset[index] + memberDataSize);
+	IOLog2("getMemberIndexFromOffset(%llu) index %u, start %llu, end %llu\n",
+	       offset, (uint32_t)index, arMemberStartingOffset[index], arMemberStartingOffset[index] + memberDataSize);
 	
 	if (offset < arMemberStartingOffset[index] + memberDataSize) break;
 	index++;
@@ -417,7 +417,7 @@ bool AppleLVMMemoryDescriptor::initWithStorageRequest(AppleRAIDStorageRequest *s
 
 bool AppleLVMMemoryDescriptor::configureForMemoryDescriptor(IOMemoryDescriptor *memoryDescriptor, UInt64 requestStart, UInt64 requestSize, AppleLVMVolume * lv)
 {
-    IOLogRW("LVG bytestart=%llu requestSize=%lu\n", requestStart, requestSize);
+    IOLogRW("LVG bytestart=%llu requestSize=%llu\n", requestStart, requestSize);
 
     AppleLVMLogicalExtent * extent = lv->findExtent(requestStart);
     if (!extent) return false;
@@ -437,33 +437,22 @@ bool AppleLVMMemoryDescriptor::configureForMemoryDescriptor(IOMemoryDescriptor *
 
     mdMemoryDescriptor = memoryDescriptor;
     
-    _direction = memoryDescriptor->getDirection();
+    _flags = (_flags & ~kIOMemoryDirectionMask) | memoryDescriptor->getDirection();
     
-    IOLogRW("LVG mdbytestart=%llu _length=0x%lx\n", requestStart, _length);
+    IOLogRW("LVG mdbytestart=%llu _length=0x%x\n", requestStart, (uint32_t)_length);
 
     return true;
 }
 
-IOPhysicalAddress AppleLVMMemoryDescriptor::getPhysicalSegment(IOByteCount offset, IOByteCount *length)
-{
-    IOByteCount		volumeOffset = offset + mdRequestOffset;
-    IOPhysicalAddress	physAddress;
-    
-    physAddress = mdMemoryDescriptor->getPhysicalSegment(volumeOffset, length);
-
-    return physAddress;
-}
-
-addr64_t AppleLVMMemoryDescriptor::getPhysicalSegment64(IOByteCount offset, IOByteCount *length)
+addr64_t AppleLVMMemoryDescriptor::getPhysicalSegment(IOByteCount offset, IOByteCount *length, IOOptionBits options)
 {
     IOByteCount		volumeOffset = offset + mdRequestOffset;
     addr64_t		physAddress;
     
-    physAddress = mdMemoryDescriptor->getPhysicalSegment64(volumeOffset, length);
+    physAddress = mdMemoryDescriptor->getPhysicalSegment(volumeOffset, length, options);
 
     return physAddress;
 }
-
 
 //8888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
 //8888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
@@ -476,18 +465,21 @@ IOBufferMemoryDescriptor * AppleLVMGroup::readPrimaryMetaData(AppleRAIDMember * 
 {
     IOLog1("AppleLVMGroup::readPrimaryMetaData(%p) entered\n", member);
 
+    AppleRAIDPrimaryOnDisk * primary = NULL;
     IOBufferMemoryDescriptor * primaryBuffer = super::readPrimaryMetaData(member);
     if (!primaryBuffer) goto error;
 
-    AppleRAIDPrimaryOnDisk * primary = (AppleRAIDPrimaryOnDisk *)primaryBuffer->getBytesNoCopy();
+    primary = (AppleRAIDPrimaryOnDisk *)primaryBuffer->getBytesNoCopy();
     if (!primary) goto error;
 
 #if defined(__LITTLE_ENDIAN__)
-    ByteSwapPrimaryHeader(primary);
-    UInt64 index;
-    AppleLVGTOCEntryOnDisk * tocEntry = (AppleLVGTOCEntryOnDisk *)(primary + 1);
-    for (index = 0; index < primary->pri.volumeCount; index++) {
-	ByteSwapLVGTOCEntry(tocEntry + index);
+    {
+	ByteSwapPrimaryHeader(primary);
+	UInt64 index;
+	AppleLVGTOCEntryOnDisk * tocEntry = (AppleLVGTOCEntryOnDisk *)(primary + 1);
+	for (index = 0; index < primary->pri.volumeCount; index++) {
+	    ByteSwapLVGTOCEntry(tocEntry + index);
+	}
     }
 #endif    
 
@@ -576,7 +568,7 @@ IOBufferMemoryDescriptor * AppleLVMGroup::readLogicalVolumeEntry(UInt64 offset, 
 {
     bool autoSize = size ? false : true;
     
-    IOLog1("AppleLVMGroup::readLogicalVolumeEntry(%p) lve offset %llu size %lu %s\n", this, offset, size, autoSize ? "autosized = true" : "");
+    IOLog1("AppleLVMGroup::readLogicalVolumeEntry(%p) lve offset %llu size %u %s\n", this, offset, (uint32_t)size, autoSize ? "autosized = true" : "");
 
     if (autoSize) size = kAppleLVMVolumeOnDiskMinSize;
 
@@ -613,7 +605,7 @@ retry:
 	    lveBuffer->release();
 	    goto retry;
 	}
-	IOLog("AppleLVMGroup::readLogicalVolumeEntry(): size mismatch %lu <> %lu\n", lve->lvHeaderSize, size);
+	IOLog("AppleLVMGroup::readLogicalVolumeEntry(): size mismatch %u <> %u\n", (uint32_t)lve->lvHeaderSize, (uint32_t)size);
 	if (lve->lvHeaderSize > size) {
 	    lveBuffer->release();
 	    return NULL;
@@ -628,7 +620,7 @@ retry:
     }
 #endif    
     
-    IOLog1("AppleLVMGroup::readLogicalVolumeEntry(%p): was successful, extent count = %lu\n", this, lve->lvExtentsCount);
+    IOLog1("AppleLVMGroup::readLogicalVolumeEntry(%p): was successful, extent count = %u\n", this, (uint32_t)lve->lvExtentsCount);
     return lveBuffer;
 }
 
@@ -662,7 +654,7 @@ IOReturn AppleLVMGroup::writeLogicalVolumeEntry(IOBufferMemoryDescriptor * lveBu
 
 bool AppleLVMGroup::clearLogicalVolumeEntry(UInt64 offset, UInt32 size)
 {
-    IOLog1("AppleLVMGroup::clearLogicalVolumeEntry(%p) lve offset %llu size %lu\n", this, offset, size);
+    IOLog1("AppleLVMGroup::clearLogicalVolumeEntry(%p) lve offset %llu size %u\n", this, offset, (uint32_t)size);
 
     // Allocate a buffer to read into
     IOBufferMemoryDescriptor * lveBuffer = IOBufferMemoryDescriptor::withCapacity(size, kIODirectionNone);
@@ -670,7 +662,7 @@ bool AppleLVMGroup::clearLogicalVolumeEntry(UInt64 offset, UInt32 size)
 
     AppleLVMVolumeOnDisk * lve = (AppleLVMVolumeOnDisk *)lveBuffer->getBytesNoCopy();
     bzero(lve, size);
-    strncpy(kAppleLVMVolumeFreeMagic, lve->lvMagic, sizeof(lve->lvMagic));
+    strncpy((char *)kAppleLVMVolumeFreeMagic, lve->lvMagic, sizeof(lve->lvMagic));
 
     AppleRAIDMember * member;
     UInt64 memberOffset;
@@ -721,8 +713,8 @@ bool AppleLVMGroup::initializeSecondary(void)
 	for (i=0; i < lve->lvExtentsCount; i++) {
 	    extent[i].extentByteOffset = extent[i].extentByteOffset + startingOffset;
 
-	    IOLog1("LVG initializeSecondary(%lu) adding secondary offset %llu, size %llu\n",
-		   i, extent[i].extentByteOffset, extent[i].extentByteCount);
+	    IOLog1("LVG initializeSecondary(%u) adding secondary offset %llu, size %llu\n",
+		   (uint32_t)i, extent[i].extentByteOffset, extent[i].extentByteCount);
 	}
 	
 	AppleLVMVolume * lv = AppleLVMVolume::withHeader(lve, NULL);
@@ -937,7 +929,7 @@ bool AppleLVMGroup::initializeVolumes(AppleRAIDPrimaryOnDisk * primary)
 	UInt64 lveSize = tocEntry->lveEntrySize;
 	if (!lveOffset || !lveSize) continue;		// empty entries are zeroed
 
-	IOLog1("AppleLVMGroup::initializeVolumes: reading volume[%lu] %s, size %llu\n", index, tocEntry->lveUUID, tocEntry->lveVolumeSize);
+	IOLog1("AppleLVMGroup::initializeVolumes: reading volume[%u] %s, size %llu\n", (uint32_t)index, tocEntry->lveUUID, tocEntry->lveVolumeSize);
 	
 	IOBufferMemoryDescriptor * lveBuffer = readLogicalVolumeEntry(lveOffset, lveSize);
 	if (!lveBuffer) continue;
@@ -1066,7 +1058,7 @@ UInt64 AppleLVMGroup::findFreeLVEOffset(AppleLVMVolume * lvNew)
     if (!firstExtent) return 0;
     UInt32 lveMemberIndex = firstExtent->lvMemberIndex;
 
-    IOLog1("AppleLVMGroup::findFreeLVEOffset(): member %lu selected\n", lveMemberIndex);
+    IOLog1("AppleLVMGroup::findFreeLVEOffset(): member %u selected\n", (uint32_t)lveMemberIndex);
 
     // find secondary range for that member
     AppleRAIDMember * member = arMembers[lveMemberIndex];
@@ -1084,7 +1076,7 @@ UInt64 AppleLVMGroup::findFreeLVEOffset(AppleLVMVolume * lvNew)
     bzero(bitmap, bitmapSize * sizeof(UInt32));
     bitmap[bitmapSize] = 0x55555555;  // the end (backwards)
 
-    IOLog1("AppleLVMGroup::findFreeLVEOffset(): bitmap %p, size %lu\n", bitmap, bitmapSize * 32);
+    IOLog1("AppleLVMGroup::findFreeLVEOffset(): bitmap %p, size %u\n", bitmap, (uint32_t)bitmapSize * 32);
 
     // add in metadata lve
     UInt32 bitIndex = 0;
@@ -1121,34 +1113,36 @@ UInt64 AppleLVMGroup::findFreeLVEOffset(AppleLVMVolume * lvNew)
 	}
     }
 
-    IOLog1("AppleLVMGroup::findFreeLVEOffset(): bitmap (31-0) 0x%08lx 0x%08lx 0x%08lx 0x%08lx\n", bitmap[0], bitmap[1], bitmap[2], bitmap[3]);
+    IOLog1("AppleLVMGroup::findFreeLVEOffset(): bitmap (31-0) 0x%08x 0x%08x 0x%08x 0x%08x\n", (uint32_t)bitmap[0], (uint32_t)bitmap[1], (uint32_t)bitmap[2], (uint32_t)bitmap[3]);
 
-    UInt32 bitsNeeded = lvNew->getEntrySize() / kAppleLVMVolumeOnDiskMinSize;
-    UInt32 lastBit = bitmapSize * 32;
+    {
+	UInt32 bitsNeeded = lvNew->getEntrySize() / kAppleLVMVolumeOnDiskMinSize;
+	UInt32 lastBit = bitmapSize * 32;
 
-    IOLog1("AppleLVMGroup::findFreeLVEOffset(): bitsNeeded %lu, lastBit %lu\n", bitsNeeded, lastBit);
+	IOLog1("AppleLVMGroup::findFreeLVEOffset(): bitsNeeded %u, lastBit %u\n", (uint32_t)bitsNeeded, (uint32_t)lastBit);
     
-    UInt32 firstBit = ffsbit(bitmap);
-    if (firstBit >= lastBit) goto full;
-    clrbit(firstBit, bitmap);
-
-    UInt32 nextBit = ffsbit(bitmap);
-    clrbit(nextBit, bitmap);
-
-    UInt32 bitsGap = nextBit - firstBit - 1;
-    while (bitsGap < bitsNeeded) {
-
-	firstBit = nextBit;
+	UInt32 firstBit = ffsbit(bitmap);
 	if (firstBit >= lastBit) goto full;
-	
-	nextBit = ffsbit(bitmap);
+	clrbit(firstBit, bitmap);
+
+	UInt32 nextBit = ffsbit(bitmap);
 	clrbit(nextBit, bitmap);
-	bitsGap = nextBit - firstBit - 1;
+
+	UInt32 bitsGap = nextBit - firstBit - 1;
+	while (bitsGap < bitsNeeded) {
+
+	    firstBit = nextBit;
+	    if (firstBit >= lastBit) goto full;
+	
+	    nextBit = ffsbit(bitmap);
+	    clrbit(nextBit, bitmap);
+	    bitsGap = nextBit - firstBit - 1;
+	}
+
+	IOLog1("AppleLVMGroup::findFreeLVEOffset(): firstBit %u, nextBit %u\n", (uint32_t)firstBit, (uint32_t)nextBit);
+
+	if (bitsGap >= bitsNeeded) return (firstBit + 1) * kAppleLVMVolumeOnDiskMinSize + secondaryStart;
     }
-
-    IOLog1("AppleLVMGroup::findFreeLVEOffset(): firstBit %lu, nextBit %lu\n", firstBit, nextBit);
-
-    if (bitsGap >= bitsNeeded) return (firstBit + 1) * kAppleLVMVolumeOnDiskMinSize + secondaryStart;
 	
 full:
 
@@ -1215,14 +1209,17 @@ IOReturn AppleLVMGroup::createLogicalVolume(OSDictionary * lveProps, AppleLVMVol
     const OSString * parentUUID;
     AppleLVMVolume * parent;
     IOReturn rc = 0;
+    UInt64 lveOffset = 0;
+    IOBufferMemoryDescriptor * lveBuffer = NULL;
+
 
     // make sure the sequence number is not out of date
     UInt32 sequenceNumber = 0;
     OSNumber * number = OSDynamicCast(OSNumber, lveProps->getObject(kAppleLVMVolumeSequenceKey));
     if (number) sequenceNumber = number->unsigned32BitValue();
     if (!sequenceNumber || sequenceNumber != arSequenceNumber) {
-	IOLog("AppleLVMGroup::createLogicalVolume() sequenceNumber mismatch (%lu) for group %s (%lu)\n",
-	      sequenceNumber, getUUIDString(), arSequenceNumber);
+	IOLog("AppleLVMGroup::createLogicalVolume() sequenceNumber mismatch (%u) for group %s (%u)\n",
+	      (uint32_t)sequenceNumber, getUUIDString(), (uint32_t)arSequenceNumber);
 	return kIOReturnBadArgument;
     }
     
@@ -1234,7 +1231,7 @@ IOReturn AppleLVMGroup::createLogicalVolume(OSDictionary * lveProps, AppleLVMVol
     if (!lv->addExtents(this, lve)) { rc = kIOReturnInternalError; goto error; }
     
     // find empty slot to write the lve
-    UInt64 lveOffset = findFreeLVEOffset(lv);
+    lveOffset = findFreeLVEOffset(lv);
     if (!lveOffset) return kIOReturnInternalError;
     IOLog1("AppleLVMGroup::createLogicalVolume() writing logical volume entry for %s at loffset %llu\n", lv->getVolumeUUIDString(), lveOffset);
 
@@ -1242,7 +1239,7 @@ IOReturn AppleLVMGroup::createLogicalVolume(OSDictionary * lveProps, AppleLVMVol
     lv->setEntryOffset(lveOffset);
 
     // write entry to disk
-    IOBufferMemoryDescriptor * lveBuffer = IOBufferMemoryDescriptor::withBytes(lve, lve->lvHeaderSize, kIODirectionOut);
+    lveBuffer = IOBufferMemoryDescriptor::withBytes(lve, lve->lvHeaderSize, kIODirectionOut);
     rc = writeLogicalVolumeEntry(lveBuffer, lveOffset);
     lveBuffer->release();
     if (rc) goto error;
@@ -1305,8 +1302,8 @@ IOReturn AppleLVMGroup::updateLogicalVolume(AppleLVMVolume * lv, OSDictionary * 
     OSNumber * number = OSDynamicCast(OSNumber, lveProps->getObject(kAppleLVMVolumeSequenceKey));
     if (number) sequenceNumber = number->unsigned32BitValue();
     if (!sequenceNumber || sequenceNumber != arSequenceNumber) {
-	IOLog("AppleLVMGroup::updateLogicalVolume() sequenceNumber mismatch (%lu) for group %s (%lu)\n",
-	      sequenceNumber, getUUIDString(), arSequenceNumber);
+	IOLog("AppleLVMGroup::updateLogicalVolume() sequenceNumber mismatch (%u) for group %s (%u)\n",
+	      (uint32_t)sequenceNumber, getUUIDString(), (uint32_t)arSequenceNumber);
 	return kIOReturnBadArgument;
     }
 
@@ -1450,7 +1447,7 @@ bool AppleLVMGroup::publishVolume(AppleLVMVolume * lv)
 	// IOMediaBSDClient::getWholeMedia makes assumptions about the
 	// ioreg layout, this tries to hack around that.
 	char location[12];
-	snprintf(location, sizeof(location), "%ss%ld", getLocation(), lv->getIndex());
+	snprintf(location, sizeof(location), "%ss%d", getLocation(), (uint32_t)lv->getIndex());
 	lv->setLocation(location);
 	    
 	OSArray * bootArray = OSArray::withCapacity(arMemberCount);
@@ -1502,7 +1499,6 @@ void AppleLVMGroup::completeRAIDRequest(AppleRAIDStorageRequest * storageRequest
     UInt64              byteCount;
     IOReturn            status;
     bool		isWrite;
-    IOStorageCompletion storageCompletion;
 
     // this is running in the workloop, via a AppleRAIDEvent
     
@@ -1533,8 +1529,8 @@ void AppleLVMGroup::completeRAIDRequest(AppleRAIDStorageRequest * storageRequest
 
 	byteCount += storageRequest->srRequestByteCounts[cnt];
 
-	IOLogRW("AppleLVMGroup::completeRAIDRequest - [%lu] tbc 0x%llx, sbc 0x%llx bc 0x%llx, member %p\n",
-		cnt, storageRequest->srByteCount, storageRequest->srRequestByteCounts[cnt],
+	IOLogRW("AppleLVMGroup::completeRAIDRequest - [%u] tbc 0x%llx, sbc 0x%llx bc 0x%llx, member %p\n",
+		(uint32_t)cnt, storageRequest->srByteCount, storageRequest->srRequestByteCounts[cnt],
 		byteCount, arMembers[cnt]);
     }
 
@@ -1549,14 +1545,10 @@ void AppleLVMGroup::completeRAIDRequest(AppleRAIDStorageRequest * storageRequest
         status = kIOReturnUnderrun;
         byteCount = 0;
     }
-    
-    // bad status is also returned here
-	
+
     storageRequest->srMemoryDescriptor->release();
-    storageCompletion = storageRequest->srCompletion;
-        
     returnRAIDRequest(storageRequest);
         
-    // Call the clients completion routine.
-    IOStorage::complete(storageCompletion, status, byteCount);
+    // Call the clients completion routine, bad status is also returned here.
+    IOStorage::complete(&storageRequest->srClientsCompletion, status, byteCount);
 }

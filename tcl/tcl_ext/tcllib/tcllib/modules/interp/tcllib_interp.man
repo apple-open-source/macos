@@ -1,0 +1,83 @@
+[comment {-*- tcl -*- doctools manpage}]
+[manpage_begin interp n 0.1.1]
+[copyright {2006 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
+[moddesc   {Interpreter utilities}]
+[titledesc {Interp creation and aliasing}]
+[require Tcl 8.3]
+[require interp [opt 0.1.1]]
+[description]
+[para]
+
+This package provides a number of commands for the convenient creation
+of Tcl interpreters for highly restricted execution.
+
+
+[section API]
+[list_begin definitions]
+
+[call [cmd ::interp::createEmpty] [opt [arg path]]]
+
+This commands creates an empty Tcl interpreter and returns it
+name. Empty means that the new interpreter has neither namespaces, nor
+any commands. It is useful only for the creation of aliases.
+
+[para]
+
+If a [arg path] is specified then it is taken as the name of the new
+interpreter.
+
+
+[call [cmd ::interp::snitLink] [arg path] [arg methodlist]]
+
+This command assumes that it was called from within a method of a snit
+object, and that the command [cmd mymethod] is available.
+
+[para]
+
+It extends the interpreter specified by [arg path] with aliases for
+all methods found in the [arg methodlist], with the alias directing
+execution to the same-named method of the snit object invoking this
+command.
+
+Each element of [arg methodlist] is actually interpreted as a command
+prefix, with the first word of each prefix the name of the method to
+link to.
+
+[para]
+
+The result of the command is the empty string.
+
+
+[call [cmd ::interp::snitDictLink] [arg path] [arg methoddict]]
+
+This command behaves like [cmd ::interp::snitLink], except that it
+takes a dictionary mapping from commands to methods as its input, and
+not a list of methods.
+
+Like for [cmd ::interp::snitLink] the method references are actually
+command prefixes.
+
+This command allows the creation of more complex command-method
+mappings than [cmd ::interp::snitLink].
+
+[para]
+
+The result of the command is the empty string.
+
+[list_end]
+
+[section {BUGS, IDEAS, FEEDBACK}]
+
+This document, and the package it describes, will undoubtedly contain
+bugs and other problems.
+
+Please report such in the category [emph interp] of the
+[uri {http://sourceforge.net/tracker/?group_id=12883} {Tcllib SF Trackers}].
+
+Please also report any ideas for enhancements you may have for either
+package and/or documentation.
+
+
+[keywords interpreter {empty interpreter}]
+[keywords snit method alias]
+[manpage_end]

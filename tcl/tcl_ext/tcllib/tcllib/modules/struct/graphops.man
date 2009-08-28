@@ -1,0 +1,316 @@
+[comment {-*- tcl -*-}]
+[manpage_begin struct::graph::op n 0.9]
+[copyright {2008 Alejandro Paz <vidriloco@gmail.com>}]
+[copyright {2008 (docs) Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
+[moddesc   {Tcl Data Structures}]
+[titledesc {Operation for (un)directed graph objects}]
+[require Tcl 8.4]
+[require struct::graph::op [opt 0.9]]
+[comment {[require struct::graph [opt 2.3]]   }]
+[comment {[require struct::list  [opt 1.5]]   }]
+[comment {[require struct::set   [opt 2.2.3]] }]
+[description]
+[para]
+
+The package described by this document, [package struct::graph::op],
+is a companion to the package [package struct::graph]. It provides a
+series of common operations and algorithms applicable to (un)directed
+graphs.
+
+[para]
+
+Despite being a companion the package is not directly dependent on
+[package struct::graph], only on the API defined by that
+package. I.e. the operations of this package can be applied to any and
+all graph objects which provide the same API as the objects created
+through [package struct::graph].
+
+[section {Operations}]
+
+[list_begin definitions]
+
+[call [cmd struct::graph:op::toAdjacencyMatrix] [arg g]]
+
+This command takes the graph [arg g] and returns a nested list
+containing the adjacency matrix of [arg g].
+
+[para]
+
+The elements of the outer list are the rows of the matrix, the inner
+elements are the column values in each row. The matrix has "[var n]+1"
+rows and columns, with the first row and column (index 0) containing
+the name of the node the row/column is for. All other elements are
+boolean values, [const True] if there is an arc between the 2 nodes
+of the respective row and column, and [const False] otherwise.
+
+[para]
+
+Note that the matrix is symmetric. It does not represent the
+directionality of arcs, only their presence between nodes. It is also
+unable to represent parallel arcs in [arg g].
+
+
+
+[call [cmd struct::graph:op::kruskal] [arg g]]
+
+This command takes the graph [arg g] and returns a list containing the
+names of the arcs in [arg g] which span up a minimum spanning tree
+(MST), or, in the case of an un-connected graph, a minimum spanning
+forest. Kruskal's algorithm is used to compute the tree or forest.
+
+[para]
+
+The command will throw an error if one or more arcs in [arg g] have no
+weight associated with them.
+
+[para]
+
+A note regarding the result, the command refrains from explicitly
+listing the nodes of the MST as this information is implicitly
+provided in the arcs already.
+
+
+
+[call [cmd struct::graph:op::prim] [arg g]]
+
+This command takes the graph [arg g] and returns a list containing the
+names of the arcs in [arg g] which span up a minimum spanning tree
+(MST), or, in the case of an un-connected graph, a minimum spanning
+forest. Prim's algorithm is used to compute the tree or forest.
+
+[para]
+
+The command will throw an error if one or more arcs in [arg g] have no
+weight associated with them.
+
+[para]
+
+A note regarding the result, the command refrains from explicitly
+listing the nodes of the MST as this information is implicitly
+provided in the arcs already.
+
+
+
+[call [cmd struct::graph:op::isBipartite?] [arg g] [opt [arg bipartvar]]]
+
+This command takes the graph [arg g] and returns a boolean value
+indicating whether it is bipartite ([const true]) or not
+([const false]). If the variable [arg bipartvar] is specified the two
+partitions of the graph are there as a list, if, and only if the graph
+is bipartit. If it is not the variable, if specified, is not touched.
+
+
+
+[call [cmd struct::graph:op::tarjan] [arg g]]
+
+This command computes the set of [emph {strongly connected}]
+components (SCCs) of the graph [arg g]. The result of the command is a
+list of sets, each of which contains the nodes for one of the SCCs of
+[arg g]. The union of all SCCs covers the whole graph, and no two SCCs
+intersect with each other.
+
+[para]
+
+The graph [arg g] is [term acyclic] if all SCCs in the result contain
+only a single node. The graph [arg g] is [term {strongly connected}]
+if the result contains only a single SCC containing all nodes of
+[arg g].
+
+
+
+[call [cmd struct::graph:op::connectedComponents] [arg g]]
+
+This command computes the set of [emph connected] components (CCs) of
+the graph [arg g]. The result of the command is a list of sets, each
+of which contains the nodes for one of the CCs of [arg g]. The union
+of all CCs covers the whole graph, and no two CCs intersect with each
+other.
+
+[para]
+
+The graph [arg g] is [term connected] if the result contains only a
+single SCC containing all nodes of [arg g].
+
+
+[call [cmd struct::graph:op::connectedComponentOf] [arg g] [arg n]]
+
+This command computes the [emph connected] component (CC) of the graph
+[arg g] containing the node [arg n]. The result of the command is a
+sets which contains the nodes for the CC of [arg n] in [arg g].
+
+[para]
+
+The command will throw an error if [arg n] is not a node of the graph
+[arg g].
+
+
+
+[call [cmd struct::graph:op::isConnected?] [arg g]]
+
+This is a convenience command determining whether the graph [arg g] is
+[term connected] or not.  The result is a boolean value, [const true]
+if the graph is connected, and [const false] otherwise.
+
+
+
+[call [cmd struct::graph:op::isCutVertex?] [arg g] [arg n]]
+
+This command determines whether the node [arg n] in the graph [arg g]
+is a [term {cut vertex}] (aka [term {articulation point}]). The result
+is a boolean value, [const true] if the node is a cut vertex, and
+[const false] otherwise.
+
+[para]
+
+The command will throw an error if [arg n] is not a node of the graph
+[arg g].
+
+
+[call [cmd struct::graph:op::isBridge?] [arg g] [arg a]]
+
+This command determines whether the arc [arg a] in the graph [arg g]
+is a [term bridge] (aka [term {cut edge}], or [term isthmus]). The
+result is a boolean value, [const true] if the arc is a bridge, and
+[const false] otherwise.
+
+[para]
+
+The command will throw an error if [arg a] is not an arc of the graph
+[arg g].
+
+
+[call [cmd struct::graph:op::isEulerian?] [arg g] [opt [arg tourvar]]]
+
+This command determines whether the graph [arg g] is [term eulerian]
+or not.  The result is a boolean value, [const true] if the graph is
+eulerian, and [const false] otherwise.
+
+[para]
+
+If the graph is eulerian and [arg tourvar] is specified then an euler
+tour is computed as well and stored in the named variable. The tour is
+represented by the list of arcs traversed, in the order of traversal.
+
+
+[call [cmd struct::graph:op::isSemiEulerian?] [arg g] [opt [arg pathvar]]]
+
+This command determines whether the graph [arg g] is
+[term semi-eulerian] or not.  The result is a boolean value, [const true]
+if the graph is semi-eulerian, and [const false] otherwise.
+
+[para]
+
+If the graph is semi-eulerian and [arg pathvar] is specified then an
+euler path is computed as well and stored in the named variable. The
+path is represented by the list of arcs traversed, in the order of
+traversal.
+
+
+[call [cmd struct::graph:op::dijkstra] [arg g] [arg start] [opt [arg options]...]]
+
+This command determines distances in the weighted [arg g] from the
+node [arg start] to all other nodes in the graph. The options specify
+how to traverse graphs, and the format of the result.
+
+[para]
+
+Two options are recognized
+
+[list_begin options]
+[opt_def -arcmode mode]
+
+The accepted mode values are [const directed] and [const undirected].
+For directed traversal all arcs are traversed from source to
+target. For undirected traversal all arcs are traversed in the
+opposite direction as well. Undirected traversal is the default.
+
+[opt_def -outputformat format]
+
+The accepted format values are [const distances] and [const tree]. In
+both cases the result is a dictionary keyed by the names of all nodes
+in the graph. For [const distances] the value is the distance of the
+node to [arg start], whereas for [const tree] the value is the path
+from the node to [arg start], excluding the node itself, but including
+[arg start]. Tree format is the default.
+
+[list_end]
+
+
+[call [cmd struct::graph:op::distance] [arg g] [arg origin] [arg destination] [opt [arg options]...]]
+
+This command determines the (un)directed distance between the two
+nodes [arg origin] and [arg destination] in the graph [arg g]. It
+accepts the option [option -arcmode] of [cmd struct::graph:op::dijkstra].
+
+
+[call [cmd struct::graph:op::eccentricity] [arg g] [arg n] [opt [arg options]...]]
+
+This command determines the (un)directed [term eccentricity] of the
+node [arg n] in the graph [arg g]. It accepts the option
+[option -arcmode] of [cmd struct::graph:op::dijkstra].
+
+[para]
+
+The (un)directed [term eccentricity] of a node is the maximal
+(un)directed distance between the node and any other node in the
+graph.
+
+
+[call [cmd struct::graph:op::radius] [arg g] [opt [arg options]...]]
+
+This command determines the (un)directed [term radius] of the graph
+[arg g]. It accepts the option [option -arcmode] of [cmd struct::graph:op::dijkstra].
+
+[para]
+
+The (un)directed [term radius] of a graph is the minimal (un)directed
+[term eccentricity] of all nodes in the graph.
+
+
+[call [cmd struct::graph:op::diameter] [arg g] [opt [arg options]...]]
+
+This command determines the (un)directed [term diameter] of the graph
+[arg g]. It accepts the option [option -arcmode] of [cmd struct::graph:op::dijkstra].
+
+[para]
+
+The (un)directed [term diameter] of a graph is the maximal (un)directed
+[term eccentricity] of all nodes in the graph.
+
+
+[list_end]
+
+
+[section References]
+
+[list_begin enum]
+[enum] [uri http://en.wikipedia.org/wiki/Adjacency_matrix      {Adjacency matrix}]
+[enum] [uri http://en.wikipedia.org/wiki/Kruskal%27s_algorithm {Kruskal's algorithm}]
+[enum] [uri http://en.wikipedia.org/wiki/Prim%27s_algorithm    {Prim's algorithm}]
+[enum] [uri http://en.wikipedia.org/wiki/Bipartite_graph       {Bipartite graph}]
+[enum] [uri http://en.wikipedia.org/wiki/Strongly_connected_components {Strongly connected components}]
+[enum] [uri http://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm {Tarjan's strongly connected components algorithm}]
+[enum] [uri http://en.wikipedia.org/wiki/Cut_vertex {Cut vertex}]
+[enum] [uri http://en.wikipedia.org/wiki/Bridge_(graph_theory) Bridge]
+[list_end]
+
+
+[section {BUGS, IDEAS, FEEDBACK}]
+
+This document, and the package it describes, will undoubtedly contain
+bugs and other problems.
+
+Please report such in the category [emph {struct :: graph}] of the
+[uri {http://sourceforge.net/tracker/?group_id=12883} {Tcllib SF Trackers}].
+
+Please also report any ideas for enhancements you may have for either
+package and/or documentation.
+
+
+[keywords graph dijkstra distance radius diameter eccentricity]
+[keywords edge arc node vertex subgraph neighbour]
+[keywords adjacent loop degree]
+[keywords {cut vertex} {articulation point} {connected component}]
+[keywords {strongly connected component} {adjacency matrix}]
+[keywords {minimal spanning tree} bipartite bridge {cut edge} isthmus]
+[manpage_end]

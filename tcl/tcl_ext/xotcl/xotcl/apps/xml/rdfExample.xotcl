@@ -1,0 +1,76 @@
+#!/usr/bin/env tclsh
+# $Id: rdfExample.xotcl,v 1.2 2006/02/18 22:17:33 neumann Exp $
+#
+# small Example for usage of xoXML
+#
+package require XOTcl; namespace import -force xotcl::*
+package require xotcl::package
+package require xotcl::trace
+package require xotcl::rdf::parser
+package require xotcl::rdf::recreatorVisitor
+package require xotcl::xml::printVisitor
+
+#
+# instantiate parser and parser an example text into a node tree
+#
+RDFParser x
+x parse {
+  <rdf:RDF
+    xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+    xmlns:dc="http://purl.org/metadata/dublin_core#"> 
+    <rdf:Description about="http://www.foo.com/cool.html"> 
+      <dc:Creator>
+        <rdf:Seq ID="CreatorsAlphabeticalBySurname">
+          <rdf:li>Mary Andrew</rdf:li>
+          <rdf:li>Jacky Crystal</rdf:li>
+        </rdf:Seq>
+      </dc:Creator>
+
+      <dc:Identifier>
+        <rdf:Bag ID="MirroredSites"> 
+          <rdf:li rdf:resource="http://www.foo.com.au/cool.html"/>
+          <rdf:li rdf:resource="http://www.foo.com.it/cool.html"/>
+        </rdf:Bag>
+      </dc:Identifier>
+
+      <dc:Title>
+        <rdf:Alt>
+          <rdf:li xml:lang="en">The Coolest Web Page</rdf:li>
+          <rdf:li xml:lang="it">Il Pagio di Web Fuba</rdf:li>
+        </rdf:Alt>
+      </dc:Title>
+     
+      <dc:xxx>
+        some text
+      </dc:xxx>
+
+    </rdf:Description> 
+  </rdf:RDF>
+}
+
+proc run {} {
+  #
+  # print the node treee to the std output
+  #
+  puts ************************************************************************
+  puts "Node Tree:"
+  puts ************************************************************************
+  PrintVisitor pv
+  foreach tn [x info children topNode*] {
+    pv interpretNodeTree $tn
+  }
+  
+  #
+  # recreate xml text and print it to the std output
+  #
+  puts \n
+  puts ************************************************************************
+  puts "Recreated RDF Text:"
+  puts ************************************************************************
+  RDFRecreatorVisitor rv
+  foreach tn [x info children topNode*] {
+    set result [rv interpretNodeTree  $tn]
+    puts $result
+  }
+}
+run

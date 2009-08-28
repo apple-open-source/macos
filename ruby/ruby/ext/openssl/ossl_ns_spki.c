@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_ns_spki.c 11708 2007-02-12 23:01:19Z shyouhei $
+ * $Id: ossl_ns_spki.c 12496 2007-06-08 15:02:04Z technorama $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -62,9 +62,9 @@ ossl_spki_initialize(int argc, VALUE *argv, VALUE self)
 	return self;
     }
     StringValue(buffer);
-    if (!(spki = NETSCAPE_SPKI_b64_decode(RSTRING(buffer)->ptr, -1))) {
-	p = RSTRING(buffer)->ptr;
-	if (!(spki = d2i_NETSCAPE_SPKI(NULL, &p, RSTRING(buffer)->len))) {
+    if (!(spki = NETSCAPE_SPKI_b64_decode(RSTRING_PTR(buffer), -1))) {
+	p = RSTRING_PTR(buffer);
+	if (!(spki = d2i_NETSCAPE_SPKI(NULL, &p, RSTRING_LEN(buffer)))) {
 	    ossl_raise(eSPKIError, NULL);
 	}
     }
@@ -87,7 +87,7 @@ ossl_spki_to_der(VALUE self)
     if ((len = i2d_NETSCAPE_SPKI(spki, NULL)) <= 0)
         ossl_raise(eX509CertError, NULL);
     str = rb_str_new(0, len);
-    p = RSTRING(str)->ptr;
+    p = RSTRING_PTR(str);
     if (i2d_NETSCAPE_SPKI(spki, &p) <= 0)
         ossl_raise(eX509CertError, NULL);
     ossl_str_adjust(str, p);
@@ -183,8 +183,8 @@ ossl_spki_set_challenge(VALUE self, VALUE str)
 
     StringValue(str);
     GetSPKI(self, spki);
-    if (!ASN1_STRING_set(spki->spkac->challenge, RSTRING(str)->ptr,
-			 RSTRING(str)->len)) {
+    if (!ASN1_STRING_set(spki->spkac->challenge, RSTRING_PTR(str),
+			 RSTRING_LEN(str))) {
 	ossl_raise(eSPKIError, NULL);
     }
     

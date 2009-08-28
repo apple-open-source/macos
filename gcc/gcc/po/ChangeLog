@@ -1,14 +1,167 @@
-2005-07-07  Release Manager
+2007-07-19  Release Manager
 
-	* GCC 4.0.1 released.
+	* GCC 4.2.1 released.
 
-2005-07-07  Mark Mitchell  <mark@codesourcery.com>
+2007-07-18  Mark Mitchell  <mark@codesourcery.com>
 
-	* gcc.pot: Regenerated.
+	* gcc.pot: Regenerate.
+
+2007-07-07  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* zh_CN.po: Update.
+
+2007-06-26  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* be.po, ca.po, da.po, de.po, el.po, es.po, fr.po, ja.po, nl.po,
+	ru.po, rw.po, sr.po, sv.po, tr.po, zh_CN.po, zh_TW.po: Update.
+
+2007-05-13  Release Manager
+
+	* GCC 4.2.0 released.
+
+2007-05-13  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc.pot: Regenerate.
+
+2007-04-21  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* sv.po: Update.
+
+2007-03-08  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* sr.po: New.
+
+2007-03-07  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.pot: Regenerate.
+
+2007-02-12  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* sv.po: Update.
+
+2006-12-07  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* ru.po: New.
+
+2006-11-28  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* sv.po, tr.po: Update.
+
+2006-10-22  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.pot: Regenerate.
+
+2006-10-19  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* sv.po: Update.
+
+2006-10-05  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* sv.po: Update.
+
+2006-09-03  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* sv.po: Update.
+
+2006-06-25  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* de.po: Update.
+
+2006-06-25  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* zh_CN.po: Update.
+
+2006-06-24  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* be.po, ca.po, da.po, de.po, el.po, es.po, fr.po, ja.po, nl.po,
+	rw.po, sv.po, tr.po, zh_CN.po, zh_TW.po: Update.
+
+2006-06-21  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* sv.po: Update.
+
+2006-05-20  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* sv.po, tr.po: Update.
+
+2006-04-21  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* de.po, es.po, sv.po: Update.
+	* zh_TW.po: New.
+
+2006-03-31  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* sv.po: Update.
+
+2006-03-13  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* be.po, ca.po, da.po, de.po, el.po, es.po, fr.po, ja.po, nl.po,
+	rw.po, sv.po, tr.po, zh_CN.po: Update.
+
+2006-01-18  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* zh_CN.po: Update.
+
+2006-01-06  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* de.po: Update.
+
+2006-01-03  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* zh_CN.po: Update.
+
+2005-12-16  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* zh_CN.po: Update.
+
+2005-12-15  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* nl.po: Update.
+
+2005-12-03  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* zh_CN.po: Update.
+
+2005-12-01  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* be.po, ca.po, da.po, de.po, el.po, es.po, fr.po, ja.po, nl.po,
+	rw.po, sv.po, tr.po, zh_CN.po: Update.
+
+2005-11-20  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.pot: Regenerate.
+
+2005-09-17  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/15586
+	* exgettext: Add a new nocmsgid convention for arguments
+	that should be marked as no-c-format.
+	* gcc.pot: Regenerate.
+
+2005-09-13  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* zh_CN.po: Update.
+
+2005-09-04  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* be.po, ca.po, da.po, de.po, el.po, es.po, fr.po, ja.po, nl.po,
+	rw.po, sv.po, tr.po, zh_CN.po: Update.
+
+2005-07-10  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* sv.po, zh_CN.po: Update.
 
 2005-07-01  Joseph S. Myers  <joseph@codesourcery.com>
 
 	* zh_CN.po: Update.
+
+2006-07-01  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* gcc.pot: Regenerate.
+
+2005-06-25  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* exgettext: Update FSF address in copyright headers.
 
 2005-06-21  Joseph S. Myers  <joseph@codesourcery.com>
 
@@ -22,7 +175,7 @@
 
 	* tr.po: Update.
 
-2005-06-18  Joseph S. Myers  <joseph@codesourcery.com>
+2005-06-17  Joseph S. Myers  <joseph@codesourcery.com>
 
 	* es.po: Update.
 
@@ -31,9 +184,11 @@
 	* be.po, ca.po, da.po, de.po, el.po, es.po, fr.po, ja.po, nl.po,
 	rw.po, sv.po, tr.po, zh_CN.po: Update.
 
-2005-06-06  Jakub Jelinek  <jakub@redhat.com>
+2005-06-07  Jakub Jelinek  <jakub@redhat.com>
 
-	* gcc.pot: Regenerated.
+	* gcc.pot: Regenerate.
+
+2005-06-06  Jakub Jelinek  <jakub@redhat.com>
 
 	* exgettext: Handle gmsgid and cmsgid arguments specially,
 	as gcc-internal-format and c-format.  Because of xgettext
@@ -82,14 +237,6 @@
 
 	* de.po: Update.
 
-2005-04-20  Release Manager
-
-	* GCC 4.0.0 released.
-
-2005-04-20  Mark Mitchell  <mark@codesourcery.com>
-
-	* gcc.pot: Regenerated.
-
 2005-04-20  Joseph S. Myers  <joseph@codesourcery.com>
 
 	* de.po: Update.
@@ -97,6 +244,12 @@
 2005-04-17  Joseph S. Myers  <joseph@codesourcery.com>
 
 	* de.po: Update.
+
+2004-04-06  Richard Sandiford  <rsandifo@redhat.com>
+
+	PR other/20792
+	* exgettext: Don't scan options.c.  Scan .opt files for help strings.
+	* gcc.pot: Regenerate.
 
 2005-04-06  Joseph S. Myers  <joseph@codesourcery.com>
 

@@ -1,4 +1,3 @@
-/* APPLE LOCAL file mainline */
 /* Ensure that @try/@catch blocks do not mess with types of
    local objects (other than their volatile bits).  */
 

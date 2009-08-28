@@ -12,7 +12,7 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. 
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA. 
 
 # Please email any bugs, comments, and/or additions to this file to:
 # jlarmour@cygnus.co.uk
@@ -29,6 +29,7 @@ load_lib g++-dg.exp
 
 set comp_output [g++_target_compile \
 		"$srcdir/$subdir/initp1.C" "initp1.S" assembly ""]
+remove-build-file "initp1.S"
 if { [string match "*init_priority*" $comp_output] } {
   return 0
 }

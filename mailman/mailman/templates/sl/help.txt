@@ -1,4 +1,4 @@
-Pomoè za po¹tni seznam %(listname):
+Pomoè za po¹tni seznam %(listname)s:
 
 To je e-po¹tna ukazna pomoè za razlièico %(version)s po¹tnega
 upravljalnika "Mailman". Sledijo ukazi, ki jih morate poslati,

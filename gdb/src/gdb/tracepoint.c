@@ -981,7 +981,7 @@ validate_actionline (char **line, struct tracepoint *t)
 	    {
 	      if (SYMBOL_CLASS (exp->elts[2].symbol) == LOC_CONST)
 		{
-		  warning (_("constant %s (value %ld) will not be collected."),
+		  warning (_("constant %s (value %d) will not be collected."),
 			   DEPRECATED_SYMBOL_NAME (exp->elts[2].symbol),
 			   SYMBOL_VALUE (exp->elts[2].symbol));
 		  return BADLINE;
@@ -1216,7 +1216,7 @@ collect_symbol (struct collection_list *collect,
 		       SYMBOL_CLASS (sym));
       break;
     case LOC_CONST:
-      printf_filtered ("constant %s (value %ld) will not be collected.\n",
+      printf_filtered ("constant %s (value %d) will not be collected.\n",
 		       DEPRECATED_SYMBOL_NAME (sym), SYMBOL_VALUE (sym));
       break;
     case LOC_STATIC:
@@ -2421,7 +2421,7 @@ scope_info (char *args, int from_tty)
 	      count--;		/* don't count this one */
 	      continue;
 	    case LOC_CONST:
-	      printf_filtered ("a constant with value %ld (0x%lx)",
+	      printf_filtered ("a constant with value %d (0x%x)",
 			       SYMBOL_VALUE (sym), SYMBOL_VALUE (sym));
 	      break;
 	    case LOC_CONST_BYTES:
@@ -2442,15 +2442,15 @@ scope_info (char *args, int from_tty)
 	      break;
 	    case LOC_ARG:
 	    case LOC_LOCAL_ARG:
-	      printf_filtered ("an argument at stack/frame offset %ld",
+	      printf_filtered ("an argument at stack/frame offset %d",
 			       SYMBOL_VALUE (sym));
 	      break;
 	    case LOC_LOCAL:
-	      printf_filtered ("a local variable at frame offset %ld",
+	      printf_filtered ("a local variable at frame offset %d",
 			       SYMBOL_VALUE (sym));
 	      break;
 	    case LOC_REF_ARG:
-	      printf_filtered ("a reference argument at offset %ld",
+	      printf_filtered ("a reference argument at offset %d",
 			       SYMBOL_VALUE (sym));
 	      break;
 	    case LOC_REGPARM:
@@ -2477,12 +2477,12 @@ scope_info (char *args, int from_tty)
 	      /* APPLE LOCAL end address ranges  */
 	      break;
 	    case LOC_BASEREG:
-	      printf_filtered ("a variable at offset %ld from register $%s",
+	      printf_filtered ("a variable at offset %d from register $%s",
 			       SYMBOL_VALUE (sym),
 			       REGISTER_NAME (SYMBOL_BASEREG (sym)));
 	      break;
 	    case LOC_BASEREG_ARG:
-	      printf_filtered ("an argument at offset %ld from register $%s",
+	      printf_filtered ("an argument at offset %d from register $%s",
 			       SYMBOL_VALUE (sym),
 			       REGISTER_NAME (SYMBOL_BASEREG (sym)));
 	      break;

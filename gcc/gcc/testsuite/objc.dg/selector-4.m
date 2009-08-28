@@ -1,4 +1,3 @@
-/* APPLE LOCAL file mainline */
 /* Test whether including C++ keywords such as 'and', 'or',
    'not', etc., is allowed inside ObjC selectors (as it must be).  */
 /* Author: Ziemowit Laski <zlaski@apple.com>.  */

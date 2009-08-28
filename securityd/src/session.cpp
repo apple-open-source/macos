@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2004,2008-2009 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,12 +32,13 @@
 // Sessions are multi-threaded objects.
 //
 #include <pwd.h>
+#include <signal.h>                     // SIGTERM
 #include <Security/AuthorizationPriv.h> // kAuthorizationFlagLeastPrivileged
-
 #include "session.h"
 #include "connection.h"
 #include "database.h"
 #include "server.h"
+#include <security_utilities/logging.h>
 
 //
 // The static session map
@@ -54,8 +55,10 @@ Session::Session(Bootstrap bootstrap, Port servicePort, SessionAttributeBits att
     : mBootstrap(bootstrap), mServicePort(servicePort),
 	  mAttributes(attrs), mSecurityAgent(NULL), mAuthHost(NULL)
 {
-    secdebug("SSsession", "%p CREATED: handle=0x%lx bootstrap=%d service=%d attrs=0x%lx",
-        this, handle(), mBootstrap.port(), mServicePort.port(), mAttributes);
+    secdebug("SSsession", "%p CREATED: handle=%#x bootstrap=%d service=%d attrs=%#x",
+        this, handle(), mBootstrap.port(), mServicePort.port(), uint32_t(mAttributes));
+	SECURITYD_SESSION_CREATE(this, attrs, servicePort);
+	Syslog::notice("Session 0x%lx created", this->handle());
 }
 
 
@@ -64,8 +67,9 @@ Session::Session(Bootstrap bootstrap, Port servicePort, SessionAttributeBits att
 //
 Session::~Session()
 {
-    secdebug("SSsession", "%p DESTROYED: handle=0x%lx bootstrap=%d",
+    secdebug("SSsession", "%p DESTROYED: handle=%#x bootstrap=%d",
         this, handle(), mBootstrap.port());
+	Syslog::notice("Session 0x%lx destroyed", this->handle());
 }
 
 
@@ -86,7 +90,15 @@ Session &Session::find(SecuritySessionId id)
     case callerSecuritySession:
         return Server::session();
     default:
-        return HandleObject::find<Session>(id, CSSMERR_CSSM_INVALID_ADDIN_HANDLE);
+		try {
+			return U32HandleObject::find<Session>(id, CSSMERR_CSSM_INVALID_ADDIN_HANDLE);
+		} catch (const CommonError &err) {
+			Syslog::warning("Session::find(%#x) failed rcode=%d", id, err.osStatus());
+			for (PortMap<Session>::const_iterator it = mSessions.begin(); it != mSessions.end(); ++it)
+				Syslog::notice(" Valid sessions include %#x attrs=%#x",
+					it->second->handle(), it->second->attributes());
+			throw;
+		}
     }
 }
 
@@ -103,20 +115,17 @@ void Session::destroy(Port servPort)
     PortMap<Session>::iterator it = mSessions.find(servPort);
     assert(it != mSessions.end());
 	RefPointer<Session> session = it->second;
+	SECURITYD_SESSION_DESTROY(session);
+	Syslog::notice("Session 0x%lx dead", session->handle());
     mSessions.erase(it);
 	session->kill();
 }
 
 void Session::kill()
 {
-    StLock<Mutex> _(*this);
+    StLock<Mutex> _(*this);     // do we need to take this so early?
 	
-	// release authorization host objects
-	{
-		StLock<Mutex> _(mAuthHostLock);
-		mSecurityAgent = NULL;
-		mAuthHost = NULL;
-	}
+    invalidateSessionAuthHosts();
 	
     // invalidate shared credentials
     {
@@ -133,6 +142,24 @@ void Session::kill()
 	PerSession::kill();
 }
 
+void Session::invalidateSessionAuthHosts()
+{
+    StLock<Mutex> _(mAuthHostLock);
+    
+    // if you got here, we don't care about pending operations: the auth hosts die
+    Syslog::warning("Killing auth hosts");
+    if (mSecurityAgent) mSecurityAgent->UnixPlusPlus::Child::kill(SIGTERM);
+    if (mAuthHost) mAuthHost->UnixPlusPlus::Child::kill(SIGTERM);
+    mSecurityAgent = NULL;
+    mAuthHost = NULL;
+}
+
+void Session::invalidateAuthHosts()
+{
+	StLock<Mutex> _(mSessions);
+	for (PortMap<Session>::const_iterator it = mSessions.begin(); it != mSessions.end(); it++)
+        it->second->invalidateSessionAuthHosts();
+}
 
 //
 // On system sleep, call sleepProcessing on all DbCommons of all Sessions
@@ -152,7 +179,6 @@ void Session::processLockAll()
 {
 	allReferences(&DbCommon::lockProcessing);
 }
-
 
 //
 // The root session inherits the startup bootstrap and service port
@@ -218,7 +244,9 @@ void DynamicSession::kill()
 void DynamicSession::setupAttributes(SessionCreationFlags flags, SessionAttributeBits attrs)
 {
 	StLock<Mutex> _(*this);
-    secdebug("SSsession", "%p setup flags=0x%lx attrs=0x%lx", this, flags, attrs);
+	SECURITYD_SESSION_SETATTR(this, attrs);
+	Syslog::notice("Session 0x%lx attributes 0x%x", this->handle(), attrs);
+    secdebug("SSsession", "%p setup flags=%#x attrs=%#x", this, uint32_t(flags), uint32_t(attrs));
     if (attrs & ~settableAttributes)
         MacOSError::throwMe(errSessionInvalidAttributes);
 	checkOriginator();
@@ -265,7 +293,7 @@ void DynamicSession::originatorUid(uid_t uid)
 
 	if (pw != NULL) {
 
-        mOriginatorCredential = Credential(uid, pw->pw_name ? pw->pw_name : "", pw->pw_gecos ? pw->pw_gecos : "", true/*shared*/);
+        mOriginatorCredential = Credential(uid, pw->pw_name ? pw->pw_name : "", pw->pw_gecos ? pw->pw_gecos : "", "", true/*shared*/);
         endpwent();
 	}
 
@@ -287,6 +315,8 @@ OSStatus Session::authCreate(const AuthItemSet &rights,
 	// this will acquire the object lock, so we delay acquiring it (@@@ no longer needed)
 	auto_ptr<AuthorizationToken> auth(new AuthorizationToken(*this, resultCreds, auditToken, (flags&kAuthorizationFlagLeastPrivileged)));
 
+	SECURITYD_AUTH_CREATE(this, auth.get());
+    
     // Make a copy of the mSessionCreds
     CredentialSet sessionCreds;
     {
@@ -458,8 +488,8 @@ OSStatus Session::authorizationdbSet(const AuthorizationBlob &authBlob, Authoriz
         auth.mergeCredentials(resultCreds);
 	}
 
-	secdebug("SSauth", "Authorization %p authorizationdbSet %s (result=%ld)",
-		&authorization(authBlob), inRightName, result);
+	secdebug("SSauth", "Authorization %p authorizationdbSet %s (result=%d)",
+		&authorization(authBlob), inRightName, int32_t(result));
 	return result;
 }
 
@@ -483,8 +513,8 @@ OSStatus Session::authorizationdbRemove(const AuthorizationBlob &authBlob, Autho
         auth.mergeCredentials(resultCreds);
 	}
 
-	secdebug("SSauth", "Authorization %p authorizationdbRemove %s (result=%ld)",
-		&authorization(authBlob), inRightName, result);
+	secdebug("SSauth", "Authorization %p authorizationdbRemove %s (result=%d)",
+		&authorization(authBlob), inRightName, int32_t(result));
 	return result;
 }
 
@@ -521,6 +551,42 @@ AuthorizationToken &Session::authorization(const AuthorizationBlob &blob)
     AuthorizationToken &auth = AuthorizationToken::find(blob);
 	Server::process().checkAuthorization(&auth);
 	return auth;
+}
+
+//
+// Run the Authorization engine to check if a given right has been authorized,
+// independent of an external client request.  
+//
+OSStatus Session::authCheckRight(string &rightName, Connection &connection, bool allowUI)
+{
+    // dummy up the arguments for authCreate()
+    AuthorizationItem rightItem = { rightName.c_str(), 0, NULL, 0 };
+    AuthorizationItemSet rightItemSet = { 1, &rightItem };
+    AuthItemSet rightAuthItemSet(&rightItemSet);
+    AuthItemSet envAuthItemSet(kAuthorizationEmptyEnvironment);
+    AuthorizationFlags flags = kAuthorizationFlagDefaults | kAuthorizationFlagExtendRights;
+    if (true == allowUI)
+        flags |= kAuthorizationFlagInteractionAllowed;
+    AuthorizationBlob dummyHandle;
+    const audit_token_t *at = connection.auditToken();
+    
+    return authCreate(rightAuthItemSet, envAuthItemSet, flags, dummyHandle, *at);
+}
+
+// for places within securityd that don't want to #include
+// <libsecurity_authorization/Authorization.h> or to fuss about exceptions
+bool Session::isRightAuthorized(string &rightName, Connection &connection, bool allowUI)
+{
+    bool isAuthorized = false;
+    
+    try {
+        OSStatus status = authCheckRight(rightName, connection, allowUI);
+        if (errAuthorizationSuccess == status)
+            isAuthorized = true;
+    }
+    catch (...) { 
+    }
+    return isAuthorized;
 }
 
 RefPointer<AuthHostInstance> 
@@ -576,8 +642,8 @@ CFDataRef DynamicSession::copyUserPrefs()
 void Session::dumpNode()
 {
 	PerSession::dumpNode();
-	Debug::dump(" boot=%d service=%d attrs=0x%lx authhost=%p securityagent=%p",
-		mBootstrap.port(), mServicePort.port(), mAttributes, mAuthHost, mSecurityAgent);
+	Debug::dump(" boot=%d service=%d attrs=%#x authhost=%p securityagent=%p",
+		mBootstrap.port(), mServicePort.port(), uint32_t(mAttributes), mAuthHost, mSecurityAgent);
 }
 
 #endif //DEBUGDUMP

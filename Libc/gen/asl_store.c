@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2008 Apple Inc.  All rights reserved.
+ * Copyright (c) 2007-2009 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -46,15 +46,38 @@ extern uint32_t asl_file_match_next(asl_file_t *s, aslresponse query, asl_msg_t 
 /* 
  * The ASL Store is organized as a set of files in a common directory.
  * Files are prefixed by the date (YYYY.MM.DD) of their contents.
- * There are also files for long-TTL (> 1 day) messages.
  *
  * Messages with no access controls are saved in YYYY.MM.DD.asl
- * Messages with access limited to UID U are saved in YYYY.MM.DD.uU.asl
- * Messages with access limited to GID G are saved in YYYY.MM.DD.gG.asl
- * Messages with access limited to UID U and GID G are saved in YYYY.MM.DD.uU.gG.asl
+ * Messages with access limited to UID uuu are saved in YYYY.MM.DD.Uuuu.asl
+ * Messages with access limited to GID ggg are saved in YYYY.MM.DD.Gggg.asl
+ * Messages with access limited to UID uuu and GID ggg are saved in YYYY.MM.DD.Uuuu.Gggg.asl
+ *
+ * Messages that have a value for ASLExpireTime are saved in BB.YYYY.MM.DD.asl
+ * where the timestamp is the "Best Before" date of the file.  Access controls
+ * are implemented as above with Uuuu and Gggg in the file name.  Note that the
+ * Best Before files are for the last day of the month, so a single file contains
+ * messages that expire in that month.
  *
  * An external tool runs daily and deletes "old" files.
  */
+
+static time_t
+_asl_start_today()
+{
+	time_t now;
+	struct tm ctm;
+
+	memset(&ctm, 0, sizeof(struct tm));
+	now = time(NULL);
+
+	if (localtime_r((const time_t *)&now, &ctm) == NULL) return 0;
+
+	ctm.tm_sec = 0;
+	ctm.tm_min = 0;
+	ctm.tm_hour = 0;
+
+	return mktime(&ctm);
+}
 
 /*
  * The base directory contains a data file which stores
@@ -67,16 +90,17 @@ uint32_t
 asl_store_open_write(const char *basedir, asl_store_t **s)
 {
 	asl_store_t *out;
-	asl_file_t *db;
 	struct stat sb;
-	uint32_t i, status;
-	char *path, *subpath;
-	time_t now;
-	struct tm ctm;
+	uint32_t i, flags;
+	char *path;
 	FILE *sd;
 	uint64_t last_id;
+	time_t start;
 
 	if (s == NULL) return ASL_STATUS_INVALID_ARG;
+
+	start = _asl_start_today();
+	if (start == 0) return ASL_STATUS_FAILED;
 
 	if (basedir == NULL) basedir = PATH_ASL_STORE;
 
@@ -106,7 +130,16 @@ asl_store_open_write(const char *basedir, asl_store_t **s)
 
 		last_id = 0;
 
+		/* Create new StoreData file (8 bytes ID + 4 bytes flags) */
+
 		if (fwrite(&last_id, sizeof(uint64_t), 1, sd) != 1)
+		{
+			fclose(sd);
+			return ASL_STATUS_WRITE_FAILED;
+		}
+
+		flags = 0;
+		if (fwrite(&flags, sizeof(uint32_t), 1, sd) != 1)
 		{
 			fclose(sd);
 			return ASL_STATUS_WRITE_FAILED;
@@ -127,46 +160,10 @@ asl_store_open_write(const char *basedir, asl_store_t **s)
 		last_id = asl_core_ntohq(last_id);
 	}
 
-	memset(&ctm, 0, sizeof(struct tm));
-	now = time(NULL);
-
-	if (localtime_r((const time_t *)&now, &ctm) == NULL)
-	{
-		fclose(sd);
-		return ASL_STATUS_FAILED;
-	}
-
-	subpath = NULL;
-	asprintf(&subpath, "%s/%d.%02d.%02d", basedir, ctm.tm_year + 1900, ctm.tm_mon + 1, ctm.tm_mday);
-	if (subpath == NULL)
-	{
-		fclose(sd);
-		return ASL_STATUS_NO_MEMORY;
-	}
-
-	path = NULL;
-	asprintf(&path, "%s.asl", subpath);
-	free(subpath);
-	if (path == NULL)
-	{
-		fclose(sd);
-		return ASL_STATUS_NO_MEMORY;
-	}
-
-	db = NULL;
-	status = asl_file_open_write(path, 0644, 0, 0, &db);
-	free(path);
-	if ((status != ASL_STATUS_OK) || (db == NULL))
-	{
-		fclose(sd);
-		return ASL_STATUS_FAILED;
-	}
-
 	out = (asl_store_t *)calloc(1, sizeof(asl_store_t));
 	if (out == NULL)
 	{
 		fclose(sd);
-		asl_file_close(db);
 		return ASL_STATUS_NO_MEMORY;
 	}
 
@@ -176,18 +173,12 @@ asl_store_open_write(const char *basedir, asl_store_t **s)
 	if (out->base_dir == NULL)
 	{
 		fclose(sd);
-		asl_file_close(db);
 		free(out);
 		return ASL_STATUS_NO_MEMORY;
 	}
 
-	ctm.tm_sec = 0;
-	ctm.tm_min = 0;
-	ctm.tm_hour = 0;
-
-	out->start_today = mktime(&ctm);
+	out->start_today = start;
 	out->start_tomorrow = out->start_today + SECONDS_PER_DAY;
-	out->db = db;
 	out->storedata = sd;
 	out->next_id = last_id + 1;
 
@@ -206,7 +197,6 @@ uint32_t
 asl_store_statistics(asl_store_t *s, aslmsg *msg)
 {
 	aslmsg out;
-	char str[256];
 
 	if (s == NULL) return ASL_STATUS_INVALID_STORE;
 	if (msg == NULL) return ASL_STATUS_INVALID_ARG;
@@ -214,8 +204,7 @@ asl_store_statistics(asl_store_t *s, aslmsg *msg)
 	out = (aslmsg)calloc(1, sizeof(asl_msg_t));
 	if (out == NULL) return ASL_STATUS_NO_MEMORY;
 
-	snprintf(str, sizeof(str), "%u", s->db->string_count);
-	asl_set(out, "StringCount", str);
+	/* does nothing for now */
 
 	*msg = out;
 	return ASL_STATUS_OK;
@@ -275,6 +264,7 @@ asl_store_file_closeall(asl_store_t *s)
 		s->file_cache[i].path = NULL;
 		s->file_cache[i].u = -1;
 		s->file_cache[i].g = -1;
+		s->file_cache[i].bb = 0;
 		s->file_cache[i].ts = 0;
 	}
 }
@@ -286,7 +276,6 @@ asl_store_close(asl_store_t *s)
 
 	if (s->base_dir != NULL) free(s->base_dir);
 	s->base_dir = NULL;
-	asl_file_close(s->db);
 	asl_store_file_closeall(s);
 	if (s->storedata != NULL) fclose(s->storedata);
 
@@ -300,6 +289,8 @@ asl_store_signal_sweep(asl_store_t *s)
 {
 	char *str;
 	int semfd;
+	uint64_t xid;
+	uint32_t status;
 
 	if (s == NULL) return ASL_STATUS_INVALID_STORE;
 
@@ -311,8 +302,14 @@ asl_store_signal_sweep(asl_store_t *s)
 
 	if (semfd <  0) return ASL_STATUS_WRITE_FAILED;
 
+	status = ASL_STATUS_OK;
+
+	/* write the current message ID in the SweepStore file */
+	xid = asl_core_htonq(s->next_id - 1);
+	if (write(semfd, &xid, sizeof(uint64_t)) != sizeof(uint64_t)) status = ASL_STATUS_WRITE_FAILED;
+
 	close(semfd);
-	return ASL_STATUS_OK;
+	return status;
 }
 
 /*
@@ -321,7 +318,7 @@ asl_store_signal_sweep(asl_store_t *s)
  * Returns least recently used or unused cache slot.
  */
 static uint32_t
-asl_store_file_cache_lru(asl_store_t *s, time_t now)
+asl_store_file_cache_lru(asl_store_t *s, time_t now, uint32_t ignorex)
 {
 	time_t min;
 	uint32_t i, x;
@@ -330,10 +327,10 @@ asl_store_file_cache_lru(asl_store_t *s, time_t now)
 
 	x = 0;
 	min = now - FILE_CACHE_TTL;
-	
+
 	for (i = 0; i < FILE_CACHE_SIZE; i++)
 	{
-		if (s->file_cache[i].ts < min)
+		if ((i != ignorex) && (s->file_cache[i].ts < min))
 		{
 			asl_file_close(s->file_cache[i].f);
 			s->file_cache[i].f = NULL;
@@ -341,9 +338,10 @@ asl_store_file_cache_lru(asl_store_t *s, time_t now)
 			s->file_cache[i].path = NULL;
 			s->file_cache[i].u = -1;
 			s->file_cache[i].g = -1;
-			s->file_cache[i].ts = 0;			
+			s->file_cache[i].bb = 0;
+			s->file_cache[i].ts = 0;
 		}
-		
+
 		if (s->file_cache[i].ts < s->file_cache[x].ts) x = i;
 	}
 
@@ -355,12 +353,12 @@ asl_store_sweep_file_cache(asl_store_t *s)
 {
 	if (s == NULL) return ASL_STATUS_INVALID_STORE;
 
-	asl_store_file_cache_lru(s, time(NULL));
+	asl_store_file_cache_lru(s, time(NULL), FILE_CACHE_SIZE);
 	return ASL_STATUS_OK;
 }
 
 static uint32_t
-asl_store_file_open_write(asl_store_t *s, char *subpath, int32_t ruid, int32_t rgid, asl_file_t **f, time_t now, uint32_t check_cache)
+asl_store_file_open_write(asl_store_t *s, char *tstring, int32_t ruid, int32_t rgid, time_t bb, asl_file_t **f, time_t now, uint32_t check_cache)
 {
 	char *path;
 	mode_t m;
@@ -373,11 +371,11 @@ asl_store_file_open_write(asl_store_t *s, char *subpath, int32_t ruid, int32_t r
 	/* see if the file is already open and in the cache */
 	for (i = 0; i < FILE_CACHE_SIZE; i++)
 	{
-		if ((s->file_cache[i].u == ruid) && (s->file_cache[i].g == rgid) && (s->file_cache[i].f != NULL))
+		if ((s->file_cache[i].u == ruid) && (s->file_cache[i].g == rgid) && (s->file_cache[i].bb == bb) && (s->file_cache[i].f != NULL))
 		{
 			s->file_cache[i].ts = now;
 			*f = s->file_cache[i].f;
-			if (check_cache == 1) asl_store_file_cache_lru(s, now);
+			if (check_cache == 1) asl_store_file_cache_lru(s, now, i);
 			return ASL_STATUS_OK;
 		}
 	}
@@ -391,13 +389,13 @@ asl_store_file_open_write(asl_store_t *s, char *subpath, int32_t ruid, int32_t r
 	{
 		if (rgid == -1)
 		{
-			asprintf(&path, "%s.asl", subpath);
+			asprintf(&path, "%s/%s.asl", s->base_dir, tstring);
 		}
 		else
 		{
 			g = rgid;
 			m = 0640;
-			asprintf(&path, "%s.G%d.asl", subpath, g);
+			asprintf(&path, "%s/%s.G%d.asl", s->base_dir, tstring, g);
 		}
 	}
 	else
@@ -406,13 +404,13 @@ asl_store_file_open_write(asl_store_t *s, char *subpath, int32_t ruid, int32_t r
 		if (rgid == -1)
 		{
 			m = 0600;
-			asprintf(&path, "%s.U%d.asl", subpath, u);
+			asprintf(&path, "%s/%s.U%d.asl", s->base_dir, tstring, u);
 		}
 		else
 		{
 			g = rgid;
 			m = 0640;
-			asprintf(&path, "%s.U%d.G%u.asl", subpath, u, g);
+			asprintf(&path, "%s/%s.U%d.G%u.asl", s->base_dir, tstring, u, g);
 		}
 	}
 
@@ -426,7 +424,7 @@ asl_store_file_open_write(asl_store_t *s, char *subpath, int32_t ruid, int32_t r
 		return status;
 	}
 
-	x = asl_store_file_cache_lru(s, now);
+	x = asl_store_file_cache_lru(s, now, FILE_CACHE_SIZE);
 	if (s->file_cache[x].f != NULL) asl_file_close(s->file_cache[x].f);
 	if (s->file_cache[x].path != NULL) free(s->file_cache[x].path);
 
@@ -434,6 +432,7 @@ asl_store_file_open_write(asl_store_t *s, char *subpath, int32_t ruid, int32_t r
 	s->file_cache[x].path = path;
 	s->file_cache[x].u = ruid;
 	s->file_cache[x].g = rgid;
+	s->file_cache[x].bb = bb;
 	s->file_cache[x].ts = time(NULL);
 
 	*f = out;
@@ -466,6 +465,7 @@ asl_store_file_close(asl_store_t *s, asl_file_t *f)
 	uint32_t i;
 
 	if (s == NULL) return;
+	if (f == NULL) return;
 
 	for (i = 0; i < FILE_CACHE_SIZE; i++)
 	{
@@ -477,6 +477,7 @@ asl_store_file_close(asl_store_t *s, asl_file_t *f)
 			s->file_cache[i].path = NULL;
 			s->file_cache[i].u = -1;
 			s->file_cache[i].g = -1;
+			s->file_cache[i].bb = 0;
 			s->file_cache[i].ts = 0;
 			return;
 		}
@@ -487,14 +488,13 @@ uint32_t
 asl_store_save(asl_store_t *s, aslmsg msg)
 {
 	struct tm ctm;
-	time_t t, now;
-	char *path, *subpath;
+	time_t msg_time, now, bb;
+	char *path, *tmp_path, *tstring, *scratch;
 	const char *val;
 	uid_t ruid;
 	gid_t rgid;
 	asl_file_t *f;
-	uint32_t status, check_cache;
-	asl_store_t *tmp;
+	uint32_t status, check_cache, signal_sweep, len;
 	uint64_t xid, ftime;
 	size_t fsize;
 
@@ -503,37 +503,35 @@ asl_store_save(asl_store_t *s, aslmsg msg)
 
 	now = time(NULL);
 
-	val = asl_get(msg, ASL_KEY_TIME);
-	t = 0;
-	if (val == NULL) t = now;
-	else t = asl_parse_time(val);
+	check_cache = 0;
+	if ((s->last_write + FILE_CACHE_TTL) <= now) check_cache = 1;
 
-	if (t >= s->start_tomorrow)
+	signal_sweep = 0;
+
+	msg_time = 0;
+	val = asl_get(msg, ASL_KEY_TIME);
+	if (val == NULL) msg_time = now;
+	else msg_time = asl_parse_time(val);
+
+	if (msg_time >= s->start_tomorrow)
 	{
 		if (now >= s->start_tomorrow)
 		{
 			/* new day begins */
-			tmp = NULL;
-			status = asl_store_open_write(s->base_dir, &tmp);
-			asl_file_close(s->db);
-			s->db = NULL;
-			if (status != ASL_STATUS_OK)
-			{
-				fclose(s->storedata);
-				free(s->base_dir);
-				free(s);
-				return status;
-			}
+			check_cache = 0;
+			signal_sweep = 1;
+			asl_store_file_closeall(s);
 
-			s->db = tmp->db;
-			s->start_today = tmp->start_today;
-			s->start_tomorrow = tmp->start_tomorrow;
-			free(tmp->base_dir);
-			fclose(tmp->storedata);
-			free(tmp);
+			/*
+			 * _asl_start_today should never fail, but if it does,
+			 * just push forward one day.  That will probably be correct, and if
+			 * it isn't, the next message that gets saved will push it ahead again
+			 * until we get to the right date.
+			 */
+			s->start_today = _asl_start_today();
+			if (s->start_today == 0) s->start_today = s->start_tomorrow;
 
-			status = asl_store_signal_sweep(s);
-			/* allow this to fail quietly */
+			s->start_tomorrow = s->start_today + SECONDS_PER_DAY;
 		}
 	}
 
@@ -545,6 +543,14 @@ asl_store_save(asl_store_t *s, aslmsg msg)
 	rgid = -1;
 	if (val != NULL) rgid = atoi(val);
 
+	bb = 0;
+	val = asl_get(msg, ASL_KEY_EXPIRE_TIME);
+	if (val != NULL)
+	{
+		bb = 1;
+		msg_time = asl_parse_time(val);
+	}
+
 	if (fseeko(s->storedata, 0, SEEK_SET) != 0) return ASL_STATUS_WRITE_FAILED;
 
 	xid = asl_core_htonq(s->next_id);
@@ -553,27 +559,41 @@ asl_store_save(asl_store_t *s, aslmsg msg)
 	xid = s->next_id;
 	s->next_id++;
 
-	check_cache = 0;
-	if ((s->last_write + FILE_CACHE_TTL) <= now) check_cache = 1;
-
 	s->last_write = now;
-	
-	if ((t >= s->start_today) && (t < s->start_tomorrow) && (ruid == -1) && (rgid == -1))
+
+	if (localtime_r((const time_t *)&msg_time, &ctm) == NULL) return ASL_STATUS_FAILED;
+
+	tstring = NULL;
+	if (bb == 1)
 	{
-		status = asl_file_save(s->db, msg, &xid);
-		if (check_cache == 1) asl_store_file_cache_lru(s, now);
-		return status;
+		/*
+		 * This supports 12 monthy "Best Before" buckets.
+		 * We advance the actual expiry time to day zero of the following month.
+		 * mktime() is clever enough to know that you actually mean the last day
+		 * of the previous month.  What we get back from localtime is the last
+		 * day of the month in which the message expires, which we use in the name.
+		 */
+		ctm.tm_sec = 0;
+		ctm.tm_min = 0;
+		ctm.tm_hour = 0;
+		ctm.tm_mday = 0;
+		ctm.tm_mon += 1;
+
+		bb = mktime(&ctm);
+
+		if (localtime_r((const time_t *)&bb, &ctm) == NULL) return ASL_STATUS_FAILED;
+		asprintf(&tstring, "BB.%d.%02d.%02d", ctm.tm_year + 1900, ctm.tm_mon + 1, ctm.tm_mday);
+	}
+	else
+	{
+		asprintf(&tstring, "%d.%02d.%02d", ctm.tm_year + 1900, ctm.tm_mon + 1, ctm.tm_mday);
 	}
 
-	if (localtime_r((const time_t *)&t, &ctm) == NULL) return ASL_STATUS_FAILED;
+	if (tstring == NULL) return ASL_STATUS_NO_MEMORY;
 
-	asprintf(&subpath, "%s/%d.%02d.%02d", s->base_dir, ctm.tm_year + 1900, ctm.tm_mon + 1, ctm.tm_mday);
-	if (subpath == NULL) return ASL_STATUS_NO_MEMORY;
-
-	f = NULL;
-	status = asl_store_file_open_write(s, subpath, ruid, rgid, &f, now, check_cache);
-	free(subpath);
-	subpath = NULL;
+	status = asl_store_file_open_write(s, tstring, ruid, rgid, bb, &f, now, check_cache);
+	free(tstring);
+	tstring = NULL;
 
 	if (status != ASL_STATUS_OK) return status;
 
@@ -583,34 +603,54 @@ asl_store_save(asl_store_t *s, aslmsg msg)
 	fsize = asl_file_size(f);
 	ftime = asl_file_ctime(f);
 
-	/* if file is larger than max_file_size, rename it and create semaphore file in the store */
+	/* if file is larger than max_file_size, rename it and touch semaphore file in the store */
 	if ((s->max_file_size != 0) && (fsize > s->max_file_size))
 	{
+		signal_sweep = 1;
 		status = ASL_STATUS_OK;
 
 		path = asl_store_file_path(s, f);
-		subpath = NULL;
 
 		asl_store_file_close(s, f);
 
 		if (path != NULL)
 		{
-			asprintf(&subpath, "%s.%llu", path, ftime);
-			if (subpath == NULL)
+			tmp_path = NULL;
+
+			len = strlen(path);
+			if ((len >= 4) && (!strcmp(path + len - 4, ".asl")))
+			{
+				/* rename xxxxxxx.asl to xxxxxxx.timestamp.asl */
+				scratch = strdup(path);
+				if (scratch != NULL)
+				{
+					scratch[len - 4] = '\0';
+					asprintf(&tmp_path, "%s.%llu.asl", scratch, ftime);
+					free(scratch);
+
+				}
+			}
+			else
+			{
+				/* append timestamp */
+				asprintf(&tmp_path, "%s.%llu", path, ftime);
+			}
+
+			if (tmp_path == NULL)
 			{
 				status = ASL_STATUS_NO_MEMORY;
 			}
 			else
 			{
-				if (rename(path, subpath) != 0) status = ASL_STATUS_FAILED;
-				free(subpath);
+				if (rename(path, tmp_path) != 0) status = ASL_STATUS_FAILED;
+				free(tmp_path);
 			}
 
 			free(path);
 		}
-
-		if (status == ASL_STATUS_OK) status = asl_store_signal_sweep(s);
 	}
+
+	if (signal_sweep != 0) asl_store_signal_sweep(s);
 
 	return status;
 }

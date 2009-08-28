@@ -5,14 +5,25 @@
 #ifdef SWIGPYTHON
 #endif
 
-/* Includes */
+/* Callback typemaps */
 #ifdef SWIGPYTHON
-%import proxy.swg
-%import apr.swg
-%include svn_types_h.swg
-%include svn_io_h.swg
-%include svn_error_h.swg
+%apply CALLABLE_CALLBACK {
+  svn_hash_diff_func_t
+};
+%apply CALLABLE_CALLBACK * {
+  svn_hash_diff_func_t *
+};
 #endif
+
+/* Baton typemaps */
+#ifdef SWIGPYTHON
+%apply void *PY_AS_VOID {
+  void *baton,
+  void *diff_func_baton
+};
+#endif
+
+/* Includes */
 %{
 #include "svn_hash.h"
 %}
@@ -25,4 +36,14 @@
 /* Callbacks */
 
 %inline %{
+static svn_error_t * svn_hash_invoke_diff_func(
+  svn_hash_diff_func_t _obj, const void *key, apr_ssize_t klen, enum svn_hash_diff_key_status status, void *baton) {
+  return _obj(key, klen, status, baton);
+}
+
 %}
+
+#ifdef SWIGPYTHON
+%funcptr_proxy(svn_hash_diff_func_t, svn_hash_invoke_diff_func);
+
+#endif

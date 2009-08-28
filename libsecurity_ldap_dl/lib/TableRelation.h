@@ -55,7 +55,7 @@ protected:
 	Value** mData;
 
 public:
-	TableRelation (CSSM_DB_RECORDTYPE recordType, int numberOfColumns);
+	TableRelation (CSSM_DB_RECORDTYPE recordType, int numberOfColumns, columnInfoLoader *theColumnInfo);
 	virtual ~TableRelation ();
 	
 	void AddTuple (Value* column0Value, ...);

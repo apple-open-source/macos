@@ -16,7 +16,7 @@
 #undef HAVE_LIBHISTORY
 #undef HAVE_LIBREADLINE
 
-#define SOCKLEN_T socklen_t
+#define XML_SOCKLEN_T socklen_t
 #define HAVE_LIBPTHREAD
 #define HAVE_PTHREAD_H
 #define LIBXML_THREAD_ENABLED
@@ -176,15 +176,6 @@
 
 /* Define if you have the <zlib.h> header file.  */
 #undef HAVE_ZLIB_H
-
-/* Define if you have the inet library (-linet).  */
-#undef HAVE_LIBINET
-
-/* Define if you have the nsl library (-lnsl).  */
-#undef HAVE_LIBNSL
-
-/* Define if you have the socket library (-lsocket).  */
-#undef HAVE_LIBSOCKET
 
 /* Name of package */
 #define PACKAGE

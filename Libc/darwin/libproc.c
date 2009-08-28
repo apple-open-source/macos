@@ -83,15 +83,19 @@ proc_name(int pid, void * buffer, uint32_t buffersize)
 	struct proc_bsdinfo pbsd;
 	
 	
-	if (buffersize < 2*MAXCOMLEN) {
+	if (buffersize < sizeof(pbsd.pbi_name)) {
 		errno = ENOMEM;
 		return(0);
 	}
 
 	retval = proc_pidinfo(pid, PROC_PIDTBSDINFO, (uint64_t)0, &pbsd, sizeof(struct proc_bsdinfo));
-	if (retval != -1) {
-		bcopy(&pbsd.pbi_name, buffer, 2* 2*MAXCOMLEN);
-		len = strlen(&pbsd.pbi_name[0]);
+	if (retval != 0) {
+		if (pbsd.pbi_name[0]) {
+			bcopy(&pbsd.pbi_name, buffer, sizeof(pbsd.pbi_name));
+		} else {
+			bcopy(&pbsd.pbi_comm, buffer, sizeof(pbsd.pbi_comm));
+		}
+		len = strlen(buffer);
 		return(len);
 	}
 	return(0);
@@ -156,7 +160,8 @@ proc_pidpath(int pid, void * buffer, uint32_t  buffersize)
 }
 
 
-int proc_libversion(int *major, int * minor)
+int 
+proc_libversion(int *major, int * minor)
 {
 
 	if (major != NULL)
@@ -165,4 +170,19 @@ int proc_libversion(int *major, int * minor)
 		*minor = 1;
 	return(0);
 }
+
+int
+proc_setpcontrol(const int control)
+{
+	int retval ;
+
+	if (control < PROC_SETPC_NONE || control > PROC_SETPC_TERMINATE)
+		return(EINVAL);
+
+	if ((retval = __proc_info(5, getpid(), PROC_SELFSET_PCONTROL,(uint64_t)control, NULL, 0)) == -1)
+		return(errno);
+		
+	return(0);
+}
+
 

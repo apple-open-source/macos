@@ -44,7 +44,7 @@
 #define THROW_ERROR
 #endif
 
-SecNssCoder::SecNssCoder(PRUint32 chunkSize /* = SNC_CHUNKSIZE_DEF */)
+SecNssCoder::SecNssCoder(PRSize chunkSize /* = SNC_CHUNKSIZE_DEF */)
 	: mPool(NULL)
 {
 	mPool = PORT_NewArena(chunkSize);

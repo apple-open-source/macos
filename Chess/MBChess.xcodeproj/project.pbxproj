@@ -35,23 +35,6 @@
 		950BD12E0A1E582B00395116 /* nbook.db in Resources */ = {isa = PBXBuildFile; fileRef = F5775A1E02F917A901D8996C /* nbook.db */; };
 		950BD12F0A1E582B00395116 /* suicide.opn in Resources */ = {isa = PBXBuildFile; fileRef = F5775A1F02F917A901D8996C /* suicide.opn */; };
 		950BD1300A1E582B00395116 /* zbook.db in Resources */ = {isa = PBXBuildFile; fileRef = F5775A2002F917A901D8996C /* zbook.db */; };
-		950BD1310A1E582B00395116 /* 1.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446040311DEB4013BD914 /* 1.rgb */; };
-		950BD1320A1E582B00395116 /* 2.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446050311DEB4013BD914 /* 2.rgb */; };
-		950BD1330A1E582B00395116 /* 3.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446060311DEB4013BD914 /* 3.rgb */; };
-		950BD1340A1E582B00395116 /* 4.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446070311DEB4013BD914 /* 4.rgb */; };
-		950BD1350A1E582B00395116 /* 5.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446080311DEB4013BD914 /* 5.rgb */; };
-		950BD1360A1E582B00395116 /* 6.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446090311DEB4013BD914 /* 6.rgb */; };
-		950BD1370A1E582B00395116 /* 7.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C4460A0311DEB4013BD914 /* 7.rgb */; };
-		950BD1380A1E582B00395116 /* 8.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C4460B0311DEB4013BD914 /* 8.rgb */; };
-		950BD1390A1E582B00395116 /* a.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C4460C0311DEB4013BD914 /* a.rgb */; };
-		950BD13A0A1E582B00395116 /* b.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C4460D0311DEB4013BD914 /* b.rgb */; };
-		950BD13B0A1E582B00395116 /* c.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446100311DEB4013BD914 /* c.rgb */; };
-		950BD13C0A1E582B00395116 /* d.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446110311DEB4013BD914 /* d.rgb */; };
-		950BD13D0A1E582B00395116 /* e.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446120311DEB4013BD914 /* e.rgb */; };
-		950BD13E0A1E582B00395116 /* f.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446130311DEB4013BD914 /* f.rgb */; };
-		950BD13F0A1E582B00395116 /* g.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446140311DEB4013BD914 /* g.rgb */; };
-		950BD1400A1E582B00395116 /* h.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446150311DEB4013BD914 /* h.rgb */; };
-		950BD1410A1E582B00395116 /* selected_piece_texture.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446160311DEB4013BD914 /* selected_piece_texture.rgb */; };
 		950BD1420A1E582B00395116 /* Defaults.plist in Resources */ = {isa = PBXBuildFile; fileRef = F598AC41035A958501000102 /* Defaults.plist */; };
 		950BD1430A1E582B00395116 /* chess.icns in Resources */ = {isa = PBXBuildFile; fileRef = 95C10123043A066700CA17DD /* chess.icns */; };
 		950BD1440A1E582B00395116 /* COPYING in Resources */ = {isa = PBXBuildFile; fileRef = 95E9EE6D045797010091A3D7 /* COPYING */; };
@@ -88,6 +71,40 @@
 		950BD1660A1E582B00395116 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5529B030314493B01CA17FB /* Carbon.framework */; };
 		950BD1680A1E582B00395116 /* Chess.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 950EE08807769701004ED524 /* Chess.plist */; };
 		950BD16A0A1E582B00395116 /* Chess.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 950EE08907769701004ED524 /* Chess.txt */; };
+		956195E90EB12AD70097627D /* 1.png in Resources */ = {isa = PBXBuildFile; fileRef = 956195D80EB12AD70097627D /* 1.png */; };
+		956195EA0EB12AD70097627D /* 2.png in Resources */ = {isa = PBXBuildFile; fileRef = 956195D90EB12AD70097627D /* 2.png */; };
+		956195EB0EB12AD70097627D /* 3.png in Resources */ = {isa = PBXBuildFile; fileRef = 956195DA0EB12AD70097627D /* 3.png */; };
+		956195EC0EB12AD70097627D /* 4.png in Resources */ = {isa = PBXBuildFile; fileRef = 956195DB0EB12AD70097627D /* 4.png */; };
+		956195ED0EB12AD70097627D /* 5.png in Resources */ = {isa = PBXBuildFile; fileRef = 956195DC0EB12AD70097627D /* 5.png */; };
+		956195EE0EB12AD70097627D /* 6.png in Resources */ = {isa = PBXBuildFile; fileRef = 956195DD0EB12AD70097627D /* 6.png */; };
+		956195EF0EB12AD70097627D /* 7.png in Resources */ = {isa = PBXBuildFile; fileRef = 956195DE0EB12AD70097627D /* 7.png */; };
+		956195F00EB12AD70097627D /* 8.png in Resources */ = {isa = PBXBuildFile; fileRef = 956195DF0EB12AD70097627D /* 8.png */; };
+		956195F10EB12AD70097627D /* a.png in Resources */ = {isa = PBXBuildFile; fileRef = 956195E00EB12AD70097627D /* a.png */; };
+		956195F20EB12AD70097627D /* b.png in Resources */ = {isa = PBXBuildFile; fileRef = 956195E10EB12AD70097627D /* b.png */; };
+		956195F30EB12AD70097627D /* c.png in Resources */ = {isa = PBXBuildFile; fileRef = 956195E20EB12AD70097627D /* c.png */; };
+		956195F40EB12AD70097627D /* d.png in Resources */ = {isa = PBXBuildFile; fileRef = 956195E30EB12AD70097627D /* d.png */; };
+		956195F50EB12AD70097627D /* e.png in Resources */ = {isa = PBXBuildFile; fileRef = 956195E40EB12AD70097627D /* e.png */; };
+		956195F60EB12AD70097627D /* f.png in Resources */ = {isa = PBXBuildFile; fileRef = 956195E50EB12AD70097627D /* f.png */; };
+		956195F70EB12AD70097627D /* g.png in Resources */ = {isa = PBXBuildFile; fileRef = 956195E60EB12AD70097627D /* g.png */; };
+		956195F80EB12AD70097627D /* h.png in Resources */ = {isa = PBXBuildFile; fileRef = 956195E70EB12AD70097627D /* h.png */; };
+		956195F90EB12AD70097627D /* selected_piece_texture.png in Resources */ = {isa = PBXBuildFile; fileRef = 956195E80EB12AD70097627D /* selected_piece_texture.png */; };
+		956195FA0EB12AD70097627D /* 1.png in Resources */ = {isa = PBXBuildFile; fileRef = 956195D80EB12AD70097627D /* 1.png */; };
+		956195FB0EB12AD70097627D /* 2.png in Resources */ = {isa = PBXBuildFile; fileRef = 956195D90EB12AD70097627D /* 2.png */; };
+		956195FC0EB12AD70097627D /* 3.png in Resources */ = {isa = PBXBuildFile; fileRef = 956195DA0EB12AD70097627D /* 3.png */; };
+		956195FD0EB12AD70097627D /* 4.png in Resources */ = {isa = PBXBuildFile; fileRef = 956195DB0EB12AD70097627D /* 4.png */; };
+		956195FE0EB12AD70097627D /* 5.png in Resources */ = {isa = PBXBuildFile; fileRef = 956195DC0EB12AD70097627D /* 5.png */; };
+		956195FF0EB12AD70097627D /* 6.png in Resources */ = {isa = PBXBuildFile; fileRef = 956195DD0EB12AD70097627D /* 6.png */; };
+		956196000EB12AD70097627D /* 7.png in Resources */ = {isa = PBXBuildFile; fileRef = 956195DE0EB12AD70097627D /* 7.png */; };
+		956196010EB12AD70097627D /* 8.png in Resources */ = {isa = PBXBuildFile; fileRef = 956195DF0EB12AD70097627D /* 8.png */; };
+		956196020EB12AD70097627D /* a.png in Resources */ = {isa = PBXBuildFile; fileRef = 956195E00EB12AD70097627D /* a.png */; };
+		956196030EB12AD70097627D /* b.png in Resources */ = {isa = PBXBuildFile; fileRef = 956195E10EB12AD70097627D /* b.png */; };
+		956196040EB12AD70097627D /* c.png in Resources */ = {isa = PBXBuildFile; fileRef = 956195E20EB12AD70097627D /* c.png */; };
+		956196050EB12AD70097627D /* d.png in Resources */ = {isa = PBXBuildFile; fileRef = 956195E30EB12AD70097627D /* d.png */; };
+		956196060EB12AD70097627D /* e.png in Resources */ = {isa = PBXBuildFile; fileRef = 956195E40EB12AD70097627D /* e.png */; };
+		956196070EB12AD70097627D /* f.png in Resources */ = {isa = PBXBuildFile; fileRef = 956195E50EB12AD70097627D /* f.png */; };
+		956196080EB12AD70097627D /* g.png in Resources */ = {isa = PBXBuildFile; fileRef = 956195E60EB12AD70097627D /* g.png */; };
+		956196090EB12AD70097627D /* h.png in Resources */ = {isa = PBXBuildFile; fileRef = 956195E70EB12AD70097627D /* h.png */; };
+		9561960A0EB12AD70097627D /* selected_piece_texture.png in Resources */ = {isa = PBXBuildFile; fileRef = 956195E80EB12AD70097627D /* selected_piece_texture.png */; };
 		95844C6D0A670C1E0068CA82 /* config.h in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED8304F30114005E79F8 /* config.h */; };
 		95844C6E0A670C1E0068CA82 /* extvars.h in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED8804F30114005E79F8 /* extvars.h */; };
 		95844C6F0A670C1E0068CA82 /* protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED9104F30114005E79F8 /* protos.h */; };
@@ -145,23 +162,6 @@
 		95844CB30A670C280068CA82 /* nbook.db in Resources */ = {isa = PBXBuildFile; fileRef = F5775A1E02F917A901D8996C /* nbook.db */; };
 		95844CB40A670C280068CA82 /* suicide.opn in Resources */ = {isa = PBXBuildFile; fileRef = F5775A1F02F917A901D8996C /* suicide.opn */; };
 		95844CB50A670C280068CA82 /* zbook.db in Resources */ = {isa = PBXBuildFile; fileRef = F5775A2002F917A901D8996C /* zbook.db */; };
-		95844CB60A670C280068CA82 /* 1.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446040311DEB4013BD914 /* 1.rgb */; };
-		95844CB70A670C280068CA82 /* 2.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446050311DEB4013BD914 /* 2.rgb */; };
-		95844CB80A670C280068CA82 /* 3.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446060311DEB4013BD914 /* 3.rgb */; };
-		95844CB90A670C280068CA82 /* 4.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446070311DEB4013BD914 /* 4.rgb */; };
-		95844CBA0A670C280068CA82 /* 5.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446080311DEB4013BD914 /* 5.rgb */; };
-		95844CBB0A670C280068CA82 /* 6.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446090311DEB4013BD914 /* 6.rgb */; };
-		95844CBC0A670C280068CA82 /* 7.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C4460A0311DEB4013BD914 /* 7.rgb */; };
-		95844CBD0A670C280068CA82 /* 8.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C4460B0311DEB4013BD914 /* 8.rgb */; };
-		95844CBE0A670C280068CA82 /* a.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C4460C0311DEB4013BD914 /* a.rgb */; };
-		95844CBF0A670C280068CA82 /* b.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C4460D0311DEB4013BD914 /* b.rgb */; };
-		95844CC00A670C280068CA82 /* c.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446100311DEB4013BD914 /* c.rgb */; };
-		95844CC10A670C280068CA82 /* d.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446110311DEB4013BD914 /* d.rgb */; };
-		95844CC20A670C280068CA82 /* e.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446120311DEB4013BD914 /* e.rgb */; };
-		95844CC30A670C280068CA82 /* f.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446130311DEB4013BD914 /* f.rgb */; };
-		95844CC40A670C280068CA82 /* g.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446140311DEB4013BD914 /* g.rgb */; };
-		95844CC50A670C280068CA82 /* h.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446150311DEB4013BD914 /* h.rgb */; };
-		95844CC60A670C280068CA82 /* selected_piece_texture.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446160311DEB4013BD914 /* selected_piece_texture.rgb */; };
 		95844CC70A670C280068CA82 /* Defaults.plist in Resources */ = {isa = PBXBuildFile; fileRef = F598AC41035A958501000102 /* Defaults.plist */; };
 		95844CC80A670C280068CA82 /* chess.icns in Resources */ = {isa = PBXBuildFile; fileRef = 95C10123043A066700CA17DD /* chess.icns */; };
 		95844CC90A670C280068CA82 /* COPYING in Resources */ = {isa = PBXBuildFile; fileRef = 95E9EE6D045797010091A3D7 /* COPYING */; };
@@ -270,8 +270,25 @@
 		9534EBC4046627320000E7BB /* MBCBoardAnimation.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCBoardAnimation.mm; path = Sources/MBCBoardAnimation.mm; sourceTree = "<group>"; };
 		953ABB1B043AC51100C64F18 /* MBCDocument.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCDocument.h; path = Sources/MBCDocument.h; sourceTree = "<group>"; };
 		953ABB1C043AC51100C64F18 /* MBCDocument.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCDocument.mm; path = Sources/MBCDocument.mm; sourceTree = "<group>"; };
+		956195D80EB12AD70097627D /* 1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = 1.png; path = Textures/1.png; sourceTree = "<group>"; };
+		956195D90EB12AD70097627D /* 2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = 2.png; path = Textures/2.png; sourceTree = "<group>"; };
+		956195DA0EB12AD70097627D /* 3.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = 3.png; path = Textures/3.png; sourceTree = "<group>"; };
+		956195DB0EB12AD70097627D /* 4.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = 4.png; path = Textures/4.png; sourceTree = "<group>"; };
+		956195DC0EB12AD70097627D /* 5.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = 5.png; path = Textures/5.png; sourceTree = "<group>"; };
+		956195DD0EB12AD70097627D /* 6.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = 6.png; path = Textures/6.png; sourceTree = "<group>"; };
+		956195DE0EB12AD70097627D /* 7.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = 7.png; path = Textures/7.png; sourceTree = "<group>"; };
+		956195DF0EB12AD70097627D /* 8.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = 8.png; path = Textures/8.png; sourceTree = "<group>"; };
+		956195E00EB12AD70097627D /* a.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = a.png; path = Textures/a.png; sourceTree = "<group>"; };
+		956195E10EB12AD70097627D /* b.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = b.png; path = Textures/b.png; sourceTree = "<group>"; };
+		956195E20EB12AD70097627D /* c.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = c.png; path = Textures/c.png; sourceTree = "<group>"; };
+		956195E30EB12AD70097627D /* d.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = d.png; path = Textures/d.png; sourceTree = "<group>"; };
+		956195E40EB12AD70097627D /* e.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = e.png; path = Textures/e.png; sourceTree = "<group>"; };
+		956195E50EB12AD70097627D /* f.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = f.png; path = Textures/f.png; sourceTree = "<group>"; };
+		956195E60EB12AD70097627D /* g.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = g.png; path = Textures/g.png; sourceTree = "<group>"; };
+		956195E70EB12AD70097627D /* h.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = h.png; path = Textures/h.png; sourceTree = "<group>"; };
+		956195E80EB12AD70097627D /* selected_piece_texture.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = selected_piece_texture.png; path = Textures/selected_piece_texture.png; sourceTree = "<group>"; };
 		95844C900A670C1E0068CA82 /* sjeng.ChessEngine */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = sjeng.ChessEngine; sourceTree = BUILT_PRODUCTS_DIR; };
-		95844CF10A670C280068CA82 /* Info-ChessTuner_.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "Info-ChessTuner_.plist"; sourceTree = "<group>"; };
+		95844CF10A670C280068CA82 /* Info-ChessTuner.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "Info-ChessTuner.plist"; path = "Resources/Info-ChessTuner.plist"; sourceTree = "<group>"; };
 		95844CF20A670C280068CA82 /* Chess Tuner.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Chess Tuner.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		9586675C048AF5A5007B50FB /* handCursor.tiff */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; name = handCursor.tiff; path = Resources/handCursor.tiff; sourceTree = "<group>"; };
 		9594A40504C76CA4005DC0DD /* SpeechHelp.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = SpeechHelp.xml; path = Resources/SpeechHelp.xml; sourceTree = "<group>"; };
@@ -351,23 +368,6 @@
 		F5A1654E03107AD501D39A8B /* MBCController.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCController.h; path = Sources/MBCController.h; sourceTree = "<group>"; };
 		F5A1654F03107AD501D39A8B /* MBCController.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCController.mm; path = Sources/MBCController.mm; sourceTree = "<group>"; };
 		F5C446020311DD0E013BD914 /* MBCInteractivePlayer.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCInteractivePlayer.mm; path = Sources/MBCInteractivePlayer.mm; sourceTree = "<group>"; };
-		F5C446040311DEB4013BD914 /* 1.rgb */ = {isa = PBXFileReference; lastKnownFileType = file; name = 1.rgb; path = Textures/1.rgb; sourceTree = "<group>"; };
-		F5C446050311DEB4013BD914 /* 2.rgb */ = {isa = PBXFileReference; lastKnownFileType = file; name = 2.rgb; path = Textures/2.rgb; sourceTree = "<group>"; };
-		F5C446060311DEB4013BD914 /* 3.rgb */ = {isa = PBXFileReference; lastKnownFileType = file; name = 3.rgb; path = Textures/3.rgb; sourceTree = "<group>"; };
-		F5C446070311DEB4013BD914 /* 4.rgb */ = {isa = PBXFileReference; lastKnownFileType = file; name = 4.rgb; path = Textures/4.rgb; sourceTree = "<group>"; };
-		F5C446080311DEB4013BD914 /* 5.rgb */ = {isa = PBXFileReference; lastKnownFileType = file; name = 5.rgb; path = Textures/5.rgb; sourceTree = "<group>"; };
-		F5C446090311DEB4013BD914 /* 6.rgb */ = {isa = PBXFileReference; lastKnownFileType = file; name = 6.rgb; path = Textures/6.rgb; sourceTree = "<group>"; };
-		F5C4460A0311DEB4013BD914 /* 7.rgb */ = {isa = PBXFileReference; lastKnownFileType = file; name = 7.rgb; path = Textures/7.rgb; sourceTree = "<group>"; };
-		F5C4460B0311DEB4013BD914 /* 8.rgb */ = {isa = PBXFileReference; lastKnownFileType = file; name = 8.rgb; path = Textures/8.rgb; sourceTree = "<group>"; };
-		F5C4460C0311DEB4013BD914 /* a.rgb */ = {isa = PBXFileReference; lastKnownFileType = file; name = a.rgb; path = Textures/a.rgb; sourceTree = "<group>"; };
-		F5C4460D0311DEB4013BD914 /* b.rgb */ = {isa = PBXFileReference; lastKnownFileType = file; name = b.rgb; path = Textures/b.rgb; sourceTree = "<group>"; };
-		F5C446100311DEB4013BD914 /* c.rgb */ = {isa = PBXFileReference; lastKnownFileType = file; name = c.rgb; path = Textures/c.rgb; sourceTree = "<group>"; };
-		F5C446110311DEB4013BD914 /* d.rgb */ = {isa = PBXFileReference; lastKnownFileType = file; name = d.rgb; path = Textures/d.rgb; sourceTree = "<group>"; };
-		F5C446120311DEB4013BD914 /* e.rgb */ = {isa = PBXFileReference; lastKnownFileType = file; name = e.rgb; path = Textures/e.rgb; sourceTree = "<group>"; };
-		F5C446130311DEB4013BD914 /* f.rgb */ = {isa = PBXFileReference; lastKnownFileType = file; name = f.rgb; path = Textures/f.rgb; sourceTree = "<group>"; };
-		F5C446140311DEB4013BD914 /* g.rgb */ = {isa = PBXFileReference; lastKnownFileType = file; name = g.rgb; path = Textures/g.rgb; sourceTree = "<group>"; };
-		F5C446150311DEB4013BD914 /* h.rgb */ = {isa = PBXFileReference; lastKnownFileType = file; name = h.rgb; path = Textures/h.rgb; sourceTree = "<group>"; };
-		F5C446160311DEB4013BD914 /* selected_piece_texture.rgb */ = {isa = PBXFileReference; lastKnownFileType = file; name = selected_piece_texture.rgb; path = Textures/selected_piece_texture.rgb; sourceTree = "<group>"; };
 		F5C8AC0A02FA7C5601AC80B8 /* MBCBoard.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCBoard.h; path = Sources/MBCBoard.h; sourceTree = "<group>"; };
 		F5C8AC0B02FA7C5601AC80B8 /* MBCBoard.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCBoard.mm; path = Sources/MBCBoard.mm; sourceTree = "<group>"; };
 		F5C8AC1002FAB09301AC80B8 /* MBCEngineCommands.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCEngineCommands.h; path = Sources/MBCEngineCommands.h; sourceTree = "<group>"; };
@@ -511,7 +511,24 @@
 		29B97317FDCFA39411CA2CEA /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				95844CF10A670C280068CA82 /* Info-ChessTuner_.plist */,
+				956195D80EB12AD70097627D /* 1.png */,
+				956195D90EB12AD70097627D /* 2.png */,
+				956195DA0EB12AD70097627D /* 3.png */,
+				956195DB0EB12AD70097627D /* 4.png */,
+				956195DC0EB12AD70097627D /* 5.png */,
+				956195DD0EB12AD70097627D /* 6.png */,
+				956195DE0EB12AD70097627D /* 7.png */,
+				956195DF0EB12AD70097627D /* 8.png */,
+				956195E00EB12AD70097627D /* a.png */,
+				956195E10EB12AD70097627D /* b.png */,
+				956195E20EB12AD70097627D /* c.png */,
+				956195E30EB12AD70097627D /* d.png */,
+				956195E40EB12AD70097627D /* e.png */,
+				956195E50EB12AD70097627D /* f.png */,
+				956195E60EB12AD70097627D /* g.png */,
+				956195E70EB12AD70097627D /* h.png */,
+				956195E80EB12AD70097627D /* selected_piece_texture.png */,
+				95844CF10A670C280068CA82 /* Info-ChessTuner.plist */,
 				950BD16F0A1E582B00395116 /* Info-MBChess.plist */,
 				950EE08807769701004ED524 /* Chess.plist */,
 				950EE08907769701004ED524 /* Chess.txt */,
@@ -526,24 +543,7 @@
 				F5775A1F02F917A901D8996C /* suicide.opn */,
 				F5775A2002F917A901D8996C /* zbook.db */,
 				9595B6C00458E2CD00A8D2EE /* sjeng.rc */,
-				F5C446040311DEB4013BD914 /* 1.rgb */,
-				F5C446050311DEB4013BD914 /* 2.rgb */,
-				F5C446060311DEB4013BD914 /* 3.rgb */,
-				F5C446070311DEB4013BD914 /* 4.rgb */,
-				F5C446080311DEB4013BD914 /* 5.rgb */,
-				F5C446090311DEB4013BD914 /* 6.rgb */,
-				F5C4460A0311DEB4013BD914 /* 7.rgb */,
-				F5C4460B0311DEB4013BD914 /* 8.rgb */,
-				F5C4460C0311DEB4013BD914 /* a.rgb */,
-				F5C4460D0311DEB4013BD914 /* b.rgb */,
-				F5C446100311DEB4013BD914 /* c.rgb */,
-				F5C446110311DEB4013BD914 /* d.rgb */,
-				F5C446120311DEB4013BD914 /* e.rgb */,
-				F5C446130311DEB4013BD914 /* f.rgb */,
 				F598AC41035A958501000102 /* Defaults.plist */,
-				F5C446140311DEB4013BD914 /* g.rgb */,
-				F5C446150311DEB4013BD914 /* h.rgb */,
-				F5C446160311DEB4013BD914 /* selected_piece_texture.rgb */,
 				9586675C048AF5A5007B50FB /* handCursor.tiff */,
 				95C85026048F342500A9DF4F /* Styles */,
 				95A35D03048EEF8900D1AB5E /* Tuner.nib */,
@@ -807,23 +807,6 @@
 				950BD12E0A1E582B00395116 /* nbook.db in Resources */,
 				950BD12F0A1E582B00395116 /* suicide.opn in Resources */,
 				950BD1300A1E582B00395116 /* zbook.db in Resources */,
-				950BD1310A1E582B00395116 /* 1.rgb in Resources */,
-				950BD1320A1E582B00395116 /* 2.rgb in Resources */,
-				950BD1330A1E582B00395116 /* 3.rgb in Resources */,
-				950BD1340A1E582B00395116 /* 4.rgb in Resources */,
-				950BD1350A1E582B00395116 /* 5.rgb in Resources */,
-				950BD1360A1E582B00395116 /* 6.rgb in Resources */,
-				950BD1370A1E582B00395116 /* 7.rgb in Resources */,
-				950BD1380A1E582B00395116 /* 8.rgb in Resources */,
-				950BD1390A1E582B00395116 /* a.rgb in Resources */,
-				950BD13A0A1E582B00395116 /* b.rgb in Resources */,
-				950BD13B0A1E582B00395116 /* c.rgb in Resources */,
-				950BD13C0A1E582B00395116 /* d.rgb in Resources */,
-				950BD13D0A1E582B00395116 /* e.rgb in Resources */,
-				950BD13E0A1E582B00395116 /* f.rgb in Resources */,
-				950BD13F0A1E582B00395116 /* g.rgb in Resources */,
-				950BD1400A1E582B00395116 /* h.rgb in Resources */,
-				950BD1410A1E582B00395116 /* selected_piece_texture.rgb in Resources */,
 				950BD1420A1E582B00395116 /* Defaults.plist in Resources */,
 				950BD1430A1E582B00395116 /* chess.icns in Resources */,
 				950BD1440A1E582B00395116 /* COPYING in Resources */,
@@ -833,6 +816,23 @@
 				950BD1480A1E582B00395116 /* Styles in Resources */,
 				950BD1490A1E582B00395116 /* About.nib in Resources */,
 				950BD14A0A1E582B00395116 /* SpeechHelp.xml in Resources */,
+				956195E90EB12AD70097627D /* 1.png in Resources */,
+				956195EA0EB12AD70097627D /* 2.png in Resources */,
+				956195EB0EB12AD70097627D /* 3.png in Resources */,
+				956195EC0EB12AD70097627D /* 4.png in Resources */,
+				956195ED0EB12AD70097627D /* 5.png in Resources */,
+				956195EE0EB12AD70097627D /* 6.png in Resources */,
+				956195EF0EB12AD70097627D /* 7.png in Resources */,
+				956195F00EB12AD70097627D /* 8.png in Resources */,
+				956195F10EB12AD70097627D /* a.png in Resources */,
+				956195F20EB12AD70097627D /* b.png in Resources */,
+				956195F30EB12AD70097627D /* c.png in Resources */,
+				956195F40EB12AD70097627D /* d.png in Resources */,
+				956195F50EB12AD70097627D /* e.png in Resources */,
+				956195F60EB12AD70097627D /* f.png in Resources */,
+				956195F70EB12AD70097627D /* g.png in Resources */,
+				956195F80EB12AD70097627D /* h.png in Resources */,
+				956195F90EB12AD70097627D /* selected_piece_texture.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -847,23 +847,6 @@
 				95844CB30A670C280068CA82 /* nbook.db in Resources */,
 				95844CB40A670C280068CA82 /* suicide.opn in Resources */,
 				95844CB50A670C280068CA82 /* zbook.db in Resources */,
-				95844CB60A670C280068CA82 /* 1.rgb in Resources */,
-				95844CB70A670C280068CA82 /* 2.rgb in Resources */,
-				95844CB80A670C280068CA82 /* 3.rgb in Resources */,
-				95844CB90A670C280068CA82 /* 4.rgb in Resources */,
-				95844CBA0A670C280068CA82 /* 5.rgb in Resources */,
-				95844CBB0A670C280068CA82 /* 6.rgb in Resources */,
-				95844CBC0A670C280068CA82 /* 7.rgb in Resources */,
-				95844CBD0A670C280068CA82 /* 8.rgb in Resources */,
-				95844CBE0A670C280068CA82 /* a.rgb in Resources */,
-				95844CBF0A670C280068CA82 /* b.rgb in Resources */,
-				95844CC00A670C280068CA82 /* c.rgb in Resources */,
-				95844CC10A670C280068CA82 /* d.rgb in Resources */,
-				95844CC20A670C280068CA82 /* e.rgb in Resources */,
-				95844CC30A670C280068CA82 /* f.rgb in Resources */,
-				95844CC40A670C280068CA82 /* g.rgb in Resources */,
-				95844CC50A670C280068CA82 /* h.rgb in Resources */,
-				95844CC60A670C280068CA82 /* selected_piece_texture.rgb in Resources */,
 				95844CC70A670C280068CA82 /* Defaults.plist in Resources */,
 				95844CC80A670C280068CA82 /* chess.icns in Resources */,
 				95844CC90A670C280068CA82 /* COPYING in Resources */,
@@ -873,6 +856,23 @@
 				95844CCD0A670C280068CA82 /* Tuner.nib in Resources */,
 				95844CCE0A670C280068CA82 /* About.nib in Resources */,
 				95844CCF0A670C280068CA82 /* SpeechHelp.xml in Resources */,
+				956195FA0EB12AD70097627D /* 1.png in Resources */,
+				956195FB0EB12AD70097627D /* 2.png in Resources */,
+				956195FC0EB12AD70097627D /* 3.png in Resources */,
+				956195FD0EB12AD70097627D /* 4.png in Resources */,
+				956195FE0EB12AD70097627D /* 5.png in Resources */,
+				956195FF0EB12AD70097627D /* 6.png in Resources */,
+				956196000EB12AD70097627D /* 7.png in Resources */,
+				956196010EB12AD70097627D /* 8.png in Resources */,
+				956196020EB12AD70097627D /* a.png in Resources */,
+				956196030EB12AD70097627D /* b.png in Resources */,
+				956196040EB12AD70097627D /* c.png in Resources */,
+				956196050EB12AD70097627D /* d.png in Resources */,
+				956196060EB12AD70097627D /* e.png in Resources */,
+				956196070EB12AD70097627D /* f.png in Resources */,
+				956196080EB12AD70097627D /* g.png in Resources */,
+				956196090EB12AD70097627D /* h.png in Resources */,
+				9561960A0EB12AD70097627D /* selected_piece_texture.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1034,8 +1034,8 @@
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = s;
+				GCC_MODEL_TUNING = "";
+				GCC_OPTIMIZATION_LEVEL = 0;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "Resources/Info-MBChess.plist";
 				INSTALL_PATH = "$(SYSTEM_APPS_DIR)";
@@ -1043,10 +1043,6 @@
 				ORDER_FILE = Chess.order;
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = Chess;
-				SECTORDER_FLAGS = (
-					"-e",
-					start,
-				);
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -1069,16 +1065,9 @@
 				INFOPLIST_FILE = "Resources/Info-MBChess.plist";
 				INSTALL_PATH = "$(SYSTEM_APPS_DIR)";
 				LIBRARY_SEARCH_PATHS = "";
+				ORDER_FILE = Chess.order;
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = Chess;
-				SECTORDER_FLAGS = (
-					"-sectorder",
-					__TEXT,
-					__text,
-					Chess.order,
-					"-e",
-					start,
-				);
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -1099,20 +1088,12 @@
 				INFOPLIST_FILE = "Resources/Info-MBChess.plist";
 				INSTALL_PATH = "$(SYSTEM_APPS_DIR)";
 				LIBRARY_SEARCH_PATHS = "";
-				MACOSX_DEPLOYMENT_TARGET = 10.4;
+				ORDER_FILE = Chess.order;
 				OTHER_LDFLAGS = (
 					"-pagezero_size",
 					1000,
 				);
 				PRODUCT_NAME = Chess;
-				SECTORDER_FLAGS = (
-					"-sectorder",
-					__TEXT,
-					__text,
-					Chess.order,
-					"-e",
-					start,
-				);
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -1209,6 +1190,7 @@
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = s;
+				ORDER_FILE = sjeng/sjeng.ChessEngine.order;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1231,6 +1213,7 @@
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
+				ORDER_FILE = sjeng/sjeng.ChessEngine.order;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1251,6 +1234,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				GCC_MODEL_TUNING = G5;
+				ORDER_FILE = sjeng/sjeng.ChessEngine.order;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1279,7 +1263,7 @@
 				GCC_PREPROCESSOR_DEFINITIONS = "CHESS_TUNER=1";
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "";
-				INFOPLIST_FILE = "Resources/Info-ChessTunes.plist";
+				INFOPLIST_FILE = "Resources/Info-ChessTuner.plist";
 				INSTALL_PATH = "$(SYSTEM_APPS_DIR)";
 				LIBRARY_SEARCH_PATHS = "";
 				OTHER_CFLAGS = "";
@@ -1306,7 +1290,7 @@
 				GCC_PREPROCESSOR_DEFINITIONS = "CHESS_TUNER=1";
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "";
-				INFOPLIST_FILE = "Resources/Info-ChessTunes.plist";
+				INFOPLIST_FILE = "Resources/Info-ChessTuner.plist";
 				INSTALL_PATH = "$(SYSTEM_APPS_DIR)";
 				LIBRARY_SEARCH_PATHS = "";
 				OTHER_CFLAGS = "";
@@ -1331,7 +1315,7 @@
 				GCC_PREPROCESSOR_DEFINITIONS = "CHESS_TUNER=1";
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "";
-				INFOPLIST_FILE = "Resources/Info-ChessTunes.plist";
+				INFOPLIST_FILE = "Resources/Info-ChessTuner.plist";
 				INSTALL_PATH = "$(SYSTEM_APPS_DIR)";
 				LIBRARY_SEARCH_PATHS = "";
 				OTHER_CFLAGS = "";

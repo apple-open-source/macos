@@ -1,6 +1,17 @@
---- doc/grep.1.orig      2002-01-22 22:20:04.000000000 +0900
-+++ doc/grep.1  2006-06-22 21:25:06.000000000 +0900
-@@ -302,8 +302,8 @@
+--- doc/grep.1.orig	2008-03-20 15:47:50.000000000 -0700
++++ doc/grep.1	2008-03-20 15:48:05.000000000 -0700
+@@ -191,10 +191,6 @@
+ .I PATTERN
+ as a list of fixed strings, separated by newlines,
+ any of which is to be matched.
+-.BR \-P ", " \-\^\-perl-regexp
+-Interpret
+-.I PATTERN
+-as a Perl regular expression.
+ .TP
+ .BI \-f " FILE" "\fR,\fP \-\^\-file=" FILE
+ Obtain patterns from
+@@ -302,8 +298,13 @@
  This is especially useful for tools like zgrep, e.g.
  .B "gzip -cd foo.gz |grep --label=foo something"
  .TP
@@ -8,10 +19,15 @@
 -Use line buffering, it can be a performance penality.
 +.BR \-\^\-line-buffered
 +Turns on line buffering. However, this can be a performance penalty.
++.TP
++.BR \-P ", " \-\^\-perl-regexp
++Interpret
++.I PATTERN
++as a Perl regular expression.
  .TP
  .BR \-q ", " \-\^\-quiet ", " \-\^\-silent
  Quiet; do not write anything to standard output.
-@@ -649,6 +649,10 @@
+@@ -649,6 +650,10 @@
  instead of reporting a syntax error in the regular expression.
  \s-1POSIX.2\s0 allows this behavior as an extension, but portable scripts
  should avoid it.
@@ -22,4 +38,3 @@
  .SH "ENVIRONMENT VARIABLES"
  Grep's behavior is affected by the following environment variables.
  .PP
-

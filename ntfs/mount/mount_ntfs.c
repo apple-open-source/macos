@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2008 Apple Inc. All rights reserved.
  *
  * This file contains Original Code and/or Modifications of Original Code as
  * defined in and that are subject to the Apple Public Source License Version
@@ -38,10 +38,9 @@
 
 static struct mntopt mopts[] = {
 	MOPT_STDOPTS,
+	MOPT_FSTAB_COMPAT,
 	MOPT_ASYNC,
 	MOPT_SYNC,
-	MOPT_IGNORE_OWNERSHIP,
-	MOPT_PERMISSIONS,
 	MOPT_FORCE,
 	MOPT_UPDATE,
 	MOPT_RELOAD,
@@ -51,7 +50,7 @@ static struct mntopt mopts[] = {
 static void usage(const char *progname) __attribute__((noreturn));
 static void usage(const char *progname)
 {
-	errx(EX_USAGE, "usage: %s [-o options] special-device "
+	errx(EX_USAGE, "usage: %s [-s] [-o options] special-device "
 			"filesystem-node\n", progname);
 }
 
@@ -129,25 +128,35 @@ static void checkpath(const char *path, char *resolved)
 int main(int argc, char **argv)
 {
 	char *progname, *dev;
+	ntfs_mount_options_header *opts_hdr;
+	ntfs_mount_options_1_0 *opts;
 	int ch, dummy, flags = 0;
 	char dir[MAXPATHLEN];
-	const char *ntfs = "ntfs";
+	const char ntfs[] = "ntfs";
 	char *const kextargs[] = { "/sbin/kextload",
 			"/System/Library/Extensions/ntfs.kext", NULL };
 	struct vfsconf vfc;
-	ntfs_mount_options_header opts_hdr;
+	BOOL case_sensitive;
 
+	/* Default to mounting read-only. */
+	flags = MNT_RDONLY;
+	
 	/* Save & strip off program name. */
 	progname = argv[0];
+	/* Set up default options. */
+	case_sensitive = FALSE;
 	/* Parse the options. */
-	while ((ch = getopt(argc, argv, "o:h?")) != -1) {
+	while ((ch = getopt(argc, argv, "so:h?")) != -1) {
 		switch (ch) {
+		case 's':
+			case_sensitive = TRUE;
+			break;
 		case 'o': {
 			mntoptparse_t tmp;
 
 			tmp = getmntopts(optarg, mopts, &flags, &dummy);
 			if (!tmp)
-				err(EX_OSERR, "getmntopts() fialed");
+				err(EX_OSERR, "getmntopts() failed");
 			freemntopts(tmp);
 			break;
 		}
@@ -169,13 +178,21 @@ int main(int argc, char **argv)
 	/*
 	 * Set up the NTFS mount options structure for the mount(2) call.
 	 *
-	 * We currently only implement major version 0 and minor version 0,
-	 * which does not have any NTFS specific options.
+	 * We currently implement version 1.0, which only has the flags option
+	 * and the only currently defined flag is NTFS_OPT_CASE_SENSITIVE.
 	 */
-	opts_hdr = (ntfs_mount_options_header) {
+	opts_hdr = valloc(((sizeof(*opts_hdr) + 7) & ~7) + sizeof(*opts));
+	if (!opts_hdr)
+		err(EX_OSERR, "valloc() failed");
+	*opts_hdr = (ntfs_mount_options_header) {
 		.fspec = dev,
-		.major_ver = 0,
+		.major_ver = 1,
 		.minor_ver = 0,
+	};
+	opts = (ntfs_mount_options_1_0*)((char*)opts_hdr +
+			((sizeof(*opts_hdr) + 7) & ~7));
+	*opts = (ntfs_mount_options_1_0) {
+		.flags = case_sensitive ? NTFS_MNT_OPT_CASE_SENSITIVE : 0,
 	};
 	/* If the kext is not loaded, load it now. */
 	if (getvfsbyname(ntfs, &vfc)) {
@@ -187,7 +204,8 @@ int main(int argc, char **argv)
 		if (getvfsbyname(ntfs, &vfc))
 			errx(EX_OSERR, "Failed to load NTFS file system kext.");
 	}
-	if (mount(ntfs, dir, flags, &opts_hdr) < 0)
+	if (mount(ntfs, dir, flags, opts_hdr) < 0)
 		err(EX_OSERR, "%s on %s", dev, dir);
+	free(opts_hdr);
 	return 0;
 }

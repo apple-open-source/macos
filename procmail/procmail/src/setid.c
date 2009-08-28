@@ -3,7 +3,7 @@
  *			uid/gid (can only be executed by root)		*
  *	This program is used by the SmartList installation script only. *
  ************************************************************************/
-/*$Id: setid.c,v 1.1.1.2 2001/07/20 19:38:19 bbraun Exp $*/
+/*$Id: setid.c,v 1.12 2000/09/28 01:23:39 guenther Exp $*/
 #include "includes.h"
 
 #define CHECK_FILE	"install.sh"

@@ -84,6 +84,10 @@ static PercentHeightContainerMap* gPercentHeightContainerMap = 0;
     
 typedef WTF::HashMap<RenderBlock*, ListHashSet<RenderInline*>*> ContinuationOutlineTableMap;
 
+typedef WTF::HashSet<RenderBlock*> DelayedUpdateScrollInfoSet;
+static int gDelayUpdateScrollInfo = 0;
+static DelayedUpdateScrollInfoSet* gDelayedUpdateScrollInfoSet = 0;
+
 // Our MarginInfo state used when laying out block children.
 RenderBlock::MarginInfo::MarginInfo(RenderBlock* block, int top, int bottom)
 {
@@ -389,14 +393,14 @@ void RenderBlock::deleteLineBoxTree()
     m_lineBoxes.deleteLineBoxTree(renderArena());
 }
 
-RootInlineBox* RenderBlock::createRootBox()
+RootInlineBox* RenderBlock::createRootInlineBox() 
 {
     return new (renderArena()) RootInlineBox(this);
 }
 
-RootInlineBox* RenderBlock::createRootInlineBox()
+RootInlineBox* RenderBlock::createAndAppendRootInlineBox()
 {
-    RootInlineBox* rootBox = createRootBox();
+    RootInlineBox* rootBox = createRootInlineBox();
     m_lineBoxes.appendLineBox(rootBox);
     return rootBox;
 }
@@ -688,6 +692,45 @@ bool RenderBlock::isSelfCollapsingBlock() const
     return false;
 }
 
+void RenderBlock::startDelayUpdateScrollInfo()
+{
+    if (gDelayUpdateScrollInfo == 0) {
+        ASSERT(!gDelayedUpdateScrollInfoSet);
+        gDelayedUpdateScrollInfoSet = new DelayedUpdateScrollInfoSet;
+    }
+    ASSERT(gDelayedUpdateScrollInfoSet);
+    ++gDelayUpdateScrollInfo;
+}
+
+void RenderBlock::finishDelayUpdateScrollInfo()
+{
+    --gDelayUpdateScrollInfo;
+    ASSERT(gDelayUpdateScrollInfo >= 0);
+    if (gDelayUpdateScrollInfo == 0) {
+        ASSERT(gDelayedUpdateScrollInfoSet);
+
+        for (DelayedUpdateScrollInfoSet::iterator it = gDelayedUpdateScrollInfoSet->begin(); it != gDelayedUpdateScrollInfoSet->end(); ++it) {
+            RenderBlock* block = *it;
+            if (block->hasOverflowClip()) {
+                block->layer()->updateScrollInfoAfterLayout();
+            }
+        }
+
+        delete gDelayedUpdateScrollInfoSet;
+        gDelayedUpdateScrollInfoSet = 0;
+    }
+}
+
+void RenderBlock::updateScrollInfoAfterLayout()
+{
+    if (hasOverflowClip()) {
+        if (gDelayUpdateScrollInfo)
+            gDelayedUpdateScrollInfoSet->add(this);
+        else
+            layer()->updateScrollInfoAfterLayout();
+    }
+}
+
 void RenderBlock::layout()
 {
     // Update our first letter info now.
@@ -739,7 +782,7 @@ void RenderBlock::layoutBlock(bool relayoutChildren)
 
     m_overflowHeight = 0;
 
-    // We use four values, maxTopPos, maxPosNeg, maxBottomPos, and maxBottomNeg, to track
+    // We use four values, maxTopPos, maxTopNeg, maxBottomPos, and maxBottomNeg, to track
     // our current maximal positive and negative margins.  These values are used when we
     // are collapsed with adjacent blocks, so for example, if you have block A and B
     // collapsing together, then you'd take the maximal positive margin from both A and B
@@ -844,8 +887,7 @@ void RenderBlock::layoutBlock(bool relayoutChildren)
 
     // Update our scroll information if we're overflow:auto/scroll/hidden now that we know if
     // we overflow or not.
-    if (hasOverflowClip())
-        layer()->updateScrollInfoAfterLayout();
+    updateScrollInfoAfterLayout();
 
     // Repaint with our new bounds if they are different from our old bounds.
     bool didFullRepaint = repainter.repaintAfterLayout();
@@ -934,52 +976,42 @@ void RenderBlock::adjustFloatingBlock(const MarginInfo& marginInfo)
     setHeight(height() - marginOffset);
 }
 
-RenderBox* RenderBlock::handleSpecialChild(RenderBox* child, const MarginInfo& marginInfo, bool& handled)
+bool RenderBlock::handleSpecialChild(RenderBox* child, const MarginInfo& marginInfo)
 {
-    // Handle positioned children first.
-    RenderBox* next = handlePositionedChild(child, marginInfo, handled);
-    if (handled) return next;
-    
-    // Handle floating children next.
-    next = handleFloatingChild(child, marginInfo, handled);
-    if (handled) return next;
-
-    // Finally, see if we have a run-in element.
-    return handleRunInChild(child, handled);
+    // Handle in the given order
+    return handlePositionedChild(child, marginInfo)
+        || handleFloatingChild(child, marginInfo)
+        || handleRunInChild(child);
 }
 
 
-RenderBox* RenderBlock::handlePositionedChild(RenderBox* child, const MarginInfo& marginInfo, bool& handled)
+bool RenderBlock::handlePositionedChild(RenderBox* child, const MarginInfo& marginInfo)
 {
     if (child->isPositioned()) {
-        handled = true;
         child->containingBlock()->insertPositionedObject(child);
         adjustPositionedBlock(child, marginInfo);
-        return child->nextSiblingBox();
+        return true;
     }
-
-    return 0;
+    return false;
 }
 
-RenderBox* RenderBlock::handleFloatingChild(RenderBox* child, const MarginInfo& marginInfo, bool& handled)
+bool RenderBlock::handleFloatingChild(RenderBox* child, const MarginInfo& marginInfo)
 {
     if (child->isFloating()) {
-        handled = true;
         insertFloatingObject(child);
         adjustFloatingBlock(marginInfo);
-        return child->nextSiblingBox();
+        return true;
     }
-    
-    return 0;
+    return false;
 }
 
-RenderBox* RenderBlock::handleRunInChild(RenderBox* child, bool& handled)
+bool RenderBlock::handleRunInChild(RenderBox* child)
 {
     // See if we have a run-in element with inline children.  If the
     // children aren't inline, then just treat the run-in as a normal
     // block.
     if (!child->isRunIn() || !child->childrenInline() && !child->isReplaced())
-        return 0;
+        return false;
 
     RenderBlock* blockRunIn = toRenderBlock(child);
     // Get the next non-positioned/non-floating RenderBlock.
@@ -988,16 +1020,11 @@ RenderBox* RenderBlock::handleRunInChild(RenderBox* child, bool& handled)
         curr = curr->nextSibling();
 
     if (!curr || !curr->isRenderBlock() || !curr->childrenInline() || curr->isRunIn())
-        return 0;
+        return false;
 
     RenderBlock* currBlock = toRenderBlock(curr);
 
-    // The block acts like an inline, so just null out its
-    // position.
-    handled = true;
-    
     // Remove the old child.
-    RenderBox* next = blockRunIn->nextSiblingBox();
     children()->removeChildNode(this, blockRunIn);
 
     // Create an inline.
@@ -1026,7 +1053,10 @@ RenderBox* RenderBlock::handleRunInChild(RenderBox* child, bool& handled)
     // Destroy the block run-in.
     blockRunIn->destroy();
 
-    return next;
+    // The block acts like an inline, so just null out its
+    // position.
+    
+    return true;
 }
 
 int RenderBlock::collapseMargins(RenderBox* child, MarginInfo& marginInfo)
@@ -1311,12 +1341,14 @@ void RenderBlock::layoutBlockChildren(bool relayoutChildren, int& maxFloatBottom
     int previousFloatBottom = 0;
     maxFloatBottom = 0;
 
-    RenderBox* child = firstChildBox();
-    while (child) {
-        if (legend == child) {
-            child = child->nextSiblingBox();
+    RenderBox* next = firstChildBox();
+
+    while (next) {
+        RenderBox* child = next;
+        next = child->nextSiblingBox();
+
+        if (legend == child)
             continue; // Skip the legend, since it has already been positioned up in the fieldset's border.
-        }
 
         int oldTopPosMargin = maxTopPosMargin();
         int oldTopNegMargin = maxTopNegMargin();
@@ -1333,12 +1365,8 @@ void RenderBlock::layoutBlockChildren(bool relayoutChildren, int& maxFloatBottom
 
         // Handle the four types of special elements first.  These include positioned content, floating content, compacts and
         // run-ins.  When we encounter these four types of objects, we don't actually lay them out as normal flow blocks.
-        bool handled = false;
-        RenderBox* next = handleSpecialChild(child, marginInfo, handled);
-        if (handled) {
-            child = next;
+        if (handleSpecialChild(child, marginInfo))
             continue;
-        }
 
         // The child is a normal flow object.  Compute its vertical margins now.
         child->calcVerticalMargins();
@@ -1450,11 +1478,12 @@ void RenderBlock::layoutBlockChildren(bool relayoutChildren, int& maxFloatBottom
                 child->repaintDuringLayoutIfMoved(oldRect);
         }
 
-        if (!childHadLayout && child->checkForRepaintDuringLayout())
+        if (!childHadLayout && child->checkForRepaintDuringLayout()) {
             child->repaint();
+            child->repaintOverhangingFloats(true);
+        }
 
         ASSERT(oldLayoutDelta == view()->layoutDelta());
-        child = child->nextSiblingBox();
     }
 
     // Now do the handling of the bottom of the block, adding in our bottom border/padding and
@@ -1480,8 +1509,7 @@ bool RenderBlock::layoutOnlyPositionedObjects()
 
     statePusher.pop();
 
-    if (hasOverflowClip())
-        layer()->updateScrollInfoAfterLayout();
+    updateScrollInfoAfterLayout();
 
     setNeedsLayout(false);
     return true;
@@ -2436,10 +2464,10 @@ bool RenderBlock::positionNewFloats()
         if (o->style()->floating() == FLEFT) {
             int heightRemainingLeft = 1;
             int heightRemainingRight = 1;
-            int fx = leftRelOffset(y,lo, false, &heightRemainingLeft);
-            while (rightRelOffset(y,ro, false, &heightRemainingRight)-fx < fwidth) {
+            int fx = leftRelOffset(y, lo, false, &heightRemainingLeft);
+            while (rightRelOffset(y, ro, false, &heightRemainingRight)-fx < fwidth) {
                 y += min(heightRemainingLeft, heightRemainingRight);
-                fx = leftRelOffset(y,lo, false, &heightRemainingLeft);
+                fx = leftRelOffset(y, lo, false, &heightRemainingLeft);
             }
             fx = max(0, fx);
             f->m_left = fx;
@@ -2447,8 +2475,8 @@ bool RenderBlock::positionNewFloats()
         } else {
             int heightRemainingLeft = 1;
             int heightRemainingRight = 1;
-            int fx = rightRelOffset(y,ro, false, &heightRemainingRight);
-            while (fx - leftRelOffset(y,lo, false, &heightRemainingLeft) < fwidth) {
+            int fx = rightRelOffset(y, ro, false, &heightRemainingRight);
+            while (fx - leftRelOffset(y, lo, false, &heightRemainingLeft) < fwidth) {
                 y += min(heightRemainingLeft, heightRemainingRight);
                 fx = rightRelOffset(y, ro, false, &heightRemainingRight);
             }
@@ -2473,7 +2501,7 @@ void RenderBlock::newLine(EClear clear)
     positionNewFloats();
     // set y position
     int newY = 0;
-    switch(clear)
+    switch (clear)
     {
         case CLEFT:
             newY = leftBottom();
@@ -2644,12 +2672,12 @@ int
 RenderBlock::floatBottom() const
 {
     if (!m_floatingObjects) return 0;
-    int bottom=0;
+    int bottom = 0;
     FloatingObject* r;
     DeprecatedPtrListIterator<FloatingObject> it(*m_floatingObjects);
     for ( ; (r = it.current()); ++it )
         if (r->m_bottom>bottom)
-            bottom=r->m_bottom;
+            bottom = r->m_bottom;
     return bottom;
 }
 
@@ -2934,12 +2962,12 @@ int
 RenderBlock::leftBottom()
 {
     if (!m_floatingObjects) return 0;
-    int bottom=0;
+    int bottom = 0;
     FloatingObject* r;
     DeprecatedPtrListIterator<FloatingObject> it(*m_floatingObjects);
     for ( ; (r = it.current()); ++it )
         if (r->m_bottom > bottom && r->type() == FloatingObject::FloatLeft)
-            bottom=r->m_bottom;
+            bottom = r->m_bottom;
 
     return bottom;
 }
@@ -2948,12 +2976,12 @@ int
 RenderBlock::rightBottom()
 {
     if (!m_floatingObjects) return 0;
-    int bottom=0;
+    int bottom = 0;
     FloatingObject* r;
     DeprecatedPtrListIterator<FloatingObject> it(*m_floatingObjects);
     for ( ; (r = it.current()); ++it )
         if (r->m_bottom>bottom && r->type() == FloatingObject::FloatRight)
-            bottom=r->m_bottom;
+            bottom = r->m_bottom;
 
     return bottom;
 }
@@ -3261,12 +3289,12 @@ void RenderBlock::addVisualOverflow(const IntRect& r)
     m_overflowHeight = max(m_overflowHeight, r.bottom());
 }
 
-bool RenderBlock::isPointInOverflowControl(HitTestResult& result, int, int, int, int)
+bool RenderBlock::isPointInOverflowControl(HitTestResult& result, int _x, int _y, int _tx, int _ty)
 {
     if (!scrollsOverflow())
         return false;
 
-    return layer()->hitTestOverflowControls(result);
+    return layer()->hitTestOverflowControls(result, IntPoint(_x - _tx, _y - _ty));
 }
 
 bool RenderBlock::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, int _x, int _y, int _tx, int _ty, HitTestAction hitTestAction)
@@ -3915,8 +3943,7 @@ void RenderBlock::calcPrefWidths()
     setPrefWidthsDirty(false);
 }
 
-struct InlineMinMaxIterator
-{
+struct InlineMinMaxIterator {
 /* InlineMinMaxIterator is a class that will iterate over all render objects that contribute to
    inline min/max width calculations.  Note the following about the way it walks:
    (1) Positioned content is skipped (since it does not contribute to min/max width of a block)
@@ -4381,8 +4408,16 @@ void RenderBlock::calcBlockPrefWidths()
 
 bool RenderBlock::hasLineIfEmpty() const
 {
-    return node() && ((node()->isContentEditable() && node()->rootEditableElement() == node()) ||
-            (node()->isShadowNode() && node()->shadowParentNode()->hasTagName(inputTag)));
+    if (!node())
+        return false;
+    
+    if (node()->isContentEditable() && node()->rootEditableElement() == node())
+        return true;
+    
+    if (node()->isShadowNode() && (node()->shadowParentNode()->hasTagName(inputTag) || node()->shadowParentNode()->hasTagName(textareaTag)))
+        return true;
+    
+    return false;
 }
 
 int RenderBlock::lineHeight(bool firstLine, bool isRootLineBox) const

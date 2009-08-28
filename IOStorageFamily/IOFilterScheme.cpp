@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,11 +26,9 @@
 #define super IOStorage
 OSDefineMetaClassAndStructors(IOFilterScheme, IOStorage)
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
+#ifndef __LP64__
 extern IOStorageAttributes gIOStorageAttributesUnsupported;
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#endif /* !__LP64__ */
 
 IOMedia * IOFilterScheme::getProvider() const
 {
@@ -42,8 +40,6 @@ IOMedia * IOFilterScheme::getProvider() const
 
     return (IOMedia *) IOService::getProvider();
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 bool IOFilterScheme::handleOpen(IOService *  client,
                                 IOOptionBits options,
@@ -67,10 +63,8 @@ bool IOFilterScheme::handleOpen(IOService *  client,
     // we make our decision, change our state, and return from this method.
     //
 
-    return getProvider()->open(this, options, (IOStorageAccess) argument);
+    return getProvider()->open(this, options, (uintptr_t) argument);
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 bool IOFilterScheme::handleIsOpen(const IOService * client) const
 {
@@ -87,8 +81,6 @@ bool IOFilterScheme::handleIsOpen(const IOService * client) const
     return getProvider()->isOpen(this);
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 void IOFilterScheme::handleClose(IOService * client, IOOptionBits options)
 {
     //
@@ -102,8 +94,6 @@ void IOFilterScheme::handleClose(IOService * client, IOOptionBits options)
 
     getProvider()->close(this, options);
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 void IOFilterScheme::read(IOService *           client,
                           UInt64                byteStart,
@@ -123,6 +113,7 @@ void IOFilterScheme::read(IOService *           client,
     // as RAID will need to do extra processing here.
     //
 
+#ifndef __LP64__
     if ( IOStorage::_expansionData )
     {
         if ( attributes == &gIOStorageAttributesUnsupported )
@@ -136,11 +127,10 @@ void IOFilterScheme::read(IOService *           client,
             return;
         }
     }
+#endif /* !__LP64__ */
 
     getProvider( )->read( this, byteStart, buffer, attributes, completion );
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 void IOFilterScheme::write(IOService *           client,
                            UInt64                byteStart,
@@ -160,6 +150,7 @@ void IOFilterScheme::write(IOService *           client,
     // as RAID will need to do extra processing here.
     //
 
+#ifndef __LP64__
     if ( IOStorage::_expansionData )
     {
         if ( attributes == &gIOStorageAttributesUnsupported )
@@ -173,11 +164,10 @@ void IOFilterScheme::write(IOService *           client,
             return;
         }
     }
+#endif /* !__LP64__ */
 
     getProvider( )->write( this, byteStart, buffer, attributes, completion );
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IOReturn IOFilterScheme::synchronizeCache(IOService * client)
 {
@@ -187,8 +177,6 @@ IOReturn IOFilterScheme::synchronizeCache(IOService * client)
 
     return getProvider()->synchronizeCache(this);
 }
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IOReturn IOFilterScheme::discard(IOService * client,
                                  UInt64      byteStart,
@@ -202,144 +190,47 @@ IOReturn IOFilterScheme::discard(IOService * client,
     return getProvider( )->discard( this, byteStart, byteCount );
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOFilterScheme,  0);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOFilterScheme,  1);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOFilterScheme,  2);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOFilterScheme,  3);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOFilterScheme,  4);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOFilterScheme,  5);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOFilterScheme,  6);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOFilterScheme,  7);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOFilterScheme,  8);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOFilterScheme,  9);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOFilterScheme, 10);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOFilterScheme, 11);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOFilterScheme, 12);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOFilterScheme, 13);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOFilterScheme, 14);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOFilterScheme, 15);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOFilterScheme, 16);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOFilterScheme, 17);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOFilterScheme, 18);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOFilterScheme, 19);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOFilterScheme, 20);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOFilterScheme, 21);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOFilterScheme, 22);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOFilterScheme, 23);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOFilterScheme, 24);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOFilterScheme, 25);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOFilterScheme, 26);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOFilterScheme, 27);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOFilterScheme, 28);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOFilterScheme, 29);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOFilterScheme, 30);
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 OSMetaClassDefineReservedUnused(IOFilterScheme, 31);
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
+#ifndef __LP64__
 extern "C" void _ZN14IOFilterScheme4readEP9IOServiceyP18IOMemoryDescriptor19IOStorageCompletion( IOFilterScheme * scheme, IOService * client, UInt64 byteStart, IOMemoryDescriptor * buffer, IOStorageCompletion completion )
 {
     scheme->read( client, byteStart, buffer, NULL, &completion );
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 extern "C" void _ZN14IOFilterScheme5writeEP9IOServiceyP18IOMemoryDescriptor19IOStorageCompletion( IOFilterScheme * scheme, IOService * client, UInt64 byteStart, IOMemoryDescriptor * buffer, IOStorageCompletion completion )
 {
     scheme->write( client, byteStart, buffer, NULL, &completion );
 }
+#endif /* !__LP64__ */

@@ -45,27 +45,32 @@ svn_cl__add(apr_getopt_t *os,
   int i;
   apr_pool_t *subpool;
 
-  SVN_ERR(svn_opt_args_to_target_array2(&targets, os, 
-                                        opt_state->targets, pool));
+  SVN_ERR(svn_cl__args_to_target_array_print_reserved(&targets, os,
+                                                      opt_state->targets,
+                                                      ctx, pool));
 
   if (! targets->nelts)
     return svn_error_create(SVN_ERR_CL_INSUFFICIENT_ARGS, 0, NULL);
-      
+
   if (! opt_state->quiet)
     svn_cl__get_notifier(&ctx->notify_func2, &ctx->notify_baton2, FALSE,
                          FALSE, FALSE, pool);
 
+  if (opt_state->depth == svn_depth_unknown)
+    opt_state->depth = svn_depth_infinity;
+
   subpool = svn_pool_create(pool);
   for (i = 0; i < targets->nelts; i++)
     {
-      const char *target = ((const char **) (targets->elts))[i];
+      const char *target = APR_ARRAY_IDX(targets, i, const char *);
 
       svn_pool_clear(subpool);
       SVN_ERR(svn_cl__check_cancel(ctx->cancel_baton));
-      SVN_ERR(svn_cl__try 
-              (svn_client_add3(target, (! opt_state->nonrecursive), 
+      SVN_ERR(svn_cl__try
+              (svn_client_add4(target,
+                               opt_state->depth,
                                opt_state->force, opt_state->no_ignore,
-                               ctx, subpool),
+                               opt_state->parents, ctx, subpool),
                NULL, opt_state->quiet,
                SVN_ERR_ENTRY_EXISTS,
                SVN_ERR_WC_PATH_NOT_FOUND,

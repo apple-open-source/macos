@@ -452,6 +452,7 @@ cmpsaprop_alloc(ph1, pp1, pp2, side)
 		if (newtr == NULL) {
 			plog(LLV_ERROR, LOCATION, NULL,
 				"failed to allocate satrns.\n");
+			racoon_free(newpr);
 			goto err;
 		}
 		newtr->trns_no = tr1->trns_no;
@@ -706,6 +707,7 @@ aproppair2saprop(p0)
 		if (sizeof(newpr->spi) < p->prop->spi_size) {
 			plog(LLV_ERROR, LOCATION, NULL,
 				"invalid spi size %d.\n", p->prop->spi_size);
+			racoon_free(newpr);
 			goto err;
 		}
 
@@ -740,11 +742,15 @@ aproppair2saprop(p0)
 			if (newtr == NULL) {
 				plog(LLV_ERROR, LOCATION, NULL,
 					"failed to allocate satrns.\n");
+				racoon_free(newpr);
 				goto err;
 			}
 
-			if (ipsecdoi_t2satrns(t->trns, newpp, newpr, newtr) < 0) {
+			if (ipsecdoi_t2satrns(t->trns, 
+			    newpp, newpr, newtr) < 0) {
 				flushsaprop(newpp);
+				racoon_free(newtr);
+				racoon_free(newpr);
 				return NULL;
 			}
 
@@ -1047,6 +1053,7 @@ set_proposal_from_policy(iph2, sp_main, sp_sub)
 		if (set_satrnsbysainfo(newpr, iph2->sainfo) < 0) {
 			plog(LLV_ERROR, LOCATION, NULL,
 				"failed to get algorithms.\n");
+			racoon_free(newpr);
 			goto err;
 		}
 
@@ -1077,10 +1084,14 @@ set_proposal_from_policy(iph2, sp_main, sp_sub)
 
 	iph2->proposal = newpp;
 
+    ike_session_update_mode(iph2);
+
 	printsaprop0(LLV_DEBUG, newpp);
 
 	return 0;
 err:
+	if (newpp)
+		flushsaprop(newpp);
 	return -1;
 }
 
@@ -1111,6 +1122,10 @@ set_proposal_from_proposal(iph2)
         for (i = 0; i < MAXPROPPAIRLEN; i++) {
                 if (pair[i] == NULL)
                         continue;
+
+		if (pp_peer != NULL)
+			flushsaprop(pp_peer);
+
 		pp_peer = aproppair2saprop(pair[i]);
 		if (pp_peer == NULL)
 			goto end;
@@ -1138,6 +1153,7 @@ set_proposal_from_proposal(iph2)
 			if (newpr == NULL) {
 				plog(LLV_ERROR, LOCATION, NULL,
 				    "failed to allocate saproto.\n");
+ 				racoon_free(pp0);
 				goto end;
 			}
 			newpr->proto_id = pr->proto_id;
@@ -1147,15 +1163,17 @@ set_proposal_from_proposal(iph2)
 			newpr->spi_p = pr->spi;	/* copy peer's SPI */
 			newpr->reqid_in = 0;
 			newpr->reqid_out = 0;
+
+			if (set_satrnsbysainfo(newpr, iph2->sainfo) < 0) {
+				plog(LLV_ERROR, LOCATION, NULL,
+					"failed to get algorithms.\n");
+ 				racoon_free(newpr);
+ 				racoon_free(pp0);
+				goto end;
+			}
+			inssaproto(pp0, newpr);
 		}
 
-		if (set_satrnsbysainfo(newpr, iph2->sainfo) < 0) {
-			plog(LLV_ERROR, LOCATION, NULL,
-				"failed to get algorithms.\n");
-			goto end;
-		}
-
-		inssaproto(pp0, newpr);
 		inssaprop(&newpp, pp0);
 	}
 
@@ -1163,6 +1181,8 @@ set_proposal_from_proposal(iph2)
 	printsaprop0(LLV_DEBUG, newpp);  
 
 	iph2->proposal = newpp;
+
+	ike_session_update_mode(iph2);
 
 	error = 0;
 
@@ -1172,7 +1192,8 @@ end:
 
 	if (pp_peer)
 		flushsaprop(pp_peer);
-	free_proppair(pair);
+	if (pair)
+		free_proppair(pair);
 	return error;
 }
 

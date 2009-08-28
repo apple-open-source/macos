@@ -13,8 +13,8 @@
 
 <p>This FAQ tries to answer specific questions concerning GCC. For
 general information regarding C, C++, resp. Fortran please check the 
-<a href="http://www.eskimo.com/~scs/C-faq/top.html">comp.lang.c FAQ</a>,
-<a href="http://www.jamesd.demon.co.uk/csc/faq.html">comp.std.c++
+<a href="http://c-faq.com/">comp.lang.c FAQ</a>,
+<a href="http://www.comeaucomputing.com/csc/faq.html">comp.std.c++
 FAQ</a>,
 and the <a href="http://www.fortran.com/fortran/info.html">Fortran
 Information page</a>.</p>
@@ -29,7 +29,6 @@ Information page</a>.</p>
 <ol>
   <li><a href="#general">General information</a>
   <ol>
-     <li><a href="#gcc">What is the relationship between GCC and EGCS?</a></li>
      <li><a href="#open-development">What is an open development model?</a></li>
      <li><a href="#support">How do I get a bug fixed or a feature added?</a></li>
      <li><a href="#platforms">Does GCC work on my platform?</a></li>
@@ -53,11 +52,6 @@ Information page</a>.</p>
     <li><a href="#multipletests">How can I run the test suite with multiple options?</a></li>
   </ol></li>
 
-  <li><a href="#old">Older versions of GCC</a>
-  <ol>
-    <li><a href="#2.95sstream">Is there a stringstream / sstream for GCC 2.95.2?</a></li> 
-  </ol></li>
-
   <li><a href="#misc">Miscellaneous</a>
   <ol>
     <li><a href="#friend">Friend Templates</a></li>
@@ -74,26 +68,6 @@ Information page</a>.</p>
 <a name="general"></a>
 <h1>General information</h1>
 
-<h2><a name="gcc">What is the relationship between GCC and EGCS?</a></h2>
-
-<p>In 1990/1991 gcc version 1 had reached a point of stability.  For the
-targets it could support, it worked well.  It had limitations inherent in
-its design that would be difficult to resolve, so a major effort was made
-to resolve those limitations and gcc version 2 was the result.</p>
-
-<p>When we had gcc2 in a useful state, development efforts on gcc1 stopped
-and we all concentrated on making gcc2 better than gcc1 could ever be.  This
-is the kind of step forward we wanted to make with the EGCS project when it
-was formed in 1997.</p>
-
-<p>In April 1999 the Free Software Foundation officially halted
-development on the gcc2 compiler and appointed the EGCS project as the
-official GCC maintainers. The net result was a single project which
-carries forward GCC development under the ultimate control of the
-<a href="steering.html">GCC Steering Committee</a>.</p>
-
-
-<hr />
 <h2><a name="open-development">What is an open development model?</a></h2>
 
 <p>We are using a bazaar style
@@ -106,9 +80,8 @@ making releases with a much higher frequency than they have been made
 in the past.</p>
 
 <p>In addition to weekly snapshots of the GCC development sources, we
-have the sources readable from a CVS server by anyone.  Furthermore we
-are using remote CVS to allow remote maintainers write access to the
-sources.</p>
+have the sources readable from an SVN server by anyone.  Furthermore we
+are using SVN to allow maintainers write access to the sources.</p>
 
 <p>There have been many potential GCC developers who were not able to
 participate in GCC development in the past.  We want these people to
@@ -177,7 +150,6 @@ disadvantages.</p>
 </ul>
 
 <hr />
-
 <h2><a name="platforms">Does GCC work on my platform?</a></h2>
 
 <p>The host/target specific installation notes for GCC include information
@@ -416,15 +388,6 @@ no additional flags.</p>
 
 <p>This technique is particularly useful on multilibbed targets.</p>
 
-<hr />
-<a name="old"></a>
-<h1>Older versions of GCC and EGCS</h1>
-
-<h2><a name="2.95sstream">Is there a stringstream / sstream for GCC 2.95.2?</a></h2>
-
-<p>Yes, it's at: 
-<a href="http://gcc.gnu.org/ml/libstdc++/2000-q2/msg00700/sstream">
-  http://gcc.gnu.org/ml/libstdc++/2000-q2/msg00700/sstream</a>.</p>
 
 <hr />
 <a name="misc"></a>  
@@ -548,7 +511,7 @@ documentation for a description of the "<code>-E</code>" &amp;
 <h2><a name="generated_files">Why do I need autoconf, bison, xgettext, automake, etc?</a></h2>
 
 <p>If you're using diffs up dated from one snapshot to the next, or
-if you're using the CVS repository, you may need several additional programs
+if you're using the SVN repository, you may need several additional programs
 to build GCC.</p>
 
 <p>These include, but are not necessarily limited to autoconf, automake,
@@ -560,12 +523,10 @@ those generated files are out of date and try to regenerate them.</p>
 
 <p>An easy way to work around this problem is to use the <code>gcc_update
 </code> script in the contrib subdirectory of GCC, which handles this
-transparently without requiring installation of any additional tools.
-(Note: Up to and including GCC 2.95 this script was called <code>egcs_update
-</code>.)</p>
+transparently without requiring installation of any additional tools.</p>
 
 
-<p>When building from diffs or CVS or if you modified some sources,
+<p>When building from diffs or SVN or if you modified some sources,
 you may also need to obtain development versions of some GNU tools, as
 the production versions do not necessarily handle all features needed
 to rebuild GCC.</p>

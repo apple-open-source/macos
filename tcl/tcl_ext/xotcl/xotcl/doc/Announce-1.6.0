@@ -1,0 +1,105 @@
+Dear XOTcl Community,
+
+XOTcl 1.6.0 is available. This release provides in short:
+ - orthogonality improvements for introspection,
+ - more introspection methods (one can now e.g. query, into which
+   classes a mixin class is mixed into) and
+ - performance improvements (some methods are significantly
+   faster. e.g. by a factor of 1000 for larger systems).
+
+In addition, the XOTcl source code follows now closer the Tcl
+source code guidelines (e.g. variable naming), a few potential
+crashes have been fixed.
+
+See below for more details.
+Best regards
+
+-gustaf neumann
+
+Announcing XOTcl 1.6.0
+*************************
+
+We are pleased to announce the availability of XOTcl 1.6.0.
+
+Major changes relative to 1.5.6 are:
+
+   * Provide a uniform interface to the following info subcommands
+
+        <class> info superclass ?-closure? ?pattern?
+        <class> info subclass ?-closure? ?pattern?
+        <class> info instances ?-closure? ?pattern?
+        <class> info instmixin ?-closure? ?pattern?
+
+     The new option "-closure" returns the transitive set of the
+     relation (e.g. .. info subclass -closure) returns the subclasses
+     and the subclasses of the subclasses. For "info instances
+     -closure" the instances of the subclasses are returned as
+     well. For more details, please see the language reference manual.
+    
+     In cases, where a pattern is specified, and the pattern contains
+     meta-characters, a list of results is returned matching the
+     pattern (like "string match"). When no matching value is found,
+     an empty list is returned.
+
+     In cases, where a pattern is specified, and the pattern contains
+     no meta-characters, a single value is returned corresponding to
+     the specified value. The pattern is used to lookup an object or
+     class, such it is not necessary to provide fully qualified
+     names).  if there is no match, empty is returned.  Previously,
+     "info superclass" and "info subclass" returned a boolean value
+     and performed always a transitive search. Returning "" is more
+     consistent and more in line with Tcl.
+
+     Note that "<class> info superclass -closure" is a replacement for
+     "<class> info heritage", and "<class> info instances -closure" 
+     is a replacement for "<class> allinstances". The old commands 
+     will be marked as deprecated in the near future.
+
+     Please note, that the behavior of the match pattern has
+     changed and is therefor not completely compatible with 
+     prior versions.
+
+   * New info subcommands:
+
+        <class> info instmixinof ?-closure? ?pattern?
+        <class> info mixinof ?pattern?
+
+   These info subcommands are used to determine, into
+   which classes a mixin class was mixed into.
+
+   These inverse functions of mixin and instmixin are used as well
+   internally. These functions help to speed certain operations
+   (e.g. superclass, or registering a mixin class) up by a factor of
+   1000 (!)  or more, when a large number of objects exist.
+
+   This functionality was primarily implemented by Martin Matuska.
+   Many thanks!
+
+  * Made the behavior "pattern" in the following calls identical
+    concerning wild cards and object lookups
+
+        <object> mixin delete pattern
+        <class> instmixin delete pattern
+        <class> superclass delete pattern
+        <object> info mixin ?pattern?
+
+   * Fix to preserve var traces when copying objects
+      (Many thanks to Florian Murr for reporting)
+
+   * Fix problem in Tcl 8.5.* when setting variables
+      from C (problem with Tcl_ObjSetVar2()?); many
+      thanks to Florian Murr and Neophytos Demetriou
+      for reporting)
+
+   * Improved documentation
+
+   * Extended regression tests
+
+
+ For more details about the changes, please consult the ChangeLog and
+ documentation.
+
+MORE INFO
+  General and more detailed information about XOTcl and its components
+  can be found at http://www.xotcl.org
+

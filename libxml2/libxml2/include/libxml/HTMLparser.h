@@ -106,6 +106,9 @@ XMLPUBFUN void XMLCALL
 			htmlParseElement(htmlParserCtxtPtr ctxt);
 
 XMLPUBFUN htmlParserCtxtPtr XMLCALL	
+			htmlNewParserCtxt(void);
+
+XMLPUBFUN htmlParserCtxtPtr XMLCALL	
 			htmlCreateMemoryParserCtxt(const char *buffer,
 						   int size);
 
@@ -173,11 +176,13 @@ XMLPUBFUN void XMLCALL
  * to the xmlReadDoc() and similar calls.
  */
 typedef enum {
+    HTML_PARSE_RECOVER  = 1<<0, /* Relaxed parsing */
     HTML_PARSE_NOERROR	= 1<<5,	/* suppress error reports */
     HTML_PARSE_NOWARNING= 1<<6,	/* suppress warning reports */
     HTML_PARSE_PEDANTIC	= 1<<7,	/* pedantic error reporting */
     HTML_PARSE_NOBLANKS	= 1<<8,	/* remove blank nodes */
-    HTML_PARSE_NONET	= 1<<11 /* Forbid network access */
+    HTML_PARSE_NONET	= 1<<11,/* Forbid network access */
+    HTML_PARSE_COMPACT  = 1<<16 /* compact small text nodes */
 } htmlParserOption;
 
 XMLPUBFUN void XMLCALL

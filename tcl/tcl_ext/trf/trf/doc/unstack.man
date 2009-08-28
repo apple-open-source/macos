@@ -1,0 +1,26 @@
+[include common/trf_version.inc]
+[manpage_begin unstack n [vset trf_version]]
+[titledesc "Unstacking channels"]
+[include common/trf_header.inc]
+[description]
+
+The command [cmd unstack] is an interface to the public Tcl API
+function [syscmd TclUnstackChannel]. It unstacks the topmost
+transformation from the specified channel if there is any.
+
+[para]
+
+[list_begin definitions]
+[call [cmd unstack] [arg channel]]
+
+Removes the topmost transformation from the specified
+
+[arg channel]. If the [arg channel] has no transformation associated
+with it it will be closed. In other words, in this situation the
+command is equivalent to [cmd close].
+
+[list_end]
+
+[see_also trf-intro]
+[keywords transformation unstacking removal]
+[manpage_end]

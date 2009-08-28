@@ -1,11 +1,12 @@
 #
 # Autoconf input file.
 #
-# Version:	$Id: configure.in,v 1.2.4.1 2006/05/21 16:18:04 nbk Exp $
+# Version:	$Id$
 #
 
+AC_PREREQ([2.53])
 AC_INIT(rlm_eap_peap.c)
-AC_REVISION($Revision: 1.2.4.1 $)
+AC_REVISION($Revision$)
 AC_DEFUN(modname,[rlm_eap_peap])
 
 fail=

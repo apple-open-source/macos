@@ -51,7 +51,6 @@
 #include <fcntl.h>
 #include <syslog.h>
 #include <netdb.h>
-#include <utmp.h>
 #include <pwd.h>
 #include <setjmp.h>
 #include <sys/param.h>
@@ -128,8 +127,10 @@ int pptp_send(int fd, u_int16_t msg, void *req, u_int16_t reqlen, char *text)
             error("PPTP error when sending %s : %m\n", text);
             return -1;
         }
-        if (kill_link)
+        if (kill_link) {
+            error("PPTP kill_link when sending\n");
             return -2;
+        }
         if (n > 0)
             sent += n;
     }
@@ -149,12 +150,16 @@ readn(int ref, void *data, int len)
         if ((n = read(ref, p, left)) < 0) {
             if (errno == EWOULDBLOCK) 
                 return (len - left);
-            if (errno != EINTR) 
+            if (errno != EINTR) {
+                error("PPTP error when reading socket : %m\n");
                 return -1;
+            }
             n = 0;
         }
-        else if (n == 0)
+        else if (n == 0) {
+            error("PPTP error when reading socket : EOF\n");
             return -1; /* EOF */
+        }
             
         left -= n;
         p += n;
@@ -303,7 +308,7 @@ int pptp_incoming_call(int fd,
     ctl_reply.max_channels = htons(1);
     ctl_reply.firmware_rev = htons(1);
     gethostname(ctl_reply.hostname, 64);
-    strcpy(ctl_reply.vendor, PPTP_VENDOR);
+    strlcpy(ctl_reply.vendor, PPTP_VENDOR, sizeof(ctl_reply.vendor));
     if (pptp_send(fd, PPTP_START_CONTROL_CONNECTION_REPLY, &ctl_reply, sizeof(ctl_reply), "start_control_connection_reply"))
         return -1;
 
@@ -361,16 +366,16 @@ int pptp_data_in(int fd)
     struct pptp_set_link_info 	info_req;
     int				err;
     
-    if ((err = read(fd, &header, sizeof(header))) != sizeof(header)) {
+    if ((err = readn(fd, &header, sizeof(header))) != sizeof(header)) {
+        error("PPTP error when reading header : read %d, expected %d bytes\n", err, sizeof(header));
         return -1;
     }
         
     switch (ntohs(header.ctrl_msgtype)) {
         case PPTP_ECHO_REQUEST:
             // read the identifier
-            if ((err = read(fd, &echo_req, sizeof(echo_req))) != sizeof(echo_req)) {
-                if (err == -1) 
-                    error("PPTP error when reading echo request : %m\n");
+            if ((err = readn(fd, &echo_req, sizeof(echo_req))) != sizeof(echo_req)) {
+                error("PPTP error when reading echo request : read %d, expected %d bytes\n", err, sizeof(echo_req));
                 return -1;
             }
             bzero(&echo_reply, sizeof(echo_reply));
@@ -384,9 +389,8 @@ int pptp_data_in(int fd)
             
         case PPTP_ECHO_REPLY:
             // read the identifier
-            if ((err = read(fd, &echo_reply, sizeof(echo_reply))) != sizeof(echo_reply)) {
-                if (err == -1) 
-                    error("PPTP error when reading echo echo_reply : %m\n");
+            if ((err = readn(fd, &echo_reply, sizeof(echo_reply))) != sizeof(echo_reply)) {
+                error("PPTP error when reading echo echo_reply : read %d, expected %d bytes\n", err, sizeof(echo_reply));
                 return -1;
             }
             pptp_received_echo_reply(ntohl(echo_reply.identifier), echo_reply.result_code, echo_reply.error_code);
@@ -394,9 +398,8 @@ int pptp_data_in(int fd)
             
         case PPTP_SET_LINK_INFO:
             // ignore
-            if ((err = read(fd, &info_req, sizeof(info_req))) != sizeof(info_req)) {
-                if (err == -1) 
-                    error("PPTP error when reading set_info_link request : %m\n");
+            if ((err = readn(fd, &info_req, sizeof(info_req))) != sizeof(info_req)) {
+                error("PPTP error when reading set_info_link request : read %d, expected %d bytes\n", err, sizeof(info_req));
                 return -1;
             }                
             break;

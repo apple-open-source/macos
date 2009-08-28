@@ -18,6 +18,7 @@
 		<string>3681071</string>
 		<string>Install HTML instead of texinfo.</string>
 		<string>Fedora patches grep-2.5-i18n.patch grep-2.5.1-bracket.patch grep-2.5.1-fgrep.patch</string>
+		<string>Handle NULL return from memchr</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>GPL</string>

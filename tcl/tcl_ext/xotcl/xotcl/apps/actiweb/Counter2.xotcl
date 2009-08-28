@@ -1,0 +1,65 @@
+#!../../src/xotclsh
+# $Id: Counter2.xotcl,v 1.3 2005/09/09 21:09:01 neumann Exp $
+array set opts {-pkgdir .}; array set opts $argv
+lappend auto_path $opts(-pkgdir)
+
+package require XOTcl; namespace import -force xotcl::*
+
+package require xotcl::actiweb::htmlPlace
+package require xotcl::actiweb::pageTemplate
+
+HtmlPlace ::receiver -port 8091 -allowExit exit
+
+###
+### The counter class is an agent implementing the business logic
+###
+Class Counter -superclass Agent -parameter {{count 1}}
+
+Counter instproc init args {         ;### Constructor
+  next                               ;### Call superclass constructor
+  my persistent count            ;### make count variable persistent
+}
+Counter instproc increment {} {      ;### increment method
+  my incr count
+}
+### Create two counter instances c1/c2
+Counter c1
+Counter c2
+
+###
+### Define a specialization of web object as a facade to the counters
+### The Page Template Mixin defines the HTML appearance
+###
+
+### Define an HTML Page Template
+Class WebCounter -superclass WebObject \
+  -instmixin PageTemplateHtml -parameter {counter}
+
+WebCounter instproc init args {
+  next
+  [my set place] exportObjs [self]  ;### export the web counter object
+  my exportProcs increment          ;### export counter's increment method
+}
+WebCounter instproc increment {} {  ;### A method that decorates increment with HTML appearence
+  my instvar counter                ;### import var that stores shielded web agent
+  $counter [self proc]              ;### call the actual method on the web agent
+  my default                       ;### update HTML page
+}
+WebCounter instproc default {} {   ;### Method for updating HTML page
+  my instvar count counter          ;### importiere var that stores shielded web agent
+  $counter instvar count            ;### importiere  count var
+  #
+  # and create web-page with counter content
+  # 
+  my simplePage [self] "Html-Facade for $counter using a page template" \
+      "The value in $counter is $count.<p>
+ 	<A HREF='[my selfAction increment]'>Increment Counter</a><p>"
+}
+#
+# create two web-facade instances; one for each counter
+#
+WebCounter web-c1 -counter c1
+WebCounter web-c2 -counter c2
+
+### Start event loop and handle connections
+receiver startEventLoop 

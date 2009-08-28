@@ -2,10 +2,10 @@
 #
 # MKlib_gen.sh -- generate sources from curses.h macro definitions
 #
-# ($Id: MKlib_gen.sh,v 1.24 2005/06/11 19:26:05 tom Exp $)
+# ($Id: MKlib_gen.sh,v 1.34 2008/08/30 19:20:50 tom Exp $)
 #
 ##############################################################################
-# Copyright (c) 1998-2004,2005 Free Software Foundation, Inc.                #
+# Copyright (c) 1998-2007,2008 Free Software Foundation, Inc.                #
 #                                                                            #
 # Permission is hereby granted, free of charge, to any person obtaining a    #
 # copy of this software and associated documentation files (the "Software"), #
@@ -62,7 +62,7 @@ if test "${LC_MESSAGES+set}" = set; then LC_MESSAGES=C; export LC_MESSAGES; fi
 if test "${LC_CTYPE+set}"    = set; then LC_CTYPE=C;    export LC_CTYPE;    fi
 if test "${LC_COLLATE+set}"  = set; then LC_COLLATE=C;  export LC_COLLATE;  fi
 
-preprocessor="$1 -I../include"
+preprocessor="$1 -DNCURSES_INTERNALS -I../include"
 AWK="$2"
 USE="$3"
 
@@ -152,7 +152,7 @@ cat >$ED3 <<EOF3
 	s/ )/)/g
 	s/ gen_/ /
 	s/^M_/#undef /
-	s/^[ 	]*%[ 	]*%[ 	]*/	/
+	s/^[ 	]*@[ 	]*@[ 	]*/	/
 :done
 EOF3
 
@@ -252,7 +252,7 @@ $0 !~ /^P_/ {
 		dotrace = 0;
 	}
 
-	call = "%%T((T_CALLED(\""
+	call = "@@T((T_CALLED(\""
 	args = ""
 	comma = ""
 	num = 0;
@@ -338,7 +338,7 @@ $0 !~ /^P_/ {
 	else if (dotrace)
 		call = sprintf("return%s( ", returnType);
 	else
-		call = "%%return ";
+		call = "@@return ";
 
 	call = call $myfunc "(";
 	for (i = 1; i < argcount; i++) {
@@ -358,7 +358,7 @@ $0 !~ /^P_/ {
 	print call ";"
 
 	if (match($0, "^void"))
-		print "%%returnVoid;"
+		print "@@returnVoid;"
 	print "}";
 }
 EOF1
@@ -380,6 +380,7 @@ BEGIN		{
 			print " * pull most of the rest of the library into your link image."
 		}
 		print " */"
+		print "#define NCURSES_ATTR_T int"
 		print "#include <curses.priv.h>"
 		print ""
 		}
@@ -394,6 +395,8 @@ EOF1
 
 cat >$TMP <<EOF
 #include <ncurses_cfg.h>
+#undef NCURSES_NOMACROS
+#define NCURSES_OPAQUE 0
 #include <curses.h>
 
 DECLARATIONS
@@ -404,13 +407,24 @@ sed -n -f $ED1 \
 | sed -e 's/NCURSES_EXPORT(\(.*\)) \(.*\) (\(.*\))/\1 \2(\3)/' \
 | sed -f $ED2 \
 | $AWK -f $AW1 using=$USE \
-| sed -e 's/^\([a-z_][a-z_]*[ *]*\)/\1 gen_/' -e 's/  / /g' >>$TMP
+| sed \
+	-e 's/ [ ]*$//g' \
+	-e 's/^\([a-zA-Z_][a-zA-Z_]*[ *]*\)/\1 gen_/' \
+	-e 's/gen_$//' \
+	-e 's/  / /g' >>$TMP
 
 $preprocessor $TMP 2>/dev/null \
-| sed -e 's/  / /g' -e 's/^ //' \
+| sed \
+	-e 's/  / /g' \
+	-e 's/^ //' \
+	-e 's/_Bool/NCURSES_BOOL/g' \
 | $AWK -f $AW2 \
 | sed -f $ED3 \
 | sed \
 	-e 's/^.*T_CALLED.*returnCode( \([a-z].*) \));/	return \1;/' \
 	-e 's/^.*T_CALLED.*returnCode( \((wmove.*) \));/	return \1;/' \
+	-e 's/gen_//' \
+	-e 's/^[ 	]*#/#/' \
+	-e '/#ident/d' \
+	-e '/#line/d' \
 | sed -f $ED4

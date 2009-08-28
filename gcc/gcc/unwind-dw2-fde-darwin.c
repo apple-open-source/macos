@@ -14,8 +14,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 /* As a special exception, if you link this library with other files,
    some of which are compiled with GCC, to produce an executable,
@@ -27,6 +27,7 @@
 /* Locate the FDE entry for a given address, using Darwin's keymgr support.  */
 
 #include "tconfig.h"
+#include "tsystem.h"
 #include <string.h>
 #include <stdlib.h>
 #include "dwarf2.h"
@@ -59,9 +60,9 @@ extern void _keymgr_unlock_processwide_ptr (int);
 struct mach_header;
 struct mach_header_64;
 extern char *getsectdatafromheader (struct mach_header*, const char*,
-			const char *, unsigned long *);
-extern char *getsectdatafromheader_64 (struct mach_header*, const char*,
-			const char *, unsigned long *);
+				    const char *, unsigned long *);
+extern char *getsectdatafromheader_64 (struct mach_header_64*, const char*,
+				       const char *, unsigned long *);
 
 /* This is referenced from KEYMGR_GCC3_DW2_OBJ_LIST.  */
 struct km_object_info {
@@ -151,7 +152,6 @@ examine_objects (void *pc, struct dwarf_eh_bases *bases, int dont_alloc)
   for (; image != NULL; image = image->next)
     if ((image->examined_p & EXAMINED_IMAGE_MASK) == 0)
       {
-	/* APPLE LOCAL begin mainline */
 	char *fde = NULL;
 	unsigned long sz;
 
@@ -169,7 +169,6 @@ examine_objects (void *pc, struct dwarf_eh_bases *bases, int dont_alloc)
 	    fde = getsectdatafromheader (image->mh, "__TEXT",
 					 "__eh_frame", &sz);
 #endif
-	    /* APPLE LOCAL end mainline */
 	    if (fde != NULL)
 	      image->examined_p |= IMAGE_IS_TEXT_MASK;
 	  }
@@ -220,6 +219,7 @@ examine_objects (void *pc, struct dwarf_eh_bases *bases, int dont_alloc)
 	    if (result)
 	      {
 		int encoding;
+		_Unwind_Ptr func;
 
 		bases->tbase = ob->tbase;
 		bases->dbase = ob->dbase;
@@ -229,8 +229,8 @@ examine_objects (void *pc, struct dwarf_eh_bases *bases, int dont_alloc)
 		  encoding = get_fde_encoding (result);
 		read_encoded_value_with_base (encoding,
 					      base_from_object (encoding, ob),
-					      result->pc_begin,
-					      (_Unwind_Ptr *)&bases->func);
+					      result->pc_begin, &func);
+		bases->func = (void *) func;
 		break;
 	      }
 	  }

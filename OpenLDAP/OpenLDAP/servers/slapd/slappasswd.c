@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/slappasswd.c,v 1.2.4.3 2006/01/03 22:16:16 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/slappasswd.c,v 1.5.2.5 2008/02/11 23:26:44 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * Portions Copyright 1998-2003 Kurt D. Zeilenga.
  * All rights reserved.
  *
@@ -32,10 +32,12 @@
 #include <ac/unistd.h>
 
 #include <ldap.h>
+#include <lber_pvt.h>
 #include <lutil.h>
 #include <lutil_sha1.h>
 
 #include "ldap_defaults.h"
+#include "slap.h"
 
 static int	verbose = 0;
 
@@ -44,9 +46,11 @@ usage(const char *s)
 {
 	fprintf(stderr,
 		"Usage: %s [options]\n"
-		"  -h hash\tpassword scheme\n"
-		"  -s secret\tnew password\n"
 		"  -c format\tcrypt(3) salt format\n"
+		"  -g\t\tgenerate random password\n"
+		"  -h hash\tpassword scheme\n"
+		"  -n\t\tomit trailing newline\n"
+		"  -s secret\tnew password\n"
 		"  -u\t\tgenerate RFC2307 values (default)\n"
 		"  -v\t\tincrease verbosity\n"
 		"  -T file\tread file for new password\n"
@@ -59,10 +63,11 @@ int
 slappasswd( int argc, char *argv[] )
 {
 #ifdef LUTIL_SHA1_BYTES
-	char	*scheme = "{SSHA}";
+	char	*default_scheme = "{SSHA}";
 #else
-	char	*scheme = "{SMD5}";
+	char	*default_scheme = "{SMD5}";
 #endif
+	char	*scheme = default_scheme;
 
 	char	*newpw = NULL;
 	char	*pwfile = NULL;
@@ -70,11 +75,12 @@ slappasswd( int argc, char *argv[] )
 	const char *progname = "slappasswd";
 
 	int		i;
-	struct berval passwd;
+	char		*newline = "\n";
+	struct berval passwd = BER_BVNULL;
 	struct berval hash;
 
 	while( (i = getopt( argc, argv,
-		"c:d:h:s:T:vu" )) != EOF )
+		"c:d:gh:ns:T:vu" )) != EOF )
 	{
 		switch (i) {
 		case 'c':	/* crypt salt format */
@@ -82,21 +88,64 @@ slappasswd( int argc, char *argv[] )
 			lutil_salt_format( optarg );
 			break;
 
+		case 'g':	/* new password (generate) */
+			if ( pwfile != NULL ) {
+				fprintf( stderr, "Option -g incompatible with -T\n" );
+				return EXIT_FAILURE;
+
+			} else if ( newpw != NULL ) {
+				fprintf( stderr, "New password already provided\n" );
+				return EXIT_FAILURE;
+
+			} else if ( lutil_passwd_generate( &passwd, 8 )) {
+				fprintf( stderr, "Password generation failed\n" );
+				return EXIT_FAILURE;
+			}
+			break;
+
 		case 'h':	/* scheme */
-			scheme = strdup( optarg );
+			if ( scheme != default_scheme ) {
+				fprintf( stderr, "Scheme already provided\n" );
+				return EXIT_FAILURE;
+
+			} else {
+				scheme = ch_strdup( optarg );
+			}
+			break;
+
+		case 'n':
+			newline = "";
 			break;
 
 		case 's':	/* new password (secret) */
-			{
+			if ( pwfile != NULL ) {
+				fprintf( stderr, "Option -s incompatible with -T\n" );
+				return EXIT_FAILURE;
+
+			} else if ( newpw != NULL ) {
+				fprintf( stderr, "New password already provided\n" );
+				return EXIT_FAILURE;
+
+			} else {
 				char* p;
-				newpw = strdup( optarg );
+				newpw = ch_strdup( optarg );
 
 				for( p = optarg; *p != '\0'; p++ ) {
 					*p = '\0';
 				}
-			} break;
+			}
+			break;
 
 		case 'T':	/* password file */
+			if ( pwfile != NULL ) {
+				fprintf( stderr, "Password file already provided\n" );
+				return EXIT_FAILURE;
+
+			} else if ( newpw != NULL ) {
+				fprintf( stderr, "Option -T incompatible with -s/-g\n" );
+				return EXIT_FAILURE;
+
+			}
 			pwfile = optarg;
 			break;
 
@@ -120,11 +169,11 @@ slappasswd( int argc, char *argv[] )
 		if( lutil_get_filed_password( pwfile, &passwd )) {
 			return EXIT_FAILURE;
 		}
-	} else {
+	} else if ( BER_BVISEMPTY( &passwd )) {
 		if( newpw == NULL ) {
 			/* prompt for new password */
 			char *cknewpw;
-			newpw = strdup(getpassphrase("New password: "));
+			newpw = ch_strdup(getpassphrase("New password: "));
 			cknewpw = getpassphrase("Re-enter new password: ");
 	
 			if( strcmp( newpw, cknewpw )) {
@@ -135,6 +184,9 @@ slappasswd( int argc, char *argv[] )
 
 		passwd.bv_val = newpw;
 		passwd.bv_len = strlen(passwd.bv_val);
+	} else {
+		hash = passwd;
+		goto print_pw;
 	}
 
 	lutil_passwd_hash( &passwd, scheme, &hash, &text );
@@ -151,6 +203,7 @@ slappasswd( int argc, char *argv[] )
 		return EXIT_FAILURE;
 	}
 
-	printf( "%s\n" , hash.bv_val );
+print_pw:;
+	printf( "%s%s" , hash.bv_val, newline );
 	return EXIT_SUCCESS;
 }

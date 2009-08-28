@@ -499,7 +499,7 @@ void copyCssmHeader(
 }
 
 /*
- * Given a wrapped key, infer its raw format.
+ * Given a wrapped key, infer its raw format for custom Apple unwrapping. 
  * This is a real kludge; it only works as long as each the key's
  * default format is used to generate the blob to be wrapped. 
  */
@@ -518,7 +518,11 @@ CSSM_KEYBLOB_FORMAT inferFormat(
 				#ifdef	CRYPTKIT_CSP_ENABLE
 				case CSSM_ALGID_FEE:
 					return FEE_KEYBLOB_DEFAULT_FORMAT;
+				case CSSM_ALGID_ECDSA:
+					return CSSM_KEYBLOB_RAW_FORMAT_X509;
 				#endif
+				case CSSM_ALGID_DH:
+					return CSSM_KEYBLOB_RAW_FORMAT_PKCS3;
 				default:
 					/* punt */
 					return CSSM_KEYBLOB_RAW_FORMAT_NONE;
@@ -532,7 +536,11 @@ CSSM_KEYBLOB_FORMAT inferFormat(
 				#ifdef	CRYPTKIT_CSP_ENABLE
 				case CSSM_ALGID_FEE:
 					return FEE_KEYBLOB_DEFAULT_FORMAT;
+				case CSSM_ALGID_ECDSA:
+					return CSSM_KEYBLOB_RAW_FORMAT_OPENSSL;
 				#endif
+				case CSSM_ALGID_DH:
+					return CSSM_KEYBLOB_RAW_FORMAT_PKCS3;
 				default:
 					/* punt */
 					return CSSM_KEYBLOB_RAW_FORMAT_NONE;

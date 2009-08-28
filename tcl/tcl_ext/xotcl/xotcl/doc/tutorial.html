@@ -1,0 +1,4818 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<!-- $Id: tutorial.html,v 1.20 2007/09/05 19:09:22 neumann Exp $ -->
+<HTML>
+<HEAD>
+	<TITLE>XOTcl - Tutorial</TITLE>
+	<META NAME="AUTHOR" CONTENT="Gustaf Neumann and Uwe Zdun">
+	<META NAME="DOCNUMBER" CONTENT="1.6.0">
+	<META NAME="CHANGEDBY" CONTENT="Gustaf Neumann">
+<STYLE>
+BODY	{
+    	font-family: Verdana, Arial, Helvetica, sans-serif;
+    	font-weight: normal;
+	background-color : white;
+	color: black;
+}
+tt {
+    	font-family: courier, monospace;
+}
+pre.code {
+    	font-family: courier, monospace;
+	PADDING-RIGHT: 10px;
+	PADDING-LEFT: 10px;
+	PADDING-BOTTOM: 10px;
+	PADDING-TOP: 10px;
+	BORDER: #cccccc 1px solid;
+	BACKGROUND-COLOR: #FFFFF4;
+	MARGIN-BOTTOM: 15px;
+}
+pre em {
+    	/*font-family: cursive;*/
+	color: #888888;
+}
+pre tt {
+    	font-family: helvetica;
+    	font-weight: 900;
+}
+pre it {
+    	font-style: italic;
+	color: green;
+}
+tt em {
+    	font-family: cursive;
+	color: #888888;
+}
+table {
+      font-size: 80%;
+}
+</STYLE>
+</HEAD>
+<BODY BGCOLOR="#ffffff">
+<TABLE COLS=2 WIDTH=100% BORDER=0 CELLPADDING=2 CELLSPACING=0 BGCOLOR="#000055" STYLE="page-break-before: always">
+	<TR>
+		<TD WIDTH=75%>
+			<P><FONT COLOR="#ffffff"><FONT FACE="Arial, Helvetica"><FONT SIZE=6>XOTcl
+			- Tutorial - Index </FONT></FONT></FONT>
+			</P>
+		</TD>
+		<TD>
+			<IMG SRC="logo-100.jpg" NAME="Graphic1" ALIGN=RIGHT WIDTH=102 HEIGHT=42 BORDER=0></TD>
+	</TR>
+</TABLE>
+<p align=right>Version: 1.5.5</p>
+
+<UL>
+	<LI>
+	<P STYLE="margin-bottom: 0in">
+	  <A HREF="#introduction">Introduction</A>
+	
+	<UL>
+		<LI><A HREF="#langOverview">Language Overview</A>
+                <LI><A HREF="#soccerClub"> Introductory Overview Example: Soccer Club</A>
+        </UL>
+	</P>
+	<P STYLE="margin-bottom: 0in">
+	<LI><A HREF="#object_class_system">Object and Class System </A>
+	</P>
+	<LI><A HREF="#basic">Basic Functionalities</A> 
+	<P STYLE="margin-bottom: 0in">
+	<UL>
+		<LI><A HREF="#object">Objects </A>
+		<UL>
+			<LI><A HREF="#data_on_obj">Data on Objects </A>
+			<LI><A HREF="#obj_methods">Methods for Objects</A> 
+			<LI><A HREF="#obj_info">Information about Objects</A> 
+		</UL>
+		<LI><P STYLE="margin-bottom: 0in"><A HREF="#classes">Classes </A>
+		<UL>
+			<LI><A HREF="#class_instance">Creating Classes and Deriving
+		  Instances</A> 
+			<LI><A HREF="#class_methods">Methods Defined in Classes</A> 
+			<LI><A HREF="#class_info">Information about Classes</A> 
+			<LI><A HREF="#class_inheritance">Inheritance</A>
+			<LI><A HREF="#class_destroy">Destruction of Classes</A> 
+			<LI><A HREF="#class_method_chaining">Method Chaining</A> 
+		</UL>
+		</P>
+		<LI><A HREF="#class_dynamics">Dynamic Class and Superclass 
+	      Relationships</A> 
+		<LI><A HREF="#meta-classes">Meta-Classes</A>
+                <LI><A HREF="#destroy-logic">Create, Destroy, and Recreate Methods</A>
+	        <LI><A HREF="#non-pos-args">Methods with Non-Positional Arguments</A>
+	</UL>
+        </P>
+	<LI><P STYLE="margin-bottom: 0in"><A HREF="#interceptors">Message
+Interception Techniques</A>
+
+        <UL>
+                <LI><A HREF="#filter">Filter</A> 
+                <LI><A HREF="#mixins">Mixin Classes</A> 
+                <LI><A HREF="#precedence order">Precedence Order</A>
+	        <LI><A HREF="#guards">Guards for Filters and Mixins</A>
+                <LI><A HREF="#updateinterceptors">Querying, Setting, Altering Filter and Mixin Lists</A>
+	        <LI><A HREF="#callstack_info">Querying Call-stack Information</A> 
+        </UL>
+      </P>
+      <LI><A HREF="#slots">Slots</A>
+	<UL>
+	  <LI><A HREF="#system-slots">System Slots</A>
+	  <LI><A HREF="#attribute-slots">Attribute Slots</A>
+          <LI><A HREF="#setter">Setter and Getter Methods for Slots</A>
+          <LI><A HREF="#parameter">Backward-compatible Short-Hand Notation
+          for Attribute Slots</A>
+          <LI><A HREF="#slot-experimental">Experimental Slot Features</A>
+          <UL>
+            <LI><A HREF="#value-checking">Value Checking</A>
+            <LI><A HREF="#trace-commands">Init Commands and Value Commands for Slot Values</A>
+          </UL>
+	</UL>
+	<P>
+    
+        <LI><A HREF="#nesting">Nested Classes and Dynamic Object Aggregations</A>
+        <UL>
+          <LI><A href="#nested-classes">Nested Classes</A>
+          <LI><A href="#obj-agg">Dynamic Object Aggregations</A>
+          <LI><A href="#nest-agg">Relationship between Class Nesting
+          and Object Aggregation </A>
+          <LI><A href="#contains">Simplified Syntax for Creating
+          Nested Object Structures</A>
+          <LI><A href="#copy-move">Copy/Move</A>
+        </UL>
+        <p>
+        
+        <LI><A HREF="#forwarding">Method Forwarding</A>
+        
+        <LI><A HREF="#assertions">Assertions</A>
+	<LI><P STYLE="margin-bottom: 0in">
+	  <A HREF="#additional-functionalities">Additional Functionalities</A> 
+	<UL>
+		<LI><A HREF="#abstract-classes">Abstract Classes</A> 
+                <LI><A HREF="#autonames">Automatic Name Creation</A> 
+                <LI><A HREF="#meta-data">Meta-Data</A>
+	</UL>
+	</P>
+        <LI><A HREF="#cext">Integrating XOTcl 
+	    Programs with C Extensions (such as Tk)</A> 
+        <LI><A HREF="#references">References</A> 
+</UL>
+
+<!-- PAGE BREAK -->
+
+<TABLE COLS=2 WIDTH=100% BORDER=0 CELLPADDING=2 CELLSPACING=0 BGCOLOR="#000055">
+	<TR>
+		<TD WIDTH=75%>
+			<P><A NAME="introduction"></A><FONT COLOR="#ffffff"><FONT FACE="Arial, Helvetica"><FONT SIZE=6>Introduction
+			</FONT></FONT></FONT>
+			</P>
+		</TD>
+		<TD>
+			<IMG SRC="logo-100.jpg" NAME="Graphic2" ALIGN=RIGHT WIDTH=102 HEIGHT=42 BORDER=0></TD>
+	</TR>
+</TABLE>
+
+
+<H2><A NAME="langOverview"></A>&#160;<BR>Language Overview
+</H2>
+
+<P>XOTcl <a href="#xotcl">[Neumann and Zdun 2000a]</a> is an extension
+to the object-oriented scripting language OTcl <a
+href="#otcl">[Wetherall and Lindblad 1995]</a> which itself extends
+Tcl <a href="#tcl">[Ousterhout 1990]</a> (Tool Command Language) with
+object-orientation. XOTcl is a value-added replacement for OTcl and
+does not require OTcl to compile.</P>
+
+<P>XOTcl runs in the <tt>tclsh</tt> and provides a few extension
+commands. These are offered in a Tcl namespace <tt>::xotcl</tt>, and
+can be imported into the current namespace to reduce typing and
+improve readability. All Tcl commands remain available (and are also
+applicable on the extension constructs).  </P>
+
+<P>A central property of Tcl is, that it uses strings solely for the
+representation of data. Internally it uses an dynamic type system with
+automatic conversion (which enables efficient type handling).  For
+that reason all components (e.g. written in C) once integrated in Tcl
+automatically fit together and the components can be reused in
+unpredicted situations without change. The evolving <EM>component
+frameworks</EM> provide a high degree of code reuse, rapid
+application development, and ease of use. The application developer
+may concentrate on the application task solely, rather than investing
+efforts in fitting components together.  Therefore, in certain
+applications scripting languages like Tcl are very useful for a fast
+and high-quality development of software (see <a
+href="#ousterhout">[Ousterhout 1998]</a> for more details).
+</P>
+<P>Tcl is equipped with appropriate functionalities for the easy
+gluing of components, like dynamic typing, dynamic extensibility, and
+read/write introspection. OTcl is an object-oriented extension to Tcl,
+which encourages a Tcl-like programming style and is composed of
+language constructs with properties similar to Tcl. It offers an
+object-orientation with encapsulation of data and operation without
+protection mechanisms and single and multiple inheritance.
+Furthermore it enables to change the relationships dynamically, offers
+read/write introspection, has a three level class system based on
+meta-classes and offers method chaining. These abilities are
+integrated in XOTcl with only slight changes to OTcl visible to the
+programmer.
+</P>
+<P>The XOTcl extension aims at complexity and adaptability issues that
+may occur in context of large (object-oriented) software structures
+and in the context of component glueing. In particular we added the
+following support:
+</P>
+<UL>
+	<LI><P STYLE="margin-bottom: 0in"><I>Filters</I> as a means of
+	abstractions over method invocations to implement large program
+	structures, like design patterns. 
+	</P>
+	<LI><P STYLE="margin-bottom: 0in"><I>Mixin Classes</I>, as a
+	means to give an object or a classes' instances access to several different supplemental
+	classes, which may be changed dynamically. 
+	</P>
+	<LI><P STYLE="margin-bottom: 0in"><I>Dynamic Object Aggregations</I>,
+	to provide dynamic aggregations through nested namespaces. 
+	</P>
+	<LI><P STYLE="margin-bottom: 0in"><I>Nested Classes</I>, to reduce
+	the interference of independently developed program structures. 
+	</P>
+	<LI><P STYLE="margin-bottom: 0in"><I>Assertions</I>, to reduce the
+	interface and the reliability problems caused by dynamic typing and,
+	therefore, to ease the combination of components. 
+	</P>
+	<LI><P STYLE="margin-bottom: 0in"><I>Forwarders</I>, to delegate
+          calls efficiently to other objects or classes.
+	</P>
+  	<LI><P STYLE="margin-bottom: 0in"><I>Slots</I>, to manage values
+          of instance variables with a common interface.
+	</P> 
+	<LI><P><I>Meta-data and Automatic Documentation</I>, to enhance self-documentation of objects
+	and classes. 
+	</P>
+</UL>
+
+<!-- PAGE BREAK -->
+
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+<P ALIGN=CENTER STYLE="margin-bottom: 0in"><A NAME="features"></A><A NAME="1176"></A>
+&#160;&#160; 
+</P>
+<P ALIGN=CENTER STYLE="margin-bottom: 0in"><STRONG>Figure 1:</STRONG>
+Language Extensions of XOTcl 
+</P>
+<CENTER>
+	<TABLE WIDTH=455 BORDER=0 CELLPADDING=2 CELLSPACING=0>
+		<COL WIDTH=451>
+		<TR>
+			<TD WIDTH=451>
+				<P><IMG SRC="features.gif" NAME="Graphic3" ALIGN=BOTTOM WIDTH=451 HEIGHT=378 BORDER=0></P>
+			</TD>
+		</TR>
+	</TABLE>
+</CENTER>
+
+
+<H2><A NAME="soccerClub"></A>&#160;<BR>Introductory Overview Example: Soccer Club
+</H2>
+<p>
+To give you an impression of the language before we go into the
+details of the language construct, we present in this section a
+simple, introductory example. It shall demonstrate the basic
+language constructs on the example of a soccer club (the full code can
+be found in the <tt>xotcl/src/scripts/soccerClub.xotcl</tt> file.  All
+the characters in this example are fictitious, and any resemblance to
+actual persons, living or deceased, is coincidental.
+</p>
+<p>
+In XOTcl we do not have to provide a file description as a comment,
+but we can use the <tt>@</tt> object, which is used generally to
+provide any kind of information, meta-data, and documentation on a
+running program. Here, we just give a file description.  Then the <tt>
+makeDoc.xotcl</tt> tool can automatically document the program file for
+us.
+</p>
+<pre CLASS="code">
+  @ @File {
+    description {
+      This is a simple introductory example for the language XOTcl. 
+      It demonstrates the basic language constructs on the example of
+      a soccer club.
+    }
+  }
+</pre>
+<p>
+
+All things and entities in XOTcl are objects, a special kind of objects 
+are classes. These define common properties for other objects. For a
+soccer club, we firstly require a common class for all kinds of members.
+</p>
+<p>
+Common to all members is that they have a name. Common properties
+defined across all instances of a class are called 'parameter' in
+XOTcl. In this example the instance variable <tt>name</tt> will be
+initialized by default with an empty string.
+</p>
+<pre CLASS="code">
+  <tt>Class</tt> ClubMember <tt>-parameter</tt> {{name ""}}
+</pre>
+<p>
+A special club member is a <tt>Player</tt>. Derived classes can be
+build with inheritance (specified through
+<tt>superclass</tt>). Players may have a <tt>playerRole</tt> (defaults
+to NONE).
+</p>
+<pre CLASS="code">
+  <tt>Class</tt> Player <tt>-superclass</tt> ClubMember <tt>-parameter</tt> {{playerRole NONE}}
+</pre>
+<p>
+Other club member types are trainers, player-trainers, and presidents:
+</p>
+<pre CLASS="code">
+  <tt>Class</tt> Trainer <tt>-superclass</tt> ClubMember
+  <tt>Class</tt> President <tt>-superclass</tt> ClubMember
+</pre>
+<p>
+The PlayerTrainer uses multiple inheritances by being both a player
+and a trainer:
+</p>
+<pre CLASS="code">
+  <tt>Class</tt> PlayerTrainer <tt>-superclass</tt> {Player Trainer}
+</pre>
+<p>
+Now we define the SoccerTeam class:
+</p>
+<pre CLASS="code">
+  <tt>Class</tt> SoccerTeam <tt>-parameter</tt> {name location type}
+</pre>
+<p>
+We may add a player. This is done by a method. Instance methods are
+in XOTcl defined with <tt>instproc</tt>. All club members are aggregated in
+the team (denoted by :: namespace syntax).
+</p>
+<pre CLASS="code">
+  SoccerTeam <tt>instproc</tt> newPlayer args {
+    <it># we create a new player who is part of the soccer team</it>
+    <it># "eval" is needed to pass the provided arguments to the call of new</it>
+    <tt>eval</tt> Player <tt>new</tt> -childof [<tt>self</tt>] $args
+  }
+</pre>
+<p>
+A player can be transfered to another team. The player object does
+not change internally (e.g. the playerRole stays the same). Therefore we
+<tt>move</tt> it to the destination team.
+</p>
+<pre CLASS="code">
+  SoccerTeam <tt>instproc</tt> transferPlayer {playername destinationTeam} {
+    <it># We use the aggregation introspection option <tt>children</tt> in order</it>
+    <it># to get all club members</it>
+    <tt>foreach</tt> player [<tt>my</tt> <tt>info</tt> children] {
+      <it># But we only remove matching playernames of type "Player". We do</it>
+      <it># not want to remove another club member type who has the same</it>
+      <it># name.</it>
+      <tt>if</tt> {[$player istype Player] && [$player name] == $playername} {
+        <it># We simply 'move' the player object to the destination team.</it>
+        <it># Again we use a unique autoname in the new scope</it>
+        $player <tt>move</tt> [set destinationTeam]::[$destinationTeam <tt>autoname</tt> player%02d]
+      }
+    }
+  }
+</pre>
+<p>
+Finally we define two convenience to print the members/players to
+the stdout with puts.
+</p>
+<pre CLASS="code">
+  SoccerTeam <tt>instproc</tt> printMembers {} {
+    <tt>puts</tt> "Members of [<tt>my</tt> name]:"
+    <tt>foreach</tt> m [<tt>my</tt> <tt>info</tt> children] {<tt>puts</tt> "  [$m name]"}
+  }
+  SoccerTeam <tt>instproc</tt> printPlayers {} {
+    <tt>puts</tt> "Players of [<tt>my</tt> name]:"
+    <tt>foreach</tt> m [<tt>my</tt> <tt>info</tt> children] {
+      <tt>if</tt> {[$m istype Player]} {<tt>puts</tt> "  [$m name]"}
+    }
+  }
+</pre>
+<p>      
+Now let us build to example soccer team objects.
+</p>
+<pre CLASS="code">
+  SoccerTeam chelsea -name "Chelsea FC" -location "Chelsea"
+  SoccerTeam bayernMunich -name "F.C. Bayern München" -location "Munich"
+</pre>
+<p>
+
+With <tt>addPlayer</tt> we can create new aggregated player objects
+<p></p>
+Let us start some years in the past, when "Franz Beckenbauer" was
+still a player.
+</p>
+<pre CLASS="code">
+  <tt>set</tt> fb [bayernMunich newPlayer -name "Franz Beckenbauer" \
+    -playerRole PLAYER]
+</pre>
+<p>
+<tt>playerRole</tt> may not take any value. It may either be NONE, PLAYER, 
+or GOALY ... such rules may be given as assertions (here: an instinvar 
+gives an invariant covering all instances of a class). In XOTcl 
+the rules are syntactically identical to <tt>if</tt> statements:
+</p>
+<pre CLASS="code">
+  Player instinvar {
+      {[<tt>my</tt> playerRole] == "NONE" ||  
+       [<tt>my</tt> playerRole] == "PLAYER" || 
+       [<tt>my</tt> playerRole] == "GOALY"}
+  }
+</pre>
+<p>
+If we break the invariant and turn assertions checking on, we should
+get an error message:
+</p>
+<pre CLASS="code">
+  $fb check all
+  <tt>if</tt> {[<tt>catch</tt> {$fb <tt>set</tt> playerRole SINGER} errMsg]} {
+    <tt>puts</tt> "CAUGHT EXCEPTION: playerRole has either to be NONE, PLAYER, or TRAINER"
+    <it># turn assertion checking off again and reset to PLAYER</it>
+    $fb check {}
+    $fb <tt>set</tt> playerRole PLAYER
+  }
+</pre>
+<p>
+But soccer players may play quite different, orthogonal
+roles. E.g. Franz Beckenbauer was also a singer (a remarkably bad
+one). However, we can not simply add such orthogonal, extrinsic
+extensions with multiple inheritance or delegation. Otherwise we
+would have either to build a lot of unnecessary helper classes, like
+PlayerSinger, PlayerTrainerSinger, etc., or we would have to build
+such helper objects. This either leads to an unwanted combinatorial
+explosion of class or object number 
+</p><p>
+Here we can use a per-object mixin, which is a language construct
+that expresses that a class is used as a role or as an extrinsic
+extension to an object.
+</p><p>
+First we just define the Singer class.
+</p>
+<pre CLASS="code">
+  <tt>Class</tt> Singer
+  Singer <tt>instproc</tt> sing text {
+    <tt>puts</tt> "[<tt>my</tt> name] sings: $text, lala."
+  }
+</pre>
+<p>
+Now we register this class as a per-object mixin on the player object:
+</p>
+<pre CLASS="code">
+  $fb <tt>mixin</tt> Singer
+</pre>
+<p>
+And now Franz Beckenbauer is able to sing:
+</p>
+<pre CLASS="code">
+  $fb sing "lali"
+</pre>
+<p>
+But Franz Beckenbauer has already retired. When a player retires, we
+have an intrinsic change of the classification. He *is* not a player
+anymore. But still he has the same name, is club member, and
+is a singer (brrrrrr).
+</p><p>
+Before we perform the class change, we extend the Player class to
+support it. I.e. the playerRole is not valid after class change
+anymore (we unset the instance variable).
+</p>
+<pre CLASS="code">
+  Player <tt>instproc</tt> class args {
+    <tt>my</tt> <tt>unset</tt> playerRole
+    <tt>next</tt>
+  }
+</pre>
+<p>
+Now we can re-class the player object to its new class (now Franz
+Beckenbauer is President of Bayern Munich.
+</p>
+<pre CLASS="code">
+  $fb <tt>class</tt> President
+  <it># Check that the playerRole isn't there anymore.</it>
+  <tt>if</tt> {[<tt>catch</tt> {$fb <tt>set</tt> playerRole} errMsg]} {
+    <tt>puts</tt> "CAUGHT EXCEPTION: The player role doesn't exist anymore \
+         (as it should be after the class change)"
+  }
+</pre>
+<p>
+But still Franz Beckenbauer can entertain us with what he believes
+is singing:
+</p>
+<pre CLASS="code">
+  $fb sing "lali"
+</pre>
+<p>
+Now we define some new players for Bayern Munich:
+</p>
+<pre CLASS="code">
+  bayernMunich newPlayer -name "Oliver Kahn" -playerRole GOALY
+  bayernMunich newPlayer -name "Giovanne Elber" -playerRole PLAYER
+</pre>
+<p>
+If we enlist the players of Munich Franz Beckenbauer is not enlisted
+anymore:
+</p>
+<pre CLASS="code">
+  bayernMunich printPlayers
+</pre>
+<p>
+But as a president he still appears in the list of members:
+</p>
+<pre CLASS="code">
+  bayernMunich printMembers
+</pre>
+<p>
+Now consider an orthonogal extension of a transfer list. Every
+transfer in the system should be notified. But since the transfer
+list is orthogonal to SoccerTeams we do not want to interfere with
+the existing implementation at all. Moreover, the targeted kind of
+extension has also to work on all subclasses of SoccerTeam. Firstly, we
+just create the extension as an ordinary class:
+</p>
+<pre CLASS="code">
+  <tt>Class</tt> TransferObserver
+  TransferObserver <tt>instproc</tt> transferPlayer {pname destinationTeam} {
+    <tt>puts</tt> "Player '$pname' is transfered to Team '[$destinationTeam name]'"
+    <tt>next</tt>
+  }
+</pre>
+<p>
+Now we can apply the class as a per-class mixin, which functions
+exactly like a per-object mixin, but on all instances of a class and
+its subclasses.  The <tt>next</tt> primitive ensures that the original
+method on <tt>SoccerTeam</tt> is called after notifying the transfer (with
+puts to stdout):
+</p>
+<pre CLASS="code">
+  SoccerTeam <tt>instmixin</tt> TransferObserver
+</pre>
+<p>
+If we perform a transfer of one of the players, he is moved to the new 
+club and the transfer is reported to the stdout:
+</p>
+<pre CLASS="code">
+  bayernMunich transferPlayer "Giovanne Elber" chelsea
+</pre>
+<p>
+Finally we verify the transfer by printing the players:
+</p>
+<pre CLASS="code">
+  chelsea printPlayers
+  bayernMunich printPlayers
+</pre>
+<p>
+
+<P><BR><BR>
+</P>
+<TABLE COLS=2 WIDTH=100% BORDER=0 CELLPADDING=2 CELLSPACING=0 BGCOLOR="#000055">
+	<TR>
+		<TD WIDTH=75%>
+			<P><A NAME="object_class_system"></A><FONT COLOR="#ffffff"><FONT FACE="Arial, Helvetica"><FONT SIZE=6>Object
+			and Class System </FONT></FONT></FONT>
+			</P>
+		</TD>
+		<TD>
+			<IMG SRC="logo-100.jpg" NAME="Graphic4" ALIGN=RIGHT WIDTH=102 HEIGHT=42 BORDER=0></TD>
+	</TR>
+</TABLE>
+<P>In XOTcl every object is associated with a class over the <tt>class</tt>
+relationship. Classes are special objects with the purpose of
+managing other objects. ``Managing'' means that a class controls the
+creation and destruction of its instances and that it contains a
+repository of methods (``instprocs'') accessible for the instances.
+Object-specific methods are called ``procs'', instance methods are
+called ``instprocs''. 
+</P>
+<P>The instance methods common to all objects are defined in the root
+class <tt>Object</tt> (predefined or user-defined). Since a class is a
+special (managing) kind of object it is managed itself by a special
+class called ``meta-class'' (which manages itself). Meta-Classes are
+used to define classes and to provides methods for these.  Most
+classes are defined by the predefined meta-class <tt>Class</tt>. One
+interesting aspect of meta-classes is that by providing a constructor
+pre-configured classes can be derived.  Meta-classes can be used to
+instantiate large program structures, like some design patterns (see
+<a href="#xotcl-filter">[Neumann and Zdun 1999a]</a> for more
+details), where the meta-class may holds the generic parts of the
+structures. Since a meta-class is an entity of the program, it is
+possible to collect these entities in pattern libraries for later
+reuse easily (more details about meta-classes are given in a later <A
+HREF="meta-classes">section</A>).
+</P>
+<P>XOTcl supports single and multiple inheritance. Classes are ordered
+by the relationship <tt>superclass</tt> in a directed acyclic
+graph. The root of the class hierarchy is the class <tt>Object</tt>.
+A single object can be instantiated directly from this class. An
+inherent problem of multiple inheritance is the problem of name
+resolution, when for example two super-classes contain an instance
+method with the same name. XOTcl provides an intuitive and unambiguous
+approach for name resolution by defining the precedence order along a
+linear ``<EM>next-path</EM>'' incorporating the class and mixin
+hierarchies, which is modeled after CLOS. A method can invoke
+explicitly the shadowed methods by the predefined command
+<tt>next</tt>.  When this command is executed a shadowed method is
+``mixed into'' the execution of the current method. Method chaining
+without explicit naming of the targeted method is very important for
+languages supporting a dynamic class system, because one cannot always
+predict which classes are currently participating in the inheritance
+hierarchy at design time (often necessary in inheritance models, like
+C++).
+</P>
+<P STYLE="margin-bottom: 0in">An important feature of all XOTcl
+objects is the read/write introspection. The reading introspection
+abilities of XOTcl are packed compactly into the <tt>info</tt>
+instance method which is available for objects and classes. All
+obtained information can be changed at run-time dynamically with
+immediate effect. Unlike languages with a static class concept, XOTcl
+supports dynamic class/superclass relationships. At any time the class
+graph may be changed entirely using the <tt>superclass</tt> method, or
+an object may change its class through the <tt>class</tt> method. This
+feature can be used for an implementation of a life-cycle or other
+intrinsic changes of object properties (in contrast to extrinsic
+properties e.g. modeled through roles and implemented through
+per-object and per-class mixins <a href="#xotcl-mixin">[Neumann and
+Zdun 1999c]</a> ) . These changes can be achieved without loosing the
+object's identity, its inner state, and its per-object behavior (procs
+and per-object mixins).
+</P>
+<P ALIGN=CENTER STYLE="margin-bottom: 0in"><A NAME="features1"></A><A NAME="11761"></A>
+&#160;&#160; 
+</P>
+<P ALIGN=CENTER STYLE="margin-bottom: 0in"><STRONG>Figure 2:</STRONG>
+Object and Class System 
+</P>
+<CENTER>
+	<TABLE WIDTH=469 BORDER=0 CELLPADDING=2 CELLSPACING=0>
+		<COL WIDTH=465>
+		<TR>
+			<TD WIDTH=465>
+				<P ALIGN=CENTER><IMG SRC="obj_class_system.gif" NAME="Graphic5" ALIGN=BOTTOM WIDTH=467 HEIGHT=144 BORDER=0></P>
+			</TD>
+		</TR>
+	</TABLE>
+</CENTER>
+<TABLE COLS=2 WIDTH=100% BORDER=0 CELLPADDING=2 CELLSPACING=0 BGCOLOR="#000055">
+	<TR>
+		<TD WIDTH=75%>
+			<P><A NAME="basic"></A><FONT COLOR="#ffffff"><FONT FACE="Arial, Helvetica"><FONT SIZE=6>Basic
+			Functionalities </FONT></FONT></FONT>
+			</P>
+		</TD>
+		<TD>
+			<IMG SRC="logo-100.jpg" NAME="Graphic6" ALIGN=RIGHT WIDTH=102 HEIGHT=42 BORDER=0></TD>
+	</TR>
+</TABLE>
+<H2><A NAME="object"></A>&#160;<BR>Objects 
+</H2>
+<P>Initially XOTcl offers two new commands: <tt>Object</tt> and
+<tt>Class</tt>. They represent hooks to the features of the language.
+This section discusses both of them in detail and shows how they
+function in the context of XOTcl. Note, that even if most of this is
+compatible to OTcl, a few changes occur. For this reason, this
+section is no introduction to plain OTcl. The <tt>Object</tt> command
+provides access to the <tt>Object</tt> class, which holds the common
+features of all objects, and allows us to define new objects. Objects
+are always instances of classes, therefore, objects defined with the
+<tt>Object</tt> command are (initially) instances of the <tt>Object</tt>
+class. But since they have no user-defined type, they may be referred
+to as <EM>singular objects</EM>. As all other objects they may be
+specialized by object-operations and -data. 
+</P>
+<P>The object command has the following syntax: 
+</P>
+<pre CLASS="code">
+  <tt>Object</tt> <em>objName ?args?</em>
+</pre><P>
+A command of this form is a short-cut for a message to the <tt>create</tt>
+instance method (forwarded automatically by the <tt>unknown</tt>
+mechanism, which is invoked every time the message dispatch system
+discovers an unknown message): 
+</P>
+<pre CLASS="code">
+  <tt>Object</tt> <tt>create</tt> <em>objName ?args?</em>
+</pre><P>
+It creates a new object of type <tt>Object</tt> with the name <tt>objName</tt>
+(in fact it invokes a <tt>create</tt> call on the <tt>Object</tt> class).
+<tt>objName</tt> becomes a new command, which allows us to access the
+created object. Similar to the <tt>Object</tt> command it may be
+used like a normal Tcl-command (using sub-commands to access the
+object's methods). Therefore, this form of access is called
+<EM>object-command</EM> approach. A simple example is an object which
+holds the information of a kitchen. It is created by: 
+</P>
+<pre CLASS="code">
+  <tt>Object</tt> kitchen
+</pre>
+<P>
+An object creation calls the constructor <tt>init</tt> of the
+object's class. The destruction of an object is handled by the
+<tt>destroy</tt> instance method. The general syntax of <tt>destroy
+</tt>is: 
+</P>
+<pre CLASS="code">
+  <em>objName</em> <tt>destroy</tt>
+</pre><P>
+E.g. the kitchen object is destroyed by: 
+</P>
+<pre CLASS="code">
+  kitchen <tt>destroy</tt>
+</pre><P>
+To invoke a user-defined destruction process, it is possible to
+overload this instance method in every class derived from object.
+</P>
+<P>
+Note that the destruction of an object is performed by the
+method <tt>destroy</tt> of Object (since every object is an instance
+of <tt>Object</tt>, every object can call <tt>destroy</tt>). When an application class
+overloads <tt>destroy</tt>, this method should contain a <tt>next</tt> in order
+to reach the base class and to actually destroy the object. 
+</P>
+<H3><A NAME="data_on_obj"></A>Data on Objects 
+</H3>
+<P>The <tt>Object</tt> class provides a range of operations to manage
+objects, including those to manipulate data-structures on the
+objects. They are similar to the same-named Tcl-commands: 
+</P>
+<pre CLASS="code">
+  <em>objName</em> <tt>set</tt> <em>varname ?value?</em>
+  <em>objName</em> <tt>unset</tt> <em>v1 ?v2 ... vn?</em>
+</pre>
+<P>
+The <tt>set</tt> instance method with given <tt>value</tt> option
+allows us to manipulate an object-variable's value or to create a new
+one, if the variable <tt>varname</tt> does not exist on the object so
+far. Without <tt>value</tt> option the <tt>set</tt> operation queries
+the variable and returns it's value, if the variable exists,
+otherwise it produces an error message. The <tt>unset</tt> operation
+deletes one or optionally a set of variables from an object. For
+example the <tt>kitchen</tt> object can store information on the
+color of the wall-paper by: 
+</P>
+<pre CLASS="code">
+  kitchen <tt>set</tt> wallPaperColor white
+</pre><P>
+Similar to Tcl-variables the object variables are dynamical; they
+may be set at run-time when they are needed and unset when they
+become obsolete. E.g. the persons in the kitchen may be stored in an
+array. If there are no persons in the kitchen the array is deleted: 
+</P>
+<pre CLASS="code">
+  <it># Peter enters the kitchen to cook</it>
+  kitchen <tt>set</tt> persons(cook) Peter
+  ...
+  <it># Marion enters the kitchen to take one of the seats</it>
+  kitchen <tt>set</tt> persons(seat1) Marion 
+  ...
+  <it># Both Peter and Marion leave the kitchen</it>
+  <it># the array is deleted by unset</it>
+  kitchen <tt>unset</tt> persons
+</pre><P>
+Since XOTcl variables are internally realized through Tcl-variables
+they may be treated like all Tcl-variables. For that reason they have
+all Tcl-variable abilities, including the possibility to handle them
+as lists or arrays (as seen in the last example). The <tt>array</tt>
+command of Tcl is mapped to an XOTcl-command directly. An
+object-oriented call to an object of the form 
+</P>
+<pre CLASS="code">
+  <em>objName</em> <tt>array</tt> <em>option arrayName args</em>
+</pre><P>
+forwards its arguments to an <tt>array</tt> Tcl-command for the
+object&acute;s instance variable <tt>arrayName</tt>. It could be used like
+the same-named Tcl-command, e.g. the command 
+</P>
+<pre CLASS="code">
+  kitchen <tt>array</tt> names persons
+</pre><P>
+returns all indexes currently stored in the <tt>persons</tt> array. 
+</P>
+<P>Similarly Tcl&acute;s <tt>incr</tt> command is mapped to the
+object system. A call with the syntax: 
+</P>
+<pre CLASS="code">
+  <em>objName</em> <tt>incr</tt> <em>varName ?value?</em>
+</pre><P>
+increments <tt>varName</tt> with the given value (or without given
+value with 1). 
+</P>
+<H3><A NAME="obj_methods"></A>Methods for Objects 
+</H3>
+<P>Methods in XOTcl resemble Tcl-procedures. On objects one can define
+object-specific methods, called procs. Instance methods which are
+defined on classes are called instprocs. A new proc is defined using
+the <tt>proc</tt> instance method of the class <tt>Object</tt>:
+</P>
+<pre CLASS="code">
+  <em>objName</em> <tt>proc</tt> <em>name args body</em>
+</pre><P>
+The arguments of the <tt>proc</tt> instance method specify the name,
+the arguments as a Tcl-list, and the body of the new proc. All of them
+must be given, only one of <tt>args</tt> and <tt>body</tt> may be
+empty. An example proc would be a method to let persons enter the
+kitchen: 
+</P>
+<pre CLASS="code">
+  kitchen <tt>proc</tt> enter {name} {
+    [<tt>self</tt>] <tt>set</tt> persons($name) [<tt>clock</tt> seconds]
+  }
+</pre><P>
+Here the predefined <tt>self</tt> command is used in one of three
+possible ways, which allow us to access useful information when working
+with XOTcl-methods, these are in particular: 
+</P>
+<UL>
+	<LI><P STYLE="margin-bottom: 0in"><tt>self</tt>: returns the
+	  name of the object, which is currently in execution. This
+	  command is similar to <tt>this</tt> in C++. It is
+	  automatically generated on each object. If it is called from
+	  outside of an XOTcl method, it produces the error message
+	  "<tt>Can't find self</tt>".
+	</P>
+	<LI><P STYLE="margin-bottom: 0in"><tt>self class</tt>: the self
+	command with the  argument <tt>class</tt> returns the name of the
+	class, which holds the currently executing instproc. Note, that this
+	may be different to the class of the current object. If it is called
+	from a proc it returns an empty string. 
+	</P>
+	<LI><P><tt>self proc</tt>: the self command with the argument
+	<tt>proc</tt> returns the name of the currently executing
+	method (proc or instproc).
+	</P>
+</UL>
+<p>The method <tt>enter</tt> can be written in XOTcl as well with
+less syntactic overhead by using the predefined primitive <tt>my</tt>
+instead of <tt>[<tt>self</tt>]</tt>:</p>
+<pre CLASS="code">
+  kitchen <tt>proc</tt> enter {name} {
+    <tt>my</tt> <tt>set</tt> persons($name) [<tt>clock</tt> seconds]
+  }
+</pre><P>
+<P>Note, that there is a difference to the realization of these
+object informations to OTcl. XOTcl uses commands in order to make
+XOTcl-methods compatible to Tcl-procedures and accessible via
+namespace-paths. OTcl uses the three variables <tt>self</tt>, <tt>class</tt>
+and <tt>proc</tt>, which are filled automatically with proper values
+by the interpreter each time a method is called. To gain backwards
+compatibility XOTcl can be compiled with <tt>-DAUTOVARS</tt> to
+provide these variables additionally. By default this option is turned off.
+</P>
+<P>Each XOTcl-method has its own scope for definition of local
+variables for the executing method. In most cases when a method uses
+object-variables, it is likely that the programmer wants to make one
+or more of these variables part of the method's scope. Then the
+Tcl-command for variable handling, like <tt>set</tt>, <tt>lindex</tt>,
+<tt>array</tt>, ... work also on these variables.  The
+<tt>instvar</tt> instance method links a variable to the scope of
+an executing method. It has the syntax:
+</P>
+<pre CLASS="code">
+  <em>objName</em> <tt>instvar</tt> <em>v1 ?v2 ... vn?</em>
+</pre>
+<P> 
+It makes the variables <tt>v1 ... vn</tt>, which must
+be variables of the object, part of the current method's scope. A
+special syntax is:
+</P>
+<pre CLASS="code">
+  <em>objName</em> <tt>instvar</tt> <em>{varName aliasName} ...</em>
+</pre>
+<P> 
+for one of the variables. This gives the variable with the name
+<tt>varName</tt> the alias <tt>aliasName</tt>. This way the variables
+can be linked to the methods scope, even if a variable with that name
+already exists in the scope. Now the <tt>enter</tt> method can be
+adapted slightly and a <tt>leave</tt> method can be added, which uses
+Tcl's <tt>info</tt> command to check
+whether the named person is in the object's <tt>persons</tt> array. To
+demonstrate the alias-syntax this is done with the <tt>persons</tt>
+array and the alias <tt>p</tt>.
+</P>
+<pre CLASS="code">
+  kitchen <tt>proc</tt> enter {name} {
+    <tt>my</tt> <tt>instvar</tt> persons
+    <tt>set</tt> persons($name) [<tt>clock</tt> seconds]
+  }
+
+  kitchen <tt>proc</tt> leave {name} {
+    <tt>my</tt> <tt>instvar</tt> {persons p}
+    <tt>if</tt> {[<tt>info</tt> exists p($name)]} {
+      <tt>puts</tt> &quot;$name leaves after [<tt>expr</tt> {[<tt>clock</tt> seconds]-$p($name)}] seconds&quot; 
+      <tt>unset</tt> p($name) 
+    } <tt>else</tt> {
+      <tt>puts</tt> &quot;$name is not in the room&quot;
+    }
+  }
+</pre>
+A method defined via <tt>proc</tt> can be deleted by <tt>proc</tt> using 
+an empty argument list and an empty body. The following example deletes the method
+<tt>enter</tt>:
+<pre CLASS="code">
+  Room <tt>proc</tt> enter {} {}
+</pre>
+
+<H3>
+<A NAME="obj_info"></A>Information about Objects 
+</H3>
+<P STYLE="margin-bottom: 0in">XOTcl offers reading and writing
+introspection. The reading introspection abilities are packed
+compactly into the <tt>info</tt> instance method which is available
+for objects and classes (there are special info options for object
+aggregations, nested classes, mixins, filters, meta-data and
+assertions, which are explained separately in the following
+sections). 
+</P>
+<CENTER>
+      <P><A NAME="table_oinfo"></A>
+	<STRONG>Options for the <tt>info</tt> method on objects</STRONG></P>
+
+      <TABLE BORDER=1>
+	<TR>
+	  <TD width=40%>
+	    <tt><em>objName</em> <tt>info</tt> args <em>methodName </em></tt>
+	  </TD>
+	  <TD>
+	    <P ALIGN=LEFT>Returns the arguments of the specified proc (object specific method).</P>
+	  </TD>
+	</TR>
+	<TR>
+	  <TD>
+	    <tt><em>objName</em> <tt>info</tt> body <em>methodName</tt>
+	  </TD>
+	  <TD>
+	    <P ALIGN=LEFT>Returns the body of the specified proc.</P>
+	  </TD>
+	</TR>
+	<TR>
+	  <TD><tt><em>objName</em> <tt>info</tt> class <em>?className?</em></tt>
+	  </TD>
+	  <TD>
+	    <P ALIGN=LEFT>Returns the name of the class of the current
+	    object, if <em>className</em> was not specified.  Otherwise it
+	    returns 1 if <em>className</em> matches the object's class and 0 if
+	    not.
+	    </P>
+	  </TD>
+	</TR>
+	<TR>
+	  <TD><tt><em>objName</em> <tt>info</tt> commands <em>?pattern?</em></tt>
+	  </TD>
+	  <TD>
+	    <P ALIGN=LEFT>Returns all commands defined on the object
+	    if <em>pattern</em> was not specified. Otherwise it
+	    returns all commands that match the pattern.</P>
+	  </TD>
+	</TR>
+	<TR>
+	  <TD><tt><em>objName</em> <tt>info</tt> default <em>methodName arg var</em></tt></P>
+	  </TD>
+	  <TD>
+	    <P ALIGN=LEFT>Returns 1 if the argument <em>arg</em> of
+	    the specified proc has a default value, otherwise 0. If
+	    the default value exists it is stored in <em>var</em>.</P>
+	  </TD>
+	</TR>
+
+	<TR>
+	  <TD><tt><em>objName</em> <tt>info</tt> precedence <em>?pattern?</em></tt>
+	  </TD>
+
+	  <TD>
+	    <P ALIGN=LEFT>Returns all classes in the precedence order
+	    from which the specified object inherits methods. The
+	    returned list of classes contains the mixin and instmixin
+	    classes as well as the classes of the superclass chain in
+	    linearized order (i.e., duplicate classes are removed). If
+	    the <em>pattern</em> is specified, only matching classes are
+	    returned.</P>
+	  </TD>
+	</TR>
+
+	<TR>
+	  <TD><tt><em>objName</em> <tt>info</tt> vars <em>?pattern?</em></tt>
+	  </TD>
+	  <TD>
+	    <P ALIGN=LEFT>Returns all variables defined on the object
+	    if <em>pattern</em> was not specified, otherwise it returns
+	    all variables that match the pattern.</P>
+	  </TD>
+	</TR>
+      </TABLE>
+    </FONT>
+    </CENTER>
+<p><br></p>
+<P>For example on the <tt>kitchen</tt> object 
+</P>
+<pre CLASS="code">
+  kitchen <tt>info</tt> procs
+</pre><P>
+returns <tt>enter</tt> and <tt>leave</tt> as a Tcl-list since these
+are the procs defined on the object. 
+</P>
+<H2><A NAME="classes"></A>Classes 
+</H2>
+<H3><A NAME="class_instance"></A>Creating Classes and deriving
+Instances 
+</H3>
+<P>There are different ways to create a class in XOTcl. They have in
+common that they derive the new class from a meta-class. Initially the
+<tt>Class</tt> command provides access to the meta-class
+<tt>Class</tt>, which holds the features common to all classes. It
+also allows one to derive new meta-classes. The common way to create a
+new class is:
+</P>
+<pre CLASS="code">
+  <tt>Class</tt> <em>className ?args?</em>
+</pre>
+
+<P>
+Similar to the object short form, this is a short form of a call to
+the <tt>create</tt> instance method of the meta-class <tt>Class</tt>,
+which is also executed by the standard <tt>unknown</tt> mechanism.
+This mechanism is always triggered when XOTcl does not know a method
+called on an object. Supposed that there is no method with the name
+<tt>className</tt>, defined on the class-object of <tt>Class</tt>,
+XOTcl looks up the method <tt>unknown</tt> (which is found on the
+Class <tt>Object</tt>) and executes it. The standard unknown-mechanism
+of XOTcl calls <tt>create</tt> with all arguments stepping one step
+to the right; in the general case: 
+</P>
+<pre CLASS="code">
+  <tt>Class</tt> <tt>create</tt> <em>className ?args?</em>
+</pre><P>
+This may also be called directly. Besides the indirection when using
+<tt>unknown</tt>, in most cases there is no difference in the action
+performed: Firstly the memory is allocated, using the <tt>alloc</tt>
+instance method; as the next step the constructor <tt>init</tt> is called
+on the creating object, which is in this case the class-object of the
+meta-class <tt>Class</tt>. In seldom cases the programmer may want to
+suppress the <tt>init</tt> call. To do so the <tt>alloc</tt> instance
+method may also be called directly: 
+</P>
+<pre CLASS="code">
+  <tt>Class</tt> <tt>alloc</tt> <em>className ?args?</em>
+</pre>
+<P>
+As seen in the preceding section objects are created in the same way.
+The difference was, that the command <tt>Object</tt>, which accesses
+a class, instead of the command <tt>Class</tt>, which accesses a
+meta-class, was used. The user-defined classes may also be used in
+the same way to create new objects: 
+</P>
+<pre CLASS="code">
+  <em>className objName ?args?</em>
+</pre>
+<P>
+Resembling the creation of classes this creates an object <tt>objName</tt>
+of type <tt>className</tt> using the <tt>unknown</tt> mechanism. That
+means the <tt>create</tt> instance method of the class is called. If
+there is no other instance method defined on the class-path so far
+(which would mean, an user defined creation process is invoked), the
+<tt>create</tt> instance method of the class <tt>Object</tt> is
+invoked. This method is similar to the <tt>create</tt> method of the
+meta-class <tt>Class</tt>. It firstly calls the <tt>alloc</tt>
+instance method on its (of the <tt>Class</tt> class) which allocates
+memory for the object, and makes it an instance of it's class.
+Afterwards a call to the constructor <tt>init</tt> is invoked. 
+</P>
+<P>Now we can specify the object for the kitchen by the class to
+which it belongs. In this case a kitchen is an instance of a room. 
+</P>
+<pre CLASS="code">
+  <tt>Class</tt> Room
+  Room kitchen
+</pre><P>
+A <tt>set</tt> call on a class creates an instance variable on the
+class-object. This variable is unique for all instances, therefore,
+it may be referred to as a class variable. 
+</P>
+<H3><A NAME="class_methods"></A>Methods Defined in Classes 
+</H3>
+<P>Methods which are defined in classes and which are provided to the 
+instances of these classes are called "instprocs". 
+The syntax for defining an instproc is: 
+</P>
+<pre CLASS="code">
+  <em>className</em> <tt>instproc</tt> <em>procname args body</em>
+</pre>
+<P>
+It is similar to the definition of procs on objects, but uses the
+keyword <tt>instproc</tt> to distinguish between the methods defined
+on the class-object and those defined on the class. Since all rooms
+(in the modeled world) have ceilings, we may want to define a simple
+convenience instproc, which is able to set the color: 
+</P>
+<pre CLASS="code">
+  Room <tt>instproc</tt> setCeilingColor color {
+    <tt>my</tt> <tt>set</tt> ceilingColor $color
+  }
+</pre><P>
+A special instproc, the constructor <tt>init</tt>, was mentioned
+already. Now we are able to define such an instproc. Defined on a
+class it is responsible for all initialization tasks, which needed to
+be performed, when constructing a new instance object of the class.
+The constructor of the <tt>Room</tt> can initialize a variable for
+the color, in which the ceiling is painted, to white as default,
+since this is the color of ceilings without painting. 
+</P>
+<pre CLASS="code">
+  Room <tt>instproc</tt> <tt>init</tt> args {
+    <tt>my</tt> setCeilingColor white
+    <tt>next</tt>
+  }
+</pre>
+<P>
+After this definition, all instances derived from the <tt>Room</tt>
+class have an instance variable <tt>ceilingColor</tt> with the value
+<tt>white</tt>. The <tt>args</tt> argument used here is a special
+argument in Tcl which allows us to use a list of arguments which may
+change its length from call to call.
+<p>
+An instproc can be deleted by the method <tt>instproc</tt> as well.
+If <tt>instproc</tt> is called with an empty argument list and an
+empty body, the specified method is deleted, as the following example shows:
+<pre CLASS="code">
+  Room <tt>instproc</tt> setCeilingColor {} {}
+</pre>
+
+</P>
+<H3><A NAME="class_info"></A>Information about Classes 
+</H3>
+<P STYLE="margin-bottom: 0in">Resembling to objects, information on
+classes may be gained through the <tt>info</tt> instance method of the
+meta-class <tt>Class</tt>. Note that this instance method does not
+only support the class info options, but also the object info options,
+since the accessing command refers to the class-object, which itself
+is an object and, therefore, offers its informations.  The following
+table summarizes the additional info options available on classes.
+</P>
+<CENTER>
+<P><STRONG>Options for the <tt>info</tt> method on classes</STRONG></P>
+      <TABLE BORDER=1>
+	<TR>
+	  <TD width=35%><tt><em>className</em> <tt>info</tt> heritage <em>?pattern?</em></tt>
+	  </TD>
+	  <TD><P ALIGN=LEFT>Returns a list of all classes in the
+	  precedence order of the class hierarchy matching
+	  <em>pattern</em> or a list of all classes, if
+	  <em>pattern</em> was not specified.</P>
+	  </TD>
+	</TR>
+	<TR>
+	  <TD><tt><em>className</em> <tt>info</tt> instances <em>?pattern?</em></tt>
+	  </TD>
+	  <TD><P ALIGN=LEFT>Returns a list of the instances of the
+	      class matching <em>pattern</em> or of all instances, if
+	      <em>pattern</em> was not specified.
+	    </P>
+	  </TD>
+	</TR>
+	<TR>
+	  <TD><tt><em>className</em> <tt>info</tt> instargs <em>methodName</em></tt>
+	  </TD>
+	  <TD><P ALIGN=LEFT>Returns the arguments of the specified instproc 
+	      (method provided to objects).</P>
+	  </TD>
+	</TR>
+	<TR>
+	  <TD><tt><em>className</em> <tt>info</tt> instbody <em>methodName</em></tt>
+	  </TD>
+	  <TD><P ALIGN=LEFT>Returns the body of the specified instproc.</P>
+	  </TD>
+	</TR>
+	<TR>
+	  <TD><tt><em>className</em> <tt>info</tt> instcommands <em>?pattern?</em></tt>
+	  </TD>
+	  <TD><P ALIGN=LEFT>Returns all commands defined on the class, if
+	      <em>pattern</em> was not specified, otherwise it returns all
+	      commands provided to objects that match the pattern.</P>
+	  </TD>
+	</TR>
+	<TR>
+	  <TD><tt><em>className</em> <tt>info</tt> instdefault <em>methodName arg var</em></tt></P>
+	  </TD>
+	  <TD>
+	    <P ALIGN=LEFT>Returns 1 if the argument <em>arg</em> of
+	    the specified instproc has a default value, otherwise 0. If
+	    the default value exists it is stored in <em>var</em>.</P>
+	  </TD>
+	</TR>
+	<TR>
+	  <TD><tt><em>className</em> <tt>info</tt> subclass <em>?className2?<em></tt>
+	  </TD>
+	  <TD><P ALIGN=LEFT>Returns a list of all subclasses of the class, if
+	      <em>className2</em> was not specified, otherwise it returns 1 if
+	      <em>className2</em> is a subclass and 0 if not.</P>
+	  </TD>
+	</TR>
+	<TR>
+	  <TD><tt><em>className</em> <tt>info</tt> superclass <em>?className2?</em></tt>
+	  </TD>
+	  <TD><P ALIGN=LEFT>Returns a list of all super-classes of the class,
+	      if <em>className2</em> was not specified, otherwise it returns 1
+	      if <em>className2</em> is a superclass and 0 if not.</P>
+	  </TD>
+	</TR>
+      </TABLE>
+</CENTER>  
+<P>The full list of info options is provided in the language reference.</P>
+<H3><A NAME="class_inheritance"></A>Inheritance 
+</H3>
+<P>Besides encapsulation of operations and state in objects, a second
+central ability of object-orientation is inheritance. XOTcl supports
+single and multiple inheritance with a directed acyclic class
+graph. Automatically each new class created by the instance methods
+<tt>create</tt> and <tt>alloc</tt> of <tt>Class</tt> inherits from
+<tt>Object</tt>. Therefore, it is ensured that all instances of the
+new class have access to the common features of objects stored in the
+class <tt>Object</tt>.
+</P>
+<P>To specify further inheritance relationships the instance methods
+<tt>superclass</tt> of <tt>Class</tt> is used: 
+</P>
+<pre CLASS="code">
+  <em>className</em> <tt>-superclass</tt> <em>classList</em>
+</pre><P>
+E.g. in the example a kitchen may be seen as a
+special room: 
+</P>
+<pre CLASS="code">
+  <tt>Class</tt> Room
+  <tt>Class</tt> Kitchen <tt>-superclass</tt> Room
+</pre><P>
+Now all instances of <tt>Kitchen</tt> are able to access the
+operations stored in the <tt>Room</tt>  and in the <tt>Kitchen</tt> class.
+Note the transition the kitchen was going through: firstly it was a
+singular object, then it was an object with a user-defined class,
+and now it is a class. This is possible (and not senseless) because
+of the per-object specialization ability and the dual shape of a
+class, which is at the same time object and class. Both lead to a
+seamless connection of the run-time properties (the object features)
+and their descriptive properties (the class features). It is possible
+to avoid the strict distinction between them, known from static typed
+languages, like C++, Java, etc. 
+</p>
+<p>Moreover, since the syntaxes of constructs expressing the same
+concern are nearly identical, we can re-factor a solution with very few 
+changes to the alternative. We will see similar "ease of refactoring"
+throughout the XOTcl language. E.g., we can also easily re-factor the
+class hierarchies or exchange class hierarchies against mixin
+solutions with only slight changes in the code.
+</P>
+<P>Besides single inheritance, as seen, XOTcl provides also multiple
+inheritance. This is syntactically solved by giving the <tt>superclass</tt>
+instance method a list of classes instead of a single class as
+argument. 
+</P>
+<pre CLASS="code">
+  <tt>Class</tt> Room
+  <tt>Class</tt> 4WallsRoom <tt>-superclass</tt> Room
+  <tt>Class</tt> CookingPlace
+  <tt>Class</tt> Kitchen <tt>-superclass</tt> {4WallsRoom CookingPlace}
+</pre><P>
+Now the kitchen class is specialized a bit more. It is a special room
+which has four walls <EM>and</EM> it is a cooking place. Multiple
+inheritance, as seen here, is as simple to apply as single
+inheritance. 
+</P><P>
+
+Most often when the disadvantages of multiple inheritance are
+discussed, the name resolution along the class graph is considered as
+the biggest problem. The question is, which method is to be chosen and
+which path through class graph is to be taken, if more then one method
+of the specified name exist on the class graph.
+
+</P>
+<P ALIGN=LEFT STYLE="margin-bottom: 0in">In the example such questions
+would arise for an object of the <tt>Kitchen</tt> class, if two
+same-named methods are defined on <tt>CookingPlace</tt> and
+<tt>4WallsRoom</tt> or if a method of the class <tt>Object</tt> is
+called, which is reachable through two paths (along
+<tt>CookingPlace</tt> or <tt>Room</tt>). 
+</P>
+
+<P ALIGN=LEFT STYLE="margin-bottom: 0in">Often - e.g. in the
+inheritance model of C++ - the path through the graph is not clearly
+determined and/or the rules are too complicated to be understood on
+the first glance. The programmer often can only determine by trial
+which method is found firstly. Than an explicit naming of the class is
+necessary, which means storage of non-local information in
+sub-classes. Often different compilers of one language behave
+differently. All these issues make code reuse difficult. Moreover
+understandability and portability are reduced.
+</P>
+<P ALIGN=CENTER STYLE="margin-bottom: 0in"><BR>
+</P>
+<P ALIGN=CENTER STYLE="margin-bottom: 0in"><STRONG>Figure 3:</STRONG>
+The example classes and the following next-path</P>
+<CENTER>
+	<TABLE BORDER=0 CELLPADDING=2 CELLSPACING=0>
+		<COL>
+		<TR>
+			<TD>
+				<IMG SRC="next-path.gif" NAME="Graphic13" ALIGN=LEFT BORDER=0><BR CLEAR=LEFT></TD>
+		</TR>
+	</TABLE>
+</CENTER>
+<P>XOTcl goes an intuitive and unambiguous way to solve this problem.
+It resolutes the precedence order along a ``<EM>next-path</EM>''.
+Firstly the class of the object is searched, which is <tt>Kitchen</tt>
+in example. Then the super-classes are searched in definition order,
+which means at first <tt>4WallsRoom</tt>, then <tt>CookingPlace</tt>.
+Each branch is searched completely, before changing to the next
+branch. That means, <tt>Room</tt> is searched, before the
+<tt>CookingPlace</tt> branch is visited. At last the top of the
+hierarchy, the class <tt>Object</tt>, is searched. 
+</P>
+
+<P>The usage of <tt>next</tt> in XOTcl is different to OTcl: In OTcl,
+	 <tt>next</tt> is defined as a method, in XOTcl it is a
+	primitive command. Furthermore, in OTcl, 
+it is always necessary to provide the full argument list for every
+invocation explicitly. In XOTcl, a call of <tt>next</tt> without
+arguments can be used to call the shadowed methods with the same
+arguments (which is the most common case). When arguments should be
+changed for the shadowed methods, they must be provided explicitly in
+XOTcl as well. In the rare case that the shadowed method should
+receive no argument, the flag <tt>--noArgs</tt> must be used. 
+</P>
+
+<H3><A NAME="class_destroy"></A>Destruction of Classes 
+</H3>
+<P>Classes are destroyed by the destruction of the class-object using
+the <tt>destroy</tt> method of the <tt>Object</tt> class. The
+destruction of super-classes does not destroy the sub-classes. The
+super-class is simply removed from the sub-classes' super-class
+lists. All classes have the super-class <tt>Object</tt>, if no
+super-class is specified. Therefore, if all super-classes are
+destroyed or removed, the new super-class is <tt>Object</tt>, not: no
+super-class. The destruction of the class of an object does neither
+delete the object nor leave it without class. In XOTcl a deleted class
+leaves it's instances with the class <tt>Object</tt>.
+</P>
+<P>So all empty class- and superclass-relationships are automatically
+reseted to <tt>Object</tt>. Note, that this are differences to OTcl,
+where the destruction of an class destroys all instances and an empty
+super-class list remains empty. 
+</P>
+<H3><A NAME="class_method_chaining"></A>Method Chaining 
+</H3>
+<P>A special feature of XOTcl is the method chaining without explicit
+naming of the ``mix-in''-method. It allows one to mix the same-named
+superclass methods into the current method (modeled after CLOS). The
+previously described next-path is the basis for this functionality.
+At the point marked by a call to the <tt>next</tt> primitive of XOTcl
+the next shadowed method on the next path is searched and, when it is
+found, it is mixed into the execution of the current method. When no
+method is found, the call of <tt>next</tt> returns an empty string,
+otherwise it returns the result of the called method. 
+The syntax is: 
+</P>
+<pre CLASS="code">
+  <tt>next</tt> <em>?arguments|--noArgs?</em>
+</pre><P>
+As stated earlier the usage of <tt>next</tt> in XOTcl differs from
+OTcl, since the <tt>next</tt> call without arguments in OTcl means
+per default that no arguments are passed. But most often all
+arguments are passed through to the shadowed methods (since these will
+most likely have the same signatures). When all
+variables should be passed through, in OTcl it is necessary for
+correct variable substitution to use: 
+</P>
+<pre CLASS="code">
+  <tt>eval</tt> $self <tt>next</tt> $args
+</pre><P>
+To avoid such difficulties, we made the passing of all arguments the
+default case; a simple 
+</P>
+<pre CLASS="code">
+  <tt>next</tt>
+</pre><P>
+performs the task of passing all arguments to the shadowed methods.
+These arguments are called the <EM>standard arguments</EM>. If the
+standard argument feature should not be used, optionally arguments
+can be given or the flag <tt>--noArgs</tt> could be set as sole
+argument, which means that the shadowed method is called with no
+arguments. 
+</P>
+<P>
+E.g. the following <tt> next </tt> call ignores the standard arguments 
+and sends the arguments 1 and 2 instead:
+</P>
+<pre CLASS="code">
+  <tt>next</tt> 1 2
+</pre><P>
+
+<P>As an example all classes involved in the previous example should
+get a constructor instance method, which simply sets an instance
+variable on the object:
+</P>
+<pre CLASS="code">
+  Room <tt>instproc</tt> <tt>init</tt> args {
+    <tt>my</tt> <tt>set</tt> roomNumber 0
+    <tt>next</tt>
+  }    
+  4WallsRoom <tt>instproc</tt> <tt>init</tt> args {
+    <tt>my</tt> <tt>set</tt> doorPosition 0
+    <tt>next</tt>
+  }
+  CookingPlace <tt>instproc</tt> <tt>init</tt> args {
+    <tt>my</tt> <tt>set</tt> stoveType electric
+    <tt>next</tt>
+  }
+  Kitchen <tt>instproc</tt> <tt>init</tt> args {
+    <tt>my</tt> <tt>set</tt> cookName -
+    <tt>next</tt>
+  }
+</pre><P>
+After creation an object of class <tt>Kitchen</tt> gets automatically
+four instance variables <tt>cookName</tt>, <tt>roomNumber</tt>,
+<tt>doorPosition</tt> and <tt>stoveType</tt> set up with default
+values in this order (since this is the order of the classes in the
+next-path). Note, that the order is important, because one missing
+next call, in one of the <tt>init</tt> methods, means that succeeding
+<tt>init</tt> methods will not be executed. This mechanism functions
+equally on all kinds of instprocs, not only on constructors. 
+</P>
+<P>The constructors use the <tt>args</tt> argument, which allows us to
+give a list of variable length as arguments. To ensure reusability of
+our classes the constructors should use <tt>args</tt> in most cases,
+since they may pass through arguments for constructors further up the
+class hierarchy.
+</P>
+<P>If a <tt>proc</tt> with the searched name exists on the object it
+shadows all instprocs. A <tt>next</tt> call in a proc leads to
+the normal next-paths search, starting with the object's class. 
+</P>
+<p>By the way, an observant reader might notice that the example
+above can be rewritten without explicit constructors, just by
+using parameters with default values.
+</p>
+<pre CLASS="code">
+  <tt>Class</tt> Room <tt>-parameter</tt> {{roomNumber 0}}
+  <tt>Class</tt> 4WallsRoom <tt>-superclass</tt> Room <tt>-parameter</tt> {{doorPosition 0}}
+  <tt>Class</tt> CookingPlace <tt>-parameter</tt> {{stoveType electric}}
+  <tt>Class</tt> Kitchen <tt>-superclass</tt> {4WallsRoom CookingPlace} <tt>-parameter</tt> {{cookName -}}
+</pre><P>
+If an instance of a Kitchen is created it will contain instance
+variables for <tt>doorPosition</tt>, <tt>cookName</tt>,
+<tt>roomNumber</tt>, and <tt>stoveType</tt>, as the following
+statements will show.</p>
+<pre CLASS="code">
+  Kitchen k
+  <tt>puts</tt> [k <tt>info</tt> vars]
+</pre>
+
+
+<H2><A NAME="class_dynamics"></A>Dynamic Class and Superclass
+Relationships 
+</H2>
+<P>Another property of XOTcl that distinguishes it from statically typed
+languages are dynamics of class relationships. The realization of the
+definition of super-classes as seen above with the <tt>superclass</tt>
+method suggests already, that it is not only available at the class
+definition time. In the above example its appended to the class
+definition with &quot;<tt>-superclass</tt>&quot; as a short syntax
+for method invocation at definition time (all other available methods
+can also be called with a preceding dash (&quot;-&quot;) appended
+to definitions). 
+</P>
+<P>At any time the class graph may be changed entirely using the
+<tt>superclass</tt> method. Suppose the rooms and kitchens created in
+modeling of a house should be displayed to a screen, but it is not
+determined, whether the user of the system has the possibilities for
+graphical outputs. Two classes <tt>TextOutput</tt> and
+<tt>GraphicalOutput</tt> may be defined, which handle the output. Both
+have an instproc <tt>paint</tt> which does the painting of the virtual
+world on the chosen display type. The common output requirements are
+handled by a derived class <tt>VirtualWorldOutput</tt> which calls the
+<tt>paint</tt> method of the superclass using <tt>next</tt>. In
+statically typed languages it would need more sophisticated constructs
+to change the output class at run-time. E.g. a delegation to another
+object handling the intrinsic task of the output object would be
+introduced solely for the purpose of configuring the output
+form. With a dynamic class system we can use the <tt>superclass</tt>
+method to do so easily:
+</P>
+<pre CLASS="code">
+  <tt>Class</tt> TextOutput
+  TextOutput <tt>instproc</tt> paint args {
+    <it># do the painting ...</it>
+  }
+  <tt>Class</tt> GraphicalOutput
+  GraphicalOutput <tt>instproc</tt> paint args {
+    <it># do the painting ...</it>
+  }
+
+  <it># initially we use textual output</it>
+  <tt>Class</tt> VirtualWorldOutput <tt>-superclass</tt> TextOutput
+  VirtualWorldOutput <tt>instproc</tt> paint args {
+    <it># do the common computations for painting ...</it>
+    <tt>next</tt>; <it># and call the actual output</it>
+  }
+
+  <it># user decides to change to graphical output</it>
+  VirtualWorldOutput superclass GraphicalOutput
+</pre>
+<P>
+Sometimes, such a change to new intrinsic properties should not happen
+for all instances of a class (or the class hierarchy), but only for
+one specific object. Then the usage of a dynamic super-class
+relationship is a too coarse-grained means. A second form of such
+dynamics is the changing of the relationship between object and
+class. This means, objects can also change their class dynamically at
+run-time. This feature may be used to model a life-cycle of an object,
+without loosing the object's identity, inner state or
+per-object-specializations through procs. The <tt>class</tt> instance
+method enables this functionality.
+</P>
+<P>An example would be an agent for the virtual world. Agents may be
+placeholders for persons, who interactively travel the world, or
+programs, which act automatically. When a person decides at run-time
+to give a task it has performed formerly by hand to an automatic
+agent, the agents nature changes from interactive agent to automatic
+agent, but the identity and the local state (that means the parts of
+the task, that are already fulfilled by the person) stay the same.
+This is a scenario for changing class relationships, e.g.: 
+</P>
+<pre CLASS="code">
+  <tt>Class</tt> Agent
+  <tt>Class</tt> AutomaticAgent <tt>-superclass</tt> Agent
+  <tt>Class</tt> InteractiveAgent <tt>-superclass</tt> Agent
+
+  <it># create a new agent for a person</it>
+  InteractiveAgent agent1
+
+  <it># the person does something ...</it>
+  <it># and decides the change to an automatic agent</it>
+  agent1 <tt>class</tt> AutomaticAgent
+</pre>
+
+<H2>
+<A NAME="meta-classes"></A>Meta-Classes 
+</H2>
+<P>Meta-classes are a special kind of classes. Similar as classes are
+managing objects (where managing means: control the creation and
+destruction of instances, know what instances exist, provide methods),
+meta-classes are managing classes. So, meta-classes are used to define
+classes. In other words, every Class in XOTcl is created by a
+meta-class, in most cases by the meta-class named <tt>Class</tt>.  New
+user-defined meta-classes can be defined as subclasses of the
+predefined meta-class <tt>Class</tt>, or by adding an instmixin class
+(see <A HREF="per-class-mixins">below</A>) containing <tt>Class</tt>
+to the precedence chain of the class.  By defining <tt>Object
+instmixin Class</tt> one can even change the object system of XOTcl in
+in a way such that every created Object is a meta-class.
+</P>
+<P>Since the concept of a meta-class are sometimes
+confusing to people of a background of some other programming
+languages, we explain meta-classes slowly with the analogy of classes
+and objects.
+</p>
+<p>
+When a class <tt>Foo</tt> is created via the command
+<pre CLASS="code">
+   <tt>Class</tt> Foo
+</pre>
+ it has no private variables and no special methods. This is 
+ somewhat similar as creating an object via <tt>Object</tt>:
+<pre CLASS="code">
+   <tt>Object</tt> foo
+</pre>
+ This plain object <tt>foo</tt> can be configured directly, or
+ one can create a class that configures the object. 
+ Instead of writing 
+<pre CLASS="code">
+   <tt>Object</tt> foo 
+   foo <tt>set</tt> x 1
+   foo <tt>proc</tt> hi {} {<tt>puts</tt> "hello"}
+</pre>
+ one can use
+<pre CLASS="code">
+   <tt>Class</tt> C <tt>-superclass</tt> Object
+   C <tt>instproc</tt> <tt>init</tt> {} {<tt>my</tt> <tt>set</tt> x 1}
+   C <tt>instproc</tt> hi {} {<tt>puts</tt> "hello"}
+</pre>
+ and create an instance and call the method.
+<pre CLASS="code">
+   C c1
+   c1 hi
+</pre>
+ The same holds for meta-classes and classes as well: Instead of writing 
+<pre CLASS="code">
+   <tt>Class</tt> Foo
+   Foo <tt>set</tt> x 1
+   Foo <tt>proc</tt> hi {} {<tt>puts</tt> "hello"}
+</pre>
+ the following can be used:
+<pre CLASS="code">
+   <tt>Class</tt> MC <tt>-superclass</tt> <tt>Class</tt>
+   MC <tt>instproc</tt> <tt>init</tt> {} {<tt>my</tt> <tt>set</tt> x 1}
+   MC <tt>instproc</tt> hi {} {<tt>puts</tt> "hello"}
+</pre>
+ The instances of meta-classes are classes which can be 
+ defined the usual way:
+<pre CLASS="code">
+   MC Bar
+   Bar hi
+   Bar b1
+</pre>
+ Now we have a class names <tt>Bar</tt> which has a class-scoped
+ variable named <tt>x</tt> with the value of 1 (set via the
+ constructor); the class <tt>Bar</tt> has as well a class-method named
+ <tt>hi</tt> which prints, when called, the string "hello". The class
+ <tt>Bar</tt> can be used to create instances of the class like
+ <tt>b1</tt>, <tt>b2</tt> and so on.
+</p>
+<p>Note that the command <tt>Class</tt> is a predefined definition
+of the most general meta-class in XOTcl. Each time we are creating
+a class, we use this meta-class.
+In order to define a specialized meta-class, we can do this the
+traditional object-oriented way: we subclass. Therefore, in to define
+a specialized meta-class, we can use:
+</P>
+<pre CLASS="code">
+  <tt>Class</tt> myMetaClass <tt>-superclass</tt> <tt>Class</tt>
+</pre>
+<P>This defines a new meta-class <tt>myMetaClass</tt>, which has all the
+abilities of meta-classes. That means that the programmer is able to
+specify new class features or override old ones. Later she/he may
+instantiate these into new classes. 
+</P>
+<P>This is a very powerful language feature, since it allows one to give
+some classes further abilities than the others (or to restrict
+classes). This way large program structures, like certain design
+pattern parts, may be instantiated. Meta-classes hold the common
+abstract parts of the structures. They allow one to form libraries of
+such structures very easily. 
+</P>
+<H3>Example 1: Overloading the info method of classes
+</H3>
+<P>
+As a simple example we can derive a new meta-class
+<tt>NoClassInfo</tt> from <tt>Class</tt>. Later we override the
+<tt>info</tt> method of <tt>Class</tt>. Thus the classes created with
+<tt>NoClassInfo</tt>, have an <tt>info</tt> option that only produces
+an error message. All classes created with <tt>NoClassInfo</tt>, like
+<tt>Agent</tt> in the example below, are not capable of accessing the class
+<tt>info</tt> method anymore:
+</P>
+<pre CLASS="code">
+  <tt>Class</tt> NoClassInfo <tt>-superclass</tt> <tt>Class</tt>
+  <it># redefine info ability</it>
+  NoClassInfo <tt>instproc</tt> <tt>info</tt> args {
+    error &quot;No class info available&quot;
+  }
+  <it># derive agent class from meta-class, which</it>
+  <it># can not access class info</it>
+  NoClassInfo Agent
+</pre>
+Now a call like: 
+<pre CLASS="code">
+  Agent <tt>info</tt> superclass
+</pre><P>
+triggers the error message. 
+</P>
+
+<H3>Example 2: Defining Classes that Count Their Instances
+</H3>
+<p>Meta-classes are frequently used to define some bookkeeping
+about the number of instances on the class level. In the following
+example we define a meta-class named <tt>CountedClass</tt> which
+defines classes that count their instances:
+<pre CLASS="code">
+  <tt>Class</tt> CountedClass <tt>-superclass</tt> <tt>Class</tt> <tt>-parameter</tt> {{counter 0}}
+  CountedClass <tt>instproc</tt> <tt>create</tt> args {
+    <tt>my</tt> <tt>incr</tt> counter
+    <tt>next</tt>
+  }
+  CountedClass <tt>instproc</tt> <tt>instdestroy</tt> args {
+    <tt>my</tt> <tt>incr</tt> counter -1
+    <tt>next</tt>
+  }
+  CountedClass Dog
+
+  Dog piffie
+  Dog idefix
+  <tt>puts</tt> "nr of dogs: [Dog counter]"
+
+  piffie <tt>destroy</tt>
+  <tt>puts</tt> "nr of dogs: [Dog counter]"
+</pre>
+Note that the behavior introduced by meta-classes
+can be orthogonal to the behavior of the classes. One can
+define <tt>Dog</tt> as a specialization of <tt>Animal</tt>
+or defines a special kind of dog such as <tt>Poodle</tt> using
+the method <tt>superclass</tt> as usual.
+</p>
+
+<H3>Example 3: The Singleton Meta-Class
+</H3>
+<p>Finally, a small example, which is more practical. Some
+applications have the requirement that only one instance of a class
+might be defined at a certain time. Such a behavior is frequently
+called a "Singleton". In XOTcl we can define a class singleton by
+overloading the <tt>create</tt> method of <tt>Class</tt>: when
+<tt>create</tt> is called and there exists already an instance of the
+singleton it is returned instead of a new instance.
+<pre CLASS="code">
+  <tt>Class</tt> Singleton <tt>-superclass</tt> <tt>Class</tt>
+  Singleton <tt>instproc</tt> <tt>create</tt> args {
+    <tt>expr</tt> {[<tt>my</tt> exists instance] ? [<tt>my</tt> <tt>set</tt> instance] : [<tt>my</tt> <tt>set</tt> instance [<tt>next</tt>]]}
+  }
+</pre>
+ If someone wants to have a class e.g. <tt>Manager</tt> to be a
+ singleton, you can create it by e.g.
+<pre CLASS="code">
+  Singleton Manager <tt>-superclass</tt> FOO
+</pre>
+</p>
+
+
+<H2>
+<A NAME="destroy-logic"></A>Create, Destroy, and Recreate Methods
+</H2>
+<P>
+<P>
+XOTcl allows since version 0.84 for a flexible destroy and recreate scheme.
+<tt>create</tt> and <tt>alloc</tt> are both Class instprocs 
+handling creation for their instances. I.e.:
+</P>
+<pre CLASS="code">
+ <em>className</em> <tt>alloc</tt> [<tt>self</tt>]
+</pre>
+and
+<pre CLASS="code">
+ <em>className</em> <tt>create</tt> [<tt>self</tt>]
+</pre>
+<P>
+are used for creating an instance. A similar method <tt>instdestroy</tt>
+exists on Class that handles physical destruction of an object. The
+method <tt>destroy</tt> on Object which lets an object destroy itself in fact
+has the following behavior:
+</P>
+<pre CLASS="code">
+  <tt>Object</tt> <tt>instproc</tt> <tt>destroy</tt> args {
+   [<tt>my</tt> <tt>info</tt> class] <tt>instdestroy</tt> [<tt>self</tt>]
+  }
+</pre>
+<P>
+However, this behavior is not implemented in XOTcl, but in C.
+<tt>create</tt>  distinguishes between the following situations:
+</P>
+<ul>
+<li> <em>Create a new object:</em> 
+    By default <tt>create</tt> calls <tt>alloc</tt> and then
+   <tt>doInitializations</tt>.
+<li> <em>Recreate an existing object:</em> 
+    When the specified object exists, it is recreated through the
+    <tt>recreate</tt> method:
+<pre CLASS="code">
+  <em>givenClass</em> <tt>recreate</tt> [<tt>self</tt>]
+</pre>
+    <P>
+    The method <tt>recreate</tt> can be customized like all other
+  XOTcl methods (e.g. by overloading or interception). 
+    By default <tt>create</tt> calls <tt>cleanup</tt> followed by
+  <tt>doInitializations</tt>.
+  </p>
+  <p>
+  Note, that <tt>recreate</tt> is not called, when a someone tries
+  to recreate a class as an object or an object as a class. In these
+  cases, <tt>destroy</tt> + <tt>create</tt> are used.
+<pre CLASS="code">
+    Class c
+    Object c ;# here, "c" is downgraded to an object, no "recreate" is called
+</pre>
+</ul>
+<p>
+For <tt>create</tt> and <tt>recreate</tt>, the method <tt>doInitializations</tt> 
+is called automatically from C and has the following default behavior: 
+</p>
+<ul>
+<li> Search for parameter default values,
+<li> Call parameter initialization methods,
+<li> Call the constructor <tt>init</tt>.
+</ul>
+<P>
+Each step has a method call that can be changed, intercepted, etc.  Of
+course, <tt>cleanup</tt>, <tt>recreate</tt>, <tt>instdestroy</tt>, 
+etc. can also be overloaded or intercepted.
+</P>
+<P>
+Consider a typical case for overloading <tt>recreate</tt>: a structure
+preserving <tt>recreate</tt> that cleans up the class but 
+preserves the existing class hierarchy (subclass and instance relationships):
+</P>
+<pre CLASS="code">
+  <tt>Class</tt> StructurePreservingRecreate
+  StructurePreservingRecreate <tt>instproc</tt> <tt>recreate</tt> {cl args} {
+    <tt>if</tt> {[<tt>my</tt> <tt>isclass</tt> $cl]} {
+      <tt>set</tt> subclass [$cl <tt>info</tt> subclass]
+      <tt>set</tt> instances [$cl <tt>info</tt> instances]
+    }
+    <tt>next</tt>
+    <tt>if</tt> {[<tt>my</tt> <tt>isclass</tt> $cl]} {
+      <tt>foreach</tt> sc $subclass {
+        $sc <tt>superclass</tt> $cl
+      }
+      <tt>foreach</tt> i $instances {
+        $i <tt>class</tt> $cl
+      }
+    }
+  }
+  <tt>Object</tt> instmixin add StructurePreservingRecreate
+</pre>
+<p>
+Now the following code does not change the superclass or instance
+relationships of C:
+</p>
+<pre CLASS="code">
+  <tt>Class</tt> A
+  <tt>Class</tt> B
+  <tt>Class</tt> C <tt>-superclass</tt> {A B}
+  <tt>Class</tt> D
+  <tt>Class</tt> E <tt>-superclass</tt> {C D}
+  C c1
+  C c2
+
+  <it># recreate -> is structure preserving</it>
+  <tt>Class</tt> C <tt>-superclass</tt> {A B}
+  C c2
+
+  <it># test</it>
+  <tt>puts</tt> superclass=[C <tt>info</tt> superclass]
+  <tt>puts</tt> subclass=[C <tt>info</tt> subclass]
+  <tt>puts</tt> instances=[C <tt>info</tt> instances]
+  <tt>puts</tt> class=[c1 <tt>info</tt> class]
+  <tt>puts</tt> class=[c2 <tt>info</tt> class]
+</pre>
+
+Starting with XOTcl 1.4.0, xotcl provides also a user-friendly
+way for a structure-prevering recreate implemented in C. Since this version, one
+can configure "softrecreate" as follow.
+<pre CLASS="code">
+<tt>::xotcl::configure softrecreate</tt> true
+</pre>
+This command causes that recreates are structure-conservative.
+
+<H2>
+<A NAME="non-pos-args"></A>Methods with Non-Positional Arguments
+</H2>
+<P>
+<P>
+So far we have introduced methods only with positional arguments: that
+is, the position of an argument in the argument list determines to
+which local variable the argument is bound, when the method is
+invoked. Sometimes non-positional arguments -- arguments that carry
+both a name and a value when the method is invoked -- are
+useful. Before a non-positional argument can be used, it must be
+defined in the method definition using the following syntax:
+</P>
+<pre CLASS="code">
+ <em>className</em> <tt>instproc</tt> methodName <em>?non-pos-args? args</em> body ?assertions
+ <em>objName</em> <tt>proc</tt> methodName <em>?non-pos-args?</em> args body ?assertions
+</pre>
+<P>
+The non-positional arguments are defined with the following syntax:
+</P>
+<pre CLASS="code">
+ {-name?:checkoption1, checkoption2, ...? default value} \
+     {-name?:checkoption1, checkoption2, ...? ?default value?} ...
+</pre>
+<p>
+Only the name of the non-positional argument is really required, all
+other parts of this syntax are optional.
+</p>
+<p>
+Let's consider a simple example, where a method with two
+non-positional args is defined; one has only a name ("a"), and one has
+a name and a default value (b):
+</p>
+<pre CLASS="code">
+ <tt>Object</tt> o
+ o <tt>proc</tt> someproc {-a {-b {1 2 3}} x y} {
+     puts "$a $b $x $y"
+ }
+</pre><P>
+We can invoke this method as follows:
+</p>
+<pre CLASS="code">
+ o someproc -b {4 5} -a 1 3 4
+</pre><P>
+
+Here, the order of <tt>a</tt> and <tt>b</tt> can be changed; hence the name
+non-positional arguments.  As <tt>b</tt> has a default value, we do not need
+to provide a value for it. In the following invocation <tt>b</tt> has the
+value "1 2 3":
+</p>
+<pre CLASS="code">
+ o someproc -a 1 3 4
+</pre><P>
+The ordinary arguments start after the last non-positional argument
+(here: "3 4").  We can explicitly end the non-positional arguments by
+using "--". This is useful if we want to provide arguments that contain 
+dashes ("-"), e.g.:
+</p>
+<pre CLASS="code">
+ o someproc -a 1 -- -b -c
+</pre><P>
+
+Sometimes we want to check or control the non-positional
+arguments. For instance, in the above invocation, we might want to
+check that <tt>a</tt> is not forgotten, because otherwise the method cannot
+execute properly. This is the role of the checkoptions. There are three
+predefined checkoptions: <tt>required</tt>, <tt>boolean</tt> and 
+<tt>switch</tt>. <tt>required</tt> checks
+whether a non-positional argument is given, <tt>boolean</tt> checks that a
+non-positional argument is of boolean type. For instance:
+</p>
+<pre CLASS="code">
+ <tt>Class</tt> P
+ P <tt>instproc</tt> someproc {-a:required {-b:boolean true}} {
+     puts "$a $b"
+ }
+ P p
+</pre><P>
+
+This method requires <tt>a</tt>, and <tt>b</tt> needs to be 
+of type boolean (is has
+the default value <tt>true</tt>). This invocation is valid:
+</p>
+<pre CLASS="code">
+ p someproc -a 1 -b 0
+</pre><P>
+
+This invocation is invalid, because <tt>a</tt> is missing, 
+and <tt>b</tt> is not a Tcl boolean type:
+</p>
+<pre CLASS="code">
+ p someproc -b " a b v"
+</pre><P>
+The checkoption <tt>switch</tt> is similar to <tt>boolean</tt> except
+it does not require an additional argument. If the default value is 
+<tt>false</tt>, the switch can be turned on, if the default is <tt>true</tt>
+it can be switched off.
+<p>
+The checkoptions are extensible. In fact, they are defined in an
+object <tt>::xotcl::nonposArgs</tt>. We can extend this object with new
+methods.
+<!-- and we can provide other checkobjects. -->
+A check option method has the following syntax:
+</P>
+<pre CLASS="code">
+ <em>someobject|someclass</em> <tt>proc</tt>|<tt>instproc</tt> methodName {?optional nonpositional arguments? argName arg} {
+  ...
+ }
+</pre>
+<p>
+
+<tt>argName</tt> is here used to denote the name of the argument, 
+and <tt>arg</tt> is the provided value.
+</p>
+
+
+<!--
+<p>
+In seldom cases, more flexibility might be required. Using the
+checkoption "checkobj" we can switch the object that is used for
+checking the options. This can be done at any place in the checkoption
+list. The following example defines new checkoptions in a separate
+object and switches to this object for checking. Then the check is
+switched back to "xotcl::nonposArgs" to invoke the predefined option
+"required":
+
+</P>
+<pre CLASS="code">
+Object colorchecker
+colorchecker proc color {a b c argName args} {
+    puts "$a $b $c"
+}
+colorchecker proc reddish {argName args} {
+    puts "reddish"
+}
+o proc color {{{-color:checkobj colorchecker,color must be red,reddish,checkobj xotcl::nonposArgs, required} red}} {} {
+    puts "$b $arg"
+}
+</pre></p>
+-->
+
+Of course, the non-positional arguments can also be introspected. The
+following <tt>info</tt> options return the non-positional arguments of a
+method:
+
+</P>
+<pre CLASS="code">
+ <em>objName</em> <tt>info</tt> <em>nonposargs</em> methodName
+ <em>className</em> <tt>info</tt> <em>instnonposargs</em> methodName
+</pre></p>
+
+<!-- PAGE BREAK -->
+
+<TABLE COLS=2 WIDTH=100% BORDER=0 CELLPADDING=2 CELLSPACING=0 BGCOLOR="#000055">
+	<TR>
+		<TD WIDTH=75%>
+			<P><A NAME="interceptors"></A><FONT
+COLOR="#ffffff"><FONT FACE="Arial, Helvetica"><FONT SIZE=6>Message
+Interception Techniques
+			</FONT></FONT></FONT>
+			</P>
+		</TD>
+		<TD>
+			<IMG SRC="logo-100.jpg" NAME="Graphic7" ALIGN=RIGHT WIDTH=102 HEIGHT=42 BORDER=0></TD>
+	</TR>
+</TABLE>
+
+<P>Even though object-orientation orders program structures around
+data, objects are characterized primarily by their behavior.
+Object-oriented programming style encourages the access of
+encapsulated data only through the methods of an object, since this
+enables data abstractions. A method invocation can be interpreted as a
+message exchange between the calling and the called object.
+Therefore, objects are at runtime only traceable through their message
+exchanges. At this point the message interceptors can be applied to
+catch and manipulate all incoming and outgoing messages of an
+object. 
+<P>
+</P>Generally interceptors can be applied to attach additional or
+extrinsic concerns to an object or a class or a class hierarchy. For
+instance roles or aspects can be implemented this way on various
+levels of scale.
+</P>
+
+<P>We have already discussed some interception techniques
+implicitly. E.g., the <tt>unknown</tt> mechanism intercepts messages
+that have not be found on the object. It can be used as a very useful
+programming technique, e.g., the define a default behavior for an
+object. The interceptors presented in this section have a different
+character: They are applied before/after the original method <em>even
+if the method is defined for the target object</em>. Thus these
+interception techniques may be applied 
+</P>
+
+<P>We will discuss the message interceptors in this section in
+detail. The table below gives an impression, when which interceptor
+may be applied.
+
+    <P ALIGN=CENTER STYLE="margin-bottom: 0in"><STRONG>Message
+	Interceptors Overview</STRONG></P>
+
+    <CENTER>
+      <TABLE BORDER=1 CELLPADDING=2>
+	<TR>
+	  <TD></TD>
+	  <TD><P ALIGN=LEFT><strong>Applied When</strong></P></TD>
+	  <TD><P ALIGN=LEFT><strong>Primary Target Structure</strong></P></TD>
+	  <TD><P ALIGN=LEFT><strong>Coverage</strong></P></TD>
+	</TR>
+	<TR>
+	  <TD><P ALIGN=LEFT><em> Per-Object Filter</em></P></TD>
+	  <TD><P ALIGN=LEFT>before/after a call</P></TD>
+	  <TD><P ALIGN=LEFT> object hierarchies</P></TD>
+	  <TD><P ALIGN=LEFT>all methods</P></TD>
+	</TR>
+	<TR>
+	  <TD><P ALIGN=LEFT><em> Per-Class Filter</em></P></TD>
+	  <TD><P ALIGN=LEFT>before/after a call</P></TD>
+	  <TD><P ALIGN=LEFT> class and class hierarchies</P></TD>
+	  <TD><P ALIGN=LEFT>all methods</P></TD>
+	</TR>
+	<TR>
+	  <TD><P ALIGN=LEFT><em> Per-Object Mixin</em></P></TD>
+	  <TD><P ALIGN=LEFT> before/after a call</P></TD>
+	  <TD><P ALIGN=LEFT> object</P></TD>
+	  <TD><P ALIGN=LEFT> specific methods</P></TD>
+	</TR>
+	<TR>
+	  <TD><P ALIGN=LEFT><em> Per-Class Mixin</em></P></TD>
+	  <TD><P ALIGN=LEFT> before/after a call</P></TD>
+	  <TD><P ALIGN=LEFT> class and class hierarchies</P></TD>
+	  <TD><P ALIGN=LEFT> specific methods</P></TD>
+	</TR>
+	<TR>
+	  <TD><P ALIGN=LEFT><em> Unknown Mechanism</em></P></TD>
+	  <TD><P ALIGN=LEFT> after method was not found</P></TD>
+	  <TD><P ALIGN=LEFT> object</P></TD>
+	  <TD><P ALIGN=LEFT> all unknown calls</P></TD>
+	</TR>
+      </TABLE>
+    </CENTER>
+
+<br>
+
+<H2><A NAME="filter"></A>Filter
+</H2>
+
+<P>The filter (see <a href="#xotcl-filter">[Neumann and Zdun
+1999a]</a> for more details) is a language construct to implement
+broader extensional concerns either for a single object or for several
+classes or class hierarchies. This way large program structures at the
+scale of several classes or class hierarchies can be managed.  It is a
+very general interception mechanism which can be used in various
+application areas. E.g. a very powerful programming language support
+for certain design patterns is easily achievable, but there are also
+several other domains which are covered, like tracing of program
+structures, self-documentation at run-time, re-interpretation of the
+running program, etc.
+</P>
+<P>A <I>per-class filter</I> is a special instance method that is
+registered for a class <I>C</I>. A <I>per-object filter</I> is a
+special instance method that is registered for a object
+<I>o</I>. Every time an object of class, <I>C</I> or the object
+<I>o</I> respectively, receives a message,
+the <I>filter</I> method is invoked automatically.
+</P>
+<H3><A NAME="filter_usage"></A>Usage of Filters 
+</H3>
+<P>All messages to a filtered object must go through the filter before
+they reach their destination object. A simple example would be a sole
+filter on the class of the object. To define such a filter two steps
+are necessary. Firstly an filter method has to be defined, then the
+filter has to be registered. The filter method consists of three parts
+which are all optional. A filter method has the following form:
+</P>
+<pre CLASS="code">
+  <EM>className</em> <tt>instproc</tt> <em>FilterName args</em> {
+    <em>pre-part</em>
+    <tt>next</tt>
+    <em>post-part</em>
+  }
+</pre>
+<P>
+When a filter comes to execution at first the actions in the <EM>pre-part</EM>
+are processed.  The filter is free in what it does with the
+message. Especially it can (a) pass the message, which was perhaps
+modified in the <EM>pre-part</EM>, to other filters and finally to
+the object. It can (b) redirect it to another destination. Or it can
+(c) decide to handle the message on its own. The forward passing of
+messages is implemented through the <tt>next</tt> primitive of XOTcl.
+After the filter has passed its pre-part, the actual called method is
+invoked through <tt>next</tt>. 
+</P>
+<P>After the call of <tt>next</tt> is processed, the execution returns
+to the point in the filter, where the <tt>next</tt> call is located
+and resumes execution with the actions of the <EM>post-part</EM>.
+These may contain arbitrary statements, but especially may take the
+result of the actual called method (which is returned by the
+next-call) and modify it. The caller then receives the result of the
+filter, instead of the result of the actual called method.
+</P>
+<P>The pre- and post-part may be filled with any ordinary
+XOTcl-statements. The distinction between the three parts is just a
+naming convention for explanation purposes. 
+</P>
+<P>The filter uses the <tt>args</tt> argument which lets us use a list of
+variable length as arguments, since it must filter a lot of different
+calls, which may have different argument lists. Furthermore, it may
+pass through arguments to other filters and the preceding filters may
+change the argument list. 
+</P>
+<P>Since any proc/instproc may be a filter, a registration of the
+filter is necessary, in order to tell XOTcl, which instprocs are
+filters on which classes. The <tt>filter</tt> and <tt>instfilter</tt>
+instance methods are able to handle this task for per-object filters
+and per-class filters respectively. Similar to the XOTcl language
+introduced so far, the filter registration is dynamic at run-time. By
+supplying a new list of filters to
+<tt>filter</tt>/<tt>instfilter</tt>, the programmer can change the
+filters registered on a class at arbitrary times. The filter instance
+method has the syntax:
+</P>
+<pre CLASS="code">
+  <em>className</em> <tt>instfilter</tt> <em>filterList</em>
+</pre>
+for per-class filters and:
+<pre CLASS="code">
+  <em>objName</em> <tt>filter</tt> <em>filterList</em>
+</pre>
+for per-object filters.
+
+<P>
+Now a simple example should show the filter's usage. In the preceding
+examples we have defined several rooms. Every time a room action
+occurs it is likely that the graphical sub-system has to change
+something on the output of that particular room. Therefore, at first
+we need a facility to be informed every time an action on a room
+happens. This is quite easily done using filters: 
+</P>
+<pre CLASS="code">
+  <tt>Class</tt> Room
+  Room r1; Room r2;       <it># just two test objects</it>
+
+  Room <tt>instproc</tt> roomObservationFilter args {
+    <tt>puts</tt> "now a room action begins"
+    <tt>set</tt> result [<tt>next</tt>]
+    <tt>puts</tt> "now a room action ends - Result: $result"
+    <tt>return</tt> $result
+  }
+
+  Room <tt>instfilter</tt> roomObservationFilter
+</pre><P>
+Now every action performed on room objects is notified with a pre-
+and a post-message to the standard output stream. We return the
+result of the actual called method, since we don't want to change the
+program behavior at all. E.g. we can set an instance variable on both
+of the two room objects: 
+</P>
+<pre CLASS="code">
+  r1 <tt>set</tt> name &quot;room 1&quot;
+  r2 <tt>set</tt> name &quot;room 2&quot;
+</pre><P>
+The output would be: 
+</P>
+<pre CLASS="code">
+  now a room action begins
+  now a room action ends - Result: room 1
+  now a room action begins
+  now a room action ends - Result: room 2
+</pre><P STYLE="margin-bottom: 0in">
+<BR>
+</P>
+<P ALIGN=CENTER STYLE="margin-bottom: 0in"><A NAME="oneFilter"></A><A NAME="718"></A>
+&#160;&#160; 
+</P>
+<P ALIGN=CENTER STYLE="margin-bottom: 0in"><STRONG>Figure 4:</STRONG>
+Cascaded Message Filtering</P>
+<CENTER>
+	<TABLE WIDTH=480 BORDER=0 CELLPADDING=2 CELLSPACING=0>
+		<COL WIDTH=476>
+		<TR>
+			<TD WIDTH=476>
+				<P><FONT SIZE=1 STYLE="font-size: 2pt"><IMG SRC="cascaded-message-filter.gif" NAME="Graphic14" ALIGN=BOTTOM WIDTH=474 HEIGHT=281 BORDER=0></FONT></P>
+			</TD>
+		</TR>
+	</TABLE>
+</CENTER>
+<P><BR><BR>
+</P>
+<P>All classes may have more than one filter. In fact they may have a
+whole filter chain, where the filters are cascaded through <tt><tt>next</tt></tt>.
+The <tt>next</tt> method is responsible for the forwarding of
+messages to the remaining filters in the chain one by one till all
+pre-parts are executed. Then the actual method is executed and
+then the post-parts come to turn. If one next-call is omitted the
+chain ends in this filter method. As an example for an additional
+filter we may register a filter that just counts the calls to
+rooms. 
+</P>
+<pre CLASS="code">
+  Room <tt>set</tt> callCounter 0;  <it># set class variable</it>
+  Room <tt>instproc</tt> counterFilter args {
+    [<tt>self</tt> class] <tt>instvar</tt> callCounter
+    <tt>incr</tt> callCounter
+    <tt>puts</tt> "the call number callCounter to a room object"
+    <tt>next</tt>
+  }
+  Room <tt>instfilter</tt> {roomObservationFilter counterFilter}
+</pre><P>
+Filters are invoked in registration order. The order may be changed
+by removing them and adding them in new order. Filters are inherited
+by sub-classes. E.g. in the preceding example for the next path, an
+<tt>OvalOffice</tt> was derived from the <tt>Room</tt> class. Without
+a change to the program each <tt>OvalOffice</tt> object automatically
+produces the same filter output as rooms. 
+</P>
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+<P ALIGN=CENTER STYLE="margin-bottom: 0in"><A NAME="filterInheritance"></A><A NAME="734"></A>
+&#160;&#160; 
+</P>
+<P ALIGN=CENTER STYLE="margin-bottom: 0in"><STRONG>Figure 5:</STRONG>
+Filter Inheritance</P>
+<CENTER>
+	<TABLE WIDTH=2 BORDER=0 CELLPADDING=2 CELLSPACING=0>
+		<COL WIDTH=0>
+		<TR>
+			<TD>
+				<P><FONT SIZE=1 STYLE="font-size: 2pt"><IMG SRC="filter-inheritance.gif" NAME="Graphic15" ALIGN=BOTTOM WIDTH=508 HEIGHT=350 BORDER=0></FONT></P>
+			</TD>
+		</TR>
+	</TABLE>
+</CENTER>
+<P><BR>Filter chains can also be combined through (multiple)
+inheritance using the <tt>next</tt> method. When the filter chain of
+the object's class is passed, the filter chains of the superclasses
+are invoked using the same precedence order as for inheritance. Since
+on the subclass there may also be a another filter chain, without
+sophisticated computing in the pre- and post-parts one can produce
+easily a powerful tracing facility. E.g. if we want to distinguish an
+<tt>OvalOffice</tt> from other rooms we may want to add a filter
+solely for rooms of the type <tt>OvalOffice</tt>: 
+</P>
+<pre CLASS="code">
+  <tt>Class</tt> OvalOffice <tt>-superclass</tt> Room
+  OvalOffice o1;  <it># test object</it>
+  OvalOffice <tt>instproc</tt> ovalOfficeObservationFilter args {
+    <tt>puts</tt> &quot;actions in an oval office&quot;
+    <tt>next</tt>
+  }
+  OvalOffice <tt>instfilter</tt> ovalOfficeObservationFilter
+</pre><P>
+A simple call to the <tt>o1</tt> object, like: 
+</P>
+<pre CLASS="code">
+  o1 <tt>set</tt> location "Washington"
+</pre><P>
+produces the following output: 
+</P>
+<pre CLASS="code">
+  actions in an oval office
+  now a room action begins
+  the call number 3 to a room object
+  now a room action ends - Result: Washington
+</pre><P>
+As seen already, filter registrations can be added dynamically at
+runtime. But they may also be removed. Perhaps the counting on rooms
+should stop after a while, then a simple call of the <tt>instfilter</tt>
+method is sufficient: 
+</P>
+<pre CLASS="code">
+  Room <tt>instfilter</tt> roomObservationFilter
+</pre>
+<P>Filters can be removed completely by giving an empty list to the
+registration method:</P>
+<pre CLASS="code">
+  Room <tt>instfilter</tt> {}
+</pre>
+
+
+<P> Per-object filters operate on a single object. E.g. if we only
+want to observe a single Room object room1, we can use the filter
+method to register the roomObservationFilter only for this particular
+instance:</P>
+<pre CLASS="code">
+  room1 <tt>filter</tt> roomObservationFilter
+</pre>
+<P> As a filter we can register any method in the precedence order of
+the class or object. Thus we can also register procs as per-object
+filters. Additionally, meta-class methods may be registered as
+per-class filters. Filters are linearized so that each filter is only
+executed once, even if it is registered multiple times. 
+</P>
+<P><BR><BR>
+</P>
+<H3><A NAME="filter_info"></A>Introspection on Filters
+</H3>
+In order to gain information about the currently registered filters on
+a certain object/class, the object info option <tt>filters </tt> and
+the  class info option <tt>instfilters </tt> may be
+queried. It returns a list of the currently registered filters:
+</P>
+<pre CLASS="code">
+  <em>className</em> <tt>info</tt> instfilter
+  <em>objName</em> <tt>info</tt> filter
+</pre>
+<p>
+
+A special call-stack info option for filters is <tt>self
+filterreg</tt>. It returns the name of the object or class on which
+the filter is registered. Since the filter may be registered on other
+objects/classes than the one on which it is defined, this may vary from
+<tt>self class</tt> in the filter.
+
+The command returns a list of the form:
+<pre CLASS="code">
+  <em>objName</em> <tt>filter</tt> <em>filterName</em>
+</pre>
+or:
+<pre CLASS="code">
+  <em>className</em> <tt>instfilter</tt> <em>filterName</em>
+</pre>
+respectively.
+</P>
+
+<P><BR><BR>
+</P>
+<H3><A NAME="filter_trace"></A>Example: A Simple Trace Filter 
+</H3>
+<P>The trace example primarily demonstrates the inheritance of filter
+chains. Since all classes inherit from <tt>Object</tt>, a filter on
+this class is applied on all messages to objects. The <tt>Trace</tt>
+object encapsulates methods for managing the tracing: 
+</P>
+<pre CLASS="code">
+  <tt>Object</tt> Trace
+  Trace <tt>set</tt> traceStream stdout
+
+  Trace <tt>proc</tt> openTraceFile name {
+    <tt>my</tt> <tt>set</tt> traceStream [open $name w]
+  }
+
+  Trace <tt>proc</tt> closeTraceFile {} {
+    <tt>close</tt> $Trace::traceStream
+    <tt>my</tt> <tt>set</tt> traceStream stdout
+  }
+
+  Trace <tt>proc</tt> <tt>puts</tt> line {
+    <tt>puts</tt> $Trace::traceStream $line
+  }
+
+  Trace <tt>proc</tt> add className {
+    $className <tt>instfilter</tt> [concat [$className <tt>info</tt> filter] traceFilter]
+  }
+</pre><P>
+First we define the object and set a variable for the stream to which
+we send the trace outputs (here: stdout). With a method for opening
+and a method for closing a file we can redirect the trace stream to a
+file. <tt>puts</tt> is helper method for the filter to print an
+output to the selected output stream. In <tt>add</tt> the <tt>traceFilter</tt>
+is appended to the existing filters of a specified class. The actual
+filter method (see below) displays the calls and exits of methods
+with an according message. The calls are supplied with the arguments,
+the exit traces contain the result values. We have to avoid the
+tracing of the trace methods explicitly. 
+</P>
+<pre CLASS="code">
+  <tt>Object</tt> <tt>instproc</tt> traceFilter args {
+    <it># don't trace the Trace object</it>
+    <tt>if</tt> {[string equal [<tt>self</tt>] ::Trace]} {return [<tt>next</tt>]}
+    <tt>set</tt> context &quot;[<tt>self</tt> class]-&gt;[<tt>self</tt> callingproc]&quot;
+    <tt>set</tt> method [<tt>self</tt> calledproc]
+    switch -- $method {
+      proc -
+      instproc {::set dargs [<tt>list</tt> [lindex $args 0] [lindex $args 1] ...] }
+      default  {::set dargs $args }
+    }
+    Trace::puts &quot;CALL $context&gt;  [<tt>self</tt>]-&gt;$method $dargs&quot;
+    <tt>set</tt> result [<tt>next</tt>]
+    Trace::puts &quot;EXIT $context&gt;  [<tt>self</tt>]-&gt;$method ($result)&quot;
+    <tt>return</tt> $result
+  }
+</pre><P>
+As trace message we write the callee&acute;s context (class and
+proc), the invoked method (using <tt>calledproc</tt>), and the given
+arguments. In the switch statement we avoid to print whole method
+bodies. 
+</P>
+<P>With 
+</P>
+<pre CLASS="code">
+  Trace add Room
+</pre><P>
+messages to all rooms, including all instances of <tt>Room</tt>&acute;s
+sub-classes, are surrounded with a CALL and an EXIT output. With 
+</P>
+<pre CLASS="code">
+  Trace add Object
+</pre><P>
+messages to all objects in an XOTcl environment are surrounded with a
+CALL and an EXIT output. In general, it is possible to restrict the
+trace to instances of certain classes, or to produce trace output for
+only certain methods. This requires registration methods and a more
+sophisticated implementation of the filter method. 
+</P>
+<P><BR><BR>
+</P>
+
+<H2><A NAME="mixins"></A>Mixin Classes
+</H2>
+
+<P>Per-object and per-class mixins (see <a
+href="#xotcl-mixin">[Neumann and Zdun 1999c]</a> for more details) are
+another interception technique of XOTcl to handle complex
+data-structures dynamically. Here, we use mixin as a short form for
+mixin class. All methods which are mixed into the execution of the
+current method, by method chaining or through a mixin class, are
+called <I>mixin methods</I>.  Mixin classes resembles the filter
+presented in the preceding section. While the filters work on all
+calls to all methods of an object/class hierarchy, the mixin classes
+are applied on specific methods. The filter is defined in a single
+method, while the mixin is composes several method in a class.
+ 
+</P>
+<H3><A NAME="mixin_supplemental"></A>Supplemental Classes 
+</H3>
+<P>Mixin classes cover a problem which is not solvable elegantly just
+by the method chaining, introduced so far. To bring in an addition to
+a class, the normal XOTcl way is to define a mixin method and chain
+the methods through <tt>next</tt>, e.g.:
+</P>
+<pre CLASS="code">
+  <tt>Class</tt> Basic
+  Basic <tt>instproc</tt> someProc  {
+    <it># do the basic computations</it>
+  }
+  <tt>Class</tt> Addition
+  Addition <tt>instproc</tt> someProc {
+    <it># do the additional computations</it>
+    <tt>next</tt>
+  }
+</pre><P>
+In order to mix-in the additional functionality of the <EM>supplemental</EM>
+class <tt>Addition</tt> a new helper class (sometimes called
+intersection class) has to be defined, like: 
+</P>
+<pre CLASS="code">
+  Basic+Addition <tt>-superclass</tt> Addition Basic
+</pre><P>
+This is even applicable in a dynamical manner, every object of the
+class <tt>Basic</tt> may be changed to class <tt>Basic+Addition</tt>
+at arbitrary times, e.g.: 
+</P>
+<pre CLASS="code">
+  Basic+Addition basicObj
+  ...
+  basicObj class Basic+Addition
+</pre><P>
+Now consider a situation with two addition classes. Then following
+set of classes has to be defined to cover all possible combinations: 
+</P>
+<pre CLASS="code">
+  <tt>Class</tt> Basic
+  <tt>Class</tt> Addition1
+  <tt>Class</tt> Addition2
+  <tt>Class</tt> Basic+Addition1 <tt>-superclass</tt> Addition1 Basic
+  <tt>Class</tt> Basic+Addition2 <tt>-superclass</tt> Addition2 Basic
+  <tt>Class</tt> Basic+Addition1+Addition2 <tt>-superclass</tt> Addition2 Addition1 Basic
+</pre><P>
+The number of necessary helper classes rises exponential. For <I>n</I>
+additions, 2<I><SUP>n</SUP></I>-1(or their permutations if order
+matters) artificially constructed helper-classes are needed to
+provide all combinations of additional mix-in functionality.
+Furthermore it is possible that the number of additions is unlimited,
+since the additions may produce other additions as side-effects. This
+demonstrates clearly that the sub-class mechanism provides only a
+poor mechanism for mix-in of orthogonal functionality. Therefore we
+provide an extension in the form of object mixin classes, which are
+added in front of the search precedence of classes. 
+</P>
+<H3><A NAME="mixin-usage"></A>Per-Object Mixins 
+</H3>
+<P>The mix-ins methods extend the next-path of shadowed methods.
+Therefore, per-object mix-in methods use the <tt>next</tt> primitive
+to access the next shadowed method. Consider the following example: 
+</P>
+<pre CLASS="code">
+  <tt>Class</tt> Agent
+  Agent <tt>instproc</tt> move {x y} { 
+    <it># do the movement</it>
+  }
+  <tt>Class</tt> InteractiveAgent <tt>-superclass</tt> Agent
+  <it># Addition-Classes</it>
+  <tt>Class</tt> MovementLog
+  MovementLog <tt>instproc</tt> move {x y} { 
+    <it># movement logging</it>
+    <tt>next</tt>
+  }
+  <tt>Class</tt> MovementTest
+  MovementTest <tt>instproc</tt> move {x y} {
+    <it># movement testing</it>
+    <tt>next</tt>
+  }
+</pre><P>
+An agent class is defined, which allows agents to move around. Some
+of the agents may need logging of the movements, some need a testing
+of the movements, and some both (perhaps only for a while). These
+functionalities are achieved through the additional classes, which we
+will apply through per-object mixins. 
+</P>
+<P>Before we can use the per-object mix-ins on a particular object,
+we must register the mixins on it with the <tt>mixin</tt> instance
+method. It has the syntax: 
+</P>
+<pre CLASS="code">
+  <em>objName</em> <tt>mixin</tt> <em>mixinList</em>
+</pre><P>
+
+For example we may create two interactive agents, where one is logged
+and one is tested: 
+</P>
+<pre CLASS="code">
+  InteractiveAgent i1; InteractiveAgent i2
+  i1 <tt>mixin</tt> MovementLog
+  i2 <tt>mixin</tt> MovementTest
+</pre><P>
+At arbitrary times the mixins can be changed dynamically. For example
+<tt>i2</tt>'s movements can also be logged: 
+</P>
+<pre CLASS="code">
+  i2 <tt>mixin</tt> MovementTest MovementLog
+</pre><P STYLE="margin-bottom: 0in">
+<BR>
+</P>
+<P ALIGN=CENTER STYLE="margin-bottom: 0in"><A NAME="per-obj-mixin"></A><A NAME="662"></A>
+&#160;&#160; 
+</P>
+<P ALIGN=CENTER STYLE="margin-bottom: 0in"><STRONG>Figure 6:</STRONG>
+Per-Object Mix-ins: Next-Path for the Example</P>
+<CENTER>
+	<TABLE WIDTH=315 BORDER=0 CELLPADDING=2 CELLSPACING=0>
+		<COL WIDTH=311>
+		<TR>
+			<TD WIDTH=311>
+				<P><FONT SIZE=1 STYLE="font-size: 2pt"><IMG SRC="next-path-mixin-movement.gif" NAME="Graphic16" ALIGN=BOTTOM WIDTH=307 HEIGHT=187 BORDER=0></FONT></P>
+			</TD>
+		</TR>
+	</TABLE>
+</CENTER>
+<P><BR><BR>
+</P>
+<P>The <tt>mixin</tt> option of the <tt>info</tt> instance method
+allows us to introspect the per-object mixins. It has the syntax: 
+</P>
+<pre CLASS="code">
+  <em>objName</em> <tt>info</tt> mixin <em>?pattern?</em>
+</pre>
+<P STYLE="margin-bottom: 0in">
+It returns the list of all mix-ins of the object, if <tt>pattern</tt>
+is not specified, otherwise it returns the matching per object mixin classes.
+</P>
+	
+The inverse operation of <tt>info mixin</tt> is <tt>mixinof</tt> finds
+out, into which objects an per-object mixin class is mixed into.
+	
+<pre CLASS="code">
+  <em>clsName</em> <tt>info</tt> mixinof <em>?pattern?</em>
+</pre>
+	
+<P> Note, that the constructors (init methods) of per-object mixins (and per-class mixins)
+are only called, if the mixin is registered already during object
+initialization (when <tt>init</tt> is called). For per-object mixins, one can 
+achieve the initialization of a mixin via an idiom like 
+<pre CLASS="code">
+  <tt>Object</tt> o <tt>-mixin</tt> M <tt>-init</tt>
+</pre> 
+that registers the mixin before <tt>init</tt> is called. When a mixin is registered
+after object creation and it needs initializations, it is necessary to
+define special methods for this.  Note, that the behavior described
+here is introduced in version 0.84 to ensure consistent behavior of
+intrinsic classes, per-object and per-class mixins, and to achieve
+predictable behavior for dynamic registration for all kind of mixins,
+and as well during recreations of objects having mixins
+registered. Older versions used heuristics for the initialization of
+per-object mixins.
+</P>
+
+<H3><A NAME="per-class-mixins"></A>Per-Class Mixins
+</H3>
+
+<P>Per-class mixins are exactly identical in their behavior to
+per-object mixins, but they operate on classes. Thus they are the
+class-specific variant of the per-object mixins, like instprocs are a
+class-specific variant of procs. Therefore, in the language the
+per-class mixins are called instmixins.
+</p>
+
+<P>
+In general a per-class mixin is a class which is mixed into the
+precedence order of all instances of the class and all its subclasses
+it is registered for. It is also searched before the object's class
+itself is searched, but after per-object mixins. 
+</p>
+<P>
+Per-class mixins are <em>linearized</em> according to the 
+<a href='#precedence order'>precedence order</a> 
+like classes on the superclass hierarchy.  I.e. from the full
+list of per-object mixins, per-class mixins, and intrinsic classes
+(and all the superclasses of all these classes) always the last
+occurrence is used.
+</p>
+
+<P>
+From the point of view of language expressibility instmixins are not
+required, because they cannot express anything that per-object mixins
+cannot express already (like procs can express any instproc
+feature). As alternative to instmixins, we could simply register the
+per-object mixins in the constructor of the class.
+</p>
+
+<P>
+But there at least the following reasons for instmixins as an
+additional language construct:
+<OL>
+<LI> we can at runtime determine with <tt>info mixin</tt>
+and <tt>info instmixin</tt> whether it is a class- or object-specific
+mixin. Thus we get a better structuring at runtime. 
+<LI> We have not to 'pollute' the constructors with per-class mixin
+registrations. Therefore, the constructors get more understandable.
+<LI>If it is required to add (and remove) dynamically interceptors
+to a set of objects, which are instances of a certain type, per-class
+mixins are much easier to handle (e.g. add an instmixin to Object
+to intercept e.g. all calls to certain predefined methods).
+<LI>The language is more 'symmetrical', since any object-specific
+feature in XOTcl has a class-specific variant. 
+</OL>
+<P>
+
+<P>The mix-ins methods of per-class mixins extend the next-path of
+shadowed methods in the same way as per-object mixin methods. Before
+we can use a per-class mix-in on a particular class, we must
+register the mixin on it with the <tt>instmixin</tt> instance method. It
+has the syntax:
+</P>
+<pre CLASS="code">
+  <em>className</em> <tt>instmixin</tt> <em>mixinList</em>
+</pre>
+The inverse operation of <tt>info inmixin</tt> is <tt>instmixinof</tt> finds
+out, into which objects an per-object mixin class is mixed into.
+	
+<pre CLASS="code">
+  <em>className</em> <tt>info</tt> instmixinof <em>?-closure? ?pattern?</em>
+</pre>
+<P>
+Now consider that in the given per-object mixin example all
+interactive agents should be tested. We could either build a subclass
+<tt>TestedInteractiveAgent</tt> or register the per-object mixin in
+the constructor of the interactive agent class. The subclass solution
+leads to the same combinatorial explosion of intersection classes as
+discussed in the previous section, if more supplemental classes are
+added. The per-object mixin solution pollutes the constructor and does
+not prevail the structural semantics that the 'tested' property
+belongs to the interactive agent class at runtime
+</P>
+<P>
+Here, we can use a per-class mixin:
+</P>
+<pre CLASS="code">
+  <tt>Class</tt> Agent
+  Agent <tt>instproc</tt> move {x y} {<it># do the movement</it>}
+  <tt>Class</tt> InteractiveAgent <tt>-superclass</tt> Agent
+  <tt>Class</tt> MovementTest
+  MovementTest <tt>instproc</tt> move {x y} {
+    <it># movement testing</it>
+    <tt>next</tt>
+  }
+
+  <it># now register the instmixin</it>
+  InteractiveAgent <tt>instmixin</tt> MovementTest
+
+</pre>
+
+<P> The per-class mixin now operates on all interactive agent
+including the instances of subclasses. E.g. for interactive agents
+<tt>i1</tt> and <tt>i2</tt> we automatically have movement
+testing. <tt>i2 </tt> is also logged, since it has the logging class
+as object-specific mixin:
+</P>
+<pre CLASS="code">
+  InteractiveAgent i1
+  InteractiveAgent i2 <tt>-mixin</tt> MovementLog
+
+  i1 move 3 4
+  i2 move 1 2 
+</pre>
+
+<P>
+At arbitrary times the instmixins can be changed dynamically.
+</P>
+<P>The <tt>instmixin</tt> option of the class <tt>info</tt> instance
+method allows us to introspect the per-class mixins. It has the
+syntax:
+</P>
+<pre CLASS="code">
+  <em>className</em> <tt>info</tt> instmixin <em>?className2?</em>
+</pre>
+<P STYLE="margin-bottom: 0in">
+It returns the list of all instmixins of the the class, if <em>className2</em>
+is not specified, otherwise it returns <tt>1</tt>, if <em>className2</em>
+is a mixin of the object, or <tt>0</tt> if not. 
+</P>
+
+<p>Per-class mixins are applied transitively. That means the per-class
+mixin A of a per-class mixin B is also applied for an object in in B's
+scope. This is exactly the same as how superclasses are applied for
+instances. Consider the following example</p>
+
+<pre CLASS="code">
+  <tt>Class</tt> X11 \
+     <tt>-instproc</tt> test args {
+	<tt>puts</tt> [<tt>self</tt> class]
+	<tt>next</tt>
+     }
+  <tt>Class</tt> X12 \
+    <tt>-instproc</tt> test args {
+	<tt>puts</tt> [<tt>self</tt> class]
+	<tt>next</tt>
+    }
+  <tt>Class</tt> X \
+    <tt>-instmixin</tt> {X11 X12} \
+    <tt>-instproc</tt> test args {
+	<tt>puts</tt> [<tt>self</tt> class]
+	<tt>next</tt>
+    }
+
+  <tt>Class</tt> Y \
+    <tt>-instmixin</tt> X
+
+  Y <tt>create</tt> y -test
+  X <tt>create</tt> x -test
+</pre>
+<p> Here the application as a superclass (for x) yields the same
+result as the application as an instmixin (for y): 
+<pre CLASS="code">
+  ::X11 
+  ::X12 
+  ::X
+</pre>
+<H2><A NAME="precedence order"></A>Precedence Order
+</H2>
+
+<P>The precedence order is composed by the precedence order of the
+superclass hierarchy (as explained earlier) and the message
+interceptors. In general, filters precede mixins and the superclass
+hierarchy. They are applied in the order of the next path of the
+object. Thus per-object filters are ordered before per-class
+filters.</p>
+
+<p>Mixins are processed after the filters. Again, they are applied in
+the order of the next path of the object. Thus per-object mixins are
+ordered before per-class mixins.</p>
+
+<p>Finally, the object's own heritage order comes in the order: object,
+class, superclasses.</p>
+
+<p>The three precedence order lists (filters, mixins, and classes) are
+pre-calculated and cached.</p>
+
+<p>Filters as well as classes (mixins and ordinary classes) are
+linearized. That means, each filter and each class can be only once on
+a precedence order list. If a filter or class can be reached more than
+once, than the last occurrence is used.</p>
+
+<p>For instance, consider a class A is superclass, per-class mixin,
+and per-object mixin. On the precedence order lists only the last
+occurrence as a superclass is used after linearization.</P>
+
+
+<H2><A NAME="guards"></A>Guards for Filters and Mixins
+</H2>
+
+Message interceptors, such as filters and mixins, are applied for
+potentially huge number of messages. In many cases it is possible to
+reduce the effective number of cases in which interceptors are
+applied. Interceptor guards offer this functionality: they are boolean
+conditions with which you can specify in which cases a registered
+interceptor should be applied.
+
+<H3><A NAME="filter_guards"></A> Filter Guards</H3>
+<P>
+A filter guard is a set of conditions that determine whether a filter
+is to be executed upon a certain invocation or not. Syntactically we can
+append a filter guard to the filter registration, or it can be
+registered using the methods <tt>filterguard</tt> for filters and
+<tt>instfilterguard</tt> for instfilters.
+
+</P><P> Each filter guard is an ordinary condition. A filter guard is
+executed in the call frame of the filter to be executed, if the filter
+guard returns 1. Thus, the call-stack information are already set to
+the values of the targeted filter - and these values can be used in
+the filter guard.
+
+</P><P>
+Let us consider a simple program:
+</P>
+<pre CLASS="code">
+<tt>Class</tt> Room
+Room <tt>instproc</tt> enter {name} {<tt>puts</tt> [<tt>self proc</tt>]}
+Room <tt>instproc</tt> leave {name} {<tt>puts</tt> [<tt>self proc</tt>]}
+Room <tt>instproc</tt> loggingFilter args {
+    <tt>puts</tt> [<tt>self calledproc</tt>]
+    <tt>next</tt>
+}
+Room <tt>instfilter</tt> loggingFilter
+</pre>
+
+<P>
+Now consider we only want to apply the logging filter for enter and
+leave, not for any other message sent to Room instances. In the
+following example, for instance, we do not want to log the <tt>set</tt>
+message:
+</p>
+
+<pre CLASS="code">
+Room r 
+r enter Uwe
+r leave Uwe
+r <tt>set</tt> roomName "Office"
+</pre>
+
+<P>
+In this example a filterguard can be applied to restrict the
+application of the filter to those two methods:
+</p>
+
+<pre CLASS="code">
+Room <tt>instfilterguard</tt> loggingFilter {
+  <tt>[self calledproc</tt>] == "enter" || 
+  [<tt>self calledproc</tt>] == "leave"}
+</pre>
+
+<P>
+Here we limit the filter application of the logging filter on rooms to
+calls to enter and leave. All other calls are not filtered at
+all. Note that the same syntax can also be applied for
+<tt>filterguard</tt>. Also, there is a short form to register filter
+guards directly during filter registration. The following code has the
+same semantics as the filter and filter guard definitions above:
+</P>
+
+<pre CLASS="code">
+Room <tt>instfilter</tt> {{loggingFilter <tt>-guard</tt> {
+    [<tt>self calledproc</tt>] == "enter" || 
+    [<tt>self calledproc</tt>] == "leave"}}}
+</pre><P>
+
+The filter guard language construct is registration centric. It only
+applies for the class or object on which a filter is registered, not
+for all applications of the filter method. That is, if we use
+loggingFilter on another class we may give no or completely
+different filter guards.
+</P><P>
+If no filter guard is given for a filter, we assume that it is to be
+applied on all methods (equivalent to the filter guard '1' which is
+always true).
+</P>
+
+<P>
+There are introspection options for filter guards. In particular, we
+can use <tt>info filterguard</tt> and <tt>info instfilterguard</tt>
+for getting the filter guards for a particular filter or instfilter
+respectively. For instance:
+</P>
+<pre CLASS="code">
+<tt>puts</tt> [Room <tt>info instfilterguard </tt>loggingFilter]
+</pre><P>
+This prints out the content of the above guard definition. 
+We can also append <tt>-guard</tt> to <tt>info filter</tt> or 
+<tt>info instfilter</tt> to obtain a filter definition with guards:
+</P>
+<pre CLASS="code">
+<tt>puts</tt> [Room <tt>info instfilter -guards</tt>]
+</pre><P>
+
+<P>
+If we call a method from within a filter guard, as for instance
+callsMethod, we might require some parameters from the guard's
+context, such as <tt>calledproc</tt>. These parameters can be passed
+as references, as in the following example:
+</P>
+
+<pre CLASS="code">
+  Room <tt>instfilter</tt> loggingFilter
+  Room <tt>instfilterguard</tt> loggingFilter {[<tt>my</tt> callsMethod openURL [<tt>self calledproc</tt>]]}
+</pre><P>
+This example works because the filterguard is already set to the scope of the guard. Now we can use this dynamic  <tt>calledproc</tt> context in the called method:
+</P>
+<pre CLASS="code">
+  Room <tt>instproc</tt> callsMethod {method calledproc} {
+    <tt>return</tt>[<tt>string</tt> <tt>match</tt> $calledproc $method]
+  }
+</pre><P>
+We simply check whether the called method
+matches the given method name or not.
+
+<H3><A NAME="mixin_guards"></A> Mixin Guards</H3>
+<P>
+Similar to filters, there are mixin guards, defined with
+<tt>mixinguard</tt> and <tt>instmixinguard</tt>, or with
+<tt>-guard</tt> during mixin registration. Consider a simple example:
+there are a number of birds who have two mixins: Fly and Sing. For Fly
+there are limitations: a bird can only fly if it is at least two years
+old and is not a Penguin. Such problems are  be solved with
+mixin guards:
+</P>
+
+<pre CLASS="code">
+  <tt>Class</tt> Fly
+  Fly <tt>instproc</tt> fly {} {<tt>puts</tt> "[<tt>my</tt> signature]: yippee, fly like an eagle!"}
+
+  <tt>Class</tt> Sing
+  Sing <tt>instproc</tt> sing {} {<tt>puts</tt> "[<tt>my</tt> signature]: what a difference a day makes"}
+
+  <tt>Class</tt> Animal -parameter age
+  Animal <tt>instproc</tt> unknown args { <tt>puts</tt> "[<tt>my</tt> signature]: how should I $args?"}
+  Animal <tt>instproc</tt> signature {} {
+    <tt>return</tt> "[<tt>self</tt>] [<tt>my info class</tt>] ([<tt>my</tt> age] years)"
+  }
+
+  <tt>Class</tt> Bird -superclass Animal
+  <tt>Class</tt> Penguine -superclass Bird
+  <tt>Class</tt> Parrot -superclass Bird
+  <tt>Class</tt> Duck -superclass Bird
+
+  Parrot tweedy -age 1
+  Penguine pingo -age 5
+  Duck donald -age 4
+  Parrot lora -age 6
+
+  Bird <tt>instmixin</tt> {{Fly <tt>-guard</tt> {[my age] > 2 && ![<tt>my istype</tt> Penguine]}} Sing}
+</pre><P>
+An invocation like:
+</P>
+
+<pre CLASS="code">
+<tt>foreach</tt> bird {tweedy pingo donald lora} { $bird fly }
+</pre><P>
+yields the following result:
+</P>
+<pre CLASS="code">
+::tweedy ::Parrot (1 years): how should I fly?
+::pingo ::Penguine (5 years): how should I fly?
+::donald ::Duck (4 years): yippee, fly like an eagle!
+::lora ::Parrot (6 years): yippee, fly like an eagle!
+</pre>
+
+<P>
+There are similar introspection options for mixin guards as those for
+filter guards. In particular, we can use <tt>info mixinguard</tt> and
+<tt>info instmixinguard</tt> for getting the mixin guards for a
+particular mixin or instmixin respectively.
+</P>
+
+<H2><A NAME="updateinterceptors"></A>Querying, Setting, Altering Filter and Mixin Lists
+</H2>
+
+The methods <tt>mixin</tt>, <tt>instmixin</tt>, <tt>filter</tt> and
+<tt>instfilter</tt> are <a href='#system-slots'>system slots</a>
+having the same query and update interface. 
+<UL>
+<LI>If one of those methods is called without argument, it returns the current
+setting. </LI>
+<LI>If it is called with one argument, the argument is used to
+set the specified list as indicated in the above examples. </LI>
+<LI>If these methods are called with more than one argument, the first argument
+is used to specify the action. Possible values for the action are
+<tt>set</tt>, <tt>get</tt>, <tt>add</tt> and <tt>delete</tt>. See below for 
+commonly used examples. 
+</UL>
+<P>
+<CENTER>	
+<TABLE BORDER='1' width='90%'>
+<TR><TD nowrap='1'><tt>obj mixin</tt></TD>            <TD>same as: <tt>obj info mixin</tt></TD></TR>
+<TR><TD nowrap='1'><tt>obj mixin {C1 C2}</tt></TD>    <TD>same as: <tt>obj mixin assign {C1 C2}</tt></TD></TR>
+<TR><TD nowrap='1'><tt>obj mixin assign {C1 C2}</tt></TD><TD>sets the mixins for <tt>obj</tt></TD></TR>
+<TR><TD nowrap='1'><tt>obj mixin add C3</tt></TD>     <TD>adds the mixin <tt>C3</tt> on front of the mixin list</TD></TR>
+<TR><TD nowrap='1'><tt>obj mixin add C3 end</tt></TD> <TD>adds the mixin <tt>C3</tt> at the end the mixin list</TD></TR>
+<TR><TD nowrap='1'><tt>obj mixin add C3 3</tt></TD>   <TD>adds the mixin <tt>C3</tt> at the 3rd position</TD></TR>
+<TR><TD nowrap='1'><tt>obj mixin delete ::C3</tt></TD><TD>removes the mixin <tt>C3</tt> from the mixin list.
+Use absolute class names. <tt>delete</tt> supports an optional flag <tt>-nocomplain</tt> that does not produce an error, when the specified class is not in the list. 
+</TD></TR>
+</TABLE>
+</CENTER>	
+</P>
+<P>
+Note, that the list of possible actions can be 
+extended by extending the class <tt>::xotcl::Relations</tt>.
+</P>
+
+<H2>
+<A NAME="callstack_info"></A>Querying Call-stack Information
+</H2>
+<P STYLE="margin-bottom: 0in">Since the presented interceptors are
+normal XOTcl instprocs they can access all XOTcl introspection
+abilities introduced so far. In instprocs all recent information is
+accessible within their scope. But the interceptors are mechanisms,
+which cover more then their sole scope. The meaningful usage of the
+meta-programming abilities often requires to go further and to get
+information from the caller's and the callee's scope (e.g for
+delegation decisions). Therefore, we introduced rich call-stack
+informations for the interceptors. Note, that these are also available
+for ordinary methods, but the "called..." info options return empty
+strings.
+</P>
+<P> All call-stack information are packed compactly into the
+<tt>self</tt> primitive as additional options. Note, before XOTcl
+version 0.84 these were implemented as a part of the <tt>info</tt>
+method. They are part of the <tt>self</tt> command for conceptual
+integrity: introspection options in <tt>info</tt> can be expected to
+produce the same result, when they are not explicitly changed. In
+contrast, all information provided by <tt>self</tt> are
+call-stack dependent.
+</P>
+
+<CENTER>
+      <P><STRONG>Querying Call-stack Information via <tt>self</tt> </STRONG></P>
+      <TABLE BORDER=1>
+	<TR>
+	  <TD><tt>self activelevel</tt>
+	  </TD>
+	  <TD  VALIGN=TOP>
+	    <P ALIGN=LEFT>Returns the stack level from where the
+	    current command was invoked from, or where the last next
+	    was called (whatever is closer to the invocation).
+	      If the current command was invoked from
+	    an XOTcl method the absolute level is returned (e.g. #4)
+	    which can be used in the <tt>uplevel</tt> or
+	    <tt>upvar</tt> Tcl command or XOTcl method. If the current
+	    command was not invoked from an XOTcl method, the value 1
+	    is returned.
+	  </TD>
+	</TR>
+
+	<TR>
+	  <TD width=25%><tt>self calledproc</tt>
+	  </TD>
+	  <TD  VALIGN=TOP>
+	    <P ALIGN=LEFT>Returns the name of the method which was invoked in
+	      the original call.
+	  </TD>
+	</TR>
+	<TR>
+	  <TD><tt>self calledclass</tt>
+	  </TD>
+	  <TD  VALIGN=TOP>
+	    <P ALIGN=LEFT>Returns the name
+	      of the class which presumably (if no dynamic class change occurs
+	      afterwards) is invoked in
+	      the original call.
+	  </TD>
+	</TR>
+	<TR>
+	  <TD><tt>self callingclass</tt>
+	  </TD>
+	  <TD  VALIGN=TOP>
+	    <P ALIGN=LEFT>Returns the name of the class from which the
+	      call was invoked (if one exists, otherwise an empty
+	      string).
+	  </TD>
+	</TR>
+	<TR>
+	  <TD><tt>self callinglevel</tt>
+	  </TD>
+	  <TD  VALIGN=TOP>
+	    <P ALIGN=LEFT>Returns the stack level from where the
+	    current command was invoked from. In contrary to
+	    <tt>activelevel</tt> next-calls are ignored in the
+	    computation. If the current command was invoked from an
+	    XOTcl method the absolute level is returned (e.g. #4)
+	    which can be used in the <tt>uplevel</tt> or
+	    <tt>upvar</tt> Tcl command or XOTcl method. If the current
+	    command was not invoked from an XOTcl method, the value 1 is
+	    returned.
+	  </TD>
+	</TR>
+	<TR>
+	  <TD><tt>self callingproc</tt>
+	  </TD>
+	  <TD  VALIGN=TOP>
+	    <P ALIGN=LEFT>Returns the name of the method from which the
+	      call was invoked (if one exists, otherwise an empty
+	      string).
+	  </TD>
+	</TR>
+	<TR>
+	  <TD><tt>self callingobject</tt>
+	  </TD>
+	  <TD  VALIGN=TOP>
+	    <P ALIGN=LEFT>Returns the name of the object from which the
+	      call was invoked (if one exists, otherwise an empty
+	      string).
+	  </TD>
+	</TR>
+	<TR>
+	  <TD><tt>self filterreg</tt>
+	  </TD>
+	  <TD VALIGN=TOP>
+	    <P ALIGN=LEFT>In a filter:  returns the name
+	      of the object/class on which the filter is registered. Returns either 
+	      '<tt><em>objName</em> <tt>filter</tt> <em>filterName</em></tt>' or 
+	      '<tt><em>className</em> instfilter <em>filterName</em></tt>'.
+	  </TD>
+	</TR>
+	<TR>
+	  <TD><tt>self isnextcall</tt>
+	  </TD>
+	  <TD VALIGN=TOP>
+	    <P ALIGN=LEFT>Return 1 if this method
+              was invoked via next, otherwise 0
+	  </TD>
+	</TR>
+	<TR>
+	  <TD><tt>self next</tt>
+	  </TD>
+	  <TD VALIGN=TOP>
+	    <P ALIGN=LEFT>Return the
+	      "next" method on the path as a string, i.e. the method which will be
+	      called by [next].
+	  </TD>
+	</TR>
+      </TABLE>
+    </CENTER>
+</P>
+<p><br></p>
+<P>Note, that three options with the prefix <tt>calling</tt>
+represent the values of <tt>self</tt>, <tt>self proc</tt>, and <tt>self
+class</tt> in the scope where the original call was invoked. In the
+following section we will show a simple program in which all of the
+<tt>info</tt> options have different values.
+
+<H3><A NAME="filter_info_example"></A><BR>Filter Call-stack Information Example 
+</H3>
+<P>Now we discuss a simple example that shows that all filter
+introspection options may have different values: 
+</P>
+<pre CLASS="code">
+  <tt>Class</tt> InfoTrace
+  InfoTrace <tt>instproc</tt> infoTraceFilter args { 
+    <tt>puts</tt> &quot;SELF:                [<tt>self</tt>]&quot;
+    <tt>puts</tt> &quot;SELF PROC:           [<tt>self</tt> proc]&quot;
+    <tt>puts</tt> &quot;SELF CLASS:          [<tt>self</tt> class]&quot;
+    <tt>puts</tt> &quot;INFO CLASS:          [<tt>my</tt> <tt>info</tt> class]&quot;
+    <tt>puts</tt> &quot;CALLED PROC:         [<tt>self</tt> calledproc]&quot;
+    <tt>puts</tt> &quot;CALLING PROC:        [<tt>self</tt> callingproc]&quot;
+    <tt>puts</tt> &quot;CALLING OBJECT:      [<tt>self</tt> callingobject]&quot;
+    <tt>puts</tt> &quot;CALLING CLASS:       [<tt>self</tt> callingclass]&quot;
+    <tt>puts</tt> &quot;REGISTRATION CLASS:  [<tt>self</tt> filterreg]&quot;
+    <tt>puts</tt> &quot;CALLING LEVEL:       [<tt>self</tt> callinglevel]&quot;
+    <tt>puts</tt> &quot;ACTIVE LEVEL:        [<tt>self</tt> activelevel]&quot;
+    <tt>next</tt>
+  }
+
+  <tt>Class</tt> CallingObjectsClass
+  CallingObjectsClass callingObject
+
+  <tt>Class</tt> FilterRegClass <tt>-superclass</tt> InfoTrace
+  <tt>Class</tt> FilteredObjectsClass <tt>-superclass</tt> FilterRegClass 
+  FilteredObjectsClass  filteredObject 
+
+  CallingObjectsClass <tt>instproc</tt> callingProc args {
+     filteredObject <tt>set</tt> someVar 0
+  }    
+  FilterRegClass <tt>instfilter</tt> infoTraceFilter</pre><P>
+The invocation of <tt>callingObject callingProc</tt> produces the
+following output: 
+</P>
+<pre CLASS="code">
+  SELF:                ::filteredObject
+  SELF PROC:           infoTraceFilter
+  SELF CLASS:          ::InfoTrace
+  INFO CLASS:          ::FilteredObjectsClass
+  CALLED PROC:         set
+  CALLING PROC:        callingProc
+  CALLING OBJECT:      ::callingObject
+  CALLING CLASS:       ::CallingObjectsClass
+  REGISTRATION CLASS:  ::FilterRegClass instfilter infoTraceFilter
+  CALLING LEVEL:       #1
+  ACTIVE LEVEL:        #1</pre><P>
+The filter reports for <tt>self</tt> the value <tt>filteredObject</tt>,
+since this is the object on which the <tt>set</tt> call is invoked;
+<tt>infoTraceFilter</tt> is the method of the filter, and therefore,
+the actual proc, while the actual class is <tt>InfoTrace</tt>, the
+filter's class. The class of the actual object is
+<tt>FilteredObjectsClass</tt>. 
+</P>
+<P>The called procedure is <tt>set</tt>. While the program stays in a
+XOTcl-instproc all calling-info-options are set, the calling
+procedure is <tt>callingProc</tt>, the calling class is the class,
+where the method is defined (namely <tt>CallingObjectsClass</tt>),
+and the object from which the call invoked is <tt>callingObject</tt>.
+</P>
+<P>In this example, the calling level is equal to the active level, both
+are #1.
+</P>
+
+<!-- PAGE BREAK -->
+
+<TABLE COLS=2 WIDTH=100% BORDER=0 CELLPADDING=2 CELLSPACING=0 BGCOLOR="#000055">
+    <TR>
+      <TD WIDTH=75%>
+	<P><A NAME="slots"></A><FONT COLOR="#ffffff" FACE="Arial, Helvetica" SIZE=6>Slots</FONT>
+	</P>
+      </TD>
+      <TD>
+	<IMG SRC="logo-100.jpg" NAME="Graphic9" ALIGN=RIGHT WIDTH=102 HEIGHT=42 BORDER=0></TD>
+    </TR>
+</TABLE>
+
+<p>A slot is a meta-object that manages property-changes of objects. A
+property is either an attribute or a role in an relation.  In a
+nutshell, a slot has among other attributes:</p>
+
+<ul>
+<li>a <em>name</em> (which it used to access it), 
+<li>a <em>domain</em> (object or class on which it can be used) , and
+<li>can be <em>multivalued</em> or not.
+</ul>
+
+<p> We distinguish between <em>system slots</em> (predefined slots
+  like <tt>class</tt>, <tt>superclass</tt>, <tt>mixin</tt>,
+  <tt>instmixin</tt>, <tt>filter</tt>, <tt>instfilter</tt>) and
+  <em>attribute slots</em> (e.g. attributes of classes).  </p>
+
+<h2><a name='system-slots'></a>System Slots</h2>
+<p>
+System slots are predefined slots defining e.g. some relations
+between classes, or between objects and classes. The predefined system slots
+are:
+<ul>
+  
+  <li> <tt>superclass</tt>: every class in XOTcl has one or more
+  superclasses.  The name of this slot is <tt>superclass</tt>, the
+  domain is <tt>::xotcl::Class</tt>, the slot is multivalued, since
+  one object might have multiple superclasses.<p>
+
+  <li> <tt>class</tt>: every object has a class; therefore, the domain
+  of the slot is <tt>::xotcl::Class</tt>, the property is not multivalued.<p>
+
+  <li> <tt>mixin</tt>: every object in XOTcl can have one or more
+  mixin classes.  The name of this slot is <tt>mixin</tt>, the domain
+  is <tt>::xotcl::Object</tt> , the slot is multivalued.<p>
+
+  <li> <tt>instmixin</tt>: same as above, but the domain is
+  <tt>::xotcl::Class</tt>.<p>
+
+  <li> <tt>filter</tt>, <tt>instfilter</tt>: similar to <tt>mixin</tt>
+  and <tt>instmixin</tt>.
+
+</ul> <p>The system slots were introduced earlier with their
+semantics.  Here we just point out, that they have all the same
+interfaces for querying, setting, adding and removing of slot
+values.</p>
+
+<p>Every slot can be used set and query the property from its domain.
+The syntax for setting values is
+<pre CLASS="code">
+  <em>object property newValue</em>
+</pre>
+	 and for getting its values is
+<pre CLASS="code">
+   <tt>set</tt> x [<em>object property</em>]
+</pre>
+where <em>property</em> denotes the slot name.
+Every multivalued slot provides the methods <tt>add</tt> and
+<tt>delete</tt>.
+
+Here are a few examples for using the system slot <tt>mixin</tt> which we have introduced already in the section of the <a href='#mixins'>mixins</a>
+<pre CLASS="code">
+  <tt>Object</tt> o; <tt>Class</tt> M; <tt>Class</tt> N
+  o <tt>mixin</tt> ::M      <em>;# replacing the per-object mixins of o with M</em>
+  o <tt>mixin reset</tt> ::M  <em>;# same as before</em>
+  o <tt>mixin add</tt> ::N   <em>;# add N to the front of the mixin list</em>
+  o <tt>mixin delete</tt> ::M <em>;# delete M from the mixin list</em>
+  puts [o <tt>mixin</tt>]   <em>;# query the current mixin list</em>
+</pre>         
+
+Every system slot (e.g. superclass) has the exact same interface.
+
+<h2><a name='attribute-slots'></a>Attribute Slots</h2>
+
+<p> Attribute slots are used to manage the setting and querying of
+instance variables. We define now a person with three attributes
+<tt>name</tt>, <tt>salary</tt> and <tt>projects</tt>. </p>
+
+<pre CLASS="code">
+  <tt>Class</tt> Person <tt>-slots</tt> {
+    <tt>Attribute</tt> name
+    <tt>Attribute</tt> salary <tt>-default</tt> 0
+    <tt>Attribute</tt> projects <tt>-default</tt> {} <tt>-multivalued</tt> true
+  }
+</pre>
+
+<p>These attributes might have a default value or they might be 
+      multivalued. When an instance of class Person is created, the
+      slot names can be used for specifying values for the slots.</p>
+
+<pre CLASS="code">
+  Person p1 -name "Joe"	
+</pre>
+
+<p>Object p1 has three instance variables, namely <tt>name</tt>,
+<tt>salary</tt> and <tt>projects</tt>. Since slot <tt>projects</tt> is
+multivalued, we can add a value to the list of values the <tt>add</tt>
+subcommand.</p>
+
+<pre CLASS="code">
+  Project project1 -name XOTcl \
+     -description "A highly flexible OO scripting language"
+
+  p1 projects <tt>add</tt> ::project1
+  p1 projects <tt>add</tt> some-other-value
+</pre>
+
+<p>The value of the instance variable <tt>project</tt> of Person
+<tt>p1</tt> is now the list <tt>{some-other-value ::project1}</tt>.
+</p>
+
+<p>Attribute slots are implemented via dynamic object aggregations
+(see <a href='#nesting'>below</a>), where the Class objects contain
+the slot objects with the information like default etc. In order to
+prevent name clashes between the slot objects and the methods of a
+class (like e.g. <tt>create</tt>), an intermediary object named
+<tt>slot</tt> is used as a container of the slot objects. In the example above
+we create an object structure of the following form:</p>
+<pre CLASS="code">
+  Person
+  Person <tt>slot</tt> name
+  Person <tt>slot</tt> salary
+  Person <tt>slot</tt> projects
+</pre>
+
+<p> This object structure can be used to to query and modify the slot
+properties or to add additional methods to the slot objects. One
+application is for example to used slot-specific methods for checking
+slot values, as shown in the next section.
+
+<pre CLASS="code">
+  Person info vars  <it>;# results in the list of variables of ::Person</it>
+  Person <tt>slot</tt> name info vars <it>;# list of variables of the slot object ::Person::slot::name</it>
+</pre>
+Since slot objects are ordinary XOTcl objects, they can have their own slots as well (such as <tt>default</tt>, <tt>name</tt> etc.).
+
+The following example
+sets and queries the default of the slot <tt>name</tt> of <tt>Person</tt>:
+</p>
+
+<pre CLASS="code">
+  Person <tt>slot</tt> name <tt>default</tt> "gustaf"
+  ? {Person <tt>slot</tt> name <tt>default</tt>} gustaf
+</pre>
+
+<p>However, due to the current implementation, it is necessary to
+re-init the slot object when the slot properties (such as
+e.g. <tt>default</tt>) are changed. This can be achieved by calling
+the method <tt>init</tt> of the slot object.
+</p>
+
+<p>Note that a statement for creating a slot object like</p>
+<pre CLASS="code">
+  <em>...</em> {
+    <tt>Attribute</tt> name
+    <em>...</em>
+  }
+</pre>
+<p>is a short hand notation for </p>
+<pre CLASS="code">
+  <em>...</em> {
+    <tt>Attribute</tt> <tt>create</tt> name
+    <em>...</em>
+  }
+</pre>
+<p>This is exactly the same situation like every where else in XOTcl,
+when an object/class is created. One has to use <tt>create</tt> explicitly,
+when a name of a slot object conflicts with a method of the class
+(e.g. one has to use "<tt>Attribute create class</tt>" if a slot named
+<tt>class</tt> is created).</p>
+
+<p>One cannot define on a meta-class an attribute named <tt>slot</tt>
+or <tt>slots</tt> and use then "<tt>... MetaClass Foo -slots {
+::xotcl::Attribute x}...</tt> to create the slot objects. To handle
+this naming conflict, one has to create the slot objects outside of the
+aggregation and to provide the values for the properties of Attribute
+(domain, manager, .... ) by hand. </p>
+
+
+<H3><A NAME="setter"></A>Setter and Getter Methods for Slots</H3>
+
+<p>When a slot is called via its name, the call is delegated to the
+slot object. Per default, the slot value is read via the <tt>get</tt>
+method of the slot and it is set the <tt>assign</tt> method. By
+redefining these methods, it is possible to provide custom setter and
+getter methods. The following example redefines the setter methods
+<tt>assign</tt> to check, whether an attribute value is within the
+range between 1 and 99.</p>
+
+<pre CLASS="code">
+  Class <tt>create</tt> A <tt>-slots</tt> {
+    Attribute foo <tt>-default</tt> 1 <tt>-proc</tt> assign {domain var value} {
+      <tt>if</tt> {$value < 0 || $value > 99} {
+        <tt>error</tt> "$value is not in the range of 0 .. 99"
+      }  
+      $domain <tt>set</tt> $var $value
+    }
+  }
+
+  A <tt>create</tt> a1
+  ? {a1 foo 10} 10
+  ? {a1 foo} 10
+  ? {catch {a1 foo -1}} 1
+</pre>
+
+<p>For the most common simple cases with single valued attributes,
+where neither setter or getter are redefined, XOTcl optimizes the slot
+access function and replaces the delegation to the slot object by the
+the C-level implementation of <tt>instparametercmd</tt>.
+
+<p>Note that it is possible to subclass <tt>Attribute</tt> (e.g. in
+order to store more properties for attributes, like when attributes
+are stored in a relational database) or to register mixin-classes or
+filters.</p>
+
+
+<H3><A NAME="parameter"></A>Backward-compatible Short-Hand Notation
+for Attribute Slots</H3>
+
+<p>XOTcl provides a short-hand notation for creating attribute slots,
+which is backward compatible for the most important options of XOTcl
+verison prior to 1.5.0. Instead of writing</p>
+
+<pre CLASS="code">
+  <tt>Class</tt> Car <tt>-slots</tt> {
+    Attribute owner
+    Attribute doors -default 4
+  }
+</pre>
+<p>one can use as well </p>
+<pre CLASS="code">
+  <tt>Class</tt> Car <tt>-parameter</tt> {
+    owner
+    {doors 4}
+  }
+</pre>
+<p>The various features of the prior implementation of <tt>parameter</tt> are
+deprecated and will be removed in future versions.
+<P>
+
+<h2><a name='slot-experimental'></a>Experimental Slot Features</h2>
+<h3><a name='value-checking'></a>Value Checking</h3>
+
+<p>Attribute slots can have types assigned which are tested whenever
+the instance variable is altered.  The slot <tt>salary</tt> is defined
+as integer whereas <tt>projects</tt> is defined to be a list of
+instances of the class <tt>::Project</tt> (a list of instances, since
+<tt>projects</tt> is defined as multivalued).  </p>
+
+<pre CLASS="code">
+  <tt>Class</tt> Person <tt>-slots</tt> {
+    <tt>Attribute</tt> name
+    <tt>Attribute</tt> salary <tt>-default</tt> 0 <tt>-type</tt> integer
+    <tt>Attribute</tt> projects <tt>-default</tt> {} <tt>-multivalued</tt> true <tt>-type</tt> ::Project
+    <em>...</em>
+  }
+
+  Person p2 -name "Sue"	-salary 1000
+</pre>
+
+<p>It is as well possible to define custom value checkers and to
+normalize the input values.  We extend the previous example and define
+"<tt>my sex</tt>" as value for <tt>type</tt>.  If the value checker
+consists of multiple words, the type check compiler assumes that the
+value is a Tcl command, to which the actual value is appended as
+additional argument before invocation. <tt>my</tt> refers to the 
+slot object. In the example below, we define for the slot object an
+object specific method that returns 1 or 0 depending on the success of the
+check. This method (a) checks the values via <tt>switch</tt>
+and (b) normalizes and resets the value via <tt>uplevel</tt>. 
+</p>
+
+<pre CLASS="code">
+  <tt>Class</tt> Person <tt>-slots</tt> {
+    <em>...</em>
+    <tt>Attribute</tt> sex <tt>-type</tt> "my sex" <tt>-proc</tt> sex {value} {
+      <tt>switch -glob</tt> $value {
+        m* {<tt>my uplevel</tt> {$obj <tt>set</tt> $var m}; <tt>return</tt> 1}
+        f* {<tt>my uplevel</tt> {$obj <tt>set</tt> $var f}; <tt>return</tt> 1}
+        <tt>default</tt> {<tt>return</tt> 0}
+      }
+    }
+  }
+</pre>
+
+
+<p>The slot values are actually checked via Tcl variable traces whenever the
+associated variable gets a new value assigned. This means that the values are
+enforced now matter how the variables are set. Therefore, the
+checks are performed in the following two commands as well, although
+the slot values are not accessed via the slot names. The checks will
+throw an error in the second command, since <tt>1100x</tt> is not an
+integer.  </p>
+
+<pre CLASS="code">
+  p2 <tt>incr</tt> salary 100
+  p2 <tt>append</tt> salary x
+</pre>     
+
+<p> Similarly the second command below will throw an error, since
+<tt>some-other-value</tt> is not an instance of <tt>::Project</tt>.
+
+<pre CLASS="code">
+  p2 projects <tt>add</tt> ::project1
+  p2 projects <tt>add</tt> some-other-value     
+</pre>
+
+<p> When a check throws an error, the instance variables 
+     are reset to the previous value. To restore the original
+     value, an associative array <tt>__oldvalue()</tt> is kept as 
+     instance variable in the object.
+</p>
+
+<p>  In general, checking of variables can be turned off globally
+     by
+<pre CLASS="code">
+  ::xotcl::Slot <tt>instmixin add</tt> ::xotcl::Slot::Nocheck
+</pre>
+<p>
+     This mixin replaces the methods <tt>check</tt> and
+     <tt>checkall</tt> as well as <tt>mk_type_checker</tt> by
+     no-ops. When the mixin is active and the Attribute definitions
+     are loaded, the specified <tt>type</tt> has no effect.
+</p>
+<p>
+     Value checking can be turned off also selectively for each slot via
+     using <tt>::xotcl::Slot::Nocheck</tt> as per-object-mixin; if
+     attributes are subclassed, 
+     it is possible to register the <tt>Nocheck</tt> mixin on a
+     subclass of <tt>Attribute</tt>. 
+</p>
+
+<h3><a name='trace-commands'></a>Init Commands and Value Commands for Slot Values</h3>
+
+<p>An init command (<tt>initcmd</tt>) of a slot is similar to a
+default and is a command to be executed when the value of the
+associated variable is read the first time. That means that when an
+object is created the associated variable has no value. On the
+contrary, when a default is used, the variable is set to the default
+value, when the object is created. </p>
+
+The primary advantage of slot init commands is <em>Lacy
+initialization:</em> When an object has many slots and the
+initialization of all slots is costly (e.g. the value of each slot is
+fetched from a relational database), and not all of the values are
+needed for each instance, only the relevant variables of the object
+are initialized on demand.
+
+<pre CLASS="code">
+  Class C -slots {
+    Attribute x -initcmd {puts {init}; set _ 101}
+  }
+
+  C c1
+  c1 <tt>info</tt> vars  <it>;# ==&gt; returns ""</it>
+  c1 <tt>set </tt> x     <it>;# ==&gt; puts init, returns 101</it>
+  c1 <tt>info</tt> vars  <it>;# ==&gt; returns "x"</it>
+</p>
+</pre>
+
+<p>The initcmd is executed only once, when the variable is read the first
+time. For later reads of the variable contents, the values are returned.
+
+<p>A value command (<tt>valuecmd</tt>) of a slot is similar to a a
+init command, except that it is executed whenever the value of the
+variable is read. A value command can be used e.g. to implement live
+updates for variables or for abstracting from sql sequences or the
+like.  </p>
+
+<p>Finally the value changed command (<tt>valuechangedcmd</tt>) can be
+used to specify the behavior, whenever the value of the variable is
+altered. This option is used to implement the value checking described
+in the last section.</p>
+
+<p> The slot parameters <tt>default</tt>, <tt>initcmd</tt> and
+<tt>valuecmd</tt> have to be used mutually exclusively.
+</p>
+
+
+
+<!-- PAGE BREAK -->
+
+<TABLE COLS=2 WIDTH=100% BORDER=0 CELLPADDING=2 CELLSPACING=0 BGCOLOR="#000055">
+	<TR>
+		<TD WIDTH=75%>
+			<P><A NAME="nesting"></A><FONT COLOR="#ffffff"><FONT FACE="Arial, Helvetica"><FONT SIZE=6>Nested Classes
+			and Dynamic Object Aggregations </FONT></FONT></FONT>
+			</P>
+		</TD>
+		<TD>
+			<IMG SRC="logo-100.jpg" NAME="Graphic9" ALIGN=RIGHT WIDTH=102 HEIGHT=42 BORDER=0></TD>
+	</TR>
+</TABLE>
+<P>Most object-oriented analysis and design methods are based on the
+concepts of generalization and aggregation. Generalization is
+achieved through class hierarchies and inheritance, while static
+aggregation is provided through embedding. Since version 8.0 Tcl
+offers a namespace concept which can be used as a mechanism to
+provide dynamic aggregations. 
+</P>
+<P>A <EM>namespace</EM> provides an encapsulation of variable and
+procedure names in order to prevent unwanted name collisions with
+other system components. Each namespace has a unique identifier which
+becomes part of the fully qualified variable and procedure names.
+Namespaces are therefore already object-based in the terminology of
+Wegner. OTcl is object-oriented since it offers classes and class
+inheritance. Its objects are also namespaces, but an object is more
+than only a namespace. Therefore, two incompatible namespace concepts
+have existed in OTcl in parallel. 
+</P>
+<P>In XOTcl every object and every class is
+logically implemented as a separate Tcl namespace. The biggest benefit of this
+design decision aside from performance advantages is the ability to
+aggregate objects and nest classes. Contrary in OTcl every object has
+a global identifier. Through the introspection abilities of
+namespaces nested classes are also traceable at runtime and can be
+changed dynamically. In XOTcl objects are allowed to contain nested
+objects, which are dynamically changeable aggregates of the
+containing object. 
+</P>
+
+
+<H3><A NAME="nested-classes"></A>Nested Classes</H3>
+
+<P>The notation for nested classes follows the syntax of Tcl
+namespaces by using ``::'' as a delimiter. For example the
+description of a oval carpet and a desk can nest inside of the
+<tt>OvalOffice</tt> class: 
+</P>
+<pre CLASS="code">
+  <tt>Class</tt> OvalOffice
+  <it># general carpet</it>
+  <tt>Class</tt> Carpet
+  <tt>Class</tt> OvalOffice::Desk
+  <it># special oval carpet - no name collision</it>
+  <tt>Class</tt> OvalOffice::Carpet <tt>-superclass</tt> ::Carpet
+</pre><P>
+Nested classes can be used exactly like ordinary classes, a user can
+sub-class it, derive instances, etc. The information about the
+nesting structure of classes is available through the <tt>info</tt>
+instance method: 
+</P>
+<pre CLASS="code">
+  <em>className</em> <tt>info</tt> classchildren <em>?pattern?</em>
+  <em>className</em> <tt>info</tt> classparent
+</pre><P>
+The <tt>classchildren</tt> option returns a list of children, if one
+or more exist, otherwise it returns an empty string. <tt>classparent</tt>
+results in the name of the parent class, if the class is nested.
+Since nested classes are realized through namespaces, all
+functionality offered by Tcl's <tt>namespace</tt> command is usable
+from XOTcl as well. 
+</P>
+<H3><A NAME="obj-agg"></A>Dynamic Object Aggregations </H3>
+
+<P>The nested classes only provide an aggregation of the descriptive
+not of the runtime properties of an object. We have pointed out the
+difference of object and class in XOTcl. Because of the splitting of a
+class into class and class-object it is possible to give each object
+its own namespace. The internal implementation of objects enable them
+to contain nested objects, which are aggregates of the containing
+object. In XOTcl these can be changed dynamically and introspected
+through the language support of dynamic object aggregations <a
+href="#xotcl-aggregation">[Neumann and Zdun 2000b]</a>. Suppose an
+object of the class <tt>Agent</tt> should aggregate some property
+objects of an agent, such as head and body:
+</P>
+<pre CLASS="code">
+  <tt>Class</tt>Agent
+  Agent myAgent
+
+  <tt>Class</tt> Agent::Head
+  <tt>Class</tt> Agent::Body
+
+  Agent::Head ::myAgent::myHead
+  Agent::Body ::myAgent::myBody
+</pre><P>
+Now the objects <tt>myHead</tt> and <tt>myBody</tt> are part of the
+<tt>myAgent</tt> object and they are accessible through a
+qualification using ``::'' (or through Tcl's namespace command). But
+in the common case they will be accessed, as introduced so far: the
+explicit full qualification is not necessary when such variables are
+being accessed from within XOTcl methods, since the object changes to
+its namespace. 
+</P>
+<P>The information about the part-of relationship of objects can be
+obtained exactly the same way as for classes through the 
+<tt>info</tt> interface: 
+</P>
+<pre CLASS="code">
+  <em>objName</em> <tt>info</tt> children <em>?pattern?</em>
+  <em>objName</em> <tt>info</tt> parent
+</pre>
+
+<H3><A NAME="nest-agg"></A>Relationship between Class Nesting and Object Aggregation</H3>
+
+<P>The classes <tt>Head</tt> and <tt>Body</tt> are children of the
+<tt>Agent</tt> class. It is likely that all agents, interactive or
+not, have properties for head and body. This implies a static or
+predetermined relationship between class nesting and object
+aggregation. Such predetermination do not exist in XOTcl, but are
+simply build, when specifying the relationship in the constructor,
+e.g.: 
+</P>
+<pre CLASS="code">
+  Agent <tt>instproc</tt> <tt>init</tt> args {
+    ::Agent::Head [<tt>self</tt>]::myHead
+    ::Agent::Body [<tt>self</tt>]::myBody
+  }
+</pre><P>
+Now all agents derived from the class have the two property objects
+aggregated after creation. But still they are changeable in a
+dynamical manner, e.g. with: 
+</P>
+<pre CLASS="code">
+  Agent myAgent
+  myAgent::myHead <tt>destroy</tt>
+</pre><P>
+The agent turns into a headless agent. In companion of the
+introspection mechanisms such constructions could be very useful.
+Suppose, that in the virtual world the agents heads may be slashed
+from their bodies. The graphical system simply needs to ask with <tt>info
+children</tt> on the agent's object, whether it has a head or not and
+can choose the appropriate graphical representation. 
+</P>
+
+<h3><A NAME="contains"></A>Simplified Syntax for Creating Nested Object Structures</h3>
+
+To ease the generation of nested structures, one can use the
+predefined method <tt>contains</tt>. In essence, <tt>contains</tt>
+changes the namespace, where objects are created to the object,
+on which it is executed. In the example below, we create three
+nested rectangles, where two of these contain two more points.
+The outer rectangle is <tt>r0</tt> containing rectangle <tt>r1</tt>
+and <tt>r2</tt>.
+ 
+<pre CLASS="code">
+  <tt>Class</tt> Point <tt>-parameter</tt> {{x 100} {y 300}}
+  <tt>Class</tt> Rectangle <tt>-parameter</tt> {color}
+
+  Rectangle r0 -color pink <tt>-contains</tt> {
+    Rectangle r1 -color red <tt>-contains</tt> {
+      Point x1 -x 1 -y 2
+      Point x2 -x 1 -y 2
+    }
+    Rectangle r2 -color green <tt>-contains</tt> {
+      Point x1
+      Point x2
+    }
+  }
+
+  ? {r0 color} pink
+  ? {r0 r1 color} red
+  ? {r0 r1 x1 x} 1
+  ? {r0 r1 x2 y} 2
+  ? {r0 r2 color} green
+</pre>
+
+<p>Every object in XOTcl is realized as a Tcl command. If nested
+objects are created, these commands are available as object specific
+methods.  So, instead of calling the contained rectangle r1 via the
+fully qualfied name <tt>::r0::r1</tt>, one can use <tt>r0
+r1</tt>. This is exactly the same situation as it arises, when e.g. a
+global Tcl proc <tt>proc o1 {} {...}</tt> and an XOTcl object o1
+(created via <tt>Object o1</tt>) is created. Both commands cannot
+coexist in the same namespace.
+
+</p>
+
+<H3><A NAME="copy-move"></A>Copy/Move</H3>
+
+Often an object has to be copied/moved. This is a very useful
+functionality when XOTcl should be used as a prototyping language.
+The XOTcl method <tt>move</tt> provides this functionality. Another
+common behavior is implemented by the <tt>copy</tt> method which
+clones the actual object to a destination object via a deep copy operation.
+The two methods have the syntax:
+
+<pre CLASS="code">
+  <em>objName</em> <tt>move</tt> <em>destination</em>
+  <em>objName</em> <tt>copy</tt> <em>destination</em>
+</pre><P>
+
+Copy and move operations work with all object/class information, i.e.,
+information on filters, mixins, parameters, etc. are
+automatically copied. Copy and move are integrated with class nesting
+and object aggregations. All copy/move operations are deep copy
+operations: all nested objects/classes are automatically copied/moved,
+too.
+
+E.g. if we want to reuse an imperial march object of star wars for
+star wars 2, we can just copy the object:
+<pre CLASS="code">
+  starWars::imperialMarch <tt>copy</tt> starWars2::imperialMarch
+</pre>
+
+Note that move is implemented in current versions of xotcl
+as a copy plus subsequent destroy operation.
+<p>
+
+
+
+
+
+
+<!-- PAGE BREAK -->
+
+<TABLE COLS=2 WIDTH=100% BORDER=0 CELLPADDING=2 CELLSPACING=0 BGCOLOR="#000055">
+    <TR>
+      <TD WIDTH=75%>
+	<P><A NAME="forwarding"></A><FONT COLOR="#ffffff" FACE="Arial, Helvetica" SIZE=6>Method Forwarding</FONT>
+	</P>
+      </TD>
+      <TD>
+	<IMG SRC="logo-100.jpg" NAME="Graphic9" ALIGN=RIGHT WIDTH=102 HEIGHT=42 BORDER=0></TD>
+    </TR>
+</TABLE>
+<P>As you have seen from many previous examples, XOTcl's primary command for
+method forwarding is the <tt>next</tt> primitive.  <tt>next</tt> calls
+the same-named method of the current object, usually with the same
+argument list. However, frequently method forwarding is required
+between different objects as well, commonly referred to as
+<em>delegation</em>.</P>
+
+<P>In general, delegation can be achieved in XOTcl without any special construct
+using simple methods containing a few lines. However, In
+several situations, forwarding is as well needed to plain
+Tcl commands, for example, if object oriented stubs are implemented on
+base of non-oo function calls. These functions might access instance
+variables of the objects. XOTcl uses this functionality in various
+situations, such as for instance in the implementation of the
+<tt>set</tt>, <tt>unset</tt>, <tt>append</tt>, <tt>array</tt> methods among others.</p>
+
+<p>The fowarding functionality is suppored by XOTcl be the methods
+<tt>forward</tt> and <tt>instforward</tt> that address these requirements
+and provide an efficient implementation for these tasks.  </p>
+
+<p>The forwarding command specifies that whenever <em>methodName</em> is called,
+this invocation is delegated to <em>callee</em>, where the actual argument list
+(from the invocation) is appended to the argument list specified in the forwarding command.
+Like for procs and instprocs, we can distinguish between <tt>forward</tt> and
+<tt>instforward</tt>, depending on we want to the method available for a single object
+of for the instances of a class.</p>
+
+<p>The general form of the forwarding commands is:
+<pre CLASS="code">
+  <em>obj</em> <tt> forward</tt> <em>methodName ?options? callee ?arglist?</em> 
+  <em>cls</em> <tt> instforward</tt> <em>methodName ?options? callee ?arglist?</em> 
+</pre>
+
+where valid options are <tt>-objscope</tt>, <tt>-methodprefix</tt>,
+<tt>-earlybinding</tt> and <tt>-default</tt>. The option
+<tt>-objscope</tt> is used to specify that the command should be
+executed in the scope of the calling object (i.e. instance variables apprear
+as local varibales), <tt>-methodprefix</tt> means that the called
+method should be prefixed with the specified string (to avoid name
+clashes), <tt>-earlybinding</tt> means that the function pointer of
+the specified command (callee) is take at invocation time (should only
+be done for (builtin) commands inplemented in C), and
+<tt>-default</tt> provides a means for providing default methods when
+none are specifed.</p>
+
+<p>Each of the arguments after the method name (including
+<tt>callee</tt>) can be be substituted an invocation time, or they are
+taken literally. The arguments to be substituted are starting always
+with a percent sign.  These arguemnts can be <tt>%self</tt>,
+<tt>%proc</tt>, <tt>%1</tt>, <tt>%argclindex</tt>, or <tt>%</tt>
+followed by a Tcl command, and it can be prefixed with a positional
+prefix <tt>%@</tt>.  We will introduce the usage of these options and
+argument substitutions based on examples.</P>
+
+<p>In our first example we define an object <tt>dog</tt> and an object
+<tt>tail</tt>. If the <tt>dog</tt> receives the call <tt>wag</tt> it
+delegates this call to the <tt>tail</tt> and returns its result.  In
+this introductory example, the method <tt>tail</tt> simply returns its
+arguments. </p>
+
+<p>In this example, forwarding is achieved through the method
+<tt>forward</tt> that creates a forwarder command. This method
+receives as first argument the name, under which the forwarder is
+registered, followed by the object that receives the delegation (the
+"callee"), followed my the (optional) method name and optional
+arguments. More about this later. Here we register the forwarder under
+the name <tt>wag</tt>, the callee is <tt>tail</tt>, and the method is
+defined to have the name of the forwarder. We could have written here
+<tt>dog forward wag tail wag</tt> as well, be we use <tt>%proc</tt>
+which refers to the name of the forwarder. Using <tt>%proc</tt> is
+slightly more general in cases the forwarder is renamed.
+</p>
+
+<pre CLASS="code">
+  <it>###########################################</it>
+  <it># trivial object delegation</it>
+  <it>###########################################</it>
+  <tt>Object</tt> dog
+  <tt>Object</tt> tail
+  tail <tt>proc</tt> wag args { <tt>return</tt> $args }
+  dog <tt>forward</tt> wag tail %proc
+</pre>
+
+<p> With these definitions a call to "<tt>dog wag 100</tt>" calls
+actually "<tt>tail wag 100</tt>" which returns the result of
+<tt>100</tt>.</p>
+
+<p>The following command shows the delegation to a Tcl command
+(instead of delegation to an object). We define a simple forwarder
+that forwards a call to the Tcl command <tt>expr</tt> with some
+arguments.</p>
+
+<pre CLASS="code">
+  <it>###########################################</it>
+  <it># adding </it>
+  <it>###########################################</it>
+  <tt>Object</tt> obj
+  obj <tt>forward</tt> addOne <tt>expr</tt> 1 +
+</pre>
+The invocation <tt>obj addOne 5</tt> returns 6 as value.<p>
+
+
+<p>In our next example we want additionally that the Tcl command
+should to be evaluated in the context of the current object. This
+means that the method can easily access instance variables of the
+delegating object. We define a forwarder for the class <tt>X</tt> with
+the name <tt>Incr</tt> (to avoid confusion with the already defined
+method <tt>incr</tt>), we use the <tt>-objscope</tt> option and
+specify <tt>incr</tt> as the callee.  Since the forwarder is defined
+via <tt>instforward</tt> the forwarder is available to all instances
+of the class.
+<pre CLASS="code">
+  <it>###########################################</it>
+  <it># evaluating in scope </it>
+  <it>###########################################</it>
+  <tt>Class</tt> X <tt>-parameter</tt> {{x 1}}
+  X <tt>instforward</tt> Incr <tt>-objscope</tt> incr
+  
+  X x1 -x 100
+  x1 Incr x
+  x1 Incr x
+  x1 Incr x
+</pre>
+After the three calls to <tt>Incr</tt> the call <tt>x1 x</tt>
+returns the value 103.</p>
+
+<p>In our next example, we show the usage of the
+<tt>%</tt>-substitution more advanced argument handling. This example
+sketches the implementation of the <tt>mixin add</tt>, <tt>mixin
+set</tt> methods as shown above. In order to obtain extensible
+subcommands (such as <tt>mixin add</tt>, <tt>mixin delete</tt>, etc.), we
+define an object for which the subcommands are defined as methods. We
+will use this object as callee for the appropriate methods. So, we
+define an object named <tt>mixin</tt> and define a forwarder with the
+name <tt>Mixin</tt> (again we capitalize <tt>Mixin</tt> to avoid name clashes
+with the already defined method<tt>mixin</tt> ).
+<pre CLASS="code">
+  <it>###########################################</it>
+  <it># mixin example</it>
+  <it>###########################################</it>
+  <tt>Object create</tt> mixin
+  mixin <tt>proc</tt> unknown {m args} {<tt>return</tt> [concat [self] $m $args]}
+  obj <tt>forward</tt> Mixin mixin %1 %self
+</pre>
+We define here the method <tt>unknown</tt> to see what arguments are
+passed. The following invocation will lead to the call in noted in the comment.
+<pre CLASS="code">
+  obj Mixin add M1       <it>;# calls ::mixin add ::obj M1</it>
+</pre>
+You see that <tt>%1</tt> was substituted by the first argument of the
+invocation (here <tt>add</tt>) and <tt>%self</tt> was substituted by
+the name of the current object (here <tt>::obj</tt>). The second
+argument of the invocation (here <tt>M1</tt>) was appended as
+usual. However, in calls like
+<pre CLASS="code">
+  obj Mixin
+</pre>
+we have to deal with cases, where the used argument (<tt>%1</tt>) is 
+not given at the invocation. In this case we get either an
+error message, or we can specify a default argument via the 
+option <tt>-default</tt>:
+<pre CLASS="code">
+  obj <tt>forward</tt> Mixin <tt>-default</tt> {getter setter} mixin %1 %self
+</pre>
+This definition means that if no argument is specified in the
+invocation we call the method <tt>getter</tt>, if one argument is
+given the method <tt>setter</tt>, in other cases we use the specified
+arguments. Therefore the following three invocations are delegated as
+indicated in the comments.
+<pre CLASS="code">
+  obj Mixin              <it>;# calls ::mixin getter ::obj</it>
+  obj Mixin M1           <it>;# calls ::mixin setter ::obj M1</it>
+  obj Mixin add M1       <it>;# calls ::mixin add ::obj M1</it>
+</pre>
+
+<p>When we implement subcommands by delegating to other commands
+(as shown in the last example), there can be situations where naming
+conflicts might arise. For example, if we want to implement a
+subcommand method <tt>class</tt> we might not want to implement a new
+method <tt>class</tt> on the callee, since this would overwrite the
+standard definition of <tt>class</tt>. To overcome such difficulties,
+we provide the option <tt>-methodprefix</tt>. The following example
+shows how to prefix every called method with the prefix <tt>@</tt>.
+</p>
+<pre CLASS="code">
+  <it>###########################################</it>
+  <it># sketching extensible info</it>
+  <it>###########################################</it>
+  <tt>Object</tt> Info
+  Info <tt>proc</tt> @mixin {o} {
+    $o <tt>info</tt> mixin
+  }
+  Info <tt>proc</tt> @class {o} { <it>;# without prefix, doing here a [Info class] would be wrong</it>
+    $o <tt>info</tt> class
+  }
+  Info <tt>proc</tt> @help {o} { <it>;# define a new subcommand for info</it>
+    <tt>foreach</tt> c [my <tt>info</tt> procs] {<tt>lappend</tt> result [<tt>string range</tt> $c 1 end]}
+    <tt>return</tt> $result
+  }
+  Object <tt>instforward</tt> Info -methodprefix @ Info %1 %self 
+</pre>
+With this definitions, the following call is rewritten as indicated in the comment.
+<pre CLASS="code">
+  x1 Info class          <it>;# ::Info @class ::x1</it>
+</pre>
+
+<p>When a forwarder is defined, the callee (the target command) can be
+omitted. When the callee is not specified, the method-name is used
+instead. When the method-name has a namespace prefix, the method name
+is the tail and the callee is the fully qualified name.
+</p>
+<pre CLASS="code">
+  <it>###########################################</it>
+  <it># optional callee</it>
+  <it>###########################################</it>
+  obj <tt>set</tt> x 2
+  obj <tt>forward</tt> append -objscope
+  <tt>Object</tt> n; <tt>Object</tt> n::x
+  obj <tt>forward</tt> ::n::x
+</pre>
+With this definitions of the forwarder <tt>append</tt> and <tt>x</tt>,
+the following calls are rewritten as indicated in the comment.
+<pre CLASS="code">
+  obj append x y z        <it>;# ::append x y z ... returning  2yz</it>
+  obj x self              <it>;# ::n::x self    ... returning  ::n::x</it>
+</pre>
+<p>The forwarder <tt>append</tt> forwards the call to the Tcl command
+<tt>append</tt>, which accesses the instance variable <tt>x</tt> and
+appends the specified values.</p>
+
+<p>The list of tokens executed by the forwarder might
+contain Tcl commands executed during every invocations. This makes it
+for instance possible to pass instances variables to the callee. In
+the next example the object has the instvar named <tt>x</tt> which is
+multiplied by a factor of 10 when the method <tt>x*</tt> is invoked.
+<pre CLASS="code">
+  <it>###########################################</it>
+  <it># command substitution</it>
+  <it>###########################################</it>
+  obj <tt>set</tt> x 10
+  obj <tt>forward</tt> x* <tt>expr</tt> {%my <tt>set</tt> x} *
+</pre>
+With this definitions, the following call is rewritten as indicated in the comment.
+<pre CLASS="code">
+  obj x* 10               <it>;# expr 10 * 10 ... returning  100</it>
+</pre>
+
+<p>In certain situations it is necessary to insert arguments always at
+the same position (e.g. at the second to last position). The
+positional addressing can be achieved by prefixing the arguments of
+the forward specification by <tt>%@POS </tt>, where <tt>POS</tt> is
+either a positive (argument positing from the beginning) or negative
+integer (argument counting from the end) or the constant <tt>end</tt>
+(denoting the last position). After <em>POS</em> a single space is
+used as a delimiter for the rest of the argument, which might be
+some other %-substitution or a constant. The positional arguments 
+are evaluated from left to right and should be used in ascending order. 
+</p>
+
+<p>The following examples show a few usages of the positional arguments
+in the forwarder. The forwarders f1 to f5 are created, followed by
+one or more usages. The first argument of the usage is the call to
+to forewarder, the second argument is the result.
+</p>
+<pre CLASS="code">
+  <it>###########################################</it>
+  <it># forwarding with positional arguments</it>
+  <it>###########################################</it>
+  <tt>Object</tt> obj
+  obj <tt>forward</tt> f1 list {%@end 13}
+  ? {obj f1 1 2 3 } [<tt>list</tt> 1 2 3 13]
+
+  obj <tt>forward</tt> f2 list {%@-1 13}
+  ? {obj f2 1 2 3 } [<tt>list</tt> 1 2 13 3]
+
+  obj <tt>forward</tt> f3 list {%@1 13}
+  ? {obj f3 1 2 3 } [<tt>list</tt> 13 1 2 3]
+  ? {obj f3} [list 13]
+
+  obj <tt>forward</tt> f4 list {%@2 13}
+  ? {obj f4 1 2 3 } [<tt>list</tt> 1 13 2 3]
+
+  obj <tt>forward</tt> f5 {%@end 99} {%@0 list} 10
+  ? {obj f5} [<tt>list</tt> 10 99]
+  ? {obj f5 a b c} [<tt>list</tt> 10 a b c 99]
+</pre>
+
+<p> The construct <tt>%argclindex LIST</tt> can be used to substitute an argument
+depending on the number of arguments when the forwarder is
+invoked. For example, it is possible to call forward to a different
+method depending on how many arguments are specified. The number of arguments
+is used as an index in the specified list. When the number of arguments is larger
+than the number of elements in the specified list, an error is generated.</p>
+
+<pre CLASS="code">
+  <it>###############################################</it>
+  <it># substitution depending on number of arguments</it>
+  <it>###############################################</it>
+  obj <tt>forward</tt> f %self [list %argclindex [list a b c]]
+  obj <tt>proc</tt> a args {<tt>return</tt> [<tt>list</tt> [<tt>self proc</tt>] $args]}
+  obj <tt>proc</tt> b args {<tt>return</tt> [<tt>list</tt> [<tt>self proc</tt>] $args]}
+  obj <tt>proc</tt> c args {<tt>return</tt> [<tt>list</tt> [<tt>self proc</tt>] $args]}
+  ? {obj f} [list a {}]
+  ? {obj f 1 } [list b 1]
+  ? {obj f 1 2} [list c {1 2}]
+  ? {catch {obj f 1 2 3}} 1
+</pre>
+
+<p>Finally, the concluding example defines a class <tt>chan</tt> to use the
+I/O-commands in an OO-manner. The proc open is used to create a
+<tt>chan</tt> instance. For the channel object we provide the method
+<tt>close</tt> (to close a channel and to destroy the channel object),
+<tt>puts</tt> (to write on a stream), <tt>blocked</tt> (to check
+whether last command exhausted all input), and <tt>fconfigure</tt> (to
+configure the stream). Note that for <tt>puts</tt> we specified that
+the actual stream should be inserted as the second to last argument.
+</p>
+<pre CLASS="code">
+  <tt>Class</tt> chan <tt>-parameter</tt> stream
+  <it># create stream and object</it>
+  chan <tt>proc</tt> open args { 
+    <tt>set</tt> stream [<tt>eval</tt> open $args]
+    <tt>my create</tt> $stream -stream $stream  ;# make an object
+  }
+  <it># close stream and destroy object</it>
+  chan <tt>instproc</tt> close {} {
+    <tt>close</tt> [<tt>my</tt> stream]
+    [<tt>self</tt>] <tt>destroy</tt>
+  }
+  <it># handle other subcommands (methods) via unknown</it>
+  chan <tt>instproc</tt> unknown {m args} {
+    <tt>set</tt> valid [<tt>lsort</tt> [chan <tt>info</tt> instcommands]]
+    stderr puts "unknown chan method '$m' $args called; 
+      	defined methods: $valid"
+  }
+  chan <tt>create</tt> stdout -stream stdout   <it>;# define standard stream</it>
+  chan <tt>create</tt> stderr -stream stderr   <it>;# define standard stream</it>
+
+  chan <tt>instforward</tt> puts puts {%@-1 %my stream}
+  chan <tt>instforward</tt> blocked fblocked {%my stream}
+  chan <tt>instforward</tt> fconfigure fconfigure {%my stream} 
+
+  <tt>set</tt> c [chan open /tmp/junk w]
+  $c puts -nonewline "hello"
+  $c puts -nonewline " world"
+  $c puts ""
+  $c xxx                                       <it>;# trigger unknown</it>
+  <it># The stream instances denote the currently open streams</it>
+  stderr puts "currently open streams: [chan info instances]" 
+  $c close
+  stderr puts "currently open streams: [chan info instances]"
+</pre>
+
+
+
+
+<TABLE COLS=2 WIDTH=100% BORDER=0 CELLPADDING=2 CELLSPACING=0 BGCOLOR="#000055">
+	<TR>
+		<TD WIDTH=75%>
+			<P><A NAME="assertions"></A><FONT COLOR="#ffffff"><FONT FACE="Arial, Helvetica"><FONT SIZE=6>Assertions
+			</FONT></FONT></FONT>
+			</P>
+		</TD>
+		<TD>
+			<IMG SRC="logo-100.jpg" NAME="Graphic10" ALIGN=RIGHT WIDTH=102 HEIGHT=42 BORDER=0></TD>
+	</TR>
+</TABLE>
+<P>In order to improve reliability and self documentation we added
+assertions to XOTcl. The implemented assertions are modeled after the
+``design by contract'' concept of Bertrand Meyer. In XOTcl assertions
+can be specified in form of formal and informal pre- and
+post-conditions for each method. The conditions are defined as a list
+of and-combined constraints. The formal conditions have the form of
+normal Tcl conditions, while the informal conditions are defined as
+comments (specified with a starting ``<tt>#</tt>''). The lists
+containing the pre- and post-conditions are appended to the method
+definition (see example below). 
+</P>
+<P>Since XOTcl offers per-object specialization it is desirable to
+specify conditions within objects as well (this is different to the
+concept of Meyer). Furthermore there may be conditions which must be
+valid for the whole class or object at any visible state (that means
+in every pre- and post-condition). These are called invariants and
+may be defined with following syntax for class invariants: 
+</P>
+<pre CLASS="code">
+  <em>className</em> instinvar <em>invariantList</em>
+</pre><P>
+or for objects invariants: 
+</P>
+<pre CLASS="code">
+  <em>objName</em> invar <em>invariantList</em>
+</pre><P>
+Logically all invariants are appended to the pre- and post-conditions
+with a logical ``and''. All assertions can be introspected. 
+</P>
+<P>Since assertions are contracts they need not to be tested if one
+can be sure that the contracts are fulfilled by the partners. But for
+example when a component has changed or a new one is developed the
+assertions could be checked on demand. For this purpose the <tt>check</tt>
+method can be used either to test the pre- or the post-conditions.
+The syntax is: 
+</P>
+<pre CLASS="code">
+  <em>objName</em> check <em>?all? ?instinvar? ?invar? ?pre? ?post?</em>
+</pre><P>
+Per default all options are turned off. <tt>check all</tt> turns all
+assertion options for an object on, an arbitrary list (maybe empty)
+can be used for the selection of certain options. Assertion options
+are introspected by the <tt>info check</tt> option. The following
+class is equipped with assertions: 
+</P>
+<pre CLASS="code">
+  <tt>Class</tt> Sensor <tt>-parameter</tt> {{value 1}}
+  Sensor instinvar {
+    {[regexp {^[0-9]$} [<tt>my</tt> value]] == 1}
+  }
+  Sensor <tt>instproc</tt> incrValue {} {
+    <tt>my</tt> <tt>incr</tt> value
+  } {
+    {# pre-condition:} 
+    {[<tt>my</tt> value] &gt; 0}
+  } {
+    {# post-condition:} 
+    {[<tt>my</tt> value] &gt; 1}
+  }
+</pre><P>
+The <tt>parameter</tt> instance method defines an instance variable
+<tt>value</tt> with value <tt>1</tt>. The invariant expresses the
+condition (using the Tcl command <tt>regexp</tt>), that the value
+must be a single decimal digit. The method definition expresses the
+formal contract between the class and its clients that the method
+<tt>incrValue</tt> only gets input-states in which the value of the
+variable <tt>value</tt> is positive. If this contract is fulfilled by
+the client, the class commits itself to supply a post-condition where
+the variable's value is larger than 1. The formal conditions are
+ordinary Tcl conditions. If checking is turned on for sensor <tt>s</tt>:
+</P>
+<pre CLASS="code">
+  s check all
+</pre><P>
+the pre-conditions and invariants are tested at the beginning and the
+post-condition and invariants are tested at the end of the method
+execution automatically. A broken assertion, like calling <tt>incrValue</tt>
+9 times (would break the invariant of being a single digit) results
+in an error message. 
+</P>
+<p>
+In assertions we do not check methods that modify or introspect
+assertions. These are
+<tt>check</tt>,<tt>info</tt>,<tt>proc</tt>,<tt>instproc</tt>,<tt>invar</tt>,
+and <tt>instinvar</tt>. The reason for this is that we want to be able
+to recover a malicious action in a <tt>catch</tt> error handler, like:
+</P>
+<pre CLASS="code">
+  ...
+  <tt>if</tt> {[<tt>catch</tt> {<tt>my</tt> assertionBreakingAction} errMsg]} {
+    <tt>puts</tt> "CAUGHT ERROR: $errMsg"
+    <it># remember checking options, for turning them on later again</it>
+    <tt>set</tt> check [<tt>my</tt> <tt>info</tt> check]
+    <tt>my</tt> check {}
+    <it># recover from broken assertion</it>
+    ...
+    <it># turning checking on again </it>
+    $fb check $check
+  }
+</pre>
+
+<!-- PAGE BREAK -->
+
+<TABLE COLS=2 WIDTH=100% BORDER=0 CELLPADDING=2 CELLSPACING=0 BGCOLOR="#000055">
+	<TR>
+		<TD WIDTH=75%>
+			<P><A NAME="meta-data"></A><FONT
+COLOR="#ffffff"><FONT FACE="Arial, Helvetica"><FONT SIZE=6>Meta-Data
+and Automatic Documentation
+			</FONT></FONT></FONT>
+			</P>
+		</TD>
+		<TD>
+			<IMG SRC="logo-100.jpg" NAME="Graphic11" ALIGN=RIGHT WIDTH=102 HEIGHT=42 BORDER=0></TD>
+	</TR>
+</TABLE>
+<P>To enhance the understandability and the consistency between
+documentation and program it is useful to have a facility to make the
+documentation a part of the program. There are several kinds of
+meta-data which are interesting for a class, e.g. the author, a
+description, the version, etc. 
+</P>
+<P>
+Older versions of XOTcl have contained a special meta-data command
+<tt>metadata</tt>. This command is now (from version 0.83) deprecated
+and replaced by an integrated solution with XOTcl's API documentation
+functionality. The object <tt>@</tt> is used for documentation and
+metadata issues. Per default it is not evaluated at all. Everything
+that is send to <tt>@</tt> is simply ignored. That way we do not waste
+memory/performance at runtime, if we do not require to parse the
+metadata/documentation.
+</P>
+<P>
+If we have to know the meta-data/documentation, as for instance in the
+<tt>xoDoc</tt> component and the <tt>makeDoc</tt> tool, that handle
+XOTcl's internal documentation, we have to re-define the documentation
+object. Alternatively, we can partially parse the source code for
+<tt>@</tt> commands.
+</P>
+<P>
+With <tt>@</tt> the meta-data/documentation is handled by first class
+XOTcl objects. By defining alternate @ implementations - as in
+<tt>xoDoc</tt>/<tt>makeDoc</tt> - we can evaluate the
+meta-data/documentation arbitrarily. <tt>xoDoc</tt>/<tt>makeDoc</tt>
+are only an HTML back-end, but the basic idea is to provide support for
+several other usages as well (e.g. XML, RDF, on-line help,
+documentation of dynamic structures, etc).
+</P>
+<P>
+The object<tt>@</tt> handles comments via its <tt>unknown</tt>
+method. <tt>xoDoc</tt> adds the appropriate instprocs to t<tt>@</tt> to produce HTML
+output. The appropriate command is:
+</P>
+<pre CLASS="code">
+  tclsh src/lib/makeDoc.xotcl <em>DOCDIR DOCFILES</em>
+</pre><P>
+
+The source of a documentation is structurally very similar to the
+XOTcl constructs being commented. E.g. one can copy an instproc and
+add comments at the right places, like:
+</P>
+<pre CLASS="code">
+    <tt>Class</tt> C
+    C <tt>instproc</tt> m {a1 a2} {
+       <tt>return</tt> [<tt>expr</tt> {$a1+$a2}]
+    }
+</pre><P>
+
+    can be commented as follows
+ </P>
+<pre CLASS="code">
+    @ <tt>Class</tt> C { description { "<tt>my</tt> sample class"} }
+    @ C <tt>instproc</tt> m {a1 "first number" a2 "second number"} {
+       description "add two numbers"
+       <tt>return</tt> "sum of a1 and a2"
+    }
+</pre></P>
+<P>
+ One can do essentially a copy+paste of the source and add the
+ comments via attribute value pairs.  Every basic language construct
+ can have a "description". If you want to include other properties to
+ the description, you can add them like:
+  </P>
+<pre CLASS="code">
+    @ C <tt>instproc</tt> m {a1 "first number" a2 "second number"} {
+       author "GN+UZ"
+       date "Feb 31"
+       description "add two numbers"
+       <tt>return</tt> "sum of a1 and a2"
+    }
+</pre><P>
+ 
+    This way, author and date are added automatically to the generated
+    HTML file.
+    
+    In addition, there is a <tt>@File</tt> hook for a per file
+description, like:
+  </P>
+<pre CLASS="code">
+@ @File {
+  description {
+    This is a file which provides a regression test
+    for the features of the XOTcl - Language. 
+  }
+}
+</pre><P>
+
+<TABLE COLS=2 WIDTH=100% BORDER=0 CELLPADDING=2 CELLSPACING=0 BGCOLOR="#000055">
+	<TR>
+		<TD WIDTH=75%>
+			<P><A NAME="additional-functionalities"></A><FONT COLOR="#ffffff"><FONT FACE="Arial, Helvetica"><FONT SIZE=6>Additional
+			Functionalities </FONT></FONT></FONT>
+			</P>
+		</TD>
+		<TD>
+			<IMG SRC="logo-100.jpg" NAME="Graphic12" ALIGN=RIGHT WIDTH=102 HEIGHT=42 BORDER=0></TD>
+	</TR>
+</TABLE>
+<H2><A NAME="abstract-classes"></A>Abstract Classes 
+</H2>
+<P>In XOTcl a class is defined abstract if at least one method of
+this class is abstract. The instance method <tt>abstract</tt> defines
+an abstract method and specifies its interface. Direct calls to
+abstract methods produce an error message. E.g. a <tt>Storage</tt> class
+provides an abstract interface for access to different storage forms:
+</P>
+<pre CLASS="code">
+  <tt>Class</tt> Storage
+  Storage abstract <tt>instproc</tt> open  {name}       
+  Storage abstract <tt>instproc</tt> store {key value}
+  Storage abstract <tt>instproc</tt> list  {}         
+  Storage abstract <tt>instproc</tt> fetch key        
+  Storage abstract <tt>instproc</tt> close {}         
+  Storage abstract <tt>instproc</tt> delete {k} 
+</pre><P>
+All kinds of storage have to implement every method from the
+interface. E.g. a GNU Database Access, a relational database access,
+and several other storage forms may be derived by sub-classing
+(therefore, all conform to the same storage access interface). 
+</P>
+
+<H2><A NAME="cmdCheck"></A>Checking Commands for being Objects,
+Classes, or Meta-Classes 
+</H2>
+<P>Since XOTcl is a hybrid language containing several Tcl commands,
+sometimes its necessary for applications to distinguish between Tcl
+commands and object commands for XOTcl. </tt>method of the
+<tt>Object</tt> class looks up an <tt>objName</tt> and returns 1 if it
+is an object and 0 if not:
+
+<pre CLASS="code">
+  <em>objName1</em> <tt>isobject</tt> <em>objName2</em>
+</pre><P> 
+
+If one can be sure that a command represents an
+object, it might be unsure if the command is only an object or also
+class or even meta-class. The two instance methods <tt>isclass</tt>
+and <tt>ismetaclass</tt> check in the same manner, whether a class or
+meta-class is given (since ever XOTcl class is an object, they also
+return 0, when objName is not an XOTcl object).
+
+<pre CLASS="code">
+  <em>objName1</em> <tt>isclass</tt> <em>objName2</em>
+  <em>objName1</em> <tt>ismetaclass</tt> </em>objName2</em>
+</em></pre>
+
+<H2>
+<A NAME="Exit Handler"></A>Exit Handler 
+</H2>
+<P>A task for a programming language, sometimes of similar importance
+as object creation, is the object destruction. XOTcl ensures that all
+objects are destroyed and their destructors are invoked when XOTcl
+applications terminate. For that reason objects and classes are
+destroyed in the order objects, classes, meta-classes. Sometimes
+further destruction order is of importance. For these cases, the XOTcl
+language provides an exit handler, which is a user-defined proc, which
+invokes user-defined exit handling just before the destruction of
+objects, classes, meta-classes is invoked. For instance, the exit
+handler lets the user specify objects which have to be destroyed
+before all other objects.
+</P>
+<P> The exit handler is defined as a proc of <tt>Object</tt>, which is per default empty:
+<pre CLASS="code">
+  ::xotcl::Object <tt>proc</tt> __exitHandler {} {
+    <it># clients should append exit handlers to this proc body</it>
+    ;
+  }
+</pre>
+
+<P> There are some procs of the <tt>Object</tt> class pre-defined,
+which let us specify an exit handler conveniently:
+</P>
+<pre CLASS="code">
+   <tt>Object</tt> setExitHandler body
+   <tt>Object</tt> getExitHandler
+   <tt>Object</tt> unsetExitHandler
+</pre><P STYLE="margin-bottom: 0in">
+<tt>setExitHandler</tt> lets us specify
+a proc body that actually contains the user-defined exit handling:
+<pre CLASS="code">
+   <tt>Object</tt> setExitHandler {
+     aObj <tt>destroy</tt>
+     <tt>puts</tt> "exiting"
+   }
+</pre><P STYLE="margin-bottom: 0in">
+destroys the object <tt>aObj</tt> before
+all other objects and prints the message existing to the screen. With
+<tt>getExitHandler</tt> the exit
+handler can be introspected. E.g. if we just want to append the
+destruction of object <tt>bObj</tt> to
+an existing exit handler, we use <tt>getExitHandler</tt>:
+</P>
+<pre CLASS="code">
+   <tt>Object</tt> setExitHandler &quot;[<tt>Object</tt> getExitHandler]; bObj <tt>destroy</tt>&quot;
+</pre>
+<P STYLE="margin-bottom: 0in">
+<tt>unsetExitHandler</tt> deletes the exit handler. 
+</P>
+<pre STYLE="margin-top: 0.17in; margin-bottom: 0.2in; page-break-after: avoid">
+</pre>
+<H2><A NAME="autonames">Automatic Name Creation</A>
+</H2>
+The XOTcl <FONT SIZE=2>autoname</FONT>
+instance method provides an simple way to take the task of
+automatically creating names out of the responsibility of the
+programmer. The example below shows how to create on each invocation
+of method <FONT SIZE=2>new</FONT> an agent with a fresh name
+(prefixed with <FONT SIZE=2>agent</FONT>): 
+</P>
+<pre CLASS="code">
+  Agent <tt>proc</tt> new args {
+    <tt>eval</tt> <tt>my</tt> [<tt>my</tt> <tt>autoname</tt> agent] $args
+  }
+</pre>
+<p>
+Autonames may have format strings as in the Tcl 'format' command.
+E.g.: 
+</P>
+<pre CLASS="code">
+  <em>objName</em> <tt>autoname</tt> a%06d
+</pre>
+<p>
+produces 
+<pre CLASS="code">
+  a000000, a000001, a000002, ...
+</pre>
+</P>
+
+<!-- PAGE BREAK -->
+
+<TABLE COLS=2 WIDTH=100% BORDER=0 CELLPADDING=2 CELLSPACING=0 BGCOLOR="#000055">
+	<TR>
+		<TD WIDTH=75%>
+			<P><A NAME="cext"></A><FONT COLOR="#ffffff"><FONT FACE="Arial, Helvetica"><FONT SIZE=6>Integrating XOTcl Programs with C Extensions (such as TK)
+			</FONT></FONT></FONT>
+			</P>
+		</TD>
+		<TD>
+			<IMG SRC="logo-100.jpg" NAME="Graphic2" ALIGN=RIGHT WIDTH=102 HEIGHT=42 BORDER=0></TD>
+	</TR>
+</TABLE>
+
+<p>Because all XOTcl commands are in the ::xotcl namespace, it is
+usually no problem to integrate XOTcl with other Tcl extensions. Most
+often it works to import the XOTcl commands (like Object, Class) into
+the current namespace because there are no name-clashes with the
+commands defined by other extensions.</p>
+
+<p>Consider you want to perform a deeper integration of an other
+extension and XOTcl because you want to benefit from XOTcl's object
+system. For instance, you might want to introduce composite TK widgets
+(sometimes called mega-widgets) as classes and inherit from these
+classes. Here, you have two options: you can change or extend the C
+code of that other extension to provide XOTcl classes or objects, or
+you can write an XOTcl wrapper in Tcl.  For the first alternative,
+there are some examples provided in the XOTcl distribution. XOTclGdbm
+provides an OO Tcl interface to the GDBM database, for
+instance. XOTclSdbm does the same for SDBM, and the TclExpat wrapper
+provides a class-based interface to the TclExpat XML parser.</p>
+
+<p>Consider you do not want to change the C code of a Tcl
+extension. Then you can write an OO wrapper in XOTcl for the commands
+of the other extension. For stateless commands, you can simply write
+forwarder methods. If the extension maintains some state, you
+typically associate the state handle with an XOTcl parameter, acquire
+the state in the XOTcl constructor, and align the XOTcl destructor
+with the stateful instance.</p>
+
+<p>Consider you want to wrap the Tk button widget. You can acquire the
+widget in the constructor, and maintain the widget ID in a
+parameter. You now can forward invocations to this widget ID
+(e.g. when using "pack"), or register command callbacks (like
+buttonPressed). Note that we let the "self" command be replaced in the
+scope of the current method so that TK receives the correct object ID
+for the callback.  In the destructor we destroy the widget as well (we
+use "catch" because sometimes widgets can destroyed by other means as
+well (e.g. by their parent widget, when a widget/object hierarchy is
+destroyed at once).</p>
+
+<pre CLASS="code">
+  <tt>Class</tt> MyButton <tt>-parameter</tt> {button}
+  MyButton <tt>instproc</tt> buttonPressed args {
+    <tt>puts</tt> "pressed [<tt>my</tt> button]"
+  }
+  MyButton <tt>instproc</tt> <tt>init</tt> args {
+    <tt>set</tt> ID [<tt>namespace</tt> tail [<tt>self</tt>]]
+    <tt>my</tt> <tt>instvar</tt> button
+    <tt>set</tt> button [button .$ID \
+      -text "My Button $ID" \
+      -command [<tt>list</tt> [<tt>self</tt>] buttonPressed]] 
+    pack $button
+    <tt>next</tt>
+  }
+  MyButton <tt>instproc</tt> <tt>destroy</tt> args {
+     <tt>catch</tt> {destroy [<tt>my</tt> button]}
+     <tt>next</tt>
+  }
+
+  <it># a test -> 3 buttons, destroy one of them</it>
+  <tt>foreach</tt> b {a b c} {
+    MyButton $b
+  }
+  b <tt>destroy</tt>
+</pre>
+
+<p> The "trick" to substitute "self" within the current method scope
+works for all kinds of command callbacks. Extensions such as TK,
+however, often work with bindings to (global) variables as well. Using
+global variables is frowned upon in the OO community. Instead you
+should use instance variables of objects. As Tcl can only bind to
+existing namespace variables (and XOTcl acquires the namespace of an
+object on demand), you have to make sure that the namespace of an
+object exists before binding a variable. That can be done with
+"requireNamespace":</p>
+<pre CLASS="code">
+  GUIClass <tt>instproc</tt> buildEntry win {
+    <tt>my</tt> <tt>requireNamespace</tt>
+    <tt>entry</tt> $win -textvariable [<tt>self</tt>]::entryValue
+    <tt>my</tt> <tt>set</tt> entryValue {Init Value}
+  }
+</pre>
+
+<p>Note that in the above example we have used to tail of the object ID
+as ID for the widget. Usually, it is a good idea to the object name,
+if possible, for TK (and other extensions) IDs as well. Another option
+is to use a autoname to get a unique name for the ID.</p>
+
+<p>Sometimes you want to simply send all invocations, not implemented by
+XOTcl, to the wrapped command. Here, it is tedious to write a wrapper
+for each of these methods. Instead you can use "unknown" to handle
+automatic forwarding. Consider you want to wrap TK commands like pack
+and replace XOTcl object names with their TK widget ID, so that you can
+use both IDs synonymously. You can rename the respective TK commands in
+the following way:
+
+<pre CLASS="code">
+  <tt>foreach</tt> tkCommand {bell bind bindtags clipboard event 
+    focus font grid image lower option pack place raise 
+    selection send tk tkwait winfo wm} { 
+   <tt> rename</tt> ::$tkCommand __tk_$tkCommand
+    TkCommand ::$tkCommand
+    ::$tkCommand <tt>set</tt> wrapped __tk_$tkCommand
+  }
+</pre>
+
+<p>The XOTcl class handling the ID substitution for the TK command
+might look as follows:</p>
+
+<pre CLASS="code">
+  <tt>Class</tt> TkCommand <tt>-parameter</tt> wrapped
+  TkCommand <tt>instproc</tt> unknown args {
+      <tt>my</tt> <tt>instvar</tt> wrapped
+      <tt>set</tt> args [Widget replaceWithWidgetIDs $args]
+      <it># now call the command</it>
+      <tt>eval</tt> $wrapped $args
+  }
+</pre>
+
+<p></p>
+
+<!-- PAGE BREAK -->
+
+<TABLE COLS=2 WIDTH=100% BORDER=0 CELLPADDING=2 CELLSPACING=0 BGCOLOR="#000055">
+	<TR>
+		<TD WIDTH=75%>
+			<P><A NAME="references"></A><FONT COLOR="#ffffff"><FONT FACE="Arial, Helvetica"><FONT SIZE=6>References
+			</FONT></FONT></FONT>
+			</P>
+		</TD>
+		<TD>
+			<IMG SRC="logo-100.jpg" NAME="Graphic2" ALIGN=RIGHT WIDTH=102 HEIGHT=42 BORDER=0></TD>
+	</TR>
+</TABLE>
+
+
+<P></P> <STRONG>[Zdun, Strembeck, Neumann 2007]</STRONG> U. Zdun,
+M. Strembeck, G. Neumann: Object-Based and Class-Based Composition of
+Transitive Mixins, <em>Information and Software Technology</em>, 49(8) 2007 .
+
+<P></P>
+<A NAME="xotcl-filter"><STRONG>[Neumann and Zdun 1999a]</STRONG></A>
+G. Neumann and U. Zdun.
+Filters as a language support for design patterns in object-oriented
+  scripting languages.
+In <EM>Proceedings of COOTS'99, 5th Conference on Object-Oriented
+  Technologies and Systems</EM>, San Diego, May 1999.
+
+<P></P><A NAME="xotcl-objpattern"><STRONG>[Neumann and Zdun 1999b]</STRONG></A>
+G. Neumann and U. Zdun.
+Implementing object-specific design patterns using per-object mixins.
+In <EM>Proc. of NOSA`99, Second Nordic Workshop on Software
+  Architecture</EM>, Ronneby, Sweden, August 1999.
+
+<P></P><A NAME="xotcl-mixin"><STRONG>[Neumann and Zdun 1999c]</STRONG></A>
+G. Neumann and U. Zdun.
+Enhancing object-based system composition through per-object mixins.
+In <EM>Proceedings of Asia-Pacific Software Engineering Conference
+  (APSEC)</EM>, Takamatsu, Japan, December 1999.
+
+<P></P><A NAME="xotcl"><STRONG>[Neumann and Zdun 2000a]</STRONG></A>
+G. Neumann and U. Zdun.
+ XOT<SMALL>CL</SMALL>, an object-oriented scripting language.
+In <EM>Proceedings of Tcl2k: The 7th USENIX Tcl/Tk Conference</EM>,
+  Austin, Texas, February 2000.
+
+<P></P><A NAME="xotcl-aggregation"><STRONG>[Neumann and Zdun 2000b]</STRONG></A>
+G. Neumann and U. Zdun. Towards the Usage of Dynamic Object
+                  Aggregations as a Form of Composition
+In: <EM>Proceedings of Symposium of Applied Computing (SAC'00)</EM>, Como, Italy, Mar 19-21, 2000.
+
+
+<P></P><A NAME="tcl"><STRONG>[Ousterhout 1990]</STRONG></A>
+J. K. Ousterhout.
+Tcl: An embeddable command language.
+In <EM>Proc. of the 1990 Winter USENIX Conference</EM>, January 1990.
+
+<P></P><A NAME="ousterhout"><STRONG>[Ousterhout 1998]</STRONG></A>
+J. K. Ousterhout.
+Scripting: Higher Level Programming for the 21st Century, IEEE Computer 31(3), March 1998.
+
+<P></P><A NAME="otcl"><STRONG>[Wetherall and Lindblad 1995]</STRONG></A>
+D. Wetherall and C. J. Lindblad. Extending Tcl for Dynamic
+    Object-Oriented Programming. Proc. of the Tcl/Tk Workshop '95, July 1995.
+</BODY>
+</HTML>
+<!--  LocalWords:  mixins mixin instproc instmixins superclasses XOTcl Zdun Tcl
+ -->
+<!--  LocalWords:  Wetherall Lindblad OTcl glueing namespaces Beckenbauer procs
+ -->
+<!--  LocalWords:  Bayern instprocs CLOS args incr namespace instfilter RDF
+ -->
+<!--  LocalWords:  instmixin calledclass calledproc callingclass callingproc
+ -->
+<!--  LocalWords:  callingobject filterreg instcommands isclass isobject eval
+ -->
+<!--  LocalWords:  ismetaclass destructors autoname Ousterhout
+ -->

@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+	"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title>Img Documentation</title>
+  <meta http-equiv="Content-Type" content="text/html" />
+</head>
+
+<body>
+<h1>Img Manual</h1>
+
+<table width="100%">
+  <tbody>
+    <tr>
+      <td><a href="index.htm">Introduction</a></td>
+      <td><a href="install.htm">Installation</a></td>
+      <td><a href="formats.htm">Format handlers</a></td>
+      <td><a href="library.htm">External libraries</a></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Installation</h3>
+
+<p>For Windows, just run the executable.</p>
+
+<p>For UNIX, you have to compile the sources yourself, but that shouldn't give
+you many problems. In the future, hopefully, binary distributions for various
+UNIX systems will become available as well.</p>
+
+<h3>Configure</h3>
+
+<p>The source distributions have "configure", which  has the following
+possibilities:</p>
+
+<table width="100%">
+  <tbody>
+    <tr>
+      <td width="10%">&nbsp;</td>
+      <td>configure ?options?</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td colspan="3">Some possible options:</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>--prefix=&lt;dir></td>
+      <td>Install headers in &lt;dir>/include.<br />
+        Default: "/usr/local"</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>--exec-prefix=&lt;dir></td>
+      <td>Install libraries in &lt;dir>/lib.<br />
+        Default: "${prefix}"</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>--with-tcl=&lt;dir></td>
+      <td>Find Tcl libraries in &lt;dir> and include files in
+        &lt;dir>/../include or &lt;dir>/../generic.<br />
+        Default: "${exec-prefix}/lib" or a sibling directory of the Img build
+        directory.</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>--with-tk=&lt;dir></td>
+      <td>Find Tk libraries in &lt;dir> and include files in
+        &lt;dir>/../include or &lt;dir>/../generic.<br />
+        Default: the same values as given by --with-tcl or a sibling directory
+        of the Img build directory.</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>--disable-shared</td>
+      <td>Force the creation of static libraries.</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>--disable-stubs</td>
+      <td>Disable stub support. This is necessary if you want to run Img 1.2
+        with Tcl/Tk 8.0 up to 8.0.5.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Configuration of libz, libpng, libtiff, libjpeg and libttf will be done
+automatically.</p>
+
+<h3>make</h3>
+
+<p>By default only libimg1.2.so will be built. Further on:</p>
+
+<table width="100%">
+  <tbody>
+    <tr>
+      <td width="10%">&nbsp;</td>
+      <td>make</td>
+      <td>build libimg1.2.so only</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>make z</td>
+      <td>build libz.so.1.1.3</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>make png</td>
+      <td>build libpng.so.2.1.0.7</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>make jpeg</td>
+      <td>build libjpeg.so.62.0.0</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>make tiff</td>
+      <td>build libtiff.so.3.5.5</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>make all</td>
+      <td>build all of above</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>make test</td>
+      <td>run tests for all image formats.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Best is to start with "make". If a test fails for one of the PNG, JPEG or
+TIFF formats, the error message will indicate what is wrong. If a library is
+missing in your system, you can always build it later. If a crash occurs, this
+might also indicate that you better upgrade one of these libraries.</p>
+
+<p>If you prefer to use different versions numbers after the extension, you
+can manually adapt the Makefile. On Irix, you can use the "ifl" libraries
+which are already part of the operating system. The top of the Makefile shows
+which file names to use.</p>
+
+<h3>Install (source distributions only)</h3>
+
+<p>You can install whatever you like:</p>
+
+<table width="100%">
+  <tbody>
+    <tr>
+      <td>&nbsp;</td>
+      <td>make install</td>
+      <td>install libimg1.2.so only</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>make install-z</td>
+      <td>install libz.so.1.1.3</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>make install-png</td>
+      <td>install libpng.so.2.1.0.7</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>make install-jpeg</td>
+      <td>install libjpeg.so.62.0.0</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>make install-tiff</td>
+      <td>install libtiff.so.3.5.5</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>make install-all</td>
+      <td>install all of above</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Use</h3>
+
+<p>If you want to use the new image formats to be available in your own
+scripts, add the following line somewhere in your script:</p>
+
+<p></p>
+<dl>
+  <dt></dt>
+    <dd>package require Img</dd>
+</dl>
+
+<p>This will load the library into memory and register the format handlers
+into Tk.</p>
+
+<p>As an example, have a look at the file "demo.tcl"</p>
+</body>
+</html>

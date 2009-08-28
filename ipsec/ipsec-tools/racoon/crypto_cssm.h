@@ -30,9 +30,10 @@
  */
 
 #include "vmbuf.h"
+#include <CoreFoundation/CoreFoundation.h>
 
 
-extern int crypto_cssm_check_x509cert(vchar_t *cert);
+extern int crypto_cssm_check_x509cert(vchar_t *cert, CFStringRef hostname);
 extern vchar_t* crypto_cssm_getsign(CFDataRef persistentCertRef, vchar_t* hash);
 extern vchar_t* crypto_cssm_get_x509cert(CFDataRef persistentCertRef);
 

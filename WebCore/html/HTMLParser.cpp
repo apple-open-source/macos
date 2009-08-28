@@ -4,6 +4,7 @@
               (C) 1999,2001 Lars Knoll (knoll@kde.org)
               (C) 2000,2001 Dirk Mueller (mueller@kde.org)
     Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+    Copyright (C) 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -792,6 +793,20 @@ bool HTMLParser::dtCreateErrorCheck(Token* t, RefPtr<Node>& result)
     return true;
 }
 
+bool HTMLParser::rpCreateErrorCheck(Token*, RefPtr<Node>&)
+{
+    popBlock(rpTag);
+    popBlock(rtTag);
+    return true;
+}
+
+bool HTMLParser::rtCreateErrorCheck(Token*, RefPtr<Node>&)
+{
+    popBlock(rpTag);
+    popBlock(rtTag);
+    return true;
+}
+
 bool HTMLParser::nestedCreateErrorCheck(Token* t, RefPtr<Node>&)
 {
     popBlock(t->tagName);
@@ -909,11 +924,15 @@ PassRefPtr<Node> HTMLParser::getNode(Token* t)
         gFunctionMap.set(nobrTag.localName().impl(), &HTMLParser::nestedCreateErrorCheck);
         gFunctionMap.set(noembedTag.localName().impl(), &HTMLParser::noembedCreateErrorCheck);
         gFunctionMap.set(noframesTag.localName().impl(), &HTMLParser::noframesCreateErrorCheck);
+#if !ENABLE(XHTMLMP)
         gFunctionMap.set(noscriptTag.localName().impl(), &HTMLParser::noscriptCreateErrorCheck);
+#endif
         gFunctionMap.set(olTag.localName().impl(), &HTMLParser::pCloserCreateErrorCheck);
         gFunctionMap.set(pTag.localName().impl(), &HTMLParser::pCloserCreateErrorCheck);
         gFunctionMap.set(plaintextTag.localName().impl(), &HTMLParser::pCloserCreateErrorCheck);
         gFunctionMap.set(preTag.localName().impl(), &HTMLParser::pCloserCreateErrorCheck);
+        gFunctionMap.set(rpTag.localName().impl(), &HTMLParser::rpCreateErrorCheck);
+        gFunctionMap.set(rtTag.localName().impl(), &HTMLParser::rtCreateErrorCheck);
         gFunctionMap.set(sTag.localName().impl(), &HTMLParser::nestedStyleCreateErrorCheck);
         gFunctionMap.set(selectTag.localName().impl(), &HTMLParser::selectCreateErrorCheck);
         gFunctionMap.set(smallTag.localName().impl(), &HTMLParser::nestedStyleCreateErrorCheck);
@@ -1015,11 +1034,13 @@ bool HTMLParser::isInline(Node* node) const
             e->hasLocalName(noframesTag) || e->hasLocalName(nolayerTag) ||
             e->hasLocalName(noembedTag))
             return true;
+#if !ENABLE(XHTMLMP)
         if (e->hasLocalName(noscriptTag) && !m_isParsingFragment) {
             Settings* settings = m_document->settings();
             if (settings && settings->isJavaScriptEnabled())
                 return true;
         }
+#endif
     }
     
     return false;
@@ -1071,6 +1092,7 @@ bool HTMLParser::isAffectedByResidualStyle(const AtomicString& tagName)
         unaffectedTags.add(optgroupTag.localName().impl());
         unaffectedTags.add(selectTag.localName().impl());
         unaffectedTags.add(objectTag.localName().impl());
+        unaffectedTags.add(datagridTag.localName().impl());
     }
     
     return !unaffectedTags.contains(tagName.impl());

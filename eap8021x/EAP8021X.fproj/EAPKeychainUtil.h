@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2006-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,8 +40,16 @@
 #include <CoreFoundation/CFData.h>
 #include <Security/SecBase.h>
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
+#include <TargetConditionals.h>
+#if TARGET_OS_EMBEDDED
+typedef struct OpaqueSecKeychainRef *SecKeychainRef;
+typedef struct OpaqueSecKeychainItemRef *SecKeychainItemRef;
+typedef struct OpaqueSecAccessRef *SecAccessRef;
+#include <Security/SecItem.h>
+#else /* TARGET_OS_EMBEDDED */
 #include <Security/SecKeychain.h>
 #include <Security/SecAccess.h>
+#endif /* TARGET_OS_EMBEDDED */
 
 OSStatus
 EAPSecKeychainPasswordItemCreateWithAccess(SecKeychainRef keychain,

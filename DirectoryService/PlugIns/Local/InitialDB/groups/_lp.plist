@@ -21,11 +21,7 @@
 	</array>
 	<key>realname</key>
 	<array>
-		<string>Print Operators</string>
-	</array>
-	<key>smb_sid</key>
-	<array>
-		<string>S-1-5-32-550</string>
+		<string>Print Services</string>
 	</array>
 </dict>
 </plist>

@@ -1,5 +1,5 @@
 /* 
- * Copyright (c) 2006-2007, The RubyCocoa Project.
+ * Copyright (c) 2006-2008, The RubyCocoa Project.
  * Copyright (c) 2001-2006, FUJIMOTO Hisakuni.
  * All Rights Reserved.
  *
@@ -53,7 +53,8 @@ size_t  ocdata_size       (const char* octype_str);
 void*   ocdata_malloc     (const char* octype_str);
 #define OCDATA_ALLOCA(s)  alloca(ocdata_alloc_size(s))
 
-const char *encoding_skip_modifiers(const char *type);
+const char *encoding_skip_to_first_type(const char *type);
+const char *encoding_skip_qualifiers(const char *type);
 BOOL is_id_ptr (const char *type);
 struct bsBoxed;
 BOOL is_boxed_ptr (const char *type, struct bsBoxed **boxed);

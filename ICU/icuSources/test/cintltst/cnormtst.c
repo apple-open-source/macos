@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2004, International Business Machines Corporation and
+ * Copyright (c) 1997-2007, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
@@ -788,7 +788,7 @@ enum {
 
 static void
 TestNormCoverage() {
-    static UChar input[2000], expect[3000], output[3000];
+    UChar input[1000], expect[1000], output[1000];
     UErrorCode errorCode;
     int32_t i, length, inLength, expectLength, hangulPrefixLength, preflightLength;
 
@@ -1397,7 +1397,7 @@ TestQuickCheckPerCP() {
     UChar32 c, lead, trail;
     UChar s[U16_MAX_LENGTH], nfd[16];
     int32_t length, lccc1, lccc2, tccc1, tccc2;
-    UNormalizationCheckResult qc1, qc2;
+    int32_t qc1, qc2;
 
     if(
         u_getIntPropertyMaxValue(UCHAR_NFD_QUICK_CHECK)!=(int32_t)UNORM_YES ||
@@ -1445,7 +1445,8 @@ TestQuickCheckPerCP() {
         }
 
         length=unorm_normalize(s, length, UNORM_NFD, 0, nfd, LENGTHOF(nfd), &errorCode);
-        U16_GET(nfd, 0, 0, length, lead);
+        /* length-length == 0 is used to get around a compiler warning. */
+        U16_GET(nfd, 0, length-length, length, lead);
         U16_GET(nfd, 0, length-1, length, trail);
 
         lccc1=u_getIntPropertyValue(c, UCHAR_LEAD_CANONICAL_COMBINING_CLASS);

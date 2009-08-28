@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2006 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2007 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -127,6 +127,10 @@ class Message(email.Message.Message):
             fieldval = self[h]
             if not fieldval:
                 continue
+            # Work around bug in email 2.5.8 (and ?) involving getaddresses()
+            # from multi-line header values.  Note that cset='us-ascii' is OK
+            # since the address itself can't be RFC 2047 encoded.
+            fieldval = Utils.oneline(fieldval, 'us-ascii')
             addrs = email.Utils.getaddresses([fieldval])
             try:
                 realname, address = addrs[0]
@@ -180,6 +184,10 @@ class Message(email.Message.Message):
             else:
                 fieldvals = self.get_all(h)
                 if fieldvals:
+                    # See comment above in get_sender() regarding
+                    # getaddresses() and multi-line headers
+                    fieldvals = [Utils.oneline(fv, 'us-ascii')
+                                 for fv in fieldvals]
                     pairs.extend(email.Utils.getaddresses(fieldvals))
         authors = []
         for pair in pairs:

@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2000-2006, International Business Machines
+*   Copyright (C) 2000-2008, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -439,6 +439,7 @@ UCAElements *readAnElement(FILE *data, tempUCATable *t, UCAConstants *consts, UE
     char *startCodePoint = NULL;
     char *endCodePoint = NULL;
     char *spacePointer = NULL;
+    char *dashPointer = NULL;
     char *result = fgets(buffer, 2048, data);
     int32_t buflen = (int32_t)uprv_strlen(buffer);
     if(U_FAILURE(*status)) {
@@ -473,8 +474,8 @@ UCAElements *readAnElement(FILE *data, tempUCATable *t, UCAConstants *consts, UE
     // Directives.
     if(buffer[0] == '[') {
       uint32_t cnt = 0;
-      struct {
-        char name[256];
+      static const struct {
+        char name[128];
         uint32_t *what;
         ActionType what_to_do;
       } vt[]  = { {"[first tertiary ignorable",  consts->UCA_FIRST_TERTIARY_IGNORABLE,  READCE},
@@ -587,12 +588,7 @@ UCAElements *readAnElement(FILE *data, tempUCATable *t, UCAConstants *consts, UE
         *(endCodePoint) = 0;
     }
 
-    if(element != NULL) {
-        memset(element, 0, sizeof(*element));
-    } else {
-        *status = U_MEMORY_ALLOCATION_ERROR;
-        return NULL;
-    }
+    memset(element, 0, sizeof(*element));
 
     element->cPoints = element->uchars;
 
@@ -607,15 +603,28 @@ UCAElements *readAnElement(FILE *data, tempUCATable *t, UCAConstants *consts, UE
         detectedContraction = FALSE;
         element->cSize = 1;
     } else {
-        i = 1;
-        detectedContraction = TRUE;
-        while(spacePointer != NULL) {
-            sscanf(spacePointer+1, "%4x", &theValue);
-            element->cPoints[i++] = (UChar)theValue;
-            spacePointer = strchr(spacePointer+1, ' ');
+        dashPointer = strchr(buffer, '|');
+        if (dashPointer != NULL) {
+            // prefix characters
+            element->prefixChars[0] = (UChar)theValue;
+            element->prefixSize = 1;
+            element->prefix = element->prefixChars;
+            sscanf(dashPointer+1, "%4x", &theValue);
+            element->cPoints[0] = (UChar)theValue;
+            element->cSize = 1;
+        }
+        else {
+          // Contractions or surrogate characters.
+            i = 1;
+            detectedContraction = TRUE;
+            while(spacePointer != NULL) {
+                sscanf(spacePointer+1, "%4x", &theValue);
+                element->cPoints[i++] = (UChar)theValue;
+                spacePointer = strchr(spacePointer+1, ' ');
+            }
+            element->cSize = i;
         }
 
-        element->cSize = i;
 
         //fprintf(stderr, "Number of codepoints in contraction: %i\n", i);
     }
@@ -682,13 +691,19 @@ UCAElements *readAnElement(FILE *data, tempUCATable *t, UCAConstants *consts, UE
     element->isThai = UCOL_ISTHAIPREVOWEL(element->cPoints[0]);
 #endif
     // we don't want any strange stuff after useful data!
-    while(pointer < commentStart)  {
-        if(*pointer != ' ' && *pointer != '\t')
-        {
-            *status=U_INVALID_FORMAT_ERROR;
-            break;
+    if (pointer == NULL) {
+        /* huh? Did we get ']' without the '['? Pair your brackets! */
+        *status=U_INVALID_FORMAT_ERROR;
+    }
+    else {
+        while(pointer < commentStart)  {
+            if(*pointer != ' ' && *pointer != '\t')
+            {
+                *status=U_INVALID_FORMAT_ERROR;
+                break;
+            }
+            pointer++;
         }
-        pointer++;
     }
 
     if(U_FAILURE(*status)) {
@@ -943,6 +958,22 @@ struct {
                 noOfContractions++;
               }
             }
+            else {
+                // TODO (claireho): does this work? Need more tests
+                // The following code is to handle the UCA pre-context rules
+                // for L/l with middle dot. We share the structures for contractionCombos.
+                // The format for pre-context character is
+                // contractionCEs[0]: codepoint in element->cPoints[0]
+                // contractionCEs[1]: '\0' to differentiate with contractions.
+                // contractionCEs[2]: prefix char
+                if (element->prefixSize>0) {
+                    contractionCEs[noOfContractions][0]=element->cPoints[0];
+                    contractionCEs[noOfContractions][1]='\0';
+                    contractionCEs[noOfContractions][2]=element->prefixChars[0];
+                    noOfContractions++;
+                }
+                
+            }
 
             /* we're first adding to inverse, because addAnElement will reverse the order */
             /* of code points and stuff... we don't want that to happen */
@@ -978,9 +1009,9 @@ struct {
 
     /* produce canonical closure for table */
     /* first set up constants for implicit calculation */
-    uprv_uca_initImplicitConstants(consts.UCA_PRIMARY_IMPLICIT_MIN, consts.UCA_PRIMARY_IMPLICIT_MAX, status);
+    uprv_uca_initImplicitConstants(status);
     /* do the closure */
-    int32_t noOfClosures = uprv_uca_canonicalClosure(t, status);
+    int32_t noOfClosures = uprv_uca_canonicalClosure(t, NULL, status);
     if(noOfClosures != 0) {
       fprintf(stderr, "Warning: %i canonical closures occured!\n", (int)noOfClosures);
     }

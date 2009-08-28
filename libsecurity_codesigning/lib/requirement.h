@@ -138,11 +138,11 @@ enum ExprOp {
 	opIdent,						// match canonical code [string]
 	opAppleAnchor,					// signed by Apple as Apple's product
 	opAnchorHash,					// match anchor [cert hash]
-	opInfoKeyValue,					// *legacy* match Info.plist field [key; value]
-	opAnd,							// binary prefix expr AND expr
-	opOr,							// binary prefix expr OR expr
-	opCDHash,						// match hash of CodeDirectory directly
-	opNot,							// logical inverse
+	opInfoKeyValue,					// *legacy* - use opInfoKeyField [key; value]
+	opAnd,							// binary prefix expr AND expr [expr; expr]
+	opOr,							// binary prefix expr OR expr [expr; expr]
+	opCDHash,						// match hash of CodeDirectory directly [cd hash]
+	opNot,							// logical inverse [expr]
 	opInfoKeyField,					// Info.plist key field [string; match suffix]
 	opCertField,					// Certificate field [cert index; field name; match suffix]
 	opTrustedCert,					// require trust settings to approve one particular cert [cert index]
@@ -171,6 +171,21 @@ enum MatchOperation {
 // We keep Requirement groups in SuperBlobs, indexed by SecRequirementType
 //
 typedef SuperBlob<0xfade0c01> Requirements;
+
+
+//
+// A helper to deal with the magic merger logic of internal requirements
+//
+class InternalRequirements : public Requirements::Maker {
+public:
+	InternalRequirements() : mReqs(NULL) { }
+	~InternalRequirements() { ::free((void *)mReqs); }
+	void operator () (const Requirements *given, const Requirements *defaulted);
+	operator const Requirements * () const { return mReqs; }
+
+private:
+	const Requirements *mReqs;
+};
 
 
 }	// CodeSigning

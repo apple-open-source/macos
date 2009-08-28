@@ -1,0 +1,274 @@
+# $Id: Mime.xotcl,v 1.6 2006/09/27 08:12:40 neumann Exp $
+
+package provide xotcl::comm::mime 0.9
+
+package require XOTcl
+
+namespace eval ::xotcl::comm::mime {
+  namespace import ::xotcl::*
+
+  #######################################################################
+  Class MimeTypeLoader
+  MimeTypeLoader instproc loadMimeTypes {file} {
+    if {![file exists $file]} return
+
+    puts stderr "Loading Mime types from $file"
+    set f [open $file r]
+    set content [read $f]
+    close $f
+    regsub -all "\\\\ *\n" $content " " content
+    foreach line [split $content \n] {
+      set line [string trim $line]
+      if {[regexp ^\# $line]} continue
+      if {$line eq ""} continue
+      regsub -all "  +" $line " " line
+      #puts stderr <$line>
+      while {$line ne ""} {
+	if {[regexp {^ *([^ ]+)=\"([^\"]+)\" *(.*)$} $line _ key value line]} {
+	  set v([string tolower $key]) $value
+	} elseif {[regexp {^ *([^ ]+)=([^ ]+) *(.*)$} $line _ key value line]} {
+	  set v([string tolower $key]) $value
+	} else {
+	  set tokens [split $line]
+	  if {![regexp / [lindex $line 0]]} {
+	    puts stderr "Mime: cannot parse line '$line' in $file"
+	  } else {
+	    set v(exts) [join [lrange $tokens 1 end] ,]
+	    set v(type) [lindex $tokens 0]
+	  }
+	  break
+	}
+      }
+      if {[info exists v(exts)] && [info exists v(type)]} {
+	set v(exts) [string tolower $v(exts)]
+	set v(type) [string tolower $v(type)]
+	foreach ext [split $v(exts) ,] {
+	  set ext [string trimleft $ext .]
+	  #puts stderr "ext '$ext', contentType = '$v(type)'"
+	  my set extTable($ext) $v(type)
+	}
+	unset v(exts) v(type)
+      } else {
+	puts stderr "invalid mime entry in $file"
+      }
+    } 
+  }
+  MimeTypeLoader instproc guessContentType {name} {
+    my loadMimeTypes ~/.mime.types
+    my mixin {}
+    return [next]
+  }
+
+  Class MIME
+  MIME instproc guessContentType {name} {
+    my instvar extTable nameTable
+    if {[regexp {\.([a-zA-Z0-9]+)$} $name _ ext]} {
+      catch {set contentType $extTable([string tolower $ext])}
+    }
+    if {![info exists contentType]} {
+      foreach namePattern [array names nameTable] {
+	if {[regexp $namePattern $name]} {
+	  set contentType text/plain
+	  break
+	}
+      }
+    }
+    if {![info exists contentType]} {
+      set contentType unknown/unknown
+    }
+    return $contentType
+  }
+  MIME instproc multipart-decode-header {header obj} {
+    $obj instvar name filename contentType
+    foreach line [split $header \r] {
+      set line [string trim $line \n]
+      #puts stderr line=$line
+      if {[regexp -nocase {^Content-Disposition: *([^;]+);(.*)$} $line _ \
+	       dispo detail]} {
+	if {$dispo ne "form-data"} {
+	  error "Unknown Content Disposition '$line'"
+	}
+	if {![regexp -nocase { name *= *"([^\"]+)"} $line _ name]} {
+	  error "can't parse form-data name '$line'"
+	}
+	regexp -nocase {filename *= *"([^\"]+)"} $line _ filename
+      } elseif {[regexp -nocase {^Content-Type: *([^; ]+)} $line _ contentType]} {
+      } else {
+	my showMsg "ignoring '$line'"
+      }
+    }
+  }
+
+  MIME create Mime -mixin MimeTypeLoader
+  Mime array set nameTable {
+    README text/plain
+  }
+  Mime array set extTable {
+    gif  image/gif
+    xpm  image/x-xpixmap
+    xbm  image/x-xbitmap
+    jpg  image/jpeg
+    png  image/x-png
+    html text/html
+    htm  text/html
+    xml  text/xml
+    css  text/css
+    ps   application/postscript
+    pdf  application/pdf
+    doc  application/msword
+    xls  application/msexel
+  }
+
+
+  ##################################################################
+  Class FormData
+  FormData instproc encode list {;#RFC 1867
+    my showCall
+  }
+  FormData formData
+  ##################################################################
+  Class Base64
+  Base64 instproc init args {
+    my instvar base64 base64_en
+    # Emit base64 encoding for a string
+    set i 0
+    foreach char {A B C D E F G H I J K L M N O P Q R S T U V W X Y Z \
+		      a b c d e f g h i j k l m n o p q r s t u v w x y z \
+		      0 1 2 3 4 5 6 7 8 9 + /} {
+      set base64($char) $i
+      set base64_en($i) $char
+      incr i
+    }
+    next
+  }
+  Base64 instproc encode string {
+    my instvar base64_en
+    set result {}
+    set length 0
+    foreach {a b c} [split $string {}] {
+      scan $a %c x
+      if {$c ne ""} {
+	scan $b %c y
+	scan $c %c z
+	append result \
+	    $base64_en([expr {($x>>2) & 0x3F}]) \
+	    $base64_en([expr {(($x<<4) & 0x30) | (($y>>4) & 0xF)}]) \
+	    $base64_en([expr {(($y<<2) & 0x3C) | (($z>>6) & 0x3)}]) \
+	    $base64_en([expr {$z & 0x3F}])
+      } elseif {$b ne ""} {
+	scan $b %c y
+	append result \
+	    $base64_en([expr {($x>>2) & 0x3F}]) \
+	    $base64_en([expr {(($x<<4) & 0x30) | (($y>>4) & 0xF)}]) \
+	    $base64_en([expr {($y<<2) & 0x3C}]) \
+	    =
+      } else {
+	append result \
+	    $base64_en([expr {($x>>2) & 0x3F}]) \
+	    $base64_en([expr {($x<<4) & 0x30}]) \
+	    ==
+      }
+      if {[incr length 4] >= 72} {
+	append result \n
+	set length 0
+      }
+    }
+    return $result
+  }
+  Base64 instproc decode string {
+    my instvar base64
+    set output {}
+    set group 0
+    set j 18
+    foreach char [split $string {}] {
+      if {$char != "="} {
+	set group [expr {$group | ($base64($char) << $j)}]
+	if {[incr j -6] < 0} {
+	  scan [format %06x $group] %2x%2x%2x a b c
+	  append output [format %c%c%c $a $b $c]
+	  set group 0
+	  set j 18
+	}
+      } else {
+	scan [format %04x $group] %2x%2x a b
+	if {$j==6} {
+	  append output [format %c $a]
+	} else {
+	  append output [format %c%c $a $b]
+	}
+	break
+      }
+    }
+    return $output
+  }
+  Base64 base64
+  ##################################################################
+  Class Url
+  Url instproc encode list {
+    set result ""
+    set sep ""
+    foreach i $list {
+      append result $sep [my encodeItem $i]
+      if {$sep != "="} {
+	set sep =
+      } else {
+	set sep &
+      }
+    }
+    return $result
+  }
+  Url instproc encodeItem string {
+    my instvar httpFormMap
+    set alphanumeric    a-zA-Z0-9.
+    if {![info exists httpFormMap]} {
+      for {set i 1} {$i <= 256} {incr i} {
+	set c [format %c $i]
+	if {![string match \[$alphanumeric\] $c]} {
+	  set httpFormMap($c) %[format %.2x $i]
+	}
+      }
+      # these are handled specially
+      array set httpFormMap { " " +   \n %0d%0a }
+    }
+    regsub -all \[^$alphanumeric\] $string {$httpFormMap(&)} string
+    regsub -all \n $string {\\n} string
+    regsub -all \t $string {\\t} string
+    regsub -all {[][{})\\]\)} $string {\\&} string
+  return [subst $string]
+}
+Url instproc hexToChar hex {
+  ::scan $hex %x h
+  #my showMsg "::scan $hex %x h -> $h"
+  format %c $h
+}
+Url instproc decodeItem string {
+  #my showCall
+  set result ""  
+  regsub -all {\+} $string " " string
+  regsub -all {%0d%0a} $string "\n" string
+  regsub -all {%([a-fA-F0-9][a-fA-F0-9])} $string {[my hexToChar \1]} string
+  return [subst -novariables -nobackslashes $string]
+}
+Url instproc decodeName string {
+  #my showCall
+  set result ""  
+  regsub -all {%0d%0a} $string "\n" string
+  regsub -all {%([a-fA-F0-9][a-fA-F0-9])} $string {[my hexToChar \1]} string
+  return [subst -novariables -nobackslashes $string]
+}
+Url instproc decode string {
+  #my showCall
+  set result ""
+  foreach i [split $string &=] {
+    lappend result [decodeItem $i]
+  }
+  #my showVars result
+  return $result
+}
+Url url
+
+namespace export Mime url base64
+}
+
+namespace import ::xotcl::comm::mime::*
+#puts stderr "importing ::xotcl::comm::mime::* to [namespace current]"

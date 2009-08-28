@@ -183,6 +183,8 @@ static void	nv_drop __ARGS((cmdarg_T *cap));
 static void	nv_cursorhold __ARGS((cmdarg_T *cap));
 #endif
 
+static char *e_noident = N_("E349: No identifier under cursor");
+
 /*
  * Function to be called for a Normal or Visual mode command.
  * The argument is a cmdarg_T.
@@ -578,6 +580,9 @@ normal_cmd(oap, toplevel)
     static int	old_mapped_len = 0;
 #endif
     int		idx;
+#ifdef FEAT_EVAL
+    int		set_prevcount = FALSE;
+#endif
 
     vim_memset(&ca, 0, sizeof(ca));	/* also resets ca.retval */
     ca.oap = oap;
@@ -613,7 +618,12 @@ normal_cmd(oap, toplevel)
     /* When not finishing an operator and no register name typed, reset the
      * count. */
     if (!finish_op && !oap->regname)
+    {
 	ca.opcount = 0;
+#ifdef FEAT_EVAL
+	set_prevcount = TRUE;
+#endif
+    }
 
 #ifdef FEAT_AUTOCMD
     /* Restore counts from before receiving K_CURSORHOLD.  This means after
@@ -717,7 +727,15 @@ getcount:
 	     * command, so that v:count can be used in an expression mapping
 	     * right after the count. */
 	    if (toplevel && stuff_empty())
-		set_vcount(ca.count0, ca.count0 == 0 ? 1 : ca.count0);
+	    {
+		long count = ca.count0;
+
+		/* multiply with ca.opcount the same way as below */
+		if (ca.opcount != 0)
+		    count = ca.opcount * (count == 0 ? 1 : count);
+		set_vcount(count, count == 0 ? 1 : count, set_prevcount);
+		set_prevcount = FALSE;  /* only set v:prevcount once */
+	    }
 #endif
 	    if (ctrl_w)
 	    {
@@ -804,7 +822,7 @@ getcount:
      * Only set v:count when called from main() and not a stuffed command.
      */
     if (toplevel && stuff_empty())
-	set_vcount(ca.count0, ca.count1);
+	set_vcount(ca.count0, ca.count1, set_prevcount);
 #endif
 
     /*
@@ -1132,7 +1150,8 @@ getcount:
 	out_flush();
 #endif
 #ifdef FEAT_AUTOCMD
-    did_cursorhold = FALSE;
+    if (ca.cmdchar != K_IGNORE)
+	did_cursorhold = FALSE;
 #endif
 
     State = NORMAL;
@@ -3509,7 +3528,7 @@ find_ident_at_pos(wp, lnum, startcol, string, find_type)
 	if (find_type & FIND_STRING)
 	    EMSG(_("E348: No string under cursor"));
 	else
-	    EMSG(_("E349: No identifier under cursor"));
+	    EMSG(_(e_noident));
 	return 0;
     }
     ptr += col;
@@ -5469,6 +5488,20 @@ nv_ident(cap)
 		STRCPY(buf, "he! ");
 	    else
 	    {
+		/* An external command will probably use an argument starting
+		 * with "-" as an option.  To avoid trouble we skip the "-". */
+		while (*ptr == '-' && n > 0)
+		{
+		    ++ptr;
+		    --n;
+		}
+		if (n == 0)
+		{
+		    EMSG(_(e_noident));	 /* found dashes only */
+		    vim_free(buf);
+		    return;
+		}
+
 		/* When a count is given, turn it into a range.  Is this
 		 * really what we want? */
 		isman = (STRCMP(kp, "man") == 0);
@@ -5511,37 +5544,59 @@ nv_ident(cap)
     /*
      * Now grab the chars in the identifier
      */
-    if (cmdchar == '*')
-	aux_ptr = (char_u *)(p_magic ? "/.*~[^$\\" : "/^$\\");
-    else if (cmdchar == '#')
-	aux_ptr = (char_u *)(p_magic ? "/?.*~[^$\\" : "/?^$\\");
-    else if (cmdchar == 'K' && !kp_help)
-	aux_ptr = (char_u *)" \t\\\"|!";
-    else
-	/* Don't escape spaces and Tabs in a tag with a backslash */
-	aux_ptr = (char_u *)"\\|\"";
-
-    p = buf + STRLEN(buf);
-    while (n-- > 0)
+    if (cmdchar == 'K' && !kp_help)
     {
-	/* put a backslash before \ and some others */
-	if (vim_strchr(aux_ptr, *ptr) != NULL)
-	    *p++ = '\\';
-#ifdef FEAT_MBYTE
-	/* When current byte is a part of multibyte character, copy all bytes
-	 * of that character. */
-	if (has_mbyte)
+	/* Escape the argument properly for a shell command */
+	ptr = vim_strnsave(ptr, n);
+	p = vim_strsave_shellescape(ptr, TRUE);
+	vim_free(ptr);
+	if (p == NULL)
 	{
-	    int i;
-	    int len = (*mb_ptr2len)(ptr) - 1;
-
-	    for (i = 0; i < len && n >= 1; ++i, --n)
-		*p++ = *ptr++;
+	    vim_free(buf);
+	    return;
 	}
-#endif
-	*p++ = *ptr++;
+	buf = (char_u *)vim_realloc(buf, STRLEN(buf) + STRLEN(p) + 1);
+	if (buf == NULL)
+	{
+	    vim_free(buf);
+	    vim_free(p);
+	    return;
+	}
+	STRCAT(buf, p);
+	vim_free(p);
     }
-    *p = NUL;
+    else
+    {
+	if (cmdchar == '*')
+	    aux_ptr = (char_u *)(p_magic ? "/.*~[^$\\" : "/^$\\");
+	else if (cmdchar == '#')
+	    aux_ptr = (char_u *)(p_magic ? "/?.*~[^$\\" : "/?^$\\");
+	else
+	    /* Don't escape spaces and Tabs in a tag with a backslash */
+	    aux_ptr = (char_u *)"\\|\"\n*?[";
+
+	p = buf + STRLEN(buf);
+	while (n-- > 0)
+	{
+	    /* put a backslash before \ and some others */
+	    if (vim_strchr(aux_ptr, *ptr) != NULL)
+		*p++ = '\\';
+#ifdef FEAT_MBYTE
+	    /* When current byte is a part of multibyte character, copy all
+	     * bytes of that character. */
+	    if (has_mbyte)
+	    {
+		int i;
+		int len = (*mb_ptr2len)(ptr) - 1;
+
+		for (i = 0; i < len && n >= 1; ++i, --n)
+		    *p++ = *ptr++;
+	    }
+#endif
+	    *p++ = *ptr++;
+	}
+	*p = NUL;
+    }
 
     /*
      * Execute the command.
@@ -6011,7 +6066,7 @@ nv_gotofile(cap)
 	    autowrite(curbuf, FALSE);
 	setpcmark();
 	(void)do_ecmd(0, ptr, NULL, NULL, ECMD_LAST,
-					       P_HID(curbuf) ? ECMD_HIDE : 0);
+				       P_HID(curbuf) ? ECMD_HIDE : 0, curwin);
 	if (cap->nchar == 'F' && lnum >= 0)
 	{
 	    curwin->w_cursor.lnum = lnum;
@@ -7233,6 +7288,8 @@ nv_optrans(cap)
 	}
 	else
 	{
+	    if (Unix2003_compat && cap->cmdchar == 'S')
+		beginline(0);
 	    if (cap->count0)
 		stuffnumReadbuff(cap->count0);
 	    stuffReadbuff(ar[(int)(vim_strchr(str, cap->cmdchar) - str)]);
@@ -8140,6 +8197,8 @@ n_opencmd(cap)
 {
     if (!checkclearopq(cap->oap))
     {
+	int undo_offset = 0;
+	int save;
 #ifdef FEAT_FOLDING
 	if (cap->cmdchar == 'O')
 	    /* Open above the first line of a folded sequence of lines */
@@ -8150,11 +8209,21 @@ n_opencmd(cap)
 	    (void)hasFolding(curwin->w_cursor.lnum,
 						NULL, &curwin->w_cursor.lnum);
 #endif
-	if (u_save((linenr_T)(curwin->w_cursor.lnum -
+	if (Unix2003_compat) {
+	    beginline(0);
+	    /* Undo of 'O' leaves cursor above the deleted line */
+	    if (cap->cmdchar == 'O' && curwin->w_cursor.lnum > 1) {
+		    undo_offset = 1;
+		    curwin->w_cursor.lnum--;
+	    }
+	}
+	save = u_save((linenr_T)(curwin->w_cursor.lnum + undo_offset -
 					       (cap->cmdchar == 'O' ? 1 : 0)),
-		   (linenr_T)(curwin->w_cursor.lnum +
+		   (linenr_T)(curwin->w_cursor.lnum + undo_offset +
 					       (cap->cmdchar == 'o' ? 1 : 0))
-		       ) == OK
+		) == OK;
+	curwin->w_cursor.lnum += undo_offset;
+	if (save
 		&& open_line(cap->cmdchar == 'O' ? BACKWARD : FORWARD,
 #ifdef FEAT_COMMENTS
 		    has_format_option(FO_OPEN_COMS) ? OPENLINE_DO_COM :

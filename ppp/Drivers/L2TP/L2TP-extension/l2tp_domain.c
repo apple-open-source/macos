@@ -106,14 +106,14 @@ int l2tp_domain_init(int init_arg)
     int 	ret;
     struct domain *pppdomain;
     
-    log(LOGVAL, "L2TP domain init\n");
+    IOLog("L2TP domain init\n");
 
     if (l2tp_domain_inited)
         return(KERN_SUCCESS);
 
     pppdomain = pffinddomain(PF_PPP);
     if (!pppdomain) {
-        log(LOGVAL, "L2TP domain init : PF_PPP domain does not exist...\n");
+        IOLog("L2TP domain init : PF_PPP domain does not exist...\n");
         return KERN_FAILURE;
     }
 	
@@ -121,13 +121,13 @@ int l2tp_domain_init(int init_arg)
     	
     ret = l2tp_rfc_init();
     if (ret) {
-        log(LOGVAL, "L2TP domain init : can't init l2tp protocol RFC, err : %d\n", ret);
+        IOLog("L2TP domain init : can't init l2tp protocol RFC, err : %d\n", ret);
         goto end;
     }
     
     ret = l2tp_add(pppdomain);
     if (ret) {
-        log(LOGVAL, "L2TP domain init : can't add proto to l2tp domain, err : %d\n", ret);
+        IOLog("L2TP domain init : can't add proto to l2tp domain, err : %d\n", ret);
         l2tp_rfc_dispose();
         goto end;
     }
@@ -136,7 +136,7 @@ int l2tp_domain_init(int init_arg)
     sysctl_register_oid(&sysctl__net_ppp_l2tp);
 	
     l2tp_domain_inited = 1;
-	log(LOGVAL, "L2TP domain init complete\n");
+	IOLog("L2TP domain init complete\n");
 
 end:	
 	lck_mtx_unlock(ppp_domain_mutex);
@@ -151,7 +151,7 @@ int l2tp_domain_terminate(int term_arg)
     int 	ret = KERN_SUCCESS;
     struct domain *pppdomain;
     
-    log(LOGVAL, "L2TP domain terminate\n");
+    IOLog("L2TP domain terminate\n");
 
     if (!l2tp_domain_inited)
         return(KERN_SUCCESS);
@@ -160,27 +160,27 @@ int l2tp_domain_terminate(int term_arg)
 
     ret = l2tp_rfc_dispose();
     if (ret) {
-        log(LOGVAL, "L2TP domain is in use and cannot terminate, err : %d\n", ret);
+        IOLog("L2TP domain is in use and cannot terminate, err : %d\n", ret);
         goto end;
     }
 
     ret = l2tp_wan_dispose();
     if (ret) {
-        log(LOGVAL, "L2TP domain terminate : l2tp_wan_dispose, err : %d\n", ret);
+        IOLog("L2TP domain terminate : l2tp_wan_dispose, err : %d\n", ret);
         goto end;
     }
 
     pppdomain = pffinddomain(PF_PPP);
     if (!pppdomain) {
         // humm.. should not happen
-        log(LOGVAL, "L2TP domain terminate : PF_PPP domain does not exist...\n");
+        IOLog("L2TP domain terminate : PF_PPP domain does not exist...\n");
         ret = KERN_FAILURE;
 		goto end;
     }
     
     ret = l2tp_remove(pppdomain);
     if (ret) {
-        log(LOGVAL, "L2TP domain terminate : can't del proto from l2tp domain, err : %d\n", ret);
+        IOLog("L2TP domain terminate : can't del proto from l2tp domain, err : %d\n", ret);
         goto end;
     }
 

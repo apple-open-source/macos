@@ -36,7 +36,7 @@
 __BEGIN_DECLS
 
 CFStringRef		_interface_description	(SCNetworkInterfaceRef interface);
-SCNetworkInterfaceRef	_find_interface		(char *match);
+SCNetworkInterfaceRef	_find_interface		(int argc, char **argv, int *nArgs);
 
 void	create_interface	(int argc, char **argv);
 void	select_interface	(int argc, char **argv);

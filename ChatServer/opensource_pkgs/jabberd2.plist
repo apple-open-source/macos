@@ -1,0 +1,27 @@
+<plist version="1.0">
+<array>
+<dict>
+        <key>OpenSourceProject</key>
+        <string>Jabber</string>
+        <key>OpenSourceVersion</key>
+        <string>2.1.24.1</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://jabberd2.xiaoka.com/</string>
+        <key>OpenSourceURL</key>
+        <string>http://ftp.xiaoka.com/jabberd2/releases/jabberd-2.1.24.1.tar.bz2</string>
+        <key>OpenSourceSHA1</key>
+        <string>20fd3240dfc98d157e99f7d1592a1a4df3185489</string>
+        <key>OpenSourceImportDate</key>
+        <string>2008-11-24</string>
+        <key>OpenSourceModifications</key>
+        <array>
+            <string>apple_patch/pre_configure/jabberd2</string>
+            <string>apple_patch/post_configure/jabberd2</string>
+        </array>
+        <key>OpenSourceLicense</key>
+        <string>GPL</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>jabberd2.txt</string>
+</dict>
+</array>
+</plist>

@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2006 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2008 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -89,9 +89,21 @@ def check(msg):
 
 
 def process(msg):
+    # We've seen some fairly bogus DSNs, allegedly from postfix that are
+    # multipart/mixed with 3 subparts - a text/plain postfix like part, a
+    # message/delivery-status part and a message/rfc822 part with the original
+    # message. Deal with it as follows.
+    if (msg.is_multipart() and len(msg.get_payload()) == 3 and
+      msg.get_payload()[1].get_content_type() == 'message/delivery-status'):
+        return check(msg.get_payload()[1])
     # A DSN has been seen wrapped with a "legal disclaimer" by an outgoing MTA
     # in a multipart/mixed outer part.
     if msg.is_multipart() and msg.get_content_subtype() == 'mixed':
+        msg = msg.get_payload()[0]
+    # The above will suffice if the original message 'parts' were wrapped with
+    # the disclaimer added, but the original DSN can be wrapped as a
+    # message/rfc822 part.  We need to test that too.
+    if msg.is_multipart() and msg.get_content_type() == 'message/rfc822':
         msg = msg.get_payload()[0]
     # The report-type parameter should be "delivery-status", but it seems that
     # some DSN generating MTAs don't include this on the Content-Type: header,

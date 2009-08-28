@@ -77,7 +77,7 @@ static PLArenaStats *arena_stats_list;
 #define PL_ARENA_DEFAULT_ALIGN  sizeof(double)
 
 PR_IMPLEMENT(void) PL_InitArenaPool(
-    PLArenaPool *pool, const char *name, PRUint32 size, PRUint32 align)
+    PLArenaPool *pool, const char *name, PRSize size, PRSize align)
 {
 #if !defined (__GNUC__)
 #pragma unused (name)
@@ -119,7 +119,7 @@ PR_IMPLEMENT(void) PL_InitArenaPool(
 **
 */
 
-PR_IMPLEMENT(void *) PL_ArenaAllocate(PLArenaPool *pool, PRUint32 nb)
+PR_IMPLEMENT(void *) PL_ArenaAllocate(PLArenaPool *pool, PRSize nb)
 {
     PLArena *a;   
     char *rp;     /* returned pointer */
@@ -143,7 +143,7 @@ PR_IMPLEMENT(void *) PL_ArenaAllocate(PLArenaPool *pool, PRUint32 nb)
 
     /* attempt to allocate from the heap */ 
     {  
-        PRUint32 sz = PR_MAX(pool->arenasize, nb);
+        PRSize sz = PR_MAX(pool->arenasize, nb);
         sz += sizeof *a + pool->mask;  /* header and alignment slop */
         a = (PLArena*)PR_MALLOC(sz);
         if ( NULL != a )  {
@@ -175,13 +175,13 @@ PR_IMPLEMENT(void *) PL_ArenaAllocate(PLArenaPool *pool, PRUint32 nb)
  * the requested size. 
  */
 PR_IMPLEMENT(void *) PL_ArenaGrow(
-    PLArenaPool *pool, void *p, PRUint32 origSize, PRUint32 incr)
+    PLArenaPool *pool, void *p, PRSize origSize, PRSize incr)
 {
     void *newp;
 	PLArena *thisArena;
 	PLArena *lastArena;
-	PRUint32 origAlignSize;		// bytes currently reserved for caller
-	PRUint32 newSize;			// bytes actually mallocd here
+	PRSize origAlignSize;		// bytes currently reserved for caller
+	PRSize newSize;			// bytes actually mallocd here
 	
 	/* expand at least by 2x */
 	origAlignSize = PL_ARENA_ALIGN(pool, origSize);	
@@ -197,9 +197,9 @@ PR_IMPLEMENT(void *) PL_ArenaGrow(
 	 * needs, leaving the remainder for grow-in-place on subsequent calls
 	 * to PL_ARENA_GROW.
 	 */
-	PRUint32 newAlignSize = PL_ARENA_ALIGN(pool, origSize+incr);
-	PR_ASSERT(pool->current->avail == ((PRUint32)newp + newSize));
-	pool->current->avail = (PRUint32)newp + newAlignSize;
+	PRSize newAlignSize = PL_ARENA_ALIGN(pool, origSize+incr);
+	PR_ASSERT(pool->current->avail == ((PRSize)newp + newSize));
+	pool->current->avail = (PRSize)newp + newAlignSize;
 	PR_ASSERT(pool->current->avail <= pool->current->limit);
 	
 	/* "realloc" */
@@ -309,7 +309,7 @@ PR_IMPLEMENT(void) PL_ArenaFinish(void)
 }
 
 #ifdef PL_ARENAMETER
-PR_IMPLEMENT(void) PL_ArenaCountAllocation(PLArenaPool *pool, PRUint32 nb)
+PR_IMPLEMENT(void) PL_ArenaCountAllocation(PLArenaPool *pool, PRSize nb)
 {
     pool->stats.nallocs++;
     pool->stats.nbytes += nb;
@@ -319,13 +319,13 @@ PR_IMPLEMENT(void) PL_ArenaCountAllocation(PLArenaPool *pool, PRUint32 nb)
 }
 
 PR_IMPLEMENT(void) PL_ArenaCountInplaceGrowth(
-    PLArenaPool *pool, PRUint32 size, PRUint32 incr)
+    PLArenaPool *pool, PRSize size, PRSize incr)
 {
     pool->stats.ninplace++;
 }
 
 PR_IMPLEMENT(void) PL_ArenaCountGrowth(
-    PLArenaPool *pool, PRUint32 size, PRUint32 incr)
+    PLArenaPool *pool, PRSize size, PRSize incr)
 {
     pool->stats.ngrows++;
     pool->stats.nbytes += incr;

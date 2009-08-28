@@ -1,6 +1,6 @@
 /* Frame unwinder for frames with DWARF Call Frame Information.
 
-   Copyright 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
 
    Contributed by Mark Kettenis.
 
@@ -18,8 +18,8 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   Foundation, Inc., 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 #ifndef DWARF2_FRAME_H
 #define DWARF2_FRAME_H 1
@@ -51,11 +51,16 @@ enum dwarf2_frame_reg_rule
   DWARF2_FRAME_REG_SAVED_EXP,
   DWARF2_FRAME_REG_SAME_VALUE,
 
+  /* These are defined in Dwarf3.  */
+  DWARF2_FRAME_REG_SAVED_VAL_OFFSET,
+  DWARF2_FRAME_REG_SAVED_VAL_EXP,
+
   /* These aren't defined by the DWARF2 CFI specification, but are
      used internally by GDB.  */
   DWARF2_FRAME_REG_RA,		/* Return Address.  */
   DWARF2_FRAME_REG_RA_OFFSET,	/* Return Address with offset.  */
-  DWARF2_FRAME_REG_CFA		/* Call Frame Address.  */
+  DWARF2_FRAME_REG_CFA,		/* Call Frame Address.  */
+  DWARF2_FRAME_REG_CFA_OFFSET	/* Call Frame Address with offset.  */
 };
 
 /* Register state.  */
@@ -73,12 +78,16 @@ struct dwarf2_frame_state_reg
   enum dwarf2_frame_reg_rule how;
 };
 
+int
+dwarf2_frame_adjust_regnum (struct gdbarch *gdbarch, int regnum, int eh_frame_p);
+
 /* Set the architecture-specific register state initialization
    function for GDBARCH to INIT_REG.  */
 
 extern void dwarf2_frame_set_init_reg (struct gdbarch *gdbarch,
 				       void (*init_reg) (struct gdbarch *, int,
-					     struct dwarf2_frame_state_reg *));
+					     struct dwarf2_frame_state_reg *,
+					     struct frame_info *));
 
 /* Set the architecture-specific signal trampoline recognition
    function for GDBARCH to SIGNAL_FRAME_P.  */

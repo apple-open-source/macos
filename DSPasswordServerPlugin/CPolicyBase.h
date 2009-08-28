@@ -58,8 +58,11 @@ class CPolicyBase
 		virtual char *							GetPolicyAsSpaceDelimitedData( void ) = 0;
 		virtual char *							GetPolicyAsXMLData( void );
 		
-		static bool								ConvertCFDateToBSDTime( CFDateRef inDateRef, struct tm *outBSDDate );
+        static bool								ConvertCFDateToBSDTime( CFDateRef inDateRef, struct tm *outBSDDate );
+        static bool								ConvertCFDateToBSDTime( CFDateRef inDateRef, BSDTimeStructCopy *outBSDDate );
+
 		static bool								ConvertBSDTimeToCFDate( struct tm *inBSDDate, CFDateRef *outDateRef );
+        static bool								ConvertBSDTimeToCFDate( BSDTimeStructCopy *inBSDDate, CFDateRef *outDateRef );
 		
 	protected:
 		

@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 1998,2005 Free Software Foundation, Inc.                   *
+ * Copyright (c) 1998-2006,2007 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -29,28 +29,31 @@
 /****************************************************************************
  *  Author: Zeyd M. Ben-Halim <zmbenhal@netcom.com> 1992,1995               *
  *     and: Eric S. Raymond <esr@snark.thyrsus.com>                         *
+ *     and: Thomas E. Dickey                        1996-on                 *
  ****************************************************************************/
-
 
 /*
  * clear.c --  clears the terminal's screen
  */
 
+#define USE_LIBTINFO
 #include <progs.priv.h>
 
-MODULE_ID("$Id: clear.c,v 1.9 2005/09/25 00:46:43 tom Exp $")
+MODULE_ID("$Id: clear.c,v 1.11 2007/10/13 22:16:02 tom Exp $")
 
-static int putch(int c)
+static int
+putch(int c)
 {
-	return putchar(c);
+    return putchar(c);
 }
 
-int main(
+int
+main(
 	int argc GCC_UNUSED,
-	char *argv[] GCC_UNUSED)
+	char *argv[]GCC_UNUSED)
 {
-	setupterm((char *) 0, STDOUT_FILENO, (int *) 0);
-	return (tputs(clear_screen, lines > 0 ? lines : 1, putch) == ERR)
+    setupterm((char *) 0, STDOUT_FILENO, (int *) 0);
+    ExitProgram((tputs(clear_screen, lines > 0 ? lines : 1, putch) == ERR)
 		? EXIT_FAILURE
-		: EXIT_SUCCESS;
+		: EXIT_SUCCESS);
 }

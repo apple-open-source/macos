@@ -1,3 +1,5 @@
+@subheading tld_check_8z
+@anchor{tld_check_8z}
 @deftypefun {int} {tld_check_8z} (const char * @var{in}, size_t * @var{errpos}, const Tld_table ** @var{overrides})
 @var{in}: Zero-terminated UTF8 string to process.
 

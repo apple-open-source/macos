@@ -1,4 +1,31 @@
 /*
+ * Copyright (c) 2008 Apple Inc. All rights reserved.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ *
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
+ */
+/*
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -43,9 +70,9 @@ static char sccsid[] = "@(#)ping.c	8.1 (Berkeley) 6/5/93";
 #endif
 #include <sys/cdefs.h>
 #ifndef __APPLE__
-__FBSDID("$FreeBSD: /repoman/r/ncvs/src/sbin/ping/ping.c,v 1.105 2004/08/14 17:46:10 stefanf Exp $");
+__FBSDID("$FreeBSD: src/sbin/ping/ping.c,v 1.112 2007/07/01 12:08:06 gnn Exp $");
 #endif
-
+	
 /*
  *			P I N G . C
  *
@@ -76,6 +103,7 @@ __FBSDID("$FreeBSD: /repoman/r/ncvs/src/sbin/ping/ping.c,v 1.105 2004/08/14 17:4
 #include <netinet/ip_icmp.h>
 #include <netinet/ip_var.h>
 #include <arpa/inet.h>
+#include <net/if.h>
 
 #ifdef IPSEC
 #include <netinet6/ipsec.h>
@@ -94,7 +122,7 @@ __FBSDID("$FreeBSD: /repoman/r/ncvs/src/sbin/ping/ping.c,v 1.105 2004/08/14 17:4
 #include <unistd.h>
 
 #define	INADDR_LEN	((int)sizeof(in_addr_t))
-#define	TIMEVAL_LEN	((int)sizeof(struct timeval))
+#define	TIMEVAL_LEN	((int)sizeof(struct tv32))
 #define	MASK_LEN	(ICMP_MASKLEN - ICMP_MINLEN)
 #define	TS_LEN		(ICMP_TSLEN - ICMP_MINLEN)
 #define	DEFDATALEN	56		/* default data length */
@@ -102,7 +130,7 @@ __FBSDID("$FreeBSD: /repoman/r/ncvs/src/sbin/ping/ping.c,v 1.105 2004/08/14 17:4
 					/* runs out of buffer space */
 #define	MAXIPLEN	(sizeof(struct ip) + MAX_IPOPTLEN)
 #define	MAXICMPLEN	(ICMP_ADVLENMIN + MAX_IPOPTLEN)
-#define	MAXWAIT		10		/* max seconds to wait for response */
+#define	MAXWAIT		10000		/* max ms to wait for response */
 #define	MAXALARM	(60 * 60)	/* max seconds for alarm timeout */
 #define	MAXTOS		255
 
@@ -111,6 +139,11 @@ __FBSDID("$FreeBSD: /repoman/r/ncvs/src/sbin/ping/ping.c,v 1.105 2004/08/14 17:4
 #define	SET(bit)	(A(bit) |= B(bit))
 #define	CLR(bit)	(A(bit) &= (~B(bit)))
 #define	TST(bit)	(A(bit) & B(bit))
+
+struct tv32 {
+	u_int32_t tv32_sec;
+	u_int32_t tv32_usec;
+};
 
 /* various options */
 int options;
@@ -139,6 +172,8 @@ int options;
 #define	F_HDRINCL	0x40000
 #define	F_MASK		0x80000
 #define	F_TIME		0x100000
+#define	F_SWEEP		0x200000
+#define	F_WAITTIME	0x400000
 
 /*
  * MAX_DUP_CHK is the number of bits in received table, i.e. the maximum
@@ -165,6 +200,11 @@ u_char icmp_type = ICMP_ECHO;
 u_char icmp_type_rsp = ICMP_ECHOREPLY;
 int phdr_len = 0;
 int send_len;
+char *boundif;
+unsigned int ifscope;
+#if defined(IP_FORCE_OUT_IFP) && TARGET_OS_EMBEDDED
+char boundifname[IFNAMSIZ];
+#endif /* IP_FORCE_OUT_IFP */
 
 /* counters */
 long nmissedmax;		/* max value of ntransmitted - nreceived - 1 */
@@ -172,7 +212,15 @@ long npackets;			/* max packets to transmit */
 long nreceived;			/* # of packets we got back */
 long nrepeats;			/* number of duplicates */
 long ntransmitted;		/* sequence # for outbound packets = #sent */
+long snpackets;			/* max packets to transmit in one sweep */
+long snreceived;		/* # of packets we got back in this sweep */
+long sntransmitted;		/* # of packets we sent in this sweep */
+int sweepmax;			/* max value of payload in sweep */
+int sweepmin = 0;		/* start value of payload in sweep */
+int sweepincr = 1;		/* payload increment in sweep */
 int interval = 1000;		/* interval between packets, ms */
+int waittime = MAXWAIT;		/* timeout for each packet */
+long nrcvtimeout = 0;		/* # of packets we got back after waittime */
 
 /* timing */
 int timing;			/* flag to do timing */
@@ -241,7 +289,10 @@ main(argc, argv)
 	 * then drop our setuid bit.  Save error reporting for
 	 * after arg parsing.
 	 */
-	s = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
+	if (getuid())
+		s = socket(AF_INET, SOCK_DGRAM, IPPROTO_ICMP);
+	else
+		s = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
 	sockerrno = errno;
 
 	setuid(getuid());
@@ -251,12 +302,15 @@ main(argc, argv)
 
 	outpack = outpackhdr + sizeof(struct ip);
 	while ((ch = getopt(argc, argv,
-		"Aac:DdfI:i:Ll:M:m:nop:QqRrS:s:T:t:vz:"
+		"Aab:c:DdfG:g:h:I:i:Ll:M:m:nop:QqRrS:s:T:t:vW:z:"
 #ifdef IPSEC
 #ifdef IPSEC_POLICY_IPSEC
 		"P:"
 #endif /*IPSEC_POLICY_IPSEC*/
 #endif /*IPSEC*/
+#if defined(IP_FORCE_OUT_IFP) && TARGET_OS_EMBEDDED
+		"B:"
+#endif /* IP_FORCE_OUT_IFP */
 		)) != -1)
 	{
 		switch(ch) {
@@ -265,6 +319,15 @@ main(argc, argv)
 			break;
 		case 'a':
 			options |= F_AUDIBLE;
+			break;
+#if defined(IP_FORCE_OUT_IFP) && TARGET_OS_EMBEDDED
+		case 'B':
+			(void) snprintf(boundifname, sizeof (boundifname),
+			    "%s", optarg);
+			break;
+#endif /* IP_FORCE_OUT_IFP */
+		case 'b':
+			boundif = optarg;
 			break;
 		case 'c':
 			ultmp = strtoul(optarg, &ep, 0);
@@ -288,6 +351,54 @@ main(argc, argv)
 			}
 			options |= F_FLOOD;
 			setbuf(stdout, (char *)NULL);
+			break;
+		case 'G': /* Maximum packet size for ping sweep */
+			ultmp = strtoul(optarg, &ep, 0);
+			if (*ep || ep == optarg)
+				errx(EX_USAGE, "invalid packet size: `%s'",
+				    optarg);
+#ifndef __APPLE__
+			if (uid != 0 && ultmp > DEFDATALEN) {
+				errno = EPERM;
+				err(EX_NOPERM,
+				    "packet size too large: %lu > %u",
+				    ultmp, DEFDATALEN);
+			}
+#endif /* __APPLE__ */
+			options |= F_SWEEP;
+			sweepmax = ultmp;
+			break;
+		case 'g': /* Minimum packet size for ping sweep */
+			ultmp = strtoul(optarg, &ep, 0);
+			if (*ep || ep == optarg)
+				errx(EX_USAGE, "invalid packet size: `%s'",
+				    optarg);
+#ifndef __APPLE__
+			if (uid != 0 && ultmp > DEFDATALEN) {
+				errno = EPERM;
+				err(EX_NOPERM,
+				    "packet size too large: %lu > %u",
+				    ultmp, DEFDATALEN);
+			}
+#endif /* __APPLE__ */
+			options |= F_SWEEP;
+			sweepmin = ultmp;
+			break;
+		case 'h': /* Packet size increment for ping sweep */
+			ultmp = strtoul(optarg, &ep, 0);
+			if (*ep || ep == optarg || ultmp < 1)
+				errx(EX_USAGE, "invalid increment size: `%s'",
+				    optarg);
+#ifndef __APPLE__
+			if (uid != 0 && ultmp > DEFDATALEN) {
+				errno = EPERM;
+				err(EX_NOPERM,
+				    "packet size too large: %lu > %u",
+				    ultmp, DEFDATALEN);
+			}
+#endif /* __APPLE__ */
+			options |= F_SWEEP;
+			sweepincr = ultmp;
 			break;
 		case 'I':		/* multicast interface */
 			if (inet_aton(optarg, &ifaddr) == 0)
@@ -395,7 +506,7 @@ main(argc, argv)
 				    "packet size too large: %lu > %u",
 				    ultmp, DEFDATALEN);
 			}
-#endif
+#endif /* __APPLE__ */
 			datalen = ultmp;
 			break;
 		case 'T':		/* multicast TTL */
@@ -414,10 +525,18 @@ main(argc, argv)
 			if (alarmtimeout > MAXALARM)
 				errx(EX_USAGE, "invalid timeout: `%s' > %d",
 				    optarg, MAXALARM);
-			alarm((int)alarmtimeout);
+			alarm((unsigned int)alarmtimeout);
 			break;
 		case 'v':
 			options |= F_VERBOSE;
+			break;
+		case 'W':		/* wait ms for answer */
+			t = strtod(optarg, &ep);
+			if (*ep || ep == optarg || t > (double)INT_MAX)
+				errx(EX_USAGE, "invalid timing interval: `%s'",
+				    optarg);
+			options |= F_WAITTIME;
+			waittime = (int)t;
 			break;
 		case 'z':
 			options |= F_HDRINCL;
@@ -430,6 +549,9 @@ main(argc, argv)
 			usage();
 		}
 	}
+
+	if (boundif != NULL && (ifscope = if_nametoindex(boundif)) == 0)
+		errx(1, "bad interface name");
 
 	if (argc - optind != 1)
 		usage();
@@ -538,6 +660,18 @@ main(argc, argv)
 		err(EX_OSERR, "socket");
 	}
 	hold = 1;
+	if (ifscope != 0) {
+		if (setsockopt(s, IPPROTO_IP, IP_BOUND_IF,
+		    (char *)&ifscope, sizeof (ifscope)) != 0)
+			err(EX_OSERR, "setsockopt(IP_BOUND_IF)");
+	}
+#if defined(IP_FORCE_OUT_IFP) && TARGET_OS_EMBEDDED
+	else if (boundifname[0] != 0) {
+		if (setsockopt(s, IPPROTO_IP, IP_FORCE_OUT_IFP, boundifname,
+		    sizeof (boundifname)) != 0)
+			err(EX_OSERR, "setsockopt(IP_FORCE_OUT_IFP)");
+	}
+#endif /* IP_FORCE_OUT_IFP */
 	if (options & F_SO_DEBUG)
 		(void)setsockopt(s, SOL_SOCKET, SO_DEBUG, (char *)&hold,
 		    sizeof(hold));
@@ -642,6 +776,23 @@ main(argc, argv)
 		err(EX_OSERR, "setsockopt SO_TIMESTAMP");
 	}
 #endif
+	if (sweepmax) {
+		if (sweepmin >= sweepmax)
+			errx(EX_USAGE, "Maximum packet size must be greater than the minimum packet size");
+
+		if (datalen != DEFDATALEN)
+			errx(EX_USAGE, "Packet size and ping sweep are mutually exclusive");
+
+		if (npackets > 0) {
+			snpackets = npackets;
+			npackets = 0;
+		} else
+			snpackets = 1;
+		datalen = sweepmin;
+		send_len = icmp_len + sweepmin;
+	}
+	if (options & F_SWEEP && !sweepmax) 
+		errx(EX_USAGE, "Maximum sweep size must be specified");
 
 	/*
 	 * When pinging the broadcast address, you can get a lot of answers.
@@ -667,9 +818,19 @@ main(argc, argv)
 		    inet_ntoa(to->sin_addr));
 		if (source)
 			(void)printf(" from %s", shostname);
-		(void)printf(": %d data bytes\n", datalen);
-	} else
-		(void)printf("PING %s: %d data bytes\n", hostname, datalen);
+		if (sweepmax)
+			(void)printf(": (%d ... %d) data bytes\n",
+			    sweepmin, sweepmax);
+		else 
+			(void)printf(": %d data bytes\n", datalen);
+		
+	} else {
+		if (sweepmax)
+			(void)printf("PING %s: (%d ... %d) data bytes\n",
+			    hostname, sweepmin, sweepmax);
+		else
+			(void)printf("PING %s: %d data bytes\n", hostname, datalen);
+	}
 
 	/*
 	 * Use sigaction() instead of signal() to get unambiguous semantics,
@@ -783,6 +944,15 @@ main(argc, argv)
 				break;
 		}
 		if (n == 0 || options & F_FLOOD) {
+			if (sweepmax && sntransmitted == snpackets) {
+				for (i = 0; i < sweepincr ; ++i) 
+					*datap++ = i;
+				datalen += sweepincr;
+				if (datalen > sweepmax)
+					break;
+				send_len = icmp_len + datalen;
+				sntransmitted = 0;
+			} 
 			if (!npackets || ntransmitted < npackets)
 				pinger();
 			else {
@@ -794,14 +964,18 @@ main(argc, argv)
 					intvl.tv_sec = 2 * tmax / 1000;
 					if (!intvl.tv_sec)
 						intvl.tv_sec = 1;
-				} else
-					intvl.tv_sec = MAXWAIT;
+				} else {
+					intvl.tv_sec = waittime / 1000;
+					intvl.tv_usec = waittime % 1000 * 1000;
+				}
 			}
 			(void)gettimeofday(&last, NULL);
 			if (ntransmitted - nreceived - 1 > nmissedmax) {
 				nmissedmax = ntransmitted - nreceived - 1;
 				if (options & F_MISSED)
 					(void)write(STDOUT_FILENO, &BBELL, 1);
+				if (!(options & F_QUIET))
+					printf("Request timeout for icmp_seq %ld\n", ntransmitted - 2);
 			}
 		}
 	}
@@ -842,6 +1016,7 @@ static void
 pinger(void)
 {
 	struct timeval now;
+	struct tv32 tv32;
 	struct ip *ip;
 	struct icmp *icp;
 	int cc, i;
@@ -860,13 +1035,15 @@ pinger(void)
 	if ((options & F_TIME) || timing) {
 		(void)gettimeofday(&now, NULL);
 
+		tv32.tv32_sec = htonl(now.tv_sec);
+		tv32.tv32_usec = htonl(now.tv_usec);
 		if (options & F_TIME)
 			icp->icmp_otime = htonl((now.tv_sec % (24*60*60))
 				* 1000 + now.tv_usec / 1000);
 		if (timing)
-			bcopy((void *)&now,
+			bcopy((void *)&tv32,
 			    (void *)&outpack[ICMP_MINLEN + phdr_len],
-			    sizeof(struct timeval));
+			    sizeof(tv32));
 	}
 
 	cc = ICMP_MINLEN + phdr_len + datalen;
@@ -897,6 +1074,7 @@ pinger(void)
 		}
 	}
 	ntransmitted++;
+	sntransmitted++;
 	if (!(options & F_QUIET) && options & F_FLOOD)
 		(void)write(STDOUT_FILENO, &DOT, 1);
 }
@@ -946,6 +1124,7 @@ pr_pack(buf, cc, from, tv)
 		triptime = 0.0;
 		if (timing) {
 			struct timeval tv1;
+			struct tv32 tv32;
 #ifndef icmp_data
 			tp = &icp->icmp_ip;
 #else
@@ -955,7 +1134,9 @@ pr_pack(buf, cc, from, tv)
 
 			if (cc - ICMP_MINLEN - phdr_len >= sizeof(tv1)) {
 				/* Copy to avoid alignment problems: */
-				memcpy(&tv1, tp, sizeof(tv1));
+				memcpy(&tv32, tp, sizeof(tv32));
+				tv1.tv_sec = ntohl(tv32.tv32_sec);
+				tv1.tv_usec = ntohl(tv32.tv32_usec);
 				tvsub(tv, &tv1);
  				triptime = ((double)tv->tv_sec) * 1000.0 +
  				    ((double)tv->tv_usec) / 1000.0;
@@ -982,6 +1163,11 @@ pr_pack(buf, cc, from, tv)
 
 		if (options & F_QUIET)
 			return;
+	
+		if (options & F_WAITTIME && triptime > waittime) {
+			++nrcvtimeout;
+			return;
+		}
 
 		if (options & F_FLOOD)
 			(void)write(STDOUT_FILENO, &BSPACE, 1);
@@ -992,8 +1178,10 @@ pr_pack(buf, cc, from, tv)
 			(void)printf(" ttl=%d", ip->ip_ttl);
 			if (timing)
 				(void)printf(" time=%.3f ms", triptime);
-			if (dupflag)
-				(void)printf(" (DUP!)");
+			if (dupflag) {
+				if (!IN_MULTICAST(ntohl(whereto.sin_addr.s_addr)))
+					(void)printf(" (DUP!)");
+			}
 			if (options & F_AUDIBLE)
 				(void)write(STDOUT_FILENO, &BBELL, 1);
 			if (options & F_MASK) {
@@ -1245,7 +1433,7 @@ check_status()
 
 	if (siginfo_p) {
 		siginfo_p = 0;
-		(void)fprintf(stderr, "\r%ld/%ld packets received (%.0f%%)",
+		(void)fprintf(stderr, "\r%ld/%ld packets received (%.1f%%)",
 		    nreceived, ntransmitted,
 		    ntransmitted ? nreceived * 100.0 / ntransmitted : 0.0);
 		if (nreceived && timing)
@@ -1276,10 +1464,12 @@ finish()
 		if (nreceived > ntransmitted)
 			(void)printf("-- somebody's printing up packets!");
 		else
-			(void)printf("%d%% packet loss",
-			    (int)(((ntransmitted - nreceived) * 100) /
-			    ntransmitted));
+			(void)printf("%.1f%% packet loss",
+			    ((ntransmitted - nreceived) * 100.0) /
+			    ntransmitted);
 	}
+	if (nrcvtimeout)
+		(void)printf(", %ld packets out of wait time", nrcvtimeout);
 	(void)putchar('\n');
 	if (nreceived && timing) {
 		double n = nreceived + nrepeats;
@@ -1593,12 +1783,14 @@ static void
 usage()
 {
 
-	(void)fprintf(stderr, "%s\n%s\n%s\n%s\n%s\n%s\n",
-"usage: ping [-AaDdfnoQqRrv] [-c count] [-i wait] [-l preload] [-M mask | time]",
-"            [-m ttl]" SECOPT " [-p pattern] [-S src_addr] [-s packetsize]",
-"            [-t timeout] [-z tos] host",
+	(void)fprintf(stderr, "%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n",
+"usage: ping [-AaDdfnoQqRrv] [-b boundif] [-c count] [-G sweepmaxsize] [-g sweepminsize]",
+"            [-h sweepincrsize] [-i wait] [-l preload] [-M mask | time] [-m ttl]",
+"           " SECOPT " [-p pattern] [-S src_addr] [-s packetsize] [-t timeout]",
+"            [-W waittime] [-z tos] host",
 "       ping [-AaDdfLnoQqRrv] [-c count] [-I iface] [-i wait] [-l preload]",
 "            [-M mask | time] [-m ttl]" SECOPT " [-p pattern] [-S src_addr]",
-"            [-s packetsize] [-T ttl] [-t timeout] [-z tos] mcast-group");
+"            [-s packetsize] [-T ttl] [-t timeout] [-W waittime]",
+"            [-z tos] mcast-group");
 	exit(EX_USAGE);
 }

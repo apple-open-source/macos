@@ -48,8 +48,8 @@ appman_PRE = \
 appdefaultdir = @appdefaultdir@
 
 APPDEFAULTFILES = \
-        Xditview \
-        Xditview-chrtr
+        app-defaults/Xditview \
+        app-defaults/Xditview-chrtr
 
 # Bitmaps referenced at runtime
 bitmapdir = $(includedir)/X11/bitmaps

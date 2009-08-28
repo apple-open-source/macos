@@ -1,6 +1,6 @@
 ## -*-sh-*-
 ## BEGIN of icu-config-bottom.
-## Copyright (c) 2002-2005, International Business Machines Corporation and
+## Copyright (c) 2002-2007, International Business Machines Corporation and
 ## others. All Rights Reserved.
 
 ICUUC_FILE=${libdir}/${ICULIBS_COMMON_LIB_NAME}
@@ -59,6 +59,8 @@ allflags()
     echo "  --unicode-version      Print version of Unicode data used in ICU ($UNICODE_VERSION)"
     echo "  --version              Print ICU version ($VERSION)"
     echo "  --incfile              Print path to Makefile.inc (for -O option of pkgdata)"
+    echo "  --install              Print path to install-sh"
+    echo "  --mkinstalldirs              Print path to mkinstalldirs"
 }
 
 ## Print the normal usage message
@@ -145,8 +147,16 @@ do
 	    echo $sbindir
 	    ;;
 
+	--mkinstalldirs)
+	    echo ${MKINSTALLDIRS}
+	    ;;
+
+	--install)
+	    echo ${INSTALL}
+	    ;;
+
 	--invoke=*)
-	    QUOT="'"
+	    QUOT="\""
             CMD="${var}"
 
             # If it's not a locally executable command (1st choice) then 
@@ -164,7 +174,7 @@ do
 	    ;;
 
 	--invoke)
-	    QUOT="'"
+	    QUOT="\""
 	    echo "env ${QUOT}${LDLIBRARYPATH_ENVVAR}=${libdir}:"'${'"${LDLIBRARYPATH_ENVVAR}"'}'${QUOT}
 	    ;;
 

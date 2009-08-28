@@ -68,7 +68,7 @@ the Auth-Type to EAP when it sees the EAP-Message attribute.
 
   See rlm_eap for details about the attributes used in EAP-sim.
 
-$Id: rlm_sim_triplets,v 1.3.4.1 2006/11/20 13:45:25 nbk Exp $
+$Id$
 
 
 

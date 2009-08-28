@@ -127,7 +127,7 @@
 
 /* Begin PBXFileReference section */
 		4C5635250540A56200DCF0C8 /* security_ssl.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = security_ssl.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		4CA1FEBE052A3C8100F22E42 /* security_ssl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; path = security_ssl; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CA1FEBE052A3C8100F22E42 /* security_ssl */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = security_ssl; sourceTree = BUILT_PRODUCTS_DIR; };
 		4CAFF3FD0534D89900303760 /* appleCdsa.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = appleCdsa.c; sourceTree = "<group>"; };
 		4CAFF3FE0534D89900303760 /* appleCdsa.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = appleCdsa.h; sourceTree = "<group>"; };
 		4CAFF3FF0534D89900303760 /* appleSession.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = appleSession.c; sourceTree = "<group>"; };
@@ -187,32 +187,6 @@
 		4CAFF4360534D89900303760 /* tls_ssl.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = tls_ssl.h; sourceTree = "<group>"; };
 		4CCBFE3C057FF16800981D43 /* security_ssl.exp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.exports; path = security_ssl.exp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
-
-/* Begin PBXFrameworkTarget section */
-		4C5635240540A56200DCF0C8 /* security_ssl */ = {
-			isa = PBXFrameworkTarget;
-			buildConfigurationList = C27AD3FC0987FCDF001272E0 /* Build configuration list for PBXFrameworkTarget "security_ssl" */;
-			buildPhases = (
-				4C56351F0540A56200DCF0C8 /* Headers */,
-				4CCBFE21057FF04700981D43 /* CopyFiles */,
-				4CCBFE31057FF06E00981D43 /* CopyFiles */,
-				4CCBFE1F057FF00300981D43 /* CopyFiles */,
-				4CCBFE20057FF00800981D43 /* CopyFiles */,
-			);
-			dependencies = (
-			);
-			name = security_ssl;
-			productInstallPath = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-			productName = security_ssl;
-			productReference = 4C5635250540A56200DCF0C8 /* security_ssl.framework */;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict/>
-</plist>
-";
-		};
-/* End PBXFrameworkTarget section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		4CA1FEBB052A3C8100F22E42 /* Frameworks */ = {
@@ -425,10 +399,30 @@
 		};
 /* End PBXHeadersBuildPhase section */
 
-/* Begin PBXLibraryTarget section */
+/* Begin PBXNativeTarget section */
+		4C5635240540A56200DCF0C8 /* security_ssl */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD3FC0987FCDF001272E0 /* Build configuration list for PBXNativeTarget "security_ssl" */;
+			buildPhases = (
+				4C56351F0540A56200DCF0C8 /* Headers */,
+				4CCBFE21057FF04700981D43 /* CopyFiles */,
+				4CCBFE31057FF06E00981D43 /* CopyFiles */,
+				4CCBFE1F057FF00300981D43 /* CopyFiles */,
+				4CCBFE20057FF00800981D43 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = security_ssl;
+			productInstallPath = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+			productName = security_ssl;
+			productReference = 4C5635250540A56200DCF0C8 /* security_ssl.framework */;
+			productType = "com.apple.product-type.framework";
+		};
 		4CA1FEBD052A3C8100F22E42 /* libsecurity_ssl */ = {
-			isa = PBXLibraryTarget;
-			buildConfigurationList = C27AD4000987FCDF001272E0 /* Build configuration list for PBXLibraryTarget "libsecurity_ssl" */;
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD4000987FCDF001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_ssl" */;
 			buildPhases = (
 				4CA1FEB9052A3C8100F22E42 /* Headers */,
 				4CA1FEBA052A3C8100F22E42 /* Sources */,
@@ -436,14 +430,17 @@
 				4C789C09055AF54200B6FC95 /* ShellScript */,
 				4CD0D45C055B0CEE001715CB /* ShellScript */,
 			);
+			buildRules = (
+			);
 			dependencies = (
 				4C75029E0540C73400056564 /* PBXTargetDependency */,
 			);
 			name = libsecurity_ssl;
 			productName = libsecurity_ssl;
 			productReference = 4CA1FEBE052A3C8100F22E42 /* security_ssl */;
+			productType = "com.apple.product-type.library.static";
 		};
-/* End PBXLibraryTarget section */
+/* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
 		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
@@ -474,7 +471,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tln -fs \"../../../${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework/Versions/A\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework\ndone";
+			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tditto -V \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}${postfix}\" \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\n\tln -fs \"../../../${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework/Versions/A\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework\ndone";
 		};
 		4CD0D45C055B0CEE001715CB /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -544,10 +541,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				INFOPLIST_FILE = "Info-security_ssl.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Components/Security;
 				PRODUCT_NAME = security_ssl;
 				WRAPPER_EXTENSION = framework;
@@ -558,8 +557,10 @@
 		C27AD3FE0987FCDF001272E0 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INFOPLIST_FILE = "Info-security_ssl.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Components/Security;
 				PRODUCT_NAME = security_ssl;
 				WRAPPER_EXTENSION = framework;
@@ -570,7 +571,10 @@
 		C27AD3FF0987FCDF001272E0 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
+				INFOPLIST_FILE = "Info-security_ssl.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Components/Security;
 				PRODUCT_NAME = security_ssl;
 				WRAPPER_EXTENSION = framework;
@@ -581,13 +585,14 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 36371;
+				CURRENT_PROJECT_VERSION = 36800;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Components/Security,
 					/usr/local/SecurityPieces/Frameworks,
 				);
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
@@ -607,12 +612,12 @@
 				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
-				PRIVATE_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/PrivateHeaders/Security";
+				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/PrivateHeaders/Security;
 				PRODUCT_NAME = security_ssl;
-				PUBLIC_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/Headers/Security";
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/Headers/Security;
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -630,12 +635,13 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 36371;
+				CURRENT_PROJECT_VERSION = 36800;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Components/Security,
 					/usr/local/SecurityPieces/Frameworks,
 				);
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
@@ -654,12 +660,12 @@
 				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
-				PRIVATE_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/PrivateHeaders/Security";
+				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/PrivateHeaders/Security;
 				PRODUCT_NAME = security_ssl;
-				PUBLIC_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/Headers/Security";
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/Headers/Security;
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -677,7 +683,9 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 36371;
+				CURRENT_PROJECT_VERSION = 36800;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Components/Security,
 					/usr/local/SecurityPieces/Frameworks,
@@ -700,12 +708,12 @@
 				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
-				PRIVATE_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/PrivateHeaders/Security";
+				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/PrivateHeaders/Security;
 				PRODUCT_NAME = security_ssl;
-				PUBLIC_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/Headers/Security";
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/SecurityPieces/Headers/Security;
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -743,7 +751,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		C27AD3FC0987FCDF001272E0 /* Build configuration list for PBXFrameworkTarget "security_ssl" */ = {
+		C27AD3FC0987FCDF001272E0 /* Build configuration list for PBXNativeTarget "security_ssl" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C27AD3FD0987FCDF001272E0 /* Development */,
@@ -753,7 +761,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
 		};
-		C27AD4000987FCDF001272E0 /* Build configuration list for PBXLibraryTarget "libsecurity_ssl" */ = {
+		C27AD4000987FCDF001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_ssl" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C27AD4010987FCDF001272E0 /* Development */,

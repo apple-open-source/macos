@@ -968,7 +968,7 @@ auth_peer_success(unit, protocol, prot_flavor, name, namelen)
     note.protocol_flavor = prot_flavor;
     note.name = name;
     note.namelen = namelen;
-    notify(auth_peer_success_notify, (int)&note);
+    notify_with_ptr(auth_peer_success_notify, (uintptr_t)&note);
 #endif
             
     switch (protocol) {
@@ -2623,12 +2623,13 @@ scan_authfile(f, client, server, secret, addrs, opts, filename, flags)
 	for (;;) {
 	    if (!getword(f, word, &newline, filename) || newline)
 		break;
+		int	len = strlen(word) + 1;
 	    ap = (struct wordlist *)
-		    malloc(sizeof(struct wordlist) + strlen(word) + 1);
+		    malloc(sizeof(struct wordlist) + len);
 	    if (ap == NULL)
 		novm("authorized addresses");
 	    ap->word = (char *) (ap + 1);
-	    strcpy(ap->word, word);
+	    strlcpy(ap->word, word, len);
 	    *app = ap;
 	    app = &ap->next;
 	}
@@ -2763,9 +2764,10 @@ auth_script(script)
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/Security.h>
 
+#ifndef TARGET_EMBEDDED_OS
 static int read_keychainpassword __P((SecPreferencesDomain , char *, char *, char *, int));
 static int write_keychainpassword __P((SecPreferencesDomain , char *, char *, char *));
-
+#endif
 /*
  * get actual password from System keyChain.
  * the password passed is used as a key
@@ -2774,12 +2776,16 @@ static int
 keychainpassword(argv)
     char **argv;
 {
-
+#ifndef TARGET_EMBEDDED_OS
 	if (read_keychainpassword(kSecPreferencesDomainSystem, *argv, 0, passwd, MAXSECRETLEN)) {
 		strlcpy(passwdkey, *argv, sizeof(passwdkey));
 		passwdfrom = PASSWDFROM_KEYCHAIN;
 	}
 	return 1;
+#else
+	option_error("no keychain support");
+	return 1;
+#endif
 }
 
 /*
@@ -2790,12 +2796,16 @@ static int
 userkeychainpassword(argv)
     char **argv;
 {
-
+#ifndef TARGET_EMBEDDED_OS
 	if (read_keychainpassword(kSecPreferencesDomainUser, *argv, 0, passwd, MAXSECRETLEN)) {
 		strlcpy(passwdkey, *argv, sizeof(passwdkey));
 		passwdfrom = PASSWDFROM_USERKEYCHAIN;
 	}
 	return 1;
+#else
+	option_error("no keychain support");
+	return 1;
+#endif
 }
 
 /*
@@ -2805,7 +2815,7 @@ int
 save_new_password()
 {
 	int ret = 0;
-	
+#ifndef TARGET_EMBEDDED_OS
 	switch (passwdfrom) {
 		case PASSWDFROM_KEYCHAIN:
 			ret = write_keychainpassword(kSecPreferencesDomainSystem, passwdkey, 0, new_passwd);
@@ -2814,9 +2824,12 @@ save_new_password()
 			ret = write_keychainpassword(kSecPreferencesDomainUser, passwdkey, 0, new_passwd);
 			break;
 	}
+#endif
 
 	return ret;
 }
+
+#ifndef TARGET_EMBEDDED_OS
 
 /*
  * read password from keyChain.
@@ -2831,7 +2844,7 @@ read_keychainpassword(SecPreferencesDomain domain, char *service, char *account,
 	UInt32 cur_password_len	= 0;
 	OSStatus status;
 	int ret = 0;
-	
+
 	if (domain == kSecPreferencesDomainUser)
 		seteuid(getuid());
 
@@ -2870,6 +2883,17 @@ end:
 
 	if (cur_password) {
 		if (cur_password_len < maxlen) {
+
+			/* 
+			needs to be added and tested.
+			Also need to add te change and save password case.
+			CFStringRef aString = CFStringCreateWithBytes(NULL, cur_password, cur_password_len, kCFStringEncodingUTF8, FALSE);
+			if (aString) {
+				CFStringGetCString(aString, password, maxlen, kCFStringEncodingWindowsLatin1);
+				CFRelease(aString);
+			}
+			*/
+			
 			bcopy(cur_password, password, cur_password_len);
 			password[cur_password_len] = 0;
 			free(cur_password);
@@ -2959,4 +2983,5 @@ end:
 
 	return ret;
 }
+#endif /* TARGET_EMBEDDED_OS */
 #endif

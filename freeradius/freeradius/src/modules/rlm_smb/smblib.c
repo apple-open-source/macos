@@ -4,6 +4,7 @@
    SMBlib Routines
 
    Copyright (C) Richard Sharpe 1996
+   Copyright 2006 The FreeRADIUS server project
 
 */
 
@@ -23,14 +24,19 @@
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
-int SMBlib_errno;
-int SMBlib_SMB_Error;
-#define SMBLIB_ERRNO
-#define uchar unsigned char
-#include "smblib-priv.h"
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
+#include <ctype.h>
+#include <string.h>
+#include "smblib-priv.h"
 #include "rfcnb.h"
 
+#define SMBLIB_ERRNO
+#define uchar unsigned char
+
+int SMBlib_errno;
+int SMBlib_SMB_Error;
 SMB_State_Types SMBlib_State;
 
 /* Initialize the SMBlib package     */
@@ -104,8 +110,9 @@ int SMBlib_Set_Sock_NoDelay(SMB_Handle_Type Con_Handle, BOOL yn)
 SMB_Handle_Type SMB_Connect_Server(SMB_Handle_Type Con_Handle,
 				   char *server, char *NTdomain)
 
-{ SMB_Handle_Type con;
-  char temp[80], called[80], calling[80], *address;
+{
+  SMB_Handle_Type con;
+  char called[80], calling[80], *address;
   int i;
 
   /* Get a connection structure if one does not exist */
@@ -314,8 +321,9 @@ SMB_Handle_Type SMB_Connect(SMB_Handle_Type Con_Handle,
 int SMB_Logon_Server(SMB_Handle_Type Con_Handle, char *UserName,
 		     char *PassWord)
 
-{ struct RFCNB_Pkt *pkt;
-  int param_len, i, pkt_len, pass_len,a;
+{
+  struct RFCNB_Pkt *pkt;
+  int param_len, pkt_len, pass_len;
   char *p, pword[256];
 
   /* First we need a packet etc ... but we need to know what protocol has  */

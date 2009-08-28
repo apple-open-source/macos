@@ -119,7 +119,6 @@ void	KernelDebugSetOutputType( KernelDebuggingOutputType inType )
 
 void	KernelDebugLogInternal( UInt32 inLevel,  UInt32 inTag, char const *inFormatString, ... )
 {	
-    AbsoluteTime	currentTime;
     UInt64		elapsedTime;
     uint32_t		secs, milliSecs;
     
@@ -141,8 +140,8 @@ void	KernelDebugLogInternal( UInt32 inLevel,  UInt32 inTag, char const *inFormat
             // First, print our USB tag with the time
             // Find our current time in seconds (since bootup)
             //
-            clock_get_uptime(&currentTime);
-            absolutetime_to_nanoseconds(currentTime, &elapsedTime);
+			uint64_t	currentTime = mach_absolute_time();
+			absolutetime_to_nanoseconds(*(AbsoluteTime *)&currentTime, &elapsedTime);
             
             // Convert it to milliseconds
             //
@@ -346,6 +345,7 @@ IOUSBLog::usblog()
 //
 void IOUSBLog::USBLogPrintf(UInt32 level, char *format,...)
 {
+#pragma unused (level)
     va_list		ap;
     char		msgBuf[255];
     
@@ -353,20 +353,21 @@ void IOUSBLog::USBLogPrintf(UInt32 level, char *format,...)
     vsnprintf(msgBuf, sizeof(msgBuf), format, ap);
     va_end( ap );
 
-    USBLog(level,msgBuf);
+    USBLog(level,"%s", msgBuf);
 }
 
 void 	IOUSBLog::AddStatusLevel (UInt32 level, UInt32 ref, char *status, UInt32 value)
 {
+#pragma unused (level, ref, status, value)
 }
 
 void	IOUSBLog::AddStatus(char *message)
 {
-    
+#pragma unused (message)
 }
 void	IOUSBLog::AddStatus(UInt32 level, char *message)
 {
-    
+#pragma unused (level, message)
 }
 
 char *

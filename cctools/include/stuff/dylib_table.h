@@ -26,7 +26,7 @@
  * ~rc/Data/DylibTable .
  */
 struct dylib_table {
-    unsigned long seg1addr;
+    uint32_t seg1addr;
     char *name;
 };
 

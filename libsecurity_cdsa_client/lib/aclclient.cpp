@@ -108,6 +108,8 @@ struct Statics {
 	AutoCredentials promptCred;
 	AutoCredentials unlockCred;
 	AutoCredentials cancelCred;
+	AutoCredentials promptedPINCred;
+	AutoCredentials promptedPINItemCred;
 	
 	AclOwnerPrototype anyOwner;
 	AclEntryInfo anyAcl;
@@ -129,6 +131,8 @@ Statics::Statics()
 	  promptCred(alloc, 3),
 	  unlockCred(alloc, 1),
 	  cancelCred(alloc, 1),
+	  promptedPINCred(alloc, 1),
+	  promptedPINItemCred(alloc, 1),
 	  anyOwner(TypedList(alloc, CSSM_ACL_SUBJECT_TYPE_ANY)),
 	  anyAcl(AclEntryPrototype(TypedList(alloc, CSSM_ACL_SUBJECT_TYPE_ANY), 1))
 {
@@ -152,7 +156,28 @@ Statics::Statics()
 		new(alloc) ListElement(CSSM_SAMPLE_TYPE_KEYCHAIN_PROMPT));
 	
 	cancelCred.sample(0) = TypedList(alloc, CSSM_SAMPLE_TYPE_KEYCHAIN_LOCK,
-		new(alloc) ListElement(CSSM_WORDID_CANCELED));
+									 new(alloc) ListElement(CSSM_WORDID_CANCELED));
+	
+	/*
+		We don't set this:
+	 
+			promptedPINCred.tag("PIN1");
+
+		here to avoid triggering code in TokenDatabase::getAcl in securityd that
+		would always show a PIN unlock dialog. This credential is used for an
+		unlock of the database, i.e. a dbauthenticate call to unlock the card.
+	*/
+	promptedPINCred.sample(0) = TypedList(alloc, CSSM_SAMPLE_TYPE_PROMPTED_PASSWORD,
+										  new(alloc) ListElement(alloc, CssmData()));
+
+	/*
+		This credential is used for items like non-repudiation keys that always
+		require an explicit entry of the PIN. We set this so that Token::authenticate
+		will recognize the number of the PIN we need to unlock.
+	*/
+	promptedPINItemCred.tag("PIN1");
+	promptedPINItemCred.sample(0) = TypedList(alloc, CSSM_SAMPLE_TYPE_PROMPTED_PASSWORD,
+										  new(alloc) ListElement(alloc, CssmData()));
 }
 
 
@@ -181,6 +206,12 @@ const AccessCredentials *AclFactory::unlockCred() const
 
 const AccessCredentials *AclFactory::cancelCred() const
 { return &statics().cancelCred; }
+
+const AccessCredentials *AclFactory::promptedPINCred() const
+{ return &statics().promptedPINCred; }
+
+const AccessCredentials *AclFactory::promptedPINItemCred() const
+{ return &statics().promptedPINItemCred; }
 
 
 //
@@ -212,7 +243,7 @@ AclFactory::PasswordChangeCredentials::PasswordChangeCredentials (const CssmData
 		new (allocator) ListElement (CssmAutoData(allocator, password).release()));
 }
 
-
+	
 //
 // Wide open ("ANY") CSSM forms for owner and ACL entry
 //

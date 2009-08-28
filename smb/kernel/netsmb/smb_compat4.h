@@ -8,6 +8,6 @@
 
 #include <sys/param.h>
 
-mbuf_t smb_mbuf_getm(mbuf_t m, int len, int how, int type);
+mbuf_t smb_mbuf_getm(mbuf_t m, size_t len, int how, int type);
 
 #endif	/* !SMB_COMPAT4_H */

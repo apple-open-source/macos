@@ -1,9 +1,8 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 2000-2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 2000,2007 Oracle.  All rights reserved.
 #
-# $Id: recd012.tcl,v 1.2 2004/03/30 01:24:08 jtownsen Exp $
+# $Id: recd012.tcl,v 12.5 2007/05/17 15:15:55 bostic Exp $
 #
 # TEST	recd012
 # TEST	Test of log file ID management. [#2288]
@@ -268,6 +267,7 @@ proc recd012_dochild { env_cmd rnd outiter niniter ndbs tnum method\
 			if { $num_open == 0 } {
 				# If none are open, do an open first.
 				recd012_open
+				set num_open [llength $opendbs]
 			}
 			set n [berkdb random_int 0 [expr $num_open - 1]]
 			set pair [lindex $opendbs $n]

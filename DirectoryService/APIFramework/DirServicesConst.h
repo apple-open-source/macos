@@ -2568,7 +2568,7 @@
 
 /*!
  * @defined kDSStdAuthReadSecureHash
- * @discussion Returns the SHA1 or Seeded SHA1 hash for a local user
+ * @discussion Returns the SHA1 or salted SHA1 hash for a local user
  *     Only accessible by root processes. Only implemented by the local node.
  *     The buffer is packed as follows:
  *
@@ -2577,7 +2577,7 @@
  *
  *     The output buffer format:
  *     4 byte length (20 or 24)
- *     value, either the old 20-byte SHA1 or the new seeded 24-byte SHA1.
+ *     value, either the old 20-byte SHA1 or the new salted 24-byte SHA1.
  */
 #define		kDSStdAuthReadSecureHash				"dsAuthMethodStandard:dsAuthReadSecureHash"
 

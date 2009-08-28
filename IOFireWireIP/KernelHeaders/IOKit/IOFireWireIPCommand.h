@@ -50,7 +50,7 @@ class IOFWIPAsyncWriteCommand : public IOFWWriteCommand
 		
 protected:
     IOBufferMemoryDescriptor	*fBuffer;
-    IOMemoryDescriptor			*fMem;
+	IOMemoryDescriptor			*fMem;
     const UInt8					*fCommand;
     // Maximum length for the pre allocated buffer, can be changed dynamically
     UInt32						maxBufLen;
@@ -59,7 +59,7 @@ protected:
 	UInt8*						fCursorBuf;
 	UInt32						fOffset;
 	bool						fCopy;
-	IOVirtualRange				fVirtualRange[MAX_ALLOWED_SEGS];
+	IOAddressRange				fVirtualRange[MAX_ALLOWED_SEGS];
 	UInt32						fIndex;
 	UInt32						fLength;
 	UInt32						fHeaderSize;

@@ -3,19 +3,20 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -24,6 +25,7 @@
 #include <IOKit/IOKitLib.h>
 #include <IOKit/pwr_mgt/IOPMLibDefs.h>
 #include <IOKit/pwr_mgt/IOPMKeys.h>
+#include <Availability.h>
 
 #ifndef _IOKIT_PWRMGT_IOPMLIB_
 #define _IOKIT_PWRMGT_IOPMLIB_
@@ -51,7 +53,7 @@ io_connect_t IOPMFindPowerManagement( mach_port_t master_device_port )
     @abstract Sets one of the aggressiveness factors in IOKit Power Management.
     @param fb  Representation of the Root Power Domain from IOPMFindPowerManagement.
     @param type Specifies which aggressiveness factor is being set.
-    @param type New value of the aggressiveness factor.
+    @param aggressiveness New value of the aggressiveness factor.
     @result Returns kIOReturnSuccess or an error condition if request failed.
 */
 IOReturn IOPMSetAggressiveness (io_connect_t fb, unsigned long type, unsigned long aggressiveness )
@@ -61,8 +63,8 @@ IOReturn IOPMSetAggressiveness (io_connect_t fb, unsigned long type, unsigned lo
     @abstract Retrieves the current value of one of the aggressiveness factors in IOKit Power Management.
     @param fb  Representation of the Root Power Domain from IOPMFindPowerManagement.
     @param type Specifies which aggressiveness factor is being retrieved.
-    @param type Points to where to store the retrieved value of the aggressiveness factor.
-    @result Returns kIOReturnSuccess or an error condition if request failed.
+    @param aggressiveness Points to where to store the retrieved value of the aggressiveness factor.
+    @result Returns kIOReturnSuccess or an error condition if request failed. 
  */
 IOReturn IOPMGetAggressiveness ( io_connect_t fb, unsigned long type, unsigned long * aggressiveness )
                             AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER;
@@ -116,9 +118,45 @@ io_connect_t IORegisterApp( void * refcon,
                             AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER;
 
 /*! @function IORegisterForSystemPower
-    @abstract Connects the caller to the Root Power Domain  IOService for the purpose of receiving Sleep, Wake, ShutDown, PowerUp notifications for the System.
-    @param refcon Data returned on power state change notifications and not used by the kernel.
-    @param thePortRef Pointer to a port on which the caller will receive power state change notifications. The port is allocated by this function and must be later released by the caller (after IODeregisterForSystemPower).
+    @abstract Connects the caller to the Root Power Domain IOService for the purpose of receiving sleep & wake notifications for the system.
+				Does not provide system shutdown and restart notifications.
+    @discussion Provides sleep/wake notifications to applications. Requires that applications acknowledge
+        some, but not all notifications. Register for sleep/wake notifications will deliver these messages
+        over the sleep/wake lifecycle:
+
+            - kIOMessageSystemWillSleep is delivered at the point the system is initiating a 
+                non-abortable sleep.
+                Callers MUST acknowledge this event by calling @link IOAllowPowerChange @/link.
+                If a caller does not acknowledge the sleep notification, the sleep will continue anyway after
+                a 30 second timeout (resulting in bad user experience). 
+                Delivered before any hardware is powered off.
+            - kIOMessageSystemWillPowerOn is delivered at early wakeup time, before most hardware has been
+                powered on. Be aware that any attempts to access disk, network, the display, etc. may result
+                in errors or blocking your process until those resources become avaiable.
+                Caller must NOT acknowledge kIOMessageSystemWillPowerOn; the caller must simply return from its handler.
+            - kIOMessageSystemHasPoweredOn is delivered at wakeup completion time, after all device drivers and
+                hardware have handled the wakeup event. Expect this event 1-5 or more seconds after initiating
+                system awkeup.
+                Caller must NOT acknowledge kIOMessageSystemHasPoweredOn; the caller must simply return from its handler.
+            - kIOMessageCanSystemSleep indicates the system is pondering an idle sleep, but gives apps the
+                chance to veto that sleep attempt. 
+                Caller must acknowledge kIOMessageCanSystemSleep by calling @link IOAllowPowerChange @/link
+                or @link IOCancelPowerChange @/link. Calling IOAllowPowerChange will not veto the sleep; any
+                app that calls IOCancelPowerChange will veto the idle sleep. A kIOMessageCanSystemSleep 
+                notification will be followed up to 30 seconds later by a kIOMessageSystemWillSleep message.
+                or a kIOMessageSystemWillNotPowerOn message.
+            - kIOMessageSystemWillNotPowerOn is delivered when some app client has vetoed an idle sleep
+                request. kIOMessageSystemWillNotPowerOn may follow a kIOMessageCanSystemSleep notification,
+                but will not otherwise be sent.
+                Caller must NOT acknowledge kIOMessageSystemWiillNotPowerOn; the caller must simply return from its handler.
+                
+        To deregister for sleep/wake notifications, the caller must make two calls, in this order:
+            - Call IODeregisterForSystemPower with the 'notifier' argument returned here.
+            - Then call IONotificationPortDestroy passing the 'thePortRef' argument
+                returned here.
+  
+  @param refcon Caller may provide data to receive s an argument to 'callback' on power state changes.
+    @param thePortRef On return, thePortRef is a pointer to a port on which the caller will receive power state change notifications. The port is allocated by this function and must be later released by the caller (after IODeregisterForSystemPower). 
     @param callback  A c-function which is called during the notification.
     @param notifier  On success, returns a pointer to a unique notifier which caller must keep and pass to a subsequent call to IODeregisterForSystemPower.
     @result Returns a io_connect_t session for the IOPMrootDomain or MACH_PORT_NULL if request failed. Caller must close return value via IOServiceClose() after calling IODeregisterForSystemPower on the notifier argument.
@@ -135,9 +173,9 @@ io_connect_t IORegisterForSystemPower ( void * refcon,
  */
 IOReturn IODeregisterApp ( io_object_t * notifier ) AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER;
 
-/*! @function IODeregisterForSystemPower.
-    @abstract Disconnects the caller from the Root Power Domain IOService after receiving system power state change notifications. (Caller must also release IORegisterForSystemPower's return io_connect_t and returned IONotificationPortRef for complete clean-up).
-    @param notifier  An object from IORegisterForSystemPower.
+/*! @function IODeregisterForSystemPower
+    @abstract Disconnects the caller from the Root Power Domain IOService after receiving system power state change notifications. (Caller must also destroy the IONotificationPortRef returned from IORegisterForSystemPower.)
+    @param notifier  The object returned from IORegisterForSystemPower.
     @result Returns kIOReturnSuccess or an error condition if request failed.
 */
 IOReturn IODeregisterForSystemPower ( io_object_t * notifier )
@@ -145,7 +183,8 @@ IOReturn IODeregisterForSystemPower ( io_object_t * notifier )
                             
 /*! @function IOAllowPowerChange
     @abstract The caller acknowledges notification of a power state change on a device it has registered for notifications for via IORegisterForSystemPower or IORegisterApp.
-    @discussion Must be used when handling kIOMessageCanSystemSleep and kIOMessageSystemWillSleep messages from IOPMrootDomain system power.
+    @discussion Must be used when handling kIOMessageCanSystemSleep and kIOMessageSystemWillSleep messages from IOPMrootDomain system power. The caller should not call IOAllowPowerChange in response to any messages 
+    except for these two.
     @param kernelPort  Port used to communicate to the kernel,  from IORegisterApp or IORegisterForSystemPower.
     @param notificationID A copy of the notification ID which came as part of the power state change notification being acknowledged.
     @result Returns kIOReturnSuccess or an error condition if request failed.
@@ -154,8 +193,14 @@ IOReturn IOAllowPowerChange ( io_connect_t kernelPort, long notificationID )
                             AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER;
 
 /*! @function IOCancelPowerChange
-    @abstract The caller negatively acknowledges notification of a power state change on a device it is interested in.  This prevents the state change.
-    @discussion Should only used when handling kIOMessageCanSystemSleep messages from IOPMrootDomain. IOCancelPowerChange() has no meaning for responding to kIOMessageSystemWillSleep (which is non-abortable) or any other messages.
+    @abstract The caller denies an idle system sleep power state change.
+    @discussion Should only called in response to kIOMessageCanSystemSleep messages from IOPMrootDomain. IOCancelPowerChange has no meaning for responding to kIOMessageSystemWillSleep (which is non-abortable) or any other messages. 
+    
+    When an app responds to a kIOMessageCanSystemSleep message by calling IOCancelPowerChange, the app
+    vetos the idle sleep request. The system will stay awake. 
+    The idle timer will elapse again after a period of inactivity, and the system will
+    send out the same kIOMessageCanSystemSleep message, and interested applications will respond gain.
+ 
     @param kernelPort  Port used to communicate to the kernel,  from IORegisterApp or IORegisterForSystemPower.
     @param notificationID A copy of the notification ID which came as part of the power state change notification being acknowledged.
     @result Returns kIOReturnSuccess or an error condition if request failed.
@@ -164,7 +209,7 @@ IOReturn IOCancelPowerChange ( io_connect_t kernelPort, long notificationID )
                             AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER;
 
 /*!
-    @functiongroup Scheduled Events
+    @functiongroup ScheduledEvents
 */    
 
 /*! @function IOPMSchedulePowerEvent
@@ -294,8 +339,8 @@ enum {
 IOReturn IOPMAssertionCreate(CFStringRef        AssertionType, 
                            IOPMAssertionLevel   AssertionLevel,
                            IOPMAssertionID      *AssertionID)
-                           AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
-//                           DEPRECATED_IN_MAC_OS_X_VERSION_10_5_AND_LATER;
+                            __OSX_AVAILABLE_BUT_DEPRECATED
+                            (__MAC_10_5,__MAC_10_6,__IPHONE_2_0, __IPHONE_2_1);
 
     /*!
 @function IOPMAssertionCreateWithName
@@ -358,6 +403,96 @@ IOReturn IOPMCopyAssertionsByProcess(CFDictionaryRef *AssertionsByPID)
      */
 IOReturn IOPMCopyAssertionsStatus(CFDictionaryRef *AssertionsStatus)
                             AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+/*!
+ * @functiongroup IOSystemLoadAdvisory
+ */
+
+/*! @constant kIOSystemLoadAdvisoryNotifyName
+   @abstract The notifcation by this name fires when system "SystemLoadAdvisory" status changes.
+   @discussion Pass this string as an argument to register via notify(3).
+            You can query SystemLoadAdvisory state via notify_get_state() when this notification
+            fires - this is more efficient than calling IOGetSystemLoadAdvisory(), and returns
+            an identical combined SystemLoadAdvisory value.
+ */
+#define kIOSystemLoadAdvisoryNotifyName   "com.apple.system.powermanagement.SystemLoadAdvisory"
+
+/*! @typedef IOSystemLoadAdvisoryLevel
+   @abstract Return type for IOGetSystemLoadAdvisory
+   @discussion Value is one of kIOSystemLoadAdvisoryLevelGreat, kIOSystemLoadAdvisoryLevelOK,
+       or kIOSystemLoadAdvisoryLevelBad.
+ */
+typedef int IOSystemLoadAdvisoryLevel;
+
+enum {
+    kIOSystemLoadAdvisoryLevelBad       = 1,
+    kIOSystemLoadAdvisoryLevelOK        = 2,
+    kIOSystemLoadAdvisoryLevelGreat     = 3
+};
+
+/*! @constant kIOSystemLoadAdvisoryUserLevelKey
+   @abstract Key for dictionary returned by IOCopySystemLoadAdvisoryDetailed
+   @discussion Indicates user activity constraints on the current SystemLoadAdvisory level.
+ */
+#define kIOSystemLoadAdvisoryUserLevelKey             CFSTR("UserLevel")
+
+/*! @constant kIOSystemLoadAdvisoryBatteryLevelKey
+   @abstract Key for dictionary returned by IOCopySystemLoadAdvisoryDetailed
+   @discussion Indicates battery constraints on the current SystemLoadAdvisory level.
+ */
+#define kIOSystemLoadAdvisoryBatteryLevelKey          CFSTR("BatteryLevel")
+
+/*! @constant kIOSystemLoadAdvisoryThermalLevelKey
+   @abstract Key for dictionary returned by IOCopySystemLoadAdvisoryDetailed
+   @discussion Indicates thermal constraints on the current SystemLoadAdvisory level.
+ */
+#define kIOSystemLoadAdvisoryThermalLevelKey          CFSTR("ThermalLevel")
+
+/*! @constant kIOSystemLoadAdvisoryCombinedLevelKey
+   @abstract Key for dictionary returned by IOCopySystemLoadAdvisoryDetailed
+   @discussion Provides a combined level based on UserLevel, BatteryLevel,
+        and ThermalLevels; the combined level is the minimum of these levels. 
+        In the future, this combined level may represent new levels as well.
+        The combined level is identical to the value returned by IOGetSystemLoadAdvisory().
+ */
+#define kIOSystemLoadAdvisoryCombinedLevelKey         CFSTR("CombinedLevel")
+
+/*! @function IOGetSystemLoadAdvisory
+   @abstract Returns a hint about whether now would be a good time to perform time-insensitive 
+        work.
+   @discussion Based on user and system load, IOGetSystemLoadAdvisory determines "better" and "worse"
+   times to run optional or time-insensitive CPU or disk work.
+    
+   Applications may use this result to avoid degrading the user experience. If it is a 
+   "Bad" or "OK" time to perform work, applications should slow down and perform work
+   less aggressively.
+   
+   There is no guarantee that the system will ever be in "Great" condition to perform work -
+   all essential work must still be performed even in "Bad", or "OK" times. 
+   Completely optional work, such as updating caches, may be postponed indefinitely.
+   
+   Note: You may more efficiently read the SystemLoadAdvisory level using notify_get_state() instead
+        of IOGetSystemLoadAdvisory. The results are identical. notify_get_state() requires that you
+        pass the token argument received by registering for SystemLoadAdvisory notifications.
+   
+   @return IOSystemLoadAdvisoryLevel - one of:
+        kIOSystemLoadAdvisoryLevelGreat - A Good time to perform time-insensitive work.
+        kIOSystemLoadAdvisoryLevelOK - An OK time to perform time-insensitive work.
+        kIOSystemLoadAdvisoryLevelBad - A Bad time to perform time-insensitive work.
+ */
+   
+IOSystemLoadAdvisoryLevel IOGetSystemLoadAdvisory( void );
+
+/*! @function IOCopySystemLoadAdvisoryDetailed
+   @abstract Indicates how user activity, battery level, and thermal level each 
+        contribute to the overall "SystemLoadAdvisory" level. In the future, 
+        this combined level may represent new levels as well.
+   @discussion See dictionary keys defined above.
+   @return Returns a CFDictionaryRef, or NULL on error. Caller must release the
+        returned dictionary.
+ */
+CFDictionaryRef IOCopySystemLoadAdvisoryDetailed(void);
+
 
 
 #ifdef __cplusplus

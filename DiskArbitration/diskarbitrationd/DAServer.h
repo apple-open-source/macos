@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,15 +32,6 @@
 extern "C" {
 #endif /* __cplusplus */
 
-enum
-{
-    kDAServerStatusActive,
-    kDAServerStatusInactive,
-    kDAServerStatusInitialize
-};
-
-typedef UInt32 DAServerStatus;
-
 extern void _DAConfigurationCallback( SCDynamicStoreRef store, CFArrayRef keys, void * info );
 extern void _DAMediaAppearedCallback( void * context, io_iterator_t notification );
 extern void _DAMediaDisappearedCallback( void * context, io_iterator_t notification );
@@ -49,8 +40,6 @@ extern void _DAVolumeMountedCallback( CFMachPortRef port, void * message, CFInde
 extern void _DAVolumeUnmountedCallback( CFMachPortRef port, void * message, CFIndex messageSize, void * info );
 
 extern CFRunLoopSourceRef DAServerCreateRunLoopSource( CFAllocatorRef allocator, CFIndex order );
-
-extern DAServerStatus DAServerInitialize( void );
 
 #ifdef __cplusplus
 }

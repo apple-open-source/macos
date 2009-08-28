@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2004,2009 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,7 +26,6 @@
 #include <Security/AuthorizationPriv.h>
 #include <Security/AuthorizationDB.h>
 
-
 #include "authority.h"
 
 #include <Security/AuthorizationTags.h>
@@ -34,7 +33,6 @@
 #include <security_utilities/logging.h>
 #include <security_utilities/cfutilities.h>
 #include <security_utilities/debugging.h>
-//#include "session.h"
 #include "server.h"
 
 #include <CoreFoundation/CFData.h>
@@ -45,10 +43,13 @@
 #include <fcntl.h>
 #include <float.h>
 
-#include <bsm/audit_uevents.h>
+#include <bsm/audit_uevents.h>      // AUE_ssauth*
+#include "ccaudit_extensions.h"
 
 namespace Authorization {
 
+using namespace CommonCriteria::Securityd;
+    
 
 //
 // Errors to be thrown
@@ -101,6 +102,7 @@ Engine::authorize(const AuthItemSet &inRights, const AuthItemSet &environment,
 {
 	CredentialSet credentials;
 	OSStatus status = errAuthorizationSuccess;
+    SecurityAgent::Reason reason = SecurityAgent::noReason;
 
 	// Get current time of day.
 	CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
@@ -138,58 +140,62 @@ Engine::authorize(const AuthItemSet &inRights, const AuthItemSet &environment,
 	// generate hints for every authorization
     AuthItemSet environmentToClient = environment;
 
+    RightAuthenticationLogger logger(auth.creatorAuditToken(), AUE_ssauthorize);
+    
 	AuthItemSet::const_iterator end = inRights.end();
 	for (AuthItemSet::const_iterator it = inRights.begin(); it != end; ++it)
 	{
 		// Get the rule for each right we are trying to obtain.
 		const Rule &toplevelRule = mAuthdb.getRule(*it);
-		OSStatus result = toplevelRule->evaluate(*it, toplevelRule, environmentToClient, flags, now, inCredentials, credentials, auth);
-		secdebug("autheval", "evaluate rule %s for right %s returned %ld.", toplevelRule->name().c_str(), (*it)->name(), result);
+		OSStatus result = toplevelRule->evaluate(*it, toplevelRule, environmentToClient, flags, now, inCredentials, credentials, auth, reason);
+		secdebug("autheval", "evaluate rule %s for right %s returned %d.", toplevelRule->name().c_str(), (*it)->name(), int(result));
+        SECURITYD_AUTH_EVALRIGHT(&auth, (char *)(*it)->name(), result);
 
-		{
-			string processName = "unknown";
-			if (SecCodeRef code = Server::process().currentGuest()) {
-				CFRef<CFURLRef> path;
-				if (!SecCodeCopyPath(code, kSecCSDefaultFlags, &path.aref()))
-					processName = cfString(path);
-			}
-			string authCreatorName = "unknown";
-			if (SecStaticCodeRef code = auth.creatorCode()) {
-				CFRef<CFURLRef> path;
-				if (!SecCodeCopyPath(code, kSecCSDefaultFlags, &path.aref()))
-					authCreatorName = cfString(path);
-			}
+        string processName = "unknown";
+        string authCreatorName = "unknown";
+        if (SecCodeRef code = Server::process().currentGuest()) {
+            CFRef<CFURLRef> path;
+            if (!SecCodeCopyPath(code, kSecCSDefaultFlags, &path.aref()))
+                processName = cfString(path);
+        }
+        if (SecStaticCodeRef code = auth.creatorCode()) {
+            CFRef<CFURLRef> path;
+            if (!SecCodeCopyPath(code, kSecCSDefaultFlags, &path.aref()))
+                authCreatorName = cfString(path);
+        }
+        
+        logger.setRight((*it)->name());
+        logger.logAuthorizationResult(processName.c_str(), authCreatorName.c_str(), result);
 
-			if (result == errAuthorizationSuccess) {
-				Syslog::info("Succeeded authorizing right %s by client %s for authorization created by %s.", (*it)->name(), processName.c_str(), authCreatorName.c_str());
-				CommonCriteria::AuditRecord auditrec(auth.creatorAuditToken());
-				auditrec.submit(AUE_ssauthorize, CommonCriteria::errNone, (*it)->name());
-			} else if (result == errAuthorizationDenied) {
-				Syslog::notice("Failed to authorize right %s by client %s for authorization created by %s.", (*it)->name(), processName.c_str(), authCreatorName.c_str());
-			}
-		}
-		
-		if (result == errAuthorizationSuccess)
-			outRights.insert(*it);
-		else if (result == errAuthorizationDenied || result == errAuthorizationInteractionNotAllowed)
-		{
-			// add creator pid to authorization token
-			if (!(flags & kAuthorizationFlagPartialRights))
-			{
-				status = result;
-				break;
-			}
-		}
+        if (result == errAuthorizationSuccess)
+        {
+            outRights.insert(*it);
+            Syslog::info("Succeeded authorizing right '%s' by client '%s' for authorization created by '%s'", (*it)->name(), processName.c_str(), authCreatorName.c_str());
+        } 
+        else if (result == errAuthorizationDenied || result == errAuthorizationInteractionNotAllowed) 
+        {
+            if (result == errAuthorizationDenied)
+            {
+                 Syslog::notice("Failed to authorize right '%s' by client '%s' for authorization created by '%s'", (*it)->name(), processName.c_str(), authCreatorName.c_str());
+            }
+
+            // add creator pid to authorization token
+            if (!(flags & kAuthorizationFlagPartialRights))
+            {
+                status = result;
+                break;
+            }
+        } 
         else if (result == errAuthorizationCanceled)
         {
             status = result;
             break;
-        }
-		else
-		{
-			Syslog::error("Engine::authorize: Rule::evaluate returned %ld returning errAuthorizationInternal", result);
-			status = errAuthorizationInternal;
-			break;
+        } 
+        else 
+        {
+            Syslog::error("Engine::authorize: Rule::evaluate returned %ld returning errAuthorizationInternal", result);
+            status = errAuthorizationInternal;
+            break;
 		}
 	}
 

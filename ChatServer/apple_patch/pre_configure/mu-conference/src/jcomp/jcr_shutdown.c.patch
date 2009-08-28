@@ -1,0 +1,33 @@
+--- mu-conference_0.8/src/jcomp/jcr_shutdown.c	2007-05-15 13:18:33.000000000 -0700
++++ mu-conference_0.8_apple/src/jcomp/jcr_shutdown.c	2009-03-27 13:42:17.000000000 -0700
+@@ -40,29 +40,8 @@
+   else
+     return;
+ 
+-  log_warn(JDBG, "Server shutting down");
+-  if (jcr->shandler != NULL)
+-    (jcr->shandler)((void *)jcr->sdata);
+-
+-  jcr->stream_state = _STREAM_SHUTDOWN;
+-  g_thread_join(jcr->dthread);
+-
+-  g_io_channel_shutdown(jcr->gio, TRUE, NULL);
+   g_main_loop_quit(jcr->gmain);
+-  pool_free(jcr->jcr_i->p);
+-  free(jcr->spool_dir);
+-  free(jcr->log_dir);
+-  free(jcr->recv_buffer);
+-  xmlnode_free(jcr->config);
+-  XML_ParserFree(jcr->parser);
+-
+-  if (jcr->pid_file)
+-  {
+-    unlink(jcr->pid_file);
+-    free(jcr->pid_file);
+-  }
+-
+-  exit(0); 
++  return;
+ }
+ 
+ void jcr_server_hangup(int signum) {

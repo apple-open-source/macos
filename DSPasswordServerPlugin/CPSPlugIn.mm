@@ -415,8 +415,8 @@ SInt32 CPSPlugIn::ReleaseContinueData ( sReleaseContinueData *inData )
 {
 	SInt32	siResult	= eDSNoErr;
     
-	// RemoveItem calls our ContinueDeallocProc to clean up
-	if ( gContinue->RemoveItem( (void *)inData->fInContinueData ) != eDSNoErr )
+	// RemoveContext calls our ContinueDeallocProc to clean up
+	if ( gContinue->RemoveContext( inData->fInContinueData ) != eDSNoErr )
 	{
 		siResult = eDSInvalidContext;
 	}
@@ -438,7 +438,7 @@ SInt32 CPSPlugIn::OpenDirNode ( sOpenDirNode *inData )
     char			   *subStr			= NULL;
 	sPSContextData	   *pContext		= NULL;
 	bool				nodeNameIsID	= false;
-	unsigned int		prefixLen		= sizeof(kPasswordServerPrefixStr) - 1;
+	size_t              prefixLen		= sizeof(kPasswordServerPrefixStr) - 1;
 	sPSServerEntry		anEntry;
 	
 	try
@@ -544,7 +544,7 @@ SInt32 CPSPlugIn::OpenDirNode ( sOpenDirNode *inData )
 						if ( hostEnt != NULL )
 						{
 							if ( hostEnt->h_addr_list[0] != NULL ) {
-								if ( inet_ntop(AF_INET, hostEnt->h_addr_list[0], anEntry.ip, sizeof(anEntry.ip)) == NULL )
+								if ( inet_ntop(AF_INET, hostEnt->h_addr_list[0], anEntry.ip, (socklen_t)sizeof(anEntry.ip)) == NULL )
 									anEntry.ip[0] = 0;
 							}
 							freehostent( hostEnt );
@@ -630,7 +630,7 @@ SInt32 CPSPlugIn::CloseDirNode ( sCloseDirNode *inData )
 		gPSContextTable->RemoveItem( inData->fInNodeRef );
 		
 		gPWSConnMutex->Wait();
-		gContinue->RemoveItems( inData->fInNodeRef );
+		gContinue->RemovePointersForRefNum( inData->fInNodeRef );
 		gPWSConnMutex->Signal();
 	}
     
@@ -865,13 +865,6 @@ CPSPlugIn::HandleFirstContact(
 		
 		strlcpy(inContext->psPort, anEntry.port, 10);
 		
-		// close disconnected connections before opening new ones
-		// release the conn mutex so we don't get deadlocked in
-		// the ref table iterator
-		gPWSConnMutex->Signal();
-		gPSContextTable->DoOnAllItems( CPSPlugIn::ReleaseCloseWaitConnections );
-		gPWSConnMutex->Wait();
-		
 		siResult = BeginServerSession( inContext, sock, inUserKeyHash );
 		if ( siResult == eDSNoErr )
 		{
@@ -981,7 +974,7 @@ SInt32 CPSPlugIn::BeginServerSession( sPSContextData *inContext, int inSock, con
 			char hbuf[NI_MAXHOST], pbuf[NI_MAXSERV];
 			struct sockaddr_storage local_ip;
 			
-			salen = sizeof(local_ip);
+			salen = (socklen_t)sizeof(local_ip);
 			if (getsockname(inContext->fd, (struct sockaddr *)&local_ip, &salen) < 0) {
 				salen = 0;
 				DEBUGLOG("getsockname");
@@ -989,10 +982,11 @@ SInt32 CPSPlugIn::BeginServerSession( sPSContextData *inContext, int inSock, con
 			
 			if ( salen > 0 )
 			{
-				getnameinfo((struct sockaddr *)&local_ip, salen,
-							hbuf, sizeof(hbuf), pbuf, sizeof(pbuf),
-							NI_NUMERICHOST | NI_WITHSCOPEID | NI_NUMERICSERV);
-				snprintf(inContext->localaddr, sizeof(inContext->localaddr), "%s;%s", hbuf, pbuf);
+				if( getnameinfo((struct sockaddr *)&local_ip, salen,
+							hbuf, (socklen_t)sizeof(hbuf), pbuf, (socklen_t)sizeof(pbuf),
+							NI_NUMERICHOST | NI_WITHSCOPEID | NI_NUMERICSERV) == 0 ) {
+					snprintf(inContext->localaddr, sizeof(inContext->localaddr), "%s;%s", hbuf, pbuf);
+				}
 				snprintf(inContext->remoteaddr, sizeof(inContext->remoteaddr), "%s;%s", inContext->psName, inContext->psPort);
 			}
 		}
@@ -1053,7 +1047,7 @@ SInt32 CPSPlugIn::BeginServerSession( sPSContextData *inContext, int inSock, con
 				{
 					ReplicaFile *replicaFile = [[ReplicaFile alloc] initWithXMLStr:replicaListData];
 					[replicaFile saveXMLDataToFile:filePath];
-					[replicaFile free];
+					[replicaFile release];
 					if ( replicaListData != NULL )
 						free( replicaListData );
 				}
@@ -1091,7 +1085,7 @@ SInt32 CPSPlugIn::EndServerSession( sPSContextData *inContext, bool inSendQuit )
 			struct timeval recvTimeoutVal = { 0, 150000 };
 			char buf[kOneKBuffer];
 			
-			result = setsockopt( inContext->fd, SOL_SOCKET, SO_RCVTIMEO, &recvTimeoutVal, sizeof(recvTimeoutVal) );
+			result = setsockopt( inContext->fd, SOL_SOCKET, SO_RCVTIMEO, &recvTimeoutVal, (socklen_t)sizeof(recvTimeoutVal) );
 			serverResult = SendFlushReadWithMutex( inContext, "QUIT", NULL, NULL, buf, sizeof(buf) );
         }
 	}
@@ -1299,7 +1293,7 @@ SInt32 CPSPlugIn::DoRSAValidation ( sPSContextData *inContext, const char *inUse
 				throw( (SInt32)eDSAuthFailed );
 		}
 		
-        int nonceLen = strlen(bnStr);
+        size_t nonceLen = strlen(bnStr);
 		
 		// just to be safe
 		if ( nonceLen > 256 ) {
@@ -1319,7 +1313,7 @@ SInt32 CPSPlugIn::DoRSAValidation ( sPSContextData *inContext, const char *inUse
 		strcpy( buf, bnStr );
 		strcat( buf, kDSRequestNonceHashStr );
 		
-		len = RSA_public_encrypt(nonceLen + sizeof(kDSRequestNonceHashStr),
+		len = RSA_public_encrypt((int)nonceLen + (int)sizeof(kDSRequestNonceHashStr),
 								 (unsigned char *)buf,
 								 (unsigned char *)encodedStr,
 								 inContext->rsaPublicKey->rsa,
@@ -1360,7 +1354,7 @@ SInt32 CPSPlugIn::DoRSAValidation ( sPSContextData *inContext, const char *inUse
 					// check for both hash and plain in case we are talking to a Jaguar server
 					if ( memcmp(md5Result, encodedStr, MD5_DIGEST_LENGTH) == 0 )
 					{
-						CAST_set_key( &inContext->castKey, nonceLen, (unsigned char *)bnStr );
+						CAST_set_key( &inContext->castKey, (int)nonceLen, (unsigned char *)bnStr );
 						bzero( inContext->castIV, sizeof(inContext->castIV) );
 						bzero( inContext->castReceiveIV, sizeof(inContext->castReceiveIV) );
 						inContext->castKeySet = true;
@@ -1464,11 +1458,11 @@ SInt32 CPSPlugIn::SetupSecureSyncSession( sPSContextData *inContext )
 				throw( (SInt32)eDSAuthFailed );
 		}
 		
-        int nonceLen = strlen(bnStr);
+        size_t nonceLen = strlen(bnStr);
         encryptedStr = (char *) calloc(1, kOneKBuffer);
         Throw_NULL( encryptedStr, eMemoryError );
         
-		len = RSA_public_encrypt(nonceLen + 1,
+		len = RSA_public_encrypt((int)nonceLen + 1,
 								 (unsigned char *)bnStr,
 								 (unsigned char *)encryptedStr,
 								 inContext->rsaPublicKey->rsa,
@@ -1505,7 +1499,7 @@ SInt32 CPSPlugIn::SetupSecureSyncSession( sPSContextData *inContext )
 		}
 		
 		// get the RSA-encrypted random
-		randomLength = ntohl( *((unsigned long *)encryptedStr) );
+		randomLength = ntohl( *((uint32_t *)encryptedStr) );
 		DEBUGLOG( "length of random from SYNC SESSIONKEY is %l", randomLength );
 		if ( randomLength > 128 )
 		{
@@ -1523,7 +1517,7 @@ SInt32 CPSPlugIn::SetupSecureSyncSession( sPSContextData *inContext )
 			throw( (SInt32)eDSNotAuthorized );
 		
 		// get the rc5-encrypted nonce
-		nonceLength = ntohl( *((unsigned long *)(encryptedStr + 4 + randomLength)) );
+		nonceLength = ntohl( *((uint32_t *)(encryptedStr + 4 + randomLength)) );
 		if ( nonceLength > 1024 )
 			throw( (SInt32)eDSAuthServerError );
 		
@@ -1546,14 +1540,14 @@ SInt32 CPSPlugIn::SetupSecureSyncSession( sPSContextData *inContext )
 				
 		// make rc5-encrypted nonce+1
 		nonceLen = strlen( buf );
-		for (int idx = 0; idx < nonceLen; idx++ )
+		for (int idx = 0; idx < (int)nonceLen; idx++ )
 			buf[idx]++;
 		
 		// include the 0-terminator
 		nonceLen++;
 		
 		// encrypt
-		for (int idx = 0; idx < nonceLen; idx += RC5_32_BLOCK )
+		for (int idx = 0; idx < (int)nonceLen; idx += RC5_32_BLOCK )
 			RC5_32_ecb_encrypt( (unsigned char *)buf + idx, (unsigned char *)encNonceStr + idx, &inContext->rc5Key, RC5_ENCRYPT );
 				
 		// send padded
@@ -1711,7 +1705,7 @@ SInt32 CPSPlugIn::CleanContextData ( sPSContextData *inContext )
 		
 		if ( inContext->replicaFile != nil )
 		{
-			[(ReplicaFile *)inContext->replicaFile free];
+			[(ReplicaFile *)inContext->replicaFile release];
 			inContext->replicaFile = nil;
 		}
 		
@@ -1878,7 +1872,7 @@ SInt32 CPSPlugIn::GetAttributeEntry ( sGetAttributeEntry *inData )
 			uiTotalValueSize += usValueLen;
 		}
 
-		uiAttrEntrySize = sizeof( tAttributeEntry ) + usAttrTypeLen + kBuffPad;
+		uiAttrEntrySize = (UInt32)sizeof( tAttributeEntry ) + usAttrTypeLen + kBuffPad;
 		pAttribInfo = (tAttributeEntry *)::calloc( 1, uiAttrEntrySize );
 
 		pAttribInfo->fAttributeValueCount				= usValueCnt;
@@ -2060,7 +2054,7 @@ UInt32 CPSPlugIn::CalcCRC ( char *inStr )
 
 	if ( inStr != NULL )
 	{
-		siStrLen = strlen( inStr );
+		siStrLen = (SInt32)strlen( inStr );
 
 		for ( siI = 0; siI < siStrLen; ++siI )
 		{
@@ -2631,7 +2625,7 @@ SInt32 CPSPlugIn::DoAuthenticationSetup ( sDoDirNodeAuth *inData )
 	}
 	else
 	{
-		if ( gContinue->VerifyItem( (void *)inData->fIOContinueData ) == false )
+		if ( gContinue->GetPointer( inData->fIOContinueData ) == NULL )
 			return( (SInt32)eDSInvalidContinueData );
 	}
 	
@@ -2646,27 +2640,14 @@ SInt32 CPSPlugIn::DoAuthenticationSetup ( sDoDirNodeAuth *inData )
 	}
 	
 	// make sure there is a server to contact
-	if ( pb.pContext->madeFirstContact )
+	if ( pb.pContext->madeFirstContact && Connected(pb.pContext) )
 	{
-		// make sure there is a connection
-		if ( Connected(pb.pContext) )
-		{
-			bNeedsRSAValidation = false;
-		}
-		else
-		{
-			// close out anything stale
-			EndServerSession( pb.pContext );
-			
-			gPWSConnMutex->Wait();
-			siResult = ConnectToServer( pb.pContext );
-			gPWSConnMutex->Signal();
-			if ( siResult != 0 )
-				return( siResult );
-		}
+		bNeedsRSAValidation = false;
 	}
 	else
 	{
+		if ( pb.pContext->madeFirstContact )
+			EndServerSession( pb.pContext );
 		if ( pb.userName != NULL && rsaKeyPtr != NULL )
 		{
 			pwsf_CalcServerUniqueID( rsaKeyPtr, hexHash );
@@ -2728,9 +2709,7 @@ SInt32 CPSPlugIn::DoAuthenticationSetup ( sDoDirNodeAuth *inData )
 				if ( pb.pContinue == NULL )
 					return eMemoryError;
 				
-				gContinue->AddItem( pb.pContinue, inData->fInNodeRef );
-				inData->fIOContinueData = pb.pContinue;
-				
+				inData->fIOContinueData = gContinue->AddPointer( pb.pContinue, inData->fInNodeRef );				
 				pb.pContinue->fAuthPass = 0;
 				pb.pContinue->fData = NULL;
 				pb.pContinue->fDataLen = 0;
@@ -2889,7 +2868,7 @@ SInt32 CPSPlugIn::DoAuthenticationSetup ( sDoDirNodeAuth *inData )
 								pb.pContext->last.successfulAuth = false;
 								
 								if ( inData->fIOContinueData != 0 ) {
-									gContinue->RemoveItem( inData->fIOContinueData );
+									gContinue->RemoveContext( inData->fIOContinueData );
 									inData->fIOContinueData = 0;
 								}
 								
@@ -2899,9 +2878,7 @@ SInt32 CPSPlugIn::DoAuthenticationSetup ( sDoDirNodeAuth *inData )
 									return eMemoryError;
 								}
 								
-								gContinue->AddItem( pb.pContinue, inData->fInNodeRef );
-								inData->fIOContinueData = pb.pContinue;
-								
+								inData->fIOContinueData = gContinue->AddPointer( pb.pContinue, inData->fInNodeRef );								
 								pb.pContinue->fAuthPass = 0;
 								pb.pContinue->fData = NULL;
 								pb.pContinue->fDataLen = 0;
@@ -2993,8 +2970,6 @@ SInt32 CPSPlugIn::DoAuthenticationSetup ( sDoDirNodeAuth *inData )
 				EndServerSession( pb.pContext, kSendQuit );
 			}
 		}
-		
-		gPSContextTable->DoOnAllItems( CPSPlugIn::ReleaseCloseWaitConnections );
 	}
 	
 	return( siResult );
@@ -3012,7 +2987,7 @@ CPSPlugIn::DoAuthenticationResponse( sDoDirNodeAuth *inData, CAuthParams &pb )
 	tDataBufferPtr		outBuf						= inData->fOutAuthStepDataResponse;
 	int					saslResult					= SASL_OK;
 	const char			*encodedStr					= NULL;
-	unsigned int		encodedStrLen				= 0;
+	unsigned int        encodedStrLen				= 0;
 	char				encoded64Str[kOneKBuffer];
 	char				buf[2 * kOneKBuffer];
 	PWServerError		result;
@@ -3355,7 +3330,7 @@ CPSPlugIn::DoAuthenticationResponse( sDoDirNodeAuth *inData, CAuthParams &pb )
 						{
 							memcpy( outBuf->fBufferData, &decodedStrLen, 4 );
 							memcpy( outBuf->fBufferData + 4, outData, decodedStrLen );
-							outBuf->fBufferLength = decodedStrLen;
+							outBuf->fBufferLength = (UInt32)decodedStrLen;
 						}
 						else
 						{
@@ -3494,7 +3469,7 @@ CPSPlugIn::DoAuthenticationResponse( sDoDirNodeAuth *inData, CAuthParams &pb )
 						return( PWSErrToDirServiceError(result) );
 					
 					// use encodedStrLen; it's available
-					encodedStrLen = strlen( buf );
+					encodedStrLen = (unsigned int)strlen( buf );
 					if ( outBuf->fBufferLength + encodedStrLen > outBuf->fBufferSize - 4 )
 						return( (SInt32)eDSBufferTooSmall );
 					
@@ -3572,15 +3547,15 @@ CPSPlugIn::DoAuthenticationResponse( sDoDirNodeAuth *inData, CAuthParams &pb )
 					gSASLMutex->Wait();
 					saslResult = sasl_decode(pb.pContext->conn,
 												pb.stepData,
-												decodedStrLen,
+												(unsigned int)decodedStrLen,
 												&decodedStr,
 												&decryptedStrLen);
 					gSASLMutex->Signal();
 					
 					// use encodedStrLen; it's available
-					encodedStrLen = 4 + decryptedStrLen + 4 + strlen(pb.pContext->rsaPublicKeyStr);
+					encodedStrLen = 4 + decryptedStrLen + 4 + (unsigned int)strlen(pb.pContext->rsaPublicKeyStr);
 					if ( replicaNamePtr != NULL )
-						encodedStrLen += 4 + strlen( replicaNamePtr );
+						encodedStrLen += 4 + (unsigned int)strlen( replicaNamePtr );
 					if ( encodedStrLen > outBuf->fBufferSize )
 						return( (SInt32)eDSBufferTooSmall );
 					
@@ -3594,24 +3569,24 @@ CPSPlugIn::DoAuthenticationResponse( sDoDirNodeAuth *inData, CAuthParams &pb )
 					outBuf->fBufferLength += decryptedStrLen;
 					
 					// put a 4-byte length in the buffer
-					encodedStrLen = strlen( pb.pContext->rsaPublicKeyStr );
+					encodedStrLen = (unsigned int)strlen( pb.pContext->rsaPublicKeyStr );
 					memcpy( outBuf->fBufferData + outBuf->fBufferLength, &encodedStrLen, 4 );
 					outBuf->fBufferLength += 4;
 					
 					// copy the public key
 					strcpy( outBuf->fBufferData + outBuf->fBufferLength, pb.pContext->rsaPublicKeyStr );
-					outBuf->fBufferLength += encodedStrLen;
+					outBuf->fBufferLength += (UInt32)encodedStrLen;
 					
 					if ( replicaNamePtr != NULL )
 					{
 						// put a 4-byte length in the buffer
-						encodedStrLen = strlen( replicaNamePtr );
+						encodedStrLen = (unsigned int)strlen( replicaNamePtr );
 						memcpy( outBuf->fBufferData + outBuf->fBufferLength, &encodedStrLen, 4 );
 						outBuf->fBufferLength += 4;
 						
 						// copy the replica name
 						strcpy( outBuf->fBufferData + outBuf->fBufferLength, replicaNamePtr );
-						outBuf->fBufferLength += encodedStrLen;
+						outBuf->fBufferLength += (UInt32)encodedStrLen;
 					}
 				}
 			}
@@ -3637,7 +3612,7 @@ CPSPlugIn::DoAuthenticationResponse( sDoDirNodeAuth *inData, CAuthParams &pb )
 		case kAuthProcessNoReply:
 			#pragma mark kAuthProcessNoReply
 			// get size from somewhere
-			snprintf( buf, sizeof(buf), "%lu", pb.pContext->pushByteCount );
+			snprintf( buf, sizeof(buf), "%u", pb.pContext->pushByteCount );
 			pb.pContext->pushByteCount = 0;
 			result = SendFlushReadWithMutex( pb.pContext, "SYNC PROCESS-NO-REPLY", buf, NULL, buf, sizeof(buf) );
 			siResult = PWSErrToDirServiceError( result );
@@ -3653,16 +3628,47 @@ CPSPlugIn::DoAuthenticationResponse( sDoDirNodeAuth *inData, CAuthParams &pb )
 			#pragma mark kAuthSMBWorkstationCredentialSessionKey
 			{
 				UInt32 paramLen;
+				UInt32 hashType = 0;
+				UInt32 hashLen = 0;
 				const char *decryptedStr;
 				unsigned long decodedStrLen;
 				unsigned decryptedStrLen;
 				char base64Param[30];
+				const char *hashStr = NULL;
 				
 				siResult = GetStringFromAuthBuffer( inData->fInAuthStepData, 1, &pb.userIDToSet );
 				if ( siResult == eDSNoErr )
 					siResult = GetDataFromAuthBuffer( inData->fInAuthStepData, 2, (unsigned char **)&pb.paramStr, &paramLen );
 				if ( siResult == eDSNoErr )
 				{
+					UInt32 *hashPtr = NULL;
+					bool serverSupport;
+					SInt32 hashResult = GetDataFromAuthBuffer( inData->fInAuthStepData, 3, (unsigned char **)&hashPtr, &hashLen);
+
+					DEBUGLOG("CPSPlugIn::GETWCSK hashResult: %d hashType: %d hashLen: %d", hashResult, hashPtr ? *hashPtr : -1, hashLen);
+
+					if( hashResult == eDSNoErr ) {
+						if( hashPtr )
+							hashType = *hashPtr;
+
+                		serverSupport = CheckServerVersionMin( pb.pContext->serverVers, 10, 6, 0, 0 );
+						if( (hashType != 0) && !serverSupport ) 
+						{
+							// Server doesn't support anything other than DES, error here                  
+							siResult = eDSAuthMethodNotSupported;
+							break;
+						}
+						
+						switch(hashType) {
+						case 1: hashStr = "MD5"; break;
+						default: break;
+						};
+					}
+				}
+
+				if ( siResult == eDSNoErr )
+				{
+					char cmdPlusUser[128];
 					if ( pb.userIDToSet == NULL || paramLen > 16 )
 						return( (SInt32)eDSInvalidBuffFormat );
 					
@@ -3671,7 +3677,8 @@ CPSPlugIn::DoAuthenticationResponse( sDoDirNodeAuth *inData, CAuthParams &pb )
 					if ( ConvertBinaryTo64( pb.paramStr, paramLen, base64Param ) != SASL_OK )
 						return( (SInt32)eParameterError );
 					
-					result = SendFlushReadWithMutex( pb.pContext, "GETWCSK", pb.userIDToSet, base64Param, buf, sizeof(buf) );
+					snprintf(cmdPlusUser, sizeof(cmdPlusUser), "GETWCSK %s", pb.userIDToSet);
+					result = SendFlushReadWithMutex( pb.pContext, cmdPlusUser, base64Param, hashStr, buf, sizeof(buf) );
 					if ( result.err != 0 )
 						return( PWSErrToDirServiceError(result) );
 					
@@ -3691,7 +3698,7 @@ CPSPlugIn::DoAuthenticationResponse( sDoDirNodeAuth *inData, CAuthParams &pb )
 					gSASLMutex->Wait();
 					saslResult = sasl_decode( pb.pContext->conn,
 												pb.stepData,
-												decodedStrLen,
+												(unsigned int)decodedStrLen,
 												&decryptedStr,
 												&decryptedStrLen);
 					gSASLMutex->Signal();
@@ -3788,7 +3795,7 @@ CPSPlugIn::DoAuthenticationResponse( sDoDirNodeAuth *inData, CAuthParams &pb )
 				gSASLMutex->Wait();
 				saslResult = sasl_decode( pb.pContext->conn,
 											pb.stepData,
-											buffItemLen,
+											(unsigned int)buffItemLen,
 											&decryptedStr,
 											&decryptedStrLen);
 				gSASLMutex->Signal();
@@ -3797,7 +3804,7 @@ CPSPlugIn::DoAuthenticationResponse( sDoDirNodeAuth *inData, CAuthParams &pb )
 					return( (SInt32)eDSBufferTooSmall );
 				
 				buffItemLen = decryptedStr[0];
-				outBuf->fBufferLength = buffItemLen * 2 + 8;
+				outBuf->fBufferLength = (uint32_t)buffItemLen * 2 + 8;
 				memcpy( outBuf->fBufferData, &buffItemLen, 4 );
 				memcpy( outBuf->fBufferData + 4, decryptedStr + 1, buffItemLen );
 				memcpy( outBuf->fBufferData + 4 + buffItemLen, &buffItemLen, 4 );
@@ -3844,26 +3851,24 @@ CPSPlugIn::DoAuthenticationResponse( sDoDirNodeAuth *inData, CAuthParams &pb )
 SInt32 CPSPlugIn::DoAuthMethodNewUser( sDoDirNodeAuth *inData, sPSContextData *inContext, bool inWithPolicy, tDataBufferPtr outBuf )
 {
 	SInt32					siResult			= eDSNoErr;
-	char					*princToSet			= NULL;
+	char					*userNameToSet		= NULL;
 	char					*paramStr			= NULL;
 	char					*policyStr			= NULL;
 	int						saslResult			= SASL_OK;
 	const char				*encodedStr			= NULL;
-	unsigned int			encodedStrLen		= 0;
+	unsigned int            encodedStrLen		= 0;
 	long					commandStrLen		= 0;
 	long					policyStrLen		= 0;
-	unsigned long			princToSetStrLen	= 0;
+	unsigned long			userToSetStrLen	= 0;
 	bool					needPolicyLater		= false;
-	bool					hasDotInName		= false;
 	NewUserParamListType	paramListType		= kNewUserParamsNone;
 	PWServerError			result				= {0};
 	char					buf[kOneKBuffer];
 	char					encoded64Str[kOneKBuffer];
-	char					userNameToSet[kOneKBuffer];
 	
 	try
 	{
-		siResult = GetStringFromAuthBuffer( inData->fInAuthStepData, 3, &princToSet );
+		siResult = GetStringFromAuthBuffer( inData->fInAuthStepData, 3, &userNameToSet );
 		if ( siResult == eDSNoErr )
 			siResult = GetStringFromAuthBuffer( inData->fInAuthStepData, 4, &paramStr );
 			if ( siResult == eDSNoErr && inWithPolicy )
@@ -3871,13 +3876,12 @@ SInt32 CPSPlugIn::DoAuthMethodNewUser( sDoDirNodeAuth *inData, sPSContextData *i
 
 		if ( siResult == eDSNoErr )
 		{
-			if ( princToSet == NULL || paramStr == NULL )
+			if ( userNameToSet == NULL || paramStr == NULL )
 				throw( (SInt32)eDSInvalidBuffFormat );
-			princToSetStrLen = strlen( princToSet );
-			if ( princToSetStrLen == 0 )
+			userToSetStrLen = strlen(userNameToSet);
+			if ( userToSetStrLen == 0 )
 				DEBUGLOG( "CPSPlugIn::DoAuthMethodNewUser(): empty username in buffer" );
-			if ( princToSetStrLen == 0 ||
-				 princToSetStrLen >= sizeof(userNameToSet) ||
+			if ( userToSetStrLen == 0 ||
 				 strlen(paramStr) >= kChangePassPaddedBufferSize )
 			{
 				throw( (SInt32)eDSAuthParameterError );
@@ -3910,36 +3914,13 @@ SInt32 CPSPlugIn::DoAuthMethodNewUser( sDoDirNodeAuth *inData, sPSContextData *i
 					throw( (SInt32)eDSAuthServerError );
 				
 				// figure out the param list type
-				{
-					long shortnameLen;
-					char *tptr = strchr( princToSet, '.' );
-					
-					hasDotInName = ( tptr != NULL );
-					if ( hasDotInName )
-					{
-						shortnameLen = (long)(tptr - princToSet);
-						if ( shortnameLen > 0 )
-						{
-							strlcpy( userNameToSet, princToSet, shortnameLen + 1 );
-						}
-						else
-						{
-							strcpy( userNameToSet, princToSet );
-						}
-					}
-					else
-					{
-						strcpy( userNameToSet, princToSet );
-					}
-				}
-				
 				if ( inWithPolicy )
 				{
-					paramListType = hasDotInName ? kNewUserParamsPrincipalNameAndPolicy : kNewUserParamsPolicy;
+					paramListType = kNewUserParamsPolicy;
 				}
 				else
 				{
-					paramListType = hasDotInName ? kNewUserParamsPrincipalName : kNewUserParamsNone;
+					paramListType = kNewUserParamsNone;
 				}
 				
 				// construct the param list
@@ -3964,27 +3945,6 @@ SInt32 CPSPlugIn::DoAuthMethodNewUser( sDoDirNodeAuth *inData, sPSContextData *i
 							result = SendFlushReadWithMutex( inContext, buf, NULL, NULL, buf, sizeof(buf) );
 						}
 						break;
-	
-					case kNewUserParamsPrincipalName:
-						result = SendFlushReadWithMutex( inContext, buf, "WITHPRINC", princToSet, buf, sizeof(buf) );
-						break;
-	
-					case kNewUserParamsPrincipalNameAndPolicy:
-						if ( policyStr != NULL )
-							policyStrLen = strlen( policyStr );
-						needPolicyLater = (commandStrLen + sizeof(" WITHPRINC_AND_POLICY ") + princToSetStrLen + 1 + policyStrLen + 2 > 1535);
-						if ( policyStrLen > 0 && !needPolicyLater )
-						{
-							strcat( buf, " WITHPRINC_AND_POLICY " );
-							strlcat( buf, princToSet, sizeof(buf) );
-							
-							result = SendFlushReadWithMutex( inContext, buf, policyStr, NULL, buf, sizeof(buf) );
-						}
-						else
-						{
-							result = SendFlushReadWithMutex( inContext, buf, "WITHPRINC", princToSet, buf, sizeof(buf) );
-						}
-						break;
 				}
 				
 				if ( result.err != 0 )
@@ -3993,7 +3953,7 @@ SInt32 CPSPlugIn::DoAuthMethodNewUser( sDoDirNodeAuth *inData, sPSContextData *i
 				sasl_chop( buf );
 				
 				// use encodedStrLen; it's available
-				encodedStrLen = strlen(buf) + 1 + strlen(inContext->rsaPublicKeyStr);
+				encodedStrLen = (unsigned int)strlen(buf) + 1 + (unsigned int)strlen(inContext->rsaPublicKeyStr);
 				if ( encodedStrLen > outBuf->fBufferSize )
 					throw( (SInt32)eDSBufferTooSmall );
 				
@@ -4003,9 +3963,9 @@ SInt32 CPSPlugIn::DoAuthMethodNewUser( sDoDirNodeAuth *inData, sPSContextData *i
 				outBuf->fBufferLength = 4;
 				
 				// copy the ID
-				encodedStrLen = strlen( buf + 4 );
+				encodedStrLen = (unsigned int)strlen( buf + 4 );
 				memcpy( outBuf->fBufferData + outBuf->fBufferLength, buf+4, encodedStrLen );
-				outBuf->fBufferLength += encodedStrLen;
+				outBuf->fBufferLength += (UInt32)encodedStrLen;
 				
 				// add a separator
 				outBuf->fBufferData[outBuf->fBufferLength] = ',';
@@ -4013,7 +3973,7 @@ SInt32 CPSPlugIn::DoAuthMethodNewUser( sDoDirNodeAuth *inData, sPSContextData *i
 			
 				// copy the public key
 				strcpy( outBuf->fBufferData + outBuf->fBufferLength, inContext->rsaPublicKeyStr );
-				outBuf->fBufferLength += strlen(inContext->rsaPublicKeyStr);
+				outBuf->fBufferLength += (uint32_t)strlen(inContext->rsaPublicKeyStr);
 			
 				if ( needPolicyLater && policyStrLen > 0 )
 				{
@@ -4034,7 +3994,7 @@ SInt32 CPSPlugIn::DoAuthMethodNewUser( sDoDirNodeAuth *inData, sPSContextData *i
 	{
 	}
 	
-	DSFreeString( princToSet );
+	DSFreeString( userNameToSet );
 	DSFreeString( paramStr );
 	DSFreeString( policyStr );
 	
@@ -4054,7 +4014,7 @@ SInt32 CPSPlugIn::DoAuthMethodNewComputer( sDoDirNodeAuth *inData, sPSContextDat
 	char					*ownerList			= NULL;
 	int						saslResult			= SASL_OK;
 	const char				*encodedStr			= NULL;
-	unsigned int			encodedStrLen		= 0;
+	unsigned int            encodedStrLen		= 0;
 	long					commandStrLen		= 0;
 	PWServerError			result				= {0};
 	char					buf[kOneKBuffer];
@@ -4109,7 +4069,7 @@ SInt32 CPSPlugIn::DoAuthMethodNewComputer( sDoDirNodeAuth *inData, sPSContextDat
 			sasl_chop( buf );
 			
 			// use encodedStrLen; it's available
-			encodedStrLen = strlen(buf) + 1 + strlen(inContext->rsaPublicKeyStr);
+			encodedStrLen = (unsigned int)strlen(buf) + 1 + (unsigned int)strlen(inContext->rsaPublicKeyStr);
 			if ( encodedStrLen > outBuf->fBufferSize )
 				throw( (SInt32)eDSBufferTooSmall );
 			
@@ -4119,9 +4079,9 @@ SInt32 CPSPlugIn::DoAuthMethodNewComputer( sDoDirNodeAuth *inData, sPSContextDat
 			outBuf->fBufferLength = 4;
 			
 			// copy the ID
-			encodedStrLen = strlen( buf + 4 );
+			encodedStrLen = (unsigned int)strlen( buf + 4 );
 			memcpy( outBuf->fBufferData + outBuf->fBufferLength, buf+4, encodedStrLen );
-			outBuf->fBufferLength += encodedStrLen;
+			outBuf->fBufferLength += (UInt32)encodedStrLen;
 			
 			// add a separator
 			outBuf->fBufferData[outBuf->fBufferLength] = ',';
@@ -4129,7 +4089,7 @@ SInt32 CPSPlugIn::DoAuthMethodNewComputer( sDoDirNodeAuth *inData, sPSContextDat
 			
 			// copy the public key
 			strcpy( outBuf->fBufferData + outBuf->fBufferLength, inContext->rsaPublicKeyStr );
-			outBuf->fBufferLength += strlen(inContext->rsaPublicKeyStr);
+			outBuf->fBufferLength += (UInt32)strlen(inContext->rsaPublicKeyStr);
 		}
 	}
 	catch( SInt32 error )
@@ -4256,8 +4216,8 @@ SInt32 CPSPlugIn::DoAuthMethodListReplicas( sDoDirNodeAuth *inData, sPSContextDa
 	SInt32				siResult				= eDSNoErr;
 	sPSContinueData		*pContinue				= NULL;
 	char				*replicaDataBuff		= NULL;
-	unsigned long		replicaDataReceived		= 0;
-	unsigned long		replicaDataLen			= 0;
+	unsigned long       replicaDataReceived		= 0;
+	unsigned long       replicaDataLen			= 0;
 	
 	try
 	{
@@ -4268,7 +4228,7 @@ SInt32 CPSPlugIn::DoAuthMethodListReplicas( sDoDirNodeAuth *inData, sPSContextDa
 		if ( inData->fIOContinueData != 0 )
 		{
 			// already verified in DoAuthentication()
-			pContinue = (sPSContinueData *)inData->fIOContinueData;
+			pContinue = (sPSContinueData*)gContinue->GetPointer( inData->fIOContinueData );
 			
 			replicaDataLen = pContinue->fDataLen - pContinue->fDataPos;
 			if ( 4 + replicaDataLen > outBuf->fBufferSize )
@@ -4276,14 +4236,15 @@ SInt32 CPSPlugIn::DoAuthMethodListReplicas( sDoDirNodeAuth *inData, sPSContextDa
 			
 			memcpy( outBuf->fBufferData, &replicaDataLen, 4 );
 			memcpy( outBuf->fBufferData + 4, pContinue->fData + pContinue->fDataPos, replicaDataLen );
-			outBuf->fBufferLength = 4 + replicaDataLen;
+			outBuf->fBufferLength = 4 + (UInt32)replicaDataLen;
 			
-			pContinue->fDataPos += replicaDataLen;
+			pContinue->fDataPos += (UInt32)replicaDataLen;
 			
 			if ( pContinue->fDataPos >= pContinue->fDataLen )
 			{
 				// we are done
-				gContinue->RemoveItem( pContinue );
+				gContinue->RemovePointer( pContinue );
+                pContinue = NULL;
 				inData->fIOContinueData = 0;
 			}
 		}
@@ -4301,8 +4262,7 @@ SInt32 CPSPlugIn::DoAuthMethodListReplicas( sDoDirNodeAuth *inData, sPSContextDa
 					pContinue = (sPSContinueData *)::calloc( 1, sizeof( sPSContinueData ) );
 					Throw_NULL( pContinue, eMemoryError );
 					
-					gContinue->AddItem( pContinue, inData->fInNodeRef );
-					inData->fIOContinueData = pContinue;
+					inData->fIOContinueData = gContinue->AddPointer( pContinue, inData->fInNodeRef );
 				}
 				else
 				{
@@ -4310,7 +4270,7 @@ SInt32 CPSPlugIn::DoAuthMethodListReplicas( sDoDirNodeAuth *inData, sPSContextDa
 				}
 				
 				pContinue->fData = (unsigned char *) replicaDataBuff;
-				pContinue->fDataLen = replicaDataReceived;
+				pContinue->fDataLen = (UInt32)replicaDataReceived;
 				
 				pContinue->fDataPos = outBuf->fBufferSize - 4;
 				memcpy( outBuf->fBufferData, &(pContinue->fDataPos), 4 );
@@ -4321,7 +4281,7 @@ SInt32 CPSPlugIn::DoAuthMethodListReplicas( sDoDirNodeAuth *inData, sPSContextDa
 			{
 				memcpy( outBuf->fBufferData, &replicaDataReceived, 4 );
 				memcpy( outBuf->fBufferData + 4, replicaDataBuff, replicaDataReceived );
-				outBuf->fBufferLength = 4 + replicaDataReceived;
+				outBuf->fBufferLength = 4 + (UInt32)replicaDataReceived;
 				
 				free( replicaDataBuff );
 				replicaDataBuff = NULL;
@@ -4366,10 +4326,10 @@ SInt32 CPSPlugIn::DoAuthMethodPull( sDoDirNodeAuth *inData, sPSContextData *inCo
 		outBuf->fBufferLength = 0;
 		
 		// repeat visit?
-		if ( inData->fIOContinueData != NULL )
+		if ( inData->fIOContinueData != 0 )
 		{
 			// already verified in DoAuthentication()
-			pContinue = (sPSContinueData *)inData->fIOContinueData;
+			pContinue = (sPSContinueData*)gContinue->GetPointer( inData->fIOContinueData );
 			if ( pContinue != NULL )
 			{
 				if ( pContinue->fData != NULL )
@@ -4383,8 +4343,9 @@ SInt32 CPSPlugIn::DoAuthMethodPull( sDoDirNodeAuth *inData, sPSContextData *inCo
 				else
 				{
 					// we are done
-					gContinue->RemoveItem( pContinue );
-					inData->fIOContinueData = NULL;
+					gContinue->RemovePointer( pContinue );
+                    pContinue = NULL;
+					inData->fIOContinueData = 0;
 				}
 			}
 		}
@@ -4432,31 +4393,31 @@ SInt32 CPSPlugIn::DoAuthMethodPull( sDoDirNodeAuth *inData, sPSContextData *inCo
 			{
 				case kDBTypeLastSyncTime:
 					// no compression, nothing to do
-					siResult = dsAppendAuthBuffer( outBuf, 1, sizeof(SInt16) + dataLen, decryptPtr );
+					siResult = dsAppendAuthBuffer( outBuf, 1, (UInt32)sizeof(SInt16) + dataLen, decryptPtr );
 					dataTypeDesc = "kDBTypeLastSyncTime";
 					break;
 				
 				case kDBTypeHeader:
 					*((SInt16 *)dbHeaderBlock) = (SInt16)dataType;
-					siResult = pwsf_expand_header( decryptPtr + sizeof(SInt16), dataLen,
+					siResult = pwsf_expand_header( decryptPtr + (UInt32)sizeof(SInt16), dataLen,
 													(PWFileHeader *)&dbHeaderBlock[sizeof(SInt16)] );
 					if ( siResult == eDSNoErr )
-						siResult = dsAppendAuthBuffer( outBuf, 1, sizeof(SInt16) + sizeof(PWFileHeader), dbHeaderBlock );
+						siResult = dsAppendAuthBuffer( outBuf, 1, (UInt32)(sizeof(SInt16) + sizeof(PWFileHeader)), dbHeaderBlock );
 					dataTypeDesc = "kDBTypeHeader";
 					break;
 				
 				case kDBTypeSlot:
 					*((SInt16 *)passRecBlock) = (SInt16)dataType;
-					siResult = pwsf_expand_slot( decryptPtr + sizeof(SInt16), dataLen,
+					siResult = pwsf_expand_slot( decryptPtr + (UInt32)sizeof(SInt16), dataLen,
 													(PWFileEntry *)&passRecBlock[sizeof(SInt16)] );
 					if ( siResult == eDSNoErr )
-						siResult = dsAppendAuthBuffer( outBuf, 1, sizeof(SInt16) + sizeof(PWFileEntry), passRecBlock );
+						siResult = dsAppendAuthBuffer( outBuf, 1, (UInt32)(sizeof(SInt16) + sizeof(PWFileEntry)), passRecBlock );
 					dataTypeDesc = "kDBTypeSlot";
 					break;
 				
 				case kDBTypeKerberosPrincipal:
 					// no compression, nothing to do
-					siResult = dsAppendAuthBuffer( outBuf, 1, sizeof(SInt16) + dataLen, decryptPtr );
+					siResult = dsAppendAuthBuffer( outBuf, 1, (UInt32)sizeof(SInt16) + dataLen, decryptPtr );
 					dataTypeDesc = "kDBTypeKerberosPrincipal";
 				break;
 			}
@@ -4470,8 +4431,7 @@ SInt32 CPSPlugIn::DoAuthMethodPull( sDoDirNodeAuth *inData, sPSContextData *inCo
 					pContinue = (sPSContinueData *) calloc( 1, sizeof(sPSContinueData) );
 					Throw_NULL( pContinue, eMemoryError );
 					
-					gContinue->AddItem( pContinue, inData->fInNodeRef );
-					inData->fIOContinueData = pContinue;
+					inData->fIOContinueData = gContinue->AddPointer( pContinue, inData->fInNodeRef );
 				}
 				
 				pContinue->fData = decryptPtr;
@@ -4596,7 +4556,7 @@ SInt32 CPSPlugIn::DoAuthMethodPush( sDoDirNodeAuth *inData, sPSContextData *inCo
 		
 		if ( siResult == eDSNoErr )
 		{
-			snprintf( buf, sizeof(buf), "SYNC PUSH %lu", *dataType );
+			snprintf( buf, sizeof(buf), "SYNC PUSH %u", (unsigned int)*dataType );
 			result = SendFlushReadWithMutex( inContext, buf, paramStr, NULL, buf, sizeof(buf) );
 			siResult = PWSErrToDirServiceError( result );
 			if ( siResult != eDSNoErr )
@@ -4681,7 +4641,7 @@ SInt32 CPSPlugIn::DoAuthMethodNTUserSessionKey(
 				gSASLMutex->Wait();
 				saslResult = sasl_decode( inContext->conn,
 											stepData,
-											decodedStrLen,
+											(unsigned int)decodedStrLen,
 											&decryptedStr,
 											&decryptedStrLen);
 				gSASLMutex->Signal();
@@ -4717,8 +4677,7 @@ SInt32 CPSPlugIn::DoAuthMethodNTUserSessionKey(
 					pContinue = (sPSContinueData *) calloc( 1, sizeof( sPSContinueData ) );
 					Throw_NULL( pContinue, eMemoryError );
 					
-					gContinue->AddItem( pContinue, inData->fInNodeRef );
-					inData->fIOContinueData = pContinue;
+					inData->fIOContinueData = gContinue->AddPointer( pContinue, inData->fInNodeRef );
 				}
 				
 				siResult = DoSASLAuth( inContext, userID, password, 32, NULL, "SMB-NT", inData, &stepData );
@@ -4855,7 +4814,7 @@ SInt32 CPSPlugIn::DoAuthMethodEncryptToUser( sDoDirNodeAuth *inData, sPSContextD
 				if ( outBuf->fBufferSize < 4 + binBufLen )
 					throw( (SInt32)eDSBufferTooSmall );
 				
-				outBuf->fBufferLength = 4 + binBufLen;
+				outBuf->fBufferLength = 4 + (UInt32)binBufLen;
 				memcpy( outBuf->fBufferData, &binBufLen, 4 );
 				memcpy( outBuf->fBufferData + 4, binBuf, binBufLen );
 			}
@@ -4921,7 +4880,7 @@ SInt32 CPSPlugIn::DoAuthMethodDecrypt( sDoDirNodeAuth *inData, sPSContextData *i
 		if ( (binBufLen % 16) )
 			binBufLen += 16 - (binBufLen % 16);
 		gSASLMutex->Wait();
-		saslResult = sasl_decode( inContext->conn, binBuf, binBufLen, &decodedStr, &decodedStrLen ); 
+		saslResult = sasl_decode( inContext->conn, binBuf, (unsigned int)binBufLen, &decodedStr, &decodedStrLen ); 
 		gSASLMutex->Signal();
 		if ( saslResult != SASL_OK )
 			throw( (SInt32)eDSAuthFailed );
@@ -4930,7 +4889,7 @@ SInt32 CPSPlugIn::DoAuthMethodDecrypt( sDoDirNodeAuth *inData, sPSContextData *i
 			throw( (SInt32)eDSBufferTooSmall );
 
 		binBufLen = (UInt32)decodedStrLen;
-		outBuf->fBufferLength = binBufLen + 4;
+		outBuf->fBufferLength = (UInt32)binBufLen + 4;
 		memcpy( outBuf->fBufferData, &binBufLen, 4 );
 		memcpy( outBuf->fBufferData + 4, decodedStr, binBufLen );
 	}
@@ -5096,7 +5055,7 @@ SInt32 CPSPlugIn::DoAuthMethodNTLMv2SessionKey(
 		gSASLMutex->Wait();
 		saslResult = sasl_decode( inContext->conn,
 									stepData,
-									decodedStrLen,
+									(unsigned int)decodedStrLen,
 									&decryptedStr,
 									&decryptedStrLen );
 		gSASLMutex->Signal();
@@ -5130,8 +5089,7 @@ SInt32 CPSPlugIn::DoAuthMethodNTLMv2SessionKey(
 				pContinue = (sPSContinueData *) calloc( 1, sizeof(sPSContinueData) );
 				Throw_NULL( pContinue, eMemoryError );
 				
-				gContinue->AddItem( pContinue, inData->fInNodeRef );
-				inData->fIOContinueData = pContinue;
+				inData->fIOContinueData = gContinue->AddPointer( pContinue, inData->fInNodeRef );
 			}
 			
 			siResult = DoSASLAuth( inContext, userName, passwordStr, passwordLen, challenge, "SMB-NTLMv2", inData, &stepData );
@@ -5176,7 +5134,7 @@ SInt32 CPSPlugIn::DoAuthMethodGetStats( sDoDirNodeAuth *inData, sPSContextData *
 	sPSContinueData		*pContinue				= NULL;
 	char				*statDataBuff			= NULL;
 	unsigned long		statDataReceived		= 0;
-	unsigned long		statDataLen				= 0;
+	unsigned int		statDataLen				= 0;
 	char				commandBuff[256]		= {0,};
 	int					sampleCount				= 0;
 	
@@ -5189,7 +5147,7 @@ SInt32 CPSPlugIn::DoAuthMethodGetStats( sDoDirNodeAuth *inData, sPSContextData *
 		if ( inData->fIOContinueData != 0 )
 		{
 			// already verified in DoAuthentication()
-			pContinue = (sPSContinueData *)inData->fIOContinueData;
+			pContinue = (sPSContinueData*)gContinue->GetPointer( inData->fIOContinueData );
 			
 			statDataLen = pContinue->fDataLen - pContinue->fDataPos;
 			if ( 4 + statDataLen > outBuf->fBufferSize )
@@ -5204,7 +5162,8 @@ SInt32 CPSPlugIn::DoAuthMethodGetStats( sDoDirNodeAuth *inData, sPSContextData *
 			if ( pContinue->fDataPos >= pContinue->fDataLen )
 			{
 				// we are done
-				gContinue->RemoveItem( pContinue );
+				gContinue->RemovePointer( pContinue );
+                pContinue = NULL;
 				inData->fIOContinueData = 0;
 			}
 		}
@@ -5237,8 +5196,7 @@ SInt32 CPSPlugIn::DoAuthMethodGetStats( sDoDirNodeAuth *inData, sPSContextData *
 					pContinue = (sPSContinueData *)::calloc( 1, sizeof( sPSContinueData ) );
 					Throw_NULL( pContinue, eMemoryError );
 					
-					gContinue->AddItem( pContinue, inData->fInNodeRef );
-					inData->fIOContinueData = pContinue;
+					inData->fIOContinueData = gContinue->AddPointer( pContinue, inData->fInNodeRef );
 				}
 				else
 				{
@@ -5246,7 +5204,7 @@ SInt32 CPSPlugIn::DoAuthMethodGetStats( sDoDirNodeAuth *inData, sPSContextData *
 				}
 				
 				pContinue->fData = (unsigned char *) statDataBuff;
-				pContinue->fDataLen = statDataReceived;
+				pContinue->fDataLen = (uint32_t)statDataReceived;
 				
 				pContinue->fDataPos = outBuf->fBufferSize - 4;
 				memcpy( outBuf->fBufferData, &(pContinue->fDataPos), 4 );
@@ -5257,7 +5215,7 @@ SInt32 CPSPlugIn::DoAuthMethodGetStats( sDoDirNodeAuth *inData, sPSContextData *
 			{
 				memcpy( outBuf->fBufferData, &statDataReceived, 4 );
 				memcpy( outBuf->fBufferData + 4, statDataBuff, statDataReceived );
-				outBuf->fBufferLength = 4 + statDataReceived;
+				outBuf->fBufferLength = 4 + (UInt32)statDataReceived;
 				
 				free( statDataBuff );
 				statDataBuff = NULL;
@@ -5291,7 +5249,7 @@ SInt32 CPSPlugIn::DoAuthMethodGetChangeList( sDoDirNodeAuth *inData, sPSContextD
 	sPSContinueData		*pContinue				= NULL;
 	char				*statDataBuff			= NULL;
 	unsigned long		statDataReceived		= 0;
-	unsigned long		statDataLen				= 0;
+	unsigned int		statDataLen				= 0;
 	
 	try
 	{
@@ -5302,7 +5260,7 @@ SInt32 CPSPlugIn::DoAuthMethodGetChangeList( sDoDirNodeAuth *inData, sPSContextD
 		if ( inData->fIOContinueData != 0 )
 		{
 			// already verified in DoAuthentication()
-			pContinue = (sPSContinueData *)inData->fIOContinueData;
+			pContinue = (sPSContinueData*)gContinue->GetPointer( inData->fIOContinueData );
 			
 			statDataLen = pContinue->fDataLen - pContinue->fDataPos;
 			if ( 4 + statDataLen > outBuf->fBufferSize )
@@ -5317,7 +5275,8 @@ SInt32 CPSPlugIn::DoAuthMethodGetChangeList( sDoDirNodeAuth *inData, sPSContextD
 			if ( pContinue->fDataPos >= pContinue->fDataLen )
 			{
 				// we are done
-				gContinue->RemoveItem( pContinue );
+				gContinue->RemovePointer( pContinue );
+                pContinue = NULL;
 				inData->fIOContinueData = 0;
 			}
 		}
@@ -5335,8 +5294,7 @@ SInt32 CPSPlugIn::DoAuthMethodGetChangeList( sDoDirNodeAuth *inData, sPSContextD
 					pContinue = (sPSContinueData *)::calloc( 1, sizeof( sPSContinueData ) );
 					Throw_NULL( pContinue, eMemoryError );
 					
-					gContinue->AddItem( pContinue, inData->fInNodeRef );
-					inData->fIOContinueData = pContinue;
+					inData->fIOContinueData = gContinue->AddPointer( pContinue, inData->fInNodeRef );
 				}
 				else
 				{
@@ -5344,7 +5302,7 @@ SInt32 CPSPlugIn::DoAuthMethodGetChangeList( sDoDirNodeAuth *inData, sPSContextD
 				}
 				
 				pContinue->fData = (unsigned char *) statDataBuff;
-				pContinue->fDataLen = statDataReceived;
+				pContinue->fDataLen = (uint32_t)statDataReceived;
 				
 				pContinue->fDataPos = outBuf->fBufferSize - 3;
 				memcpy( outBuf->fBufferData, &(pContinue->fDataPos), 4 );
@@ -5355,7 +5313,7 @@ SInt32 CPSPlugIn::DoAuthMethodGetChangeList( sDoDirNodeAuth *inData, sPSContextD
 			{
 				memcpy( outBuf->fBufferData, &statDataReceived, 4 );
 				memcpy( outBuf->fBufferData + 4, statDataBuff + 1, statDataReceived );
-				outBuf->fBufferLength = 4 + statDataReceived;
+				outBuf->fBufferLength = 4 + (UInt32)statDataReceived;
 				
 				free( statDataBuff );
 				statDataBuff = NULL;
@@ -5392,7 +5350,6 @@ SInt32 CPSPlugIn::SetServiceInfo( sDoDirNodeAuth *inData, sPSContextData *inCont
 	char					*plistStr				= NULL;
 	char					*infoStr				= NULL;
 	char					*base64Str				= NULL;
-	UInt32					plistStrLen				= 0;
 	CFDataRef				plistData				= NULL;
 	CFDictionaryRef			plistDict				= NULL;
 	CFDictionaryRef			infoDict				= NULL;
@@ -5407,8 +5364,7 @@ SInt32 CPSPlugIn::SetServiceInfo( sDoDirNodeAuth *inData, sPSContextData *inCont
 		if ( GetStringFromAuthBuffer(inData->fOutAuthStepDataResponse, 1, &plistStr) == eDSNoErr && plistStr != NULL )
 		{
 			// make sure we got a plist
-			plistStrLen = strlen( plistStr );
-			plistData = CFDataCreate( kCFAllocatorDefault, (const unsigned char *)plistStr, plistStrLen );
+			plistData = CFDataCreate( kCFAllocatorDefault, (const unsigned char *)plistStr, strlen( plistStr ) );
 			if ( plistData == NULL ) {
 				siResult = eMemoryError;
 				break;
@@ -5753,7 +5709,7 @@ CPSPlugIn::PackStepBuffer( const char *inArg1, bool inUseBuffPlus4, const char *
 		
 		// put the data in the buffer
 		memcpy( inOutDataBuffer->fBufferData + inOutDataBuffer->fBufferLength, arg[argIndex], lengthOfArg[argIndex] );
-		inOutDataBuffer->fBufferLength += lengthOfArg[argIndex];
+		inOutDataBuffer->fBufferLength += (UInt32)lengthOfArg[argIndex];
 	}
 	
 	return eDSNoErr;
@@ -5815,8 +5771,8 @@ CPSPlugIn::UnpackUsernameAndPassword(
                     if ( challenge == NULL || digest == NULL )
                     	throw( (SInt32)eDSAuthParameterError );
                     
-                    long challengeLen = strlen((char *)challenge);
-                    long digestLen = strlen((char *)digest);
+                    UInt32 challengeLen = (UInt32)strlen((char *)challenge);
+                    UInt32 digestLen = (UInt32)strlen((char *)digest);
                     
                     if ( challengeLen > 0 && digestLen > 0 )
                     {
@@ -5852,7 +5808,7 @@ CPSPlugIn::UnpackUsernameAndPassword(
 				siResult = Get2StringsFromAuthBuffer( inAuthBuf, outUserName, (char **)&challenge );
 				if ( siResult == eDSNoErr )
 					siResult = GetDataFromAuthBuffer( inAuthBuf, 3, &digest, &len );
-				if ( siResult == eDSNoErr && digest != NULL)
+				if ( siResult == eDSNoErr && digest != NULL )
 				{
 					GetStringFromAuthBuffer( inAuthBuf, 4, &method );
 					
@@ -5865,7 +5821,8 @@ CPSPlugIn::UnpackUsernameAndPassword(
 					memcpy( (*outPassword) + 1, digest, len );
 					*outPasswordLen = len + 1;
 					
-					if( method != NULL ) {
+					if ( method != NULL )
+					{
 						*outChallenge = (char *) malloc( strlen((char *)challenge) + sizeof(kPWSPlugInDigestMethodStr) + strlen(method) + 1 );
 						strcpy( *outChallenge, (char *)challenge );
 						strcat( *outChallenge, kPWSPlugInDigestMethodStr );
@@ -5896,7 +5853,7 @@ CPSPlugIn::UnpackUsernameAndPassword(
 					memcpy( (*outPassword) + 16, method, 16 );
 					memcpy( (*outPassword) + 40, digest, len );
 					strcpy( (*outPassword) + 65, user );
-					*outPasswordLen = 65 + strlen( user );
+					*outPasswordLen = 65 + (UInt32)strlen( user );
 				}
                 break;
 			
@@ -5905,8 +5862,8 @@ CPSPlugIn::UnpackUsernameAndPassword(
 				if ( siResult == eDSNoErr )
 				{
 					UInt32 challengeLen = 0;
-					long userLen = 0;
-					long domainLen = 0;
+					UInt32 userLen = 0;
+					UInt32 domainLen = 0;
 					
 					siResult = GetDataFromAuthBuffer( inAuthBuf, 2, &challenge, &challengeLen );
 					if ( siResult == eDSNoErr )
@@ -5922,8 +5879,8 @@ CPSPlugIn::UnpackUsernameAndPassword(
 					// LMv2 blobs are only 8 bytes.
 					if ( siResult == eDSNoErr && challenge != NULL && digest != NULL && len >= 24 && user != NULL && domain != NULL )
 					{
-						userLen = strlen( user );
-						domainLen = strlen( domain );
+						userLen = (UInt32)strlen( user );
+						domainLen = (UInt32)strlen( domain );
 						*outPassword = (char *) calloc( 1, userLen + 1 + domainLen + 1 + challengeLen + len + 1 );
 						Throw_NULL( (*outPassword), eMemoryAllocError );
 						
@@ -6041,12 +5998,12 @@ CPSPlugIn::UnpackUsernameAndPassword(
                 // uses current credentials
                 if ( inContext->nao.successfulAuth && inContext->nao.password != NULL )
                 {
-                    long pwLen;
+                    UInt32 pwLen;
                     
                     *outUserName = (char *)malloc(kUserIDLength + 1);
                     strlcpy(*outUserName, inContext->nao.username, kUserIDLength + 1);
                     
-                    pwLen = strlen(inContext->nao.password);
+                    pwLen = (UInt32)strlen(inContext->nao.password);
                     *outPassword = (char *)malloc(pwLen + 1);
                     strncpy(*outPassword, inContext->nao.password, pwLen + 1);
                     *outPasswordLen = pwLen;   
@@ -6115,13 +6072,13 @@ CPSPlugIn::UnpackUsernameAndPasswordDefault(
 	
 	siResult = Get2StringsFromAuthBuffer( inAuthBuf, outUserName, outPassword );
 	if ( siResult == eDSNoErr && *outPassword != NULL )
-		*outPasswordLen = strlen( *outPassword );
+		*outPasswordLen = (UInt32)strlen( *outPassword );
 	
 	if ( *outPassword == NULL || *outPasswordLen == 0 )
 	{
 		if ( *outPassword != NULL )
 			free( *outPassword );
-		*outPasswordLen = strlen( kEmptyPasswordAltStr );
+		*outPasswordLen = (UInt32)strlen( kEmptyPasswordAltStr );
 		*outPassword = strdup( kEmptyPasswordAltStr );
 	}
 	
@@ -6143,13 +6100,13 @@ CPSPlugIn::UnpackUsernameAndPasswordAtOffset(
 	if ( siResult == eDSNoErr )
 		siResult = GetStringFromAuthBuffer( inAuthBuf, inUserItem + 1, outPassword );
 	if ( siResult == eDSNoErr && *outPassword != NULL )
-		*outPasswordLen = strlen( *outPassword );
+		*outPasswordLen = (UInt32)strlen( *outPassword );
 	
 	if ( *outPassword == NULL || *outPasswordLen == 0 )
 	{
 		if ( *outPassword != NULL )
 			free( *outPassword );
-		*outPasswordLen = strlen( kEmptyPasswordAltStr );
+		*outPasswordLen = (UInt32)strlen( kEmptyPasswordAltStr );
 		*outPassword = strdup( kEmptyPasswordAltStr );
 	}
 	
@@ -6174,7 +6131,7 @@ CPSPlugIn::GetAuthMethodConstant(
 {
 	SInt32			siResult		= eDSNoErr;
 	char		   *p				= NULL;
-    SInt32			prefixLen;
+    size_t			prefixLen;
     
 	if ( inData == NULL )
 	{
@@ -6529,6 +6486,36 @@ CPSPlugIn::GetAuthMethodFromSASLName( const char *inMechName, char *outDSType )
 	}
 }
 
+int sasl_log_wrapper(void *context __attribute__((unused)), int priority, const char *message)
+{
+	UInt32 mappedpriority = 0x0F; // Default for DEBUGLOG() macro
+	if( !message )
+		return SASL_BADPARAM;
+
+	switch( priority ) {
+	case SASL_LOG_ERR:
+	case SASL_LOG_FAIL:
+		mappedpriority = kLogError;
+		break;
+	case SASL_LOG_NOTE:
+		mappedpriority = kLogNotice;
+		break;
+	case SASL_LOG_WARN:
+		mappedpriority = kLogWarning;
+		break;
+	case SASL_LOG_TRACE:
+	case SASL_LOG_PASS:
+	case SASL_LOG_DEBUG:
+		mappedpriority = kLogDebug;
+		break;
+	}
+	if( priority != SASL_LOG_NONE ) {
+		// We're a plugin, so flag the message as coming from one.
+		mappedpriority |= kLogPlugin;
+		CShared::LogIt( mappedpriority, message );
+	}
+	return SASL_OK;
+}
 
 //------------------------------------------------------------------------------------
 //	* DoSASLNew
@@ -6572,10 +6559,14 @@ CPSPlugIn::DoSASLNew( sPSContextData *inContext, sPSContinueData *inContinue )
 	inContext->callbacks[3].proc = (sasl_cbproc *)&getsecret;
 	inContext->callbacks[3].context = inContinue;
 	
-	inContext->callbacks[4].id = SASL_CB_LIST_END;
-	inContext->callbacks[4].proc = NULL;
+	inContext->callbacks[4].id = SASL_CB_LOG;
+	inContext->callbacks[4].proc = (sasl_cbproc *)&sasl_log_wrapper;
 	inContext->callbacks[4].context = NULL;
-	
+
+	inContext->callbacks[5].id = SASL_CB_LIST_END;
+	inContext->callbacks[5].proc = NULL;
+	inContext->callbacks[5].context = NULL;
+
 	localaddr = (inContext->localaddr[0]) ? inContext->localaddr : "127.0.0.1;3659";
 	remoteaddr = (inContext->remoteaddr[0]) ? inContext->remoteaddr : "127.0.0.1;3659";
 	
@@ -6592,6 +6583,66 @@ CPSPlugIn::DoSASLNew( sPSContextData *inContext, sPSContinueData *inContinue )
 	return ret;
 }
 
+
+SInt32
+CPSPlugIn::Reconnect(sPSContextData *inContext, const char *userName) {
+	SInt32 siResult = eDSNoErr;
+
+    DEBUGLOG( "CPSPlugIn::Attempting to reconnect after connection failure" );
+
+	char *rsaKeyPtr = NULL;
+
+	EndServerSession(inContext);
+	siResult = HandleFirstContact(inContext, NULL, inContext->rsaPublicKeyHash, inContext->rsaPublicKeyStr);
+	if( siResult != 0 )
+		return siResult;
+
+	if( userName ) {
+		rsaKeyPtr = strchr(userName, ',');
+		if( rsaKeyPtr )
+			rsaKeyPtr++;
+	}
+	if( rsaKeyPtr && (!inContext->isUNIXDomainSocket) ) {
+		siResult = DoRSAValidation(inContext, rsaKeyPtr);
+		if( siResult != 0 )
+			return siResult;
+	}
+	return siResult;
+}
+
+PWServerError
+CPSPlugIn::SendFlushReadWithMutexWithRetry(
+	sPSContextData *inContext,
+	const char *userName,
+	const char *inCommandStr,
+	const char *inArg1Str,
+	const char *inArg2Str,
+	char *inOutBuf,
+	unsigned long inBufLen )
+{
+	PWServerError serverResult = {-1, kConnectionError};
+	int retries = 0;
+	int success = 0;
+	int unrecoverable = 0;
+
+	if( Connected(inContext) ) {
+		serverResult = SendFlushReadWithMutex(inContext, inCommandStr, inArg1Str, inArg2Str, inOutBuf, inBufLen);
+	}
+	if( (serverResult.err != 0) && (serverResult.type == kConnectionError) ) {
+		do {
+			SInt32 siResult = Reconnect(inContext, userName);
+			retries++;
+			if( siResult == eDSNoErr ) {
+				serverResult = SendFlushReadWithMutex(inContext, inCommandStr, inArg1Str, inArg2Str, inOutBuf, inBufLen);
+				if( (serverResult.err != 0) && (serverResult.type == kConnectionError) ) 
+					continue;
+				break;
+			}
+		} while( retries < 2 );
+	}
+
+	return serverResult;
+}
 
 //------------------------------------------------------------------------------------
 //	* DoSASLAuth
@@ -6621,7 +6672,7 @@ CPSPlugIn::DoSASLAuth(
         Throw_NULL( password, eParameterError );
         Throw_NULL( inData, eParameterError );
         
-		pContinue = (sPSContinueData *) inData->fIOContinueData;
+		pContinue = (sPSContinueData*)gContinue->GetPointer( inData->fIOContinueData );
 		Throw_NULL( pContinue, eDSAuthContinueDataBad );
         
 		if ( outStepData != NULL )
@@ -6713,7 +6764,7 @@ CPSPlugIn::DoSASLAuth(
 				free(tmpData);
 			}
 #endif
-			
+
             //DEBUGLOG( "chosenmech=%s, datalen=%u", chosenmech, len);
             
             if ( r != SASL_OK && r != SASL_CONTINUE ) {
@@ -6732,12 +6783,12 @@ CPSPlugIn::DoSASLAuth(
 				{
 					strcpy(dataBuf, "replay ");
 					ConvertBinaryToHex( (const unsigned char *)inChallenge, strlen(inChallenge), dataBuf+7 );
-					len = strlen(dataBuf);
+					len = (unsigned int)strlen(dataBuf);
 				}
 				else
 				{
 					ConvertBinaryToHex( (const unsigned char *)inChallenge, strlen(inChallenge), dataBuf );
-					len = strlen(dataBuf);
+					len = (unsigned int)strlen(dataBuf);
 				}
             }
             else
@@ -6748,9 +6799,9 @@ CPSPlugIn::DoSASLAuth(
 			StripRSAKey( userName );
 			
 			// build the command
-			commandBufLen = sizeof("USER  INFO  AUTH  ") + strlen(userName) + SASL_MECHNAMEMAX + len*2;
+			commandBufLen = (UInt32)sizeof("USER  INFO  AUTH  ") + (UInt32)strlen(userName) + SASL_MECHNAMEMAX + len*2;
 			if ( inContext->serviceInfoStr != NULL )
-				commandBufLen += strlen( inContext->serviceInfoStr );
+				commandBufLen += (UInt32)strlen( inContext->serviceInfoStr );
 			
 			commandBuf = (char *) malloc( commandBufLen );
 			if ( commandBuf == NULL )
@@ -6769,14 +6820,17 @@ CPSPlugIn::DoSASLAuth(
 				strlcat( commandBuf, dataBuf, commandBufLen );
 			}
 			
-			serverResult = SendFlushReadWithMutex( inContext, commandBuf, NULL, NULL, buf, sizeof(buf) );
+			serverResult = SendFlushReadWithMutexWithRetry( inContext, userName, commandBuf, NULL, NULL, buf, sizeof(buf) );
             if (serverResult.err != 0) {
-                DEBUGLOG( "server returned an error, err=%d", serverResult.err);
+                DEBUGLOG( "server returned an error, type=%d err=%d", serverResult.type, serverResult.err);
+                if (serverResult.type == kConnectionError) {
+                    EndServerSession(inContext);
+		}
                 throw( PWSErrToDirServiceError(serverResult) );
             }
             
             sasl_chop(buf);
-            len = strlen(buf);
+            len = (unsigned int)strlen(buf);
             
 			// check for old server
 			if ( (len >= 3 && strncmp(buf, "+OK", 3) == 0) ||
@@ -6787,14 +6841,17 @@ CPSPlugIn::DoSASLAuth(
 				else
 					snprintf(buf, sizeof(buf), "AUTH %s", chosenmech);
 				
-				serverResult = SendFlushReadWithMutex( inContext, buf, NULL, NULL, buf, sizeof(buf) );
+				serverResult = SendFlushReadWithMutex( (sPSContextData*)inContext, buf, NULL, NULL, buf, sizeof(buf) );
 				if (serverResult.err != 0) {
 					DEBUGLOG( "server returned an error, err=%d", serverResult.err);
+					if (serverResult.type == kConnectionError) {
+						EndServerSession(inContext);
+					}
 					throw( PWSErrToDirServiceError(serverResult) );
 				}
 				
 				sasl_chop(buf);
-				len = strlen(buf);
+				len = (unsigned int)strlen(buf);
 			}
 			
             while ( r == SASL_CONTINUE )
@@ -6818,7 +6875,7 @@ CPSPlugIn::DoSASLAuth(
 #endif
                        
                         gSASLMutex->Wait();
-                        r = sasl_client_step(inContext->conn, dataBuf, binLen, NULL, &data, &len);
+                        r = sasl_client_step(inContext->conn, dataBuf, (unsigned int)binLen, NULL, &data, &len);
 				
 #if DEBUG
 						{
@@ -6856,13 +6913,13 @@ CPSPlugIn::DoSASLAuth(
                     ConvertBinaryToHex( (const unsigned char *)data, len, dataBuf );
                     
                     DEBUGLOG( "AUTH2 %s", dataBuf);
-					serverResult = SendFlushReadWithMutex( inContext, "AUTH2", dataBuf, NULL, buf, sizeof(buf) );
+					serverResult = SendFlushReadWithMutex( (sPSContextData*)inContext, "AUTH2", dataBuf, NULL, buf, sizeof(buf) );
                 }
                 else
                 if (r==SASL_CONTINUE)
                 {
                     DEBUGLOG( "sending null response");
-                    serverResult = SendFlushReadWithMutex( inContext, "AUTH2 ", NULL, NULL, buf, sizeof(buf) );
+                    serverResult = SendFlushReadWithMutex( (sPSContextData*)inContext, "AUTH2 ", NULL, NULL, buf, sizeof(buf) );
                 }
                 else
 				{
@@ -6871,11 +6928,14 @@ CPSPlugIn::DoSASLAuth(
 				
                 if ( serverResult.err != 0 ) {
                     DEBUGLOG( "server returned an error, err=%d", serverResult.err);
+                    if (serverResult.type == kConnectionError) {
+                        EndServerSession(inContext);
+                    }
                     throw( PWSErrToDirServiceError(serverResult) );
                 }
                 
                 sasl_chop(buf);
-                len = strlen(buf);
+                len = (unsigned int)strlen(buf);
                 
                 if ( r != SASL_CONTINUE )
                     break;
@@ -6910,7 +6970,8 @@ CPSPlugIn::DoSASLAuth(
 	
 	if ( pContinue != NULL ) {
 		// No 2-pass auths handled in this method so clean up now
-		gContinue->RemoveItem( pContinue );
+		gContinue->RemovePointer( pContinue );
+        pContinue = NULL;
         inData->fIOContinueData = 0;
 	}
 	
@@ -6941,7 +7002,7 @@ CPSPlugIn::DoSASLTwoWayRandAuth(
     int r;
     PWServerError serverResult;
     sasl_security_properties_t secprops = {0,65535,4096,0,NULL,NULL};
-	sPSContinueData *pContinue = (sPSContinueData *) inData->fIOContinueData;
+	sPSContinueData *pContinue = (sPSContinueData*)gContinue->GetPointer( inData->fIOContinueData );
     tDataBufferPtr outAuthBuff = inData->fOutAuthStepDataResponse;
     tDataBufferPtr inAuthBuff = inData->fInAuthStepData;
     
@@ -7016,7 +7077,7 @@ CPSPlugIn::DoSASLTwoWayRandAuth(
             }
             
             sasl_chop(buf);
-            len = strlen(buf);
+            len = (unsigned int)strlen(buf);
             
             // skip the "+OK " at the begining of the response
             if ( len >= 3 && strncmp( buf, "+OK", 3 ) == 0 )
@@ -7037,7 +7098,7 @@ CPSPlugIn::DoSASLTwoWayRandAuth(
                     
                     memcpy(saveData, dataBuf, binLen+1);
                     pContinue->fData = saveData;
-                    pContinue->fDataLen = binLen;
+                    pContinue->fDataLen = (uint32_t)binLen;
                     
                     // make an out buffer
                     num2Ptr = strchr( dataBuf, ' ' );
@@ -7134,7 +7195,7 @@ CPSPlugIn::DoSASLTwoWayRandAuth(
                 }
                 
                 sasl_chop(buf);
-                len = strlen(buf);
+                len = (unsigned int)strlen(buf);
                 
                 // make an out buffer
                 if ( len > 4 )
@@ -7145,7 +7206,7 @@ CPSPlugIn::DoSASLTwoWayRandAuth(
                     if ( binLen > outAuthBuff->fBufferSize )
                         throw( (SInt32)eDSAuthResponseBufTooSmall );
                     
-                    outAuthBuff->fBufferLength = binLen;
+                    outAuthBuff->fBufferLength = (UInt32)binLen;
                     memcpy(outAuthBuff->fBufferData, dataBuf, binLen);
                     
                     siResult = eDSNoErr;
@@ -7172,7 +7233,8 @@ CPSPlugIn::DoSASLTwoWayRandAuth(
 	
     if ( pContinue->fAuthPass == 1 )
     {
-        gContinue->RemoveItem( pContinue );
+        gContinue->RemovePointer( pContinue );
+        pContinue = NULL;
         inData->fIOContinueData = 0;
     }
     else
@@ -7199,10 +7261,11 @@ CPSPlugIn::DoSASLPPSAuth(
 	tDirStatus				siResult			= eDSAuthFailed;
     tDataBufferPtr			inAuthBuff			= inData->fInAuthStepData;
     tDataBufferPtr			outAuthBuff			= inData->fOutAuthStepDataResponse;
-	sPSContinueData			*pContinue			= (sPSContinueData *) inData->fIOContinueData;
+	sPSContinueData			*pContinue			= (sPSContinueData*)gContinue->GetPointer( inData->fIOContinueData );
     PWServerError			serverResult		= {0};
     unsigned long			dataBufLen			= 0;
 	char					*stepData			= NULL;
+	char					*userCopy			= NULL;
     char					buf[4096];
     char					dataBuf[4096];
 	
@@ -7218,7 +7281,7 @@ CPSPlugIn::DoSASLPPSAuth(
 	{
 		case 0:
             // start password server auth
-			char *userCopy = strdup( inUserName );
+			userCopy = strdup( inUserName );
 			StripRSAKey( userCopy );
 			snprintf( buf, sizeof(buf), "USER %s AUTH PPS %s", userCopy, inMechData );
 			free( userCopy );
@@ -7236,7 +7299,7 @@ CPSPlugIn::DoSASLPPSAuth(
 			// ensure we have "+AUTHOK " and data afterward
 			if ( strlen(buf) > 8 ) {
 				ConvertHexToBinary( buf + 8, (unsigned char *)dataBuf, &dataBufLen );
-				siResult = dsFillAuthBuffer( outAuthBuff, 1, dataBufLen, dataBuf );
+				siResult = dsFillAuthBuffer( outAuthBuff, 1, (UInt32)dataBufLen, dataBuf );
 			}
 			else {
 				siResult = eDSAuthAccountDisabled;
@@ -7254,11 +7317,12 @@ CPSPlugIn::DoSASLPPSAuth(
 			if ( siResult == eDSNoErr ) {
 				sasl_chop( buf );
 				ConvertHexToBinary( buf + 4, (unsigned char *)dataBuf, &dataBufLen );
-				siResult = dsFillAuthBuffer( outAuthBuff, 1, dataBufLen, dataBuf );
+				siResult = dsFillAuthBuffer( outAuthBuff, 1, (UInt32)dataBufLen, dataBuf );
 				DEBUGLOG( "received: %s", buf);
 			}
-			gContinue->RemoveItem( pContinue );
-			inData->fIOContinueData = NULL;
+			gContinue->RemovePointer( pContinue );
+            pContinue = NULL;
+			inData->fIOContinueData = 0;
 			break;
 			
 		default:
@@ -7302,8 +7366,8 @@ CPSPlugIn::GetServerListFromDSDiscovery( CFMutableArrayRef inOutServerList )
     tDataBuffer				   *tNodeListDataBuff	= NULL;
     tDataBuffer				   *tDataBuff			= NULL;
     tDirNodeReference			nodeRef				= 0;
-    long						status				= eDSNoErr;
-    tContextData				context				= NULL;
+    SInt32						status				= eDSNoErr;
+    tContextData				context				= 0;
     UInt32						index				= 0;
     UInt32						nodeCount			= 0;
 	tDataList					*nodeName			= NULL;
@@ -7331,15 +7395,15 @@ CPSPlugIn::GetServerListFromDSDiscovery( CFMutableArrayRef inOutServerList )
 		if (status != eDSNoErr) throw( status );
 		
 		tNodeListDataBuff = dsDataBufferAllocate( dsRef, 4096 );
-		if (tNodeListDataBuff == NULL) throw( (long)eMemoryError );
+		if (tNodeListDataBuff == NULL) throw( (SInt32)eMemoryError );
 		
 		tDataBuff = dsDataBufferAllocate( dsRef, 4096 );
-		if (tDataBuff == NULL) throw( (long)eMemoryError );
+		if (tDataBuff == NULL) throw( (SInt32)eMemoryError );
 		
         // find and don't open
 		status = dsFindDirNodes( dsRef, tNodeListDataBuff, NULL, eDSDefaultNetworkNodes, &nodeCount, &context );
         if (status != eDSNoErr) throw( status );
-        if ( nodeCount < 1 ) throw( (long)eDSNodeNotFound );
+        if ( nodeCount < 1 ) throw( (SInt32)eDSNodeNotFound );
 		
 		recordNameList = dsBuildListFromStrings( dsRef, kDSRecordsAll, NULL );
 		recordTypeList = dsBuildListFromStrings( dsRef, "dsRecTypeNative:passwordserver", NULL );
@@ -7428,7 +7492,7 @@ CPSPlugIn::GetServerListFromDSDiscovery( CFMutableArrayRef inOutServerList )
 			while ( context != 0 );
 		}
     }
-    catch( long error )
+    catch( SInt32 error )
 	{
 		status = error;
 	}
@@ -7495,7 +7559,7 @@ DEBUGLOG( "CPSPlugIn::DoPlugInCustomCall" );
 				gPWSConnMutex->Wait();
 				if ( pContext->replicaFile != nil )
 				{
-					[(ReplicaFile *)pContext->replicaFile free];
+					[(ReplicaFile *)pContext->replicaFile release];
 					pContext->replicaFile = nil;
 				}
 				
@@ -7573,16 +7637,3 @@ void CPSPlugIn::ContextDeallocProc ( void* inContextData )
 		pContext = NULL;
 	}
 } // ContextDeallocProc
-
-
-// ---------------------------------------------------------------------------
-//	* ReleaseCloseWaitConnections
-// ---------------------------------------------------------------------------
-
-void CPSPlugIn::ReleaseCloseWaitConnections( void* inContextData )
-{
-	sPSContextData *pContext = (sPSContextData *)inContextData;
-	if ( pContext != nil && Connected(pContext) == false )
-		EndServerSession( pContext, false );
-}
-

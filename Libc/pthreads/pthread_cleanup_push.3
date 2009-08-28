@@ -53,6 +53,10 @@ When
 is called, it is passed
 .Fa arg
 as its only argument.
+.Fn pthread_cleanup_push
+must be paired with a corresponding 
+.Xr pthread_cleanup_pop 3 
+in the same lexical scope.
 .Sh RETURN VALUES
 .Fn pthread_cleanup_push
 does not return any value.

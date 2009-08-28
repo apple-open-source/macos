@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2005, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,6 +32,7 @@
 	0, NULL,			\
 	{}, {}, {}, {}, {},		\
 	{}, {}, {}, {}, {},		\
+	LOCK_INITIALIZER,		\
 	XMAGIC,				\
 	1, 0, 0, 0, 0, 0, 1, 1, 0,	\
 	NULL,				\
@@ -89,8 +90,8 @@ _copylocale(locale_t dst, const locale_t src)
 }
 
 /*
- * Make a copy of a locale_t, locking/unlocking the source as determined
- * by the lock flag.  A NULL locale_t means to make a copy of the current
+ * Make a copy of a locale_t, locking/unlocking the source.
+ * A NULL locale_t means to make a copy of the current
  * locale while LC_GLOBAL_LOCALE means to copy the global locale.  If
  * &__c_locale is passed (meaning a C locale is desired), just make
  * a copy.
@@ -104,6 +105,7 @@ _duplocale(locale_t loc)
 		return NULL;
 	new->__refcount = 1;
 	new->__free_extra = (__free_extra_t)_releaselocale;
+	new->__lock = LOCK_INITIALIZER;
 	if (loc == NULL)
 		loc = __current_locale();
 	else if (loc == LC_GLOBAL_LOCALE)
@@ -112,7 +114,9 @@ _duplocale(locale_t loc)
 		*new = __c_locale;
 		return new;
 	}
+	XL_LOCK(loc);
 	_copylocale(new, loc);
+	XL_UNLOCK(loc);
 	/* __mbs_mblen is the first of NMBSTATET mbstate_t buffers */
 	bzero(&new->__mbs_mblen, offsetof(struct _xlocale, __magic)
 	    - offsetof(struct _xlocale, __mbs_mblen));
@@ -129,8 +133,6 @@ _duplocale(locale_t loc)
 	XL_RETAIN(new->__lc_numeric_loc);
 	/* time */
 	XL_RETAIN(new->__lc_time);
-	/* newale_t */
-	XL_RETAIN(new->__lc_localeconv);
 
 	return new;
 }
@@ -270,8 +272,6 @@ _releaselocale(locale_t loc)
 	XL_RELEASE(loc->__lc_numeric_loc);
 	/* time */
 	XL_RELEASE(loc->__lc_time);
-	/* locale_t */
-	XL_RELEASE(loc->__lc_localeconv);
 }
 
 /*
@@ -382,6 +382,7 @@ const char *
 querylocale(int mask, locale_t loc)
 {
 	int m;
+	const char *ret;
 
 	if (_checklocale(loc) < 0 || (mask & LC_ALL_MASK) == 0) {
 		errno = EINVAL;
@@ -391,27 +392,39 @@ querylocale(int mask, locale_t loc)
 		loc = __current_locale();
 	else if (loc == LC_GLOBAL_LOCALE)
 		loc = &__global_locale;
-	for(m = 1; m <= _LC_LAST_MASK; m <<= 1) {
-		if (m & mask) {
-			switch(m) {
-			case LC_COLLATE_MASK:
-				return (loc->__collate_load_error ? C : loc->__lc_collate->__encoding);
-			case LC_CTYPE_MASK:
-				return loc->__lc_ctype->__ctype_encoding;
-			case LC_MESSAGES_MASK:
-				return (loc->_messages_using_locale ? loc->__lc_messages->_messages_locale_buf : C);
-			case LC_MONETARY_MASK:
-				return (loc->_monetary_using_locale ? loc->__lc_monetary->_monetary_locale_buf : C);
-			case LC_NUMERIC_MASK:
-				return (loc->_numeric_using_locale ? loc->__lc_numeric->_numeric_locale_buf : C);
-			case LC_TIME_MASK:
-				return (loc->_time_using_locale ? loc->__lc_time->_time_locale_buf : C);
-			}
-		}
+	m = ffs(mask);
+	if (m == 0 || m > _LC_NUM_MASK) {
+		errno = EINVAL;
+		return NULL;
 	}
-	/* should never get here */
-	errno = EINVAL;
-	return NULL;
+	XL_LOCK(loc);
+	switch(1 << (m - 1)) {
+	case LC_COLLATE_MASK:
+		ret = (loc->__collate_load_error ? C : loc->__lc_collate->__encoding);
+		break;
+	case LC_CTYPE_MASK:
+		ret = loc->__lc_ctype->__ctype_encoding;
+		break;
+	case LC_MESSAGES_MASK:
+		ret = (loc->_messages_using_locale ? loc->__lc_messages->_messages_locale_buf : C);
+		break;
+	case LC_MONETARY_MASK:
+		ret = (loc->_monetary_using_locale ? loc->__lc_monetary->_monetary_locale_buf : C);
+		break;
+	case LC_NUMERIC_MASK:
+		ret = (loc->_numeric_using_locale ? loc->__lc_numeric->_numeric_locale_buf : C);
+		break;
+	case LC_TIME_MASK:
+		ret = (loc->_time_using_locale ? loc->__lc_time->_time_locale_buf : C);
+		break;
+	default:
+		/* should never get here */
+		XL_UNLOCK(loc);
+		errno = EINVAL;
+		return NULL;
+	}
+	XL_UNLOCK(loc);
+	return ret;
 }
 
 /*
@@ -461,6 +474,12 @@ ___mb_cur_max_l(locale_t loc)
 	return __locale_ptr(loc)->__lc_ctype->__mb_cur_max;
 }
 
+static void
+__xlocale_release(void *loc)
+{
+	XL_RELEASE((locale_t)loc);
+}
+
 /*
  * Called from the Libc initializer to setup the thread-specific key.
  */
@@ -469,12 +488,13 @@ ___mb_cur_max_l(locale_t loc)
  * part for libSystem.  The libSystem part starts at __pthread_tsd_first = 10.
  * dyld will set this value to 1.
  */
-extern int __pthread_tsd_first;
 
 __private_extern__ void
 __xlocale_init(void)
 {
-	if (__locale_key == (pthread_key_t)-1)
-		__locale_key = __pthread_tsd_first;
+	if (__locale_key == (pthread_key_t)-1) {
+		__locale_key = __LIBC_PTHREAD_KEY_XLOCALE;
+		pthread_key_init_np(__locale_key, __xlocale_release);
+	}
 }
 

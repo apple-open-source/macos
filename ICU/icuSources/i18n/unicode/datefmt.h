@@ -1,20 +1,20 @@
 /*
-********************************************************************************
-*   Copyright (C) 1997-2005, International Business Machines
-*   Corporation and others.  All Rights Reserved.
-********************************************************************************
-*
-* File DATEFMT.H
-*
-* Modification History:
-*
-*   Date        Name        Description
-*   02/19/97    aliu        Converted from java.
-*   04/01/97    aliu        Added support for centuries.
-*   07/23/98    stephen     JDK 1.2 sync
-*   11/15/99    weiv        Added support for week of year/day of week formatting
-********************************************************************************
-*/
+ ********************************************************************************
+ *   Copyright (C) 1997-2008, International Business Machines
+ *   Corporation and others.  All Rights Reserved.
+ ********************************************************************************
+ *
+ * File DATEFMT.H
+ *
+ * Modification History:
+ *
+ *   Date        Name        Description
+ *   02/19/97    aliu        Converted from java.
+ *   04/01/97    aliu        Added support for centuries.
+ *   07/23/98    stephen     JDK 1.2 sync
+ *   11/15/99    weiv        Added support for week of year/day of week formatting
+ ********************************************************************************
+ */
 
 #ifndef DATEFMT_H
 #define DATEFMT_H
@@ -160,6 +160,19 @@ public:
      // kShort  + kDateOffset = 7
 
         kDateTime             = 8,
+        
+
+        // relative dates
+        kRelative = (1 << 7),
+        
+        kFullRelative = (kFull | kRelative),
+            
+        kLongRelative = kLong | kRelative,
+        
+        kMediumRelative = kMedium | kRelative,
+        
+        kShortRelative = kShort | kRelative,
+        
 
         kDefault      = kMedium,
 
@@ -399,6 +412,34 @@ public:
      * @stable ICU 2.0
      */
     static DateFormat* U_EXPORT2 createInstance(void);
+
+    /**
+     * This is for ICU internal use only. Please do not use.
+     * Create a date/time formatter from skeleton and a given locale.
+     *
+     * Users are encouraged to use the skeleton macros defined in udat.h.
+     * For example, MONTH_WEEKDAY_DAY, which is "MMMMEEEEd",
+     * and which means the pattern should have day, month, and day-of-week 
+     * fields, and follow the long date format defined in date time pattern.
+     * For example, for English, the full pattern should be 
+     * "EEEE, MMMM d".
+     * 
+     * Temporarily, this is an internal API, used by DateIntevalFormat only.
+     * There will be a new set of APIs for the same purpose coming soon.
+     * After which, this API will be replaced.
+     *
+     * @param skeleton  the skeleton on which date format based.
+     * @param locale    the given locale.
+     * @param status    Output param to be set to success/failure code.
+     *                  If it is failure, the returned date formatter will
+     *                  be NULL.
+     * @return          a simple date formatter which the caller owns.
+     * @internal ICU 4.0
+     */
+    static DateFormat* U_EXPORT2 createPatternInstance(
+                                                const UnicodeString& skeleton,
+                                                const Locale& locale,
+                                                UErrorCode& status);
 
     /**
      * Creates a time formatter with the given formatting style for the given

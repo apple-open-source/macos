@@ -136,7 +136,7 @@ nfs_cast(struct mapfs *mfs_in, struct mapfs **mfs_out, int timeout)
 	int tsec;
 	int sent, addr_cnt, rcvd;
 	fd_set readfds, mask;
-	register ulong_t xid;		/* xid - unique per addr */
+	register uint32_t xid;		/* xid - unique per addr */
 	register int i;
 	struct rpc_msg msg;
 	struct timeval t, rcv_timeout;
@@ -146,7 +146,6 @@ nfs_cast(struct mapfs *mfs_in, struct mapfs **mfs_out, int timeout)
 	char **hostaddrs;
 	struct sockaddr_storage to_addr;
 	struct sockaddr *to;
-	socklen_t tolen;
 	struct sockaddr_storage from_addr;
 	socklen_t fromlen;
 	ssize_t len;
@@ -178,7 +177,7 @@ nfs_cast(struct mapfs *mfs_in, struct mapfs **mfs_out, int timeout)
 	dtbsize = FD_SETSIZE;
 	if (getrlimit(RLIMIT_NOFILE, &rl) == 0) {
 		if (rl.rlim_cur < FD_SETSIZE)
-			dtbsize = rl.rlim_cur;
+			dtbsize = (int)rl.rlim_cur;
 	}
 
 	prev_trans = NULL;
@@ -280,7 +279,7 @@ nfs_cast(struct mapfs *mfs_in, struct mapfs **mfs_out, int timeout)
 	}
 
 	(void) gettimeofday(&t, (struct timezone *)0);
-	xid = (getpid() ^ t.tv_sec ^ t.tv_usec) & ~0xFF;
+	xid = (uint32_t)(getpid() ^ t.tv_sec ^ t.tv_usec) & ~0xFF;
 	t.tv_usec = 0;
 
 	/* serialize the RPC header */
@@ -337,7 +336,7 @@ nfs_cast(struct mapfs *mfs_in, struct mapfs **mfs_out, int timeout)
 					 * preserialized buffer
 					 */
 					/* LINTED pointer alignment */
-					*((ulong_t *)outbuf) =
+					*((uint32_t *)outbuf) =
 						htonl(xid + ts->ts_inx);
 					(void) gettimeofday(&(ts->ts_timeval),
 						(struct timezone *)0);
@@ -352,15 +351,28 @@ nfs_cast(struct mapfs *mfs_in, struct mapfs **mfs_out, int timeout)
 					}
 
 					to = (struct sockaddr *)&to_addr;
-					to->sa_len = hp->h_length;
 					to->sa_family = hp->h_addrtype;
-					memcpy(to->sa_data, *hostaddrs++, hp->h_length);
-					tolen = (to->sa_family == AF_INET) ?
-					    sizeof (struct sockaddr_in) :
-					    sizeof (struct sockaddr_in6);
+
+					if (to->sa_family == AF_INET) {
+						struct sockaddr_in *sin;
+
+						sin = (struct sockaddr_in *)to;
+						to->sa_len = sizeof(*sin);
+						sin->sin_port = portmap->s_port;
+						memcpy(&sin->sin_addr,
+						    *hostaddrs++, hp->h_length);
+					} else {	/* must be AF_INET6 */
+						struct sockaddr_in6 *sin6;
+
+						sin6 = (struct sockaddr_in6 *)to;
+						to->sa_len = sizeof(*sin6);
+						sin6->sin6_port = portmap->s_port;
+						memcpy(&sin6->sin6_addr,
+						    *hostaddrs++, hp->h_length);
+					}
 
 					if (sendto(trans->tr_fd, outbuf,
-					    outlen, 0, to, tolen) != -1) {
+					    outlen, 0, to, to->sa_len) != -1) {
 						sent++;
 					}
 
@@ -430,7 +442,7 @@ nfs_cast(struct mapfs *mfs_in, struct mapfs **mfs_out, int timeout)
 			clnt_stat = RPC_CANTRECV;
 			continue;
 		}
-		if ((size_t)len < sizeof (ulong_t))
+		if ((size_t)len < sizeof (uint32_t))
 			goto recv_again;
 
 		/*

@@ -29,8 +29,6 @@
 #include <sys/codesign.h>
 #include <sys/param.h>		// MAXPATHLEN
 
-
-using namespace CodeSigning;
 using namespace UnixPlusPlus;
 
 

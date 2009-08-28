@@ -70,9 +70,12 @@ OSStatus SecCodeSignerCreate(CFDictionaryRef parameters, SecCSFlags flags,
 	SecCodeSignerRef *signerRef)
 {
 	BEGIN_CSAPI
-	SecPointer<SecCodeSigner> signer = new SecCodeSigner;
+		
+	checkFlags(flags, kSecCSRemoveSignature);
+	SecPointer<SecCodeSigner> signer = new SecCodeSigner(flags);
 	signer->parameters(parameters);
 	Required(signerRef) = signer->handle();
+
     END_CSAPI
 }
 

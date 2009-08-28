@@ -1,6 +1,6 @@
---- gdtoa-strtopdd.c.orig	2007-04-03 12:19:28.000000000 -0700
-+++ gdtoa-strtopdd.c	2007-04-06 12:53:25.000000000 -0700
-@@ -29,19 +29,31 @@
+--- gdtoa-strtopdd.c.orig	2008-10-28 12:43:22.000000000 -0700
++++ gdtoa-strtopdd.c	2008-10-28 12:51:49.000000000 -0700
+@@ -29,13 +29,25 @@ THIS SOFTWARE.
  /* Please send bug reports to David M. Gay (dmg at acm dot org,
   * with " at " changed at "@" and " dot " changed to ".").	*/
  
@@ -21,22 +21,14 @@
   int
  #ifdef KR_headers
 -strtopdd(s, sp, dd) CONST char *s; char **sp; double *dd;
-+strtopdd(s, sp, dd) CONST char *s; char **sp; double *dd; locale_t loc;
++strtopdd(s, sp, dd, loc) CONST char *s; char **sp; double *dd; locale_t loc;
  #else
 -strtopdd(CONST char *s, char **sp, double *dd)
 +strtopdd(CONST char *s, char **sp, double *dd, locale_t loc)
  #endif
  {
  #ifdef Sudden_Underflow
--	static FPI fpi = { 106, 1-1023, 2046-1023-106+1, 1, 1 };
-+	static FPI fpi0 = { 106, 1-1023, 2046-1023-106+1, 1, 1 };
- #else
--	static FPI fpi = { 106, 1-1023-53+1, 2046-1023-106+1, 1, 0 };
-+	static FPI fpi0 = { 106, 1-1023-53+1, 2046-1023-106+1, 1, 0 };
- #endif
- 	ULong bits[4];
- 	Long exp;
-@@ -49,13 +61,30 @@
+@@ -49,6 +61,9 @@ strtopdd(CONST char *s, char **sp, doubl
  	typedef union {
  		double d[2];
  		ULong L[4];
@@ -45,19 +37,12 @@
 +#endif /* __APPLE__ */
  		} U;
  	U *u;
-+	FPI *fpi = &fpi0, fpi1;
-+#ifdef Honor_FLT_ROUNDS
-+	int rounding = Flt_Rounds;
-+#endif
+ #ifdef Honor_FLT_ROUNDS
+@@ -57,10 +72,13 @@ strtopdd(CONST char *s, char **sp, doubl
+ #define fpi &fpi0
+ #endif
  
--	rv = strtodg(s, sp, &fpi, &exp, bits);
-+#ifdef Honor_FLT_ROUNDS
-+	if (rounding != fpi0.rounding) {
-+		fpi1 = fpi0; /* for thread safety */
-+		fpi1.rounding = rounding;
-+		fpi = &fpi1;
-+		}
-+#endif /* Honor_FLT_ROUNDS */
+-	rv = strtodg(s, sp, fpi, &exp, bits);
 +	rv = strtodg(s, sp, fpi, &exp, bits, loc);
  	u = (U*)dd;
  	switch(rv & STRTOG_Retmask) {
@@ -68,7 +53,7 @@
  	  case STRTOG_Zero:
  		u->d[0] = u->d[1] = 0.;
  		break;
-@@ -101,6 +130,9 @@
+@@ -106,6 +124,9 @@ strtopdd(CONST char *s, char **sp, doubl
  			}
  		u->L[2+_1] = bits[0];
  		u->L[2+_0] = bits[1] & 0xfffff | exp << 20;
@@ -78,7 +63,7 @@
  		break;
  
  	  case STRTOG_Denormal:
-@@ -124,6 +156,9 @@
+@@ -129,6 +150,9 @@ strtopdd(CONST char *s, char **sp, doubl
  		u->L[_1] = (bits[2] << i | bits[1] >> j) & 0xffffffffL;
  		u->L[2+_0] = bits[1] & (1L << j) - 1;
  		u->L[2+_1] = bits[0];
@@ -88,7 +73,7 @@
  		break;
  
  	  partly_normal:
-@@ -135,6 +170,9 @@
+@@ -140,6 +164,9 @@ strtopdd(CONST char *s, char **sp, doubl
  			u->L[_1] = (bits[2] << i | bits[1] >> j) & 0xffffffffL;
  			u->L[2+_0] = bits[1] & (1L << j) - 1;
  			u->L[2+_1] = bits[0];
@@ -98,7 +83,7 @@
  			break;
  			}
  		if (i == 0) {
-@@ -142,6 +180,9 @@
+@@ -147,6 +174,9 @@ strtopdd(CONST char *s, char **sp, doubl
  			u->L[_1] = bits[1];
  			u->L[2+_0] = 0;
  			u->L[2+_1] = bits[0];
@@ -108,7 +93,7 @@
  			break;
  			}
  		j = 32 - i;
-@@ -150,6 +191,9 @@
+@@ -155,6 +185,9 @@ strtopdd(CONST char *s, char **sp, doubl
  		u->L[_1] = (bits[1] << i | bits[0] >> j) & 0xffffffffL;
  		u->L[2+_0] = 0;
  		u->L[2+_1] = bits[0] & (1L << j) - 1;
@@ -118,7 +103,7 @@
  		break;
  
  	  hardly_normal:
-@@ -159,20 +203,44 @@
+@@ -164,20 +197,45 @@ strtopdd(CONST char *s, char **sp, doubl
  		u->L[_1] = (bits[1] << i | bits[0] >> j) & 0xffffffffL;
  		u->L[2+_0] = 0;
  		u->L[2+_1] = bits[0] & (1L << j) - 1;
@@ -146,6 +131,7 @@
  		u->L[0] = u->L[2] = d_QNAN0;
  		u->L[1] = u->L[3] = d_QNAN1;
 +#endif /* __APPLE__ */
++		break;
 +#ifdef __APPLE__
 +	 case STRTOG_NaNbits:
 +		u->L[0] = d_QNAN0 | ((bits[2] >> 20 | bits[3] << 12) & 0xfffff);

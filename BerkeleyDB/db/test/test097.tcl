@@ -1,9 +1,8 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1996-2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 1996,2007 Oracle.  All rights reserved.
 #
-# $Id: test097.tcl,v 1.2 2004/03/30 01:24:09 jtownsen Exp $
+# $Id: test097.tcl,v 12.6 2007/05/17 15:15:56 bostic Exp $
 #
 # TEST	test097
 # TEST	Open up a large set of database files simultaneously.
@@ -30,7 +29,7 @@ proc test097 { method {ndbs 500} {nentries 400} args } {
 		return
 	}
 	env_cleanup $testdir
-	set env [eval {berkdb_env -create \
+	set env [eval {berkdb_env -create -log_regionmax 131072 \
 	     -cachesize { 0 1048576 1 } -txn} -home $testdir $encargs]
 	error_check_good dbenv [is_valid_env $env] TRUE
 

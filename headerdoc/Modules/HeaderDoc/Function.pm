@@ -3,8 +3,7 @@
 # Class name: Function
 # Synopsis: Holds function info parsed by headerDoc
 #
-# Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2007/07/19 18:44:59 $
+# Last Updated: $Date: 2009/03/30 19:38:50 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -37,7 +36,7 @@ use HeaderDoc::APIOwner;
 
 @ISA = qw( HeaderDoc::HeaderElement );
 use vars qw($VERSION @ISA);
-$VERSION = '$Revision: 1.10.2.10.2.37 $';
+$HeaderDoc::Function::VERSION = '$Revision: 1.14 $';
 
 use strict;
 
@@ -90,10 +89,37 @@ sub result {
     return $self->{RESULT};
 }
 
+# /*! Some keywords prior to a function name modify the function as a whole, not the return type.
+#     These keywords should never be part of the return type. */
+sub sanitizedreturntype
+{
+    my $self = shift;
+    my $localDebug = 0;
+
+    my $temp = $self->returntype();
+
+    print STDERR "Debugging return value for NAME: ".$self->name()." RETURNTYPE: $temp\n" if ($localDebug);
+
+    my $ret = ""; my $space = "";
+    my @parts = split(/\s+/, $temp);
+    foreach my $part (@parts) {
+	print STDERR "PART: $part\n" if ($localDebug);
+	if (length($part) && $part !~ /(virtual|static)/) {
+		$ret .= $space.$part;
+		$space = " "
+	}
+    }
+    print STDERR "Returning $ret\n" if ($localDebug);
+    return $ret;
+}
 
 sub getParamSignature
 {
     my $self = shift;
+
+    if ($self->isBlock()) {
+	return "";
+    }
 
     my $formatted = 0;
     if (@_) {
@@ -105,11 +131,11 @@ sub getParamSignature
     if ($formatted) { $space = " "; }
 
     # To avoid infinite recursion with debugging on, do NOT change this to $self->name()!
-    print "Function name: ".$self->{NAME}."\n" if ($localDebug);
+    print STDERR "Function name: ".$self->{NAME}."\n" if ($localDebug);
 
     my @params = $self->parsedParameters();
     my $signature = "";
-    my $returntype = $self->returntype();
+    my $returntype = $self->sanitizedreturntype();
 
     $returntype =~ s/\s*//sg;
 
@@ -119,7 +145,7 @@ sub getParamSignature
 	my $name = $param->name();
 	my $type = $param->type();
 
-	print "PARAM NAME: $name\nTYPE: $type\n" if ($localDebug);
+	print STDERR "PARAM NAME: $name\nTYPE: $type\n" if ($localDebug);
 
 	if (!$formatted) {
 		$type =~ s/\s//sgo;
@@ -147,17 +173,17 @@ sub getParamSignature
 	$signature = $returntype.'/('.$signature.')';
     }
 
-    print "RETURN TYPE WAS $returntype\n" if ($localDebug);
+    print STDERR "RETURN TYPE WAS $returntype\n" if ($localDebug);
 
     return $signature;
 }
 
 
-sub processComment {
+sub processComment_old {
     my $self = shift;
     my $fieldArrayRef = shift;
     my @fields = @$fieldArrayRef;
-    my $filename = $self->filename();
+    my $fullpath = $self->fullpath();
     my $linenum = $self->linenum();
 
 	foreach my $field (@fields) {
@@ -165,10 +191,10 @@ sub processComment {
 		my $top_level_field = 0;
 		if ($field =~ /^(\w+)(\s|$)/) {
 			$fieldname = $1;
-			# print "FIELDNAME: $fieldname\n";
+			# print STDERR "FIELDNAME: $fieldname\n";
 			$top_level_field = validTag($fieldname, 1);
 		}
-		# print "TLF: $top_level_field, FN: \"$fieldname\"\n";
+		# print STDERR "TLF: $top_level_field, FN: \"$fieldname\"\n";
 		SWITCH: {
             		($field =~ /^\/\*\!/o)&& do {
                                 my $copy = $field;
@@ -187,6 +213,9 @@ sub processComment {
 			($field =~ s/^availability\s+//io) && do {$self->availability($field); last SWITCH;};
             		($field =~ s/^since\s+//io) && do {$self->availability($field); last SWITCH;};
             		($field =~ s/^author\s+//io) && do {$self->attribute("Author", $field, 0); last SWITCH;};
+            		($field =~ s/^group\s+//io) && do {$self->group($field); last SWITCH;};
+            		($field =~ s/^(function|method)group\s+//io) && do {$self->group($field); last SWITCH;};
+            		($field =~ s/^indexgroup\s+//io) && do {$self->indexgroup($field); last SWITCH;};
 			($field =~ s/^version\s+//io) && do {$self->attribute("Version", $field, 0); last SWITCH;};
             		($field =~ s/^deprecated\s+//io) && do {$self->attribute("Deprecated", $field, 0); last SWITCH;};
 			($field =~ s/^updated\s+//io) && do {$self->updated($field); last SWITCH;};
@@ -195,7 +224,7 @@ sub processComment {
 		    if (length($attname) && length($attdisc)) {
 			$self->attribute($attname, $attdisc, 0);
 		    } else {
-			warn "$filename:$linenum: warning: Missing name/discussion for attribute\n";
+			warn "$fullpath:$linenum: warning: Missing name/discussion for attribute\n";
 		    }
 		    last SWITCH;
 		};
@@ -213,7 +242,7 @@ sub processComment {
 			    $self->attributelist($name, $line);
 			}
 		    } else {
-			warn "$filename:$linenum: warning: Missing name/discussion for attributelist\n";
+			warn "$fullpath:$linenum: warning: Missing name/discussion for attributelist\n";
 		    }
 		    last SWITCH;
 		};
@@ -222,7 +251,7 @@ sub processComment {
 		    if (length($attname) && length($attdisc)) {
 			$self->attribute($attname, $attdisc, 1);
 		    } else {
-			warn "$filename:$linenum: warning: Missing name/discussion for attributeblock\n";
+			warn "$fullpath:$linenum: warning: Missing name/discussion for attributeblock\n";
 		    }
 		    last SWITCH;
 		};
@@ -231,6 +260,7 @@ sub processComment {
 				    $self->see($field);
 				    last SWITCH;
 				};
+			($field =~ s/^details(\s+|$)//io) && do {$self->discussion($field); last SWITCH;};
 			($field =~ s/^discussion(\s+|$)//io) && do {$self->discussion($field); last SWITCH;};
 			($field =~ s/^templatefield\s+//io) && do {
 					$self->attributelist("Template Field", $field);
@@ -272,23 +302,23 @@ sub processComment {
 				}
 				last SWITCH;
 			};
-			# my $filename = $HeaderDoc::headerObject->filename();
-			my $filename = $self->filename();
+			# my $fullpath = $HeaderDoc::headerObject->fullpath();
+			my $fullpath = $self->fullpath();
 			my $linenum = $self->linenum();
-			if (length($field)) { warn "$filename:$linenum: warning: Unknown field (\@$field) in function comment (".$self->name().")\n"; }
+			if (length($field)) { warn "$fullpath:$linenum: warning: Unknown field (\@$field) in function comment (".$self->name().")\n"; }
 		}
 	}
 }
 
-sub setFunctionDeclaration {
+sub setDeclaration {
     my $self = shift;
     my ($dec) = @_;
     my ($retval);
     my $localDebug = 0;
     my $noparens = 0;
     
-    print "============================================================================\n" if ($localDebug);
-    print "Raw declaration is: $dec\n" if ($localDebug);
+    print STDERR "============================================================================\n" if ($localDebug);
+    print STDERR "Raw declaration is: $dec\n" if ($localDebug);
     $self->declaration($dec);
 
     $self->declarationInHTML($dec);
@@ -301,16 +331,16 @@ sub conflict {
     if (@_) { 
         $self->{CONFLICT} = @_;
     }
-    print "conflict $self->{CONFLICT}\n" if ($localDebug);
+    print STDERR "conflict $self->{CONFLICT}\n" if ($localDebug);
     return $self->{CONFLICT};
 }
 
 sub printObject {
     my $self = shift;
  
-    print "Function\n";
+    print STDERR "Function\n";
     $self->SUPER::printObject();
-    print "Result: $self->{RESULT}\n";
+    print STDERR "Result: $self->{RESULT}\n";
 }
 
 

@@ -2,7 +2,7 @@
 #
 # Server-side
 <reply>
-<data nocheck="1">
+<data nocheck="yes">
 HTTP/1.1 200 OK
 Date: Thu, 09 Nov 2010 14:49:00 GMT
 Content-Length: 8
@@ -22,7 +22,7 @@ http
 HTTP GET -w num_connects with one simple connect
  </name>
  <command>
-http://%HOSTIP:%HTTPPORT/192 -w '%{num_connects}\n'
+http://%HOSTIP:%HTTPPORT/192 -w "%{num_connects}\n"
 </command>
 </client>
 
@@ -34,7 +34,7 @@ http://%HOSTIP:%HTTPPORT/192 -w '%{num_connects}\n'
 </strip>
 <protocol>
 GET /192 HTTP/1.1
-Host: 127.0.0.1:%HTTPPORT
+Host: %HOSTIP:%HTTPPORT
 Accept: */*
 
 </protocol>

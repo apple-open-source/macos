@@ -3,7 +3,6 @@
    Distributed SMB/CIFS Server Management Utility 
 
    Copyright (C) Jeremy Allison (jra@samba.org) 2005
-   Copyright (C) 2007 Apple Inc. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -290,79 +289,6 @@ static int process_share_list(int (*fn)(struct file_list *, void *), void *priv)
  Info function.
 ***************************************************************************/
 
-/* Parse the usershare_ok line from a version 1 - 3 usershare file and return a
- * string containing the resolved ACL.
- */
-static char * resolve_usershare_acl(void * ctx, const char * usershare_line)
-{
-	char *acl_str;
-	const char *acl_sep;
-	fstring acl_value;
-
-	int num_aces;
-	char sep_str[2];
-	SEC_DESC *psd = NULL;
-
-	sep_str[0] = *lp_winbind_separator();
-	sep_str[1] = '\0';
-
-	acl_sep = strchr(usershare_line, '=');
-	if (acl_sep == NULL || /* no separator */
-	    acl_sep == usershare_line || /* no param */
-	    *(acl_sep + 1) == '\0') /* no value */ {
-		/* Shouldn't happen because we already checked the syntax. */
-		DEBUG(0, ("invalid usershare_acl syntax: '%s'\n",
-			    usershare_line));
-		return NULL;
-	}
-
-	strncpy(acl_value, acl_sep + 1, sizeof(fstring));
-	trim_string(acl_value, " ", " ");
-	trim_char(acl_value, '"', '"');
-
-	if (!parse_usershare_acl(ctx, acl_value, &psd)) {
-		/* Shouldn't happen because we already checked the syntax. */
-		DEBUG(0, ("invalid usershare_acl: %s\n", acl_value));
-		return NULL;
-	}
-
-	acl_str = talloc_strdup(ctx, "");
-
-	for (num_aces = 0; num_aces < psd->dacl->num_aces; num_aces++) {
-		const char *domain;
-		const char *name;
-		NTSTATUS ntstatus;
-
-		ntstatus = net_lookup_name_from_sid(ctx, &psd->dacl->aces[num_aces].trustee, &domain, &name);
-
-		if (NT_STATUS_IS_OK(ntstatus)) {
-			if (domain && *domain) {
-				acl_str = talloc_asprintf_append(acl_str,
-					"%s%s", domain, sep_str);
-			}
-			acl_str = talloc_asprintf_append(acl_str, "%s", name);
-		} else {
-			fstring sidstr;
-			sid_to_string(sidstr, &psd->dacl->aces[num_aces].trustee);
-			acl_str = talloc_asprintf_append(acl_str, "%s", sidstr);
-		}
-
-		acl_str = talloc_asprintf_append(acl_str, ":");
-
-		if (psd->dacl->aces[num_aces].type == SEC_ACE_TYPE_ACCESS_DENIED) {
-			acl_str = talloc_asprintf_append(acl_str, "D");
-		} else {
-			if (psd->dacl->aces[num_aces].access_mask & GENERIC_ALL_ACCESS) {
-				acl_str = talloc_asprintf_append(acl_str, "F");
-			} else {
-				acl_str = talloc_asprintf_append(acl_str, "R");
-			}
-		}
-	}
-
-	return acl_str;
-}
-
 static int info_fn(struct file_list *fl, void *priv)
 {
 	SMB_STRUCT_STAT sbuf;
@@ -371,8 +297,18 @@ static int info_fn(struct file_list *fl, void *priv)
 	TALLOC_CTX *ctx = pi->ctx;
 	int fd = -1;
 	int numlines = 0;
+	SEC_DESC *psd = NULL;
 	pstring basepath;
+	pstring sharepath;
+	pstring comment;
+	pstring acl_str;
+	int num_aces;
+	char sep_str[2];
 	enum usershare_err us_err;
+	BOOL guest_ok = False;
+
+	sep_str[0] = *lp_winbind_separator();
+	sep_str[1] = '\0';
 
 	get_basepath(basepath);
 	pstrcat(basepath, "/");
@@ -413,45 +349,67 @@ static int info_fn(struct file_list *fl, void *priv)
 	}
 
 	/* Ensure it's well formed. */
-	us_err = parse_usershare_file(ctx, &sbuf,
-			fl->pathname, GLOBAL_SECTION_SNUM,
-			(const char **)lines, numlines);
+	us_err = parse_usershare_file(ctx, &sbuf, fl->pathname, -1, lines, numlines,
+				sharepath,
+				comment,
+				&psd,
+				&guest_ok);
+
+	file_lines_free(lines);
 
 	if (us_err != USERSHARE_OK) {
 		d_fprintf(stderr, "info_fn: file %s is not a well formed usershare file.\n",
 			basepath );
 		d_fprintf(stderr, "info_fn: Error was %s.\n",
 			get_us_error_code(us_err) );
-		file_lines_free(lines);
 		return -1;
 	}
 
-	if (pi->op == US_LIST_OP) {
-		d_printf("%s\n", fl->pathname);
-	} else if (pi->op == US_INFO_OP) {
-		int i;
-		d_printf("[%s]\n", fl->pathname );
+	pstrcpy(acl_str, "usershare_acl=");
 
-		for (i = 0; i < numlines; ++i) {
-			if (*lines[i] == '#') {
-				continue;
+	for (num_aces = 0; num_aces < psd->dacl->num_aces; num_aces++) {
+		const char *domain;
+		const char *name;
+		NTSTATUS ntstatus;
+
+		ntstatus = net_lookup_name_from_sid(ctx, &psd->dacl->aces[num_aces].trustee, &domain, &name);
+
+		if (NT_STATUS_IS_OK(ntstatus)) {
+			if (domain && *domain) {
+				pstrcat(acl_str, domain);
+				pstrcat(acl_str, sep_str);
 			}
+			pstrcat(acl_str,name);
+		} else {
+			fstring sidstr;
+			sid_to_string(sidstr, &psd->dacl->aces[num_aces].trustee);
+			pstrcat(acl_str,sidstr);
+		}
+		pstrcat(acl_str, ":");
 
-			if (strncmp(lines[i], "usershare_acl", 13) == 0) {
-				char *acl_str;
-
-				acl_str = resolve_usershare_acl(ctx, lines[i]);
-				if (acl_str) {
-					d_printf("usershare_acl=%s\n",
-						acl_str);
-				}
+		if (psd->dacl->aces[num_aces].type == SEC_ACE_TYPE_ACCESS_DENIED) {
+			pstrcat(acl_str, "D,");
+		} else {
+			if (psd->dacl->aces[num_aces].access_mask & GENERIC_ALL_ACCESS) {
+				pstrcat(acl_str, "F,");
 			} else {
-			    d_printf("%s\n", lines[i]);
+				pstrcat(acl_str, "R,");
 			}
 		}
 	}
 
-	file_lines_free(lines);
+	acl_str[strlen(acl_str)-1] = '\0';
+
+	if (pi->op == US_INFO_OP) {
+		d_printf("[%s]\n", fl->pathname );
+		d_printf("path=%s\n", sharepath );
+		d_printf("comment=%s\n", comment);
+		d_printf("%s\n", acl_str);
+		d_printf("guest_ok=%c\n\n", guest_ok ? 'y' : 'n');
+	} else if (pi->op == US_LIST_OP) {
+		d_printf("%s\n", fl->pathname);
+	}
+
 	return 0;
 }
 
@@ -560,171 +518,6 @@ static int count_num_usershares(void)
  Add a single userlevel share.
 ***************************************************************************/
 
-static BOOL usershare_name_is_valid(const char *sharename)
-{
-	struct passwd *pwent;
-	uid_t uid;
-
-	if (!validate_net_name(sharename, INVALID_SHARENAME_CHARS, strlen(sharename))) {
-		d_fprintf(stderr, "net usershare add: share name %s contains "
-                        "invalid characters (any of %s)\n",
-                        sharename, INVALID_SHARENAME_CHARS);
-		return False;
-	}
-
-	/* Disallow shares the same as users unless the share is being added by
-	 * root or by the user themselves.
-	 */
-	uid = getuid();
-	if (uid != 0 &&
-	    (pwent = getpwnam(sharename)) &&
-	    pwent->pw_uid != uid) {
-		d_fprintf(stderr, "net usershare add: share name %s is "
-			"already a valid system user name\n", sharename );
-		return False;
-	}
-
-	return True;
-}
-
-
-/* Go through and validate the ACL string. Convert names to SID's as
- * needed. Then run it through parse_usershare_acl to ensure it's valid.
- */
-static char * usershare_parse_acl_from_arg(void * ctx, const char *arg_acl)
-{
-	char *us_acl;
-	const char *pacl;
-	int num_aces;
-	int i;
-	SEC_DESC *psd = NULL;
-
-	/* Start off the string we'll append to. */
-	us_acl = talloc_strdup(ctx, "");
-
-	pacl = arg_acl;
-	num_aces = 1;
-
-	/* Add the number of ',' characters to get the number of aces. */
-	num_aces += count_chars(pacl,',');
-
-	for (i = 0; i < num_aces; i++) {
-		DOM_SID sid;
-		const char *pcolon = strchr_m(pacl, ':');
-		const char *name;
-
-		if (pcolon == NULL) {
-			d_fprintf(stderr, "net usershare add: malformed acl %s (missing ':').\n",
-				pacl );
-			return NULL;
-		}
-
-		switch(pcolon[1]) {
-			case 'f':
-			case 'F':
-			case 'd':
-			case 'r':
-			case 'R':
-				break;
-			default:
-				d_fprintf(stderr, "net usershare add: malformed acl %s "
-					"(access control must be 'r', 'f', or 'd')\n",
-					pacl );
-				return NULL;
-		}
-
-		if (pcolon[2] != ',' && pcolon[2] != '\0') {
-			d_fprintf(stderr, "net usershare add: malformed terminating character for acl %s\n",
-				pacl );
-			return NULL;
-		}
-
-		/* Get the name */
-		if ((name = talloc_strndup(ctx, pacl, pcolon - pacl)) == NULL) {
-			d_fprintf(stderr,
-			"net usershare add: memory allocation failure\n");
-			return NULL;
-		}
-		if (!string_to_sid(&sid, name)) {
-			/* Convert to a SID */
-			NTSTATUS ntstatus = net_lookup_sid_from_name(ctx, name, &sid);
-			if (!NT_STATUS_IS_OK(ntstatus)) {
-				d_fprintf(stderr, "net usershare add: cannot convert name \"%s\" to a SID. %s.",
-					name, get_friendly_nt_error_msg(ntstatus) );
-				if (NT_STATUS_EQUAL(ntstatus, NT_STATUS_CONNECTION_REFUSED)) {
-					d_fprintf(stderr,  " Maybe smbd is not running.\n");
-				} else {
-					d_fprintf(stderr, "\n");
-				}
-
-				return NULL;
-			}
-		}
-		us_acl = talloc_asprintf_append(us_acl, "%s:%c,", sid_string_static(&sid), pcolon[1]);
-
-		/* Move to the next ACL entry. */
-		if (pcolon[2] == ',') {
-			pacl = &pcolon[3];
-		}
-	}
-
-	/* Remove the last ',' */
-	us_acl[strlen(us_acl)-1] = '\0';
-
-	if (!parse_usershare_acl(ctx, us_acl, &psd)) {
-		d_fprintf(stderr,
-			"net usershare add: malformed share acl %s\n", us_acl);
-		return NULL;
-	}
-
-	return us_acl;
-}
-
-static char * usershare_mkfile_vers2(void *ctx,
-			const char * us_path,
-			const char * us_comment,
-			const char * us_acl,
-			BOOL guest_ok)
-{
-	char * file_img;
-
-	file_img = talloc_strdup(ctx, "#VERSION 2\npath=");
-	file_img = talloc_asprintf_append(file_img,
-			"%s\ncomment=%s\nusershare_acl=%s\nguest_ok=%c\n",
-			us_path, us_comment, us_acl, guest_ok ? 'y' : 'n');
-
-	return file_img;
-}
-
-static char * usershare_mkfile_vers3(void *ctx,
-			const char * us_path,
-			const char * us_comment,
-			const char * us_acl,
-			BOOL guest_ok,
-			const char ** options,
-			int num_options)
-{
-	int i;
-	char *file_img;
-
-	/* More than 20 options is just silly. */
-	if (num_options > 20) {
-		return NULL;
-	}
-
-	file_img = talloc_strdup(ctx, "#VERSION 3\n");
-	file_img = talloc_asprintf_append(file_img,
-			"path=%s\ncomment=%s\nusershare_acl=%s\nguest ok=%s\n",
-			us_path, us_comment, us_acl,
-			guest_ok ? "yes" : "no");
-
-	for (i = 0; i < num_options; ++i) {
-		file_img = talloc_asprintf_append(file_img, "%s\n", options[i]);
-	}
-
-	return file_img;
-}
-
 static int net_usershare_add(int argc, const char **argv)
 {
 	TALLOC_CTX *ctx = NULL;
@@ -738,12 +531,14 @@ static int net_usershare_add(int argc, const char **argv)
 	const char *arg_acl;
 	char *us_acl;
 	char *file_img;
+	int num_aces = 0;
+	int i;
 	int tmpfd;
+	const char *pacl;
 	size_t to_write;
 	uid_t myeuid = geteuid();
 	BOOL guest_ok = False;
 	int num_usershares;
-	BOOL full_config = False;
 
 	us_comment = "";
 	arg_acl = "S-1-1-0:R";
@@ -751,6 +546,7 @@ static int net_usershare_add(int argc, const char **argv)
 	switch (argc) {
 		case 0:
 		case 1:
+		default:
 			return net_usershare_add_usage(argc, argv);
 		case 2:
 			sharename = strdup_lower(argv[0]);
@@ -767,9 +563,6 @@ static int net_usershare_add(int argc, const char **argv)
 			us_comment = argv[2];
 			arg_acl = argv[3];
 			break;
-		default:
-			full_config = True;
-			/* FALLTHRU */
 		case 5:
 			sharename = strdup_lower(argv[0]);
 			us_path = argv[1];
@@ -794,14 +587,6 @@ static int net_usershare_add(int argc, const char **argv)
 					return net_usershare_add_usage(argc, argv);
 			}
 			break;
-
-	}
-
-	if (full_config && !lp_usershare_allow_full_config()) {
-		d_fprintf(stderr, "net usershare add: full usershare control "
-		    "is administratively disabled\n");
-		SAFE_FREE(sharename);
-		return -1;
 	}
 
 	/* Ensure we're under the "usershare max shares" number. Advisory only. */
@@ -813,7 +598,18 @@ static int net_usershare_add(int argc, const char **argv)
 		return -1;
 	}
 
-	if (!usershare_name_is_valid(sharename)) {
+	if (!validate_net_name(sharename, INVALID_SHARENAME_CHARS, strlen(sharename))) {
+		d_fprintf(stderr, "net usershare add: share name %s contains "
+                        "invalid characters (any of %s)\n",
+                        sharename, INVALID_SHARENAME_CHARS);
+		SAFE_FREE(sharename);
+		return -1;
+	}
+
+	/* Disallow shares the same as users. */
+	if (getpwnam(sharename)) {
+		d_fprintf(stderr, "net usershare add: share name %s is already a valid system user name\n",
+			sharename );
 		SAFE_FREE(sharename);
 		return -1;
 	}
@@ -862,15 +658,91 @@ static int net_usershare_add(int argc, const char **argv)
 		return -1;
 	}
 
-	/* No validation needed on comment. */
+	/* No validation needed on comment. Now go through and validate the
+	   acl string. Convert names to SID's as needed. Then run it through
+	   parse_usershare_acl to ensure it's valid. */
 
 	ctx = talloc_init("share_info");
-	us_acl = usershare_parse_acl_from_arg(ctx, arg_acl);
-	if (us_acl == NULL) {
-		talloc_destroy(ctx);
-		SAFE_FREE(sharename);
-		return -1;
+
+	/* Start off the string we'll append to. */
+	us_acl = talloc_strdup(ctx, "");
+
+	pacl = arg_acl;
+	num_aces = 1;
+
+	/* Add the number of ',' characters to get the number of aces. */
+	num_aces += count_chars(pacl,',');
+
+	for (i = 0; i < num_aces; i++) {
+		DOM_SID sid;
+		const char *pcolon = strchr_m(pacl, ':');
+		const char *name;
+
+		if (pcolon == NULL) {
+			d_fprintf(stderr, "net usershare add: malformed acl %s (missing ':').\n",
+				pacl );
+			talloc_destroy(ctx);
+			SAFE_FREE(sharename);
+			return -1;
+		}
+
+		switch(pcolon[1]) {
+			case 'f':
+			case 'F':
+			case 'd':
+			case 'r':
+			case 'R':
+				break;
+			default:
+				d_fprintf(stderr, "net usershare add: malformed acl %s "
+					"(access control must be 'r', 'f', or 'd')\n",
+					pacl );
+				talloc_destroy(ctx);
+				SAFE_FREE(sharename);
+				return -1;
+		}
+
+		if (pcolon[2] != ',' && pcolon[2] != '\0') {
+			d_fprintf(stderr, "net usershare add: malformed terminating character for acl %s\n",
+				pacl );
+			talloc_destroy(ctx);
+			SAFE_FREE(sharename);
+			return -1;
+		}
+
+		/* Get the name */
+		if ((name = talloc_strndup(ctx, pacl, pcolon - pacl)) == NULL) {
+			d_fprintf(stderr, "talloc_strndup failed\n");
+			talloc_destroy(ctx);
+			SAFE_FREE(sharename);
+			return -1;
+		}
+		if (!string_to_sid(&sid, name)) {
+			/* Convert to a SID */
+			NTSTATUS ntstatus = net_lookup_sid_from_name(ctx, name, &sid);
+			if (!NT_STATUS_IS_OK(ntstatus)) {
+				d_fprintf(stderr, "net usershare add: cannot convert name \"%s\" to a SID. %s.",
+					name, get_friendly_nt_error_msg(ntstatus) );
+				if (NT_STATUS_EQUAL(ntstatus, NT_STATUS_CONNECTION_REFUSED)) {
+					d_fprintf(stderr,  " Maybe smbd is not running.\n");
+				} else {
+					d_fprintf(stderr, "\n");
+				}
+				talloc_destroy(ctx);
+				SAFE_FREE(sharename);
+				return -1;
+			}
+		}
+		us_acl = talloc_asprintf_append(us_acl, "%s:%c,", sid_string_static(&sid), pcolon[1]);
+
+		/* Move to the next ACL entry. */
+		if (pcolon[2] == ',') {
+			pacl = &pcolon[3];
+		}
 	}
+
+	/* Remove the last ',' */
+	us_acl[strlen(us_acl)-1] = '\0';
 
 	if (guest_ok && !lp_usershare_allow_guests()) {
 		d_fprintf(stderr, "net usershare add: guest_ok=y requested "
@@ -927,14 +799,9 @@ static int net_usershare_add(int argc, const char **argv)
 	}
 
 	/* Create the in-memory image of the file. */
-
-	if (full_config) {
-		file_img = usershare_mkfile_vers3(ctx, us_path, us_comment,
-				us_acl, guest_ok, &argv[5], argc - 5);
-	} else {
-		file_img = usershare_mkfile_vers2(ctx, us_path, us_comment,
-				us_acl, guest_ok);
-	}
+	file_img = talloc_strdup(ctx, "#VERSION 2\npath=");
+	file_img = talloc_asprintf_append(file_img, "%s\ncomment=%s\nusershare_acl=%s\nguest_ok=%c\n",
+			us_path, us_comment, us_acl, guest_ok ? 'y' : 'n');
 
 	to_write = strlen(file_img);
 

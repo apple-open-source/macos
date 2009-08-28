@@ -31,14 +31,14 @@ in this Software without prior written authorization from The Open Group.
 #include <sys/types.h>
 
 
-static char *
+static const char *
 GetPath(void)
 {
-    char *path = (char *) getenv ("SM_SAVE_DIR");
+    const char *path = getenv ("SM_SAVE_DIR");
 
     if (!path)
     {
-	path = (char *) getenv ("HOME");
+	path = getenv ("HOME");
 	if (!path)
 	    path = ".";
     }
@@ -48,9 +48,9 @@ GetPath(void)
 
 
 Status
-LockSession(char *session_name, Bool write_id)
+LockSession(const char *session_name, Bool write_id)
 {
-    char *path;
+    const char *path;
     char lock_file[PATH_MAX];
     char temp_lock_file[PATH_MAX];
     Status status;
@@ -95,9 +95,9 @@ LockSession(char *session_name, Bool write_id)
 
 
 void
-UnlockSession(char *session_name)
+UnlockSession(const char *session_name)
 {
-    char *path;
+    const char *path;
     char lock_file[PATH_MAX];
 
     path = GetPath ();
@@ -109,9 +109,9 @@ UnlockSession(char *session_name)
 
 
 char *
-GetLockId(char *session_name)
+GetLockId(const char *session_name)
 {
-    char *path;
+    const char *path;
     FILE *fp;
     char lock_file[PATH_MAX];
     char buf[256];
@@ -137,7 +137,7 @@ GetLockId(char *session_name)
 
 
 Bool
-CheckSessionLocked(char *session_name, Bool get_id, char **id_ret)
+CheckSessionLocked(const char *session_name, Bool get_id, char **id_ret)
 {
     if (get_id)
 	*id_ret = GetLockId (session_name);
@@ -151,7 +151,7 @@ CheckSessionLocked(char *session_name, Bool get_id, char **id_ret)
 
 
 void
-UnableToLockSession(char *session_name)
+UnableToLockSession(const char *session_name)
 {
     /*
      * We should popup a dialog here giving error.

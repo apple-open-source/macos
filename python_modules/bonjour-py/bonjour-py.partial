@@ -1,0 +1,18 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>bonjour-py</string>
+        <key>OpenSourceVersion</key>
+        <string>0.3</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://www-unix.mcs.anl.gov/fl/research/accessgrid/bonjour-py/bonjour-py.html</string>
+        <key>OpenSourceURL</key>
+        <string>http://www.mcs.anl.gov/fl/research/accessgrid/bonjour-py/bonjour-py-0.3.tar.gz</string>
+	<key>OpenSourceMD5</key>
+	<string>6397ed97745d7d107419ab33273c8935</string>
+        <key>OpenSourceImportDate</key>
+        <string>2008-01-24</string>
+        <key>OpenSourceLicense</key>
+        <string>Access Grid Toolkit Public License</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>python_modules.txt</string>
+</dict>

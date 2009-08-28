@@ -13,7 +13,7 @@
 This manual is last updated @value{UPDATED} for version
 @value{VERSION} of GNU Libidn.
 
-Copyright @copyright{} 2002, 2003, 2004, 2005 Simon Josefsson.
+Copyright @copyright{} 2002, 2003, 2004, 2005, 2006, 2007 Simon Josefsson.
 
 @quotation
 Permission is granted to copy, distribute and/or modify this document
@@ -74,18 +74,17 @@ section entitled ``GNU Free Documentation License''.
 * Java API::                    Notes on the Java port of Libidn.
 * C# API::                      Notes on the C# port of Libidn.
 * Acknowledgements::            Whom to blame.
-* Milestones::                  Rough outline of development history.
-
-Indices
-
-* Concept Index::
-* Function and Variable Index::
+* History::                     Rough outline of development history.
 
 Appendices
 
 * PR29 discussion::             Implementation aspects of the PR29 flaw.
-* Library Copying::		How you can copy and share GNU Libidn.
-* Copying This Manual::		How you can copy and share this manual.
+* Copying Information::		License text covering the Libidn library.
+
+Indices
+
+* Function and Variable Index::
+* Concept Index::
 
 @end menu
 
@@ -95,8 +94,9 @@ Appendices
 
 GNU Libidn is an implementation of the Stringprep, Punycode and IDNA
 specifications defined by the IETF Internationalized Domain Names
-(IDN) working group, used for internationalized domain names.  The
-package is available under the GNU Lesser General Public License.
+(IDN) working group, used for internationalized domain names.  The C
+library is available under the GNU Lesser General Public License
+(@pxref{GNU LGPL}).
 
 The library contains a generic Stringprep implementation that does
 Unicode 3.2 NFKC normalization, mapping and prohibitation of
@@ -129,7 +129,8 @@ Libidn is developed for the GNU/Linux system, but runs on over 20 Unix
 platforms (including Solaris, IRIX, AIX, and Tru64) and Windows.
 Libidn is written in C and (parts of) the API is accessible from C,
 C++, Emacs Lisp, Python and Java.  A native Java and C# port is also
-provided.
+provided, licensed under the GNU Lesser General Public License
+(@pxref{GNU LGPL}).
 
 @menu
 * Getting Started::
@@ -173,7 +174,7 @@ doing a similar job.
 @table @asis
 @item It's Free Software
 Anybody can use, modify, and redistribute it under the terms of the
-GNU Lesser General Public License.
+GNU Lesser General Public License (@pxref{GNU LGPL}).
 
 @item It's thread-safe
 No global state is kept in the library.  All functions are reentrant.
@@ -214,7 +215,7 @@ and in turn Nameprep uses the generic StringPrep interface.  The
 interfaces to all components are available for applications, no
 component within the library is hidden from the application.
 
-@image{components}
+@image{libidn-components}
 
 @node Supported Platforms
 @section Supported Platforms
@@ -374,6 +375,13 @@ GCC 3.4 and GNU Make @code{m68k-uclinux-elf}.
 @cindex ARM
 
 GCC 2.95 and GNU Make @code{arm-linux}.
+
+@item Cross compiled to Mingw32.
+@cindex Windows
+@cindex Microsoft
+@cindex mingw32
+
+GCC 3.4.4 and GNU Make @code{i586-mingw32msvc}.
 
 @end enumerate
 
@@ -1303,14 +1311,14 @@ be used when writing your own application.
 
 This example demonstrates how the stringprep functions are used.
 
-@verbatiminclude ../examples/example.c
+@verbatiminclude example.c
 
 @node Example 2
 @section Example 2
 
 This example demonstrates how the punycode functions are used.
 
-@verbatiminclude ../examples/example2.c
+@verbatiminclude example2.c
 
 @node Example 3
 @section Example 3
@@ -1318,7 +1326,7 @@ This example demonstrates how the punycode functions are used.
 This example demonstrates how the library is used to convert
 internationalized domain names into ASCII compatible names.
 
-@verbatiminclude ../examples/example3.c
+@verbatiminclude example3.c
 
 @node Example 4
 @section Example 4
@@ -1326,7 +1334,7 @@ internationalized domain names into ASCII compatible names.
 This example demonstrates how the library is used to convert ASCII
 compatible names to internationalized domain names.
 
-@verbatiminclude ../examples/example4.c
+@verbatiminclude example4.c
 
 @node Example 5
 @section Example 5
@@ -1334,7 +1342,7 @@ compatible names to internationalized domain names.
 This example demonstrates how the library is used to check a string
 for invalid characters within a specific TLD.
 
-@verbatiminclude ../examples/example5.c
+@verbatiminclude example5.c
 
 @c **********************************************************
 @c *********************  Invoking idn  *********************
@@ -1789,7 +1797,9 @@ in the JDK API.
 The Libidn library has been ported to the C# language.  The port
 reside in the top-level @file{csharp/} directory.  Currently, no
 further documentation about the implementation or the API is
-available.
+available.  However, the C# port was based on the Java port, and the
+API is exactly the same as in the Java version.  The help files for
+the Java API may thus be useful.
 
 @c **********************************************************
 @c *******************  Acknowledgements  *******************
@@ -1816,10 +1826,10 @@ Several people reported bugs, sent patches or suggested improvements,
 see the file THANKS in the top-level directory of the source code.
 
 @c **********************************************************
-@c **********************  Milestones  **********************
+@c ************************  History  ***********************
 @c **********************************************************
-@node Milestones
-@chapter Milestones
+@node History
+@chapter History
 
 The complete history of user visible changes is stored in the file
 @file{NEWS} in the top-level directory of the source code tree.  The
@@ -1866,17 +1876,10 @@ Version 0.5.1 through 0.5.20, released between 2004-07-09 and
 @item Native C# implementation.
 Version 0.6.0 released on 2005-12-03.
 
+@item Windows support through cross-compilation.
+Version 0.6.1 released on 2006-01-20.
+
 @end table
-
-@node Concept Index
-@unnumbered Concept Index
-
-@printindex cp
-
-@node Function and Variable Index
-@unnumbered Function and Variable Index
-
-@printindex fn
 
 @node PR29 discussion
 @appendix PR29 discussion
@@ -1988,15 +1991,27 @@ Regards,
 Simon
 @end verbatim
 
-@include lgpl.texi
-
-@node Copying This Manual
-@appendix Copying This Manual
+@node Copying Information
+@appendix Copying Information
 
 @menu
-* GNU Free Documentation License::  License for copying this manual.
+* GNU Free Documentation License::   License for copying this manual.
+* GNU LGPL::                         License for copying the library.
+* GNU GPL::                          License for copying the programs.
 @end menu
 
 @include fdl.texi
+@include lgpl.texi
+@include gpl.texi
+
+@node Function and Variable Index
+@unnumbered Function and Variable Index
+
+@printindex fn
+
+@node Concept Index
+@unnumbered Concept Index
+
+@printindex cp
 
 @bye

@@ -1,0 +1,50 @@
+[comment {-*- tcl -*- doctools}]
+[manpage_begin memchan n 2.2]
+[moddesc   {Memory channels}]
+[titledesc {C API for creating memory channels}]
+[copyright {2004 Pat Thoyts <patthoyts@users.sourceforge.net>}]
+[require Tcl]
+[require memchan]
+[description]
+
+The [package {memchan}] package provides a C API for use by
+third-party extension writers. This is exposed by a Tcl stubs library
+table to reduce version dependency as is available for Tcl itself.
+
+[section COMMAND]
+[list_begin definitions]
+[call Tcl_Channel [cmd Memchan_CreateMemoryChannel]\
+ ([arg "Tcl_Interp *interp"], [arg "int initialSize"])]
+
+[call Tcl_Channel [cmd Memchan_CreateFifoChannel]\
+  ([arg "Tcl_Interp *interp"])]
+[call void [cmd Memchan_CreateFifo2Channel] \
+  ([arg "Tcl_Interp *interp"], \
+   [arg "Tcl_Channel *aPtr"], \
+   [arg "Tcl_Channel *bPtr"])]
+
+[call Tcl_Channel [cmd Memchan_CreateNullChannel]\
+  ([arg "Tcl_Interp *interp"])]
+
+[call Tcl_Channel [cmd Memchan_CreateZeroChannel]\
+  ([arg "Tcl_Interp *interp"])]
+
+[call Tcl_Channel [cmd Memchan_CreateRandomChannel]\
+  ([arg "Tcl_Interp *interp"])]
+
+[list_end]
+[para]
+Each of these functions creates an returns a channel exactly as
+described in the Tcl command pages for each of the [package memchan]
+commands. The Tcl commands internally call these functions to create
+the channels.
+[para]
+The [cmd memchan] channel accepts an [arg initialSize] argument to
+permit pre-allocating space for the internal buffer. Normally this may
+be set to 0.
+[para]
+The [cmd fifo2] API function looks a little different because it must
+return two linked channels.
+
+[see_also Tcl_GetChannelName]
+[manpage_end]

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2007 Apple Inc.  All rights reserved.
+ * Copyright (c) 2002-2009 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -230,14 +230,14 @@ void dump_static_object(const unsigned char* object, const int sizeof_object,
                         unsigned char* cbuff, const int sizeof_cbuff);
 void dump_netobj(const struct netobj *nobj);
 void dump_filelock(const struct file_lock *fl);
-struct file_lock *	get_lock_matching_unlock(const struct file_lock *fl);
+struct file_lock *	get_lock_matching_unlock(const struct file_lock *fl, int cleanup);
 enum nfslock_status	test_nfslock(const struct file_lock *fl,
     struct file_lock **conflicting_fl);
 enum nfslock_status	lock_nfslock(struct file_lock *fl);
 enum nfslock_status	delete_nfslock(struct file_lock *fl);
 enum nfslock_status	unlock_nfslock(const struct file_lock *fl,
     struct file_lock **released_lock, struct file_lock **left_lock,
-    struct file_lock **right_lock);
+    struct file_lock **right_lock, int cleanup);
 enum hwlock_status lock_hwlock(struct file_lock *fl);
 enum split_status split_nfslock(const struct file_lock *exist_lock,
     const struct file_lock *unlock_lock, struct file_lock **left_lock,
@@ -250,7 +250,7 @@ void	remove_blockingfilelock(struct file_lock *fl);
 void	clear_blockingfilelock(const char *hostname);
 void	retry_blockingfilelocklist(netobj *fh);
 enum partialfilelock_status	unlock_partialfilelock(
-    const struct file_lock *fl);
+    const struct file_lock *fl, int cleanup);
 void	clear_partialfilelock(const char *hostname);
 enum partialfilelock_status	test_partialfilelock(
     const struct file_lock *fl, struct file_lock **conflicting_fl);
@@ -286,6 +286,7 @@ dump_static_object(object, size_object, hbuff, size_hbuff, cbuff, size_cbuff)
 	const int size_cbuff;
 { 
 	int i, objectsize;
+	char *tmp = (char*)hbuff;
 
 	if (config.verbose < 2) {
 		return;
@@ -307,10 +308,10 @@ dump_static_object(object, size_object, hbuff, size_hbuff, cbuff, size_cbuff)
 				debuglog("Hbuff not large enough."
 				    "  Increase size\n");
 			} else {
-				for(i=0;i<objectsize;i++) {
-					sprintf((char *)hbuff+i*2,"%02x",*(object+i));
+				for(i=0;i<objectsize;i++,tmp+=2) {
+					snprintf(tmp, size_hbuff - (2*i), "%02X", *(object+i));
 				}
-				*(hbuff+i*2) = '\0';
+				*tmp = '\0';
 			}
 		}
 		
@@ -762,7 +763,7 @@ same_filelock_identity(fl0, fl1)
  * XXX: It is a shame that this duplicates so much code from test_nfslock.
  */
 struct file_lock *
-get_lock_matching_unlock(const struct file_lock *fl)
+get_lock_matching_unlock(const struct file_lock *fl, int cleanup)
 {
 	struct file_lock *ifl; /* Iterator */
 
@@ -776,6 +777,9 @@ get_lock_matching_unlock(const struct file_lock *fl)
 		debuglog("****Dump of ifl****\n");
 		dump_filelock(ifl);
 		debuglog("*******************\n");
+
+		if (cleanup && (ifl == fl))  /* don't match the lock we're cleaning up under */
+			continue;
 
 		/*
 		 * XXX: It is conceivable that someone could use the NLM RPC
@@ -1022,11 +1026,12 @@ split_nfslock(exist_lock, unlock_lock, left_lock, right_lock)
 }
 
 enum nfslock_status
-unlock_nfslock(fl, released_lock, left_lock, right_lock)
+unlock_nfslock(fl, released_lock, left_lock, right_lock, cleanup)
 	const struct file_lock *fl;
 	struct file_lock **released_lock;
 	struct file_lock **left_lock;
 	struct file_lock **right_lock;
+	int cleanup;
 {
 	struct file_lock *mfl; /* Matching file lock */
 	enum nfslock_status retval;
@@ -1041,7 +1046,7 @@ unlock_nfslock(fl, released_lock, left_lock, right_lock)
 	retval = NFS_DENIED_NOLOCK;
 
 	debuglog("Attempting to match lock...\n");
-	mfl = get_lock_matching_unlock(fl);
+	mfl = get_lock_matching_unlock(fl, cleanup);
 
 	if (mfl != NULL) {
 		debuglog("Unlock matched.  Querying for split\n");
@@ -1146,8 +1151,10 @@ lock_hwlock(struct file_lock *fl)
 	fh.fh_len = fl->filehandle.n_len;
 	bcopy(fl->filehandle.n_bytes, fh.fh_data, fh.fh_len);
 
-	/* XXX: Is O_RDWR always the correct mode? */
+	/* O_RDWR may not work if file system is read-only */
 	nmf->fd = fhopen(&fh, O_RDWR);
+	if ((nmf->fd < 0) && (errno == EROFS) && !fl->client.exclusive)
+		nmf->fd = fhopen(&fh, O_RDONLY);
 	if (nmf->fd < 0) {
 		debuglog("fhopen failed (from %16s): %32s\n",
 		    fl->client_name, strerror(errno));
@@ -1575,6 +1582,11 @@ lock_partialfilelock(struct file_lock *fl)
 			debuglog("Deleting trial NFS lock\n");
 			delete_nfslock(fl);
 		}
+		if (retval == PFL_GRANTED_DUPLICATE) {
+			/* Clean up locks replaced by this lock */
+			debuglog("Cleaning up replaced locks\n");
+			unlock_partialfilelock(fl, 1);
+		}
 		break;
 	case NFS_DENIED:
 		retval = PFL_NFSDENIED;
@@ -1626,10 +1638,14 @@ lock_partialfilelock(struct file_lock *fl)
  *
  * Note that a given lock might have to unlock ITSELF!  See
  * clear_partialfilelock for example.
+ *
+ * If cleanup is set, we will NOT unlock the lock passed in.
+ * We will merely clean up all other locks that the given lock
+ * has replaced.
  */
 
 enum partialfilelock_status
-unlock_partialfilelock(const struct file_lock *fl)
+unlock_partialfilelock(const struct file_lock *fl, int cleanup)
 {
 	struct file_lock *lfl,*rfl,*releasedfl,*selffl;
 	enum partialfilelock_status retval;
@@ -1669,7 +1685,7 @@ unlock_partialfilelock(const struct file_lock *fl)
 	do {
 		debuglog("Value of releasedfl: %p\n",releasedfl);
 		/* lfl&rfl are created *AND* placed into the NFS lock list if required */
-		unlstatus = unlock_nfslock(fl, &releasedfl, &lfl, &rfl);
+		unlstatus = unlock_nfslock(fl, &releasedfl, &lfl, &rfl, cleanup);
 		debuglog("Value of releasedfl: %p\n",releasedfl);
 
 
@@ -1752,8 +1768,10 @@ unlock_partialfilelock(const struct file_lock *fl)
 				 * but we can't deallocate the space yet.  This is what
 				 * happens when you don't write malloc and free together
 				 */
-				debuglog("Attempt to unlock self\n");
-				selffl = releasedfl;
+				if (!cleanup) {
+					debuglog("Attempt to unlock self\n");
+					selffl = releasedfl;
+				}
 			} else {
 				/*
 				 * XXX: this deallocation *still* needs to migrate closer
@@ -1768,7 +1786,7 @@ unlock_partialfilelock(const struct file_lock *fl)
 
 	} while (unlstatus == NFS_GRANTED);
 
-	if (selffl != NULL) {
+	if (!cleanup && (selffl != NULL)) {
 		/*
 		 * This statement wipes out the incoming file lock (fl)
 		 * in spite of the fact that it is declared const
@@ -1835,7 +1853,7 @@ restart:
 
 		if (strncmp(hostname, ifl->client_name, SM_MAXSTRLEN) == 0) {
 			/* Unlock destroys ifl out from underneath */
-			pfsret = unlock_partialfilelock(ifl);
+			pfsret = unlock_partialfilelock(ifl, 0);
 			if (pfsret != PFL_GRANTED) {
 				/* Uh oh... there was some sort of problem. */
 				/* If we restart the loop, we may get */
@@ -2032,7 +2050,7 @@ do_unlock(struct file_lock *fl)
 	enum nlm4_stats retval;
 
 	debuglog("Entering do_unlock...\n");
-	pfsret = unlock_partialfilelock(fl);
+	pfsret = unlock_partialfilelock(fl, 0);
 
 	switch (pfsret) {
 	case PFL_GRANTED:
@@ -3019,7 +3037,7 @@ restart:
 		if (((ifl->flags & LOCK_MON) == 0) &&
 		    (strncmp(hostname, ifl->client_name, SM_MAXSTRLEN) == 0)) {
 			/* Unlock destroys ifl out from underneath */
-			pfsret = unlock_partialfilelock(ifl);
+			pfsret = unlock_partialfilelock(ifl, 0);
 			if (pfsret != PFL_GRANTED) {
 				/* Uh oh... there was some sort of problem. */
 				/* If we restart the loop, we may get */

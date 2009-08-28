@@ -1,4 +1,4 @@
-/*	$OpenBSD: ar_subs.c,v 1.28 2004/04/16 22:50:23 deraadt Exp $	*/
+/*	$OpenBSD: ar_subs.c,v 1.32 2008/05/06 06:54:28 henning Exp $	*/
 /*	$NetBSD: ar_subs.c,v 1.5 1995/03/21 09:07:06 cgd Exp $	*/
 
 /*-
@@ -38,7 +38,7 @@
 #if 0
 static const char sccsid[] = "@(#)ar_subs.c	8.2 (Berkeley) 4/18/94";
 #else
-static const char rcsid[] __attribute__((__unused__)) = "$OpenBSD: ar_subs.c,v 1.28 2004/04/16 22:50:23 deraadt Exp $";
+static const char rcsid[] = "$OpenBSD: ar_subs.c,v 1.32 2008/05/06 06:54:28 henning Exp $";
 #endif
 #endif /* not lint */
 
@@ -54,19 +54,20 @@ static const char rcsid[] __attribute__((__unused__)) = "$OpenBSD: ar_subs.c,v 1
 #include <unistd.h>
 #include <stdlib.h>
 #ifdef __APPLE__
+#include <sys/param.h>
 #include <copyfile.h>
 #include <libgen.h>
 #include <sys/queue.h>
 #endif
 #include "pax.h"
+#include "options.h"
 #include "extern.h"
 
+static int path_check(ARCHD *, int);
 static void wr_archive(ARCHD *, int is_app);
 static int get_arc(void);
 static int next_head(ARCHD *);
 extern sigset_t s_mask;
-
-char *chdname;
 
 /*
  * Routines which control the overall operation modes of pax as specified by
@@ -75,6 +76,73 @@ char *chdname;
 
 static char hdbuf[BLKMULT];		/* space for archive header on read */
 u_long flcnt;				/* number of files processed */
+
+static char	cwdpath[MAXPATHLEN];	/* current working directory path */
+static size_t	cwdpathlen;		/* current working directory path len */
+
+int
+updatepath(void)
+{
+	if (getcwd(cwdpath, sizeof(cwdpath)) == NULL) {
+		syswarn(1, errno, "Cannot get working directory");
+		return -1;
+	}
+	cwdpathlen = strlen(cwdpath);
+	return 0;
+}
+
+int
+fdochdir(int fcwd)
+{
+	if (fchdir(fcwd) == -1) {
+		syswarn(1, errno, "Cannot chdir to `.'");
+		return -1;
+	}
+	return updatepath();
+}
+
+int
+dochdir(const char *name)
+{
+	if (chdir(name) == -1)
+		syswarn(1, errno, "Cannot chdir to `%s'", name);
+	return updatepath();
+}
+
+static int
+path_check(ARCHD *arcn, int level)
+{
+	char buf[MAXPATHLEN];
+	char *p;
+
+	if ((p = strrchr(arcn->name, '/')) == NULL)
+		return 0;
+	*p = '\0';
+
+	if (realpath(arcn->name, buf) == NULL) {
+		int error;
+		error = path_check(arcn, level + 1);
+		*p = '/';
+		if (error == 0)
+			return 0;
+		if (level == 0)
+			syswarn(1, 0, "Cannot resolve `%s'", arcn->name);
+		return -1;
+	}
+	if (cwdpathlen == 1) {	/* We're in the root */
+		*p = '/';
+		return 0;
+	}
+	if ((strncmp(buf, cwdpath, cwdpathlen) != 0) || (buf[cwdpathlen] != '\0' && buf[cwdpathlen] != '/')) {
+		*p = '/';
+		syswarn(1, 0, "Attempt to write file `%s' that resolves into "
+		    "`%s/%s' outside current working directory `%s' ignored",
+		    arcn->name, buf, p + 1, cwdpath);
+		return -1;
+	}
+	*p = '/';
+	return 0;
+}
 
 /*
  * list()
@@ -180,6 +248,7 @@ extract(void)
 	struct stat sb;
 	int fd;
 	time_t now;
+
 #ifdef __APPLE__
 	int copyfile_disable = (getenv(COPYFILE_DISABLE_VAR) != NULL);
 	LIST_HEAD(copyfile_list_t, copyfile_list_entry_t) copyfile_list;
@@ -320,9 +389,12 @@ extract(void)
 		 * if required, chdir around.
 		 */
 		if ((arcn->pat != NULL) && (arcn->pat->chdname != NULL))
-			if (chdir(arcn->pat->chdname) != 0)
-				syswarn(1, errno, "Cannot chdir to %s",
-				    arcn->pat->chdname);
+			dochdir(arcn->pat->chdname);
+
+		if (secure && path_check(arcn, 0) != 0) {
+			(void)rd_skip(arcn->skip + arcn->pad);
+			continue;
+		}
 
 		/*
 		 * all ok, extract this member based on type
@@ -392,19 +464,20 @@ extract(void)
 		 * if required, chdir around.
 		 */
 		if ((arcn->pat != NULL) && (arcn->pat->chdname != NULL))
-			if (fchdir(cwdfd) != 0)
-				syswarn(1, errno,
-				    "Can't fchdir to starting directory");
+			fdochdir(cwdfd);
 	}
-
 #ifdef __APPLE__
 	LIST_FOREACH(cle, &copyfile_list, link)
 	{
 	    if(copyfile_disable || copyfile(cle->tmp, cle->dst, NULL,
-		COPYFILE_UNPACK | COPYFILE_XATTR | COPYFILE_ACL))
+					    COPYFILE_UNPACK | COPYFILE_XATTR | COPYFILE_ACL)) {
+		    if (!copyfile_disable) {
+			    syswarn(1, errno, "Unable to set metadata on %s", cle->dst);
+		    }
 		rename(cle->tmp, cle->src);
-	    else
+	    } else {
 		unlink(cle->tmp);
+	    }
 	    free(cle->dst);
 	    free(cle->src);
 	    free(cle->tmp);
@@ -439,6 +512,7 @@ wr_archive(ARCHD *arcn, int is_app)
 	int (*wrf)(ARCHD *);
 	int fd = -1;
 	time_t now;
+
 #ifdef __APPLE__
 	int metadata = 0;
 	char *md_fname = NULL;
@@ -452,6 +526,7 @@ wr_archive(ARCHD *arcn, int is_app)
 	 */
 	if (((hlk = frmt->hlk) == 1) && (lnk_start() < 0))
 		return;
+
 	if (hlk && want_linkdata) hlk=0; /* Treat hard links as individual files */
 
 	/*
@@ -483,66 +558,10 @@ wr_archive(ARCHD *arcn, int is_app)
 		/*
 		 * check if this file meets user specified options match.
 		 */
-		if (sel_chk(arcn) != 0)
+		if (sel_chk(arcn) != 0) {
+			ftree_notsel();
 			continue;
-#ifdef __APPLE__
-		/*
-		 * synthesize ._ files for each node we encounter 
-		 */
-		if (getenv(COPYFILE_DISABLE_VAR) == NULL
-		    && copyfile(arcn->name, NULL, NULL,
-			COPYFILE_CHECK | COPYFILE_XATTR | COPYFILE_ACL)
-		    && arcn->nlen + 2 < sizeof(arcn->name))
-		{
-		    int size;
-		    char *new;
-
-		    md_fname = strdup("/tmp/pax.md.XXXX");
-		    memcpy(&arcn_copy, arcn, sizeof(ARCHD));
-		    strncpy(arcn_copy_name, arcn->name, PAXPATHLEN+1);
-
-		    arcn->skip = 0;
-		    arcn->pad = 0;
-		    arcn->ln_nlen = 0;
-		    arcn->ln_name[0] = '\0';
-		    arcn->type = PAX_REG;
-
-		    if(md_fname && mktemp(md_fname))
-			    if(copyfile(arcn->name, md_fname, NULL,
-				COPYFILE_PACK | COPYFILE_XATTR | COPYFILE_ACL) < 0)
-			    {
-				syswarn(1,EPERM,
-					"Unable to preserve metadata on %s", arcn->name);
-				goto next;
-			    }
-
-		    stat(md_fname, &arcn->sb);
-		    arcn->skip = arcn->sb.st_size;
-
-		    if (!strncmp(dirname(arcn->name), ".", 2))
-			size = asprintf(&new, "._%s",
-				basename(arcn->name));
-		    else
-			size = asprintf(&new, "%s/._%s",
-				dirname(arcn->name), basename(arcn->name));
-
-		    if (size != -1 && size < sizeof arcn->name)
-		    {
-			strncpy(arcn->name, new, PAXPATHLEN+1);
-		    } else {
-			goto next;
-		    }
-		    arcn->nlen = strlen(arcn->name);
-		    arcn->org_name = arcn->name;
-		    free(new);
-		    metadata = 1;
-		} else if (metadata) {
-next:
-		    metadata = 0;
-		    memcpy(arcn, &arcn_copy, sizeof(ARCHD));
-		    strncpy(arcn->name, arcn_copy_name, PAXPATHLEN+1);
 		}
-#endif
 		fd = -1;
 		if (uflag) {
 			/*
@@ -555,13 +574,99 @@ next:
 				continue;
 		}
 
+#ifdef __APPLE__
+		/*
+		 * synthesize ._ files for each node we encounter 
+		 */
+		if (getenv(COPYFILE_DISABLE_VAR) == NULL
+		    && copyfile(arcn->name, NULL, NULL,
+			COPYFILE_CHECK | COPYFILE_XATTR | COPYFILE_ACL)
+		    && arcn->nlen + 2 < sizeof(arcn->name)) {
+			char *tmpdir = P_tmpdir, *TMPDIR;
+			int fd_src, fd_dst;
+
+			if (!issetugid() && (TMPDIR = getenv("TMPDIR"))) {
+				tmpdir = TMPDIR;
+			}
+			asprintf(&md_fname, "%s%s", tmpdir, "/pax-md-XXXXXX");
+			if (!md_fname) {
+				syswarn(1, errno, "Unable to create temporary file name");
+				return;
+			}
+			memcpy(&arcn_copy, arcn, sizeof(ARCHD));
+			strncpy(arcn_copy_name, arcn->name, PAXPATHLEN+1);
+
+			arcn->skip = 0;
+			arcn->pad = 0;
+			arcn->ln_nlen = 0;
+			arcn->ln_name[0] = '\0';
+			arcn->type = PAX_REG;
+			fd_dst = mkstemp(md_fname);
+			if (fd_dst >= 0) {
+				fd_src = open(arcn->name, O_RDONLY, 0);
+				if (fd_src < 0) {
+					syswarn(1, errno, "Unable to open %s for reading", arcn->name);
+					close(fd_dst);
+					unlink(md_fname);
+					free(md_fname);
+					md_fname = NULL;
+					goto next;
+				}
+				if(fcopyfile(fd_src, fd_dst, NULL,
+					     COPYFILE_PACK | COPYFILE_XATTR | COPYFILE_ACL) < 0) {
+					syswarn(1, errno,
+						"Unable to preserve metadata on %s", arcn->name);
+					close(fd_src);
+					close(fd_dst);
+					unlink(md_fname);
+					free(md_fname);
+					md_fname = NULL;
+					goto next;
+				}
+				close(fd_src);
+				fstat(fd_dst, &arcn->sb);
+				close(fd_dst);
+			} else {
+				syswarn(1, errno, "Unable to create temporary file %s", md_fname);
+				free(md_fname);
+				goto next;
+			}
+			arcn->skip = arcn->sb.st_size;
+
+			if (!strncmp(dirname(arcn->name), ".", 2)) {
+				snprintf(arcn->name, sizeof(arcn->name),
+					 "._%s", basename(arcn->name));
+			} else {
+				snprintf(arcn->name, sizeof(arcn->name),
+					 "%s/._%s",
+					 dirname(arcn->name), basename(arcn->name));
+			}
+			arcn->nlen = strlen(arcn->name);
+			arcn->org_name = arcn->name;
+			metadata = 1;
+		} else if (metadata) {
+next:
+			metadata = 0;
+			memcpy(arcn, &arcn_copy, sizeof(ARCHD));
+			strncpy(arcn->name, arcn_copy_name, PAXPATHLEN+1);
+		}
+#endif	/* __APPLE__ */
+
+		fd = -1;
+
 		/*
 		 * this file is considered selected now. see if this is a hard
 		 * link to a file already stored
 		 */
 		ftree_sel(arcn);
-		if (hlk && (chk_lnk(arcn) < 0))
+		if (hlk && (chk_lnk(arcn) < 0)) {
+			if (md_fname) {
+				unlink(md_fname);
+				free(md_fname);
+				md_fname = NULL;
+			}
 			break;
+		}
 
 		if ((arcn->type == PAX_REG) || (arcn->type == PAX_HRG) ||
 		    (arcn->type == PAX_CTG)) {
@@ -572,18 +677,17 @@ next:
 			 * the link table).
 			 */
 #ifdef __APPLE__
-			if (metadata)
-			{
-			    fd = open(md_fname, O_RDONLY, 0);
-			    unlink(md_fname);
-			    free(md_fname);
+			if (metadata) {
+				fd = open(md_fname, O_RDONLY, 0);
+				unlink(md_fname);
+				free(md_fname);
+				md_fname = NULL;
 			} else
-			    fd = open(arcn->org_name, O_RDONLY, 0);
+				fd = open(arcn->org_name, O_RDONLY, 0);
 			if (fd < 0) {
-#else
+#else  /* !__APPLE__ */
 			if ((fd = open(arcn->org_name, O_RDONLY, 0)) < 0) {
-#endif
-				/* suppress set if size==0 ?? */
+#endif	/* __APPLE__ */
 				syswarn(1,errno, "Unable to open %s to read",
 					arcn->org_name);
 				purg_lnk(arcn);
@@ -671,8 +775,8 @@ next:
 			break;
 #ifdef __APPLE__
 		if (metadata)
-		    goto next;
-#endif
+			goto next;
+#endif	/* __APPLE__ */
 	}
 
 	/*
@@ -709,7 +813,7 @@ next:
  *	It is really difficult to splice in members without either re-writing
  *	the entire archive (from the point were the old version was), or having
  *	assistance of the format specification in terms of a special update
- *	header that invalidates a previous archive record. The posix spec left
+ *	header that invalidates a previous archive record. The POSIX spec left
  *	the method used to implement -u unspecified. This pax is able to
  *	over write existing files that it creates.
  */
@@ -891,8 +995,7 @@ copy(void)
 	char dirbuf[PAXPATHLEN+1];
 
 	arcn = &archd;
-
-	if (frmt && strcmp(frmt->name, "pax")==0) {
+	if (frmt && strcmp(frmt->name, NM_PAX)==0) {
 		/* Copy using pax format:  must check if any -o options */
 		if ((*frmt->options)() < 0)
 			return;
@@ -960,8 +1063,10 @@ copy(void)
 		/*
 		 * check if this file meets user specified options
 		 */
-		if (sel_chk(arcn) != 0)
+		if (sel_chk(arcn) != 0) {
+			ftree_notsel();
 			continue;
+		}
 
 		/*
 		 * if there is already a file in the destination directory with
@@ -1106,8 +1211,9 @@ copy(void)
 #ifdef __APPLE__
 		/* do this before file close so that mtimes are correct regardless */
 		if (getenv(COPYFILE_DISABLE_VAR) == NULL) {
-			if (copyfile(arcn->org_name, arcn->name, NULL, COPYFILE_ACL | COPYFILE_XATTR) < 0)
-				paxwarn(1, "File %s had metadata that could not be copied", arcn->org_name);
+			if (fcopyfile(fdsrc, fddest, NULL, COPYFILE_ACL | COPYFILE_XATTR) < 0)
+				paxwarn(1, "File %s had metadata that could not be copied: %s", arcn->org_name,
+					strerror(errno));
 		}
 #endif
 		file_close(arcn, fddest);

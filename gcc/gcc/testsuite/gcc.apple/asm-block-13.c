@@ -1,6 +1,6 @@
 /* APPLE LOCAL file CW asm blocks */
 /* { dg-do assemble { target i?86*-*-darwin* } } */
-/* { dg-skip-if "" { *-*-darwin* } { "-m64" } { "" } } */
+/* { dg-require-effective-target ilp32 } */
 /* { dg-options { -fasm-blocks -msse3 } } */
 /* Radar 4259442 */
 
@@ -16,6 +16,8 @@ asm void bar() { fool:
 	add	eax, eax
 	add	fool, eax
 	add	eax, fool
+	addpd	xmm0, xmm0
+	addpd	xmm0, fool
 	addps	xmm0, xmm0
 	addps	xmm0, fool
 	addsd	xmm0, xmm0
@@ -65,8 +67,10 @@ asm void bar() { fool:
 	call	fool
 	call	fool
 	clflush	fool
+	cmova	ax, ax
+	cmova	ax, foos
 	cmova	eax, eax
-	cmova	eax, fool
+	cmova	eax, fooi
 	cmovae	eax, eax
 	cmovae	eax, fool
 	cmovb	eax, eax
@@ -117,8 +121,14 @@ asm void bar() { fool:
 	cmovo	eax, fool
 	cmovp	eax, eax
 	cmovp	eax, fool
+	cmovpe	eax, eax
+	cmovpe	eax, fool
+	cmovpo	eax, eax
+	cmovpo	eax, fool
 	cmovs	eax, eax
 	cmovs	eax, fool
+	cmovz	eax, eax
+	cmovz	eax, fool
 	cmp	eax, 1
 	cmp	fool, 1
 	cmp	eax, eax
@@ -226,8 +236,10 @@ asm void bar() { fool:
 	cvtsd2si	eax, fool
 	cvtsd2ss	xmm0, xmm0
 	cvtsd2ss	xmm0, fool
-	cvtsi2sd	xmm0, fool
-	cvtsi2ss	xmm0, fool
+	cvtsi2sd	xmm0, eax
+	cvtsi2sd	xmm0, fooi
+	cvtsi2ss	xmm0, eax
+	cvtsi2ss	xmm0, fooi
 	cvtss2sd	xmm0, xmm0
 	cvtss2sd	xmm0, fool
 	cvtss2si	eax, xmm0
@@ -393,6 +405,9 @@ asm void bar() { fool:
 	inc	foos
 	inc	eax
 	inc	fooi
+	ins	fooc, dx
+	ins	foos, dx
+	ins	fooi, dx
 	int	1
 	invlpg	fool
 	ja	fool
@@ -433,16 +448,23 @@ asm void bar() { fool:
 	lar	eax, fool
 	lddqu	xmm0, fool
 	ldmxcsr	fool
+	lds	ax, foos
 	lds	eax, fooi
 	lea	eax, fool
+	les	ax, foos
 	les	eax, fooi
+	lfs	ax, foos
 	lfs	eax, fooi
 	lgdt	fool
+	lgs	ax, foos
 	lgs	eax, fooi
 	lidt	fool
 	lldt	ax
 	lldt	foos
 	lmsw	fool
+	lods	fooc
+	lods	foos
+	lods	fooi
 	loop	.-24
 	loope	.-24
 	loopne	.-24
@@ -452,6 +474,7 @@ asm void bar() { fool:
 	lsl	ax, foos
 	lsl	eax, eax
 	lsl	eax, fooi
+	lss	ax, foos
 	lss	eax, fooi
 	ltr	ax
 	ltr	foos
@@ -473,13 +496,27 @@ asm void bar() { fool:
 	minsd	xmm0, fool
 	minss	xmm0, xmm0
 	minss	xmm0, fool
+	mov	ah, ah
+	mov	fooc, ah
+	mov	ah, 1
+	mov	fooc, 1
+	mov	ax, ax
+	mov	foos, ax
+	mov	ax, 1
+	mov	foos, 1
 	mov	eax, eax
 	mov	fooi, eax
 	mov	eax, 1
 	mov	fooi, 1
+	mov	ah, ah
+	mov	ah, 1
+	mov	ah, fooc
+	mov	ax, ax
+	mov	ax, 1
+	mov	ax, foos
 	mov	eax, eax
-	mov	eax, fool
 	mov	eax, 1
+	mov	eax, fooi
 	movapd	xmm0, xmm0
 	movapd	xmm0, fool
 	movapd	xmm0, xmm0
@@ -527,6 +564,9 @@ asm void bar() { fool:
 	movq	mm0, fool
 	movq	fool, mm0
 	movq2dq	xmm0, mm0
+	movs	fooc, fooc
+	movs	foos, foos
+	movs	fooi, fooi
 	movsd	xmm0, xmm0
 	movsd	fool, xmm0
 	movsd	xmm0, xmm0
@@ -610,6 +650,9 @@ asm void bar() { fool:
 	out	dx, ax
 	out	1, eax
 	out	dx, eax
+	outs	dx, fooc
+	outs	dx, foos
+	outs	dx, fooi
 	packssdw	xmm0, xmm0
 	packssdw	xmm0, fool
 	packssdw	mm0, mm0
@@ -738,8 +781,10 @@ asm void bar() { fool:
 	pmuludq	xmm0, fool
 	pmuludq	mm0, mm0
 	pmuludq	mm0, fool
+	pop	ax
+	pop	foos
 	pop	eax
-	pop	fool
+	pop	fooi
 	por	xmm0, xmm0
 	por	xmm0, fool
 	por	mm0, mm0
@@ -870,8 +915,10 @@ asm void bar() { fool:
 	punpcklwd	xmm0, fool
 	punpcklwd	mm0, mm0
 	punpcklwd	mm0, fool
+	push	ax
+	push	foos
 	push	eax
-	push	fool
+	push	fooi
 	push	1
 	pxor	xmm0, xmm0
 	pxor	xmm0, fool
@@ -973,6 +1020,9 @@ asm void bar() { fool:
 	sbb	ah, fooc
 	sbb	ax, foos
 	sbb	eax, fooi
+	scas	fooc
+	scas	foos
+	scas	fooi
 	seta	ah
 	seta	fool
 	setae	ah
@@ -1084,6 +1134,7 @@ asm void bar() { fool:
 	sqrtss	xmm0, xmm0
 	sqrtss	xmm0, fool
 	stmxcsr	fool
+	stos	fool
 	str	ax
 	str	fool
 	sub	eax, 1
@@ -1131,6 +1182,7 @@ asm void bar() { fool:
 	xchg	eax, eax
 	xchg	fool, eax
 	xchg	eax, fool
+	xlat	fool
 	xor	eax, eax
 	xor	fool, eax
 	xor	eax, 1

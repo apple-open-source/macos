@@ -1,6 +1,6 @@
 /* 
    WebDAV property manipulation
-   Copyright (C) 2000-2006, Joe Orton <joe@manyfish.co.uk>
+   Copyright (C) 2000-2008, Joe Orton <joe@manyfish.co.uk>
 
    This library is free software; you can redistribute it and/or
    modify it under the terms of the GNU Library General Public
@@ -400,8 +400,32 @@ static int startelm(void *userdata, int parent,
     if (parent == ELM_flatprop) {
         /* collecting the flatprop value. */
         hdl->depth++;
-        if (hdl->value->used < MAX_FLATPROP_LEN)
-            ne_buffer_concat(hdl->value, "<", name, ">", NULL);
+        if (hdl->value->used < MAX_FLATPROP_LEN) {
+            const char **a = atts;
+
+            ne_buffer_concat(hdl->value, "<", nspace, name, NULL);
+            
+            while (a[0] && hdl->value->used < MAX_FLATPROP_LEN) {
+                const char *nsep = strchr(a[0], ':'), *pfx;
+
+                /* Resolve the attribute namespace prefix, if any.
+                 * Ignore a failure to resolve the namespace prefix. */
+                pfx = nsep ? ne_xml_resolve_nspace(hdl->parser,
+                                                   a[0], nsep - a[0]) : NULL;
+                
+                if (pfx) {
+                    ne_buffer_concat(hdl->value, " ", pfx, nsep + 1, "='", 
+                                     a[1], "'", NULL);
+                }
+                else {
+                    ne_buffer_concat(hdl->value, " ", a[0], "='", a[1], "'", NULL);
+                }
+                a += 2;
+            }
+
+            ne_buffer_czappend(hdl->value, ">");
+        }
+
         return ELM_flatprop;
     }        
 
@@ -460,7 +484,7 @@ static int endelm(void *userdata, int state,
     if (hdl->depth > 0) {
         /* nested. */
         if (hdl->value->used < MAX_FLATPROP_LEN)
-            ne_buffer_concat(hdl->value, "</", name, ">", NULL);
+            ne_buffer_concat(hdl->value, "</", nspace, name, ">", NULL);
         hdl->depth--;
     } else {
         /* end of the current property value */

@@ -55,7 +55,7 @@ UserTrustItem::UserTrustItem(Certificate *cert, Policy *policy, const TrustData 
 //
 // Destroy it
 //
-UserTrustItem::~UserTrustItem()
+UserTrustItem::~UserTrustItem() 
 {
 	secdebug("usertrust", "%p destroyed", this);
 }
@@ -66,6 +66,7 @@ UserTrustItem::~UserTrustItem()
 //
 UserTrustItem::TrustData UserTrustItem::trust()
 {
+	StLock<Mutex>_(mMutex);
 	CssmDataContainer data;
 	getData(data);
 	if (data.length() != sizeof(TrustData))
@@ -79,6 +80,7 @@ UserTrustItem::TrustData UserTrustItem::trust()
 //
 PrimaryKey UserTrustItem::add(Keychain &keychain)
 {
+	StLock<Mutex>_(mMutex);
 	// If we already have a Keychain we can't be added.
 	if (mKeychain)
 		MacOSError::throwMe(errSecDuplicateItem);
@@ -126,6 +128,7 @@ PrimaryKey UserTrustItem::add(Keychain &keychain)
 
 void UserTrustItem::populateAttributes()
 {
+	StLock<Mutex>_(mMutex);
 	CssmAutoData encodedIndex(Allocator::standard());
 	makeCertIndex(mCertificate, encodedIndex);
 	const CssmOid &policyOid = mPolicy->oid();

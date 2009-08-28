@@ -310,7 +310,7 @@ void dbx_symfile_read (struct objfile *, int);
 
 static void dbx_symfile_finish (struct objfile *);
 
-static void record_minimal_symbol (char *, CORE_ADDR, int, struct objfile *);
+static void record_minimal_symbol (char *, CORE_ADDR, int, int16_t, struct objfile *);
 
 static void add_new_header_file (char *, int);
 
@@ -461,14 +461,20 @@ explicit_lookup_type (int real_filenum, int index)
 }
 #endif
 
+/* APPLE LOCAL: Pass in the desc along with the the type so we can
+   see if this is a "special" symbol. */
 static void
 record_minimal_symbol (char *name, CORE_ADDR address, int type,
+		       int16_t desc,
 		       struct objfile *objfile)
 {
   enum minimal_symbol_type ms_type;
   int section;
   asection *bfd_section;
-
+  /* APPLE LOCAL: Save the return value from 
+     prim_record_minimal_symbol_and_info so we have the ability to mark 
+     it "special".  */
+  struct minimal_symbol *msym;
   switch (type)
     {
     case N_TEXT | N_EXT:
@@ -589,8 +595,10 @@ record_minimal_symbol (char *name, CORE_ADDR address, int type,
       && address < lowest_text_address)
     lowest_text_address = address;
 
-  prim_record_minimal_symbol_and_info
+  /* APPLE LOCAL: Record the msymbol & make it special if it is.  */
+  msym = prim_record_minimal_symbol_and_info
     (name, address, ms_type, NULL, section, bfd_section, objfile);
+  DBX_MAKE_MSYMBOL_SPECIAL (desc, msym);
 }
 
 /* Scan and build partial symbols for a symbol file.
@@ -613,6 +621,14 @@ dbx_symfile_read (struct objfile *objfile, int mainline)
   /* APPLE LOCAL: timers */
   static int timer = -1;
   struct cleanup *timer_cleanup;
+
+  /* APPLE LOCAL: If this is a dSYM that has minimal symbols, don't read the
+     minsyms or we'll end up with duplicated minsyms.  */
+  if (objfile->separate_debug_objfile_backlink || 
+      objfile->flags & OBJF_SEPARATE_DEBUG_FILE)
+    {
+      return;
+    }
 
   if (maint_use_timers)
     timer_cleanup = start_timer (&timer, "dbx_symfile_read", 
@@ -651,25 +667,27 @@ dbx_symfile_read (struct objfile *objfile, int mainline)
       dbx_symtab_count = DBX_NONLOCAL_STAB_COUNT (objfile);
     }
   else
-  /* APPLE LOCAL shared cache end.  */
-  if (objfile->symflags != OBJF_SYM_ALL
-      && (objfile->symflags & OBJF_SYM_EXTERN
-          || objfile->symflags & OBJF_SYM_CONTAINER)
-      && objfile->symflags & ~OBJF_SYM_LOCAL
-      && objfile->symflags & ~OBJF_SYM_DEBUG
-      && DBX_LOCAL_STAB_COUNT (objfile) != 0 
-      && DBX_NONLOCAL_STAB_COUNT (objfile) != 0
-      && !objfile_contains_objc (objfile))
     {
-      dbx_symtab_offset = DBX_NONLOCAL_STAB_OFFSET (objfile);
-      dbx_symtab_count = DBX_NONLOCAL_STAB_COUNT (objfile);
+      /* APPLE LOCAL shared cache end.  */
+      if (((OBJF_SYM_LEVELS_MASK & objfile->symflags) != OBJF_SYM_ALL)
+         && (objfile->symflags & OBJF_SYM_EXTERN
+             || objfile->symflags & OBJF_SYM_CONTAINER)
+         && (OBJF_SYM_LEVELS_MASK & (objfile->symflags & ~OBJF_SYM_LOCAL))
+         && (OBJF_SYM_LEVELS_MASK & (objfile->symflags & ~OBJF_SYM_DEBUG))
+         && DBX_LOCAL_STAB_COUNT (objfile) != 0
+         && DBX_NONLOCAL_STAB_COUNT (objfile) != 0
+         && !objfile_contains_objc (objfile))
+       {
+         dbx_symtab_offset = DBX_NONLOCAL_STAB_OFFSET (objfile);
+         dbx_symtab_count = DBX_NONLOCAL_STAB_COUNT (objfile);
+       }
+      else
+       {
+         dbx_symtab_offset = DBX_SYMTAB_OFFSET (objfile);
+         dbx_symtab_count = DBX_SYMCOUNT (objfile);
+       }
     }
-  else
-    {
-      dbx_symtab_offset = DBX_SYMTAB_OFFSET (objfile);
-      dbx_symtab_count = DBX_SYMCOUNT (objfile);
-    }
-      
+
   val = bfd_seek (sym_bfd, dbx_symtab_offset, SEEK_SET);
   if (val < 0)
     perror_with_name (objfile->name);
@@ -953,8 +971,12 @@ fill_symbuf (struct objfile *objfile)
     }
   else if (symbuf_sections == NULL)
     {
+      struct cleanup *cache_cleanup;
+      mem_disable_caching ();
+      cache_cleanup = make_cleanup (mem_enable_caching, 0);
       count = symbuf_size;
       nbytes = bfd_bread (symbuf, count, sym_bfd);
+      do_cleanups (cache_cleanup);
     }
   else
     {
@@ -1311,8 +1333,9 @@ read_dbx_dynamic_symtab (struct objfile *objfile)
 	  if (sym->flags & BSF_GLOBAL)
 	    type |= N_EXT;
 
+	  /* APPLE LOCAL: We don't know the desc here, so just pass 0.  */
 	  record_minimal_symbol ((char *) bfd_asymbol_name (sym), sym_value,
-				 type, objfile);
+				 type, 0, objfile);
 	}
     }
 
@@ -1803,8 +1826,9 @@ read_dbx_symtab (struct objfile *objfile, int dbx_symcount)
 	     (in install_minimal_symbols) so we might as well do it here. */
 	  if (leading_char == namestring[0])
 	    namestring++;
+	  /* APPLE LOCAL: pass the n_desc in case we need it.  */
 	  record_minimal_symbol (namestring, nlist.n_value,
-				   nlist.n_type, objfile);	/* Always */
+				   nlist.n_type, nlist.n_desc, objfile);	/* Always */
 	  continue;
 	}
 
@@ -2061,7 +2085,7 @@ read_dbx_symtab (struct objfile *objfile, int dbx_symcount)
 	    static int prev_so_symnum = -10;
 	    static int first_so_symnum;
 	    char *p;
-	    static char *dirname_nso;
+	    static char *dirname_nso = NULL;
 	    int prev_textlow_not_set;
 
 	    valu = nlist.n_value + objfile_text_section_offset (objfile);
@@ -2133,7 +2157,7 @@ read_dbx_symtab (struct objfile *objfile, int dbx_symcount)
 	      {
 		/* Save the directory name SOs locally, then save it into
 		   the psymtab when it's created below. */
-	        dirname_nso = namestring;
+	        dirname_nso = xstrdup (namestring);
 	        continue;		
 	      }
             /* APPLE LOCAL: Try getting the file's language from 'desc' field */
@@ -2202,12 +2226,19 @@ read_dbx_symtab (struct objfile *objfile, int dbx_symcount)
 	       immediately follow the first.  */
 
 	    if (!pst)
-	      pst = start_psymtab (objfile,
+              {
+	        pst = start_psymtab (objfile,
 				   namestring, valu,
 				   first_so_symnum * symbol_size,
 				   objfile->global_psymbols.next,
 				   /* APPLE LOCAL symbol prefixes */
 				   objfile->static_psymbols.next, prefix);
+                if (pst && dirname_nso && pst->dirname == NULL)
+                  {
+                    pst->dirname = dirname_nso;
+                    dirname_nso = NULL;
+                  }
+              }
 
             /* APPLE LOCAL: If there is a symbol separation file, put it in the 
                dependency list for this N_SO psymtab...  */
@@ -2308,8 +2339,13 @@ read_dbx_symtab (struct objfile *objfile, int dbx_symcount)
 		   if we are asked not to.  */
 		if (read_type_psym_p && objfile->separate_debug_objfile == NULL
                     && objfile->not_loaded_kext_filename == NULL)
-		  dwarf2_scan_pubtype_for_psymbols (pst, objfile, 
-						    psymtab_language);
+		  {
+		    dwarf2_scan_pubtype_for_psymbols (pst, objfile, 
+						      psymtab_language);
+		    /* APPLE LOCAL debug inlined section  */
+		    dwarf2_scan_inlined_section_for_psymbols (pst, objfile,
+							      psymtab_language);
+		  }
               }
 
             continue;
@@ -3235,6 +3271,19 @@ close_containing_archive_and_contents (bfd *containing_archive)
   bfd_close (containing_archive);
 }
 
+/* This is a convenience routine for closing a BFD that might
+   be a fat file, where you want to make sure that the archive
+   gets closed if there is one (and all its contents.)  */
+
+void
+close_bfd_or_archive (bfd *abfd)
+{
+  if (abfd->my_archive)
+    close_containing_archive_and_contents (abfd->my_archive);
+  else
+    bfd_close (abfd);
+}
+
 /* For DWARF files with debug info in .o files, we scan all the .o's for type
    symbols in the "pubtypes" section.  If the debug info is from an archive file
    we'll end up opening & closing that .a file MANY times.  So this array stores
@@ -3304,7 +3353,10 @@ clear_containing_archive_cache ()
 
 /* Given OSO_NAME, returns the bfd for the .o file containing
    that .o.  If the .o is fat, it returns the fork for the current
-   architecture.  If the name is of the form:
+   architecture.  So you should probably check the my_archive field
+   of the bfd & close that if it is not NULL...
+
+   If the name is of the form:
 
    /Foo/Bar/libfoo.a(member.o)
 
@@ -3336,22 +3388,26 @@ open_bfd_from_oso (struct partial_symtab *pst, int *cached)
 
   if (parse_archive_name (oso_name, &archive_name, &member_name) == 0)
     {
+      errno = 0;
       oso_bfd = bfd_openr (oso_name, gnutarget);
       if (!oso_bfd)
         {
 	  /* Only error if we do not have a separate debug objfile (dSYM).  */
-	  if (pst->objfile && pst->objfile->separate_debug_objfile != NULL)
-            return NULL;
-	  else
-            error ("Could not find object file: \"%s\"", oso_name);
+	  if (!pst->objfile || pst->objfile->separate_debug_objfile == NULL)
+            warning ("Could not open object file: \"%s\": %s", oso_name, strerror (errno));
+	  return NULL;
         }
       if (bfd_check_format (oso_bfd, bfd_archive))
 	{
 	  oso_bfd = open_bfd_matching_arch (oso_bfd, bfd_object);
 	  if (oso_bfd == NULL)
-	    error ("Could not open OSO file matching current "
-		   "architecture for \"%s\".",
-		   oso_name);
+	    {
+	      warning ("Could not open OSO file matching current "
+		       "architecture for \"%s\".",
+		       oso_name);
+	      return NULL;
+	    }
+	  
 	}
       retval = oso_bfd;
       mtime = bfd_get_mtime (retval);
@@ -3402,8 +3458,8 @@ open_bfd_from_oso (struct partial_symtab *pst, int *cached)
 	      warning ("Could not open fork matching current "
 		       "architecture for OSO archive \"%s\"",
 		       archive_name);
-	      goto do_cleanups;
 	      retval = NULL;
+	      goto do_cleanups;
 	    }
 	  if (!bfd_check_format (archive_bfd, bfd_archive))
 	    {
@@ -3448,7 +3504,21 @@ open_bfd_from_oso (struct partial_symtab *pst, int *cached)
     }
 
   if (retval != NULL && mtime && oso_mtime && mtime != oso_mtime)
-    warning (".o file \"%s\" more recent than executable timestamp", oso_name);
+    {
+      char *name;
+      if (pst->objfile->name != NULL)
+	name = pst->objfile->name;
+      else
+	name = "<Unknown objfile>";
+
+      warning (".o file \"%s\" more recent than executable timestamp in \"%s\"", oso_name, name);
+      if (cached)
+	clear_containing_archive_cache ();
+      else 
+	close_bfd_or_archive (retval);
+
+      return NULL;
+    }
 
   return retval;
 }
@@ -3496,7 +3566,11 @@ oso_scan_partial_symtab (struct partial_symtab *pst)
 
   oso_bfd = open_bfd_from_oso (pst, &cached);
   if (oso_bfd == NULL)
-    error ("Couldn't open bfd for .o file: %s\n", PSYMTAB_OSO_NAME (pst));
+    {
+      warning ("Couldn't open bfd for .o file: %s.", PSYMTAB_OSO_NAME (pst));
+      return;
+    }
+
   if (!bfd_check_format (oso_bfd, bfd_object))
     warning ("Not in bfd_object form");
   
@@ -3653,8 +3727,8 @@ oso_scan_partial_symtab (struct partial_symtab *pst)
 
   if (cached)
     clear_containing_archive_cache ();
-  else
-    bfd_close(oso_bfd);
+  else 
+    close_bfd_or_archive (oso_bfd);
 }
 
 /* APPLE LOCAL: Called from dwarf2read.c, this function reads all the
@@ -3937,7 +4011,9 @@ dbx_psymtab_to_symtab_1 (struct partial_symtab *pst)
 		or just the one oso_bfd.  */
 	      if (cached)
 		clear_containing_archive_cache ();
-	      else
+	      else if (oso_bfd->my_archive)
+		bfd_close (oso_bfd->my_archive);
+	      else		  
 		bfd_close(oso_bfd);
 	    }
 	}
@@ -5757,11 +5833,17 @@ stabsect_build_psymtabs (struct objfile *objfile, int mainline, char *stab_name,
 
   /* Now read in the string table in one big gulp.  */
 
-  val = bfd_get_section_contents (sym_bfd,	/* bfd */
-				  stabstrsect,	/* bfd section */
-				  DBX_STRINGTAB (objfile),	/* input buffer */
-				  0,	/* offset into section */
-				  DBX_STRINGTAB_SIZE (objfile));	/* amount to read */
+  {
+    struct cleanup *cache_cleanup;
+    mem_disable_caching ();
+    cache_cleanup = make_cleanup (mem_enable_caching, 0);
+    val = bfd_get_section_contents (sym_bfd,	/* bfd */
+				    stabstrsect,	/* bfd section */
+				    DBX_STRINGTAB (objfile),	/* input buffer */
+				    0,	/* offset into section */
+				    DBX_STRINGTAB_SIZE (objfile));	/* amount to read */
+    do_cleanups (cache_cleanup);
+  }
 
   if (!val)
     perror_with_name (name);

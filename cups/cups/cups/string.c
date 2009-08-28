@@ -1,9 +1,9 @@
 /*
- * "$Id: string.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: string.c 7460 2008-04-16 02:19:54Z mike $"
  *
  *   String functions for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -16,19 +16,20 @@
  *
  * Contents:
  *
- *   _cupsStrAlloc()       - Allocate/reference a string.
- *   _cupsStrFlush()       - Flush the string pool...
- *   _cupsStrFormatd()     - Format a floating-point number.
- *   _cupsStrFree()        - Free/dereference a string.
- *   _cupsStrScand()       - Scan a string for a floating-point number.
- *   _cupsStrStatistics()  - Return allocation statistics for string pool.
- *   _cups_strcpy()        - Copy a string allowing for overlapping strings.
- *   _cups_strdup()        - Duplicate a string.
- *   _cups_strcasecmp()    - Do a case-insensitive comparison.
- *   _cups_strncasecmp()   - Do a case-insensitive comparison on up to N chars.
- *   _cups_strlcat()       - Safely concatenate two strings.
- *   _cups_strlcpy()       - Safely copy two strings.
- *   compare_sp_items()    - Compare two string pool items...
+ *   _cupsStrAlloc()      - Allocate/reference a string.
+ *   _cupsStrFlush()      - Flush the string pool.
+ *   _cupsStrFormatd()    - Format a floating-point number.
+ *   _cupsStrFree()       - Free/dereference a string.
+ *   _cupsStrRetain()     - Increment the reference count of a string.
+ *   _cupsStrScand()      - Scan a string for a floating-point number.
+ *   _cupsStrStatistics() - Return allocation statistics for string pool.
+ *   _cups_strcpy()       - Copy a string allowing for overlapping strings.
+ *   _cups_strdup()       - Duplicate a string.
+ *   _cups_strcasecmp()   - Do a case-insensitive comparison.
+ *   _cups_strncasecmp()  - Do a case-insensitive comparison on up to N chars.
+ *   _cups_strlcat()      - Safely concatenate two strings.
+ *   _cups_strlcpy()      - Safely copy two strings.
+ *   compare_sp_items()   - Compare two string pool items...
  */
 
 /*
@@ -36,6 +37,7 @@
  */
 
 #include <stdlib.h>
+#include <stddef.h>
 #include <limits.h>
 #include "array.h"
 #include "debug.h"
@@ -72,7 +74,7 @@ char *					/* O - String pointer */
 _cupsStrAlloc(const char *s)		/* I - String */
 {
   _cups_sp_item_t	*item,		/* String pool item */
-			key;		/* Search key */
+			*key;		/* Search key */
 
 
  /*
@@ -106,15 +108,24 @@ _cupsStrAlloc(const char *s)		/* I - String */
   * See if the string is already in the pool...
   */
 
-  key.str = (char *)s;
+  key = (_cups_sp_item_t *)(s - offsetof(_cups_sp_item_t, str));
 
-  if ((item = (_cups_sp_item_t *)cupsArrayFind(stringpool, &key)) != NULL)
+  if ((item = (_cups_sp_item_t *)cupsArrayFind(stringpool, key)) != NULL)
   {
    /*
     * Found it, return the cached string...
     */
 
     item->ref_count ++;
+
+#ifdef DEBUG_GUARDS
+    DEBUG_printf(("5_cupsStrAlloc: Using string %p(%s) for \"%s\", guard=%08x, "
+                  "ref_count=%d", item, item->str, s, item->guard,
+		  item->ref_count));
+
+    if (item->guard != _CUPS_STR_GUARD)
+      abort();
+#endif /* DEBUG_GUARDS */
 
 #ifdef HAVE_PTHREAD_H
     pthread_mutex_unlock(&sp_mutex);
@@ -127,7 +138,7 @@ _cupsStrAlloc(const char *s)		/* I - String */
   * Not found, so allocate a new one...
   */
 
-  item = (_cups_sp_item_t *)calloc(1, sizeof(_cups_sp_item_t));
+  item = (_cups_sp_item_t *)calloc(1, sizeof(_cups_sp_item_t) + strlen(s));
   if (!item)
   {
 #ifdef HAVE_PTHREAD_H
@@ -138,18 +149,15 @@ _cupsStrAlloc(const char *s)		/* I - String */
   }
 
   item->ref_count = 1;
-  item->str       = strdup(s);
+  strcpy(item->str, s);
 
-  if (!item->str)
-  {
-    free(item);
+#ifdef DEBUG_GUARDS
+  item->guard = _CUPS_STR_GUARD;
 
-#ifdef HAVE_PTHREAD_H
-    pthread_mutex_unlock(&sp_mutex);
-#endif /* HAVE_PTHREAD_H */
-
-    return (NULL);
-  }
+  DEBUG_printf(("5_cupsStrAlloc: Created string %p(%s) for \"%s\", guard=%08x, "
+		"ref_count=%d", item, item->str, s, item->guard,
+		item->ref_count));
+#endif /* DEBUG_GUARDS */
 
  /*
   * Add the string to the pool and return it...
@@ -166,7 +174,7 @@ _cupsStrAlloc(const char *s)		/* I - String */
 
 
 /*
- * '_cupsStrFlush()' - Flush the string pool...
+ * '_cupsStrFlush()' - Flush the string pool.
  */
 
 void
@@ -175,8 +183,8 @@ _cupsStrFlush(void)
   _cups_sp_item_t	*item;		/* Current item */
 
 
-  DEBUG_printf(("_cupsStrFlush(cg=%p)\n", cg));
-  DEBUG_printf(("    %d strings in array\n", cupsArrayCount(stringpool)));
+  DEBUG_printf(("4_cupsStrFlush: %d strings in array",
+                cupsArrayCount(stringpool)));
 
 #ifdef HAVE_PTHREAD_H
   pthread_mutex_lock(&sp_mutex);
@@ -185,10 +193,7 @@ _cupsStrFlush(void)
   for (item = (_cups_sp_item_t *)cupsArrayFirst(stringpool);
        item;
        item = (_cups_sp_item_t *)cupsArrayNext(stringpool))
-  {
-    free(item->str);
     free(item);
-  }
 
   cupsArrayDelete(stringpool);
   stringpool = NULL;
@@ -287,7 +292,7 @@ void
 _cupsStrFree(const char *s)		/* I - String to free */
 {
   _cups_sp_item_t	*item,		/* String pool item */
-			key;		/* Search key */
+			*key;		/* Search key */
 
 
  /*
@@ -316,10 +321,19 @@ _cupsStrFree(const char *s)		/* I - String to free */
   pthread_mutex_lock(&sp_mutex);
 #endif /* HAVE_PTHREAD_H */
 
-  key.str = (char *)s;
+  key = (_cups_sp_item_t *)(s - offsetof(_cups_sp_item_t, str));
 
-  if ((item = (_cups_sp_item_t *)cupsArrayFind(stringpool, &key)) != NULL &&
-      item->str == s)
+#ifdef DEBUG_GUARDS
+  if (key->guard != _CUPS_STR_GUARD)
+  {
+    DEBUG_printf(("5_cupsStrFree: Freeing string %p(%s), guard=%08x, "
+                  "ref_count=%d", key, key->str, key->guard, key->ref_count));
+    abort();
+  }
+#endif /* DEBUG_GUARDS */
+
+  if ((item = (_cups_sp_item_t *)cupsArrayFind(stringpool, key)) != NULL &&
+      item == key)
   {
    /*
     * Found it, dereference...
@@ -335,7 +349,6 @@ _cupsStrFree(const char *s)		/* I - String to free */
 
       cupsArrayRemove(stringpool, item);
 
-      free(item->str);
       free(item);
     }
   }
@@ -343,6 +356,48 @@ _cupsStrFree(const char *s)		/* I - String to free */
 #ifdef HAVE_PTHREAD_H
   pthread_mutex_unlock(&sp_mutex);
 #endif /* HAVE_PTHREAD_H */
+}
+
+
+/*
+ * '_cupsStrRetain()' - Increment the reference count of a string.
+ *
+ * Note: This function does not verify that the passed pointer is in the
+ *       string pool, so any calls to it MUST know they are passing in a
+ *       good pointer.
+ */
+
+char *					/* O - Pointer to string */
+_cupsStrRetain(const char *s)		/* I - String to retain */
+{
+  _cups_sp_item_t	*item;		/* Pointer to string pool item */
+
+
+  if (s)
+  {
+    item = (_cups_sp_item_t *)(s - offsetof(_cups_sp_item_t, str));
+
+#ifdef DEBUG_GUARDS
+    if (item->guard != _CUPS_STR_GUARD)
+    {
+      DEBUG_printf(("5_cupsStrRetain: Retaining string %p(%s), guard=%08x, "
+                    "ref_count=%d", item, s, item->guard, item->ref_count));
+      abort();
+    }
+#endif /* DEBUG_GUARDS */
+
+#ifdef HAVE_PTHREAD_H
+    pthread_mutex_lock(&sp_mutex);
+#endif /* HAVE_PTHREAD_H */
+
+    item->ref_count ++;
+
+#ifdef HAVE_PTHREAD_H
+    pthread_mutex_unlock(&sp_mutex);
+#endif /* HAVE_PTHREAD_H */
+  }
+
+  return ((char *)s);
 }
 
 
@@ -734,5 +789,5 @@ compare_sp_items(_cups_sp_item_t *a,	/* I - First item */
 
 
 /*
- * End of "$Id: string.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: string.c 7460 2008-04-16 02:19:54Z mike $".
  */

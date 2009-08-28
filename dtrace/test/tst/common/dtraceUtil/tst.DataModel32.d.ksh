@@ -46,7 +46,7 @@ script()
 #	
 #	Apple instead uses a -arch flag.
 ##
-	$dtrace -arch `arch` -s /dev/stdin <<EOF
+	$dtrace -arch i386 -s /dev/stdin <<EOF
 	BEGIN
 	/4 != sizeof(long)/
 	{

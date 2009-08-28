@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2006, International Business Machines Corporation and
+ * Copyright (c) 1997-2007, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -109,10 +109,6 @@ public:
      */
     virtual void TestBadInput135(void);
  
-private:
-    static const char* parseFormats[];
-    static const char* inputStrings[];
- 
 public:
     /**
      * Verify the correct behavior when parsing an array of inputs against an
@@ -182,6 +178,27 @@ public:
     void TestStandAloneMonths(void);
 
     void TestQuarters(void);
+    
+    void TestZTimeZoneParsing(void);
+
+    void TestRelativeClone(void);
+    
+    void TestHostClone(void);
+
+public:
+    /***
+     * Test Relative Dates
+     */
+     void TestRelative(void);
+     void TestTimeZoneDisplayName(void);
+/*   void TestRelativeError(void);
+     void TestRelativeOther(void);
+*/
+
+ private:
+      void TestRelative(int daysdelta, 
+                                  const Locale& loc,
+                                  const char *expectChars);
 
  private:
     void expectParse(const char** data, int32_t data_length,

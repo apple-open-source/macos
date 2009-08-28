@@ -1,7 +1,7 @@
 # Top level makefile fragment for TREELANG For GCC. -*- makefile -*-
 
-#   Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003
-#   Free Software Foundation, Inc.
+#   Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2005,
+#   2006 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -17,15 +17,15 @@
 
 #You should have received a copy of the GNU General Public License
 #along with GCC; see the file COPYING.  If not, write to
-#the Free Software Foundation, 59 Temple Place - Suite 330,
-#Boston, MA 02111-1307, USA.
+#the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+#Boston, MA 02110-1301, USA.
 
 # This file provides the language dependent support in the main Makefile.
 # Each language makefile fragment must provide the following targets:
 #
-# foo.all.build, foo.all.cross, foo.start.encap, foo.rest.encap,
-# foo.install-normal, foo.install-common, foo.install-man,
-# foo.uninstall, foo.distdir,
+# foo.all.cross, foo.start.encap, foo.rest.encap,
+# foo.install-common, foo.install-man, foo.install-info, foo.dvi, foo.pdf
+# foo.html, foo.uninstall,
 # foo.mostlyclean, foo.clean, foo.distclean,
 # foo.maintainer-clean, foo.stage1, foo.stage2, foo.stage3, foo.stage4
 #
@@ -68,9 +68,9 @@ treelang/lex.o-warn = -Wno-error
 #
 # Define the names for selecting treelang in LANGUAGES.
 
-.phony: treelang TREELANG
+.phony: treelang
 
-treelang TREELANG:treelang.done
+treelang:treelang.done
 
 treelang.done: gtreelang$(exeext) tree1$(exeext)
 	$(STAMP) treelang.done
@@ -87,10 +87,10 @@ tree1$(exeext): treelang/tree1.o treelang/treetree.o treelang/tree-convert.o \
 	$(BACKEND) $(LIBS) attribs.o
 
 # Create the compiler driver treelang.
-gtreelang$(exeext): gcc.o version.o prefix.o intl.o $(EXTRA_GCC_OBJS) \
+gtreelang$(exeext): $(GCC_OBJS) version.o prefix.o intl.o $(EXTRA_GCC_OBJS) \
   $(LIBDEPS) treelang/spec.o
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ treelang/spec.o \
-	  gcc.o version.o prefix.o intl.o $(EXTRA_GCC_OBJS) $(LIBS)
+	  $(GCC_OBJS) version.o prefix.o intl.o $(EXTRA_GCC_OBJS) $(LIBS)
 
 
 
@@ -100,27 +100,28 @@ gtreelang$(exeext): gcc.o version.o prefix.o intl.o $(EXTRA_GCC_OBJS) \
 # object file makes
 
 treelang/tree1.o: treelang/tree1.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
-  flags.h toplev.h $(GGC_H) $(TREE_H) diagnostic.h treelang/treelang.h \
+  $(FLAGS_H) toplev.h $(GGC_H) $(TREE_H) $(DIAGNOSTIC_H) treelang/treelang.h \
   input.h treelang/treetree.h options.h opts.h \
   treelang/treetree.h gt-treelang-tree1.h gtype-treelang.h
 
 treelang/treetree.o: treelang/treetree.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
-  $(TM_H) $(TREE_H) flags.h output.h $(RTL_H) $(GGC_H) toplev.h \
-  varray.h $(LANGHOOKS_DEF_H) langhooks.h treelang/treelang.h input.h \
-  treelang/treetree.h treelang/parse.h
+  $(TM_H) $(TREE_H) $(FLAGS_H) output.h $(RTL_H) $(GGC_H) toplev.h \
+  $(VARRAY_H) $(LANGHOOKS_DEF_H) langhooks.h treelang/treelang.h input.h \
+  treelang/treetree.h treelang/parse.h $(TARGET_H)
 
 treelang/tree-convert.o: treelang/tree-convert.c $(CONFIG_H) $(SYSTEM_H) \
-  coretypes.h diagnostic.h $(TREE_H) flags.h toplev.h langhooks.h $(TM_H)
+  coretypes.h $(DIAGNOSTIC_H) $(TREE_H) $(FLAGS_H) toplev.h langhooks.h $(TM_H)
 
 treelang/spec.o: treelang/spec.c $(CONFIG_H) $(SYSTEM_H) \
-  coretypes.h diagnostic.h $(TREE_H) flags.h toplev.h langhooks.h $(TM_H)
+  coretypes.h $(DIAGNOSTIC_H) $(TREE_H) $(FLAGS_H) toplev.h langhooks.h $(TM_H)
 
 treelang/parse.o: treelang/parse.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
-  $(TM_H) diagnostic.h treelang/treelang.h input.h treelang/treetree.h
+  $(TM_H) $(DIAGNOSTIC_H) treelang/treelang.h input.h treelang/treetree.h \
+  toplev.h
 
 treelang/lex.o: treelang/lex.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
-  $(TM_H) diagnostic.h $(TREE_H) treelang/treelang.h input.h \
-  treelang/parse.h
+  $(TM_H) $(DIAGNOSTIC_H) $(TREE_H) treelang/treelang.h input.h \
+  treelang/parse.h toplev.h
 
 # generated files the files from lex and yacc are put into the source
 # directory in case someone wants to build but does not have
@@ -137,12 +138,9 @@ treelang/parse.c treelang/parse.h treelang/parse.output: treelang/parse.y
 
 # -v
 
-gt-treelang-tree1.h gtype-treelang.h : s-gtype; @true
-
 #
 # Build hooks:
 
-treelang.all.build: treelang
 treelang.all.cross:
 	_error_not_here_yet - havent even thought about it - it may even work
 
@@ -160,32 +158,35 @@ treelang.info: doc/treelang.info
 treelang.srcinfo: doc/treelang.info
 	-cp -p $^ $(srcdir)/doc
 
-dvi:: doc/treelang.dvi
+treelang.dvi: doc/treelang.dvi
+
+treelang.pdf: doc/treelang.pdf
 
 TEXI_TREELANG_FILES = treelang/treelang.texi \
-	 $(docdir)/include/gcc-common.texi \
-	 $(docdir)/include/gpl.texi \
-	 $(docdir)/include/fdl.texi \
-	 $(docdir)/include/funding.texi
+	 $(gcc_docdir)/include/gcc-common.texi \
+	 $(gcc_docdir)/include/gpl.texi \
+	 $(gcc_docdir)/include/fdl.texi \
+	 $(gcc_docdir)/include/funding.texi \
+	 gcc-vers.texi
 
 doc/treelang.info: $(TEXI_TREELANG_FILES)
-	$(MAKEINFO) $(MAKEINFOFLAGS) -I $(docdir)/include -o $@ $<
+	$(MAKEINFO) $(MAKEINFOFLAGS) -I $(gcc_docdir)/include -o $@ $<
 
 doc/treelang.dvi: $(TEXI_TREELANG_FILES)
 	$(TEXI2DVI) -I $(abs_docdir)/include -o $@ $<
 
-html:: $(htmldir)/treelang/index.html
+doc/treelang.pdf: $(TEXI_TREELANG_FILES)
+	$(TEXI2PDF) -I $(abs_docdir)/include -o $@ $<
 
-$(htmldir)/treelang/index.html: $(TEXI_TREELANG_FILES)
+treelang.html: $(build_htmldir)/treelang/index.html
+
+$(build_htmldir)/treelang/index.html: $(TEXI_TREELANG_FILES)
 	$(mkinstalldirs) $(@D)
 	rm -f $(@D)/*
-	$(TEXI2HTML) -I $(docdir)/include -I $(srcdir)/treelang -o $(@D) $<
+	$(TEXI2HTML) -I $(gcc_docdir)/include -I $(srcdir)/treelang -o $(@D) $<
 
 #
 # Install hooks:
-
-# Nothing to do here.
-treelang.install-normal: treelang.install.common
 
 # Install
 .phony:treelang.install.common
@@ -207,7 +208,7 @@ treelang.install.common.done:  installdirs treelang.done
 	$(STAMP) treelang.install.common.done
 
 # We might not be able to build the info files
-install-info:: $(DESTDIR)$(infodir)/treelang.info
+treelang.install-info: $(DESTDIR)$(infodir)/treelang.info
 
 treelang.install-man:
 
@@ -276,11 +277,6 @@ treelang.stagefeedback: stagefeedback-start
 #
 # Maintenance hooks:
 
-# This target creates the files that can be rebuilt, but go in the
-# distribution anyway.  It then copies the files to the distdir directory.
-treelang.distdir:
-#	not here yet sorry not sure if this is needed or not???
-
 # test hook
 
 check-treelang: treelang.check
@@ -293,19 +289,16 @@ treelang.check: $(TESTSUITEDIR)/site.exp
 # these three files are empty and it seems diff has trouble generating
 # patch files for new empty files as required for cvs.
 # STAMP does not cut it here as I need an empty file.
-	touch $(srcdir)/testsuite/treelang/{a01gcco01runpgmerr,a01gcc.out01,a01gcc.out01err}
 	-rootme=`${PWD_COMMAND}`; export rootme; \
 	srcdir=`cd ${srcdir}; ${PWD_COMMAND}` ; export srcdir ; \
 	cd testsuite; \
 	EXPECT=${EXPECT} ; export EXPECT ; \
-	TRANSFORM=$(program_transform_name); export TRANSFORM; \
 	if [ -f $${rootme}/../expect/expect ] ; then  \
 	   TCL_LIBRARY=`cd .. ; cd ${srcdir}/../tcl/library ; ${PWD_COMMAND}` ; \
 	   export TCL_LIBRARY ; fi ; \
 	PATH=`cd ..;${PWD_COMMAND}`:$$PATH; export PATH; \
 	gcc_extras="-B`cd ..;${PWD_COMMAND}` -B`cd ..;${PWD_COMMAND}`/treelang"; export gcc_extras; \
 	$(RUNTEST) --tool treelang $(RUNTESTFLAGS)
-	rm $(srcdir)/testsuite/treelang/{a01gcco01runpgmerr,a01gcc.out01,a01gcc.out01err}
 
 # copy the output files from the current test to source ie say the new results are OK
 treelang.check.fix: force

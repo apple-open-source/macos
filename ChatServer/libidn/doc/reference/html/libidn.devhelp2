@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!DOCTYPE book PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "">
+<book xmlns="http://www.devhelp.net/book" title="GNU Libidn API Reference Manual" link="index.html" author="" name="libidn" version="2">
+  <chapters>
+    <sub name="GNU Libidn API Reference Manual" link="ch01.html">
+      <sub name="idna" link="libidn-idna.html"/>
+      <sub name="pr29" link="libidn-pr29.html"/>
+      <sub name="punycode" link="libidn-punycode.html"/>
+      <sub name="tld" link="libidn-tld.html"/>
+      <sub name="stringprep" link="libidn-stringprep.html"/>
+    </sub>
+  </chapters>
+  <functions>
+    <keyword type="enum" name="enum Idna_rc" link="libidn-idna.html#Idna-rc"/>
+    <keyword type="enum" name="enum Idna_flags" link="libidn-idna.html#Idna-flags"/>
+    <keyword type="macro" name="IDNA_ACE_PREFIX" link="libidn-idna.html#IDNA-ACE-PREFIX:CAPS"/>
+    <keyword type="function" name="idna_strerror ()" link="libidn-idna.html#idna-strerror"/>
+    <keyword type="function" name="idna_to_ascii_4i ()" link="libidn-idna.html#idna-to-ascii-4i"/>
+    <keyword type="function" name="idna_to_unicode_44i ()" link="libidn-idna.html#idna-to-unicode-44i"/>
+    <keyword type="function" name="idna_to_ascii_4z ()" link="libidn-idna.html#idna-to-ascii-4z"/>
+    <keyword type="function" name="idna_to_ascii_8z ()" link="libidn-idna.html#idna-to-ascii-8z"/>
+    <keyword type="function" name="idna_to_ascii_lz ()" link="libidn-idna.html#idna-to-ascii-lz"/>
+    <keyword type="function" name="idna_to_unicode_4z4z ()" link="libidn-idna.html#idna-to-unicode-4z4z"/>
+    <keyword type="function" name="idna_to_unicode_8z4z ()" link="libidn-idna.html#idna-to-unicode-8z4z"/>
+    <keyword type="function" name="idna_to_unicode_8z8z ()" link="libidn-idna.html#idna-to-unicode-8z8z"/>
+    <keyword type="function" name="idna_to_unicode_8zlz ()" link="libidn-idna.html#idna-to-unicode-8zlz"/>
+    <keyword type="function" name="idna_to_unicode_lzlz ()" link="libidn-idna.html#idna-to-unicode-lzlz"/>
+    <keyword type="enum" name="enum Pr29_rc" link="libidn-pr29.html#Pr29-rc"/>
+    <keyword type="function" name="pr29_strerror ()" link="libidn-pr29.html#pr29-strerror"/>
+    <keyword type="function" name="pr29_4 ()" link="libidn-pr29.html#pr29-4"/>
+    <keyword type="function" name="pr29_4z ()" link="libidn-pr29.html#pr29-4z"/>
+    <keyword type="function" name="pr29_8z ()" link="libidn-pr29.html#pr29-8z"/>
+    <keyword type="enum" name="enum Punycode_status" link="libidn-punycode.html#Punycode-status"/>
+    <keyword type="function" name="punycode_strerror ()" link="libidn-punycode.html#punycode-strerror"/>
+    <keyword type="typedef" name="punycode_uint" link="libidn-punycode.html#punycode-uint"/>
+    <keyword type="function" name="punycode_encode ()" link="libidn-punycode.html#punycode-encode"/>
+    <keyword type="function" name="punycode_decode ()" link="libidn-punycode.html#punycode-decode"/>
+    <keyword type="struct" name="struct Tld_table_element" link="libidn-tld.html#Tld-table-element"/>
+    <keyword type="struct" name="struct Tld_table" link="libidn-tld.html#Tld-table"/>
+    <keyword type="enum" name="enum Tld_rc" link="libidn-tld.html#Tld-rc"/>
+    <keyword type="function" name="tld_strerror ()" link="libidn-tld.html#tld-strerror"/>
+    <keyword type="function" name="tld_get_4 ()" link="libidn-tld.html#tld-get-4"/>
+    <keyword type="function" name="tld_get_4z ()" link="libidn-tld.html#tld-get-4z"/>
+    <keyword type="function" name="tld_get_z ()" link="libidn-tld.html#tld-get-z"/>
+    <keyword type="function" name="tld_get_table ()" link="libidn-tld.html#tld-get-table"/>
+    <keyword type="function" name="tld_default_table ()" link="libidn-tld.html#tld-default-table"/>
+    <keyword type="function" name="tld_check_4t ()" link="libidn-tld.html#tld-check-4t"/>
+    <keyword type="function" name="tld_check_4tz ()" link="libidn-tld.html#tld-check-4tz"/>
+    <keyword type="function" name="tld_check_4 ()" link="libidn-tld.html#tld-check-4"/>
+    <keyword type="function" name="tld_check_4z ()" link="libidn-tld.html#tld-check-4z"/>
+    <keyword type="function" name="tld_check_8z ()" link="libidn-tld.html#tld-check-8z"/>
+    <keyword type="function" name="tld_check_lz ()" link="libidn-tld.html#tld-check-lz"/>
+    <keyword type="macro" name="STRINGPREP_VERSION" link="libidn-stringprep.html#STRINGPREP-VERSION:CAPS"/>
+    <keyword type="enum" name="enum Stringprep_rc" link="libidn-stringprep.html#Stringprep-rc"/>
+    <keyword type="enum" name="enum Stringprep_profile_flags" link="libidn-stringprep.html#Stringprep-profile-flags"/>
+    <keyword type="enum" name="enum Stringprep_profile_steps" link="libidn-stringprep.html#Stringprep-profile-steps"/>
+    <keyword type="macro" name="STRINGPREP_MAX_MAP_CHARS" link="libidn-stringprep.html#STRINGPREP-MAX-MAP-CHARS:CAPS"/>
+    <keyword type="struct" name="struct Stringprep_table_element" link="libidn-stringprep.html#Stringprep-table-element"/>
+    <keyword type="struct" name="struct Stringprep_table" link="libidn-stringprep.html#Stringprep-table"/>
+    <keyword type="typedef" name="Stringprep_profile" link="libidn-stringprep.html#Stringprep-profile"/>
+    <keyword type="struct" name="struct Stringprep_profiles" link="libidn-stringprep.html#Stringprep-profiles"/>
+    <keyword type="macro" name="stringprep_nameprep()" link="libidn-stringprep.html#stringprep-nameprep"/>
+    <keyword type="macro" name="stringprep_nameprep_no_unassigned()" link="libidn-stringprep.html#stringprep-nameprep-no-unassigned"/>
+    <keyword type="macro" name="stringprep_plain()" link="libidn-stringprep.html#stringprep-plain"/>
+    <keyword type="macro" name="stringprep_kerberos5()" link="libidn-stringprep.html#stringprep-kerberos5"/>
+    <keyword type="macro" name="stringprep_xmpp_nodeprep()" link="libidn-stringprep.html#stringprep-xmpp-nodeprep"/>
+    <keyword type="macro" name="stringprep_xmpp_resourceprep()" link="libidn-stringprep.html#stringprep-xmpp-resourceprep"/>
+    <keyword type="macro" name="stringprep_iscsi()" link="libidn-stringprep.html#stringprep-iscsi"/>
+    <keyword type="function" name="stringprep_4i ()" link="libidn-stringprep.html#stringprep-4i"/>
+    <keyword type="function" name="stringprep_4zi ()" link="libidn-stringprep.html#stringprep-4zi"/>
+    <keyword type="function" name="stringprep ()" link="libidn-stringprep.html#stringprep"/>
+    <keyword type="function" name="stringprep_profile ()" link="libidn-stringprep.html#stringprep-profile"/>
+    <keyword type="function" name="stringprep_strerror ()" link="libidn-stringprep.html#stringprep-strerror"/>
+    <keyword type="function" name="stringprep_check_version ()" link="libidn-stringprep.html#stringprep-check-version"/>
+    <keyword type="function" name="stringprep_unichar_to_utf8 ()" link="libidn-stringprep.html#stringprep-unichar-to-utf8"/>
+    <keyword type="function" name="stringprep_utf8_to_unichar ()" link="libidn-stringprep.html#stringprep-utf8-to-unichar"/>
+    <keyword type="function" name="stringprep_utf8_to_ucs4 ()" link="libidn-stringprep.html#stringprep-utf8-to-ucs4"/>
+    <keyword type="function" name="stringprep_ucs4_to_utf8 ()" link="libidn-stringprep.html#stringprep-ucs4-to-utf8"/>
+    <keyword type="function" name="stringprep_utf8_nfkc_normalize ()" link="libidn-stringprep.html#stringprep-utf8-nfkc-normalize"/>
+    <keyword type="function" name="stringprep_ucs4_nfkc_normalize ()" link="libidn-stringprep.html#stringprep-ucs4-nfkc-normalize"/>
+    <keyword type="function" name="stringprep_locale_charset ()" link="libidn-stringprep.html#stringprep-locale-charset"/>
+    <keyword type="function" name="stringprep_convert ()" link="libidn-stringprep.html#stringprep-convert"/>
+    <keyword type="function" name="stringprep_locale_to_utf8 ()" link="libidn-stringprep.html#stringprep-locale-to-utf8"/>
+    <keyword type="function" name="stringprep_utf8_to_locale ()" link="libidn-stringprep.html#stringprep-utf8-to-locale"/>
+  </functions>
+</book>

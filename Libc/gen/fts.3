@@ -32,7 +32,7 @@
 .\"     @(#)fts.3	8.5 (Berkeley) 4/16/94
 .\" $FreeBSD: src/lib/libc/gen/fts.3,v 1.13 2001/09/20 12:32:45 ru Exp $
 .\"
-.Dd April 16, 1994
+.Dd May 20, 2008
 .Dt FTS 3
 .Os
 .Sh NAME
@@ -46,6 +46,8 @@
 .In fts.h
 .Ft FTS *
 .Fn fts_open "char * const *path_argv" "int options" "int (*compar)(const FTSENT **, const FTSENT **)"
+.Ft FTS *
+.Fn fts_open_b "char * const *path_argv" "int options" "int (^compar)(const FTSENT **, const FTSENT **)"
 .Ft FTSENT *
 .Fn fts_read "FTS *ftsp"
 .Ft FTSENT *
@@ -62,7 +64,9 @@ functions are provided for traversing
 file hierarchies.
 A simple overview is that the
 .Fn fts_open
-function returns a
+and
+.Fn fts_open_b
+functions return a
 .Dq handle
 on a file hierarchy, which is then supplied to
 the other
@@ -169,6 +173,8 @@ or
 .Ql ..\&
 which was not specified as a file name to
 .Fn fts_open
+or
+.Fn fts_open_b
 (see
 .Dv FTS_SEEDOT ) .
 .It Dv FTS_DP
@@ -218,6 +224,8 @@ A path for accessing the file from the current directory.
 The path for the file relative to the root of the traversal.
 This path contains the path specified to
 .Fn fts_open
+or
+.Fn fts_open_b
 as a prefix.
 .It Fa fts_pathlen
 The length of the string referenced by
@@ -499,6 +507,30 @@ the directory traversal order is in the order listed in
 .Fa path_argv
 for the root paths, and in the order listed in the directory for
 everything else.
+.Sh FTS_OPEN_B
+The
+.Fn fts_open_b
+function is like
+.Fn fts_open
+except
+.Fa compar
+is a block pointer instead of a function pointer.
+This block is passed to
+.Xr qsort_b 3
+(whereas
+.Fn fts_open
+passes its function pointer to
+.Xr qsort 3 ) .
+.Bd -ragged -offset indent
+Note: The
+.Fn Block_copy
+function (defined in
+.In Blocks.h )
+is used by
+.Fn fts_open_b
+to make a copy of the block, especially for the case when a stack-based
+block might go out of scope when the subroutine returns.
+.Ed
 .Sh FTS_READ
 The
 .Fn fts_read
@@ -752,7 +784,8 @@ The options were invalid.
 .Xr find 1 ,
 .Xr chdir 2 ,
 .Xr stat 2 ,
-.Xr qsort 3
+.Xr qsort 3 ,
+.Xr qsort_b 3
 .Sh STANDARDS
 The
 .Nm

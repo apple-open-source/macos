@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,6 +26,7 @@
 #define _EAP8021X_EAPCLIENTPROPERTIES_H
 
 #include <CoreFoundation/CFString.h>
+#include <TargetConditionals.h>
 
 /*
  * The type of the value corresponding to the following keys are CFString's 
@@ -38,31 +39,106 @@
  *   its configuration needs
  * Note: default values shown in parenthesis (when applicable)
  */
+
+/**
+ ** Properties applicable to most protocols
+ **/
 #define kEAPClientPropUserName	       		CFSTR("UserName")
 #define kEAPClientPropUserPassword		CFSTR("UserPassword")
 #define kEAPClientPropUserPasswordKeychainItemID CFSTR("UserPasswordKeychainItemID")
 #define kEAPClientPropOneTimeUserPassword CFSTR("OneTimeUserPassword") /* boolean (false) */
 #define kEAPClientPropAcceptEAPTypes		CFSTR("AcceptEAPTypes") /* array[integer] */
 
-/* 
- * Note:
- * TLSTrustedRootCertificates is not used unless 
- * TLSReplaceTrustedRootCertificates is also supplied.
+/**
+ ** Properties for TLS-based authentication (EAP/TLS, EAP/TTLS, PEAP, EAP-FAST)
+ **/
+/*
+ * kEAPClientPropTLSTrustedCertificates
+ * - which certificates we should trust for this authentication session
+ * - may contain root, leaf, or intermediate certificates
  */
-#define kEAPClientPropTLSReplaceTrustedRootCertificates \
-	CFSTR("TLSReplaceTrustedRootCertificates")	/* boolean (false) */
-#define kEAPClientPropTLSTrustedRootCertificates \
-	CFSTR("TLSTrustedRootCertificates") 		/* array[data] */
+#define kEAPClientPropTLSTrustedCertificates \
+	CFSTR("TLSTrustedCertificates") 		/* array[data] */
+
+/*
+ * kEAPClientPropTLSTrustedServerNames
+ * - which server names we should trust for this authentication session
+ */
+#define kEAPClientPropTLSTrustedServerNames \
+	CFSTR("TLSTrustedServerNames") 		/* array[string] */
+
+#if TARGET_OS_EMBEDDED
+/*
+ * kEAPClientPropTLSSaveTrustExceptions
+ * - tells the client to save trust exceptions for the current server
+ *   certificate chain, kEAPClientPropTLSUserTrustProceedCertificateChain
+ */
+#define kEAPClientPropTLSSaveTrustExceptions \
+	CFSTR("TLSSaveTrustExceptions")			/* boolean (false) */
+
+/*
+ * kEAPClientPropTLSAllowTrustExceptions
+ * - enables trust exceptions for storing dynamic trust
+ * - the default value of this property is true unless the 
+ *   kEAPClientPropTLSTrustedCertificates property is specified, in which
+ *   case the default is false
+ */
+#define kEAPClientPropTLSAllowTrustExceptions \
+	CFSTR("TLSAllowTrustExceptions") 		/* boolean (see above) */
+/*
+ * kEAPClientPropTLSTrustExceptionsDomain 
+ * kEAPClientPropTLSTrustExceptionsID
+ * - properties used to locate the appropriate trust exception for the
+ *   current authentication session
+ */
+#define kEAPClientPropTLSTrustExceptionsDomain \
+	CFSTR("TLSTrustExceptionsDomain")
+#define kEAPClientPropTLSTrustExceptionsID \
+	CFSTR("TLSTrustExceptionsID")
+
+/*
+ * kEAPTLSTrustExceptionsDomain*
+ *
+ * Values for the kEAPClientPropTLSTrustExceptionsDomain property
+ *
+ * kEAPTrustExceptionsDomainWirelessSSID
+ * - used when the desired trust domain is the wireless SSID to which we
+ *   are authenticating
+ *
+ * kEAPTrustExceptionsDomainProfileID
+ * - used when the desired trust domain is the UUID of the configuration profile
+ *
+ * kEAPTLSTrustExceptionsDomainNetworkInterfaceName
+ * - used when the desired trust domain is the unique network interface name
+ */
+#define kEAPTLSTrustExceptionsDomainWirelessSSID \
+    	CFSTR("WirelessSSID")
+#define kEAPTLSTrustExceptionsDomainProfileID \
+    	CFSTR("ProfileID")
+#define kEAPTLSTrustExceptionsDomainNetworkInterfaceName \
+    	CFSTR("NetworkInterfaceName")
+#else /* TARGET_OS_EMBEDDED */
+/*
+ * kEAPClientPropTLSAllowTrustDecisions
+ * - enables trust decisions by the user
+ * - the default value of this property is true unless the 
+ *   kEAPClientPropTLSTrustedCertificates property is specified, in which
+ *   case the default is false
+ */
+#define kEAPClientPropTLSAllowTrustDecisions \
+	CFSTR("TLSAllowTrustDecisions")		/* boolean (see above) */
+#endif /* TARGET_OS_EMBEDDED */
+
 #define kEAPClientPropTLSVerifyServerCertificate \
 	CFSTR("TLSVerifyServerCertificate") 		/* boolean (true) */
-#define kEAPClientPropTLSAllowAnyRoot \
-	CFSTR("TLSAllowAnyRoot") 			/* boolean (false) */
 #define kEAPClientPropTLSEnableSessionResumption \
 	CFSTR("TLSEnableSessionResumption") 		/* boolean (true) */
 #define kEAPClientPropTLSUserTrustProceedCertificateChain \
 	CFSTR("TLSUserTrustProceedCertificateChain")	/* array[data] */
 
-/* for TTLS: */
+/**
+ ** Properties for TTLS
+ **/
 #define kEAPClientPropTTLSInnerAuthentication	CFSTR("TTLSInnerAuthentication")
 #define kEAPTTLSInnerAuthenticationPAP		CFSTR("PAP")
 #define kEAPTTLSInnerAuthenticationCHAP		CFSTR("CHAP")
@@ -83,7 +159,12 @@
 #define kEAPClientPropEAPFASTProvisionPACAnonymously	CFSTR("EAPFASTProvisionPACAnonymously") /* boolean (false) */
 
 
-/* for EAP-MSCHAPv2 */
+/*
+ * for EAP-MSCHAPv2
+ *
+ * Note: these are only used as an internal communication mechanism between the 
+ * outer authentication and EAP-MSCHAPv2.
+ */
 #define kEAPClientPropEAPMSCHAPv2ServerChallenge CFSTR("EAPMSCHAPv2ServerChallenge") /* data */
 #define kEAPClientPropEAPMSCHAPv2ClientChallenge CFSTR("EAPMSCHAPv2ClientChallenge") /* data */
 
@@ -103,9 +184,13 @@
 #define kEAPClientPropEAPFASTPACWasProvisioned	CFSTR("EAPFASTPACWasProvisioned") /* boolean */
 
 /* 
- * Deprecated properties
+ * Deprecated/unused properties
  */
-#define kEAPClientPropTLSTrustedServerCertificates \
-	CFSTR("TLSTrustedServerCertificates") 		/* array[data] */
 #define kEAPClientPropIdentity			CFSTR("Identity")
+#define kEAPClientPropTLSReplaceTrustedRootCertificates \
+	CFSTR("TLSReplaceTrustedRootCertificates")	/* boolean (false) */
+#define kEAPClientPropTLSTrustedRootCertificates \
+	CFSTR("TLSTrustedRootCertificates") 		/* array[data] */
+#define kEAPClientPropTLSAllowAnyRoot \
+	CFSTR("TLSAllowAnyRoot") 			/* boolean (false) */
 #endif _EAP8021X_EAPCLIENTPROPERTIES_H

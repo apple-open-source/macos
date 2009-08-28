@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2008 Apple Inc.  All rights reserved.
+ * Copyright (c) 1999-2009 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -68,6 +68,7 @@
 #include <errno.h>
 #include <err.h>
 #include <pthread.h>
+#include <spawn.h>
 #include <dns_sd.h>
 
 #include <mach/mach.h>
@@ -91,6 +92,10 @@
 #include <nfs/rpcv2.h>
 #include <nfs/nfsproto.h>
 
+#include <CoreFoundation/CoreFoundation.h>
+#include <ServiceManagement/ServiceManagement.h>
+#include <ServiceManagement/ServiceManagement_Private.h>
+
 #include "lockd_mach.h"
 #include "pathnames.h"
 #include "common.h"
@@ -103,6 +108,8 @@ const struct nfs_conf_server config_defaults =
 {
 	0,		/* async */
 	1,		/* bonjour */
+	0,		/* bonjour_local_domain_only */
+	64,		/* export_hash_size */
 	1,		/* fsevents */
 	0,		/* mount_port */
 	0,		/* mount_regular_files */
@@ -141,7 +148,8 @@ static pid_t get_nfsd_pid(void);
 static void signal_nfsd(int);
 static void sigmux(int);
 
-static int service_is_enabled(char *);
+static int service_is_enabled(CFStringRef);
+static int service_is_loaded(CFStringRef);
 static int nfsd_is_enabled(void);
 static int nfsd_is_loaded(void);
 static int nfsd_is_running(void);
@@ -154,7 +162,7 @@ static int nfsd_start(void);
 static int nfsd_stop(void);
 
 static void register_services(void);
-static int safe_exec(char **, int);
+static int safe_exec(char *const*, int);
 static void do_lockd_ping(void);
 static void do_lockd_shutdown(void);
 static int rquotad_start(void);
@@ -170,7 +178,7 @@ usage(void)
 }
 
 int
-main(int argc, char *argv[], char *envp[])
+main(int argc, char *argv[], __unused char *envp[])
 {
 	struct pidfh *nfsd_pfh, *mountd_pfh;
 	pid_t pid;
@@ -253,7 +261,7 @@ main(int argc, char *argv[], char *envp[])
 	if (mount_regular_files)
 		config.mount_regular_files = mount_regular_files;
 	if (!exportsfilepath[0])
-		strcpy(exportsfilepath, _PATH_EXPORTS);
+		strlcpy(exportsfilepath, _PATH_EXPORTS, sizeof(exportsfilepath));
 
 	if (reregister || (argc > 0))
 		log_to_stderr = 1;
@@ -268,8 +276,13 @@ main(int argc, char *argv[], char *envp[])
 	if (argc > 0) {
 		/* process the given, unprivileged command */
 		if (!strcmp(argv[0], "status")) {
-			int enabled = nfsd_is_enabled();
+			int enabled, loaded;
+			enabled = nfsd_is_enabled();
 			printf("nfsd service is %s\n", enabled ? "enabled" : "disabled");
+			if (config.verbose) {
+				loaded = nfsd_is_loaded();
+				printf("nfsd service is %s\n", loaded ? "loaded" : "not loaded");
+			}
 			pid = get_nfsd_pid();
 			if (pid <= 0) {
 				printf("nfsd is not running\n");
@@ -282,28 +295,36 @@ main(int argc, char *argv[], char *envp[])
 			if (config.verbose) {
 				/* print info about related daemons too */
 				/* lockd */
-				enabled = service_is_enabled(_LOCKD_SERVICE_LABEL);
+				enabled = service_is_enabled(CFSTR(_LOCKD_SERVICE_LABEL));
 				printf("lockd service is %s\n", enabled ? "enabled" : "disabled");
+				loaded = service_is_loaded(CFSTR(_LOCKD_SERVICE_LABEL));
+				printf("lockd service is %s\n", loaded ? "loaded" : "not loaded");
 				pid = get_pid(_PATH_LOCKD_PID);
 				if (pid <= 0)
 					printf("lockd is not running\n");
 				else
 					printf("lockd is running (pid %d)\n", pid);
 				/* statd.notify */
-				enabled = service_is_enabled(_STATD_NOTIFY_SERVICE_LABEL);
+				enabled = service_is_enabled(CFSTR(_STATD_NOTIFY_SERVICE_LABEL));
 				printf("statd.notify service is %s\n", enabled ? "enabled" : "disabled");
+				loaded = service_is_loaded(CFSTR(_STATD_NOTIFY_SERVICE_LABEL));
+				printf("statd.notify service is %s\n", loaded ? "loaded" : "not loaded");
 				pid = get_pid(_PATH_STATD_NOTIFY_PID);
 				if (pid <= 0)
 					printf("statd.notify is not running\n");
 				else
 					printf("statd.notify is running (pid %d)\n", pid);
 				/* statd */
+				loaded = service_is_loaded(CFSTR(_STATD_SERVICE_LABEL));
+				printf("statd service is %s\n", loaded ? "loaded" : "not loaded");
 				pid = get_pid(_PATH_STATD_PID);
 				if (pid <= 0)
 					printf("statd is not running\n");
 				else
 					printf("statd is running (pid %d)\n", pid);
 				/* rquotad */
+				loaded = service_is_loaded(CFSTR(_RQUOTAD_SERVICE_LABEL));
+				printf("rquotad service is %s\n", loaded ? "loaded" : "not loaded");
 				pid = get_pid(_PATH_RQUOTAD_PID);
 				if (pid <= 0)
 					printf("rquotad is not running\n");
@@ -395,8 +416,6 @@ main(int argc, char *argv[], char *envp[])
 		exit(rv);
 	}
 
-	config_sanity_check(&config);
-
 	pthread_attr_init(&pattr);
 	pthread_attr_setdetachstate(&pattr, PTHREAD_CREATE_DETACHED);
 
@@ -412,6 +431,9 @@ main(int argc, char *argv[], char *envp[])
 	/* set up logging */
 	openlog(NULL, LOG_PID, LOG_DAEMON);
 	setlogmask(LOG_UPTO(LOG_LEVEL));
+
+	/* quick config sanity check */
+	config_sanity_check(&config);
 
 	/* we really shouldn't be running if there's no exports file */
 	if (stat(exportsfilepath, &st)) {
@@ -542,6 +564,10 @@ config_read(struct nfs_conf_server *conf)
 			conf->async = val;
 		} else if (!strcmp(key, "nfs.server.bonjour")) {
 			conf->bonjour = val;
+		} else if (!strcmp(key, "nfs.server.bonjour.local_domain_only")) {
+			conf->bonjour_local_domain_only = val;
+		} else if (!strcmp(key, "nfs.server.export_hash_size")) {
+			conf->export_hash_size = val;
 		} else if (!strcmp(key, "nfs.server.fsevents")) {
 			conf->fsevents = val;
 		} else if (!strcmp(key, "nfs.server.mount.port")) {
@@ -589,12 +615,14 @@ static void
 config_sanity_check(struct nfs_conf_server *conf)
 {
 	if (conf->nfsd_threads < 1) {
-		warnx("nfsd thread count %d; reset to %d", conf->nfsd_threads, config_defaults.nfsd_threads);
+		log(LOG_WARNING, "nfsd thread count %d; reset to %d", conf->nfsd_threads, config_defaults.nfsd_threads);
 		conf->nfsd_threads = config_defaults.nfsd_threads;
 	} else if (conf->nfsd_threads > MAX_NFSD_THREADS) {
-		warnx("nfsd thread count %d; limited to %d", conf->nfsd_threads, MAX_NFSD_THREADS);
+		log(LOG_WARNING, "nfsd thread count %d; limited to %d", conf->nfsd_threads, MAX_NFSD_THREADS);
 		conf->nfsd_threads = MAX_NFSD_THREADS;
 	}
+	if (!config.udp && !config.tcp)
+		log(LOG_WARNING, "No network transport(s) configured.");
 }
 
 /*
@@ -650,11 +678,15 @@ config_loop(void)
 					/* if port/transport/reqcachesize change detected exit to initiate a restart */
 					if ((newconf.port != config.port) || (newconf.mount_port != config.mount_port) ||
 					    (newconf.tcp != config.tcp) || (newconf.udp != config.udp) ||
-					    (newconf.reqcache_size != config.reqcache_size)) {
-						/* port, transport, and reqcache size changes require a restart */
+					    (newconf.reqcache_size != config.reqcache_size) ||
+					    (newconf.export_hash_size != config.export_hash_size)) {
+						/* port, transport, and reqcache/export_hash size changes require a restart */
 						if (newconf.reqcache_size != config.reqcache_size)
 							log(LOG_NOTICE, "request cache size change (%d -> %d) requires restart",
 								config.reqcache_size, newconf.reqcache_size);
+						if (newconf.export_hash_size != config.export_hash_size)
+							log(LOG_NOTICE, "export hash size change (%d -> %d) requires restart",
+								config.export_hash_size, newconf.export_hash_size);
 						if ((newconf.port != config.port) || (newconf.mount_port != config.mount_port) ||
 						    (newconf.tcp != config.tcp) || (newconf.udp != config.udp))
 							log(LOG_NOTICE, "port/transport changes require restart");
@@ -707,6 +739,8 @@ config_sysctl_changed(struct nfs_conf_server *old, struct nfs_conf_server *new)
 {
 	if (!old || (old->async != new->async))
 		sysctl_set("vfs.generic.nfs.server.async", new->async);
+	if (!old || (old->export_hash_size != new->export_hash_size))
+		sysctl_set("vfs.generic.nfs.server.export_hash_size", new->export_hash_size);
 	if (!old || (old->fsevents != new->fsevents))
 		sysctl_set("vfs.generic.nfs.server.fsevents", new->fsevents);
 	if (!old) /* should only be set at startup */
@@ -901,7 +935,8 @@ register_services(void)
 		DNSServiceErrorType dserr;
 		dserr = DNSServiceRegister(&nfs_dns_service, 0, 0, NULL,
 				config.tcp ? "_nfs._tcp" : "_nfs._udp",
-				NULL, NULL, htons(config.port), 0, NULL, NULL, NULL);
+				config.bonjour_local_domain_only ? "local" : NULL,
+				NULL, htons(config.port), 0, NULL, NULL, NULL);
 		if (dserr != kDNSServiceErr_NoError) {
 			log(LOG_ERR, "DNSServiceRegister(_nfs._tcp) failed with %d\n", dserr);
 			nfs_dns_service = NULL;
@@ -1000,13 +1035,34 @@ signal_nfsd(int signal)
 }
 
 /*
- * Check whether the given service appears to be enabled.
+ * Check whether the given service appears to be permanently enabled (not Disabled).
+ *
+ * SMJobIsEnabled() actually returns the "loaded" status - the (permanently) enabled
+ * status (i.e. the value of the Disabled key) is convolutedly returned via the last
+ * argument (persistence).
+ *
+ * loaded persist -> Disabled
+ *    0      0         0
+ *    0      1         1
+ *    1      0         1
+ *    1      1         0
  */
 static int
-service_is_enabled(char *service)
+service_is_enabled(CFStringRef service)
 {
-	char *args[] = { _PATH_SERVICE, "--test-if-configured-on", service, NULL };
-	return (safe_exec(args, 1) == 0);
+	Boolean loaded = false, persistence = false;
+	loaded = SMJobIsEnabled(kSMDomainSystemLaunchd, service, &persistence);
+	return (!(loaded ^ persistence));
+}
+
+/*
+ * Check whether the given service appears to be loaded into launchd.
+ */
+static int
+service_is_loaded(CFStringRef service)
+{
+	Boolean dummy;
+	return (SMJobIsEnabled(kSMDomainSystemLaunchd, service, &dummy));
 }
 
 /*
@@ -1015,7 +1071,7 @@ service_is_enabled(char *service)
 static int
 nfsd_is_enabled(void)
 {
-	return service_is_enabled(_NFSD_SERVICE_LABEL);
+	return service_is_enabled(CFSTR(_NFSD_SERVICE_LABEL));
 }
 
 /*
@@ -1024,8 +1080,7 @@ nfsd_is_enabled(void)
 static int
 nfsd_is_loaded(void)
 {
-	char *args[] = { _PATH_LAUNCHCTL, "list", _NFSD_SERVICE_LABEL, NULL };
-	return (safe_exec(args, 1) == 0);
+	return service_is_loaded(CFSTR(_NFSD_SERVICE_LABEL));
 }
 
 /*
@@ -1034,8 +1089,8 @@ nfsd_is_loaded(void)
 static int
 nfsd_enable(void)
 {
-	char *args[] = { _PATH_LAUNCHCTL, "load", "-w", _PATH_NFSD_PLIST, NULL };
-	return safe_exec(args, 0);
+	const char *const args[] = { _PATH_LAUNCHCTL, "load", "-w", _PATH_NFSD_PLIST, NULL };
+	return safe_exec((char *const*)args, 0);
 }
 
 /*
@@ -1044,8 +1099,8 @@ nfsd_enable(void)
 static int
 nfsd_disable(void)
 {
-	char *args[] = { _PATH_LAUNCHCTL, "unload", "-w", _PATH_NFSD_PLIST, NULL };
-	return safe_exec(args, 0);
+	const char *const args[] = { _PATH_LAUNCHCTL, "unload", "-w", _PATH_NFSD_PLIST, NULL };
+	return safe_exec((char *const*)args, 0);
 }
 
 /*
@@ -1054,8 +1109,8 @@ nfsd_disable(void)
 static int
 nfsd_load(void)
 {
-	char *args[] = { _PATH_LAUNCHCTL, "load", "-F", _PATH_NFSD_PLIST, NULL };
-	return safe_exec(args, 0);
+	const char *const args[] = { _PATH_LAUNCHCTL, "load", "-F", _PATH_NFSD_PLIST, NULL };
+	return safe_exec((char *const*)args, 0);
 }
 
 /*
@@ -1064,8 +1119,8 @@ nfsd_load(void)
 static int
 nfsd_unload(void)
 {
-	char *args[] = { _PATH_LAUNCHCTL, "unload", _PATH_NFSD_PLIST, NULL };
-	return safe_exec(args, 0);
+	const char *const args[] = { _PATH_LAUNCHCTL, "unload", _PATH_NFSD_PLIST, NULL };
+	return safe_exec((char *const*)args, 0);
 }
 
 /*
@@ -1074,8 +1129,8 @@ nfsd_unload(void)
 static int
 nfsd_start(void)
 {
-	char *args[] = { _PATH_LAUNCHCTL, "start", _NFSD_SERVICE_LABEL, NULL };
-	return safe_exec(args, 0);
+	const char *const args[] = { _PATH_LAUNCHCTL, "start", _NFSD_SERVICE_LABEL, NULL };
+	return safe_exec((char *const*)args, 0);
 }
 
 /*
@@ -1084,8 +1139,8 @@ nfsd_start(void)
 static int
 nfsd_stop(void)
 {
-	char *args[] = { _PATH_LAUNCHCTL, "stop", _NFSD_SERVICE_LABEL, NULL };
-	return safe_exec(args, 0);
+	const char *const args[] = { _PATH_LAUNCHCTL, "stop", _NFSD_SERVICE_LABEL, NULL };
+	return safe_exec((char *const*)args, 0);
 }
 
 /*
@@ -1101,25 +1156,28 @@ nfsd_is_running(void)
  * run an external program
  */
 static int
-safe_exec(char *argv[], int silent)
+safe_exec(char *const argv[], int silent)
 {
-	int pid, status;
+	posix_spawn_file_actions_t psfileact, *psfileactp = NULL;
+	pid_t pid;
+	int status;
+	extern char **environ;
 
-	if ((pid = fork()) == 0) {
-		if (silent) {
-			close(0);
-			close(1);
-			close(2);
-			dup(dup(open("/dev/null", O_RDWR)));
+	if (silent) {
+		psfileactp = &psfileact;
+		if (posix_spawn_file_actions_init(psfileactp)) {
+			log(LOG_ERR, "spawn init of %s failed: %s (%d)", argv[0], strerror(errno), errno);
+			return (1);
 		}
-		execv(argv[0], argv);
-		log(LOG_ERR, "Exec of %s failed: %s (%d)", argv[0],
-			strerror(errno), errno);
-		exit(2);
+		posix_spawn_file_actions_addopen(psfileactp, STDIN_FILENO, "/dev/null", O_RDONLY, 0);
+		posix_spawn_file_actions_addopen(psfileactp, STDOUT_FILENO, "/dev/null", O_WRONLY, 0);
+		posix_spawn_file_actions_addopen(psfileactp, STDERR_FILENO, "/dev/null", O_WRONLY, 0);
 	}
-	if (pid == -1) {
-		log(LOG_ERR, "Fork for %s failed: %s (%d)", argv[0],
-			strerror(errno), errno);
+	status = posix_spawn(&pid, argv[0], psfileactp, NULL, argv, environ);
+	if (psfileactp)
+		posix_spawn_file_actions_destroy(psfileactp);
+	if (status) {
+		log(LOG_ERR, "spawn of %s failed: %s (%d)", argv[0], strerror(errno), errno);
 		return (1);
 	}
 	while ((waitpid(pid, &status, 0) == -1) && (errno == EINTR))
@@ -1185,10 +1243,13 @@ rquotad_load(void)
 	launch_data_dict_insert(msg, job, LAUNCH_KEY_SUBMITJOB);
 
 	resp = launch_msg(msg);
-	if (!resp)
+	if (!resp) {
 		rv = errno;
-	else if (launch_data_get_type(resp) == LAUNCH_DATA_ERRNO)
-		rv = launch_data_get_errno(resp);
+	} else {
+		if (launch_data_get_type(resp) == LAUNCH_DATA_ERRNO)
+			rv = launch_data_get_errno(resp);
+		launch_data_free(resp);
+	}
 
 	launch_data_free(msg);
 	return (rv);
@@ -1206,10 +1267,13 @@ rquotad_service_start(void)
 	launch_data_dict_insert(msg, launch_data_new_string(_RQUOTAD_SERVICE_LABEL), LAUNCH_KEY_STARTJOB);
 
 	resp = launch_msg(msg);
-	if (!resp)
+	if (!resp) {
 		rv = errno;
-	else if (launch_data_get_type(resp) == LAUNCH_DATA_ERRNO)
-		rv = launch_data_get_errno(resp);
+	} else {
+		if (launch_data_get_type(resp) == LAUNCH_DATA_ERRNO)
+			rv = launch_data_get_errno(resp);
+		launch_data_free(resp);
+	}
 
 	launch_data_free(msg);
 	return (rv);
@@ -1237,10 +1301,13 @@ rquotad_stop(void)
 	launch_data_dict_insert(msg, launch_data_new_string(_RQUOTAD_SERVICE_LABEL), LAUNCH_KEY_REMOVEJOB);
 
 	resp = launch_msg(msg);
-	if (!resp)
+	if (!resp) {
 		rv = errno;
-	else if (launch_data_get_type(resp) == LAUNCH_DATA_ERRNO)
-		rv = launch_data_get_errno(resp);
+	} else {
+		if (launch_data_get_type(resp) == LAUNCH_DATA_ERRNO)
+			rv = launch_data_get_errno(resp);
+		launch_data_free(resp);
+	}
 
 	launch_data_free(msg);
 	return (rv);

@@ -40,23 +40,23 @@ my($a, $s, $r, $serialized, $deserialized);
 }
 
 { # check use of default_ns, ns, and use_prefix
+  # test 4
   $serialized = SOAP::Serializer->ns("urn:Test")->method(
     'testMethod', SOAP::Data->name(test => 123)
   );
   ok($serialized =~ m!<namesp(\d):testMethod><test xsi:type="xsd:int">123</test></namesp\1:testMethod>!);
 
+  # test 5
   $serialized = SOAP::Serializer->ns("urn:Test","testns")->method(
     'testMethod', SOAP::Data->name(test => 123)
   );
   ok($serialized =~ m!<testns:testMethod><test xsi:type="xsd:int">123</test></testns:testMethod>!);
 
+  # test 6
   $serialized = SOAP::Serializer->default_ns("urn:Test")->method(
     'testMethod', SOAP::Data->name(test => 123)
   );
   ok($serialized =~ m!<soap:Body><testMethod xmlns="urn:Test"><test xsi:type="xsd:int">123</test></testMethod></soap:Body>!);
-
-
-
 }  
 
 { # check serialization

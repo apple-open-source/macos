@@ -1,6 +1,6 @@
 /* Subroutines needed for unwinding IA-64 standard format stack frame
    info for exception handling.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2004
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2004, 2005, 2006
    Free Software Foundation, Inc.
    Contributed by Andrew MacLeod  <amacleod@cygnus.com>
 	          Andrew Haley  <aph@cygnus.com>
@@ -20,8 +20,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 /* As a special exception, if you link this library with other files,
    some of which are compiled with GCC, to produce an executable,
@@ -285,10 +285,10 @@ atomic_free (unsigned int *mask, int bit)
 #define PTR_IN(X, P)	((P) >= (X) && (P) < (X) + SIZE (X))
 
 static struct unw_reg_state emergency_reg_state[32];
-static int emergency_reg_state_free = MASK_FOR (emergency_reg_state);
+static unsigned int emergency_reg_state_free = MASK_FOR (emergency_reg_state);
 
 static struct unw_labeled_state emergency_labeled_state[8];
-static int emergency_labeled_state_free = MASK_FOR (emergency_labeled_state);
+static unsigned int emergency_labeled_state_free = MASK_FOR (emergency_labeled_state);
 
 #ifdef ENABLE_MALLOC_CHECKING
 static int reg_state_alloced;
@@ -1704,6 +1704,13 @@ _Unwind_GetIP (struct _Unwind_Context *context)
   return context->rp;
 }
 
+inline _Unwind_Ptr
+_Unwind_GetIPInfo (struct _Unwind_Context *context, int *ip_before_insn)
+{
+  *ip_before_insn = 0;
+  return context->rp;
+}
+
 /* Overwrite the return address for CONTEXT with VAL.  */
 
 inline void
@@ -2058,6 +2065,12 @@ uw_update_context (struct _Unwind_Context *context, _Unwind_FrameState *fs)
       context->bsp = (unsigned long)
 	ia64_rse_skip_regs ((unsigned long *) context->bsp, -sol);
     }
+}
+
+static void
+uw_advance_context (struct _Unwind_Context *context, _Unwind_FrameState *fs)
+{
+  uw_update_context (context, fs);
 }
 
 /* Fill in CONTEXT for top-of-stack.  The only valid registers at this

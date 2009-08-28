@@ -1,3 +1,179 @@
+GNU nano 2.0.6 - 2007.04.26
+- text.c:
+  backup_lines()
+	- Avoid a segfault when the mark begins and ends on the line
+	  after the last line of the paragraph. (DLR)
+- TODO:
+	- Add entries for fixing limitations with pasting text and
+	  handling bad/incomplete UTF-8 sequences. (DLR)
+
+GNU nano 2.0.5 - 2007.04.22
+- files.c:
+  open_file()
+	- Open files using their full paths whenever possible, so that
+	  ~user/file.txt and "~user/file.txt" are treated the same way
+	  if ~user is a user's home directory. (DLR)
+  real_dir_from_tilde()
+	- Fix segfault when dealing with directory names that begin with
+	  "~", but that aren't users' home directories. (DLR, found by
+	  Justin Fletcher)
+	- Fix long-standing problem where directory names that began
+	  with "~", but that weren't users' home directories, could be
+	  erroneously treated as users' home directories (e.g. "~d/"
+	  would be treated as "~daemon/"). (DLR, found by Justin
+	  Fletcher)
+	- Simplify. (DLR)
+  do_writeout()
+	- Properly display the warning in all cases if we try to save
+	  (a) an existing file under a different name, or (b) a file
+	  with no name under an existing file's name. (DLR)
+	- Rename variable different_name to do_warning, for clarity.
+	  (DLR)
+	- If we're in restricted mode, we're not allowed to write
+	  selections to files, so don't display the "Write Selection to
+	  File" prompt. (DLR)
+	- Simplify. (DLR)
+  input_tab()
+	- Don't bother checking if num_matches is less than zero, as
+	  it's a size_t and hence unsigned. (DLR)
+  tail()
+	- Remove unneeded if statement. (DLR)
+- rcfile.c:
+  parse_include()
+	- Open files using their full paths whenever possible, so that
+	  ~user/file.txt and "~user/file.txt" are treated the same way
+	  if ~user is a user's home directory. (DLR)
+	- Properly check for the included file's being a directory, a
+	  character file, or a block file. (DLR)
+	- For consistency, display the filename as the user entered it
+	  if we can't read the specified file. (DLR)
+- winio.c:
+  parse_kbinput()
+	- Interpret Cancel and Shift-Cancel. (DLR)
+  get_escape_seq_kbinput()
+	- Add missing comments. (DLR)
+- doc/faq.html:
+	- Add a new section 4.14 to explain how autoindent affects
+	  pasted text. (John M. Gabriele, minor tweaks by DLR)
+- doc/syntax/asm.nanorc, doc/syntax/c.nanorc, doc/syntax/sh.nanorc:
+	- Copy the regex that highlights trailing whitespace from
+	  doc/syntax/java.nanorc to these files, as it's also useful in
+	  them. (Mike Frysinger, minor tweaks by DLR)
+
+GNU nano 2.0.4 - 2007.04.06
+- winio.c:
+  get_escape_seq_kbinput()
+	- Add escape sequences for Terminal. (DLR)
+- doc/faq.html:
+	- Update email address. (DLR)
+- AUTHORS:
+	- Update email address. (DLR)
+
+GNU nano 2.0.3 - 2007.01.29
+- General:
+	- Miscellaneous comment fixes. (DLR)
+	- More int -> bool conversions. (DLR)
+	- Don't install the nanorc manpages or generate their HTML
+	  versions if nano is built without nanorc support.  Changes to
+	  configure.ac, doc/man/Makefile.am, and doc/man/fr/Makefile.am.
+	  (DLR)
+	- Simplify the commands that generate HTML documentation in
+	  order to remove unnecessary usage of cat.  Changes to
+	  doc/man/Makefile.am, doc/man/fr/Makefile.am, and
+	  doc/texinfo/Makefile.am. (DLR)
+- files.c:
+  do_writeout()
+	- When setting retval to the return value of
+	  write_(marked_)?file(), use the "?" operator instead of an
+	  if/else clause. (DLR)
+  is_dir()
+	- Don't assign dirptr's value using buf until we've asserted
+	  that buf isn't NULL. (DLR)
+	- Remove unneeded assert. (DLR)
+- proto.h:
+	- Add missing is_dir() prototype. (DLR)
+- search.c:
+  regexp_init()
+	- Don't assign rc's value via regcomp() until we've asserted
+	  that regexp_compiled is FALSE. (DLR)
+- text.c:
+  do_alt_speller()
+	- Rename variable altspell_error to alt_spell_error, for
+	  consistency. (DLR)
+  do_spell()
+	- Rename variable i to status, for clarity. (DLR)
+- winio.c:
+  do_credits()
+	- Update the last copyright notice to include 2007. (DLR)
+- Makefile.am:
+	- Add README.CVS to EXTRA_DIST, so that nano's CVS checkout
+	  instructions aren't only available in its CVS snapshots. (DLR)
+- README:
+	- Add more miscellaneous cosmetic fixes. (DLR)
+- README.CVS:
+	- Update for the 2.0 branch of nano. (DLR)
+- NEWS:
+	- Formatting fix. (DLR)
+- m4/glib-2.0.m4:
+	- Import the latest version of this file from glib 2.10.3. (DLR)
+- doc/faq.html:
+	- Update section 4.1 to describe how to open files with names
+	  beginning with '+' at specified columns as well as lines.
+	  (DLR)
+- doc/man/fr/Makefile.am:
+	- Set mandir before setting man_MANS, to more closely match
+	  doc/man/Makefile.am. (DLR)
+- doc/syntax/python.nanorc:
+	- Improve string highlighting regexes. (Mike Frysinger)
+
+GNU nano 2.0.2 - 2006.12.20
+- General:
+	- Miscellaneous comment fixes. (DLR)
+- browser.c:
+  do_browser()
+	- Properly handle directories that contain nulls. (DLR)
+- files.c:
+  do_insertfile()
+	- Properly handle filenames and executable commands that contain
+	  nulls. (DLR)
+  write_file()
+	- Properly handle filenames that contain nulls. (DLR)
+  do_writeout()
+	- Fix a segfault when we can't get the full path of either the
+	  filename we want to save under or the original filename. (DLR,
+	  found by Mike Frysinger)
+- nano.h:
+	- Rename NANO_ALT_REPLACE_KEY to NANO_REPLACE_ALTKEY, for
+	  consistency. (DLR)
+	- Rename NANO_ALT_.* and NANO_.*ALTKEY to NANO_META_.* and
+	  NANO_.*METAKEY, for consistency. (DLR)
+- search.c:
+  update_history()
+	- Fix minor memory leak. (DLR)
+- text.c:
+  do_spell()
+	- When setting i to the return value of write_(marked_)?file(),
+	  use the "?" operator instead of an if/else clause. (DLR)
+  do_verbatim_input()
+	- Fix minor memory leak. (DLR)
+- winio.c:
+  parse_kbinput()
+	- Add missing break. (DLR)
+	- Fix minor memory leak. (Itay Perl)
+  parse_verbatim_kbinput()
+	- Fix minor memory leak. (DLR)
+  edit_draw()
+	- Fix potential warnings when assigning -1 to paintlen by using
+	  if/else clauses instead of "?" operators. (DLR)
+- configure.ac:
+	- Reword several option descriptions, for clarity. (DLR)
+- doc/faq.html:
+	- Add miscellaneous wording and capitalization fixes. (DLR)
+- BUGS:
+	- Add miscellaneous cosmetic fixes. (DLR)
+- README:
+	- Update for the 2.0 branch of nano. (DLR)
+
 GNU nano 2.0.1 - 2006.11.20
 - General:
 	- Miscellaneous comment fixes. (DLR)
@@ -3207,7 +3383,7 @@ GNU nano 1.3.4 - 2004.08.17
 	  DLR)
 	- Make flags and all variables meant to store the value of flags
 	  longs for consistency. (David Benbennick)
-	- Rename the TEMP_OPT flags to TEMP_FILE, as it's more 
+	- Rename the TEMP_OPT flags to TEMP_FILE, as it's more
 	  descriptive. (DLR)
 	- Remove unused global variable search_offscreen. (David
 	  Benbennick)
@@ -3245,8 +3421,8 @@ GNU nano 1.3.4 - 2004.08.17
 	  Benbennick)
 	- Include <sys/types.h> in proto.h. (David Benbennick)  DLR:
 	  Remove some redundant inclusions of <sys/types.h> elsewhere.
-	- Move the main terminal initialization functions, aside from 
-	  initscr(), into a new terminal_init() function, and convert 
+	- Move the main terminal initialization functions, aside from
+	  initscr(), into a new terminal_init() function, and convert
 	  nano to use it. (DLR)
 	- Convert placewewant to a size_t, and convert some functions
 	  that use it as a parameter to use size_t as well. (David
@@ -3269,7 +3445,7 @@ GNU nano 1.3.4 - 2004.08.17
 	  (DLR and David Benbennick)
 	- Automatically install a symlink "rnano" pointing to nano.
 	  Changes to src/Marefile.am. (DLR)
-	- Move the static int pid to the beginning of nano.c with all 
+	- Move the static int pid to the beginning of nano.c with all
 	  the other static variables. (DLR)
 	- Consolidate some if blocks to remove some redundant code.
 	  (David Benbennick)
@@ -3322,7 +3498,7 @@ GNU nano 1.3.4 - 2004.08.17
 	- Delete topwin, edit, and bottomwin. (David Benbennick)
 - nano.c:
   die()
-	- Don't add the ".save" suffix to a saved file here anymore, 
+	- Don't add the ".save" suffix to a saved file here anymore,
 	  since get_next_filename() does that now. (David Benbennick)
   die_save_file()
 	- Tweak for efficiency. (David Benbennick)
@@ -3368,8 +3544,8 @@ GNU nano 1.3.4 - 2004.08.17
 	- Call setlocale() outside the ENABLE_NLS #ifdef, since UTF-8
 	  support won't work properly if the locale isn't set, whether
 	  NLS is enabled or not. (Junichi Uekawa)
-	- Add titlebar() calls before all open_file() calls and remove 
-	  the titlebar() call after them, so that the titlebar is 
+	- Add titlebar() calls before all open_file() calls and remove
+	  the titlebar() call after them, so that the titlebar is
 	  displayed properly for all file(s) loaded.  Also call
 	  display_main_list() after adding the first file to open_files,
 	  so that "Close" is properly displayed then instead of "Exit".
@@ -3384,7 +3560,7 @@ GNU nano 1.3.4 - 2004.08.17
 	  used in the actual functions. (DLR)
 	- Remove unused declaration of temp_opt. (David Benbennick)
 	- Add missing copy_file() prototype. (David Benbennick)
-	- Move the load_history() and save_history() prototypes up to 
+	- Move the load_history() and save_history() prototypes up to
 	  match their corresponding location in files.c. (DLR)
 - rcfile.c:
   rcfile_msg()
@@ -4618,7 +4794,7 @@ GNU nano 1.2.2 - 2003.08.11
 	- Fix problem where pressing down,up,down does not blank the
 	  search prompt but keeps the previous search (DLR).
 	- Handle Alt-[-F and H (DLR, fixed home and end not working with
-	  -K in statusbar).  
+	  -K in statusbar).
 - configure.ac:
 	- Change the program used to detect a broken regexec() function
 	  so that it works properly, using information found at
@@ -4713,7 +4889,7 @@ GNU nano 1.2.1 - 2003.04.19
 	  gotos, and properly interpret the up and down arrow keys when
 	  ALT_KEYPAD is set. (DLR)
 - configure.ac:
-	- Enable autodetection of broken regexec(). (DLR) Re-added 
+	- Enable autodetection of broken regexec(). (DLR) Re-added
 	  regex.h check to ensure compile under Debian w/autoconf 1.6.
 - README:
 	- Update obsolete 1.1.x information.
@@ -4730,8 +4906,8 @@ GNU nano 1.2.0 - 2003.02.19
 	- If the file we're loading has already been detected as a DOS
 	  or Mac formatted file, don't turn on NOCONVERT if we find
 	  binary chars in it.  This is because if it's detected as
-	  DOS/Mac format, at least one line has already been converted, 
-	  so setting NOCONVERT (which is supposed to signal that none 
+	  DOS/Mac format, at least one line has already been converted,
+	  so setting NOCONVERT (which is supposed to signal that none
 	  of the file should be converted) makes no sense. (DLR)
 - nano.c:
   justify_format()
@@ -4748,7 +4924,7 @@ GNU nano 1.1.99pre3 - 2003.02.13
 	  DISABLE_SPELLER (David Benbennick).
 	- Fix unreasonable fill values by wrapping at length 0 instead
 	  of erroring out, and don't start up if the window size is too
-	  small but fill is set reasonably.  Changes to 
+	  small but fill is set reasonably.  Changes to
 	  nano.c:global_init(), window_init(), and handle_sigwinch().
 	  New macro MIN_EDITOR_COLS replaces MIN_FILL_LENGTH
 	  (David Benbennick).
@@ -4801,7 +4977,7 @@ GNU nano 1.1.99pre3 - 2003.02.13
   main()
 	- Fix nano not compiling with ENABLE_RCFILE and DISABLE_TABCOMP
 	  (David Benbennick).
-	- Silence annoying compiler messages about clobbering and 
+	- Silence annoying compiler messages about clobbering and
 	  uninitialized variables by moving variable inits to the top
 	  of main() and re-initializing them after the sigsetjmp().
 - rcfile.c:
@@ -4811,9 +4987,9 @@ GNU nano 1.1.99pre3 - 2003.02.13
   colortoint, parse_colors()
 	- Don't add strings with invalid fg colors at all.
   do_rcfile()
-	- Revert (somewhat) previous behavior of looking at 
+	- Revert (somewhat) previous behavior of looking at
 	  $HOME, and only run getpw* if it is NULL.  Most *nix programs
-	  seem to only care about $HOME, and at the user-level 
+	  seem to only care about $HOME, and at the user-level
 	  getpw* may not be reliable (and its slower).
 - search.c:
   do_gotoline()
@@ -4831,13 +5007,13 @@ GNU nano 1.1.99pre3 - 2003.02.13
   statusq()
 	- Always blank the statusbar on exit (David Benbennick).
 - nano.1, nano.1.html:
-	- Add initialization file comments, change some options from 
-	  bracketed to underlined to emphasize that they are not 
+	- Add initialization file comments, change some options from
+	  bracketed to underlined to emphasize that they are not
 	  optional.
 	- Add SEE ALSO section (Jordi).
 	- Moved nano.1 color and syntax sections to nanorc, pointed
-	  nano.1 to nanorc.5 for initialization file.  Changed 
-	  nanorc.5 variables to be italics to match nano.1.  Added 
+	  nano.1 to nanorc.5 for initialization file.  Changed
+	  nanorc.5 variables to be italics to match nano.1.  Added
 	  nanorc.5.html to CVS tree.
 - nanorc.5:
 	- Add nanorc manpage, with descriptions of all available commands
@@ -4853,36 +5029,36 @@ GNU nano 1.1.99pre3 - 2003.02.13
 
 GNU nano 1.1.99pre2 - 2003.02.03
 - General:
-	- Changed some translatable debug messages to use %s 
-	  instead of the function name, and removed gettext from 
+	- Changed some translatable debug messages to use %s
+	  instead of the function name, and removed gettext from
 	  two strings that had no actual words in them that
 	  should be translated.	 Suggested originally by
 	  Christian Rose.
 	- Fix subexpression replacement to work consistently.
-	  Affects search.c:replace_regexp() and 
+	  Affects search.c:replace_regexp() and
 	  utils.c:strstrwrapper() (David Benbennick).
-	- Fix cursor position being saved when escaping out 
+	- Fix cursor position being saved when escaping out
 	  of nanogetstr with keys like ^Y and ^V.  New arg
 	  resetpos to nanogetstr(), added static int
 	  resetpos in statusq() (bug found by DLR).
 	- Fix constant curos updates from obliterating other
 	  system messages, and fix statusbar message length.
-	  Affects files.c:load_open_file(), nano.c:main(), 
-	  search.c:findnextstr(), winio.c:statusbar() and 
+	  Affects files.c:load_open_file(), nano.c:main(),
+	  search.c:findnextstr(), winio.c:statusbar() and
 	  do_cursorpos() (David Benbennick).
 	- Fix nano crashing when searching/replacing an invalid
-	  regex (try "^*").  Changed regexp_init() to return 
-	  1 or 0 based on regcomp()'s return value and search_init 
-	  to exit with an error message (sorry Jordi!).  Added 
+	  regex (try "^*").  Changed regexp_init() to return
+	  1 or 0 based on regcomp()'s return value and search_init
+	  to exit with an error message (sorry Jordi!).  Added
 	  another check when using last_search instead of answer.
 	- Move regcomp into rcfile.c rather than each display refresh
 	  of winio.c.  New function rcfile.c:nregcomp().
 	  This fixes much of nano's resource hogging behavior
 	  in syntax higlighting. (David Benbennick).
-	- Fix justify failing for certain lines, new function 
+	- Fix justify failing for certain lines, new function
 	  nano.c:breakable() (David Benbennick).
 	- Fix screen getting trashed on signals nano can catch
-	  (TERM and HUP).  New global variable curses_ended, 
+	  (TERM and HUP).  New global variable curses_ended,
 	  changes to winio.c:statusbar() and nano.c:die()
 	  (David Benbennick).
 - cut.c:
@@ -4890,20 +5066,20 @@ GNU nano 1.1.99pre2 - 2003.02.03
 	- Fix incorrect cursor location when cutting long lines
 	  (David Benbennick).
 - files.c:
-	- Set a default PATH_MAX for getcwd() etc calls (David 
+	- Set a default PATH_MAX for getcwd() etc calls (David
 	  Benbennick).
   do_browse_from()
-	- Fix path checking to fix bad paths, escaping 
-	  the operating directory, new function readable_dir() (David 
+	- Fix path checking to fix bad paths, escaping
+	  the operating directory, new function readable_dir() (David
 	  Benbennick).
   do_browser()
-	- Fix incorrect path check for check_operating_dir() 
+	- Fix incorrect path check for check_operating_dir()
 	  (David Benbennick).
 	- Fix goto directory operating dir check and tilde expansion
 	  (David Benbennick).
 	- Even more checks and operating dir fixes (David Benbennick).
   do_insertfile()
-	- Add some more checks and fix recursion when toggling 
+	- Add some more checks and fix recursion when toggling
 	  multibuffer (David Benbennick).
   open_file()
 	- Fix FD leak with file load error (David Benbennick).
@@ -4914,7 +5090,7 @@ GNU nano 1.1.99pre2 - 2003.02.03
 	  mode on. (DLR; found by David Benbennick)
   save_history()
 	- Fix nrealloc return value being ignored (David Benbennick).
-	- Fix off-by-one bug causing write to unallocated memory 
+	- Fix off-by-one bug causing write to unallocated memory
 	  (David Benbennick).
 - global.c:
   thanks_for_all_the_fish()
@@ -4923,7 +5099,7 @@ GNU nano 1.1.99pre2 - 2003.02.03
   do_char()
 	- Remove unneeded check_statblank() (David Benbennick).
   do_int_spell_fix(), do_int_speller()
-	- Fix crashes with mark position, current_x position, 
+	- Fix crashes with mark position, current_x position,
 	  and edit_update args (David Benbennick).
   do_justify()
 	- Unset KEEP_CUTBUFFER so nano won't crash with subsequent
@@ -4936,7 +5112,7 @@ GNU nano 1.1.99pre2 - 2003.02.03
 	- Unsplit error message into a single fprintf call (Jordi).
   main()
 	- Call load_file with arg 0 for insert, as we aren't really
-	  doing an insert, allows new_file() to run if we open a 
+	  doing an insert, allows new_file() to run if we open a
 	  non-file at startup.
   usage()
   	- Remove gettext markings from -p/--preserve (Jordi).
@@ -4987,8 +5163,8 @@ GNU nano 1.1.99pre1 - 2003.01.17
 	  remove a few bits of unneeded and/or warning-generating code,
 	  and fix some missing statusq() prompts with --enable-tiny.
 	- Added search/replace history log.  Flag -H, --historylog.
-	  Flags HISTORY_CHANGED and HISTORYLOG (only room for one more 
-	  flag!), added entries in nanorc.sample, new functions 
+	  Flags HISTORY_CHANGED and HISTORYLOG (only room for one more
+	  flag!), added entries in nanorc.sample, new functions
 	  log_history and save_history (Ken Tyler).
 	- Translation updates (see po/ChangeLog for details).
 	- Forward-ported Chris' --disable-wrapping-as-root option from
@@ -5018,11 +5194,11 @@ GNU nano 1.1.99pre1 - 2003.01.17
 	- Renamed [have_]past_editbuff [have_]search_offscreen. (DLR)
 	- Add the "preserve" option to the nanorc file, to match
 	  nanorc.sample. (DLR)
-	- Fixed awful scrolling in do_int_speller.  Problem was 
-	  findnextstr() calling edit_update(), though screen updating 
-	  is not its business.  Added checks in do_search() and 
-	  do_replace_loop() to do the checks.  It really should not be 
-	  done here, as some function in winio.c should handle this, 
+	- Fixed awful scrolling in do_int_speller.  Problem was
+	  findnextstr() calling edit_update(), though screen updating
+	  is not its business.  Added checks in do_search() and
+	  do_replace_loop() to do the checks.  It really should not be
+	  done here, as some function in winio.c should handle this,
 	  but I can't seem to find a good place to put this check.
 	- Updated all copyright notices to say 2003 rather than 2002, as
 	  nearly all the source files have been worked on this year
@@ -5037,7 +5213,7 @@ GNU nano 1.1.99pre1 - 2003.01.17
 	- Small cleanups. Add copyright header, add autopoint support and
 	  define bug report address and full package name in AC_INIT. Move
 	  ALL_LINGUAS to po/LINGUAS, recommended place for gettext 0.11.
-	- Added --enable-all option to compile in all the extra stuff 
+	- Added --enable-all option to compile in all the extra stuff
 	  we'd normally need extra flags for.
 - color.c:
   update_color():
@@ -5120,7 +5296,7 @@ GNU nano 1.1.99pre1 - 2003.01.17
 	  Pico's behavior. (DLR)
   version()
 	- Remove obsolete reference to --enable-undo. (David Benbennick)
-	- Move up check for --disable-nls as it's independent of 
+	- Move up check for --disable-nls as it's independent of
 	  --enable-tiny now (DLR).
   do_int_speller()
 	- Make internal spell program use sort -f and uniq to create a
@@ -5128,7 +5304,7 @@ GNU nano 1.1.99pre1 - 2003.01.17
 	  during feature freeze is because the int speller is useless as
 	  is and should either be improved or removed.  I chose
 	  improved].
-	- Change all child error checks to use one goto (gasp!) called 
+	- Change all child error checks to use one goto (gasp!) called
 	  close_pipes_and_exit, so we don't leak FDs.
 	- Fix FD leaks which occur outside of errors (David Benbennick).
   do_int_speller(), do_alt_speller()
@@ -5164,7 +5340,7 @@ GNU nano 1.1.99pre1 - 2003.01.17
 	  be done via a regexp replace of "^$" with something other than
 	  ""), a new magicline wouldn't be created. (DLR)
 	- Remove check for answer being a blank string, presumed to be
-	  a PICO_MODE holdover, but it stops us from doing a blank 
+	  a PICO_MODE holdover, but it stops us from doing a blank
 	  spelling replacement.
   do_replace()
 	- For greater Pico compatibility, when an attempt to replace a
@@ -5208,15 +5384,15 @@ GNU nano 1.1.99pre1 - 2003.01.17
 	- Added comment to explain the non-escaping of quotes in
 	  color regexes, based on info provided by David Benbennick.
 	  (DLR)
-	- Added some examples for groff and the nanorc courtesy of 
+	- Added some examples for groff and the nanorc courtesy of
 	  Robert D. Goulding.
-	- Added double hash marks to comment lines, so people who 
+	- Added double hash marks to comment lines, so people who
 	  uncomment the beginning of every line won't get syntax errors.
 - faq.html:
 	- Miscellaneous fixes and updates for typos, broken links, and
 	  slashes at the end of directories.  It is now fully compliant
 	  with HTML 4.01 Transitional. (DLR and David Benbennick)
-	- Added docs about the new unified search string interface and 
+	- Added docs about the new unified search string interface and
 	  search histories, and added --enable-all into configure docs.
 - nano.texi:
 	- Typo fixes and updates. (David Benbennick)
@@ -5343,12 +5519,12 @@ GNU nano 1.1.11 - 10/01/2002
 	  defined. (DLR)
   thanks_for_all_the_fish()
 	- Make sure the reference to help_text is #ifdefed out when
-	  --disable-help is used. (DLR) 
+	  --disable-help is used. (DLR)
 - move.c:
   page_up()
 	- Fix bug where current is moved up two lines when the up arrow
 	  is pressed on the top line of the edit window; this causes a
-	  segfault is the top line in the edit window is the second
+	  segfault if the top line in the edit window is the second
 	  line of the file, as the line current ends up on doesn't
 	  exist. (Jeff DeFouw)
   do_down()
@@ -5444,7 +5620,7 @@ GNU nano 1.1.10 - 07/25/2002
 	  updates, consistency fixes, help text fixes and improvements,
 	  and spacing improvements. (David Benbennick)
 	- Make some functions use const variables when possible, and
-	  also make them static when necessary. (David Benbennick, 
+	  also make them static when necessary. (David Benbennick,
 	  necessary redefined by Chris ;-)
 	- Add Carl Drinkwater's backup file option (-B or --backup on the
 	  command line, M-B in nano's global shortcuts). If the original
@@ -5534,7 +5710,7 @@ GNU nano 1.1.10 - 07/25/2002
 	  mode, don't bother even creating the variable. (David
 	  Benbennick and DLR)
   do_insertfile()
-	- Memory leak fix (accidentally dropped 1st time). 
+	- Memory leak fix (accidentally dropped 1st time).
 	  (David Benbennick).
   get_full_path()
 	- Memory leak fix.  Also, make it properly interpret ~/ notation
@@ -5545,7 +5721,7 @@ GNU nano 1.1.10 - 07/25/2002
 	- Make sure current_x is zero; this fixes a problem where the
 	  current cursor position wasn't reset when reading in a file in
 	  multibuffer mode. (David Benbennick)
-	- Use make_new_node rather than setting up fileage by hand 
+	- Use make_new_node rather than setting up fileage by hand
 	  (David Benbennick).
   read_file(), read_line()
 	- Rework to properly handle nulls in the input file, fix
@@ -5690,7 +5866,7 @@ GNU nano 1.1.10 - 07/25/2002
   lowercase()
 	- Remove, since it isn't actually used anywhere. (David
 	  Benbennick)
-  strstrwrapper() 
+  strstrwrapper()
 	- Set REG_NOTBOL when we're not at the beginning of a
 	  string, to avoid false positives when searching for regular
 	  expressions prefixed with ^. Make it take a new parameter,
@@ -5712,7 +5888,7 @@ GNU nano 1.1.10 - 07/25/2002
 	  help menu, as they are needed with some terminals (e.g. xterm
 	  with TERM=ansi). (DLR)
   edit_refresh()
-	- Turn on leaveok() so the cursor doesn't bounce around the 
+	- Turn on leaveok() so the cursor doesn't bounce around the
 	  screen while we're updating it (most noticeable when using
 	  color syntax over a very slow connection).
   do_replace_highlight()
@@ -5751,12 +5927,12 @@ GNU nano 1.1.9 - 05/12/2002
 - General:
 	- Typos n misspellings all over the place (David Benbennick).
 	- Allow --tiny and --multibuffer to cooperate (who the heck
-	  would want this is beyond me but ;-).  Changes to 
+	  would want this is beyond me but ;-).  Changes to
 	  configure.ac, global.c, ,  (David Benbennick).
 	- Change to openfilestruct for multibuffer mode by DLR.
-	  New functions nano.c:make_new_opennode(), free_openfilestruct(), 
-	  delete_opennode(), unlink_opennode(), splice_opennode(),  
-	  new struct openfilestruct in nano.h. 
+	  New functions nano.c:make_new_opennode(), free_openfilestruct(),
+	  delete_opennode(), unlink_opennode(), splice_opennode(),
+	  new struct openfilestruct in nano.h.
 	- Preliminary prepend code.  This may be a bad idea, but I've
 	  been wanting it for awhile now and we'll see how bad it messes
 	  everything up.  Changes to files.c:do_writeout(), write_file().
@@ -5765,20 +5941,20 @@ GNU nano 1.1.9 - 05/12/2002
 	  Allows OS to implement read and write ahead rather than making
 	  us do it.  Hopefully merged properly.
 	- More cleanups with DISABLE flags, better free_shortcutage and
-	  free_toggle, and get rid of unnecessary variable decls with 
+	  free_toggle, and get rid of unnecessary variable decls with
 	  NANO_SMALL in shortcut_init() by David Benbennick.
-	- Added "syntax" command to .nanorc file, to allow multiple 
+	- Added "syntax" command to .nanorc file, to allow multiple
 	  syntaxes.  New function color.c:update_color(), calls in various
 	  files.c places, syntaxtype struct, global variables syntaxes,
 	  syntaxfile_regexp and synfilematches.  Global flag -Y ,--syntax
-	  to specify the type on the command line, if there's no good 
+	  to specify the type on the command line, if there's no good
 	  filename regex to use.  Global variable syntaxstr.
 	- Changed many strcmp()s and strcpy()s to their equivalent
 	  '\0' counterparts (David Lawrence Ramsey).
 	- Many changes to allow marked cutting to work with multiple
 	  file buffers: changes to openfilestruct type in nano.h and
 	  files.c (David Lawrence Ramsey).
-	- Changed NANO_SMALL to ENABLE_NLS for gettext disabling 
+	- Changed NANO_SMALL to ENABLE_NLS for gettext disabling
 	  (David Benbennick).
 	- Move next_key and pev_key definitions out of main() and into
 	  global.c where they belong (David Benbennick).
@@ -5856,14 +6032,14 @@ GNU nano 1.1.8 - 03/30/2002
 	- Type misalignments and mem leaks in renumber_all, do_justify
 	  and do_spell (Rocco & Steven Kneizys).
 	- New "External Command" code, originally by Dwayne Rightler,
-	  various fixes and changes by Chris, Rocco and David Benbennick. 
-	  New function nano.c:open_pipe() and signal handler cancel_fork(), 
-	  changes to do_insertfile(), new list extcmd_list, cmd is 
+	  various fixes and changes by Chris, Rocco and David Benbennick.
+	  New function nano.c:open_pipe() and signal handler cancel_fork(),
+	  changes to do_insertfile(), new list extcmd_list, cmd is
 	  ^X after ^R.
 	- Added separate regex variable (color_regex and colormatches)
 	  so that color syntax and regex search/replace can coexist.
-	- Added new nano.spec file from Brett <brett@bad-sports.com>, 
-	  added because maintaining the spec file is getting to be a large 
+	- Added new nano.spec file from Brett <brett@bad-sports.com>,
+	  added because maintaining the spec file is getting to be a large
 	  hassle ;)
 - files.c:
   check_writable_directory()
@@ -5874,7 +6050,7 @@ GNU nano 1.1.8 - 03/30/2002
 	- Handle cancel from ExtCmd properly (David Benbennick).
   read_file()
 	- Abort if we read a file of 0 lines (num_lines == 0), fixes BUG #70.
-	- Reverse tests to stop segfault on editing a new file of 0 
+	- Reverse tests to stop segfault on editing a new file of 0
 	  lines (David Benbennick)
 	- Change input var to one char instead of array (David Benbennick).
 	- Move NO_CONVERT check up so chars get read in properly (DLR).
@@ -5900,7 +6076,7 @@ GNU nano 1.1.8 - 03/30/2002
 	- Reset lineno between system and local .nanorc file.
 	- Fix errno->strerror(errno) mismatch.
   parse_rcfile()
-	- Don't use i for both for loop and atoi(), fixes lots of 
+	- Don't use i for both for loop and atoi(), fixes lots of
 	  potential crashes, 1st reported by Jean-Philippe Guérard.
   rcfile_error()
 	- Don't print out the file name if we haven't opened the file
@@ -5908,10 +6084,10 @@ GNU nano 1.1.8 - 03/30/2002
 - search.c:
   search_init()
 	- Fix a missing free (Rocco).
-  do_gotoline() 
+  do_gotoline()
 	- Set placewewant if we actually move to a different line.
 - utils.c:
-  stristr() 
+  stristr()
 	- Defined regardless of NANO_SMALL (noticed by Jordi).
   nperror()
 	- New wrapper for perror (David Benbennick).
@@ -5947,40 +6123,41 @@ GNU nano 1.1.8 - 03/30/2002
 	- Italian translation updates (Marco Colombo).
 - po/da.po:
 	- Danish translation updates (Keld Simonsen).
-	  
+	
 GNU nano 1.1.7 - 03/05/2002
 - General
 	- malloc->calloc, etc cleanups (DLR).
 	- New option, noconvert (-N, --noconvert) to completely stop
 	  the translation of files from DOS or Mac format (DLR).
 	- New functions check_writable_directory() and safe_tempnam()
-	  to get around the tempnam warning. More improvements (DLR)  
+	  to get around the tempnam warning. More improvements (DLR)
 	  Still needs testing.
 	- Added DOS and Mac format options to write file routine.
 	  Changes to shortcut_init() and do_writeout().	
 	- Removed stupid static definitions of toggles and shortcut
 	  lists.  Many changes to shortcut_init(), toggle_init(),
 	  statusq(), nanogetstr(), main(), and many other places.
-	- Multibuffer mode now allows multiple empty filenames.  
+	- Multibuffer mode now allows multiple empty filenames.
 	  Changes to add_open_files(), removed open_file_dup_search(),
 	  open_file_dup_fix(), etc (DLR).
-	- New code to handle multiple .save files.  Changes to 
+	- New code to handle multiple .save files.  Changes to
 	  die_save_file(), new function files.c:get_next_filename()
 	  and utils.c:num_of_digits(). (Dwayne Rightler, DLR & Chris)
 	- Many malloc() cleanups and files.c tweaks by Steven Kneizys,
 	  new functions utils.c:free_shortcutage() (got to love that
-	  name!) & free_toggles(), and big cleanup program 
-	  thanks_for_all_the_fish() (originally 
+	  name!) & free_toggles(), and big cleanup program
+	  thanks_for_all_the_fish() (originally
 	  thanks_for_the_memories()).  Mods to shortcut_init() by Chris.
-	- Preliminary quoting support for justify.  New arg -Q, --quotestr,
-	  changes to do_justify(), global variable quotestr().
+	- Preliminary quoting support for justify.  New arg -Q,
+	  --quotestr, changes to do_justify(), global variable
+	  quotestr().
 - Makefile.am:
 	- Add SYSCONFDIR to DEFS, so we can have a $SYSCONFDIR/nanorc.
 	- Change localedir line to 1.0's version.
 	- Moved m4/ stuff to its own m4/Makefile.am.
 - m4/aclocal_inc.m4:
-	- New macro AM_ACLOCAL_INCLUDE, tells configure.ac where to look for
-	  macros (Gergely Nagy).
+	- New macro AM_ACLOCAL_INCLUDE, tells configure.ac where to look
+	  for macros (Gergely Nagy).
 - configure.in:
 	- Renamed to configure.ac.
 - configure.ac:
@@ -5988,7 +6165,7 @@ GNU nano 1.1.7 - 03/05/2002
 	- Added call to AM_ACLOCAL_INCLUDE.
 - files.c:
   read_byte()
-	- Added check for control characters (indicative of a binary 
+	- Added check for control characters (indicative of a binary
 	  file), set NO_CONVERT if found (fixes by DLR).
  do_insertfile()
 	- Added support for -o in prompt (Steven Kneizys).
@@ -6008,7 +6185,7 @@ GNU nano 1.1.7 - 03/05/2002
         - Various fixes for starting blank spaces, spaces after
           punctuation, & segfault with quoting strings (David Benbennick).
   do_justify()
-	- Don't continue to justify string if it's indented more 
+	- Don't continue to justify string if it's indented more
 	  (quoting wise) than the beginning of the justification.
   help_init()
 	- Added message re: having multiple blank buffers (DLR).
@@ -6035,7 +6212,7 @@ GNU nano 1.1.7 - 03/05/2002
   strstrwrapper()
 	- NANO_SMALL test was backwards (Ken Tyler).
 - winio.c:
-  strlenpt()    
+  strlenpt()
         - Changed main function to strnlenpt() for new justify changes,
           original function now just a stub.
 - nanorc.sample
@@ -6072,21 +6249,21 @@ nano-1.1.6 - 01/25/2002
 - General
 	- Add Meta-A as alternate keystroke for ^^ for people with
 	  non-US keyboards.
-	- Add Alt-G (NANO_ALT_GOTO_KEY) as alternate for goto dir in 
+	- Add Alt-G (NANO_ALT_GOTO_KEY) as alternate for goto dir in
 	  browser.
-	- Better partial word checking code. New function 
-	  search.c:is_whole_word(), changes to findnextstr(), 
+	- Better partial word checking code. New function
+	  search.c:is_whole_word(), changes to findnextstr(),
 	  and nano.c:do_int_spell_fix() (Rocco Corsi).
 	- Added multiple-line regex support.  Format in .nanorc is
 	  start="regex" end="regex".  Cleaned up nanorc:parse_colors(),
-	  added parse_next_regex(), changes to edit_add in winio.c(), 
-	  changes to colortype, cleaning up some old cruft. 
+	  added parse_next_regex(), changes to edit_add in winio.c(),
+	  changes to colortype, cleaning up some old cruft.
 	- Upgrade to gettext 0.10.40, probably broke everything again :)
-	- Upgraded to and then downgraded from automake 1.5, as there 
+	- Upgraded to and then downgraded from automake 1.5, as there
 	  are severe security implications.
 - color.c:
   do_colorinit()
-	- Moved some comments and braces around so color can work 
+	- Moved some comments and braces around so color can work
 	  w/slang (DLR).
 - global.c:
   shorcut_init()
@@ -6096,7 +6273,7 @@ nano-1.1.6 - 01/25/2002
   usage()
   	- Remove extra \n in --keypad description (Jordi).
   main()
-	- Check that alt value is an alpha char before comparing to 
+	- Check that alt value is an alpha char before comparing to
 	  val - 32, fixes Alt-R calling doprev instead of replace.
   do_char()
 	- Run edit_refresh() if ENABLE_COLOR is defined so adding
@@ -6107,14 +6284,14 @@ nano-1.1.6 - 01/25/2002
 	- Call tcsetattr() to restore the old terminal settings, so
 	  tcsh can use ^C after suspend for example (fixes BUG #68).
   do_wrap()
-	- Move "right" increment to part where new line is created, 
+	- Move "right" increment to part where new line is created,
 	  should change (fix?) some wrapping problems with autoindent.
   version()
   	- Show --enable-multibuffer independently of --enable-extra being
 	  compiled in (Jordi).
 - nano.h:
 	- Changed color struct slightly, because of previous issue with
-	  applying color painting in order, the "str" portion was 
+	  applying color painting in order, the "str" portion was
 	  useless.  Renamed "val" in colortype to "start", added "end"
 	  for multi-line color strings.
 - rcfile.c:
@@ -6174,7 +6351,7 @@ nano-1.1.5 - 01/05/2002
 	- Better integration of View mode (-v) and multibuffer.
 	  Fixes to new_file(), do_insertfile_void(), shortcut_init()
 	  (David Lawrence Ramsey).
-	- The keypad handling has changed (again).  We now use 
+	- The keypad handling has changed (again).  We now use
 	  the keypad() function by default.  New flag -K, --keypad
 	  allows the old behavior for those using the keypad arrow keys
 	  and rxvt-based terminals.
@@ -6247,7 +6424,7 @@ nano-1.1.5 - 01/05/2002
 nano-1.1.4 - 12/11/2001
 - General
 	- Preliminary syntax highlighting support.  New functions
-	  colortoint() and parse_color() in rcfile.c, new code in 
+	  colortoint() and parse_color() in rcfile.c, new code in
 	  edit_add() in winio.c to actually do the highlighting.  It's
 	  not even close to pretty yet :P
 	- Many int/long alignments (David Lawrence Ramsey).
@@ -6276,7 +6453,7 @@ nano-1.1.4 - 12/11/2001
 	  position (David Lawrence Ramsey).
   do_wrap()
 	- Many fixes (David Lawrence Ramsey).
-  do_spell() 
+  do_spell()
 	- Dont prompt for replace if we don't change the word in
 	  question (Rocco Corsi).
 - po/de.po:
@@ -6298,8 +6475,8 @@ nano-1.1.3 - 10/26/2001
 - General
 	- Finally wrote function-specific help mode.  Changes to
 	  nano.c:help_init() and winio.c:do_help().  Changed
-	  currshortcut and currslen #ifdefs to depend on both 
-	  DISABLE_HELP and DISABLE_MOUSE being defined to not 
+	  currshortcut and currslen #ifdefs to depend on both
+	  DISABLE_HELP and DISABLE_MOUSE being defined to not
 	  include.  Changed all the shortcuts and lengths.
 	- Fixed null_at to ACTUALLY DO SOMETHING with its arg.  Again,
 	  this was causing nasty errors if the call to nrealloc moved
@@ -6366,12 +6543,12 @@ nano-1.1.2 - 10/03/2001
 	  new code in read_line and write_file.  New cmdline flag
 	  (-D --dos) to automatically write the file in DOS format,
 	  regardless of the original format.
-	- Mac file writing supported too.  Flag -M, --mac.  Toggle 
+	- Mac file writing supported too.  Flag -M, --mac.  Toggle
 	  Meta-O (MacOS? OS-X? =-)
 	- New smooth scroll code by Ken Tyler.  New flag -S, --smooth,
 	  changes to page_up() and page_down().  Many fixes to paging by
 	  David Lawrence Ramsey.
-	- Bracket (brace, parens, etc) matching code by Ken Tyler.  
+	- Bracket (brace, parens, etc) matching code by Ken Tyler.
 	  New functions do_find_bracket(), changes to findnextstr(),
 	  command is Meta-] (hope you dont mind since I already sold off
 	  Meta-O to the MacOS file code Ken...) Fixes to bracket_msg
@@ -6412,7 +6589,7 @@ nano-1.1.2 - 10/03/2001
 	- Change k based on currslen to allow the new widths in
 	  bottombars().
   do_wrap()
-	- Fixes for Pico incompatibility in cases 2b and 2c.  
+	- Fixes for Pico incompatibility in cases 2b and 2c.
 	  (David Lawrence Ramsey).
   global_init()
 	- New arg save_cutbuffer, allows cutbuffer to not be lost when
@@ -6473,10 +6650,10 @@ nano-1.1.1 - 07/28/2001
 	- Typo fixes and updates (David Lawrence Ramsey)
 - files.c:
   new_file()
-	- Do add_open_files if there aren't any open yet (David Lawrence 
+	- Do add_open_files if there aren't any open yet (David Lawrence
 	  Ramsey).
   close_open_file()
-	- Try to open the next file first, then the previous one 
+	- Try to open the next file first, then the previous one
 	  (David Lawrence Ramsey).
 - global.c:
   shortcut_init()
@@ -6510,21 +6687,21 @@ nano-1.1.0 - 07/15/2001
 	- File Browser supports the "Goto Directory"
 	- Added rcfile.c source file.  Only includes much of anything when
 	  --enable-nanorc is used.  Tons of new funcs, most notably
-	  do_rcfile() called from nano.c:main().  Added much needed 
-	  function ncalloc(), will have to go through source code later 
+	  do_rcfile() called from nano.c:main().  Added much needed
+	  function ncalloc(), will have to go through source code later
 	  and change the appropriate calls which used nmalloc for lack of
 	  an appropriate calloc function *** FIXME ***
 	- After "Alternate" spell checker is called, cursor is repositioned on
-	  the same line as before ^T was pressed. 
+	  the same line as before ^T was pressed.
 	- Moved config.h up in all .c files #include list (Albert Chin).
 	- Added config.guess and config.sub to distribution because,
 	  apparently, newer autoconf/automakes can't live without them.
 	- Various spelling updates by David Lawrence Ramsey.
 	- Changed all string allocations to charalloc(), new function
-	  designed to take nmalloc argument but call calloc based on 
+	  designed to take nmalloc argument but call calloc based on
 	  (char *) size.
 	- New macro DISABLE_WRAPJUSTIFY to easily check for both wrapping
-	  and justify being disabled.  This allows us to compile out the 
+	  and justify being disabled.  This allows us to compile out the
 	  -r flag if neither are set, and will also allow us to comment
 	  out -W when it is written.
 	- Allow fill to take a negative value to signify a "from right side"
@@ -6532,7 +6709,7 @@ nano-1.1.0 - 07/15/2001
 	  still be correct.  New static value wrap_at to minimize code
 	  impact.  Updated man page and info file.
 	- Allow file appending.  New shortcut list nano_insertfile_list (since
-	  insert and write routines can't share shortcut lists anymore), 
+	  insert and write routines can't share shortcut lists anymore),
 	  new args to do_writeout and write_file called append, and of source
 	  code changes to those functions.
 	- Allow backwards searching.  Drastic rewrite of the search prompt
@@ -6547,7 +6724,7 @@ nano-1.1.0 - 07/15/2001
 	  shortcut_init, toggle_init, new toggles for backwards and regexp
 	  (and you can now toggle all search options including regexp at
 	  the Search: prompt!)  Changes to nanogetstr to enable Meta
-	  keys to be grabbed, changes to onekey to print M-style shortcuts. 
+	  keys to be grabbed, changes to onekey to print M-style shortcuts.
 	- New macro TOGGLE which just toggles, no more silly checking
 	  ISSET and then using SET or UNSET when we want a simple toggle
 	  for a flag.
@@ -6555,13 +6732,13 @@ nano-1.1.0 - 07/15/2001
 	  option --enable-multibuffer (-F), changes to do_insertfile(),
 	  do_insertfile_void(), toggle_init(), do_gotoline(), edit_update(),
 	  and write_file(), new functions add_open_file(),
-	  open_file_change_name(), load_open_file(), open_file_dup_search(), 
+	  open_file_change_name(), load_open_file(), open_file_dup_search(),
 	  open_file_dup_fix(), open_prevfile(), open_nextfile(),
 	  close_open_file(), get_full_path(), die_save_file(), etc.
 	  (David Lawrence Ramsey).
 	- Using --enable-extra automatically defines --enable-multibuffer
 	  changes to version() and configure.in.
-	- Moved to gettext 0.10.38 at the last second, sure to break 
+	- Moved to gettext 0.10.38 at the last second, sure to break
 	  something, but at least I can run make distcheck!
 - Makefile.am:
 	- Include ABOUT-NLS and the new THANKS files to the distributed list.
@@ -6581,7 +6758,7 @@ nano-1.1.0 - 07/15/2001
 	- Add bizarre copy of bot node, else *BSD goes ballistic (fixes
           BUG #60).
 	- Added 'destructive' argument.  Allows the selected text to be
-	  added to the cutbuffer without changing the contents of the 
+	  added to the cutbuffer without changing the contents of the
 	  file.  This allows writing selection to separate files.
   do_cut_text()
 	- If the line is empty when using -k and wasn't already added,
@@ -6624,7 +6801,7 @@ nano-1.1.0 - 07/15/2001
 - nano.c:
   do_alt_speller()
 	- Reposition cursor on same line as before ^T was called (Rocco)
-  ABCD(), main() 
+  ABCD(), main()
 	- Add Alt-whatever-[a-d] support as well as Alt-whatever-[A-D].
   main()
 	- Code to silently process "-g" and "-j" (Rocco)
@@ -6632,7 +6809,7 @@ nano-1.1.0 - 07/15/2001
   signal_init()
 	- Reorder sigaction calls, use sigfillset() to stop SIGTSTP and
 	  SIGCONT from being interrupted, allows suspending nano
-	  to work more reliably, esp. with mutt, etc. 
+	  to work more reliably, esp. with mutt, etc.
   do_suspend()
 	- Don't try to play with the handler inside the handler.  Just
 	  raise a SIGSTOP.  We also now write the "use "fg"" message to
@@ -6703,7 +6880,7 @@ nano 1.0.1 - 04/06/2001
 	- Changed lstat calls to stat, which fixes the browser not
 	  following links to directories.  We only use lstat() when
 	  printing the details of the file, and if it is a link, then
-	  check via lstat() for link to a directory.  If it is 
+	  check via lstat() for link to a directory.  If it is
 	  a directory, display (dir), else use the normal "--".
   do_browser()
 	- Fix broken size suffix off-by-one errors (Matthias Andree)
@@ -6742,7 +6919,7 @@ nano-1.0.0 - 03/22/2001
 	  2b for placement of cursor.
 - move.c:
   page_down()
-	- Check for totlines < editwinrows in check for superfluous 
+	- Check for totlines < editwinrows in check for superfluous
 	  edit update (fixed BUG #57).
 - search.c:
   print_replaced()
@@ -6756,10 +6933,10 @@ nano-1.0.0 - 03/22/2001
 nano-0.9.99pre3 - 02/19/2001
 - General
   GNU compliance issues:
-	- Reworked shortcut list, put "Get Help" into default list, 
-	  removed "Goto Line", aligned "Read File" with "Write Out" and 
+	- Reworked shortcut list, put "Get Help" into default list,
+	  removed "Goto Line", aligned "Read File" with "Write Out" and
 	  "Replace" with "Where is" for consistency.
-	- Added texinfo manual nano.texi.  Added texi options to 
+	- Added texinfo manual nano.texi.  Added texi options to
 	  Makefile.am.	
 - configure.in:
 	- Autoconf compatibility fixes (Pavel Roskin)
@@ -6788,7 +6965,7 @@ nano-0.9.99pre3 - 02/19/2001
 	- Translation updates by Pauli Virtanen.
 - hu.po:
 	- Hungarian translation by Horvath Szabolcs.
-- id.po: 
+- id.po:
 	- Translation updates by Tedi Heriyanto.
 - es.po:
 	- Translation updates and grammatical/typo fixes (Jordi).
@@ -6804,7 +6981,7 @@ General
 	  easily replaced with COLS / 2 (oops, not current_x & y (Rob)).
 	- Deleted free_node, duplicate of delete_node, and changed all
 	  free_node calls to delete_node.
-	- Fix for resizing the window in modes other than normal edit mode 
+	- Fix for resizing the window in modes other than normal edit mode
 	  Changes to handle_sigwinch(), main().  Fixes bug #52 (Rocco).
 - files.c:
   write_file()
@@ -6870,7 +7047,7 @@ General
 - nano.c:
   ABCD()
 	- New function, figures out what kbinput to return given
-	  input common to several switch statements, allows us to 
+	  input common to several switch statements, allows us to
 	  support the default Konsole key settings.
   main()
 	- Alternate speller option no longer valid if DISABLE_SPELLER is
@@ -6902,18 +7079,18 @@ General
 	- Update by Pauli Virtanen.
 
 nano 0.9.25 - 01/07/2001
-General - 
+General -
 	- New file browser code.  New functions in files.c:do_browser(),
 	  helper functions browser_init(), tail(), striponedir(),
 	  filestat().  New shortcut list browser_list.  Some new
 	  strings to translate.  Added function do_browse_from().
 	- Keypad code has been changed slightly.  Now checks for
-	  _use_keypad flag in window to see whether or not to turn 
+	  _use_keypad flag in window to see whether or not to turn
 	  the keypad() back off when finished (taken from aumix).  Moved
 	  to winio.c where it should probably be anyway.  New configure
 	  check for _use_keypad in window struct.  This will have to do
 	  for now.
-	- Moved keypad() calls for PDCURSES from main() to window_init()
+	- Moved keypad() calls for PDCurses from main() to window_init()
 	  so the keypad continues to work after a Meta-X, for example.
 	  Fixed bug #51.
 - faq.html:
@@ -6968,7 +7145,7 @@ General
 	  HURD.  Changes in files.c:write_file(), new function
 	  nano.c:clear_filename(), many changed in main(), a few other
 	  places.  Please test this!
-	- Added -b, -e, and -f flags, which we ignore as nano provides 
+	- Added -b, -e, and -f flags, which we ignore as nano provides
 	  their functionality already.
 - cut.c:
   do_uncut_text()
@@ -6992,11 +7169,11 @@ General
 	- Don't stupidly assign the value of prev->lineno if prev == NULL!
   main()
 	- Added code to check for Alt-Alt (27-27) keystrokes and set the
-	  next keystroke as a control sequence.  New variable 
+	  next keystroke as a control sequence.  New variable
 	  modify_control_key.  Removed #ifdef _POSIX_VDISABLE check
 	  around Control-S,Q,Z handlers because we need it now for
 	  the Alt-Alt-x code.
-	- Added --view option to getopt_long() call.  Bug discovered 
+	- Added --view option to getopt_long() call.  Bug discovered
 	  by Rocco Corsi.
   help_init()
 	- Fix off by one error that was making ^G help in normal mode and
@@ -7013,7 +7190,7 @@ General
 	  Added check for NANO_EXIT_FKEY to loop.
 - utils.c:
   new_magicline()
-	- Increment totsize!!  We decrement it when we've read a file, 
+	- Increment totsize!!  We decrement it when we've read a file,
 	  everywhere else it should automatically be incremented
 
 nano 0.9.23 - 12/08/2000
@@ -7023,12 +7200,12 @@ General
 - files.c:
   write_file()
 	- Added tmp check to TMP_OPT section (how appropriate).
-	- Added new consistency checking code from securityfocus 
+	- Added new consistency checking code from securityfocus
 	  article by Oliver Friedrichs, and use O_EXCL if tmp == 1.
 	- We now run check on result of lstat(), not stat(), to be
 	  safer.  New variable anyexists, we use still use realexists
 	  later in the program.
-	- OOPS, line up link/unlink/rename check if conditional with 
+	- OOPS, line up link/unlink/rename check if conditional with
 	  top if conditional.  Option -l has been broken for 9 versions,
 	  no one noticed?!
 	- Added saving perms at end of link so we can apply them to the
@@ -7057,7 +7234,7 @@ nano 0.9.22 - 12/02/2000
 	- Added configure argument --disable-tabcomp.  Affects
 	  bottom of files.c and write_file, utils.c:check_wildcard_match()
 	  and winio.c:nanogetstr().
-	- New options --enable-extra.  New code in nano.c:version() to 
+	- New options --enable-extra.  New code in nano.c:version() to
 	  print out various options from ./configure, function do_credits().
 	- Added --disable-spell option for those who want to just disable
 	  the spell check feature.  Affects the spelling functions
@@ -7086,7 +7263,7 @@ nano 0.9.22 - 12/02/2000
 	- Other minor changes.
 - nano.c:
   do_justify()
-	- Wrote unjustify code.  Borrows cutbuffer and stores the unjustified 
+	- Wrote unjustify code.  Borrows cutbuffer and stores the unjustified
 	  text there, then grabs the next keystroke and, if the unjustify
 	  key, gets rid of the justified text and calls do_uncut_text.
 	  Added macro NANO_UNJUSTIFY_KEY.
@@ -7098,7 +7275,7 @@ nano 0.9.22 - 12/02/2000
 	  and continue spell checking (very important to me anyway).
   version()
 	- Took out huge check for the various --disabled macros,
-	  eventually there will be too many to reasonably check for.  
+	  eventually there will be too many to reasonably check for.
   nano_small_msg(), nano_disabled_msg()
 	- Added checks for disabled functions to see whether or not to
 	  declare them.
@@ -7118,7 +7295,7 @@ nano 0.9.22 - 12/02/2000
 	  in the spell check.  Called from do_replace_loop (Rocco Corsi).
 	- Added calls to curs_set(0) and (1) to disable the cursor when
 	  highlighting, looks much better.
-- es.po: 
+- es.po:
 	- Traditional Spanish strings updates.
 
 nano 0.9.21 - 11/23/2000
@@ -7148,8 +7325,8 @@ nano 0.9.20 - 11/18/2000
 - General
 	- Ran source through indent -kr again.  Make everything pretty.
 	- Changed behavior of "search" and "replace" prompts to make all
-  	  previous values editable.  This change was made so that you can 
-	  replace with the null string without needing a special key for it.  
+  	  previous values editable.  This change was made so that you can
+	  replace with the null string without needing a special key for it.
 	  changed code in search_init(), do_replace(), nanogetstr (see
 	  below).
 	- Added some missing gettext calls here and there (Jordi).
@@ -7167,8 +7344,8 @@ nano 0.9.20 - 11/18/2000
 	  New functions search_init_globals and do_replace_loop, changes
 	  to search_init(), do_replace, findnextstr, moved last_search and
 	  last_replace back to nano.c (*shrug*).
-	- New tab completion code.  Used check_wildcard_match, input_tab, 
-	  cwd_tab_completion, username_tab_completion from busybox, 
+	- New tab completion code.  Used check_wildcard_match, input_tab,
+	  cwd_tab_completion, username_tab_completion from busybox,
 	  hacked them a lot, changes to nanogetstr().  nanogetstr() and
 	  statusq() now take an arg for whether or not to allow tab
 	  completion.
@@ -7183,9 +7360,9 @@ nano 0.9.20 - 11/18/2000
 - global.c
 	- New global replace_list_2, for 2nd half of the replace dialog
 	  ("Replace with:"), has fewer options than first half because
-	  they were inappropriate.  
+	  they were inappropriate.
   toggle_init()
-	- Added #ifdef around toggle_regex_msg to get rid of compiler 
+	- Added #ifdef around toggle_regex_msg to get rid of compiler
 	  warning.
 
 - nano.c:
@@ -7219,10 +7396,10 @@ nano 0.9.20 - 11/18/2000
 	  to answer == def.
 	- Fixed fallthrough code because there was no break.  Make much
 	  more sense now.
-	- Added check for ASCII 54[124] when using PDCURSES, ignore them
+	- Added check for ASCII 54[124] when using PDCurses, ignore them
 	  if noticed.
   nanoget_repaint()
-	- New function, removes about 30 lines of duplicate code in 
+	- New function, removes about 30 lines of duplicate code in
 	  nanogetstr().
 	- Black magic code to make $ appear in prompt if we're past
 	  COLS.
@@ -7231,7 +7408,7 @@ nano 0.9.20 - 11/18/2000
 	  for a wrefresh after a specific call, let me know.
 - es.po:
 	- Updated translation for 0.9.20 (Jordi).
-  
+
 nano 0.9.19 - 10/02/2000
 - General
 	- Added PDCurses support under cygwin, which allows building
@@ -7249,7 +7426,7 @@ nano 0.9.19 - 10/02/2000
 
 nano 0.9.18 - 09/18/2000
 - General
-	- Changed _POSIX_VERSION checks in regex code to HAVE_REGEX_H, 
+	- Changed _POSIX_VERSION checks in regex code to HAVE_REGEX_H,
 	  added check for regex.h in configure.in.
 - configure.in:
 	- Added default case for cross-compiling to get rid of annoying
@@ -7292,7 +7469,7 @@ nano 0.9.18 - 09/18/2000
 	- Reset starting at current for search instead of begin.
 - es.po:
 	- Translated new strings and minor updates (Jordi).
-- de.po 
+- de.po
 	- Revised translations by floki@bigfoot.com
 
 nano-0.9.17 - 09/04/2000
@@ -7300,7 +7477,7 @@ nano-0.9.17 - 09/04/2000
 	- New shortcuts to toggle certain options that are normally only
 	  flags via Alt/Meta.  See Alt-C,E,I,K,M,P,X,Z.  New struct called
 	  toggles in nano.h, toggle_init(), toggle_init_one() in global.c
-	  called from shortcut_init(), and do_toggle in nano.c.  Also 
+	  called from shortcut_init(), and do_toggle in nano.c.  Also
 	  moved the signal code into a separate function in nano.c called
 	  signal_init().  Moved "struct sigaction act"into a static in
 	  nano.c.
@@ -7310,11 +7487,11 @@ nano-0.9.17 - 09/04/2000
 	  Meta.  Moved the toggle Meta keystrokes to the first column
 	  instead of the third as they are the primary keystrokes for the
 	  functions.  Thanks Mini editor team :->
-	- Changed last_search and last_replace vars to statically 
+	- Changed last_search and last_replace vars to statically
 	  allocated (hence nulled) and moved to search.c (Matt Kraai).
 - global.c:
   toggle_init()
-	- Changed "No auto wrap" and "No help mode" to "Auto wrap" and 
+	- Changed "No auto wrap" and "No help mode" to "Auto wrap" and
 	  "Help mode". See the change to do_toggle() below.
 - nano.c:
   do_mouse()
@@ -7394,7 +7571,7 @@ nano-0.9.15 - 08/03/2000
 - search.c:
   replace_abort()
 	- redundant, now just calls search abort until it does something
-	  different.  
+	  different.
 - winio.c:
   edit_refresh()
 	- Added check for current line "running" off the screen.
@@ -7427,16 +7604,16 @@ nano-0.9.14 - 07/27/2000
   write_file()
 	- Removed (redundant) check for writing out files with -t.
   do_writeout()
-	- Changed check for filename to filename[0].  Added some code, 
+	- Changed check for filename to filename[0].  Added some code,
 	  overall fixes bug #30 =-)
 - nano.c:
   do_justify() & do_wrap():
 	- totsize-related fixes (Rob)
-- de.po 
+- de.po
 	- Revised translations by floki@bigfoot.com
 
 nano-0.9.13 - 07/23/2000
-- Implemented Pico's -k mode.  New flag CUT_TO_END, option (-k, --cut), 
+- Implemented Pico's -k mode.  New flag CUT_TO_END, option (-k, --cut),
   affects do_cut_text in cut.c.  Not available with SMALL_NANO because it
   depends on the marker code which is not available with that setting.
 - Changed static temp_opt to flag TEMP_OPT.  Fixed bug #29 (using
@@ -7456,7 +7633,7 @@ nano-0.9.13 - 07/23/2000
 	  all screwy (bug discovered by Joshua Jensen.
 - files.c:
   read_file():
-	- Added init of buf variable, hopefully this will stop the 
+	- Added init of buf variable, hopefully this will stop the
 	  "bleeding" of text seen with mutt and using i18n.
   write_file():
 	- Added code to check to see if using -l and the file is not
@@ -7466,7 +7643,7 @@ nano-0.9.13 - 07/23/2000
 	  and give feedback.
 - search.c:
   search_init():
-	- Added " (to replace)" statement to end of search string if 
+	- Added " (to replace)" statement to end of search string if
 	  we are doing a replace.  Manually converted all the translations
 	  from '%s' to '%s%s' to ensure they still work with the new code.
 	  Also put in the translation for " (replace)" in the .po's.  Hope
@@ -7487,10 +7664,10 @@ nano-0.9.12 - 07/07/2000
 	- New regexp search feature by Bill Soudan.  New flags USE_REGEXP
 	  and REGEXP_COMPILED, new functions regexp_init, regexp_cleanup
 	  replace_line, replace_regexp in search.c, changes to
-	  search_init() and do_replace() and strstrwrapper(). 
+	  search_init() and do_replace() and strstrwrapper().
 	- Added _POSIX_VERSION check to regexp code.  Better than nothing
 	  for non-POSIX systems...
-	- Made search functions & keys more like Pico.  Added goto line from  
+	- Made search functions & keys more like Pico.  Added goto line from
 	  search and replace function, changed wording to "No Replace" instead
 	  of "To Search", "To Replace" to simply "Replace", and changed to
 	  Pico's keystroke by default, ^R. Affects search_init(),
@@ -7534,7 +7711,7 @@ nano-0.9.12 - 07/07/2000
 	- Removed wrefresh(edit) call.
   edit_update_top():
 	- Fixed a bug that caused nano to not update when
-	  current->next == NULL (e.g. paging down to the very bottom of 
+	  current->next == NULL (e.g. paging down to the very bottom of
 	  ABOUT NLS wouldn't work).
   fix_editbot:
 	- Added (should rebuild editbot from a valid edittop) (Rob)
@@ -7543,15 +7720,15 @@ nano-0.9.12 - 07/07/2000
 
 nano-0.9.11 - 06/20/2000
 - New flag "-T" or "--tabsize" to specify how to display tab widths.
-  Affects main() in nano.c, strlenpt(), xpt() and actual_x() (et al) in 
-  winio.c, and nano.h.  Many hardcoded "8"s have been changed to the 
+  Affects main() in nano.c, strlenpt(), xpt() and actual_x() (et al) in
+  winio.c, and nano.h.  Many hardcoded "8"s have been changed to the
   TABSIZE int.  Added changes to nano.1 and nano.1.html.
 - id.po:
 	- Indonesian translation by Tedi Heriyanto.
 - es.po:
 	- Updated translation (Jordi Mallach).
 - winio.c
-	- Rewrite of display functions to correct the display problems 
+	- Rewrite of display functions to correct the display problems
 	  we had been seeing. Affects: add_marked_sameline, edit_add,
 	  and many others. (Rob Siemborski)
 	- totsize fixes (Rob Siemborski)
@@ -7623,7 +7800,7 @@ nano-0.9.9 - 05/31/2000
   do_justify():
 	- Added edit_refresh() call (bug discovered by Adam).
   page_down_center():
-	- Added call to edit_update(current) for last case.  Removed 
+	- Added call to edit_update(current) for last case.  Removed
 	  increment of current_y since it's now just wasteful.
   do_enter():
 	- Added totsize increment.
@@ -7649,7 +7826,7 @@ nano-0.9.9 - 05/31/2000
 nano-0.9.8 - 05/18/2000
 - nano.c:
   main():
-	- Added awesome code that disables the CINTR and CQUIT 
+	- Added awesome code that disables the CINTR and CQUIT
 	  character (Adam Rogoyski).  Removed raw()/noraw() calls so that
 	  nano gets input in 'normal' mode, which is the Right Way(tm) to
 	  do it. ^S, ^Z and ^Q now work properly as a result, as well as
@@ -7669,14 +7846,14 @@ nano-0.9.8 - 05/18/2000
    shortcut_init():
 	- Removed suspend sc_init call and suspend message because suspend
 	  is no longer needed in the shortcut list to work properly.
-    
+
 nano-0.9.7 - 05/14/2000
 - nano.c:
-  do_home(), do_end(): 
+  do_home(), do_end():
 	- Added calls to update_line for the current line, fixes
 	  lack of update (bug discovered by Alberto García).
   main():
-	- Added SET(FOLLOW_SYMLINKS) before getopt call, fixes not 
+	- Added SET(FOLLOW_SYMLINKS) before getopt call, fixes not
 	  following symlinks even when -l isn't set, and "no changes"
 	  error when nano is called from crontab -e (Adam Rogoyski).
 - cut.c:
@@ -7703,8 +7880,8 @@ nano-0.9.6 - 05/08/2000
   edit_update():
 	- Removed yucky code that didn't work, this function now just
 	  computes edittop and editbot and calls edit_refresh() to do the
-	  rest, which removes a lot of duplicate code..  
-  
+	  rest, which removes a lot of duplicate code...
+
 nano-0.9.5 - 05/01/2000
 - Removed bytes from file struct because it was computationally wasteful.
 - cut.c:
@@ -7775,7 +7952,7 @@ nano-0.9.4 - 04/25/2000
 - nano.h:
 	- Changed macro SET() to use |= instead of ^=.  Fixes bug in
 	  cut code when cutting more than one line, and cutbuffer gets
-	  blown away when it shouldn't.  
+	  blown away when it shouldn't.
 
 nano-0.9.3 - 04/29/2000
 - cut.c:
@@ -7788,7 +7965,7 @@ nano-0.9.3 - 04/29/2000
 	- Moved tmp->prev = inptr line to part where cutbuffer != NULL.
 	- Added inptr->prev = NULL for case where cutbuffer == NULL.
 - nano.c:
-  do_backspace(), do_char():  
+  do_backspace(), do_char():
 	- Removed "magic line" code.  It was basically causing more bugs
 	  than it was helping for the sake of compatibility.  This fixes
 	  at least one known segfault condition.
@@ -7817,22 +7994,22 @@ nano-0.9.3 - 04/29/2000
 - nano.1, nano.1.html:
 	- Added -l option to man pages.
 - configure.in:
-	- New option --enable-tiny, #defines NANO_SMALL in config.h.  
-	  Disables call to gettext in functions and other i18n stuff in 
-	  nano.c, the detailed help mode, the resize functions, and the 
+	- New option --enable-tiny, #defines NANO_SMALL in config.h.
+	  Disables call to gettext in functions and other i18n stuff in
+	  nano.c, the detailed help mode, the resize functions, and the
 	  justify code which no one ever uses.
 	- New option --with-slang.  Enables slang libraries instead of
 	  ncurses, requires slcurses.h for wrapper functions. (Based
 	  on patches for 0.8.7 by Glenn McGrath).
 
 nano-0.9.2 - 04/15/2000
-- This release just fixes the serious segfault problem if nano is 
+- This release just fixes the serious segfault problem if nano is
   invoked any way other than using the absolute path.  The bug was
   in the new code for checking whether nano is invoked as 'pico'.
 
 nano-0.9.1 - 04/14/2000
 - Added Pico compatibility for ^T when in search or switch to switch
-  to the opposite function.  Added one to REPLACE_LIST_LEN and 
+  to the opposite function.  Added one to REPLACE_LIST_LEN and
   WHEREIS_LIST_LEN in nano.h, new args to sc_init_one in global.c and
   new strings that will have to be gettext()ed.  New argument 'replacing'
   to search_init().  Handlers in do_replace and do_search().
@@ -7843,7 +8020,7 @@ nano-0.9.1 - 04/14/2000
   do_wrap():	
 	- Fixed another bug relating to wrapping, and which would cause
 	  a segfault *sigh*.
-  do_replace(): 
+  do_replace():
 	- Incremented current_x by the length of the replacement
 	  text inside the main replace loop.  Fixes bug #15.
   add_marked_sameline():
@@ -7882,7 +8059,7 @@ nano-0.8.8 - 03/12/2000
   support i18n.
 - nano.c:
   includes:	Added sys/param.h and limits.h. (Adam Rogoyski).
-  statics: 	Changed some things that were not necessarily static 
+  statics: 	Changed some things that were not necessarily static
 		(Adam Rogoyski).
   nrealloc():	New function, similar to nmalloc().  Changed calls from
 		realloc() to nrealloc (Adam Rogoyski).
@@ -7895,8 +8072,8 @@ nano-0.8.8 - 03/12/2000
 
 nano-0.8.7 - 03/01/2000
 - main.c:
-  do_wrap():	Better fix for segfaults, and fix for lines being wrapped 
-		to a single character on one line when no good place to 
+  do_wrap():	Better fix for segfaults, and fix for lines being wrapped
+		to a single character on one line when no good place to
 		break the line exists, and for wrapping lines longer than
 		COLS.
 - nano.1.html:
@@ -8055,7 +8232,7 @@ main():
 write_file():
 			Fixes for umask (Adam Rogoyski).  Renamed tmpfile
 			variable to tmp.  Documented the tmp option
-			better in the function comments.  Fixed my 
+			better in the function comments.  Fixed my
 			stupidly commented out check for tmp on setting
 			umask which I really like =>
 - nano.h:
@@ -8082,7 +8259,7 @@ nano-0.7.9 - 01/24/2000
   '--speller' for alternative speller command.  Added function do_spell()
   and exit_spell() to nano.c.  New global variable alt_speller.
 - nano.c:
-  main():	We now ignore input of decimal 410 because these get entered 
+  main():	We now ignore input of decimal 410 because these get entered
 		when we resize the screen.  Sorted options in getopt()
 		switch statement.
   usage():	Sorted options and changed tabs to make room for -s option.
@@ -8108,7 +8285,7 @@ nano-0.7.8 - 01/23/2000
 - winio.c:
   nanogetstr():	Fixes for deleting at places other than the end of the
 		buffer, cut support. (Adam Rogoyski)
-  blank_edit():	New function, blanks edit buffer.  Added call to it in 
+  blank_edit():	New function, blanks edit buffer.  Added call to it in
 		total_refresh().
 - configure:	Checks for glib if snprintf or vsnprintf aren't available
 		(Andy Kahn). Changed warning message when no termcap lib
@@ -8131,7 +8308,7 @@ nano-0.7.7 - 01/19/2000
 	  not at the center line, and page up and down a full screen
 	  rather than a half screen. Original functions renamed to
 	  page_up_center() and page_down_center().
-  main(): 
+  main():
 	- Added check for keystroke key sequence 407 or NANO_CONTROL_Z
 	  in main while loop because suspend mode was broken.  This should
 	  fix it, at least for now.
@@ -8143,7 +8320,7 @@ nano-0.7.7 - 01/19/2000
 
 nano 0.7.6 - 01/15/2000
 - New ChangeLog format
-- nano.c: 
+- nano.c:
   main(): 	Bound CONTROL_H to backspace (oops)
 		Added more Alt-[-key combinations, for page up & down.
   read_bytes():	New function (Adam Rogoyski)
@@ -8152,7 +8329,7 @@ nano 0.7.6 - 01/15/2000
 		with an index variable.  Added call to read_bytes().
   do_next_word(): New function, binding is control-space (0) (me)
 
-- winio.c: 
+- winio.c:
   bottombars():	Fixed non-expanding shortcut keys at bottom of screen.
 		(formula is extra space needed = COLS / 6 - 13).
   actual_x() & strlenpt():	
@@ -8174,15 +8351,15 @@ nano 0.7.6 - 01/15/2000
 	do_left. Missing updates to totlines, fixed bug #7 (last line not
 	having a newline at the end doesn't get read, bugfix in do_replace
 	with replace all, more/better comments (Robert Siemborski)
-0.7.2	Our first patch accepted into the source! configure fixes 
-	and optimizations (Erik Anderson).  Added missing stdarg.h to winio.c. 
+0.7.2	Our first patch accepted into the source! configure fixes
+	and optimizations (Erik Anderson).  Added missing stdarg.h to winio.c.
 	Bug fix in update_line for editing long lines. Fixed arguments
 	being put into the filename when none is specified. Preliminary
 	+line command argument function.
 0.7.1	configure tweak for better FreeBSD support. Removed refresh() from
 	edit_refresh to stop cursor "jumping" during screen updates.  This
-	will probably cause a bug or two. Replace is now Alt-R (@R) and 
-	Goto line is Alt-G (@G), but they have control key aliases of ^\ and 
+	will probably cause a bug or two. Replace is now Alt-R (@R) and
+	Goto line is Alt-G (@G), but they have control key aliases of ^\ and
 	^_ respectively.  Made Control-F,B,N,P work like they do in Pico.
 	Control-G will become the Help key, but for now is stubbed out.
 0.7.0	Fixed missing stdlib.h from cut.c. Fixed a few message bugs in
@@ -8197,7 +8374,7 @@ nano 0.7.6 - 01/15/2000
 0.6.7	Bugfix in do_uncut_text for totlines. Broke up open_file and
 	created read_file.  Implemented Insert File. Fixes in tipgetstr
 	for erroneous keystrokes. Added leave_cursor arg to do_yesno().
-0.6.6	Fixes in do_search(), do_replace(), do_writeout, and do_exit() for 
+0.6.6	Fixes in do_search(), do_replace(), do_writeout, and do_exit() for
 	aborted searches and more Pico-compatible messages. statusq() now
 	returns -2 on a blank entry instead of -1. Bug fix in actual_x().
 0.6.5	More BSD compatibility.  Fixed two bugs in do_uncut_text
@@ -8212,7 +8389,7 @@ nano 0.7.6 - 01/15/2000
 	Better handling of editing with cursor near COLS - 1.
 0.6.1	Starting to implement wrapping toggle. Fix for unhandled control
 	codes being entered into the buffer. Bug fix in actual_x; more
-	> COLS - 1 functionality, especially on lines with TABs.  Fixed being 
+	> COLS - 1 functionality, especially on lines with TABs.  Fixed being
 	locked into cutbuffer when cutting more than one marked screen of
 	text.
 0.6.0	We have TABs!!!  To do this, placewewant is now set to the actual
@@ -8250,14 +8427,14 @@ nano 0.7.6 - 01/15/2000
 	Implemented ^A and ^E (beginning and end of line).
 0.4.0	Split code into global.c and proto.h to allow for better multiple
 	file handling.  Added #defines for the majority of the shortcut
-	keys in tip.h for easy modification. 
+	keys in tip.h for easy modification.
 0.3.1	Write edit_refresh which doesn't move the screen around, just
 	updates what's there already.  do_wrap() and do_enter() added.
 0.3.0	Preliminary cutbuffer (cut and uncut) support.
 0.2.7   Check for Modification added.  do_search() works.
 0.2.5	Rewrite of file data struct.
-0.2	Read in data to buffer, bound keystrokes to stub functions, 
+0.2	Read in data to buffer, bound keystrokes to stub functions,
 	initial cursor movement on screen.  Initial autoconf support.
 0.1	Initial program setup w/ncurses
 
-$Id: ChangeLog,v 1.2126 2006/11/20 14:38:31 dolorous Exp $
+$Id: ChangeLog,v 1.2175.2.23 2007/04/26 12:00:33 dolorous Exp $

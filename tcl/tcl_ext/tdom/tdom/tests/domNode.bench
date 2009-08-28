@@ -1,0 +1,257 @@
+# -*- tcl -*-
+# Tcl Benchmark File
+#
+# This file contains a number of benchmarks for the domNode methods.
+# This allow developers to monitor/gauge/track package performance.
+#
+# (c) 2006 Rolf Ade <rolf@pointsman.de>
+#
+# $Id: domNode.bench,v 1.1 2007/09/27 23:17:02 rolf Exp $
+
+
+# ### ### ### ######### ######### ######### ###########################
+## Setting up the environment ...
+
+package require tdom 
+
+# ### ### ### ######### ######### ######### ###########################
+## Benchmarks.
+
+dom createNodeCmd elementNode e1
+dom createNodeCmd elementNode e2
+dom createNodeCmd commentNode c
+dom createNodeCmd textNode    t
+dom createNodeCmd cdataNode   cdata
+dom createNodeCmd piNode      pi
+dom createNodeCmd parserNode  parser
+
+namespace eval nodeCmds {
+    dom createNodeCmd elementNode e1
+    dom createNodeCmd elementNode e2
+    dom createNodeCmd commentNode c
+    dom createNodeCmd textNode    t
+    dom createNodeCmd cdataNode   cdata
+    dom createNodeCmd piNode      pi
+    dom createNodeCmd parserNode  parser
+}
+
+bench -desc "appendFromScript-10-elements" -pre {
+    set doc [dom parse <root/>]
+    set root [$doc documentElement]
+} -body {
+    $root appendFromScript {
+        e1
+        e2
+        e1
+        e2
+        e1
+        e2
+        e1
+        e2
+        e1
+        e2
+    }
+} -post {
+    $doc delete
+}
+
+bench -desc "appendFromScript-10-elements2" -pre {
+    set doc [dom parse <root/>]
+    set root [$doc documentElement]
+} -body {
+    $root appendFromScript {
+        e1
+        e1
+        e1
+        e1
+        e1
+        e1
+        e1
+        e1
+        e1
+        e1
+    }
+} -post {
+    $doc delete
+}
+
+
+foreach nrOf {10 100 1000} {
+
+    bench -desc "appendFromScript-nonamespace-element-$nrOf" -pre {
+        set doc [dom parse <root/>]
+        set root [$doc documentElement]
+    } -body {
+        $root appendFromScript {
+            for {set i 0} {$i < $nrOf} {incr i} {
+                e1
+            }
+        }
+    } -post {
+        $doc delete
+    }
+
+    bench -desc "appendFromScript-namespace-element-$nrOf" -pre {
+        set doc [dom parse <root/>]
+        set root [$doc documentElement]
+    } -body {
+        
+        $root appendFromScript {
+            for {set i 0} {$i < $nrOf} {incr i} {
+                nodeCmds::e1
+            }
+        }
+    } -post {
+        $doc delete
+    }
+
+    bench -desc "appendFromScript-nonamespace-elementandtext-$nrOf" -pre {
+        set doc [dom parse <root/>]
+        set root [$doc documentElement]
+    } -body {
+        $root appendFromScript {
+            for {set i 0} {$i < $nrOf} {incr i} {
+                e1 {
+                    t "This is text node $i"
+                }
+            }
+        }
+    } -post {
+        $doc delete
+    }
+
+    bench -desc "appendFromScript-namespace-elementandtext-$nrOf" -pre {
+        set doc [dom parse <root/>]
+        set root [$doc documentElement]
+    } -body {
+        
+        $root appendFromScript {
+            for {set i 0} {$i < $nrOf} {incr i} {
+                nodeCmds::e1 {
+                    nodeCmds::t "This is text node $i"
+                }
+            }
+        }
+    } -post {
+        $doc delete
+    }
+}
+
+foreach nrOf {10 100 1000} {
+
+    bench -desc "Create childs with dom methods $nrOf" -pre {
+        dom createDocument root doc
+        $doc documentElement root
+    } -body {
+        for {set x 0} {$x < $nrOf} {incr x} {
+            $doc createElement e1 newNode
+            $root appendChild $newNode
+        }
+    } -post {
+        $doc delete
+    }
+
+}
+
+foreach nrOf {10 100 1000} {
+
+    bench -desc "Count returned domNode commands $nrOf" -pre {
+        dom createDocument root doc
+        $doc documentElement root
+        $root appendFromScript {
+            for {set x 0} {$x < $nrOf} {incr x} {
+                e1
+            }
+        }
+    } -body {
+        llength [$doc selectNodes -cache 1 /root/e1]
+    } -post {
+        $doc delete
+    }
+
+}
+
+foreach nrOf {1 10 100 1000} {
+
+    bench -desc "Count returned domNode tokens $nrOf" -pre {
+        dom createDocument root doc
+        $doc documentElement root
+        $root appendFromScript {
+            for {set x 0} {$x < $nrOf} {incr x} {
+                e1
+            }
+        }
+    } -body {
+        llength [domNode $root selectNodes -cache 1 /root/e1]
+    } -post {
+        $doc delete
+    }
+
+}
+
+foreach nrOf {1 10 100 1000} {
+
+    bench -desc "Use XPath to count returned nodes $nrOf" -pre {
+        dom createDocument root doc
+        $doc documentElement root
+        $root appendFromScript {
+            for {set x 0} {$x < $nrOf} {incr x} {
+                e1
+            }
+        }
+    } -body {
+        $doc selectNodes -cache 1 count(/root/e1)
+    } -post {
+        $doc delete
+    }
+
+}
+
+dom parse <root/> doc
+$doc documentElement root
+
+bench -desc "Check for text-only element - xpath - empty"  -body {
+    for {set x 0} {$x < 100} {incr x} {
+        $doc selectNodes -cache 1 {count(node()) = 1 and node() = text()}
+    }
+}
+
+bench -desc "Check for text-only element - xpath(uncached) - empty" -body {
+    for {set x 0} {$x < 100} {incr x} {
+        $doc selectNodes {count(node()) = 1 and node() = text()}
+    }
+}
+
+bench -desc "Check for text-only element - tcl - empty" -body {
+    for {set x 0} {$x < 100} {incr x} {
+        expr {[llength [$root childNodes]] == 1
+              && [[$root firstChild] nodeType] == "TEXT_NODE"}
+    }
+}
+
+$doc delete
+
+
+dom parse <root>foo</root> doc
+$doc documentElement root
+
+bench -desc "Check for text-only element - xpath - text-only" -body {
+    for {set x 0} {$x < 100} {incr x} {
+        $doc selectNodes -cache 1 {count(node()) = 1 and node() = text()}
+    }
+}
+
+bench -desc "Check for text-only element - xpath(uncached) - text-only" -body {
+    for {set x 0} {$x < 100} {incr x} {
+        $doc selectNodes {count(node()) = 1 and node() = text()}
+    }
+}
+
+bench -desc "Check for text-only element - tcl - text-only" -body {
+    for {set x 0} {$x < 100} {incr x} {
+        expr {[llength [$root childNodes]] == 1
+              && [[$root firstChild] nodeType] == "TEXT_NODE"}
+    }
+}
+
+$doc delete

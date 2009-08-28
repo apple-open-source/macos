@@ -6,7 +6,7 @@
 #	Notes: Dictionary was made specifically for the Gandalf XpressWay
 #		RLAN with Link Authentication through RADIUS
 #
-#	$Id: dictionary.gandalf,v 1.1.4.1 2005/11/30 22:17:24 aland Exp $
+#	$Id$
 #
 VENDOR		Gandalf				64
 

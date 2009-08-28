@@ -1,4 +1,4 @@
-/* APPLE LOCAL file 4086969 */
+/* APPLE LOCAL file -Wdiscard-qual 4086969 */
 /* Test -Wno-discard-qual */
 /* { dg-do compile } */
 /* { dg-options "-Wno-discard-qual" } */

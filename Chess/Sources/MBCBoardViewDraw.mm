@@ -18,6 +18,9 @@
 	Change History (most recent first):
 
 		$Log: MBCBoardViewDraw.mm,v $
+		Revision 1.42  2008/10/24 01:17:14  neerache
+		<rdar://problem/5973744> Chess Needs To Move from SGI Format Images to PNG or JPEG
+		
 		Revision 1.41  2007/01/16 21:23:47  neerache
 		Adapt to changed HiDPI code for NSOpenGLView
 		
@@ -253,6 +256,10 @@ using std::min;
     gluPerspective(kAngleOfView, bounds.size.width / bounds.size.height, 
 				   10.0, 1000.0); 
 
+	glMatrixMode(GL_TEXTURE);
+	glLoadIdentity();
+	glScalef(1.0f, -1.0f, 0.0f);
+	
 	glMatrixMode(GL_MODELVIEW);
 
 	float	cameraY = kDistance * sin(fElevation * kDeg2Rad);
@@ -466,33 +473,6 @@ using std::min;
 	glTexCoord2f(1.0f, 0.0f);
 	glVertex3d(+OB,  -DP, -OB);
 	glEnd();
-
-#if 0
-	//
-	// Draw outline of border so boundaries are antialiased
-	//
-	glBegin(GL_LINE_STRIP);
-	glVertex3f(-OB,  -DP, +OB);
-	glVertex3f(+OB,  -DP, +OB);
-	glVertex3f(+OB,  -DP, -OB);
-	glVertex3f(-OB,  -DP, -OB);
-	glVertex3f(-OB,  -DP, +OB);
-	glEnd();
-	glBegin(GL_LINE_STRIP);
-	glVertex3f(-OB, 0.0f, +OB);
-	glVertex3f(+OB, 0.0f, +OB);
-	glVertex3f(+OB, 0.0f, -OB);
-	glVertex3f(-OB, 0.0f, -OB);
-	glVertex3f(-OB, 0.0f, +OB);
-	glEnd();
-	glBegin(GL_LINE_STRIP);
-	glVertex3f(-IB, 0.0f, +IB);
-	glVertex3f(+IB, 0.0f, +IB);
-	glVertex3f(+IB, 0.0f, -IB);
-	glVertex3f(-IB, 0.0f, -IB);
-	glVertex3f(-IB, 0.0f, +IB);
-	glEnd();
-#endif
 
 	glPopAttrib();
 }

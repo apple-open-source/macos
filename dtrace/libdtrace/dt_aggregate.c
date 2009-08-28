@@ -2,9 +2,8 @@
  * CDDL HEADER START
  *
  * The contents of this file are subject to the terms of the
- * Common Development and Distribution License, Version 1.0 only
- * (the "License").  You may not use this file except in compliance
- * with the License.
+ * Common Development and Distribution License (the "License").
+ * You may not use this file except in compliance with the License.
  *
  * You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
  * or http://www.opensolaris.org/os/licensing.
@@ -19,12 +18,13 @@
  *
  * CDDL HEADER END
  */
+
 /*
- * Copyright 2005 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)dt_aggregate.c	1.12	05/11/29 SMI"
+#pragma ident	"@(#)dt_aggregate.c	1.14	08/01/29 SMI"
 
 #include <stdlib.h>
 #include <strings.h>
@@ -101,6 +101,21 @@ dt_aggregate_averagecmp(int64_t *lhs, int64_t *rhs)
 		return (DT_LESSTHAN);
 
 	if (lavg > ravg)
+		return (DT_GREATERTHAN);
+
+	return (0);
+}
+
+static int
+dt_aggregate_stddevcmp(int64_t *lhs, int64_t *rhs)
+{
+	uint64_t lsd = dt_stddev((uint64_t *)lhs, 1);
+	uint64_t rsd = dt_stddev((uint64_t *)rhs, 1);
+
+	if (lsd < rsd)
+		return (DT_LESSTHAN);
+
+	if (lsd > rsd)
 		return (DT_GREATERTHAN);
 
 	return (0);
@@ -257,6 +272,9 @@ dt_aggregate_umod(dtrace_hdl_t *dtp, uint64_t *data)
 	uint64_t pid = data[0];
 	uint64_t *pc = &data[1];
 	struct ps_prochandle *P;
+#if defined(__APPLE__)
+	prmap_t thread_local_map;
+#endif	
 	const prmap_t *map;
 
 	if (dtp->dt_vector != NULL)
@@ -267,7 +285,11 @@ dt_aggregate_umod(dtrace_hdl_t *dtp, uint64_t *data)
 
 	dt_proc_lock(dtp, P);
 
+#if defined(__APPLE__)
+	if ((map = Paddr_to_map(P, *pc, &thread_local_map)) != NULL)
+#else
 	if ((map = Paddr_to_map(P, *pc)) != NULL)
+#endif
 		*pc = map->pr_vaddr;
 
 	dt_proc_unlock(dtp, P);
@@ -343,7 +365,7 @@ dt_aggregate_collect_cpu(dtrace_hdl_t *dtp, dtrace_bufdesc_t **bufr, processorid
 	//int i, j, rval;
 	//caddr_t addr, data;
 	//dtrace_recdesc_t *rec;
-	dt_aggregate_t *agp = &dtp->dt_aggregate;
+	//dt_aggregate_t *agp = &dtp->dt_aggregate;
 	//dtrace_aggdesc_t *agg;
 	//dt_ahash_t *hash = &agp->dtat_hash;
 	//dt_ahashent_t *h;
@@ -931,6 +953,7 @@ hashnext:
 		case DTRACEAGG_COUNT:
 		case DTRACEAGG_SUM:
 		case DTRACEAGG_AVG:
+		case DTRACEAGG_STDDEV:
 		case DTRACEAGG_QUANTIZE:
 			h->dtahe_aggregate = dt_aggregate_count;
 			break;
@@ -1090,6 +1113,26 @@ dt_aggregate_keycmp(const void *lhs, const void *rhs)
 			break;
 
 		default:
+			switch (lrec->dtrd_action) {
+			case DTRACEACT_UMOD:
+			case DTRACEACT_UADDR:
+			case DTRACEACT_USYM:
+				for (j = 0; j < 2; j++) {
+					/* LINTED - alignment */
+					lval = ((uint64_t *)ldata)[j];
+					/* LINTED - alignment */
+					rval = ((uint64_t *)rdata)[j];
+
+					if (lval < rval)
+						return (DT_LESSTHAN);
+
+					if (lval > rval)
+						return (DT_GREATERTHAN);
+				}
+
+				break;
+
+			default:
 			for (j = 0; j < lrec->dtrd_size; j++) {
 				lval = ((uint8_t *)ldata)[j];
 				rval = ((uint8_t *)rdata)[j];
@@ -1099,7 +1142,7 @@ dt_aggregate_keycmp(const void *lhs, const void *rhs)
 
 				if (lval > rval)
 					return (DT_GREATERTHAN);
-
+			}
 			}
 
 			continue;
@@ -1160,6 +1203,10 @@ dt_aggregate_valcmp(const void *lhs, const void *rhs)
 	switch (lrec->dtrd_action) {
 	case DTRACEAGG_AVG:
 		rval = dt_aggregate_averagecmp(laddr, raddr);
+		break;
+
+	case DTRACEAGG_STDDEV:
+		rval = dt_aggregate_stddevcmp(laddr, raddr);
 		break;
 
 	case DTRACEAGG_QUANTIZE:

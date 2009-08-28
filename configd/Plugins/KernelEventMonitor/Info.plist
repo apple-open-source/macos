@@ -11,15 +11,15 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>SystemConfiguration</string>
+	<string>com.apple.SystemConfiguration.KernelEventMonitor</string>
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.9.2</string>
+	<string>1.10</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.9.2</string>
+	<string>1.10</string>
 	<key>Requires</key>
 	<array>
 		<string>com.apple.SystemConfiguration.InterfaceNamer</string>

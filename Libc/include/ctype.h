@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2005, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -161,7 +161,7 @@ isascii(int _c)
 __DARWIN_CTYPE_static_inline int     
 __maskrune(__darwin_ct_rune_t _c, unsigned long _f)
 {
-	return _CurrentRuneLocale->__runetype[_c && 0xff] & _f;
+	return _DefaultRuneLocale.__runetype[_c & 0xff] & _f;
 }
 //Begin-Libc
 #elif defined(__LIBC__)
@@ -193,7 +193,7 @@ __DARWIN_CTYPE_static_inline __darwin_ct_rune_t
 __isctype(__darwin_ct_rune_t _c, unsigned long _f)
 {
 #ifdef USE_ASCII
-	return !!(_DefaultRuneLocale.__runetype[_c & 0xff] & _f);
+	return !!(__maskrune(_c, _f));
 #else /* USE_ASCII */
 	return (_c < 0 || _c >= _CACHED_RUNES) ? 0 :
 		!!(_DefaultRuneLocale.__runetype[_c] & _f);
@@ -204,13 +204,13 @@ __isctype(__darwin_ct_rune_t _c, unsigned long _f)
 __DARWIN_CTYPE_static_inline __darwin_ct_rune_t
 __toupper(__darwin_ct_rune_t _c)
 {
-	return _CurrentRuneLocale->__mapupper[_c & 0xff];
+	return _DefaultRuneLocale.__mapupper[_c & 0xff];
 }
 
 __DARWIN_CTYPE_static_inline __darwin_ct_rune_t
 __tolower(__darwin_ct_rune_t _c)
 {
-	return _CurrentRuneLocale->__maplower[_c & 0xff];
+	return _DefaultRuneLocale.__maplower[_c & 0xff];
 }
 //Begin-Libc
 #elif defined(__LIBC__)
@@ -234,7 +234,7 @@ __tolower(__darwin_ct_rune_t _c)
 		__current_locale()->__lc_ctype->_CurrentRuneLocale.__maplower[_c];
 }
 //End-Libc
-#else /* USE_ASCII */
+#else /* !USE_ASCII */
 __BEGIN_DECLS
 __darwin_ct_rune_t	__toupper(__darwin_ct_rune_t);
 __darwin_ct_rune_t	__tolower(__darwin_ct_rune_t);

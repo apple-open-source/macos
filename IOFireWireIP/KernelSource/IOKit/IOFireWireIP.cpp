@@ -125,7 +125,7 @@ bool IOFireWireIP::start(IOService *provider)
 		if(ioStat == kIOReturnSuccess) 
 		{
 			// Add unit notification for units disappearing
-			fIPUnitNotifier = IOService::addNotification(gIOPublishNotification, 
+			fIPUnitNotifier = IOService::addMatchingNotification(gIOPublishNotification, 
 														serviceMatching("IOFireWireIPUnit"), 
 														&fwIPUnitAttach, this, (void*)IP1394_VERSION, 0);
 		}
@@ -133,7 +133,7 @@ bool IOFireWireIP::start(IOService *provider)
 		if(ioStat == kIOReturnSuccess) 
 		{
 			// Add unit notification for units disappearing
-			fIPv6UnitNotifier = IOService::addNotification(gIOPublishNotification, 
+			fIPv6UnitNotifier = IOService::addMatchingNotification(gIOPublishNotification, 
 														serviceMatching("IOFireWireIPUnit"), 
 														&fwIPUnitAttach, this, (void*)IP1394v6_VERSION, 0);
 		}
@@ -383,14 +383,14 @@ bool IOFireWireIP::configureInterface( IONetworkInterface *netif )
 	
 } // end configureInterface
 
-void IOFireWireIP::receivePackets(void * pkt, UInt32 pkt_len, UInt32 options)
+void IOFireWireIP::receivePackets(mbuf_t pkt, UInt32 pkt_len, UInt32 options)
 {
 	if(options == true)
 		fPacketsQueued = true;
 
     IORecursiveLockLock(ipLock);
 		
-	networkInterface->inputPacket((struct mbuf*)pkt, pkt_len, options);
+	networkInterface->inputPacket(pkt, pkt_len, options);
 	networkStatAdd(&fpNetStats->inputPackets);
 	
     IORecursiveLockUnlock(ipLock);
@@ -472,7 +472,7 @@ UInt32 IOFireWireIP::transmitPacket(mbuf_t m, void * param)
 		IORecursiveLockUnlock(ipLock);
 	}
 	else
-		freePacket((struct mbuf*)m);
+		freePacket(m);
 
 	return status;
 }
@@ -482,7 +482,7 @@ UInt32 IOFireWireIP::outputPacket(mbuf_t pkt, void * param)
 	IOReturn status = kIOReturnOutputDropped;
 
 	// Its just a sink, until we get a valid unit on the bus.
-	((IOFireWireIP*)param)->freePacket((struct mbuf*)pkt);
+	((IOFireWireIP*)param)->freePacket(pkt);
 	
 	return status;
 }
@@ -793,7 +793,7 @@ void IOFireWireIP::deRegisterFWIPPrivateHandlers()
 	@param newService - handle to the new IP1394 unit created.
 	@result bool.
 */
-bool IOFireWireIP::fwIPUnitAttach(void * target, void * refCon, IOService * newService)
+bool IOFireWireIP::fwIPUnitAttach(void * target, void * refCon, IOService * newService, IONotifier * notifier)
 {
 	if(target == NULL || newService == NULL)
 		return false;
@@ -860,7 +860,7 @@ IOReturn IOFireWireIP::createIPConfigRomEntry()
 }
 
 #ifdef DEBUG
-void _logMbuf(struct mbuf * m)
+void _logMbuf(mbuf_t m)
 {
 	UInt8	*bytePtr;
 	
@@ -870,28 +870,28 @@ void _logMbuf(struct mbuf * m)
     }
     
     while (m) {
-        IOLog("m_next   : %08x\n", (UInt) m->m_next);
-        IOLog("m_nextpkt: %08x\n", (UInt) m->m_nextpkt);
-        IOLog("m_len    : %d\n",   (UInt) m->m_len);
-        IOLog("m_data   : %08x\n", (UInt) m->m_data);
-        IOLog("m_type   : %08x\n", (UInt) m->m_type);
-        IOLog("m_flags  : %08x\n", (UInt) m->m_flags);
+        IOLog("m_next   : %p\n", (void*) mbuf_next(m));
+        IOLog("m_nextpkt: %p\n", (void*) mbuf_nextpkt(m));
+        IOLog("m_len    : %d\n",   (UInt) mbuf_len(m));
+        IOLog("m_data   : %p\n", (void*) mbuf_data(m));
+        IOLog("m_type   : %08x\n", (UInt) mbuf_type(m));
+        IOLog("m_flags  : %08x\n", (UInt) mbuf_flags(m));
         
-        if (m->m_flags & M_PKTHDR)
-            IOLog("m_pkthdr.len  : %d\n", (UInt) m->m_pkthdr.len);
+        if (mbuf_flags(m) & M_PKTHDR)
+            IOLog("m_pkthdr.len  : %d\n", (UInt) mbuf_pkthdr_len(m));
 
-        if (m->m_flags & M_EXT) {
-            IOLog("m_ext.ext_buf : %08x\n", (UInt) m->m_ext.ext_buf);
-            IOLog("m_ext.ext_size: %d\n", (UInt) m->m_ext.ext_size);
+        if (mbuf_flags(m) & M_EXT) {
+           // IOLog("m_ext.ext_buf : %08x\n", (UInt) mbuf_ext(m));
+           // IOLog("m_ext.ext_size: %d\n", (UInt) m->m_ext.ext_size);
         }
 		
 		IOLog("m_data -> \t\t") ;
 		
-		if(m->m_data != NULL){
+		if( mbuf_data(m) != NULL){
 		
-			bytePtr = (UInt8*)m->m_data;
+			bytePtr = (UInt8*)mbuf_data(m);
 						
-			for(SInt32 index=0; index < min(m->m_len, 12); index++)
+			for(SInt32 index=0; index < min(mbuf_len(m), 12); index++)
 			{
 				if ((index & 0x3) == 0)
 				{
@@ -908,10 +908,11 @@ void _logMbuf(struct mbuf * m)
 			IOLog("\n\n") ;
 		}
         
-        m = m->m_next;
+        m = mbuf_next(m);
     }
     IOLog("\n");
 }
+
 void _logPkt(void *pkt, UInt16 len)
 {
 	UInt8 	*bytePtr;

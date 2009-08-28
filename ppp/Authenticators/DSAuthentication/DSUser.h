@@ -27,8 +27,8 @@
 
 
 
-tDirStatus dsauth_get_search_node_ref(tDirReference dirRef, unsigned long index, tDirNodeReference *searchNodeRef, 
-                unsigned long *count);
+tDirStatus dsauth_get_search_node_ref(tDirReference dirRef, UInt32 index, tDirNodeReference *searchNodeRef, 
+                UInt32 *count);
 
 tDirStatus dsauth_get_user_attr(tDirReference dirRef, tDirNodeReference searchNodeRef, char *user_name, 
                 char *attr, tAttributeValueEntryPtr *attr_value);

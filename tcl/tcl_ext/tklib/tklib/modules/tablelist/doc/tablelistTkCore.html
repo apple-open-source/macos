@@ -1,0 +1,253 @@
+<html>
+<head>
+  <title>Interactive Tablelist Cell Editing Using Tk Core Widgets</title>
+
+  <meta name="Author" content="Csaba Nemethi">
+  <meta name="Keywords" content="tablelist, editing, Tk core">
+</head>
+
+<body bgcolor="#FFFFFF">
+  <div align="center">
+    <h1>Interactive Tablelist Cell Editing Using Tk Core Widgets</h1>
+
+    <h3>by</h3>
+
+    <h2>Csaba Nemethi</h2>
+
+    <address>
+      <a href="mailto:csaba.nemethi@t-online.de">csaba.nemethi@t-online.de</a>
+    </address>
+  </div>
+
+  <hr>
+
+  <h2><a name="contents"></a>Contents</h2>
+
+  <ul>
+    <li><a href="#overview">Overview</a></li>
+
+    <li><a href="#entry">Interactive Cell Editing Using the entry
+    Widget</a></li>
+
+    <li><a href="#text">Interactive Cell Editing Using the text Widget</a></li>
+
+    <li><a href="#spinbox">Interactive Cell Editing Using the spinbox
+    Widget</a></li>
+
+    <li><a href="#checkbutton">Interactive Cell Editing Using the checkbutton
+    Widget</a></li>
+  </ul>
+
+  <div align="center">
+    <p><a href="index.html">Start page</a></p>
+  </div>
+
+  <hr>
+
+  <h2><a name="overview"></a>Overview</h2>
+
+  <p>Tablelist supports interactive cell editing with the aid of the Tk core
+  entry, text, spinbox, and checkbutton widgets.&nbsp; These widgets are
+  automatically registered for cell editing, hence the only action needed for
+  using one of them for editing the cells of a given column is as follows:</p>
+
+  <p>Use the tablelist widget's <code><b><a href=
+  "tablelistWidget.html#columnconfigure">columnconfigure</a></b></code>
+  subcommand to set the given column's <code><b><a href=
+  "tablelistWidget.html#col_editable">-editable</a></b></code> option to true
+  and its <code><b><a href=
+  "tablelistWidget.html#col_editwindow">-editwindow</a></b></code> option to
+  <code><b>entry</b></code>, <code><b>text</b></code>,
+  <code><b>spinbox</b></code>, or <code><b>checkbutton</b></code>,
+  respectively.&nbsp; (These options are supported at cell level, too, with the
+  aid of the <code><b><a href=
+  "tablelistWidget.html#cellconfigure">cellconfigure</a></b></code>
+  subcommand.)&nbsp; Since the default value of the
+  <code><b>-editwindow</b></code> column configuration option is
+  <code><b>entry</b></code>, it is not necessary to set it explicitly if the
+  editing should take place with the aid of an embedded entry widget.</p>
+
+  <div align="center">
+    <p><a href="#contents">Contents</a>&nbsp;&nbsp;&nbsp;&nbsp; <a href=
+    "index.html">Start page</a></p>
+  </div>
+
+  <hr>
+
+  <h2><a name="entry"></a>Interactive Cell Editing Using the entry Widget</h2>
+
+  <dl>
+    <dt><b>DESCRIPTION</b></dt>
+
+    <dd>As mentioned above, the interactive cell editing in a tablelist widget
+    takes place per default with the aid of an embedded entry widget.&nbsp;
+    Refer to the <a href="tablelistWidget.html#cell_editing">INTERACTIVE CELL
+    EDITING</a> section of the reference page describing the
+    <code><b>tablelist::tablelist</b></code> command for details on the editing
+    process.</dd>
+
+    <dt><br>
+    <b>KEYWORDS</b></dt>
+
+    <dd>tablelist, editing, entry</dd>
+  </dl>
+
+  <div align="center">
+    <p><a href="#contents">Contents</a>&nbsp;&nbsp;&nbsp;&nbsp; <a href=
+    "index.html">Start page</a></p>
+  </div>
+
+  <hr>
+
+  <h2><a name="text"></a>Interactive Cell Editing Using the text Widget</h2>
+
+  <dl>
+    <dt><b>DESCRIPTION</b></dt>
+
+    <dd>The temporary embedded text widget used for interactive cell editing
+    will be created with its <code><b>-padx</b></code> and
+    <code><b>-pady</b></code> options set to <code>2</code>, its
+    <code><b>-wrap</b></code> option set to <code><b>none</b></code>, and its
+    initial height set to the number of lines contained in it.&nbsp; There is,
+    however, an exception from this rule:&nbsp; If the <code><b><a href=
+    "tablelistWidget.html#col_wrap">-wrap</a></b></code> option of the cell's
+    column was set to true and Tk version 8.5 or higher is being used, then the
+    text widget's <code><b>-wrap</b></code> option will be set to
+    <code><b>word</b></code> and its initial height will equal the number of
+    <i>display</i> lines (taking into account the line wraps) contained in
+    it.&nbsp; You can use the script corresponding to the <code><b><a href=
+    "tablelistWidget.html#editstartcommand">-editstartcommand</a></b></code>
+    tablelist configuration option to override the initial settings according
+    to your needs.</d>
+
+    <dd><br>
+    If the text widget's <code><b>-wrap</b></code> option was set to
+    <code><b>word</b></code> or <code><b>char</b></code> (either by Tablelist
+    or from within the above-mentioned script) and Tk version 8.5 or higher is
+    being used, then, whenever its width changes (e.g., due to interactive
+    column resizing), its height will be set automatically to the number of
+    display lines contained in it.&nbsp; (The number of display lines is
+    retrieved with the aid of the&nbsp;
+    <code><b>count -displaylines</b></code>&nbsp; text widget subcommand,
+    introduced in Tk 8.5.)</dd>
+    
+    <dd><br>
+    If the widget callback package Wcb was loaded into the interpreter
+    (via&nbsp; <code><b>package require Wcb</b></code>&nbsp; or&nbsp;
+    <code><b>package require wcb</b></code>)&nbsp; then the text widget's
+    height will be updated automatically whenever text is inserted into or
+    deleted from it, which makes the editing much more user-friendly.&nbsp;
+    This is achieved by using an appropriately defined
+    after-<code><b>insert</b></code> and after-<code><b>delete</b></code>
+    callback for the edit window.&nbsp; You can use the script corresponding to
+    the <code><b><a href=
+    "tablelistWidget.html#editstartcommand">-editstartcommand</a></b></code>
+    tablelist configuration option to define further callbacks for the text
+    widget.&nbsp (The above-mentioned callback is created via
+    <code><b>wcb::cbappend</b></code>, <i>after</i> returning from that
+    script.)</dd>
+
+    <dd><br>
+    The <code>Tab</code> key is reserved for navigation between the editable
+    cells, but the user can insert a tabulator character into the text widget
+    by pressing <code>Control-i</code>.</dd>
+
+    <dd><br>
+    Unlike in the case of the other widgets used for interactive cell editing,
+    the <code>Return</code> and <code>KP_Enter</code> keys insert a newline
+    character into the text widget.&nbsp; <code>Control-j</code> can also be
+    used for inserting a newline.&nbsp; <code>Control-Return</code> and
+    <code>Control-KP_Enter</code> terminate the editing and destroy the edit
+    window.</dd>
+
+    <dd><br>
+    <code>Control-Home</code> and <code>Control-End</code> have their
+    well-known text widget-specific bindings, just like <code>Meta-&lt;</code>
+    and <code>Meta-&gt;</code> if <code><b>tk_strictMotif</b></code> is
+    false.&nbsp; Again, this is different from the behavior of the other
+    widgets used for interactive cell editing.&nbsp; For jumping into the
+    first/last editable cell, the user can press
+    <code>Alt-Home</code>/<code>Alt-End</code> or
+    <code>Meta-Home</code>/<code>Meta-End</code>
+    (<code>Command-Home</code>/<code>Command-End</code> on Mac OS Classic and
+    Mac OS X Aqua).</dd>
+
+    <dt><br>
+    <b>KEYWORDS</b></dt>
+
+    <dd>tablelist, editing, text</dd>
+  </dl>
+
+  <div align="center">
+    <p><a href="#contents">Contents</a>&nbsp;&nbsp;&nbsp;&nbsp; <a href=
+    "index.html">Start page</a></p>
+  </div>
+
+  <hr>
+
+  <h2><a name="spinbox"></a>Interactive Cell Editing Using the spinbox
+  Widget</h2>
+
+  <dl>
+    <dt><b>DESCRIPTION</b></dt>
+
+    <dd>The temporary embedded spinbox widget used for interactive cell editing
+    will be created with its <code><b>-state</b></code> option set to
+    <code><b>normal</b></code>, which makes the widget editable.&nbsp; You can
+    use the script corresponding to the <code><b><a href=
+    "tablelistWidget.html#editstartcommand">-editstartcommand</a></b></code>
+    tablelist configuration option to set the state of the spinbox to
+    <code><b>readonly</b></code> or define validations for it, as well as for
+    setting its (range of) values and its <code><b>-wrap</b></code>
+    option.</dd>
+
+    <dt><br>
+    <b>KEYWORDS</b></dt>
+
+    <dd>tablelist, editing, spinbox</dd>
+  </dl>
+
+  <div align="center">
+    <p><a href="#contents">Contents</a>&nbsp;&nbsp;&nbsp;&nbsp; <a href=
+    "index.html">Start page</a></p>
+  </div>
+
+  <hr>
+
+  <h2><a name="checkbutton"></a>Interactive Cell Editing Using the checkbutton
+  Widget</h2>
+
+  <dl>
+    <dt><b>DESCRIPTION</b></dt>
+
+    <dd>On Windows, Mac OS Classic, and Mac OS X Aqua the temporary embedded
+    checkbutton widget used for interactive cell editing will be created with
+    explicitly set values for its <code><b>-borderwidth</b></code>,
+    <code><b>-font</b></code>, <code><b>-padx</b></code>,
+    <code><b>-pady</b></code>, and <code><b>-variable</b></code> options.&nbsp;
+    In an X11 environment it will be created with explicitly set values for its
+    <code><b>-borderwidth</b></code>, <code><b>-indicatoron</b></code>,
+    <code><b>-image</b></code>, <code><b>-selectimage</b></code>,
+    <code><b>-selectcolor</b></code>, and <code><b>-variable</b></code>
+    options.&nbsp; You can use the script corresponding to the
+    <code><b><a href="tablelistWidget.html#editstartcommand">-editstartcommand</a></b></code>
+    tablelist configuration option to set any other configuration options, like
+    <code><b>-offvalue</b></code> and <code><b>-onvalue</b></code>, according
+    to the <i>internal</i> values of the cells.&nbsp; Since the default values
+    of the <code><b>-offvalue</b></code> and <code><b>-onvalue</b></code>
+    checkbutton options are <code>0</code> and <code>1</code>, you don't need
+    to change these options if the cells have the same internal values
+    <code>0</code> and <code>1</code>.</dd>
+
+    <dt><br>
+    <b>KEYWORDS</b></dt>
+
+    <dd>tablelist, editing, checkbutton</dd>
+  </dl>
+
+  <div align="center">
+    <p><a href="#contents">Contents</a>&nbsp;&nbsp;&nbsp;&nbsp; <a href=
+    "index.html">Start page</a></p>
+  </div>
+</body>
+</html>

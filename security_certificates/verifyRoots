@@ -1,0 +1,29 @@
+#!/bin/sh
+
+# Print out a list of information to use when verifying that new roots are in the new System roots keychain
+# You must manually input the files now; easiest way to get the list is when doing svk add
+
+# set -x
+
+NEW_ROOTS="\
+	COMODOCertificationAuthority.crt \
+	DigiNotarRootCA2007.crt \
+	EntrustEVRoot.crt \
+	EntrustRootCA1024.crt \
+	GlobalSignRootCA-R2.cer \
+	NetworkSolutionsEVRoot.crt \
+	Trustwave-SGCA.pem.crt \
+	Trustwave-STCA.pem.crt \
+	VASLatvijasPasts-SSI-RCA.crt \
+	VASLatvijasPasts-SSI-RCA_subject \
+	VeriSignC3PublicPrimaryCA-G5.cer \
+	geotrust-primary-ca.crt \
+	thawte-primary-root-ca.crt"
+
+for root in ${NEW_ROOTS} ; do
+	printf "====================\n"
+	printf "    $root \n"
+	openssl x509 -inform DER -in roots/$root -noout -fingerprint -subject -nameopt oneline -dates
+done
+
+

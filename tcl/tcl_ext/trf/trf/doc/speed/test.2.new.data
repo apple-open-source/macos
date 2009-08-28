@@ -1,0 +1,12 @@
+set time(crc,1000,new) 2481
+set time(crc,1000000,new) 1916
+set time(crc-zlib,1000,new) 2575
+set time(crc-zlib,1000000,new) 488414
+set time(adler,1000,new) 2756
+set time(adler,1000000,new) 280553
+set time(sha,1000,new) 4494
+set time(sha,1000000,new) 1948148
+set time(haval,1000,new) 3502
+set time(haval,1000000,new) 749558
+set time(md5,1000,new) 3436
+set time(md5,1000000,new) 878137

@@ -66,6 +66,7 @@ void AppleCSPSession::pkcs8InferKeyHeader(
 	
 	switch(hdr.AlgorithmId) {
 		case CSSM_ALGID_RSA:
+		case CSSM_ALGID_ECDSA:
 			hdr.Format = CSSM_KEYBLOB_RAW_FORMAT_PKCS8; 
 			break;
 		case CSSM_ALGID_DSA:
@@ -134,6 +135,7 @@ CSSM_KEYBLOB_FORMAT pkcs8RawKeyFormat(
 {
 	switch(keyAlg) {
 		case CSSM_ALGID_RSA:
+		case CSSM_ALGID_ECDSA:
 			return CSSM_KEYBLOB_RAW_FORMAT_PKCS8;
 		case CSSM_ALGID_DSA:
 			return CSSM_KEYBLOB_RAW_FORMAT_FIPS186;
@@ -158,6 +160,8 @@ CSSM_KEYBLOB_FORMAT opensslRawKeyFormat(
 			return CSSM_KEYBLOB_RAW_FORMAT_PKCS1;
 		case CSSM_ALGID_DSA:
 			return CSSM_KEYBLOB_RAW_FORMAT_OPENSSL;
+		case CSSM_ALGID_ECDSA:
+			return CSSM_KEYBLOB_RAW_FORMAT_PKCS8;
 		default:
 			/* punt */
 			return CSSM_KEYBLOB_RAW_FORMAT_NONE;
@@ -181,6 +185,9 @@ void AppleCSPSession::opensslInferKeyHeader(
 			break;
 		case CSSM_ALGID_DSA:
 			hdr.Format = CSSM_KEYBLOB_RAW_FORMAT_OPENSSL;
+			break;
+		case CSSM_ALGID_ECDSA:
+			hdr.Format = CSSM_KEYBLOB_RAW_FORMAT_PKCS8;
 			break;
 		default:
 			/* punt */

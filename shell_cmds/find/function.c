@@ -41,7 +41,7 @@ static const char sccsid[] = "@(#)function.c	8.10 (Berkeley) 5/4/95";
 #endif /* not lint */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/find/function.c,v 1.58 2006/05/27 18:27:41 krion Exp $");
+__FBSDID("$FreeBSD: src/usr.bin/find/function.c,v 1.60 2008/02/24 00:01:06 imp Exp $");
 
 #include <sys/param.h>
 #include <sys/ucred.h>
@@ -71,6 +71,7 @@ __FBSDID("$FreeBSD: src/usr.bin/find/function.c,v 1.58 2006/05/27 18:27:41 krion
 
 #ifdef __APPLE__
 #include <sys/sysctl.h>
+#include <libgen.h>
 #include <get_compat.h>
 #else
 #define COMPAT_MODE(func, mode) 1
@@ -320,10 +321,10 @@ f_Xtime(PLAN *plan, FTSENT *entry)
 	else
 		xtime = entry->fts_statp->st_mtime;
 
-	if (COMPAT_MODE("bin/find", "unix2003") || plan->flags & F_EXACTTIME)
-		COMPARE((now - xtime) / 86400, plan->t_data);
+	if (plan->flags & F_EXACTTIME)
+		COMPARE(now - xtime, plan->t_data);
 	else
-		COMPARE((now - xtime + 86400 - 1) / 86400, plan->t_data);
+		COMPARE((now - xtime + (COMPAT_MODE("bin/find", "unix2003") ? 0 : 86400 - 1)) / 86400, plan->t_data);
 }
 
 PLAN *
@@ -337,7 +338,7 @@ c_Xtime(OPTION *option, char ***argvp)
 
 	new = palloc(option);
 	new->t_data = find_parsetime(new, option->name, value);
-	if (!(new->flags & F_EXACTTIME))
+	if (!(new->flags & F_EXACTTIME) && !COMPAT_MODE("bin/find", "unix2003"))
 		TIME_CORRECT(new);
 	return new;
 }
@@ -483,7 +484,7 @@ c_delete(OPTION *option, char ***argvp __unused)
 /*
  * always_true --
  *
- *	Always true, used for -maxdepth, -mindepth, -xdev and -follow
+ *	Always true, used for -maxdepth, -mindepth, -xdev, -follow, and -true
  */
 int
 f_always_true(PLAN *plan __unused, FTSENT *entry __unused)
@@ -981,7 +982,7 @@ c_group(OPTION *option, char ***argvp)
 	g = getgrnam(gname);
 	if (g == NULL) {
 		char* cp = gname;
-		if( gname[0] == '-' || gname[0] == '+' )
+		if (gname[0] == '-' || gname[0] == '+')
 			gname++;
 		gid = atoi(gname);
 		if (gid == 0 && gname[0] != '0')
@@ -1016,6 +1017,30 @@ c_inum(OPTION *option, char ***argvp)
 
 	new = palloc(option);
 	new->i_data = find_parsenum(new, option->name, inum_str, NULL);
+	return new;
+}
+
+/*
+ * -samefile FN
+ *
+ *	True if the file has the same inode (eg hard link) FN
+ */
+
+/* f_samefile is just f_inum */
+PLAN *
+c_samefile(OPTION *option, char ***argvp)
+{
+	char *fn;
+	PLAN *new;
+	struct stat sb;
+
+	fn = nextarg(option, argvp);
+	ftsoptions &= ~FTS_NOSTAT;
+
+	new = palloc(option);
+	if (stat(fn, &sb))
+		err(1, "%s", fn);
+	new->i_data = sb.st_ino;
 	return new;
 }
 
@@ -1074,7 +1099,18 @@ c_ls(OPTION *option, char ***argvp __unused)
 int
 f_name(PLAN *plan, FTSENT *entry)
 {
-	return !fnmatch(plan->c_data, entry->fts_name,
+	char fn[PATH_MAX];
+	const char *name;
+
+	if (plan->flags & F_LINK) {
+		name = fn;
+		if (readlink(entry->fts_path, fn, sizeof(fn)) == -1)
+			return 0;
+	} else if (entry->fts_namelen == 0) {
+		name = basename(entry->fts_path);
+	} else
+		name = entry->fts_name;
+	return !fnmatch(plan->c_data, name,
 	    plan->flags & F_IGNCASE ? FNM_CASEFOLD : 0);
 }
 
@@ -1367,7 +1403,7 @@ c_regex(OPTION *option, char ***argvp)
 	return new;
 }
 
-/* c_simple covers c_prune, c_openparen, c_closeparen, c_not, c_or */
+/* c_simple covers c_prune, c_openparen, c_closeparen, c_not, c_or, c_true, c_false */
 
 PLAN *
 c_simple(OPTION *option, char ***argvp __unused)
@@ -1649,3 +1685,29 @@ f_or(PLAN *plan, FTSENT *entry)
 }
 
 /* c_or == c_simple */
+
+/*
+ * -false
+ *
+ *	Always false.
+ */
+int
+f_false(PLAN *plan __unused, FTSENT *entry __unused)
+{
+	return 0;
+}
+
+/* c_false == c_simple */
+
+/*
+ * -quit
+ *
+ *	Exits the program
+ */
+int
+f_quit(PLAN *plan __unused, FTSENT *entry __unused)
+{
+	exit(0);
+}
+
+/* c_quit == c_simple */

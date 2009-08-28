@@ -125,7 +125,7 @@ float timeStampFromLogLine(NSString * line);
     return [[_outputLogLines objectAtIndex:rowIndex] text];
 }
 
-- (void)itemDoubleClicked:(id)sender {
+- (void)itemDoubleClicked:(NSTableView *)sender {
     NSString *lineText = [[sender dataSource] tableView:sender objectValueForTableColumn:[[sender tableColumns] objectAtIndex:0] row:[sender selectedRow]];
     NSString *clickedLogString = [lineText stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]]; // strip the trailing newlines and spaces
     float clickedTimeStamp = timeStampFromLogLine( clickedLogString );

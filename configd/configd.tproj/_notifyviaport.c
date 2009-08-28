@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003, 2004, 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003, 2004, 2006, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,7 +38,7 @@ __private_extern__
 int
 __SCDynamicStoreNotifyMachPort(SCDynamicStoreRef	store,
 			       mach_msg_id_t		identifier,
-			       mach_port_t		*port)
+			       mach_port_t		port)
 {
 	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
 	CFStringRef			sessionKey;
@@ -53,7 +53,7 @@ __SCDynamicStoreNotifyMachPort(SCDynamicStoreRef	store,
 		return kSCStatusNotifierActive;
 	}
 
-	if (*port == MACH_PORT_NULL) {
+	if (port == MACH_PORT_NULL) {
 		/* sorry, you must specify a valid mach port */
 		return kSCStatusInvalidArgument;
 	}
@@ -87,27 +87,34 @@ _notifyviaport(mach_port_t	server,
 	       int		*sc_status
 )
 {
-	serverSessionRef		mySession = getSession(server);
-	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)mySession->store;
+	serverSessionRef		mySession	= getSession(server);
+	SCDynamicStorePrivateRef	storePrivate;
 
 	if (mySession == NULL) {
-		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
+		/* sorry, you must have an open session to play */
+		*sc_status = kSCStatusNoStoreSession;
+		if (port != MACH_PORT_NULL) {
+			(void) mach_port_deallocate(mach_task_self(), port);
+		}
+		return KERN_SUCCESS;
+	}
+	storePrivate = (SCDynamicStorePrivateRef)mySession->store;
+
+	*sc_status = __SCDynamicStoreNotifyMachPort(mySession->store, identifier, port);
+	if (*sc_status != kSCStatusOK) {
+		// if we can't enable the notification, release the provided callback port
+		if (port != MACH_PORT_NULL) {
+			__MACH_PORT_DEBUG(TRUE, "*** _notifyviaport __SCDynamicStoreNotifyMachPort failed: releasing port", port);
+			(void) mach_port_deallocate(mach_task_self(), port);
+		}
 		return KERN_SUCCESS;
 	}
 
-	if (storePrivate->notifyPort != MACH_PORT_NULL) {
-		// destroying [old] callback mach port
-		(void) mach_port_destroy(mach_task_self(), storePrivate->notifyPort);
-	}
-
-	*sc_status = __SCDynamicStoreNotifyMachPort(mySession->store, identifier, &port);
-
-	if (*sc_status == kSCStatusOK) {
-		/* save notification port, requested identifier, and set notifier active */
-		storePrivate->notifyStatus         = Using_NotifierInformViaMachPort;
-		storePrivate->notifyPort           = port;
-		storePrivate->notifyPortIdentifier = identifier;
-	}
+	/* save notification port, requested identifier, and set notifier active */
+	__MACH_PORT_DEBUG(TRUE, "*** _notifyviaport", port);
+	storePrivate->notifyStatus         = Using_NotifierInformViaMachPort;
+	storePrivate->notifyPort           = port;
+	storePrivate->notifyPortIdentifier = identifier;
 
 	return KERN_SUCCESS;
 }

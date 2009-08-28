@@ -1,0 +1,11 @@
+#!/bin/sh
+
+cd `dirname $0`/../htdocs
+
+out=$HOME/logs/crontab
+mkdir -p `dirname $out`
+
+../tools/htdocs_get_sf_stats >> $out 2>&1
+../tools/htdocs_regen        >> $out 2>&1
+
+exit

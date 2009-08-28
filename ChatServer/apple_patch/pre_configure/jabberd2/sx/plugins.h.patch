@@ -1,0 +1,20 @@
+--- /tmp/jabberd-2.1.24.1/sx/plugins.h	2008-04-27 02:57:25.000000000 -0700
++++ ./jabberd2/sx/plugins.h	2008-12-03 17:37:32.000000000 -0800
+@@ -61,7 +61,7 @@ extern "C" {
+ JABBERD2_API int                         sx_ssl_init(sx_env_t env, sx_plugin_t p, va_list args);
+ 
+ /** trigger for client starttls */
+-JABBERD2_API int                         sx_ssl_client_starttls(sx_plugin_t p, sx_t s, char *pemfile);
++JABBERD2_API int                         sx_ssl_client_starttls(sx_plugin_t p, sx_t s, char *pemfile, char *private_key_password);
+ 
+ /* previous states */
+ #define SX_SSL_STATE_NONE       (0)
+@@ -83,6 +83,8 @@ typedef struct _sx_ssl_conn_st {
+     int         last_state;
+ 
+     char        *pemfile;
++
++    char        *private_key_password;
+ } *_sx_ssl_conn_t;
+ 
+ #endif /* HAVE_SSL */

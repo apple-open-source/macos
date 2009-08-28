@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler.  ARM on semi-hosted platform
-   Copyright (C) 1994, 1995, 1996, 1997, 2001, 2004
+   Copyright (C) 1994, 1995, 1996, 1997, 2001, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Richard Earnshaw (richard.earnshaw@arm.com)
 
@@ -17,8 +17,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 #define STARTFILE_SPEC  "crt0.o%s"
 
@@ -43,7 +43,7 @@
 #endif
 
 #ifndef TARGET_DEFAULT
-#define TARGET_DEFAULT (ARM_FLAG_APCS_FRAME)
+#define TARGET_DEFAULT (MASK_APCS_FRAME)
 #endif
 
 #ifndef SUBTARGET_EXTRA_SPECS
@@ -69,7 +69,7 @@
 %{mcpu=*:-mcpu=%*} \
 %{march=*:-march=%*} \
 %{mapcs-float:-mfloat} \
-%{msoft-float:-mfloat-abi=soft} %{mhard-float:mfloat-abi=hard} \
+%{msoft-float:-mfloat-abi=soft} %{mhard-float:-mfloat-abi=hard} \
 %{mfloat-abi=*} %{mfpu=*} \
 %{mthumb-interwork:-mthumb-interwork} \
 %(subtarget_extra_asm_spec)"

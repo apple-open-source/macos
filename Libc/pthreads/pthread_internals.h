@@ -65,6 +65,7 @@ typedef struct _pthread_attr_t pthread_attr_t;
 #include <errno.h>
 #include <mach/mach.h>
 #include <mach/mach_error.h>
+#include <libkern/OSAtomic.h>
 
 
 #ifndef __POSIX_LIB__
@@ -90,13 +91,14 @@ extern  size_t pthreadsize;
 /*
  * Threads
  */
+#define MAXTHREADNAMESIZE	64
 #define _PTHREAD_T
 typedef struct _pthread
 {
 	long	       sig;	      /* Unique signature for this structure */
 	struct __darwin_pthread_handler_rec *__cleanup_stack;
 	pthread_lock_t lock;	      /* Used for internal mutex on structure */
-	u_int32_t	detached:8,
+	uint32_t	detached:8,
 			inherit:8,
 			policy:8,
 			freeStackOnExit:1,
@@ -104,7 +106,8 @@ typedef struct _pthread
 			kernalloc:1,
 			schedset:1,
 			wqthread:1,
-			pad:3;
+			wqkillset:1,
+			pad:2;
 	size_t	       guardsize;	/* size in bytes to guard stack overflow */
 #if  !defined(__LP64__)
 	int	       pad0;		/* for backwards compatibility */
@@ -131,7 +134,7 @@ typedef struct _pthread
 #endif
 	void           *cthread_self;  /* cthread_self() if somebody calls cthread_set_self() */
 	/* protected by list lock */
-	u_int32_t 	childrun:1,
+	uint32_t 	childrun:1,
 			parentcheck:1,
 			childexit:1,
 			pad3:29;
@@ -142,10 +145,11 @@ typedef struct _pthread
 	void *	freeaddr;
 	size_t	freesize;
 	mach_port_t	joiner_notify;
-	char	pthread_name[64];		/* including nulll the name */
+	char	pthread_name[MAXTHREADNAMESIZE];		/* including nulll the name */
         int	max_tsd_key;
 	void *	cur_workq;
 	void * cur_workitem;
+	uint64_t thread_id;
 } *pthread_t;
 
 /*
@@ -161,7 +165,7 @@ struct _pthread_attr_t
 {
 	long	       sig;	      /* Unique signature for this structure */
 	pthread_lock_t lock;
-	u_int32_t	detached:8,
+	uint32_t	detached:8,
 			inherit:8,
 			policy:8,
 			freeStackOnExit:1,
@@ -179,40 +183,91 @@ struct _pthread_attr_t
 /*
  * Mutex attributes
  */
+#define _PTHREAD_MUTEX_POLICY_NONE		0
+#define _PTHREAD_MUTEX_POLICY_FAIRSHARE		1
+#define _PTHREAD_MUTEX_POLICY_FIRSTFIT		2
+#define _PTHREAD_MUTEX_POLICY_REALTIME		3
+#define _PTHREAD_MUTEX_POLICY_ADAPTIVE		4
+#define _PTHREAD_MUTEX_POLICY_PRIPROTECT	5
+#define _PTHREAD_MUTEX_POLICY_PRIINHERIT	6
+
 #define _PTHREAD_MUTEXATTR_T
 typedef struct 
 {
 	long sig;		     /* Unique signature for this structure */
 	int prioceiling;
-	u_int32_t protocol:2,		/* protocol attribute */
+	uint32_t protocol:2,		/* protocol attribute */
 		type:2,			/* mutex type */
 		pshared:2,
-		rfu:26;
+		policy:3,
+		rfu:23;
 } pthread_mutexattr_t;
 
 /*
  * Mutex variables
  */
+struct _pthread_mutex_options {
+	uint32_t  protocol:2,		/* protocol */
+		type:2,			/* mutex type */
+		pshared:2,			/* mutex type */
+		policy:3,
+		hold:2,
+		misalign:1,		/* 8 byte aligned? */
+		rfu:4,
+		lock_count:16;
+};
+
+
+#define _PTHREAD_MTX_OPT_PSHARED 0x010
+#define _PTHREAD_MTX_OPT_HOLD 0x200
+#define _PTHREAD_MTX_OPT_NOHOLD 0x400
+#define _PTHREAD_MTX_OPT_LASTDROP (_PTHREAD_MTX_OPT_NOHOLD | _PTHREAD_MTX_OPT_HOLD)
+
+
 #define _PTHREAD_MUTEX_T
 typedef struct _pthread_mutex
 {
 	long	       sig;	      /* Unique signature for this structure */
 	pthread_lock_t lock;	      /* Used for internal mutex on structure */
-	u_int32_t      waiters;       /* Count of threads waiting for this mutex */
-#define _pthread_mutex_kernid waiters
-	pthread_t      owner;	      /* Which thread has this mutex locked */
-	semaphore_t    sem;	      /* Semaphore used for waiting */
-	u_int32_t	 protocol:2,		/* protocol */
-		type:2,			/* mutex type */
-		pshared:2,			/* mutex type */
-		rfu:10,
-		lock_count:16;
-	struct _pthread_mutex *next, *prev;  /* List of other mutexes he owns */
-	struct _pthread_cond *busy;   /* List of condition variables using this mutex */
+	union {
+		uint32_t value;
+		struct _pthread_mutex_options options;
+	} mtxopts;
 	int16_t       prioceiling;
 	int16_t	       priority;      /* Priority to restore when mutex unlocked */
+	uint32_t      waiters;       /* Count of threads waiting for this mutex */
+	pthread_t      owner;	      /* Which thread has this mutex locked */
+	struct _pthread_mutex *next, *prev;  /* List of other mutexes he owns */
+	struct _pthread_cond *busy;   /* List of condition variables using this mutex */
+	semaphore_t    sem;	      /* Semaphore used for waiting */
 	semaphore_t	order;
 } pthread_mutex_t;
+
+
+typedef struct _npthread_mutex
+{
+/* keep same as pthread_mutex_t from here to .. */
+	long	       sig;	      /* Unique signature for this structure */
+	pthread_lock_t lock;	      /* Used for static init sequencing */
+	union {
+		uint32_t value;
+		struct _pthread_mutex_options options;
+	} mtxopts;
+	int16_t       prioceiling;
+	int16_t	       priority;      /* Priority to restore when mutex unlocked */
+	uint32_t	m_seq[3];
+#if  defined(__LP64__)
+	uint64_t      m_tid;	      /* Which thread has this mutex locked */
+	uint32_t  *	m_lseqaddr;
+	uint32_t  *	m_useqaddr;
+	uint32_t 	reserved[2];
+#else
+	uint32_t  *	m_lseqaddr;
+	uint64_t      m_tid;	      /* Which thread has this mutex locked */
+	uint32_t  *	m_useqaddr;
+#endif
+} npthread_mutex_t;
+
 
 
 
@@ -223,7 +278,7 @@ typedef struct _pthread_mutex
 typedef struct 
 {
 	long	       sig;	     /* Unique signature for this structure */
-	u_int32_t	 pshared:2,		/* pshared */
+	uint32_t	 pshared:2,		/* pshared */
 		unsupported:30;
 } pthread_condattr_t;
 
@@ -235,14 +290,28 @@ typedef struct _pthread_cond
 {
 	long	       sig;	     /* Unique signature for this structure */
 	pthread_lock_t lock;	     /* Used for internal mutex on structure */
-	semaphore_t    sem;	     /* Kernel semaphore */
-#define _pthread_cond_kernid sem
-	struct _pthread_cond *next, *prev;  /* List of condition variables using mutex */
-	struct _pthread_mutex *busy; /* mutex associated with variable */
-	u_int32_t	waiters:15,	/* Number of threads waiting */
+	uint32_t	waiters:15,	/* Number of threads waiting */
 		   sigspending:15,	/* Number of outstanding signals */
 			pshared:2;
+	struct _pthread_cond *next, *prev;  /* List of condition variables using mutex */
+	struct _pthread_mutex *busy; /* mutex associated with variable */
+	semaphore_t    sem;	     /* Kernel semaphore */
 } pthread_cond_t;
+
+
+typedef struct _npthread_cond
+{
+	long	       sig;	     /* Unique signature for this structure */
+	pthread_lock_t lock;	     /* Used for internal mutex on structure */
+	uint32_t	rfu:29,		/* not in use*/
+			misalign: 1,	/* structure is not aligned to 8 byte boundary */
+			pshared:2;
+	struct _npthread_mutex *busy; /* mutex associated with variable */
+	uint32_t 	c_seq[3];
+#if defined(__LP64__)
+	uint32_t	reserved[3];
+#endif /* __LP64__ */
+} npthread_cond_t;
 
 /*
  * Initialization control (once) variables
@@ -266,32 +335,106 @@ typedef struct {
 	long 		sig;
 	pthread_mutex_t lock;   /* monitor lock */
 	int             state;
-#define _pthread_rwlock_kernid state
 	pthread_cond_t  read_signal;
 	pthread_cond_t  write_signal;
 	int             blocked_writers;
-	int             pshared;
-	pthread_t		owner;
-	int	rfu[2];
+	int 		reserved;
+	pthread_t	owner;
+	int	rfu[1];
+	int 		pshared;
 } pthread_rwlock_t;
+
+#define _PTHREAD_RWLOCK_T
+typedef struct {
+	long 		sig;
+	pthread_lock_t lock;
+#if defined(__LP64__)
+	int 		reserv;
+	volatile uint32_t	rw_seq[4];
+	pthread_t	rw_owner;
+#else /* __LP64__ */
+	volatile uint32_t	rw_seq[4];
+	pthread_t	rw_owner;
+	int 		reserv;
+#endif /* __LP64__ */
+	volatile uint32_t *	rw_lseqaddr;
+	volatile uint32_t *	rw_wcaddr;
+	volatile uint32_t *	rw_useqaddr;
+	uint32_t        rw_flags;
+	int		misalign;
+#if defined(__LP64__)
+	uint32_t	rfu[31];
+#else /* __LP64__ */
+	uint32_t	rfu[18];
+#endif /* __LP64__ */
+	int 		pshared;
+} npthread_rwlock_t;
+
+/* flags for rw_flags */
+#define PTHRW_KERN_PROCESS_SHARED	0x10
+#define PTHRW_KERN_PROCESS_PRIVATE	0x20
+#define PTHRW_KERN_PROCESS_FLAGS_MASK	0x30
+
+#define PTHRW_EBIT      0x01
+#define PTHRW_LBIT      0x02
+#define PTHRW_YBIT      0x04
+#define PTHRW_WBIT      0x08
+#define PTHRW_UBIT      0x10
+#define PTHRW_RETRYBIT      0x20
+#define PTHRW_SHADOW_W      0x20	/* same as 0x20, shadow W bit for rwlock */
+
+#define PTHRW_TRYLKBIT      0x40
+#define PTHRW_RW_HUNLOCK      0x40	/* readers responsible for handling unlock */
+
+#define PTHRW_MTX_NONE      0x80
+#define PTHRW_RW_INIT       0x80    /* reset on the lock bits */
+#define PTHRW_RW_SPURIOUS     0x80	/* same as 0x80, spurious rwlock  unlock ret from kernel */
+
+#define PTHRW_INC	0x100
+#define PTHRW_BIT_MASK	0x000000ff
+#define PTHRW_UN_BIT_MASK 0x000000df	/* remove shadow bit */
+
+#define PTHRW_COUNT_SHIFT	8 
+#define PTHRW_COUNT_MASK 	0xffffff00
+#define PTHRW_MAX_READERS 	0xffffff00
+
+
+#define PTHREAD_MTX_TID_SWITCHING (uint64_t)-1
+
+#define is_rw_ewubit_set(x) (((x) & (PTHRW_EBIT | PTHRW_WBIT | PTHRW_UBIT)) != 0)
+#define is_rw_lbit_set(x) (((x) & PTHRW_LBIT) != 0)
+#define is_rw_lybit_set(x) (((x) & (PTHRW_LBIT | PTHRW_YBIT)) != 0)
+#define is_rw_ebit_set(x) (((x) & PTHRW_EBIT) != 0)
+#define is_rw_ebit_clear(x) (((x) & PTHRW_EBIT) == 0)
+#define is_rw_uebit_set(x) (((x) & (PTHRW_EBIT | PTHRW_UBIT)) != 0)
+#define is_rw_ewuybit_set(x) (((x) & (PTHRW_EBIT | PTHRW_WBIT | PTHRW_UBIT | PTHRW_YBIT)) != 0)
+#define is_rw_ewuybit_clear(x) (((x) & (PTHRW_EBIT | PTHRW_WBIT | PTHRW_UBIT | PTHRW_YBIT)) == 0)
+#define is_rw_ewubit_set(x) (((x) & (PTHRW_EBIT | PTHRW_WBIT | PTHRW_UBIT)) != 0)
+#define is_rw_ewubit_clear(x) (((x) & (PTHRW_EBIT | PTHRW_WBIT | PTHRW_UBIT)) == 0)
+
+/* is x lower than Y */
+#define is_seqlower(x, y) ((x  < y) || ((x - y) > (PTHRW_MAX_READERS/2)))
+/* is x lower than or eq Y */
+#define is_seqlower_eq(x, y) ((x  <= y) || ((x - y) > (PTHRW_MAX_READERS/2)))
+
+/* is x greater than Y */
+#define is_seqhigher(x, y) ((x  > y) || ((y - x) > (PTHRW_MAX_READERS/2)))
+
+static inline  int diff_genseq(uint32_t x, uint32_t y) {
+        if (x > y)  {
+                return(x-y);
+        } else {
+                return((PTHRW_MAX_READERS - y) + x +1);
+        }
+}
 
 /* keep the size to 64bytes  for both 64 and 32 */
 #define _PTHREAD_WORKQUEUE_ATTR_T
 typedef struct {
-	u_int32_t sig;
-#if defined(__ppc64__) || defined(__x86_64__)
-	u_int32_t resv1;
-#endif
-	size_t	stacksize;
-	int	istimeshare;
-	int	importance;
-	int	affinity;
-	int 	queueprio;
-#if defined(__ppc64__) || defined(__x86_64__)
-	unsigned int resv2[8];
-#else
-	unsigned int resv2[10];
-#endif
+	uint32_t sig;
+	int queueprio;
+	int overcommit;
+	unsigned int resv2[13];
 } pthread_workqueue_attr_t;
 
 #define _PTHREAD_WORKITEM_T
@@ -301,6 +444,7 @@ typedef struct _pthread_workitem {
 	void	* func_arg;
 	struct _pthread_workqueue *  workq;	
 	unsigned int	flags;
+	unsigned int	gencount;
 }  * pthread_workitem_t;
 
 #define PTH_WQITEM_INKERNEL_QUEUE 	1
@@ -317,8 +461,7 @@ typedef struct _pthread_workitem {
 TAILQ_HEAD(__pthread_workitem_pool, _pthread_workitem);
 extern struct __pthread_workitem_pool __pthread_workitem_pool_head;        /* head list of workitem pool  */
 
-#define WQ_NUM_PRIO_QS	5	/* -2 to +2 */
-#define WORK_QUEUE_NORMALIZER 2	/* so all internal usages  are from 0 to 4 */
+#define WQ_NUM_PRIO_QS	3	/* WORKQ_HIGH/DEFAULT/LOW_PRIOQUEUE */
 
 #define _PTHREAD_WORKQUEUE_HEAD_T
 typedef struct  _pthread_workqueue_head {
@@ -345,7 +488,7 @@ typedef struct  _pthread_workqueue {
 	void		(*term_callback)(struct _pthread_workqueue *,void *);
 	void  * term_callarg;
 	pthread_workqueue_head_t headp;
-	int		suspend_count;
+	int		overcommit;
 #if defined(__ppc64__) || defined(__x86_64__)
 	unsigned int	rev2[2];
 #else
@@ -367,7 +510,7 @@ extern struct __pthread_workqueue_pool __pthread_workqueue_pool_head;        /* 
 
 #include "pthread.h"
 
-#if defined(__i386__) || defined(__ppc64__) || defined(__x86_64__) || defined(__arm__)
+#if defined(__i386__) || defined(__ppc64__) || defined(__x86_64__) || (defined(__arm__) && (defined(_ARM_ARCH_7) || !defined(_ARM_ARCH_6) || !defined(__thumb__)))
 /*
  * Inside libSystem, we can use r13 or %gs directly to get access to the
  * thread-specific data area. The current thread is in the first slot.
@@ -381,7 +524,9 @@ _pthread_self_direct(void)
 #elif defined(__ppc64__)
 	register const pthread_t __pthread_self asm ("r13");
 	ret = __pthread_self;
-#elif defined(__arm__)
+#elif defined(__arm__) && defined(_ARM_ARCH_6)
+	__asm__ ("mrc p15, 0, %0, c13, c0, 3" : "=r"(ret));
+#elif defined(__arm__) && !defined(_ARM_ARCH_6)
 	register const pthread_t __pthread_self asm ("r9");
 	ret = __pthread_self;
 #endif
@@ -449,9 +594,31 @@ extern void _pthread_setup(pthread_t th, void (*f)(pthread_t), void *sp, int sus
 
 extern void _pthread_tsd_cleanup(pthread_t self);
 
+#if  defined(__i386__) || defined(__x86_64__)
+__private_extern__ void __mtx_holdlock(npthread_mutex_t *mutex, uint32_t diff, uint32_t * flagp, uint32_t ** pmtxp, uint32_t * mgenp, uint32_t * ugenp);
+__private_extern__ int __mtx_droplock(npthread_mutex_t *mutex, int count, uint32_t * flagp, uint32_t ** pmtxp, uint32_t * mgenp, uint32_t * ugenp, uint32_t * notifyp);
+__private_extern__ int __mtx_updatebits(npthread_mutex_t *mutex, uint32_t updateval, int firstfiti, int fromcond);
+
+/* syscall interfaces */
+extern uint32_t __psynch_mutexwait(pthread_mutex_t * mutex,  uint32_t mgen, uint32_t  ugen, uint64_t tid, uint32_t flags);
+extern uint32_t __psynch_mutexdrop(pthread_mutex_t * mutex,  uint32_t mgen, uint32_t  ugen, uint64_t tid, uint32_t flags);
+extern int __psynch_cvbroad(pthread_cond_t * cv, uint32_t cvgen, uint32_t diffgen, pthread_mutex_t * mutex,  uint32_t mgen, uint32_t ugen, uint64_t tid, uint32_t flags);
+extern int __psynch_cvsignal(pthread_cond_t * cv, uint32_t cvgen, uint32_t cvugen, pthread_mutex_t * mutex,  uint32_t mgen, uint32_t ugen, int thread_port, uint32_t flags);
+extern uint32_t __psynch_cvwait(pthread_cond_t * cv, uint32_t cvgen, uint32_t cvugen, pthread_mutex_t * mutex,  uint32_t mgen, uint32_t ugen, uint64_t sec, uint64_t usec);
+extern uint32_t __psynch_rw_longrdlock(pthread_rwlock_t * rwlock, uint32_t lgenval, uint32_t ugenval, uint32_t rw_wc, int flags);
+extern uint32_t __psynch_rw_yieldwrlock(pthread_rwlock_t * rwlock, uint32_t lgenval, uint32_t ugenval, uint32_t rw_wc, int flags);
+extern int __psynch_rw_downgrade(pthread_rwlock_t * rwlock, uint32_t lgenval, uint32_t ugenval, uint32_t rw_wc, int flags);
+extern uint32_t __psynch_rw_upgrade(pthread_rwlock_t * rwlock, uint32_t lgenval, uint32_t ugenval, uint32_t rw_wc, int flags);
+extern uint32_t __psynch_rw_rdlock(pthread_rwlock_t * rwlock, uint32_t lgenval, uint32_t ugenval, uint32_t rw_wc, int flags);
+extern uint32_t __psynch_rw_wrlock(pthread_rwlock_t * rwlock, uint32_t lgenval, uint32_t ugenval, uint32_t rw_wc, int flags);
+extern uint32_t __psynch_rw_unlock(pthread_rwlock_t * rwlock, uint32_t lgenval, uint32_t ugenval, uint32_t rw_wc, int flags);
+extern uint32_t __psynch_rw_unlock2(pthread_rwlock_t * rwlock, uint32_t lgenval, uint32_t ugenval, uint32_t rw_wc, int flags);
+#endif /* __i386__ || __x86_64__ */
+
 __private_extern__ semaphore_t new_sem_from_pool(void);
 __private_extern__ void restore_sem_to_pool(semaphore_t);
 __private_extern__ void _pthread_atfork_queue_init(void);
 int _pthread_lookup_thread(pthread_t thread, mach_port_t * port, int only_joinable);
 int _pthread_join_cleanup(pthread_t thread, void ** value_ptr, int conforming);
+
 #endif /* _POSIX_PTHREAD_INTERNALS_H */

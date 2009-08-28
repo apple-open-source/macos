@@ -1,5 +1,0 @@
-# Created and modified by checkpoint; do not edit
-# $Id: CVSVersionInfo.txt,v 1.152 2004/11/02 00:22:54 davep Exp $
-# $Name:  $
-ProjectName: pb_makefiles
-ProjectVersion: 126

@@ -1,7 +1,7 @@
 /*
  * rlm_eap_ttls.c  contains the interfaces that are called from eap
  *
- * Version:     $Id: rlm_eap_ttls.c,v 1.5.4.3 2007/07/13 09:37:52 aland Exp $
+ * Version:     $Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,12 +15,16 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
  * Copyright 2003 Alan DeKok <aland@freeradius.org>
+ * Copyright 2006 The FreeRADIUS server project
  */
 
-#include "autoconf.h"
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
+
+#include <freeradius-devel/autoconf.h>
 #include "eap_ttls.h"
 
 
@@ -42,6 +46,11 @@ typedef struct rlm_eap_ttls_t {
 	 *	tunneled session in the tunneled request
 	 */
 	int	copy_request_to_tunnel;
+
+	/*
+	 *	Virtual server for inner tunnel session.
+	 */
+	char	*virtual_server;
 } rlm_eap_ttls_t;
 
 
@@ -55,6 +64,9 @@ static CONF_PARSER module_config[] = {
 	{ "use_tunneled_reply", PW_TYPE_BOOLEAN,
 	  offsetof(rlm_eap_ttls_t, use_tunneled_reply), NULL, "no" },
 
+	{ "virtual_server", PW_TYPE_STRING_PTR,
+	  offsetof(rlm_eap_ttls_t, virtual_server), NULL, NULL },
+
  	{ NULL, -1, 0, NULL, NULL }           /* end the list */
 };
 
@@ -65,7 +77,6 @@ static int eapttls_detach(void *arg)
 {
 	rlm_eap_ttls_t *inst = (rlm_eap_ttls_t *) arg;
 
-	if (inst->default_eap_type_name) free(inst->default_eap_type_name);
 
 	free(inst);
 
@@ -106,21 +117,6 @@ static int eapttls_attach(CONF_SECTION *cs, void **instance)
 		return -1;
 	}
 
-	/*
-	 *	Can't tunnel TLS inside of TLS, we don't like it.
-	 *
-	 *	More realistically, we haven't tested it, so we don't
-	 *	claim it works.
-	 */
-	if ((inst->default_eap_type == PW_EAP_TLS) ||
-	    (inst->default_eap_type == PW_EAP_TTLS) ||
-	    (inst->default_eap_type == PW_EAP_PEAP)) {
-		radlog(L_ERR, "rlm_eap_ttls: Cannot tunnel EAP-Type/%s inside of TTLS",
-		       inst->default_eap_type_name);
-		eapttls_detach(inst);
-		return -1;
-	}
-
 	*instance = inst;
 	return 0;
 }
@@ -136,8 +132,8 @@ static void ttls_free(void *p)
 	if (!t) return;
 
 	if (t->username) {
-		DEBUG2("  TTLS: Freeing handler for user %s",
-		       t->username->strvalue);
+		DEBUG2("rlm_eap_ttls: Freeing handler for user %s",
+		       t->username->vp_strvalue);
 	}
 
 	pairfree(&t->username);
@@ -160,6 +156,7 @@ static ttls_tunnel_t *ttls_alloc(rlm_eap_ttls_t *inst)
 	t->default_eap_type = inst->default_eap_type;
 	t->copy_request_to_tunnel = inst->copy_request_to_tunnel;
 	t->use_tunneled_reply = inst->use_tunneled_reply;
+	t->virtual_server = inst->virtual_server;
 	return t;
 }
 
@@ -174,14 +171,15 @@ static int eapttls_authenticate(void *arg, EAP_HANDLER *handler)
 	rlm_eap_ttls_t *inst = (rlm_eap_ttls_t *) arg;
 	tls_session_t *tls_session = (tls_session_t *) handler->opaque;
 	ttls_tunnel_t *t = (ttls_tunnel_t *) tls_session->opaque;
+	REQUEST *request = handler->request;
 
-	DEBUG2("  rlm_eap_ttls: Authenticate");
+	RDEBUG2("Authenticate");
 
 	/*
 	 *	Process TLS layer until done.
 	 */
 	status = eaptls_process(handler);
-	DEBUG2("  eaptls_process returned %d\n", status);
+	RDEBUG2("eaptls_process returned %d\n", status);
 	switch (status) {
 		/*
 		 *	EAP-TLS handshake was successful, tell the
@@ -191,16 +189,22 @@ static int eapttls_authenticate(void *arg, EAP_HANDLER *handler)
 		 *	an EAP-TLS-Success packet here.
 		 */
 	case EAPTLS_SUCCESS:
-		if (t->authenticated) {
+		if (SSL_session_reused(tls_session->ssl)) {
+			RDEBUG("Skipping Phase2 due to session resumption");
+			goto do_keys;
+		}
+
+		if (t && t->authenticated) {
 			if (t->reply) {
 				pairmove(&handler->request->reply->vps,
 					 &t->reply);
 				pairfree(&t->reply);
 			}
-			eaptls_success(handler->eap_ds, 0);
-			eaptls_gen_mppe_keys(&handler->request->reply->vps,
-					     tls_session->ssl,
-					     "ttls keying material");
+		do_keys:
+			/*
+			 *	Success: Automatically return MPPE keys.
+			 */
+			return eaptls_success(handler, 0);
 		} else {
 			eaptls_request(handler->eap_ds, tls_session);
 		}
@@ -232,7 +236,7 @@ static int eapttls_authenticate(void *arg, EAP_HANDLER *handler)
 	 *	Session is established, proceed with decoding
 	 *	tunneled data.
 	 */
-	DEBUG2("  rlm_eap_ttls: Session established.  Proceeding to decode tunneled attributes.");
+	RDEBUG2("Session established.  Proceeding to decode tunneled attributes.");
 
 	/*
 	 *	We may need TTLS data associated with the session, so
@@ -249,7 +253,7 @@ static int eapttls_authenticate(void *arg, EAP_HANDLER *handler)
 	rcode = eapttls_process(handler, tls_session);
 	switch (rcode) {
 	case PW_AUTHENTICATION_REJECT:
-		eaptls_fail(handler->eap_ds, 0);
+		eaptls_fail(handler, 0);
 		return 0;
 
 		/*
@@ -260,14 +264,10 @@ static int eapttls_authenticate(void *arg, EAP_HANDLER *handler)
 		return 1;
 
 		/*
-		 *	Success: Return MPPE keys.
+		 *	Success: Automatically return MPPE keys.
 		 */
 	case PW_AUTHENTICATION_ACK:
-		eaptls_success(handler->eap_ds, 0);
-		eaptls_gen_mppe_keys(&handler->request->reply->vps,
-				     tls_session->ssl,
-				     "ttls keying material");
-		return 1;
+		return eaptls_success(handler, 0);
 
 		/*
 		 *	No response packet, MUST be proxying it.
@@ -287,7 +287,7 @@ static int eapttls_authenticate(void *arg, EAP_HANDLER *handler)
 	/*
 	 *	Something we don't understand: Reject it.
 	 */
-	eaptls_fail(handler->eap_ds, 0);
+	eaptls_fail(handler, 0);
 	return 0;
 }
 

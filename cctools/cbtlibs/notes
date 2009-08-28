@@ -1,3 +1,20 @@
+Changes for the 5.26 release (the cctools-705 release):
+- Ported libsyminfo.c to run on 64-bit hosts by changing unsigned long to
+  uint32_t. Radar bug #6022298
+
+Changes for the 5.25 release (the cctools-679.2 release):
+- Fixed a bug in nm() that was a memory smasher for the code to deal with
+  struct sub_umbrella_command and struct sub_framework_command.  Also changed
+  the Makefile to use libsyminfo.o.tmp.  Radar bug #5630991.
+
+Changes for the 5.25 release (the cctools-679.1 release):
+- Fixed a bug in nm() the was using the incorrect value when looping to free
+  the process_flags.lib_names[] at the end of the routine.  Radar bug #5630991.
+
+Changes for the 5.25 release (the cctools-677 release):
+- Changed the Makefile to not use -Wno-long-double and -no-cpp-precomp .
+  Radar bug #5563553.
+
 Changes for the 5.24 release (the cctools-653 release):
 - Updated libsyminfo.c to handle the LC_REEXPORT_DYLIB load command.  Radar
   bug #4986624.

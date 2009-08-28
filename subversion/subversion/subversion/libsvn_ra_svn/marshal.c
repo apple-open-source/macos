@@ -2,7 +2,7 @@
  * marshal.c :  Marshalling routines for Subversion protocol
  *
  * ====================================================================
- * Copyright (c) 2000-2004 CollabNet.  All rights reserved.
+ * Copyright (c) 2000-2007 CollabNet.  All rights reserved.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution.  The terms
@@ -26,8 +26,6 @@
 #include <apr_general.h>
 #include <apr_lib.h>
 #include <apr_strings.h>
-#include <apr_network_io.h>
-#include <apr_poll.h>
 
 #include "svn_types.h"
 #include "svn_string.h"
@@ -50,9 +48,11 @@ svn_ra_svn_conn_t *svn_ra_svn_create_conn(apr_socket_t *sock,
   svn_ra_svn_conn_t *conn = apr_palloc(pool, sizeof(*conn));
 
   assert((sock && !in_file && !out_file) || (!sock && in_file && out_file));
+#ifdef SVN_HAVE_SASL
   conn->sock = sock;
-  conn->in_file = in_file;
-  conn->out_file = out_file;
+  conn->encrypted = FALSE;
+#endif
+  conn->session = NULL;
   conn->read_ptr = conn->read_buf;
   conn->read_end = conn->read_buf;
   conn->write_pos = 0;
@@ -60,6 +60,21 @@ svn_ra_svn_conn_t *svn_ra_svn_create_conn(apr_socket_t *sock,
   conn->block_baton = NULL;
   conn->capabilities = apr_hash_make(pool);
   conn->pool = pool;
+
+  if (sock != NULL)
+    {
+      apr_sockaddr_t *sa;
+      conn->stream = svn_ra_svn__stream_from_sock(sock, pool);
+      if (!(apr_socket_addr_get(&sa, APR_REMOTE, sock) == APR_SUCCESS
+            && apr_sockaddr_ip_get(&conn->remote_ip, sa) == APR_SUCCESS))
+        conn->remote_ip = NULL;
+    }
+  else
+    {
+      conn->stream = svn_ra_svn__stream_from_files(in_file, out_file, pool);
+      conn->remote_ip = NULL;
+    }
+
   return conn;
 }
 
@@ -89,6 +104,11 @@ svn_boolean_t svn_ra_svn_has_capability(svn_ra_svn_conn_t *conn,
                        APR_HASH_KEY_STRING) != NULL);
 }
 
+const char *svn_ra_svn_conn_remote_host(svn_ra_svn_conn_t *conn)
+{
+  return conn->remote_ip;
+}
+
 void
 svn_ra_svn__set_block_handler(svn_ra_svn_conn_t *conn,
                               ra_svn_block_handler_t handler,
@@ -98,36 +118,13 @@ svn_ra_svn__set_block_handler(svn_ra_svn_conn_t *conn,
 
   conn->block_handler = handler;
   conn->block_baton = baton;
-  if (conn->sock)
-    apr_socket_timeout_set(conn->sock, interval);
-  else
-    apr_file_pipe_timeout_set(conn->out_file, interval);
+  svn_ra_svn__stream_timeout(conn->stream, interval);
 }
 
 svn_boolean_t svn_ra_svn__input_waiting(svn_ra_svn_conn_t *conn,
                                         apr_pool_t *pool)
 {
-  apr_pollfd_t pfd;
-  int n;
-
-  if (conn->sock)
-    {
-      pfd.desc_type = APR_POLL_SOCKET;
-      pfd.desc.s = conn->sock;
-    }
-  else
-    {
-      pfd.desc_type = APR_POLL_FILE;
-      pfd.desc.f = conn->in_file;
-    }
-  pfd.p = pool;
-  pfd.reqevents = APR_POLLIN;
-#ifndef AS400
-  return ((apr_poll(&pfd, 1, &n, 0) == APR_SUCCESS) && n);
-#else
-  /* OS400 requires a pool argument for apr_poll(). */
-  return ((apr_poll(&pfd, 1, &n, 0, pool) == APR_SUCCESS) && n);
-#endif
+  return svn_ra_svn__stream_pending(conn->stream);
 }
 
 /* --- WRITE BUFFER MANAGEMENT --- */
@@ -151,32 +148,43 @@ static svn_error_t *writebuf_output(svn_ra_svn_conn_t *conn, apr_pool_t *pool,
                                     const char *data, apr_size_t len)
 {
   const char *end = data + len;
-  apr_status_t status;
   apr_size_t count;
   apr_pool_t *subpool = NULL;
+  svn_ra_svn__session_baton_t *session = conn->session;
 
   while (data < end)
     {
       count = end - data;
-      if (conn->sock)
-        status = apr_socket_send(conn->sock, data, &count);
-      else
-        status = apr_file_write(conn->out_file, data, &count);
-      if (status)
-        return svn_error_wrap_apr(status, _("Can't write to connection"));
+
+      if (session && session->callbacks &&
+          session->callbacks->cancel_func)
+        SVN_ERR((session->callbacks->cancel_func)
+                   (session->callbacks_baton));
+
+      SVN_ERR(svn_ra_svn__stream_write(conn->stream, data, &count));
       if (count == 0)
         {
           if (!subpool)
             subpool = svn_pool_create(pool);
           else
-            apr_pool_clear(subpool);
+            svn_pool_clear(subpool);
           SVN_ERR(conn->block_handler(conn, subpool, conn->block_baton));
         }
       data += count;
+
+      if (session)
+        {
+          const svn_ra_callbacks2_t *cb = session->callbacks;
+          session->bytes_written += count;
+
+          if (cb && cb->progress_func)
+            (cb->progress_func)(session->bytes_written + session->bytes_read,
+                                -1, cb->progress_baton, subpool);
+        }
     }
 
   if (subpool)
-    apr_pool_destroy(subpool);
+    svn_pool_destroy(subpool);
   return SVN_NO_ERROR;
 }
 
@@ -242,24 +250,29 @@ static char *readbuf_drain(svn_ra_svn_conn_t *conn, char *data, char *end)
 
 /* Read data from socket or input file as appropriate. */
 static svn_error_t *readbuf_input(svn_ra_svn_conn_t *conn, char *data,
-                                  apr_size_t *len)
+                                  apr_size_t *len, apr_pool_t *pool)
 {
-  apr_status_t status;
+  svn_ra_svn__session_baton_t *session = conn->session;
 
-  /* Always block for reading. */
-  if (conn->sock && conn->block_handler)
-    apr_socket_timeout_set(conn->sock, -1);
-  if (conn->sock)
-    status = apr_socket_recv(conn->sock, data, len);
-  else
-    status = apr_file_read(conn->in_file, data, len);
-  if (conn->sock && conn->block_handler)
-    apr_socket_timeout_set(conn->sock, 0);
-  if (status && !APR_STATUS_IS_EOF(status))
-    return svn_error_wrap_apr(status, _("Can't read from connection"));
+  if (session && session->callbacks &&
+      session->callbacks->cancel_func)
+    SVN_ERR((session->callbacks->cancel_func)
+              (session->callbacks_baton));
+
+  SVN_ERR(svn_ra_svn__stream_read(conn->stream, data, len));
   if (*len == 0)
-    return svn_error_create(SVN_ERR_RA_SVN_CONNECTION_CLOSED, NULL,
-                            _("Connection closed unexpectedly"));
+    return svn_error_create(SVN_ERR_RA_SVN_CONNECTION_CLOSED, NULL, NULL);
+
+  if (session)
+    {
+      const svn_ra_callbacks2_t *cb = session->callbacks;
+      session->bytes_read += *len;
+
+      if (cb && cb->progress_func)
+        (cb->progress_func)(session->bytes_read + session->bytes_written,
+                            -1, cb->progress_baton, pool);
+    }
+
   return SVN_NO_ERROR;
 }
 
@@ -268,10 +281,10 @@ static svn_error_t *readbuf_fill(svn_ra_svn_conn_t *conn, apr_pool_t *pool)
 {
   apr_size_t len;
 
-  assert(conn->read_ptr == conn->read_end);
+  SVN_ERR_ASSERT(conn->read_ptr == conn->read_end);
   SVN_ERR(writebuf_flush(conn, pool));
   len = sizeof(conn->read_buf);
-  SVN_ERR(readbuf_input(conn, conn->read_buf, &len));
+  SVN_ERR(readbuf_input(conn, conn->read_buf, &len, pool));
   conn->read_ptr = conn->read_buf;
   conn->read_end = conn->read_buf + len;
   return SVN_NO_ERROR;
@@ -310,7 +323,7 @@ static svn_error_t *readbuf_read(svn_ra_svn_conn_t *conn, apr_pool_t *pool,
     {
       SVN_ERR(writebuf_flush(conn, pool));
       count = end - data;
-      SVN_ERR(readbuf_input(conn, data, &count));
+      SVN_ERR(readbuf_input(conn, data, &count, pool));
       data += count;
     }
 
@@ -325,19 +338,20 @@ static svn_error_t *readbuf_read(svn_ra_svn_conn_t *conn, apr_pool_t *pool,
   return SVN_NO_ERROR;
 }
 
-static svn_error_t *readbuf_skip_leading_garbage(svn_ra_svn_conn_t *conn)
+static svn_error_t *readbuf_skip_leading_garbage(svn_ra_svn_conn_t *conn,
+                                                 apr_pool_t *pool)
 {
   char buf[256];  /* Must be smaller than sizeof(conn->read_buf) - 1. */
   const char *p, *end;
   apr_size_t len;
   svn_boolean_t lparen = FALSE;
 
-  assert(conn->read_ptr == conn->read_end);
+  SVN_ERR_ASSERT(conn->read_ptr == conn->read_end);
   while (1)
     {
       /* Read some data directly from the connection input source. */
       len = sizeof(buf);
-      SVN_ERR(readbuf_input(conn, buf, &len));
+      SVN_ERR(readbuf_input(conn, buf, &len, pool));
       end = buf + len;
 
       /* Scan the data for '(' WS with a very simple state machine. */
@@ -363,7 +377,7 @@ static svn_error_t *readbuf_skip_leading_garbage(svn_ra_svn_conn_t *conn)
 }
 
 /* --- WRITING DATA ITEMS --- */
- 
+
 svn_error_t *svn_ra_svn_write_number(svn_ra_svn_conn_t *conn, apr_pool_t *pool,
                                      apr_uint64_t number)
 {
@@ -389,6 +403,34 @@ svn_error_t *svn_ra_svn_write_word(svn_ra_svn_conn_t *conn, apr_pool_t *pool,
                                    const char *word)
 {
   return writebuf_printf(conn, pool, "%s ", word);
+}
+
+svn_error_t *svn_ra_svn_write_proplist(svn_ra_svn_conn_t *conn,
+                                       apr_pool_t *pool, apr_hash_t *props)
+{
+  apr_pool_t *iterpool;
+  apr_hash_index_t *hi;
+  const void *key;
+  void *val;
+  const char *propname;
+  svn_string_t *propval;
+
+  if (props)
+    {
+      iterpool = svn_pool_create(pool);
+      for (hi = apr_hash_first(pool, props); hi; hi = apr_hash_next(hi))
+        {
+          svn_pool_clear(iterpool);
+          apr_hash_this(hi, &key, NULL, &val);
+          propname = key;
+          propval = val;
+          SVN_ERR(svn_ra_svn_write_tuple(conn, iterpool, "cs",
+                                         propname, propval));
+        }
+      svn_pool_destroy(iterpool);
+    }
+
+  return SVN_NO_ERROR;
 }
 
 svn_error_t *svn_ra_svn_start_list(svn_ra_svn_conn_t *conn, apr_pool_t *pool)
@@ -427,28 +469,28 @@ static svn_error_t *vwrite_tuple(svn_ra_svn_conn_t *conn, apr_pool_t *pool,
       else if (*fmt == 'r')
         {
           rev = va_arg(ap, svn_revnum_t);
-          assert(opt || SVN_IS_VALID_REVNUM(rev));
+          SVN_ERR_ASSERT(opt || SVN_IS_VALID_REVNUM(rev));
           if (SVN_IS_VALID_REVNUM(rev))
             SVN_ERR(svn_ra_svn_write_number(conn, pool, rev));
         }
       else if (*fmt == 's')
         {
           str = va_arg(ap, const svn_string_t *);
-          assert(opt || str);
+          SVN_ERR_ASSERT(opt || str);
           if (str)
             SVN_ERR(svn_ra_svn_write_string(conn, pool, str));
         }
       else if (*fmt == 'c')
         {
           cstr = va_arg(ap, const char *);
-          assert(opt || cstr);
+          SVN_ERR_ASSERT(opt || cstr);
           if (cstr)
             SVN_ERR(svn_ra_svn_write_cstring(conn, pool, cstr));
         }
       else if (*fmt == 'w')
         {
           cstr = va_arg(ap, const char *);
-          assert(opt || cstr);
+          SVN_ERR_ASSERT(opt || cstr);
           if (cstr)
             SVN_ERR(svn_ra_svn_write_word(conn, pool, cstr));
         }
@@ -469,7 +511,7 @@ static svn_error_t *vwrite_tuple(svn_ra_svn_conn_t *conn, apr_pool_t *pool,
       else if (*fmt == '!' && !*(fmt + 1))
         return SVN_NO_ERROR;
       else
-        abort();
+        SVN_ERR_MALFUNCTION();
     }
   SVN_ERR(svn_ra_svn_end_list(conn, pool));
   return SVN_NO_ERROR;
@@ -501,13 +543,13 @@ static svn_error_t *read_string(svn_ra_svn_conn_t *conn, apr_pool_t *pool,
 
   /* We can't store strings longer than the maximum size of apr_size_t,
    * so check for wrapping */
-  if (((apr_size_t) len) < len) 
+  if (((apr_size_t) len) < len)
     return svn_error_create(SVN_ERR_RA_SVN_MALFORMED_DATA, NULL,
                             _("String length larger than maximum"));
 
   while (len)
     {
-      readbuf_len = len > sizeof(readbuf) ? sizeof(readbuf) : len;
+      readbuf_len = len > sizeof(readbuf) ? sizeof(readbuf) : (apr_size_t)len;
 
       SVN_ERR(readbuf_read(conn, pool, readbuf, readbuf_len));
       /* Read into a stringbuf_t to so we don't allow the sender to allocate
@@ -516,13 +558,13 @@ static svn_error_t *read_string(svn_ra_svn_conn_t *conn, apr_pool_t *pool,
       svn_stringbuf_appendbytes(stringbuf, readbuf, readbuf_len);
       len -= readbuf_len;
     }
-  
+
   item->kind = SVN_RA_SVN_STRING;
   item->u.string = apr_palloc(pool, sizeof(*item->u.string));
   item->u.string->data = stringbuf->data;
   item->u.string->len = stringbuf->len;
 
-  return SVN_NO_ERROR; 
+  return SVN_NO_ERROR;
 }
 
 /* Given the first non-whitespace character FIRST_CHAR, read an item
@@ -541,8 +583,8 @@ static svn_error_t *read_item(svn_ra_svn_conn_t *conn, apr_pool_t *pool,
   if (++level >= 64)
     return svn_error_create(SVN_ERR_RA_SVN_MALFORMED_DATA, NULL,
                             _("Too many nested items"));
-  
-  
+
+
   /* Determine the item type and read it in.  Make sure that c is the
    * first character at the end of the item so we can test to make
    * sure it's whitespace. */
@@ -625,29 +667,29 @@ svn_error_t *svn_ra_svn_read_item(svn_ra_svn_conn_t *conn, apr_pool_t *pool,
 svn_error_t *svn_ra_svn_skip_leading_garbage(svn_ra_svn_conn_t *conn,
                                              apr_pool_t *pool)
 {
-  return readbuf_skip_leading_garbage(conn);
+  return readbuf_skip_leading_garbage(conn, pool);
 }
 
 /* --- READING AND PARSING TUPLES --- */
 
-/* Parse a tuple.  Advance *FMT to the end of the tuple specification
- * and advance AP by the corresponding arguments. */
-static svn_error_t *vparse_tuple(apr_array_header_t *list, apr_pool_t *pool,
+/* Parse a tuple of svn_ra_svn_item_t *'s.  Advance *FMT to the end of the
+ * tuple specification and advance AP by the corresponding arguments. */
+static svn_error_t *vparse_tuple(apr_array_header_t *items, apr_pool_t *pool,
                                  const char **fmt, va_list *ap)
 {
-  int count, list_level;
+  int count, nesting_level;
   svn_ra_svn_item_t *elt;
 
-  for (count = 0; **fmt && count < list->nelts; (*fmt)++, count++)
+  for (count = 0; **fmt && count < items->nelts; (*fmt)++, count++)
     {
       /* '?' just means the tuple may stop; skip past it. */
       if (**fmt == '?')
         (*fmt)++;
-      elt = &((svn_ra_svn_item_t *) list->elts)[count];
+      elt = &APR_ARRAY_IDX(items, count, svn_ra_svn_item_t);
       if (**fmt == 'n' && elt->kind == SVN_RA_SVN_NUMBER)
         *va_arg(*ap, apr_uint64_t *) = elt->u.number;
       else if (**fmt == 'r' && elt->kind == SVN_RA_SVN_NUMBER)
-        *va_arg(*ap, svn_revnum_t *) = elt->u.number;
+        *va_arg(*ap, svn_revnum_t *) = (svn_revnum_t) elt->u.number;
       else if (**fmt == 's' && elt->kind == SVN_RA_SVN_STRING)
         *va_arg(*ap, svn_string_t **) = elt->u.string;
       else if (**fmt == 'c' && elt->kind == SVN_RA_SVN_STRING)
@@ -660,6 +702,15 @@ static svn_error_t *vparse_tuple(apr_array_header_t *list, apr_pool_t *pool,
             *va_arg(*ap, svn_boolean_t *) = TRUE;
           else if (strcmp(elt->u.word, "false") == 0)
             *va_arg(*ap, svn_boolean_t *) = FALSE;
+          else
+            break;
+        }
+      else if (**fmt == 'B' && elt->kind == SVN_RA_SVN_WORD)
+        {
+          if (strcmp(elt->u.word, "true") == 0)
+            *va_arg(*ap, apr_uint64_t *) = TRUE;
+          else if (strcmp(elt->u.word, "false") == 0)
+            *va_arg(*ap, apr_uint64_t *) = FALSE;
           else
             break;
         }
@@ -677,7 +728,7 @@ static svn_error_t *vparse_tuple(apr_array_header_t *list, apr_pool_t *pool,
     }
   if (**fmt == '?')
     {
-      list_level = 0;
+      nesting_level = 0;
       for (; **fmt; (*fmt)++)
         {
           switch (**fmt)
@@ -697,18 +748,19 @@ static svn_error_t *vparse_tuple(apr_array_header_t *list, apr_pool_t *pool,
             case 'l':
               *va_arg(*ap, apr_array_header_t **) = NULL;
               break;
+            case 'B':
             case 'n':
               *va_arg(*ap, apr_uint64_t *) = SVN_RA_SVN_UNSPECIFIED_NUMBER;
               break;
             case '(':
-              list_level++;
+              nesting_level++;
               break;
             case ')':
-              if (--list_level < 0)
+              if (--nesting_level < 0)
                 return SVN_NO_ERROR;
               break;
             default:
-              abort();
+              SVN_ERR_MALFUNCTION();
             }
         }
     }
@@ -748,6 +800,30 @@ svn_error_t *svn_ra_svn_read_tuple(svn_ra_svn_conn_t *conn, apr_pool_t *pool,
   return err;
 }
 
+svn_error_t *svn_ra_svn_parse_proplist(apr_array_header_t *list,
+                                       apr_pool_t *pool,
+                                       apr_hash_t **props)
+{
+  char *name;
+  svn_string_t *value;
+  svn_ra_svn_item_t *elt;
+  int i;
+
+  *props = apr_hash_make(pool);
+  for (i = 0; i < list->nelts; i++)
+    {
+      elt = &APR_ARRAY_IDX(list, i, svn_ra_svn_item_t);
+      if (elt->kind != SVN_RA_SVN_LIST)
+        return svn_error_create(SVN_ERR_RA_SVN_MALFORMED_DATA, NULL,
+                                _("Proplist element not a list"));
+      SVN_ERR(svn_ra_svn_parse_tuple(elt->u.list, pool, "cs", &name, &value));
+      apr_hash_set(*props, name, APR_HASH_KEY_STRING, value);
+    }
+
+  return SVN_NO_ERROR;
+}
+
+
 /* --- READING AND WRITING COMMANDS AND RESPONSES --- */
 
 svn_error_t *svn_ra_svn__handle_failure_status(apr_array_header_t *params,
@@ -768,7 +844,7 @@ svn_error_t *svn_ra_svn__handle_failure_status(apr_array_header_t *params,
   for (i = params->nelts - 1; i >= 0; i--)
     {
       svn_pool_clear(subpool);
-      elt = &((svn_ra_svn_item_t *) params->elts)[i];
+      elt = &APR_ARRAY_IDX(params, i, svn_ra_svn_item_t);
       if (elt->kind != SVN_RA_SVN_LIST)
         return svn_error_create(SVN_ERR_RA_SVN_MALFORMED_DATA, NULL,
                                 _("Malformed error list"));
@@ -778,9 +854,9 @@ svn_error_t *svn_ra_svn__handle_failure_status(apr_array_header_t *params,
          easily change that, so "" means a nonexistent message. */
       if (!*message)
         message = NULL;
-      err = svn_error_create(apr_err, err, message);
+      err = svn_error_create((apr_status_t)apr_err, err, message);
       err->file = apr_pstrdup(err->pool, file);
-      err->line = line;
+      err->line = (long)line;
     }
 
   svn_pool_destroy(subpool);
@@ -814,28 +890,42 @@ svn_error_t *svn_ra_svn_read_cmd_response(svn_ra_svn_conn_t *conn,
                            status);
 }
 
-svn_error_t *svn_ra_svn_handle_commands(svn_ra_svn_conn_t *conn,
-                                        apr_pool_t *pool,
-                                        const svn_ra_svn_cmd_entry_t *commands,
-                                        void *baton)
+svn_error_t *svn_ra_svn_handle_commands2(svn_ra_svn_conn_t *conn,
+                                         apr_pool_t *pool,
+                                         const svn_ra_svn_cmd_entry_t *commands,
+                                         void *baton,
+                                         svn_boolean_t error_on_disconnect)
 {
   apr_pool_t *subpool = svn_pool_create(pool);
+  apr_pool_t *iterpool = svn_pool_create(subpool);
   const char *cmdname;
-  int i;
+  const svn_ra_svn_cmd_entry_t *command;
   svn_error_t *err, *write_err;
   apr_array_header_t *params;
+  apr_hash_t *cmd_hash = apr_hash_make(subpool);
+
+  for (command = commands; command->cmdname; command++)
+    apr_hash_set(cmd_hash, command->cmdname, APR_HASH_KEY_STRING, command);
 
   while (1)
     {
-      apr_pool_clear(subpool);
-      SVN_ERR(svn_ra_svn_read_tuple(conn, subpool, "wl", &cmdname, &params));
-      for (i = 0; commands[i].cmdname; i++)
+      svn_pool_clear(iterpool);
+      err = svn_ra_svn_read_tuple(conn, iterpool, "wl", &cmdname, &params);
+      if (err)
         {
-          if (strcmp(cmdname, commands[i].cmdname) == 0)
-            break;
+          if (!error_on_disconnect
+              && err->apr_err == SVN_ERR_RA_SVN_CONNECTION_CLOSED)
+            {
+              svn_error_clear(err);
+              svn_pool_destroy(subpool);
+              return SVN_NO_ERROR;
+            }
+          return err;
         }
-      if (commands[i].cmdname)
-        err = (*commands[i].handler)(conn, subpool, params, baton);
+      command = apr_hash_get(cmd_hash, cmdname, APR_HASH_KEY_STRING);
+
+      if (command)
+        err = (*command->handler)(conn, iterpool, params, baton);
       else
         {
           err = svn_error_createf(SVN_ERR_RA_SVN_UNKNOWN_CMD, NULL,
@@ -845,7 +935,7 @@ svn_error_t *svn_ra_svn_handle_commands(svn_ra_svn_conn_t *conn,
 
       if (err && err->apr_err == SVN_ERR_RA_SVN_CMD_ERR)
         {
-          write_err = svn_ra_svn_write_cmd_failure(conn, subpool, err->child);
+          write_err = svn_ra_svn_write_cmd_failure(conn, iterpool, err->child);
           svn_error_clear(err);
           if (write_err)
             return write_err;
@@ -853,11 +943,20 @@ svn_error_t *svn_ra_svn_handle_commands(svn_ra_svn_conn_t *conn,
       else if (err)
         return err;
 
-      if (commands[i].terminate)
+      if (command && command->terminate)
         break;
     }
-  apr_pool_destroy(subpool);
+  svn_pool_destroy(iterpool);
+  svn_pool_destroy(subpool);
   return SVN_NO_ERROR;
+}
+
+svn_error_t *svn_ra_svn_handle_commands(svn_ra_svn_conn_t *conn,
+                                        apr_pool_t *pool,
+                                        const svn_ra_svn_cmd_entry_t *commands,
+                                        void *baton)
+{
+  return svn_ra_svn_handle_commands2(conn, pool, commands, baton, TRUE);
 }
 
 svn_error_t *svn_ra_svn_write_cmd(svn_ra_svn_conn_t *conn, apr_pool_t *pool,

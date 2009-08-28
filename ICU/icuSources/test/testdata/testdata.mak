@@ -1,5 +1,5 @@
 #**********************************************************************
-#* Copyright (C) 1999-2006, International Business Machines Corporation
+#* Copyright (C) 1999-2007, International Business Machines Corporation
 #* and others.  All Rights Reserved.
 #**********************************************************************
 #
@@ -23,7 +23,12 @@ ALL : "$(TESTDATAOUT)\testdata.dat"
 # icu26e_testtypes.res is the same, but icuswapped to big-endian EBCDIC
 # markus 2003nov21
 
-"$(TESTDATAOUT)\testdata.dat" : "$(TESTDATABLD)\casing.res" "$(TESTDATABLD)\conversion.res" "$(TESTDATABLD)\icuio.res" "$(TESTDATABLD)\mc.res" "$(TESTDATABLD)\structLocale.res" "$(TESTDATABLD)\root.res" "$(TESTDATABLD)\sh.res" "$(TESTDATABLD)\sh_YU.res"  "$(TESTDATABLD)\te.res" "$(TESTDATABLD)\te_IN.res" "$(TESTDATABLD)\te_IN_REVISED.res" "$(TESTDATABLD)\testaliases.res" "$(TESTDATABLD)\testtypes.res" "$(TESTDATABLD)\testempty.res" "$(TESTDATABLD)\iscii.res" "$(TESTDATABLD)\idna_rules.res" "$(TESTDATABLD)\DataDrivenCollationTest.res" "$(TESTDATABLD)\test.icu" "$(TESTDATABLD)\testtable32.res" "$(TESTDATABLD)\test1.cnv" "$(TESTDATABLD)\test3.cnv" "$(TESTDATABLD)\test4.cnv" "$(TESTDATABLD)\test4x.cnv" "$(TESTDATABLD)\ibm9027.cnv" "$(TESTDATABLD)\nfscsi.spp" "$(TESTDATABLD)\nfscss.spp" "$(TESTDATABLD)\nfscis.spp" "$(TESTDATABLD)\nfsmxs.spp" "$(TESTDATABLD)\nfsmxp.spp"
+# the following file has $(TEST_RES_SOURCE)
+!INCLUDE "$(TESTDATA)\tstfiles.mk"
+
+TEST_RES_FILES = $(TEST_RES_SOURCE:.txt=.res)
+
+"$(TESTDATAOUT)\testdata.dat" : $(TEST_RES_FILES) "$(TESTDATABLD)\casing.res" "$(TESTDATABLD)\conversion.res" "$(TESTDATABLD)\icuio.res" "$(TESTDATABLD)\mc.res" "$(TESTDATABLD)\structLocale.res" "$(TESTDATABLD)\root.res" "$(TESTDATABLD)\sh.res" "$(TESTDATABLD)\sh_YU.res"  "$(TESTDATABLD)\te.res" "$(TESTDATABLD)\te_IN.res" "$(TESTDATABLD)\te_IN_REVISED.res" "$(TESTDATABLD)\testaliases.res" "$(TESTDATABLD)\testtypes.res" "$(TESTDATABLD)\testempty.res" "$(TESTDATABLD)\iscii.res" "$(TESTDATABLD)\idna_rules.res" "$(TESTDATABLD)\DataDrivenCollationTest.res" "$(TESTDATABLD)\test.icu" "$(TESTDATABLD)\testtable32.res" "$(TESTDATABLD)\test1.cnv" "$(TESTDATABLD)\test1bmp.cnv" "$(TESTDATABLD)\test3.cnv" "$(TESTDATABLD)\test4.cnv" "$(TESTDATABLD)\test4x.cnv" "$(TESTDATABLD)\ibm9027.cnv" "$(TESTDATABLD)\nfscsi.spp" "$(TESTDATABLD)\nfscss.spp" "$(TESTDATABLD)\nfscis.spp" "$(TESTDATABLD)\nfsmxs.spp" "$(TESTDATABLD)\nfsmxp.spp"
 	@echo Building test data
 	@copy "$(TESTDATABLD)\te.res" "$(TESTDATAOUT)\$(TESTDT)\nam.typ"
 	@copy "$(TESTDATA)\icu26_testtypes.res" "$(TESTDATABLD)"
@@ -47,9 +52,9 @@ testaliases.res
 structLocale.res
 icuio.res
 iscii.res
-DataDrivenCollationTest.res
 test.icu
 test1.cnv
+test1bmp.cnv
 test3.cnv
 test4.cnv
 test4x.cnv
@@ -60,6 +65,8 @@ nfscss.spp
 nfscis.spp
 nfsmxs.spp
 nfsmxp.spp
+$(TEST_RES_FILES:.res =.res
+)
 <<
 
 
@@ -87,8 +94,7 @@ nfsmxp.spp
 	"$(ICUTOOLS)\gentest\$(CFG)\gentest" -r -d"$(TESTDATABLD)"
 
 "$(TESTDATABLD)\testtable32.res": "$(TESTDATABLD)\testtable32.txt"
-	@echo Making Test Resource Bundle file for IDNA reference implementation
-	@"$(ICUTOOLS)\genrb\$(CFG)\genrb" -s"$(TESTDATABLD)" -d"$(TESTDATABLD)" testtable32.txt
+	"$(ICUTOOLS)\genrb\$(CFG)\genrb" -s"$(TESTDATABLD)" -d"$(TESTDATABLD)" testtable32.txt
 
 # Targets for nfscsi.spp
 "$(TESTDATABLD)\nfscsi.spp" : {"$(ICUTOOLS)\gensprep\$(CFG)"}gensprep.exe "$(TESTDATA)\nfs4_cs_prep_ci.txt"
@@ -119,21 +125,24 @@ nfsmxp.spp
 # Targets for test converter data
 "$(TESTDATABLD)\test1.cnv": "$(TESTDATA)\test1.ucm"
 	@echo Building $@
-	@"$(ICUTOOLS)\makeconv\$(CFG)\makeconv" -d"$(TESTDATABLD)" $**
+	@"$(ICUTOOLS)\makeconv\$(CFG)\makeconv" --small -d"$(TESTDATABLD)" $**
+
+"$(TESTDATABLD)\test1bmp.cnv": "$(TESTDATA)\test1bmp.ucm"
+	@echo Building $@
+	@"$(ICUTOOLS)\makeconv\$(CFG)\makeconv" --small -d"$(TESTDATABLD)" $**
 
 "$(TESTDATABLD)\test3.cnv": "$(TESTDATA)\test3.ucm"
 	@echo Building $@
-	@"$(ICUTOOLS)\makeconv\$(CFG)\makeconv" -d"$(TESTDATABLD)" $**
+	@"$(ICUTOOLS)\makeconv\$(CFG)\makeconv" --small -d"$(TESTDATABLD)" $**
 
 "$(TESTDATABLD)\test4.cnv": "$(TESTDATA)\test4.ucm"
 	@echo Building $@
-	@"$(ICUTOOLS)\makeconv\$(CFG)\makeconv" -d"$(TESTDATABLD)" $**
+	@"$(ICUTOOLS)\makeconv\$(CFG)\makeconv" --small -d"$(TESTDATABLD)" $**
 
 "$(TESTDATABLD)\test4x.cnv": "$(TESTDATA)\test4x.ucm"
 	@echo Building $@
-	@"$(ICUTOOLS)\makeconv\$(CFG)\makeconv" -d"$(TESTDATABLD)" $**
+	@"$(ICUTOOLS)\makeconv\$(CFG)\makeconv" --small -d"$(TESTDATABLD)" $**
 
 "$(TESTDATABLD)\ibm9027.cnv": "$(TESTDATA)\ibm9027.ucm"
 	@echo Building $@
-	@"$(ICUTOOLS)\makeconv\$(CFG)\makeconv" -d"$(TESTDATABLD)" $**
-
+	@"$(ICUTOOLS)\makeconv\$(CFG)\makeconv" --small -d"$(TESTDATABLD)" $**

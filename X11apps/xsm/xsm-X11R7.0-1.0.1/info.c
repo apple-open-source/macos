@@ -108,15 +108,18 @@ AppendStr(Buffer *buffer, char *str)
     if ((buffer->bytesLeft - 1) < len)
     {
 	int newBufSize = buffer->bufSize + len + BUF_GROW_SIZE;
-	char *newbuf = (char *) malloc (newBufSize);
 	int bytesUsed = buffer->bufPtr - buffer->bufStart;
-	memcpy (newbuf, buffer->bufStart, bytesUsed);
-	newbuf[bytesUsed] = '\0';
-	free (buffer->bufStart);
-	buffer->bufStart = newbuf;
-	buffer->bufPtr = newbuf + bytesUsed;
-	buffer->bufSize = newBufSize;
-	buffer->bytesLeft = newBufSize - bytesUsed;
+	char *newbuf = realloc (buffer->bufStart, newBufSize);
+	if (newbuf != NULL) {
+	    newbuf[bytesUsed] = '\0';
+	    buffer->bufStart = newbuf;
+	    buffer->bufPtr = newbuf + bytesUsed;
+	    buffer->bufSize = newBufSize;
+	    buffer->bytesLeft = newBufSize - bytesUsed;
+	} else {
+	    perror("realloc failed, aborting");
+	    exit(1);
+	}
     }
 
     strcat (buffer->bufPtr, str);

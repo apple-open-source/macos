@@ -1,4 +1,6 @@
-/* $Id: isakmp.c,v 1.34.2.21 2006/02/02 10:31:01 vanhu Exp $ */
+/*	$NetBSD: isakmp.c,v 1.20.6.7 2007/08/01 11:52:20 vanhu Exp $	*/
+
+/* Id: isakmp.c,v 1.74 2006/05/07 21:32:59 manubsd Exp */
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -67,7 +69,9 @@
 #include <unistd.h>
 #endif
 #include <ctype.h>
-#include <fcntl.h>
+#ifdef ENABLE_HYBRID
+#include <resolv.h>
+#endif
 
 #include "var.h"
 #include "misc.h"
@@ -101,7 +105,9 @@
 #include "vpn_control.h"
 #include "vpn_control_var.h"
 #ifdef ENABLE_HYBRID
+#include "vendorid.h"
 #include "isakmp_xauth.h"
+#include "isakmp_unity.h"
 #include "isakmp_cfg.h"
 #endif
 #ifdef ENABLE_FRAG
@@ -109,22 +115,29 @@
 #endif
 #include "strnames.h"
 
-#ifdef ENABLE_NATT
-# include "nattraversal.h"
-# ifdef __linux__
-#  include <linux/udp.h>
 #include <fcntl.h>
 
+#ifdef ENABLE_NATT
+# include "nattraversal.h"
+#endif
+#include "ike_session.h"
+# ifdef __linux__
+#  include <linux/udp.h>
+#  include <linux/ip.h>
 #  ifndef SOL_UDP
 #   define SOL_UDP 17
 #  endif
 # endif /* __linux__ */
-# if defined(__NetBSD__) || defined(__FreeBSD__)
+# if defined(__NetBSD__) || defined(__FreeBSD__) ||	\
+  (defined(__APPLE__) && defined(__MACH__))
 #  include <netinet/in.h>
 #  include <netinet/udp.h>
+#  include <netinet/in_systm.h>
+#  include <netinet/ip.h>
 #  define SOL_UDP IPPROTO_UDP
 # endif /* __NetBSD__ / __FreeBSD__ */
-#endif
+#include "ipsecSessionTracer.h"
+#include "ipsecMessageTracer.h"
 
 static int nostate1 __P((struct ph1handle *, vchar_t *));
 static int nostate2 __P((struct ph2handle *, vchar_t *));
@@ -162,7 +175,7 @@ static int (*ph2exchange[][2][PHASE2ST_MAX])
 	__P((struct ph2handle *, vchar_t *)) = {
  /* error */
  { {}, {}, },
- /* Quick mode for IKE*/
+ /* Quick mode for IKE */
  {
   { nostate2, nostate2, quick_i1prep, nostate2, quick_i1send,
     quick_i2recv, quick_i2send, quick_i3recv, nostate2, nostate2, },
@@ -198,6 +211,13 @@ isakmp_handler(so_isakmp)
 	union {
 		char		buf[sizeof (isakmp) + 4];
 		u_int32_t	non_esp[2];
+		char		lbuf[sizeof(struct udphdr) + 
+#ifdef __linux
+				     sizeof(struct iphdr) + 
+#else
+				     sizeof(struct ip) + 
+#endif
+				     sizeof(isakmp) + 4];
 	} x;
 	struct sockaddr_storage remote;
 	struct sockaddr_storage local;
@@ -228,9 +248,31 @@ isakmp_handler(so_isakmp)
 			plog(LLV_ERROR, LOCATION, NULL,
 			    "failed to receive keep alive packet: %s\n",
 			    strerror (errno));
-		}
+        }
 		goto end;
 	}
+
+	/* Lucent IKE in UDP encapsulation */
+	{
+		struct udphdr *udp;
+#ifdef __linux__
+		struct iphdr *ip;
+
+		udp = (struct udphdr *)&x.lbuf[0];
+		if (ntohs(udp->dest) == 501) {
+			ip = (struct iphdr *)(x.lbuf + sizeof(*udp));
+			extralen += sizeof(*udp) + ip->ihl;
+		}
+#else
+		struct ip *ip;
+
+		udp = (struct udphdr *)&x.lbuf[0];
+		if (ntohs(udp->uh_dport) == 501) {
+			ip = (struct ip *)(x.lbuf + sizeof(*udp));
+			extralen += sizeof(*udp) + ip->ip_hl;
+		}
+#endif
+	}	
 
 #ifdef ENABLE_NATT
 	/* we don't know about portchange yet, 
@@ -309,8 +351,6 @@ isakmp_handler(so_isakmp)
 	
 	memcpy (buf->v, tmpbuf->v + extralen, buf->l);
 
-	vfree (tmpbuf);
-
 	len -= extralen;
 	
 	if (len != buf->l) {
@@ -370,6 +410,8 @@ isakmp_handler(so_isakmp)
 	error = 0;
 
 end:
+	if (tmpbuf != NULL)
+		vfree(tmpbuf);
 	if (buf != NULL)
 		vfree(buf);
 
@@ -447,6 +489,10 @@ isakmp_main(msg, remote, local)
 		/* validity check */
 		if (memcmp(&isakmp->r_ck, r_ck0, sizeof(cookie_t)) == 0 &&
 		    iph1->side == INITIATOR) {
+			IPSECSESSIONTRACEREVENT(iph1->parent_session,
+									IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
+									CONSTSTR("malformed or unexpected cookie"),
+									CONSTSTR("Failed to process packet (malformed/unexpected cookie)"));
 			plog(LLV_DEBUG, LOCATION, remote,
 				"malformed cookie received or "
 				"the initiator's cookies collide.\n");
@@ -463,10 +509,34 @@ isakmp_main(msg, remote, local)
 			/* prevent memory leak */
 			racoon_free(iph1->remote);
 			racoon_free(iph1->local);
+			iph1->remote = NULL;
+			iph1->local = NULL;
 
 			/* copy-in new addresses */
 			iph1->remote = dupsaddr(remote);
+			if (iph1->remote == NULL) {
+				IPSECSESSIONTRACEREVENT(iph1->parent_session,
+										IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
+										CONSTSTR("failed to duplicate remote address"),
+										CONSTSTR("Failed to process phase1 message (can't duplicate remote address"));
+				plog(LLV_ERROR, LOCATION, iph1->remote,
+				   "phase1 failed: dupsaddr failed.\n");
+				remph1(iph1);
+				delph1(iph1);
+				return -1;
+			}
 			iph1->local = dupsaddr(local);
+			if (iph1->local == NULL) {
+				IPSECSESSIONTRACEREVENT(iph1->parent_session,
+										IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
+										CONSTSTR("failed to duplicate local address"),
+										CONSTSTR("Failed to process phase1 message (can't duplicate local address"));
+				plog(LLV_ERROR, LOCATION, iph1->remote,
+				   "phase1 failed: dupsaddr failed.\n");
+				remph1(iph1);
+				delph1(iph1);
+				return -1;
+			}
 
 			/* set the flag to prevent further port floating
 			   (FIXME: should we allow it? E.g. when the NAT gw 
@@ -487,8 +557,10 @@ isakmp_main(msg, remote, local)
 		if (cmpsaddrstrict(iph1->remote, remote) != 0) {
 			char *saddr_db, *saddr_act;
 
-			saddr_db = strdup(saddr2str(iph1->remote));
-			saddr_act = strdup(saddr2str(remote));
+			saddr_db = racoon_strdup(saddr2str(iph1->remote));
+			saddr_act = racoon_strdup(saddr2str(remote));
+			STRDUP_FATAL(saddr_db);
+			STRDUP_FATAL(saddr_act);
 
 			plog(LLV_WARNING, LOCATION, remote,
 				"remote address mismatched. db=%s, act=%s\n",
@@ -504,6 +576,12 @@ isakmp_main(msg, remote, local)
 		 */
 
 		/* XXX more acceptable check */
+
+#ifdef ENABLE_DPD
+        // received ike packets: update dpd checks 
+        isakmp_reschedule_info_monitor_if_pending(iph1,
+                                                  "ike packets received from peer");
+#endif /* DPD */
 	}
 
 	switch (isakmp->etype) {
@@ -548,6 +626,10 @@ isakmp_main(msg, remote, local)
 
 			/* it must be the 2nd message from the responder. */
 			if (iph1->side != INITIATOR) {
+				IPSECSESSIONTRACEREVENT(iph1->parent_session,
+										IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
+										CONSTSTR("malformed cookie and unexpected side"),
+										CONSTSTR("Failed to process phase1 message (unexpected side)"));
 				plog(LLV_DEBUG, LOCATION, remote,
 					"malformed cookie received. "
 					"it has to be as the initiator.  %s\n",
@@ -562,6 +644,10 @@ isakmp_main(msg, remote, local)
 		 * authencication completed.
 		 */
 		if (iph1->etype != isakmp->etype) {
+			IPSECSESSIONTRACEREVENT(iph1->parent_session,
+									IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
+									CONSTSTR("mismatched exchange type"),
+									CONSTSTR("Failed to process phase1 message (mismatched exchange type)"));
 			plog(LLV_ERROR, LOCATION, iph1->remote,
 				"exchange type is mismatched: "
 				"db=%s packet=%s, ignore it.\n",
@@ -639,7 +725,13 @@ isakmp_main(msg, remote, local)
 					isakmp->msgid));
 			return -1;
 		}
-
+#ifdef ENABLE_HYBRID
+		/* Reinit the IVM if it's still there */		
+		if (iph1->mode_cfg && iph1->mode_cfg->ivm) {
+			oakley_delivm(iph1->mode_cfg->ivm);
+			iph1->mode_cfg->ivm = NULL;
+		}
+#endif
 #ifdef ENABLE_FRAG
 		if (isakmp->np == ISAKMP_NPTYPE_FRAG)
 			return frag_handler(iph1, msg, remote, local);
@@ -647,6 +739,10 @@ isakmp_main(msg, remote, local)
 
 		/* check status of phase 1 whether negotiated or not. */
 		if (iph1->status != PHASE1ST_ESTABLISHED) {
+			IPSECSESSIONTRACEREVENT(iph1->parent_session,
+									IPSECSESSIONEVENTCODE_IKEV1_PH2_INIT_DROP,
+									CONSTSTR("can't start phase2 without valid phase1"),
+									CONSTSTR("Failed to start phase2 resonder (no established phase1"));
 			plog(LLV_ERROR, LOCATION, remote,
 				"can't start the quick mode, "
 				"there is no valid ISAKMP-SA, %s\n",
@@ -741,9 +837,12 @@ ph1_main(iph1, msg)
 	vchar_t *msg;
 {
 	int error;
+	int ini_contact = iph1->rmconf->ini_contact;
 #ifdef ENABLE_STATS
 	struct timeval start, end;
 #endif
+	int   spi_cmp;
+	u_int rekey_lifetime;
 
 	/* ignore a packet */
 	if (iph1->status == PHASE1ST_ESTABLISHED)
@@ -756,6 +855,10 @@ ph1_main(iph1, msg)
 	if (ph1exchange[etypesw1(iph1->etype)]
 		       [iph1->side]
 		       [iph1->status] == NULL) {
+		IPSECSESSIONTRACEREVENT(iph1->parent_session,
+								IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
+								CONSTSTR("unavailable function"),
+								CONSTSTR("Failed to process phase1 message (no state function)"));
 		plog(LLV_ERROR, LOCATION, iph1->remote,
 			"why isn't the function defined.\n");
 		return -1;
@@ -764,6 +867,7 @@ ph1_main(iph1, msg)
 			    [iph1->side]
 			    [iph1->status])(iph1, msg);
 	if (error != 0) {
+
 		/* XXX
 		 * When an invalid packet is received on phase1, it should
 		 * be selected to process this packet.  That is to respond
@@ -772,7 +876,7 @@ ph1_main(iph1, msg)
 		 * acting as RESPONDER we must not keep phase 1 handler or else
 		 * it will stay forever.
 		 */
-        
+
 		if (iph1->side == RESPONDER && iph1->status == PHASE1ST_START) {
 			plog(LLV_ERROR, LOCATION, iph1->remote,
 			     "failed to pre-process packet.\n");
@@ -783,17 +887,19 @@ ph1_main(iph1, msg)
 		}	
 	}
 
+#ifndef ENABLE_FRAG
 	/* free resend buffer */
 	if (iph1->sendbuf == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
 			"no buffer found as sendbuf\n"); 
 		return -1;
 	}
+#endif
+
 	VPTRINIT(iph1->sendbuf);
 
 	/* turn off schedule */
-	if (iph1->scr)
-		SCHED_KILL(iph1->scr);
+	SCHED_KILL(iph1->scr);
 
 	/* send */
 	plog(LLV_DEBUG, LOCATION, NULL, "===\n");
@@ -822,45 +928,80 @@ ph1_main(iph1, msg)
 
 #ifdef ENABLE_VPNCONTROL_PORT	
 
-	if (iph1->side == RESPONDER &&
-		iph1->local->sa_family == AF_INET) {
-		
-		struct redirect *addr;
-		
-		LIST_FOREACH(addr, &lcconf->redirect_addresses, chain) {
-			if (((struct sockaddr_in *)iph1->local)->sin_addr.s_addr == addr->cluster_address) {
-				vchar_t *raddr = vmalloc(sizeof(u_int32_t));
+		if (iph1->side == RESPONDER &&
+			iph1->local->sa_family == AF_INET) {
 			
-				if (raddr == NULL) {
-					plog(LLV_ERROR, LOCATION, iph1->remote,
-						"failed to send redirect message - memory error.\n");
-				} else {
-					memcpy(raddr->v, &addr->redirect_address, sizeof(u_int32_t));
-					(void)isakmp_info_send_n1(iph1, ISAKMP_NTYPE_LOAD_BALANCE, raddr);
-					plog(LLV_DEBUG, LOCATION, iph1->remote, "sent redirect notification - address = %x.\n", ntohl(addr->redirect_address));
-					vfree(raddr);
-					if (addr->force)
-						isakmp_ph1delete(iph1);
+			struct redirect *addr;
+			
+			LIST_FOREACH(addr, &lcconf->redirect_addresses, chain) {
+				if (((struct sockaddr_in *)iph1->local)->sin_addr.s_addr == addr->cluster_address) {
+					vchar_t *raddr = vmalloc(sizeof(u_int32_t));
+				
+					if (raddr == NULL) {
+						plog(LLV_ERROR, LOCATION, iph1->remote,
+							"failed to send redirect message - memory error.\n");
+					} else {
+						memcpy(raddr->v, &addr->redirect_address, sizeof(u_int32_t));
+						(void)isakmp_info_send_n1(iph1, ISAKMP_NTYPE_LOAD_BALANCE, raddr);
+						plog(LLV_DEBUG, LOCATION, iph1->remote, "sent redirect notification - address = %x.\n", ntohl(addr->redirect_address));
+						vfree(raddr);
+						if (addr->force) {
+							(void)ike_session_update_ph1_ph2tree(iph1);
+							isakmp_ph1delete(iph1);
+						}
+					}
 				}
+				return 0;
 			}
-			return 0;
 		}
-	}
 #endif 
 		/* save created date. */
 		(void)time(&iph1->created);
 
 		/* add to the schedule to expire, and save back pointer. */
 		iph1->sce = sched_new(iph1->approval->lifetime,
-		    isakmp_ph1expire_stub, iph1);
+							  isakmp_ph1expire_stub, iph1);
+
+		if (iph1->rmconf->initiate_ph1rekey) {
+			if (iph1->side == INITIATOR) {
+				spi_cmp = memcmp(&iph1->index.i_ck, &iph1->index.r_ck, sizeof(iph1->index.i_ck));
+				if (spi_cmp == 0)
+					spi_cmp = 1;
+			} else {
+				spi_cmp = memcmp(&iph1->index.r_ck, &iph1->index.i_ck, sizeof(iph1->index.r_ck));
+				if (spi_cmp == 0)
+					spi_cmp = -1;
+			}
+			rekey_lifetime = ike_session_get_rekey_lifetime((spi_cmp > 0),
+															iph1->approval->lifetime);
+			if (rekey_lifetime) {
+				iph1->sce_rekey = sched_new(rekey_lifetime,
+											isakmp_ph1rekeyexpire_stub,
+											iph1);
+			} else {
+				/* iph1->approval->lifetime is too small (e.g. 1) so why bother?
+				 * LOG ERROR
+				 */
+				plog(LLV_ERROR, LOCATION, iph1->remote,
+					 "failed to get rekey timer - lifetime is too small... probably.\n");
+			}
+		}
+
 #ifdef ENABLE_HYBRID
-		if (iph1->mode_cfg->flags & ISAKMP_CFG_VENDORID_XAUTH) {
-			switch(iph1->approval->authmethod) {
-			case OAKLEY_ATTR_AUTH_METHOD_HYBRID_RSA_I:
-			case OAKLEY_ATTR_AUTH_METHOD_HYBRID_DSS_I:
+		/* ignore xauth if it is a rekey */
+		if (!iph1->is_rekey &&
+			iph1->mode_cfg->flags & ISAKMP_CFG_VENDORID_XAUTH) {
+			switch(AUTHMETHOD(iph1)) {
+			case OAKLEY_ATTR_AUTH_METHOD_HYBRID_RSA_R:
+			case OAKLEY_ATTR_AUTH_METHOD_HYBRID_DSS_R:
+			case OAKLEY_ATTR_AUTH_METHOD_XAUTH_PSKEY_R:
+			case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSASIG_R:
+			case OAKLEY_ATTR_AUTH_METHOD_XAUTH_DSSSIG_R:
+			case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSAENC_R:
+			case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSAREV_R:
 				xauth_sendreq(iph1);
 				/* XXX Don't process INITIAL_CONTACT */
-				iph1->rmconf->ini_contact = 0;
+				ini_contact = 0;
 				break;
 			default:
 				break;
@@ -874,9 +1015,9 @@ ph1_main(iph1, msg)
 #endif
 
 		/* INITIAL-CONTACT processing */
+		/* ignore initial-contact if it is a rekey */
 		/* don't send anything if local test mode. */
-		if (!f_local
-		 && iph1->rmconf->ini_contact && !getcontacted(iph1->remote)) {
+		if (!iph1->is_rekey && !f_local && ini_contact && !getcontacted(iph1->remote)) {
 			/* send INITIAL-CONTACT */
 			isakmp_info_send_n1(iph1,
 					ISAKMP_NTYPE_INITIAL_CONTACT, NULL);
@@ -891,19 +1032,37 @@ ph1_main(iph1, msg)
 		log_ph1established(iph1);
 		plog(LLV_DEBUG, LOCATION, NULL, "===\n");
 		
+		/* 
+		 * SA up shell script hook: do it now for rekeys, otherwise only
+		 * if ISAKMP mode config wasn't requested. In the later
+		 * case it is done when we receive the configuration.
+		 */
+		if ((iph1->status == PHASE1ST_ESTABLISHED) &&
+		    (iph1->is_rekey || !iph1->rmconf->mode_cfg)) { 
+			switch (AUTHMETHOD(iph1)) {
+#ifdef ENABLE_HYBRID
+			case OAKLEY_ATTR_AUTH_METHOD_XAUTH_PSKEY_R:
+			case OAKLEY_ATTR_AUTH_METHOD_HYBRID_RSA_R:
+			case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSASIG_R:
+			/* Unimplemeted... */
+			case OAKLEY_ATTR_AUTH_METHOD_HYBRID_DSS_R:
+			case OAKLEY_ATTR_AUTH_METHOD_XAUTH_DSSSIG_R:
+			case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSAENC_R:
+			case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSAREV_R:
+				break;
+#endif
+			default:
+				script_hook(iph1, SCRIPT_PHASE1_UP);
+				break;
+			}
+		}
+
+		ike_session_cleanup_other_established_ph1s(iph1->parent_session, iph1);
+
 #ifdef ENABLE_VPNCONTROL_PORT
 		vpncontrol_notify_phase_change(0, FROM_LOCAL, iph1, NULL);
 #endif
 
-
-		/* 
-		 * SA up shell script hook: do it now,except if
-		 * ISAKMP mode config was requested. In the later
-		 * case it is done when we receive the configuration.
-		 */
-		if ((iph1->status == PHASE1ST_ESTABLISHED) &&
-		    !iph1->rmconf->mode_cfg)
-			script_hook(iph1, SCRIPT_PHASE1_UP);	
 	}
 
 	return 0;
@@ -965,8 +1124,7 @@ quick_main(iph2, msg)
 	VPTRINIT(iph2->sendbuf);
 
 	/* turn off schedule */
-	if (iph2->scr)
-		SCHED_KILL(iph2->scr);
+	SCHED_KILL(iph2->scr);
 		
 	/* when using commit bit, status will be reached here. */
 	if (iph2->status == PHASE2ST_ADDSA)		//%%% BUG FIX - moved to here
@@ -995,9 +1153,10 @@ quick_main(iph2, msg)
 
 /* new negotiation of phase 1 for initiator */
 int
-isakmp_ph1begin_i(rmconf, remote, local)
+isakmp_ph1begin_i(rmconf, remote, local, started_by_api)
 	struct remoteconf *rmconf;
 	struct sockaddr *remote, *local;
+	int started_by_api;
 {
 	struct ph1handle *iph1;
 #ifdef ENABLE_STATS
@@ -1011,7 +1170,19 @@ isakmp_ph1begin_i(rmconf, remote, local)
 
 	iph1->status = PHASE1ST_START;
 	iph1->rmconf = rmconf;
+#ifdef __APPLE__
+	if (link_rmconf_to_ph1(rmconf) < 0) {
+		plog(LLV_ERROR, LOCATION, remote,
+			 "couldn't link "
+			 "configuration.\n");
+		iph1->rmconf = NULL;
+		/* don't call remph1(iph1) until after insph1(iph1) is called */
+		delph1(iph1);
+		return -1;
+	}
+#endif
 	iph1->side = INITIATOR;
+	iph1->started_by_api = started_by_api;
 	iph1->version = ISAKMP_VERSION_NUMBER;
 	iph1->msgid = 0;
 	iph1->flags = 0;
@@ -1020,20 +1191,37 @@ isakmp_ph1begin_i(rmconf, remote, local)
 	iph1->gssapi_state = NULL;
 #endif
 #ifdef ENABLE_HYBRID
-	if ((iph1->mode_cfg = isakmp_cfg_mkstate()) == NULL)
+	if ((iph1->mode_cfg = isakmp_cfg_mkstate()) == NULL) {
+		/* don't call remph1(iph1) until after insph1(iph1) is called */
+		delph1(iph1);
 		return -1;
+	}
 #endif
 #ifdef ENABLE_FRAG
-	iph1->frag = 0;
+
+	if(rmconf->ike_frag == ISAKMP_FRAG_FORCE)
+		iph1->frag = 1;
+	else
+		iph1->frag = 0;
 	iph1->frag_chain = NULL;
 #endif
 	iph1->approval = NULL;
 
 	/* XXX copy remote address */
-	if (copy_ph1addresses(iph1, rmconf, remote, local) < 0)
+	if (copy_ph1addresses(iph1, rmconf, remote, local) < 0) {
+		/* don't call remph1(iph1) until after insph1(iph1) is called */
+		delph1(iph1);
 		return -1;
+	}
 
 	(void)insph1(iph1);
+
+	if (ike_session_link_ph1_to_session(iph1) != 0) {
+		plog(LLV_DEBUG, LOCATION, NULL, "Failed to link ph1 to session\n");
+		remph1(iph1);
+		delph1(iph1);
+		return -1;
+	}
 
 	/* start phase 1 exchange */
 	iph1->etype = rmconf->etypes->type;
@@ -1042,7 +1230,9 @@ isakmp_ph1begin_i(rmconf, remote, local)
     {
 	char *a;
 
-	a = strdup(saddr2str(iph1->local));
+	a = racoon_strdup(saddr2str(iph1->local));
+	STRDUP_FATAL(a);
+
 	plog(LLV_INFO, LOCATION, NULL,
 		"initiate new phase 1 negotiation: %s<=>%s\n",
 		a, saddr2str(iph1->remote));
@@ -1123,8 +1313,20 @@ isakmp_ph1begin_r(msg, remote, local, etype)
 	memcpy(&iph1->index.i_ck, &isakmp->i_ck, sizeof(iph1->index.i_ck));
 	iph1->status = PHASE1ST_START;
 	iph1->rmconf = rmconf;
+#ifdef __APPLE__
+	if (link_rmconf_to_ph1(rmconf) < 0) {
+		plog(LLV_ERROR, LOCATION, remote,
+			 "couldn't link "
+			 "configuration.\n");
+		iph1->rmconf = NULL;
+		/* don't call remph1(iph1) until after insph1(iph1) is called */
+		delph1(iph1);
+		return -1;
+	}
+#endif
 	iph1->flags = 0;
 	iph1->side = RESPONDER;
+	iph1->started_by_api = 0;
 	iph1->etype = etypeok->type;
 	iph1->version = isakmp->v;
 	iph1->msgid = 0;
@@ -1132,8 +1334,11 @@ isakmp_ph1begin_r(msg, remote, local, etype)
 	iph1->gssapi_state = NULL;
 #endif
 #ifdef ENABLE_HYBRID
-	if ((iph1->mode_cfg = isakmp_cfg_mkstate()) == NULL)
+	if ((iph1->mode_cfg = isakmp_cfg_mkstate()) == NULL) {
+		/* don't call remph1(iph1) until after insph1(iph1) is called */
+		delph1(iph1);
 		return -1;
+	}
 #endif
 #ifdef ENABLE_FRAG
 	iph1->frag = 0;
@@ -1151,16 +1356,26 @@ isakmp_ph1begin_r(msg, remote, local, etype)
 #endif
 
 	/* copy remote address */
-	if (copy_ph1addresses(iph1, rmconf, remote, local) < 0)
+	if (copy_ph1addresses(iph1, rmconf, remote, local) < 0) {
+		/* don't call remph1(iph1) until after insph1(iph1) is called */
+		delph1(iph1);
 		return -1;
-
+	}
 	(void)insph1(iph1);
+
+	if (ike_session_link_ph1_to_session(iph1) != 0) {
+		remph1(iph1);
+		delph1(iph1);
+		return -1;
+	}
 
 	plog(LLV_DEBUG, LOCATION, NULL, "===\n");
     {
 	char *a;
 
-	a = strdup(saddr2str(iph1->local));
+	a = racoon_strdup(saddr2str(iph1->local));
+	STRDUP_FATAL(a);
+
 	plog(LLV_INFO, LOCATION, NULL,
 		"respond new phase 1 negotiation: %s<=>%s\n",
 		a, saddr2str(iph1->remote));
@@ -1173,6 +1388,9 @@ isakmp_ph1begin_r(msg, remote, local, etype)
 	gettimeofday(&iph1->start, NULL);
 	gettimeofday(&start, NULL);
 #endif
+
+#ifndef ENABLE_FRAG
+
 	/* start exchange */
 	if ((ph1exchange[etypesw1(iph1->etype)]
 	                [iph1->side]
@@ -1186,6 +1404,7 @@ isakmp_ph1begin_r(msg, remote, local, etype)
 		delph1(iph1);
 		return -1;
 	}
+
 #ifdef ENABLE_STATS
 	gettimeofday(&end, NULL);
 	syslog(LOG_NOTICE, "%s(%s): %8.6f",
@@ -1198,6 +1417,17 @@ isakmp_ph1begin_r(msg, remote, local, etype)
 #endif
 
 	return 0;
+
+#else /* ENABLE_FRAG */
+
+	/* now that we have a phase1 handle, feed back into our
+	 * main receive function to catch fragmented packets
+	 */
+
+	return isakmp_main(msg, remote, local);
+
+#endif /* ENABLE_FRAG */
+
 }
 
 /* new negotiation of phase 2 for initiator */
@@ -1219,7 +1449,9 @@ isakmp_ph2begin_i(iph1, iph2)
 	plog(LLV_DEBUG, LOCATION, NULL, "begin QUICK mode.\n");
     {
 	char *a;
-	a = strdup(saddr2str(iph2->src));
+	a = racoon_strdup(saddr2str(iph2->src));
+	STRDUP_FATAL(a);
+
 	plog(LLV_INFO, LOCATION, NULL,
 		"initiate new phase 2 negotiation: %s<=>%s\n",
 		a, saddr2str(iph2->dst));
@@ -1230,15 +1462,21 @@ isakmp_ph2begin_i(iph1, iph2)
 	gettimeofday(&iph2->start, NULL);
 #endif
 	/* found isakmp-sa */
-	bindph12(iph1, iph2);
+	if (iph2->ph1 && iph1 != iph2->ph1) {
+		plog(LLV_DEBUG2, LOCATION, NULL, "phase2 already bound in %s.\n",__FUNCTION__);
+		rebindph12(iph1, iph2);
+	} else if (!iph2->ph1) {
+		bindph12(iph1, iph2);
+	}
+	iph2->is_dying = 0;
+	if (ike_session_link_ph2_to_session(iph2) != 0) {
+		return -1;
+	}
 	iph2->status = PHASE2ST_STATUS2;
 
 	if ((ph2exchange[etypesw2(ISAKMP_ETYPE_QUICK)]
 			 [iph2->side]
 			 [iph2->status])(iph2, NULL) < 0) {
-		unbindph12(iph2);
-		/* release ipsecsa handler due to internal error. */
-		remph2(iph2);
 		return -1;
 	}
 	
@@ -1340,12 +1578,21 @@ isakmp_ph2begin_r(iph1, msg)
 	/* add new entry to isakmp status table */
 	insph2(iph2);
 	bindph12(iph1, iph2);
-
+	iph2->is_dying = 0;
+	if (ike_session_link_ph2_to_session(iph2) != 0) {
+		unbindph12(iph2);
+		remph2(iph2);
+		delph2(iph2);
+		return -1;
+	}
+	
 	plog(LLV_DEBUG, LOCATION, NULL, "===\n");
     {
 	char *a;
 
-	a = strdup(saddr2str(iph2->src));
+	a = racoon_strdup(saddr2str(iph2->src));
+	STRDUP_FATAL(a);
+
 	plog(LLV_INFO, LOCATION, NULL,
 		"respond new phase 2 negotiation: %s<=>%s\n",
 		a, saddr2str(iph2->dst));
@@ -1507,12 +1754,35 @@ isakmp_parse(buf)
 }
 
 /* %%% */
+#ifndef __APPLE__
 int
 isakmp_init()
 {
 	/* initialize a isakmp status table */
 	initph1tree();
 	initph2tree();
+	initctdtree();
+	init_recvdpkt();
+	ike_session_init();
+
+	if (isakmp_open() < 0)
+		goto err;
+
+	return(0);
+
+err:
+	isakmp_close();
+	return(-1);
+}
+#else
+int
+isakmp_init(int ignore_phX)
+{
+	/* initialize a isakmp status table */
+	if (!ignore_phX) {
+		initph1tree();
+		initph2tree();
+	}
 	initctdtree();
 	init_recvdpkt();
 
@@ -1525,6 +1795,7 @@ err:
 	isakmp_close();
 	return(-1);
 }
+#endif /* __APPLE__ */
 
 void
 isakmp_cleanup()
@@ -1634,6 +1905,10 @@ isakmp_open()
 			goto err_and_next;
 		}
 
+		if (fcntl(p->sock, F_SETFL, O_NONBLOCK) == -1)
+			plog(LLV_WARNING, LOCATION, NULL,
+				"failed to put socket in non-blocking mode\n");
+
 		/* receive my interface address on inbound packets. */
 		switch (p->addr->sa_family) {
 		case AF_INET:
@@ -1645,7 +1920,8 @@ isakmp_open()
 #endif
 					(const void *)&yes, sizeof(yes)) < 0) {
 				plog(LLV_ERROR, LOCATION, NULL,
-					"setsockopt (%s)\n", strerror(errno));
+					"setsockopt IP_RECVDSTADDR (%s)\n", 
+					strerror(errno));
 				goto err_and_next;
 			}
 			break;
@@ -1664,12 +1940,8 @@ isakmp_open()
 					(const void *)&yes, sizeof(yes)) < 0)
 			{
 				plog(LLV_ERROR, LOCATION, NULL,
-					"setsockopt(%d): %s\n",
+					"setsockopt IPV6_RECVDSTADDR (%d):%s\n",
 					pktinfo, strerror(errno));
-		if (fcntl(p->sock, F_SETFL, O_NONBLOCK) == -1)
-			plog(LLV_WARNING, LOCATION, NULL,
-				"failed to put socket in non-blocking mode\n");
-
 				goto err_and_next;
 			}
 			break;
@@ -1681,7 +1953,8 @@ isakmp_open()
 		    setsockopt(p->sock, IPPROTO_IPV6, IPV6_USE_MIN_MTU,
 		    (void *)&yes, sizeof(yes)) < 0) {
 			plog(LLV_ERROR, LOCATION, NULL,
-			    "setsockopt (%s)\n", strerror(errno));
+			    "setsockopt IPV6_USE_MIN_MTU (%s)\n", 
+			    strerror(errno));
 			return -1;
 		}
 #endif
@@ -1705,7 +1978,6 @@ isakmp_open()
 				"failed to bind to address %s (%s).\n",
 				saddr2str(p->addr), strerror(errno));
 			close(p->sock);
-			p->sock = -1;
 			goto err_and_next;
 		}
 		
@@ -1731,11 +2003,11 @@ isakmp_open()
 				option = UDP_ENCAP_ESPINUDP_NON_IKE;
 #endif
 			if(option != -1){
-				if (setsockopt (p->sock, SOL_UDP, UDP_ENCAP,
-								&option, sizeof (option)) < 0) {
+				if (setsockopt (p->sock, SOL_UDP, 
+				    UDP_ENCAP, &option, sizeof (option)) < 0) {
 					plog(LLV_WARNING, LOCATION, NULL,
-						 "setsockopt(%s): %s\n",
-						 option == UDP_ENCAP_ESPINUDP ? "UDP_ENCAP_ESPINUDP" : "UDP_ENCAP_ESPINUDP_NON_IKE",
+					    "setsockopt(%s): UDP_ENCAP %s\n",
+					    option == UDP_ENCAP_ESPINUDP ? "UDP_ENCAP_ESPINUDP" : "UDP_ENCAP_ESPINUDP_NON_IKE",
 						 strerror(errno));
 					goto skip_encap;
 				}
@@ -1817,11 +2089,9 @@ isakmp_close_unused()
 		if (p->in_use == 0) { 	// not in use ?
 	
 			if (p->sock >= 0)
-				close(p->sock);			
-			if (p->addr)
-				racoon_free(p->addr);
+				close(p->sock);
 			*prev = p->next;
-			racoon_free(p);
+			delmyaddr(p);
 		} else
 			prev = &(p->next);
 	}
@@ -1855,7 +2125,11 @@ isakmp_send(iph1, sbuf)
 	   must added just before the packet itself. For this we must 
 	   allocate a new buffer and release it at the end. */
 	if (extralen) {
-		vbuf = vmalloc (sbuf->l + extralen);
+		if ((vbuf = vmalloc (sbuf->l + extralen)) == NULL) {
+			plog(LLV_ERROR, LOCATION, NULL, 
+			    "vbuf allocation failed\n");
+			return -1;
+		}
 		*(u_int32_t *)vbuf->v = 0;
 		memcpy (vbuf->v + extralen, sbuf->v, sbuf->l);
 		sbuf = vbuf;
@@ -1906,34 +2180,70 @@ void
 isakmp_ph1resend_stub(p)
 	void *p;
 {
-	(void)isakmp_ph1resend((struct ph1handle *)p);
+	struct ph1handle *iph1;
+
+	iph1=(struct ph1handle *)p;
+	if(isakmp_ph1resend(iph1) < 0){
+		if(iph1->scr != NULL){
+			/* Should not happen...
+			 */
+			sched_kill(iph1->scr);
+			iph1->scr=NULL;
+		}
+
+		remph1(iph1);
+		delph1(iph1);
+	}
 }
 
 int
 isakmp_ph1resend(iph1)
 	struct ph1handle *iph1;
 {
-	if (iph1->retry_counter < 0) {
+	/* Note: NEVER do the rem/del here, it will be done by the caller or by the _stub function
+	 */
+	if (iph1->retry_counter <= 0) {
+		IPSECSESSIONTRACEREVENT(iph1->parent_session,
+								IPSECSESSIONEVENTCODE_IKEV1_PH1_MAX_RETRANSMIT,
+								CONSTSTR("Phase1 Maximum Retransmits"),
+								CONSTSTR("Phase1 negotiation failed (Maximum retransmits)"));
+
 		plog(LLV_ERROR, LOCATION, NULL,
 			"phase1 negotiation failed due to time up. %s\n",
 			isakmp_pindex(&iph1->index, iph1->msgid));
 		EVT_PUSH(iph1->local, iph1->remote, 
 		    EVTT_PEER_NO_RESPONSE, NULL);
-
-		remph1(iph1);
-		delph1(iph1);
+		if (iph1->side == INITIATOR && iph1->is_rekey && iph1->parent_session && iph1->parent_session->is_client) {
+			/* to get around a bug on the peer, in which rekeys to port 4500 are dropped */
+			if (isakmp_ph1rekeyretry(iph1) == 0)
+				return 0;
+		}
 		return -1;
 	}
 
 	if (isakmp_send(iph1, iph1->sendbuf) < 0){
-		iph1->retry_counter--;
-
-		iph1->scr = sched_new(iph1->rmconf->retry_interval,
-							  isakmp_ph1resend_stub, iph1);
+		if (iph1->rmconf->retry_counter != iph1->retry_counter) {
+			IPSECSESSIONTRACEREVENT(iph1->parent_session,
+									IPSECSESSIONEVENTCODE_IKE_PACKET_TX_FAIL,
+									CONSTSTR("Phase1 Retransmit"),
+									CONSTSTR("Failed to retrasmit Phase1"));
+		}
+		plog(LLV_ERROR, LOCATION, iph1->remote,
+			 "phase1 negotiation failed due to send error. %s\n",
+			 isakmp_pindex(&iph1->index, iph1->msgid));
+		EVT_PUSH(iph1->local, iph1->remote, 
+				 EVTT_PEER_NO_RESPONSE, NULL);
 		return -1;
 	}
 
-	plog(LLV_DEBUG, LOCATION, NULL,
+	if (iph1->rmconf->retry_counter != iph1->retry_counter) {
+		IPSECSESSIONTRACEREVENT(iph1->parent_session,
+								IPSECSESSIONEVENTCODE_IKE_PACKET_TX_SUCC,
+								CONSTSTR("Phase1 Retransmit"),
+								CONSTSTR(NULL));
+	}
+
+	plog(LLV_DEBUG, LOCATION, iph1->remote,
 		"resend phase1 packet %s\n",
 		isakmp_pindex(&iph1->index, iph1->msgid));
 
@@ -1950,37 +2260,73 @@ void
 isakmp_ph2resend_stub(p)
 	void *p;
 {
+	struct ph2handle *iph2;
 
-	(void)isakmp_ph2resend((struct ph2handle *)p);
+	iph2=(struct ph2handle *)p;
+
+	if(isakmp_ph2resend(iph2) < 0){
+		unbindph12(iph2);
+		remph2(iph2);
+		delph2(iph2);
+	}
 }
 
 int
 isakmp_ph2resend(iph2)
 	struct ph2handle *iph2;
 {
-	if (iph2->retry_counter < 0) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"phase2 negotiation failed due to time up. %s\n",
-				isakmp_pindex(&iph2->ph1->index, iph2->msgid));
-		EVT_PUSH(iph2->src, iph2->dst, EVTT_PEER_NO_RESPONSE, NULL);
-		unbindph12(iph2);
-		remph2(iph2);
-		delph2(iph2);
-		return -1;
-	}
-
+	/* Note: NEVER do the unbind/rem/del here, it will be done by the caller or by the _stub function
+	 */
 	//%%% BUG FIX - related to commit bit usage - crash happened here
 	if (iph2->ph1 == 0) {
 		plog(LLV_ERROR, LOCATION, NULL,
 			"internal error - attempt to re-send phase2 with no phase1 bound.\n");
-		iph2->retry_counter = -1;
-		remph2(iph2);
-		delph2(iph2);
 		return -1;
 	}
 
-	if (isakmp_send(iph2->ph1, iph2->sendbuf) < 0)
+	if (iph2->ph1->status == PHASE1ST_EXPIRED){
+		IPSECSESSIONTRACEREVENT(iph2->ph1->parent_session,
+								IPSECSESSIONEVENTCODE_IKEV1_PH2_MAX_RETRANSMIT,
+								CONSTSTR("Underlying Phase1 expired"),
+								CONSTSTR("Failed to retransmit phase2 (underlying phase1 expired)"));
+		plog(LLV_ERROR, LOCATION, iph2->ph1->remote,
+			"phase2 negotiation failed due to phase1 expired. %s\n",
+				isakmp_pindex(&iph2->ph1->index, iph2->msgid));
 		return -1;
+	}
+
+	if (iph2->retry_counter <= 0) {
+		IPSECSESSIONTRACEREVENT(iph2->ph1->parent_session,
+								IPSECSESSIONEVENTCODE_IKEV1_PH2_MAX_RETRANSMIT,
+								CONSTSTR("Phase2 maximum retransmits"),
+								CONSTSTR("Phase2 negotiation failed (maximum retransmits)"));
+		plog(LLV_ERROR, LOCATION, iph2->ph1->remote,
+			"phase2 negotiation failed due to time up. %s\n",
+				isakmp_pindex(&iph2->ph1->index, iph2->msgid));
+		EVT_PUSH(iph2->src, iph2->dst, EVTT_PEER_NO_RESPONSE, NULL);
+		return -1;
+	}
+
+	if (isakmp_send(iph2->ph1, iph2->sendbuf) < 0){
+		if (iph2->ph1->rmconf->retry_counter != iph2->retry_counter) {
+			IPSECSESSIONTRACEREVENT(iph2->ph1->parent_session,
+									IPSECSESSIONEVENTCODE_IKE_PACKET_TX_FAIL,
+									CONSTSTR("Phase2 Retransmit"),
+									CONSTSTR("Failed to retransmit Phase2 message"));
+		}
+		plog(LLV_ERROR, LOCATION, NULL,
+			"phase2 negotiation failed due to send error. %s\n",
+				isakmp_pindex(&iph2->ph1->index, iph2->msgid));
+		EVT_PUSH(iph2->src, iph2->dst, EVTT_PEER_NO_RESPONSE, NULL);
+
+		return -1;
+	}
+	if (iph2->ph1->rmconf->retry_counter != iph2->retry_counter) {
+		IPSECSESSIONTRACEREVENT(iph2->ph1->parent_session,
+								IPSECSESSIONEVENTCODE_IKE_PACKET_TX_SUCC,
+								CONSTSTR("Phase2 Retransmit"),
+								CONSTSTR(NULL));
+	}
 
 	plog(LLV_DEBUG, LOCATION, NULL,
 		"resend phase2 packet %s\n",
@@ -1991,6 +2337,13 @@ isakmp_ph2resend(iph2)
 	iph2->scr = sched_new(iph2->ph1->rmconf->retry_interval,
 		isakmp_ph2resend_stub, iph2);
 
+#ifdef ENABLE_DPD
+    if (iph2->scr) {
+        isakmp_reschedule_info_monitor_if_pending(iph2->ph1,
+                                                  "phase2 packets sent to peer: retransmit timer armed");
+    }
+#endif /* DPD */
+    
 	return 0;
 }
 
@@ -2010,10 +2363,16 @@ isakmp_ph1expire(iph1)
 	char *src, *dst;
 
 	SCHED_KILL(iph1->sce);
+#ifdef ENABLE_DPD
+    SCHED_KILL(iph1->dpd_r_u);
+#endif
 
 	if(iph1->status != PHASE1ST_EXPIRED){
-		src = strdup(saddr2str(iph1->local));
-		dst = strdup(saddr2str(iph1->remote));
+		src = racoon_strdup(saddr2str(iph1->local));
+		dst = racoon_strdup(saddr2str(iph1->remote));
+		STRDUP_FATAL(src);
+		STRDUP_FATAL(dst);
+
 		plog(LLV_INFO, LOCATION, NULL,
 			 "ISAKMP-SA expired %s-%s spi:%s\n",
 			 src, dst,
@@ -2021,6 +2380,7 @@ isakmp_ph1expire(iph1)
 		racoon_free(src);
 		racoon_free(dst);
 		iph1->status = PHASE1ST_EXPIRED;
+		(void)ike_session_update_ph1_ph2tree(iph1);
 	}
 
 	/*
@@ -2032,6 +2392,143 @@ isakmp_ph1expire(iph1)
 	}
 
 	iph1->sce = sched_new(1, isakmp_ph1delete_stub, iph1);
+}
+
+/* called from scheduler */
+void
+isakmp_ph1rekeyexpire_stub(p)
+void *p;
+{
+	
+	isakmp_ph1rekeyexpire((struct ph1handle *)p);
+}
+
+void
+isakmp_ph1rekeyexpire(iph1)
+struct ph1handle *iph1;
+{
+	char              *src, *dst;
+	struct remoteconf *rmconf;
+
+	SCHED_KILL(iph1->sce_rekey);
+
+	// early exit if iph2->sce == NULL, iph2 isn't established or if entire session is going down
+	if (iph1->sce == NULL ||
+		iph1->status != PHASE1ST_ESTABLISHED ||
+		iph1->is_dying) {
+		return;
+	}
+
+	src = racoon_strdup(saddr2str(iph1->local));
+	dst = racoon_strdup(saddr2str(iph1->remote));
+	STRDUP_FATAL(src);
+	STRDUP_FATAL(dst);
+
+	plog(LLV_INFO, LOCATION, NULL,
+		 "ISAKMP-SA rekey-timer expired %s-%s spi:%s\n",
+		 src, dst,
+		 isakmp_pindex(&iph1->index, 0));
+	racoon_free(src);
+	racoon_free(dst);
+
+	// exit if there is another ph1 that is established (with a pending rekey timer)
+	if (ike_session_has_other_established_ph1(iph1->parent_session, iph1)) {
+		plog(LLV_INFO, LOCATION, iph1->remote,
+			 "request for ISAKMP-SA rekey was ignored "
+			 "due to another established ph1.\n");
+		return;
+	}
+
+	// if there is another ph1 that is negotiating, postpone this rekey for a few seconds later
+	if (ike_session_has_other_negoing_ph1(iph1->parent_session, iph1)) {
+		plog(LLV_DEBUG, LOCATION, NULL, "reschedule Phase1 rekey.\n");
+		iph1->sce_rekey = sched_new(1,
+									isakmp_ph1rekeyexpire_stub,
+									iph1);
+		return;
+	}
+
+	// get rmconf to initiate rekey with
+	rmconf = iph1->rmconf;
+	if (!rmconf || rmconf->to_delete || rmconf->to_remove) {
+		rmconf = getrmconf(iph1->remote);
+	}
+	if (rmconf) {
+		/* begin quick mode */
+		plog(LLV_DEBUG, LOCATION, NULL, "begin Phase1 rekey.\n");
+
+		/* start phase 1 negotiation as a initiator. */
+		if (isakmp_ph1begin_i(rmconf, iph1->remote, iph1->local, 0) < 0) {
+			plog(LLV_DEBUG, LOCATION, NULL, "Phase1 rekey Failed.\n");
+		}
+	} else {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "Phase1 rekey failed: no configuration found for %s.\n",
+			 saddrwop2str(iph1->remote));
+	}
+}
+
+int
+isakmp_ph1rekeyretry(iph1)
+struct ph1handle *iph1;
+{
+	char              *src, *dst;
+	struct remoteconf *rmconf;
+
+	// this code path is meant for floated ph1 rekeys that are failing on the first message
+	if (iph1->sce != NULL ||
+		iph1->sce_rekey != NULL ||
+		(iph1->status != PHASE1ST_MSG1SENT || (iph1->natt_flags & NAT_PORTS_CHANGED == 0)) ||
+		(extract_port(iph1->local) != PORT_ISAKMP_NATT && extract_port(iph1->remote) != PORT_ISAKMP_NATT) ||
+		iph1->is_dying) {
+		return -1;
+	}
+
+	src = racoon_strdup(saddr2str(iph1->local));
+	dst = racoon_strdup(saddr2str(iph1->remote));
+	STRDUP_FATAL(src);
+	STRDUP_FATAL(dst);
+
+	plog(LLV_INFO, LOCATION, NULL,
+		 "ISAKMP-SA rekey failed... retrying %s-%s spi:%s\n",
+		 src, dst,
+		 isakmp_pindex(&iph1->index, 0));
+	racoon_free(src);
+	racoon_free(dst);
+
+	// exit if there is another ph1 that is established (with a pending rekey timer)
+	if (ike_session_has_other_established_ph1(iph1->parent_session, iph1)) {
+		plog(LLV_INFO, LOCATION, iph1->remote,
+			 "request to retry ISAKMP-SA rekey was ignored "
+			 "due to another established ph1.\n");
+		return -1;
+	}
+
+	// some servers don't like respond to 4500 for rekeys... try accomodate them
+	if (extract_port(iph1->local) == PORT_ISAKMP_NATT) {
+		set_port(iph1->local, PORT_ISAKMP);
+	}
+	if (extract_port(iph1->remote) == PORT_ISAKMP_NATT) {
+		set_port(iph1->remote, PORT_ISAKMP);
+	}
+	iph1->natt_flags &= ~NAT_PORTS_CHANGED;
+	rmconf = getrmconf(iph1->remote);
+	if (rmconf) {
+		/* begin quick mode */
+		plog(LLV_DEBUG, LOCATION, NULL, "begin Phase1 rekey retry.\n");
+
+		/* start phase 1 negotiation as a initiator. */
+		if (isakmp_ph1begin_i(rmconf, iph1->remote, iph1->local, 0) < 0) {
+			plog(LLV_DEBUG, LOCATION, NULL, "Phase1 rekey retry Failed.\n");
+			return -1;
+		}
+	} else {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "Phase1 rekey retry failed: no configuration found for %s.\n",
+			 saddrwop2str(iph1->remote));
+		return -1;
+	}
+	return 0;
 }
 
 /* called from scheduler */
@@ -2049,18 +2546,26 @@ isakmp_ph1delete(iph1)
 {
 	char *src, *dst;
 
-	if (iph1->sce)
-		SCHED_KILL(iph1->sce);
+	SCHED_KILL(iph1->sce);
+	SCHED_KILL(iph1->sce_rekey);
+#ifdef ENABLE_DPD
+    SCHED_KILL(iph1->dpd_r_u);
+#endif    
 
 	if (LIST_FIRST(&iph1->ph2tree) != NULL) {
 		iph1->sce = sched_new(1, isakmp_ph1delete_stub, iph1);
 		return;
 	}
 
+    isakmp_info_send_d1(iph1);
+
 	/* don't re-negosiation when the phase 1 SA expires. */
 
-	src = strdup(saddr2str(iph1->local));
-	dst = strdup(saddr2str(iph1->remote));
+	src = racoon_strdup(saddr2str(iph1->local));
+	dst = racoon_strdup(saddr2str(iph1->remote));
+	STRDUP_FATAL(src);
+	STRDUP_FATAL(dst);
+
 	plog(LLV_INFO, LOCATION, NULL,
 		"ISAKMP-SA deleted %s-%s spi:%s\n",
 		src, dst, isakmp_pindex(&iph1->index, 0));
@@ -2096,12 +2601,29 @@ isakmp_ph2expire(iph2)
 
 	SCHED_KILL(iph2->sce);
 
-	src = strdup(saddrwop2str(iph2->src));
-	dst = strdup(saddrwop2str(iph2->dst));
+	src = racoon_strdup(saddrwop2str(iph2->src));
+	dst = racoon_strdup(saddrwop2str(iph2->dst));
+	STRDUP_FATAL(src);
+	STRDUP_FATAL(dst);
+
 	plog(LLV_INFO, LOCATION, NULL,
 		"phase2 sa expired %s-%s\n", src, dst);
 	racoon_free(src);
 	racoon_free(dst);
+
+	// delete outgoing SAs
+	if (iph2->status == PHASE2ST_ESTABLISHED && iph2->approval) {
+		struct saproto *pr;
+
+		for (pr = iph2->approval->head; pr != NULL; pr = pr->next) {
+			if (pr->ok) {
+				pfkey_send_delete(lcconf->sock_pfkey,
+                                  ipsecdoi2pfkey_proto(pr->proto_id),
+                                  IPSEC_MODE_ANY,
+                                  iph2->src, iph2->dst, pr->spi_p /* pr->reqid_out */);
+			}
+		}
+	}
 
 	iph2->status = PHASE2ST_EXPIRED;
 
@@ -2127,8 +2649,11 @@ isakmp_ph2delete(iph2)
 
 	SCHED_KILL(iph2->sce);
 
-	src = strdup(saddrwop2str(iph2->src));
-	dst = strdup(saddrwop2str(iph2->dst));
+	src = racoon_strdup(saddrwop2str(iph2->src));
+	dst = racoon_strdup(saddrwop2str(iph2->dst));
+	STRDUP_FATAL(src);
+	STRDUP_FATAL(dst);
+
 	plog(LLV_INFO, LOCATION, NULL,
 		"phase2 sa deleted %s-%s\n", src, dst);
 	racoon_free(src);
@@ -2154,6 +2679,8 @@ isakmp_post_acquire(iph2)
 {
 	struct remoteconf *rmconf;
 	struct ph1handle *iph1 = NULL;
+	
+	plog(LLV_DEBUG, LOCATION, NULL, "in post_acquire\n");
 
 	/* search appropreate configuration with masking port. */
 	rmconf = getrmconf(iph2->dst);
@@ -2173,23 +2700,29 @@ isakmp_post_acquire(iph2)
 		return 0;
 	}
 
-	/* 
-	 * Search isakmp status table by address and port 
-	 * If NAT-T is in use, consider null ports as a 
-	 * wildcard and use IKE ports instead.
-	 */
-#ifdef ENABLE_NATT
-	if (!extract_port(iph2->src) && !extract_port(iph2->dst)) {
-		if ((iph1 = getph1byaddrwop(iph2->src, iph2->dst)) != NULL) {
-			set_port(iph2->src, extract_port(iph1->local));
-			set_port(iph2->dst, extract_port(iph1->remote));
-		}
-	} else {
-		iph1 = getph1byaddr(iph2->src, iph2->dst);
+	if (ike_session_verify_ph2_parent_session(iph2)) {
+		plog(LLV_INFO, LOCATION, iph2->dst,
+			 "request for establishing IPsec-SA was ignored "
+			 "because there was a failure verifying parent session.\n");
+		return -1;
 	}
-#else
-	iph1 = getph1byaddr(iph2->src, iph2->dst);
-#endif
+
+	// what if there is another ph2 that is negotiating
+	if (ike_session_has_other_negoing_ph2(iph2->parent_session, iph2)) {
+		// TODO: postpone this rekey for a second later
+		plog(LLV_INFO, LOCATION, iph2->dst,
+			 "request for establishing IPsec-SA was ignored "
+			 "due to another negoing ph2.\n");
+		return -1;
+	}
+
+    // if this is a phase2 rekeys (the policy may not have the current port number).
+    // so, use the appropriate ports.
+    if (iph2->is_rekey) {
+        ike_session_update_ph2_ports(iph2);
+    }
+
+	iph1 = ike_session_update_ph2_ph1bind(iph2);
 
 	/* no ISAKMP-SA found. */
 	if (iph1 == NULL) {
@@ -2203,7 +2736,7 @@ isakmp_post_acquire(iph2)
 			saddrwop2str(iph2->dst));
 
 		/* start phase 1 negotiation as a initiator. */
-		if (isakmp_ph1begin_i(rmconf, iph2->dst, iph2->src) < 0) {
+		if (isakmp_ph1begin_i(rmconf, iph2->dst, iph2->src, 0) < 0) {
 			SCHED_KILL(sc);
 			return -1;
 		}
@@ -2288,12 +2821,21 @@ isakmp_chkph1there(iph2)
 	struct ph1handle *iph1;
 
 	iph2->retry_checkph1--;
-	if (iph2->retry_checkph1 < 0) {
-		plog(LLV_ERROR, LOCATION, iph2->dst,
-			"phase2 negotiation failed "
-			"due to time up waiting for phase1. %s\n",
-			sadbsecas2str(iph2->dst, iph2->src,
-				iph2->satype, 0, 0));
+	if (iph2->retry_checkph1 < 0 ||
+		ike_session_verify_ph2_parent_session(iph2)) {
+		if (iph2->retry_checkph1 < 0) {
+			plog(LLV_ERROR, LOCATION, iph2->dst,
+				 "phase2 negotiation failed "
+				 "due to time up waiting for phase1. %s\n",
+				 sadbsecas2str(iph2->dst, iph2->src,
+							   iph2->satype, 0, 0));
+		} else {
+			plog(LLV_ERROR, LOCATION, iph2->dst,
+				 "phase2 negotiation failed "
+				 "due to invalid parent session. %s\n",
+				 sadbsecas2str(iph2->dst, iph2->src,
+							   iph2->satype, 0, 0));
+		}
 		plog(LLV_INFO, LOCATION, NULL,
 			"delete phase 2 handler.\n");
 
@@ -2307,39 +2849,44 @@ isakmp_chkph1there(iph2)
 		return;
 	}
 
-	/* 
-	 * Search isakmp status table by address and port 
-	 * If NAT-T is in use, consider null ports as a 
-	 * wildcard and use IKE ports instead.
-	 */
-#ifdef ENABLE_NATT
-	if (!extract_port(iph2->src) && !extract_port(iph2->dst)) {
-		if ((iph1 = getph1byaddrwop(iph2->src, iph2->dst)) != NULL) {
-			/*
-			 *	cannot set ph2 ports until after switch to natt port
-			 *	otherwise this function will never again find phase 1
-			 */
-			if (iph1->status == PHASE1ST_ESTABLISHED) {
-				set_port(iph2->src, extract_port(iph1->local));
-				set_port(iph2->dst, extract_port(iph1->remote));
-			}
-		}
-	} else {
-		iph1 = getph1byaddr(iph2->src, iph2->dst);
-	}
-#else
-	iph1 = getph1byaddr(iph2->src, iph2->dst);
-#endif
+	iph1 = ike_session_update_ph2_ph1bind(iph2);
 
 	/* XXX Even if ph1 as responder is there, should we not start
 	 * phase 2 negotiation ? */
 	if (iph1 != NULL
 	 && iph1->status == PHASE1ST_ESTABLISHED) {
 		/* found isakmp-sa */
+
+		plog(LLV_DEBUG2, LOCATION, NULL, "CHKPH1THERE: got a ph1 handler, setting ports.\n");
+		plog(LLV_DEBUG2, LOCATION, NULL, "iph1->local: %s\n", saddr2str(iph1->local));
+		plog(LLV_DEBUG2, LOCATION, NULL, "iph1->remote: %s\n", saddr2str(iph1->remote));
+		plog(LLV_DEBUG2, LOCATION, NULL, "before:\n");
+		plog(LLV_DEBUG2, LOCATION, NULL, "src: %s\n", saddr2str(iph2->src));
+		plog(LLV_DEBUG2, LOCATION, NULL, "dst: %s\n", saddr2str(iph2->dst));
+		set_port(iph2->src, extract_port(iph1->local));
+		set_port(iph2->dst, extract_port(iph1->remote));
+		plog(LLV_DEBUG2, LOCATION, NULL, "After:\n");
+		plog(LLV_DEBUG2, LOCATION, NULL, "src: %s\n", saddr2str(iph2->src));
+		plog(LLV_DEBUG2, LOCATION, NULL, "dst: %s\n", saddr2str(iph2->dst));
+
 		/* begin quick mode */
-		(void)isakmp_ph2begin_i(iph1, iph2);
+		if (isakmp_ph2begin_i(iph1, iph2)) {
+			unbindph12(iph2);
+			remph2(iph2);
+			delph2(iph2);
+		}
 		return;
 	}
+	if (!ike_session_has_negoing_ph1(iph2->parent_session)) {
+        	struct remoteconf *rmconf = getrmconf(iph2->dst);
+		/* start phase 1 negotiation as a initiator. */
+		if (rmconf == NULL ||
+		    isakmp_ph1begin_i(rmconf, iph2->dst, iph2->src, 0) < 0) {
+			plog(LLV_DEBUG2, LOCATION, NULL, "CHKPH1THERE: no established/negoing ph1 handler found... failed to initiate new one\n");
+		}
+	}
+
+	plog(LLV_DEBUG2, LOCATION, NULL, "CHKPH1THERE: no established ph1 handler found\n");
 
 	/* no isakmp-sa found */
 	sched_new(1, isakmp_chkph1there_stub, iph2);
@@ -2907,7 +3454,7 @@ copy_ph1addresses(iph1, rmconf, remote, local)
 		port = &((struct sockaddr_in *)iph1->local)->sin_port;
 		if (*port)
 			break;
-		*port = ((struct sockaddr_in *)local)->sin_port;
+		*port = ((struct sockaddr_in *)iph1->local)->sin_port;
 		if (*port)
 			break;
 		*port = getmyaddrsport(iph1->local);
@@ -2917,7 +3464,7 @@ copy_ph1addresses(iph1, rmconf, remote, local)
 		port = &((struct sockaddr_in6 *)iph1->local)->sin6_port;
 		if (*port)
 			break;
-		*port = ((struct sockaddr_in6 *)local)->sin6_port;
+		*port = ((struct sockaddr_in6 *)iph1->local)->sin6_port;
 		if (*port)
 			break;
 		*port = getmyaddrsport(iph1->local);
@@ -2965,13 +3512,19 @@ log_ph1established(iph1)
 {
 	char *src, *dst;
 
-	src = strdup(saddr2str(iph1->local));
-	dst = strdup(saddr2str(iph1->remote));
+	src = racoon_strdup(saddr2str(iph1->local));
+	dst = racoon_strdup(saddr2str(iph1->remote));
+	STRDUP_FATAL(src);
+	STRDUP_FATAL(dst);
+
 	plog(LLV_INFO, LOCATION, NULL,
 		"ISAKMP-SA established %s-%s spi:%s\n",
 		src, dst,
 		isakmp_pindex(&iph1->index, 0));
 	EVT_PUSH(iph1->local, iph1->remote, EVTT_PHASE1_UP, NULL);
+	if(!iph1->rmconf->mode_cfg)
+		EVT_PUSH(iph1->local, iph1->remote, EVTT_NO_ISAKMP_CFG, NULL);
+
 	racoon_free(src);
 	racoon_free(dst);
 
@@ -3001,21 +3554,13 @@ isakmp_plist_append (struct payload_list *plist, vchar_t *payload, int payload_t
 vchar_t * 
 isakmp_plist_set_all (struct payload_list **plist, struct ph1handle *iph1)
 {
-	struct payload_list *ptr, *first;
+	struct payload_list *ptr = *plist, *first;
 	size_t tlen = sizeof (struct isakmp), n = 0;
-	vchar_t *buf;
+	vchar_t *buf = NULL;
 	char *p;
 
-	if (plist == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL, 
-		    "in isakmp_plist_set_all: plist == NULL\n");
-		return NULL;
-	}
-
 	/* Seek to the first item.  */
-	ptr = *plist;
-	while (ptr->prev)
-		ptr = ptr->prev;
+	while (ptr->prev) ptr = ptr->prev;
 	first = ptr;
 	
 	/* Compute the whole length.  */
@@ -3051,6 +3596,8 @@ isakmp_plist_set_all (struct payload_list **plist, struct ph1handle *iph1)
 
 	return buf;
 end:
+	if (buf != NULL)
+		vfree(buf);
 	return NULL;
 }
 
@@ -3091,7 +3638,9 @@ script_hook(iph1, script)
 	struct sockaddr_in *sin;
 	char **c;
 
-	if (iph1->rmconf->script[script] == -1)
+	if (iph1 == NULL ||
+		iph1->rmconf == NULL ||
+		iph1->rmconf->script[script] == NULL)
 		return;
 
 #ifdef ENABLE_HYBRID
@@ -3101,7 +3650,7 @@ script_hook(iph1, script)
 	/* local address */
 	sin = (struct sockaddr_in *)iph1->local;
 	inet_ntop(sin->sin_family, &sin->sin_addr, addrstr, IP_MAX);
-	snprintf(portstr, PORT_MAX, "%d", ntohs(sin->sin_port));
+	snprintf(portstr, sizeof(portstr), "%d", ntohs(sin->sin_port));
 
 	if (script_env_append(&envp, &envc, "LOCAL_ADDR", addrstr) != 0) {
 		plog(LLV_ERROR, LOCATION, NULL, "Cannot set LOCAL_ADDR\n");
@@ -3114,21 +3663,27 @@ script_hook(iph1, script)
 	}
 
 	/* Peer address */
-	sin = (struct sockaddr_in *)iph1->remote;
-	inet_ntop(sin->sin_family, &sin->sin_addr, addrstr, IP_MAX);
-	snprintf(portstr, PORT_MAX, "%d", ntohs(sin->sin_port));
+	if (iph1->remote != NULL) {
+		sin = (struct sockaddr_in *)iph1->remote;
+		inet_ntop(sin->sin_family, &sin->sin_addr, addrstr, IP_MAX);
+		snprintf(portstr, sizeof(portstr), "%d", ntohs(sin->sin_port));
 
-	if (script_env_append(&envp, &envc, "REMOTE_ADDR", addrstr) != 0) {
-		plog(LLV_ERROR, LOCATION, NULL, "Cannot set REMOTE_ADDR\n");
-		goto out;
+		if (script_env_append(&envp, &envc, 
+		    "REMOTE_ADDR", addrstr) != 0) {
+			plog(LLV_ERROR, LOCATION, NULL, 
+			    "Cannot set REMOTE_ADDR\n");
+			goto out;
+		}
+
+		if (script_env_append(&envp, &envc, 
+		    "REMOTE_PORT", portstr) != 0) {
+			plog(LLV_ERROR, LOCATION, NULL, 
+			    "Cannot set REMOTEL_PORT\n");
+			goto out;
+		}
 	}
 
-	if (script_env_append(&envp, &envc, "REMOTE_PORT", portstr) != 0) {
-		plog(LLV_ERROR, LOCATION, NULL, "Cannot set REMOTEL_PORT\n");
-		goto out;
-	}
-
-	if (privsep_script_exec(iph1->rmconf->script[script], 
+	if (privsep_script_exec(iph1->rmconf->script[script]->v, 
 	    script, envp) != 0) 
 		plog(LLV_ERROR, LOCATION, NULL, 
 		    "Script %s execution failed\n", script_names[script]);
@@ -3152,21 +3707,23 @@ script_env_append(envp, envc, name, value)
 	char *envitem;
 	char **newenvp;
 	int newenvc;
-	int envitemlen = strlen(name) + 1 + strlen(value) + 1;
+	int envitem_len;
 
-	envitem = racoon_malloc(envitemlen);
+	envitem_len = strlen(name) + 1 + strlen(value) + 1;
+	envitem = racoon_malloc(envitem_len);
 	if (envitem == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
 		    "Cannot allocate memory: %s\n", strerror(errno));
 		return -1;
 	}
-	snprintf(envitem, envitemlen, "%s=%s", name, value);
+	snprintf(envitem, envitem_len, "%s=%s", name, value);
 
 	newenvc = (*envc) + 1;
 	newenvp = racoon_realloc(*envp, newenvc * sizeof(char *));
 	if (newenvp == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
 		    "Cannot allocate memory: %s\n", strerror(errno));
+		racoon_free(envitem);
 		return -1;
 	}
 
@@ -3180,29 +3737,20 @@ script_env_append(envp, envc, name, value)
 
 int
 script_exec(script, name, envp)
-	int script;
+	char *script;
 	int name;
 	char *const envp[];
 {
 	char *argv[] = { NULL, NULL, NULL };
-	vchar_t **sp;
 
-	if (script_paths == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
-		    "privsep_script_exec: script_paths was not initialized\n");
-		return -1;
-	}
-
-	sp = (vchar_t **)(script_paths->v);
-
-	argv[0] = sp[script]->v;
+	argv[0] = script;
 	argv[1] = script_names[name];
 	argv[2] = NULL;
 
 	switch (fork()) { 
 	case 0:
 		execve(argv[0], argv, envp);
-		plog(LLV_ERROR2, LOCATION, NULL,
+		plog(LLV_ERROR, LOCATION, NULL,
 		    "execve(\"%s\") failed: %s\n",
 		    argv[0], strerror(errno));
 		_exit(1);
@@ -3239,8 +3787,7 @@ purge_remote(iph1)
 	/* Mark as expired. */
 	iph1->status = PHASE1ST_EXPIRED;
 
-	/* Check if we have another, still valid, phase1 SA. */
-	new_iph1 = getph1byaddr(iph1->local, iph1->remote);
+	new_iph1 = ike_session_update_ph1_ph2tree(iph1);
 
 	/*
 	 * Delete all orphaned or binded to the deleting ph1handle phase2 SAs.
@@ -3289,7 +3836,11 @@ purge_remote(iph1)
 			continue;
 		}
 
-		/* check in/outbound SAs */
+		/*
+		 * check in/outbound SAs.
+		 * Select only SAs where src == local and dst == remote (outgoing)
+		 * or src == remote and dst == local (incoming).
+		 */
 		if ((CMPSADDR(iph1->local, src) || CMPSADDR(iph1->remote, dst)) &&
 			(CMPSADDR(iph1->local, dst) || CMPSADDR(iph1->remote, src))) {
 			msg = next;
@@ -3361,8 +3912,7 @@ purge_remote(iph1)
 		 "purged ISAKMP-SA spi=%s.\n",
 		 isakmp_pindex(&(iph1->index), iph1->msgid));
 
-	if (iph1->sce)
-		SCHED_KILL(iph1->sce);
+	SCHED_KILL(iph1->sce);
 
 	iph1->sce = sched_new(1, isakmp_ph1delete_stub, iph1);
 }

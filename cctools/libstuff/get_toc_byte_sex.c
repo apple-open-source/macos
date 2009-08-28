@@ -40,10 +40,10 @@ __private_extern__
 enum byte_sex
 get_toc_byte_sex(
 char *addr,
-unsigned long size)
+uint32_t size)
 {
      uint32_t magic;
-     unsigned long ar_name_size;
+     uint32_t ar_name_size;
      struct ar_hdr *ar_hdr;
      char *p;
 

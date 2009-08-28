@@ -169,9 +169,13 @@ int BLGetParentDeviceAndPartitionType(BLContextPtr context,   const char * parti
             } else {
                 IOObjectRelease(service2);
                 service2 = MACH_PORT_NULL;
+                CFRelease(content);
+                content = NULL;
                 continue;
             }
-            
+
+            CFRelease(content);
+
             content = IORegistryEntryCreateCFProperty(service2, CFSTR(kIOBSDNameKey),
                                                         kCFAllocatorDefault, 0);
         
@@ -184,6 +188,9 @@ int BLGetParentDeviceAndPartitionType(BLContextPtr context,   const char * parti
                 result = 4;
                 goto finish;
             }
+
+            CFRelease(content);
+            content = NULL;
 
             sprintf(parentDev, "/dev/%s",par);
             break;

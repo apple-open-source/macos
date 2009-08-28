@@ -1,11 +1,10 @@
-#!/usr/bin/perl -w
-
 use strict;
+use warnings;
 
-$ENV{PERL_NO_VALIDATION} = 1;
-require Params::Validate;
-Params::Validate->import(':all');
+use File::Spec;
+use lib File::Spec->catdir( 't', 'lib' );
 
-use lib '.', './t';
+BEGIN { $ENV{PERL_NO_VALIDATION} = 1 }
 
-require 'callbacks.pl';
+use PVTests::Callbacks;
+PVTests::Callbacks::run_tests();

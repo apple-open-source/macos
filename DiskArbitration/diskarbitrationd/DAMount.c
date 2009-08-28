@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -129,7 +129,7 @@ void _DAMountCreateTrashFolder( DADiskRef disk, CFURLRef mountpoint )
      */
 
     /*
-     * Determine whether this disk is writable.
+     * Determine whether the disk is writable.
      */
 
     if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWritableKey ) == kCFBooleanTrue )
@@ -407,7 +407,7 @@ Boolean DAMountGetPreference( DADiskRef disk, DAMountPreference preference )
 
                 if ( DADiskGetDescription( disk, kDADiskDescriptionDeviceInternalKey ) == kCFBooleanTrue )
                 {
-                    value = kCFBooleanFalse;
+                    value = CFDictionaryGetValue( gDAPreferenceList, kDAPreferenceMountDeferInternalKey );
                 }
                 else
                 {
@@ -435,7 +435,7 @@ Boolean DAMountGetPreference( DADiskRef disk, DAMountPreference preference )
 
                 if ( DADiskGetDescription( disk, kDADiskDescriptionDeviceInternalKey ) == kCFBooleanTrue )
                 {
-                    value = kCFBooleanTrue;
+                    value = CFDictionaryGetValue( gDAPreferenceList, kDAPreferenceMountTrustInternalKey );
                 }
                 else
                 {
@@ -534,7 +534,7 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
      */
 
     CFStringRef                argument   = NULL;
-    va_list                    arguments  = { 0 };
+    va_list                    arguments;
     CFBooleanRef               automatic  = kCFBooleanTrue;
     __DAMountCallbackContext * context    = NULL;
     CFIndex                    count      = 0;
@@ -868,38 +868,28 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
         CFStringInsert( options, 0, CFSTR( "," ) );
         CFStringInsert( options, 0, kDAFileSystemMountArgumentNoDevice );
     }
-
 ///w:start
     if ( CFEqual( DAFileSystemGetKind( filesystem ), CFSTR( "hfs" ) ) )
     {
-///w:stop
-    if ( DADiskGetMode( disk ) )
-    {
-        ___CFStringInsertFormat( options, 0, CFSTR( "-m=%o," ), DADiskGetMode( disk ) );
-    }
-    else
-    {
         ___CFStringInsertFormat( options, 0, CFSTR( "-m=%o," ), 0755 );
-    }
 
-    if ( DADiskGetUserRGID( disk ) )
-    {
-        ___CFStringInsertFormat( options, 0, CFSTR( "-g=%d," ), DADiskGetUserRGID( disk ) );
-    }
-    else
-    {
-        ___CFStringInsertFormat( options, 0, CFSTR( "-g=%d," ), ___GID_UNKNOWN );
-    }
+        if ( DADiskGetUserRGID( disk ) )
+        {
+            ___CFStringInsertFormat( options, 0, CFSTR( "-g=%d," ), DADiskGetUserRGID( disk ) );
+        }
+        else
+        {
+            ___CFStringInsertFormat( options, 0, CFSTR( "-g=%d," ), ___GID_UNKNOWN );
+        }
 
-    if ( DADiskGetUserRUID( disk ) )
-    {
-        ___CFStringInsertFormat( options, 0, CFSTR( "-u=%d," ), DADiskGetUserRUID( disk ) );
-    }
-    else
-    {
-        ___CFStringInsertFormat( options, 0, CFSTR( "-u=%d," ), ___UID_UNKNOWN );
-    }
-///w:start
+        if ( DADiskGetUserRUID( disk ) )
+        {
+            ___CFStringInsertFormat( options, 0, CFSTR( "-u=%d," ), DADiskGetUserRUID( disk ) );
+        }
+        else
+        {
+            ___CFStringInsertFormat( options, 0, CFSTR( "-u=%d," ), ___UID_UNKNOWN );
+        }
     }
 ///w:stop
 
@@ -934,9 +924,7 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
     context->options         = options;
 
 ///w:start
-    if ( CFEqual( DAFileSystemGetKind( filesystem ), CFSTR( "cd9660" ) ) == FALSE &&
-         CFEqual( DAFileSystemGetKind( filesystem ), CFSTR( "hfs"    ) ) == FALSE &&
-         CFEqual( DAFileSystemGetKind( filesystem ), CFSTR( "ufs"    ) ) == FALSE )
+    if ( CFEqual( DAFileSystemGetKind( filesystem ), CFSTR( "hfs" ) ) == FALSE )
     {
         DAFileSystemMountWithArguments( DADiskGetFileSystem( disk ),
                                         DADiskGetDevice( disk ),

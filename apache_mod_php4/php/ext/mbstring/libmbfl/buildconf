@@ -1,6 +1,0 @@
-#!/bin/sh
-glibtoolize -c -f --automake
-aclocal
-autoheader
-automake -a -c --foreign
-autoconf

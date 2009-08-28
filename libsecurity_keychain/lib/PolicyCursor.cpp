@@ -66,7 +66,7 @@ static const CssmOid *theOidList[] = {
 // Canonical Construction
 //
 PolicyCursor::PolicyCursor(const CSSM_OID* oid, const CSSM_DATA* value)
-    : mOid(Allocator::standard()), mOidGiven(false)
+    : mOid(Allocator::standard()), mOidGiven(false), mMutex(Mutex::recursive)
 {
     if (oid) {
         mOid = CssmOid::required(oid);
@@ -89,6 +89,8 @@ PolicyCursor::~PolicyCursor() throw()
 //
 bool PolicyCursor::next(SecPointer<Policy> &policy)
 {
+	StLock<Mutex>_(mMutex);
+
     while (theOidList[mSearchPos]) {
         if (mOidGiven && mOid != *theOidList[mSearchPos]) {
             mSearchPos++;

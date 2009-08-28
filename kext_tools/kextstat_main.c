@@ -20,10 +20,13 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-#include <err.h>
+#include <IOKit/kext/OSKext.h>
+#include <IOKit/kext/OSKextPrivate.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+
 #include <sys/types.h>
 #include <sys/param.h>
 
@@ -31,278 +34,369 @@
 #include <mach/mach_error.h>
 #include <mach/mach_host.h>
 
+#include "kextstat_main.h"
+
 // not a utility.[ch] customer yet
 static const char * progname = "(unknown)";
-
-static int kmod_compare(const void * a, const void * b);
-static int kmod_ref_compare(const void * a, const void * b);
-static kmod_info_t * kmod_lookup(
-    kmod_info_t * kmods,
-    unsigned int kmod_count,
-    int kmod_id);
-static void usage(int level);
 
 /*******************************************************************************
 *
 *******************************************************************************/
-int main(int argc, const char * argv[])
+ExitStatus main(int argc, char * const * argv)
 {
-    int exit_code = 0;
-    int optchar = 0;
-    kern_return_t mach_result = KERN_SUCCESS;
-    mach_port_t host_port = MACH_PORT_NULL;
-    kmod_info_t * kmod_list = NULL;
-    unsigned int kmod_bytecount;  // not really used
-    unsigned int kmod_count;
-    kmod_info_t * this_kmod;
-    kmod_reference_t * kmod_ref;
-    unsigned int ref_count;
-    unsigned int i, j;
-
-    char * kext_id = 0;        // -b
-    int skip_kernel_comps = 0; // -k
-    int print_header = 1;      // -l turns off
+    ExitStatus   result = EX_OK;
+    KextstatArgs toolArgs;
+    CFIndex      count, i;
 
     if (argv[0]) {
         progname = argv[0];
     }
 
-    while ((optchar = getopt(argc, (char * const *)argv, "b:kl")) != -1) {
-        switch (optchar) {
-          case 'b':
-            kext_id = optarg;
-            break;
-          case 'k':
-            skip_kernel_comps = 1;
-            break;
-          case 'l':
-            print_header = 0;
-            break;
-          default:
-            usage(0);
-            exit_code = 1;
-            goto finish;
+   /* Set the OSKext log callback right away.
+    */
+    OSKextSetLogOutputFunction(&tool_log);
+
+    result = readArgs(argc, argv, &toolArgs);
+    if (result != EX_OK) {
+        if (result == kKextstatExitHelp) {
+            result = EX_OK;
         }
+        goto finish;
+    }
+
+    toolArgs.runningKernelArch = OSKextGetRunningKernelArchitecture();
+    if (!toolArgs.runningKernelArch) {
+        result = EX_OSERR;
+        goto finish;
+    }
+
+    toolArgs.loadedKextInfo = OSKextCreateLoadedKextInfo(toolArgs.bundleIDs);
+
+    if (!toolArgs.loadedKextInfo) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogGeneralFlag | kOSKextLogIPCFlag,
+            "Couldn't get list of loaded kexts from kernel.");
+        result = EX_OSERR;
+        goto finish;
+    }
+
+    if (!toolArgs.flagListOnly) {
+        printf("Index Refs Address    ");
+        if (toolArgs.runningKernelArch->cputype & CPU_ARCH_ABI64) {
+            printf("        ");
+        }
+        printf("Size       Wired      "
+            "Name (Version) <Linked Against>\n");
+    }
+
+    count = CFArrayGetCount(toolArgs.loadedKextInfo);
+    for (i = 0; i < count; i++) {
+        CFDictionaryRef kextInfo = (CFDictionaryRef)CFArrayGetValueAtIndex(
+            toolArgs.loadedKextInfo, i);
+            
+        printKextInfo(kextInfo, &toolArgs);
+    }
+
+finish:
+    exit(result);
+
+    return result;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+ExitStatus readArgs(int argc, char * const * argv, KextstatArgs * toolArgs)
+{
+    ExitStatus   result        = EX_USAGE;
+    CFStringRef  scratchString = NULL;  // must release
+    int          optChar       = 0;
+    
+    bzero(toolArgs, sizeof(*toolArgs));
+
+   /*****
+    * Allocate collection objects needed for command line argument processing.
+    */
+    if (!createCFMutableArray(&toolArgs->bundleIDs, &kCFTypeArrayCallBacks)) {
+        goto finish;
+    }
+
+   /*****
+    * Process command-line arguments.
+    */
+    result = EX_USAGE;
+
+    while ((optChar = getopt_long_only(argc, argv, kOptChars,
+        sOptInfo, NULL)) != -1) {
+
+        SAFE_RELEASE_NULL(scratchString);
+
+        switch (optChar) {
+
+            case kOptHelp:
+                usage(kUsageLevelFull);
+                result = kKextstatExitHelp;
+                goto finish;
+                break;
+
+            case kOptNoKernelComponents:
+                toolArgs->flagNoKernelComponents = true;
+                break;
+
+            case kOptListOnly:
+                toolArgs->flagListOnly = true;
+                break;
+
+            case kOptBundleIdentifier:
+                scratchString = CFStringCreateWithCString(kCFAllocatorDefault,
+                    optarg, kCFStringEncodingUTF8);
+                if (!scratchString) {
+                    OSKextLogMemError();
+                    result = EX_OSERR;
+                    goto finish;
+                }
+                CFArrayAppendValue(toolArgs->bundleIDs, scratchString);
+                break;
+                
+            }
     }
 
     argc -= optind;
     argv += optind;
 
-    if (argc != 0) {
-        usage(0);
-        exit_code = 1;
+    if (argc) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+            "Extra arguments starting at %s....", argv[0]);
+        usage(kUsageLevelBrief);
         goto finish;
     }
 
-   /* Get the list of loaded kmods from the kernel.
-    */
-    host_port = mach_host_self();
-    mach_result = kmod_get_info(host_port, (void *)&kmod_list,
-        &kmod_bytecount);
-    if (mach_result != KERN_SUCCESS) {
-        fprintf(stderr,
-            "%s: couldn't get list of loaded kexts from kernel - %s\n",
-            progname, mach_error_string(mach_result));
-        exit_code = 1;
-        goto finish;
-    }
-
-   /* kmod_get_info() doesn't return a proper count so we have
-    * to scan the array checking for a NULL next pointer.
-    */
-    this_kmod = kmod_list;
-    kmod_count = 0;
-    while (this_kmod) {
-        kmod_count++;
-        this_kmod = (this_kmod->next) ? (this_kmod + 1) : 0;
-    }
-
-   /* rebuild the reference lists from their serialized pileup
-    * after the list of kmod_info_t structs.
-    */
-    this_kmod = kmod_list;
-    kmod_ref = (kmod_reference_t *)(kmod_list + kmod_count);
-    while (this_kmod) {
-
-       /* How many refs does this kmod have? Again, kmod_get_info ovverrides
-        * a field. Here what is the actual reference list in the kernel becomes
-        * the count of references tacked onto the end of the kmod_info_t list.
-        */
-        ref_count = (int)this_kmod->reference_list;
-        if (ref_count) {
-            this_kmod->reference_list = kmod_ref;
-
-            for (i = 0; i < ref_count; i++) {
-                int foundit = 0;
-                for (j = 0; j < kmod_count; j++) {
-                   /* kmod_get_info() made each kmod_info_t struct's .next field
-                    * point to itself IN KERNEL SPACE, so this is a sort of id
-                    * for the reference list. Here we replace the ref's
-                    * info field, a here-useless KERNEL SPACE ADDRESS,
-                    * with the list id of the kmod_info_t struct.
-                    * Gross, gross hack.
-                    */
-                    if (kmod_ref->info == kmod_list[j].next) {
-                        kmod_ref->info = (kmod_info_t *)kmod_list[j].id;
-                        foundit++;
-                        break;
-                    }
-                }
-
-               /* If we didn't find it, that's because the last entry's next
-                * pointer is SET TO ZERO to signal the end of the kmod_info_t
-                * list, even though the same field is used for other purposes
-                * in every other entry in the list. So set the ref's info
-                * field to the id of the last entry in the list.
-                */
-                if (!foundit) {
-                    kmod_ref->info =
-                        (kmod_info_t *)kmod_list[kmod_count - 1].id;
-                }
-
-                kmod_ref++;
-            }
-
-           /* Sort the references in descending order of reference index.
-            */
-            qsort(this_kmod->reference_list, ref_count,
-                  sizeof(kmod_reference_t), kmod_ref_compare);
-
-           /* Patch up the links between ref structs and move on to the
-            * next one.
-            */
-            for (i = 0; i < ref_count - 1; i++) {
-                this_kmod->reference_list[i].next =
-                    &this_kmod->reference_list[i+1];
-            }
-            this_kmod->reference_list[ref_count - 1].next = 0;
-        }
-        this_kmod  = (this_kmod->next) ? (this_kmod + 1) : 0;
-    }
-
-    if (print_header) {
-        printf("Index Refs Address    Size       Wired      "
-            "Name (Version) <Linked Against>\n");
-    }
-
-    if (!kmod_count) {
-        goto finish;
-    }
-
-    qsort(kmod_list, kmod_count, sizeof(kmod_info_t), kmod_compare);
-
-   /* If the user just wants to know about a particular kext, fiddle with
-    * the sorted list so that it only contains the desired one. This is
-    * modifying the list as it scans, but in a way that guarantees the
-    * modifications don't catch up to the scan location.
-    */
-    if (kext_id) {
-        this_kmod = &kmod_list[0];
-        int match_count = 0;
-        for (i = 0; i < kmod_count; i++, this_kmod++) {
-            if (this_kmod->name && !strcmp(this_kmod->name, kext_id)) {
-                kmod_list[match_count++] = *this_kmod;
-            }
-        }
-        kmod_count = match_count;
-    }
-
-   /* Now print out what was found.
-    */
-    this_kmod = kmod_list;
-    for (i=0; i < kmod_count; i++, this_kmod++) {
-        if (skip_kernel_comps && !this_kmod->size && !kext_id) {
-            continue;
-        }
-        printf("%5d %4d %-10p %-10p %-10p %s (%s)",
-               this_kmod->id,
-               this_kmod->reference_count,
-               (void *)this_kmod->address, 
-               (void *)this_kmod->size,
-               (void *)(this_kmod->size - this_kmod->hdr_size),
-               this_kmod->name,
-               this_kmod->version);
-
-        kmod_ref = this_kmod->reference_list;
-        if (kmod_ref) {
-            int printed_brace = 0;
-            while (kmod_ref) {
-                kmod_info_t * ref_info =
-                    kmod_lookup(kmod_list, kmod_count, (int)kmod_ref->info);
-
-                if (ref_info && (!skip_kernel_comps || ref_info->address)) {
-                    printf(" %s%d", !printed_brace ? "<" : "",
-                       (int)kmod_ref->info);
-                    printed_brace = 1;
-                }
-                kmod_ref = kmod_ref->next;
-            }
-            if (printed_brace) {
-                printf(">");
-            }
-        }
-        printf("\n");
-    }
+    result = EX_OK;
 
 finish:
+    SAFE_RELEASE_NULL(scratchString);
 
-   /* Dispose of the host port to prevent security breaches and port
-    * leaks. We don't care about the kern_return_t value of this
-    * call for now as there's nothing we can do if it fails.
+    if (result == EX_USAGE) {
+        usage(kUsageLevelBrief);
+    }
+    return result;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+#define kStringInvalidShort    "??"
+#define kStringInvalidLong   "????"
+
+void printKextInfo(CFDictionaryRef kextInfo, KextstatArgs * toolArgs)
+{
+    CFBooleanRef      isKernelComponent      = NULL;  // do not release
+    CFNumberRef       loadTag                = NULL;  // do not release
+    CFNumberRef       retainCount            = NULL;  // do not release
+    CFNumberRef       loadAddress            = NULL;  // do not release
+    CFNumberRef       loadSize               = NULL;  // do not release
+    CFNumberRef       wiredSize              = NULL;  // do not release
+    CFStringRef       bundleID               = NULL;  // do not release
+    CFStringRef       bundleVersion          = NULL;  // do not release
+    CFArrayRef        dependencyLoadTags     = NULL;  // do not release
+    CFMutableArrayRef sortedLoadTags         = NULL;  // must release
+
+    uint32_t          loadTagValue           = kOSKextInvalidLoadTag;
+    uint32_t          retainCountValue       = (uint32_t)-1;
+    uint64_t          loadAddressValue       = (uint64_t)-1;
+    uint32_t          loadSizeValue          = (uint32_t)-1;
+    uint32_t          wiredSizeValue         = (uint32_t)-1;
+    char            * bundleIDCString        = NULL;  // must free
+    char            * bundleVersionCString   = NULL;  // must free
+    
+    CFIndex           count, i;
+
+    loadTag = (CFNumberRef)CFDictionaryGetValue(kextInfo,
+        CFSTR(kOSBundleLoadTagKey));
+    retainCount = (CFNumberRef)CFDictionaryGetValue(kextInfo,
+        CFSTR(kOSBundleRetainCountKey));
+    loadAddress = (CFNumberRef)CFDictionaryGetValue(kextInfo,
+        CFSTR(kOSBundleLoadAddressKey));
+    loadSize = (CFNumberRef)CFDictionaryGetValue(kextInfo,
+        CFSTR(kOSBundleLoadSizeKey));
+    wiredSize = (CFNumberRef)CFDictionaryGetValue(kextInfo,
+        CFSTR(kOSBundleWiredSizeKey));
+    bundleID = (CFStringRef)CFDictionaryGetValue(kextInfo,
+        kCFBundleIdentifierKey);
+    bundleVersion = (CFStringRef)CFDictionaryGetValue(kextInfo,
+        kCFBundleVersionKey);
+    dependencyLoadTags = (CFArrayRef)CFDictionaryGetValue(kextInfo,
+        CFSTR(kOSBundleDependenciesKey));
+
+   /* If the -k flag was given, skip any kernel components unless
+    * they are explicitly requested.
     */
-    if (MACH_PORT_NULL != host_port) {
-        mach_port_deallocate(mach_task_self(), host_port);
+    if (toolArgs->flagNoKernelComponents) {
+        isKernelComponent = (CFBooleanRef)CFDictionaryGetValue(kextInfo,
+            CFSTR(kOSKernelResourceKey));
+        if (isKernelComponent && CFBooleanGetValue(isKernelComponent)) {
+            if (bundleID &&
+                kCFNotFound == CFArrayGetFirstIndexOfValue(toolArgs->bundleIDs,
+                    RANGE_ALL(toolArgs->bundleIDs), bundleID)) {
+
+                goto finish;
+            }
+        }
     }
 
-    if (kmod_list != NULL) {
-        vm_deallocate(mach_task_self(), (vm_address_t)kmod_list,
-            kmod_bytecount);
+    if (!getNumValue(loadTag, kCFNumberSInt32Type, &loadTagValue)) {
+        loadTagValue = kOSKextInvalidLoadTag;
+    }
+    if (!getNumValue(retainCount, kCFNumberSInt32Type, &retainCountValue)) {
+        retainCountValue = (uint32_t)-1;
+    }
+    if (!getNumValue(loadAddress, kCFNumberSInt64Type, &loadAddressValue)) {
+        loadAddressValue = (uint64_t)-1;
+    }
+    if (!getNumValue(loadSize, kCFNumberSInt32Type, &loadSizeValue)) {
+        loadSizeValue = (uint32_t)-1;
+    }
+    if (!getNumValue(wiredSize, kCFNumberSInt32Type, &wiredSizeValue)) {
+        wiredSizeValue = (uint32_t)-1;
     }
 
-    exit(exit_code);
-    return exit_code;
-}
+    bundleIDCString = createUTF8CStringForCFString(bundleID);
+    bundleVersionCString = createUTF8CStringForCFString(bundleVersion);
 
-static int kmod_compare(const void * a, const void * b)
-{
-    kmod_info_t * k1 = (kmod_info_t *)a;
-    kmod_info_t * k2 = (kmod_info_t *)b;
-    // these are load indices, not CFBundleIdentifiers
-    return (k1->id - k2->id);
-}
+   /* First column has no leading space.
+    *
+    * These field widths are from the old kextstat, may want to change them.
+    */
+    if (loadTagValue == kOSKextInvalidLoadTag) {
+        fprintf(stdout, "%5s", kStringInvalidShort);
+    } else {
+        fprintf(stdout, "%5d", loadTagValue);
+    }
 
-static int kmod_ref_compare(const void * a, const void * b)
-{
-    kmod_reference_t * r1 = (kmod_reference_t *)a;
-    kmod_reference_t * r2 = (kmod_reference_t *)b;
-    // these are load indices, not CFBundleIdentifiers
-    // sorting high-low.
-    return ((int)r2->info - (int)r1->info);
-}
+    if (retainCountValue == (uint32_t)-1) {
+        fprintf(stdout, " %4s", kStringInvalidShort);
+    } else {
+        fprintf(stdout, " %4d", retainCountValue);
+    }
 
-static kmod_info_t * kmod_lookup(
-    kmod_info_t * kmods,
-    unsigned int kmod_count,
-    int kmod_id)
-{
-    kmod_info_t * found_kmod = 0;  // returned
-    unsigned int i;
+    if (toolArgs->runningKernelArch->cputype & CPU_ARCH_ABI64) {
+        if (loadAddressValue == (uint64_t)-1) {
+            fprintf(stdout, " %-18s", kStringInvalidLong);
+        } else {
+            fprintf(stdout, " %#-18llx", (uint64_t)loadAddressValue);
+        }
+    } else {
+        if (loadAddressValue == (uint64_t)-1) {
+            fprintf(stdout, " %-10s", kStringInvalidLong);
+        } else {
+            fprintf(stdout, " %#-10x", (uint32_t)loadAddressValue);
+        }
+    }
 
-    for (i = 0; i < kmod_count; i++) {
-        kmod_info_t * this_kmod = &kmods[i];
-        if (this_kmod->id == kmod_id) {
-            found_kmod = this_kmod;
+    if (loadSizeValue == (uint32_t)-1) {
+        fprintf(stdout, " %-10s", kStringInvalidLong);
+    } else {
+        fprintf(stdout, " %#-10x", loadSizeValue);
+    }
+
+    if (wiredSizeValue == (uint32_t)-1) {
+        fprintf(stdout, " %-10s", kStringInvalidLong);
+    } else {
+        fprintf(stdout, " %#-10x", wiredSizeValue);
+    }
+
+    fprintf(stdout, " %s",
+        bundleIDCString ? bundleIDCString : kStringInvalidLong);
+        
+    fprintf(stdout, " (%s)",
+        bundleVersionCString ? bundleVersionCString : kStringInvalidLong);
+
+    if (dependencyLoadTags && CFArrayGetCount(dependencyLoadTags)) {
+        sortedLoadTags = CFArrayCreateMutableCopy(kCFAllocatorDefault, 0,
+            dependencyLoadTags);
+        if (!sortedLoadTags) {
+            OSKextLogMemError();
             goto finish;
         }
+
+        CFArraySortValues(sortedLoadTags, RANGE_ALL(sortedLoadTags),
+            &compareNumbers, /* context */ NULL);
+        
+        fprintf(stdout, " <");
+        count = CFArrayGetCount(sortedLoadTags);
+        for (i = 0; i < count; i++) {
+            loadTag = (CFNumberRef)CFArrayGetValueAtIndex(sortedLoadTags, i);
+            if (!getNumValue(loadTag, kCFNumberSInt32Type, &loadTagValue)) {
+                loadTagValue = kOSKextInvalidLoadTag;
+            }
+
+            if (loadTagValue == kOSKextInvalidLoadTag) {
+                fprintf(stdout, "%s%s", i == 0 ? "" : " ", kStringInvalidShort);
+            } else {
+                fprintf(stdout, "%s%d", i == 0 ? "" : " ", loadTagValue);
+            }
+
+        }
+
+        fprintf(stdout, ">");
+
     }
+    
+    fprintf(stdout, "\n");
 
 finish:
-    return found_kmod;
+
+    SAFE_RELEASE(sortedLoadTags);
+    SAFE_FREE(bundleIDCString);
+    SAFE_FREE(bundleVersionCString);
+    return;
 }
 
-static void usage(int level)
+/*******************************************************************************
+*******************************************************************************/
+Boolean getNumValue(CFNumberRef aNumber, CFNumberType type, void * valueOut)
 {
-    fprintf(stderr, "usage: %s [-b kext_bundle_id] [-k] [-l]\n", progname);
+    if (aNumber) {
+        return CFNumberGetValue(aNumber, type, valueOut);
+    }
+    return false;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+CFComparisonResult compareNumbers(
+    const void * val1,
+    const void * val2,
+          void * context)
+{
+    CFComparisonResult result = CFNumberCompare((CFNumberRef)val1,
+         (CFNumberRef)val2, context);
+     if (result == kCFCompareLessThan) {
+         result = kCFCompareGreaterThan;
+     } else if (result == kCFCompareGreaterThan) {
+         result = kCFCompareLessThan;
+     }
+     return result;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+static void usage(UsageLevel usageLevel)
+{
+    fprintf(stderr, "usage: %s [-k] [-l] [-b bundle_id] ...\n", progname);
+        
+    if (usageLevel == kUsageLevelBrief) {
+        fprintf(stderr, "\nUse %s -%s (-%c) for a list of options.\n",
+            progname, kOptNameHelp, kOptHelp);
+        return;
+    }
+
+    fprintf(stderr, "-%s (-%c): show only loadable kexts (omit kernel components).\n",
+        kOptNameNoKernelComponents, kOptNoKernelComponents);
+    fprintf(stderr, "-%s (-%c): print the list only, omitting the header.\n",
+        kOptNameListOnly, kOptListOnly);
+    fprintf(stderr, "-%s (-%c) <bundle_id>: print info for kexts named by identifier.\n",
+        kOptNameBundleIdentifier, kOptBundleIdentifier);
+
     return;
 }
 

@@ -11,7 +11,7 @@
   (See the file 'LICENCE'.)
 
 = Version
-  $Id: digest.rb 11708 2007-02-12 23:01:19Z shyouhei $
+  $Id: digest.rb 15600 2008-02-25 08:48:57Z technorama $
 =end
 
 ##
@@ -19,11 +19,15 @@
 #require 'openssl'
 
 module OpenSSL
-  module Digest
+  class Digest
 
     alg = %w(DSS DSS1 MD2 MD4 MD5 MDC2 RIPEMD160 SHA SHA1)
     if OPENSSL_VERSION_NUMBER > 0x00908000
       alg += %w(SHA224 SHA256 SHA384 SHA512)
+    end
+
+    def self.digest(name, data)
+        super(data, name)
     end
 
     alg.each{|name|
@@ -43,6 +47,14 @@ module OpenSSL
       }
       const_set(name, klass)
     }
+
+    # This class is only provided for backwards compatibility.  Use OpenSSL::Digest in the future.
+    class Digest < Digest
+      def initialize(*args)
+        # add warning
+        super(*args)
+      end
+    end
 
   end # Digest
 end # OpenSSL

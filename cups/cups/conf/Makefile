@@ -1,9 +1,9 @@
 #
-# "$Id: Makefile 6649 2007-07-11 21:46:42Z mike $"
+# "$Id: Makefile 7938 2008-09-11 23:53:59Z mike $"
 #
 #   Configuration file makefile for the Common UNIX Printing System (CUPS).
 #
-#   Copyright 2007 by Apple Inc.
+#   Copyright 2007-2008 by Apple Inc.
 #   Copyright 1993-2006 by Easy Software Products.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -31,6 +31,20 @@ all:
 
 
 #
+# Make library targets...
+#
+
+libs:
+
+
+#
+# Make unit tests...
+#
+
+unittests:
+
+
+#
 # Clean all config and object files...
 #
 
@@ -45,26 +59,34 @@ depend:
 
 
 #
-# Install files...
+# Install all targets...
 #
 
-install:	all
+install:	all install-data install-headers install-libs install-exec
+
+
+#
+# Install data files...
+#
+
+install-data:
 	for file in $(KEEP); do \
 		if test -r $(SERVERROOT)/$$file ; then \
-			$(INSTALL_CONFIG) $$file $(SERVERROOT)/$$file.N ; \
-			chgrp $(CUPS_GROUP) $(SERVERROOT)/$$file.N || true; \
+			$(INSTALL_CONFIG) -g $(CUPS_GROUP) $$file $(SERVERROOT)/$$file.N ; \
 		else \
-			$(INSTALL_CONFIG) $$file $(SERVERROOT) ; \
-			chgrp $(CUPS_GROUP) $(SERVERROOT)/$$file || true; \
+			$(INSTALL_CONFIG) -g $(CUPS_GROUP) $$file $(SERVERROOT) ; \
 		fi ; \
 	done
-	$(INSTALL_CONFIG) cupsd.conf $(SERVERROOT)/cupsd.conf.default
-	-chgrp $(CUPS_GROUP) $(SERVERROOT)/cupsd.conf.default
+	$(INSTALL_CONFIG) -g $(CUPS_GROUP) cupsd.conf $(SERVERROOT)/cupsd.conf.default
+	$(INSTALL_DIR) -m 755 $(DATADIR)/mime
 	for file in $(REPLACE); do \
-		if test -r $(SERVERROOT)/$$file ; then \
-			$(MV) $(SERVERROOT)/$$file $(SERVERROOT)/$$file.O ; \
+		if test -r $(DATADIR)/mime/$$file ; then \
+			$(MV) $(DATADIR)/mime/$$file $(DATADIR)/mime/$$file.O ; \
 		fi ; \
-		$(INSTALL_DATA) $$file $(SERVERROOT) ; \
+		if test -r $(SERVERROOT)/$$file ; then \
+			$(MV) $(SERVERROOT)/$$file $(DATADIR)/mime/$$file.O ; \
+		fi ; \
+		$(INSTALL_DATA) $$file $(DATADIR)/mime ; \
 	done
 	-if test x$(PAMDIR) != x; then \
 		$(INSTALL_DIR) -m 755 $(BUILDROOT)$(PAMDIR); \
@@ -77,6 +99,27 @@ install:	all
 
 
 #
+# Install programs...
+#
+
+install-exec:
+
+
+#
+# Install headers...
+#
+
+install-headers:
+
+
+#
+# Install libraries...
+#
+
+install-libs:
+
+
+#
 # Uninstall files...
 #
 
@@ -85,6 +128,10 @@ uninstall:
 		$(RM) $(SERVERROOT)/$$file; \
 	done
 	-$(RMDIR) $(SERVERROOT)
+	for file in $(REPLACE); do \
+		$(RM) $(DATADIR)/mime/$$file; \
+	done
+	-$(RMDIR) $(DATADIR)/mime
 	-if test x$(PAMDIR) != x; then \
 		$(RM) $(BUILDROOT)$(PAMDIR)/cups; \
 		$(RMDIR) $(BUILDROOT)$(PAMDIR); \
@@ -92,5 +139,5 @@ uninstall:
 
 
 #
-# End of "$Id: Makefile 6649 2007-07-11 21:46:42Z mike $".
+# End of "$Id: Makefile 7938 2008-09-11 23:53:59Z mike $".
 #

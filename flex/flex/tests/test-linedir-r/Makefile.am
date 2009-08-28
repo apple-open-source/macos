@@ -25,7 +25,7 @@ FLEX = $(top_builddir)/flex
 builddir = @builddir@
 
 EXTRA_DIST = scanner.l test.input main.c check-lines.awk
-CLEANFILES = scanner.c scanner.h test-linedir-r OUTPUT $(OBJS)
+CLEANFILES = scanner.c scanner.h $(testname)$(EXEEXT) OUTPUT $(OBJS)
 OBJS = scanner.o main.o
 
 AM_CPPFLAGS = -I$(srcdir) -I$(top_srcdir) -I$(top_builddir) -I$(builddir)
@@ -46,8 +46,8 @@ $(testname)$(EXEEXT): $(OBJS)
 
 test: $(testname)$(EXEEXT)
 	./$(testname)$(EXEEXT) < $(srcdir)/test.input
-	cat -n scanner.c | grep '#line' | grep scanner.c | awk -f $(srcdir)/check-lines.awk
-	cat -n scanner.h | grep '#line' | grep scanner.h | awk -f $(srcdir)/check-lines.awk
+	cat -n scanner.c | grep '#line' | grep scanner.c | $(AWK) -f $(srcdir)/check-lines.awk
+	cat -n scanner.h | grep '#line' | grep scanner.h | $(AWK) -f $(srcdir)/check-lines.awk
 
 .c.o:
 	$(CC) -c -o $@ $(AM_CPPFLAGS) $(CPPFLAGS) $(CFLAGS) $<

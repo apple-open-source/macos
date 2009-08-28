@@ -140,6 +140,7 @@ switchPartition(char * diskName, char * partitionType)
     }
     if (!partitionNumber) return true;			// just assume it is a raid disk
 
+#define LIVERAID
 #ifdef LIVERAID
     char * optionString = "<dict> <key>Writable</key> <true/> <key>Shared Writer</key> <true/></dict>";
 #else

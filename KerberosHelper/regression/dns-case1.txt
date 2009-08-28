@@ -1,0 +1,16 @@
+
+searchpath realm3.local
+
+localhost			60 ADDR "127.0.0.1"
+
+_kerberos._srv.realm1.local	60 SRV 1 1 88 "krb5.realm1.local"
+krb5.realm1.local		60 ADDR "127.0.0.1"
+
+_kerberos._srv.realm2.root	60 SRV 1 1 88 "krb5.realm2.root"
+krb5.realm2.root		60 ADDR "127.0.0.1"
+
+_kerberos._srv.realm3.local	60 SRV 1 1 88 "krb5.realm3.local"
+krb5.realm3.local		60 ADDR "127.0.0.1"
+
+server.realm3.local		60 ADDR "127.0.0.2"
+

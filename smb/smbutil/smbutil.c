@@ -136,7 +136,7 @@ main(int argc, char *argv[])
 	/* If the CMDFL_NO_KMOD is set then do not load the kext */
 	if (cmd->flags & CMDFL_NO_KMOD)
 		setlocale(LC_CTYPE, "");
-	else  if ((errno = smb_load_library(NULL)) != 0)
+	else  if ((errno = smb_load_library()) != 0)
 		errx(EX_UNAVAILABLE, "couldn't load the library");
 
 	argc -= optind;

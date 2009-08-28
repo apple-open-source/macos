@@ -39,7 +39,7 @@ struct arch_sign {
     enum bool found;
 };
 struct arch_sign *arch_signs;
-unsigned long narch_signs = 0;
+uint32_t narch_signs = 0;
 
 /* used by error routines as the name of the program */
 char *progname = NULL;
@@ -49,7 +49,7 @@ static void usage(
 
 static void process(
     struct arch *archs,
-    unsigned long narchs);
+    uint32_t narchs);
 
 static void setup_code_signature(
     struct arch *arch,
@@ -74,10 +74,10 @@ int argc,
 char **argv,
 char **envp)
 {
-    unsigned long i;
+    uint32_t i;
     char *input, *output, *endp;
     struct arch *archs;
-    unsigned long narchs;
+    uint32_t narchs;
 
 	progname = argv[0];
 	input = NULL;
@@ -137,6 +137,46 @@ char **envp)
 		    i += 2;
 		}
 	    }
+	    else if(strcmp(argv[i], "-A") == 0){
+		if(i + 3 == argc){
+		    error("missing argument(s) to: %s option", argv[i]);
+		    usage();
+		}
+		else{
+		    arch_signs = reallocate(arch_signs,
+			    (narch_signs + 1) * sizeof(struct arch_sign));
+
+		    arch_signs[narch_signs].arch_flag.cputype = 
+			strtoul(argv[i+1], &endp, 0);
+		    if(*endp != '\0')
+			fatal("cputype for '-A %s %s %s' not a proper number",
+			      argv[i+1], argv[i+2], argv[i+3]);
+
+		    arch_signs[narch_signs].arch_flag.cpusubtype = 
+			strtoul(argv[i+2], &endp, 0);
+		    if(*endp != '\0')
+			fatal("cpusubtype for '-A %s %s %s' not a proper "
+			      "number", argv[i+1], argv[i+2], argv[i+3]);
+
+		    arch_signs[narch_signs].arch_flag.name = (char *)
+			get_arch_name_from_types(
+			    arch_signs[narch_signs].arch_flag.cputype,
+			    arch_signs[narch_signs].arch_flag.cpusubtype);
+
+		    arch_signs[narch_signs].datasize =
+			strtoul(argv[i+3], &endp, 0);
+		    if(*endp != '\0')
+			fatal("size for '-A %s %s %s' not a proper number",
+			      argv[i+1], argv[i+2], argv[i+3]);
+		    if((arch_signs[narch_signs].datasize % 16) != 0)
+			fatal("size for '-A %s %s %s' not a multiple of 16",
+			      argv[i+1], argv[i+2], argv[i+3]);
+
+		    arch_signs[narch_signs].found = FALSE;
+		    narch_signs++;
+		    i += 3;
+		}
+	    }
 	    else{
 		error("unknown flag: %s", argv[i]);
 		usage();
@@ -176,7 +216,8 @@ void
 usage(
 void)
 {
-	fprintf(stderr, "Usage: %s -i input [-a <arch> <size>]... -o output\n",
+	fprintf(stderr, "Usage: %s -i input [-a <arch> <size>]... "
+		"[-A <cputype> <cpusubtype> <size>]... -o output\n",
 		progname);
 	exit(EXIT_FAILURE);
 }
@@ -189,9 +230,9 @@ static
 void
 process(
 struct arch *archs,
-unsigned long narchs)
+uint32_t narchs)
 {
-    unsigned long i, j, offset, size;
+    uint32_t i, j, offset, size;
 
 	for(i = 0; i < narchs; i++){
 	    /*
@@ -259,11 +300,14 @@ struct arch *arch,
 struct member *member,
 struct object *object)
 {
-    unsigned long i;
+    uint32_t i;
     cpu_type_t cputype;
     cpu_subtype_t cpusubtype;
     uint32_t flags, linkedit_end;
+    uint32_t dyld_info_start;
+    uint32_t dyld_info_end;
 
+	linkedit_end = 0;
 	/*
 	 * First set up all the pointers and sizes of the symbolic info.
 	 */
@@ -300,6 +344,40 @@ struct object *object)
 		    object->st->nsyms * sizeof(struct nlist_64) +
 		    object->st->strsize;
 	    }
+	}
+	if(object->dyld_info != NULL){
+	    /* there are five parts to the dyld info, but
+	     codesign_allocate does not alter them, so copy as a block */
+	    dyld_info_start = 0;
+	    if (object->dyld_info->rebase_off != 0)
+		dyld_info_start = object->dyld_info->rebase_off;
+	    else if (object->dyld_info->bind_off != 0)
+		dyld_info_start = object->dyld_info->bind_off;
+	    else if (object->dyld_info->weak_bind_off != 0)
+		dyld_info_start = object->dyld_info->weak_bind_off;
+	    else if (object->dyld_info->lazy_bind_off != 0)
+		dyld_info_start = object->dyld_info->lazy_bind_off;
+	    else if (object->dyld_info->export_off != 0)
+		dyld_info_start = object->dyld_info->export_off;
+	    dyld_info_end = 0;
+	    if (object->dyld_info->export_size != 0)
+		dyld_info_end = object->dyld_info->export_off
+		    + object->dyld_info->export_size;
+	    else if (object->dyld_info->lazy_bind_size != 0)
+		dyld_info_end = object->dyld_info->lazy_bind_off
+		    + object->dyld_info->lazy_bind_size;
+	    else if (object->dyld_info->weak_bind_size != 0)
+		dyld_info_end = object->dyld_info->weak_bind_off
+		    + object->dyld_info->weak_bind_size;
+	    else if (object->dyld_info->bind_size != 0)
+		dyld_info_end = object->dyld_info->bind_off
+		    + object->dyld_info->bind_size;
+	    else if (object->dyld_info->rebase_size != 0)
+		dyld_info_end = object->dyld_info->rebase_off
+		    + object->dyld_info->rebase_size;
+	    object->output_dyld_info = object->object_addr + dyld_info_start; 
+	    object->output_dyld_info_size = dyld_info_end - dyld_info_start;
+	    object->output_sym_info_size += object->output_dyld_info_size;
 	}
 	if(object->dyst != NULL){
 	    object->output_ilocalsym = object->dyst->ilocalsym;
@@ -343,6 +421,13 @@ struct object *object)
 		    (object->object_addr +
 		     object->hints_cmd->offset);
 	    }
+	    if(object->dyld_info != NULL){
+		object->input_sym_info_size += object->dyld_info->rebase_size
+					    + object->dyld_info->bind_size
+					    + object->dyld_info->weak_bind_size
+					    + object->dyld_info->lazy_bind_size
+					    + object->dyld_info->export_size;
+	    }
 	    object->input_sym_info_size +=
 		object->dyst->nlocrel *
 		    sizeof(struct relocation_info) +
@@ -359,14 +444,14 @@ struct object *object)
 		    object->dyst->nmodtab *
 			sizeof(struct dylib_module) +
 		    object->dyst->nindirectsyms *
-			sizeof(unsigned long);
+			sizeof(uint32_t);
 	    }
 	    else{
 		object->input_sym_info_size +=
 		    object->dyst->nmodtab *
 			sizeof(struct dylib_module_64) +
 		    object->dyst->nindirectsyms *
-			sizeof(unsigned long) +
+			sizeof(uint32_t) +
 		    object->input_indirectsym_pad;
 	    }
 	    if(object->hints_cmd != NULL){
@@ -408,9 +493,6 @@ struct object *object)
 	    if(object->code_sig_cmd != NULL){
 		object->output_code_sig_data_size =
 		    object->code_sig_cmd->datasize;
-		object->input_sym_info_size = round(object->input_sym_info_size,
-						    16);
-		object->input_sym_info_size += object->code_sig_cmd->datasize;
 	    }
 	    object->output_sym_info_size = object->input_sym_info_size;
 	    return;
@@ -418,11 +500,14 @@ struct object *object)
 
 	/*
 	 * We did find a matching -a flag for this object.  Make sure this
-	 * object is input for the dynamic linker and can have a code signature.
+	 * object is input for the dynamic linker or an MH_OBJECT filetype and
+	 * can have a code signature.
 	 */
-	if((flags & MH_DYLDLINK) != MH_DYLDLINK)
+	if((flags & MH_DYLDLINK) != MH_DYLDLINK &&
+	   object->mh_filetype != MH_OBJECT)
 	     fatal_arch(arch, member, "file is not input for the dynamic "
-			"linker and can't have a code signature: ");
+			"linker or an MH_OBJECT file type and can't have a "
+			"code signature: ");
 	arch_signs[i].found = TRUE;
 	
 	/*
@@ -439,9 +524,11 @@ struct object *object)
 			round(object->seg_linkedit->filesize,
 			      get_segalign_from_flag(&arch_signs[i].arch_flag));
 	    }
-	    else{
+	    else if(object->seg_linkedit64 != NULL){
 		object->seg_linkedit64->filesize +=
-		    arch_signs[i].datasize - object->code_sig_cmd->datasize;
+		    arch_signs[i].datasize;
+		object->seg_linkedit64->filesize -=
+		    object->code_sig_cmd->datasize;
 		if(object->seg_linkedit64->filesize >
 		   object->seg_linkedit64->vmsize)
 		    object->seg_linkedit64->vmsize =
@@ -473,6 +560,8 @@ struct object *object)
 	    else if(object->seg_linkedit64 != NULL)
 		linkedit_end = object->seg_linkedit64->fileoff +
 			       object->seg_linkedit64->filesize;
+	    else if(object->mh_filetype == MH_OBJECT)
+		linkedit_end = object->object_size;
 	    else
 		fatal("can't allocate code signature data for: %s (for "
 		      "architecture %s) because file does not have a "
@@ -496,7 +585,7 @@ struct object *object)
 			round(object->seg_linkedit->filesize,
 			      get_segalign_from_flag(&arch_signs[i].arch_flag));
 	    }
-	    else{
+	    else if(object->seg_linkedit64 != NULL){
 		object->seg_linkedit64->filesize =
 		    round(object->seg_linkedit64->filesize, 16) +
 		    object->code_sig_cmd->datasize;
@@ -522,7 +611,7 @@ add_code_sig_load_command(
 struct arch *arch,
 char *arch_name)
 {
-    unsigned long i, j, low_fileoff;
+    uint32_t i, j, low_fileoff;
     uint32_t ncmds, sizeofcmds;
     struct load_command *lc;
     struct segment_command *sg;
@@ -546,7 +635,7 @@ char *arch_name)
 	 * see if they can be fitted in before the contents of the first section
 	 * (or segment in the case of a LINKEDIT segment only file).
 	 */
-	low_fileoff = ULONG_MAX;
+	low_fileoff = UINT_MAX;
 	lc = arch->object->load_commands;
 	for(i = 0; i < ncmds; i++){
 	    if(lc->cmd == LC_SEGMENT){

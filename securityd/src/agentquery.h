@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2004,2008-2009 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,6 +30,7 @@
 
 #include <security_agent_client/agentclient.h>
 #include <security_cdsa_utilities/AuthorizationData.h>
+#include <security_utilities/ccaudit.h> // some queries do their own authentication
 #include <Security/AuthorizationPlugin.h>
 #include "kcdatabase.h"
 #include "AuthorizationEngine.h"
@@ -41,34 +42,81 @@ using Authorization::AuthItemSet;
 using Authorization::AuthValueVector;
 using Security::OSXCode;
 
-class SecurityAgentQuery : public SecurityAgent::Client {
+//
+// base for classes talking to SecurityAgent and authorizationhost
+//
+class SecurityAgentConnection : public SecurityAgentConnectionInterface
+{
+public:
+    SecurityAgentConnection(const AuthHostType type = securityAgent, Session &session = Server::session());
+    virtual ~SecurityAgentConnection();
+    virtual void activate();
+    virtual void reconnect();
+    virtual void disconnect()  { };
+    virtual void terminate();
+    
+    AuthHostType hostType()  { return mAuthHostType; }
+    
+protected:
+    AuthHostType mAuthHostType;
+    RefPointer<AuthHostInstance> mHostInstance;
+    Port mPort;
+    const RefPointer<Connection> mConnection;
+    audit_token_t *mAuditToken;
+};
+
+//
+// Special wrapper around SecurityAgent::Client transaction interfaces.  
+// Not currently used because this was intended to support 
+// SecurityAgent's/authorizationhost's use of Foundation's enable/disable-sudden-
+// termination APIs, but the latter don't work for non-direct children of 
+// launchd.  Kept around because securityd might need its own child-transaction 
+// semantics one day.  
+//
+class SecurityAgentTransaction : public SecurityAgentConnection
+{
+public: 
+    SecurityAgentTransaction(const AuthHostType type = securityAgent, Session &session = Server::session(), bool startNow = true);
+    ~SecurityAgentTransaction();
+    
+    void start();
+    void end();
+    bool started()  { return mStarted; }
+    
+private:
+    bool mStarted;
+};
+
+//
+// The main SecurityAgent/authorizationhost interaction base class
+//
+class SecurityAgentQuery : public SecurityAgent::Client, 
+                           public SecurityAgentConnection
+{
 public:
 	typedef SecurityAgent::Reason Reason;
 	
 	SecurityAgentQuery(const AuthHostType type = securityAgent, Session &session = Server::session());
 	
+
 	void inferHints(Process &thisProcess);
     void addHint(const char *name, const void *value = NULL, UInt32 valueLen = 0, UInt32 flags = 0);
 
 	virtual ~SecurityAgentQuery();
 
 	virtual void activate();
+    virtual void reconnect();
+    virtual void disconnect();
 	virtual void terminate();
 	void create(const char *pluginId, const char *mechanismId, const SessionId inSessionId);
 
-public:
 	void readChoice();
 
 	bool allow;
 	bool remember;
-	AuthHostType mAuthHostType;
-	RefPointer<AuthHostInstance> mHostInstance;
 
 protected:
 	AuthItemSet mClientHints;
-private:
-	Port mPort;
-    const RefPointer<Connection> mConnection;
 };
 
 //
@@ -185,11 +233,11 @@ class QueryDBBlobSecret : public SecurityAgentQuery {
 	static const int maxTries = kMaximumAuthorizationTries;
 public:
     QueryDBBlobSecret()    { }
-    Reason operator () (DatabaseCryptoCore &dbCore, const DbBlob *secretsBlob);
+    Reason operator () (DbHandle *dbHandleArray, uint8 dbHandleArrayCount, DbHandle *dbHandleAuthenticated);
     
 protected:
-    Reason query(DatabaseCryptoCore &dbCore, const DbBlob *secretsBlob);
-	Reason accept(CssmManagedData &passphrase, DatabaseCryptoCore &dbCore, const DbBlob *secretsBlob);
+    Reason query(DbHandle *dbHandleArray, uint8 dbHandleArrayCount, DbHandle *dbHandleAuthenticated);
+	Reason accept(CssmManagedData &passphrase, DbHandle *dbHandlesToAuthenticate, uint8 dbHandleCount, DbHandle *dbHandleAuthenticated);
 };
 
 class QueryInvokeMechanism : public SecurityAgentQuery, public RefCount {
@@ -203,6 +251,19 @@ public:
     //~QueryInvokeMechanism();
 
     AuthValueVector mArguments;
+};
+
+// hybrid of confirm-access and generic authentication queries, for
+// securityd's use; keep the Frankenstein references to yourself
+// (the alternative is to ask the user to unlock the system keychain,
+// and you don't want that, do you?)  
+class QueryKeychainAuth : public SecurityAgentQuery {
+	static const int maxTries = kMaximumAuthorizationTries;
+public:
+    QueryKeychainAuth()  { }
+    // "prompt" can be NULL
+    Reason operator () (const char *database, const char *description, AclAuthorization action, const char *prompt);
+    Reason accept(string &username, string &passphrase);
 };
 
 #endif //_H_AGENTQUERY

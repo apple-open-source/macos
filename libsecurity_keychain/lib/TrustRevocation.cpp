@@ -114,31 +114,29 @@ CFMutableArrayRef Trust::addPreferenceRevocationPolicies(
 	uint32 &numAdded, 
 	Allocator &alloc)
 {
-	Dictionary *prefsDict = NULL;
 	numAdded = 0;
 	
 	/* any per-user prefs? */
-	try {
-		prefsDict = new Dictionary(kSecRevocationDomain, Dictionary::US_User, true);
-		if (!prefsDict->dict()) {
-			delete prefsDict;
-			prefsDict = NULL;
+	Dictionary* pd = Dictionary::CreateDictionary(kSecRevocationDomain, Dictionary::US_User, true);
+	if (pd)
+	{
+		if (!pd->dict()) {
+			delete pd;
+			pd = NULL;
 		}
 	}
-	catch(...) {}
-	if(prefsDict == NULL) {
-		/* try system prefs */
-		try {
-			prefsDict = new Dictionary(kSecRevocationDomain, Dictionary::US_System, true);
-			if (!prefsDict->dict()) {
-				delete prefsDict;
-				return NULL;
-			}
+
+	if(pd == NULL)
+	{
+		pd = Dictionary::CreateDictionary(kSecRevocationDomain, Dictionary::US_System, true);
+		if (!pd->dict()) {
+			delete pd;
 		}
-		catch(...) {
-			return NULL;
-		}
+
+		return NULL;
 	}
+	
+	auto_ptr<Dictionary> prefsDict(pd);
 	
 	bool doOcsp = false;
 	bool doCrl = false;
@@ -164,7 +162,6 @@ CFMutableArrayRef Trust::addPreferenceRevocationPolicies(
 		}
 	}
 	if(!doCrl && !doOcsp) {
-		delete prefsDict;
 		return NULL;
 	}
 	
@@ -180,7 +177,6 @@ CFMutableArrayRef Trust::addPreferenceRevocationPolicies(
 	/* We're adding something to mPolicies, so make a copy we can work with */
 	CFMutableArrayRef policies = CFArrayCreateMutableCopy(NULL, 0, mPolicies);
 	if(policies == NULL) {
-		delete prefsDict;
 		throw std::bad_alloc();
 	}
 	
@@ -284,7 +280,6 @@ CFMutableArrayRef Trust::addPreferenceRevocationPolicies(
 		assert(doCrl);
 		CFArrayAppendValue(policies, crlPolicy->handle(false));
 	}
-	delete prefsDict;
 	return policies;
 }
 
@@ -383,7 +378,7 @@ CFMutableArrayRef Trust::forceOCSPRevocationPolicy(
 		/* Check prefs dict for local responder info */
 		Dictionary *prefsDict = NULL;
 		try { /* per-user prefs */
-			prefsDict = new Dictionary(kSecRevocationDomain, Dictionary::US_User, true);
+			prefsDict = Dictionary::CreateDictionary(kSecRevocationDomain, Dictionary::US_User, true);
 			if (!prefsDict->dict()) {
 				delete prefsDict;
 				prefsDict = NULL;
@@ -392,7 +387,7 @@ CFMutableArrayRef Trust::forceOCSPRevocationPolicy(
 		catch(...) {}
 		if(prefsDict == NULL) {
 			try { /* system prefs */
-				prefsDict = new Dictionary(kSecRevocationDomain, Dictionary::US_System, true);
+				prefsDict = Dictionary::CreateDictionary(kSecRevocationDomain, Dictionary::US_System, true);
 				if (!prefsDict->dict()) {
 					delete prefsDict;
 					prefsDict = NULL;

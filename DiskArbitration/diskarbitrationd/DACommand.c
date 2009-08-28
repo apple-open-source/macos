@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -425,7 +425,7 @@ void DACommandExecute( CFURLRef                 executable,
     int         argc      = 0;
     char **     argv      = NULL;
     CFTypeRef   argument  = NULL;
-    va_list     arguments = { 0 };
+    va_list     arguments;
     int         status    = EX_OK;
 
     /*

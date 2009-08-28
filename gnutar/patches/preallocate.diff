@@ -1,6 +1,6 @@
 --- src/extract.c~before~preallocate	2006-03-29 12:03:07.000000000 -0800
 +++ src/extract.c	2006-03-29 12:04:17.000000000 -0800
-@@ -49,6 +49,10 @@ struct copyfile_list_entry_t {
+@@ -40,6 +40,10 @@ struct copyfile_list_entry_t {
  extern LIST_HEAD(copyfile_list_t, copyfile_list_entry_t) copyfile_list;
  #endif
  
@@ -8,38 +8,38 @@
 +#include <sys/mount.h>
 +#endif /* __APPLE__ */
 +
- bool we_are_root;		/* true if our effective uid == 0 */
+ static bool we_are_root;	/* true if our effective uid == 0 */
  static mode_t newdir_umask;	/* umask when creating new directories */
  static mode_t current_umask;	/* current umask (which is set to 0 if -p) */
-@@ -762,6 +766,10 @@ extract_archive (void)
- 	{
- 	  static int conttype_diagnosed;
+@@ -731,6 +735,10 @@ extract_archive (void)
+     {
+       static int conttype_diagnosed;
  
 +#ifdef __APPLE__
-+	  /* XXX Would be nice to suppress this warning if we pre-allocate. */
++      /* XXX Would be nice to suppress this warning if we pre-allocate. */
 +#endif /* __APPLE__ */
 +
- 	  if (!conttype_diagnosed)
- 	    {
- 	      conttype_diagnosed = 1;
-@@ -784,6 +792,20 @@ extract_archive (void)
- 	  break;
+       if (!conttype_diagnosed)
+ 	{
+ 	  conttype_diagnosed = 1;
+@@ -785,6 +793,20 @@
  	}
+     }
  
 +#ifdef __APPLE__
-+	/* Attempts to pre-allocate blocks for the destination file. */
-+	if (!current_stat_info.is_sparse) {
-+		fstore_t fst;
++  /* Attempts to pre-allocate blocks for the destination file. */
++  if (!current_stat_info.is_sparse) {
++    fstore_t fst;
 +
-+		fst.fst_flags = 0;
-+		fst.fst_posmode = F_PEOFPOSMODE;
-+		fst.fst_offset = 0;
-+		fst.fst_length = current_stat_info.stat.st_size;
++    fst.fst_flags = 0;
++    fst.fst_posmode = F_PEOFPOSMODE;
++    fst.fst_offset = 0;
++    fst.fst_length = current_stat_info.stat.st_size;
 +
-+		(void)fcntl(fd, F_PREALLOCATE, &fst);
-+	}
++    (void)fcntl(fd, F_PREALLOCATE, &fst);
++  }
 +#endif /* __APPLE__ */
 +
-     extract_file:
-       if (current_stat_info.is_sparse)
- 	{
+   mv_begin (&current_stat_info);
+   if (current_stat_info.is_sparse)
+     sparse_extract_file (fd, &current_stat_info, &size);

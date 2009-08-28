@@ -10,7 +10,7 @@ CURLOPT_PORT
 #
 # Server-side
 <reply>
-<data nocheck="1">
+<data nocheck="yes">
 HTTP/1.1 200 OK
 Date: Thu, 09 Nov 2010 14:49:00 GMT
 Server: test-server/fake
@@ -49,7 +49,7 @@ http://%HOSTIP/522 %HTTPPORT
 <protocol>
 GET /522 HTTP/1.1
 Authorization: Basic eHh4Onl5eQ==
-Host: 127.0.0.1:%HTTPPORT
+Host: %HOSTIP:%HTTPPORT
 Accept: */*
 
 </protocol>

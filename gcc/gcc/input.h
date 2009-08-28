@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_INPUT_H
 #define GCC_INPUT_H
@@ -84,6 +84,7 @@ extern void push_srcloc (location_t);
 extern void push_srcloc (const char *name, int line);
 #endif /* ! USE_MAPPED_LOCATION */
 extern void pop_srcloc (void);
+extern void restore_input_file_stack (int);
 
 #define LOCATION_FILE(LOC) ((expand_location (LOC)).file)
 #define LOCATION_LINE(LOC) ((expand_location (LOC)).line)
@@ -97,5 +98,8 @@ extern struct file_stack *input_file_stack;
 
 /* Incremented on each change to input_file_stack.  */
 extern int input_file_stack_tick;
+
+/* The number of bits available for input_file_stack_tick.  */
+#define INPUT_FILE_STACK_BITS	31
 
 #endif

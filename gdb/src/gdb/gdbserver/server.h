@@ -93,6 +93,11 @@ void add_inferior_to_list (struct inferior_list *list,
 			   struct inferior_list_entry *new_inferior);
 void for_each_inferior (struct inferior_list *list,
 			void (*action) (struct inferior_list_entry *));
+/* APPLE LOCAL: Need a version of this that takes a client data.
+   It's really annoying to have to pass everything through globals...  */
+void for_each_inferior_data (struct inferior_list *list, void *data,
+			     void (*action) (struct inferior_list_entry *, void *));
+
 extern struct thread_info *current_inferior;
 void remove_inferior (struct inferior_list *list,
 		      struct inferior_list_entry *entry);
@@ -159,6 +164,7 @@ int look_up_one_symbol (const char *name, CORE_ADDR *addrp);
 enum target_signal target_signal_from_host (int hostsig);
 int target_signal_to_host_p (enum target_signal oursig);
 int target_signal_to_host (enum target_signal oursig);
+char *target_signal_to_name (enum target_signal oursig);
 
 /* Functions from utils.c */
 

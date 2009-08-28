@@ -1,7 +1,7 @@
 /*
  *  driverchooser.c
  *
- *  $Id: driverchooser.c,v 1.10 2007/01/03 14:26:10 source Exp $
+ *  $Id: driverchooser.c,v 1.11 2007/02/02 11:58:14 source Exp $
  *
  *  The iODBC driver manager.
  *
@@ -392,6 +392,10 @@ create_driverchooser (HWND hwnd, TDRIVERCHOOSER *choose_t)
   gtk_window_set_modal (GTK_WINDOW (driverchooser), TRUE);
   gtk_window_set_policy (GTK_WINDOW (driverchooser), FALSE, FALSE, FALSE);
 
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_widget_show (driverchooser);
+#endif
+
   dialog_vbox1 = GTK_DIALOG (driverchooser)->vbox;
   gtk_object_set_data (GTK_OBJECT (driverchooser), "dialog_vbox1",
       dialog_vbox1);
@@ -414,7 +418,7 @@ create_driverchooser (HWND hwnd, TDRIVERCHOOSER *choose_t)
   gtk_widget_show (l_diz);
   gtk_fixed_put (GTK_FIXED (fixed1), l_diz, 168, 16);
   gtk_widget_set_uposition (l_diz, 168, 16);
-  gtk_widget_set_usize (l_diz, 325, 16);
+  gtk_widget_set_usize (l_diz, 332, 16);
   gtk_label_set_justify (GTK_LABEL (l_diz), GTK_JUSTIFY_LEFT);
 
   scrolledwindow1 = gtk_scrolled_window_new (NULL, NULL);
@@ -424,7 +428,7 @@ create_driverchooser (HWND hwnd, TDRIVERCHOOSER *choose_t)
   gtk_widget_show (scrolledwindow1);
   gtk_fixed_put (GTK_FIXED (fixed1), scrolledwindow1, 168, 32);
   gtk_widget_set_uposition (scrolledwindow1, 168, 32);
-  gtk_widget_set_usize (scrolledwindow1, 320, 248);
+  gtk_widget_set_usize (scrolledwindow1, 332, 248);
 
   clist1 = gtk_clist_new (4);
   gtk_widget_ref (clist1);
@@ -466,10 +470,18 @@ create_driverchooser (HWND hwnd, TDRIVERCHOOSER *choose_t)
   gtk_widget_show (l_size);
   gtk_clist_set_column_widget (GTK_CLIST (clist1), 3, l_size);
 
+#if GTK_CHECK_VERSION(2,0,0)
+  style = gtk_widget_get_style (driverchooser);
+  pixmap =
+      gdk_pixmap_create_from_xpm_d (driverchooser->window, &mask,
+      &style->bg[GTK_STATE_NORMAL], (gchar **) img_xpm);
+#else
   style = gtk_widget_get_style (GTK_WIDGET (hwnd));
   pixmap =
       gdk_pixmap_create_from_xpm_d (GTK_WIDGET (hwnd)->window, &mask,
       &style->bg[GTK_STATE_NORMAL], (gchar **) img_xpm);
+#endif
+
   pixmap1 = gtk_pixmap_new (pixmap, mask);
   gtk_widget_ref (pixmap1);
   gtk_object_set_data_full (GTK_OBJECT (driverchooser), "pixmap1", pixmap1,
@@ -604,7 +616,7 @@ fdriverchooser_switch_page (GtkNotebook * notebook, GtkNotebookPage * page,
                   break;
 	        }
 
-              dsn = gtk_entry_get_text(choose_t->dsn_entry);
+              dsn = gtk_entry_get_text(GTK_ENTRY(choose_t->dsn_entry));
               if (strlen(dsn) < 1)
                 {
 	          _iodbcdm_messagebox(choose_t->mainwnd, NULL, "Enter File DSN Name...");
@@ -621,6 +633,38 @@ fdriverchooser_switch_page (GtkNotebook * notebook, GtkNotebookPage * page,
 
           if (choose_t->mess_entry)
             {
+#if GTK_CHECK_VERSION(2,0,0)
+              GtkTextBuffer *gbuf = gtk_text_view_get_buffer(GTK_TEXT_VIEW(choose_t->mess_entry));
+              GtkTextIter *iter;
+
+              gtk_text_buffer_set_text(gbuf, "", 0);
+
+              if (strchr(dsn, '/') != NULL)
+                snprintf(buff, sizeof(buff), "Filename: %s\n", dsn);
+              else
+                snprintf(buff, sizeof(buff), "Filename: %s/%s\n", choose_t->curr_dir, dsn);
+
+              gtk_text_buffer_insert_at_cursor(gbuf, buff, -1);
+
+              snprintf(buff, sizeof(buff), "Driver: %s\n", drv);
+              gtk_text_buffer_insert_at_cursor(gbuf, buff, -1);
+
+              gtk_text_buffer_insert_at_cursor(gbuf, "Driver-specific Keywords:\n", -1);
+
+              if (choose_t->attrs)
+                {
+                  for (curr = choose_t->attrs; *curr; curr += (STRLEN (curr) + 1))
+                    {
+                      if (!strncasecmp (curr, "PWD=", STRLEN ("PWD=")))
+	                continue;
+
+                      if (curr)
+                        gtk_text_buffer_insert_at_cursor(gbuf, curr, -1);
+
+                      gtk_text_buffer_insert_at_cursor(gbuf, "\n", -1);
+                    }
+                }
+#else
               gtk_text_set_point(GTK_TEXT(choose_t->mess_entry), 0);
               len = gtk_text_get_length(GTK_TEXT(choose_t->mess_entry));
               gtk_text_forward_delete(GTK_TEXT(choose_t->mess_entry), len);
@@ -649,6 +693,7 @@ fdriverchooser_switch_page (GtkNotebook * notebook, GtkNotebookPage * page,
                       gtk_text_insert(GTK_TEXT(choose_t->mess_entry), NULL, NULL, NULL, "\n", -1);
                     }
                 }
+#endif
             }
 	  break;
 	}
@@ -918,6 +963,10 @@ create_fdriverchooser (HWND hwnd, TFDRIVERCHOOSER *choose_t)
   gtk_window_set_modal (GTK_WINDOW (driverchooser), TRUE);
   gtk_window_set_policy (GTK_WINDOW (driverchooser), FALSE, FALSE, FALSE);
 
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_widget_show (driverchooser);
+#endif
+
   dialog_vbox1 = GTK_DIALOG (driverchooser)->vbox;
   GLADE_HOOKUP_OBJECT_NO_REF (driverchooser, dialog_vbox1, "dialog_vbox1");
   gtk_widget_show (dialog_vbox1);
@@ -943,9 +992,16 @@ create_fdriverchooser (HWND hwnd, TFDRIVERCHOOSER *choose_t)
   gtk_box_pack_start (GTK_BOX (hbox8), fixed5, FALSE, TRUE, 5);
   gtk_widget_set_usize (fixed5, 141, 280);
 
+#if GTK_CHECK_VERSION(2,0,0)
+  style = gtk_widget_get_style (driverchooser);
+  pixmap = gdk_pixmap_create_from_xpm_d (driverchooser->window, &mask,
+      &style->bg[GTK_STATE_NORMAL], (gchar **) img_xpm);
+#else
   style = gtk_widget_get_style (GTK_WIDGET (hwnd));
   pixmap = gdk_pixmap_create_from_xpm_d (GTK_WIDGET (hwnd)->window, &mask,
       &style->bg[GTK_STATE_NORMAL], (gchar **) img_xpm);
+#endif
+
   pixmap1 = gtk_pixmap_new (pixmap, mask);
   GLADE_HOOKUP_OBJECT (driverchooser, pixmap1, "pixmap1");
   gtk_widget_show (pixmap1);
@@ -956,6 +1012,7 @@ create_fdriverchooser (HWND hwnd, TFDRIVERCHOOSER *choose_t)
   GLADE_HOOKUP_OBJECT (driverchooser, vbox6, "vbox6");
   gtk_widget_show (vbox6);
   gtk_box_pack_start (GTK_BOX (hbox8), vbox6, TRUE, TRUE, 0);
+  gtk_container_set_border_width (GTK_CONTAINER (hbox8), 10);
 
   label8 = gtk_label_new ("Select a driver for which you want to setup a data source");
   GLADE_HOOKUP_OBJECT (driverchooser, label8, "label8");
@@ -1123,7 +1180,11 @@ create_fdriverchooser (HWND hwnd, TFDRIVERCHOOSER *choose_t)
   gtk_widget_show (scrolledwindow4);
   gtk_box_pack_start (GTK_BOX (vbox8), scrolledwindow4, TRUE, TRUE, 5);
 
+#if GTK_CHECK_VERSION(2,0,0)
+  results_text = gtk_text_view_new ();
+#else
   results_text = gtk_text_new (NULL, NULL);
+#endif
   GLADE_HOOKUP_OBJECT (driverchooser, results_text, "results_text");
   gtk_widget_show (results_text);
   gtk_container_add (GTK_CONTAINER (scrolledwindow4), results_text);

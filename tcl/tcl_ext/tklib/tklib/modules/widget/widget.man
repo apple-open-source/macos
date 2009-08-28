@@ -1,0 +1,63 @@
+[comment {-*- tcl -*- doctools manpage}]
+[manpage_begin widget n 3.0]
+[moddesc   {Megawidget package}]
+[titledesc {Megawidget package}]
+[require Tcl 8.4]
+[require Tk 8.4]
+[require widget [opt 3.0]]
+[description]
+
+This package provides megawidgets based on the snit oo system (snidgets).
+It makes use of the Tile/Ttk themed widget set.
+
+[para]
+
+[list_begin definitions]
+
+[call [cmd widget::validate] [arg as] [opt options]]
+commands:
+
+[list_end]
+
+[section WIDGETS]
+
+[list_begin definitions]
+
+[call [cmd widget::dialog] [arg pathname] [opt options]]
+options:
+
+[call [cmd widget::menuentry] [arg pathname] [opt options]]
+options:
+
+[call [cmd widget::panelframe] [arg pathname] [opt options]]
+options:
+
+[call [cmd widget::ruler] [arg pathname] [opt options]]
+options:
+
+[call [cmd widget::screenruler] [arg pathname] [opt options]]
+options:
+
+[call [cmd widget::scrolledwindow] [arg pathname] [opt options]]
+options:
+
+[call [cmd widget::statusbar] [arg pathname] [opt options]]
+options:
+
+[call [cmd widget::superframe] [arg pathname] [opt options]]
+options:
+
+[call [cmd widget::toolbar] [arg pathname] [opt options]]
+options:
+
+[list_end]
+
+[section EXAMPLE]
+
+[example {
+package require widget::superframe ; # or widget::all
+pack [widget::superframe .f -type separator -text "SuperFrame:"]
+}]
+
+[keywords megawidget snit widget]
+[manpage_end]

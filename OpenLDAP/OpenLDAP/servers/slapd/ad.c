@@ -1,8 +1,8 @@
 /* ad.c - routines for dealing with attribute descriptions */
-/* $OpenLDAP: pkg/ldap/servers/slapd/ad.c,v 1.74.2.14 2006/05/09 19:26:26 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/ad.c,v 1.95.2.4 2008/02/11 23:26:43 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2006 The OpenLDAP Foundation.
+ * Copyright 1998-2008 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -58,7 +58,7 @@ typedef struct Attr_option {
 	int           prefix;	/* NAME is a tag and range prefix */
 } Attr_option;
 
-static Attr_option lang_option = { { sizeof("lang-")-1, "lang-" }, 1 };
+static Attr_option lang_option = { BER_BVC("lang-"), 1 };
 
 /* Options sorted by name, and number of options */
 static Attr_option *options = &lang_option;
@@ -175,8 +175,9 @@ int slap_bv2ad(
 	}
 
 	/* find valid base attribute type; parse in place */
-	memset( &desc, 0, sizeof( desc ) );
 	desc.ad_cname = *bv;
+	desc.ad_flags = 0;
+	BER_BVZERO( &desc.ad_tags );
 	name = bv->bv_val;
 	options = ber_bvchr( bv, ';' );
 	if ( options != NULL && (unsigned) ( options - name ) < bv->bv_len ) {
@@ -200,7 +201,6 @@ int slap_bv2ad(
 	 * parse options in place
 	 */
 	ntags = 0;
-	memset( tags, 0, sizeof( tags ));
 	tagslen = 0;
 	optn = bv->bv_val + bv->bv_len;
 
@@ -213,8 +213,8 @@ int slap_bv2ad(
 			*text = "zero length option is invalid";
 			return rtn;
 		
-		} else if ( optlen == sizeof("binary")-1 &&
-			strncasecmp( opt, "binary", sizeof("binary")-1 ) == 0 )
+		} else if ( optlen == STRLENOF("binary") &&
+			strncasecmp( opt, "binary", STRLENOF("binary") ) == 0 )
 		{
 			/* binary option */
 			if( slap_ad_is_binary( &desc ) ) {
@@ -356,10 +356,10 @@ done:;
 		if (desc.ad_tags.bv_len || desc.ad_flags != SLAP_DESC_NONE) {
 			dlen = desc.ad_type->sat_cname.bv_len + 1;
 			if (desc.ad_tags.bv_len) {
-				dlen += 1+desc.ad_tags.bv_len;
+				dlen += 1 + desc.ad_tags.bv_len;
 			}
-			if( slap_ad_is_binary( &desc ) ) {
-				dlen += sizeof(";binary")+desc.ad_tags.bv_len;
+			if ( slap_ad_is_binary( &desc ) ) {
+				dlen += 1 + STRLENOF(";binary") + desc.ad_tags.bv_len;
 			}
 		}
 
@@ -384,7 +384,7 @@ done:;
 				lp = NULL;
 				if( desc.ad_tags.bv_len ) {
 					lp = desc.ad_tags.bv_val;
-					while( strncasecmp(lp, "binary", sizeof("binary")-1) < 0
+					while( strncasecmp(lp, "binary", STRLENOF("binary")) < 0
 					       && (lp = strchr( lp, ';' )) != NULL )
 						++lp;
 					if( lp != desc.ad_tags.bv_val ) {
@@ -773,6 +773,24 @@ int slap_bv2undef_ad(
 	return LDAP_SUCCESS;
 }
 
+AttributeDescription *
+slap_bv2tmp_ad(
+	struct berval *bv,
+	void *memctx )
+{
+	AttributeDescription *ad =
+		 slap_sl_mfuncs.bmf_malloc( sizeof(AttributeDescription) +
+			bv->bv_len + 1, memctx );
+
+	ad->ad_cname.bv_val = (char *)(ad+1);
+	strncpy( ad->ad_cname.bv_val, bv->bv_val, bv->bv_len+1 );
+	ad->ad_cname.bv_len = bv->bv_len;
+	ad->ad_flags = SLAP_DESC_TEMPORARY;
+	ad->ad_type = slap_schema.si_at_undefined;
+
+	return ad;
+}
+
 static int
 undef_promote(
 	AttributeType	*at,
@@ -888,12 +906,14 @@ str2anlist( AttributeName *an, char *in, const char *brkstr )
 	}
 
 	an = ch_realloc( an, ( i + j + 1 ) * sizeof( AttributeName ) );
-	BER_BVZERO( &an[i + j].an_name );
 	anew = an + i;
 	for ( s = ldap_pvt_strtok( str, brkstr, &lasts );
 		s != NULL;
 		s = ldap_pvt_strtok( NULL, brkstr, &lasts ) )
 	{
+		/* put a stop mark */
+		BER_BVZERO( &anew[1].an_name );
+
 		anew->an_desc = NULL;
 		anew->an_oc = NULL;
 		anew->an_oc_exclude = 0;
@@ -943,10 +963,8 @@ str2anlist( AttributeName *an, char *in, const char *brkstr )
 	return( an );
 
 reterr:
-	for ( i = 0; an[i].an_name.bv_val; i++ ) {
-		free( an[i].an_name.bv_val );
-	}
-	free( an );
+	anlist_free( an, 1, NULL );
+
 	/*
 	 * overwrites input string
 	 * on error!
@@ -954,6 +972,24 @@ reterr:
 	strcpy( in, s );
 	free( str );
 	return NULL;
+}
+
+void
+anlist_free( AttributeName *an, int freename, void *ctx )
+{
+	if ( an == NULL ) {
+		return;
+	}
+
+	if ( freename ) {
+		int	i;
+
+		for ( i = 0; an[i].an_name.bv_val; i++ ) {
+			ber_memfree_x( an[i].an_name.bv_val, ctx );
+		}
+	}
+
+	ber_memfree_x( an, ctx );
 }
 
 char **anlist2charray_x( AttributeName *an, int dup, void *ctx )
@@ -1113,7 +1149,7 @@ file2anlist( AttributeName *an, const char *fname, const char *brkstr )
 		}
 		an = str2anlist( an, line, brkstr );
 		if ( an == NULL )
-			return NULL;
+			break;
 		lcur = line;
 	}
 	ch_free( line );

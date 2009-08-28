@@ -1,7 +1,7 @@
 # Process this file with autom4te to create testsuite. -*- Autotest -*-
 
 # Test suite for GNU tar.
-# Copyright (C) 2004 Free Software Foundation, Inc.
+# Copyright (C) 2004, 2006 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,26 +15,28 @@
 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-# 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301, USA.
 
 # Problem: -C dir did not work with --same-order
 # Reported by: Karl-Michael Schneider <schneide@phil.uni-passau.de>
 # References: <20040507122613.GB12457@pike.phil.uni-passau.de>
 # http://lists.gnu.org/archive/html/bug-tar/2004-05/msg00008.html
 
-AT_SETUP([same-order01])
-AT_KEYWORDS([same-order01])
+AT_SETUP([working -C with --same-order])
+AT_KEYWORDS([same-order same-order01])
 
 AT_TAR_CHECK([
-genfile -l 1024 > file1
-genfile -l 1024 > file2
+AT_SORT_PREREQ
+
+genfile -l 1024 -f file1
+genfile -l 1024 -f file2
 tar cf archive file1 file2
 
 mkdir directory
 tar -xf archive --same-order -C directory || exit 1
 
-ls directory
+ls directory|sort 
 ],
 [0],
 [file1

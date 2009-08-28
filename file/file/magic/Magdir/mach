@@ -1,26 +1,9 @@
-#------------------------------------------------------------------------------
-# mach file description
-#
-# Since Java bytecode and Mach-O universal binaries have the same magic number the test
-# must be preformed in the same "magic" sequence to get both right.  The long
-# at offset 4 in a universal binary tells the number of architectures.  The short at
-# offset 4 in a Java bytecode file is the compiler minor version and the
-# short at offset 6 is the compiler major version.  Since there are only 
-# only 18 labeled Mach-O architectures at current, and the first released 
-# Java class format was version 43.0, we can safely choose any number
-# between 18 and 39 to test the number of architectures against
-# (and use as a hack).
-#
-0	belong		0xcafebabe
->4	belong		>19		compiled Java class data,
->>6     beshort		x	        version %d.
->>4     beshort		x       	\b%d
->4	belong		1		Mach-O universal binary with 1 architecture
->4	belong		>1
-# The following is necessary to support java class files.
->>4	belong		<20		Mach-O universal binary with %ld architectures
-#>>4	belong		<0xffff		Mach-O universal binary with %ld architectures
-#
+#------------------------------------------------------------
+# Mach has two magic numbers, 0xcafebabe and 0xfeedface.
+# Unfortunately the first, cafebabe, is shared with
+# Java ByteCode, so they are both handled in the file "cafebabe".
+# The "feedface" ones are handled herein.
+#------------------------------------------------------------
 0	lelong&0xfffffffe	0xfeedface	Mach-O
 >0	byte		0xcf		64-bit
 >12	lelong		1		object
@@ -32,7 +15,9 @@
 >12	lelong		7		dynamic linker
 >12	lelong		8		bundle
 >12	lelong		9		dynamically linked shared library stub
->12	lelong		>9
+>12	lelong		10		dSYM companion file
+>12	lelong		11		kext bundle
+>12	lelong		>11
 >>12	lelong		x		filetype=%ld
 >4	lelong		<0
 >>4	lelong		x		architecture=%ld
@@ -70,7 +55,9 @@
 >12	belong		7               dynamic linker
 >12	belong		8		bundle
 >12	belong		9		dynamically linked shared library stub
->12	belong		>9
+>12	belong		10		dSYM companion file
+>12	belong		11		kext bundle
+>12	belong		>11
 >>12	belong		x		filetype=%ld
 >4	belong		<0
 >>4	belong		x		architecture=%ld

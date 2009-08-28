@@ -1,9 +1,8 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1999-2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 1999,2007 Oracle.  All rights reserved.
 #
-# $Id: env001.tcl,v 1.2 2004/03/30 01:24:07 jtownsen Exp $
+# $Id: env001.tcl,v 12.7 2007/05/17 15:15:55 bostic Exp $
 #
 # TEST	env001
 # TEST	Test of env remove interface (formerly env_remove).
@@ -34,26 +33,22 @@ proc env001 { } {
 	puts "\tEnv001.c: Verify close."
 	error_check_good env:close:$env [$env close] 0
 
-	# Make sure we can reopen -- this doesn't work on Windows
-	# because if there is only one opener, the region disappears
-	# when it is closed.  We can't do a second opener, because
-	# that will fail on HP-UX.
+	# Make sure we can reopen.
 	puts "\tEnv001.d: Remove on closed environments."
-	if { $is_windows_test != 1 } {
-		puts "\t\tEnv001.d.1: Verify re-open."
-		set env [berkdb_env -home $testdir]
-		error_check_bad env:$testdir $env NULL
-		error_check_good env:$testdir [is_substr $env "env"] 1
+	puts "\t\tEnv001.d.1: Verify re-open."
+	set env [berkdb_env -home $testdir]
+	error_check_bad env:$testdir $env NULL
+	error_check_good env:$testdir [is_substr $env "env"] 1
 
-		# remove environment
-		puts "\t\tEnv001.d.2: Close environment."
-		error_check_good env:close [$env close] 0
-		puts "\t\tEnv001.d.3: Try remove with force (should succeed)."
-		error_check_good \
-		    envremove [berkdb envremove -force -home $testdir] 0
-	}
+	# remove environment
+	puts "\t\tEnv001.d.2: Close environment."
+	error_check_good env:close [$env close] 0
+	puts "\t\tEnv001.d.3: Try remove with force (should succeed)."
+	error_check_good \
+	    envremove [berkdb envremove -force -home $testdir] 0
 
-	if { $is_windows_test != 1 && $is_hp_test != 1 } {
+	# HP-UX doesn't allow a second handle on an open env.
+	if { $is_hp_test != 1 } {
 		puts "\tEnv001.e: Remove on open environments."
 		puts "\t\tEnv001.e.1: Env is open by single proc,\
 		    remove no force."
@@ -67,8 +62,7 @@ proc env001 { } {
 
 	puts \
 	    "\t\tEnv001.e.2: Env is open by single proc, remove with force."
-	# Now that envremove doesn't do a close, this won't work on Windows.
-	if { $is_windows_test != 1 && $is_hp_test != 1} {
+	if { $is_hp_test != 1 } {
 		set env [berkdb_env_noerr -create -mode 0644 -home $testdir]
 		error_check_bad env:$testdir $env NULL
 		error_check_good env:$testdir [is_substr $env "env"] 1
@@ -110,10 +104,7 @@ proc env001 { } {
 	error_check_good close_remote_process $err 0
 
 	puts "\t\tEnv001.e.4: Env is open by 2 procs, remove with force."
-	# You cannot do this on windows because you can't remove files that
-	# are open, so we skip this test for Windows.  On UNIX, it should
-	# succeed
-	if { $is_windows_test != 1 && $is_hp_test != 1 } {
+	if { $is_hp_test != 1 } {
 		set env [berkdb_env_noerr -create -mode 0644 -home $testdir]
 		error_check_bad env:$testdir $env NULL
 		error_check_good env:$testdir [is_substr $env "env"] 1

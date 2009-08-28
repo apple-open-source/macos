@@ -44,7 +44,7 @@ typedef struct CommonAuthDataBlock {
 	int hashType;
 	unsigned char sessionKey[CC_MD5_DIGEST_LENGTH];	
 	unsigned char response[CC_SHA256_DIGEST_LENGTH];
-	unsigned long nonce;
+	uint32_t nonce;
 	int encryptedNonceLen;
 	AES_KEY sessionEncryptKey;
 	AES_KEY sessionDecryptKey;

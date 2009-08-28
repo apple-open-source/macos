@@ -115,7 +115,7 @@ bool pwsf_SetSASLPluginState( const char *inMechName, bool enable )
 		changeMade = YES;
 	}
 	
-	[prefsObj free];
+	[prefsObj release];
 	
 	return (bool)changeMade;
 }
@@ -224,13 +224,20 @@ inline void TransferItemToCFDictionary(CFMutableDictionaryRef inDict, CFStringRe
 }
 
 
--free
+-(void)dealloc
 {
 	if ( mPrefsDict != NULL )
 		CFRelease( mPrefsDict );
 	if ( mExternalToolIllegalChars != NULL )
 		CFRelease( mExternalToolIllegalChars );
-	return [super free];
+	[super dealloc];
+}
+
+
+-free
+{
+    [self release];
+    return 0;
 }
 
 

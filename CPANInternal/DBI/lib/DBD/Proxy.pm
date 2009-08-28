@@ -219,12 +219,20 @@ package DBD::Proxy::db; # ====== DATABASE ======
 
 $DBD::Proxy::db::imp_data_size = 0;
 
-# XXX probably many more methods need to be added here.
+# XXX probably many more methods need to be added here
+# in order to trigger our AUTOLOAD to redirect them to the server.
+# (Unless the sub is declared it's bypassed by perl method lookup.)
 # See notes in ToDo about method metadata
+# The question is whether to add all the methods in %DBI::DBI_methods
+# to the corresponding classes (::db, ::st etc)
+# Also need to consider methods that, if proxied, would change the server state
+# in a way that might not be visible on the client, ie begin_work -> AutoCommit.
+
 sub commit;
 sub connected;
 sub rollback;
 sub ping;
+
 
 use vars qw(%ATTR $AUTOLOAD);
 
@@ -249,36 +257,31 @@ use vars qw(%ATTR $AUTOLOAD);
 sub AUTOLOAD {
     my $method = $AUTOLOAD;
     $method =~ s/(.*::(.*)):://;
-    # warn "AUTOLOAD of $method";
     my $class = $1;
     my $type = $2;
-    my %expand =
-	( 'method' => $method,
-	  'class' => $class,
-	  'type' => $type,
-	  'h' => "DBI::_::$type"
-	);
-    my $method_code = UNIVERSAL::can($expand{'h'}, $method) ?
-	q/package ~class~;
-          sub ~method~ {
+    #warn "AUTOLOAD of $method (class=$class, type=$type)";
+    my %expand = (
+        'method' => $method,
+        'class' => $class,
+        'type' => $type,
+        'call' => "$method(\@_)",
+        # XXX was trying to be smart but was tripping up over the DBI's own
+        # smartness. Disabled, but left here in case there are issues.
+    #   'call' => (UNIVERSAL::can("DBI::_::$type", $method)) ? "$method(\@_)" : "func(\@_, '$method')",
+    );
+
+    my $method_code = q{
+        package ~class~;
+        sub ~method~ {
             my $h = shift;
-	    my @result = wantarray
-		? eval {        $h->{'proxy_~type~h'}->~method~(@_) }
-		: eval { scalar $h->{'proxy_~type~h'}->~method~(@_) };
+            local $@;
+            my @result = wantarray
+                ? eval {        $h->{'proxy_~type~h'}->~call~ }
+                : eval { scalar $h->{'proxy_~type~h'}->~call~ };
             return DBD::Proxy::proxy_set_err($h, $@) if $@;
-            wantarray ? @result : $result[0];
-          }
-	 / :
-        q/package ~class~;
-	  sub ~method~ {
-	    my $h = shift;
-	    my @result = wantarray
-		? eval {        $h->{'proxy_~type~h'}->func(@_, '~method~') }
-		: eval { scalar $h->{'proxy_~type~h'}->func(@_, '~method~') };
-	    return DBD::Proxy::proxy_set_err($h, $@) if $@;
-	    wantarray ? @result : $result[0];
-          }
-         /;
+            return wantarray ? @result : $result[0];
+        }
+    };
     $method_code =~ s/\~(\w+)\~/$expand{$1}/eg;
     local $SIG{__DIE__} = 'DEFAULT';
     my $err = do { local $@; eval $method_code.2; $@ };
@@ -303,9 +306,12 @@ sub disconnect ($) {
 
     # Drop database connection at remote end
     my $rdbh = $dbh->{'proxy_dbh'};
-    local $SIG{__DIE__} = 'DEFAULT';
-    eval { $rdbh->disconnect() };
-    DBD::Proxy::proxy_set_err($dbh, $@) if $@;
+    if ( $rdbh ) {
+        local $SIG{__DIE__} = 'DEFAULT';
+        local $@;
+	eval { $rdbh->disconnect() } ;
+        DBD::Proxy::proxy_set_err($dbh, $@) if $@;
+    }
     
     # Close TCP connect to remote
     # XXX possibly best left till DESTROY? Add a config attribute to choose?
@@ -506,6 +512,7 @@ sub execute ($@) {
 
     # new execute, so delete any cached rows from previous execute
     undef $sth->{'proxy_data'};
+    undef $sth->{'proxy_rows'};
 
     my $rsth = $sth->{proxy_sth};
     my $dbh = $sth->FETCH('Database');
@@ -586,6 +593,8 @@ sub fetch ($) {
 
     my $data = $sth->{'proxy_data'};
 
+    $sth->{'proxy_rows'} = 0 unless defined $sth->{'proxy_rows'};
+
     if(!$data || !@$data) {
 	return undef unless $sth->SUPER::FETCH('Active');
 
@@ -609,13 +618,14 @@ sub fetch ($) {
     my $row = shift @$data;
 
     $sth->SUPER::STORE(Active => 0) if ( $sth->{proxy_cache_only} and !@$data );
+    $sth->{'proxy_rows'}++;
     return $sth->_set_fbav($row);
 }
 *fetchrow_arrayref = \&fetch;
 
 sub rows ($) {
-    my($sth) = @_;
-    $sth->{'proxy_rows'};
+    my $rows = shift->{'proxy_rows'};
+    return (defined $rows) ? $rows : -1;
 }
 
 sub finish ($) {
@@ -731,7 +741,7 @@ DBD::Proxy - A proxy driver for the DBI
 =head1 DESCRIPTION
 
 DBD::Proxy is a Perl module for connecting to a database via a remote
-DBI driver.
+DBI driver. See L<DBD::Gofer> for an alternative with different trade-offs.
 
 This is of course not needed for DBI drivers which already
 support connecting to a remote database, but there are engines which
@@ -891,6 +901,26 @@ method will be used (which will be faster but may be wrong).
 =back
 
 =head1 KNOWN ISSUES
+
+=head2 Unproxied method calls
+
+If a method isn't being proxied, try declaring a stub sub in the appropriate
+package (DBD::Proxy::db for a dbh method, and DBD::Proxy::st for an sth method).
+For example:
+
+    sub DBD::Proxy::db::selectall_arrayref;
+
+That will enable selectall_arrayref to be proxied.
+
+Currently many methods aren't explicitly proxied and so you get the DBI's
+default methods executed on the client.
+
+Some of those methods, like selectall_arrayref, may then call other methods
+that are proxied (selectall_arrayref calls fetchall_arrayref which calls fetch
+which is proxied). So things may appear to work but operate more slowly than
+the could.
+
+This may all change in a later version.
 
 =head2 Complex handle attributes
 

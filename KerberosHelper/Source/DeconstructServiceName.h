@@ -23,4 +23,4 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 
-Boolean _CFNetServiceDeconstructServiceName(CFStringRef *inHostName, char **inHostNameString);
+Boolean _CFNetServiceDeconstructServiceName(CFStringRef inHostName, char **inHostNameString);

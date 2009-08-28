@@ -15,8 +15,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "bconfig.h"
 #include "system.h"
@@ -143,10 +143,10 @@ resolve_typedef (const char *s, struct fileloc *pos)
   return create_scalar_type ("char", 4);
 }
 
-/* Create a new structure with tag NAME (or a union iff ISUNION is nonzero),
-   at POS with fields FIELDS and options O.  */
+/* Create and return a new structure with tag NAME (or a union iff
+   ISUNION is nonzero), at POS with fields FIELDS and options O.  */
 
-void
+type_p
 new_structure (const char *name, int isunion, struct fileloc *pos,
 	       pair_p fields, options_p o)
 {
@@ -214,6 +214,8 @@ new_structure (const char *name, int isunion, struct fileloc *pos,
   s->u.s.bitmap = bitmap;
   if (s->u.s.lang_struct)
     s->u.s.lang_struct->u.s.bitmap |= bitmap;
+
+  return s;
 }
 
 /* Return the previously-defined structure with tag NAME (or a union
@@ -305,11 +307,14 @@ create_array (type_p t, const char *len)
   return v;
 }
 
-/* Return an options structure with name NAME and info INFO.  */
+/* Return an options structure with name NAME and info INFO.  NEXT is the
+   next option in the chain.  */
+
 options_p
-create_option (const char *name, void *info)
+create_option (options_p next, const char *name, const void *info)
 {
   options_p o = XNEW (struct options);
+  o->next = next;
   o->name = name;
   o->info = (const char*) info;
   return o;
@@ -329,6 +334,51 @@ note_variable (const char *s, type_p t, options_p o, struct fileloc *pos)
   n->opt = o;
   n->next = variables;
   variables = n;
+}
+
+/* Create a fake field with the given type and name.  NEXT is the next
+   field in the chain.  */
+
+static pair_p
+create_field (pair_p next, type_p type, const char *name)
+{
+  pair_p field;
+
+  field = XNEW (struct pair);
+  field->next = next;
+  field->type = type;
+  field->name = name;
+  field->opt = NULL;
+  field->line.file = __FILE__;
+  field->line.line = __LINE__;
+  return field;
+}
+
+/* Like create_field, but the field is only valid when condition COND
+   is true.  */
+
+static pair_p
+create_optional_field (pair_p next, type_p type, const char *name,
+		       const char *cond)
+{
+  static int id = 1;
+  pair_p union_fields, field;
+  type_p union_type;
+
+  /* Create a fake union type with a single nameless field of type TYPE.
+     The field has a tag of "1".  This allows us to make the presence
+     of a field of type TYPE depend on some boolean "desc" being true.  */
+  union_fields = create_field (NULL, type, "");
+  union_fields->opt = create_option (union_fields->opt, "dot", "");
+  union_fields->opt = create_option (union_fields->opt, "tag", "1");
+  union_type = new_structure (xasprintf ("%s_%d", "fake_union", id++), 1,
+			      &lexer_line, union_fields, NULL);
+
+  /* Create the field and give it the new fake union type.  Add a "desc"
+     tag that specifies the condition under which the field is valid.  */
+  field = create_field (next, union_type, name);
+  field->opt = create_option (field->opt, "desc", cond);
+  return field;
 }
 
 /* We don't care how long a CONST_DOUBLE is.  */
@@ -431,7 +481,7 @@ adjust_field_rtx_def (type_p t, options_p ARG_UNUSED (opt))
   options_p nodot;
   int i;
   type_p rtx_tp, rtvec_tp, tree_tp, mem_attrs_tp, note_union_tp, scalar_tp;
-  type_p bitmap_tp, basic_block_tp, reg_attrs_tp;
+  type_p bitmap_tp, basic_block_tp, reg_attrs_tp, constant_tp, symbol_union_tp;
 
   if (t->kind != TYPE_UNION)
     {
@@ -440,10 +490,7 @@ adjust_field_rtx_def (type_p t, options_p ARG_UNUSED (opt))
       return &string_type;
     }
 
-  nodot = XNEW (struct options);
-  nodot->next = NULL;
-  nodot->name = "dot";
-  nodot->info = "";
+  nodot = create_option (NULL, "dot", "");
 
   rtx_tp = create_pointer (find_structure ("rtx_def", 0));
   rtvec_tp = create_pointer (find_structure ("rtvec_def", 0));
@@ -452,6 +499,7 @@ adjust_field_rtx_def (type_p t, options_p ARG_UNUSED (opt))
   reg_attrs_tp = create_pointer (find_structure ("reg_attrs", 0));
   bitmap_tp = create_pointer (find_structure ("bitmap_element_def", 0));
   basic_block_tp = create_pointer (find_structure ("basic_block_def", 0));
+  constant_tp = create_pointer (find_structure ("constant_descriptor_rtx", 0));
   scalar_tp = create_scalar_type ("rtunion scalar", 14);
 
   {
@@ -460,61 +508,59 @@ adjust_field_rtx_def (type_p t, options_p ARG_UNUSED (opt))
 
     for (c = 0; c <= NOTE_INSN_MAX; c++)
       {
-	pair_p old_note_flds = note_flds;
-
-	note_flds = XNEW (struct pair);
-	note_flds->line.file = __FILE__;
-	note_flds->line.line = __LINE__;
-	note_flds->opt = XNEW (struct options);
-	note_flds->opt->next = nodot;
-	note_flds->opt->name = "tag";
-	note_flds->opt->info = note_insn_name[c];
-	note_flds->next = old_note_flds;
-
 	switch (c)
 	  {
-	    /* NOTE_INSN_MAX is used as the default field for line
-	       number notes.  */
 	  case NOTE_INSN_MAX:
-	    note_flds->opt->name = "default";
-	    note_flds->name = "rt_str";
-	    note_flds->type = &string_type;
+	    note_flds = create_field (note_flds, &string_type, "rt_str");
 	    break;
 
 	  case NOTE_INSN_BLOCK_BEG:
 	  case NOTE_INSN_BLOCK_END:
-	    note_flds->name = "rt_tree";
-	    note_flds->type = tree_tp;
+	    note_flds = create_field (note_flds, tree_tp, "rt_tree");
 	    break;
 
 	  case NOTE_INSN_EXPECTED_VALUE:
 	  case NOTE_INSN_VAR_LOCATION:
-	    note_flds->name = "rt_rtx";
-	    note_flds->type = rtx_tp;
+	    note_flds = create_field (note_flds, rtx_tp, "rt_rtx");
 	    break;
 
 	  default:
-	    note_flds->name = "rt_int";
-	    note_flds->type = scalar_tp;
+	    note_flds = create_field (note_flds, scalar_tp, "rt_int");
 	    break;
 	  }
+	/* NOTE_INSN_MAX is used as the default field for line
+	   number notes.  */
+	if (c == NOTE_INSN_MAX)
+	  note_flds->opt = create_option (nodot, "default", "");
+	else
+	  note_flds->opt = create_option (nodot, "tag", note_insn_name[c]);
       }
-    new_structure ("rtx_def_note_subunion", 1, &lexer_line, note_flds, NULL);
+    note_union_tp = new_structure ("rtx_def_note_subunion", 1,
+				   &lexer_line, note_flds, NULL);
   }
+  /* Create a type to represent the various forms of SYMBOL_REF_DATA.  */
+  {
+    pair_p sym_flds;
 
-  note_union_tp = find_structure ("rtx_def_note_subunion", 1);
+    sym_flds = create_field (NULL, tree_tp, "rt_tree");
+    sym_flds->opt = create_option (nodot, "default", "");
 
+    sym_flds = create_field (sym_flds, constant_tp, "rt_constant");
+    sym_flds->opt = create_option (nodot, "tag", "1");
+
+    symbol_union_tp = new_structure ("rtx_def_symbol_subunion", 1,
+				     &lexer_line, sym_flds, NULL);
+  }
   for (i = 0; i < NUM_RTX_CODE; i++)
     {
-      pair_p old_flds = flds;
       pair_p subfields = NULL;
       size_t aindex, nmindex;
       const char *sname;
+      type_p substruct;
       char *ftag;
 
       for (aindex = 0; aindex < strlen (rtx_format[i]); aindex++)
 	{
-	  pair_p old_subf = subfields;
 	  type_p t;
 	  const char *subname;
 
@@ -557,7 +603,7 @@ adjust_field_rtx_def (type_p t, options_p ARG_UNUSED (opt))
 	      else if (i == SYMBOL_REF && aindex == 1)
 		t = scalar_tp, subname = "rt_int";
 	      else if (i == SYMBOL_REF && aindex == 2)
-		t = tree_tp, subname = "rt_tree";
+		t = symbol_union_tp, subname = "";
 	      else if (i == BARRIER && aindex >= 3)
 		t = scalar_tp, subname = "rt_int";
 	      else
@@ -614,51 +660,40 @@ adjust_field_rtx_def (type_p t, options_p ARG_UNUSED (opt))
 	      break;
 	    }
 
-	  subfields = XNEW (struct pair);
-	  subfields->next = old_subf;
-	  subfields->type = t;
-	  subfields->name = xasprintf (".fld[%lu].%s", (unsigned long)aindex,
-				       subname);
-	  subfields->line.file = __FILE__;
-	  subfields->line.line = __LINE__;
+	  subfields = create_field (subfields, t,
+				    xasprintf (".fld[%lu].%s",
+					       (unsigned long) aindex,
+					       subname));
+	  subfields->opt = nodot;
 	  if (t == note_union_tp)
-	    {
-	      subfields->opt = XNEW (struct options);
-	      subfields->opt->next = nodot;
-	      subfields->opt->name = "desc";
-	      subfields->opt->info = "NOTE_LINE_NUMBER (&%0)";
-	    }
-	  else if (t == basic_block_tp)
-	    {
-	      /* We don't presently GC basic block structures...  */
-	      subfields->opt = XNEW (struct options);
-	      subfields->opt->next = nodot;
-	      subfields->opt->name = "skip";
-	      subfields->opt->info = NULL;
-	    }
-	  else
-	    subfields->opt = nodot;
+	    subfields->opt = create_option (subfields->opt, "desc",
+					    "NOTE_LINE_NUMBER (&%0)");
+	  if (t == symbol_union_tp)
+	    subfields->opt = create_option (subfields->opt, "desc",
+					    "CONSTANT_POOL_ADDRESS_P (&%0)");
 	}
 
-      flds = XNEW (struct pair);
-      flds->next = old_flds;
-      flds->name = "";
+      if (i == SYMBOL_REF)
+	{
+	  /* Add the "block_sym" field if SYMBOL_REF_HAS_BLOCK_INFO_P holds.  */
+	  type_p field_tp = find_structure ("block_symbol", 0);
+	  subfields
+	    = create_optional_field (subfields, field_tp, "block_sym",
+				     "SYMBOL_REF_HAS_BLOCK_INFO_P (&%0)");
+	}
+
       sname = xasprintf ("rtx_def_%s", rtx_name[i]);
-      new_structure (sname, 0, &lexer_line, subfields, NULL);
-      flds->type = find_structure (sname, 0);
-      flds->line.file = __FILE__;
-      flds->line.line = __LINE__;
-      flds->opt = XNEW (struct options);
-      flds->opt->next = nodot;
-      flds->opt->name = "tag";
+      substruct = new_structure (sname, 0, &lexer_line, subfields, NULL);
+
       ftag = xstrdup (rtx_name[i]);
       for (nmindex = 0; nmindex < strlen (ftag); nmindex++)
 	ftag[nmindex] = TOUPPER (ftag[nmindex]);
-      flds->opt->info = ftag;
+
+      flds = create_field (flds, substruct, "");
+      flds->opt = create_option (nodot, "tag", ftag);
     }
 
-  new_structure ("rtx_def_subunion", 1, &lexer_line, flds, nodot);
-  return find_structure ("rtx_def_subunion", 1);
+  return new_structure ("rtx_def_subunion", 1, &lexer_line, flds, nodot);
 }
 
 /* Handle `special("tree_exp")'.  This is a special case for
@@ -680,31 +715,14 @@ adjust_field_tree_exp (type_p t, options_p opt ATTRIBUTE_UNUSED)
       return &string_type;
     }
 
-  nodot = XNEW (struct options);
-  nodot->next = NULL;
-  nodot->name = "dot";
-  nodot->info = "";
+  nodot = create_option (NULL, "dot", "");
 
-  flds = XNEW (struct pair);
-  flds->next = NULL;
-  flds->name = "";
-  flds->type = t;
-  flds->line.file = __FILE__;
-  flds->line.line = __LINE__;
-  flds->opt = XNEW (struct options);
-  flds->opt->next = nodot;
-  flds->opt->name = "length";
-  flds->opt->info = "TREE_CODE_LENGTH (TREE_CODE ((tree) &%0))";
-  {
-    options_p oldopt = flds->opt;
-    flds->opt = XNEW (struct options);
-    flds->opt->next = oldopt;
-    flds->opt->name = "default";
-    flds->opt->info = "";
-  }
+  flds = create_field (NULL, t, "");
+  flds->opt = create_option (nodot, "length",
+			     "TREE_CODE_LENGTH (TREE_CODE ((tree) &%0))");
+  flds->opt = create_option (flds->opt, "default", "");
 
-  new_structure ("tree_exp_subunion", 1, &lexer_line, flds, nodot);
-  return find_structure ("tree_exp_subunion", 1);
+  return new_structure ("tree_exp_subunion", 1, &lexer_line, flds, nodot);
 }
 
 /* Perform any special processing on a type T, about to become the type
@@ -849,8 +867,7 @@ note_yacc_type (options_p o, pair_p fields, pair_p typeinfo,
 	p_p = &p->next;
     }
 
-  new_structure ("yy_union", 1, pos, typeinfo, o);
-  do_typedef ("YYSTYPE", find_structure ("yy_union", 1), pos);
+  do_typedef ("YYSTYPE", new_structure ("yy_union", 1, pos, typeinfo, o), pos);
 }
 
 static void process_gc_options (options_p, enum gc_used_enum,
@@ -1018,8 +1035,8 @@ create_file (const char *name, const char *oname)
     "\n",
     "You should have received a copy of the GNU General Public License\n",
     "along with GCC; see the file COPYING.  If not, write to the Free\n",
-    "Software Foundation, 59 Temple Place - Suite 330, Boston, MA\n",
-    "02111-1307, USA.  */\n",
+    "Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA\n",
+    "02110-1301, USA.  */\n",
     "\n",
     "/* This file is machine generated.  Do not edit.  */\n"
   };
@@ -1088,7 +1105,7 @@ open_base_files (void)
       "hard-reg-set.h", "basic-block.h", "cselib.h", "insn-addr.h",
       "optabs.h", "libfuncs.h", "debug.h", "ggc.h", "cgraph.h",
       "tree-flow.h", "reload.h", "cpp-id-data.h", "tree-chrec.h",
-      NULL
+      "except.h", "output.h", NULL
     };
     const char *const *ifp;
     outf_p gtype_desc_c;
@@ -1238,7 +1255,6 @@ get_output_file_with_visibility (const char *input_file)
     output_name = "gt-c-common.h", for_name = "c-common.c";
   else if (strcmp (basename, "c-tree.h") == 0)
     output_name = "gt-c-decl.h", for_name = "c-decl.c";
-  /* APPLE LOCAL begin mainline */
   else if (strncmp (basename, "cp", 2) == 0 && IS_DIR_SEPARATOR (basename[2])
 	   && strcmp (basename + 3, "cp-tree.h") == 0)
     output_name = "gt-cp-tree.h", for_name = "cp/tree.c";
@@ -1248,7 +1264,6 @@ get_output_file_with_visibility (const char *input_file)
   else if (strncmp (basename, "cp", 2) == 0 && IS_DIR_SEPARATOR (basename[2])
 	   && strcmp (basename + 3, "name-lookup.h") == 0)
     output_name = "gt-cp-name-lookup.h", for_name = "cp/name-lookup.c";
-  /* APPLE LOCAL end mainline */
   else if (strncmp (basename, "objc", 4) == 0 && IS_DIR_SEPARATOR (basename[4])
 	   && strcmp (basename + 5, "objc-act.h") == 0)
     output_name = "gt-objc-objc-act.h", for_name = "objc/objc-act.c";
@@ -1939,6 +1954,21 @@ write_types_process_field (type_p f, const struct walk_type_data *d)
 	    }
 	  else
 	    oprintf (d->of, ", gt_%sa_%s", wtd->param_prefix, d->prev_val[0]);
+
+	  if (f->u.p->kind == TYPE_PARAM_STRUCT
+	      && f->u.p->u.s.line.file != NULL)
+	    {
+	      oprintf (d->of, ", gt_e_");
+	      output_mangled_typename (d->of, f);
+	    }
+	  else if (UNION_OR_STRUCT_P (f)
+		   && f->u.p->u.s.line.file != NULL)
+	    {
+	      oprintf (d->of, ", gt_ggc_e_");
+	      output_mangled_typename (d->of, f);
+	    }
+	  else
+	    oprintf (d->of, ", gt_types_enum_last");
 	}
       oprintf (d->of, ");\n");
       if (d->reorder_fn && wtd->reorder_note_routine)
@@ -1970,6 +2000,25 @@ write_types_process_field (type_p f, const struct walk_type_data *d)
     default:
       gcc_unreachable ();
     }
+}
+
+/* A subroutine of write_func_for_structure.  Write the enum tag for S.  */
+
+static void
+output_type_enum (outf_p of, type_p s)
+{
+  if (s->kind == TYPE_PARAM_STRUCT && s->u.s.line.file != NULL)
+    {
+      oprintf (of, ", gt_e_");
+      output_mangled_typename (of, s);
+    }
+  else if (UNION_OR_STRUCT_P (s) && s->u.s.line.file != NULL)
+    {
+      oprintf (of, ", gt_ggc_e_");
+      output_mangled_typename (of, s);
+    }
+  else
+    oprintf (of, ", gt_types_enum_last");
 }
 
 /* For S, a structure that's part of ORIG_S, and using parameters
@@ -2046,6 +2095,7 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
 	{
 	  oprintf (d.of, ", x, gt_%s_", wtd->param_prefix);
 	  output_mangled_typename (d.of, orig_s);
+	  output_type_enum (d.of, orig_s);
 	}
       oprintf (d.of, "))\n");
     }
@@ -2056,6 +2106,7 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
 	{
 	  oprintf (d.of, ", xlimit, gt_%s_", wtd->param_prefix);
 	  output_mangled_typename (d.of, orig_s);
+	  output_type_enum (d.of, orig_s);
 	}
       oprintf (d.of, "))\n");
       oprintf (d.of, "   xlimit = (");
@@ -2081,6 +2132,7 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
 	    {
 	      oprintf (d.of, ", xprev, gt_%s_", wtd->param_prefix);
 	      output_mangled_typename (d.of, orig_s);
+	      output_type_enum (d.of, orig_s);
 	    }
 	  oprintf (d.of, ");\n");
 	  oprintf (d.of, "      }\n");
@@ -2986,6 +3038,7 @@ main(int ARG_UNUSED (argc), char ** ARG_UNUSED (argv))
 
   do_scalar_typedef ("CUMULATIVE_ARGS", &pos);
   do_scalar_typedef ("REAL_VALUE_TYPE", &pos);
+  do_scalar_typedef ("double_int", &pos);
   do_scalar_typedef ("uint8", &pos);
   do_scalar_typedef ("jword", &pos);
   do_scalar_typedef ("JCF_u2", &pos);

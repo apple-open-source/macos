@@ -1,22 +1,23 @@
 /*
- * Copyright (c) 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -127,11 +128,10 @@ int record_link_badflags(SGlobPtr gptr, uint32_t link_id, Boolean isdir,
 	char str1[12];
 	char str2[12];
 
-	snprintf(str1, sizeof(str1), "%u", link_id);
-	PrintError(gptr, isdir? E_DirLinkBadFlags : E_FileLinkBadFlags, 1, str1);
+	fsckPrint(gptr->context, isdir? E_DirLinkBadFlags : E_FileLinkBadFlags, link_id);
 	snprintf(str1, sizeof(str1), "0x%x", correct);
 	snprintf(str2, sizeof(str2), "0x%x", incorrect);
-	PrintError(gptr, E_BadValue, 2, str1, str2);
+	fsckPrint(gptr->context, E_BadValue, str1, str2);
 	
 	p = AllocMinorRepairOrder(gptr, 0);
 	if (p == NULL) {
@@ -177,11 +177,10 @@ int record_inode_badflags(SGlobPtr gptr, uint32_t inode_id, Boolean isdir,
 	    (IsDuplicateRepairOrder(gptr, p) == 1)) {
 		DeleteRepairOrder(gptr, p);
 	} else {
-		snprintf(str1, sizeof(str1), "%u", inode_id);
-		PrintError(gptr, isdir? E_DirInodeBadFlags : E_FileInodeBadFlags, 1, str1);
+		fsckPrint(gptr->context, isdir? E_DirInodeBadFlags : E_FileInodeBadFlags, inode_id);
 		snprintf(str1, sizeof(str1), "0x%x", correct);
 		snprintf(str2, sizeof(str2), "0x%x", incorrect);
-		PrintError(gptr, E_BadValue, 2, str1, str2);
+		fsckPrint(gptr->context, E_BadValue, str1, str2);
 	}
 
 	return 0;
@@ -195,11 +194,10 @@ static int record_inode_badparent(SGlobPtr gptr, uint32_t inode_id, Boolean isdi
 	char str1[12];
 	char str2[12];
 
-	snprintf(str1, sizeof(str1), "%u", inode_id);
-	PrintError(gptr, isdir? E_DirInodeBadParent : E_FileInodeBadParent, 1, str1);
+	fsckPrint(gptr->context, isdir? E_DirInodeBadParent : E_FileInodeBadParent, inode_id);
 	snprintf(str1, sizeof(str1), "%u", correct);
 	snprintf(str2, sizeof(str2), "%u", incorrect);
-	PrintError(gptr, E_BadValue, 2, str1, str2);
+	fsckPrint(gptr->context, E_BadValue, str1, str2);
 
 	gptr->CatStat |= S_LinkErrNoRepair;
 
@@ -211,11 +209,8 @@ static int record_inode_badparent(SGlobPtr gptr, uint32_t inode_id, Boolean isdi
 static int record_inode_badname(SGlobPtr gptr, uint32_t inode_id,
 		char *incorrect, char *correct)
 {
-	char idstr[12];
-
-	snprintf(idstr, sizeof(idstr), "%u", inode_id);
-	PrintError(gptr, E_DirInodeBadName,  1, idstr);
-	PrintError(gptr, E_BadValue, 2, correct, incorrect);
+	fsckPrint(gptr->context, E_DirInodeBadName, inode_id);
+	fsckPrint(gptr->context, E_BadValue, correct, incorrect);
 
 	gptr->CatStat |= S_LinkErrNoRepair;
 
@@ -230,7 +225,7 @@ void record_link_badchain(SGlobPtr gptr, Boolean isdir)
 	int fval = (isdir ? S_DirHardLinkChain : S_FileHardLinkChain);
 	int err = (isdir ? E_DirHardLinkChain : E_FileHardLinkChain);
 	if ((gptr->CatStat & fval) == 0) {
-		PrintError(gptr, err, 0);
+		fsckPrint(gptr->context, err);
 		gptr->CatStat |= fval;
 	}
 }
@@ -264,11 +259,10 @@ int record_dirlink_badownerflags(SGlobPtr gptr, uint32_t file_id,
 	    (IsDuplicateRepairOrder(gptr, p) == 1)) {
 		DeleteRepairOrder(gptr, p);
 	} else {
-		snprintf(str1, sizeof(str1), "%u", file_id);
-		PrintError(gptr, E_DirHardLinkOwnerFlags, 1, str1);
+		fsckPrint(gptr->context, E_DirHardLinkOwnerFlags, file_id);
 		snprintf(str1, sizeof(str1), "0x%x", correct);
 		snprintf(str2, sizeof(str2), "0x%x", incorrect);
-		PrintError(gptr, E_BadValue, 2, str1, str2);
+		fsckPrint(gptr->context, E_BadValue, str1, str2);
 	}
 
 	return 0;
@@ -278,7 +272,6 @@ int record_dirlink_badownerflags(SGlobPtr gptr, uint32_t file_id,
 int record_link_badfinderinfo(SGlobPtr gptr, uint32_t file_id, Boolean isdir)
 {
 	RepairOrderPtr p;
-	char idstr[12];
 
 	p = AllocMinorRepairOrder(gptr, 0);
 	if (p == NULL) {
@@ -299,8 +292,7 @@ int record_link_badfinderinfo(SGlobPtr gptr, uint32_t file_id, Boolean isdir)
 	if (IsDuplicateRepairOrder(gptr, p) == 1) {
 		DeleteRepairOrder(gptr, p);
 	} else {
-		snprintf(idstr, sizeof(idstr), "%u", file_id);
-		PrintError(gptr, p->type, 1, idstr);
+		fsckPrint(gptr->context, p->type, file_id);
 	}
 
 	return 0;
@@ -337,11 +329,10 @@ static int record_parent_badflags(SGlobPtr gptr, uint32_t dir_id,
 	if (IsDuplicateRepairOrder(gptr, p) == 1) {
 		DeleteRepairOrder(gptr, p);
 	} else {
-		snprintf(str1, sizeof(str1), "%u", dir_id);
-		PrintError(gptr, E_DirLinkAncestorFlags, 1, str1);
+		fsckPrint(gptr->context, E_DirLinkAncestorFlags, dir_id);
 		snprintf(str1, sizeof(str1), "0x%x", correct);
 		snprintf(str2, sizeof(str2), "0x%x", incorrect);
-		PrintError(gptr, E_BadValue, 2, str1, str2);
+		fsckPrint(gptr->context, E_BadValue, str1, str2);
 	}
 
 	return 0;
@@ -454,8 +445,8 @@ int get_first_link_id(SGlobPtr gptr, CatalogRecord *inode_rec, uint32_t inode_id
 		if (retval == 0) {
 			/* Attribute should be an inline attribute */
 			if (rec->recordType != kHFSPlusAttrInlineData) {
-				if (gptr->logLevel >= kDebugLog) {
-				plog ("\tfirst link EA is not inline for dirinode=%u (found=0x%x)\n", inode_id, rec->recordType);
+				if (fsckGetVerbosity(gptr->context) >= kDebugLog) {
+					plog ("\tfirst link EA is not inline for dirinode=%u (found=0x%x)\n", inode_id, rec->recordType);
 				}
 				retval = ENOENT;
 				goto out;
@@ -465,8 +456,8 @@ int get_first_link_id(SGlobPtr gptr, CatalogRecord *inode_rec, uint32_t inode_id
 			 * size of the attribute data including the null termination.
 			 */
 			if (rec->attrData[rec->attrSize-1] != '\0') {
-				if (gptr->logLevel >= kDebugLog) {
-				plog ("\tfirst link EA attrData is not NULL terminated for dirinode=%u\n", inode_id);
+				if (fsckGetVerbosity(gptr->context) >= kDebugLog) {
+					plog ("\tfirst link EA attrData is not NULL terminated for dirinode=%u\n", inode_id);
 				}
 				retval = ENOENT;
 				goto out;
@@ -475,8 +466,8 @@ int get_first_link_id(SGlobPtr gptr, CatalogRecord *inode_rec, uint32_t inode_id
 			/* All characters are numbers in the attribute data */
 			for (i = 0; i < rec->attrSize-1; i++) {
 				if (isdigit(rec->attrData[i]) == 0) {
-					if (gptr->logLevel >= kDebugLog) {
-					plog ("\tfirst link EA attrData contains non-digit 0x%x for dirinode=%u\n", rec->attrData[i], inode_id);
+					if (fsckGetVerbosity(gptr->context) >= kDebugLog) {
+						plog ("\tfirst link EA attrData contains non-digit 0x%x for dirinode=%u\n", rec->attrData[i], inode_id);
 					}
 					retval = ENOENT;
 				goto out;
@@ -485,8 +476,8 @@ int get_first_link_id(SGlobPtr gptr, CatalogRecord *inode_rec, uint32_t inode_id
 
 			*first_link_id = strtoul((char *)&rec->attrData[0], NULL, 10);
 			if (*first_link_id < kHFSFirstUserCatalogNodeID) {
-				if (gptr->logLevel >= kDebugLog) {
-				plog ("\tfirst link ID=%u is < 16 for dirinode=%u\n", *first_link_id, inode_id);
+				if (fsckGetVerbosity(gptr->context) >= kDebugLog) {
+					plog ("\tfirst link ID=%u is < 16 for dirinode=%u\n", *first_link_id, inode_id);
 				}
 				*first_link_id = 0;
 				retval = ENOENT;
@@ -499,8 +490,8 @@ int get_first_link_id(SGlobPtr gptr, CatalogRecord *inode_rec, uint32_t inode_id
 		    (inode_rec->recordType == kHFSPlusFileRecord)) {
 			*first_link_id = inode_rec->hfsPlusFile.hl_firstLinkID;
 			if (*first_link_id < kHFSFirstUserCatalogNodeID) {
-				if (gptr->logLevel >= kDebugLog) {
-				plog("\tfirst link ID=%u is < 16 for fileinode=%u\n", *first_link_id, inode_id);
+				if (fsckGetVerbosity(gptr->context) >= kDebugLog) {
+					plog("\tfirst link ID=%u is < 16 for fileinode=%u\n", *first_link_id, inode_id);
 				}
 				*first_link_id = 0;
 				retval = ENOENT;
@@ -517,8 +508,8 @@ int get_first_link_id(SGlobPtr gptr, CatalogRecord *inode_rec, uint32_t inode_id
 				*first_link_id = rec.hfsPlusFile.hl_firstLinkID;
 				if (rec.recordType != kHFSPlusFileRecord ||
 					*first_link_id < kHFSFirstUserCatalogNodeID) {
-					if (gptr->logLevel >= kDebugLog) {
-					plog("\tfirst link ID=%u is < 16 for fileinode=%u\n", *first_link_id, inode_id);
+					if (fsckGetVerbosity(gptr->context) >= kDebugLog) {
+						plog("\tfirst link ID=%u is < 16 for fileinode=%u\n", *first_link_id, inode_id);
 					}
 					*first_link_id = 0;
 					retval = ENOENT;
@@ -629,8 +620,8 @@ int inode_check(SGlobPtr gptr, PrimeBuckets *bucket,
 	/* At least one hard link should always point at an inode. */
 	if (linkCount == 0) {
 		record_link_badchain(gptr, isdir);
-		if (gptr->logLevel >= kDebugLog) {
-		plog ("\tlinkCount=0 for dirinode=%u\n", inode_id);
+		if (fsckGetVerbosity(gptr->context) >= kDebugLog) {
+			plog ("\tlinkCount=0 for dirinode=%u\n", inode_id);
 		}
 		retval = 1;
 		goto out;
@@ -657,8 +648,8 @@ int inode_check(SGlobPtr gptr, PrimeBuckets *bucket,
 	retval = get_first_link_id(gptr, rec, inode_id, isdir, &cur_link_id);
 	if (retval) {
 		record_link_badchain(gptr, isdir);
-		if (gptr->logLevel >= kDebugLog) {
-		plog ("\tError getting first link ID for inode=%u\n", inode_id);
+		if (fsckGetVerbosity(gptr->context) >= kDebugLog) {
+			plog ("\tError getting first link ID for inode=%u\n", inode_id);
 		}
 		goto out;
 	}
@@ -673,8 +664,8 @@ int inode_check(SGlobPtr gptr, PrimeBuckets *bucket,
 				&linkkey, &linkrec, &recsize);
 		if (retval) {
 			record_link_badchain(gptr, isdir);
-			if (gptr->logLevel >= kDebugLog) {
-			plog ("\tError getting link=%u for inode=%u\n", cur_link_id, inode_id);
+			if (fsckGetVerbosity(gptr->context) >= kDebugLog) {
+				plog ("\tError getting link=%u for inode=%u\n", cur_link_id, inode_id);
 			}
 			goto out;
 		}
@@ -682,8 +673,8 @@ int inode_check(SGlobPtr gptr, PrimeBuckets *bucket,
 		/* Hard link is a file record */
 		if (linkrec.recordType != kHFSPlusFileRecord) {
 			record_link_badchain(gptr, isdir);
-			if (gptr->logLevel >= kDebugLog) {
-			plog ("\tIncorrect record type for link=%u for inode=%u (expected=2, found=%u)\n", cur_link_id, inode_id, linkrec.recordType);
+			if (fsckGetVerbosity(gptr->context) >= kDebugLog) {
+				plog ("\tIncorrect record type for link=%u for inode=%u (expected=2, found=%u)\n", cur_link_id, inode_id, linkrec.recordType);
 			}
 			retval = 1;
 			goto out;
@@ -692,8 +683,8 @@ int inode_check(SGlobPtr gptr, PrimeBuckets *bucket,
 		/* Hard link should have hard link bit set */
 		if ((linkrec.hfsPlusFile.flags & kHFSHasLinkChainMask) == 0) {
 			(void) record_link_badchain(gptr, isdir);
-			if (gptr->logLevel >= kDebugLog) {
-			plog ("\tIncorrect flag for link=%u for inode=%u (found=0x%x)\n", cur_link_id, inode_id, linkrec.hfsPlusFile.flags);
+			if (fsckGetVerbosity(gptr->context) >= kDebugLog) {
+				plog ("\tIncorrect flag for link=%u for inode=%u (found=0x%x)\n", cur_link_id, inode_id, linkrec.hfsPlusFile.flags);
 			}
 			retval = 1;
 			goto out;
@@ -705,7 +696,7 @@ int inode_check(SGlobPtr gptr, PrimeBuckets *bucket,
 			    (linkrec.hfsPlusFile.userInfo.fdCreator != kHFSAliasCreator) || 
 			    ((linkrec.hfsPlusFile.userInfo.fdFlags & kIsAlias) == 0)) {
 				record_link_badfinderinfo(gptr, linkrec.hfsPlusFile.fileID, isdir);
-				if (gptr->logLevel >= kDebugLog) {
+				if (fsckGetVerbosity(gptr->context) >= kDebugLog) {
 					plog("\tdirlink: fdType = 0x%08lx, fdCreator = 0x%08lx\n", 
 						(unsigned long)linkrec.hfsPlusFile.userInfo.fdType, 
 						(unsigned long)linkrec.hfsPlusFile.userInfo.fdCreator);
@@ -715,7 +706,7 @@ int inode_check(SGlobPtr gptr, PrimeBuckets *bucket,
 			/* Check if hard link points to the current inode */
 			if (linkrec.hfsPlusFile.hl_linkReference != inode_id) {
 				record_link_badchain(gptr, isdir);
-				if (gptr->logLevel >= kDebugLog) {
+				if (fsckGetVerbosity(gptr->context) >= kDebugLog) {
 					plog ("\tIncorrect dirinode ID for dirlink=%u (expected=%u, found=%u)\n", cur_link_id, inode_id, linkrec.hfsPlusFile.hl_linkReference);
 				}
 				retval = 1;
@@ -727,7 +718,7 @@ int inode_check(SGlobPtr gptr, PrimeBuckets *bucket,
 			if ((linkrec.hfsPlusFile.userInfo.fdType != kHardLinkFileType) ||
 			    (linkrec.hfsPlusFile.userInfo.fdCreator != kHFSPlusCreator)) {
 				record_link_badfinderinfo(gptr, linkrec.hfsPlusFile.fileID, isdir);
-				if (gptr->logLevel >= kDebugLog) {
+				if (fsckGetVerbosity(gptr->context) >= kDebugLog) {
 					plog("\tfilelink: fdType = 0x%08lx, fdCreator = 0x%08lx\n", 
 						(unsigned long)linkrec.hfsPlusFile.userInfo.fdType, 
 						(unsigned long)linkrec.hfsPlusFile.userInfo.fdCreator);
@@ -737,7 +728,7 @@ int inode_check(SGlobPtr gptr, PrimeBuckets *bucket,
 			/* Check if hard link has correct link reference number */
 			if (linkrec.hfsPlusFile.hl_linkReference != link_ref_num) {
 				record_link_badchain(gptr, isdir);
-				if (gptr->logLevel >= kDebugLog) {
+				if (fsckGetVerbosity(gptr->context) >= kDebugLog) {
 					plog ("\tIncorrect link reference number for filelink=%u (expected=%u, found=%u)\n", cur_link_id, inode_id, linkrec.hfsPlusFile.hl_linkReference);
 				}
 				retval = 1;
@@ -759,8 +750,8 @@ int inode_check(SGlobPtr gptr, PrimeBuckets *bucket,
 		/* Check the previous directory hard link */
 		if (prev_link_id != linkrec.hfsPlusFile.hl_prevLinkID) {
 			record_link_badchain(gptr, isdir);
-			if (gptr->logLevel >= kDebugLog) {
-			plog ("\tIncorrect prevLinkID for link=%u for inode=%u (expected=%u, found=%u)\n", cur_link_id, inode_id, prev_link_id, linkrec.hfsPlusFile.hl_prevLinkID);
+			if (fsckGetVerbosity(gptr->context) >= kDebugLog) {
+				plog ("\tIncorrect prevLinkID for link=%u for inode=%u (expected=%u, found=%u)\n", cur_link_id, inode_id, prev_link_id, linkrec.hfsPlusFile.hl_prevLinkID);
 			}
 			retval = 1;
 			goto out;
@@ -770,8 +761,8 @@ int inode_check(SGlobPtr gptr, PrimeBuckets *bucket,
 		cur = head;
 		while (cur) {
 			if (cur->link_id == cur_link_id) {
-				if (gptr->logLevel >= kDebugLog) {
-				plog ("\tDuplicate link=%u found in list for inode=%u\n", cur_link_id, inode_id);
+				if (fsckGetVerbosity(gptr->context) >= kDebugLog) {
+					plog ("\tDuplicate link=%u found in list for inode=%u\n", cur_link_id, inode_id);
 				}
 				record_link_badchain(gptr, isdir);
 				retval = 1;
@@ -798,8 +789,8 @@ int inode_check(SGlobPtr gptr, PrimeBuckets *bucket,
 	/* If the entire chain looks good, match the link count */
 	if (linkCount != count) {
 		record_link_badchain(gptr, isdir);
-		if (gptr->logLevel >= kDebugLog) {
-		plog ("\tIncorrect linkCount for inode=%u (expected=%u, found=%u)\n", inode_id, count, linkCount);
+		if (fsckGetVerbosity(gptr->context) >= kDebugLog) {
+			plog ("\tIncorrect linkCount for inode=%u (expected=%u, found=%u)\n", inode_id, count, linkCount);
 		}
 		retval = 1;
 		goto out;
@@ -830,7 +821,6 @@ static void check_dirlink_ancestors(SGlobPtr gptr, uint32_t dir_id)
 	CatalogRecord rec;
 	CatalogKey key;
 	uint16_t recsize;
-	char idstr[12];
 
 	while ((dir_id != kHFSRootFolderID) && (dir_id != gptr->dirlink_priv_dir_id)) {
 		retval = GetCatalogRecordByID(gptr, dir_id, true, &key, &rec, &recsize);
@@ -859,8 +849,7 @@ static void check_dirlink_ancestors(SGlobPtr gptr, uint32_t dir_id)
 	 * records if lookup fails.
 	 */
 	if ((dir_id != kHFSRootFolderID) && (dir_id != gptr->dirlink_priv_dir_id)) {
-		snprintf(idstr, sizeof(idstr), "%u", dir_id);
-		PrintError(gptr, E_BadParentHierarchy, 1, idstr);
+		fsckPrint(gptr->context, E_BadParentHierarchy, dir_id);
 		gptr->CBTStat |= S_Orphan;
 	}
 
@@ -885,8 +874,8 @@ static void dirlink_check(SGlobPtr gptr, PrimeBuckets *bucket,
 	 * to prime buckets
 	 */
 #if DEBUG_HARDLINKCHECK
-	if (gptr->logLevel >= kDebugLog)
-	plog("link_check:  adding <%u, %u>\n", rec->hl_linkReference, rec->fileID);
+	if (fsckGetVerbosity(gptr->context) >= kDebugLog)
+		plog("link_check:  adding <%u, %u>\n", rec->hl_linkReference, rec->fileID);
 #endif
 
 	hardlink_add_bucket(bucket, rec->hl_linkReference, rec->fileID);
@@ -1134,11 +1123,11 @@ static void print_dfs(struct dfs_stack *dfs)
 {
 	int i;
 
-plog ("\t");
+	plog ("\t");
 	for (i = 0; i < dfs->depth; i++) {
-	plog ("(%u,%u) ", dfs->idptr[i].inode_id, dfs->idptr[i].catalog_id);
+		plog ("(%u,%u) ", dfs->idptr[i].inode_id, dfs->idptr[i].catalog_id);
 	}
-plog ("\n");
+	plog ("\n");
 }
 
 /* Store information about visited directory inodes such that we do not 
@@ -1274,8 +1263,8 @@ static int check_hierarchy_loops(SGlobPtr gptr)
 	visited.list = malloc(visited.size * sizeof(uint32_t)); 
 	if (visited.list == NULL) {
 		visited.size = 0;
-		if (gptr->logLevel >= kDebugLog) {
-		plog ("\tcheck_loops: Allocation failed for visited list\n");
+		if (fsckGetVerbosity(gptr->context) >= kDebugLog) {
+			plog ("\tcheck_loops: Allocation failed for visited list\n");
 		}
 	}
 	visited.offset = 0;
@@ -1305,9 +1294,9 @@ static int check_hierarchy_loops(SGlobPtr gptr)
 		if (child.inode_id) {
 			retval = check_loops(&dfs, child);
 			if (retval) {
-				PrintError(gptr, E_DirLoop, 0);
-				if (gptr->logLevel >= kDebugLog) {
-				plog ("\tDetected when adding (%u,%u) to following traversal stack -\n", child.inode_id, child.catalog_id);
+				fsckPrint(gptr->context, E_DirLoop);
+				if (fsckGetVerbosity(gptr->context) >= kDebugLog) {
+					plog ("\tDetected when adding (%u,%u) to following traversal stack -\n", child.inode_id, child.catalog_id);
 					print_dfs(&dfs);
 				}
 				gptr->CatStat |= S_LinkErrNoRepair;
@@ -1335,8 +1324,8 @@ static int check_hierarchy_loops(SGlobPtr gptr)
 	}
 
 	if (dfs.depth >= DIRLINK_DFS_MAX_DEPTH) {
-		PrintError(gptr, E_DirHardLinkNesting, 0);
-		if (gptr->logLevel >= kDebugLog) {
+		fsckPrint(gptr->context, E_DirHardLinkNesting);
+		if (fsckGetVerbosity(gptr->context) >= kDebugLog) {
 			print_dfs(&dfs);
 		}
 		gptr->CatStat |= S_LinkErrNoRepair;
@@ -1383,10 +1372,10 @@ int dirhardlink_check(SGlobPtr gptr)
 		goto out;
 	}
 
-	PrintStatus(gptr, M_MultiLinkDirCheck, 0);
+	fsckPrint(gptr->context, hfsMultiLinkDirCheck);
 
-	if (gptr->logLevel >= kDebugLog) {
-	plog ("\tprivdir_valence=%u, calc_dirlinks=%u, calc_dirinode=%u\n", gptr->dirlink_priv_dir_valence, gptr->calculated_dirlinks, gptr->calculated_dirinodes); 
+	if (fsckGetVerbosity(gptr->context) >= kDebugLog) {
+		plog ("\tprivdir_valence=%u, calc_dirlinks=%u, calc_dirinode=%u\n", gptr->dirlink_priv_dir_valence, gptr->calculated_dirlinks, gptr->calculated_dirinodes); 
 	}
 
 	/* If lookup of private directory failed and the volume has 
@@ -1394,7 +1383,7 @@ int dirhardlink_check(SGlobPtr gptr)
 	 * to create the private directory for directory hard links.
 	 */
 	if (gptr->dirlink_priv_dir_id == 0) {
-		PrintError(gptr, E_MissingPrivDir, 0);
+		fsckPrint(gptr->context, E_MissingPrivDir);
 		gptr->CatStat |= S_LinkErrNoRepair;
 	}
 
@@ -1488,8 +1477,8 @@ int dirhardlink_check(SGlobPtr gptr)
 		retval = compare_prime_buckets(inode_view, dirlink_view);
 		if (retval) {
 			record_link_badchain(gptr, true);
-			if (gptr->logLevel >= kDebugLog) {
-			plog ("\tdirlink prime buckets do not match\n");
+			if (fsckGetVerbosity(gptr->context) >= kDebugLog) {
+				plog ("\tdirlink prime buckets do not match\n");
 			}
 			retval = 0;
 		}

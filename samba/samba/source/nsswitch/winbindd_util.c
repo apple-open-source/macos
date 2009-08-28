@@ -36,6 +36,7 @@ extern struct winbindd_methods passdb_methods;
  * Winbind daemon for NT domain authentication nss module.
  **/
 
+
 /* The list of trusted domains.  Note that the list can be deleted and
    recreated using the init_domain_list() function so pointers to
    individual winbindd_domain structures cannot be made.  Keep a copy of
@@ -82,9 +83,6 @@ static BOOL is_internal_domain(const DOM_SID *sid)
 	if (sid == NULL)
 		return False;
 
-	if ( IS_DC )
-		return sid_check_is_builtin(sid);
-
 	return (sid_check_is_domain(sid) || sid_check_is_builtin(sid));
 }
 
@@ -92,9 +90,6 @@ static BOOL is_in_internal_domain(const DOM_SID *sid)
 {
 	if (sid == NULL)
 		return False;
-
-	if ( IS_DC )
-		return sid_check_is_in_builtin(sid);
 
 	return (sid_check_is_in_our_domain(sid) || sid_check_is_in_builtin(sid));
 }

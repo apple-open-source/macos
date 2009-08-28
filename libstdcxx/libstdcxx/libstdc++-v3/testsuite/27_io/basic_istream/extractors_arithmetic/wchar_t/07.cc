@@ -1,4 +1,4 @@
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -13,7 +13,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // 27.6.1.2.2 arithmetic extractors
@@ -59,8 +59,8 @@ void test07()
   VERIFY( is.good() );
 
   is.clear();
-  is >> h2; 
-  VERIFY( h2 == 0 );
+  is >> h2;
+  VERIFY( h2 == 1232224 );
   VERIFY( static_cast<bool>(is.rdstate() & std::ios_base::failbit) );
   VERIFY( static_cast<bool>(is.rdstate() & std::ios_base::eofbit) );
 
@@ -122,8 +122,9 @@ void test07()
   VERIFY( is.good() );
 
   is >> h2; 
-  VERIFY( h2 == 0 );
+  VERIFY( h2 == 1000000 );
   VERIFY( static_cast<bool>(is.rdstate() & std::ios_base::failbit) );
+  h2 = 0;
   is.clear();
 
   is >> h2; 
@@ -132,7 +133,7 @@ void test07()
   h2 = 0;
 
   is >> h2; 
-  VERIFY( h2 == 0 );
+  VERIFY( h2 == 1234567 );
   VERIFY( static_cast<bool>(is.rdstate() & std::ios_base::failbit) );
   VERIFY( static_cast<bool>(is.rdstate() & std::ios_base::eofbit) );
   is.clear();

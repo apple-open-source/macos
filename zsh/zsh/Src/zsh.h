@@ -33,9 +33,9 @@
 /*
  * Our longest integer type:  will be a 64 bit either if long already is,
  * or if we found some alternative such as long long.
- * Currently we only define this to be longer than a long if --enable-lfs
- * was given.  That enables internal use of 64-bit types even if
- * no actual large file support is present.
+ * Currently we only define this to be longer than a long if
+ * --enable-largefile * was given.  That enables internal use of 64-bit
+ * types even if no actual large file support is present.
  */
 #ifdef ZSH_64_BIT_TYPE
 typedef ZSH_64_BIT_TYPE zlong;
@@ -77,7 +77,7 @@ typedef mnumber (*StrMathFunc)(char *, char *, int);
 struct mathfunc {
     MathFunc next;
     char *name;
-    int flags;
+    int flags;			/* MFF_* flags defined below */
     NumMathFunc nfunc;
     StrMathFunc sfunc;
     char *module;
@@ -92,6 +92,9 @@ struct mathfunc {
 #define MFF_ADDED    2
 /* Math function is implemented by a shell function */
 #define MFF_USERFUNC 4
+/* When autoloading, enable all features in module */
+#define MFF_AUTOALL  8
+
 
 #define NUMMATHFUNC(name, func, min, max, id) \
     { NULL, name, 0, func, NULL, NULL, min, max, id }
@@ -306,7 +309,10 @@ enum {
     REDIR_OUTPIPE		/* > >(...) */
 };
 #define REDIR_TYPE_MASK	(0x1f)
+/* Redir using {var} syntax */
 #define REDIR_VARID_MASK (0x20)
+/* Mark here-string that came from a here-document */
+#define REDIR_FROM_HEREDOC_MASK (0x40)
 
 #define IS_WRITE_FILE(X)      ((X)>=REDIR_WRITE && (X)<=REDIR_READWRITE)
 #define IS_APPEND_REDIR(X)    (IS_WRITE_FILE(X) && ((X) & 2))
@@ -375,6 +381,8 @@ typedef struct builtin   *Builtin;
 typedef struct cmdnam    *Cmdnam;
 typedef struct complist  *Complist;
 typedef struct conddef   *Conddef;
+typedef struct features  *Features;
+typedef struct feature_enables  *Feature_enables;
 typedef struct funcstack *Funcstack;
 typedef struct funcwrap  *FuncWrap;
 typedef struct hashnode  *HashNode;
@@ -430,6 +438,7 @@ union linkroot {
 #define firstnode(X)        ((X)->list.first)
 #define lastnode(X)         ((X)->list.last)
 #define peekfirst(X)        (firstnode(X)->dat)
+#define peeklast(X)         (lastnode(X)->dat)
 #define addlinknode(X,Y)    insertlinknode(X,lastnode(X),Y)
 #define zaddlinknode(X,Y)   zinsertlinknode(X,lastnode(X),Y)
 #define uaddlinknode(X,Y)   uinsertlinknode(X,lastnode(X),Y)
@@ -443,6 +452,7 @@ union linkroot {
 #define pushnode(X,Y)       insertlinknode(X,&(X)->node,Y)
 #define zpushnode(X,Y)      zinsertlinknode(X,&(X)->node,Y)
 #define incnode(X)          (X = nextnode(X))
+#define decnode(X)          (X = prevnode(X))
 #define firsthist()         (hist_ring? hist_ring->down->histnum : curhist)
 #define setsizednode(X,Y,Z) (firstnode(X)[(Y)].dat = (void *) (Z))
 
@@ -519,8 +529,9 @@ struct timedfn {
 #define COND_GT    13
 #define COND_LE    14
 #define COND_GE    15
-#define COND_MOD   16
-#define COND_MODI  17
+#define COND_REGEX 16
+#define COND_MOD   17
+#define COND_MODI  18
 
 typedef int (*CondHandler) _((char **, int));
 
@@ -535,16 +546,28 @@ struct conddef {
     char *module;		/* module to autoload                 */
 };
 
-#define CONDF_INFIX  1
-#define CONDF_ADDED  2
+/* Condition is an infix */
+#define CONDF_INFIX   1
+/* Condition has been loaded from library */
+#define CONDF_ADDED   2
+/* When autoloading, enable all features in library */
+#define CONDF_AUTOALL 4
 
 #define CONDDEF(name, flags, handler, min, max, condid) \
     { NULL, name, flags, handler, min, max, condid, NULL }
+
+/* Flags for redirections */
+
+enum {
+    /* Mark a here-string that came from a here-document */
+    REDIRF_FROM_HEREDOC = 1
+};
 
 /* tree element for redirection lists */
 
 struct redir {
     int type;
+    int flags;
     int fd1, fd2;
     char *name;
     char *varid;
@@ -582,10 +605,16 @@ struct asgment {
 struct value {
     int isarr;
     Param pm;		/* parameter node                      */
-    int inv;		/* should we return the index ?        */
+    int flags;		/* flags defined below                 */
     int start;		/* first element of array slice, or -1 */
     int end;		/* 1-rel last element of array slice, or -1 */
     char **arr;		/* cache for hash turned into array */
+};
+
+enum {
+    VALFLAG_INV =	0x0001,	/* We are performing inverse subscripting */
+    VALFLAG_EMPTY =	0x0002,	/* Subscripted range is empty */
+    VALFLAG_SUBST =     0x0004  /* Substitution, so apply padding, case flags */
 };
 
 #define MAX_ARRLEN    262144
@@ -729,6 +758,7 @@ struct eccstr {
 
 #define WC_REDIR_TYPE(C)    ((int)(wc_data(C) & REDIR_TYPE_MASK))
 #define WC_REDIR_VARID(C)   ((int)(wc_data(C) & REDIR_VARID_MASK))
+#define WC_REDIR_FROM_HEREDOC(C) ((int)(wc_data(C) & REDIR_FROM_HEREDOC_MASK))
 #define WCB_REDIR(T)        wc_bld(WC_REDIR, (T))
 /* Size of redir is 4 words if REDIR_VARID_MASK is set, else 3 */
 #define WC_REDIR_WORDS(C)   (WC_REDIR_VARID(C) ? 4 : 3)
@@ -828,24 +858,24 @@ struct job {
     struct ttyinfo *ty;		/* the modes specified by STTY       */
 };
 
-#define STAT_CHANGED	(1<<0)	/* status changed and not reported      */
-#define STAT_STOPPED	(1<<1)	/* all procs stopped or exited          */
-#define STAT_TIMED	(1<<2)	/* job is being timed                   */
-#define STAT_DONE	(1<<3)	/* job is done                          */
-#define STAT_LOCKED	(1<<4)	/* shell is finished creating this job, */
-                                /*   may be deleted from job table      */
-#define STAT_NOPRINT	(1<<5)	/* job was killed internally,           */
-                                /*   we don't want to show that         */
-#define STAT_INUSE	(1<<6)	/* this job entry is in use             */
-#define STAT_SUPERJOB	(1<<7)	/* job has a subjob                     */
-#define STAT_SUBJOB	(1<<8)	/* job is a subjob                      */
-#define STAT_WASSUPER   (1<<9)  /* was a super-job, sub-job needs to be */
-				/* deleted */
-#define STAT_CURSH	(1<<10)	/* last command is in current shell     */
-#define STAT_NOSTTY	(1<<11)	/* the tty settings are not inherited   */
-				/* from this job when it exits.         */
-#define STAT_ATTACH	(1<<12)	/* delay reattaching shell to tty       */
-#define STAT_SUBLEADER  (1<<13) /* is super-job, but leader is sub-shell */
+#define STAT_CHANGED	(0x0001) /* status changed and not reported      */
+#define STAT_STOPPED	(0x0002) /* all procs stopped or exited          */
+#define STAT_TIMED	(0x0004) /* job is being timed                   */
+#define STAT_DONE	(0x0008) /* job is done                          */
+#define STAT_LOCKED	(0x0010) /* shell is finished creating this job, */
+                                 /*   may be deleted from job table      */
+#define STAT_NOPRINT	(0x0020) /* job was killed internally,           */
+                                 /*   we don't want to show that         */
+#define STAT_INUSE	(0x0040) /* this job entry is in use             */
+#define STAT_SUPERJOB	(0x0080) /* job has a subjob                     */
+#define STAT_SUBJOB	(0x0100) /* job is a subjob                      */
+#define STAT_WASSUPER   (0x0200) /* was a super-job, sub-job needs to be */
+				 /* deleted */
+#define STAT_CURSH	(0x0400) /* last command is in current shell     */
+#define STAT_NOSTTY	(0x0800) /* the tty settings are not inherited   */
+				 /* from this job when it exits.         */
+#define STAT_ATTACH	(0x1000) /* delay reattaching shell to tty       */
+#define STAT_SUBLEADER  (0x2000) /* is super-job, but leader is sub-shell */
 
 #define SP_RUNNING -1		/* fake status for jobs currently running */
 
@@ -891,7 +921,10 @@ struct execstack {
     int badcshglob;
     pid_t cmdoutpid;
     int cmdoutval;
-    int trapreturn;
+    int trap_return;
+    int trap_state;
+    int trapisfunc;
+    int traplocallevel;
     int noerrs;
     int subsh_close;
     char *underscore;
@@ -920,11 +953,16 @@ struct dirsav {
 typedef void *(*VFunc) _((void *));
 typedef void (*FreeFunc) _((void *));
 
-typedef unsigned (*HashFunc)       _((char *));
+typedef unsigned (*HashFunc)       _((const char *));
 typedef void     (*TableFunc)      _((HashTable));
+/*
+ * Note that this is deliberately "char *", not "const char *",
+ * since the AddNodeFunc is passed a pointer to a string that
+ * will be stored and later freed.
+ */
 typedef void     (*AddNodeFunc)    _((HashTable, char *, void *));
-typedef HashNode (*GetNodeFunc)    _((HashTable, char *));
-typedef HashNode (*RemoveNodeFunc) _((HashTable, char *));
+typedef HashNode (*GetNodeFunc)    _((HashTable, const char *));
+typedef HashNode (*RemoveNodeFunc) _((HashTable, const char *));
 typedef void     (*FreeNodeFunc)   _((HashNode));
 typedef int      (*CompareFunc)    _((const char *, const char *));
 
@@ -942,6 +980,7 @@ struct hashtable {
     int hsize;			/* size of nodes[]  (number of hash values)   */
     int ct;			/* number of elements                         */
     HashNode *nodes;		/* array of size hsize                        */
+    void *tmpdata;
 
     /* HASHTABLE METHODS */
     HashFunc hash;		/* pointer to hash function for this table    */
@@ -1024,6 +1063,8 @@ struct cmdnam {
 
 struct shfunc {
     struct hashnode node;
+    char *filename;             /* Name of file located in */
+    zlong lineno;		/* line number in above file */
     Eprog funcdef;		/* function definition    */
 };
 
@@ -1036,14 +1077,26 @@ struct shfunc {
 #define SFC_WIDGET   4		/* user defined widget */
 #define SFC_COMPLETE 5		/* called from completion code */
 #define SFC_CWIDGET  6		/* new style completion widget */
+#define SFC_SUBST    7          /* used to perform substitution task */
+
+/* tp in funcstack */
+
+enum {
+    FS_SOURCE,
+    FS_FUNC,
+    FS_EVAL
+};
 
 /* node in function stack */
 
 struct funcstack {
     Funcstack prev;		/* previous in stack */
-    char *name;			/* name of function called */
+    char *name;			/* name of function/sourced file called */
+    char *filename;		/* file function resides in */
     char *caller;		/* name of caller */
-    int lineno;			/* line number in file */
+    zlong flineno;		/* line number in file */
+    zlong lineno;		/* line offset from beginning of function */
+    int tp;     		/* type of entry: sourced file, func, eval */
 };
 
 /* node in list of function call wrappers */
@@ -1143,35 +1196,90 @@ struct builtin {
 #define BINF_KEEPNUM		(1<<13) /* `[-+]NUM' can be an option */
 #define BINF_SKIPDASH		(1<<14) /* Treat `-' as argument (maybe `+') */
 #define BINF_DASHDASHVALID	(1<<15) /* Handle `--' even if SKIPINVALD */
+#define BINF_CLEARENV		(1<<16) /* new process started with cleared env */
+#define BINF_AUTOALL		(1<<17) /* autoload all features at once */
+ /*
+  * Handles options itself.  This is only useful if the option string for a
+  * builtin with an empty option string.  It is used to indicate that "--"
+  * does not terminate options.
+  */
+#define BINF_HANDLES_OPTS	(1<<18)
 
 struct module {
-    char *nam;
-    int flags;
+    struct hashnode node;
     union {
 	void *handle;
 	Linkedmod linked;
 	char *alias;
     } u;
+    LinkList autoloads;
     LinkList deps;
     int wrapper;
 };
 
+/* We are in the process of loading the module */
 #define MOD_BUSY    (1<<0)
+/*
+ * We are in the process of unloading the module.
+ * Note this is not needed to indicate a module is actually
+ * unloaded: for that, the handle (or linked pointer) is set to NULL.
+ */
 #define MOD_UNLOAD  (1<<1)
+/* We are in the process of setting up the module */
 #define MOD_SETUP   (1<<2)
+/* Module is statically linked into the main binary */
 #define MOD_LINKED  (1<<3)
+/* Module setup has been carried out (and module has not been finished) */
 #define MOD_INIT_S  (1<<4)
+/* Module boot has been carried out (and module has not been finished) */
 #define MOD_INIT_B  (1<<5)
+/* Module record is an alias */
 #define MOD_ALIAS   (1<<6)
 
-typedef int (*Module_func) _((Module));
+typedef int (*Module_generic_func) _((void));
+typedef int (*Module_void_func) _((Module));
+typedef int (*Module_features_func) _((Module, char ***));
+typedef int (*Module_enables_func) _((Module, int **));
 
 struct linkedmod {
     char *name;
-    Module_func setup;
-    Module_func boot;
-    Module_func cleanup;
-    Module_func finish;
+    Module_void_func setup;
+    Module_features_func features;
+    Module_enables_func enables;
+    Module_void_func boot;
+    Module_void_func cleanup;
+    Module_void_func finish;
+};
+
+/*
+ * Structure combining all the concrete features available in
+ * a module and with space for information about abstract features.
+ */
+struct features {
+    /* List of builtins provided by the module and the size thereof */
+    Builtin bn_list;
+    int bn_size;
+    /* List of conditions provided by the module and the size thereof */
+    Conddef cd_list;
+    int cd_size;
+    /* List of math functions provided by the module and the size thereof */
+    MathFunc mf_list;
+    int mf_size;
+    /* List of parameters provided by the module and the size thereof */
+    Paramdef pd_list;
+    int pd_size;
+    /* Number of abstract features */
+    int n_abstract;
+};
+
+/*
+ * Structure describing enables for one feature.
+ */
+struct feature_enables {
+    /* String feature to enable (N.B. no leading +/- allowed) */
+    char *str;
+    /* Optional compiled pattern for str sans +/-, NULL for string match */
+    Patprog pat;
 };
 
 /* C-function hooks */
@@ -1221,6 +1329,49 @@ struct patprog {
 #define PAT_NOTSTART	0x0200	/* Start of string is not real start */
 #define PAT_NOTEND	0x0400	/* End of string is not real end */
 #define PAT_HAS_EXCLUDP	0x0800	/* (internal): top-level path1~path2. */
+#define PAT_LCMATCHUC   0x1000  /* equivalent to setting (#l) */
+
+/*
+ * Special match types used in character classes.  These
+ * are represented as tokens, with Meta added.  The character
+ * class is represented as a metafied string, with only these
+ * tokens special.  Note that an active leading "!" or "^" for
+ * negation is not part of the string but is flagged in the
+ * surrounding context.
+ *
+ * These types are also used in character and equivalence classes
+ * in completion matching.
+ *
+ * This must be kept ordered by the array colon_stuffs in pattern.c.
+ */
+/* Special value for first definition */
+#define PP_FIRST  1
+/* POSIX-defined types:  [:alpha:] etc. */
+#define PP_ALPHA  1
+#define PP_ALNUM  2
+#define PP_ASCII  3
+#define PP_BLANK  4
+#define PP_CNTRL  5
+#define PP_DIGIT  6
+#define PP_GRAPH  7
+#define PP_LOWER  8
+#define PP_PRINT  9
+#define PP_PUNCT  10
+#define PP_SPACE  11
+#define PP_UPPER  12
+#define PP_XDIGIT 13
+/* Zsh additions:  [:IDENT:] etc. */
+#define PP_IDENT  14
+#define PP_IFS    15
+#define PP_IFSSPACE   16
+#define PP_WORD   17
+/* Special value for last definition */
+#define PP_LAST   17
+
+/* Unknown type.  Not used in a valid token. */
+#define PP_UNKWN  18
+/* Range: token followed by the (possibly multibyte) start and end */
+#define PP_RANGE  19
 
 /* Globbing flags: lower 8 bits gives approx count */
 #define GF_LCMATCHUC	0x0100
@@ -1373,6 +1524,10 @@ struct tieddata {
 #define PM_REMOVABLE	(1<<26)	/* special can be removed from paramtab     */
 #define PM_AUTOLOAD	(1<<27) /* autoloaded from module                   */
 #define PM_NORESTORE	(1<<28)	/* do not restore value of local special    */
+#define PM_AUTOALL	(1<<28) /* autoload all features in module
+				 * when loading: valid only if PM_AUTOLOAD
+				 * is also present.
+				 */
 #define PM_HASHELEM     (1<<29) /* is a hash-element */
 #define PM_NAMEDDIR     (1<<30) /* has a corresponding nameddirtab entry    */
 
@@ -1383,16 +1538,25 @@ struct tieddata {
 #define TYPESET_OPTNUM "LRZiEF"
 
 /* Flags for extracting elements of arrays and associative arrays */
-#define SCANPM_WANTVALS   (1<<0)
-#define SCANPM_WANTKEYS   (1<<1)
-#define SCANPM_WANTINDEX  (1<<2)
-#define SCANPM_MATCHKEY   (1<<3)
-#define SCANPM_MATCHVAL   (1<<4)
-#define SCANPM_MATCHMANY  (1<<5)
-#define SCANPM_ASSIGNING  (1<<6)
-#define SCANPM_KEYMATCH   (1<<7)
-#define SCANPM_DQUOTED    (1<<8)
-#define SCANPM_ISVAR_AT   ((-1)<<15)	/* Only sign bit is significant */
+#define SCANPM_WANTVALS   (1<<0) /* Return value includes hash values */
+#define SCANPM_WANTKEYS   (1<<1) /* Return value includes hash keys */
+#define SCANPM_WANTINDEX  (1<<2) /* Return value includes array index */
+#define SCANPM_MATCHKEY   (1<<3) /* Subscript matched against key */
+#define SCANPM_MATCHVAL   (1<<4) /* Subscript matched against value */
+#define SCANPM_MATCHMANY  (1<<5) /* Subscript matched repeatedly, return all */
+#define SCANPM_ASSIGNING  (1<<6) /* Assigning whole array/hash */
+#define SCANPM_KEYMATCH   (1<<7) /* keys of hash treated as patterns */
+#define SCANPM_DQUOTED    (1<<8) /* substitution was double-quoted
+				  * (only used for testing early end of
+				  * subscript)
+				  */
+#define SCANPM_ARRONLY    (1<<9) /* value is array but we don't
+				  * necessarily want to match multiple
+				  * elements
+				  */
+#define SCANPM_ISVAR_AT   ((-1)<<15)	/* "$foo[@]"-style substitution
+					 * Only sign bit is significant
+					 */
 
 /*
  * Flags for doing matches inside parameter substitutions, i.e.
@@ -1414,32 +1578,93 @@ struct tieddata {
 #define SUB_RETFAIL	0x0800  /* return status 0 if no match */
 #define SUB_START	0x1000  /* force match at start with SUB_END
 				 * and no SUB_SUBSTR */
+#define SUB_LIST	0x2000  /* no substitution, return list of matches */
+
+/*
+ * Structure recording multiple matches inside a test string.
+ * b and e are the beginning and end of the match.
+ * replstr is the replacement string, if any.
+ */
+struct repldata {
+    int b, e;			/* beginning and end of chunk to replace */
+    char *replstr;		/* replacement string to use */
+};
+typedef struct repldata *Repldata;
+
+/*
+ * Flags to zshtokenize.
+ */
+enum {
+    /* Do glob substitution */
+    ZSHTOK_SUBST = 0x0001,
+    /* Use sh-style globbing */
+    ZSHTOK_SHGLOB = 0x0002
+};
 
 /* Flags as the second argument to prefork */
 #define PF_TYPESET	0x01	/* argument handled like typeset foo=bar */
 #define PF_ASSIGN	0x02	/* argument handled like the RHS of foo=bar */
 #define PF_SINGLE	0x04	/* single word substitution */
 
+/*
+ * Structure for adding parameters in a module.
+ * The flags should declare the type; note PM_SCALAR is zero.
+ *
+ * Special hashes are recognized by getnfn so the PM_HASHED
+ * is optional.  These get slightly non-standard attention:
+ * the function createspecialhash is used to create them.
+ *
+ * The get/set/unset attribute may be NULL; in that case the
+ * parameter is assigned methods suitable for handling the
+ * tie variable var, if that is not NULL, else standard methods.
+ *
+ * pm is set when the parameter is added to the parameter table
+ * and serves as a flag that the parameter has been added.
+ */
 struct paramdef {
     char *name;
     int flags;
-    void *var;
-    void *gsu;			/* get/set/unset structure */
+    void *var;			/* tied internal variable, if any */
+    const void *gsu;		/* get/set/unset structure, if special */
+    GetNodeFunc getnfn;		/* function to get node, if special hash */
+    ScanTabFunc scantfn;	/* function to scan table, if special hash */
+    Param pm;			/* structure inserted into param table */
 };
 
+/*
+ * Shorthand for common uses of adding parameters, with no special
+ * hash properties.
+ */
 #define PARAMDEF(name, flags, var, gsu) \
-    { name, flags, (void *) var, (void *) gsu, }
+    { name, flags, (void *) var, (void *) gsu, \
+	    NULL, NULL, NULL \
+    }
 /*
  * Note that the following definitions are appropriate for defining
  * parameters that reference a variable (var).  Hence the get/set/unset
  * methods used will assume var needs dereferencing to get the value.
  */
 #define INTPARAMDEF(name, var) \
-    { name, PM_INTEGER, (void *) var, NULL }
+    { name, PM_INTEGER, (void *) var, NULL,  NULL, NULL, NULL }
 #define STRPARAMDEF(name, var) \
-    { name, PM_SCALAR, (void *) var, NULL }
+    { name, PM_SCALAR, (void *) var, NULL, NULL, NULL, NULL }
 #define ARRPARAMDEF(name, var) \
-    { name, PM_ARRAY, (void *) var, NULL }
+    { name, PM_ARRAY, (void *) var, NULL, NULL, NULL, NULL }
+/*
+ * The following is appropriate for a module function that behaves
+ * in a special fashion.  Parameters used in a module that don't
+ * have special behaviour shouldn't be declared in a table but
+ * should just be added with the standard parameter functions.
+ *
+ * These parameters are not marked as removable, since they
+ * shouldn't be loaded as local parameters, unlike the special
+ * Zle parameters that are added and removed on each call to Zle.
+ * We add the PM_REMOVABLE flag when removing the feature corresponding
+ * to the parameter.
+ */
+#define SPECIALPMDEF(name, flags, gsufn, getfn, scanfn) \
+    { name, flags | PM_SPECIAL | PM_HIDE | PM_HIDEVAL, \
+	    NULL, gsufn, getfn, scanfn, NULL }
 
 #define setsparam(S,V) assignsparam(S,V,0)
 #define setaparam(S,V) assignaparam(S,V,0)
@@ -1492,12 +1717,11 @@ struct histent {
 
     Histent up;			/* previous line (moving upward)    */
     Histent down;		/* next line (moving downward)      */
-#ifdef MULTIBYTE_SUPPORT	/* (Note: must match ZLE_STRING_T!) */
-    wchar_t *zle_text;		/* the edited history line          */
-#else
-    char *zle_text;		/* the edited history line          */
-#endif
-    int zle_len;		/* length of zle_text */
+    char *zle_text;		/* the edited history line,
+				 * a metafied, NULL-terminated string,
+				 * i.e the same format as the original
+				 * entry
+				 */
     time_t stim;		/* command started time (datestamp) */
     time_t ftim;		/* command finished time            */
     short *words;		/* Position of words in history     */
@@ -1588,21 +1812,25 @@ enum {
     BANGHIST,
     BAREGLOBQUAL,
     BASHAUTOLIST,
+    BASHREMATCH,
     BEEP,
     BGNICE,
     BRACECCL,
     BSDECHO,
     CASEGLOB,
+    CASEMATCH,
     CBASES,
     CDABLEVARS,
     CHASEDOTS,
     CHASELINKS,
     CHECKJOBS,
     CLOBBER,
+    COMBININGCHARS,
     COMPLETEALIASES,
     COMPLETEINWORD,
     CORRECT,
     CORRECTALL,
+    CPRECEDENCES,
     CSHJUNKIEHISTORY,
     CSHJUNKIELOOPS,
     CSHJUNKIEQUOTES,
@@ -1632,6 +1860,7 @@ enum {
     HISTALLOWCLOBBER,
     HISTBEEP,
     HISTEXPIREDUPSFIRST,
+    HISTFCNTLLOCK,
     HISTFINDNODUPS,
     HISTIGNOREALLDUPS,
     HISTIGNOREDUPS,
@@ -1654,6 +1883,7 @@ enum {
     KSHGLOB,
     KSHOPTIONPRINT,
     KSHTYPESET,
+    KSHZEROSUBSCRIPT,
     LISTAMBIGUOUS,
     LISTBEEP,
     LISTPACKED,
@@ -1669,6 +1899,7 @@ enum {
     MENUCOMPLETE,
     MONITOR,
     MULTIBYTE,
+    MULTIFUNCDEF,
     MULTIOS,
     NOMATCH,
     NOTIFY,
@@ -1695,6 +1926,7 @@ enum {
     RCQUOTES,
     RCS,
     RECEXACT,
+    REMATCHPCRE,
     RESTRICTED,
     RMSTARSILENT,
     RMSTARWAIT,
@@ -1814,25 +2046,104 @@ struct ttyinfo {
 #define TCSAVECURSOR   29
 #define TCRESTRCURSOR  30
 #define TCBACKSPACE    31
-#define TC_COUNT       32
+#define TCFGCOLOUR     32
+#define TCBGCOLOUR     33
+#define TC_COUNT       34
 
 #define tccan(X) (tclen[X])
 
-#define TXTBOLDFACE   0x01
-#define TXTSTANDOUT   0x02
-#define TXTUNDERLINE  0x04
-#define TXTDIRTY      0x80
+/*
+ * Text attributes for displaying in ZLE
+ */
+
+#define TXTBOLDFACE   0x0001
+#define TXTSTANDOUT   0x0002
+#define TXTUNDERLINE  0x0004
+#define TXTFGCOLOUR   0x0008
+#define TXTBGCOLOUR   0x0010
+
+#define TXT_ATTR_ON_MASK   0x001F
 
 #define txtisset(X)  (txtattrmask & (X))
 #define txtset(X)    (txtattrmask |= (X))
 #define txtunset(X)  (txtattrmask &= ~(X))
 
-#define TXTNOBOLDFACE	0x10
-#define TXTNOSTANDOUT	0x20
-#define TXTNOUNDERLINE	0x40
+#define TXTNOBOLDFACE	0x0020
+#define TXTNOSTANDOUT	0x0040
+#define TXTNOUNDERLINE	0x0080
+#define TXTNOFGCOLOUR	0x0100
+#define TXTNOBGCOLOUR	0x0200
 
-#define txtchangeisset(X)	(txtchange & (X))
-#define txtchangeset(X, Y)	(txtchange |= (X), txtchange &= ~(Y))
+#define TXT_ATTR_OFF_MASK  0x03E0
+/* Bits to shift off right to get on */
+#define TXT_ATTR_OFF_ON_SHIFT 5
+#define TXT_ATTR_OFF_FROM_ON(attr)	\
+    (((attr) & TXT_ATTR_ON_MASK) << TXT_ATTR_OFF_ON_SHIFT)
+#define TXT_ATTR_ON_FROM_OFF(attr)	\
+    (((attr) & TXT_ATTR_OFF_MASK) >> TXT_ATTR_OFF_ON_SHIFT)
+/*
+ * Indicates to zle_refresh.c that the character entry is an
+ * index into the list of multiword symbols.
+ */
+#define TXT_MULTIWORD_MASK  0x0400
+
+/* Mask for colour to use in foreground */
+#define TXT_ATTR_FG_COL_MASK     0x000FF000
+/* Bits to shift the foreground colour */
+#define TXT_ATTR_FG_COL_SHIFT    (12)
+/* Mask for colour to use in background */
+#define TXT_ATTR_BG_COL_MASK     0x0FF00000
+/* Bits to shift the background colour */
+#define TXT_ATTR_BG_COL_SHIFT    (20)
+
+/* Flag to use termcap AF sequence to set colour, if available */
+#define TXT_ATTR_FG_TERMCAP      0x10000000
+/* Flag to use termcap AB sequence to set colour, if available */
+#define TXT_ATTR_BG_TERMCAP      0x20000000
+
+/* Things to turn on, including values for the colour elements */
+#define TXT_ATTR_ON_VALUES_MASK	\
+    (TXT_ATTR_ON_MASK|TXT_ATTR_FG_COL_MASK|TXT_ATTR_BG_COL_MASK|\
+     TXT_ATTR_FG_TERMCAP|TXT_ATTR_BG_TERMCAP)
+
+/* Mask out everything to do with setting a foreground colour */
+#define TXT_ATTR_FG_ON_MASK \
+    (TXTFGCOLOUR|TXT_ATTR_FG_COL_MASK|TXT_ATTR_FG_TERMCAP)
+
+/* Mask out everything to do with setting a background colour */
+#define TXT_ATTR_BG_ON_MASK \
+    (TXTBGCOLOUR|TXT_ATTR_BG_COL_MASK|TXT_ATTR_BG_TERMCAP)
+
+/* Mask out everything to do with activating colours */
+#define TXT_ATTR_COLOUR_ON_MASK			\
+    (TXT_ATTR_FG_ON_MASK|TXT_ATTR_BG_ON_MASK)
+
+#define txtchangeisset(T,X)	((T) & (X))
+#define txtchangeget(T,A)	(((T) & A ## _MASK) >> A ## _SHIFT)
+#define txtchangeset(T, X, Y)	((void)(T && (*T |= (X), *T &= ~(Y))))
+
+/*
+ * For outputting sequences to change colour: specify foreground
+ * or background.
+ */
+#define COL_SEQ_FG	(0)
+#define COL_SEQ_BG	(1)
+#define COL_SEQ_COUNT	(2)
+
+/*
+ * Flags to testcap() and set_colour_attribute (which currently only
+ * handles TSC_PROMPT).
+ */
+enum {
+    /* Raw output: use stdout rather than shout */
+    TSC_RAW = 0x0001,
+    /* Output to current prompt buffer: only used when assembling prompt */
+    TSC_PROMPT = 0x0002,
+    /* Mask to get the output mode */
+    TSC_OUTPUT_MASK = 0x0003,
+    /* Change needs reset of other attributes */
+    TSC_DIRTY = 0x0004
+};
 
 /****************************************/
 /* Definitions for the %_ prompt escape */
@@ -1947,6 +2258,27 @@ struct heap {
 /* No. of bits to shift local level when storing in sigtrapped */
 #define ZSIG_ALIAS	(1<<3)  /* Trap is stored under an alias */
 #define ZSIG_SHIFT	4
+
+/*
+ * State of traps, stored in trap_state.
+ */
+enum trap_state {
+    /* Traps are not active; trap_return is not useful. */
+    TRAP_STATE_INACTIVE,
+    /*
+     * Traps are set but haven't triggered; trap_return gives
+     * minus function depth.
+     */
+    TRAP_STATE_PRIMED,
+    /*
+     * Trap has triggered to force a return; trap_return givens
+     * return value.
+     */
+    TRAP_STATE_FORCE_RETURN
+};
+
+#define IN_EVAL_TRAP() \
+    (intrap && !trapisfunc && traplocallevel == locallevel)
 
 /***********/
 /* Sorting */
@@ -2096,12 +2428,22 @@ enum {
 
 typedef int (*CompctlReadFn) _((char *, char **, Options, char *));
 
-/* ZLE entry point pointers */
+/* ZLE entry point pointer */
 
-typedef void (*ZleVoidFn) _((void));
-typedef void (*ZleVoidIntFn) _((int));
-typedef char *(*ZleReadFn) _((char **, char **, int, int));
-typedef char *(*ZleGetLineFn) _((int *, int *));
+typedef char * (*ZleEntryPoint)(int cmd, va_list ap);
+
+/* Commands to pass to entry point */
+
+enum {
+    ZLE_CMD_GET_LINE,
+    ZLE_CMD_READ,
+    ZLE_CMD_ADD_TO_LINE,
+    ZLE_CMD_TRASH,
+    ZLE_CMD_RESET_PROMPT,
+    ZLE_CMD_REFRESH,
+    ZLE_CMD_SET_KEYMAP,
+    ZLE_CMD_GET_KEY
+};
 
 /***************************************/
 /* Hooks in core.                      */
@@ -2121,12 +2463,21 @@ typedef wint_t convchar_t;
 #define MB_METASTRWIDTH(str)	mb_metastrlen(str, 1)
 #define MB_METASTRLEN2(str, widthp)	mb_metastrlen(str, widthp)
 
+#ifdef BROKEN_WCWIDTH
+#define WCWIDTH(wc)	mk_wcwidth(wc)
+#else
+#define WCWIDTH(wc)	wcwidth(wc)
+#endif
 /*
- * Note WCWIDTH() takes wint_t, typically as a convchar_t.
+ * Note WCWIDTH_WINT() takes wint_t, typically as a convchar_t.
  * It's written to use the wint_t from mb_metacharlenconv() without
  * further tests.
+ *
+ * This version has a non-multibyte definition that simply returns
+ * 1.  We never expose WCWIDTH() in the non-multibyte world since
+ * it's just a proxy for wcwidth() itself.
  */
-#define WCWIDTH(wc)	zwcwidth(wc)
+#define WCWIDTH_WINT(wc)	zwcwidth(wc)
 
 #define MB_INCOMPLETE	((size_t)-2)
 #define MB_INVALID	((size_t)-1)
@@ -2146,7 +2497,39 @@ typedef wint_t convchar_t;
 #define ZWC(c)	L ## c
 #define ZWS(s)	L ## s
 
+/*
+ * Test for a combining character.
+ *
+ * wc is assumed to be a wchar_t (i.e. we don't need zwcwidth).
+ *
+ * Pedantic note: in Unicode, a combining character need not be
+ * zero length.  However, we are concerned here about display;
+ * we simply need to know whether the character will be displayed
+ * on top of another one.  We use "combining character" in this
+ * sense throughout the shell.  I am not aware of a way of
+ * detecting the Unicode trait in standard libraries.
+ */
+#ifdef BROKEN_WCWIDTH
+/*
+ * We can't be quite sure the wcwidth we've provided is entirely
+ * in agreement with the system's, so be extra safe.
+ */
+#define IS_COMBINING(wc)	(WCWIDTH(wc) == 0 && !iswcntrl(wc))
 #else
+#define IS_COMBINING(wc)	(WCWIDTH(wc) == 0)
+#endif
+/*
+ * Test for the base of a combining character.
+ *
+ * We assume a combining character can be successfully displayed with
+ * any non-space printable character, which is what a graphic character
+ * is, as long as it has non-zero width.  We need to avoid all forms of
+ * space because the shell will split words on any whitespace.
+ */
+#define IS_BASECHAR(wc)		(iswgraph(wc) && WCWIDTH(wc) > 0)
+
+#else /* not MULTIBYTE_SUPPORT */
+
 #define MB_METACHARINIT()
 typedef int convchar_t;
 #define MB_METACHARLENCONV(str, cp)	metacharlenconv((str), (cp))
@@ -2155,10 +2538,10 @@ typedef int convchar_t;
 #define MB_METASTRWIDTH(str)	ztrlen(str)
 #define MB_METASTRLEN2(str, widthp)	ztrlen(str)
 
-#define WCWIDTH(c)	(1)
+#define WCWIDTH_WINT(c)	(1)
 
 /* Leave character or string as is. */
 #define ZWC(c)	c
 #define ZWS(s)	s
 
-#endif
+#endif /* MULTIBYTE_SUPPORT */

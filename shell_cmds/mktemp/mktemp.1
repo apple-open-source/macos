@@ -30,9 +30,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\" From: $OpenBSD: mktemp.1,v 1.8 1998/03/19 06:13:37 millert Exp $
-.\" $FreeBSD: src/usr.bin/mktemp/mktemp.1,v 1.7.2.6 2001/07/22 12:40:27 dd Exp $
+.\" $FreeBSD: src/usr.bin/mktemp/mktemp.1,v 1.21 2006/09/29 15:20:46 ru Exp $
 .\"
-.Dd November 20, 1996
+.Dd December 30, 2005
 .Dt MKTEMP 1
 .Os
 .Sh NAME
@@ -54,8 +54,10 @@
 The
 .Nm
 utility takes each of the given file name templates and overwrites a
-portion of it to create a file name.  This file name is unique
-and suitable for use by the application.  The template may be
+portion of it to create a file name.
+This file name is unique
+and suitable for use by the application.
+The template may be
 any file name with some number of
 .Ql X Ns s
 appended
@@ -74,7 +76,7 @@ provided; six
 will
 result in
 .Nm
-testing roughly 26 ** 6 combinations.
+selecting 1 of 56800235584 (62 ** 6) possible file names.
 .Pp
 If
 .Nm
@@ -88,7 +90,7 @@ If the
 .Fl t Ar prefix
 option is given,
 .Nm
-will generate an template string based on the
+will generate a template string based on the
 .Ar prefix
 and the
 .Ev TMPDIR
@@ -106,15 +108,20 @@ including one based on the internal template resulting from the
 .Fl t
 flag.
 .Pp
-.Nm Mktemp
-is provided to allow shell scripts to safely use temporary files.
+The
+.Nm
+utility is provided to allow shell scripts to safely use temporary files.
 Traditionally, many shell scripts take the name of the program with
-the pid as a suffix and use that as a temporary file name.  This
+the pid as a suffix and use that as a temporary file name.
+This
 kind of naming scheme is predictable and the race condition it creates
-is easy for an attacker to win.  A safer, though still inferior, approach
-is to make a temporary directory using the same naming scheme.  While
+is easy for an attacker to win.
+A safer, though still inferior, approach
+is to make a temporary directory using the same naming scheme.
+While
 this does allow one to guarantee that a temporary file will not be
-subverted, it still allows a simple denial of service attack.  For these
+subverted, it still allows a simple denial of service attack.
+For these
 reasons it is suggested that
 .Nm
 be used instead.
@@ -124,7 +131,8 @@ The available options are as follows:
 .It Fl d
 Make a directory instead of a file.
 .It Fl q
-Fail silently if an error occurs.  This is useful if
+Fail silently if an error occurs.
+This is useful if
 a script does not want error output to go to standard error.
 .It Fl t Ar prefix
 Generate a template (using the supplied
@@ -135,14 +143,17 @@ if set) to create a filename template.
 .It Fl u
 Operate in
 .Dq unsafe
-mode.  The temp file will be unlinked before
+mode.
+The temp file will be unlinked before
 .Nm
-exits.  This is slightly better than
+exits.
+This is slightly better than
 .Xr mktemp 3
-but still introduces a race condition.  Use of this
+but still introduces a race condition.
+Use of this
 option is not encouraged.
 .El
-.Sh DIAGNOSTICS
+.Sh EXIT STATUS
 The
 .Nm
 utility
@@ -192,4 +203,4 @@ man page, and
 first appeared in
 .Fx 2.2.7 .
 This man page is taken from
-.Ox
+.Ox .

@@ -1,0 +1,12 @@
+set time(crc,1000,old) 2235
+set time(crc,1000000,old) 1614
+set time(crc-zlib,1000,old) 11026
+set time(crc-zlib,1000000,old) 10529406
+set time(adler,1000,old) 12250
+set time(adler,1000000,old) 12857176
+set time(sha,1000,old) 12334
+set time(sha,1000000,old) 13223823
+set time(haval,1000,old) 13159
+set time(haval,1000000,old) 11995250
+set time(md5,1000,old) 12657
+set time(md5,1000000,old) 11666631

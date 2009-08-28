@@ -1,10 +1,14 @@
 NAME0 = libSystem
 NAME = $(NAME0).$(VersionLetter)
 
+.include <CoreOS/Standard/Commands.mk>
+.include <CoreOS/Standard/Variables.mk>
+
 # for now, use the default compiler
-GCC := $(CC)
-GCCLIBS = -lgcc -lgcc_eh
-NARCHS != echo $(RC_ARCHS) | wc -w
+MYCC := $(CC)
+MYCCLIBS = -lgcc
+RTLIBS = -lcompiler_rt
+NARCHS != $(ECHO) $(RC_ARCHS) | $(WC) -w
 .ifdef ALTUSRLOCALLIBSYSTEM
 LIBSYS = $(ALTUSRLOCALLIBSYSTEM)
 .else
@@ -13,22 +17,16 @@ LIBSYS = $(SDKROOT)/usr/local/lib/system
 SLFS_F_PH = $(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders
 .ifdef SDKROOT
 SDKROOTCFLAGS = -isysroot '$(SDKROOT)'
-SDKROOTLDFLAGS = -syslibroot '$(SDKROOT)'
+SDKROOTLDFLAGS = -Wl,-syslibroot,'$(SDKROOT)'
 .endif
-.if !empty(FEATURE_ORDER_FILE)
-ORDERFILES = -Wl,-order_file,$(SRCROOT)/SystemInit.order -Wl,-order_file,$(SRCROOT)/System.order
-.endif
+ORDERFILES = -Wl,-order_file,$(SRCROOT)/SystemInit.order -Wl,-order_file,$(PLATFORM_ORDER_FILE)
 LIBS = -lc -lcommonCrypto -ldyldapis\
        -linfo -ldns_sd -lm -lmacho\
        -lnotify -lkeymgr -llaunch \
-       -lcopyfile -lsandbox -lremovefile
-CONDITIONALLIBS = unc quarantine
-.for L in $(CONDITIONALLIBS)
-# the following should be replaced with tconf when 5784037 is complete
-.if exists($(LIBSYS)/lib$(L).a)
-LIBS += -l$(L)
-.endif
-.endfor # CONDITIONALLIBS
+       -lcopyfile -lremovefile
+CONDITIONALLIBS = unc sandbox quarantine closure cache dispatch unwind \
+	dnsinfo
+LIBSCONDITIONAL != for L in $(CONDITIONALLIBS); do tconf -q --test usr_local_lib_system_Archive:lib$$L && $(ECHO) -l$$L; done
 
 # These variables are to guarantee that the left-hand side of an expression is
 # always a variable
@@ -62,33 +60,42 @@ SUFFIX$(F) = _$(F)
 .if !empty(FEATURE_LIBMATHCOMMON)
 LIBMATHCOMMON$(F) = -L/usr/lib/system -sub_library libmathCommon$(SUFFIX$(F)) -lmathCommon$(SUFFIX$(F))
 .endif
-LIPOARGS$(F) != perl -e 'printf "%s\n", join(" ", map(qq(-arch $$_ \"$(OBJROOT)/$$_/$(F)/$(NAME)$(SUFFIX$(F)).dylib\"), qw($(RC_ARCHS))))'
+LIPOARGS$(F) != $(PERL) -e 'printf "%s\n", join(" ", map(qq(-arch $$_ \"$(OBJROOT)/$$_/$(F)/$(NAME)$(SUFFIX$(F)).dylib\"), qw($(RC_ARCHS))))'
 
 .for A in $(RC_ARCHS)
 build-$(F): build-$(A)-$(F)
 .endfor # RC_ARCHS
 build-$(F):
 .if $(NARCHS) == 1
-	cp -p "$(OBJROOT)/$(RC_ARCHS)/$(F)/$(NAME)$(SUFFIX$(F)).dylib" "$(SYMROOT)"
+	$(CP) "$(OBJROOT)/$(RC_ARCHS)/$(F)/$(NAME)$(SUFFIX$(F)).dylib" "$(SYMROOT)"
 .else
-	lipo -create $(LIPOARGS$(F)) -output "$(SYMROOT)/$(NAME)$(SUFFIX$(F)).dylib"
+	$(LIPO) -create $(LIPOARGS$(F)) -output "$(SYMROOT)/$(NAME)$(SUFFIX$(F)).dylib"
 .endif
-	dsymutil "$(SYMROOT)/$(NAME)$(SUFFIX$(F)).dylib"
+	$(DSYMUTIL) "$(SYMROOT)/$(NAME)$(SUFFIX$(F)).dylib"
 
 .for A in $(RC_ARCHS)
+LINKDYLIB-$(F)-$(A) = $(MYCC) -dynamiclib -arch $(A) -pipe $(SDKROOTLDFLAGS) \
+	-o '$(OBJROOT)/$(A)/$(F)/$(NAME)$(SUFFIX$(F)).dylib' \
+	-compatibility_version 1 -current_version $(Version) \
+	-install_name /usr/lib/$(NAME)$(SUFFIX$(F)).dylib \
+	-nodefaultlibs -all_load -multi_module -Wl,-search_paths_first \
+	-segcreate __DATA __commpage $(OBJROOT)/$(A)/CommPageSymbols.o \
+	$(ORDERFILES) $(SKDROOTLDFLAGS) $(OBJS-$(A)) \
+	-L$(DSTROOT)/usr/local/lib/system -L$(LIBSYS) $(LIBMATHCOMMON$(F)) \
+	$(LIBS:C/$/$(SUFFIX$(F))/) $(LIBSCONDITIONAL:C/$/$(SUFFIX$(F))/)
+
 build-$(A)-$(F): $(OBJROOT)/$(A)/$(F) $(OBJROOT)/$(A)/CommPageSymbols.o $(OBJS-$(A))
-	$(GCC) -dynamiclib -arch $(A) -pipe \
-	    -o '$(OBJROOT)/$(A)/$(F)/$(NAME)$(SUFFIX$(F)).dylib' \
-	    -compatibility_version 1 -current_version $(Version) \
-	    -install_name /usr/lib/$(NAME)$(SUFFIX$(F)).dylib \
-	    -nodefaultlibs -all_load -multi_module -Wl,-search_paths_first \
-	    -segcreate __DATA __commpage $(OBJROOT)/$(A)/CommPageSymbols.o \
-	    $(ORDERFILES) $(SKDROOTLDFLAGS) $(OBJS-$(A)) \
-	    -L$(DSTROOT)/usr/local/lib/system -L$(LIBSYS) $(LIBMATHCOMMON$(F)) \
-	    $(LIBS:C/$/$(SUFFIX$(F))/) $(GCCLIBS)
+	@$(ECHO) $(LINKDYLIB-$(F)-$(A)) $(RTLIBS) && \
+	if $(LINKDYLIB-$(F)-$(A)) $(RTLIBS); then \
+	    $(ECHO) -n; \
+	else \
+	    $(ECHO) '*** Failed.  Retrying with -lgcc ***' && \
+	    $(ECHO) $(LINKDYLIB-$(F)-$(A)) $(MYCCLIBS) && \
+	    $(LINKDYLIB-$(F)-$(A)) $(MYCCLIBS); \
+	fi
 
 $(OBJROOT)/$(A)/$(F):
-	mkdir -p '$(.TARGET)'
+	$(MKDIR) '$(.TARGET)'
 
 .endfor # RC_ARCHS
 .endfor # FORMS
@@ -102,19 +109,19 @@ SEG1ADDR_arm = 0xffff8000
 CFLAGS = -g -Os -Wall -Werror -I'$(SLFS_F_PH)' -fno-common $(SDKROOTCFLAGS)
 
 $(OBJROOT)/System_vers.c:
-	vers_string -c System | \
-	sed -e 's/SGS_VERS/SYSTEM_VERS_STRING/' -e 's/VERS_NUM/SYSTEM_VERS_NUM/' > $(.TARGET)
+	$(VERS_STRING) -c System | \
+	$(SED) -e 's/SGS_VERS/SYSTEM_VERS_STRING/' -e 's/VERS_NUM/SYSTEM_VERS_NUM/' > $(.TARGET)
 
 .for A in $(RC_ARCHS)
 $(OBJROOT)/$(A)/CommPageSymbols.o: $(SRCROOT)/CommPageSymbols.st
-	$(GCC) -c -o '$(.TARGET:R)_intermediate.$(.TARGET:E)' -arch $(A) -x assembler-with-cpp $(CFLAGS) '$(.ALLSRC)'
-	ld -arch $(A) -r -seg1addr $(SEG1ADDR_$(A:C/^armv.*$/arm/)) '$(.TARGET:R)_intermediate.$(.TARGET:E)' -o '$(.TARGET)'
+	$(MYCC) -c -o '$(.TARGET:R)_intermediate.$(.TARGET:E)' -arch $(A) -x assembler-with-cpp $(CFLAGS) '$(.ALLSRC)'
+	$(LD) -arch $(A) -r -seg1addr $(SEG1ADDR_$(A:C/^armv.*$/arm/)) '$(.TARGET:R)_intermediate.$(.TARGET:E)' -o '$(.TARGET)'
 
 $(OBJROOT)/$(A)/SystemMath.o: $(SRCROOT)/SystemMath.s
-	$(GCC) -c -o '$(.TARGET)' -arch $(A) $(CFLAGS) '$(.ALLSRC)'
+	$(MYCC) -c -o '$(.TARGET)' -arch $(A) $(CFLAGS) '$(.ALLSRC)'
 
 $(OBJROOT)/$(A)/System_vers.o: $(OBJROOT)/System_vers.c
-	$(GCC) -c -o '$(.TARGET)' -arch $(A) $(CFLAGS) '$(.ALLSRC)'
+	$(MYCC) -c -o '$(.TARGET)' -arch $(A) $(CFLAGS) '$(.ALLSRC)'
 
 .endfor # RC_ARCHS
 
@@ -122,12 +129,12 @@ installhdrs:
 
 .for F in $(FORMS)
 BI-install-$(F): build-$(F)
-	mkdir -p "$(DSTROOT)/usr/lib"
-	@echo "===== Installing $(NAME)$(SUFFIX$(F)).dylib ====="
-	install "$(SYMROOT)/$(NAME)$(SUFFIX$(F)).dylib" "$(DSTROOT)/usr/lib"
-	strip -S "$(DSTROOT)/usr/lib/$(NAME)$(SUFFIX$(F)).dylib"
-	chmod a-w "$(DSTROOT)/usr/lib/$(NAME)$(SUFFIX$(F)).dylib"
-	ln -sf "$(NAME)$(SUFFIX$(F)).dylib" "$(DSTROOT)/usr/lib/$(NAME0)$(SUFFIX$(F)).dylib"
+	$(MKDIR) "$(DSTROOT)/usr/lib"
+	@$(ECHO) "===== Installing $(NAME)$(SUFFIX$(F)).dylib ====="
+	$(INSTALL) "$(SYMROOT)/$(NAME)$(SUFFIX$(F)).dylib" "$(DSTROOT)/usr/lib"
+	$(STRIP) -S "$(DSTROOT)/usr/lib/$(NAME)$(SUFFIX$(F)).dylib"
+	$(CHMOD) a-w "$(DSTROOT)/usr/lib/$(NAME)$(SUFFIX$(F)).dylib"
+	$(LN) -sf "$(NAME)$(SUFFIX$(F)).dylib" "$(DSTROOT)/usr/lib/$(NAME0)$(SUFFIX$(F)).dylib"
 .endfor # FORMS
 
 install-all: build
@@ -137,5 +144,5 @@ install-all: BI-install-$(F)
 
 clean:
 .for A in $(RC_ARCHS)
-	rm -rf $(OBJROOT)/$(A)
+	$(RMDIR) $(OBJROOT)/$(A)
 .endfor # RC_ARCHS

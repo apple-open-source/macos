@@ -38,7 +38,7 @@ o Enable VSA's on the Ascend/Lucent MAX:
 
 o Enable OLD attributes in FreeRADIUS
 
-  One note on this, cicsos have an Ascend compatability mode that
+  One note on this, Ciscos have an Ascend compatibility mode that
   accepts only the OLD style Ascend attributes, just to make life more
   interesting.  :)
 
@@ -54,4 +54,4 @@ o Enable OLD attributes in FreeRADIUS
 
      X-Ascend-Data-Filter
 
-$Id: ascend,v 1.2 2001/10/25 14:54:01 cparker Exp $
+$Id$

@@ -94,12 +94,12 @@ enum language {language_c};
 /*
  * All symbol roots must have as their first two fields format and length
  * fields.  The total length of the symbol root must be a multiple of
- * sizeof(long) and any padding must be zeroed.
+ * sizeof(uint32_t) and any padding must be zeroed.
  */
 struct symbol_root_header
 {
   int format;	/* type of symbol segment */
-  int length;	/* # bytes in this symbol segment, rounded to sizeof(long) */
+  int length;	/* # bytes in this symbol segment, rounded to sizeof(uint32_t) */
 };
 
 /*
@@ -157,7 +157,7 @@ struct mach_root
  */
 struct indirect_root {
   int format;		/* INDIRECT_ROOT_FORMAT */
-  int length;		/* length of this struct, rounded to sizeof(long) */
+  int length;		/* length of this struct, rounded to sizeof(uint32_t) */
   int ldsymoff;		/* Offset in ld symtab of this file's syms */
   int textrel;		/* Relocation for text addresses */
   int datarel;		/* Relocation for data addresses */
@@ -176,7 +176,7 @@ struct indirect_root {
  */
 struct mach_indirect_root {
   int format;		/* MACH_INDIRECT_ROOT_FORMAT */
-  int length;		/* length of this struct, rounded to sizeof(long) */
+  int length;		/* length of this struct, rounded to sizeof(uint32_t) */
   int ldsymoff;		/* Offset in ld symtab of this file's syms */
   struct loadmap *loadmap; /* load map of the relocatable object */
   int mtime;		/* last modified time, as returned by stat(2) */
@@ -191,7 +191,7 @@ struct mach_indirect_root {
  */
 struct common_root {
   int format;		/* COMMON_SYM_FORMAT */
-  int length;		/* length of this struct, rounded to sizeof(long) */
+  int length;		/* length of this struct, rounded to sizeof(uint32_t) */
   int nsyms;		/* the number of strings in the data[] field for the
 			   common symbols names of this file */
   char data[1];		
@@ -199,7 +199,7 @@ struct common_root {
     - Null terminated string for the filename.
 	- Null terminated stings for syms.
 	...
-    - zero padded to round to sizeof(long)
+    - zero padded to round to sizeof(uint32_t)
    */
 };
  
@@ -218,7 +218,7 @@ struct common_root {
  */
 struct shlib_root {
   int format;		/* SHLIB_ROOT_FORMAT */
-  int length;		/* length of this struct, rounded to sizeof(long) */
+  int length;		/* length of this struct, rounded to sizeof(uint32_t) */
   int ldsymoff;		/* Offset in ld symtab of this file's syms */
   int textrel;		/* Relocation for text addresses */
   int globaldatarel;	/* Relocation for global data addresses */
@@ -234,7 +234,7 @@ struct shlib_root {
 
 struct mach_shlib_root {
   int format;		/* MACH_SHLIB_ROOT_FORMAT */
-  int length;		/* length of this struct, rounded to sizeof(long) */
+  int length;		/* length of this struct, rounded to sizeof(uint32_t) */
   int ldsymoff;		/* Offset in ld symtab of this file's syms */
   struct loadmap *loadmap; /* load map of the relocatable object */
   int symreloffset;	/* relitive offset, from the first SYMBOL_ROOT_FORMAT
@@ -249,14 +249,14 @@ struct mach_shlib_root {
  */
 struct alias_root {
   int format;		/* ALIAS_SYM_FORMAT */
-  int length;		/* length of this struct, rounded to sizeof(long) */
+  int length;		/* length of this struct, rounded to sizeof(uint32_t) */
   int naliases;		/* number of pairs of aliased symbols */
   char data[1];		
   /* Data looks like the following:
 	- Pairs of:
 	    - Null terminated string for the original symbol
 	    - Null terminated string for the aliased symbol
-	- zero padded to round to sizeof(long)
+	- zero padded to round to sizeof(uint32_t)
    */
 };
 

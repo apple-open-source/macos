@@ -254,7 +254,7 @@ $ompi_cv_asm_endproc ${sym}gsym_test_func
             break
         fi
     done
-    rm -f conftest.*
+    rm -rf conftest.*
 ])dnl
 
 
@@ -432,7 +432,7 @@ EOF
              if test "$ompi_cv_asm_gnu_stack_result" != "yes" ; then
                  ompi_cv_asm_gnu_stack_result="no"
              fi
-             rm -f conftest.*],
+             rm -rf conftest.*],
             [ompi_cv_asm_gnu_stack_result="no"])])
     if test "$ompi_cv_asm_gnu_stack_result" = "yes" ; then
         ompi_cv_asm_gnu_stack=1
@@ -798,6 +798,25 @@ AC_DEFUN([OMPI_CONFIG_ASM],[
     AC_REQUIRE([OMPI_SETUP_CXX])
     AC_REQUIRE([AM_PROG_AS])
 
+    # OS X Leopard ld bus errors if you have "-g" in the link line
+    # with our assembly (!).  So remove it from CCASFLAGS if it's
+    # there (and we're on Leopard).
+    AC_MSG_CHECKING([if need to remove -g from CCASFLAGS])
+    case "$host" in
+        *-apple-darwin9.*)
+            for ompi_config_asm_flag in $CCASFLAGS; do
+                if test "$ompi_config_asm_flag" != "-g"; then
+                    ompi_config_asm_flags_new="$ompi_config_asm_flags_new $ompi_config_asm_flag"
+                fi
+            done
+            CCASFLAGS="$ompi_config_asm_flags_new"
+            AC_MSG_RESULT([OS X Leopard - yes ($CCASFLAGS)])
+            ;;
+        *)
+            AC_MSG_RESULT([no])
+            ;;
+    esac
+    unset ompi_config_asm_flags_new ompi_config_asm_flag
 
     AC_MSG_CHECKING([whether to enable smp locks])
     AC_ARG_ENABLE([smp-locks], 
@@ -1013,7 +1032,7 @@ if test "$ompi_cv_asm_arch" != "WINDOWS" ; then
     else
         AC_MSG_RESULT([no (not in asm-data)])
     fi
-    rm -f conftest.*
+    rm -rf conftest.*
 
     if test "$ompi_cv_asm_file" = "" ; then
         if test ! "$PERL" = "" ; then
@@ -1040,7 +1059,7 @@ if test "$ompi_cv_asm_arch" != "WINDOWS" ; then
             AC_MSG_WARN([There will be no atomic operations for this build.])
         fi
     fi
-    rm -f conftest.*
+    rm -rf conftest.*
 else
     # On windows with VC++, atomics are done with compiler primitives
     ompi_cv_asm_file=""

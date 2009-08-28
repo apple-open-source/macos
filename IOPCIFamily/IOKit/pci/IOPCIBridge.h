@@ -89,22 +89,22 @@ private:
 
 protected:
     static void nvLocation( IORegistryEntry * entry,
-			    UInt8 * busNum, UInt8 * deviceNum, UInt8 * functionNum );
+                            UInt8 * busNum, UInt8 * deviceNum, UInt8 * functionNum );
     static SInt32 compareAddressCell( UInt32 cellCount, UInt32 cleft[], UInt32 cright[] );
-	void checkTerminateChildren(IOService * bridgeDevice, bool eject);
+        void checkTerminateChildren(IOService * bridgeDevice, bool eject);
     IOReturn setDeviceASPMBits(IOPCIDevice * device, IOOptionBits state);
 
-    IORangeAllocator *	bridgeMemoryRanges;
-    IORangeAllocator *	bridgeIORanges;
+    IORangeAllocator *  bridgeMemoryRanges;
+    IORangeAllocator *  bridgeIORanges;
 
 /*! @struct ExpansionData
     @discussion This structure will be used to expand the capablilties of the IOPCIBridge in the future.
 */    
     struct ExpansionData
     {
-	friend class IOPCIConfigurator;
+        friend class IOPCIConfigurator;
         IORangeAllocator * cardBusMemoryRanges;
-	IOPCIRange *       rangeLists[kIOPCIResourceTypeCount];
+        IOPCIRange *       rangeLists[kIOPCIResourceTypeCount];
     };
 
 /*! @var reserved
@@ -120,7 +120,7 @@ public:
     virtual UInt8 lastBusNum( void );
 
     virtual void spaceFromProperties( OSDictionary * propTable,
-					IOPCIAddressSpace * space );
+                                        IOPCIAddressSpace * space );
     virtual OSDictionary * constructProperties( IOPCIAddressSpace space );
 
     virtual IOPCIDevice * createNub( OSDictionary * from );
@@ -130,7 +130,7 @@ public:
     virtual bool publishNub( IOPCIDevice * nub, UInt32 index );
 
     virtual bool addBridgeMemoryRange( IOPhysicalAddress start,
-				 	IOPhysicalLength length, bool host );
+                                        IOPhysicalLength length, bool host );
 
     virtual bool addBridgeIORange( IOByteCount start, IOByteCount length );
 
@@ -139,17 +139,17 @@ public:
                                  OSArray * array );
 
     virtual bool matchNubWithPropertyTable( IOService * nub,
-					    OSDictionary * propertyTable,
+                                            OSDictionary * propertyTable,
                                             SInt32 * score );
 
     virtual bool compareNubName( const IOService * nub, OSString * name,
-				 OSString ** matched = 0 ) const;
+                                 OSString ** matched = 0 ) const;
 
     virtual bool pciMatchNub( IOPCIDevice * nub,
                                 OSDictionary * table, SInt32 * score);
 
     virtual bool matchKeys( IOPCIDevice * nub, const char * keys,
-				UInt32 defaultMask, UInt8 regNum );
+                                UInt32 defaultMask, UInt8 regNum );
 
     virtual IOReturn getNubResources( IOService * nub );
 
@@ -172,13 +172,13 @@ public:
 
     virtual UInt32 configRead32( IOPCIAddressSpace space, UInt8 offset ) = 0;
     virtual void configWrite32( IOPCIAddressSpace space,
-					UInt8 offset, UInt32 data ) = 0;
+                                        UInt8 offset, UInt32 data ) = 0;
     virtual UInt16 configRead16( IOPCIAddressSpace space, UInt8 offset ) = 0;
     virtual void configWrite16( IOPCIAddressSpace space,
-					UInt8 offset, UInt16 data ) = 0;
+                                        UInt8 offset, UInt16 data ) = 0;
     virtual UInt8 configRead8( IOPCIAddressSpace space, UInt8 offset ) = 0;
     virtual void configWrite8( IOPCIAddressSpace space,
-					UInt8 offset, UInt8 data ) = 0;
+                                        UInt8 offset, UInt8 data ) = 0;
 
     virtual IOPCIAddressSpace getBridgeSpace( void ) = 0;
 
@@ -195,32 +195,32 @@ public:
     /* * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
     virtual IOReturn createAGPSpace( IOAGPDevice * master,
-				     IOOptionBits options,
-				     IOPhysicalAddress * address, 
-				     IOPhysicalLength * length );
+                                     IOOptionBits options,
+                                     IOPhysicalAddress * address, 
+                                     IOPhysicalLength * length );
 
     virtual IOReturn destroyAGPSpace( IOAGPDevice * master );
 
     virtual IORangeAllocator * getAGPRangeAllocator( IOAGPDevice * master );
 
     virtual IOOptionBits getAGPStatus( IOAGPDevice * master,
-				       IOOptionBits options = 0 );
+                                       IOOptionBits options = 0 );
     virtual IOReturn resetAGPDevice( IOAGPDevice * master,
                                      IOOptionBits options = 0 );
 
     virtual IOReturn getAGPSpace( IOAGPDevice * master,
                                   IOPhysicalAddress * address, 
-				  IOPhysicalLength * length );
+                                  IOPhysicalLength * length );
 
     virtual IOReturn commitAGPMemory( IOAGPDevice * master, 
-				      IOMemoryDescriptor * memory,
-				      IOByteCount agpOffset,
-				      IOOptionBits options );
+                                      IOMemoryDescriptor * memory,
+                                      IOByteCount agpOffset,
+                                      IOOptionBits options );
 
     virtual IOReturn releaseAGPMemory(  IOAGPDevice * master, 
-				      	IOMemoryDescriptor * memory, 
-					IOByteCount agpOffset,
-					IOOptionBits options );
+                                        IOMemoryDescriptor * memory, 
+                                        IOByteCount agpOffset,
+                                        IOOptionBits options );
 
 protected:
     OSMetaClassDeclareReservedUsed(IOPCIBridge, 0);
@@ -230,11 +230,11 @@ protected:
 
     OSMetaClassDeclareReservedUsed(IOPCIBridge, 1);
     virtual UInt32 extendedFindPCICapability( IOPCIAddressSpace space,
-					      UInt32 capabilityID, IOByteCount * offset = 0 );
+                                              UInt32 capabilityID, IOByteCount * offset = 0 );
 
     OSMetaClassDeclareReservedUsed(IOPCIBridge, 2);
     virtual IOReturn setDeviceASPMState(IOPCIDevice * device,
-				IOService * client, IOOptionBits state);
+                                IOService * client, IOOptionBits state);
 
     // Unused Padding
     OSMetaClassDeclareReservedUnused(IOPCIBridge,  3);
@@ -295,15 +295,15 @@ protected:
     struct ExpansionData
     {
     // /hotp
-	IOByteCount		    xpressCapability;
-	IOFilterInterruptEventSource *    bridgeInterruptSource;
-	IOWorkLoop *		    workLoop;
-	uint32_t		    hotplugCount;
-	uint8_t			    presence;
-	uint8_t			    waitingLinkEnable;
-	uint8_t			    linkChangeOnly;
-	uint8_t			    interruptEnablePending;
-	uint8_t			    __reserved[4];
+        IOByteCount                 xpressCapability;
+        IOFilterInterruptEventSource *    bridgeInterruptSource;
+        IOWorkLoop *                workLoop;
+        uint32_t                    hotplugCount;
+        uint8_t                     presence;
+        uint8_t                     waitingLinkEnable;
+        uint8_t                     linkChangeOnly;
+        uint8_t                     interruptEnablePending;
+        uint8_t                     __reserved[4];
     // hotp/
     };
 
@@ -320,8 +320,8 @@ public:
 
     virtual bool serializeProperties( OSSerialize * serialize ) const;
 
-    virtual IOService * probe(	IOService * 	provider,
-                                SInt32 *	score );
+    virtual IOService * probe(  IOService *     provider,
+                                SInt32 *        score );
 
     virtual bool start( IOService * provider );
 
@@ -338,7 +338,7 @@ public:
     virtual void restoreBridgeState( void );
 
     IOReturn setPowerState( unsigned long powerState,
-			    IOService * whatDevice );
+                            IOService * whatDevice );
 
     virtual bool publishNub( IOPCIDevice * nub, UInt32 index );
 
@@ -348,16 +348,16 @@ public:
 
     virtual UInt32 configRead32( IOPCIAddressSpace space, UInt8 offset );
     virtual void configWrite32( IOPCIAddressSpace space,
-					UInt8 offset, UInt32 data );
+                                        UInt8 offset, UInt32 data );
     virtual UInt16 configRead16( IOPCIAddressSpace space, UInt8 offset );
     virtual void configWrite16( IOPCIAddressSpace space,
-					UInt8 offset, UInt16 data );
+                                        UInt8 offset, UInt16 data );
     virtual UInt8 configRead8( IOPCIAddressSpace space, UInt8 offset );
     virtual void configWrite8( IOPCIAddressSpace space,
-					UInt8 offset, UInt8 data );
+                                        UInt8 offset, UInt8 data );
 
     virtual IOReturn setDeviceASPMState(IOPCIDevice * device,
-				IOService * client, IOOptionBits state);
+                                IOService * client, IOOptionBits state);
 
     // Unused Padding
     OSMetaClassDeclareReservedUnused(IOPCI2PCIBridge,  0);
@@ -372,9 +372,9 @@ public:
 
 protected:
     bool filterInterrupt( IOFilterInterruptEventSource * source);
-			    
+                            
     void handleInterrupt( IOInterruptEventSource * source,
-			     int                      count );
+                             int                      count );
 
 };
 

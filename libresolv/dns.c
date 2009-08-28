@@ -51,6 +51,10 @@
 
 #define DNS_RESOLVER_DIR "/etc/resolver"
 
+#define NOTIFY_DNS_CONTROL_NAME "com.apple.system.dns"
+#define DNS_CONTROL_FLAG_DEBUG    0x0000000000000001LL
+#define DNS_CONTROL_FLAG_NO_MDNS  0x0000000000000002LL
+
 #define NOTIFY_DIR_NAME "com.apple.system.dns.resolver.dir"
 #define DNS_DELAY_NAME "com.apple.system.dns.delay"
 
@@ -60,6 +64,11 @@
 #define DNS_PRIVATE_HANDLE_TYPE_PLAIN 1
 
 #define MDNS_MIN_TTL 2
+
+static int dns_control_token = -1;
+static int dns_control_mdns = 1;
+static int dns_control_debug = 0;
+static pthread_mutex_t dns_control_lock = PTHREAD_MUTEX_INITIALIZER;
 
 extern uint32_t notify_monitor_file(int token, const char *name, int flags);
 
@@ -472,6 +481,43 @@ _pdns_convert_sc(dns_resolver_t *r)
 	return pdns;
 }
 
+static pdns_handle_t *
+_mdns_primary(dns_resolver_t *r)
+{
+	pdns_handle_t *pdns;
+	char *val, *p;
+	int i;
+
+	pdns = _pdns_build_start(r->domain);
+	if (r->domain == NULL) _pdns_build(pdns, "default", NULL);
+
+	p = getenv("RES_RETRY_TIMEOUT");
+	if (p != NULL) pdns->send_timeout = atoi(p);
+
+	p = getenv("RES_RETRY");
+	if (p != NULL) pdns->res->retry= atoi(p);
+
+	if (r->n_search > MAXDNSRCH) r->n_search = MAXDNSRCH;
+	for (i = 0; i < r->n_search; i++)
+	{
+		val = NULL;
+		asprintf(&val, "%s", r->search[i]);
+		if (val == NULL)
+		{
+			_pdns_free(pdns);
+			return NULL;
+		}
+
+		_pdns_build(pdns, "search", val);
+		free(val);
+	}
+
+	_pdns_build(pdns, "mdns", NULL);
+
+	_pdns_build_finish(pdns);
+	return pdns;
+}
+
 /*
  * Open a named resolver client from the system config data.
  */
@@ -740,8 +786,17 @@ _check_cache(sdns_handle_t *sdns)
 	sc_dns_count = 0;
 	if ((sc_dns != NULL) && (sc_dns->n_resolver > 0))
 	{
-		sc_dns_count = sc_dns->n_resolver;
-		sdns->pdns_primary = _pdns_convert_sc(sc_dns->resolver[0]);
+		if (sdns->flags & DNS_FLAG_FORWARD_TO_MDNSRESPONDER)
+		{
+			sc_dns_count = 1;
+			sdns->pdns_primary = _mdns_primary(sc_dns->resolver[0]);
+		}
+		else
+		{
+			sc_dns_count = sc_dns->n_resolver;
+			sdns->pdns_primary = _pdns_convert_sc(sc_dns->resolver[0]);
+		}
+
 		_pdns_check_search_list(sdns->pdns_primary);
 	}
 	else
@@ -882,7 +937,7 @@ _pdns_get_default_handles(sdns_handle_t *sdns, pdns_handle_t ***pdns)
 }
 
 static uint32_t
-_pdns_get_handles_for_name(sdns_handle_t *sdns, const char *name, uint32_t nlabels, pdns_handle_t ***pdns)
+_pdns_get_handles_for_name(sdns_handle_t *sdns, const char *name, pdns_handle_t ***pdns)
 {
 	char *p, *vname;
 	int i, j, k, count;
@@ -905,9 +960,6 @@ _pdns_get_handles_for_name(sdns_handle_t *sdns, const char *name, uint32_t nlabe
 		for (i = 0; i < sdns->client_count; i++)
 		{
 			if (sdns->client[i]->name == NULL) continue;
-
-			/* Special case:  Don't send to ".local[.]" queries to mDNSResponder if nlabels > 2 */
-			if ((nlabels > 2) && (sdns->client[i]->flags & DNS_FLAG_FORWARD_TO_MDNSRESPONDER) && (!strcasecmp(sdns->client[i]->name, "local"))) continue;
 
 			if (!strcasecmp(sdns->client[i]->name, p))
 			{
@@ -942,7 +994,7 @@ _pdns_get_handles_for_name(sdns_handle_t *sdns, const char *name, uint32_t nlabe
 
 	if (count != 0) return count;
 
-	return _pdns_get_default_handles(sdns, pdns);;
+	return _pdns_get_default_handles(sdns, pdns);
 }
 
 static void
@@ -1024,11 +1076,45 @@ dns_handle_t
 dns_open(const char *name)
 {
 	dns_private_handle_t *dns;
+	struct stat sb;
+	int check, status, local_control;
+	uint64_t control;
 
 	dns = (dns_private_handle_t *)calloc(1, sizeof(dns_private_handle_t));
 	if (dns == NULL) return NULL;
 
-	if (name == NULL)
+	/* set up control notification if necessary */
+	if (dns_control_token == -1)
+	{
+		pthread_mutex_lock(&dns_control_lock);
+		if (dns_control_token == -1) status = notify_register_check(NOTIFY_DNS_CONTROL_NAME, &dns_control_token);
+		pthread_mutex_unlock(&dns_control_lock);
+	}
+
+	/* check for dns flags */
+	if (dns_control_token != -1)
+	{
+		pthread_mutex_lock(&dns_control_lock);
+		status = notify_check(dns_control_token, &check);
+		if ((status == 0) && (check == 1))
+		{
+			/* notification was triggered */
+			status = notify_get_state(dns_control_token, &control);
+			if (status == 0) 
+			{
+				if (control & DNS_CONTROL_FLAG_NO_MDNS) dns_control_mdns = 0;
+				if (control & DNS_CONTROL_FLAG_DEBUG) dns_control_debug = 1;
+			}
+		}
+
+		pthread_mutex_unlock(&dns_control_lock);
+	}
+
+	if (name == NULL) local_control = dns_control_mdns;
+	else if (!strcmp(name, MDNS_HANDLE_NAME)) local_control = 2;
+	else local_control = 0;
+
+	if ((name == NULL) && (local_control == 0))
 	{
 		dns->handle_type = DNS_PRIVATE_HANDLE_TYPE_SUPER;
 		dns->sdns = (sdns_handle_t *)calloc(1, sizeof(sdns_handle_t));
@@ -1043,6 +1129,31 @@ dns_open(const char *name)
 		dns->sdns->notify_dir_token = -1;
 		dns->sdns->notify_delay_token = -1;
 		_dns_open_notify(dns->sdns);
+
+		memset(&sb, 0, sizeof(struct stat));
+		dns_set_debug((dns_handle_t)dns, dns_control_debug);
+
+		return (dns_handle_t)dns;
+	}
+
+	if (local_control != 0)
+	{
+		dns->handle_type = DNS_PRIVATE_HANDLE_TYPE_SUPER;
+		dns->sdns = (sdns_handle_t *)calloc(1, sizeof(sdns_handle_t));
+		if (dns->sdns == NULL)
+		{
+			free(dns);
+			return NULL;
+		}
+
+		dns->sdns->flags = DNS_FLAG_FORWARD_TO_MDNSRESPONDER;
+		dns->sdns->notify_sys_config_token = -1;
+		dns->sdns->notify_dir_token = -1;
+		dns->sdns->notify_delay_token = -1;
+		if (local_control == 1) _dns_open_notify(dns->sdns);
+
+		memset(&sb, 0, sizeof(struct stat));
+		dns_set_debug((dns_handle_t)dns, dns_control_debug);
 
 		return (dns_handle_t)dns;
 	}
@@ -1059,6 +1170,7 @@ dns_open(const char *name)
 		return NULL;
 	}
 
+	dns_set_debug((dns_handle_t)dns, dns_control_debug);
 	return (dns_handle_t)dns;
 }
 
@@ -1358,7 +1470,7 @@ _pdns_search(sdns_handle_t *sdns, pdns_handle_t *pdns, const char *name, uint32_
 }
 
 static int
-_sdns_send(sdns_handle_t *sdns, const char *name, uint32_t class, uint32_t type, uint32_t fqdn, char *buf, uint32_t len, struct sockaddr *from, uint32_t *fromlen, uint32_t nlabels, int *min)
+_sdns_send(sdns_handle_t *sdns, const char *name, uint32_t class, uint32_t type, uint32_t fqdn, char *buf, uint32_t len, struct sockaddr *from, uint32_t *fromlen, int *min)
 {
 	char *qname;
 	pdns_handle_t **pdns;
@@ -1373,7 +1485,7 @@ _sdns_send(sdns_handle_t *sdns, const char *name, uint32_t class, uint32_t type,
 	*min = -1;
 	m = -1;
 
-	pdns_count = _pdns_get_handles_for_name(sdns, name, nlabels, &pdns);
+	pdns_count = _pdns_get_handles_for_name(sdns, name, &pdns);
 
 	if (pdns_count == 0) return -1;
 
@@ -1412,7 +1524,7 @@ __private_extern__ int
 _sdns_search(sdns_handle_t *sdns, const char *name, uint32_t class, uint32_t type, uint32_t fqdn, uint32_t recurse, char *buf, uint32_t len, struct sockaddr *from, uint32_t *fromlen, int *min)
 {
 	pdns_handle_t *primary, **pdns;
-	int i, n, ndots, nlabels, status;
+	int i, n, ndots, status;
 	int m, tmin, minstate;
 	char *dot, *qname;
 	uint32_t pdns_count;
@@ -1455,9 +1567,6 @@ _sdns_search(sdns_handle_t *sdns, const char *name, uint32_t class, uint32_t typ
 	/* the last dot is the last character, name is fully qualified */
 	if ((fqdn == 0) && (dot != NULL) && (*(dot + 1) == '\0')) fqdn = 1;
 
-	/* number of labels */
-	nlabels = n + 1 - fqdn;
-
 	/*
 	 * If n >= ndots, or it's a FQDN, or if it's a PTR query,
 	 * we try a query with the name "as is".
@@ -1465,7 +1574,7 @@ _sdns_search(sdns_handle_t *sdns, const char *name, uint32_t class, uint32_t typ
 	if ((n >= ndots) || (fqdn == 1) || (type == ns_t_ptr))
 	{
 		tmin = -1;
-		status = _sdns_send(sdns, name, class, type, fqdn, buf, len, from, fromlen, nlabels, &tmin);
+		status = _sdns_send(sdns, name, class, type, fqdn, buf, len, from, fromlen, &tmin);
 		if (status > 0) return status;
 
 		if (tmin < 0) minstate = -1;

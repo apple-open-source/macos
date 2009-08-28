@@ -17,6 +17,8 @@ You should have received a copy of the GNU General Public License
 along with GAS; see the file COPYING.  If not, write to
 the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
+#include <stdint.h>
+
 /* Assorted opcode bits used to diddle the instruction during operand processing */
 #define OP_PREFIX_MASK	0xFC000000
 #define PREFIX_FPU	0x48000000
@@ -43,8 +45,8 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 struct i860_opcode
 {
     const char *name;
-    unsigned long mask;     /* used only for error checking */
-    unsigned long match;
+    uint32_t mask;     /* used only for error checking */
+    uint32_t match;
     const char *args;
     unsigned int last;      /* used to simplify hashing */
 };

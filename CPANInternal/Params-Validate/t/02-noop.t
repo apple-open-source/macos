@@ -1,16 +1,11 @@
-#!/usr/bin/perl -w
-
 use strict;
+use warnings;
 
-use lib './t';
+use File::Spec;
+use lib File::Spec->catdir( 't', 'lib' );
 
-$ENV{PERL_NO_VALIDATION} = 1;
-require Params::Validate;
-Params::Validate->import(':all');
+BEGIN { $ENV{PERL_NO_VALIDATION} = 1 }
 
-use vars qw(@expect);
+use PVTests::Standard;
+PVTests::Standard::run_tests();
 
-require 'tests.pl';
-
-# everything should pass
-run_tests();

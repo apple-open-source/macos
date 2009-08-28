@@ -1,9 +1,7 @@
-/**
- * This file is part of the HTML widget for KDE.
- *
+/*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  * Copyright (C) 2000 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2006 Apple Computer, Inc.
+ * Copyright (C) 2004, 2006, 2009 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -27,13 +25,8 @@
 
 #include "AnimationController.h"
 #include "AXObjectCache.h"
-#include "Document.h"
-#include "Element.h"
-#include "Event.h"
-#include "FrameView.h"
 #include "GraphicsContext.h"
 #include "HitTestResult.h"
-#include "RenderLayer.h"
 #include "RenderView.h"
 
 using namespace std;
@@ -47,14 +40,11 @@ static HashMap<const Widget*, RenderWidget*>& widgetRendererMap()
 }
 
 RenderWidget::RenderWidget(Node* node)
-      : RenderReplaced(node)
-      , m_widget(0)
-      , m_refCount(0)
+    : RenderReplaced(node)
+    , m_widget(0)
+    , m_frameView(node->document()->view())
+    , m_refCount(0)
 {
-    // a replaced element doesn't support being anonymous
-    ASSERT(node);
-    m_view = node->document()->view();
-
     view()->addWidget(this);
 
     // Reference counting is used to prevent the widget from being
@@ -82,9 +72,9 @@ void RenderWidget::destroy()
     remove();
 
     if (m_widget) {
-        if (m_view)
-            m_view->removeChild(m_widget);
-        widgetRendererMap().remove(m_widget);
+        if (m_frameView)
+            m_frameView->removeChild(m_widget.get());
+        widgetRendererMap().remove(m_widget.get());
     }
     
     // removes from override size map
@@ -110,7 +100,7 @@ void RenderWidget::destroy()
 RenderWidget::~RenderWidget()
 {
     ASSERT(m_refCount <= 0);
-    deleteWidget();
+    clearWidget();
 }
 
 void RenderWidget::setWidgetGeometry(const IntRect& frame)
@@ -123,17 +113,17 @@ void RenderWidget::setWidgetGeometry(const IntRect& frame)
     }
 }
 
-void RenderWidget::setWidget(Widget* widget)
+void RenderWidget::setWidget(PassRefPtr<Widget> widget)
 {
     if (widget != m_widget) {
         if (m_widget) {
             m_widget->removeFromParent();
-            widgetRendererMap().remove(m_widget);
-            deleteWidget();
+            widgetRendererMap().remove(m_widget.get());
+            clearWidget();
         }
         m_widget = widget;
         if (m_widget) {
-            widgetRendererMap().add(m_widget, this);
+            widgetRendererMap().add(m_widget.get(), this);
             // if we've already received a layout, apply the calculated space to the
             // widget immediately, but we have to have really been full constructed (with a non-null
             // style pointer).
@@ -145,7 +135,7 @@ void RenderWidget::setWidget(Widget* widget)
                 else
                     m_widget->show();
             }
-            m_view->addChild(m_widget);
+            m_frameView->addChild(m_widget.get());
         }
     }
 }
@@ -184,7 +174,7 @@ void RenderWidget::paint(PaintInfo& paintInfo, int tx, int ty)
         return;
     }
 
-    if (!m_view || paintInfo.phase != PaintPhaseForeground || style()->visibility() != VISIBLE)
+    if (!m_frameView || paintInfo.phase != PaintPhaseForeground || style()->visibility() != VISIBLE)
         return;
 
 #if PLATFORM(MAC)
@@ -192,15 +182,15 @@ void RenderWidget::paint(PaintInfo& paintInfo, int tx, int ty)
         paintCustomHighlight(tx - x(), ty - y(), style()->highlight(), true);
 #endif
 
-    bool clipToBorderRadius = style()->overflowX() != OVISIBLE && style()->hasBorderRadius(); 
-    if (clipToBorderRadius) {
+    if (style()->hasBorderRadius()) {
         // Push a clip if we have a border radius, since we want to round the foreground content that gets painted.
         paintInfo.context->save();
-        paintInfo.context->addRoundedRectClip(IntRect(tx, ty, width(), height()),
-                                              style()->borderTopLeftRadius(),
-                                              style()->borderTopRightRadius(), 
-                                              style()->borderBottomLeftRadius(),
-                                              style()->borderBottomRightRadius());
+        
+        IntSize topLeft, topRight, bottomLeft, bottomRight;
+        IntRect borderRect = IntRect(tx, ty, width(), height());
+        style()->getBorderRadiiForRect(borderRect, topLeft, topRight, bottomLeft, bottomRight);
+
+        paintInfo.context->addRoundedRectClip(borderRect, topLeft, topRight, bottomLeft, bottomRight);
     }
 
     if (m_widget) {
@@ -213,13 +203,13 @@ void RenderWidget::paint(PaintInfo& paintInfo, int tx, int ty)
         // to paint itself.  That way it will composite properly with z-indexed layers.
         m_widget->paint(paintInfo.context, paintInfo.rect);
 
-        if (m_widget->isFrameView() && paintInfo.overlapTestRequests && !static_cast<FrameView*>(m_widget)->useSlowRepaints()) {
+        if (m_widget->isFrameView() && paintInfo.overlapTestRequests && !static_cast<FrameView*>(m_widget.get())->useSlowRepaints()) {
             ASSERT(!paintInfo.overlapTestRequests->contains(this));
             paintInfo.overlapTestRequests->set(this, m_widget->frameRect());
         }
     }
 
-    if (clipToBorderRadius)
+    if (style()->hasBorderRadius())
         paintInfo.context->restore();
 
     // Paint a partially transparent wash over selected widgets.
@@ -233,7 +223,7 @@ void RenderWidget::setOverlapTestResult(bool isOverlapped)
 {
     ASSERT(m_widget);
     ASSERT(m_widget->isFrameView());
-    static_cast<FrameView*>(m_widget)->setIsOverlapped(isOverlapped);
+    static_cast<FrameView*>(m_widget.get())->setIsOverlapped(isOverlapped);
 }
 
 void RenderWidget::deref(RenderArena *arena)
@@ -268,7 +258,7 @@ void RenderWidget::updateWidgetPosition()
     // if the frame bounds got changed, or if view needs layout (possibly indicating
     // content size is wrong) we have to do a layout to set the right widget size
     if (m_widget->isFrameView()) {
-        FrameView* frameView = static_cast<FrameView*>(m_widget);
+        FrameView* frameView = static_cast<FrameView*>(m_widget.get());
         if (boundsChanged || frameView->needsLayout())
             frameView->layout();
     }
@@ -283,9 +273,9 @@ void RenderWidget::setSelectionState(SelectionState state)
     }
 }
 
-void RenderWidget::deleteWidget()
+void RenderWidget::clearWidget()
 {
-    delete m_widget;
+    m_widget = 0;
 }
 
 RenderWidget* RenderWidget::find(const Widget* widget)

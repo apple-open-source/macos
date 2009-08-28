@@ -114,6 +114,7 @@ enter:
 	if (dir->dir_opts == NULL)
 		goto alloc_failed;
 	dir->dir_direct = direct;
+	dir->dir_realpath = NULL;
 	dir->dir_next = NULL;
 
 	/*
@@ -227,13 +228,13 @@ char *
 get_line(FILE *fp, char *map, char *line, int linesz)
 {
 	register char *p = line;
-	register int len;
+	register size_t len;
 	int excess = 0;
 
 	*p = '\0';
 
 	for (;;) {
-		if (fgets(p, linesz - (p-line), fp) == NULL) {
+		if (fgets(p, linesz - (int)(p-line), fp) == NULL) {
 			return (*line ? line : NULL);	/* EOF */
 		}
 
@@ -386,12 +387,15 @@ str_opt(struct mnttab *mnt, char *opt, char **sval)
  * corresponding environment variable string.  A "&"
  * is replaced by the key string for the map entry.
  *
- * This routine will return an error (non-zero) if *size* would be
- * exceeded after expansion, indicating that the macro_expand failed.
- * This is to prevent writing past the end of pline and plineq.
+ * This routine will return an error status, indicating that the
+ * macro_expand failed, if *size* would be exceeded after expansion
+ * or if a variable name is bigger than MAXVARNAMELEN.
+ * This is to prevent writing past the end of pline and plineq or
+ * the end of the variable name buffer.
  * Both pline and plineq are left untouched in such error case.
  */
-int
+#define MAXVARNAMELEN	64		/* maximum variable name length */
+macro_expand_status
 macro_expand(key, pline, plineq, size)
 	char *key, *pline, *plineq;
 	int size;
@@ -400,7 +404,7 @@ macro_expand(key, pline, plineq, size)
 	register char *bp, *bq;
 	register char *s;
 	char buffp[LINESZ], buffq[LINESZ];
-	char namebuf[64], *pn;
+	char namebuf[MAXVARNAMELEN+1], *pn;
 	int expand = 0;
 	struct utsname name;
 	char isaname[64];
@@ -425,7 +429,7 @@ macro_expand(key, pline, plineq, size)
 				/*
 				 * line too long...
 				 */
-				return (1);
+				return (MEXPAND_LINE_TOO_LONG);
 			}
 		}
 
@@ -435,6 +439,8 @@ macro_expand(key, pline, plineq, size)
 			if (*p == '{') {
 				p++; q++;
 				while (*p && *p != '}') {
+					if (pn >= &namebuf[MAXVARNAMELEN])
+						return (MEXPAND_VARNAME_TOO_LONG);
 					*pn++ = *p++;
 					q++;
 				}
@@ -443,6 +449,8 @@ macro_expand(key, pline, plineq, size)
 				}
 			} else {
 				while (*p && (*p == '_' || isalnum(*p))) {
+					if (pn >= &namebuf[MAXVARNAMELEN])
+						return (MEXPAND_VARNAME_TOO_LONG);
 					*pn++ = *p++;
 					q++;
 				}
@@ -480,7 +488,7 @@ macro_expand(key, pline, plineq, size)
 					/*
 					 * line too long...
 					 */
-					return (1);
+					return (MEXPAND_LINE_TOO_LONG);
 				}
 			}
 			expand++;
@@ -497,7 +505,7 @@ macro_expand(key, pline, plineq, size)
 			 * There was not enough room for at least two more
 			 * characters, return with an error.
 			 */
-			return (1);
+			return (MEXPAND_LINE_TOO_LONG);
 		}
 		/*
 		 * The total number of characters so far better be less
@@ -508,7 +516,7 @@ macro_expand(key, pline, plineq, size)
 
 	}
 	if (!expand)
-		return (0);
+		return (MEXPAND_OK);
 	*bp = '\0';
 	*bq = '\0';
 	/*
@@ -518,7 +526,7 @@ macro_expand(key, pline, plineq, size)
 	(void) strcpy(pline, buffp);
 	(void) strcpy(plineq, buffq);
 
-	return (0);
+	return (MEXPAND_OK);
 }
 
 /*
@@ -785,70 +793,25 @@ trace_prt(int id, char *fmt, ...)
 }
 
 /*
- * Get the list of instruction set architectures we support.
- * XXX - what about 64-bit ones?
- */
-static char *
-isalist(void)
-{
-#if defined(__ppc__)
-	return (strdup("powerpc"));
-#elif defined(__i386__)
-	return (strdup("i386"));
-#else
-	return (NULL);
-#endif
-}
-
-/*
- * Classify isa's as to bitness of the corresponding ABIs.
- * isa's which have no "official" system ABI are returned
- * unrecognised i.e. zero bits.
- */
-static int
-bitness(char *isaname)
-{
-	if (strcmp(isaname, "sparc") == 0 ||
-	    strcmp(isaname, "powerpc") == 0 ||
-	    strcmp(isaname, "i386") == 0)
-		return (32);
-
-	if (strcmp(isaname, "sparcv9") == 0 ||
-	    strcmp(isaname, "ppc64") == 0 ||
-	    strcmp(isaname, "x86_64") == 0)
-		return (64);
-
-	return (0);
-}
-
-/*
- * Find the left-most element in the isalist that matches our idea of a
- * system ABI.
- *
- * On machines with only one ABI, this is usually the same as uname -p.
+ * Return the name of the highest-bitness ISA for this machine.
+ * We assume here that, as this is part of the OS, it'll be built
+ * fat enough that the ISA for which we're compiled is the ISA in
+ * question.  We also assume (correctly, as of the current version
+ * of our compiler) that, when building for x86-64, __x86_64__ is
+ * defined and __i386__ isn't, and we assume (correctly) that we
+ * aren't supporting 64-bit PowerPC any more.
  */
 static int
 natisa(char *buf, size_t bufsize)
 {
-	int bits;
-	char *isa, *list;
-	char *lasts;
-
-	if ((list = isalist()) == NULL)
-		return (0);
-
-	for (isa = strtok_r(list, " ", &lasts);
-	    isa; isa = strtok_r(0, " ", &lasts))
-		if ((bits = bitness(isa)) != 0)
-			break;	/* ignore "extension" architectures */
-
-	if (isa == 0 || bits == 0) {
-		free(list);
-		return (0);	/* can't figure it out :( */
-	}
-
-	(void) strncpy(buf, isa, bufsize);
-	free(list);
-
+#if defined(__ppc__)
+	(void) strlcpy(buf, "powerpc", bufsize);
+#elif defined(__i386__)
+	(void) strlcpy(buf, "i386", bufsize);
+#elif defined(__x86_64__)
+	(void) strlcpy(buf, "x86_64", bufsize);
+#else
+#error "can't determine native ISA"
+#endif
 	return (1);
 }

@@ -1,0 +1,22 @@
+--- makecontext.3.orig	2009-03-13 03:05:02.000000000 -0700
++++ makecontext.3	2009-03-13 03:12:49.000000000 -0700
+@@ -48,7 +48,7 @@
+ .Ft void
+ .Fo makecontext
+ .Fa "ucontext_t *ucp"
+-.Fa "void \*[lp]*func\*[rp]\*[lp]void\*[rp]"
++.Fa "void \*[lp]*func\*[rp]\*[lp]\*[rp]"
+ .Fa "int argc" ...
+ .Fc
+ .Ft int
+@@ -64,7 +64,9 @@
+ and had a stack allocated for it.
+ The context is modified so that it will continue execution by invoking
+ .Fn func
+-with the arguments provided.
++with the arguments (of type
++.Ft int )
++provided.
+ The
+ .Fa argc
+ argument

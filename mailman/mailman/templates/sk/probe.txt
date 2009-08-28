@@ -1,0 +1,27 @@
+Toto je skúšobná správa, ktorú môžete ignorovať a zahodiť.
+
+Konferencia %(listname)s dostala z Vašej adresy niekoľko vrátených
+príspevkov, čo by mohlo znamenať, že sú problémy s doručovaním
+príspevkov na Vašu adresu %(address)s. Ukážka vrátenej správy je
+priložená nižšie. Prosím prezrite túto správu a skontrolujte, či
+nemáte problémy s príjmom pošty na Vašu e-mailovú adresu. Ak máte
+ďalšie otázky, spojte sa s Vaším administrátorom.
+
+Ak práve čitate túto správu, tak nemusíte urobiť nič a zostanete
+naďalej účastníkom v konferencii. Ak by bola táto správa vrátená,
+tak by ste ju práve nečítali a Vaša účasť na konferencii by bola
+pozastavená. Ak máte pozastavenú účasť, tak sú Vám zasielané správy
+so žiadosťou o reaktiváciu Vašej účasti na konferencii.
+
+Stránku s Vašími osobnými nastaveniami môžete navštíviť na stránke:
+
+    %(optionsurl)s
+
+Na stránke s nastaveniami môžete zmeniť rôzne nastavenia ohľadom
+doručovania pošty, ako napríklad Vašu e-mailovú adresu alebo príjem
+vo forme súhrnných správ.
+
+S ďalšími otázkami alebo problémami sa môžete obrátiť na správcu
+konferencie na adresu:
+
+    %(owneraddr)s

@@ -6,8 +6,8 @@
  #
 -User daemon
 -Group daemon
-+User www
-+Group www
++User _www
++Group _www
 
  </IfModule>
  </IfModule>

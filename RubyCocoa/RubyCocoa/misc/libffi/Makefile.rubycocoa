@@ -2,6 +2,7 @@ OBJS = src/types.o src/prep_cif.o src/x86/ffi_darwin.o src/x86/darwin.o src/powe
 
 LIB = libffi.a
 
+SYSROOT = 
 CFLAGS = -O3 -I./include -DMACOSX -arch ppc -arch i386
 
 all: $(LIB)
@@ -12,10 +13,10 @@ $(LIB): $(OBJS)
 	ranlib $(LIB)
 
 .c.o:
-	$(CC) $(CFLAGS) -c $< -o $@ 
+	$(CC) $(CFLAGS) $(SYSROOT) -c $< -o $@ 
 
 .S.o:
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) $(SYSROOT) -c $< -o $@
 
 clean:
 	rm -rf $(OBJS) $(LIB)

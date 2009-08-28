@@ -351,16 +351,18 @@ pw_copy(ffd, tfd, pw, old_pw)
 			goto err;
 	}
 	/* Only append a new entry if real uid is root! */
-	if (!done) 
-		if (getuid() == 0)
+	if (!done) {
+		if (getuid() == 0) {
 			(void)fprintf(to, "%s:%s:%d:%d:%s:%ld:%ld:%s:%s:%s\n",
 			    pw->pw_name, pw->pw_passwd, pw->pw_uid, pw->pw_gid,
 			    pw->pw_class, (long)pw->pw_change,
 			    (long)pw->pw_expire, pw->pw_gecos, pw->pw_dir,
 			    pw->pw_shell);
-		else
+		} else {
 			warnx("%s: changes not made, no such entry",
 		      	    _PATH_MASTERPASSWD);
+		}
+	}
 
 	if (ferror(to))
 err:		pw_error(NULL, 1, 1);

@@ -35,6 +35,7 @@
         .text
         .align	5
         .globl	_bzero
+        .globl	___bzero
 
 // *************
 // * B Z E R O *
@@ -43,4 +44,5 @@
 // This function has migrated to the commpage.
 
 _bzero:						// void	bzero(void *b, size_t len);
+___bzero:
         ba	_COMM_PAGE_BZERO

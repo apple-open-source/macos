@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 #
 #  testcase.py:  Control of test case execution.
 #
@@ -6,7 +5,7 @@
 #  See http://subversion.tigris.org for more information.
 #
 # ====================================================================
-# Copyright (c) 2000-2004 CollabNet.  All rights reserved.
+# Copyright (c) 2000-2004, 2008 CollabNet.  All rights reserved.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution.  The terms
@@ -16,7 +15,7 @@
 #
 ######################################################################
 
-import os, sys, string, types
+import os, types
 
 import svntest
 
@@ -28,7 +27,12 @@ class TestCase:
   several methods that need to be overridden."""
 
   def __init__(self):
-    self._result_text = ['PASS: ', 'FAIL: ', 'SKIP: ']
+    # Each element is a tuple whose second element indicates benignity:
+    # e.g., True means "can be ignored when in quiet_mode".  See also
+    # XFail.run_test().
+    self._result_text = [('PASS: ', True),
+                         ('FAIL: ', False),
+                         ('SKIP: ', True)]
     self._list_mode_text = ''
 
   def get_description(self):
@@ -38,19 +42,31 @@ class TestCase:
     description = self.get_description()
 
     if len(description) > 50:
-      print 'WARNING: Test doc string exceeds 50 characters'
+      print('WARNING: Test doc string exceeds 50 characters')
     if description[-1] == '.':
-      print 'WARNING: Test doc string ends in a period (.)'
-    if not string.lower(description[0]) == description[0]:
-      print 'WARNING: Test doc string is capitalized'
+      print('WARNING: Test doc string ends in a period (.)')
+    if not description[0].lower() == description[0]:
+      print('WARNING: Test doc string is capitalized')
 
   def need_sandbox(self):
+    """Return True iff this test needs a Sandbox for its execution."""
+
     return 0
 
   def get_sandbox_name(self):
+    """Return the name that should be used for the sandbox.
+
+    This method is only called if self.need_sandbox() returns True."""
+
     return 'sandbox'
 
-  def run(self, args):
+  def run(self, sandbox=None):
+    """Run the test.
+
+    If self.need_sandbox() returns True, then a Sandbox instance is
+    passed to this method as the SANDBOX keyword argument; otherwise,
+    no argument is passed to this method."""
+
     raise NotImplementedError()
 
   def list_mode(self):
@@ -100,8 +116,11 @@ class FunctionTestCase(TestCase):
     filename = self.func.func_code.co_filename
     return os.path.splitext(os.path.basename(filename))[0]
 
-  def run(self, args):
-    return apply(self.func, args)
+  def run(self, sandbox=None):
+    if self.need_sandbox():
+      return self.func(sandbox)
+    else:
+      return self.func()
 
 
 class XFail(TestCase):
@@ -137,36 +156,70 @@ class XFail(TestCase):
 
   def run_text(self, result=0):
     if self.cond_func():
-      return ['XFAIL:', 'XPASS:', self.test_case.run_text(2)][result]
+      # Tuple elements mean same as in TestCase._result_text.
+      return [('XFAIL:', True),
+              ('XPASS:', False),
+              self.test_case.run_text(2)][result]
     else:
       return self.test_case.run_text(result)
 
 
 class Skip(TestCase):
-  """A test that will be skipped if condition COND is true."""
+  """A test that will be skipped if its conditional is true."""
 
-  def __init__(self, test_case, cond=1):
+  def __init__(self, test_case, cond_func=lambda:1):
+    """Create an Skip instance based on TEST_CASE.  COND_FUNC is a
+    callable that is evaluated at test run time and should return a
+    boolean value.  If COND_FUNC returns true, then TEST_CASE is
+    skipped; otherwise, TEST_CASE is run normally.
+    The evaluation of COND_FUNC is deferred so that it can base its
+    decision on useful bits of information that are not available at
+    __init__ time (like the fact that we're running over a
+    particular RA layer)."""
+
     TestCase.__init__(self)
     self.test_case = create_test_case(test_case)
-    self.cond = cond
-    if self.cond:
-      self._list_mode_text = 'SKIP'
+    self.cond_func = cond_func
+    try:
+      if self.conditional():
+        self._list_mode_text = 'SKIP'
+    except svntest.Failure:
+      pass
     # Delegate most methods to self.test_case:
     self.get_description = self.test_case.get_description
     self.get_sandbox_name = self.test_case.get_sandbox_name
     self.convert_result = self.test_case.convert_result
+    self.run_text = self.test_case.run_text
 
   def need_sandbox(self):
-    if self.cond:
+    if self.conditional():
       return 0
     else:
       return self.test_case.need_sandbox()
 
-  def run(self, args):
-    if self.cond:
+  def run(self, sandbox=None):
+    if self.conditional():
       raise svntest.Skip
+    elif self.need_sandbox():
+      return self.test_case.run(sandbox=sandbox)
     else:
-      return self.test_case.run(args)
+      return self.test_case.run()
+
+  def conditional(self):
+    """Invoke SELF.cond_func(), and return the result evaluated
+    against the expected value."""
+    return self.cond_func()
+
+
+class SkipUnless(Skip):
+  """A test that will be skipped if its conditional is false."""
+
+  def __init__(self, test_case, cond_func):
+    Skip.__init__(self, test_case, cond_func)
+
+  def conditional(self):
+    "Return the negation of SELF.cond_func()."
+    return not self.cond_func()
 
 
 def create_test_case(func):

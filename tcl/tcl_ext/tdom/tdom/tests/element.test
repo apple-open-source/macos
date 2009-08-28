@@ -1,0 +1,178 @@
+# Features covered:  Elements
+#
+# This file tests the parser's performance on elements.
+# Sourcing this file into Tcl runs the tests and generates output
+# for errors.  No output means no errors were found.
+#
+# Copyright (c) 1999-2000 Zveno Pty Ltd.
+# Copyright (c) 2002-2005 Rolf Ade
+#
+# $Id: element.test,v 1.6 2005/01/06 18:21:00 rolf Exp $
+
+source [file join [file dir [info script]] loadtdom.tcl]
+
+proc parray arrayName {
+    upvar #0 $arrayName arr
+    foreach key [lsort [array names $arrayName]] {
+	lappend result $key $arr($key)
+    }
+    return $result
+}
+
+catch {unset started}
+proc Start {name atList args} {
+    array set opts $args
+    if {![info exists ::started($name)]} {
+	set ::started($name) 1
+    } else {
+	incr ::started($name)
+    }
+}
+catch {unset ended}
+proc End {name args} {
+    array set opts $args
+    if {![info exists ::ended($name)]} {
+	set ::ended($name) 1
+    } else {
+	incr ::ended($name)
+    }
+}
+
+catch {unset elList}
+proc ElStart {name atList args} {
+    array set opts {-empty 0}
+    array set opts $args
+    lappend ::elList start $name $opts(-empty)
+}
+proc ElEnd {name args} {
+    array set opts {-empty 0}
+    array set opts $args
+    lappend ::elList end $name $opts(-empty)
+}
+
+test element-1.1 {document element} {
+    catch {unset ::started}
+    catch {unset ::ended}
+
+    catch {rename xml::element-1.1 {}}
+    set parser [xml::parser element-1.1 \
+	-elementstartcommand Start \
+	-elementendcommand End]
+    $parser parse {<Test></Test>}
+    list [array get ::started] [array get ::ended]
+} {{Test 1} {Test 1}}
+
+test element-1.2 {distinct elements} {
+    catch {unset ::started}
+    catch {unset ::ended}
+
+    catch {rename xml::element-1.2 {}}
+    set parser [xml::parser element-1.2 \
+	-elementstartcommand Start \
+	-elementendcommand End]
+    $parser parse {<Test><Child1></Child1><Child2></Child2></Test>}
+    list [parray ::started] [parray ::ended]
+} {{Child1 1 Child2 1 Test 1} {Child1 1 Child2 1 Test 1}}
+
+proc esh-2.1 {parsername name attlist} {
+    if {$parsername == "element-2.1"} {
+        set ::result 1
+    } else {
+        set ::result 0
+    }
+}
+
+test element-2.1 {handler script} {
+    set ::result 0
+    set p [expat element-2.1 -elementstartcommand [list esh-2.1 element-2.1]]
+    $p parse <root/> 
+    $p free
+    set ::result
+} {1}
+
+proc eeh-2.2 {parsername name} {
+    if {$parsername == "element-2.2"} {
+        set ::result 1
+    } else {
+        set ::result 0
+    }
+}
+
+test element-2.2 {handler script} {
+    set ::result 0
+    set p [expat element-2.2]
+    $p configure -elementendcommand [list eeh-2.2 element-2.2]
+    $p parse <root/> 
+    $p free
+    set ::result
+} {1}
+
+test element-2.3 {declare handler proc later} {
+    set ::eshcounter 0
+    set ::eehcounter 0
+    catch {rename esh-2.3 {}}
+    catch {rename eeh-2.3 {}}
+    set p [expat -elementstartcommand esh-2.3 -elementendcommand eeh-2.3]
+    proc esh-2.3 {args} {
+        incr ::eshcounter
+    }
+    proc eeh-2.3 {args} {
+        incr ::eehcounter
+    }
+    $p parse {<root><a/><b/></root>}
+    $p free
+    list $::eshcounter $::eehcounter
+} {3 3}
+
+proc esh-3.1-1 {args} {
+    $::p configure -elementstartcommand esh-3.1-2
+    incr ::esh-3.1-1
+    incr ::eshcounter
+}
+
+proc esh-3.1-2 {args} {
+    $::p configure -elementstartcommand esh-3.1-1
+    incr ::esh-3.1-2
+    incr ::eshcounter
+}
+
+test element-3.1 {change handler from handler callback} {
+    set ::esh-3.1-1 0
+    set ::esh-3.1-2 0
+    set ::eshcounter 0
+    set p [expat -elementstartcommand esh-3.1-1]
+    $p parse {<root><a/><b><c/><c/></b><d/>foo bar</root>}
+    $p free
+    list ${::esh-3.1-1} ${::esh-3.1-2} $::eshcounter
+} {3 3 6}
+
+proc esh-3.2-1 {p args} {
+    $p configure -elementstartcommand [list esh-3.2-2 $p]
+    incr ::esh-3.2-1
+    incr ::eshcounter
+}
+
+proc esh-3.2-2 {p args} {
+    $p configure -elementstartcommand [list esh-3.2-1 $p]
+    incr ::esh-3.2-2
+    incr ::eshcounter
+}
+
+test element-3.2 {change handler from handler callback} {
+    set ::esh-3.2-1 0
+    set ::esh-3.2-2 0
+    set ::eshcounter 0
+    set p [expat]
+    $p configure -elementstartcommand [list esh-3.2-1 $p]
+    $p parse {<root><a/><b><c/><c/><c/></b><d/>foo bar</root>}
+    $p free
+    list ${::esh-3.2-1} ${::esh-3.2-2} $::eshcounter
+} {4 3 7}
+
+foreach parser [info commands element-*] {
+    $parser free
+}
+
+# cleanup
+::tcltest::cleanupTests
+return

@@ -1,7 +1,0 @@
-/only Mac OS X/a
-.
-.,+1d
-/#elif defined(__DARWIN__)/s/__DARWIN__/__DAR__WIN__/
-g/__DARWIN__/s//notdef/
-g/__DAR__WIN__/s//__DARWIN__/
-w

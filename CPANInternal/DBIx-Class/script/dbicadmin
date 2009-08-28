@@ -4,10 +4,10 @@ use warnings;
 
 use Getopt::Long;
 use Pod::Usage;
-use JSON qw( jsonToObj );
+use JSON::Any;
 
-$JSON::BareKey = 1;
-$JSON::QuotApos = 1;
+
+my $json = JSON::Any->new(allow_barekey => 1, allow_singlequote => 1);
 
 GetOptions(
     'schema=s'  => \my $schema_class,
@@ -50,7 +50,7 @@ if ($op eq 'select') {
 die('No schema specified') if(!$schema_class);
 eval("require $schema_class");
 die('Unable to load schema') if ($@);
-$connect = jsonToObj( $connect ) if ($connect);
+$connect = $json->jsonToObj( $connect ) if ($connect);
 my $schema = $schema_class->connect(
     ( $connect ? @$connect : () )
 );
@@ -59,15 +59,15 @@ die('No class specified') if(!$resultset_class);
 my $resultset = eval{ $schema->resultset($resultset_class) };
 die('Unable to load the class with the schema') if ($@);
 
-$set = jsonToObj( $set ) if ($set);
-$where = jsonToObj( $where ) if ($where);
-$attrs = jsonToObj( $attrs ) if ($attrs);
+$set = $json->jsonToObj( $set ) if ($set);
+$where = $json->jsonToObj( $where ) if ($where);
+$attrs = $json->jsonToObj( $attrs ) if ($attrs);
 
 if ($op eq 'insert') {
     die('Do not use the where option with the insert op') if ($where);
     die('Do not use the attrs option with the insert op') if ($attrs);
     my $obj = $resultset->create( $set );
-    print ''.ref($resultset).' ID: '.join(',',$obj->id())."\n";
+    print ''.ref($resultset).' ID: '.join(',',$obj->id())."\n" if (!$quiet);
 }
 elsif ($op eq 'update') {
     $resultset = $resultset->search( ($where||{}) );

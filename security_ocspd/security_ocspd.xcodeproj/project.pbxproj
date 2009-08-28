@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 42;
+	objectVersion = 45;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -98,7 +98,7 @@
 		05B904E506A05DC3008F547D /* ocspdDb.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ocspdDb.h; sourceTree = "<group>"; };
 		05BCD7E3069F322C00A79292 /* CoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreServices.framework; path = /System/Library/Frameworks/CoreServices.framework; sourceTree = "<absolute>"; };
 		05DB0AA5070B560000D9000A /* security_cdsa_client.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = security_cdsa_client.framework; path = /usr/local/SecurityPieces/Frameworks/security_cdsa_client.framework; sourceTree = "<absolute>"; };
-		05DC26320A49A303008EAB6F /* com.apple.ocspd.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = com.apple.ocspd.plist; sourceTree = "<group>"; };
+		05DC26320A49A303008EAB6F /* com.apple.ocspd.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; path = com.apple.ocspd.plist; sourceTree = "<group>"; };
 		05E4ADE006A83EF100546A37 /* security_ocspd.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = security_ocspd.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		05E66939070B38730079A61A /* LDAP.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = LDAP.framework; path = /System/Library/Frameworks/LDAP.framework; sourceTree = "<absolute>"; };
 		05E66972070B445B0079A61A /* crlDb.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = crlDb.h; sourceTree = "<group>"; };
@@ -227,7 +227,7 @@
 		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
 			isa = PBXProject;
 			buildConfigurationList = C27AD47F0987FCE9001272E0 /* Build configuration list for PBXProject "security_ocspd" */;
-			compatibilityVersion = "Xcode 2.4";
+			compatibilityVersion = "Xcode 3.1";
 			hasScannedForEncodings = 1;
 			mainGroup = 4CA1FEA7052A3C3800F22E42;
 			productRefGroup = 4CA1FEBF052A3C8100F22E42 /* Products */;
@@ -271,15 +271,14 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 32148;
-				DYLIB_CURRENT_VERSION = 32148;
+				CURRENT_PROJECT_VERSION = 36090;
+				DYLIB_CURRENT_VERSION = 36090;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)",
 					/usr/local/SecurityPieces/Frameworks/,
 					/usr/local/SecurityPieces/Frameworks,
 				);
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				HEADER_SEARCH_PATHS = "$(SRCROOT)/common";
@@ -299,7 +298,6 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
-					"-Werror",
 				);
 				ZERO_LINK = NO;
 			};
@@ -308,14 +306,13 @@
 		C27AD4790987FCE9001272E0 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 32148;
-				DYLIB_CURRENT_VERSION = 32148;
+				CURRENT_PROJECT_VERSION = 36090;
+				DYLIB_CURRENT_VERSION = 36090;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)",
 					/usr/local/SecurityPieces/Frameworks/,
 					/usr/local/SecurityPieces/Frameworks,
 				);
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				HEADER_SEARCH_PATHS = "$(SRCROOT)/common";
 				INSTALL_PATH = /usr/sbin;
 				OTHER_CFLAGS = "";
@@ -333,7 +330,6 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
-					"-Werror",
 				);
 				ZERO_LINK = NO;
 			};
@@ -342,8 +338,8 @@
 		C27AD47A0987FCE9001272E0 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 32148;
-				DYLIB_CURRENT_VERSION = 32148;
+				CURRENT_PROJECT_VERSION = 36090;
+				DYLIB_CURRENT_VERSION = 36090;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)",
 					/usr/local/SecurityPieces/Frameworks/,
@@ -366,7 +362,6 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
-					"-Werror",
 				);
 			};
 			name = Default;
@@ -376,7 +371,6 @@
 			buildSettings = {
 				BUILD_VARIANTS = debug;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				OTHER_CFLAGS = "";
@@ -399,7 +393,6 @@
 		C27AD47D0987FCE9001272E0 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = (
 					"-framework",
@@ -436,22 +429,30 @@
 		C27AD4800987FCE9001272E0 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH)";
+				CODE_SIGN_IDENTITY = "-";
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
 				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+				GCC_OPTIMIZATION_LEVEL = 0;
 			};
 			name = Development;
 		};
 		C27AD4810987FCE9001272E0 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				CODE_SIGN_IDENTITY = "-";
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
 				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+				VALID_ARCHS = "i386 ppc x86_64";
 			};
 			name = Deployment;
 		};
 		C27AD4820987FCE9001272E0 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				CODE_SIGN_IDENTITY = "-";
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
 				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
 			};

@@ -1,0 +1,47 @@
+--- /tmp/jabberd-2.1.24.1/router/router.h	2008-04-27 02:57:33.000000000 -0700
++++ ./jabberd2/router/router.h	2009-05-26 13:05:01.000000000 -0700
+@@ -48,6 +48,9 @@
+ # include <sys/stat.h>
+ #endif
+ 
++#include <sys/resource.h>
++#include <sys/syslimits.h>
++
+ typedef struct router_st    *router_t;
+ typedef struct component_st *component_t;
+ typedef struct alias_st     *alias_t;
+@@ -89,6 +92,7 @@ struct router_st {
+     int                 local_port;
+     char                *local_secret;
+     char                *local_pemfile;
++    char                *local_private_key_password;
+ 
+     /** max file descriptors */
+     int                 io_max_fds;
+@@ -148,6 +152,16 @@ struct router_st {
+ 
+     /** list of sx_t waiting to be cleaned up */
+     jqueue_t            dead;
++    
++    /** message logging attributes */
++	int message_logging_enabled;
++	char *message_logging_dir;
++	char *message_logging_file;
++	char *message_logging_fullpath;
++	int message_logging_roll_days;
++	int message_logging_roll_megs;
++	int log_group_chats;
++	char *filter_muc_messages_from;
+ };
+ 
+ /** a single component */
+@@ -205,6 +219,9 @@ int     filter_load(router_t r);
+ void    filter_unload(router_t r);
+ int     filter_packet(router_t r, nad_t nad);
+ 
++int     message_log(nad_t nad, router_t r, char *msg_from, char *msg_to);
++int     roll_message_log(router_t r);
++
+ /* union for xhash_iter_get to comply with strict-alias rules for gcc3 */
+ union xhashv
+ {

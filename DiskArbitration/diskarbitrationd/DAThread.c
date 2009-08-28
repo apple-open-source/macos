@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -130,7 +130,7 @@ static void __DAThreadRunLoopSourceCallback( CFMachPortRef port, void * message,
      * Scan through job list.
      */
 
-    for ( job = __gDAThreadRunLoopSourceJobs; job; )
+    for ( job = __gDAThreadRunLoopSourceJobs; job; jobLast = NULL )
     {
         for ( job = __gDAThreadRunLoopSourceJobs; job; jobLast = job, job = job->next )
         {

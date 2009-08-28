@@ -192,11 +192,32 @@ void IOFireWireAVCCommand::free()
 {
 	FIRELOG_MSG(("IOFireWireAVCCommand::free (this=0x%08X)\n",this));
 
-    if (fWriteCmd) {
+	if(	fIOFireWireAVCCommandExpansion	)
+		fIOFireWireAVCCommandExpansion->fStarted = false;
+
+	if( Busy() )
+	{
+		cancel(kIOReturnAborted);
+	}
+
+    if( fWriteCmd ) 
+	{
+		if( fWriteCmd->Busy() )
+		{
+			fWriteCmd->cancel(kIOReturnAborted);
+		}
         fWriteCmd->release();
+		fWriteCmd = NULL;
     }
-    if(fMem)
+
+    if( fMem )
+	{
         fMem->release();
+		fMem = NULL;
+	}
+
+	IOFree ( fIOFireWireAVCCommandExpansion, sizeof(ExpansionData) );
+	fIOFireWireAVCCommandExpansion = NULL;
 
     IOFWCommand::free();
 }
@@ -227,17 +248,35 @@ IOReturn IOFireWireAVCCommand::complete(IOReturn state)
         fTimeout = 0;
         return fStatus = startExecution();
     }
-    if(fSync)
-        fSyncWakeup->signal(state);
+
+    if( fSync )
+	{
+		if( fSyncWakeup && (not fIOFireWireAVCCommandExpansion->fSyncWakeupSignaled) )
+		{
+			fIOFireWireAVCCommandExpansion->fSyncWakeupSignaled = true;
+			fSyncWakeup->signal(state);
+		}
+	}
     //else if(fComplete)
 	//(*fComplete)(fRefCon, state, fControl, this);
     return state;
 }
 
+IOReturn IOFireWireAVCCommand::submit(bool queue)
+{
+	fIOFireWireAVCCommandExpansion->fSyncWakeupSignaled = false;
+
+	return IOFWCommand::submit(queue);
+}
 
 IOReturn IOFireWireAVCCommand::execute()
 {
 	FIRELOG_MSG(("IOFireWireAVCCommand::execute (this=0x%08X)\n",this));
+	
+	if( fIOFireWireAVCCommandExpansion->fStarted == false )
+	{
+		return kIOReturnOffline;
+	}
 
     fStatus = kIOReturnBusy;
     fWriteCmd->submit();
@@ -281,6 +320,13 @@ bool IOFireWireAVCCommand::init(IOFireWireNub *device, const UInt8 * command, UI
     fCurRetries = fMaxRetries;
     fCmdLen = cmdLen;
 	bypassRobustCommandResponseMatching = false;
+
+	// create/clear expansion data
+	fIOFireWireAVCCommandExpansion = (ExpansionData*) IOMalloc( sizeof(ExpansionData) );
+	if( fIOFireWireAVCCommandExpansion == NULL )
+		return false;
+	else
+		bzero( fIOFireWireAVCCommandExpansion, sizeof(ExpansionData) );
     
     // create command
     if(cmdLen == 4 || cmdLen == 8) {
@@ -311,6 +357,10 @@ bool IOFireWireAVCCommand::init(IOFireWireNub *device, const UInt8 * command, UI
             return false;
         }
     }
+
+	fIOFireWireAVCCommandExpansion->fStarted = true;
+	fIOFireWireAVCCommandExpansion->fSyncWakeupSignaled = false;
+
     return true;
 }
 
@@ -321,14 +371,17 @@ IOReturn IOFireWireAVCCommand::reinit(IOFireWireNub *device, const UInt8 * comma
 
     if(Busy())
         return fStatus;
+
     if(fMem) {
         fMem->release();
         fMem = NULL;
     }
+
     if(fWriteCmd) {
         fWriteCmd->release();
         fWriteCmd = NULL;
     }
+
     if(init(device, command, cmdLen, response, responseLen))
         return kIOReturnSuccess;
     else
@@ -438,6 +491,13 @@ bool IOFireWireAVCCommandInGen::init(IOFireWireNub *device, UInt32 generation,
     fCurRetries = fMaxRetries;
     fCmdLen = cmdLen;
     
+	// create/clear expansion data
+	fIOFireWireAVCCommandExpansion = (ExpansionData*) IOMalloc( sizeof(ExpansionData) );
+	if( fIOFireWireAVCCommandExpansion == NULL )
+		return false;
+	else
+		bzero( fIOFireWireAVCCommandExpansion, sizeof(ExpansionData) );
+	
     // create command
     if(cmdLen == 4 || cmdLen == 8) {
         fMem = NULL;
@@ -470,6 +530,10 @@ bool IOFireWireAVCCommandInGen::init(IOFireWireNub *device, UInt32 generation,
         }
         ((IOFWWriteCommand *)fWriteCmd)->initAll(control, generation, addr, fMem, writeDone, this);
     }
+
+	fIOFireWireAVCCommandExpansion->fStarted = true;
+	fIOFireWireAVCCommandExpansion->fSyncWakeupSignaled = false;
+	
     return true;
 }
 

@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: simplessl.c,v 1.6 2004/08/12 07:01:20 bagder Exp $
+ * $Id: simplessl.c,v 1.9 2008-05-22 21:20:09 danf Exp $
  */
 
 #include <stdio.h>
@@ -38,9 +38,10 @@ int main(int argc, char **argv)
   CURL *curl;
   CURLcode res;
   FILE *headerfile;
+  const char *pPassphrase = NULL;
 
-  const char *pCertFile = "testcert.pem";
-  const char *pCACertFile="cacert.pem";
+  static const char *pCertFile = "testcert.pem";
+  static const char *pCACertFile="cacert.pem";
 
   const char *pKeyName;
   const char *pKeyType;
@@ -56,8 +57,6 @@ int main(int argc, char **argv)
   pKeyType  = "PEM";
   pEngine   = NULL;
 #endif
-
-  const char *pPassphrase = NULL;
 
   headerfile = fopen("dumpit", "w");
 
@@ -78,7 +77,7 @@ int main(int argc, char **argv)
           fprintf(stderr,"can't set crypto engine\n");
           break;
         }
-        if (curl_easy_setopt(curl, CURLOPT_SSLENGINE_DEFAULT,1) != CURLE_OK)
+        if (curl_easy_setopt(curl, CURLOPT_SSLENGINE_DEFAULT,1L) != CURLE_OK)
         { /* set the crypto engine as default */
           /* only needed for the first time you load
              a engine in a curl object... */
@@ -96,7 +95,7 @@ int main(int argc, char **argv)
       /* sorry, for engine we must set the passphrase
          (if the key has one...) */
       if (pPassphrase)
-        curl_easy_setopt(curl,CURLOPT_SSLKEYPASSWD,pPassphrase);
+        curl_easy_setopt(curl,CURLOPT_KEYPASSWD,pPassphrase);
 
       /* if we use a key stored in a crypto engine,
          we must set the key type to "ENG" */
@@ -109,7 +108,7 @@ int main(int argc, char **argv)
       curl_easy_setopt(curl,CURLOPT_CAINFO,pCACertFile);
 
       /* disconnect if we can't validate server's cert */
-      curl_easy_setopt(curl,CURLOPT_SSL_VERIFYPEER,1);
+      curl_easy_setopt(curl,CURLOPT_SSL_VERIFYPEER,1L);
 
       res = curl_easy_perform(curl);
       break;                   /* we are done... */

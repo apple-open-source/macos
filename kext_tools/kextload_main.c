@@ -1,165 +1,45 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+ *  kextload_main.c
+ *  kext_tools
  *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
- * 
- * @APPLE_LICENSE_HEADER_END@
+ *  Created by Nik Gervae on 11/08/08.
+ *  Copyright 2008 Apple Inc. All rights reserved.
+ *
  */
-#include <CoreFoundation/CoreFoundation.h>
-#include <libc.h>
-#include <IOKit/IOTypes.h>
-#include <sys/sysctl.h>
-#include <servers/bootstrap.h>    // bootstrap mach ports
+#include "kextload_main.h"
+#include "kext_tools_util.h"
 
-#include <IOKit/kext/KXKextManager.h>
+#include <libc.h>
+#include <sysexits.h>
+
+#include <IOKit/kext/KextManager.h>
 #include <IOKit/kext/KextManagerPriv.h>
 #include <IOKit/kext/kextmanager_types.h>
-#include <IOKit/kext/fat_util.h>
-#include <IOKit/kext/macho_util.h>
-#include <bootfiles.h>
+#include <IOKit/kext/OSKextPrivate.h>
 
-#include "utility.h"
+#pragma mark Constants
+/*******************************************************************************
+* Constants
+*******************************************************************************/
 
-#define ALLOW_PATCH_OUTPUT  0
-#define ALLOW_NO_START      0
+#pragma mark Global/Static Variables
+/*******************************************************************************
+* Global/Static Variables
+*******************************************************************************/
+const char * progname = "(unknown)";
 
+#pragma mark Main Routine
 /*******************************************************************************
 * Global variables.
 *******************************************************************************/
-
-const char * progname = "(unknown)";
-int g_verbose_level = kKXKextManagerLogLevelDefault;  // -v, -q options set this
-
-static mach_port_t sKextdPort = MACH_PORT_NULL;
-static mach_port_t sLockPort = MACH_PORT_NULL;
-static int sLockStatus = 0;
-static bool sLockTaken = false;
-#define LOCK_MAXTRIES 90
-#define LOCK_DELAY     1
-
-
-/*******************************************************************************
-* Utility and callback functions.
-*******************************************************************************/
-
-static void usage(int level);
-
-extern KXKextManagerError _KXKextManagerPrepareKextForLoading(
-    KXKextManagerRef aKextManager,
-    KXKextRef aKext,
-    const char * kext_name,
-    Boolean check_loaded_for_dependencies,
-    Boolean do_load,
-    CFMutableArrayRef inauthenticKexts);
-extern KXKextManagerError _KXKextManagerLoadKextUsingOptions(
-    KXKextManagerRef aKextManager,
-    KXKextRef aKext,
-    const char * kext_name,
-    const char * kernel_file,
-    const char * patch_dir,
-    const char * symbol_dir,
-    IOOptionBits load_options,
-    Boolean do_start_kext,
-    int     interactive_level,
-    Boolean ask_overwrite_symbols,
-    Boolean overwrite_symbols,
-    Boolean get_addrs_from_kernel,
-    unsigned int num_addresses,
-    char ** addresses);
-
-extern const char * _KXKextCopyCanonicalPathnameAsCString(KXKextRef aKext);
-
-extern kern_return_t kextmanager_lock_kextload(
-    mach_port_t server,
-    mach_port_t client,
-    int * lockstatus);
-kern_return_t kextmanager_unlock_kextload(
-    mach_port_t server,
-    mach_port_t client);
-
-/*******************************************************************************
-*******************************************************************************/
-
-int main(int argc, const char *argv[])
+ExitStatus
+main(int argc, char * const * argv)
 {
-    int exit_code = 0;
-    int failure_code = 0;  // if any kext load fails during the loop
-    int add_kexts_result = 1;  // assume success here
-    int argc_mod = argc;
-    int argc_opt_count = 0;
-    const char ** argv_mod = argv;
-    int optchar;
-    KXKextManagerRef theKextManager = NULL;  // must release
-    CFURLRef         kextURL = NULL;         // must release
-    KXKextManagerError result;
-
-    CFIndex i, count;
-
-    int approve;                             // for interactive mode queries
-
-   /*****
-    * Set by command line option flags.
-    */
-    unsigned short int flag_n = 0;  // used to sanity-check -n, -l, -m
-    unsigned short int flag_l = 0;  // before setting behavior-changing
-    unsigned short int flag_m = 0;  // variables do_load & do_start_matching
-
-    Boolean get_addrs_from_kernel = false;   // -A
-    Boolean use_repository_caches = true;    // -c to turn off
-    Boolean skip_extensions_folder = false;  // -e
-    Boolean overwrite_symbols = true;        // -i turns off
-    int interactive_level = 0;               // -i/-I turns on
-
-    Boolean do_load = true;                  // -l is load but no matching
-    Boolean do_start_kmod = true;            // -j is load, don't start,
-                                             //    no matching
-    Boolean do_start_matching = true;        // -m is don't load but start
-                                             //    matching
-                                             // -n is don't do either
-
-    Boolean do_tests = false;                // -t
-    Boolean strict_auth = true;
-    Boolean safe_boot_mode = false;          // -x
-    Boolean pretend_authentic = false;       // -z
-    Boolean skip_dependencies = false;       // -Z (and with -t only!)
-    Boolean check_loaded_for_dependencies = false; // -D to turn off (obsolete)
-
-    unsigned int addresses_cap = 10;
-    unsigned int num_addresses = 0;
-    char ** addresses = NULL;                // -a; must free
-
-    CFMutableArrayRef kextIDs = NULL;                // -b; must release
-    CFMutableArrayRef personalityNames = NULL;       // -p; must release
-    CFMutableArrayRef dependencyNames = NULL;        // -d; must release
-    CFMutableArrayRef repositoryDirectories = NULL;  // -r; must release
-    CFMutableArrayRef kextNames = NULL;              // args; must release
-    CFMutableArrayRef kextNamesToUse = NULL;         // must release
-    CFMutableArrayRef inauthenticKexts = NULL;       // must release
-    KXKextRef theKext = NULL;                        // don't release
-
-    const char * kernel_file = NULL;  // overriden by -k option
-    const char * symbol_dir = NULL;   // set by -s option;
-                                      // for writing debug files for kmods
-    const char * patch_dir = NULL;    // set by -P option;
-                                      // for writing patchup files for kmods
-
-    CFIndex inauthentic_kext_count = 0;
-    CFIndex k = 0;
+    ExitStatus    result         = EX_SOFTWARE;
+    OSReturn      loadResult     = kOSReturnError;
+    KextloadArgs  toolArgs;
+    char          scratchCString[PATH_MAX];
+    CFIndex       count, index;
 
    /*****
     * Find out what the program was invoked as.
@@ -171,1354 +51,349 @@ int main(int argc, const char *argv[])
         progname = (char *)argv[0];
     }
 
+   /* Set the OSKext log callback right away.
+    */
+    OSKextSetLogOutputFunction(&tool_log);
+
    /*****
-    * Allocate collection objects.
+    * Process args & check for permission to load.
     */
-    addresses = (char **)malloc(addresses_cap * sizeof(char *));
-    if (!addresses) {
-        exit_code = 1;
-        qerror("memory allocation failure\n");
-        goto finish;
-    }
-    bzero(addresses, addresses_cap * sizeof(char *));
-
-    personalityNames = CFArrayCreateMutable(kCFAllocatorDefault, 0,
-        &kCFTypeArrayCallBacks);
-    if (!personalityNames) {
-        exit_code = 1;
-        qerror("memory allocation failure\n");
-        goto finish;
-    }
-
-    dependencyNames = CFArrayCreateMutable(kCFAllocatorDefault, 0,
-        &kCFTypeArrayCallBacks);
-    if (!dependencyNames) {
-        exit_code = 1;
-        qerror("memory allocation failure\n");
-        goto finish;
-    }
-
-    repositoryDirectories = CFArrayCreateMutable(kCFAllocatorDefault, 0,
-        &kCFTypeArrayCallBacks);
-    if (!repositoryDirectories) {
-        exit_code = 1;
-        qerror("memory allocation failure\n");
-        goto finish;
-    }
-
-    kextNames = CFArrayCreateMutable(kCFAllocatorDefault, 0,
-        &kCFTypeArrayCallBacks);
-    if (!kextNames) {
-        exit_code = 1;
-        qerror("memory allocation failure\n");
-        goto finish;
-    }
-
-    kextNamesToUse = CFArrayCreateMutable(kCFAllocatorDefault, 0,
-        &kCFTypeArrayCallBacks);
-    if (!kextNamesToUse) {
-        exit_code = 1;
-        qerror("memory allocation failure\n");
-        goto finish;
-    }
-
-    kextIDs = CFArrayCreateMutable(kCFAllocatorDefault, 0,
-        &kCFTypeArrayCallBacks);
-    if (!kextIDs) {
-        exit_code = 1;
-        qerror("memory allocation failure\n");
-        goto finish;
-    }
-
-    /*****
-    * Process command line arguments. If running in kextload-compatibiliy
-    * mode, accept its old set of options and none other. If running in
-    * the new mode, process the new, larger set of options.
-    */
-// -j option currently masked out
-    while ((optchar = getopt(argc, (char * const *)argv,
-               "a:Ab:cd:DehiIk:lLmnp:P:qr:s:tvxzZ")) != -1) {
-
-        char * address_string = NULL;  // don't free
-        unsigned int address;
-        CFStringRef optArg = NULL;    // must release
-
-        switch (optchar) {
-          case 'a':
-            flag_n = 1;  // -a implies -n
-
-            if (!optarg) {
-                qerror("no argument for -a\n");
-                usage(0);
-                exit_code = 1;
-                goto finish;
-            }
-            address_string = index(optarg, '@');
-            if (!address_string) {
-                qerror("invalid use of -a option\n\n");
-                usage(0);
-                exit_code = 1;
-                goto finish;
-            }
-            address_string++;
-            address = strtoul(address_string, NULL, 16);
-            if (!address) {
-                qerror(
-                    "address must be specified and non-zero\n\n");
-                usage(0);
-                exit_code = 1;
-                goto finish;
-            }
-
-            if (num_addresses >= addresses_cap) {
-                addresses_cap *= 2;
-                addresses = (char **)realloc(addresses,
-                    (addresses_cap * sizeof(char *)));
-                if (!addresses) {
-                    qerror(
-                        "memory allocation failure\n");
-                    exit_code = 1;
-                    goto finish;
-                }
-                bzero(addresses + num_addresses,
-                    (addresses_cap-num_addresses) * sizeof(char *));
-            }
-            addresses[num_addresses++] = optarg;
-            break;
-
-          case 'A':
-            flag_n = 1;   // -A implies -n
-            get_addrs_from_kernel = true;
-            break;
-
-          case 'b':
-            if (!optarg) {
-                qerror("no argument for -b\n");
-                usage(0);
-                exit_code = 1;
-                goto finish;
-            }
-            optArg = CFStringCreateWithCString(kCFAllocatorDefault,
-                optarg, kCFStringEncodingUTF8);
-            if (!optArg) {
-                qerror("memory allocation failure\n");
-                exit_code = 1;
-                goto finish;
-           }
-            CFArrayAppendValue(kextIDs, optArg);
-            CFRelease(optArg);
-            optArg = NULL;
-            break;
-
-          case 'c':
-            use_repository_caches = false;
-            break;
-
-          case 'd':
-            if (!optarg) {
-                qerror("no argument for -d\n");
-                usage(0);
-                exit_code = 1;
-                goto finish;
-            }
-            optArg = CFStringCreateWithCString(kCFAllocatorDefault,
-                optarg, kCFStringEncodingUTF8);
-            if (!optArg) {
-                qerror("memory allocation failure\n");
-                exit_code = 1;
-                goto finish;
-            }
-            CFArrayAppendValue(dependencyNames, optArg);
-            CFRelease(optArg);
-            optArg = NULL;
-            break;
-
-          case 'D':
-            check_loaded_for_dependencies = false;
-            break;
-
-          case 'e':
-            skip_extensions_folder = true;
-            break;
-
-          case 'h':
-            usage(2);
-            goto finish;
-            break;
-
-          case 'i':
-            if (interactive_level) {
-                qerror("use only one of -i or -I\n\n");
-                usage(0);
-                exit_code = 1;
-                goto finish;
-            }
-            overwrite_symbols = false;
-            interactive_level = 1;
-            break;
-
-          case 'I':
-            if (interactive_level) {
-                qerror("use only one of -i or -I\n\n");
-                usage(0);
-                exit_code = 1;
-                goto finish;
-            }
-            overwrite_symbols = false;
-            interactive_level = 2;
-            break;
-
-#if ALLOW_NO_START
-          case 'j':
-            do_load = true;
-            do_start_kmod = false;
-            do_start_matching = false;
-            break;
-#endif ALLOW_NO_START
-
-          case 'k':
-            if (kernel_file) {
-                qerror("duplicate use of -k option\n\n");
-                usage(0);
-                exit_code = 1;
-                goto finish;
-            }
-            if (!optarg) {
-                qerror("no argument for -k\n");
-                usage(0);
-                exit_code = 1;
-                goto finish;
-            }
-            kernel_file = optarg;
-            break;
-
-          case 'l':
-            flag_l = 1;
-            break;
-
-          // see case 'r' for case 'L'
-
-          case 'm':
-            flag_m = 1;
-            break;
-
-          case 'n':
-            flag_n = 1;
-            break;
-
-          case 'p':
-            if (!optarg) {
-                qerror("no argument for -p\n");
-                usage(0);
-                exit_code = 1;
-                goto finish;
-            }
-            optArg = CFStringCreateWithCString(kCFAllocatorDefault,
-                optarg, kCFStringEncodingUTF8);
-            if (!optArg) {
-                qerror("memory allocation failure\n");
-                exit_code = 1;
-                goto finish;
-            }
-            CFArrayAppendValue(personalityNames, optArg);
-            CFRelease(optArg);
-            optArg = NULL;
-            break;
-#if ALLOW_PATCH_OUTPUT
-          case 'P':
-            if (patch_dir) {
-                qerror("duplicate use of -P option\n\n");
-                usage(0);
-                exit_code = 1;
-                goto finish;
-            }
-            if (!optarg) {
-                qerror("no argument for -P\n");
-                usage(0);
-                exit_code = 1;
-                goto finish;
-            }
-            patch_dir = optarg;
-            break;
-#endif
-
-          case 'q':
-            if (g_verbose_level != kKXKextManagerLogLevelDefault) {
-                qerror("duplicate use of -v and/or -q option\n\n");
-                usage(0);
-                exit_code = 1;
-                goto finish;
-            }
-            g_verbose_level = kKXKextManagerLogLevelSilent;
-            break;
-
-          case 'r':
-            /* fall through */
-          case 'L':
-            if (!optarg) {
-                qerror("no argument for -%c\n", optchar);
-                usage(0);
-                exit_code = 1;
-                goto finish;
-            }
-            optArg = CFStringCreateWithCString(kCFAllocatorDefault,
-               optarg, kCFStringEncodingUTF8);
-            if (!optArg) {
-                qerror("memory allocation failure\n");
-                exit_code = 1;
-                goto finish;
-            }
-            CFArrayAppendValue(repositoryDirectories, optArg);
-            CFRelease(optArg);
-            optArg = NULL;
-            break;
-
-          case 's':
-            if (symbol_dir) {
-                qerror("duplicate use of -s option\n\n");
-                usage(0);
-                exit_code = 1;
-                goto finish;
-            }
-            if (!optarg) {
-                qerror("no argument for -s\n");
-                usage(0);
-                exit_code = 1;
-                goto finish;
-            }
-            symbol_dir = optarg;
-            break;
-
-          case 't':
-            do_tests = true;
-            break;
-
-          case 'v':
-            {
-                const char * next;
-
-                if (g_verbose_level != kKXKextManagerLogLevelDefault) {
-                    qerror("duplicate use of -v and/or -q option\n\n");
-                    usage(0);
-                    exit_code = 1;
-                    goto finish;
-                }
-                if (optind >= argc) {
-                    g_verbose_level = kKXKextManagerLogLevelBasic;
-                } else {
-                    next = argv[optind];
-                    if ((next[0] == '0' || next[0] == '1' ||
-                         next[0] == '2' || next[0] == '3' || 
-                         next[0] == '4' || next[0] == '5' ||
-                         next[0] == '6') && next[1] == '\0') {
-
-                        if (next[0] == '0') {
-                            g_verbose_level = kKXKextManagerLogLevelErrorsOnly;
-                        } else {
-                            g_verbose_level = atoi(next);
-                        }
-                        optind++;
-                    } else {
-                        g_verbose_level = kKXKextManagerLogLevelBasic;
-                    }
-                }
-            }
-            break;
-
-          case 'x':
-            safe_boot_mode = true;
-            use_repository_caches = false;  // -x implies -c
-            break;
-
-          case 'z':
-            pretend_authentic = true;
-            break;
-
-          case 'Z':
-            skip_dependencies = true;
-            break;
-
-        default:
-            qerror("unknown option -%c\n", optchar);
-            usage(0);
-            exit_code = 1;
-            goto finish;
+    result = readArgs(argc, argv, &toolArgs);
+    if (result != EX_OK) {
+        if (result == kKextloadExitHelp) {
+            result = EX_OK;
         }
+        goto finish;
     }
 
-   /* Update argc, argv based on option processing.
+    result = checkArgs(&toolArgs);
+    if (result != EX_OK) {
+        goto finish;
+    }
+
+   /* From here on out the default exit status is ok.
     */
-    argc_mod = argc - optind;
-    argc_opt_count = optind;
-    argv_mod = argv + optind;
+    result = EX_OK;
 
-   /*****
-    * Check for bad combinations of arguments and options.
-    */
-    if (CFArrayGetCount(kextIDs) == 0 && argc_mod == 0) {
-        qerror("no kernel extension specified "
-            "(name kernel extension bundles\n"
-            "    following options, or use -b)\n\n");
-        usage(0);
-        exit_code = 1;
-        goto finish;
-    } else if (flag_l + flag_m + flag_n > 1) {
-        qerror("only one of -l/-m/-n is allowed"
-            " (-a and -A imply -n)\n\n");
-        usage(0);
-        exit_code = 1;
-        goto finish;
-    } else if (flag_l) {
-        do_load = true;
-        do_start_matching = false;
-    } else if (flag_m) {
-        do_load = false;
-        do_start_matching = true;
-    } else if (flag_n) {
-        do_load = false;
-        do_start_matching = false;
-    }
+    count = CFArrayGetCount(toolArgs.kextIDs);
+    for (index = 0; index < count; index++) {
+        CFStringRef kextID = CFArrayGetValueAtIndex(
+            toolArgs.kextIDs,
+            index);
 
-    if (do_load && geteuid() != 0) {
-        qerror("you must be running as root "
-            "to load modules into the kernel\n");
-        exit_code = 1;
-        goto finish;
-    }
+        if (!CFStringGetCString(kextID, scratchCString, sizeof(scratchCString),
+            kCFStringEncodingUTF8)) {
 
-    if (num_addresses > 0 && get_addrs_from_kernel) {
-        qerror("don't use -a with -A\n");
-        usage(0);
-        exit_code = 1;
-        goto finish;
-    }
-
-    if (num_addresses > 0 && (do_load || do_start_matching)) {
-        qerror("don't use -a with -l or -m\n");
-        usage(0);
-        exit_code = 1;
-        goto finish;
-    }
-
-    if (get_addrs_from_kernel && (do_load || do_start_matching)) {
-        qerror("don't use -A with -l or -m\n");
-        usage(0);
-        exit_code = 1;
-        goto finish;
-    }
-
-    // FIXME: Is this a valid restriction? The default kernel_file
-    // FIXME: ...is /mach, which is written out by the kernel during
-    // FIXME: ...boot, and always represents the currently running kernel.
-    //
-    if (kernel_file && (do_load || do_start_matching)) {
-        qerror("use -k only with -n\n");
-        usage(0);
-        exit_code = 1;
-        goto finish;
-    }
-
-   /*****
-    * Make sure if we're just doing debug symbols that we don't
-    * load or start matching (-a/-A imply -n).
-    */
-    if (num_addresses > 0 || get_addrs_from_kernel) {
-        do_load = 0;
-        do_start_matching = 0;
-    }
-
-    if (pretend_authentic && do_load) {
-        qerror("-z is only allowed when not loading\n");
-        usage(0);
-        exit_code = 1;
-        goto finish;
-    }
-
-   /* If running in quiet mode and the invocation might require
-    * interaction, just exit with an error.
-    */
-    if (g_verbose_level == kKXKextManagerLogLevelSilent) {
-        if (interactive_level > 0 ||
-            (flag_n && num_addresses == 0 && get_addrs_from_kernel == 0)) {
-
-            exit_code = 1;
-            goto finish;
+            strlcpy(scratchCString, "unknown", sizeof(scratchCString));
         }
-    }
-
-   /****
-    * If we're getting addresses from the kernel we have to call
-    * down there, so we might as well check what's loaded before
-    * resolving dependencies too (-A overrides -D). If we're not
-    * performing a load, then don't check (-n/-m implies -D).
-    */
-    if (get_addrs_from_kernel) {
-        check_loaded_for_dependencies = true;
-    }
-#if 0
-// Default behavior now is to not check loaded for dependencies and
-// do pure version-based dependency resolution. We might introduce
-// a new flag to turn this on for general load cases....
-else if (!do_load) {
-        check_loaded_for_dependencies = false;
-    }
-#endif /* 0 */
-
-   /*****
-    * If we're not loading and have no request to emit a symbol
-    * or patch file, there's nothing to do!
-    */
-    if (!do_tests && !do_load && !do_start_matching &&
-        !symbol_dir && !patch_dir) {
-
-        qerror("no work to do; check your options\n\n");
-        usage(0);
-        exit_code = 1;
-        goto finish;
-    }
-
-   /*****
-    * -Z is only allowed if you don't need to generate dependencies.
-    */
-    if (skip_dependencies && (!do_tests || do_load || symbol_dir || patch_dir)) {
-#if ALLOW_PATCH_OUTPUT
-        qerror("use -Z only with -nt and not with -s or -P\n");
-#else
-        qerror("use -Z only with -nt and not with -s\n");
-#endif ALLOW_PATCH_OUTPUT
-        usage(0);
-        exit_code = 1;
-        goto finish;
-    }
-
-   /*****
-    * Record the kext names from the command line.
-    */
-    for (i = 0; i < argc_mod; i++) {
-        CFStringRef kextName = CFStringCreateWithCString(kCFAllocatorDefault,
-              argv_mod[i], kCFStringEncodingUTF8);
-        if (!kextName) {
-            qerror("memory allocation failure\n");
-            exit_code = 1;
-            goto finish;
-        }
-        CFArrayAppendValue(kextNames, kextName);
-        CFRelease(kextName);
-    }
-
-    if (CFArrayGetCount(kextNames) == 0 && CFArrayGetCount(kextIDs) == 0) {
-        qerror("no kernel extension specified\n\n");
-        usage(0);
-        exit_code = 1;
-        goto finish;
-    }
-
-   /*****
-    * Make sure we scan the standard Extensions folder unless told explicitly
-    * not to.
-    */
-    if (!skip_extensions_folder) {
-        CFArrayInsertValueAtIndex(repositoryDirectories, 0,
-            kKXSystemExtensionsFolder);
-    }
-
-    if (!kernel_file) {
-        if (!do_load && g_verbose_level >= kKXKextManagerLogLevelBasic) {
-            verbose_log("no kernel file specified; using running kernel");
-        }
-    }
-
-   /*****
-    * Make sure the symbol directory and patch directory exist and are
-    * readable/writable.
-    */
-    if (kernel_file && !check_file(kernel_file)) {
-        // check_file() prints an error message
-        exit_code = 1;
-        goto finish;
-    }
-
-    if (symbol_dir) {
-        if (!check_dir(symbol_dir, 1, 1 /* print error */)) {
-            // check_dir() prints an error message
-            exit_code = 1;
-            goto finish;
-        }
-    }
-
-    if (patch_dir) {
-        if (!check_dir(patch_dir, 1, 1 /* print error */)) {
-            // check_dir() prints an error message
-            exit_code = 1;
-            goto finish;
-        }
-    }
-
-    /*****
-    * Serialize running kextload processes that are actually loading. Note
-    * that we can't bail on failing to contact kextd, we can only print
-    * warnings, since kextload may need to be run in single-user mode. We
-    * do bail on hard OS errors though.
-    */
-    if (do_load) {
-        mach_port_t bootstrap_port;
-        kern_return_t kern_result;
-        int lock_retries = LOCK_MAXTRIES;
-
-        kern_result = task_get_bootstrap_port(mach_task_self(),
-            &bootstrap_port);
-        if (kern_result != KERN_SUCCESS && 
-            g_verbose_level >= kKXKextManagerLogLevelBasic) {
-
-            verbose_log("can't get bootstrap port to contact kextd "
-                "(continuing anyway)");
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogBasicLevel | kOSKextLogGeneralFlag |
+            kOSKextLogLoadFlag | kOSKextLogIPCFlag,
+            "Requesting load of %s.", scratchCString);
+        loadResult = KextManagerLoadKextWithIdentifier(kextID,
+            toolArgs.dependencyAndRepositoryURLs);
+        if (loadResult != kOSReturnSuccess) {
+            // xxx - add mach_error_string() when those are in a build
+            OSKextLog(/* kext */ NULL,
+                kOSKextLogErrorLevel | kOSKextLogLoadFlag | kOSKextLogIPCFlag,
+                "%s failed to load - %s; "
+                "check the system/kernel logs for errors or try kextutil(8).",
+                scratchCString, safe_mach_error_string(loadResult));
+            if (result == EX_OK) {
+                result = exitStatusForOSReturn(loadResult);
+                // keep trying though
+            }
         } else {
-            kern_result = bootstrap_look_up(bootstrap_port,
-                KEXTD_SERVER_NAME, &sKextdPort);
-            if (kern_result != KERN_SUCCESS && 
-                g_verbose_level >= kKXKextManagerLogLevelBasic) {
-
-                verbose_log("can't contact kextd (continuing anyway)");
-            }
-        }
-        if (sKextdPort != MACH_PORT_NULL) {
-            kern_result = mach_port_allocate(mach_task_self(),
-                MACH_PORT_RIGHT_RECEIVE, &sLockPort);
-            if (kern_result != KERN_SUCCESS) {
-                qerror("can't allocate kextload serialization mach port\n");
-                exit_code = 1;
-                goto finish;
-            }
-            do {
-                kern_result = kextmanager_lock_kextload(sKextdPort, sLockPort,
-                    &sLockStatus);
-                if (kern_result != KERN_SUCCESS) {
-                    qerror("can't acquire kextload serialization lock; bailing\n");
-                    exit_code = 1;
-                    goto finish;
-                }
-                
-                if (sLockStatus == EBUSY) {
-                    --lock_retries;
-                    qerror("kextload serialization lock busy; "
-                        "sleeping (%d retries left)\n",
-                        lock_retries);
-                    sleep(LOCK_DELAY);
-                }
-            } while (sLockStatus == EBUSY && lock_retries > 0);
-
-            if (sLockStatus != 0) {
-                qerror("can't acquire kextload serialization lock; bailing\n");
-                exit_code = 1;
-                goto finish;
-            } else {
-                sLockTaken = true;
-            }
+            OSKextLog(/* kext */ NULL,
+                kOSKextLogBasicLevel | kOSKextLogGeneralFlag | kOSKextLogLoadFlag,
+                "%s loaded successfully (or already loaded).",
+                scratchCString);
         }
     }
 
-   /*****
-    * Set up the kext manager.
-    */
-    theKextManager = KXKextManagerCreate(kCFAllocatorDefault);
-    if (!theKextManager) {
-        qerror("can't allocate kernel extension manager\n");
-        exit_code = 1;
-        goto finish;
-    }
-
-    result = KXKextManagerInit(theKextManager, true /* load_in_task */,
-        safe_boot_mode);
-    if (result != kKXKextManagerErrorNone) {
-        qerror("can't initialize kernel extension manager (%s)\n",
-            KXKextManagerErrorStaticCStringForError(result));
-        exit_code = 1;
-        goto finish;
-    }
-
-    KXKextManagerSetPerformsFullTests(theKextManager, do_tests);
-    KXKextManagerSetPerformsStrictAuthentication(theKextManager, strict_auth);
-    KXKextManagerSetLogLevel(theKextManager, g_verbose_level);
-    KXKextManagerSetLogFunction(theKextManager, &verbose_log);
-    KXKextManagerSetErrorLogFunction(theKextManager, &error_log);
-    KXKextManagerSetUserVetoFunction(theKextManager, &user_approve);
-    KXKextManagerSetUserApproveFunction(theKextManager, &user_approve);
-    KXKextManagerSetUserInputFunction(theKextManager, &user_input);
-
-   /*****
-    * Disable clearing of relationships until we're done putting everything
-    * together.
-    */
-    KXKextManagerDisableClearRelationships(theKextManager);
-
-   /*****
-    * Add the dependency kexts to the manager. Do this *before* adding
-    * whole repositories; the kext manager searches for duplicate versions
-    * in order of addition, so we want explicitly named dependencies to
-    * be found first. (This won't help a bit if a later version is in a
-    * repository, of course; the user has to know how to use the program,
-    * after all.)
-    *
-    * This invocation is a failure only if a fatal error occurs; if some
-    * of the kexts couldn't be added we will keep going and deal with a
-    * missing dependency later.
-    */
-    if (addKextsToManager(theKextManager, dependencyNames, NULL, do_tests) == -1) {
-        exit_code = 1;
-        goto finish;
-    }
-
-   /*****
-    * Add the extensions folders specified with -r to the manager.
-    */
-    count = CFArrayGetCount(repositoryDirectories);
-    for (i = 0; i < count; i++) {
-        CFStringRef directory = (CFStringRef)CFArrayGetValueAtIndex(
-            repositoryDirectories, i);
-        CFURLRef directoryURL =
-            CFURLCreateWithFileSystemPath(kCFAllocatorDefault,
-                directory, kCFURLPOSIXPathStyle, true);
-        if (!directoryURL) {
-            qerror("memory allocation failure\n");
-            exit_code = 1;
-
-            goto finish;
+    count = CFArrayGetCount(toolArgs.kextURLs);
+    for (index = 0; index < count; index++) {
+        CFURLRef kextURL = CFArrayGetValueAtIndex(
+            toolArgs.kextURLs,
+            index);
+        if (!CFURLGetFileSystemRepresentation(kextURL, /* resolveToBase */ true,
+            (UInt8 *)scratchCString, sizeof(scratchCString))) {
+            
+            strlcpy(scratchCString, "unknown", sizeof(scratchCString));
         }
-
-        result = KXKextManagerAddRepositoryDirectory(theKextManager,
-            directoryURL, true /* scanForKexts */,
-            use_repository_caches, NULL);
-        if (result != kKXKextManagerErrorNone) {
-            qerror("can't add repository (%s).\n",
-                KXKextManagerErrorStaticCStringForError(result));
-            exit_code = 1;
-            goto finish;
-        }
-        CFRelease(directoryURL);
-        directoryURL = NULL;
-    }
-
-   /*****
-    * Add each kext named on the command line to the manager. If any can't
-    * be added, addKextsToManager() returns 0, so set the exit_code to 1, but
-    * go on to process the kexts that could be added.
-    * If a fatal error occurs, addKextsToManager() returns -1, so go right
-    * to the finish;
-    */
-    add_kexts_result = addKextsToManager(theKextManager, kextNames,
-       kextNamesToUse, do_tests);
-    if (add_kexts_result < 1) {
-        exit_code = 1;
-        if (add_kexts_result < 0) {
-            goto finish;
-        }
-    }
-
-   /*****
-    * Either fake authentication, or if doing all tests then authenticate
-    * everything. (It may not be necessary to do this for
-    * *everything*; might be able to just do it on the named kexts.)
-    */
-    if (pretend_authentic) {
-        // Yes, do this even if do_tests is true; -tz means fake authentication.
-        KXKextManagerMarkKextsAuthentic(theKextManager);
-    } else if (do_tests) {
-        KXKextManagerAuthenticateKexts(theKextManager);
-    }
-
-    KXKextManagerEnableClearRelationships(theKextManager);
-
-   /*****
-    * If doing full tests, assemble the whole database of version and
-    * dependency relationships. (It may not be necessary to do this for
-    * *everything*; might be able to just do it on the named kexts.)
-    */
-    if (do_tests) {
-        KXKextManagerCalculateVersionRelationships(theKextManager);
-        if (!skip_dependencies) {
-            KXKextManagerResolveAllKextDependencies(theKextManager);
-        }
-    }
-
-   /*****
-    * If we got CFBundleIdentifiers, then look them up. We just add to the
-    * kextNamesToUse array here.
-    */
-    count = CFArrayGetCount(kextIDs);
-    for (i = 0; i < count; i++) {
-        CFStringRef thisKextID = (CFStringRef)
-            CFArrayGetValueAtIndex(kextIDs, i);
-        KXKextRef theKext = KXKextManagerGetKextWithIdentifier(
-            theKextManager, thisKextID);
-        CFStringRef kextName = NULL;  // must release
-        char name_buffer[255];
-
-        if (!CFStringGetCString(thisKextID,
-            name_buffer, sizeof(name_buffer) - 1, kCFStringEncodingUTF8)) {
-
-            qerror("internal error; no memory?\n");
-            exit_code = 1;
-            goto finish;
-        }
-        if (g_verbose_level >= kKXKextManagerLogLevelBasic) {
-            verbose_log("looking up extension with identifier %s",
-                name_buffer);
-        }
-
-        if (!theKext) {
-            if (!CFStringGetCString(thisKextID,
-                name_buffer, sizeof(name_buffer) - 1,
-                kCFStringEncodingUTF8)) {
-
-                qerror("internal error; no memory?\n");
-                exit_code = 1;
-                goto finish;
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogBasicLevel | kOSKextLogGeneralFlag |
+            kOSKextLogLoadFlag | kOSKextLogIPCFlag,
+            "Requesting load of %s.",
+            scratchCString);
+        loadResult = KextManagerLoadKextWithURL(kextURL,
+            toolArgs.dependencyAndRepositoryURLs);
+        if (loadResult != kOSReturnSuccess) {
+            // xxx - add mach_error_string() when those are in a build
+            OSKextLog(/* kext */ NULL,
+                kOSKextLogErrorLevel | kOSKextLogLoadFlag | kOSKextLogIPCFlag,
+                "%s failed to load - %s; "
+                "check the system/kernel logs for errors or try kextutil(8).",
+                scratchCString, safe_mach_error_string(loadResult));
+            if (result == EX_OK) {
+                result = exitStatusForOSReturn(loadResult);
+                // keep trying though
             }
-            qerror("can't find extension with identifier %s\n",
-                name_buffer);
-            exit_code = 1;
-            continue;  // not fatal, keep trying the others
+        } else {
+            OSKextLog(/* kext */ NULL,
+                kOSKextLogBasicLevel | kOSKextLogGeneralFlag | kOSKextLogLoadFlag,
+                "%s loaded successfully (or already loaded).",
+                scratchCString);
         }
-        kextName = KXKextCopyAbsolutePath(theKext);
-        if (!kextName) {
-            qerror("memory allocation failure\n");
-            exit_code = 1;
-            goto finish;
-        }
-        if (!CFStringGetCString(kextName,
-            name_buffer, sizeof(name_buffer) - 1, kCFStringEncodingUTF8)) {
-
-            qerror("internal error; no memory?\n");
-            exit_code = 1;
-            goto finish;
-        }
-        if (g_verbose_level >= kKXKextManagerLogLevelBasic) {
-            verbose_log("found extension bundle %s", name_buffer);
-        }
-        CFArrayAppendValue(kextNamesToUse, kextName);
-        CFRelease(kextName);
-    }
-
-   /*****
-    * Get busy loading kexts.
-    */
-    count = CFArrayGetCount(kextNamesToUse);
-    
-   /* If we have more than one kext, make the manager fork to do each load
-    * so we don't run out of VM address space due to the never-freeing linker.
-    */
-    if (count > 1) {
-        KXKextManagerSetPerformLoadsInTask(theKextManager, false);
-    }
-
-    for (i = 0; i < count; i++) {
-        CFStringRef kextName = NULL; // don't release
-        char kext_name[MAXPATHLEN];
-        unsigned short cache_retry_count = 1;
-        bool has_executable = false;
-        bool has_personalities = false;
-
-       /*****
-        * If the last iteration flipped failure_code, make the exit_code
-        * nonzero and reset failure_code for this iteration.
-        */
-        if (failure_code) {
-            exit_code = 1;
-            failure_code = 0;
-        }
-
-retry:
-
-        if (inauthenticKexts) {
-            CFRelease(inauthenticKexts);
-            inauthenticKexts = NULL;
-        }
-
-        inauthenticKexts = CFArrayCreateMutable(kCFAllocatorDefault, 0,
-            &kCFTypeArrayCallBacks);
-        if (!inauthenticKexts) {
-            exit_code = 1;
-            qerror("memory allocation failure\n");
-            goto finish;
-        }
-
-        if (kextURL) {
-            CFRelease(kextURL);
-            kextURL = NULL;
-        }
-
-        kextName = CFArrayGetValueAtIndex(kextNamesToUse, i);
-        if (!CFStringGetCString(kextName,
-            kext_name, sizeof(kext_name) - 1, kCFStringEncodingUTF8)) {
-
-            qerror("memory allocation or string conversion failure\n");
-            exit_code = 1;
-            goto finish;
-        }
-
-        kextURL = CFURLCreateWithFileSystemPath(kCFAllocatorDefault,
-            kextName, kCFURLPOSIXPathStyle, true);
-        if (!kextURL) {
-            qerror("memory allocation failure\n");
-            exit_code = 1;
-            goto finish;
-        }
-
-        theKext = KXKextManagerGetKextWithURL(theKextManager, kextURL);
-
-        if (!theKext) {
-            qerror("can't find extension %s in database\n",
-                kext_name);
-            failure_code = 1;
-            continue;
-        }
-
-       /*****
-        * Confirm kext is loadable.
-        */
-        if (safe_boot_mode && !KXKextIsEligibleDuringSafeBoot(theKext)) {
-            qerror("extension %s is not eligible for safe boot "
-                "(has no OSBundleRequired setting, "
-                "or all personalities have nonzero IOKitDebug setting)\n",
-                kext_name);
-            failure_code = 1;
-            // keep going here to print diagnostics and hit the "continue" below
-        }
-
-        // don't offer to fix or load a kext if run in diagnostic mode. If a
-        // dependency is nonsecure, then checking here would really involve too
-        // much work.
-
-        if (!KXKextIsValid(theKext) ||
-            (do_tests && (
-               (!pretend_authentic && !KXKextIsAuthentic(theKext)) ||
-               (!skip_dependencies && !KXKextGetHasAllDependencies(theKext))
-           ))) {
-
-            qerror("kernel extension %s has problems", kext_name);
-            if (do_tests && g_verbose_level>=kKXKextManagerLogLevelErrorsOnly) {
-                qerror(":\n");
-                KXKextPrintDiagnostics(theKext, stderr);
-                qerror("\n");
-            } else {
-                qerror(" (run %s with -t for diagnostic output)\n",
-                    progname);
-            }
-            failure_code = 1;
-        }
-
-        if (failure_code) {
-            continue;
-        }
-
-        if ((do_tests && g_verbose_level > kKXKextManagerLogLevelErrorsOnly) ||
-            g_verbose_level >= kKXKextManagerLogLevelBasic) {
-
-            CFMutableDictionaryRef warnings = KXKextGetWarnings(theKext);
-
-            if (warnings && CFDictionaryGetCount(warnings)) {
-                qerror("extension %s has potential problems:\n", kext_name);
-                KXKextPrintWarnings(theKext, stderr);
-                qerror("\n");
-            }
-        }
-
-        if (KXKextHasDebugProperties(theKext)) {
-            verbose_log("notice: extension %s has debug properties set",
-                kext_name);
-        }
-
-        if (do_tests || g_verbose_level > kKXKextManagerLogLevelDefault) {
-            verbose_log("extension %s appears to be loadable", kext_name);
-        }
-
-       /* If there's nothing else to do for this kext, then move on
-        * to the next one.
-        */
-        if (!do_load && !do_start_matching && !patch_dir && !symbol_dir) {
-            continue;
-        }
-
-       /*****
-        * If requested, get user approval to continue.
-        */
-        if (interactive_level > 0 && do_load) {
-            approve = user_approve(1, "Load extension %s and its dependencies",
-                kext_name);
-            if (approve < 0) {
-                qerror("error reading response\n");
-                failure_code = 1;
-                goto finish;
-            } else if (approve == 0) {
-                qerror("not loading extension %s\n", kext_name);
-                continue;
-            }
-        }
-
-        if (failure_code) {
-            continue;
-        }
-
-        result = _KXKextManagerPrepareKextForLoading(
-            theKextManager, theKext, kext_name,
-            check_loaded_for_dependencies, do_load,
-            inauthenticKexts);
-
-        if (result == kKXKextManagerErrorAlreadyLoaded) {
-
-            // this is not considered a failure
-            verbose_log("extension %s is already loaded", kext_name);
-            continue;
-        } else if (result == kKXKextManagerErrorLoadedVersionDiffers) {
-
-            // the library logged a message about it
-            failure_code = 1;
-            exit_code = 1;
-            continue;
-        } else if (result == kKXKextManagerErrorLoadKernelComponent) {
-            qerror("extension %s is a kernel component\n",
-                kext_name);
-            failure_code = 1;
-            exit_code = 1;
-            continue;
-        } else if (result == kKXKextManagerErrorLoadExecutableNoArch) {
-
-            qerror("extension %s does not contain code for this architecture\n",
-                kext_name);
-            failure_code = 1;
-            exit_code = 1;
-            continue;
-        } else if (result == kKXKextManagerErrorCache) {
-            if (cache_retry_count == 0) {
-                qerror("multiple cache errors for %s; try using -c\n",
-                    kext_name);
-                continue;
-            }
-            if (interactive_level > 0 ) {
-                approve = user_approve(1,
-                    "Cache inconsistency for %s; rescan and try again",
-                    kext_name);
-                if (approve < 0) {
-                    qerror("error reading response\n");
-                    failure_code = 1;
-                    goto finish;
-                } else if (approve == 0) {
-                    qerror("skipping extension %s\n", kext_name);
-                    continue;
-                }
-            } else {
-                qerror("rescanning all kexts due to cache inconsistency\n");
-            }
-            KXKextManagerResetAllRepositories(theKextManager);
-            cache_retry_count--;
-            goto retry;
-        } else if (result != kKXKextManagerErrorNone &&
-            result != kKXKextManagerErrorAuthentication) {
-
-            qerror("error loading extension %s\n",
-                kext_name);
-            failure_code = 1;
-            exit_code = 1;
-            continue;
-        } 
-
-        inauthentic_kext_count = CFArrayGetCount(inauthenticKexts);
-        if (inauthentic_kext_count) {
-            for (k = 0; k < inauthentic_kext_count; k++) {
-                KXKextRef thisKext =
-                    (KXKextRef)CFArrayGetValueAtIndex(inauthenticKexts, k);
-
-                const char * kext_path = NULL; // must free
-                CFDataRef xmlData = NULL; // must release
-                const char * rpc_data = NULL; // don't free (ref to kext_path)
-                size_t data_length = 0;
-
-                kext_path = _KXKextCopyCanonicalPathnameAsCString(thisKext);
-                if (!kext_path) {
-                    fprintf(stderr, "memory allocation failure\n");
-                    exit_code = 1;
-                    goto finish;
-                }
-                error_log("extension %s is not authentic (check ownership and permissions; run with -t for details)", kext_path);
-                rpc_data = kext_path;
-                data_length = 1 + strlen(kext_path);
-                _KextManagerRecordNonsecureKextload(rpc_data, data_length);
-                if (kext_path) free((char *)kext_path);
-                if (xmlData) CFRelease(xmlData);
-                failure_code = 1;
-            }
-        }
-
-        if (failure_code) {
-            continue;
-        }
-
-       has_executable = KXKextGetDeclaresExecutable(theKext);
-       has_personalities = KXKextHasPersonalities(theKext);
-
-       /*****
-        * Catch a kext that has nothing whatever to load and flag as an error.
-        */
-        if (do_load && do_start_matching &&
-            !has_executable && !has_personalities) {
-
-            error_log("extension %s has no executable and no personalities",
-                kext_name);
-            failure_code = 1;
-            continue;
-        }
-
-       /*****
-        * Handle loading or patch/symbol genration of the executable.
-        */
-        if (do_load || patch_dir || symbol_dir) {
-            if (has_executable) {
-                result = _KXKextManagerLoadKextUsingOptions(
-                    theKextManager, theKext, kext_name, kernel_file,
-                    patch_dir, symbol_dir,
-                    do_load, do_start_kmod,
-                    interactive_level,
-                    (interactive_level > 0) /* ask overwrite symbols */,
-                    overwrite_symbols,
-                    get_addrs_from_kernel, num_addresses, addresses);
-
-                if (result == kKXKextManagerErrorNone) {
-                    if (do_load) {
-                        CFStringRef kextBundleID = KXKextGetBundleIdentifier(theKext);
-                        CFStringRef kextPath = KXKextCopyAbsolutePath(theKext);
-                        _KextManagerRecordPathForBundleID(kextBundleID, kextPath);
-                        if (kextPath) {
-                            CFRelease(kextPath);
-                        }
-
-                        verbose_log("%s loaded successfully", kext_name);
-                    }
-                } else if (result == kKXKextManagerErrorInvalidArgument) {
-                    failure_code = 1;
-                    continue;
-                } else if (result == kKXKextManagerErrorAlreadyLoaded) {
-
-                    // this is not considered a failure
-                    verbose_log("extension %s is already loaded", kext_name);
-                    continue;
-                } else if (result == kKXKextManagerErrorLoadedVersionDiffers) {
-
-                    // the library logged a message about it
-                    failure_code = 1;
-                    continue;
-                } else if (result == kKXKextManagerErrorUserAbort) {
-                    if (do_load) {
-                        qerror("load aborted for extension %s\n", kext_name);
-                    }
-                    // user abort is not a failure
-                    continue;
-                } else if (result == kKXKextManagerErrorCache) {
-                    if (cache_retry_count == 0) {
-                        qerror("multiple cache errors for %s; try using -c\n",
-                            kext_name);
-                        continue;
-                    }
-                    if (interactive_level > 0 ) {
-                        approve = user_approve(1,
-                            "Cache inconsistency for %s; rescan and try again",
-                            kext_name);
-                        if (approve < 0) {
-                            qerror("error reading response\n");
-                            failure_code = 1;
-                            goto finish;
-                        } else if (approve == 0) {
-                            qerror("skipping extension %s\n", kext_name);
-                            continue;
-                        }
-                    } else {
-                        qerror("rescanning all kexts due to cache inconsistency\n");
-                    }
-                    KXKextManagerResetAllRepositories(theKextManager);
-                    cache_retry_count--;
-                    goto retry;
-                } else if (result == kKXKextManagerErrorLoadKernelComponent) {
-                    qerror("extension %s is a kernel component\n",
-                        kext_name);
-                    continue;
-                } else if (result != kKXKextManagerErrorNone) {
-                    if (do_load) {
-                        qerror("link/load failed for extension %s\n",
-                            kext_name);
-                    }
-                    if (!KXKextIsLoadable(theKext, safe_boot_mode) &&
-                        g_verbose_level >= kKXKextManagerLogLevelErrorsOnly) {
-
-                        qerror("kernel extension problems:\n");
-                        KXKextPrintDiagnostics(theKext, stderr);
-                        qerror("\n");
-                    } else {
-                        qerror(" (run %s with -t for diagnostic output)\n",
-                            progname);
-                    }
-                    failure_code = 1;
-                    continue;
-                }
-            } else if ( (do_load && (g_verbose_level >= kKXKextManagerLogLevelBasic)) ||
-                symbol_dir || patch_dir) {
-
-                verbose_log("extension %s has no executable", kext_name);
-
-               /* XXX: Setting the failure code here means that -m combined with
-                * -s/-P will *not* send personalities to the kernel. Now,
-                * combining those options is flat-out silly, but it is
-                * technically allowed.
-                */
-                if (!do_load && (symbol_dir || patch_dir)) {
-                    failure_code = 1;
-                }
-            }
-        }
-
-        if (failure_code) {
-            continue;
-        }
-
-       /*****
-        * Send the personalities down to the kernel.
-        */
-        if (do_start_matching) {
-            if (has_personalities) {
-                result = KXKextManagerSendKextPersonalitiesToCatalog(
-                    theKextManager, theKext, personalityNames,
-                    true /* include_dependencies */,
-                    interactive_level, safe_boot_mode);
-
-                if (result == kKXKextManagerErrorNone &&
-                    (interactive_level || g_verbose_level >= kKXKextManagerLogLevelBasic) ) {
-                    verbose_log("matching started for %s", kext_name);
-                } else if (result != kKXKextManagerErrorNone) {
-                    failure_code = 1;
-                    if (interactive_level || g_verbose_level >= kKXKextManagerLogLevelBasic) {
-                        verbose_log("start matching failed for %s", kext_name);
-                    }
-                }
-            } else if (g_verbose_level >= kKXKextManagerLogLevelBasic) {
-                verbose_log("extension %s has no personalities", kext_name);
-            }
-        }
-
-        if (failure_code) {
-            continue;
-        }
-    }
-
-    if (failure_code) {
-        exit_code = 1;
     }
 
 finish:
 
-   /*****
-    * Clean everything up.
+   /* We're actually not going to free anything else because we're exiting!
     */
-    if (sLockTaken) {
-        kextmanager_unlock_kextload(sKextdPort, sLockPort);
-        mach_port_deallocate(mach_task_self(), sKextdPort);
-        mach_port_deallocate(mach_task_self(), sLockPort);
+    exit(result);
+
+    SAFE_RELEASE(toolArgs.kextIDs);
+    SAFE_RELEASE(toolArgs.dependencyAndRepositoryURLs);
+    SAFE_RELEASE(toolArgs.kextURLs);
+
+    return result;
+}
+
+#pragma mark Major Subroutines
+/*******************************************************************************
+* Major Subroutines
+*******************************************************************************/
+ExitStatus
+readArgs(
+    int            argc,
+    char * const * argv,
+    KextloadArgs * toolArgs)
+{
+    ExitStatus   result = EX_USAGE;
+    int          optchar;
+    int          longindex;
+    CFStringRef  scratchString   = NULL;  // must release
+    CFURLRef     scratchURL      = NULL;  // must release
+    uint32_t     i;
+
+   /* Set up default arg values.
+    */
+    bzero(toolArgs, sizeof(*toolArgs));
+    
+   /*****
+    * Allocate collection objects.
+    */
+    if (!createCFMutableArray(&toolArgs->kextIDs, &kCFTypeArrayCallBacks) ||
+        !createCFMutableArray(&toolArgs->dependencyAndRepositoryURLs,
+            &kCFTypeArrayCallBacks)   ||
+        !createCFMutableArray(&toolArgs->kextURLs, &kCFTypeArrayCallBacks)) {
+
+        result = EX_OSERR;
+        OSKextLogMemError();
+        exit(result);
     }
 
-    if (addresses)             free(addresses);
-    if (repositoryDirectories) CFRelease(repositoryDirectories);
-    if (dependencyNames)       CFRelease(dependencyNames);
-    if (personalityNames)      CFRelease(personalityNames);
-    if (kextNames)             CFRelease(kextNames);
-    if (kextNamesToUse)        CFRelease(kextNamesToUse);
-    if (kextIDs)               CFRelease(kextIDs);
-    if (inauthenticKexts)      CFRelease(inauthenticKexts);
+    while ((optchar = getopt_long_only(argc, (char * const *)argv,
+        kOptChars, sOptInfo, &longindex)) != -1) {
 
-    if (theKextManager)        CFRelease(theKextManager);
-    
-    exit(exit_code);
-    return exit_code;
+        SAFE_RELEASE_NULL(scratchString);
+        SAFE_RELEASE_NULL(scratchURL);
+
+        switch (optchar) {
+            case kOptHelp:
+                usage(kUsageLevelFull);
+                result = kKextloadExitHelp;
+                goto finish;
+                break;
+
+            case kOptBundleIdentifier:
+                scratchString = CFStringCreateWithCString(kCFAllocatorDefault,
+                    optarg, kCFStringEncodingUTF8);
+                if (!scratchString) {
+                    OSKextLogMemError();
+                    result = EX_OSERR;
+                    goto finish;
+                }
+                CFArrayAppendValue(toolArgs->kextIDs, scratchString);
+                break;
+                
+            case kOptDependency:
+            case kOptRepository:
+                scratchURL = CFURLCreateFromFileSystemRepresentation(
+                    kCFAllocatorDefault,
+                    (const UInt8 *)optarg, strlen(optarg), true);
+                if (!scratchURL) {
+                    OSKextLogStringError(/* kext */ NULL);
+                    result = EX_OSERR;
+                    goto finish;
+                }
+                CFArrayAppendValue(toolArgs->dependencyAndRepositoryURLs,
+                    scratchURL);
+                break;
+                
+            case kOptQuiet:
+                beQuiet();
+                break;
+
+            case kOptVerbose:
+                result = setLogFilterForOpt(argc, argv, /* forceOnFlags */ 0);
+                break;
+
+            case kOptNoCaches:
+                OSKextLog(/* kext */ NULL,
+                    kOSKextLogWarningLevel | kOSKextLogGeneralFlag,
+                    "Notice: -%s (-%c) ignored; use kextutil(8) to test kexts.",
+                    kOptNameNoCaches, kOptNoCaches);
+                break;
+
+            case kOptNoLoadedCheck:
+                OSKextLog(/* kext */ NULL,
+                    kOSKextLogWarningLevel | kOSKextLogGeneralFlag,
+                    "Notice: -%s (-%c) ignored.",
+                    kOptNameNoLoadedCheck, kOptNoLoadedCheck);
+                break;
+
+            case kOptTests:
+                OSKextLog(/* kext */ NULL,
+                    kOSKextLogWarningLevel | kOSKextLogGeneralFlag,
+                    "Notice: -%s (-%c) ignored; use kextutil(8) to test kexts.",
+                    kOptNameTests, kOptTests);
+                break;
+
+            case 0:
+                switch (longopt) {
+                   default:
+                        OSKextLog(/* kext */ NULL,
+                            kOSKextLogWarningLevel | kOSKextLogGeneralFlag,
+                            "Use kextutil(8) for development loading of kexts.");
+                        goto finish;
+                        break;
+                }
+                break;
+
+            default:
+                OSKextLog(/* kext */ NULL,
+                    kOSKextLogWarningLevel | kOSKextLogGeneralFlag,
+                    "Use kextutil(8) for development loading of kexts.");
+                goto finish;
+                break;
+
+        } /* switch (optchar) */
+    } /* while (optchar = getopt_long_only(...) */
+
+   /*****
+    * Record the kext names from the command line.
+    */
+    for (i = optind; i < argc; i++) {
+        SAFE_RELEASE_NULL(scratchURL);
+        scratchURL = CFURLCreateFromFileSystemRepresentation(
+            kCFAllocatorDefault,
+            (const UInt8 *)argv[i], strlen(argv[i]), true);
+        if (!scratchURL) {
+            result = EX_OSERR;
+            OSKextLogMemError();
+            goto finish;
+        }
+        CFArrayAppendValue(toolArgs->kextURLs, scratchURL);
+    }
+
+    result = EX_OK;
+
+finish:
+    SAFE_RELEASE(scratchString);
+    SAFE_RELEASE(scratchURL);
+
+    if (result == EX_USAGE) {
+        usage(kUsageLevelBrief);
+    }
+    return result;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+ExitStatus
+checkArgs(KextloadArgs * toolArgs)
+{
+    ExitStatus         result         = EX_USAGE;
+
+    if (!CFArrayGetCount(toolArgs->kextURLs) &&
+        !CFArrayGetCount(toolArgs->kextIDs)) {
+
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+            "No kernel extensions specified; name kernel extension bundles\n"
+            "    following options, or use -%s (-%c).",
+            kOptNameBundleIdentifier, kOptBundleIdentifier);
+        goto finish;
+    }
+
+    result = EX_OK;
+
+finish:
+    if (result == EX_USAGE) {
+        usage(kUsageLevelBrief);
+    }
+    return result;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+ExitStatus exitStatusForOSReturn(OSReturn osReturn)
+{
+    ExitStatus result = EX_OSERR;
+
+    switch (osReturn) {
+    case kOSKextReturnNotPrivileged:
+        result = EX_NOPERM;
+        break;
+    default:
+        result = EX_OSERR;
+        break;
+    }
+    return result;
 }
 
 /*******************************************************************************
 * usage()
 *******************************************************************************/
-static void usage(int level)
+void usage(UsageLevel usageLevel)
 {
-    qerror(
-      "usage: %s [-h] [-v [0-6]] [-q] [-t [-Z]] [-i | -I] [-x] [-z] [-e] [-c] [-D]\n"
-      "    [-k kernel_file] [-d extension] ... [-r directory] ...\n"
-// -j currently masked out of code
-      "    [-l | -m | -n | -A | -a kext_id@address ...] [-s directory]\n"
-      "    [-p personality] ... [-b bundle_id] ... [--] [extension] ...\n"
-      "\n",
-      progname);
+    fprintf(stderr, "usage: %s [options] [--] [kext] ...\n"
+      "\n", progname);
 
-    if (level < 1) {
+    if (usageLevel == kUsageLevelBrief) {
+        fprintf(stderr, "use %s -%s for an explanation of each option\n",
+            progname, kOptNameHelp);
         return;
     }
 
-    if (level == 1) {
-        qerror("use %s -h for an explanation of each option\n",
-            progname);
-        return;
-    }
+    fprintf(stderr, "kext: a kext bundle to load or examine\n");
+    fprintf(stderr, "\n");
 
-    qerror("  extension: the kext bundle to load\n");
-    qerror(
-        "  -a kext_id@address: kext_id is loaded at address\n");
-    qerror(
-        "  -A: get load addresses for all kexts from those in the kernel\n");
-    qerror(
-        "  -b bundle_id: load/use the kext whose CFBundleIdentifier is "
-        "bundle_id\n");
-    qerror(
-        "  -c: don't use repository caches; scan repository folders\n");
-    qerror(
-        "  -d extension: consider extension as a candidate dependency\n");
-    qerror(
-        "  -D: don't check for loaded kexts when resolving "
-        "dependencies (obsolete; setting is now on by default)\n");
-    qerror("  -e: don't examine /System/Library/Extensions\n");
-    qerror("  -h: print this message\n");
-    qerror(
-        "  -i: interactive mode\n");
-    qerror(
-        "  -I: interactive mode for extension and all its dependencies\n");
-#if ALLOW_NO_START
-    qerror(
-        "  -j: just load; don't even start the extension running\n");
-#endif
-    qerror(
-        "  -k kernel_file: link against kernel_file (default is running kernel)\n");
-    qerror(
-        "  -l: load & start only; don't start matching\n");
-    qerror(
-        "  -L: same as -r (remains for backward compatibility)\n");
-    qerror(
-        "  -m: don't load but do start matching\n");
-    qerror(
-        "  -n: neither load nor start matching\n");
-    qerror(
-        "  -p personality: send the named personality to the catalog\n");
-#if ALLOW_PATCH_OUTPUT
-    qerror(
-        "  -P directory: write the patched binary file into directory\n");
-#endif ALLOW_PATCH_OUTPUT
-    qerror(
-        "  -q: quiet mode: print no informational or error messages\n");
-    qerror(
-        "  -r directory: use directory as a repository of dependency kexts\n");
-    qerror(
-        "  -s directory: write symbol files for all kexts into directory\n");
-    qerror("  -t: perform all possible tests and print a report on "
-        "the extension\n");
-    qerror("  -v: verbose mode; print info about load process\n");
-    qerror(
-        "  -x: run in safe boot mode (only qualified kexts will load)\n");
-    qerror(
-        "  -z: don't authenticate kexts (for use during development)\n");
-    qerror(
-        "  -Z: don't check dependencies when diagnosing with -nt\n");
-    qerror(
-        "  --: end of options\n");
+    fprintf(stderr, "-%s <bundle_id> (-%c):\n"
+        "        load/use the kext whose CFBundleIdentifier is <bundle_id>\n",
+        kOptNameBundleIdentifier, kOptBundleIdentifier);
+    fprintf(stderr, "-%s <kext> (-%c):\n"
+        "        consider <kext> as a candidate dependency\n",
+        kOptNameDependency, kOptDependency);
+    fprintf(stderr, "-%s <directory> (-%c):\n"
+        "        look in <directory> for kexts\n",
+        kOptNameRepository, kOptRepository);
+    fprintf(stderr, "\n");
 
+    fprintf(stderr, "-%s (-%c):\n"
+        "        quiet mode: print no informational or error messages\n",
+        kOptNameQuiet, kOptQuiet);
+    fprintf(stderr, "-%s [ 0-6 | 0x<flags> ] (-%c):\n"
+        "        verbose mode; print info about analysis & loading\n",
+        kOptNameVerbose, kOptVerbose);
+    fprintf(stderr, "\n");
+
+    fprintf(stderr, "-%s (-%c): print this message and exit\n",
+        kOptNameHelp, kOptHelp);
+    fprintf(stderr, "\n");
+
+    fprintf(stderr, "--: end of options\n");
     return;
 }

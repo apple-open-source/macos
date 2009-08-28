@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2005-2007, 2009 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -965,7 +965,6 @@ ServiceWatcherUpdate(ServiceWatcherRef watcher, Boolean update_signatures)
 		CFArrayInsertValueAtIndex(watcher->signatures, 0,
 					  new_sig_dict);
 		CFRelease(new_sig_dict);
-		sig_dict = new_sig_dict;
 		save_signatures = TRUE;
 	    }
 	    active_dict
@@ -1215,17 +1214,6 @@ load_NetworkIdentification(CFBundleRef bundle, Boolean bundleVerbose)
     }
     return;
 }
-
-__private_extern__
-void
-stop_NetworkIdentification(CFRunLoopSourceRef stopRls)
-{
-    if (S_watcher != NULL) {
-	ServiceWatcherSaveSignatures(S_watcher);
-    }
-    CFRunLoopSourceSignal(stopRls);
-}
-
 
 #ifdef  TEST_NETWORKIDENTIFICATION
 #undef  TEST_NETWORKIDENTIFICATION

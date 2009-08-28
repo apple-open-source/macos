@@ -1,6 +1,6 @@
 #******************************************************************************
 #
-#   Copyright (C) 1999-2006, International Business Machines
+#   Copyright (C) 1999-2008, International Business Machines
 #   Corporation and others.  All Rights Reserved.
 #
 #******************************************************************************
@@ -23,16 +23,6 @@ CLEANFILES = *~ $(DEPS)
 
 ## Target information
 TARGET = cintltst$(EXEEXT)
-
-# Oh, this hurts my sensibility. This is supposedly a C test and we need to
-# link using a C++ compiler?! This must be done so that library vtables
-# work correctly on all platforms.
-
-ifneq ($(ENABLE_STATIC),)
-LINK = $(LINK.cc)
-else
-LINK = $(LINK.c)
-endif
 
 BUILDDIR := $(CURR_SRCCODE_FULL_DIR)/../../
 # Simplify the path for Unix
@@ -58,8 +48,8 @@ cmsccoll.o cmsgtst.o cposxtst.o cldrtest.o \
 cnmdptst.o cnormtst.o cnumtst.o crestst.o creststn.o cturtst.o \
 cucdapi.o cucdtst.o custrtst.o cstrcase.o cutiltst.o nucnvtst.o nccbtst.o bocu1tst.o \
 cbiditst.o cbididat.o eurocreg.o udatatst.o utf16tst.o utransts.o \
-ncnvfbts.o ncnvtst.o putiltst.o cstrtest.o utf8tst.o \
-stdnmtst.o ctstdep.o usrchtst.o custrtrn.o sorttest.o trietest.o usettest.o \
+ncnvfbts.o ncnvtst.o putiltst.o cstrtest.o udatpg_test.o utf8tst.o \
+stdnmtst.o usrchtst.o custrtrn.o sorttest.o trietest.o usettest.o \
 uenumtst.o utmstest.o currtest.o \
 idnatest.o nfsprep.o spreptst.o sprpdata.o \
 hpmufn.o tracetst.o reapits.o utexttst.o ucsdetst.o
@@ -104,7 +94,8 @@ Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status
 	 && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
 
 $(TARGET) : $(OBJECTS)
-	$(LINK) $(OUTOPT)$@ $^ $(LIBS)
+	$(LINK.cc) $(OUTOPT)$@ $^ $(LIBS)
+	$(POST_BUILD_STEP)
 
 ifeq (,$(MAKECMDGOALS))
 -include $(DEPS)

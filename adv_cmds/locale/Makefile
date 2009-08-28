@@ -1,6 +1,11 @@
-THIS=$(shell basename `pwd` .tproj)
+Project = locale
+Install_Dir = /usr/bin
 
-install:: all
+CXXFILES = locale.cc
+MANPAGES = locale.1
+Extra_CC_Flags = -mdynamic-no-pic -Wall -Werror
+Extra_LD_Flags = -dead_strip
 
-all installhdrs installsrc clean ${THIS} install::
-	env MAKEOBJDIR=${OBJROOT} bsdmake ARCH_FLAGS="${RC_CFLAGS}" NO_MANCOMPRESS=true DESTDIR=${DSTROOT} -f BSDmakefile $@
+include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make
+
+CC = c++

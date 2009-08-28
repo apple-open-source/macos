@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2004,2009 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,16 +32,16 @@ extern "C" int checkpw_internal( const struct passwd *pw, const char* password )
 namespace Authorization {
 
 // default credential: invalid for everything, needed as a default session credential
-CredentialImpl::CredentialImpl() : mUid(0), mShared(false), mName(""), mRealname(""), mCreationTime(CFAbsoluteTimeGetCurrent()), mValid(false), mRight(false)
+CredentialImpl::CredentialImpl() : mShared(false), mRight(false), mRightName(""), mGroupName(""), mUid(0), mUserName(""), mRealName(""), mCreationTime(CFAbsoluteTimeGetCurrent()), mValid(false)
 {
 }
 
 // only for testing whether this credential is usable
-CredentialImpl::CredentialImpl(const uid_t uid, const string &username, const string &realname, bool shared) : mUid(uid), mShared(shared), mName(username), mRealname(realname), mCreationTime(CFAbsoluteTimeGetCurrent()), mValid(true), mRight(false)
+CredentialImpl::CredentialImpl(const uid_t uid, const string &username, const string &realname, const string &groupname, bool shared) : mShared(shared), mRight(false), mRightName(""), mGroupName(groupname), mUid(uid), mUserName(username), mRealName(realname), mCreationTime(CFAbsoluteTimeGetCurrent()), mValid(true)
 {
 }
 
-CredentialImpl::CredentialImpl(const string &username, const string &password, bool shared) : mShared(shared), mName(username), mCreationTime(CFAbsoluteTimeGetCurrent()), mValid(false), mRight(false)
+CredentialImpl::CredentialImpl(const string &username, const string &password, bool shared) : mShared(shared), mRight(false), mRightName(""), mGroupName(""), mUserName(username), mCreationTime(CFAbsoluteTimeGetCurrent()), mValid(false)
 {
     Server::active().longTermActivity();
     const char *user = username.c_str();
@@ -54,8 +54,8 @@ CredentialImpl::CredentialImpl(const string &username, const string &password, b
         }
 
         mUid = pw->pw_uid;
-        mName = pw->pw_name;
-        mRealname = pw->pw_gecos;
+        mUserName = pw->pw_name;
+        mRealName = pw->pw_gecos;
 
         const char *passwd = password.c_str();
         int checkpw_status = checkpw_internal(pw, passwd);
@@ -73,7 +73,10 @@ CredentialImpl::CredentialImpl(const string &username, const string &password, b
     } while (0);
 }
 
-CredentialImpl::CredentialImpl(const string &right, bool shared) : mUid(-2), mShared(shared), mName(right), mCreationTime(CFAbsoluteTimeGetCurrent()), mValid(true), mRight(true)
+// least-privilege
+    // @@@  arguably we don't care about the UID any more and should not
+    // require it in this ctor
+CredentialImpl::CredentialImpl(const string &right, const uid_t uid, bool shared) : mShared(shared), mRight(true), mRightName(right), mGroupName(""), mUid(uid), mUserName(""), mRealName(""), mCreationTime(CFAbsoluteTimeGetCurrent()), mValid(true)
 {
 }
 
@@ -84,12 +87,32 @@ CredentialImpl::~CredentialImpl()
 bool
 CredentialImpl::operator < (const CredentialImpl &other) const
 {
-        if (!mShared && other.mShared)
-                return true;
-        if (!other.mShared && mShared)
-                return false;
-
-        return mUid < other.mUid;
+    // Desired ordering characteristics: 
+    //
+    // - unshared before shared
+    // - least privilege before non-least privilege
+    // - for least privilege credentials with the same sharing characteristics, 
+    //   order on the basis of right strings
+    // - orthographic order of group names
+    // 
+    // UID used to be the primary distinguishing element, but it can't be
+    // trusted--it's gathered as a side effect, potentially by an external
+    // process.  
+    //
+    // Nothing is sacred about this ordering; we just had to pick something.  
+    
+    if (!mShared && other.mShared)
+        return true;
+    if (!other.mShared && mShared)
+        return false;
+    if (mRight && !other.mRight)
+        return true;
+    if (!mRight && other.mRight)
+        return false;
+    if (mRight && other.mRight)
+        return mRightName < other.mRightName;
+    else
+        return mGroupName < other.mGroupName;
 }
 
 // Returns true if this CredentialImpl should be shared.
@@ -103,13 +126,18 @@ CredentialImpl::isShared() const
 void
 CredentialImpl::merge(const CredentialImpl &other)
 {
-        assert(mUid == other.mUid);
+    // try to ensure that the credentials are the same type
+    assert(mRight == other.mRight);
+    if (mRight)
+        assert(mRightName == other.mRightName);
+    else
+        assert(mGroupName == other.mGroupName);
 
-        if (other.mValid && (!mValid || mCreationTime < other.mCreationTime))
-        {
-                mCreationTime = other.mCreationTime;
-                mValid = true;
-        }
+    if (other.mValid && (!mValid || mCreationTime < other.mCreationTime))
+    {
+        mCreationTime = other.mCreationTime;
+        mValid = true;
+    }
 }
 
 // The time at which this credential was obtained.
@@ -145,8 +173,8 @@ RefPointer<CredentialImpl>(impl)
 {
 }
 
-Credential::Credential(const uid_t uid, const string &username, const string &realname, bool shared) :
-RefPointer<CredentialImpl>(new CredentialImpl(uid, username, realname, shared))
+Credential::Credential(const uid_t uid, const string &username, const string &realname, const string &groupname, bool shared) :
+RefPointer<CredentialImpl>(new CredentialImpl(uid, username, realname, groupname, shared))
 {
 }
 
@@ -154,7 +182,7 @@ Credential::Credential(const string &username, const string &password, bool shar
 {
 }
 
-Credential::Credential(const string &right, bool shared) : RefPointer<CredentialImpl>(new CredentialImpl(right, shared))
+Credential::Credential(const string &right, const uid_t uid, bool shared) : RefPointer<CredentialImpl>(new CredentialImpl(right, uid, shared))
 {
 }
 

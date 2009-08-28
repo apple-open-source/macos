@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 1998-2006, International Business Machines
+*   Copyright (C) 1998-2008, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -43,9 +43,7 @@
 
 #include "unicode/ucol.h"
 #include "utrie.h"
-#include "uresimp.h"
-#include "unicode/udata.h"
-#include "unicode/uiter.h"
+#include "cmemory.h"
 
 /* This is the internal header file which contains important declarations for 
  * the collation framework. 
@@ -58,7 +56,7 @@
  * The following describes the formats for collation binaries
  * (UCA & tailorings) and for the inverse UCA table.
  * Substructures are described in the collation design document at
- * http://dev.icu-project.org/cgi-bin/viewcvs.cgi/~checkout~/icuhtml/design/collation/ICU_collation_design.htm
+ * http://source.icu-project.org/repos/icu/icuhtml/trunk/design/collation/ICU_collation_design.htm
  *
  * -------------------------------------------------------------
  *
@@ -219,10 +217,13 @@ minimum number for special Jamo
 /* This is the size of the buffer for expansion CE's */
 /* In reality we should not have to deal with expm sequences longer then 16 */
 /* you can change this value if you need memory */
-/* WARNING THIS BUFFER DOES NOT HAVE MALLOC FALLBACK. If you make it too small, you'll get in trouble */
+/* WARNING THIS BUFFER DOES HAVE MALLOC FALLBACK. If you make it too small, you'll get into performance trouble */
 /* Reasonable small value is around 10, if you don't do Arabic or other funky collations that have long expansion sequence */
 /* This is the longest expansion sequence we can handle without bombing out */
-#define UCOL_EXPAND_CE_BUFFER_SIZE 512 /* synwee :TODO revert back 64*/
+#define UCOL_EXPAND_CE_BUFFER_SIZE 64
+
+/* This is the size to increase the buffer for expansion CE's */
+#define UCOL_EXPAND_CE_BUFFER_EXTEND_SIZE 64
 
 
 /* Unsafe UChar hash table table size.                                           */
@@ -270,17 +271,32 @@ typedef struct collIterate {
 
   uint32_t *toReturn; /* This is the CE from CEs buffer that should be returned */
   uint32_t *CEpos; /* This is the position to which we have stored processed CEs */
+
+  int32_t *offsetReturn; /* This is the offset to return, if non-NULL */
+  int32_t *offsetStore;  /* This is the pointer for storing offsets */
+  int32_t offsetRepeatCount;  /* Repeat stored offset if non-zero */
+  int32_t offsetRepeatValue;  /* offset value to repeat */
+
   UChar *writableBuffer;
   uint32_t writableBufSize;
   UChar *fcdPosition; /* Position in the original string to continue FCD check from. */
   const UCollator *coll;
   uint8_t   flags;
   uint8_t   origFlags;
+  uint32_t *extendCEs; /* This is use if CEs is not big enough */
+  int32_t extendCEsSize; /* Holds the size of the dynamic CEs buffer */
   uint32_t CEs[UCOL_EXPAND_CE_BUFFER_SIZE]; /* This is where we store CEs */
   UChar stackWritableBuffer[UCOL_WRITABLE_BUFFER_SIZE]; /* A writable buffer. */
+
+  int32_t *offsetBuffer;    /* A dynamic buffer to hold offsets */
+  int32_t offsetBufferSize; /* The size of the offset buffer */
+
   UCharIterator *iterator;
   /*int32_t iteratorIndex;*/
 } collIterate;
+
+#define paddedsize(something) ((something)+((((something)%4)!=0)?(4-(something)%4):0))
+#define headersize (paddedsize(sizeof(UCATableHeader))+paddedsize(sizeof(UColOptionSet)))
 
 /* 
 struct used internally in getSpecial*CE.
@@ -288,6 +304,7 @@ data similar to collIterate.
 */
 struct collIterateState {
     UChar    *pos; /* This is position in the string.  Can be to original or writable buf */
+    UChar    *returnPos;
     UChar    *fcdPosition; /* Position in the original string to continue FCD check from. */
     UChar    *bufferaddress; /* address of the normalization buffer */
     uint32_t  buffersize;
@@ -300,6 +317,12 @@ struct collIterateState {
 U_CAPI void U_EXPORT2 
 uprv_init_collIterate(const UCollator *collator, const UChar *sourceString, int32_t sourceLen, collIterate *s);
 
+U_NAMESPACE_BEGIN
+
+struct UCollationPCE;
+typedef struct UCollationPCE UCollationPCE;
+
+U_NAMESPACE_END
 
 struct UCollationElements
 {
@@ -315,8 +338,16 @@ struct UCollationElements
   * Indicates if the data should be deleted.
   */
         UBool              isWritable;
+
+/**
+ * Data for getNextProcessed, getPreviousProcessed.
+ */
+        U_NAMESPACE_QUALIFIER UCollationPCE     *pce;
 };
 
+
+U_CAPI void U_EXPORT2
+uprv_init_pce(const struct UCollationElements *elems);
 
 #define UCOL_LEVELTERMINATOR 1
 
@@ -426,7 +457,7 @@ U_CFUNC
 uint32_t ucol_prv_getSpecialPrevCE(const UCollator *coll, UChar ch, uint32_t CE,
                           collIterate *source, UErrorCode *status);
 U_CAPI uint32_t U_EXPORT2 ucol_getNextCE(const UCollator *coll, collIterate *collationSource, UErrorCode *status);
-U_CAPI uint32_t U_EXPORT2 ucol_getPrevCE(const UCollator *coll,
+U_CFUNC uint32_t U_EXPORT2 ucol_getPrevCE(const UCollator *coll,
                                          collIterate *collationSource,
                                          UErrorCode *status);
 /* function used by C++ getCollationKey to prevent restarting the calculation */
@@ -474,15 +505,15 @@ ucol_getSortKeySize(const UCollator *coll, collIterate *s,
  * @return memory, owned by the caller, of size 'length' bytes.
  * @internal INTERNAL USE ONLY
  */
-U_CAPI uint8_t* U_EXPORT2 
+U_CFUNC uint8_t* U_EXPORT2 
 ucol_cloneRuleData(const UCollator *coll, int32_t *length, UErrorCode *status);
 
 /**
  * Used to set requested and valid locales on a collator returned by the collator
  * service.
  */
-U_CAPI void U_EXPORT2
-ucol_setReqValidLocales(UCollator *coll, char *requestedLocaleToAdopt, char *validLocaleToAdopt);
+U_CFUNC void U_EXPORT2
+ucol_setReqValidLocales(UCollator *coll, char *requestedLocaleToAdopt, char *validLocaleToAdopt, char *actualLocaleToAdopt);
 
 #define UCOL_SPECIAL_FLAG 0xF0000000
 #define UCOL_TAG_SHIFT 24
@@ -856,13 +887,12 @@ struct UCollator {
     UColOptionSet  *options;
     SortKeyGenerator *sortKeyGen;
     uint32_t *latinOneCEs;
+    char* actualLocale;
     char* validLocale;
     char* requestedLocale;
     const UChar *rules;
+    const UChar *ucaRules;
     const UCollator *UCA;
-    ResourceCleaner *resCleaner;
-    UResourceBundle *rb;
-    UResourceBundle *elements;
     const UCATableHeader *image;
     UTrie mapping;
     const uint32_t *latinOneMapping;
@@ -917,7 +947,7 @@ struct UCollator {
     UBool latinOneRegenTable;
     UBool latinOneFailed;
 
-    int32_t tertiaryAddition; /* when switching case, we need to add or subtract different values */
+    int8_t tertiaryAddition; /* when switching case, we need to add or subtract different values */
     uint8_t caseSwitch;
     uint8_t tertiaryCommon;
     uint8_t tertiaryMask;
@@ -954,19 +984,19 @@ void ucol_putOptionsToHeader(UCollator* result, UColOptionSet * opts, UErrorCode
 U_CFUNC
 void ucol_updateInternalState(UCollator *coll, UErrorCode *status);
 
-U_CAPI uint32_t U_EXPORT2 ucol_getFirstCE(const UCollator *coll, UChar u, UErrorCode *status);
+U_CFUNC uint32_t U_EXPORT2 ucol_getFirstCE(const UCollator *coll, UChar u, UErrorCode *status);
 U_CAPI UBool U_EXPORT2 ucol_isTailored(const UCollator *coll, const UChar u, UErrorCode *status);
 
 U_CAPI const InverseUCATableHeader* U_EXPORT2 ucol_initInverseUCA(UErrorCode *status);
 
 U_CAPI void U_EXPORT2 
-uprv_uca_initImplicitConstants(int32_t minPrimary, int32_t maxPrimary, UErrorCode *status);
+uprv_uca_initImplicitConstants(UErrorCode *status);
 
 U_CAPI uint32_t U_EXPORT2
 uprv_uca_getImplicitFromRaw(UChar32 cp);
 
-U_CAPI uint32_t U_EXPORT2
-uprv_uca_getImplicitPrimary(UChar32 cp);
+/*U_CFUNC uint32_t U_EXPORT2
+uprv_uca_getImplicitPrimary(UChar32 cp);*/
 
 U_CAPI UChar32 U_EXPORT2
 uprv_uca_getRawFromImplicit(uint32_t implicit);
@@ -998,17 +1028,26 @@ static inline UBool ucol_unsafeCP(UChar c, const UCollator *coll) {
 
     hash = c;
     if (hash >= UCOL_UNSAFECP_TABLE_SIZE*8) {
-      if(UTF_IS_LEAD(c) || UTF_IS_TRAIL(c)) {
-            /*  Trail surrogate                     */
+        if(UTF_IS_SURROGATE(c)) {
+            /*  Lead or trail surrogate             */
             /*  These are always considered unsafe. */
             return TRUE;
         }
         hash = (hash & UCOL_UNSAFECP_TABLE_MASK) + 256;
     }
     htbyte = coll->unsafeCP[hash>>3];
-    return (((htbyte >> (hash & 7)) & 1) == 1);
+    return ((htbyte >> (hash & 7)) & 1);
 }
 #endif /* XP_CPLUSPLUS */
+
+/* The offsetBuffer in collIterate might need to be freed to avoid memory leaks. */
+static void freeOffsetBuffer(collIterate *s) {
+    if (s != NULL && s->offsetBuffer != NULL) {
+        uprv_free(s->offsetBuffer);
+        s->offsetBuffer = NULL;
+        s->offsetBufferSize = 0;
+    }
+}
 
 
 #endif /* #if !UCONFIG_NO_COLLATION */

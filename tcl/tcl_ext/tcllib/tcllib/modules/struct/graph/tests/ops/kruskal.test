@@ -1,0 +1,58 @@
+# -*- tcl -*-
+# Graph ops tests - Minimum spanning tree/forest per Kruskal
+# Copyright (c) 2008 Andreas Kupries <andreas_kupries@users.sourceforge.net>
+# All rights reserved.
+# RCS: @(#) $Id: kruskal.test,v 1.2 2008/11/20 07:26:43 andreas_kupries Exp $
+
+# Syntax: struct::graph::op::kruskal G
+
+# -------------------------------------------------------------------------
+# Wrong # args: Missing, Too many
+
+test graphop-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-kruskal-1.0 {kruskal, wrong args, missing} {
+    catch {struct::graph::op::kruskal} msg
+    set msg
+} [tcltest::wrongNumArgs struct::graph::op::kruskal {g} 0]
+
+test graphop-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-kruskal-1.1 {kruskal, wrong args, too many} {
+    catch {struct::graph::op::kruskal g x} msg
+    set msg
+} [tcltest::tooManyArgs struct::graph::op::kruskal {g}]
+
+# -------------------------------------------------------------------------
+# Logical arguments checks and failures
+
+test graphop-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-kruskal-2.0 {kruskal, arcs without weights} {
+    SETUP
+    mygraph node insert 0 1
+    mygraph arc  insert 0 1 a
+    catch {struct::graph::op::kruskal mygraph} msg
+    set msg
+} {Operation invalid for graph with unweighted arcs.}
+
+# -------------------------------------------------------------------------
+# Ok arguments.
+
+test graphop-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-kruskal-3.0 {kruskal, empty graph} {
+    SETUP
+    set result [struct::graph::op::kruskal mygraph]
+    mygraph destroy
+    set result
+} {}
+
+test graphop-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-kruskal-3.1 {kruskal, nodes, no arcs} {
+    SETUP
+    mygraph node insert 0 1 2 3 4 5
+    set result [struct::graph::op::kruskal mygraph]
+    mygraph destroy
+    set result
+} {}
+
+test graphop-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-kruskal-3.2 {kruskal, nodes, arcs} {
+    SETUP_A
+    set result [lsort -dict [struct::graph::op::kruskal mygraph]]
+    mygraph destroy
+    set result
+} {'arc0_1' 'arc0_3' 'arc3_2' 'arc3_4' 'arc3_6' 'arc6_5'}
+
+# ---------------------------------------------------

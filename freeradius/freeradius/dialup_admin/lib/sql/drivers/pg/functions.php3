@@ -1,4 +1,15 @@
 <?php
+function da_sql_limit($limit,$point,$config)
+{
+	switch($point){
+		case 0:
+			return '';
+		case 1:
+			return '';
+		case 2:
+			return "LIMIT $limit";
+	}
+}
 function da_sql_host_connect($server,$config)
 {
 	if ($config[sql_use_http_credentials] == 'yes'){
@@ -10,6 +21,8 @@ function da_sql_host_connect($server,$config)
 		$SQL_user = $config[sql_username];
 		$SQL_passwd = $config[sql_password];
 	}
+	if ($config[sql_debug] == 'true')
+		print "<b>DEBUG(SQL,PG DRIVER): Connect: User=$SQL_user,Password=$SQL_passwd </b><br>\n";
 	return @pg_connect("host=$server port=$config[sql_port]
 			dbname=$config[sql_database] user=$SQL_user
 			password=$SQL_passwd");
@@ -26,6 +39,8 @@ function da_sql_connect($config)
 		$SQL_user = $config[sql_username];
 		$SQL_passwd = $config[sql_password];
 	}
+	if ($config[sql_debug] == 'true')
+		print "<b>DEBUG(SQL,PG DRIVER): Connect: User=$SQL_user,Password=$SQL_passwd </b><br>\n";
 	return @pg_connect("host=$config[sql_server] port=$config[sql_port]
 			dbname=$config[sql_database] user=$SQL_user
 			password=$SQL_passwd");
@@ -42,6 +57,8 @@ function da_sql_pconnect($config)
 		$SQL_user = $config[sql_username];
 		$SQL_passwd = $config[sql_password];
 	}
+	if ($config[sql_debug] == 'true')
+		print "<b>DEBUG(SQL,PG DRIVER): Connect: User=$SQL_user,Password=$SQL_passwd </b><br>\n";
 	return @pg_pconnect("host=$config[sql_server] port=$config[sql_port]
 			dbname=$config[sql_database] user=$SQL_user
 			password=$SQL_passwd");
@@ -61,7 +78,7 @@ function da_sql_query($link,$config,$query)
 {
 	if ($config[sql_debug] == 'true')
 		print "<b>DEBUG(SQL,PG DRIVER): Query: <i>$query</i></b><br>\n";
-	return @pg_exec($link,$query);
+	return @pg_query($link,$query);
 }
 
 function da_sql_num_rows($result,$config)
@@ -93,7 +110,7 @@ function da_sql_affected_rows($link,$result,$config)
 
 function da_sql_list_fields($table,$link,$config)
 {
-	$res = @pg_exec($link,
+	$res = @pg_query($link,
 		"select count(*) from pg_attribute where attnum > '0' and
 		attrelid = (select oid from pg_class where relname='$table');");
 	if ($res){
@@ -104,7 +121,7 @@ function da_sql_list_fields($table,$link,$config)
 			$fields[num] = $row[0];
 		}
 	}
-	$res = @pg_exec($link,
+	$res = @pg_query($link,
 		"select attname from pg_attribute where attnum > '0' and
 		attrelid = (select oid from pg_class where relname='$table');");
 	if ($res)
@@ -124,7 +141,7 @@ function da_sql_num_fields($fields,$config)
 function da_sql_field_name($fields,$num,$config)
 {
 	if ($fields){
-		$row = @pg_fetch_row($fields[res],$num);	
+		$row = @pg_fetch_row($fields[res],$num);
 		if ($row)
 			return $row[0];
 	}

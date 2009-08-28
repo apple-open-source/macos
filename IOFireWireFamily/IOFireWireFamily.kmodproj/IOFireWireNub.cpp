@@ -215,7 +215,7 @@ IOFireWireNubAux * IOFireWireNub::createAuxiliary( void )
 {
 	IOFireWireNubAux * auxiliary;
     
-	auxiliary = new IOFireWireNubAux;
+	auxiliary = OSTypeAlloc( IOFireWireNubAux );
 
     if( auxiliary != NULL && !auxiliary->init(this) ) 
 	{
@@ -373,7 +373,7 @@ IOFWReadCommand *IOFireWireNub::createReadCommand(FWAddress devAddress, IOMemory
  				bool failOnReset)
 {
     IOFWReadCommand * cmd;
-    cmd = new IOFWReadCommand;
+    cmd = OSTypeAlloc( IOFWReadCommand );
     if(cmd) {
         if(!cmd->initAll(this, devAddress,
                          hostMem, completion, refcon, failOnReset)) {
@@ -393,8 +393,8 @@ IOFWReadQuadCommand *IOFireWireNub::createReadQuadCommand(FWAddress devAddress, 
  				bool failOnReset)
 {
     IOFWReadQuadCommand * cmd;
-    cmd = new IOFWReadQuadCommand;
-    if(cmd) {
+    cmd = OSTypeAlloc( IOFWReadQuadCommand );
+    if(cmd) { 
         if(!cmd->initAll(this, devAddress, quads, numQuads, 
 		completion, refcon, failOnReset)) {
             cmd->release();
@@ -413,7 +413,7 @@ IOFWWriteCommand *IOFireWireNub::createWriteCommand(FWAddress devAddress, IOMemo
  				bool failOnReset)
 {
     IOFWWriteCommand * cmd;
-    cmd = new IOFWWriteCommand;
+    cmd = OSTypeAlloc( IOFWWriteCommand );
     if(cmd) 
 	{
         if(!cmd->initAll(this, devAddress, hostMem,
@@ -437,7 +437,7 @@ IOFWWriteQuadCommand *IOFireWireNub::createWriteQuadCommand(FWAddress devAddress
  				bool failOnReset)
 {
     IOFWWriteQuadCommand * cmd;
-    cmd = new IOFWWriteQuadCommand;
+    cmd = OSTypeAlloc( IOFWWriteQuadCommand );
     if(cmd) 
 	{
         if(!cmd->initAll(this, devAddress, quads, numQuads,
@@ -460,7 +460,7 @@ IOFireWireNub::createCompareAndSwapCommand(FWAddress devAddress, const UInt32 *c
 		int size, FWDeviceCallback completion, void *refcon, bool failOnReset)
 {
     IOFWCompareAndSwapCommand * cmd;
-    cmd = new IOFWCompareAndSwapCommand;
+    cmd = OSTypeAlloc( IOFWCompareAndSwapCommand );
     if(cmd) 
 	{
         if(!cmd->initAll(this, devAddress, cmpVal, newVal, size, completion, refcon, failOnReset)) 

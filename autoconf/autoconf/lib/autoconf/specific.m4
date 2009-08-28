@@ -144,7 +144,7 @@ case $$3 in #(
   no | unknown) ;;
   *) AC_DEFINE_UNQUOTED([$1], [$$3], [$4]);;
 esac
-rm -f conftest*[]dnl
+rm -f -r conftest*[]dnl
 ])# _AC_SYS_LARGEFILE_MACRO_VALUE
 
 

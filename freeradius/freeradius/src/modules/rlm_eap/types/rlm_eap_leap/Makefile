@@ -1,7 +1,7 @@
 #
 # Makefile
 #
-# Version:	$Id: Makefile,v 1.4.4.1 2006/02/10 19:47:11 nbk Exp $
+# Version:	$Id$
 #
 
 TARGET      = rlm_eap_leap

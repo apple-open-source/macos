@@ -39,7 +39,7 @@ namespace Muscle {
 //
 Error::Error(MSC_RV err) : error(err)
 {
-	IFDEBUG(debugDiagnose(this));
+	SECURITY_EXCEPTION_THROW_OTHER(this, err, (char *)"muscle");
 }
 
 
@@ -64,14 +64,6 @@ int Error::unixError() const
 {
 	return EINVAL;  //@@@ preliminary
 }
-
-#if !defined(NDEBUG)
-void Error::debugDiagnose(const void *id) const
-{
-    secdebug("exception", "%p Muscle::Error %s (%hd) osStatus %ld",
-		id, msc_error(error), error, osStatus());
-}
-#endif //NDEBUG
 
 
 //

@@ -47,6 +47,8 @@
 #include "block.h"      // BLOCK_START
 #include "exceptions.h" // catch_errors
 #include "demangle.h"	// for cplus_demangle
+#include "target.h"
+#include "defs.h"
 
 #define CLASS_BASE 100
 
@@ -2877,7 +2879,7 @@ int gdb_show_objc_object(GDB_ADDRESS addr, char *objStr, int maxLen)
     /* exceptions, not to mention those pesky, and generally wrong, "corrupt stack"	*/
     /* errors (I just had to rub that in).						*/
     
-    if (target_check_safe_call()) {
+    if (target_check_safe_call(OBJC_SUBSYSTEM|MALLOC_SUBSYSTEM, CHECK_ALL_THREADS)) {
     	retval = call_function_by_hand(lookup_cached_function(function), 1, &objptr);
     	strptr = value_as_address(retval);
     }

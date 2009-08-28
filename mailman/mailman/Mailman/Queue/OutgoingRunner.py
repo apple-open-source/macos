@@ -1,4 +1,4 @@
-# Copyright (C) 2000-2004 by the Free Software Foundation, Inc.
+# Copyright (C) 2000-2007 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,7 +12,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 """Outgoing queue runner."""
 
@@ -91,7 +92,7 @@ class OutgoingRunner(Runner, BounceMixin):
             return True
         except Errors.SomeRecipientsFailed, e:
             # Handle local rejects of probe messages differently.
-            if msgdata.get('probe_token'):
+            if msgdata.get('probe_token') and e.permfailures:
                 self._probe_bounce(mlist, msgdata['probe_token'])
             else:
                 # Delivery failed at SMTP time for some or all of the
@@ -103,7 +104,9 @@ class OutgoingRunner(Runner, BounceMixin):
                 # this is what's sent to the user in the probe message.  Maybe
                 # we should craft a bounce-like message containing information
                 # about the permanent SMTP failure?
-                self._queue_bounces(mlist.internal_name(), e.permfailures, msg)
+                if e.permfailures:
+                    self._queue_bounces(mlist.internal_name(), e.permfailures,
+                                        msg)
                 # Move temporary failures to the qfiles/retry queue which will
                 # occasionally move them back here for another shot at
                 # delivery.

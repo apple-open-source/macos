@@ -1,7 +1,7 @@
 /*
  *  gensetup.c
  *
- *  $Id: gensetup.c,v 1.6 2006/01/20 15:58:34 source Exp $
+ *  $Id: gensetup.c,v 1.7 2007/02/02 11:58:14 source Exp $
  *
  *  The iODBC driver manager.
  *
@@ -382,6 +382,10 @@ create_gensetup (HWND hwnd, LPCSTR dsn, LPCSTR attrs, BOOL add)
   gtk_window_set_position (GTK_WINDOW (gensetup), GTK_WIN_POS_CENTER);
   gtk_window_set_modal (GTK_WINDOW (gensetup), TRUE);
   gtk_window_set_policy (GTK_WINDOW (gensetup), FALSE, FALSE, FALSE);
+
+#if GTK_CHECK_VERSION(2,0,0)
+  gtk_widget_show (gensetup);
+#endif
 
   dialog_vbox1 = GTK_DIALOG (gensetup)->vbox;
   gtk_object_set_data (GTK_OBJECT (gensetup), "dialog_vbox1", dialog_vbox1);

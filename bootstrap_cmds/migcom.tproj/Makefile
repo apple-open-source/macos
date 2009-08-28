@@ -17,6 +17,7 @@ Extra_I_Flags = -u -s
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make
 
 $(SYMROOT)/ident.c:
+	@$(MKDIR) $(SYMROOT)
 	echo "char *MigGenerationDate = \""`date`"\";" > $@
 	echo "char *MigMoreData = \""`whoami`"@"`hostname`"\";" >> $@
 

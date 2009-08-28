@@ -1,5 +1,0 @@
-dyld.o
-dyld_debug.o
-dyld_support.o
-objectfileimage.o
-runtime_loading.o

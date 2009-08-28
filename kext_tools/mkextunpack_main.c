@@ -21,8 +21,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <CoreFoundation/CoreFoundation.h>
-#include <Kernel/libsa/mkext.h>
-#include <architecture/byte_order.h>
+#include <IOKit/kext/OSKext.h>
+#include <IOKit/kext/OSKextPrivate.h>
+#include <IOKit/kext/fat_util.h>
+
+#include <Kernel/libkern/mkext.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
@@ -34,27 +37,77 @@
 #include <mach/mach.h>
 #include <mach/mach_types.h>
 #include <mach/kmod.h>
+#include "kext_tools_util.h"
 
 // not a utility.[ch] customer yet
 static const char * progname = "mkextunpack";
 static Boolean gVerbose = false;
 
-__private_extern__ u_int32_t local_adler32(u_int8_t *buffer, int32_t length);
+u_int32_t local_adler32(u_int8_t *buffer, int32_t length);
 
-CFDictionaryRef extractEntriesFromMkext(u_int8_t * mkextFileData, char * arch);
-Boolean uncompressMkextEntry(
+Boolean getMkextDataForArch(
+    u_int8_t         * fileData,
+    size_t             fileSize,
+    const NXArchInfo * archInfo,
+    void            ** mkextStart,
+    void            ** mkextEnd,
+    uint32_t         * mkextVersion);
+
+CFArrayRef extractKextsFromMkext2(
+    void             * mkextStart,
+    void             * mkextEnd,
+    const NXArchInfo * archInfo);
+Boolean writeMkext2EntriesToDirectory(
+    CFArrayRef   kexts,
+    char       * outputDirectory);
+Boolean writeMkext2ToDirectory(
+    OSKextRef aKext,
+    const char * outputDirectory,
+    CFMutableSetRef kextNames);
+
+CFDictionaryRef extractEntriesFromMkext1(
+    void * mkextStart,
+    void * mkextEnd);
+Boolean uncompressMkext1Entry(
     void * mkext_base_address,
     mkext_file * entry_address,
     CFDataRef * uncompressedEntry);
-Boolean writeEntriesToDirectory(CFDictionaryRef entries,
+Boolean writeMkext1EntriesToDirectory(CFDictionaryRef entries,
     char * outputDirectory);
 CFStringRef createKextNameFromPlist(
     CFDictionaryRef entries, CFDictionaryRef kextPlist);
 int getBundleIDAndVersion(CFDictionaryRef kextPlist, unsigned index,
     char ** bundle_id_out, char ** bundle_version_out);
+    
+Boolean writeFileInDirectory(
+    const char * basePath,
+    char       * subPath,
+    const char * fileName,
+    const char * fileData,
+    size_t       fileLength);
+
+#if 0
+/*******************************************************************************
+* NOTES!
+*******************************************************************************/
+How to unpack all arches from an mkext:
+
+Unpack each arch in a fat mkext to a separate array of kexts.
+For each arch:
+    - Get kext plist
+    - Check {kext path, id, vers} against assembled kexts:
+        - Already have?
+            - Plist identical:
+                - "lipo" executable into assembled
+                - Add all resources IF NOT PRESENT (check for different?)
+            - Plist different:
+                - cannot handle, error; or save to separate path
+        - Else add kext to assembled list
+        
+    - Need to save infoDict, executable, resources
+#endif /* 0 */
 
 /*******************************************************************************
-*
 *******************************************************************************/
 void usage(int num) {
     fprintf(stderr, "usage: %s [-v] [-a arch] [-d output_dir] mkextfile\n", progname);
@@ -65,23 +118,30 @@ void usage(int num) {
 }
 
 /*******************************************************************************
-*
 *******************************************************************************/
 int main (int argc, const char * argv[]) {
     int exit_code = 0;
 
-    char * outputDirectory = NULL;
-    const char * mkextFile = NULL;
-    int mkextFileFD;
-    struct stat stat_buf;
-    u_int8_t * mkextFileContents = NULL;
-    char optchar;
-    CFDictionaryRef entries = NULL;
-    char *arch = NULL;
+    char               optchar;
+    char             * outputDirectory   = NULL;
+    const char       * mkextFile         = NULL;
+    int                mkextFileFD;
+    struct stat        stat_buf;
+    uint8_t          * mkextFileContents = NULL;
+    void             * mkextStart        = NULL;
+    void             * mkextEnd          = NULL;
+    CFDictionaryRef    entries           = NULL;
+    CFArrayRef         oskexts           = NULL;
+    const NXArchInfo * archInfo          = NULL;
+    uint32_t           mkextVersion;
 
     progname = argv[0];
 
-    while ((optchar = getopt(argc, (char * const *)argv, "d:va:")) != -1) {
+   /* Set the OSKext log callback right away.
+    */
+    OSKextSetLogOutputFunction(&tool_log);
+
+    while ((optchar = getopt(argc, (char * const *)argv, "a:d:hv")) != -1) {
         switch (optchar) {
           case 'd':
             if (!optarg) {
@@ -92,15 +152,17 @@ int main (int argc, const char * argv[]) {
             }
             outputDirectory = optarg;
             break;
+          case 'h':
+            usage(1);
+            exit_code = 0;
+            goto finish;
+            break;
           case 'v':
             gVerbose = true;
             break;
           case 'a':
-            if (arch != NULL) {
-                fprintf(stderr, "-a may be specified only once\n");
-                usage(0);
-                exit_code = 1;
-                goto finish;
+            if (archInfo != NULL) {
+                fprintf(stderr, "architecture already specified; replacing\n");
             }
             if (!optarg) {
                 fprintf(stderr, "no argument for -a\n");
@@ -108,7 +170,12 @@ int main (int argc, const char * argv[]) {
                 exit_code = 1;
                 goto finish;
             }
-            arch = optarg;
+            archInfo = NXGetArchInfoFromName(optarg);
+            if (!archInfo) {
+                fprintf(stderr, "architecture '%s' not found\n", optarg);
+                exit_code = 1;
+                goto finish;
+            }
             break;
         }
     }
@@ -205,25 +272,414 @@ int main (int argc, const char * argv[]) {
         goto finish;
     }
 
-    entries = extractEntriesFromMkext(mkextFileContents, arch);
-    if (!entries) {
-        fprintf(stderr, "can't unpack file %s\n", mkextFile);
+    if (!getMkextDataForArch(mkextFileContents, stat_buf.st_size,
+        archInfo, &mkextStart, &mkextEnd, &mkextVersion)) {
+
         exit_code = 1;
         goto finish;
     }
 
-    if (outputDirectory) {
-        writeEntriesToDirectory(entries, outputDirectory);
+    if (mkextVersion == MKEXT_VERS_2) {
+        oskexts = extractKextsFromMkext2(mkextStart, mkextEnd, archInfo);
+        if (!oskexts) {
+            exit_code = 1;
+            goto finish;
+        }
+
+        if (outputDirectory &&
+            !writeMkext2EntriesToDirectory(oskexts, outputDirectory)) {
+            exit_code = 1;
+            goto finish;
+        }
+    } else if (mkextVersion == MKEXT_VERS_1) {
+        entries = extractEntriesFromMkext1(mkextStart, mkextEnd);
+        if (!entries) {
+            fprintf(stderr, "can't unpack file %s\n", mkextFile);
+            exit_code = 1;
+            goto finish;
+        }
+
+        if (outputDirectory &&
+            !writeMkext1EntriesToDirectory(entries, outputDirectory)) {
+
+            exit_code = 1;
+            goto finish;
+        }
     }
 
 finish:
     exit(exit_code);
     return exit_code;
 }
-/*******************************************************************************
-*
-*******************************************************************************/
 
+/*******************************************************************************
+*******************************************************************************/
+Boolean getMkextDataForArch(
+    u_int8_t         * fileData,
+    size_t             fileSize,
+    const NXArchInfo * archInfo,
+    void            ** mkextStart,
+    void            ** mkextEnd,
+    uint32_t         * mkextVersion)
+{
+    Boolean        result = false;
+    uint32_t       magic;
+    fat_iterator   fatIterator = NULL;  // must fat_iterator_close()
+    mkext_header * mkextHeader = NULL;  // do not free
+    uint8_t      * crc_address = NULL;  // do not free
+    uint32_t       checksum;
+
+    *mkextStart = *mkextEnd = NULL;
+    *mkextVersion = 0;
+
+    magic = MAGIC32(fileData);
+    if (ISFAT(magic)) {
+        if (!archInfo) {
+            archInfo = NXGetLocalArchInfo();
+        }
+        fatIterator = fat_iterator_for_data(fileData,
+            fileData + fileSize,
+            1 /* mach-o only */);
+        if (!fatIterator) {
+            OSKextLog(/* kext */ NULL,
+                kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
+                "Can't read mkext fat header.");
+            goto finish;
+        }
+        *mkextStart = fat_iterator_find_arch(fatIterator,
+            archInfo->cputype, archInfo->cpusubtype, mkextEnd);
+        if (!*mkextStart) {
+            OSKextLog(/* kext */ NULL,
+                kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
+                "Architecture %s not found in mkext.",
+                archInfo->name);
+            goto finish;
+        }
+    } else {
+        *mkextStart = fileData;
+        *mkextEnd = fileData + fileSize;
+    }
+
+    mkextHeader = (mkext_header *)*mkextStart;
+
+    if ((MKEXT_GET_MAGIC(mkextHeader) != MKEXT_MAGIC) ||
+        (MKEXT_GET_SIGNATURE(mkextHeader) != MKEXT_SIGN)) {
+
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
+            "Bad mkext magic/signature.");
+        goto finish;
+    }
+    if (MKEXT_GET_LENGTH(mkextHeader) !=
+        (*mkextEnd - *mkextStart)) {
+
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
+            "Mkext length field %d does not match mkext actual size %d.",
+            MKEXT_GET_LENGTH(mkextHeader),
+            (int)(*mkextEnd - *mkextStart));
+        goto finish;
+    }
+    if (archInfo && MKEXT_GET_CPUTYPE(mkextHeader) != archInfo->cputype) {
+
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
+            "Mkext cputype %d does not match requested type %d (%s).",
+            MKEXT_GET_CPUTYPE(mkextHeader),
+            archInfo->cputype,
+            archInfo->name);
+        goto finish;
+    }
+
+    crc_address = (uint8_t *)&mkextHeader->version;
+    checksum = local_adler32(crc_address,
+        (int32_t)((uintptr_t)mkextHeader +
+        MKEXT_GET_LENGTH(mkextHeader) - (uintptr_t)crc_address));
+
+    if (MKEXT_GET_CHECKSUM(mkextHeader) != checksum) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
+            "Mkext checksum error.");
+        goto finish;
+    }
+
+    *mkextVersion = MKEXT_GET_VERSION(mkextHeader);
+
+    result = true;
+
+finish:
+    if (fatIterator) {
+        fat_iterator_close(fatIterator);
+    }
+    return result;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+CFArrayRef extractKextsFromMkext2(
+    void             * mkextStart,
+    void             * mkextEnd,
+    const NXArchInfo * archInfo)
+{
+    CFArrayRef    result          = NULL;  // release on error
+    Boolean       ok              = false;
+    CFDataRef     mkextDataObject = NULL;  // must release
+    char          kextPath[PATH_MAX];
+    char        * kextIdentifier  = NULL;  // must free
+    char          kextVersion[kOSKextVersionMaxLength];
+
+    if (!archInfo) {
+        archInfo = NXGetLocalArchInfo();
+    }
+
+    OSKextSetArchitecture(archInfo);
+    mkextDataObject = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault,
+        (UInt8 *)mkextStart, mkextEnd - mkextStart, NULL);
+    if (!mkextDataObject) {
+        OSKextLogMemError();
+        goto finish;
+    }
+    result = OSKextCreateKextsFromMkextData(kCFAllocatorDefault, mkextDataObject);
+    if (!result) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
+            "Can't read mkext2 archive.");
+        goto finish;
+    }
+
+    if (gVerbose) {
+        CFIndex count, i;
+
+        count = CFArrayGetCount(result);
+        fprintf(stdout, "Found %d kexts:\n", (int)count);
+        for (i = 0; i < count; i++) {
+            OSKextRef theKext = (OSKextRef)CFArrayGetValueAtIndex(result, i);
+
+            SAFE_FREE(kextIdentifier);
+
+            if (!CFURLGetFileSystemRepresentation(OSKextGetURL(theKext),
+                /* resolveToBase */ false, (UInt8 *)kextPath, sizeof(kextPath))) {
+
+                OSKextLogStringError(theKext);
+                goto finish;
+            }
+            kextIdentifier = createUTF8CStringForCFString(OSKextGetIdentifier(theKext));
+            OSKextVersionGetString(OSKextGetVersion(theKext), kextVersion,
+                sizeof(kextVersion));
+            fprintf(stdout, "%s - %s (%s)\n", kextPath, kextIdentifier,
+                kextVersion);
+        }
+    }
+
+    ok = true;
+
+finish:
+    if (!ok) {
+        SAFE_RELEASE_NULL(result);
+    }
+    SAFE_RELEASE(mkextDataObject);
+    return result;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+Boolean writeMkext2EntriesToDirectory(
+    CFArrayRef   kexts,
+    char       * outputDirectory)
+{
+    Boolean         result          = false;
+    CFMutableSetRef kextNames       = NULL;  // must release
+    CFIndex         count, i;
+    
+    if (!createCFMutableSet(&kextNames, &kCFTypeSetCallBacks)) {
+        OSKextLogMemError();
+    }
+
+    count = CFArrayGetCount(kexts);
+    for (i = 0; i < count; i++) {
+        OSKextRef theKext = (OSKextRef)CFArrayGetValueAtIndex(kexts, i);
+
+        if (!writeMkext2ToDirectory(theKext, outputDirectory, kextNames)) {
+            goto finish;
+        }
+    }
+
+finish:
+    return result;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+Boolean writeMkext2ToDirectory(
+    OSKextRef aKext,
+    const char * outputDirectory,
+    CFMutableSetRef kextNames)
+{
+    Boolean         result                 = false;
+    CFDictionaryRef infoDict               = NULL;  // must release
+    CFDataRef       infoDictData           = NULL;  // must release
+    CFErrorRef      error                  = NULL;  // must release
+    CFDataRef       executable             = NULL;  // must release
+    CFURLRef        kextURL                = NULL;  // do not release
+    CFStringRef     kextName               = NULL;  // must release
+    CFStringRef     executableName         = NULL;  // must release
+    uint32_t        pathLength;
+    char            kextPath[PATH_MAX];      // gets trashed during use
+    char          * kextNameCString        = NULL;  // do not free
+    char          * kextNameSuffix         = NULL;  // do not free
+    char          * kextNameCStringAlloced = NULL;  // must free
+    char          * executableNameCStringAlloced = NULL;  // must free
+    const void    * file_data              = NULL;  // do not free
+    char            subPath[PATH_MAX];
+    CFIndex         i;
+
+    infoDict = OSKextCopyInfoDictionary(aKext);
+    executable = OSKextCopyExecutableForArchitecture(aKext, NULL);
+    if (!infoDict) {
+        OSKextLogMemError();
+        goto finish;
+    }
+    
+    kextURL = OSKextGetURL(aKext);
+    if (!CFURLGetFileSystemRepresentation(kextURL, /* resolveToBase */ true,
+        (UInt8 *)kextPath, sizeof(kextPath))) {
+
+        OSKextLogStringError(aKext);
+        goto finish;
+    }
+    pathLength = strlen(kextPath);
+    if (pathLength && kextPath[pathLength-1] == '/') {
+        kextPath[pathLength-1] = '\0';
+    }
+    kextNameCString = rindex(kextPath, '/');
+    if (kextNameCString) {
+        kextNameCString++;
+    }
+
+    SAFE_RELEASE_NULL(kextName);
+    kextName = CFStringCreateWithCString(kCFAllocatorDefault,
+        kextNameCString, kCFStringEncodingUTF8);
+    if (!kextName) {
+        OSKextLogMemError();
+        goto finish;
+    }
+    
+   /* Splat off the ".kext" suffix if needed so we can build
+    * numbered variants.
+    */
+    if (CFSetContainsValue(kextNames, kextName)) {
+        kextNameSuffix = strstr(kextNameCString, ".kext");
+        if (!kextNameSuffix) {
+            OSKextLog(/* kext */ NULL,
+                kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
+                "Bad mkext data; kext missing suffix.");
+            goto finish;
+        }
+        *kextNameSuffix = '\0';  // truncate at the period
+    }
+
+    i = 1;
+    while (CFSetContainsValue(kextNames, kextName)) {
+        SAFE_RELEASE_NULL(kextName);
+        kextName = CFStringCreateWithFormat(kCFAllocatorDefault,
+            /* formatOptions */ NULL, CFSTR("%s-%d.kext"),
+            kextNameCString, i);
+        i++;
+    }
+    CFSetAddValue(kextNames, kextName);
+
+    kextNameCStringAlloced = createUTF8CStringForCFString(kextName);
+    
+   /*****
+    * Write the plist file.
+    */
+    infoDictData = CFPropertyListCreateData(kCFAllocatorDefault,
+        infoDict, kCFPropertyListXMLFormat_v1_0, /* options */ 0, &error);
+    if (!infoDictData) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
+            "Can't serialize kext info dictionary.");
+        goto finish;
+    }
+
+    file_data = (u_int8_t *)CFDataGetBytePtr(infoDictData);
+    if (!file_data) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
+            "Internal error; info dictionary has no data.");
+        goto finish;
+    }
+
+    if (snprintf(subPath, sizeof(subPath),
+            "%s/Contents", kextNameCStringAlloced) >= sizeof(subPath) - 1) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogArchiveFlag | kOSKextLogFileAccessFlag,
+            "Output path is too long - %s.", subPath);
+        goto finish;
+    }
+    if (!writeFileInDirectory(outputDirectory, subPath, "Info.plist",
+        file_data, CFDataGetLength(infoDictData))) {
+
+        goto finish;
+    }
+
+    if (!executable) {
+        result = true;
+        goto finish;
+    }
+
+   /*****
+    * Write the executable file.
+    */
+    file_data = (u_int8_t *)CFDataGetBytePtr(executable);
+    if (!file_data) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
+            "Internal error; executable has no data.");
+        goto finish;
+    }
+
+    if (snprintf(subPath, sizeof(subPath),
+            "%s/Contents/MacOS", kextNameCStringAlloced) >= sizeof(subPath) - 1) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogArchiveFlag | kOSKextLogFileAccessFlag,
+            "Output path is too long - %s.", subPath);
+        goto finish;
+    }
+    executableName = CFDictionaryGetValue(infoDict, CFSTR("CFBundleExecutable"));
+    if (!executableName) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
+            "Kext %s has an executable but no CFBundleExecutable property.",
+            kextNameCStringAlloced);
+        goto finish;
+    }
+    executableNameCStringAlloced = createUTF8CStringForCFString(executableName);
+    if (!executableNameCStringAlloced) {
+        OSKextLogMemError();
+        goto finish;
+    }
+    if (!writeFileInDirectory(outputDirectory, subPath,
+        executableNameCStringAlloced,
+        file_data, CFDataGetLength(executable))) {
+
+        goto finish;
+    }
+
+    result = true;
+
+finish:
+    SAFE_RELEASE(infoDict);
+    SAFE_RELEASE(infoDictData);
+    SAFE_RELEASE(error);
+    SAFE_RELEASE(executable);
+    SAFE_FREE(kextNameCStringAlloced);
+    SAFE_FREE(executableNameCStringAlloced);
+    return result;
+}
+
+/*******************************************************************************
+*******************************************************************************/
 static Boolean CaseInsensitiveEqual(CFTypeRef left, CFTypeRef right)
 {
     CFComparisonResult compResult;
@@ -235,36 +691,34 @@ static Boolean CaseInsensitiveEqual(CFTypeRef left, CFTypeRef right)
     return false;
 }
 
+/*******************************************************************************
+*******************************************************************************/
 static CFHashCode CaseInsensitiveHash(const void *key)
 {
     return (CFStringGetLength(key));
 }
 
 /*******************************************************************************
-*
 *******************************************************************************/
-CFDictionaryRef extractEntriesFromMkext(u_int8_t * mkextFileData, char * arch)
+CFDictionaryRef extractEntriesFromMkext1(
+    void * mkextStart,
+    void * mkextEnd)
 {
     CFMutableDictionaryRef entries = NULL;  // returned
     Boolean error = false;
 
-    u_int8_t      * crc_address = 0;
-    u_int32_t       checksum;
-    struct fat_header *fat_data = 0; // don't free
-    mkext_header  * mkext_data = 0;   // don't free
-    const NXArchInfo *arch_info;
-
     unsigned int    i;
 
-    mkext_kext    * onekext_data = 0;     // don't free
-    mkext_file    * plist_file = 0;       // don't free
-    mkext_file    * module_file = 0;      // don't free
-    CFStringRef     entryName = NULL;     // must release
-    CFMutableDictionaryRef entryDict = NULL; // must release
-    CFDataRef       kextPlistDataObject = 0; // must release
-    CFDictionaryRef kextPlist = 0;        // must release
-    CFStringRef     errorString = NULL;   // must release
-    CFDataRef       kextExecutable = 0;   // must release
+    mkext1_header          * mkextHeader = NULL;  // don't free
+    mkext_kext             * onekext_data = 0;     // don't free
+    mkext_file             * plist_file = 0;       // don't free
+    mkext_file             * module_file = 0;      // don't free
+    CFStringRef              entryName = NULL;     // must release
+    CFMutableDictionaryRef   entryDict = NULL; // must release
+    CFDataRef                kextPlistDataObject = 0; // must release
+    CFDictionaryRef          kextPlist = 0;        // must release
+    CFStringRef              errorString = NULL;   // must release
+    CFDataRef                kextExecutable = 0;   // must release
     CFDictionaryKeyCallBacks keyCallBacks;
 
 
@@ -278,68 +732,13 @@ CFDictionaryRef extractEntriesFromMkext(u_int8_t * mkextFileData, char * arch)
         goto finish;
     }
 
-    if (arch == NULL) {
-        arch_info = NXGetLocalArchInfo();
-    } else {
-        arch_info = NXGetArchInfoFromName(arch);
-    }
-    if (arch_info == NULL) {
-        fprintf(stderr, "unknown architecture '%s'\n", arch);
-        error = true;
-        goto finish;
-    }
-
-    fat_data = (struct fat_header *)mkextFileData;
-    if (NXSwapBigLongToHost(fat_data->magic) == FAT_MAGIC) {
-        unsigned int nfat = NXSwapBigLongToHost(fat_data->nfat_arch);
-        struct fat_arch *arch_data =
-            (struct fat_arch *)(((void *)mkextFileData) + sizeof(struct fat_header));
-        for (i = 0; i < nfat ; i++) {
-            if ((cpu_type_t)NXSwapBigLongToHost(arch_data[i].cputype) == arch_info->cputype) {
-                break;
-            }
-        }
-
-        if (i == nfat) {
-            if (arch) {
-                fprintf(stderr, "archive data for architecture '%s' not found\n",
-                        arch);
-            } else {
-                fprintf(stderr,
-                    "archive data for this machine's architecture not found\n");
-            }
-            error = true;
-            goto finish;
-        }
-        mkextFileData = (u_int8_t *)(mkextFileData + NXSwapBigLongToHost(arch_data[i].offset));
-    }
-
-    mkext_data = (mkext_header *)mkextFileData;
-
-    if (NXSwapBigLongToHost(mkext_data->magic) != MKEXT_MAGIC ||
-        NXSwapBigLongToHost(mkext_data->signature) != MKEXT_SIGN) {
-        fprintf(stderr, "extension archive has invalid magic or signature.\n");
-        error = true;
-        goto finish;
-    }
-
-    crc_address = (u_int8_t *)&mkext_data->version;
-    checksum = local_adler32(crc_address,
-        (unsigned int)mkext_data +
-        NXSwapBigLongToHost(mkext_data->length) - (unsigned int)crc_address);
-
-    if (NXSwapBigLongToHost(mkext_data->adler32) != checksum) {
-        fprintf(stderr, "extension archive has a bad checksum.\n");
-        error = true;
-        goto finish;
-    }
+    mkextHeader = (mkext1_header *)mkextStart;
 
     if (gVerbose) {
-        fprintf(stdout, "Found %ld kexts:\n",
-            NXSwapBigLongToHost(mkext_data->numkexts));
+        fprintf(stdout, "Found %u kexts:\n", MKEXT_GET_COUNT(mkextHeader));
     }
 
-    for (i = 0; i < NXSwapBigLongToHost(mkext_data->numkexts); i++) {
+    for (i = 0; i < MKEXT_GET_COUNT(mkextHeader); i++) {
         if (entryName) {
             CFRelease(entryName);
             entryName = NULL;
@@ -374,14 +773,14 @@ CFDictionaryRef extractEntriesFromMkext(u_int8_t * mkextFileData, char * arch)
             goto finish;
         }
 
-        onekext_data = &mkext_data->kext[i];
+        onekext_data = &mkextHeader->kext[i];
         plist_file = &onekext_data->plist;
         module_file = &onekext_data->module;
 
        /*****
         * Get the plist
         */
-        if (!uncompressMkextEntry(mkextFileData,
+        if (!uncompressMkext1Entry(mkextStart,
             plist_file, &kextPlistDataObject) || !kextPlistDataObject) {
 
             fprintf(stderr, "couldn't uncompress plist at index %d.\n", i);
@@ -423,7 +822,7 @@ CFDictionaryRef extractEntriesFromMkext(u_int8_t * mkextFileData, char * arch)
         CFDictionarySetValue(entryDict, CFSTR("plist"), kextPlist);
 
         if (gVerbose) {
-            char kext_name[MAXPATHLEN];
+            char kext_name[PATH_MAX];
             char * bundle_id = NULL;  // don't free
             char * bundle_vers = NULL; // don't free
 
@@ -452,12 +851,12 @@ CFDictionaryRef extractEntriesFromMkext(u_int8_t * mkextFileData, char * arch)
        /*****
         * Get the executable
         */
-        if (NXSwapBigLongToHost(module_file->offset) ||
-            NXSwapBigLongToHost(module_file->compsize) ||
-            NXSwapBigLongToHost(module_file->realsize) ||
-            NXSwapBigLongToHost(module_file->modifiedsecs)) {
+        if (OSSwapBigToHostInt32(module_file->offset) ||
+            OSSwapBigToHostInt32(module_file->compsize) ||
+            OSSwapBigToHostInt32(module_file->realsize) ||
+            OSSwapBigToHostInt32(module_file->modifiedsecs)) {
 
-            if (!uncompressMkextEntry(mkextFileData,
+            if (!uncompressMkext1Entry(mkextStart,
                 module_file, &kextExecutable)) {
 
                 fprintf(stderr, "couldn't uncompress executable at index %d.\n",
@@ -492,9 +891,8 @@ finish:
 }
 
 /*******************************************************************************
-*
 *******************************************************************************/
-Boolean uncompressMkextEntry(
+Boolean uncompressMkext1Entry(
     void * mkext_base_address,
     mkext_file * entry_address,
     CFDataRef * uncompressedEntry)
@@ -505,10 +903,10 @@ Boolean uncompressMkextEntry(
     CFDataRef uncompressedData = NULL;    // returned
     size_t uncompressed_size = 0;
 
-    size_t offset = NXSwapBigLongToHost(entry_address->offset);
-    size_t compsize = NXSwapBigLongToHost(entry_address->compsize);
-    size_t realsize = NXSwapBigLongToHost(entry_address->realsize);
-    time_t modifiedsecs = NXSwapBigLongToHost(entry_address->modifiedsecs);
+    size_t offset = OSSwapBigToHostInt32(entry_address->offset);
+    size_t compsize = OSSwapBigToHostInt32(entry_address->compsize);
+    size_t realsize = OSSwapBigToHostInt32(entry_address->realsize);
+    time_t modifiedsecs = OSSwapBigToHostInt32(entry_address->modifiedsecs);
 
     *uncompressedEntry = NULL;
 
@@ -529,6 +927,7 @@ Boolean uncompressMkextEntry(
 
     if (compsize != 0) {
         uncompressed_size = decompress_lzss(uncompressed_data,
+            realsize,
             mkext_base_address + offset,
             compsize);
         if (uncompressed_size != realsize) {
@@ -560,16 +959,17 @@ finish:
 }
 
 /*******************************************************************************
-*
 *******************************************************************************/
-Boolean writeEntriesToDirectory(CFDictionaryRef entryDict,
+Boolean writeMkext1EntriesToDirectory(CFDictionaryRef entryDict,
     char * outputDirectory)
 {
-    Boolean result = true;
-    unsigned int count, i;
-    CFStringRef * kextNames = NULL;    // must free
-    CFDictionaryRef * entries = NULL;  // must free
-    char path[MAXPATHLEN];
+    Boolean           result          = false;
+    CFStringRef     * kextNames       = NULL;  // must free
+    CFDictionaryRef * entries         = NULL;  // must free
+    char            * kext_name       = NULL;  // must free
+    char            * executable_name = NULL;  // must free
+    char              subPath[PATH_MAX];
+    unsigned int      count, i;
 
     count = CFDictionaryGetCount(entryDict);
 
@@ -584,22 +984,20 @@ Boolean writeEntriesToDirectory(CFDictionaryRef entryDict,
         (const void **)entries);
 
     for (i = 0; i < count; i++) {
-        CFStringRef kextName = kextNames[i];
-        char kext_name[MAXPATHLEN];  // overkill but hey
-        char executable_name[MAXPATHLEN];  // overkill but hey
-        CFDictionaryRef kextEntry = entries[i];
-        CFDataRef fileData = NULL;
+        CFStringRef     kextName       = kextNames[i];
+        CFDictionaryRef kextEntry      = entries[i];
+        CFStringRef     executableName = NULL;  // do not release
+        CFDataRef       fileData       = NULL;  // do not release
         CFDictionaryRef plist;
-        CFStringRef executableString;
 
-        const void * file_data = NULL;
-        int fd;
-        CFIndex bytesWritten;
+        const void    * file_data = NULL;
 
-        if (!CFStringGetCString(kextName, kext_name, sizeof(kext_name) -1,
-            kCFStringEncodingUTF8)) {
-            fprintf(stderr, "memory or string conversion error\n");
-            result = false;
+        SAFE_FREE_NULL(kext_name);
+        SAFE_FREE_NULL(executable_name);
+
+        kext_name = createUTF8CStringForCFString(kextName);
+        if (!kext_name) {
+            OSKextLogMemError();
             goto finish;
         }
 
@@ -608,55 +1006,31 @@ Boolean writeEntriesToDirectory(CFDictionaryRef entryDict,
         */
         fileData = CFDictionaryGetValue(kextEntry, CFSTR("plistData"));
         if (!fileData) {
-            fprintf(stderr, "kext entry %d has no plist\n", i);
+            OSKextLog(/* kext */ NULL,
+                kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
+                "Kext entry %d has no plist.", i);
             continue;
         }
         file_data = (u_int8_t *)CFDataGetBytePtr(fileData);
         if (!file_data) {
-            fprintf(stderr, "kext %s has no plist\n", kext_name);
+            OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
+            "Kext %s has no plist.", kext_name);
             continue;
         }
 
-        sprintf(path, "%s/", outputDirectory);
-        strcat(path, kext_name);
-        strcat(path, ".kext");
-        if ((mkdir(path, 0777) < 0) && (errno != EEXIST)) {
-            fprintf(stderr, "can't create directory %s\n", path);
-            result = false;
+        if (snprintf(subPath, sizeof(subPath),
+                "%s.kext/Contents", kext_name) >= sizeof(subPath) - 1) {
+            OSKextLog(/* kext */ NULL,
+                kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
+                "Output path is too long - %s.", subPath);
             goto finish;
         }
+        if (!writeFileInDirectory(outputDirectory, subPath, "Info.plist",
+            file_data, CFDataGetLength(fileData))) {
 
-        strcat(path, "/");
-        strcat(path, "Contents");
-        if ((mkdir(path, 0777) < 0) && (errno != EEXIST)) {
-            fprintf(stderr, "can't create directory %s\n", path);
-            result = false;
             goto finish;
         }
-
-        strcat(path, "/Info.plist");
-
-        fd = open(path, O_WRONLY | O_CREAT, 0777);
-        if (fd < 0) {
-            fprintf(stderr, "can't open file %s for writing\n", path);
-            result = false;
-            goto finish;
-        }
-
-        bytesWritten = 0;
-        while (bytesWritten < CFDataGetLength(fileData)) {
-            int writeResult;
-            writeResult = write(fd, file_data + bytesWritten,
-                CFDataGetLength(fileData) - bytesWritten);
-            if (writeResult < 0) {
-                fprintf(stderr, "write failed for %s\n", path);
-                result = false;
-                goto finish;
-            }
-            bytesWritten += writeResult;
-        }
-
-        close(fd);
 
        /*****
         * Write the executable file.
@@ -667,55 +1041,42 @@ Boolean writeEntriesToDirectory(CFDictionaryRef entryDict,
         }
         file_data = (u_int8_t *)CFDataGetBytePtr(fileData);
         if (!file_data) {
-            fprintf(stderr, "kext %s has no executable\n", kext_name);
+            OSKextLog(/* kext */ NULL,
+                kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
+                "Executable missing from kext %s.",
+                kext_name);
             continue;
         }
 
-        sprintf(path, "%s/", outputDirectory);
-        strcat(path, kext_name);
-        strcat(path, ".kext/Contents/MacOS");
-        if ((mkdir(path, 0777) < 0) && (errno != EEXIST)) {
-            fprintf(stderr, "can't create directory %s\n", path);
-            result = false;
+        if (snprintf(subPath, sizeof(subPath),
+                "%s.kext/Contents/MacOS", kext_name) >= sizeof(subPath) - 1) {
+            OSKextLog(/* kext */ NULL,
+                kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
+                "Output path is too long - %s.", subPath);
             goto finish;
         }
-
         plist = CFDictionaryGetValue(kextEntry, CFSTR("plist"));
-        executableString = CFDictionaryGetValue(plist, CFSTR("CFBundleExecutable"));
-        if (!executableString) {
-            fprintf(stderr, "kext %s has executable but no CFBundleExecutable property\n", kext_name);
+        executableName = CFDictionaryGetValue(plist, CFSTR("CFBundleExecutable"));
+        if (!executableName) {
+            OSKextLog(/* kext */ NULL,
+                kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
+                "Kext %s has an executable but no CFBundleExecutable property.",
+                kext_name);
             continue;
         }
-        if (!CFStringGetCString(executableString, executable_name, sizeof(executable_name) -1,
-            kCFStringEncodingUTF8)) {
-            fprintf(stderr, "memory or string conversion error\n");
-            result = false;
+        executable_name = createUTF8CStringForCFString(executableName);
+        if (!executable_name) {
+            OSKextLogMemError();
             goto finish;
         }
+        if (!writeFileInDirectory(outputDirectory, subPath, executable_name,
+            file_data, CFDataGetLength(fileData))) {
 
-        strcat(path, "/");
-        strcat(path, executable_name);
-
-        fd = open(path, O_WRONLY | O_CREAT, 0777);
-        if (fd < 0) {
-            fprintf(stderr, "can't open file %s for writing\n", path);
+            goto finish;
         }
-
-        bytesWritten = 0;
-        while (bytesWritten < CFDataGetLength(fileData)) {
-            int writeResult;
-            writeResult = write(fd, file_data + bytesWritten,
-                CFDataGetLength(fileData) - bytesWritten);
-            if (writeResult < 0) {
-                fprintf(stderr, "write failed for %s\n", path);
-                result = false;
-                goto finish;
-            }
-            bytesWritten += writeResult;
-        }
-
-        close(fd);
     }
+
+    result = true;
 
 finish:
     if (kextNames) free(kextNames);
@@ -724,7 +1085,6 @@ finish:
 }
 
 /*******************************************************************************
-*
 *******************************************************************************/
 CFStringRef createKextNameFromPlist(
     CFDictionaryRef entries, CFDictionaryRef kextPlist)
@@ -792,7 +1152,6 @@ finish:
 }
 
 /*******************************************************************************
-*
 *******************************************************************************/
 int getBundleIDAndVersion(CFDictionaryRef kextPlist, unsigned index,
     char ** bundle_id_out, char ** bundle_version_out)
@@ -853,4 +1212,98 @@ int getBundleIDAndVersion(CFDictionaryRef kextPlist, unsigned index,
 finish:
 
     return result;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+Boolean writeFileInDirectory(
+    const char * basePath,
+    char       * subPath,
+    const char * fileName,
+    const char * fileData,
+    size_t       fileLength)
+{
+    Boolean  result = false;
+    char     path[PATH_MAX];
+    char   * pathComponent = NULL;     // do not free
+    char   * pathComponentEnd = NULL;  // do not free
+    int      fd = -1;
+    uint32_t bytesWritten;
+
+    if (strlcpy(path, basePath, sizeof(path)) >= sizeof(path)) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
+            "Output path is too long - %s.", basePath);
+        goto finish;
+    }
+
+    pathComponent = subPath;
+    while (pathComponent) {
+        pathComponentEnd = index(pathComponent, '/');
+        if (pathComponentEnd) {
+            *pathComponentEnd = '\0';
+        }
+        if (strlcat(path, "/", sizeof(path)) >= sizeof(path) ||
+            strlcat(path, pathComponent, sizeof(path)) >= sizeof(path)) {
+
+            OSKextLog(/* kext */ NULL,
+                kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
+                "Output path is too long - %s.", path);
+            goto finish;
+        }
+
+        if ((mkdir(path, 0777) < 0) && (errno != EEXIST)) {
+            OSKextLog(/* kext */ NULL,
+                kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
+                "Can't create directory %s - %s", path, strerror(errno));
+            goto finish;
+        }
+        if (pathComponentEnd) {
+            *pathComponentEnd = '/';
+            pathComponent = pathComponentEnd + 1;
+            pathComponentEnd = NULL;
+        } else {
+            break;
+        }
+    }
+
+    if (strlcat(path, "/", sizeof(path)) >= sizeof(path) ||
+        strlcat(path, fileName, sizeof(path)) >= sizeof(path)) {
+
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
+            "Output path is too long - %s.", path);
+        goto finish;
+    }
+
+    fd = open(path, O_WRONLY | O_CREAT, 0777);
+    if (fd < 0) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
+            "Can't open %s for writing - %s.", path, strerror(errno));
+        goto finish;
+    }
+
+    bytesWritten = 0;
+    while (bytesWritten < fileLength) {
+        int writeResult;
+        writeResult = write(fd, fileData + bytesWritten,
+            fileLength - bytesWritten);
+        if (writeResult < 0) {
+            OSKextLog(/* kext */ NULL,
+                kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
+                "Write failed for %s - %s.", path, strerror(errno));
+            goto finish;
+        }
+        bytesWritten += writeResult;
+    }
+
+    result = true;
+
+finish:
+    if (fd != -1) {
+        close(fd);
+    }
+    return result;
+
 }

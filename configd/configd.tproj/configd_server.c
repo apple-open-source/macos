@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -57,9 +57,6 @@ extern boolean_t		shared_dns_info_server(mach_msg_header_t *, mach_msg_header_t 
 
 /* configd server port (for new session requests) */
 static CFMachPortRef		configd_port		= NULL;
-
-/* priviledged bootstrap port (for registering/unregistering w/launchd) */
-static mach_port_t		priv_bootstrap_port	= MACH_PORT_NULL;
 
 __private_extern__
 boolean_t
@@ -204,46 +201,6 @@ configdCallback(CFMachPortRef port, void *msg, CFIndex size, void *info)
 }
 
 
-__private_extern__
-boolean_t
-server_active(mach_port_t *restart_service_port)
-{
-	char			*service_name;
-	kern_return_t 		status;
-
-	service_name = getenv("SCD_SERVER");
-	if (!service_name) {
-		service_name = SCD_SERVER;
-	}
-
-	/* Check "configd" server status */
-	status = bootstrap_check_in(bootstrap_port, service_name, restart_service_port);
-	switch (status) {
-		case BOOTSTRAP_SUCCESS :
-			/* if we are being restarted by launchd */
-			priv_bootstrap_port = bootstrap_port;
-			break;
-		case BOOTSTRAP_SERVICE_ACTIVE :
-		case BOOTSTRAP_NOT_PRIVILEGED :
-			/* if another instance of the server is active (or starting) */
-			fprintf(stderr, "'%s' server already active\n",
-				service_name);
-			return TRUE;
-		case BOOTSTRAP_UNKNOWN_SERVICE :
-			/* if the server is not currently registered/active */
-			*restart_service_port = MACH_PORT_NULL;
-			break;
-		default :
-			fprintf(stderr,
-				"bootstrap_check_in() failed: %s\n",
-				bootstrap_strerror(status));
-			exit (EX_UNAVAILABLE);
-	}
-
-	return FALSE;
-}
-
-
 static CFStringRef
 serverMPCopyDescription(const void *info)
 {
@@ -253,101 +210,39 @@ serverMPCopyDescription(const void *info)
 
 __private_extern__
 void
-server_init(mach_port_t		restart_service_port,
-	    Boolean		enableRestart)
+server_init()
 {
 	serverSessionRef	mySession;
 	CFRunLoopSourceRef	rls;
 	char			*service_name;
-	mach_port_t		service_port	= restart_service_port;
+	mach_port_t		service_port	= MACH_PORT_NULL;
 	kern_return_t 		status;
-	mach_port_t		unpriv_bootstrap_port;
 
 	service_name = getenv("SCD_SERVER");
 	if (!service_name) {
 		service_name = SCD_SERVER;
 	}
 
-	if (service_port == MACH_PORT_NULL) {
-		mach_port_t	service_send_port;
-
-		/* Check "configd" server status */
-		status = bootstrap_check_in(bootstrap_port, service_name, &service_port);
-		switch (status) {
-			case BOOTSTRAP_SUCCESS :
-				/* if we are being restarted by launchd */
-				priv_bootstrap_port = bootstrap_port;
-				break;
-			case BOOTSTRAP_NOT_PRIVILEGED :
-				/* if another instance of the server is starting */
-				SCLog(TRUE, LOG_ERR, CFSTR("'%s' server already starting"), service_name);
-				exit (EX_UNAVAILABLE);
-			case BOOTSTRAP_UNKNOWN_SERVICE :
-				/* service not currently registered, "a good thing" (tm) */
-				if (enableRestart) {
-					status = bootstrap_create_server(bootstrap_port,
-									 "/usr/sbin/configd",
-									 geteuid(),
-									 FALSE,		/* not onDemand == restart now */
-									 &priv_bootstrap_port);
-					if (status != BOOTSTRAP_SUCCESS) {
-						SCLog(TRUE, LOG_ERR,
-						      CFSTR("server_init bootstrap_create_server() failed: %s"),
-						      bootstrap_strerror(status));
-						exit (EX_UNAVAILABLE);
-					}
-				} else {
-					priv_bootstrap_port = bootstrap_port;
-				}
-
-				status = bootstrap_create_service(priv_bootstrap_port, service_name, &service_send_port);
-				if (status != BOOTSTRAP_SUCCESS) {
-					SCLog(TRUE, LOG_ERR,
-					      CFSTR("server_init bootstrap_create_service() failed: %s"),
-					      bootstrap_strerror(status));
-					exit (EX_UNAVAILABLE);
-				}
-
-				status = bootstrap_check_in(priv_bootstrap_port, service_name, &service_port);
-				if (status != BOOTSTRAP_SUCCESS) {
-					SCLog(TRUE, LOG_ERR,
-					      CFSTR("server_init bootstrap_check_in() failed: %s"),
-					      bootstrap_strerror(status));
-					exit (EX_UNAVAILABLE);
-				}
-				break;
-			case BOOTSTRAP_SERVICE_ACTIVE :
-				/* if another instance of the server is active */
-				SCLog(TRUE, LOG_ERR, CFSTR("'%s' server already active"), service_name);
-				exit (EX_UNAVAILABLE);
-			default :
+	/* Check "configd" server status */
+	status = bootstrap_check_in(bootstrap_port, service_name, &service_port);
+	switch (status) {
+		case BOOTSTRAP_SUCCESS :
+			/* if we are being [re-]started by launchd */
+			break;
+		case BOOTSTRAP_NOT_PRIVILEGED :
+			/* if another instance of the server is starting */
+			SCLog(TRUE, LOG_ERR, CFSTR("'%s' server already starting"), service_name);
+			exit (EX_UNAVAILABLE);
+		case BOOTSTRAP_SERVICE_ACTIVE :
+			/* if another instance of the server is active */
+			SCLog(TRUE, LOG_ERR, CFSTR("'%s' server already active"), service_name);
+			exit (EX_UNAVAILABLE);
+		default :
 			SCLog(TRUE, LOG_ERR,
 			      CFSTR("server_init bootstrap_check_in() failed: %s"),
 			      bootstrap_strerror(status));
 			exit (EX_UNAVAILABLE);
-		}
-
 	}
-
-	/* we don't want to pass our priviledged bootstrap port along to any spawned helpers so... */
-	status = bootstrap_unprivileged(priv_bootstrap_port, &unpriv_bootstrap_port);
-	if (status != BOOTSTRAP_SUCCESS) {
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR("server_init bootstrap_unprivileged() failed: %s"),
-		      bootstrap_strerror(status));
-		exit (EX_UNAVAILABLE);
-	}
-
-	status = task_set_bootstrap_port(mach_task_self(), unpriv_bootstrap_port);
-	if (status != BOOTSTRAP_SUCCESS) {
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR("server_init task_set_bootstrap_port(): %s"),
-		      mach_error_string(status));
-		exit (EX_UNAVAILABLE);
-	}
-
-	/* ... and make sure that the global "bootstrap_port" is also unpriviledged */
-	bootstrap_port = unpriv_bootstrap_port;
 
 	/* Create the primary / new connection port and backing session */
 	mySession = addSession(service_port, serverMPCopyDescription);
@@ -373,41 +268,20 @@ __private_extern__
 int
 server_shutdown()
 {
-	char		*service_name;
-	mach_port_t	service_port;
-	kern_return_t 	status;
+	if (configd_port != NULL) {
+		mach_port_t	service_port;
 
-	/*
-	 * Note: we can't use SCLog() since the signal may be received while the
-	 *       logging thread lock is held.
-	 */
-	if ((priv_bootstrap_port == MACH_PORT_NULL) || (configd_port == NULL)) {
-		return EX_OK;
-	}
+		service_port = CFMachPortGetPort(configd_port);
+		if (service_port != MACH_PORT_NULL) {
+			(void) mach_port_mod_refs(mach_task_self(),
+						  service_port,
+						  MACH_PORT_RIGHT_RECEIVE,
+						  -1);
+		}
 
-	service_name = getenv("SCD_SERVER");
-	if (!service_name) {
-		service_name = SCD_SERVER;
-	}
-
-	service_port = CFMachPortGetPort(configd_port);
-	if (service_port != MACH_PORT_NULL) {
-		(void) mach_port_destroy(mach_task_self(), service_port);
-	}
-
-	status = bootstrap_register(priv_bootstrap_port, service_name, MACH_PORT_NULL);
-	switch (status) {
-		case BOOTSTRAP_SUCCESS :
-			break;
-		case MACH_SEND_INVALID_DEST :
-		case MIG_SERVER_DIED :
-			/* something happened to launchd */
-			break;
-		default :
-			SCLog(TRUE, LOG_ERR,
-			      CFSTR("server_shutdown bootstrap_register(): %s"),
-			      bootstrap_strerror(status));
-			return EX_UNAVAILABLE;
+		CFMachPortInvalidate(configd_port);
+		CFRelease(configd_port);
+		configd_port = NULL;
 	}
 
 	return EX_OK;
@@ -419,25 +293,18 @@ void
 server_loop()
 {
 	CFStringRef	rlMode;
-	int		rlStatus;
 
 	while (TRUE) {
-		/*
-		 * if linked with a DEBUG version of the framework, display some
-		 * debugging information
-		 */
-		__showMachPortStatus();
-
 		/*
 		 * process one run loop event
 		 */
 		rlMode = (storeLocked > 0) ? CFSTR("locked") : kCFRunLoopDefaultMode;
-		rlStatus = CFRunLoopRunInMode(rlMode, 1.0e10, TRUE);
+		CFRunLoopRunInMode(rlMode, 1.0e10, TRUE);
 
 		/*
 		 * check for, and if necessary, push out change notifications
 		 * to other processes.
 		 */
-		pushNotifications();
+		pushNotifications(_configd_trace);
 	}
 }

@@ -142,8 +142,8 @@ protected:
     virtual bool changeSetState(UInt32 newState);
     virtual UInt32 nextSetState(void);
     virtual UInt64 getSmallestMaxByteCount(void);
-    virtual void setSmallest64BitMemberPropertyFor(char * key, UInt32 multiplier);
-    virtual void setLargest64BitMemberPropertyFor(char * key, UInt32 multiplier);
+    virtual void setSmallest64BitMemberPropertyFor(const char * key, UInt32 multiplier);
+    virtual void setLargest64BitMemberPropertyFor(const char * key, UInt32 multiplier);
 
     inline  UInt32 getActiveCount(void) const	{ return arActiveCount; };
     inline  UInt32 getMemberCount(void)	const	{ return arMemberCount; };
@@ -154,8 +154,8 @@ protected:
     virtual bool addBootDeviceInfo(OSArray * bootArray);
     virtual OSDictionary * getSetProperties(void);
     
-    virtual void read(IOService * client, UInt64 byteStart, IOMemoryDescriptor* buffer, IOStorageCompletion completion);
-    virtual void write(IOService * client, UInt64 byteStart, IOMemoryDescriptor* buffer, IOStorageCompletion completion);
+    virtual void read(IOService * client, UInt64 byteStart, IOMemoryDescriptor* buffer, IOStorageAttributes * attributes, IOStorageCompletion * completion);
+    virtual void write(IOService * client, UInt64 byteStart, IOMemoryDescriptor* buffer, IOStorageAttributes * attributes, IOStorageCompletion * completion);
     virtual void activeReadMembers(AppleRAIDMember ** activeMembers, UInt64 byteStart, UInt32 byteCount);
     virtual void activeWriteMembers(AppleRAIDMember ** activeMembers, UInt64 byteStart, UInt32 byteCount);
 

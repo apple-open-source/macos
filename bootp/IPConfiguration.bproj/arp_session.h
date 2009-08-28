@@ -3,7 +3,7 @@
 #define _S_ARP_SESSION_H
 
 /*
- * Copyright (c) 2000 - 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000 - 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,6 +38,27 @@
 
 #include "FDSet.h"
 #include "interfaces.h"
+
+#define ARP_PROBE_COUNT				3
+#define ARP_GRATUITOUS_COUNT			1
+#define ARP_RETRY_SECS				0
+#define ARP_RETRY_USECS				400000
+#define ARP_DETECT_COUNT			3
+#define ARP_DETECT_RETRY_SECS			0
+#define ARP_DETECT_RETRY_USECS			15000
+#define ARP_CONFLICT_RETRY_COUNT		2
+#define ARP_CONFLICT_RETRY_DELAY_SECS		0
+#define ARP_CONFLICT_RETRY_DELAY_USECS		750000
+
+typedef struct arp_session_values {
+    int * 		probe_count;
+    int * 		probe_gratuitous_count;
+    struct timeval * 	probe_interval;
+    int * 		detect_count;
+    struct timeval * 	detect_interval;
+    int *		conflict_retry_count;
+    struct timeval *	conflict_delay_interval;
+} arp_session_values_t;
 
 typedef struct arp_client arp_client_t;
 
@@ -80,13 +101,8 @@ typedef struct arp_session arp_session_t;
 
 arp_session_t *
 arp_session_init(FDSet_t * readers,
-		 arp_our_address_func_t * func, 
-		 const struct timeval * retry_p,
-		 const int * probe_count, 
-		 const int * gratuitous_count,
-		 const int * detect_count,
-		 const struct timeval * detect_retry_p);
-
+		 arp_our_address_func_t * func,
+		 arp_session_values_t * values);
 void
 arp_session_free(arp_session_t * * session_p);
 

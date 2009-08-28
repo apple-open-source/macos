@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 8;
+use Test::More tests => 9;
 
 BEGIN {
     use_ok('Class::C3');
@@ -30,6 +30,20 @@ BEGIN {
     use warnings;
     use base 'OverloadingTest';
     use Class::C3;
+
+    package BaseTwo;
+    use overload (
+        q{fallback} => 1,
+        q{""}       => 'str', ### character
+    );
+    sub str {
+        return 'BaseTwo str';
+    }
+
+    package OverloadInheritTwo;
+    use Class::C3;
+    use base qw/BaseTwo/;
+
 }
 
 Class::C3::initialize();
@@ -51,6 +65,11 @@ eval {
 };
 ok(!$@, '... this should not throw an exception');
 ok($result, '... and we should get the true value');
+
+eval {
+    my $obj = bless {}, 'OverloadInheritTwo';
+};
+is($@, '', "Overloading to method name string");
 
 #use Data::Dumper;
 #diag Dumper { Class::C3::_dump_MRO_table }

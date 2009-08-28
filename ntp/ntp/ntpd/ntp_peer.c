@@ -40,9 +40,6 @@
 #define AM_MODES	7	/* number of rows and columns */
 #define NO_PEER		0	/* action when no peer is found */
 
-#ifdef __APPLE__
-__private_extern__
-#endif
 int AM[AM_MODES][AM_MODES] = {
 /*	{ UNSPEC,   ACTIVE,     PASSIVE,    CLIENT,     SERVER,     BCAST } */
 
@@ -106,7 +103,8 @@ int peer_associations;			/* mobilized associations */
 int peer_preempt;			/* preemptable associations */
 static struct peer init_peer_alloc[INIT_PEER_ALLOC]; /* init alloc */
 
-static	void	getmorepeermem	P((void));
+static void	    getmorepeermem	 P((void));
+static struct interface *select_peerinterface P((struct peer *, struct sockaddr_storage *, struct interface *, u_char));
 
 /*
  * init_peer - initialize peer data structures and counters
@@ -259,7 +257,9 @@ findpeer(
 		*action = MATCH_ASSOC(NO_PEER, pkt_mode);
 		return ((struct peer *)0);
 	}
-	peer->dstadr = dstadr;
+
+	set_peerdstadr(peer, dstadr);
+
 	return (peer);
 }
 
@@ -344,6 +344,10 @@ unpeer(
 		printf("demobilize %u %d %d\n", peer_to_remove->associd,
 		    peer_associations, peer_preempt);
 #endif
+	set_peerdstadr(peer_to_remove, NULL);
+
+	/* XXXMEMLEAK? peer_clear->crypto allocation */
+
 	hash = NTP_HASH_ADDR(&peer_to_remove->srcadr);
 	peer_hash_count[hash]--;
 	peer_demobilizations++;
@@ -419,12 +423,13 @@ peer_config(
 	u_int flags,
 	int ttl,
 	keyid_t key,
-	u_char *keystr
+	u_char *keystr,
+	char *dns_name
 	)
 {
 	register struct peer *peer;
 	u_char cast_flags;
-
+	u_long next_update;
 	/*
 	 * First search from the beginning for an association with given
 	 * remote address and mode. If an interface is given, search
@@ -516,9 +521,202 @@ peer_config(
 		flags |= FLAG_IBURST;
 	peer = newpeer(srcadr, dstadr, hmode, version, minpoll, maxpoll,
 	    flags | FLAG_CONFIG, cast_flags, ttl, key);
+	if (peer) {
+		peer->dns_name = strdup(dns_name);
+		next_update = get_dns_flags(dns_name, peer);
+		if (dns_timer == 0 || (dns_timer > next_update))
+			dns_timer = next_update;
+	}
 	return (peer);
 }
 
+/*
+ * setup peer dstadr field keeping it in sync with the interface structures
+ */
+void
+set_peerdstadr(struct peer *peer, struct interface *interface)
+{
+	if (peer->dstadr != interface) {
+		if (interface != NULL &&
+		    (peer->cast_flags & MDF_BCLNT) &&
+		    (interface->flags & INT_MCASTIF) &&
+		    peer->burst) {
+			/*
+			 * don't accept updates to a true multicast reception
+			 * interface while a BCLNT peer is running it's
+			 * unicast protocol
+			 */
+			return;
+		}
+
+		if (peer->dstadr != NULL)
+		{
+			peer->dstadr->peercnt--;
+			ISC_LIST_UNLINK_TYPE(peer->dstadr->peers, peer, ilink, struct peer);
+		}
+
+		DPRINTF(4, ("set_peerdstadr(%s): change interface from %s to %s\n",
+			    stoa(&peer->srcadr),
+			    (peer->dstadr != NULL) ? stoa(&peer->dstadr->sin) : "<null>",
+			    (interface != NULL) ? stoa(&interface->sin) : "<null>"));
+
+		peer->dstadr = interface;
+
+		if (peer->dstadr != NULL)
+		{
+			ISC_LIST_APPEND(peer->dstadr->peers, peer, ilink);
+			peer->dstadr->peercnt++;
+		}
+	}
+}
+
+/*
+ * attempt to re-rebind interface if necessary
+ */
+static void
+peer_refresh_interface(struct peer *peer)
+{
+	struct interface *niface, *piface;
+
+	niface = select_peerinterface(peer, &peer->srcadr, NULL, peer->cast_flags);
+
+#ifdef DEBUG
+	if (debug > 3)
+	{
+		printf(
+			"peer_refresh_interface: %s->%s mode %d vers %d poll %d %d flags 0x%x 0x%x ttl %d key %08x: new interface: ",
+			peer->dstadr == NULL ? "<null>" : stoa(&peer->dstadr->sin),
+			stoa(&peer->srcadr),
+			peer->hmode, peer->version, peer->minpoll,
+			peer->maxpoll, peer->flags, peer->cast_flags,
+			peer->ttl, peer->keyid);
+		if (niface != NULL) 
+		{
+			printf("fd=%d, bfd=%d, name=%.16s, flags=0x%x, scope=%d, ",
+			       niface->fd,
+			       niface->bfd,
+			       niface->name,
+			       niface->flags,
+			       niface->scopeid);
+			/* Leave these as three printf calls. */
+			printf(", sin=%s",
+			       stoa((&niface->sin)));
+			if (niface->flags & INT_BROADCAST)
+				printf(", bcast=%s,",
+				       stoa((&niface->bcast)));
+			printf(", mask=%s\n",
+			       stoa((&niface->mask)));
+		}
+		else
+		{
+			printf("<NONE>\n");
+		}
+	}
+#endif
+
+	piface = peer->dstadr;
+
+	set_peerdstadr(peer, niface);
+
+	if (peer->dstadr) {
+                /*
+                 * clear crypto if we change the local address
+                 */
+                if (peer->dstadr != piface && !(peer->cast_flags & MDF_BCLNT)) {
+			peer_crypto_clear(peer);
+		}
+
+		/*
+	 	 * Broadcast needs the socket enabled for broadcast
+	 	 */
+		if (peer->cast_flags & MDF_BCAST) {
+			enable_broadcast(peer->dstadr, &peer->srcadr);
+		}
+
+		/*
+	 	 * Multicast needs the socket interface enabled for multicast
+	 	 */
+		if (peer->cast_flags & MDF_MCAST) {
+			enable_multicast_if(peer->dstadr, &peer->srcadr);
+		}
+	}
+}
+
+/*
+ * refresh_all_peerinterfaces - see that all interface bindings are up to date
+ */
+void
+refresh_all_peerinterfaces(void)
+{
+	struct peer *peer, *next_peer;
+	int n;
+
+	/*
+	 * this is called when the interface list has changed
+	 * give all peers a chance to find a better interface
+	 */
+	for (n = 0; n < NTP_HASH_SIZE; n++) {
+		for (peer = peer_hash[n]; peer != 0; peer = next_peer) {
+			next_peer = peer->next;
+			peer_refresh_interface(peer);
+		}
+	}
+}
+
+	
+/*
+ * find an interface suitable for the src address
+ */
+static struct interface *
+select_peerinterface(struct peer *peer, struct sockaddr_storage *srcadr, struct interface *dstadr, u_char cast_flags)
+{
+	struct interface *interface;
+  
+	/*
+	 * Initialize the peer structure and dance the interface jig.
+	 * Reference clocks step the loopback waltz, the others
+	 * squaredance around the interface list looking for a buddy. If
+	 * the dance peters out, there is always the wildcard interface.
+	 * This might happen in some systems and would preclude proper
+	 * operation with public key cryptography.
+	 */
+	if (ISREFCLOCKADR(srcadr))
+		interface = loopback_interface;
+	else
+		if (cast_flags & (MDF_BCLNT | MDF_ACAST | MDF_MCAST | MDF_BCAST)) {
+			interface = findbcastinter(srcadr);
+#ifdef DEBUG
+			if (debug > 3) {
+				if (interface != NULL)
+					printf("Found *-cast interface address %s, for address %s\n",
+					       stoa(&(interface)->sin), stoa(srcadr));
+				else
+					printf("No *-cast local address found for address %s\n",
+					       stoa(srcadr));
+			}
+#endif
+			/*
+			 * If it was a multicast packet, findbcastinter() may not
+			 * find it, so try a little harder.
+			 */
+			if (interface == ANY_INTERFACE_CHOOSE(srcadr))
+				interface = findinterface(srcadr);
+		}
+		else if (dstadr != NULL && dstadr != ANY_INTERFACE_CHOOSE(srcadr))
+			interface = dstadr;
+		else
+			interface = findinterface(srcadr);
+
+	/*
+	 * we do not bind to the wildcard interfaces for output 
+	 * as our (network) source address would be undefined and
+	 * crypto will not work without knowing the own transmit address
+	 */
+	if (interface != NULL && interface->flags & INT_WILDCARD)
+		interface = NULL;
+
+	return interface;
+}
 
 /*
  * newpeer - initialize a new peer association
@@ -564,75 +762,61 @@ newpeer(
 	if (++current_association_ID == 0)
 		++current_association_ID;
 
-#ifdef DEBUG
-	if (debug >2)
-		printf("newpeer: cast flags: 0x%x for address: %s\n",
-			cast_flags, stoa(srcadr));
-#endif
-	/*
-	 * Initialize the peer structure and dance the interface jig.
-	 * Reference clocks step the loopback waltz, the others
-	 * squaredance around the interface list looking for a buddy. If
-	 * the dance peters out, there is always the wildcard interface.
-	 * This might happen in some systems and would preclude proper
-	 * operation with public key cryptography.
-	 */
-	if (ISREFCLOCKADR(srcadr))
-		peer->dstadr = loopback_interface;
-	else if (cast_flags & (MDF_BCLNT | MDF_ACAST | MDF_MCAST | MDF_BCAST)) {
-		peer->dstadr = findbcastinter(srcadr);
-#ifdef DEBUG
-		if (debug > 1) {
-			if (peer->dstadr != NULL)
-				printf("Found broadcast interface address %s, for address %s\n",
-					stoa(&(peer->dstadr)->sin), stoa(srcadr));
-			else
-				printf("No broadcast local address found for address %s\n",
-					stoa(srcadr));
-		}
-#endif
-		/*
-		 * If it was a multicast packet, findbcastinter() may not
-		 * find it, so try a little harder.
-		 */
-		if (peer->dstadr == ANY_INTERFACE_CHOOSE(srcadr))
-			peer->dstadr = findinterface(srcadr);
-	} else if (dstadr != NULL && dstadr != ANY_INTERFACE_CHOOSE(srcadr))
-		peer->dstadr = dstadr;
-	else
-		peer->dstadr = findinterface(srcadr);
+	DPRINTF(3, ("newpeer: cast flags: 0x%x for address: %s\n",
+		    cast_flags, stoa(srcadr)));
 
+	ISC_LINK_INIT(peer, ilink);  /* set up interface link chain */
+
+	dstadr = select_peerinterface(peer, srcadr, dstadr, cast_flags);
+	
 	/*
 	 * If we can't find an interface to use we return a NULL
+	 * unless the DYNAMIC flag is set - then we expect the dynamic
+	 * interface detection code to bind us some day to an interface
 	 */
-	if (peer->dstadr == NULL)
+	if (dstadr == NULL && !(flags & FLAG_DYNAMIC))
 	{
-		msyslog(LOG_ERR, "Cannot find suitable interface for address %s", stoa(srcadr));
+		msyslog(LOG_ERR, "Cannot find existing interface for address %s", stoa(srcadr));
+
+		peer->next = peer_free;
+		peer_free = peer;
+		peer_associations--;
+		peer_free_count++;
+		
 		return (NULL);
 	}
-	/*
-	 * Broadcast needs the socket enabled for broadcast
-	 */
-	if (cast_flags & MDF_BCAST) {
-		enable_broadcast(peer->dstadr, srcadr);
-	}
-	/*
-	 * Multicast needs the socket interface enabled for multicast
-	 */
-	if (cast_flags & MDF_MCAST) {
-		enable_multicast_if(peer->dstadr, srcadr);
-	}
-#ifdef DEBUG
-	if (debug>2)
-		printf("newpeer: using fd %d and our addr %s\n",
-		    peer->dstadr->fd, stoa(&peer->dstadr->sin));
-#endif
+	
 	peer->srcadr = *srcadr;
 	peer->hmode = (u_char)hmode;
 	peer->version = (u_char)version;
 	peer->minpoll = (u_char)max(NTP_MINPOLL, minpoll);
 	peer->maxpoll = (u_char)min(NTP_MAXPOLL, maxpoll);
 	peer->flags = flags;
+
+	set_peerdstadr(peer, dstadr);
+
+#ifdef DEBUG
+	if (debug > 2) {
+		if (peer->dstadr)
+			printf("newpeer: using fd %d and our addr %s\n",
+			       peer->dstadr->fd, stoa(&peer->dstadr->sin));
+		else
+			printf("newpeer: local interface currently not bound\n");
+	}
+#endif
+	
+	/*
+	 * Broadcast needs the socket enabled for broadcast
+	 */
+	if (cast_flags & MDF_BCAST && peer->dstadr) {
+		enable_broadcast(peer->dstadr, srcadr);
+	}
+	/*
+	 * Multicast needs the socket interface enabled for multicast
+	 */
+	if (cast_flags & MDF_MCAST && peer->dstadr) {
+		enable_multicast_if(peer->dstadr, srcadr);
+	}
 	if (key != 0)
 		peer->flags |= FLAG_AUTHENABLE;
 	if (key > NTP_MAXKEY)
@@ -659,6 +843,7 @@ newpeer(
 	peer->timereset = current_time;
 	peer->timereachable = current_time;
 	peer->timereceived = current_time;
+
 #ifdef REFCLOCK
 	if (ISREFCLOCKADR(&peer->srcadr)) {
 
@@ -672,6 +857,8 @@ newpeer(
 			/*
 			 * Dump it, something screwed up
 			 */
+			set_peerdstadr(peer, NULL);
+	
 			peer->next = peer_free;
 			peer_free = peer;
 			peer_free_count++;
@@ -691,26 +878,22 @@ newpeer(
 	peer->ass_next = assoc_hash[i];
 	assoc_hash[i] = peer;
 	assoc_hash_count[i]++;
+
 #ifdef OPENSSL
 	if (peer->flags & FLAG_SKEY) {
 		sprintf(statstr, "newpeer %d", peer->associd);
 		record_crypto_stats(&peer->srcadr, statstr);
-#ifdef DEBUG
-		if (debug)
-			printf("peer: %s\n", statstr);
-#endif
+		DPRINTF(1, ("peer: %s\n", statstr));
 	}
 #endif /* OPENSSL */
-#ifdef DEBUG
-	if (debug)
-		printf(
-		    "newpeer: %s->%s mode %d vers %d poll %d %d flags 0x%x 0x%x ttl %d key %08x\n",
-		    peer->dstadr == NULL ? "null" : stoa(&peer->dstadr->sin),
+
+	DPRINTF(1, ("newpeer: %s->%s mode %d vers %d poll %d %d flags 0x%x 0x%x ttl %d key %08x\n",
+		    peer->dstadr == NULL ? "<null>" : stoa(&peer->dstadr->sin),
 		    stoa(&peer->srcadr),
 		    peer->hmode, peer->version, peer->minpoll,
 		    peer->maxpoll, peer->flags, peer->cast_flags,
-		    peer->ttl, peer->keyid);
-#endif
+		    peer->ttl, peer->keyid));
+
 	return (peer);
 }
 
@@ -884,4 +1067,146 @@ findmanycastpeer(
 		}
 	}
 	return (NULL);
+}
+
+#include <dns_util.h>
+
+u_long get_dns_flags(
+    char *dns_name,
+    struct peer* peer) 
+{
+	dns_handle_t handle;
+	dns_reply_t *reply;
+	dns_TXT_record_t *txt;
+	uint16_t klass, type;
+
+	handle = dns_open(NULL);
+	if (!handle) {
+	    return 0;
+	}
+	dns_class_number("IN", &klass);
+	dns_type_number("TXT", &type);
+	reply = dns_lookup(handle, dns_name, klass, type);
+
+	if (reply) {
+		int a;
+#if DEBUG
+		if (debug > 1) {
+			dns_print_reply(reply, stdout, 0xffff);
+			printf("status: %d\n", reply->status); /* skip if != DNS_STATUS_OK */
+			printf("answer count: %d\n", reply->header->ancount); /* skip if <= 0 */
+		}
+#endif
+		for (a = 0; a < reply->header->ancount; a++) {
+		        if ((reply->answer[a]->dnstype != type) ||
+			    (reply->answer[a]->dnsclass != klass))
+			    	continue; /* ignore non-TXT */
+			txt = reply->answer[a]->data.TXT;
+			if (txt) {
+				int s;
+				u_int old_flags = peer->flags & (FLAG_BURST | FLAG_IBURST);
+				u_int new_flags = 0;
+				u_char minpoll = NTP_MINDPOLL;
+				u_char maxpoll = NTP_MAXDPOLL;
+				for (s = 0; s < txt->string_count; s++) {
+#if DEBUG
+					if (debug > 1)
+						printf("%d: %s\n", s, txt->strings[s]);
+#endif
+					if (0 == strncmp(txt->strings[s], "ntp ", 4)) {
+						char *next = txt->strings[s]+4;
+						char *arg, *p;
+						long arg_val;
+						if (peer->dns_ttl != reply->answer[a]->ttl) {
+							peer->dns_ttl = reply->answer[a]->ttl;
+							msyslog(LOG_INFO, "DNS %s ttl %d",
+								dns_name, peer->dns_ttl);
+						}
+						if (peer->dns_ttl != 0)
+							peer->dns_update = current_time + peer->dns_ttl;
+						while (NULL != (p = strsep(&next, " \t"))) {
+							switch (*p) {
+							case 'b': /* burst */
+								if (strcmp(p, "burst") == 0) {
+									new_flags |= FLAG_BURST;
+								} else {
+									msyslog(LOG_WARNING, "DNS %s unknown configuration [%s]", dns_name, p);
+								}
+								break;
+
+							case 'i': /* iburst */
+								if (0 == strcmp(p, "iburst")) {
+									new_flags |= FLAG_IBURST;
+								} else { 
+									msyslog(LOG_WARNING, "DNS %s unknown configuration [%s]", dns_name, p);
+								}
+								break;
+
+							case 'm': /* min|maxpoll */
+								if ((0 == (strcmp(p, "minpoll"))) || (0 == strcmp(p, "maxpoll"))) {
+									if (next) {
+										arg = strsep(&next, " \t");
+										arg_val = strtol(arg, NULL, 10);
+										if (p[1] == 'i') {
+											minpoll = (u_char)max(NTP_MINPOLL, arg_val);
+										} else {
+											maxpoll = (u_char)min(NTP_MAXPOLL, arg_val);
+										}
+									} else {
+										msyslog(LOG_WARNING, "DNS %s option %s missing numeric argument", dns_name, p);
+									}
+								} else { 
+									msyslog(LOG_WARNING, "DNS %s unknown configuration [%s]", dns_name, p);
+								}
+								break;
+
+							default: 
+								msyslog(LOG_WARNING, "DNS %s unknown configuration [%s]", dns_name, p);
+								break;
+							}
+						}
+					} /* ignore random txt records */
+				}
+				if (0 == (peer->flags & FLAG_UMINPOLL) && (minpoll != peer->minpoll)) {
+					peer->minpoll = minpoll;
+					msyslog(LOG_INFO, "DNS %s minpoll %d",
+						dns_name, peer->minpoll);
+				}
+				if (0 == (peer->flags & FLAG_UMAXPOLL) && (maxpoll != peer->maxpoll)) {
+					peer->maxpoll = maxpoll;
+					msyslog(LOG_INFO, "DNS %s maxpoll %d",
+						dns_name, peer->maxpoll);
+				}
+				if (new_flags != old_flags) {
+					u_int changes;
+					if (peer->flags & FLAG_UIBURST) /* Don't override config setting */
+						new_flags |= FLAG_IBURST;
+					if (peer->flags & FLAG_IBURST)
+						new_flags |= FLAG_IBURST;
+					changes = new_flags ^ old_flags;
+					if (changes & FLAG_IBURST) {
+						if (new_flags & FLAG_IBURST)
+							peer->flags |= FLAG_IBURST;
+						else
+							peer->flags &= ~FLAG_IBURST;
+						msyslog(LOG_INFO, "DNS %s %ciburst",
+							dns_name,
+							(new_flags & FLAG_IBURST) ? '+' : '-');
+					}
+					if (changes & FLAG_BURST) {
+						if (new_flags & FLAG_BURST)
+							peer->flags |= FLAG_BURST;
+						else
+							peer->flags &= ~FLAG_BURST;
+						msyslog(LOG_INFO, "DNS %s %cburst",
+							dns_name,
+							(new_flags & FLAG_BURST) ? '+' : '-');
+					}
+				}
+			}
+		}
+		dns_free_reply(reply);
+	}
+	dns_free(handle);
+	return peer->dns_update;
 }

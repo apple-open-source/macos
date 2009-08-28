@@ -1,7 +1,7 @@
 # Helper functions for option handling.                    -*- Autoconf -*-
-
-# Copyright (C) 2004, 2005 Free Software Foundation, Inc.
-# Written by Gary V. Vaughan <gary@gnu.org>
+#
+#   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+#   Written by Gary V. Vaughan, 2004
 #
 # This file is free software; the Free Software Foundation gives
 # unlimited permission to copy and/or distribute it, with or without
@@ -183,38 +183,19 @@ LT_OPTION_DEFINE([shared], [_LT_ENABLE_SHARED([yes])])
 LT_OPTION_DEFINE([disable-shared], [_LT_ENABLE_SHARED([no])])
 
 # Old names:
-AU_DEFUN([AC_ENABLE_SHARED],
+AC_DEFUN([AC_ENABLE_SHARED],
 [_LT_SET_OPTION([shared])
-AC_DIAGNOSE([obsolete],
-[$0: Remove this warning and the call to _LT_SET_OPTION when you
-put the `shared' option into LT_INIT's first parameter.])
 ])
 
-AU_DEFUN([AM_ENABLE_SHARED],
-[_LT_SET_OPTION([shared])
-AC_DIAGNOSE([obsolete],
-[$0: Remove this warning and the call to _LT_SET_OPTION when you
-put the `shared' option into LT_INIT's first parameter.])
-])
-
-AU_DEFUN([AC_DISABLE_SHARED],
+AC_DEFUN([AC_DISABLE_SHARED],
 [_LT_SET_OPTION([disable-shared])
-AC_DIAGNOSE([obsolete],
-[$0: Remove this warning and the call to _LT_SET_OPTION when you put
-the `disable-shared' option into LT_INIT's first parameter.])
 ])
 
-AU_DEFUN([AM_DISABLE_SHARED],
-[_LT_SET_OPTION([disable-shared])
-AC_DIAGNOSE([obsolete],
-[$0: Remove this warning and the call to _LT_SET_OPTION when you put
-the `disable-shared' option into LT_INIT's first parameter.])
-])
+AU_DEFUN([AM_ENABLE_SHARED], [AC_ENABLE_SHARED($@)])
+AU_DEFUN([AM_DISABLE_SHARED], [AC_DISABLE_SHARED($@)])
 
 dnl aclocal-1.4 backwards compatibility:
-dnl AC_DEFUN([AC_ENABLE_SHARED], [])
 dnl AC_DEFUN([AM_ENABLE_SHARED], [])
-dnl AC_DEFUN([AC_DISABLE_SHARED], [])
 dnl AC_DEFUN([AM_DISABLE_SHARED], [])
 
 
@@ -256,38 +237,19 @@ LT_OPTION_DEFINE([static], [_LT_ENABLE_STATIC([yes])])
 LT_OPTION_DEFINE([disable-static], [_LT_ENABLE_STATIC([no])])
 
 # Old names:
-AU_DEFUN([AC_ENABLE_STATIC],
+AC_DEFUN([AC_ENABLE_STATIC],
 [_LT_SET_OPTION([static])
-AC_DIAGNOSE([obsolete],
-[$0: Remove this warning and the call to _LT_SET_OPTION when you
-put the `static' option into LT_INIT's first parameter.])
 ])
 
-AU_DEFUN([AM_ENABLE_STATIC],
-[_LT_SET_OPTION([static])
-AC_DIAGNOSE([obsolete],
-[$0: Remove this warning and the call to _LT_SET_OPTION when you
-put the `static' option into LT_INIT's first parameter.])
-])
-
-AU_DEFUN([AC_DISABLE_STATIC],
+AC_DEFUN([AC_DISABLE_STATIC],
 [_LT_SET_OPTION([disable-static])
-AC_DIAGNOSE([obsolete],
-[$0: Remove this warning and the call to _LT_SET_OPTION when you put
-the `disable-static' option into LT_INIT's first parameter.])
 ])
 
-AU_DEFUN([AM_DISABLE_STATIC],
-[_LT_SET_OPTION([disable-static])
-AC_DIAGNOSE([obsolete],
-[$0: Remove this warning and the call to _LT_SET_OPTION when you put
-the `disable-static' option into LT_INIT's first parameter.])
-])
+AU_DEFUN([AM_ENABLE_STATIC], [AC_ENABLE_STATIC($@)])
+AU_DEFUN([AM_DISABLE_STATIC], [AC_DISABLE_STATIC($@)])
 
 dnl aclocal-1.4 backwards compatibility:
-dnl AC_DEFUN([AC_ENABLE_STATIC], [])
 dnl AC_DEFUN([AM_ENABLE_STATIC], [])
-dnl AC_DEFUN([AC_DISABLE_STATIC], [])
 dnl AC_DEFUN([AM_DISABLE_STATIC], [])
 
 

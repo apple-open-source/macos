@@ -215,6 +215,10 @@ void CL_nssIssuingDistPointToCssm(
 	SecNssCoder					&coder,
 	Allocator					&alloc);
 
+CSSM_ALGORITHMS CL_nssDecodeECDSASigAlgParams(
+	const CSSM_DATA &algParams,
+	SecNssCoder &coder);
+
 void CL_certCrlDecodeComponents(
 	const CssmData 	&signedItem,		// DER-encoded cert or CRL
 	CssmOwnedData	&tbsBlob,			// still DER-encoded

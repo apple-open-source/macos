@@ -244,7 +244,7 @@ Index: samba/source/configure.in
 ===================================================================
 --- samba/source/configure.in.orig
 +++ samba/source/configure.in
-@@ -4637,7 +4637,6 @@ AC_TRY_RUN_STRICT([
+@@ -4695,7 +4695,6 @@ AC_TRY_RUN_STRICT([
  #include "${srcdir-.}/tests/sysquotas.c"],[$Werror_FLAGS],[$CPPFLAGS],[$LDFLAGS],
             samba_cv_HAVE_QUOTACTL_4B=yes,samba_cv_HAVE_QUOTACTL_4B=no,samba_cv_HAVE_QUOTACTL_4B=cross)])
  if test x"$samba_cv_HAVE_QUOTACTL_4B" = x"yes"; then

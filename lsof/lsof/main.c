@@ -34,7 +34,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: main.c,v 1.51 2006/09/15 18:56:03 abe Exp $";
+static char *rcsid = "$Id: main.c,v 1.53 2008/10/21 16:21:41 abe Exp $";
 #endif
 
 
@@ -70,6 +70,7 @@ main(argc, argv)
 	int err = 0;
 	int ev = 0;
 	int fh = 0;
+	char *fmtr = (char *)NULL;
 	long l;
 	MALLOC_S len;
 	struct lfile *lf;
@@ -80,17 +81,28 @@ main(argc, argv)
 	struct sfile *sfp;
 	struct lproc **slp = (struct lproc **)NULL;
 	int sp = 0;
-	struct str_lst *str;
+	struct str_lst *str, *strt;
 	int version = 0;
 	int xover = 0;
 
-#if	defined(HASSELINUX)
-	cntxlist_t *cntxp;
-#endif	/* defined(HASSELINUX) */
+#if	defined(HAS_STRFTIME)
+	char *fmt = (char *)NULL;
+	size_t fmtl;
+#endif	/* defined(HAS_STRFTIME) */
 
 #if	defined(HASZONES)
 	znhash_t *zp;
 #endif	/* defined(HASZONES) */
+
+#if	defined(HASSELINUX)
+/*
+ * This stanza must be immediately before the "Save progam name." code, since
+ * it contains code itself.
+ */
+	cntxlist_t *cntxp;
+
+	CntxStatus = is_selinux_enabled() ? 1 : 0;
+#endif	/* defined(HASSELINUX) */
 
 /*
  * Save program name.
@@ -142,7 +154,7 @@ main(argc, argv)
  * Create option mask.
  */
 	(void) snpf(options, sizeof(options),
-	    "?a%sbc:D:d:%sf:F:g:hi:%slL:%sMnNo:Op:Pr:%ssS:tT:u:UvVwx:%s%s%s",
+	    "?a%sbc:D:d:%sf:F:g:hi:%slL:%sMnNo:Op:Pr:%ss:S:tT:u:UvVwx:%s%s%s",
 
 #if	defined(HAS_AFS) && defined(HASAOPT)
 	    "A:",
@@ -258,7 +270,7 @@ main(argc, argv)
 		    if (enter_cmd_rx(GOv))
 			err = 1;
 		} else {
-		    if (enter_str_lst("-c", GOv, &Cmdl))
+		    if (enter_str_lst("-c", GOv, &Cmdl, &Cmdni, &Cmdnx))
 			err = 1;
 
 #if	defined(MAXSYSCMDL)
@@ -333,9 +345,10 @@ main(argc, argv)
 # if	!defined(HASNOFSCOUNT)
 		    case 'c':
 		    case 'C':
-			if (GOp == '+')
+			if (GOp == '+') {
 			    Fsv |= FSV_CT;
-			else
+			    FsvByf = 1;
+			} else
 			    Fsv &= (unsigned char)~FSV_CT;
 			break;
 # endif	/* !defined(HASNOFSCOUNT) */
@@ -343,9 +356,10 @@ main(argc, argv)
 # if	!defined(HASNOFSADDR)
 		    case 'f':
 		    case 'F':
-			if (GOp == '+')
+			if (GOp == '+') {
 			    Fsv |= FSV_FA;
-			else
+			    FsvByf = 1;
+			} else
 			    Fsv &= (unsigned char)~FSV_FA;
 			break;
 # endif	/* !defined(HASNOFSADDR) */
@@ -353,9 +367,10 @@ main(argc, argv)
 # if	!defined(HASNOFSFLAGS)
 		    case 'g':
 		    case 'G':
-			if (GOp == '+')
+			if (GOp == '+') {
 			    Fsv |= FSV_FG;
-			else
+			    FsvByf = 1;
+			} else
 			    Fsv &= (unsigned char)~FSV_FG;
 			FsvFlagX = (*GOv == 'G') ? 1 : 0;
 			break;
@@ -364,9 +379,10 @@ main(argc, argv)
 # if	!defined(HASNOFSNADDR)
 		    case 'n':
 		    case 'N':
-			if (GOp == '+')
+			if (GOp == '+') {
 			    Fsv |= FSV_NI;
-			else
+			    FsvByf = 1;
+			} else
 			    Fsv &= (unsigned char)~FSV_NI;
 			break;
 # endif	/* !defined(HASNOFSNADDR */
@@ -414,7 +430,10 @@ main(argc, argv)
 			    continue;
 #endif	/* !defined(HASZONES) */
  
-#if	!defined(HASSELINUX)
+#if	defined(HASSELINUX)
+			if ((FieldSel[i].id == LSOF_FID_CNTX) && !CntxStatus)
+			    continue;
+#else	/* !defined(HASSELINUX) */
 			if (FieldSel[i].id == LSOF_FID_CNTX)
 			    continue;
 #endif	/* !defined(HASSELINUX) */
@@ -664,10 +683,48 @@ main(argc, argv)
 		    RptTm = i;
 		else
 		    RptTm = RPTTM;
-		if (*cp) {
+		if (!*cp)
+		     break;
+		while(*cp && (*cp == ' '))
+		    cp++;
+		if (*cp != LSOF_FID_MARK) {
 		    GOx1 = GObk[0];
 		    GOx2 = GObk[1] + n;
+		    break;
 		}
+
+#if	defined(HAS_STRFTIME)
+
+	    /*
+	     * Collect the strftime(3) format and test it.
+	     */
+		cp++;
+		if ((fmtl = strlen(cp) + 1) < 1) {
+		    (void) fprintf(stderr, "%s: <fmt> too short: \"%s\"\n",
+			Pn, cp);
+		    err = 1;
+		} else {
+		    fmt = cp;
+		    fmtl = (fmtl * 8) + 1;
+		    if (!(fmtr = (char *)malloc((MALLOC_S)fmtl))) {
+			(void) fprintf(stderr,
+			    "%s: no space (%d) for <fmt> result: \"%s\"\n",
+			    Pn, (int)fmtl, cp);
+			    Exit(1);
+		    }
+		    if (util_strftime(fmtr, fmtl - 1, fmt) < 1) {
+			(void) fprintf(stderr, "%s: illegal <fmt>: \"%s\"\n",
+			    Pn, fmt);
+			err = 1;
+		    }
+		}
+
+#else	/* !defined(HAS_STRFTIME) */
+		(void) fprintf(stderr, "%s: m<fmt> not supported: \"%s\"\n",
+		    Pn, cp);
+		err = 1;
+#endif	/* defined(HAS_STRFTIME) */
+
 		break;
 
 #if	defined(HASPPID)
@@ -677,7 +734,22 @@ main(argc, argv)
 #endif	/* defined(HASPPID) */
 
 	    case 's':
+
+#if	defined(HASTCPUDPSTATE)
+		if (!GOv || *GOv == '-' || *GOv == '+') {
+		    Fsize = 1;
+		    if (GOv) {
+			GOx1 = GObk[0];
+			GOx2 = GObk[1];
+		    }
+		} else {
+		    if (enter_state_spec(GOv))
+			err = 1;
+		}
+#else	/* !defined(HASTCPUDPSTATE) */
 		Fsize = 1;
+#endif	/* defined(HASTCPUDPSTATE) */
+
 		break;
 	    case 'S':
 		if (!GOv || *GOv == '-' || *GOv == '+') {
@@ -822,7 +894,7 @@ main(argc, argv)
  
 #if	defined(HASSELINUX)
 	    case 'Z':
-		if (!is_selinux_enabled()) {
+		if (!CntxStatus) {
 		   (void) fprintf(stderr, "%s: -Z limited to SELinux\n", Pn);
 		    err = 1;
 		} else {
@@ -850,6 +922,58 @@ main(argc, argv)
 /*
  * Check for argument consistency.
  */
+	if (Cmdnx && Cmdni) {
+
+	/*
+	 * Check for command inclusion/exclusion conflicts.
+	 */
+	    for (str = Cmdl; str; str = str->next) {
+		if (str->x) {
+		    for (strt = Cmdl; strt; strt = strt->next) {
+			if (!strt->x) {
+			    if (!strcmp(str->str, strt->str)) {
+				(void) fprintf(stderr,
+				    "%s: -c^%s and -c%s conflict.\n",
+				    Pn, str->str, strt->str);
+				err++;
+			    }
+			}
+		    }
+		}
+	    }
+	}
+
+#if	defined(HASTCPUDPSTATE)
+	if (TcpStXn && TcpStIn) {
+
+	/*
+	 * Check for excluded and included TCP states.
+	 */
+	    for (i = 0; i < TcpNstates; i++) {
+		if (TcpStX[i] && TcpStI[i]) {
+		    (void) fprintf(stderr,
+			"%s: can't include and exclude TCP state: %s\n",
+			Pn, TcpSt[i]);
+		    err = 1;
+		}
+	    }
+	}
+	if (UdpStXn && UdpStIn) {
+
+	/*
+	 * Check for excluded and included UDP states.
+	 */
+	    for (i = 0; i < UdpNstates; i++) {
+		if (UdpStX[i] && UdpStI[i]) {
+		    (void) fprintf(stderr,
+			"%s: can't include and exclude UDP state: %s\n",
+			Pn, UdpSt[i]);
+		    err = 1;
+		}
+	    }
+	}
+#endif	/* defined(HASTCPUDPSTATE) */
+
 	if (Fsize && Foffset) {
 	    (void) fprintf(stderr, "%s: -o and -s are mutually exclusive\n",
 		Pn);
@@ -858,10 +982,32 @@ main(argc, argv)
 	if (Ffield) {
 	    if (Fterse) {
 		(void) fprintf(stderr,
-		    "%s: -f and -t are mutually exclusive\n", Pn);
+		    "%s: -F and -t are mutually exclusive\n", Pn);
 		err++;
 	    }
 	    FieldSel[LSOF_FIX_PID].st = 1;
+
+#if	defined(HAS_STRFTIME)
+	    if (fmtr) {
+
+	    /*
+	     * The field output marker format can't contain "%n" new line
+	     * requests.
+	     */
+		for (cp = strchr(fmt, '%'); cp; cp = strchr(cp, '%')) {
+		    if (*++cp  == 'n') {
+			(void) fprintf(stderr,
+			    "%s: %%n illegal in -r m<fmt> when -F has", Pn);
+			(void) fprintf(stderr,
+			    " been specified: \"%s\"\n", fmt);
+			err++;
+			break;
+		    } else if (*cp == '%')
+			cp++;
+		}
+	    }
+#endif	/* defined(HAS_STRFTIME) */
+
 	}
 	if (Fxover && !xover) {
 	    (void) fprintf(stderr, "%s: -x must accompany +d or +D\n", Pn);
@@ -884,7 +1030,7 @@ main(argc, argv)
 /*
  * Compute the selection flags.
  */
-	if (Cmdl || CmdRx)
+	if ((Cmdl && Cmdni) || CmdRx)
 	    Selflags |= SELCMD;
  
 #if	defined(HASSELINUX)
@@ -939,8 +1085,10 @@ main(argc, argv)
 		    se2 = errno;
 		else
 		    se2 = 0;
-	    } else
+	    } else {
+		se2 = 0;
 		ss = 1;
+	    }
 	    if (ss) {
 		(void) fprintf(stderr, "%s: can't stat(%s): %s\n", Pn,
 		    DEVDEV_PATH, strerror(se1));
@@ -1084,11 +1232,40 @@ main(argc, argv)
 		    else
 			ev = 0;
 		}
+
+#if	defined(HAS_STRFTIME)
+		if (fmt && fmtr) {
+
+		/*
+		 * Format the marker line.
+		 */
+		    (void) util_strftime(fmtr, fmtl - 1, fmt);
+		    fmtr[fmtl - 1] = '\0';
+		}
+#endif	/* defined(HAS_STRFTIME) */
+
 		if (Ffield) {
 		    putchar(LSOF_FID_MARK);
-		    putchar('\n');
-		} else
-		    puts("=======");
+
+#if	defined(HAS_STRFTIME)
+		    if (fmtr)
+	    	        (void) printf("%s", fmtr);
+#endif	/* defined(HAS_STRFTIME) */
+
+		    putchar(Terminator);
+		    if (Terminator != '\n')
+			putchar('\n');
+		} else {
+
+#if	defined(HAS_STRFTIME)
+		    if (fmtr)
+			cp = fmtr;
+		    else
+#endif	/* defined(HAS_STRFTIME) */
+
+			cp = "=======";
+		    puts(cp);
+		}
 		(void) fflush(stdout);
 		(void) childx();
 		(void) sleep(RptTm);
@@ -1220,6 +1397,38 @@ main(argc, argv)
 	    if (Fverbose)
 		(void) printf("%s: no Internet files located\n", Pn);
 	}
+
+#if	defined(HASTCPUDPSTATE)
+	if (TcpStIn) {
+
+	/*
+	 * Check for included TCP states not located.
+	 */
+	    for (i = 0; i < TcpNstates; i++) {
+		if (TcpStI[i] == 1) {
+		    rv = 1;
+		    if (Fverbose)
+			(void) printf("%s: TCP state not located: %s\n",
+			    Pn, TcpSt[i]);
+		}
+	    }
+	}
+	if (UdpStIn) {
+
+	/*
+	 * Check for included UDP states not located.
+	 */
+	    for (i = 0; i < UdpNstates; i++) {
+		if (UdpStI[i] == 1) {
+		    rv = 1;
+		    if (Fverbose)
+			(void) printf("%s: UDP state not located: %s\n",
+			    Pn, UdpSt[i]);
+		}
+	    }
+	}
+#endif	/* defined(HASTCPUDPSTATE) */
+
 	if (Fnfs && Fnfs < 2) {
 
 	/*

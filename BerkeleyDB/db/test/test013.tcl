@@ -1,14 +1,13 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1996-2003
-#	Sleepycat Software.  All rights reserved.
+# Copyright (c) 1996,2007 Oracle.  All rights reserved.
 #
-# $Id: test013.tcl,v 1.2 2004/03/30 01:24:08 jtownsen Exp $
+# $Id: test013.tcl,v 12.6 2007/05/17 15:15:56 bostic Exp $
 #
 # TEST	test013
 # TEST	Partial put test
 # TEST		Overwrite entire records using partial puts.
-# TEST		Make surethat NOOVERWRITE flag works.
+# TEST		Make sure that NOOVERWRITE flag works.
 # TEST
 # TEST	1. Insert 10000 keys and retrieve them (equal key/data pairs).
 # TEST	2. Attempt to overwrite keys with NO_OVERWRITE set (expect error).
@@ -18,7 +17,6 @@
 proc test013 { method {nentries 10000} args } {
 	global errorCode
 	global errorInfo
-	global fixed_pad
 	global fixed_len
 
 	source ./include.tcl

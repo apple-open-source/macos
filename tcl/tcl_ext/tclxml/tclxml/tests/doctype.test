@@ -1,0 +1,73 @@
+# Features covered:  Document Type Declaration
+#
+# This file contains a collection of tests for the TclXML parser.
+# This file tests the parser's performance on Document Type Declarations.
+# Sourcing this file into Tcl runs the tests and generates output
+# for errors.  No output means no errors were found.
+#
+# Copyright (c) 1998-2000 Zveno Pty Ltd.
+#
+# $Id: doctype.test,v 1.6 2001/02/12 11:10:10 balls Exp $
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    source [file join [pwd] [file dirname [info script]] defs.tcl]
+}
+
+if { ![llength [info commands ::xml::parser]] } {
+     catch {puts stderr "You havent loaded a valid parser class before running this test"}
+     return
+}
+
+catch {unset result}
+proc doctype {name pub system dtd} {
+    lappend ::result $name $pub $system $dtd
+}
+
+test doctype-1.1 {Document Type Declaration: no internal DTD subset} {
+    set ::result {}
+
+    catch {rename xml::doctype-1.1 {}}
+    set parser [xml::parser doctype-1.1 \
+	-doctypecommand doctype]
+    $parser parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test></Test>
+}
+    set ::result
+} {Test {} {} {{}}}
+
+test doctype-2.1 {Document Type Declaration: internal DTD subset} {
+    set ::result {}
+
+    catch {rename xml::doctype-2.1 {}}
+    set parser [xml::parser doctype-2.1 \
+	-doctypecommand doctype]
+    $parser parse {<?xml version="1.0"?>
+<!DOCTYPE Test [<!ELEMENT Test EMPTY>]>
+<Test></Test>
+}
+    set ::result
+} {Test {} {} {{<!ELEMENT Test EMPTY>}}}
+
+test doctype-2.2 {Document Type Declaration: internal DTD subset} {
+    set ::result {}
+
+    catch {rename xml::doctype-2.2 {}}
+    set parser [xml::parser doctype-2.2 \
+	-doctypecommand doctype]
+    $parser parse {<?xml version="1.0"?>
+<!DOCTYPE Test [
+    <!ELEMENT Test EMPTY>
+    <!ATTLIST Test id CDATA #IMPLIED>
+]>
+<Test></Test>
+}
+    set ::result
+} {Test {} {} {{
+    <!ELEMENT Test EMPTY>
+    <!ATTLIST Test id CDATA #IMPLIED>
+}}}
+
+# cleanup
+::tcltest::cleanupTests
+return

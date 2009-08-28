@@ -1,7 +1,7 @@
 /* APPLE LOCAL file radar 4645709 */
 /* { dg-do compile { target "i?86-*-*" } } */
 /* { dg-options "-O2" } */
-/* { dg-skip-if "" { i?86-*-* } { "-m64" } { "" } } */
+/* { dg-require-effective-target ilp32 } */
 /* { dg-final { scan-assembler "and.*0xffffff00" } } */
 unsigned char lut[256];
 

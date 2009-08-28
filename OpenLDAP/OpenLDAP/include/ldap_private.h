@@ -32,9 +32,7 @@ LDAP_BEGIN_DECL
 #define LDAP_OPT_NOTIFYDESC_PROC		0x7101
 #define LDAP_OPT_NOTIFYDESC_PARAMS		0x7102
 
-/* this option disables reverse lookups for hostnames provided during ldap_init */
-/*   if the hostname was an IP, then a reverse lookup is still done */
-#define LDAP_OPT_NOREVERSE_LOOKUP		0x7103
+/* LDAP_OPT_NOREVERSE_LOOKUP       0x7103 is public */
 
 /* option that returns an error if using the session will cause an abort */
 #define LDAP_OPT_TEST_SESSION			0x7104

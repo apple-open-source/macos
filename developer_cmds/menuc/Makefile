@@ -8,6 +8,7 @@ MANPAGES = menuc.1
 
 OTHERLINKEDOFILES = parse.o scan.o
 
-Extra_CC_Flags = -mdynamic-no-pic -dead_strip
+Extra_CC_Flags = -Wall -Werror -mdynamic-no-pic
+Extra_LD_Flags = -dead_strip
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make

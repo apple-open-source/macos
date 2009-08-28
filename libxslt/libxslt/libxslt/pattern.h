@@ -32,15 +32,15 @@ typedef xsltCompMatch *xsltCompMatchPtr;
  * Pattern related interfaces.
  */
 
-XSLTPUBFUN xsltCompMatchPtr XSLTCALL 
+XSLTPUBFUN xsltCompMatchPtr XSLTCALL
 		xsltCompilePattern	(const xmlChar *pattern,
 					 xmlDocPtr doc,
 					 xmlNodePtr node,
 					 xsltStylesheetPtr style,
 					 xsltTransformContextPtr runtime);
-XSLTPUBFUN void XSLTCALL		 
+XSLTPUBFUN void XSLTCALL
 		xsltFreeCompMatchList	(xsltCompMatchPtr comp);
-XSLTPUBFUN int XSLTCALL		 
+XSLTPUBFUN int XSLTCALL
 		xsltTestCompMatchList	(xsltTransformContextPtr ctxt,
 					 xmlNodePtr node,
 					 xsltCompMatchPtr comp);
@@ -52,18 +52,18 @@ XSLTPUBFUN void XSLTCALL
 /*
  * Template related interfaces.
  */
-XSLTPUBFUN int XSLTCALL		
+XSLTPUBFUN int XSLTCALL
 		xsltAddTemplate		(xsltStylesheetPtr style,
 					 xsltTemplatePtr cur,
 					 const xmlChar *mode,
 					 const xmlChar *modeURI);
-XSLTPUBFUN xsltTemplatePtr XSLTCALL	
+XSLTPUBFUN xsltTemplatePtr XSLTCALL
 		xsltGetTemplate		(xsltTransformContextPtr ctxt,
 					 xmlNodePtr node,
 					 xsltStylesheetPtr style);
-XSLTPUBFUN void XSLTCALL		
+XSLTPUBFUN void XSLTCALL
 		xsltFreeTemplateHashes	(xsltStylesheetPtr style);
-XSLTPUBFUN void XSLTCALL		
+XSLTPUBFUN void XSLTCALL
 		xsltCleanupTemplates	(xsltStylesheetPtr style);
 
 #if 0

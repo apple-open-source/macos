@@ -1,7 +1,9 @@
 Sie wurden vom Betreiber der Liste %(listname)s eingeladen, sich unter der
-Adresse "%(email)s" der %(listname)s-Liste anzuschließen. Sie können die
-Einladung annehmen, indem Sie einfach auf diese Nachricht antworten, wobei
-Sie die "Betreff:" (Subject) Zeile intakt lassen müssen.
+Adresse "%(email)s" der %(listname)s-Liste 
+auf  %(hostname)s einzutragenn. 
+
+Sie können die Einladung annehmen, indem Sie einfach auf diese Nachricht 
+antworten, wobei Sie die "Betreff:" (Subject) Zeile intakt lassen müssen.
 
 Alternativ können Sie auch die folgende Webseite besuchen:
 
@@ -12,7 +14,7 @@ einer neuen Nachricht an %(requestaddr)s:
 
 confirm %(cookie)s
 
-Bei den meisten Email-Programmen sollte es aber reichen, wenn Sie einfach
+Bei den meisten E-Mail-Programmen sollte es aber reichen, wenn Sie einfach
 auf "Antworten" klicken.
 
 Wenn Sie die Einladung nicht annehmen möchten, dann beachten Sie diese

@@ -169,7 +169,7 @@ proc test_simple_watchpoint {} {
     # Run until we get to the first marker function.
 
     gdb_run_cmd
-    set timeout 600
+    set timeout 30
     gdb_expect {
 	-re "Breakpoint 1, marker1 .*$gdb_prompt $" {
 	    pass "run to marker1 in test_simple_watchpoint"
@@ -358,7 +358,7 @@ proc test_disabling_watchpoints {} {
     # Run until we get to the first marker function.
 
     gdb_run_cmd
-    set timeout 600
+    set timeout 30
     gdb_expect {
 	-re "Breakpoint 1, marker1 .*$gdb_prompt $" {
 	    pass "run to marker1 in test_disabling_watchpoints"
@@ -698,8 +698,8 @@ gdb_start
 gdb_reinitialize_dir $srcdir/$subdir
 gdb_load $binfile
 set prev_timeout $timeout
-set timeout 600	
-verbose "Timeout now 600 sec.\n"
+set timeout 30	
+verbose "Timeout now 30 sec.\n"
 
 if [initialize] then {
 

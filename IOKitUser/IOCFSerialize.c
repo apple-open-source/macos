@@ -3,19 +3,20 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -34,7 +35,7 @@
 
 
 typedef struct {
-    long       			idrefNumRefs;
+    int       			idrefNumRefs;
     CFMutableDictionaryRef	idrefDict;
     CFMutableDictionaryRef	idrefCountDict;
     CFMutableDictionaryRef	defined;  // whether original def'n output
@@ -86,33 +87,32 @@ recordIdref(CFTypeRef object,
 	    IOCFSerializeState * state)
 {
 	CFNumberRef idref;
-	CFTypeID typeID;
 	CFNumberRef refCount;
-	int32_t count;
+	int count;
 
 	idref = CFDictionaryGetValue(state->idrefDict, object);
 	if (idref) {
 		refCount = CFDictionaryGetValue(state->idrefCountDict, object);
 		if (refCount) {
-			assert(CFNumberGetValue(refCount, kCFNumberLongType, &count));
+			assert(CFNumberGetValue(refCount, kCFNumberIntType, &count));
 			count++;
 		} else {
 			count = 1;
 		}
 		// ok to lose original refCount, we are replacing it
-		refCount = CFNumberCreate(kCFAllocatorDefault, kCFNumberLongType, &count);
+		refCount = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &count);
 		assert(refCount);
 		CFDictionarySetValue(state->idrefCountDict, object, refCount);
                 CFRelease(refCount);
 		return;
 	}
 
-	idref = CFNumberCreate(kCFAllocatorDefault, kCFNumberLongType, &state->idrefNumRefs);
+	idref = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &state->idrefNumRefs);
 	CFDictionaryAddValue(state->idrefDict, object, idref);
 	CFRelease(idref);
 	state->idrefNumRefs++;
 	count = 0;
-	refCount = CFNumberCreate(kCFAllocatorDefault, kCFNumberLongType, &count);
+	refCount = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &count);
 	assert(refCount);
 	CFDictionarySetValue(state->idrefCountDict, object, refCount);
 	CFRelease(refCount);
@@ -125,7 +125,7 @@ previouslySerialized(CFTypeRef object,
 {
 	CFBooleanRef defined;
 	CFNumberRef refCount;
-	int32_t count = 0;
+	int count = 0;
 	CFNumberRef idref;
 
 	defined = CFDictionaryGetValue(state->defined, object);
@@ -136,16 +136,16 @@ previouslySerialized(CFTypeRef object,
 	if (!refCount) {
 		return false;
 	}
-	CFNumberGetValue(refCount, kCFNumberLongType, &count);
+	CFNumberGetValue(refCount, kCFNumberIntType, &count);
 	if (!count) {
 		return false;
 	}
 	idref = CFDictionaryGetValue(state->idrefDict, object);
 	if (idref) {
 		char temp[64];
-		long id = -1;
-		CFNumberGetValue(idref, kCFNumberLongType, &id);
-		snprintf(temp, sizeof(temp), "<%s IDREF=\"%ld\"/>", getTagString(object), id);
+		int id = -1;
+		CFNumberGetValue(idref, kCFNumberIntType, &id);
+		snprintf(temp, sizeof(temp), "<%s IDREF=\"%d\"/>", getTagString(object), id);
 		return addString(temp, state);
 	}
 
@@ -160,23 +160,23 @@ addStartTag(CFTypeRef object,
 	CFNumberRef idref;
 	CFNumberRef refCount;
 	char temp[128];
-	long id = -1;
-	int32_t count = 0;
+	int id = -1;
+	int count = 0;
 
 	idref = CFDictionaryGetValue(state->idrefDict, object);
 	refCount = CFDictionaryGetValue(state->idrefCountDict, object);
 	if (refCount) {
-		CFNumberGetValue(refCount, kCFNumberLongType, &count);
+		CFNumberGetValue(refCount, kCFNumberIntType, &count);
 	}
 	if (idref && count) {
-		CFNumberGetValue(idref, kCFNumberLongType, &id);
+		CFNumberGetValue(idref, kCFNumberIntType, &id);
 
 		if (additionalTags) {
 			snprintf(temp, sizeof(temp) * sizeof(char),
-                        	"<%s ID=\"%ld\" %s>", getTagString(object), id, additionalTags);
+                        	"<%s ID=\"%d\" %s>", getTagString(object), id, additionalTags);
 		} else {
 			snprintf(temp, sizeof(temp) * sizeof(char),
-                        	"<%s ID=\"%ld\">", getTagString(object), id);
+                        	"<%s ID=\"%d\">", getTagString(object), id);
 		}
 	} else {
 		if (additionalTags) {
@@ -206,7 +206,7 @@ addEndTag(CFTypeRef object,
 static Boolean
 DoCFSerializeNumber(CFNumberRef object, IOCFSerializeState * state)
 {
-	char	temp[32];
+	char		temp[32];
 	long long	value;
 	int		size;
 
@@ -228,10 +228,17 @@ DoCFSerializeNumber(CFNumberRef object, IOCFSerializeState * state)
 
 	case kCFNumberSInt32Type:
 	case kCFNumberIntType:
-	case kCFNumberLongType:
 		size = 32;
 		break;
 
+	case kCFNumberLongType:
+#if __LP64__
+		size = 64;
+#else
+		size = 32;
+#endif
+		break;
+		
 	case kCFNumberSInt64Type:
 	case kCFNumberLongLongType:
 	default:
@@ -619,9 +626,16 @@ DoCFSerialize(CFTypeRef object, IOCFSerializeState * state)
     else if (type == CFDictionaryGetTypeID())
 	ok = DoCFSerializeDictionary((CFDictionaryRef) object, state);
     else {
-        char temp[ 64 ];
-	snprintf(temp, sizeof(temp), "\"typeID 0x%x not serializable\"", (int) type);
-	ok = addString(temp, state);
+        CFStringRef temp = NULL;
+        temp = CFStringCreateWithFormat(kCFAllocatorDefault, NULL,
+				CFSTR("<string>typeID 0x%x not serializable</string>"), (int) type);
+        if (temp) {
+            ok = DoCFSerializeString(temp, state);
+            CFRelease(temp);
+        } else {
+            ok = false;
+        }
+        
     }
 
     return ok;

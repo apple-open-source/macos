@@ -22,6 +22,8 @@ __FBSDID("$FreeBSD: src/lib/libc/stdtime/asctime.c,v 1.12 2004/06/14 10:31:52 st
 ** A la ISO/IEC 9945-1, ANSI/IEEE Std 1003.1, Second Edition, 1996-07-12.
 */
 
+#define	EXPECTEDLEN	26
+
 char *
 asctime_r(const struct tm * __restrict timeptr, char * __restrict buf)
 {
@@ -34,6 +36,8 @@ asctime_r(const struct tm * __restrict timeptr, char * __restrict buf)
 	};
 	const char *	wn;
 	const char *	mn;
+	int		len;
+	char		tmp[EXPECTEDLEN];
 
 	if (timeptr->tm_wday < 0 || timeptr->tm_wday >= DAYSPERWEEK)
 		wn = "???";
@@ -46,31 +50,28 @@ asctime_r(const struct tm * __restrict timeptr, char * __restrict buf)
 	**	"%.3s %.3s%3d %02.2d:%02.2d:%02.2d %d\n"
 	** Since the .2 in 02.2d is ignored, we drop it.
 	*/
-	(void) sprintf(buf, "%.3s %.3s%3d %02d:%02d:%02d %d\n",
+	/*
+	** Because various values in the tm structure may cause the
+	** resulting string to be longer than the 26-bytes that is
+	** specified in the spec, we should return NULL rather than
+	** possibly overwrite beyond the string.
+	*/
+	len = snprintf(tmp, EXPECTEDLEN, "%.3s %.3s%3d %02d:%02d:%02d %d\n",
 		wn, mn,
 		timeptr->tm_mday, timeptr->tm_hour,
 		timeptr->tm_min, timeptr->tm_sec,
 		TM_YEAR_BASE + timeptr->tm_year);
+	if (len >= EXPECTEDLEN)
+		return NULL;
+	strcpy(buf, tmp);
 	return buf;
 }
-
-/*
-** A la X3J11, with core dump avoidance.
-*/
 
 char *
 asctime(timeptr)
 const struct tm *	timeptr;
 {
-	/*
-	** Big enough for something such as
-	** ??? ???-2147483648 -2147483648:-2147483648:-2147483648 -2147483648\n
-	** (two three-character abbreviations, five strings denoting integers,
-	** three explicit spaces, two explicit colons, a newline,
-	** and a trailing ASCII nul).
-	*/
-	static char		result[3 * 2 + 5 * INT_STRLEN_MAXIMUM(int) +
-					3 + 2 + 1 + 1];
+	static char		result[EXPECTEDLEN];
 
 	return asctime_r(timeptr, result);
 }

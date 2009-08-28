@@ -57,7 +57,7 @@ typedef struct PLArenaPool      PLArenaPool;
 */
 #if 0  /* Not implemented */
 PR_EXTERN(PLArenaPool*) PL_AllocArenaPool(
-    const char *name, PRUint32 size, PRUint32 align);
+    const char *name, PRSize size, PRSize align);
 #endif
 
 /*
@@ -76,7 +76,7 @@ PR_EXTERN(PRStatus) PL_DestroyArenaPool(PLArenaPool *pool, PRBool checkEmpty);
 ** with a minimum size per arena of size bytes.
 **/
 PR_EXTERN(void) PL_InitArenaPool(
-    PLArenaPool *pool, const char *name, PRUint32 size, PRUint32 align);
+    PLArenaPool *pool, const char *name, PRSize size, PRSize align);
 
 /*
 ** Finish using arenas, freeing all memory associated with them.
@@ -103,10 +103,10 @@ PR_EXTERN(void) PL_CompactArenaPool(PLArenaPool *pool);
 /*
 ** Friend functions used by the PL_ARENA_*() macros.
 **/
-PR_EXTERN(void *) PL_ArenaAllocate(PLArenaPool *pool, PRUint32 nb);
+PR_EXTERN(void *) PL_ArenaAllocate(PLArenaPool *pool, PRSize nb);
 
 PR_EXTERN(void *) PL_ArenaGrow(
-    PLArenaPool *pool, void *p, PRUint32 size, PRUint32 incr);
+    PLArenaPool *pool, void *p, PRSize size, PRSize incr);
 
 PR_EXTERN(void) PL_ArenaRelease(PLArenaPool *pool, char *mark);
 

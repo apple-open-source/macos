@@ -301,11 +301,14 @@ public:
 
     void inheritFrom(const RenderStyle* inheritParent);
 
-    PseudoId styleType() { return static_cast<PseudoId>(noninherited_flags._styleType); }
+    PseudoId styleType() const { return static_cast<PseudoId>(noninherited_flags._styleType); }
     void setStyleType(PseudoId styleType) { noninherited_flags._styleType = styleType; }
 
-    RenderStyle* getCachedPseudoStyle(PseudoId);
+    RenderStyle* getCachedPseudoStyle(PseudoId) const;
     RenderStyle* addCachedPseudoStyle(PassRefPtr<RenderStyle>);
+
+    typedef Vector<RenderStyle*, 10> PseudoStyleCache;
+    void getPseudoStyleCache(PseudoStyleCache&) const;
 
     bool affectedByHoverRules() const { return noninherited_flags._affectedByHover; }
     bool affectedByActiveRules() const { return noninherited_flags._affectedByActive; }
@@ -759,6 +762,8 @@ public:
         setBorderBottomLeftRadius(s);
         setBorderBottomRightRadius(s);
     }
+    
+    void getBorderRadiiForRect(const IntRect&, IntSize& topLeft, IntSize& topRight, IntSize& bottomLeft, IntSize& bottomRight) const;
 
     void setBorderLeftWidth(unsigned short v) { SET_VAR(surround, border.left.width, v) }
     void setBorderLeftStyle(EBorderStyle v) { SET_VAR(surround, border.left.m_style, v) }
@@ -1023,7 +1028,7 @@ public:
     const CounterDirectiveMap* counterDirectives() const;
     CounterDirectiveMap& accessCounterDirectives();
 
-    bool inheritedNotEqual(RenderStyle*) const;
+    bool inheritedNotEqual(const RenderStyle*) const;
 
     StyleDifference diff(const RenderStyle*, unsigned& changedContextSensitiveProperties) const;
 

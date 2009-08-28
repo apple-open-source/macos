@@ -1,5 +1,5 @@
 /*
- * "$Id: http-addrlist.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: http-addrlist.c 7910 2008-09-06 00:25:17Z mike $"
  *
  *   HTTP address list routines for the Common UNIX Printing System (CUPS).
  *
@@ -36,7 +36,7 @@
 /*
  * 'httpAddrConnect()' - Connect to any of the addresses in the list.
  *
- * @since CUPS 1.2@
+ * @since CUPS 1.2/Mac OS X 10.5@
  */
 
 http_addrlist_t *			/* O - Connected address or NULL on failure */
@@ -45,7 +45,18 @@ httpAddrConnect(
     int             *sock)		/* O - Socket */
 {
   int	val;				/* Socket option value */
+#ifdef DEBUG
+  char	temp[256];			/* Temporary address string */
+#endif /* DEBUG */
 
+
+  DEBUG_printf(("httpAddrConnect(addrlist=%p, sock=%p)", addrlist, sock));
+
+  if (!sock)
+  {
+    errno = EINVAL;
+    return (NULL);
+  }
 
  /*
   * Loop through each address until we connect or run out of addresses...
@@ -57,7 +68,12 @@ httpAddrConnect(
     * Create the socket...
     */
 
-    if ((*sock = (int)socket(addrlist->addr.addr.sa_family, SOCK_STREAM, 0)) < 0)
+    DEBUG_printf(("2httpAddrConnect: Trying %s:%d...",
+		  httpAddrString(&(addrlist->addr), temp, sizeof(temp)),
+		  _httpAddrPort(&(addrlist->addr))));
+
+    if ((*sock = (int)socket(addrlist->addr.addr.sa_family, SOCK_STREAM,
+                             0)) < 0)
     {
      /*
       * Don't abort yet, as this could just be an issue with the local
@@ -117,7 +133,16 @@ httpAddrConnect(
 
     if (!connect(*sock, &(addrlist->addr.addr),
                  httpAddrLength(&(addrlist->addr))))
+    {
+      DEBUG_printf(("1httpAddrConnect: Connected to %s:%d...",
+		    httpAddrString(&(addrlist->addr), temp, sizeof(temp)),
+		    _httpAddrPort(&(addrlist->addr))));
       break;
+    }
+
+    DEBUG_printf(("1httpAddrConnect: Unable to connect to %s:%d: %s",
+		  httpAddrString(&(addrlist->addr), temp, sizeof(temp)),
+		  _httpAddrPort(&(addrlist->addr)), strerror(errno)));
 
    /*
     * Close this socket and move to the next address...
@@ -129,6 +154,7 @@ httpAddrConnect(
     close(*sock);
 #endif /* WIN32 */
 
+    *sock    = -1;
     addrlist = addrlist->next;
   }
 
@@ -139,7 +165,7 @@ httpAddrConnect(
 /*
  * 'httpAddrFreeList()' - Free an address list.
  *
- * @since CUPS 1.2@
+ * @since CUPS 1.2/Mac OS X 10.5@
  */
 
 void
@@ -167,7 +193,7 @@ httpAddrFreeList(
 /*
  * 'httpAddrGetList()' - Get a list of addresses for a hostname.
  *
- * @since CUPS 1.2@
+ * @since CUPS 1.2/Mac OS X 10.5@
  */
 
 http_addrlist_t	*			/* O - List of addresses or NULL */
@@ -183,16 +209,17 @@ httpAddrGetList(const char *hostname,	/* I - Hostname, IP address, or NULL for p
 
 
 #ifdef DEBUG
-  printf("httpAddrGetList(hostname=\"%s\", family=AF_%s, service=\"%s\")\n",
-         hostname ? hostname : "(nil)",
-	 family == AF_UNSPEC ? "UNSPEC" :
+  _cups_debug_printf("httpAddrGetList(hostname=\"%s\", family=AF_%s, "
+                     "service=\"%s\")\n",
+		     hostname ? hostname : "(nil)",
+		     family == AF_UNSPEC ? "UNSPEC" :
 #  ifdef AF_LOCAL
-	     family == AF_LOCAL ? "LOCAL" :
+	                 family == AF_LOCAL ? "LOCAL" :
 #  endif /* AF_LOCAL */
 #  ifdef AF_INET6
-	     family == AF_INET6 ? "INET6" :
+	                 family == AF_INET6 ? "INET6" :
 #  endif /* AF_INET6 */
-	     family == AF_INET ? "INET" : "???", service);
+	                 family == AF_INET ? "INET" : "???", service);
 #endif /* DEBUG */
 
 #ifdef HAVE_RES_INIT
@@ -630,5 +657,5 @@ httpAddrGetList(const char *hostname,	/* I - Hostname, IP address, or NULL for p
 
 
 /*
- * End of "$Id: http-addrlist.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: http-addrlist.c 7910 2008-09-06 00:25:17Z mike $".
  */

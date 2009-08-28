@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-* Copyright (c) 2002-2004, International Business Machines
+* Copyright (c) 2002-2008, International Business Machines
 * Corporation and others.  All Rights Reserved.
 **********************************************************************
 * Author: Alan Liu
@@ -20,7 +20,7 @@
  * delete it (regardless of error status).
  */
 U_CAPI UEnumeration* U_EXPORT2
-uenum_openStringEnumeration(StringEnumeration* adopted, UErrorCode* ec);
+uenum_openStringEnumeration(U_NAMESPACE_QUALIFIER StringEnumeration* adopted, UErrorCode* ec);
 
 /**
  * Given an array of const char* strings (invariant chars only),
@@ -28,7 +28,7 @@ uenum_openStringEnumeration(StringEnumeration* adopted, UErrorCode* ec);
  * 0..count-1.
  */
 U_CAPI UEnumeration* U_EXPORT2
-uenum_openCharStringsEnumeration(const char** strings, int32_t count,
+uenum_openCharStringsEnumeration(const char* const* strings, int32_t count,
                                  UErrorCode* ec);
 
 //----------------------------------------------------------------------

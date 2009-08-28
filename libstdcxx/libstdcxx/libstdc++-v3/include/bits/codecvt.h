@@ -16,7 +16,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -28,21 +28,23 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
+/** @file bits/codecvt.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
+ */
+
 //
 // ISO C++ 14882: 22.2.1.5 Template class codecvt
 //
 
 // Written by Benjamin Kosnik <bkoz@redhat.com>
 
-/** @file bits/codecvt.h
- *  This is an internal header file, included by other library headers.
- *  You should not attempt to use it directly.
- */
-
 #ifndef _CODECVT_H
 #define _CODECVT_H 1
 
 #pragma GCC system_header
+
+_GLIBCXX_BEGIN_NAMESPACE(std)
 
   /// @brief  Empty base class for codecvt facet [22.2.1.5].
   class codecvt_base
@@ -466,5 +468,7 @@
       virtual
       ~codecvt_byname() { }
     };
+
+_GLIBCXX_END_NAMESPACE
 
 #endif // _CODECVT_H

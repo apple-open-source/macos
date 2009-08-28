@@ -2,10 +2,9 @@
 # Makefile for emacs
 ##
 
-App_Dir=$(DSTROOT)/AppleInternal/Applications
-Extra_CC_Flags = -no-cpp-precomp -mdynamic-no-pic -Wno-pointer-sign
+Extra_CC_Flags = -no-cpp-precomp -mdynamic-no-pic -Wno-pointer-sign -D_FORTIFY_SOURCE=2
 Extra_LD_Flags = -Wl,-headerpad,0x1000
-Extra_Configure_Flags = --without-x --enable-carbon-app=$(App_Dir) ac_cv_host=mac-apple-darwin
+Extra_Configure_Flags = --without-x --without-carbon ac_cv_host=mac-apple-darwin ac_cv_func_posix_memalign=no
 
 # Project info
 Project  = emacs
@@ -17,14 +16,19 @@ GnuAfterInstall = remove-dir install-dumpemacs cleanup install-plist install-def
 GnuNoBuild = YES
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
+DSYMUTIL?=dsymutil
 
+NJOBS=$(shell sysctl -n hw.activecpu)
 # Automatic Extract & Patch
 AEP_Project    = $(Project)
 AEP_Version    = $(GNUVersion)
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = Apple.diff unexmacosx.c.diff CVE-2007-6109.diff files.el.diff
+AEP_Patches    = Apple.diff files.el.diff \
+	CVE-2007-6109.diff darwin.h.diff vcdiff.diff lread.c.diff \
+	fast-lock.el.diff python.el.diff \
+	src_Makefile.in.diff lisp_Makefile.in.diff
 
 # Extract the source.
 install_source::
@@ -32,9 +36,10 @@ install_source::
 	$(RMDIR) "$(SRCROOT)/$(AEP_Project)"
 	$(MV) "$(SRCROOT)/$(AEP_ExtractDir)" "$(SRCROOT)/$(AEP_Project)"
 	for patchfile in $(AEP_Patches); do \
-		cd "$(SRCROOT)/$(Project)" && patch -lp0 < "$(SRCROOT)/patches/$$patchfile" || exit 1; \
+		cd "$(SRCROOT)/$(Project)" && patch -lp0 -F0 < "$(SRCROOT)/patches/$$patchfile" || exit 1; \
 	done
 	$(CP) "$(SRCROOT)/mac.h" "$(SRCROOT)/$(AEP_Project)/src/m"
+	$(CP) "$(SRCROOT)/unexmacosx.c" "$(SRCROOT)/$(AEP_Project)/src"
 	for f in $(EXTRAEL); do $(RM) -f "$(SRCROOT)/$$f"; done
 
 OSV = $(DSTROOT)/usr/local/OpenSourceVersions
@@ -60,34 +65,33 @@ $(OBJROOT)/bo.h:
 	hexdump -ve '1/1 "0x%02x,"' < $(OBJROOT)/src/buildobj.lst >> $@
 	printf "};\n" >> $@
 
-$(OBJROOT)/isemacsvalid.o: $(SRCROOT)/isemacsvalid.c
-	$(CC) -c $(CFLAGS) -o $@ $^ 
-
 $(OBJROOT)/runit.o: $(SRCROOT)/runit.c
 	$(CC) -c $(CFLAGS) -o $@ $^ 
 
-$(OBJROOT)/dumpemacs.o: $(OBJROOT)/bo.h 
+$(OBJROOT)/dumpemacs.o: $(OBJROOT)/bo.h $(OBJROOT)/src/version.h
 	$(CC) -I $(OBJROOT) -DkEmacsVersion=$(patsubst %,'"%"', $(GNUVersion)) $(CFLAGS) -o $@ -g -c $(SRCROOT)/dumpemacs.c
 
-$(SYMROOT)/dumpemacs: $(OBJROOT)/dumpemacs.o $(OBJROOT)/isemacsvalid.o $(OBJROOT)/runit.o
+$(SYMROOT)/dumpemacs: $(OBJROOT)/dumpemacs.o $(OBJROOT)/runit.o
 	$(CC) $(CFLAGS) -o $@ -g $^
 
-$(OBJROOT)/emacswrapper.o: $(SRCROOT)/emacswrapper.c
-	$(CC) -c $(CFLAGS) -o $@ $^ 
-
-$(SYMROOT)/emacswrapper: $(OBJROOT)/emacswrapper.o $(OBJROOT)/isemacsvalid.o $(OBJROOT)/runit.o
-	$(CC) $(CFLAGS) -o $@ -g $^
-
-install-dumpemacs: $(SYMROOT)/dumpemacs $(SYMROOT)/emacswrapper
-	$(INSTALL) -s -o root -g wheel -m 4555 $(SYMROOT)/dumpemacs $(DSTROOT)/usr/libexec/dumpemacs
-	$(INSTALL) -s -o root -g wheel -m 555 $(SYMROOT)/emacswrapper $(DSTROOT)/usr/bin/emacs
-#fixup Emacs.app/Contents/Resources/English.lproj/InfoPlist.strings encoding
-	iconv -f US-ASCII -t UTF-16 \
-		$(SRCROOT)/emacs/mac/Emacs.app/Contents/Resources/English.lproj/InfoPlist.strings > $(App_Dir)/Emacs.app/Contents/Resources/English.lproj/InfoPlist.strings
+install-dumpemacs: $(SYMROOT)/dumpemacs
+	$(INSTALL) -s -o root -g wheel -m 555 $(SYMROOT)/dumpemacs $(DSTROOT)/usr/libexec/dumpemacs
+	$(INSTALL) -s -o root -g wheel -m 555 $(SYMROOT)/emacs $(DSTROOT)/usr/bin/emacs
+	$(INSTALL) -d "$(DSTROOT)"/usr/share/man/man{1,8}
+	$(INSTALL) -m 444 -o root -g wheel $(SRCROOT)/dumpemacs.8 "$(DSTROOT)"/usr/share/man/man8
+	$(INSTALL) -m 444 -o root -g wheel $(SRCROOT)/emacs-undumped.1 "$(DSTROOT)"/usr/share/man/man1
 
 build::
 	@echo "Bootstraping $(Project)..."
-	$(_v) $(MAKE) -C $(BuildDirectory) $(Environment) bootstrap
+	$(MKDIR) $(OBJROOT)/src/arch
+ifeq (ppc,$(filter ppc,$(RC_ARCHS)))
+	$(CC) $(CFLAGS) -o $(OBJROOT)/src/arch/emacs-ppc $(SRCROOT)/emacs-ppc.c
+	lipo $(OBJROOT)/src/arch/emacs-ppc -extract_family ppc -output $(OBJROOT)/src/arch/emacs-ppc
+endif
+	${SDKROOT}/Developer/Makefiles/bin/version.pl emacs > $(OBJROOT)/src/version.h
+	$(_v) $(MAKE) -j $(NJOBS) -C $(BuildDirectory) $(Environment) bootstrap
+	$(CP) $(OBJROOT)/src/emacs $(SYMROOT)
+	$(DSYMUTIL) $(SYMROOT)/emacs # Use current objs
 	@echo "Change default LoadPath for installed emacs-undumped"
 	$(MV) $(OBJROOT)/src/lread.o $(OBJROOT)/src/lread.o+save
 	$(MV) $(OBJROOT)/src/temacs $(OBJROOT)/src/temacs+save
@@ -95,6 +99,7 @@ build::
 	$(_v) $(MAKE) -C $(BuildDirectory)/src $(Environment) MYCPPFLAGS=-DEMACS_UNDUMPED temacs
 	$(CP) $(OBJROOT)/src/temacs $(OBJROOT)/src/emacs-undumped
 	$(CP) $(OBJROOT)/src/emacs-undumped $(SYMROOT)
+	$(DSYMUTIL) $(SYMROOT)/emacs-undumped
 # Don't rebuild anything else
 	$(MV) -f $(OBJROOT)/src/lread.o+save $(OBJROOT)/src/lread.o
 	$(MV) -f $(OBJROOT)/src/temacs+save $(OBJROOT)/src/temacs
@@ -104,9 +109,9 @@ cleanup:			# Return sources to pristine state
 	find $(SRCROOT) -type f -name '*.el[c~]' -delete
 	$(RM) -r $(SRCROOT)/emacs/info
 	$(RM) "$(DSTROOT)/usr/bin/ctags" "$(DSTROOT)/usr/share/man/man1/ctags.1"
+	$(RM) "$(DSTROOT)/usr/bin/"{b2m,ebrowse,grep-changelog,rcs-checkin}
 	$(RM) -r "$(DSTROOT)/usr/var"
 	for f in $(EXTRAEL); do $(RM) -f "$(SRCROOT)/$$f"; done
-	$(LN) -sf /usr/bin/emacs "$(App_Dir)/Emacs.app/Contents/MacOS/Emacs"
 
 install-plist:
 	$(INSTALL) -d $(OSV)

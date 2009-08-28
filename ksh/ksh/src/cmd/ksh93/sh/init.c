@@ -1,10 +1,10 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*          Copyright (c) 1982-2007 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
-*                      by AT&T Knowledge Ventures                      *
+*                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
 *            http://www.opensource.org/licenses/cpl1.0.txt             *
@@ -841,18 +841,20 @@ int sh_type(register const char *path)
 		}
 		break;
 	}
-	if (*s++ != 's' || *s++ != 'h')
-		return 0;
-	t |= SH_TYPE_SH;
-	if ((t & SH_TYPE_KSH) && *s == '9' && *(s+1) == '3')
-		s += 2;
+	if (*s++ == 's' && (*s == 'h' || *s == 'u'))
+	{
+		s++;
+		t |= SH_TYPE_SH;
+		if ((t & SH_TYPE_KSH) && *s == '9' && *(s+1) == '3')
+			s += 2;
 #if _WINIX
-	if (*s == '.' && *(s+1) == 'e' && *(s+2) == 'x' && *(s+3) == 'e')
-		s += 4;
+		if (*s == '.' && *(s+1) == 'e' && *(s+2) == 'x' && *(s+3) == 'e')
+			s += 4;
 #endif
-	if (*s)
-		t &= ~(SH_TYPE_PROFILE|SH_TYPE_RESTRICTED);
-	return t;
+		if (!isalnum(*s))
+			return t;
+	}
+	return t & ~(SH_TYPE_BASH|SH_TYPE_KSH|SH_TYPE_PROFILE|SH_TYPE_RESTRICTED);
 }
 
 /*

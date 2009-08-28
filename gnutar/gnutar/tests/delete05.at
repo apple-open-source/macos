@@ -1,7 +1,7 @@
 # Process this file with autom4te to create testsuite. -*- Autotest -*-
 
 # Test suite for GNU tar.
-# Copyright (C) 2004 Free Software Foundation, Inc.
+# Copyright (C) 2004, 2006 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,8 +15,8 @@
 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-# 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301, USA.
 
 # When attempted to delete a non-existing member, tar used to destroy
 # last blocking_factor blocks.
@@ -25,11 +25,11 @@
 #   http://lists.gnu.org/archive/html/bug-tar/2004-12/msg00016.html
 
 AT_SETUP([deleting non-existing member])
-AT_KEYWORDS([delete05])
+AT_KEYWORDS([delete delete05])
 
 AT_TAR_CHECK([
-genfile -l 1024 > en
-genfile -l 1024 > to
+genfile -l 1024 -f en
+genfile -l 1024 -f to
 
 tar cf archive en to
 # Make sure we don't use bogus blocking factor.

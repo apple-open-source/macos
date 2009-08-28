@@ -51,6 +51,12 @@ typedef struct _malloc_zone_t {
 
     struct malloc_introspection_t	*introspect;
     unsigned	version;
+    
+    /* aligned memory allocation. The callback may be NULL. */
+	void *(*memalign)(struct _malloc_zone_t *zone, size_t alignment, size_t size);
+    
+    /* free a pointer known to be in zone and known to have the given size. The callback may be NULL. */
+    void (*free_definite_size)(struct _malloc_zone_t *zone, void *ptr, size_t size);
 } malloc_zone_t;
 
 /*********	Creation and destruction	************/
@@ -59,7 +65,7 @@ extern malloc_zone_t *malloc_default_zone(void);
     /* The initial zone */
 
 extern malloc_zone_t *malloc_create_zone(vm_size_t start_size, unsigned flags);
-    /* Create a new zone */
+    /* Creates a new zone with default behavior and registers it */
 
 extern void malloc_destroy_zone(malloc_zone_t *zone);
     /* Destroys zone and everything it allocated */
@@ -91,6 +97,13 @@ extern size_t malloc_size(const void *ptr);
 extern size_t malloc_good_size(size_t size);
     /* Returns number of bytes greater than or equal to size that can be allocated without padding */
 
+extern void *malloc_zone_memalign(malloc_zone_t *zone, size_t alignment, size_t size);
+    /* 
+     * Allocates a new pointer of size size whose address is an exact multiple of alignment.
+	 * alignment must be a power of two and at least as large as sizeof(void *).
+	 * zone must be non-NULL.
+	 */
+
 /*********	Batch methods	************/
 
 extern unsigned malloc_zone_batch_malloc(malloc_zone_t *zone, size_t size, void **results, unsigned num_requested);
@@ -99,11 +112,26 @@ extern unsigned malloc_zone_batch_malloc(malloc_zone_t *zone, size_t size, void 
 extern void malloc_zone_batch_free(malloc_zone_t *zone, void **to_be_freed, unsigned num);
     /* frees all the pointers in to_be_freed; note that to_be_freed may be overwritten during the process; This function will always free even if the zone has no batch callback */
 
+/*********	Functions for libcache	************/
+
+extern malloc_zone_t *malloc_default_purgeable_zone(void);
+    /* Returns a pointer to the default purgeable_zone. */
+
+extern void malloc_make_purgeable(void *ptr);
+    /* Make an allocation from the purgeable zone purgeable if possible.  */
+
+extern int malloc_make_nonpurgeable(void *ptr);
+    /* Makes an allocation from the purgeable zone nonpurgeable.
+     * Returns zero if the contents were not purged since the last
+     * call to malloc_make_purgeable, else returns non-zero. */
+
 /*********	Functions for zone implementors	************/
 
 extern void malloc_zone_register(malloc_zone_t *zone);
-    /* Registers a freshly created zone;
-    Should typically be called after a zone has been created */
+    /* Registers a custom malloc zone; Should typically be called after a 
+     * malloc_zone_t has been filled in with custom methods by a client.  See
+     * malloc_create_zone for creating additional malloc zones with the
+     * default allocation and free behavior. */
 
 extern void malloc_zone_unregister(malloc_zone_t *zone);
     /* De-registers a zone
@@ -134,6 +162,7 @@ local_memory: set to a contiguous chunk of memory; validity of local_memory is a
 #define MALLOC_PTR_IN_USE_RANGE_TYPE	1	/* for allocated pointers */
 #define MALLOC_PTR_REGION_RANGE_TYPE	2	/* for region containing pointers */
 #define MALLOC_ADMIN_REGION_RANGE_TYPE	4	/* for region used internally */
+#define MALLOC_ZONE_SPECIFIC_FLAGS	0xff00	/* bits reserved for zone-specific purposes */
 
 typedef void vm_range_recorder_t(task_t, void *, unsigned type, vm_range_t *, unsigned);
     /* given a task and context, "records" the specified addresses */
@@ -147,6 +176,7 @@ typedef struct malloc_introspection_t {
     void	(*force_lock)(malloc_zone_t *zone); /* Forces locking zone */
     void	(*force_unlock)(malloc_zone_t *zone); /* Forces unlocking zone */
     void	(*statistics)(malloc_zone_t *zone, malloc_statistics_t *stats); /* Fills statistics */
+    boolean_t (*zone_locked)(malloc_zone_t *zone); /* Are any zone locks held */
 } malloc_introspection_t;
 
 extern void malloc_printf(const char *format, ...);

@@ -1,0 +1,58 @@
+--- php-5.3.0/php.ini-development	2009-06-28 10:56:18.000000000 -0700
++++ php/php.ini-development	2009-07-15 23:25:07.000000000 -0700
+@@ -1057,7 +1057,7 @@
+ ; Default socket name for local MySQL connects.  If empty, uses the built-in
+ ; MySQL defaults.
+ ; http://php.net/pdo_mysql.default-socket
+-pdo_mysql.default_socket=
++pdo_mysql.default_socket=/var/mysql/mysql.sock
+ 
+ [Phar]
+ ; http://php.net/phar.readonly
+@@ -1210,7 +1210,7 @@
+ ; Default socket name for local MySQL connects.  If empty, uses the built-in
+ ; MySQL defaults.
+ ; http://php.net/mysql.default-socket
+-mysql.default_socket =
++mysql.default_socket = /var/mysql/mysql.sock
+ 
+ ; Default host for mysql_connect() (doesn't apply in safe mode).
+ ; http://php.net/mysql.default-host
+@@ -1261,7 +1261,7 @@
+ ; Default socket name for local MySQL connects.  If empty, uses the built-in
+ ; MySQL defaults.
+ ; http://php.net/mysqli.default-socket
+-mysqli.default_socket =
++mysqli.default_socket = /var/mysql/mysql.sock
+ 
+ ; Default host for mysql_connect() (doesn't apply in safe mode).
+ ; http://php.net/mysqli.default-host
+--- php-5.3.0/php.ini-production	2009-06-28 10:56:18.000000000 -0700
++++ php/php.ini-production	2009-07-15 23:25:07.000000000 -0700
+@@ -1057,7 +1057,7 @@
+ ; Default socket name for local MySQL connects.  If empty, uses the built-in
+ ; MySQL defaults.
+ ; http://php.net/pdo_mysql.default-socket
+-pdo_mysql.default_socket=
++pdo_mysql.default_socket=/var/mysql/mysql.sock
+ 
+ [Phar]
+ ; http://php.net/phar.readonly
+@@ -1210,7 +1210,7 @@
+ ; Default socket name for local MySQL connects.  If empty, uses the built-in
+ ; MySQL defaults.
+ ; http://php.net/mysql.default-socket
+-mysql.default_socket =
++mysql.default_socket = /var/mysql/mysql.sock
+ 
+ ; Default host for mysql_connect() (doesn't apply in safe mode).
+ ; http://php.net/mysql.default-host
+@@ -1269,7 +1269,7 @@
+ ; Default socket name for local MySQL connects.  If empty, uses the built-in
+ ; MySQL defaults.
+ ; http://php.net/mysqli.default-socket
+-mysqli.default_socket =
++mysqli.default_socket = /var/mysql/mysql.sock
+ 
+ ; Default host for mysql_connect() (doesn't apply in safe mode).
+ ; http://php.net/mysqli.default-host

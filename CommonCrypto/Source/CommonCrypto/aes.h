@@ -36,10 +36,22 @@
 #if !defined( _CC_AES_H_ )
 #define _CC_AES_H_
 
+// Generate nothing if this file has been included in an assembly language file.
+#if !__ASSEMBLER__
+
 #include <CommonCrypto/CommonCryptoPriv.h>
 
 /*  This include is used to find 8 & 32 bit unsigned integer types  */
 #include <machine/limits.h>
+
+#include <TargetConditionals.h>
+#if TARGET_OS_EMBEDDED && __arm__
+#define CC_AES_USE_HARDWARE				1
+#endif
+
+#if CC_AES_USE_HARDWARE
+#define CC_AES_MAX_KEYSIZE				32 //32 bytes or 256 bits
+#endif
 
 #if defined(__cplusplus)
 extern "C"
@@ -120,6 +132,10 @@ typedef struct
 	#ifdef	_APPLE_COMMON_CRYPTO_
 	unsigned char chainBuf[AES_BLOCK_SIZE];
 	aes_32t cbcEnable;
+	#if CC_AES_USE_HARDWARE
+	unsigned char keyBytes[CC_AES_MAX_KEYSIZE];
+	aes_32t keyLength;
+	#endif
 	#endif
 } aes_encrypt_ctx;
 
@@ -129,6 +145,10 @@ typedef struct
 	#ifdef	_APPLE_COMMON_CRYPTO_
 	unsigned char chainBuf[AES_BLOCK_SIZE];
 	aes_32t cbcEnable;
+	#if CC_AES_USE_HARDWARE
+	unsigned char keyBytes[CC_AES_MAX_KEYSIZE];
+	aes_32t keyLength;
+	#endif
 	#endif
 } aes_decrypt_ctx;
 
@@ -211,5 +231,7 @@ void aes_cc_decrypt(aes_cc_ctx *cx, const void *blocksIn, aes_32t numBlocks,
 #if defined(__cplusplus)
 }
 #endif
+
+#endif	// !__ASSEMBLER__
 
 #endif	/* _CC_AES_H_ */

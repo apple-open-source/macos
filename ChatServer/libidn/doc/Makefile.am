@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in
-# Copyright (C) 2002, 2003, 2004, 2005 Simon Josefsson.
+# Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007 Simon Josefsson.
 #
 # This file is part of GNU Libidn.
 #
@@ -22,23 +22,29 @@ if ENABLE_GTK_DOC
 SUBDIRS += . reference
 endif
 
-EXTRA_DIST = gdoc libidn.html libidn.ps libidn.pdf lgpl.texi texinfo.css \
-	components.fig
+EXTRA_DIST = gdoc libidn.html libidn.ps libidn.pdf gpl.texi lgpl.texi	\
+	texinfo.css components.fig
 
 info_TEXINFOS = libidn.texi
 libidn_TEXINFOS = fdl.texi $(gdoc_TEXINFOS) \
-	components.eps components.png components.pdf
+	libidn-components.eps libidn-components.png libidn-components.pdf
 
-components.eps: components.fig
-	fig2dev -L eps components.fig components.eps
+imagesdir = $(infodir)
+images_DATA = libidn-components.png
 
-components.png: components.fig
-	fig2dev -L png components.fig components.png
+libidn-components.eps: components.fig
+	fig2dev -L eps $< $@
 
-components.pdf: components.fig
-	fig2dev -L pdf components.fig components.pdf
+libidn-components.png: components.fig
+	fig2dev -L png $< $@
 
-AM_MAKEINFOHTMLFLAGS = --no-split --number-sections --css-include=texinfo.css
+libidn-components.pdf: components.fig
+	fig2dev -L pdf $< $@
+
+AM_MAKEINFOFLAGS = -I $(top_builddir)/doc -I $(top_srcdir)/examples
+TEXI2DVI = texi2dvi $(AM_MAKEINFOFLAGS)
+AM_MAKEINFOHTMLFLAGS = $(AM_MAKEINFOFLAGS) \
+	--no-split --number-sections --css-include=texinfo.css
 
 # Man pages.
 
@@ -49,7 +55,7 @@ idn.1: $(top_srcdir)/src/idn.c $(top_srcdir)/src/idn.ggo \
 		$(top_srcdir)/configure.ac
 	$(HELP2MAN) \
 		--name="Internationalized Domain Names command line tool" \
-		--output=$@ $(top_builddir)/src/idn
+		--output=$@ $(top_builddir)/src/idn$(EXEEXT)
 
 # GDOC
 
@@ -65,5 +71,6 @@ GDOC_TEXI_PREFIX = texi/
 GDOC_MAN_PREFIX = man/
 GDOC_MAN_EXTRA_ARGS = -module $(PACKAGE) -sourceversion $(VERSION) \
 	-bugsto $(PACKAGE_BUGREPORT) -includefuncprefix -seeinfo $(PACKAGE) \
-	-copyright "2002, 2003, 2004, 2005 Simon Josefsson" -verbatimcopying
+	-copyright "2002, 2003, 2004, 2005, 2006, 2007 Simon Josefsson" \
+	-verbatimcopying
 include $(srcdir)/Makefile.gdoci

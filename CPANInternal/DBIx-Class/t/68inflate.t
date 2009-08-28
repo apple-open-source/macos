@@ -5,15 +5,16 @@ use Test::More;
 use lib qw(t/lib);
 use DBICTest;
 
-DBICTest::Schema::CD->add_column('year');
 my $schema = DBICTest->init_schema();
 
 eval { require DateTime };
 plan skip_all => "Need DateTime for inflation tests" if $@;
 
-plan tests => 20;
+plan tests => 21;
 
-DBICTest::Schema::CD->inflate_column( 'year',
+$schema->class('CD')
+#DBICTest::Schema::CD
+->inflate_column( 'year',
     { inflate => sub { DateTime->new( year => shift ) },
       deflate => sub { shift->year } }
 );
@@ -98,6 +99,10 @@ $cd->update({ year => \'year + 1'});
 $cd->discard_changes;
 
 is($cd->year->year, $before_year + 1, 'discard_changes clears the inflated value');
+
+my $copy = $cd->copy({ year => $now, title => "zemoose" });
+
+isnt( $copy->year->year, $before_year, "copy" );
  
 # eval { $cd->store_inflated_column('year', \'year + 1') };
 # print STDERR "ERROR: $@" if($@);

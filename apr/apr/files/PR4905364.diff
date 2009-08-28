@@ -1,0 +1,17 @@
+--- shmem/unix/shm.c.orig	2008-06-02 17:15:38.000000000 -0700
++++ shmem/unix/shm.c	2008-08-12 20:27:35.000000000 -0700
+@@ -274,12 +274,14 @@
+                                  APR_READ | APR_WRITE | APR_CREATE | APR_EXCL,
+                                  pool); 
+         if (status != APR_SUCCESS) {
++            close(tmpfd);
+             return status;
+         }
+ 
+         status = apr_file_trunc(file, new_m->realsize);
+         if (status != APR_SUCCESS) {
+             shm_unlink(filename); /* we're failing, remove the object */
++            apr_file_close(file);
+             return status;
+         }
+         new_m->base = mmap(NULL, reqsize, PROT_READ | PROT_WRITE,

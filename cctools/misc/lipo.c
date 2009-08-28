@@ -54,6 +54,7 @@
 #include <sys/file.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/mman.h>
 #include <mach/mach.h>
 #include <mach-o/loader.h>
 #include <mach-o/fat.h>
@@ -80,7 +81,7 @@ struct input_file {
     enum bool is_thin;
 };
 static struct input_file *input_files = NULL;
-static unsigned long ninput_files = 0;
+static uint32_t ninput_files = 0;
 
 /* Thin files from the input files to operate on */
 struct thin_file {
@@ -93,11 +94,11 @@ struct thin_file {
     enum bool replace;
 };
 static struct thin_file *thin_files = NULL;
-static unsigned long nthin_files = 0;
+static uint32_t nthin_files = 0;
 
 /* The specified output file */
 static char *output_file = NULL;
-static unsigned long output_filemode = 0;
+static uint32_t output_filemode = 0;
 #ifndef __OPENSTEP__
 static struct utimbuf output_timep = { 0 };
 #else
@@ -115,11 +116,11 @@ static struct arch_flag thin_arch_flag = { 0 };
 
 static enum bool remove_flag = FALSE;
 static struct arch_flag *remove_arch_flags = NULL;
-static unsigned long nremove_arch_flags = 0;
+static uint32_t nremove_arch_flags = 0;
 
 static enum bool extract_flag = FALSE;
 static struct arch_flag *extract_arch_flags = NULL;
-static unsigned long nextract_arch_flags = 0;
+static uint32_t nextract_arch_flags = 0;
 static enum bool extract_family_flag = FALSE;
 
 static enum bool replace_flag = FALSE;
@@ -128,14 +129,14 @@ struct replace {
     struct thin_file thin_file;
 };
 static struct replace *replaces = NULL;
-static unsigned long nreplaces = 0;
+static uint32_t nreplaces = 0;
 
 struct segalign {
     struct arch_flag arch_flag;
-    unsigned long align;
+    uint32_t align;
 };
 static struct segalign *segaligns = NULL;
-static unsigned long nsegaligns = 0;
+static uint32_t nsegaligns = 0;
 
 static enum bool arch_blank_flag = FALSE;
 
@@ -143,7 +144,7 @@ static struct fat_header fat_header = { 0 };
 
 static enum bool verify_flag = FALSE;
 static struct arch_flag *verify_archs = NULL;
-static unsigned long nverify_archs = 0;
+static uint32_t nverify_archs = 0;
 
 static void create_fat(
     void);
@@ -154,28 +155,28 @@ static void process_replace_file(
 static void check_archive(
     char *name,
     char *addr,
-    unsigned long size,
+    uint32_t size,
     cpu_type_t *cputype,
     cpu_subtype_t *cpusubtype);
 static void check_extend_format_1(
     char *name,
     struct ar_hdr *ar_hdr,
-    unsigned long size_left,
-    unsigned long *member_name_size);
-static unsigned long get_align(
+    uint32_t size_left,
+    uint32_t *member_name_size);
+static uint32_t get_align(
     struct mach_header *mhp,
     struct load_command *load_commands,
-    unsigned long size,
+    uint32_t size,
     char *name,
     enum bool swapped);
-static unsigned long get_align_64(
+static uint32_t get_align_64(
     struct mach_header_64 *mhp64,
     struct load_command *load_commands,
-    unsigned long size,
+    uint32_t size,
     char *name,
     enum bool swapped);
-static unsigned long guess_align(
-    unsigned long vmaddr);
+static uint32_t guess_align(
+    uint32_t vmaddr);
 static void print_arch(
     struct fat_arch *fat_arch);
 static void print_cputype(
@@ -189,7 +190,7 @@ static struct thin_file *new_thin(
     void);
 static struct arch_flag *new_arch_flag(
     struct arch_flag **arch_flags,
-    unsigned long *narch_flags);
+    uint32_t *narch_flags);
 static struct replace *new_replace(
     void);
 static struct segalign *new_segalign(
@@ -197,18 +198,18 @@ static struct segalign *new_segalign(
 static int cmp_qsort(
     const struct thin_file *thin1,
     const struct thin_file *thin2);
-static unsigned long round(
-    unsigned long v,
-    unsigned long r);
+static uint32_t round(
+    uint32_t v,
+    uint32_t r);
 static enum bool ispoweroftwo(
-    unsigned long x);
+    uint32_t x);
 static void check_arch(
     struct input_file *input,
     struct thin_file *thin);
 static void usage(
     void);
-static struct thin_file* new_blank_dylib(
-    struct arch_flag arch);
+static struct thin_file *new_blank_dylib(
+    struct arch_flag *arch);
 
 int
 main(
@@ -217,7 +218,7 @@ char *argv[],
 char *envp[])
 {
     int fd, a;
-    unsigned long i, j, k, value;
+    uint32_t i, j, k, value;
     char *p, *endp;
     struct input_file *input;
     struct arch_flag *arch_flag;
@@ -255,7 +256,7 @@ char *envp[])
 			a += 2;
 		    }
 		    else if(strcmp(p, "arch_blank") == 0){
-		    arch_blank_flag = TRUE;
+			arch_blank_flag = TRUE;
 			if(a + 1 >= argc){
 			    error("missing argument(s) to %s option", argv[a]);
 			    usage();
@@ -267,7 +268,7 @@ char *envp[])
 			    arch_usage();
 			    usage();
 			}
-			new_blank_dylib(blank_arch);
+			new_blank_dylib(&blank_arch);
 			a += 1;
 		    }
 		    else
@@ -392,10 +393,10 @@ char *envp[])
 			    fatal("argument for -segalign <arch_type> %s not a "
 				  "proper hexadecimal number", argv[a+2]);
 			if(!ispoweroftwo(value) || value == 0)
-			    fatal("argument to -segalign <arch_type> %lx (hex) "
+			    fatal("argument to -segalign <arch_type> %x (hex) "
 				  "must be a non-zero power of two", value);
 			if(value > (1 << MAXSECTALIGN))
-			    fatal("argument to -segalign <arch_type> %lx (hex) "
+			    fatal("argument to -segalign <arch_type> %x (hex) "
 				  "must equal to or less than %x (hex)",
 				  value, (unsigned int)(1 << MAXSECTALIGN));
 			segalign->align = 0;
@@ -815,7 +816,7 @@ static
 void
 create_fat(void)
 {
-    unsigned long i, j, offset;
+    uint32_t i, j, offset;
     int fd;
 
 	/* fold in specified segment alignments */
@@ -913,7 +914,7 @@ create_fat(void)
 	    }
 	}
 	for(i = 0; i < nthin_files; i++){
-	    if(extract_family_flag == FALSE)
+	    if(extract_family_flag == FALSE || nthin_files > 1)
 		if(lseek(fd, thin_files[i].fat_arch.offset, L_SET) == -1)
 		    system_fatal("can't lseek in output file: %s", output_file);
 	    if(write(fd, thin_files[i].addr, thin_files[i].fat_arch.size)
@@ -935,8 +936,7 @@ struct input_file *input)
 {
     int fd;
     struct stat stat_buf;
-    unsigned long size, i, j;
-    kern_return_t r;
+    uint32_t size, i, j;
     char *addr;
     struct thin_file *thin;
     struct mach_header *mhp, mh;
@@ -974,9 +974,17 @@ struct input_file *input)
 	    output_timep[1] = stat_buf.st_mtime;
 	}
 #endif
-	if((r = map_fd((int)fd, (vm_offset_t)0, (vm_offset_t *)&addr,
-		       (boolean_t)TRUE, (vm_size_t)size)) != KERN_SUCCESS)
-	    mach_fatal(r, "Can't map input file: %s", input->name);
+	/*
+	 * mmap() can't handle mapping regular files with zero size.  So this
+	 * is handled separately.
+	 */
+	if((stat_buf.st_mode & S_IFREG) == S_IFREG && size == 0)
+	    addr = NULL;
+	else
+	    addr = mmap(0, size, PROT_READ|PROT_WRITE, MAP_FILE|MAP_PRIVATE,
+			fd, 0);
+	if((intptr_t)addr == -1)
+	    system_fatal("Can't map input file: %s", input->name);
 	close(fd);
 
 	/* Try to figure out what kind of file this is */
@@ -984,10 +992,10 @@ struct input_file *input)
 	/* see if this file is a fat file */
 	if(size >= sizeof(struct fat_header) &&
 #ifdef __BIG_ENDIAN__
-	   *((unsigned long *)addr) == FAT_MAGIC)
+	   *((uint32_t *)addr) == FAT_MAGIC)
 #endif /* __BIG_ENDIAN__ */
 #ifdef __LITTLE_ENDIAN__
-	   *((unsigned long *)addr) == SWAP_LONG(FAT_MAGIC))
+	   *((uint32_t *)addr) == SWAP_INT(FAT_MAGIC))
 #endif /* __LITTLE_ENDIAN__ */
 	{
 
@@ -1063,8 +1071,8 @@ struct input_file *input)
 	}
 	/* see if this file is Mach-O file for 32-bit architectures */
 	else if(size >= sizeof(struct mach_header) &&
-	        (*((unsigned long *)addr) == MH_MAGIC ||
-	         *((unsigned long *)addr) == SWAP_LONG(MH_MAGIC))){
+	        (*((uint32_t *)addr) == MH_MAGIC ||
+	         *((uint32_t *)addr) == SWAP_INT(MH_MAGIC))){
 
 	    /* this is a Mach-O file so create a thin file struct for it */
 	    thin = new_thin();
@@ -1074,7 +1082,7 @@ struct input_file *input)
 	    mhp = (struct mach_header *)addr;
 	    lcp = (struct load_command *)((char *)mhp +
 					  sizeof(struct mach_header));
-	    if(mhp->magic == SWAP_LONG(MH_MAGIC)){
+	    if(mhp->magic == SWAP_INT(MH_MAGIC)){
 		swapped = TRUE;
 		mh = *mhp;
 		swap_mach_header(&mh, get_host_byte_sex());
@@ -1095,8 +1103,8 @@ struct input_file *input)
 	}
 	/* see if this file is Mach-O file for 64-bit architectures */
 	else if(size >= sizeof(struct mach_header_64) &&
-	        (*((unsigned long *)addr) == MH_MAGIC_64 ||
-	         *((unsigned long *)addr) == SWAP_LONG(MH_MAGIC_64))){
+	        (*((uint32_t *)addr) == MH_MAGIC_64 ||
+	         *((uint32_t *)addr) == SWAP_INT(MH_MAGIC_64))){
 
 	    /* this is a Mach-O file so create a thin file struct for it */
 	    thin = new_thin();
@@ -1106,7 +1114,7 @@ struct input_file *input)
 	    mhp64 = (struct mach_header_64 *)addr;
 	    lcp = (struct load_command *)((char *)mhp64 +
 					  sizeof(struct mach_header_64));
-	    if(mhp64->magic == SWAP_LONG(MH_MAGIC_64)){
+	    if(mhp64->magic == SWAP_INT(MH_MAGIC_64)){
 		swapped = TRUE;
 		mh64 = *mhp64;
 		swap_mach_header_64(&mh64, get_host_byte_sex());
@@ -1139,7 +1147,7 @@ struct input_file *input)
 	    thin->fat_arch.cpusubtype = cpusubtype;
 	    thin->fat_arch.offset = 0;
 	    thin->fat_arch.size = size;
-	    thin->fat_arch.align = 2; /* 2^2, sizeof(long) */
+	    thin->fat_arch.align = 2; /* 2^2, sizeof(uint32_t) */
 
 	    /* if the arch type is specified make sure it matches the object */
 	    if(input->arch_flag.name != NULL){
@@ -1188,8 +1196,7 @@ struct replace *replace)
 {
     int fd;
     struct stat stat_buf;
-    unsigned long size;
-    kern_return_t r;
+    uint32_t size;
     char *addr;
     struct mach_header *mhp, mh;
     struct mach_header_64 *mhp64, mh64;
@@ -1206,32 +1213,40 @@ struct replace *replace)
 	    system_fatal("Can't stat replacement file: %s",
 			 replace->thin_file.name);
 	size = stat_buf.st_size;
-	if((r = map_fd((int)fd, (vm_offset_t)0, (vm_offset_t *)&addr,
-		       (boolean_t)TRUE, (vm_size_t)size)) != KERN_SUCCESS)
-	    mach_fatal(r, "Can't map replacement file: %s",
-		       replace->thin_file.name);
+	/*
+	 * mmap() can't handle mapping regular files with zero size.  So this
+	 * is handled separately.
+	 */
+	if((stat_buf.st_mode & S_IFREG) == S_IFREG && size == 0)
+	    addr = NULL;
+	else
+	    addr = mmap(0, size, PROT_READ|PROT_WRITE, MAP_FILE|MAP_PRIVATE,
+			fd, 0);
+	if((intptr_t)addr == -1)
+	    system_error("Can't map replacement file: %s",
+			 replace->thin_file.name);
 	close(fd);
 
 	/* Try to figure out what kind of file this is */
 
 	/* see if this file is a fat file */
 	if(size >= sizeof(struct fat_header) &&
-	   *((unsigned long *)addr) == FAT_MAGIC){
+	   *((uint32_t *)addr) == FAT_MAGIC){
 
 	    fatal("replacement file: %s is a fat file (must be a thin file)",
 		  replace->thin_file.name);
 	}
 	/* see if this file is Mach-O file for 32-bit architectures */
 	else if(size >= sizeof(struct mach_header) &&
-	        (*((unsigned long *)addr) == MH_MAGIC ||
-	         *((unsigned long *)addr) == SWAP_LONG(MH_MAGIC))){
+	        (*((uint32_t *)addr) == MH_MAGIC ||
+	         *((uint32_t *)addr) == SWAP_INT(MH_MAGIC))){
 
 	    /* this is a Mach-O file so fill in the thin file struct for it */
 	    replace->thin_file.addr = addr;
 	    mhp = (struct mach_header *)addr;
 	    lcp = (struct load_command *)((char *)mhp +
 					  sizeof(struct mach_header));
-	    if(mhp->magic == SWAP_LONG(MH_MAGIC)){
+	    if(mhp->magic == SWAP_INT(MH_MAGIC)){
 		swapped = TRUE;
 		mh = *mhp;
 		swap_mach_header(&mh, get_host_byte_sex());
@@ -1248,15 +1263,15 @@ struct replace *replace)
 	}
 	/* see if this file is Mach-O file for 64-bit architectures */
 	else if(size >= sizeof(struct mach_header_64) &&
-	        (*((unsigned long *)addr) == MH_MAGIC_64 ||
-	         *((unsigned long *)addr) == SWAP_LONG(MH_MAGIC_64))){
+	        (*((uint32_t *)addr) == MH_MAGIC_64 ||
+	         *((uint32_t *)addr) == SWAP_INT(MH_MAGIC_64))){
 
 	    /* this is a Mach-O file so fill in the thin file struct for it */
 	    replace->thin_file.addr = addr;
 	    mhp64 = (struct mach_header_64 *)addr;
 	    lcp = (struct load_command *)((char *)mhp64 +
 					  sizeof(struct mach_header_64));
-	    if(mhp64->magic == SWAP_LONG(MH_MAGIC_64)){
+	    if(mhp64->magic == SWAP_INT(MH_MAGIC_64)){
 		swapped = TRUE;
 		mh64 = *mhp64;
 		swap_mach_header_64(&mh64, get_host_byte_sex());
@@ -1283,7 +1298,7 @@ struct replace *replace)
 	    replace->thin_file.fat_arch.cpusubtype = cpusubtype;
 	    replace->thin_file.fat_arch.offset = 0;
 	    replace->thin_file.fat_arch.size = size;
-	    replace->thin_file.fat_arch.align = 2; /* 2^2, sizeof(long) */
+	    replace->thin_file.fat_arch.align = 2; /* 2^2, sizeof(uint32_t) */
 	}
 	else{
 	    /* fill in the thin file struct for it */
@@ -1314,11 +1329,11 @@ void
 check_archive(
 char *name,
 char *addr,
-unsigned long size,
+uint32_t size,
 cpu_type_t *cputype,
 cpu_subtype_t *cpusubtype)
 {
-    unsigned long offset, magic, i, ar_name_size;
+    uint32_t offset, magic, i, ar_name_size;
     struct mach_header mh;
     struct mach_header_64 mh64;
     struct ar_hdr *ar_hdr;
@@ -1351,18 +1366,18 @@ cpu_subtype_t *cpusubtype)
 		ar_name = ar_hdr->ar_name;
 		ar_name_size = 0;
 	    }
-	    if(size + ar_name_size - offset > sizeof(unsigned long)){
+	    if(size + ar_name_size - offset > sizeof(uint32_t)){
 		memcpy(&magic, addr + offset + ar_name_size,
-		       sizeof(unsigned long));
+		       sizeof(uint32_t));
 		if(magic == FAT_MAGIC)
 		    fatal("archive member %s(%.*s) is a fat file (not "
 			  "allowed in an archive)", name, (int)i, ar_name);
 		if((size - ar_name_size) - offset >=
 		    sizeof(struct mach_header) &&
-		   (magic == MH_MAGIC || magic == SWAP_LONG(MH_MAGIC))){
+		   (magic == MH_MAGIC || magic == SWAP_INT(MH_MAGIC))){
 		    memcpy(&mh, addr + offset + ar_name_size,
 			   sizeof(struct mach_header));
-		    if(mh.magic == SWAP_LONG(MH_MAGIC))
+		    if(mh.magic == SWAP_INT(MH_MAGIC))
 			swap_mach_header(&mh, get_host_byte_sex());
 		    if(*cputype == 0){
 			*cputype = mh.cputype;
@@ -1380,10 +1395,10 @@ cpu_subtype_t *cpusubtype)
 		}
 		else if((size - ar_name_size) - offset >=
 		    sizeof(struct mach_header_64) &&
-		   (magic == MH_MAGIC_64 || magic == SWAP_LONG(MH_MAGIC_64))){
+		   (magic == MH_MAGIC_64 || magic == SWAP_INT(MH_MAGIC_64))){
 		    memcpy(&mh64, addr + offset + ar_name_size,
 			   sizeof(struct mach_header_64));
-		    if(mh64.magic == SWAP_LONG(MH_MAGIC_64))
+		    if(mh64.magic == SWAP_INT(MH_MAGIC_64))
 			swap_mach_header_64(&mh64, get_host_byte_sex());
 		    if(*cputype == 0){
 			*cputype = mh64.cputype;
@@ -1412,11 +1427,11 @@ void
 check_extend_format_1(
 char *name,
 struct ar_hdr *ar_hdr,
-unsigned long size_left,
-unsigned long *member_name_size)
+uint32_t size_left,
+uint32_t *member_name_size)
 {
     char *p, *endp, buf[sizeof(ar_hdr->ar_name)+1];
-    unsigned long ar_name_size;
+    uint32_t ar_name_size;
 
 	*member_name_size = 0;
 
@@ -1428,9 +1443,9 @@ unsigned long *member_name_size)
 		  "format #1 starts with non-digit)", name,
 		  (int)sizeof(ar_hdr->ar_name), ar_hdr->ar_name);
 	ar_name_size = strtoul(p, &endp, 10);
-	if(ar_name_size == ULONG_MAX && errno == ERANGE)
+	if(ar_name_size == UINT_MAX && errno == ERANGE)
 	    fatal("archive: %s malformed (size in ar_name: %.*s for archive "
-		  "extend format #1 overflows unsigned long)", name,
+		  "extend format #1 overflows uint32_t)", name,
 		  (int)sizeof(ar_hdr->ar_name), ar_hdr->ar_name);
 	while(*endp == ' ' && *endp != '\0')
 	    endp++;
@@ -1449,19 +1464,20 @@ unsigned long *member_name_size)
  * get_align is passed a pointer to a mach header and size of the object.  It
  * returns the segment alignment the object was created with.  It guesses but
  * it is conservative.  The maximum alignment is that the link editor will allow
- * MAXSECTALIGN and the minimum is the conserative alignment for a long which
- * appears in a mach object files (2^2 worst case for all current machines).
+ * MAXSECTALIGN and the minimum is the conserative alignment for a uint32_t
+ * which appears in a mach object files (2^2 worst case for all current 32-bit
+ * machines).
  */
 static
-unsigned long
+uint32_t
 get_align(
 struct mach_header *mhp,
 struct load_command *load_commands,
-unsigned long size,
+uint32_t size,
 char *name,
 enum bool swapped)
 {
-    unsigned long i, j, cur_align, align;
+    uint32_t i, j, cur_align, align;
     struct load_command *lcp, l;
     struct segment_command *sgp, sg;
     struct section *sp, s;
@@ -1490,15 +1506,15 @@ enum bool swapped)
 	    l = *lcp;
 	    if(swapped)
 		swap_load_command(&l, host_byte_sex);
-	    if(l.cmdsize % sizeof(long) != 0)
-		error("load command %lu size not a multiple of "
-		      "sizeof(long) in: %s", i, name);
+	    if(l.cmdsize % sizeof(uint32_t) != 0)
+		error("load command %u size not a multiple of "
+		      "sizeof(uint32_t) in: %s", i, name);
 	    if(l.cmdsize <= 0)
-		fatal("load command %lu size is less than or equal to zero "
+		fatal("load command %u size is less than or equal to zero "
 		      "in: %s", i, name);
 	    if((char *)lcp + l.cmdsize >
 	       (char *)load_commands + mhp->sizeofcmds)
-		fatal("load command %lu extends past end of all load "
+		fatal("load command %u extends past end of all load "
 		      "commands in: %s", i, name);
 	    if(l.cmd == LC_SEGMENT){
 		sgp = (struct segment_command *)lcp;
@@ -1507,7 +1523,7 @@ enum bool swapped)
 		    swap_segment_command(&sg, host_byte_sex);
 		if(mhp->filetype == MH_OBJECT){
 		    /* this is the minimum alignment, then take largest */
-		    align = 2; /* 2^2 sizeof(long) */
+		    align = 2; /* 2^2 sizeof(uint32_t) */
 		    sp = (struct section *)((char *)sgp +
 					    sizeof(struct segment_command));
 		    for(j = 0; j < sg.nsects; j++){
@@ -1542,15 +1558,15 @@ enum bool swapped)
  * machines).
  */
 static
-unsigned long
+uint32_t
 get_align_64(
 struct mach_header_64 *mhp64,
 struct load_command *load_commands,
-unsigned long size,
+uint32_t size,
 char *name,
 enum bool swapped)
 {
-    unsigned long i, j, cur_align, align;
+    uint32_t i, j, cur_align, align;
     struct load_command *lcp, l;
     struct segment_command_64 *sgp, sg;
     struct section_64 *sp, s;
@@ -1580,14 +1596,14 @@ enum bool swapped)
 	    if(swapped)
 		swap_load_command(&l, host_byte_sex);
 	    if(l.cmdsize % sizeof(long long) != 0)
-		error("load command %lu size not a multiple of "
+		error("load command %u size not a multiple of "
 		      "sizeof(long long) in: %s", i, name);
 	    if(l.cmdsize <= 0)
-		fatal("load command %lu size is less than or equal to zero "
+		fatal("load command %u size is less than or equal to zero "
 		      "in: %s", i, name);
 	    if((char *)lcp + l.cmdsize >
 	       (char *)load_commands + mhp64->sizeofcmds)
-		fatal("load command %lu extends past end of all load "
+		fatal("load command %u extends past end of all load "
 		      "commands in: %s", i, name);
 	    if(l.cmd == LC_SEGMENT_64){
 		sgp = (struct segment_command_64 *)lcp;
@@ -1628,11 +1644,11 @@ enum bool swapped)
  * alignment that the link editor uses.
  */
 static
-unsigned long
+uint32_t
 guess_align(
-unsigned long vmaddr)
+uint32_t vmaddr)
 {
-    unsigned long align, segalign;
+    uint32_t align, segalign;
 
 	if(vmaddr == 0)
 	    return(MAXSECTALIGN);
@@ -1817,6 +1833,27 @@ struct fat_arch *fat_arch)
 	    switch(fat_arch->cpusubtype & ~CPU_SUBTYPE_MASK){
 	    case CPU_SUBTYPE_SPARC_ALL:
 		printf("sparc");
+		break;
+	    default:
+		goto print_arch_unknown;
+	    }
+	    break;
+	case CPU_TYPE_ARM:
+	    switch(fat_arch->cpusubtype){
+	    case CPU_SUBTYPE_ARM_ALL:
+		printf("arm");
+		break;
+	    case CPU_SUBTYPE_ARM_V4T:
+		printf("armv4t");
+		break;
+	    case CPU_SUBTYPE_ARM_V5TEJ:
+		printf("armv5");
+		break;
+	    case CPU_SUBTYPE_ARM_XSCALE:
+		printf("xscale");
+		break;
+	    case CPU_SUBTYPE_ARM_V6:
+		printf("armv6");
 		break;
 	    default:
 		goto print_arch_unknown;
@@ -2057,6 +2094,32 @@ cpu_subtype_t cpusubtype)
 		goto print_arch_unknown;
 	    }
 	    break;
+	case CPU_TYPE_ARM:
+	    switch(cpusubtype){
+	    case CPU_SUBTYPE_ARM_V4T:
+		printf("    cputype CPU_TYPE_ARM\n"
+		       "    cpusubtype CPU_SUBTYPE_ARM_V4T\n");
+		break;
+	    case CPU_SUBTYPE_ARM_V5TEJ:
+		printf("     cputype CPU_TYPE_ARM\n"
+		       "     cpusubtype CPU_SUBTYPE_ARM_V5TEJ\n");
+		break;
+	    case CPU_SUBTYPE_ARM_XSCALE:
+		printf("     cputype CPU_TYPE_ARM\n"
+		       "     cpusubtype CPU_SUBTYPE_ARM_XSCALE\n");
+		break;
+	    case CPU_SUBTYPE_ARM_V6:
+		printf("    cputype CPU_TYPE_ARM\n"
+		       "    cpusubtype CPU_SUBTYPE_ARM_V6\n");
+		break;
+	    case CPU_SUBTYPE_ARM_ALL:
+		printf("    cputype CPU_TYPE_ARM\n"
+		       "    cpusubtype CPU_SUBTYPE_ARM_ALL\n");
+		break;
+	    default:
+		goto print_arch_unknown;
+	    }
+	    break;
 	case CPU_TYPE_ANY:
 	    switch(cpusubtype & ~CPU_SUBTYPE_MASK){
 	    case CPU_SUBTYPE_MULTIPLE:
@@ -2093,7 +2156,7 @@ int
 size_ar_name(
 char *ar_name)
 {
-    unsigned long j;
+    uint32_t j;
     struct ar_hdr ar_hdr;
 
 	for(j = 0; j < sizeof(ar_hdr.ar_name); j++){
@@ -2144,7 +2207,7 @@ static
 struct arch_flag *
 new_arch_flag(
 struct arch_flag **arch_flags,
-unsigned long *narch_flags)
+uint32_t *narch_flags)
 {
     struct arch_flag *arch_flag;
 
@@ -2206,14 +2269,14 @@ const struct thin_file *thin2)
  * round() rounds v to a multiple of r.
  */
 static
-unsigned long
+uint32_t
 round(
-unsigned long v,
-unsigned long r)
+uint32_t v,
+uint32_t r)
 {
 	r--;
 	v += r;
-	v &= ~(long)r;
+	v &= ~(int32_t)r;
 	return(v);
 }
 
@@ -2224,7 +2287,7 @@ static
 enum
 bool
 ispoweroftwo(
-unsigned long x)
+uint32_t x)
 {
 	if(x == 0)
 	    return(TRUE);
@@ -2260,76 +2323,55 @@ struct thin_file *thin)
 
 /*
  * Create a blank dylib.  This is a stub dylib with no load commands.
- * It is 4096 bytes of zero except for the mach_header.
+ * It is a target page size block of bytes of zero except for the mach_header.
  */
 static
-struct thin_file*
-new_blank_dylib(struct arch_flag arch)
+struct thin_file *
+new_blank_dylib(
+struct arch_flag *arch)
 {
-	struct thin_file *file = new_thin();
-	struct mach_header *mh;
-	struct mach_header_64 *mh64;
+    uint32_t target_page_size, align, onebit;
+    struct thin_file *file;
+    enum byte_sex host_byte_sex, target_byte_sex;
+    struct mach_header *mh;
+    struct mach_header_64 *mh64;
+
+	file = new_thin();
 	file->name = "blank dylib";
-	file->addr = calloc(1, 4096);
-	file->fat_arch.cputype = 0;
-	file->fat_arch.cpusubtype = 0;
+	target_page_size = get_segalign_from_flag(arch);
+	file->addr = allocate(target_page_size);
+	memset(file->addr, '\0', target_page_size);
+	file->fat_arch.cputype = arch->cputype;
+	file->fat_arch.cpusubtype = arch->cpusubtype;
 	file->fat_arch.offset = 0;
-	file->fat_arch.size = 4096;
-	file->fat_arch.align = 12;
+	file->fat_arch.size = target_page_size;
+	onebit = 1;
+	for(align = 1; (target_page_size & onebit) != onebit; align++)
+	   onebit = onebit << 1;
+	file->fat_arch.align = align;
     
-	switch(arch.cputype)
-	{
-		case CPU_TYPE_POWERPC:
-			file->fat_arch.cputype = CPU_TYPE_POWERPC;
-			file->fat_arch.cpusubtype = CPU_SUBTYPE_POWERPC_ALL;
-			mh = (struct mach_header *) file->addr;
-			mh->magic = MH_MAGIC;
-			mh->cputype = CPU_TYPE_POWERPC;
-			mh->cpusubtype = CPU_SUBTYPE_POWERPC_ALL;
-			mh->filetype = MH_DYLIB_STUB;
-#if __LITTLE_ENDIAN__
-			swap_mach_header(mh, get_host_byte_sex());
-#endif
-			break;
-		case CPU_TYPE_POWERPC64:
-			file->fat_arch.cputype = CPU_TYPE_POWERPC64;
-			file->fat_arch.cpusubtype = CPU_SUBTYPE_POWERPC_ALL;
-			mh64 = (struct mach_header_64 *) file->addr;
-			mh64->magic = MH_MAGIC_64;
-			mh64->cputype = CPU_TYPE_POWERPC64;
-			mh64->cpusubtype = CPU_SUBTYPE_POWERPC_ALL;
-			mh64->filetype = MH_DYLIB_STUB;
-#if __LITTLE_ENDIAN__
-			swap_mach_header_64(mh64, get_host_byte_sex());
-#endif
-			break;
-		case CPU_TYPE_I386:
-			file->fat_arch.cputype = CPU_TYPE_I386;
-			file->fat_arch.cpusubtype = CPU_SUBTYPE_I386_ALL;
-			mh = (struct mach_header *) file->addr;
-			mh->magic = MH_MAGIC;
-			mh->cputype = CPU_TYPE_I386;
-			mh->cpusubtype = CPU_SUBTYPE_I386_ALL;
-			mh->filetype = MH_DYLIB_STUB;
-#if __BIG_ENDIAN__
-			swap_mach_header(mh, get_host_byte_sex());
-#endif
-			break;
-		case CPU_TYPE_X86_64:
-			file->fat_arch.cputype = CPU_TYPE_X86_64;
-			file->fat_arch.cpusubtype = CPU_SUBTYPE_X86_64_ALL;
-			mh64 = (struct mach_header_64 *) file->addr;
-			mh64->magic = MH_MAGIC_64;
-			mh64->cputype = CPU_TYPE_X86_64;
-			mh64->cpusubtype = CPU_SUBTYPE_X86_64_ALL;
-			mh64->filetype = MH_DYLIB_STUB;
-#if __BIG_ENDIAN__
-			swap_mach_header_64(mh64, get_host_byte_sex());
-#endif
-			break;
+	host_byte_sex = get_host_byte_sex();
+	target_byte_sex = get_byte_sex_from_flag(arch);
+
+	if((arch->cputype & CPU_ARCH_ABI64) == CPU_ARCH_ABI64){
+	    mh64 = (struct mach_header_64 *)file->addr;
+	    mh64->magic = MH_MAGIC_64;
+	    mh64->cputype = arch->cputype;
+	    mh64->cpusubtype = arch->cpusubtype;
+	    mh64->filetype = MH_DYLIB_STUB;
+	    if(target_byte_sex != host_byte_sex)
+		swap_mach_header_64(mh64, target_byte_sex);
 	}
-	
-	return file;
+	else{
+	    mh = (struct mach_header *)file->addr;
+	    mh->magic = MH_MAGIC;
+	    mh->cputype = arch->cputype;
+	    mh->cpusubtype = arch->cpusubtype;
+	    mh->filetype = MH_DYLIB_STUB;
+	    if(target_byte_sex != host_byte_sex)
+		swap_mach_header(mh, target_byte_sex);
+	}
+	return(file);
 }
 
 /*

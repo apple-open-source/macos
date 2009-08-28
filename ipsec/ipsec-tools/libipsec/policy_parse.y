@@ -400,26 +400,30 @@ parse_sockaddr(addrbuf, portbuf)
 	char *serv = NULL;
 	int error;
 	struct sockaddr *newaddr = NULL;
+	int addr_len;
+	int serv_len;
 
-	if ((addr = malloc(addrbuf->len + 1)) == NULL) {
+	addr_len = addrbuf->len + 1;
+	if ((addr = malloc(addr_len)) == NULL) {
 		yyerror("malloc failed");
 		__ipsec_set_strerror(strerror(errno));
 		return NULL;
 	}
-
-	if (portbuf && ((serv = malloc(portbuf->len + 1)) == NULL)) {
-		free(addr);
-		yyerror("malloc failed");
-		__ipsec_set_strerror(strerror(errno));
-		return NULL;
+	
+	if (portbuf) {
+		serv_len = portbuf->len + 1;
+		if ((serv = malloc(serv_len)) == NULL) {
+			free(addr);
+			yyerror("malloc failed");
+			__ipsec_set_strerror(strerror(errno));
+			return NULL;
+		}
 	}
 
-	strncpy(addr, addrbuf->buf, addrbuf->len);
-	addr[addrbuf->len] = '\0';
+	strlcpy(addr, addrbuf->buf, addr_len);
 
 	if (portbuf) {
-		strncpy(serv, portbuf->buf, portbuf->len);
-		serv[portbuf->len] = '\0';
+		strlcpy(serv, portbuf->buf, serv_len);
 	}
 
 	memset(&hints, 0, sizeof(hints));

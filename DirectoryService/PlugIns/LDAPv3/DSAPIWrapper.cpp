@@ -350,7 +350,7 @@ DSAPIWrapper::GetLocallyHostedNodeList( void )
 
 
 tDirStatus
-DSAPIWrapper::OpenLocallyHostedNode( unsigned long inNodeIndex )
+DSAPIWrapper::OpenLocallyHostedNode( UInt32 inNodeIndex )
 {
     tDirStatus			status				= eDSNoErr;
     tDataList			*nodeName			= NULL;
@@ -499,14 +499,14 @@ DSAPIWrapper::GetServerAddressForUser( const char *uname, char *serverAddress, c
     tDirNodeReference			nodeRef				= 0;
     tDirStatus					status				= eDSNoErr;
     tContextData				context				= NULL;
-	unsigned long				nodeCount			= 0;
-	unsigned long				attrIndex			= 0;
+	UInt32						nodeCount			= 0;
+	UInt32						attrIndex			= 0;
 	tDataList				   *nodeName			= NULL;
     tAttributeEntryPtr			pAttrEntry			= NULL;
 	tDataList				   *pRecName			= NULL;
 	tDataList				   *pRecType			= NULL;
 	tDataList				   *pAttrType			= NULL;
-	unsigned long				recCount			= 0;
+	UInt32						recCount			= 0;
 	tRecordEntry		  	 	*pRecEntry			= NULL;
 	tAttributeListRef			attrListRef			= 0;
 	char					   *pUserLocation		= NULL;
@@ -713,3 +713,20 @@ DSAPIWrapper::GetServerAddressForUser( const char *uname, char *serverAddress, c
 	return status;
 }
 
+//-------------------------------------------------------------------------------------
+//	CopyRecordName
+//-------------------------------------------------------------------------------------
+
+char *
+DSAPIWrapper::CopyRecordName( tRecordReference inRecordRef )
+{
+	tRecordEntryPtr recEntry = NULL;
+	char *recName = NULL;
+
+	if ( dsGetRecordReferenceInfo(inRecordRef, &recEntry) == eDSNoErr ) {
+		dsGetRecordNameFromEntry( recEntry, &recName );
+		dsDeallocRecordEntry( 0, recEntry );
+	}
+
+	return recName;
+}

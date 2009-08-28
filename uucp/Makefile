@@ -32,6 +32,8 @@ install-plist:
 	$(INSTALL_FILE) $(SRCROOT)/uucp.plist $(OSV)/uucp.plist
 	$(MKDIR) $(OSL)
 	$(INSTALL_FILE) $(Sources)/COPYING $(OSL)/uucp.txt
+	# there isn't a configuure option to not setuid a bunch of stuff, so we let it do that and then we "fix it"
+	chmod -R ug-s $(DSTROOT)/usr/*bin
 
 
 # Automatic Extract & Patch

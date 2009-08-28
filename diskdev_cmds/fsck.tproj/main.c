@@ -3,21 +3,20 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -249,8 +248,6 @@ static int
 docheck(fsp)
 	register struct fstab *fsp;
 {
-	int result = 0;
-
 	/* Should we just allow all vfstypes? */
 	if (strcmp(fsp->fs_vfstype, "ufs")	&&
 		strcmp(fsp->fs_vfstype, "hfs")	&&
@@ -261,11 +258,12 @@ docheck(fsp)
 	    fsp->fs_passno == 0)
 		return 0;
 
-#define DISKARB_LABEL "LABEL="
-#define DISKARB_UUID "UUID="
-    if ((strncmp(fsp->fs_spec, DISKARB_LABEL, strlen(DISKARB_LABEL)) == 0)
-        || (strncmp(fsp->fs_spec, DISKARB_UUID, strlen(DISKARB_UUID)) == 0))
-        return 0;
+#define	DISKARB_LABEL	"LABEL="
+#define	DISKARB_UUID	"UUID="
+
+	if ((strncmp(fsp->fs_spec, DISKARB_LABEL, strlen(DISKARB_LABEL)) == 0)
+		|| (strncmp(fsp->fs_spec, DISKARB_UUID, strlen(DISKARB_UUID)) == 0))
+		return 0;
 
 	return 1;
 }
@@ -405,7 +403,9 @@ checkfilesys(char *filesys, char *mntpt, char *vfstype, int child)
         muldup = (struct dups *)0;
         inocleanup();
         if (fsmodified) {
-            (void)time(&sblock.fs_time);
+	    time_t tmp;
+            (void)time(&tmp);
+	    sblock.fs_time = tmp;
             sbdirty();
         }
         if (cvtlevel && sblk.b_dirty) {

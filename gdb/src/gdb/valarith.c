@@ -188,7 +188,6 @@ value_subscript (struct value *array, struct value *idx)
   if (TYPE_CODE (tarray) == TYPE_CODE_ARRAY
       || TYPE_CODE (tarray) == TYPE_CODE_STRING)
     {
-      struct type *range_type = TYPE_INDEX_TYPE (tarray);
       LONGEST lowerbound, upperbound, stride;
       get_array_bounds (tarray, &lowerbound, &upperbound, &stride);
 
@@ -230,7 +229,7 @@ value_subscript (struct value *array, struct value *idx)
 	     }
 	 }
        else
-	 internal_error (__FILE__, __LINE__, _("unsupported stride %lld"), stride);
+	 internal_error (__FILE__, __LINE__, _("unsupported stride %ld"), stride);
  	  
        return value_ind (value_add (array, idx));
     }
@@ -1168,6 +1167,13 @@ value_binop (struct value *arg1, struct value *arg2, enum exp_opcode op)
 	    case BINOP_EQUAL:
 	      v = v1 == v2;
 	      break;
+	      
+	      /* APPLE LOCAL: This BINOP_NOTEQUAL was missing
+		 here.  I don't know if we ever reach this
+		 case, but for completeness...  */
+            case BINOP_NOTEQUAL:
+              v = v1 != v2;
+              break;
 
 	    case BINOP_LESS:
 	      v = v1 < v2;

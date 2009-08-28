@@ -36,7 +36,22 @@
 #define FLEXDEF_H 1
 
 #ifdef HAVE_CONFIG_H
-#include "config.h"
+#include <config.h>
+#endif
+
+/* AIX requires this to be the first thing in the file.  */
+#ifndef __GNUC__
+# if HAVE_ALLOCA_H
+#  include <alloca.h>
+# else
+#  ifdef _AIX
+ #pragma alloca
+#  else
+#   ifndef alloca /* predefined by HP cc +Olibcalls */
+char *alloca ();
+#   endif
+#  endif
+# endif
 #endif
 
 #ifdef STDC_HEADERS
@@ -48,6 +63,12 @@
 #include <string.h>
 #include <math.h>
 #endif
+#ifdef HAVE_ASSERT_H
+#include <assert.h>
+#else
+#define assert(Pred)
+#endif
+
 #ifdef HAVE_LIMITS_H
 #include <limits.h>
 #endif
@@ -94,7 +115,7 @@
 #endif
 
 #ifndef PROTO
-#if __STDC__
+#if defined(__STDC__)
 #define PROTO(proto) proto
 #else
 #define PROTO(proto) ()
@@ -257,7 +278,7 @@
 
 /* The percentage the number of homogeneous out-transitions of a state
  * must be of the number of total out-transitions of the state in order
- * that the state's transition table is first compared with a potential 
+ * that the state's transition table is first compared with a potential
  * template of the most common out-transition instead of with the first
  * proto in the proto queue.
  */
@@ -335,7 +356,6 @@
  * nowarn - if true (-w), do not generate warnings
  * spprdflt - if true (-s), suppress the default rule
  * interactive - if true (-I), generate an interactive scanner
- * caseins - if true (-i), generate a case-insensitive scanner
  * lex_compat - if true (-l), maximize compatibility with AT&T lex
  * posix_compat - if true (-X), maximize compatibility with POSIX lex
  * do_yylineno - if true, generate code to maintain yylineno
@@ -377,7 +397,7 @@
 
 extern int printstats, syntaxerror, eofseen, ddebug, trace, nowarn,
 	spprdflt;
-extern int interactive, caseins, lex_compat, posix_compat, do_yylineno;
+extern int interactive, lex_compat, posix_compat, do_yylineno;
 extern int useecs, fulltbl, usemecs, fullspd;
 extern int gen_line_dirs, performance_report, backing_up_report;
 extern int reentrant, bison_bridge_lval, bison_bridge_lloc;
@@ -410,7 +430,7 @@ extern int yymore_really_used, reject_really_used;
  * use_stdout - the -t flag
  * input_files - array holding names of input files
  * num_input_files - size of input_files array
- * program_name - name with which program was invoked 
+ * program_name - name with which program was invoked
  *
  * action_array - array to hold the rule actions
  * action_size - size of action_array
@@ -428,7 +448,7 @@ extern const char *skel[];
 extern int skel_ind;
 extern char *infilename, *outfilename, *headerfilename;
 extern int did_outfilename;
-extern char *prefix, *yyclass;
+extern char *prefix, *yyclass, *extra_type;
 extern int do_stdinit, use_stdout;
 extern char **input_files;
 extern int num_input_files;
@@ -719,6 +739,8 @@ extern int yylval;
 extern void ccladd PROTO ((int, int));	/* add a single character to a ccl */
 extern int cclinit PROTO ((void));	/* make an empty ccl */
 extern void cclnegate PROTO ((int));	/* negate a ccl */
+extern int ccl_set_diff (int a, int b); /* set difference of two ccls. */
+extern int ccl_set_union (int a, int b); /* set union of two ccls. */
 
 /* List the members of a set of characters in CCL form. */
 extern void list_character_set PROTO ((FILE *, int[]));
@@ -817,7 +839,7 @@ extern void usage PROTO ((void));
 extern void action_define PROTO ((const char *defname, int value));
 
 /* Add the given text to the stored actions. */
-extern void add_action PROTO ((char *new_text));
+extern void add_action PROTO ((const char *new_text));
 
 /* True if a string is all lower case. */
 extern int all_lower PROTO ((register char *));
@@ -1178,5 +1200,24 @@ char   *regmatch_cpy (regmatch_t * m, char *dest, const char *src);
 int regmatch_len (regmatch_t * m);
 int regmatch_strtol (regmatch_t * m, const char *src, char **endptr, int base);
 bool regmatch_empty (regmatch_t * m);
+
+/* From "scanflags.h" */
+typedef unsigned int scanflags_t;
+extern scanflags_t* _sf_stk;
+extern size_t _sf_top_ix, _sf_max; /**< stack of scanner flags. */
+#define _SF_CASE_INS   0x0001
+#define _SF_DOT_ALL    0x0002
+#define _SF_SKIP_WS    0x0004
+#define sf_top()           (_sf_stk[_sf_top_ix])
+#define sf_case_ins()      (sf_top() & _SF_CASE_INS)
+#define sf_dot_all()       (sf_top() & _SF_DOT_ALL)
+#define sf_skip_ws()       (sf_top() & _SF_SKIP_WS)
+#define sf_set_case_ins(X)      ((X) ? (sf_top() |= _SF_CASE_INS) : (sf_top() &= ~_SF_CASE_INS))
+#define sf_set_dot_all(X)       ((X) ? (sf_top() |= _SF_DOT_ALL)  : (sf_top() &= ~_SF_DOT_ALL))
+#define sf_set_skip_ws(X)       ((X) ? (sf_top() |= _SF_SKIP_WS)  : (sf_top() &= ~_SF_SKIP_WS))
+extern void sf_init(void);
+extern void sf_push(void);
+extern void sf_pop(void);
+
 
 #endif /* not defined FLEXDEF_H */

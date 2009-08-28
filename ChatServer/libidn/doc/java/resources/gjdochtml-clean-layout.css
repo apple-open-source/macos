@@ -158,11 +158,12 @@ ul.inheritance
 li.inheritance
 {
         margin: 0em !important;
+        margin-top: 0.1em !important;
         padding: 0em !important;
         marker-offset: 0em !important;
 }
 
-ul.inheritance > li:before
+ul.inheritance > li.inheritance:before
 {
         display: marker;
         width: 12px;
@@ -170,9 +171,10 @@ ul.inheritance > li:before
         padding: 0em !important;
         marker-offset: 0em !important;
         content: url(inherit.png);
+        vertical-align: center !important;
 }
 
-[class="inheritance 0"] > li:before
+[class="inheritance 0"] > li.inheritance:before
 {
         display: none;
 }
@@ -261,7 +263,8 @@ table.navbar.div td
         margin-top: 0em;
 }
 
-.table.container
+.table.container,
+.table.container dd
 {
         padding: 0em;
         margin: 0em;
@@ -277,7 +280,7 @@ table.navbar.div td
 {
         margin-bottom: 1.2em;
 }
-
+        
 table.navbar.top
 {
         margin-bottom: 1em !important;
@@ -287,6 +290,12 @@ table.navbar.top
 {
         margin-top: 0.0em;
         margin-bottom: 1.0em;
+}
+
+.class.description
+{
+        margin-top: 1em;
+        margin-bottom: 0.8em;
 }
 
 [class="overview description top"]
@@ -383,16 +392,18 @@ h3
         font-size: 1.1em;
 }
 
-.usage.summary .right .synopsis
+.summary .right .synopsis
 {
-        padding-left: 5.25em;
-        text-indent: -5em;
+        padding-left: 5.25em !important;
+        text-indent: -5em !important;
 }
 
-.usage.summary .right .description
+.summary .right .description
 {
-        padding-left: 3em;
-        padding-top: 0.1em;
+        text-indent: 1em !important;
+        padding-top: 0.25em !important;
+        padding-bottom: 0.1em !important;
+        padding-left: 0.25em !important;
 }
 
 td.usage.summary
@@ -432,19 +443,18 @@ td.usage.summary
         padding-left: 2em;
 }
 
-ul.tree li
+ul.tree li.node
 {
         list-style-type: disc;
-}
-
-ul.tree li div
-{
-        text-indent: -3em;
-        padding-left: 3em;
 }
 
 ul.tree ul
 {
         margin-left: 0em;
         padding-left: 1.8em;
+}
+
+li.level
+{
+        list-style-type: none;
 }

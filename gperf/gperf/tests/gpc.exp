@@ -1,4 +1,4 @@
-/* C code produced by gperf version 3.0.1 */
+/* C code produced by gperf version 3.0.3 */
 /* Command-line: ../src/gperf -g -o -j1 -t -N is_reserved_word  */
 /* Computed positions: -k'1,$' */
 
@@ -94,6 +94,9 @@ hash (str, len)
 
 #ifdef __GNUC__
 __inline
+#ifdef __GNUC_STDC_INLINE__
+__attribute__ ((__gnu_inline__))
+#endif
 #endif
 struct resword *
 is_reserved_word (str, len)

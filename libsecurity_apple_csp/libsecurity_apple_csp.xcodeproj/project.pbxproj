@@ -318,7 +318,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		053910810A37725A00B9E848 /* libsecurity_apple_csp.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = libsecurity_apple_csp.plist; sourceTree = "<group>"; };
+		053910810A37725A00B9E848 /* libsecurity_apple_csp.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; path = libsecurity_apple_csp.plist; sourceTree = "<group>"; };
 		053910820A37725A00B9E848 /* libsecurity_apple_csp.txt */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = libsecurity_apple_csp.txt; sourceTree = "<group>"; };
 		053ABEFD0AA4C94900CA6DC3 /* opensshCoding.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = opensshCoding.h; sourceTree = "<group>"; };
 		053ABEFE0AA4C94900CA6DC3 /* opensshCoding.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = opensshCoding.cpp; sourceTree = "<group>"; };
@@ -332,7 +332,7 @@
 		4094B0DE057EA70300B44BCC /* csp_common.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = csp_common.mdsinfo; sourceTree = "<group>"; };
 		4094B0DF057EA70300B44BCC /* csp_primary.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = csp_primary.mdsinfo; sourceTree = "<group>"; };
 		4C3180450540C03B006FC739 /* security_apple_csp.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = security_apple_csp.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		4CA1FEBE052A3C8100F22E42 /* security_apple_csp */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; path = security_apple_csp; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CA1FEBE052A3C8100F22E42 /* security_apple_csp */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = security_apple_csp; sourceTree = BUILT_PRODUCTS_DIR; };
 		C2196B39053B5905005808D4 /* AppleCSPBuiltin.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleCSPBuiltin.cpp; sourceTree = "<group>"; };
 		C280ADE80534BBD900F7E802 /* bf_ecb.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = bf_ecb.c; sourceTree = "<group>"; };
 		C280ADE90534BBD900F7E802 /* bf_enc.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = bf_enc.c; sourceTree = "<group>"; };
@@ -555,30 +555,6 @@
 		C284377A053488AC000AE0FC /* YarrowConnection.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = YarrowConnection.cpp; sourceTree = "<group>"; };
 		C284377B053488AC000AE0FC /* YarrowConnection.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = YarrowConnection.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
-
-/* Begin PBXFrameworkTarget section */
-		4C3180440540C03B006FC739 /* security_apple_csp */ = {
-			isa = PBXFrameworkTarget;
-			buildConfigurationList = C27AD24B0987FCDC001272E0 /* Build configuration list for PBXFrameworkTarget "security_apple_csp" */;
-			buildPhases = (
-				4C31803F0540C03B006FC739 /* Headers */,
-				4CCB00B005800EB100981D43 /* CopyFiles */,
-				4CCB00B105800EB500981D43 /* CopyFiles */,
-			);
-			dependencies = (
-			);
-			name = security_apple_csp;
-			productInstallPath = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-			productName = security_apple_csp;
-			productReference = 4C3180450540C03B006FC739 /* security_apple_csp.framework */;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict/>
-</plist>
-";
-		};
-/* End PBXFrameworkTarget section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		4CA1FEBB052A3C8100F22E42 /* Frameworks */ = {
@@ -1185,16 +1161,36 @@
 		};
 /* End PBXHeadersBuildPhase section */
 
-/* Begin PBXLibraryTarget section */
+/* Begin PBXNativeTarget section */
+		4C3180440540C03B006FC739 /* security_apple_csp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD24B0987FCDC001272E0 /* Build configuration list for PBXNativeTarget "security_apple_csp" */;
+			buildPhases = (
+				4C31803F0540C03B006FC739 /* Headers */,
+				4CCB00B005800EB100981D43 /* CopyFiles */,
+				4CCB00B105800EB500981D43 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = security_apple_csp;
+			productInstallPath = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+			productName = security_apple_csp;
+			productReference = 4C3180450540C03B006FC739 /* security_apple_csp.framework */;
+			productType = "com.apple.product-type.framework";
+		};
 		4CA1FEBD052A3C8100F22E42 /* libsecurity_apple_csp */ = {
-			isa = PBXLibraryTarget;
-			buildConfigurationList = C27AD2500987FCDC001272E0 /* Build configuration list for PBXLibraryTarget "libsecurity_apple_csp" */;
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD2500987FCDC001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_apple_csp" */;
 			buildPhases = (
 				4CA1FEB9052A3C8100F22E42 /* Headers */,
 				4CA1FEBA052A3C8100F22E42 /* Sources */,
 				4CA1FEBB052A3C8100F22E42 /* Frameworks */,
 				4C789C99055AF92300B6FC95 /* ShellScript */,
 				4CD0D4DD055B1065001715CB /* ShellScript */,
+			);
+			buildRules = (
 			);
 			dependencies = (
 				4C7502B40540C89500056564 /* PBXTargetDependency */,
@@ -1204,8 +1200,9 @@
 			productInstallPath = /usr/local/lib;
 			productName = libsecurity_apple_csp;
 			productReference = 4CA1FEBE052A3C8100F22E42 /* security_apple_csp */;
+			productType = "com.apple.product-type.library.static";
 		};
-/* End PBXLibraryTarget section */
+/* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
 		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
@@ -1217,7 +1214,6 @@
 			productRefGroup = 4CA1FEBF052A3C8100F22E42 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
-			shouldCheckCompatibility = 1;
 			targets = (
 				4CA1FEBD052A3C8100F22E42 /* libsecurity_apple_csp */,
 				4C3180440540C03B006FC739 /* security_apple_csp */,
@@ -1234,7 +1230,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tln -fs \"../../../${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework/Versions/A\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework\n\tnmedit -p \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\n\tranlib \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\ndone";
+			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tditto -V \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}${postfix}\" \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\n\tln -fs \"../../../${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework/Versions/A\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework\n\tnmedit -p \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\n\tranlib \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\ndone";
 		};
 		4CD0D4DD055B1065001715CB /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -1411,7 +1407,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				PRODUCT_NAME = "Copy Open Source Docs";
 				ZERO_LINK = NO;
@@ -1436,11 +1431,13 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				INFOPLIST_FILE = "Info-security_apple_csp.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Components/Security;
 				PRODUCT_NAME = security_apple_csp;
 				WRAPPER_EXTENSION = framework;
@@ -1451,8 +1448,10 @@
 		C27AD24D0987FCDC001272E0 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INFOPLIST_FILE = "Info-security_apple_csp.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Components/Security;
 				PRODUCT_NAME = security_apple_csp;
 				WRAPPER_EXTENSION = framework;
@@ -1463,7 +1462,10 @@
 		C27AD24E0987FCDC001272E0 /* Darwin */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
+				INFOPLIST_FILE = "Info-security_apple_csp.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Components/Security;
 				OTHER_CFLAGS = "-DALLOW_ZERO_PASSWORD";
 				PRODUCT_NAME = security_apple_csp;
@@ -1474,7 +1476,10 @@
 		C27AD24F0987FCDC001272E0 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_VERSION = A;
+				INFOPLIST_FILE = "Info-security_apple_csp.plist";
 				INSTALL_PATH = /usr/local/SecurityPieces/Components/Security;
 				PRODUCT_NAME = security_apple_csp;
 				WRAPPER_EXTENSION = framework;
@@ -1485,13 +1490,14 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 35205;
+				CURRENT_PROJECT_VERSION = 36859;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Components/Security,
 					/usr/local/SecurityPieces/Frameworks,
 				);
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				HEADER_SEARCH_PATHS = (
@@ -1522,7 +1528,7 @@
 				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
 				PRODUCT_NAME = security_apple_csp;
@@ -1543,12 +1549,13 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 35205;
+				CURRENT_PROJECT_VERSION = 36859;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Components/Security,
 					/usr/local/SecurityPieces/Frameworks,
 				);
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/security_bsafe.framework/Headers",
 					/usr/local/SecurityPieces/Frameworks/security_bsafe.framework/Headers,
@@ -1577,7 +1584,7 @@
 				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
 				PRODUCT_NAME = security_apple_csp;
@@ -1598,7 +1605,9 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 35205;
+				CURRENT_PROJECT_VERSION = 36859;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Components/Security,
 					/usr/local/SecurityPieces/Frameworks,
@@ -1626,7 +1635,7 @@
 				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
 				PRODUCT_NAME = security_apple_csp;
@@ -1646,7 +1655,9 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 35205;
+				CURRENT_PROJECT_VERSION = 36859;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Components/Security,
 					/usr/local/SecurityPieces/Frameworks,
@@ -1679,7 +1690,7 @@
 				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
 				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_debug = "";
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
 				PRODUCT_NAME = security_apple_csp;
@@ -1739,7 +1750,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
 		};
-		C27AD24B0987FCDC001272E0 /* Build configuration list for PBXFrameworkTarget "security_apple_csp" */ = {
+		C27AD24B0987FCDC001272E0 /* Build configuration list for PBXNativeTarget "security_apple_csp" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C27AD24C0987FCDC001272E0 /* Development */,
@@ -1750,7 +1761,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
 		};
-		C27AD2500987FCDC001272E0 /* Build configuration list for PBXLibraryTarget "libsecurity_apple_csp" */ = {
+		C27AD2500987FCDC001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_apple_csp" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C27AD2510987FCDC001272E0 /* Development */,

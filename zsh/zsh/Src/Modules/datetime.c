@@ -1,5 +1,5 @@
 /*
- * datetime.c - parameter interface to langinfo via curses
+ * datetime.c - parameter and command interface to date and time utilities
  *
  * This file is part of zsh, the Z shell.
  *
@@ -121,7 +121,7 @@ bin_strftime(char *nam, char **argv, Options ops, UNUSED(int func))
     }
 
     t = localtime(&secs);
-    bufsize = strlen(argv[0]) * 2;
+    bufsize = strlen(argv[0]) * 8;
     buffer = zalloc(bufsize);
 
     for (x=0; x < 4; x++) {
@@ -154,8 +154,16 @@ static const struct gsu_integer epochseconds_gsu =
 { getcurrentsecs, NULL, stdunsetfn };
 
 static struct paramdef patab[] = {
-    PARAMDEF("EPOCHSECONDS", PM_INTEGER|PM_SPECIAL|PM_READONLY,
-		    NULL, &epochseconds_gsu),
+    SPECIALPMDEF("EPOCHSECONDS", PM_INTEGER|PM_READONLY,
+		 &epochseconds_gsu, NULL, NULL),
+};
+
+static struct features module_features = {
+    bintab, sizeof(bintab)/sizeof(*bintab),
+    NULL, 0,
+    NULL, 0,
+    patab, sizeof(patab)/sizeof(*patab),
+    0
 };
 
 /**/
@@ -167,26 +175,31 @@ setup_(UNUSED(Module m))
 
 /**/
 int
+features_(Module m, char ***features)
+{
+    *features = featuresarray(m, &module_features);
+    return 0;
+}
+
+/**/
+int
+enables_(Module m, int **enables)
+{
+    return handlefeatures(m, &module_features, enables);
+}
+
+/**/
+int
 boot_(Module m)
 {
-    return !(addbuiltins(m->nam, bintab, sizeof(bintab)/sizeof(*bintab)) |
-	     addparamdefs(m->nam, patab, sizeof(patab)/sizeof(*patab))
-	    );
+    return 0;
 }
 
 /**/
 int
 cleanup_(Module m)
 {
-    Param pm;
-
-    deletebuiltins(m->nam, bintab, sizeof(bintab)/sizeof(*bintab));
-    pm = (Param) paramtab->getnode(paramtab, "EPOCHSECONDS");
-    if (pm && (pm->node.flags & PM_SPECIAL)) {
-	pm->node.flags &= ~PM_READONLY;
-	unsetparam_pm(pm, 0, 1);
-    }
-    return 0;
+    return setfeatureenables(m, &module_features, NULL);
 }
 
 /**/

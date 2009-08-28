@@ -144,7 +144,7 @@ CAuthFileBase::validatePasswordFile(void)
         {
             if ( pwFileHeader.signature != kPWFileSignature ||
                  pwFileHeader.version != kPWFileVersion ||
-                 sb.st_size != (long)(sizeof(PWFileHeader) + pwFileHeader.numberOfSlotsCurrentlyInFile * sizeof(PWFileEntry)) )
+                 sb.st_size != (off_t)(sizeof(PWFileHeader) + (off_t)pwFileHeader.numberOfSlotsCurrentlyInFile * sizeof(PWFileEntry)) )
             {
                 err = -1;
             }
@@ -336,7 +336,7 @@ CAuthFileBase::mapPasswordFile(void)
     pwFileLen = 0;
     err = lstat( fFilePath, &sb );
     if ( err == 0 )
-        pwFileLen = sb.st_size;
+        pwFileLen = (size_t)sb.st_size;
     
     // map
     if ( pwFileLen > 0 )
@@ -443,7 +443,7 @@ CAuthFileBase::pwLock(void)
 bool
 CAuthFileBase::pwLock( unsigned long inMillisecondsToWait )
 {
-	const long millisecondsPerTry = 25;
+	const useconds_t millisecondsPerTry = 25;
 	long tries = inMillisecondsToWait / millisecondsPerTry;
 	bool locked = false;
 	
@@ -702,7 +702,7 @@ CAuthFileBase::loadRSAKeys( void )
     if ( result == 0 || result == -3 )
     {
         int check1, check2, cipher_type;
-        off_t len;
+        uint32_t len;
         Buffer buffer, decrypted;
         char *cp;
         CipherContext cipher;
@@ -1024,10 +1024,10 @@ CAuthFileBase::removeWeakAuthMethod( const char *inMethod )
 //----------------------------------------------------------------------------------------------------
 
 int
-CAuthFileBase::expandDatabase( unsigned long inNumSlots, long *outSlot )
+CAuthFileBase::expandDatabase( uint32_t inNumSlots, uint32_t *outSlot )
 {
 	int err;
-	int writeCount;
+	size_t writeCount;
 	
 	if ( fReadOnlyFileSystem )
 		return -1;
@@ -1081,10 +1081,10 @@ CAuthFileBase::expandDatabase( unsigned long inNumSlots, long *outSlot )
 //	Returns: 0 for invalid/error, or the next slot number in the pw file for writing the next entry.
 //----------------------------------------------------------------------------------------------------
 
-long
+uint32_t
 CAuthFileBase::nextSlot(void)
 {
-    long slot = 0;
+    uint32_t slot = 0;
     int err = -1;
     off_t curpos = 0;
     long readCount;
@@ -1173,9 +1173,16 @@ CAuthFileBase::nextSlot(void)
 //----------------------------------------------------------------------------------------------------
 
 void
-CAuthFileBase::getGMTime(struct tm *inOutGMT)
+CAuthFileBase::getGMTime(struct tm *outGMT)
 {
-    fUtils.getGMTime( inOutGMT );
+    fUtils.getGMTime( outGMT );
+}
+
+
+void
+CAuthFileBase::getGMTime(BSDTimeStructCopy *outGMT)
+{
+    fUtils.getGMTime( outGMT );
 }
 
 
@@ -1231,17 +1238,17 @@ CAuthFileBase::addRSAKeys(unsigned int inBitCount)
 	FILE *aFile = NULL;
     int result = -1;
 	unsigned char *publicKey = NULL;
-	unsigned long publicKeyLen = 0;
+	uint32_t publicKeyLen = 0;
 	unsigned char *privateKey = NULL;
-	unsigned long privateKeyLen = 0;
+	uint32_t privateKeyLen = 0;
 	char bitCountStr[256] = {0,};
     char tempFileStr[256] = {0,};
     char publicKeyFileStr[256] = {0,};
     struct stat sb = {0};
-	char *argv[] = {	"/usr/bin/ssh-keygen",
+	const char *argv[] = {	"/usr/bin/ssh-keygen",
 						"-t", "rsa1",
-						"-b", bitCountStr,
-						"-f", tempFileStr,
+						"-b", (const char *)bitCountStr,
+						"-f", (const char *)tempFileStr,
 						"-P", "",
 						NULL };
 	
@@ -1254,7 +1261,7 @@ CAuthFileBase::addRSAKeys(unsigned int inBitCount)
 	do
 	{
 		// make the keys
-		if ( pwsf_LaunchTask("/usr/bin/ssh-keygen", argv) != EX_OK )
+		if ( pwsf_LaunchTask("/usr/bin/ssh-keygen", (char * const *)argv) != EX_OK )
 			break;
 		
 		// stat the key file, get the length
@@ -1268,9 +1275,9 @@ CAuthFileBase::addRSAKeys(unsigned int inBitCount)
 		aFile = fopen( tempFileStr, "r" );
 		if ( aFile != NULL )
 		{
-			privateKeyLen = (unsigned long)sb.st_size;
+			privateKeyLen = (uint32_t)sb.st_size;
 			privateKey = (unsigned char *) malloc( privateKeyLen + 1 );
-			fread( (char*)privateKey, (unsigned long)sb.st_size, 1, aFile );
+			fread( (char*)privateKey, privateKeyLen, 1, aFile );
 			fclose( aFile );
 			
 			// stat the public key file, get the length
@@ -1282,9 +1289,9 @@ CAuthFileBase::addRSAKeys(unsigned int inBitCount)
 			aFile = fopen( publicKeyFileStr, "r" );
 			if ( aFile != NULL )
 			{
-				publicKeyLen = (unsigned long)sb.st_size;
+				publicKeyLen = (uint32_t)sb.st_size;
 				publicKey = (unsigned char *) malloc( publicKeyLen + 1 );
-				fread( publicKey, (unsigned long)sb.st_size, 1, aFile );
+				fread( publicKey, publicKeyLen, 1, aFile );
 				fclose( aFile );
 				
 				result = this->addRSAKeys( publicKey, publicKeyLen, privateKey, privateKeyLen );
@@ -1319,9 +1326,9 @@ CAuthFileBase::addRSAKeys(unsigned int inBitCount)
 int
 CAuthFileBase::addRSAKeys(
 	unsigned char *publicKey,
-	unsigned long publicKeyLen,
+	uint32_t publicKeyLen,
 	unsigned char *privateKey,
-	unsigned long privateKeyLen )
+	uint32_t privateKeyLen )
 {
     PWFileHeader ourHeader;
     int result;
@@ -1457,9 +1464,9 @@ CAuthFileBase::addPassword(PWFileEntry *passwordRec, bool obfuscate)
     passwordRec->sequenceNumber = ++pwFileHeader.sequenceNumber;
     passwordRec->slot = this->nextSlot();
     
-    fUtils.getGMTime( (struct tm *)&passwordRec->creationDate );
-    memcpy( &passwordRec->lastLogin, &passwordRec->creationDate, sizeof(struct tm) );
-    memcpy( &passwordRec->modDateOfPassword, &passwordRec->creationDate, sizeof(struct tm) );
+    fUtils.getGMTime( &passwordRec->creationDate );
+    memcpy( &passwordRec->lastLogin, &passwordRec->creationDate, sizeof(passwordRec->lastLogin) );
+    memcpy( &passwordRec->modDateOfPassword, &passwordRec->creationDate, sizeof(passwordRec->modDateOfPassword) );
     
     err = this->setPasswordAtSlot( passwordRec, passwordRec->slot, obfuscate );
 	
@@ -1504,9 +1511,9 @@ CAuthFileBase::initPasswordRecord(PWFileEntry *passwordRec, bool obfuscate)
 	passwordRec->sequenceNumber = ++pwFileHeader.sequenceNumber;
 	passwordRec->slot = this->nextSlot();
 
-	fUtils.getGMTime( (struct tm *)&passwordRec->creationDate );
-	memcpy( &passwordRec->lastLogin, &passwordRec->creationDate, sizeof(struct tm) );
-	memcpy( &passwordRec->modDateOfPassword, &passwordRec->creationDate, sizeof(struct tm) );
+	fUtils.getGMTime( &passwordRec->creationDate );
+	memcpy( &passwordRec->lastLogin, &passwordRec->creationDate, sizeof(passwordRec->lastLogin) );
+	memcpy( &passwordRec->modDateOfPassword, &passwordRec->creationDate, sizeof(passwordRec->modDateOfPassword) );
 
 	// re-write the header to mark the slot used.
 	err2 = this->setHeader( &pwFileHeader );
@@ -1529,7 +1536,7 @@ CAuthFileBase::initPasswordRecord(PWFileEntry *passwordRec, bool obfuscate)
 //----------------------------------------------------------------------------------------------------
 
 int
-CAuthFileBase::addPasswordAtSlot(PWFileEntry *passwordRec, long slot, bool obfuscate, bool setModDate)
+CAuthFileBase::addPasswordAtSlot(PWFileEntry *passwordRec, uint32_t slot, bool obfuscate, bool setModDate)
 {
 	PWFileEntry dbEntry;
 	int err;
@@ -1582,7 +1589,7 @@ CAuthFileBase::addPasswordAtSlot(PWFileEntry *passwordRec, long slot, bool obfus
 //----------------------------------------------------------------------------------------------------
 
 int
-CAuthFileBase::addPasswordAtSlotFast(PWFileEntry *passwordRec, long slot)
+CAuthFileBase::addPasswordAtSlotFast(PWFileEntry *passwordRec, uint32_t slot)
 {
 	PWFileEntry dbEntry;
 	int err;
@@ -1631,12 +1638,12 @@ CAuthFileBase::addPasswordAtSlotFast(PWFileEntry *passwordRec, long slot)
 
 #if TARGET_RT_BIG_ENDIAN
 int
-CAuthFileBase::setPasswordAtSlot(PWFileEntry *passwordRec, long slot, bool obfuscate, bool setModDate)
+CAuthFileBase::setPasswordAtSlot(PWFileEntry *passwordRec, uint32_t slot, bool obfuscate, bool setModDate)
 {
     long offset;
     int err = -1;
-    int writeCount;
-    unsigned int encodeLen;
+    size_t writeCount;
+    size_t encodeLen;
 	
 	if ( fReadOnlyFileSystem )
 		return -1;
@@ -1647,7 +1654,7 @@ CAuthFileBase::setPasswordAtSlot(PWFileEntry *passwordRec, long slot, bool obfus
 			return -1;
 		
 		if ( setModDate )
-			fUtils.getGMTime( (struct tm *)&passwordRec->modificationDate );
+			fUtils.getGMTime( &passwordRec->modificationDate );
         
         pwWait();
         err = this->openPasswordFile( "r+", false );
@@ -1690,12 +1697,12 @@ CAuthFileBase::setPasswordAtSlot(PWFileEntry *passwordRec, long slot, bool obfus
 }
 #else
 int
-CAuthFileBase::setPasswordAtSlot(PWFileEntry *passwordRec, long slot, bool obfuscate, bool setModDate)
+CAuthFileBase::setPasswordAtSlot(PWFileEntry *passwordRec, uint32_t slot, bool obfuscate, bool setModDate)
 {
     long offset;
     int err = -1;
-    int writeCount;
-    unsigned int encodeLen;
+    size_t writeCount;
+    size_t encodeLen;
 	PWFileEntry diskPassRec = *passwordRec;
 	
 	if ( fReadOnlyFileSystem )
@@ -1703,12 +1710,12 @@ CAuthFileBase::setPasswordAtSlot(PWFileEntry *passwordRec, long slot, bool obfus
 	
     if ( slot > 0 )
     {
-		if ( (unsigned long)slot > pwFileHeader.numberOfSlotsCurrentlyInFile )
+		if ( slot > pwFileHeader.numberOfSlotsCurrentlyInFile )
 			return -1;
 		
 		if ( setModDate ) {
-			fUtils.getGMTime( (struct tm *)&diskPassRec.modificationDate );
-			memcpy( &passwordRec->modificationDate, &diskPassRec.modificationDate, sizeof(struct tm) );
+			fUtils.getGMTime( &diskPassRec.modificationDate );
+			memcpy( &passwordRec->modificationDate, &diskPassRec.modificationDate, sizeof(passwordRec->modificationDate) );
 		}
 		
         pwWait();
@@ -1760,12 +1767,12 @@ CAuthFileBase::setPasswordAtSlot(PWFileEntry *passwordRec, long slot, bool obfus
 
 #if TARGET_RT_BIG_ENDIAN
 int
-CAuthFileBase::setPasswordAtSlotFast(PWFileEntry *passwordRec, long slot)
+CAuthFileBase::setPasswordAtSlotFast(PWFileEntry *passwordRec, uint32_t slot)
 {
 	long offset;
 	int err = -1;
-	int writeCount;
-	unsigned int encodeLen;
+	size_t writeCount;
+	size_t encodeLen;
 
 	if ( fReadOnlyFileSystem )
 		return -1;
@@ -1775,7 +1782,7 @@ CAuthFileBase::setPasswordAtSlotFast(PWFileEntry *passwordRec, long slot)
 		if ( (unsigned long)slot > pwFileHeader.numberOfSlotsCurrentlyInFile )
 			return -1;
 		
-		fUtils.getGMTime( (struct tm *)&passwordRec->modificationDate );
+		fUtils.getGMTime( &passwordRec->modificationDate );
 		
 		pwWait();
 		err = this->openPasswordFile( "r+", false );
@@ -1808,7 +1815,7 @@ CAuthFileBase::setPasswordAtSlotFast(PWFileEntry *passwordRec, long slot)
 }
 #else
 int
-CAuthFileBase::setPasswordAtSlotFast(PWFileEntry *passwordRec, long slot)
+CAuthFileBase::setPasswordAtSlotFast(PWFileEntry *passwordRec, uint32_t slot)
 {
 	return this->setPasswordAtSlot(passwordRec, slot);
 }
@@ -1911,7 +1918,7 @@ CAuthFileBase::addHashCramMD5( PWFileEntry *inOutPasswordRec )
 
 
 void
-CAuthFileBase::getHashCramMD5( const unsigned char *inPassword, long inPasswordLen, unsigned char *outHash, unsigned long *outHashLen )
+CAuthFileBase::getHashCramMD5( const unsigned char *inPassword, size_t inPasswordLen, unsigned char *outHash, size_t *outHashLen )
 {
 	pwsf_getHashCramMD5( inPassword, inPasswordLen, outHash, outHashLen );
 }
@@ -1943,7 +1950,7 @@ CAuthFileBase::ConvertBinaryToHex( const unsigned char *inData, long len, char *
 
 
 int
-CAuthFileBase::getPasswordRec(long slot, PWFileEntry *passRec, bool unObfuscate)
+CAuthFileBase::getPasswordRec(uint32_t slot, PWFileEntry *passRec, bool unObfuscate)
 {
     long offset;
     int err = -1;
@@ -2053,7 +2060,7 @@ int
 CAuthFileBase::freeSlot(PWFileEntry *passwordRec)
 {
     int err;
-    long slot = passwordRec->slot;
+    uint32_t slot = passwordRec->slot;
     long writeCount;
     PWFileEntry deleteRec;
 	bool fromSpillBucket;
@@ -2071,7 +2078,7 @@ CAuthFileBase::freeSlot(PWFileEntry *passwordRec)
 		deleteRec.rnd = passwordRec->rnd;
 		deleteRec.sequenceNumber = passwordRec->sequenceNumber;
 		deleteRec.slot = passwordRec->slot;
-		fUtils.getGMTime( (struct tm *)&deleteRec.modDateOfPassword );
+		fUtils.getGMTime( &deleteRec.modDateOfPassword );
 		deleteRec.extraAccess.recordIsDead = true;
 		
 		if ( fromSpillBucket )
@@ -2404,7 +2411,7 @@ CAuthFileBase::MakeSyncFile(
 	{
 		writeCount = fwrite( &inAfterDate, sizeof(inAfterDate), 1, syncFile );
 		if ( writeCount != 1 )
-			throw( -1 );
+			throw( (int)-1 );
 		
 		err = this->getHeader(&dbHeader);
 		if ( err != 0 && err != -3 )
@@ -2412,7 +2419,7 @@ CAuthFileBase::MakeSyncFile(
 		
 		writeCount = fwrite( &dbHeader, sizeof(dbHeader), 1, syncFile );
 		if ( writeCount != 1 )
-			throw( -1 );
+			throw( (int)-1 );
 		
 		if ( inKerberosRecordLimit > 0 && dbHeader.deepestSlotUsed > inKerberosRecordLimit )
 			addKerberosRecords = false;
@@ -2429,7 +2436,7 @@ CAuthFileBase::MakeSyncFile(
 			
 			// adjust time skew for comparison purposes. The record itself is
 			// adjusted on the processing side.
-			theTime = ::timegm( (struct tm *)&passRec.modificationDate ) + inTimeSkew;
+			theTime = BSDTimeStructCopy_timegm( &passRec.modificationDate ) + inTimeSkew;
 			
 			if ( theTime >= inAfterDate )
 			{
@@ -2447,7 +2454,7 @@ CAuthFileBase::MakeSyncFile(
 				
 				writeCount = fwrite( &passRec, sizeof(passRec), 1, syncFile );
 				if ( writeCount != 1 )
-					throw( -1 );
+					throw( (int)-1 );
 				
 				if ( addKerberosRecords && strlen(passRec.digest[4].digest) > 0 )
 				{
@@ -2469,7 +2476,7 @@ CAuthFileBase::MakeSyncFile(
 					writeCount = fwrite( &zeroLen, sizeof(zeroLen), 1, syncFile );
 
 				if ( writeCount != 1 )
-					throw( -1 );
+					throw( (int)-1 );
 				
 				if ( outNumRecordsUpdated != NULL )
 					(*outNumRecordsUpdated)++;
@@ -2493,10 +2500,10 @@ CAuthFileBase::MakeSyncFile(
 			{
 				writeCount = fwrite( &passRec, sizeof(passRec), 1, syncFile );
 				if ( writeCount != 1 )
-					throw( -1 );
+					throw( (int)-1 );
 				writeCount = kerberosRec->WritePrincipalToFile(syncFile);
 				if ( writeCount != 1 )
-					throw( -1 );
+					throw( (int)-1 );
 				kerberosRec = kerbList.GetPrincipalByIndex(index++);
 			}
 		}
@@ -2532,8 +2539,8 @@ CAuthFileBase::GetSyncTimeFromSyncFile( const char *inSyncFile, time_t *outSyncT
 {
 	int err;
 	FILE *syncFile;
-	int readCount;
-	unsigned long remoteFileLen;
+	size_t readCount;
+	size_t remoteFileLen;
 	struct stat sb;
 	time_t syncTime = 0;
 	
@@ -2547,7 +2554,7 @@ CAuthFileBase::GetSyncTimeFromSyncFile( const char *inSyncFile, time_t *outSyncT
     remoteFileLen = 0;
     err = lstat( inSyncFile, &sb );
     if ( err == 0 )
-        remoteFileLen = sb.st_size;
+        remoteFileLen = (size_t)sb.st_size;
     if ( remoteFileLen < sizeof(PWFileHeader) )
 		return -1;
 	
@@ -2631,7 +2638,7 @@ CAuthFileBase::ProcessSyncFile( const char *inSyncFile, long inTimeSkew, long *o
 		if ( ! haveLock )
 		{
 			syslog( LOG_ALERT, "ProcessSyncFile - can't get file lock");
-			throw( -3 );
+			throw( (int)-3 );
 		}
 		
 		// copy our header
@@ -2642,19 +2649,19 @@ CAuthFileBase::ProcessSyncFile( const char *inSyncFile, long inTimeSkew, long *o
 		// read opposing sync time
 		readCount = fread( &syncTime, sizeof(syncTime), 1, syncFile );
 		if ( readCount != 1 )
-			throw( -1 );
+			throw( (int)-1 );
 		
 		// read opposing header
 		readCount = fread( &remoteHeader, sizeof(remoteHeader), 1, syncFile );
 		if ( readCount != 1 )
-			throw( -1 );
+			throw( (int)-1 );
 		
 		// check compatibility
 		if ( localHeader.signature != remoteHeader.signature ||
 			 localHeader.version != remoteHeader.version ||
 			 localHeader.entrySize != remoteHeader.entrySize )
 		{
-			throw( -2 );
+			throw( (int)-2 );
 		}
 		
 		// sync the header
@@ -2678,11 +2685,11 @@ CAuthFileBase::ProcessSyncFile( const char *inSyncFile, long inTimeSkew, long *o
 			
 			readCount = fread( &remoteRec, sizeof(remoteRec), 1, syncFile );
 			if ( readCount != 1 )
-				throw( -1 );
+				throw( (int)-1 );
 			
 			readCount = fread( &kerbRecordLen, sizeof(kerbRecordLen), 1, syncFile );
 			if ( readCount != 1 )
-				throw( -1 );
+				throw( (int)-1 );
 				
 			localKerbRec = NULL;
 			if (kerbRecordLen > 0)
@@ -2711,9 +2718,9 @@ CAuthFileBase::ProcessSyncFile( const char *inSyncFile, long inTimeSkew, long *o
 				}
 				
 				// password fields
-				localTime = ::timegm( (struct tm *)&localRec.modDateOfPassword );
-				remoteTime = ::timegm( (struct tm *)&remoteRec.modDateOfPassword ) - inTimeSkew;
-				::gmtime_r( &remoteTime, (struct tm *)&remoteRec.modDateOfPassword );
+				localTime = BSDTimeStructCopy_timegm( &localRec.modDateOfPassword );
+				remoteTime = BSDTimeStructCopy_timegm( &remoteRec.modDateOfPassword ) - inTimeSkew;
+				BSDTimeStructCopy_gmtime_r( &remoteTime, &remoteRec.modDateOfPassword );
 				
 				if ( remoteTime > localTime )
 				{
@@ -2728,9 +2735,9 @@ CAuthFileBase::ProcessSyncFile( const char *inSyncFile, long inTimeSkew, long *o
 					remoteKerbRec->CopyPassword(localKerbRec);
 				
 				// last login time
-				localTime = ::timegm( (struct tm *)&localRec.lastLogin );
-				remoteTime = ::timegm( (struct tm *)&remoteRec.lastLogin ) - inTimeSkew;
-				::gmtime_r( &remoteTime, (struct tm *)&remoteRec.lastLogin );
+				localTime = BSDTimeStructCopy_timegm( &localRec.lastLogin );
+				remoteTime = BSDTimeStructCopy_timegm( &remoteRec.lastLogin ) - inTimeSkew;
+				BSDTimeStructCopy_gmtime_r( &remoteTime, &remoteRec.lastLogin );
 				
 				if ( remoteTime > localTime )
 				{
@@ -2741,9 +2748,9 @@ CAuthFileBase::ProcessSyncFile( const char *inSyncFile, long inTimeSkew, long *o
 					remoteKerbRec->CopyLastLogin(localKerbRec);
 				
 				// all non-special fields
-				localTime = ::timegm( (struct tm *)&localRec.modificationDate );
-				remoteTime = ::timegm( (struct tm *)&remoteRec.modificationDate ) - inTimeSkew;
-				::gmtime_r( &remoteTime, (struct tm *)&remoteRec.modificationDate );
+				localTime = BSDTimeStructCopy_timegm( &localRec.modificationDate );
+				remoteTime = BSDTimeStructCopy_timegm( &remoteRec.modificationDate ) - inTimeSkew;
+				BSDTimeStructCopy_gmtime_r( &remoteTime, &remoteRec.modificationDate );
 				
 				if ( remoteTime > localTime )
 				{
@@ -2858,7 +2865,7 @@ CAuthFileBase::DisableStatus(PWFileEntry *inOutPasswordRec, Boolean *outChanged,
 	if ( inOutPasswordRec->access.isDisabled )
 		return kAuthUserDisabled;
 	
-	result = pwsf_TestDisabledStatusWithReasonCode( access, &pwFileHeader.access, (struct tm *)&inOutPasswordRec->creationDate, (struct tm *)&inOutPasswordRec->lastLogin, &inOutPasswordRec->failedLoginAttempts, &reason );
+	result = pwsf_TestDisabledStatusWithReasonCode( access, &pwFileHeader.access, &inOutPasswordRec->creationDate, &inOutPasswordRec->lastLogin, &inOutPasswordRec->failedLoginAttempts, &reason );
 	
 	// update the user record
 	if ( result == kAuthUserDisabled )
@@ -2908,8 +2915,8 @@ CAuthFileBase::ChangePasswordStatus(PWFileEntry *inPasswordRec)
 	if ( inPasswordRec->access.isAdminUser )
 		return kAuthOK;
 
-	result = pwsf_ChangePasswordStatus( &inPasswordRec->access, &pwFileHeader.access,
-				(struct tm *)&inPasswordRec->modDateOfPassword );
+	result = pwsf_ChangePasswordStatusPWS( &inPasswordRec->access, &pwFileHeader.access,
+				&inPasswordRec->modDateOfPassword );
 
 	return result;
 }
@@ -3040,8 +3047,8 @@ CAuthFileBase::SaveOverflowRecord( PWFileEntry *inPasswordRec, bool obfuscate, b
 	int err = -1;
 	char uidStr[35];
 	char buff[35];
-	unsigned int encodeLen;
-    int writeCount;
+	size_t encodeLen;
+    size_t writeCount;
 #if TARGET_RT_LITTLE_ENDIAN
     PWFileEntry passRec;
 #endif
@@ -3060,7 +3067,7 @@ CAuthFileBase::SaveOverflowRecord( PWFileEntry *inPasswordRec, bool obfuscate, b
 	pwsf_passwordRecRefToString( inPasswordRec, uidStr );
 	
 	if ( setModDate )
-		fUtils.getGMTime( (struct tm *)&inPasswordRec->modificationDate );
+		fUtils.getGMTime( &inPasswordRec->modificationDate );
 	
 	encodeLen = strlen(inPasswordRec->passwordStr);
 	encodeLen += (kFixedDESChunk - (encodeLen % kFixedDESChunk));	

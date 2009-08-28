@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: debug.c,v 1.2 2006-10-20 21:26:10 bagder Exp $
+ * $Id: debug.c,v 1.4 2008-05-22 21:20:09 danf Exp $
  */
 
 #include <stdio.h>
@@ -65,7 +65,7 @@ void dump(const char *text,
 
 static
 int my_trace(CURL *handle, curl_infotype type,
-             unsigned char *data, size_t size,
+             char *data, size_t size,
              void *userp)
 {
   struct data *config = (struct data *)userp;
@@ -98,7 +98,7 @@ int my_trace(CURL *handle, curl_infotype type,
     break;
   }
 
-  dump(text, stderr, data, size, config->trace_ascii);
+  dump(text, stderr, (unsigned char *)data, size, config->trace_ascii);
   return 0;
 }
 
@@ -116,7 +116,7 @@ int main(void)
     curl_easy_setopt(curl, CURLOPT_DEBUGDATA, &config);
 
     /* the DEBUGFUNCTION has no effect until we enable VERBOSE */
-    curl_easy_setopt(curl, CURLOPT_VERBOSE, 1);
+    curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
 
     curl_easy_setopt(curl, CURLOPT_URL, "curl.haxx.se");
     res = curl_easy_perform(curl);

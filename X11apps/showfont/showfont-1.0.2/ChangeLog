@@ -1,0 +1,207 @@
+commit 916040fd10cd5cc1a5fe576e4ea967108d388e32
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri May 23 17:12:36 2008 -0700
+
+    showfont 1.0.2
+
+commit da9d9fc289090e7ac98cbce01b1336aa62cb5e87
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu May 22 19:35:11 2008 -0700
+
+    Clarify syntax of -server & FONTSERVER in man page
+
+commit 6be4cac93365ef3f21fe867518f7b67dd386a388
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu May 22 18:49:44 2008 -0700
+
+    Replace hardcoded man page sections with variables
+
+commit 1b4c25a764055147507ec9a21a5c11c0b5342234
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu May 22 18:40:00 2008 -0700
+
+    Fill in COPYING file with notices from sources
+
+commit 8e30da12a01c400967f1ac81fad14106a760189b
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu May 22 18:37:09 2008 -0700
+
+    Change showfont_CFLAGS to AM_CFLAGS to make automake-1.10 happier
+
+commit a9178fd67ed387bfd50f6ad1d37b42bc7e7f7756
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu May 22 18:35:41 2008 -0700
+
+    Sun bug 1232854: showfont dumps core with jisx208, jisx212 japanese fonts
+    
+    <http://bugs.opensolaris.org/bugdatabase/view_bug.do?bug_id=1232854>
+    Forward port to current X.Org source of fix originally made for Solaris 2.6
+    by Joe Warzecha.
+
+commit 2cacbce66116c24f0bc7d9b2593e8a5ee2c4d61c
+Author: Jeremy Huddleston <jeremyhu@freedesktop.org>
+Date:   Sun Apr 13 22:22:30 2008 -0700
+
+    Added missing AM_PROG_CC_C_O
+
+commit a354489a6bedeaa772e64ba97ce8e38f480bce15
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Dec 6 16:37:06 2007 -0500
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit 297c3b528742a1897a436d92a218dcf309466f07
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Mon Sep 3 05:51:11 2007 -0400
+
+    Add *~ to .gitignore to skip patch/emacs droppings
+
+commit 671fd02cad7e73680d974bbabf10ff93a2d3af5a
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Aug 23 19:24:36 2007 -0400
+
+    Rename .cvsignore to .gitignore
+
+commit a668ffe99b2e1329f058f682725c6eeea09c14c8
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Dec 21 02:29:47 2005 +0000
+
+    Update package version for X11R7 release.
+
+commit a83d4853eb069286b84f8ba2e127bdf2bbfe24e2
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Mon Dec 19 16:22:41 2005 +0000
+
+    Stub COPYING files
+
+commit 583a4c8d5a1988e3b46b70b7a9bda76c0e65782a
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:04 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit 20a34d6dc5acd304ca463eed416531ba0850d804
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Dec 6 22:48:18 2005 +0000
+
+    Change *man_SOURCES ==> *man_PRE to fix autotools warnings.
+
+commit 011e1a298c76e3007948d1343961a1832abdef1b
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:17 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit 948b03483cd0f0958cce8f0d54be7874250cd5be
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Nov 28 22:01:38 2005 +0000
+
+    Change *mandir targets to use new *_MAN_DIR variables set by xorg-macros.m4
+        update to fix bug #5167 (Linux prefers *.1x man pages in man1 subdir)
+
+commit dbd70dd9e2aab97673719861d6e50c21fb63f922
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Mon Nov 21 10:34:58 2005 +0000
+
+    Another pass at .cvsignores for apps.
+
+commit 880100f2b93a9d5b7755552f4dcbb397a344f80e
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Sun Nov 20 22:08:50 2005 +0000
+
+    Add/improve .cvsignore files for apps.
+
+commit 02441d6c3e38545a0308e96c1d0dc0447c386a9f
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:47:50 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit 65fd58a0d0f18192191efd059c354bee40dc303f
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Oct 17 23:56:20 2005 +0000
+
+    Use @APP_MAN_SUFFIX@ instead of $(APP_MAN_SUFFIX) in macro substitutions to
+        work better with BSD make
+
+commit d6fbfea960d2cf7fd6b0bafac8d5dc3a906e9cb3
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Oct 14 00:25:42 2005 +0000
+
+    Use sed to fill in variables in man page
+
+commit 9d166cd88dad29d1a7994f97c9be2845dfad8386
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Aug 1 20:25:28 2005 +0000
+
+    Install man pages to section 1 instead of section m (Patch from Donnie
+        Berkholz)
+
+commit 169502596163e720f0483a16d57affb5457265ec
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:30 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit b3b6f0d5e247af6f7caaff2d735dc13c14bd2746
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Wed Jul 20 19:31:50 2005 +0000
+
+    Use a unique token for PKG_CHECK_MODULES. Otherwise, if you use a global
+        configure cache, you cache it, and the cached value is probably wrong.
+
+commit be7ea5c74651a911570e8c2d42c13f641c8c9f65
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Wed Jun 29 18:42:26 2005 +0000
+
+    Add buildsystem for showfont
+
+commit bccb9870db6a9390df2ecc2f0148c50e96c56247
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 19:54:37 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit 3feadf8e6a5896ea73318a2031603deb62e732c8
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:34:56 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit f41ba9c5118c719a40daa2799c92c457fd621c40
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:12:54 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit fa3e18b5cade364b3a2afab2e64404d0a2ac240a
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:36:15 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit 9eddab425da243044e78e1d45e4c55e9428a77f2
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:23:57 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit 00bd9b5b1c6998a94628a46d75251f5ac8dcb846
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:58 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit ab2be8865ceaa237d2478d291a90419b573cfb65
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:58 2003 +0000
+
+    Initial revision

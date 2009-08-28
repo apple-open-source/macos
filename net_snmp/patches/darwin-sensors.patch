@@ -25,7 +25,7 @@ diff -Naur net-snmp-5.4.1.rc4/agent/mibgroup/ucd-snmp/data_access/Makefile.test 
 diff -Naur net-snmp-5.4.1.rc4/agent/mibgroup/ucd-snmp/data_access/sensors_darwin.c net-snmp-5.4.1.rc4.patched/agent/mibgroup/ucd-snmp/data_access/sensors_darwin.c
 --- net-snmp-5.4.1.rc4/agent/mibgroup/ucd-snmp/data_access/sensors_darwin.c	1969-12-31 16:00:00.000000000 -0800
 +++ net-snmp-5.4.1.rc4.patched/agent/mibgroup/ucd-snmp/data_access/sensors_darwin.c	2007-07-30 18:18:43.000000000 -0700
-@@ -0,0 +1,1394 @@
+@@ -0,0 +1,1402 @@
 +/*
 + *  sensor_darwin.c
 + */
@@ -969,12 +969,11 @@ diff -Naur net-snmp-5.4.1.rc4/agent/mibgroup/ucd-snmp/data_access/sensors_darwin
 +	// read in the xml data
 +	if((fd = open(path, O_RDONLY | O_NOFOLLOW)) == -1)
 +	{
-+		//fprintf(stderr,"Could not open %s, errno %d\n", path, errno);
++		fprintf(stderr,"Could not open %s, errno %d\n", path, errno);
 +		free(path);
 +		return NULL;
 +	}
-+	free(path);
-+	
++
 +	tmpData = CFDataCreateMutable (kCFAllocatorDefault, 0);
 +	while((bufLen = read(fd, buf, sizeof(buf))) > 0)
 +	{
@@ -983,8 +982,9 @@ diff -Naur net-snmp-5.4.1.rc4/agent/mibgroup/ucd-snmp/data_access/sensors_darwin
 +	close(fd);
 +	if(bufLen == -1)	// error return
 +	{
-+		//fprintf(stderr,"Read Error: %s, errno %d\n", path, errno);
-+		CFRelease(tmpData);
++		fprintf(stderr,"Read Error: %s, errno %d\n", path, errno);
++		CFRelease(tmpData); 
++		free(path);
 +		return NULL;
 +	}
 +	
@@ -992,11 +992,11 @@ diff -Naur net-snmp-5.4.1.rc4/agent/mibgroup/ucd-snmp/data_access/sensors_darwin
 +	fullTable = CFPropertyListCreateFromXMLData(kCFAllocatorDefault, tmpData, kCFPropertyListImmutable, NULL);
 +	if(fullTable == NULL)
 +	{
-+		//fprintf(stderr,"Format Error: %s", path);
-+		CFRelease(tmpData);
++		fprintf(stderr,"Format Error: %s\n", path);
++		CFRelease(tmpData); free(path);
 +		return NULL;
 +	}
-+	
++	free(path);
 +	// look for inModle in the dictionary
 +	modelDict = (CFDictionaryRef)CFDictionaryGetValue (fullTable, inModel);
 +	if(modelDict != NULL)
@@ -1130,8 +1130,8 @@ diff -Naur net-snmp-5.4.1.rc4/agent/mibgroup/ucd-snmp/data_access/sensors_darwin
 +
 +        //printf("ASMCF::callFunction which == %d\n", which);
 +
-+		IOByteCount	inStructSize = sizeof(SMCParamStruct);
-+		IOItemCount	outStructSize = sizeof(SMCParamStruct);;
++		size_t	inStructSize = sizeof(SMCParamStruct);
++		size_t	outStructSize = sizeof(SMCParamStruct);;
 +		
 +		retval = IOConnectCallStructMethod
 +			(
@@ -1173,12 +1173,20 @@ diff -Naur net-snmp-5.4.1.rc4/agent/mibgroup/ucd-snmp/data_access/sensors_darwin
 +{
 +	IOReturn		result = 0;
 +	CFStringRef		modelName = CopyModelName();
++	char			buffer[128];
 +
 +	CFDictionaryRef	tmpDict = CopySensorTableFor(modelName);
 +	
 +	if(tmpDict == NULL)
 +	{
-+		fprintf(stderr,"Couldn't find a table entry for the model name %0x\n", modelName);
++		if((modelName != NULL) && (CFStringGetCString(modelName, buffer, sizeof(buffer), kCFStringEncodingUTF8)))
++		{
++			fprintf(stderr,"Couldn't find a table entry for the model name %s\n", buffer);
++		} else {
++			fprintf(stderr,"Couldn't find a table entry for this model\n");
++		}
++		if(modelName != NULL)
++			CFRelease(modelName);
 +		return -1;
 +	} else {
 +		gSensorTable = tmpDict;

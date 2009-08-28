@@ -221,7 +221,7 @@ IOUSBHubDevice::RequestExtraPower(UInt32 requestedPower)
 	// Note:  should we see if this is a high power port or not?  It assumes it is
 	if (requestedPower > (_MAXPORTCURRENT-500))		// limit requests to the maximum the HW can support
 	{
-		USBLog(5, "IOUSBHubDevice[%p]::RequestExtraPower - requestedPower of %d, was greater than the maximum power per port - 500mA %d.  Using that value instead", this, (uint32_t)requestedPower, (uint32_t) (_MAXPORTCURRENT-500));
+		USBLog(5, "IOUSBHubDevice[%p]::RequestExtraPower - requestedPower of %d, was greater than %d, the (maximum power per port - 500mA).  Requesting %d instead", this, (uint32_t)requestedPower, (uint32_t) (_MAXPORTCURRENT-500), (uint32_t) (_MAXPORTCURRENT-500));
 		requestedPower = _MAXPORTCURRENT-500;
 	}
 	
@@ -230,9 +230,10 @@ IOUSBHubDevice::RequestExtraPower(UInt32 requestedPower)
 		// honor the request if possible
 		extraAllocated = requestedPower;
 		_TOTALEXTRACURRENT -= extraAllocated;
+		USBLog(5, "IOUSBHubDevice[%p]::RequestExtraPower - Asked for %d, not _TOTALEXTRACURRENT is %d", this, (uint32_t)requestedPower, (uint32_t) _TOTALEXTRACURRENT );
 	}
 	
-	// if we don't have any power to allocated, let's see if we have "ExtraPower" that can be requested from our parent (and we haven't already done so).
+	// if we don't have any power to allocate, let's see if we have "ExtraPower" that can be requested from our parent (and we haven't already done so).
 	if ( (_CANREQUESTEXTRAPOWER != 0) and not _EXTRAPOWERALLOCATED)
 	{
 		if ( requestedPower > _EXTRAPOWERFORPORTS )
@@ -243,6 +244,7 @@ IOUSBHubDevice::RequestExtraPower(UInt32 requestedPower)
 		else
 		{
 			// Even tho' we only want "requestedPower", we have to ask for _CANREQUESTEXTRAPOWER
+			USBLog(5, "IOUSBHubDevice[%p]::RequestExtraPower - requesting %d from our parent", this, (uint32_t) _CANREQUESTEXTRAPOWER);
 			UInt32	parentPowerRequest = super::RequestExtraPower(kUSBPowerDuringWake, _CANREQUESTEXTRAPOWER);
 			
 			USBLog(5, "IOUSBHubDevice[%p]::RequestExtraPower - requested %d from our parent and got %d ", this, (uint32_t) _CANREQUESTEXTRAPOWER, (uint32_t)parentPowerRequest);
@@ -252,6 +254,7 @@ IOUSBHubDevice::RequestExtraPower(UInt32 requestedPower)
 				// We only can return _EXTRAPOWERFORPORTS, not less
 				extraAllocated = _EXTRAPOWERFORPORTS;
 				_EXTRAPOWERALLOCATED = true;
+				setProperty("PortActualRequestExtraPower", extraAllocated, 32);
 			}
 			else
 			{
@@ -278,6 +281,8 @@ IOUSBHubDevice::ReturnExtraPower(UInt32 returnedPower)
 		return;
 	
 	// Check to see if we had the extraPower allocated
+	// (Note:  There might be a bug here in that we are assuming that any power allocated by this hub will set _EXTRAPOWERALLOCATED, and when we return ANY amount
+	//         of power, we will return _CANREQUESTEXTRAPOWER, regardless.  This works, but seems fragile)
 	if ( _EXTRAPOWERALLOCATED )
 	{
 		USBLog(5, "IOUSBHubDevice[%p]::ReturnExtraPower - we had _EXTRAPOWERALLOCATED calling our parent to return %d", this, (uint32_t)_CANREQUESTEXTRAPOWER);

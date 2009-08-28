@@ -43,31 +43,21 @@
  *
  */
 
-#include <unistd.h>
-
 #include <sys/param.h>
 #include <sys/socket.h>
 
-#include <netat/appletalk.h>
-#include <netat/ddp.h>
+#include <unistd.h>
+#include <errno.h>
+
 
 #include "at_proto.h"
 
-/* *** this will be replaced by a getsockopt() *** */
+#define	SET_ERRNO(e) errno = e
+
 int ddp_config(fd, node)
      int fd;
      ddp_addr_t	*node;
 {
-	int dyn_fd = -1;
-	int status = 0;
-	int size = sizeof(ddp_addr_t);
-
-	if (fd == -1)
-	        if ((dyn_fd = socket(AF_APPLETALK, SOCK_RAW, 0)) < 0) 
-			return(-1);
-    	status = at_send_to_dev((fd == -1 ? dyn_fd : fd), DDP_IOC_GET_CFG, 
-				node, &size);
-	if (dyn_fd != -1)
-		(void)close(dyn_fd);
-	return((status)? -1: 0);
+	SET_ERRNO(ENXIO);
+	return (-1);
 }

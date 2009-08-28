@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: arg.c,v 1.46 2006/03/27 23:04:25 abe Exp $";
+static char *rcsid = "$Id: arg.c,v 1.48 2008/10/21 16:21:41 abe Exp abe $";
 #endif
 
 
@@ -128,9 +128,9 @@ ck_file_arg(i, ac, av, fv, rs, sbp)
 	struct stat *sbp;	/* if non-NULL, pointer to stat(2) buffer
 				 * when argument count == 1 */
 {
+	char *ap, *fnm, *fsnm, *path;
 	short err = 0;
-	char *fnm, *fsnm, *path;
-	int fsm, ftype, j;
+	int fsm, ftype, j, k;
 	MALLOC_S l;
 	struct mounts *mp;
 	static struct mounts **mmp = (struct mounts **)NULL;
@@ -164,14 +164,29 @@ ck_file_arg(i, ac, av, fv, rs, sbp)
 		}
 	    }
 	/*
-	 * Remove a terminating `/' from Readlink()-expanded path, but never
-	 * from an argument-specified path.  Don't remove `/' from a single
-	 * character path name, either.
-	 *
+	 * Remove terminating `/' characters from paths longer than one.
+	 */
+	    j = k = strlen(path);
+	    while ((k > 1) && (path[k-1] == '/')) {
+		k--;
+	    }
+	    if (k < j) {
+		if (path != av[i])
+		    path[k] = '\0';
+		else {
+		    if (!(ap = (char *)malloc((MALLOC_S)(k + 1)))) {
+			(void) fprintf(stderr, "%s: no space for copy of %s\n",
+			    Pn, path);
+			Exit(1);
+		    }
+		    (void) strncpy(ap, path, k);
+		    ap[k] = '\0';
+		    path = ap;
+		}
+	    }
+	/*
 	 * Check for file system argument.
 	 */
-	    if (path != av[i] && (j = strlen(path)) > 1 && path[j-1] == '/')
-		path[j-1] = '\0';
 	    for (ftype = 1, mp = readmnt(), nm = 0;
 		 (fv != 1) && mp;
 		 mp = mp->next)
@@ -1419,10 +1434,11 @@ nwad_exit:
 		    return(1);
 		}
 	    /*
-	     * The protocol name should be "tcp" or "udp".
+	     * The protocol name should be "tcp", "udp" or "udplite".
 	     */
-		if (strcasecmp(n.proto, "tcp") != 0
-		&&  strcasecmp(n.proto, "udp") != 0)
+		if ((strcasecmp(n.proto, "tcp") != 0)
+		&&  (strcasecmp(n.proto, "udp") != 0)
+		&&  (strcasecmp(n.proto, "udplite") != 0))
 		{
 		    (void) fprintf(stderr,
 			"%s: unknown protocol name (%s) in: -i ", Pn, n.proto);
@@ -1855,17 +1871,242 @@ enter_nwad(n, sp, ep, s, he)
 }
 
 
+#if	defined(HASTCPUDPSTATE)
+/*
+ * enter_state_spec() -- enter TCP and UDP state specifications
+ */
+
+int
+enter_state_spec(ss)
+	char *ss;			/* state specification string */
+{
+	char *cp, *ne, *ns, *pr;
+	int err, d, f, i, tx, x;
+	size_t len;
+	static char *ssc = (char *)NULL;
+	char *ty;
+/*
+ * Check the protocol specification.
+ */
+	if (!strncasecmp(ss, "tcp:", 4)) {
+	    pr = "TCP";
+	    tx = 0;
+	}
+
+#if	!defined(USE_LIB_PRINT_TCPTPI)
+	else if (!strncasecmp(ss, "UDP:", 4)) {
+	    pr = "UDP";
+	    tx = 1;
+	}
+
+#endif	/* !defined(USE_LIB_PRINT_TCPTPI) */
+
+	else {
+	    (void) fprintf(stderr, "%s: unknown -s protocol: \"%s\"\n",
+		Pn, ss);
+	    return(1);
+	}
+	cp = ss + 4;
+	if (!*cp) {
+	    (void) fprintf(stderr, "%s: no %s state names in: %s\n",
+		Pn, pr, ss);
+	    return(1);
+	}
+	(void) build_IPstates();
+	if (!(tx ? UdpSt : TcpSt)) {
+	    (void) fprintf(stderr, "%s: no %s state names available: %s\n",
+		Pn, pr, ss);
+	    return(1);
+	}
+/*
+ * Allocate the inclusion and exclusion tables for the protocol.
+ */
+	if (tx) {
+	    if (UdpNstates) {
+		if (!UdpStI) {
+		    if (!(UdpStI = (unsigned char *)calloc((MALLOC_S)UdpNstates,
+				   sizeof(unsigned char))))
+		    {
+			ty = "UDP state inclusion";
+
+no_IorX_space:
+
+			(void) fprintf(stderr, "%s: no %s table space\n",
+			    Pn, ty);
+			Exit(1);
+		    }
+		}
+		if (!UdpStX) {
+		    if (!(UdpStX = (unsigned char *)calloc((MALLOC_S)UdpNstates,
+				   sizeof(unsigned char))))
+		    {
+			ty = "UDP state exclusion";
+			goto no_IorX_space;
+		    }
+		}
+	    }
+	} else {
+	    if (TcpNstates) {
+		if (!TcpStI) {
+		    if (!(TcpStI = (unsigned char *)calloc((MALLOC_S)TcpNstates,
+				   sizeof(unsigned char))))
+		    {
+			ty = "TCP state inclusion";
+			goto no_IorX_space;
+		    }
+		}
+		if (!TcpStX) {
+		    if (!(TcpStX = (unsigned char *)calloc((MALLOC_S)TcpNstates,
+				   sizeof(unsigned char))))
+		    {
+			ty = "TCP state exclusion";
+			goto no_IorX_space;
+		    }
+		}
+	    }
+	}
+/*
+ * Convert the state names in the rest of the string to state indexes and
+ * record them in the appropriate inclusion or exclusion table.
+ */
+	if (ssc)
+	    (void) free((MALLOC_P *)ssc);
+	if (!(ssc = mkstrcpy(cp, (MALLOC_S *)NULL))) {
+	    (void) fprintf(stderr,
+		"%s: no temporary state argument space for: %s\n", Pn, ss);
+	    Exit(1);
+	}
+	cp = ssc;
+	err = 0;
+	while (*cp) {
+	
+	/*
+	 * Determine inclusion or exclusion for this state name.
+	 */
+	    if (*cp == '^') {
+		x = 1;
+		cp++;
+	    } else
+		x = 0;
+	/*
+	 * Find the end of the state name.  Make sure it is non-null in length
+	 * and terminated with '\0'.
+	 */
+	    ns = cp;
+	    while (*cp && (*cp != ',')) {
+		cp++;
+	    }
+	    ne = cp;
+	    if (*cp) {
+		*cp = '\0';
+		cp++;
+	    }
+	    if (!(len = (size_t)(ne - ns))) {
+		(void) fprintf(stderr, "%s: NULL %s state name in: %s\n",
+		    Pn, pr, ss);
+		err = 1;
+		continue;
+	    }
+	/*
+	 * Find the state name in the appropriate table.
+	 */
+	    f = 0;
+	    if (tx) {
+		if (UdpSt) {
+		    for (i = 0; i < UdpNstates; i++) {
+			if (!strcasecmp(ns, UdpSt[i])) {
+			    f = 1;
+			    break;
+			}
+		    }
+		}
+	    } else {
+		if (TcpSt) {
+		    for (i = 0; i < TcpNstates; i++) {
+			if (!strcasecmp(ns, TcpSt[i])) {
+			    f = 1;
+			    break;
+			}
+		    }
+		}
+	    }
+	    if (!f) {
+		(void) fprintf(stderr, "%s: unknown %s state name: %s\n",
+		    Pn, pr, ns);
+		err = 1;
+		continue;
+	    }
+	/*
+	 * Set the inclusion or exclusion status in the appropriate table.
+	 */
+	    d = 0;
+	    if (x) {
+		if (tx) {
+		    if (!UdpStX[i]) {
+			UdpStX[i] = 1;
+			UdpStXn++;
+		    } else
+			d = 1;
+		} else {
+		    if (!TcpStX[i]) {
+			TcpStX[i] = 1;
+			TcpStXn++;
+		    } else
+			d = 1;
+		}
+	    } else {
+		if (tx) {
+		    if (!UdpStI[i]) {
+			UdpStI[i] = 1;
+			UdpStIn++;
+		    } else
+			d = 1;
+		} else {
+		    if (!TcpStI[i]) {
+			TcpStI[i] = 1;
+			TcpStIn++;
+		    } else
+			d = 1;
+		}
+	    }
+	    if (d) {
+
+	    /*
+	     * Report a duplicate.
+	     */
+		(void) fprintf(stderr, "%s: duplicate %s %sclusion: %s\n",
+		    Pn, pr,
+		    x ? "ex" : "in",
+		    ns);
+		err = 1;
+	    }
+	}
+/*
+ * Release any temporary space and return.
+ */
+	if (ssc) {
+	    (void) free((MALLOC_P *)ssc);
+	    ssc = (char *)NULL;
+	}
+	return(err);
+}
+#endif	/* defined(HASTCPUDPSTATE) */
+
+
 /*
  * enter_str_lst() - enter a string on a list
  */
 
 int
-enter_str_lst(opt, s, lp)
+enter_str_lst(opt, s, lp, incl, excl)
 	char *opt;			/* option name */
 	char *s;			/* string to enter */
 	struct str_lst **lp;		/* string's list */
+	int *incl;			/* included count */
+	int *excl;			/* excluded count */
 {
 	char *cp;
+	short i, x;
 	MALLOC_S len;
 	struct str_lst *lpt;
 
@@ -1873,6 +2114,14 @@ enter_str_lst(opt, s, lp)
 	    (void) fprintf(stderr, "%s: missing %s option value\n",
 		Pn, opt);
 	    return(1);
+	}
+	if (*s == '^') {
+	    i = 0;
+	    x = 1;
+	    s++;
+	} else {
+	    i = 1;
+	    x = 0;
 	}
 	if (!(cp = mkstrcpy(s, &len))) {
 	    (void) fprintf(stderr, "%s: no string copy space: ", Pn);
@@ -1888,6 +2137,11 @@ enter_str_lst(opt, s, lp)
 	lpt->f = 0;
 	lpt->str = cp;
 	lpt->len = (int)len;
+	lpt->x = x;
+	if (i)
+	    *incl += 1;
+	if (x)
+	    *excl += 1;
 	lpt->next = *lp;
 	*lp = lpt;
 	return(0);

@@ -113,7 +113,7 @@ void)
 
   buffer_length = input_file_buffer_size ();
 
-  buffer_start = xmalloc ((long)(BEFORE_SIZE + buffer_length + buffer_length + AFTER_SIZE));
+  buffer_start = xmalloc ((size_t)(BEFORE_SIZE + buffer_length + buffer_length + AFTER_SIZE));
   memcpy(buffer_start, BEFORE_STRING, (int)BEFORE_SIZE);
 
   /* Line number things. */
@@ -201,7 +201,7 @@ get_more:
 	  partial_size += new;
   	  buffer_length = buffer_length * 2;
   	  buffer_start = xrealloc (buffer_start,
-				   (long)(BEFORE_SIZE + buffer_length +
+				   (size_t)(BEFORE_SIZE + buffer_length +
 					  buffer_length + AFTER_SIZE));
 	  *bufp = buffer_start + BEFORE_SIZE;
 	  goto get_more;

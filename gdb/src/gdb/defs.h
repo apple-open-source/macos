@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <errno.h>		/* System call error return status.  */
 #include <limits.h>
+#include <string.h>
 
 #ifdef HAVE_STDDEF_H
 #include <stddef.h>
@@ -359,10 +360,14 @@ extern void do_final_cleanups (struct cleanup *);
 extern void do_run_cleanups (struct cleanup *);
 extern void do_exec_cleanups (struct cleanup *);
 extern void do_exec_error_cleanups (struct cleanup *);
+/* APPLE LOCAL: hand_call_cleanups.  */
+extern void do_hand_call_cleanups (struct cleanup *);
 
 extern void discard_cleanups (struct cleanup *);
 extern void discard_final_cleanups (struct cleanup *);
 extern void discard_exec_error_cleanups (struct cleanup *);
+/* APPLE LOCAL: hand_call_cleanups.  */
+extern void discard_hand_call_cleanups (struct cleanup *old_chain);
 extern void discard_my_cleanups (struct cleanup **, struct cleanup *);
 
 /* NOTE: cagney/2000-03-04: This typedef is strictly for the
@@ -382,6 +387,7 @@ extern struct cleanup *make_cleanup_ui_file_delete (struct ui_file *);
 /* APPLE LOCAL begin cleanup */
 struct cleanup *make_cleanup_ui_out_delete (struct ui_out *);
 struct cleanup *make_cleanup_restore_uiout (struct ui_out *);
+struct cleanup *make_cleanup_ui_out_suppress_output (struct ui_out *cur_uiout);
 /* APPLE LOCAL end cleanup */
 
 struct section_addr_info;
@@ -401,6 +407,9 @@ extern struct cleanup *make_run_cleanup (make_cleanup_ftype *, void *);
 
 extern struct cleanup *make_exec_cleanup (make_cleanup_ftype *, void *);
 extern struct cleanup *make_exec_error_cleanup (make_cleanup_ftype *, void *);
+
+/* APPLE LOCAL: hand_call_cleanups.  */
+extern struct cleanup *make_hand_call_cleanup (make_cleanup_ftype *, void *);
 
 extern struct cleanup *save_cleanups (void);
 extern struct cleanup *save_final_cleanups (void);
@@ -428,6 +437,8 @@ extern char *xfullpath (const char *);
 extern unsigned long gnu_debuglink_crc32 (unsigned long crc,
                                           unsigned char *buf, size_t len);
 
+const char *bundle_basename (const char *filepath);
+
 /* From demangle.c */
 
 extern void set_demangling_style (char *);
@@ -437,7 +448,7 @@ extern void set_demangling_style (char *);
 
 extern CORE_ADDR decode_fix_and_continue_trampoline (CORE_ADDR);
 extern void update_picbase_register (struct symbol *);
-extern void fix_command_1 (const char *, const char *, const char *, const char *);
+extern void fix_command_1 (const char *, const char *, const char *);
 int fix_and_continue_supported (void);
 int file_exists_p (const char *);
 
@@ -1043,6 +1054,7 @@ enum gdb_osabi
   /* APPLE LOCAL begin Darwin */
   GDB_OSABI_DARWIN,
   GDB_OSABI_DARWIN64,
+  GDB_OSABI_DARWINV6,
   /* APPLE LOCAL end Darwin */
 
   GDB_OSABI_QNXNTO,
@@ -1378,6 +1390,10 @@ extern int use_windows;
 extern ULONGEST align_up (ULONGEST v, int n);
 extern ULONGEST align_down (ULONGEST v, int n);
 
+/* APPLE LOCAL: Make this public since both fork-child.c and remote.c
+   now use it.  */
+void breakup_args (char *scratch, int *argc, char **argv);
+
 /* APPLE LOCAL begin CHECK macro */
 #define __CHECK_FUNCTION __PRETTY_FUNCTION__
 
@@ -1394,5 +1410,12 @@ void gdb_check_fatal (const char *str, const char *file, unsigned int line, cons
 /* APPLE LOCAL: Local timer stuff */
 extern int maint_use_timers;
 struct cleanup *start_timer (int *timer_var, char *timer_name, char *this_mssg);
-    
+
+/* APPLE LOCAL: Used in target_check_safe_call:  */
+#define MALLOC_SUBSYSTEM 1 << 0
+#define OBJC_SUBSYSTEM   1 << 1
+#define LOADER_SUBSYSTEM 1 << 2
+#define SPINLOCK_SUBSYSTEM 1 << 3
+#define ALL_SUBSYSTEMS   MALLOC_SUBSYSTEM|OBJC_SUBSYSTEM|LOADER_SUBSYSTEM|SPINLOCK_SUBSYSTEM
+
 #endif /* #ifndef DEFS_H */

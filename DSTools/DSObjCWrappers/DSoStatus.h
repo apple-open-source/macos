@@ -34,8 +34,8 @@
     NSDictionary *_errDict;
 }
 
-+(DSoStatus*)sharedInstance;
--(NSString*) stringForStatus:(int)value;
++(DSoStatus*)sharedInstance DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
+-(NSString*) stringForStatus:(int)value DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @method cStringForStatus
@@ -43,6 +43,6 @@
  * @discussion This will retrieve a C String of the tDirStatus enum label
  * for the given tDirStatus and must be freed by the caller.
  */
--(char*) cStringForStatus:(int)value;
+-(char*) cStringForStatus:(int)value DEPRECATED_IN_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 @end

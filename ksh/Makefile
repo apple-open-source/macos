@@ -6,11 +6,13 @@ Project = ksh
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
-Version = 2007-06-28
+Version = 2007-11-05
 Sources = $(SRCROOT)/$(Project)
 Patches=src__cmd__ksh93__sh.1.diff \
 	src__lib__libast__features__lib.diff \
 	src__lib__libast__features__common.diff \
+	src__lib__libast__features__common-2.diff \
+	src__lib__libast__features__common-3.diff \
 	bin__package.diff \
 	src__cmd__INIT__package.sh.diff \
 	src__cmd__ksh93__jobs.c.diff \
@@ -31,7 +33,7 @@ install_source::
 		cd $(Sources) && patch -p0 < $(SRCROOT)/patches/$$p || exit 1; \
 	done
 
-PASS_CCFLAGS = $(CC_Debug) $(CC_Optimize) $(CC_Other) -DSHOPT_SPAWN
+PASS_CCFLAGS = $(CC_Debug) $(CC_Optimize) $(CC_Other) -DSHOPT_SPAWN=0
 ARCH_CCFLAGS = $(CC_Archs)
 
 build:: shadow_source

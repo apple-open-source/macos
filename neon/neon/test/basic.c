@@ -1,6 +1,6 @@
 /* 
    Tests for high-level HTTP interface (ne_basic.h)
-   Copyright (C) 2002-2006, Joe Orton <joe@manyfish.co.uk>
+   Copyright (C) 2002-2008, Joe Orton <joe@manyfish.co.uk>
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -167,6 +167,14 @@ static int get_range(void)
 		    "Content-Length: 10\r\n\r\nabcdefghij");
 }
 
+static int get_eof_range(void)
+{
+    return do_range(1, -1, NULL,
+		    "HTTP/1.1 206 Widgets\r\n" "Connection: close\r\n"
+		    "Content-Range: bytes 1-10/10\r\n"
+		    "Content-Length: 10\r\n\r\nabcdefghij");
+}
+
 static int fail_range_length(void)
 {
     return do_range(1, 10, "range response length mismatch should fail",
@@ -267,6 +275,7 @@ ne_test tests[] = {
     T(lookup_localhost),
     T(content_type),
     T(get_range),
+    T(get_eof_range),
     T(fail_range_length),
     T(fail_range_units),
     T(fail_range_notrange),

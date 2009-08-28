@@ -52,6 +52,10 @@ typedef enum {
 
 
 
+/*!
+ @class IOUSBCommand
+ @abstract A subclass of IOCommand that is used to add USB specific data.
+ */
 class IOUSBCommand : public IOCommand
 {
     OSDeclareAbstractStructors(IOUSBCommand)

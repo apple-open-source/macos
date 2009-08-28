@@ -97,7 +97,6 @@ static char rcsid[] = "$Id: res_send.c,v 1.6 2003/02/18 17:29:25 majka Exp $";
 #include <sys/socket.h>
 #include <sys/uio.h>
 #include <netinet/in.h>
-#include <arpa/nameser8_compat.h>
 #include <arpa/inet.h>
 #include <ifaddrs.h>
 #include <net/if.h>
@@ -105,7 +104,10 @@ static char rcsid[] = "$Id: res_send.c,v 1.6 2003/02/18 17:29:25 majka Exp $";
 #include <stdio.h>
 #include <netdb.h>
 #include <errno.h>
-#include <resolv8_compat.h>
+
+#include "nameser8_compat.h"
+#include "resolv8_compat.h"
+
 #if defined(BSD) && (BSD >= 199306)
 # include <stdlib.h>
 # include <string.h>
@@ -319,7 +321,7 @@ static int dns_is_local_name(const u_int8_t *name)
 	const u_int8_t *d2 = NULL;		// etc.
 	const u_int8_t *d3 = NULL;
 
-	if (name == NULL) return 0;
+	if (name == NULL || *name == 0) return 0;
 
 	while (*name)
 	{
@@ -355,21 +357,12 @@ static int dns_is_local_name(const u_int8_t *name)
 #define DNS_LOCAL_DOMAIN_SERVICE_PORT	5353
 #define DNS_HEADER_SIZE 12
 
-#if BYTE_ORDER == BIG_ENDIAN
-#define my_htons(x)	(x)
-#define my_htonl(x)	(x)
-#else
-#define my_htons(x)	((((u_int16_t)x) >> 8) | (((u_int16_t)x) << 8))
-#define	my_htonl(x)	(((x) >> 24) | (((x) & 0x00FF0000) >> 16) | \
-					 (((x) & 0x0000FF00) << 16) | ((x) << 24))
-#endif
-
 static const struct sockaddr_in mDNS_addr =
 {
 	sizeof(mDNS_addr),
 	AF_INET,
-	my_htons(DNS_LOCAL_DOMAIN_SERVICE_PORT),
-	{my_htonl(0xE00000FB)}	/* 224.0.0.251 */
+	htons(DNS_LOCAL_DOMAIN_SERVICE_PORT),
+	{htonl(0xE00000FB)}	/* 224.0.0.251 */
 };
 
 int

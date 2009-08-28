@@ -105,12 +105,21 @@ enum eIOAccelSurfaceMethods {
 typedef enum {
 	kIOAccelSurfaceModeColorDepth1555  = 0x00000003,  
 	kIOAccelSurfaceModeColorDepth8888  = 0x00000004,  
+//	kIOAccelSurfaceModeColorDepthRGB565 = 0x00000005,  
 	kIOAccelSurfaceModeColorDepthYUV   = 0x00000006,
 	kIOAccelSurfaceModeColorDepthYUV9  = 0x00000007,
 	kIOAccelSurfaceModeColorDepthYUV12 = 0x00000008,
 	kIOAccelSurfaceModeColorDepthYUV2  = 0x00000009,
 	kIOAccelSurfaceModeColorDepthBGRA32 = 0x0000000A,
-        kIOAccelSurfaceModeColorDepthBits  = 0x0000000F,
+
+//	kIOAccelSurfaceModeColorDepthRGBA64       = 0x0000000B,
+//	kIOAccelSurfaceModeColorDepthRGBAFloat64  = 0x0000000C,
+//	kIOAccelSurfaceModeColorDepthRGBAFloat128 = 0x0000000D,
+	
+//	kIOAccelSurfaceModeColorDepthYUV420  = 0x0000000E,
+	kIOAccelSurfaceModeColorDepth2101010 = 0x0000000F,
+	
+	kIOAccelSurfaceModeColorDepthBits  = 0x0000000F,
 
 	kIOAccelSurfaceModeStereoBit       = 0x00000010,
 	kIOAccelSurfaceModeWindowedBit     = 0x00000020,

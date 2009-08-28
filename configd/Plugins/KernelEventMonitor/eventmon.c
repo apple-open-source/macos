@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -58,9 +58,11 @@
 #include "ev_dlil.h"
 #include "ev_ipv4.h"
 #include "ev_ipv6.h"
-#include "ev_appletalk.h"
-
 #include <notify.h>
+
+#if	!TARGET_OS_IPHONE && INCLUDE_APPLETALK
+#include "ev_appletalk.h"
+#endif	/* !TARGET_OS_IPHONE && INCLUDE_APPLETALK */
 
 static const char *inetEventName[] = {
 	"",
@@ -92,6 +94,7 @@ static const char *dlEventName[] = {
 	"KEV_DL_PROTO_DETACHED",
 };
 
+#if	!TARGET_OS_IPHONE && INCLUDE_APPLETALK
 static const char *atalkEventName[] = {
 	"",
 	"KEV_ATALK_ENABLED",
@@ -102,6 +105,7 @@ static const char *atalkEventName[] = {
 	"KEV_ATALK_ROUTERDOWN",
 	"KEV_ATALK_ZONELISTCHANGED"
 };
+#endif	/* !TARGET_OS_IPHONE && INCLUDE_APPLETALK */
 
 static const char *inet6EventName[] = {
 	"",
@@ -113,11 +117,9 @@ static const char *inet6EventName[] = {
 	"KEV_INET6_DEFROUTER"
 };
 
-
 __private_extern__ Boolean		network_changed	= FALSE;
 __private_extern__ SCDynamicStoreRef	store		= NULL;
 __private_extern__ Boolean		_verbose	= FALSE;
-
 
 __private_extern__
 int
@@ -242,6 +244,7 @@ dlEventNameString(uint32_t event_code)
 	return ("New Apple network DL subcode");
 }
 
+#if	!TARGET_OS_IPHONE && INCLUDE_APPLETALK
 static const char *
 atalkEventNameString(uint32_t event_code)
 {
@@ -250,7 +253,7 @@ atalkEventNameString(uint32_t event_code)
 	}
 	return ("New Apple network AppleTalk subcode");
 }
-
+#endif	/* !TARGET_OS_IPHONE && INCLUDE_APPLETALK */
 
 static void
 copy_if_name(struct net_event_data * ev, char * ifr_name, int ifr_len)
@@ -305,6 +308,7 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 								 ev->hw_addr);
 					break;
 				}
+#if	!TARGET_OS_IPHONE
 				case KEV_INET_PORTINUSE : {
 					struct kev_in_portinuse	* ev;
 					ev = (struct kev_in_portinuse *)event_data;
@@ -315,6 +319,7 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 					port_in_use_ipv4(ev->port, ev->req_pid);
 					break;
 				}
+#endif	/* !TARGET_OS_IPHONE */
 				default :
 					handled = FALSE;
 					break;
@@ -438,6 +443,7 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 			}
 			break;
 		}
+#if	!TARGET_OS_IPHONE && INCLUDE_APPLETALK
 		case KEV_ATALK_SUBCLASS: {
 			struct kev_atalk_data * ev;
 
@@ -476,6 +482,7 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 			}
 			break;
 		}
+#endif	/* !TARGET_OS_IPHONE && INCLUDE_APPLETALK */
 		default :
 			handled = FALSE;
 			break;
@@ -493,7 +500,6 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 	return;
 }
 
-
 static void
 processEvent_Apple_IOKit(struct kern_event_msg *ev_msg)
 {
@@ -506,6 +512,17 @@ processEvent_Apple_IOKit(struct kern_event_msg *ev_msg)
 	return;
 }
 
+static void
+processEvent_Apple_System(struct kern_event_msg *ev_msg)
+{
+	switch (ev_msg->kev_subclass) {
+		default :
+			logEvent(CFSTR("New Apple System subclass"), ev_msg);
+			break;
+	}
+
+	return;
+}
 
 static void
 eventCallback(CFSocketRef s, CFSocketCallBackType type, CFDataRef address, const void *data, void *info)
@@ -539,6 +556,9 @@ eventCallback(CFSocketRef s, CFSocketCallBackType type, CFDataRef address, const
 					case KEV_IOKIT_CLASS :
 						processEvent_Apple_IOKit(ev_msg);
 						break;
+					case KEV_SYSTEM_CLASS :
+						processEvent_Apple_System(ev_msg);
+						break;
 					default :
 						/* unrecognized (Apple) event class */
 						logEvent(CFSTR("New (Apple) class"), ev_msg);
@@ -567,7 +587,6 @@ eventCallback(CFSocketRef s, CFSocketCallBackType type, CFDataRef address, const
 	return;
 
 }
-
 
 __private_extern__
 void
@@ -617,11 +636,13 @@ prime_KernelEventMonitor()
 	 */
 	interface_update_ipv6(ifap, NULL);
 
+#if	!TARGET_OS_IPHONE && INCLUDE_APPLETALK
 	/*
 	 * update AppleTalk network addresses already assigned
 	 * to the interfaces.
 	 */
 	interface_update_appletalk(ifap, NULL);
+#endif	/* !TARGET_OS_IPHONE && INCLUDE_APPLETALK */
 
 	freeifaddrs(ifap);
 
@@ -638,29 +659,27 @@ prime_KernelEventMonitor()
 	return;
 }
 
-
 static CFStringRef
 kevSocketCopyDescription(const void *info)
 {
 	return CFStringCreateWithFormat(NULL, NULL, CFSTR("<kernel event socket>"));
 }
 
-
 __private_extern__
 void
 load_KernelEventMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 {
-	int			so;
-	int			status;
-	struct kev_request	kev_req;
-	CFSocketRef		es;
 	CFSocketContext		context = { 0
 					  , (void *)1
 					  , NULL
 					  , NULL
 					  , kevSocketCopyDescription
 					  };
+	CFSocketRef		es;
+	struct kev_request	kev_req;
 	CFRunLoopSourceRef	rls;
+	int			so;
+	int			status;
 
 	if (bundleVerbose) {
 		_verbose = TRUE;
@@ -715,11 +734,11 @@ load_KernelEventMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 	}
 
 	/* Create a CFSocketRef for the PF_SYSTEM kernel event socket */
-	es  = CFSocketCreateWithNative(NULL,
-				       so,
-				       kCFSocketReadCallBack,
-				       eventCallback,
-				       &context);
+	es = CFSocketCreateWithNative(NULL,
+				      so,
+				      kCFSocketReadCallBack,
+				      eventCallback,
+				      &context);
 
 	/* Create and add a run loop source for the event socket */
 	rls = CFSocketCreateRunLoopSource(NULL, es, 0);
@@ -750,11 +769,13 @@ load_KernelEventMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 #undef getIF
 #undef updateStore
 
+#if	!TARGET_OS_IPHONE && INCLUDE_APPLETALK
 #define getIF		getIF_at
 #define updateStore	updateStore_at
 #include "ev_appletalk.c"
 #undef getIF
 #undef updateStore
+#endif	/* !TARGET_OS_IPHONE && INCLUDE_APPLETALK */
 
 int
 main(int argc, char **argv)

@@ -1,3 +1,5 @@
+@subheading idna_strerror
+@anchor{idna_strerror}
 @deftypefun {const char *} {idna_strerror} (Idna_rc @var{rc})
 @var{rc}: an @code{Idna_rc} return code.
 

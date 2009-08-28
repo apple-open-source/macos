@@ -1,0 +1,48 @@
+BODY	{
+    	font-family: Verdana, Arial, Helvetica, sans-serif;
+    	font-weight: normal;
+	background-color : white;
+	color: black;
+}
+tt {
+    	font-family: courier, monospace;
+}
+A	{
+    	font-family: Verdana, Arial, Helvetica, sans-serif;
+    	font-weight: 100;
+	background-color : white;
+}
+A em	{
+    	font-weight: 900;
+}
+
+pre.code {
+        font-size: 90%;
+    	font-family: courier, monospace;
+	PADDING-RIGHT: 10px;
+	PADDING-LEFT: 10px;
+	PADDING-BOTTOM: 10px;
+	PADDING-TOP: 10px;
+	BORDER: #cccccc 1px solid;
+	BACKGROUND-COLOR: #eeeeee;
+	MARGIN-BOTTOM: 15px;
+}
+pre em {
+    	font-family: cursive;
+	color: #888888;
+}
+pre tt {
+    	font-family: helvetica;
+    	font-weight: 900;
+}
+pre it {
+    	font-style: italic;
+	color: green;
+}
+tt em {
+    	font-family: cursive;
+	color: #888888;
+}
+table {
+      font-size: 80%;
+}

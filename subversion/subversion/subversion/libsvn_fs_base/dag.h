@@ -1,7 +1,7 @@
 /* dag.h : DAG-like interface filesystem, private to libsvn_fs
  *
  * ====================================================================
- * Copyright (c) 2000-2004 CollabNet.  All rights reserved.
+ * Copyright (c) 2000-2006 CollabNet.  All rights reserved.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution.  The terms
@@ -152,6 +152,64 @@ svn_error_t *svn_fs_base__dag_set_proplist(dag_node_t *node,
 
 
 
+/* Mergeinfo tracking stuff. */
+
+/* If HAS_MERGEINFO is not null, set *HAS_MERGEINFO to TRUE iff NODE
+   records that its property list contains merge tracking information.
+
+   If COUNT is not null, set *COUNT to the number of nodes --
+   including NODE itself -- in the subtree rooted at NODE which claim
+   to carry merge tracking information.
+
+   Do this as part of TRAIL, and use POOL for necessary allocations.
+
+   NOTE:  No validation against NODE's actual property list is
+   performed. */
+svn_error_t *svn_fs_base__dag_get_mergeinfo_stats(svn_boolean_t *has_mergeinfo,
+                                                  apr_int64_t *count,
+                                                  dag_node_t *node,
+                                                  trail_t *trail,
+                                                  apr_pool_t *pool);
+
+/* If HAS_MERGEINFO is set, record on NODE that its property list
+   carries merge tracking information.  Otherwise, record on NODE its
+   property list does *not* carry merge tracking information.  NODE
+   must be mutable under TXN_ID (the Subversion transaction under
+   which this operation occurs).  Set *HAD_MERGEINFO to the previous
+   state of this record.
+
+   Update the mergeinfo count on NODE as necessary.
+
+   Do all of this as part of TRAIL, and use POOL for necessary
+   allocations.
+
+   NOTE:  No validation against NODE's actual property list is
+   performed. */
+svn_error_t *svn_fs_base__dag_set_has_mergeinfo(dag_node_t *node,
+                                                svn_boolean_t has_mergeinfo,
+                                                svn_boolean_t *had_mergeinfo,
+                                                const char *txn_id,
+                                                trail_t *trail,
+                                                apr_pool_t *pool);
+
+/* Record on NODE a change of COUNT_DELTA nodes -- including NODE
+   itself -- in the subtree rooted at NODE claim to carry merge
+   tracking information.  That is, add COUNT_DELTA to NODE's current
+   mergeinfo count (regardless of whether COUNT_DELTA is a positive or
+   negative integer).
+
+   NODE must be mutable under TXN_ID (the Subversion transaction under
+   which this operation occurs).  Do this as part of TRAIL, and use
+   POOL for necessary allocations.
+
+   NOTE:  No validation of these claims is performed. */
+svn_error_t *svn_fs_base__dag_adjust_mergeinfo_count(dag_node_t *node,
+                                                     apr_int64_t count_delta,
+                                                     const char *txn_id,
+                                                     trail_t *trail,
+                                                     apr_pool_t *pool);
+
+
 /* Revision and transaction roots.  */
 
 
@@ -199,23 +257,22 @@ svn_error_t *svn_fs_base__dag_clone_root(dag_node_t **root_p,
                                          apr_pool_t *pool);
 
 
-/* Commit the transaction TXN_ID in FS, as part of TRAIL.  Store the
+/* Commit the transaction TXN->id in TXN->FS, as part of TRAIL.  Store the
    new revision number in *NEW_REV.  This entails:
-   - marking the tree of mutable nodes at TXN_ID's root as immutable,
+   - marking the tree of mutable nodes at TXN->id's root as immutable,
      and marking all their contents as stable
-   - creating a new revision, with TXN_ID's root as its root directory
-   - promoting TXN_ID to a "committed" transaction.
+   - creating a new revision, with TXN->id's root as its root directory
+   - promoting TXN->id to a "committed" transaction.
 
-   Beware!  This does not make sure that TXN_ID is based on the very
-   latest revision in FS.  If the caller doesn't take care of this,
+   Beware!  This does not make sure that TXN->id is based on the very
+   latest revision in TXN->FS.  If the caller doesn't take care of this,
    you may lose people's work!
 
    Do any necessary temporary allocation in a subpool of POOL.
    Consume temporary space at most proportional to the maximum depth
    of SVN_TXN's tree of mutable nodes.  */
 svn_error_t *svn_fs_base__dag_commit_txn(svn_revnum_t *new_rev,
-                                         svn_fs_t *fs,
-                                         const char *txn_id,
+                                         svn_fs_txn_t *txn,
                                          trail_t *trail,
                                          apr_pool_t *pool);
 
@@ -389,7 +446,7 @@ svn_error_t *svn_fs_base__dag_get_edit_stream(svn_stream_t **contents,
 
    This operation is a no-op if no edits are present.  */
 svn_error_t *svn_fs_base__dag_finalize_edits(dag_node_t *file,
-                                             const char *checksum,
+                                             const svn_checksum_t *checksum,
                                              const char *txn_id,
                                              trail_t *trail,
                                              apr_pool_t *pool);
@@ -401,17 +458,17 @@ svn_error_t *svn_fs_base__dag_file_length(svn_filesize_t *length,
                                           trail_t *trail,
                                           apr_pool_t *pool);
 
-/* Put the recorded MD5 checksum of FILE into DIGEST, as part of
- * TRAIL.  DIGEST must point to APR_MD5_DIGESTSIZE bytes of storage.
+/* Put the checksum of type CHECKSUM_KIND recorded for FILE into
+ * CHECKSUM, as part of TRAIL.
  *
- * If no stored checksum is available, do not calculate the checksum,
- * just put all 0's into DIGEST.
+ * If no stored checksum of the requested kind is available, do not
+ * calculate the checksum, just put NULL into CHECKSUM.
  */
-svn_error_t *
-svn_fs_base__dag_file_checksum(unsigned char digest[],
-                               dag_node_t *file,
-                               trail_t *trail,
-                               apr_pool_t *pool);
+svn_error_t *svn_fs_base__dag_file_checksum(svn_checksum_t **checksum,
+                                            svn_checksum_kind_t checksum_kind,
+                                            dag_node_t *file,
+                                            trail_t *trail,
+                                            apr_pool_t *pool);
 
 /* Create a new mutable file named NAME in PARENT, as part of TRAIL.
    Set *CHILD_P to a reference to the new node, allocated in
@@ -462,6 +519,10 @@ svn_error_t *svn_fs_base__dag_copy(dag_node_t *to_node,
    return success.  If PROPS_ONLY is non-zero, only the node property
    portion of TARGET will be deltified.
 
+   If TXN_ID is non-NULL, it is the transaction ID in which TARGET's
+   representation(s) must have been created (otherwise deltification
+   is silently not attempted).
+
    WARNING WARNING WARNING: Do *NOT* call this with a mutable SOURCE
    node.  Things will go *very* sour if you deltify TARGET against a
    node that might just disappear from the filesystem in the (near)
@@ -469,8 +530,16 @@ svn_error_t *svn_fs_base__dag_copy(dag_node_t *to_node,
 svn_error_t *svn_fs_base__dag_deltify(dag_node_t *target,
                                       dag_node_t *source,
                                       svn_boolean_t props_only,
+                                      const char *txn_id,
                                       trail_t *trail,
                                       apr_pool_t *pool);
+
+
+/* Index NODE's backing data representations by their checksum.  Do
+   this as part of TRAIL.  Use POOL for allocations. */
+svn_error_t *svn_fs_base__dag_index_checksums(dag_node_t *node,
+                                              trail_t *trail,
+                                              apr_pool_t *pool);
 
 
 /* Comparison */

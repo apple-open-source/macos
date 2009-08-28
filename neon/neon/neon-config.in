@@ -82,7 +82,7 @@ while test $# -gt 0; do
 	;;
 
     --la-file)
-	echo ${libdir}/libneon.la
+	echo /usr/local/lib/libneon.la
 	;;
 
     --support)

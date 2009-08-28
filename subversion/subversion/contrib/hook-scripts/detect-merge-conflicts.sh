@@ -5,6 +5,10 @@
 # '=======' or '<<<<<<<' are found, the commit is aborted with a nice
 # error message.
 #
+# $HeadURL: http://svn.collab.net/repos/svn/branches/1.6.x/contrib/hook-scripts/detect-merge-conflicts.sh $
+# $LastChangedDate: 2007-04-16 18:45:22 +0000 (Mon, 16 Apr 2007) $
+# $LastChangedBy: dlr $
+# $LastChangedRevision: 24592 $
 
 REPOS=$1
 TXN=$2
@@ -19,7 +23,7 @@ fi
 
 # We scan through the transaction diff, looking for things that look
 # like conflict markers.  If we find one, we abort the commit.
-SUSPICIOUS=$($SVNLOOK diff -t "$TXN" "$REPOS" | grep -E '^\+(<{7}|={7}|>{7})' | wc -l)
+SUSPICIOUS=$($SVNLOOK diff -t "$TXN" "$REPOS" | grep -E '^\+(<{7} \.|={7}$|>{7} \.)' | wc -l)
 
 if [ $SUSPICIOUS -ne 0 ]; then
   echo "Some parts of your commit look suspiciously like merge" >&2

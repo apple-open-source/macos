@@ -44,6 +44,18 @@ typedef enum {
 	LIBTOP_PREG_on
 } libtop_preg_t;
 
+typedef struct libtop_i64 {
+	uint64_t accumulator;
+	int last_value;
+} libtop_i64_t;
+
+typedef struct libtop_i64_values {
+	libtop_i64_t i64;
+	uint64_t now;
+	uint64_t began;
+	uint64_t previous;
+} libtop_i64_values_t;
+
 /*
  * Type used for specifying a printing function that is called when an error
  * occurs.  libtop does not print a '\n' at the end of the string, so it is
@@ -64,10 +76,10 @@ typedef struct {
 	 * Sample sequence number, incremented for every sample.  The first
 	 * sample has a sequence number of 1.
 	 */
-	unsigned		seq;
+	uint32_t		seq;
 
 	/* Number of processes. */
-	unsigned		nprocs;
+	uint32_t		nprocs;
 
 	/* CPU loads. */
 	host_cpu_load_info_data_t cpu;
@@ -83,13 +95,13 @@ typedef struct {
 	struct timeval		p_time;
 
 	/* Total number of threads. */
-	unsigned		threads;
+	uint32_t		threads;
 
 	/* VM page size. */
 	vm_size_t		pagesize;
 
 	/* Physical memory size. */
-	unsigned long long	memsize;
+	uint64_t		memsize;
 
 	/* VM statistics. */
 	vm_statistics_data_t	vm_stat;
@@ -103,69 +115,71 @@ typedef struct {
 	boolean_t		xsu_is_valid;
 
 	/* Total number of memory regions. */
-	unsigned		reg;
+	uint32_t		reg;
 
 	/* Total shared, private, virtual sizes. */
-	unsigned long long	rshrd;
-	unsigned long long	rprvt;
-	unsigned long long	vsize;
+	uint64_t		rshrd;
+	uint64_t		rprvt;
+	uint64_t		vsize;
 
 	/* Total private resident memory used by frameworks. */
-	unsigned long long	fw_private;
+	uint64_t		fw_private;
 
 	/* Total virtual memory used by frameworks. */
-	unsigned long long	fw_vsize;
+	uint64_t		fw_vsize;
 
 	/* Number of frameworks. */
-	unsigned		fw_count;
+	uint32_t		fw_count;
 
 	/* Code size of frameworks. */
-	unsigned long long	fw_code;
+	uint64_t		fw_code;
 
 	/* Data size of frameworks. */
-	unsigned long long	fw_data;
+	uint64_t		fw_data;
 
 	/* Linkedit size of frameworks. */
-	unsigned long long	fw_linkedit;
+	uint64_t		fw_linkedit;
 
 #define LIBTOP_STATE_MAX	7
 #define LIBTOP_NSTATES		(LIBTOP_STATE_MAX + 1)
-#define LIBTOP_STATE_MAXLEN	(sizeof("unknown") - 1)
+#define LIBTOP_STATE_MAXLEN	8
 	int			state_breakdown[LIBTOP_NSTATES];
 
 	/* Network statistics. */
-	unsigned long long	net_ipackets;
-	unsigned long long	b_net_ipackets;
-	unsigned long long	p_net_ipackets;
+	uint64_t		net_ipackets;
+	uint64_t		b_net_ipackets;
+	uint64_t		p_net_ipackets;
 
-	unsigned long long	net_opackets;
-	unsigned long long	b_net_opackets;
-	unsigned long long	p_net_opackets;
+	uint64_t		net_opackets;
+	uint64_t		b_net_opackets;
+	uint64_t		p_net_opackets;
 
-	unsigned long long	net_ibytes;
-	unsigned long long	b_net_ibytes;
-	unsigned long long	p_net_ibytes;
+	uint64_t		net_ibytes;
+	uint64_t		b_net_ibytes;
+	uint64_t		p_net_ibytes;
 
-	unsigned long long	net_obytes;
-	unsigned long long	b_net_obytes;
-	unsigned long long	p_net_obytes;
+	uint64_t		net_obytes;
+	uint64_t		b_net_obytes;
+	uint64_t		p_net_obytes;
 
 	/* Disk statistics. */
-	unsigned long long	disk_rops;
-	unsigned long long	b_disk_rops;
-	unsigned long long	p_disk_rops;
+	uint64_t		disk_rops;
+	uint64_t		b_disk_rops;
+	uint64_t		p_disk_rops;
 
-	unsigned long long	disk_wops;
-	unsigned long long	b_disk_wops;
-	unsigned long long	p_disk_wops;
+	uint64_t		disk_wops;
+	uint64_t		b_disk_wops;
+	uint64_t		p_disk_wops;
 
-	unsigned long long	disk_rbytes;
-	unsigned long long	b_disk_rbytes;
-	unsigned long long	p_disk_rbytes;
+	uint64_t		disk_rbytes;
+	uint64_t		b_disk_rbytes;
+	uint64_t		p_disk_rbytes;
 
-	unsigned long long	disk_wbytes;
-	unsigned long long	b_disk_wbytes;
-	unsigned long long	p_disk_wbytes;
+	uint64_t		disk_wbytes;
+	uint64_t		b_disk_wbytes;
+	uint64_t		p_disk_wbytes;
+
+	uint64_t		pages_stolen;
 } libtop_tsamp_t;
 
 /*
@@ -184,28 +198,35 @@ struct libtop_psamp_s {
 	gid_t			pgrp;
 
 	/* Memory statistics. */
-	unsigned long long	rsize;
-	unsigned long long	vsize;
-	unsigned long long	rprvt;
-	unsigned long long	vprvt;
-	unsigned long long	rshrd;
-	unsigned long long	fw_private;
-	unsigned long long	empty;
-	unsigned		reg;
+	uint64_t		rsize;
+	uint64_t		vsize;
+	uint64_t		rprvt;
+	uint64_t		vprvt;
+	uint64_t		rshrd;
+	uint64_t		fw_private;
+	uint64_t		empty;
 
-	unsigned long long	p_rsize;
-	unsigned long long	p_vprvt;
-	unsigned long long	p_vsize;
-	unsigned long long	p_rprvt;
-	unsigned long long	p_rshrd;
-	unsigned long long	p_empty;
+	uint32_t		reg;
+	uint32_t		p_reg;
+
+	uint64_t		p_rsize;
+	uint64_t		p_vprvt;
+	uint64_t		p_vsize;
+	uint64_t		p_rprvt;
+	uint64_t		p_rshrd;
+	uint64_t		p_empty;
 
 	/* Number of threads. */
-	unsigned		th;
+	uint32_t		th;
+	uint32_t		p_th;
+
+	uint32_t		running_th;
+	uint32_t		p_running_th;
+
 
 	/* Number of ports. */
-	unsigned		prt;
-	unsigned		p_prt;
+	uint32_t		prt;
+	uint32_t		p_prt;
 
 	/* CPU state/usage statistics. */
 	int			state; /* Process state. */
@@ -220,32 +241,48 @@ struct libtop_psamp_s {
 	task_events_info_data_t	b_events;
 	task_events_info_data_t	p_events;
 
+	libtop_i64_values_t faults;
+	libtop_i64_values_t pageins;
+	libtop_i64_values_t cow_faults;
+	libtop_i64_values_t messages_sent;
+	libtop_i64_values_t messages_recv;
+	libtop_i64_values_t syscalls_mach;
+	libtop_i64_values_t syscalls_bsd;
+	libtop_i64_values_t csw;
+
 	/* malloc()ed '\0'-terminated string. */
 	char			*command;
 
 	/* Sequence number, used to detect defunct processes. */
-	unsigned		seq;
+	uint32_t		seq;
 
 	/*
 	 * Previous sequence number, used to detect processes that have only
 	 * existed for the current sample (p_seq == 0).
 	 */
-	unsigned		p_seq;
+	uint32_t		p_seq;
 
 	/* time process was started */
 	struct timeval		started;
        /* process cpu type */
-        cpu_type_t              cputype;
+	cpu_type_t	cputype;
+    
+	uint32_t	wq_nthreads;
+	uint32_t	wq_run_threads;
+	uint32_t	wq_blocked_threads;
+
+	uint32_t	p_wq_nthreads;
+	uint32_t	p_wq_run_threads;
+	uint32_t	p_wq_blocked_threads;
 };
 
 /*
  * Initialize libtop.  If a non-NULL printing function pointer is passed in,
  * libtop will call the printing function when errors occur.
  *
- * FALSE : Success.
- * TRUE : Error.
+ * Returns zero for success, non-zero for error.
  */
-boolean_t
+int
 libtop_init(libtop_print_t *a_print, void *a_user_data);
 
 /* Shut down libtop. */
@@ -260,10 +297,9 @@ libtop_fini(void);
  * If a_fw is FALSE, do not calculate fw_count, fw_code, fw_data, or
  * fw_linkedit. 
  *
- * FALSE : Success.
- * TRUE : Error.
+ * Returns zero for success, non-zero for error.
  */
-boolean_t
+int
 libtop_sample(boolean_t a_reg, boolean_t a_fw);
 
 /*
@@ -311,20 +347,18 @@ libtop_piterate(void);
  * Set whether to collect memory region information for the process with pid
  * a_pid.
  *
- * FALSE : Success.
- * TRUE : Error.
+ * Returns zero for success, non-zero for error.
  */
-boolean_t
+int
 libtop_preg(pid_t a_pid, libtop_preg_t a_preg);
 
 /*
  * Set the interval between framework updates.
  *
- * FALSE : Success.
- * TRUE : Error.
+ * Returns zero for success, non-zero for error.
  */
-boolean_t
-libtop_set_interval(unsigned ival);
+int
+libtop_set_interval(uint32_t ival);
 #define LIBTOP_MAX_INTERVAL 100
 
 /*
@@ -339,4 +373,22 @@ libtop_username(uid_t a_uid);
  * states that are contained in libtop_tsamp_t's state_breakdown array).
  */
 const char *
-libtop_state_str(unsigned a_state);
+libtop_state_str(uint32_t a_state);
+
+/* 
+ * These i64 functions are special functions that operate on an accumulator
+ * and work with overflowing 32-bit integers.  So if the value overflows in the kernel
+ * counter, because it is a 32-bit value, they will in most cases capture the 
+ * changes overtime to the value.  The assumption is that all updates are increments
+ * of 0 or more (based on the deltas) so this doesn't work with values that
+ * potentially go negative.
+ */
+  
+libtop_i64_t
+libtop_i64_init(uint64_t acc, int last_value);
+
+void
+libtop_i64_update(libtop_i64_t *i, int value);
+
+uint64_t
+libtop_i64_value(libtop_i64_t *i);

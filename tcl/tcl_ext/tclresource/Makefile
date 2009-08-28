@@ -6,23 +6,45 @@
 
 # Project info
 Project               = tclresource
-ProjectName           = tclResource
+ProjectName           = TclResource
+ProjectDoc            = tclresource-doc
+License               = doc/license.terms
 
-Extra_Environment     = FRAMEWORK_SEARCH_PATHS="$(shell dirname $(TclFramework))" \
-                        LIBRARY_SEARCH_PATHS="$(TclFramework)" $(TEA_Environment)
-Extra_Install_Flags   = INSTALL_PATH='$(TclExtLibDir)/$(ProjectName)$${DYLIB_CURRENT_VERSION}'
+# Fetch info
+Release               = 1.1.2
+TEApotVersion         = 0.0.0.2007.11.22.23.13.59
+TEApotProject         = resource-source
 
-AfterInstall          = install-doc fix-owner
+ifeq ($(Project),$(ProjectDoc))
+TEApotVersion         = 0.0.0.2007.11.22.23.13.52
+TEApotProject         = resource-help
+Configure             = :
+endif
 
-TEA_UseXcode          = YES
+Extra_Configure_Flags = $(TEA_Configure_Flags)
+Extra_Environment     = $(TEA_Environment)
+
+GnuAfterInstall       = strip install-doc fix-perms
+GnuNoBuild            = YES
 
 # include TEA Tcl extension build support
 include ../TEA.make
 
-Sources               = $(SRCROOT)/$(Project)/Source
-Docs                  = $(SRCROOT)/$(Project)/Help
+TclExtDir             = Tclresource
+
+build::
+	@echo "Building $(Project)..."
+	$(_v) $(Environment) $(MAKE) -C $(BuildDirectory)
 
 install-doc:
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/$(TclExtHtmlDir)" "$(DSTROOT)/$(TclExtManDir)"
-	$(_v) $(INSTALL_FILE) "$(Docs)"/*.html "$(DSTROOT)/$(TclExtHtmlDir)"
-	$(_v) $(INSTALL_FILE) "$(Docs)"/$(Project).n "$(DSTROOT)/$(TclExtManDir)"
+	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/$(TclExtHtmlDir)"
+	$(_v) $(INSTALL_FILE) "$(Sources)"/doc/*.html "$(DSTROOT)/$(TclExtHtmlDir)"
+
+ifneq ($(Project),$(ProjectDoc))
+fetch extract wipe::
+	$(_v) $(MAKE) $@ Project=$(ProjectDoc)
+
+extract:: $(SRCROOT)/$(Project)/doc
+$(SRCROOT)/$(Project)/doc:
+	$(_v) $(MV) $(SRCROOT)/$(ProjectDoc) $@ && touch $(SRCROOT)/$(ProjectDoc)
+endif

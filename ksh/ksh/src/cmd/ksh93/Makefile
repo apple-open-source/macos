@@ -15,6 +15,8 @@ ERROR_CONTEXT_T == Error_context_t /* workaround until switch from errorpush()/e
 
 SHOPT_ACCT ==  			/* accounting */
 SHOPT_ACCTFILE ==  		/* per user accounting info */
+SHOPT_AUDIT ==
+SHOPT_AUDITFILE == "/etc/ksh_audit"  		/* auditing file */
 SHOPT_BASH ==			/* bash compatibility code */
 SHOPT_BRACEPAT == 1		/* C-shell {...,...} expansions (, required) */
 SHOPT_CMDLIB_HDR ==		/* -lcmd builtin list: <cmdlist.h> */
@@ -186,8 +188,7 @@ bash_pre_rc.c : bash_pre_rc.sh
 end
 
 :: math.tab syscall.s mamexec mamstate.c $(DOCFILES) \
-	bash.c bash_pre_rc.sh hexpand.c mkservice.c \
-	shopen.mk shopen.c
+	bash.c bash_pre_rc.sh hexpand.c mkservice.c
 
 :: shtests \
 	alias.sh append.sh arith.sh arrays.sh arrays2.sh attributes.sh \

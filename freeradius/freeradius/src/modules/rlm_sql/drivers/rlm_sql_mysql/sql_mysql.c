@@ -1,7 +1,7 @@
 /*
  * sql_mysql.c		SQL Module
  *
- * Version:	$Id: sql_mysql.c,v 1.18.4.3 2007/07/20 15:43:18 nbk Exp $
+ * Version:	$Id$
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -22,12 +22,12 @@
  * Copyright 2000  Alan DeKok <aland@ox.org>
  */
 
-#include <stdio.h>
-#include <sys/stat.h>
-#include <stdlib.h>
-#include <string.h>
+#include <freeradius-devel/ident.h>
+RCSID("$Id$")
 
-#include 	"radiusd.h"
+#include <freeradius-devel/radiusd.h>
+
+#include <sys/stat.h>
 
 #include "config.h"
 
@@ -112,7 +112,7 @@ static int sql_init_socket(SQLSOCK *sqlsocket, SQL_CONFIG *config)
  *	Purpose: Free socket and any private connection data
  *
  *************************************************************************/
-static int sql_destroy_socket(SQLSOCK *sqlsocket, SQL_CONFIG *config)
+static int sql_destroy_socket(SQLSOCK *sqlsocket, UNUSED SQL_CONFIG *config)
 {
 	free(sqlsocket->conn);
 	sqlsocket->conn = NULL;
@@ -183,7 +183,7 @@ static int sql_query(SQLSOCK * sqlsocket, SQL_CONFIG *config, char *querystr)
  *               first non-empty one.
  *
  *************************************************************************/
-static int sql_store_result(SQLSOCK * sqlsocket, SQL_CONFIG *config)
+static int sql_store_result(SQLSOCK * sqlsocket, UNUSED SQL_CONFIG *config)
 {
 	rlm_sql_mysql_sock *mysql_sock = sqlsocket->conn;
 	int status;
@@ -226,7 +226,7 @@ retry_store_result:
  *               of columns from query
  *
  *************************************************************************/
-static int sql_num_fields(SQLSOCK * sqlsocket, SQL_CONFIG *config)
+static int sql_num_fields(SQLSOCK * sqlsocket, UNUSED SQL_CONFIG *config)
 {
 	int     num = 0;
 	rlm_sql_mysql_sock *mysql_sock = sqlsocket->conn;
@@ -282,7 +282,7 @@ static int sql_select_query(SQLSOCK *sqlsocket, SQL_CONFIG *config,
  *               query
  *
  *************************************************************************/
-static int sql_num_rows(SQLSOCK * sqlsocket, SQL_CONFIG *config)
+static int sql_num_rows(SQLSOCK * sqlsocket, UNUSED SQL_CONFIG *config)
 {
 	rlm_sql_mysql_sock *mysql_sock = sqlsocket->conn;
 
@@ -302,7 +302,7 @@ static int sql_num_rows(SQLSOCK * sqlsocket, SQL_CONFIG *config)
  *		 0 on success, -1 on failure, SQL_DOWN if database is down.
  *
  *************************************************************************/
-static int sql_fetch_row(SQLSOCK * sqlsocket, SQL_CONFIG *config)
+static int sql_fetch_row(SQLSOCK * sqlsocket, UNUSED SQL_CONFIG *config)
 {
 	rlm_sql_mysql_sock *mysql_sock = sqlsocket->conn;
 	int status;
@@ -353,7 +353,7 @@ retry_fetch_row:
  *               for a result set
  *
  *************************************************************************/
-static int sql_free_result(SQLSOCK * sqlsocket, SQL_CONFIG *config)
+static int sql_free_result(SQLSOCK * sqlsocket, UNUSED SQL_CONFIG *config)
 {
 	rlm_sql_mysql_sock *mysql_sock = sqlsocket->conn;
 
@@ -375,7 +375,7 @@ static int sql_free_result(SQLSOCK * sqlsocket, SQL_CONFIG *config)
  *               connection
  *
  *************************************************************************/
-static char *sql_error(SQLSOCK * sqlsocket, SQL_CONFIG *config)
+static const char *sql_error(SQLSOCK * sqlsocket, UNUSED SQL_CONFIG *config)
 {
 	rlm_sql_mysql_sock *mysql_sock = sqlsocket->conn;
 
@@ -394,7 +394,7 @@ static char *sql_error(SQLSOCK * sqlsocket, SQL_CONFIG *config)
  *               connection
  *
  *************************************************************************/
-static int sql_close(SQLSOCK * sqlsocket, SQL_CONFIG *config)
+static int sql_close(SQLSOCK * sqlsocket, UNUSED SQL_CONFIG *config)
 {
 	rlm_sql_mysql_sock *mysql_sock = sqlsocket->conn;
 
@@ -416,7 +416,7 @@ static int sql_close(SQLSOCK * sqlsocket, SQL_CONFIG *config)
  *	whether more results exist and process them in turn if so.
  *
  *************************************************************************/
-static int sql_finish_query(SQLSOCK * sqlsocket, SQL_CONFIG *config)
+static int sql_finish_query(SQLSOCK * sqlsocket, UNUSED SQL_CONFIG *config)
 {
 #if (MYSQL_VERSION_ID >= 40100)
 	rlm_sql_mysql_sock *mysql_sock = sqlsocket->conn;
@@ -483,7 +483,7 @@ static int sql_finish_select_query(SQLSOCK * sqlsocket, SQL_CONFIG *config)
  *	Purpose: End the select query, such as freeing memory or result
  *
  *************************************************************************/
-static int sql_affected_rows(SQLSOCK * sqlsocket, SQL_CONFIG *config)
+static int sql_affected_rows(SQLSOCK * sqlsocket, UNUSED SQL_CONFIG *config)
 {
 	rlm_sql_mysql_sock *mysql_sock = sqlsocket->conn;
 

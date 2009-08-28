@@ -207,8 +207,6 @@ void CCallbackMgr::consume (SecurityServer::NotificationDomain domain, SecurityS
 	list<CallbackInfo> eventCallbacks;
 	{
 		// Lock the global API lock before doing stuff with StorageManager.
-		StLock<Mutex> stAPILock(globals().apiLock);
-
 		// make sure we have a database identifier
 		if (dictionary.FindByName (SSUID_KEY) != 0)
 		{

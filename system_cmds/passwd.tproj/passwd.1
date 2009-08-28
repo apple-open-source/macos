@@ -31,48 +31,53 @@
 .\"
 .\"	@(#)passwd.1	8.1 (Berkeley) 6/6/93
 .\"
-.Dd June 6, 1993
+.Dd August 18, 2008
 .Dt PASSWD 1
-.Os BSD 4
+.Os "Mac OS X"
 .Sh NAME
 .Nm passwd
 .Nd modify a user's password
 .Sh SYNOPSIS
 .Nm passwd
-.Op Fl i Ar infosystem
-.Op Fl l Ar location
+.Op Fl i Ar infosystem Op Fl l Ar location
 .Op Fl u Ar authname
-.Op Ar name
+.Op Ar user
 .Sh DESCRIPTION
-.Nm Passwd
-changes the user's password.
-First, the user is prompted for their current password.
-If the current password is correctly typed,
-a new password is requested.
-The new password must be entered twice,
-to detect (and avoid accepting) typing errors.
+The
+.Nm
+utility changes the user's password.
+If the user is not the super-user,
+.Nm
+first prompts for the current password and will not continue unless the correct
+password is entered.
+.Pp
+When entering the new password, the characters entered do not echo, in order to
+avoid the password being seen by a passer-by.
+The
+.Nm
+utility prompts for the new password twice in order to detect typing errors.
 .Pp
 The new password should be at least six characters long
 and not purely alphabetic.
 Its total length should be less than
 .Dv _PASSWORD_LEN
 (currently 128 characters),
-although some infosystems allow longer passwords.
-Numbers, upper-case letters, and meta characters
-are encouraged.
+although some directory systems allow longer passwords.
+Numbers, upper
+case letters, and meta characters are encouraged.
 .Pp
 Once the password has been verified,
-.Nm passwd
-communicates the new password information to
-the authenticating host.
+.Nm
+communicates the new password to the directory system.
 .Bl -tag -width flag
 .It Fl i Ar infosystem
 This option specifies where the password update should be applied.
-Under Mac OS X 10.5, supported infosystems are:
+Under Mac OS X 10.5 and later, supported directory systems are:
 .Bl -tag -width flag
+.It Ar PAM
+(default) Pluggable Authentication Modules.
 .It Ar opendirectory
-(default)
-A system conforming to opendirectory APIs and supporting updates
+A system conforming to Open Directory APIs and supporting updates
 (including LDAP, etc).
 If no -l option is specified, the search node is used.
 .It Ar file
@@ -82,7 +87,7 @@ A remote NIS server containing the user's password.
 .El
 .It Fl l Ar location
 This option causes the password to be updated in the given location
-of the chosen infosystem.
+of the chosen directory system.
 .Bl -tag -width flag
 .It for file,
 location may be a file name (/etc/master.passwd is the default)
@@ -90,15 +95,17 @@ location may be a file name (/etc/master.passwd is the default)
 location may be a NIS domainname
 .It for opendirectory,
 location may be a directory node name
+.It for PAM,
+location is not used
 .El
 .It Fl u Ar authname
-This option specifies the username to use when authenticating to
+This option specifies the user name to use when authenticating to
 the directory node.
+.It Ar user
+This optional argument specifies the user account whose password will be
+changed.  This account's current password may be required, even when run as the
+super-user, depending on the directory system.
 .El
-.Pp
-The super-user privileges are not required
-to change a user's current password,
-if only the local password is modified.
 .Sh FILES
 .Bl -tag -width /etc/master.passwd -compact
 .It Pa /etc/master.passwd

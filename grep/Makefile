@@ -28,7 +28,8 @@ AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)
 Fedora_Patches = grep-2.5.1-fgrep.patch grep-2.5.1-bracket.patch grep-2.5-i18n.patch grep-2.5.1-egf-speedup.patch
-AEP_Patches    = doc__Makefile.in.diff doc__grep.1.diff src__dfa.c.diff PR-3715846.diff PR-3716425.diff PR-3716570.diff PR-3934152.diff PR-4053512.diff 
+AEP_Patches    = doc__Makefile.in.diff doc__grep.1.diff src__dfa.c.diff PR-3715846.diff PR-3716425.diff \
+	PR-3716570.diff PR-3934152.diff PR-4053512.diff src__search.c.diff
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j

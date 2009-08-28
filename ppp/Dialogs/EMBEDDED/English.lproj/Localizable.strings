@@ -1,0 +1,44 @@
+/* ***********************************************************************************************
+* 
+* Mac OS X EMBEDDED
+* Localizable Strings
+*
+ *********************************************************************************************** */
+
+
+/* Alert  strings */
+"OK" = "OK";
+"Cancel" = "Cancel";
+
+/* Password message and field*/
+"Enter password" = "Enter your password.";
+"Account Name:" = "Enter your name:";
+"Password:" = "Enter your password:";
+"Token:" = "Enter your token:";
+"Incorrectly entered password" = "You may have entered your password incorrectly.";
+"Incorrectly entered token" = "You may have entered your token incorrectly.";
+
+"Expired password" = "Your password has expired.";
+"Expired token" = "Your PIN has expired.";
+
+"Incorrect password" = "Your name or password may be incorrect.";
+"Incorrect token" = "Your name or token may be incorrect.";
+
+"New password:" = "Enter your new password:";
+"Confirm new password:" = "Reenter your new password:";
+"New token:" = "Enter your new PIN:";
+"Confirm new token:" = "Reenter your new PIN:";
+
+"Retry name:" = "Enter your name:";
+"Retry password:" = "Enter your password:";
+"Retry token:" = "Enter your token:";
+
+/* Reminder message, Default button, Cancel button */
+"Reminder timeout" = "This is a reminder that you're still connected. Do you wish to remain connected?";
+"Stay connected" = "Stay connected";
+"Disconnect" = "Disconnect";
+
+/* Notification window title */
+"Network Connection" = "Network Connection";
+"VPN Connection" = "VPN Connection";
+

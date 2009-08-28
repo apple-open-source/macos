@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-* Copyright (c) 2004, International Business Machines
+* Copyright (c) 2004-2008, International Business Machines
 * Corporation and others.  All Rights Reserved.
 **********************************************************************
 * Author: Alan Liu
@@ -18,12 +18,14 @@
 U_NAMESPACE_BEGIN
 
 CurrencyFormat::CurrencyFormat(const Locale& locale, UErrorCode& ec) :
-    fmt(NULL) {
+    fmt(NULL)
+{
     fmt = NumberFormat::createCurrencyInstance(locale, ec);
 }
 
 CurrencyFormat::CurrencyFormat(const CurrencyFormat& other) :
-    MeasureFormat(other), fmt(NULL) {
+    MeasureFormat(other), fmt(NULL)
+{
     fmt = (NumberFormat*) other.fmt->clone();
 }
 
@@ -49,26 +51,16 @@ Format* CurrencyFormat::clone() const {
 UnicodeString& CurrencyFormat::format(const Formattable& obj,
                                       UnicodeString& appendTo,
                                       FieldPosition& pos,
-                                      UErrorCode& ec) const {
+                                      UErrorCode& ec) const
+{
     return fmt->format(obj, appendTo, pos, ec);
 }
 
-UnicodeString& CurrencyFormat::format(const Formattable& obj,
-                                      UnicodeString& appendTo,
-                                      UErrorCode& ec) const {
-    return MeasureFormat::format(obj, appendTo, ec);
-}
-
 void CurrencyFormat::parseObject(const UnicodeString& source,
                                  Formattable& result,
-                                 ParsePosition& pos) const {
+                                 ParsePosition& pos) const
+{
     fmt->parseCurrency(source, result, pos);
-}
-
-void CurrencyFormat::parseObject(const UnicodeString& source,
-                                 Formattable& result,
-                                 UErrorCode& ec) const {
-    MeasureFormat::parseObject(source, result, ec);
 }
 
 UOBJECT_DEFINE_RTTI_IMPLEMENTATION(CurrencyFormat)

@@ -35,6 +35,7 @@
 .Op Fl db_max Ar size
 .Op Fl utmp_ttl Ar time
 .Op Fl fs_ttl Ar time
+.Op Fl mps_limit Ar quota
 .Op Fl dup_delay Ar time
 .Op Fl module_name Li {0|1}
 .Sh DESCRIPTION
@@ -68,7 +69,7 @@ found in various locations on the system.
 Those files will be phased out in future versions of Mac OS.
 .Pp
 The following options are recognized:
-.Bl -tag -width "-utmp_ttl"
+.Bl -tag -width "-dup_delay"
 .It Fl d
 Run
 .Nm
@@ -106,7 +107,10 @@ and
 .Xr asl 3
 header files.
 Received messages with a priority or level value greater than the cutoff will not be saved in the data store.
-The default filter will retain messages in the range 0 (Emergency) to 5 (Notice) inclusive.
+The default filter value is set to allow all message priorities.
+Message filtering is primarily specified by the rules in the /etc/asl.conf file.
+However, if there are no matching rules for the ASL data store in the asl.conf file,
+then all messages that are allowed by the cutoff filter are saved.
 .Pp
 Note that a this filter value may be adjusted while
 .Nm
@@ -118,18 +122,14 @@ See the
 manual.
 The filter may be adjusted using the
 .Dq -c
-option, e.g.
-.Pp
-.Li		sudo syslog -c syslogd -d
-.Pp
-will set the filter to retain messages in the range 0 (Emergency) to 7 (Debug).
+option.
 .It Fl l
 Specifies an alternate path for loading plug-in modules.
 By default,
 .Nm
 checks for plug-in modules in the directory /usr/lib/asl.
 .It Fl db_max
-Sets the size limit in bytes for files in the data store.
+Sets the size limit in bytes for individual files in the data store.
 The default value for
 .Fl db_max
 is 25600000 bytes.
@@ -153,6 +153,14 @@ As in the case of
 .Fl utmp_ttl ,
 if archival is enabled, these messages will be copied to an archive after the regular time-to-live
 interval but will persist in the data store until their own expiry time.
+.It Fl mps_limit
+Sets the per-process quota for messages per second allowed by
+.Nm .
+Any messages in excess of the quota limit from any process are ignored.
+An error message is logged on behalf of the limited process, stating that its message quota has
+been exceeded, and that remaining messages for the current second will be discarded.
+The default limit is 500 messages per second per process.
+A value of 0 turns off the quota mechanism.
 .It Fl dup_delay
 Sets the time to delay for coalescing duplicate message in log files.
 If a process logs multiple messages with the same text,

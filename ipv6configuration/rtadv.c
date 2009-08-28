@@ -1,22 +1,23 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -90,7 +91,7 @@ typedef struct {
     int			wait_secs;
     timer_callout_t *	timer;
     rtadv_client_t	client;
-    short			llocal_flags;
+    short		llocal_flags;
     struct in6_addr	our_router;
 } Service_rtadv_t;
 
@@ -110,7 +111,7 @@ static struct sockaddr_in6 sin6_allrouters = {sizeof(sin6_allrouters),
 
 static void	rtadv_start(Service_t * service_p, IFEventID_t event_id, void * event_data);
 static void	rtadv_read(CFSocketRef s, CFSocketCallBackType type, CFDataRef address,
-                            const void *data, void *info);
+			    const void *data, void *info);
 static void	rtadv_link_timer(void * arg0, void * arg1, void * arg2);
 
 static int
@@ -123,7 +124,7 @@ rtsol_make_packet(interface_t * if_p, rtadv_client_t * client)
 	    my_log(LOG_DEBUG,
 		   "rtsol_make_packet(%s): link-layer address option"
 		   " has zero length. Treat as not included.",
-                if_p->name);
+		if_p->name);
     }
     packlen += lladdroptlen;
     client->rs_datalen = packlen;
@@ -168,13 +169,13 @@ rtsol_sendpacket(Service_t * service_p)
 
     /* specify the hop limit of the packet */
     {
-        int hoplimit = 255;
+	int hoplimit = 255;
 
-        cm = CMSG_NXTHDR(&sndmhdr, cm);
-        cm->cmsg_level = IPPROTO_IPV6;
-        cm->cmsg_type = IPV6_HOPLIMIT;
-        cm->cmsg_len = CMSG_LEN(sizeof(int));
-        memcpy(CMSG_DATA(cm), &hoplimit, sizeof(int));
+	cm = CMSG_NXTHDR(&sndmhdr, cm);
+	cm->cmsg_level = IPPROTO_IPV6;
+	cm->cmsg_type = IPV6_HOPLIMIT;
+	cm->cmsg_len = CMSG_LEN(sizeof(int));
+	memcpy(CMSG_DATA(cm), &hoplimit, sizeof(int));
     }
 
     my_log(LOG_DEBUG, "rtsol_sendpacket: send RS on %s", if_p->name);
@@ -182,14 +183,14 @@ rtsol_sendpacket(Service_t * service_p)
     i = sendmsg(client.sockfd, &sndmhdr, 0);
 
     if (i < 0 || i != client.rs_datalen) {
-        /*
-         * ENETDOWN is not so serious, especially when using several
-         * network cards on a mobile node. We ignore it.
-         */
-        if (errno != ENETDOWN) {
-            my_log(LOG_DEBUG, "rtsol_sendpacket: sendmsg on %s: %s",
-                    if_p->name, strerror(errno));
-        }
+	/*
+	 * ENETDOWN is not so serious, especially when using several
+	 * network cards on a mobile node. We ignore it.
+	 */
+	if (errno != ENETDOWN) {
+	    my_log(LOG_DEBUG, "rtsol_sendpacket: sendmsg on %s: %s",
+		    if_p->name, strerror(errno));
+	}
     }
 
     return;
@@ -203,70 +204,70 @@ rtadv_verify_packet(interface_t * if_p)
     int			ifindex = 0;
     struct cmsghdr	*cm;
     struct in6_pktinfo	*pi = NULL;
-    u_char 		ntopbuf[INET6_ADDRSTRLEN], ifnamebuf[IFNAMSIZ];
+    char 		ntopbuf[INET6_ADDRSTRLEN], ifnamebuf[IFNAMSIZ];
 
     /* extract optional information via Advanced API */
     for (cm = (struct cmsghdr *)CMSG_FIRSTHDR(&rcvmhdr);
-            cm;
-            cm = (struct cmsghdr *)CMSG_NXTHDR(&rcvmhdr, cm)) {
-        if (cm->cmsg_level == IPPROTO_IPV6 &&
-                cm->cmsg_type == IPV6_PKTINFO &&
-                cm->cmsg_len == CMSG_LEN(sizeof(struct in6_pktinfo))) {
-            pi = (struct in6_pktinfo *)(CMSG_DATA(cm));
-            ifindex = pi->ipi6_ifindex;
-        }
-        if (cm->cmsg_level == IPPROTO_IPV6 &&
-                cm->cmsg_type == IPV6_HOPLIMIT &&
-                cm->cmsg_len == CMSG_LEN(sizeof(int)))
-            hlimp = (int *)CMSG_DATA(cm);
+	    cm;
+	    cm = (struct cmsghdr *)CMSG_NXTHDR(&rcvmhdr, cm)) {
+	if (cm->cmsg_level == IPPROTO_IPV6 &&
+		cm->cmsg_type == IPV6_PKTINFO &&
+		cm->cmsg_len == CMSG_LEN(sizeof(struct in6_pktinfo))) {
+	    pi = (struct in6_pktinfo *)(CMSG_DATA(cm));
+	    ifindex = pi->ipi6_ifindex;
+	}
+	if (cm->cmsg_level == IPPROTO_IPV6 &&
+		cm->cmsg_type == IPV6_HOPLIMIT &&
+		cm->cmsg_len == CMSG_LEN(sizeof(int)))
+	    hlimp = (int *)CMSG_DATA(cm);
     }
 
     /* skip if not our interface */
 	if (if_p->link_address.index != ifindex) {
-        return (-1);
+	return (-1);
     }
 
     if (hlimp == NULL) {
-        my_log(LOG_ERR, "RTADV_VERIFY_PACKET: failed to get receiving hop limit");
-        return (-1);
+	my_log(LOG_ERR, "RTADV_VERIFY_PACKET: failed to get receiving hop limit");
+	return (-1);
     }
 
     icp = (struct icmp6_hdr *)rcvmhdr.msg_iov[0].iov_base;
 
     if (icp->icmp6_type != ND_ROUTER_ADVERT) {
-        my_log(LOG_ERR, "RTADV_VERIFY_PACKET: invalid icmp type(%d) from %s on %s",
-                icp->icmp6_type,
-                inet_ntop(AF_INET6, &from.sin6_addr, ntopbuf, INET6_ADDRSTRLEN),
-                if_indextoname(pi->ipi6_ifindex, ifnamebuf));
-        return (-1);
+	my_log(LOG_ERR, "RTADV_VERIFY_PACKET: invalid icmp type(%d) from %s on %s",
+		icp->icmp6_type,
+		inet_ntop(AF_INET6, &from.sin6_addr, ntopbuf, sizeof(ntopbuf)),
+		if_indextoname(pi->ipi6_ifindex, ifnamebuf));
+	return (-1);
     }
 
     if (icp->icmp6_code != 0) {
-        my_log(LOG_ERR, "RTADV_VERIFY_PACKET: invalid icmp code(%d) from %s on %s",
-                icp->icmp6_code,
-                inet_ntop(AF_INET6, &from.sin6_addr, ntopbuf, INET6_ADDRSTRLEN),
-                if_indextoname(pi->ipi6_ifindex, ifnamebuf));
-        return (-1);
+	my_log(LOG_ERR, "RTADV_VERIFY_PACKET: invalid icmp code(%d) from %s on %s",
+		icp->icmp6_code,
+		inet_ntop(AF_INET6, &from.sin6_addr, ntopbuf, sizeof(ntopbuf)),
+		if_indextoname(pi->ipi6_ifindex, ifnamebuf));
+	return (-1);
     }
 
     if (*hlimp != 255) {
-        my_log(LOG_ERR, "RTADV_VERIFY_PACKET: invalid RA with hop limit(%d) from %s on %s",
-                *hlimp,
-                inet_ntop(AF_INET6, &from.sin6_addr, ntopbuf, INET6_ADDRSTRLEN),
-                if_indextoname(pi->ipi6_ifindex, ifnamebuf));
-        return (-1);
+	my_log(LOG_ERR, "RTADV_VERIFY_PACKET: invalid RA with hop limit(%d) from %s on %s",
+		*hlimp,
+		inet_ntop(AF_INET6, &from.sin6_addr, ntopbuf, sizeof(ntopbuf)),
+		if_indextoname(pi->ipi6_ifindex, ifnamebuf));
+	return (-1);
     }
 
     if (pi && !IN6_IS_ADDR_LINKLOCAL(&from.sin6_addr)) {
-        my_log(LOG_ERR, "RTADV_VERIFY_PACKET: invalid RA with non link-local source from %s on %s",
-                inet_ntop(AF_INET6, &from.sin6_addr, ntopbuf, INET6_ADDRSTRLEN),
-                if_indextoname(pi->ipi6_ifindex, ifnamebuf));
-        return (-1);
+	my_log(LOG_ERR, "RTADV_VERIFY_PACKET: invalid RA with non link-local source from %s on %s",
+		inet_ntop(AF_INET6, &from.sin6_addr, ntopbuf, sizeof(ntopbuf)),
+		if_indextoname(pi->ipi6_ifindex, ifnamebuf));
+	return (-1);
     }
 
     my_log(LOG_DEBUG, "RTADV_VERIFY_PACKET: received RA from %s on %s",
-            inet_ntop(AF_INET6, &from.sin6_addr, ntopbuf, INET6_ADDRSTRLEN),
-            if_p->name);
+	    inet_ntop(AF_INET6, &from.sin6_addr, ntopbuf, sizeof(ntopbuf)),
+	    if_p->name);
 
     return (0);
 }
@@ -297,15 +298,15 @@ rtsol_init_rcv_buffs(void)
     static u_char 	answer[1500];
     int 		rcvcmsglen;
     static u_char *	rcvcmsgbuf = NULL;
-    
+
     rcvcmsglen = CMSG_SPACE(sizeof(struct in6_pktinfo)) +
-                    CMSG_SPACE(sizeof(int));
+		    CMSG_SPACE(sizeof(int));
     if (rcvcmsgbuf == NULL && (rcvcmsgbuf = malloc(rcvcmsglen)) == NULL) {
-        my_log(LOG_DEBUG,
-                "rtsol_init_rcv_buffs: malloc for receive msghdr failed");
-        return (-1);
+	my_log(LOG_DEBUG,
+		"rtsol_init_rcv_buffs: malloc for receive msghdr failed");
+	return (-1);
     }
-    
+
     /* initialize msghdr for receiving packets */
     rcviov[0].iov_base = (caddr_t)answer;
     rcviov[0].iov_len = sizeof(answer);
@@ -315,7 +316,7 @@ rtsol_init_rcv_buffs(void)
     rcvmhdr.msg_iovlen = 1;
     rcvmhdr.msg_control = (caddr_t) rcvcmsgbuf;
     rcvmhdr.msg_controllen = rcvcmsglen;
-    
+
     return(0);
 }
 
@@ -324,16 +325,16 @@ rtsol_init_snd_buffs(void)
 {
     int			sndcmsglen;
     static u_char *	sndcmsgbuf = NULL;
-    
+
     sndcmsglen = CMSG_SPACE(sizeof(struct in6_pktinfo)) +
-                    CMSG_SPACE(sizeof(int));
-    
+		    CMSG_SPACE(sizeof(int));
+
     if (sndcmsgbuf == NULL && (sndcmsgbuf = malloc(sndcmsglen)) == NULL) {
-        my_log(LOG_DEBUG,
-                "rtsol_init_snd_buffs: malloc for send msghdr failed");
-        return (-1);
+	my_log(LOG_DEBUG,
+		"rtsol_init_snd_buffs: malloc for send msghdr failed");
+	return (-1);
     }
-    
+
     /* initialize msghdr for sending packets */
     sndmhdr.msg_namelen = sizeof(struct sockaddr_in6);
     sndmhdr.msg_iov = sndiov;
@@ -348,14 +349,14 @@ static int
 init_sendbuffs_once()
 {
     static int done = 0;
-    
+
     if (done) {
-        return (0);
+	return (0);
     }
-    
+
     /* init send buffers */
     if (rtsol_init_snd_buffs()) {
-        return (-1);
+	return (-1);
     }
     done = 1;
     return (0);
@@ -368,39 +369,39 @@ init_rtsol(int sockfd)
     struct icmp6_filter	filt;
 
     if (init_sendbuffs_once() < 0) {
-        return (-1);
+	return (-1);
     }
     on = 1;
     if (ioctl(sockfd, FIONBIO, &on) < 0) {
-        my_log(LOG_INFO, "init_rtsol: ioctl(FIONBIO): %s",
-                strerror(errno));
-        return (-1);
+	my_log(LOG_INFO, "init_rtsol: ioctl(FIONBIO): %s",
+		strerror(errno));
+	return (-1);
     }
 
     on = 1;
     if (setsockopt(sockfd, IPPROTO_IPV6, IPV6_PKTINFO, &on,
 		   sizeof(on)) < 0) {
-        my_log(LOG_INFO, "init_rtsol: IPV6_PKTINFO: %s",
-                strerror(errno));
-        return (-1);
+	my_log(LOG_INFO, "init_rtsol: IPV6_PKTINFO: %s",
+		strerror(errno));
+	return (-1);
     }
-    
+
     on = 1;
     if (setsockopt(sockfd, IPPROTO_IPV6, IPV6_HOPLIMIT, &on,
 		   sizeof(on)) < 0) {
-        my_log(LOG_INFO, "init_rtsol: IPV6_HOPLIMIT: %s",
-                strerror(errno));
-        return (-1);
+	my_log(LOG_INFO, "init_rtsol: IPV6_HOPLIMIT: %s",
+		strerror(errno));
+	return (-1);
     }
-    
+
     /* specify to accept only router advertisements on the socket */
     ICMP6_FILTER_SETBLOCKALL(&filt);
     ICMP6_FILTER_SETPASS(ND_ROUTER_ADVERT, &filt);
     if (setsockopt(sockfd, IPPROTO_ICMPV6, ICMP6_FILTER, &filt,
 		   sizeof(filt)) == -1) {
-        my_log(LOG_INFO, "init_rtsol: setsockopt(ICMP6_FILTER): %s",
-                strerror(errno));
-        return (-1);
+	my_log(LOG_INFO, "init_rtsol: setsockopt(ICMP6_FILTER): %s",
+		strerror(errno));
+	return (-1);
     }
     return (0);
 }
@@ -430,12 +431,12 @@ rtadv_read(CFSocketRef s, CFSocketCallBackType type,
     }
     else if (n > 0) {
 	if (n < sizeof(struct nd_router_advert)) {
-            my_log(LOG_ERR, "rtadv_read(): packet size(%d) is too short", n);
-            return;
+	    my_log(LOG_ERR, "rtadv_read(): packet size(%d) is too short", n);
+	    return;
 	}
 
 	if (client->receive) {
-            (*client->receive)(client->receive_arg1, client->receive_arg2, NULL);
+	    (*client->receive)(client->receive_arg1, client->receive_arg2, NULL);
 	}
     }
 
@@ -448,17 +449,17 @@ rtadv_init_CFSocket(rtadv_client_t * client)
     CFSocketContext	context = { 0, NULL, NULL, NULL, NULL };
 
     if (client == NULL) {
-        return (-1);
+	return (-1);
     }
     client->callout = calloc(1, sizeof(*client->callout));
     if (client->callout == NULL) {
-        return (-1);
+	return (-1);
     }
 
     context.info = client->callout;
     client->callout->socket = CFSocketCreateWithNative(NULL, client->sockfd,
-                                                        kCFSocketReadCallBack,
-                                                        rtadv_read, &context);
+							kCFSocketReadCallBack,
+							rtadv_read, &context);
     client->callout->rls = CFSocketCreateRunLoopSource(NULL, client->callout->socket, 0);
     CFRunLoopAddSource(CFRunLoopGetCurrent(), client->callout->rls, kCFRunLoopDefaultMode);
 
@@ -511,16 +512,16 @@ rtadv_client_init(rtadv_client_t * client)
     /* open socket */
     if ((s = socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6)) < 0) {
 	my_log(LOG_INFO, "rtadv_client_init: error opening socket: %s",
-                strerror(errno));
+		strerror(errno));
 	return (-1);
     }
-    
+
     /* set to non-blocking */
     opt = 1;
     if (ioctl(s, FIONBIO, &opt) < 0) {
 	my_log(LOG_DEBUG, "rtadv_client_init: ioctl FIONBIO failed %s",
-                strerror(errno));
-        close(s);
+		strerror(errno));
+	close(s);
 	return (-1);
     }
 
@@ -549,10 +550,10 @@ rtadv_client_cleanup(rtadv_client_t * client)
     rtadv_free_CFSocket(client);
 
     if (client->sockfd != -1) {
-        close(client->sockfd);
-        client->sockfd = -1;
+	close(client->sockfd);
+	client->sockfd = -1;
     }
-    
+
     return;
 }
 
@@ -568,7 +569,7 @@ rtadv_cancel_pending_events(Service_t * service_p)
     }
 
     rtadv_disable_receive(&rtadv->client);
-    
+
     return;
 }
 
@@ -577,7 +578,7 @@ static void
 rtadv_inactive(Service_t * service_p)
 {
     rtadv_client_t	*client = &((Service_rtadv_t *)service_p->private)->client;
-    
+
     rtadv_cancel_pending_events(service_p);
     rtadv_client_cleanup(client);
     service_remove_addresses(service_p);
@@ -598,7 +599,7 @@ flush_prefixes()
     strcpy(dummyif, "lo0"); /* dummy */
     /* this currently has a global effect */
     if (ioctl(s, SIOCSPFXFLUSH_IN6, (caddr_t)&dummyif) < 0) {
-        my_log(LOG_DEBUG, "RTADV: error flushing prefixes");
+	my_log(LOG_DEBUG, "RTADV: error flushing prefixes");
 	close(s);
 	return;
     }
@@ -619,7 +620,7 @@ flush_routes()
     strcpy(dummyif, "lo0"); /* dummy */
     /* this currently has a global effect */
     if (ioctl(s, SIOCSRTRFLUSH_IN6, (caddr_t)&dummyif) < 0) {
-        my_log(LOG_DEBUG, "RTADV: error flushing routes");
+	my_log(LOG_DEBUG, "RTADV: error flushing routes");
 	close(s);
 	return;
     }
@@ -682,8 +683,8 @@ disable_router_adv(interface_t * if_p)
     bzero(&ifr, sizeof(ifr));
     strncpy(ifr.ifr_name, if_name(if_p), sizeof(ifr.ifr_name));
     if (ioctl(s, SIOCAUTOCONF_STOP, &ifr) < 0) {
-        close(s);
-        return (-1);
+	close(s);
+	return (-1);
     }
     close(s);
     return (0);
@@ -699,130 +700,130 @@ rtadv_start(Service_t * service_p, IFEventID_t event_id, void * event_data)
 
     switch (event_id) {
 	case IFEventID_start_e: {
-            rtadv->retries = 0;
-            rtadv->wait_secs = 1;
-            rtadv_cancel_pending_events(service_p);
+	    rtadv->retries = 0;
+	    rtadv->wait_secs = 1;
+	    rtadv_cancel_pending_events(service_p);
 
-            /* make packet data */
-            (void)rtsol_make_packet(if_p, &rtadv->client);
-		
-            /* forwarding not allowed */
-            if (getinet6sysctl(IPV6CTL_FORWARDING)) {
-                my_log(LOG_DEBUG, "RTADV_START %s: kernel is configured as a router, not a host",
+	    /* make packet data */
+	    (void)rtsol_make_packet(if_p, &rtadv->client);
+
+	    /* forwarding not allowed */
+	    if (getinet6sysctl(IPV6CTL_FORWARDING)) {
+		my_log(LOG_DEBUG, "RTADV_START %s: kernel is configured as a router, not a host",
 			if_name(if_p));
-                status = ip6config_status_internal_error_e;
-                rtadv_failed(service_p, status, "START");
-                return;
+		status = ip6config_status_internal_error_e;
+		rtadv_failed(service_p, status, "START");
+		return;
 		}
-            else {
-                my_log(LOG_DEBUG, "RTADV_START %s: forwarding OK", if_name(if_p));
-            }
+	    else {
+		my_log(LOG_DEBUG, "RTADV_START %s: forwarding OK", if_name(if_p));
+	    }
 
-            if(accept_router_adv(if_p)) {
-                my_log(LOG_INFO, "RTADV_START %s: error accepting router advertisements",
-                        if_name(if_p));
-                status = ip6config_status_internal_error_e;
-                rtadv_failed(service_p, status, "START");
-                return;
-            }
+	    if(accept_router_adv(if_p)) {
+		my_log(LOG_INFO, "RTADV_START %s: error accepting router advertisements",
+			if_name(if_p));
+		status = ip6config_status_internal_error_e;
+		rtadv_failed(service_p, status, "START");
+		return;
+	    }
 
-            /* init client socket */
-            if (rtadv->client.sockfd < 0) {
-                if (rtadv_client_init(&rtadv->client)) {
-                    my_log(LOG_DEBUG, "RTADV %s: client init failed",
-                            if_name(if_p));
-                    status = ip6config_status_internal_error_e;
-                    return;
-                }
-            }
+	    /* init client socket */
+	    if (rtadv->client.sockfd < 0) {
+		if (rtadv_client_init(&rtadv->client)) {
+		    my_log(LOG_DEBUG, "RTADV %s: client init failed",
+			    if_name(if_p));
+		    status = ip6config_status_internal_error_e;
+		    return;
+		}
+	    }
 
-            /* set client->receive, which processes incoming packets */
-            rtadv_enable_receive(&rtadv->client, (rtadv_receive_func_t *)rtadv_start,
+	    /* set client->receive, which processes incoming packets */
+	    rtadv_enable_receive(&rtadv->client, (rtadv_receive_func_t *)rtadv_start,
 				service_p, (void *)IFEventID_data_e);
 
 
-            /* FALL THROUGH */
+	    /* FALL THROUGH */
 	}
 	case IFEventID_timeout_e: {
-            short	curr_flags;
-            
-            if (rtadv->retries > 0) {
-                if (service_link_status(service_p)->valid == TRUE
-                        && service_link_status(service_p)->active == FALSE) {
-                    my_log(LOG_DEBUG, "RTADV_START %s: link inactive", if_name(if_p));
-                    rtadv_inactive(service_p);
-                    return;
-                }
-            }
-            
-            if (rtadv->retries > MAX_RTR_SOLICITATIONS) {
-                /* now we just wait to see if something comes in */
-                my_log(LOG_DEBUG, "RTADV_START %s: rtadv->retries > MAX_RTR_SOLICITATIONS",
-			if_name(if_p));
-                status = ip6config_status_no_rtadv_response_e;
-                return;
-            }
+	    short	curr_flags;
 
-            if(get_llocal_if_addr_flags(if_name(if_p), &curr_flags) != 0) {
-                my_log(LOG_DEBUG, "RTADV_START %s: error getting linklocal flags",
-			if_name(if_p));
-                rtadv_inactive(service_p);
-                status = ip6config_status_internal_error_e;
-                return;
-            }
+	    if (rtadv->retries > 0) {
+		if (service_link_status(service_p)->valid == TRUE
+		    && service_link_status(service_p)->active == FALSE) {
+		    my_log(LOG_DEBUG, "RTADV_START %s: link inactive", if_name(if_p));
+		    rtadv_inactive(service_p);
+		    return;
+		}
+	    }
 
-            if (!(curr_flags & IN6_IFF_NOTREADY)) {
-                my_log(LOG_DEBUG, "RTADV_START: IF READY");
-                /* this means the interface is ready, and now we're just checking
-                 * to make sure the retry stuff is set properly
-                 */
-                if (rtadv->llocal_flags & IN6_IFF_NOTREADY) {
-                    /* this means it was not ready before and has become ready now */
-                    rtadv->retries = 0;
-                }
+	    if (rtadv->retries > MAX_RTR_SOLICITATIONS) {
+		/* now we just wait to see if something comes in */
+		my_log(LOG_DEBUG, "RTADV_START %s: rtadv->retries > MAX_RTR_SOLICITATIONS",
+		       if_name(if_p));
+		status = ip6config_status_no_rtadv_response_e;
+		return;
+	    }
 
-                /* send packet because interface is ready */
-                rtsol_sendpacket(service_p);
-            }
+	    if(get_llocal_if_addr_flags(if_name(if_p), &curr_flags) != 0) {
+		my_log(LOG_DEBUG, "RTADV_START %s: error getting linklocal flags",
+		       if_name(if_p));
+		rtadv_inactive(service_p);
+		status = ip6config_status_internal_error_e;
+		return;
+	    }
 
-            rtadv->llocal_flags = curr_flags;
-            rtadv->retries++;
+	    if (!(curr_flags & IN6_IFF_NOTREADY)) {
+		my_log(LOG_DEBUG, "RTADV_START: IF READY");
+		/* this means the interface is ready, and now we're just checking
+		 * to make sure the retry stuff is set properly
+		 */
+		if (rtadv->llocal_flags & IN6_IFF_NOTREADY) {
+		    /* this means it was not ready before and has become ready now */
+		    rtadv->retries = 0;
+		}
 
-            /* set timer values and wait for responses */
-            tv.tv_sec = rtadv->wait_secs;
-            tv.tv_usec = random_range(0, USECS_PER_SEC - 1);
-            timer_set_relative(rtadv->timer, tv,
-                                (timer_func_t *)rtadv_start,
-                                service_p, (void *)IFEventID_timeout_e, NULL);
+		/* send packet because interface is ready */
+		rtsol_sendpacket(service_p);
+	    }
 
-            /* double the wait time until reach max */
-            rtadv->wait_secs *= 2;
-            if(rtadv->wait_secs > MAX_WAIT_SECS) {
-                rtadv->wait_secs = MAX_WAIT_SECS;
-            }
+	    rtadv->llocal_flags = curr_flags;
+	    rtadv->retries++;
 
-            break;
+	    /* set timer values and wait for responses */
+	    tv.tv_sec = rtadv->wait_secs;
+	    tv.tv_usec = random_range(0, USECS_PER_SEC - 1);
+	    timer_set_relative(rtadv->timer, tv,
+			       (timer_func_t *)rtadv_start,
+			       service_p, (void *)IFEventID_timeout_e, NULL);
+
+	    /* double the wait time until reach max */
+	    rtadv->wait_secs *= 2;
+	    if(rtadv->wait_secs > MAX_WAIT_SECS) {
+		rtadv->wait_secs = MAX_WAIT_SECS;
+	    }
+
+	    break;
 	}
 	case IFEventID_data_e: {
-            /* verify packet */
-            if (rtadv_verify_packet(if_p) != 0) {
-                my_log(LOG_DEBUG,
-                        "RTADV %s: START packet not OK", if_name(if_p));
-            }
-            else {
-                /* save the router */
-                memcpy(&rtadv->our_router, &from.sin6_addr, sizeof(struct in6_addr));
+	    /* verify packet */
+	    if (rtadv_verify_packet(if_p) != 0) {
+		my_log(LOG_DEBUG,
+		       "RTADV %s: START packet not OK", if_name(if_p));
+	    }
+	    else {
+		/* save the router */
+		memcpy(&rtadv->our_router, &from.sin6_addr, sizeof(struct in6_addr));
 
-                /* we're not publishing here, we publish when we get
-                 * notification from the kernel event monitor
-                 */
-                rtadv_cancel_pending_events(service_p);
-            }
+		/* we're not publishing here, we publish when we get
+		 * notification from the kernel event monitor
+		 */
+		rtadv_cancel_pending_events(service_p);
+	    }
 
-            break;
+	    break;
 	}
 	default:
-            break;
+	    break;
     }
 
 	return;
@@ -836,175 +837,175 @@ rtadv_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
     Service_rtadv_t *	rtadv = (Service_rtadv_t *)service_p->private;
 
     switch (evid) {
-        case IFEventID_start_e: {
-            if (if_flags(if_p) & IFF_LOOPBACK) {
-                status = ip6config_status_invalid_operation_e;
-                break;
-            }
-            if (rtadv) {
-                my_log(LOG_DEBUG, "RTADV %s: re-entering start state",
-                        if_name(if_p));
-                status = ip6config_status_internal_error_e;
-                break;
-            }
+	case IFEventID_start_e: {
+	    if (if_flags(if_p) & IFF_LOOPBACK) {
+		status = ip6config_status_invalid_operation_e;
+		break;
+	    }
+	    if (rtadv) {
+		my_log(LOG_DEBUG, "RTADV %s: re-entering start state",
+		       if_name(if_p));
+		status = ip6config_status_internal_error_e;
+		break;
+	    }
 
-            rtadv = calloc(1, sizeof(*rtadv));
-            if (rtadv == NULL) {
-                my_log(LOG_ERR, "RTADV %s: calloc failed",
-                        if_name(if_p));
-                status = ip6config_status_allocation_failed_e;
-                break;
-            }
+	    rtadv = calloc(1, sizeof(*rtadv));
+	    if (rtadv == NULL) {
+		my_log(LOG_ERR, "RTADV %s: calloc failed",
+		       if_name(if_p));
+		status = ip6config_status_allocation_failed_e;
+		break;
+	    }
 
-            service_p->private = rtadv;
-            rtadv->client.sockfd = -1;
+	    service_p->private = rtadv;
+	    rtadv->client.sockfd = -1;
 
-            rtadv->timer = timer_callout_init();
-            if (rtadv->timer == NULL) {
-                my_log(LOG_ERR, "RTADV %s: timer_callout_init failed",
-                        if_name(if_p));
-                status = ip6config_status_allocation_failed_e;
-                goto stop;
-            }
-            
-            my_log(LOG_DEBUG, "RTADV %s: starting", if_name(if_p));
+	    rtadv->timer = timer_callout_init();
+	    if (rtadv->timer == NULL) {
+		my_log(LOG_ERR, "RTADV %s: timer_callout_init failed",
+		       if_name(if_p));
+		status = ip6config_status_allocation_failed_e;
+		goto stop;
+	    }
 
-            rtadv_start(service_p, evid, NULL);
+	    my_log(LOG_DEBUG, "RTADV %s: starting", if_name(if_p));
 
-            break;
-        }
-        stop:
-        case IFEventID_stop_e: {
-            my_log(LOG_DEBUG, "RTADV %s: stop", if_name(if_p));
+	    rtadv_start(service_p, evid, NULL);
 
-            if (rtadv == NULL) {
-                my_log(LOG_DEBUG, "RTADV %s: already stopped",
-                        if_name(if_p));
-                status = ip6config_status_internal_error_e;
-                break;
-            }
+	    break;
+	}
+	stop:
+	case IFEventID_stop_e: {
+	    my_log(LOG_DEBUG, "RTADV %s: stop", if_name(if_p));
 
-            if(disable_router_adv(if_p)) {
-                my_log(LOG_DEBUG, "RTADV %s: error disabling rtadv",
-                if_name(if_p));
-            }
+	    if (rtadv == NULL) {
+		my_log(LOG_DEBUG, "RTADV %s: already stopped",
+		       if_name(if_p));
+		status = ip6config_status_internal_error_e;
+		break;
+	    }
 
-            /* remove IP6 addresses */
-            service_remove_addresses(service_p);
+	    if(disable_router_adv(if_p)) {
+		my_log(LOG_DEBUG, "RTADV %s: error disabling rtadv",
+		if_name(if_p));
+	    }
 
-            /* clean-up resources */
-            if (rtadv->timer) {
-                timer_callout_free(&rtadv->timer);
-            }
+	    /* remove IP6 addresses */
+	    service_remove_addresses(service_p);
 
-            rtadv_client_cleanup(&rtadv->client);
+	    /* clean-up resources */
+	    if (rtadv->timer) {
+		timer_callout_free(&rtadv->timer);
+	    }
 
-            /* flush prefixes and routes we may have acquired */
-            flush_prefixes();
-            flush_routes();
+	    rtadv_client_cleanup(&rtadv->client);
 
-            free(rtadv);
-            service_p->private = NULL;
-            break;
-        }
-        case IFEventID_state_change_e: {
-            int	i, count = 0;
-            ip6_addrinfo_list_t *	ip6_addrs = ((ip6_addrinfo_list_t *)event_data);
-            ip6_addrinfo_t		tmp_addrs[ip6_addrs->n_addrs];
+	    /* flush prefixes and routes we may have acquired */
+	    flush_prefixes();
+	    flush_routes();
 
-            if (rtadv == NULL) {
-                my_log(LOG_DEBUG, "RTADV %s: private data is NULL",
-                        if_name(if_p));
-                status = ip6config_status_internal_error_e;
-                break;
-            }
-                        
-            /* if we've suddenly lost our addresses 
-             * and the link is still up, then
-             * someone probably flushed the prefixes;
-             * restart rtsols
-             */
-            if (ip6_addrs->n_addrs == 1 &&
-                    IN6_IS_ADDR_LINKLOCAL(&(ip6_addrs->addr_list[0].addr))) {
-                if (service_link_status(service_p)->valid == TRUE) {
-                    if (service_link_status(service_p)->active == TRUE) {
-                        my_log(LOG_DEBUG, "RTADV: RESTARTING rtsols on %s",
-                                if_name(if_p));
-                        rtadv_start(service_p, IFEventID_start_e, NULL);
-                    }
-                }
+	    free(rtadv);
+	    service_p->private = NULL;
+	    break;
+	}
+	case IFEventID_state_change_e: {
+	    int	i, count = 0;
+	    ip6_addrinfo_list_t *	ip6_addrs = ((ip6_addrinfo_list_t *)event_data);
+	    ip6_addrinfo_t		tmp_addrs[ip6_addrs->n_addrs];
 
-                break;
-            }
-                        
-            /* only copy autoconf addresses */
-            for (i = 0; i < ip6_addrs->n_addrs; i++) {
-			ip6_addrinfo_t	*new_addr = ip6_addrs->addr_list + i;
-                
-			if (new_addr->flags & IN6_IFF_AUTOCONF) {
-				memcpy(&tmp_addrs[count].addr, &new_addr->addr, sizeof(struct in6_addr));
-				tmp_addrs[count].prefixlen = new_addr->prefixlen;
-				tmp_addrs[count].flags = new_addr->flags;
-				prefixLen2mask(&tmp_addrs[count].prefixmask, 
-							   &tmp_addrs[count].prefixlen);
-				count++;
-			}
+	    if (rtadv == NULL) {
+		my_log(LOG_DEBUG, "RTADV %s: private data is NULL",
+		       if_name(if_p));
+		status = ip6config_status_internal_error_e;
+		break;
+	    }
+
+	    /* if we've suddenly lost our addresses
+	     * and the link is still up, then
+	     * someone probably flushed the prefixes;
+	     * restart rtsols
+	     */
+	    if (ip6_addrs->n_addrs == 1 &&
+		IN6_IS_ADDR_LINKLOCAL(&(ip6_addrs->addr_list[0].addr))) {
+		if (service_link_status(service_p)->valid == TRUE) {
+		    if (service_link_status(service_p)->active == TRUE) {
+			my_log(LOG_DEBUG, "RTADV: RESTARTING rtsols on %s",
+			       if_name(if_p));
+			rtadv_start(service_p, IFEventID_start_e, NULL);
+		    }
 		}
 
-		if (!count) {
-			my_log(LOG_DEBUG, "RTADV: no rtadv addresses found for interface %s",
-				   if_name(if_p));
-			break;  // this is a strange failure, but not catastrophic
-		}
-		
-		if (service_p->info.addrs.addr_list) {
-			free(service_p->info.addrs.addr_list);
-			service_p->info.addrs.addr_list = NULL;
-			service_publish_clear(service_p);
-		}
-		
-		service_p->info.addrs.addr_list = malloc(count * sizeof(ip6_addrinfo_t));
-		if (service_p->info.addrs.addr_list == NULL) {
-			my_log(LOG_ERR, "RTADV: error allocating memory for addresses on interface %s",
-				   if_name(if_p));
-			status = ip6config_status_allocation_failed_e;
-			break;
-		}
-		service_p->info.addrs.n_addrs = count;
-		memcpy(service_p->info.addrs.addr_list, &tmp_addrs, count * sizeof(ip6_addrinfo_t));
-			
-		/* copy the saved router info */
-		memcpy(&service_p->info.router, &rtadv->our_router, sizeof(struct in6_addr));
-		
-		service_publish_success(service_p);
-		
-            break;
-        }
-        case IFEventID_media_e: {
-            if (rtadv == NULL)
-                return (ip6config_status_internal_error_e);
+		break;
+	    }
 
-            if (service_link_status(service_p)->valid == TRUE) {
-                if (service_link_status(service_p)->active == TRUE) {
-                    service_remove_addresses(service_p);
-                    rtadv_start(service_p, IFEventID_start_e, NULL);
-                }
-                else {
-                    struct timeval tv;
+	    /* only copy autoconf addresses */
+	    for (i = 0; i < ip6_addrs->n_addrs; i++) {
+		ip6_addrinfo_t	*new_addr = ip6_addrs->addr_list + i;
 
-                    /* if link goes down and stays down long enough, unpublish */
-                    rtadv_cancel_pending_events(service_p);
-                    tv.tv_sec = LINK_INACTIVE_WAIT_SECS;
-                    tv.tv_usec = 0;
-                    timer_set_relative(rtadv->timer, tv,
-                                        (timer_func_t *)rtadv_link_timer,
-                                        service_p, NULL, NULL);
-                }
-            }
-            break;
-        }
-        default:
-            break;
+		if (new_addr->flags & IN6_IFF_AUTOCONF) {
+		    memcpy(&tmp_addrs[count].addr, &new_addr->addr, sizeof(struct in6_addr));
+		    tmp_addrs[count].prefixlen = new_addr->prefixlen;
+		    tmp_addrs[count].flags = new_addr->flags;
+		    prefixLen2mask(&tmp_addrs[count].prefixmask,
+				   tmp_addrs[count].prefixlen);
+		    count++;
+		}
+	    }
+
+	    if (!count) {
+		my_log(LOG_DEBUG, "RTADV: no rtadv addresses found for interface %s",
+		       if_name(if_p));
+		break;  // this is a strange failure, but not catastrophic
+	    }
+
+	    if (service_p->info.addrs.addr_list) {
+		free(service_p->info.addrs.addr_list);
+		service_p->info.addrs.addr_list = NULL;
+		service_publish_clear(service_p);
+	    }
+
+	    service_p->info.addrs.addr_list = malloc(count * sizeof(ip6_addrinfo_t));
+	    if (service_p->info.addrs.addr_list == NULL) {
+		my_log(LOG_ERR, "RTADV: error allocating memory for addresses on interface %s",
+		       if_name(if_p));
+		status = ip6config_status_allocation_failed_e;
+		break;
+	    }
+	    service_p->info.addrs.n_addrs = count;
+	    memcpy(service_p->info.addrs.addr_list, &tmp_addrs, count * sizeof(ip6_addrinfo_t));
+
+	    /* copy the saved router info */
+	    memcpy(&service_p->info.router, &rtadv->our_router, sizeof(struct in6_addr));
+
+	    service_publish_success(service_p);
+
+	    break;
+	}
+	case IFEventID_media_e: {
+	    if (rtadv == NULL)
+		return (ip6config_status_internal_error_e);
+
+	    if (service_link_status(service_p)->valid == TRUE) {
+		if (service_link_status(service_p)->active == TRUE) {
+		    service_remove_addresses(service_p);
+		    rtadv_start(service_p, IFEventID_start_e, NULL);
+		}
+		else {
+		    struct timeval tv;
+
+		    /* if link goes down and stays down long enough, unpublish */
+		    rtadv_cancel_pending_events(service_p);
+		    tv.tv_sec = LINK_INACTIVE_WAIT_SECS;
+		    tv.tv_usec = 0;
+		    timer_set_relative(rtadv->timer, tv,
+				       (timer_func_t *)rtadv_link_timer,
+				       service_p, NULL, NULL);
+		}
+	    }
+	    break;
+	}
+	default:
+	    break;
     } /* switch */
 
     return (status);

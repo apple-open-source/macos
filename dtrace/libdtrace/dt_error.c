@@ -19,11 +19,11 @@
  * CDDL HEADER END
  */
 /*
- * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)dt_error.c	1.13	06/03/24 SMI"
+#pragma ident	"@(#)dt_error.c	1.14	07/02/20 SMI"
 
 #include <strings.h>
 #include <dt_impl.h>
@@ -206,6 +206,7 @@ dtrace_faultstr(dtrace_hdl_t *dtp, int fault)
 		{ DTRACEFLT_KPRIV,	"invalid kernel access" },
 		{ DTRACEFLT_UPRIV,	"invalid user access" },
 		{ DTRACEFLT_TUPOFLOW,	"tuple stack overflow" },
+		{ DTRACEFLT_BADSTACK,	"bad stack" },
 		{ DTRACEFLT_LIBRARY,	"library-level fault" },
 		{ 0,			NULL }
 	};

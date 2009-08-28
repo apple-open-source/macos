@@ -1,25 +1,11 @@
-# Copyright (c) 2000-2004 Dave Rolsky
-# All rights reserved.
-# This program is free software; you can redistribute it and/or
-# modify it under the same terms as Perl itself.  See the LICENSE
-# file that comes with this distribution for more details.
 package Params::Validate;
 
 use strict;
+use warnings;
 
-require DynaLoader;
+require XSLoader;
+XSLoader::load( 'Params::Validate', $Params::Validate::VERSION );
 
-if ( $] >= 5.006 )
-{
-    require XSLoader;
-    XSLoader::load( 'Params::Validate', $Params::Validate::VERSION );
-}
-else
-{
-    require DynaLoader;
-    push @ISA, 'DynaLoader';
-    Params::Validate->bootstrap( $Params::Validate::VERSION );
-}
 
 my $default_fail = sub { require Carp;
                          Carp::confess($_[0]) };
@@ -49,7 +35,7 @@ my $default_fail = sub { require Carp;
     }
 }
 
-sub _check_regex_from_xs { return 0 unless defined $_[0]; return $_[0] =~ /$_[1]/ ? 1 : 0 }
+sub _check_regex_from_xs { return ( defined $_[0] ? $_[0] : '' ) =~ /$_[1]/ ? 1 : 0 }
 
 BEGIN
 {
@@ -167,8 +153,8 @@ Params::Validate documentation for details.
 
 =head1 COPYRIGHT
 
-Copyright (c) 2004 David Rolsky.  All rights reserved.  This program
-is free software; you can redistribute it and/or modify it under the
-same terms as Perl itself.
+Copyright (c) 2004-2007 David Rolsky.  All rights reserved.  This
+program is free software; you can redistribute it and/or modify it
+under the same terms as Perl itself.
 
 =cut

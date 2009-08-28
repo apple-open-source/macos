@@ -9,95 +9,106 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 ## Build settings ##
 
 TCL_DSTROOT           = $(if $(DSTROOT),$(DSTROOT),/tmp/tcl/Release)
-TCL_FRAMEWORK_DIR     = $(TCL_DSTROOT)/$(NSDEFAULTLOCATION)/Library/Frameworks
-TCLSH                 = /usr/bin/tclsh
-WISH                  = /usr/bin/wish
 
+TCL_FRAMEWORK_DIR     = $(TCL_DSTROOT)$(NSFRAMEWORKDIR)
+TCLSH                 = $(TCL_DSTROOT)$(USRBINDIR)/tclsh
+WISH                  = $(TCL_DSTROOT)$(USRBINDIR)/wish
+
+TCL_EXT_DIR           = $(NSLIBRARYDIR)/Tcl
+TCL_SRC_DIR           = $(SRCROOT)/tcl
+TCL_VERSION           = $(shell $(GREP) "TCL_VERSION=" "$(TCL_SRC_DIR)/tcl/unix/configure" | $(CUT) -d '=' -f 2)
+TCL_INIT              = $(TCL_FRAMEWORK_DIR)/Tcl.framework/Versions/$(TCL_VERSION)/Resources/Scripts/init.tcl
+
+ext ext84: TCL_EXT_DIR= $(NSLIBRARYDIR)/Tcl/$(TCL_VERSION)
+ext84: TCL_SRC_DIR    = $(SRCROOT)/tcl84
+ext:   TCL_VERSCHECK  = [catch {package present Tcl $(TCL_VERSION)-}]
+ext84: TCL_VERSCHECK  = [package vcompare $(TCL_VERSION) $$::tcl_version]
+ext84: TCL_AUTOPATH   = $(NSFRAMEWORKDIR)/Tk.framework/Versions/$(TCL_VERSION)/Resources
+fetch:: SRCROOT       = $(CURDIR)
+
+TCL_CONFIG_DIR        = $(OBJROOT)
 AC_VALS               = ac_cv_path_tclsh=$(TCLSH) ac_cv_path_wish=$(WISH) ac_cv_header_stdc=yes
-NSDEFAULTLOCATION     = /System
 
-MAKE_ARGS             = VERBOSE=YES NSDEFAULTLOCATION=$(NSDEFAULTLOCATION) \
+MAKE_ARGS             = TclExtLibDir=$(TCL_EXT_DIR) LicenseInstallDir=$(OSL) Plist=$(PLIST) \
                         TclFramework=$(TCL_FRAMEWORK_DIR)/Tcl.framework Tclsh=$(TCLSH) \
                         TkFramework=$(TCL_FRAMEWORK_DIR)/Tk.framework Wish=$(WISH) \
-                        $(if $(UseCvs),UseCvs=$(UseCvs)) $(AC_VALS)
+                        CONFIG_SITE=$(TCL_CONFIG_DIR)/config.site
 
-MAKE_ARGS_only          = VERBOSE=YES NSDEFAULTLOCATION=$(NSDEFAULTLOCATION) \
-                        TclFramework=/System/Library/Frameworks/Tcl.framework Tclsh=$(TCLSH) \
-                        TkFramework=/System/Library/Frameworks/Tk.framework Wish=$(WISH) \
-                        $(if $(UseCvs),UseCvs=$(UseCvs)) $(AC_VALS)
+ext:   EXT_MAKE_ARGS  = PureTclExt=NO Tcl84Ext=NO
+ext84: EXT_MAKE_ARGS  = PureTclExt=NO Tcl84Ext=YES
+ext_puretcl: EXT_MAKE_ARGS = PureTclExt=YES
 
-core = tcl tk
-ext  = tcl_ext
-all  = $(core) $(ext)
+PLIST                 = $(SRCROOT)/$(Project).plist
+OSV                   = /usr/local/OpenSourceVersions
+OSL                   = /usr/local/OpenSourceLicenses
 
-## targets ##
+export PATH          := $(PATH):/usr/X11/bin
+Cruft                += .git
 
-.PHONY: $(all)
+SubProjects          := tcl84 tk84 tcl tk tcl_ext
+Actions              := almostclean extract fetch install-license
+Actions_nodeps       := install
+include tcl_ext/SubprojActions.make
 
-## installsrc ##
+## Targets ##
 
-install_source::
-	@echo "Extracting $(Project)..."
-	for subdir in $(all) ; do \
-		$(MAKE) -C $(SRCROOT)/$${subdir} -f Makefile.fetch fetch SRCROOT=$(SRCROOT)/$${subdir} || exit 1; \
-	done
-	$(CHMOD) a+x $(SRCROOT)/tcl_ext/expect/expect/install-sh
-	$(CHMOD) a+x $(SRCROOT)/tcl_ext/expect/expect/mkinstalldirs
-	$(CHMOD) a+x $(SRCROOT)/tcl_ext/incrtcl/incrTcl/config/install-sh
-	$(CHMOD) a+x $(SRCROOT)/tcl_ext/tclAE/TclAE/Build/Resources/macRoman2utf8.tcl
-	# repair broken scripts with unbalanced single quotes
-	find $(SRCROOT) -type f -print0 | xargs -0 perl -pi -e 's:( /etc/.relid)\x27:\1:' 
+core84               := install-tcl84 install-tk84 ext84 cleanup84
+core                 := install-tcl install-tk ext ext_puretcl
+ext                  := install-tcl_ext
 
-## install ##
+install_source:: extract
 
-install:: $(all) fix-install_names install-plist munge-docs compress_man_pages
+build::
+	$(_v) $(MKDIR) $(TCL_CONFIG_DIR)
+	$(_v) echo "cache_file=$(TCL_CONFIG_DIR)/config.cache" > "$(TCL_CONFIG_DIR)/config.site"
+	$(_v) for v in $(AC_VALS); do echo "$$v" >> "$(TCL_CONFIG_DIR)/config.site"; done
 
-install_tcl:: tcl install-plist compress_man_pages
+install:: $(core84) $(core) install-plist
 
-install_tk:: tk_only compress_man_pages
+ext ext84:
+	$(_v) $(MAKE) $(ext) $(EXT_MAKE_ARGS) \
+		TCL_EXT_DIR=$(TCL_EXT_DIR) TCL_CONFIG_DIR=$(OBJROOT) \
+		OBJROOT=$(OBJROOT)/$@ SYMROOT=$(SYMROOT)/$@ 
+	$(_v) printf '%s\n%s%s\n' 'if {$(TCL_VERSCHECK)} {return}' \
+		'if {[lsearch -exact $$::auto_path $$dir] == -1} {' \
+		'lappend ::auto_path $$dir; lappend ::tcl_pkgPath $$dir}' \
+		> $(OBJROOT)/$@/pkgIndex.tcl
+	$(_v) printf '\n%s\n    %s%s\n\t%s\n\t    %s%s\n\t%s\n    %s\n' \
+		'proc tcl::DarwinFixAutoPath {} {' \
+		'if {[lsearch -exact $$::auto_path $(TCL_EXT_DIR)] == -1 && ' \
+		'[lsearch -exact $$::auto_path $(shell dirname $(TCL_EXT_DIR))] != -1} {' \
+		'foreach g {::auto_path ::tcl_pkgPath} {' \
+		'set $$g [linsert [set $$g] [expr {[lsearch -exact [set $$g] ' \
+		'$(shell dirname $(TCL_EXT_DIR))]+1}] $(TCL_EXT_DIR)]' '}' '}'\
+	        >> $(TCL_INIT)
+	$(_v) if [ -n "$(TCL_AUTOPATH)" ]; then printf '%s%s\n' \
+		'if {[lsearch -exact $$::auto_path $(TCL_AUTOPATH)] == -1} {' \
+		'lappend ::auto_path $(TCL_AUTOPATH)}' \
+		>> $(OBJROOT)/$@/pkgIndex.tcl; \
+		printf '    %s%s\n\t%s%s\n    %s\n' \
+		'if {[lsearch -exact $$::auto_path $(TCL_AUTOPATH)] == -1 && ' \
+		'[lsearch -exact $$::auto_path $(NSFRAMEWORKDIR)] != -1} {' \
+		'set ::auto_path [linsert $$::auto_path [expr {[lsearch -exact ' \
+		'$$::auto_path $(NSFRAMEWORKDIR)]+1}] $(TCL_AUTOPATH)]' '}' \
+	        >> $(TCL_INIT); fi
+	$(_v) printf '%s\n%s\n%s\n' \
+		'}' 'tcl::DarwinFixAutoPath' 'rename tcl::DarwinFixAutoPath {}' \
+	        >> $(TCL_INIT)
+	$(_v) $(INSTALL_FILE) $(OBJROOT)/$@/pkgIndex.tcl $(DSTROOT)$(TCL_EXT_DIR)
 
-install_tcl_ext:: tcl_ext_only fix-install_names munge-docs compress_man_pages
+ext_puretcl:
+	$(_v) $(MAKE) $(ext) $(EXT_MAKE_ARGS)
 
-$(all):
-	$(_v) unset LD_SPLITSEGS_NEW_LIBRARIES && \
-		$(_v) $(MAKE) -C $@ install $(MAKE_ARGS) \
-		SRCROOT=$(SRCROOT)/$@ \
-		OBJROOT=$(OBJROOT)/$@ \
-		SYMROOT=$(SYMROOT)/$@ \
-		DSTROOT=$(DSTROOT)
-	rm -f $(DSTROOT)/System/Library/Tcl/*/lib*stub*.a
+cleanup84:
+	$(_v) $(RMDIR) $(DSTROOT)$(USRDIR)/{include,lib,share/man/{man3,mann},local/include}
+	$(_v) $(RM) $(DSTROOT)$(NSFRAMEWORKDIR)/{Tcl,Tk}.framework/*8.4*
+	$(_v) $(RMDIR) $(DSTROOT)$(NSFRAMEWORKDIR)/{Tcl,Tk}.framework/Versions/8.4/Resources/Documentation
 
-tk_only:
-	$(_v) unset LD_SPLITSEGS_NEW_LIBRARIES && \
-		$(_v) $(MAKE) -C tk install $(MAKE_ARGS_only) \
-		SRCROOT=$(SRCROOT)/tk \
-		OBJROOT=$(OBJROOT)/tk \
-		SYMROOT=$(SYMROOT)/tk \
-		DSTROOT=$(DSTROOT)
-tcl_ext_only:
-	$(_v) unset LD_SPLITSEGS_NEW_LIBRARIES && \
-		$(_v) $(MAKE) -C tcl_ext install $(MAKE_ARGS_only) \
-		SRCROOT=$(SRCROOT)/tcl_ext \
-		OBJROOT=$(OBJROOT)/tcl_ext \
-		SYMROOT=$(SYMROOT)/tcl_ext \
-		DSTROOT=$(DSTROOT)
-	rm -f $(DSTROOT)/System/Library/Tcl/*/lib*stub*.a
+install-plist: install-license
+	$(_v) $(MKDIR) $(DSTROOT)$(OSV) && $(INSTALL_FILE) $(PLIST) $(DSTROOT)$(OSV)/$(Project).plist
 
-fix-install_names:
-	cd $(DSTROOT); perl -e 'foreach (glob "System/Library/Tcl/*/*.dylib") {print "running install_name_tool -id /$$_ $$_\n";system "install_name_tool -id /$$_ $$_";}'
+extract::
+	$(_v) $(FIND) "$(SRCROOT)" $(Find_Cruft) -depth -exec $(RMDIR) "{}" \;
 
-OSV     = $(DSTROOT)/usr/local/OpenSourceVersions
-OSL     = $(DSTROOT)/usr/local/OpenSourceLicenses
-
-install-plist:
-	$(MKDIR) $(OSV)
-	$(INSTALL_FILE) $(SRCROOT)/$(Project).plist $(OSV)/$(Project).plist
-	$(MKDIR) $(OSL)
-	$(INSTALL_FILE) $(SRCROOT)/tcl/tcl/license.terms $(OSL)/tcl.txt
-	$(INSTALL_FILE) $(SRCROOT)/tk/tk/license.terms $(OSL)/tk.txt
-
-munge-docs:
-	$(MKDIR) "$(DSTROOT)$(SYSTEM_DEVELOPER_TOOLS_DOC_DIR)"
-	$(MV) "$(DSTROOT)/Developer/Documentation/DeveloperTools/Tcl" \
-		"$(DSTROOT)$(SYSTEM_DEVELOPER_TOOLS_DOC_DIR)"
-	rmdir $(DSTROOT)/Developer/Documentation/DeveloperTools
+.PHONY: ext ext84 ext_puretcl cleanup84 install-plist
+.NOTPARALLEL:

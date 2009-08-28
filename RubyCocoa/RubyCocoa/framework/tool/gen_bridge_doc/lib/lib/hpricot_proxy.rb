@@ -1,5 +1,7 @@
 module CocoaRef
   class HpricotProxy
+    class DeprecatedError < StandardError; end
+    
     include Extras
     
     attr_accessor :elements, :exclude_constant_names
@@ -11,10 +13,22 @@ module CocoaRef
       
       doc = open(file) {|f| Hpricot f, :fixup_tags => true }
       @elements = (doc/"//body/*").select{ |e| e.is_a?(Hpricot::Elem) }
+      
+      # Skip deprecated classes
+      raise DeprecatedError if @elements.any? {|e| e.inner_html.include?('Legacy Document') }
+      
+      # starting with xcode 3 Apple uses this new layout where the stuff we want is in the element next to the comment "legacyStatement"
+      if @elements.any? {|e| e.inner_html.include?('<!-- legacyStatement -->') }
+        @elements = @elements.last.children.select{ |e| e.is_a?(Hpricot::Elem) }
+      end
     end
   
     def start_of_method_def?(index)
-      @elements[index].name == 'h3' and @elements[index].get_attribute('class') == 'tight' and @elements[index + 1].spacer?
+      @elements[index].name == 'h3' and tight?(index) and @elements[index + 1].spacer?
+    end
+    
+    def tight?(index)
+      @elements[index].get_attribute('class') == 'tight' or @elements[index].get_attribute('class') == 'verytight'
     end
     
     # This is a check for for the start of a constant def

@@ -51,7 +51,6 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/mman.h>
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/un.h>
@@ -72,6 +71,13 @@
 #include "winscard_msg.h"
 #include "sys_generic.h"
 
+#include <libkern/OSByteOrder.h>
+/*
+ #define bswap_16 OSSwapInt16
+#define bswap_32 OSSwapInt32
+#define bswap_64 OSSwapInt64
+*/
+
 #include <security_utilities/debugging.h>
 
 /**
@@ -85,7 +91,7 @@
  *
  * @return Same error codes as SHMMessageReceive().
  */
-INTERNAL int SHMClientRead(psharedSegmentMsg msgStruct, DWORD dwClientID, int blockamount)
+INTERNAL int32_t SHMClientRead(psharedSegmentMsg msgStruct, uint32_t dwClientID, int32_t blockamount)
 {
 	int rv = SHMMessageReceive(msgStruct, sizeof(*msgStruct), dwClientID, blockamount);
 	SHSharedSegmentMsgToHostOrder(msgStruct);
@@ -104,7 +110,7 @@ INTERNAL int SHMClientRead(psharedSegmentMsg msgStruct, DWORD dwClientID, int bl
  *
  * @return Same error codes as SHMMessageReceive().
  */
-INTERNAL int SHMClientReadMessage(psharedSegmentMsg msgStruct, DWORD dwClientID, size_t dataSize, int blockamount)
+INTERNAL int32_t SHMClientReadMessage(psharedSegmentMsg msgStruct, uint32_t dwClientID, size_t dataSize, int32_t blockamount)
 {
 	// Read the basic header first so we know the size of the rest
 	// The special case of "dataSize == 0" means that we should deduce the size of the
@@ -118,6 +124,7 @@ INTERNAL int SHMClientReadMessage(psharedSegmentMsg msgStruct, DWORD dwClientID,
 	if (rv)
 		return rv;
 	SHSharedSegmentMsgToHostOrder(msgStruct);
+
 	// Integrity check
 	if (msgStruct->headerTag != WINSCARD_MSG_HEADER_TAG)
 	{
@@ -127,6 +134,7 @@ INTERNAL int SHMClientReadMessage(psharedSegmentMsg msgStruct, DWORD dwClientID,
 			msgStruct->headerTag, msgStruct->command);
 		return SCARD_F_INTERNAL_ERROR;
 	}
+	
 	if (dataSize == 0)
 		dataSize = msgStruct->msgSize - headerSize;		// message size includes header
 	else
@@ -136,6 +144,7 @@ INTERNAL int SHMClientReadMessage(psharedSegmentMsg msgStruct, DWORD dwClientID,
 		secdebug("pcscd", "Error: create on client socket: %s", strerror(errno));
 		return SCARD_F_INTERNAL_ERROR;
 	}
+
 	Log2(PCSC_LOG_DEBUG, "SHMClientReadMessage: Issuing read for %d bytes", dataSize);
 	secdebug("pcscd", "SHMClientReadMessage: Issuing read for %ld bytes", dataSize);
 	if (blockamount == 0)
@@ -143,6 +152,7 @@ INTERNAL int SHMClientReadMessage(psharedSegmentMsg msgStruct, DWORD dwClientID,
 	rv = SHMMessageReceive(msgStruct->data, dataSize, dwClientID, blockamount);
 	Log3(rv?PCSC_LOG_CRITICAL:PCSC_LOG_DEBUG, "SHMClientReadMessage: read message body error: 0x%08X [0x%08X]", rv, rv);
 	secdebug("pcscd", "SHMClientReadMessage: read message body error: 0x%08X [0x%08X]", rv, rv);
+
 	return rv;
 }
 
@@ -159,7 +169,7 @@ INTERNAL int SHMClientReadMessage(psharedSegmentMsg msgStruct, DWORD dwClientID,
  * @retval -1 The socket can not open a connection.
  * @retval -1 Can not set the socket to non-blocking.
  */
-INTERNAL int SHMClientSetupSession(PDWORD pdwClientID)
+INTERNAL int SHMClientSetupSession(uint32_t *pdwClientID)
 {
 	struct sockaddr_un svc_addr;
 	int one;
@@ -181,8 +191,8 @@ INTERNAL int SHMClientSetupSession(PDWORD pdwClientID)
 	if (connect(*pdwClientID, (struct sockaddr *) &svc_addr,
 			sizeof(svc_addr.sun_family) + strlen(svc_addr.sun_path) + 1) < 0)
 	{
-		Log2(PCSC_LOG_CRITICAL, "Error: connect to client socket: %s",
-			strerror(errno));
+		Log3(PCSC_LOG_CRITICAL, "Error: connect to client socket %s: %s",
+			PCSCLITE_CSOCK_NAME, strerror(errno));
 		SYS_CloseFile(*pdwClientID);
 		return -1;
 	}
@@ -190,8 +200,8 @@ INTERNAL int SHMClientSetupSession(PDWORD pdwClientID)
 	one = 1;
 	if (ioctl(*pdwClientID, FIONBIO, &one) < 0)
 	{
-		Log2(PCSC_LOG_CRITICAL, "Error: cannot set socket nonblocking: %s",
-			strerror(errno));
+		Log3(PCSC_LOG_CRITICAL, "Error: cannot set socket %s nonblocking: %s",
+			PCSCLITE_CSOCK_NAME, strerror(errno));
 		SYS_CloseFile(*pdwClientID);
 		return -1;
 	}
@@ -206,7 +216,7 @@ INTERNAL int SHMClientSetupSession(PDWORD pdwClientID)
  *
  * @retval 0 Success.
  */
-INTERNAL int SHMClientCloseSession(DWORD dwClientID)
+INTERNAL int SHMClientCloseSession(uint32_t dwClientID)
 {
 	SYS_CloseFile(dwClientID);
 	return 0;
@@ -241,8 +251,8 @@ INTERNAL size_t SHMCalculateMessageSize(size_t dataSize)
  * @retval -1 Socket is closed.
  * @retval -1 A signal was received.
  */
-INTERNAL int SHMMessageSend(void *buffer_void, size_t buffer_size,
-	int filedes, int blockAmount)
+INTERNAL int SHMMessageSend(void *buffer_void, uint64_t buffer_size,
+	int32_t filedes, int32_t blockAmount)
 {
 	char *buffer = (char *)buffer_void;
 
@@ -375,8 +385,8 @@ INTERNAL int SHMMessageSend(void *buffer_void, size_t buffer_size,
  * @retval -1 Socket is closed.
  * @retval -1 A signal was received.
  */
-INTERNAL int SHMMessageReceive(void *buffer_void, size_t buffer_size,
-	int filedes, int blockAmount)
+INTERNAL int SHMMessageReceive(void *buffer_void, uint64_t buffer_size,
+	int32_t filedes, int32_t blockAmount)
 {
 	char *buffer = (char *)buffer_void;
 
@@ -508,8 +518,8 @@ INTERNAL int SHMMessageReceive(void *buffer_void, size_t buffer_size,
  *
  * @return Same error codes as SHMMessageSend().
  */
-INTERNAL int WrapSHMWrite(unsigned int command, DWORD dwClientID,
-	unsigned int dataSize, unsigned int blockAmount, void *data_void)
+INTERNAL int32_t WrapSHMWrite(uint32_t command, uint32_t dwClientID,
+	uint64_t size, uint32_t blockAmount, void *data_void)
 {
 	char *data = (char *)data_void;
 
@@ -522,12 +532,13 @@ INTERNAL int WrapSHMWrite(unsigned int command, DWORD dwClientID,
 
 	memset(&msgStruct, 0, sizeof(msgStruct));
 	msgStruct.headerTag = WINSCARD_MSG_HEADER_TAG;
-	msgStruct.msgSize = sizeof(sharedSegmentMsg) - sizeof(msgStruct.data) + dataSize;
+	msgStruct.msgSize = sizeof(sharedSegmentMsg) - sizeof(msgStruct.data) + size;
 	msgStruct.mtype = (command == CMD_VERSION)?CMD_VERSION:CMD_FUNCTION;
 	msgStruct.user_id = SYS_GetUID();
 	msgStruct.group_id = SYS_GetGID();
 	msgStruct.command = command;
 	msgStruct.date = time(NULL);
+	memset(msgStruct.key, 0, sizeof(msgStruct.key));
 
 	if ((SCARD_TRANSMIT_EXTENDED == command)
 		|| (SCARD_CONTROL_EXTENDED == command))
@@ -537,42 +548,41 @@ INTERNAL int WrapSHMWrite(unsigned int command, DWORD dwClientID,
 		size_t sizeRemaining = (msgStruct.msgSize <= PCSCLITE_MAX_MESSAGE_SIZE)?0:
 			(msgStruct.msgSize - PCSCLITE_MAX_MESSAGE_SIZE);
 		memcpy(msgStruct.data, data, sizeToSend);
+		
 		SHSharedSegmentMsgToNetworkOrder(&msgStruct);
-		ret = SHMMessageSend(&msgStruct, sizeToSend, dwClientID,
-			blockAmount);
+		ret = SHMMessageSend(&msgStruct, sizeToSend, dwClientID, blockAmount);
 		if (ret)
 			return ret;
 
 		// Warning: this code only works for sizes of 2 blocks or less
-		if (sizeRemaining > PCSCLITE_MAX_MESSAGE_SIZE)
+		if (sizeRemaining > sizeof(msgStruct.data))
 		{
-			Log2(PCSC_LOG_ERROR, "WrapSHMWrite: cannot send message of size %d", msgStruct.msgSize);
+			Log2(PCSC_LOG_ERROR, "WrapSHMWrite: cannot send message of size %d", sizeRemaining);
 			return -1;
 		}
-		
+
+		// Message header already has the correct byte order
 		/* do not send an empty second block */
 		if (sizeRemaining > 0)
 		{
-			/* second block */
-			ret = SHMMessageSend(data+PCSCLITE_MAX_MESSAGE_SIZE,
-				sizeRemaining, dwClientID, blockAmount);
+			memcpy(msgStruct.data, data, sizeRemaining);
+			ret = SHMMessageSend(&msgStruct, sizeToSend, dwClientID, blockAmount);
 			if (ret)
 				return ret;
 		}
 	}
 	else
-	if (msgStruct.msgSize > PCSCLITE_MAX_MESSAGE_SIZE)
+	if (size > sizeof(msgStruct.data))
 	{
-		Log3(PCSC_LOG_ERROR, "WrapSHMWrite: cannot send message of size %d with this command: %d", msgStruct.msgSize, command);
+		Log3(PCSC_LOG_ERROR, "WrapSHMWrite: cannot send message of size %d with this command: %d", size, command);
 		return -1;
 	}
 	else
 	{
-		size_t savedSize = msgStruct.msgSize;
-		
-		memcpy(msgStruct.data, data, dataSize);
+		size_t sizeToSend = msgStruct.msgSize;
+		memcpy(msgStruct.data, data, size);
 		SHSharedSegmentMsgToNetworkOrder(&msgStruct);
-		ret = SHMMessageSend(&msgStruct, savedSize, dwClientID, blockAmount);
+		ret = SHMMessageSend(&msgStruct, sizeToSend, dwClientID, blockAmount);
 	}
 	return ret;
 }
@@ -613,7 +623,6 @@ INTERNAL void SHSharedSegmentMsgToNetworkOrder(psharedSegmentMsg msg)
 		msg->user_id = htonl(msg->user_id);
 		msg->group_id = htonl(msg->group_id);
 		msg->command = htonl(msg->command);
-		msg->dummy = htonl(msg->dummy);
 		msg->date = htonl(msg->date);
 	}
 }
@@ -637,7 +646,6 @@ INTERNAL void SHSharedSegmentMsgToHostOrder(psharedSegmentMsg msg)
 		msg->user_id = ntohl(msg->user_id);
 		msg->group_id = ntohl(msg->group_id);
 		msg->command = ntohl(msg->command);
-		msg->dummy = ntohl(msg->dummy);
 		msg->date = ntohl(msg->date);
 	}
 }
@@ -650,7 +658,7 @@ INTERNAL void htonlControlStructExtended(control_struct_extended *cs)
 		cs->dwControlCode = htonl(cs->dwControlCode);
 		cs->cbSendLength = htonl(cs->cbSendLength);
 		cs->cbRecvLength = htonl(cs->cbRecvLength);
-		cs->size = htonl(cs->size);
+		cs->size = OSSwapHostToBigInt64(cs->size);
 		cs->rv = htonl(cs->rv);			// so we don't forget about it
 	}
 }
@@ -663,7 +671,7 @@ INTERNAL void ntohlControlStructExtended(control_struct_extended *cs)
 		cs->dwControlCode = ntohl(cs->dwControlCode);
 		cs->cbSendLength = ntohl(cs->cbSendLength);
 		cs->cbRecvLength = ntohl(cs->cbRecvLength);
-		cs->size = ntohl(cs->size);
+		cs->size = OSSwapBigToHostInt64(cs->size);
 		cs->rv = ntohl(cs->rv);
 	}
 }
@@ -673,9 +681,11 @@ INTERNAL void htonlTransmitStruct(transmit_struct *ts)
 	if (ts)
 	{
 		ts->hCard = htonl(ts->hCard);
-		htonlSCARD_IO_REQUEST(&ts->pioSendPci);
+		ts->pioSendPciProtocol = htonl(ts->pioSendPciProtocol);
+		ts->pioSendPciLength = htonl(ts->pioSendPciLength);
 		ts->cbSendLength = htonl(ts->cbSendLength);
-		htonlSCARD_IO_REQUEST(&ts->pioRecvPci);
+		ts->pioRecvPciProtocol = htonl(ts->pioRecvPciProtocol);
+		ts->pioRecvPciLength = htonl(ts->pioRecvPciLength);
 		ts->pcbRecvLength = htonl(ts->pcbRecvLength);
 		ts->rv = htonl(ts->rv);			// so we don't forget about it
 	}
@@ -686,9 +696,11 @@ INTERNAL void ntohlTransmitStruct(transmit_struct *ts)
 	if (ts)
 	{
 		ts->hCard = ntohl(ts->hCard);
-		ntohlSCARD_IO_REQUEST(&ts->pioSendPci);
+		ts->pioSendPciProtocol = ntohl(ts->pioSendPciProtocol);
+		ts->pioSendPciLength = ntohl(ts->pioSendPciLength);
 		ts->cbSendLength = ntohl(ts->cbSendLength);
-		ntohlSCARD_IO_REQUEST(&ts->pioRecvPci);
+		ts->pioRecvPciProtocol = ntohl(ts->pioRecvPciProtocol);
+		ts->pioRecvPciLength = ntohl(ts->pioRecvPciLength);
 		ts->pcbRecvLength = ntohl(ts->pcbRecvLength);
 		ts->rv = ntohl(ts->rv);
 	}
@@ -699,11 +711,14 @@ INTERNAL void htonlTransmitStructExtended(transmit_struct_extended *ts)
 	if (ts)
 	{
 		ts->hCard = htonl(ts->hCard);
-		htonlSCARD_IO_REQUEST(&ts->pioSendPci);
+		ts->pioSendPciProtocol = htonl(ts->pioSendPciProtocol);
+		ts->pioSendPciLength = htonl(ts->pioSendPciLength);
 		ts->cbSendLength = htonl(ts->cbSendLength);
-		htonlSCARD_IO_REQUEST(&ts->pioRecvPci);
+		ts->pioRecvPciProtocol = htonl(ts->pioRecvPciProtocol);
+		ts->pioRecvPciLength = htonl(ts->pioRecvPciLength);
 		ts->pcbRecvLength = htonl(ts->pcbRecvLength);
-		ts->size = htonl(ts->size);
+		/* Networks generally use big-endian order, and thus it is called network order when sending information over a network in a common format. */
+		ts->size = OSSwapHostToBigInt64(ts->size);
 		ts->rv = htonl(ts->rv);			// so we don't forget about it
 	}
 }
@@ -713,30 +728,13 @@ INTERNAL void ntohlTransmitStructExtended(transmit_struct_extended *ts)
 	if (ts)
 	{
 		ts->hCard = ntohl(ts->hCard);
-		ntohlSCARD_IO_REQUEST(&ts->pioSendPci);
+		ts->pioSendPciProtocol = ntohl(ts->pioSendPciProtocol);
+		ts->pioSendPciLength = ntohl(ts->pioSendPciLength);
 		ts->cbSendLength = ntohl(ts->cbSendLength);
-		ntohlSCARD_IO_REQUEST(&ts->pioRecvPci);
+		ts->pioRecvPciLength = ntohl(ts->pioRecvPciLength);
 		ts->pcbRecvLength = ntohl(ts->pcbRecvLength);
-		ts->size = ntohl(ts->size);
+		ts->size = OSSwapBigToHostInt64(ts->size);
 		ts->rv = ntohl(ts->rv);
-	}
-}
-
-INTERNAL void htonlSCARD_IO_REQUEST(SCARD_IO_REQUEST *req)
-{
-	if (req)
-	{
-		req->dwProtocol = htonl(req->dwProtocol);
-		req->cbPciLength = htonl(req->cbPciLength);
-	}
-}
-
-INTERNAL void ntohlSCARD_IO_REQUEST(SCARD_IO_REQUEST *req)
-{
-	if (req)
-	{
-		req->dwProtocol = ntohl(req->dwProtocol);
-		req->cbPciLength = ntohl(req->cbPciLength);
 	}
 }
 

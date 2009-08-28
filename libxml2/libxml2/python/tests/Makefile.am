@@ -1,4 +1,5 @@
-EXAMPLE_DIR = $(datadir)/doc/libxml2-python-$(LIBXML_VERSION)/examples
+exampledir = $(datadir)/doc/libxml2-python-$(LIBXML_VERSION)/examples
+dist_example_DATA = $(PYTESTS) $(XMLS)
 
 PYTESTS=	\
     build.py	\
@@ -28,7 +29,9 @@ PYTESTS=	\
     reader6.py	\
     reader7.py	\
     reader8.py	\
+    readernext.py	\
     walker.py	\
+    nsdel.py	\
     ctxterror.py\
     readererr.py\
     relaxng.py	\
@@ -37,7 +40,14 @@ PYTESTS=	\
     sync.py \
     tstLastError.py \
     indexes.py \
-    dtdvalid.py
+    dtdvalid.py \
+    tstmem.py	\
+    validDTD.py	\
+    validSchemas.py \
+    validRNG.py \
+    compareNodes.py \
+    xpathns.py \
+    xpathleak.py
 
 XMLS=		\
     tst.xml	\
@@ -45,13 +55,13 @@ XMLS=		\
     invalid.xml	\
     test.dtd
 
-EXTRA_DIST = $(PYTESTS) $(XMLS)
-
 if WITH_PYTHON
 tests: $(PYTESTS)
 	@echo "## running Python regression tests"
 	-@(PYTHONPATH="..:../.libs:$(srcdir)/..:$$PYTHONPATH" ; \
 	   export PYTHONPATH; \
+	   LD_LIBRARY_PATH="$(top_builddir)/.libs:$$LD_LIBRARY_PATH" ; \
+	   export LD_LIBRARY_PATH; \
 	   for test in $(PYTESTS) ; \
 	   do log=`$(PYTHON) $(srcdir)/$$test` ; \
 	   if [ "`echo $$log | grep OK`" = "" ] ; then \
@@ -62,9 +72,3 @@ endif
 
 clean:
 	rm -f *.pyc core
-
-install-data-local:
-	$(mkinstalldirs) $(DESTDIR)$(EXAMPLE_DIR)
-	-(for test in $(PYTESTS) $(XMLS); \
-	  do @INSTALL@ -m 0644 $(srcdir)/$$test $(DESTDIR)$(EXAMPLE_DIR) ; done)
-

@@ -1,0 +1,209 @@
+*** tcl.h.orig	Sun Mar 14 19:04:51 1999
+--- tcl.h	Sun Mar 14 19:05:01 1999
+***************
+*** 999,1004 ****
+--- 999,1016 ----
+  } Tcl_EolTranslation;
+  
+  /*
++  * Andreas Kupries <a.kupries@westend.com>, 05/31/1997.
++  * Support of Tcl-Trf (binio).
++  *
++  * Enum for different byteorders.
++  */
++ 
++ typedef enum Tcl_ByteOrder {
++   TCL_BIGENDIAN,       /* Multibyte words are stored with MSB first */
++   TCL_SMALLENDIAN      /* Multibyte words are stored with MSB last */
++ } Tcl_ByteOrder;
++ 
++ /*
+   * struct Tcl_ChannelType:
+   *
+   * One such structure exists for each type (kind) of channel.
+***************
+*** 1282,1287 ****
+--- 1294,1305 ----
+  	        	    char *chanName, int *modePtr));
+  EXTERN int		Tcl_GetChannelBufferSize _ANSI_ARGS_((
+      			    Tcl_Channel chan));
++   /* Andreas Kupries <a.kupries@westend.com>, 05/31/1997.
++    * Support of Tcl-Trf (binio).
++    */
++ EXTERN Tcl_ByteOrder	Tcl_GetChannelByteorder _ANSI_ARGS_((
++     			    Tcl_Channel chan));
++ EXTERN Tcl_ByteOrder	Tcl_GetHostByteorder _ANSI_ARGS_((void));
+  EXTERN int		Tcl_GetChannelHandle _ANSI_ARGS_((Tcl_Channel chan,
+  	        	    int direction, ClientData *handlePtr));
+  EXTERN ClientData	Tcl_GetChannelInstanceData _ANSI_ARGS_((
+*** tclIO.c.orig	Sun Mar 14 19:04:51 1999
+--- tclIO.c	Sun Mar 14 19:05:01 1999
+***************
+*** 128,133 ****
+--- 128,137 ----
+                                   * code,  is dynamically allocated. */
+      int	flags;			/* ORed combination of the flags defined
+                                   * below. */
++   /* Andreas Kupries <a.kupries@westend.com>, 05/31/1997.
++    * Support of Tcl-Trf (binio).
++    */
++   Tcl_ByteOrder      byteOrder; /* byteorder associated to this channel */
+      Tcl_EolTranslation inputTranslation;
+  				/* What translation to apply for end of line
+                                   * sequences on input? */    
+***************
+*** 1195,1200 ****
+--- 1199,1208 ----
+       * indicator (e.g. ^Z) and does not append an EOF indicator to files.
+       */
+  
++     /* Andreas Kupries <a.kupries@westend.com>, 05/31/1997.
++      * Support of Tcl-Trf (binio).
++      */
++     chanPtr->byteOrder = Tcl_GetHostByteorder ();
+      chanPtr->inputTranslation = TCL_TRANSLATE_AUTO;
+      chanPtr->outputTranslation = TCL_PLATFORM_TRANSLATION;
+      chanPtr->inEofChar = 0;
+***************
+*** 3947,3953 ****
+  {
+      if (interp) {
+  	CONST char *genericopt = 
+! 	    	"blocking buffering buffersize eofchar translation";
+  	char **argv;
+  	int  argc, i;
+  	Tcl_DString ds;
+--- 3955,3961 ----
+  {
+      if (interp) {
+  	CONST char *genericopt = 
+! 	    	"blocking buffering buffersize byteorder eofchar translation";
+  	char **argv;
+  	int  argc, i;
+  	Tcl_DString ds;
+***************
+*** 3980,3985 ****
+--- 3988,4048 ----
+  /*
+   *----------------------------------------------------------------------
+   *
++  * Tcl_GetChannelByteorder --
++  *
++  *	Retrieves the byteorder set for this channel.
++  *
++  * Results:
++  *	The size.
++  *
++  * Side effects:
++  *	None.
++  *
++  *----------------------------------------------------------------------
++  */
++ 
++ Tcl_ByteOrder
++ Tcl_GetChannelByteorder(chan)
++     Tcl_Channel chan;		/* The channel for which to find the
++                                  * buffer size. */
++ {
++     Channel *chanPtr;
++ 
++     chanPtr = (Channel *) chan;
++     return chanPtr->byteOrder;
++ }
++ 
++ /*
++  *----------------------------------------------------------------------
++  *
++  * Tcl_GetHostByteorder --
++  *
++  *	Retrieves the byteorder of the machine we are running on.
++  *
++  * Results:
++  *	The size.
++  *
++  * Side effects:
++  *	None.
++  *
++  *----------------------------------------------------------------------
++  */
++ 
++ Tcl_ByteOrder
++ Tcl_GetHostByteorder()
++ {
++   union {
++     char c[sizeof(short)];
++     short s;
++   } order;
++ 
++   order.s = 1;
++   return (order.c[0] == 1) ? TCL_SMALLENDIAN : TCL_BIGENDIAN;
++ }
++ 
++ /*
++  *----------------------------------------------------------------------
++  *
+   * Tcl_GetChannelOption --
+   *
+   *	Gets a mode associated with an IO channel. If the optionName arg
+***************
+*** 4081,4086 ****
+--- 4144,4163 ----
+              return TCL_OK;
+          }
+      }
++     /* Andreas Kupries <a.kupries@westend.com>, 05/31/1997.
++      * Support of Tcl-Trf (binio).
++      */
++     if ((len == 0) || ((len > 2) && (optionName[1] == 'b') &&
++             (strncmp(optionName, "-byteorder", len) == 0))) {
++         if (len == 0) {
++             Tcl_DStringAppendElement(dsPtr, "-byteorder");
++         }
++         Tcl_DStringAppendElement(dsPtr,
++                 (chanPtr->byteOrder == TCL_BIGENDIAN) ? "bigendian" : "smallendian");
++         if (len > 0) {
++             return TCL_OK;
++         }
++     }
+      if ((len == 0) ||
+              ((len > 1) && (optionName[1] == 'e') &&
+                      (strncmp(optionName, "-eofchar", len) == 0))) {
+***************
+*** 4281,4286 ****
+--- 4358,4393 ----
+              chanPtr->bufSize = CHANNELBUFFER_DEFAULT_SIZE;
+          }
+          return TCL_OK;
++     }
++     
++     /* Andreas Kupries <a.kupries@westend.com>, 05/31/1997.
++      * Support of Tcl-Trf (binio).
++      */
++     if ((len > 2) && (optionName[1] == 'b') &&
++             (strncmp(optionName, "-byteorder", len) == 0)) {
++       int nv_len = strlen (newValue);
++ 
++       if ((nv_len > 0) && (strncmp (newValue, "smallendian", nv_len) == 0)) {
++ 	chanPtr->byteOrder = TCL_SMALLENDIAN;
++         return TCL_OK;
++       } else if ((nv_len > 0) && (strncmp (newValue, "littleendian", nv_len) == 0)) {
++ 	chanPtr->byteOrder = TCL_SMALLENDIAN;
++         return TCL_OK;
++       } else if ((nv_len > 0) && (strncmp (newValue, "network", nv_len) == 0)) {
++ 	chanPtr->byteOrder = TCL_BIGENDIAN;
++         return TCL_OK;
++       } else if ((nv_len > 0) && (strncmp (newValue, "bigendian", nv_len) == 0)) {
++ 	chanPtr->byteOrder = TCL_BIGENDIAN;
++         return TCL_OK;
++       } 
++ 
++       if (interp != (Tcl_Interp *) NULL) {
++ 	Tcl_AppendResult(interp,
++ 			 "bad value for -byteorder: ",
++ 			 "must be one of smallendian, littleendian, bigendian or network",
++ 			 (char *) NULL);
++       }
++       return TCL_ERROR;
+      }
+      
+      if ((len > 1) && (optionName[1] == 'e') &&

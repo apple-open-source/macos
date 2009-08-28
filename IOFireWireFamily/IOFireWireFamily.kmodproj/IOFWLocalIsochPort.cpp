@@ -135,11 +135,11 @@ IOFWLocalIsochPort::printDCLProgram (
 	
 	while ( ( count == 0 || index < count ) && currentDCL )
 	{
-		(*printFN)("#%x  @%p   next=%p, cmplrData=%x, op=%u ", 
+		(*printFN)("#%x  @%p   next=%p, cmplrData=%p, op=%u ", 
 			index, 
-			(UInt32)currentDCL,
-			(UInt32)currentDCL->pNextDCLCommand,
-			(UInt32)currentDCL->compilerData,
+			currentDCL,
+			currentDCL->pNextDCLCommand,
+			currentDCL->compilerData,
 			(int) currentDCL->opcode) ;
 
 		switch(currentDCL->opcode & ~kFWDCLOpFlagMask)
@@ -150,14 +150,14 @@ IOFWLocalIsochPort::printDCLProgram (
 			case kDCLReceivePacketStartOp:
 			case kDCLReceivePacketOp:
 				(*printFN)("(DCLTransferPacket) buffer=%p, size=%u",
-					(UInt32)((DCLTransferPacket*)currentDCL)->buffer,
+					((DCLTransferPacket*)currentDCL)->buffer,
 					(int)((DCLTransferPacket*)currentDCL)->size) ;
 				break ;
 				
 			case kDCLSendBufferOp:
 			case kDCLReceiveBufferOp:
 				(*printFN)("(DCLTransferBuffer) buffer=%p, size=%lu, packetSize=%08X, bufferOffset=%08lX",
-					(UInt32)((DCLTransferBuffer*)currentDCL)->buffer,
+					((DCLTransferBuffer*)currentDCL)->buffer,
 					((DCLTransferBuffer*)currentDCL)->size,
 					((DCLTransferBuffer*)currentDCL)->packetSize,
 					(UInt32)((DCLTransferBuffer*)currentDCL)->bufferOffset) ;
@@ -165,8 +165,8 @@ IOFWLocalIsochPort::printDCLProgram (
 	
 			case kDCLCallProcOp:
 				(*printFN)("(DCLCallProc) proc=%p, procData=%08lX",
-					(UInt32)((DCLCallProc*)currentDCL)->proc,
-					(UInt32)((DCLCallProc*)currentDCL)->procData ) ;
+					((DCLCallProc*)currentDCL)->proc,
+					((DCLCallProc*)currentDCL)->procData ) ;
 				break ;
 				
 			case kDCLLabelOp:
@@ -175,7 +175,7 @@ IOFWLocalIsochPort::printDCLProgram (
 				
 			case kDCLJumpOp:
 				(*printFN)("(DCLJump) pJumpDCLLabel=%p",
-					(UInt32)((DCLJump*)currentDCL)->pJumpDCLLabel) ;
+					((DCLJump*)currentDCL)->pJumpDCLLabel) ;
 				break ;
 				
 			case kDCLSetTagSyncBitsOp:
@@ -186,12 +186,12 @@ IOFWLocalIsochPort::printDCLProgram (
 				
 			case kDCLUpdateDCLListOp:
 				(*printFN)("(DCLUpdateDCLList) dclCommandList=%p, numDCLCommands=%lud\n",
-					(UInt32)((DCLUpdateDCLList*)currentDCL)->dclCommandList,
+					((DCLUpdateDCLList*)currentDCL)->dclCommandList,
 					((DCLUpdateDCLList*)currentDCL)->numDCLCommands) ;
 
 				for(UInt32 listIndex=0; listIndex < ((DCLUpdateDCLList*)currentDCL)->numDCLCommands; ++listIndex)
 				{
-					(*printFN)("%p ", (UInt32)(((DCLUpdateDCLList*)currentDCL)->dclCommandList)[listIndex]) ;
+					(*printFN)("%p ", (((DCLUpdateDCLList*)currentDCL)->dclCommandList)[listIndex]) ;
 					if ( listIndex % 10 == 0 )
 						(*printFN)("\n") ;
 					IOSleep(8) ;
@@ -202,7 +202,7 @@ IOFWLocalIsochPort::printDCLProgram (
 	
 			case kDCLPtrTimeStampOp:
 				(*printFN)("(DCLPtrTimeStamp) timeStampPtr=%p",
-					(UInt32)((DCLPtrTimeStamp*)currentDCL)->timeStampPtr) ;
+					((DCLPtrTimeStamp*)currentDCL)->timeStampPtr) ;
 				break ;
 				
 			case kDCLSkipCycleOp:

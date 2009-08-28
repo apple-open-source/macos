@@ -1,8 +1,10 @@
-#	@(#)Makefile	8.1 (Berkeley) 6/6/93
+Project = pmap_dump
+Install_Dir = /usr/sbin
 
-PROG=	pmap_dump
-MAN8= pmap_dump.8
+CFILES = pmap_dump.c
+MANPAGES = pmap_dump.8
 
-#.include "${.CURDIR}/../../Makefile.inc"
-.include <bsd.prog.mk>
-.include <bsd.man.mk>
+Extra_CC_Flags = -Wall -Werror
+Extra_LD_Flags = -Wl,-pie
+
+include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make
